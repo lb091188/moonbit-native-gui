@@ -80,6 +80,12 @@ fn lrc_bracket(inner : String) -> (Bool, String, String) {
 /// 打乱出现顺序），每行的结束时刻取下一行的开始时刻，最后一行开放到结尾。
 /// 只有时间戳没有文本的行（段落分隔）不进歌词表。
 pub fn lrc_parse(raw : String) -> Lrc {
+  // 编码判据（「解不出=按空歌词」）：文本进本层前一律 UTF-8 有损解码，
+  // 替换符 U+FFFD 只会来自非 UTF-8 字节（GBK 老歌词最常见）——整篇按空歌词
+  // 处理，不把乱码当内容画上屏；调用方可经 `on_lyric(0)` 得知。
+  if raw.contains("\u{FFFD}") {
+    return { cues: [], title: "", artist: "", album: "", maker: "" }
+  }
   let items : Array[(Double, String)] = []
   let mut title = ""
   let mut artist = ""
