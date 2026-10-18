@@ -121,6 +121,11 @@ def fetch_vendor_file(name: str, sha: str) -> "bytes | None":
 
 
 def ensure_release_files() -> None:
+    # 这两份 vendor 资产只有 Windows 分支消费（WebView2 Loader 与 SDK 头），
+    # Linux/mac 上是纯浪费的 14MB 下载——非 Windows 直接跳过（有机器上已就位
+    # 的存量文件也不动它们）。
+    if platform.system() != "Windows":
+        return
     for rel, sha in VENDOR_FILES:
         dest = MODULE_ROOT / rel
         if dest.exists():
