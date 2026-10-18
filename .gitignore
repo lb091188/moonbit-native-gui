@@ -17,6 +17,9 @@
 # 文档站依赖缓存
 **/node_modules/
 
+# wrangler 本地状态/缓存(wrangler CLI 在仓库内执行时生成)
+/.wrangler/
+
 # WebView2 loader(prepare.py 复制到仓库根,运行期按工作目录搜索)
 /WebView2Loader.dll
 
