@@ -380,3 +380,46 @@ test "右键祖先优先：走完路径不越界，顺序根→叶" {
     false,
   )
 }
+
+///|
+/// 抬起事件路由（G10）：key-up 只投给声明了 `on_key_release` 的控件，焦点链
+/// 最深优先、吃到即停；`on_key` 永不收抬起，没人声明就整条丢弃。
+test "dispatch_key_release：声明制、最深优先、on_key 不掺和" {
+  let root = Widget::new()
+  let wrapper = sized(Widget::new(), 60.0, 20.0)
+  let field = sized(Widget::new(), 60.0, 20.0)
+  root.append_child(wrapper)
+  wrapper.append_child(field)
+  field.focus_id = 7
+  root.relayout(100.0, 100.0)
+  let log : Array[String] = []
+  field.on_key = Some(fn(_ev : KeyEvent) -> Bool {
+    log.push("field:on_key")
+    false
+  })
+  field.on_key_release = Some(fn(ev : KeyEvent) -> Bool {
+    log.push("field:rel:\{ev.keysym}")
+    false
+  })
+  wrapper.on_key_release = Some(fn(_ev : KeyEvent) -> Bool {
+    log.push("wrapper:rel")
+    true
+  })
+  let up = { press: false, keysym: 97, mods: 0 }
+  // 深处不吃、祖先吃：两站都到，on_key 没被调
+  assert_eq(root.dispatch_key_release(7, up), true)
+  assert_eq(log.length(), 2)
+  assert_eq(log[0], "field:rel:97")
+  assert_eq(log[1], "wrapper:rel")
+  // 深处吃了就停
+  field.on_key_release = Some(fn(_ev : KeyEvent) -> Bool { true })
+  log.clear()
+  assert_eq(root.dispatch_key_release(7, up), true)
+  assert_eq(log.length(), 0)
+  // 没人声明：整条丢弃
+  field.on_key_release = None
+  wrapper.on_key_release = None
+  assert_eq(root.dispatch_key_release(7, up), false)
+  // id 不可达（隐藏/不存在）同样丢弃
+  assert_eq(root.dispatch_key_release(99, up), false)
+}

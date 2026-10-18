@@ -101,6 +101,11 @@ pub(all) struct Widget {
   /// 每控件独立的多击状态（宿主维护，控件读写无必要）
   mut tracker : ClickTracker
   mut on_key : Option[(KeyEvent) -> Bool]
+  /// 抬起事件的**声明制**回调：路由对 key-up 一律只投给这条（焦点链最深优先），
+  /// `on_key` 与按键兜底通道永不收抬起——前者（编辑内核）不区分按下/抬起，
+  /// 放行等于「松手再插一个字符」（实测 Tab 抬起插成 '\t'）；后者按按下语义
+  /// 写，放行等于一次按键触发两次。要「按住…松手停」形态的组件挂这条。
+  mut on_key_release : Option[(KeyEvent) -> Bool]
   mut on_scroll : Option[(ScrollEvent) -> Bool]
   /// 交互态（悬停 / 按下）：**由宿主按命中与捕获统一维护**，控件只在
   /// `on_draw` 里读，不必自己处理 enter/leave（见 `set_hover`/`set_press`）
@@ -183,6 +188,7 @@ pub fn Widget::new() -> Widget {
     on_triple_click: None,
     tracker: ClickTracker::new(),
     on_key: None,
+    on_key_release: None,
     on_scroll: None,
     hovered: false,
     pressed: false,
@@ -848,6 +854,42 @@ pub fn Widget::key_targets(self : Widget, focus_id : Int) -> Array[Widget] {
   let out : Array[Widget] = []
   for w in path {
     match w.on_key {
+      Some(_) => out.push(w)
+      None => ()
+    }
+  }
+  out
+}
+
+///|
+/// 抬起事件路由（与 `dispatch_key` 同构但**只走声明了 `on_key_release` 的
+/// 控件**，焦点链最深优先、吃到即停）。没声明的控件对 key-up 零感知——
+/// 编辑内核照旧只见按下，「松手再插字符」的旧坑从结构上不会回来。
+pub fn Widget::dispatch_key_release(
+  self : Widget,
+  focus_id : Int,
+  ev : KeyEvent,
+) -> Bool {
+  let path = path_to_id(self, focus_id, [])
+  let mut i = path.length()
+  let mut handled = false
+  while i > 0 && !handled {
+    i = i - 1
+    match path[i].on_key_release {
+      Some(f) => handled = f(ev)
+      None => ()
+    }
+  }
+  handled
+}
+
+///|
+/// 焦点控件与其带 `on_key_release` 的祖先链（抬起事件的置脏标记范围）。
+pub fn Widget::key_release_targets(self : Widget, focus_id : Int) -> Array[Widget] {
+  let path = path_to_id(self, focus_id, [])
+  let out : Array[Widget] = []
+  for w in path {
+    match w.on_key_release {
       Some(_) => out.push(w)
       None => ()
     }
