@@ -8040,6 +8040,9 @@ void wm_file_dialog_set_options(int64_t id, int32_t options) {
     if (wm_dlg_is_open[(int)id - 1]) {
       NSOpenPanel *op = (NSOpenPanel *)p;
       [op setAllowsMultipleSelection:(options & 2) != 0];
+      // canChooseDirectories 默认 NO，只关 canChooseFiles 的话面板里什么都
+      // 选不了（确认钮恒灰）——「选文件夹」位两把开关都要动。
+      [op setCanChooseDirectories:(options & 1) != 0];
       [op setCanChooseFiles:(options & 1) == 0];
       [op setTreatsFilePackagesAsDirectories:YES];
       // canShowHiddenFiles 在 macOS 26 的 SDK 上不再随 NSOpenPanel 公开声明
