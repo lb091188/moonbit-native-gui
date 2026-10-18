@@ -25,6 +25,10 @@
 /modules/gui-webview/webview/lib/WebView2LoaderStatic.lib
 /modules/gui-webview/webview/include/WebView2.h
 /modules/gui-media/media/miniaudio.h
+# mac 的 ffmpeg dev 归档同口径(prebuild 下载解包落点,制作脚本在
+# modules/ffmpeg-mbt/scripts/make_mac_ffmpeg_vendor.sh;vendor/ 根级其余内容
+# 是 Windows 的入库 vendor,勿动)
+/modules/ffmpeg-mbt/vendor/mac/
 
 # Python 缓存(moon package 与 git 同样排除)
 **/__pycache__/
