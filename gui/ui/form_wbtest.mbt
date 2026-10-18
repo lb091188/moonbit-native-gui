@@ -1199,3 +1199,52 @@ test "键盘可及性：取色器回车开层、方向键移格、回车取色" 
   assert_eq((v.get(), @widget.overlay_count()), ("#222222", 0))
   @widget.overlay_clear()
 }
+
+///|
+/// 图标位口径：`icon` 给了测量就多算「图标+间距」槽（同文本恰宽 20）、
+/// 左槽只有图标落墨（素版同区域是纯底色）；`min_width` 主导时两版同宽。
+test "按钮图标位：测量让位、左槽落墨、文字盒右移" {
+  if !ui_text_guard() {
+    return
+  }
+  let w_of : (@widget.Node) -> Double = fn(node : @widget.Node) -> Double {
+    kid(mount_root([node], 300.0, 60.0), 0).rect.w
+  }
+  assert_eq(
+    w_of(button("确定", icon=Some(@icons.IconKind::Plus))) - w_of(button("确定")),
+    20.0,
+  )
+  let strip_glyphs : (@widget.Node) -> Int = fn(node : @widget.Node) -> Int {
+    let r = mount_root([node], 260.0, 60.0)
+    let wt = kid(r, 0)
+    let bm = @render.Bitmap::new(260, 60)
+    let p = @render.Painter::new(bm)
+    r.paint(p)
+    p.end()
+    let bg = color_of(bm, (wt.rect.x + 2.0).to_int(), (wt.rect.y + 2.0).to_int())
+    let mut n = 0
+    // 左槽 = 内容区起点起 14 宽（12..26），上下留边避开圆角
+    let y_top = (wt.rect.h).to_int() - 6
+    for y = 6; y < y_top; y = y + 1 {
+      for x = 12; x < 27; x = x + 1 {
+        let c = color_of(
+          bm,
+          (wt.rect.x + x.to_double()).to_int(),
+          (wt.rect.y + y.to_double()).to_int(),
+        )
+        if (c.0 - bg.0).abs() > 24 ||
+          (c.1 - bg.1).abs() > 24 ||
+          (c.2 - bg.2).abs() > 24 {
+          n = n + 1
+        }
+      }
+    }
+    n
+  }
+  assert_eq(strip_glyphs(button("确定", min_width=220.0)), 0)
+  assert_true(
+    strip_glyphs(
+      button("确定", min_width=220.0, icon=Some(@icons.IconKind::Plus)),
+    ) > 0,
+  )
+}

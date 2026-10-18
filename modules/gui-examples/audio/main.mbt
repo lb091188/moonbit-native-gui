@@ -331,8 +331,18 @@ fn main {
               @ui.divider(),
               @ui.col(
                 [
-                  @ui.button("选择文件…", variant=@ui.Solid, on_click=pick_audio_file),
-                  @ui.button("选择目录…", variant=@ui.Soft, on_click=pick_audio_dir),
+                  @ui.button(
+                    "选择文件…",
+                    variant=@ui.Solid,
+                    icon=Some(@icons.IconKind::FileText),
+                    on_click=pick_audio_file,
+                  ),
+                  @ui.button(
+                    "选择目录…",
+                    variant=@ui.Soft,
+                    icon=Some(@icons.IconKind::Folder),
+                    on_click=pick_audio_dir,
+                  ),
                 ],
                 row_gap=6.0,
               ),

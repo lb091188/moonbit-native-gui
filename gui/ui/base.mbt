@@ -170,7 +170,11 @@ fn text_eff(
 /// 把文本状态接到布局引擎的测量面：内容尺寸来自 Pango，基线同源。
 /// 近似口径（记档）：min-content 探询（请求轴 `Some(0.0)`）按「不受约束」处理
 /// ——本层还没有按 min-content 定宽的弹性场景，接进省略号自适应时再细化。
-fn attach_text_measure(w : @widget.Widget, src : TextSource) -> Unit {
+fn attach_text_measure(
+  w : @widget.Widget,
+  src : TextSource,
+  lead_w? : Double = 0.0,
+) -> Unit {
   // 只记 id，不记句柄：回调挂在布局节点上，捕获控件就成了引用环
   let id = w.id
   w.node.set_measure(fn(avail_w : Double?, _avail_h : Double?) -> (
@@ -204,9 +208,9 @@ fn attach_text_measure(w : @widget.Widget, src : TextSource) -> Unit {
         } else {
           m.height.to_double()
         }
-        (m.width.to_double(), h)
+        (m.width.to_double() + lead_w, h)
       }
-      None => (0.0, 0.0)
+      None => (lead_w, 0.0)
     }
   })
   w.node.set_baseline(fn(_a : Double?, _b : Double?) -> Double? {
