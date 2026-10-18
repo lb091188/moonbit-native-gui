@@ -6697,6 +6697,14 @@ static uint32_t wm_keysym_of(NSEvent *ev) {
   return YES;
 }
 
+// 非 key 窗口的首击直接派发给视图（Win32/GTK 语义：点击即生效，没有
+// 「第一击只用于激活窗口」的吞没档）。NSView 默认 NO：从别的应用/面板
+// 切回来要点两次，第一击凭空消失。
+- (BOOL)acceptsFirstMouse:(NSEvent *)ev {
+  (void)ev;
+  return YES;
+}
+
 - (void)mouseDown:(NSEvent *)ev {
   if ([self tryDragRect:ev]) {
     return;
