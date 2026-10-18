@@ -2559,6 +2559,13 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **GTK**：`gdk_cursor_new_from_name(dpy, "none")` 看似对（CSS 光标名），但它依赖光标主题里有 none 条目，主题缺项时返回 NULL 落进「回退 default」分支——藏指针变成恒显箭头，而且这台机器看着正常、那台机器就坏。用枚举口 `gdk_cursor_new_for_display(dpy, GDK_BLANK_CURSOR)`，不查主题、恒在。
 - **Windows**：`LoadCursorW` 没有隐藏档，`wm_load_cursor` 对 kind 5 返回 NULL，`SetCursor(NULL)` 即藏（WM_SETCURSOR 每次按 kind 重设，NULL 也照吃）——零特判。
 
+## 输入法焦点门会被「丢焦」卡在开档：Linux 播放视频时 M/L 快捷键全被吃（2026-10-18,Linux 真机反馈）
+
+**现象**（用户真机）：Linux（X11 + 输入法会话）打开 audio/video 示例播放，没有输入框持有焦点时按 `M`/`L` 无反应（静音/循环不触发）；功能键（空格/方向键）正常——字符键被 IM 吃掉的典型形状。
+**根因**：IM 门（`wm_im_set_active`）的同步挂在 `pump_ime` 的「焦点变了才同步」上，判据是 `cur != ime_focus`。而「点空白丢焦点」走 `flush_ime_for_switch`，它自己把 `ime_focus` 写回 0——与「无焦点」同值，下一拍 `0 == 0` 判「没变」就跳过同步；上一个焦点若是输入框，门就停在「开」，`gtk_im_context_filter_keypress` 从此吃掉所有字符键。Session 初值也是 0，首拍同理从不同步（GTK 桩 C 侧默认恰好是关档所以首拍侥幸；丢焦后必中招）。
+**修复**：把 `ime_focus` 的「未同步」语义显式化——Session 两处初值与 `flush_ime_for_switch` 末尾都写哨兵 `-1`（不是控件 id），`pump_ime` 下一拍必与真实档位同步；组合串兜底清理的守卫从 `!= 0` 收紧为 `> 0`（哨兵不走清理分支）。
+**验证**：Linux 真机复验待用户跑 T 清单——输入法开着，点一下输入框再点空白，随后 `M`/`L`/空格应全部生效；门同步是 App 循环内行为，无头测试不可达，由真机收口。
+
 ## 维护约定
 
 1. 新增结论写进对应小节,只记「坑 + 修复」;协议互操作结论必须来自真总线、真面板,单测自洽不算数。

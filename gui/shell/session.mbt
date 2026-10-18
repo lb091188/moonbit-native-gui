@@ -21,7 +21,9 @@ pub(all) struct Session {
   mut dirty : Bool
   /// 上一次投递给焦点控件的组合串（相同内容不重复投递，避免每拍置脏）
   mut last_preedit : (String, Int)
-  /// 上一轮输入法服务的控件焦点 id（0 = 无）
+  /// 上一轮输入法服务的控件焦点 id（0 = 无；初值 -1 是「未同步」哨兵——
+  /// `pump_ime` 靠「焦点变了才同步 IM 门」工作，0 与无焦点同值会让首拍
+  /// 与丢焦后都不再同步，后端门就停在旧档上）
   mut ime_focus : Int
   /// 悬停归属与按下捕获（控件 id，-1 = 无）
   mut hover_id : Int
@@ -94,7 +96,7 @@ pub fn session_open(
         running: true,
         dirty: true,
         last_preedit: ("", 0),
-        ime_focus: 0,
+        ime_focus: -1,
         hover_id: -1,
         capture: -1,
         cursor_kind: 0,
@@ -330,7 +332,7 @@ pub fn fake_session(id : Int, wid : Int, primary : Bool, w : Int, h : Int) -> Se
     running: true,
     dirty: false,
     last_preedit: ("", 0),
-    ime_focus: 0,
+    ime_focus: -1,
     hover_id: -1,
     capture: -1,
     cursor_kind: 0,

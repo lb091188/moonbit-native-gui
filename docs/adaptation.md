@@ -2578,6 +2578,13 @@ Auto-hiding the pointer in fullscreen players needs a 6th cursor kind (`CURSOR_H
 - **GTK**: `gdk_cursor_new_from_name(dpy, "none")` looks right (it is a CSS cursor name), but it depends on the cursor theme containing a none entry; when the theme lacks one it returns NULL and falls into the "fall back to default" branch — hide becomes an always-visible arrow, fine on this machine and broken on that one. Use the enum route `gdk_cursor_new_for_display(dpy, GDK_BLANK_CURSOR)`: no theme lookup, always available.
 - **Windows**: `LoadCursorW` has no hidden variant; `wm_load_cursor` returns NULL for kind 5 and `SetCursor(NULL)` hides (WM_SETCURSOR re-applies the kind every time and happily accepts NULL) — zero special-casing.
 
+## The IM focus gate gets stuck ON when focus is dropped: on Linux, M/L player shortcuts are all swallowed during video playback (2026-10-18, Linux real-machine report)
+
+**Symptom** (user's machine): on Linux (X11 + an IM session), with the audio/video example playing and no entry holding focus, `M`/`L` do nothing (mute/loop never fire); functional keys (space/arrows) work — the classic shape of the IM eating character keys.
+**Root cause**: the IM gate (`wm_im_set_active`) is synced from `pump_ime`'s "sync only when focus changed" logic, whose test is `cur != ime_focus`. But "click blank to drop focus" goes through `flush_ime_for_switch`, which itself writes `ime_focus` back to 0 — the same value as "no focus" — so the next tick sees `0 == 0`, decides nothing changed, and skips the sync; if the previous focus was an entry the gate stays ON and `gtk_im_context_filter_keypress` swallows every character key from then on. The Session's initial value is also 0, so the very first tick never syncs either (the GTK stub's C-side default happens to be off, which is why the first tick survived by luck; after a focus drop it always bites).
+**Fix**: make the "not yet synced" state of `ime_focus` explicit — both Session initializers and the tail of `flush_ime_for_switch` now write the sentinel `-1` (not a widget id), so the next `pump_ime` tick must sync the gate to the true state; the preedit fallback-cleanup guard tightened from `!= 0` to `> 0` (the sentinel never enters the cleanup branch).
+**Verification**: pending the user's T-pass on Linux — with the IM on, click an entry then click blank, then `M`/`L`/space should all respond; gate sync lives inside the App loop and is not reachable headlessly, so the real machine closes it out.
+
 ## Maintenance
 
 1. New conclusions go into the matching section and record only the pit and the fix; protocol-interop conclusions must come from the real bus and real panels — unit-test self-consistency does not count.

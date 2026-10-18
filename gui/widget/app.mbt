@@ -436,7 +436,11 @@ fn App::flush_ime_for_switch(self : App, prev : Int?) -> Unit {
     None => ()
   }
   self.session.window.im_reset()
-  self.session.ime_focus = 0
+  // 置「未同步」哨兵而不是 0：pump_ime 按「焦点变了才同步 IM 门」工作，
+  // 0 与「无焦点」同值会让丢焦后的那拍跳过同步——上一个焦点是输入框时
+  // 门停在开，字符键从此全被 IM 吃掉（真机：Linux 点空白丢焦后播放器
+  // M/L 快捷键失效）。哨兵让下一拍必同步到真实档位。
+  self.session.ime_focus = -1
 }
 
 ///|
@@ -686,7 +690,9 @@ pub fn App::pump_ime(self : App) -> Unit {
   if cur != self.session.ime_focus {
     // 兜底：上层直接改了焦点栈（没走 move_focus / 点击接管）时，旧控件画着的
     // 组合串要清掉，去重缓存一并复位。真正的前置清理见 flush_ime_for_switch。
-    if self.session.ime_focus != 0 && self.session.last_preedit.0.length() > 0 {
+    // （-1 是「未同步」哨兵：见 Session 字段注——它只逼出下面的门同步，
+    // 不是控件 id，不走组合串清理。）
+    if self.session.ime_focus > 0 && self.session.last_preedit.0.length() > 0 {
       self.root.dispatch_preedit(self.session.ime_focus, "", 0)
     }
     self.session.ime_focus = cur
