@@ -2559,12 +2559,16 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **GTK**：`gdk_cursor_new_from_name(dpy, "none")` 看似对（CSS 光标名），但它依赖光标主题里有 none 条目，主题缺项时返回 NULL 落进「回退 default」分支——藏指针变成恒显箭头，而且这台机器看着正常、那台机器就坏。用枚举口 `gdk_cursor_new_for_display(dpy, GDK_BLANK_CURSOR)`，不查主题、恒在。
 - **Windows**：`LoadCursorW` 没有隐藏档，`wm_load_cursor` 对 kind 5 返回 NULL，`SetCursor(NULL)` 即藏（WM_SETCURSOR 每次按 kind 重设，NULL 也照吃）——零特判。
 
-## 输入法焦点门会被「丢焦」卡在开档：Linux 播放视频时 M/L 快捷键全被吃（2026-10-18,Linux 真机反馈）
+## 输入法吃字符键有两层，焦点门只挡了第一层：fcitx5 的 GTK 模块嗅探器在 GTK 派发之前就吞掉按下（2026-10-18,Linux 真机三相位回证）
 
-**现象**（用户真机）：Linux（X11 + 输入法会话）打开 audio/video 示例播放，没有输入框持有焦点时按 `M`/`L` 无反应（静音/循环不触发）；功能键（空格/方向键）正常——字符键被 IM 吃掉的典型形状。
-**根因**：IM 门（`wm_im_set_active`）的同步挂在 `pump_ime` 的「焦点变了才同步」上，判据是 `cur != ime_focus`。而「点空白丢焦点」走 `flush_ime_for_switch`，它自己把 `ime_focus` 写回 0——与「无焦点」同值，下一拍 `0 == 0` 判「没变」就跳过同步；上一个焦点若是输入框，门就停在「开」，`gtk_im_context_filter_keypress` 从此吃掉所有字符键。Session 初值也是 0，首拍同理从不同步（GTK 桩 C 侧默认恰好是关档所以首拍侥幸；丢焦后必中招）。
-**修复**：把 `ime_focus` 的「未同步」语义显式化——Session 两处初值与 `flush_ime_for_switch` 末尾都写哨兵 `-1`（不是控件 id），`pump_ime` 下一拍必与真实档位同步；组合串兜底清理的守卫从 `!= 0` 收紧为 `> 0`（哨兵不走清理分支）。
-**验证**：Linux 真机复验待用户跑 T 清单——输入法开着，点一下输入框再点空白，随后 `M`/`L`/空格应全部生效；门同步是 App 循环内行为，无头测试不可达，由真机收口。
+**现象**（用户真机，两轮）：Linux + fcitx5 会话里打开 audio/video 示例播放，没有任何输入框持有焦点，按 `M`/`L`（静音/循环快捷键）无效；空格/方向键正常。第一轮修复（`ime_focus` 哨兵化）后依旧。
+**三相位定位**（家机 `ssh home` + `experiment/key_probe` 原始窗口层打印 + xdotool 注入 + `fcitx5-remote` 开关，key_probe 不经任何 MoonBit 门控）：
+- **相位 A**（fcitx 置非激活）：m/l/space/Up 的按下+抬起全部到达；
+- **相位 B**（fcitx 激活，中文态）：`m`/`l`/空格的**按下**全部消失——`preedit=[m]`、`preedit=[m l]`、空格直接 `commit=[目录]`（fcitx 把拼音 "ml" 选了候选）；**抬起**照常到达（`ev code=1 keysym=109/108/32`）；
+- **相位 C**（`GTK_IM_MODULE`/`XMODIFIERS` 全 unset，fcitx 仍全局激活）：全通。
+**根因**：吃键的不是我们的 `gtk_im_context_filter_keypress`（那层由 `im_active` 门控着、key_probe 根本没开门也照样被吃），而是 **fcitx5 的 GTK IM 模块在 `gtk_init` 时装的进程级按键嗅探器（key snooper）**——它跑在所有控件的 key-press handler 之前，只要本窗的 `GtkIMContext` 处于 `focus_in` 状态就把字符键按下转给 fcitx（进 preedit/commit），抬起放行。而 GTK 臂在 `wm_on_realize`/`wm_on_area_focus_in` 里**无条件 `focus_in`**（G0 条件①要它），`wm_im_set_active` 只拨旗标从不 focus_out——旗标管得住自家 filter，管不住嗅探器。
+**修复**（两层一起）：`wm_im_set_active` 同步 focus_in/out——开=focus_in（G0 条件①保留，真拼音仍可用），关=focus_out 并清组合串缓存（与失焦路径同口径）；`wm_on_realize`/`wm_on_area_focus_in` 的 focus_in 加 `im_active` 门。外加前一轮的 `ime_focus` 哨兵化（那也是真洞：丢焦路径写 0 绕过门同步，修好它门才有机会在「无输入框」时被拨到关）。
+**验证**：三相位矩阵里的相位 B 即判据——修复后重跑 key_probe + fcitx 激活，m/l 按下应作为 `ev code=0` 到达且不再出现 preedit；真机最终收口见 T 清单（播放器 M/L + 输入框拼音双向）。
 
 ## 维护约定
 

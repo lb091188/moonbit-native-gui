@@ -3939,7 +3939,14 @@ static void wm_on_realize(GtkWidget *area, gpointer data) {
   if (gw != NULL) {
     gtk_im_context_set_client_window(w->im, gw);
   }
-  gtk_im_context_focus_in(w->im);
+  // focus_in 只在「输入框持有逻辑焦点」时做：fcitx5 的 GTK 模块装了进程级
+  // 按键嗅探器，上下文 focus_in 期间字符键按下会在我们的 handler 之前被它
+  // 吃进 preedit/commit——im_active 旗标只挡自家 filter_keypress，拦不住
+  // 这一层（真机三相位回证：fcitx 关=全通；fcitx 开=按下被吃/抬起照到；
+  // 不挂模块=全通）。门状态经 wm_im_set_active 同步 focus_in/out。
+  if (w->im_active) {
+    gtk_im_context_focus_in(w->im);
+  }
 }
 
 static gboolean wm_on_area_focus_in(GtkWidget *area, GdkEventFocus *ev,
@@ -3947,7 +3954,7 @@ static gboolean wm_on_area_focus_in(GtkWidget *area, GdkEventFocus *ev,
   (void)area;
   (void)ev;
   WmWindow *w = (WmWindow *)data;
-  if (w->im != NULL) {
+  if (w->im != NULL && w->im_active) {
     gtk_im_context_focus_in(w->im);
   }
   return FALSE;
@@ -4011,9 +4018,10 @@ static void wm_on_size_allocate(GtkWidget *area, GdkRectangle *alloc,
 static gboolean wm_on_key(GtkWidget *widget, GdkEventKey *ev, gpointer data) {
   (void)widget;
   WmWindow *w = (WmWindow *)data;
-  // 仅输入框焦点时让 IM 过滤（im_active 由 MoonBit 侧按焦点控件同步，见
-  // wm_im_set_active）——ibus 会话里 IM 把字符键吃进 commit 通道，键盘回显
-  // 之类的非输入框焦点就只剩修饰键了
+  // 第一层挡：仅输入框焦点时让自家 IM 上下文过滤（im_active 由 MoonBit 侧按
+  // 焦点控件同步，见 wm_im_set_active）——ibus 会话里 IM 把字符键吃进 commit
+  // 通道，非输入框焦点就只剩修饰键。第二层（fcitx5 的进程级嗅探器）靠
+  // wm_im_set_active 同步 focus_in/out 挡，不在这条路径上。
   if (ev->type == GDK_KEY_PRESS && w->im != NULL && w->im_active &&
       gtk_im_context_filter_keypress(w->im, ev)) {
     return TRUE; // 输入法吃掉了：不推按键事件，改由 commit/preedit 通道回报
@@ -4775,14 +4783,30 @@ void wm_im_set_surrounding(int64_t id, const char *text, int caret) {
   gtk_im_context_set_surrounding(w->im, text, (gint)strlen(text), caret);
 }
 
-// 输入法焦点门：MoonBit 侧焦点控件是输入框时传 1。ibus 一类会话里
-// gtk_im_context_filter_keypress 会把字符键吃进 commit 通道——非输入框焦点
-// 时必须绕开它，否则按键事件只剩修饰键（真机症状：键盘回显恒 65507）。
+// 输入法焦点门：MoonBit 侧焦点控件是输入框时传 1。两层都要挡：
+// ① 自家 gtk_im_context_filter_keypress（ibus 会话把字符键吃进 commit 通道，
+//   非输入框焦点必须绕开，否则按键只剩修饰键——真机症状：回显恒 65507）；
+// ② fcitx5 的 GTK 模块装了进程级按键嗅探器，上下文 focus_in 期间字符键按下
+//   在 GTK 派发之前就被它吃掉——旗标拦不住，必须 focus_out 上下文本身。
+// 所以这里同步 focus_in/out：开=focus_in（G0 条件①，真拼音要它），关=
+// focus_out 并清组合串缓存（与失焦路径同一口径）。
 void wm_im_set_active(int64_t id, int on) {
   if (id <= 0 || id >= WM_MAX_WINDOWS) {
     return;
   }
-  wm_windows[id].im_active = on ? 1 : 0;
+  WmWindow *w = &wm_windows[id];
+  w->im_active = on ? 1 : 0;
+  if (w->im == NULL) {
+    return;
+  }
+  if (on) {
+    gtk_im_context_focus_in(w->im);
+  } else {
+    gtk_im_context_focus_out(w->im);
+    w->preedit_active = 0;
+    w->preedit_len = 0;
+    w->preedit[0] = '\0';
+  }
 }
 
 // 逻辑焦点从一个输入控件切到另一个时清掉输入法侧未完成的组合串：
