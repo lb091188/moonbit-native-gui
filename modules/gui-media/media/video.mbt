@@ -89,6 +89,7 @@ pub(all) struct VideoPlayer {
   base_pts : Ref[Double]
   frame : Ref[Bytes?]
   frame_no : Ref[Int]
+  mut pcm_tap : ((Bytes, Int) -> Unit)?
 }
 
 ///|
@@ -472,6 +473,10 @@ fn VideoPlayer::vp_fill_audio(self : VideoPlayer) -> Unit {
           Some(pcm) => {
             let out = media_resample_s16(pcm, self.audio_ch, self.speed.val)
             let _ = mbt_adev_push(d, out, out.length())
+            match self.pcm_tap {
+              Some(f) => f(out, self.audio_ch)
+              None => ()
+            }
             ()
           }
           None => break
@@ -487,6 +492,40 @@ fn VideoPlayer::vp_audio_flush(self : VideoPlayer) -> Unit {
   match self.dev.val {
     Some(d) => mbt_adev_clear(d)
     None => ()
+  }
+}
+
+///|
+/// PCM 旁路（s16 交错、重采样后、入队前）：频谱等分析器从这里喂，给 `None`
+/// 关闭。与 `AudioPlayer` 的 `pcm_tap` 同口径，取样点同在「耳朵听到之前一个
+/// 队列深度」，绘制侧用 `queued_frames` 回看对齐。
+pub fn VideoPlayer::set_pcm_tap(
+  self : VideoPlayer,
+  tap : ((Bytes, Int) -> Unit)?,
+) -> Unit {
+  self.pcm_tap = tap
+}
+
+///|
+/// 音轨采样率（无音轨给 0）：频谱换算频段用。
+pub fn VideoPlayer::sample_rate(self : VideoPlayer) -> Int {
+  match self.audio.val {
+    Some(a) => a.audio_rate()
+    None => 0
+  }
+}
+
+///|
+/// 设备队列里还压着多少帧（无音轨/无设备给 0）：频谱回看深度与耳朵对齐。
+pub fn VideoPlayer::queued_frames(self : VideoPlayer) -> Int {
+  match self.dev.val {
+    Some(d) =>
+      if mbt_adev_has_device(d) == 1 && self.audio_ch > 0 {
+        (mbt_adev_queued_bytes(d) / (self.audio_ch * 2).to_int64()).to_int()
+      } else {
+        0
+      }
+    None => 0
   }
 }
 
@@ -574,6 +613,7 @@ pub fn VideoPlayer::make(
     base_pts: Ref(0.0),
     frame: Ref(None),
     frame_no: Ref(0),
+    pcm_tap: None,
   })
 }
 

@@ -45,6 +45,8 @@ pub fn video(
   height? : Double = 360.0,
   auto_play? : Bool = false,
   looping? : Bool = false,
+  /// 画面底部画不画实时频谱条（带音轨的素材才有电平；关掉就是纯画面）。
+  spectrum? : Bool = false,
   /// 每 tick 的观测口（位置秒 / 已解码帧数 / 是否在播）：示例与测试靠它证明
   /// 「帧在推进、时钟在走」，而不是一张贴图。
   on_tick? : (Double, Int, Bool) -> Unit = fn(
@@ -63,6 +65,7 @@ pub fn video(
   on_error? : (String) -> Unit = fn(_s : String) -> Unit { () },
   handle? : (@widget.Widget) -> Unit = fn(_w : @widget.Widget) -> Unit { () },
 ) -> @widget.Node {
+  let sp = Spectrum::make()
   let engine = match VideoPlayer::make(path, looping~) {
     Ok(p) => p
     Err(e) => {
@@ -74,6 +77,9 @@ pub fn video(
         handle,
       )
     }
+  }
+  if spectrum {
+    engine.set_pcm_tap(Some(fn(b : Bytes, ch : Int) -> Unit { sp.feed(b, ch) }))
   }
   // 字幕两条来源：调用方给的外部文本优先（那是明确意图）；没给才试容器的内嵌轨。
   // 内嵌轨只在打开时整条读一次（字幕稀疏，一次读完比逐帧查解码器便宜，也不碰主
@@ -219,6 +225,25 @@ pub fn video(
         }
       }
     }
+    // 频谱条：贴画面底部、条高压到三成半，不盖主体（与 audio 的舞台频谱同源）
+    if spectrum && r.h > 12.0 {
+      let lv = sp.levels(engine.queued_frames(), engine.sample_rate())
+      let n = lv.length()
+      let slot = r.w / n.to_double()
+      let bw = slot * 0.62
+      for b = 0; b < n; b = b + 1 {
+        let h = lv[b] * (r.h - 6.0) * 0.35
+        if h > 0.5 {
+          p.set_fill_color(@theme.theme_primary())
+          p.fill_rect(
+            b.to_double() * slot + (slot - bw) / 2.0,
+            r.h - h,
+            bw,
+            h,
+          )
+        }
+      }
+    }
     let sub = subtitle_at(cues, engine.current())
     if sub.length() > 0 {
       p.flush()
@@ -265,6 +290,7 @@ pub fn video(
     fn(v : Double) -> Unit { apply_vol(v) },
     fn(t : Double) -> Unit {
       engine.seek(t)
+      sp.reset()
       @widget.invalidate()
     },
     dragging,
