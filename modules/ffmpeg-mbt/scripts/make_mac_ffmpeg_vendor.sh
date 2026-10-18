@@ -23,7 +23,10 @@ ARCH=$(uname -m)
 NAME="ffmpeg-macos-${ARCH}-${VER}-lgpl-shared"
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-WORK=$(mktemp -d "${TMPDIR:-/tmp}/ffvendor.XXXXXX")
+# macOS 的 TMPDIR 带尾斜杠，mktemp 展开出 `T//ffvendor.xxx`（双斜杠）；链接器
+# 会把 install_name 里的路径规范化成单斜杠写进 Mach-O，而 grep 仍拿双斜杠的
+# $WORK 做模式——永不匹配。pwd -P 统一成物理路径，杜绝这族分裂。
+WORK=$(cd "$(mktemp -d "${TMPDIR:-/tmp}/ffvendor.XXXXXX")" && pwd -P)
 trap 'rm -rf "$WORK"' EXIT
 DIST="$ROOT/dist"
 mkdir -p "$DIST"
@@ -66,7 +69,7 @@ echo "==> @rpath 化 + ad-hoc 重签 + 闭包断言"
 for dylib in "$STAGE"/lib/*.dylib; do
   [ ! -L "$dylib" ] || continue
   base=$(basename "$dylib")
-  install_name_tool -id "@rpath/$base" "$dylib" 2>/dev/null
+  install_name_tool -id "@rpath/$base" "$dylib"
   # 先把 ffmpeg 内部互依赖（configure 时写的绝对 prefix 路径）改成 @rpath
   while :; do
     dep=$(otool -L "$dylib" | sed 1d | awk '{print $1}' | grep "$WORK/prefix" | head -1 || true)
