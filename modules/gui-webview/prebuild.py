@@ -51,7 +51,9 @@ WEBKIT_PKG_CONFIG = "webkit2gtk-4.1"
 # ---------------------------------------------------------------------------
 VENDOR_BASES = [
     "https://github.com/lb091188/moonbit-native-gui/releases/download/vendor-v1",
-    "https://gitee.com/lb091188/moonbit-native-gui/releases/download/vendor-v1",
+    # gitee 镜像：gitee 的用户名与 GitHub 不同（noahliu0911 / lb091188），
+    # 附件下载 URL 形状两边一致（releases/download/<tag>/<文件名>）。
+    "https://gitee.com/noahliu0911/moonbit-native-gui/releases/download/vendor-v1",
 ]
 
 VENDOR_TIMEOUT = 20
