@@ -2551,6 +2551,13 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
   4. **mktemp + TMPDIR 尾斜杠的「双斜杠分裂」（CI 首跑暴露）**：macOS 的 `TMPDIR` 是 `/var/folders/…/T/`（**尾斜杠**），`mktemp -d "${TMPDIR}/ffvendor.XXXXXX"` 返回 `T//ffvendor.xxx`；$WORK 拼进 `configure --prefix` 后，链接器把 install_name 里的 `//` **规范化成 `/`** 写进 Mach-O，而 @rpath 化循环拿仍是双斜杠的 `$WORK` 去 grep otool 输出——永不匹配，内部互依赖没改成 @rpath，闭包断言一枪毙命。表象极其迷惑：断言信息与 grep 模式「看起来是同一路径」（终端渲染不区分单双斜杠），本地最小复现还容易走岔（拿已签名的 brew 库测 `-change` 会先撞上「-change 改不动 LC_ID_DYLIB」的死循环，与真 bug 无关）。修法一行：`WORK=$(cd "$(mktemp -d …)" && pwd -P)` 统一物理路径。教训：拿 shell 变量当路径字符串去匹配另一工具的输出之前，先把它 `pwd -P` 规范化。
   5. **gitee 镜像当天闭环（用户手传 5 资产）**：写双镜像口径时 gitee 侧其实一个附件都没有（404 假装是「文件没传」，无法区分「格式错」）；真正上传后确认两件事——**gitee 的用户名与 GitHub 不同**（noahliu0911 / lb091188，镜像 URL 必须分开写），附件下载 URL 形状与 GitHub 兼容（`releases/download/<tag>/<文件名>`，无需改拼接）。实测价值当场兑现：本机网络直连 GitHub 下载 TLS 握手超时（gh CLI 走的通道不受影响，别把机器的网络差异读成代码故障），gitee 秒下且 sha256 逐字节一致；`NATIVE_GUI_VENDOR_BASE` 单指 gitee 跑 vendor 路，全链 6/6。仓库须**公开**——私有仓库的 release 匿名访问一律 404，而 prebuild 的镜像下载是匿名 HTTP。
 
+## 光标「隐藏」三平台各有一条路：mac 没有公开 hiddenCursor，GTK 别用 "none" 名串（2026-10-18,播放器全屏观感）
+
+全屏播放器自动藏指针要的是第 6 种光标（`CURSOR_HIDDEN=5`），三平台宿主各给一条映射，两条有坑：
+- **macOS**：`NSCursor` 没有公开的常驻隐藏口——`disappearingItemCursor` 是拖拽语义、`hide()` 是进程级全局藏（状态收不回来）。可用做法是自造空白光标：`[[NSImage alloc] initWithSize:NSMakeSize(1,1)]`（1×1 全透明）→ `initWithImage:hotSpot:`，并静态缓存一份（`resetCursorRects` 会被频繁调，别每次现造）。经既有 `addCursorRect:` 分派出口下发，不另开通道。
+- **GTK**：`gdk_cursor_new_from_name(dpy, "none")` 看似对（CSS 光标名），但它依赖光标主题里有 none 条目，主题缺项时返回 NULL 落进「回退 default」分支——藏指针变成恒显箭头，而且这台机器看着正常、那台机器就坏。用枚举口 `gdk_cursor_new_for_display(dpy, GDK_BLANK_CURSOR)`，不查主题、恒在。
+- **Windows**：`LoadCursorW` 没有隐藏档，`wm_load_cursor` 对 kind 5 返回 NULL，`SetCursor(NULL)` 即藏（WM_SETCURSOR 每次按 kind 重设，NULL 也照吃）——零特判。
+
 ## 维护约定
 
 1. 新增结论写进对应小节,只记「坑 + 修复」;协议互操作结论必须来自真总线、真面板,单测自洽不算数。
