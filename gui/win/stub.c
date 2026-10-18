@@ -7704,7 +7704,13 @@ void wm_get_drag_rect(int64_t id, int32_t *x, int32_t *y, int32_t *w,
 void wm_set_borderless(int64_t id, int on) {
   @autoreleasepool {
     WMState *s = wm_state(id);
-    if (s == nil || s->borderless == (on ? 1 : 0)) {
+    if (s == nil) {
+      return;
+    }
+    // 开关状态以真实 styleMask 为准，不信缓存位：系统自己改 mask 的场合（全屏
+    // 往返等）会让缓存失真，失真的早退表现为「按了没反应」。
+    BOOL now_borderless = ([s.win styleMask] & NSWindowStyleMaskTitled) == 0;
+    if (now_borderless == (on ? YES : NO)) {
       return;
     }
     s->borderless = on ? 1 : 0;
@@ -7713,7 +7719,11 @@ void wm_set_borderless(int64_t id, int on) {
         : (NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
            NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable);
     [s.win setStyleMask:mask];
-    [s.win setMovableByWindowBackground:!on];
+    // 拖窗只认应用声明的拖拽区（tryDragRect → performWindowDragWithEvent），
+    // 两档形态都恒关背景拖：`movableByWindowBackground=YES` 让 AppKit 在
+    // mouseDown 阶段就把这一击变成窗口拖动，控件根本收不到按下——真机表现是
+    // 「切几次无边框之后窗口只能拖动、点什么都没反应」（用户反馈）。
+    [s.win setMovableByWindowBackground:NO];
     s->resized = 1;
     s->need_draw = 1;
   }
