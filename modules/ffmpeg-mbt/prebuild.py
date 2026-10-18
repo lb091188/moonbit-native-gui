@@ -101,51 +101,93 @@ def vendor_bases() -> list[str]:
     return extra + MAC_VENDOR_BASES
 
 
-# 单源总预算：urlopen 的 timeout 是 **socket 级**（单次连接/读操作），管不住
-# DNS 解析挂起与「慢速滴流」——防火墙 DROP（而非 REJECT）的网络里 socket
-# 超时可能永不触发，进程就吊死在第一个镜像上（另一台机器实测）。线程包裹
-# 整个 GET，超过总预算就放弃换下一个镜像（daemon 线程留在后台，随进程退出）。
-# 预算按「归档 10MB 在慢网下也下得完」给 60 秒，不是连接超时那 20 秒。
+# 默认双镜像走**并行竞速**：同时向各镜像发请求，谁先返回完整且 sha256 校验
+# 通过就用谁——DNS 慢、连接慢、慢速滴流的镜像天然落后，总耗时 = 最快镜像的
+# 时间（GitHub 滴流的机器上等于 gitee 的几秒，而不是串行等预算耗尽）。兜底
+# 总预算仍在：所有镜像都 60 秒无产出才失败。前置教训不变：urlopen 的 timeout
+# 是 socket 级，DNS 挂起与滴流要靠竞速+总预算双机制兜。
 MAC_VENDOR_BUDGET = 60
 
 
-def _fetch_with_budget(url: str, socket_timeout: int, budget: int) -> "bytes | None":
+def _fetch_race(bases: list[str], url_name: str, sha: str, socket_timeout: int) -> "bytes | None":
+    import queue
+    import threading
+    import time
+
+    q: "queue.Queue[tuple[str, bytes | None]]" = queue.Queue()
+
+    def worker(base: str) -> None:
+        try:
+            data = urllib.request.urlopen(
+                f"{base}/{url_name}", timeout=socket_timeout
+            ).read()
+            q.put((base, data))
+        except Exception:  # noqa: BLE001——失败也入队，主流程继续收其余镜像
+            q.put((base, None))
+
+    threads = [threading.Thread(target=worker, args=(b,), daemon=True) for b in bases]
+    for t in threads:
+        t.start()
+    deadline = time.monotonic() + MAC_VENDOR_BUDGET
+    left = len(bases)
+    while left > 0:
+        remain = deadline - time.monotonic()
+        if remain <= 0:
+            break
+        try:
+            base, data = q.get(timeout=min(2.0, remain))
+        except queue.Empty:
+            continue
+        left -= 1
+        if data is None:
+            print(f"ffmpeg(prebuild): 镜像失败（{base}）", file=sys.stderr)
+            continue
+        if hashlib.sha256(data).hexdigest() != sha:
+            print(f"ffmpeg(prebuild): {base} 上 sha256 不符，看其余镜像", file=sys.stderr)
+            continue
+        print(f"ffmpeg(prebuild): 命中镜像 {base}", file=sys.stderr)
+        return data
+    print(
+        f"ffmpeg(prebuild): 全部镜像 {MAC_VENDOR_BUDGET} 秒总预算内都没给出"
+        "校验通过的文件",
+        file=sys.stderr,
+    )
+    return None
+
+
+def _fetch_serial(bases: list[str], url_name: str, sha: str, socket_timeout: int) -> "bytes | None":
+    """串行按序形态（NATIVE_GUI_VENDOR_BASE 指定自定义源时用——用户指内网/
+    私有镜像时不并行外网）。单源仍线程包裹总预算兜底：DNS 挂起/滴流的
+    socket 级教训不因串行而失效。"""
     import threading
 
-    box: dict = {}
+    for base in bases:
+        full = f"{base}/{url_name}"
+        print(f"ffmpeg(prebuild): 取 vendor {full} ...", file=sys.stderr)
+        box: dict = {}
 
-    def run() -> None:
-        try:
-            box["data"] = urllib.request.urlopen(url, timeout=socket_timeout).read()
-        except Exception as e:  # noqa: BLE001
-            box["err"] = e
+        def run(base: str = base) -> None:
+            try:
+                box["data"] = urllib.request.urlopen(full, timeout=socket_timeout).read()
+            except Exception:  # noqa: BLE001
+                box["data"] = None
 
-    t = threading.Thread(target=run, daemon=True)
-    t.start()
-    t.join(budget)
-    return box.get("data")
+        t = threading.Thread(target=run, daemon=True)
+        t.start()
+        t.join(MAC_VENDOR_BUDGET)
+        data = box.get("data")
+        if data is not None and hashlib.sha256(data).hexdigest() == sha:
+            return data
+        print(f"ffmpeg(prebuild): 镜像失败或 sha256 不符（{full}），换下一个", file=sys.stderr)
+    return None
 
 
 def fetch_vendor_file(url: str, sha: str) -> "bytes | None":
-    for base in vendor_bases():
-        full = f"{base}/{url}"
-        print(f"ffmpeg(prebuild): 取 vendor {full} ...", file=sys.stderr)
-        data = _fetch_with_budget(full, socket_timeout=MAC_VENDOR_TIMEOUT, budget=MAC_VENDOR_BUDGET)
-        if data is None:
-            print(
-                f"ffmpeg(prebuild): 镜像失败（{MAC_VENDOR_BUDGET} 秒总预算内"
-                "无完整响应，可能 DNS/连接挂起），换下一个",
-                file=sys.stderr,
-            )
-            continue
-        if hashlib.sha256(data).hexdigest() != sha:
-            print(
-                f"ffmpeg(prebuild): {url} 在该镜像上 sha256 不符，换下一个",
-                file=sys.stderr,
-            )
-            continue
-        return data
-    return None
+    bases = vendor_bases()
+    if os.environ.get("NATIVE_GUI_VENDOR_BASE", "").strip():
+        # 自定义源前置：串行按序，不做并行外网竞速
+        return _fetch_serial(bases, url, sha, MAC_VENDOR_TIMEOUT)
+    return _fetch_race(bases, url, sha, MAC_VENDOR_TIMEOUT)
 
 
 def ensure_mac_vendor() -> bool:
