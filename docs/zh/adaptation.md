@@ -2577,6 +2577,14 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **修复**：测量宽一律**上取整**，让「盒宽 ≥ 真实浮点宽」成为测量与断行的不动点。三平台同批对齐口径——mac `pt_write_metrics`（`ceil(total_w)`）、Windows 两处 `pt_measure_font`/`rt_measure`（`ceilf(widthIncludingTrailingWhitespace)`）、Linux 的行尾空白补宽（Pango 的 `get_pixel_size` 本来就上取整，只有 `pt_width_with_trailing_ws` 用的是四舍五入）。高/基线取整维持原样：越界风险在横轴（折行），纵轴不在这条判据里。
 **验证**：`gui/text/text_wbtest.mbt`「测量宽自洽：按测量宽下发的盒不再折行」——串含全角标点，先自由测宽再以该宽为约束折行，断言高度不变（不打具体像素，随字体配置走）；撤掉 ceil 该用例必红（本机回证：`FAILED: '选中：' 在自身测量宽 32px 的盒里折成了多行`）。UI 侧 `gui/ui/datepicker_wbtest.mbt`「日期段标签不折行」守整条链（标签与值标签同高、选中行不压 picker）。mac 本机 `moon test` text+ui 219/219；Linux/Windows 侧同口径改动由 CI 回证。
 
+## 交互图表默认宽塌成 120px 窄带：包壳留 auto 宽，画布的 percent(100) 对 auto 父无解（2026-10-18,mac + Linux 真机同现）
+
+**现象**（用户真机，两平台一致）：showcase 图表页·交互段的三张图（`line_chart_it`/`bar_chart_it`/`donut_chart_it`）全挤成一条窄带，同数据的非交互版正常。两平台同现即与文本/渲染后端无关，是布局层。
+**定位**（无头探针 `mounted()` 打矩形）：默认宽时交互图壳 120×290、画布 120 宽；显式 `width=480.0` 一切正常。根因是交互版比非交互版多一层「图例 + 画布」的 vbox 包壳，而壳的宽写成 `width=if width > 0.0 { width } else { 0.0 }`——`view` 里 0 的语义是「不设宽」= auto；画布那侧 `width<=0` 走的是 `percent(100)` + `min_width(120)`。**yoga 的百分比要父尺寸确定才可解**，父是 auto 就无解 → 画布被 `min_width` 钳到 120，壳又是 auto 由子顶出来 → 也 120，整条链锁死。非交互版没有包壳，`percent(100)` 直接对确定宽的段容器求解，所以一直是对的。
+**修复**：`width<=0` 的语义在交互版里就是「铺满父宽」，于是包壳自己写 `percent(100)`（新增 `ci_it_handle`，三处同批），显式 `width` 语义不变、仍走 `fixed`。
+**验证**：`gui/chart/charts_it_wbtest.mbt`「交互图默认铺满父宽，显式 width 照旧」——默认宽时画布宽 == 父宽 600、`width=320.0` 时壳与画布都 320；撤掉修复该用例必红（本机回证 `FAILED: 默认宽的画布没铺满父宽`）。全仓 `moon test` 1252/1252。
+**教训**：**「auto 父 + 百分比子」在 yoga 里恒塌**。包壳类组件（图例/标题 + 主画布那种）的默认宽要么靠父的 `Stretch` 拉出来，要么自己显式写百分比，不能留 0 让 `view` 当「不设宽」处理；`min_width` 兜底在这种场景下不会报错，只会把塌陷伪装成「内容就这么窄」。
+
 ## 维护约定
 
 1. 新增结论写进对应小节,只记「坑 + 修复」;协议互操作结论必须来自真总线、真面板,单测自洽不算数。
