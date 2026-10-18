@@ -485,9 +485,31 @@ pub fn dialog(
     // 锚点自己是个 0 尺寸占位：对话框的可见性只由 Store 驱动
     anchor.node.set_height(@yoga.fixed(0.0))
     let open_id : Ref[Int] = Ref(0)
+    // 底钮的焦点号（进树即在焦点链里）与开框前的焦点（收框时还回去）
+    let btn_ids : Array[Int] = []
+    let prev_focus : Ref[Int] = Ref(0)
     let title_font = @text.Font::new("", 16.0, weight=@text.SemiBold)
     let btn_font = @text.Font::new("", 14.0)
     let close = fn(v : Bool) -> Unit { visible.set(v) }
+    let teardown_open = fn() -> Unit {
+      if open_id.val != 0 {
+        @widget.overlay_hide(open_id.val)
+        open_id.val = 0
+      }
+      if btn_ids.length() > 0 {
+        match @widget.host_active() {
+          Some(a) => {
+            for id in btn_ids {
+              a.focus.unregister(id)
+            }
+            if prev_focus.val > 0 {
+              let _ = a.focus.focus(prev_focus.val)
+            }
+          }
+          None => ()
+        }
+      }
+    }
     let open = fn() -> Unit {
       if open_id.val != 0 {
         return
@@ -635,6 +657,9 @@ pub fn dialog(
         b.node.set_width(@yoga.fixed(text_width(text, btn_font) + 28.0))
         b.node.set_height(@yoga.fixed(28.0))
         b.cursor = @widget.CURSOR_HAND
+        // 底钮进焦点链：弹框开着时链只收这一层（`App::sync_focus`），Tab 在钮间走
+        b.focus_id = auto_focus_id(0)
+        btn_ids.push(b.focus_id)
         // 两档皮肤都折进槽：主档 常态 primary / 悬停 primary_hover，
         // 次档 常态 bg_panel / 悬停 fill_hover（悬停分支由 hover 桶承担）
         let skin = if primary {
@@ -688,6 +713,18 @@ pub fn dialog(
             align=@text.Center,
             valign=@text.Center,
           )
+          if self.focused {
+            // 焦点环（与消息框底钮同口径）：主色实底上用白环，主题色环压在上面不可见
+            p.set_stroke_color(
+              if primary {
+                "#ffffff"
+              } else {
+                @theme.theme_primary()
+              },
+            )
+            p.set_line_width(1.0)
+            p.stroke_rect(1.0, 1.0, r.w - 2.0, r.h - 2.0)
+          }
         })
         b.on_pointer = Some(fn(
           _s : @widget.Widget,
@@ -701,6 +738,18 @@ pub fn dialog(
               false
             }
             _ => false
+          }
+        })
+        b.on_key = Some(fn(ev : @widget.KeyEvent) -> Bool {
+          if !ev.press {
+            return false
+          }
+          if ev.keysym == @base.KS_SPACE || ev.keysym == @base.KS_RETURN {
+            close(false)
+            act()
+            true
+          } else {
+            false
           }
         })
         footer.append_child(b)
@@ -746,6 +795,23 @@ pub fn dialog(
       panel.append_child(body)
       panel.append_child(footer)
       open_id.val = @widget.overlay_show_full(scrim)
+      // 开框即把焦点交给第一个底钮（默认是取消位，与消息框「第一个钮=默认」同
+      // 口径由调用方的按钮顺序决定）；收框还回开框前的那个焦点
+      match @widget.host_active() {
+        Some(a) => {
+          match a.focus.current() {
+            Some(p) => prev_focus.val = p
+            None => prev_focus.val = 0
+          }
+          if btn_ids.length() > 0 {
+            for id in btn_ids {
+              let _ = a.focus.register(id)
+            }
+            let _ = a.focus.focus(btn_ids[0])
+          }
+        }
+        None => ()
+      }
       handle(anchor)
     }
 
@@ -755,10 +821,7 @@ pub fn dialog(
       if v {
         open()
       } else {
-        if open_id.val != 0 {
-          @widget.overlay_hide(open_id.val)
-          open_id.val = 0
-        }
+        teardown_open()
       }
     })
     @base.sub_bag_register(fn() { sig.remove(sid) })

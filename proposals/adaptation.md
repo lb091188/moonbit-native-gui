@@ -2614,6 +2614,18 @@ Auto-hiding the pointer in fullscreen players needs a 6th cursor kind (`CURSOR_H
 **Verification**: new pixel criterion in `gui/mdview/markdown_wbtest.mbt` — the line's start must equal the joint width of「the spans before 删除线」(2 px tolerance); reverting the fix fails red (`FAILED: 删除线起点 137 不在被划字段的起点 142 上`). The wrap case goes from red back to green. Full workspace `moon test` 1253/1253 with a clean `--deny-warn`.
 **Lesson**: **"measure each piece and add them up" must never position painted decorations**. Anything that has to land on glyphs (decoration lines, hit ranges, caret) must be measured as a prefix of the object that actually draws; trailing-compression metric differences are per-platform, and Linux not complaining does not mean they are absent.
 
+## Three gaps in the self-drawn pop-ups: visual modality is not keyboard modality (2026-10-19, real machines, Linux + macOS alike)
+
+**Symptom** (user's real machines, both platforms): the message box's button row sits flush against the panel's right border with no margin; while the box is open its buttons cannot take focus, and Tab still walks into page widgets hidden behind the scrim.
+**Three root causes**: ① the footer declared padding on one side only (`footer.set_padding(left=16.0)`) while its buttons are `FlexEnd` — so the right gap was zero; ② this stack's focus model is "a widget that declares `focus_id` is in the chain", and the pop-up's buttons were hand-drawn bare widgets with no id — nothing to focus, so focus had to sit on a manual id attached to the panel; ③ `App::sync_focus` always collected ids from the **whole tree**, so overlay widgets and page widgets shared one chain — the scrim swallowed clicks but the keyboard stayed non-modal.
+**Fix**:
+- `OverlayItem` gained `full` (true only for the full-window scrim tier, `overlay_show_full`), and `OverlayHost::focus_root()` answers "which subtree owns the focus chain right now"; `App::sync_focus` aligns to it. While a pop-up is open the chain contains only that layer; a toast or bubble stacked above it (the pass-through tier) does not change ownership; closing the layer returns the page widgets to the chain.
+- Every footer button in `message_box` and `dialog` takes `auto_focus_id(0)`, draws a focus ring (white on solid primary, same criterion as `ui.button`), and handles Space/Enter in `on_key`; opening hands focus to the first button after remembering the previous id, closing unregisters the batch and restores it.
+- A message box with **no** buttons still attaches a manual id to the panel — key events locate the focused widget by `focus_id` in the tree, so without one even Esc has nowhere to land.
+- The message box footer now pads `right=16.0` too.
+**Verification**: `gui/widget/host_wbtest` "弹框开着时焦点链只收遮罩层，收框后页面回来" (including that a pass-through layer on top does not steal ownership); `gui/ui/message_box_wbtest` "消息框：底钮可聚焦、按钮区留右边距" and the matching dialog case in `gui/ui/overlay_wbtest` (buttons carry `focus_id > 0`, ≥12 px right gap). Full workspace `moon test` 1256/1256 with a clean `--deny-warn`; on-device eyeballing stays with the user (T4 dialog / message box rows).
+**Lesson**: **visual modality ≠ keyboard modality**. A layer that covers the whole window must state explicitly that it owns the focus chain, or the keyboard passes straight through; here that statement is one boolean on `OverlayItem.full`, with the decision concentrated in `OverlayHost::focus_root()`.
+
 ## Maintenance
 
 1. New conclusions go into the matching section and record only the pit and the fix; protocol-interop conclusions must come from the real bus and real panels — unit-test self-consistency does not count.

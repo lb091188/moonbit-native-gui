@@ -280,3 +280,35 @@ test "消息框：informative 为空时不占副行；空文案按钮跳过" {
   // 三个按钮里空文案那个被跳过
   assert_eq(panel.children()[3].children().length(), 2)
 }
+
+///|
+test "消息框：底钮可聚焦、按钮区留右边距" {
+  if !ui_text_guard() {
+    return
+  }
+  let vis = @base.Store::new(true)
+  let (root, _a) = mounted_with_overlay(
+    message_box(vis, "标题", "正文", buttons=[("确定", 1), ("取消", 2)]),
+    400.0,
+    300.0,
+  )
+  root.relayout(400.0, 300.0)
+  let scrim = match @widget.overlay_root_of(@widget.overlay_top_id()) {
+    Some(w) => w.children()[0]
+    None => @widget.Widget::new()
+  }
+  let footer = scrim.children()[0].children()[3]
+  let btns = footer.children()
+  assert_eq(btns.length(), 2)
+  // 每个钮都领了焦点号 → 进树即在焦点链里；「弹框开着时链只收这一层」那条
+  // 宿主判据见 widget/host_wbtest「弹框开着时焦点链只收遮罩层」
+  for b in btns {
+    assert_true(b.focus_id > 0, msg="底钮没领焦点号，Tab 到不了它")
+  }
+  // 钮被 FlexEnd 推到右侧，但右缘必须留内边距（真机反馈：钮贴着面板描边）
+  let last = btns[btns.length() - 1]
+  assert_true(
+    footer.rect.w - (last.rect.x + last.rect.w) >= 12.0,
+    msg="按钮区没有右边距，钮贴到了面板描边",
+  )
+}
