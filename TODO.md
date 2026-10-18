@@ -1,6 +1,6 @@
 # 路线图 — MoonBit 原生 GUI 栈
 
-记号：`[x]` 完成 · `[~]` 部分（缺口写在子条目）· `[ ]` 未开始。
+记号：`[~]` 部分（缺口写在子条目）· `[ ]` 未开始。完成项不驻留——删除并同批写进 [docs/zh/roadmap.md](docs/zh/roadmap.md)（AGENTS.md 规则 12）。
 
 - **唯一主线**：自绘栈（新栈拥有窗口/像素/事件循环/布局，控件全部基于 Painter 自绘 + 自定义主题，不提供独立原生控件）。
 - **更名与目录定案（2026-10-12）**：主模块 `NoahLiu/moonbit-libyue` → **`NoahLiu/native-gui`**（mooncakes 新包名，首版 0.1.0 占位；待自绘栈稳定后将 `NoahLiu/moonbit-libyue` 标记废弃）；子模块 `NoahLiu/yue-media` → `NoahLiu/gui-media`、`NoahLiu/yue-examples` → `NoahLiu/gui-examples`；**库模块根落在 `gui/`**：15 个库包（`gui/base` … `gui/style`；原 `gui/web` 于 2026-10-16 G9 Batch 1 出成独立模块 `modules/gui-webview`；原 `gui/core` 于 2026-10-17 G9 Batch 2 import 迁移后整包退场）与 `moon.mod` 都在其下，模块名不变故 mooncakes 包路径 `NoahLiu/native-gui/<包>` 与既有 import 全部不变；`examples/`、`experiment/` 拆为**独立模块**（`NoahLiu/native-gui-examples` / `NoahLiu/native-gui-experiment`），经 `moon.work` 本地解析依赖库模块，构建/测试不再牵连库门禁；旧链 `yue/` 已删除。GitHub 仓库名 2026-10-13 已改为 **`moonbit-native-gui`**（旧名 301 重定向）；项目显示名（README 首行、文档站 title/hero、许可行）2026-10-15 随 0.1.1 重发统一为 **native-gui**，旧名只留更名注。
@@ -21,31 +21,20 @@
   - 肉眼确认项：preedit 下划线观感、候选窗是否贴组合串末尾、caret 闪烁观感（点击定位已用 xdotool 客观验通：点控件最左端 caret 归 0、原位插字符）
 - [~] **G7** 声明式层与组件宿主接线（`mount` 目标从 `View` 换 yoga-mbt 节点；恢复全仓门禁。宿主与声明式地基已就位：`@core.App` + `@core.Widget` 树 + `@core.Node`/`bind_node`/`swap_node`/`Store`/`Signal`，验证页 `examples/native-app`；剩组件与图表挂新 Painter）
 - [ ] **G8** 原生子表面通道与其消费者（见 §4「浏览器」「视频」）
-- [x] **G9 模块拆分**（方案与判据见 [docs/zh/module-structure.md](docs/zh/module-structure.md)：外部重资产 + 必须强制下发链接参数 → 开模块；纯内部层 → 留子包。细案与验收在该文 §6.1/§6.2。**Batch 1（web 出模块）2026-10-16 已交付**。**Batch 2 2026-10-17 全部交付**——步骤 1（`gui/base`）、步骤 2·甲（`gui/shell`）、步骤 2·乙（Session 手术 + loop + 只读探针）、步骤 3（`gui/widget` + core 退为纯门面）均已在当日各批提交落地；import 迁移（全仓 `@core.` → `@base.`/`@shell.`/`@widget.` 直连 + compat 门面三件套删除 + core 包整目录退场）同日完成。库 967/967、全 workspace `moon check --deny-warn` 零错误零警告。）
 - [ ] **G10 窗口内按键路由补齐**（2026-10-16 播放器快捷键一批暴露的面）
-  - [x] ~~抬起事件不投递~~（已修 2026-10-18，口径=用户拍板「保留 down 和 up」）：key-up 走**声明制**通道——`Widget.on_key_release` 挂了才收（焦点链最深优先、吃到即停），`on_key` 与按键兜底通道永不收抬起（编辑内核不区分按下/抬起，放行等于「松手再插字符」；兜底按按下语义写，放行等于一次按键触发两次），没人声明就整条丢弃。「按住空格快进、松手停」的组件形态已可用。wbtest 钉：声明制/最深优先/on_key 不掺和/无人声明丢弃；entry 回归钉「按下+抬起恰一个字符、Tab 抬起不插 '\t'」）
   - [ ] **焦点链会抢走窗口级兜底**：`ui.button` 的键盘口径是「空格/回车激活」。于是用户 Tab 过任何一个按钮之后，空格就不再是播放器的「播放/暂停」而是「按下那个按钮」——与 Web 一致，但播放器用户预期相反。待定口径：播放器快捷键是否要**优先于**焦点链（给 `add_key_fallthrough` 加「抢占档」），还是把按钮激活键收成只 `Enter`（改 ui 公共行为，波及所有表单）。先立判据再动：同一窗内「Tab 到按钮 + 按空格」的期望行为写进契约与 wbtest。
   - [ ] **方向键与滚动/焦点导航的归属**：`←/→/↑/↓` 在 `ui.slider`、`ui.input`（光标移动）、滚动容器与本批的播放器音量键之间目前**没有优先级记录**——同一条键谁先吃，靠的是「焦点链先问、兜底后问」这条隐式规则。要把可达路径写成表（哪个控件在焦点上时四个方向键分别归谁）。
-  - [x] ~~输入法门控下的按键可达性复验~~（Linux 真机已验通过，2026-10-18）：两层根因两层修——① 门同步被丢焦路径绕过（`ime_focus` 哨兵化，527e8c9）；② **fcitx5 的 GTK 模块装了进程级按键嗅探器**，上下文 focus_in 期间字符键按下在 GTK 派发之前就被吃进 preedit/commit（三相位回证：fcitx 关=全通、fcitx 开=按下消失/抬起照到、不挂模块=全通），`im_active` 旗标拦不住——修法 `wm_im_set_active` 同步 focus_in/out、realize/area_focus_in 的 focus_in 加门（c354e96）。用户 Linux 实测 M/L 生效。根因与证据见 adaptation「输入法吃字符键有两层」；mac/win 剩 T2f 一分钟复验（哨兵是三平台 MoonBit 层、focus 绑定是 GTK-only）。
 
 ## 2. 框架能力域 — 全部待在新栈重做
 
 > 清单已按 master 线参考副本逐包核对（2026-10-11，`/home/lkyh/ownCode/moonbit-libyue` 的 master，比本仓 origin/master 新）；条目里的文件/函数名均指 master 现行资产。
-
-### 绘图与资源
-
-（已交付面见 [roadmap.md](docs/zh/roadmap.md)「绘图与资源」。）
-
-- [x] 图片解码后端：三平台已齐（Linux GdkPixbuf、Windows WIC、macOS ImageIO 静态图 PNG/JPEG/GIF 首帧，§7 批②；GIF 逐帧分帧缺 disposal，见 §7 专项）
-- [x] 文字后端：三平台已齐（Pango、DirectWrite、macOS CoreText 纯 C 段落排版器，§7 批③；行高 K 地板与缺省字族已定案）
 
 ### 前端化批次（design.md §5 的 P1–P5，2026-10-13 起）
 
 （P1 样式层、P3 响应式补强、P4 绘制能力、P5 动画 `transition` 与逐组件样式通道已交付，见 roadmap「组件层与前端化」；真机反馈修复集迁入 adaptation。）
 
 - [~] **P2 组件层**收尾：
-  - [x] ~~P2-e 边界②~~（已修 2026-10-18：chip 字号在挂载期按 `resolved` 样式取——class 给 `font_size` 就以它为准，测量与绘制共用同一份字体，宽度自然跟随；显式 `width` 仍优先于测量宽；wbtest 钉「class 大字号比散参宽」）；
-  - [ ] 观感逐页比对不回退（真机由用户复验，`examples/hello`、`hello-themed`、`showcase`、`native-app`、`sysmonitor`）。
+  - [ ] 观感逐页比对不回退（真机由用户复验，`examples/hello`、`hello-themed`、`showcase`、`sysmonitor`）。
 
 ### 控件（一律自绘，不再引入原生控件皮肤；家族名对应 master `yue/components/` 九个源文件）
 
@@ -76,15 +65,12 @@
 窗口内容 = 1..N 个互不重叠的矩形区（pane），每区声明 owner（自绘 = Painter / webview = 原生子件），矩形由 yoga 布局给；Tauri-like、爬虫内容获取页、原生多窗口三种形态同源。**本轮只做 Linux 闭环**，Windows/macOS 后端归输入通道另线与平台批。
 
 - [~] **批 C JS 桥 + DOM 抓取 + 导航面**（已完成面见 roadmap「webview 与原生子表面」；剩余见子条目）
-  - [ ] 批 C 余项（仍待接）：跨窗共享的 cookie 同步（`get_cookies_for_url` 是 per-view 回包，多 pane 同 profile 时的同步策略没定）
+  - [ ] 评估项（不立项，等真实调用方）：cookie 变更监听——三平台都有引擎事件可挂（WebKitGTK cookie manager 的 changed 信号 / `WKHTTPCookieStore` observer / WebView2 CookieManager 事件），只有「多 pane 实时联动 UI」（如任意 pane 登出、所有 pane 徽标即时刷新）这类需求用得上；共享与隔离本体已定案＝浏览器默认策略，见 roadmap「cookie 共享与隔离」行。
   - [ ] 一条待查观测（不影响本批结论，且**不是每次都出现**）：协议页首屏在事件区偶发出现**两次** `导航开始 yuedemo://local/bridge.html`（出现时 `navs` 比真实导航数多 1）。同一份示例复跑四次的 `navs` 读数依次为 4、1、1、1，所以这条不是协议页的固定行为，更像引擎侧偶发的一次额外 `load-changed::STARTED`。已排除本栈双路径（`load_url` 在未挂载时只记 `self.url`，`wb_create` 建视图时才 `load_uri` 一次）。要定案就在 `wb_on_load_changed` 里带上 `load_event` 原值与 `webkit_web_view_get_uri` 的读数对照多轮，判据先立再改，不改行为
 - [~] **批 D 媒体播放器**（可与 B/C 并行）：复用 `modules/ffmpeg-mbt`（零 libyue 依赖，已有 `decode_rgba`/`decode_pcm`/`seek`/`duration_s`/`video_fps`）+ `modules/gui-media` 内嵌的 miniaudio 设备层；**CPU 回灌 + 软解**（RGBA → `render` 的 `Bitmap` → Painter 合成，本档位不做硬解与 GPU 合成）；新写播放器 UI（悬浮控制条/进度与音量/倍速/字幕叠加/seek 防抖）+ 音频时钟与同步；旧链坑照 adaptation.md 逐条验收（音画不同轴、seek 后进度从零重涨、换载崩溃）
   - [ ] 批 D2c 再余项（不假装完成）：ASS 样式渲染（颜色/定位，目前只按文本叠加）、多字幕轨列表与切换（现在只取 `av_find_best_stream` 选中的那条）、倍速听感复验（是否仍同步；音高随动已定案不做——时间拉伸要相位声码器，口径见 media/audio.mbt 注释）
-  - [x] **`ui.button` 图标位（已补，2026-10-18）**：`button(text, icon?=…, icon_size?=14)`——图标落内容区左槽、文字盒右移，`attach_text_measure` 加 `lead_w` 把图标槽（`icon_size`+6 间距）计入测量宽，图标色随文字色（含禁用态）；按钮 12px 水平内边距本就写死在测量与绘制两处，无图标路径零改动。wbtest 钉「测量恰宽 20 / 左槽落墨 / min_width 主导同宽」；audio/video 示例「选择文件…/选择目录…」已改用带图标按钮（当初撞出这条缺口的就是它们）。
-  - [ ] **媒体播放面缺口（2026-10-16 控制面一批点出来的，逐条待排）**：① ~~静音~~（已补 2026-10-18：控制条静音键 `Sound`/`Hide` 随态换 + `M` 快捷键走兜底通道，状态机 `bar_mute_toggle`/`bar_vol_apply`——拖音量到非零自动解除静音；字符键在 Linux IM 会话可能被输入法吃，归 G10 复验）；② ~~循环/随机键~~（循环已补 2026-10-18：控制条 `Sync` 键开着点亮 + `L` 快捷键，`video` 组件顺势补上 `looping?` 参数；「随机」属播放列表层语义，单文件播放器没有可打乱的队列，框架不给产品——需要时在调用方做）；③ ~~视频组件没有频谱~~（已补 2026-10-18：`VideoPlayer` 加 `set_pcm_tap`/`sample_rate`/`queued_frames`，`video` 组件加 `spectrum?` 参数——默认关，条高压到画面三成半不盖主体；wbtest 钉「带音轨 tick 后喂得进、关旁路后不再喂」）；④ ~~歌词只在 `audio`~~（已补 2026-10-18：`video` 加 `lyric?`/`on_lyric?`，走同一套 `lrc_parse`/`lrc_at`；字幕贴底白字、歌词行在其上方主题色，同屏让位 `vp_lyric_y`，编码判据与 audio 共用）；⑤ ~~全屏形态不完整~~（已补 2026-10-18：双击画面切全屏；全屏下指针停在画面上约 2.5s 无活动 → 控制条收起 + 指针隐藏（新 `CURSOR_HIDDEN=5` 贯通三平台桩：`SetCursor(NULL)` / `GDK_BLANK_CURSOR` / 空白 `NSCursor`），任何指针活动/单击即恢复；计拍挂组件现有 33ms tick 零新增定时器，判据抽纯函数 `bar_idle_step`；Win/GTK 两个光标分支真机验证归 T 节）；⑥ ~~LRC 编码~~（判据已定 2026-10-18：不加转码表——读入一律 UTF-8 有损解码，`lrc_parse` 见替换符 U+FFFD 即整篇按空歌词，调用方经 `on_lyric(0)` 得知，不把乱码画上屏）；⑦ ~~`ui.button` 图标位~~（已补，见上条）。
-  - [x] **播放器组件换载残账（已销，2026-10-18）**：`Widget.on_discard` 控件级丢弃回调落地（e99962f），audio/video 在回调里 free 引擎 + 置 dead 终止定时器自续链，gif/轮播自转链同批接线，discard_wbtest 钉触发/不牵连/幂等；`set_widget_discard_hook` 单槽（style 占用）继续承担窗口级钩子，控件级多播由 `on_discard` 承担。
 - [~] **批 E 原生弹层窗口**（已完成面见 roadmap 同节；剩余见子条目）
-  - [~] **批 E 余项（2026-10-18 部分收口）**：~~Esc 收起~~（已补——挂弹层自己窗的按键兜底通道，焦点链先问完才轮到，关窗挪 0ms 延时出按键派发现场；真机复验归 T 节）；「点外收起」的可用判据仍欠：失焦自收在映射期会误触发（对照实验：开=约两秒自关且 `hides=0`；关=常驻），故 `overlay_set_dismiss_on_blur` **默认关**，等「拿到过焦点才算」的判据；另欠弹层锚点跟随 owner 滚动/移动、六件各自的尺寸提示
+  - [~] **批 E 余项**：「点外收起」的可用判据仍欠——失焦自收在映射期会误触发（对照实验：开=约两秒自关且 `hides=0`；关=常驻），故 `overlay_set_dismiss_on_blur` **默认关**，等「拿到过焦点才算」的判据；另欠弹层锚点跟随 owner 滚动/移动、六件各自的尺寸提示
 - 积木原则：一个能力一个接口、可单独不用；能力之间不互相依赖（webview 不依赖媒体层，反之亦然，两者只依赖窗口/布局/事件层）；框架只给原语不给产品（爬虫框架、站点适配、内容解析、开发者面板、页面脚本库不进库）；每项能力给探测 + 语义化降级；新 API 一律走 `Painter`/`Bitmap` 门面
 - 明确不做（避免反复讨论）：网络拦截/改写、代理配置、一窗多 webview 并排、Linux 上把 webview 变纹理、首批硬解、首批 GPU 合成、网页内 `<video>` 与自绘播放器统一、macOS 13 及以下的持久化隔离（根因是 Apple API 边界：持久化 profile 需 macOS 14+ 且有 bundle id）
 - 平台后端（随各自真机）：Windows WebView2——**2026-10-13 平台批已接**（两级异步 COM 创建 Environment→Controller、失败走 dead 语义降级、就绪前 load 排队、13 事件 push 队列同构 WebKit 分支、自定义 scheme 经 `EnvironmentOptions4::SetCustomSchemeRegistrations` 预注册 + `WebResourceRequested` 回包（`CreateWebResourceResponse`，404 给明确空响应）；vendor 口径：NuGet Microsoft.Web.WebView2 1.0.4258.31 的 `WebView2LoaderStatic.lib` + 头 vendor 进 `gui/web/`，prebuild 下发链接参数；**真机验证**：web wbtest 17/17、一次性探针 load_html/标题事件/JS 求值/协议页导航/DOM 求值全通、`native-web` 冒烟 `supported=1` + GEO 真矩形 + 8 组统计；坑见中英 `adaptation.md`——未预注册 scheme 导航直接失败、COM propput 少 self 参数在 x64 上静默写坏 vtable、`GetCustomSchemeRegistrations` 数组必须 `CoTaskMemAlloc`（静态数组会被引擎 free 触发堆损坏 0xC0000374））。**未接**：跨 HWND 焦点与滚轮转发。macOS WKWebView（自定义协议走**公开**的 `WKURLSchemeHandler`（macOS 10.13+），libyue 当年那条 `WKBrowsingContextController registerSchemeForCustomProtocol:` 是更老的私有路线；要验的是公开入口够不够用：自定义 scheme 默认非标准、origin/localStorage 行为要另配；**另需真机验一条**：`loadHTMLString:baseURL:` 是否入前进/后退历史——Apple 无文档承诺，而 Linux 实测 `load_html` 不入历史、WebView2 文档明写 `NavigateToString` 不改历史，若 mac 相反就要在 `web` 里抹平或写进契约）
