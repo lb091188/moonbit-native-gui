@@ -760,12 +760,16 @@ pub fn button_skin(
 /// border / text / danger`，变体配色（悬停/按下都收敛在主题内）+ 焦点环。
 /// `focus_id` 传正数才可 Tab 到；焦点环在实底变体上用白色（主题色环在其上不可见）。
 /// 边框档（Border）另描 1px `border` 色边，其余档无描边。
+/// `icon` 给了就在文字左侧画图标：图标槽计入测量宽、文字盒右移，
+/// `icon_size` 是字形盒边长，图标色随文字色（含禁用态）。
 pub fn button(
   text : String,
   on_click? : () -> Unit = fn() -> Unit { () },
   variant? : ButtonVariant = Soft,
   color? : String = "",
   background_color? : String = "",
+  icon? : @icons.IconKind? = None,
+  icon_size? : Double = 14.0,
   font_size? : Double = 13.0,
   min_width? : Double = 0.0,
   focus_id? : Int = 0,
@@ -775,6 +779,11 @@ pub fn button(
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let src = text_source(text, font_size=font_size, align=@text.Center)
+  // 图标槽：内容区起点起 `icon_size` 宽 + 6 间距，测量与绘制两边同口径
+  let icon_slot = match icon {
+    Some(_) => icon_size + 6.0
+    None => 0.0
+  }
   // 变体皮肤折进样式槽：基块=常态，`hover`/`active` 桶=点亮态（旧口径
   // `lit = hovered || pressed`，两桶同值）；散参数显式覆盖会让两态取到同一色，
   // 「覆盖后悬停不再变色」这条现状由 [button_skin_token] 的取值顺序天然保持。
@@ -827,7 +836,7 @@ pub fn button(
     w.node.set_padding_right(@yoga.fixed(12.0))
     w.node.set_flex_shrink(0.0)
     w.cursor_fn = Some(enabled_cursor(off, @widget.CURSOR_HAND))
-    attach_text_measure(w, src)
+    attach_text_measure(w, src, lead_w=icon_slot)
     fold_style(w, skin, class)
     w.on_draw = Some(fn(
       self : @widget.Widget,
@@ -846,11 +855,26 @@ pub fn button(
         p.set_fill_color(bg)
         p.fill_rect(0.0, 0.0, r.w, r.h)
       }
+      match icon {
+        Some(kind) => {
+          // 图标落左槽（内容区起点），字形盒居中在槽内，色随文字（含禁用态）
+          @icons.draw_icon(
+            p,
+            kind,
+            12.0 + icon_size / 2.0,
+            r.h / 2.0,
+            icon_size / 2.0,
+            fg,
+          )
+        }
+        None => ()
+      }
+      let tx = 12.0 + icon_slot
       let _ = @text.draw_box_at(
         p,
-        12.0,
+        tx,
         0.0,
-        (r.w - 24.0).max(1.0),
+        (r.w - tx - 12.0).max(1.0),
         r.h,
         src.text,
         src.font,

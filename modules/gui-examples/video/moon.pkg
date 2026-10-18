@@ -4,6 +4,7 @@ import {
   "NoahLiu/native-gui/base",
   "NoahLiu/native-gui/widget" @widget,
   "NoahLiu/native-gui/ui",
+  "NoahLiu/native-gui/icons",
   "NoahLiu/native-gui/sys" @sys,
   "NoahLiu/gui-media/media" @media,
 }
