@@ -418,8 +418,9 @@ jobs:
       # 逐包点名而不裸 `moon build`:裸构建在 workspace 下等于构建整个 workspace,
       # 会牵连与本 job 无关的模块(experiment/其它示例),失败时看不出是哪里坏了。
       # 媒体线自「mac 平台批⑰」起接回:上一轮因 runner 没有 ffmpeg 头而绕开,
-      # 现在装了 brew 的 ffmpeg,所以额外构建依赖媒体两包(systemprobe / native-web)
-      # 的 main 包——这等于在真实 macOS 上编一遍 ffmpeg 桩与 miniaudio 桩、
+      # 现在装了 brew 的 ffmpeg,所以额外构建依赖媒体两包的 main 示例
+      # (gui-examples 的 audio / video,25192fe 收口后旧 systemprobe/native-web 已删)
+      # ——这等于在真实 macOS 上编一遍 ffmpeg 桩与 miniaudio 桩、
       # 并把 CoreAudio/AudioToolbox 那组 framework 真链一次。
       - name: 构建(库模块 + hello 示例 + 媒体线)
         run: |
@@ -427,7 +428,7 @@ jobs:
           (cd gui && moon build base shell widget ui render text theme icons sys input win chart mdview style \
             --target native) >/tmp/mb.out 2>&1; c1=$?
           moon build examples/hello --target native >>/tmp/mb.out 2>&1; c2=$?
-          moon build modules/gui-examples/systemprobe modules/gui-examples/native-web \
+          moon build modules/gui-examples/audio modules/gui-examples/video \
             --target native >>/tmp/mb.out 2>&1; c3=$?
           set -e
           if [ $c1 -ne 0 ] || [ $c2 -ne 0 ] || [ $c3 -ne 0 ]; then
@@ -436,7 +437,7 @@ jobs:
             tail -c 6000 /tmp/mb.out
             exit 1
           fi
-          echo "库 13 包 + examples/hello + 媒体两包(systemprobe/native-web)全部构建链接通过"
+          echo "库 13 包 + examples/hello + 媒体示例(audio / video)全部构建链接通过"
 
       # 尽力冒烟：macOS runner 有登录会话与窗口服务，`hello` 这类常驻事件循环的
       # 进程活着到超时就说明「窗口建出来了、循环转起来了」；退出码 124 = 存活。
