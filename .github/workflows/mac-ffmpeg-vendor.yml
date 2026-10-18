@@ -1,0 +1,42 @@
+# mac ffmpeg vendor 归档制作(手动触发,不在常规 CI 路径上)
+#
+# 产物: ffmpeg-macos-arm64-<版本>-lgpl-shared.tar.gz(LGPLv3 自编,五支 dylib
+# @rpath 化,闭包只含系统库)+ .sha256。上传为 workflow artifact。
+#
+# 后续两步(共享动作,由维护者执行,不在本 workflow 里):
+#   1. gh release upload vendor-v1 <归档> --clobber
+#   2. 把 sha256 回填 modules/ffmpeg-mbt/prebuild.py 的 MAC_VENDOR_TARBALLS
+# 回填生效后,免 brew 机器的 prebuild 回退路即可自动下载。
+name: mac-ffmpeg-vendor
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: ffmpeg 版本
+        default: "9.0.2"
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Xcode CLT 自带 clang 与 SDK,runner 无需任何 brew——脚本自带
+      # env -i 净 PATH 隔离,这是「闭包只含系统库」断言成立的前提。
+      - name: 制作归档(自编 LGPL ffmpeg + @rpath 化)
+        run: modules/ffmpeg-mbt/scripts/make_mac_ffmpeg_vendor.sh "${{ inputs.version }}"
+
+      - name: 归档信息
+        run: |
+          ls -lh modules/ffmpeg-mbt/dist/
+          echo "sha256:"; cat modules/ffmpeg-mbt/dist/*.sha256
+          echo "闭包抽检:"; tar -tzf modules/ffmpeg-mbt/dist/*.tar.gz | head -8
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-macos-vendor
+          path: |
+            modules/ffmpeg-mbt/dist/*.tar.gz
+            modules/ffmpeg-mbt/dist/*.sha256
+          if-no-files-found: error

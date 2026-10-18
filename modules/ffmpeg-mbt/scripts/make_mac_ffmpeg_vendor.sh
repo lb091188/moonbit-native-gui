@@ -39,10 +39,12 @@ echo "==> configure（LGPLv3，闭包隔离，无程序无文档）"
 env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin HOME="$HOME" \
   ./configure --prefix="$WORK/prefix" \
   --enable-shared --disable-static \
-  --enable-lgpl --enable-version3 --disable-gpl --disable-nonfree \
+  --enable-version3 --disable-nonfree \
   --disable-programs --disable-doc --disable-debug \
   --disable-autodetect \
   --enable-zlib --enable-videotoolbox --enable-audiotoolbox
+# 许可注：configure 默认即 LGPL（--enable-gpl 才升级 GPL），这里只加
+# --enable-version3 升到 LGPLv3；没有「--enable-lgpl」这个选项。
 
 echo "==> make"
 env -i PATH=/usr/bin:/bin:/usr/sbin:/sbin HOME="$HOME" \
