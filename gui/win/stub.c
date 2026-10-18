@@ -467,6 +467,9 @@ static WmWindow *wm_of(HWND hwnd) {
 }
 
 static HCURSOR wm_load_cursor(int kind) {
+  if (kind == 5) {
+    return NULL; /* 5 = 隐藏指针：SetCursor(NULL) 即藏 */
+  }
   LPCWSTR name = IDC_ARROW;
   if (kind == 1) {
     name = IDC_HAND;
@@ -1154,7 +1157,8 @@ void wm_request_focus(int64_t id) {
   }
 }
 
-// 设绘图区光标形状：0 默认箭头 / 1 手型 / 2 文本 I 形 / 3 横向调整 / 4 纵向调整。
+// 设绘图区光标形状：0 默认箭头 / 1 手型 / 2 文本 I 形 / 3 横向调整 / 4 纵向调整 /
+// 5 隐藏指针。
 // 存下形状并立即生效一次，后续移动由 WM_SETCURSOR 按形状接管。
 void wm_set_cursor(int64_t id, int kind) {
   if (id <= 0 || id >= WM_MAX_WINDOWS) {
@@ -4798,7 +4802,8 @@ void wm_im_reset(int64_t id) {
   w->preedit[0] = '\0';
 }
 
-// 设绘图区光标形状：0 默认箭头 / 1 手型 / 2 文本 I 形 / 3 横向调整 / 4 纵向调整。
+// 设绘图区光标形状：0 默认箭头 / 1 手型 / 2 文本 I 形 / 3 横向调整 / 4 纵向调整 /
+// 5 隐藏指针。
 // 自绘栈没有原生控件，悬停在手型件上时形状只能由宿主按命中路径下发；
 // 未 realize（还没有 GdkWindow）或形状没变时什么都不做。
 void wm_set_cursor(int64_t id, int kind) {
@@ -4813,20 +4818,26 @@ void wm_set_cursor(int64_t id, int kind) {
   if (gw == NULL) {
     return;
   }
-  const char *name = "default";
-  if (kind == 1) {
-    name = "pointer";
-  } else if (kind == 2) {
-    name = "text";
-  } else if (kind == 3) {
-    name = "ew-resize";
-  } else if (kind == 4) {
-    name = "ns-resize";
-  }
   GdkDisplay *dpy = gtk_widget_get_display(w->area);
-  GdkCursor *cur = gdk_cursor_new_from_name(dpy, name);
-  if (cur == NULL) {
-    cur = gdk_cursor_new_from_name(dpy, "default");
+  GdkCursor *cur = NULL;
+  if (kind == 5) {
+    /* 5 = 隐藏指针 */
+    cur = gdk_cursor_new_for_display(dpy, GDK_BLANK_CURSOR);
+  } else {
+    const char *name = "default";
+    if (kind == 1) {
+      name = "pointer";
+    } else if (kind == 2) {
+      name = "text";
+    } else if (kind == 3) {
+      name = "ew-resize";
+    } else if (kind == 4) {
+      name = "ns-resize";
+    }
+    cur = gdk_cursor_new_from_name(dpy, name);
+    if (cur == NULL) {
+      cur = gdk_cursor_new_from_name(dpy, "default");
+    }
   }
   if (cur == NULL) {
     return;
@@ -6655,6 +6666,16 @@ static uint32_t wm_keysym_of(NSEvent *ev) {
     case 2: cur = [NSCursor IBeamCursor]; break;
     case 3: cur = [NSCursor resizeLeftRightCursor]; break;
     case 4: cur = [NSCursor resizeUpDownCursor]; break;
+    case 5: {
+      /* 5 = 隐藏指针：1×1 透明图的空白光标（无公开 hiddenCursor 口） */
+      static NSCursor *blank = nil;
+      if (blank == nil) {
+        NSImage *img = [[NSImage alloc] initWithSize:NSMakeSize(1, 1)];
+        blank = [[NSCursor alloc] initWithImage:img hotSpot:NSMakePoint(0, 0)];
+      }
+      cur = blank;
+      break;
+    }
     default: cur = [NSCursor arrowCursor]; break;
   }
   [self addCursorRect:self.bounds cursor:cur];
