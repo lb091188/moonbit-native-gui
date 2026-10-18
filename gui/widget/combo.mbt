@@ -3,7 +3,11 @@
 
 ///|
 /// 解析组合键字符串为 (mods, keysym)；格式不合法返回 None。
-pub fn parse_combo(spec : String) -> (Int, Int)? {
+/// `mac=true` 时 `CmdOrCtrl` 落 Cmd（`MOD_META`），否则落 Ctrl——词表与
+/// `@win.parse_accelerator`（全局热键、菜单加速键）同一套：同一串 spec
+/// 不该在窗口内与系统层有两个意思。修饰键的入乡随俗由调用方传平台读数
+/// （`@shell.platform_is_macos()`）。
+pub fn parse_combo(spec : String, mac? : Bool = false) -> (Int, Int)? {
   let parts = spec.split("+")
   let cleaned : Array[String] = []
   for p in parts {
@@ -19,14 +23,18 @@ pub fn parse_combo(spec : String) -> (Int, Int)? {
   let mut key_part = ""
   for p in cleaned {
     let low = p.to_lower()
-    if low == "ctrl" {
-      mods = mods | @base.MOD_CTRL
-    } else if low == "alt" {
-      mods = mods | @base.MOD_ALT
-    } else if low == "shift" {
-      mods = mods | @base.MOD_SHIFT
-    } else if low == "meta" || low == "super" || low == "cmd" {
-      mods = mods | @base.MOD_META
+    // 词表与 `@win.parse_accelerator` 对齐；-1 = 不是修饰键，它就是主键
+    let bit = match low {
+      "ctrl" | "control" => @base.MOD_CTRL
+      "alt" | "option" | "opt" => @base.MOD_ALT
+      "shift" => @base.MOD_SHIFT
+      "meta" | "super" | "win" | "cmd" | "command" => @base.MOD_META
+      "cmdorctrl" | "cmdorctl" | "commandorcontrol" =>
+        if mac { @base.MOD_META } else { @base.MOD_CTRL }
+      _ => -1
+    }
+    if bit >= 0 {
+      mods = mods | bit
     } else {
       key_part = low
     }

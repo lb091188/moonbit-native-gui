@@ -17,6 +17,7 @@ fn fake_app() -> App {
     key_fallthrough: [],
     dirty_rect: None,
     dirty_full: false,
+    system_keys: true,
   }
 }
 

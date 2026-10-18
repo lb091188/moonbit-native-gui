@@ -1,5 +1,5 @@
 // MoonBit 原生 GUI 栈的平台后端桩：一个文件、三条平台分支，对外是 ffi.mbt
-// 那套 wm_* 统一 API（MoonBit 侧 window.mbt 平台无关，core 只认这一层）。
+// 那套 wm_* 统一 API（MoonBit 侧 window.mbt 平台无关，上层只认这一层）。
 //
 //   _WIN32        → Win32 真实现。由 moon 的 native-stub 自编（windows.h 走
 //                    MSVC 自带 SDK 路径，实测可达，探针记录见 adaptation），
@@ -17,7 +17,7 @@
 //
 // 形态约束（都来自本仓实测，docs/zh/adaptation.md）：
 // - 循环归 MoonBit：这里只提供「等一等」与「跑已就绪的事件」两个动作，不自带
-//   主循环；等待多久由 yue/core 的 Loop::wait_budget 给（负数即无限等，靠
+//   主循环；等待多久由 MoonBit 侧 shell 的 Loop::wait_budget 给（负数即无限等，靠
 //   wakeup 位回来）。
 // - 不做 C→MoonBit 回调：事件以「每窗口标志位 + 消费式取事件」暴露，避开蹦床
 //   形参错位那一类坑（docs/zh/adaptation.md「MoonBit ↔ C ABI」）。
@@ -180,7 +180,7 @@ static int wm_hotkey_fired_count = 0;
  * 菜单是**每窗口一份**（HMENU 挂 SetMenu），菜单项点击经 WM_COMMAND 回来。
  * 与热键同一形态：C 侧不回调 MoonBit，命中时把「命令 id」压进进程级队列，
  * MoonBit 侧 `wm_menu_poll` 在泵里抽；回调（MenuItem::on_click）由模型层按
- * native_id 持表（见 yue/core/menu.mbt 与其翻译层）。
+ * native_id 持表（见 shell/menu.mbt 与其翻译层）。
  * 句柄用「进程级表下标」表示（与窗口槽同制）：建菜单树是逐节点 FFI，节点句柄
  * 就是表下标，MoonBit 侧拿着它继续往下加子项。命令 id 从 1000 起递增分配，
  * 与「可点击项」一一对应。表要在 wm_pump/wm_wndproc 之前声明（两处都要用）。 */
@@ -205,7 +205,7 @@ static void wm_menu_push(int cmd) {
 
 void wm_pump(void); // wm_show 里要先跑一轮就绪消息，实现在下方
 
-// 修饰位与 yue/core/keys.mbt 的 MOD_* 一致：1=shift 2=ctrl 4=alt 8=meta
+// 修饰位与 base/keys.mbt 的 MOD_* 一致：1=shift 2=ctrl 4=alt 8=meta
 // （meta 取 Win 键，不碰 NumLock——GTK 桩同一条教训）。
 static uint32_t wm_mods(void) {
   uint32_t m = 0;
@@ -224,7 +224,7 @@ static uint32_t wm_mods(void) {
   return m;
 }
 
-// VK → X11 keysym（GDK keyval 口径，与 yue/core/keys.mbt 的 KS_* 同源）。
+// VK → X11 keysym（GDK keyval 口径，与 base/keys.mbt 的 KS_* 同源）。
 // 只列特殊键与字母数字基准面；可打印字符优先走 wm_char_keysym 的布局换算。
 static uint32_t wm_vk_keysym(WPARAM vk) {
   switch (vk) {
@@ -529,7 +529,7 @@ static LRESULT CALLBACK wm_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       // present → WM_PAINT → 置脏 → MoonBit 全帧重画 → present → …
       // 应用永不空闲，输入事件只能排在一帧之后（真机：1400×3520 的一帧 300–500ms，
       // 滚动/点击/悬浮全像卡住，且事件队列被鼠标移动塞满后开始丢抬起与滚轮）。
-      // 重绘请求一律由 MoonBit 侧的 schedule_paint（`@core.invalidate`）发起；
+      // 重绘请求一律由 MoonBit 侧的 schedule_paint（`@widget.invalidate`）发起；
       // 这里只在「还没有任何帧可贴」（首帧之前）时才要一次。
       WmWindow *w = wm_of(hwnd);
       PAINTSTRUCT ps;
@@ -1336,7 +1336,7 @@ int wm_window_title(int64_t id, char *out, int cap) {
  * 与菜单/热键同制：C 不回调 MoonBit，命中压进程级队列，MoonBit 泵里
  * wm_tray_poll 抽。右键菜单复用 W20a 的 HMENU 句柄表（wm_menu_popup_new 建
  * 弹出菜单根），弹出走 wm_tray_popup：TrackPopupMenuEx 带 TPM_RETURNCMD，
- * 选中项直接拿到命令 id 压进 wm_menu_push——于是 yue/core 的菜单回调表照常
+ * 选中项直接拿到命令 id 压进 wm_menu_push——于是 shell 的菜单回调表照常
  * 生效，托盘菜单与窗口菜单共用同一套回调派发。
  * 图标句柄归 W20f 的表（wm_icon_get），本表只引用，不释放。 */
 
@@ -1732,7 +1732,7 @@ int wm_notify_title(int slot, char *out, int cap) {
  * 的过程中回调它的 DragEnter/DragOver/DragLeave/Drop。回调跑在**本线程的消息
  * 派发**里（wm_pump 转起来才有），所以照旧不向 MoonBit 蹦床：C 只把事件压进
  * 队列，MoonBit 每拍 wm_dragdnd_poll 抽——与托盘/菜单/热键同制。
- * 载荷现取现编码成线形状 `[kind:i32 LE][payload]`（与 core 的 drag_encode 同
+ * 载荷现取现编码成线形状 `[kind:i32 LE][payload]`（与 widget 的 drag_encode 同
  * 一条编码：FilePaths=4 用 '\n' 连接、Text=1 直给 UTF-8）。格式优先级
  * CF_HDROP > CF_UNICODETEXT；CF_HTML 未接（给 CF_HTML 的程序都同时给纯文本，
  * 走纯文本档），Img 要 CF_DIB 转换另批。
@@ -1751,7 +1751,7 @@ int wm_notify_title(int slot, char *out, int cap) {
 #define WM_DND_OVER 1
 #define WM_DND_LEAVE 2
 #define WM_DND_DROP 3
-// 线形状里的种类编号（与 core/drag.mbt 的 data_kind_id 逐值相同）
+// 线形状里的种类编号（与 widget/drag.mbt 的 data_kind_id 逐值相同）
 #define WM_DND_KIND_TEXT 1
 #define WM_DND_KIND_PATHS 4
 
@@ -3718,6 +3718,20 @@ void wm_window_set_fullscreen(int64_t id, int on) {
     win->fullscreen = 0;
   }
 }
+
+// 全屏翻转（mac 的 Ctrl+Cmd+F 默认加速键走它；Win32 无系统档加速键，实做只为
+// 三平台同一口）：按记录的现场态取反。
+void wm_window_toggle_fullscreen(int64_t id) {
+  if (id <= 0 || id >= WM_MAX_WINDOWS) {
+    return;
+  }
+  WmWindow *win = &wm_windows[id];
+  if (win->hwnd == NULL) {
+    return;
+  }
+  wm_window_set_fullscreen(id, win->fullscreen ? 0 : 1);
+}
+
 int wm_window_surface_count(int64_t id) {
   (void)id;
   return 0;
@@ -3773,6 +3787,7 @@ typedef struct {
   int resized;     // 尺寸变了，本次取事件时回报新宽高
   int closing;     // 窗口管理器请求关闭
   int focus_lost;  // 刚失去键盘焦点（原生浮层据此「点外收起」）
+  int fullscreen;  // 上次 wm_window_set_fullscreen 的期望态（翻转键按它取反）
   int width;
   int height;
   const unsigned char *pending; // 待贴的 ARGB32 缓冲（指向下面的 backing）
@@ -3794,7 +3809,7 @@ typedef struct {
   int ev_count;
   // 系统级拖放（W23a/b）：挂接标志、MoonBit 写回的效果（DND flag 0/1/2/4）与
   // 四个信号 handler id。会话级状态（载荷缓存、起拖事件）在进程级单份——同一
-  // 时刻只有一条拖放会话，与 core 侧 drag_current 单例同口径。
+  // 时刻只有一条拖放会话，与 widget 侧 drag_current 单例同口径。
   int dnd_dest_on;
   int dnd_effect_wanted;
   gulong dnd_sigs[4];
@@ -3831,9 +3846,9 @@ typedef struct {
 static WmSurface wm_surfaces[WM_MAX_SURFACES];
 static int wm_surface_next_id = 1;
 
-// 修饰位必须与 MoonBit 侧 yue/core/keys.mbt 的 MOD_* 一致：
+// 修饰位必须与 MoonBit 侧 base/keys.mbt 的 MOD_* 一致：
 // 1=shift 2=ctrl 4=alt 8=meta（GTK 自身位值是 1/4/8/16，故显式重映射）。
-// 这张表的**权威版本**在 yue/core/input_map.mbt 的 gtk_mods_to_mods（纯函数、有
+// 这张表的**权威版本**在 widget/input_map.mbt 的 gtk_mods_to_mods（纯函数、有
 // 回归钉住），改这里必须同批改那里——Windows/macOS 后端直接调那份表。
 static guint32 wm_mods(guint state) {
   guint32 m = 0;
@@ -4626,6 +4641,20 @@ void wm_window_set_fullscreen(int64_t id, int on) {
   } else {
     gtk_window_unfullscreen(GTK_WINDOW(win->window));
   }
+  win->fullscreen = on ? 1 : 0;
+}
+
+// 全屏翻转（mac 的 Ctrl+Cmd+F 默认加速键走它）：GTK 没有同步的态查询口，
+// 按上一次的期望态取反；WM 自己改的（F11/显示器）这里追不上，记档取舍。
+void wm_window_toggle_fullscreen(int64_t id) {
+  if (id <= 0 || id >= WM_MAX_WINDOWS) {
+    return;
+  }
+  WmWindow *win = &wm_windows[id];
+  if (win->window == NULL) {
+    return;
+  }
+  wm_window_set_fullscreen(id, win->fullscreen ? 0 : 1);
 }
 
 // 本窗已挂的原生子件数：>0 说明这扇窗里有网页这类「自绘像素盖不住」的东西，
@@ -5098,7 +5127,7 @@ int wm_window_title(int64_t id, char *out, int cap) {
  *   drag-end 收口；wm_dragdnd_send 嵌套跑 gtk_main_iteration 阻塞到 drag-end
  *   ——与 Windows 分支 SHDoDragDrop 的阻塞语义同构。
  * 事件进进程级环形队列，MoonBit 每拍 wm_dragdnd_poll 抽；载荷单缓冲（同一时刻
- * 只有一条会话，与 core 侧 drag_current 单例同口径）。效果标志沿用门面的
+ * 只有一条会话，与 widget 侧 drag_current 单例同口径）。效果标志沿用门面的
  * DND flag（0/1/2/4，同 DROPEFFECT_*），与 GDK_ACTION_*（0/2/4/8）显式互转。 */
 #define WM_DND_Q 64
 #define WM_DND_PAYLOAD_MAX 65536
@@ -5157,7 +5186,7 @@ static guint wm_dnd_flag_to_gdk(int flag) {
   return a;
 }
 
-// 只认单一动作；多位同亮按「没成交」（0）——与 core 侧 drag_effect_of_flag
+// 只认单一动作；多位同亮按「没成交」（0）——与 widget 侧 drag_effect_of_flag
 // 只认 1/2/4 的口径一致，不猜。
 static int wm_dnd_gdk_to_flag(guint action) {
   if (action == GDK_ACTION_COPY) {
@@ -5345,7 +5374,7 @@ static void wm_dnd_on_received(GtkWidget *widget, GdkDragContext *ctx,
     }
   }
   if (wm_dnd_drop_armed) {
-    // 投递：载荷此刻才到手（或仍没有——发 DROP、载荷保持旧值，core 侧按空
+    // 投递：载荷此刻才到手（或仍没有——发 DROP、载荷保持旧值，widget 侧按空
     // 载荷不开会话/不投递），收会话并答系统成功
     if (n > 0) {
       wm_dnd_set_payload(enc, n);
@@ -6498,8 +6527,8 @@ static NSRect wm_primary_frame(void) {
                        : NSMakeRect(0, 0, 1920, 1080);
 }
 
-// 修饰位必须与 core/keys.mbt 的 MOD_* 一致（1 shift / 2 ctrl / 4 alt / 8 meta）。
-// mac 的主修饰是 Command，按 core/win/hotkey.mbt 的口径（is_mac 时 CmdOrCtrl → 8）
+// 修饰位必须与 base/keys.mbt 的 MOD_* 一致（1 shift / 2 ctrl / 4 alt / 8 meta）。
+// mac 的主修饰是 Command，按 win/hotkey.mbt 的口径（is_mac 时 CmdOrCtrl → 8）
 // 映射到 META；Control 键本身给 CTRL，Option 给 ALT。
 static uint32_t wm_cocoa_mods(NSUInteger flags) {
   uint32_t m = 0;
@@ -6518,7 +6547,7 @@ static uint32_t wm_cocoa_mods(NSUInteger flags) {
   return m;
 }
 
-// kVK_*（硬件键位）→ X11 keysym。表与 core/input_map.mbt 的 mac_vk_to_keysym
+// kVK_*（硬件键位）→ X11 keysym。表与 widget/input_map.mbt 的 mac_vk_to_keysym
 // 同值同源（那份是纯函数、有回归钉住），字母/数字不在这里——它们由事件带的
 // Unicode 文本给（键盘布局归系统解析）。
 static uint32_t wm_mac_vk_keysym(uint16_t code) {
@@ -7814,6 +7843,18 @@ void wm_window_set_fullscreen(int64_t id, int on) {
   }
 }
 
+// 全屏翻转（Ctrl+Cmd+F 默认加速键走它）：态由 AppKit 自己判（styleMask 的
+// 全屏位），本层不记，绿色按钮/Control+Cmd+F 两条路都跟着真实态走。
+void wm_window_toggle_fullscreen(int64_t id) {
+  @autoreleasepool {
+    WMState *s = wm_state(id);
+    if (s == nil || s.win == nil) {
+      return;
+    }
+    [s.win toggleFullScreen:nil];
+  }
+}
+
 // 浮层窗：无边框 + 不抢主窗焦点 + 挂在 owner 之上随其移动。
 void wm_window_set_popup(int64_t id, int64_t owner_id) {
   @autoreleasepool {
@@ -8701,7 +8742,7 @@ static void wm_apply_accel(NSMenuItem *item, const char *acc) {
                [low isEqualToString:@"cmdorctrl"] ||
                [low isEqualToString:@"cmdorctl"] ||
                [low isEqualToString:@"commandorcontrol"]) {
-      // mac 的主修饰是 Command（core/win/hotkey.mbt 的 is_mac 口径）
+      // mac 的主修饰是 Command（win/hotkey.mbt 的 is_mac 口径）
       mask |= NSEventModifierFlagCommand;
     } else if ([t length] == 1u) {
       key = [t characterAtIndex:0u];
@@ -9175,7 +9216,7 @@ int wm_taskbar_set_state(int64_t wid, int state) {
 // ---- 原生消息框（NSAlert）------------------------------------------------
 //
 // MoonBit 侧把「图标段 ∪ 按钮段 ∪ 默认钮段」按 Win32 的 uType 口径算好传过来
-// （core 的门面跨平台同签名），这里按段还原成 NSAlert 的按钮与图标样式，
+// （MoonBit 侧门面跨平台同签名），这里按段还原成 NSAlert 的按钮与图标样式，
 // 返回值给回 Win32 的 ID* 编号（1 OK / 2 Cancel / 3 Abort / 4 Retry /
 // 5 Ignore / 6 Yes / 7 No），门面按同一张表解释。
 int wm_message_box(const char *title, const char *text, int utype) {
@@ -9257,7 +9298,7 @@ int wm_message_box(const char *title, const char *text, int utype) {
  *   语义同构。
  * 效果在门面 DND flag（0/1/2/4）与 NSDragOperation（Copy 1 / Move 16 /
  *   Link 512）之间显式互转；只认单一动作，多位同亮按「没成交」(0) 收，与
- *   core 侧 drag_effect_of_flag 口径一致。
+ *   widget 侧 drag_effect_of_flag 口径一致。
  * 坐标系照旧：本栈物理像素、左上原点；draggingLocation 与 atPoint 都是窗口
  *   基坐标（左下原点），经视图换算。 */
 #define WM_DND_Q 64
@@ -9277,7 +9318,7 @@ static int wm_dnd_effect[WM_MAX_WINDOWS];     // 每窗应答效果 flag（MoonB
 static int wm_dnd_registered[WM_MAX_WINDOWS]; // 每窗拖入挂接位：count/effect 的
 // 读数按它来（与 Win32 支 registered 同口径；GTK 支给的是恒 1 的另一种语义，
 // 门面试探测试 dragdnd_wbtest 认的是 Win32 这条）。
-// 拖出现场：载荷缓存 + allowed + 收口位（同一时刻只有一条出站会话，与 core
+// 拖出现场：载荷缓存 + allowed + 收口位（同一时刻只有一条出站会话，与 widget
 // 侧 drag_current 单例同口径）
 static char wm_dnd_src[WM_DND_PAYLOAD_MAX];
 static int wm_dnd_src_len, wm_dnd_src_allowed, wm_dnd_src_done, wm_dnd_src_action;
@@ -9305,7 +9346,7 @@ static void wm_dnd_set_payload(const char *data, int len) {
   wm_dnd_buf_len = len;
 }
 
-// 线形状编码 `[kind:i32 LE][body]`（与 core 的 drag_encode 同一条编码）
+// 线形状编码 `[kind:i32 LE][body]`（与 widget 的 drag_encode 同一条编码）
 static int wm_dnd_encode(char *out, int cap, int kind, const char *body,
                          int blen) {
   if (cap < 4 || blen > cap - 4 || blen < 0) {
@@ -10224,6 +10265,7 @@ void wm_window_origin(int64_t id, int32_t *out_x, int32_t *out_y) {
 
 void wm_window_set_size(int64_t id, int w, int h) { (void)id; (void)w; (void)h; }
 void wm_window_set_fullscreen(int64_t id, int on) { (void)id; (void)on; }
+void wm_window_toggle_fullscreen(int64_t id) { (void)id; }
 int wm_window_surface_count(int64_t id) {
   (void)id;
   return 0;

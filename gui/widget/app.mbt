@@ -1,8 +1,8 @@
 // App 宿主：把「窗口 + 事件循环 + 控件树 + 输入法通道 + 上屏」收成一处，
-// 分层依据方案 §2 包表（App/Window、脏区重绘、命中测试、组件宿主同在 `core`）。
+// 分层依据方案 §2 包表（App/Window、脏区重绘、命中测试、组件宿主同在 `widget`）。
 //
-// 一条重要的分层约束：`input` 已经依赖 `core`，所以本包**不能**反向依赖
-// input（会成环）。编辑器与宿主的接缝因此做成控件回调形态——`on_key` /
+// 一条重要的分层约束：`input` 只依赖 `base`、与本包互不引用，所以编辑器与
+// 宿主的接缝做成控件回调形态——`on_key` /
 // `on_commit` / `on_preedit` / `im_context` / `im_cursor` 五者由持有 Editor 的
 // 控件自己实现，宿主只负责按焦点投递与喂系统输入法通道。这正是 G5b 记档的
 // `TextEditorHost` 收口形态（四签名 process_key/commit/preedit/set_cursor_rect
@@ -36,6 +36,8 @@ pub(all) struct App {
   mut canvas : @render.Bitmap?
   /// 窗口级按键兜底通道（见 `App::add_key_fallthrough`）
   key_fallthrough : Array[(KeyEvent) -> Bool]
+  /// macOS 系统档默认加速键的开关（见 `App::set_system_keys`）
+  mut system_keys : Bool
 }
 
 ///|
@@ -52,11 +54,12 @@ pub fn App::add_key_fallthrough(self : App, f : (KeyEvent) -> Bool) -> Unit {
 }
 
 ///|
-/// W32 便捷：把组合键字符串（"Ctrl+S" / "Alt+Shift+Tab" 等）绑到回调上。
-/// 走的是同一条 `key_fallthrough` 通道，只在解析命中时调用 `cb`。
-/// 解析失败的 spec 会被静默忽略（回调永不触发），不阻断注册流程。
+/// W32 便捷：把组合键字符串（"Ctrl+S" / "Alt+Shift+Tab" / "CmdOrCtrl+S" 等）
+/// 绑到回调上。走的是同一条 `key_fallthrough` 通道，只在解析命中时调用 `cb`。
+/// `CmdOrCtrl` 按平台落地（macOS 是 Cmd、其余是 Ctrl），词表与全局热键、菜单
+/// 加速键同一套。解析失败的 spec 会被静默忽略（回调永不触发），不阻断注册流程。
 pub fn App::bind_combo(self : App, spec : String, cb : () -> Unit) -> Unit {
-  match parse_combo(spec) {
+  match parse_combo(spec, mac=@shell.platform_is_macos()) {
     Some((mods, keysym)) => self.add_key_fallthrough(fn(ev : KeyEvent) -> Bool {
       if match_combo(ev, mods, keysym) {
         cb()
@@ -66,6 +69,71 @@ pub fn App::bind_combo(self : App, spec : String, cb : () -> Unit) -> Unit {
       }
     })
     None => ()
+  }
+}
+
+///|
+/// 系统档默认加速键的开关（默认开）。宿主内置这三条**只在 macOS**：本栈没有
+/// 原生应用菜单，而 Cmd+Q / Cmd+W / Ctrl+Cmd+F 在别的 mac 软件里都由菜单给，
+/// 缺了就是「连 Cmd+Q 都退不出去」。Linux 的 Super、Windows 的 Win 键各有桌面
+/// 归属，不抢——那两档上本函数什么都不做。应用要自己接管这些组合时关掉。
+pub fn App::set_system_keys(self : App, on : Bool) -> Unit {
+  self.system_keys = on
+}
+
+///|
+/// 系统档加速键的**动作号**（纯函数，平台读数由参数给）：0 无 / 1 退出 /
+/// 2 关本窗 / 3 翻全屏。mods 按全等比——多按一个 Shift 不算命中。非 macOS
+/// 一律 0：Linux 的 Super、Windows 的 Win 各有桌面归属，不该被应用抢。
+fn system_key_action(
+  mods : Int,
+  keysym : Int,
+  press : Bool,
+  is_mac : Bool,
+) -> Int {
+  if !press || !is_mac {
+    return 0
+  }
+  let cmd = @base.MOD_META
+  let cmd_ctrl = @base.MOD_META | @base.MOD_CTRL
+  if mods == cmd && keysym == keysym_of_name("q") {
+    1
+  } else if mods == cmd && keysym == keysym_of_name("w") {
+    2
+  } else if mods == cmd_ctrl && keysym == keysym_of_name("f") {
+    3
+  } else {
+    0
+  }
+}
+
+///|
+/// 系统档加速键派发：在焦点链与兜底通道**之前**问一次（系统级动作不该被
+/// 页面控件抢走）。
+fn App::fire_system_keys(self : App, kev : KeyEvent) -> Bool {
+  if !self.system_keys {
+    return false
+  }
+  let act = system_key_action(
+    kev.mods,
+    kev.keysym,
+    kev.press,
+    @shell.platform_is_macos(),
+  )
+  match act {
+    1 => {
+      self.quit()
+      true
+    }
+    2 => {
+      self.close_window()
+      true
+    }
+    3 => {
+      self.session.window.toggle_fullscreen()
+      true
+    }
+    _ => false
   }
 }
 
@@ -130,6 +198,7 @@ fn app_window(
         key_fallthrough: [],
         dirty_rect: None,
         dirty_full: false,
+        system_keys: true,
       }
       host_add_app(app)
       install_host_hooks()
@@ -152,6 +221,7 @@ pub fn test_app(s : @shell.Session) -> App {
     key_fallthrough: [],
     dirty_rect: None,
     dirty_full: false,
+    system_keys: true,
   }
 }
 
@@ -638,6 +708,10 @@ fn App::route(self : App, ev : @win.InputEvent) -> Unit {
             }
           }
         }
+        return ()
+      }
+      // 系统档加速键（mac 的 Cmd+Q/W、Ctrl+Cmd+F）排在焦点链与兜底之前
+      if self.fire_system_keys(kev) {
         return ()
       }
       // Tab / Shift+Tab 由宿主消费并驱动焦点栈（GTK 可能给 ISO_Left_Tab）

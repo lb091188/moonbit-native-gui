@@ -1,6 +1,6 @@
 // 全局快捷键跨平台门面（W22：托盘 / 通知 / 热键三族门面统一的最后一族）。
 //
-// 形态对齐另两族（`core/tray.mbt` / `core/notify.mbt`）：
+// 形态对齐另两族（`shell/tray.mbt` / `shell/notify.mbt`）：
 //   ① 探测函数 `hotkey_supported()`——不支持时调用方藏 UI，不把失败当成功；
 //   ② 结构化错误 `HotkeyError{Unsupported, Failed(String)}`——绝不静默失效；
 //   ③ 泵钩子 `hotkey_poll()`——宿主每帧/每拍调一次，命中给 `Hotkey`。
@@ -82,7 +82,7 @@ pub fn hotkey_register(spec : String) -> Result[Hotkey, HotkeyError] {
   if !hotkey_supported() {
     return Err(Unsupported)
   }
-  let is_mac = @sys.sys_platform() == "macos"
+  let is_mac = platform_is_macos()
   match @win.parse_accelerator(spec, is_mac) {
     None => Err(Failed("加速串无法解析：\{spec}"))
     Some(hk) =>

@@ -126,7 +126,8 @@ Linux 列带 **X11** 的格只在 X11 会话成立，带 **DE** 的格行为随�
 | 窗口级按键兜底通道 | ✅ | ✅ | 🚧 |
 | 按键抬起投递（`on_key_release` 声明制；`on_key`/兜底通道永不收抬起） | ✅ | ✅ | ✅ |
 | 输入法焦点门（焦点控件绑定；fcitx5 两层回证——filter 门 + focus_in/out 同步） | 🚧 | ✅ | 🚧 |
-| 组合键解析与 bind_combo 便捷口 | ✅ | ✅ | ✅ |
+| 组合键解析与 bind_combo 便捷口（`CmdOrCtrl` 按平台落 Ctrl/Cmd，词表与全局热键同源） | ✅ | ✅ | ✅ |
+| macOS 系统档默认加速键（Cmd+Q 退出 / Cmd+W 关本窗 / Ctrl+Cmd+F 翻全屏；`App::set_system_keys` 可关） | — | — | 🚧 |
 | 通用双击/三击检测（ClickTracker 挂 Widget） | ✅ | ✅ | ✅ |
 | 上屏帧缓冲所有权 | 🚧 | ✅ | ❌ |
 | 模块拆分 | ✅ | ✅ | ✅ |
