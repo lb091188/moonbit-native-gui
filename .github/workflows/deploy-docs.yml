@@ -8,14 +8,14 @@ name: Deploy docs to Cloudflare Pages
 #
 # B. 本工作流(wrangler 部署):先在 CF 建好 Pages 项目,并在仓库
 #    Settings → Secrets 配 CLOUDFLARE_API_TOKEN 与 CLOUDFLARE_ACCOUNT_ID,
-#    然后手动 dispatch;project 名默认 moonbit-libyue-docs。
+#    然后手动 dispatch;project 名默认 moonbit-native-gui。
 
 on:
   workflow_dispatch:
     inputs:
       project:
         description: 'Cloudflare Pages project name'
-        default: 'moonbit-libyue-docs'
+        default: 'moonbit-native-gui'
 
 jobs:
   deploy:

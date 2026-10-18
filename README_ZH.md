@@ -82,7 +82,7 @@ MoonBit 生态的 GUI 能力各有分工：[MoUI](https://github.com/wzzc-dev/Mo
 
 ## 快速开始
 
-刚接触 MoonBit？[文档站](https://moonbit-libyue.pages.dev/zh/) 覆盖工具链与第一个窗口。前置是 MoonBit 原生工具链。
+刚接触 MoonBit？[文档站](https://moonbit-native-gui.pages.dev/zh/) 覆盖工具链与第一个窗口。前置是 MoonBit 原生工具链。
 
 ```sh
 moon add NoahLiu/native-gui
@@ -108,7 +108,7 @@ moon run examples/browser        # 内嵌 WebView 浏览器
 
 ## 文档导航
 
-📚 **在线文档**：<https://moonbit-libyue.pages.dev/>，中文版在 [`/zh/`](https://moonbit-libyue.pages.dev/zh/)。
+📚 **在线文档**：<https://moonbit-native-gui.pages.dev/>，中文版在 [`/zh/`](https://moonbit-native-gui.pages.dev/zh/)。
 
 | 文档 | 内容 |
 |---|---|

@@ -10,7 +10,7 @@
 
 - **代码/文档侧已就绪**:0.1.1 相关改动全部已提交并推送(§3);剩下的是**执行动作**——mooncakes 重发(§1)与文档站部署/域名决定(§2)。
 - **mooncakes 顺序**:先发 `yoga-mbt 0.1.1`,等构建转绿,再发 `native-gui 0.1.1`;可选首发布 `gui-media`、`gui-examples` 0.1.0。**必须在已登录 mooncakes 的环境执行**(Windows 工作机无凭据)。
-- **文档站**:线上还是旧内容(页头仍 `moonbit-libyue`、包清单未含 `style`),待部署;CF 的 `*.pages.dev` 域名在**创建项目时定死,改项目名不会换域名**(已实测)——要换域名 = 新建目标名项目(或挂自定义域),或接受现域名(§2)。
+- **文档站**:已迁至 **`moonbit-native-gui.pages.dev`**(2026-10-18 新建同名 Pages 项目,Git 集成推送 master 自动部署);旧项目(`moonbit-libyue.pages.dev`)已整体删除,名字与域名均已释放(§2)。
 - **勿动**:工作区有进行中的未提交改动(拖拽实现与探针),不要 `git add -A`、不要清理(§4)。
 
 ## 1. mooncakes 重发(待执行)
@@ -56,11 +56,12 @@ cd modules/gui-examples && moon publish
 
 ## 2. 文档站(Cloudflare Pages)善后(待决定)
 
-### 2.1 现状
+### 2.1 现状(2026-10-18 更新)
 
-- 线上:`https://moonbit-libyue.pages.dev/`(可访问,中文在 `/zh/`);**内容是较早一版**(页头仍是 `moonbit-libyue`、首页包清单未含 `style`)——最近几批文档提交**还没有部署上去**。
-- CF 项目名已被重命名过(域名没变),**改后的实际项目名以 CF 后台「Workers & Pages」列表为准**(建议顺手记进本文件)。
-- 看上次部署来源与时间:CF 后台 → 项目 → Deployments 列表(能看出是 Git 集成 / 直接上传 / 工作流)。
+- 线上:**`https://moonbit-native-gui.pages.dev/`**(中文在 `/zh/`);新项目 `moonbit-native-gui` 走 **Git 集成(路线 A)**:Root directory = `docs`、框架预设 VitePress、输出 `.vitepress/dist`、生产分支 `master`,推送 master 自动部署。
+- 旧项目(创建名 `moonbit-libyue`,后被改名为 `moonbit-native-gui` 占住新名,域名始终 `moonbit-libyue.pages.dev`)已于 2026-10-18 **整体删除**(522 条部署逐条清后删项目;活跃 Production 部署单条不可删,error 8000034,随项目删除一并消失)。**旧域名现为死链**。
+- §2.4 的仓库链接同步已随本批完成;演示文本内的旧域名引用(`experiment/paint_probe/main.mbt:103`,§4 勿动项)现为死链,处理方式待定。
+- 首次部署曾因 VitePress 死链构建失败:`THIRD-PARTY-NOTICES.md` 在 `docs/` 源目录外;已以副本入 `docs/public/`、中英 build.md 改链站点根修复(副本为有意双份,同 `VENDOR_BASES` 先例)。
 
 ### 2.2 为什么「改了项目名,域名没变」
 
@@ -80,7 +81,7 @@ cd modules/gui-examples && moon publish
 - **B. 仓库工作流**:GitHub → Actions → `Deploy docs to Cloudflare Pages` → Run workflow(project 填实际项目名);需仓库 Secrets 已配 `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`。
 - **C. 本地 wrangler**:`cd docs && npm install && npm run build && npx wrangler pages deploy .vitepress/dist --project-name=<实际项目名>`。
 
-### 2.4 若换域名/新项目,仓库要同步的位置
+### 2.4 若换域名/新项目,仓库要同步的位置(已执行,2026-10-18)
 
 1. `README.md` 第 81、105 行;`README_ZH.md` 第 81、105 行(文档站链接)
 2. `gui/README.md` 第 43 行(**会进 mooncakes 包页 → 若换域名,理想顺序:先改链接、再发 native-gui,包页一次到位**)
@@ -115,7 +116,7 @@ cd modules/gui-examples && moon publish
 ## 5. 待决清单
 
 - [ ] mooncakes 重发执行(§1;Windows 机发不了,换已登录环境)。
-- [ ] 文档站路线三选一(§2.2)+ 部署一次;若换域名,先同步 §2.4 再发 native-gui。
+- [x] 文档站已迁新域名(2026-10-18):新建 `moonbit-native-gui` 项目(路线 A Git 集成)+ 删旧项目;§2.4 已同步。剩:演示文本内旧域名死链处理待定。
 - [ ] 发布完成后:回写 `TODO.md` 的重发链条目,并把本文件的「待执行」状态改掉。
 
 ## 6. 参考

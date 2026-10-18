@@ -82,7 +82,7 @@ Two kinds of "optional" are at work: a sub-package you do not import costs nothi
 
 ## Quick start
 
-New to MoonBit? The [documentation site](https://moonbit-libyue.pages.dev/) covers the toolchain and your first window. The prerequisite is the MoonBit native toolchain.
+New to MoonBit? The [documentation site](https://moonbit-native-gui.pages.dev/) covers the toolchain and your first window. The prerequisite is the MoonBit native toolchain.
 
 ```sh
 moon add NoahLiu/native-gui
@@ -108,7 +108,7 @@ moon run examples/browser        # embedded WebView browser
 
 ## Documentation
 
-📚 **Online docs**: <https://moonbit-libyue.pages.dev/> — Chinese version at [`/zh/`](https://moonbit-libyue.pages.dev/zh/).
+📚 **Online docs**: <https://moonbit-native-gui.pages.dev/> — Chinese version at [`/zh/`](https://moonbit-native-gui.pages.dev/zh/).
 
 | Document | Content |
 |---|---|
