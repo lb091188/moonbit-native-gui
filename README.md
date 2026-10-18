@@ -20,7 +20,7 @@ English | [简体中文](https://github.com/lb091188/moonbit-native-gui/blob/mas
 
 **🎨 Self-drawn rendering pipeline** — no Skia-class engine dependency; widgets look the same on every platform, light/dark mode and the system accent colour are followed by default, and the theme is fully customizable.
 
-**📊 A complete widget set** — five general chart types (line / bar / pie / gauge / scatter), plus specialised charts such as radar, heatmap, candlestick, funnel, boxplot, sankey, tree, treemap, sunburst and map, with a cross-cutting interaction layer. The Markdown view, the embedded WebView and the self-drawn widgets share one rasterizer and one layout tree.
+**📊 A complete widget set** — five general chart types (line / bar / pie / gauge / scatter), plus specialised charts such as radar, heatmap, candlestick, funnel, boxplot, sankey, tree, treemap, sunburst and map, with a cross-cutting interaction layer. The Markdown view and the self-drawn widgets share one rasterizer and one layout tree; the embedded WebView (optional module `gui-webview`) hosts native WebKit / WebView2 surfaces inside the same windows.
 
 **📝 Declarative UI and reactive state** — the interface is described as a tree and mounted in one `mount_window` call; state lives in `Store` / `Signal`, and bound spots refresh with the data:
 

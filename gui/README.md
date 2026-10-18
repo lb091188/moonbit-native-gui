@@ -11,9 +11,9 @@ A **lightweight cross-platform desktop GUI framework for MoonBit** — native-di
 - **Self-drawn widgets, one look everywhere** — the library's own rasterizer draws every control, so rendering is identical across platforms; light/dark mode and the system accent colour are followed by default, and a theme is a plain value you can override.
 - **Declarative UI with reactive state** — describe the interface as a tree of `@widget.Node` values and mount it with one `mount_window` call; keep state in `Store` / `Signal` and bound spots refresh themselves.
 - **Desktop-grade system integration** — tray, notifications, native menus, global shortcuts, message boxes, file dialogs, drag & drop (in-app and cross-application), clipboard, autostart, idle detection and OS queries (volume, power, monitors, browser history, installed apps…) behind one `@sys` / `@shell` facade.
-- **Content batteries included** — 20 chart types with a cross-cutting interactive layer, a GFM Markdown view, multi-language code highlighting, an embedded WebView (JS interop, custom protocols, DOM capture, policy hooks) and an audio/video engine with subtitles and speed control.
+- **Content batteries included** — 20 chart types with a cross-cutting interactive layer, a GFM Markdown view and multi-language code highlighting in the box; the embedded WebView (JS interop, custom protocols, DOM capture, policy hooks) and the audio/video engine (subtitles, speed control) live in the optional modules `gui-webview` / `gui-media`.
 - **Honest degradation** — every capability family exposes a probe and returns a structured `Unsupported` / `NotFound` on environments that lack it, instead of crashing or pretending success.
-- **Pay only for what you import** — 16 packages in this module; an unimported package never enters your binary. Heavier optional capabilities (the media engine) live in their own modules, outside the default dependency closure entirely.
+- **Pay only for what you import** — 15 packages in this module; an unimported package never enters your binary. Heavier optional capabilities (the WebView and the media engine) live in their own modules, outside the default dependency closure entirely.
 
 ## Usage
 

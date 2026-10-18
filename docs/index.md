@@ -23,7 +23,7 @@ features:
   - title: Honest degradation
     details: Every capability family exposes a probe and returns a structured Unsupported / NotFound on environments that lack it, instead of crashing or pretending success.
   - title: Pay only for what you import
-    details: 16 packages in the main module — an unimported package never enters your binary; heavier capabilities live in their own modules, outside the default dependency closure.
+    details: 15 packages in the main module — an unimported package never enters your binary; heavier capabilities (the WebView, media) live in their own modules, outside the default dependency closure.
 ---
 
 ## Quick start
