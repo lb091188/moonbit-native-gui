@@ -16,13 +16,14 @@ native-gui(`NoahLiu/native-gui`): MoonBit 的跨平台桌面 GUI 框架——一
 9. **每完成一个功能或修复即提交并推送**——提交信息只写「【标签】做了什么」(如【修复】输入框焦点丢失)，一个功能一次提交；原理、原因、解释一概不写，归专门文档。
 10. **代码注释与使用文档只说内容**——只写「是什么/怎么用/怎么做」；原理、根因写进 `docs/zh/adaptation.md` 等专门文档，不在内容文档与注释里展开。
 11. **MoonBit 侧跨平台分派一律运行时探测 + 模式匹配**——禁用 `#cfg(platform=)` 等编译指令，三平台同构优先。
+12. **TODO 收口即删**——条目完成立即从 `TODO.md` 删除，不留 `[x]` 堆积；交付面同批写进 `docs/zh/roadmap.md` 对应小节（平台列 ✅=已验证 / 🚧=已合入待真机 / ❌=未做 / ⏳=待定），坑与根因归 `docs/zh/adaptation.md`。反向同理：roadmap 与 TODO 不允许互相矛盾。
 
 ## 常用命令
 
 ```sh
 moon clean                    # 清理缓存
 cd gui && moon check           # 库模块门禁:静态检查(要求零错误零警告)
-cd gui && moon test ui render text theme icons sys input win dbus chart mdview web style base shell widget   # 库测试(按包限定)
+cd gui && moon test ui render text theme icons sys input win dbus chart mdview style base shell widget   # 库测试(按包限定;web 已出模块,门禁在 modules/gui-webview)
 moon run examples/hello         # 最小窗口
 moon run examples/hello-themed  # 主题控件集
 moon run examples/showcase      # 完整演示板
