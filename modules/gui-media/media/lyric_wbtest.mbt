@@ -33,6 +33,17 @@ test "LRC 元信息与 offset" {
 }
 
 ///|
+/// 编码判据（「解不出=按空歌词」）：含 UTF-8 替换符 U+FFFD 的文本整篇作空——
+/// 那只会来自非 UTF-8 字节（GBK 老歌词最常见），不把乱码当内容画上屏。
+test "LRC 编码判据：见 U+FFFD 整篇按空歌词" {
+  let bad = lrc_parse("[ti:乱码]\n[00:01.00]\u{FFFD}\u{FFFD}武罐\n")
+  assert_eq(bad.cues.length(), 0)
+  assert_eq(bad.title, "")
+  let ok = lrc_parse("[00:01.00]普通歌词")
+  assert_eq(ok.cues.length(), 1)
+}
+
+///|
 /// 增强 LRC 的行内 `<mm:ss.xx>` 只剥标记不留时间；只有时间戳没有文本的行不进表。
 test "LRC 行内逐字标记与空文本行" {
   let l = lrc_parse(
