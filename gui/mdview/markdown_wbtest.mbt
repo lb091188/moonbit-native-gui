@@ -682,3 +682,52 @@ test {
   }
   assert_true(right > left, msg="链接色没落在链接段上")
 }
+
+///|
+test {
+  // 删除线横线要落在**被划的那几个字**上：混排行里「逐段单独量宽再累加」比整行
+  // 联合排版窄（CoreText 把行尾的全角标点按压缩 advance 计，mac 真机横线因此左偏
+  // 11px 压在「粗斜体、」上，Linux 同向但幅度小）。判据用像素：横线段的起点要
+  // 等于组件自报的「删除线之前那段」的联合行宽。
+  let size = 13.0
+  let src =
+    "支持 **粗体**、*斜体*、***粗斜体***、~~删除线~~、`行内代码` 与 链接"
+  let spans = md_flat_par(src)
+  let root = mount_doc(md_rich_label(spans, size, md_test_ctx()), 560.0, 40.0)
+  let bm = @render.Bitmap::new(560, 40)
+  let p = @render.Painter::new(bm)
+  root.paint(p)
+  p.end()
+  // 最长连续横run 所在行即删除线
+  let mut best = 0
+  let mut bx0 = 0
+  for y = 0; y < 40; y = y + 1 {
+    let mut run = 0
+    for x = 0; x < 560; x = x + 1 {
+      if bm.pixel(x, y).a > 40 {
+        run = run + 1
+        if run > best {
+          best = run
+          bx0 = x - run + 1
+        }
+      } else {
+        run = 0
+      }
+    }
+  }
+  assert_true(best > 20, msg="没找到删除线横线（best run=\{best}）")
+  // 期望起点：只挂「删除线之前」的那些段，读组件自报的行宽（联合量出来的）
+  let pre : Array[MDSpan] = []
+  for sp in spans {
+    if sp.strike {
+      break
+    }
+    pre.push(sp)
+  }
+  let pre_root = mount_doc(md_rich_label(pre, size, md_test_ctx()), 560.0, 40.0)
+  let pre_w = pre_root.children()[0].rect.w
+  assert_true(
+    (bx0.to_double() - pre_w).abs() <= 2.0,
+    msg="删除线起点 \{bx0} 不在被划字段的起点 \{pre_w} 上（偏左 \{pre_w - bx0.to_double()}）",
+  )
+}

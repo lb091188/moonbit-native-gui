@@ -790,14 +790,36 @@ fn md_rich_label(
 
   // 单元测宽:一次折行要测几十上百个单元,同名单元走本地缓存
   let wcache : Map[String, Double] = Map([])
+  // 段宽要按「它在行中」量，不能按「它孤零零在行尾」量：CoreText 给行尾的全角
+  // 标点一个压缩后的 advance（mac 实测「支持、」33、「支持、斜体」65——同一个
+  // 「、」差 6px），而单独量一段正是行尾形态，于是逐段累加比整行联合窄：折行
+  // 会超宽、删除线横线与链接命中会整体左偏。做法：段尾补一个中性汉字再减掉它
+  // 自己的宽，把这一段还原成「后面还有字」的行中形态。
+  let sent_cache : Map[String, Double] = Map([])
+  fn sent_w(font : @text.Font, tag : String) -> Double {
+    match sent_cache.get(tag) {
+      Some(v) => v
+      None => {
+        let v = match @text.measure_font("中", font, wrap=false) {
+          Some(m) => m.width.to_double()
+          None => 0.0
+        }
+        sent_cache.set(tag, v)
+        v
+      }
+    }
+  }
+
   fn unit_w(unit : String, span : MDSpan) -> Double {
-    let key = font_tag(span) + "@" + unit
+    let tag = font_tag(span)
+    let key = tag + "@" + unit
     match wcache.get(key) {
       Some(v) => v
       None => {
-        let v = match @text.measure_font(
-          unit,
-          font_of(span),
+        let f = font_of(span)
+        let full = match @text.measure_font(
+          unit + "中",
+          f,
           max_width=0,
           ellipsize=false,
           wrap=false,
@@ -805,6 +827,7 @@ fn md_rich_label(
           Some(m) => m.width.to_double()
           None => 0.0
         }
+        let v = (full - sent_w(f, tag)).max(0.0)
         wcache.set(key, v)
         v
       }
@@ -887,18 +910,35 @@ fn md_rich_label(
     at
   }
 
+  /// 段起点与段宽按**整行联合排版**量（拿真正绘制用的那份 AttributedText 量
+  /// 前缀），不按逐段宽度累加：换字体的边界上，一段单独量的宽与它在混排行里
+  /// 占的宽不一致（mac 真机 13 号混排行实测累加比联合窄 11px），按累加值画的
+  /// 删除线横线与按它命中的链接区间会整体错位、压在前一段字上。
+  fn joint_w(line : Array[MDSpan], upto : Int) -> Double {
+    if upto <= 0 {
+      0.0
+    } else {
+      let head : Array[MDSpan] = []
+      for i = 0; i < upto; i = i + 1 {
+        head.push(line[i])
+      }
+      build_at(head).get_bounds_for(0.0, 0.0).width
+    }
+  }
+
   fn geo(line : Array[MDSpan]) -> MDLine {
     let xs : Array[Double] = []
     let ws : Array[Double] = []
-    let mut x = 0.0
-    for sp in line {
-      let w = unit_w(sp.text, sp)
-      xs.push(x)
-      ws.push(w)
-      x += w
+    let n = line.length()
+    for i in 0..<n {
+      let a = joint_w(line, i)
+      let b = joint_w(line, i + 1)
+      xs.push(a)
+      ws.push((b - a).max(0.0))
     }
-    let lw = if x < 1.0 { 1.0 } else { x }
-    { spans: line, xs: xs, ws: ws, w: lw, at: build_at(line) }
+    let lw = joint_w(line, n)
+    let w = if lw < 1.0 { 1.0 } else { lw }
+    { spans: line, xs: xs, ws: ws, w: w, at: build_at(line) }
   }
 
   let rows : Array[MDLine] = []
