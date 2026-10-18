@@ -9075,14 +9075,24 @@ int wm_tray_tooltip(int slot, char *out, int cap) {
 // SDK 里的 NSUserNotification 一档（deprecated 但可用），`kind` 只映射到
 // 提示音：>=2 响一声，其余静默（mac 没有「进度/严重程度」的原生对位）。
 //
-// 一条待真机确认的口径：非 bundle 进程投递的通知可能被系统丢弃。这里
-// 如实返回槽号（表示「已交给系统」），是否弹出由 `docs/zh/adaptation.md`
-// 的 macOS 复验清单目视定。
+// 投递前提是**进程跑在 .app bundle 里**（`wm_notify_supported` 按它如实回答，
+// 打包口 `scripts/make_app.sh`）；换 UserNotifications.framework 那条现代路要
+// bundle + 用户授权，且非 bundle 进程调 `currentNotificationCenter` 是直接
+// abort（探针回证），比现在这条更挑运行形态。
 
 static NSUserNotification *wm_notifs[WM_MAX_TRAYS];
 
 int wm_notify_supported(void) {
   @autoreleasepool {
+    // 探针回证（本机 macOS 26.5）：这一档只认**从 .app bundle 里跑的进程**——
+    // 裸二进制的 deliverNotification: 被系统静默丢弃（连 didDeliver/didFail 都
+    // 不回调），同一个二进制放进带 CFBundleIdentifier 的 bundle 里立刻投递。
+    // 所以「有没有后端」按进程形态如实回答：没打包就是没有，别让门面拿着
+    // 「已交给系统」的槽号冒充发出去了（真机反馈：mac 通知没影）。
+    // 打包口：scripts/make_app.sh。
+    if ([[NSBundle mainBundle] bundleIdentifier] == nil) {
+      return 0;
+    }
     return [NSUserNotificationCenter defaultUserNotificationCenter] != nil ? 1
                                                                            : 0;
   }

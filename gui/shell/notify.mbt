@@ -87,7 +87,14 @@ pub fn notify_backend() -> NotifyBackend? {
 pub fn notify_backend_name() -> String {
   match notify_backend() {
     Some(Dbus) => "dbus"
-    Some(WinBalloon) => "win-balloon"
+    // macOS 的实现也住 win 桩的 `wm_notify_*`（NSUserNotification），照枚举名
+    // 报「win-balloon」是误导——按平台读数报真名，状态行与诊断都吃这个。
+    Some(WinBalloon) =>
+      if platform_is_macos() {
+        "ns-user-notification"
+      } else {
+        "win-balloon"
+      }
     None => "none"
   }
 }
