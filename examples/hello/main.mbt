@@ -11,7 +11,7 @@ fn main {
           @ui.text("Hello, MoonBit!", font_size=18.0),
           @ui.text("你好，月兔！", font_size=18.0),
           @ui.text("Built with native-gui on MoonBit", role=@ui.Secondary),
-          @ui.link("mooncakes.io", fn() {
+          @ui.link("view on mooncakes.io", fn() {
             let _ = @sys.open_url("https://mooncakes.io")
           }),
         ],
