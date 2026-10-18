@@ -3,7 +3,7 @@ layout: home
 hero:
   name: native-gui
   text: MoonBit 轻量跨平台桌面 GUI 框架
-  tagline: 窗口原生直连、渲染管线自绘、界面组件齐全、系统接口完备。一份 MoonBit 代码,Windows / Linux 原生窗口,moon add 之后零配置。
+  tagline: 窗口原生直连、渲染管线自绘、界面组件齐全、系统接口完备。一份 MoonBit 代码直出 Windows 🟩 / Linux 🟩 原生窗口,macOS 🟨 已合入 master(真机验证收口中),moon add 之后零配置。
   actions:
     - theme: brand
       text: 包结构
@@ -13,11 +13,11 @@ hero:
       link: https://github.com/lb091188/moonbit-native-gui
 features:
   - title: 自绘控件,一套主题走全平台
-    details: 窗口、像素、事件循环、布局与控件全部纯 MoonBit 实现,各平台外观一致,并跟随系统主色强调色与明暗模式。
+    details: 窗口、像素、事件循环、布局与控件全部纯 MoonBit 实现,三平台外观一致;深浅色与系统强调色默认跟随。
   - title: 按需引入
-    details: core / ui / render / text / theme / icons / sys / input / win / dbus / chart / mdview / web / style 各自独立成包,用不到的包不进二进制。
+    details: base / shell / widget / ui / render / text / theme / icons / sys / input / win / dbus / chart / mdview / style 各自独立成包,用不到的包不进二进制。
   - title: 平台差异库内消化
-    details: 托盘、自启动、电源、音量、媒体按键等统一 API,Linux / Windows 差异由库吸收。
+    details: 托盘、自启动、电源、音量、媒体按键等统一 API,Windows / Linux 差异由库吸收。
 ---
 
 ## 快速开始

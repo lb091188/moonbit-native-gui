@@ -16,13 +16,13 @@ MoonBit 的**轻量跨平台桌面 GUI 框架**——窗口原生直连、渲染
 | 库 | `moon add NoahLiu/native-gui`——16 个子包（G9 Batch 2 拆出 base/shell/widget，core 为迁移期门面），另有 gui-media、gui-webview、gui-examples 三个可选独立模块 |
 | 示例 | `hello` 最小窗口、`hello-themed` 主题控件集、`showcase` 全功能演示板 |
 | 文档 | 中英双语文档站与各包文档，见[文档索引](README.md) |
-| CI | Linux 与 Windows 两条 job 每次推送全绿：库包测试、构建、虚拟显示下启动冒烟 |
+| CI | Linux / Windows / macOS 三条 job 每次推送全绿：库包测试、构建、启动冒烟（Linux 虚拟显示、macOS 登录会话） |
 
 ## 平台现状
 
-- **Linux**：X11 为主链路；Wayland 会话可运行，依赖 X11 的能力按会话探测降级。兼容跨度 **deepin 20 ~ Ubuntu 26**，工具包**留守 GTK3**（理由见「明确不做」）。
-- **Windows**：能力族已验，CI 覆盖；真机验证矩阵部分待核。
-- **macOS**：后端在 `mac` 分支落地中，**尚未合流 master**；master 上走占位实现，门面一律给 `Unsupported`。合流前置是真机验证收口。
+- **Linux 🟩**：X11 为主链路；Wayland 会话可运行，依赖 X11 的能力按会话探测降级。兼容跨度 **deepin 20 ~ Ubuntu 26**，工具包**留守 GTK3**（理由见「明确不做」）。
+- **Windows 🟩**：能力族已验，CI 覆盖；真机验证矩阵部分待核。
+- **macOS 🟨**：后端已合流 master（CI 三平台全绿回证）；真机目视验证收口中（Retina 观感、输入法内联、拖窗循环、多屏读数、通知授权等），收口前不纳入对外承诺。
 
 ## Linux 兼容档位
 
@@ -269,7 +269,7 @@ Linux 列带 **X11** 的格只在 X11 会话成立，带 **DE** 的格行为随�
 
 ## 待定决策
 
-- **macOS 纳入对外承诺的时点**：前置是 mac 分支真机验证收口。
+- **macOS 纳入对外承诺的时点**：前置是真机验证收口。
 - **稳定面清单与 1.0 时点**：逐包划分承诺面 / 实验面后，本文与各包文档同步。
 
 ## 明确不做

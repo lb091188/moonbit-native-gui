@@ -2,16 +2,25 @@
 
 The system-capability API family: system volume, application lookup, night-light color temperature, wallpaper, monitor configuration, system window management, clipboard watching, subprocess execution, power plans, system information, printers, environment variables, directory enumeration, recent files, browser bookmarks and Firefox history, VS Code local history. All are read-only or write through an authorized system service. Every call returns a `Result`; unsupported environments yield the corresponding error value instead of crashing. Each `*_supported()` call really probes the current environment.
 
-## Platform Status (2026-10-14, after platform batches ①-⑥)
+## Platform Status (2026-10-15, after mac platform batches ①-⑤)
+
+> **🚧 wired** in the macOS column = the code landed on `mac` (now merged into master) and the CI macOS job proves it compiles and links; **real-machine visual/readout evidence is still pending** (checklist in the T section of `_人工测试清单.md`). **❌ Unsupported** = deliberately not done in this batch, and the facade says so honestly. Neither means "broken".
 
 | Capability | Windows | Linux | macOS |
 |---|---|---|---|
-| clipboard / autostart / subprocess / files (fsx) / env vars (envx) | ✅ direct call | ✅ | ❌ Unsupported |
-| system info / window management / wallpaper / power plans / launcher | ✅ direct call | ✅ | ❌ |
-| app lookup / recent files / volume / printers (list+default+print) | ✅ direct call | ✅ | ❌ |
-| browser/vscode data | ✅ (LOCALAPPDATA paths) | ✅ | ❌ |
-| sysmonitor process data | ✅ (ships its own stub/sysmon.c) | ✅ | ❌ |
-| night-light color temperature (redshift/xrandr command line) | ❌ no public API | ✅ | ❌ |
+| clipboard / autostart / subprocess / files (fsx) / env vars (envx) | ✅ direct call | ✅ | 🚧 wired (pbpaste/pbcopy + NSPasteboard stub; LaunchAgents plist + `launchctl load/unload`) |
+| system info / wallpaper / launcher (open & reveal) | ✅ direct call | ✅ | 🚧 wired (`sw_vers`/`ioreg`/`sysctl` + in-stub `host_statistics64`/`kern.boottime`; osascript desktop picture, main display only; `open` / `open -R`) |
+| volume / printers (list+default+print) | ✅ direct call | ✅ | 🚧 wired (osascript `volume settings`; the sink name is given as empty per contract when unavailable; macOS ships CUPS, same `lpstat`/`lp` path as Linux — a declared choice, not a leaked Linux branch) |
+| user idle detection | ✅ direct call | ✅ | 🚧 wired (`CGEventSourceSecondsSinceLastEventType`, HID system state — no accessibility permission needed) |
+| app lookup | ✅ direct call | ✅ | 🚧 wired (`.app` bundle scan + public keys of `Contents/Info.plist`; `categories` and the localized name have no public equivalent, given as empty / fallback) |
+| recent files | ✅ direct call | ✅ | ❌ Unsupported (sharedfilelist is a private format; a later batch) |
+| window management / power plans | ✅ direct call | ✅ | ❌ Unsupported (Accessibility needs prior user consent / `pmset` does not map to the three-value scheme semantics) |
+| browser/vscode data | ✅ (LOCALAPPDATA paths) | ✅ | ✅ (`Library/Application Support/<vendor>/<product>` paths, synced back in platform batches ①-⑥) |
+| sysmonitor process data | ✅ (ships its own stub/sysmon.c) | ✅ | not touched this batch (the example module ships its own stub; mac path pending per that module's stub comments) |
+| night-light color temperature (redshift/xrandr command line) | ❌ no public API | ✅ | ❌ no public API (CoreBrightness is private) |
+| monitor enumeration (monitor) | ❌ | ✅ (xrandr) | 🚧 wired (CoreGraphics direct calls: `CGGetOnlineDisplayList` / `CGDisplayBounds` / `CGDisplayCopyAllDisplayModes`; online displays only, names given as `Built-in` / `Display-<id>`; readings are always physical pixels, so `MonitorInfo` needs no scale field) |
+
+The public macOS entry points and underlying calls (🚧 wired items): `open`/`open -R`, `sw_vers`, `ioreg -rd1 -c IOPlatformExpertDevice`, `sysctl hw.model/hw.memsize/kern.boottime`, `osascript` (System Events `volume settings` and desktop picture), `launchctl load/unload` + `~/Library/LaunchAgents/*.plist`, `lpstat`/`lp`, plus in-stub `host_statistics64`, `CGEventSourceSecondsSinceLastEventType`, `CGGetOnlineDisplayList`/`CGDisplayBounds`/`CGDisplayCopyDisplayMode`/`CGDisplayCopyAllDisplayModes`/`CGDisplayScreenSize`.
 
 The Windows direct calls under the hood: SystemParametersInfoW (wallpaper), ShellExecuteW (launch/reveal/print), PowerGet/SetActiveScheme, the registry (product and DMI info), GlobalMemoryStatusEx, GetTickCount64, EnumWindows, EnumPrintersW, IAudioEndpointVolume (COM), GetLastInputInfo. For pitfalls and header/link requirements, see the platform-batch entries in [adaptation.md](adaptation.md).
 
@@ -46,13 +55,13 @@ let _ = @sys.vol_set_mute(false)
 
 ## Application Lookup
 
-Two parts: the installed-app inventory and the app binary lookup. Linux scans XDG `.desktop` entries; the user directory overrides the system directory. Windows recursively scans the Start Menu (user-level + machine-wide) for `.lnk` files — an entry's exec is the full lnk path, directly launchable via ShellExecute, and categories is marked `StartMenu`. macOS is `Unsupported`.
+Two parts: the installed-app inventory and the app binary lookup. Linux scans XDG `.desktop` entries; the user directory overrides the system directory. Windows recursively scans the Start Menu (user-level + machine-wide) for `.lnk` files — an entry's exec is the full lnk path, directly launchable via ShellExecute, and categories is marked `StartMenu`. macOS scans `.app` bundles under `/System/Applications`, `/Applications` (each with one `Utilities` level) and `~/Applications`, reading the public keys of `Contents/Info.plist`: name from CFBundleDisplayName → CFBundleName → bundle directory name, id from CFBundleIdentifier (bundle name when missing), exec is `Contents/MacOS/<CFBundleExecutable>`, icon is `Contents/Resources/<CFBundleIconFile>` (`.icns` appended when the key has no extension, empty string when absent); binary plists or unreadable bundles still yield an entry under the bundle name instead of vanishing from the inventory. Two macOS fields are empty: `categories` (no desktop-Categories equivalent) and the localized name (it lives in `.lproj`, out of reach of public plist keys, so `locale_name` equals `name`).
 
 | Function | Description |
 |---|---|
 | `appfind_installed() -> Result[Array[AppEntry], AppFindError]` | installed-app inventory; yields `NoScanDir` when every scan directory is missing |
 | `appfind_installed_with(list_dir) -> Result[Array[AppEntry], AppFindError]` | same as above, with directory enumeration injected by the caller — for callers without an fsx layer and for tests; Linux branch only |
-| `appfind_executable(name) -> Result[String, AppFindError]` | Linux searches `~/.local/bin`, `/usr/local/bin`, `/usr/bin`, `/bin`, `/usr/sbin`, `/sbin` in order; Windows searches each `PATH` directory for name / name.exe; yields `NotFound` when nothing matches |
+| `appfind_executable(name) -> Result[String, AppFindError]` | Linux searches `~/.local/bin`, `/usr/local/bin`, `/usr/bin`, `/bin`, `/usr/sbin`, `/sbin` in order; Windows searches each `PATH` directory for name / name.exe; macOS follows each `PATH` segment (`:`-separated, absolute paths) then `~/.local/bin`, `/usr/local/bin`, `/opt/homebrew/{bin,sbin}`, `/usr/bin`, `/bin`, `/usr/sbin`, `/sbin`; yields `NotFound` when nothing matches |
 
 `AppEntry{ id, name, locale_name, exec, icon, categories }`: id is the desktop id (the .desktop filename without extension), name is the display name, locale_name is the localized name (`Name[zh_CN]` preferred, falling back to Name), exec / icon kept verbatim, categories split on semicolons. Results are deduplicated by desktop id (user directory overrides system directory) and sorted by name; entries whose Type is not Application, with NoDisplay=true, or missing Name are filtered out.
 
@@ -236,7 +245,7 @@ let _ = @sys.wp_set("/home/me/Pictures/wall.png")
 
 ## Audio/Video Playback (gui-media Optional Layer)
 
-Media playback is not in the yue core packages; it lives in the optional module `NoahLiu/gui-media` (depending on `NoahLiu/ffmpeg-mbt`):
+Media playback is not in the main module's packages; it lives in the optional module `NoahLiu/gui-media` (depending on `NoahLiu/ffmpeg-mbt`):
 
 ```moonbit
 // moon.mod import: "NoahLiu/gui-media@0.1.0"
@@ -244,6 +253,8 @@ Media playback is not in the yue core packages; it lives in the optional module 
 ```
 
 Decoding goes through the ffmpeg FFI, linked dynamically in-process; formats follow the system ffmpeg: MP3/OGG/M4A/AAC/FLAC/WAV…. Output goes straight through the embedded miniaudio device layer (s16 PCM queue, zero resampling). With no output device (CI/headless) it automatically degrades to silent while the state machine proceeds as normal.
+
+All three platforms need a system-level ffmpeg: Linux uses the distro dev packages (`apt install libav*-dev`), Windows the vendored headers and import libs in the repo (runtime DLLs placed by hand), macOS `brew install ffmpeg` (`modules/ffmpeg-mbt/prebuild.py` probes via pkg-config and exits nonzero with that one install hint when not found — the media line never silently builds a stub that "links fine but has no decoders"). The audio device backend is picked by miniaudio per platform: Linux ALSA/Pulse, Windows WASAPI, macOS CoreAudio, so on mac `gui-media` links three extra frameworks (CoreAudio/AudioToolbox/Foundation) and deliberately does **not** link `-ldl`/`-latomic` (mac's dlopen lives in libSystem, and there is no libatomic).
 
 ### AudioPlayer (browser `<audio>` counterpart)
 
@@ -307,14 +318,16 @@ Player demos: `moon run modules/gui-examples/audio` / `moon run modules/gui-exam
 
 ## Monitor Configuration
 
-Parses `xrandr --query` output, giving each output's name / connection status / current resolution × refresh rate / position / physical size / supported mode list. The refresh rate is an integer in centihertz (×100, e.g. 5995 = 59.95Hz), avoiding float comparison.
+Linux parses `xrandr --query` output and macOS calls CoreGraphics directly (the `CGGetOnlineDisplayList` family); both give each output's name / connection status / current resolution × refresh rate / position / physical size / supported mode list. Resolution and position are **physical pixels**. The refresh rate is an integer in centihertz (×100, e.g. 5995 = 59.95Hz), avoiding float parsing and comparison.
 
 | Function | Description |
 |---|---|
-| `mon_list() -> Result[Array[MonitorInfo], MonitorError]` | enumerate all outputs, including unconnected ones, preserving xrandr order |
+| `mon_list() -> Result[Array[MonitorInfo], MonitorError]` | enumerate outputs, including unconnected ones, preserving xrandr order (Linux); macOS lists online displays only |
 | `mon_current() -> Result[Array[CurrentOutput], MonitorError]` | simplified snapshot of current outputs (connected and with a current mode), without the mode list |
 
-`MonitorInfo{ name, connected, primary, width, height, refresh_centi, pos_x, pos_y, mm_width, mm_height, modes }`; `MonitorMode{ width, height, refresh_centi, preferred, current }`; `CurrentOutput{ name, width, height, refresh_centi, pos_x, pos_y }`. Error `MonitorError`: `Unsupported` (not Linux or xrandr unavailable) / `CommandFailed(String)` / `ParseFailed(String)` (no output entries at all).
+`MonitorInfo{ name, connected, primary, width, height, refresh_centi, pos_x, pos_y, mm_width, mm_height, modes }`; `MonitorMode{ width, height, refresh_centi, preferred, current }`; `CurrentOutput{ name, width, height, refresh_centi, pos_x, pos_y }`. Error `MonitorError`: `Unsupported` (Windows, or macOS with no online display found / probing on other platforms) / `CommandFailed(String)` (Linux xrandr failed to run or exited nonzero) / `ParseFailed(String)` (not a single output entry).
+
+Four macOS readout differences: `connected` is always true (macOS has no public list of "connected but switched-off" displays — offline displays simply don't appear); `name` is `Built-in` (built-in panel) or `Display-<CGDirectDisplayID>` (everything else) — the public CG API has no display name, and `NSScreen.localizedName` belongs to the ObjC side; `refresh_centi` is 0 for some modes of built-in panels (the backend reports "unknown" rather than faking a number), and `mm_width`/`mm_height` likewise default to 0; `MonitorMode.preferred` is always false — the current SDK exposes no "preferred/native mode" signal, and the current mode is not passed off as one.
 
 ```moonbit
 match @sys.mon_current() {

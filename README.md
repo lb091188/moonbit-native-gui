@@ -4,7 +4,7 @@
 
 > **On origins**: this library began as a MoonBit binding of [Cheng Zhao (zcbenz)](https://github.com/zcbenz)'s [Yue / libyue](https://github.com/yue/yue), with [Yoga](https://github.com/facebook/yoga)'s flexbox for layout. Neither is a runtime dependency now — both stay as references for behavior and sources of material. Thanks also to [MoonBit](https://github.com/moonbitlang).
 
-A cross-platform desktop GUI framework for [MoonBit](https://github.com/moonbitlang) — one MoonBit codebase produces native windows on Windows ✅ / Linux ✅, with tray, notifications, global shortcuts, file dialogs and more ready to use. Zero config after `moon add`. The macOS backend has been merged into master.
+A cross-platform desktop GUI framework for [MoonBit](https://github.com/moonbitlang) — one MoonBit codebase produces native windows on Windows 🟩 / Linux 🟩, with tray, notifications, global shortcuts, file dialogs and more ready to use. Zero config after `moon add`. macOS 🟨: the backend has been merged into master; real-machine verification is wrapping up.
 
 English | [简体中文](https://github.com/lb091188/moonbit-native-gui/blob/master/README_ZH.md)
 

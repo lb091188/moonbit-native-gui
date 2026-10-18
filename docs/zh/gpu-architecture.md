@@ -65,7 +65,7 @@ WebGPU 可用 → GPU 合成（Layer 1+2 都开）
 |---|---|---|---|
 | Windows | D3D12 | Win10 1809+（FL 11_0 实际要 20H2+） | 已承诺档全覆盖 |
 | Linux | Vulkan | Vulkan 1.1+ 驱动 | **deepin 20 待真机复验** |
-| macOS | Metal | macOS 10.15+ | mac 分支合流前不构成对外承诺 |
+| macOS | Metal | macOS 10.15+ | 真机验证收口前不构成对外承诺 |
 
 任一档缺时语义化降级到 CPU 合成，不阻断构建——这与 webview 引擎缺位时退占位、通知后端缺位时给 Unsupported 是同一档位口径。
 
