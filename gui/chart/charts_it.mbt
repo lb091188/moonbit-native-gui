@@ -91,6 +91,22 @@ fn ci_win_len(all : Array[LineSeries]) -> Int {
 }
 
 ///|
+/// 交互图的包壳（vbox）句柄：`width=0`（缺省）的语义是「铺满父宽」。壳留
+/// auto 宽时，画布那侧的 `percent(100)` 对 auto 父无解，整张图被画布的
+/// `min_width` 钳成 120px 窄带（真机 mac/Linux 同现：showcase 交互段三图全塌）。
+fn ci_it_handle(
+  width : Double,
+  handle : (@widget.Widget) -> Unit,
+) -> (@widget.Widget) -> Unit {
+  fn(w : @widget.Widget) -> Unit {
+    if width <= 0.0 {
+      w.node.set_width(@yoga.percent(100.0))
+    }
+    handle(w)
+  }
+}
+
+///|
 /// 折线/面积交互图（交互版 line_chart_t）：数据/参数语义同原图（area 面积、
 /// y_range 手动值域、show_last 末端标注）；新增：
 ///   - hover 最近点：浮层标题「第 N 点」+ 各可见序列在该点的值，并画
@@ -272,8 +288,8 @@ pub fn line_chart_it(
       ),
     ],
     row_gap=6.0,
-    width=if width > 0.0 { width } else { 0.0 },
-    handle~,
+    width=width,
+    handle=ci_it_handle(width, handle),
   )
 }
 
@@ -409,8 +425,8 @@ pub fn bar_chart_it(
       ),
     ],
     row_gap=6.0,
-    width=if width > 0.0 { width } else { 0.0 },
-    handle~,
+    width=width,
+    handle=ci_it_handle(width, handle),
   )
 }
 
@@ -528,7 +544,7 @@ pub fn donut_chart_it(
       ci_tooltip(draw, hit, on_leave=fn() { hover.val = -1 }, width~, height~),
     ],
     row_gap=6.0,
-    width=if width > 0.0 { width } else { 0.0 },
-    handle~,
+    width=width,
+    handle=ci_it_handle(width, handle),
   )
 }

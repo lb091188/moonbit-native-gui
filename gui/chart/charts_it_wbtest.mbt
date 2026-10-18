@@ -225,3 +225,18 @@ test "环形交互图：hover 扇区与图例显隐" {
   })
   assert_eq(diff_of(bm_of(canvas), plain), 0)
 }
+
+///|
+/// 交互图默认宽：包壳（图例 + 画布那层 vbox）要跟着铺满父宽。壳留 auto 宽时
+/// 画布的 percent(100) 对 auto 父无解，三张交互图全被画布 min_width 钳成
+/// 120px 窄带（真机 mac/Linux：showcase 图表页·交互段）。
+test "交互图默认铺满父宽，显式 width 照旧" {
+  let s : @base.Store[Array[LineSeries]] = @base.Store::new([
+    { name: "CPU", max_points: 10, points: [1.0, 2.0, 3.0] },
+  ])
+  let (_, auto) = mounted(line_chart_it(s), 600.0, 400.0)
+  assert_eq(auto.kids[1].rect.w, 600.0, msg="默认宽的画布没铺满父宽")
+  let (_, fixed) = mounted(line_chart_it(s, width=320.0), 600.0, 400.0)
+  assert_eq(fixed.rect.w, 320.0, msg="显式 width 被铺满逻辑吃掉")
+  assert_eq(fixed.kids[1].rect.w, 320.0)
+}
