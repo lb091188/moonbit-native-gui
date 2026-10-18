@@ -81,3 +81,11 @@ test "全屏观感计拍 bar_idle_step" {
   // 触发后仍在画面上：保持触发态（组件侧 Store 等值不重发）
   assert_eq(bar_idle_step(true, true, 75), (76, true))
 }
+
+///|
+/// 歌词行落位：与字幕同屏让到字幕上方（-48），独占时贴底（-26，与 audio
+/// 舞台歌词同口径）。
+test "歌词行落位 vp_lyric_y" {
+  assert_eq(vp_lyric_y(false, 200.0), 174.0)
+  assert_eq(vp_lyric_y(true, 200.0), 152.0)
+}

@@ -84,6 +84,17 @@ pub fn vp_zoom_label(mode : Int) -> String {
 }
 
 ///|
+/// 歌词行的纵向落位：与字幕同屏时歌词让到字幕上方，独占时贴底（与 audio
+/// 舞台歌词同一 26px 底边距口径）。
+pub fn vp_lyric_y(has_sub : Bool, h : Double) -> Double {
+  if has_sub {
+    h - 48.0
+  } else {
+    h - 26.0
+  }
+}
+
+///|
 /// 画面在控件矩形里的落位：适配取小边、铺满取大边（超出由控件裁剪）、
 /// 1:1 用原始像素，三者都居中。尺寸非法给零矩形（不画）。
 pub fn vp_fit_rect(
