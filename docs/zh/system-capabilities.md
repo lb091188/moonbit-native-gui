@@ -251,7 +251,7 @@ let _ = @sys.wp_set("/home/me/Pictures/wall.png")
 
 ```moonbit
 // moon.mod import: "NoahLiu/gui-media@0.1.0"
-// moon.pkg import: "NoahLiu/gui-media/src" @yuemedia
+// moon.pkg import: "NoahLiu/gui-media/media" @guimedia
 ```
 
 解码走 ffmpeg FFI（进程内动态链，格式随系统 ffmpeg：MP3/OGG/M4A/AAC/FLAC/WAV…），输出由内嵌 miniaudio 设备层直出（s16 PCM 队列，零重采样）。无输出设备环境（CI/headless）自动静音降级，状态机照常。
@@ -261,9 +261,10 @@ let _ = @sys.wp_set("/home/me/Pictures/wall.png")
 ### AudioPlayer（对标浏览器 `<audio>`）
 
 ```moonbit
-let player = @yuemedia.AudioPlayer::make("/path/song.mp3")?
+let player = @guimedia.AudioPlayer::make("/path/song.mp3")?
 player.play()
-let view = @yuemedia.audio_player_t(player)  // 播放/暂停/进度/时间/音量/循环控制条
+// 声明式节点组件:纯音频,含歌词与频谱条
+let node = @guimedia.audio("/path/song.mp3", lyric="/path/song.lrc")
 ```
 
 | API | 说明 |
@@ -275,35 +276,15 @@ let view = @yuemedia.audio_player_t(player)  // 播放/暂停/进度/时间/音�
 | `set_volume(0..1) / get_volume / set_looping` | 音量与循环 |
 | `free()` | 释放（之后组件时钟自动停摆） |
 
-### 视频帧源视图（yue 核心，零依赖）
-
-视频帧渲染走「帧源回调产出 RGBA 字节 → `pngr_encode_rgba` 内存编码为 PNG → `Image::new_from_png` 解码 → `Painter::draw_image` 铺满」——纯 MoonBit 中转通道，stored 压缩、合法 zlib 流，小分辨率够用。解码器与本组件解耦——任何帧源（未来的 moonav1 / 平台解码器）按帧号提供 RGBA 即可接入。
-
-| 函数 | 说明 |
-|---|---|
-| `video_view_t(width, height, frame_count, source, fps?=30, looping?=false, handle?, fill?, style?, on_ready?)` | 视频视图；帧缺失/解码失败画主题底色占位，不中断播放 |
-| `vid_pause(handle)` / `vid_resume(handle)` / `vid_stop(handle)` | 暂停/恢复/停止（stop 后定时器下一帧注销，不可恢复；**卸载组件前必须 vid_stop**——定时器无取消 id，漏 stop 会对已销毁视图空转到播完） |
-| `VidHandle::make()` / `is_running()` / `is_paused()` | 播放句柄 |
-| `vid_frame_image(source, idx, w, h)` | 单体帧 → Image（长度校验+编码+解码，失败 None） |
-| `pngr_encode_rgba(data, w, h)` | RGBA → PNG（Result；尺寸/长度不符 Err） |
-
-```moonbit
-// 帧源：按帧号产出 RGBA（此处 320x240 每帧变色示意）
-fn source(i : Int) -> Bytes? {
-  let px = FixedArray::make(320 * 240 * 4, (i * 7 % 255).to_byte())
-  Some(Bytes::from_array(px))
-}
-let view = @yuemedia.video_view_t(320, 240, 120, source, fps=30)
-```
-
 ### VideoPlayer（对标浏览器 `<video>`）
 
 FFI 全链路：视频流逐帧 RGBA（时间戳级 seek），音轨是同文件的第二个独立解码器，解出 PCM 直推输出设备——无 CLI 子进程。无音轨/无输出设备自动静音。
 
 ```moonbit
-let player = @yuemedia.VideoPlayer::make("demo.mp4", fps=12, width=480)?
+let player = @guimedia.VideoPlayer::make("demo.mp4", fps=12, width=480)?
 player.play()
-let view = @yuemedia.video_player_t(player)
+// 声明式节点组件:含音轨与字幕叠加
+let node = @guimedia.video("demo.mp4", subtitle="/path/demo.srt")
 ```
 
 | API | 说明 |
@@ -314,7 +295,7 @@ let view = @yuemedia.video_player_t(player)
 | `current_frame() / frame_width() / frame_height()` | 当前帧 RGBA（自渲染场景） |
 | `set_volume / set_looping / free()` | 音量/循环/释放 |
 
-控制条组件（video_player_t / audio_player_t 同风格）：播放/暂停按钮、可拖进度条（松手防抖 180ms 后 seek）、时间文本（m:ss / m:ss）、音量滑条、循环开关；50ms 时钟自动 pump + 刷新，`free()` 后时钟自动停摆。
+播放控制条内置于 `audio` / `video` 两个节点组件：播放/暂停按钮、可拖进度条（松手防抖 180ms 后 seek）、时间文本（m:ss / m:ss）、音量滑条、循环开关；50ms 时钟自动 pump + 刷新，`free()` 后时钟自动停摆。
 
 播放演示见 `moon run modules/gui-examples/audio` / `moon run modules/gui-examples/video`——启动即自动载入默认资产，播放/暂停/拖进度/音量/倍速全部可交互。
 
@@ -324,7 +305,7 @@ Linux 解析 `xrandr --query` 输出，macOS 直调 CoreGraphics（`CGGetOnlineD
 
 | 函数 | 说明 |
 |---|---|
-| `mon_list() -> Result[Array[MonitorInfo], MonitorError]` | 枚举显示器输出，保持后端顺序 |
+| `mon_list() -> Result[Array[MonitorInfo], MonitorError]` | 枚举显示器输出，含未接通的，保持 xrandr 顺序（Linux）；macOS 只列在线屏 |
 | `mon_current() -> Result[Array[CurrentOutput], MonitorError]` | 当前输出简化快照（已连接且有当前模式），不含模式列表 |
 
 `MonitorInfo{ name, connected, primary, width, height, refresh_centi, pos_x, pos_y, mm_width, mm_height, modes }`；`MonitorMode{ width, height, refresh_centi, preferred, current }`；`CurrentOutput{ name, width, height, refresh_centi, pos_x, pos_y }`。错误 `MonitorError`：`Unsupported`（Windows，或 macOS 上探不到在线显示器 / 非 macOS 平台的探测）/ `CommandFailed(String)`（Linux 的 xrandr 起不来或退出码非零）/ `ParseFailed(String)`（一条输出都没有）。

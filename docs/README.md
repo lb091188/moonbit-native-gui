@@ -69,6 +69,7 @@ moon run examples/browser        # embedded WebView browser
 | [zh/roadmap.md](zh/roadmap.md) | Public roadmap: positioning, what you can use today, platform and feature matrix, commitments and versioning, next steps, open decisions, explicit non-goals (Chinese only) |
 | [zh/design.md](zh/design.md) | Frontend-style design decisions: stylesheet shape, component naming mapping, reactivity enhancements, and a view layer that uses `render` functions instead of templates (Chinese only) |
 | [zh/module-structure.md](zh/module-structure.md) | Module-structure plan (draft): releasing `gui/web` as `gui-webview` and splitting `core` into `base` / `shell` / `widget` — batches, costs and risks, tracked in `TODO.md` §1 "G9 模块拆分" (module split; Chinese only) |
+| [zh/gpu-architecture.md](zh/gpu-architecture.md) | GPU compositing & 3D path architecture decision: two-layer landing (compositor + per-widget GPU drawing) with a three-level fallback (WebGPU → Cairo → Pure), WebGPU via wgpu-native, and the `Widget.on_render` protocol hook (Chinese only) |
 | [adaptation.md](adaptation.md) | Platform adaptation notes: field-tested pitfalls, root causes and verification results per platform |
 | [autostart.md](autostart.md) | Autostart: XDG `.desktop` on Linux, HKCU Run key on Windows, one `is_enabled` / `enable` / `disable` API |
 | [tray.md](tray.md) | Linux tray: SNI protocol-stack design, architecture, backend fallback and desktop compatibility |
