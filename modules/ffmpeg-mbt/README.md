@@ -21,8 +21,17 @@ BtbN/gyan 的 win64-lgpl-shared 构建取同一大版本的 `bin/*.dll`；dll �
 须与 vendor 导入库一致——avcodec-63/avformat-63/avutil-61/swscale-10/
 swresample-7/avdevice-63/avfilter-12）。
 
-**macOS**：后端随 macOS 线落地时再接（prebuild 优雅降级，MoonBit 侧走
-语义化失败）。
+**macOS**：两级——prebuild 先 pkg-config 探系统 ffmpeg（`brew install
+ffmpeg pkg-config`；brew 前缀显式拼进 `PKG_CONFIG_PATH`）；探不到回退
+**Release 下载的预编译 dev 归档**（LGPLv3 自建、动态链 `.dylib`、id/依赖
+全部 `@rpath` 化，sha256 校验 + GitHub/Gitee 双镜像 +
+`NATIVE_GUI_VENDOR_BASE` 可覆盖，与 webview Loader 的 vendor 口径同族），
+`link_flags` 下发 `-Wl,-rpath` 指向解包的 `vendor/mac/lib`，dyld 运行期
+就地加载，运行机无需任何安装。归档由
+`scripts/make_mac_ffmpeg_vendor.sh` 制作（自编 LGPL 隔离 brew 的 GPL 闭包，
+产物入 `dist/`，sha256 回填 `prebuild.py` 后上传 `vendor-v1` Release）；
+离线机器也可手工把归档解开到 `vendor/mac/`（`include/` + `lib/`）。两路
+都拿不到才构建失败（不做「能链不能跑」的假可用降级）。
 
 ## API
 

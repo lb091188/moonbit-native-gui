@@ -2539,6 +2539,11 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
   3. **墙钟冒烟窗不跟 runner 抖动对赌**：video 首 tick 的位置窗先按「一帧半」放宽（0.25）仍被 CI macOS 以 0.251 贴脸突破——解码积压没有上界可承诺。定稿把判据换成结构事实「已推进且未过半」（t1∈(0,0.5)，素材 1s），精确 ≈0.1 的期望只留在注释里；「推进了没跳段」的回环语义由后续 seek/pause 各步照旧钉住。
 - 另记一条 CI 结构事实：三个 job 的「单元测试(gui-webview 模块)」步在工作区里会**裸跑全量 workspace**（`moon test` 从模块目录向上归一化），所以模块步实际是全平台最后一道全量闸——包清单只约束前几步，新增测试最先在这里现形。
 
+- **mac ffmpeg 免 brew 化：两路探测 + Release 归档回退（2026-10-18，动态链）**：CI 的 mac job 每轮 `brew install ffmpeg`（分钟级），用户机器没 brew 就编不了媒体线。改为对齐 Windows 的 vendor 形态——`ffmpeg-mbt/prebuild.py` 的 Darwin 分支两级：pkg-config 探 brew（原路不动）→ 失败回退 **Release 下载预编译 dev 归档**（解包到 `vendor/mac/`，与 webview Loader 同族口径：sha256 逐字节校验、GitHub/Gitee 双镜像按序、`NATIVE_GUI_VENDOR_BASE` 覆盖、离线可手工放置；解包后对 `lib/*.dylib` 补 0755——dyld 映射执行段要求 x 位）。两路全断才非零退出。动态链的三个坑：
+  1. **install_name 是打包机的绝对路径**：dylib 的 id 与互依赖写死 `/opt/homebrew/Cellar/...`，拷到别的机器 dyld 直接断。必须 `install_name_tool` 把 id 与全部互依赖改成 `@rpath/<basename>`，`link_flags` 下发 `-Wl,-rpath,<解包 lib 绝对路径>`，改完逐库 `codesign -f -s -` ad-hoc 重签——arm64 上改过 Mach-O 而未重签的 dylib 会被拒载。
+  2. **依赖闭包决定归档来源**：brew 的 ffmpeg 闭包拖进 openssl/libvpx/x264/x265/svt-av1 等十几支 formula（otool 实测 21 库），且 x264/x265 是 GPL——「从 brew 拷五个库」两个死因（离机断链 + 许可污染）。正式归档由 `scripts/make_mac_ffmpeg_vendor.sh` **自编 LGPLv3**（`env -i` 净 PATH + `--disable-autodetect` 断掉 brew 探测；configure 后逐库 otool 断言「非 @rpath 依赖只许 /usr/lib 与 /System」），五支 dylib 闭包自持，与 Windows 的 BtbN lgpl-shared 同许可口径。
+  3. **验证用等价物、真值不提前入库**：机制验证用 brew 产物 @rpath 化的 21 库测试归档 + `NATIVE_GUI_VENDOR_BASE=file:///tmp/...` + PATH 剔掉 `/opt/homebrew/bin`（pkg-config 消失）在本机走完「下载→校验→解包→链接→真解码」全链（mp3/ogg/m4a/wav/视频 6/6 绿）；测试归档是 GPL 替身不进库，prebuild 的 sha 表保持空 dict + 格式注释，正式归档上传 `vendor-v1` Release 后回填——空表时本路提示「归档尚未提供」，brew 路不受影响。
+
 ## 维护约定
 
 1. 新增结论写进对应小节,只记「坑 + 修复」;协议互操作结论必须来自真总线、真面板,单测自洽不算数。
