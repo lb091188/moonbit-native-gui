@@ -417,11 +417,26 @@ pub fn icon_button(
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
     let off = enabled_cell(enabled, disabled)
+    // 键盘口径与 form.button 同一条：自动领号进 Tab 链，空格/回车激活——
+    // 没有这一口时点它不切焦点（focusable_at 沿链找不到可聚焦者），空格/
+    // 回车还在驱动远处那个挂着焦点环的按钮。
+    w.focus_id = auto_focus_id(0)
     w.node.set_width(@yoga.fixed(box_size))
     w.node.set_height(@yoga.fixed(box_size))
     w.node.set_flex_shrink(0.0)
     w.cursor_fn = Some(enabled_cursor(off, @widget.CURSOR_HAND))
     fold_style(w, anon, class)
+    w.on_key = Some(fn(ev : @widget.KeyEvent) -> Bool {
+      if !ev.press || off.off {
+        return false
+      }
+      if ev.keysym == @base.KS_SPACE || ev.keysym == @base.KS_RETURN {
+        on_click()
+        true
+      } else {
+        false
+      }
+    })
     w.on_draw = Some(fn(
       self : @widget.Widget,
       p : @render.Painter,
@@ -440,6 +455,12 @@ pub fn icon_button(
       }
       let c = @style.color_of(s.color, fallback)
       @icons.draw_icon(p, kind, r.w / 2.0, r.h / 2.0, icon_size / 2.0, c)
+      // 焦点环：键盘可及性——能聚焦就得看得见焦点在哪（与 button 同口径）
+      if self.focused {
+        p.set_stroke_color(@theme.theme_primary())
+        p.set_line_width(1.0)
+        p.stroke_round_rect(0.5, 0.5, r.w - 1.0, r.h - 1.0, 4.0)
+      }
     })
     w.on_pointer = Some(fn(
       self : @widget.Widget,

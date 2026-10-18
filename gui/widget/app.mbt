@@ -563,7 +563,18 @@ fn App::route(self : App, ev : @win.InputEvent) -> Unit {
                 }
                 self.mark_focus_id_rect(id)
               }
-            None => ()
+            None =>
+              // 点在不可聚焦的自绘区：焦点让位（Web 的点空白 blur 语义）——
+              // 否则焦点滞留在远处那个按钮上，空格/回车还在驱动它，而用户
+              // 以为在操作眼前这块。注册表保留（点回来 focus(id) 找得到）。
+              match self.focus.current() {
+                Some(prev) => {
+                  self.flush_ime_for_switch(Some(prev))
+                  self.focus.drop_current()
+                  self.mark_focus_id_rect(prev)
+                }
+                None => ()
+              }
           }
         }
         _ => ()
