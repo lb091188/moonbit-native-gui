@@ -130,7 +130,7 @@
 
 - 交汇处托盘/通知/热键门面统一归 **W22**
   - ~~**Linux 全局热键后端（X11 `XGrabKey`）**~~（2026-10-16 已交付：自开 X 连接 + 四变体抓取 + BadAccess 错误陷阱 + `XPending` 泵抽，`wm_hotkey_supported` 按 `WAYLAND_DISPLAY` 分档；XFCE+X11 真机 xdotool 注入全链路命中。TODO 原推断的三处要点被实测推翻——grab 清位掩码行不通须变体抓取、事件不进 GTK 泵无需 filter、`Ctrl+Alt+Fn` 是 VT 保留域按不到——根因与实测定案见中英 adaptation「Linux 全局热键后端」节）
-  - [ ] **媒体键走同一条 grab**（`XF86AudioPlay`/`XF86AudioPrev`/`XF86AudioNext`/`XF86AudioMute`）：这是「耳机键/键盘媒体键控播放」的正解，与 G10 的**窗口内**按键是两层，别混在一个门面里；Linux 侧键码取 `XKeysymToKeycode(XK_XF86AudioPlay)`，Windows 侧对应 `VK_MEDIA_PLAY_PAUSE`（W20b 的 vk 表要不要扩到媒体键一并定）。
+  - [x] **媒体键走同一条 grab**（2026-10-18）：具名键表扩 `MediaPlay(PlayPause)`/`MediaPrev(PreviousTrack)`/`MediaNext(NextTrack)`/`MediaMute(VolumeMute)`——keysym 给 XF86Audio*（X11 侧 `XKeysymToKeycode` 是通用路径，零 C 改动）、vk 给 `VK_MEDIA_*`/`VK_VOLUME_MUTE`（`RegisterHotKey` 直收）；macOS 无 Carbon 键位（媒体键是 NSSystemDefined 事件，不走 RegisterEventHotKey），`wm_vk_to_mac_keycode` 查不到即 `Err(Failed)` 诚实失败。**真机复验**（X11 xdotool 注入 XF86 键、Windows 真媒体键盘）归 T 节。这是「耳机键/键盘媒体键控播放」的正解，与 G10 的**窗口内**按键是两层，别混在一个门面里。
   - ~~**macOS 全局热键后端**~~（2026-10-17 随 mac 分支并入 master 交付：Carbon `RegisterEventHotKey` 三件套在 win 桩 mac 臂，`shell/hotkey.mbt` mac 档直通；真机复验归 T 节）
   - ~~**探针对齐**~~（2026-10-16 已交付：`hotkey_probe` 组合换 `Ctrl+Alt+H/J`（Fn 系是 VT 保留域），② 注册/幂等注销/槽位复用 + ③ 新增门面轮询段——`xdotool` 注入 6 秒内 `HOTKEY-CORE-FIRE` 即回证；组合被占走 `Err(Failed)` 门面已有）
 

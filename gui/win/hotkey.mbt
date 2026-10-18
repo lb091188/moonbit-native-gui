@@ -12,7 +12,10 @@
 // 映射 Ctrl、macOS 映射 Cmd(⌘)、Linux 映射 Ctrl。修饰词：Ctrl/Control、
 // Shift、Alt/Option、Cmd/Command/Super/Win/Meta、CmdOrCtrl。
 // 主键部分：字母 A-Z、数字 0-9、F1-F24、方向键/Home/End/PageUp/PageDown/
-// Insert/Delete/Backspace/Tab/Enter/Escape/Space/标点（单字符按 Unicode 码点）。
+// Insert/Delete/Backspace/Tab/Enter/Escape/Space/标点（单字符按 Unicode 码点）、
+// 媒体键 MediaPlay(PlayPause)/MediaPrev(PreviousTrack)/MediaNext(NextTrack)/
+// MediaMute(VolumeMute)——Linux 走 XF86Audio* keysym、Windows 走 VK_MEDIA_*，
+// macOS 无 Carbon 键位、注册诚实失败。
 
 // utf8.encode：把词拆成字节以取单字符键的 ASCII 码点（MoonBit 的 String
 // 下标给 UInt16/Char 口径不一，走字节最稳）。
@@ -97,6 +100,15 @@ fn hotkey_named_key(low : String) -> KeyCode? {
     "f22" => Some({ keysym: 65491, vk: 0x85 })
     "f23" => Some({ keysym: 65492, vk: 0x86 })
     "f24" => Some({ keysym: 65493, vk: 0x87 })
+    // 媒体键：keysym 走 XF86Audio*（X11 侧 XKeysymToKeycode 现场换键码，
+    // 通用路径零改动）；vk 走 Win32 的 VK_MEDIA_*/VK_VOLUME_MUTE。
+    // macOS 碳表没有媒体键位（那是 NSSystemDefined 事件，不走
+    // RegisterEventHotKey），`wm_vk_to_mac_keycode` 查不到即注册失败——
+    // 与「该平台没有这个键」同档，不静默。
+    "mediaplay" | "mediaplaypause" => Some({ keysym: 0x1008FF14, vk: 0xB3 })
+    "mediaprev" | "mediaprevioustrack" => Some({ keysym: 0x1008FF16, vk: 0xB1 })
+    "medianext" | "medianexttrack" => Some({ keysym: 0x1008FF17, vk: 0xB0 })
+    "mediamute" | "volumemute" => Some({ keysym: 0x1008FF12, vk: 0xAD })
     _ => None
   }
 }
@@ -231,6 +243,10 @@ fn hotkey_canonical_name(low : String) -> String {
     "delete" | "del" => "Delete"
     "backspace" => "Backspace"
     "tab" => "Tab"
+    "mediaplay" | "mediaplaypause" => "MediaPlay"
+    "mediaprev" | "mediaprevioustrack" => "MediaPrev"
+    "medianext" | "medianexttrack" => "MediaNext"
+    "mediamute" | "volumemute" => "MediaMute"
     _ =>
       // F1..F24 等：首字母大写（"f5" → "F5"）
       if low.length() >= 2 {

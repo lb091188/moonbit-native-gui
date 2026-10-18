@@ -131,3 +131,40 @@ test "label: 修饰位顺序固定 Ctrl/Shift/Alt/Meta" {
     None => fail("应解析成功")
   }
 }
+
+///|
+test "parse: 媒体键——XF86 keysym 与 Win32 VK 两套码同表给出" {
+  match parse_accelerator("MediaPlay", false) {
+    None => fail("MediaPlay 应解析成功")
+    Some(hk) => {
+      assert_eq(hk.mods, 0)
+      assert_eq(hk.keysym, 0x1008FF14) // XF86AudioPlay
+      assert_eq(hk.vk, 0xB3) // VK_MEDIA_PLAY_PAUSE
+      assert_eq(hk.name, "MediaPlay")
+    }
+  }
+  // 别名与 Electron 风格全名
+  match parse_accelerator("MediaNextTrack", false) {
+    Some(hk) => {
+      assert_eq(hk.keysym, 0x1008FF17) // XF86AudioNext
+      assert_eq(hk.vk, 0xB0) // VK_MEDIA_NEXT_TRACK
+      assert_eq(hk.name, "MediaNext")
+    }
+    None => fail("MediaNextTrack 应解析成功")
+  }
+  assert_eq(parse_accelerator("mediaprev", false).unwrap().vk, 0xB1)
+  // 带修饰：Ctrl+Alt+MediaMute
+  match parse_accelerator("Ctrl+Alt+MediaMute", false) {
+    Some(hk) => {
+      assert_eq(hk.mods, 2 | 4)
+      assert_eq(hk.keysym, 0x1008FF12) // XF86AudioMute
+      assert_eq(hk.vk, 0xAD) // VK_VOLUME_MUTE
+    }
+    None => fail("Ctrl+Alt+MediaMute 应解析成功")
+  }
+  // 提示文本：无修饰的媒体键不带前缀
+  assert_eq(
+    hotkey_label(parse_accelerator("MediaPlay", false).unwrap(), false),
+    "MediaPlay",
+  )
+}
