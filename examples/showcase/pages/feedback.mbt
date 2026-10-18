@@ -48,12 +48,15 @@ pub fn page_feedback(app : @shared.App) -> @widget.Node {
       [
         @ui.row(
           [
+            // 操作区居中：result 的符号/标题/描述在组件内部就是居中排布，
+            // 列里默认 Stretch 会把按钮行拉到列宽、按钮顶在最左，看着偏了
             @ui.col(
               [
                 @ui.result("操作成功", subtitle="配置已写入并生效。", t=@ui.Success),
                 @ui.row([@ui.button("返回首页")], column_gap=8.0),
               ],
               row_gap=10.0,
+              align_items=@yoga.AlignItems::Center,
             ),
             @ui.col(
               [
@@ -64,6 +67,7 @@ pub fn page_feedback(app : @shared.App) -> @widget.Node {
                 ),
               ],
               row_gap=10.0,
+              align_items=@yoga.AlignItems::Center,
             ),
           ],
           column_gap=40.0,
