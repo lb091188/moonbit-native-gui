@@ -11,9 +11,20 @@ fn main {
           @ui.text("Hello, MoonBit!", font_size=18.0),
           @ui.text("你好，月兔！", font_size=18.0),
           @ui.text("Built with native-gui on MoonBit", role=@ui.Secondary),
-          @ui.link("view on GitHub", fn() {
-            let _ = @sys.open_url("https://github.com/lb091188/moonbit-native-gui")
-          }),
+          @ui.row(
+            [
+              @ui.link("mooncakes", fn() {
+                let _ = @sys.open_url("https://mooncakes.io/docs/NoahLiu/native-gui")
+              }),
+              @ui.link("docs", fn() {
+                let _ = @sys.open_url("https://moonbit-native-gui.pages.dev")
+              }),
+              @ui.link("GitHub", fn() {
+                let _ = @sys.open_url("https://github.com/lb091188/moonbit-native-gui")
+              }),
+            ],
+            column_gap=16.0,
+          ),
         ],
         row_gap=6.0,
         grow=1.0,
