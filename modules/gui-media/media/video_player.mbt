@@ -44,6 +44,7 @@ pub fn video(
   width? : Double = 640.0,
   height? : Double = 360.0,
   auto_play? : Bool = false,
+  looping? : Bool = false,
   /// 每 tick 的观测口（位置秒 / 已解码帧数 / 是否在播）：示例与测试靠它证明
   /// 「帧在推进、时钟在走」，而不是一张贴图。
   on_tick? : (Double, Int, Bool) -> Unit = fn(
@@ -62,7 +63,7 @@ pub fn video(
   on_error? : (String) -> Unit = fn(_s : String) -> Unit { () },
   handle? : (@widget.Widget) -> Unit = fn(_w : @widget.Widget) -> Unit { () },
 ) -> @widget.Node {
-  let engine = match VideoPlayer::make(path) {
+  let engine = match VideoPlayer::make(path, looping~) {
     Ok(p) => p
     Err(e) => {
       on_error(e)
@@ -104,6 +105,7 @@ pub fn video(
   let full_st : @base.Store[Bool] = @base.Store::new(false)
   let zoom_st : @base.Store[Int] = @base.Store::new(0)
   let muted : @base.Store[Bool] = @base.Store::new(false)
+  let looping_st : @base.Store[Bool] = @base.Store::new(looping)
   let last_vol : Ref[Double] = Ref(engine.get_volume())
   if auto_play {
     engine.play()
@@ -141,6 +143,12 @@ pub fn video(
   }
   fn cycle_zoom() -> Unit {
     zoom_st.set((zoom_st.get() + 1) % 3)
+    @widget.invalidate()
+  }
+  fn toggle_loop() -> Unit {
+    let on = !looping_st.get()
+    engine.set_looping(on)
+    looping_st.set(on)
     @widget.invalidate()
   }
   fn toggle_mute() -> Unit {
@@ -228,6 +236,7 @@ pub fn video(
     speed_st,
     full_st,
     muted,
+    looping_st,
     Some(zoom_st),
     @icons.ArrowLeft,
     @icons.ArrowRight,
@@ -236,6 +245,7 @@ pub fn video(
     fn() -> Unit { step_by(1) },
     cycle_speed,
     toggle_mute,
+    toggle_loop,
     toggle_full,
     cycle_zoom,
     display,
@@ -248,6 +258,7 @@ pub fn video(
     toggle_full,
     bump_vol,
     toggle_mute,
+    toggle_loop,
     fn() -> Bool { full_st.get() },
   )
   // 丢弃即停摆：组件被换树摘下时外层拿不到闭包里的引擎，没人 free 的话
