@@ -6355,13 +6355,17 @@ int wm_hotkey_poll(void) {
 #import <CoreGraphics/CoreGraphics.h>
 #import <CoreText/CoreText.h>
 
-// 这两个 setter 在新 SDK（macOS 26 的构建机）上不再公开声明，clang 直接报
-// 「no visible @interface / no known instance method」，而旧 SDK 上它们是真实
-// 存在的。这里只给 NSObject 做 informal 声明让 selector 在编译期可见，调用点
-// 一律先 respondsToSelector: 再发：SDK 真没有这一口时退回默认行为，不硬写。
+// 这个 setter 在新 SDK（macOS 26 的构建机）上不再公开声明，clang 直接报
+// 「no visible @interface / no known instance method」，而旧 SDK 上它是真实
+// 存在的（`canShowHiddenFiles` 属性）。这里只给 NSObject 做 informal 声明让
+// selector 在编译期可见，调用点一律先 respondsToSelector: 再发：SDK 真没有
+// 这一口时退回默认行为，不硬写。
+// 注：本目录曾在这里顺手声明过 `setSendActionOn:`——那是**猜出来的假名字**
+// （AppKit 的口是 `sendActionOn:`，返回旧掩码，没有 setter 形态），守卫恒假
+// 让托盘右键动作从来没被注册上，真机表现为「托盘菜单弹不出」。猜 selector
+// 名之前先查 SDK 头，别靠 KVC 惯例。
 @interface NSObject (WMAppKitOptionalSetters)
 - (void)setCanShowHiddenFiles:(BOOL)flag;
-- (void)setSendActionOn:(NSUInteger)mask;
 @end
 
 #define WM_MAX_WINDOWS 32
@@ -8946,13 +8950,14 @@ static int wm_tray_alloc(int kind, int icon_slot, const char *tip) {
   }
   [btn setTarget:wm_tray_target];
   [btn setAction:@selector(wmTrayClicked:)];
-  // 触发掩码：不给就只在左键抬起时发动作，右键那条永远收不到。
-  // sendActionOn 在 macOS 26 的 SDK 上无公开声明（见文件头 informal 声明），
-  // 故按运行时能力设——设不上的话托盘只有左键可用。
-  id cell = [btn cell];
-  if ([cell respondsToSelector:@selector(setSendActionOn:)]) {
-    [cell setSendActionOn:(NSUInteger)(NSEventMaskLeftMouseUp |
-                                       NSEventMaskRightMouseUp)];
+  // 触发掩码：默认只在左键抬起时发动作，右键那条永远收不到（真机：托盘「挂
+  // 菜单」之后右键弹不出菜单）。AppKit 这一口叫 `sendActionOn:`——NSCell 与
+  // NSControl 都有（传掩码、返回旧掩码；NSStatusItem 上那份 10.14 起标注
+  // deprecated 并指名改用 button 的同名口），**没有 `setSendActionOn:` 这个
+  // setter**：先前按 KVC 猜的名字过 respondsToSelector: 恒假，等于从来没设过。
+  if ([btn respondsToSelector:@selector(sendActionOn:)]) {
+    [btn sendActionOn:(NSEventMask)(NSEventMaskLeftMouseUp |
+                                    NSEventMaskRightMouseUp)];
   }
   wm_clamp_cap(wm_tray_tips[slot], 128, tip != NULL ? tip : "");
   wm_tray_items[slot] = item;
