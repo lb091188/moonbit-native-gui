@@ -21,7 +21,7 @@
 //   「这个落点收不收」又不触发投递，故另开 `drag_accept` 查询钩子（见下）。
 //
 // 数据线形状：`[kind:i32 LE][payload]`——与旧栈拖拽/剪贴板共用的编码同形，
-// 为将来 core 侧剪贴板预留（`Paths` 载荷用 `\n` 连接路径，同旧栈）。
+// 为将来 widget 侧剪贴板预留（`Paths` 载荷用 `\n` 连接路径，同旧栈）。
 
 ///|
 /// 拖拽数据种类（与旧栈 `yue/view.mbt` 的 `DataKind` 同义）。
@@ -70,7 +70,7 @@ pub extend DataKind with Eq::{not_equal, equal}
 ///|
 /// 拖拽数据本体。
 /// 与旧栈的一处差（记档）：旧栈 `Img(Image)` 用的是平台图像句柄类型，本批用
-/// **原始 PNG 字节** `Img(Bytes)`——core 层不依赖任何平台图像类型，三平台同构；
+/// **原始 PNG 字节** `Img(Bytes)`——widget 层不依赖任何平台图像类型，三平台同构；
 /// 要显示时由调用方自己交给解码后端（`@win.icon_from_png` / `render`）。
 pub(all) enum DragData {
   Text(String)

@@ -428,7 +428,7 @@ match @sys.prt_default() {
 
 ## Environment Variables & Directory Enumeration
 
-Two small primitives: in-process environment-variable read/write/delete (`envx` — reads go through `core/env`, write/delete through the C-layer setenv/unsetenv) and directory enumeration (`fsx` — C-layer opendir/readdir or Win32 FindFirstFileW).
+Two small primitives: in-process environment-variable read/write/delete (`envx` — reads go through the standard library's `core/env`, write/delete through the C-layer setenv/unsetenv) and directory enumeration (`fsx` — C-layer opendir/readdir or Win32 FindFirstFileW).
 
 | Function | Purpose |
 |---|---|

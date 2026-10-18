@@ -1,4 +1,4 @@
-// W21c 拖放回归（core 侧）：种类编号、数据编码/解码、`DragData::kind`/`as_text`、
+// W21c 拖放回归（widget 侧）：种类编号、数据编码/解码、`DragData::kind`/`as_text`、
 // 投放目标命中（最深的带 `on_drop` 的控件）、以及会话生命周期
 // （begin → move → drop 投给命中最深者 / 无落点不接受 / cancel）。
 //

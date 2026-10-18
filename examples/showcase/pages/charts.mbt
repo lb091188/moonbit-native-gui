@@ -7,7 +7,7 @@
 // 与 master 的重复定时器等价但机制不同，记档）。
 //
 // **第一拍挂在真·挂载时机（Node::on_mount），不挂 handle、不挂构造期**：
-// `set_timeout` 在宿主 `App` 建好之前是空操作（`core/loop.mbt` 的进程级通道
+// `set_timeout` 在宿主 `App` 建好之前是空操作（`shell/loop.mbt` 的进程级通道
 // 由 `App::new` 装），而页面函数是 `mount_window` 的实参、求值早于建窗，且
 // `view` 的 `handle` 在 `node_of_new` 里**构造期就执行**、并不是挂载回调——
 // 两处排的首拍都进空通道（Windows 真机实证：探针 experiment/timer_probe，

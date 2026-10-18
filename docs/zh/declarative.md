@@ -1,4 +1,4 @@
-# 声明式层与响应式（@core + @ui）
+# 声明式层与响应式（@base + @widget + @ui）
 
 界面用一棵**节点树**描述，状态用 `Store` / `Signal` 持有，框架负责「数据变了 UI 跟着变」。本文讲这套接线怎么写；样式见 [layout.md](layout.md) 与 [design.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/zh/design.md)，组件见 [components.md](components.md)。
 

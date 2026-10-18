@@ -3,7 +3,7 @@
 // 本文件只放纯函数——字符串解析与「修饰位/键 → 平台码」的语义约定，
 // 平台桩只认这些数字（Win32 的 RegisterHotKey 收 (mods, vk) 两个整数，
 // GTK/X11 收 (mods, keysym)，macOS 的 Carbon 收 (mods, keycode)）。
-// 解析结果里两套码都给：`keysym` 走 X11 口径（与 core/keys.mbt 的
+// 解析结果里两套码都给：`keysym` 走 X11 口径（与 base/keys.mbt 的
 // KS_* 同源），`vk` 走 Win32 虚拟键码；各平台后端按需取。
 //
 // 加速键串语法沿用旧栈（yue/widgets.mbt 的 register_global_shortcut）：
@@ -21,7 +21,7 @@
 // 下标给 UInt16/Char 口径不一，走字节最稳）。
 
 ///|
-/// 解析结果：修饰位（与 core/keys.mbt 的 MOD_* 同源）、两套键码、
+/// 解析结果：修饰位（与 base/keys.mbt 的 MOD_* 同源）、两套键码、
 /// 以及归一化后的键名（诊断与提示文本用）。解析失败返回 None。
 pub(all) struct Hotkey {
   /// 修饰位：1=shift 2=ctrl 4=alt 8=meta（与 MOD_* 一致）

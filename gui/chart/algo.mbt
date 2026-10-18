@@ -9,7 +9,7 @@
 // `handle`）；文本绘制走 `text`（旧契约的 `Painter::draw_text` 在本栈不存在）。
 
 ///|
-/// 圆周率（core 的 pi 在 deprecated 模块，勿用）。
+/// 圆周率（标准库 `moonbitlang/core` 的 pi 在 deprecated 模块，勿用）。
 pub let pi : Double = 3.141592653589793
 
 ///|

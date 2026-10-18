@@ -8,7 +8,7 @@
 // `dragdnd_set_effect` 写回的值——于是应用侧「这个落点收不收」的判断能反映到
 // 系统光标，而不需要在回调里同步问 MoonBit。
 //
-// `core/drag.mbt` 的门面在此之上建「跨平台后端选择 + 会话派发」，一般调用方不
+// `widget/drag.mbt` 的门面在此之上建「跨平台后端选择 + 会话派发」，一般调用方不
 // 直接碰这一层。macOS 分支是失败桩（`dragdnd_supported` 恒 0）。
 // Linux/GTK 分支的真实现见 stub.c「系统级拖放」节（四信号喂队列 + 嵌套主循环
 // 阻塞起拖，效果两段式与 Windows 同构）。
@@ -80,7 +80,7 @@ pub fn dragdnd_poll() -> (Int, Int, Int, Int)? {
 
 ///|
 /// 读回最近一次「进入/投递」的载荷（`[kind:i32 LE][payload]` 线形状，与
-/// `core/drag.mbt` 的 `drag_encode` 同制）。空 Bytes = 当前没有可用载荷。
+/// `widget/drag.mbt` 的 `drag_encode` 同制）。空 Bytes = 当前没有可用载荷。
 pub fn dragdnd_payload() -> Bytes {
   let small = Bytes::new(4096)
   let n = wm_dragdnd_payload(small, 4096)
@@ -120,7 +120,7 @@ pub fn dragdnd_count() -> Int {
 }
 
 ///|
-/// 起一趟系统级**拖出**（W23b）：`payload` 是 `core` 侧 `drag_encode` 出来的线
+/// 起一趟系统级**拖出**（W23b）：`payload` 是 `widget` 侧 `drag_encode` 出来的线
 /// 形状，`allowed` 是 `DRAGDND_COPY`/`MOVE`/`LINK` 的按位或。返回 `Some(效果)` =
 /// OLE 走完了这趟（效果 0 表示取消或没落成交点）、`None` = 没走成（后端不可用、
 /// 载荷种类没有系统级形态、窗口越界）。

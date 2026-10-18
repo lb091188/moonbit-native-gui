@@ -23,7 +23,7 @@
 // `on_*` 形态（on_click/on_change/on_enter/on_pick/on_response/on_dismiss/
 // on_link/on_drop…）；`handle?` 保留为句柄逃生舱（不是事件）。非事件函数参数
 // 只剩谓词/能力型五个：drag 的 `payload`/`accept`、输入框的 `caret_on`、
-// core 定时器钩子的 `cancel`，不进 on_* 改名。
+// shell 定时器钩子的 `cancel`，不进 on_* 改名。
 
 ///|
 /// 垂直布局容器（`container` 的 Column 形态）。
