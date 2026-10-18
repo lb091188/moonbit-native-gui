@@ -1086,6 +1086,8 @@ pub fn carousel(
       if interval_ms > 0 && n > 1 {
         // 一次性延时自排下一拍：句柄存进 rotation，停转时取消待触发那次
         let tick : Ref[() -> Unit] = Ref(fn() { () })
+        // 被换树摘下就断自转链（回调见 rotation.running=false 不再自续）
+        w.on_discard = Some(fn(_w) { rotation.running.val = false })
         tick.val = fn() {
           rotation.timer.val = @shell.set_timeout(interval_ms, fn() {
             if rotation.running.val {
