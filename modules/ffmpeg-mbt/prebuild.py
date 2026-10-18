@@ -56,11 +56,16 @@ MAC_VENDOR_TIMEOUT = 20
 # -lavformat 等短名（macOS 与 Linux 同用 -l 短名，链接器自己补 lib 前缀/后缀）
 MAC_DYLIBS = ["avformat", "avcodec", "swscale", "swresample", "avutil"]
 
-# 按机器架构取归档名。正式归档（scripts/make_mac_ffmpeg_vendor.sh 产物）
-# 上传 vendor-v1 Release 后按此格式回填条目，下载侧逐字节校验 sha256：
-#   "arm64": ("ffmpeg-macos-arm64-9.0-lgpl-shared.tar.gz", "<sha256>")
+# 按机器架构取归档名（CI 的 mac-ffmpeg-vendor workflow 产物，上传 vendor-v1
+# Release 后按此表下载并逐字节校验 sha256）：
+#   "arm64": ("ffmpeg-macos-arm64-9.0.2-lgpl-shared.tar.gz", "<sha256>")
 # 条目缺席时本路提示「归档尚未提供」，pkg-config（brew）路不受影响。
-MAC_VENDOR_TARBALLS: dict[str, tuple[str, str]] = {}
+MAC_VENDOR_TARBALLS: dict[str, tuple[str, str]] = {
+    "arm64": (
+        "ffmpeg-macos-arm64-9.0.2-lgpl-shared.tar.gz",
+        "809a07df51184884a9e326936ef580b35294057f0ddcae0d7ecae6edaebb923d",
+    ),
+}
 
 
 def win_vendor_dir() -> str:
