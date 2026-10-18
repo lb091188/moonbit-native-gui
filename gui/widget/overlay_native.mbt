@@ -8,7 +8,10 @@
 //    才知道，所以开一个临时框、挂内容、首帧后按实测矩形 `set_size_pixels` 收到
 //    贴合大小（最多三次，避免布局回环）；
 // ③ **点外收起靠失焦**：点在网页区时按钮事件被 webview 子窗吃掉，只有焦点转移
-//    会告诉我们「用户点了别处」，所以弹层窗收到 `LostFocus` 就收起自己。
+//    会告诉我们「用户点了别处」，所以弹层窗收到 `LostFocus` 就收起自己；
+// ④ **Esc 收起**：挂在弹层自己窗的按键兜底通道上（焦点在内容里时先过焦点链，
+//    Esc 一般没人吃），收到按下态 Esc 就收起本层——收起经 0ms 延时挪出按键
+//    派发现场再关窗，不在派发中途拆自己的窗。
 
 ///|
 /// 已开的原生档浮层：句柄 → 弹层宿主窗。表在进程级，不进 `OverlayHost`
@@ -49,6 +52,20 @@ fn overlay_native_open(
           pop.mount([content])
           g_native.val.set(cid, pop)
           g_native_passes.val.set(cid, 0)
+          // Esc 收起（批 E 余项）：挂在弹层自己窗的按键兜底通道上，焦点链先问
+          // 完才轮到它，菜单项等不吃 Esc 就落到这里。关窗挪到 0ms 延时里做，
+          // 不在按键派发中途拆派发所在的窗。
+          pop.add_key_fallthrough(fn(ev : KeyEvent) -> Bool {
+            if ev.press && ev.keysym == @base.KS_ESCAPE {
+              let _ = @shell.set_timeout(0, fn() -> Unit {
+                let _ = overlay_native_close(cid)
+                invalidate()
+              })
+              true
+            } else {
+              false
+            }
+          })
           true
         }
       }
