@@ -140,7 +140,7 @@ handle=fn(a : @widget.App) -> Unit {
 }
 ```
 
-把 `@ui.text` / `@ui.button` 换成主题化形态（`button` 的 `variant` 四档、`tag` / `alert` / `card` 等）见 [components.md](components.md)；样式表（`Style` 值 + `hover` / `active` / `focus` 状态、过渡）见 [design.md](design.md)。
+把 `@ui.text` / `@ui.button` 换成主题化形态（`button` 的 `variant` 四档、`tag` / `alert` / `card` 等）见 [components.md](components.md)；样式表（`Style` 值 + `hover` / `active` / `focus` 状态、过渡）见 [design.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/zh/design.md)。
 
 **想照着抄**——演示板就是素材库：
 
@@ -158,7 +158,7 @@ moon run examples/showcase    # 15 页：基础/表单/导航/数据展示/反�
 - [components.md](components.md)：全部控件与组件的入参与事件速查
 - [system-capabilities.md](system-capabilities.md)（中文）：系统能力（`@sys`）——音量 / 应用查找 / 壁纸 / 显示器 / 剪贴板 / 电源 / 打印机…，统一 `Result` 语义
 
-**遇到问题**——[adaptation.md](adaptation.md) 按平台记满实测坑与根因；托盘方案看 [tray.md](tray.md)。
+**遇到问题**——[adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/zh/adaptation.md) 按平台记满实测坑与根因；托盘方案看 [tray.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/zh/tray.md)。
 
 ## 6. 给库贡献者的留言
 
@@ -168,4 +168,4 @@ moon run examples/showcase    # 15 页：基础/表单/导航/数据展示/反�
 - **控件与能力**：还没封装的条目、各平台的适配坑，都欢迎从 issue 开始讨论。
 - **文档与示例**：教程、组件文档、演示板每一页的例子，都欢迎改进。
 
-参与没有门槛：提 issue 描述问题或想法、直接提 PR 都行。开始前只需记住三条——`moon check` 零错误零警告、`moon test` 全绿再提交，实测踩坑连同修复写进 [adaptation.md](adaptation.md)，一个内聚改动一批提交。完整流程（新增控件的 FFI 规范、prebuild 链接托管）见仓库根 [AGENTS.md](https://github.com/lb091188/moonbit-native-gui/blob/master/AGENTS.md)。
+参与没有门槛：提 issue 描述问题或想法、直接提 PR 都行。开始前只需记住三条——`moon check` 零错误零警告、`moon test` 全绿再提交，实测踩坑连同修复写进 [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/zh/adaptation.md)，一个内聚改动一批提交。完整流程（新增控件的 FFI 规范、prebuild 链接托管）见仓库根 [AGENTS.md](https://github.com/lb091188/moonbit-native-gui/blob/master/AGENTS.md)。

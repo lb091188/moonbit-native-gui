@@ -68,12 +68,9 @@ moon run examples/browser        # 内嵌 WebView 浏览器
 | [layout.md](layout.md) | 布局：yoga-mbt 的 Flexbox 口径与 `@style` 的 `Style` 字段集、`class` 通道 |
 | [build.md](build.md) | 构建与链接：prebuild 托管链接参数、改 C 桩不重链的判别与处理 |
 | [roadmap.md](roadmap.md) | 对外路线图：定位、现在能拿到什么、平台与功能矩阵、承诺与版本、下一步、待定决策、明确不做 |
-| [design.md](design.md) | 前端化设计口径：样式表形态、组件命名映射、响应式补强、视图层用 `render` 函数替代模板 |
-| [module-structure.md](module-structure.md) | 模块结构规划（规划中）：`gui/web` 出成 `gui-webview`、`core` 拆 `base`/`shell`/`widget` 的批次、代价与风险，跟踪在 `TODO.md` §1「G9 模块拆分」 |
-| [gpu-architecture.md](gpu-architecture.md) | GPU 合成与 3D 路径架构决策：两层落地（合成器 + 控件级 GPU 绘制）+ 三级 fallback（WebGPU → Cairo → Pure）+ WebGPU via wgpu-native 后端选型 + `Widget.on_render` 口子，跟踪在 `TODO.md` §1「G11 GPU 合成与 3D 路径」 |
-| [adaptation.md](adaptation.md) | 平台适配经验：各平台实测坑、根因与验证结论 |
 | [autostart.md](autostart.md) | 开机自启：Linux 写 XDG .desktop、Windows 写 HKCU Run 键，统一 `is_enabled` / `enable` / `disable` |
-| [tray.md](tray.md) | Linux 托盘：SNI 协议栈设计、架构、后端降级与桌面兼容性 |
 | [system-capabilities.md](system-capabilities.md) | 系统能力总览（`@sys`）：音量、应用查找、色温、壁纸、显示器、窗口管理、剪贴板监听、系统信息、打印机、最近文件、浏览器历史等，统一 `Result` 语义；含子进程与 D-Bus 调用层两块共享基建 |
+
+对内的工程记录——平台适配经验、Linux 托盘设计、前端化设计、模块拆分方案、GPU 架构决策——在仓库的 [`proposals/`](https://github.com/lb091188/moonbit-native-gui/tree/master/proposals) 目录，不在本站发布。
 
 项目总览与快速开始入口见仓库根 [README_ZH.md](https://github.com/lb091188/moonbit-native-gui/blob/master/README_ZH.md)。

@@ -1,6 +1,6 @@
 # Build & linking
 
-Link parameters are **fully hosted by prebuild** — neither users nor contributors hand-write link flags. This page explains what the mechanism means for you, and the one pitfall after editing a native stub: not relinking. The mechanism and the per-platform field records live in the "Build & linking" section of [adaptation.md](adaptation.md).
+Link parameters are **fully hosted by prebuild** — neither users nor contributors hand-write link flags. This page explains what the mechanism means for you, and the one pitfall after editing a native stub: not relinking. The mechanism and the per-platform field records live in the "Build & linking" section of [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md).
 
 ## 1. Where linking comes from
 
@@ -33,7 +33,7 @@ rm -rf _build/native/debug/build/examples/<example>/<example>   # relink this ex
 
 Then run `moon build` / `moon test` again: the stub is recompiled and a fresh exe is linked.
 
-When debugging, first reproduce with a new main target: a fresh target is always linked fresh. If main runs fine but the test crashes, the test binary almost certainly linked a stale archive, not a logic bug. The finer per-platform records are in [adaptation.md](adaptation.md).
+When debugging, first reproduce with a new main target: a fresh target is always linked fresh. If main runs fine but the test crashes, the test binary almost certainly linked a stale archive, not a logic bug. The finer per-platform records are in [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md).
 
 ## 4. Vendored large files and mirrors
 
@@ -50,6 +50,6 @@ Licenses and provenance: [THIRD-PARTY-NOTICES.md](/THIRD-PARTY-NOTICES.md).
 
 ## 5. Related
 
-- Platform adaptation pitfalls and verification: [adaptation.md](adaptation.md)
+- Platform adaptation pitfalls and verification: [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md)
 - Environment setup and your first project: [tutorial.md](tutorial.md)
 - Components and API: [components.md](components.md)

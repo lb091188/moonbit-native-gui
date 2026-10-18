@@ -6,7 +6,7 @@ Every self-drawn widget and the component library live in `NoahLiu/native-gui/ui
 
 ## Conventions (read this first)
 
-**Typed parameters + a `class` style channel.** Components take typed parameters only — size, colour, value — not CSS string tables. Overriding the look goes two ways: loose parameters (`font_size` / `background_color` and friends), or `class? : Array[@style.Style]` layering `Style` value blocks, where the last `class` in the array wins. The full style layer is in [design.md (Chinese)](/zh/design).
+**Typed parameters + a `class` style channel.** Components take typed parameters only — size, colour, value — not CSS string tables. Overriding the look goes two ways: loose parameters (`font_size` / `background_color` and friends), or `class? : Array[@style.Style]` layering `Style` value blocks, where the last `class` in the array wins. The full style layer is in [design.md (Chinese)](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/zh/design.md).
 
 **State lives in `Store`, no glue code.** The current value of a value control (checkbox / radio / switch / slider / input / progress …) is held by an `@base.Store[T]`: the component reads and writes it, and an external change refreshes the component. Display components come through two entries — `x` takes a value, `x_dyn` takes a `Signal[T]` — sharing one drawing path.
 
@@ -160,7 +160,7 @@ Value model (`ui/datetime.mbt`): `DateYMD{y,m,d}`, `TimeHM{h,m}`, `DateRange`, `
 | `drag_source(content : Node, payload? : () -> DragData?, threshold?=4.0, external?=false, on_external?)` | Drag source: after pressing on `content` and dragging `threshold` pixels, `payload()` is called to fetch the data and start the drag; `external=true` first tries a system-level drag-out (Windows/Linux wired), and falls back to an in-app session automatically if it fails |
 | `drop_target(content : Node, on_drop? : (DragData, Double, Double) -> Unit, accept? : (DragData) -> Bool)` | Drop target: hover highlights with the theme accent; on release `accept` (defaults to accepting everything) decides, and an accepted drop calls `on_drop` |
 
-> Don't put a button inside a drag source: pointer events go deepest-first, so the interactive widget eats the press. `payload()` is lazy — under the threshold the gesture stays a normal click. `DragData` = `Text`/`Html`/`Paths`/`Img` (`@core`). Cross-application system drag & drop is covered in the platform batches of adaptation.md.
+> Don't put a button inside a drag source: pointer events go deepest-first, so the interactive widget eats the press. `payload()` is lazy — under the threshold the gesture stays a normal click. `DragData` = `Text`/`Html`/`Paths`/`Img` (`@core`). Cross-application system drag & drop is covered in the platform batches of [proposals/adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md).
 
 ## Hover & cursor groups
 
@@ -182,4 +182,4 @@ Value model (`ui/datetime.mbt`): `DateYMD{y,m,d}`, `TimeHM{h,m}`, `DateRange`, `
 - Declarative tree / `Store` / `Signal`: [declarative.md](declarative.md)
 - Layout styling (`Style` fields and the `class` channel): [layout.md](layout.md)
 - System capabilities (`@sys`): [system-capabilities.md](system-capabilities.md)
-- Field-tested platform pitfalls: [adaptation.md](adaptation.md)
+- Field-tested platform pitfalls: [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md)

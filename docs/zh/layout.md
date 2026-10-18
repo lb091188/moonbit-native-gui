@@ -1,6 +1,6 @@
 # 布局样式（@style + yoga-mbt）
 
-布局引擎是本仓自研的 **yoga-mbt**，纯 MoonBit 的 CSS Flexbox Level 1 实现；样式写成 MoonBit 值住在 `@style` 包，`Style` 结构体的字段名就是 CSS 属性名连字符写下划线。组件既给散参数 `padding=` / `row_gap=` …，也收 `class? : Array[@style.Style]` 叠样式块。本文是布局面速查，样式值模型与状态桶的完整设计见 [design.md](design.md)。
+布局引擎是本仓自研的 **yoga-mbt**，纯 MoonBit 的 CSS Flexbox Level 1 实现；样式写成 MoonBit 值住在 `@style` 包，`Style` 结构体的字段名就是 CSS 属性名连字符写下划线。组件既给散参数 `padding=` / `row_gap=` …，也收 `class? : Array[@style.Style]` 叠样式块。本文是布局面速查，样式值模型与状态桶的完整设计见 [design.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/zh/design.md)。
 
 ## 两条写入路径
 
@@ -70,6 +70,6 @@
 
 ## 相关文档
 
-- 样式值模型、状态桶、主题联动：[design.md](design.md) §1
+- 样式值模型、状态桶、主题联动：[design.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/zh/design.md) §1
 - 组件与散参数：[components.md](components.md)
 - 响应式与整棵 / 原位替换：[declarative.md](declarative.md)

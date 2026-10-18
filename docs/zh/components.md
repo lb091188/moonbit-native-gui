@@ -6,7 +6,7 @@
 
 ## 约定（先看这一节）
 
-**类型化参数 + `class` 样式通道。** 组件只给类型化参数——尺寸、颜色、值——不接 CSS 字符串表；外观覆盖走两条路：散参数（`font_size` / `background_color` 等），或 `class? : Array[@style.Style]` 叠 `Style` 值块、数组尾赢。样式层的完整形态见 [design.md](design.md)。
+**类型化参数 + `class` 样式通道。** 组件只给类型化参数——尺寸、颜色、值——不接 CSS 字符串表；外观覆盖走两条路：散参数（`font_size` / `background_color` 等），或 `class? : Array[@style.Style]` 叠 `Style` 值块、数组尾赢。样式层的完整形态见 [design.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/zh/design.md)。
 
 **状态走 `Store`，不写胶水。** 值类控件（复选/单选/开关/滑块/输入框/进度…）的当前值由 `@base.Store[T]` 持有：组件读写它，外部改它即刷新组件。展示类另有 `x` 收值、`x_dyn` 收 `Signal[T]` 两条入口，同一份画法。
 
@@ -160,7 +160,7 @@
 | `drag_source(content : Node, payload? : () -> DragData?, threshold?=4.0, external?=false, on_external?)` | 拖源：`content` 上按下拖出 `threshold` 像素后调 `payload()` 取数据开拖；`external=true` 先试系统级拖出，Windows/Linux 已接，不成自动回落应用内会话 |
 | `drop_target(content : Node, on_drop? : (DragData, Double, Double) -> Unit, accept? : (DragData) -> Bool)` | 落点：悬停描主题主色高亮，松手按 `accept`（默认全收）判收不收、收则调 `on_drop` |
 
-> 拖源内容里别放按钮——指针事件最深优先，交互件会吃掉按下。`payload()` 惰性，没过阈值当普通点击。`DragData` = `Text`/`Html`/`Paths`/`Img`（`@core`）。跨应用系统级拖放见 adaptation.md 各平台批。
+> 拖源内容里别放按钮——指针事件最深优先，交互件会吃掉按下。`payload()` 惰性，没过阈值当普通点击。`DragData` = `Text`/`Html`/`Paths`/`Img`（`@core`）。跨应用系统级拖放见 [proposals/adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md) 各平台批。
 
 ## 悬停与光标组
 
@@ -182,4 +182,4 @@
 - 声明式树 / `Store` / `Signal`：[declarative.md](declarative.md)
 - 布局样式（`Style` 字段与 `class` 通道）：[layout.md](layout.md)
 - 系统能力（`@sys`）：[system-capabilities.md](system-capabilities.md)
-- 平台实测坑：[adaptation.md](adaptation.md)
+- 平台实测坑：[adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md)

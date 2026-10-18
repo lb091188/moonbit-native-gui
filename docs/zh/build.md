@@ -1,6 +1,6 @@
 # 构建与链接
 
-链接参数**全权由 prebuild 托管**——使用者和贡献者都不手写链接参数。本文讲这套机制对你意味着什么，以及改原生桩后唯一的坑：不重链。原理与逐平台实测记录在 [adaptation.md](adaptation.md)「构建与链接」。
+链接参数**全权由 prebuild 托管**——使用者和贡献者都不手写链接参数。本文讲这套机制对你意味着什么，以及改原生桩后唯一的坑：不重链。原理与逐平台实测记录在 [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md)「构建与链接」。
 
 ## 1. 链接从哪来
 
@@ -33,7 +33,7 @@ rm -rf _build/native/debug/build/examples/<示例>/<示例>   # 该示例重链
 
 删完再 `moon build` / `moon test`，会重新编译桩并链新 exe。
 
-排查时先用新的 main 目标复现一轮：新 target 每次都是新链接，若 main 正常而 test 崩，基本可断定 test 二进制链了旧归档，不是代码逻辑问题。更细的平台实测记在 [adaptation.md](adaptation.md)。
+排查时先用新的 main 目标复现一轮：新 target 每次都是新链接，若 main 正常而 test 崩，基本可断定 test 二进制链了旧归档，不是代码逻辑问题。更细的平台实测记在 [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md)。
 
 ## 4. vendor 大文件与镜像
 
@@ -50,6 +50,6 @@ rm -rf _build/native/debug/build/examples/<示例>/<示例>   # 该示例重链
 
 ## 5. 相关
 
-- 平台适配坑与验证：[adaptation.md](adaptation.md)
+- 平台适配坑与验证：[adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md)
 - 环境准备与第一个工程：[tutorial.md](tutorial.md)
 - 组件与 API：[components.md](components.md)

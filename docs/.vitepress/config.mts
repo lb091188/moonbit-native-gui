@@ -108,8 +108,6 @@ export default defineConfig({
           {
             text: 'Platform notes',
             items: [
-              { text: 'Platform adaptation', link: '/adaptation' },
-              { text: 'Linux tray', link: '/tray' },
               { text: 'Autostart', link: '/autostart' },
             ],
           },
@@ -144,10 +142,7 @@ export default defineConfig({
             text: '平台与工程',
             items: [
               { text: '开机自启动', link: '/zh/autostart' },
-              { text: 'Linux 托盘', link: '/zh/tray' },
               { text: '对外路线图', link: '/zh/roadmap' },
-              { text: '前端化设计', link: '/zh/design' },
-              { text: '平台适配经验', link: '/zh/adaptation' },
             ],
           },
         ],
