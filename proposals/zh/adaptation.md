@@ -2633,6 +2633,14 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **教训**：**AppKit 的拖放项数量不变量以异常收场，不给返回码**——每个 `NSDraggingItem` 的 pasteboard writer 必须真能写出至少一项。跨平台的载荷口径（绝对化、去空段、编码）必须三支逐条对齐；一支漏了的后果是崩，不是降级。
 **验证**：真机复验归用户（拖出到 Finder）；本机 mac 桩编译通过，全仓 `moon test` 1259/1259、`--deny-warn` 干净。
 
+## mac 通知只从 `.app` bundle 里弹：探测按打包如实回答，并补上打包口（2026-10-19,真机反馈「mac 是不是没实现通知」）
+
+**现象**（用户 mac 真机）：showcase「系统集成→通知」点了没影，看着像整条没实现。
+**定位**（20 行 ObjC 探针跑两态，不靠目视）：裸二进制里 `deliverNotification:` 之后泵两秒，**`didDeliver` 与 `didFailWithError:` 一个都不回调**——系统静默丢弃，连错误都拿不到；同一个二进制放进带 `CFBundleIdentifier` 的 `Probe.app`（ad-hoc 签名）后立刻 `didDeliver=native-gui 探针`。顺带把现代那条路也量了：非 bundle 进程调 `UNUserNotificationCenter currentNotificationCenter` 是**直接 abort**（未捕获 NSException，exit 134），不是可 catch 的错误——换 UN 绕不开打包要求，反而更挑运行形态。
+**结论与修复**：① **探测说实话**——mac 支 `wm_notify_supported()` 加一条 `[[NSBundle mainBundle] bundleIdentifier] == nil → 0`，于是 `notify_backend()` 给 None、showcase 明说「通知后端不可用（按钮会报失败）」，不再拿「已交给系统」的槽号冒充已发；② **给出路**——新增 `scripts/make_app.sh <包名> [显示名]`，把 `moon build` 的裸二进制包成 `_build/apps/Showcase.app`（Info.plist + bundle id + ad-hoc codesign），`open` 起来才真弹；③ 顺手修掉误导的后端名：mac 报 `ns-user-notification`（实现住 win 桩的 `wm_notify_*`，旧名 `win-balloon` 是 TODO 上挂着的一条）。
+**验证**：探针两态读数如上；全仓 `moon test` 1259/1259、`--deny-warn` 干净；打包口本机实跑产出 `Showcase.app`，`codesign -dv` 回 `Identifier=com.moonbitlibyue.showcase`。真机（打包后）弹出与首次授权放行归用户（T4e 已按此改写）。
+**教训**：系统面「代码写了」不等于「运行形态吃得到」。mac 的通知/权限一族按 bundle 身份放行，**探测必须把运行形态算进判据**，否则 UI 永远显示「可用」而什么都不发；这类「到底能不能用」先用带回调的探针问系统，别拿目视当证据。
+
 ## 维护约定
 
 1. 新增结论写进对应小节,只记「坑 + 修复」;协议互操作结论必须来自真总线、真面板,单测自洽不算数。

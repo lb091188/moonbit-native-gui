@@ -273,7 +273,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
     @shared.section(
       "通知",
       "系统通知",
-      "系统通知中心：普通通知与带进度条通知。后端不可用（无 dbus 会话等）时明说失败，不假装成功。",
+      "系统通知中心：普通通知与带进度条通知。后端不可用（无 dbus 会话等）时明说失败，不假装成功。macOS 只认从 .app bundle 里跑的进程——裸 `moon run` 下会报不可用，打包口 `scripts/make_app.sh showcase`。",
       [
         @ui.row(
           [
