@@ -407,3 +407,33 @@ test "逐帧步进：暂停中挪一帧并立刻出画面" {
   assert_eq(player.get_speed(), 2.0)
   player.free()
 }
+
+///|
+/// 视频频谱旁路：带音轨素材 set_pcm_tap 后，tick 推流应喂进分析器
+/// （与 AudioPlayer 的 pcm_tap 同口径，取样点在重采样后、入队前）。
+test "VideoPlayer PCM 旁路：频谱吃得到重采样后的流" {
+  if !@ffmbt.ffmpeg_supported() {
+    println("skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）")
+    return
+  }
+  let sp = Spectrum::make()
+  let player = match VideoPlayer::make("../ffmpeg-mbt/src/testdata/av_1s.mp4", fps=12) {
+    Ok(p) => p
+    Err(e) => fail("make 失败：\{e}")
+  }
+  player.set_pcm_tap(Some(fn(b : Bytes, ch : Int) -> Unit { sp.feed(b, ch) }))
+  player.play()
+  player.wall0.val = player.wall0.val - 300L
+  player.tick()
+  player.tick()
+  if sp.fed <= 0 {
+    fail("带音轨视频 tick 后应有 PCM 喂进频谱")
+  }
+  // 关闭旁路：喂入计数不再增长
+  let fed = sp.fed
+  player.set_pcm_tap(None)
+  player.wall0.val = player.wall0.val - 300L
+  player.tick()
+  assert_eq(sp.fed, fed)
+  player.free()
+}
