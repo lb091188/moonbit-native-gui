@@ -76,14 +76,42 @@ def vendor_bases() -> list[str]:
     return extra + VENDOR_BASES
 
 
+# 单源总预算：urlopen 的 timeout 是 **socket 级**（单次连接/读操作），管不住
+# DNS 解析挂起与「慢速滴流」——防火墙 DROP（而非 REJECT）的网络里 socket
+# 超时可能永不触发，进程就吊死在第一个镜像上（另一台机器实测）。线程包裹
+# 整个 GET，超过总预算就放弃换下一个镜像（daemon 线程留在后台，随进程退出）。
+# 预算按「Loader 11MB 在慢网下也下得完」给 60 秒，不是连接超时那 20 秒。
+VENDOR_BUDGET = 60
+
+
+def _fetch_with_budget(url: str, socket_timeout: int, budget: int) -> "bytes | None":
+    import threading
+
+    box: dict = {}
+
+    def run() -> None:
+        try:
+            box["data"] = urllib.request.urlopen(url, timeout=socket_timeout).read()
+        except Exception as e:  # noqa: BLE001
+            box["err"] = e
+
+    t = threading.Thread(target=run, daemon=True)
+    t.start()
+    t.join(budget)
+    return box.get("data")
+
+
 def fetch_vendor_file(name: str, sha: str) -> "bytes | None":
     for base in vendor_bases():
         url = f"{base}/{name}"
-        try:
-            print(f"prebuild: 取 vendor {url} ...", file=sys.stderr)
-            data = urllib.request.urlopen(url, timeout=VENDOR_TIMEOUT).read()
-        except Exception as e:  # noqa: BLE001——任何网络/URL 错误都换下一个镜像
-            print(f"prebuild: 镜像失败（{e}）", file=sys.stderr)
+        print(f"prebuild: 取 vendor {url} ...", file=sys.stderr)
+        data = _fetch_with_budget(url, socket_timeout=VENDOR_TIMEOUT, budget=VENDOR_BUDGET)
+        if data is None:
+            print(
+                f"prebuild: 镜像失败（{VENDOR_BUDGET} 秒总预算内无完整响应，"
+                "可能 DNS/连接挂起），换下一个",
+                file=sys.stderr,
+            )
             continue
         if hashlib.sha256(data).hexdigest() != sha:
             print(f"prebuild: {name} 在该镜像上 sha256 不符，换下一个", file=sys.stderr)
