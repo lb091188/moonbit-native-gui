@@ -668,3 +668,32 @@ test "轻提示层不吞点外点击，普通浮层照旧点外收起" {
   )
   assert_eq(got2.val, 0, msg="普通浮层的点外点击仍被图层消费")
 }
+
+///|
+test "对话框：底钮可聚焦、按钮区留右边距" {
+  if !ui_text_guard() {
+    return
+  }
+  let vis = @base.Store::new(true)
+  let (root, _a) = mounted_with_overlay(
+    dialog(vis, "标题", [text("正文", font_size=12.0)]),
+    400.0,
+    300.0,
+  )
+  root.relayout(400.0, 300.0)
+  let scrim = match @widget.overlay_root_of(@widget.overlay_top_id()) {
+    Some(w) => w.children()[0]
+    None => @widget.Widget::new()
+  }
+  let footer = scrim.children()[0].children()[3]
+  let btns = footer.children()
+  assert_eq(btns.length(), 2)
+  for b in btns {
+    assert_true(b.focus_id > 0, msg="对话框底钮没领焦点号，Tab 到不了它")
+  }
+  let last = btns[btns.length() - 1]
+  assert_true(
+    footer.rect.w - (last.rect.x + last.rect.w) >= 12.0,
+    msg="对话框按钮区没有右边距",
+  )
+}

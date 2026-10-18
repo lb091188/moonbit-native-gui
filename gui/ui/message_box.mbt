@@ -70,7 +70,8 @@ pub fn msgbox_default_code(buttons : Array[(String, Int)]) -> Int {
 
 ///|
 /// 消息框的焦点 id 取号：从 700000 起（避开调用方常用的低号段，如示例里的
-/// 1..25）。每次开层取一个、关层注销。
+/// 1..25）。每次开层取一个、关层注销。**只服务「一个按钮都没有」那一档**：
+/// 那种框没有可聚焦项，得给面板一个手动号，Esc 才有落点。
 let msgbox_next_focus_id : Ref[Int] = Ref(700000)
 
 fn msgbox_alloc_focus_id() -> Int {
@@ -115,7 +116,10 @@ pub fn message_box(
       // 锚点是个 0 尺寸占位：可见性只由 Store 驱动，不在页面里占位
       anchor.node.set_height(@yoga.fixed(0.0))
       let open_id : Ref[Int] = Ref(0)
-      let focus_id : Ref[Int] = Ref(0)
+      // 本层可聚焦项：底钮各一个号（进树即被宿主的焦点链收到），外加
+      // 「无按钮」那一档的面板手动号。开框时焦点交给第一个，收框时整批注销。
+      let btn_ids : Array[Int] = []
+      let panel_focus : Ref[Int] = Ref(0)
       let prev_focus : Ref[Int] = Ref(0)
       let icon_kind = msgbox_icon_of(kind)
       let icon_color = msgbox_icon_color_of(kind)
@@ -130,10 +134,16 @@ pub fn message_box(
           @widget.overlay_hide(open_id.val)
           open_id.val = 0
         }
-        if focus_id.val != 0 {
+        if btn_ids.length() > 0 || panel_focus.val != 0 {
           match @widget.host_active() {
             Some(a) => {
-              a.focus.unregister(focus_id.val)
+              for id in btn_ids {
+                a.focus.unregister(id)
+              }
+              if panel_focus.val != 0 {
+                a.focus.unregister(panel_focus.val)
+                panel_focus.val = 0
+              }
               // 还回开框前那个焦点（>0 才可能还在栈里；不在栈里时 focus 给 false，
               // 什么也不做，不会把焦点抢走）
               if prev_focus.val > 0 {
@@ -142,7 +152,6 @@ pub fn message_box(
             }
             None => ()
           }
-          focus_id.val = 0
         }
       }
       let respond = fn(code : Int) -> Unit {
@@ -319,14 +328,15 @@ pub fn message_box(
         }
         body.append_child(icon_w)
         body.append_child(col)
-        // 按钮区：按给定顺序从左到右，第一个是默认钮（主色）
+        // 按钮区：按给定顺序从左到右，第一个是默认钮（主色）；两档内边距都要给，
+        // 只给左边的话钮被 FlexEnd 推到右缘、贴着面板描边（真机反馈「太靠右没有右边距」）
         let footer = @widget.Widget::new()
         footer.node.set_flex_direction(@yoga.Row)
         footer.node.set_height(@yoga.fixed(52.0))
         footer.node.set_justify_content(@yoga.JustifyContent::FlexEnd)
         footer.node.set_align_items(@yoga.AlignItems::Center)
         footer.node.set_gap(0.0, 8.0)
-        footer.set_padding(left=16.0)
+        footer.set_padding(left=16.0, right=16.0)
         for i = 0; i < buttons.length(); i = i + 1 {
           let input = buttons[i]
           let code = input.1
@@ -339,6 +349,10 @@ pub fn message_box(
           b.node.set_height(@yoga.fixed(30.0))
           b.node.set_flex_shrink(0.0)
           b.cursor = @widget.CURSOR_HAND
+          // 钮自己领焦点号：进树即在焦点链里（Tab 能在框里走、空格/回车能激活），
+          // 弹框开着时链只收这一层，见 `App::sync_focus`
+          b.focus_id = auto_focus_id(0)
+          btn_ids.push(b.focus_id)
           // 主/次两档皮肤折进槽：基块=常态、hover 桶=点亮态（与对话框底钮同形）
           let skin = if primary {
             @style.style(
@@ -389,6 +403,19 @@ pub fn message_box(
               align=@text.Center,
               valign=@text.Center,
             )
+            if self.focused {
+              // 焦点环：能聚焦就得看得见焦点在哪个钮上（与 ui.button 同口径，
+              // 主色实底上用白环，主题色环压在上面不可见）
+              p.set_stroke_color(
+                if primary {
+                  "#ffffff"
+                } else {
+                  @theme.theme_primary()
+                },
+              )
+              p.set_line_width(1.0)
+              p.stroke_rect(1.0, 1.0, r.w - 2.0, r.h - 2.0)
+            }
           })
           b.on_pointer = Some(fn(
             _s : @widget.Widget,
@@ -401,6 +428,18 @@ pub fn message_box(
                 false
               }
               _ => false
+            }
+          })
+          b.on_key = Some(fn(ev : @widget.KeyEvent) -> Bool {
+            // 空格/回车激活本钮（Esc 不消费，沿祖先链冒到面板）
+            if !ev.press {
+              return false
+            }
+            if ev.keysym == @base.KS_SPACE || ev.keysym == @base.KS_RETURN {
+              respond(code)
+              true
+            } else {
+              false
             }
           })
           footer.append_child(b)
@@ -457,22 +496,32 @@ pub fn message_box(
         panel.append_child(close_btn)
         panel.append_child(body)
         panel.append_child(footer)
-        // 接管焦点：Esc/Enter 要有落点。记住原焦点，收层时还回去。
+        open_id.val = @widget.overlay_show_full(scrim)
+        // 接管焦点：记住开框前的焦点（收层时还回去），并把焦点交给**第一个钮**
+        // ——默认钮带焦点环，Tab 在框里走、空格/回车即激活。钮的号在树里，按键
+        // 沿祖先链冒到面板，Esc/Enter 的兜底照旧生效。一个钮都没有时给面板挂
+        // 一个手动号，否则 Esc 没有落点（按键按 focus_id 在树里定位控件）。
         match @widget.host_active() {
           Some(a) => {
-            let fid = msgbox_alloc_focus_id()
-            focus_id.val = fid
-            panel.focus_id = fid
             match a.focus.current() {
               Some(p) => prev_focus.val = p
               None => prev_focus.val = 0
             }
-            let _ = a.focus.register(fid)
-            let _ = a.focus.focus(fid)
+            if btn_ids.length() > 0 {
+              for id in btn_ids {
+                let _ = a.focus.register(id)
+              }
+              let _ = a.focus.focus(btn_ids[0])
+            } else {
+              let fid = msgbox_alloc_focus_id()
+              panel_focus.val = fid
+              panel.focus_id = fid
+              let _ = a.focus.register(fid)
+              let _ = a.focus.focus(fid)
+            }
           }
           None => ()
         }
-        open_id.val = @widget.overlay_show_full(scrim)
         handle(anchor)
       }
 

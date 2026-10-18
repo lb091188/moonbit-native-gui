@@ -370,3 +370,42 @@ test "mark_state_chain 只把带状态桶的祖先并进脏区" {
   }
   host_reset()
 }
+
+///|
+/// 通用弹框的焦点隔离：铺满遮罩档（对话框/消息框）开着时，焦点链只收那一层
+/// 的子树——背后的页面已被遮住，还能 Tab 进去就是漏焦点（真机反馈）。
+test "弹框开着时焦点链只收遮罩层，收框后页面回来" {
+  host_reset()
+  let a = fake_open()
+  let page = Widget::new()
+  page.focus_id = 4242
+  a.root.append_child(page)
+  a.sync_focus()
+  assert_eq(a.focus.count(), 1)
+  // sync 不抢焦点（那是「本来没焦点」的口径），先按真实场景把焦点给页面控件
+  assert_true(a.focus.focus(4242))
+  let in_layer = node_of_new(fn(p : Widget) -> Widget {
+    let b = Widget::new()
+    b.set_size(60.0, 24.0)
+    b.focus_id = 777
+    p.append_child(b)
+    b
+  })
+  let id = overlay_show_full(in_layer)
+  a.sync_focus()
+  // 只剩弹框里那颗钮，页面那颗被排斥出链（焦点还在 4242 上，但它已不在链里，
+  // Tab 一步就落到钮上）
+  assert_eq(a.focus.count(), 1)
+  assert_false(a.focus.is_focused(777))
+  assert_true(a.focus.move_focus(false) == Some(777), msg="Tab 没落到遮罩层里的钮")
+  assert_false(a.focus.focus(4242), msg="页面控件还在弹框开着时的焦点链里")
+  // 轻提示这类「放行档」叠在上面不改变归属
+  let tip_id = overlay_show_at(in_layer, 4.0, 4.0, dismiss_on_outside=false)
+  a.sync_focus()
+  assert_true(a.focus.is_focused(777), msg="遮罩层之上叠了放行档就丢了归属")
+  overlay_hide(tip_id)
+  overlay_hide(id)
+  a.sync_focus()
+  assert_true(a.focus.focus(4242), msg="收框后页面控件没回到焦点链")
+  host_reset()
+}

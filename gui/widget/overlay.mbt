@@ -35,12 +35,30 @@ pub(all) struct OverlayHost {
 }
 
 ///|
-/// 一层已开浮层：句柄、包裹控件、以及「点浮层外」的策略——`true` 收起并消费
+/// 一层已开浮层：句柄、包裹控件、「点浮层外」的策略——`dismiss=true` 收起并消费
 /// 这一击（菜单/对话框的模态语义），`false` 放行给底下的页面控件（轻提示）。
+/// `full` 另表「铺满整窗的遮罩档」（对话框/消息框走 `overlay_show_full`）：这一层
+/// 开着时**焦点链只收它子树**，见 `App::sync_focus`。
 pub(all) struct OverlayItem {
   id : Int
   w : Widget
   dismiss : Bool
+  full : Bool
+}
+
+///|
+/// 焦点链归属：有「铺满遮罩档」浮层（对话框/消息框）开着时是**那一层的子树**，
+/// 否则整棵树。其上再叠的轻提示/气泡不改变归属——弹框还开着，焦点就不该回到
+/// 被遮住的页面。宿主每次对齐焦点栈都问它（见 `App::sync_focus`）。
+pub fn OverlayHost::focus_root(self : OverlayHost) -> Widget? {
+  let mut i = self.items.length() - 1
+  while i >= 0 {
+    if self.items[i].full {
+      return Some(self.items[i].w)
+    }
+    i = i - 1
+  }
+  None
 }
 
 ///|
@@ -211,7 +229,12 @@ pub fn overlay_show_at(
       wrap.node.set_top(@yoga.fixed(y - h.layer.rect.y))
       let _ = content.mount_into(wrap)
       h.layer.append_child(wrap)
-      h.items.push({ id: cid, w: wrap, dismiss: dismiss_on_outside })
+      h.items.push({
+        id: cid,
+        w: wrap,
+        dismiss: dismiss_on_outside,
+        full: false,
+      })
       invalidate()
       cid
     }
@@ -259,7 +282,7 @@ pub fn overlay_show_full(content : Node) -> Int {
       wrap.node.set_bottom(@yoga.fixed(0.0))
       let _ = content.mount_into(wrap)
       h.layer.append_child(wrap)
-      h.items.push({ id: cid, w: wrap, dismiss: true })
+      h.items.push({ id: cid, w: wrap, dismiss: true, full: true })
       invalidate()
       cid
     }

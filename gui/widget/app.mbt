@@ -449,7 +449,13 @@ fn App::flush_ime_for_switch(self : App, prev : Int?) -> Unit {
 /// 所以声明了 `focus_id` 的控件天然可聚焦——调用方不需要把号逐个交给
 /// `focus.register`（那仍是画布类自绘宿主与浮层临时焦点的口子）。
 fn App::sync_focus(self : App) -> Unit {
-  self.focus.sync(self.root.focus_ids())
+  self.focus.sync(
+    match self.host.focus_root() {
+      // 铺满遮罩的模态层（对话框/消息框）开着：Tab 只在这一层里转
+      Some(w) => w.focus_ids()
+      None => self.root.focus_ids()
+    },
+  )
 }
 
 ///|
