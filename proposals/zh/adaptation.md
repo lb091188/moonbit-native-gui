@@ -1,6 +1,6 @@
 # 平台适配经验
 
-各平台实测坑与结论,每条只记「坑 + 修复」;协议互操作结论均来自真总线、真面板验证。Linux 按发行版 → 桌面环境组织,Windows / macOS 按版本;新增结论写进对应小节,英文版 [docs/adaptation.md](/adaptation) 同批同步。
+各平台实测坑与结论,每条只记「坑 + 修复」;协议互操作结论均来自真总线、真面板验证。Linux 按发行版 → 桌面环境组织,Windows / macOS 按版本;新增结论写进对应小节,英文版 [adaptation.md](../adaptation.md) 同批同步。
 
 ## 图标数据与生成器(803 图标,2026-09-29)
 
@@ -1816,7 +1816,7 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - 根因（两层，此前只修过下层）：Demuxer 层 2026-10 已改成「open 只探测流、解码器按需开」，纯音频不再在 `Demuxer::open` 被拒（`ffmpeg_wbtest.mbt` 有断言）；但**组件层**的播放器组件无条件走 `VideoPlayer::make`，而该引擎的时钟是墙钟 + 帧时间戳，`open_video_decoder` 在无视频流时直接 `Err(DecodeFailed("无视频流"))`。`AudioPlayer`（设备已消费字节时钟）作为引擎一直存在且功能完整，**全仓没有任何 UI 用它**——示例头注释「纯音频文件同样走它，引擎自动识别无视频轨」是一句没实现的话。
 - 为什么不把纯音频塞进 `VideoPlayer`：`vp_tick` 在无视频流时首拍 `decode_rgba()→None` 就判 EOF 转 `VpEnded`，要让它有声等于在视频引擎里重做一套设备时钟——就是抄一遍 `AudioPlayer`。两条时钟不同轴，分开是对的。
 - 修复：① 新增音频组件 `media/audio_player.mbt`，控制条与视频组件共用同一套分区常量与命中判据（`BAR_*` / `bar_hit` / `bar_speed_at`），逐帧键在音频侧换成 ±5 秒跳转（`ap_skip`：时长未知时只钳下界，否则 `vp_clamp_t` 会把任何落点打回 0）；组件被外层撑高时多出的高度归舞台区，无输出设备的降级说明写在那块，频谱动画也落这块。② `VideoPlayer::make` 探测到无视频流时给可行动文案（「纯音频文件请用 audio」），不再让解码器报「无视频流」。③ tick 周期归一为 `ap_tick_ms`：原先组件注释写 50ms、静音降级的位置近似按 25ms 算，两处不是一个数，无设备环境进度会漂。
-- 命名口径：按 `docs/zh/design.md` §2 改名批的既定方向去掉 `_t`（历史 themed 变体尾巴）并对齐 Web 元素——播放器组件 `player_t` → `video`，新组件叫 `audio`（gui-media 0.1.0 未发布过，改名零破坏）；共用件 `player_bar_hit`/`player_speed_at` 随之叫 `bar_hit`/`bar_speed_at`。**注意 `audio_player_t`/`video_player_t` 是已删旧链（`modules/gui-media/src`）的组件名**、签名收引擎实例，与本轮无关，本文与 `system-capabilities.md` 里那些历史条目保持原样不改名。
+- 命名口径：按 `proposals/zh/design.md` §2 改名批的既定方向去掉 `_t`（历史 themed 变体尾巴）并对齐 Web 元素——播放器组件 `player_t` → `video`，新组件叫 `audio`（gui-media 0.1.0 未发布过，改名零破坏）；共用件 `player_bar_hit`/`player_speed_at` 随之叫 `bar_hit`/`bar_speed_at`。**注意 `audio_player_t`/`video_player_t` 是已删旧链（`modules/gui-media/src`）的组件名**、签名收引擎实例，与本轮无关，本文与 `system-capabilities.md` 里那些历史条目保持原样不改名。
 - 验证：`moon test ./media` **25/25**（新增 `ap_skip` 用例）；`modules/gui-media` 与 `modules/gui-examples` 的 `moon check --deny-warn` 零警告、两示例 native 构建通过；全仓 `moon test` **1179/1179**。真机观感（是否出声、-5s/+5s 落点、倍速听感、换曲）由用户复验。
 
 ### 音频频谱动画（纯 MoonBit FFT，零 C / 零 libavfilter，2026-10-16）
@@ -2400,7 +2400,7 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **修复**：`lerp_style` 加 `font_size` 与 `line_height`；`animatable_key` 投影带上这两条（否则「只改字号」被判成「状态没变」→ `settle` → **连表都不起**，这是看不见渐变的主因）；新增 `anim_shown_font_size(id)` / `anim_shown_line_height(id)` 与 `resolved_for_measure(id)`（基块 + 插值中的这两条），`ui/base.mbt` 两处测量回调改用它。`resolved_for_measure` 用 `merge(st, empty_style())` **造副本**再覆盖——`resolved_table` 里存的是同一个对象，直接改字段会把基块写坏。账落定后 `shown` 就是目标值（含状态桶），所以悬停结束后盒子仍与绘制一致，不会「动画完了盒子又缩回去」。
 - **顺带补的一条接线**（不做就会「渐变到一半被裁」）：字号/行高在变 ⇒ 控件矩形会长大 ⇒ 局部脏区按**上一帧**的矩形并进去，新露出的那圈画不到。`transition.mbt` 的 `grows_layout(a)` 判这两条是否变化，`mark_dirty` 据此在「整窗置脏 / 局部置脏」之间分派——只改颜色/边框宽/圆角的过渡仍走局部（P5 的优化不为它们让路）。`anim_needs_full_paint(id)` 把这条决策暴露给测试。
 - **仍在集合外的**：`opacity` / `box_shadow`（生效点是 `apply` 落 `Widget` 字段，绘制遍历不逐帧读槽）与尺寸类布局属性。`box_shadow` 要不要做动画取决于阴影本身能不能做成「真投影」（CSS 里它是可动画的 shadow list），见下一节。
-- **口径同步**：showcase 段名「集合外属性 / 不参与插值的属性」改为「插值范围 / 哪些属性会渐变」并改写正文；`docs/zh/design.md` §1.1「过渡」行重写（字号与行高进集合、测量期同读一份值、这两条改走整窗置脏、理由从「每帧重排」改成「每帧本来就重排」）；P5 那节的「待真机复验」补了口径变更指针，避免后人照旧文案判 bug。
+- **口径同步**：showcase 段名「集合外属性 / 不参与插值的属性」改为「插值范围 / 哪些属性会渐变」并改写正文；`proposals/zh/design.md` §1.1「过渡」行重写（字号与行高进集合、测量期同读一份值、这两条改走整窗置脏、理由从「每帧重排」改成「每帧本来就重排」）；P5 那节的「待真机复验」补了口径变更指针，避免后人照旧文案判 bug。
 - **验证方式**：`gui/style/transition_wbtest.mbt` 改 1 条 + 新增 2 条——`lerp_style` 中帧 12→16 给 14、行高 16→20 给 18（旧口径两条都取目标），集合外的 `opacity` 仍直取目标；`step` 只改字号也起表，25/50/100ms 读数 12.625 / 14.0 / 16.0（smoothstep），中途换回原值时反向段从当前 14.0 续接不跳端点，且 `anim_needs_full_paint` 为真（只改颜色的那条账为假）；只改行高同样起表并给 18.0；`resolved_for_measure` 与同帧 `style_for` 的字号与行高**同值**、两值分别落在 [13,17] 与 [20,28] 内、且 `resolved_by_id` 的基块没被写坏。旧实现下这几条全红。`moon test style ui core` **354/354**，真机观感归 `_人工测试清单.md` S30。
 
 ## 库测试每跑一次就弹一次「需要使用新应用以打开 …」：ShellExecuteW 对未注册协议不返错（2026-10-15,用户报）
@@ -2418,7 +2418,7 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **根因**（三层）：
   1. `Painter::box_shadow` 画的是**一条描边**（线宽 = spread、中心线外扩 spread/2），整圈只有一档浓度、内外两端都是硬边 ⇒ 看着像给盒子套了圈灰框，不像投影；
   2. 调用点 `ui/basic.mbt` 传的是 `dx=dy=0`，且 `Style` 只有一个 `box_shadow : Double?`，**没有偏移/模糊/颜色的落点** ⇒ 永远四周对称，没有「往下投」的方向感；
-  3. 为什么早先不敢用多层：`docs/zh/adaptation.md` 记过「硬阴影在四个角叠成深色圆斑：两后端都没有反向弧，『内外环挖洞』挖不出洞」——那版是**外环填充 + 反向内环挖孔**，孔挖不干净才在角上叠墨。而分层填充**根本不需要挖孔**：本体随后画在最上面，内层的过度累积正被本体遮住，所以这条路重新可行（也符合 CSS：背景透明的本体本来就会透出阴影）。
+  3. 为什么早先不敢用多层：`proposals/zh/adaptation.md` 记过「硬阴影在四个角叠成深色圆斑：两后端都没有反向弧，『内外环挖洞』挖不出洞」——那版是**外环填充 + 反向内环挖孔**，孔挖不干净才在角上叠墨。而分层填充**根本不需要挖孔**：本体随后画在最上面，内层的过度累积正被本体遮住，所以这条路重新可行（也符合 CSS：背景透明的本体本来就会透出阴影）。
 - **修复**：`Painter::drop_shadow(x, y, w, h, radius, blur, dx, dy, color)`——圆角矩形与半径 e 的圆盘做 Minkowski 和，结果仍是圆角矩形（宽高各 +2e、半径 +e），于是从外到内画 N 层同一形状（每层≈1px 过渡带，2..8 层封顶），每层 `global_alpha = 总浓度 / N`（source-over 累积近似线性）：贴本体边最浓、到 blur 处褪零，且**同一距离上角与边浓度相同**。`Painter::box_shadow` 直接删掉，不留兼容壳。
 - **API 对表 CSS**：`Style` 新增 `shadow_x` / `shadow_y` / `shadow_color`，`box_shadow` 的含义改为模糊半径——四位合起来就是 CSS `box-shadow: blur x y color`（颜色自带 alpha 即浓度，未写用内置基调 `#00000040`）。取值统一走 `@style.shadow_of(s)`。`apply` 把**外扩量 = blur + |dx| + |dy|** 落进 `Widget.shadow_paint`，且按**合并后的基块**算（原来只看本次传入的 `s`，后一次 apply 只补偏移时外扩量不会跟着变，下缘会被裁剪窗口切掉）。
 - **顺带修的两处边角**（真投影会把它们放大）：① `core/widget.mbt` 的视口剔除判交只用裸矩形 ⇒ 本体刚滑出视口时软边整圈消失 ⇒ 判交同样放大 `shadow_paint`；② 裁剪窗口原先按「spread」放大，加了偏移就不够 ⇒ 与 ①同源，现在都是 blur+|dx|+|dy|。
@@ -2610,5 +2610,5 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - [x] **yoga-mbt 自由空间漏减行间隙**（2026-10-14，真机反馈「复制按钮还是有问题」）：§9.7 分配里 `initial_free` / `remaining` / auto-margin `free` / justify `free2` 只减子项外框和、没减 `gap x (n-1)`，而定位又逐项加 gap ⇒ grow 项多吃间隙、整行溢出容器（判据：行宽 100 + gap 10 + [固定 30, grow 1] 应为 60，修前 70）。四处统一先减 `gap_total`。
 - [x] **段条「超宽自动换行」是假口径**（2026-10-14）：`ui` 从不写 `flex_wrap`、样式层也没这条属性 ⇒ 任何容器都是 NoWrap，段一多就横向溢出被裁。按「属性名 = CSS 属性名」给 `Style` 补 `flex_wrap`（工厂/merge/apply 全接线）。真换行还差两条配套：段条要放在**列**里（row 交叉轴不拉伸 → 换行容器按内容定宽，段折成六七行），并且**换行容器与父链每层显式 `min_height/min_width=0`**（规范 §4.5 列内子项 min:auto = min-content 高 = 全部堆叠，实测段条 224px、正文从 646 掉到 476；引擎符合规范）。修完量数：段条 54、正文 646、代码文档页视口 652/内容 808 可滚。
 - [x] **滚动容器滚不动**（2026-10-14，真机反馈）：`scroll_view` 视口没写 `min-height`，Yoga flex 子项默认 min-size=auto ⇒ 视口被内容顶到自然高、`max()` 恒 0（实测 240×140 父里 viewport=676=content）。库级补 `min_height/min_width=0`，所有调用点（showcase 段正文与侧栏、native-app、virt_list 宿主）一起受益；显式 `height=` 不受影响。判据与对照读数见 adaptation 同批条。
-- [x] **Markdown 页两处缺陷**（2026-10-14，真机反馈）：① 富文本区间按 UTF-16 code unit 出、`AttributedText` 契约是 UTF-8 字节下标 ⇒ 中英混排样式整体前移、端点切进字符（豆腐块 + 压字）；② `md_rich_label` 从不折行、节点宽=整段自然宽（一段 656px 撑进 480 文档）⇒ 右边缘裁字、代码区「复制」被推出可视区。修：`md_byte_len` 出区间 + 构造期贪心折行（中文逐字/拉丁逐词/`\n` 硬换行/超长单元按字符硬切），一行一个 AttributedText，删除线与链接命中按行换算，列表/引用/脚注/表格单元格按各自可用宽收窄（`md_narrow`）。判据与「换回旧单位当场红」的对照实验见 `docs/zh/adaptation.md` 同批条。**待真机**：豆腐块/裁字/复制按钮是否消失、内容区纵向滚动是否恢复。
+- [x] **Markdown 页两处缺陷**（2026-10-14，真机反馈）：① 富文本区间按 UTF-16 code unit 出、`AttributedText` 契约是 UTF-8 字节下标 ⇒ 中英混排样式整体前移、端点切进字符（豆腐块 + 压字）；② `md_rich_label` 从不折行、节点宽=整段自然宽（一段 656px 撑进 480 文档）⇒ 右边缘裁字、代码区「复制」被推出可视区。修：`md_byte_len` 出区间 + 构造期贪心折行（中文逐字/拉丁逐词/`\n` 硬换行/超长单元按字符硬切），一行一个 AttributedText，删除线与链接命中按行换算，列表/引用/脚注/表格单元格按各自可用宽收窄（`md_narrow`）。判据与「换回旧单位当场红」的对照实验见 `proposals/zh/adaptation.md` 同批条。**待真机**：豆腐块/裁字/复制按钮是否消失、内容区纵向滚动是否恢复。
 

@@ -1,6 +1,6 @@
 # 声明式层与响应式（@core + @ui）
 
-界面用一棵**节点树**描述，状态用 `Store` / `Signal` 持有，框架负责「数据变了 UI 跟着变」。本文讲这套接线怎么写；样式见 [layout.md](layout.md) 与 [design.md](design.md)，组件见 [components.md](components.md)。
+界面用一棵**节点树**描述，状态用 `Store` / `Signal` 持有，框架负责「数据变了 UI 跟着变」。本文讲这套接线怎么写；样式见 [layout.md](layout.md) 与 [design.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/zh/design.md)，组件见 [components.md](components.md)。
 
 ## 1. 节点树与挂载
 
@@ -123,5 +123,5 @@ let rows : @base.ListStore[String] = @base.ListStore::new(["a", "b"])
 
 - 组件与参数：[components.md](components.md)
 - 布局样式：`Style` 值与 `class` 通道见 [layout.md](layout.md)
-- 视图层与响应式设计口径：[design.md](design.md) §3 响应式、§4 视图层
+- 视图层与响应式设计口径：[design.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/zh/design.md) §3 响应式、§4 视图层
 - 五分钟上手：[tutorial.md](tutorial.md)

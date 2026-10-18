@@ -72,7 +72,7 @@ MoonBit 的**轻量跨平台桌面 GUI 框架**——窗口原生直连、渲染
 
 ## 功能面全景
 
-状态只回答「这个功能点在某平台上成不成」；接口形态与验收细节在 [adaptation.md](adaptation.md) 和各包文档，排期在 [TODO.md](https://github.com/lb091188/moonbit-native-gui/blob/master/TODO.md)。
+状态只回答「这个功能点在某平台上成不成」；接口形态与验收细节在 [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/zh/adaptation.md) 和各包文档，排期在 [TODO.md](https://github.com/lb091188/moonbit-native-gui/blob/master/TODO.md)。
 
 - ✅ 有实现，且有逐项回证
 - 🚧 有实现，但回证未到逐项级，或分支尚未合流 master
@@ -261,7 +261,7 @@ Linux 列带 **X11** 的格只在 X11 会话成立，带 **DE** 的格行为随�
 | 控件级 GPU 绘制（shader / vertex buffer） | ❌ | ❌ | ❌ |
 | WebGPU 后端（wgpu-native 可选模块） | ❌ | ❌ | ❌ |
 
-**架构定案（2026-10-17）**：**WebGPU 作可选后端，两层落地（合成器 + 控件级 GPU 绘制），三级 fallback（WebGPU → Cairo → Pure）**。渲染路径分派的口子（`RenderCtx` / `Widget.on_render`）已在协议层留好，未来 GPU 后端上线只扩枚举变体、不改 Widget 契约。选型依据、落地路径、平台兼容档口与设计决策全文见 [gpu-architecture.md](gpu-architecture.md)。
+**架构定案（2026-10-17）**：**WebGPU 作可选后端，两层落地（合成器 + 控件级 GPU 绘制），三级 fallback（WebGPU → Cairo → Pure）**。渲染路径分派的口子（`RenderCtx` / `Widget.on_render`）已在协议层留好，未来 GPU 后端上线只扩枚举变体、不改 Widget 契约。选型依据、落地路径、平台兼容档口与设计决策全文见 [gpu-architecture.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/zh/gpu-architecture.md)。
 
 ## 承诺与版本
 
@@ -274,7 +274,7 @@ Linux 列带 **X11** 的格只在 X11 会话成立，带 **DE** 的格行为随�
 2. **可信度**：CI 门禁 + 真机人工清单 + 版本承诺，能力族验收一律走这三件套。
 3. **内容**：文档站、组件文档、教程与 showcase 持续补齐；组件文档配图，教程给可运行的最小工程。
 4. **治理**：issue 模板与贡献指南随对外投放建立；本文与平台矩阵随每批更新，不积压。
-5. **GPU 合成与 3D 路径**：WebGPU 作可选后端（独立模块，不进主链路），两层落地、三级 fallback；`Widget.on_render(RenderCtx)` 协议口子已就位，后端上线只扩枚举变体。决策全文见 [gpu-architecture.md](gpu-architecture.md)。
+5. **GPU 合成与 3D 路径**：WebGPU 作可选后端（独立模块，不进主链路），两层落地、三级 fallback；`Widget.on_render(RenderCtx)` 协议口子已就位，后端上线只扩枚举变体。决策全文见 [gpu-architecture.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/zh/gpu-architecture.md)。
 
 ## 待定决策
 

@@ -67,13 +67,10 @@ moon run examples/browser        # embedded WebView browser
 | [layout.md](layout.md) | Layout: the Flexbox semantics of yoga-mbt, the `Style` field set of `@style`, and the `class` channel |
 | [build.md](build.md) | Build and linking: how prebuild hosts link flags, and how to spot and fix a C stub edited without relinking |
 | [zh/roadmap.md](zh/roadmap.md) | Public roadmap: positioning, what you can use today, platform and feature matrix, commitments and versioning, next steps, open decisions, explicit non-goals (Chinese only) |
-| [zh/design.md](zh/design.md) | Frontend-style design decisions: stylesheet shape, component naming mapping, reactivity enhancements, and a view layer that uses `render` functions instead of templates (Chinese only) |
-| [zh/module-structure.md](zh/module-structure.md) | Module-structure plan (draft): releasing `gui/web` as `gui-webview` and splitting `core` into `base` / `shell` / `widget` — batches, costs and risks, tracked in `TODO.md` §1 "G9 模块拆分" (module split; Chinese only) |
-| [zh/gpu-architecture.md](zh/gpu-architecture.md) | GPU compositing & 3D path architecture decision: two-layer landing (compositor + per-widget GPU drawing) with a three-level fallback (WebGPU → Cairo → Pure), WebGPU via wgpu-native, and the `Widget.on_render` protocol hook (Chinese only) |
-| [adaptation.md](adaptation.md) | Platform adaptation notes: field-tested pitfalls, root causes and verification results per platform |
 | [autostart.md](autostart.md) | Autostart: XDG `.desktop` on Linux, HKCU Run key on Windows, one `is_enabled` / `enable` / `disable` API |
-| [tray.md](tray.md) | Linux tray: SNI protocol-stack design, architecture, backend fallback and desktop compatibility |
 | [system-capabilities.md](system-capabilities.md) | System capabilities overview (`@sys`): volume, app lookup, color temperature, wallpaper, monitors, window management, clipboard watch, system info, printers, recent files, browser history and more, with unified `Result` semantics; plus the shared subprocess and D-Bus call layers |
+
+Internal engineering records — platform adaptation field notes, the Linux tray design, the frontend-style design, the module-split plan and the GPU architecture decision — live in the repository's [`proposals/`](https://github.com/lb091188/moonbit-native-gui/tree/master/proposals) directory and are not published on this site.
 
 For the project overview and quick start, see [README.md](https://github.com/lb091188/moonbit-native-gui/#readme) at the repository root.
 

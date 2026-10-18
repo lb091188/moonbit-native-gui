@@ -69,4 +69,4 @@ Status markers match [adaptation.md](adaptation.md): ✅ verified working / ⚠�
 - Unit tests only prove the codec is self-consistent — wire-level rules like alignment, signatures and length prefixes have their own tests; interop conclusions must come from a real bus and a real panel, which is a repository-level verification rule.
 - The backend is proven by the pure-C probe `experiment/tray_probe`, with the last line `TRAY-BACKEND-OK` as the success marker; the facade is proven by the pure functions and lifecycle cases in `core/tray_wbtest.mbt`, which auto-skip on machines without a tray backend instead of faking results. Real-panel appearance — whether the icon shows, where the menu pops up, left-click behavior — still belongs to the manual test checklist.
 
-[中文文档](/zh/tray.md)
+[中文文档](zh/tray.md)
