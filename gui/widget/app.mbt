@@ -605,10 +605,29 @@ fn App::route(self : App, ev : @win.InputEvent) -> Unit {
       }
     }
     Key(kev) => {
-      // 抬起事件不投给控件：编辑内核的 handle_key 只吃 keysym、不区分按下/
-      // 抬起，放行抬起就等于「松手再插一个字符」（实测：Tab 抬起被当可打印
-      // 字符插成 '\t'；Windows 侧此前收不到键，这条一直没暴露）
+      // 抬起事件走**声明制**通道：只投给挂了 on_key_release 的控件（焦点链
+      // 最深优先）。on_key 与兜底通道都不收抬起——编辑内核的 handle_key 只吃
+      // keysym、不区分按下/抬起，放行抬起等于「松手再插一个字符」（实测：Tab
+      // 抬起被当可打印字符插成 '\t'）；兜底消费者按按下语义写，放行等于空格
+      // 切两次。没人声明就整条丢弃。
       if !kev.press {
+        let consumed = match self.focus.current() {
+          Some(id) => self.root.dispatch_key_release(id, kev)
+          None => false
+        }
+        if consumed {
+          if self.host.layer.visible {
+            self.schedule_paint()
+          } else {
+            match self.focus.current() {
+              Some(id) =>
+                for w in self.root.key_release_targets(id) {
+                  self.mark_widget_rect(w)
+                }
+              None => self.schedule_paint()
+            }
+          }
+        }
         return ()
       }
       // Tab / Shift+Tab 由宿主消费并驱动焦点栈（GTK 可能给 ISO_Left_Tab）

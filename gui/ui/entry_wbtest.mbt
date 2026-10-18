@@ -367,3 +367,21 @@ test "输入框只读样式槽：class 覆盖底与描边，焦点框色来自 f
   assert_true(plain_edge != focus_edge)
   w2.focused = false
 }
+
+///|
+/// G10 抬起投递回归：key-up 只走声明制通道（`dispatch_key_release`），编辑
+/// 内核的 `on_key` 永不见抬起——按下+抬起恰插一个字符，Tab 抬起不再被当
+/// 可打印字符插成 '\t'（旧坑：路由一刀切丢弃抬起就是为了挡它）。
+test "抬起事件不进编辑内核：按下+抬起恰一个字符" {
+  let (root, w, store) = mounted_entry("hi", 200.0)
+  key(root, w, 'a'.to_int(), 0)
+  let _ = root.dispatch_key_release(
+    w.focus_id,
+    { press: false, keysym: 'a'.to_int(), mods: 0, },
+  )
+  let _ = root.dispatch_key_release(
+    w.focus_id,
+    { press: false, keysym: @base.KS_TAB, mods: 0, },
+  )
+  assert_eq(store.get(), "hia")
+}
