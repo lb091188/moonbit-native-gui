@@ -65,3 +65,19 @@ test "静音状态机 bar_mute_toggle / bar_vol_apply" {
   // 静音中拖 0：仍是静音
   assert_eq(bar_vol_apply(true, 0.0, 0.8), (true, 0.0, 0.8))
 }
+
+///|
+/// 全屏观感计拍：全屏且指针停在画面上才累计，75 拍（约 2.5s）触发收起；
+/// 未全屏或指针不在画面一律归零不触发。
+test "全屏观感计拍 bar_idle_step" {
+  // 未全屏：恒归零
+  assert_eq(bar_idle_step(false, true, 200), (0, false))
+  // 全屏但指针不在画面（在条上/窗外）：不累计
+  assert_eq(bar_idle_step(true, false, 200), (0, false))
+  // 全屏 + 指针在画面：逐拍累计，第 75 拍触发
+  assert_eq(bar_idle_step(true, true, 0), (1, false))
+  assert_eq(bar_idle_step(true, true, 73), (74, false))
+  assert_eq(bar_idle_step(true, true, 74), (75, true))
+  // 触发后仍在画面上：保持触发态（组件侧 Store 等值不重发）
+  assert_eq(bar_idle_step(true, true, 75), (76, true))
+}

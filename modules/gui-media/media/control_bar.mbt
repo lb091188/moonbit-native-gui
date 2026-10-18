@@ -22,6 +22,27 @@ const BAR_GAP : Double = 8.0
 const BAR_TRACK_MIN : Double = 120.0
 
 ///|
+/// 全屏观感：多少拍（33ms/拍）无指针活动就收条 + 藏指针（约 2.5 秒）。
+const BAR_IDLE_TICKS : Int = 75
+
+///|
+/// 全屏观感的计拍步进（纯函数，组件 tick 每拍调一次）：全屏且指针停在画面上
+/// 才累计，到 `BAR_IDLE_TICKS` 拍给出「收条 + 藏指针」指令；其余状态一律归零。
+/// 返回 (新计拍, 是否收起)。
+pub fn bar_idle_step(
+  fullscreen : Bool,
+  pointer_on_stage : Bool,
+  idle : Int,
+) -> (Int, Bool) {
+  if !(fullscreen && pointer_on_stage) {
+    (0, false)
+  } else {
+    let n = idle + 1
+    (n, n >= BAR_IDLE_TICKS)
+  }
+}
+
+///|
 /// 倍速档位（点一次走一档，转回 1x）。放在表里而不是就地加减，
 /// 是为了让「浮点累加会不会漂出档位」这个问题不存在。
 let bar_speeds : ReadOnlyArray[Double] = [1.0, 1.25, 1.5, 2.0, 0.75]

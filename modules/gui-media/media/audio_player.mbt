@@ -83,6 +83,20 @@ pub fn audio(
   let muted : @base.Store[Bool] = @base.Store::new(false)
   let looping_st : @base.Store[Bool] = @base.Store::new(looping)
   let last_vol : Ref[Double] = Ref(volume)
+  // 全屏观感三件套：指针停画面上不活动约 2.5s 收条 + 藏指针，任何指针活动即恢复
+  let bar_vis : @base.Store[Bool] = @base.Store::new(true)
+  let cursor_hide : @base.Store[Bool] = @base.Store::new(false)
+  let pointer_on_stage : Ref[Bool] = Ref(false)
+  let idle : Ref[Int] = Ref(0)
+  fn activity() -> Unit {
+    idle.val = 0
+    if !bar_vis.get() {
+      bar_vis.set(true)
+    }
+    if cursor_hide.get() {
+      cursor_hide.set(false)
+    }
+  }
   if auto_play {
     engine.play()
   }
@@ -113,6 +127,9 @@ pub fn audio(
     let on = !full_st.get()
     if player_set_fullscreen(on) {
       full_st.set(on)
+      if !on {
+        activity()
+      }
       @widget.invalidate()
     }
   }
@@ -196,6 +213,32 @@ pub fn audio(
       )
     }
   })
+  stage.on_pointer = Some(fn(
+    _w : @widget.Widget,
+    ev : @widget.PointerEvent,
+  ) -> Bool {
+    match ev.kind {
+      @widget.PointerKind::Leave => pointer_on_stage.val = false
+      _ => {
+        pointer_on_stage.val = true
+        activity()
+      }
+    }
+    false
+  })
+  stage.on_double_click = Some(fn(
+    _w : @widget.Widget,
+    _ev : @widget.PointerEvent,
+  ) -> Unit {
+    toggle_full()
+  })
+  stage.cursor_fn = Some(fn(_w : @widget.Widget) -> Int {
+    if cursor_hide.get() {
+      @widget.CURSOR_HIDDEN
+    } else {
+      @widget.CURSOR_DEFAULT
+    }
+  })
   let display = player_display(
     fn() -> Double { engine.current() },
     fn() -> Double { engine.duration() },
@@ -213,25 +256,34 @@ pub fn audio(
   root.node.set_width(@yoga.fixed(width))
   root.node.set_height(@yoga.fixed(height))
   root.append_child(stage)
-  let _ = player_bar(
-    playing,
-    speed_st,
-    full_st,
-    muted,
-    looping_st,
-    None,
-    @icons.DArrowLeft,
-    @icons.DArrowRight,
-    toggle,
-    fn() -> Unit { skip_by(0.0 - ap_skip_step) },
-    fn() -> Unit { skip_by(ap_skip_step) },
-    cycle_speed,
-    toggle_mute,
-    toggle_loop,
-    toggle_full,
-    fn() -> Unit { () },
-    display,
-  ).mount_into(root)
+  let _ = @widget.bind_node(bar_vis.signal(), fn(show : Bool) -> @widget.Node {
+    if show {
+      player_bar(
+        playing,
+        speed_st,
+        full_st,
+        muted,
+        looping_st,
+        None,
+        @icons.DArrowLeft,
+        @icons.DArrowRight,
+        toggle,
+        fn() -> Unit { skip_by(0.0 - ap_skip_step) },
+        fn() -> Unit { skip_by(ap_skip_step) },
+        cycle_speed,
+        toggle_mute,
+        toggle_loop,
+        toggle_full,
+        fn() -> Unit { () },
+        display,
+      )
+    } else {
+      @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+        w.node.set_height(@yoga.fixed(0.0))
+        w
+      })
+    }
+  }).mount_into(root)
   player_bind_keys(
     root,
     toggle,
@@ -261,6 +313,16 @@ pub fn audio(
     on_tick(engine.current(), engine.is_playing())
     if engine.is_playing() || dragging.val {
       @widget.invalidate()
+    }
+    let (idle_n, collapse) = bar_idle_step(
+      full_st.get(),
+      pointer_on_stage.val,
+      idle.val,
+    )
+    idle.val = idle_n
+    if collapse {
+      bar_vis.set(false)
+      cursor_hide.set(true)
     }
     let _ = @shell.set_timeout(ap_tick_ms, tick.val)
   }

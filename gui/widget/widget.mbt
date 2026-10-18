@@ -22,6 +22,10 @@ pub const CURSOR_TEXT : Int = 2
 pub const CURSOR_RESIZE_H : Int = 3
 ///|
 pub const CURSOR_RESIZE_V : Int = 4
+///|
+/// 隐藏指针（播放器全屏自动藏指针用）：宿主分别映射 Win32 `SetCursor(NULL)` /
+/// GTK `GDK_BLANK_CURSOR` / mac 空白 `NSCursor`。
+pub const CURSOR_HIDDEN : Int = 5
 
 ///|
 pub(all) enum PointerKind {
