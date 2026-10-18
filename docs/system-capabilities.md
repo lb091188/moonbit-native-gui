@@ -249,7 +249,7 @@ Media playback is not in the main module's packages; it lives in the optional mo
 
 ```moonbit
 // moon.mod import: "NoahLiu/gui-media@0.1.0"
-// moon.pkg import: "NoahLiu/gui-media/src" @yuemedia
+// moon.pkg import: "NoahLiu/gui-media/media" @guimedia
 ```
 
 Decoding goes through the ffmpeg FFI, linked dynamically in-process; formats follow the system ffmpeg: MP3/OGG/M4A/AAC/FLAC/WAV…. Output goes straight through the embedded miniaudio device layer (s16 PCM queue, zero resampling). With no output device (CI/headless) it automatically degrades to silent while the state machine proceeds as normal.
@@ -259,9 +259,10 @@ All three platforms need a system-level ffmpeg: Linux uses the distro dev packag
 ### AudioPlayer (browser `<audio>` counterpart)
 
 ```moonbit
-let player = @yuemedia.AudioPlayer::make("/path/song.mp3")?
+let player = @guimedia.AudioPlayer::make("/path/song.mp3")?
 player.play()
-let view = @yuemedia.audio_player_t(player)  // play/pause/progress/time/volume/loop control bar
+// declarative node component: pure audio, with lyrics and spectrum bars
+let node = @guimedia.audio("/path/song.mp3", lyric="/path/song.lrc")
 ```
 
 | API | Description |
@@ -273,35 +274,15 @@ let view = @yuemedia.audio_player_t(player)  // play/pause/progress/time/volume/
 | `set_volume(0..1) / get_volume / set_looping` | volume and looping |
 | `free()` | release; afterwards the component clock halts automatically |
 
-### Video Frame-Source View (yue core, zero dependency)
-
-Video frame rendering follows: a frame-source callback produces RGBA bytes → `pngr_encode_rgba` encodes them to PNG in memory → `Image::new_from_png` decodes → `Painter::draw_image` fills the area. This is a pure-MoonBit relay channel with stored compression — a valid zlib stream, enough for small resolutions. The decoder is decoupled from this component: any frame source (a future moonav1 / platform decoder) can plug in as long as it provides RGBA by frame number.
-
-| Function | Description |
-|---|---|
-| `video_view_t(width, height, frame_count, source, fps?=30, looping?=false, handle?, fill?, style?, on_ready?)` | video view; a missing frame or failed decode draws the theme background as a placeholder without interrupting playback |
-| `vid_pause(handle)` / `vid_resume(handle)` / `vid_stop(handle)` | pause/resume/stop; after stop the timer deregisters on the next frame and is not recoverable. **Call vid_stop before unmounting the component** — the timer has no cancel id, and a missed stop keeps spinning on the destroyed view until playback ends |
-| `VidHandle::make()` / `is_running()` / `is_paused()` | playback handle |
-| `vid_frame_image(source, idx, w, h)` | single frame → Image; length check + encode + decode, None on failure |
-| `pngr_encode_rgba(data, w, h)` | RGBA → PNG (Result; Err on size/length mismatch) |
-
-```moonbit
-// Frame source: produce RGBA by frame number (here a 320x240 per-frame color-change illustration)
-fn source(i : Int) -> Bytes? {
-  let px = FixedArray::make(320 * 240 * 4, (i * 7 % 255).to_byte())
-  Some(Bytes::from_array(px))
-}
-let view = @yuemedia.video_view_t(320, 240, 120, source, fps=30)
-```
-
 ### VideoPlayer (browser `<video>` counterpart)
 
 The full FFI chain: the video stream yields per-frame RGBA with timestamp-level seek; the audio track is a second independent decoder on the same file whose PCM is pushed straight to the output device — no CLI subprocess. No audio track or no output device automatically goes silent.
 
 ```moonbit
-let player = @yuemedia.VideoPlayer::make("demo.mp4", fps=12, width=480)?
+let player = @guimedia.VideoPlayer::make("demo.mp4", fps=12, width=480)?
 player.play()
-let view = @yuemedia.video_player_t(player)
+// declarative node component: video with the audio track and subtitle overlay
+let node = @guimedia.video("demo.mp4", subtitle="/path/demo.srt")
 ```
 
 | API | Description |
@@ -312,7 +293,7 @@ let view = @yuemedia.video_player_t(player)
 | `current_frame() / frame_width() / frame_height()` | current frame RGBA, for self-rendering scenarios |
 | `set_volume / set_looping / free()` | volume / loop / release |
 
-The control-bar components share one style (video_player_t / audio_player_t): play/pause button, draggable progress bar (seeks 180ms after drag-release debouncing), time text (m:ss / m:ss), volume slider, loop toggle. The 50ms clock pumps and refreshes automatically; after `free()` the clock halts on its own.
+The playback control bar is built into the `audio` / `video` node components: play/pause button, draggable progress bar (seeks 180ms after drag-release debouncing), time text (m:ss / m:ss), volume slider, loop toggle. The 50ms clock pumps and refreshes automatically; after `free()` the clock halts on its own.
 
 Player demos: `moon run modules/gui-examples/audio` / `moon run modules/gui-examples/video` — the default asset auto-loads on startup, and play/pause/seek/volume/speed are all interactive.
 
