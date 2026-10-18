@@ -81,6 +81,7 @@ pub fn audio(
   let speed_st : @base.Store[Double] = @base.Store::new(1.0)
   let full_st : @base.Store[Bool] = @base.Store::new(false)
   let muted : @base.Store[Bool] = @base.Store::new(false)
+  let looping_st : @base.Store[Bool] = @base.Store::new(looping)
   let last_vol : Ref[Double] = Ref(volume)
   if auto_play {
     engine.play()
@@ -114,6 +115,12 @@ pub fn audio(
       full_st.set(on)
       @widget.invalidate()
     }
+  }
+  fn toggle_loop() -> Unit {
+    let on = !looping_st.get()
+    engine.set_looping(on)
+    looping_st.set(on)
+    @widget.invalidate()
   }
   fn toggle_mute() -> Unit {
     let (m, v, lv) = bar_mute_toggle(muted.get(), engine.get_volume(), last_vol.val)
@@ -211,6 +218,7 @@ pub fn audio(
     speed_st,
     full_st,
     muted,
+    looping_st,
     None,
     @icons.DArrowLeft,
     @icons.DArrowRight,
@@ -219,6 +227,7 @@ pub fn audio(
     fn() -> Unit { skip_by(ap_skip_step) },
     cycle_speed,
     toggle_mute,
+    toggle_loop,
     toggle_full,
     fn() -> Unit { () },
     display,
@@ -231,6 +240,7 @@ pub fn audio(
     toggle_full,
     bump_vol,
     toggle_mute,
+    toggle_loop,
     fn() -> Bool { full_st.get() },
   )
   // 丢弃即停摆：组件被换树摘下时外层拿不到闭包里的引擎，没人 free 的话

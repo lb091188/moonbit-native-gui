@@ -307,7 +307,7 @@ fn player_display(
 ///|
 /// 把播放器快捷键挂到当前窗的**按键兜底通道**上（`App::add_key_fallthrough`）：
 /// 空格播放/暂停、回车全屏、`←`/`→` 后退/前进、`↑`/`↓` 音量、`M` 静音、
-/// `Esc` 退全屏。
+/// `L` 循环、`Esc` 退全屏。
 /// 三条口径：① 不点窗口也能用，但焦点在输入框里时按键被编辑器吃掉，播放器
 /// 不抢字；② 通道没有反注册口，所以每次按键先问 `watch`（本组件根控件）
 /// 「还在被画吗」——换载摘掉的播放器不再吃键，同窗多台时注册序在前的先接；
@@ -320,6 +320,7 @@ fn player_bind_keys(
   on_full : () -> Unit,
   on_vol : (Double) -> Unit,
   on_mute : () -> Unit,
+  on_loop : () -> Unit,
   is_full : () -> Bool,
 ) -> Unit {
   match @widget.host_active() {
@@ -351,6 +352,10 @@ fn player_bind_keys(
         // 'm'（本栈 keysym 与 X11 同源：可打印字符 = 其 Latin-1 码位）
         on_mute()
         true
+      } else if ev.keysym == 0x6C {
+        // 'l'
+        on_loop()
+        true
       } else if ev.keysym == @base.KS_ESCAPE && is_full() {
         // 只在真处于全屏时接管：窗口态的 Esc 还有别的用途
         on_full()
@@ -369,6 +374,7 @@ fn player_bar(
   speed : @base.Store[Double],
   full : @base.Store[Bool],
   muted : @base.Store[Bool],
+  looping : @base.Store[Bool],
   zoom : @base.Store[Int]?,
   back_icon : @icons.IconKind,
   fwd_icon : @icons.IconKind,
@@ -377,6 +383,7 @@ fn player_bar(
   on_fwd : () -> Unit,
   on_speed : () -> Unit,
   on_mute : () -> Unit,
+  on_loop : () -> Unit,
   on_full : () -> Unit,
   on_zoom : () -> Unit,
   display : @widget.Widget,
@@ -408,6 +415,16 @@ fn player_bar(
         on_click=on_mute,
         icon_size=16.0,
         box_size=28.0,
+      )
+    }),
+    // 循环开关：图标恒 `Sync`，开着用主题色点亮（无独立关态字形）
+    @widget.bind_node(looping.signal(), fn(l : Bool) -> @widget.Node {
+      @ui.icon_button(
+        @icons.Sync,
+        on_click=on_loop,
+        icon_size=16.0,
+        box_size=28.0,
+        color=if l { "primary" } else { "" },
       )
     }),
     @widget.bind_node(speed.signal(), fn(v : Double) -> @widget.Node {
