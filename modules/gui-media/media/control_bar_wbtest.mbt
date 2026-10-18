@@ -49,3 +49,19 @@ test "缩放档位标签" {
   assert_eq(vp_zoom_label(2), "1:1")
   assert_eq(vp_zoom_label(3), "适配")
 }
+
+///|
+/// 静音状态机：开静音记住当前音量、有效音量归零；关静音恢复记住值；
+/// 音量落点非零即解除静音并刷新记住值，落 0 不动静音态与记住值。
+test "静音状态机 bar_mute_toggle / bar_vol_apply" {
+  // 开静音：记住 0.8、有效归零
+  assert_eq(bar_mute_toggle(false, 0.8, 0.5), (true, 0.0, 0.8))
+  // 关静音：恢复记住值
+  assert_eq(bar_mute_toggle(true, 0.0, 0.8), (false, 0.8, 0.8))
+  // 静音中拖音量到非零：解除静音并刷新记住值
+  assert_eq(bar_vol_apply(true, 0.3, 0.8), (false, 0.3, 0.3))
+  // 未静音拖 0：只归零，静音态与记住值不动
+  assert_eq(bar_vol_apply(false, 0.0, 0.8), (false, 0.0, 0.8))
+  // 静音中拖 0：仍是静音
+  assert_eq(bar_vol_apply(true, 0.0, 0.8), (true, 0.0, 0.8))
+}

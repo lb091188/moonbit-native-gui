@@ -103,6 +103,8 @@ pub fn video(
   let speed_st : @base.Store[Double] = @base.Store::new(1.0)
   let full_st : @base.Store[Bool] = @base.Store::new(false)
   let zoom_st : @base.Store[Int] = @base.Store::new(0)
+  let muted : @base.Store[Bool] = @base.Store::new(false)
+  let last_vol : Ref[Double] = Ref(engine.get_volume())
   if auto_play {
     engine.play()
   }
@@ -141,9 +143,22 @@ pub fn video(
     zoom_st.set((zoom_st.get() + 1) % 3)
     @widget.invalidate()
   }
-  fn bump_vol(d : Double) -> Unit {
-    engine.set_volume(bar_clamp01(engine.get_volume() + d))
+  fn toggle_mute() -> Unit {
+    let (m, v, lv) = bar_mute_toggle(muted.get(), engine.get_volume(), last_vol.val)
+    muted.set(m)
+    engine.set_volume(v)
+    last_vol.val = lv
     @widget.invalidate()
+  }
+  fn apply_vol(v : Double) -> Unit {
+    let (m, eff, lv) = bar_vol_apply(muted.get(), v, last_vol.val)
+    muted.set(m)
+    engine.set_volume(eff)
+    last_vol.val = lv
+    @widget.invalidate()
+  }
+  fn bump_vol(d : Double) -> Unit {
+    apply_vol(bar_clamp01(engine.get_volume() + d))
   }
   let screen = @widget.Widget::new()
   screen.node.set_flex_grow(1.0)
@@ -196,10 +211,7 @@ pub fn video(
     fn() -> Double { engine.current() },
     fn() -> Double { engine.duration() },
     fn() -> Double { engine.get_volume() },
-    fn(v : Double) -> Unit {
-      engine.set_volume(v)
-      @widget.invalidate()
-    },
+    fn(v : Double) -> Unit { apply_vol(v) },
     fn(t : Double) -> Unit {
       engine.seek(t)
       @widget.invalidate()
@@ -215,6 +227,7 @@ pub fn video(
     playing,
     speed_st,
     full_st,
+    muted,
     Some(zoom_st),
     @icons.ArrowLeft,
     @icons.ArrowRight,
@@ -222,6 +235,7 @@ pub fn video(
     fn() -> Unit { step_by(-1) },
     fn() -> Unit { step_by(1) },
     cycle_speed,
+    toggle_mute,
     toggle_full,
     cycle_zoom,
     display,
@@ -233,6 +247,7 @@ pub fn video(
     fn() -> Unit { step_by(1) },
     toggle_full,
     bump_vol,
+    toggle_mute,
     fn() -> Bool { full_st.get() },
   )
   // 丢弃即停摆：组件被换树摘下时外层拿不到闭包里的引擎，没人 free 的话
