@@ -2641,6 +2641,14 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **验证**：探针两态读数如上；全仓 `moon test` 1259/1259、`--deny-warn` 干净；打包口本机实跑产出 `Showcase.app`，`codesign -dv` 回 `Identifier=com.moonbitlibyue.showcase`。真机（打包后）弹出与首次授权放行归用户（T4e 已按此改写）。
 **教训**：系统面「代码写了」不等于「运行形态吃得到」。mac 的通知/权限一族按 bundle 身份放行，**探测必须把运行形态算进判据**，否则 UI 永远显示「可用」而什么都不发；这类「到底能不能用」先用带回调的探针问系统，别拿目视当证据。
 
+## mac 托盘右键弹不出菜单：`respondsToSelector:` 守着一个**猜出来的假 selector**（2026-10-19,真机反馈）
+
+**现象**（用户 mac 真机）：showcase 系统集成页「挂菜单」之后右键点托盘图标，菜单不出现。
+**定位**：mac 这支的菜单链路本身是全的——`wm_tray_set_menu` 登记 `NSMenu`、`wm_tray_popup` 走 `popUpMenuPositioningItem:atLocation:inView:`。卡在最前一环：**右键动作根本没进应用**。状态栏按钮的触发掩码写成了 `[cell respondsToSelector:@selector(setSendActionOn:)] → [cell setSendActionOn:…]`，而 AppKit 这一口叫 **`sendActionOn:`**（`NSCell.h`/`NSControl.h` 都声明，传 `NSEventMask`、返回旧掩码；`NSStatusItem` 上那份 10.14 起标注 deprecated 并指名改用 button 的同名口），**没有 setter 形态**。探针回证（本机 macOS 26.5）：`respondsToSelector(sendActionOn:)=1`、`respondsToSelector(setSendActionOn:)=0`、`sendActionOn:` 返回的旧掩码 = 4（只有左键抬起）。守卫恒假 ⇒ 掩码从没设过 ⇒ `wmTrayClicked:` 只在左键抬起触发，右键那条永远不进托盘队列 ⇒ `dispatch_tray_event` 里「无 on_context 就弹已挂菜单」那支走不到。
+**修复**：在 button 上调 `sendActionOn:(NSEventMaskLeftMouseUp | NSEventMaskRightMouseUp)`（守卫保留，但用真名）；顺手删掉文件头 informal 声明里那条猜出来的 `setSendActionOn:`（同处的 `setCanShowHiddenFiles:` 是真的——26.5 SDK 里查不到该属性，守卫照旧）。
+**教训**：**别按 KVC 惯例猜 selector 名**。`respondsToSelector:` 守一个假名字不会报错，只会静默失效——比不写守卫更糟，因为它长得像「已经做过平台兼容」。查一眼 SDK 头或跑个运行时探针只要两分钟，比真机来回一轮便宜得多。
+**验证**：探针读数如上；全仓 `moon test` 1259/1259、`--deny-warn` 干净、mac 桩编译无新警告；真机「右键托盘 → 菜单弹出 → 选中项回调跑到」归用户复验（T4d 已按此改写）。
+
 ## 维护约定
 
 1. 新增结论写进对应小节,只记「坑 + 修复」;协议互操作结论必须来自真总线、真面板,单测自洽不算数。
