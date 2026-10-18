@@ -3,7 +3,7 @@ layout: home
 hero:
   name: native-gui
   text: A lightweight cross-platform desktop GUI framework for MoonBit
-  tagline: Native window hosts, a self-drawn rendering pipeline, a complete widget set, and full system integration. One MoonBit codebase, native windows on Windows / Linux. Zero config after moon add.
+  tagline: Native window hosts, a self-drawn rendering pipeline, a complete widget set, and full system integration. One MoonBit codebase ships native Windows 🟩 / Linux 🟩 windows, with macOS 🟨 merged into master (real-machine verification in progress). Zero config after moon add.
   actions:
     - theme: brand
       text: Package structure
@@ -13,11 +13,11 @@ hero:
       link: https://github.com/lb091188/moonbit-native-gui
 features:
   - title: Self-drawn widgets, one theme across all platforms
-    details: Windows, pixels, the event loop, layout and widgets are all pure MoonBit. Every platform looks the same, following the system accent color and light / dark mode.
+    details: Windows, pixels, the event loop, layout and widgets are all pure MoonBit; the three platforms look the same, and light / dark mode plus the system accent color are followed by default.
   - title: Import on demand
-    details: core / ui / render / text / theme / icons / sys / input / win / dbus / chart / mdview / web / style are each its own package; unused packages never enter your binary.
+    details: base / shell / widget / ui / render / text / theme / icons / sys / input / win / dbus / chart / mdview / style are each their own package; unused packages never enter your binary.
   - title: Platform differences absorbed inside the library
-    details: Tray, autostart, power, volume, and media keys share one API; the library absorbs the Linux / Windows differences.
+    details: Tray, autostart, power, volume, and media keys share one API; the library absorbs the Windows / Linux differences.
 ---
 
 ## Quick start

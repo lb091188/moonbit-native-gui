@@ -247,7 +247,7 @@ let _ = @sys.wp_set("/home/me/Pictures/wall.png")
 
 ## 音频/视频播放（gui-media 可选层）
 
-媒体播放不在 yue 核心包里，在可选模块 `NoahLiu/gui-media`（依赖 `NoahLiu/ffmpeg-mbt`）：
+媒体播放不在主模块的包里，在可选模块 `NoahLiu/gui-media`（依赖 `NoahLiu/ffmpeg-mbt`）：
 
 ```moonbit
 // moon.mod import: "NoahLiu/gui-media@0.1.0"
