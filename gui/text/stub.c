@@ -228,7 +228,9 @@ static int pt_width_with_trailing_ws(PangoLayout *layout, const char *text,
   }
   PangoRectangle rect;
   pango_layout_index_to_pos(layout, len, &rect);
-  int end_x = (rect.x + PANGO_SCALE / 2) / PANGO_SCALE;
+  // 上取整：与 pango_layout_get_pixel_size 的口径一致，也和「盒宽必须容得下
+  // 真实浮点宽」这条不变量一致（四舍五入报窄会让行尾空白触发多一行）。
+  int end_x = (rect.x + PANGO_SCALE - 1) / PANGO_SCALE;
   return end_x > w ? end_x : w;
 }
 
@@ -1633,7 +1635,11 @@ static PtPara *pt_para_simple(const char *text, int len, double size,
 static int pt_write_metrics(int32_t *out_w, int32_t *out_h,
                             int32_t *out_baseline, PtPara *p) {
   if (out_w != NULL) {
-    *out_w = (int32_t)(p->total_w + 0.5);
+    // 宽上取整，不四舍五入：CoreText 的 advance 带小数，报成最近整数就可能比
+    // 真实窄，按这个宽下发的盒再走一遍贪心断行会放不下，单行标签凭空折成
+    // 两行（真机：showcase「选中：」「最近确认：」错位重叠）。断行判定用的
+    // 是同一个 total_w，取整到天才是测量与断行的不动点。
+    *out_w = (int32_t)ceil(p->total_w);
   }
   if (out_h != NULL) {
     *out_h = (int32_t)(p->total_h + 0.5);

@@ -2570,6 +2570,13 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **修复**（两层一起）：`wm_im_set_active` 同步 focus_in/out——开=focus_in（G0 条件①保留，真拼音仍可用），关=focus_out 并清组合串缓存（与失焦路径同口径）；`wm_on_realize`/`wm_on_area_focus_in` 的 focus_in 加 `im_active` 门。外加前一轮的 `ime_focus` 哨兵化（那也是真洞：丢焦路径写 0 绕过门同步，修好它门才有机会在「无输入框」时被拨到关）。
 **验证**：三相位矩阵里的相位 B 即判据——修复后重跑 key_probe + fcitx 激活，m/l 按下应作为 `ev code=0` 到达且不再出现 preedit；真机最终收口见 T 清单（播放器 M/L + 输入框拼音双向）。
 
+## 单行标签在自己的盒里折成两行：测量宽四舍五入报窄，与断行判定不同源（2026-10-18,mac 真机反馈 showcase 两页）
+
+**现象**（用户 mac 真机，两处同族）：showcase「表单组件→日期」里 picker 下方的「选中：」压住 picker 下缘，「对话框」页「最近确认：」的冒号孤零零掉到第二行。不是绘制偏移、也不是弹层——文字**真的**折了行。
+**定位**（无头探针 `mounted()` + 逐字测量）：布局给的盒宽 31/32、`measure_font("选中：", 13px)` 也返 32，但同一个串在 `max_width=32` 下 `pt_layout` 出两行、要 33 才单行——**测量与断行在边界上不闭合**。CoreText 的 advance 是浮点（`CTLineGetTypographicBounds` 实测 32.x），`pt_write_metrics` 用 `+0.5` 四舍五入 → 报窄；布局照这个窄宽下盒，绘制/测量再拿同一个 `total_w` 做贪心断行（`line_w + uw > lim`）就必然多一行。`ui.text(role=Body)` 隐含 `wrap=true`（basic.mbt），标签盒一窄就折行；折出来的高盒在行内 `valign=Center` 居中，首行墨迹上移骑到上方控件下缘——观感即「错位重叠」。
+**修复**：测量宽一律**上取整**，让「盒宽 ≥ 真实浮点宽」成为测量与断行的不动点。三平台同批对齐口径——mac `pt_write_metrics`（`ceil(total_w)`）、Windows 两处 `pt_measure_font`/`rt_measure`（`ceilf(widthIncludingTrailingWhitespace)`）、Linux 的行尾空白补宽（Pango 的 `get_pixel_size` 本来就上取整，只有 `pt_width_with_trailing_ws` 用的是四舍五入）。高/基线取整维持原样：越界风险在横轴（折行），纵轴不在这条判据里。
+**验证**：`gui/text/text_wbtest.mbt`「测量宽自洽：按测量宽下发的盒不再折行」——串含全角标点，先自由测宽再以该宽为约束折行，断言高度不变（不打具体像素，随字体配置走）；撤掉 ceil 该用例必红（本机回证：`FAILED: '选中：' 在自身测量宽 32px 的盒里折成了多行`）。UI 侧 `gui/ui/datepicker_wbtest.mbt`「日期段标签不折行」守整条链（标签与值标签同高、选中行不压 picker）。mac 本机 `moon test` text+ui 219/219；Linux/Windows 侧同口径改动由 CI 回证。
+
 ## 维护约定
 
 1. 新增结论写进对应小节,只记「坑 + 修复」;协议互操作结论必须来自真总线、真面板,单测自洽不算数。

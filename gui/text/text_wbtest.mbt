@@ -77,6 +77,33 @@ test "max_width 约束换行：宽度受钳、高度增长" {
   }
 }
 
+test "测量宽自洽：按测量宽下发的盒不再折行" {
+  // 布局用测量宽定盒，再把同一个宽交给断行算法；只要测量报得比真实浮点宽
+  // 窄（四舍五入取整就会），单行标签会在自己的盒里凭空多出一行
+  // （真机：mac「选中：」「最近确认：」错位重叠）。
+  for s in [
+    "选中：",
+    "最近确认：",
+    "全角标点：测试，一遍。",
+    "Mixed 混排 label",
+  ] {
+    match measure(s, 13.0) {
+      Some(free) => {
+        assert_eq(free.width > 0, true, msg="'\{s}' 量出零宽")
+        match measure(s, 13.0, max_width=free.width, wrap=true) {
+          Some(at_box) => assert_eq(
+            at_box.height,
+            free.height,
+            msg="'\{s}' 在自身测量宽 \{free.width}px 的盒里折成了多行",
+          )
+          None => assert_eq(false, true)
+        }
+      }
+      None => assert_eq(false, true)
+    }
+  }
+}
+
 test "ellipsize 尾端省略不超约束" {
   match measure("the quick brown fox jumps over the lazy dog", 14.0,
     max_width=60,
