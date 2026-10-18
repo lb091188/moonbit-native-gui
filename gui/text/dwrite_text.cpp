@@ -295,8 +295,9 @@ extern "C" int pt_measure_font(const char *text, int len, double size,
   if (SUCCEEDED(layout->GetLineMetrics(&lm, 1, &got)) && got >= 1) {
     baseline = lm.baseline;
   }
-  *out_w =
-      static_cast<int32_t>(tm.widthIncludingTrailingWhitespace + 0.5f);
+  // 宽上取整，与下面的口径说明配对：盒宽必须 ≥ 真实浮点宽，否则同一份文本
+  // 在盒里再断一次行会多出一行（mac 真机踩过，Windows 同式）。
+  *out_w = static_cast<int32_t>(ceilf(tm.widthIncludingTrailingWhitespace));
   *out_h = static_cast<int32_t>(tm.height + 0.5f);
   *out_baseline = static_cast<int32_t>(baseline + 0.5f);
   return 1;
@@ -1356,8 +1357,9 @@ extern "C" int rt_measure(int64_t h, double box_w, int32_t *out_w,
     baseline = lm.baseline;
   }
   layout->Release();
-  *out_w =
-      static_cast<int32_t>(tm.widthIncludingTrailingWhitespace + 0.5f);
+  // 宽上取整：断行判定用的是同一个浮点宽，四舍五入报窄会让「按测量宽下发
+  // 的盒」再折一次行（单行标签凭空两行），取整到天才是测量/断行的不动点。
+  *out_w = static_cast<int32_t>(ceilf(tm.widthIncludingTrailingWhitespace));
   *out_h = static_cast<int32_t>(tm.height + 0.5f);
   *out_baseline = static_cast<int32_t>(baseline + 0.5f);
   return 1;

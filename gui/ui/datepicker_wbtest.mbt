@@ -280,6 +280,47 @@ test "时间弹层：顶部时间是占位的子件，第一行步进不被压�
 }
 
 ///|
+/// 日期段「选中：」标签与值标签同高、且不与 picker 重叠。真机 mac 上全角
+/// 冒号的 advance 带小数，测量宽四舍五入报窄 1px，标签在自己的盒里折成两行，
+/// 变高的盒在行内垂直居中把首行墨迹骑到 picker 下缘（文本层改口径后此用例守门）。
+test "日期段标签不折行：测量宽与断行口径一致" {
+  if !ui_text_guard() {
+    return
+  }
+  let dp : @base.Store[DateYMD?] = @base.Store::new(Some({ y: 2026, m: 10, d: 13 }))
+  let (root, colw) = mounted(
+    col(
+      [
+        date_picker(dp, clearable=true, width=170.0),
+        row(
+          [
+            text("选中：", role=Body),
+            bind_label(dp, fn(d : DateYMD?) -> String {
+              match d {
+                Some(v) => v.format()
+                None => "未选"
+              }
+            }),
+          ],
+          column_gap=6.0,
+        ),
+      ],
+      row_gap=10.0,
+      align_items=@yoga.AlignItems::FlexStart,
+    ),
+    600.0,
+    400.0,
+  )
+  let kids = colw.children()
+  let labs = kids[1].children()
+  // 单行标签与单行值同高（折行会让标签高出一整行）
+  assert_eq(labs[0].rect.h, labs[1].rect.h, msg="「选中：」标签折成了多行")
+  // 行整体落在 picker 之下，纵向不重叠
+  assert_true(kids[1].rect.y >= kids[0].rect.y + kids[0].rect.h, msg="选中行压住 picker")
+  ignore(root)
+}
+
+///|
 test "键盘可及性：日期字段回车/空格开日历、Esc 收起" {
   let v : @base.Store[DateYMD?] = @base.Store::new(None)
   let (root, w) = mounted_with_overlay(date_picker(v), 400.0, 400.0)
