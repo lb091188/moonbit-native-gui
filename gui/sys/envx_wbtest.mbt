@@ -20,7 +20,7 @@ test "envx_get：真实环境读常用变量" {
   // 不存在的变量为 None；空名为 None
   assert_true(envx_get("YUE_NO_SUCH_ENV_XYZ") is None)
   assert_true(envx_get("") is None)
-  // 读与 core/env 直读一致
+  // 读与标准库 core/env 直读一致
   assert_eq(envx_get("PATH"), @env.get_env_var("PATH"))
 }
 

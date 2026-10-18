@@ -317,7 +317,7 @@ fn main {
     }
   }
   println("SHOWCASE-DONE page=\{selected.get()}")
-  // 帧耗时分段账本：切页/渲染卡顿归因用（布局 vs 绘制 vs 上屏，见 gui/core/prof.mbt）。
+  // 帧耗时分段账本：切页/渲染卡顿归因用（布局 vs 绘制 vs 上屏，见 gui/base/prof.mbt）。
   let prof = @base.paint_profile_summary()
   println("SHOWCASE-PROF " + prof)
 }

@@ -50,7 +50,7 @@ fn Item::emit_context_menu(self : Item, x : Double, y : Double) -> Unit {
 /// SNI 托盘后端是否**真正可用**：会话总线可连 **且** 面板侧的
 /// org.kde.StatusNotifierWatcher 在线（`NameHasOwner`）。与 `sni_available()`
 /// 的差别是后者只看「连得上总线」这个候选条件；本函数是托盘门面
-/// `core/tray.mbt` 的 `Tray::is_supported()` 用的判据——纯净 GNOME 未装
+/// `shell/tray.mbt` 的 `Tray::is_supported()` 用的判据——纯净 GNOME 未装
 /// AppIndicator 扩展时总线连得上但 watcher 不在线，托盘实际不可用。非 Linux
 /// 平台 dbus 桩全失败，恒 false。探到即把会话连接缓存进 `g_conn`。
 pub fn sni_watcher_present() -> Bool {

@@ -7,7 +7,7 @@
 // 详情页一次性挂载、按 view 切可见性（选中态 / 滚动位置 / 表格选择不丢）。
 //
 // G7 迁移记档（与 master 旧版的差）：
-//   - 旧栈 yue/declarative/components 三个别名全部换 core/ui/theme；
+//   - 旧栈 yue/declarative/components 三个别名全部换 widget/ui/theme；
 //     style 字符串列表换组件的具名参数（padding/row_gap/grow/width）。
 //   - 自绘容器重绘从「schedule_paint + on_theme_change」换成
 //     「Store.subscribe + @widget.invalidate()」（进程级 host_repaint_all）；

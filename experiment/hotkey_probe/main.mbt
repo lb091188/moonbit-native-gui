@@ -6,7 +6,7 @@
 //      逐条打印，与 win/hotkey_wbtest.mbt 的断言同源，这里只是可肉眼对照的读数。
 //   ② **真注册**（需后端可用）：注册两个组合键，打印返回的 id（>=1 即成功、
 //      None 即失败）；再注销其一、验证幂等注销不崩。**真正的按下触发在 ③**。
-//   ③ **门面轮询**：经 core 门面注册，循环 poll 6 秒——真按下或
+//   ③ **门面轮询**：经 shell 门面注册，循环 poll 6 秒——真按下或
 //      `xdotool key ctrl+alt+h` 注入即打印 HOTKEY-CORE-FIRE。
 //
 // 跑法：moon run experiment/hotkey_probe
@@ -92,7 +92,7 @@ fn main {
     Some(i) => @win.unregister_global_shortcut(i)
     None => ()
   }
-  // ③ 门面轮询段：经 core 门面注册同一组合，循环轮询 6 秒——期间真按下
+  // ③ 门面轮询段：经 shell 门面注册同一组合，循环轮询 6 秒——期间真按下
   //    （或 `xdotool key ctrl+alt+h` 注入）即打印命中；无人按键走 TIMEOUT
   //    （不算失败）。自动化验法：后台跑本探针，1 秒后另开终端注入按键，
   //    等 HOTKEY-CORE-FIRE 出现。

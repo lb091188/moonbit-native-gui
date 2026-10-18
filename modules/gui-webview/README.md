@@ -32,4 +32,4 @@ let wv = web::Webview::new(app, "https://example.com")?
 
 ## 依赖
 
-`NoahLiu/native-gui`（core/win/render/sys 门面）与 `NoahLiu/yoga-mbt`。「出模块」与「去 GUI 核心依赖」是两件事：入口签名换 `ShellApp` 等形态归主模块 Batch 2 定案后再动。
+`NoahLiu/native-gui`（base/shell/widget/win/render/sys 门面）与 `NoahLiu/yoga-mbt`。「出模块」与「去 GUI 核心依赖」是两件事：入口签名换 `ShellApp` 等形态归主模块 Batch 2 定案后再动。

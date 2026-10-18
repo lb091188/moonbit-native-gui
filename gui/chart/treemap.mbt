@@ -165,7 +165,7 @@ pub fn tm_squarified_rows(
 
 ///|
 /// 矩形树图内部矩形（x/y/width/height，画布坐标）。旧链路复用根包的
-/// `RectF`，新栈图表包自带同形结构，避免依赖 core 的 w/h 命名。
+/// `RectF`，新栈图表包自带同形结构，不复用 `@base.Rect` 的 w/h 命名。
 pub(all) struct TmRect {
   x : Double
   y : Double

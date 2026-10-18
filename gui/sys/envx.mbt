@@ -1,4 +1,4 @@
-// 环境变量：读走 core/env（当前进程环境），写 / 删走 fsx 的
+// 环境变量：读走标准库 moonbitlang/core 的 env（当前进程环境），写 / 删走 fsx 的
 // [fsx_set_env] / [fsx_unset_env]（C 层 setenv / unsetenv）。语义为
 // 「进程内生效」——读的是当前进程环境；写只改当前进程环境（之后 spawn
 // 的子进程可见），不触碰系统持久配置，也不影响父进程。[envx_common]

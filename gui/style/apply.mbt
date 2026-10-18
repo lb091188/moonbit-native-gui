@@ -1,14 +1,14 @@
 // `apply`：把一条 resolved `Style` 落到控件上（design.md §1.5）。
 //
 // 分流口径：布局字段走 Yoga（`set_width` / `set_padding` / `set_position` …），
-// 外观字段进「样式槽」。core 不能依赖 style（会成环），槽由本包的进程级侧表
+// 外观字段进「样式槽」。widget 不能依赖 style（会成环），槽由本包的进程级侧表
 // 按控件 id 持有——绘制期 `resolved(w)` 读当前状态桶，`style_for(w)` 读基块。
-// z_index 同步落 `Widget.z_index_paint`，core 的绘制遍历按它稳定重排 kids。
+// z_index 同步落 `Widget.z_index_paint`，widget 的绘制遍历按它稳定重排 kids。
 
 ///|
-/// 外观字段的落点：进程级侧表 `Map[控件 id, Style]`（core 不能反向依赖本包，
+/// 外观字段的落点：进程级侧表 `Map[控件 id, Style]`（widget 不能反向依赖本包，
 /// 槽放不进 `Widget`）。**只增不减会漏**——动态换树每换一代多留一批残账，所以
-/// 首次 `apply` 时把 core 的控件丢弃钩子装上，摘下的子树连带清掉它的条目。
+/// 首次 `apply` 时把 widget 的控件丢弃钩子装上，摘下的子树连带清掉它的条目。
 let resolved_table : Map[Int, Style] = Map([])
 let drop_hook_installed : Ref[Bool] = Ref(false)
 

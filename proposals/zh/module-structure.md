@@ -1,11 +1,11 @@
 # 模块结构：按路线拆模块、按层级切子包
 
-> **状态**：Batch 1 已交付（2026-10-16），Batch 2 规划中  
+> **状态**：Batch 1 已交付（2026-10-16）；Batch 2 已交付（2026-10-17，`gui/core` 整包退场，迁移期 `@core` 门面已删）  
 > **跟踪**：TODO.md §1「G9 模块拆分」（Batch 2 落账）
 
 ## 1. 背景与目标
 
-native-gui 计划支持三条渲染路线：**原生自绘 / WebView / 纯 3D**。当前代码库是单模块 `gui/` + 14 个子包的扁平结构，所有子包共享 `NoahLiu/native-gui`。`core` 同时依赖 render / theme / win / sys / text / dbus，构成「引力井」：只走 XFCE 自绘的用户也要承担 WebView2 SDK 的代价——14 MB vendor 下载加 WebKitGTK pkg-config 探测；未来的 3D 路线更不可能复用整套 widget 树。
+native-gui 计划支持三条渲染路线：**原生自绘 / WebView / 纯 3D**。拆分前代码库是单模块 `gui/` + 14 个子包的扁平结构，所有子包共享 `NoahLiu/native-gui`。`core` 同时依赖 render / theme / win / sys / text / dbus，构成「引力井」：只走 XFCE 自绘的用户也要承担 WebView2 SDK 的代价——14 MB vendor 下载加 WebKitGTK pkg-config 探测；未来的 3D 路线更不可能复用整套 widget 树。
 
 本方案的目标：
 
@@ -20,6 +20,8 @@ native-gui 计划支持三条渲染路线：**原生自绘 / WebView / 纯 3D**�
 > **外部重资产 + 必须强制下发链接参数 → 开模块；纯内部层 → 留子包。**
 
 ## 3. 新仓库布局
+
+> 下图为**方案稿**；实际落地有一处出入：主模块留在仓库根 `gui/`（未挪 `modules/gui/`），`modules/` 下只放可选重资产模块。
 
 ```
 moonbit-native-gui/                          # 根 workspace

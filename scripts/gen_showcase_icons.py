@@ -4,7 +4,7 @@
 用法: python3 scripts/gen_showcase_icons.py
 读取 gui/icons/icons.mbt 的生成标记区(变体+font-class),按 GROUPS 分组输出,
 未分组的落入「其他」。G7 起页面面向新栈:图标走 @ui.icon(矢量自绘)、悬停名走
-@ui.tooltip_t、间距走容器参数(column_gap/row_gap),段装配走 shared 的
+@ui.tooltip、间距走容器参数(column_gap/row_gap),段装配走 shared 的
 section/page(旧链路的 @yue.* 与 @components.* 已随旧链删除)。
 """
 
@@ -247,32 +247,32 @@ def main():
     out.append("// 本页由 scripts/gen_showcase_icons.py 生成,勿手改;分组定义见该脚本 GROUPS。")
     out.append("// 网格为竖排 vbox 包行(每行 24 个)——外层容器必须 vbox,否则行组被")
     out.append("// 水平排布、超宽截断(图标墙首版即此 bug)。G7 新栈口径:图标走 @ui.icon、")
-    out.append("// 悬停名走 @ui.tooltip_t、间距走容器参数(column_gap/row_gap)。")
+    out.append("// 悬停名走 @ui.tooltip、间距走容器参数(column_gap/row_gap)。")
     out.append("")
     out.append("///|")
     out.append("/// 一组图标的网格:vbox 包行,每行 per_row 个,悬停 tooltip 显示名称。")
-    out.append("fn icon_grid(kinds : Array[@icons.IconKind], per_row : Int) -> @core.Node {")
-    out.append("  let rows : Array[@core.Node] = []")
+    out.append("fn icon_grid(kinds : Array[@icons.IconKind], per_row : Int) -> @widget.Node {")
+    out.append("  let rows : Array[@widget.Node] = []")
     out.append("  for row in 0..<((kinds.length() + per_row - 1) / per_row) {")
-    out.append("    let items : Array[@core.Node] = []")
+    out.append("    let items : Array[@widget.Node] = []")
     out.append("    for col in 0..<per_row {")
     out.append("      let idx = row * per_row + col")
     out.append("      if idx < kinds.length() {")
     out.append("        items.push(")
-    out.append("          @ui.tooltip_t(")
+    out.append("          @ui.tooltip(")
     out.append("            @ui.icon(kinds[idx], size=30.0),")
     out.append("            @icons.icon_name(kinds[idx]),")
     out.append("          ),")
     out.append("        )")
     out.append("      }")
     out.append("    }")
-    out.append("    rows.push(@ui.hbox(items, column_gap=10.0))")
+    out.append("    rows.push(@ui.row(items, column_gap=10.0))")
     out.append("  }")
-    out.append("  @ui.vbox(rows, row_gap=8.0)")
+    out.append("  @ui.col(rows, row_gap=8.0)")
     out.append("}")
     out.append("")
     out.append("///|")
-    out.append("pub fn page_icons(_app : @shared.App) -> @core.Node {")
+    out.append("pub fn page_icons(_app : @shared.App) -> @widget.Node {")
     out.append("  @shared.page([")
     for title, desc, kinds, samples in sections:
         out.append("    @shared.section(")
@@ -294,7 +294,7 @@ def main():
             for smp in samples[:3]:
                 out.append("        \"  @ui.icon(@icons.%s, size=18.0),\"," % smp)
             out.append(
-                "        \"  @ui.tooltip_t(@ui.icon(@icons.%s, size=18.0), @icons.icon_name(@icons.%s)),\","
+                "        \"  @ui.tooltip(@ui.icon(@icons.%s, size=18.0), @icons.icon_name(@icons.%s)),\","
                 % (samples[0], samples[0]))
         out.append("      ],")
         out.append("    ),")

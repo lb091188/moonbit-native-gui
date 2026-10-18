@@ -218,7 +218,7 @@ pub fn sys_path_exists(path : String) -> Bool {
 }
 
 ///|
-/// C 层 getenv（进程实时环境——core/env 的表在部分实现里是启动快照，
+/// C 层 getenv（进程实时环境——标准库 core/env 的表在部分实现里是启动快照，
 /// setenv 后读不到；此入口反映进程内写删的最新状态，测试与需要
 /// 「写后立即可见」语义的调用方用）。
 #borrow(name, ok)

@@ -11,7 +11,7 @@
 //    不自己持表——只记注册时返回的句柄用于注销）；轮询表挂宿主 200ms 一拍；
 // ③ 拖放：旧链路的「跨应用系统级」（register_dragged_types + enter/update/drop
 //    三回调）在本栈拆成两段——应用内那条三平台同构，系统级两档 Windows/Linux 已接：
-//    拖入走 `core/drag.mbt` 的 `drag_external_*`（旧三回调收成 `on_drop` 一个 +
+//    拖入走 `widget/drag.mbt` 的 `drag_external_*`（旧三回调收成 `on_drop` 一个 +
 //    悬停期一次 `accept` 查询），拖出走 `drag_external_send`（`drag_source`
 //    的 `external=true`，本机没后端时自动回落应用内）。Linux/mac 的系统级两档
 //    仍随平台批。
@@ -114,7 +114,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
   let fs : Ref[Bool] = Ref(false)
   let bl : Ref[Bool] = Ref(false)
   let sz : Ref[Int] = Ref(1280)
-  // 快捷键：门面回查表在 core 里，页内只记自己注册过的句柄（注销用）
+  // 快捷键：门面回查表在 shell 里，页内只记自己注册过的句柄（注销用）
   let hotkeys : Ref[Array[@shell.Hotkey]] = Ref([])
   let hk_status : @base.Store[String] = @base.Store::new("（未注册）")
   let hk_hits : @base.Store[Int] = @base.Store::new(0)

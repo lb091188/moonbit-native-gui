@@ -5,7 +5,7 @@
 /// `tray_new`），右键菜单走 W20a 的菜单句柄（`menu_popup_new` 建弹出根）。
 ///
 /// 回调（左键/右键）不蹦床回 MoonBit：C 侧压进程级队列，宿主每拍调
-/// `poll_tray_event` 抽——与菜单/热键同制。`core/tray.mbt` 的门面在此之上
+/// `poll_tray_event` 抽——与菜单/热键同制。`shell/tray.mbt` 的门面在此之上
 /// 建「后端选择 + 回调表 + 菜单翻译」，一般调用方不直接碰这一层。
 
 ///|
@@ -93,7 +93,7 @@ pub fn tray_tooltip(slot : Int) -> String {
 
 ///|
 /// 建一个弹出菜单根（托盘右键菜单用；与菜单条同句柄口径）。返回句柄
-/// （0 = 表满/后端不支持）。供 `core/tray.mbt` 的菜单翻译层使用。
+/// （0 = 表满/后端不支持）。供 `shell/tray.mbt` 的菜单翻译层使用。
 pub fn menu_popup_new() -> Int {
   wm_menu_popup_new()
 }

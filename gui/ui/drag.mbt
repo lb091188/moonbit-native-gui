@@ -1,4 +1,4 @@
-// 拖放组件（W21c）：把 `core/drag.mbt` 的会话包成两个声明式钩子——
+// 拖放组件（W21c）：把 `widget/drag.mbt` 的会话包成两个声明式钩子——
 // 拖源 `drag_source(content, payload)`、投放目标 `drop_target(content, on_drop)`。
 //
 // 与旧栈的一条差（记档）：旧链路的拖源/投放是**平台回调**（GTK `gtk_drag_*` /
@@ -170,7 +170,7 @@ pub fn drop_target(
     })
     // 同一个判据也用于系统级拖入的悬停查询（不收时系统光标直接显示禁止）
     w.set_drag_accept(accept)
-    // 悬停高亮：会话把「当前最深命中的投放目标 id」记在 core 里，这里读它自判——
+    // 悬停高亮：会话把「当前最深命中的投放目标 id」记在 widget 会话里，这里读它自判——
     // 于是不需要 enter/update/leave 三个回调，也就不会有「离开回调漏发」的态
     w.on_draw = Some(fn(
       self : @widget.Widget,

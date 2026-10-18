@@ -430,7 +430,7 @@ match @sys.prt_default() {
 
 ## 环境变量与目录枚举
 
-两块小原语：进程内环境变量读写与删除（`envx`，读走 `core/env`、写删走 C 层 setenv/unsetenv），目录枚举（`fsx`，C 层 opendir/readdir 或 Win32 FindFirstFileW）。
+两块小原语：进程内环境变量读写与删除（`envx`，读走标准库 `core/env`、写删走 C 层 setenv/unsetenv），目录枚举（`fsx`，C 层 opendir/readdir 或 Win32 FindFirstFileW）。
 
 | 函数 | 用途 |
 |---|---|

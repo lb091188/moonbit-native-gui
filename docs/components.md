@@ -151,7 +151,7 @@ Value model (`ui/datetime.mbt`): `DateYMD{y,m,d}`, `TimeHM{h,m}`, `DateRange`, `
 | `for_list(ls : @base.ListStore[T], build : (T, Int) -> Node, key~, eq?)` | Keyed list diff: `build(item, index)` builds each row; the default criterion is "same key, same value", so mutable fields become their own Store |
 | `for_list_indexed(ls, build)` | Index-aligned, equivalent to no `:key`: extra rows unload only when the length shrinks |
 
-> Replacing the whole tree goes through `bind_node`; `ListStore` keyed diffing belongs to the `@core` reactive layer (details in [declarative.md](declarative.md)).
+> Replacing the whole tree goes through `bind_node`; `ListStore` keyed diffing belongs to the `@base` reactive layer (details in [declarative.md](declarative.md)).
 
 ## Drag & drop (in-app, identical across the three platforms)
 
@@ -160,7 +160,7 @@ Value model (`ui/datetime.mbt`): `DateYMD{y,m,d}`, `TimeHM{h,m}`, `DateRange`, `
 | `drag_source(content : Node, payload? : () -> DragData?, threshold?=4.0, external?=false, on_external?)` | Drag source: after pressing on `content` and dragging `threshold` pixels, `payload()` is called to fetch the data and start the drag; `external=true` first tries a system-level drag-out (Windows/Linux wired), and falls back to an in-app session automatically if it fails |
 | `drop_target(content : Node, on_drop? : (DragData, Double, Double) -> Unit, accept? : (DragData) -> Bool)` | Drop target: hover highlights with the theme accent; on release `accept` (defaults to accepting everything) decides, and an accepted drop calls `on_drop` |
 
-> Don't put a button inside a drag source: pointer events go deepest-first, so the interactive widget eats the press. `payload()` is lazy — under the threshold the gesture stays a normal click. `DragData` = `Text`/`Html`/`Paths`/`Img` (`@core`). Cross-application system drag & drop is covered in the platform batches of [proposals/adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md).
+> Don't put a button inside a drag source: pointer events go deepest-first, so the interactive widget eats the press. `payload()` is lazy — under the threshold the gesture stays a normal click. `DragData` = `Text`/`Html`/`Paths`/`Img` (`@widget`). Cross-application system drag & drop is covered in the platform batches of [proposals/adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md).
 
 ## Hover & cursor groups
 

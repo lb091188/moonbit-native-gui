@@ -1,4 +1,4 @@
-# Declarative layer & reactivity (@core + @ui)
+# Declarative layer & reactivity (@base + @widget + @ui)
 
 The UI is described as a **node tree**, state lives in `Store` / `Signal`, and the framework makes "data changed → UI follows". This page covers the wiring. Styling: [layout.md](layout.md) and [design.md (Chinese)](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/zh/design.md); components: [components.md](components.md).
 

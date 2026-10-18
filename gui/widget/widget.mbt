@@ -1,6 +1,6 @@
 // 自绘控件宿主：控件树 ↔ yoga-mbt 布局树的映射、绝对矩形折算、命中测试、
-// 事件路由与绘制遍历。方案 §2 把这一层划给 `core`（循环/焦点栈同在 core，
-// 渲染契约在 render，平台后端在 win），本层不认识任何平台句柄——输入事件由
+// 事件路由与绘制遍历。方案 §2 把这一层划给自绘宿主包（事件循环在 `shell`、
+// 焦点栈在 `base`，渲染契约在 render，平台后端在 win），本层不认识任何平台句柄——输入事件由
 // 上层（应用宿主）从 `win` 的原始事件翻译后投递进来。
 //
 // **坐标口径（本层唯一一处换算）**：yoga 给出的 `left/top` 是「相对父节点边框盒」
@@ -46,7 +46,7 @@ pub(all) struct PointerEvent {
 }
 
 ///|
-/// 按键事件（`keysym` 为平台虚拟键码，修饰键位取 `core/keys.mbt` 的 MOD_*）。
+/// 按键事件（`keysym` 为平台虚拟键码，修饰键位取 `base/keys.mbt` 的 MOD_*）。
 pub(all) struct KeyEvent {
   press : Bool
   keysym : Int
@@ -155,7 +155,7 @@ pub(all) struct Widget {
   /// 没有这个口就没人能停它（换载后旧视频的音频继续解码播放就是这么来的）。
   /// 回调里做同步清理（停引擎/终止定时器），不重入树操作。
   mut on_discard : Option[(Widget) -> Unit]
-  /// resolved `Style` 本体不进 core（core 依赖 style 会成环）：由 `@style` 包的
+  /// resolved `Style` 本体不进 widget（widget 依赖 style 会与 style 依赖 widget 成环）：由 `@style` 包的
   /// 进程级侧表按控件 id 持有，绘制期 `@style.resolved(self)` 读取。
   /// 绘制层序键（resolved `z_index` 的落点，design.md §5 P1）：`@style.apply`
   /// 写入，绘制遍历按它**稳定重排** kids（同值保持数组序，尾赢），默认 0.0。
@@ -246,7 +246,7 @@ pub fn Widget::append_child(self : Widget, child : Widget) -> Unit {
 /// 整棵子树的控件 id 逐只报出去。用途只有一个——**按控件 id 持有的进程级附属表**
 /// （样式的 resolved 侧表）跟着清账；动态换树（`bind_node` 重挂、`for_list` 删行、
 /// 虚拟列表重挂窗口、浮层收起）每换一代就多留一份残账，不清就是进程级泄漏。
-/// 附属表的持有方自己装钩子（style 依赖 core，方向合规），core 不认识装钩子的是谁。
+/// 附属表的持有方自己装钩子（style 依赖 widget，方向合规），widget 不认识装钩子的是谁。
 /// **挪位不要走这两条**：`move_child` 才是挪，摘下来就是丢弃。
 let widget_discard_hook : Ref[(Int) -> Unit] = Ref(fn(_id : Int) -> Unit { () })
 
