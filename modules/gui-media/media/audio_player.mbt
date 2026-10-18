@@ -80,6 +80,8 @@ pub fn audio(
   let playing : @base.Store[Bool] = @base.Store::new(false)
   let speed_st : @base.Store[Double] = @base.Store::new(1.0)
   let full_st : @base.Store[Bool] = @base.Store::new(false)
+  let muted : @base.Store[Bool] = @base.Store::new(false)
+  let last_vol : Ref[Double] = Ref(volume)
   if auto_play {
     engine.play()
   }
@@ -113,9 +115,22 @@ pub fn audio(
       @widget.invalidate()
     }
   }
-  fn bump_vol(d : Double) -> Unit {
-    engine.set_volume(bar_clamp01(engine.get_volume() + d))
+  fn toggle_mute() -> Unit {
+    let (m, v, lv) = bar_mute_toggle(muted.get(), engine.get_volume(), last_vol.val)
+    muted.set(m)
+    engine.set_volume(v)
+    last_vol.val = lv
     @widget.invalidate()
+  }
+  fn apply_vol(v : Double) -> Unit {
+    let (m, eff, lv) = bar_vol_apply(muted.get(), v, last_vol.val)
+    muted.set(m)
+    engine.set_volume(eff)
+    last_vol.val = lv
+    @widget.invalidate()
+  }
+  fn bump_vol(d : Double) -> Unit {
+    apply_vol(bar_clamp01(engine.get_volume() + d))
   }
   // 舞台区：撑高时占住多出来的高度，歌词写在底部，无输出设备的降级说明写在中间。
   let stage = @widget.Widget::new()
@@ -178,10 +193,7 @@ pub fn audio(
     fn() -> Double { engine.current() },
     fn() -> Double { engine.duration() },
     fn() -> Double { engine.get_volume() },
-    fn(v : Double) -> Unit {
-      engine.set_volume(v)
-      @widget.invalidate()
-    },
+    fn(v : Double) -> Unit { apply_vol(v) },
     fn(t : Double) -> Unit {
       engine.seek(t)
       sp.reset()
@@ -198,6 +210,7 @@ pub fn audio(
     playing,
     speed_st,
     full_st,
+    muted,
     None,
     @icons.DArrowLeft,
     @icons.DArrowRight,
@@ -205,6 +218,7 @@ pub fn audio(
     fn() -> Unit { skip_by(0.0 - ap_skip_step) },
     fn() -> Unit { skip_by(ap_skip_step) },
     cycle_speed,
+    toggle_mute,
     toggle_full,
     fn() -> Unit { () },
     display,
@@ -216,6 +230,7 @@ pub fn audio(
     fn() -> Unit { skip_by(ap_skip_step) },
     toggle_full,
     bump_vol,
+    toggle_mute,
     fn() -> Bool { full_st.get() },
   )
   // 丢弃即停摆：组件被换树摘下时外层拿不到闭包里的引擎，没人 free 的话

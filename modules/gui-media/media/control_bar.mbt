@@ -116,6 +116,37 @@ fn bar_clamp01(f : Double) -> Double {
 }
 
 ///|
+/// 静音开关的状态机（纯函数，组件层语义）：开静音 → 记住当前音量、有效音量
+/// 归零；关静音 → 恢复记住的音量。返回 (新静音态, 新有效音量, 新记住值)。
+pub fn bar_mute_toggle(
+  muted : Bool,
+  cur : Double,
+  last : Double,
+) -> (Bool, Double, Double) {
+  if muted {
+    (false, last, last)
+  } else {
+    (true, 0.0, cur)
+  }
+}
+
+///|
+/// 音量落点（拖动条与 `↑`/`↓` 键共用，纯函数）：落到非零即解除静音并刷新
+/// 记住值；落 0 不动静音态与记住值（静音中拖 0 仍是静音，恢复值不丢）。
+/// 返回值同 `bar_mute_toggle`。
+pub fn bar_vol_apply(
+  muted : Bool,
+  v : Double,
+  last : Double,
+) -> (Bool, Double, Double) {
+  if v > 0.0 {
+    (false, v, v)
+  } else {
+    (muted, 0.0, last)
+  }
+}
+
+///|
 /// 显示区的命中分区：`x` 是显示区本地横坐标。返回 (分区名, 比例 0..1)，
 /// 分区名是 `"seek"|"volume"|""`（空串=右侧时间文字，不响应）。纯函数，
 /// 独立于绘制与事件投递，方便无头断言。
@@ -275,7 +306,8 @@ fn player_display(
 
 ///|
 /// 把播放器快捷键挂到当前窗的**按键兜底通道**上（`App::add_key_fallthrough`）：
-/// 空格播放/暂停、回车全屏、`←`/`→` 后退/前进、`↑`/`↓` 音量、`Esc` 退全屏。
+/// 空格播放/暂停、回车全屏、`←`/`→` 后退/前进、`↑`/`↓` 音量、`M` 静音、
+/// `Esc` 退全屏。
 /// 三条口径：① 不点窗口也能用，但焦点在输入框里时按键被编辑器吃掉，播放器
 /// 不抢字；② 通道没有反注册口，所以每次按键先问 `watch`（本组件根控件）
 /// 「还在被画吗」——换载摘掉的播放器不再吃键，同窗多台时注册序在前的先接；
@@ -287,6 +319,7 @@ fn player_bind_keys(
   on_fwd : () -> Unit,
   on_full : () -> Unit,
   on_vol : (Double) -> Unit,
+  on_mute : () -> Unit,
   is_full : () -> Bool,
 ) -> Unit {
   match @widget.host_active() {
@@ -314,6 +347,10 @@ fn player_bind_keys(
       } else if ev.keysym == @base.KS_DOWN {
         on_vol(0.0 - 0.05)
         true
+      } else if ev.keysym == 0x6D {
+        // 'm'（本栈 keysym 与 X11 同源：可打印字符 = 其 Latin-1 码位）
+        on_mute()
+        true
       } else if ev.keysym == @base.KS_ESCAPE && is_full() {
         // 只在真处于全屏时接管：窗口态的 Esc 还有别的用途
         on_full()
@@ -331,6 +368,7 @@ fn player_bar(
   playing : @base.Store[Bool],
   speed : @base.Store[Double],
   full : @base.Store[Bool],
+  muted : @base.Store[Bool],
   zoom : @base.Store[Int]?,
   back_icon : @icons.IconKind,
   fwd_icon : @icons.IconKind,
@@ -338,6 +376,7 @@ fn player_bar(
   on_back : () -> Unit,
   on_fwd : () -> Unit,
   on_speed : () -> Unit,
+  on_mute : () -> Unit,
   on_full : () -> Unit,
   on_zoom : () -> Unit,
   display : @widget.Widget,
@@ -363,6 +402,14 @@ fn player_bar(
       icon_size=16.0,
       box_size=28.0,
     ),
+    @widget.bind_node(muted.signal(), fn(m : Bool) -> @widget.Node {
+      @ui.icon_button(
+        if m { @icons.Hide } else { @icons.Sound },
+        on_click=on_mute,
+        icon_size=16.0,
+        box_size=28.0,
+      )
+    }),
     @widget.bind_node(speed.signal(), fn(v : Double) -> @widget.Node {
       @ui.button(
         vp_fmt_speed(v),
