@@ -2607,6 +2607,14 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **验证**：`gui/widget/host_wbtest`「弹框开着时焦点链只收遮罩层，收框后页面回来」（含放行档叠加不改归属）；`gui/ui/message_box_wbtest`「消息框：底钮可聚焦、按钮区留右边距」与 `gui/ui/overlay_wbtest` 的对话框同名用例（钮 `focus_id>0`、右缘留 ≥12px）。全仓 `moon test` 1256/1256、`--deny-warn` 干净；真机目视归用户（T4 对话框/消息框段）。
 **教训**：**视觉模态 ≠ 焦点模态**。一层盖住整窗的浮层要显式声明「焦点链归我」，否则键盘照常穿透；本栈把这个声明落在 `OverlayItem.full` 一个布尔上，判据集中在 `OverlayHost::focus_root()` 一处。
 
+## mac 无边框来回切几次后整窗只会拖窗：`setMovableByWindowBackground:!on` 的布尔写反了（2026-10-19,真机反馈）
+
+**现象**（用户 mac 真机）：showcase「窗口」页连点几次「无边框切换」，之后窗口只能被拖动，点按钮、点输入框全无反应。
+**根因**：`wm_set_borderless` 的 mac 支里那句 `[s.win setMovableByWindowBackground:!on]` —— 取反写反，**装饰态（非无边框）反而开了「背景拖窗」**。AppKit 的 `movableByWindowBackground` 是在 `mouseDown` 阶段由窗口先拦一道：命中「不处理拖动的视图」就把这一击直接变成窗口拖动，**不再派发给视图**，于是本栈「按下入队 → MoonBit 侧派发」那条链整条收不到按下。来回切的过程中只要停在装饰态、或者缓存位与真实 `styleMask` 失真让那句早退生效（上一次的 YES 就留在窗上了），整片客户区都成了拖窗面。
+**修复**：① 两档形态一律 `setMovableByWindowBackground:NO`——拖窗只认应用声明的拖拽区（`set_drag_rect` → `tryDragRect` → `performWindowDragWithEvent:`，与 Win32 的 `WM_NCHITTEST → HTCAPTION`、GTK 的按下存档起拖同一口径）；② 开关状态改从真实 `styleMask` 读、不信缓存位（全屏往返这类系统自己改 mask 的场合会让缓存失真，失真的早退表现为「按了没反应」）。
+**验证**：真机复验归用户（T2 窗口段：连切数次无边框后按钮/输入照常响应，装饰态从内容区按下不再拖着整窗走）。全仓 `moon test` 1256/1256，mac 桩重编 134 tasks 无新警告。
+**教训**：**自绘宿主与系统「背景拖窗」是互斥的两条鼠标路径**——开了后者，应用的按下事件在窗口层就被吞掉，看着就是「整窗只能拖、点什么都没反应」。要「声明区可拖、其余照常响应」，拖窗必须自己做（`performWindowDragWithEvent:`），系统那一档恒关。
+
 ## 维护约定
 
 1. 新增结论写进对应小节,只记「坑 + 修复」;协议互操作结论必须来自真总线、真面板,单测自洽不算数。
