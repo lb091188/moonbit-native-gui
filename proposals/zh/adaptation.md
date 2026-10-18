@@ -2615,6 +2615,16 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **验证**：真机复验归用户（T2 窗口段：连切数次无边框后按钮/输入照常响应，装饰态从内容区按下不再拖着整窗走）。全仓 `moon test` 1256/1256，mac 桩重编 134 tasks 无新警告。
 **教训**：**自绘宿主与系统「背景拖窗」是互斥的两条鼠标路径**——开了后者，应用的按下事件在窗口层就被吞掉，看着就是「整窗只能拖、点什么都没反应」。要「声明区可拖、其余照常响应」，拖窗必须自己做（`performWindowDragWithEvent:`），系统那一档恒关。
 
+## 修饰键要入乡随俗：一套 `CmdOrCtrl` 词表 + mac 系统档加速键由宿主内置（2026-10-19,用户提需求）
+
+**需求**（用户）：全局按键按平台习惯走——Linux 没有「Win 键」只有 Super、mac 的主修饰键是 Cmd；并且 mac 上要默认有 Cmd+Q / Cmd+W / Ctrl+Cmd+F 这类系统档加速键，体验与系统其它软件一致。
+**三条口径**：
+- **词表同源**：`CmdOrCtrl`（连同 `cmdorctl`/`commandorcontrol` 与 `control`/`option`/`command`/`win` 别名）在 `@win.parse_accelerator`（全局热键、菜单加速键）早就有，窗口内的 `parse_combo` 这次补齐同一套——同一串 spec 不该在窗口内与系统层有两个意思。平台读数走运行期 `@shell.platform_is_macos()`（AGENTS 规则 11，不用 `#cfg(platform=)`）。
+- **系统档只在 macOS 注册**：Linux 的 Super、Windows 的 Win 各有桌面归属，应用不该抢；那两档的关窗/退出本来就由 WM 与系统给。
+- **派发排在焦点链与兜底通道之前**：本栈没有原生应用菜单，这三条在别的 mac 软件里由菜单给；排在页面之后就会被输入框或播放器快捷键抢走。`App::set_system_keys(false)` 留给要自己接管的调用方。mods 按全等比——多按一个 Shift 不算命中。
+**新增口**：`Window::toggle_fullscreen`（三平台桩各一条）。mac 直接问 AppKit（`styleMask` 的全屏位），自己不记态——绿色按钮那条路改的态也跟得上；Win32/GTK 按记录态取反，WM 自己改的（F11 一类）追不上，记档取舍。
+**验证**：`gui/widget/combo_wbtest` 三条——`CmdOrCtrl` 双档落地、别名与 win 侧同源、`system_key_action` 纯函数（含「非 mac 一律不抢」「抬起不算」）。全仓 `moon test` 1259/1259、`--deny-warn` 干净；真机（Cmd+Q/W、Ctrl+Cmd+F）归用户。
+
 ## 维护约定
 
 1. 新增结论写进对应小节,只记「坑 + 修复」;协议互操作结论必须来自真总线、真面板,单测自洽不算数。

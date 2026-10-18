@@ -2634,6 +2634,16 @@ Auto-hiding the pointer in fullscreen players needs a 6th cursor kind (`CURSOR_H
 **Verification**: on-device re-check belongs to the user (T2 window row: after several borderless toggles buttons and entries still react, and pressing inside the decorated window no longer drags it). Full workspace `moon test` 1256/1256; the macOS stub rebuilt over 134 tasks with no new warnings.
 **Lesson**: **a hand-drawn host and the system's background-drag are two mutually exclusive mouse paths.** Turn the system one on and the application's press events are eaten at the window level — the symptom reads as "the window only drags, clicks do nothing". To get "declared area drags, everything else behaves normally", implement the drag yourself (`performWindowDragWithEvent:`) and keep the system tier off.
 
+## Modifier keys must follow local custom: one `CmdOrCtrl` vocabulary, plus macOS system accelerators built into the host (2026-10-19, user request)
+
+**Request** (user): key bindings should follow each platform's habit — Linux has no "Win key", only Super; macOS's primary modifier is Cmd — and on macOS the system-tier accelerators (Cmd+Q / Cmd+W / Ctrl+Cmd+F) should exist by default so the app feels like every other app.
+**Three rulings**:
+- **One vocabulary**: `CmdOrCtrl` (with `cmdorctl`/`commandorcontrol` and the `control`/`option`/`command`/`win` aliases) already existed in `@win.parse_accelerator` (global hotkeys, menu accelerators); the in-window `parse_combo` now accepts the same set — one spec string must not mean two things at the window layer and the system layer. The platform reading comes from the runtime probe `@shell.platform_is_macos()` (AGENTS rule 11, no `#cfg(platform=)`).
+- **System tier registers only on macOS**: Super on Linux and Win on Windows belong to the desktop, and closing/quitting there is already the WM's / system's job.
+- **Dispatched before the focus chain and the fallthrough channel**: this stack has no native application menu, so in other macOS apps these three come from the menu; placed after the page they would be stolen by entry fields or player shortcuts. `App::set_system_keys(false)` is the opt-out for callers that take them over. Modifier comparison is exact — an extra Shift is not a match.
+**New API**: `Window::toggle_fullscreen` (one arm per platform stub). macOS asks AppKit itself (the fullscreen bit in `styleMask`) instead of remembering state, so the green-button path stays consistent; Win32/GTK invert their recorded bit and cannot follow changes the window manager makes on its own (F11 and friends) — recorded as a trade-off.
+**Verification**: three cases in `gui/widget/combo_wbtest` — `CmdOrCtrl` landing per platform, aliases matching the win side, and the pure `system_key_action` (including "never claimed off macOS" and "key release does not count"). Full workspace `moon test` 1259/1259 with a clean `--deny-warn`; on-device checks (Cmd+Q/W, Ctrl+Cmd+F) stay with the user.
+
 ## Maintenance
 
 1. New conclusions go into the matching section and record only the pit and the fix; protocol-interop conclusions must come from the real bus and real panels — unit-test self-consistency does not count.

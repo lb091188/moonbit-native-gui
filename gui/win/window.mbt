@@ -1,6 +1,6 @@
 // 平台窗口后端（Linux = GTK3）：窗口句柄、事件取用、上屏与循环泵。
 // 循环归 MoonBit——本文件只给 `pump`/`wait`/`wake` 三个动作，等多久由
-// `core` 的 Loop::wait_budget 决定；窗口上的像素来自调用方交来的
+// `shell` 的 Loop::wait_budget 决定；窗口上的像素来自调用方交来的
 // RGBA 缓冲（`render` 的 Bitmap.data），因此离屏快照与上屏同源。
 
 ///|
@@ -270,6 +270,13 @@ pub fn Window::set_fullscreen(self : Window, on : Bool) -> Unit {
 }
 
 ///|
+/// 全屏翻转（mac 的 `Ctrl+Cmd+F` 默认加速键走它）：当前态由平台自己判，上层
+/// 不记布尔——系统那条路（绿色按钮）改的态这里也跟得上。
+pub fn Window::toggle_fullscreen(self : Window) -> Unit {
+  wm_window_toggle_fullscreen(self.id)
+}
+
+///|
 /// 设绘图区光标形状：0 默认箭头 / 1 手型 / 2 文本 I 形 / 3 横向调整 / 4 纵向调整。
 /// 全自绘栈没有原生控件，形状只能由宿主按命中路径下发（见 `Widget::cursor_at`）。
 pub fn Window::set_cursor(self : Window, kind : Int) -> Unit {
@@ -477,7 +484,7 @@ pub fn show_message_box(
 ///|
 /// 建一个空的原生菜单条，返回其句柄（0 = 后端不支持/表满）。句柄归平台后端
 /// 所有，`Menu::apply` 时把它交给窗口；窗口销毁时后端一并释放。
-/// 供 `core/menu.mbt` 的翻译层使用——调用方一般用模型层，不直接碰这个。
+/// 供 `shell/menu.mbt` 的翻译层使用——调用方一般用模型层，不直接碰这个。
 pub fn menu_bar_new() -> Int {
   wm_menu_bar_new()
 }
@@ -491,7 +498,7 @@ pub fn menu_new_sub(parent : Int, title : String) -> Int {
 ///|
 /// 在父菜单（句柄）下加一项，返回命令 id（>=1000；分隔线返回 0，失败也 0）。
 /// `kind`：0 command / 1 check / 2 radio / 3 separator；`role`：-1 普通、
-/// 0..6 见 `core/menu.mbt` 的 `menu_role_id`（Win32 无 role，暂忽略）；
+/// 0..6 见 `shell/menu.mbt` 的 `menu_role_id`（Win32 无 role，暂忽略）；
 /// `acc` 为加速键描述串（"" 表示无）；`checked` 给复选/单选初值。
 pub fn menu_add_item(
   parent : Int,

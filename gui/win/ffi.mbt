@@ -200,6 +200,10 @@ extern "c" fn wm_window_set_fullscreen(id : Int64, on : Int) -> Unit =
   "wm_window_set_fullscreen"
 
 ///|
+extern "c" fn wm_window_toggle_fullscreen(id : Int64) -> Unit =
+  "wm_window_toggle_fullscreen"
+
+///|
 extern "c" fn wm_window_surface_count(id : Int64) -> Int =
   "wm_window_surface_count"
 
