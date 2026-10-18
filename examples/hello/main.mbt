@@ -5,7 +5,22 @@
 ///|
 fn main {
   let app = match @ui.mount_window(
-    [@ui.text("Hello, MoonBit!", font_size=18.0)],
+    [
+      @ui.view(
+        [
+          @ui.text("Hello, MoonBit!", font_size=18.0),
+          @ui.text("你好，月兔！", font_size=18.0),
+          @ui.text("Built with native-gui on MoonBit", role=@ui.Secondary),
+          @ui.link("mooncakes.io", fn() {
+            let _ = @sys.open_url("https://mooncakes.io")
+          }),
+        ],
+        row_gap=6.0,
+        grow=1.0,
+        align_items=@yoga.AlignItems::Center,
+        justify_content=@yoga.JustifyContent::Center,
+      ),
+    ],
     title="Hello, MoonBit!",
     width=400,
     height=300,
