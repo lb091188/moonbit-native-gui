@@ -13,7 +13,7 @@ MoonBit 的**轻量跨平台桌面 GUI 框架**——窗口原生直连、渲染
 
 | 入口 | 内容 |
 |---|---|
-| 库 | `moon add NoahLiu/native-gui`——16 个子包（G9 Batch 2 拆出 base/shell/widget，core 为迁移期门面），另有 gui-media、gui-webview、gui-examples 三个可选独立模块 |
+| 库 | `moon add NoahLiu/native-gui`——15 个子包（G9 拆出 base/shell/widget，core 迁移期门面已删），另有 gui-media、gui-webview、gui-examples 三个可选独立模块 |
 | 示例 | `hello` 最小窗口、`hello-themed` 主题控件集、`showcase` 全功能演示板 |
 | 文档 | 中英双语文档站与各包文档，见[文档索引](README.md) |
 | CI | Linux / Windows / macOS 三条 job 每次推送全绿：库包测试、构建、启动冒烟（Linux 虚拟显示、macOS 登录会话） |
