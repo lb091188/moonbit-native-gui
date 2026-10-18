@@ -46,7 +46,7 @@ Three third-party files are kept out of git — committing them would permanentl
 - **Intranet and offline**: the `NATIVE_GUI_VENDOR_BASE` environment variable takes a single base or a comma-separated list, tried first. You can also place the files at their target paths by hand — prebuild only downloads when missing and never touches existing files.
 - If every source fails, prebuild does not abort; it prints the manual-placement hint and leaves the missing-file error to the link step.
 
-Licenses and provenance: [THIRD-PARTY-NOTICES.md](../THIRD-PARTY-NOTICES.md) at the repository root.
+Licenses and provenance: [THIRD-PARTY-NOTICES.md](/THIRD-PARTY-NOTICES.md).
 
 ## 5. Related
 

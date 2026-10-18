@@ -67,6 +67,13 @@ export default defineConfig({
   description: 'MoonBit 原生跨平台桌面 GUI 库:自绘控件 + 自定义主题',
   cleanUrls: true,
   lastUpdated: true,
+  ignoreDeadLinks: [
+    // public/ 资产不进路由表,检查器看不见;CF Pages 会原样伺服,链接真实可达
+    /^\/THIRD-PARTY-NOTICES/,
+    // public/THIRD-PARTY-NOTICES.md 内部按 GitHub 浏览语境写的仓库相对链接,站点侧以原始文本呈现
+    './LICENSE',
+    './modules/gui-examples/README',
+  ],
   head: [
     ['script', {}, langDetect],
   ],
