@@ -9740,15 +9740,29 @@ static NSArray<NSDraggingItem *> *wm_dnd_build_items(void) {
                    length:(NSUInteger)(j - i)
                  encoding:NSUTF8StringEncoding];
         if (p != nil && [p length] > 0) {
+          // 绝对化（三平台同口径：Win32 走 GetFullPathNameW、GTK 走
+          // g_canonicalize_filename）：`fileURLWithPath:` 给相对路径建的是
+          // **相对 NSURL**，它写不出任何 pasteboard 项，AppKit 于是在
+          // beginDraggingSessionWithItems 里抛「There are 0 items on the
+          // pasteboard, but N drag images」直接终止进程（真机：showcase
+          // 窗口页拖 README.md 到访达）。
+          p = [p stringByExpandingTildeInPath];
+          if (![p hasPrefix:@"/"]) {
+            p = [[NSFileManager defaultManager].currentDirectoryPath
+                stringByAppendingPathComponent:p];
+          }
           NSURL *url = [NSURL fileURLWithPath:p];
-          NSDraggingItem *di =
-              [[NSDraggingItem alloc] initWithPasteboardWriter:url];
-          NSImage *icon = [[NSWorkspace sharedWorkspace] iconForFile:p];
-          [icon setSize:NSMakeSize(48.0, 48.0)];
-          NSRect f = NSMakeRect(-24.0 + n * 8.0, -24.0 - n * 8.0, 48.0, 48.0);
-          [di setDraggingFrame:f contents:icon];
-          [out addObject:di];
-          n++;
+          // 建不出 url 的路径不进数组（空 writer 正是那条异常的成因）
+          if (url != nil) {
+            NSDraggingItem *di =
+                [[NSDraggingItem alloc] initWithPasteboardWriter:url];
+            NSImage *icon = [[NSWorkspace sharedWorkspace] iconForFile:p];
+            [icon setSize:NSMakeSize(48.0, 48.0)];
+            NSRect f = NSMakeRect(-24.0 + n * 8.0, -24.0 - n * 8.0, 48.0, 48.0);
+            [di setDraggingFrame:f contents:icon];
+            [out addObject:di];
+            n++;
+          }
         }
       }
       i = j + 1;

@@ -2625,6 +2625,14 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **新增口**：`Window::toggle_fullscreen`（三平台桩各一条）。mac 直接问 AppKit（`styleMask` 的全屏位），自己不记态——绿色按钮那条路改的态也跟得上；Win32/GTK 按记录态取反，WM 自己改的（F11 一类）追不上，记档取舍。
 **验证**：`gui/widget/combo_wbtest` 三条——`CmdOrCtrl` 双档落地、别名与 win 侧同源、`system_key_action` 纯函数（含「非 mac 一律不抢」「抬起不算」）。全仓 `moon test` 1259/1259、`--deny-warn` 干净；真机（Cmd+Q/W、Ctrl+Cmd+F）归用户。
 
+## mac 拖文件到访达直接崩：`0 items on the pasteboard, but 2 drag images`——三支「相对路径绝对化」口径漏了 mac 这一支（2026-10-19,真机反馈）
+
+**现象**（用户 mac 真机）：showcase 窗口页把文件拖到访达，进程当场终止——`NSGenericException: There are 0 items on the pasteboard, but 2 drag images. There must be 1 draggingItem per pasteboardItem.`，栈顶在 `wm_dragdnd_send` → `beginDraggingSessionWithItems:event:source:`。
+**根因**：拖出载荷里的路径是**相对**的（演示页就写 `["README.md", "docs/zh/adaptation.md"]`，门面注释承诺「相对路径由后端绝对化」）。Win32 支用 `GetFullPathNameW`、GTK 支用 `g_canonicalize_filename` 各自绝对化，**mac 支没做**，直接把相对串喂给 `[NSURL fileURLWithPath:]` —— 建出来的是**相对 NSURL**，它写不出任何 pasteboard 项，AppKit 于是数出「0 项 / 2 张拖拽图」并抛异常。注意这条不是返回失败而是 `raise`，救不回来。
+**修复**（`wm_dnd_build_items` 的 kind 4 分支）：先 `stringByExpandingTildeInPath`，再以 `/` 开头判绝对、否则用 `[NSFileManager defaultManager].currentDirectoryPath` 拼成绝对路径（与另两支同基）；另加一道闸——`url == nil` 的路径不入拖拽项数组（空 writer 正是这条异常的直接成因）。
+**教训**：**AppKit 的拖放项数量不变量以异常收场，不给返回码**——每个 `NSDraggingItem` 的 pasteboard writer 必须真能写出至少一项。跨平台的载荷口径（绝对化、去空段、编码）必须三支逐条对齐；一支漏了的后果是崩，不是降级。
+**验证**：真机复验归用户（拖出到 Finder）；本机 mac 桩编译通过，全仓 `moon test` 1259/1259、`--deny-warn` 干净。
+
 ## 维护约定
 
 1. 新增结论写进对应小节,只记「坑 + 修复」;协议互操作结论必须来自真总线、真面板,单测自洽不算数。
