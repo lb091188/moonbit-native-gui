@@ -117,7 +117,6 @@ fn chip(
   bind? : ((String) -> Unit) -> Unit = fn(_set : (String) -> Unit) -> Unit { () },
   class? : Array[@style.Style] = [],
 ) -> @widget.Node {
-  let font = @text.Font::new("", size)
   let blocks : Array[@style.Style] = [
     match bg_block(bg) {
       Some(b) => b
@@ -137,6 +136,17 @@ fn chip(
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
     fold_style(w, anon, class)
+    // 字号口径：class 给了 font_size 就以它为准（与文本件 text_eff 的取值序
+    // 同源），散参 size 只是没有覆盖时的缺省——否则「class 改字号不跟着改宽」
+    // 的边界永远在（P2-e 边界②）。测量与绘制共用这一份字体。
+    let s0 = @style.resolved(w)
+    let font = @text.Font::new(
+      "",
+      match s0.font_size {
+        Some(v) => v
+        None => size
+      },
+    )
     let txt : Ref[String] = Ref(text)
     let tw : Ref[Double] = Ref(text_width(text, font))
     let sync_width : () -> Unit = fn() -> Unit {

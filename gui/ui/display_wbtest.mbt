@@ -613,3 +613,19 @@ test "轮播自转只在本帧被画到时推进：整块隐藏就不驱动重�
   @widget.set_repaint_hook(fn() -> Unit { () })
   @shell.set_timer_hooks(fn(_ms, _f) { 0 }, fn(_id) { () })
 }
+
+///|
+/// P2-e 边界②收口：class 改字号，测量宽跟着改（散参 size 只是没有 class
+/// 覆盖时的缺省），绘制与测量共用同一份字体。
+test "标签 class 改字号跟随测宽" {
+  if !ui_text_guard() {
+    return
+  }
+  let (_, plain) = mounted(tag_of_type("标签", Primary), 300.0, 60.0)
+  let (_, big) = mounted(
+    tag_of_type("标签", Primary, class=[@style.style(font_size=20.0)]),
+    300.0,
+    60.0,
+  )
+  assert_true(big.rect.w > plain.rect.w)
+}

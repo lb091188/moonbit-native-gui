@@ -44,7 +44,7 @@
 （P1 样式层、P3 响应式补强、P4 绘制能力、P5 动画 `transition` 与逐组件样式通道已交付，见 roadmap「组件层与前端化」；真机反馈修复集迁入 adaptation。）
 
 - [~] **P2 组件层**收尾：
-  - [ ] P2-e 边界②：`chip` 的 `class` 只吃颜色与显式宽度——字号在挂载期参与测量宽，class 改字号不会跟着改宽，真要改字号请调用方给 `width=`/`class=[style(width=…)]`；
+  - [x] ~~P2-e 边界②~~（已修 2026-10-18：chip 字号在挂载期按 `resolved` 样式取——class 给 `font_size` 就以它为准，测量与绘制共用同一份字体，宽度自然跟随；显式 `width` 仍优先于测量宽；wbtest 钉「class 大字号比散参宽」）；
   - [ ] 观感逐页比对不回退（真机由用户复验，`examples/hello`、`hello-themed`、`showcase`、`native-app`、`sysmonitor`）。
 
 ### 控件（一律自绘，不再引入原生控件皮肤；家族名对应 master `yue/components/` 九个源文件）
