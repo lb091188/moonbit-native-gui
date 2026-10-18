@@ -6774,7 +6774,16 @@ static uint32_t wm_keysym_of(NSEvent *ev) {
 
 - (void)keyDown:(NSEvent *)ev {
   WMState *s0 = wm_state(vsid);
-  NSTextInputContext *ic = s0 != nil && s0->im_active ? [self inputContext] : nil;
+  // 输入法分派门（im_active 由 MoonBit 侧按焦点控件同步）：NSTextInputContext
+  // 的 handleEvent 会把退格/方向/Home/End/Tab 这类**导航键**当
+  // doCommandBySelector 吞掉（返回 YES 就不进队列），而我们的
+  // NSTextInputClient 没实现那些动作——吞掉等于键凭空消失（真机实测：输入框
+  // 里退格/方向/Home/End/Tab 全部失灵，字符键不受影响）。所以只有「组合串
+  // 在飞（候选区还要用方向/回车/空格选词）」或「kVK 映射表外的键（=文字键，
+  // 要交给输入法起组合）」才进 handleEvent；功能键直接透传入队。
+  uint32_t mapped = wm_mac_vk_keysym([ev keyCode]);
+  NSTextInputContext *ic = s0 != nil && s0->im_active &&
+      (s0->preedit_active || mapped == 0u) ? [self inputContext] : nil;
   if (ic != nil && [ic handleEvent:ev]) {
     // 输入法吃掉了：不推按键，改由 insertText:/setMarkedText: 通道回报
     WMState *s = wm_state(vsid);
