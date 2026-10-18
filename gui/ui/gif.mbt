@@ -72,6 +72,9 @@ pub fn gif(
     watch_theme()
     let timer : Ref[Int] = Ref(0)
     let looping_ = looping
+    // 被换树摘下就断自转链（step 见 h.running=false 直接 return，不排下一拍）；
+    // 动图句柄本代由回收袋 close，这里只管停拍。
+    w.on_discard = Some(fn(_w) { h.running = false })
     // 局部函数不能自引用，走 Ref 间接（与示例里的 ticker 同形）
     let step : Ref[() -> Unit] = Ref(fn() { () })
     step.val = fn() -> Unit {

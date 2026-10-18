@@ -218,8 +218,19 @@ pub fn audio(
     bump_vol,
     fn() -> Bool { full_st.get() },
   )
+  // 丢弃即停摆：组件被换树摘下时外层拿不到闭包里的引擎，没人 free 的话
+  // 定时器链继续解码喂设备——换载后旧音频继续播就是这么来的。on_discard
+  // 里停引擎，tick 链看到 dead 直接终止（不排下一拍）。
+  let dead : Ref[Bool] = Ref(false)
+  root.on_discard = Some(fn(_w) {
+    dead.val = true
+    engine.free()
+  })
   let tick : Ref[() -> Unit] = Ref(fn() { () })
   tick.val = fn() -> Unit {
+    if dead.val {
+      return
+    }
     engine.pump()
     playing.set(engine.is_playing())
     on_tick(engine.current(), engine.is_playing())

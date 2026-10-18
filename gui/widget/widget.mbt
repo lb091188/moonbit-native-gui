@@ -140,6 +140,12 @@ pub(all) struct Widget {
   /// 落点接不接这份数据（决定光标），而 `on_drop` 一调就真投了，所以查询另开一条。
   /// 没装时按「是投放目标就收」处理。
   mut drag_accept : Option[(DragData) -> Bool]
+  /// 丢弃回调：本控件被 `clear_children` / `remove_child` 摘下时调用（含整棵
+  /// 子树被丢弃时对每个装了回调的控件各调一次）。给持进程级资源（播放引擎、
+  /// 定时器链、系统句柄）的组件用——组件把引擎藏在闭包里，外层换树拿不到，
+  /// 没有这个口就没人能停它（换载后旧视频的音频继续解码播放就是这么来的）。
+  /// 回调里做同步清理（停引擎/终止定时器），不重入树操作。
+  mut on_discard : Option[(Widget) -> Unit]
   /// resolved `Style` 本体不进 core（core 依赖 style 会成环）：由 `@style` 包的
   /// 进程级侧表按控件 id 持有，绘制期 `@style.resolved(self)` 读取。
   /// 绘制层序键（resolved `z_index` 的落点，design.md §5 P1）：`@style.apply`
@@ -188,6 +194,7 @@ pub fn Widget::new() -> Widget {
     drag_payload: None,
     on_drop: None,
     drag_accept: None,
+    on_discard: None,
     z_index_paint: 0.0,
     alpha_paint: 1.0,
     paints_state: false,
@@ -239,10 +246,15 @@ pub fn set_widget_discard_hook(f : (Int) -> Unit) -> Unit {
 }
 
 ///|
-/// 递归报出一棵子树的控件 id（含根本身）。
+/// 递归报出一棵子树的控件 id（含根本身）；装了 `on_discard` 的控件逐只触发
+/// （在进程级 hook 之后——hook 是侧表清账，组件回调是真正的资源停摆）。
 fn report_discard(w : Widget) -> Unit {
   let h = widget_discard_hook.val
   h(w.id)
+  match w.on_discard {
+    Some(f) => f(w)
+    None => ()
+  }
   let kids = w.kids
   for i = 0; i < kids.length(); i = i + 1 {
     report_discard(kids[i])
