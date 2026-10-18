@@ -37,4 +37,5 @@ moon run examples/showcase      # 完整演示板
 - FFI 规范: `.agents/skills/moonbit-c-binding/`、`.agents/skills/make-moonbit-c-bindings/`
 - MoonBit 语言与工具链: `.agents/skills/moonbit-agent-guide/`
 - 路线图: `TODO.md`
+- 模块拆分方案与判据: `docs/zh/module-structure.md`
 - 快速开始/架构: `README.md`(中文 `README_ZH.md`)

@@ -17,7 +17,7 @@
 
 - [~] **G5b** 输入通道补齐
   - ibus 一套复验（探针侧归因 libpinyin display-style，待确认）
-  - macOS：`NSTextInputClient`（前置：有 mac 真机）
+  - macOS：`NSTextInputClient` 通道已随 mac 合并落地（2026-10-18 d3020b9 补功能键闸，修导航键被输入法吞），剩真机复验（T 节）
   - 肉眼确认项：preedit 下划线观感、候选窗是否贴组合串末尾、caret 闪烁观感（点击定位已用 xdotool 客观验通：点控件最左端 caret 归 0、原位插字符）
 - [~] **G7** 声明式层与组件宿主接线（`mount` 目标从 `View` 换 yoga-mbt 节点；恢复全仓门禁。宿主与声明式地基已就位：`@core.App` + `@core.Widget` 树 + `@core.Node`/`bind_node`/`swap_node`/`Store`/`Signal`，验证页 `examples/native-app`；剩组件与图表挂新 Painter）
 - [ ] **G8** 原生子表面通道与其消费者（见 §4「浏览器」「视频」）
@@ -36,8 +36,8 @@
 
 （已交付面见 [roadmap.md](docs/zh/roadmap.md)「绘图与资源」。）
 
-- [~] 图片解码后端：macOS 未接（Linux GdkPixbuf、Windows WIC 已落并纯 C 探针回证）
-- [~] 文字后端：macOS CoreText 未接（Pango、DirectWrite 已落；行高 K 地板与缺省字族已定案）
+- [x] 图片解码后端：三平台已齐（Linux GdkPixbuf、Windows WIC、macOS ImageIO 静态图 PNG/JPEG/GIF 首帧，§7 批②；GIF 逐帧分帧缺 disposal，见 §7 专项）
+- [x] 文字后端：三平台已齐（Pango、DirectWrite、macOS CoreText 纯 C 段落排版器，§7 批③；行高 K 地板与缺省字族已定案）
 
 ### 前端化批次（design.md §5 的 P1–P5，2026-10-13 起）
 
@@ -79,10 +79,10 @@
   - [ ] 批 C 余项（仍待接）：跨窗共享的 cookie 同步（`get_cookies_for_url` 是 per-view 回包，多 pane 同 profile 时的同步策略没定）
   - [ ] 一条待查观测（不影响本批结论，且**不是每次都出现**）：协议页首屏在事件区偶发出现**两次** `导航开始 yuedemo://local/bridge.html`（出现时 `navs` 比真实导航数多 1）。同一份示例复跑四次的 `navs` 读数依次为 4、1、1、1，所以这条不是协议页的固定行为，更像引擎侧偶发的一次额外 `load-changed::STARTED`。已排除本栈双路径（`load_url` 在未挂载时只记 `self.url`，`wb_create` 建视图时才 `load_uri` 一次）。要定案就在 `wb_on_load_changed` 里带上 `load_event` 原值与 `webkit_web_view_get_uri` 的读数对照多轮，判据先立再改，不改行为
 - [~] **批 D 媒体播放器**（可与 B/C 并行）：复用 `modules/ffmpeg-mbt`（零 libyue 依赖，已有 `decode_rgba`/`decode_pcm`/`seek`/`duration_s`/`video_fps`）+ `modules/gui-media` 内嵌的 miniaudio 设备层；**CPU 回灌 + 软解**（RGBA → `render` 的 `Bitmap` → Painter 合成，本档位不做硬解与 GPU 合成）；新写播放器 UI（悬浮控制条/进度与音量/倍速/字幕叠加/seek 防抖）+ 音频时钟与同步；旧链坑照 adaptation.md 逐条验收（音画不同轴、seek 后进度从零重涨、换载崩溃）
-  - [ ] 批 D2c 再余项（不假装完成）：ASS 样式渲染（颜色/定位，目前只按文本叠加）、多字幕轨列表与切换（现在只取 `av_find_best_stream` 选中的那条）、倍速听感复验（是否仍同步、音高随动是否可接受）
+  - [ ] 批 D2c 再余项（不假装完成）：ASS 样式渲染（颜色/定位，目前只按文本叠加）、多字幕轨列表与切换（现在只取 `av_find_best_stream` 选中的那条）、倍速听感复验（是否仍同步；音高随动已定案不做——时间拉伸要相位声码器，口径见 media/audio.mbt 注释）
   - [ ] **`ui.button` 缺图标位（2026-10-16 控制面一批撞出来的框架缺口）**：示例的「选择文件…/选择目录…」这类**带文字的动作文案**要的是「无边框按钮 + 图标」，而 `ui.button(text, variant=…)` 只画文字、`ui.icon_button(kind)` 只画图标，两个都不合用；在示例里并排拼 `icon` + `button` 会得到两个分离的命中区（点图标不响应）。要补的是 `button(text, icon?=…)`：图标落在左内边距内、文字盒右移，**难点在固有宽度**——`attach_text_measure` 只按文字量尺，加了图标位就得让测量函数多算 `icon_w + gap`，否则窄按钮上文字会压住图标。定案前先量一遍 `draw_box_at` 的落位是否读样式 `padding_left`（现在写死 12.0），写死的话这条改动会波及所有按钮的水平内边距口径。
   - [ ] **媒体播放面缺口（2026-10-16 控制面一批点出来的，逐条待排）**：① **静音**——音量条能拖到 0，但没有「一键静音并可恢复」的键与图标（`sound`/`hide` 两个图标现成），也没有 `M` 快捷键；② **循环/随机键**——`looping` 只有 make 参数，控制条上切不了；③ **视频组件没有频谱**——`Spectrum` 与 `pcm_tap` 是引擎侧的，带音轨的视频同样能画，现在只接在 `audio` 上；④ **歌词只在 `audio`**——`video` 有 `subtitle` 没有 `lyric`，两套文本面（字幕叠加 / 歌词行）在组件层不同源；⑤ **全屏形态不完整**——全屏后鼠标指针不自动隐藏、双击不切全屏、控制条不自动收起；⑥ **LRC 编码**——只按 UTF-8 解，老 `.lrc` 常见 GBK 会出乱码（**推断，未实测**），要么加转码表要么给明确的「解不出=按空歌词」判据；⑦ **`ui.button` 图标位**（上一条）。
-  - [ ] **播放器组件换载残账（2026-10-16 代码走查发现，未修、未上真机）**：`audio`/`video` 的 `@core.set_timeout` 自续链在宿主 `clear_children` 之后照跑——旧引擎继续 pump（换曲时上一首理论上仍在出声），且每换一次多一条链，`AudioPlayer::free`/`VideoPlayer::free` 全仓没有调用点。`core` 的卸载通道只有 `set_widget_discard_hook` 这**一个单槽**，已被 `gui/style/apply.mbt` 占了（媒体层装不上）。要么给 core 补「按控件登记」的多播卸载通道，要么组件 API 暴露显式 dispose 让调用方换载前调——先定口径再动。（2026-10-16 控制面一批里，窗口级按键兜底通道用 `Widget::is_painted()` 自证活体，摘掉的播放器不再吃键，**但时钟链与 FFI 句柄的残账照旧**，本条待决不变）
+  - [x] **播放器组件换载残账（已销，2026-10-18）**：`Widget.on_discard` 控件级丢弃回调落地（e99962f），audio/video 在回调里 free 引擎 + 置 dead 终止定时器自续链，gif/轮播自转链同批接线，discard_wbtest 钉触发/不牵连/幂等；`set_widget_discard_hook` 单槽（style 占用）继续承担窗口级钩子，控件级多播由 `on_discard` 承担。
 - [~] **批 E 原生弹层窗口**（已完成面见 roadmap 同节；剩余见子条目）
   - [ ] 「点外收起」的可用判据：失焦自收在映射期会误触发（对照实验：开=约两秒自关且 `hides=0`；关=常驻），故 `overlay_set_dismiss_on_blur` **默认关**，等「拿到过焦点才算」的判据；另欠 Esc 收起、弹层锚点跟随 owner 滚动/移动、六件各自的尺寸提示
 - 积木原则：一个能力一个接口、可单独不用；能力之间不互相依赖（webview 不依赖媒体层，反之亦然，两者只依赖窗口/布局/事件层）；框架只给原语不给产品（爬虫框架、站点适配、内容解析、开发者面板、页面脚本库不进库）；每项能力给探测 + 语义化降级；新 API 一律走 `Painter`/`Bitmap` 门面
@@ -95,8 +95,8 @@
   - **`showcase` 待迁页（按「先基础、后重控件」排序；旧源码取回：showcase 各页 `git show master:examples/showcase/pages/<页>.mbt`，systemprobe 各页在删除前提交 `git show 72643b7:modules/gui-examples/systemprobe/...`）**：~~表单组件~~（2026-10-12 已迁，六段：输入/数值/选择/开关/日期/表单，`input_t`→`entry`(Store 驱动)、`input_number`→`stepper`(Int)、`radio_group` 值改索引 Store、checkbox 改 Store 即状态）、~~导航组件~~（2026-10-12 已迁，七段；本栈 `Menu` 尚无 `popup_at` 右键弹出形态，该段以说明替代）→ ~~数据展示~~（2026-10-12 已迁，十段：展示族 + 表格族三形态 + 万行虚拟滚动；statistic 是静态快照形态、联动走 bind；card 改 children 在前 title 命名）→ ~~图表~~（2026-10-12 已迁，五段：折线、柱状、环形、仪表盘、散点；循环推点用 `set_timeout` 自重排替代旧重复定时器）→ ~~代码与文档~~（2026-10-12 已迁，两段：code_view 三语言高亮 + markdown_view GFM 全量）→ ~~Store 对照~~（2026-10-12 已迁，四段：手动计数/subscribe/map/信号对照）→ ~~事件与布局~~（2026-10-13 已迁，六段：指针/悬停/捕获/光标/键盘/布局；五鼠标回调合一 `on_pointer`、捕获改「命中即捕获」宿主规则、全局鼠标轮询段删（无窗口外指针通道，修饰键随事件下发）换 `on_hover_change` 悬停秒表、光标改 `w.cursor` 字段、键盘焦点区用 Node mount 闭包在挂载时注册焦点 id）→ ~~窗口~~（2026-10-13 已迁，三段：窗口 API/全局快捷键/应用内拖放；窗口段经新增的 `core.App::window()` 取 `@win.Window` 直调（最大化/置顶本栈未接，按钮不放）、快捷键切 `@core.hotkey_*` 门面（W22，回查表门面自持，页内 200ms 轮询表挂宿主）、拖放从「跨应用系统级」缩为「应用内」`drag_source`/`drop_target` 声明式钩子（系统级接口形状已定、随平台批）；共享 App 加 `host` 句柄字段，挂载时由 main 的 handle 回调填入）→ ~~系统集成~~（2026-10-13 已迁，十段：文件对话框/消息框/通知/剪贴板/定时器/托盘/自启/外部打开/系统信息/音量；通知切 `@core.notify_send` 门面、托盘切 `@core.Tray` + 200ms dispatch 表、文件对话框 parent 传宿主窗口 id、`@sys.autostart_*` 开关带 priming（读初值不反向写系统）、音量/系统信息补位旧页「电量网络」；旧页 13 段里 6 段本栈未接整段不迁：关闭拦截/单实例/无边框透明窗/屏幕常亮/休眠锁屏事件/电量网络；新增 `core.App::cancel_timer` 配 `timer` 的「句柄可停」语义）→ ~~图标库~~（2026-10-13 已迁，19 段 802 图标：生成器 `scripts/gen_showcase_icons.py` 为新栈改写——读 `gui/icons/icons.mbt` 标记区、经 `@shared.page/section` 装配、图标走 `@ui.icon`、悬停名走 `@ui.tooltip_t`、间距走容器参数；顺手修了生成器的 Windows 路径坑（`__file__` 反斜杠致 REPO 解析失败，改 `os.path`））→ ~~画布与富文本~~（2026-10-13 已迁，两段：Painter 自绘/AttributedText 富文本；`@declarative.container(on_draw=…, style=[…])` 换 `@core.node_of_new` 自挂 on_draw + yoga 尺寸、重绘从容器 schedule_paint 换进程级 `@core.invalidate()`、「系统语义色」换真实存在的两个系统读数（深浅=sys_color_scheme 来源的 dark_mode、主色=sys_accent 来源的 accent，走 bind 直连共享状态）、新增渐变填充演示（Gradient::linear + set_fill_gradient）；跨包 `set_format({…})` 结构体字面量实测可行）→ ~~浏览器~~（2026-10-13 已迁，七段：加载/导航与事件流水/JS 执行/JS↔原生 raw binding/Cookie/DOM 抓取/创建选项；五导航回调 + title 合一 `on_event`（WebEvent 族，消费式取）、cookie 改 `Cookies` 事件回包、`execute_javascript_with_result(code, done)` 回包只剩结果串、自定义协议改「文件根目录」形态 `register_protocol(scheme, root)` 且 `webview_predeclare_schemes` 须在建第一扇 webview 之前、拒绝路径改「注销协议后重载」走 LoadFailed + 结构化原因、新增 capture_dom 四档段（旧页没有）；pane 在 `@core.node_of_new` 挂载闭包里创建（页内容惰性挂载，挂载那一刻宿主才在）、引擎不在位降级自绘说明板；**showcase 待迁页至此清空**）；~~菜单栏 / 托盘菜单 / 单实例接线~~（2026-10-13 第十五批：菜单栏走 W20a 模型翻译 `MenuBar::apply_to` + 100ms `dispatch_menu_command` 表，「导航/主题/帮助」三菜单动作全真实（切页/拨深浅与跟随/关于冒提示/退出走 `App::quit`）；托盘菜单在系统集成页托盘段「挂菜单」（`Tray::set_menu`，项点击走同一条菜单派发链），托盘句柄存页内 `tray_holder`、「改提示」顺手改成真调 `set_tooltip`；单实例走 dbus 层 `claim_name`("com.moonbitlibyue.showcase") + `on_wake`（切回首页 + 冒提示），已有实例 `wake_existing` 后退出，D-Bus 排期通道与 200ms 泵由宿主给，无会话总线环境（Windows 桌面）Err 降级只打印；对话框已挂窗口根）
   - ~~`systemprobe`（8 页，`modules/gui-examples`）~~（2026-10-13 第十六批已迁，7 页：系统能力/视频播放/音频播放/命令与状态/扩展图表/新图表/交互图表；装配层照搬 showcase 的 shared（ProbeApp 只带 selected/toast/host），旧 `ui/page.mbt` 的 page_shell/report_set/nav_page 不再需要；「系统能力」21 族探针里 16 族走 `@sys` 真调 + MPRIS 走 `@dbus`，本栈未接的 5 族（磁盘卷/时区语言/蓝牙/传感器/logind 电源会话）以说明行替代；媒体两页改 `video` 全包组件（音视频一体，旧三件套 AudioPlayer 手动 pump + audio_player_t + 状态轮询全消失），换载 = holder `clear_children` + 重挂，演示媒体走 `@sys.pr_run` ffmpeg lavfi 现场生成（落点 TEMP）；「新图表」页的地图组件（geo_map_t 已平移）暂不展示——演示用抽象多边形易与真实地图混淆，口径等地图能力线定；特效散点动画 `EffAnim` 组件内部自驱动，ProbeApp 不持句柄；冒烟 `PROBE-READY pages=7` → 优雅关闭 → `PROBE-DONE`）；**附带**：`ffmpeg_stub.c` 加 Windows 分支——33 个 FFI 符号给「全错误降级实现」（链接不断、语义恒失败），gui-media 依赖链在 Windows 从「构建断」变「可构建 + 运行时语义降级」，gui-media 11 个真功能测试按 `@ffmbt.ffmpeg_supported()` 探测跳过（Linux CI 照常真跑，24/24）；`sysmonitor` 2026-10-13 第十七批已迁（原地升级 `examples/sysmonitor`：数据层 sysdata/sysproc/syshw + 三个 wbtest 原样平移（唯一改动 `@yue.platform()` → `@sys.sys_platform()`），stub/sysmon.c 2996 行零改动直挂新栈 native-stub（Windows 虚拟 /proc 数据源在 wbtest 真采到 237 个进程，66/66）；UI 六页改写：Mission Center 双栏（左卡片导航 + 右详情页一次性挂载切可见性）——自绘重绘从 schedule_paint 换 Store.subscribe + `@core.invalidate()`，手型光标换 cursor_group，值行走 label_dyn(align=End, grow)，进程页 table_v_t 固定 width=880（本栈无 fill 形态），图表 fill=true → area=true，搜索框 input_t → entry（clearable 未接，组件无此形态）；主题跟随换 `App::follow_system_theme()`；冒烟 `SYSMON-READY cores=8` → 优雅关闭 → `SYSMON-DONE`）——**G7 示例迁移全线收口**
 - [ ] 文档：中英使用文档按新栈重写（`components`/`components-ui`/`declarative`/`layout`/`relink`/`system-capabilities`/`tutorial`），README 挂新截图
-  - [ ] **清掉已删旧链的用法段**：`docs/zh/system-capabilities.md:253/293/304`（英文版同处）还在教 `@yuemedia.audio_player_t(player)` / `@yuemedia.video_player_t(player)`——那是已删的 `modules/gui-media/src` 旧链组件、签名收引擎实例，与新栈的 `audio`/`video` 无关；同段「50ms 时钟自动 pump」也过期（现口径：`ap_tick_ms`=33、时钟由组件内部 `set_timeout` 驱动）。改按新栈两组件重写，顺带补 `lyric` / `spectrum` / 缩放三档 / 快捷键。
-  - [ ] **AGENTS.md 文档地图收录 `docs/zh/module-structure.md`**：本轮没加，因为该文件正被并行会话改（未提交），提交会把别人那行一起带走。
+  - [x] **清掉已删旧链的用法段**（2026-10-18 23f22b5 已按 `gui-media/media` 与 `@guimedia`、真实节点组件 `audio()`/`video()` 重写，`@yuemedia` 系幻影 API 全清；英文文档实际在 `docs/` 根，无 `docs/en/` 目录）
+  - [x] **AGENTS.md 文档地图收录 `docs/zh/module-structure.md`**（2026-10-18 已补录；原并行会话阻塞已消失）
 - [ ] 发布：mooncakes 新版本；旧 `bin-*`/`vendor-*` 预构建发布链退役
   - [ ] **`gui-media` / `gui-examples` 首发前最后一次公开面审校**：两模块 0.1.0 至今未发布，本轮组件改名（`player_t` → `video`、新增 `audio`）正是在「无历史版本」前提下才零破坏；一旦发出去就改不动了。首发前把两模块 README、`docs/zh/system-capabilities.md` 媒体段、`modules/gui-media/moon.mod` 依赖版本钉法过一遍（发布链与预演 zip 口径见根 `HANDOFF.md`）。
   - **0.1.0 构建失败与 0.1.1 重发链（2026-10-15 实测）**：`native-gui@0.1.0` 包页 Build failed——依赖 `NoahLiu/yoga-mbt@0.1.0` 的注册表归档里 `src/moon.pkg.json` 仍是旧清单（发布早于仓内迁移；已发布版本不可原地改写），四目标同一根因。重发顺序**先 `yoga-mbt` 后 `native-gui`**、版本各递增 0.1.1，仓内各模块钉版同批更新；发布从各自模块根执行（可先 `moon publish --dry-run`），发前 `moon package` 预演核对归档零旧清单，发后看包页 `build_status` 与构建日志 API；机理见中英 adaptation.md 的 mooncakes 构建器条。
@@ -131,12 +131,12 @@
 - 交汇处托盘/通知/热键门面统一归 **W22**
   - ~~**Linux 全局热键后端（X11 `XGrabKey`）**~~（2026-10-16 已交付：自开 X 连接 + 四变体抓取 + BadAccess 错误陷阱 + `XPending` 泵抽，`wm_hotkey_supported` 按 `WAYLAND_DISPLAY` 分档；XFCE+X11 真机 xdotool 注入全链路命中。TODO 原推断的三处要点被实测推翻——grab 清位掩码行不通须变体抓取、事件不进 GTK 泵无需 filter、`Ctrl+Alt+Fn` 是 VT 保留域按不到——根因与实测定案见中英 adaptation「Linux 全局热键后端」节）
   - [ ] **媒体键走同一条 grab**（`XF86AudioPlay`/`XF86AudioPrev`/`XF86AudioNext`/`XF86AudioMute`）：这是「耳机键/键盘媒体键控播放」的正解，与 G10 的**窗口内**按键是两层，别混在一个门面里；Linux 侧键码取 `XKeysymToKeycode(XK_XF86AudioPlay)`，Windows 侧对应 `VK_MEDIA_PLAY_PAUSE`（W20b 的 vk 表要不要扩到媒体键一并定）。
-  - [ ] **macOS 全局热键后端**（Carbon `RegisterEventHotKey`，或 `NSEvent.addGlobalMonitorForEvents` + 辅助功能授权）：同门面未接，前置=有 mac 真机，与 tray/notify 的 mac 档同批。
+  - ~~**macOS 全局热键后端**~~（2026-10-17 随 mac 分支并入 master 交付：Carbon `RegisterEventHotKey` 三件套在 win 桩 mac 臂，`shell/hotkey.mbt` mac 档直通；真机复验归 T 节）
   - ~~**探针对齐**~~（2026-10-16 已交付：`hotkey_probe` 组合换 `Ctrl+Alt+H/J`（Fn 系是 VT 保留域），② 注册/幂等注销/槽位复用 + ③ 新增门面轮询段——`xdotool` 注入 6 秒内 `HOTKEY-CORE-FIRE` 即回证；组合被占走 `Err(Failed)` 门面已有）
 
 #### W23 · 窗口显隐：`Window::hide`（与既有 `show` / `request_focus` 对称）
 
-- [~] **`Window::hide` 门面已落，Linux 后端已接**（2026-10-16）：`win/stub.c` 三分支 + `Window::hide`/`Window::is_hidden`，`show` 唤回 hide 前的屏幕原点（GTK 分支 `gtk_widget_hide` + `XWithdrawWindow` 撤管，语义区别于 `XIconifyWindow` 最小化；Windows 分支 `SW_HIDE` 记客户区原点供 `SetWindowPos` 复位，**Linux 侧本机 wbtest 真开窗通过、Windows 分支未上机**）。macOS `orderOut:` / `makeKeyAndOrderFront:` 与 W22 的 mac 批同批，前置=有 mac 真机。
+- [~] **`Window::hide` 门面已落，Linux 后端已接**（2026-10-16）：`win/stub.c` 三分支 + `Window::hide`/`Window::is_hidden`，`show` 唤回 hide 前的屏幕原点（GTK 分支 `gtk_widget_hide` + `XWithdrawWindow` 撤管，语义区别于 `XIconifyWindow` 最小化；Windows 分支 `SW_HIDE` 记客户区原点供 `SetWindowPos` 复位，**Linux 侧本机 wbtest 真开窗通过、Windows 分支未上机**）。macOS 臂 2026-10-18 已随对齐批落地（86644a4：`orderOut:`/`makeKeyAndOrderFront:` + hidden 驻留标志，show 唤回清零）——剩三平台真机复验（T 节）与 mooncakes 发版（启动器「Esc 隐藏驻留」待发版接入）。
   - 动机：旗舰应用 moon-launcher（`lb091188/moon-launcher`）已把「Esc 隐藏驻留托盘」挂为其 README「已知边界」——发布包 0.1.1 只有 `show` 无 `hide`，启动器现在只能「Esc 清空→退出」。
   - 验收判据（本机判据已过：幂等、hide 后 `request_focus` 不异常；**真机肉眼项待用户复验**）：启动器 Esc 后窗口隐藏且托盘/DBus 单实例存活，Wake 或托盘点击唤回**原位置**并自动聚焦输入框。
 
@@ -151,16 +151,16 @@
 
 - [ ] **W7 真实注入验证**：微软拼音端到端（preedit 下划线/候选窗位置/commit 落框）、两窗互相遮挡与拖动重绘、跨程序剪贴板（复制→记事本→粘回）、文件对话框模态 run 与真选文件、主题跟随系统深浅/强调色——归 `examples/native-app` 人工清单（`_人工测试清单.md`）
 - [ ] **W20 批观感复验**：原生菜单栏（下拉/快捷键提示/勾选项）、全局快捷键（切到别的程序仍能触发）、托盘（图标出现/右键菜单/左键计数）、MessageBox（图标/按钮/返回值）、窗口标题与图标
-- [ ] **三平台真机矩阵**：Windows 10/11 本机冒烟已通（`NATIVE-APP-MW`/`SYSPROBE-*` 退出码 0）；macOS 无设备（M3 前置）
+- [ ] **三平台真机矩阵**：Windows 10/11 本机冒烟已通（退出码 0）；macOS 真机已到位，T1–T8 人工清单执行中（2026-10-18 起）；Ubuntu GNOME / KDE / XFCE 待排
 
 ### 6.6 性能批（2026-10-13 真机反馈立项）
 
 真机反馈原文：「native-app 整体感觉卡顿，滚动、点击、悬浮都有 300–500ms 的延迟，点线分布图推点按钮没用，表格排序不生效，虚拟表格滚动失效」。前三条是**一个根因**、第四条是**示例漏接线**，见下。
 
-- [ ] **文本布局缓存的 1024 超限整表清空策略待 Windows 实测**（`323b537` 引入）：本机 Pango 路径 cold(1680 条不同文本) 与 warm 持平（3.35 vs 3.25 ms/帧），说明这条路径不吃亏；**Windows/DWrite 侧没量过**，而 showcase 这种上千条不同文本的页面正好踩在上限之上——若真机账本 `paint` 占比高且 `frames` 正常，就把整表清空换成按键淘汰。对照判据已留：`moon run experiment/showcase_cost_bench`（同树换版本），真机读数 `SHOWCASE-PROF` / `showcase-prof.txt`。
+- [ ] **文本布局缓存的 1024 超限整表清空策略待 Windows 实测**（`323b537` 引入）：本机 Pango 路径 cold(1680 条不同文本) 与 warm 持平（3.35 vs 3.25 ms/帧），说明这条路径不吃亏；**Windows/DWrite 侧没量过**，而 showcase 这种上千条不同文本的页面正好踩在上限之上——若真机账本 `paint` 占比高且 `frames` 正常，就把整表清空换成按键淘汰（注意现役三处缓存上限不一：DWrite `g_layout_cache` 1024、MoonBit `StrCache` 8192、stub.c 像素缓存 768，统一口径一并定）。对照判据已留：`moon run experiment/showcase_cost_bench`（同树换版本），真机读数 `SHOWCASE-PROF` / `showcase-prof.txt`。
 - [ ] **悬停/点击反馈的帧成本量化**（脏矩形已落地后的收益项，未量；P5 已按小脏区读数开工）：局部脏区一帧要花多少钱，由 `SHOWCASE-PROF` / `anim_cost_bench` 的小脏区档读数定档（滚动仍要全视口重画，收益在悬停与点击）。
-- [ ] **光栅微优化**（未做）：`raster.mbt` / `raster_fill.mbt` 每次 fill/stroke 都新分配一条 width 长的 `cov` 数组（每帧数百次）；不透明实心填充可走「无覆盖率」快路径；`raster.mbt` 里根背景那 126 万像素的全窗填充占单帧成本的可观一份。
-- [ ] **文本布局缓存**（未做，单帧成本里最重的一块）：`text/dwrite_text.cpp` 的 `ptw_session_layout` 每次 `rt_measure` / `rt_draw` 都新建 `IDWriteTextFormat` + `IDWriteTextLayout`（**同一条文本一帧建两次**），`AttributedText::rt()` 每个文本节点每帧开两个会话，且 `rt_new`/`rt_free` 每帧重来、无跨帧缓存；`ui` 的 label/button/表格单元格一律走这条路。布局（yoga）每帧还会为**全树**文本节点各测一次，屏外的也照测。
+- [ ] **光栅微优化**（部分已做）：`fill_rect` 不透明实心 + SrcOver 已走 `fill_device_rect` 直写快路径（`composite_solid_span`，无 cov 分配），根背景全窗填充已复用它（仍逐像素写字节）；剩：`Raster::fill/stroke` 通用路径与圆角/stroke/blit 慢路径仍每次新分配一条 width 长的 `cov` 数组（每帧数百次），待末条「量出来再优化」分档后动。
+- [ ] **文本布局缓存**（部分已做，仍是单帧成本里最重的一块）：纯文本度量已建 C 侧跨帧缓存 `g_layout_cache`（3c744db，Pango/DirectWrite 同批，键=字体四要素+宽约束等，上限 1024 整清）；剩：富文本 `rt_measure`/`rt_draw` 仍每次经 `ptw_session_layout` 现建 `IDWriteTextFormat` + `IDWriteTextLayout` 用完即 Release（`AttributedText::rt()` 每个文本节点每帧开两个会话），`ui` 的富文本节点一律走这条路；布局（yoga）每帧还会为**全树**文本节点各测一次，屏外的也照测。
 - [ ] **量出来再优化**：上面三条都还没在真机上分档计时（`experiment/text_bench` 已有先例可扩展）。建议先做一个「单帧成本分解」探针（根背景填充 / 控件绘制 / 文本 / memcpy+StretchDIBits 各占多少），再决定动哪一块。
 
 ## 4. 已知边界与风险
