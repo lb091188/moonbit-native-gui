@@ -47,6 +47,9 @@ pub fn video(
   looping? : Bool = false,
   /// 画面底部画不画实时频谱条（带音轨的素材才有电平；关掉就是纯画面）。
   spectrum? : Bool = false,
+  /// 歌词：**已读好的 LRC 文本**（外部文件的读取归调用方）。有字幕同屏时
+  /// 歌词行让到字幕上方；来源行数经 `on_lyric` 给出（空=没配上）。
+  lyric? : String = "",
   /// 每 tick 的观测口（位置秒 / 已解码帧数 / 是否在播）：示例与测试靠它证明
   /// 「帧在推进、时钟在走」，而不是一张贴图。
   on_tick? : (Double, Int, Bool) -> Unit = fn(
@@ -62,6 +65,9 @@ pub fn video(
   on_subtitle? : (Int, Bool) -> Unit = fn(_n : Int, _embedded : Bool) -> Unit {
     ()
   },
+  /// 歌词来源的观测口（行数），打开时回调一次：调用方要区分「没配上歌词」
+  /// 与「配上了但还没唱」，不必去猜引擎状态。
+  on_lyric? : (Int) -> Unit = fn(_n : Int) -> Unit { () },
   on_error? : (String) -> Unit = fn(_s : String) -> Unit { () },
   handle? : (@widget.Widget) -> Unit = fn(_w : @widget.Widget) -> Unit { () },
 ) -> @widget.Node {
@@ -100,6 +106,8 @@ pub fn video(
       }
     }
   on_subtitle(cues.length(), from_embedded && cues.length() > 0)
+  let lrc = lrc_parse(lyric)
+  on_lyric(lrc.cues.length())
   let frame_no : Ref[Int] = Ref(-1)
   let image : Ref[@render.Image?] = Ref(None)
   let dragging : Ref[Bool] = Ref(false)
@@ -244,7 +252,20 @@ pub fn video(
         }
       }
     }
+    // 歌词行与字幕行同源不同位：字幕贴底白字，歌词在其上方主题色（同屏时）
+    let line = lrc_at(lrc, engine.current())
     let sub = subtitle_at(cues, engine.current())
+    if line.length() > 0 {
+      p.flush()
+      let _ = @text.draw_text_at(
+        p,
+        8.0,
+        vp_lyric_y(sub.length() > 0, r.h),
+        line.replace(old="\n", new=" "),
+        15.0,
+        @theme.theme_text_primary(),
+      )
+    }
     if sub.length() > 0 {
       p.flush()
       let _ = @text.draw_text_at(
