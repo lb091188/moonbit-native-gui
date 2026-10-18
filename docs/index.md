@@ -12,12 +12,18 @@ hero:
       text: GitHub
       link: https://github.com/lb091188/moonbit-native-gui
 features:
-  - title: Self-drawn widgets, one theme across all platforms
-    details: Windows, pixels, the event loop, layout and widgets are all pure MoonBit; the three platforms look the same, and light / dark mode plus the system accent color are followed by default.
-  - title: Import on demand
-    details: base / shell / widget / ui / render / text / theme / icons / sys / input / win / dbus / chart / mdview / style are each their own package; unused packages never enter your binary.
-  - title: Platform differences absorbed inside the library
-    details: Tray, autostart, power, volume, and media keys share one API; the library absorbs the Windows / Linux differences.
+  - title: Self-drawn widgets, one look everywhere
+    details: The library's own rasterizer draws every control, so rendering is identical across platforms; light/dark mode and the system accent color are followed by default, and a theme is a plain value you can override.
+  - title: Declarative UI with reactive state
+    details: Describe the interface as a tree of @widget.Node values and mount it with one mount_window call; keep state in Store / Signal and bound spots refresh themselves.
+  - title: Desktop-grade system integration
+    details: Tray, notifications, native menus, global shortcuts, file dialogs, drag & drop, clipboard, autostart and OS queries sit behind one @sys / @shell facade; the system-probe page shows this machine's real readings item by item.
+  - title: Content batteries included
+    details: 20 chart types with a cross-cutting interactive layer, a GFM Markdown view and multi-language code highlighting; the embedded WebView and the audio/video engine live in the optional gui-webview / gui-media modules.
+  - title: Honest degradation
+    details: Every capability family exposes a probe and returns a structured Unsupported / NotFound on environments that lack it, instead of crashing or pretending success.
+  - title: Pay only for what you import
+    details: 16 packages in the main module — an unimported package never enters your binary; heavier capabilities live in their own modules, outside the default dependency closure.
 ---
 
 ## Quick start

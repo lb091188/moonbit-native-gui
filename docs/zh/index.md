@@ -12,12 +12,18 @@ hero:
       text: GitHub
       link: https://github.com/lb091188/moonbit-native-gui
 features:
-  - title: 自绘控件,一套主题走全平台
-    details: 窗口、像素、事件循环、布局与控件全部纯 MoonBit 实现,三平台外观一致;深浅色与系统强调色默认跟随。
-  - title: 按需引入
-    details: base / shell / widget / ui / render / text / theme / icons / sys / input / win / dbus / chart / mdview / style 各自独立成包,用不到的包不进二进制。
-  - title: 平台差异库内消化
-    details: 托盘、自启动、电源、音量、媒体按键等统一 API,Windows / Linux 差异由库吸收。
+  - title: 自绘控件,全平台一套观感
+    details: 库自带光栅器绘制每个控件,各平台渲染一致;默认跟随系统强调色与明暗模式,主题就是一个普通值,可整体覆写。
+  - title: 声明式 UI 与响应式状态
+    details: 界面描述为 @widget.Node 树,mount_window 一步挂载;状态放 Store / Signal,绑定点随数据自动刷新。
+  - title: 桌面级系统集成
+    details: 托盘、通知、原生菜单、全局快捷键、文件对话框、拖放、剪贴板、开机自启与系统查询,统一在 @sys / @shell 门面之后;系统能力探测页逐项呈现本机实测结果。
+  - title: 内容组件开箱即用
+    details: 20 种图表含横切交互层、GFM Markdown 视图、多语言代码高亮;内嵌 WebView 与音视频引擎由可选模块 gui-webview / gui-media 提供。
+  - title: 如实降级
+    details: 每个能力族都带探测,环境不支持时返回结构化 Unsupported / NotFound,不崩溃、不假装成功。
+  - title: 只为引入的包付费
+    details: 主模块 16 包,没引入的包不进二进制;更重的能力各自成模块,在默认依赖闭包之外。
 ---
 
 ## 快速开始
