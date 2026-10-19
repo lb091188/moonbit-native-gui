@@ -489,14 +489,27 @@ pub fn keysym_to_text(keysym : Int) -> String? {
 /// 把编辑控制键喂给内核；可打印键走 `keysym_to_text` 插入。
 /// 返回 false 表示这键该由上层处理（Tab 焦点跳转、未识别组合等）。
 /// IME 通道应先问输入法、未消费才调这里（G5）。
+/// `mac` 由调用方按**运行期**平台探测传入：主修饰键入乡随俗（Cmd 而非 Ctrl），
+/// 缺省 false 即其余平台的 Ctrl 口径。
 pub fn Editor::handle_key(
   self : Editor,
   keysym : Int,
   modifiers : Int,
+  mac? : Bool = false,
 ) -> Bool {
   let shift = (modifiers & @base.MOD_SHIFT) != 0
   let ctrl = (modifiers & @base.MOD_CTRL) != 0
-  let alt = (modifiers & (@base.MOD_ALT | @base.MOD_META)) != 0
+  let alt = (modifiers & @base.MOD_ALT) != 0
+  let meta = (modifiers & @base.MOD_META) != 0
+  // 「主修饰键」：选全/复制/剪切/粘贴/撤销这一族跟着平台走。旧写法把 Cmd 并进
+  // alt（`MOD_ALT | MOD_META`），于是 mac 上 Cmd+A 既不匹配 `ctrl && 'a'`、又落进
+  // 「带修饰不消费」那支，等于这一族在 mac 上**全部失效**（真机：地址栏无法全选）。
+  let primary = if mac { meta } else { ctrl }
+  // 「按词移动」的修饰键：mac 是 Option，其余是 Ctrl。
+  let wordwise = if mac { alt } else { ctrl }
+  // 主修饰键之外还按着别的（mac 上 Ctrl/Option，其余上 Cmd/Alt）——除了下面
+  // 明确认下的组合，一律不认。
+  let other = if mac { ctrl || alt } else { meta || alt }
   let mut handled = false
   if keysym == @base.KS_BACKSPACE {
     self.backspace()
@@ -505,10 +518,10 @@ pub fn Editor::handle_key(
     self.delete_forward()
     handled = true
   } else if keysym == @base.KS_LEFT {
-    self.move_caret(-1, if ctrl { 1 } else { 0 }, shift)
+    self.move_caret(-1, if wordwise { 1 } else { 0 }, shift)
     handled = true
   } else if keysym == @base.KS_RIGHT {
-    self.move_caret(1, if ctrl { 1 } else { 0 }, shift)
+    self.move_caret(1, if wordwise { 1 } else { 0 }, shift)
     handled = true
   } else if keysym == @base.KS_HOME {
     self.move_caret(-1, 2, shift)
@@ -516,32 +529,33 @@ pub fn Editor::handle_key(
   } else if keysym == @base.KS_END {
     self.move_caret(1, 2, shift)
     handled = true
-  } else if ctrl && !alt && keysym == 'a'.to_int() {
+  } else if primary && !other && keysym == 'a'.to_int() {
     self.select_all()
     handled = true
-  } else if ctrl && keysym == 'z'.to_int() {
+  } else if primary && keysym == 'z'.to_int() {
     if shift {
       let _ = self.redo()
     } else {
       let _ = self.undo()
     }
     handled = true
-  } else if ctrl && keysym == 'y'.to_int() {
+  } else if primary && keysym == 'y'.to_int() {
     let _ = self.redo()
     handled = true
-  } else if ctrl && keysym == 'x'.to_int() {
+  } else if primary && keysym == 'x'.to_int() {
     let _ = self.cut()
     handled = true
-  } else if ctrl && keysym == 'c'.to_int() {
+  } else if primary && keysym == 'c'.to_int() {
     let _ = self.copy()
     handled = true
-  } else if ctrl && keysym == 'v'.to_int() {
+  } else if primary && keysym == 'v'.to_int() {
     let t = self.clip_fetch()
     if t.length() > 0 {
       self.paste_text(t)
     }
     handled = true
-  } else if ctrl || alt {
+  } else if ctrl || alt || meta {
+    // 带修饰却没在上表认下的组合：交回上层，绝不当作可打印字符插入
     handled = false
   } else {
     match keysym_to_text(keysym) {

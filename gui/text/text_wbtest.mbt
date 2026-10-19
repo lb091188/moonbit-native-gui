@@ -77,6 +77,34 @@ test "max_width 约束换行：宽度受钳、高度增长" {
   }
 }
 
+test "超长不可断单元按字符硬断：行数按宽度摊算，不是一行一个字" {
+  // 真机 mac：浏览器示例「新窗请求」里那条长 URL（整串无空格）撑出两百行，
+  // 把底部状态栏顶穿、整块布局错位。断行单元比整行还宽时只能逐字硬断，但
+  // 硬断要**一直填到放不下为止**；每行只切一个字就回头重判的话，「整个剩余
+  // 单元的宽」永远超限，于是退化成一行一个字。不断言具体行数（随字体变），
+  // 只跟「总宽 ÷ 盒宽」的摊算值比。
+  let url =
+    "https://moonbitlang.github.io/moonbit-native-gui/examples/browser/a-very-long-path-without-any-breakable-space?query=1&x=2"
+  match (measure(url, 13.0), line_height(13.0)) {
+    (Some(one), Some(h)) if one.width > 200 && h > 0 => {
+      let expect = (one.width + 200 - 1) / 200
+      match measure(url, 13.0, max_width=200, wrap=true) {
+        Some(w) => {
+          assert_eq(w.width <= 200, true, msg="硬断后仍超出盒宽")
+          // 容一行取整差；旧写法给的是「字符数」量级的行
+          assert_eq(
+            w.height <= (expect + 1) * h,
+            true,
+            msg="长 URL 折到 \{w.height}px，按 \{one.width}px 摊算只需 \{expect} 行（每行一个字就穿帮）",
+          )
+        }
+        None => assert_eq(false, true)
+      }
+    }
+    _ => assert_eq(false, true)
+  }
+}
+
 test "测量宽自洽：按测量宽下发的盒不再折行" {
   // 布局用测量宽定盒，再把同一个宽交给断行算法；只要测量报得比真实浮点宽
   // 窄（四舍五入取整就会），单行标签会在自己的盒里凭空多出一行
