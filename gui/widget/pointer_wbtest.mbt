@@ -236,7 +236,7 @@ test "cursor_at：取悬停路径上最深的那个非零请求，无人请求�
   root.append_child(group)
   root.append_child(spare)
   root.relayout(100.0, 60.0)
-  // 组内没提请求的子件 → 回退到组的手型（旧链路要把光标递归设进每个子孙）
+  // 组内没提请求的子件 → 回退到组的手型
   assert_eq(root.cursor_at(10.0, 10.0), CURSOR_HAND)
   // 子件自己提了形状 → 以它为准
   assert_eq(root.cursor_at(10.0, 30.0), CURSOR_TEXT)

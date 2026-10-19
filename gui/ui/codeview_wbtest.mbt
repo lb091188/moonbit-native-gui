@@ -1,6 +1,5 @@
 // 代码高亮白盒测试：分词着色（关键字/类型/调用/数字/字符串/注释/断词）
 // 与 code_view 组件（深底出像素、多色 token、行号列、高度按行数）。
-// 分词断言与 master components_wbtest 同源平移。
 
 ///|
 fn mounted_bm(w : @widget.Widget) -> @render.Bitmap {

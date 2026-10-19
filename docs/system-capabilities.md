@@ -2,27 +2,27 @@
 
 The system-capability API family: system volume, application lookup, night-light color temperature, wallpaper, monitor configuration, system window management, clipboard watching, subprocess execution, power plans, system information, printers, environment variables, directory enumeration, recent files, browser bookmarks and Firefox history, VS Code local history. All are read-only or write through an authorized system service. Every call returns a `Result`; unsupported environments yield the corresponding error value instead of crashing. Each `*_supported()` call really probes the current environment.
 
-## Platform Status (2026-10-15, after mac platform batches ①-⑤)
+## Platform Status
 
-> **🚧 wired** in the macOS column = the code landed on `mac` (now merged into master) and the CI macOS job proves it compiles and links; **real-machine visual/readout evidence is still pending** (checklist in the T section of `_人工测试清单.md`). **❌ Unsupported** = deliberately not done in this batch, and the facade says so honestly. Neither means "broken".
+> **🚧 pending real-machine** in the macOS column = merged into master, and CI proves it compiles and links; **real-machine visual/readout evidence is still pending** (checklist in the T section of `_人工测试清单.md`). **❌ Unsupported** = the platform does not provide it and the facade says so honestly. Neither means "broken".
 
 | Capability | Windows | Linux | macOS |
 |---|---|---|---|
-| clipboard / autostart / subprocess / files (fsx) / env vars (envx) | ✅ direct call | ✅ | 🚧 wired (pbpaste/pbcopy + NSPasteboard stub; LaunchAgents plist + `launchctl load/unload`) |
-| system info / wallpaper / launcher (open & reveal) | ✅ direct call | ✅ | 🚧 wired (`sw_vers`/`ioreg`/`sysctl` + in-stub `host_statistics64`/`kern.boottime`; osascript desktop picture, main display only; `open` / `open -R`) |
-| volume / printers (list+default+print) | ✅ direct call | ✅ | 🚧 wired (osascript `volume settings`; the sink name is given as empty per contract when unavailable; macOS ships CUPS, same `lpstat`/`lp` path as Linux — a declared choice, not a leaked Linux branch) |
-| user idle detection | ✅ direct call | ✅ | 🚧 wired (`CGEventSourceSecondsSinceLastEventType`, HID system state — no accessibility permission needed) |
-| app lookup | ✅ direct call | ✅ | 🚧 wired (`.app` bundle scan + public keys of `Contents/Info.plist`; `categories` and the localized name have no public equivalent, given as empty / fallback) |
-| recent files | ✅ direct call | ✅ | ❌ Unsupported (sharedfilelist is a private format; a later batch) |
+| clipboard / autostart / subprocess / files (fsx) / env vars (envx) | ✅ direct call | ✅ | 🚧 pending real-machine (pbpaste/pbcopy + NSPasteboard stub; LaunchAgents plist + `launchctl load/unload`) |
+| system info / wallpaper / launcher (open & reveal) | ✅ direct call | ✅ | 🚧 pending real-machine (`sw_vers`/`ioreg`/`sysctl` + in-stub `host_statistics64`/`kern.boottime`; osascript desktop picture, main display only; `open` / `open -R`) |
+| volume / printers (list+default+print) | ✅ direct call | ✅ | 🚧 pending real-machine (osascript `volume settings`; the sink name is given as empty per contract when unavailable; macOS ships CUPS, same `lpstat`/`lp` path as Linux) |
+| user idle detection | ✅ direct call | ✅ | 🚧 pending real-machine (`CGEventSourceSecondsSinceLastEventType`, HID system state — no accessibility permission needed) |
+| app lookup | ✅ direct call | ✅ | 🚧 pending real-machine (`.app` bundle scan + public keys of `Contents/Info.plist`; `categories` and the localized name have no public equivalent, given as empty / fallback) |
+| recent files | ✅ direct call | ✅ | ❌ Unsupported (sharedfilelist is a private format; not offered) |
 | window management / power plans | ✅ direct call | ✅ | ❌ Unsupported (Accessibility needs prior user consent / `pmset` does not map to the three-value scheme semantics) |
-| browser/vscode data | ✅ (LOCALAPPDATA paths) | ✅ | ✅ (`Library/Application Support/<vendor>/<product>` paths, synced back in platform batches ①-⑥) |
-| sysmonitor process data | ✅ (ships its own stub/sysmon.c) | ✅ | not touched this batch (the example module ships its own stub; mac path pending per that module's stub comments) |
+| browser/vscode data | ✅ (LOCALAPPDATA paths) | ✅ | ✅ (`Library/Application Support/<vendor>/<product>` paths) |
+| sysmonitor process data | ✅ (ships its own stub/sysmon.c) | ✅ | 🚧 pending real-machine (the example module ships its own stub; the mac path is pending) |
 | night-light color temperature (redshift/xrandr command line) | ❌ no public API | ✅ | ❌ no public API (CoreBrightness is private) |
-| monitor enumeration (monitor) | ❌ | ✅ (xrandr) | 🚧 wired (CoreGraphics direct calls: `CGGetOnlineDisplayList` / `CGDisplayBounds` / `CGDisplayCopyAllDisplayModes`; online displays only, names given as `Built-in` / `Display-<id>`; readings are always physical pixels, so `MonitorInfo` needs no scale field) |
+| monitor enumeration (monitor) | ❌ | ✅ (xrandr) | 🚧 pending real-machine (CoreGraphics direct calls: `CGGetOnlineDisplayList` / `CGDisplayBounds` / `CGDisplayCopyAllDisplayModes`; online displays only, names given as `Built-in` / `Display-<id>`; readings are always physical pixels, so `MonitorInfo` needs no scale field) |
 
-The public macOS entry points and underlying calls (🚧 wired items): `open`/`open -R`, `sw_vers`, `ioreg -rd1 -c IOPlatformExpertDevice`, `sysctl hw.model/hw.memsize/kern.boottime`, `osascript` (System Events `volume settings` and desktop picture), `launchctl load/unload` + `~/Library/LaunchAgents/*.plist`, `lpstat`/`lp`, plus in-stub `host_statistics64`, `CGEventSourceSecondsSinceLastEventType`, `CGGetOnlineDisplayList`/`CGDisplayBounds`/`CGDisplayCopyDisplayMode`/`CGDisplayCopyAllDisplayModes`/`CGDisplayScreenSize`.
+The public macOS entry points and underlying calls (🚧 pending real-machine items): `open`/`open -R`, `sw_vers`, `ioreg -rd1 -c IOPlatformExpertDevice`, `sysctl hw.model/hw.memsize/kern.boottime`, `osascript` (System Events `volume settings` and desktop picture), `launchctl load/unload` + `~/Library/LaunchAgents/*.plist`, `lpstat`/`lp`, plus in-stub `host_statistics64`, `CGEventSourceSecondsSinceLastEventType`, `CGGetOnlineDisplayList`/`CGDisplayBounds`/`CGDisplayCopyDisplayMode`/`CGDisplayCopyAllDisplayModes`/`CGDisplayScreenSize`.
 
-The Windows direct calls under the hood: SystemParametersInfoW (wallpaper), ShellExecuteW (launch/reveal/print), PowerGet/SetActiveScheme, the registry (product and DMI info), GlobalMemoryStatusEx, GetTickCount64, EnumWindows, EnumPrintersW, IAudioEndpointVolume (COM), GetLastInputInfo. For pitfalls and header/link requirements, see the platform-batch entries in [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md).
+The Windows direct calls under the hood: SystemParametersInfoW (wallpaper), ShellExecuteW (launch/reveal/print), PowerGet/SetActiveScheme, the registry (product and DMI info), GlobalMemoryStatusEx, GetTickCount64, EnumWindows, EnumPrintersW, IAudioEndpointVolume (COM), GetLastInputInfo. For pitfalls and header/link requirements, see [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md).
 
 The full demo is the "System Probes" page of `moon run examples/showcase` — each section can "re-probe" to show this machine's real results item by item, and unsupported capabilities show their error text. For field-tested conclusions and rationale per capability across distros / desktop environments — including the logind path, wpctl/pactl differences and direct SQLite reads — see [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md).
 

@@ -1,17 +1,15 @@
 // 声明式地基：`Node` 是「未挂载的 UI 片段」，构造器只建树、`mount` 才实例化
 // 控件并挂到父控件（闭包字段是存在类型，兄弟节点天然异构）。
 //
-// 与 master 线 `yue/node.mbt` 的唯一结构差：挂载目标从 libyue 的 `View` 换成
-// 本栈自绘的 `Widget`（`mount : (Widget) -> Widget`），语义一字不改。
+// 挂载目标是本栈自绘的 `Widget`（`mount : (Widget) -> Widget`）。
 //
-// 重挂（relink）形态定案三条：
+// 重挂（relink）形态三条：
 // ① **原位替换**而不是「清空再追加」——新一代先挂到尾部、再挪回旧一代原先的
 //    位置，兄弟项的顺序与坐标不受被换掉的这项影响（布局引擎为此加了
 //    `insert_child` / `remove_child_at`）；
-// ② **不需要**旧链路 Windows 的那两条规避（`post_task` 推迟一拍、重挂后
-//    `refresh_layout` 整窗重算）：它们防的是 native 侧 remove+add 之后 yoga 根
-//    不重算、hit-test 恒命中旧矩形；本栈的命中矩形每帧从布局结果重取
-//    （`App::paint_frame` → `relayout` → `collect_abs`），没有这个洞；
+// ② 不需要「推迟一拍」或「重挂后整窗重算」这类规避：命中矩形每帧从布局结果
+//    重取（`App::paint_frame` → `relayout` → `collect_abs`），remove+add 之后不会
+//    留下旧矩形；
 // ③ 每一代子树的订阅进**回收袋**，重建前整袋退订——死订阅不随重建次数累积。
 
 ///|

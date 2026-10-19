@@ -1,4 +1,4 @@
-// 系统监视器（sysmonitor，G7 新栈版）：Ubuntu/Mission Center 式进程管理
+// 系统监视器（sysmonitor）：Ubuntu/Mission Center 式进程管理
 // 与硬件信息查看。数据层纯 MoonBit 读 /proc、/sys（sysdata/sysproc/syshw），
 // 唯一的系统调用经应用自有 native-stub（stub/sysmon.c，sysffi.mbt）；
 // 单一 1Hz 定时器驱动全部采样，各页经 Store 订阅刷新——数值卡只改文本，
@@ -6,16 +6,14 @@
 // 并实时联动（App::follow_system_theme）。左栏资源卡片即菜单，右栏全部
 // 详情页一次性挂载、按 view 切可见性（选中态 / 滚动位置 / 表格选择不丢）。
 //
-// G7 迁移记档（与 master 旧版的差）：
-//   - 旧栈 yue/declarative/components 三个别名全部换 widget/ui/theme；
-//     style 字符串列表换组件的具名参数（padding/row_gap/grow/width）。
-//   - 自绘容器重绘从「schedule_paint + on_theme_change」换成
-//     「Store.subscribe + @widget.invalidate()」（进程级 host_repaint_all）；
-//     主题切换重绘同样走 invalidate（on_draw 每次实时读 theme_current）。
-//   - 手型光标从「逐子控件 set_cursor」换成 cursor_group（宿主取
-//     悬停路径最深的非零请求，组内一处即可盖住全部）。
-//   - 图表 fill=true 换 area=true；表格 table_v 的固定 width 参数
-//     按右栏实际宽度传入（本栈无 fill 形态）。
+// 四条口径：
+//   - 样式走组件的具名参数（padding/row_gap/grow/width），没有样式字符串列表。
+//   - 自绘容器重绘走「Store.subscribe + @widget.invalidate()」（进程级
+//     host_repaint_all）；主题切换同样走 invalidate（on_draw 每次实时读
+//     theme_current）。
+//   - 手型光标用 cursor_group（宿主取悬停路径最深的非零请求，组内一处即可
+//     盖住全部）。
+//   - 面积图用 `area=true`；表格 table_v 的固定 width 参数按右栏实际宽度传入。
 
 ///|
 /// kB 转人类可读（/proc/meminfo 单位为 kB）。

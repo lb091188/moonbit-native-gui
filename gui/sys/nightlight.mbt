@@ -175,7 +175,7 @@ fn nl_backend() -> NlBackend? {
 /// 每次调用真实探测，高频场景请调用方自行缓存结果。
 pub fn nl_supported() -> Bool {
   // Windows 无公开色温 API：夜间模式状态存 CloudStore 二进制 blob，
-  // 跨版本脆弱，本批不做 hack（诚实 Unsupported，gamma 直调另批评估）
+  // 跨版本脆弱，不做 hack（诚实 Unsupported，gamma 直调待评估）
   if sys_platform() == "windows" {
     return false
   }

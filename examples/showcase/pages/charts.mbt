@@ -1,10 +1,10 @@
 // 图表页：图表族全量演示板——基础五段（line_chart_t / bar_chart_t /
 // donut_chart_t / gauge_t / scatter_t）+ 扩展三段（雷达/热力/K 线/漏斗/箱线/
 // 桑基；关系/平行坐标/象形柱/旭日/主题河流/树图/矩形树图/特效散点；
-// line/bar/donut 交互版，2026-10-16 由独立示例 examples/charts 并回）。
+// line/bar/donut 交互版）。
 // 折线与仪表盘由 500ms 自重排延时通道实时驱动；暂停复选框只断数据流
-// （定时器本身不停——新栈 set_timeout 是一次性句柄，循环靠回调尾自排，
-// 与 master 的重复定时器等价但机制不同，记档）。
+// （定时器本身不停——
+// `set_timeout` 是一次性句柄，循环靠回调尾自排）。
 //
 // **第一拍挂在真·挂载时机（Node::on_mount），不挂 handle、不挂构造期**：
 // `set_timeout` 在宿主 `App` 建好之前是空操作（`shell/loop.mbt` 的进程级通道

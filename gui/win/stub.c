@@ -169,7 +169,7 @@ static int wm_menus_next = 1;
  * 时），所以不需要窗口槽：本文件另起一张进程级表，槽号即对外 id。命中时
  * WndProc 收不到（消息进的是注册线程队列），改由 wm_hotkey_poll 在 MoonBit
  * 的泵里主动抽——与 DBus 线「宿主周期 pump」同一形态，避免 C→MoonBit 回调。
- * 注册 id 与窗口无关（旧栈 register_global_shortcut 同语义）。
+ * 注册 id 与窗口无关。
  * 表声明必须在 wm_pump 之前（pump 里要截 WM_HOTKEY 置位）。 */
 #define WM_MAX_HOTKEYS 32
 static int wm_hotkeys[WM_MAX_HOTKEYS]; // 1 = 已注册；下标即对外 id
@@ -760,7 +760,7 @@ static LRESULT CALLBACK wm_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 }
 
 int wm_init(void) {
-  // 幂等：批 A 的多窗宿主每开一扇都调一次后端初始化，而 Win32 的窗口类**同名
+  // 幂等：多窗宿主每开一扇都调一次后端初始化，而 Win32 的窗口类**同名
   // 重复注册会失败**（ERROR_CLASS_ALREADY_EXISTS）——第一次成功之后就整段复用。
   // 不这么做的话第二扇窗永远开不出（本机实测 App::open_window 返回 None，
   // GTK 分支的 gtk_init_check 本来就幂等所以只在 Windows 露出来）。
@@ -3826,7 +3826,7 @@ void *wm_icon_handle(int slot) {
  * 没有回调、没有窗口槽，是最适合「阻塞式 FFI」的一条（与热键那种「寄存器 +
  * 泵里抽」不同）。uType 的四段位组合由 MoonBit 侧纯函数算好传进来（见
  * yue/win/message_box.mbt），这里只做宽串转换与调用。
- * hwnd 传 NULL：消息框为进程级（不隶属某窗口），与旧栈 MessageBox::show 同形；
+ * hwnd 传 NULL：消息框为进程级（不隶属某窗口）；
  * show_for_window 的挂窗形态留待需要时补（传具体 HWND）。
  * 文本是 UTF-8 Bytes（#borrow），这里转 UTF-16 交给 W 系 API。 */
 int wm_message_box(const char *title, const char *text, int utype) {
@@ -4996,7 +4996,7 @@ GtkWidget *wm_surface_container(int64_t surface_id) {
   return wm_surfaces[surface_id].container;
 }
 
-// ---- 原生弹层窗口（批 E）----
+// ---- 原生弹层窗口 ----
 // 浮层（下拉/右键菜单/tooltip/toast/对话框）要能盖住 webview 区，就只能是真的
 // 顶层窗口——自绘像素永远在原生子件之下（方案 §4.5 的浮层纪律）。
 // 必须在 show 之前调：类型提示与 transient 关系在映射时才生效。

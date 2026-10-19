@@ -9,8 +9,8 @@
    Linux=Cairo；**Windows 和 macOS 共用同一套 Pure Raster**（`painter.mbt:1-24`）。
    DirectWrite / CoreText / Pango 只是**文本**引擎。所以"图形属性跨平台统一"= 让 Cairo + Raster 两条实现都接上，工作量按 2 算。
 
-2. **box-shadow / blur 是主动删除的，不该天真重提。**
-   投影于 2026-10-15「整条撤掉」（`style.mbt:57-58`），曾实现两次又回退，重做被明确 gate 在"有真 Gaussian blur"之上（`design.md:45`）。两后端都无卷积模糊（stub.c 无 `cairo_push_group`/filter，raster 无 convolution）。
+2. **box-shadow / blur 不提供，别天真重提。**
+   重做的前置是「有真 Gaussian blur」（`design.md` §1.1「效果」行）。两后端都无卷积模糊（stub.c 无 `cairo_push_group`/filter，raster 无 convolution）。
 
 3. **`letter_spacing` 是死字段：存了、能合并、状态桶也接受，但从未被画。**
    `gui/ui/` `gui/text/` 全无消费者（无 kern/tracking/letter_spacing）。roadmap.md:159 标 ❌❌❌。

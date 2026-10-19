@@ -5,7 +5,7 @@
 ## 两条写入路径
 
 - **散参数**：`@ui.col/row/view` 直接吃 `padding` / `row_gap` / `column_gap` / `width` / `height` / `grow` / `align_items` / `background_color` / `border_color`。它们是 `Style` 对应字段的糖，只有一条去向：折进匿名块。
-- **`class` 通道**：给一个或多个 `@style.style(...)` 造出的 `Style` 块，数组尾赢——后者的同名属性盖过前者。34 个组件都收 `class?`。
+- **`class` 通道**：给一个或多个 `@style.style(...)` 造出的 `Style` 块，数组尾赢——后者的同名属性盖过前者。所有组件都收 `class?`。
 
 两条合并成一份 `Style`，落到控件样式槽与 Yoga 节点。
 
@@ -60,13 +60,13 @@
 
 **换行要放对方向。** `flex_wrap=Wrap` 只有容器是**列**时才纵向折得下：`row` 容器的交叉轴不拉伸，换行子项按内容定宽会折成竖排。段条这类「超宽自动换行」的场景要放进列容器，并每层显式 `min_* = 0`。
 
-**gap 已从自由空间里扣掉。** 弹性分配 grow/shrink 计算自由空间时会先减去 `gap × (n-1)`，所以「固定项 + grow 项 + gap」的行不会溢出。这是修过的引擎缺陷，已写死在回归里，不必规避。
+**gap 已从自由空间里扣掉。** 弹性分配 grow/shrink 计算自由空间时会先减去 `gap × (n-1)`，所以「固定项 + grow 项 + gap」的行不会溢出。引擎内置，无需规避。
 
 **文本尺寸回灌布局。** `@ui.text` / `bind_label` 的内容尺寸来自 Pango 测量，`measure` 与 `baseline` 都接进了布局引擎，因此文本能参与基线对齐、并按内容定宽高；折行与截断由 `max_width` + `wrap` + `ellipsis` 三件套控制。
 
 ## 增量重排
 
-39 个 setter 与结构、回调变更一律 `mark_changed`，用全局时钟加节点 `rev` 记版本；布局入口按「子树版本 + 入参指纹」跳过没动的子树。于是 `bind_label` 改文本只重算那一条链，整帧布局近乎常数级。这层不需要调用方操心，但解释了为什么推荐就地改、而不是整棵重建，见 [declarative.md](declarative.md)。
+属性 setter 与结构、回调变更一律 `mark_changed`，用全局时钟加节点 `rev` 记版本；布局入口按「子树版本 + 入参指纹」跳过没动的子树。于是 `bind_label` 改文本只重算那一条链，整帧布局近乎常数级。这层不需要调用方操心，但解释了为什么推荐就地改、而不是整棵重建，见 [declarative.md](declarative.md)。
 
 ## 相关文档
 

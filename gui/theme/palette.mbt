@@ -1,6 +1,6 @@
 // 主题调色数学：hex 解析复用 `@render.Color::parse`（CSS 口径——8 位写法透明度
-// 在尾，与 libyue 的 #AARRGGBB 是已知分岔，见 adaptation「G1」条），HSL / 混色 /
-// 明度升降与 master 线 `yue/color.mbt` 同实现同语义，便于组件层平移时结果可比。
+// 在尾，与 libyue 的 #AARRGGBB 是已知分岔，见 proposals/adaptation.md）。
+// HSL / 混色 / 明度升降按同一套语义实现，便于逐值比对。
 
 ///|
 fn hex_digit(v : Int) -> Char {

@@ -1,15 +1,13 @@
 // 画布与富文本页：Painter 自绘 × AttributedText 富文本。
 //
-// G7 迁移记档（与 master 旧页的差）：
-// ① 旧链路 `@declarative.view(on_draw=…, style=[("height",…)])` 换成
-//    `@widget.node_of_new` 自挂 on_draw + yoga 尺寸参数（样式字符串在本栈不存在）；
-// ② 重绘从「容器 schedule_paint」换成进程级 `@widget.invalidate()`（宿主装的
-//    是 host_repaint_all：所有在窗置脏 + 唤醒平台泵）；
-// ③ 「系统语义色」一行：旧链路 `@yue.system_color(Text/WindowBackground/Border)`
-//    在本栈没有对应物，换成真实存在的两个系统读数——深浅（sys_color_scheme，
+// 四条口径：
+// ① 自绘画布用 `@widget.node_of_new` 挂 on_draw + yoga 尺寸参数；
+// ② 重绘走进程级 `@widget.invalidate()`（宿主装的是 host_repaint_all：所有在窗
+//    置脏 + 唤醒平台泵）；
+// ③ 「系统语义色」一行演示两个真实存在的系统读数——深浅（sys_color_scheme，
 //    即共享 App 的 dark_mode 来源）与主色（sys_accent，即 accent 来源），
-//    且走 bind 直连共享状态，跟随开关开着你拨系统配色它也跟着变；
-// ④ 富文本段新增「渐变」能力演示（Painter.set_fill_gradient，旧页没有）。
+//    且走 bind 直连共享状态，跟随开关开着时系统配色一变它也变；
+// ④ 富文本段演示「渐变」（Painter.set_fill_gradient）。
 
 ///|
 /// 画布页。页内私有状态（色相偏移/渐变开关/富文本两个格式开关）不进共享 App。

@@ -4,13 +4,11 @@
 // 不重建视图树。代码区顶行常驻「复制」，点击写入剪贴板并经全局
 // toast 回显（钩子由 main 注入）。
 //
-// 新栈口径（G7 记档，与 master 线的三处机械差）：
-// ① 组件返回 `@widget.Node` 且不接 `style=[...]`，间距/内边距一律走容器参数
-//    （`padding`/`row_gap`）——旧链路那套 CSS 字符串在本栈不存在；
-// ② 显隐从 `View::set_visible` 换成 `Widget::set_visible`，惰性挂载从
-//    `Node::mount_into(View)` 换成 `Node::mount_into(Widget)`，机制不变；
-// ③ 「段滚动区撑满剩余高度」在旧链路写 `style=[("flexgrow",1.0)]`，本栈在
-//    `handle` 里对滚动视口直接置 `flex_grow`（滚动容器本身不接 grow 参数）。
+// 本栈口径：
+// ① 组件返回 `@widget.Node`，间距/内边距走容器参数（`padding`/`row_gap`）；
+// ② 显隐走 `Widget::set_visible`，挂载走 `Node::mount_into(Widget)`；
+// ③ 「段滚动区撑满剩余高度」在 `handle` 里对滚动视口直接置 `flex_grow`
+//    （滚动容器本身不接 grow 参数）。
 
 ///|
 /// 全局 toast 推送钩子：main 创建 `toast_layer` 后注入，代码区「复制」回显用。
@@ -80,7 +78,7 @@ pub fn page(secs : Array[Section]) -> @widget.Node {
 /// 主区导航页：挂载后订阅导航状态做 `set_visible` 切换（侧栏菜单 /
 /// segmented / 面包屑共享同一导航 Store）。页面内容**惰性挂载**：未选中过的
 /// 页只留空壳，首次选中才把 content 挂进占位——全量挂载的启动开销不可行
-/// （图标墙页要建 803 个图标控件，见 section_body 的同口径记档）。
+/// （图标墙页要整墙建图标控件，见 section_body 的同口径记档）。
 pub fn nav_page(
   name : String,
   selected : @base.Store[String],
@@ -105,7 +103,7 @@ pub fn nav_page(
 /// 选中段的正文：标题 + 演示 + 说明 + 代码（带复制行），内容超高段内滚动；
 /// 容器随页面 `selected` 切换显隐。演示内容**惰性挂载**：未选中过的段只有
 /// 标题/说明/代码骨架，首次选中才把 content 挂进占位容器——全量挂载意味着
-/// 启动即建 111 段全部控件（图标墙页 803 个图标控件），debug 构建秒级；
+/// 启动即建全部段的控件（图标墙页要整墙建），debug 构建秒级；
 /// 挂过之后保形，显隐/滚动位置语义不变。
 fn section_body(s : Section, selected : @base.Store[String]) -> @widget.Node {
   let mounted : Ref[Bool] = Ref(false)

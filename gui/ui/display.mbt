@@ -1,10 +1,9 @@
 // 显示族组件：标签 / 徽标 / 头像 / 统计 / 提示条 / 卡片 / 描述列表 / 结果页 /
 // 空状态 / 分隔线（带文字）/ 折线进度。
 //
-// 与 master 的差一条（记档）：CSS 风格的 `style=[("marginRight", 8.0)]` 通道
-// 还没接（随主题批的 style 通道一起做），这里只留**类型化**参数；语义色
-// `SemanticType` 保留同名枚举，色值现取主题（primary/success/warning/danger/info
-// 与各自 light 档在 `theme` 已就位）。
+// CSS 风格的 `style=[("marginRight", 8.0)]` 通道未接，这里只留**类型化**参数；
+// 语义色 `SemanticType` 的色值现取主题（primary/success/warning/danger/info 与
+// 各自 light 档在 `theme` 已就位）。
 
 ///|
 /// 语义类型（与 EP 的 type 同档）。
