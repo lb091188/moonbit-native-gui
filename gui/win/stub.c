@@ -1843,6 +1843,17 @@ static int wm_dnd_ole_init(void) {
   wm_ole_ready =
       (hr == S_OK || hr == S_FALSE || hr == RPC_E_CHANGED_MODE) ? 1 : 0;
   wm_dnd_log("ole_init ready=%d hr=0x%lx", wm_ole_ready, (unsigned long)hr);
+  // 常见富文本/文件注册格式的格式号：落点按注册名要数据时，拿这行对号
+  // （格式号系统级分配，每台机器数值不同，不能写死）。
+  wm_dnd_log("fmt rtf=%u html=%u rtf_noobj=%u filecontents=%u filedesc=%u "
+             "richedit=%u plain=%u",
+             (unsigned)RegisterClipboardFormatA("Rich Text Format"),
+             (unsigned)RegisterClipboardFormatA("HTML Format"),
+             (unsigned)RegisterClipboardFormatA("Rich Text Format Without Objects"),
+             (unsigned)RegisterClipboardFormatA("FileContents"),
+             (unsigned)RegisterClipboardFormatA("FileGroupDescriptorW"),
+             (unsigned)RegisterClipboardFormatA("RichEdit Text and Objects"),
+             (unsigned)RegisterClipboardFormatA("text/plain"));
   return wm_ole_ready;
 }
 
