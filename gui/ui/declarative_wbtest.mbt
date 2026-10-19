@@ -40,8 +40,7 @@ test "bind_label：Store 一改就就地换文本并重测宽（不重建子树�
   assert_true(w0 > 0.0)
   n.set(1234)
   let _ = root.relayout(300.0, 120.0)
-  // 数字变多 → 宽度跟着变（旧链路「不补一次强制重排就停在挂载时宽度」的坑，
-  // 在这里由 relabel 一并解决：改文本即重测）
+  // 数字变多 → 宽度跟着变：relabel 改文本即重测，不会停在挂载时宽度
   assert_true(w.rect.w > w0)
   let (bm, _, _) = shot(w)
   assert_true(color_of(bm, 2, 8) != (0, 0, 0, 0))
@@ -78,7 +77,7 @@ test "hover_group：子控件悬停即整组换底色，松开在组内才算一
   assert_eq(g.rect.w, 180.0)
   let (bm0, _, _) = shot(g)
   let base = color_of(bm0, 4, 4)
-  // 悬停落在**子控件**上：宿主的父链语义让整组也算悬停（旧链路做不到，才要轮询）
+  // 悬停落在**子控件**上：宿主的父链语义让整组也算悬停
   root.set_hover(kid.id)
   let (bm1, _, _) = shot(g)
   assert_true(color_of(bm1, 4, 4) != base)

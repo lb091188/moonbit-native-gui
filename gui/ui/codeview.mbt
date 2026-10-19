@@ -1,7 +1,6 @@
 // 代码高亮：多语言分词（tokenize_lang / tokenize_moonbit）与 code_view
-// 组件（深底代码块，逐 token 着色自绘）。分词器与 master 的
-// components_text.mbt 同源平移；组件换成新栈形态——构造期逐 token 测宽
-// 预排版，on_draw 现画（不随主题，One Dark 恒深底）。
+// 组件（深底代码块，逐 token 着色自绘）。构造期逐 token 测宽预排版，
+// on_draw 现画（不随主题，One Dark 恒深底）。
 
 ///|
 /// 代码高亮的着色单元。

@@ -484,7 +484,7 @@ pub fn App::cancel_timer(self : App, id : Int) -> Bool {
 }
 
 ///|
-/// 推迟一拍执行（回调里不做重活的旧链路纪律）。
+/// 推迟一拍执行：回调里不做重活。
 pub fn App::task(self : App, work : () -> Unit) -> Unit {
   self.session.task(work)
 }

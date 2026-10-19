@@ -1,4 +1,4 @@
-// 图表交互原语（新栈，与 master 同源平移）：DataZoom 状态窗口 / VisualMap
+// 图表交互原语：DataZoom 状态窗口 / VisualMap
 // 色带 / markLine-markArea 绘制辅助 / 离屏导出 / 图例命中与显隐位工具。
 // 纯函数（窗口数学/量程归一/色带/命中）集中在文件头部，
 // interactive_wbtest.mbt 白盒覆盖；可点击图例是文件尾部的组件层。

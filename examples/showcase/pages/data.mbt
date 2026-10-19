@@ -2,12 +2,11 @@
 // （基础页按钮与「统计进度」段按钮同源触发）；表格行数组走 Store（组件参数
 // 类型），选中回显等标量走本地 Store。
 //
-// G7 迁移记档（与 master 的差异）：
-// ① `statistic` 在本栈吃 String 快照（不是 Store 驱动）——「访问量」的联动
-//    改用 `bind_label` 展示派生信号，statistic 只做静态形态演示；
-// ② `card(title, children, style=[height])` → `card(children, title=)`，
-//    高度交给内容（旧 CSS 高度通道不存在）；
-// ③ 表头对齐从 `@yue.Center/End` → `@text.TextAlign`；
+// 四条口径：
+// ① `statistic` 吃 String 快照（不是 Store 驱动）——「访问量」的联动走
+//    `bind_label` 展示派生信号，statistic 只做静态形态演示；
+// ② `card(children, title=)`，高度交给内容；
+// ③ 表头对齐用 `@text.TextAlign`；
 // ④ 富单元格结构 `TableRow`/`TableCell` 是 pub(all)，跨包字面量直接可用。
 fn data_cell_key(v : @ui.TableCell) -> String {
   match v {
@@ -306,7 +305,7 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
             ]),
             @ui.timeline([
               ("发布 0.1.0", "自绘栈占位上架。", @ui.Success),
-              ("G7 进行中", "组件库演示板迁移。", @ui.Primary),
+              ("迁移中", "组件库演示板迁移。", @ui.Primary),
               ("规划中", "菜单/托盘/媒体线收口。", @ui.Warning),
             ]),
           ],

@@ -4,8 +4,7 @@
 // 刷新只进程级 invalidate 重绘画布；主题切换经 on_theme_change 同样
 // invalidate（on_draw 实时读 theme_current）。
 //
-// G7 迁移记档：旧链路容器 handle + schedule_paint 换成本栈
-// node_of_new + on_draw 字段 + @widget.invalidate()；行高变化直接改
+// 自绘行用 node_of_new + on_draw 字段 + @widget.invalidate()；行高变化直接改
 // yoga 节点高度（宿主每帧 relayout，无需手动布局）。
 
 ///|

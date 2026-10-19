@@ -461,7 +461,7 @@ test "下拉选择：点开列表、点选项回填并收起、✕ 清空、选�
     }
   }
   assert_true(ink > 0)
-  // ✕ 清空：悬停 + 有值时热区在箭头左侧，清空同样回调（与 master 同）
+  // ✕ 清空：悬停 + 有值时热区在箭头左侧，清空同样回调
   root.set_hover(field.id)
   click_at(root, field, 130.0, 16.0)
   assert_eq(v.get(), "")

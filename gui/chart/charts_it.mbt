@@ -1,4 +1,4 @@
-// 图表交互变体（新栈，与 master 同源平移）：line_chart_it / bar_chart_it /
+// 图表交互变体：line_chart_it / bar_chart_it /
 // donut_chart_it —— 三种通用图的交互版，数据类型复用原图表（LineSeries /
 // BarItem / DonutSlice），组合方式不改 components.mbt 的静态版：
 //   - 内置 hover 浮层：最近数据点/扇区显值 + 系列名（tooltip.mbt 的

@@ -1,13 +1,13 @@
 // 反馈组件页：Store/Signal 驱动。两个对话框的可见性挂窗口根（状态在 App，
 // 由 main.mbt 把 `dialog` 挂进窗口根），反馈页的按钮只是触发方；
-// Toast 推送函数经 App 传入（新栈的 toast 自己开在浮层图层上，页面里不必
-// 再常驻一棵空树，与 master 的一条差）。
+// Toast 推送函数经 App 传入（toast 自己开在浮层图层上，页面里不必再常驻
+// 一棵空树）。
 //
-// G7 迁移记档：
-// ① `alert_closeable` 在本栈并入 `alert`（`closable=true`），不再另出一个函数；
-// ② `result` 在本栈只吃（标题, 副标题, 语义类型），操作区由调用方在旁边摆
-//    ——旧链路把它作为数组参数传，本栈按「组件只给形状、操作区是内容」拆开；
-// ③ `input_t` → `input`（Store 驱动）。
+// 三条口径：
+// ① `alert` 用 `closable=true` 带关闭按钮，不另出函数；
+// ② `result` 只吃（标题, 副标题, 语义类型），操作区由调用方在旁边摆——
+//    组件只给形状、操作区是内容；
+// ③ `input` 由 Store 驱动。
 
 ///|
 pub fn page_feedback(app : @shared.App) -> @widget.Node {

@@ -541,8 +541,8 @@ void *cr_session_context(int64_t id) {
 // 依赖），输出**统一转成**本栈 Bitmap 的内部布局（ARGB32 预乘、小端 B,G,R,A），
 // 由调用方给缓冲、本层不拥有内存。会话制句柄与 cairo_stub 同形（槽表）。
 //
-// 旧链路的 Image 是 GdkPixbufAnimation（GIF 会动）：本层静态解码仍只取首帧，
-// 动图另走一组「迭代器 + 虚拟时钟」的动画接口（见下方 ImgAnim）。
+// 静态解码只取首帧；动图（GIF）另走一组「迭代器 + 虚拟时钟」的动画接口
+// （见下方 ImgAnim）。
 
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <stdint.h>
@@ -662,8 +662,8 @@ int img_copy(int64_t h, unsigned char *out) {
 }
 
 // ---- 动图（GIF）：留一个迭代器句柄，按虚拟时钟逐帧前进 ----
-// 旧链路的 Image 就是 GdkPixbufAnimation（GIF 会动），本层静态图仍取首帧，
-// 动图改走这一组接口：解码时不前进，组件每拍 advance 一次再 copy 当前帧。
+// 静态图取首帧；动图走这一组接口：解码时不前进，组件每拍 advance 一次再
+// copy 当前帧。
 typedef struct {
   GdkPixbufAnimation *anim;
   GdkPixbufAnimationIter *iter;

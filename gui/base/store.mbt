@@ -1,5 +1,4 @@
-// L3 响应式层的 Store 形态：可订阅的值。自 master 线 `yue/store.mbt` 平移
-// （内核见同包 `signal.mbt`）。订阅闭包由信号内核持有（纯 MoonBit 侧
+// L3 响应式层的 Store 形态：可订阅的值（内核见同包 `signal.mbt`）。订阅闭包由信号内核持有（纯 MoonBit 侧
 // 引用，无需 FFI 保活）；常规订阅随应用存活，组件随子控件销毁时经
 // `Store::remove` / 订阅回收袋（`sub_bag_*`）退订，不留下死订阅。
 
