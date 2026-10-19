@@ -760,7 +760,7 @@ static LRESULT CALLBACK wm_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 }
 
 int wm_init(void) {
-  // 幂等：批 A 的多窗宿主每开一扇都调一次后端初始化，而 Win32 的窗口类**同名
+  // 幂等：多窗宿主每开一扇都调一次后端初始化，而 Win32 的窗口类**同名
   // 重复注册会失败**（ERROR_CLASS_ALREADY_EXISTS）——第一次成功之后就整段复用。
   // 不这么做的话第二扇窗永远开不出（本机实测 App::open_window 返回 None，
   // GTK 分支的 gtk_init_check 本来就幂等所以只在 Windows 露出来）。
@@ -4996,7 +4996,7 @@ GtkWidget *wm_surface_container(int64_t surface_id) {
   return wm_surfaces[surface_id].container;
 }
 
-// ---- 原生弹层窗口（批 E）----
+// ---- 原生弹层窗口 ----
 // 浮层（下拉/右键菜单/tooltip/toast/对话框）要能盖住 webview 区，就只能是真的
 // 顶层窗口——自绘像素永远在原生子件之下（方案 §4.5 的浮层纪律）。
 // 必须在 show 之前调：类型提示与 transient 关系在映射时才生效。

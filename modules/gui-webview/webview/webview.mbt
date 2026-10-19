@@ -626,7 +626,7 @@ pub fn Webview::set_download_mode(self : Webview, allow : Bool) -> Unit {
 
 ///|
 /// pane 级可见性开关（爬虫后台要的「不可见 webview」）。整窗不可见属窗口层，
-/// 本批只做这一区。
+/// 只做这一区。
 pub fn Webview::set_visible(self : Webview, visible : Bool) -> Unit {
   if self.handle != 0L {
     wb_set_visible(self.handle, if visible { 1 } else { 0 })

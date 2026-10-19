@@ -4,7 +4,7 @@
 // **面在 MoonBit**：Linux（及各 XDG 桌面）拼 `$XDG_CONFIG_HOME/autostart`
 // 下的 `.desktop` 并写盘——纯字符串 + 既有的文本文件读写入口（`fsx.mbt`），
 // 不需要任何平台接口。**只有 Windows 的注册表写入需要 C**（HKCU 的 Run 键，
-// 见 `sys_stub.c` 的自启动节）。macOS 本批显式 `Unsupported`（要走
+// 见 `sys_stub.c` 的自启动节）。macOS 显式 `Unsupported`（要走
 // LaunchAgents plist，留待真机）。
 //
 // 典型用法：
@@ -19,12 +19,12 @@
 //   Linux   $XDG_CONFIG_HOME/autostart/<app_id>.desktop（XDG_CONFIG_HOME 未设
 //           则回退 $HOME/.config/autostart）
 //   Windows HKCU\Software\Microsoft\Windows\CurrentVersion\Run 的 <app_id> 值
-//   macOS   本批 Unsupported
+//   macOS   Unsupported
 
 ///|
 /// 自启动操作错误（新栈的结构化错误口径：不支持与失败分开，不静默）。
 pub(all) enum AutostartError {
-  /// 本平台未实现（macOS 本批）
+  /// 本平台未实现（macOS）
   Unsupported
   /// app_id 不合法（点分元素不足 / 元素打头非字母下划线 / 含非法字符 / 超长）
   InvalidAppId
