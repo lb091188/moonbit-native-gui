@@ -2751,3 +2751,10 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **两支的返回值契约与门都是干净的**（对照 mac 那两条毛病）：Win32 `wm_dragdnd_send` 与 GTK 支都是 5 参 `(id, payload, len, allowed, int32_t *out_effect)`、返回「0=没起来 / 1=走完并写 out_effect」，都**不**以「本窗挂过拖入目标」为起拖前提；Win32 走 `SHDoDragDrop`（OLE 自己按当前指针画拖拽图像，无整窗快照问题）。
 - **组件层两条判据补齐**（`gui/ui/drag_wbtest.mbt`，无头）：① 按下落在拖源内部的**文本节点**上仍要冒泡开拖——普通盒子测不到这条（盒子里没有子节点，命中的就是包装层本身），当时怀疑「文字的干扰」就在这一点，实测路由无误；② `external=true` 时系统级起不来（后端不可用/无活动窗口）必须回落到应用内会话，不能既不拖也不回落。
 - **仍待读数的一条**：起拖发生在宿主泵里，比按钮现场晚一拍。若那一拍内键已抬起，`gtk_drag_begin_*` 抓不到指针，会话当场收口——外在表现就是「有时拖不出来」。读数口已就位：设 `LIBYUE_DND_LOG=<路径>` 后看 `begin ... grabbed=` 那一条，`grabbed=0` 即这一类。根治方向是把起拖挪进 GTK 的事件派发栈内（三支同改，会牵动 `drag_external_send` 的阻塞语义与回落时机，属接口级改动，未动）。
+
+### 桌面层级拆两档与任务栏撤条（2026-10-19，Cinnamon）
+
+- **图标下档不可交互是这一档的语义，不是缺陷**：图标下（壁纸场景）= DESKTOP 型 + `BELOW`，本窗排在 `nemo-desktop` 之前，鼠标事件全归桌面窗——壁纸背后没有「本窗接事件」这回事。要做**桌面小部件**（图标之上、普通窗口之下，且本窗收键鼠），类型不能再挂 DESKTOP：改走 **NORMAL 型 + `_NET_WM_STATE_BELOW`**，落在普通层栈底，天然压在桌面层之上、其它窗口之下。对外即 `WindowLayer::Desktop`（图标下）与 `WindowLayer::DesktopWidget`（图标上）两档。
+- **另两平台的档位落点**：macOS 有原生对应层，`kCGDesktopWindowLevelKey`（图标下）与 `kCGDesktopIconWindowLevelKey`（图标上）一一对上，待真机。Windows 的桌面窗归 Explorer（Progman / SysListView32），客户窗压不进它下面——两档都只能 `SetWindowPos(HWND_BOTTOM)`，即恒在图标之上；「不进任务栏」要 `WS_EX_TOOLWINDOW`，未接，按未做记。
+- **桌面档任务栏条目不消失**：`gtk_window_set_skip_taskbar_hint` 只改 `_NET_WM_STATE` 属性，Muffin 对已映射窗不重读属性——与画序那条同一个口径（真机读数：属性里 `SKIP_TASKBAR, SKIP_PAGER` 都在，面板条目照旧）。修：桌面两档在 map 之后向根窗发 ClientMessage `ADD SKIP_TASKBAR / SKIP_PAGER / STICKY`，切回 Normal 逐条 `REMOVE`。判据：点「图标上」后——图标被窗体盖住、窗内按钮点得动、任务栏不再有本窗条目、切到任意普通窗口时本窗沉在所有普通窗口之下；「图标下」则窗体被图标盖住且点击穿透到桌面。
+- **要拖两次才拖得出来**：起拖用的事件由 `wm_on_button` 在按下那一刻存档，而 `wm_dragdnd_send` 要到宿主泵看见「过阈值」那一拍才调用——那一拍距按下已过若干毫秒，`gtk_drag_begin_with_coordinates` 拿**旧时间戳**去抓指针会抓空，头一趟当场死掉；第二趟因为队列里的事件新鲜才成。修：左键仍按着时，每条移动都把存档事件换成当前这条（时间戳与坐标都是新鲜的），门面契约不变（仍要求「键还按着」时调用）。读数同时补两处：`begin ... ev_type=`（5=已刷成移动事件、4=还是按下那条）与每趟被拒的原因 `refuse ... why=args/no_window/no_press/kind N/actions N`。**待真机**：若拖不出时读到的是 `why=no_press`，根因就不是时间戳而是「键抬起早于这一拍」，得走上一条「起拖挪进 GTK 派发栈内」的根治方案。

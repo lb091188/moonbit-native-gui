@@ -929,13 +929,16 @@ void wm_set_opacity(int64_t id, int alpha) {
   SetLayeredWindowAttributes(w->hwnd, 0, (BYTE)alpha, LWA_ALPHA);
 }
 
-/* W34 窗口层级：0=normal 1=desktop(沉底) 2=always-on-top 3=dock */
+/* W34 窗口层级：0=normal 1=desktop(图标下) 2=always-on-top 3=dock
+ * 4=desktop-widget(图标上)。
+ * Shell 桌面窗归 Explorer 所有，客户窗压不进它下面：1 与 4 都只能沉到 z-order
+ * 底（视觉上恒在图标之上）；「不进任务栏」要 WS_EX_TOOLWINDOW，留待 Windows 批。 */
 void wm_set_layer(int64_t id, int layer) {
   if (id <= 0 || id >= WM_MAX_WINDOWS) return;
   WmWindow *w = &wm_windows[id];
   if (w->hwnd == NULL) return;
   switch (layer) {
-    case 1: SetWindowPos(w->hwnd, HWND_BOTTOM, 0,0,0,0, SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE); break;
+    case 1: case 4: SetWindowPos(w->hwnd, HWND_BOTTOM, 0,0,0,0, SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE); break;
     case 2: SetWindowPos(w->hwnd, HWND_TOPMOST, 0,0,0,0, SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE); break;
     case 3: SetWindowPos(w->hwnd, HWND_TOPMOST, 0,0,0,0, SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE); break;
     default: SetWindowPos(w->hwnd, HWND_NOTOPMOST, 0,0,0,0, SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE); break;
@@ -4088,6 +4091,13 @@ static gboolean wm_on_motion(GtkWidget *widget, GdkEventMotion *ev,
                              gpointer data) {
   (void)widget;
   WmWindow *w = (WmWindow *)data;
+  // 左键仍按着时刷新「起拖现场」：`gtk_drag_begin_with_coordinates` 拿这份事件
+  // 的时间戳去抓指针，还按着按下那一刻的旧事件去抓会抓空（真机表现=要拖两次才
+  // 拖得出来）。存档随每次带键移动换成了新鲜的那一条。
+  if (wm_dnd_press != NULL && (ev->state & GDK_BUTTON1_MASK) != 0) {
+    gdk_event_free(wm_dnd_press);
+    wm_dnd_press = gdk_event_copy((GdkEvent *)ev);
+  }
   WmEv e;
   memset(&e, 0, sizeof(e));
   e.code = 4u;
@@ -4352,19 +4362,25 @@ static void wm_send_state(Display *dpy, Window xid, long action,
   XFlush(dpy);
 }
 
-/* W34 窗口层级：0=normal 1=desktop(沉底) 2=always-on-top 3=dock
+/* W34 窗口层级：0=normal 1=desktop(图标下) 2=always-on-top 3=dock
+ * 4=desktop-widget(图标上、普通窗口下，本窗自己收事件)
  *
  * 窗口类型是 map 时读的，对已映射窗改属性 WM 不重新分层——类型档切换一律走
  * 「unmap → 挂新类型 → 原位 remap」；_NET_WM_STATE 是运行期可读的，但画序归
- * WM 的内部栈管，所以要再发一条状态客户端消息。 */
+ * WM 的内部栈管，所以要再发一条状态客户端消息。
+ * 桌面两档的类型分工：图标下走 DESKTOP 型（挤到 nemo 图标窗之前，事件归桌面），
+ * 图标上走 NORMAL 型 + BELOW 态（普通层栈底 = 桌面层之上，本窗照收键鼠）。 */
 void wm_set_layer(int64_t id, int layer) {
   if (id <= 0 || id >= WM_MAX_WINDOWS) return;
   WmWindow *w = &wm_windows[id];
   if (w->window == NULL) return;
   GtkWindow *win = GTK_WINDOW(w->window);
+  int desktop = (layer == 1 || layer == 4);
   int kind = (layer == 1) ? 1 : ((layer == 3) ? 2 : 0);
-  gtk_window_set_keep_below(win, layer == 1 ? TRUE : FALSE);
+  gtk_window_set_keep_below(win, desktop ? TRUE : FALSE);
   gtk_window_set_keep_above(win, (layer == 2 || layer == 3) ? TRUE : FALSE);
+  gtk_window_set_skip_taskbar_hint(win, desktop ? TRUE : FALSE);
+  gtk_window_set_skip_pager_hint(win, desktop ? TRUE : FALSE);
   GdkWindow *gw = gtk_widget_get_window(w->window);
   GdkDisplay *disp = gdk_display_get_default();
   wm_apply_type(win, gw, kind);
@@ -4377,7 +4393,7 @@ void wm_set_layer(int64_t id, int layer) {
     return;
   }
   if (w->hidden) {
-    XFlush(dpy); // 未映射：类型已挂在属性上，等 wm_show 的 map 生效
+    XFlush(dpy); // 未映射：类型与状态已挂在属性上，等 wm_show 的 map 生效
     return;
   }
   gint x = 0;
@@ -4394,11 +4410,14 @@ void wm_set_layer(int64_t id, int layer) {
   while (gtk_events_pending()) {
     gtk_main_iteration_do(FALSE);
   }
-  // 画序按 WM 的内部栈排，客户端的 lower 只动 X 输入栈：先请 WM 把本窗压到
-  // 栈底（离开桌面层时撤销），再把输入栈也压低让图标收得到事件。
-  wm_send_state(dpy, xid, layer == 1 ? 1 : 0, "_NET_WM_STATE_BELOW");
+  // 画序按 WM 的内部栈排，客户端的 lower 只动 X 输入栈：状态一律请 WM 改，
+  // 图标下档再把输入栈也压低，桌面才收得到点击。
+  wm_send_state(dpy, xid, desktop ? 1 : 0, "_NET_WM_STATE_BELOW");
   wm_send_state(dpy, xid, (layer == 2 || layer == 3) ? 1 : 0,
                 "_NET_WM_STATE_ABOVE");
+  wm_send_state(dpy, xid, desktop ? 1 : 0, "_NET_WM_STATE_SKIP_TASKBAR");
+  wm_send_state(dpy, xid, desktop ? 1 : 0, "_NET_WM_STATE_SKIP_PAGER");
+  wm_send_state(dpy, xid, desktop ? 1 : 0, "_NET_WM_STATE_STICKY");
   if (layer == 1) {
     gdk_window_lower(gw);
   }
@@ -5777,21 +5796,31 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
   if (out_effect != NULL) {
     *out_effect = 0;
   }
+  const char *why = NULL;
   if (id <= 0 || id >= WM_MAX_WINDOWS || payload == NULL || len < 4 ||
       len > WM_DND_PAYLOAD_MAX) {
-    return 0;
+    why = "args";
   }
-  WmWindow *w = &wm_windows[id];
-  if (w->window == NULL || wm_dnd_press == NULL) {
+  WmWindow *w = (id > 0 && id < WM_MAX_WINDOWS) ? &wm_windows[id] : NULL;
+  if (why == NULL && (w == NULL || w->window == NULL)) {
+    why = "no_window";
+  }
+  if (why == NULL && wm_dnd_press == NULL) {
+    why = "no_press"; // 键已抬起，或这一拍没赶上按下
+  }
+  if (why != NULL) {
+    wm_gtk_dnd_log("refuse id=%lld why=%s", (long long)id, why);
     return 0; // 无窗口 / 不在「按钮按下」窗口内（须过阈值那一刻调）
   }
   int kind = (unsigned char)payload[0] | ((unsigned char)payload[1] << 8) |
              ((unsigned char)payload[2] << 16) | ((unsigned char)payload[3] << 24);
   if (kind != 1 && kind != 4) {
+    wm_gtk_dnd_log("refuse id=%lld why=kind %d", (long long)id, kind);
     return 0; // Html/Img 无系统级形态（与门面判据一致，双保险）
   }
   guint actions = wm_dnd_flag_to_gdk(allowed);
   if (actions == 0) {
+    wm_gtk_dnd_log("refuse id=%lld why=actions %d", (long long)id, allowed);
     return 0;
   }
   memmove(wm_dnd_src, payload, (size_t)len);
@@ -5822,8 +5851,10 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
   // 阻塞到 drag-end（嵌套主循环，xdnd 协议在这里被 GTK 代跑）；60 秒超时
   // 救场，防止协议异常丢了 drag-end 把调用方永久挂住
   GdkDisplay *disp = gdk_display_get_default();
-  wm_gtk_dnd_log("begin id=%lld kind=%d actions=%u grabbed=%d", (long long)id,
-                 kind, actions, wm_gtk_pointer_grabbed());
+  // ev_type=5 说明起拖现场已随带键移动刷新成最新一条（4=还是按下那一刻的旧事件）
+  wm_gtk_dnd_log("begin id=%lld kind=%d actions=%u grabbed=%d ev_type=%d",
+                 (long long)id, kind, actions, wm_gtk_pointer_grabbed(),
+                 (int)wm_dnd_press->type);
   guint timer = g_timeout_add_seconds(60, wm_dnd_src_timeout, w);
   while (!wm_dnd_src_done) {
     gtk_main_iteration();
@@ -7553,7 +7584,12 @@ void wm_set_layer(int64_t id, int layer) {
     }
     switch (layer) {
     case 1:
+      // 图标下：壁纸档，事件归 Finder 的桌面
       [s.win setLevel:CGWindowLevelForKey(kCGDesktopWindowLevelKey)];
+      break;
+    case 4:
+      // 图标上、普通窗口下：桌面小部件档，本窗照收键鼠
+      [s.win setLevel:CGWindowLevelForKey(kCGDesktopIconWindowLevelKey)];
       break;
     case 2:
       [s.win setLevel:CGWindowLevelForKey(kCGFloatingWindowLevelKey)];
