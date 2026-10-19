@@ -1,7 +1,7 @@
 // 音频播放示例：gui-media 的 audio 音频组件（ffmpeg 解码 + miniaudio
 // 设备直出），控制条（播放/进度/音量/倍速/-5s·+5s 跳转）由组件自带。
 // 布局：左侧播放列表（当前曲目高亮、点击换曲），右侧播放器与状态区；
-// 载入路径三条——默认资产（modules/gui-examples/assets/1.mp3，路径对 cwd
+// 载入路径三条——默认资产（examples/assets/1.mp3，路径对 cwd
 // 稳健解析）、文件对话框选音频、目录对话框选文件夹后扫描成播放列表。
 // 换曲走 holder clear_children + 重挂 audio；打开失败经 on_error 落
 // 错误横幅，解码引擎不在位时组件画说明板（探测 + 降级，不静默）。
@@ -86,7 +86,7 @@ fn arr_str_idx(a : Array[String], x : String) -> Int {
 ///|
 /// 默认资产的候选路径（moon run 可能从仓库根或模块目录起跑，逐个探测）。
 fn asset_candidates(name : String) -> Array[String] {
-  ["modules/gui-examples/assets/" + name, "assets/" + name, name]
+  ["examples/assets/" + name, "assets/" + name, name]
 }
 
 ///|
@@ -406,7 +406,7 @@ fn main {
           None => {
             tracks.val = []
             rebuild_list(true)
-            err_line.set("默认资产 1.mp3 没找到（候选：modules/gui-examples/assets/）；用「选择文件…」载入本地音频")
+            err_line.set("默认资产 1.mp3 没找到（候选：examples/assets/）；用「选择文件…」载入本地音频")
           }
         }
       })

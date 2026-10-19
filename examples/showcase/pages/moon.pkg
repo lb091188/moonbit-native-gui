@@ -17,7 +17,7 @@ import {
   "NoahLiu/native-gui/theme",
   "NoahLiu/native-gui/style",
   "NoahLiu/native-gui/mdview",
-  "NoahLiu/native-gui-examples/showcase/shared",
+  "NoahLiu/native-gui-examples-showcase/shared",
 }
 
 supported_targets = "native"
