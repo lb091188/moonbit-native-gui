@@ -5691,9 +5691,71 @@ static void wm_dnd_on_data_get(GtkWidget *widget, GdkDragContext *ctx,
   g_strfreev(parts);
 }
 
+/* 拖拽图标：不给的话 GTK 默认拿「发起控件的快照」贴指针，我们的发起控件就是整扇
+ * 窗口，视觉上变成一整块窗口跟着指针走。所以两档各显式给一个 32px 图标并取中心
+ * 当热点：文件档用该文件自己的系统图标（取不到退回文档图标），文本档用文档图标。
+ * 主题里也取不到就留着不动（不假装成功）。 */
+static void wm_dnd_set_icon(GdkDragContext *ctx, int kind) {
+  GdkScreen *screen = gdk_display_get_default_screen(gdk_display_get_default());
+  if (screen == NULL) {
+    return;
+  }
+  GtkIconTheme *theme = gtk_icon_theme_get_for_screen(screen);
+  if (theme == NULL) {
+    return;
+  }
+  GdkPixbuf *pb = NULL;
+  gchar *abs = NULL;
+  if (kind == 4 && wm_dnd_src_len > 4) {
+    // 第一个路径（相对路径绝对化，与交给对方的 uri 同口径）
+    char first[4096];
+    int n = 0;
+    int i = 4;
+    while (i < wm_dnd_src_len && wm_dnd_src[i] != '\n' &&
+           n < (int)sizeof(first) - 1) {
+      first[n++] = wm_dnd_src[i++];
+    }
+    first[n] = '\0';
+    if (n > 0) {
+      abs = g_canonicalize_filename(first, NULL);
+      GFile *f = g_file_new_for_path(abs != NULL ? abs : first);
+      GFileInfo *info = (f != NULL)
+          ? g_file_query_info(f, G_FILE_ATTRIBUTE_STANDARD_ICON,
+                              G_FILE_QUERY_INFO_NONE, NULL, NULL)
+          : NULL;
+      GIcon *gi = (info != NULL) ? g_file_info_get_icon(info) : NULL;
+      if (gi != NULL) {
+        g_object_ref(gi); // info 释放后还要用
+        GtkIconInfo *ii = gtk_icon_theme_lookup_by_gicon(
+            theme, gi, 32, GTK_ICON_LOOKUP_FORCE_SIZE);
+        if (ii != NULL) {
+          pb = gtk_icon_info_load_icon(ii, NULL);
+          g_object_unref(ii);
+        }
+        g_object_unref(gi);
+      }
+      if (info != NULL) {
+        g_object_unref(info);
+      }
+      if (f != NULL) {
+        g_object_unref(f);
+      }
+    }
+  }
+  if (pb == NULL) {
+    pb = gtk_icon_theme_load_icon(theme, "text-x-generic", 32,
+                                  GTK_ICON_LOOKUP_FORCE_SIZE, NULL);
+  }
+  if (pb != NULL) {
+    gtk_drag_set_icon_pixbuf(ctx, pb, gdk_pixbuf_get_width(pb) / 2,
+                             gdk_pixbuf_get_height(pb) / 2);
+    g_object_unref(pb);
+  }
+  g_free(abs);
+}
+
 static void wm_dnd_on_drag_end(GtkWidget *widget, GdkDragContext *ctx,
-                               gpointer data) {
-  (void)widget;
+                               gpointer data) {  (void)widget;
   (void)data;
   // selected_action 在 drag-end 时仍可读；映射回 DND flag（多位/未知 → 0）
   wm_dnd_src_action = wm_dnd_gdk_to_flag(
@@ -5756,6 +5818,7 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
     g_signal_handler_disconnect(w->window, s_end);
     return 0;
   }
+  wm_dnd_set_icon(ctx, kind);
   // 阻塞到 drag-end（嵌套主循环，xdnd 协议在这里被 GTK 代跑）；60 秒超时
   // 救场，防止协议异常丢了 drag-end 把调用方永久挂住
   GdkDisplay *disp = gdk_display_get_default();

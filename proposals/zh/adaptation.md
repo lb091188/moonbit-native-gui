@@ -2744,3 +2744,10 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
   - **算出来的起拖点没被用上**：`setDraggingFrame:` 的矩形按视图坐标系（左下原点）给，旧实现固定 `(-24,-24)`/`(-90,-14)` 一类以视图原点为基准的值 ⇒ 图标与文本纸片都从窗口左下角飞，且 frame 不覆盖指针所在处。改法：起拖点取存档按下事件的 `locationInWindow`，`[view convertPoint:fromView:nil]` 换到视图坐标，文件档以它为中心错位叠放、文本档以它为中心居中。
   - **拿拖入挂接当拖出的门**：起拖前查「本窗是否 `registerForDraggedTypes` 过」，没挂就直接 `return 1`——按门面语义这是「走完、效果 0」，于是 `drag_source(external=true)` 既不真拖、也**不再回落到应用内会话**（`Ok` 那支绝不回落）。出站拖拽不需要入站注册，门直接去掉。
 - **验证方式**：`moon check`/`moon test win widget ui` 在库侧过；mac 臂的 C 只能在 mac 上编译，本批 Linux 主机无法自校编译，真机判据=色块/文本/文件三档各拖到访达与文本编辑器一次，拖拽图形跟手、松手成交、`on_external` 回报的效果与实际落点一致（复制/移动/链接随修饰键）。
+
+### 拖出跨平台对齐复查（2026-10-19，由 mac 那条报障回查 Linux/Windows）
+
+- **Linux 从不设拖拽图标**：`gtk_drag_begin_*` 之后没跟任何 `gtk_drag_set_icon_*`，而 GTK 的默认拖拽图标是**发起控件的快照**——本栈的发起控件就是整扇窗口，于是拖起来是一整块窗口贴在指针上，落点看着全偏（报障「拖动的位置有问题」的直接来源）。修法：两档都显式给 32px 图标并取中心当热点——`Paths` 取第一个文件的系统图标（`g_file_query_info(standard::icon)` → `gtk_icon_theme_lookup_by_gicon` → `gtk_icon_info_load_icon`，取不到退回 `text-x-generic`），`Text` 直接取文档图标；主题里取不到就留着不动。`gtk_drag_begin_with_coordinates` 的 `x/y` 给 `-1` 即「用当前指针位」，位置本身不用我们算。GdkPixbuf/GIO 符号在 `gtk+-3.0` 的 pkg-config 库里，prebuild 不用改。
+- **两支的返回值契约与门都是干净的**（对照 mac 那两条毛病）：Win32 `wm_dragdnd_send` 与 GTK 支都是 5 参 `(id, payload, len, allowed, int32_t *out_effect)`、返回「0=没起来 / 1=走完并写 out_effect」，都**不**以「本窗挂过拖入目标」为起拖前提；Win32 走 `SHDoDragDrop`（OLE 自己按当前指针画拖拽图像，无整窗快照问题）。
+- **组件层两条判据补齐**（`gui/ui/drag_wbtest.mbt`，无头）：① 按下落在拖源内部的**文本节点**上仍要冒泡开拖——普通盒子测不到这条（盒子里没有子节点，命中的就是包装层本身），当时怀疑「文字的干扰」就在这一点，实测路由无误；② `external=true` 时系统级起不来（后端不可用/无活动窗口）必须回落到应用内会话，不能既不拖也不回落。
+- **仍待读数的一条**：起拖发生在宿主泵里，比按钮现场晚一拍。若那一拍内键已抬起，`gtk_drag_begin_*` 抓不到指针，会话当场收口——外在表现就是「有时拖不出来」。读数口已就位：设 `LIBYUE_DND_LOG=<路径>` 后看 `begin ... grabbed=` 那一条，`grabbed=0` 即这一类。根治方向是把起拖挪进 GTK 的事件派发栈内（三支同改，会牵动 `drag_external_send` 的阻塞语义与回落时机，属接口级改动，未动）。
