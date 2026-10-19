@@ -9,26 +9,16 @@
 // 全段描边在软件光栅化下超验收线（实测数据见 docs/zh/adaptation.md）。
 
 ///|
-/// 图表系列色（≤4 序列循环）：主题四语义色，深浅主题下自动跟随。
+/// 图表系列色（按色板循环）：来源是主题的 `chart_palette`（随主色旋转），
+/// 换主题后系列色整体随动，相邻序列保持可分辨。
 pub fn series_color(i : Int) -> String {
-  match i % 4 {
-    0 => @theme.theme_primary()
-    1 => @theme.theme_success()
-    2 => @theme.theme_warning()
-    _ => @theme.theme_danger()
-  }
+  @theme.theme_chart_color(i)
 }
 
 ///|
-/// 环形图扇区色（5 色循环，相邻扇区不同色）。
+/// 环形图扇区色（同一色板循环，相邻扇区不同色）。
 pub fn donut_color(i : Int) -> String {
-  match i % 5 {
-    0 => @theme.theme_primary()
-    1 => @theme.theme_success()
-    2 => @theme.theme_warning()
-    3 => @theme.theme_danger()
-    _ => @theme.theme_info()
-  }
+  @theme.theme_chart_color(i)
 }
 
 fn label_font() -> @text.Font {

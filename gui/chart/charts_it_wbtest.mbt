@@ -59,10 +59,11 @@ test "ci_line_items：名称 + 原始序号（色由 ci_legend 的 color_at 现�
   assert_eq(its[1], ("s2", 1))
   assert_eq(its[2], ("s3", 2))
   assert_eq(ci_line_items([]).length(), 0)
-  // color_at 按原始序号给系列色（四色循环回卷）
-  assert_eq(series_color(0), @theme.theme_primary())
-  assert_eq(series_color(1), @theme.theme_success())
-  assert_eq(series_color(4), @theme.theme_primary())
+  // color_at 按原始序号给系列色（色板 5 色循环回卷）
+  assert_eq(series_color(0), @theme.theme_chart_color(0))
+  assert_eq(series_color(1), @theme.theme_chart_color(1))
+  assert_eq(series_color(4), @theme.theme_chart_color(4))
+  assert_eq(series_color(5), @theme.theme_chart_color(0))
 }
 
 ///|
@@ -94,10 +95,10 @@ test "ci_donut_items：标签 + 原始序号（五色循环）" {
   assert_eq(its.length(), 6)
   assert_eq(its[0], ("a", 0))
   assert_eq(its[5], ("f", 5))
-  // 色板：前五色循环，第六色回卷主色
-  assert_eq(donut_color(0), @theme.theme_primary())
-  assert_eq(donut_color(4), @theme.theme_info())
-  assert_eq(donut_color(5), @theme.theme_primary())
+  // 色板：前五色循环，第六色回卷
+  assert_eq(donut_color(0), @theme.theme_chart_color(0))
+  assert_eq(donut_color(4), @theme.theme_chart_color(4))
+  assert_eq(donut_color(5), @theme.theme_chart_color(0))
   assert_eq(ci_donut_items([]).length(), 0)
 }
 
