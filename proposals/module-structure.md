@@ -40,7 +40,7 @@ moonbit-native-gui/                          # 根 workspace
 │   │   └── prebuild.py                        # 分平台分支：WebView2(Windows)/WebKitGTK(Linux)
 │   ├── gui-media/                             # [已有模块] ffmpeg + miniaudio
 │   └── gui-3d/                                # [未来模块] GL/Vulkan SDK + shader toolchain
-├── examples/                                  # [独立模块] NoaLiu/native-gui-examples
+├── examples/                                  # [每示例一模块] NoahLiu/native-gui-examples-<目录名>
 ├── experiment/                                # [独立模块] NoaLiu/native-gui-experiment
 └── yoga-mbt/                                  # [独立模块] NoaLiu/yoga-mbt
 ```
@@ -79,11 +79,15 @@ moonbit-native-gui/                          # 根 workspace
 
 **因此只有真正踩线的才开模块。**
 
+### 3.3.1 示例侧反着来：每示例一个模块（2026-10-19 定案）
+
+上一条的代价全在**库模块**（platform 探测、vendor、prebuild、CI 矩阵、版本 lockstep）。示例模块一条都不吃:不 prebuild、不 vendor、不进发布链,代价只是「一份 `moon.mod` + 一行 `moon.work` 成员 + 构建命令逐示例点名」。所以示例的判据反过来——**默认每示例独立成模块**:`examples/<name>/moon.mod`（`NoahLiu/native-gui-examples-<name>`），import 只列自己用到的包。合并成一份 `moon.mod` 会把重资产（ffmpeg/gui-media）拉进整个示例集的依赖闭包，而 moon 的依赖解析单位就是模块，包级 `moon.pkg` 救不回来（见 `adaptation.md` 同批条目）。产物随模块名落目录：`_build/native/<mode>/build/NoahLiu/native-gui-examples-<name>/native-gui-examples-<name>.exe`。纯资产目录（`examples/assets/`）不放 `moon.mod`，就不算模块，无副作用。旧 `modules/gui-examples`（audio/video/headless-audio）已并入 `examples/`，不再是发布单元。
+
 ### 3.4 已有模块 `gui-media` 的依赖面（2026-10-16 控制面一批之后）
 
 - 该批给 `modules/gui-media/media` 新加了 `NoahLiu/native-gui/ui` 依赖：播放/暂停与全屏用 `ui.icon_button`，倍速与缩放用 `ui.button`。媒体层此前只依赖 `core`/`render`/`text`/`theme`/`yoga`。方向仍是 media → ui——ui 不认媒体，无环。判据不变：ui 是纯内部层，不拉外部重资产。
 - 媒体层同时吃 `@core` 的三个入口：`host_active()` 拿当前窗，`App::add_key_fallthrough` 走窗口级按键兜底，`App::set_fullscreen` 走全屏，外加 `Store`/`Signal`/`keys`/`Widget`/`invalidate`。**拆包后这些不是一次改名**：`host_active` 与 `App` 的开窗/泵段归 `shell`，`Widget`/Painter/`invalidate` 归 `widget`，`Store`/`Signal`/`keys` 归 `base`。媒体模块将来要同时 import `@base` + `@shell` + `@widget` + `ui`。
-- 因此 Batch 2 的 import 迁移清单必须含 `modules/gui-media` 与 `modules/gui-examples`（见 §4 步骤 5），并且每批改完逐模块重跑 `--deny-warn`——经 `moon.work` 本地解析的消费者不在主模块门禁的视野里。
+- 因此 Batch 2 的 import 迁移清单必须含 `modules/gui-media` 与 `examples`（见 §4 步骤 5），并且每批改完逐模块重跑 `--deny-warn`——经 `moon.work` 本地解析的消费者不在主模块门禁的视野里。
 
 ## 4. 执行批次
 ### Batch 1：`gui-webview` 出模块（小改、立刻见效）
@@ -107,7 +111,7 @@ moonbit-native-gui/                          # 根 workspace
 | 2 | 创建 `gui/shell/`：平移 loop、host、menu、hotkey、tray、notify、reveal、drag；app.mbt 的「开窗/泵/子件槽/resize」段提进此包 |
 | 3 | 重排 app.mbt（914 行）：保留 root.on_draw + paint_frame 在 widget 层；shell 层暴露 `ShellApp` 类型（loop + host + resize，不含 Painter） |
 | 4 | 创建 `gui/widget/`：平移 widget、overlay、overlay_native、app 剩余部分；改用 `@base` 和 `@shell` |
-| 5 | 更新所有下游包的 import：`ui` / `chart` / `mdview` 里 `@core` → 拆分成 `@base`/`@shell`/`@widget`；**模块外消费者同批迁移**——`modules/gui-media` 的引擎 + 两个播放器组件 + 控制条、`modules/gui-examples` 的 audio/video 示例、`examples/` 的 showcase/browser/sysmonitor…、`experiment/` 各探针。漏掉模块外消费者不是编译期能发现的：它们经 `moon.work` 本地解析，改完主模块若不重跑各模块 `--deny-warn` 就是「已推送的树断链」——拆包一批踩过，systemprobe 15 处 |
+| 5 | 更新所有下游包的 import：`ui` / `chart` / `mdview` 里 `@core` → 拆分成 `@base`/`@shell`/`@widget`；**模块外消费者同批迁移**——`modules/gui-media` 的引擎 + 两个播放器组件 + 控制条、`examples` 的 audio/video 示例、`examples/` 的 showcase/browser/sysmonitor…、`experiment/` 各探针。漏掉模块外消费者不是编译期能发现的：它们经 `moon.work` 本地解析，改完主模块若不重跑各模块 `--deny-warn` 就是「已推送的树断链」——拆包一批踩过，systemprobe 15 处 |
 | 6 | 验证：`cd gui && moon check --deny-warn` 零警告；`cd gui && moon test` 逐包通过；示例正常编译运行 |
 
 预计成本：2-3 天——主力工作是 app.mbt 解耦和 import 迁移。收益：Tauri 整页壳可以用 `shell` + `webview` 组合跑起来；纯 3D 同理用 `shell` + 新 `gui-3d` 模块搭地基，不碰 widget。
@@ -196,7 +200,7 @@ moonbit-native-gui/                          # 根 workspace
 1. 建 `base/`（2026-10-17 已交付）：搬 `signal`/`store`/`effect`/`keys`/`focus`/`list_store`/`prof`/`tick` 八文件 + 对应 wbtest。`node` 不在本刀——它的 `mount : (Widget) -> Widget` 直接吃 widget 层类型，落位归步骤 3 的 `widget/`；`node_wbtest` 两条读 `Signal` 内部字段 `node.subs` 的断言改走公开 `sub_count()`（跨包私有字段不可见，顺带把测试拉回公开 API）。`prof_record` 从包私有提为公开——core 的帧账本调用点跨包了。
 2. 建 `shell/`：搬 `loop`/`host`/`menu`/`hotkey`/`tray`/`notify`/`reveal`/`drag` + `app.mbt` 的 26 个 shell 定义；此步 `App` 一分为二、`ShellApp` 落地。
 3. 建 `widget/`：搬 `widget`/`overlay`/`overlay_native` + `app.mbt` 剩余 13 个定义。
-4. 集中改 import：`ui`/`chart`/`mdview` + **模块外消费者**——`modules/gui-media`、`modules/gui-examples`、`examples/*`、`experiment/*`，一次一批包。
+4. 集中改 import：`ui`/`chart`/`mdview` + **模块外消费者**——`modules/gui-media`、`examples`、`examples/*`、`experiment/*`，一次一批包。
 5. 门禁：`cd gui && moon check --deny-warn` + 分包 `moon test` + 各模块 `--deny-warn` + 示例构建。
 
 **过渡形态（把 §7 未决 #2 定死）**：本工具链**没有 `pub use` 再导出**，`moon.pkg` 的对象式 `import-all` 导入解析器不认（实测，2026-10-17）。落地形态是**包内 compat 薄层**：拆分把文件挪进新包后，在原包里写一个 `compat.mbt`——结构体/枚举用类型别名、顶层函数逐条转调、常量按值重定义；别名让 `@core.Store::new` 与方法调用原样可编，`@core.*` 调用点因此在迁移期一行不改。比独立聚合包少一层长期维护的面子包，也比一步改完安全（每步绿色）。判据是调用点总数：`@core.` 在 `gui/` + `examples/` + `experiment/` + `modules/` 的 `.mbt` 里出现 **3528 次**（实测 grep 计数，含注释与文档行；只算主模块 `gui/` 是 2302 次）。全量改是数千处机械编辑加四轮编译报错驱动，聚合包则多一层长期维护的面子包。**建议**：先按这个量级拍，别默认「过渡包更省事」。

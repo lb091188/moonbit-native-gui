@@ -1,7 +1,7 @@
 # native-gui 0.1.1 重发与文档站善后 — 交接文档
 
 > 交接时间:2026-10-15(GMT+8) · 交接方:Windows 工作机会话(文档收口 + 重发准备批) · 接收方:同仓库协作方 / 后续会话
-> 交接范围:① mooncakes **重发执行**(yoga-mbt 0.1.1 → native-gui 0.1.1,可选首发 gui-media / gui-examples);② 文档站 **Cloudflare Pages 域名善后**;③ 交接时刻仓库状态与勿动项。
+> 交接范围:① mooncakes **重发执行**(yoga-mbt 0.1.1 → native-gui 0.1.1,可选首发 gui-media；`gui-examples` 已于 2026-10-19 并入 `examples/` 各示例模块，不再是发布单元);② 文档站 **Cloudflare Pages 域名善后**;③ 交接时刻仓库状态与勿动项。
 > 维护说明:发现本文与代码/事实不一致时**以代码为准**,并顺手把本文改成正确的;本文也受仓库「一批一提交一推送」纪律约束。
 
 ---
@@ -9,7 +9,7 @@
 ## 0. 三十秒速览
 
 - **代码/文档侧已就绪**:0.1.1 相关改动全部已提交并推送(§3);剩下的是**执行动作**——mooncakes 重发(§1)与文档站部署/域名决定(§2)。
-- **mooncakes 顺序**:先发 `yoga-mbt 0.1.1`,等构建转绿,再发 `native-gui 0.1.1`;可选首发布 `gui-media`、`gui-examples` 0.1.0。**必须在已登录 mooncakes 的环境执行**(Windows 工作机无凭据)。
+- **mooncakes 顺序**:先发 `yoga-mbt 0.1.1`,等构建转绿,再发 `native-gui 0.1.1`;可选首发布 `gui-media` 0.1.0（`gui-examples` 已并入 `examples/`，不再发布）。**必须在已登录 mooncakes 的环境执行**(Windows 工作机无凭据)。
 - **文档站**:已迁至 **`moonbit-native-gui.pages.dev`**(2026-10-18 新建同名 Pages 项目,Git 集成推送 master 自动部署);旧项目(`moonbit-libyue.pages.dev`)已整体删除,名字与域名均已释放(§2)。
 - **勿动**:工作区有进行中的未提交改动(拖拽实现与探针),不要 `git add -A`、不要清理(§4)。
 
@@ -31,7 +31,7 @@
 | 1 | `modules/yoga-mbt` | `NoahLiu/yoga-mbt` | 0.1.1 | **重发(先)** | 下游构建读它,先等转绿 |
 | 2 | `gui` | `NoahLiu/native-gui` | 0.1.1 | **重发(后)** | 钉 `yoga-mbt@0.1.1` |
 | 3 | `modules/gui-media` | `NoahLiu/gui-media` | 0.1.0 | 可选首发 | 钉 `ffmpeg-mbt@0.1.0`(已发布且归档干净) |
-| 4 | `modules/gui-examples` | `NoahLiu/gui-examples` | 0.1.0 | 可选首发 | 与 #3 都发时先 3 后 4 |
+| 4 | ~~`modules/gui-examples`~~ | 已并入 `examples/`（每示例独立模块，不发布） | — | — | 2026-10-19 拆分 |
 | — | `modules/ffmpeg-mbt` | `NoahLiu/ffmpeg-mbt` | 0.1.0 | 无需动 | 注册表归档已核验干净 |
 
 ```sh
@@ -42,14 +42,14 @@ cd gui && moon publish
 # 转绿:https://mooncakes.io/api/v0/builds/log?module=NoahLiu/native-gui&version=0.1.1
 # 可选首发:
 cd modules/gui-media && moon publish
-cd modules/gui-examples && moon publish
+cd examples && moon publish
 ```
 
 ### 1.3 发布注意
 
 - **就地发布**:`moon publish` 在模块根就地打包该模块内容;临时目录中转**不必要**(多一层拷贝反而引入漏文件风险;`moon.work` 只影响本地解析、不影响归档——定案见 1.1 所引口径条)。
 - **先上游后下游**:yoga-mbt 构建转绿前不要发 native-gui。
-- **预演归档**:仓库根 `_build/publish/`(本地,未入库)有本批 4 份预演 zip——`NoahLiu-yoga-mbt-0.1.1`、`NoahLiu-native-gui-0.1.1`、`NoahLiu-gui-media-0.1.0`、`NoahLiu-gui-examples-0.1.0`(另有 native-gui / yoga-mbt 的 **0.1.0 历史档**,别拿错)。核验口径 = 解包零 `.json` 旧清单、`moon.mod` / `moon.pkg` 就位。预演时点 `15afc5c`;其后仅 `1ea935f`(库侧零改动),结论仍有效,保险起见可在模块根重跑 `moon package` 再核对一次。
+- **预演归档**:仓库根 `_build/publish/`(本地,未入库)有本批 4 份预演 zip——`NoahLiu-yoga-mbt-0.1.1`、`NoahLiu-native-gui-0.1.1`、`NoahLiu-gui-media-0.1.0`（旧 `NoahLiu-gui-examples-0.1.0` 那份预演已作废，模块不存在了）(另有 native-gui / yoga-mbt 的 **0.1.0 历史档**,别拿错)。核验口径 = 解包零 `.json` 旧清单、`moon.mod` / `moon.pkg` 就位。预演时点 `15afc5c`;其后仅 `1ea935f`(库侧零改动),结论仍有效,保险起见可在模块根重跑 `moon package` 再核对一次。
 - **包页 README**:随发布呈现为 mooncakes 包页 README 的是 `gui/README.md` 扩写版。
 - **凭据**:Windows 工作机 `.moon/credentials.json` 不存在,`moon publish --dry-run` 止步于凭据检查——发布会话必须在已登录环境。
 - 发布后到 mooncakes 对应包页复核版本号、README 与依赖行。
@@ -96,9 +96,9 @@ cd modules/gui-examples && moon publish
 - `15afc5c`【构建】重发准备:native-gui 与 yoga-mbt 递增 0.1.1、仓内钉版同批同步、showcase 版本号跟升、CI 补 style(8 文件)。
 - `1ea935f`【修复】Windows 托盘挂菜单与左右键点击全失效(showcase 侧起表时机;库侧零改动;**真机复验归 S25**)。
 - 当前 `master` = `origin/master` = `1ea935f`(推送已完成)。
-- 版本快照:`gui/moon.mod` 0.1.1(钉 `yoga-mbt@0.1.1`)· `modules/yoga-mbt` 0.1.1 · `gui-media` / `gui-examples` 0.1.0(未发布过)· `ffmpeg-mbt` 0.1.0(干净)。
+- 版本快照:`gui/moon.mod` 0.1.1(钉 `yoga-mbt@0.1.1`)· `modules/yoga-mbt` 0.1.1 · `gui-media` 0.1.0(未发布过)；`examples/<name>` 各示例独立模块不发布· `ffmpeg-mbt` 0.1.0(干净)。
 - GitHub 侧无待办:远端与全仓链接均为 `lb091188/moonbit-native-gui`(API 核验未改名);MoonBit 模块名 `NoahLiu/native-gui` 不变(既有 import 不受影响)。
-- 门禁现状:全仓与 examples / gui-examples / gui-media / experiment / yoga-mbt 的 `moon check --deny-warn` 全绿(提交门槛);库全量测试未在 Windows 本机重跑(Windows 有已知测试基线红点,以 CI 为准);真机复验各批已全部通过。
+- 门禁现状:全仓与 examples 各示例模块 / gui-media / experiment / yoga-mbt 的 `moon check --deny-warn` 全绿(提交门槛);库全量测试未在 Windows 本机重跑(Windows 有已知测试基线红点,以 CI 为准);真机复验各批已全部通过。
 
 ## 4. 交接时刻的工作区快照(勿动项)
 

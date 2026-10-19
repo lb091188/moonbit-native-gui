@@ -74,9 +74,8 @@ MoonBit 生态的 GUI 能力各有分工：[MoUI](https://github.com/wzzc-dev/Mo
 
 | 模块 | 内容 |
 |---|---|
-| `NoahLiu/gui-media` | 音视频引擎与播放器组件。
+| `NoahLiu/gui-media` | 音视频引擎与播放器组件。 |
 | `NoahLiu/gui-webview` | 内嵌 WebView（WebKitGTK / WebView2），2026-10-16 起从主模块 `web` 子包出成。 |
-| `NoahLiu/gui-examples` | 独立示例模块，依赖 `gui-media`。 |
 
 两层「可选」要分清：没 import 的子包不占二进制体积——`moon.pkg` 的 import 是编译与链接边界；没依赖的模块根本不会被解析或预构建——`moon.mod` 的 import 决定依赖闭包。
 

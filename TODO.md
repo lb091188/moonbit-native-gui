@@ -6,9 +6,10 @@
 - **更名与目录定案（2026-10-12）**：主模块 `NoahLiu/moonbit-libyue` → **`NoahLiu/native-gui`**（mooncakes 新包名，首版 0.1.0 占位；待自绘栈稳定后将 `NoahLiu/moonbit-libyue` 标记废弃）；子模块 `NoahLiu/yue-media` → `NoahLiu/gui-media`、`NoahLiu/yue-examples` → `NoahLiu/gui-examples`；**库模块根落在 `gui/`**：15 个库包（`gui/base` … `gui/style`；原 `gui/web` 于 2026-10-16 G9 Batch 1 出成独立模块 `modules/gui-webview`；原 `gui/core` 于 2026-10-17 G9 Batch 2 import 迁移后整包退场）与 `moon.mod` 都在其下，模块名不变故 mooncakes 包路径 `NoahLiu/native-gui/<包>` 与既有 import 全部不变；`examples/`、`experiment/` 拆为**独立模块**（`NoahLiu/native-gui-examples` / `NoahLiu/native-gui-experiment`），经 `moon.work` 本地解析依赖库模块，构建/测试不再牵连库门禁；旧链 `yue/` 已删除。GitHub 仓库名 2026-10-13 已改为 **`moonbit-native-gui`**（旧名 301 重定向）；项目显示名（README 首行、文档站 title/hero、许可行）2026-10-15 随 0.1.1 重发统一为 **native-gui**，旧名只留更名注。
 - **本分支不保留老 libyue 绑定**：`shim/`、`lib/` 预构建库、`scripts/prepare.py` 已删除；libyue 只作**老师**（行为参考、可平移资产来源、`patches/` 的真实 bug 语料）。
 - **路径搬家注（2026-10-16）**：本文件历史条目里的 `gui/web/…`、`NoahLiu/native-gui/web`、`moon test ./gui/web` 均指已出模块的 webview 线，现落位 `modules/gui-webview/webview/`（包 `NoahLiu/gui-webview/webview`），不逐处改写。
+- **示例目录定案（2026-10-19）**：历史条目里的 `NoahLiu/native-gui-examples/<示例>`、`modules/gui-examples`、包名 `NoahLiu/gui-examples/…` 均指已合并的旧示例模块，现落位 `examples/<示例>/`（各自独立模块 `NoahLiu/native-gui-examples-<示例>`），不逐处改写。
 - **旧链路的完成项与实测结论不在本文件重述**：代码在 `master`（`shim + libyue`，0.5.x 与 `bin-*`/`vendor-*` 发布照旧），踩坑与验收细节在 [proposals/adaptation.md](proposals/adaptation.md) 与 `git log`。**凡旧栈做过、新栈尚未重做的能力，本文件一律记为未完成。**
 - **门禁口径**：全仓 `moon check --deny-warn` 零错误零警告（2026-10-15 复核；2026-10-11 起曾为红基线 287 errors / 68 warnings，逐批清零）；库门禁在 `gui/` 下按包限定跑 `moon check` + 分包 `moon test`，`examples/`、`experiment/`、`modules/*` 各模块 `--deny-warn` 复核。
-- **验证示例归口（2026-10-16 收口）**：native-* 累积验证板已全部删除（`examples/native-app`、`examples/native-window`、`examples/systemprobe`、`modules/gui-examples/native-web`、`modules/gui-examples/systemprobe`），职能归正式示例——GUI 能力与系统能力只读探测归 `examples/showcase`（含第 15 页「系统能力探测」与任务栏进度/粘性列表/GIF/自绘消息框/字体回退/bind_node 各段）、浏览器归 `examples/browser`、媒体归 `modules/gui-examples/audio` / `video`、扩展图表归 showcase「图表」页的扩展/新图表/交互三段（2026-10-16 由独立示例 `examples/charts` 并回后删除）。后续新能力的演示一律直接进对应正式示例（或库测试），不再新开 native-* 验证板。
+- **验证示例归口（2026-10-16 收口）[历史，模块名见上方 2026-10-19 定案]**：native-* 累积验证板已全部删除（`examples/native-app`、`examples/native-window`、`examples/systemprobe`、`examples/native-web`、`examples/systemprobe`），职能归正式示例——GUI 能力与系统能力只读探测归 `examples/showcase`（含第 15 页「系统能力探测」与任务栏进度/粘性列表/GIF/自绘消息框/字体回退/bind_node 各段）、浏览器归 `examples/browser`、媒体归 `examples/audio` / `video`、扩展图表归 showcase「图表」页的扩展/新图表/交互三段（2026-10-16 由独立示例 `examples/charts` 并回后删除）。后续新能力的演示一律直接进对应正式示例（或库测试），不再新开 native-* 验证板。
 - **跟踪口径（2026-10-12 定）**：本文件**只跟踪跨平台能力**（三平台同构的 API 面、或「一个门面 + 各平台后端」的形态）。**纯 Linux 依赖的实现细节不再列为待办**——xrandr / wmctrl / xclip / sysfs / wpctl / pactl / CUPS / redshift / xfconf / gsettings / xdg-* / D-Bus 等命令线与总线面的适配，属「Linux 后端内部事务」，随各自能力批处理时按需实现，不进路线图。判据：一个条目若只在一个平台有意义（换个平台没有对应 API 可做）→ 不进 TODO；若换个平台有对应 API（tray/hotkey/通知/剪贴板/文件对话框/菜单栏…）→ 进 TODO，且**以「门面定形态 + 各平台后端」记账**。
 
 ## 1. 地基（新栈自身进度）
@@ -82,7 +83,7 @@
 - [ ] 文档：中英使用文档按新栈重写（`components`/`components-ui`/`declarative`/`layout`/`relink`/`system-capabilities`/`tutorial`），README 挂新截图
 - [ ] 文档：中英使用文档按新栈重写（`components`/`components-ui`/`declarative`/`layout`/`relink`/`system-capabilities`/`tutorial`），README 挂新截图
 - [ ] 发布：mooncakes 新版本；旧 `bin-*`/`vendor-*` 预构建发布链退役
-  - [ ] **`gui-media` / `gui-examples` 首发前最后一次公开面审校**：两模块 0.1.0 至今未发布，本轮组件改名（`player_t` → `video`、新增 `audio`）正是在「无历史版本」前提下才零破坏；一旦发出去就改不动了。首发前把两模块 README、`docs/zh/system-capabilities.md` 媒体段、`modules/gui-media/moon.mod` 依赖版本钉法过一遍（发布链与预演 zip 口径见根 `HANDOFF.md`）。
+  - [ ] **`gui-media` 首发前最后一次公开面审校**：该模块 0.1.0 至今未发布（原 `gui-examples` 已于 2026-10-19 并入 `examples/` 各示例模块，不再作为发布单元），本轮组件改名（`player_t` → `video`、新增 `audio`）正是在「无历史版本」前提下才零破坏；一旦发出去就改不动了。首发前把两模块 README、`docs/zh/system-capabilities.md` 媒体段、`modules/gui-media/moon.mod` 依赖版本钉法过一遍（发布链与预演 zip 口径见根 `HANDOFF.md`）。
   - [ ] **0.1.0 构建失败与 0.1.1 重发链（2026-10-15 实测）**：`native-gui@0.1.0` 包页 Build failed——依赖 `NoahLiu/yoga-mbt@0.1.0` 的注册表归档里 `src/moon.pkg.json` 仍是旧清单（发布早于仓内迁移；已发布版本不可原地改写），四目标同一根因。重发顺序**先 `yoga-mbt` 后 `native-gui`**、版本各递增 0.1.1，仓内各模块钉版同批更新；发布从各自模块根执行（可先 `moon publish --dry-run`），发前 `moon package` 预演核对归档零旧清单，发后看包页 `build_status` 与构建日志 API；机理见 adaptation.md 的 mooncakes 构建器条。
 - [ ] 真机验证矩阵：Ubuntu GNOME / KDE / XFCE；Windows 10 / 11；macOS 真机已到位（T1–T8 执行中）
 - [ ] [~] **平台批：WebView2 桩真实现 + ffmpeg Windows 真链接**（已完成面见 roadmap；剩余见子条目）
@@ -142,7 +143,7 @@
 
 - 自绘文本的**无障碍**（ATK / UIA / NSAccessibility）本栈暂不含，只记不办。
 - 例外扩散警戒：可见原生控件覆盖只作**按平台开关的兜底**，默认关；子表面（浏览器/视频）属能力型例外，需逐条登记评审。
-- **过渡期已收口（2026-10-15）**：`examples/*`、`modules/gui-examples`、`modules/gui-media` 全量编译通过、各模块 `--deny-warn` 零警告；分支仍不宜积压——一批完成即提交推送。
+- **过渡期已收口（2026-10-15）**：`examples/*`、`examples`、`modules/gui-media` 全量编译通过、各模块 `--deny-warn` 零警告；分支仍不宜积压——一批完成即提交推送。
 - 回归基线：旧栈约 660 条测试随绑定文件消失，属净覆盖损失；补法是新栈每包自建 wbtest 并随资产平移测试。
 
 ## 5. 随手可查
