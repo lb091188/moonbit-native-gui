@@ -15,6 +15,25 @@
 // 先跑），那样就拖不动它——拖源里放展示件（文本/图标/缩略图），别放按钮。
 
 ///|
+/// 拖出决策落 stderr：与 C 侧同一个开关（环境变量 `LIBYUE_DND_LOG` 设了才打），
+/// 看的是「这一趟在组件层走到哪一步」——C 侧的读数只知道自己的被调没被调。
+fn dnd_diag(msg : String) -> Unit {
+  match @sys.sys_getenv("LIBYUE_DND_LOG") {
+    Some(_) => println("[dnd-ui] \{msg}")
+    None => ()
+  }
+}
+
+///|
+/// 系统级这一支没起来的原因，收成一行读数用。
+fn dnd_err_text(err : @widget.DragError) -> String {
+  match err {
+    @widget.DragError::Unsupported => "本机后端没有这条能力"
+    @widget.DragError::Failed(m) => m
+  }
+}
+
+///|
 /// 拖源：包住 `content`，在其上按下并拖出 `threshold` 像素后调 `payload()` 取数据
 /// 开拖；`payload()` 返回 None（或不给）表示这一拖不成立（当作普通点击）。
 /// 拖拽期间只做「更新落点」，松手时投给落点（见 `@widget.drag_drop`）。
@@ -58,6 +77,7 @@ pub fn drag_source(
             dragging.val = false
             ox.val = wx
             oy.val = wy
+            dnd_diag("按下记牢（等过阈值）")
             true
           }
         }
@@ -71,7 +91,12 @@ pub fn drag_source(
             if dx * dx + dy * dy >= threshold * threshold {
               // 过阈值才算拖：没过阈值时按普通点击放行（内容里的选择/点击不受影响）
               match payload() {
-                Some(data) =>
+                Some(data) => {
+                  dnd_diag(
+                    "过阈值：external=" + (
+                      if external { "开" } else { "关" }
+                    ),
+                  )
                   if external {
                     // 先试系统级拖出（这一支阻塞到松手/取消才回来）；没走成——后端
                     // 没这条能力、这份数据没有系统级形态、或这趟根本起不来——就回落
@@ -81,12 +106,18 @@ pub fn drag_source(
                     dragging.val = false
                     match @widget.drag_external_send(data) {
                       Ok(e) => {
+                        dnd_diag("系统级走完：效果位=\{e.flag()}")
                         on_external(Ok(e))
                         true
                       }
                       Err(err) => {
+                        let ok = @widget.drag_begin(data, self.id, wx, wy)
+                        dnd_diag(
+                          "系统级没起来：" + dnd_err_text(err) + " → 回落应用内" +
+                            (if ok { "成" } else { "没成" }),
+                        )
                         on_external(Err(err))
-                        if @widget.drag_begin(data, self.id, wx, wy) {
+                        if ok {
                           dragging.val = true
                           true
                         } else {
@@ -103,6 +134,7 @@ pub fn drag_source(
                     armed.val = false
                     false
                   }
+                }
                 None => {
                   armed.val = false
                   false
