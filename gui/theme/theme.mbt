@@ -33,6 +33,8 @@ pub(all) struct Theme {
   bg_page : String
   /// 面板底色（卡片/侧栏/输入框/弹层等内容面板）
   bg_panel : String
+  /// 图表系列色板（≥5 色，按序取用；随主色色相旋转，保证相邻系列可分辨）
+  chart_palette : Array[String]
 }
 
 ///|
@@ -59,6 +61,9 @@ pub fn default_theme() -> Theme {
     fill_zebra: "#F5F7FA",
     bg_page: "#F5F6F7",
     bg_panel: "#FFFFFF",
+    chart_palette: [
+      "#2D68C4", "#2E9E5B", "#D9822B", "#8E5CC7", "#199FB0",
+    ],
   }
 }
 
@@ -86,6 +91,9 @@ pub fn dark_theme() -> Theme {
     fill_zebra: "#232629",
     bg_page: "#141518",
     bg_panel: "#1E2126",
+    chart_palette: [
+      "#5B8DEF", "#4CB878", "#E5A04C", "#A98BE8", "#4FB6C8",
+    ],
   }
 }
 
@@ -148,6 +156,17 @@ pub fn theme_from_accent(accent : String, dark? : Bool = false) -> Theme {
       mix_hex(c, "#FFFFFF", 0.14)
     }
   }
+  // 图表色板：从主色色相出发按固定角度旋转（首个=主色本身），饱和/明度按模式
+  // 钳制；这样换主色后系列色整体随动，且相邻系列保持可分辨。
+  let chart_s = if dark { 0.58 } else { 0.55 }
+  let chart_l = if dark { 0.62 } else { 0.46 }
+  let chart_palette : Array[String] = [
+    primary,
+    from_hsl((h + 128.0) % 360.0, chart_s, chart_l),
+    from_hsl((h + 38.0) % 360.0, chart_s, chart_l),
+    from_hsl((h + 210.0) % 360.0, chart_s, chart_l),
+    from_hsl((h + 285.0) % 360.0, chart_s, chart_l),
+  ]
   {
     primary,
     primary_light,
@@ -173,6 +192,7 @@ pub fn theme_from_accent(accent : String, dark? : Bool = false) -> Theme {
     fill_zebra: base.fill_zebra,
     bg_page: base.bg_page,
     bg_panel: base.bg_panel,
+    chart_palette,
   }
 }
 
@@ -331,6 +351,18 @@ pub fn theme_bg_panel() -> String {
 /// 主要按钮/选中态等强调语义，active 反馈不喧宾夺主。焦点环与字段聚焦边框共用。
 pub fn theme_focus_accent() -> String {
   theme_text_secondary()
+}
+
+///|
+/// 图表系列色：按序从 `chart_palette` 取，越界循环。色板随主色旋转，
+/// 换主题后系列色整体随动且相邻可分辨。
+pub fn theme_chart_color(i : Int) -> String {
+  let p = theme_box.t.chart_palette
+  if p.length() == 0 {
+    return theme_primary()
+  }
+  let idx = if i < 0 { 0 } else { i % p.length() }
+  p[idx]
 }
 
 ///|
