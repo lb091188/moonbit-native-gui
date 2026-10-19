@@ -2758,6 +2758,12 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **图标下档不可交互是这一档的语义，不是缺陷**：图标下（壁纸场景）= DESKTOP 型 + `BELOW`，本窗排在 `nemo-desktop` 之前，鼠标事件全归桌面窗——壁纸背后没有「本窗接事件」这回事。要做**桌面小部件**（图标之上、普通窗口之下，且本窗收键鼠），类型不能再挂 DESKTOP：改走 **NORMAL 型 + `_NET_WM_STATE_BELOW`**，落在普通层栈底，天然压在桌面层之上、其它窗口之下。对外即 `WindowLayer::Desktop`（图标下）与 `WindowLayer::DesktopWidget`（图标上）两档。
 - **另两平台的档位落点**：macOS 有原生对应层，`kCGDesktopWindowLevelKey`（图标下）与 `kCGDesktopIconWindowLevelKey`（图标上）一一对上，待真机。Windows 的桌面窗归 Explorer（Progman / SysListView32），客户窗压不进它下面——两档都只能 `SetWindowPos(HWND_BOTTOM)`，即恒在图标之上；「不进任务栏」要 `WS_EX_TOOLWINDOW`，未接，按未做记。
 - **桌面档任务栏条目不消失**：`gtk_window_set_skip_taskbar_hint` 只改 `_NET_WM_STATE` 属性，Muffin 对已映射窗不重读属性——与画序那条同一个口径（真机读数：属性里 `SKIP_TASKBAR, SKIP_PAGER` 都在，面板条目照旧）。修：桌面两档在 map 之后向根窗发 ClientMessage `ADD SKIP_TASKBAR / SKIP_PAGER / STICKY`，切回 Normal 逐条 `REMOVE`。判据：点「图标上」后——图标被窗体盖住、窗内按钮点得动、任务栏不再有本窗条目、切到任意普通窗口时本窗沉在所有普通窗口之下；「图标下」则窗体被图标盖住且点击穿透到桌面。
+
+### 拖出机制沿革核查（2026-10-19）
+
+- **没有「旧的可用实现」可以回退**：Linux 拖出自 `94056db`（2026-10-15，W23 平台批）起就是同一机制——`gtk_drag_begin_with_coordinates` 起拖 + 自跑嵌套 `gtk_main_iteration` 阻塞到 `drag-end`（60s 兜底）。`git log -S XdndEnter -- gui/win/stub.c` 全史零命中，当前文件里也一个都没有：手写 XDND 源端协议从未存在过；不带 coordinates 的 `gtk_drag_begin`、不起嵌套循环的异步状态机同样没有。`5377445`→`3f9f19c`→`06b2bf9`→`cceb478`→`2ff4c69`→`b91e5f1`→`3c1d19b` 这八次全在**收尾**上打补丁（seat ungrab → 排空事件 → 撤销代收尾 → 改 X 侧 ungrab → 补 ctx 引用），机制一次没换。
+- **「以前拖成功过」对的是传输，不是另一套机制**：`fd9f12e` 记的真机读数 `ended=1 get_calls=1/4/5`、以复制成交——跨进程数据传送成过；没成过的只有收尾（光标「+」/指针 grab 不还），以及 `1ac264b` 补落点读数带进来的野指针崩溃（`3c1d19b` 已治：落点改在 drag-end 回调内取，起拖 `g_object_ref(ctx)`、收尾交回）。
+- **同一条根因自首发就在**：`94056db` 的提交说明当时就写着「MoonBit 处置链不在 GTK 派发栈内」，所以起拖由我们手动发起、收尾也得我们手动补——上面整串收尾补丁都是这一条的下游。要断根只能把起拖挪进 GTK 事件派发栈、会话改异步收口：三支同改，且 `drag_external_send` 的阻塞语义与回落时机要一起换，属接口级改动。
 - **要拖两次才拖得出来**：起拖用的事件由 `wm_on_button` 在按下那一刻存档，而 `wm_dragdnd_send` 要到宿主泵看见「过阈值」那一拍才调用——那一拍距按下已过若干毫秒，`gtk_drag_begin_with_coordinates` 拿**旧时间戳**去抓指针会抓空，头一趟当场死掉；第二趟因为队列里的事件新鲜才成。修：左键仍按着时，每条移动都把存档事件换成当前这条（时间戳与坐标都是新鲜的），门面契约不变（仍要求「键还按着」时调用）。读数同时补两处：`begin ... ev_type=`（5=已刷成移动事件、4=还是按下那条）与每趟被拒的原因 `refuse ... why=args/no_window/no_press/kind N/actions N`。**待真机**：若拖不出时读到的是 `why=no_press`，根因就不是时间戳而是「键抬起早于这一拍」，得走上一条「起拖挪进 GTK 派发栈内」的根治方案。
 - **在窗外松手会叫起拖现场永远陈旧**：`wm_on_button` 只在 `wm_dnd_press == NULL` 时存按下事件，而 release 只在指针还落在我方窗口时才收得到——在窗外松手，那份存档就永远留着，之后每次按下都不再更新，起拖一直拿最旧那份事件。改：每次左键按下都覆盖存档（先释放旧的）。同时组件层补了拖出决策读数（`gui/ui/drag.mbt` 的 `dnd_diag`，与 C 侧同一个 `LIBYUE_DND_LOG` 开关，落 stderr）：`按下记牢 / 过阈值 / 系统级走完 / 系统级没起来→回落`，因为 C 侧读数只知道自己的被调没被调——真机上一趟「拖不出」若在读数里连 `begin` 都没有，断点就在组件层以上。
 
