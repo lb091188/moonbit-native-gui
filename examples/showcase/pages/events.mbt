@@ -537,5 +537,64 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
         "@ui.view([...], grow=1.0)                       // flex",
       ],
     ),
+
+    @shared.section(
+      "多击与组合键",
+      "Widget.on_double_click / on_triple_click / App::bind_combo",
+      "W32 的通用多击通道：控件挂上 `on_double_click` / `on_triple_click` 后，宿主在指针派发时自动维护 ClickTracker（400 ms + 4 px 阈值，与编辑内核同口径），命中档位才回调。组合键走 `App::bind_combo(\"Ctrl+Shift+K\", cb)`——一次注册、按键兜底通道自动分派，不用手写 mods 位与 keysym 比较。",
+      [
+        @ui.view(
+          [
+            @ui.text_dyn(
+              dbl_api_out.signal(),
+              role=@ui.Body,
+            ),
+          ],
+          width=100.0,
+          height=120.0,
+          background_color="primary_light",
+          border_color="primary",
+          padding=16.0,
+          handle=fn(w : @widget.Widget) -> Unit {
+            w.on_double_click = Some(fn(_w : @widget.Widget, _ev : @widget.PointerEvent) -> Unit {
+              dbl_api_n.update(fn(n) { n + 1 })
+              dbl_api_out.set("双击命中！累计 " + dbl_api_n.get().to_string() + " 次")
+            })
+            w.on_triple_click = Some(fn(_w : @widget.Widget, _ev : @widget.PointerEvent) -> Unit {
+              dbl_api_out.set("三击！")
+            })
+          },
+        ),
+        @ui.text_dyn(dbl_api_out.signal(), role=@ui.Secondary),
+        @ui.text_dyn(combo_out.signal(), role=@ui.Secondary),
+        // 零尺寸挂载钩子：页内容挂载时宿主 handle 还没跑（mount_window 先
+        // mount 后 handle），延后一拍再注册组合键。
+        @ui.view([], width=0.0, height=0.0, handle=fn(_w : @widget.Widget) -> Unit {
+          let _ = @shell.set_timeout(0, fn() {
+            match app.host.val {
+              Some(a) => a.bind_combo("Ctrl+Shift+K", fn() {
+                combo_out.set("组合键 Ctrl+Shift+K 命中（" + @shell.now_ms().to_string() + "ms）")
+              })
+              None => ()
+            }
+          })
+        }),
+      ],
+      code=[
+        "// 双击/三击（宿主自动喂 ClickTracker，400ms + 4px 阈值）",
+        "w.on_double_click = Some(fn(_w, _ev) { ... })",
+        "w.on_triple_click = Some(fn(_w, _ev) { ... })",
+        "",
+        "// 组合键：一次注册，走窗口级按键兜底通道",
+        "app.bind_combo(\"Ctrl+Shift+K\", fn() { ... })",
+      ],
+    ),
   ])
 }
+
+///|
+/// W32 多击/组合键段的两块回显与计数（页函数里初始化，handle 里写入）。
+let dbl_api_out : @base.Store[String] = @base.Store::new("(双击上面色块)")
+let dbl_api_n : @base.Store[Int] = @base.Store::new(0)
+let combo_out : @base.Store[String] = @base.Store::new("(按 Ctrl+Shift+K 触发)")
+

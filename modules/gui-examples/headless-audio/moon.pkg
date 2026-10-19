@@ -1,0 +1,10 @@
+// W36 无头音频示例：无窗口、纯代码驱动播放。
+import {
+  "NoahLiu/native-gui/shell" @shell,
+  "NoahLiu/native-gui/sys" @sys,
+  "NoahLiu/gui-media/media" @media,
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"

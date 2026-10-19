@@ -103,6 +103,34 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
   let dnd : @base.Store[String] = @base.Store::new("（还没投过）")
   let ext : @base.Store[String] = @base.Store::new("（外部还没投过）")
   let out : @base.Store[String] = @base.Store::new("（还没往外拖过）")
+  // W30/W33/W34 新段的回显与状态
+  let multiwin_out : @base.Store[String] = @base.Store::new("（还没开过子窗）")
+  let layer_out : @base.Store[String] = @base.Store::new("（尚无操作）")
+  let transparent_on : Ref[Bool] = Ref(false)
+  fn win_set_opacity(alpha : Int) -> Unit {
+    match app.host.val {
+      Some(a) => {
+        a.window().set_opacity(alpha)
+        layer_out.set("窗口 alpha 已置 " + alpha.to_string() + "（/255）")
+      }
+      None => ()
+    }
+  }
+  fn win_set_layer(layer : @win.WindowLayer) -> Unit {
+    match app.host.val {
+      Some(a) => {
+        a.window().set_layer(layer)
+        let tag = match layer {
+          Normal => "普通"
+          Desktop => "桌面层（壁纸上/图标下）"
+          AlwaysOnTop => "置顶"
+          Dock => "Dock 面板档"
+        }
+        layer_out.set("窗口层级已切到：" + tag)
+      }
+      None => ()
+    }
+  }
   @shared.page([
     @shared.section(
       "窗口",
@@ -375,6 +403,146 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
         "  external=true,",
         "  on_external=fn(r) { ... }, // Ok(效果)=成交/取消，Err=没走成（已回落）",
         ")",
+      ],
+    ),
+
+    @shared.section(
+      "多窗口",
+      "开子窗 / 列窗 / 关子窗",
+      "宿主注册表是进程级的：`App::open_window` 开第二扇窗、`App::window_count` 数窗、`App::active_window` 取当前活动窗、`close_window` 关自己那窗。关从窗不退出应用，只有主窗关或全关完才整体退出。每扇窗内容各自挂自己的 Node 树，事件路由与上屏逐窗走。",
+      [
+        @ui.row(
+          [
+            @ui.button("开子窗", on_click=fn() {
+              match app.host.val {
+                Some(a) =>
+                  match a.open_window(360, 240, "showcase 子窗") {
+                    Some(child) => {
+                      child.mount([
+                        @ui.col(
+                          [
+                            @ui.text("这是第二扇窗", role=@ui.Title),
+                            @ui.text("主窗与子窗事件各自独立；关本窗不退出应用。", role=@ui.Secondary),
+                            @ui.button("关掉我自己", variant=@ui.Danger, on_click=fn() {
+                              child.close_window()
+                            }),
+                          ],
+                          row_gap=12.0,
+                          padding=20.0,
+                        ),
+                      ])
+                      multiwin_out.set("已开子窗，当前共 " + a.window_count().to_string() + " 扇")
+                    }
+                    None => multiwin_out.set("这台机器开不了第二扇窗（无窗口后端）")
+                  }
+                None => multiwin_out.set("宿主还没就绪")
+              }
+            }),
+            @ui.button("列窗数", variant=@ui.Soft, on_click=fn() {
+              match app.host.val {
+                Some(a) => multiwin_out.set("当前共 " + a.window_count().to_string() + " 扇窗")
+                None => ()
+              }
+            }),
+            @ui.button("关最近一扇子窗", variant=@ui.Text, on_click=fn() {
+              match app.host.val {
+                Some(a) =>
+                  match a.active_window() {
+                    Some(act) =>
+                      if act.is_primary() {
+                        multiwin_out.set("当前活动窗是主窗，不关它")
+                      } else {
+                        act.close_window()
+                        multiwin_out.set("已关一扇子窗，剩 " + a.window_count().to_string() + " 扇")
+                      }
+                    None => multiwin_out.set("没有活动窗")
+                  }
+                None => ()
+              }
+            }),
+          ],
+          column_gap=8.0,
+        ),
+        @ui.bind_label(multiwin_out, fn(s) { s }),
+      ],
+      code=[
+        "match app.host.val {",
+        "  Some(a) => {",
+        "    let child = a.open_window(360, 240, \"子窗\")",
+        "    child.mount([ ... ])        // 子窗内容自己挂",
+        "    let n = a.window_count()    // 进程级注册表",
+        "    let act = a.active_window() // 当前活动窗",
+        "    act.close_window()          // 关自己那窗，不退出应用",
+        "  }",
+        "  None => ()",
+        "}",
+      ],
+    ),
+
+    @shared.section(
+      "透明度",
+      "窗口透明与背景穿透",
+      "`Window::set_opacity` 调整窗 alpha（0–255，需合成器；无合成器静默无效）。`set_transparent_bg` 打开背景穿透——控件没铺满的地方透出桌面/下层内容。两个档位可以叠：先开背景穿透，再调 alpha。",
+      [
+        @ui.row(
+          [
+            @ui.button("100%", on_click=fn() { win_set_opacity(255) }),
+            @ui.button("80%", variant=@ui.Soft, on_click=fn() { win_set_opacity(204) }),
+            @ui.button("50%", variant=@ui.Soft, on_click=fn() { win_set_opacity(128) }),
+            @ui.button("25%", variant=@ui.Soft, on_click=fn() { win_set_opacity(64) }),
+            @ui.button("背景穿透", variant=@ui.Text, on_click=fn() {
+              transparent_on.val = !transparent_on.val
+              let on = transparent_on.val
+              match app.host.val {
+                Some(a) => {
+                  a.window().set_transparent_bg(on)
+                  layer_out.set(
+                    if on { "背景穿透：开（控件未覆盖处透出桌面）" } else { "背景穿透：关" },
+                  )
+                }
+                None => ()
+              }
+            }),
+          ],
+          column_gap=8.0,
+        ),
+        @ui.bind_label(layer_out, fn(s) { s }),
+      ],
+      code=[
+        "// 整窗 alpha（0–255）",
+        "app.window().set_opacity(128) // 50%",
+        "// 背景穿透：控件没铺满的地方透出下层",
+        "app.window().set_transparent_bg(true)",
+      ],
+    ),
+
+    @shared.section(
+      "层级",
+      "窗口层级嵌入",
+      "`Window::set_layer` 换窗口的 z-order 档位：Normal 普通、Desktop 沉到桌面层（壁纸上、图标下，做桌面挂件用）、AlwaysOnTop 置顶、Dock 面板档。Linux 走 `_NET_WM_WINDOW_TYPE`/`gtk_window_set_keep_above`，Win32 走 `SetWindowPos` 的 BOTTOM/TOPMOST；目标层由窗口管理器兑现，个别 WM 会忽略 Desktop/Dock 档（属 WM 行为，非本库缺陷）。",
+      [
+        @ui.row(
+          [
+            @ui.button("普通", on_click=fn() { win_set_layer(@win.WindowLayer::Normal) }),
+            @ui.button("桌面层", variant=@ui.Soft, on_click=fn() {
+              win_set_layer(@win.WindowLayer::Desktop)
+            }),
+            @ui.button("置顶", variant=@ui.Soft, on_click=fn() {
+              win_set_layer(@win.WindowLayer::AlwaysOnTop)
+            }),
+            @ui.button("Dock", variant=@ui.Text, on_click=fn() {
+              win_set_layer(@win.WindowLayer::Dock)
+            }),
+          ],
+          column_gap=8.0,
+        ),
+        @ui.bind_label(layer_out, fn(s) { s }),
+      ],
+      code=[
+        "app.window().set_layer(@win.WindowLayer::AlwaysOnTop) // 置顶",
+        "app.window().set_layer(@win.WindowLayer::Desktop)     // 壁纸上、图标下",
+        "app.window().set_layer(@win.WindowLayer::Dock)       // 面板档",
+        "app.window().set_layer(@win.WindowLayer::Normal)     // 复位",
       ],
     ),
   ])
