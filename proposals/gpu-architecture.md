@@ -23,7 +23,7 @@ native-gui 从「全 CPU 光栅」走向「GPU 合成 + CPU 光栅并存」的�
 
 - `Widget.on_render(Widget, RenderCtx, Rect)` 走 GPU context 提交 shader/vertex buffer。
 - `RenderCtx` 是 `@render` 包里的枚举：当前只有 `Cpu(Painter)` 变体；WebGPU 落地时新增 `Gpu(GpuContext)` 变体，`paint_walk` 派发时探测分派。
-- **口子已留**：`Widget.on_render` 字段与 `RenderCtx` 枚举已在 2026-10-17 落地；现有控件走 `on_draw` 不受影响。
+- **口子已留**：`Widget.on_render` 字段与 `RenderCtx` 枚举已在协议层就位；现有控件走 `on_draw` 不受影响。
 
 ### 三级 fallback
 
@@ -84,8 +84,7 @@ WebGPU 可用 → GPU 合成（Layer 1+2 都开）
 
 ## 时间线
 
-- **十月**：`RenderCtx` + `on_render` 口子已交付（W38，2026-10-17）。
-- **十一月**：native-gui + moon-launcher 参赛赛季，GPU 不动。
-- **Q2 赛季起**：`modules/gui-gpu` 独立模块开工；第一步三角形色块验收。
+- **已就位**：`RenderCtx` + `on_render` 协议口子。
+- **下一步**：`modules/gui-gpu` 独立模块开工，第一步三角形色块验收；参赛赛季内 GPU 不动。
 
 架构决策与实测依据见 [roadmap.md](../docs/zh/roadmap.md)「GPU 合成与 3D 路径」小节。跟踪项见 [TODO.md](https://github.com/lb091188/moonbit-native-gui/blob/master/TODO.md) §1 G11。

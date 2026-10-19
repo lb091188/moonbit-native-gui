@@ -1,20 +1,17 @@
 // 窗口页：窗口 API × 全局快捷键 × 拖放（应用内 + 系统级拖入 / 拖出）。
 //
-// G7 迁移记档（与 master 旧页的三条差）：
-// ① 窗口段少了「最大化/还原」「置顶切换」两个按钮——本栈 Win32 段没写
-//    SC_MAXIMIZE / TOPMOST，按钮就不放（平台没有的能力不强推，见前端化设计
-//    文档的口径）；旧链路的 `set_content_size` 对应本栈 `set_size_pixels`；
-//    取窗口经宿主 `App::window()`（控件层本来就拿不到窗口，`set_fullscreen`
-//    因此收在宿主上；标题/尺寸/无边框这类窗口级动作由上层直调 `@win.Window`）；
-// ② 快捷键从 `@yue.register_global_shortcut` 切到 `@shell.hotkey_*` 门面（W22）：
-//    注册收 `Result`，命中经 `hotkey_poll` 抽（id→加速串回查表在门面里，页内
-//    不自己持表——只记注册时返回的句柄用于注销）；轮询表挂宿主 200ms 一拍；
-// ③ 拖放：旧链路的「跨应用系统级」（register_dragged_types + enter/update/drop
-//    三回调）在本栈拆成两段——应用内那条三平台同构，系统级两档 Windows/Linux 已接：
-//    拖入走 `widget/drag.mbt` 的 `drag_external_*`（旧三回调收成 `on_drop` 一个 +
-//    悬停期一次 `accept` 查询），拖出走 `drag_external_send`（`drag_source`
-//    的 `external=true`，本机没后端时自动回落应用内）。Linux/mac 的系统级两档
-//    仍随平台批。
+// 三条口径：
+// ① 窗口段只放后端真写得通的按钮——不放「最大化/还原」「置顶切换」（平台没有
+//    的能力不强推，见前端化设计文档的口径）；改尺寸用 `set_size_pixels`；取窗口
+//    经宿主 `App::window()`（控件层拿不到窗口，`set_fullscreen` 收在宿主上；
+//    标题/尺寸/无边框这类窗口级动作由上层直调 `@win.Window`）；
+// ② 全局快捷键走 `@shell.hotkey_*` 门面（W22）：注册收 `Result`，命中经
+//    `hotkey_poll` 抽（id→加速串回查表在门面里，页内只记注册返回的句柄用于
+//    注销）；轮询表挂宿主 200ms 一拍；
+// ③ 拖放分两段：应用内那条三平台同构；系统级两档 Windows/Linux 已接——拖入走
+//    `widget/drag.mbt` 的 `drag_external_*`（一条 `on_drop` + 悬停期一次 `accept`
+//    查询），拖出走 `drag_external_send`（`drag_source` 的 `external=true`，
+//    本机没后端时自动回落应用内）。mac 的系统级两档待接。
 //    本页三段都演示：`drag_source`/`drop_target` 两个声明式钩子 + 从资源管理器
 //    拖文件进「只收文件」那块 + 两块往外拖（文本、文件）。
 

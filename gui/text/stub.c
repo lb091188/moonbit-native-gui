@@ -493,7 +493,7 @@ int pt_draw_box_cr(int64_t cr_id, double x, double y, double box_w,
 // ---- 富文本会话（AttributedText 的 C 端）----
 // 文本与字体名一律在入口拷进自有内存（MoonBit 交来的字节指针只在调用期有效）；
 // 区间属性按 **UTF-8 字节下标** 存 [start, end) 再翻成 Pango attribute list。
-// 旧链路的区间是字符区间，本栈统一字节下标（与编辑内核同口径）。
+// 区间一律字节下标（与编辑内核同口径）。
 // 会话句柄与 cairo/win 侧同形：槽表 + 显式 free，不做引用计数。
 
 #define RT_MAX 16

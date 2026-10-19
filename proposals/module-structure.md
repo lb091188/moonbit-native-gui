@@ -1,214 +1,88 @@
 # 模块结构：按路线拆模块、按层级切子包
 
-> **状态**：Batch 1 已交付（2026-10-16）；Batch 2 已交付（2026-10-17，`gui/core` 整包退场，迁移期 `@core` 门面已删）  
-> **跟踪**：TODO.md §1「G9 模块拆分」（Batch 2 落账）
+> **状态**：拆分已落地——主模块 `gui/` 里 `base` / `shell` / `widget` 三层子包就位，`core` 门面包退场；可选重资产在 `modules/`；示例每例一模块。
 
 ## 1. 背景与目标
 
-native-gui 计划支持三条渲染路线：**原生自绘 / WebView / 纯 3D**。拆分前代码库是单模块 `gui/` + 14 个子包的扁平结构，所有子包共享 `NoahLiu/native-gui`。`core` 同时依赖 render / theme / win / sys / text / dbus，构成「引力井」：只走 XFCE 自绘的用户也要承担 WebView2 SDK 的代价——14 MB vendor 下载加 WebKitGTK pkg-config 探测；未来的 3D 路线更不可能复用整套 widget 树。
+native-gui 计划支持三条渲染路线：**原生自绘 / WebView / 纯 3D**。单模块 + 扁平子包下 `core` 同时依赖 render / theme / win / sys / text / dbus，构成「引力井」：只走 XFCE 自绘的用户也要承担 WebView2 SDK 的代价——vendor 下载加 WebKitGTK 的 pkg-config 探测；未来的 3D 路线更不可能复用整套 widget 树。
 
-本方案的目标：
-
-| 目标 | 现状痛点 |
+| 目标 | 痛点 |
 | --- | --- |
-| 各路线按需组装 | `@core.App` 把全部自绘控件拖进闭包；一条 import `NoahLiu/native-gui/web` 就把 WebView2 和 WebKitGTK 桩全拉进来 |
+| 各路线按需组装 | 一个把控件树、泵、系统能力捆在一起的根对象，使一条 import 就拉进全部后端桩 |
 | 减少构建负担 | prebuild 无条件编译全部平台桩、无条件拉 vendor 文件，每个消费者都要等一次完整预构建 |
-| 允许路线独立演进 | media 已迁出成 `modules/gui-media`，代价是复制 96 行 prebuild 并 pin `native-gui@0.1.0`；每开一个新模块都重复这份劳动 |
+| 允许路线独立演进 | 每开一个新模块都要重复一份 prebuild 与版本 lockstep |
 
 ## 2. 判据一句话
 
 > **外部重资产 + 必须强制下发链接参数 → 开模块；纯内部层 → 留子包。**
 
-## 3. 新仓库布局
-
-> 下图为**方案稿**；实际落地有一处出入：主模块留在仓库根 `gui/`（未挪 `modules/gui/`），`modules/` 下只放可选重资产模块。
+## 3. 仓库布局
 
 ```
 moonbit-native-gui/                          # 根 workspace
+├── gui/                                       # [主模块] NoahLiu/native-gui
+│   ├── base/                                  # 响应式内核、焦点栈、键码、帧账本
+│   ├── shell/                                 # 窗 + 泵 + 子件槽 + resize + 系统能力壳层
+│   ├── widget/                                # 布局树映射 + 命中 + Painter 绘制 + App 主体
+│   └── ...                                    # style/theme/icons/input/text/chart/mdview/sys/dbus/win/render
 ├── modules/
-│   ├── gui/                                   # [主模块] native-gui 核心子包 (0→N 的拆)
-│   │   ├── moon.mod                           # NoahLiu/native-gui
-│   │   ├── base/                              # 响应式 + 窗口泵 + Loop/host
-│   │   ├── shell/                             # 窗 + 子件槽 + resize + 系统能力
-│   │   ├── widget/                            # 布局树映射 + 命中 + Painter 绘制
-│   │   └── ...其余子包保持不变...              # style/theme/icons/input/text/chart/mdview/sys/dbus
-│   ├── gui-webview/                           # [新模块] WebView2 + WebKitGTK
-│   │   ├── moon.mod                           # NoahLiu/gui-webview
-│   │   ├── webview.mbt
-│   │   ├── webview_ffi.mbt
-│   │   ├── scheme.mbt
-│   │   └── prebuild.py                        # 分平台分支：WebView2(Windows)/WebKitGTK(Linux)
-│   ├── gui-media/                             # [已有模块] ffmpeg + miniaudio
-│   └── gui-3d/                                # [未来模块] GL/Vulkan SDK + shader toolchain
-├── examples/                                  # [每示例一模块] NoahLiu/native-gui-examples-<目录名>
-├── experiment/                                # [独立模块] NoaLiu/native-gui-experiment
-└── yoga-mbt/                                  # [独立模块] NoaLiu/yoga-mbt
+│   ├── gui-webview/                           # [模块] WebView2 + WebKitGTK + WKWebView
+│   ├── gui-media/                             # [模块] ffmpeg 解码 + miniaudio 播放
+│   ├── ffmpeg-mbt/                            # [模块] ffmpeg 绑定
+│   └── yoga-mbt/                              # [模块] 布局引擎
+├── examples/<name>/                           # [每示例一模块] NoahLiu/native-gui-examples-<目录名>
+└── experiment/                                # [独立模块]
 ```
 
-### 3.1 主模块内的三个新子包
+### 3.1 主模块的三个分层子包
 
-从 `core/` 提取：
-
-| 新子包 | 文件来源 | 下游依赖 |
+| 子包 | 内容 | 下游 |
 | --- | --- | --- |
-| `base` | signal, store, effect, keys, focus, list_store, prof, tick, node | 无 |
-| `shell`（2026-10-17 已交付） | loop, session(原 host 的壳层半本账), menu, hotkey, tray, notify, reveal, probes | win / sys / dbus |
-| `widget`（2026-10-17 已交付） | widget, overlay, overlay_native, popup, drag, input_map, node + app.mbt/widget.mbt/host.mbt 全量 | base + shell + render/text/theme/yoga |
+| `base` | signal、store、effect、keys、focus、list_store、prof、tick、rect | 无 |
+| `shell` | loop、session、menu、hotkey、tray、notify、reveal、probes | win / sys / dbus |
+| `widget` | widget、node、overlay、overlay_native、popup、drag、input_map、click_tracker、combo、app、host | base + shell + render/text/theme/yoga |
 
-其余子包 `style`, `theme`, `icons`, `input`, `text`, `chart`, `mdview`, `sys`, `dbus`, `win` 不动。
+边界规则：
 
-**app.mbt 那 914 行是唯一钉子**：它一个文件用了 `@render @text @theme @win @yoga`，App 出现 39 次、Host 32 次。修法：把「窗口管理 + 泵调度 + 子件槽注册 + resize 通知」提进 `shell`，`root.on_draw` + `paint_frame` + 主题底色留在 `widget`。**先解 app.mbt，再改 import**——反过来会中途无法编译。
+- `shell` 的 `Session` 是泵 + 平台窗 + 窗号/主窗/退出位 + 悬停/捕获/光标/输入法去重缓存 + 整窗脏标志；`widget` 的 `App = { session, root, focus, host, dirty_*, … }`。WebView / 3D 路线只吃 `Session` 这一半，不碰控件树。
+- `widget` 能调 `@shell`，`@shell` 不能反调；Painter 契约只在 `widget` 出现。
+- 事件词汇（`PointerKind` 等）留在 `widget`；壳层需要回到控件层时走进程级注入单槽（`set_repaint_hook` / `set_repaint_sink` / `set_timer_hooks`），壳层不认识控件树。
+- 输入法整块留 `widget`——它服务的就是编辑控件；`shell` 只在 `step` 里调注入的 `on_frame`。
+- `input` 只依赖 `base`、与 `widget` 互不引用，编辑器与宿主的接缝做成控件回调（`on_key` / `on_commit` / `on_preedit` / `im_context` / `im_cursor`），宿主按焦点投递。
 
 ### 3.2 `NoahLiu/gui-webview` 模块
 
-从 `gui/web/` 平移（2026-10-16 已交付，落位 `modules/gui-webview/webview/`）：`dom.mbt`、`scheme.mbt`、`webview.mbt`、`webview_wbtest.mbt`、`scheme_wbtest.mbt`、`dom_wbtest.mbt`、FFI 声明、`webkit_stub.c`、`webview2_stub.c`、include/lib/vendor。
+本包只依赖窗口 / 布局 / 事件层，不依赖媒体层，也不被媒体层依赖，所以两条路线可以并行推进。入口：`webview_new(app, url)` / `webview_open(app, opts)` 开整页壳，`Webview::node(self, …)` 作混排形态。
 
-关键改动：
-
-- **不再依赖任何 GUI 核心子包**。入口改两个：`Webview::bare(app : ShellApp, url : String) -> Webview?` 作整页壳；`Webview::node(self : Webview, ...) -> Node` 作混排形态，混排可选引入 `shell` 或 `widget`。
-- **prebuild 自行管理 WebView2 资产**：`VENDOR_FILES` 中的 lib + h 文件移至本模块。Linux 分支探 WebKitGTK 时，缺开发包返回空 link_configs 而不报错，MoonBit 侧以 `webview_supported()` 探测降级。原主仓 prebuild 删除对 WEB_PACKAGE 的分发。
-- **版本锁解绑**：对外发布独立 version，首版 0.1.0；消费者经 `moon.work` 本地解析或指定版本号。
+- **一个能力一个接口**：`webview_supported()` 说清这台机器有没有引擎，不可用时 `webview_new` 给 `None`，由调用方决定摆什么替代品，不静默降级。
+- **子件不被 Painter 绘制、不吃 `clip_rect`**：所以不做圆角 / 透明 / 被覆盖的承诺，pane 之间也不重叠。
+- **prebuild 自管 WebView2 资产**：vendor 的 lib + 头文件在本模块；Linux 分支探 WebKitGTK 时缺开发包返回空 link_configs 而不报错，MoonBit 侧以 `webview_supported()` 探测降级。主仓 prebuild 不再有 web 相关分发。
+- **版本独立**：对外发布独立 version，消费者经 `moon.work` 本地解析或指定版本号。
 
 ### 3.3 模块化的代价
 
-每新增一个模块 = 一份 platform 探测 + 静态库编译 + vendor 下载 + prebuild 脚本 + CI 矩阵条目 + 版本 lockstep。参考：
-
-- `gui/scripts/prebuild.py` — 336 行，主仓，6 条 stub 分支
-- `modules/gui-media/prebuild.py` — 96 行，媒体线，2 条路径：Linux vs 非 Linux
-- `modules/ffmpeg-mbt/prebuild.py` — 单独管理 libav* flags
+每新增一个模块 = 一份 platform 探测 + 静态库编译 + vendor 下载 + prebuild 脚本 + CI 矩阵条目 + 版本 lockstep。现存参照：`gui/scripts/prebuild.py`（主仓，分平台 stub 分支）、`modules/gui-media/prebuild.py`（媒体线）、`modules/ffmpeg-mbt/prebuild.py`（libav* flags）。
 
 **因此只有真正踩线的才开模块。**
 
-### 3.3.1 示例侧反着来：每示例一个模块（2026-10-19 定案）
+### 3.3.1 示例侧反着来：每示例一个模块
 
-上一条的代价全在**库模块**（platform 探测、vendor、prebuild、CI 矩阵、版本 lockstep）。示例模块一条都不吃:不 prebuild、不 vendor、不进发布链,代价只是「一份 `moon.mod` + 一行 `moon.work` 成员 + 构建命令逐示例点名」。所以示例的判据反过来——**默认每示例独立成模块**:`examples/<name>/moon.mod`（`NoahLiu/native-gui-examples-<name>`），import 只列自己用到的包。合并成一份 `moon.mod` 会把重资产（ffmpeg/gui-media）拉进整个示例集的依赖闭包，而 moon 的依赖解析单位就是模块，包级 `moon.pkg` 救不回来（见 `adaptation.md` 同批条目）。产物随模块名落目录：`_build/native/<mode>/build/NoahLiu/native-gui-examples-<name>/native-gui-examples-<name>.exe`。纯资产目录（`examples/assets/`）不放 `moon.mod`，就不算模块，无副作用。旧 `modules/gui-examples`（audio/video/headless-audio）已并入 `examples/`，不再是发布单元。
+上一条的代价全在**库模块**（platform 探测、vendor、prebuild、CI 矩阵、版本 lockstep）。示例模块一条都不吃：不 prebuild、不 vendor、不进发布链，代价只是「一份 `moon.mod` + 一行 `moon.work` 成员 + 构建命令逐示例点名」。所以示例的判据反过来——**默认每示例独立成模块**：`examples/<name>/moon.mod`（`NoahLiu/native-gui-examples-<name>`），import 只列自己用到的包。合并成一份 `moon.mod` 会把重资产（ffmpeg / gui-media）拉进整个示例集的依赖闭包，而 moon 的依赖解析单位就是模块，包级 `moon.pkg` 救不回来。产物随模块名落目录：`_build/native/<mode>/build/NoahLiu/native-gui-examples-<name>/native-gui-examples-<name>.exe`。纯资产目录（`examples/assets/`）不放 `moon.mod`，就不算模块。
 
-### 3.4 已有模块 `gui-media` 的依赖面（2026-10-16 控制面一批之后）
+### 3.4 `gui-media` 的依赖面
 
-- 该批给 `modules/gui-media/media` 新加了 `NoahLiu/native-gui/ui` 依赖：播放/暂停与全屏用 `ui.icon_button`，倍速与缩放用 `ui.button`。媒体层此前只依赖 `core`/`render`/`text`/`theme`/`yoga`。方向仍是 media → ui——ui 不认媒体，无环。判据不变：ui 是纯内部层，不拉外部重资产。
-- 媒体层同时吃 `@core` 的三个入口：`host_active()` 拿当前窗，`App::add_key_fallthrough` 走窗口级按键兜底，`App::set_fullscreen` 走全屏，外加 `Store`/`Signal`/`keys`/`Widget`/`invalidate`。**拆包后这些不是一次改名**：`host_active` 与 `App` 的开窗/泵段归 `shell`，`Widget`/Painter/`invalidate` 归 `widget`，`Store`/`Signal`/`keys` 归 `base`。媒体模块将来要同时 import `@base` + `@shell` + `@widget` + `ui`。
-- 因此 Batch 2 的 import 迁移清单必须含 `modules/gui-media` 与 `examples`（见 §4 步骤 5），并且每批改完逐模块重跑 `--deny-warn`——经 `moon.work` 本地解析的消费者不在主模块门禁的视野里。
+- 引擎在 `media/`，只有引擎没有 UI：帧以 RGBA 字节交出，由调用方灌进 `@render` 的 `Bitmap` 再走 Painter 合成。
+- 播放器组件用 `ui` 的现成控件（`icon_button`、`button`）。方向是 media → ui——ui 不认媒体，无环；ui 是纯内部层，不拉外部重资产，判据不变。
+- 依赖面：`base` + `shell` + `widget` + `render`/`text`/`theme`/`icons` + `ui`，加 `ffmpeg-mbt` 与 `yoga-mbt`。
 
-## 4. 执行批次
-### Batch 1：`gui-webview` 出模块（小改、立刻见效）
+## 4. 约束与红线
 
-| 步骤 | 改动 |
-| --- | --- |
-| 1 | 创建 `modules/gui-webview/moon.mod`（`NoahLiu/gui-webview`, 0.1.0, prebuild -> prebuild.py） |
-| 2 | 平移 `gui/web/` 的全部源文件 + C stub + vendor + include/lib 到 `modules/gui-webview/` |
-| 3 | 修改 `gui-webview/prebuild.py`：分平台分支（Windows → WebView2 libs/h; Linux → WebKitGTK pkg-config） |
-| 4 | 更新 `gui/scripts/prebuild.py`：删除 VENDOR_FILES 和 WEB_PACKAGE 条目；在 stderr 提示 "WEB moved to gui-webview module" |
-| 5 | `moon.work` 加入 `"modules/gui-webview"`；消费方通过 `import "NoahLiu/gui-webview/webview"` 替代旧的 `NoahLiu/native-gui/web` |
-| 6 | 验证：`cd gui && moon check` 零警告（web 不再被引用，需确认没有遗留消费者）；`cd modules/gui-webview && moon check --deny-warn` 零警告 |
+- **模块外消费者进迁移清单**：跨包改名/import 迁移必须覆盖 `modules/*`、`examples/`、`experiment/`——它们经 `moon.work` 本地解析，不在主模块门禁的视野里，漏一个就是「已推送的树断链」。每批改完逐模块重跑 `--deny-warn`。
+- **工具链没有再导出**：无 `pub use`，`moon.pkg` 的对象式 `import-all` 解析器不认；类型别名转不出枚举构造子，跨包消费方要写全限定变体（`@widget.PointerKind::Down`、`@shell.MenuRole::Copy`），这也是终态写法。
+- **未用 import 会判红**：`--deny-warn` 下删文件必须同步删 `moon.pkg` 的 import。
+- **版本 lockstep**：`modules/*` 发布前同批递增版本号，CI 测试清单同步扩展到新模块。
+- **prebuild 复制劳动**：考虑抽 `scripts/shared_prebuild.py`；先解决功能再抽象。
 
-预计成本：半天——源文件移动、prebuild 重写、导入路径替换。收益：原生路线产物少 14 MB vendor，离线构建不触网络。
+## 5. 待定问题
 
-### Batch 2：Core 三刀（大改、三条路线共用）
-
-| 步骤 | 改动 |
-| --- | --- |
-| 1 | 创建 `gui/base/`：平移 signal、store、effect、keys、focus、list_store、prof、tick、node；对应 wbtest 同搬；`moon.pkg` 声明 `supported_targets = "native"` |
-| 2 | 创建 `gui/shell/`：平移 loop、host、menu、hotkey、tray、notify、reveal、drag；app.mbt 的「开窗/泵/子件槽/resize」段提进此包 |
-| 3 | 重排 app.mbt（914 行）：保留 root.on_draw + paint_frame 在 widget 层；shell 层暴露 `ShellApp` 类型（loop + host + resize，不含 Painter） |
-| 4 | 创建 `gui/widget/`：平移 widget、overlay、overlay_native、app 剩余部分；改用 `@base` 和 `@shell` |
-| 5 | 更新所有下游包的 import：`ui` / `chart` / `mdview` 里 `@core` → 拆分成 `@base`/`@shell`/`@widget`；**模块外消费者同批迁移**——`modules/gui-media` 的引擎 + 两个播放器组件 + 控制条、`examples` 的 audio/video 示例、`examples/` 的 showcase/browser/sysmonitor…、`experiment/` 各探针。漏掉模块外消费者不是编译期能发现的：它们经 `moon.work` 本地解析，改完主模块若不重跑各模块 `--deny-warn` 就是「已推送的树断链」——拆包一批踩过，systemprobe 15 处 |
-| 6 | 验证：`cd gui && moon check --deny-warn` 零警告；`cd gui && moon test` 逐包通过；示例正常编译运行 |
-
-预计成本：2-3 天——主力工作是 app.mbt 解耦和 import 迁移。收益：Tauri 整页壳可以用 `shell` + `webview` 组合跑起来；纯 3D 同理用 `shell` + 新 `gui-3d` 模块搭地基，不碰 widget。
-
-## 5. 风险与缓解
-
-| 风险 | 缓解 |
-| --- | --- |
-| `core` 重新划包导致大量 import 路径变更 | 分批做、每批独立可编译；实测过渡形态取**包内 compat 薄层**（2026-10-17 步骤 1：`gui/core/compat.mbt` 用类型别名转发结构体/枚举、函数逐条转调、常量按值重定义——别名让 `@core.Store::new`、`s.subscribe(..)` 这类静态调用与方法调用全部原样可编，下游零改动；本工具链无 `pub use`，且 `moon.pkg` 的对象式 `import-all` 导入解析器不认（实测报 `unexpected token {`） |
-| `shell` 和 `widget` 之间的边界模糊 | 严格守约：`widget` 能调 `@shell`，但不能反调；Painter 契约只在 `widget` 出现 |
-| `modules/*` 版本脱节 | 发布前同一批递增版本号，参照 0.1.1 重发流程；CI 测试清单扩展到新模块 |
-| prebuild 复制劳动 | 考虑抽 shared library，如 `scripts/shared_prebuild.py`；先解决功能再抽象 |
-
-## 6. 可执行细案（2026-10-16 勘察，行号按当日文件）
-
-### 6.1 Batch 1：`gui/web` → `modules/gui-webview`（2026-10-16 已交付）
-
-**文件清单（实测）**：11 个源/桩文件 + 2 个 vendor 目录，vendor 合计 **14 MB**——`lib/` 11 MB、`include/` 2.9 MB。
-
-- MoonBit：`webview.mbt` 20 KB、`scheme.mbt` 6.4 KB、`dom.mbt` 4.7 KB、`ffi.mbt` 4.1 KB，加 `webview_wbtest` / `scheme_wbtest` / `dom_wbtest` 三条与 `moon.pkg`
-- C 桩：`webkit_stub.c` 32 KB、`webview2_stub.c` 72 KB
-- 资产：`include/` 含 `WebView2.h` 等，`lib/` 含 `WebView2LoaderStatic.lib`
-
-**消费者（实测）**：全仓只有 **一处** import `NoahLiu/native-gui/web`——`examples/browser/moon.pkg`。§4 步骤 6 里「确认没有遗留消费者」这条已经量掉，迁移面比原估更小。
-
-**prebuild 改动点**（`gui/scripts/prebuild.py`）：
-
-| 位置 | 现状 | 去向 |
-|---|---|---|
-| `:40` | `WEB_PACKAGE = "NoahLiu/native-gui/web"` | 删 |
-| `:43` | `WEBKIT_PKG_CONFIG = "webkit2gtk-4.1"` | 移进新模块 |
-| `:47-67` | `VENDOR_FILES`（WebView2 lib + h，带 sha256） | 整块移进新模块 |
-| `:69` | vendor 下载与校验循环 | 移 |
-| `:193-215` | Linux：探 webkit2gtk-4.1 → 编 `webkit_stub.c` → 给 `WEB_PACKAGE` 下发 link_configs | 移；主仓不再编 webkit 桩 |
-| `:295-310` | Windows：WebView2 静态 Loader + 头 + link_configs | 移 |
-
-新模块骨架照 `gui-media` 的形态：`modules/gui-webview/moon.mod`——`NoahLiu/gui-webview` 0.1.0 + `--moonbit-unstable-prebuild`；`prebuild.py`——三分支：Linux WebKitGTK / Windows WebView2 / 其余平台空 link_configs；`webview/` 子包装源与桩。
-
-**接口口径（把 §7 未决 #1 定死）**：现在 `webview_new(app : @core.App, …)` 与 `Webview::node(…)` 都吃 core 的 `App`/`Node`。**建议 Batch 1 保持 import `NoahLiu/native-gui/core`**——「出模块」与「去 GUI 核心依赖」是两件事：Batch 1 只搬 14 MB vendor 与 WebKitGTK 探测，去核心依赖等 Batch 2 的 `ShellApp` 定案后再做，否则 Batch 1 会卡在未决接口上做不完。
-
-**验收判据**：`cd gui && moon check --deny-warn` 零警告，主模块再无 web；`cd modules/gui-webview && moon check --deny-warn` 零警告 + `moon test`；`cd examples && moon build browser` 通过；真机 `moon run examples/browser` 出页，由用户执行；CI 矩阵加一条，Linux 装 `libwebkit2gtk-4.1-dev`、Windows 拉 vendor；`moon.work` 增成员。
-
-**回滚点**：整批 = 一次 `git mv` + 两个 prebuild 编辑 + 一处 import 改名，单提交，`revert` 即回。
-
-**交付实录（2026-10-16）**：判据全过——库 `check --deny-warn` 零警告（13 包）、`gui-webview` 模块 check 零警告 + `moon test` 1194/1194（全 workspace 闭包）、`examples/browser` 全量重链通过 + 本机冒烟起进程 26 秒优雅退出。三条细案没预见的实测：
-1. **prebuild 的 stdin 只给 `paths.module_root` 与 `paths.out_dir`**（探针实测），没有依赖模块路径——webkit 真实现引用主模块 win 桩的 `wm_surface_container()`，新模块定位 `libyue_win_stub.a` 只能按「workspace 兄弟目录 → `$MOON_HOME` 依赖缓存 → 当前工作区 `_build` glob」三处探，探不到就退占位分支（探测返回不可用，不断链）。**registry 消费方（非 workspace）那条路径未经实测**，发布前要在最小工程验一次或改契约。
-2. **消费方模块必须在自己 `moon.mod` 的 `import` 里声明 `NoahLiu/gui-webview@0.1.0`**——只改包 import 不声明模块，moon 报「containing module is not imported」（`examples/moon.mod` 已补）。
-3. **vendor 的 `WebView2.h`/`WebView2LoaderStatic.lib` 本就不入库**（Release 资产 + .gitignore），`git mv` 只搬了 `SDK-LICENSE.txt` 与 `WebView2EnvironmentOptions.h`；下载清单与 .gitignore 路径已同步改到 `modules/gui-webview/webview/`。
-
-### 6.2 Batch 2：`core` 三刀
-
-`core/app.mbt` 实测 **976 行、46 个顶层定义**。分段依据按归属计数：
-
-| 归属 | 定义数 | 代表定义（行号） |
-|---|---|---|
-| `shell` | 26 | `app_window`(131)、`App::new`(198)、`open_window`(206)、`close_window`(939)、`run`(956)、`step`(856)、`drain_events`(894)、`route`(570)、`raw_to_event`(535)、`timer`(431)、`quit`(455)、`set_fullscreen`(247)、`move_focus`(508)、`add_key_fallthrough`(66)、`install_host_hooks`(103)、`follow_system_theme`(261) |
-| `widget` | 13 | `mount`(286)、`enable_root_scroll`(300)、`schedule_paint`(339)、`paint_frame`(790)、`mark_widget_rect`(379)、`mark_state_chain`(389)、`mark_focus_rect`(410)、`rect_union`(348)、`accept_widget_rect`(367)、`dirty_clip`(373)、`text_batch_init`(776)、`sync_focus`(502)、`flush_ime_for_switch`(472) |
-| `base` | 4 | `now_ms`(72)、`sys_color_scheme`(77)、`sys_accent`(82)、`local_ymd`(89)——平台只读探针转发，也可归 `shell`，定案时一并拍 |
-
-**三个真难切点**：写码前必须先定接口，否则中途编不过。
-
-1. **`App` 是一个跨三层的 struct**（`:17`）。字段里 `window`/`sched`/`host` 属 shell，`root`/`canvas`/`dirty*` 属 widget，`focus` 属 base，`hover_id`/`capture`/`cursor_kind`/`last_preedit`/`ime_focus` 散在 shell 与 widget。§3.1 说 shell 暴露 `ShellApp`、不含 Painter——**意味着 `App` 必须一分为二**：`ShellApp` 是泵 + 窗 + 焦点栈，`App = { shell : ShellApp, root, 脏区, canvas, … }`。这才是本批的真实工作量，不是 import 改名。
-2. **`route` 占 570-693 行共 124 行，同时做三件事**：事件分类属 shell，焦点投递属 base/shell，脏区标记属 widget。切法：shell 只做到「原始事件 → 分类 → 交给注入的 sink」，`mark_*` 与 `dispatch_*` 整段进 widget，sink 由 widget 层装配时注入——进程级单槽有先例：`set_repaint_hook` / `set_timer_hooks`。
-3. **`pump_ime` 占 706-768 行，跨 `win` + `text` + `root` 三层**：IME 门控调 `@win`，文本批量初始化调 `text`，preedit/commit 投递调 root。建议 IME 整块留 widget——它服务的就是编辑控件；shell 只在 `step` 里调注入的 `on_frame`。
-
-**迁移顺序**：每步独立可编译、可回滚。
-
-0d. **步骤 3·widget 刀（2026-10-17 已交付）**：`gui/widget` 收 `widget`/`node`/`overlay`/`overlay_native`/`popup`/`drag`/`input_map` + `app.mbt`/`host.mbt`（App 主体、注册表、泵循环、绘制帧、输入法投递全部入住），`gui/core` 退为**纯门面包**（只剩 `compat*.mbt` 三张转发表）。实测三条：
-   ① **裸枚举变体是拆包最硬的收费点**：`@core.Down`/`Up`/`Move`/`Leave`/`FilePaths` 全仓约 290 处，别名转不出构造子、同名函数又会被解析成「类型上的方法」（`pub fn Down()` 报 `The type/trait Down is not found`），所以调用点一律改成 `@widget.PointerKind::Down` 全限定形态——这一步做完才轮到门面别名生效，也是「过渡包省事」预判被证伪的地方。
-   ② 包内书写形态靠 `gui/widget/aliases.mbt` 的私有别名与裸名转发（`Rect`/`FocusStack`/`Signal`/`Loop`/`Session` + `host_*` 壳层族 + KS/MOD 常量），迁移期不用把 widget 源码全量改成 `@base.`/`@shell.` 限定。
-   ③ `gui/core/moon.pkg` 瘦到 base/shell/widget/win/sys 五项；未用 import 会被 `--deny-warn` 判红，删文件必须同步删 import。
-   验证：库 16 包 `test` 967/967、全仓 `--deny-warn` 零警告（清 `_build` 重编）、全 workspace 1194/1194、hello/showcase/browser/sysmonitor native 重链 + hello 真窗冒烟优雅退出。
-
-0c. **步骤 2·乙核心手术（2026-10-17 已交付）**：`gui/shell/session.mbt` 落地 `Session`（平台窗 + 共用 `Loop` + 窗号/主窗/退出位 + 悬停/捕获/光标/IM 去重缓存 + 整窗 `dirty` 标志 + 泵推进 `session_pump_advance` + 定时器/quit/close 裁决），`host.mbt` 瘦身为「窗号 → 挂了内容的 App」的 widget 侧半本账（`g_apps : Map[Int, App]`），`App = { session, root, focus, host, canvas, dirty_rect, dirty_full, key_fallthrough }`。实测五条：
-   ① **`App` 的字段不再对外**（原 `pub(all)`）——外部模块的无头回归（gui-webview 造假宿主）改走新增的 `@core.test_app(@core.fake_session(..))` 通道；仓内三份假窗 wbtest 同步改走 `fake_session`。
-   ② **事件词汇留在 widget 层**：`PointerKind` 的 `Down/Up/Move/Leave` 有约 290 处 `@core.` 裸变体用法，而工具链**别名不导出构造子**（实测），把事件类型搬进 shell 会当场断掉这批调用点；shell 的泵因此做成「无参 handler 注入」形态，`step` 的排空/输入法/绘制循环留在 widget 层（`@shell.session_pump_advance()` 是泵里唯一归壳层的段）。
-   ③ `host_add_app` 对没进壳层账本的窗（手搓假窗）补 `@shell.host_add`，生产路径仍由 `session_open` 建好即入册——不重复推。
-   ④ 空 Map 字面量口径：`Map[]` 解析不过，`Map::of([])` 弃用且仍报错，**`Map([])` 才编得过**（本工具链实测）。
-   ⑤ 重绘广播经 `@shell.set_repaint_sink`（widget 装配时注入 `host_repaint_all`），与 `set_repaint_hook` 进程级单槽同形——壳层不认识控件树。
-   验证：库 15 包 `test` 967/967、`moon check --deny-warn` 零警告；全 workspace 1194/1194；hello/showcase/browser 重链并本机真窗冒烟（hello 存活 ~1 分钟优雅退出、showcase 15 页 26 秒无 panic、`kill -TERM` 自退）。
-
-0b. **步骤 2·乙首批（2026-10-17 已交付）**：`loop.mbt` 与四个只读探针（now_ms/sys_color_scheme/sys_accent/local_ymd）进 shell；core 用 `pub type Loop = @shell.Loop` + 函数转调门面化，下游 `@core.set_timeout` 等零改动。**卡点定案**：`host.mbt` 不能整文件进 shell——它写 `a.dirty*`、走 `a.root.by_id`+`mark_widget_rect`，App 定义处 import shell 会成包环；余下的 2·乙必须先做 Session 手术（注册表存壳层记录、绘制广播经注入 sink 转投，先例 `set_repaint_hook`）。
-
-0a. **步骤 2·甲（2026-10-17 已交付）**：`gui/shell` 收 menu/hotkey/tray/notify/reveal 五族（与控件树零耦合，只吃 win/sys/dbus）+ 五条 wbtest；core 加 `compat_shell.mbt` 转发。实测两条修正：① **枚举变体转发不了**——别名不导出构造子，且 `Unsupported`/`Failed` 在 TrayError/HotkeyError 里重名无法各自转值，所以外部消费方（showcase 的 system/window 页、menu_probe、hotkey_probe）直接改 `@shell.MenuRole::Copy` 这类全限定写法，这也是终态写法；② **drag.mbt 不在本刀**——它的 `drag_window_root_of`/`set_drag_root` 吃 Widget，留 core 随 widget 刀定归属。`base` 刀同批交付。
-
-1. 建 `base/`（2026-10-17 已交付）：搬 `signal`/`store`/`effect`/`keys`/`focus`/`list_store`/`prof`/`tick` 八文件 + 对应 wbtest。`node` 不在本刀——它的 `mount : (Widget) -> Widget` 直接吃 widget 层类型，落位归步骤 3 的 `widget/`；`node_wbtest` 两条读 `Signal` 内部字段 `node.subs` 的断言改走公开 `sub_count()`（跨包私有字段不可见，顺带把测试拉回公开 API）。`prof_record` 从包私有提为公开——core 的帧账本调用点跨包了。
-2. 建 `shell/`：搬 `loop`/`host`/`menu`/`hotkey`/`tray`/`notify`/`reveal`/`drag` + `app.mbt` 的 26 个 shell 定义；此步 `App` 一分为二、`ShellApp` 落地。
-3. 建 `widget/`：搬 `widget`/`overlay`/`overlay_native` + `app.mbt` 剩余 13 个定义。
-4. 集中改 import：`ui`/`chart`/`mdview` + **模块外消费者**——`modules/gui-media`、`examples`、`examples/*`、`experiment/*`，一次一批包。
-5. 门禁：`cd gui && moon check --deny-warn` + 分包 `moon test` + 各模块 `--deny-warn` + 示例构建。
-
-**过渡形态（把 §7 未决 #2 定死）**：本工具链**没有 `pub use` 再导出**，`moon.pkg` 的对象式 `import-all` 导入解析器不认（实测，2026-10-17）。落地形态是**包内 compat 薄层**：拆分把文件挪进新包后，在原包里写一个 `compat.mbt`——结构体/枚举用类型别名、顶层函数逐条转调、常量按值重定义；别名让 `@core.Store::new` 与方法调用原样可编，`@core.*` 调用点因此在迁移期一行不改。比独立聚合包少一层长期维护的面子包，也比一步改完安全（每步绿色）。判据是调用点总数：`@core.` 在 `gui/` + `examples/` + `experiment/` + `modules/` 的 `.mbt` 里出现 **3528 次**（实测 grep 计数，含注释与文档行；只算主模块 `gui/` 是 2302 次）。全量改是数千处机械编辑加四轮编译报错驱动，聚合包则多一层长期维护的面子包。**建议**：先按这个量级拍，别默认「过渡包更省事」。
-
-**风险红线**：步骤 1-3 期间 `core` 与三个新包并存、调用点不动；**不要在步骤 1 就删 `core`**——那是唯一会让全仓中途编不过的做法。每步一个提交，出问题 revert 该步。
-
-## 7. 未决问题
-
-- `webview_new(app : @core.App, ...)` 的接口签名换成什么？`ShellApp`？还是 `Node` 形态的 `Webview::bare()` 统一入口？取决于 Batch 2 做完后 `ShellApp` 的公开面。
-- 现有 consumer（showcase、native-app）import `@core.*` 的数量较多，是否需要过渡期 re-export？
-- `gui-3d` 的初步范围：GLFW 窗口创建 + OpenGL ES/Vulkan 上下文，还是只用已有的 `win` 子件槽挂 canvas？这会影响 `shell` 是否需要额外抽象。
+- `gui-3d` 的初步范围：GLFW 窗口创建 + OpenGL ES/Vulkan 上下文，还是复用 `win` 的子件槽挂 canvas？这决定 `shell` 是否需要额外抽象。

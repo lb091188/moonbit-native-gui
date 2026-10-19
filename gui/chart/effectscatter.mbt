@@ -191,8 +191,8 @@ pub fn eff_alpha_u8(a : Double) -> Int {
 /// 主题色按 alpha 量化成 "#AARRGGBB"（libyue 的 alpha 在前约定，见
 /// color.mbt with_alpha）；base 非法时原样返回。
 fn eff_alpha_color(base : String, a : Double) -> String {
-  // 8 位输入按旧链路 AARRGGBB 约定：RGB 取后 6 位，alpha 位换新值
-  // （新栈 Color::parse 的 8 位语义是 RGBA、alpha 在后，不能直接喂）
+  // 8 位输入是 `#AARRGGBB`：RGB 取后 6 位，alpha 位换新值
+  // （`Color::parse` 的 8 位语义是 RGBA、alpha 在后，不能直接喂）
   let rgb_src = if base.length() == 9 && base[0] == '#' {
     "#" + base[3:].to_owned()
   } else {

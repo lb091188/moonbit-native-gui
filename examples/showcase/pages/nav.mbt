@@ -1,13 +1,12 @@
 // 导航组件页：页面切换状态 selected 本身是导航 Store（侧栏菜单/分段/面包屑
 // 共享），页内演示状态用本地 Store。
 //
-// G7 迁移记档（与 master 的差异）：
-// ① `tag("右键我", "#2D68C4", style=[...])` 的 CSS 宽高换命名参数（本栈 `tag`
-//    只有 `size` 字号参数，定宽包一层 `@ui.view`）；
-// ② 「原生弹出菜单」段跳过——本栈 `Menu` 尚无 `popup_at` 右键弹出形态
-//    （菜单栏形态已在 `examples/native-app` 演示，弹出形态随窗口页接线批补）；
-// ③ `radio_group` 同页级 Store 的口径与 master 一致：菜单项/面包屑写**存在**
-//    的页面名会直接切换页面（共享同一导航 Store 是刻意的联动演示）。
+// 三条口径：
+// ① `tag` 只有 `size` 字号参数，定宽要包一层 `@ui.view`；
+// ② 「原生弹出菜单」段跳过——`Menu` 尚无 `popup_at` 右键弹出形态
+//    （菜单栏形态在 `examples/native-app` 演示，弹出形态待窗口页接线补）；
+// ③ 菜单项/面包屑写**存在**的页面名会直接切换页面（共享同一导航 Store 是
+//    刻意的联动演示）。
 pub fn page_nav(app : @shared.App) -> @widget.Node {
   let page_no : @base.Store[Int] = @base.Store::new(2)
   let step : @base.Store[Int] = @base.Store::new(1)

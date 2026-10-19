@@ -2,7 +2,7 @@
 
 Every self-drawn widget and the component library live in `NoahLiu/native-gui/ui` (alias `@ui`). Each component is a **constructor returning `@widget.Node`** — you describe the interface as a node tree and mount it once with `@ui.mount_window([...])`. This page lists each family's entry signatures and purposes as a quick reference; parameters always follow the code (`gui/ui/*.mbt`).
 
-> Runnable examples for every component are gathered in `examples/showcase` — a 14-page demo board, one source file per page, the fastest way in.
+> Runnable examples for every component are gathered in `examples/showcase` — one source file per page, the fastest way in.
 
 ## Conventions (read this first)
 

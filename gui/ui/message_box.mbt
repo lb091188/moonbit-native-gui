@@ -7,9 +7,8 @@
 // 上，共享同一套遮罩/居中/点外收起机制；差在**语义面**——
 //  - `dialog` 是「内容对话框」：调用方给任意内容树 + 确定/取消两个出口；
 //  - `message_box` 是「消息框」：图标（按消息种类）+ 正文 + informative 副行 +
-//    任意多个按钮（每个带自己的响应编号），对应旧链路 `MessageBox` 的
-//    `set_title`/`set_text`/`set_informative_text`/`add_button(title, response)`/
-//    `on_response` 语义面。
+//    任意多个按钮（每个带自己的响应编号），语义面是标题 / 正文 / 副行 /
+//    多按钮 / 响应回调。
 //
 // 三条设计口径（写清以免后续被当 bug 改）：
 // ① **响应编号由调用方给**（`add_button(title, response)` 同义），组件只把它原样
@@ -85,8 +84,7 @@ fn msgbox_alloc_focus_id() -> Int {
 /// - `visible`：`Store[Bool]` 驱动弹收（与 `dialog` 同制；开着时被图层收起也会
 ///   同步回 Store）。
 /// - `kind`：决定左侧图标与取色。
-/// - `text` 是正文；`informative` 是副行（次要色，可空）——对应旧链路的
-///   `set_text` / `set_informative_text`。
+/// - `text` 是正文；`informative` 是副行（次要色，可空）。
 /// - `buttons`：`(文案, 响应编号)` 列表，按给定顺序**从左到右**排（第一个是默认钮，
 ///   高亮成主色按钮）。文案传空串即跳过该钮。
 /// - `on_response`：点按钮时回调其响应编号（先收起再回调）。

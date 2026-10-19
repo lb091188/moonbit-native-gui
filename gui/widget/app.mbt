@@ -1,5 +1,5 @@
 // App 宿主：把「窗口 + 事件循环 + 控件树 + 输入法通道 + 上屏」收成一处，
-// 分层依据方案 §2 包表（App/Window、脏区重绘、命中测试、组件宿主同在 `widget`）。
+// 分层依据 proposals/module-structure.md §3.1（App/Window、脏区重绘、命中测试、组件宿主同在 `widget`）。
 //
 // 一条重要的分层约束：`input` 只依赖 `base`、与本包互不引用，所以编辑器与
 // 宿主的接缝做成控件回调形态——`on_key` /
@@ -8,14 +8,14 @@
 // `TextEditorHost` 收口形态（四签名 process_key/commit/preedit/set_cursor_rect
 // 逐一对应，只是从「一个 host 对象」换成「焦点控件的回调表」）。
 //
-// 三条既有纪律在这里继续成立（见 adaptation 的 G2/G4/G5 条）：时基必须先
+// 三条既有纪律在这里继续成立（见 proposals/adaptation.md）：时基必须先
 // `Loop::start`；置脏必须 `@win.wake()` 否则睡在 `wait` 里的循环不会醒；
 // 输入法每拍只喂**已提交**文本，`im_reset` 只在逻辑焦点换控件那一瞬调一次
 // （每拍调会一直打断组合，见 `Window::im_reset` 注释）。
 
 ///|
 pub(all) struct App {
-  /// 壳层窗（G9 Batch 2）：平台窗口、共用的 `Loop`、窗号与退出位、
+  /// 壳层窗：平台窗口、共用的 `Loop`、窗号与退出位、
   /// 悬停/捕获/光标/输入法去重缓存与帧脏标志。webview / 3D 路线只吃这一半。
   mut session : @shell.Session
   root : Widget
@@ -484,7 +484,7 @@ pub fn App::cancel_timer(self : App, id : Int) -> Bool {
 }
 
 ///|
-/// 推迟一拍执行（回调里不做重活的旧链路纪律）。
+/// 推迟一拍执行：回调里不做重活。
 pub fn App::task(self : App, work : () -> Unit) -> Unit {
   self.session.task(work)
 }

@@ -1,12 +1,12 @@
 // 表单组件页：Store/Signal 驱动。表单值是可写源 Store（组件直接吃 Store，
 // 组件写回即状态变化），展示端 bind_label/bind 直连派生。
 //
-// G7 迁移记档（与 master 的差异）：
-// ① `input_t` → `input`（Store 驱动）；`clearable` 同名参数已接（有内容且悬停/聚焦时右缘出 ✕，点它清空并回写 Store）；
-// ② `input_number`（Double）→ `stepper`（Int 步进器——自绘栈无原生输入框语义）；
-// ③ `radio_group` 的值从「选项字符串」换成「索引 Store[Int]」；
-// ④ `checkbox` 从「on_change 写回信号」换成「Store 即状态源」，语义等价；
-// ⑤ `style=[("width",…)]` 一类 CSS 通道不存在，宽高/间距全走命名参数。
+// 五条口径：
+// ① `input` 由 Store 驱动；`clearable` 在有内容且悬停/聚焦时右缘出 ✕，点它清空并回写 Store；
+// ② 数值用 `stepper`（Int 步进器——自绘栈无原生输入框语义）；
+// ③ `radio_group` 的值是索引 `Store[Int]`；
+// ④ `checkbox` 的 Store 即状态源；
+// ⑤ 宽高/间距全走命名参数（没有 CSS 样式通道）。
 pub fn page_form(_app : @shared.App) -> @widget.Node {
   let qty : @base.Store[Int] = @base.Store::new(3)
   let qty2 : @base.Store[Int] = @base.Store::new(1)

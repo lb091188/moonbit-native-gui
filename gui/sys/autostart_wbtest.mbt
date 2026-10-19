@@ -3,7 +3,7 @@
 //      app_id 校验 / 错误 Show）——无后端依赖，任何平台都可跑；
 //   ② 生命周期（enable → is_enabled → 落点可读 → disable → 幂等再 disable）——
 //      **真实落盘 / 真实写注册表**，只在 `autostart_supported()` 的平台上跑
-//      （macOS 本批 Unsupported 时自动跳过，不造假）。
+//      （macOS Unsupported 时自动跳过，不造假）。
 //
 // 生命周期用的是探针专属 app_id，且**开头与结尾都先 disable**：开头那次是防
 // 上一次跑到一半崩掉留下的陈旧条目，结尾那次是清场。

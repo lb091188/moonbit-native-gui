@@ -1,9 +1,9 @@
-// 壳层窗（G9 Batch 2 核心切口）：一扇「没有内容」的窗——平台窗口句柄、
+// 壳层窗：一扇「没有内容」的窗——平台窗口句柄、
 // 共用的 `Loop`、注册表键位、泵推进、定时器、退出与输入法通道原语。
 // 控件树/脏区/画布归 widget 层（`App = { session, root, … }`），webview / 3D
 // 路线只吃本层 + `win`，不必拖进整套自绘控件。
 //
-// 三条口径沿用 host.mbt（现已收进本文件）：
+// 三条口径：
 // ① **主窗**是注册表里的第一扇——关掉主窗即整体退出；关掉附窗只摘自己。
 // ② 重绘广播走注入的 sink（widget 层装配时挂上，先例 `set_repaint_hook`）：
 //    壳层不认识控件树，只知道「这批要重画」。
@@ -261,7 +261,7 @@ pub fn Session::cancel_timer(self : Session, id : Int) -> Bool {
 }
 
 ///|
-/// 推迟一拍执行（回调里不做重活的旧链路纪律）。
+/// 推迟一拍执行：回调里不做重活。
 pub fn Session::task(self : Session, work : () -> Unit) -> Unit {
   self.sched.post_task(work)
 }

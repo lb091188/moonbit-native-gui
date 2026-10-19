@@ -4,13 +4,11 @@
 // 不重建视图树。代码区顶行常驻「复制」，点击写入剪贴板并经全局
 // toast 回显（钩子由 main 注入）。
 //
-// 新栈口径（G7 记档，与 master 线的三处机械差）：
-// ① 组件返回 `@widget.Node` 且不接 `style=[...]`，间距/内边距一律走容器参数
-//    （`padding`/`row_gap`）——旧链路那套 CSS 字符串在本栈不存在；
-// ② 显隐从 `View::set_visible` 换成 `Widget::set_visible`，惰性挂载从
-//    `Node::mount_into(View)` 换成 `Node::mount_into(Widget)`，机制不变；
-// ③ 「段滚动区撑满剩余高度」在旧链路写 `style=[("flexgrow",1.0)]`，本栈在
-//    `handle` 里对滚动视口直接置 `flex_grow`（滚动容器本身不接 grow 参数）。
+// 本栈口径：
+// ① 组件返回 `@widget.Node`，间距/内边距走容器参数（`padding`/`row_gap`）；
+// ② 显隐走 `Widget::set_visible`，挂载走 `Node::mount_into(Widget)`；
+// ③ 「段滚动区撑满剩余高度」在 `handle` 里对滚动视口直接置 `flex_grow`
+//    （滚动容器本身不接 grow 参数）。
 
 ///|
 /// 全局 toast 推送钩子：main 创建 `toast_layer` 后注入，代码区「复制」回显用。
