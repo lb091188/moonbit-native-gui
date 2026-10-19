@@ -5461,6 +5461,30 @@ static void wm_dnd_session_clear(void) {
   wm_dnd_drop_armed = 0;
 }
 
+// GTK 在 GDK_DROP_START 时会先发 drag-leave（反高亮）再发 drag-drop。leave 若
+// 当场收会话，紧随其后的 drop 就投不进（MoonBit 侧会话已关）。所以 leave 记成
+// 待收，空闲时再落；同一趟里来了 drop 就取消它。
+static guint wm_dnd_leave_id = 0;
+static int wm_dnd_leave_slot = 0;
+
+static gboolean wm_dnd_flush_leave(gpointer data) {
+  (void)data;
+  wm_dnd_leave_id = 0;
+  int slot = wm_dnd_leave_slot;
+  if (slot > 0 && wm_dnd_active_slot == slot && wm_dnd_enter_sent) {
+    wm_dnd_push(slot, 2, 0, 0);
+  }
+  wm_dnd_session_clear();
+  return G_SOURCE_REMOVE;
+}
+
+static void wm_dnd_cancel_leave(void) {
+  if (wm_dnd_leave_id != 0) {
+    g_source_remove(wm_dnd_leave_id);
+    wm_dnd_leave_id = 0;
+  }
+}
+
 // 拖入目标表：info 0 = uri-list（→Paths）、1 = 文本（→Text）
 static const GtkTargetEntry wm_dnd_targets[] = {
     {"text/uri-list", 0, 0},
@@ -5501,6 +5525,8 @@ static gboolean wm_dnd_on_motion(GtkWidget *widget, GdkDragContext *ctx,
   (void)y;
   WmWindow *w = (WmWindow *)data;
   int slot = (int)(w - wm_windows);
+  // 同一趟里指针又回来了：取消待收的 leave，会话照旧。
+  wm_dnd_cancel_leave();
   if (ctx != wm_dnd_ctx) {
     // 新 GdkDragContext = 新会话。上一趟若是源自家的会话在本窗收口/abort，
     // 或者 leave 漏了，have_payload/asked/enter_sent 会留在账上——这一趟就
@@ -5551,15 +5577,17 @@ static void wm_dnd_on_leave(GtkWidget *widget, GdkDragContext *ctx,
   int slot = (int)(w - wm_windows);
   wm_gtk_dnd_log("dest leave slot=%d active=%d sent=%d", slot,
                  wm_dnd_active_slot, wm_dnd_enter_sent);
-  if (wm_dnd_active_slot == slot && wm_dnd_enter_sent) {
-    wm_dnd_push(slot, 2, 0, 0);
-  }
-  wm_dnd_session_clear();
+  // 延迟收：drop 前 GTK 必发这一声，当场收会把紧随的投递丢掉。
+  wm_dnd_leave_slot = slot;
+  wm_dnd_cancel_leave();
+  wm_dnd_leave_id = g_idle_add(wm_dnd_flush_leave, NULL);
 }
 
 static gboolean wm_dnd_on_drop(GtkWidget *widget, GdkDragContext *ctx,
                                gint x, gint y, guint time, gpointer data) {
   int slot = (int)((WmWindow *)data - wm_windows);
+  // drop 紧跟着 leave 来：取消待收的 leave，会话留给下面投递分支收。
+  wm_dnd_cancel_leave();
   wm_dnd_active_slot = slot;
   wm_gtk_dnd_log("dest drop slot=%d sent=%d have=%d asked=%d", slot,
                  wm_dnd_enter_sent, wm_dnd_have_payload, wm_dnd_asked);
@@ -5612,6 +5640,11 @@ static void wm_dnd_on_received(GtkWidget *widget, GdkDragContext *ctx,
     wm_dnd_push(slot, 3, (int)x, (int)y);
     wm_dnd_session_clear();
     gtk_drag_finish(ctx, n > 0, FALSE, time);
+    return;
+  }
+  // 会话已收（drop/leave 之后来的迟到回包）：不再开新会话。
+  if (wm_dnd_active_slot != slot) {
+    wm_gtk_dnd_log("dest recv-late slot=%d n=%d", slot, n);
     return;
   }
   if (n > 0) {
