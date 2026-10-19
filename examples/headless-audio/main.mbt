@@ -4,13 +4,13 @@
 // 本示例走 HeadlessAudio，用注入的 `schedule` 通道自驱动 pump——同样能播、同样
 // 能调音量/倍速/跳转，区别只在没有窗口。
 //
-// 跑法：moon run modules/gui-examples/headless-audio
-//       （默认资产 modules/gui-examples/assets/1.mp3，播 6 秒后退出）
+// 跑法：moon run examples/headless-audio
+//       （默认资产 examples/assets/1.mp3，播 6 秒后退出）
 
 ///|
 fn asset_candidates(name : String) -> Array[String] {
   [
-    "modules/gui-examples/assets/" + name,
+    "examples/assets/" + name,
     "../assets/" + name,
     "assets/" + name,
   ]
@@ -31,7 +31,7 @@ fn main {
   let path = match resolve_asset("1.mp3") {
     Some(p) => p
     None => {
-      println("HEADLESS: 找不到 assets/1.mp3（候选 modules/gui-examples/assets/）")
+      println("HEADLESS: 找不到 assets/1.mp3（候选 examples/assets/）")
       return
     }
   }

@@ -1,10 +1,16 @@
 members = [
   "gui",
-  "examples",
   "experiment",
   "modules/ffmpeg-mbt",
   "modules/yoga-mbt",
-  "modules/gui-examples",
   "modules/gui-media",
   "modules/gui-webview",
+  "examples/hello",
+  "examples/hello-themed",
+  "examples/showcase",
+  "examples/browser",
+  "examples/sysmonitor",
+  "examples/audio",
+  "examples/video",
+  "examples/headless-audio",
 ]

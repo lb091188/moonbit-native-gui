@@ -1,10 +1,10 @@
-name = "NoahLiu/native-gui-examples"
+name = "NoahLiu/native-gui-examples-browser"
 
 version = "0.1.0"
 
 preferred_target = "native"
 
-description = "native-gui 独立示例模块：hello / 主题 / showcase（组件库+系统能力探测+扩展图表）/ 浏览器 / 系统监视器"
+description = "browser 内嵌 WebView 浏览器示例"
 
 license = "MIT"
 
