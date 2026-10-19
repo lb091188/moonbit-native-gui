@@ -3755,6 +3755,7 @@ int wm_clipboard_set_text(const char *text) {
 
 #include <gtk/gtk.h>
 #include <poll.h>
+#include <stdarg.h> // 拖出诊断落盘 wm_gtk_dnd_log 的可变参数
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -4330,12 +4331,32 @@ static void wm_apply_type(GtkWindow *win, GdkWindow *gw, int kind) {
                   (unsigned char *)&value, 1);
 }
 
+/* EWMH 状态客户端消息：请窗口管理器改它自己的内部栈
+ * （action：0=REMOVE 1=ADD 2=TOGGLE）。合成器运行期的画序按 WM 的窗口列表排，
+ * 客户端直接改 _NET_WM_STATE 属性或 XLowerWindow 只影响 X 侧（map 时的读值与
+ * 输入栈），WM 不重新排——必须走这条消息。 */
+static void wm_send_state(Display *dpy, Window xid, long action,
+                          const char *state_name) {
+  XEvent ev;
+  memset(&ev, 0, sizeof(ev));
+  ev.xclient.type = ClientMessage;
+  ev.xclient.window = xid;
+  ev.xclient.message_type = XInternAtom(dpy, "_NET_WM_STATE", False);
+  ev.xclient.format = 32;
+  ev.xclient.data.l[0] = action;
+  ev.xclient.data.l[1] = XInternAtom(dpy, state_name, False);
+  ev.xclient.data.l[2] = 0;
+  ev.xclient.data.l[3] = 1; // source: application
+  XSendEvent(dpy, RootWindow(dpy, DefaultScreen(dpy)), False,
+             SubstructureRedirectMask | SubstructureNotifyMask, &ev);
+  XFlush(dpy);
+}
+
 /* W34 窗口层级：0=normal 1=desktop(沉底) 2=always-on-top 3=dock
  *
- * keep_above/keep_below 是 _NET_WM_STATE，即时生效；窗口类型是 map 时读的，
- * 对已映射窗改属性 WM 不重新分层——所以类型档切换一律走
- * 「unmap → 挂新类型 → 原位 remap」。桌面层再补一次 lower，落到
- * Cinnamon 壁纸之上、nemo 图标窗之下。 */
+ * 窗口类型是 map 时读的，对已映射窗改属性 WM 不重新分层——类型档切换一律走
+ * 「unmap → 挂新类型 → 原位 remap」；_NET_WM_STATE 是运行期可读的，但画序归
+ * WM 的内部栈管，所以要再发一条状态客户端消息。 */
 void wm_set_layer(int64_t id, int layer) {
   if (id <= 0 || id >= WM_MAX_WINDOWS) return;
   WmWindow *w = &wm_windows[id];
@@ -4373,10 +4394,19 @@ void wm_set_layer(int64_t id, int layer) {
   while (gtk_events_pending()) {
     gtk_main_iteration_do(FALSE);
   }
+  // 画序按 WM 的内部栈排，客户端的 lower 只动 X 输入栈：先请 WM 把本窗压到
+  // 栈底（离开桌面层时撤销），再把输入栈也压低让图标收得到事件。
+  wm_send_state(dpy, xid, layer == 1 ? 1 : 0, "_NET_WM_STATE_BELOW");
+  wm_send_state(dpy, xid, (layer == 2 || layer == 3) ? 1 : 0,
+                "_NET_WM_STATE_ABOVE");
   if (layer == 1) {
-    gdk_window_lower(gw); // 压到桌面层栈底（图标之下）
+    gdk_window_lower(gw);
   }
   gdk_display_flush(disp);
+  XSync(dpy, False);
+  while (gtk_events_pending()) {
+    gtk_main_iteration_do(FALSE);
+  }
   XSync(dpy, False);
   gtk_widget_grab_focus(w->area);
   wm_mark_draw(w);
@@ -5215,6 +5245,38 @@ static int wm_dnd_drop_armed;
 static char wm_dnd_src[WM_DND_PAYLOAD_MAX];
 static int wm_dnd_src_len, wm_dnd_src_kind, wm_dnd_src_done, wm_dnd_src_ended,
     wm_dnd_src_action;
+static int wm_dnd_src_get_calls; // 对方来取了几回数据（0 = 这趟拖没人接）
+
+/* 拖出读数落盘 /tmp/libyue_dnd.log：grab 是否还挂着、drag-end 后 GTK 的收尾事件
+ * 排空了几条、对方有没有来取数据。这几项只有客户端进程内能看到（X 侧无查询
+ * 接口），拖一次即成一条记录，用于把「光标卡在 +」拆成 grab 漏还 / 光标残留
+ * 两种根因。 */
+static void wm_gtk_dnd_log(const char *fmt, ...) {
+  FILE *f = fopen("/tmp/libyue_dnd.log", "a");
+  if (f == NULL) {
+    return;
+  }
+  gint64 now = g_get_real_time();
+  fprintf(f, "%lld ", (long long)(now / 1000000));
+  va_list ap;
+  va_start(ap, fmt);
+  vfprintf(f, fmt, ap);
+  va_end(ap);
+  fputc('\n', f);
+  fclose(f);
+}
+
+// 本进程是否还抓着指针（GDK 侧读数；deprecated 的
+// gdk_display_pointer_is_grabbed 换成 seat 指针设备版）
+static int wm_gtk_pointer_grabbed(void) {
+  GdkDisplay *disp = gdk_display_get_default();
+  GdkSeat *seat = gdk_display_get_default_seat(disp);
+  GdkDevice *ptr = (seat != NULL) ? gdk_seat_get_pointer(seat) : NULL;
+  if (ptr == NULL) {
+    return 0;
+  }
+  return gdk_display_device_is_grabbed(disp, ptr) ? 1 : 0;
+}
 
 static void wm_dnd_push(int slot, int kind, int x, int y) {
   if (wm_dnd_qc >= WM_DND_Q) {
@@ -5584,6 +5646,7 @@ static void wm_dnd_on_data_get(GtkWidget *widget, GdkDragContext *ctx,
   (void)ctx;
   (void)info;
   (void)time;
+  wm_dnd_src_get_calls++;
   if (sel == NULL || wm_dnd_src_len <= 4) {
     return;
   }
@@ -5635,6 +5698,8 @@ static void wm_dnd_on_drag_end(GtkWidget *widget, GdkDragContext *ctx,
       gdk_drag_context_get_selected_action(ctx));
   wm_dnd_src_ended = 1;
   wm_dnd_src_done = 1;
+  wm_gtk_dnd_log("drag-end action=%d grabbed=%d", wm_dnd_src_action,
+                 wm_gtk_pointer_grabbed());
 }
 
 static gboolean wm_dnd_src_timeout(gpointer data) {
@@ -5691,6 +5756,9 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
   }
   // 阻塞到 drag-end（嵌套主循环，xdnd 协议在这里被 GTK 代跑）；60 秒超时
   // 救场，防止协议异常丢了 drag-end 把调用方永久挂住
+  GdkDisplay *disp = gdk_display_get_default();
+  wm_gtk_dnd_log("begin id=%lld kind=%d actions=%u grabbed=%d", (long long)id,
+                 kind, actions, wm_gtk_pointer_grabbed());
   guint timer = g_timeout_add_seconds(60, wm_dnd_src_timeout, w);
   while (!wm_dnd_src_done) {
     gtk_main_iteration();
@@ -5704,14 +5772,45 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
     // 与拖拽光标会留在系统里）
     gdk_drag_abort(ctx, GDK_CURRENT_TIME);
   }
-  // drag 期间指针 grab 由 GDK 持有；从 MoonBit 自己的事件栈起拖（非 GTK
-  // 派发栈内）时收尾可能漏掉 ungrab，表现为全局鼠标停在「+」复制光标。
-  // 拖拽已结束，这里补一次 seat ungrab + flush，恢复系统光标。
-  GdkSeat *seat = gdk_display_get_default_seat(gdk_display_get_default());
-  if (seat != NULL) {
-    gdk_seat_ungrab(seat);
+  // drag-end 只是协议收口的那一声，GTK 的 ungrab 与光标恢复排在它后面的事件里。
+  // 本进程从 MoonBit 事件栈里起拖（不在 GTK 派发栈内），后半段没人替我们跑完就
+  // 返回上层了——先把挂起事件排空，再算剩下的账。
+  int drained = 0;
+  while (drained < 200 && gtk_events_pending()) {
+    gtk_main_iteration_do(FALSE);
+    drained++;
   }
-  gdk_display_flush(gdk_display_get_default());
+  int grabbed = wm_gtk_pointer_grabbed();
+  wm_gtk_dnd_log("end id=%lld ended=%d get_calls=%d drained=%d grabbed=%d",
+                 (long long)id, (int)ended, wm_dnd_src_get_calls, drained,
+                 grabbed);
+  if (grabbed) {
+    // 仍挂着 = GTK 那条收尾路径没跑到；seat 级 ungrab 是 GTK3.24 唯一的公开出口
+    GdkSeat *seat = gdk_display_get_default_seat(disp);
+    if (seat != NULL) {
+      gdk_seat_ungrab(seat);
+    }
+    while (drained < 400 && gtk_events_pending()) {
+      gtk_main_iteration_do(FALSE);
+      drained++;
+    }
+    wm_gtk_dnd_log("post-ungrab id=%lld grabbed=%d", (long long)id,
+                   wm_gtk_pointer_grabbed());
+  }
+  // 起拖时 GTK 把拖拽光标设在源窗的 GdkWindow 上，drag-end 时复位；复位漏掉
+  // 就一路跟着指针走。这里清成 NULL（跟随主题默认形状），并把宿主缓存的形状
+  // 置为未知——下一次派发指针移动时按命中路径重装。
+  GdkWindow *top = gtk_widget_get_window(w->window);
+  GdkWindow *area_gw =
+      (w->area != NULL) ? gtk_widget_get_window(w->area) : NULL;
+  if (top != NULL) {
+    gdk_window_set_cursor(top, NULL);
+  }
+  if (area_gw != NULL) {
+    gdk_window_set_cursor(area_gw, NULL);
+  }
+  w->cursor_kind = -1;
+  gdk_display_flush(disp);
   if (wm_dnd_press != NULL) {
     gdk_event_free(wm_dnd_press);
     wm_dnd_press = NULL;
