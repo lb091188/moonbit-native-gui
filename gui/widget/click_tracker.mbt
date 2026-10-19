@@ -48,3 +48,48 @@ pub fn ClickTracker::is_double(self : ClickTracker) -> Bool {
 pub fn ClickTracker::is_triple(self : ClickTracker) -> Bool {
   self.click_count == 3
 }
+
+///|
+/// 键盘按键多击判定器：同一 keysym+mods 的按下在 400ms 窗口内再次出现时
+/// 计数 +1。下限 60ms 用来滤掉按住时的系统自动重复（典型重复间隔 25–40ms），
+/// 限幅内的人手连按才计为多击。
+pub(all) struct KeyTracker {
+  mut last_time : Int64
+  mut last_keysym : Int
+  mut last_mods : Int
+  mut press_count : Int
+}
+
+///|
+pub fn KeyTracker::new() -> KeyTracker {
+  { last_time: 0L, last_keysym: -1, last_mods: 0, press_count: 0, }
+}
+
+///|
+/// 收到按键按下时调：同一键在 60–400ms 内再按返回 2（双击），依次类推。
+pub fn KeyTracker::feed(self : KeyTracker, keysym : Int, mods : Int) -> Int {
+  let now = @shell.now_ms()
+  let dt = now - self.last_time
+  let same = keysym == self.last_keysym && mods == self.last_mods
+  if same && dt >= 60L && dt < 400L {
+    self.press_count = self.press_count + 1
+  } else {
+    self.press_count = 1
+  }
+  self.last_time = now
+  self.last_keysym = keysym
+  self.last_mods = mods
+  self.press_count
+}
+
+///|
+/// 是否构成按键双击。
+pub fn KeyTracker::is_double(self : KeyTracker) -> Bool {
+  self.press_count == 2
+}
+
+///|
+/// 是否构成按键三击。
+pub fn KeyTracker::is_triple(self : KeyTracker) -> Bool {
+  self.press_count == 3
+}
