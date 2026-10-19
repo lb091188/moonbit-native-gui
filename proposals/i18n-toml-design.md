@@ -1,5 +1,35 @@
 # 国际化（i18n）方案：TOML 翻译文件 + 运行时加载
 
+## 前置：全库字符串审计与改造范围（代码核实）
+
+选定范围为「全库组件改造」。据此对 `gui/` 全树做了中文字面量审计（排除 `*_wbtest.mbt`），
+共 **257 处中文串 / 64 文件**。但逐类核对后，**真正该走 i18n 的用户文案只占极少数**，
+机械地把每个 `"中文"` 包进 `t()` 是错的。必须按四类分流处理：
+
+| 类别 | 典型文件（命中数） | 是否 i18n | 正确处置 |
+|------|------|:---:|------|
+| **A. 中文注释/文档串** | `dbus/bus.mbt`(18)、`sni.mbt`(11)、大量 `chart/*.mbt`、`*.c` | ❌ | 项目约定注释用中文（AGENTS.md 规则 10），**不碰** |
+| **B. OS 读来的数据** | `sys/volume.mbt`(15)、`printer.mbt`(13)、`wallpaper.mbt`(20)、`autostart.mbt`(13) | ❌ | 设备名/应用名/卷名由**操作系统本地化**，不是翻译键，**不碰** |
+| **C. 语言相关格式化** | `ui/datepicker.mbt`(7)、`datetime.mbt`(2) 的月名/星期 | ⚠️ | 属**日期本地化**，交给 date 库按 locale 出，**不是 t(key)** |
+| **D. 框架自有 UI 文案** | `ui/message_box.mbt`(1)、`overlay.mbt`(2)、`display.mbt`(1)、`shell/menu.mbt`(7)、按钮/菜单角色 | ✅ | **这才是 i18n 的真正目标** |
+
+**诚实结论**：`ui/` 目录（框架用户可见文案主战场）实际只有 **13 处**中文串，且大半是
+datepicker 月名（归 C 类）。所以「全库改造」的实际可翻译面很小——改造的价值不在量大，
+而在于**建一套正确机制 + 把边界划清**（A/B/C 绝不进 t()，只有 D 类进）。
+`examples/` 与未来应用层才是 t(key) 的主用量方，框架负责提供机制与示范。
+
+### 审计工具（区分四类，防误包）
+```
+scan → 对每处中文字面量分类：
+  - 在注释//// 行内         → A，跳过
+  - 变量名含 device/app/url  → B，跳过
+  - 月名/星期/日期          → C，标记走 date 库
+  - 赋值给 label/text/title 或作函数返回值给用户 → D，纳入 t()
+产物：D 类清单 = 待抽取为翻译键的**准确集合**
+```
+
+---
+
 ## 〇、生态可复用包（moon search 结果）
 
 MoonBit 生态已有成熟的 i18n 库，可直接复用或参考：
@@ -723,3 +753,68 @@ pub fn resolve_alignment(base : Alignment, dir : TextDirection) -> Alignment {
 2. **样本数据**：创建 zh-CN.toml 和 en.toml 示例
 3. **集成测试**：在 examples/ 中演示 i18n 用法
 4. **文档**：编写翻译文件编写指南
+
+## 十、全库组件改造（选定范围）的落地设计
+
+前文「阶段一~四」是**机制层**建设。本节是**改造层**——把框架自有 UI 文案（审计 D 类）
+系统性地接入 t(key)，并解决随之而来的分层与分发问题。
+
+### 10.1 分层原则：机制在框架，目录在应用
+
+框架是**库**（`moon add` 后零配置），不该把某个具体应用的译文编进库。正确切分：
+```
+gui/i18n/            ← 框架提供「机制」：Locale / Catalog / t() / 加载 / 切换 / 复数 / RTL
+locales/*.toml       ← 「目录」属于应用；框架只自带一份 D 类文案的最小英/中目录
+                       供框架自绘 chrome（对话框默认按钮、菜单角色、错误文案）使用
+```
+框架 chrome 文案（D 类，约 10+ 条）随库附带一套；应用可扩展/覆盖同名键。
+
+### 10.2 键命名空间
+```
+gui.<module>.<component>.<field>
+例：
+  gui.ui.message_box.ok
+  gui.ui.message_box.cancel
+  gui.shell.menu.role.copy
+  gui.shell.menu.role.paste
+  gui.ui.datepicker.month.jan      ← 若走 C 类则改由 date 库，不入此表
+```
+审计出的 D 类每条一个稳定键；键随代码演进，删除时同步清理目录（见检查工具 5.2）。
+
+### 10.3 迁移分期（按审计 D 类，非 257 全量）
+
+- [ ] **M1**：机制层落地（阶段一~三），提供 `t()` + 加载 + 切换。
+- [ ] **M2**：`ui/message_box.mbt`、`ui/overlay.mbt`、`ui/display.mbt` 的 D 类串抽键，
+      默认值改为 `t(...)`，随库附带 `locales/{en,zh-CN}.toml`。
+- [ ] **M3**：`shell/menu.mbt`(7)、`shell/tray.mbt`、`shell/notify.mbt` 菜单角色/系统通知文案。
+- [ ] **M4**：`ui/datepicker.mbt`、`datetime.mbt` → 判为 **C 类**，改接日期库按 locale 出月名/星期，
+      **不进 t()**（这是最容易误包的一类，单列确认）。
+- [ ] **M5**：审计工具固化（§前置），在门禁里跑「D 类未接 t()」与「目录缺键」两项检查。
+- [ ] **M6**：examples/ 加多语言演示；切换语言 → `invalidate` 全窗重绘验证。
+
+> A 类注释、B 类 OS 数据 **明确不碰**；工具若把某串分类错误，按 §前置的四类判据手工纠正并回写判据。
+
+### 10.4 目录分发与跨平台资源路径（真实约束）
+
+外部 TOML 要在运行时被找到，三平台资源根不同：
+```
+macOS   : .app 内 Contents/Resources/locales/*.toml   （裸可执行无 bundle 时找不到资源）
+Linux   : $XDG_DATA_HOME/<app>/locales/  或安装前缀 share/<app>/locales/
+Windows :  exe 同目录 locales\
+```
+- 框架提供 `resolve_locales_dir()`：按平台 + 环境变量（`GUI_LOCALES_DIR`）+ 可执行路径推导。
+- **打包/安装**：prebuild 或分发脚本负责把 `locales/` 放进上述位置（macOS 必须进 .app bundle）。
+- **降级**：目录缺失时 t() 返回键名并告警，不崩溃（与现有失败降级风格一致）。
+
+### 10.5 与现有绘制的契合点
+- 文本绘制已支持任意 UTF-8（`pt_measure`/`pt_draw` 走 Pango），中文/多语言文案无需改绘制层。
+- RTL 需要布局层配合：Yoga `set_direction` + `resolve_alignment`(§6.3)，改造期只在有 RTL 需求时接线。
+- 字体回退（中文/阿语需相应字体）由 `text/family.mbt` 的 `resolve_family` 承担，属既有能力。
+
+### 10.6 风险
+| 风险 | 说明 | 缓解 |
+|------|------|------|
+| 误包 A/B/C 类 | 注释、设备名、月名被塞进 t() | 审计工具四类判据 + 分期 M4 单列确认 |
+| macOS 找不到资源 | 无 bundle 时相对路径失效 | resolve_locales_dir + .app 打包 |
+| 性能 | 每帧大量 t() 查表 | Catalog 用 §文本缓存同款哈希（见 text/cache.mbt），命中零开销 |
+| 键漂移 | 代码删了但目录留残键 / 反之 | 门禁双向检查（5.2 + M5） |
