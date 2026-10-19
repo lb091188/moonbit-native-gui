@@ -157,7 +157,7 @@
 
 | 构造器 | 用途 |
 |---|---|
-| `drag_source(content : Node, payload? : () -> DragData?, threshold?=4.0, external?=false, on_external?)` | 拖源：`content` 上按下拖出 `threshold` 像素后调 `payload()` 取数据开拖；`external=true` 先试系统级拖出，Windows/Linux 已接，不成自动回落应用内会话 |
+| `drag_source(content : Node, payload? : () -> DragData?, threshold?=4.0, external?=false, on_external?)` | 拖源：`content` 上按下拖出 `threshold` 像素后调 `payload()` 取数据开拖；`external=true` 先试系统级拖出（三平台已接），不成自动回落应用内会话 |
 | `drop_target(content : Node, on_drop? : (DragData, Double, Double) -> Unit, accept? : (DragData) -> Bool)` | 落点：悬停描主题主色高亮，松手按 `accept`（默认全收）判收不收、收则调 `on_drop` |
 
 > 拖源内容里别放按钮——指针事件最深优先，交互件会吃掉按下。`payload()` 惰性，没过阈值当普通点击。`DragData` = `Text`/`Html`/`Paths`/`Img`（`@widget`）。跨应用系统级拖放见 [proposals/adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md) 各平台批。
