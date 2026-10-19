@@ -1,6 +1,6 @@
 # native-gui
 
-A **lightweight cross-platform desktop GUI framework for MoonBit** — native-direct windowing, a self-drawn rendering pipeline, a complete component set, full system integration. Windows, pixels, the event loop, layout and every widget belong to the library itself and are written in pure MoonBit; no libyue dependency. Platform specifics converge in five thin C layers: windows, text, image decoding, WebView, media. One codebase runs native windows on Windows and Linux. `moon add`, then run.
+A **cross-platform desktop GUI framework for MoonBit** — one codebase ships native windows on Windows / Linux / macOS, desktop capabilities ready to use, zero config after `moon add`. Windows, pixels, the event loop, layout and every widget belong to the library itself and are written in pure MoonBit; no libyue dependency. Platform specifics converge in five thin C layers: windows, text, image decoding, WebView, media.
 
 > Formerly `moonbit-libyue` (renamed 2026-10). The mooncakes package is **`NoahLiu/native-gui`** and all existing import paths are unchanged.
 
@@ -8,7 +8,7 @@ A **lightweight cross-platform desktop GUI framework for MoonBit** — native-di
 
 ## Highlights
 
-- **Self-drawn widgets, one look everywhere** — the library's own rasterizer draws every control, so rendering is identical across platforms; light/dark mode and the system accent colour are followed by default, and a theme is a plain value you can override.
+- **Self-drawn widgets, one look everywhere** — the library's own rasterizer draws every control, so rendering is identical across platforms; light/dark mode and the system accent colour are followed by default, and the theme is fully customizable.
 - **Declarative UI with reactive state** — describe the interface as a tree of `@widget.Node` values and mount it with one `mount_window` call; keep state in `Store` / `Signal` and bound spots refresh themselves.
 - **Desktop-grade system integration** — tray, notifications, native menus, global shortcuts, message boxes, file dialogs, drag & drop (in-app and cross-application), clipboard, autostart, idle detection and OS queries (volume, power, monitors, browser history, installed apps…) behind one `@sys` / `@shell` facade.
 - **Content batteries included** — 20 chart types with a cross-cutting interactive layer, a GFM Markdown view and multi-language code highlighting in the box; the embedded WebView (JS interop, custom protocols, DOM capture, policy hooks) and the audio/video engine (subtitles, speed control) live in the optional modules `gui-webview` / `gui-media`.
@@ -81,8 +81,8 @@ Optional capabilities in **separate modules** (a plain `moon add` of this module
 
 | | Windows | Linux | macOS |
 |---|---|---|---|
-| Status | ✅ 10 / 11 | ✅ X11 mainline | 🚧 landing |
-| Notes | GUI-subsystem exe: double-click opens no console window | Committed span **deepin 20 ~ Ubuntu 26**, staying on GTK3; Wayland sessions run, X11-dependent capabilities degrade per session | Windowing, text, image decoding, WebView and system capabilities are developed on the `mac` branch, not yet merged; on master they degrade to `Unsupported` |
+| Status | ✅ 10 / 11 | ✅ X11 mainline | 🟨 backend merged, on-device verification closing |
+| Notes | GUI-subsystem exe: double-click opens no console window | Committed span **deepin 20 ~ Ubuntu 26**, staying on GTK3; Wayland sessions run, X11-dependent capabilities degrade per session | Cocoa / CoreText / ImageIO / WKWebView merged into master; on-device visual verification still closing, not yet part of the outward promise |
 
 ## Roadmap
 
@@ -91,7 +91,7 @@ Where this library is heading, in order of current effort (see the public roadma
 1. **Lower the barrier to entry** — a shortest path from "install moon" to "a window on screen" on the docs homepage, per-platform prerequisites in one sentence, build errors that carry their own fix hints.
 2. **Credibility** — CI gates on Linux and Windows for every batch, on-device verification checklists, and a version promise: the stable-surface list (what will not break within 1.x) and the 1.0 cut-off are being defined.
 3. **Content** — usage documentation rewritten for the self-drawn stack (tutorials, a per-component guide with screenshots), continuously expanded examples.
-4. **Platform coverage** — merging the macOS backend once on-device verification closes; verifying the Linux compatibility span floor by floor (deepin 20 as the floor, Ubuntu 26 as the ceiling).
+4. **Platform coverage** — closing on-device verification for macOS; verifying the Linux compatibility span floor by floor (deepin 20 as the floor, Ubuntu 26 as the ceiling).
 
 Explicit non-goals: accessibility APIs, GTK4 / Qt backends, and platform-native widget skins — the self-drawn stack is the product.
 
