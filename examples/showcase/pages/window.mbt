@@ -122,7 +122,8 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
         a.window().set_layer(layer)
         let tag = match layer {
           Normal => "普通"
-          Desktop => "桌面层（壁纸上/图标下）"
+          Desktop => "桌面层（图标下·壁纸场景，事件归桌面）"
+          DesktopWidget => "桌面小部件（图标上·本窗可交互）"
           AlwaysOnTop => "置顶"
           Dock => "Dock 面板档"
         }
@@ -519,13 +520,16 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
     @shared.section(
       "层级",
       "窗口层级嵌入",
-      "`Window::set_layer` 换窗口的 z-order 档位：Normal 普通、Desktop 沉到桌面层（壁纸上、图标下，做桌面挂件用）、AlwaysOnTop 置顶、Dock 面板档。Linux 改 `_NET_WM_WINDOW_TYPE`（换档时重挂窗口）并按 `_NET_WM_STATE` 的 BELOW/ABOVE 请 WM 重排，Win32 走 `SetWindowPos` 的 BOTTOM/TOPMOST；目标层由窗口管理器兑现，个别 WM 会忽略 Desktop/Dock 档（属 WM 行为，非本库缺陷）。",
+      "`Window::set_layer` 换窗口的 z-order 档位：Normal 普通、Desktop 图标下（壁纸场景，鼠标事件归桌面）、DesktopWidget 图标上（桌面小部件场景，本窗照收键鼠）、AlwaysOnTop 置顶、Dock 面板档；桌面两档不进任务栏、常驻各工作区。Linux 改 `_NET_WM_WINDOW_TYPE`（换档时重挂窗口）并按 `_NET_WM_STATE` 的 BELOW/ABOVE/SKIP_* 请 WM 重排，macOS 走 `kCGDesktopWindowLevelKey`/`kCGDesktopIconWindowLevelKey`，Win32 走 `SetWindowPos` 的 BOTTOM/TOPMOST；目标层由窗口管理器/Shell 兑现，Windows 的桌面窗归 Explorer，客户窗压不进图标之下。",
       [
         @ui.row(
           [
             @ui.button("普通", on_click=fn() { win_set_layer(@win.WindowLayer::Normal) }),
-            @ui.button("桌面层", variant=@ui.Soft, on_click=fn() {
+            @ui.button("图标下", variant=@ui.Soft, on_click=fn() {
               win_set_layer(@win.WindowLayer::Desktop)
+            }),
+            @ui.button("图标上", variant=@ui.Soft, on_click=fn() {
+              win_set_layer(@win.WindowLayer::DesktopWidget)
             }),
             @ui.button("置顶", variant=@ui.Soft, on_click=fn() {
               win_set_layer(@win.WindowLayer::AlwaysOnTop)
@@ -539,10 +543,11 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
         @ui.bind_label(layer_out, fn(s) { s }),
       ],
       code=[
-        "app.window().set_layer(@win.WindowLayer::AlwaysOnTop) // 置顶",
-        "app.window().set_layer(@win.WindowLayer::Desktop)     // 壁纸上、图标下",
-        "app.window().set_layer(@win.WindowLayer::Dock)       // 面板档",
-        "app.window().set_layer(@win.WindowLayer::Normal)     // 复位",
+        "app.window().set_layer(@win.WindowLayer::AlwaysOnTop)   // 置顶",
+        "app.window().set_layer(@win.WindowLayer::Desktop)       // 图标下：壁纸场景",
+        "app.window().set_layer(@win.WindowLayer::DesktopWidget) // 图标上：小部件，可交互",
+        "app.window().set_layer(@win.WindowLayer::Dock)          // 面板档",
+        "app.window().set_layer(@win.WindowLayer::Normal)        // 复位",
       ],
     ),
   ])
