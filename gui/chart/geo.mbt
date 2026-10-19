@@ -63,7 +63,7 @@ pub extend GeoError with Show::{to_string, output}
 
 ///|
 /// 地图内部矩形（x/y/width/height，画布坐标）。与 treemap 的 TmRect 同
-/// 形——各自定义，避免引旧链路 RectF 或 `@base.Rect` 布局矩形的跨语义依赖。
+/// 形——各自定义，避免对 `@base.Rect` 布局矩形的跨语义依赖。
 pub(all) struct GeoRect {
   x : Double
   y : Double

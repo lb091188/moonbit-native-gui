@@ -195,7 +195,7 @@ def link_configs() -> dict:
                 print(f"prebuild: 缺少 {name} 开发包", file=sys.stderr)
                 return {"link_configs": entries}
             libs.extend(got)
-        # 系统库不会被自动带上，显式补（与旧链路同一口径）。
+        # 系统库不会被自动带上，显式补。
         sys_libs = ["-lpthread", "-ldl", "-lm", "-lstdc++", "-latomic"]
         win_lib = compile_stub(
             MODULE_ROOT / "win" / "stub.c",

@@ -6,7 +6,7 @@
 // 解析结果里两套码都给：`keysym` 走 X11 口径（与 base/keys.mbt 的
 // KS_* 同源），`vk` 走 Win32 虚拟键码；各平台后端按需取。
 //
-// 加速键串语法沿用旧栈（yue/widgets.mbt 的 register_global_shortcut）：
+// 加速键串语法：
 //   "CmdOrCtrl+Shift+M" / "Ctrl+Alt+Delete" / "F5" / "Ctrl+," 
 // 词序不限、大小写不敏感；`CmdOrCtrl` 是「平台主修饰」的别名——Windows
 // 映射 Ctrl、macOS 映射 Cmd(⌘)、Linux 映射 Ctrl。修饰词：Ctrl/Control、

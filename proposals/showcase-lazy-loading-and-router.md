@@ -1,23 +1,22 @@
 # Showcase 懒加载 + 单窗口路由机制独立成包方案
 
-## 〇、代码核实的关键事实（先纠偏）
+## 〇、关键事实
 
-探索 `examples/showcase/`（15 页 / ~100 段 / 5,918 行）后，纠正一个普遍误解：
+`examples/showcase/` 的现状：
 
-1. **当前"懒加载"只懒挂载，不懒构造。**
-   - `main.mbt:209-223` 在启动时**逐个求值** `@pages.page_X(app)`，把每页**已建好的** `@widget.Node` 传进 `nav_page(...)`。
-   - 组件构造器一律走 `node_of_new(finish)`（`gui/widget/node.mbt:42`），`finish` 闭包（`Widget::new()` + `mount_children`）**在构造期就跑**——所以 `page_icons(app)` 一求值，802 个图标控件当场实例化。
-   - `nav_page`（`shared/section.mbt:84`）+ `section_body`（`section.mbt:110`）确有 `Ref[Bool] mounted` + `selected.subscribe(ensure)` 的懒挂载，但它只是把**已构造**子树的 attach/layout/paint 推迟，**没推迟构造**。
-   - 净效果：启动即构造全部段控件，这就是卡启动的根因。作者也在注释里写明这个坑
-     （`overlay.mbt:478`、`message_box.mbt:110`、`docs/zh/declarative.md:44`
-     「page(app) 求值早于建窗」）。
+1. **接入前「懒加载」只懒挂载，不懒构造。**
+   - 当时 `main.mbt` 在启动时**逐个求值** `@pages.page_X(app)`，把每页**已建好的** `@widget.Node` 传进示例侧的 `nav_page(...)`。
+   - 组件构造器一律走 `node_of_new(finish)`（`gui/widget/node.mbt:42`），`finish` 闭包（`Widget::new()` + `mount_children`）**在构造期就跑**——所以 `page_icons(app)` 一求值，整墙图标控件当场实例化。
+   - 示例侧原有 `section_body`（`shared/section.mbt`）的 `Ref[Bool] mounted` + `selected.subscribe(ensure)` 懒挂载，但它只把**已构造**子树的 attach/layout/paint 推迟，**没推迟构造**；页级那份 `nav_page` 现由 `@router` 的挂载槽承担。
+   - 净效果：启动即构造全部页与段的控件。作者当时也在注释里写明这个坑（`overlay.mbt:478`、`message_box.mbt:110`、`docs/zh/declarative.md:44`「page(app) 求值早于建窗」）。
+     接入路由后这句只剩下一半成立：构造确实被推迟了，但「卡启动的根因」按实测是代码文档页，不是图标墙（见 §三·五）。
    - **构造大头不是图标墙（T1 实测修正）**：图标页逐个建 tooltip+icon 的说法成立
      （`pages/icons.mbt:9-27` 的 `icon_grid` 是实打实的循环），但它整页构造只花
      9ms；启动构造的大头在代码文档页（138ms，`code_view` 构造期逐 token 量化 +
      markdown 解析）。见 §三·五 读数表。
 
 2. **MoonBit native 没有运行时 code-split / 动态 import。**
-   `examples/showcase` 是 `pkgtype=executable` + `supported_targets=native`，15 个 `page_X` 被 `main.mbt` 静态引用，链接成**单个原生二进制**。
+   `examples/showcase` 是 `pkgtype=executable` + `supported_targets=native`，各 `page_X` 被 `main.mbt` 静态引用，链接成**单个原生二进制**。
    所以这里的"懒加载"只能是**运行时按需构造（thunk 化）**，不是分包/动态加载。这是唯一现实模型。
 
 3. **库内已有的"按需构造"成熟先例**（复用它，别新造）：
@@ -57,21 +56,21 @@ mounted.val = true
 **改动面极小且局部**：仅 `shared/section.mbt` + `main.mbt`，**不动库**。
 
 ### 1.4 收益与代价
-- 启动从"构造 15 页"降到"构造 1 页 + 侧栏"；802 图标页只在点开"图标库"时构造。
+- 启动只构造当前选中的那一页 + 侧栏；图标页只在点开「图标库」时构造。
 - 代价：切页瞬间有构造开销（首次点击该页略迟）。可用 `bind_node` 的订阅复用同一机制，必要时给"下一屏预构造"留钩子（非必需）。
-- **注意**：图标页 802 控件本身即便 thunk 化，首次打开仍要建 802 个 node。若这仍慢，进一步用 `virt_list` 只渲染可视区图标——但那是页内优化，属第二优先级。
+- **注意**：图标页整墙控件即便 thunk 化，首次打开仍要全部建一遍。若这仍慢，进一步用 `virt_list` 只渲染可视区图标——但那是页内优化，属第二优先级。
 
 ## 二、单窗口路由机制：是否独立成包
 
 ### 2.1 现状：路由"策略"已在 app 层，但没成库
 - 路由状态 = 一个 `@base.Store[String]` 存当前页名（`main.mbt:103` / `app.mbt:14`）。
 - 侧栏 UI = 库组件 `menu_sections(sections, selected, ...)`（`gui/ui/nav.mbt:771`）。
-- 页生命周期 = **app 代码**的 `nav_page` + `section_body`（`shared/section.mbt`，~75 行）。
+- 页生命周期 = **app 代码**的 `nav_page` + `section_body`（`shared/section.mbt`）。
 - 库内**没有** router/Page/Route/view-stack 类型；grep 到的 `route*` 全是输入事件路由（`App::route`），与导航无关。
 - `tabs(...)`（`nav.mbt:991`）是"预建所有页 + set_visible 切换"，**不是懒**（`docs/components.md:104` 佐证）。
 
 ### 2.2 可分性评估：干净，可抽包
-路由逻辑只依赖三样：`@base.Store`、`@widget.Node`、`@ui.col/menu_sections`。**无 showcase 专有耦合**，具备抽成通用库的条件。用户判断"这是以后单窗口应用的核心"成立——每个单窗口 app 都会重造这套 Store[String]+侧栏+懒挂载。
+路由逻辑只依赖三样：`@base.Store`、`@widget.Node`、`@ui.col/menu_sections`。**无 showcase 专有耦合**，具备抽成通用库的条件——每个单窗口 app 都会重造这套 Store[String]+侧栏+懒挂载。
 
 ### 2.3 定稿：`gui/router` 包，路由只认「树 / 每层选中键 / link」
 

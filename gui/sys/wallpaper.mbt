@@ -438,7 +438,7 @@ fn wp_apply(
 // System Events 的 AppleScript 字典里 `desktop N` 的 `picture` 是公开属性，
 // 读写各一条脚本。**两点与 Linux/Windows 不同**（记进 adaptation）：
 //   ① 只动 `desktop 1`（主屏）——Linux 侧按已连接输出逐个写，mac 的多屏要
-//      遍历 `every desktop`，本批不做；
+//      遍历 `every desktop`，不做；
 //   ② 首次调用可能被系统的「自动化」授权拦下（脚本控制别的进程），真机复验
 //      清单里有一条专测它；拿不到就走 CommandFailed，不假装成功。
 

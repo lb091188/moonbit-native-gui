@@ -25,7 +25,7 @@
 pub(all) let icon_path_data : Map[IconKind, String] = {
   TreeStructure: "M500 0 L1000 500 L500 1000 L0 500 Z",
   Hide: "M200 300 Q500 100 800 300 ...",
-  // ... 803 个图标
+  // ... 其余图标
 }
 
 // 绘制时解析路径串，调用 Painter 的 fill 方法
@@ -493,7 +493,7 @@ python3 scripts/convert_iconfont.py iconfont_subset.ttf output.mbt
 ```moonbit
 // gui/icons/icons.mbt
 pub(all) enum IconKind {
-  // 现有 803 个图标
+  // 现有图标全集
   TreeStructure
   Hide
   // ...

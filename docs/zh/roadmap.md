@@ -4,7 +4,7 @@
 
 MoonBit 的**跨平台桌面 GUI 框架**——一套 MoonBit 代码直出 Windows / Linux / macOS 原生窗口，系统能力开箱即用，`moon add` 后零配置直接运行。
 
-- **窗口原生直连**：窗口宿主与事件循环直连平台原生接口自研，不套平台控件包装；平台差异收敛在窗口、文字、图像解码、WebView、媒体五处 C 薄层
+- **窗口原生直连**：窗口宿主与事件循环直连平台原生接口自研，不套平台控件包装；平台差异收敛在窗口、文字、图像解码、WebView、媒体几处 C 薄层
 - **渲染管线自绘**：布局、光栅化、文字排印、控件与主题全由本库实现，三平台外观一致；深浅色与系统强调色默认跟随
 - **界面组件齐全**：控件族、图表、Markdown 视图、WebView 与媒体播放开箱可用；功能各自成包，不 import 不进二进制
 - **系统接口完备**：托盘、通知、全局快捷键、文件对话框、硬件与桌面设置面按平台后端实现；能力探测 + 语义化降级，不支持的环境给 `Unsupported` 而不是崩
@@ -13,8 +13,8 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套 MoonBit 代码直出 Windo
 
 | 入口 | 内容 |
 |---|---|
-| 库 | `moon add NoahLiu/native-gui`——15 个子包（G9 拆出 base/shell/widget，core 迁移期门面已删），另有 gui-media、gui-webview、gui-examples 三个可选独立模块 |
-| 示例 | `hello` 最小窗口、`hello-themed` 主题控件集、`showcase` 全功能演示板 |
+| 库 | `moon add NoahLiu/native-gui`，功能各自成包，不 import 不进二进制；更重的能力在可选模块 `gui-webview`（内嵌 WebView）与 `gui-media`（音视频） |
+| 示例 | `hello` 最小窗口、`hello-themed` 主题控件集、`showcase` 全功能演示板、`browser` 内嵌 WebView 浏览器、`sysmonitor` 系统监视、`audio` / `video` 播放器、`headless-audio` 无头播放 |
 | 文档 | 中英双语文档站与各包文档，见[文档索引](README.md) |
 | CI | Linux / Windows / macOS 三条 job 每次推送全绿：库包测试、构建、启动冒烟（Linux 虚拟显示、macOS 登录会话） |
 
@@ -162,7 +162,7 @@ Linux 列带 **X11** 的格只在 X11 会话成立，带 **DE** 的格行为随�
 | `letter_spacing` 生效 | ❌ | ❌ | ❌ |
 | 响应式补强 | ✅ | ✅ | ✅ |
 | 过渡动画 | ✅ | ✅ | 🚧 |
-| 全局 alpha 与硬阴影 | ✅ | ✅ | 🚧 |
+| 全局 alpha（`opacity`） | ✅ | ✅ | 🚧 |
 | 按钮图标位（`button(icon?=…, icon_size?=…)`，测量让位 `lead_w`） | ✅ | ✅ | ✅ |
 | chip class 字号参与测量宽（P2-e 收口） | ✅ | ✅ | ✅ |
 | 单窗口页面路由 `@router`（路由树 + 每层选中键 + link 绑定、空闲预建、每层淘汰） | 🚧 | 🚧 | 🚧 |
@@ -234,7 +234,7 @@ Linux 列带 **X11** 的格只在 X11 会话成立，带 **DE** 的格行为随�
 | 引擎开关与策略面 | ✅ | ✅ | 🚧 |
 | 浮层的原生档 | ？ | ✅ | 🚧 |
 | 原生弹层 Esc 收起（弹层窗自持按键兜底通道，关窗挪出派发现场） | 🚧 | 🚧 | 🚧 |
-| cookie 共享与隔离（引擎默认共享；隔离走 pane 级 `profile`，库层不做同步——2026-10-18 定案＝浏览器默认策略） | ✅ | ✅ | 🚧 |
+| cookie 共享与隔离（引擎默认共享；隔离走 pane 级 `profile`，库层不做同步，与浏览器默认策略一致） | ✅ | ✅ | 🚧 |
 | 浮层「点外收起」判据 | ⏳ | ⏳ | ⏳ |
 
 ### 媒体播放
@@ -267,11 +267,11 @@ Linux 列带 **X11** 的格只在 X11 会话成立，带 **DE** 的格行为随�
 | 控件级 GPU 绘制（shader / vertex buffer） | ❌ | ❌ | ❌ |
 | WebGPU 后端（wgpu-native 可选模块） | ❌ | ❌ | ❌ |
 
-**架构定案（2026-10-17）**：**WebGPU 作可选后端，两层落地（合成器 + 控件级 GPU 绘制），三级 fallback（WebGPU → Cairo → Pure）**。渲染路径分派的口子（`RenderCtx` / `Widget.on_render`）已在协议层留好，未来 GPU 后端上线只扩枚举变体、不改 Widget 契约。选型依据、落地路径、平台兼容档口与设计决策全文见 [gpu-architecture.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/gpu-architecture.md)。
+**架构**：**WebGPU 作可选后端，两层落地（合成器 + 控件级 GPU 绘制），三级 fallback（WebGPU → Cairo → Pure）**。渲染路径分派的口子（`RenderCtx` / `Widget.on_render`）已在协议层留好，未来 GPU 后端上线只扩枚举变体、不改 Widget 契约。选型依据、落地路径、平台兼容档口与设计决策全文见 [gpu-architecture.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/gpu-architecture.md)。
 
 ## 承诺与版本
 
-- 当前版本 `0.1.1`：**0.x 阶段接口随批次演进**，破坏性改动在提交信息写明并同步文档。
+- 当前版本 `0.1.1`：**0.x 阶段接口仍在演进**，破坏性改动在提交信息写明并同步文档。
 - **稳定面清单与 1.0 时点待定**：落定后本节按「承诺面 / 实验面」逐包列出。
 
 ## 接下来的方向
@@ -279,7 +279,7 @@ Linux 列带 **X11** 的格只在 X11 会话成立，带 **DE** 的格行为随�
 1. **上手门槛**：首页给「装 moon → `moon add` → 出窗口」的最短路径；每平台前置依赖一句话说清；缺依赖时构建报错自带修复提示。
 2. **可信度**：CI 门禁 + 真机人工清单 + 版本承诺，能力族验收一律走这三件套。
 3. **内容**：文档站、组件文档、教程与 showcase 持续补齐；组件文档配图，教程给可运行的最小工程。
-4. **治理**：issue 模板与贡献指南随对外投放建立；本文与平台矩阵随每批更新，不积压。
+4. **治理**：issue 模板与贡献指南随对外投放建立；本文与平台矩阵持续更新，不积压。
 5. **GPU 合成与 3D 路径**：WebGPU 作可选后端（独立模块，不进主链路），两层落地、三级 fallback；`Widget.on_render(RenderCtx)` 协议口子已就位，后端上线只扩枚举变体。决策全文见 [gpu-architecture.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/gpu-architecture.md)。
 
 ## 待定决策

@@ -1,9 +1,8 @@
 // 拖放组件（W21c）：把 `widget/drag.mbt` 的会话包成两个声明式钩子——
 // 拖源 `drag_source(content, payload)`、投放目标 `drop_target(content, on_drop)`。
 //
-// 与旧栈的一条差（记档）：旧链路的拖源/投放是**平台回调**（GTK `gtk_drag_*` /
-// Win32 `IDropTarget`），且要分别注册 enter/update/leave 三件；本栈全自绘，
-// **应用内拖放**不需要任何平台接口，三个回调也收成一个 `on_drop`——拖入高亮由
+// **应用内拖放**不需要任何平台接口，投放只有一条 `on_drop`（不必分 enter/update/
+// leave 三件回调）——拖入高亮由
 // 绘制方读 `@widget.drag_hover()` 自判（见 `drop_target`）。系统级**拖入**（Windows/
 // Linux 已接）复用的也是这一套：宿主每拍把外部事件喂进同一个会话，本文件的组件
 // 不用改；`accept` 除了松手时判收不收，还用于悬停期回答系统光标（见

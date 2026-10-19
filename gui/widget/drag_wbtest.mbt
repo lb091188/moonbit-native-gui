@@ -15,7 +15,7 @@ fn kind_id_of_opt(k : DataKind?) -> Int {
 }
 
 ///|
-test "data_kind_id ↔ data_kind_of_id 往返，值固定为旧栈口径" {
+test "data_kind_id ↔ data_kind_of_id 往返，值固定为线协议编号" {
   inspect(data_kind_id(Text), content="1")
   inspect(data_kind_id(Html), content="2")
   inspect(data_kind_id(Image), content="3")
@@ -36,7 +36,7 @@ test "DragData::kind 与 as_text" {
   inspect(data_kind_id(DragData::Paths(["a", "b"]).kind()), content="4")
   inspect(data_kind_id(DragData::Img(b"\x89PNG").kind()), content="3")
   inspect(DragData::Text("a").as_text().unwrap_or("-"), content="a")
-  // 多路径按旧栈口径用 \n 连接
+  // 多路径用 \n 连接
   inspect(DragData::Paths(["a", "b"]).as_text().unwrap_or("-"), content="a\nb")
   // 图片没有文本形态
   assert_true(DragData::Img(b"\x89PNG").as_text() is None)
