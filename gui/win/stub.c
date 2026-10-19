@@ -6643,9 +6643,20 @@ static uint32_t wm_keysym_of(NSEvent *ev) {
     return;
   }
   CGFloat sc = wm_scale_of(self);
-  NSSize pts = [[self.view window] contentView].bounds.size;
-  self->width = (int)(pts.width * sc + 0.5);
-  self->height = (int)(pts.height * sc + 0.5);
+  // 优先问窗口，拿不到再退回视图自己的 bounds：`setStyleMask:` 换主题框架的那
+  // 一拍会同步发一次 resize，此时视图正从窗口上摘下来，`[self.view window]` 是
+  // nil，问出来的边界就是 0x0。
+  NSView *cv = self.view.window != nil ? [self.view.window contentView] : nil;
+  NSSize pts = cv != nil ? cv.bounds.size : self.view.bounds.size;
+  int w = (int)(pts.width * sc + 0.5);
+  int h = (int)(pts.height * sc + 0.5);
+  // 零读数一律不入账：上层绘制见到 0 就跳过这一帧，而尺寸通知不会再来第二次，
+  // 账本从此停在 0 上——弹层窗整块空白就是这么来的（真机探针：窗框 320x200、
+  // 内容视图 320x200，桩内尺寸 0x0，present 因宽 0 直接返回）。留着上一次的好值。
+  if (w > 0 && h > 0) {
+    self->width = w;
+    self->height = h;
+  }
   self->resized = 1;
   self->need_draw = 1;
   [self.view updateTrackingAreas];
@@ -7768,7 +7779,10 @@ int wm_is_borderless(int64_t id) {
     if (s == nil) {
       return 0;
     }
-    return ([s.win styleMask] & NSWindowStyleMaskBorderless) != 0 ? 1 : 0;
+    // Borderless 的值就是 0，`styleMask & Borderless` 恒为 0，照它判「无边框」
+    // 永远判不出来（探针：改成 Borderless 后 styleMask=0x0 仍报 0）。反着问 Titled
+    // 位，与 wm_set_borderless 里 `now_borderless` 的同一条口径。
+    return ([s.win styleMask] & NSWindowStyleMaskTitled) == 0 ? 1 : 0;
   }
 }
 
@@ -7871,6 +7885,9 @@ void wm_window_set_popup(int64_t id, int64_t owner_id) {
     [s.win setHasShadow:NO];
     [s.win setHidesOnDeactivate:NO];
     s->borderless = 1;
+    // 换风格连带换主题框架，那一拍量到的尺寸不可信（见 syncSize 的零读数纪律）：
+    // 按当前真实内容边界把账本重算一次，并请重绘，别把首帧留给一个 0 尺寸。
+    [s syncSize];
     WMState *owner = wm_state_alive(owner_id);
     if (owner != nil && owner.win != nil && owner != s) {
       [owner.win addChildWindow:s.win ordered:NSWindowAbove];

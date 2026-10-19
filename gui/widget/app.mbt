@@ -858,6 +858,10 @@ pub fn App::paint_frame(self : App) -> Unit {
   self.dirty_rect = None
   let (w, h) = self.session.window.size()
   if w < 1 || h < 1 {
+    // 盒还没成好，这一帧画不了——但**别把脏标记吃掉**：画不了就没布局，收框也就
+    // 永远量不到内容尺寸，两者互相等就成了「窗在、点位对、整块空白」的死局
+    // （真机 mac 弹层）。C 侧在贴不出帧时本来就会再请一次重绘，这里跟着它留脏。
+    self.session.dirty = true
     return ()
   }
   // 绘制前同步一次焦点标志：焦点栈、控件树、重挂都可能在上一拍改过

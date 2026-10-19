@@ -1465,11 +1465,21 @@ static void pt_layout(PtPara *p, int max_width, int ellipsize, int wrap) {
         break;
       }
       if (lim > 0.0 && line_end == line_start && uw > lim && uend > i + 1) {
-        int one = i + 1;
-        double ow = pt_range_width(p, i, one, 0);
-        line_end = one;
-        line_w += ow;
-        i = one;
+        // 单元比整行还宽（长 URL / 长单词）：逐字硬断，但**要一直填到放不下
+        // 为止**（Pango 的 WORD_CHAR、DWrite 的 WRAP 都是这个形态）。旧写法每
+        // 行只切一个字符就回头重判，而 `uw` 仍是整个剩余单元的宽，下一条
+        // `line_w + uw > lim` 又成立 → 每行恰好一个字符：一条两千像素的长 URL
+        // 撑出两百行，把底部状态栏顶穿、整块布局错位（真机 mac）。
+        while (i < uend) {
+          int one = i + 1;
+          double ow = pt_range_width(p, i, one, 0);
+          if (line_end > line_start && line_w + ow > lim) {
+            break;
+          }
+          line_end = one;
+          line_w += ow;
+          i = one;
+        }
         continue;
       }
       line_end = uend;

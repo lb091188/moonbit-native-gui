@@ -3,6 +3,13 @@
 // Store 外部同步。事件都按宿主的投递口径给**窗口坐标**。
 
 ///|
+/// 编辑快捷键的「主修饰键」跟宿主平台走（mac=Cmd，其余=Ctrl）。用例在两平台
+/// CI 上都要成立，硬写 Ctrl 的话在 mac 上等于没按键——真机 Cmd+A 无法全选就是这么漏的。
+fn mod_edit() -> Int {
+  if @shell.platform_is_macos() { @base.MOD_META } else { @base.MOD_CTRL }
+}
+
+///|
 fn key(root : @widget.Widget, w : @widget.Widget, keysym : Int, mods : Int) -> Unit {
   let _ = root.dispatch_key(w.focus_id, { press: true, keysym, mods, })
 }
@@ -145,7 +152,7 @@ test "键入回写 Store，退格与 undo 照旧" {
   assert_eq(store.get(), "hiab")
   key(root, w, @base.KS_BACKSPACE, 0)
   assert_eq(store.get(), "hia")
-  key(root, w, 'z'.to_int(), @base.MOD_CTRL)
+  key(root, w, 'z'.to_int(), mod_edit())
   assert_eq(store.get(), "hiab")
 }
 
@@ -220,7 +227,7 @@ fn caret_of(w : @widget.Widget) -> Int {
 }
 
 ///|
-test "Shift+箭头扩选，Ctrl+A 全选，Ctrl+C/V 走内核内部剪贴板" {
+test "Shift+箭头扩选，主修饰键+A 全选、+C/X/V 走内核内部剪贴板" {
   let (root, w, store) = mounted_entry("abc", 200.0)
   // caret 先到末尾
   press(root, w, w.rect.x + w.rect.w - 1.0)
@@ -232,11 +239,11 @@ test "Shift+箭头扩选，Ctrl+A 全选，Ctrl+C/V 走内核内部剪贴板" {
     None => ("", -1)
   }
   assert_eq(sel.1, 1)
-  key(root, w, 'a'.to_int(), @base.MOD_CTRL)
-  key(root, w, 'c'.to_int(), @base.MOD_CTRL)
-  key(root, w, 'x'.to_int(), @base.MOD_CTRL)
+  key(root, w, 'a'.to_int(), mod_edit())
+  key(root, w, 'c'.to_int(), mod_edit())
+  key(root, w, 'x'.to_int(), mod_edit())
   assert_eq(store.get(), "")
-  key(root, w, 'v'.to_int(), @base.MOD_CTRL)
+  key(root, w, 'v'.to_int(), mod_edit())
   assert_eq(store.get(), "abc")
 }
 
@@ -246,8 +253,8 @@ test "只读：编辑键不吃，导航与复制照旧" {
   key(root, w, 'a'.to_int(), 0)
   key(root, w, @base.KS_BACKSPACE, 0)
   assert_eq(store.get(), "锁住")
-  key(root, w, 'a'.to_int(), @base.MOD_CTRL)
-  key(root, w, 'c'.to_int(), @base.MOD_CTRL)
+  key(root, w, 'a'.to_int(), mod_edit())
+  key(root, w, 'c'.to_int(), mod_edit())
   assert_eq(store.get(), "锁住")
 }
 

@@ -187,6 +187,8 @@ pub fn textarea(
   let font = @text.Font::new(family, font_size)
   let pad = 4.0
   let ro = read_only
+  // 主修饰键跟着平台走（mac=Cmd），探测一次存下，别每个按键问一遍
+  let is_mac = @shell.platform_is_macos()
   let ph = placeholder
   let change_cb = on_change
   let line_h = (@text.line_height_font(font).unwrap_or(18).to_double() + 2.0).max(14.0)
@@ -359,6 +361,9 @@ pub fn textarea(
       }
       let shift = (ev.mods & @base.MOD_SHIFT) != 0
       let ctrl = (ev.mods & @base.MOD_CTRL) != 0
+      // 主修饰键跟平台走：mac 上 Cmd 才是「选全/复制/粘贴」那一族，Ctrl 不是
+      let meta = (ev.mods & @base.MOD_META) != 0
+      let primary = if is_mac { meta } else { ctrl }
       let t = text_of()
       let lines = lines_of(t, w.rect.w)
       if ev.keysym == @base.KS_RETURN {
@@ -412,7 +417,7 @@ pub fn textarea(
         @widget.invalidate()
         return true
       }
-      if !ctrl && (ev.keysym == @base.KS_HOME || ev.keysym == @base.KS_END) {
+      if !ctrl && !meta && (ev.keysym == @base.KS_HOME || ev.keysym == @base.KS_END) {
         let caret = ed.caret_pos()
         let ln = lines[line_of_caret(lines, caret)]
         let at = if ev.keysym == @base.KS_HOME { ln.start } else { ln.end }
@@ -431,12 +436,15 @@ pub fn textarea(
         return true
       }
       let editing = ev.keysym == @base.KS_BACKSPACE || ev.keysym == @base.KS_DELETE
-      let nav = ctrl || (ev.keysym >= 65360 && ev.keysym <= 65367) || ev.keysym == @base.KS_TAB
+      // 只读时导航与复制照旧：带 Ctrl/Cmd 的组合要放行（mac 的选全、复制靠 Cmd）
+      let nav = primary || (ev.mods & @base.MOD_SHIFT) != 0 || (
+        ev.keysym >= 65360 && ev.keysym <= 65367
+      ) || ev.keysym == @base.KS_TAB
       if ro && (editing || !nav) {
         return false
       }
       let before = ed.get_text()
-      let handled = ed.handle_key(ev.keysym, ev.mods)
+      let handled = ed.handle_key(ev.keysym, ev.mods, mac=is_mac)
       if handled {
         pref_x.val = -1.0
         if ed.get_text() != before {

@@ -106,6 +106,30 @@ test "handle_key：Ctrl+A 全选、Ctrl+Z 撤销、Ctrl+箭头按词" {
   assert_eq(ed.caret_pos(), 3) // 按词回退到 "bb" 词首
 }
 
+test "handle_key：mac 主修饰键是 Cmd，Ctrl 靠边" {
+  // 真机 mac：地址栏 Cmd+A 全选无反应。旧写法把 META 并进 alt，于是 Cmd 这一族
+  // 既不匹配「ctrl && 'a'」、又落进「带修饰不消费」，选全/复制/粘贴/撤销在 mac
+  // 上全体失效。口径：主修饰键跟平台走，Option 才管按词。
+  let ed = Editor::new()
+  ed.set_text("aa bb")
+  assert_eq(ed.handle_key('a'.to_int(), @base.MOD_META, mac=true), true)
+  assert_eq(ed.selection(), Some((0, 5)))
+  // Cmd+V 要被**消费**（不消费就会在 mac 上打出个 v 字）
+  assert_eq(ed.handle_key('v'.to_int(), @base.MOD_META, mac=true), true)
+  assert_eq(ed.get_text(), "aa bb")
+  // Option+箭头按词
+  ed.move_caret(1, 2, false)
+  assert_eq(ed.handle_key(@base.KS_LEFT, @base.MOD_ALT, mac=true), true)
+  assert_eq(ed.caret_pos(), 3)
+  // 反过来：同一条 Cmd+A 在非 mac 档不算全选，Ctrl+A 在 mac 档也不算
+  let other = Editor::new()
+  other.set_text("aa bb")
+  assert_eq(other.handle_key('a'.to_int(), @base.MOD_META), false)
+  assert_eq(other.selection(), None)
+  assert_eq(other.handle_key('a'.to_int(), @base.MOD_CTRL, mac=true), false)
+  assert_eq(other.get_text(), "aa bb")
+}
+
 test "区间取值不切碎多字节且越界钳制" {
   let ed = Editor::new()
   ed.set_text("αβγ") // 每个 2 字节

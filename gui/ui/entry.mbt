@@ -118,6 +118,8 @@ pub fn input(
   let pad = 4.0
   let mask = password
   let ro = read_only
+  // 主修饰键跟着平台走（mac=Cmd），探测一次存下，别每个按键问一遍
+  let is_mac = @shell.platform_is_macos()
   let ph = placeholder
   let enter_cb = on_enter
   let change_cb = on_change
@@ -230,16 +232,17 @@ pub fn input(
         return true
       }
       // 导航键：方向/Home/End/PageUp-Down/Tab（65360..65367 是这一族）与带修饰的组合
-      let nav = (ev.mods & (@base.MOD_CTRL | @base.MOD_SHIFT)) != 0 || (
-        ev.keysym >= 65360 && ev.keysym <= 65367
-      ) || ev.keysym == @base.KS_TAB
+      // （含 mac 的 Cmd 族——只读输入框照样要能全选与复制）
+      let nav = (
+        ev.mods & (@base.MOD_CTRL | @base.MOD_SHIFT | @base.MOD_META)
+      ) != 0 || (ev.keysym >= 65360 && ev.keysym <= 65367) || ev.keysym == @base.KS_TAB
       let editing = ev.keysym == @base.KS_BACKSPACE || ev.keysym == @base.KS_DELETE
       if ro && (editing || !nav) {
         // 只读：导航与复制照旧，编辑类按键（含退格/删除/可打印字符）一律不吃
         return false
       }
       let before = ed.get_text()
-      let handled = ed.handle_key(ev.keysym, ev.mods)
+      let handled = ed.handle_key(ev.keysym, ev.mods, mac=is_mac)
       if handled {
         if ed.get_text() != before {
           push()
