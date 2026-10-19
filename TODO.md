@@ -6,7 +6,7 @@
 - **更名与目录定案（2026-10-12）**：主模块 `NoahLiu/moonbit-libyue` → **`NoahLiu/native-gui`**（mooncakes 新包名，首版 0.1.0 占位；待自绘栈稳定后将 `NoahLiu/moonbit-libyue` 标记废弃）；子模块 `NoahLiu/yue-media` → `NoahLiu/gui-media`、`NoahLiu/yue-examples` → `NoahLiu/gui-examples`；**库模块根落在 `gui/`**：15 个库包（`gui/base` … `gui/style`；原 `gui/web` 于 2026-10-16 G9 Batch 1 出成独立模块 `modules/gui-webview`；原 `gui/core` 于 2026-10-17 G9 Batch 2 import 迁移后整包退场）与 `moon.mod` 都在其下，模块名不变故 mooncakes 包路径 `NoahLiu/native-gui/<包>` 与既有 import 全部不变；`examples/`、`experiment/` 拆为**独立模块**（`NoahLiu/native-gui-examples` / `NoahLiu/native-gui-experiment`），经 `moon.work` 本地解析依赖库模块，构建/测试不再牵连库门禁；旧链 `yue/` 已删除。GitHub 仓库名 2026-10-13 已改为 **`moonbit-native-gui`**（旧名 301 重定向）；项目显示名（README 首行、文档站 title/hero、许可行）2026-10-15 随 0.1.1 重发统一为 **native-gui**，旧名只留更名注。
 - **本分支不保留老 libyue 绑定**：`shim/`、`lib/` 预构建库、`scripts/prepare.py` 已删除；libyue 只作**老师**（行为参考、可平移资产来源、`patches/` 的真实 bug 语料）。
 - **路径搬家注（2026-10-16）**：本文件历史条目里的 `gui/web/…`、`NoahLiu/native-gui/web`、`moon test ./gui/web` 均指已出模块的 webview 线，现落位 `modules/gui-webview/webview/`（包 `NoahLiu/gui-webview/webview`），不逐处改写。
-- **旧链路的完成项与实测结论不在本文件重述**：代码在 `master`（`shim + libyue`，0.5.x 与 `bin-*`/`vendor-*` 发布照旧），踩坑与验收细节在 [docs/zh/adaptation.md](docs/zh/adaptation.md) 与 `git log`。**凡旧栈做过、新栈尚未重做的能力，本文件一律记为未完成。**
+- **旧链路的完成项与实测结论不在本文件重述**：代码在 `master`（`shim + libyue`，0.5.x 与 `bin-*`/`vendor-*` 发布照旧），踩坑与验收细节在 [proposals/adaptation.md](proposals/adaptation.md) 与 `git log`。**凡旧栈做过、新栈尚未重做的能力，本文件一律记为未完成。**
 - **门禁口径**：全仓 `moon check --deny-warn` 零错误零警告（2026-10-15 复核；2026-10-11 起曾为红基线 287 errors / 68 warnings，逐批清零）；库门禁在 `gui/` 下按包限定跑 `moon check` + 分包 `moon test`，`examples/`、`experiment/`、`modules/*` 各模块 `--deny-warn` 复核。
 - **验证示例归口（2026-10-16 收口）**：native-* 累积验证板已全部删除（`examples/native-app`、`examples/native-window`、`examples/systemprobe`、`modules/gui-examples/native-web`、`modules/gui-examples/systemprobe`），职能归正式示例——GUI 能力与系统能力只读探测归 `examples/showcase`（含第 15 页「系统能力探测」与任务栏进度/粘性列表/GIF/自绘消息框/字体回退/bind_node 各段）、浏览器归 `examples/browser`、媒体归 `modules/gui-examples/audio` / `video`、扩展图表归 showcase「图表」页的扩展/新图表/交互三段（2026-10-16 由独立示例 `examples/charts` 并回后删除）。后续新能力的演示一律直接进对应正式示例（或库测试），不再新开 native-* 验证板。
 - **跟踪口径（2026-10-12 定）**：本文件**只跟踪跨平台能力**（三平台同构的 API 面、或「一个门面 + 各平台后端」的形态）。**纯 Linux 依赖的实现细节不再列为待办**——xrandr / wmctrl / xclip / sysfs / wpctl / pactl / CUPS / redshift / xfconf / gsettings / xdg-* / D-Bus 等命令线与总线面的适配，属「Linux 后端内部事务」，随各自能力批处理时按需实现，不进路线图。判据：一个条目若只在一个平台有意义（换个平台没有对应 API 可做）→ 不进 TODO；若换个平台有对应 API（tray/hotkey/通知/剪贴板/文件对话框/菜单栏…）→ 进 TODO，且**以「门面定形态 + 各平台后端」记账**。
@@ -15,11 +15,11 @@
 
 > 已完成的功能点全部收进 [docs/zh/roadmap.md](docs/zh/roadmap.md)「功能面全景」；本节只留未完成项。
 
-- [~] **G5b** 输入通道补齐
+- [ ] [~] **G5b** 输入通道补齐
   - ibus 一套复验（探针侧归因 libpinyin display-style，待确认）
   - macOS：`NSTextInputClient` 通道已随 mac 合并落地（2026-10-18 d3020b9 补功能键闸，修导航键被输入法吞），剩真机复验（T 节）
   - 肉眼确认项：preedit 下划线观感、候选窗是否贴组合串末尾、caret 闪烁观感（点击定位已用 xdotool 客观验通：点控件最左端 caret 归 0、原位插字符）
-- [~] **G7** 声明式层与组件宿主接线（`mount` 目标从 `View` 换 yoga-mbt 节点；恢复全仓门禁。宿主与声明式地基已就位：`@core.App` + `@core.Widget` 树 + `@core.Node`/`bind_node`/`swap_node`/`Store`/`Signal`，验证页 `examples/native-app`；剩组件与图表挂新 Painter）
+- [ ] [~] **G7** 声明式层与组件宿主接线（`mount` 目标从 `View` 换 yoga-mbt 节点；恢复全仓门禁。宿主与声明式地基已就位：`@widget.App` + `@widget.Widget` 树 + `@widget.Node`/`bind_node`/`swap_node` + `@base.Store`/`@base.Signal`，验证归 `examples/showcase`；剩组件与图表挂新 Painter）
 - [ ] **G8** 原生子表面通道与其消费者（见 §4「浏览器」「视频」）
 - [ ] **G10 窗口内按键路由补齐**（2026-10-16 播放器快捷键一批暴露的面）
   - [ ] **焦点链会抢走窗口级兜底**：`ui.button` 的键盘口径是「空格/回车激活」。于是用户 Tab 过任何一个按钮之后，空格就不再是播放器的「播放/暂停」而是「按下那个按钮」——与 Web 一致，但播放器用户预期相反。待定口径：播放器快捷键是否要**优先于**焦点链（给 `add_key_fallthrough` 加「抢占档」），还是把按钮激活键收成只 `Enter`（改 ui 公共行为，波及所有表单）。先立判据再动：同一窗内「Tab 到按钮 + 按空格」的期望行为写进契约与 wbtest。
@@ -43,19 +43,21 @@
 - [~] 基础原语：`group`/`separator`/标签/图像/图标/按钮已落新包 **`ui`**（首批 7 件，另附 `container`；文本 measure/baseline 首次回灌布局引擎，`on_pointer`/`on_draw` 首参为控件本身以免自捕获引用环；`type=` 因是保留字改 `kind : ButtonKind`；`yue/components` 属旧链路红点，按批替换）；表单族 15 件已全部落 `ui/form.mbt` + `ui/entry.mbt` + `ui/textarea.mbt`；`tab` 已由 `ui/nav.mbt` 的 `tabs_t` 承担（页签头行 + 预建页区显隐），`scroll` 已落 `ui/scroll.mbt`（垂直滚动容器 + 自绘滚动条，平移用 yoga 新补的相对定位偏移），`splitter` 已落 `ui/split.mbt`（`hsplit`/`vsplit`）、`combo` 已落 `ui/form.mbt`
 
 ### 主题、声明式与应用层
-- [~] 主题系统
+
+- [ ] [~] 主题系统
   - 新栈刻意不做：原生控件 CSS 下发（全自绘后色板是唯一来源）
-- [~] 声明式层（`declarative/` 612 行、24 构造器）：地基已落（`Node{mount:(Widget)->Widget}`、`node_of`/`node_of_new`/`mount_children`/`App::mount`、`invalidate` 回路）；**L1 构造器全集落 `ui/declarative.mbt`**——`vbox`/`hbox`/`text_edit`/`picker`/`scroll`/`tab`/`date_picker`（改名者，旧调用点原样跑在新栈上）+ `mount_window`（建宿主并挂载）+ `bind`/`bind_label`（Store/信号驱动的文本绑定），与组件**同名**的（`label`/`button`/`entry`/`checkbox`/`container`/`group`/`separator`/`image`/`icon`/`radio_group`/`slider`/`progress`）直接用组件、不再包第二层；`hover_group` 已落（本栈宿主悬停态是父链语义，旧链路那套全局指针轮询不需要）；`overlay_scroll` 即 `scroll_v`（滚动条一直是视口的绝对定位子控件）。`cursor_group` 已落（配套新增窗口层光标通道：`wm_set_cursor` FFI + `Widget.cursor` 请求 + 宿主按悬停路径取「最深非零」下发）；`combo`（可编辑下拉：`entry` + 随输入过滤的候选浮层，↑↓/回车/Esc 走按键沿祖先链冒泡）已落 `ui/form.mbt`；`gif`（动图组件，走 `@render.Animation` 的逐帧迭代 + 进程级延时通道）已落 `ui/gif.mbt`。**L1 构造器全集到此收口**（旧 24 个里除 `mount`（即 `App::mount`）与同名组件外都已到位）。
+- [ ] [~] 声明式层（`declarative/` 612 行、24 构造器）：地基已落（`Node{mount:(Widget)->Widget}`、`node_of`/`node_of_new`/`mount_children`/`App::mount`、`invalidate` 回路）；**L1 构造器全集落 `ui/declarative.mbt`**——`vbox`/`hbox`/`text_edit`/`picker`/`scroll`/`tab`/`date_picker`（改名者，旧调用点原样跑在新栈上）+ `mount_window`（建宿主并挂载）+ `bind`/`bind_label`（Store/信号驱动的文本绑定），与组件**同名**的（`label`/`button`/`entry`/`checkbox`/`container`/`group`/`separator`/`image`/`icon`/`radio_group`/`slider`/`progress`）直接用组件、不再包第二层；`hover_group` 已落（本栈宿主悬停态是父链语义，旧链路那套全局指针轮询不需要）；`overlay_scroll` 即 `scroll_v`（滚动条一直是视口的绝对定位子控件）。`cursor_group` 已落（配套新增窗口层光标通道：`wm_set_cursor` FFI + `Widget.cursor` 请求 + 宿主按悬停路径取「最深非零」下发）；`combo`（可编辑下拉：`entry` + 随输入过滤的候选浮层，↑↓/回车/Esc 走按键沿祖先链冒泡）已落 `ui/form.mbt`；`gif`（动图组件，走 `@render.Animation` 的逐帧迭代 + 进程级延时通道）已落 `ui/gif.mbt`。**L1 构造器全集到此收口**（旧 24 个里除 `mount`（即 `App::mount`）与同名组件外都已到位）。
 - [ ] 富文本编辑（远期 WYSIWYG 块编辑器）
 - [ ] 代码高亮、终端模拟器、WebGL 画布（旧栈即无，列为待评估）
 
 ### 系统集成（master 参考面：`yue/system` 31 源文件 + `yue/traybus` 16 源文件，属可平移资产）
-- [~] A 类平移 · 环境/文件原语
-- [~] A 类平移 · 硬件族（六进 sys；sensor/bluetooth 走 @traybus、disk 走 UDisks+@traybus，随 DBus 线）：
+
+- [ ] [~] A 类平移 · 环境/文件原语
+- [ ] [~] A 类平移 · 硬件族（六进 sys；sensor/bluetooth 走 @traybus、disk 走 UDisks+@traybus，随 DBus 线）：
   - [ ] `sensor`（iio-sensor-proxy）/ `bluetooth`（org.bluez）/ `disk`（UDisks2）随 DBus 线（**仅 Linux 有对应面，按新口径不进路线图**；如需启用另立 Linux 侧文档）
-- [~] A 类平移 · 会话与状态：`power`/`session`/`powerctl`/`online`/`idle`/`keepawake`/`clipboard_watch`/`locale_sys`/`sysinfo`/`windowctl`（monitor 已随硬件族提前）
+- [ ] [~] A 类平移 · 会话与状态：`power`/`session`/`powerctl`/`online`/`idle`/`keepawake`/`clipboard_watch`/`locale_sys`/`sysinfo`/`windowctl`（monitor 已随硬件族提前）
   - [~] `power`/`session`/`online`/`keepawake`/`powerctl` 的**总线能力已在 `dbus`**（`upower.mbt`/`logind.mbt`/`netmon.mbt`/`inhibit.mbt`，真总线回证）；`sys` 侧与旧链同名的语义化包装（电量读数、挂起/休眠动作、在线判定、抑制睡眠）待随各能力线补——**总线面为 Linux-only，按新口径不进路线图**；如需在非 Linux 提供同类能力，走 §6 的跨平台门面（如 W21a 通知）
-- [~] DBus 系在新事件循环下**重写/重验**：SNI 托盘（`traybus/sni.mbt`）、通知（新栈须重写 `org.freedesktop.Notifications`，含 `Notification::set_progress` 进度文本）、logind（`SetBrightness`/inhibit）、UPower、NetworkManager（`netmon`/`online`）、屏保 `screensaver`、媒体键 MPRIS（`media` 含状态监视轮询）
+- [ ] [~] DBus 系在新事件循环下**重写/重验**：SNI 托盘（`traybus/sni.mbt`）、通知（新栈须重写 `org.freedesktop.Notifications`，含 `Notification::set_progress` 进度文本）、logind（`SetBrightness`/inhibit）、UPower、NetworkManager（`netmon`/`online`）、屏保 `screensaver`、媒体键 MPRIS（`media` 含状态监视轮询）
   - **非 Linux 后端**：D-Bus 线本身是 Linux-only（`dbus_stub.c` 在 `_WIN32`/`__APPLE__` 为失败桩），但 **SNI 托盘 / 通知 / MPRIS 的跨平台面**已按新口径收进 §6（W20c 托盘、W21a 通知）；其余（logind/UPower/NetworkManager/屏保/inhibit）**无跨平台对应面，不再跟踪**
 - [ ] 新建项（master 全仓无资产，属新做）：**任务栏进度 / dock 徽标** 已收进 §6.3（W20 批，三平台各有原生面）；**勿扰** 随 W21a 通知门面
 - [ ] 平台分派：**跨平台能力的各平台后端按 §6 批次推进**（Win 基础能力 W20 / MBT 通用门面 W21）；master 有 Win32 直连族与 mac ObjC++ 族可参照
@@ -73,7 +75,7 @@
   - [~] **批 E 余项**：「点外收起」的可用判据仍欠——失焦自收在映射期会误触发（对照实验：开=约两秒自关且 `hides=0`；关=常驻），故 `overlay_set_dismiss_on_blur` **默认关**，等「拿到过焦点才算」的判据；另欠弹层锚点跟随 owner 滚动/移动、六件各自的尺寸提示
 - 积木原则：一个能力一个接口、可单独不用；能力之间不互相依赖（webview 不依赖媒体层，反之亦然，两者只依赖窗口/布局/事件层）；框架只给原语不给产品（爬虫框架、站点适配、内容解析、开发者面板、页面脚本库不进库）；每项能力给探测 + 语义化降级；新 API 一律走 `Painter`/`Bitmap` 门面
 - 明确不做（避免反复讨论）：网络拦截/改写、代理配置、一窗多 webview 并排、Linux 上把 webview 变纹理、首批硬解、首批 GPU 合成、网页内 `<video>` 与自绘播放器统一、macOS 13 及以下的持久化隔离（根因是 Apple API 边界：持久化 profile 需 macOS 14+ 且有 bundle id）
-- 平台后端（随各自真机）：Windows WebView2——**2026-10-13 平台批已接**（两级异步 COM 创建 Environment→Controller、失败走 dead 语义降级、就绪前 load 排队、13 事件 push 队列同构 WebKit 分支、自定义 scheme 经 `EnvironmentOptions4::SetCustomSchemeRegistrations` 预注册 + `WebResourceRequested` 回包（`CreateWebResourceResponse`，404 给明确空响应）；vendor 口径：NuGet Microsoft.Web.WebView2 1.0.4258.31 的 `WebView2LoaderStatic.lib` + 头 vendor 进 `gui/web/`，prebuild 下发链接参数；**真机验证**：web wbtest 17/17、一次性探针 load_html/标题事件/JS 求值/协议页导航/DOM 求值全通、`native-web` 冒烟 `supported=1` + GEO 真矩形 + 8 组统计；坑见中英 `adaptation.md`——未预注册 scheme 导航直接失败、COM propput 少 self 参数在 x64 上静默写坏 vtable、`GetCustomSchemeRegistrations` 数组必须 `CoTaskMemAlloc`（静态数组会被引擎 free 触发堆损坏 0xC0000374））。**未接**：跨 HWND 焦点与滚轮转发。macOS WKWebView（自定义协议走**公开**的 `WKURLSchemeHandler`（macOS 10.13+），libyue 当年那条 `WKBrowsingContextController registerSchemeForCustomProtocol:` 是更老的私有路线；要验的是公开入口够不够用：自定义 scheme 默认非标准、origin/localStorage 行为要另配；**另需真机验一条**：`loadHTMLString:baseURL:` 是否入前进/后退历史——Apple 无文档承诺，而 Linux 实测 `load_html` 不入历史、WebView2 文档明写 `NavigateToString` 不改历史，若 mac 相反就要在 `web` 里抹平或写进契约）
+- 平台后端（随各自真机）：Windows WebView2——**2026-10-13 平台批已接**（两级异步 COM 创建 Environment→Controller、失败走 dead 语义降级、就绪前 load 排队、13 事件 push 队列同构 WebKit 分支、自定义 scheme 经 `EnvironmentOptions4::SetCustomSchemeRegistrations` 预注册 + `WebResourceRequested` 回包（`CreateWebResourceResponse`，404 给明确空响应）；vendor 口径：NuGet Microsoft.Web.WebView2 1.0.4258.31 的 `WebView2LoaderStatic.lib` + 头 vendor 进 `gui/web/`，prebuild 下发链接参数；**真机验证**：web wbtest 17/17、一次性探针 load_html/标题事件/JS 求值/协议页导航/DOM 求值全通、`native-web` 冒烟 `supported=1` + GEO 真矩形 + 8 组统计；坑见 `adaptation.md`——未预注册 scheme 导航直接失败、COM propput 少 self 参数在 x64 上静默写坏 vtable、`GetCustomSchemeRegistrations` 数组必须 `CoTaskMemAlloc`（静态数组会被引擎 free 触发堆损坏 0xC0000374））。**未接**：跨 HWND 焦点与滚轮转发。macOS WKWebView（自定义协议走**公开**的 `WKURLSchemeHandler`（macOS 10.13+），libyue 当年那条 `WKBrowsingContextController registerSchemeForCustomProtocol:` 是更老的私有路线；要验的是公开入口够不够用：自定义 scheme 默认非标准、origin/localStorage 行为要另配；**另需真机验一条**：`loadHTMLString:baseURL:` 是否入前进/后退历史——Apple 无文档承诺，而 Linux 实测 `load_html` 不入历史、WebView2 文档明写 `NavigateToString` 不改历史，若 mac 相反就要在 `web` 里抹平或写进契约）
 
 ### 交付面（webview 批 A/B 落地后接上）
 
@@ -81,13 +83,14 @@
 - [ ] 文档：中英使用文档按新栈重写（`components`/`components-ui`/`declarative`/`layout`/`relink`/`system-capabilities`/`tutorial`），README 挂新截图
 - [ ] 发布：mooncakes 新版本；旧 `bin-*`/`vendor-*` 预构建发布链退役
   - [ ] **`gui-media` / `gui-examples` 首发前最后一次公开面审校**：两模块 0.1.0 至今未发布，本轮组件改名（`player_t` → `video`、新增 `audio`）正是在「无历史版本」前提下才零破坏；一旦发出去就改不动了。首发前把两模块 README、`docs/zh/system-capabilities.md` 媒体段、`modules/gui-media/moon.mod` 依赖版本钉法过一遍（发布链与预演 zip 口径见根 `HANDOFF.md`）。
-  - **0.1.0 构建失败与 0.1.1 重发链（2026-10-15 实测）**：`native-gui@0.1.0` 包页 Build failed——依赖 `NoahLiu/yoga-mbt@0.1.0` 的注册表归档里 `src/moon.pkg.json` 仍是旧清单（发布早于仓内迁移；已发布版本不可原地改写），四目标同一根因。重发顺序**先 `yoga-mbt` 后 `native-gui`**、版本各递增 0.1.1，仓内各模块钉版同批更新；发布从各自模块根执行（可先 `moon publish --dry-run`），发前 `moon package` 预演核对归档零旧清单，发后看包页 `build_status` 与构建日志 API；机理见中英 adaptation.md 的 mooncakes 构建器条。
+  - [ ] **0.1.0 构建失败与 0.1.1 重发链（2026-10-15 实测）**：`native-gui@0.1.0` 包页 Build failed——依赖 `NoahLiu/yoga-mbt@0.1.0` 的注册表归档里 `src/moon.pkg.json` 仍是旧清单（发布早于仓内迁移；已发布版本不可原地改写），四目标同一根因。重发顺序**先 `yoga-mbt` 后 `native-gui`**、版本各递增 0.1.1，仓内各模块钉版同批更新；发布从各自模块根执行（可先 `moon publish --dry-run`），发前 `moon package` 预演核对归档零旧清单，发后看包页 `build_status` 与构建日志 API；机理见 adaptation.md 的 mooncakes 构建器条。
 - [ ] 真机验证矩阵：Ubuntu GNOME / KDE / XFCE；Windows 10 / 11；macOS 真机已到位（T1–T8 执行中）
-- [~] **平台批：WebView2 桩真实现 + ffmpeg Windows 真链接**（已完成面见 roadmap；剩余见子条目）
+- [ ] [~] **平台批：WebView2 桩真实现 + ffmpeg Windows 真链接**（已完成面见 roadmap；剩余见子条目）
   - **win 子 HWND 容器**（P1）：`gui/win/stub.c` 补 `wm_surface_new/set_rect/close/container` Windows 真实现（`WS_CHILD` 面板 HWND，父=宿主窗，DefWindowProc + 背景刷 NULL 免闪白），`wm_init` 注册窗口类、`wm_close` 清 surface 槽——web 桩经 `wm_surface_container(surface_id)` 拿 parentHWND。
   - **WebView2 桩真实现**（P2/P3）：`gui/web/webview2_stub.c`（仅 `_WIN32` 有内容，~1450 行）——静态 Loader 链接形态（`WebView2LoaderStatic.lib` vendor 进 `gui/web/lib/`、头 vendor 进 `gui/web/include/`，NuGet Microsoft.Web.WebView2 1.0.4258.31，MIT）；事件模型与 WebKit 分支同构（COM 回调 push 队列、MoonBit 每帧消费式取）；`webview_predeclare_schemes` 名单经新 extern `wb_predeclare_scheme` 流到 C 桩、Environment 创建时经 `EnvironmentOptions4::SetCustomSchemeRegistrations` 注册（`WbReg`/`WbOptions` 手写 COM，secure=TRUE/authority=TRUE）；`webkit_stub.c` 两分支加 no-op 对齐。**验证**：`moon test ./gui/web` 17/17、`core` 118/118、examples `--deny-warn` 零警告；一次性探针 `examples/webprobe`（验证后已删）——load_html+标题事件+JS 求值、协议预注册+本地文件服务+导航（`PROBE-TITLE ScmPage`/`PROBE-DONE title=ScmPage url=probescm://local/index.html`/`PROBE-JS scheme-ok`）全链路真机通；`native-web` 冒烟 `supported=1` + GEO 真矩形 + 8 组统计。
   - **ffmpeg Windows 真链接**（P4）：`ffmpeg_stub.c` 删 `_WIN32` 全错误降级分支，三平台实现同源；dev 内容 vendor 进 `modules/ffmpeg-mbt/vendor/`（BtbN `ffmpeg-n9.0-latest-win64-lgpl-shared-9.0` 的 include 头 + 导入库 + LGPLv3 LICENSE，共 2.5MB；**运行期 dll 不进仓库**——本地放 PATH 或与 exe 同目录）；`prebuild.py` Windows 分支输出 `vars.FFMPEG_INC` + 导入库 `link_configs`（官方 prebuild `vars` + moon.pkg `${build.VAR}` 替换机制）；`src/moon.pkg` 加 `stub-cc-flags: "/utf-8 -I${build.FFMPEG_INC}"`——**`/utf-8` 是必须项**：MSVC 默认按系统代码页（GBK）读无 BOM 源文件，中文注释与 ffmpeg 头的 UTF-8 字节序列被误读吞行（C4819 → 级联语法错误）。`gui-media/prebuild.py` 注释更新：Windows 实测 miniaudio WASAPI/COM 全走运行期加载，零额外链接库。**验证**：`moon test ./modules/ffmpeg-mbt/src` **6/6**（ogg/m4a/wav 音频真解码 + 视频真解码 96x64 12 帧）、`moon test ./modules/gui-media/media` **24/24**（AudioPlayer 冒烟 pump 33 拍播完 1 秒素材——WASAPI 设备链真出声）；`native-web`（依赖 media→ffmpeg-mbt）Windows 链接成功。
   - **门禁**：库 `moon check` 归零 + 8 包测试 **837/837**；各模块 check 全绿。**已知遗留**：`experiment/ime_probe` Windows 链接 `ip_set_surrounding` LNK2019（Windows 上 prebuild 不编 IME 探针桩，既有问题、与平台批无关）；`release-bin.yml` 等 CI 未覆盖 ffmpeg dll 分发口径。
+
 
 ## 3. 里程碑
 
@@ -96,7 +99,7 @@
 
 ## 6. 跨平台能力面（Win 基础能力 + MBT 通用能力）
 
-> **本节口径**（2026-10-12 定）：只记跨平台能力——即「换个平台有对应原生 API 可做」的能力，一律记成**「MBT 门面定形态 + 各平台后端」**；纯 Linux 依赖的实现细节（xrandr/wmctrl/xclip/sysfs/wpctl/CUPS/D-Bus…）不再列为待办。清单来源＝旧栈资产面（`yue/tray.mbt`/`menu.mbt`/`misc.mbt`/`widgets.mbt` 的 `Notification`/`register_global_shortcut`/`Tray`/`MenuBar`/`MessageBox`，见本仓实验区 vendored 副本 `experiment/async_coexist/lab/.mooncakes/NoahLiu/native-gui/yue/`）逐文件比对，剔除 Linux-only 后重排。
+> **本节口径**（2026-10-12 定）：只记跨平台能力——即「换个平台有对应原生 API 可做」的能力，一律记&#x6210;**「MBT 门面定形态 + 各平台后端」**；纯 Linux 依赖的实现细节（xrandr/wmctrl/xclip/sysfs/wpctl/CUPS/D-Bus…）不再列为待办。清单来源＝旧栈资产面（`yue/tray.mbt`/`menu.mbt`/`misc.mbt`/`widgets.mbt` 的 `Notification`/`register_global_shortcut`/`Tray`/`MenuBar`/`MessageBox`，见本仓实验区 vendored 副本 `experiment/async_coexist/lab/.mooncakes/NoahLiu/native-gui/yue/`）逐文件比对，剔除 Linux-only 后重排。
 >
 > **执行顺序（口径留档，W22 已全数交付移出本文件）**：W20 批（Win 基础能力，桩层 `win/stub.c` 的 `_WIN32` 分支 + `win/window.mbt` FFI）→ W21 批（MBT 通用门面，跨平台同构）→ 托盘/通知/热键三族门面统一（原 W22，2026-10-18 前全部交付）。每批独立可交付、独立提交。
 
@@ -144,7 +147,7 @@
 
 ## 5. 随手可查
 
-- 平台实测坑：[docs/zh/adaptation.md](docs/zh/adaptation.md)（中英两份）
+- 平台实测坑：[proposals/adaptation.md](proposals/adaptation.md)
 - 布局引擎交接与决策：[modules/yoga-mbt/HANDOFF.md](modules/yoga-mbt/HANDOFF.md)
 - libyue 源码（只读老师）：`/home/lkyh/ownCode/yue`，含 `patches/` bug 语料
 - master 线参考副本（代码权威）：`/home/lkyh/ownCode/moonbit-libyue`（比本仓 origin/master 新，Windows/mac 批次在此；本仓文档落后量见「交付面」）
@@ -155,11 +158,11 @@
 
 ## 7. mac 平台批（macOS 后端落地进度）
 
-> 口径同 §6：**门面定形态 + 各平台后端**。形态与坑记在 [docs/zh/adaptation.md](docs/zh/adaptation.md) 的「macOS 后端首批」节；真机复验清单在 `_人工测试清单.md` 的 T 节；编译/链接门禁是 `ci.yml` 的 macOS job（mac 已并 master，随 master 跑）。
+> 口径同 §6：**门面定形态 + 各平台后端**。形态与坑记在 [proposals/adaptation.md](proposals/adaptation.md) 的「macOS 后端首批」节；真机复验清单在 `_人工测试清单.md` 的 T 节；编译/链接门禁是 `ci.yml` 的 macOS job（mac 已并 master，随 master 跑）。
 
 - [ ] **macOS GIF 动图分帧合成**：要逐帧读「帧矩形 + disposal」，disposal 不在 Apple 的 GIF 公开属性清单里——先真机用 experiment 探针把可得性回证，再补（当前 `img_anim_decode_file` 给 0，组件退回首帧静图，尺寸已按首帧给对）
 - [ ] **macOS 显示器「首选档」标记**：`CGDisplayModeIsPreferred` 在当前 SDK 已不声明（同族的 `CGDisplayCopyAllDisplayModes`/`GetPixelWidth`/`GetRefreshRate` 都还在），`preferred` 一律给 false。要做要先找到公开信号（ScreenCaptureKit 那侧的模式清单能否对上 `CGDirectDisplayID`），不拿私有形态或「当前档」冒充
-- [ ] **macOS 通知的后端名仍叫 WinBalloon**：mac 的通知实现在 win 桩的 `wm_notify_*`（NSUserNotification），而 `core/notify.mbt` 的 `NotifyBackend` 只有 `Dbus`/`WinBalloon` 两档，于是 mac 上 `notify_backend_name()` 报 "win-balloon"。能力本身（标题+正文，无动作/持久化）与气泡同档，先不改门面；真机确认通知能用后再决定是否加第三档 `Cocoa`
+- [ ] **macOS 通知的后端名仍叫 WinBalloon**：mac 的通知实现在 win 桩的 `wm_notify_*`（NSUserNotification），而 `shell/notify.mbt` 的 `NotifyBackend` 只有 `Dbus`/`WinBalloon` 两档，于是 mac 上 `notify_backend_name()` 报 "win-balloon"。能力本身（标题+正文，无动作/持久化）与气泡同档，先不改门面；真机确认通知能用后再决定是否加第三档 `Cocoa`
 - [ ] **macOS 已明确不做的四族**：窗口管理（Accessibility 授权门槛）、夜间模式（CoreBrightness 私有）、电源方案（`pmset` 语义对不上三值方案）、媒体播放器枚举（无 MPRIS 对等物）——若将来要做，得先解决「授权弹窗由谁负责」的产品问题
 - [ ] **macOS 安装自启动的生效回证**：plist 写落点已通（纯函数有测试钉住），`launchctl load` 在新写入文件上的实际生效待真机确认（不通就换 `bootstrap gui/<uid>`，那要先给 sys 补一个取 uid 的口子）
 - [ ] **真机复验 T1-T6 全部目视项**（`_人工测试清单.md`）：CI 只证明「编得过、链得上」；Retina 观感、输入法内联、拖窗期间的循环、通知在非 bundle 进程下是否弹出，都要人看
