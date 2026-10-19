@@ -12,7 +12,6 @@ import {
   "NoahLiu/native-gui/ui",
   "NoahLiu/native-gui/win" @win,
   "NoahLiu/native-gui/sys" @sys,
-  "NoahLiu/native-gui/dbus" @dbus,
   "NoahLiu/native-gui/icons",
   "NoahLiu/native-gui/chart" @charts,
   "NoahLiu/native-gui/theme",

@@ -2649,6 +2649,19 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **教训**：**别按 KVC 惯例猜 selector 名**。`respondsToSelector:` 守一个假名字不会报错，只会静默失效——比不写守卫更糟，因为它长得像「已经做过平台兼容」。查一眼 SDK 头或跑个运行时探针只要两分钟，比真机来回一轮便宜得多。
 **验证**：探针读数如上；全仓 `moon test` 1259/1259、`--deny-warn` 干净、mac 桩编译无新警告；真机「右键托盘 → 菜单弹出 → 选中项回调跑到」归用户复验（T4d 已按此改写）。
 
+## 系统能力探测页只列「三平台都有对应面」的族；顺带修掉三处看着像平台限制、其实是代码错的读数（2026-10-19,用户真机五张截图）
+
+**现象**（用户 mac 真机）：showcase「系统能力探测」整页一片「读不到：…::Unsupported」，要逐条判哪些是代码问题、哪些不是通用能力。
+**逐条判定**（先把同款命令在本机跑一遍，不靠猜）：
+- **机器** `SiReadFailed(ioreg: Manufacturer)`——代码错。`ioreg -rd1 -c IOPlatformExpertDevice` 在 Apple Silicon 上给的是**全小写键** `manufacturer`，值还被 plist 的 data 尖括号包住（`<"Apple Inc.">`），而 `si_parse_ioreg` 按 `"Manufacturer"` 字面比、只认 `"v"` 形态。更糟的是**夹具与代码同错**（测试写 `"Manufacturer" = "Apple Inc."`），于是门禁全绿、真机恒读不到。修：键去引后按小写比，值加 `<"...">` 解包（纯 hex 的 `<6e75…>` 仍判取不到，机型走 `sysctl -n hw.model`）。
+- **打印机** `PrtCommandFailed(lpstat: 退出码 1)`——查询用错了一口。macOS 的 CUPS 兼容层里 `lpstat -p` 答「未添加目的位置」（退出码 1），而 `lpstat -e` 列得出真实队列（本机 `EPSON_L3250_Series`）。修：`-p` 失败退到 `-e`（一行一个目标名，状态给新增的 `Unknown`），两条都不行才抛原错；Linux 无打印机时同样 `-p` 失败，那种情况答案本就是空列表，不该报错。
+- **书签** `BookmarkError::BmNoBrowser`——契约过窄。发现逻辑与历史侧同源（同一张浏览器表、同一批 profile 候选），只把文件名写死成 `Bookmarks`；本机 Chrome 的 `Default` 里没有这个文件，书签在 `AccountBookmarks`（同一份 `roots{bookmark_bar,other,synced}` JSON）。修：候选表 `["Bookmarks", "AccountBookmarks"]`，端到端用例随即真读到并解析通过。
+- **空闲 0 秒**——不是故障，`CGEventSourceSecondsSinceLastEventType` 的真实读数（刚有输入）。
+- **窗口列表 / 电源计划 / 夜灯 / 最近文件 / D-Bus 会话与系统总线 / 通知能力 / MPRIS**——不是三平台概念：macOS 的窗口列表要先拿辅助功能授权、`pmset` 只有 lowpowermode 对不上「平衡/性能/节能」三值语义、Night Shift 无公开口（CoreBrightness 私有）、最近文件无公共格式、总线族是 Linux 专属。
+**处置**：库侧 API 与 `@sys` 文档全保留（launcher 一类单平台目标仍要用），只把**演示板**收成「三平台都有对应面」的族——`sp_group` 从固定两块面板改成面板数组，删 `sp_windows`/`sp_dbus_media`/`sp_pp_name` 与夜灯/最近文件/电源计划四组行，pages 包随之撤 `@dbus` 依赖；页头注释与清单 T7e 写明这条口径和理由。
+**教训**：① **夹具必须长得像源文**——本轮三处「Unsupported」里有两处是代码与夹具一起自洽地错，门禁全绿而真机读不到；能采一份真机原始输出当夹具就别手写。② 「读不到」先分**没做**与**做错**：同款命令本机跑一遍十秒钟，比在演示页摆一排「本平台不支持」便宜，也更接近真相。③ 演示板是**契约的形状**，不是能力全集——两平台概念进了板，等于把边界写进契约。
+**验证**：`gui/sys` 包 200/200（新增 ioreg 双形态、`prt_parse_destinations`、书签候选表三条；书签那条端到端现在真读本机 Chrome 的 `AccountBookmarks`）；全仓 `moon test` 1261/1261、`--deny-warn` 干净。真机复验点见清单 T7g。
+
 ## 维护约定
 
 1. 新增结论写进对应小节,只记「坑 + 修复」;协议互操作结论必须来自真总线、真面板,单测自洽不算数。
