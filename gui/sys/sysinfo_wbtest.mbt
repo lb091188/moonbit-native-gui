@@ -302,13 +302,26 @@ test "macOS 读数解析：sw_vers 三行与 ioreg 的带引号键" {
   buf.write_string("{\n")
   buf.write_string("  \"IOPlatformExpertDevice\" = {\n")
   buf.write_string("    \"compatible\" = <686937>\n")
-  buf.write_string("    \"Manufacturer\" = \"Apple Inc.\"\n")
-  buf.write_string("    \"IOPlatformSerialNumber\" = \"C02XL0ABMD6T\"\n")
+  // 真机实采形态（Apple Silicon / macOS 26.5）：厂商键**全小写**，值被 plist
+  // 的 data 尖括号包住。旧夹具写的是 `"Manufacturer" = "Apple Inc."`——大小写
+  // 与值形态两样都不对，于是代码与夹具自洽、真机恒读不到（用户截图即此）。
+  buf.write_string("    \"manufacturer\" = <\"Apple Inc.\">\n")
+  buf.write_string("    \"model\" = <6e7535336b6e6136>\n")
+  buf.write_string("    \"IOPlatformSerialNumber\" = \"DJY55F2R9G\"\n")
   buf.write_string("  }\n}\n")
   let reg = buf.to_string()
+  // 键按小写比：调用方传哪种写法都要命中
   assert_eq(si_parse_ioreg(reg, "Manufacturer"), Some("Apple Inc."))
-  assert_eq(si_parse_ioreg(reg, "IOPlatformSerialNumber"), Some("C02XL0ABMD6T"))
+  assert_eq(si_parse_ioreg(reg, "manufacturer"), Some("Apple Inc."))
+  assert_eq(si_parse_ioreg(reg, "IOPlatformSerialNumber"), Some("DJY55F2R9G"))
+  // 纯 hex 的 Data 键不从这里取（机型走 sysctl hw.model）
+  assert_true(si_parse_ioreg(reg, "model") is None)
   // 没这个键给 None（不是空串）——上层据此报读不到，不用空串糊弄
   assert_true(si_parse_ioreg(reg, "board-id") is None)
+  // Intel 老机型的普通引号形态照旧认
+  assert_eq(
+    si_parse_ioreg("  \"manufacturer\" = \"Apple Inc.\"\n", "Manufacturer"),
+    Some("Apple Inc."),
+  )
   assert_eq(si_trim("\t  \n"), "")
 }

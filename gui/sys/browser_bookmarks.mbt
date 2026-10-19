@@ -239,12 +239,48 @@ pub fn bm_bookmarks_path(
   subdir : String,
   profile : String,
 ) -> String {
+  bm_profile_dir(config_root, dir, subdir, profile) + "/Bookmarks"
+}
+
+///|
+/// profile 目录（书签文件名不写死在这里，见 `bm_file_names`）。
+fn bm_profile_dir(
+  config_root : String,
+  dir : String,
+  subdir : String,
+  profile : String,
+) -> String {
   let base = if subdir != "" {
     config_root + "/" + dir + "/" + subdir
   } else {
     config_root + "/" + dir
   }
-  base + "/" + profile + "/Bookmarks"
+  base + "/" + profile
+}
+
+/// 书签文件名候选，按优先级排。新版 Chromium 把书签挪进了账号库——真机
+/// macOS 26.5 上 Chrome 的 `Default` 目录里根本没有 `Bookmarks`，只有
+/// `AccountBookmarks`（同一份 `roots{bookmark_bar,other,synced}` JSON 形状，
+/// 解析器不用改），于是老规则恒判 `BmNoBrowser`。加密那份（`Encrypted…`）
+/// 不列：读出来也不是 JSON。
+let bm_file_names : ReadOnlyArray[String] = ["Bookmarks", "AccountBookmarks"]
+
+///|
+/// 该 profile 下第一个真实存在且可读书签文件名，给全路径；都没有给 None。
+fn bm_find_bookmarks(
+  config_root : String,
+  dir : String,
+  subdir : String,
+  profile : String,
+) -> String? {
+  let base = bm_profile_dir(config_root, dir, subdir, profile)
+  for name in bm_file_names {
+    let path = base + "/" + name
+    if sys_read_text_file(path) is Some(_) {
+      return Some(path)
+    }
+  }
+  None
 }
 
 // ---------------------------------------------------------------------------
@@ -292,9 +328,9 @@ pub fn bm_browsers() -> Result[Array[BookmarkProfile], BookmarkError] {
   for def in bh_defs() {
     let (id, dir, subdir) = def
     for profile in bh_profile_candidates() {
-      let path = bm_bookmarks_path(root, dir, subdir, profile)
-      if sys_read_text_file(path) is Some(_) {
-        out.push({ browser: id, profile, bookmarks_path: path, })
+      match bm_find_bookmarks(root, dir, subdir, profile) {
+        Some(path) => out.push({ browser: id, profile, bookmarks_path: path, })
+        None => ()
       }
     }
   }
@@ -324,7 +360,10 @@ pub fn bm_bookmarks(browser : String) -> Result[BookmarkNode, BookmarkError] {
       continue
     }
     for profile in bh_profile_candidates() {
-      let path = bm_bookmarks_path(root, dir, subdir, profile)
+      let path = match bm_find_bookmarks(root, dir, subdir, profile) {
+        Some(p) => p
+        None => continue
+      }
       match sys_read_text_file(path) {
         Some(text) => {
           let label = id + "/" + profile

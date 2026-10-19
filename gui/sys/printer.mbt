@@ -18,12 +18,14 @@
 ///|
 /// 打印机可用状态：Idle 空闲可用、Printing 正在打印、
 /// Paused 暂停接新任务（lpstat 的 "is holding new jobs"）、
-/// Disabled 已禁用。
+/// Disabled 已禁用、Unknown 状态未知（`lpstat -e` 只给目标名，不带状态——
+/// macOS 的队列查询走的就是这一口，见 `prt_printers`）。
 pub(all) enum PrinterStatus {
   Idle
   Printing
   Paused
   Disabled
+  Unknown
 }
 
 ///|
@@ -33,6 +35,7 @@ pub impl Show for PrinterStatus with fn output(self, logger) {
     Printing => logger.write_string("PrinterStatus::Printing")
     Paused => logger.write_string("PrinterStatus::Paused")
     Disabled => logger.write_string("PrinterStatus::Disabled")
+    Unknown => logger.write_string("PrinterStatus::Unknown")
   }
 }
 
@@ -185,12 +188,28 @@ fn prt_first_line(s : String) -> String {
 }
 
 ///|
-/// 该状态是否可提交任务（Idle 空闲 / Printing 打印中均可送纸）。
+/// 该状态是否可提交任务（Idle 空闲 / Printing 打印中均可送纸；Unknown 是
+/// `lpstat -e` 列出的「可用目标」，状态没读出来但按可送纸处理）。
 pub fn prt_status_available(status : PrinterStatus) -> Bool {
   match status {
-    Idle | Printing => true
+    Idle | Printing | Unknown => true
     Paused | Disabled => false
   }
+}
+
+///|
+/// 解析 `lpstat -e` 全文：一行一个目标名（不带状态），空行与 `lpstat:` 开头
+/// 的提示行跳过。这是 macOS 那一侧唯一列得出队列的口——系统的兼容层里
+/// `lpstat -p` 会答「未添加目的位置」（退出码 1）而 `-e` 列得出真实目标。
+fn prt_parse_destinations(out : String) -> Array[PrinterInfo] {
+  let infos : Array[PrinterInfo] = []
+  for line in prt_split_lines(out) {
+    let name = prt_trim(line)
+    if name != "" && !name.has_prefix("lpstat") {
+      infos.push({ name: name, status: Unknown, })
+    }
+  }
+  infos
 }
 
 ///|
@@ -432,7 +451,16 @@ pub fn prt_list() -> Result[Array[PrinterInfo], PrinterError] {
   }
   match prt_lpstat(["-p"]) {
     Ok(out) => Ok(prt_parse_printer_list(out))
-    Err(e) => Err(e)
+    // `-p` 失败不等于没打印机：macOS 的 CUPS 兼容层里 `lpstat -p` 会答
+    // 「未添加目的位置」（退出码 1）而 `lpstat -e` 列得出真实队列（真机
+    // macOS 26.5 回证）。Linux 上无打印机也是 `-p` 失败，那种情况的答案
+    // 本就是空列表，不该报 CommandFailed。故失败先退到 `-e`，两条都不行
+    // 才把原错误抛回去。
+    Err(e) =>
+      match prt_lpstat(["-e"]) {
+        Ok(names) => Ok(prt_parse_destinations(names))
+        Err(_) => Err(e)
+      }
   }
 }
 

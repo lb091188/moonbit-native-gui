@@ -591,18 +591,48 @@ fn si_parse_sw_vers(text : String) -> OsInfo? {
   Some({ pretty_name: pretty, id: "macos", version_id: ver })
 }
 
-/// 从 `ioreg -rd1 -c IOPlatformExpertDevice` 的「"键" = "值"」行里取值。
+/// ioreg 的值有两种形态：`"v"` 与 `<"v">`（后者是 plist 的 data 包住字符串，
+/// Apple Silicon 上的 `manufacturer` 正是这一形态，真机 macOS 26.5 回证）。
+/// 带引号的取出来；纯 hex 的 `<...>` 不是字符串，判为取不到。
+fn si_ioreg_unwrap(v : String) -> String {
+  let chars : Array[Char] = []
+  for ch in v {
+    chars.push(ch)
+  }
+  let n = chars.length()
+  if n >= 3 && chars[0] == '<' && chars[n - 1] == '>' {
+    let buf = StringBuilder()
+    let mut i = 1
+    while i < n - 1 {
+      buf.write_char(chars[i])
+      i = i + 1
+    }
+    let inner = buf.to_string()
+    let un = si_unquote(inner)
+    if un == inner { "" } else { un }
+  } else {
+    v
+  }
+}
+
+/// 从 `ioreg -rd1 -c IOPlatformExpertDevice` 的「"键" = 值」行里取值。
 /// 拆行与去引复用 `si_split_kv`，所以比键时要带上源文的引号形态。
-/// 只用于字符串值的键（厂商、序列号）；Data 形态的 `<hex>` 键不从这里取
+/// 两条源文现实（真机回证）：① **键的大小写不稳**——Apple Silicon 给的是全小写
+/// `manufacturer`，按 `Manufacturer` 字面比就恒假；故去引后按小写比。② 值有
+/// `"v"` 与 `<"v">` 两形态，见 `si_ioreg_unwrap`。
+/// 只用于字符串值的键（厂商、序列号）；Data 的 `<hex>` 键不从这里取
 /// ——机型走 `sysctl -n hw.model`，那才是 ASCII 的稳定读数。
 fn si_parse_ioreg(text : String, key : String) -> String? {
-  let needle = "\"" + key + "\""
+  let want = si_unquote(key).to_lower()
   let mut found : String? = None
   for line in si_split_lines(text) {
     match si_split_kv(line) {
       Some((k, v)) =>
-        if k == needle && v != "" && found is None {
-          found = Some(v)
+        if si_unquote(k).to_lower() == want {
+          let val = si_ioreg_unwrap(v)
+          if val != "" && found is None {
+            found = Some(val)
+          }
         }
       None => ()
     }
