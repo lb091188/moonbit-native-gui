@@ -1,7 +1,12 @@
-// 系统能力探测页（第 15 页）：只读探针分组展示——系统与桌面 / 显示器与窗口 /
-// 应用与文件 / 浏览器数据 / 剪贴板与电源与总线。每段带「重新探测」重读本组；
+// 系统能力探测页（第 15 页）：只读探针分组展示——系统与桌面 / 显示器 /
+// 应用与文件 / 浏览器数据 / 剪贴板与桌面状态。每段带「重新探测」重读本组；
 // 能力不在位或读不到的族给「读不到：原因」降级行，不静默吞（探测 + 语义化
 // 降级口径）。设置类能力（写自启、改音量等）在「系统集成」页，本页只读。
+//
+// **本页只列三平台都有对应面的族**：两平台概念（窗口列表、电源计划、最近文件、
+// 夜灯）与 Linux 总线族（D-Bus 会话/系统总线、通知能力、MPRIS）不进这块板，
+// 库里的 API 与 `@sys` 文档照旧保留——演示板的作用是「跨平台契约长什么样」，
+// 摆一排「本平台不支持」反而把它读成契约的一部分。
 
 ///|
 /// 秒 → 人读时长（天/时/分）。
@@ -45,16 +50,6 @@ fn sp_clip(s : String, n : Int) -> String {
 }
 
 ///|
-/// 电源计划展示名。
-fn sp_pp_name(p : @sys.PowerProfile) -> String {
-  match p {
-    @sys.PPerformance => "性能(performance)"
-    @sys.PBalanced => "均衡(balanced)"
-    @sys.PPowerSaver => "省电(power-saver)"
-  }
-}
-
-///|
 /// 探针面板：标题 + 多行读数（Err 一律落成可读行，不影响其余部分）。
 fn sp_panel(
   title : String,
@@ -76,21 +71,22 @@ fn sp_panel(
 }
 
 ///|
-/// 一段探测组：段头「重新探测」按钮 + 两个并排面板。
+/// 一段探测组：段头「重新探测」按钮 + 若干并排面板（每块绑一个 Store）。
+/// 面板数量随「三平台都有对应面」的口径变，不固定两块。
 fn sp_group(
   btn_label : String,
-  collect_a : () -> String,
-  store_a : @base.Store[String],
-  title_a : String,
-  collect_b : () -> String,
-  store_b : @base.Store[String],
-  title_b : String,
+  panels : Array[(@base.Store[String], String, () -> String)],
 ) -> Array[@widget.Node] {
   let refresh = fn() -> Unit {
-    store_a.set(collect_a())
-    store_b.set(collect_b())
+    for cell in panels {
+      cell.0.set((cell.2)())
+    }
   }
   refresh()
+  let boxes : Array[@widget.Node] = []
+  for cell in panels {
+    boxes.push(sp_panel(cell.1, cell.0.signal(), 460.0))
+  }
   [
     @ui.row(
       [
@@ -101,10 +97,7 @@ fn sp_group(
       align_items=@yoga.AlignItems::Center,
     ),
     @ui.row(
-      [
-        sp_panel(title_a, store_a.signal(), 460.0),
-        sp_panel(title_b, store_b.signal(), 460.0),
-      ],
+      boxes,
       column_gap=10.0,
       align_items=@yoga.AlignItems::FlexStart,
     ),
@@ -139,7 +132,9 @@ fn sp_sys_machine() -> String {
 }
 
 ///|
-/// 桌面与外设：环境变量 / 壁纸 / 夜灯 / 打印机。
+/// 桌面与外设：环境变量 / 壁纸 / 打印机。夜灯不列——macOS 的 Night Shift 无
+/// 公开口（CoreBrightness 是私有框架）、Windows 的夜间光线存在 CloudStore
+/// blob 里，只有 Linux 有 redshift/gamma 对位，属两平台概念。
 fn sp_sys_desktop() -> String {
   let buf = StringBuilder()
   let envs = @sys.envx_common()
@@ -151,9 +146,6 @@ fn sp_sys_desktop() -> String {
     Ok(path) => buf.write_string("壁纸: \{sp_clip(path, 56)}\n")
     Err(e) => buf.write_string("壁纸: 读不到：\{e}\n")
   }
-  buf.write_string(
-    "夜灯: \{if @sys.nl_supported() { "可用（redshift/gamma 在）" } else { "本机不可用" }}\n",
-  )
   if @sys.prt_supported() {
     match @sys.prt_list() {
       Ok(ps) => {
@@ -206,25 +198,6 @@ fn sp_monitors() -> String {
 }
 
 ///|
-/// 窗口列表（只读，前 10 个）。
-fn sp_windows() -> String {
-  let buf = StringBuilder()
-  match @sys.win_list() {
-    Ok(wins) => {
-      buf.write_string("窗口: \{wins.length()} 个（列前 10）\n")
-      let n = if wins.length() > 10 { 10 } else { wins.length() }
-      for i = 0; i < n; i = i + 1 {
-        buf.write_string(
-          "  \{wins[i].id} [桌面 \{wins[i].desktop}] \{sp_clip(wins[i].title, 40)}\n",
-        )
-      }
-    }
-    Err(e) => buf.write_string("窗口: 读不到：\{e}\n")
-  }
-  buf.to_string()
-}
-
-///|
 /// 已装应用：桌面项统计 + 常见二进制查找。
 fn sp_apps() -> String {
   let buf = StringBuilder()
@@ -252,23 +225,10 @@ fn sp_apps() -> String {
 }
 
 ///|
-/// 最近文件与 VS Code 工作区。
+/// VS Code 最近工作区。「最近文件」不列：Linux 读 recently-used.xbel、Windows
+/// 读 Recent 目录环，macOS 没有可直接读的对应面（`RfUnsupported`），属两平台概念。
 fn sp_recent() -> String {
   let buf = StringBuilder()
-  match @sys.rf_recent(limit=8) {
-    Ok(items) => {
-      buf.write_string("最近文件: \{items.length()} 条（列前 8）\n")
-      for it in items {
-        let mime = match it.mime {
-          Some(m) => m
-          None => "未知"
-        }
-        buf.write_string("  \{sp_clip(it.path, 52)}（\{mime}）\n")
-      }
-    }
-    Err(e) => buf.write_string("最近文件: 读不到：\{e}\n")
-  }
-  buf.write_string("\n")
   if @sys.vsc_supported() {
     match @sys.vsc_recent() {
       Ok(paths) => {
@@ -372,26 +332,14 @@ fn sp_bookmarks() -> String {
 }
 
 ///|
-/// 剪贴板与电源（含只读的自启状态与空闲读数）。
+/// 剪贴板与桌面状态（含只读的自启状态与空闲读数）。
+/// 电源计划不在这里：macOS 只有 `pmset` 的 lowpowermode 一值，与「平衡/性能/
+/// 节能」三值语义对不上，属两平台概念（见本页口径说明）。
 fn sp_clip_power() -> String {
   let buf = StringBuilder()
   match @sys.cbw_get_text() {
     Ok(t) => buf.write_string("剪贴板文本: \{sp_clip(t, 56)}\n")
     Err(e) => buf.write_string("剪贴板: 读不到：\{e}\n")
-  }
-  match @sys.pp_profiles() {
-    Ok(profs) => {
-      let names : Array[String] = []
-      for p in profs {
-        names.push(sp_pp_name(p))
-      }
-      buf.write_string("电源计划: \{names.join(" / ")}\n")
-    }
-    Err(e) => buf.write_string("电源计划: 读不到：\{e}\n")
-  }
-  match @sys.pp_current() {
-    Ok(p) => buf.write_string("当前计划: \{sp_pp_name(p)}\n")
-    Err(e) => buf.write_string("当前计划: 读不到：\{e}\n")
   }
   if @sys.idle_supported() {
     match @sys.idle_seconds() {
@@ -418,87 +366,47 @@ fn sp_clip_power() -> String {
 }
 
 ///|
-/// D-Bus 与媒体（会话/系统总线、通知能力、MPRIS 播放器）。
-fn sp_dbus_media() -> String {
-  let buf = StringBuilder()
-  match @dbus.dbus_ensure_session() {
-    Ok(_) => buf.write_string("会话总线: 已连接（\{sp_clip(@dbus.dbus_unique_name(), 44)}）\n")
-    Err(e) => buf.write_string("会话总线: 不可用：\{e}\n")
-  }
-  buf.write_string(
-    "系统总线: \{if @dbus.dbus_system_alive() { "已连接" } else { "未连接（首次调用时按需连接）" }}\n",
-  )
-  match @dbus.notify_caps() {
-    Ok(caps) => buf.write_string("通知能力: \{caps.raw.length()} 条\n")
-    Err(e) => buf.write_string("通知能力: 读不到：\{e}\n")
-  }
-  buf.write_string("\n")
-  match @dbus.media_players() {
-    Ok(players) => {
-      buf.write_string("MPRIS 媒体播放器: \{players.length()} 个\n")
-      for p in players {
-        buf.write_string("  \{p.identity}（\{p.name}）\n")
-        match @dbus.media_status(p.name) {
-          Ok(st) =>
-            buf.write_string(
-              "    状态 \{st.playback} · \{sp_clip(st.title, 32)} · \{sp_clip(st.artist, 20)}\n",
-            )
-          Err(e) => buf.write_string("    状态读取失败：\{e}\n")
-        }
-      }
-    }
-    Err(e) => buf.write_string("MPRIS 媒体: 读不到：\{e}\n")
-  }
-  buf.to_string()
-}
-
-///|
 /// 系统能力探测页。五段各带「重新探测」；每组两块面板并排。
 pub fn page_sysprobe(_app : @shared.App) -> @widget.Node {
   let sys_a : @base.Store[String] = @base.Store::new("")
   let sys_b : @base.Store[String] = @base.Store::new("")
   let mon_a : @base.Store[String] = @base.Store::new("")
-  let mon_b : @base.Store[String] = @base.Store::new("")
   let app_a : @base.Store[String] = @base.Store::new("")
   let app_b : @base.Store[String] = @base.Store::new("")
   let brw_a : @base.Store[String] = @base.Store::new("")
   let brw_b : @base.Store[String] = @base.Store::new("")
   let ses_a : @base.Store[String] = @base.Store::new("")
-  let ses_b : @base.Store[String] = @base.Store::new("")
+  // 本页口径：只列**三平台都有对应面**的探测族。两平台概念（Linux 的
+  // recently-used.xbel 与 D-Bus/MPRIS、Linux+Windows 的窗口列表与电源计划、
+  // 只有 Linux 有对位的夜灯）不进这页——库里的 API 照旧，只是不在跨平台
+  // 演示板上摆一排「本平台不支持」。
   @shared.page([
     @shared.section(
       "系统桌面",
       "系统与桌面",
-      "发行版 / 机器 / 内存 / 开机时长 / 桌面环境，以及环境变量、壁纸、夜灯、打印机。全部只读。",
+      "发行版 / 机器 / 内存 / 开机时长 / 桌面环境，以及环境变量、壁纸、打印机。全部只读。",
       sp_group(
         "重新探测",
-        sp_sys_machine,
-        sys_a,
-        "系统与机器",
-        sp_sys_desktop,
-        sys_b,
-        "桌面与外设",
+        [
+          (sys_a, "系统与机器", sp_sys_machine),
+          (sys_b, "桌面与外设", sp_sys_desktop),
+        ],
       ),
     ),
     @shared.section(
-      "显示器窗口",
-      "显示器与窗口",
-      "显示器在用模式与全部输出（xrandr 只读）；窗口列表（wmctrl 只读，列前 10）。",
-      sp_group(
-        "重新探测",
-        sp_monitors,
-        mon_a,
-        "显示器",
-        sp_windows,
-        mon_b,
-        "窗口列表",
-      ),
+      "显示器",
+      "显示器",
+      "显示器在用模式与全部输出（三平台各自的原生读数，只读）。窗口列表不列：Linux 走 wmctrl、Windows 走 EnumWindows，macOS 只能靠辅助功能授权，属两平台概念。",
+      sp_group("重新探测", [(mon_a, "显示器", sp_monitors)]),
     ),
     @shared.section(
       "应用文件",
       "应用与文件",
-      "已装应用统计与常见二进制查找；最近文件（recently-used.xbel）与 VS Code 最近工作区。",
-      sp_group("重新探测", sp_apps, app_a, "已装应用", sp_recent, app_b, "最近与编辑器"),
+      "已装应用统计与常见二进制查找；VS Code 最近工作区。最近文件不列：Linux 读 xbel、Windows 读 Recent 目录，macOS 无对应面。",
+      sp_group(
+        "重新探测",
+        [(app_a, "已装应用", sp_apps), (app_b, "编辑器工作区", sp_recent)],
+      ),
     ),
     @shared.section(
       "浏览器",
@@ -506,27 +414,17 @@ pub fn page_sysprobe(_app : @shared.App) -> @widget.Node {
       "Chromium 系历史与下载、书签树；Firefox 历史。读的是本机浏览器的本地库，不上网。",
       sp_group(
         "重新探测",
-        sp_browser_hist,
-        brw_a,
-        "历史与下载",
-        sp_bookmarks,
-        brw_b,
-        "书签与 Firefox",
+        [
+          (brw_a, "历史与下载", sp_browser_hist),
+          (brw_b, "书签与 Firefox", sp_bookmarks),
+        ],
       ),
     ),
     @shared.section(
       "剪贴板电源",
-      "剪贴板 / 电源 / 总线",
-      "剪贴板文本、电源计划、空闲读数、自启状态（只读）；D-Bus 会话/系统总线、通知能力与 MPRIS 媒体。",
-      sp_group(
-        "重新探测",
-        sp_clip_power,
-        ses_a,
-        "剪贴板与电源",
-        sp_dbus_media,
-        ses_b,
-        "D-Bus 与媒体",
-      ),
+      "剪贴板与桌面状态",
+      "剪贴板文本、空闲读数、自启状态（只读）。电源计划与 D-Bus/MPRIS/通知能力不列：前者 macOS 无三值语义对位，后三者是 Linux 总线族。",
+      sp_group("重新探测", [(ses_a, "剪贴板与桌面状态", sp_clip_power)]),
     ),
   ])
 }
