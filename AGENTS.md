@@ -24,7 +24,7 @@ native-gui(`NoahLiu/native-gui`): MoonBit 的跨平台桌面 GUI 框架——一
 ```sh
 moon clean                    # 清理缓存
 cd gui && moon check           # 库模块门禁:静态检查(要求零错误零警告)
-cd gui && moon test ui render text theme icons sys input win dbus chart mdview style base shell widget   # 库测试(按包限定;web 已出模块,门禁在 modules/gui-webview)
+cd gui && moon test ui render text theme icons sys input win dbus chart mdview style base shell widget router   # 库测试(按包限定;web 已出模块,门禁在 modules/gui-webview)
 moon run examples/hello         # 最小窗口
 moon run examples/hello-themed  # 主题控件集
 moon run examples/showcase      # 完整演示板
@@ -35,7 +35,7 @@ moon run examples/showcase      # 完整演示板
 ## 目录地图(放东西的第一判据:找不到路先看这里)
 
 ```
-gui/                    库模块 NoahLiu/native-gui(14 包)——唯一发布单元之一
+gui/                    库模块 NoahLiu/native-gui——唯一发布单元之一
 examples/<name>/        每个示例 = 一个独立模块 NoahLiu/native-gui-examples-<name>
                         (hello / hello-themed / showcase / browser / sysmonitor /
                          audio / video / headless-audio；assets/ 是共享资产目录，非模块)
