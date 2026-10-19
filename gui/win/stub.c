@@ -2351,8 +2351,12 @@ static HRESULT STDMETHODCALLTYPE wm_ds_GetData(IDataObject *This, FORMATETC *fet
   memset(out, 0, sizeof(*out));
   HGLOBAL src = wm_dsrc_pick(fet->cfFormat);
   if (src == NULL || (fet->tymed & TYMED_HGLOBAL) == 0) {
+    wm_dnd_log("src GetData cf=%u refused tymed=%lx", (unsigned)fet->cfFormat,
+               (unsigned long)fet->tymed);
     return DV_E_FORMATETC;
   }
+  wm_dnd_log("src GetData cf=%u size=%lu", (unsigned)fet->cfFormat,
+             (unsigned long)GlobalSize(src));
   SIZE_T n = GlobalSize(src);
   HGLOBAL g = GlobalAlloc(GMEM_MOVEABLE, n);
   if (g == NULL) {
@@ -2581,7 +2585,7 @@ static HGLOBAL wm_dsrc_make_text(const unsigned char *body, int n) {
     GlobalFree(g);
     return NULL;
   }
-  w[got] = L'\0';
+  // 结尾 L'\0' 由 GMEM_ZEROINIT 留好；解锁后不再碰这块内存。
   return g;
 }
 
@@ -2616,6 +2620,13 @@ static HGLOBAL wm_dsrc_make_hdrop(const unsigned char *body, int n) {
     // 拼接串，对方程序拿到的是垃圾位置）。解析不动就原样给，不吞掉这条路径。
     DWORD full = GetFullPathNameW(wm_dsrc_one, WM_DS_ONE_MAX, wm_dsrc_abs, NULL);
     const WCHAR *out_path = full > 0 && full < WM_DS_ONE_MAX ? wm_dsrc_abs : wm_dsrc_one;
+    DWORD attr = GetFileAttributesW(out_path);
+    wm_dnd_log("src hdrop path=%ls resolved=%d exists=%d", out_path,
+               (full > 0 && full < WM_DS_ONE_MAX) ? 1 : 0,
+               (attr != INVALID_FILE_ATTRIBUTES &&
+                (attr & FILE_ATTRIBUTE_DIRECTORY) == 0)
+                   ? 1
+                   : 0);
     int out = lstrlenW(out_path);
     if (used + out + 1 > WM_DS_LIST_MAX - 1) {
       return NULL; // 装不下：整条放弃，不给半截表
@@ -2694,8 +2705,12 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
   }
   wm_dsrc.iface.lpVtbl = &wm_dragsource_vtbl;
   DWORD effect = 0;
+  wm_dnd_log("src send kind=%d allowed=%d cf=%u", kind, allowed,
+             (unsigned)wm_dsrc.cf);
   HRESULT hr = SHDoDragDrop(w->hwnd, &wm_dsrc.iface, NULL, (DWORD)allowed,
                              &effect);
+  wm_dnd_log("src send done hr=0x%lx effect=%lu", (unsigned long)hr,
+             (unsigned long)effect);
   wm_dsrc_release_buffers();
   if (hr != S_OK && hr != DRAGDROP_S_DROP && hr != DRAGDROP_S_CANCEL) {
     return 0;
@@ -6866,6 +6881,7 @@ int wm_hotkey_poll(void) {
 // - **菜单/托盘/通知是 App 级**：NSMenu 挂 `[NSApp setMainMenu:]`（macOS 的
 //   菜单条属于应用不属于窗口），NSStatusItem 属于状态栏。
 
+#include <stdarg.h> // 拖出诊断 wm_mac_dnd_log 的可变参数
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9881,6 +9897,24 @@ static int wm_dnd_registered[WM_MAX_WINDOWS]; // 每窗拖入挂接位：count/e
 static char wm_dnd_src[WM_DND_PAYLOAD_MAX];
 static int wm_dnd_src_len, wm_dnd_src_allowed, wm_dnd_src_done, wm_dnd_src_action;
 
+// 真机诊断落盘（与 Win32 支同一条开关）：NATIVEGUI_DND_LOG=<路径> 才写。
+static void wm_mac_dnd_log(const char *fmt, ...) {
+  const char *path = getenv("NATIVEGUI_DND_LOG");
+  if (path == NULL || path[0] == '\0') {
+    return;
+  }
+  FILE *f = fopen(path, "a");
+  if (f == NULL) {
+    return;
+  }
+  va_list ap;
+  va_start(ap, fmt);
+  vfprintf(f, fmt, ap);
+  va_end(ap);
+  fputc('\n', f);
+  fclose(f);
+}
+
 static void wm_dnd_push(int slot, int kind, int x, int y) {
   if (wm_dnd_qc >= WM_DND_Q) {
     return; // 满了丢最旧会乱序，宁可丢新的（同窗口事件队列口径）
@@ -10182,6 +10216,7 @@ static NSDragOperation wm_dnd_promised(id<NSDraggingInfo> sender, int slot) {
              operation:(NSDragOperation)operation {
   (void)session;
   (void)point;
+  wm_mac_dnd_log("src end op=%lu", (unsigned long)operation);
   wm_dnd_src_action = wm_dnd_ns_to_flag(operation);
   wm_dnd_src_done = 1;
 }
@@ -10336,6 +10371,11 @@ static NSArray<NSDraggingItem *> *wm_dnd_build_items(NSPoint at) {
             p = [[NSFileManager defaultManager].currentDirectoryPath
                 stringByAppendingPathComponent:p];
           }
+          BOOL isdir = NO;
+          BOOL exists = [[NSFileManager defaultManager] fileExistsAtPath:p
+                                                             isDirectory:&isdir];
+          wm_mac_dnd_log("src item path=%s exists=%d dir=%d", [p UTF8String],
+                         exists ? 1 : 0, isdir ? 1 : 0);
           NSURL *url = [NSURL fileURLWithPath:p];
           // 建不出 url 的路径不进数组（空 writer 正是那条异常的成因）
           if (url != nil) {
@@ -10412,6 +10452,9 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
     // 起拖点：按下事件在窗口基坐标（左下原点）→ 视图基坐标，拖拽图形按它摆
     NSPoint at = [s.view convertPoint:[down locationInWindow] fromView:nil];
     NSArray<NSDraggingItem *> *items = wm_dnd_build_items(at);
+    wm_mac_dnd_log("src send kind=%d allowed=%d items=%lu",
+                   wm_dnd_le32(wm_dnd_src), allowed,
+                   (unsigned long)[items count]);
     if ([items count] == 0) {
       return 0;
     }
