@@ -1,4 +1,4 @@
-// Markdown 展示视图（新栈）：mizchi/markdown(mdast) 解析 + 富文本行自绘
+// Markdown 展示视图（新栈）：@mdparse（NoahLiu/native-gui-mdparse）解析 + 富文本行自绘
 // 渲染，与 master 的 yue/markdown 同源平移，渲染层换新栈组件面。
 // 块级:标题 1-6(ATX/Setext)、围栏(```/~~~)与缩进代码块(复用
 // @ui.code_view,语言取 info 串首词)、引用(子块递归)、GFM 提示块、
@@ -1052,7 +1052,7 @@ fn md_rich_label(
 }
 
 ///|
-/// Markdown 展示视图:mizchi/markdown(mdast)解析 + 块级/行内渲染,
+/// Markdown 展示视图:@mdparse 解析 + 块级/行内渲染,
 /// 代码块复用 @ui.code_view(语言取 fence info 首词,```rust、~~~py、
 /// 缩进块通用);正文脚注引用按出现顺序编号,文末分隔线后逐条渲染被
 /// 引用的脚注定义;链接点击经 on_link 回调交调用方(open_url 属系统
