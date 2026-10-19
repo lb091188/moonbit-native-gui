@@ -15,12 +15,16 @@
 // 先跑），那样就拖不动它——拖源里放展示件（文本/图标/缩略图），别放按钮。
 
 ///|
-/// 拖出决策落 stderr：与 C 侧同一个开关（环境变量 `LIBYUE_DND_LOG` 设了才打），
-/// 看的是「这一趟在组件层走到哪一步」——C 侧的读数只知道自己的被调没被调。
+/// 拖出决策落 stderr：Linux 的 C 侧用 `LIBYUE_DND_LOG`、Windows/mac 用
+/// `NATIVEGUI_DND_LOG`，组件层两个开关都认（设任一个就打印）。看的是「这一趟
+/// 在组件层走到哪一步」——C 侧的读数只知道自己的被调没被调。
 fn dnd_diag(msg : String) -> Unit {
-  match @sys.sys_getenv("LIBYUE_DND_LOG") {
-    Some(_) => println("[dnd-ui] \{msg}")
-    None => ()
+  let on = match @sys.sys_getenv("LIBYUE_DND_LOG") {
+    Some(_) => true
+    None => @sys.sys_getenv("NATIVEGUI_DND_LOG") is Some(_)
+  }
+  if on {
+    println("[dnd-ui] \{msg}")
   }
 }
 
