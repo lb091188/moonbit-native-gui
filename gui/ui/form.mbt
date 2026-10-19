@@ -520,9 +520,10 @@ fn step_cell(
       let st = @style.style_for(self)
       let bg = @style.color_of(st.background_color, "")
       if bg.length() > 0 && !off.off {
-        // 内缩 1px：别把共用外框盖掉
+        // 内缩并走圆角：外框（含聚焦高亮环）由行容器画在子件之下，
+        // 方形填充会啃掉边框与圆角；半径 = 外框 4 - 内缩 1。
         p.set_fill_color(bg)
-        p.fill_rect(1.0, 1.0, r.w - 2.0, r.h - 2.0)
+        p.fill_round_rect(1.0, 1.0, r.w - 2.0, r.h - 2.0, 3.0)
       }
       p.set_stroke_color(@theme.theme_border())
       p.set_line_width(1.0)
