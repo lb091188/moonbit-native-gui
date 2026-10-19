@@ -4072,10 +4072,13 @@ static gboolean wm_on_button(GtkWidget *widget, GdkEventButton *ev,
     }
   } else {
     e.code = 2u; // 双击对上层同样先是一次按下，双击语义由上层按时间判
-    if (ev->type == GDK_BUTTON_PRESS && ev->button == 1 &&
-        wm_dnd_press == NULL) {
+    if (ev->type == GDK_BUTTON_PRESS && ev->button == 1) {
       // 系统级拖出（W23b）要在指针 Move 处置里起拖——那已不在 GTK 派发栈内，
-      // gtk_get_current_event() 取不到；按下那一刻把事件 copy 一份存档
+      // gtk_get_current_event() 取不到；按下那一刻把事件 copy 一份存档。
+      // 每次按下都覆盖：在窗外松手时收不到 release，旧存档会一路留着不发。
+      if (wm_dnd_press != NULL) {
+        gdk_event_free(wm_dnd_press);
+      }
       wm_dnd_press = gdk_event_copy((GdkEvent *)ev);
     }
   }
@@ -5851,7 +5854,8 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
   // 阻塞到 drag-end（嵌套主循环，xdnd 协议在这里被 GTK 代跑）；60 秒超时
   // 救场，防止协议异常丢了 drag-end 把调用方永久挂住
   GdkDisplay *disp = gdk_display_get_default();
-  // ev_type=5 说明起拖现场已随带键移动刷新成最新一条（4=还是按下那一刻的旧事件）
+  // ev_type=3（GDK_MOTION_NOTIFY）说明起拖现场已随带键移动刷成最新一条；
+  // 4（GDK_BUTTON_PRESS）=还是按下那一刻那份旧事件
   wm_gtk_dnd_log("begin id=%lld kind=%d actions=%u grabbed=%d ev_type=%d",
                  (long long)id, kind, actions, wm_gtk_pointer_grabbed(),
                  (int)wm_dnd_press->type);
