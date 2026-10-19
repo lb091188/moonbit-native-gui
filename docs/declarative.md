@@ -1,6 +1,6 @@
 # Declarative layer & reactivity (@base + @widget + @ui)
 
-The UI is described as a **node tree**, state lives in `Store` / `Signal`, and the framework makes "data changed → UI follows". This page covers the wiring. Styling: [layout.md](layout.md) and [design.md (Chinese)](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/zh/design.md); components: [components.md](components.md).
+The UI is described as a **node tree**, state lives in `Store` / `Signal`, and the framework makes "data changed → UI follows". This page covers the wiring. Styling: [layout.md](layout.md) and [design.md (Chinese)](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/design.md); components: [components.md](components.md).
 
 ## 1. Node tree and mounting
 
@@ -123,5 +123,5 @@ Framework repaints route back to the host App through the process-level `@widget
 
 - Components and parameters: [components.md](components.md)
 - Layout styling: `Style` values and the `class` channel in [layout.md](layout.md)
-- View-layer and reactivity design: [design.md (Chinese)](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/zh/design.md) §3 reactivity, §4 view layer
+- View-layer and reactivity design: [design.md (Chinese)](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/design.md) §3 reactivity, §4 view layer
 - Five-minute tutorial: [tutorial.md](tutorial.md)
