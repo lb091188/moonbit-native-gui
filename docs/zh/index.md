@@ -2,8 +2,8 @@
 layout: home
 hero:
   name: native-gui
-  text: MoonBit 轻量跨平台桌面 GUI 框架
-  tagline: 窗口原生直连、渲染管线自绘、界面组件齐全、系统接口完备。一份 MoonBit 代码直出 Windows 🟩 / Linux 🟩 原生窗口,macOS 🟨 已合入 master(真机验证收口中),moon add 之后零配置。
+  text: MoonBit 跨平台桌面 GUI 框架
+  tagline: 一套 MoonBit 代码直出 Windows 🟩 / Linux 🟩 原生窗口，系统能力开箱即用，moon add 之后零配置。macOS 🟨 已合入 master(真机验证收口中)。
   actions:
     - theme: brand
       text: 包结构
@@ -13,7 +13,7 @@ hero:
       link: https://github.com/lb091188/moonbit-native-gui
 features:
   - title: 自绘控件,全平台一套观感
-    details: 库自带光栅器绘制每个控件,各平台渲染一致;默认跟随系统强调色与明暗模式,主题就是一个普通值,可整体覆写。
+    details: 库自带光栅器绘制每个控件,各平台渲染一致;默认跟随系统强调色与明暗模式,主题可按需定制。
   - title: 声明式 UI 与响应式状态
     details: 界面描述为 @widget.Node 树,mount_window 一步挂载;状态放 Store / Signal,绑定点随数据自动刷新。
   - title: 桌面级系统集成
