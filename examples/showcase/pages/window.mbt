@@ -343,7 +343,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
               ),
               // 相对路径由后端绝对化（对方程序拿到的是完整位置）
               payload=fn() {
-                Some(@widget.DragData::Paths([ "README.md", "docs/zh/adaptation.md" ]))
+                Some(@widget.DragData::Paths([ "README.md", "proposals/zh/adaptation.md" ]))
               },
               external=true,
               on_external=fn(r) { out.set("文件拖出：\{drag_send_text(r)}") },
