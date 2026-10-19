@@ -5235,11 +5235,10 @@ int wm_window_title(int64_t id, char *out, int cap) {
 }
 
 /* ---- 系统级拖放（W23a 拖入 / W23b 拖出）GTK 分支真实现 ----
- * 拖入：gtk_drag_dest_set 挂在 GtkWindow 上（坐标即客户区坐标），四个信号——
- *   drag-motion（两段式答 gdk_drag_status + 首次异步取载荷）、drag-leave（收
- *   会话）、drag-drop（只置「投递待载荷」，放行 GTK_DEST_DEFAULT_DROP 的默认
- *   handler 去请求数据）、drag-data-received（motion 期缓存载荷并发 ENTER，
- *   drop 期发 DROP 并 gtk_drag_finish）。
+ * 拖入：gtk_drag_dest_set（flags=0，默认处理一律不用）挂在 GtkWindow 上（坐标
+ *   即客户区坐标），四个信号——drag-motion（答 gdk_drag_status + 首次取载荷）、
+ *   drag-leave（收会话）、drag-drop（置投递位并自己请求数据）、drag-data-received
+ *   （motion 期缓存载荷并发 ENTER，drop 期发 DROP 并 gtk_drag_finish）。
  * 拖出：gtk_drag_begin_with_coordinates 用按下事件的存档起拖（Move 处置里已
  *   不在 GTK 派发栈内，gtk_get_current_event 取不到），drag-data-get 提供数据、
  *   drag-end 收口；wm_dragdnd_send 嵌套跑 gtk_main_iteration 阻塞到 drag-end
@@ -5560,17 +5559,24 @@ static void wm_dnd_on_leave(GtkWidget *widget, GdkDragContext *ctx,
 
 static gboolean wm_dnd_on_drop(GtkWidget *widget, GdkDragContext *ctx,
                                gint x, gint y, guint time, gpointer data) {
-  (void)ctx;
-  (void)x;
-  (void)y;
-  (void)time;
-  WmWindow *w = (WmWindow *)data;
-  wm_dnd_active_slot = (int)(w - wm_windows);
-  wm_gtk_dnd_log("dest drop slot=%d sent=%d have=%d asked=%d",
-                 wm_dnd_active_slot, wm_dnd_enter_sent, wm_dnd_have_payload,
-                 wm_dnd_asked);
+  int slot = (int)((WmWindow *)data - wm_windows);
+  wm_dnd_active_slot = slot;
+  wm_gtk_dnd_log("dest drop slot=%d sent=%d have=%d asked=%d", slot,
+                 wm_dnd_enter_sent, wm_dnd_have_payload, wm_dnd_asked);
   wm_dnd_drop_armed = 1; // 数据到达走 data-received 的投递分支
-  return FALSE;          // 放行默认 handler（GTK_DEST_DEFAULT_DROP 请求数据）
+  // 不用 GTK_DEST_DEFAULT_DROP：它在「收到数据」时一律自动 gtk_drag_finish，
+  // 而我们在悬停期就请求过数据，会让源在指针还没松手时就被收口（自家窗口的
+  // 数据是即时回的，起拖 30ms 内就死；外部拖入也会被提前结束）。投递的数据
+  // 请求与 finish 都由本函数 + data-received 的投递分支自己做。
+  GdkAtom want = wm_dnd_pick_target(ctx);
+  if (want != GDK_NONE) {
+    gtk_drag_get_data(widget, ctx, want, time);
+  } else {
+    wm_dnd_push(slot, 3, (int)x, (int)y);
+    wm_dnd_session_clear();
+    gtk_drag_finish(ctx, FALSE, FALSE, time);
+  }
+  return TRUE;
 }
 
 static void wm_dnd_on_received(GtkWidget *widget, GdkDragContext *ctx,
@@ -5637,7 +5643,10 @@ int wm_dragdnd_enable(int64_t id) {
   if (w->dnd_dest_on) {
     return 1; // 幂等
   }
-  gtk_drag_dest_set(w->window, GTK_DEST_DEFAULT_DROP, wm_dnd_targets,
+  // flags 0：motion 自答 status，drop 的数据请求与 finish 也自己做
+  // （GTK_DEST_DEFAULT_DROP 会在悬停期取到数据时提前 gtk_drag_finish，见
+  // wm_dnd_on_drop 的说明）。
+  gtk_drag_dest_set(w->window, 0, wm_dnd_targets,
                     (gint)G_N_ELEMENTS(wm_dnd_targets),
                     GDK_ACTION_COPY | GDK_ACTION_MOVE | GDK_ACTION_LINK);
   // 效果记账零值 0（与 Windows 分支同口径：承诺 COPY 随 ENTER 置、
@@ -5847,6 +5856,31 @@ static void wm_dnd_set_icon(GdkDragContext *ctx, int kind) {
   g_free(abs);
 }
 
+// 会话为什么提前收口：GDK 的 cancel（reason：0=没目标 1=用户取消 2=错误）、
+// 协议正常收尾 dnd-finished、GTK 的 drag-failed（result：0=成功 1=没目标
+// 2=用户取消 3=超时 4=grab 断了 5=错误）。三声分得清「谁先动的手」。
+static void wm_dnd_on_ctx_cancel(GdkDragContext *ctx, GdkDragCancelReason reason,
+                                 gpointer data) {
+  (void)ctx;
+  (void)data;
+  wm_gtk_dnd_log("ctx-cancel reason=%d", (int)reason);
+}
+
+static void wm_dnd_on_ctx_finished(GdkDragContext *ctx, gpointer data) {
+  (void)ctx;
+  (void)data;
+  wm_gtk_dnd_log("dnd-finished");
+}
+
+static gboolean wm_dnd_on_drag_failed(GtkWidget *widget, GdkDragContext *ctx,
+                                      GtkDragResult result, gpointer data) {
+  (void)widget;
+  (void)ctx;
+  (void)data;
+  wm_gtk_dnd_log("drag-failed result=%d", (int)result);
+  return FALSE;
+}
+
 static void wm_dnd_on_drag_end(GtkWidget *widget, GdkDragContext *ctx,
                                gpointer data) {  (void)data;
   // selected_action 在 drag-end 时仍可读；映射回 DND flag（多位/未知 → 0）
@@ -5942,13 +5976,23 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
                                     G_CALLBACK(wm_dnd_on_data_get), w);
     gulong s_end = g_signal_connect(w->window, "drag-end",
                                     G_CALLBACK(wm_dnd_on_drag_end), w);
+    gulong s_fail = g_signal_connect(w->window, "drag-failed",
+                                     G_CALLBACK(wm_dnd_on_drag_failed), w);
     GdkEvent *start_ev = (attempt == 0) ? wm_dnd_press : NULL;
     GdkDragContext *ctx = gtk_drag_begin_with_coordinates(
         w->window, targets, actions, 1, start_ev, -1, -1);
     gtk_target_list_unref(targets);
+    gulong s_cancel = 0, s_fin = 0;
+    if (ctx != NULL) {
+      s_cancel = g_signal_connect(ctx, "cancel",
+                                  G_CALLBACK(wm_dnd_on_ctx_cancel), NULL);
+      s_fin = g_signal_connect(ctx, "dnd-finished",
+                               G_CALLBACK(wm_dnd_on_ctx_finished), NULL);
+    }
     if (ctx == NULL) {
       g_signal_handler_disconnect(w->window, s_get);
       g_signal_handler_disconnect(w->window, s_end);
+      g_signal_handler_disconnect(w->window, s_fail);
       return 0;
     }
     // 自持一份引用：drag-end 之后 GTK 会放掉它自己那一份，收尾还要用 ctx 走
@@ -5970,6 +6014,9 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
     gboolean ended = wm_dnd_src_ended;
     g_signal_handler_disconnect(w->window, s_get);
     g_signal_handler_disconnect(w->window, s_end);
+    g_signal_handler_disconnect(w->window, s_fail);
+    g_signal_handler_disconnect(ctx, s_cancel);
+    g_signal_handler_disconnect(ctx, s_fin);
     if (!ended) {
       // 超时兜底：drag 上下文还活着，显式 abort 让 GDK 收尾（否则指针 grab
       // 与拖拽光标会留在系统里）

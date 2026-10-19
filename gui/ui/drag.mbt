@@ -111,6 +111,9 @@ pub fn drag_source(
                         true
                       }
                       Err(err) => {
+                        // 外部没起来：先收掉队列里上一趟的残留投放会话，
+                        // 回落的应用内会话才开得起来。
+                        @widget.drag_external_abort_session()
                         let ok = @widget.drag_begin(data, self.id, wx, wy)
                         dnd_diag(
                           "系统级没起来：" + dnd_err_text(err) + " → 回落应用内" +
