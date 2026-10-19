@@ -114,7 +114,7 @@ jobs:
                   pass
           names = ["hello", "hello-themed", "showcase"]
           for name in names:
-              p = f"_build/native/release/build/NoahLiu/native-gui-examples/{name}/{name}.exe"
+              p = f"_build/native/release/build/NoahLiu/native-gui-examples-{name}/native-gui-examples-{name}.exe"
               if not os.path.exists(p):
                   raise SystemExit(f"产物缺失: {p}")
               data = open(p, "rb").read()
@@ -145,7 +145,7 @@ jobs:
           stage = "staging"
           os.makedirs(stage, exist_ok=True)
           for name in names:
-              src = f"_build/native/release/build/NoahLiu/native-gui-examples/{name}/{name}.exe"
+              src = f"_build/native/release/build/NoahLiu/native-gui-examples-{name}/native-gui-examples-{name}.exe"
               if not os.path.exists(src):
                   raise SystemExit(f"产物缺失: {src}")
               dst = name + (".exe" if sys.platform == "win32" else "")

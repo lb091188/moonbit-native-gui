@@ -2,9 +2,9 @@
 #
 # 仓库结构(2026-10-12 目录定案,详见 AGENTS.md):
 #   gui/        库模块 `NoahLiu/native-gui`(14 个包)——moon.work 成员,也是发布单元
-#   examples/   独立示例模块 `NoahLiu/native-gui-examples`
+#   examples/   每示例一个独立模块 `NoahLiu/native-gui-examples-<目录名>`（各自 moon.mod，只声明自己用到的依赖）
 #   experiment/ 独立探针/微基准模块 `NoahLiu/native-gui-experiment`
-#   modules/    媒体(gui-media)、布局(yoga-mbt)、ffmpeg-mbt、扩展示例等独立模块
+#   modules/    媒体(gui-media)、布局(yoga-mbt)、ffmpeg-mbt 等独立模块（示例一律在 examples/ 下）
 #
 # 门禁口径(AGENTS.md 规则 6):库门禁一律在 `gui/` 下按包路径限定。裸 `moon test`
 # 在 workspace 里会连带示例/探针/媒体模块(其中含既有的平台适配缺口),不作库门禁。
@@ -419,7 +419,7 @@ jobs:
       # 会牵连与本 job 无关的模块(experiment/其它示例),失败时看不出是哪里坏了。
       # 媒体线自「mac 平台批⑰」起接回:上一轮因 runner 没有 ffmpeg 头而绕开,
       # 现在装了 brew 的 ffmpeg,所以额外构建依赖媒体两包的 main 示例
-      # (gui-examples 的 audio / video,25192fe 收口后旧 systemprobe/native-web 已删)
+      # (examples/audio 与 examples/video,25192fe 收口后旧 systemprobe/native-web 已删)
       # ——这等于在真实 macOS 上编一遍 ffmpeg 桩与 miniaudio 桩、
       # 并把 CoreAudio/AudioToolbox 那组 framework 真链一次。
       - name: 构建(库模块 + hello 示例 + 媒体线)
@@ -428,7 +428,7 @@ jobs:
           (cd gui && moon build base shell widget ui render text theme icons sys input win chart mdview style \
             --target native) >/tmp/mb.out 2>&1; c1=$?
           moon build examples/hello --target native >>/tmp/mb.out 2>&1; c2=$?
-          moon build modules/gui-examples/audio modules/gui-examples/video \
+          moon build examples/audio examples/video \
             --target native >>/tmp/mb.out 2>&1; c3=$?
           set -e
           if [ $c1 -ne 0 ] || [ $c2 -ne 0 ] || [ $c3 -ne 0 ]; then

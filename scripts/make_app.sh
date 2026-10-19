@@ -21,7 +21,7 @@ mode="${MOON_MODE:-debug}"
 bundle_id="${BUNDLE_ID:-com.moonbitlibyue.${name}}"
 
 repo="$(cd "$(dirname "$0")/.." && pwd)"
-src="$repo/_build/native/$mode/build/NoahLiu/native-gui-examples/$name/$name.exe"
+src="$repo/_build/native/$mode/build/NoahLiu/native-gui-examples-$name/native-gui-examples-$name.exe"
 if [[ ! -f "$src" ]]; then
   echo "找不到 $src —— 先跑：moon build examples/$name --target native" >&2
   exit 1
