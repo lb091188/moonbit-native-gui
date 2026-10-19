@@ -5,6 +5,16 @@
 // 建完的节点只进缓存不挂载。缓存按路径索引（同父唯一 ⇒ 路径唯一）。
 
 ///|
+/// 缓存里的一条：构造好的内容，加上**构造期注册的那些订阅的退订闭包**。
+/// 组件在构造期就会 `follow_store`/`watch_theme` 这类订阅（`gui/ui/nav.mbt:157`），
+/// 回收袋只在挂载窗口里收；预建的构造也得包一层袋子，否则淘汰时这些订阅退不掉，
+/// 每次重进都往层 store 上挂一个死订阅（`gui/base/store.mbt:70` 记的正是这条）。
+struct Built {
+  node : @widget.Node
+  offs : Array[() -> Unit]
+}
+
+///|
 /// 节点没写 `load` 时用路由的默认策略。
 fn load_of(r : Route, default_ : LoadPolicy) -> LoadPolicy {
   match r.load {
@@ -104,7 +114,31 @@ pub fn Router::is_built(self : Router, path : String) -> Bool {
 ///|
 /// 取已构造的内容节点（没建过给 None，建的动作由 `build_now` 或 `ensure_current` 发起）。
 pub fn Router::built_node(self : Router, path : String) -> @widget.Node? {
-  self.built.get(path)
+  match self.built.get(path) {
+    Some(b) => Some(b.node)
+    None => None
+  }
+}
+
+///|
+/// 丢掉这条路径及其下一切已构造内容，并把构造期那批订阅退掉。
+/// 重进时走 thunk 重建：`Node::on_mount` 挂载几次跑几次（`gui/widget/node.mbt:51`），
+/// 留着旧节点重挂就会把定时器/泵排成双份。
+pub fn Router::purge_built(self : Router, path : String) -> Unit {
+  let under : Array[String] = []
+  let offs : Array[Array[() -> Unit]] = []
+  for (k, b) in self.built {
+    if k == path || k.has_prefix(path + "/") {
+      under.push(k)
+      offs.push(b.offs)
+    }
+  }
+  for o in offs {
+    @base.sub_bag_discard(o)
+  }
+  for k in under {
+    let _ = self.built.remove(k)
+  }
 }
 
 ///|
@@ -112,14 +146,16 @@ pub fn Router::built_node(self : Router, path : String) -> @widget.Node? {
 /// 路径上没有 `build`（分支或非法路径）时 abort——调用方给的都是叶路径。
 pub fn Router::build_now(self : Router, path : String) -> @widget.Node {
   match self.built.get(path) {
-    Some(n) => n
+    Some(b) => b.node
     None =>
     match route_by_path(self.roots, path) {
       Some(r) =>
       match r.build {
         Some(f) => {
+          @base.sub_bag_begin()
           let n = f()
-          let _ = self.built.set(path, n)
+          let offs = @base.sub_bag_end()
+          let _ = self.built.set(path, { node: n, offs })
           n
         }
         None => @abort.abort("路由节点没有 build：" + path)
