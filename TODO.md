@@ -3,7 +3,7 @@
 记号：`[~]` 部分（缺口写在子条目）· `[ ]` 未开始。完成项不驻留——删除并同批写进 [docs/zh/roadmap.md](docs/zh/roadmap.md)（AGENTS.md 规则 12）。
 
 - **唯一主线**：自绘栈（新栈拥有窗口/像素/事件循环/布局，控件全部基于 Painter 自绘 + 自定义主题，不提供独立原生控件）。
-- **更名与目录定案（2026-10-12）**：主模块 `NoahLiu/moonbit-libyue` → **`NoahLiu/native-gui`**（mooncakes 新包名，首版 0.1.0 占位；待自绘栈稳定后将 `NoahLiu/moonbit-libyue` 标记废弃）；子模块 `NoahLiu/yue-media` → `NoahLiu/gui-media`、`NoahLiu/yue-examples` → `NoahLiu/gui-examples`；**库模块根落在 `gui/`**：15 个库包（`gui/base` … `gui/style`；原 `gui/web` 于 2026-10-16 G9 Batch 1 出成独立模块 `modules/gui-webview`；原 `gui/core` 于 2026-10-17 G9 Batch 2 import 迁移后整包退场）与 `moon.mod` 都在其下，模块名不变故 mooncakes 包路径 `NoahLiu/native-gui/<包>` 与既有 import 全部不变；`examples/`、`experiment/` 拆为**独立模块**（`NoahLiu/native-gui-examples` / `NoahLiu/native-gui-experiment`），经 `moon.work` 本地解析依赖库模块，构建/测试不再牵连库门禁；旧链 `yue/` 已删除。GitHub 仓库名 2026-10-13 已改为 **`moonbit-native-gui`**（旧名 301 重定向）；项目显示名（README 首行、文档站 title/hero、许可行）2026-10-15 随 0.1.1 重发统一为 **native-gui**，旧名只留更名注。
+- **更名与目录定案（2026-10-12）**：主模块 `NoahLiu/moonbit-libyue` → **`NoahLiu/native-gui`**（mooncakes 新包名，首版 0.1.0 占位；`NoahLiu/moonbit-libyue` 与 `NoahLiu/yue-media` 已于 2026-10-19 在 mooncakes 标记废弃，理由「已更名」）；子模块 `NoahLiu/yue-media` → `NoahLiu/gui-media`、`NoahLiu/yue-examples` → `NoahLiu/gui-examples`；**库模块根落在 `gui/`**：15 个库包（`gui/base` … `gui/style`；原 `gui/web` 于 2026-10-16 G9 Batch 1 出成独立模块 `modules/gui-webview`；原 `gui/core` 于 2026-10-17 G9 Batch 2 import 迁移后整包退场）与 `moon.mod` 都在其下，模块名不变故 mooncakes 包路径 `NoahLiu/native-gui/<包>` 与既有 import 全部不变；`examples/`、`experiment/` 拆为**独立模块**（`NoahLiu/native-gui-examples` / `NoahLiu/native-gui-experiment`），经 `moon.work` 本地解析依赖库模块，构建/测试不再牵连库门禁；旧链 `yue/` 已删除。GitHub 仓库名 2026-10-13 已改为 **`moonbit-native-gui`**（旧名 301 重定向）；项目显示名（README 首行、文档站 title/hero、许可行）2026-10-15 随 0.1.1 重发统一为 **native-gui**，旧名只留更名注。
 - **本分支不保留老 libyue 绑定**：`shim/`、`lib/` 预构建库、`scripts/prepare.py` 已删除；libyue 只作**老师**（行为参考、可平移资产来源、`patches/` 的真实 bug 语料）。
 - **路径搬家注（2026-10-16）**：本文件历史条目里的 `gui/web/…`、`NoahLiu/native-gui/web`、`moon test ./gui/web` 均指已出模块的 webview 线，现落位 `modules/gui-webview/webview/`（包 `NoahLiu/gui-webview/webview`），不逐处改写。
 - **示例目录定案（2026-10-19）**：历史条目里的 `NoahLiu/native-gui-examples/<示例>`、`modules/gui-examples`、包名 `NoahLiu/gui-examples/…` 均指已合并的旧示例模块，现落位 `examples/<示例>/`（各自独立模块 `NoahLiu/native-gui-examples-<示例>`），不逐处改写。
@@ -82,9 +82,7 @@
 
 - [ ] 文档：中英使用文档按新栈重写（`components`/`components-ui`/`declarative`/`layout`/`relink`/`system-capabilities`/`tutorial`），README 挂新截图
 - [ ] 文档：中英使用文档按新栈重写（`components`/`components-ui`/`declarative`/`layout`/`relink`/`system-capabilities`/`tutorial`），README 挂新截图
-- [ ] 发布：mooncakes 新版本；旧 `bin-*`/`vendor-*` 预构建发布链退役
-  - [ ] **`gui-media` 首发前最后一次公开面审校**：该模块 0.1.0 至今未发布（原 `gui-examples` 已于 2026-10-19 并入 `examples/` 各示例模块，不再作为发布单元），本轮组件改名（`player_t` → `video`、新增 `audio`）正是在「无历史版本」前提下才零破坏；一旦发出去就改不动了。首发前把两模块 README、`docs/zh/system-capabilities.md` 媒体段、`modules/gui-media/moon.mod` 依赖版本钉法过一遍（发布链与预演 zip 口径见根 `HANDOFF.md`）。
-  - [ ] **0.1.0 构建失败与 0.1.1 重发链（2026-10-15 实测）**：`native-gui@0.1.0` 包页 Build failed——依赖 `NoahLiu/yoga-mbt@0.1.0` 的注册表归档里 `src/moon.pkg.json` 仍是旧清单（发布早于仓内迁移；已发布版本不可原地改写），四目标同一根因。重发顺序**先 `yoga-mbt` 后 `native-gui`**、版本各递增 0.1.1，仓内各模块钉版同批更新；发布从各自模块根执行（可先 `moon publish --dry-run`），发前 `moon package` 预演核对归档零旧清单，发后看包页 `build_status` 与构建日志 API；机理见 adaptation.md 的 mooncakes 构建器条。
+- [ ] 发布：旧 `bin-*`/`vendor-*` 预构建发布链退役（mooncakes 侧 0.2.0 已于 2026-10-19 发布，见 roadmap「承诺与版本」）
 - [ ] 真机验证矩阵：Ubuntu GNOME / KDE / XFCE；Windows 10 / 11；macOS 真机已到位（T1–T8 执行中）
 - [ ] [~] **平台批：WebView2 桩真实现 + ffmpeg Windows 真链接**（已完成面见 roadmap；剩余见子条目）
   - **win 子 HWND 容器**（P1）：`gui/win/stub.c` 补 `wm_surface_new/set_rect/close/container` Windows 真实现（`WS_CHILD` 面板 HWND，父=宿主窗，DefWindowProc + 背景刷 NULL 免闪白），`wm_init` 注册窗口类、`wm_close` 清 surface 槽——web 桩经 `wm_surface_container(surface_id)` 拿 parentHWND。
@@ -96,7 +94,6 @@
 ## 3. 里程碑
 
 - **M3** macOS 地基：mac 平台批①-⑤ 已落（窗口/渲染/文本/webview/sys 各族），进度与缺口见 §7；真机目视复验待做
-- **M4** 发布新版本并冻结旧 `shim + libyue` 链路
 
 ## 6. 跨平台能力面（Win 基础能力 + MBT 通用能力）
 

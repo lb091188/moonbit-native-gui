@@ -9,7 +9,7 @@
 | WebView2 SDK（Microsoft） | MIT | `modules/gui-webview/webview/include/WebView2.h` + `modules/gui-webview/webview/lib/WebView2LoaderStatic.lib`，**不入库**，构建时从 Release 资产 `vendor-v1` 下载并校验 sha256；NuGet 包 `Microsoft.Web.WebView2` 1.0.4258.31 | ✅ `modules/gui-webview/webview/include/SDK-LICENSE.txt`（入库） |
 | miniaudio（mackron） | 公有领域（Unlicense / CC0）与 MIT 双许可 | `modules/gui-media/media/miniaudio.h`，**不入库**，构建时下载并校验 sha256 | 文件头即授权声明；此处登记 |
 | `moonbitlang/x`、`moonbitlang/async` | Apache-2.0 | mooncakes 依赖（`moon install` 拉取，不入库） | 各自包内 `LICENSE` |
-| `mizchi/markdown`、`mizchi/syntree` | MIT | 同上 | 包内 `LICENSE` |
+| `modules/mdparse`（派生自 `mizchi/markdown` 0.8.3） | MIT | **入库**：解析链路源码在 `modules/mdparse/src/`，保留上游版权声明 | ✅ `modules/mdparse/LICENSE`、`modules/mdparse/NOTICE.md` |
 | `mizchi/zlib` | Apache-2.0 | 同上 | 包内 `LICENSE` |
 | `prowk/moonsqlitefile` | Apache-2.0 | 同上 | 包内 `LICENSE` |
 | MoonBit 工具链与 `moonbitlang/core` | Apache-2.0 | 由 `~/.moon` 工具链分发，不入库 | 工具链自带 |

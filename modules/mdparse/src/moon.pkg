@@ -1,0 +1,8 @@
+import {
+  "moonbitlang/core/debug",
+}
+
+// -79：AST 类型用 derive(Eq, Debug)，新编译器会提示「impl 方法隐式提升为类型方法」；
+// 解析链路不依赖这种提升
+// -25：上游测试文件对包内符号用裸名（隐式导入），本包沿用上游测试不做批量改写
+warnings = "-79-25"
