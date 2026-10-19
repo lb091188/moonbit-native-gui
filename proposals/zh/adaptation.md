@@ -2716,3 +2716,12 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - [x] **滚动容器滚不动**（2026-10-14，真机反馈）：`scroll_view` 视口没写 `min-height`，Yoga flex 子项默认 min-size=auto ⇒ 视口被内容顶到自然高、`max()` 恒 0（实测 240×140 父里 viewport=676=content）。库级补 `min_height/min_width=0`，所有调用点（showcase 段正文与侧栏、native-app、virt_list 宿主）一起受益；显式 `height=` 不受影响。判据与对照读数见 adaptation 同批条。
 - [x] **Markdown 页两处缺陷**（2026-10-14，真机反馈）：① 富文本区间按 UTF-16 code unit 出、`AttributedText` 契约是 UTF-8 字节下标 ⇒ 中英混排样式整体前移、端点切进字符（豆腐块 + 压字）；② `md_rich_label` 从不折行、节点宽=整段自然宽（一段 656px 撑进 480 文档）⇒ 右边缘裁字、代码区「复制」被推出可视区。修：`md_byte_len` 出区间 + 构造期贪心折行（中文逐字/拉丁逐词/`\n` 硬换行/超长单元按字符硬切），一行一个 AttributedText，删除线与链接命中按行换算，列表/引用/脚注/表格单元格按各自可用宽收窄（`md_narrow`）。判据与「换回旧单位当场红」的对照实验见 `proposals/zh/adaptation.md` 同批条。**待真机**：豆腐块/裁字/复制按钮是否消失、内容区纵向滚动是否恢复。
 
+
+### 真机反馈修复集（2026-10-17，W30–W38 验证批）
+
+- **折线图推点不跑（第 3 次同坑，这次修根）**：`set_timeout` 的进程级通道由 `App::new` 装，无宿主时空操作；showcase 默认选中段的 `on_mount` 在页面构造期就跑（`section_body` 的 `ensure(selected.get())` 在 handle 构造期执行），首拍落进空通道、自重排循环永不启动。前两次（2026-10-14 图表页、10-15 热键表）是**改调用点**绕开；本次修在 `shell/loop.mbt`——宿主未就绪时定时器进 `pending_timers`（负句柄、可 `clear_timeout`），`set_timer_hooks` 装上后按原延时补发。`host_reset` 复位通道。判据：默认段图表的 500ms 推点循环无需任何 on_mount 技巧即可自持。
+- **密码框光标落在点串中间**：遮罩显示串 `•` 的字宽与原文数字/汉字不同（28px 字号实测 `"123"` 45px、`"•••"` 84px），光标与点击命中却按原文前缀测量 ⇒ 光标漂到点串中间、点击定位也偏。修：`prefix_width` / `byte_at_x` 加 `mask` 档，密码模式下前缀先过 `mask_of` 再测量；光标、选区、拖动、双击选词四处同口径。回归用 offscreen 渲染位图钉住「光标相对 x ≈ pad + mask 宽」。
+- **stepper 悬停底盖住外框**：外框（含聚焦高亮环）由行容器在子件**之前**绘制，格内悬停/按下底是方形 1px 内缩填充，圆角处啃掉外框。改 `fill_round_rect` 内缩 1px、半径 3（外框 4 − 内缩 1）。
+- **图表配色不随主色**：`series_color` 原先复用 primary/success/warning/danger 四语义色——主色偏红时 primary 与 danger 几乎同色，系列不可分辨。`Theme` 增 `chart_palette`（5 色，从主色色相按 128°/38°/210°/285° 旋转，饱和与明度按深浅模式钳制），`theme_chart_color(i)` 供图表取色；`theme_from_accent` 现算，内置深浅主题各带一份静态表。判据：换任意主色后前两系列色差可辨，系列 1 恒等于主色。
+- **Alert 关闭钮在右上角**：用户口径是右缘垂直居中。✕ 与热区一起改为 `r.h/2` 居中，测试同步改采样区。
+- **键盘键多击**：鼠标多击（W32 ClickTracker）之外补 `KeyTracker`——同 keysym+mods 的按下在 60–400ms 内再按计多击（下限滤系统自动重复 25–40ms/拍）；`Widget.on_key_double/on_key_triple` 只喂焦点控件，`App::bind_key_double(spec, cb)` 走窗口级兜底通道。单测直接改 tracker 的 last_time 造时间窗（真实间隔无法等待）。
