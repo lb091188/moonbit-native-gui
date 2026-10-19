@@ -34,7 +34,7 @@ rm -f build/libime_probe_stub.a _build/native/debug/build/NoahLiu/native-gui/exp
 
 ## 真机验收清单
 
-按仓库纪律，视觉与交互项由执行人在真机跑并回反馈；结果回填 `docs/zh/adaptation.md`「MoonBit 原生 GUI 栈(G0 输入法探针)」小节与规划文档第 3 节。**模式 B 与模式 C 各跑一遍，`GTK_IM_MODULE=fcitx` 与 `GTK_IM_MODULE=ibus` 各跑一遍**（fcitx5 与 ibus 的守护进程需在运行）。
+按仓库纪律，视觉与交互项由执行人在真机跑并回反馈；结果回填 `proposals/adaptation.md`「MoonBit 原生 GUI 栈(G0 输入法探针)」小节与规划文档第 3 节。**模式 B 与模式 C 各跑一遍，`GTK_IM_MODULE=fcitx` 与 `GTK_IM_MODULE=ibus` 各跑一遍**（fcitx5 与 ibus 的守护进程需在运行）。
 
 | # | 操作 | 期望（模式 B） | 要记录 |
 |---|---|---|---|
@@ -62,4 +62,4 @@ rm -f build/libime_probe_stub.a _build/native/debug/build/NoahLiu/native-gui/exp
 | 1 的 preedit 内联 | **已闭环**：四条件＝`focus_in/out` 随焦点同步、按键挂焦点控件层、每拍 `set_surrounding`（已提交文本 + UTF-8 字节光标）、`use_preedit=TRUE`（语义＝用 preedit 串做内联反馈）；另：组合串只在一处拼接（绘制侧，正文不带线、组合串带线），两处都拼会显示两份。ibus 未装未测 |
 | 8 / 9（模式 C 兜底） | 可见 `GtkEntry` 的预览与提交行为与 Electron 一致，可作兜底形态的参照基线 |
 
-结论详情与根因见 `docs/zh/adaptation.md`「G0 · 真机回证」条。
+结论详情与根因见 `proposals/adaptation.md`「G0 · 真机回证」条。

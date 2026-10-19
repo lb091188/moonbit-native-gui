@@ -5,7 +5,7 @@
 // CreateProcessW + CREATE_NO_WINDOW 不闪控制台），Linux 子进程环境强制
 // C locale 使输出语言恒定可解析，Windows 传空环境块＝继承父进程环境；
 // 退出码 0 归一为 Ok，非零退出归一为 Err 并携带 stderr，调用方无需判码。
-// 平台差异（记档于 docs/zh/adaptation.md）：命令不存在在 Unix 惯例下由子
+// 平台差异（记档于 proposals/adaptation.md）：命令不存在在 Unix 惯例下由子
 // 进程以退出码 127 呈现（NonZeroExit），Windows 下 CreateProcessW 直接失败
 // （SpawnFailed 带错误码）。
 

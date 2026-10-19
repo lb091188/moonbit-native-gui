@@ -358,7 +358,7 @@ extern "C" fn mono_start() -> Timestamp = "moonbit_monotonic_clock_start"
 extern "C" fn mono_end(ts : Timestamp) -> Double = "moonbit_monotonic_clock_stop"
 
 ///|
-/// 全量进程采样耗时（release 计时，数值记入 docs/zh/adaptation.md）：
+/// 全量进程采样耗时（release 计时，数值记入 proposals/adaptation.md）：
 /// 与 1Hz 刷新同路径（枚举 /proc + 逐进程读 stat/cmdline + 差值）。
 test "bench: ProcMonitor 全量采样耗时(release 计时)" {
   let cores = match cpu_info() {

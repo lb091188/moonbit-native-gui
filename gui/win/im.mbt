@@ -1,7 +1,7 @@
 // 输入法通道（Linux = GtkIMContext 纯通道）：文本状态的唯一权威仍在
 // `input` 的编辑内核，这里只做四件事——喂 surrounding、报光标位、
 // 取提交文本、取组合串。四条件出自 G0 探针的真机闭环（见
-// docs/zh/adaptation.md「G0 输入法探针纯通道」条）：
+// proposals/adaptation.md「G0 输入法探针纯通道」条）：
 // ①上下文要 focus_in（否则落回内建 Simple 上下文，每键直 commit）；
 // ②按键先 filter_keypress，被消费就不进内核；③use_preedit=TRUE 且
 // 组合串由我们自绘、只画一份；④光标一动就重报插入符矩形。

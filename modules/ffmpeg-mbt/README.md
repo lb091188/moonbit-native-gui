@@ -52,7 +52,7 @@ d.close()           // 释放（之后不可再用）
 错误 `VfError`：`OpenFailed(String)` / `NoVideoStream` / `DecodeFailed(String)`。
 `ffmpeg_supported()` / `ffmpeg_version()` 探测库可达性与版本。
 
-## FFI 约定（坑，详见主仓库 docs/zh/adaptation.md）
+## FFI 约定（坑，详见主仓库 proposals/adaptation.md）
 
 - extern 类型声明必须带 `#external`（否则 MoonBit GC 把 FFI 返回的
   裸指针当 GC 堆对象 drop → mi_free 段错误）；

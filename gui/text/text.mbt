@@ -493,7 +493,7 @@ fn draw_box_raster(
   }
   // 帧级批存的是目标位图像素缓冲的裸指针：`off` 一出作用域就随引用计数释放，
   // 待批文本必须趁它还活着落位，否则冲刷时写进已释放的堆块（Windows 实测
-  // 表现为启动即堆损坏崩溃，见 docs/zh/adaptation.md）。
+  // 表现为启动即堆损坏崩溃，见 proposals/adaptation.md）。
   flush_pending()
   let dw = ow.to_double()
   let dh = oh.to_double()

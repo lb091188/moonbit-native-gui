@@ -297,7 +297,7 @@ def mac_vendor_route() -> int:
         return -1
     libdir = os.path.join(vdir, "lib")
     # 每个路径参数单独双引号：link_flags 按 shell 词法拆分，撇号用户名的
-    # 教训同 Windows 分支（docs/zh/adaptation.md「撇号路径让整条 link_flags
+    # 教训同 Windows 分支（proposals/adaptation.md「撇号路径让整条 link_flags
     # 静默消失」）；-Wl,-rpath 指向绝对路径，dyld 据此加载 @rpath 依赖。
     q = lambda p: '"' + p + '"'  # noqa: E731
     link_flags = (
@@ -386,7 +386,7 @@ def main() -> int:
         # 各库路径单独加双引号：link_flags 会被按 shell 词法拆分，而用户名含
         # 单引号的机器（如 noah'liu）里路径自带未配对引号，整条 link_flags 会被
         # 静默丢弃（与 webview 桩原 WEB_PACKAGE 同一个坑，根因与判据见
-        # docs/zh/adaptation.md「同族第二条·撇号路径让整条 link_flags 静默消失」）。
+        # proposals/adaptation.md「同族第二条·撇号路径让整条 link_flags 静默消失」）。
         link_flags = " ".join(
             f'"{p}"'
             for p in (os.path.join(vendor, l).replace("\\", "/") for l in WIN_LIBS)

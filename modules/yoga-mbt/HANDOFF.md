@@ -13,7 +13,7 @@
 - **门控现状**（2026-10-11 校准）：yoga-mbt `moon test -p NoahLiu/yoga-mbt` **91/91**（79 条白盒 + 12 条语料/增量，`src` 包 `--deny-warn` 零警告）。主包新栈各包**分包门禁**（core 28 / input 10 / render 40 / text 20 / icons 4 / theme 7 / sys 7，全部 `--deny-warn` 零警告），全仓 `moon check` 处于过渡期红点基线 **287 errors / 68 warnings**（只减不增，口径见根目录 `TODO.md`；老链路 740 条那条门已在 G0b 摘除绑定层时作废）。
 - **下一步**：YG4 的三块里，「布局树 ↔ 控件树映射」与「脏区增量重排」都已落地（主包 `core/widget.mbt` 控件宿主 + `app.mbt` App 宿主，见 §8 YG3e 与根 `TODO.md` §1 G6）；剩「文本 measure/baseline 接线到声明式层」随 G7。另有两件交付动作：`feature/yoga-mbt` 合回 `master`（要先剔掉两个已在 master 的【构建】提交，见 §1/§9）与 `yoga-mbt` 发 mooncakes（见 §9 第 5 条）。
 - **口径已定**：aspect-ratio 比例作用在 **border-box**（用户 2026-10-10 确认），与 CSS 默认的 content-box 不同，动这块代码前先读 §5 第 12 条。
-- **三条纪律**（最容易踩）：① 只对齐 **Web Flexbox 标准**，不做 Yoga 双默认值；② 提交前先 `git fetch` 且用 `git add <显式路径>`，**不要 `git add -A`**；③ 每批改动配套回写 `docs/zh/adaptation.md` 与 `TODO.md`，一批一提交一推送。
+- **三条纪律**（最容易踩）：① 只对齐 **Web Flexbox 标准**，不做 Yoga 双默认值；② 提交前先 `git fetch` 且用 `git add <显式路径>`，**不要 `git add -A`**；③ 每批改动配套回写 `proposals/adaptation.md` 与 `TODO.md`，一批一提交一推送。
 
 ---
 
@@ -57,7 +57,7 @@ git cherry-pick ab7c12a 105d3c7 <后续 yoga 提交>
 - **为什么做**：libyue 复刻（MoonBit 版跨平台原生桌面 GUI）需要自己的布局层，先用手写 Yoga 引擎替换内嵌的 C++ Yoga。
 - **形态**：`modules/yoga-mbt` 独立子包，组织方式对齐 `modules/ffmpeg-mbt`（独立 `moon.mod`、自带 README、可单独发 mooncakes），`moon.work` 已注册。
 - **铁律（用户明确要求）**：**只对齐 Web Flexbox 标准**（CSS Flexible Box Layout Level 1），不保留 Yoga 的「yoga 默认 / web 默认」双标准。默认值一律 web 语义：`flex-direction: row`、`flex-shrink: 1`、`flex-basis: auto`、`align-items: stretch`、`min-width/height: auto`。
-- **与内嵌 C++ Yoga 的边界**：`docs/zh/adaptation.md`「布局几何」节里那条「不开 useWebDefaults、shrink 默认 0」的定案**只管原生控件树里那颗 C++ Yoga**，不要迁移到本引擎；两条线互不冲突（一条管现在的原生控件树，一条管未来 MoonBit 版）。
+- **与内嵌 C++ Yoga 的边界**：`proposals/adaptation.md`「布局几何」节里那条「不开 useWebDefaults、shrink 默认 0」的定案**只管原生控件树里那颗 C++ Yoga**，不要迁移到本引擎；两条线互不冲突（一条管现在的原生控件树，一条管未来 MoonBit 版）。
 - **纯 MoonBit、零 FFI**：无 shim、无 prebuild、无链接参数，任何 target 可用（因此不涉及仓库「prebuild 链接托管」那套规则）。
 
 ---
@@ -181,7 +181,7 @@ git cherry-pick ab7c12a 105d3c7 <后续 yoga 提交>
 
 - **提交门槛**：`moon check` 零警告 + 测试全绿，才允许提交。
 - **一批一提交**：一个功能/一次修复 = 一次提交并推送 origin；提交信息用「【新增】/【修复】/【文档】/【构建】范围：说明」中文格式，主题行一句改动 + 一句验证结果。
-- **经验回写**：真机实测/踩坑按「环境 + 现象 + 根因 + 修复 + 验证」写进 `docs/zh/adaptation.md`，与代码改动**同批**提交；内容类文档（README、docs 使用文档）只写「是什么/怎么用」，原理与取舍只进 adaptation.md。
+- **经验回写**：真机实测/踩坑按「环境 + 现象 + 根因 + 修复 + 验证」写进 `proposals/adaptation.md`，与代码改动**同批**提交；内容类文档（README、docs 使用文档）只写「是什么/怎么用」，原理与取舍只进 adaptation.md。
 - **全部交流用中文**（代码、命令、路径除外）。
 - **真机 GUI 测试由用户执行**：助手只做代码修复、三类检查（check/test/build）与启动冒烟，涉及其他桌面环境/虚拟机的视觉验证要列清单交给用户。
 - 与本次工作**无关**但别忘：任何包的 `moon.pkg` 都不写链接参数（由 `scripts/prebuild.py` 全权托管）；库包（如 `yue/`）不得放 `link` 段。
@@ -278,7 +278,7 @@ debug 同步量：7622→14 / 7570→176 / 7572→5940。**三场景校验值（
     cd yoga2 && git sparse-checkout set yoga/algorithm && git sparse-checkout add yoga/style yoga/enums
     ```
 - **历史本地副本**：`/tmp/yoga-ref/`（css-flexbox 规范 HTML 与提取出的 §9 / §9.9 / §4.5 文本）与 `/tmp/yoga2/`（Yoga 稀疏克隆；都是临时目录，清理后按上面两条重现）。
-- **项目内记录**：`docs/zh/adaptation.md`「布局几何(Yoga flexbox)」节的 yoga-mbt 九条（首批取舍 + YG2a + YG2b + YG2b′ + YG2c + YG2d + YG2e + YG3a 枚举坑与基线 + YG3b + YG3c）、`TODO.md`「yoga-mbt」节的 YG1–YG4、`modules/yoga-mbt/README.md`。
+- **项目内记录**：`proposals/adaptation.md`「布局几何(Yoga flexbox)」节的 yoga-mbt 九条（首批取舍 + YG2a + YG2b + YG2b′ + YG2c + YG2d + YG2e + YG3a 枚举坑与基线 + YG3b + YG3c）、`TODO.md`「yoga-mbt」节的 YG1–YG4、`modules/yoga-mbt/README.md`。
 - **会话记忆**：`.workbuddy/memory/2026-10-10.md`（两个副本各有一份，内容已同步）。
 
 ---
