@@ -2731,3 +2731,8 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **NoWrap 文本不裁切**：`pt_render_box` 在 `wrap=0 && ellipsize=0` 时不设 Pango 宽度（否则会被折行），文字自然画出声明盒；mac 侧绘制有盒裁切、Linux 侧没有。修：`pt_draw_box_cr` 在 `save` 后按声明盒 `cairo_clip`（宽/高为 0 视为该轴不裁）。判据：限宽 300 的 NoWrap 文本右缘齐盒。
 - **Desktop 层压在桌面图标之上**：Cinnamon 的桌面图标本身是 DESKTOP 型 X11 窗口；运行时对已映射窗改 GDK 类型提示，Muffin 不重新评估，且后 map 的同型窗口叠在上层。修：`wm_set_layer(Desktop)` 直接 `XChangeProperty(_NET_WM_WINDOW_TYPE_DESKTOP)` + `gtk_window_set_keep_below` + `XLowerWindow` 压栈；复位档写回 NORMAL 类型。
 - **系统级拖出后全局光标卡在「+」**：`wm_dragdnd_send` 从 MoonBit 事件栈（非 GTK 派发栈内）手动起拖，拖拽结束只等 `drag-end`，指针 grab 的 ungrab 有概率漏掉——表现为拖放完成后系统光标一直是复制态。修：循环退出后补 `gdk_seat_ungrab` + `gdk_display_flush`，并清掉存档的按下事件；超时兜底路径先 `gdk_drag_abort`（此前只置标志，上下文还活着）。判据：拖文件到文件管理器、拖文本到编辑器，松手后光标立即复原，可正常点击。
+
+### Linux 真机反馈修复集（2026-10-17 第三批，Cinnamon）
+
+- **机器信息整条报读不到**：`si_machine` 把 `/sys/class/dmi/id/product_serial` 当必需项，而该档权限 `0400`（多数发行版仅 root 可读，本机实测确认），vendor/product 明明读得到也被连累成 `SiReadFailed`。修：序列号回落 `/var/lib/dbus/machine-id` → `/etc/machine-id`（与 Windows 侧 `SerialNumber`→`MachineGuid` 同一兜底形态），两者都缺才报错。教训：DMI 三件套不是同权限档，必需项只能是全局可读的那两件。
+- **剪贴板第一次读不到、第二次手动触发才读到**：`gtk_clipboard_wait_for_text` 的首问会输给选区属主握手（Cinnamon 有 `csd-clipboard` 常驻接管属主，首问更容易空转返回 NULL），第二次问时属主缓存已热。修：首问为 NULL 时把主上下文中已就绪的事件跑一轮（`g_main_context_pending` + 非阻塞 `iteration`）再问一次。判据：应用启动后第一次点「读取剪贴板」即应回显内容。
