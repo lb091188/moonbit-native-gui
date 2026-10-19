@@ -3760,6 +3760,7 @@ int wm_clipboard_set_text(const char *text) {
 #include <string.h>
 #include <time.h>
 #include <X11/Xlib.h> // 全局热键 XGrabKey（W22 Linux 档）+ XWithdrawWindow（W23 hide）；x11 的 cflags/libs 已在 prebuild
+#include <X11/Xatom.h> // XA_ATOM（W34 运行时改窗口类型）
 #include <gdk/gdkx.h> // GDK <-> X11 桥（hide 撤管用）
 
 #define WM_MAX_WINDOWS 32
@@ -4306,13 +4307,48 @@ void wm_set_layer(int64_t id, int layer) {
   WmWindow *w = &wm_windows[id];
   if (w->window == NULL) return;
   GtkWindow *win = GTK_WINDOW(w->window);
+  GdkWindow *gw = gtk_widget_get_window(w->window);
+  Display *dpy = gdk_x11_get_default_xdisplay();
+  Window xid = gw ? gdk_x11_window_get_xid(gw) : 0;
   switch (layer) {
-    case 1: gtk_window_set_type_hint(win, GDK_WINDOW_TYPE_HINT_DESKTOP); break;
-    case 2: gtk_window_set_keep_above(win, TRUE); break;
-    case 3: gtk_window_set_type_hint(win, GDK_WINDOW_TYPE_HINT_DOCK); break;
-    default: gtk_window_set_keep_above(win, FALSE);
-             gtk_window_set_keep_below(win, FALSE);
-             gtk_window_set_type_hint(win, GDK_WINDOW_TYPE_HINT_NORMAL); break;
+    case 1: {
+      // 桌面层：类型提示 + keep_below + 直接压到栈底。运行时对已映射窗改
+      // GDK 类型提示，部分 WM（Cinnamon/Muffin）不重新评估，必须走 X11 属性
+      // 并显式 XLowerWindow——桌面图标本身也是 DESKTOP 型窗口，不压栈就会
+      // 盖在图标上面。
+      gtk_window_set_keep_below(win, TRUE);
+      gtk_window_set_type_hint(win, GDK_WINDOW_TYPE_HINT_DESKTOP);
+      if (xid) {
+        Atom type = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
+        Atom desktop = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DESKTOP", False);
+        XChangeProperty(dpy, xid, type, XA_ATOM, 32, PropModeReplace,
+                        (unsigned char *)&desktop, 1);
+        XLowerWindow(dpy, xid);
+        XFlush(dpy);
+      }
+      break;
+    }
+    case 2:
+      gtk_window_set_keep_below(win, FALSE);
+      gtk_window_set_keep_above(win, TRUE);
+      break;
+    case 3:
+      gtk_window_set_keep_below(win, FALSE);
+      gtk_window_set_keep_above(win, TRUE);
+      gtk_window_set_type_hint(win, GDK_WINDOW_TYPE_HINT_DOCK);
+      break;
+    default:
+      gtk_window_set_keep_above(win, FALSE);
+      gtk_window_set_keep_below(win, FALSE);
+      gtk_window_set_type_hint(win, GDK_WINDOW_TYPE_HINT_NORMAL);
+      if (xid) {
+        Atom type = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
+        Atom normal = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_NORMAL", False);
+        XChangeProperty(dpy, xid, type, XA_ATOM, 32, PropModeReplace,
+                        (unsigned char *)&normal, 1);
+        XFlush(dpy);
+      }
+      break;
   }
 }
 
@@ -5147,7 +5183,8 @@ static int wm_dnd_asked; // motion 期已请求过数据（失败不重试，答
 static int wm_dnd_drop_armed;
 // 拖出载荷缓存（wm_dragdnd_send 存、drag-data-get 读）
 static char wm_dnd_src[WM_DND_PAYLOAD_MAX];
-static int wm_dnd_src_len, wm_dnd_src_kind, wm_dnd_src_done, wm_dnd_src_action;
+static int wm_dnd_src_len, wm_dnd_src_kind, wm_dnd_src_done, wm_dnd_src_ended,
+    wm_dnd_src_action;
 
 static void wm_dnd_push(int slot, int kind, int x, int y) {
   if (wm_dnd_qc >= WM_DND_Q) {
@@ -5566,6 +5603,7 @@ static void wm_dnd_on_drag_end(GtkWidget *widget, GdkDragContext *ctx,
   // selected_action 在 drag-end 时仍可读；映射回 DND flag（多位/未知 → 0）
   wm_dnd_src_action = wm_dnd_gdk_to_flag(
       gdk_drag_context_get_selected_action(ctx));
+  wm_dnd_src_ended = 1;
   wm_dnd_src_done = 1;
 }
 
@@ -5601,6 +5639,7 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
   wm_dnd_src_len = len;
   wm_dnd_src_kind = kind;
   wm_dnd_src_done = 0;
+  wm_dnd_src_ended = 0;
   wm_dnd_src_action = 0;
   GtkTargetList *targets = gtk_target_list_new(NULL, 0);
   if (kind == 1) {
@@ -5627,8 +5666,26 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
     gtk_main_iteration();
   }
   g_source_remove(timer);
+  gboolean ended = wm_dnd_src_ended;
   g_signal_handler_disconnect(w->window, s_get);
   g_signal_handler_disconnect(w->window, s_end);
+  if (!ended) {
+    // 超时兜底：drag 上下文还活着，显式 abort 让 GDK 收尾（否则指针 grab
+    // 与拖拽光标会留在系统里）
+    gdk_drag_abort(ctx, GDK_CURRENT_TIME);
+  }
+  // drag 期间指针 grab 由 GDK 持有；从 MoonBit 自己的事件栈起拖（非 GTK
+  // 派发栈内）时收尾可能漏掉 ungrab，表现为全局鼠标停在「+」复制光标。
+  // 拖拽已结束，这里补一次 seat ungrab + flush，恢复系统光标。
+  GdkSeat *seat = gdk_display_get_default_seat(gdk_display_get_default());
+  if (seat != NULL) {
+    gdk_seat_ungrab(seat);
+  }
+  gdk_display_flush(gdk_display_get_default());
+  if (wm_dnd_press != NULL) {
+    gdk_event_free(wm_dnd_press);
+    wm_dnd_press = NULL;
+  }
   if (out_effect != NULL) {
     *out_effect = (int32_t)wm_dnd_src_action;
   }
