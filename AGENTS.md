@@ -35,7 +35,7 @@ moon run examples/showcase      # 完整演示板
 ## 目录地图(放东西的第一判据:找不到路先看这里)
 
 ```
-gui/                    库模块 NoahLiu/native-gui(14 包)——唯一发布单元之一
+gui/                    库模块 NoahLiu/native-gui——唯一发布单元之一
 examples/<name>/        每个示例 = 一个独立模块 NoahLiu/native-gui-examples-<name>
                         (hello / hello-themed / showcase / browser / sysmonitor /
                          audio / video / headless-audio；assets/ 是共享资产目录，非模块)
