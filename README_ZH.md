@@ -113,19 +113,18 @@ moon run examples/browser        # 内嵌 WebView 浏览器
 | 文档 | 内容 |
 |---|---|
 | [docs/README.md](docs/README.md) | 文档索引与包结构总览 |
-| [docs/zh/adaptation.md](docs/zh/adaptation.md) | 平台适配经验：各平台实测坑与修复 |
-| [docs/adaptation.md](docs/adaptation.md) | Platform adaptation notes (English) |
+| [proposals/adaptation.md](proposals/adaptation.md) | 平台适配经验：各平台实测坑与修复 |
 | [docs/zh/autostart.md](docs/zh/autostart.md) | 跨平台开机自启 |
-| [docs/zh/tray.md](docs/zh/tray.md) | Linux 托盘：SNI 协议栈设计 |
+| [proposals/tray.md](proposals/tray.md) | Linux 托盘：SNI 协议栈设计 |
 | [docs/zh/system-capabilities.md](docs/zh/system-capabilities.md) | 系统能力总览 |
-| [docs/zh/design.md](docs/zh/design.md) | 前端化设计口径 |
+| [proposals/design.md](proposals/design.md) | 前端化设计口径 |
 
 ## 参与贡献
 
 报平台兼容问题、补控件、补文档都欢迎。macOS 已在 `mac` 分支落地，真机目视复验与并线是当前最大的开放事项，需要一台 Apple Silicon 机器。基本要求：
 
 - **提交门禁**：库模块在 `gui/` 下 `moon check` + `moon test core ui render text theme icons sys input win dbus chart mdview web style` 零错误零警告
-- **经验留档**：实测坑与修复写进 [adaptation.md](docs/zh/adaptation.md)，不要只留在提交信息里
+- **经验留档**：实测坑与修复写进 [adaptation.md](proposals/adaptation.md)，不要只留在提交信息里
 - **小批次**：一个提交一个内聚改动，提交信息简短
 
 完整流程见 [AGENTS.md](AGENTS.md)。

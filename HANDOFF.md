@@ -17,7 +17,7 @@
 
 ### 1.1 为什么重发(归档级证据)
 
-口径文档:`proposals/zh/adaptation.md`「发布前预演与重发口径(2026-10-15 定)」(英文版 `proposals/adaptation.md` 同条)。两个 0.1.0 归档的问题:
+口径文档:`proposals/adaptation.md`「发布前预演与重发口径(2026-10-15 定)」。两个 0.1.0 归档的问题:
 
 - `NoahLiu/yoga-mbt@0.1.0`:发布 zip 顶层已是新格式 `moon.mod`,但 `src/moon.pkg.json` 旧清单残留(包在仓内目录迁移前发布;注册表侧改不动)。
 - `NoahLiu/native-gui@0.1.0`:zip 是仓库根时期快照(旧仓库 URL、旧描述)。
@@ -121,7 +121,7 @@ cd modules/gui-examples && moon publish
 
 ## 6. 参考
 
-- 发布口径:`proposals/zh/adaptation.md`「发布前预演与重发口径」(第 21 行)/ `proposals/adaptation.md` 英文同条。
+- 发布口径:`proposals/adaptation.md`「发布前预演与重发口径」。
 - 重发链、过渡期收口:`TODO.md` 对应条目。
 - CF 域名机制:Cloudflare 文档 Custom domains 页 <https://developers.cloudflare.com/pages/configuration/custom-domains/>。
 - 交接范例:`modules/yoga-mbt/HANDOFF.md`(模块级;格式可参照)。
