@@ -586,9 +586,15 @@ pub fn alert(
       p.set_fill_color(main)
       p.fill_rect(0.0, 0.0, 3.0, r.h)
       if closable {
-        // 关闭标记与热区同源：右上角 24×24 的中心 (12,12)，字形半径 6
-        // （落墨 ≈ 10.6px），颜色随横幅主色
-        @icons.draw_icon(p, @icons.IconKind::Close2, r.w - 12.0, 12.0, 6.0, main)
+        // 关闭标记与热区同源：右缘 24×24 热区，✕ 在热区中心（垂直居中于整条横幅）
+        @icons.draw_icon(
+          p,
+          @icons.IconKind::Close2,
+          r.w - 12.0,
+          r.h / 2.0,
+          6.0,
+          main,
+        )
       }
       let _ = @text.draw_at(p, 12.0, 6.0, title, tf, main)
       if description.length() > 0 {
@@ -603,10 +609,11 @@ pub fn alert(
         match ev.kind {
           @widget.PointerKind::Down => true
           @widget.PointerKind::Up => {
-            // 关闭热区在右上角 24×24。✕ 的本体行为是收起（回调留默认就是
-            // 「只收起」，真机反馈「点了不关」正是缺了这一步）；收起会让
+            // 关闭热区在右缘 24×24（垂直居中）。✕ 的本体行为是收起（回调留默认
+            // 就是「只收起」，真机反馈「点了不关」正是缺了这一步）；收起会让
             // 下方内容整列回流，走全窗置脏
-            if ev.x >= self.rect.w - 24.0 && ev.y <= 24.0 {
+            let cy = (self.rect.h - 24.0) / 2.0
+            if ev.x >= self.rect.w - 24.0 && ev.y >= cy && ev.y <= cy + 24.0 {
               self.set_visible(false)
               @widget.invalidate()
               on_close()

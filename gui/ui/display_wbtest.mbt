@@ -144,7 +144,7 @@ test "带文字分隔线：整宽、文字两侧都有线" {
 }
 
 ///|
-test "提示条：有描述时更高，关闭热区与标记都只在右上角，点 ✕ 收起" {
+test "提示条：有描述时更高，关闭热区与标记都在右缘垂直居中，点 ✕ 收起" {
   let closes = Ref(0)
   let (root1, a1) = mounted(
     alert("标题", description="描述在这里", t=Warning, closable=true, on_close=fn() { closes.val = closes.val + 1 }),
@@ -153,12 +153,12 @@ test "提示条：有描述时更高，关闭热区与标记都只在右上角�
   )
   assert_eq(a1.rect.h, 56.0)
   assert_eq(a1.visible, true)
-  // 标记要画出来：热区在右上角但看不见 ✕ 等于没有按钮（真机反馈）
+  // 标记要画出来：热区在右缘垂直居中（56 高 → 中心 y=28）
   let bm0 = @render.Bitmap::new(300, 80)
   let p0 = @render.Painter::new(bm0)
   root1.paint(p0)
   p0.end()
-  assert_true(mark_in(bm0, 276, 0, 300, 24) > 8)
+  assert_true(mark_in(bm0, 276, 16, 300, 40) > 8)
   let _ = root1.dispatch_pointer({
     kind: @widget.PointerKind::Down,
     x: a1.rect.x + 20.0,
@@ -178,14 +178,14 @@ test "提示条：有描述时更高，关闭热区与标记都只在右上角�
   let _ = root1.dispatch_pointer({
     kind: @widget.PointerKind::Down,
     x: a1.rect.x + a1.rect.w - 8.0,
-    y: a1.rect.y + 8.0,
+    y: a1.rect.y + a1.rect.h / 2.0,
     button: 1,
     mods: 0,
   })
   let _ = root1.dispatch_pointer({
     kind: @widget.PointerKind::Up,
     x: a1.rect.x + a1.rect.w - 8.0,
-    y: a1.rect.y + 8.0,
+    y: a1.rect.y + a1.rect.h / 2.0,
     button: 1,
     mods: 0,
   })
