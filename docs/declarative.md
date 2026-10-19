@@ -113,7 +113,7 @@ When the content structure changes — not a text edit, not a visibility toggle:
 - `@widget.bind_node(sig : Signal[T], f : (T) -> Node)`: on a signal change, build a new node with `f(v)` and **replace the old node in place**.
 - `@widget.swap_node(sig : Signal[Bool], a : Node, b : Node)`: switch between two nodes in place on a boolean.
 
-"In-place replace" is this stack's settled relink design: the engine provides `insert_child` / `remove_child_at` for it, the widget layer provides `index_of` / `move_child`. Replacement does not rebuild the parent chain, and hit rectangles are re-taken from the layout result each frame — so the two workarounds of the old Windows chain ("defer a tick / force a reflow") are not needed.
+"In-place replace" rests on the engine's `insert_child` / `remove_child_at` and the widget layer's `index_of` / `move_child`. Replacement does not rebuild the parent chain, and hit rectangles are re-taken from the layout result each frame — no "defer a tick / force a reflow" workaround is needed.
 
 ## 7. The repaint loop
 

@@ -1,12 +1,10 @@
 # native-gui [![CI](https://github.com/lb091188/moonbit-native-gui/actions/workflows/ci.yml/badge.svg)](https://github.com/lb091188/moonbit-native-gui/actions/workflows/ci.yml)
 
-> **已更名**：本项目现名 **native-gui**，原名 `moonbit-libyue`；mooncakes 包名为 **`NoahLiu/native-gui`**。旧包 **`NoahLiu/moonbit-libyue`** 与 **`NoahLiu/yue-media`** 已于 2026-10-19 在 mooncakes 上标记废弃，请改用 `NoahLiu/native-gui` 与 `NoahLiu/gui-media`（`yue-examples` → `gui-examples` 的示例现已按示例拆分为独立模块）。
-
 > **来时的路**：本库最初是 [赵成(zcbenz)](https://github.com/zcbenz) 的 [Yue / libyue](https://github.com/yue/yue) 的 MoonBit 封装，布局沿用 [Yoga](https://github.com/facebook/yoga) 的 flexbox。如今两者都不再是运行时依赖，只作行为参考与语料来源。也感谢 [MoonBit](https://github.com/moonbitlang)。
 
 [MoonBit](https://github.com/moonbitlang) 的**跨平台桌面 GUI 框架**——一套 MoonBit 代码直出 Windows 🟩 / Linux 🟩 原生窗口，托盘、通知、快捷键、文件对话框等系统能力开箱即用，`moon add` 后零配置直接运行。macOS 🟨 后端已合入 master，真机验证收口中。
 
-简体中文 | [English](https://github.com/lb091188/moonbit-native-gui/blob/master/README.md)
+简体中文 | [English（在线文档站）](https://moonbit-native-gui.pages.dev/)
 
 ![组件库演示板](https://cdn.jsdelivr.net/gh/lb091188/moonbit-native-gui@master/docs/public/images/showcase-main.png)
 
@@ -20,7 +18,7 @@
 
 **🎨 渲染管线自绘** —— 不依赖 Skia 等重型图形引擎，控件观感跨平台一致，默认跟随系统强调色与明暗模式，主题可按需定制。
 
-**📊 界面组件齐全** —— 折线 / 柱 / 饼 / 仪表 / 散点五类通用图，另有雷达 / 热力 / 蜡烛 / 漏斗 / 箱线 / 桑基 / 树 / 矩形树 / 旭日 / 地图等专项图，含横切交互层；Markdown 视图与自绘控件共用一个光栅器、一棵布局树；内嵌 WebView（可选模块 `gui-webview`）在同一窗口内承载原生 WebKit / WebView2 表面。
+**📊 界面组件齐全** —— 折线 / 柱 / 饼 / 仪表 / 散点等通用图，另有雷达 / 热力 / 蜡烛 / 漏斗 / 箱线 / 桑基 / 树 / 矩形树 / 旭日 / 地图等专项图，含横切交互层；Markdown 视图与自绘控件共用一个光栅器、一棵布局树；内嵌 WebView（可选模块 `gui-webview`）在同一窗口内承载原生 WebKit / WebView2 表面。
 
 **📝 声明式 UI 与响应式状态** —— 界面以树描述，`mount_window` 一步挂载；状态放 `Store` / `Signal`，绑定点随数据自动刷新：
 
@@ -42,7 +40,7 @@ fn main {
 }
 ```
 
-> `moon run examples/showcase` —— 15 页演示板：组件库、系统能力探测与扩展图表。
+> `moon run examples/showcase` —— 演示板：组件库、系统能力探测与扩展图表。
 
 ## 生态坐标
 
@@ -75,7 +73,7 @@ MoonBit 生态的 GUI 能力各有分工：[MoUI](https://github.com/wzzc-dev/Mo
 | 模块 | 内容 |
 |---|---|
 | `NoahLiu/gui-media` | 音视频引擎与播放器组件。 |
-| `NoahLiu/gui-webview` | 内嵌 WebView（WebKitGTK / WebView2），2026-10-16 起从主模块 `web` 子包出成。 |
+| `NoahLiu/gui-webview` | 内嵌 WebView（WebKitGTK / WebView2）。 |
 
 两层「可选」要分清：没 import 的子包不占二进制体积——`moon.pkg` 的 import 是编译与链接边界；没依赖的模块根本不会被解析或预构建——`moon.mod` 的 import 决定依赖闭包。
 
@@ -120,9 +118,9 @@ moon run examples/browser        # 内嵌 WebView 浏览器
 
 ## 参与贡献
 
-报平台兼容问题、补控件、补文档都欢迎。macOS 已在 `mac` 分支落地，真机目视复验与并线是当前最大的开放事项，需要一台 Apple Silicon 机器。基本要求：
+报平台兼容问题、补控件、补文档都欢迎。macOS 后端已并入 master，真机目视复验是当前最大的开放事项，需要一台 Apple Silicon 机器。基本要求：
 
-- **提交门禁**：库模块在 `gui/` 下 `moon check` + `moon test core ui render text theme icons sys input win dbus chart mdview web style` 零错误零警告
+- **提交门禁**：库模块在 `gui/` 下 `moon check` + `moon test ui render text theme icons sys input win dbus chart mdview style base shell widget` 零错误零警告
 - **经验留档**：实测坑与修复写进 [adaptation.md](proposals/adaptation.md)，不要只留在提交信息里
 - **小批次**：一个提交一个内聚改动，提交信息简短
 

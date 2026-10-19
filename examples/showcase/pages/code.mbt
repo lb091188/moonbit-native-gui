@@ -3,8 +3,8 @@
 // markdown_view(join 为源文)，复制串逐行派生为 MoonBit 字面量拼接——
 // 复制所得与页面所见一致。
 //
-// G7 迁移记档：`code_view` 的 `style=[width]` 在本栈无对应参数（宽度由
-// 最长行测宽决定），`markdown_view` 的宽度是命名参数 `width`。
+// 宽度口径：`code_view` 的宽度由最长行测宽决定（没有宽度参数），
+// `markdown_view` 的宽度是命名参数 `width`。
 
 ///|
 /// Markdown 演示源文（逐行；渲染与复制串共用）。

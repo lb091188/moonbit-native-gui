@@ -3,34 +3,27 @@
 //   pages/  各页内容（每页一个文件）
 //   assets/ 图片资源
 //
-// 响应式分层演示：主题五页（基础/表单/导航/数据/反馈）与各组件页用
+// 响应式分层演示：主题页（基础/表单/导航/数据/反馈）与各组件页用
 // Store/Signal 直连，展示端不写手动 subscribe。
 //
-// G7 示例迁移（本批 = 骨架 + 第一页）：
-//   - 旧链路的 `@yue.initialize()` + `@yue.run()` 换成 `@ui.mount_window` +
-//     `App::run`；窗口居中交给 WM（本栈不提供 `center`，与 master 的一条差）。
-//   - 主题跟随不再走 `@yue.on_system_theme_change`（旧链路的平台事件通道），
-//     改为「跟随开关 + 每 2 秒读一次系统偏好」：手动选色/切深浅先把开关关掉，
+// 形态要点：
+//   - 起窗走 `@ui.mount_window` + `App::run`；窗口居中交给 WM（本栈不提供 `center`）。
+//   - 主题跟随是「跟随开关 + 每 2 秒读一次系统偏好」：手动选色/切深浅先把开关关掉，
 //     否则下一拍就被盖回去。系统偏好读数用 `@win.sys_color_scheme/sys_accent`
 //     （与 `App::follow_system_theme` 内部同一来源，示例要能手动覆盖故自己开表）。
-//   - 菜单栏 / 单实例已接线（2026-10-13 第十五批）：菜单栏是 W20a 的模型
-//     翻译（`MenuBar::apply_to` → 原生菜单栏，点击经 `dispatch_menu_command`
+//   - 菜单栏是模型翻译（`MenuBar::apply_to` → 原生菜单栏，点击经 `dispatch_menu_command`
 //     派发到模型回调，100ms 轮询表挂在宿主）；单实例是 dbus 层的
 //     `claim_name` + Wake（无会话总线的环境降级为不做，只打印说明）；
 //     D-Bus 的排期通道与 200ms 泵都由宿主给。托盘菜单在系统集成页托盘段。
-//   - 待迁页：全部迁完（见 TODO.md；表单组件页 2026-10-12 已迁，事件与布局/
-//     窗口/系统集成/图标库/画布与富文本/浏览器六页 2026-10-13 已迁）。
-//   - 浏览器页 2026-10-15 拆出为独立示例 `examples/browser`（WebView 重控件
-//     不再随演示板起窗），showcase 侧栏与菜单栏同步摘除。
+//   - 浏览器页在独立示例 `examples/browser`（WebView 重控件不随演示板起窗）。
 
 ///|
 /// 窗口标题
 const SHOWCASE_TITLE : String = "组件库演示板"
 
 ///|
-/// 侧栏底部的版本号。旧链路读 `@yue.VERSION`（主包常量，`scripts/prebuild.py`
-/// 在构建期校验它与 `moon.mod` 一致）；新栈示例不再 import 主包，故本地留一份
-/// ——它只用于显示，权威值仍是库模块 `gui/moon.mod` 的 version。
+/// 侧栏底部的版本号。本地留一份，只用于显示；权威值是库模块 `gui/moon.mod`
+/// 的 version。
 const SHOWCASE_VERSION : String = "0.1.1"
 
 ///|

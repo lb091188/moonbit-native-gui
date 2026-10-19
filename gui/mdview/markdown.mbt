@@ -1,5 +1,5 @@
 // Markdown 展示视图（新栈）：@mdparse（NoahLiu/mdparse）解析 + 富文本行自绘
-// 渲染，与 master 的 yue/markdown 同源平移，渲染层换新栈组件面。
+// 渲染，渲染层复用 `@ui` 组件面。
 // 块级:标题 1-6(ATX/Setext)、围栏(```/~~~)与缩进代码块(复用
 // @ui.code_view,语言取 info 串首词)、引用(子块递归)、GFM 提示块、
 // 无序/有序(带 start)/任务列表(checkbox 复选框)、表格(等分列宽

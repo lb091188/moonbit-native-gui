@@ -1,10 +1,8 @@
 // 图标系统(绘制面):统一矢量绘制入口 draw_icon,数据形状——路径以千分定点串
-// 存 icon_path_data,经 fill_icon_path 解释执行,803 图标约 0.6MB 数据替代旧代码
-// 形状约 16MB 绘制代码(编译/体积双赢)。全库定案:图标一律矢量自绘,不依赖
+// 存 icon_path_data,经 fill_icon_path 解释执行。图标一律矢量自绘,不依赖
 // 字体字形(字形图标 Windows 渲染发虚、跨平台不一致,GTK align=Center 无效,
 // 矢量顺带解决居中);全库填充型(iconfont 轮廓一次 fill)。
-// 本文件自 master 线 icons/icons.mbt 平移,族内只依赖 @render.Painter;
-// 声明式包装 icon/icon_button 依赖声明式层,留到组件接线那一批(G7)。
+// 族内只依赖 @render.Painter。
 
 ///|
 /// 图标种类(线条风格为主,个别实心)。绘制语义:中心 (cx,cy)、
@@ -2572,7 +2570,7 @@ fn kind_index(kind : IconKind) -> Int {
 // ---- icons-gen:end ----
 
 ///|
-/// 全部图标种类清单(803 项,图标墙/选取器素材)。
+/// 全部图标种类清单（图标墙/选取器素材）。
 pub fn all_icons() -> Array[IconKind] {
   [
     // ---- icons-gen:all

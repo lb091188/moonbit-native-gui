@@ -2,9 +2,8 @@
 // 平台标识 / 子进程执行 / 分离式启动 / 文件对话框（Windows 端）。
 // 只用系统标准头（POSIX dirent/unistd + Windows SDK），直接走 moon 的
 // native-stub 编译（区别于要 GTK 头的 win 桩——那个由 prebuild 编静态库）。
-// ABI 约定与 master 的 shim 同源：多字符串返回扁平 UTF-8 文本
-// （'\n' 分行），字节串经 moonbit_make_bytes 构造（运行时符号，
-// extern 声明即可用——ime_probe_stub 同款）。
+// ABI 约定：多字符串返回扁平 UTF-8 文本（'\n' 分行），字节串经
+// moonbit_make_bytes 构造（运行时符号，extern 声明即可用）。
 //
 // Windows 侧路径一律 UTF-8 进、宽字符 API 出（FindFirstFileW/_wfopen/
 // CreateProcessW——A 版是 ANSI 代码页，中文路径乱码，见 adaptation）。
@@ -699,8 +698,7 @@ int32_t yue_sys_spawn_detached(const char *file, const char *arg) {
 // ---------------------------------------------------------------------------
 // 子进程执行（proc_spawn / proc_wait / proc_getpid）
 //
-// 语义与 master 线 shim 的同名实现逐位对齐（那条链路已在 Linux/macOS/
-// Windows 三平台跑通），差别只在这里是纯 C：宽字符串自己拼、环境块自己排。
+// 三平台同语义，纯 C 实现：宽字符串自己拼、环境块自己排。
 // 约定：
 //   · args_blob / env_blob 都是「条目以 NUL 分隔、空条目收尾」的 UTF-8 文本；
 //     env_blob 为空 = 继承父进程环境（Windows 走的就是这条，POSIX 侧由调用方
@@ -776,7 +774,7 @@ static void wb_puts(WBuf *b, const wchar_t *s) {
 
 // 按 CommandLineToArgvW 的口径加引号：含空格/Tab 才引，串里的 " 前反斜杠
 // 翻倍再补一个 \，结尾的反斜杠串整体翻倍（procrun 的实参是路径与固定开关，
-// 不会出现嵌套引号前的长反斜杠串，与 master 同一简化版）。
+// 不会出现嵌套引号前的长反斜杠串，这里是同一套简化口径）。
 static void win_append_quoted(WBuf *b, const wchar_t *s) {
   int needs = 0;
   for (const wchar_t *p = s; *p != L'\0'; p++) {
@@ -1797,7 +1795,7 @@ int32_t yue_sys_autostart_remove(const char *app_id, int32_t *ok) {
 //   Linux    X11 的 XScreenSaver 扩展（XSS）：**运行期 dlopen**，因为 sys 的
 //            Linux 链接行只有 pthread/dl/m/stdc++，headless 消费者不该被 X
 //            库绑住；符号取不到 / 没有 DISPLAY（Wayland 会话）一律 ok=0
-//   macOS    本批不实现（空探测给 0，门面转 Unsupported）
+//   macOS    不实现（空探测给 0，门面转 Unsupported）
 //
 // 返回：`*ok = 1` 成功（毫秒，非负）；`*ok = 0` 本平台/本会话取不到。
 // `yue_sys_idle_supported` 是运行期能力探测（Windows 恒 1；Linux 要

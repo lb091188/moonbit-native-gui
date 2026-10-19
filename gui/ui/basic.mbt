@@ -1,8 +1,8 @@
 // 基础原语：容器 / 面板 / 分隔线 / 文本 / 图像 / 图标（§2 前端化命名后）。
 // 一律返回 `@widget.Node`（建树不实例化），颜色在 `on_draw` 里现取主题值。
 //
-// 与 master 的一条差仍成立：禁用态配色暂用「fill_hover 底 + text_secondary
-// 字」，真正的 disabled 色板随主题批补进 `Theme`。
+// 禁用态配色暂用「fill_hover 底 + text_secondary 字」，真正的 disabled 色板
+// 待补进 `Theme`。
 
 
 ///|
@@ -168,8 +168,7 @@ fn separator_impl(
 ///|
 /// 随信号更新的文本：文本变化 → 改状态 → 重设测量回调（标脏节点）→
 /// 请求重绘，布局只重算这一条链。订阅退订随本代回收袋，重挂不留死订阅。
-/// 这也是旧链路 `bind_label` 的对应物（就地改文本，不重建子树），§3 通则里
-/// 展示类 `*_dyn` 信号版的原型。
+/// 就地改文本、不重建子树，是展示类 `*_dyn` 信号版的原型。
 pub fn text_dyn(
   sig : @base.Signal[String],
   role? : TextRole = Plain,

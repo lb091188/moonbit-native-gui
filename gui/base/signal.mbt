@@ -1,7 +1,6 @@
 // L3 响应式层：Signal（自动依赖收集的信号）与 Store（可订阅的值）。
-// 自 master 线 `yue/signals.mbt` / `yue/store.mbt` 平移**内核**（零平台依赖、
-// 原样保留），挂视图那两层换成新栈形态：`bind_node`/`swap_node` 见
-// `widget/node.mbt`（挂载目标是自绘 `Widget`，不是 libyue 的 `View`）。
+// 内核零平台依赖；挂视图的两层是 `bind_node` / `swap_node`，见
+// `widget/node.mbt`（挂载目标是自绘 `Widget`）。
 // 与 Store 的分工：
 //   Store  = 可写源 + 组件 API 的既有参数类型，手动 get/set/subscribe；
 //   Signal = 源 + computed（求值期自动收集读到的信号为依赖，依赖变化自动

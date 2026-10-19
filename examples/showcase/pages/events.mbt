@@ -1,21 +1,19 @@
 // 事件与布局页：指针 / 悬停 / 捕获 / 光标 / 键盘 × yoga 布局模型。
 //
-// G7 迁移记档（与 master 旧页的五条机制差，全部落在「宿主接管」上）：
-// ① 五个鼠标回调（on_mouse_enter/leave/move/down/up）合成**一个** `on_pointer`：
-//    `PointerEvent.kind` 区分 Down/Up/Move/Leave，坐标交给处理器前已换算成本地
-//    坐标（`Leave` 保持窗口坐标），enter/leave 不再手写——悬停态由宿主维护；
-// ② 显式捕获三件套（set_capture / has_capture / release_capture +
-//    on_capture_lost）没有了：宿主规则是「**命中即捕获**」——任何一次按下到松手
-//    之间，Move/Up 全投给被按下的控件（`route_pointer`），指针移出它的矩形也不丢
-//    抬起（本地坐标可为负）；再按另一处即夺走捕获。演示从「开关」改成「规则」；
-// ③ 「全局鼠标 + 修饰键 200ms 轮询」整段删除：本栈没有窗口外指针通道，修饰键随
-//    每个指针/按键事件下发（`ev.mods` 位掩码，MOD_SHIFT/MOD_CTRL/MOD_ALT/MOD_META）。
-//    原位置换成两段本栈原生能力：`on_hover_change` 起停定时器（悬停秒表）与
-//    `@shell.set_timeout` 进程级延时通道（周期任务靠自重排，句柄可取消）；
-// ④ 光标从 `View::set_cursor(view, Cursor)` 换成控件字段 `w.cursor`（编号 0..4），
-//    宿主按悬停路径取「最深的非零请求」下发；旧链路的 Crosshair/NotAllowed 本栈
-//    没有——平台没有的形状不强推（见前端化设计文档的口径）；
-// ⑤ 键盘从「窗口级 on_key_down」换成「焦点控件 on_key」：键只投给当前焦点，
+// 五条机制口径，全部落在「宿主接管」上：
+// ① 鼠标回调只有一个 `on_pointer`：`PointerEvent.kind` 区分 Down/Up/Move/Leave，
+//    坐标交给处理器前已换算成本地坐标（`Leave` 保持窗口坐标），enter/leave 不
+//    用手写——悬停态由宿主维护；
+// ② 没有显式捕获 API：宿主规则是「**命中即捕获**」——任何一次按下到松手之间，
+//    Move/Up 全投给被按下的控件（`route_pointer`），指针移出它的矩形也不丢抬起
+//    （本地坐标可为负）；再按另一处即夺走捕获；
+// ③ 没有窗口外指针通道；修饰键随每个指针/按键事件下发（`ev.mods` 位掩码，
+//    MOD_SHIFT/MOD_CTRL/MOD_ALT/MOD_META）。本页演示两段：`on_hover_change` 起停
+//    定时器（悬停秒表）与 `@shell.set_timeout` 进程级延时通道（周期任务靠自重排，
+//    句柄可取消）；
+// ④ 光标是控件字段 `w.cursor`（编号 0..4），宿主按悬停路径取「最深的非零请求」
+//    下发；Crosshair/NotAllowed 平台没有，不强推（见前端化设计文档的口径）；
+// ⑤ 键盘是「焦点控件 on_key」：键只投给当前焦点，
 //    点击即聚焦（focusable_at → focus）；宿主只投**按下**（抬起不投，防编辑内核
 //    把松手当字符），Tab/Shift+Tab 被宿主吃去驱动焦点栈。焦点 id 要在宿主就绪后
 //    注册（页内容惰性挂载，挂载时 `host_active()` 才拿得到）。
@@ -368,7 +366,7 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
     @shared.section(
       "捕获",
       "按下捕获（宿主内置规则）",
-      "旧链路的 set_capture / has_capture / release_capture / on_capture_lost 四件套在本栈没有了：**任何一次按下（命中控件即成为捕获者）到松手之间**，Move/Up 全投给被按下的控件——指针移出它的矩形也不丢抬起（本地坐标为负），再按另一处即夺走捕获。拖选、拖动插入点都靠这条规则。",
+      "没有 set_capture / has_capture / release_capture / on_capture_lost 这类显式捕获 API：**任何一次按下（命中控件即成为捕获者）到松手之间**，Move/Up 全投给被按下的控件——指针移出它的矩形也不丢抬起（本地坐标为负），再按另一处即夺走捕获。拖选、拖动插入点都靠这条规则。",
       [
         @ui.row([cap_area("A"), cap_area("B")], column_gap=12.0),
         @ui.bind_label(cap_log, fn(s) { s }),
@@ -388,7 +386,7 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
     @shared.section(
       "光标",
       "光标形状 Cursor",
-      "`w.cursor` 是控件上的形状请求（0 默认 / 1 手型 / 2 文本 / 3 横向调整 / 4 纵向调整）；宿主每次移动按悬停路径取「**最深的非零请求**」下发——包住一整组的 `cursor_group` 会自然回退，组内子件自己提了形状以它为准（旧链路要把光标递归设进每个子孙）。Crosshair/NotAllowed 平台没有，本栈不强推。",
+      "`w.cursor` 是控件上的形状请求（0 默认 / 1 手型 / 2 文本 / 3 横向调整 / 4 纵向调整）；宿主每次移动按悬停路径取「**最深的非零请求**」下发——包住一整组的 `cursor_group` 会自然回退，组内子件自己提了形状以它为准。Crosshair/NotAllowed 平台没有，不强推。",
       [
         @ui.col(
           [@ui.text("光标预览区（把鼠标放上来，再点下面按钮换形状）", role=@ui.Body)],

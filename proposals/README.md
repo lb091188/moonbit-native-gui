@@ -9,9 +9,8 @@
 | [adaptation.md](adaptation.md) | 平台适配经验:各平台实测坑、根因与验证结论 |
 | [tray.md](tray.md) | Linux 托盘:SNI 协议栈设计、架构、后端降级与桌面兼容性 |
 | [design.md](design.md) | 前端化设计口径:样式表形态、组件命名映射、响应式补强、视图层 |
-| [module-structure.md](module-structure.md) | 模块结构规划:G9 模块拆分的批次、代价与风险 |
+| [module-structure.md](module-structure.md) | 模块拆分判据、仓库布局、主模块三层子包与各模块边界 |
 | [gpu-architecture.md](gpu-architecture.md) | GPU 合成与 3D 路径架构决策 |
-| [g9-symbol-routing.md](g9-symbol-routing.md) | G9 收尾:`@core` 符号路由表(迁移期查找字典) |
 | [i18n-and-iconfont.md](i18n-and-iconfont.md) | i18n 与 iconfont 两条线的方案总览 |
 | [i18n-toml-design.md](i18n-toml-design.md) | i18n TOML 词表设计 |
 | [iconfont-conversion.md](iconfont-conversion.md) | iconfont 图标转换流程 |

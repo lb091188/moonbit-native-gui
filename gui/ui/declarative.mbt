@@ -4,20 +4,17 @@
 // `button` / `input` / `checkbox` / `container` / `group` / `separator` /
 // `image` / `icon` / `radio_group` / `slider` / `progress`）不再另包一层——
 // 直接用组件即可。这里只补三类东西：
-// ① 与 master 名字不同的构造器（`vbox`/`hbox`/`text_edit`/`select`/`scroll`/
-//    `tab`/`date_picker`），旧调用点原样跑在新栈上；
+// ① 别名构造器（`vbox`/`hbox`/`text_edit`/`select`/`scroll`/`tab`/`date_picker`）；
 // ② 声明式入口（`mount_window`）与文本绑定（`bind_label`/`bind`）；
 // ③ `hover_group`（悬停组）。
 //
-// 两条与 master 的机制差（记档）：
-// - `hover_group` 在旧链路靠**全局指针轮询**（GTK 指针事件不冒泡，子控件的
-//   事件窗口会独占，祖先容器收不到 enter）；本栈宿主的悬停态本来就是父链语义
-//   （指针在子项上时父项也算悬停），所以这里没有定时器、没有轮询，读 `hovered` 即可。
-// - `overlay_scroll`（旧链路的悬浮滚动条）在本栈就是 `scroll_view`：滚动条一直是
-//   视口的绝对定位子控件、覆盖在内容之上，不需要第二套形态。
-// - `cursor_group` 在旧链路要把光标递归设到组根与**全部子孙**（GTK 光标按原生
-//   窗口生效，只设容器盖不住有独立窗口的子件）；本栈光标是窗口级的一层，宿主按
-//   悬停路径取「最深的那个请求」，所以组只设自己一处，子孙没提请求时自然回退到它。
+// 三条机制口径：
+// - `hover_group`：宿主的悬停态是父链语义（指针在子项上时父项也算悬停），读
+//   `hovered` 即可，没有定时器也没有轮询。
+// - `overlay_scroll` 就是 `scroll_view`：滚动条是视口的绝对定位子控件、覆盖在
+//   内容之上，不需要第二套形态。
+// - `cursor_group`：光标是窗口级的一层，宿主按悬停路径取「最深的那个请求」，组
+//   只设自己一处，子孙没提请求时自然回退到它。
 //
 // §2「事件参数统一 on_*」审计口径（P2-b）：组件库全部**事件**回调参数已是
 // `on_*` 形态（on_click/on_change/on_enter/on_pick/on_response/on_dismiss/
@@ -104,8 +101,8 @@ pub fn row(
 
 ///|
 /// 声明式文本绑定：初值 `f(store.get())`，之后每次 `set` 就地更新文本并重测
-/// （只重算这一条链，不重建子树）。文本恒单行——旧链路那条「默认自动换行会在
-/// hbox 里被压成两行」的坑在本栈同样成立，故 `wrap=false`。
+/// （只重算这一条链，不重建子树）。文本恒单行（`wrap=false`）：自动换行在
+/// 横向容器里会被压成两行。
 pub fn[A] bind_label(
   store : @base.Store[A],
   f : (A) -> String,
@@ -153,9 +150,7 @@ pub fn[A] bind(
 /// 悬停组：组内任意位置（含全部子控件）悬停即整组进入悬停态并换底色，
 /// 点击（按下后松开仍在组内）触发 `on_click`。
 ///
-/// 旧链路要靠全局指针轮询才做得到（GTK 的指针事件不冒泡，子控件的事件窗口
-/// 独占事件，祖先收不到 enter）；本栈宿主的悬停态本身就是父链语义，
-/// 所以这里既不排定时器也不查指针。
+/// 宿主的悬停态本身就是父链语义，所以这里既不排定时器也不查指针。
 pub fn hover_group(
   children : Array[@widget.Node],
   on_click? : () -> Unit = fn() -> Unit { () },
@@ -228,9 +223,8 @@ pub fn hover_group(
 /// 都在 `App::new` 里就位）、挂载子节点、把宿主交给调用方 `run`。
 /// 无显示服务时返回 None（调用方打印提示即可，与 `App::new` 同口径）。
 ///
-/// 与 master 的一条差（记档）：旧链路的 `mount_window` 还管 `center`/`on_close`
-/// （原生窗口有这两条通道）；本栈的窗口居中由 WM 决定、关闭只把宿主循环停下，
-/// 故不提供这两个参数，退出后的收尾写在调用方 `run()` 之后。
+/// 窗口居中由 WM 决定、关闭只把宿主循环停下，故不提供 `center` / `on_close`，
+/// 退出后的收尾写在调用方 `run()` 之后。
 pub fn mount_window(
   children : Array[@widget.Node],
   title? : String = "",
@@ -266,8 +260,7 @@ pub fn mount_window_render(
 ///|
 /// 光标组：组内任意位置都用 `cursor` 指定的形状（默认手型）。
 /// 宿主取的是悬停路径上**最深的那个非零请求**，所以组内某个子件自己提了形状
-/// （比如卡片里那颗按钮）时以它为准，其余位置回退到组的形状——不需要像旧链路
-/// 那样把光标递归设进每个子孙。
+/// （比如卡片里那颗按钮）时以它为准，其余位置回退到组的形状。
 pub fn cursor_group(
   children : Array[@widget.Node],
   direction? : @yoga.FlexDirection = @yoga.Column,

@@ -7,10 +7,8 @@
 // `add_submenu` 无限嵌套。树用 `Array[MenuItem]` 承载同级项，项自身可带子菜单，
 // 因此「遍历整棵树」是一个简单的递归（见 `Menu::walk`）。
 //
-// 与旧栈的差别：旧栈 MenuBar/Menu/MenuItem 是**不透明句柄**（#external，行为在
-// C++），本模型是**可枚举的纯值**——好处是后端翻译前能先做纯函数校验/计数/序列化
-// 测试（wbtest），且「模型 → 原生」是一次单向翻译，不需要为每个平台维护一套
-// 平行的句柄表。
+// 模型是**可枚举的纯值**：后端翻译前能先做纯函数校验/计数/序列化测试（wbtest），
+// 且「模型 → 原生」是一次单向翻译，不需要为每个平台维护一套平行的句柄表。
 
 ///|
 /// 菜单项角色（编辑菜单免实现直接可用，跨平台行为一致）。`Normal` 是普通项，
@@ -256,7 +254,7 @@ pub fn MenuBar::total_item_count(self : MenuBar) -> Int {
 }
 
 ///|
-/// 角色 → 默认标签（中文文案与旧栈口径一致：编辑菜单直接可用）。
+/// 角色 → 默认标签（编辑菜单直接可用）。
 pub fn menu_role_default_label(role : MenuRole) -> String {
   match role {
     Normal => ""
@@ -286,7 +284,7 @@ pub fn menu_role_default_accelerator(role : MenuRole) -> String {
 }
 
 ///|
-/// 角色 → 数字编号（后端 FFI 传参用；与旧栈 `ffi_menu_add_role_item` 一致）。
+/// 角色 → 数字编号（后端 FFI 传参用）。
 pub fn menu_role_id(role : MenuRole) -> Int {
   match role {
     Normal => -1

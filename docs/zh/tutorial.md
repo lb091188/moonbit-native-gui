@@ -38,7 +38,7 @@ winget install Python.Python.3.12
 winget install Microsoft.VisualStudio.2022.BuildTools -e --override "--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
 ```
 
-moon 在 Windows 上编译原生代码**开箱即用，会自行定位 MSVC 工具链**，普通 shell（PowerShell / Git Bash）直接 `moon run` 即可，不必先进「x64 Native Tools Command Prompt」或手动 `call vcvars64.bat`。早期文档「必须在 Native Tools 命令行里跑」「还要装 CMake 与 ATL」的口径管的是旧 libyue/CMake 构建链，自绘新栈不适用。
+moon 在 Windows 上编译原生代码**开箱即用，会自行定位 MSVC 工具链**，普通 shell（PowerShell / Git Bash）直接 `moon run` 即可，不必先进「x64 Native Tools Command Prompt」或手动 `call vcvars64.bat`。「必须在 Native Tools 命令行里跑」「还要装 CMake 与 ATL」是旧 CMake 构建链的口径，本栈不适用。
 
 </details>
 
@@ -146,7 +146,7 @@ handle=fn(a : @widget.App) -> Unit {
 
 ```sh
 git clone https://github.com/lb091188/moonbit-native-gui && cd moonbit-native-gui
-moon run examples/showcase    # 15 页：基础/表单/导航/数据展示/反馈/事件与布局/系统集成…
+moon run examples/showcase    # 基础/表单/导航/数据展示/反馈/事件与布局/系统集成…
 ```
 
 左边菜单选页、右边对着写，每页源码独立成文件（`examples/showcase/pages/*.mbt`），复制改写即可。想从小例子入手：`moon run examples/hello`（最小窗口）与 `moon run examples/hello-themed`（主题控件集）。

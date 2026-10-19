@@ -1,7 +1,7 @@
 // 拖放门面（W21c）：数据模型 `DragData` + 控件钩子（拖源 `set_draggable` / 投放
 // `set_on_drop`）+ **应用内**拖拽会话。
 //
-// 本批的口径（写清以免被当成「没做完」）：
+// 口径（写清以免被当成「没做完」）：
 // - **已做**：同一进程、同一控件树内的拖放——拖源按住拖出内容、指针移动时实时
 //   算出落点、松手投给命中的投放目标。新栈全自绘，命中与绘制都在自己手里，这条
 //   路不需要任何平台接口，**三平台同构**。
@@ -14,17 +14,15 @@
 // - **已做（Windows，W23b）**：**系统级拖出**——`drag_external_send` 把 `Text`/`Paths`
 //   交给 OLE 拖放（见本文件尾的「系统级拖出」节）。`drag_source(external=true)` 在
 //   过阈值那一刻起这趟；后端不支持或种类没有系统级形态时自动回落到应用内会话。
-// - 参照面是旧栈的 `yue/view.mbt`（`DataKind` / `DragData` / `register_dragged_types`
-//   / `handle_drag_enter`/`handle_drag_update`/`handle_drop`/`on_drag_leave`）。
-//   本批把「拖入三回调」收成一个 `on_drop`（自绘档不需要 enter/update/leave 三件：
-//   悬停高亮靠读 `drag_hover()`，见下），编号与旧栈逐值相同。系统级拖入要问
-//   「这个落点收不收」又不触发投递，故另开 `drag_accept` 查询钩子（见下）。
+// - 投放只有一条 `on_drop`（自绘档不需要 enter/update/leave 三件回调：悬停高亮
+//   靠读 `drag_hover()`，见下）。系统级拖入要问「这个落点收不收」又不触发投递，
+//   故另开 `drag_accept` 查询钩子（见下）。
 //
-// 数据线形状：`[kind:i32 LE][payload]`——与旧栈拖拽/剪贴板共用的编码同形，
-// 为将来 widget 侧剪贴板预留（`Paths` 载荷用 `\n` 连接路径，同旧栈）。
+// 数据线形状：`[kind:i32 LE][payload]`，与剪贴板共用的编码同形，为将来 widget 侧
+// 剪贴板预留（`Paths` 载荷用 `\n` 连接路径）。
 
 ///|
-/// 拖拽数据种类（与旧栈 `yue/view.mbt` 的 `DataKind` 同义）。
+/// 拖拽数据种类。
 pub(all) enum DataKind {
   Text
   Html
@@ -33,8 +31,7 @@ pub(all) enum DataKind {
 }
 
 ///|
-/// 种类编号。**值不能随手改**：它是「与剪贴板共用的线上形状」的一部分，旧栈
-/// 就是这四值。
+/// 种类编号。**值不能随手改**：它是「与剪贴板共用的线上形状」的一部分。
 pub fn data_kind_id(kind : DataKind) -> Int {
   match kind {
     Text => 1
@@ -69,8 +66,8 @@ pub extend DataKind with Eq::{not_equal, equal}
 
 ///|
 /// 拖拽数据本体。
-/// 与旧栈的一处差（记档）：旧栈 `Img(Image)` 用的是平台图像句柄类型，本批用
-/// **原始 PNG 字节** `Img(Bytes)`——widget 层不依赖任何平台图像类型，三平台同构；
+/// 图片载荷用**原始 PNG 字节** `Img(Bytes)`——widget 层不依赖任何平台图像类型，
+/// 三平台同构；
 /// 要显示时由调用方自己交给解码后端（`@win.icon_from_png` / `render`）。
 pub(all) enum DragData {
   Text(String)
@@ -612,7 +609,7 @@ pub(all) enum DragError {
 
 ///|
 /// 这份数据有没有系统级形态：`Text` 走 `CF_UNICODETEXT`、`Paths` 走 `CF_HDROP`
-/// （相对路径由后端绝对化）。`Html`/`Img` 本批不给系统级形态——`CF_HTML` 有自己的
+/// （相对路径由后端绝对化）。`Html`/`Img` 不给系统级形态——`CF_HTML` 有自己的
 /// 源标记格式、位图要 `IDropTarget` 侧的 `METAFILEPICT`/`Bitmap`，都随后续批。
 pub fn drag_data_has_system_form(data : DragData) -> Bool {
   match data {
