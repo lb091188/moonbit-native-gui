@@ -195,9 +195,25 @@ labels 与键分离。归一化规则：写第 i 层 → 第 i+1.. 层各自回�
   即停链不留空转定时器；无宿主时走 host 未就绪的排队通道，`gui/shell/loop.mbt:189`）。
   调度核心做成可手动驱动的纯步骤函数，wbtest 不起定时器就能逐拍验序。策略判等走 `match`
   不给枚举派生 `Eq`（本工具链 `derive(Eq)` 报隐式提升告警，零告警门禁过不了）。wbtest 7 项。
-- [ ] **T5 挂载槽与淘汰**：`slot(depth)` 每层显隐容器；`Keep` 保形（切显隐不重建、滚动
-  位置各自保留——现状语义），`Lru(n)` 退出深层路径时淘汰祖先链任一层子树；淘汰走
-  `remove_child` + 整代退订；重挂 `on_mount` 双份风险逐条核实。
+- [x] **T5 挂载槽与淘汰**：`slot.mbt` 落 `Router::slot(depth, prefix, candidates, bar_of)`
+  与 `Router::view(bar_of)`——每层每个候选一个容器，选中者保证已挂载、其余只隐藏；
+  分支的内容 = 入口载体（`SlotBar` 钩子，段条/侧栏/面包屑同一口子）+ 它的子槽，
+  所以「深层候选随父层变化」发生在子槽重新构造那一刻，不在同一个槽里换候选表。
+  - `Keep` 保形（切显隐不重建）；`Lru(n)` 只数**已挂载**的子树，按最新窗口的最紧那条裁，
+    从最久未用开始摘，刚挂载的那个不动。
+  - 淘汰一律走 `Widget::remove_child` + 退掉这一代的袋子 + `purge_built`（连同这条路径下
+    的已构造内容一起丢，重进走 thunk 重建 ⇒ `on_mount` 不会被重跑出双份定时器）；
+    摘一棵分支时先跑它子槽登记的重置闭包，子孙槽的挂载态一起归零。
+  - **预建的构造也要包进回收袋**：组件在构造期就 `follow_store`/`watch_theme` 这类订阅
+    （`gui/ui/nav.mbt:157`），回收袋原本只兜挂载窗口；所以缓存条目连着存一份构造期退订闭包
+    （`struct Built{node, offs}`），淘汰时两代一起退。否则每重进一次就往层 store 上挂一个死订阅。
+  - 落过程中抓到两条实现 bug（已修，wbtest 钉住）：`purge_built` 把 `sub_bag_discard` 写在
+    了 `if` 外面，purge 一个节点会退掉全部节点的订阅；`under_level` 没判空后缀，分支被算进
+    自己子槽那一层，`reset_all` 会递归摘到自己。
+  - wbtest 7 项：选中才挂 / Keep 保形 / Lru 摘树并重建 / 整代退订 / 子孙槽归零 / 单层路由 /
+    入口载体位序。全库门禁 `moon check` 零错零警告，`moon test ... router` 1067/1068
+    （唯一一条失败是 `sys/launcher_wbtest.mbt:133` 的期望值还停在 `docs/zh/adaptation.md`，
+    而同一批改动已把输入换成 `proposals/adaptation.md`——与路由无关，属并行会话的遗留）。
 - [ ] **T6 入口层 API**：`on_link` / `route_link` / `breadcrumb` + `children_at` /
   `store_at`；`sidebar` / `strip` 降级便利函数。深层入口的候选集随父层变化，段条用
   `bind_node(store.signal(), ...)`（`gui/widget/node.mbt:92`）随父层重建，不新造机制。

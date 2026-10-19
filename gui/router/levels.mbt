@@ -10,12 +10,17 @@ pub struct Router {
   levels : Array[@base.Store[String]]
   default_load : LoadPolicy
   default_evict : EvictPolicy
-  built : Map[String, @widget.Node]
+  built : Map[String, Built]
   queue : Ref[Array[String]]
   queue_at : Ref[Int]
   prefetch_on : Ref[Bool]
   wired : Ref[Bool]
   tick_handle : Ref[Int]
+  // 挂载登记（slot.mbt）：路径 → 挂在哪个容器、挂进去的控件、这一代的退订袋
+  mounted : Map[String, Mounted]
+  mount_order : Ref[Array[String]]
+  // 每个分支的子槽登记一条重置闭包，淘汰祖先链时用它把子孙槽的挂载态一起归零
+  slot_resets : Map[String, () -> Unit]
 }
 
 ///|
@@ -69,6 +74,9 @@ pub fn new_router(
     prefetch_on: Ref(false),
     wired: Ref(false),
     tick_handle: Ref(0),
+    mounted: Map([]),
+    mount_order: Ref([]),
+    slot_resets: Map([]),
   }
 }
 
