@@ -5,7 +5,7 @@
 # 裸二进制里 `NSUserNotificationCenter deliverNotification:` 会被系统静默丢弃
 # （连 delegate 的 didDeliver/didFail 都不回调），同一个二进制放进带
 # `CFBundleIdentifier` 的 .app 里就正常投递。判据与探针记录见
-# `proposals/zh/adaptation.md` 的 macOS 通知条。托盘/ Dock 图标/ 应用菜单同属
+# `proposals/adaptation.md` 的 macOS 通知条。托盘/ Dock 图标/ 应用菜单同属
 # 这一族，所以打包这一步一次做好。
 #
 # 用法：
