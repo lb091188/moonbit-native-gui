@@ -5272,6 +5272,9 @@ static int wm_dnd_src_get_calls; // 对方来取了几回数据（0 = 这趟拖�
 // GdkDragContext 销毁了，收尾再去读 ctx 是野指针（真机崩在 end 那行之前）。
 static long wm_dnd_src_dest_xid = -1;
 static int wm_dnd_src_self_dest = 0;
+// 起拖时刻（微秒）：会话刚起就收到 drag-end 说明指针 grab 没拿到（Muffin 的 DND
+// 管理器在别的会话卡住时会独占指针），这种趟子按「没走成」报，让组件层回落应用内。
+static gint64 wm_dnd_src_begin_us = 0;
 
 /* 拖出读数落盘：环境变量 LIBYUE_DND_LOG 给出文件路径时才写，未设即完全静默。
  * 一行一条：起拖（种类/动作档/当时是否抓着指针）、drag-end、收尾后的读数。 */
@@ -5871,6 +5874,7 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
   // 自持一份引用：drag-end 之后 GTK 会放掉它自己那一份，收尾还要用 ctx 走
   // 超时兜底的 gdk_drag_abort——没有这份引用，那时读的就是野指针。
   g_object_ref(ctx);
+  wm_dnd_src_begin_us = g_get_real_time();
   wm_dnd_set_icon(ctx, kind);
   // 阻塞到 drag-end（嵌套主循环，xdnd 协议在这里被 GTK 代跑）；60 秒超时
   // 救场，防止协议异常丢了 drag-end 把调用方永久挂住
@@ -5957,8 +5961,36 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
   if (out_effect != NULL) {
     *out_effect = (int32_t)wm_dnd_src_action;
   }
+  // 会话没跑起来也按「没走成」收（上面已复位 grab/光标/形状，不留残留）。判据三件
+  // 同时成立才算：drag-end 来得比人手拖出一趟还早、这趟没进过任何别家的窗、鼠标左键
+  // 此刻仍按着（还在拖，只是协议起不来）。这种趟子多半是指针 grab 没拿到——本桌面
+  // 有过没收口的会话时，Muffin 的 DND 管理器会独占指针，之后所有程序的拖拽都起不来。
+  // 报「没走成」让组件层回落到应用内会话，本窗照常拖；键已抬起的趟子不报，免得凭空
+  // 拖出一段。
+  gint64 alive_us = g_get_real_time() - wm_dnd_src_begin_us;
+  int reached = (wm_dnd_src_dest_xid >= 0 && !wm_dnd_src_self_dest);
+  int still_down = 0;
+  if (GDK_IS_X11_DISPLAY(disp)) {
+    // 左键是否还按着：问 X 的指针状态（GDK 侧没有公开的按键查询口）
+    Display *xd = gdk_x11_get_default_xdisplay();
+    Window root = RootWindow(xd, DefaultScreen(xd));
+    Window ret_root, ret_child;
+    int px, py, cx, cy;
+    guint mask = 0;
+    if (XQueryPointer(xd, root, &ret_root, &ret_child, &px, &py, &cx, &cy,
+                      &mask)) {
+      still_down = (mask & Button1Mask) ? 1 : 0;
+    }
+  }
+  int died = ended && !reached && alive_us < 400000 && still_down;
+  if (died) {
+    wm_gtk_dnd_log("session-died id=%lld alive_us=%lld dest=%ld self=%d "
+                   "get_calls=%d",
+                   (long long)id, (long long)alive_us, wm_dnd_src_dest_xid,
+                   wm_dnd_src_self_dest, wm_dnd_src_get_calls);
+  }
   g_object_unref(ctx); // 交回起拖时自持的那一份
-  return 1;
+  return died ? 0 : 1;
 }
 
 /* ---- 系统托盘（W20c）GTK 分支占位：Linux 的托盘走纯 MoonBit 的 SNI 协议栈
