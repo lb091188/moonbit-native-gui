@@ -642,7 +642,10 @@ pub fn drag_external_abort_session() -> Unit {
 
 ///|
 /// 起一趟系统级**拖出**（三平台已接）：把数据交给系统的拖放通道，对方程序（文件管
-/// 理器、桌面、编辑器）拿到的是标准的复制/移动/链接语义，效果由按住的修饰键定夺。
+/// 理器、桌面、编辑器）拿到的是标准的复制/移动/链接语义。效果按**起拖时**按住的
+/// 修饰键定档：无修饰 / Ctrl = 复制，Shift = 移动，Alt = 链接。只把定出来的那一档
+/// 交给系统——OLE/Finder 的「无修饰默认动作」是移动，放开全部三档会把源文件搬走，
+/// 也会让只收复制的文本落点（记事本）显示拒绝。
 /// 返回 `Ok(效果)`——`Ok(Rejected)` 表示用户取消或松手处没有成交点；`Err` 表示这趟
 /// 根本没起来。
 ///
@@ -651,19 +654,29 @@ pub fn drag_external_abort_session() -> Unit {
 /// 由系统代跑，本窗自己的 `drop_target` 仍能收这份拖出的数据（拖回自己窗口成立），
 /// 但**拖拽途中没有应用内实时高亮**——那是应用内会话才有的待遇，两条会话同一时刻
 /// 只能跑一条。
-pub fn drag_external_send(data : DragData) -> Result[DragEffect, DragError] {
+pub fn drag_external_send(
+  data : DragData,
+  mods? : Int = 0,
+) -> Result[DragEffect, DragError] {
   if !@win.dragdnd_supported() {
     Err(Unsupported)
   } else if !drag_data_has_system_form(data) {
     Err(Unsupported)
   } else {
+    let allowed = if (mods & @base.MOD_ALT) != 0 {
+      @win.DRAGDND_LINK
+    } else if (mods & @base.MOD_SHIFT) != 0 {
+      @win.DRAGDND_MOVE
+    } else {
+      @win.DRAGDND_COPY
+    }
     match host_active() {
       None => Err(Failed("当前没有活动窗口"))
       Some(app) =>
         match @win.dragdnd_send(
           app.session.window.id,
           drag_encode(data),
-          @win.DRAGDND_COPY | @win.DRAGDND_MOVE | @win.DRAGDND_LINK,
+          allowed,
         ) {
           None => Err(Failed("系统未接这趟拖出"))
           Some(flag) => {
