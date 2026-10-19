@@ -284,5 +284,88 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
         "@text.resolve_family([\"没有的族\", \"monospace\"])  // 回退",
       ],
     ),
+
+    @shared.section(
+      "线型与路径",
+      "端点/拐角与 Path 对象直通",
+      "W35 补的 Painter 门面：`set_line_cap(Butt/Round/Square)` 与 `set_line_join(Miter/Round/Bevel)` 走 Cairo 直连；`draw_path(Path)` 把预先记录的 move_to/line_to/曲线序列一次回放进画笔。上排看端点、下排看拐角，右侧是用 Path 对象画的锯齿折线。纯软栅后端暂不吃端点/拐角扩展（描边框仍在，参数只存 state）。",
+      [
+        @ui.view(
+          [line_style_widget()],
+          background_color="bg_panel",
+          border_color="border",
+          padding=8.0,
+        ),
+      ],
+      code=[
+        "p.set_line_cap(@render.LineCap::Round)   // 端点：Butt/Round/Square",
+        "p.set_line_join(@render.LineJoin::Bevel) // 拐角：Miter/Round/Bevel",
+        "",
+        "// Path 对象直通：先记录，一次回放",
+        "let path = @render.Path::new()",
+        "path.move_to(0.0, 0.0)",
+        "path.line_to(40.0, 20.0)",
+        "path.close()",
+        "p.draw_path(path)",
+      ],
+    ),
   ])
+}
+
+///|
+/// 线型演示块：三行端点、三行拐角、右侧一条 Path 折线。
+fn line_style_widget() -> @widget.Node {
+  @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.node.set_width(@yoga.fixed(520.0))
+    w.node.set_height(@yoga.fixed(220.0))
+    w.on_draw = Some(fn(_w : @widget.Widget, p : @render.Painter, r : @base.Rect) -> Unit {
+      p.set_fill_color(@theme.theme_bg_panel())
+      p.fill_rect(0.0, 0.0, r.w, r.h)
+      p.set_stroke_color(@theme.theme_primary())
+      p.set_line_width(14.0)
+      // 端点：三条同样宽的短横线
+      let caps : Array[@render.LineCap] = [
+        @render.LineCap::Butt,
+        @render.LineCap::Round,
+        @render.LineCap::Square,
+      ]
+      p.set_line_join(@render.LineJoin::Miter)
+      for i in 0..<3 {
+        p.set_line_cap(caps[i])
+        p.begin_path()
+        p.move_to(20.0, 30.0 + i.to_double() * 28.0)
+        p.line_to(180.0, 30.0 + i.to_double() * 28.0)
+        p.stroke()
+      }
+      // 拐角：三个 V 形
+      let joins : Array[@render.LineJoin] = [
+        @render.LineJoin::Miter,
+        @render.LineJoin::Round,
+        @render.LineJoin::Bevel,
+      ]
+      p.set_line_cap(@render.LineCap::Butt)
+      for i in 0..<3 {
+        p.set_line_join(joins[i])
+        let y = 130.0 + i.to_double() * 28.0
+        p.begin_path()
+        p.move_to(20.0, y)
+        p.line_to(50.0, y + 18.0)
+        p.line_to(80.0, y)
+        p.stroke()
+      }
+      // Path 对象：用记录序列画右侧锯齿
+      let path = @render.Path::new()
+      path.move_to(230.0, 30.0)
+      for i in 1..<9 {
+        let x = 230.0 + i.to_double() * 28.0
+        let y = if i % 2 == 0 { 30.0 } else { 90.0 }
+        path.line_to(x, y)
+      }
+      p.set_line_join(@render.LineJoin::Round)
+      p.set_line_width(3.0)
+      p.draw_path(path)
+      p.stroke()
+    })
+    w
+  })
 }
