@@ -476,6 +476,14 @@ int pt_draw_box_cr(int64_t cr_id, double x, double y, double box_w,
     return 0;
   }
   cairo_save(cr);
+  // 盒约束：NoWrap/无省略档不设 Pango 宽度（否则会被折行），文字会画出盒外；
+  // 与 mac 侧「超宽即裁」同口径，这里显式裁到声明盒（宽或高为 0 表示该轴不裁）。
+  if (box_w > 0.0 || box_h > 0.0) {
+    double cw = box_w > 0.0 ? box_w : 1e9;
+    double ch = box_h > 0.0 ? box_h : 1e9;
+    cairo_rectangle(cr, x, y, cw, ch);
+    cairo_clip(cr);
+  }
   int ok = pt_render_box(cr, x, y, box_w, box_h, text, len, size, family, weight,
                          italic, r, g, b, a, align, valign, ellipsize, wrap);
   cairo_restore(cr);
