@@ -5247,12 +5247,14 @@ static int wm_dnd_src_len, wm_dnd_src_kind, wm_dnd_src_done, wm_dnd_src_ended,
     wm_dnd_src_action;
 static int wm_dnd_src_get_calls; // 对方来取了几回数据（0 = 这趟拖没人接）
 
-/* 拖出读数落盘 /tmp/libyue_dnd.log：grab 是否还挂着、drag-end 后 GTK 的收尾事件
- * 排空了几条、对方有没有来取数据。这几项只有客户端进程内能看到（X 侧无查询
- * 接口），拖一次即成一条记录，用于把「光标卡在 +」拆成 grab 漏还 / 光标残留
- * 两种根因。 */
+/* 拖出读数落盘：环境变量 LIBYUE_DND_LOG 给出文件路径时才写，未设即完全静默。
+ * 一行一条：起拖（种类/动作档/当时是否抓着指针）、drag-end、收尾后的读数。 */
 static void wm_gtk_dnd_log(const char *fmt, ...) {
-  FILE *f = fopen("/tmp/libyue_dnd.log", "a");
+  const char *path = g_getenv("LIBYUE_DND_LOG");
+  if (path == NULL || path[0] == '\0') {
+    return;
+  }
+  FILE *f = fopen(path, "a");
   if (f == NULL) {
     return;
   }
