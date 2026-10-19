@@ -214,9 +214,17 @@ labels 与键分离。归一化规则：写第 i 层 → 第 i+1.. 层各自回�
     入口载体位序。全库门禁 `moon check` 零错零警告，`moon test ... router` 1067/1068
     （唯一一条失败是 `sys/launcher_wbtest.mbt:133` 的期望值还停在 `docs/zh/adaptation.md`，
     而同一批改动已把输入换成 `proposals/adaptation.md`——与路由无关，属并行会话的遗留）。
-- [ ] **T6 入口层 API**：`on_link` / `route_link` / `breadcrumb` + `children_at` /
-  `store_at`；`sidebar` / `strip` 降级便利函数。深层入口的候选集随父层变化，段条用
-  `bind_node(store.signal(), ...)`（`gui/widget/node.mbt:92`）随父层重建，不新造机制。
+- [x] **T6 入口层 API**：`link.mbt` 落核心面 `on_link(path) -> () -> Unit`（任何
+  `on_click` 直接接）、`route_link(path, node)`（给任意节点套一层「点它=导航」，认领口径照
+  库内导航项：按下认领、框内抬起才算点中，`gui/ui/nav.mbt:119`）、`breadcrumb()`，再加 T3 的
+  `children_at` / `store_at`；`strip_at` / `view_strip` / `sidebar` 是便利函数，不在核心面。
+  - **`segmented` options 静态这条风险被递归设计消掉了**：分支的子槽只在它挂载那一刻构造，
+    候选表在那一刻就定下来——「深层候选随父层变化」由子槽重新构造承担，不需要在同一个段条里
+    换候选表。`bind_node` 只用在一处：面包屑（数据源 `computed(self.path())`，重画走
+    `bind_node` 的整代退订 + 原位重挂，`gui/widget/node.mbt:92`）。
+  - 面包屑由本包自绘（`row` + `@ui.link`），不复用 `@ui.breadcrumb`：点第 i 段要写第 i 层
+    并让深层回落，库版只做 `selected.set(项名)`；末段不给点击。
+  - wbtest 7 项全绿。「点段条切段」这一向要真鼠标，留在真机清单里。
 - [ ] **T7 showcase 接入**：`main.mbt` 的 `nav_page` 调用点与 `shared/section.mbt` 的
   `nav_page`/`section_body`（页/段两层）换成一张路由表；`section.mbt` 上移进包，showcase
   只留页内容与 App 状态。菜单栏「导航」项、单实例 Wake 切回首页都改成走 `on_link`。
