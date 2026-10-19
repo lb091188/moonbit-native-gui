@@ -2269,13 +2269,14 @@ int wm_dragdnd_count(void) {
 typedef struct {
   IDataObject iface; // 首成员即 COM 对象
   HGLOBAL hdrop;
-  HGLOBAL text;
-  CLIPFORMAT cf; // 本次只提供这一种格式
+  HGLOBAL text;   // CF_UNICODETEXT
+  HGLOBAL text_a; // CF_TEXT（ANSI；有的文本落点只问这一档）
+  CLIPFORMAT cf;  // 主格式（文本 = CF_UNICODETEXT；文件 = CF_HDROP）
 } WmDragSource;
 
 typedef struct {
   IEnumFORMATETC iface;
-  ULONG at; // 0 = 还没给出去，1 = 已给（格式只有一条）
+  ULONG at; // 已给出的条数（文本档最多 2：Unicode + ANSI，其余 1）
 } WmDragEnum;
 
 static WmDragSource wm_dsrc;
@@ -2294,13 +2295,17 @@ static void wm_dsrc_release_buffers(void) {
     GlobalFree(wm_dsrc.text);
     wm_dsrc.text = NULL;
   }
+  if (wm_dsrc.text_a != NULL) {
+    GlobalFree(wm_dsrc.text_a);
+    wm_dsrc.text_a = NULL;
+  }
   wm_dsrc.cf = 0;
 }
 
-/* 本会话唯一的那条格式描述。 */
-static FORMATETC wm_dsrc_format(void) {
+/* 指定格式的 FORMATETC。 */
+static FORMATETC wm_dsrc_format_cf(CLIPFORMAT cf) {
   FORMATETC fe;
-  fe.cfFormat = wm_dsrc.cf;
+  fe.cfFormat = cf;
   fe.ptd = NULL;
   fe.dwAspect = DVASPECT_CONTENT;
   fe.lindex = -1;
@@ -2308,11 +2313,35 @@ static FORMATETC wm_dsrc_format(void) {
   return fe;
 }
 
-static HGLOBAL wm_dsrc_pick(CLIPFORMAT cf) {
-  if (cf != (CLIPFORMAT)wm_dsrc.cf) {
-    return NULL;
+/* 主格式的 FORMATETC。 */
+static FORMATETC wm_dsrc_format(void) { return wm_dsrc_format_cf(wm_dsrc.cf); }
+
+/* 枚举条数：文本档给 Unicode + ANSI 两种，其余一档。 */
+static int wm_dsrc_enum_count(void) {
+  if (wm_dsrc.cf == (CLIPFORMAT)CF_UNICODETEXT && wm_dsrc.text_a != NULL) {
+    return 2;
   }
-  return cf == (CLIPFORMAT)CF_HDROP ? wm_dsrc.hdrop : wm_dsrc.text;
+  return wm_dsrc.cf != 0 ? 1 : 0;
+}
+
+static FORMATETC wm_dsrc_format_at(int i) {
+  if (i == 1 && wm_dsrc.cf == (CLIPFORMAT)CF_UNICODETEXT) {
+    return wm_dsrc_format_cf((CLIPFORMAT)CF_TEXT);
+  }
+  return wm_dsrc_format();
+}
+
+static HGLOBAL wm_dsrc_pick(CLIPFORMAT cf) {
+  if (cf == (CLIPFORMAT)CF_HDROP) {
+    return wm_dsrc.hdrop;
+  }
+  if (cf == (CLIPFORMAT)CF_UNICODETEXT) {
+    return wm_dsrc.text;
+  }
+  if (cf == (CLIPFORMAT)CF_TEXT) {
+    return wm_dsrc.text_a;
+  }
+  return NULL;
 }
 
 static HRESULT STDMETHODCALLTYPE wm_ds_QueryInterface(IDataObject *This,
@@ -2418,15 +2447,17 @@ static HRESULT STDMETHODCALLTYPE wm_ds_QueryGetData(IDataObject *This,
   if (fet == NULL) {
     return E_INVALIDARG;
   }
-  return wm_dsrc_pick(fet->cfFormat) != NULL ? S_OK : DV_E_FORMATETC;
+  int hit = wm_dsrc_pick(fet->cfFormat) != NULL;
+  wm_dnd_log("src query cf=%u tymed=%lx hit=%d", (unsigned)fet->cfFormat,
+             (unsigned long)fet->tymed, hit);
+  return hit ? S_OK : DV_E_FORMATETC;
 }
 
 static HRESULT STDMETHODCALLTYPE wm_ds_Canonical(IDataObject *This, FORMATETC *in,
                                                  FORMATETC *out) {
   (void)This;
-  (void)in;
   if (out != NULL) {
-    *out = wm_dsrc_format();
+    *out = (in != NULL) ? wm_dsrc_format_cf(in->cfFormat) : wm_dsrc_format();
   }
   return S_OK;
 }
@@ -2474,10 +2505,10 @@ static HRESULT STDMETHODCALLTYPE wm_en_Next(IEnumFORMATETC *This, ULONG celt,
     return E_INVALIDARG;
   }
   ULONG got = 0;
-  if (wm_dsrc_enum.at < 1) {
-    rgelt[0] = wm_dsrc_format();
-    wm_dsrc_enum.at = 1;
-    got = 1;
+  int total = wm_dsrc_enum_count();
+  while (got < celt && (int)wm_dsrc_enum.at < total) {
+    rgelt[got++] = wm_dsrc_format_at((int)wm_dsrc_enum.at);
+    wm_dsrc_enum.at++;
   }
   if (pceltFetched != NULL) {
     *pceltFetched = got;
@@ -2487,8 +2518,10 @@ static HRESULT STDMETHODCALLTYPE wm_en_Next(IEnumFORMATETC *This, ULONG celt,
 
 static HRESULT STDMETHODCALLTYPE wm_en_Skip(IEnumFORMATETC *This, ULONG celt) {
   (void)This;
-  if (celt > 0) {
-    wm_dsrc_enum.at = 1;
+  int total = wm_dsrc_enum_count();
+  wm_dsrc_enum.at += celt;
+  if ((int)wm_dsrc_enum.at > total) {
+    wm_dsrc_enum.at = (ULONG)total;
   }
   return S_OK;
 }
@@ -2589,6 +2622,41 @@ static HGLOBAL wm_dsrc_make_text(const unsigned char *body, int n) {
   return g;
 }
 
+/* CF_TEXT：UTF-8 → UTF-16 → 系统 ANSI（CP_ACP），再补 NUL。有的文本落点
+ * （含部分记事本/编辑控件）只问 ANSI 这一档；只给 CF_UNICODETEXT 会被当场拒。 */
+static HGLOBAL wm_dsrc_make_ansi(const unsigned char *body, int n) {
+  int wlen = MultiByteToWideChar(CP_UTF8, 0, (const char *)body, n, NULL, 0);
+  if (wlen <= 0) {
+    return NULL;
+  }
+  WCHAR *w = (WCHAR *)malloc((SIZE_T)(wlen + 1) * sizeof(WCHAR));
+  if (w == NULL) {
+    return NULL;
+  }
+  if (MultiByteToWideChar(CP_UTF8, 0, (const char *)body, n, w, wlen) != wlen) {
+    free(w);
+    return NULL;
+  }
+  w[wlen] = L'\0';
+  int alen = WideCharToMultiByte(CP_ACP, 0, w, wlen, NULL, 0, NULL, NULL);
+  HGLOBAL g = NULL;
+  if (alen > 0) {
+    g = GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT, (SIZE_T)alen + 1);
+    if (g != NULL) {
+      char *a = (char *)GlobalLock(g);
+      if (a != NULL) {
+        WideCharToMultiByte(CP_ACP, 0, w, wlen, a, alen, NULL, NULL);
+        GlobalUnlock(g);
+      } else {
+        GlobalFree(g);
+        g = NULL;
+      }
+    }
+  }
+  free(w);
+  return g;
+}
+
 /* CF_HDROP：'\n' 分隔的 UTF-8 路径表 → DROPFILES{pFiles,fWide=TRUE} + 每条
  * 一个 L'\0'、整表再补一个 L'\0'。相对路径先 GetFullPathNameW 解析（解析不动
  * 就原样给，对方程序自己判）。 */
@@ -2668,7 +2736,10 @@ static int wm_dsrc_fill(int kind, const unsigned char *body, int n) {
   }
   if (kind == WM_DND_KIND_TEXT) {
     wm_dsrc.text = wm_dsrc_make_text(body, n);
+    wm_dsrc.text_a = wm_dsrc_make_ansi(body, n);
     wm_dsrc.cf = (CLIPFORMAT)CF_UNICODETEXT;
+    wm_dnd_log("src text n=%d unicode=%d ansi=%d", n, wm_dsrc.text != NULL,
+               wm_dsrc.text_a != NULL);
     return wm_dsrc.text != NULL ? 1 : 0;
   }
   if (kind == WM_DND_KIND_PATHS) {
