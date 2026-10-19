@@ -2300,6 +2300,7 @@ typedef struct {
   HGLOBAL text;    // CF_UNICODETEXT
   HGLOBAL text_a;  // CF_TEXT（ANSI；有的文本落点只问这一档）
   HGLOBAL text_u8; // "text/plain"/"text/plain;charset=utf-8"（UTF-8 注册格式）
+  HGLOBAL rtf;     // "Rich Text Format"（RichEdit 优先认的富文本档）
   HGLOBAL dropeff; // "Preferred DropEffect"（DWORD）
   CLIPFORMAT cf;   // 主格式（文本 = CF_UNICODETEXT；文件 = CF_HDROP）
 } WmDragSource;
@@ -2309,6 +2310,7 @@ typedef struct {
  * 各机器数值不同，所以运行时注册、按返回值匹配。 */
 static CLIPFORMAT wm_dsrc_cf_plain;    // "text/plain"
 static CLIPFORMAT wm_dsrc_cf_plain_u8; // "text/plain;charset=utf-8"
+static CLIPFORMAT wm_dsrc_cf_rtf;      // "Rich Text Format"
 static CLIPFORMAT wm_dsrc_cf_dropeff;  // "Preferred DropEffect"
 
 typedef struct {
@@ -2340,6 +2342,10 @@ static void wm_dsrc_release_buffers(void) {
     GlobalFree(wm_dsrc.text_u8);
     wm_dsrc.text_u8 = NULL;
   }
+  if (wm_dsrc.rtf != NULL) {
+    GlobalFree(wm_dsrc.rtf);
+    wm_dsrc.rtf = NULL;
+  }
   if (wm_dsrc.dropeff != NULL) {
     GlobalFree(wm_dsrc.dropeff);
     wm_dsrc.dropeff = NULL;
@@ -2361,29 +2367,40 @@ static FORMATETC wm_dsrc_format_cf(CLIPFORMAT cf) {
 /* 主格式的 FORMATETC。 */
 static FORMATETC wm_dsrc_format(void) { return wm_dsrc_format_cf(wm_dsrc.cf); }
 
-/* 枚举条数：文本档给 Unicode + ANSI + text/plain 注册格式，其余一档。 */
-static int wm_dsrc_enum_count(void) {
-  if (wm_dsrc.cf == (CLIPFORMAT)CF_UNICODETEXT) {
-    int n = 1;
-    if (wm_dsrc.text_a != NULL) n++;
-    if (wm_dsrc.text_u8 != NULL && wm_dsrc_cf_plain != 0) n++;
-    if (wm_dsrc.text_u8 != NULL && wm_dsrc_cf_plain_u8 != 0) n++;
-    return n;
+/* 当前可枚举的格式列表（文本档给多档，其余一档）；按实际建出来的缓冲排。 */
+static int wm_dsrc_cfs(CLIPFORMAT *out, int cap) {
+  int n = 0;
+  if (wm_dsrc.cf == 0 || cap <= 0) {
+    return 0;
   }
-  return wm_dsrc.cf != 0 ? 1 : 0;
+  out[n++] = wm_dsrc.cf;
+  if (wm_dsrc.cf == (CLIPFORMAT)CF_UNICODETEXT) {
+    if (wm_dsrc.text_a != NULL && n < cap) {
+      out[n++] = (CLIPFORMAT)CF_TEXT;
+    }
+    if (wm_dsrc.text_u8 != NULL && wm_dsrc_cf_plain != 0 && n < cap) {
+      out[n++] = wm_dsrc_cf_plain;
+    }
+    if (wm_dsrc.text_u8 != NULL && wm_dsrc_cf_plain_u8 != 0 && n < cap) {
+      out[n++] = wm_dsrc_cf_plain_u8;
+    }
+    if (wm_dsrc.rtf != NULL && wm_dsrc_cf_rtf != 0 && n < cap) {
+      out[n++] = wm_dsrc_cf_rtf;
+    }
+  }
+  return n;
+}
+
+static int wm_dsrc_enum_count(void) {
+  CLIPFORMAT cfs[8];
+  return wm_dsrc_cfs(cfs, 8);
 }
 
 static FORMATETC wm_dsrc_format_at(int i) {
-  if (wm_dsrc.cf == (CLIPFORMAT)CF_UNICODETEXT) {
-    if (i == 1 && wm_dsrc.text_a != NULL) {
-      return wm_dsrc_format_cf((CLIPFORMAT)CF_TEXT);
-    }
-    if (i == 2 && wm_dsrc.text_u8 != NULL && wm_dsrc_cf_plain != 0) {
-      return wm_dsrc_format_cf(wm_dsrc_cf_plain);
-    }
-    if (i == 3 && wm_dsrc.text_u8 != NULL && wm_dsrc_cf_plain_u8 != 0) {
-      return wm_dsrc_format_cf(wm_dsrc_cf_plain_u8);
-    }
+  CLIPFORMAT cfs[8];
+  int n = wm_dsrc_cfs(cfs, 8);
+  if (i >= 0 && i < n) {
+    return wm_dsrc_format_cf(cfs[i]);
   }
   return wm_dsrc_format();
 }
@@ -2403,6 +2420,9 @@ static HGLOBAL wm_dsrc_pick(CLIPFORMAT cf) {
   }
   if (wm_dsrc_cf_plain_u8 != 0 && cf == wm_dsrc_cf_plain_u8) {
     return wm_dsrc.text_u8;
+  }
+  if (wm_dsrc_cf_rtf != 0 && cf == wm_dsrc_cf_rtf) {
+    return wm_dsrc.rtf;
   }
   if (wm_dsrc_cf_dropeff != 0 && cf == wm_dsrc_cf_dropeff) {
     return wm_dsrc.dropeff;
@@ -2766,6 +2786,78 @@ static HGLOBAL wm_dsrc_make_utf8(const unsigned char *body, int n) {
   return g;
 }
 
+/* "Rich Text Format"：最小 RTF 文档（RichEdit 优先认这一档；中文按 \uN? 转义）。 */
+static HGLOBAL wm_dsrc_make_rtf(const unsigned char *body, int n) {
+  int wlen = MultiByteToWideChar(CP_UTF8, 0, (const char *)body, n, NULL, 0);
+  if (wlen <= 0) {
+    return NULL;
+  }
+  WCHAR *w = (WCHAR *)malloc((SIZE_T)(wlen + 1) * sizeof(WCHAR));
+  if (w == NULL) {
+    return NULL;
+  }
+  if (MultiByteToWideChar(CP_UTF8, 0, (const char *)body, n, w, wlen) != wlen) {
+    free(w);
+    return NULL;
+  }
+  w[wlen] = L'\0';
+  size_t cap = 512 + (size_t)wlen * 12;
+  char *buf = (char *)malloc(cap);
+  if (buf == NULL) {
+    free(w);
+    return NULL;
+  }
+  const char *head =
+      "{\\rtf1\\ansi\\ansicpg1252\\deff0{\\fonttbl{\\f0\\fnil Microsoft YaHei;}}"
+      "\\viewkind4\\uc1\\pard\\f0\\fs22 ";
+  size_t at = strlen(head);
+  memcpy(buf, head, at);
+  for (int i = 0; i < wlen; i++) {
+    WCHAR c = w[i];
+    if (c == L'\r') {
+      continue;
+    }
+    if (c == L'\n') {
+      memcpy(buf + at, "\\par ", 5);
+      at += 5;
+      continue;
+    }
+    if (c == L'\\' || c == L'{' || c == L'}') {
+      buf[at++] = '\\';
+      buf[at++] = (char)c;
+      continue;
+    }
+    if (c >= 0x20 && c < 0x7F) {
+      buf[at++] = (char)c;
+      continue;
+    }
+    int v = (int)c;
+    if (v > 32767) {
+      v -= 65536; // RTF 的 \uN 用有符号 16 位
+    }
+    at += (size_t)snprintf(buf + at, cap - at, "\\u%d?", v);
+  }
+  buf[at++] = '}';
+  HGLOBAL g = GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT, at + 1);
+  if (g == NULL) {
+    free(buf);
+    free(w);
+    return NULL;
+  }
+  char *p = (char *)GlobalLock(g);
+  if (p == NULL) {
+    GlobalFree(g);
+    free(buf);
+    free(w);
+    return NULL;
+  }
+  memcpy(p, buf, at);
+  GlobalUnlock(g);
+  free(buf);
+  free(w);
+  return g;
+}
+
 /* "Preferred DropEffect"：4 字节 DWORD（COPY/MOVE/LINK）。 */
 static void wm_dsrc_make_dropeff(DWORD effect) {
   if (wm_dsrc.dropeff != NULL) {
@@ -2878,14 +2970,21 @@ static int wm_dsrc_fill(int kind, const unsigned char *body, int n) {
       wm_dsrc_cf_plain_u8 =
           (CLIPFORMAT)RegisterClipboardFormatA("text/plain;charset=utf-8");
     }
+    if (wm_dsrc_cf_rtf == 0) {
+      wm_dsrc_cf_rtf =
+          (CLIPFORMAT)RegisterClipboardFormatA("Rich Text Format");
+    }
     wm_dsrc.text = wm_dsrc_make_text(body, n);
     wm_dsrc.text_a = wm_dsrc_make_ansi(body, n);
     wm_dsrc.text_u8 = wm_dsrc_make_utf8(body, n);
+    wm_dsrc.rtf = wm_dsrc_make_rtf(body, n);
     wm_dsrc.cf = (CLIPFORMAT)CF_UNICODETEXT;
-    wm_dnd_log("src text n=%d unicode=%d ansi=%d utf8=%d fmts=%u/%u/%u", n,
-               wm_dsrc.text != NULL, wm_dsrc.text_a != NULL,
-               wm_dsrc.text_u8 != NULL, (unsigned)wm_dsrc_cf_plain,
-               (unsigned)wm_dsrc_cf_plain_u8, (unsigned)wm_dsrc_cf_dropeff);
+    wm_dnd_log("src text n=%d unicode=%d ansi=%d utf8=%d rtf=%d "
+               "fmts=%u/%u/%u/%u",
+               n, wm_dsrc.text != NULL, wm_dsrc.text_a != NULL,
+               wm_dsrc.text_u8 != NULL, wm_dsrc.rtf != NULL,
+               (unsigned)wm_dsrc_cf_plain, (unsigned)wm_dsrc_cf_plain_u8,
+               (unsigned)wm_dsrc_cf_rtf, (unsigned)wm_dsrc_cf_dropeff);
     return wm_dsrc.text != NULL ? 1 : 0;
   }
   if (kind == WM_DND_KIND_PATHS) {
