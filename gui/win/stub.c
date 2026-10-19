@@ -5275,6 +5275,30 @@ static int wm_dnd_src_self_dest = 0;
 // 起拖时刻（微秒）：会话刚起就收到 drag-end 说明指针 grab 没拿到（Muffin 的 DND
 // 管理器在别的会话卡住时会独占指针），这种趟子按「没走成」报，让组件层回落应用内。
 static gint64 wm_dnd_src_begin_us = 0;
+// 当前投放会话的 GdkDragContext：跨趟比较用它认「新会话」。源自家的会话在本窗
+// 收口/abort 时 leave 可能没到，残留状态会让下一趟拖入不再取新载荷。
+static GdkDragContext *wm_dnd_ctx = NULL;
+
+static void wm_dnd_ctx_gone(gpointer data, GObject *obj) {
+  (void)data;
+  if (wm_dnd_ctx == (GdkDragContext *)obj) {
+    wm_dnd_ctx = NULL;
+  }
+}
+
+static void wm_dnd_ctx_set(GdkDragContext *ctx) {
+  if (wm_dnd_ctx == ctx) {
+    return;
+  }
+  if (wm_dnd_ctx != NULL) {
+    g_object_weak_unref(G_OBJECT(wm_dnd_ctx), wm_dnd_ctx_gone, NULL);
+    wm_dnd_ctx = NULL;
+  }
+  if (ctx != NULL) {
+    wm_dnd_ctx = ctx;
+    g_object_weak_ref(G_OBJECT(ctx), wm_dnd_ctx_gone, NULL);
+  }
+}
 
 /* 拖出读数落盘：环境变量 LIBYUE_DND_LOG 给出文件路径时才写，未设即完全静默。
  * 一行一条：起拖（种类/动作档/当时是否抓着指针）、drag-end、收尾后的读数。 */
@@ -5307,6 +5331,22 @@ static int wm_gtk_pointer_grabbed(void) {
     return 0;
   }
   return gdk_display_device_is_grabbed(disp, ptr) ? 1 : 0;
+}
+
+// 左键当前是否按着（GDK 侧没有公开的按键查询口，问 X 根窗）
+static int wm_gtk_button1_down(void) {
+  if (!GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
+    return 0;
+  }
+  Display *xd = gdk_x11_get_default_xdisplay();
+  Window root = RootWindow(xd, DefaultScreen(xd));
+  Window rr, rc;
+  int px, py, cx, cy;
+  guint mask = 0;
+  if (!XQueryPointer(xd, root, &rr, &rc, &px, &py, &cx, &cy, &mask)) {
+    return 0;
+  }
+  return (mask & Button1Mask) ? 1 : 0;
 }
 
 static void wm_dnd_push(int slot, int kind, int x, int y) {
@@ -5462,6 +5502,21 @@ static gboolean wm_dnd_on_motion(GtkWidget *widget, GdkDragContext *ctx,
   (void)y;
   WmWindow *w = (WmWindow *)data;
   int slot = (int)(w - wm_windows);
+  if (ctx != wm_dnd_ctx) {
+    // 新 GdkDragContext = 新会话。上一趟若是源自家的会话在本窗收口/abort，
+    // 或者 leave 漏了，have_payload/asked/enter_sent 会留在账上——这一趟就
+    // 不再请求新载荷，系统拖入被旧数据挡死。收掉旧会话、补一条 LEAVE，按新
+    // 会话重新取数。
+    int old_slot = wm_dnd_active_slot;
+    if (old_slot > 0 && wm_dnd_enter_sent) {
+      wm_dnd_push(old_slot, 2, 0, 0);
+    }
+    wm_gtk_dnd_log("dest new slot=%d stale_slot=%d sent=%d have=%d asked=%d",
+                   slot, old_slot, wm_dnd_enter_sent, wm_dnd_have_payload,
+                   wm_dnd_asked);
+    wm_dnd_session_clear();
+    wm_dnd_ctx_set(ctx);
+  }
   wm_dnd_active_slot = slot;
   guint answer;
   if (wm_dnd_have_payload) {
@@ -5476,9 +5531,11 @@ static gboolean wm_dnd_on_motion(GtkWidget *widget, GdkDragContext *ctx,
     if (want != GDK_NONE) {
       wm_dnd_asked = 1;
       gtk_drag_get_data(widget, ctx, want, time);
+      wm_gtk_dnd_log("dest ask slot=%d", slot);
       answer = GDK_ACTION_COPY;
     } else {
       wm_dnd_asked = 1;
+      wm_gtk_dnd_log("dest ask slot=%d no_target", slot);
       answer = 0;
     }
   }
@@ -5493,6 +5550,8 @@ static void wm_dnd_on_leave(GtkWidget *widget, GdkDragContext *ctx,
   (void)time;
   WmWindow *w = (WmWindow *)data;
   int slot = (int)(w - wm_windows);
+  wm_gtk_dnd_log("dest leave slot=%d active=%d sent=%d", slot,
+                 wm_dnd_active_slot, wm_dnd_enter_sent);
   if (wm_dnd_active_slot == slot && wm_dnd_enter_sent) {
     wm_dnd_push(slot, 2, 0, 0);
   }
@@ -5507,6 +5566,9 @@ static gboolean wm_dnd_on_drop(GtkWidget *widget, GdkDragContext *ctx,
   (void)time;
   WmWindow *w = (WmWindow *)data;
   wm_dnd_active_slot = (int)(w - wm_windows);
+  wm_gtk_dnd_log("dest drop slot=%d sent=%d have=%d asked=%d",
+                 wm_dnd_active_slot, wm_dnd_enter_sent, wm_dnd_have_payload,
+                 wm_dnd_asked);
   wm_dnd_drop_armed = 1; // 数据到达走 data-received 的投递分支
   return FALSE;          // 放行默认 handler（GTK_DEST_DEFAULT_DROP 请求数据）
 }
@@ -5533,6 +5595,8 @@ static void wm_dnd_on_received(GtkWidget *widget, GdkDragContext *ctx,
                         (const char *)gtk_selection_data_get_data(sel), len);
     }
   }
+  wm_gtk_dnd_log("dest recv slot=%d n=%d armed=%d sent=%d", slot, n,
+                 wm_dnd_drop_armed, wm_dnd_enter_sent);
   if (wm_dnd_drop_armed) {
     // 投递：载荷此刻才到手（或仍没有——发 DROP、载荷保持旧值，widget 侧按空
     // 载荷不开会话/不投递），收会话并答系统成功
@@ -5847,41 +5911,8 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
   memmove(wm_dnd_src, payload, (size_t)len);
   wm_dnd_src_len = len;
   wm_dnd_src_kind = kind;
-  wm_dnd_src_done = 0;
-  wm_dnd_src_ended = 0;
-  wm_dnd_src_action = 0;
-  wm_dnd_src_get_calls = 0; // 每趟单独计：读数里的 get_calls 是本趟对方取了几回
-  wm_dnd_src_dest_xid = -1;
-  wm_dnd_src_self_dest = 0;
-  GtkTargetList *targets = gtk_target_list_new(NULL, 0);
-  if (kind == 1) {
-    gtk_target_list_add_text_targets(targets, 0);
-  } else {
-    gtk_target_list_add_uri_targets(targets, 0);
-  }
-  gulong s_get = g_signal_connect(w->window, "drag-data-get",
-                                  G_CALLBACK(wm_dnd_on_data_get), w);
-  gulong s_end = g_signal_connect(w->window, "drag-end",
-                                  G_CALLBACK(wm_dnd_on_drag_end), w);
-  GdkDragContext *ctx = gtk_drag_begin_with_coordinates(
-      w->window, targets, actions, 1, wm_dnd_press, -1, -1);
-  gtk_target_list_unref(targets);
-  if (ctx == NULL) {
-    g_signal_handler_disconnect(w->window, s_get);
-    g_signal_handler_disconnect(w->window, s_end);
-    return 0;
-  }
-  // 自持一份引用：drag-end 之后 GTK 会放掉它自己那一份，收尾还要用 ctx 走
-  // 超时兜底的 gdk_drag_abort——没有这份引用，那时读的就是野指针。
-  g_object_ref(ctx);
-  wm_dnd_src_begin_us = g_get_real_time();
-  wm_dnd_set_icon(ctx, kind);
-  // 阻塞到 drag-end（嵌套主循环，xdnd 协议在这里被 GTK 代跑）；60 秒超时
-  // 救场，防止协议异常丢了 drag-end 把调用方永久挂住
   GdkDisplay *disp = gdk_display_get_default();
-  // ev_type=3（GDK_MOTION_NOTIFY）说明起拖现场已随带键移动刷成最新一条；
-  // 4（GDK_BUTTON_PRESS）=还是按下那一刻那份旧事件。src_xid 供 end 那条的
-  // dest= 对照（相等就是投回了自己窗口）。
+  // src_xid 供 end 那条的 dest= 对照（相等就是投回了自己窗口）。
   long src_xid = -1;
   {
     GdkWindow *sw_ = gtk_widget_get_window(w->window);
@@ -5889,71 +5920,144 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
       src_xid = (long)gdk_x11_window_get_xid(sw_);
     }
   }
-  wm_gtk_dnd_log(
-      "begin id=%lld kind=%d actions=%u grabbed=%d ev_type=%d src_xid=%ld",
-      (long long)id, kind, actions, wm_gtk_pointer_grabbed(),
-      (int)wm_dnd_press->type, src_xid);
-  guint timer = g_timeout_add_seconds(60, wm_dnd_src_timeout, w);
-  while (!wm_dnd_src_done) {
-    gtk_main_iteration();
-  }
-  g_source_remove(timer);
-  gboolean ended = wm_dnd_src_ended;
-  g_signal_handler_disconnect(w->window, s_get);
-  g_signal_handler_disconnect(w->window, s_end);
-  if (!ended) {
-    // 超时兜底：drag 上下文还活着，显式 abort 让 GDK 收尾（否则指针 grab
-    // 与拖拽光标会留在系统里）
-    gdk_drag_abort(ctx, GDK_CURRENT_TIME);
-  }
-  // drag-end 只是协议收口的那一声，GTK 的 ungrab 与光标恢复排在它后面的事件里。
-  // 本进程从 MoonBit 事件栈里起拖（不在 GTK 派发栈内），后半段没人替我们跑完就
-  // 返回上层了——先把挂起事件排空。
-  int drained = 0;
-  while (drained < 200 && gtk_events_pending()) {
-    gtk_main_iteration_do(FALSE);
-    drained++;
-  }
-  // gdk_display_device_is_grabbed 读的是 GDK 自己的 grab 账：ungrab 之后要等服务端
-  // 回执（异步 roundtrip）才销账。读之前先 sync，否则「账还没跟上」会被误判成
-  // 「grab 没还」。
-  gdk_display_sync(disp);
-  int grabbed = wm_gtk_pointer_grabbed();
-  // 落点读数取 drag-end 回调里存下的那份（dxid/self_dest），不再碰 ctx
-  wm_gtk_dnd_log("end id=%lld ended=%d get_calls=%d drained=%d grabbed=%d",
-                 (long long)id, (int)ended, wm_dnd_src_get_calls, drained,
-                 grabbed);
-  if (grabbed) {
-    // sync 后账上仍挂着 = 这条会话的指针 grab 确实没还。GTK3 在 X11 用
-    // XIGrabDevice 取指针，还也必须走 GDK 的 device ungrab（XIUngrabDevice）；
-    // XUngrabPointer 只动 core 指针 grab，对 XI2 grab 无效，也改不了这本账。
-    // gdk_seat_ungrab 只还本进程取下的 grab，不碰别家程序。
-    GdkSeat *seat = gdk_display_get_default_seat(disp);
-    if (seat != NULL) {
-      gdk_seat_ungrab(seat);
-      gdk_display_sync(disp);
-      while (drained < 400 && gtk_events_pending()) {
-        gtk_main_iteration_do(FALSE);
-        drained++;
-      }
+  int died = 0;
+  int fallback = 0; // 1 = 报「没走成」，组件层回落应用内会话
+  // 进程内第一次起拖可能被桌面/GTK 的首次抓取收口（会话在起跑线上就 drag-end，
+  // 键还按着）。同一形态用户手动拖第二次就能成，所以死在起跑线上时自动重起一次
+  // ——第二次用 NULL 事件（GDK_CURRENT_TIME + 当前指针位），不依赖旧时间戳。
+  for (int attempt = 0; attempt < 2; attempt++) {
+    wm_dnd_src_done = 0;
+    wm_dnd_src_ended = 0;
+    wm_dnd_src_action = 0;
+    wm_dnd_src_get_calls = 0; // 每趟单独计
+    wm_dnd_src_dest_xid = -1;
+    wm_dnd_src_self_dest = 0;
+    GtkTargetList *targets = gtk_target_list_new(NULL, 0);
+    if (kind == 1) {
+      gtk_target_list_add_text_targets(targets, 0);
+    } else {
+      gtk_target_list_add_uri_targets(targets, 0);
     }
-    wm_gtk_dnd_log("post-ungrab id=%lld drained=%d grabbed=%d",
-                   (long long)id, drained, wm_gtk_pointer_grabbed());
+    gulong s_get = g_signal_connect(w->window, "drag-data-get",
+                                    G_CALLBACK(wm_dnd_on_data_get), w);
+    gulong s_end = g_signal_connect(w->window, "drag-end",
+                                    G_CALLBACK(wm_dnd_on_drag_end), w);
+    GdkEvent *start_ev = (attempt == 0) ? wm_dnd_press : NULL;
+    GdkDragContext *ctx = gtk_drag_begin_with_coordinates(
+        w->window, targets, actions, 1, start_ev, -1, -1);
+    gtk_target_list_unref(targets);
+    if (ctx == NULL) {
+      g_signal_handler_disconnect(w->window, s_get);
+      g_signal_handler_disconnect(w->window, s_end);
+      return 0;
+    }
+    // 自持一份引用：drag-end 之后 GTK 会放掉它自己那一份，收尾还要用 ctx 走
+    // 超时兜底的 gdk_drag_abort——没有这份引用，那时读的就是野指针。
+    g_object_ref(ctx);
+    wm_dnd_src_begin_us = g_get_real_time();
+    wm_dnd_set_icon(ctx, kind);
+    wm_gtk_dnd_log(
+        "begin id=%lld kind=%d actions=%u grabbed=%d ev_type=%d src_xid=%ld "
+        "try=%d",
+        (long long)id, kind, actions, wm_gtk_pointer_grabbed(),
+        wm_dnd_press != NULL ? (int)wm_dnd_press->type : -1, src_xid,
+        attempt + 1);
+    guint timer = g_timeout_add_seconds(60, wm_dnd_src_timeout, w);
+    while (!wm_dnd_src_done) {
+      gtk_main_iteration();
+    }
+    g_source_remove(timer);
+    gboolean ended = wm_dnd_src_ended;
+    g_signal_handler_disconnect(w->window, s_get);
+    g_signal_handler_disconnect(w->window, s_end);
+    if (!ended) {
+      // 超时兜底：drag 上下文还活着，显式 abort 让 GDK 收尾（否则指针 grab
+      // 与拖拽光标会留在系统里）
+      gdk_drag_abort(ctx, GDK_CURRENT_TIME);
+    }
+    // drag-end 只是协议收口的那一声，GTK 的 ungrab 与光标恢复排在它后面的事件里。
+    // 本进程从 MoonBit 事件栈里起拖（不在 GTK 派发栈内），后半段没人替我们跑完就
+    // 返回上层了——先把挂起事件排空。
+    int drained = 0;
+    while (drained < 200 && gtk_events_pending()) {
+      gtk_main_iteration_do(FALSE);
+      drained++;
+    }
+    // gdk_display_device_is_grabbed 读的是 GDK 自己的 grab 账：ungrab 之后要等
+    // 服务端回执（异步 roundtrip）才销账。读之前先 sync，否则「账还没跟上」会被
+    // 误判成「grab 没还」。
+    gdk_display_sync(disp);
+    int grabbed = wm_gtk_pointer_grabbed();
+    // 落点读数取 drag-end 回调里存下的那份（dxid/self_dest），不再碰 ctx
+    wm_gtk_dnd_log(
+        "end id=%lld ended=%d get_calls=%d drained=%d grabbed=%d try=%d",
+        (long long)id, (int)ended, wm_dnd_src_get_calls, drained, grabbed,
+        attempt + 1);
+    if (grabbed) {
+      // sync 后账上仍挂着 = 这条会话的指针 grab 确实没还。GTK3 在 X11 用
+      // XIGrabDevice 取指针，还也必须走 GDK 的 device ungrab（XIUngrabDevice）；
+      // XUngrabPointer 只动 core 指针 grab，对 XI2 grab 无效，也改不了这本账。
+      // gdk_seat_ungrab 只还本进程取下的 grab，不碰别家程序。
+      GdkSeat *seat = gdk_display_get_default_seat(disp);
+      if (seat != NULL) {
+        gdk_seat_ungrab(seat);
+        gdk_display_sync(disp);
+        while (drained < 400 && gtk_events_pending()) {
+          gtk_main_iteration_do(FALSE);
+          drained++;
+        }
+      }
+      wm_gtk_dnd_log("post-ungrab id=%lld drained=%d grabbed=%d",
+                     (long long)id, drained, wm_gtk_pointer_grabbed());
+    }
+    // 起拖时 GTK 把拖拽光标设在源窗的 GdkWindow 上，drag-end 时复位；复位漏掉
+    // 就一路跟着指针走。这里清成 NULL（跟随主题默认形状），并把宿主缓存的形状
+    // 置为未知——下一次派发指针移动时按命中路径重装。
+    GdkWindow *top = gtk_widget_get_window(w->window);
+    GdkWindow *area_gw =
+        (w->area != NULL) ? gtk_widget_get_window(w->area) : NULL;
+    if (top != NULL) {
+      gdk_window_set_cursor(top, NULL);
+    }
+    if (area_gw != NULL) {
+      gdk_window_set_cursor(area_gw, NULL);
+    }
+    w->cursor_kind = -1;
+    gdk_display_flush(disp);
+    // 会话没跑起来也按「没走成」收（上面已复位 grab/光标/形状，不留残留）。判据
+    // 三件同时成立才算：drag-end 来得比人手拖出一趟还早、这趟没进过任何别家的窗、
+    // 鼠标左键此刻仍按着（还在拖，只是协议起不来）。报「没走成」让组件层回落应用内
+    // 会话；键已抬起的趟子不报，免得凭空拖出一段。
+    gint64 alive_us = g_get_real_time() - wm_dnd_src_begin_us;
+    int reached = (wm_dnd_src_dest_xid >= 0 && !wm_dnd_src_self_dest);
+    int still_down = wm_gtk_button1_down();
+    died = ended && !reached && alive_us < 400000 && still_down;
+    if (died) {
+      wm_gtk_dnd_log("session-died id=%lld try=%d alive_us=%lld dest=%ld "
+                     "self=%d get_calls=%d",
+                     (long long)id, attempt + 1, (long long)alive_us,
+                     wm_dnd_src_dest_xid, wm_dnd_src_self_dest,
+                     wm_dnd_src_get_calls);
+    }
+    g_object_unref(ctx); // 交回起拖时自持的那一份
+    if (died) {
+      wm_dnd_src_action = 0; // 起跑线收口没有真正成交，效果按 0 报
+    }
+    fallback = died;
+    if (!died || attempt == 1) {
+      break;
+    }
+    // 重起前把这一趟收尾留下的事件跑干净，并确认键还按着（期间松手就不重试，
+    // 免得凭空再拖出一段；键已抬起按「取消」收，不回落应用内）。
+    while (gtk_events_pending()) {
+      gtk_main_iteration_do(FALSE);
+    }
+    if (!wm_gtk_button1_down()) {
+      fallback = 0;
+      break;
+    }
+    wm_gtk_dnd_log("session-retry id=%lld", (long long)id);
   }
-  // 起拖时 GTK 把拖拽光标设在源窗的 GdkWindow 上，drag-end 时复位；复位漏掉
-  // 就一路跟着指针走。这里清成 NULL（跟随主题默认形状），并把宿主缓存的形状
-  // 置为未知——下一次派发指针移动时按命中路径重装。
-  GdkWindow *top = gtk_widget_get_window(w->window);
-  GdkWindow *area_gw =
-      (w->area != NULL) ? gtk_widget_get_window(w->area) : NULL;
-  if (top != NULL) {
-    gdk_window_set_cursor(top, NULL);
-  }
-  if (area_gw != NULL) {
-    gdk_window_set_cursor(area_gw, NULL);
-  }
-  w->cursor_kind = -1;
-  gdk_display_flush(disp);
   if (wm_dnd_press != NULL) {
     gdk_event_free(wm_dnd_press);
     wm_dnd_press = NULL;
@@ -5961,36 +6065,7 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
   if (out_effect != NULL) {
     *out_effect = (int32_t)wm_dnd_src_action;
   }
-  // 会话没跑起来也按「没走成」收（上面已复位 grab/光标/形状，不留残留）。判据三件
-  // 同时成立才算：drag-end 来得比人手拖出一趟还早、这趟没进过任何别家的窗、鼠标左键
-  // 此刻仍按着（还在拖，只是协议起不来）。这种趟子多半是指针 grab 没拿到——本桌面
-  // 有过没收口的会话时，Muffin 的 DND 管理器会独占指针，之后所有程序的拖拽都起不来。
-  // 报「没走成」让组件层回落到应用内会话，本窗照常拖；键已抬起的趟子不报，免得凭空
-  // 拖出一段。
-  gint64 alive_us = g_get_real_time() - wm_dnd_src_begin_us;
-  int reached = (wm_dnd_src_dest_xid >= 0 && !wm_dnd_src_self_dest);
-  int still_down = 0;
-  if (GDK_IS_X11_DISPLAY(disp)) {
-    // 左键是否还按着：问 X 的指针状态（GDK 侧没有公开的按键查询口）
-    Display *xd = gdk_x11_get_default_xdisplay();
-    Window root = RootWindow(xd, DefaultScreen(xd));
-    Window ret_root, ret_child;
-    int px, py, cx, cy;
-    guint mask = 0;
-    if (XQueryPointer(xd, root, &ret_root, &ret_child, &px, &py, &cx, &cy,
-                      &mask)) {
-      still_down = (mask & Button1Mask) ? 1 : 0;
-    }
-  }
-  int died = ended && !reached && alive_us < 400000 && still_down;
-  if (died) {
-    wm_gtk_dnd_log("session-died id=%lld alive_us=%lld dest=%ld self=%d "
-                   "get_calls=%d",
-                   (long long)id, (long long)alive_us, wm_dnd_src_dest_xid,
-                   wm_dnd_src_self_dest, wm_dnd_src_get_calls);
-  }
-  g_object_unref(ctx); // 交回起拖时自持的那一份
-  return died ? 0 : 1;
+  return fallback ? 0 : 1;
 }
 
 /* ---- 系统托盘（W20c）GTK 分支占位：Linux 的托盘走纯 MoonBit 的 SNI 协议栈

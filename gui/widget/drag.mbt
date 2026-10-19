@@ -525,6 +525,12 @@ fn drag_external_feed(
         @win.dragdnd_set_effect(slot.to_int64(), @win.DRAGDND_NONE)
       }
     Some(d) => {
+      // 同一扇窗又来一条带载荷的 ENTER = 新会话：上一趟的 leave 可能没到（源
+      // 自家的会话收口/abort），把残留会话收掉，按新载荷重开。
+      if kind == @win.DRAGDND_ENTER && drag_ext_window.val == slot {
+        drag_cancel()
+        drag_ext_effect.val = 0
+      }
       if drag_ext_window.val == 0 {
         drag_ext_window.val = slot
         drag_ext_root.val = drag_window_root_of(slot)
@@ -652,7 +658,9 @@ pub fn drag_external_send(data : DragData) -> Result[DragEffect, DragError] {
           Some(flag) => {
             // 拖出已收口：这一按的抬起被系统的拖拽 grab 吃掉，宿主不会再见到
             // Up。不清的话捕获/按下态停在拖源上，悬停与其它控件的拖动都要等
-            // 下一次按下才恢复。
+            // 下一次按下才恢复。残留的应用内会话一并收掉——它是上一趟起拖失败
+            // 回落留下的，不收会按「应用内拖拽正在跑」把外部拖入挡在门外。
+            drag_cancel()
             app.session.capture = -1
             app.session.hover_id = -1
             app.root.set_press(-1)
