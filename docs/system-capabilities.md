@@ -295,7 +295,7 @@ let node = @guimedia.video("demo.mp4", subtitle="/path/demo.srt")
 
 The playback control bar is built into the `audio` / `video` node components: play/pause button, draggable progress bar (seeks 180ms after drag-release debouncing), time text (m:ss / m:ss), volume slider, loop toggle. The 50ms clock pumps and refreshes automatically; after `free()` the clock halts on its own.
 
-Player demos: `moon run modules/gui-examples/audio` / `moon run modules/gui-examples/video` — the default asset auto-loads on startup, and play/pause/seek/volume/speed are all interactive.
+Player demos: `moon run examples/audio` / `moon run examples/video` — the default asset auto-loads on startup, and play/pause/seek/volume/speed are all interactive.
 
 ## Monitor Configuration
 

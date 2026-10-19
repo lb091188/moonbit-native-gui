@@ -22,7 +22,7 @@
 
 1. 把各依赖的 `LICENSE` 原文收进发布包的 `licenses/` 目录——直接从 `.mooncakes/<作者>/<包>/LICENSE` 拷贝即可，别手抄；
 2. 本文件随包一起发；
-3. LGPL 线（FFmpeg、GTK 族）保持**动态链**并给出替换路径：Windows 侧 dll 放 exe 同目录或加进 `PATH`（口径见 [`modules/gui-examples/README.md`](modules/gui-examples/README.md) 的「Windows 运行前置」节），这已满足 LGPL 的「用户可换库」要求；
+3. LGPL 线（FFmpeg、GTK 族）保持**动态链**并给出替换路径：Windows 侧 dll 放 exe 同目录或加进 `PATH`（口径见 [`examples/README.md`](examples/README.md) 的「Windows 运行前置」节），这已满足 LGPL 的「用户可换库」要求；
 4. 静态入库的 Windows 导入库（`*.lib`）本身不含 FFmpeg 代码，只是链接期符号表——但**运行期 dll 必须与同一份 LGPL 构建配套**，发布说明里要写清版本串。
 
 ## vendor 大文件的取用与镜像

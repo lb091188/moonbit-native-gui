@@ -72,7 +72,7 @@ export default defineConfig({
     /^\/THIRD-PARTY-NOTICES/,
     // public/THIRD-PARTY-NOTICES.md 内部按 GitHub 浏览语境写的仓库相对链接,站点侧以原始文本呈现
     './LICENSE',
-    './modules/gui-examples/README',
+    './examples/README',
   ],
   head: [
     ['script', {}, langDetect],

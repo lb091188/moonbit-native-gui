@@ -75,7 +75,6 @@ Optional capabilities in **separate modules** (a plain `moon add` of this module
 |---|---|
 | `NoahLiu/gui-media` | Audio/video engine (ffmpeg decode + miniaudio output) and the player component |
 | `NoahLiu/gui-webview` | Embedded WebView (WebKitGTK / WebView2), extracted from this module's `web` subpackage on 2026-10-16 |
-| `NoahLiu/gui-examples` | Standalone example module (audio / video players) depending on `gui-media` |
 
 ## Platform support
 

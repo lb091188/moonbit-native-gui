@@ -72,7 +72,7 @@ vp.play()
 
 ## 示例
 
-完整用法见 [gui-examples](https://github.com/lb091188/moonbit-native-gui/tree/master/modules/gui-examples) 的 `audio`（播放列表 + 选文件/选目录扫描）与 `video`（侧栏列表 + 字幕双来源）两个示例。
+完整用法见 [examples](https://github.com/lb091188/moonbit-native-gui/tree/master/examples) 的 `audio`（播放列表 + 选文件/选目录扫描）与 `video`（侧栏列表 + 字幕双来源）两个示例。
 
 ## 许可
 

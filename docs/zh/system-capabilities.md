@@ -297,7 +297,7 @@ let node = @guimedia.video("demo.mp4", subtitle="/path/demo.srt")
 
 播放控制条内置于 `audio` / `video` 两个节点组件：播放/暂停按钮、可拖进度条（松手防抖 180ms 后 seek）、时间文本（m:ss / m:ss）、音量滑条、循环开关；50ms 时钟自动 pump + 刷新，`free()` 后时钟自动停摆。
 
-播放演示见 `moon run modules/gui-examples/audio` / `moon run modules/gui-examples/video`——启动即自动载入默认资产，播放/暂停/拖进度/音量/倍速全部可交互。
+播放演示见 `moon run examples/audio` / `moon run examples/video`——启动即自动载入默认资产，播放/暂停/拖进度/音量/倍速全部可交互。
 
 ## 显示器配置
 
