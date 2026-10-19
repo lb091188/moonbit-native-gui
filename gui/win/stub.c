@@ -2410,6 +2410,8 @@ static HGLOBAL wm_dsrc_pick(CLIPFORMAT cf) {
   return NULL;
 }
 
+static const char *wm_dsrc_cf_name(CLIPFORMAT cf, char *buf, int cap);
+
 static HRESULT STDMETHODCALLTYPE wm_ds_QueryInterface(IDataObject *This,
                                                      REFIID riid, void **ppv) {
   (void)This;
@@ -2446,8 +2448,10 @@ static HRESULT STDMETHODCALLTYPE wm_ds_GetData(IDataObject *This, FORMATETC *fet
   memset(out, 0, sizeof(*out));
   HGLOBAL src = wm_dsrc_pick(fet->cfFormat);
   if (src == NULL || (fet->tymed & TYMED_HGLOBAL) == 0) {
-    wm_dnd_log("src GetData cf=%u refused tymed=%lx", (unsigned)fet->cfFormat,
-               (unsigned long)fet->tymed);
+    char nm[128];
+    wm_dnd_log("src GetData cf=%u refused tymed=%lx name=%s",
+               (unsigned)fet->cfFormat, (unsigned long)fet->tymed,
+               wm_dsrc_cf_name(fet->cfFormat, nm, (int)sizeof(nm)));
     return DV_E_FORMATETC;
   }
   wm_dnd_log("src GetData cf=%u size=%lu", (unsigned)fet->cfFormat,
@@ -2507,6 +2511,19 @@ static HRESULT STDMETHODCALLTYPE wm_ds_GetDataHere(IDataObject *This,
   return S_OK;
 }
 
+/* 注册格式的反查名（0xC000-0xFFFF 才有名字；标准格式给空串）。 */
+static const char *wm_dsrc_cf_name(CLIPFORMAT cf, char *buf, int cap) {
+  buf[0] = '\0';
+  if ((unsigned)cf < 0xC000) {
+    return buf;
+  }
+  int n = GetClipboardFormatNameA((UINT)cf, buf, cap);
+  if (n <= 0 || n >= cap) {
+    buf[0] = '\0';
+  }
+  return buf;
+}
+
 static HRESULT STDMETHODCALLTYPE wm_ds_QueryGetData(IDataObject *This,
                                                    FORMATETC *fet) {
   (void)This;
@@ -2514,9 +2531,16 @@ static HRESULT STDMETHODCALLTYPE wm_ds_QueryGetData(IDataObject *This,
     return E_INVALIDARG;
   }
   int hit = wm_dsrc_pick(fet->cfFormat) != NULL;
-  wm_dnd_log("src query cf=%u tymed=%lx hit=%d", (unsigned)fet->cfFormat,
-             (unsigned long)fet->tymed, hit);
-  return hit ? S_OK : DV_E_FORMATETC;
+  if (!hit) {
+    char nm[128];
+    wm_dnd_log("src query cf=%u tymed=%lx hit=0 name=%s",
+               (unsigned)fet->cfFormat, (unsigned long)fet->tymed,
+               wm_dsrc_cf_name(fet->cfFormat, nm, (int)sizeof(nm)));
+    return DV_E_FORMATETC;
+  }
+  wm_dnd_log("src query cf=%u tymed=%lx hit=1", (unsigned)fet->cfFormat,
+             (unsigned long)fet->tymed);
+  return S_OK;
 }
 
 static HRESULT STDMETHODCALLTYPE wm_ds_Canonical(IDataObject *This, FORMATETC *in,
