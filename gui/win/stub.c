@@ -1804,7 +1804,24 @@ static void wm_dnd_log(const char *fmt, ...) {
   }
   FILE *f = fopen(path, "a");
   if (f == NULL) {
-    return;
+    // 环境变量给了但打不开（C:\ 根目录常见要管理员）：退到 %TEMP%，避免
+    // 「设了变量却一条日志都没有」。
+    static char fallback[640];
+    static int fb_tried = 0;
+    if (!fb_tried) {
+      fb_tried = 1;
+      char tmp[MAX_PATH];
+      DWORD tn = GetTempPathA((DWORD)sizeof(tmp), tmp);
+      if (tn > 0 && tn < (DWORD)sizeof(tmp)) {
+        snprintf(fallback, sizeof(fallback), "%slibyue_dnd.log", tmp);
+      }
+    }
+    if (fallback[0] != '\0') {
+      f = fopen(fallback, "a");
+    }
+    if (f == NULL) {
+      return;
+    }
   }
   fprintf(f, "[dnd %lu] ", (unsigned long)GetTickCount());
   va_list ap;
