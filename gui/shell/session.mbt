@@ -194,6 +194,7 @@ pub fn host_reset() -> Unit {
   g_windows.val = []
   g_active.val = 0
   g_loop.val = None
+  reset_timer_channel()
 }
 
 ///|

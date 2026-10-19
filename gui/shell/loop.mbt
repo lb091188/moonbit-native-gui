@@ -186,29 +186,73 @@ let timer_schedule : Ref[(Int, () -> Unit) -> Int] = Ref(fn(_ms, _f) { 0 })
 
 let timer_cancel : Ref[(Int) -> Unit] = Ref(fn(_id) { () })
 
+// 宿主就绪前排的定时器先排队：默认选中段/页面构造期就会跑 on_mount 一类
+// 回调，那时 App 还没装钩子；不排队的话首拍进空通道、循环再也起不来。
+// 句柄用负数（挂载后真实句柄从 1 起，0 仍保留「空操作」语义），可取消。
+let timer_hooks_ready : Ref[Bool] = Ref(false)
+
+let pending_timers : Array[(Int, Int, () -> Unit)] = []
+
+let next_pending_id : Ref[Int] = Ref(-1)
+
 ///|
 /// 安装延时任务的派发通道（`App::new` 把这两个转派到自己的 `Loop`）。
 /// 组件层要的是「过一会儿跑一次」，不该知道自己属于哪个宿主，所以与
 /// `set_repaint_hook` 同款进程级单槽（当前形态一进程一宿主）。
+/// 安装时把排队中的早鸟定时器一并补发。
 pub fn set_timer_hooks(
   schedule : (Int, () -> Unit) -> Int,
   cancel : (Int) -> Unit,
 ) -> Unit {
   timer_schedule.val = schedule
   timer_cancel.val = cancel
+  timer_hooks_ready.val = true
+  let queued = pending_timers.copy()
+  pending_timers.clear()
+  for (_, ms, f) in queued {
+    let _ = schedule(ms, f)
+  }
 }
 
 ///|
-/// 相对延时 `ms` 毫秒跑一次 `f`，返回可取消句柄。没有宿主时是空操作并返回
-/// 0（组件照常工作，只是不会自动推进；无头测试可自行安装通道拿回调）。
+/// 相对延时 `ms` 毫秒跑一次 `f`，返回可取消句柄。宿主未就绪时先排队，
+/// `set_timer_hooks` 装上后按原延时补发（句柄返回负数，可用于 `clear_timeout`）。
 pub fn set_timeout(ms : Int, f : () -> Unit) -> Int {
-  (timer_schedule.val)(ms, f)
+  if timer_hooks_ready.val {
+    (timer_schedule.val)(ms, f)
+  } else {
+    let id = next_pending_id.val
+    next_pending_id.val = id - 1
+    pending_timers.push((id, ms, f))
+    id
+  }
 }
 
 ///|
 /// 取消尚未触发的延时任务（句柄 0 或已触发时空操作）。
 pub fn clear_timeout(id : Int) -> Unit {
-  if id != 0 {
+  if id < 0 {
+    let keep : Array[(Int, Int, () -> Unit)] = []
+    for (pid, ms, f) in pending_timers {
+      if pid != id {
+        keep.push((pid, ms, f))
+      }
+    }
+    pending_timers.clear()
+    for item in keep {
+      pending_timers.push(item)
+    }
+  } else if id != 0 {
     (timer_cancel.val)(id)
   }
+}
+
+///|
+/// 复位进程级延时通道（测试用：`host_reset` 调，回到「无宿主」基线）。
+pub fn reset_timer_channel() -> Unit {
+  timer_schedule.val = fn(_ms : Int, _f : () -> Unit) -> Int { 0 }
+  timer_cancel.val = fn(_id : Int) -> Unit { () }
+  timer_hooks_ready.val = false
+  pending_timers.clear()
+  next_pending_id.val = -1
 }
