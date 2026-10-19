@@ -6181,6 +6181,14 @@ void *wm_clipboard_get_text(int32_t *ok) {
   GtkClipboard *cb = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
   gchar *t = gtk_clipboard_wait_for_text(cb);
   if (t == NULL) {
+    // 首问常输给选区属主握手（Cinnamon 的剪贴板管理器接管后尤甚）：
+    // 把已就绪的事件跑一轮再问一次，第二次必中的真机症状由此收掉。
+    while (g_main_context_pending(NULL)) {
+      g_main_context_iteration(NULL, FALSE);
+    }
+    t = gtk_clipboard_wait_for_text(cb);
+  }
+  if (t == NULL) {
     return moonbit_make_bytes(0, 0);
   }
   size_t len = strlen(t);
