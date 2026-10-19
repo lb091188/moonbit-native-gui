@@ -181,8 +181,12 @@ labels 与键分离。归一化规则：写第 i 层 → 第 i+1.. 层各自回�
   - **等深这条规则定成含叶混排**：同层既有叶（1 层）又有分支（>1 层）也判不齐——不齐的表
     没法给每层配一个选中键，浅的那一支在深层没有候选。showcase 的页→段两层表天然满足。
   - 跨父重名合法由 wbtest 钉住（复刻现状的「消息框」两页各一次），同父重名只报一条。
-- [ ] **T3 `levels` 层级状态与路径**：`path` / `goto` / 归一化（写第 i 层 → 深层回落首个
-  子节点）、`Store::set` 去重成环 wbtest（A 写 → B 订阅回写 A 不炸、不重复通知）。
+- [x] **T3 `levels` 层级状态与路径**：`levels.mbt` 落 `Router{roots,levels,default_load,
+  default_evict}` + `new_router`（表不过契约 abort，每层初值取首个候选，首屏 = 首个根
+  一路到首个叶）、`path` / `resolve` / `goto` / `level_count` / `children_at` /
+  `store_at` / `route_at`。归一化：`goto("a")` 一次把深层各自回落到首个候选；
+  自上而下逐层 `set`，相同值不通知（去重兜环）。**非法段与超深段不炸**——最坏是
+  「回到该层第一项」，要严格对照用 `resolve` 自己比。wbtest 9 项（含重入不成环）全绿。
 - [ ] **T4 预建调度器**：先序环形队列 + `App::timer` 链一拍一节点 + 当前选中路径当拍
   插队建完 + `load=Lazy` 跳过；建完只存不挂。队列在无宿主时不得空转（`@shell.set_timeout`
   的 host 未就绪排队语义见 `gui/shell/loop.mbt:189`）。
