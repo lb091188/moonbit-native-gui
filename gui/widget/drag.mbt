@@ -649,7 +649,17 @@ pub fn drag_external_send(data : DragData) -> Result[DragEffect, DragError] {
           @win.DRAGDND_COPY | @win.DRAGDND_MOVE | @win.DRAGDND_LINK,
         ) {
           None => Err(Failed("系统未接这趟拖出"))
-          Some(flag) => Ok(drag_effect_of_flag(flag))
+          Some(flag) => {
+            // 拖出已收口：这一按的抬起被系统的拖拽 grab 吃掉，宿主不会再见到
+            // Up。不清的话捕获/按下态停在拖源上，悬停与其它控件的拖动都要等
+            // 下一次按下才恢复。
+            app.session.capture = -1
+            app.session.hover_id = -1
+            app.root.set_press(-1)
+            app.root.set_hover(-1)
+            app.schedule_paint()
+            Ok(drag_effect_of_flag(flag))
+          }
         }
     }
   }

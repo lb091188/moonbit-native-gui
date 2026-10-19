@@ -5904,35 +5904,37 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
   }
   // drag-end 只是协议收口的那一声，GTK 的 ungrab 与光标恢复排在它后面的事件里。
   // 本进程从 MoonBit 事件栈里起拖（不在 GTK 派发栈内），后半段没人替我们跑完就
-  // 返回上层了——先把挂起事件排空，再算剩下的账。
+  // 返回上层了——先把挂起事件排空。
   int drained = 0;
   while (drained < 200 && gtk_events_pending()) {
     gtk_main_iteration_do(FALSE);
     drained++;
   }
+  // gdk_display_device_is_grabbed 读的是 GDK 自己的 grab 账：ungrab 之后要等服务端
+  // 回执（异步 roundtrip）才销账。读之前先 sync，否则「账还没跟上」会被误判成
+  // 「grab 没还」。
+  gdk_display_sync(disp);
   int grabbed = wm_gtk_pointer_grabbed();
   // 落点读数取 drag-end 回调里存下的那份（dxid/self_dest），不再碰 ctx
   wm_gtk_dnd_log("end id=%lld ended=%d get_calls=%d drained=%d grabbed=%d",
                  (long long)id, (int)ended, wm_dnd_src_get_calls, drained,
                  grabbed);
-  // 服务端那份指针 grab 要在这里替这条会话解掉：真机读数每条会话排空事件后
-  // grabbed 仍为 1（GDK 已把 drag-end 当收口，不再走自己的 ungrab），grab 不
-  // 还，本应用的键鼠事件就一路被 grab 吃掉——表现为拖完「+」僵住本窗交互。
-  // gdk_seat_ungrab 只动 GDK 自己的计数、服务端 grab 照旧（上一版 post-ungrab
-  // 读数即证），所以直接走 X：XUngrabPointer 带错误兜底（grab 不在本进程时只当
-  // 没发生），再跑一轮派发，让 GDK 收到 GrabNotify 把读数跟上来。
-  if (grabbed && GDK_IS_X11_DISPLAY(disp)) {
-    Display *xdisp = gdk_x11_get_default_xdisplay();
-    gdk_x11_display_error_trap_push(disp);
-    XUngrabPointer(xdisp, CurrentTime);
-    XSync(xdisp, False);
-    gdk_x11_display_error_trap_pop_ignored(disp);
-    while (gtk_events_pending()) {
-      gtk_main_iteration_do(FALSE);
-      drained++;
+  if (grabbed) {
+    // sync 后账上仍挂着 = 这条会话的指针 grab 确实没还。GTK3 在 X11 用
+    // XIGrabDevice 取指针，还也必须走 GDK 的 device ungrab（XIUngrabDevice）；
+    // XUngrabPointer 只动 core 指针 grab，对 XI2 grab 无效，也改不了这本账。
+    // gdk_seat_ungrab 只还本进程取下的 grab，不碰别家程序。
+    GdkSeat *seat = gdk_display_get_default_seat(disp);
+    if (seat != NULL) {
+      gdk_seat_ungrab(seat);
+      gdk_display_sync(disp);
+      while (drained < 400 && gtk_events_pending()) {
+        gtk_main_iteration_do(FALSE);
+        drained++;
+      }
     }
-    wm_gtk_dnd_log("post-xungrab id=%lld drained=%d grabbed=%d", (long long)id,
-                   drained, wm_gtk_pointer_grabbed());
+    wm_gtk_dnd_log("post-ungrab id=%lld drained=%d grabbed=%d",
+                   (long long)id, drained, wm_gtk_pointer_grabbed());
   }
   // 起拖时 GTK 把拖拽光标设在源窗的 GdkWindow 上，drag-end 时复位；复位漏掉
   // 就一路跟着指针走。这里清成 NULL（跟随主题默认形状），并把宿主缓存的形状
