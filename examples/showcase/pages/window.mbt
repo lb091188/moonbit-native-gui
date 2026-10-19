@@ -321,7 +321,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
           [
             @ui.drag_source(
               @ui.view(
-                [@ui.text("拖我出去\n（记事本/浏览器）", role=@ui.Body)],
+                [@ui.text("拖我出去\n（浏览器/编辑器）", role=@ui.Body)],
                 background_color="primary_light",
                 border_color="primary",
                 width=120.0,
