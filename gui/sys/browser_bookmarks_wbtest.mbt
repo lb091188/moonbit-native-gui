@@ -302,8 +302,15 @@ test "bm_bookmarks：本机 Chrome 书签端到端（存在才跑）" {
     Ok(profiles) => {
       assert_true(profiles.length() > 0)
       let first = profiles[0]
-      // 探测结果应与书签文件路径对应
-      assert_true(first.bookmarks_path.has_suffix("/Bookmarks"))
+      // 探测结果应与书签文件路径对应（文件名按候选表，新版 Chromium 可能是
+      // AccountBookmarks——真机 macOS 26.5 的 Chrome 就是这个形态）
+      let mut named = false
+      for name in bm_file_names {
+        if first.bookmarks_path.has_suffix("/" + name) {
+          named = true
+        }
+      }
+      assert_true(named, msg="探测出的书签路径不在候选文件名里: " + first.bookmarks_path)
       match bm_bookmarks(first.browser) {
         Ok(root) => {
           // 虚拟根名 "<浏览器>/<profile>"
@@ -330,4 +337,22 @@ test "bm_bookmarks：本机 Chrome 书签端到端（存在才跑）" {
     Err(BmNoBrowser) => () // 本机无书签文件：合法跳过
     Err(e) => fail("探测书签文件失败: \{e.to_string()}")
   }
+}
+
+///|
+test "bm_find_bookmarks：候选顺序 Bookmarks 优先、AccountBookmarks 兜底" {
+  // 不存在的根：两候选都读不到 → None（不报错、也不给假路径）
+  assert_true(
+    bm_find_bookmarks("/nonexistent-root", "google-chrome", "", "Default")
+    is None,
+  )
+  // 路径拼装保持旧口径（老名 Bookmarks）
+  assert_eq(
+    bm_bookmarks_path("/home/u/.config", "google-chrome", "", "Default"),
+    "/home/u/.config/google-chrome/Default/Bookmarks",
+  )
+  // 新版 Chromium 的账号书签同形 JSON，必须在这条链上被兜到
+  assert_eq(bm_file_names.length(), 2)
+  assert_eq(bm_file_names[0], "Bookmarks")
+  assert_eq(bm_file_names[1], "AccountBookmarks")
 }
