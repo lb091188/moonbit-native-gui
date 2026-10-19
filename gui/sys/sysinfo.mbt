@@ -463,6 +463,23 @@ fn si_read_dmi(name : String) -> String? {
   }
 }
 
+///|
+/// 按顺序试读若干文件，取第一个非空内容（去首尾空白）。
+fn si_read_first_file(paths : Array[String]) -> String? {
+  for p in paths {
+    match sys_read_text_file(p) {
+      Some(text) => {
+        let t = si_trim(text)
+        if t != "" {
+          return Some(t)
+        }
+      }
+      None => ()
+    }
+  }
+  None
+}
+
 // ---------------------------------------------------------------------------
 // 公开 API（都只读；非 Linux → SiUnsupported）
 // ---------------------------------------------------------------------------
@@ -687,8 +704,10 @@ pub fn si_os() -> Result[OsInfo, SysInfoError] {
 
 ///|
 /// 机器 DMI 标识（/sys/class/dmi/id/ 的 sys_vendor / product_name /
-/// product_serial）。任一项读不到（权限不足或非 x86/ACPI 平台）给
-/// Err(SiReadFailed(路径))，不用空串糊弄。
+/// product_serial）。vendor/product 全局可读，读不到给 Err(SiReadFailed)；
+/// 序列号多数发行版仅 root 可读（0400），回落机器唯一标识
+/// `/var/lib/dbus/machine-id` → `/etc/machine-id`（与 Windows 侧
+/// SerialNumber→MachineGuid 同一兜底形态），两者都拿不到才报错。
 pub fn si_machine() -> Result[MachineInfo, SysInfoError] {
   match sys_platform() {
     "linux" => {
@@ -702,7 +721,18 @@ pub fn si_machine() -> Result[MachineInfo, SysInfoError] {
       }
       let serial = match si_read_dmi("product_serial") {
         Some(v) => v
-        None => return Err(SiReadFailed(si_dmi_path("product_serial")))
+        None =>
+          match si_read_first_file([
+            "/var/lib/dbus/machine-id", "/etc/machine-id",
+          ]) {
+            Some(v) => v
+            None =>
+              return Err(
+                SiReadFailed(
+                  si_dmi_path("product_serial") + "(需 root)/machine-id",
+                ),
+              )
+          }
       }
       Ok({ vendor, product, serial, })
     }
