@@ -4301,55 +4301,85 @@ void wm_set_opacity(int64_t id, int alpha) {
   gdk_window_set_opacity(gw, a);
 }
 
-/* W34 窗口层级：0=normal 1=desktop(沉底) 2=always-on-top 3=dock */
+/* 窗口类型档位：0=normal 1=desktop 2=dock */
+static void wm_apply_type(GtkWindow *win, GdkWindow *gw, int kind) {
+  GdkWindowTypeHint hint = GDK_WINDOW_TYPE_HINT_NORMAL;
+  const char *name = "_NET_WM_WINDOW_TYPE_NORMAL";
+  switch (kind) {
+    case 1:
+      hint = GDK_WINDOW_TYPE_HINT_DESKTOP;
+      name = "_NET_WM_WINDOW_TYPE_DESKTOP";
+      break;
+    case 2:
+      hint = GDK_WINDOW_TYPE_HINT_DOCK;
+      name = "_NET_WM_WINDOW_TYPE_DOCK";
+      break;
+    default:
+      break;
+  }
+  gtk_window_set_type_hint(win, hint);
+  GdkDisplay *disp = gdk_display_get_default();
+  if (gw == NULL || !GDK_IS_X11_DISPLAY(disp)) {
+    return; // Wayland 无 _NET_WM_WINDOW_TYPE 概念，只留 GDK 提示
+  }
+  Display *dpy = gdk_x11_get_default_xdisplay();
+  Window xid = gdk_x11_window_get_xid(gw);
+  Atom type = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
+  Atom value = XInternAtom(dpy, name, False);
+  XChangeProperty(dpy, xid, type, XA_ATOM, 32, PropModeReplace,
+                  (unsigned char *)&value, 1);
+}
+
+/* W34 窗口层级：0=normal 1=desktop(沉底) 2=always-on-top 3=dock
+ *
+ * keep_above/keep_below 是 _NET_WM_STATE，即时生效；窗口类型是 map 时读的，
+ * 对已映射窗改属性 WM 不重新分层——所以类型档切换一律走
+ * 「unmap → 挂新类型 → 原位 remap」。桌面层再补一次 lower，落到
+ * Cinnamon 壁纸之上、nemo 图标窗之下。 */
 void wm_set_layer(int64_t id, int layer) {
   if (id <= 0 || id >= WM_MAX_WINDOWS) return;
   WmWindow *w = &wm_windows[id];
   if (w->window == NULL) return;
   GtkWindow *win = GTK_WINDOW(w->window);
+  int kind = (layer == 1) ? 1 : ((layer == 3) ? 2 : 0);
+  gtk_window_set_keep_below(win, layer == 1 ? TRUE : FALSE);
+  gtk_window_set_keep_above(win, (layer == 2 || layer == 3) ? TRUE : FALSE);
   GdkWindow *gw = gtk_widget_get_window(w->window);
-  Display *dpy = gdk_x11_get_default_xdisplay();
-  Window xid = gw ? gdk_x11_window_get_xid(gw) : 0;
-  switch (layer) {
-    case 1: {
-      // 桌面层：类型提示 + keep_below + 直接压到栈底。运行时对已映射窗改
-      // GDK 类型提示，部分 WM（Cinnamon/Muffin）不重新评估，必须走 X11 属性
-      // 并显式 XLowerWindow——桌面图标本身也是 DESKTOP 型窗口，不压栈就会
-      // 盖在图标上面。
-      gtk_window_set_keep_below(win, TRUE);
-      gtk_window_set_type_hint(win, GDK_WINDOW_TYPE_HINT_DESKTOP);
-      if (xid) {
-        Atom type = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
-        Atom desktop = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_DESKTOP", False);
-        XChangeProperty(dpy, xid, type, XA_ATOM, 32, PropModeReplace,
-                        (unsigned char *)&desktop, 1);
-        XLowerWindow(dpy, xid);
-        XFlush(dpy);
-      }
-      break;
-    }
-    case 2:
-      gtk_window_set_keep_below(win, FALSE);
-      gtk_window_set_keep_above(win, TRUE);
-      break;
-    case 3:
-      gtk_window_set_keep_below(win, FALSE);
-      gtk_window_set_keep_above(win, TRUE);
-      gtk_window_set_type_hint(win, GDK_WINDOW_TYPE_HINT_DOCK);
-      break;
-    default:
-      gtk_window_set_keep_above(win, FALSE);
-      gtk_window_set_keep_below(win, FALSE);
-      gtk_window_set_type_hint(win, GDK_WINDOW_TYPE_HINT_NORMAL);
-      if (xid) {
-        Atom type = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE", False);
-        Atom normal = XInternAtom(dpy, "_NET_WM_WINDOW_TYPE_NORMAL", False);
-        XChangeProperty(dpy, xid, type, XA_ATOM, 32, PropModeReplace,
-                        (unsigned char *)&normal, 1);
-        XFlush(dpy);
-      }
-      break;
+  GdkDisplay *disp = gdk_display_get_default();
+  wm_apply_type(win, gw, kind);
+  if (gw == NULL || !GDK_IS_X11_DISPLAY(disp)) {
+    return;
   }
+  Display *dpy = gdk_x11_get_default_xdisplay();
+  Window xid = gdk_x11_window_get_xid(gw);
+  if (xid == 0) {
+    return;
+  }
+  if (w->hidden) {
+    XFlush(dpy); // 未映射：类型已挂在属性上，等 wm_show 的 map 生效
+    return;
+  }
+  gint x = 0;
+  gint y = 0;
+  gdk_window_get_origin(gw, &x, &y);
+  gtk_widget_hide(w->window);
+  gdk_display_flush(disp);
+  XSync(dpy, False); // 让 unmap 真正进服务端，再改类型
+  wm_apply_type(win, gw, kind);
+  XFlush(dpy);
+  gtk_window_move(win, x, y); // 重 map 后 WM 会重新摆放，先归位
+  gtk_widget_show(w->window);
+  gdk_display_flush(disp);
+  while (gtk_events_pending()) {
+    gtk_main_iteration_do(FALSE);
+  }
+  if (layer == 1) {
+    gdk_window_lower(gw); // 压到桌面层栈底（图标之下）
+  }
+  gdk_display_flush(disp);
+  XSync(dpy, False);
+  gtk_widget_grab_focus(w->area);
+  wm_mark_draw(w);
 }
 
 /* W33 背景透明（GTK 档）：开 app_paintable 让本窗自己填底色，配合

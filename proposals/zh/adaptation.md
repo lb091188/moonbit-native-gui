@@ -2729,7 +2729,7 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 ### Linux 真机反馈修复集（2026-10-17 第二批，桌面环境已换 Cinnamon/Muffin）
 
 - **NoWrap 文本不裁切**：`pt_render_box` 在 `wrap=0 && ellipsize=0` 时不设 Pango 宽度（否则会被折行），文字自然画出声明盒；mac 侧绘制有盒裁切、Linux 侧没有。修：`pt_draw_box_cr` 在 `save` 后按声明盒 `cairo_clip`（宽/高为 0 视为该轴不裁）。判据：限宽 300 的 NoWrap 文本右缘齐盒。
-- **Desktop 层压在桌面图标之上**：Cinnamon 的桌面图标本身是 DESKTOP 型 X11 窗口；运行时对已映射窗改 GDK 类型提示，Muffin 不重新评估，且后 map 的同型窗口叠在上层。修：`wm_set_layer(Desktop)` 直接 `XChangeProperty(_NET_WM_WINDOW_TYPE_DESKTOP)` + `gtk_window_set_keep_below` + `XLowerWindow` 压栈；复位档写回 NORMAL 类型。
+- **Desktop 层压在桌面图标之上**：Cinnamon 的桌面图标本身是 DESKTOP 型 X11 窗口（nemo-desktop），壁纸由 Cinnamon 自己合成在窗口之下，所以「图标下、壁纸上」= 在桌面层栈底。坑在时机：Muffin 只在 **map 请求**时读 `_NET_WM_WINDOW_TYPE`，对已映射窗改属性/类型提示都不重新分层——`XChangeProperty` + `XLowerWindow` 实测无效。修：`wm_set_layer` 类型档一律走「记原位 → `gtk_widget_hide`（unmap）→ `XSync` 让 unmap 进服务端 → 挂 `_NET_WM_WINDOW_TYPE` → `gtk_window_move` + `gtk_widget_show`（remap，映射时 WM 按新类型落层）→ 桌面档补 `gdk_window_lower` 压到栈底」，`gdk_window_lower` 走 GDK 自己的队列、与 map 请求同序（混用 `XLowerWindow` 会插到未 flush 的 map 之前）。复位 normal/dock 档同一路径，否则 1→0 切换回不来；窗口已 `w->hidden` 时只挂属性，等 `wm_show` 的 map 生效。判据：窗口页选「桌面层」后，窗体沉到桌面图标之下、壁纸之上。
 - **系统级拖出后全局光标卡在「+」**：`wm_dragdnd_send` 从 MoonBit 事件栈（非 GTK 派发栈内）手动起拖，拖拽结束只等 `drag-end`，指针 grab 的 ungrab 有概率漏掉——表现为拖放完成后系统光标一直是复制态。修：循环退出后补 `gdk_seat_ungrab` + `gdk_display_flush`，并清掉存档的按下事件；超时兜底路径先 `gdk_drag_abort`（此前只置标志，上下文还活着）。判据：拖文件到文件管理器、拖文本到编辑器，松手后光标立即复原，可正常点击。
 
 ### Linux 真机反馈修复集（2026-10-17 第三批，Cinnamon）
