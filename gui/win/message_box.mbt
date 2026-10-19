@@ -1,6 +1,6 @@
 // 原生消息框（W20d）的纯函数层：语义参数 → Win32 `MessageBoxW` 的 `uType`
 // 位组合。位值与 `<windows.h>` 的 MB_* 宏逐位对齐（见
-// docs/zh/adaptation.md），这里不 include 头文件也要在无平台时可用——探针与
+// proposals/adaptation.md），这里不 include 头文件也要在无平台时可用——探针与
 // 单测跑的是同一份映射，桩层只是把结果原样递给 MessageBoxW。
 //
 // 为什么位组合也算「纯函数」值得单列：`MessageBoxW` 的 uType 是**图标位 ∪

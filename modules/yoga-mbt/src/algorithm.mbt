@@ -461,7 +461,7 @@ fn intrinsic_size(
 
 ///|
 /// 节点沿指定轴的内在尺寸（无缓存部分）。规则见
-/// `docs/zh/adaptation.md`「布局几何」节 YG3d 条：
+/// `proposals/adaptation.md`「布局几何」节 YG3d 条：
 /// - 自身在该轴有确定尺寸（Fixed / 可解析 Percent）→ 直接采用（内容可溢出，
 ///   这正是 `width: min-content` 与 `min-width: min-content` 的差别来源）；
 /// - 叶子 → measure 函数按内在探询约定返回的内容尺寸 + 自身 padding/border；

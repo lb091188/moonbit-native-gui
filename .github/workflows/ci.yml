@@ -229,7 +229,7 @@ jobs:
       #
       # ffmpeg 运行库:gui-media / ffmpeg-mbt 的测试在 Windows 上做真解码
       # (vendor 进仓库的只有头文件与导入库,运行期 dll 不进仓库)。dll 从
-      # BtbN lgpl-shared 构建取,与本地开发口径一致(见 docs/zh/adaptation.md);
+      # BtbN lgpl-shared 构建取,与本地开发口径一致(见 proposals/adaptation.md);
       # 解出 bin 目录放进 PATH,moon test 的测试进程继承环境即能加载。
       # latest 标签的 n9.0 资产随上游滚动重建,内容键固定 9.0——缓存到重建
       # 之间上游若有 minor 变更,以首次缓存为准(可接受:测试只依赖 ABI 稳定的 9.x)。

@@ -6,7 +6,7 @@
 
 1. 把 G0 输入法探针的 C 端编成静态库（moon 的 link_configs 只有链接期字段、
    没有编译期字段，`c_flags` 会被静默忽略，故必须在脚本里编译，实测记录见
-   docs/zh/adaptation.md「跨平台通用」节的 G1/G0 条）。
+   proposals/adaptation.md「跨平台通用」节的 G1/G0 条）。
 2. 输出 link_configs，按当前系统给出 pkg-config 探到的 GTK3/Pango/X11 参数。
    新栈自己的平台后端（win）落地后，链接参数继续从这里传播。
 
@@ -251,7 +251,7 @@ def link_configs() -> dict:
         # Win32 桩（win/stub.c 的 _WIN32 分支）由 moon native-stub 自编
         # （windows.h 走 MSVC 自带 SDK 路径，实测可达），这里只下发系统库：
         # MSVC 口径的链接输入用位置参数直拼 .lib 名——GNU 的 -L/-l 会报
-        # D9002（docs/zh/adaptation.md「链接参数」节）。user32/gdi32 建窗贴屏，
+        # D9002（proposals/adaptation.md「链接参数」节）。user32/gdi32 建窗贴屏，
         # imm32 随 IME 线（W6）预留，advapi32 供深浅/主色注册表读。
         # W20f 图标加载要 WIC（PNG 只能走它解码，windowscodecs.lib 里同时导出
         # CLSID_WICImagingFactory1 / IID_IWICImagingFactory /
@@ -278,7 +278,7 @@ def link_configs() -> dict:
         # IFileDialog（ole32 的 CoCreateInstance + shell32 的
         # SHCreateItemFromParsingName），GUID 常量 CLSID_FileOpenDialog /
         # IID_IFileDialog / IID_IShellItem 全在 uuid.lib——C 模式用不了
-        # __uuidof，只能链库取 extern 符号（记档于 docs/zh/adaptation.md）。
+        # __uuidof，只能链库取 extern 符号（记档于 proposals/adaptation.md）。
         # ShellExecuteW 在 shell32，子进程与文件函数属 kernel32（默认已链）。
         # W21d 自启动写 HKCU Run 键要 advapi32（Reg* 一组）。
         # 平台批①电源方案直调要 powrprof（PowerGet/SetActiveScheme）。

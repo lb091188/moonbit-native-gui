@@ -55,7 +55,7 @@ pub(all) struct Style {
   mut z_index : Int?
   // —— P4：整层透明度（0..1，画期把 global alpha 乘进全路径）
   // 投影档（box_shadow 那四位）已于 2026-10-15 真机复验后整条撤掉：分层近似的
-  // 软边在真机上仍不如人意，用户拍板不做——见 docs/zh/adaptation.md「阴影」节。
+  // 软边在真机上仍不如人意，用户拍板不做——见 proposals/adaptation.md「阴影」节。
   mut opacity : Double?
   // —— P5：状态桶切换的过渡时长（毫秒；不写或 0 = 直接切换）
   mut transition_ms : Double?

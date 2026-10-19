@@ -1,7 +1,7 @@
 # Windows GUI 子系统验证
 
 要解决的问题：MoonBit native 后端产出的 exe 默认是控制台（CONSOLE(3)）子系统，
-双击会先弹一个控制台窗口。机制与实现细节见 `docs/zh/adaptation.md`「链接参数」节；
+双击会先弹一个控制台窗口。机制与实现细节见 `proposals/adaptation.md`「链接参数」节；
 本文件只留可复核的读数。
 
 ## 本地实测（2026-10-12，Windows + MSVC）
