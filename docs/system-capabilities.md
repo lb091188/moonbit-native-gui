@@ -248,7 +248,7 @@ let _ = @sys.wp_set("/home/me/Pictures/wall.png")
 Media playback is not in the main module's packages; it lives in the optional module `NoahLiu/gui-media` (depending on `NoahLiu/ffmpeg-mbt`):
 
 ```moonbit
-// moon.mod import: "NoahLiu/gui-media@0.1.0"
+// moon.mod import: "NoahLiu/gui-media@0.2.0"
 // moon.pkg import: "NoahLiu/gui-media/media" @guimedia
 ```
 

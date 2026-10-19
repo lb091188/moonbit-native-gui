@@ -11,7 +11,7 @@ license = "MIT"
 repository = "https://github.com/lb091188/moonbit-native-gui"
 
 import {
-  "NoahLiu/native-gui@0.1.2",
+  "NoahLiu/native-gui@0.2.0",
   "NoahLiu/yoga-mbt@0.1.1",
-  "NoahLiu/gui-webview@0.1.0",
+  "NoahLiu/gui-webview@0.2.0",
 }
