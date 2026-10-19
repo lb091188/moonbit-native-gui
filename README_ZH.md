@@ -1,6 +1,6 @@
 # native-gui [![CI](https://github.com/lb091188/moonbit-native-gui/actions/workflows/ci.yml/badge.svg)](https://github.com/lb091188/moonbit-native-gui/actions/workflows/ci.yml)
 
-> **已更名**：本项目现名 **native-gui**，原名 `moonbit-libyue`；mooncakes 包名为 **`NoahLiu/native-gui`**，旧名待自绘栈稳定后废弃。子模块同步更名：`NoahLiu/yue-media` → **`NoahLiu/gui-media`**、`NoahLiu/yue-examples` → **`NoahLiu/gui-examples`**。
+> **已更名**：本项目现名 **native-gui**，原名 `moonbit-libyue`；mooncakes 包名为 **`NoahLiu/native-gui`**。旧包 **`NoahLiu/moonbit-libyue`** 与 **`NoahLiu/yue-media`** 已于 2026-10-19 在 mooncakes 上标记废弃，请改用 `NoahLiu/native-gui` 与 `NoahLiu/gui-media`（`yue-examples` → `gui-examples` 的示例现已按示例拆分为独立模块）。
 
 > **来时的路**：本库最初是 [赵成(zcbenz)](https://github.com/zcbenz) 的 [Yue / libyue](https://github.com/yue/yue) 的 MoonBit 封装，布局沿用 [Yoga](https://github.com/facebook/yoga) 的 flexbox。如今两者都不再是运行时依赖，只作行为参考与语料来源。也感谢 [MoonBit](https://github.com/moonbitlang)。
 
