@@ -5903,22 +5903,24 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
                  "dest=%ld self=%d",
                  (long long)id, (int)ended, wm_dnd_src_get_calls, drained,
                  grabbed, dxid, self_dest);
-  // 这里**不再**代 GDK 收尾指针 grab：grab 是 GTK 自己为这条会话取的，收尾也在
-  // 它自己的路径里（上面排空事件就是让它跑完）。真机读数显示 `gdk_seat_ungrab`
-  // 之后 grab 读数照旧为 1（没减下去），却把座位的计数打乱——后果是之后别家
-  // 程序往本窗拖东西时，投放侧那次 ungrab 落空，指针停在拖拽态要等源程序退出。
-  // 只剩超时兜底那条（drag-abort 过）才可能真的漏，交给下一次读数的 grabbed= 判。
-  if (!ended && grabbed) {
-    GdkSeat *seat = gdk_display_get_default_seat(disp);
-    if (seat != NULL) {
-      gdk_seat_ungrab(seat);
-    }
-    while (drained < 400 && gtk_events_pending()) {
+  // 服务端那份指针 grab 要在这里替这条会话解掉：真机读数每条会话排空事件后
+  // grabbed 仍为 1（GDK 已把 drag-end 当收口，不再走自己的 ungrab），grab 不
+  // 还，本应用的键鼠事件就一路被 grab 吃掉——表现为拖完「+」僵住本窗交互。
+  // gdk_seat_ungrab 只动 GDK 自己的计数、服务端 grab 照旧（上一版 post-ungrab
+  // 读数即证），所以直接走 X：XUngrabPointer 带错误兜底（grab 不在本进程时只当
+  // 没发生），再跑一轮派发，让 GDK 收到 GrabNotify 把读数跟上来。
+  if (grabbed && GDK_IS_X11_DISPLAY(disp)) {
+    Display *xdisp = gdk_x11_get_default_xdisplay();
+    gdk_x11_display_error_trap_push(disp);
+    XUngrabPointer(xdisp, CurrentTime);
+    XSync(xdisp, False);
+    gdk_x11_display_error_trap_pop_ignored(disp);
+    while (gtk_events_pending()) {
       gtk_main_iteration_do(FALSE);
       drained++;
     }
-    wm_gtk_dnd_log("post-ungrab id=%lld grabbed=%d", (long long)id,
-                   wm_gtk_pointer_grabbed());
+    wm_gtk_dnd_log("post-xungrab id=%lld drained=%d grabbed=%d", (long long)id,
+                   drained, wm_gtk_pointer_grabbed());
   }
   // 起拖时 GTK 把拖拽光标设在源窗的 GdkWindow 上，drag-end 时复位；复位漏掉
   // 就一路跟着指针走。这里清成 NULL（跟随主题默认形状），并把宿主缓存的形状
