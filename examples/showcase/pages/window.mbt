@@ -519,7 +519,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
     @shared.section(
       "层级",
       "窗口层级嵌入",
-      "`Window::set_layer` 换窗口的 z-order 档位：Normal 普通、Desktop 沉到桌面层（壁纸上、图标下，做桌面挂件用）、AlwaysOnTop 置顶、Dock 面板档。Linux 走 `_NET_WM_WINDOW_TYPE`/`gtk_window_set_keep_above`，Win32 走 `SetWindowPos` 的 BOTTOM/TOPMOST；目标层由窗口管理器兑现，个别 WM 会忽略 Desktop/Dock 档（属 WM 行为，非本库缺陷）。",
+      "`Window::set_layer` 换窗口的 z-order 档位：Normal 普通、Desktop 沉到桌面层（壁纸上、图标下，做桌面挂件用）、AlwaysOnTop 置顶、Dock 面板档。Linux 改 `_NET_WM_WINDOW_TYPE`（换档时重挂窗口）并按 `_NET_WM_STATE` 的 BELOW/ABOVE 请 WM 重排，Win32 走 `SetWindowPos` 的 BOTTOM/TOPMOST；目标层由窗口管理器兑现，个别 WM 会忽略 Desktop/Dock 档（属 WM 行为，非本库缺陷）。",
       [
         @ui.row(
           [
