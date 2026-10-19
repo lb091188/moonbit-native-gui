@@ -5832,6 +5832,7 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
   wm_dnd_src_done = 0;
   wm_dnd_src_ended = 0;
   wm_dnd_src_action = 0;
+  wm_dnd_src_get_calls = 0; // 每趟单独计：读数里的 get_calls 是本趟对方取了几回
   GtkTargetList *targets = gtk_target_list_new(NULL, 0);
   if (kind == 1) {
     gtk_target_list_add_text_targets(targets, 0);
@@ -5855,10 +5856,19 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
   // 救场，防止协议异常丢了 drag-end 把调用方永久挂住
   GdkDisplay *disp = gdk_display_get_default();
   // ev_type=3（GDK_MOTION_NOTIFY）说明起拖现场已随带键移动刷成最新一条；
-  // 4（GDK_BUTTON_PRESS）=还是按下那一刻那份旧事件
-  wm_gtk_dnd_log("begin id=%lld kind=%d actions=%u grabbed=%d ev_type=%d",
-                 (long long)id, kind, actions, wm_gtk_pointer_grabbed(),
-                 (int)wm_dnd_press->type);
+  // 4（GDK_BUTTON_PRESS）=还是按下那一刻那份旧事件。src_xid 供 end 那条的
+  // dest= 对照（相等就是投回了自己窗口）。
+  long src_xid = -1;
+  {
+    GdkWindow *sw_ = gtk_widget_get_window(w->window);
+    if (sw_ != NULL && GDK_IS_X11_DISPLAY(disp)) {
+      src_xid = (long)gdk_x11_window_get_xid(sw_);
+    }
+  }
+  wm_gtk_dnd_log(
+      "begin id=%lld kind=%d actions=%u grabbed=%d ev_type=%d src_xid=%ld",
+      (long long)id, kind, actions, wm_gtk_pointer_grabbed(),
+      (int)wm_dnd_press->type, src_xid);
   guint timer = g_timeout_add_seconds(60, wm_dnd_src_timeout, w);
   while (!wm_dnd_src_done) {
     gtk_main_iteration();
@@ -5881,9 +5891,18 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
     drained++;
   }
   int grabbed = wm_gtk_pointer_grabbed();
-  wm_gtk_dnd_log("end id=%lld ended=%d get_calls=%d drained=%d grabbed=%d",
+  // 落点读数：drag-end 时这条会话最后悬停的目标窗（XID），以及它是不是我们自己
+  // 那扇窗（自家 drop_target 也会走 XDND 通道，真机「第一趟没送到对方」要看这个）
+  GdkWindow *dw = gdk_drag_context_get_dest_window(ctx);
+  long dxid = -1;
+  if (dw != NULL && GDK_IS_X11_DISPLAY(disp)) {
+    dxid = (long)gdk_x11_window_get_xid(dw);
+  }
+  int self_dest = (dw != NULL && dw == gtk_widget_get_window(w->window)) ? 1 : 0;
+  wm_gtk_dnd_log("end id=%lld ended=%d get_calls=%d drained=%d grabbed=%d "
+                 "dest=%ld self=%d",
                  (long long)id, (int)ended, wm_dnd_src_get_calls, drained,
-                 grabbed);
+                 grabbed, dxid, self_dest);
   if (grabbed) {
     // 仍挂着 = GTK 那条收尾路径没跑到；seat 级 ungrab 是 GTK3.24 唯一的公开出口
     GdkSeat *seat = gdk_display_get_default_seat(disp);
