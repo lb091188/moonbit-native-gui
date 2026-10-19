@@ -4,11 +4,18 @@
 
 ///|
 /// 单窗口页面路由：一棵路由树 + 每层一个选中键 + 两个默认策略。
+/// 可变的构造缓存与队列都是堆上的（`Map`/`Ref`），复制 `Router` 不会把它们分家。
 pub struct Router {
   roots : Array[Route]
   levels : Array[@base.Store[String]]
   default_load : LoadPolicy
   default_evict : EvictPolicy
+  built : Map[String, @widget.Node]
+  queue : Ref[Array[String]]
+  queue_at : Ref[Int]
+  prefetch_on : Ref[Bool]
+  wired : Ref[Bool]
+  tick_handle : Ref[Int]
 }
 
 ///|
@@ -51,7 +58,18 @@ pub fn new_router(
     levels.push(@base.Store::new(first.key))
     level = first.children
   }
-  { roots, levels, default_load, default_evict }
+  {
+    roots,
+    levels,
+    default_load,
+    default_evict,
+    built: Map([]),
+    queue: Ref([]),
+    queue_at: Ref(0),
+    prefetch_on: Ref(false),
+    wired: Ref(false),
+    tick_handle: Ref(0),
+  }
 }
 
 ///|

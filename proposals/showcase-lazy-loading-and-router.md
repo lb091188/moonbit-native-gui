@@ -187,9 +187,14 @@ labels 与键分离。归一化规则：写第 i 层 → 第 i+1.. 层各自回�
   `store_at` / `route_at`。归一化：`goto("a")` 一次把深层各自回落到首个候选；
   自上而下逐层 `set`，相同值不通知（去重兜环）。**非法段与超深段不炸**——最坏是
   「回到该层第一项」，要严格对照用 `resolve` 自己比。wbtest 9 项（含重入不成环）全绿。
-- [ ] **T4 预建调度器**：先序环形队列 + `App::timer` 链一拍一节点 + 当前选中路径当拍
-  插队建完 + `load=Lazy` 跳过；建完只存不挂。队列在无宿主时不得空转（`@shell.set_timeout`
-  的 host 未就绪排队语义见 `gui/shell/loop.mbt:189`）。
+- [x] **T4 预建调度器**：`prefetch.mbt` 落缓存与队列——`built : Map[路径, Node]`（同父唯一
+  ⇒ 路径唯一，缓存就按路径索引）、`build_now`（thunk 只跑一次）、`ensure_current`（当前
+  路径插队建完）、`prefetch_step`（先序环形队列的下一拍，跳过 `Lazy` 与已建）、
+  `reanchor`（选中变了就从新当前路径重锚）、`build_eager`（启动期把 `Eager` 节点建完）、
+  `start_prefetch` / `stop_prefetch`（`@shell.set_timeout` 自排链，默认一拍 16ms，队列建空
+  即停链不留空转定时器；无宿主时走 host 未就绪的排队通道，`gui/shell/loop.mbt:189`）。
+  调度核心做成可手动驱动的纯步骤函数，wbtest 不起定时器就能逐拍验序。策略判等走 `match`
+  不给枚举派生 `Eq`（本工具链 `derive(Eq)` 报隐式提升告警，零告警门禁过不了）。wbtest 7 项。
 - [ ] **T5 挂载槽与淘汰**：`slot(depth)` 每层显隐容器；`Keep` 保形（切显隐不重建、滚动
   位置各自保留——现状语义），`Lru(n)` 退出深层路径时淘汰祖先链任一层子树；淘汰走
   `remove_child` + 整代退订；重挂 `on_mount` 双份风险逐条核实。
