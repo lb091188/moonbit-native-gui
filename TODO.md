@@ -82,9 +82,7 @@
 
 - [ ] 文档：中英使用文档按新栈重写（`components`/`components-ui`/`declarative`/`layout`/`relink`/`system-capabilities`/`tutorial`），README 挂新截图
 - [ ] 文档：中英使用文档按新栈重写（`components`/`components-ui`/`declarative`/`layout`/`relink`/`system-capabilities`/`tutorial`），README 挂新截图
-- [ ] 发布：mooncakes 新版本；旧 `bin-*`/`vendor-*` 预构建发布链退役
-  - [ ] **`gui-media` 首发前最后一次公开面审校**：该模块 0.1.0 至今未发布（原 `gui-examples` 已于 2026-10-19 并入 `examples/` 各示例模块，不再作为发布单元），本轮组件改名（`player_t` → `video`、新增 `audio`）正是在「无历史版本」前提下才零破坏；一旦发出去就改不动了。首发前把两模块 README、`docs/zh/system-capabilities.md` 媒体段、`modules/gui-media/moon.mod` 依赖版本钉法过一遍（发布链与预演 zip 口径见根 `HANDOFF.md`）。
-  - [ ] **0.1.0 构建失败与 0.1.1 重发链（2026-10-15 实测）**：`native-gui@0.1.0` 包页 Build failed——依赖 `NoahLiu/yoga-mbt@0.1.0` 的注册表归档里 `src/moon.pkg.json` 仍是旧清单（发布早于仓内迁移；已发布版本不可原地改写），四目标同一根因。重发顺序**先 `yoga-mbt` 后 `native-gui`**、版本各递增 0.1.1，仓内各模块钉版同批更新；发布从各自模块根执行（可先 `moon publish --dry-run`），发前 `moon package` 预演核对归档零旧清单，发后看包页 `build_status` 与构建日志 API；机理见 adaptation.md 的 mooncakes 构建器条。
+- [ ] 发布：旧 `bin-*`/`vendor-*` 预构建发布链退役（mooncakes 侧 0.2.0 已于 2026-10-19 发布，见 roadmap「承诺与版本」）
 - [ ] 真机验证矩阵：Ubuntu GNOME / KDE / XFCE；Windows 10 / 11；macOS 真机已到位（T1–T8 执行中）
 - [ ] [~] **平台批：WebView2 桩真实现 + ffmpeg Windows 真链接**（已完成面见 roadmap；剩余见子条目）
   - **win 子 HWND 容器**（P1）：`gui/win/stub.c` 补 `wm_surface_new/set_rect/close/container` Windows 真实现（`WS_CHILD` 面板 HWND，父=宿主窗，DefWindowProc + 背景刷 NULL 免闪白），`wm_init` 注册窗口类、`wm_close` 清 surface 槽——web 桩经 `wm_surface_container(surface_id)` 拿 parentHWND。
@@ -96,7 +94,6 @@
 ## 3. 里程碑
 
 - **M3** macOS 地基：mac 平台批①-⑤ 已落（窗口/渲染/文本/webview/sys 各族），进度与缺口见 §7；真机目视复验待做
-- **M4** 发布新版本并冻结旧 `shim + libyue` 链路
 
 ## 6. 跨平台能力面（Win 基础能力 + MBT 通用能力）
 
