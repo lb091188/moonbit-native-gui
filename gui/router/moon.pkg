@@ -1,0 +1,7 @@
+// 单窗口页面路由：路由树 + 每层选中键 + link 绑定（口径见 router.mbt 头注释）。
+supported_targets = "native"
+
+import {
+  "moonbitlang/core/abort",
+  "NoahLiu/native-gui/widget" @widget,
+}
