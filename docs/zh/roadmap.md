@@ -129,6 +129,7 @@ Linux 列带 **X11** 的格只在 X11 会话成立，带 **DE** 的格行为随�
 | 组合键解析与 bind_combo 便捷口（`CmdOrCtrl` 按平台落 Ctrl/Cmd，词表与全局热键同源） | ✅ | ✅ | ✅ |
 | macOS 系统档默认加速键（Cmd+Q 退出 / Cmd+W 关本窗 / Ctrl+Cmd+F 翻全屏；`App::set_system_keys` 可关） | — | — | 🚧 |
 | 通用双击/三击检测（ClickTracker 挂 Widget） | ✅ | ✅ | ✅ |
+| 键盘键多击（on_key_double/on_key_triple / App::bind_key_double） | ✅ | ✅ | ✅ |
 | 上屏帧缓冲所有权 | 🚧 | ✅ | ❌ |
 | 模块拆分 | ✅ | ✅ | ✅ |
 | 窗口内按键路由补齐 | ⏳ |  | ⏳ |
@@ -187,6 +188,7 @@ Linux 列带 **X11** 的格只在 X11 会话成立，带 **DE** 的格行为随�
 | 通用图表 | ✅ | ✅ | 🚧 |
 | 交互层与 tooltip、PNG 导出 | ✅ | ✅ | 🚧 |
 | 专项图表与地图 | ✅ | ✅ | 🚧 |
+| 系列色板随主色（`theme_chart_color`，5 色相旋转） | ✅ | ✅ | ✅ |
 | Markdown 视图 | ✅ | ✅ | 🚧 |
 | 代码高亮 / 终端 / WebGL 画布 | ❌ | ❌ | ❌ |
 
