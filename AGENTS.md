@@ -41,6 +41,7 @@ examples/<name>/        每个示例 = 一个独立模块 NoahLiu/native-gui-exa
                          audio / video / headless-audio；assets/ 是共享资产目录，非模块)
 experiment/             探针与微基准模块 NoahLiu/native-gui-experiment
 modules/yoga-mbt        布局引擎模块
+modules/mdparse         Markdown 解析模块(派生自 mizchi/markdown,只出 AST)
 modules/gui-media       媒体模块(ffmpeg + miniaudio 播放器组件)
 modules/gui-webview     WebView 模块
 modules/ffmpeg-mbt      ffmpeg 绑定模块
