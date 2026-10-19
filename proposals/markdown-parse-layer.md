@@ -103,7 +103,7 @@ CommonMark 0.31.2 有 652 条规范用例，加 GFM 扩展与我们要的 4 项�
 
 ## 8. 落地记录（方案 A）
 
-产物：`modules/mdparse`，模块名 `NoahLiu/native-gui-mdparse`，单包，`supported_targets = "native"`。
+产物：`modules/mdparse`，模块名 `NoahLiu/mdparse`（通用解析库，命名不绑定 GUI，可独立发布/复用），单包，`supported_targets = "js+wasm+wasm-gc+native"`（与上游一致，不裁平台）。
 
 | 项 | 结果 |
 | --- | --- |

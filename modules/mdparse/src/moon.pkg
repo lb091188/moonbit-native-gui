@@ -1,5 +1,3 @@
-supported_targets = "native"
-
 import {
   "moonbitlang/core/debug",
 }
