@@ -77,36 +77,10 @@ pub fn page(secs : Array[Section]) -> @widget.Node {
 }
 
 ///|
-/// 主区导航页：挂载后订阅导航状态做 `set_visible` 切换（侧栏菜单 /
-/// segmented / 面包屑共享同一导航 Store）。页面内容**惰性挂载**：未选中过的
-/// 页只留空壳，首次选中才把 content 挂进占位——全量挂载的启动开销不可行
-/// （图标墙页要建 803 个图标控件，见 section_body 的同口径记档）。
-pub fn nav_page(
-  name : String,
-  selected : @base.Store[String],
-  content : @widget.Node,
-) -> @widget.Node {
-  let mounted : Ref[Bool] = Ref(false)
-  @ui.col([], grow=1.0, handle=fn(c) {
-    fn ensure(s : String) -> Unit {
-      if !mounted.val && s == name {
-        mounted.val = true
-        let _ = content.mount_into(c)
-      }
-      c.set_visible(s == name)
-    }
-
-    ensure(selected.get())
-    selected.subscribe(ensure)
-  })
-}
-
-///|
 /// 选中段的正文：标题 + 演示 + 说明 + 代码（带复制行），内容超高段内滚动；
 /// 容器随页面 `selected` 切换显隐。演示内容**惰性挂载**：未选中过的段只有
-/// 标题/说明/代码骨架，首次选中才把 content 挂进占位容器——全量挂载意味着
-/// 启动即建 111 段全部控件（图标墙页 803 个图标控件），debug 构建秒级；
-/// 挂过之后保形，显隐/滚动位置语义不变。
+/// 标题/说明/代码骨架，首次选中才把 content 挂进占位容器；挂过之后保形，
+/// 显隐/滚动位置语义不变。页级的构造推迟由 `@router` 管（见 `main.mbt` 的路由表）。
 fn section_body(s : Section, selected : @base.Store[String]) -> @widget.Node {
   let mounted : Ref[Bool] = Ref(false)
   let holder = @ui.col([], row_gap=8.0, handle=fn(h) {

@@ -65,12 +65,11 @@ fn theme_toggle_button(app : @shared.App) -> @widget.Node {
 /// 菜单栏模型（第十五批接线）：动作全部真实有效——「导航」切页、「主题」
 /// 拨深浅与跟随开关、「帮助」关于冒提示 / 退出角色项走 `App::quit`。
 /// 项点击经原生菜单派发链（`dispatch_menu_command`）回到这些回调。
-fn build_menu_bar(app : @shared.App) -> @shell.MenuBar {
+fn build_menu_bar(app : @shared.App, nav : @router.Router) -> @shell.MenuBar {
   let bar = @shell.MenuBar::new()
-  let nav = bar.add_menu("导航")
+  let nav_menu = bar.add_menu("导航")
   for name in ["基础组件", "表单组件", "数据展示", "系统集成"] {
-    let page = name
-    let _ = nav.add_item(page).set_on_click(fn() { app.selected.set(page) })
+    let _ = nav_menu.add_item(name).set_on_click(nav.on_link(name))
   }
   let theme = bar.add_menu("主题")
   let _ = theme.add_check_item("跟随系统").set_on_click(fn() {
@@ -99,14 +98,52 @@ fn build_menu_bar(app : @shared.App) -> @shell.MenuBar {
 }
 
 ///|
+/// 一页 = 路由表里一个叶：内容在空闲预建或首次选中时才构造，那时 App 早已装好
+/// （`box` 的口径与 `App::host` 同——先建表、后装配）。
+fn route_of_page(
+  box : Ref[@shared.App?],
+  name : String,
+  build : (@shared.App) -> @widget.Node,
+  load : @router.LoadPolicy,
+) -> @router.Route {
+  @router.route_leaf(name, fn() -> @widget.Node {
+    match box.val {
+      Some(a) => build(a)
+      None => abort("showcase 路由在 App 装配前构造：" + name)
+    }
+  }, load=load)
+}
+
+///|
 fn main {
-  let selected : @base.Store[String] = @base.Store::new("基础组件")
+  let t_start = @win.now_ms()
+  let box : Ref[@shared.App?] = Ref(None)
   let toast_push = @ui.toast_layer(duration_ms=2600)
   // 代码区「复制」的回显走同一 toast 层
   @shared.code_toast.val = Some(toast_push)
   let counter = @base.Signal::new(0)
+  let routes : Array[@router.Route] = [
+    route_of_page(box, "基础组件", @pages.page_basic, @router.Prefetch),
+    route_of_page(box, "表单组件", @pages.page_form, @router.Prefetch),
+    route_of_page(box, "导航组件", @pages.page_nav, @router.Prefetch),
+    route_of_page(box, "数据展示", @pages.page_data, @router.Prefetch),
+    route_of_page(box, "图表", @pages.page_charts, @router.Prefetch),
+    route_of_page(box, "代码文档", @pages.page_code, @router.Prefetch),
+    route_of_page(box, "Store", @pages.page_store_demo, @router.Prefetch),
+    route_of_page(box, "反馈组件", @pages.page_feedback, @router.Prefetch),
+    route_of_page(box, "事件与布局", @pages.page_events, @router.Prefetch),
+    route_of_page(box, "窗口", @pages.page_window, @router.Prefetch),
+    // 托盘要在启动期就出（构造期建托盘），所以这一页标 Eager，不进空闲队列
+    route_of_page(box, "系统集成", @pages.page_system, @router.Eager),
+    route_of_page(box, "图标库", @pages.page_icons, @router.Prefetch),
+    route_of_page(box, "画布与富文本", @pages.page_canvas, @router.Prefetch),
+    route_of_page(box, "过渡与效果", @pages.page_anim, @router.Prefetch),
+    // 系统能力探测在构造期跑全量探测（读浏览器 sqlite、进程表），只给点开时才做
+    route_of_page(box, "系统能力探测", @pages.page_sysprobe, @router.Lazy),
+  ]
+  let nav = @router.new_router(routes)
   let app : @shared.App = {
-    selected,
+    selected: nav.store_at(0),
     toast: toast_push,
     dark_mode: @base.Store::new(@win.sys_color_scheme() == "dark"),
     // 启动即跟随系统主色调（系统无主色概念时回落内置 primary）
@@ -133,6 +170,7 @@ fn main {
     // 宿主句柄：挂载时由下方 handle 回调填入（窗口页/快捷键页取用）
     host: Ref(None),
   }
+  box.val = Some(app)
   // 深浅/主色任一变化即整体换主题；subscribe 注册不回调，故先应用一次
   app.dark_mode.subscribe(fn(_v) { apply_theme(app) })
   app.accent.subscribe(fn(_a) { apply_theme(app) })
@@ -143,7 +181,7 @@ fn main {
     Ok(@dbus.PrimaryOwner) | Ok(@dbus.AlreadyOwner) =>
       // 首实例：注册 Wake 回调——切回首页并冒提示
       @dbus.on_wake(fn(_args : Array[String]) -> Unit {
-        selected.set("基础组件")
+        nav.goto("基础组件")
         app.toast_push("已被第二实例唤起", @ui.Info)
       })
     Ok(@dbus.AlreadyExists) | Ok(@dbus.InQueue) => {
@@ -153,6 +191,8 @@ fn main {
     }
     Err(e) => println("SHOWCASE-INST: 单实例降级（\{e}）")
   }
+  // 启动期就要生效的页（标了 Eager 的）在建窗之前建完，其余交给空闲预建
+  nav.build_eager()
   let slot : Ref[@widget.App?] = Ref(None)
   let mounted = @ui.mount_window(
     [
@@ -163,12 +203,11 @@ fn main {
             [
               @ui.scroll_view(
                 [
-                  @ui.menu_sections(
+                  nav.sidebar(
                     [
                       ("组件", ["基础组件", "表单组件", "导航组件", "数据展示", "图表", "代码文档", "Store", "反馈组件", "事件与布局", "窗口", "系统集成", "图标库", "画布与富文本", "过渡与效果"]),
                       ("系统", ["系统能力探测"]),
                     ],
-                    selected,
                     icons=[
                       ("基础组件", @icons.Appstore),
                       ("表单组件", @icons.Edit1),
@@ -203,24 +242,10 @@ fn main {
             ],
             width=180.0,
           ),
-          // 主区：按导航状态切换的页（惰性挂载，首次选中才建控件）
+          // 主区：路由视图——选中哪页挂哪页，没选过的只留空壳；对话框挂在这一列上
           @ui.col(
             [
-              @shared.nav_page("基础组件", selected, @pages.page_basic(app)),
-              @shared.nav_page("表单组件", selected, @pages.page_form(app)),
-              @shared.nav_page("导航组件", selected, @pages.page_nav(app)),
-              @shared.nav_page("数据展示", selected, @pages.page_data(app)),
-              @shared.nav_page("图表", selected, @pages.page_charts(app)),
-              @shared.nav_page("代码文档", selected, @pages.page_code(app)),
-              @shared.nav_page("Store", selected, @pages.page_store_demo(app)),
-              @shared.nav_page("反馈组件", selected, @pages.page_feedback(app)),
-              @shared.nav_page("事件与布局", selected, @pages.page_events(app)),
-              @shared.nav_page("窗口", selected, @pages.page_window(app)),
-              @shared.nav_page("系统集成", selected, @pages.page_system(app)),
-              @shared.nav_page("图标库", selected, @pages.page_icons(app)),
-              @shared.nav_page("画布与富文本", selected, @pages.page_canvas(app)),
-              @shared.nav_page("过渡与效果", selected, @pages.page_anim(app)),
-              @shared.nav_page("系统能力探测", selected, @pages.page_sysprobe(app)),
+              nav.view(None),
               // 对话框挂窗口根：锚点自己是 0 尺寸占位，可见性只由 Store 驱动
               @ui.dialog(
                 app.dlg_basic,
@@ -265,6 +290,14 @@ fn main {
       slot.val = Some(a)
       // 窗口页/快捷键页经 `app.host` 取宿主（页函数体跑完时还没挂载，这里填）
       app.host.val = Some(a)
+      // 空闲预建：首屏之后一拍一页，队列建空自动停；切页时把进度报出来
+      nav.start_prefetch()
+      nav.store_at(0).subscribe(fn(k : String) -> Unit {
+        println(
+          "SHOWCASE-ROUTE page=\{k} pending=\{nav.pending_count().to_string()} " +
+            "path=\{nav.path()}",
+        )
+      })
       // 单实例的 D-Bus 接线：排期通道与 200ms 泵都由宿主给（dbus 不引 GUI
       // 核心层）。无总线时 pump 空转，无副作用。
       @dbus.dbus_set_post_delayed(fn(ms : Int, f : () -> Unit) -> Unit {
@@ -278,7 +311,7 @@ fn main {
       (pump.val)()
       // 原生菜单栏：模型翻译成原生菜单挂窗口；项点击经 WM_COMMAND 回收，
       // 100ms 轮询表派发到模型回调（托盘菜单项走同一条派发链）
-      let bar = build_menu_bar(app)
+      let bar = build_menu_bar(app, nav)
       if bar.apply_to(a.window()) {
         let menu_tick : Ref[() -> Unit] = Ref(fn() { () })
         menu_tick.val = fn() -> Unit {
@@ -311,12 +344,16 @@ fn main {
       // 输入框的 Ctrl+C/X/V 接系统剪贴板（演示板按真实使用形态开；探测不可用
       // 时内核自动保持内部剪贴板，见 gui/ui/clipboard.mbt）
       @ui.use_system_clipboard(true)
-      println("SHOWCASE-READY title=\{SHOWCASE_TITLE} pages=15 follow=1")
+      let t_ready = @win.now_ms()
+      println(
+        "SHOWCASE-READY title=\{SHOWCASE_TITLE} pages=15 follow=1 " +
+          "startup_ms=\{(t_ready - t_start).to_string()}",
+      )
       @base.paint_profile_reset()
       host.run()
     }
   }
-  println("SHOWCASE-DONE page=\{selected.get()}")
+  println("SHOWCASE-DONE page=\{nav.path()}")
   // 帧耗时分段账本：切页/渲染卡顿归因用（布局 vs 绘制 vs 上屏，见 gui/base/prof.mbt）。
   let prof = @base.paint_profile_summary()
   println("SHOWCASE-PROF " + prof)
