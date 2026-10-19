@@ -4,7 +4,7 @@
 // 1. Linux：纯 MoonBit 的 StatusNotifierItem（`dbus/sni.mbt`，会话总线直连
 //    面板，不依赖 AppIndicator 运行库）。判据是 watcher 是否在线
 //    （`@dbus.sni_watcher_present()`）——只连得上总线不算数。
-// 2. Windows：`win` 的 Shell_NotifyIconW 后端（W20c 本批桩）。
+// 2. Windows：`win` 的 Shell_NotifyIconW 后端（W20c 桩）。
 // 3. 皆无 → `Err(TrayError::Unsupported)`（**结构化报错，绝不静默失效**）。
 //
 // 回调不蹦床：Win32 侧左键/右键压进进程级队列，宿主每拍调

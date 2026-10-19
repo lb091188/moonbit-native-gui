@@ -1112,12 +1112,12 @@ void img_free(int64_t h) {
   }
 }
 
-// ---- 动图（GIF）：macOS 本批退回静帧 ----
+// ---- 动图（GIF）：macOS 退回静帧 ----
 //
 // ImageIO 给的是**原始子矩形帧**（与 WIC 同一条事实：它不替调用方合成），整幅
 // 合成要逐帧读「帧矩形 + disposal」两项，而它们在 ImageIO 里的公开程度不够确定
 // （disposal 不在 Apple 的 GIF 属性清单上）。没有真机可回证时硬写，错的形态是
-// 「动图错位/残影」这类肉眼难判的画面问题，所以本批按平台既有降级口径走：
+// 「动图错位/残影」这类肉眼难判的画面问题，所以按平台既有降级口径走：
 // `img_anim_decode_file` 给 0 = 解不出动图，`ui/gif` 组件退回**首帧静图**
 // （静态解码那条路仍取首帧，图不丢）。缺口记 TODO.md「mac 平台批」，真机上用
 // experiment 探针把属性键回证后再补。
@@ -1874,7 +1874,7 @@ int img_anim_delay_ms(int64_t h) {
 }
 
 // 单调递增、不回绕：与 Linux 分支同口径（GdkPixbuf 的迭代器同样只加不减），
-// 组件侧 `looping=false` 的「帧号回到 0」判据因此在两平台都不触发——本批不改
+// 组件侧 `looping=false` 的「帧号回到 0」判据因此在两平台都不触发——不改
 // 这条既有语义，见 docs/zh/adaptation.md。
 int img_anim_frame(int64_t h) {
   WicAnim *a = anim_of(h);

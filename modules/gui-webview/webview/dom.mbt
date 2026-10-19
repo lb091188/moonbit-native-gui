@@ -16,7 +16,7 @@ pub(all) enum DomKind {
 
 ///|
 /// 统一的包裹：`JSON.stringify({title,url,<字段>})`。括号由这一处闭合，四档只写
-/// 自己的字段——散在各处的 `}})` 是语法错最容易出现的地方（本批实测踩过一次）。
+/// 自己的字段——散在各处的 `}})` 是语法错最容易出现的地方（实测踩过一次）。
 fn dom_wrap(fields : String) -> String {
   "JSON.stringify({title:document.title,url:location.href," + fields + "})"
 }

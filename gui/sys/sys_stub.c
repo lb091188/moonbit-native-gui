@@ -1797,7 +1797,7 @@ int32_t yue_sys_autostart_remove(const char *app_id, int32_t *ok) {
 //   Linux    X11 的 XScreenSaver 扩展（XSS）：**运行期 dlopen**，因为 sys 的
 //            Linux 链接行只有 pthread/dl/m/stdc++，headless 消费者不该被 X
 //            库绑住；符号取不到 / 没有 DISPLAY（Wayland 会话）一律 ok=0
-//   macOS    本批不实现（空探测给 0，门面转 Unsupported）
+//   macOS    不实现（空探测给 0，门面转 Unsupported）
 //
 // 返回：`*ok = 1` 成功（毫秒，非负）；`*ok = 0` 本平台/本会话取不到。
 // `yue_sys_idle_supported` 是运行期能力探测（Windows 恒 1；Linux 要
