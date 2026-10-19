@@ -2725,3 +2725,9 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **图表配色不随主色**：`series_color` 原先复用 primary/success/warning/danger 四语义色——主色偏红时 primary 与 danger 几乎同色，系列不可分辨。`Theme` 增 `chart_palette`（5 色，从主色色相按 128°/38°/210°/285° 旋转，饱和与明度按深浅模式钳制），`theme_chart_color(i)` 供图表取色；`theme_from_accent` 现算，内置深浅主题各带一份静态表。判据：换任意主色后前两系列色差可辨，系列 1 恒等于主色。
 - **Alert 关闭钮在右上角**：用户口径是右缘垂直居中。✕ 与热区一起改为 `r.h/2` 居中，测试同步改采样区。
 - **键盘键多击**：鼠标多击（W32 ClickTracker）之外补 `KeyTracker`——同 keysym+mods 的按下在 60–400ms 内再按计多击（下限滤系统自动重复 25–40ms/拍）；`Widget.on_key_double/on_key_triple` 只喂焦点控件，`App::bind_key_double(spec, cb)` 走窗口级兜底通道。单测直接改 tracker 的 last_time 造时间窗（真实间隔无法等待）。
+
+### Linux 真机反馈修复集（2026-10-17 第二批，桌面环境已换 Cinnamon/Muffin）
+
+- **NoWrap 文本不裁切**：`pt_render_box` 在 `wrap=0 && ellipsize=0` 时不设 Pango 宽度（否则会被折行），文字自然画出声明盒；mac 侧绘制有盒裁切、Linux 侧没有。修：`pt_draw_box_cr` 在 `save` 后按声明盒 `cairo_clip`（宽/高为 0 视为该轴不裁）。判据：限宽 300 的 NoWrap 文本右缘齐盒。
+- **Desktop 层压在桌面图标之上**：Cinnamon 的桌面图标本身是 DESKTOP 型 X11 窗口；运行时对已映射窗改 GDK 类型提示，Muffin 不重新评估，且后 map 的同型窗口叠在上层。修：`wm_set_layer(Desktop)` 直接 `XChangeProperty(_NET_WM_WINDOW_TYPE_DESKTOP)` + `gtk_window_set_keep_below` + `XLowerWindow` 压栈；复位档写回 NORMAL 类型。
+- **系统级拖出后全局光标卡在「+」**：`wm_dragdnd_send` 从 MoonBit 事件栈（非 GTK 派发栈内）手动起拖，拖拽结束只等 `drag-end`，指针 grab 的 ungrab 有概率漏掉——表现为拖放完成后系统光标一直是复制态。修：循环退出后补 `gdk_seat_ungrab` + `gdk_display_flush`，并清掉存档的按下事件；超时兜底路径先 `gdk_drag_abort`（此前只置标志，上下文还活着）。判据：拖文件到文件管理器、拖文本到编辑器，松手后光标立即复原，可正常点击。
