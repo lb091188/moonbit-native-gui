@@ -23,8 +23,17 @@ pub fn mask_of(text : String) -> String {
 
 ///|
 /// 前缀像素宽（`upto` 字节下标，由调用方保证落在码点边界）。
-fn prefix_width(ed : @input.Editor, upto : Int, font : @text.Font) -> Double {
-  match @text.measure_font(ed.get_text_in_range(0, upto), font) {
+/// `mask` 为真时按遮罩串测宽——密码框屏幕上画的是等宽圆点，用原文字宽
+/// 定位光标/命中会落进点串中间（圆点与数字/汉字的字宽并不相等）。
+fn prefix_width(
+  ed : @input.Editor,
+  upto : Int,
+  font : @text.Font,
+  mask? : Bool = false,
+) -> Double {
+  let raw = ed.get_text_in_range(0, upto)
+  let shown = if mask { mask_of(raw) } else { raw }
+  match @text.measure_font(shown, font) {
     Some(m) => m.width.to_double()
     None => 0.0
   }
@@ -32,13 +41,19 @@ fn prefix_width(ed : @input.Editor, upto : Int, font : @text.Font) -> Double {
 
 ///|
 /// 像素位置 → 字节下标：逐码点量前缀，取「不超过 x」的最右边界。`pad` 是文本起点。
-fn byte_at_x(ed : @input.Editor, x : Double, pad : Double, font : @text.Font) -> Int {
+fn byte_at_x(
+  ed : @input.Editor,
+  x : Double,
+  pad : Double,
+  font : @text.Font,
+  mask? : Bool = false,
+) -> Int {
   let n = ed.byte_len()
   let mut best = 0
   let mut k = 0
   while k < n {
     let next = ed.boundary_after(k + 1)
-    if prefix_width(ed, next, font) + pad <= x {
+    if prefix_width(ed, next, font, mask=mask) + pad <= x {
       best = next
     }
     if next <= k {
@@ -143,7 +158,9 @@ pub fn input(
   let show_text = fn() -> String {
     if mask { mask_of(ed.get_text()) } else { ed.get_text() }
   }
-  let caret_x = fn() -> Double { pad + prefix_width(ed, ed.caret_pos(), font) }
+  let caret_x = fn() -> Double {
+    pad + prefix_width(ed, ed.caret_pos(), font, mask=mask)
+  }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
     let off = enabled_cell(None, false)
@@ -167,8 +184,8 @@ pub fn input(
       p.fill_rect(0.0, 0.0, r.w, r.h)
       match ed.selection() {
         Some((s, e)) => {
-          let x0 = pad + prefix_width(ed, s, font)
-          let x1 = pad + prefix_width(ed, e, font)
+          let x0 = pad + prefix_width(ed, s, font, mask=mask)
+          let x1 = pad + prefix_width(ed, e, font, mask=mask)
           p.set_fill_color(@theme.theme_primary_light())
           p.fill_rect(x0, ty, (x1 - x0).max(1.0), lh)
         }
@@ -281,10 +298,13 @@ pub fn input(
           last_x.val = ev.x
           dragging.val = true
           if dbl {
-            let (s, e) = word_range(ed.get_text(), byte_at_x(ed, ev.x, pad, font))
+            let (s, e) = word_range(
+              ed.get_text(),
+              byte_at_x(ed, ev.x, pad, font, mask=mask),
+            )
             ed.select_range(s, e)
           } else {
-            let at = byte_at_x(ed, ev.x, pad, font)
+            let at = byte_at_x(ed, ev.x, pad, font, mask=mask)
             ed.select_range(at, at)
             anchor.val = at
           }
@@ -294,7 +314,7 @@ pub fn input(
         @widget.PointerKind::Move => {
           if dragging.val {
             // 拖出的部分靠宿主的捕获期投递，选区可以越过框边缘继续走
-            ed.select_range(anchor.val, byte_at_x(ed, ev.x, pad, font))
+            ed.select_range(anchor.val, byte_at_x(ed, ev.x, pad, font, mask=mask))
             @widget.invalidate()
           }
           dragging.val

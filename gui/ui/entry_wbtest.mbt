@@ -392,3 +392,35 @@ test "抬起事件不进编辑内核：按下+抬起恰一个字符" {
   )
   assert_eq(store.get(), "hia")
 }
+
+///|
+test "密码遮罩：光标按遮罩串宽度定位（不是原文字宽）" {
+  if !ui_text_guard() {
+    return
+  }
+  let (root, w, _store) = mounted_entry("123", 200.0, password=true)
+  w.focused = true
+  root.relayout(220.0, 60.0)
+  // im_cursor 给的是绝对矩形；控件在根内的 x 加上本地 caret 偏移
+  let cur = match w.im_cursor {
+    Some(f) =>
+      match f(w) {
+        Some(r) => r.x
+        None => -1.0
+      }
+    None => -1.0
+  }
+  let pad = 4.0
+  let mask_w = match @text.measure_font(mask_of("123"), @text.Font::new("", 13.0)) {
+    Some(m) => m.width.to_double()
+    None => 0.0
+  }
+  let raw_w = match @text.measure_font("123", @text.Font::new("", 13.0)) {
+    Some(m) => m.width.to_double()
+    None => 0.0
+  }
+  // 圆点比数字宽：修正后的光标位置应贴遮罩串宽度，而不是原文字宽
+  let rel = cur - w.rect.x
+  assert_true(rel >= pad + mask_w - 1.0 && rel <= pad + mask_w + 1.0)
+  assert_true(rel > pad + raw_w)
+}
