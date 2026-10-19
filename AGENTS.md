@@ -1,6 +1,6 @@
 # AGENTS.md — native-gui AI 协作规则
 
-native-gui(`NoahLiu/native-gui`): MoonBit 的跨平台桌面 GUI 框架——一套代码直出 Windows / Linux / macOS 原生窗口，系统能力开箱即用，`moon add` 后零配置。详见 [README](README.md)。
+native-gui(`NoahLiu/native-gui`): MoonBit 的跨平台桌面 GUI 框架——一套代码直出 Windows / Linux / macOS 原生窗口，系统能力开箱即用，`moon add` 后零配置。详见 [README_ZH.md](README_ZH.md)。
 当前主链路: **Ubuntu 24.04 + X11 + XFCE**。
 
 ## 硬性规则
@@ -66,4 +66,4 @@ docs/                   对外文档站(VitePress，中英 docs/ 与 docs/zh/)
 - MoonBit 语言与工具链: `.agents/skills/moonbit-agent-guide/`
 - 路线图: `TODO.md`
 - 模块拆分方案与判据: `proposals/module-structure.md`
-- 快速开始/架构: `README.md`(中文 `README_ZH.md`)
+- 快速开始/架构: `README_ZH.md`(对外英文文档在 `docs/`,仓库根不再留英文 README)
