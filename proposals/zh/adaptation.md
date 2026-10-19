@@ -2736,3 +2736,11 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 
 - **机器信息整条报读不到**：`si_machine` 把 `/sys/class/dmi/id/product_serial` 当必需项，而该档权限 `0400`（多数发行版仅 root 可读，本机实测确认），vendor/product 明明读得到也被连累成 `SiReadFailed`。修：序列号回落 `/var/lib/dbus/machine-id` → `/etc/machine-id`（与 Windows 侧 `SerialNumber`→`MachineGuid` 同一兜底形态），两者都缺才报错。教训：DMI 三件套不是同权限档，必需项只能是全局可读的那两件。
 - **剪贴板第一次读不到、第二次手动触发才读到**：`gtk_clipboard_wait_for_text` 的首问会输给选区属主握手（Cinnamon 有 `csd-clipboard` 常驻接管属主，首问更容易空转返回 NULL），第二次问时属主缓存已热。修：首问为 NULL 时把主上下文中已就绪的事件跑一轮（`g_main_context_pending` + 非阻塞 `iteration`）再问一次。判据：应用启动后第一次点「读取剪贴板」即应回显内容。
+
+### macOS 真机反馈修复集（2026-10-19）
+
+- **系统级拖出：拖拽图形不从指针下起飞、有时整趟拖不出来、回报效果恒为「没成交」**：三处独立根因同一条报障。
+  - **桩与 extern 蹦床参数个数不对齐**（AGENTS 规则 4 的反例）：mac 臂的 `wm_dragdnd_send` 写成 6 参 `(id, payload, len, allowed, int64 x, int64 y)` 并把动作当返回值，而 `gui/win/ffi.mbt` 的声明与 Win32/GTK 两支都是 5 参 `(id, payload, len, allowed, int32_t *out_effect)`、返回「走没走成」。实际调用里第 5 个寄存器装的是 `Ref[Int]` 的指针，被 mac 侧当成 x 用、y 是残值；效果写不回 `out_effect` ⇒ 门面永远读 0（`Rejected`）。口径：跨平台符号一律「返回 0=这趟没起来、1=走完并写 `out_effect`」，新平台臂改签名前先对齐声明。
+  - **算出来的起拖点没被用上**：`setDraggingFrame:` 的矩形按视图坐标系（左下原点）给，旧实现固定 `(-24,-24)`/`(-90,-14)` 一类以视图原点为基准的值 ⇒ 图标与文本纸片都从窗口左下角飞，且 frame 不覆盖指针所在处。改法：起拖点取存档按下事件的 `locationInWindow`，`[view convertPoint:fromView:nil]` 换到视图坐标，文件档以它为中心错位叠放、文本档以它为中心居中。
+  - **拿拖入挂接当拖出的门**：起拖前查「本窗是否 `registerForDraggedTypes` 过」，没挂就直接 `return 1`——按门面语义这是「走完、效果 0」，于是 `drag_source(external=true)` 既不真拖、也**不再回落到应用内会话**（`Ok` 那支绝不回落）。出站拖拽不需要入站注册，门直接去掉。
+- **验证方式**：`moon check`/`moon test win widget ui` 在库侧过；mac 臂的 C 只能在 mac 上编译，本批 Linux 主机无法自校编译，真机判据=色块/文本/文件三档各拖到访达与文本编辑器一次，拖拽图形跟手、松手成交、`on_external` 回报的效果与实际落点一致（复制/移动/链接随修饰键）。

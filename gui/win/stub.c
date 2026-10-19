@@ -9825,13 +9825,6 @@ static void wm_dnd_take_dragging(id<NSDraggingInfo> info) {
 }
 @end
 
-static int wm_dragdnd_enabled(int64_t id) {
-  if (id <= 0 || id >= WM_MAX_WINDOWS) {
-    return 0;
-  }
-  return wm_dnd_registered[(int)id];
-}
-
 int wm_dragdnd_supported(void) { return 1; }
 
 int wm_dragdnd_enable(int64_t id) {
@@ -9942,8 +9935,10 @@ int wm_dragdnd_count(void) {
 
 // 载荷线形状 → 拖拽项数组：kind 4 = 每路径一个文件 URL 项（Finder 图标错位
 // 叠放），kind 1 = 单个文本项（自绘纸片当拖拽图像）。别的 kind（图像/自定
-// 格式）暂不接——给空表、门面收 2「构造失败」，与 GTK 支同口径。
-static NSArray<NSDraggingItem *> *wm_dnd_build_items(void) {
+// 格式）暂不接——给空表、门面收 0「这趟没起来」，与 GTK 支同口径。
+// `at` 是起拖点在视图坐标系（左下原点）里的位置：拖拽图形的 frame 就按它摆，
+// 图标才跟着指针走（摆在视图原点会看着从左下角飞出来，也容易出现「拖不出来」）。
+static NSArray<NSDraggingItem *> *wm_dnd_build_items(NSPoint at) {
   NSMutableArray<NSDraggingItem *> *out = [NSMutableArray array];
   if (wm_dnd_src_len < 4) {
     return out;
@@ -9986,7 +9981,8 @@ static NSArray<NSDraggingItem *> *wm_dnd_build_items(void) {
                 [[NSDraggingItem alloc] initWithPasteboardWriter:url];
             NSImage *icon = [[NSWorkspace sharedWorkspace] iconForFile:p];
             [icon setSize:NSMakeSize(48.0, 48.0)];
-            NSRect f = NSMakeRect(-24.0 + n * 8.0, -24.0 - n * 8.0, 48.0, 48.0);
+            NSRect f = NSMakeRect(at.x - 24.0 + n * 8.0,
+                                   at.y - 24.0 - n * 8.0, 48.0, 48.0);
             [di setDraggingFrame:f contents:icon];
             [out addObject:di];
             n++;
@@ -10020,7 +10016,8 @@ static NSArray<NSDraggingItem *> *wm_dnd_build_items(void) {
                   withAttributes:attrs];
                 return YES;
               }];
-    [di setDraggingFrame:NSMakeRect(-90.0, -14.0, 180.0, 28.0) contents:img];
+    [di setDraggingFrame:NSMakeRect(at.x - 90.0, at.y - 14.0, 180.0, 28.0)
+                contents:img];
     [out addObject:di];
     return out;
   }
@@ -10028,64 +10025,64 @@ static NSArray<NSDraggingItem *> *wm_dnd_build_items(void) {
 }
 
 int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
-                    int64_t x, int64_t y) {
+                    int32_t *out_effect) {
   @autoreleasepool {
-    if (!wm_dragdnd_enabled((int)id)) {
-      return 1; // 先 enable
+    if (out_effect != NULL) {
+      *out_effect = 0;
     }
-    if (payload == NULL || len > WM_DND_PAYLOAD_MAX) {
-      return 2;
+    // 出站拖拽不要求本窗挂过投放目标（registerForDraggedTypes 只管进不管出）
+    if (payload == NULL || len < 4 || len > WM_DND_PAYLOAD_MAX) {
+      return 0;
     }
     WMState *s = wm_state(id);
     if (s == nil || s.view == nil) {
-      return 2;
+      return 0;
     }
     NSEvent *down = s->down_ev; // 按下事件必须在场（与 GTK/Win32 同一条契约）
     if (down == nil) {
-      return 2;
+      return 0;
     }
     memmove(wm_dnd_src, payload, (size_t)len);
     wm_dnd_src_len = len;
     wm_dnd_src_action = 0;
     wm_dnd_src_done = 0;
     wm_dnd_src_allowed = allowed;
-    NSArray<NSDraggingItem *> *items = wm_dnd_build_items();
+    // 起拖点：按下事件在窗口基坐标（左下原点）→ 视图基坐标，拖拽图形按它摆
+    NSPoint at = [s.view convertPoint:[down locationInWindow] fromView:nil];
+    NSArray<NSDraggingItem *> *items = wm_dnd_build_items(at);
     if ([items count] == 0) {
-      return 2;
+      return 0;
     }
-    // 起拖点：门面给物理像素、左上原点 → 视图基窗口坐标（左下原点）
-    CGFloat sc = wm_scale_of(s);
-    NSRect vb = [s.view bounds];
-    NSPoint start =
-        NSMakePoint((CGFloat)x / sc, vb.size.height - (CGFloat)y / sc);
-    NSPoint win_pt = [s.view convertPoint:start toView:nil];
     s->down_ev = nil; // 用掉即清：下一次按下才会再存
     NSDraggingSession *session =
         [s.view beginDraggingSessionWithItems:items event:down source:s.view];
     if (session == nil) {
-      return 2;
+      return 0;
     }
     // 嵌套泵：阻塞到 draggingSession:endedAtPoint；泵里照常派发普通事件
     // （泵一停别的窗全冻——同 GTK 支嵌套主循环）。60s 超时救场：
-    // cancelDragOperation: 在现 SDK 已标注不再支持，救场只回 3 不硬撤会话。
+    // cancelDragOperation: 在现 SDK 已标注不再支持，救场按「走完但没成交」收。
     double deadline = [NSDate timeIntervalSinceReferenceDate] + 60.0;
     while (!wm_dnd_src_done &&
            [NSDate timeIntervalSinceReferenceDate] < deadline) {
-      NSEvent *ev =
-          [NSApp nextEventMatchingMask:NSEventMaskAny
-                             untilDate:[NSDate dateWithTimeIntervalSinceNow:
-                                                          0.004]
-                                inMode:NSDefaultRunLoopMode
-                               dequeue:YES];
-    if (ev != nil && !wm_is_wake(ev)) {
-      [NSApp sendEvent:ev];
+      NSEvent *ev = [NSApp
+          nextEventMatchingMask:NSEventMaskAny
+                      untilDate:[NSDate
+                                   dateWithTimeIntervalSinceNow:0.004]
+                         inMode:NSDefaultRunLoopMode
+                        dequeue:YES];
+      if (ev != nil && !wm_is_wake(ev)) {
+        [NSApp sendEvent:ev];
+      }
     }
+    if (!wm_dnd_src_done) {
+      return 1; // 超时：这趟算走完了，效果 0（没成交），与 GTK 支同口径
+    }
+    if (out_effect != NULL) {
+      *out_effect = wm_dnd_src_action;
+    }
+    return 1;
   }
-  if (!wm_dnd_src_done) {
-    return 3;
-  }
-  return wm_dnd_src_action;
-}
 }
 
 #elif !defined(__linux__) && !defined(__APPLE__)
