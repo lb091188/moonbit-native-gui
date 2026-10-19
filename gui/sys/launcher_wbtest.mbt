@@ -130,7 +130,7 @@ test {
   assert_eq(launcher_win_path(""), "")
   // 混合输入也一致（cwd 给反斜杠、用户给正斜杠）
   let mixed = launcher_abs_path("proposals/adaptation.md", "C:\\repo")
-  assert_eq(launcher_win_path(mixed), "C:\\repo\\docs\\zh\\adaptation.md")
+  assert_eq(launcher_win_path(mixed), "C:\\repo\\proposals\\adaptation.md")
 }
 
 ///|
