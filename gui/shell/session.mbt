@@ -261,7 +261,7 @@ pub fn Session::cancel_timer(self : Session, id : Int) -> Bool {
 }
 
 ///|
-/// 推迟一拍执行（回调里不做重活的旧链路纪律）。
+/// 推迟一拍执行：回调里不做重活。
 pub fn Session::task(self : Session, work : () -> Unit) -> Unit {
   self.sched.post_task(work)
 }

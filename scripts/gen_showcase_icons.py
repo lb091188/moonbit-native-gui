@@ -3,9 +3,9 @@
 
 用法: python3 scripts/gen_showcase_icons.py
 读取 gui/icons/icons.mbt 的生成标记区(变体+font-class),按 GROUPS 分组输出,
-未分组的落入「其他」。G7 起页面面向新栈:图标走 @ui.icon(矢量自绘)、悬停名走
+未分组的落入「其他」。图标走 @ui.icon(矢量自绘)、悬停名走
 @ui.tooltip、间距走容器参数(column_gap/row_gap),段装配走 shared 的
-section/page(旧链路的 @yue.* 与 @components.* 已随旧链删除)。
+section/page。
 """
 
 import os
@@ -243,10 +243,10 @@ def main():
 
     total = sum(len(s[2]) for s in sections)
     out = []
-    out.append("// 图标库页:全量 %d 个矢量图标(矢量自绘,非字体字形)按分组展示,悬停看名称。" % total)
+    out.append("// 图标库页:全量矢量图标(矢量自绘,非字体字形)按分组展示,悬停看名称。")
     out.append("// 本页由 scripts/gen_showcase_icons.py 生成,勿手改;分组定义见该脚本 GROUPS。")
     out.append("// 网格为竖排 vbox 包行(每行 24 个)——外层容器必须 vbox,否则行组被")
-    out.append("// 水平排布、超宽截断(图标墙首版即此 bug)。G7 新栈口径:图标走 @ui.icon、")
+    out.append("// 水平排布、超宽截断(图标墙首版即此 bug)。口径:图标走 @ui.icon、")
     out.append("// 悬停名走 @ui.tooltip、间距走容器参数(column_gap/row_gap)。")
     out.append("")
     out.append("///|")

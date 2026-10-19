@@ -1,17 +1,16 @@
 // 系统集成页：文件对话框 / 消息框 / 通知 / 剪贴板 / 定时器 / 托盘 / 自启 /
 // 外部打开 / 系统信息 / 音量。
 //
-// G7 迁移记档（与 master 旧页的差）：
-// ① 旧页 13 段里 6 段本栈未接、整段不迁（按钮不放，口径写进本草头与人工清单）：
-//    关闭拦截（无 should_close 钩子）、单实例（TODO §6 接线项）、无边框透明窗
-//    （stub 无分层窗口透明度）、屏幕常亮（无 keep_awake）、休眠锁屏事件、
-//    电量与网络（无电源事件通道）——后四样随平台批；
-// ② 「电量网络」的位置换成本栈已有的「系统信息」（si_os/si_machine/si_memory/
-//    si_uptime + desktop_name），另补「音量」段（vol_* 三平台门面已在）；
-// ③ 通知从 `@yue.NotificationCenter` 切 `@shell.notify_send`（W 族门面：探测 +
-//    结构化错误 + 后端名回显）；托盘从 `@yue.Tray` 切 `@shell.Tray`（dispatch 由
-//    200ms 轮询表驱动——本栈宿主循环没有每帧钩子，native-app 同表）；
-// ④ 文件对话框 parent 传宿主窗口 id（`App::wid().to_int64()`），旧链路传 View。
+// 四条口径：
+// ① 未接的能力整段不放（按钮不摆，口径写进本草头与人工清单）：关闭拦截（无
+//    should_close 钩子）、单实例（TODO §6 接线项）、无边框透明窗（stub 无分层
+//    窗口透明度）、屏幕常亮（无 keep_awake）、休眠锁屏事件、电量与网络（无电源
+//    事件通道）——后四样待平台批；
+// ② 演示位用「系统信息」（si_os/si_machine/si_memory/si_uptime + desktop_name），
+//    另带「音量」段（vol_* 三平台门面已在）；
+// ③ 通知走 `@shell.notify_send`（探测 + 结构化错误 + 后端名回显）；托盘走
+//    `@shell.Tray`，dispatch 由 200ms 轮询表驱动（宿主循环没有每帧钩子）；
+// ④ 文件对话框 parent 传宿主窗口 id（`App::wid().to_int64()`）。
 
 ///|
 /// 自启动用的应用 id（reverse-DNS 形态：autostart_valid_app_id 要求至少一个点、

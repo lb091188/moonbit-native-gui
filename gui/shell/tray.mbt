@@ -1,6 +1,6 @@
 // 系统托盘门面（W20c）：跨平台一致的 `Tray` API，平台差异收敛在后端选择里。
 //
-// 后端选择（按优先级，与旧栈同口径）：
+// 后端选择（按优先级）：
 // 1. Linux：纯 MoonBit 的 StatusNotifierItem（`dbus/sni.mbt`，会话总线直连
 //    面板，不依赖 AppIndicator 运行库）。判据是 watcher 是否在线
 //    （`@dbus.sni_watcher_present()`）——只连得上总线不算数。
@@ -25,7 +25,7 @@ pub(all) enum TrayBackend {
 
 ///|
 /// 结构化托盘错误：后端缺失 / 图标读取失败 / 其他后端原因。消费方 match 即可，
-/// 无需探平台。（旧栈同名类型在待退役的 `yue/error.mbt`，新栈口径住本文件。）
+/// 无需探平台。
 pub(all) enum TrayError {
   /// 系统没有可用的托盘后端（Linux watcher 不在线且无原生档；macOS 待真机）
   Unsupported
@@ -91,7 +91,7 @@ pub fn Tray::is_supported() -> Bool {
 /// `icon` 可直接传入已建好的 `@win.Icon`（例如像素现建，W20f 的
 /// `icon_from_bgra`），给了就不再读 `icon_path`（路径仍用于推导托盘 Id）。
 /// Linux SNI 后端的图标走面板的主题图标名 / 程序内置位图，`icon_path` 只用于
-/// 推导托盘 Id（旧栈同口径）；PNG 任意像素解码未内置，需要时用
+/// 推导托盘 Id；PNG 任意像素解码未内置，需要时用
 /// `set_icon_name` 指定主题图标名。
 pub fn Tray::new(
   icon_path : String,
