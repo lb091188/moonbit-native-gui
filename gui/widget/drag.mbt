@@ -630,6 +630,17 @@ pub fn drag_external_send_supported() -> Bool {
 }
 
 ///|
+/// 系统级拖出没起来时的收尾：队列里可能还留着上一趟投放会话的 ENTER（leave
+/// 未到），不清掉的话回落的应用内会话会被「已在拖拽」挡下。外部拖出与外部
+/// 拖入不会同时发生，这里收的只会是残留会话。
+pub fn drag_external_abort_session() -> Unit {
+  drag_cancel()
+  drag_ext_window.val = 0
+  drag_ext_root.val = None
+  drag_ext_effect.val = 0
+}
+
+///|
 /// 起一趟系统级**拖出**（三平台已接）：把数据交给系统的拖放通道，对方程序（文件管
 /// 理器、桌面、编辑器）拿到的是标准的复制/移动/链接语义，效果由按住的修饰键定夺。
 /// 返回 `Ok(效果)`——`Ok(Rejected)` 表示用户取消或松手处没有成交点；`Err` 表示这趟
