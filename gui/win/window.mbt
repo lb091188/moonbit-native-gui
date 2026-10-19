@@ -132,9 +132,13 @@ pub fn Window::set_transparent_bg(self : Window, on : Bool) -> Unit {
 }
 
 ///|
+/// 窗口层级档位。桌面拆两档：`Desktop`=桌面图标之下（壁纸场景，鼠标事件归桌面），
+/// `DesktopWidget`=图标之上、普通窗口之下（桌面小部件场景，本窗自己收事件）；
+/// 两档都不进任务栏、常驻各工作区。目标层由窗口管理器/Shell 兑现。
 pub(all) enum WindowLayer {
   Normal
   Desktop
+  DesktopWidget
   AlwaysOnTop
   Dock
 }
@@ -145,6 +149,7 @@ fn window_layer_to_int(l : WindowLayer) -> Int {
     Desktop => 1
     AlwaysOnTop => 2
     Dock => 3
+    DesktopWidget => 4
   }
 }
 
