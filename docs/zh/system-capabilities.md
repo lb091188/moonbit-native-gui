@@ -250,7 +250,7 @@ let _ = @sys.wp_set("/home/me/Pictures/wall.png")
 媒体播放不在主模块的包里，在可选模块 `NoahLiu/gui-media`（依赖 `NoahLiu/ffmpeg-mbt`）：
 
 ```moonbit
-// moon.mod import: "NoahLiu/gui-media@0.1.0"
+// moon.mod import: "NoahLiu/gui-media@0.2.0"
 // moon.pkg import: "NoahLiu/gui-media/media" @guimedia
 ```
 

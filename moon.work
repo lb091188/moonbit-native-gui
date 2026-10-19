@@ -2,6 +2,7 @@ members = [
   "gui",
   "experiment",
   "modules/ffmpeg-mbt",
+  "modules/mdparse",
   "modules/yoga-mbt",
   "modules/gui-media",
   "modules/gui-webview",
