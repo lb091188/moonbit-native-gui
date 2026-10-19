@@ -59,6 +59,23 @@ pub fn route_branch(
 }
 
 ///|
+/// 策略判定走 `match`，不给枚举派生 `Eq`：本工具链里 `derive(Eq)` 会把 impl 方法
+/// 隐式升成普通方法并告警（`gui/widget/drag.mbt:60` 同条记档）。
+fn LoadPolicy::is_lazy(self : LoadPolicy) -> Bool {
+  match self {
+    Lazy => true
+    _ => false
+  }
+}
+
+fn LoadPolicy::is_eager(self : LoadPolicy) -> Bool {
+  match self {
+    Eager => true
+    _ => false
+  }
+}
+
+///|
 /// 叶节点判定。
 pub fn Route::is_leaf(self : Route) -> Bool {
   self.children.length() == 0
