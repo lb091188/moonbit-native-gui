@@ -225,9 +225,25 @@ labels 与键分离。归一化规则：写第 i 层 → 第 i+1.. 层各自回�
   - 面包屑由本包自绘（`row` + `@ui.link`），不复用 `@ui.breadcrumb`：点第 i 段要写第 i 层
     并让深层回落，库版只做 `selected.set(项名)`；末段不给点击。
   - wbtest 7 项全绿。「点段条切段」这一向要真鼠标，留在真机清单里。
-- [ ] **T7 showcase 接入**：`main.mbt` 的 `nav_page` 调用点与 `shared/section.mbt` 的
-  `nav_page`/`section_body`（页/段两层）换成一张路由表；`section.mbt` 上移进包，showcase
-  只留页内容与 App 状态。菜单栏「导航」项、单实例 Wake 切回首页都改成走 `on_link`。
+- [x] **T7 showcase 接入（页级）**：`main.mbt` 的 15 个 `nav_page` 调用点换成一张路由表
+  （`route_of_page` 把每页包成叶 thunk，App 还没装配就构造直接 abort），主区一个
+  `nav.view(None)`，侧栏走 `nav.sidebar(groups, icons=..., width=...)`；`shared/section.mbt`
+  的 `nav_page` 删除（页级显隐与按需挂载由包的槽承担），`page`/`section_body` 留在示例侧
+  继续管段级懒挂。`app.selected` 就是 `nav.store_at(0)`，所以导航组件页那两个 demo
+  （`segmented`/`breadcrumb` 绑同一份导航状态）照旧生效。菜单栏「导航」项改走
+  `nav.on_link(name)`，单实例 Wake 改走 `nav.goto("基础组件")`。
+  - 策略落位：`系统集成` 标 `Eager`（托盘要启动即出，且建窗前构造＝今天的时机），
+    `系统能力探测` 标 `Lazy`（构造期的全量探测不再在启动空闲期空跑，点开才探），
+    其余 13 页 `Prefetch`。
+  - stdout 判据：`SHOWCASE-READY ... startup_ms=`（启动到就绪的毫秒数，和接入前对照）、
+    每次切页打 `SHOWCASE-ROUTE page=… pending=… path=…`（预建进度与切页时机）。
+  - 门禁：`moon check` 零错零警告、`moon build examples/showcase --target native` 过；
+    真机手感与上面两个读数由用户执行（T10）。
+- [ ] **T7b（待定）段级路由**：把每页的段也做成路由叶（页=分支、段=叶），需要 15 个页
+  文件把 `page_X(app) -> Node` 改成返回段表、`section(...)` 的 content 改成 thunk。
+  按 T1 读数，页级预建已经把「点开未预建页」压到最坏 143ms（代码文档页，且那 138ms
+  集中在它其中一段的 markdown/代码高亮构造上）——段级化的边际收益主要是把这一页的
+  构造摊成按段付，代价是 15 个文件的签名改动与逐页真机回归。先做页级、段级按读数再定。
 - [ ] **T8（条件）页内虚拟化**：按 T1 读数决定。超阈值的页（图标墙、数据页大表）走
   `virt_list` / `table_v`（`gui/ui/virtlist.mbt:11/144`）只渲染可视区。
 - [ ] **T9 门禁与文档**：`cd gui && moon check` 零错零警告；`gui/router` 的 `_wbtest.mbt`
