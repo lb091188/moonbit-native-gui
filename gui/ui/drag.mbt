@@ -108,7 +108,7 @@ pub fn drag_source(
                     // 用户已经松手/取消，此时再开应用内会话会凭空拖出一段）
                     armed.val = false
                     dragging.val = false
-                    match @widget.drag_external_send(data) {
+                    match @widget.drag_external_send(data, mods=ev.mods) {
                       Ok(e) => {
                         dnd_diag("系统级走完：效果位=\{e.flag()}")
                         on_external(Ok(e))
