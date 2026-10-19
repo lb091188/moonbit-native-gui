@@ -178,6 +178,17 @@ pub fn Router::ensure_current(self : Router) -> Unit {
 }
 
 ///|
+/// 已构造进缓存的节点数（与 `pending_count` 一起看才分得清「队列建空了」和
+/// 「队列没跑起来」——两种情况 pending 都是 0）。
+pub fn Router::built_count(self : Router) -> Int {
+  let mut n = 0
+  for (_k, _b) in self.built {
+    n += 1
+  }
+  n
+}
+
+///|
 /// 预建队列还剩多少个待建（跳过的 `Lazy` 不计）。
 pub fn Router::pending_count(self : Router) -> Int {
   let mut n = 0
