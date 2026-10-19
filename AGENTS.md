@@ -17,6 +17,7 @@ native-gui(`NoahLiu/native-gui`): MoonBit 的跨平台桌面 GUI 框架——一
 10. **代码注释与使用文档只说内容**——只写「是什么/怎么用/怎么做」；原理、根因写进 `proposals/adaptation.md` 等专门文档，不在内容文档与注释里展开。
 11. **MoonBit 侧跨平台分派一律运行时探测 + 模式匹配**——禁用 `#cfg(platform=)` 等编译指令，三平台同构优先。
 12. **TODO 收口即删**——条目完成立即从 `TODO.md` 删除，不留 `[x]` 堆积；交付面同批写进 `docs/zh/roadmap.md` 对应小节（平台列 ✅=已验证 / 🚧=已合入待真机 / ❌=未做 / ⏳=待定），坑与根因归 `proposals/adaptation.md`。反向同理：roadmap 与 TODO 不允许互相矛盾。
+13. **新内容按「目录地图」落位**——示例一律 `examples/<name>/` 独立模块并注册进 `moon.work`，依赖只写在自己的 `moon.mod`；不往既有示例模块里塞第二个示例，不往 `modules/` 里放示例。
 
 ## 常用命令
 
@@ -30,6 +31,32 @@ moon run examples/showcase      # 完整演示板
 ```
 
 门禁口径: 库门禁在 `gui/` 下按包限定跑。裸 `moon test` 会连带 examples / experiment / 媒体模块，其中含平台适配缺口(非库缺陷)，不作库门禁使用。
+
+## 目录地图(放东西的第一判据:找不到路先看这里)
+
+```
+gui/                    库模块 NoahLiu/native-gui(14 包)——唯一发布单元之一
+examples/<name>/        每个示例 = 一个独立模块 NoahLiu/native-gui-examples-<name>
+                        (hello / hello-themed / showcase / browser / sysmonitor /
+                         audio / video / headless-audio；assets/ 是共享资产目录，非模块)
+experiment/             探针与微基准模块 NoahLiu/native-gui-experiment
+modules/yoga-mbt        布局引擎模块
+modules/gui-media       媒体模块(ffmpeg + miniaudio 播放器组件)
+modules/gui-webview     WebView 模块
+modules/ffmpeg-mbt      ffmpeg 绑定模块
+moon.work               workspace 成员清单:上面这些模块全部注册在此
+proposals/              对内设计/方案/实测经验(纯中文，扁平一层，不分语言子目录)
+docs/                   对外文档站(VitePress，中英 docs/ 与 docs/zh/)
+```
+
+**依赖隔离靠模块，不靠包**:`moon.mod` 的 import 决定整个模块的依赖闭包，`moon.pkg` 只能从模块已解析的依赖里挑包。所以「某个示例不拖累其它示例」必须做成*每示例一个模块*，把多个示例塞进同一份 `moon.mod` 会重新耦合。新增示例的做法:
+
+1. 建目录 `examples/<name>/`(含 `main.mbt` + `moon.pkg`)，写一份**自己的** `moon.mod`:
+   `name = "NoahLiu/native-gui-examples-<name>"`，import 只列该示例真用到的模块。
+2. 把 `examples/<name>` 追加进 `moon.work` 的 `members`。
+3. 需要在 CI 里构建/冒烟就点名追加，别改成一个 `moon build` 扫整个 workspace(失败看不出是谁坏的)。
+4. 产物路径按模块名走:`_build/native/<mode>/build/NoahLiu/native-gui-examples-<name>/native-gui-examples-<name>.exe`
+   (`scripts/make_app.sh`、`release-bin.yml` 依赖这个口径)。
 
 ## 文档地图
 
