@@ -5903,8 +5903,12 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
                  "dest=%ld self=%d",
                  (long long)id, (int)ended, wm_dnd_src_get_calls, drained,
                  grabbed, dxid, self_dest);
-  if (grabbed) {
-    // 仍挂着 = GTK 那条收尾路径没跑到；seat 级 ungrab 是 GTK3.24 唯一的公开出口
+  // 这里**不再**代 GDK 收尾指针 grab：grab 是 GTK 自己为这条会话取的，收尾也在
+  // 它自己的路径里（上面排空事件就是让它跑完）。真机读数显示 `gdk_seat_ungrab`
+  // 之后 grab 读数照旧为 1（没减下去），却把座位的计数打乱——后果是之后别家
+  // 程序往本窗拖东西时，投放侧那次 ungrab 落空，指针停在拖拽态要等源程序退出。
+  // 只剩超时兜底那条（drag-abort 过）才可能真的漏，交给下一次读数的 grabbed= 判。
+  if (!ended && grabbed) {
     GdkSeat *seat = gdk_display_get_default_seat(disp);
     if (seat != NULL) {
       gdk_seat_ungrab(seat);
@@ -9836,6 +9840,31 @@ static void wm_dnd_take_dragging(id<NSDraggingInfo> info) {
 
 // ---- 拖入（destination）----
 
+// entered 时的承诺效果（与 Win32 支 DragEnter 同一条口径）：认出格式就先顶一档
+// ——源允许的话给复制，否则照源给的掩码回；格式认不出直接 None。首拍 MoonBit
+// 还没答，不给承诺值的话这趟会被 AppKit 当场判成「无处可放」，后面的
+// updated/prepare/perform 都不会再来问（真机：文件拖不进 mac 窗口）。
+static NSDragOperation wm_dnd_promised(id<NSDraggingInfo> sender, int slot) {
+  if (wm_dnd_buf_len < 4) {
+    return NSDragOperationNone; // 这份格式我们不收
+  }
+  NSDragOperation mask = [sender draggingSourceOperationMask];
+  NSDragOperation eff = wm_dnd_flag_to_ns(wm_dnd_effect[slot]);
+  if (eff != NSDragOperationNone && (mask == NSDragOperationNone || (eff & mask))) {
+    return eff; // MoonBit 上一拍已经答过
+  }
+  if (mask & NSDragOperationCopy) {
+    return NSDragOperationCopy;
+  }
+  if (mask & NSDragOperationMove) {
+    return NSDragOperationMove;
+  }
+  if (mask & NSDragOperationLink) {
+    return NSDragOperationLink;
+  }
+  return mask;
+}
+
 - (NSDragOperation)draggingEntered:(id<NSDraggingInfo>)sender {
   WMState *s = wm_state(vsid);
   if (s == nil) {
@@ -9847,8 +9876,11 @@ static void wm_dnd_take_dragging(id<NSDraggingInfo> info) {
   wm_dnd_take_dragging(sender);
   wm_dnd_active_slot = (int)vsid;
   wm_dnd_enter_sent[(int)vsid] = 1;
+  NSDragOperation promised = wm_dnd_promised(sender, (int)vsid);
+  // 承诺值先顶住 effect 位：Drop 来得比 MoonBit 第一拍快时也不能拒收
+  wm_dnd_effect[(int)vsid] = wm_dnd_ns_to_flag(promised);
   wm_dnd_push((int)vsid, 0, px, py);
-  return wm_dnd_flag_to_ns(wm_dnd_effect[(int)vsid]);
+  return promised;
 }
 
 - (NSDragOperation)draggingUpdated:(id<NSDraggingInfo>)sender {
@@ -9860,11 +9892,15 @@ static void wm_dnd_take_dragging(id<NSDraggingInfo> info) {
   int py = 0;
   wm_dnd_pt(self, [sender draggingLocation], &px, &py);
   if (!wm_dnd_enter_sent[(int)vsid]) {
-    // 有的源只发 updated 不发 entered：按 entered 补发 0（上层靠 0 定基准）
+    // 有的源只发 updated 不发 entered：按 entered 补发 0（上层靠 0 定基准），
+    // 承诺值同 entered 那条一起顶住
     wm_dnd_take_dragging(sender);
     wm_dnd_active_slot = (int)vsid;
     wm_dnd_enter_sent[(int)vsid] = 1;
+    NSDragOperation promised = wm_dnd_promised(sender, (int)vsid);
+    wm_dnd_effect[(int)vsid] = wm_dnd_ns_to_flag(promised);
     wm_dnd_push((int)vsid, 0, px, py);
+    return promised;
   }
   wm_dnd_push_motion(self, px, py);
   // 每拍读 MoonBit 写回的标志位（异步答效果，同 GTK/Win32 支）
