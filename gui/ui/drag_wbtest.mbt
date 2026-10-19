@@ -391,3 +391,78 @@ test "拖放：external=true 遇无系统级形态的数据回落并回报 Unsup
   assert_false(@widget.drag_active())
   @widget.clear_drag_root()
 }
+
+///|
+/// 沿第一个子往下走到叶子（内容盒里的文本节点就是最深那一个）。
+fn deepest_kid(w : @widget.Widget) -> @widget.Widget {
+  let mut cur = w
+  while cur.children().length() > 0 {
+    cur = cur.children()[0]
+  }
+  cur
+}
+
+///|
+/// 真机判据（Linux）：拖源内容里放文本，按下落在**文本节点**上也要能开拖——
+/// 冒泡链上有拖源包装层、文本自己不吃按下。用普通盒子测不到这条（盒子里没有
+/// 子节点，按下命中的就是包装层本身）。
+test "拖源包文本：按下落在文本上照样过阈值开拖" {
+  if !ui_text_guard() {
+    return
+  }
+  let src = drag_source(
+    view(
+      [text("拖我", role=Body)],
+      width=120.0,
+      height=64.0,
+      padding=8.0,
+    ),
+    payload=fn() -> @widget.DragData? { Some(@widget.DragData::Text("载荷")) },
+  )
+  let (root, sw) = mounted(src, 320.0, 200.0)
+  @widget.set_drag_root(root)
+  let label = deepest_kid(sw)
+  assert_true(label.id != sw.id)
+  let px = label.rect.x + label.rect.w / 2.0
+  let py = label.rect.y + label.rect.h / 2.0
+  assert_true(path_has(root.hit_path(px, py), sw.id))
+  let (h1, cap) = drag_step(root, @widget.PointerKind::Down, px, py, -1, -1)
+  assert_eq(cap, label.id)
+  assert_false(@widget.drag_active())
+  let (h2, cap2) = drag_step(root, @widget.PointerKind::Move, px + 14.0, py, h1, cap)
+  assert_true(@widget.drag_active())
+  assert_eq(@widget.drag_source(), sw.id)
+  let (_h3, _cap3) = drag_step(root, @widget.PointerKind::Up, px + 14.0, py, h2, cap2)
+  assert_false(@widget.drag_active())
+  @widget.clear_drag_root()
+}
+
+///|
+/// 真机判据（Linux）：`external=true` 的拖源，系统级这一支起不来时必须**回落到
+/// 应用内会话**（后端不可用、没有活动窗口都算起不来），不能既不拖也不回落。
+test "拖源 external：系统级起不来时回落应用内会话" {
+  if !ui_text_guard() {
+    return
+  }
+  let src = drag_source(
+    view(
+      [text("拖我出去", role=Body)],
+      width=120.0,
+      height=64.0,
+      padding=8.0,
+    ),
+    payload=fn() -> @widget.DragData? { Some(@widget.DragData::Text("载荷")) },
+    external=true,
+  )
+  let (root, sw) = mounted(src, 320.0, 200.0)
+  @widget.set_drag_root(root)
+  let label = deepest_kid(sw)
+  let px = label.rect.x + label.rect.w / 2.0
+  let py = label.rect.y + label.rect.h / 2.0
+  let (h1, cap) = drag_step(root, @widget.PointerKind::Down, px, py, -1, -1)
+  let (_h2, _cap2) = drag_step(root, @widget.PointerKind::Move, px + 14.0, py, h1, cap)
+  assert_true(@widget.drag_active())
+  assert_eq(@widget.drag_source(), sw.id)
+  let _ = @widget.drag_cancel()
+  @widget.clear_drag_root()
+}
