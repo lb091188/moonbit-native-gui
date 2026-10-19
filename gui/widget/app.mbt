@@ -73,6 +73,29 @@ pub fn App::bind_combo(self : App, spec : String, cb : () -> Unit) -> Unit {
 }
 
 ///|
+/// W32 便捷：把「同一个键连按两次」绑到回调上（键多击的窗口级通道）。
+/// 同一键在 60–400ms 内再次按下才触发，系统自动重复（约 25–40ms 一拍）不计；
+/// 走 `key_fallthrough`，焦点链已消费的按键（例如输入框里打进字符）不会到这里。
+pub fn App::bind_key_double(self : App, spec : String, cb : () -> Unit) -> Unit {
+  match parse_combo(spec, mac=@shell.platform_is_macos()) {
+    Some((mods, keysym)) => {
+      let tracker = KeyTracker::new()
+      self.add_key_fallthrough(fn(ev : KeyEvent) -> Bool {
+        if match_combo(ev, mods, keysym) {
+          let _ = tracker.feed(ev.keysym, ev.mods)
+          if tracker.is_double() {
+            cb()
+            return true
+          }
+        }
+        false
+      })
+    }
+    None => ()
+  }
+}
+
+///|
 /// 系统档默认加速键的开关（默认开）。宿主内置这三条**只在 macOS**：本栈没有
 /// 原生应用菜单，而 Cmd+Q / Cmd+W / Ctrl+Cmd+F 在别的 mac 软件里都由菜单给，
 /// 缺了就是「连 Cmd+Q 都退不出去」。Linux 的 Super、Windows 的 Win 键各有桌面

@@ -100,6 +100,11 @@ pub(all) struct Widget {
   mut on_triple_click : Option[(Widget, PointerEvent) -> Unit]
   /// 每控件独立的多击状态（宿主维护，控件读写无必要）
   mut tracker : ClickTracker
+  /// W32 键多击：同一个键在 60–400ms 内再按下（且该控件持有焦点）时回调。
+  /// 自动重复（typically 25–40ms）不计入；带修饰键需 mods 完全一致。
+  mut on_key_double : Option[(Widget, KeyEvent) -> Unit]
+  mut on_key_triple : Option[(Widget, KeyEvent) -> Unit]
+  mut key_tracker : KeyTracker
   mut on_key : Option[(KeyEvent) -> Bool]
   /// 抬起事件的**声明制**回调：路由对 key-up 一律只投给这条（焦点链最深优先），
   /// `on_key` 与按键兜底通道永不收抬起——前者（编辑内核）不区分按下/抬起，
@@ -187,6 +192,9 @@ pub fn Widget::new() -> Widget {
     on_double_click: None,
     on_triple_click: None,
     tracker: ClickTracker::new(),
+    on_key_double: None,
+    on_key_triple: None,
+    key_tracker: KeyTracker::new(),
     on_key: None,
     on_key_release: None,
     on_scroll: None,
@@ -834,6 +842,23 @@ pub fn Widget::dispatch_key(
   ev : KeyEvent,
 ) -> Bool {
   let path = path_to_id(self, focus_id, [])
+  // W32 键多击：只喂焦点控件自己的 tracker，命中双击/三击档时先回调再走
+  // 正常按键链（回调不消费按键——普通语义照跑，除非控件在 on_key 里自己截断）。
+  if ev.press && path.length() > 0 {
+    let target = path[path.length() - 1]
+    let _ = target.key_tracker.feed(ev.keysym, ev.mods)
+    if target.key_tracker.is_double() {
+      match target.on_key_double {
+        Some(f) => f(target, ev)
+        None => ()
+      }
+    } else if target.key_tracker.is_triple() {
+      match target.on_key_triple {
+        Some(f) => f(target, ev)
+        None => ()
+      }
+    }
+  }
   let mut i = path.length()
   let mut handled = false
   while i > 0 && !handled {
