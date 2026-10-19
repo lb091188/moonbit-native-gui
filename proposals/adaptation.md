@@ -2689,6 +2689,60 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **教训**：硬断循环的条件是「这一行还装得下」，不是「先切一个字」；同一份宽度既当判定又当步进时，**步进一格就必须重算判定**，否则判定永远指着剩余全宽。跨平台文本回归断言要用摊算/单调性，别把某平台的具体像素写死。
 **验证**：`gui/text` 32/32、全仓 1263/1263、`--deny-warn` 干净；真机状态栏不再被长串顶穿归用户复验。
 
+## 单窗口路由：空闲预加载会把「没做的事」真的做出来（2026-10-20，Ubuntu 24.04 + X11，`gui/router` + showcase）
+
+- 现象：把页构造推迟之后，按「空闲时逐页预建」跑，会在没人点的时候冒出站栏托盘
+  （`pages/system.mbt:431`）、启动空闲期去读浏览器 sqlite 与进程表
+  （`pages/sysprobe.mbt:85`）、悄悄解码 GIF 并排好首帧动画（`pages/anim.mbt:52`）、
+  把轮播的自转链起起来（`pages/data.mbt`）。
+- 根因：这些动作写在 `node_of_new` 的 finish 里，而 finish 是**构造期**执行
+  （`gui/widget/node.mbt:42`）——「构造」就等于「真做一遍」，跟挂没挂载无关。
+- 修复：`LoadPolicy` 给三档（`Eager`=建窗当场建 / `Prefetch`=空闲按先序队列建 /
+  `Lazy`=点开才建）。`系统集成` 标 `Eager`，托盘出现时机与改造前一致；
+  `系统能力探测` 标 `Lazy`，启动期不再空跑探测。
+- 验证：`cd examples/showcase && moon run .`——看 `SHOWCASE-READY ... startup_ms=`
+  与切页时打出的 `SHOWCASE-ROUTE page=… pending=… path=…`；托盘应在启动即出，
+  系统能力探测页的读数应在点开之后才出现。
+
+## 样式侧表残账：丢弃钩子只挂在 remove_child 上，预建的构造也要包进回收袋（2026-10-20，`gui/router` + `gui/style`）
+
+- 读数（`examples/showcase/cost_bench` 的 A/B 对照，量 `@style.resolved_count()`）：
+  同一页反复「建→挂→排→画→摘树」每轮仍留 33 条（基础组件）/ 182 条（数据展示）；
+  改成「只丢引用、不摘树」涨到 99 / 315 条。
+- 根因：外观槽放在进程级 `Map[控件 id, Style]`，清理钩子只挂在 `Widget::remove_child`
+  的 `report_discard` 路径上（`gui/style/apply.mbt:14`、`gui/widget/widget.mbt:269`）。
+  ① 只丢引用等于没摘树，整棵留在表里；② 「建好但从未挂载」的子树从没进过树，
+  摘不到——这就是空闲预加载的固有残账量级。
+- 修复：淘汰一律走 `remove_child` + 整代 `sub_bag` 退订 + 丢内容缓存，`Lru` 只数
+  已挂载子树。另外组件在构造期就会订阅（`follow_store`，`gui/ui/nav.mbt:157`），
+  而回收袋原本只兜挂载窗口，所以缓存条目连着存一份构造期退订闭包
+  （`struct Built{node, offs}`），淘汰时两代一起退。
+- 验证：`cd gui && moon test router` 里「淘汰把这一代订阅退掉」「Lru 淘汰是摘树，
+  重进按 thunk 重建」两条；残账量级由 `cost_bench` 的 `RCB-RECYCLE-A/B` 复现。
+
+## 「图标墙 803 控件卡启动」是旧账，实测大头在代码文档页（2026-10-20 实测修正）
+
+- 读数（`examples/showcase/cost_bench`，1280x720，预热后；debug 与 `--release` 同量级）：
+  全量构造 265ms、首屏页 33ms；图标库整页构造 9ms（`icon_grid` 确实逐个建 tooltip+icon，
+  `pages/icons.mbt:9`）；代码文档页 138ms 独占全量的五成多（`code_view` 构造期逐 token
+  量化 + markdown 解析）。最慢「点开当场建」= 代码文档 143ms；数据展示 102ms 里 77ms
+  是首帧 paint——预建搬不动 paint，只能在挂载那一刻付。
+- 结论：300ms 阈值未破，页内虚拟化不做；`shared/section.mbt` 注释与提案 §〇 里
+  「图标墙是卡启动根因」的口径已按实测改掉。
+- 验证：`cd examples/showcase && moon run ./cost_bench`，看 `RCB-PAGE` / `RCB-SUM` /
+  `RCB-CLICK` 三类行。
+
+## 工具链 · `derive(Eq)` 触发隐式提升告警；`x? : 函数类型` 把 Option 贴到返回值上（2026-10-20，moon 0.1.20260920）
+
+- 给枚举写 `derive(Eq, Show)` 出两条警告（`implicit_impl_as_method`、`derive(Show) is
+  deprecated`），库门禁要求零警告 ⇒ 策略判等改走 `match` 谓词
+  （`LoadPolicy::is_lazy` / `is_eager`），与 `gui/widget/drag.mbt:60` 同一条口径。
+- 形参写 `bar_of? : SlotBar`（`SlotBar` 是函数类型别名）时，可选标记被贴到函数的
+  **返回值**上（体内成了 `... -> Node?`），传回原参数就报类型不符 ⇒ 改成显式
+  `bar_of : SlotBar?` 位置参数。
+- 同批读数：`String.split` 返回迭代器（要么 `for` 要么先收进数组）、`String` 没有
+  `to_int`、`Map` 没有 `key_exists`/`has`、`Array` 没有 `enumerate`。
+
 ## 维护约定
 
 1. 新增结论写进对应小节,只记「坑 + 修复」;协议互操作结论必须来自真总线、真面板,单测自洽不算数。

@@ -244,11 +244,20 @@ labels 与键分离。归一化规则：写第 i 层 → 第 i+1.. 层各自回�
   按 T1 读数，页级预建已经把「点开未预建页」压到最坏 143ms（代码文档页，且那 138ms
   集中在它其中一段的 markdown/代码高亮构造上）——段级化的边际收益主要是把这一页的
   构造摊成按段付，代价是 15 个文件的签名改动与逐页真机回归。先做页级、段级按读数再定。
-- [ ] **T8（条件）页内虚拟化**：按 T1 读数决定。超阈值的页（图标墙、数据页大表）走
-  `virt_list` / `table_v`（`gui/ui/virtlist.mbt:11/144`）只渲染可视区。
-- [ ] **T9 门禁与文档**：`cd gui && moon check` 零错零警告；`gui/router` 的 `_wbtest.mbt`
-  进 `moon test` 包列表与 CI；`docs/zh/roadmap.md` 增「单窗口页面路由」小节（平台列口径）；
-  坑回写 `proposals/adaptation.md`；`TODO.md` 条目收口即删。
+- **T8 页内虚拟化：按 T1 读数不做**。最坏单页 `build+mount+layout+paint` = 143ms，
+  阈值 300ms 未破；图标墙整页构造 9ms、数据展示页首帧 77ms 都不在预算外。重开条件：
+  某页实测 `click` 超 300ms，或真机点开某页有可感停顿——那时才给那一页上
+  `virt_list` / `table_v`（`gui/ui/virtlist.mbt:11/144`）。
+- [x] **T9 门禁与文档**：`cd gui && moon check` 零错零警告；`gui/router` 的 `_wbtest.mbt`
+  进三档 CI 的点名清单（Linux / Windows / macOS 的 `moon test` 与 macOS 的 `moon build`）
+  与 `AGENTS.md` 的库门禁命令行；`docs/zh/roadmap.md`「组件层与前端化」加一行
+  「单窗口页面路由 `@router`」三平台 🚧（已合入待真机）；坑回写 `proposals/adaptation.md`
+  四条（空闲预建会真做副作用、样式侧表残账与回收袋、图标墙旧账的实测修正、
+  `derive(Eq)` 与 `x? : 函数类型` 两条工具链坑）。
+  - 顺带：门禁里唯一的失败是并行会话把文档引用改指 `proposals/` 时漏改的一条断言
+    （`gui/sys/launcher_wbtest.mbt:133` 期望值还写着 `docs/zh/…`），单独提交修掉；
+    CI 步骤名与 `AGENTS.md` 里的包数统计一并删除（数字会随并行会话漂）。
+  - `TODO.md` 无本专题条目需要收口（`G10 窗口内按键路由` 是按键事件路由，与页面路由无关）。
 - [ ] **T10 真机验证清单（你执行）**：全部实现项完成后一次性给出，见文末。
 
 ## 三·五、T1 实测读数（`examples/showcase/cost_bench`，无头、预热后、1280x720）

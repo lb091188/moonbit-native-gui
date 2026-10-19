@@ -123,12 +123,12 @@ jobs:
       # 从原 core 提出的三层,core 已于 import 迁移后整包退场);dbus 包走真实
       # 会话总线,CI 里由 dbus-run-session 提供(runner 默认只有系统总线)。
       # 失败时把关键行塞进 error 注解(匿名 API 可读),并回显输出尾部。
-      - name: 单元测试(库模块,15 包)
+      - name: 单元测试(库模块)
         working-directory: gui
         run: |
           set +e
           dbus-run-session -- moon test \
-            base shell widget ui render text theme icons sys input win dbus chart mdview style \
+            base shell widget ui render text theme icons sys input win dbus chart mdview style router \
             >/tmp/mt.out 2>&1
           code=$?
           set -e
@@ -274,7 +274,7 @@ jobs:
           do call "%%i\VC\Auxiliary\Build\vcvars64.bat"
           && cd gui
           && moon check
-          && moon test base shell widget ui render text theme icons input win chart mdview style
+          && moon test base shell widget ui render text theme icons input win chart mdview style router
           && moon build --target native
           && cd ..\modules\ffmpeg-mbt
           && moon test src
@@ -388,12 +388,12 @@ jobs:
       # 与 Windows job 同口径的平台排除:dbus 是 Linux 桌面基建,macOS 无会话总线。
       # core/web 两个旧包名已退场(core 拆成 base/shell/widget 三层,web 出成独立模块)。
       # 失败时把关键行塞进 error 注解(匿名 API 可读),并回显输出尾部。
-      - name: 单元测试(库模块,13 包)
+      - name: 单元测试(库模块)
         working-directory: gui
         run: |
           set +e
           moon test \
-            base shell widget ui render text theme icons sys input win chart mdview style \
+            base shell widget ui render text theme icons sys input win chart mdview style router \
             >/tmp/mt.out 2>&1
           code=$?
           set -e
@@ -425,7 +425,7 @@ jobs:
       - name: 构建(库模块 + hello 示例 + 媒体线)
         run: |
           set +e
-          (cd gui && moon build base shell widget ui render text theme icons sys input win chart mdview style \
+          (cd gui && moon build base shell widget ui render text theme icons sys input win chart mdview style router \
             --target native) >/tmp/mb.out 2>&1; c1=$?
           moon build examples/hello --target native >>/tmp/mb.out 2>&1; c2=$?
           moon build examples/audio examples/video \
@@ -437,7 +437,7 @@ jobs:
             tail -c 6000 /tmp/mb.out
             exit 1
           fi
-          echo "库 13 包 + examples/hello + 媒体示例(audio / video)全部构建链接通过"
+          echo "库模块 + examples/hello + 媒体示例(audio / video)全部构建链接通过"
 
       # 尽力冒烟：macOS runner 有登录会话与窗口服务，`hello` 这类常驻事件循环的
       # 进程活着到超时就说明「窗口建出来了、循环转起来了」；退出码 124 = 存活。
