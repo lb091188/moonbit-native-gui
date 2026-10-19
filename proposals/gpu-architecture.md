@@ -88,4 +88,4 @@ WebGPU 可用 → GPU 合成（Layer 1+2 都开）
 - **十一月**：native-gui + moon-launcher 参赛赛季，GPU 不动。
 - **Q2 赛季起**：`modules/gui-gpu` 独立模块开工；第一步三角形色块验收。
 
-架构决策与实测依据见 [roadmap.md](roadmap.md)「GPU 合成与 3D 路径」小节。跟踪项见 [TODO.md](https://github.com/lb091188/moonbit-native-gui/blob/master/TODO.md) §1 G11。
+架构决策与实测依据见 [roadmap.md](../docs/zh/roadmap.md)「GPU 合成与 3D 路径」小节。跟踪项见 [TODO.md](https://github.com/lb091188/moonbit-native-gui/blob/master/TODO.md) §1 G11。

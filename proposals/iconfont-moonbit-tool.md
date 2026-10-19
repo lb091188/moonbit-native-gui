@@ -27,6 +27,31 @@ MoonBit 生态已有成熟的 SVG/XML 解析和 TOML 序列化库，无需从零
   （无其他依赖，路径绘制复用现有 fill_icon_path）
 ```
 
+## 〇·五、目标格式契约（代码核实，最高优先级）
+
+转化产物必须能被 `gui/icons/icons.mbt` 的 `fill_icon_path`(882) + `path_num`(848) 直接解释。核实后的硬约束：
+
+1. **命令只有 M / L / C / Z，且全部绝对坐标**（ASCII 77/76/67/90）。
+   `fill_icon_path` 的 else 分支不识别 Q/T/S/A/H/V，遇到会静默跳过导致几何丢失。
+2. **坐标是整数定点**（×1000，范围约 ±1000）。`path_num` 只读数字符，**不认小数点**——
+   `517.3` 会被读成 `517` 再把 `.` 当未知命令跳过。产物必须先四舍五入成整数。
+3. **分隔符是逗号**，数据串里**不留空格**（现有 803 图标全部 `M-200,-733L-867,-733C...Z`）。
+4. **一次填充**：每子路径 `M…Z` 闭合，整体 `fill`（填充型 iconfont 天然契合）。
+5. **坐标换算**：绘制时 `v = 定点 × s × 0.88 / 1000 + 中心`，s 是盒子半边长。
+   即定点设计口径就是「以 (0,0) 为中心、满幅约 ±1000」。
+
+**因此转化链必须包含归一化步**（svgo/path 不直接给到 M/L/C/Z 整数逗号产物）：
+```
+parse(任意 SVG 命令)
+  → 全部转绝对 (rel→abs, H/V→L)
+  → 曲线升阶：Q→C、S→C、T→C、A→C（二次/圆弧转三次贝塞尔）
+  → apply_matrix 缩放+居中到 ±1000（以 viewBox 中心为原点，SVG 本就 Y 向下，不翻 Y）
+  → 逐坐标四舍五入为整数
+  → 自定义序列化器输出 M/L/C/Z + 逗号分隔（不用 svgo 的 stringify，它输出空格/相对/最短式）
+```
+> svgo/path 的 `stringify` 会产空格分隔、可能带小写相对命令，**不符合**本契约，只能用于中间态；终态序列化需自写。
+> svgo/optimize.mbt 内部已有 `to_absolute` 与曲线转换逻辑，但多为私有且面向「缩小体积」，是否可直接复用待验证；否则自写归一化（约 100 行）。
+
 ## 一、核心思路
 
 **纯 MoonBit 实现，SVG 输入，TOML 输出，复用生态包**：
@@ -153,36 +178,30 @@ pub fn parse_svg_file(content : String) -> Array[SvgPath] {
 // gui/scripts/path_converter.mbt
 
 /// 将 SVG path d 属性转为千分定点字符串
-/// 复用 svgo/path 的 parse → 坐标变换 → stringify
+/// 复用 svgo/path 的 parse + apply_matrix，但终态按「〇·五 目标格式契约」自写序列化
+/// 产出整数、逗号分隔、绝对 M/L/C/Z——不直接用 svgo 的 stringify（它出空格/相对/最短式）
 pub fn svg_path_to_iconfont(
   d : String,
   viewBox : (Double, Double, Double, Double),  // (x, y, w, h)
 ) -> String {
   let (_, _, vw, vh) = viewBox
-  
-  // 1. 解析 SVG path → Segment 数组
+
+  // 1. 解析 SVG path → Segment 数组（svgo/path.parse 支持全部命令）
   let segments = @svgpath.parse(d)
-  
-  // 2. 构造仿射变换矩阵
-  //    SVG 坐标 → 千分定点坐标
-  //    scale = 2000 / max(vw, vh)
-  //    offset = (-cx * scale, -cy * scale)
+
+  // 2. 归一化：rel→abs、H/V→L、Q/S/T/A→C，收敛到 M/L/C/Z 绝对（见契约）
+  let normalized = normalize_to_mlcz(segments)
+
+  // 3. 缩放 + 居中：以 viewBox 中心为原点，满幅 → ±1000；SVG 已 Y 向下，不翻 Y
   let side = if vw > vh { vw } else { vh }
   let scale = 2000.0 / side
   let cx = vw / 2.0
   let cy = vh / 2.0
-  
-  // 3. 用 svgo/path 的 apply_matrix 做仿射变换
-  let matrix = @svgpath.Matrix::new(
-    scale, 0.0,    // a, b
-    0.0, scale,    // c, d
-    -cx * scale,   // e (translate x)
-    -cy * scale,   // f (translate y)
-  )
-  let transformed = @svgpath.apply_matrix(segments, matrix)
-  
-  // 4. 序列化为路径字符串
-  @svgpath.stringify(transformed)
+  // apply_matrix 参数为 [a,b,c,d,e,f]
+  let transformed = @svgpath.apply_matrix(normalized, [scale, 0.0, 0.0, scale, -cx * scale, -cy * scale])
+
+  // 4. 逐坐标四舍五入为整数 + 逗号分隔序列化（自定义序列化器，契约要求）
+  serialize_mlcz_int(transformed)
 }
 ```
 
