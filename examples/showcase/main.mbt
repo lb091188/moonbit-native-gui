@@ -287,8 +287,8 @@ fn main {
       nav.start_prefetch()
       nav.store_at(0).subscribe(fn(k : String) -> Unit {
         println(
-          "SHOWCASE-ROUTE page=\{k} pending=\{nav.pending_count().to_string()} " +
-            "path=\{nav.path()}",
+          "SHOWCASE-ROUTE page=\{k} built=\{nav.built_count().to_string()} " +
+            "pending=\{nav.pending_count().to_string()} path=\{nav.path()}",
         )
       })
       // 单实例的 D-Bus 接线：排期通道与 200ms 泵都由宿主给（dbus 不引 GUI
@@ -340,7 +340,8 @@ fn main {
       let t_ready = @win.now_ms()
       println(
         "SHOWCASE-READY title=\{SHOWCASE_TITLE} pages=15 follow=1 " +
-          "startup_ms=\{(t_ready - t_start).to_string()}",
+          "startup_ms=\{(t_ready - t_start).to_string()} " +
+          "built=\{nav.built_count().to_string()} pending=\{nav.pending_count().to_string()}",
       )
       @base.paint_profile_reset()
       host.run()
