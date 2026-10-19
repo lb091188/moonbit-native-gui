@@ -5268,6 +5268,10 @@ static char wm_dnd_src[WM_DND_PAYLOAD_MAX];
 static int wm_dnd_src_len, wm_dnd_src_kind, wm_dnd_src_done, wm_dnd_src_ended,
     wm_dnd_src_action;
 static int wm_dnd_src_get_calls; // 对方来取了几回数据（0 = 这趟拖没人接）
+// 落点读数只能在 drag-end 回调里当场取：那之后 GTK 收尾就把这条会话的
+// GdkDragContext 销毁了，收尾再去读 ctx 是野指针（真机崩在 end 那行之前）。
+static long wm_dnd_src_dest_xid = -1;
+static int wm_dnd_src_self_dest = 0;
 
 /* 拖出读数落盘：环境变量 LIBYUE_DND_LOG 给出文件路径时才写，未设即完全静默。
  * 一行一条：起拖（种类/动作档/当时是否抓着指针）、drag-end、收尾后的读数。 */
@@ -5777,15 +5781,26 @@ static void wm_dnd_set_icon(GdkDragContext *ctx, int kind) {
 }
 
 static void wm_dnd_on_drag_end(GtkWidget *widget, GdkDragContext *ctx,
-                               gpointer data) {  (void)widget;
-  (void)data;
+                               gpointer data) {  (void)data;
   // selected_action 在 drag-end 时仍可读；映射回 DND flag（多位/未知 → 0）
   wm_dnd_src_action = wm_dnd_gdk_to_flag(
       gdk_drag_context_get_selected_action(ctx));
+  // 落点（最后悬停的目标窗 XID、以及它是不是自家窗）只能在这声里取——回调返回后
+  // GTK 就把 ctx 收尾销毁，后面再 gdk_drag_context_get_* 全是读野指针
+  GdkWindow *dw = gdk_drag_context_get_dest_window(ctx);
+  wm_dnd_src_dest_xid = -1;
+  wm_dnd_src_self_dest = 0;
+  if (dw != NULL) {
+    if (GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
+      wm_dnd_src_dest_xid = (long)gdk_x11_window_get_xid(dw);
+    }
+    wm_dnd_src_self_dest = (dw == gtk_widget_get_window(widget)) ? 1 : 0;
+  }
   wm_dnd_src_ended = 1;
   wm_dnd_src_done = 1;
-  wm_gtk_dnd_log("drag-end action=%d grabbed=%d", wm_dnd_src_action,
-                 wm_gtk_pointer_grabbed());
+  wm_gtk_dnd_log("drag-end action=%d grabbed=%d dest=%ld self=%d",
+                 wm_dnd_src_action, wm_gtk_pointer_grabbed(),
+                 wm_dnd_src_dest_xid, wm_dnd_src_self_dest);
 }
 
 static gboolean wm_dnd_src_timeout(gpointer data) {
@@ -5833,6 +5848,8 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
   wm_dnd_src_ended = 0;
   wm_dnd_src_action = 0;
   wm_dnd_src_get_calls = 0; // 每趟单独计：读数里的 get_calls 是本趟对方取了几回
+  wm_dnd_src_dest_xid = -1;
+  wm_dnd_src_self_dest = 0;
   GtkTargetList *targets = gtk_target_list_new(NULL, 0);
   if (kind == 1) {
     gtk_target_list_add_text_targets(targets, 0);
@@ -5851,6 +5868,9 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
     g_signal_handler_disconnect(w->window, s_end);
     return 0;
   }
+  // 自持一份引用：drag-end 之后 GTK 会放掉它自己那一份，收尾还要用 ctx 走
+  // 超时兜底的 gdk_drag_abort——没有这份引用，那时读的就是野指针。
+  g_object_ref(ctx);
   wm_dnd_set_icon(ctx, kind);
   // 阻塞到 drag-end（嵌套主循环，xdnd 协议在这里被 GTK 代跑）；60 秒超时
   // 救场，防止协议异常丢了 drag-end 把调用方永久挂住
@@ -5891,18 +5911,10 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
     drained++;
   }
   int grabbed = wm_gtk_pointer_grabbed();
-  // 落点读数：drag-end 时这条会话最后悬停的目标窗（XID），以及它是不是我们自己
-  // 那扇窗（自家 drop_target 也会走 XDND 通道，真机「第一趟没送到对方」要看这个）
-  GdkWindow *dw = gdk_drag_context_get_dest_window(ctx);
-  long dxid = -1;
-  if (dw != NULL && GDK_IS_X11_DISPLAY(disp)) {
-    dxid = (long)gdk_x11_window_get_xid(dw);
-  }
-  int self_dest = (dw != NULL && dw == gtk_widget_get_window(w->window)) ? 1 : 0;
-  wm_gtk_dnd_log("end id=%lld ended=%d get_calls=%d drained=%d grabbed=%d "
-                 "dest=%ld self=%d",
+  // 落点读数取 drag-end 回调里存下的那份（dxid/self_dest），不再碰 ctx
+  wm_gtk_dnd_log("end id=%lld ended=%d get_calls=%d drained=%d grabbed=%d",
                  (long long)id, (int)ended, wm_dnd_src_get_calls, drained,
-                 grabbed, dxid, self_dest);
+                 grabbed);
   // 服务端那份指针 grab 要在这里替这条会话解掉：真机读数每条会话排空事件后
   // grabbed 仍为 1（GDK 已把 drag-end 当收口，不再走自己的 ungrab），grab 不
   // 还，本应用的键鼠事件就一路被 grab 吃掉——表现为拖完「+」僵住本窗交互。
@@ -5943,6 +5955,7 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
   if (out_effect != NULL) {
     *out_effect = (int32_t)wm_dnd_src_action;
   }
+  g_object_unref(ctx); // 交回起拖时自持的那一份
   return 1;
 }
 
