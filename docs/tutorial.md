@@ -38,7 +38,7 @@ winget install Python.Python.3.12
 winget install Microsoft.VisualStudio.2022.BuildTools -e --override "--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
 ```
 
-On Windows, moon compiles native code **out of the box and locates the MSVC toolchain itself**. A plain shell (PowerShell / Git Bash) runs `moon run` directly — no need for the "x64 Native Tools Command Prompt" or a manual `call vcvars64.bat`. The older guidance — "must run from the Native Tools prompt", "also install CMake and ATL" — described the old libyue/CMake build chain and does not apply to the self-drawn stack.
+On Windows, moon compiles native code **out of the box and locates the MSVC toolchain itself**. A plain shell (PowerShell / Git Bash) runs `moon run` directly — no need for the "x64 Native Tools Command Prompt" or a manual `call vcvars64.bat`. "Must run from the Native Tools prompt" and "also install CMake and ATL" belong to the old CMake build chain and do not apply here.
 
 </details>
 
@@ -146,7 +146,7 @@ Themed forms for `@ui.text` / `@ui.button` (the four `button` `variant`s, `tag` 
 
 ```sh
 git clone https://github.com/lb091188/moonbit-native-gui && cd moonbit-native-gui
-moon run examples/showcase    # 15 pages: basics / forms / navigation / data display / feedback / events & layout / system integration…
+moon run examples/showcase    # basics / forms / navigation / data display / feedback / events & layout / system integration…
 ```
 
 Pick a page in the left menu and write against it on the right; each page's source is its own file (`examples/showcase/pages/*.mbt`), ready to copy and adapt. For smaller starting points: `moon run examples/hello` (minimal window) and `moon run examples/hello-themed` (themed widget set).

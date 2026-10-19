@@ -113,7 +113,7 @@ let rows : @base.ListStore[String] = @base.ListStore::new(["a", "b"])
 - `@widget.bind_node(sig : Signal[T], f : (T) -> Node)`：信号一变，用 `f(v)` 造的新节点**原位替换**旧节点。
 - `@widget.swap_node(sig : Signal[Bool], a : Node, b : Node)`：按布尔在两个节点间原位切换。
 
-「原位替换」是本栈 relink 的定案：引擎为此提供 `insert_child` / `remove_child_at`，控件层提供 `index_of` / `move_child`。替换不重建父链，命中矩形每帧从布局结果重取，因此不需要旧链路 Windows 那两条「推迟一拍 / 强制重排」的规避。
+「原位替换」由引擎的 `insert_child` / `remove_child_at` 与控件层的 `index_of` / `move_child` 支撑。替换不重建父链，命中矩形每帧从布局结果重取，不需要「推迟一拍 / 强制重排」这类规避。
 
 ## 7. 重绘回路
 

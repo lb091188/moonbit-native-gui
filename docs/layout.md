@@ -5,7 +5,7 @@ The layout engine is this repository's own **yoga-mbt**, a pure-MoonBit implemen
 ## Two write paths
 
 - **Loose parameters**: `@ui.col/row/view` take `padding` / `row_gap` / `column_gap` / `width` / `height` / `grow` / `align_items` / `background_color` / `border_color` directly. They are sugar for the matching `Style` fields and have exactly one destination: folded into an anonymous block.
-- **`class` channel**: pass one or more `Style` blocks built with `@style.style(...)`; the last array element wins — its same-named properties override earlier ones. All 34 components accept `class?`.
+- **`class` channel**: pass one or more `Style` blocks built with `@style.style(...)`; the last array element wins — its same-named properties override earlier ones. Every component accepts `class?`.
 
 The two merge into a single `Style`, which lands on the widget's style slot and the Yoga node.
 
@@ -60,13 +60,13 @@ The enums `FlexDirection` / `AlignItems` / `JustifyContent` / `FlexWrap` / `Posi
 
 **Wrapping must go the right direction.** `flex_wrap=Wrap` only folds vertically when the container is a **column**: a `row` container doesn't stretch on the cross axis, so wrapped items sized to content fold into a vertical stack. A chip bar that must "wrap when too wide" therefore goes into a column container, with explicit `min_* = 0` at every level.
 
-**gap is already subtracted from free space.** When grow/shrink computes free space, it first deducts `gap × (n-1)`, so a row of "fixed items + a grow item + gap" never overflows. This was a fixed engine defect, pinned in regression tests — no workaround needed.
+**gap is already subtracted from free space.** When grow/shrink computes free space, it first deducts `gap × (n-1)`, so a row of "fixed items + a grow item + gap" never overflows. The engine does this for you — no workaround needed.
 
 **Text size feeds back into layout.** The content size of `@ui.text` / `bind_label` comes from Pango measurement, and both `measure` and `baseline` are wired into the layout engine, so text can take part in baseline alignment and size to its content; wrapping and truncation are controlled by the `max_width` + `wrap` + `ellipsis` trio.
 
 ## Incremental relayout
 
-All 39 setters, plus structural and callback changes, call `mark_changed`; versions are tracked with a global clock plus a per-node `rev`. The layout entry skips unchanged subtrees by "subtree version + input fingerprint". So changing a `bind_label`'s text recomputes only that chain, and a whole-frame layout is near constant time. Callers don't manage this layer, but it explains why in-place edits are recommended over rebuilding the whole tree — see [declarative.md](declarative.md).
+Every property setter, plus structural and callback changes, calls `mark_changed`; versions are tracked with a global clock plus a per-node `rev`. The layout entry skips unchanged subtrees by "subtree version + input fingerprint". So changing a `bind_label`'s text recomputes only that chain, and a whole-frame layout is near constant time. Callers don't manage this layer, but it explains why in-place edits are recommended over rebuilding the whole tree — see [declarative.md](declarative.md).
 
 ## Related docs
 
