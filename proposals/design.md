@@ -40,10 +40,10 @@ ui 只管组件，三包职责不混。
 | 内外边距 | `padding`（**只表示四边同值**）、`padding_left/right/top/bottom`、`margin`、`margin_*` | Yoga（`set_padding` / `set_margin`）。**不做 CSS 的 2/3 值简写**（`padding: 8px 16px` 那种按边数变语义的写法）：要么四边同值，要么逐边单给，档位就这两档 |
 | 边框圆角 | `border_width`、`border_color`、`border_radius` | 绘制阶段；圆角矩形复用 `ui/basic.mbt` 的 `fill_round_rect` |
 | flex 布局 | `display`（`flex` / `none`）、`flex_direction`、`flex_wrap`（`nowrap` / `wrap` / `wrap-reverse`）、`justify_content`、`align_items`、`align_self`、`flex`（grow）、`gap`、`row_gap`、`column_gap` | Yoga |
-| 定位 | `position`（`relative` / `absolute`）、`top`、`right`、`bottom`、`left`、`z_index` | Yoga（`set_position` / `set_top` …底层现成，含百分比 inset；`z_index` 由 yoga-mbt 随 P1 补齐，见 §5）。Style 首批只开逻辑像素值，百分比入口同 `width_percent` 形态另开 |
+| 定位 | `position`（`relative` / `absolute`）、`top`、`right`、`bottom`、`left`、`z_index` | Yoga（`set_position` / `set_top` …底层现成，含百分比 inset；`z_index` 由 yoga-mbt 提供 `set_z_index` 并按稳定序输出）。Style 首批只开逻辑像素值，百分比入口同 `width_percent` 形态另开 |
 | 状态 | `hover`、`active`、`focus`（各是一个嵌套 `Style`） | 绘制期按控件状态选桶，见 §1.3 |
-| 效果 | `opacity`（投影档 `box_shadow` 已于 2026-10-15 撤除） | `opacity` 落 `Widget.alpha_paint`（绘制遍历累乘）。投影曾做过两版：先是一圈等浓度描边（突兀），后改同心外扩分层填充 + CSS 四位 `blur/x/y/color`（[`Painter::drop_shadow`]），真机复验仍判「不如人意」，用户拍板整条撤掉——字段、渲染入口、`Widget.shadow_paint` 与裁剪/剔除放大一并删除，将来有真高斯 blur 再重新评估；过程与读数见 `proposals/adaptation.md`「阴影」节 |
-| 过渡 | `transition_ms`（状态桶切换的时长，毫秒） | 只在**绘制期**生效：`style_for` 的出口按真实时间把「当前显示值 → 目标桶值」插一帧出来。参与插值的是 `color`、`background_color`、`border_color`、`border_width`、`border_radius`、**字号 `font_size`** 与**行高 `line_height`**（后两条 2026-10-15 补：用户反馈「字号动画不是动画，是直接的变化」；CSS 里这两条都是可动画的 `<length>`）——字号/行高是绘制与测量共用的属性，测量期一并读同一份插值值（`resolved_for_measure`），否则字放大后盒子还按旧字号量、看着仍像跳变；本栈每帧本来就走一圈 relayout，插值它们不额外排一次。这两条在动画期间改走**整窗置脏**（局部脏区按上一帧的矩形并，长大那圈会被裁掉），其余属性仍局部置脏。`opacity` 的生效点在 `apply` 落 `Widget` 字段（绘制遍历不逐帧读槽），尺寸类布局属性切换即生效 |
+| 效果 | `opacity` | `opacity` 落 `Widget.alpha_paint`（绘制遍历累乘）。**不提供投影 `box_shadow`**；重新评估的前置是有真高斯 blur，过程与读数见 `proposals/adaptation.md`「阴影」节 |
+| 过渡 | `transition_ms`（状态桶切换的时长，毫秒） | 只在**绘制期**生效：`style_for` 的出口按真实时间把「当前显示值 → 目标桶值」插一帧出来。参与插值的是 `color`、`background_color`、`border_color`、`border_width`、`border_radius`、**字号 `font_size`** 与**行高 `line_height`**（后两条在 CSS 里也是可动画的 `<length>`）——字号/行高是绘制与测量共用的属性，测量期一并读同一份插值值（`resolved_for_measure`），否则字放大后盒子还按旧字号量、看着仍像跳变；本栈每帧本来就走一圈 relayout，插值它们不额外排一次。这两条在动画期间改走**整窗置脏**（局部脏区按上一帧的矩形并，长大那圈会被裁掉），其余属性仍局部置脏。`opacity` 的生效点在 `apply` 落 `Widget` 字段（绘制遍历不逐帧读槽），尺寸类布局属性切换即生效 |
 | 其它 | `visibility`、`cursor` | 宿主 `Widget`（`set_visible` / `cursor`） |
 
 ### 1.2 没有的属性（写不出来，而不是运行时报错）
@@ -65,7 +65,7 @@ ui 只管组件，三包职责不混。
   （W3C 规则模型）。两条入口分工明确：工厂的状态参数收**整块**（`hover=@style.card_hover`，
   复用具名块）；状态方法 `.hover(...)` / `.active(...)` / `.focus(...)` 收**属性参数**现场
   开块。签名里只有绘制期属性，布局参数不在其列，布局值进状态块连编译都过不了（hover
-  改布局需要布局期也选桶，随 P3 帧末 relayout 再评估）。存储端是三个嵌套 `Style` 字段，
+  改布局需要布局期也选桶，本文不提供）。存储端是三个嵌套 `Style` 字段，
   绘制期按 `Widget` 已有的 `hovered` / `pressed` / `focused` 选桶。因此没有伪类字符串、
   没有状态机、也不依赖事件传播。三桶可同时命中（对应 CSS 的层叠），合并/覆盖按桶内逐属性
   递归（上条）。
@@ -73,9 +73,9 @@ ui 只管组件，三包职责不混。
   （`pub let button_base : Style = ...`），组件在自己的默认值里引用它，使用者传 `class`
   即覆盖——效果与 CSS 的元素选择器一致，但可跳转、可补全。
 - **基调表发全量**：内置常量表覆盖 §2 全部组件的默认观感；**组件库自己也从 `class` 拿样式**，
-  组件内不再自持颜色/圆角/间距/字号的硬编码分支（现状是 `on_draw` 里直接读
-  `@theme.theme_fill_hover()` 那类），一律读控件上已解析好的 `Style`。因此 P1 的产出是
-  「新包 + 全部组件的绘制路径」，见 §1.5 的 `Widget` 样式槽一条与 §5。
+  组件内不自持颜色/圆角/间距/字号的硬编码分支（不读 `@theme.theme_fill_hover()` 那类），
+  一律读控件上已解析好的 `Style`。样式层的落点是 `gui/style` 包 + 全部组件的绘制路径，
+  见 §1.5 的 `Widget` 样式槽一条。
 - 不设 `!important` 通道。
 
 ```moonbit
@@ -208,16 +208,14 @@ pub fn apply(w : @widget.Widget, s : Style) -> Unit           // 布局字段走
   悬停不再变色）；`class` 只覆盖它写到的那些属性，点亮态仍由内置桶决定——要把悬停态也
   定死就写 `.hover(...)`，这与 CSS 的 `.btn` / `.btn:hover` 分层同向。
 - **不挂运算符**：组合只写 `@style.merge(a, b)`。
-- **`Widget` 需要一个存放 resolved `Style` 的位置**：现有 `Widget` 只有 `node` / `kids` /
-  `rect` / `visible` / 各回调 / `hovered` / `pressed` / `focused` / `cursor` / `focus_id`，
-  外观散落在每个组件 `on_draw` 捕获的参数里（`core/widget.mbt`）。P1 加这个位置，P2 把每个
-  组件的绘制改成「读 `self` 上的样式并按状态选桶」。这与既有纪律同向：`on_draw` 首参本来就是
+- **`Widget` 存放 resolved `Style`**：外观不散落在每个组件 `on_draw` 捕获的参数里，绘制一律
+  「读 `self` 上的样式并按状态选桶」。这与既有纪律同向：`on_draw` 首参本来就是
   `self`，而现规则明令**不要把控件句柄捕获进闭包**（引用环，计数式回收断不掉，
-  `core/widget.mbt:82-87`）。
-- **四边类 setter 一律 labelled + 默认值**：`set_padding`（`core/widget.mbt:691`）已同形，
-  `set_margin`（`:681`，42 处调用点）随 P1 改成 `top` / `right` / `bottom` / `left`。位置参数
-  的类型全是 `Double`，错序编译期查不出；两套形态也会让样式层写两份四边展开的翻译。改法机械，
-  但须整批一次改完并逐处核对，靠既有布局用例兜。
+  `gui/widget/widget.mbt:86`）。
+- **四边类 setter 一律 labelled + 默认值**：`set_padding` / `set_margin` 同形，收
+  `top` / `right` / `bottom` / `left`（`gui/widget/widget.mbt:968`），四边同值走
+  `set_margin_all` / `set_padding_all`。位置参数的类型全是 `Double`，错序编译期查不出；
+  两套形态会让样式层写两份四边展开的翻译。
 - **`Edges` / `Size` 两个值类型不设**：padding 只有两档（四边同值 / 逐边单给），一个
   `padding` 参数够；长度默认 px，百分比另开 `width_percent`，fixed / percent 的分派
   留在包内。
@@ -246,12 +244,11 @@ pub fn apply(w : @widget.Widget, s : Style) -> Unit           // 布局字段走
 | 方法返回值当语句用（`s.set_x(v)` 单独一行） | ✗ | `[4139] its value cannot be implicitly ignored`——只能写成链，包内 setter 体固定为「赋值 + 返回 self」 |
 | 字段有 `mut` 但没有对应 setter | 警告 | `[0015] The mutability of field 'padding' is never used`——零警告门禁逼着字段与属性一一对应，留不下死字段 |
 
-**探针结论（2026-10-13 补测，工具链同上）**：工厂调用点定死 `@style.style(...)`——短名通道全部不存在（alias 是保留字、labelled 函数不可间接调用、`moon.pkg` 不支持 import 配名），P1 直接按此形态实现。使用者若嫌重复，可在自己模块里手写收拢函数（如 `pub fn card_style(width? : Double) -> Style { @style.style(width=width?, padding=14.0, …) }`——显式逐参传，无 `...` 透传可用），库侧不提供这种糖。
+**探针结论**：工厂调用点定死 `@style.style(...)`——短名通道全部不存在（alias 是保留字、labelled 函数不可间接调用、`moon.pkg` 不支持 import 配名）。使用者若嫌重复，可在自己模块里手写收拢函数（如 `pub fn card_style(width? : Double) -> Style { @style.style(width=width?, padding=14.0, …) }`——显式逐参传，无 `...` 透传可用），库侧不提供这种糖。
 
 ## 2. 组件层：前端化命名
 
-**策略：直接改名，调用点一起改，不留别名。** 全仓 `@ui.` 调用点 910 处，按包逐批替换，
-每批以 `cd gui && moon check` 零错零警 + 分包测试通过为收口条件。
+**策略：直接改名，调用点一起改，不留别名。** 按包逐批替换，每批以 `cd gui && moon check` 零错零警 + 分包测试通过为收口条件。
 
 这一批同时收口两件事：
 
@@ -421,9 +418,8 @@ fn ctx_new() -> Ctx {
 **render 怎么被调用**：挂载时调用**一次**，此后框架不再重跑它。响应靠 render 建出的树里
 **收 Signal 的入口自己订阅、自己差分**（§3 第 5 条通则：`for_list` 管列表 keyed 差分、
 `when` 管显隐、`*_dyn` 管展示文本）；整棵换内容走 `bind_node` 显式重建，不做全树 patch。
-挂载入口今天收静态节点数组（`hello-themed` / `sysmonitor` 就是这个形态：先建好树再传
-`[nodes]`）；P3 补 `mount_window_render`（render 槽入口），二选一——`mount_window` 的
-`children` 保持首位位置参数（数百示例调用点不动）：
+挂载入口两条，二选一：静态节点数组（先建好树再传 `[nodes]`）与 `mount_window_render`
+（render 槽）——`mount_window` 的 `children` 保持首位位置参数，示例调用点不动：
 
 ```moonbit
 fn main {
@@ -447,7 +443,7 @@ fn main {
 最终形态的视图部分：
 
 ```moonbit
-// 目标形态：一个「任务页」——P1–P3 落地后可编译、可响应
+// 一个「任务页」：样式走 class，响应走 Store / Signal
 fn render(ctx : Ctx) -> @widget.Node {
   @ui.col(
     [
@@ -480,7 +476,7 @@ fn render(ctx : Ctx) -> @widget.Node {
         ),
         else=@ui.empty("暂无任务，先添加一条"),
       ),
-      // 单支 when：busy 为假时隐藏，状态不丢；保存中的转圈动画是 P5 的 transition
+      // 单支 when：busy 为假时隐藏，状态不丢；转圈动画走 transition
       @ui.when(ctx.busy, @ui.text("保存中…", class=[@style.hint])),
     ],
     class=[@style.page],
@@ -488,8 +484,8 @@ fn render(ctx : Ctx) -> @widget.Node {
 }
 ```
 
-> 这段是 P1/P2/P3 落地后的**目标形态**：kwargs 样式与 `class` 来自 P1+P2，`for_list` /
-> `when` / `render` 槽来自 P3（数据与挂载见 §4.0），今天写出来还编译不过。`ctx.draft` 是
+> 这段用到的 kwargs 样式与 `class`、`for_list` / `when` / `render` 槽都是库的现有入口
+> （数据与挂载见 §4.0）。`ctx.draft` 是
 > `Store[String]`（输入类组件收 Store），`ctx.has_items` / `ctx.busy` 是 `Signal[Bool]`，
 > 传信号才响应（§3 第 5 条）。`ctx.add` / `ctx.remove` 里只写 Store，往后的差分、显隐、
 > 帧末合并重绘全是框架的事：这就是「写起来像改数据，动起来像改了那一块 UI」的整个设计。
@@ -510,42 +506,27 @@ fn render(ctx : Ctx) -> @widget.Node {
 
 表达式层已经是 MoonBit，树的外壳不必换成另一种语法。
 
-## 5. 分期与门禁
+## 5. 门禁口径
 
-| 批 | 内容 | 收口条件 |
-| --- | --- | --- |
-| P1 | 新建 `gui/style` 包：`Style` 字段集（含定位组 `position` / `top` / `right` / `bottom` / `left`——底层 yoga 现成，含百分比 inset 的能力后补入口）+ `Color` + kwargs 构造（`style(...)` 工厂属性名即参数名 + `.hover(...)` / `.active(...)` / `.focus(...)` 状态方法，§1.3，W3C 规则模型）+ `merge`（逐属性并集、状态桶递归）+ **全量**内置常量表（§2 每个组件的基调，`tokens.mbt`）+ `Widget` 上存 resolved `Style` 的位置 + `apply`；**yoga-mbt 补 `z_index`**（`set_z_index` + 布局输出按 z_index 稳定排序，Yoga 上游同构；gui 侧绘制按 resolved 值重排 kids，`Style` 同步开 `z_index` 字段）；顺带 `Widget::set_margin` labelled 化（同形统一） | 新包测试 + `Widget` 样式槽用例 + 定位字段落到 yoga 的布局用例 + yoga-mbt 模块 z_index 用例（正序/负值/并列稳定）+ `cd gui && moon check` 零错零警 |
-| P2 | 组件改名（按 §2 映射表，含 `_t` 合并）+ `on_*` 统一 + 散参数改名并折算成匿名 `Style`（排解析序列最前）+ 展示类组件补 `_dyn` 信号版（§3 第 5 条通则）+ **逐组件把 `on_draw` 从「读捕获的散参数」改成「读 `self` 上的样式并按状态选桶」** | 全仓 `moon check` 零错零警，910 处调用点全切完，观感逐页比对不回退 |
-| P3 | 响应式补强：`ListStore` keyed 差分 / `effect`+`watch` / 帧末合并重绘 / `for_list`+`when` / `mount_window` 补 `render` 槽（挂载时调用一次建首帧，§4.0；与节点数组二选一） | 分包测试 + 现有 Store 用例不回归 + `hello-themed`/`sysmonitor` 静态挂载形态不回归 |
-| P4 | 绘制能力补齐：**`Painter` 全局 alpha**（`opacity`：alpha 进绘制状态机，铺满填充 / 描边 / 文本 / 图片全路径，`Style` 开 `opacity` 字段——颜色级 alpha 已有，本批补整层）+ `box_shadow`（阴影档：2026-10-15 曾由硬边描环改为同心外扩分层填充并补齐 CSS 四位，真机复验不过关，**同日整条撤除**——本栈当前不提供投影） | 各自用例（opacity 含全路径覆盖验证）+ 回写 `proposals/adaptation.md` |
-| P5 | 动画：`transition`（状态桶属性插值 + 帧驱动）——`Style` 开 `transition_ms`，`style_for` 出口按真实时间插帧（插值集合见 §1.1「过渡」行），帧驱动复用进程级 `set_timeout`，每拍只给活动中的控件局部置脏（`invalidate_id`），全部收敛即停表 | 插值与状态机用例 + 真机观感（showcase「过渡与效果」页）+ 回写 `proposals/adaptation.md` |
-
-`on_*` 与散参数改名都在 P2 的改名范围内，合批做，P1 之前不加批。
-
-**动画的代价就是「连续置脏重绘」每帧多少钱**，所以它排在脏矩形与文本布局缓存之后：
-局部脏区一帧的实测读数决定过渡能开多长，不决定它怎么设计（读数与判据写在
-`proposals/adaptation.md`，不在这里重复）。P4 的 `opacity` 是**静态属性**
-（画一帧就够），不参与插值集合。
-
-每批单独提交；实测坑按 `AGENTS.md` 规则 7 回写 `proposals/adaptation.md`；使用类说明写进
-`docs/zh/` 下的使用文档，不写进本文件。
+- 每批单独提交；收口条件固定：`cd gui && moon check` 零错零警 + 分包测试通过，观感逐页比对不回退。
+- 实测坑按 `AGENTS.md` 规则 7 回写 `proposals/adaptation.md`；使用类说明写进 `docs/zh/` 下的使用文档，不写进本文件。
+- 动画的代价是「连续置脏重绘」每帧多少钱，所以它排在脏矩形与文本布局缓存之后：局部脏区一帧的实测读数决定过渡能开多长，不决定它怎么设计（读数与判据写在 `proposals/adaptation.md`，不在这里重复）。`opacity` 是**静态属性**（画一帧就够），不参与插值集合。
 
 ## 6. 口径记录
 
-1. **`Store` 内建去重**（2026-10-13 定案，原 §6 唯一待定项）：`T : Eq` 的 Store，`set` /
-   `update` 写相同值时**只存不发**（`Signal::set_eq`，通知发射器 `sig_deliver` 不动，
-   `Signal::set` 仍无条件通知）；没有 `Eq` 或需要「同值也重发」的场合走 `set_always` /
+1. **`Store` 内建去重**：`T : Eq` 的 Store，`set` /
+   `update` 写相同值时**只存不发**（`Signal::set_eq`，通知发射器 `sig_deliver` 不动，`Signal::set` 仍无条件通知）；没有 `Eq` 或需要「同值也重发」的场合走 `set_always` /
    `update_always`。复合值类型（`DateYMD`/`DateRange`/`TableSort`/`SemanticType` 等）补了
    `impl Eq`；图表数据窗口（`Array[LineSeries]` 等元素无 `Eq` 且比较代价高于收益）在
    chart 与示例里一律走 `set_always`。
-2. **自重排的周期表：句柄每拍都要记回**（2026-10-14）：本栈的延时只有单次形态
+2. **自重排的周期表：句柄每拍都要记回**：本栈的延时只有单次形态
    （`Loop::timer` / `@shell.set_timeout` 都是一次性），周期任务靠回调尾自己重排。
    **重排拿到的新句柄必须覆盖调用方存着的那一份**，否则「停表」取消的是早已跑掉的
-   旧号，取消返回 true/false 都停不住（`core/loop_wbtest.mbt` 钉住这条语义）。
-3. **三份文档的分工与状态口径**（2026-10-16 定案）：`roadmap.md` 是**功能面全景**——功能点 × 三平台状态四列，计划项与已完成项都在同一张目录里，不写接口与过程；仓库根 `TODO.md` **只跟踪未完成项**；批次过程、根因与实测细节**只**在 `adaptation.md`。三处互不复述。平台状态五档：✅ 有实现且有逐项回证（真机 / 探针 / 分包测试绿任一，且适配文档留了记录）· 🚧 有实现但回证只到「分支在位 + 分包绿」或分支未合流 · ❌ 未接 · — 该平台无对应面 · ？查过仍无定论。**「代码里有分支」不构成 ✅，最多 🚧**；查不出的格子留 ？进待核清单，不填假值。
-4. **组件命名去 `_t` 尾巴、对齐 Web 元素名**（2026-10-16）：媒体播放器组件叫 `audio` / `video`（与 HTML 同名元素），`player_t` 作废；`_t` 是历史「themed 变体」标记，§2 改名批的既定方向，新组件一律不带。共用件按 `bar_*` 前缀（`bar_hit` / `bar_speed_at`），带平台前缀的历史名（`vp_*`）随各自批次收。
-5. **两条播放时钟不互相代打**（2026-10-16）：`video` 的位置是**墙钟 + 帧时间戳**，`audio` 的是**设备已消费字节**。纯音频文件不进 `VideoPlayer`（没有帧就没有时钟，硬撑等于在视频引擎里重做一套设备时钟），带视频轨的文件不进 `audio`；组件层**不做**「自动识别后二选一」，调用方按媒体类型选组件。
-6. **窗口级按键兜底的三条边界**（2026-10-16）：① 焦点链消费掉的键不外溢，所以输入框打字天然不被抢；② 只在本窗事件循环生效，与 `sys`/`win` 那条**系统级**热键（X11 grab / `RegisterHotKey`）是两层，不混用一个门面；③ 通道没有反注册口，处理器必须自己用 `Widget::is_painted()` 判活体——被摘掉的组件不能再吃键。
-7. **拆模块的判据与迁移清单口径**（2026-10-16）：外部重资产 + 必须强制下发链接参数 → 开模块；纯内部层 → 留子包。跨包改名的迁移清单必须含**模块外**消费者（`modules/*`、`examples/`、`experiment/`）——它们经 `moon.work` 本地解析，不在主模块门禁的视野里，漏一个就是「已推送的树断链」。
-8. **文档互相矛盾 = 核查触发器**（2026-10-16）：两份文档对同一事实口径不同时（本轮两例：媒体线 Windows 解码档、`recent_files` 头部「非 Linux 给 Unsupported」的注释），一律以**代码 + CI 配置**现场定案，并回改过期的一侧，不留「以某处为准」的悬案。
+   旧号，取消返回 true/false 都停不住（`shell/loop_wbtest.mbt` 钉住这条语义）。
+3. **三份文档的分工与状态口径**：`roadmap.md` 是**功能面全景**——功能点 × 三平台状态四列，计划项与已完成项都在同一张目录里，不写接口与过程；仓库根 `TODO.md` **只跟踪未完成项**；批次过程、根因与实测细节**只**在 `adaptation.md`。三处互不复述。平台状态五档：✅ 有实现且有逐项回证（真机 / 探针 / 分包测试绿任一，且适配文档留了记录）· 🚧 有实现但回证只到「分支在位 + 分包绿」或分支未合流 · ❌ 未接 · — 该平台无对应面 · ？查过仍无定论。**「代码里有分支」不构成 ✅，最多 🚧**；查不出的格子留 ？进待核清单，不填假值。
+4. **组件命名去 `_t` 尾巴、对齐 Web 元素名**：媒体播放器组件叫 `audio` / `video`（与 HTML 同名元素），新组件一律不带 `_t`。共用件按 `bar_*` 前缀（`bar_hit` / `bar_speed_at`）。
+5. **两条播放时钟不互相代打**：`video` 的位置是**墙钟 + 帧时间戳**，`audio` 的是**设备已消费字节**。纯音频文件不进 `VideoPlayer`（没有帧就没有时钟，硬撑等于在视频引擎里重做一套设备时钟），带视频轨的文件不进 `audio`；组件层**不做**「自动识别后二选一」，调用方按媒体类型选组件。
+6. **窗口级按键兜底的三条边界**：① 焦点链消费掉的键不外溢，所以输入框打字天然不被抢；② 只在本窗事件循环生效，与 `sys`/`win` 那条**系统级**热键（X11 grab / `RegisterHotKey`）是两层，不混用一个门面；③ 通道没有反注册口，处理器必须自己用 `Widget::is_painted()` 判活体——被摘掉的组件不能再吃键。
+7. **拆模块的判据与迁移清单口径**：外部重资产 + 必须强制下发链接参数 → 开模块；纯内部层 → 留子包。跨包改名的迁移清单必须含**模块外**消费者（`modules/*`、`examples/`、`experiment/`）——它们经 `moon.work` 本地解析，不在主模块门禁的视野里，漏一个就是「已推送的树断链」。
+8. **文档互相矛盾 = 核查触发器**：两份文档对同一事实口径不同时，一律以**代码 + CI 配置**现场定案，并回改过期的一侧，不留「以某处为准」的悬案。
 
