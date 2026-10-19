@@ -2,8 +2,8 @@
 layout: home
 hero:
   name: native-gui
-  text: A lightweight cross-platform desktop GUI framework for MoonBit
-  tagline: Native window hosts, a self-drawn rendering pipeline, a complete widget set, and full system integration. One MoonBit codebase ships native Windows 🟩 / Linux 🟩 windows, with macOS 🟨 merged into master (real-machine verification in progress). Zero config after moon add.
+  text: A cross-platform desktop GUI framework for MoonBit
+  tagline: One MoonBit codebase ships native Windows 🟩 / Linux 🟩 windows, with desktop capabilities ready to use and zero config after moon add. macOS 🟨 is merged into master (real-machine verification in progress).
   actions:
     - theme: brand
       text: Package structure
@@ -13,7 +13,7 @@ hero:
       link: https://github.com/lb091188/moonbit-native-gui
 features:
   - title: Self-drawn widgets, one look everywhere
-    details: The library's own rasterizer draws every control, so rendering is identical across platforms; light/dark mode and the system accent color are followed by default, and a theme is a plain value you can override.
+    details: The library's own rasterizer draws every control, so rendering is identical across platforms; light/dark mode and the system accent color are followed by default, and the theme is fully customizable.
   - title: Declarative UI with reactive state
     details: Describe the interface as a tree of @widget.Node values and mount it with one mount_window call; keep state in Store / Signal and bound spots refresh themselves.
   - title: Desktop-grade system integration
