@@ -1,0 +1,17 @@
+// 每页构造/挂载/首帧耗时判据（与 pages、shared 同级，不是第二个示例：
+// 它要直接吃 pages 的页函数，跨模块取会牵出「探针模块依赖示例」的边）。
+import {
+  "NoahLiu/native-gui/base",
+  "NoahLiu/native-gui/widget" @widget,
+  "NoahLiu/native-gui/render" @render,
+  "NoahLiu/native-gui/ui",
+  "NoahLiu/native-gui/win" @win,
+  "NoahLiu/native-gui/sys" @sys,
+  "NoahLiu/native-gui/style",
+  "NoahLiu/native-gui-examples-showcase/shared",
+  "NoahLiu/native-gui-examples-showcase/pages",
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"
