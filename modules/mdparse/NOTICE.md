@@ -38,8 +38,8 @@ types.mbt
 
 1. **删除未使用的渲染辅助函数**：`inline_parser.mbt` 的 `strip_code_span_padding`、`is_code_span_pad`、`normalize_code_span`（只被渲染链路调用）。
 2. **行尾扫描改标量实现**：`scanner_search.mbt` 的 `find_line_end` 去掉 `#cfg(target=...)` 分派与 `@v128` SIMD 分支，统一走 `find_line_end_scalar`；同步移除 `moonbitlang/core/v128` 依赖。
-3. **包配置**：`moon.pkg` 只保留 `moonbitlang/core/debug` 依赖，`warnings = "-79"` 关闭 `derive(Eq, Debug)` 的「隐式方法提升」提示（不依赖该提升）。
-4. **目标平台**：`supported_targets = "native"`（上游为 `js+wasm+wasm-gc+native`）。
+3. **包配置**：`moon.pkg` 只保留 `moonbitlang/core/debug` 依赖；`warnings = "-79-25"` 关闭 `derive(Eq, Debug)` 的「隐式方法提升」提示（不依赖该提升）与上游测试裸名引用的 `unused` 提示。
+4. **目标平台**：`supported_targets` 保持上游的 `js+wasm+wasm-gc+native`，未做平台裁剪。
 
 除上述四点外，`src/` 内容与上游对应文件一致。
 

@@ -10,7 +10,7 @@
 
 ```text
 import {
-  "NoahLiu/native-gui-mdparse@0.1.0",
+  "NoahLiu/mdparse@0.1.0",
 }
 ```
 
@@ -46,4 +46,4 @@ fn example() -> Unit {
 
 ## 平台
 
-`supported_targets = "native"`。纯 MoonBit，无第三方依赖（只用 `moonbitlang/core`）。
+`supported_targets = "js+wasm+wasm-gc+native"`，与上游一致。纯 MoonBit，无第三方依赖（只用 `moonbitlang/core`），不依赖任何宿主能力，可作为通用 Markdown 解析层单独发布或复用到其他项目。
