@@ -140,7 +140,7 @@ handle=fn(a : @widget.App) -> Unit {
 }
 ```
 
-Themed forms for `@ui.text` / `@ui.button` (the four `button` `variant`s, `tag` / `alert` / `card`, …) are in [components.md](components.md); stylesheets (`Style` values plus `hover` / `active` / `focus` states and transitions) in [design.md (Chinese)](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/zh/design.md).
+Themed forms for `@ui.text` / `@ui.button` (the four `button` `variant`s, `tag` / `alert` / `card`, …) are in [components.md](components.md); stylesheets (`Style` values plus `hover` / `active` / `focus` states and transitions) in [design.md (Chinese)](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/design.md).
 
 **Copy from a working app** — the demo board is the material library:
 

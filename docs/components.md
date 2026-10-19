@@ -6,7 +6,7 @@ Every self-drawn widget and the component library live in `NoahLiu/native-gui/ui
 
 ## Conventions (read this first)
 
-**Typed parameters + a `class` style channel.** Components take typed parameters only — size, colour, value — not CSS string tables. Overriding the look goes two ways: loose parameters (`font_size` / `background_color` and friends), or `class? : Array[@style.Style]` layering `Style` value blocks, where the last `class` in the array wins. The full style layer is in [design.md (Chinese)](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/zh/design.md).
+**Typed parameters + a `class` style channel.** Components take typed parameters only — size, colour, value — not CSS string tables. Overriding the look goes two ways: loose parameters (`font_size` / `background_color` and friends), or `class? : Array[@style.Style]` layering `Style` value blocks, where the last `class` in the array wins. The full style layer is in [design.md (Chinese)](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/design.md).
 
 **State lives in `Store`, no glue code.** The current value of a value control (checkbox / radio / switch / slider / input / progress …) is held by an `@base.Store[T]`: the component reads and writes it, and an external change refreshes the component. Display components come through two entries — `x` takes a value, `x_dyn` takes a `Signal[T]` — sharing one drawing path.
 

@@ -6,7 +6,7 @@
 
 ## 约定（先看这一节）
 
-**类型化参数 + `class` 样式通道。** 组件只给类型化参数——尺寸、颜色、值——不接 CSS 字符串表；外观覆盖走两条路：散参数（`font_size` / `background_color` 等），或 `class? : Array[@style.Style]` 叠 `Style` 值块、数组尾赢。样式层的完整形态见 [design.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/zh/design.md)。
+**类型化参数 + `class` 样式通道。** 组件只给类型化参数——尺寸、颜色、值——不接 CSS 字符串表；外观覆盖走两条路：散参数（`font_size` / `background_color` 等），或 `class? : Array[@style.Style]` 叠 `Style` 值块、数组尾赢。样式层的完整形态见 [design.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/design.md)。
 
 **状态走 `Store`，不写胶水。** 值类控件（复选/单选/开关/滑块/输入框/进度…）的当前值由 `@base.Store[T]` 持有：组件读写它，外部改它即刷新组件。展示类另有 `x` 收值、`x_dyn` 收 `Signal[T]` 两条入口，同一份画法。
 
