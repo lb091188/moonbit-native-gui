@@ -541,7 +541,7 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
     @shared.section(
       "多击与组合键",
       "Widget.on_double_click / on_triple_click / App::bind_combo",
-      "W32 的通用多击通道：控件挂上 `on_double_click` / `on_triple_click` 后，宿主在指针派发时自动维护 ClickTracker（400 ms + 4 px 阈值，与编辑内核同口径），命中档位才回调。组合键走 `App::bind_combo(\"Ctrl+Shift+K\", cb)`——一次注册、按键兜底通道自动分派，不用手写 mods 位与 keysym 比较。",
+      "W32 的通用多击通道：控件挂上 `on_double_click` / `on_triple_click` 后，宿主在指针派发时自动维护 ClickTracker（400 ms + 4 px 阈值，与编辑内核同口径），命中档位才回调。组合键走 `App::bind_combo(\"Ctrl+Shift+K\", cb)`——一次注册、按键兜底通道自动分派，不用手写 mods 位与 keysym 比较。键盘键多击走 `App::bind_key_double(\"A\", cb)`：同一键 60–400ms 内连按两次触发，系统自动重复不计。",
       [
         @ui.view(
           [
@@ -572,9 +572,15 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
         @ui.view([], width=0.0, height=0.0, handle=fn(_w : @widget.Widget) -> Unit {
           let _ = @shell.set_timeout(0, fn() {
             match app.host.val {
-              Some(a) => a.bind_combo("Ctrl+Shift+K", fn() {
-                combo_out.set("组合键 Ctrl+Shift+K 命中（" + @shell.now_ms().to_string() + "ms）")
-              })
+              Some(a) => {
+                a.bind_combo("Ctrl+Shift+K", fn() {
+                  combo_out.set("组合键 Ctrl+Shift+K 命中（" + @shell.now_ms().to_string() + "ms）")
+                })
+                // 键多击：同一键 60–400ms 内连按两次（自动重复不计）
+                a.bind_key_double("A", fn() {
+                  combo_out.set("A 键双击命中（" + @shell.now_ms().to_string() + "ms）")
+                })
+              }
               None => ()
             }
           })
@@ -587,6 +593,9 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
         "",
         "// 组合键：一次注册，走窗口级按键兜底通道",
         "app.bind_combo(\"Ctrl+Shift+K\", fn() { ... })",
+        "",
+        "// 键盘键多击：同一键 60–400ms 内连按两次（自动重复不计）",
+        "app.bind_key_double(\"A\", fn() { ... })",
       ],
     ),
   ])
