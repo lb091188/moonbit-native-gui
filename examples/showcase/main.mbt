@@ -43,18 +43,6 @@ fn apply_theme(app : @shared.App) -> Unit {
 }
 
 ///|
-/// 推迟一拍（宿主 timer）再执行：整树 bind_node 重建会销毁当前回调所在的子树，
-/// 必须在事件派发返回后再触发，否则黑屏（自毁重挂）。
-fn defer_next_tick(app : @shared.App, f : () -> Unit) -> Unit {
-  match app.host.val {
-    Some(a) => {
-      let _ = a.timer(1, f)
-    }
-    None => f()
-  }
-}
-
-///|
 /// 侧栏里的深/浅切换按钮：手动改即视为「不跟随系统」。
 fn theme_toggle_button(app : @shared.App) -> @widget.Node {
   @ui.icon_button(
@@ -92,9 +80,7 @@ fn translucent_toggle_button(app : @shared.App) -> @widget.Node {
         Some(a) => a.window().set_transparent_bg(on)
         None => ()
       }
-      defer_next_tick(app, fn() {
-        app.ui_gen.update(fn(n) { n + 1 })
-      })
+      @widget.invalidate()
     },
   )
 }
@@ -110,16 +96,6 @@ fn page_keys() -> Array[String] {
 }
 
 ///|
-/// 侧栏显示名表：键=中文页名（路由 key），值=当前语言显示名。
-fn nav_labels() -> Array[(String, String)] {
-  let out : Array[(String, String)] = []
-  for k in page_keys() {
-    out.push((k, @shared.nav_label(k)))
-  }
-  out
-}
-
-///|
 /// 切语言按钮（月亮旁）：换目录 → 清已建页 → 改动 locale 触发整棵内容树重建。
 fn language_toggle_button(app : @shared.App, nav : @router.Router) -> @widget.Node {
   @ui.icon_button(
@@ -127,24 +103,22 @@ fn language_toggle_button(app : @shared.App, nav : @router.Router) -> @widget.No
     on_click=fn() {
       let to_en = app.locale.get() != "en"
       let loc = if to_en { "en" } else { "zh-CN" }
+      @shared.set_locale_catalog(loc)
       app.locale.set(loc)
-      // 推迟一拍：整树重建会销毁当前回调所在子树，不能同步做（否则黑屏）
-      defer_next_tick(app, fn() {
-        @shared.set_locale_catalog(loc)
-        // 清路由已建页：否则页面内文案仍是旧语言（树重建时按新目录重挂）
-        for k in page_keys() {
-          nav.purge_built(k)
+      // 只重建页面子树（router 自管，不经整树 bind，侧栏按钮不受牵连）
+      for k in page_keys() {
+        nav.purge_built(k)
+      }
+      nav.ensure_current()
+      @widget.host_repaint_all()
+      // 原生菜单栏不在树里：重建并重新挂，菜单文案随语言刷
+      match app.host.val {
+        Some(a) => {
+          let bar = build_menu_bar(app, nav)
+          let _ = bar.apply_to(a.window())
         }
-        app.ui_gen.update(fn(n) { n + 1 })
-        // 原生菜单栏不在 bind 树里：重建并重新挂到窗口，菜单项文案随语言刷
-        match app.host.val {
-          Some(a) => {
-            let bar = build_menu_bar(app, nav)
-            let _ = bar.apply_to(a.window())
-          }
-          None => ()
-        }
-      })
+        None => ()
+      }
     },
   )
 }
@@ -292,7 +266,6 @@ fn main {
   let slot : Ref[@widget.App?] = Ref(None)
   let mounted = @ui.mount_window(
     [
-      @widget.bind_node(app.ui_gen.signal(), fn(_gen : Int) -> @widget.Node {
       @ui.row(
         [
           // 侧栏：可滚动的分组菜单（窗口矮时滚到底部项）+ 底部主题切换 + 版本号
@@ -306,7 +279,7 @@ fn main {
                       (@shared.tr("nav.g.system", "系统"), ["系统能力探测"]),
                       (@shared.tr("nav.g.localization", "本地化"), ["图标字体", "国际化", "RTL 排版"]),
                     ],
-                    labels=nav_labels(),
+                    label_of=fn(k) { @shared.nav_label(k) },
                     icons=[
                       ("基础组件", @icons.Appstore),
                       ("表单组件", @icons.Edit1),
@@ -384,8 +357,7 @@ fn main {
         ],
         grow=1.0,
         align_items=@yoga.AlignItems::Stretch,
-      )
-      }),
+      ),
     ],
     title=SHOWCASE_TITLE,
     width=1280,
