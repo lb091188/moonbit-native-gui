@@ -2819,6 +2819,15 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
   - **拿拖入挂接当拖出的门**：起拖前查「本窗是否 `registerForDraggedTypes` 过」，没挂就直接 `return 1`——按门面语义这是「走完、效果 0」，于是 `drag_source(external=true)` 既不真拖、也**不再回落到应用内会话**（`Ok` 那支绝不回落）。出站拖拽不需要入站注册，门直接去掉。
 - **验证方式**：`moon check`/`moon test win widget ui` 在库侧过；mac 臂的 C 只能在 mac 上编译，本批 Linux 主机无法自校编译，真机判据=色块/文本/文件三档各拖到访达与文本编辑器一次，拖拽图形跟手、松手成交、`on_external` 回报的效果与实际落点一致（复制/移动/链接随修饰键）。
 
+### macOS 动图（GIF）ImageIO 合成落地（2026-10-20，macOS arm64）
+
+- **旧口径「mac 动图族探测即不可用、退回首帧静图」已解除**：`gui/render/stub.c` 的 `WM_STUB_MAC` 臂此前把 `img_anim_*` 全写成返回 0 的桩。补了与 Windows(WIC) 同构的自建画布合成器（逐帧 `CGImageSourceCreateImageAtIndex` + `ImageRectangle`/`DisposalMethod`/`DelayTime` 属性 + disposal 2/3 语义 + 直通 alpha 合成），帧号/时长/换帧回报口径与 Linux/Windows 一致。三个实测坑：
+  - **`CFRetain(NULL)` 当场 abort**（症状：render 测试整进程 SIGTRAP，崩栈停在 `img_anim_copy → anim_gif_prop → CFRetain`）：`CFDictionaryGetValue` 缺键返回 NULL，`CFRetain` 不接受 NULL，先判再 retain。
+  - **GIF 帧是索引色位图，`CGBitmapContextCreate` 拒绝画它**（RGB 目标只认 8bpp 组件图；`CGContextDrawImage` 静默失败，症状=合成全透明、动图一片空白、`ink==0` 断言抓红）：常规路径失败后退回「取 data provider 原始索引 + `CGColorSpaceGetColorTable` 调色板手工展开」；`CGColorSpaceGetColorTableCount(space)` 是单参返回 size_t（不是出参式），字节序判定别用不存在的 `CGImageGetByteOrder`。
+  - **`DisposalMethod`/`ImageRectangle` 不在 Apple 公开 GIF 属性清单上**：键值就是这两个裸字符串（位于 GIF 子字典内），`ImageRectangle` 是 CGRect 字典表示（`CGRectMakeWithDictionaryRepresentation` 解）；读不到按默认（整幅/保留），不报错。
+- **配套测试口径翻新（圆角擦角的既有断言）**：控件 `clip_rounded` 擦角 pass 落地后，`display_wbtest` 的 `mark_in` 拿 (6,6) 当基准色、且把预乘位图里「已擦掉的角」（RGB=0）当墨——改为带内取基准、`a==0` 不当墨；`basic_wbtest` 的「12 拍换 1 帧」平台差异口径不变（mac 与 WIC 同为一拍一帧）。
+- **验证方式**：mac 本机 `moon test gui/render`（动图解码 61/61 过，含 `dot.gif` 逐帧前进与 `current()` 落墨断言——此前该测试在 mac 走「不可用」早退分支，等于从没验过合成器）、`moon test ui widget style theme render` 全绿（除 HEAD 既有 3 红）。真机判据=showcase「GIF 动图」段自转、暂停/继续、48×48 缩放档都画得出；透明底 GIF 若出现底色块属 disposal/透明索引缺口，真机反馈后再补透明索引映射。
+
 ### 拖出跨平台对齐复查（2026-10-19，由 mac 那条报障回查 Linux/Windows）
 
 - **Linux 从不设拖拽图标**：`gtk_drag_begin_*` 之后没跟任何 `gtk_drag_set_icon_*`，而 GTK 的默认拖拽图标是**发起控件的快照**——本栈的发起控件就是整扇窗口，于是拖起来是一整块窗口贴在指针上，落点看着全偏（报障「拖动的位置有问题」的直接来源）。修法：两档都显式给 32px 图标并取中心当热点——`Paths` 取第一个文件的系统图标（`g_file_query_info(standard::icon)` → `gtk_icon_theme_lookup_by_gicon` → `gtk_icon_info_load_icon`，取不到退回 `text-x-generic`），`Text` 直接取文档图标；主题里取不到就留着不动。`gtk_drag_begin_with_coordinates` 的 `x/y` 给 `-1` 即「用当前指针位」，位置本身不用我们算。GdkPixbuf/GIO 符号在 `gtk+-3.0` 的 pkg-config 库里，prebuild 不用改。
