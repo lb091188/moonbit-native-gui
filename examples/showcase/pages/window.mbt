@@ -19,7 +19,7 @@
 /// 热键错误 → 可读串（门面的两档：没后端 / 有backend但这次没成）。
 fn hotkey_err_text(e : @shell.HotkeyError) -> String {
   match e {
-    @shell.HotkeyError::Unsupported => "本平台没有全局快捷键后端（当前仅 Windows）"
+    @shell.HotkeyError::Unsupported => @shared.tx("本平台没有全局快捷键后端（当前仅 Windows）")
     @shell.HotkeyError::Failed(why) => "注册失败：\{why}"
   }
 }
@@ -29,12 +29,12 @@ fn hotkey_err_text(e : @shell.HotkeyError) -> String {
 fn drag_send_text(r : Result[@widget.DragEffect, @widget.DragError]) -> String {
   match r {
     Ok(e) => match e {
-      @widget.DragEffect::Copy => "已复制出去"
-      @widget.DragEffect::Move => "已移动出去"
-      @widget.DragEffect::Link => "已建立链接"
-      @widget.DragEffect::Rejected => "取消或落点不收"
+      @widget.DragEffect::Copy => @shared.tx("已复制出去")
+      @widget.DragEffect::Move => @shared.tx("已移动出去")
+      @widget.DragEffect::Link => @shared.tx("已建立链接")
+      @widget.DragEffect::Rejected => @shared.tx("取消或落点不收")
     }
-    Err(@widget.DragError::Unsupported) => "本机没有系统级拖出后端（已回落应用内拖放）"
+    Err(@widget.DragError::Unsupported) => @shared.tx("本机没有系统级拖出后端（已回落应用内拖放）")
     Err(@widget.DragError::Failed(why)) => "这趟没走成：\{why}（已回落应用内拖放）"
   }
 }
@@ -86,7 +86,7 @@ fn win_button(
 ///|
 /// 窗口页。页内私有状态（回显/热键句柄/两个切换态）不进共享 App。
 pub fn page_window(app : @shared.App) -> @widget.Node {
-  let last_op : @base.Store[String] = @base.Store::new("（尚无操作）")
+  let last_op : @base.Store[String] = @base.Store::new(@shared.tx("（尚无操作）"))
   // 两个切换态由按钮自己翻（窗口层没有 is_fullscreen/is_borderless 之外的
   // 读回通道，态以按钮点击为准）
   let fs : Ref[Bool] = Ref(false)
@@ -94,15 +94,15 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
   let sz : Ref[Int] = Ref(1280)
   // 快捷键：门面回查表在 shell 里，页内只记自己注册过的句柄（注销用）
   let hotkeys : Ref[Array[@shell.Hotkey]] = Ref([])
-  let hk_status : @base.Store[String] = @base.Store::new("（未注册）")
+  let hk_status : @base.Store[String] = @base.Store::new(@shared.tx("（未注册）"))
   let hk_hits : @base.Store[Int] = @base.Store::new(0)
   // 拖放回显
-  let dnd : @base.Store[String] = @base.Store::new("（还没投过）")
-  let ext : @base.Store[String] = @base.Store::new("（外部还没投过）")
-  let out : @base.Store[String] = @base.Store::new("（还没往外拖过）")
+  let dnd : @base.Store[String] = @base.Store::new(@shared.tx("（还没投过）"))
+  let ext : @base.Store[String] = @base.Store::new(@shared.tx("（外部还没投过）"))
+  let out : @base.Store[String] = @base.Store::new(@shared.tx("（还没往外拖过）"))
   // W30/W33/W34 新段的回显与状态
-  let multiwin_out : @base.Store[String] = @base.Store::new("（还没开过子窗）")
-  let layer_out : @base.Store[String] = @base.Store::new("（尚无操作）")
+  let multiwin_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没开过子窗）"))
+  let layer_out : @base.Store[String] = @base.Store::new(@shared.tx("（尚无操作）"))
   let transparent_on : Ref[Bool] = Ref(false)
   fn win_set_opacity(alpha : Int) -> Unit {
     match app.host.val {
@@ -118,13 +118,13 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
       Some(a) => {
         a.window().set_layer(layer)
         let tag = match layer {
-          Normal => "普通"
-          Desktop => "桌面层（图标下·壁纸场景，事件归桌面）"
-          DesktopWidget => "桌面小部件（图标上·本窗可交互）"
-          AlwaysOnTop => "置顶"
-          Dock => "Dock 面板档"
+          Normal => @shared.tx("普通")
+          Desktop => @shared.tx("桌面层（图标下·壁纸场景，事件归桌面）")
+          DesktopWidget => @shared.tx("桌面小部件（图标上·本窗可交互）")
+          AlwaysOnTop => @shared.tx("置顶")
+          Dock => @shared.tx("Dock 面板档")
         }
-        layer_out.set("窗口层级已切到：" + tag)
+        layer_out.set(@shared.tx("窗口层级已切到：") + tag)
       }
       None => ()
     }
@@ -137,20 +137,20 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
       [
         @ui.row(
           [
-            win_button(app, last_op, "改标题", fn(w : @win.Window) -> Unit {
-              w.set_title("组件库演示板 · 标题已改")
+            win_button(app, last_op, @shared.tx("改标题"), fn(w : @win.Window) -> Unit {
+              w.set_title(@shared.tx("组件库演示板 · 标题已改"))
             }),
-            win_button(app, last_op, "全屏切换", fn(w : @win.Window) -> Unit {
+            win_button(app, last_op, @shared.tx("全屏切换"), fn(w : @win.Window) -> Unit {
               fs.val = !fs.val
               w.set_fullscreen(fs.val)
             }),
-            win_button(app, last_op, "尺寸切换", fn(w : @win.Window) -> Unit {
+            win_button(app, last_op, @shared.tx("尺寸切换"), fn(w : @win.Window) -> Unit {
               // 定死一个目标值会看着「没用」——启动尺寸就是它；两档来回切才看得见
               sz.val = if sz.val == 1280 { 960 } else { 1280 }
               let h = (sz.val.to_double() * 9.0 / 16.0).round().to_int()
               w.set_size_pixels(sz.val, h)
             }),
-            win_button(app, last_op, "无边框切换", fn(w : @win.Window) -> Unit {
+            win_button(app, last_op, @shared.tx("无边框切换"), fn(w : @win.Window) -> Unit {
               bl.val = !bl.val
               w.set_borderless(bl.val)
             }),
@@ -159,7 +159,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
         ),
         @ui.row(
           [
-            @ui.text("最近操作：", role=@ui.Secondary),
+            @ui.text(@shared.tx("最近操作："), role=@ui.Secondary),
             @ui.bind_label(last_op, fn(s) { s }),
           ],
           column_gap=6.0,
@@ -193,28 +193,28 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
         ),
         @ui.row(
           [
-            @ui.button("注册 Ctrl+Alt+C", on_click=fn() {
+            @ui.button(@shared.tx("注册 Ctrl+Alt+C"), on_click=fn() {
               match @shell.hotkey_register("Ctrl+Alt+C") {
                 Ok(hk) => {
                   hotkeys.val.push(hk)
-                  hk_status.set("已注册（切到别的窗口按一下）")
+                  hk_status.set(@shared.tx("已注册（切到别的窗口按一下）"))
                 }
                 Err(e) => hk_status.set(hotkey_err_text(e))
               }
             }),
-            @ui.button("注销全部", variant=@ui.Soft, on_click=fn() {
+            @ui.button(@shared.tx("注销全部"), variant=@ui.Soft, on_click=fn() {
               for hk in hotkeys.val {
                 ignore(@shell.hotkey_unregister(hk))
               }
               hotkeys.val = []
-              hk_status.set("已全部注销")
+              hk_status.set(@shared.tx("已全部注销"))
             }),
           ],
           column_gap=8.0,
         ),
         @ui.row(
           [
-            @ui.text("状态：", role=@ui.Secondary),
+            @ui.text(@shared.tx("状态："), role=@ui.Secondary),
             @ui.bind_label(hk_status, fn(s) { s }),
             @ui.bind_label(hk_hits, fn(n) { "命中 \{n} 次" }),
           ],
@@ -244,19 +244,19 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
           [
             @ui.drag_source(
               @ui.view(
-                [@ui.text("拖我", role=@ui.Body)],
+                [@ui.text(@shared.tx("拖我"), role=@ui.Body)],
                 background_color="primary_light",
                 border_color="primary",
                 width=120.0,
                 height=64.0,
                 padding=8.0,
               ),
-              payload=fn() { Some(@widget.DragData::Text("窗口页的拖放演示")) },
+              payload=fn() { Some(@widget.DragData::Text(@shared.tx("窗口页的拖放演示"))) },
             ),
-            @ui.text("拖到右边 →", role=@ui.Secondary),
+            @ui.text(@shared.tx("拖到右边 →"), role=@ui.Secondary),
             @ui.drop_target(
               @ui.view(
-                [@ui.text("投放区（松手成交）", role=@ui.Secondary)],
+                [@ui.text(@shared.tx("投放区（松手成交）"), role=@ui.Secondary)],
                 background_color="bg_panel",
                 border_color="border",
                 width=220.0,
@@ -270,7 +270,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
                     let joined = ps.join(" ; ")
                     dnd.set("应用内投进 \{ps.length()} 个路径：\{joined}")
                   }
-                  _ => dnd.set("收到了别的载荷")
+                  _ => dnd.set(@shared.tx("收到了别的载荷"))
                 }
               },
             ),
@@ -282,7 +282,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
           [
             @ui.drop_target(
               @ui.view(
-                [@ui.text("只收文件（从资源管理器拖进来）", role=@ui.Secondary)],
+                [@ui.text(@shared.tx("只收文件（从资源管理器拖进来）"), role=@ui.Secondary)],
                 background_color="bg_panel",
                 border_color="border",
                 width=220.0,
@@ -298,15 +298,15 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
                     let joined = ps.join(" ; ")
                     ext.set("外部投进 \{ps.length()} 个：\{joined}")
                   }
-                  _ => ext.set("不该投到这里")
+                  _ => ext.set(@shared.tx("不该投到这里"))
                 }
               },
             ),
             @ui.text(
               if @widget.drag_external_supported() {
-                "系统级拖入：本机可用（试试从资源管理器拖文件）"
+                @shared.tx("系统级拖入：本机可用（试试从资源管理器拖文件）")
               } else {
-                "系统级拖入：本机后端未接（拖放仍限应用内）"
+                @shared.tx("系统级拖入：本机后端未接（拖放仍限应用内）")
               },
               role=@ui.Secondary,
             ),
@@ -318,20 +318,20 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
           [
             @ui.drag_source(
               @ui.view(
-                [@ui.text("拖我出去\n（浏览器/编辑器）", role=@ui.Body)],
+                [@ui.text(@shared.tr("drag.out.text", "拖我出去\n（浏览器/编辑器）"), role=@ui.Body)],
                 background_color="primary_light",
                 border_color="primary",
                 width=120.0,
                 height=64.0,
                 padding=8.0,
               ),
-              payload=fn() { Some(@widget.DragData::Text("窗口页的拖放演示")) },
+              payload=fn() { Some(@widget.DragData::Text(@shared.tx("窗口页的拖放演示"))) },
               external=true,
               on_external=fn(r) { out.set("文本拖出：\{drag_send_text(r)}") },
             ),
             @ui.drag_source(
               @ui.view(
-                [@ui.text("拖文件出去\n（桌面/资源管理器）", role=@ui.Body)],
+                [@ui.text(@shared.tr("drag.out.files", "拖文件出去\n（桌面/资源管理器）"), role=@ui.Body)],
                 background_color="bg_panel",
                 border_color="primary",
                 width=150.0,
@@ -347,9 +347,9 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
             ),
             @ui.text(
               if @widget.drag_external_send_supported() {
-                "系统级拖出：本机可用（Ctrl 复制 / Shift 移动 / Alt 链接）"
+                @shared.tx("系统级拖出：本机可用（Ctrl 复制 / Shift 移动 / Alt 链接）")
               } else {
-                "系统级拖出：本机后端未接（自动回落应用内拖放）"
+                @shared.tx("系统级拖出：本机后端未接（自动回落应用内拖放）")
               },
               role=@ui.Secondary,
             ),
@@ -359,15 +359,15 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
         ),
         @ui.row(
           [
-            @ui.text("投放回显：", role=@ui.Secondary),
+            @ui.text(@shared.tx("投放回显："), role=@ui.Secondary),
             @ui.bind_label(dnd, fn(s) { s }),
-            @ui.text("外部回显：", role=@ui.Secondary),
+            @ui.text(@shared.tx("外部回显："), role=@ui.Secondary),
             @ui.bind_label(ext, fn(s) { s }),
           ],
           column_gap=6.0,
         ),
         @ui.row(
-          [@ui.text("拖出回显：", role=@ui.Secondary), @ui.bind_label(out, fn(s) {
+          [@ui.text(@shared.tx("拖出回显："), role=@ui.Secondary), @ui.bind_label(out, fn(s) {
             s
           })],
           column_gap=6.0,
@@ -411,17 +411,17 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
       [
         @ui.row(
           [
-            @ui.button("开子窗", on_click=fn() {
+            @ui.button(@shared.tx("开子窗"), on_click=fn() {
               match app.host.val {
                 Some(a) =>
-                  match a.open_window(360, 240, "showcase 子窗") {
+                  match a.open_window(360, 240, @shared.tx("showcase 子窗")) {
                     Some(child) => {
                       child.mount([
                         @ui.col(
                           [
-                            @ui.text("这是第二扇窗", role=@ui.Title),
-                            @ui.text("主窗与子窗事件各自独立；关本窗不退出应用。", role=@ui.Secondary),
-                            @ui.button("关掉我自己", variant=@ui.Danger, on_click=fn() {
+                            @ui.text(@shared.tx("这是第二扇窗"), role=@ui.Title),
+                            @ui.text(@shared.tx("主窗与子窗事件各自独立；关本窗不退出应用。"), role=@ui.Secondary),
+                            @ui.button(@shared.tx("关掉我自己"), variant=@ui.Danger, on_click=fn() {
                               child.close_window()
                             }),
                           ],
@@ -431,29 +431,29 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
                       ])
                       multiwin_out.set("已开子窗，当前共 " + a.window_count().to_string() + " 扇")
                     }
-                    None => multiwin_out.set("这台机器开不了第二扇窗（无窗口后端）")
+                    None => multiwin_out.set(@shared.tx("这台机器开不了第二扇窗（无窗口后端）"))
                   }
-                None => multiwin_out.set("宿主还没就绪")
+                None => multiwin_out.set(@shared.tx("宿主还没就绪"))
               }
             }),
-            @ui.button("列窗数", variant=@ui.Soft, on_click=fn() {
+            @ui.button(@shared.tx("列窗数"), variant=@ui.Soft, on_click=fn() {
               match app.host.val {
                 Some(a) => multiwin_out.set("当前共 " + a.window_count().to_string() + " 扇窗")
                 None => ()
               }
             }),
-            @ui.button("关最近一扇子窗", variant=@ui.Text, on_click=fn() {
+            @ui.button(@shared.tx("关最近一扇子窗"), variant=@ui.Text, on_click=fn() {
               match app.host.val {
                 Some(a) =>
                   match a.active_window() {
                     Some(act) =>
                       if act.is_primary() {
-                        multiwin_out.set("当前活动窗是主窗，不关它")
+                        multiwin_out.set(@shared.tx("当前活动窗是主窗，不关它"))
                       } else {
                         act.close_window()
                         multiwin_out.set("已关一扇子窗，剩 " + a.window_count().to_string() + " 扇")
                       }
-                    None => multiwin_out.set("没有活动窗")
+                    None => multiwin_out.set(@shared.tx("没有活动窗"))
                   }
                 None => ()
               }
@@ -488,14 +488,14 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
             @ui.button("80%", variant=@ui.Soft, on_click=fn() { win_set_opacity(204) }),
             @ui.button("50%", variant=@ui.Soft, on_click=fn() { win_set_opacity(128) }),
             @ui.button("25%", variant=@ui.Soft, on_click=fn() { win_set_opacity(64) }),
-            @ui.button("背景穿透", variant=@ui.Text, on_click=fn() {
+            @ui.button(@shared.tx("背景穿透"), variant=@ui.Text, on_click=fn() {
               transparent_on.val = !transparent_on.val
               let on = transparent_on.val
               match app.host.val {
                 Some(a) => {
                   a.window().set_transparent_bg(on)
                   layer_out.set(
-                    if on { "背景穿透：开（控件未覆盖处透出桌面）" } else { "背景穿透：关" },
+                    if on { @shared.tx("背景穿透：开（控件未覆盖处透出桌面）") } else { @shared.tx("背景穿透：关") },
                   )
                 }
                 None => ()
@@ -521,14 +521,14 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
       [
         @ui.row(
           [
-            @ui.button("普通", on_click=fn() { win_set_layer(@win.WindowLayer::Normal) }),
-            @ui.button("图标下", variant=@ui.Soft, on_click=fn() {
+            @ui.button(@shared.tx("普通"), on_click=fn() { win_set_layer(@win.WindowLayer::Normal) }),
+            @ui.button(@shared.tx("图标下"), variant=@ui.Soft, on_click=fn() {
               win_set_layer(@win.WindowLayer::Desktop)
             }),
-            @ui.button("图标上", variant=@ui.Soft, on_click=fn() {
+            @ui.button(@shared.tx("图标上"), variant=@ui.Soft, on_click=fn() {
               win_set_layer(@win.WindowLayer::DesktopWidget)
             }),
-            @ui.button("置顶", variant=@ui.Soft, on_click=fn() {
+            @ui.button(@shared.tx("置顶"), variant=@ui.Soft, on_click=fn() {
               win_set_layer(@win.WindowLayer::AlwaysOnTop)
             }),
             @ui.button("Dock", variant=@ui.Text, on_click=fn() {

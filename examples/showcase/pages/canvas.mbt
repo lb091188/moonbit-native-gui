@@ -23,10 +23,10 @@ fn font_mix_widget() -> @widget.Node {
     w.on_draw = Some(fn(_w : @widget.Widget, p : @render.Painter, r : @base.Rect) -> Unit {
       p.set_fill_color(@theme.theme_bg_panel())
       p.fill_rect(0.0, 0.0, r.w, r.h)
-      let base = @text.AttributedText::new("基准 Base 28")
-      let mixed = @text.AttributedText::new("基准 Base 28")
+      let base = @text.AttributedText::new(@shared.tx("基准 Base 28"))
+      let mixed = @text.AttributedText::new(@shared.tx("基准 Base 28"))
       // 「28」是末尾两字节起、长 2 字节（字节下标口径，与编辑内核同源）
-      let nb = @utf8.encode("基准 Base 28")
+      let nb = @utf8.encode(@shared.tx("基准 Base 28"))
       let at = nb.length() - 2
       mixed.set_font_for(@text.Font::new("", 28.0), at, nb.length())
       let lh_base = match base.line_height() {
@@ -54,7 +54,7 @@ fn font_mix_widget() -> @widget.Node {
         p,
         4.0,
         72.0,
-        "回退族名：" + fam + "（可用字体族 \{fam_count} 个）",
+        @shared.tx("回退族名：") + fam + "（可用字体族 \{fam_count} 个）",
         12.0,
         @theme.theme_text_secondary(),
       )
@@ -143,11 +143,11 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
         }),
         @ui.row(
           [
-            @ui.button("旋转色相", on_click=fn() {
+            @ui.button(@shared.tx("旋转色相"), on_click=fn() {
               hue.val = (hue.val + 1) % 3
               @widget.invalidate()
             }),
-            @ui.button("渐变开关", variant=@ui.Soft, on_click=fn() {
+            @ui.button(@shared.tx("渐变开关"), variant=@ui.Soft, on_click=fn() {
               grad_on.val = !grad_on.val
               @widget.invalidate()
             }),
@@ -201,7 +201,7 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
         }),
         @ui.row(
           [
-            @ui.button("换行开关", on_click=fn() {
+            @ui.button(@shared.tx("换行开关"), on_click=fn() {
               rt_wrap.val = !rt_wrap.val
               rt.set_format({
                 align: @text.Start,
@@ -211,7 +211,7 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
               })
               @widget.invalidate()
             }),
-            @ui.button("省略号开关", variant=@ui.Soft, on_click=fn() {
+            @ui.button(@shared.tx("省略号开关"), variant=@ui.Soft, on_click=fn() {
               rt_ellipsis.val = !rt_ellipsis.val
               rt.set_format({
                 align: @text.Start,
@@ -221,8 +221,8 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
               })
               @widget.invalidate()
             }),
-            @ui.button("改写文本", variant=@ui.Solid, on_click=fn() {
-              rt.set_text("文本已替换 ✓（范围属性保留）")
+            @ui.button(@shared.tx("改写文本"), variant=@ui.Solid, on_click=fn() {
+              rt.set_text(@shared.tx("文本已替换 ✓（范围属性保留）"))
               @widget.invalidate()
             }),
           ],
@@ -234,14 +234,14 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
           [
             @ui.bind_label(app.dark_mode, fn(d) {
               if d {
-                "系统深浅：深色"
+                @shared.tx("系统深浅：深色")
               } else {
-                "系统深浅：浅色"
+                @shared.tx("系统深浅：浅色")
               }
             }),
             @ui.bind_label(app.accent, fn(a) {
               if a.length() == 0 {
-                "系统主色：（无，回落内置）"
+                @shared.tx("系统主色：（无，回落内置）")
               } else {
                 "系统主色：\{a}"
               }

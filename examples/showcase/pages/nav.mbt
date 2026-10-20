@@ -10,7 +10,7 @@
 pub fn page_nav(app : @shared.App) -> @widget.Node {
   let page_no : @base.Store[Int] = @base.Store::new(2)
   let step : @base.Store[Int] = @base.Store::new(1)
-  let last_op : @base.Store[String] = @base.Store::new("（尚未操作）")
+  let last_op : @base.Store[String] = @base.Store::new(@shared.tx("（尚未操作）"))
   @shared.page([
     @shared.section(
       "侧栏",
@@ -18,10 +18,10 @@ pub fn page_nav(app : @shared.App) -> @widget.Node {
       "窗口左侧即本组件；组标题可折叠收起，选中浅蓝底 + 主题色强调条。",
       [
         @ui.descriptions([
-          ("悬停态", "浅灰底"),
-          ("选中态", "主题浅蓝底 + 主题色文字 + 3px 强调条"),
-          ("折叠", "组标题行点击收起/展开组内菜单项"),
-          ("联动", "菜单项、面包屑、分段共享同一导航状态"),
+          (@shared.tx("悬停态"), @shared.tx("浅灰底")),
+          (@shared.tx("选中态"), @shared.tx("主题浅蓝底 + 主题色文字 + 3px 强调条")),
+          (@shared.tx("折叠"), @shared.tx("组标题行点击收起/展开组内菜单项")),
+          (@shared.tx("联动"), @shared.tx("菜单项、面包屑、分段共享同一导航状态")),
         ]),
       ],
       code=[
@@ -41,28 +41,28 @@ pub fn page_nav(app : @shared.App) -> @widget.Node {
         @ui.row(
           [
             @ui.context_menu_for(
-              @ui.view([@ui.tag("右键我", "#2D68C4")], width=140.0, height=32.0, align_items=@yoga.AlignItems::Center),
+              @ui.view([@ui.tag(@shared.tx("右键我"), "#2D68C4")], width=140.0, height=32.0, align_items=@yoga.AlignItems::Center),
               [
-                ("复制", fn() { last_op.set("已复制") }),
-                ("重命名", fn() { last_op.set("重命名") }),
+                (@shared.tx("复制"), fn() { last_op.set(@shared.tx("已复制")) }),
+                (@shared.tx("重命名"), fn() { last_op.set(@shared.tx("重命名")) }),
                 ("-", fn() { () }),
-                ("删除", fn() { last_op.set("已删除") }),
+                (@shared.tx("删除"), fn() { last_op.set(@shared.tx("已删除")) }),
               ],
             ),
             @ui.dropdown(
               "操作",
-              ["打开", "保存", "-", "复制链接", "删除"],
-              on_select=fn(_i) { last_op.set("菜单项已选") },
+              [@shared.tx("打开"), @shared.tx("保存"), "-", @shared.tx("复制链接"), @shared.tx("删除")],
+              on_select=fn(_i) { last_op.set(@shared.tx("菜单项已选")) },
             ),
             @ui.bind_label(last_op, fn(s) { "最近操作：\{s}" }),
           ],
           column_gap=16.0,
         ),
         @ui.descriptions([
-          ("快捷键", "item.set_accelerator(\"CmdOrCtrl+I\") 注册系统级加速键"),
-          ("角色项", "menu.add_role_item(role) 取平台原生文案"),
-          ("分隔线", "menu.add_separator() 插入不可点分隔线"),
-          ("挂载", "窗口由 main 经宿主菜单栏通道挂载（示例见 native-app 的菜单区块）"),
+          (@shared.tx("快捷键"), "item.set_accelerator(\"CmdOrCtrl+I\") 注册系统级加速键"),
+          (@shared.tx("角色项"), "menu.add_role_item(role) 取平台原生文案"),
+          (@shared.tx("分隔线"), "menu.add_separator() 插入不可点分隔线"),
+          (@shared.tx("挂载"), @shared.tx("窗口由 main 经宿主菜单栏通道挂载（示例见 native-app 的菜单区块）")),
         ]),
       ],
       code=[
@@ -93,6 +93,7 @@ pub fn page_nav(app : @shared.App) -> @widget.Node {
         @ui.segmented(
           ["基础组件", "表单组件", "导航组件", "反馈组件"],
           app.selected,
+          label_of=fn(k : String) -> String { @shared.nav_label(k) },
         ),
       ],
       code=[
@@ -105,9 +106,9 @@ pub fn page_nav(app : @shared.App) -> @widget.Node {
       "顶部页签形态：选中主题色文字 + 底部指示条，内容区切换（子区预建 + 显隐，不重建）。",
       [
         @ui.tabs([
-          ("概览", @ui.text("这里是概览页内容。", role=@ui.Body)),
-          ("配置", @ui.text("这里是配置页内容。", role=@ui.Body)),
-          ("日志", @ui.text("这里是日志页内容。", role=@ui.Body)),
+          ("概览", @ui.text(@shared.tx("这里是概览页内容。"), role=@ui.Body)),
+          ("配置", @ui.text(@shared.tx("这里是配置页内容。"), role=@ui.Body)),
+          ("日志", @ui.text(@shared.tx("这里是日志页内容。"), role=@ui.Body)),
         ]),
       ],
       code=[
@@ -143,10 +144,10 @@ pub fn page_nav(app : @shared.App) -> @widget.Node {
       "Steps 步骤条",
       "完成/当前/待办三态：浅蓝、实底白字、灰；点按钮推进或回退。",
       [
-        @ui.steps(["填写", "确认", "完成"], step),
+        @ui.steps(["填写", "确认", "完成"].map(x => @shared.tx(x)), step),
         @ui.row(
           [
-            @ui.button("上一步", variant=@ui.Soft, on_click=fn() {
+            @ui.button(@shared.tx("上一步"), variant=@ui.Soft, on_click=fn() {
               step.update(fn(n) {
                 let m = n - 1
                 if m < 0 {
@@ -156,7 +157,7 @@ pub fn page_nav(app : @shared.App) -> @widget.Node {
                 }
               })
             }),
-            @ui.button("下一步", variant=@ui.Solid, on_click=fn() {
+            @ui.button(@shared.tx("下一步"), variant=@ui.Solid, on_click=fn() {
               step.update(fn(n) {
                 let m = n + 1
                 if m > 2 {

@@ -46,13 +46,13 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
           [
             @ui.input(
               @base.Store::new(""),
-              placeholder="输入点什么…",
+              placeholder=@shared.tx("输入点什么…"),
               width=300.0,
               clearable=true,
             ),
             @ui.input(
               @base.Store::new(""),
-              placeholder="密码框",
+              placeholder=@shared.tx("密码框"),
               password=true,
               width=300.0,
             ),
@@ -102,7 +102,7 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
         @ui.col(
           [
             @ui.select(
-              ["杭州", "北京", "上海", "深圳", "广州"],
+              [@shared.tx("杭州"), @shared.tx("北京"), @shared.tx("上海"), @shared.tx("深圳"), @shared.tx("广州")],
               @base.Store::new(""),
               clearable=true,
               width=170.0,
@@ -127,28 +127,28 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
       [
         @ui.col(
           [
-            @ui.checkbox("启用自动同步", sync),
-            @ui.checkbox("接收通知", notify),
+            @ui.checkbox(@shared.tx("启用自动同步"), sync),
+            @ui.checkbox(@shared.tx("接收通知"), notify),
             @ui.row(
               [
-                @ui.bind_label(sync, fn(v) { if v { "同步：开" } else { "同步：关" } }),
-                @ui.bind_label(notify, fn(v) { if v { "通知：开" } else { "通知：关" } }),
+                @ui.bind_label(sync, fn(v) { if v { @shared.tx("同步：开") } else { @shared.tx("同步：关") } }),
+                @ui.bind_label(notify, fn(v) { if v { @shared.tx("通知：开") } else { @shared.tx("通知：关") } }),
               ],
               column_gap=24.0,
             ),
             @ui.row(
               [
-                @ui.radio_group(["浅色", "深色", "跟随系统"], theme_idx),
-                @ui.radio_group(["选项一", "选项二"], radio_idx, disabled=true),
+                @ui.radio_group(["浅色", "深色", "跟随系统"].map(x => @shared.tx(x)), theme_idx),
+                @ui.radio_group(["选项一", "选项二"].map(x => @shared.tx(x)), radio_idx, disabled=true),
               ],
               column_gap=40.0,
             ),
             @ui.row(
               [
                 @ui.switch(wifi_on),
-                @ui.bind_label(wifi_on, fn(v) { if v { "已开启" } else { "已关闭" } }),
+                @ui.bind_label(wifi_on, fn(v) { if v { @shared.tx("已开启") } else { @shared.tx("已关闭") } }),
                 @ui.switch(locked, disabled=true),
-                @ui.text("禁用", role=@ui.Body),
+                @ui.text(@shared.tx("禁用"), role=@ui.Body),
               ],
               column_gap=12.0,
             ),
@@ -178,11 +178,11 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
             @ui.date_picker(dp_val, clearable=true, width=170.0),
             @ui.row(
               [
-                @ui.text("选中：", role=@ui.Body),
+                @ui.text(@shared.tx("选中："), role=@ui.Body),
                 @ui.bind(dp_val.signal(), fn(d) {
                   match d {
                     Some(v) => v.format()
-                    None => "未选"
+                    None => @shared.tx("未选")
                   }
                 }),
               ],
@@ -199,7 +199,7 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
             match (r.start, r.end) {
               (Some((sd, st)), Some((ed, et))) =>
                 "日期时间区间：\{sd.format()} \{st.format()} ~ \{ed.format()} \{et.format()}"
-              _ => "日期时间区间：未完成选择"
+              _ => @shared.tx("日期时间区间：未完成选择")
             }
           }),
         ]),
@@ -218,13 +218,13 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
       "Form 表单",
       "form_item 行布局（标签右对齐 + 控件区）+ form 分组标题；placeholder 给空态提示。",
       [
-        @ui.form("用户设置", [
+        @ui.form(@shared.tx("用户设置"), [
           @ui.form_item(
-            "用户名",
-            @ui.input(@base.Store::new("moonbit"), placeholder="登录名", width=200.0, clearable=true),
+            @shared.tx("用户名"),
+            @ui.input(@base.Store::new("moonbit"), placeholder=@shared.tx("登录名"), width=200.0, clearable=true),
           ),
-          @ui.form_item("城市", @ui.input(@base.Store::new("杭州"), placeholder="城市名", width=200.0)),
-          @ui.form_item("数量", @ui.stepper(qty2, min=1, max=9)),
+          @ui.form_item("城市", @ui.input(@base.Store::new("杭州"), placeholder=@shared.tx("城市名"), width=200.0)),
+          @ui.form_item(@shared.tx("数量"), @ui.stepper(qty2, min=1, max=9)),
         ]),
       ],
       code=[
@@ -241,14 +241,14 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
       "Form 校验与错误消息",
       "validate(值槽, 规则) 把错误文案写进自己的 String 槽，form_item(error=) 在控件下方显示红字（行高固定，出现/消失不跳版）；规则即时重跑，改对了红字自己消失。",
       [
-        @ui.form("注册资料", [
+        @ui.form(@shared.tx("注册资料"), [
           @ui.form_item(
-            "昵称",
-            @ui.input(nick, placeholder="至少 2 个字符", width=200.0),
+            @shared.tx("昵称"),
+            @ui.input(nick, placeholder=@shared.tx("至少 2 个字符"), width=200.0),
             error=err_nick,
           ),
           @ui.form_item(
-            "邮箱",
+            @shared.tx("邮箱"),
             @ui.input(mail, placeholder="you@example.com", width=200.0),
             error=err_mail,
           ),
