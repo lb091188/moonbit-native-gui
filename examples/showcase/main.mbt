@@ -55,6 +55,37 @@ fn theme_toggle_button(app : @shared.App) -> @widget.Node {
 }
 
 ///|
+/// 全局圆角开关（月亮旁）：切换 `@style.set_square_corners` 后整窗重绘。
+fn flat_toggle_button(app : @shared.App) -> @widget.Node {
+  @ui.icon_button(
+    @icons.RadiusSetting,
+    on_click=fn() {
+      let on = !@style.square_corners()
+      @style.set_square_corners(on)
+      app.flat.set(on)
+      @widget.host_repaint_all()
+    },
+  )
+}
+
+///|
+/// 侧栏/菜单半透玻璃开关（月亮旁）：整窗背景透明 + 重绘（侧栏玻璃底由玻璃样式兑现）。
+fn translucent_toggle_button(app : @shared.App) -> @widget.Node {
+  @ui.icon_button(
+    @icons.MagicStick,
+    on_click=fn() {
+      let on = !app.translucent.get()
+      app.translucent.set(on)
+      match app.host.val {
+        Some(a) => a.window().set_transparent_bg(on)
+        None => ()
+      }
+      @widget.host_repaint_all()
+    },
+  )
+}
+
+///|
 /// 菜单栏模型（第十五批接线）：动作全部真实有效——「导航」切页、「主题」
 /// 拨深浅与跟随开关、「帮助」关于冒提示 / 退出角色项走 `App::quit`。
 /// 项点击经原生菜单派发链（`dispatch_menu_command`）回到这些回调。
@@ -164,6 +195,7 @@ fn main {
     dlg_name: @base.Store::new(""),
     dlg_result: @base.Store::new(""),
     flat: @base.Store::new(false),
+    translucent: @base.Store::new(false),
     soft: @base.Store::new(false),
     // 宿主句柄：挂载时由下方 handle 回调填入（窗口页/快捷键页取用）
     host: Ref(None),
@@ -234,6 +266,8 @@ fn main {
                 [
                   @ui.text("V" + SHOWCASE_VERSION, role=@ui.Secondary),
                   theme_toggle_button(app),
+                  flat_toggle_button(app),
+                  translucent_toggle_button(app),
                 ],
                 padding=10.0,
                 column_gap=8.0,
