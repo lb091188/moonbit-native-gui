@@ -18,6 +18,15 @@ pub using @yoga {
 }
 
 ///|
+/// 书写/布局方向:CSS `direction` 的两档。`Rtl` 让布局镜像——主轴 row 反向、
+/// 起终对齐翻转,整窗从右渲染。默认不设等同 `Ltr`(现行为)。
+/// 注:这是**布局镜像**,文本 run 内的基方向由引擎 bidi 另行处理。
+pub(all) enum Direction {
+  Ltr
+  Rtl
+}
+
+///|
 /// 下划线形态：CSS `text-decoration` 在本栈只有画得出的一条线，故只有两档。
 pub(all) enum TextDecoration {
   Underline
