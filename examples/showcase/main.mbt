@@ -14,7 +14,8 @@
 //   - 菜单栏是模型翻译（`MenuBar::apply_to` → 原生菜单栏，点击经 `dispatch_menu_command`
 //     派发到模型回调，100ms 轮询表挂在宿主）；单实例是 dbus 层的
 //     `claim_name` + Wake（无会话总线的环境降级为不做，只打印说明）；
-//     D-Bus 的排期通道与 200ms 泵都由宿主给。托盘菜单在系统集成页托盘段。
+//     D-Bus 的排期通道与 200ms 泵都由宿主给。托盘也是应用级单例：main 挂载期建
+//     好并默认挂右键菜单，系统集成页只演示换提示 / 换图标。
 //   - 浏览器页在独立示例 `examples/browser`（WebView 重控件不随演示板起窗）。
 
 ///|
@@ -83,6 +84,52 @@ fn language_toggle_button(app : @shared.App) -> @widget.Node {
       @widget.host_repaint_all()
     },
   )
+}
+
+///|
+/// 托盘错误 → 可读串（没后端 / 图标没建成 / 后端具体失败）。
+fn tray_err_text(e : @shell.TrayError) -> String {
+  match e {
+    @shell.TrayError::Unsupported => @shared.tx("本平台没有托盘后端")
+    @shell.TrayError::IconLoadFailed => @shared.tx("图标加载失败")
+    @shell.TrayError::Backend(msg) => @shared.tr_with(
+        "dyn.tray_backend_failed",
+        [("m", msg)],
+        "托盘后端失败：\{msg}",
+      )
+  }
+}
+
+///|
+/// 托盘右键菜单：应用级，随 main 建的托盘一起默认挂上（不需要用户再点「挂菜单」）。
+/// 走语言口，换语言整份重建；菜单项点击经同一条 `dispatch_menu_command`
+/// 派发链回到回调（与原生菜单栏共用 100ms 轮询表）。
+fn build_tray_menu(app : @shared.App) -> @shell.Menu {
+  let menu = @shell.Menu::new(title=@shared.tx("托盘"))
+  let _ = menu.add_item(@shared.tx("冒个提示")).set_on_click(fn() {
+    app.toast_push(@shared.tx("来自托盘菜单"), @ui.Info)
+  })
+  let _ = menu.add_item(@shared.tx("回首页")).set_on_click(fn() {
+    app.selected.set("基础组件")
+  })
+  let _ = menu.add_item(@shared.tx("报左键计数")).set_on_click(fn() {
+    app.toast_push(
+      @shared.tr_with(
+        "dyn.tray_menu_clicks",
+        [("n", app.tray_clicks.get().to_string())],
+        "左键已计 \{app.tray_clicks.get()} 次",
+      ),
+      @ui.Info,
+    )
+  })
+  let _ = menu.add_separator()
+  let _ = menu.add_item(@shared.tx("退出")).set_on_click(fn() {
+    match app.host.val {
+      Some(a) => a.quit()
+      None => ()
+    }
+  })
+  menu
 }
 
 ///|
@@ -198,6 +245,10 @@ fn main {
     flat: @base.Store::new(false),
     // 宿主句柄：挂载时由下方 handle 回调填入（窗口页/快捷键页取用）
     host: Ref(None),
+    // 托盘：应用级单例，句柄在这里建好后交给系统集成页操作（见下方 handle 段）
+    tray: Ref(None),
+    tray_clicks: @base.Store::new(0),
+    tray_note: @base.Store::new(@shared.tx("（还没建托盘）")),
   }
   box.val = Some(app)
   // 深浅/主色任一变化即整体换主题；subscribe 注册不回调，故先应用一次
@@ -353,6 +404,34 @@ fn main {
       // 窗口标题同一条链：默认标题按当前语言写，换语言随广播重写。
       // （冒烟标记那行仍打常量 SHOWCASE_TITLE，与本串无关。）
       @widget.set_window_title_localized(fn(_w) { @shared.tx(SHOWCASE_TITLE) })
+      // 托盘：应用级单例，就在 main 挂载期建——页会随切语言原地重挂，句柄放页里
+      // 每次重挂都换一个新的，旧图标成孤儿（还会同 Id 重复注册）。默认档不传图标
+      // = 库内置月牙，三平台同一张脸；提示语与右键菜单都登记进语言口，换语言随
+      // 广播重算。系统集成页只负责演示「换提示 / 换图标」这类操作。
+      match @shell.Tray::new("libyue-showcase-tray") {
+        Ok(t) => {
+          t.set_tooltip_localized(
+            fn() -> String { @shared.tx("libyue 演示板") },
+            fn() -> String { @shared.tx("左键计数 · W 族门面") },
+          )
+          t.set_menu_localized(fn() -> @shell.Menu { build_tray_menu(app) })
+          t.on_click(fn() {
+            app.tray_clicks.update(fn(n) { n + 1 })
+            app.toast_push(@shared.tx("托盘左键被点了"), @ui.Info)
+          })
+          app.tray.val = Some(t)
+          app.tray_note.set(@shared.tr_with("dyn.tray_created", [("b", t.backend_name())], "已建（\{t.backend_name()}）"))
+        }
+        Err(e) => app.tray_note.set(tray_err_text(e))
+      }
+      // 托盘事件派发：200ms 轮询表（宿主循环没有每帧钩子）；起表就在这儿，
+      // 那时宿主已就绪，不会再出现「图标在、点了没反应」的空队列。
+      let tray_tick : Ref[() -> Unit] = Ref(fn() { () })
+      tray_tick.val = fn() -> Unit {
+        let _ = @shell.dispatch_tray_event()
+        let _ = a.timer(200, tray_tick.val)
+      }
+      (tray_tick.val)()
       let menu_tick : Ref[() -> Unit] = Ref(fn() { () })
       menu_tick.val = fn() -> Unit {
         let _ = @shell.dispatch_menu_command()

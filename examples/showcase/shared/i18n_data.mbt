@@ -790,6 +790,10 @@ pub const EN_CATALOG : String =
   "\"dyn.combo_hit_ms\" = \"A-key double-click hit ({ms} ms)\"\n" +
   "\"dyn.tray_backend_failed\" = \"Tray backend failed: {m}\"\n" +
   "\"组件库演示板\" = \"Component Showcase\"\n" +
+  "\"换自绘图标\" = \"Use drawn icon\"\n" +
+  "\"回内置图标\" = \"Back to built-in\"\n" +
+  "\"图标已换成自绘琥珀圆\" = \"Icon switched to the drawn amber disc\"\n" +
+  "\"图标已回库内置月牙\" = \"Icon back to the built-in crescent\"\n" +
   // —— 段条短名（key = `seg.` + 段名；`page()` 的 label_of 出口取译）——
   "[seg]\n" +
   "\"主题\" = \"Theme\"\n" +
