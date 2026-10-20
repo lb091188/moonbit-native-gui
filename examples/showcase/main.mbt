@@ -133,6 +133,9 @@ fn main {
     route_of_page(box, "过渡与效果", @pages.page_anim, @router.Prefetch),
     // 系统能力探测在构造期跑全量探测（读浏览器 sqlite、进程表），只给点开时才做
     route_of_page(box, "系统能力探测", @pages.page_sysprobe, @router.Lazy),
+    route_of_page(box, "图标字体", @pages.page_iconfont, @router.Prefetch),
+    route_of_page(box, "国际化", @pages.page_i18n, @router.Prefetch),
+    route_of_page(box, "RTL 排版", @pages.page_rtl, @router.Lazy),
   ]
   let nav = @router.new_router(routes)
   let app : @shared.App = {
@@ -202,6 +205,7 @@ fn main {
                     [
                       ("组件", ["基础组件", "表单组件", "导航组件", "数据展示", "图表", "代码文档", "Store", "反馈组件", "事件与布局", "窗口", "系统集成", "图标库", "画布与富文本", "过渡与效果"]),
                       ("系统", ["系统能力探测"]),
+                      ("本地化", ["图标字体", "国际化", "RTL 排版"]),
                     ],
                     icons=[
                       ("基础组件", @icons.Appstore),
