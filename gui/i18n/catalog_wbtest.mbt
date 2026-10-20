@@ -24,3 +24,13 @@ test "复数按主语言选择" {
   assert_eq(t_count("items.count", 1), Some("1 item"))
   assert_eq(t_count("items.count", 3), Some("3 items"))
 }
+
+test "t_or 行为不变 + chrome 段键扁平化" {
+  // 加载 en：命中 gui.ui.dialog.confirm → "OK"；未命中 → 回落字面量
+  i18n_load("[meta]\nlocale = \"en\"\n[gui.ui.dialog]\nconfirm = \"OK\"\n")
+  assert_eq(t_or("gui.ui.dialog.confirm", "确定"), "OK")
+  assert_eq(t_or("gui.ui.dialog.missing", "默认值"), "默认值")
+  // 不加载任何该键的目录：chrome 逐字回到旧硬编码，行为不变
+  i18n_load("[meta]\nlocale = \"none\"\n")
+  assert_eq(t_or("gui.ui.dialog.confirm", "确定"), "确定")
+}

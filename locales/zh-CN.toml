@@ -1,0 +1,20 @@
+# 简体中文目录：与源码字面量一致（库默认语言），供显式切到 zh-CN 时使用。
+
+[meta]
+locale = "zh-CN"
+
+[gui.ui.message_box]
+ok = "确定"
+
+[gui.ui.dialog]
+confirm = "确定"
+cancel = "取消"
+
+[gui.ui.datepicker]
+cancel = "取消"
+
+[demo]
+title = "国际化示例"
+greeting = "你好，{name}！"
+switch = "切换语言"
+saved = { one = "已保存 {n} 项", other = "已保存 {n} 项" }

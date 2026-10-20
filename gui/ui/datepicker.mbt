@@ -385,7 +385,7 @@ fn time_popup(
               0.0,
               r.w,
               r.h,
-              "取消",
+              @i18n.t_or("gui.ui.datepicker.cancel", "取消"),
               f,
               @style.color_of(st.color, @theme.theme_text_regular()),
               align=@text.Center,

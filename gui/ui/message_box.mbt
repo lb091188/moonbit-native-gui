@@ -97,7 +97,7 @@ pub fn message_box(
   content : String,
   kind? : MsgBoxKind = Information,
   informative? : String = "",
-  buttons? : Array[(String, Int)] = [("确定", 1)],
+  buttons? : Array[(String, Int)] = [(@i18n.t_or("gui.ui.message_box.ok", "确定"), 1)],
   on_response? : (Int) -> Unit = fn(_r : Int) -> Unit { () },
   on_dismiss? : () -> Unit = fn() -> Unit { () },
   close_on_mask? : Bool = false,

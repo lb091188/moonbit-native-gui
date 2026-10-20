@@ -1,0 +1,21 @@
+# 框架 chrome 文案的英文目录 + 演示键。
+# 源码里的字面量是中文（库默认语言），加载本目录即把这些键覆盖成英文。
+
+[meta]
+locale = "en"
+
+[gui.ui.message_box]
+ok = "OK"
+
+[gui.ui.dialog]
+confirm = "OK"
+cancel = "Cancel"
+
+[gui.ui.datepicker]
+cancel = "Cancel"
+
+[demo]
+title = "i18n Demo"
+greeting = "Hello, {name}!"
+switch = "Switch language"
+saved = { one = "{n} item saved", other = "{n} items saved" }
