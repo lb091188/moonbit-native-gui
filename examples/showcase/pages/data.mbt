@@ -41,7 +41,7 @@ fn data_cmp_num_str(a : String, b : String) -> Int {
 fn sticky_rows(g : Int) -> Array[@widget.Node] {
   let rows : Array[@widget.Node] = []
   for i = 0; i < 4; i = i + 1 {
-    let label = "第 \{g} 组 · 第 \{i + 1} 行（滚动时看顶部吸顶条）"
+    let label = @shared.tr_with("dyn.sticky_row", [("g", g.to_string()), ("r", (i + 1).to_string())], "第 \{g} 组 · 第 \{i + 1} 行（滚动时看顶部吸顶条）")
     rows.push(@ui.text(label, role=@ui.Body))
   }
   rows
@@ -110,7 +110,7 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
         @ui.CellText("Python"),
         @ui.CellTag(@shared.tx("解释型"), @ui.Warning),
         @ui.CellColorBox("#2E9E5B", @shared.tx("主题绿")),
-        @ui.CellLines(["脚本", @shared.tx("AI 生态")]),
+        @ui.CellLines([@shared.tx("脚本"), @shared.tx("AI 生态")]),
       ],
     },
   ]
@@ -242,7 +242,7 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
             @ui.statistic(@shared.tx("版本"), "0.1.0"),
             @ui.col(
               [
-                @ui.bind(app.visits, fn(s) { "访问量 \{s}" }),
+                @ui.bind(app.visits, fn(s) { @shared.tr_with("dyn.visits", [("s", s)], "访问量 \{s}") }),
                 @ui.text(@shared.tx("由基础页与下方按钮联动"), role=@ui.Secondary),
               ],
               row_gap=2.0,
@@ -256,7 +256,7 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
               app.counter.update(fn(n) { n + 1 })
             }),
             @ui.progress_line(app.ratio.store()),
-            @ui.bind(app.ratio, fn(v) { "当前进度 \{(v * 100.0).round()}%" }),
+            @ui.bind(app.ratio, fn(v) { @shared.tr_with("dyn.progress_now", [("p", (v * 100.0).round().to_string())], "当前进度 \{(v * 100.0).round()}%") }),
           ],
           column_gap=16.0,
         ),
@@ -276,8 +276,8 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
           [
             @ui.card([@ui.text(@shared.tx("卡片内容：组件库全部用 theme_* 主题色着色。"), role=Body)], title=@shared.tx("卡片标题")),
             @ui.collapse([
-              ("如何使用组件库？", [@ui.text(@shared.tx("moon add NoahLiu/native-gui 后即可用 @ui.* 访问。"), role=Body)]),
-              ("支持哪些平台？", [@ui.text(@shared.tx("Linux (X11) / Windows；macOS 进行中。"), role=Body)]),
+              (@shared.tx("如何使用组件库？"), [@ui.text(@shared.tx("moon add NoahLiu/native-gui 后即可用 @ui.* 访问。"), role=Body)]),
+              (@shared.tx("支持哪些平台？"), [@ui.text(@shared.tx("Linux (X11) / Windows；macOS 进行中。"), role=Body)]),
             ]),
           ],
           row_gap=10.0,
@@ -338,7 +338,7 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
                   @ui.CellText(s) => s
                   _ => ""
                 }
-                table_picked.set("第 \{i + 1} 行：\{name}")
+                table_picked.set(@shared.tr_with("dyn.row_picked", [("r", (i + 1).to_string()), ("n", name)], "第 \{i + 1} 行：\{name}"))
               },
             ),
             @ui.row(
@@ -346,7 +346,7 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
                 @ui.button(@shared.tx("添加一行"), on_click=fn() {
                   let n = lang_base.length() + 1
                   lang_base.push(
-                    @ui.TableRow::make(["新语言 \{n}", "2026", @shared.tx("演示 Store 驱动")]),
+                    @ui.TableRow::make([@shared.tr_with("dyn.new_lang", [("n", n.to_string())], "新语言 \{n}"), "2026", @shared.tx("演示 Store 驱动")]),
                   )
                   reorder_langs()
                 }),
@@ -364,7 +364,7 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
               [
                 @ui.TableColumn::make(@shared.tx("语言"), 120.0),
                 @ui.TableColumn::make(@shared.tx("类型"), 100.0, sortable=false),
-                @ui.TableColumn::make("色板", 110.0, sortable=false),
+                @ui.TableColumn::make(@shared.tx("色板"), 110.0, sortable=false),
                 @ui.TableColumn::make(@shared.tx("特性"), 0.0, sortable=false),
               ],
               rich_rows,
@@ -372,7 +372,7 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
               width=460.0,
               sort=rich_sort,
             ),
-            @ui.bind(table_sel.signal(), fn(s) { "已选 \{s.length()} 行" }),
+            @ui.bind(table_sel.signal(), fn(s) { @shared.tr_with("dyn.rows_selected", [("n", s.length().to_string())], "已选 \{s.length()} 行") }),
           ],
           row_gap=8.0,
           align_items=@yoga.AlignItems::FlexStart,

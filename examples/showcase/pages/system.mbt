@@ -114,7 +114,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
     }
     match r {
       Ok(_) => auto_state.set(if v { @shared.tx("已开启（重新登录后生效）") } else { @shared.tx("已关闭") })
-      Err(e) => auto_state.set("写入失败：\{e}")
+      Err(e) => auto_state.set(@shared.tr_with("dyn.autostart_write_failed", [("e", "\{e}")], "写入失败：\{e}"))
     }
   })
   match @sys.autostart_is_enabled(AUTOSTART_APP_ID) {
@@ -137,13 +137,13 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
               match app.host.val {
                 Some(a) => {
                   let dlg = @sys.FileDialog::new_open()
-                  dlg.set_filters("文本文件:txt,md|所有文件:*")
+                  dlg.set_filters(@shared.tx("文本文件:txt,md|所有文件:*"))
                   if dlg.run_for_window(dialog_parent(a)) {
                     let p = dlg.get_result()
-                    file_out.set("已选：\{p}")
+                    file_out.set(@shared.tr_with("dyn.file_picked", [("p", p)], "已选：\{p}"))
                     match @sys.sys_read_text_file(p) {
-                      Some(t) => file_out.set("已选：\{p}（读回 \{t.length()} 字符）")
-                      None => file_out.set("已选：\{p}（读不出内容或不是文本）")
+                      Some(t) => file_out.set(@shared.tr_with("dyn.file_picked_chars", [("p", p), ("n", t.length().to_string())], "已选：\{p}（读回 \{t.length()} 字符）"))
+                      None => file_out.set(@shared.tr_with("dyn.file_picked_unreadable", [("p", p)], "已选：\{p}（读不出内容或不是文本）"))
                     }
                   } else {
                     file_out.set(@shared.tx("已取消"))
@@ -157,7 +157,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
               match app.host.val {
                 Some(a) => {
                   let dlg = @sys.FileDialog::new_save()
-                  dlg.set_filters("文本文件:txt|所有文件:*")
+                  dlg.set_filters(@shared.tx("文本文件:txt|所有文件:*"))
                   dlg.set_filename("showcase.txt")
                   if dlg.run_for_window(dialog_parent(a)) {
                     let p = dlg.get_result()
@@ -206,7 +206,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
                 @win.Information,
                 @win.YesNo,
               )
-              mb_out.set("信息档 → \{msgbox_result_label(r)}")
+              mb_out.set(@shared.tr_with("dyn.msgbox_info", [("r", msgbox_result_label(r))], "信息档 → \{msgbox_result_label(r)}"))
             }),
             @ui.button(@shared.tx("错误 是/否/取消"), variant=@ui.Danger, on_click=fn() {
               let r = @win.show_message_box(
@@ -215,7 +215,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
                 @win.Error,
                 @win.YesNoCancel,
               )
-              mb_out.set("错误档 → \{msgbox_result_label(r)}")
+              mb_out.set(@shared.tr_with("dyn.msgbox_error", [("r", msgbox_result_label(r))], "错误档 → \{msgbox_result_label(r)}"))
             }),
           ],
           column_gap=8.0,
@@ -241,8 +241,8 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
           [
             @ui.button(@shared.tx("普通通知"), on_click=fn() {
               match @shell.notify_send(@shared.tx("libyue 演示板"), @shared.tx("构建完成"), @shared.tx("3 个目标已产出")) {
-                Ok(id) => nt_out.set("已发送 #\{id}")
-                Err(e) => nt_out.set("发送失败：\{e}")
+                Ok(id) => nt_out.set(@shared.tr_with("dyn.notif_sent", [("i", id.to_string())], "已发送 #\{id}"))
+                Err(e) => nt_out.set(@shared.tr_with("dyn.notif_failed", [("e", "\{e}")], "发送失败：\{e}"))
               }
             }),
             @ui.button(@shared.tx("带进度 60%"), variant=@ui.Soft, on_click=fn() {
@@ -254,7 +254,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
                   kind=1,
                   progress=60,
                 ) {
-                Ok(id) => nt_out.set("已发送 #\{id}（带进度）")
+                Ok(id) => nt_out.set(@shared.tr_with("dyn.notif_sent_progress", [("i", id.to_string())], "已发送 #\{id}（带进度）"))
                 Err(e) => nt_out.set("发送失败：\{e}")
               }
             }),
@@ -298,7 +298,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
             }),
             @ui.button(@shared.tx("读取剪贴板"), variant=@ui.Soft, on_click=fn() {
               match @sys.clipboard_get_text() {
-                Some(t) => cb_out.set("读到：\{t}")
+                Some(t) => cb_out.set(@shared.tr_with("dyn.clip_read", [("t", t)], "读到：\{t}"))
                 None => cb_out.set(@shared.tx("读不到（空或不可用）"))
               }
             }),
@@ -367,7 +367,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
           column_gap=8.0,
         ),
         @ui.bind_label(timer_out, fn(s) { s }),
-        @ui.bind_label(ticks, fn(n) { "周期表已响 \{n} 次" }),
+        @ui.bind_label(ticks, fn(n) { @shared.tr_with("dyn.timer_ticks", [("n", n.to_string())], "周期表已响 \{n} 次") }),
       ],
       code=[
         "// 单次延时（进程级）",
@@ -404,7 +404,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
                 app.toast_push(@shared.tx("托盘左键被点了"), @ui.Info)
               })
               tray_holder.val = Some(t)
-              tray_note.set("已建（\{t.backend_name()}）")
+              tray_note.set(@shared.tr_with("dyn.tray_created", [("b", t.backend_name())], "已建（\{t.backend_name()}）"))
             }
             Err(e) => tray_note.set(tray_err_text(e))
           }
@@ -417,7 +417,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
             @ui.button(@shared.tx("改提示"), variant=@ui.Soft, on_click=fn() {
               match tray_holder.val {
                 Some(t) => {
-                  t.set_tooltip(@shared.tx("libyue 演示板"), "提示已改 · \{tray_clicks.get()} 次左键")
+                  t.set_tooltip(@shared.tx("libyue 演示板"), @shared.tr_with("dyn.tray_tooltip", [("n", tray_clicks.get().to_string())], "提示已改 · \{tray_clicks.get()} 次左键"))
                   tray_note.set(@shared.tx("提示已改（悬停托盘图标可见）"))
                 }
                 None => tray_note.set(@shared.tx("托盘未建，改不了提示"))
@@ -452,7 +452,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
           column_gap=8.0,
         ),
         @ui.bind_label(tray_note, fn(s) { s }),
-        @ui.bind_label(tray_clicks, fn(n) { "左键 \{n} 次" }),
+        @ui.bind_label(tray_clicks, fn(n) { @shared.tr_with("dyn.left_clicks", [("n", n.to_string())], "左键 \{n} 次") }),
       ],
       code=[
         "// 不传 icon = 库内置月牙；自绘档走",
@@ -506,32 +506,32 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
             @ui.button(@shared.tx("打开 libyue.com"), on_click=fn() {
               match @sys.open_url("https://libyue.com") {
                 Ok(_) => ext_out.set(@shared.tx("已交给默认浏览器"))
-                Err(e) => ext_out.set("打开失败：\{e}")
+                Err(e) => ext_out.set(@shared.tr_with("dyn.open_failed", [("e", "\{e}")], "打开失败：\{e}"))
               }
             }),
             @ui.button(@shared.tx("在文件管理器显示 TODO.md"), variant=@ui.Soft, on_click=fn() {
               match @shell.reveal_in_file_manager("TODO.md") {
                 Ok(_) => ext_out.set(@shared.tx("已交给文件管理器"))
-                Err(e) => ext_out.set("显示失败：\{e}")
+                Err(e) => ext_out.set(@shared.tr_with("dyn.reveal_failed", [("e", "\{e}")], "显示失败：\{e}"))
               }
             }),
             @ui.button(@shared.tx("用默认程序打开 TODO.md"), variant=@ui.Soft, on_click=fn() {
               match @sys.open_file("TODO.md") {
                 Ok(_) => ext_out.set(@shared.tx("已交给默认程序"))
-                Err(e) => ext_out.set("默认程序打开失败：\{e}")
+                Err(e) => ext_out.set(@shared.tr_with("dyn.default_open_failed", [("e", "\{e}")], "默认程序打开失败：\{e}"))
               }
             }),
             @ui.button(@shared.tx("用指定程序打开 TODO.md"), variant=@ui.Soft, on_click=fn() {
               let app = open_probe_app()
               match @sys.open_file_with(app, "TODO.md") {
-                Ok(_) => ext_out.set("已交给 \{app}")
-                Err(e) => ext_out.set("指定程序（\{app}）打开失败：\{e}")
+                Ok(_) => ext_out.set(@shared.tr_with("dyn.opened_with", [("a", app)], "已交给 \{app}"))
+                Err(e) => ext_out.set(@shared.tr_with("dyn.chosen_open_failed", [("a", app), ("e", "\{e}")], "指定程序（\{app}）打开失败：\{e}"))
               }
             }),
             @ui.button(@shared.tx("用指定程序打开不存在的路径"), variant=@ui.Soft, on_click=fn() {
               match @sys.open_file_with(open_probe_app(), "no-such-file-zzz.md") {
                 Ok(_) => ext_out.set(@shared.tx("已交给指定程序"))
-                Err(e) => ext_out.set("按预期被拦下：\{e}")
+                Err(e) => ext_out.set(@shared.tr_with("dyn.blocked_as_expected", [("e", "\{e}")], "按预期被拦下：\{e}"))
               }
             }),
           ],
@@ -564,8 +564,8 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
             }),
             @ui.button(@shared.tx("读音量"), on_click=fn() {
               match @sys.vol_get() {
-                Ok(v) => vol_out.set("音量 \{v.volume}% 静音=\{v.muted}（\{v.sink}）")
-                Err(e) => vol_out.set("读取失败：\{e}")
+                Ok(v) => vol_out.set(@shared.tr_with("dyn.volume_now", [("v", v.volume.to_string()), ("m", v.muted.to_string()), ("s", v.sink)], "音量 \{v.volume}% 静音=\{v.muted}（\{v.sink}）"))
+                Err(e) => vol_out.set(@shared.tr_with("dyn.read_failed", [("e", "\{e}")], "读取失败：\{e}"))
               }
             }),
             @ui.button(@shared.tx("设为 50%"), variant=@ui.Soft, on_click=fn() {

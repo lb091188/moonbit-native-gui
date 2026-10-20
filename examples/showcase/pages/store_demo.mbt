@@ -11,7 +11,7 @@ pub fn page_store_demo(_app : @shared.App) -> @widget.Node {
   let text = counter.map(fn(n) { "当前计数 \{n}" })
   // 手动派生三：跨 Store 手动同步
   let merged : @base.Store[String] = @base.Store::new("")
-  counter.subscribe(fn(n) { merged.set("计数 \{n},双倍 \{n * 2}") })
+  counter.subscribe(fn(n) { merged.set(@shared.tr_with("dyn.count_double", [("n", n.to_string()), ("d", (n * 2).to_string())], "计数 \{n},双倍 \{n * 2}")) })
   @shared.page([
     @shared.section(
       "手动派生",
@@ -25,8 +25,8 @@ pub fn page_store_demo(_app : @shared.App) -> @widget.Node {
               // ↑ 动作本体；若 doubled 不靠 subscribe，这里就得再写
               //   doubled.set(counter.get() * 2)——信号版无此负担
             }),
-            @ui.bind_label(counter, fn(n) { "计数：\{n}" }),
-            @ui.bind_label(doubled, fn(n) { "双倍（动作里 set + subscribe 接线）：\{n}" }),
+            @ui.bind_label(counter, fn(n) { @shared.tr_with("dyn.count", [("n", n.to_string())], "计数：\{n}") }),
+            @ui.bind_label(doubled, fn(n) { @shared.tr_with("dyn.doubled_wired", [("n", n.to_string())], "双倍（动作里 set + subscribe 接线）：\{n}") }),
           ],
           column_gap=12.0,
         ),

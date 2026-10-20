@@ -14,7 +14,7 @@ pub fn page_feedback(app : @shared.App) -> @widget.Node {
   let msg_open : @base.Store[Bool] = @base.Store::new(false)
   let msg_kind : @base.Store[Int] = @base.Store::new(0)
   let msg_text : @base.Store[String] = @base.Store::new("")
-  let msg_btns : @base.Store[Array[(String, Int)]] = @base.Store::new([("知道了", 1)])
+  let msg_btns : @base.Store[Array[(String, Int)]] = @base.Store::new([(@shared.tx("知道了"), 1)])
   let msg_resp : @base.Store[String] = @base.Store::new(@shared.tx("（还没弹过自绘消息框）"))
   @shared.page([
     @shared.section(
@@ -52,7 +52,7 @@ pub fn page_feedback(app : @shared.App) -> @widget.Node {
             // 列里默认 Stretch 会把按钮行拉到列宽、按钮顶在最左，看着偏了
             @ui.col(
               [
-                @ui.result(@shared.tx("操作成功"), subtitle="配置已写入并生效。", t=@ui.Success),
+                @ui.result(@shared.tx("操作成功"), subtitle=@shared.tx("配置已写入并生效。"), t=@ui.Success),
                 @ui.row([@ui.button(@shared.tx("返回首页"))], column_gap=8.0),
               ],
               row_gap=10.0,
@@ -60,7 +60,7 @@ pub fn page_feedback(app : @shared.App) -> @widget.Node {
             ),
             @ui.col(
               [
-                @ui.result(@shared.tx("操作失败"), subtitle="网络异常，请稍后重试。", t=@ui.Danger),
+                @ui.result(@shared.tx("操作失败"), subtitle=@shared.tx("网络异常，请稍后重试。"), t=@ui.Danger),
                 @ui.row(
                   [@ui.button(@shared.tx("重新加载"), variant=@ui.Soft)],
                   column_gap=8.0,
@@ -179,7 +179,7 @@ pub fn page_feedback(app : @shared.App) -> @widget.Node {
             @ui.button(@shared.tx("信息·单钮"), on_click=fn() {
               msg_kind.set(0)
               msg_text.set(@shared.tx("这是一条信息档的自绘消息框。"))
-              msg_btns.set([("知道了", 1)])
+              msg_btns.set([(@shared.tx("知道了"), 1)])
               msg_open.set(true)
             }),
             @ui.button(@shared.tx("警告·是/否"), variant=@ui.Soft, on_click=fn() {
@@ -217,7 +217,7 @@ pub fn page_feedback(app : @shared.App) -> @widget.Node {
               informative=@shared.tx("Esc 收起 · Enter 走默认钮"),
               buttons=t.2,
               on_response=fn(r : Int) {
-                msg_resp.set("自绘消息框响应：\{r}")
+                msg_resp.set(@shared.tr_with("dyn.msgbox_result", [("r", r.to_string())], "自绘消息框响应：\{r}"))
               },
             )
           },

@@ -421,7 +421,7 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
           ],
           column_gap=8.0,
         ),
-        @ui.bind_label(cur_now, fn(s) { "预览区当前光标：\{s}" }),
+        @ui.bind_label(cur_now, fn(s) { @shared.tr_with("dyn.cursor_now", [("s", s)], "预览区当前光标：\{s}") }),
         @ui.text(
           @shared.tx("组回退：下面一组的 cursor = ResizeH；组内文本没提请求 → 用组的形状，按钮自己请求了手型 → 以它为准。"),
           role=@ui.Secondary,
@@ -471,7 +471,7 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
             @ui.split(
               @ui.tree([
                 {
-                  label: "组件",
+                  label: @shared.tx("组件"),
                   children: [
                     {
                       label: @shared.tx("基础"),
@@ -481,7 +481,7 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
                       ],
                     },
                     {
-                      label: "导航",
+                      label: @shared.tx("导航"),
                       children: [{ label: @shared.tx("分栏"), children: [] }],
                     },
                   ],
@@ -561,7 +561,7 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
           handle=fn(w : @widget.Widget) -> Unit {
             w.on_double_click = Some(fn(_w : @widget.Widget, _ev : @widget.PointerEvent) -> Unit {
               dbl_api_n.update(fn(n) { n + 1 })
-              dbl_api_out.set("双击命中！累计 " + dbl_api_n.get().to_string() + " 次")
+              dbl_api_out.set(@shared.tr_with("dyn.dbl_total", [("n", dbl_api_n.get().to_string())], "双击命中！累计 \{dbl_api_n.get().to_string()} 次"))
             })
             w.on_triple_click = Some(fn(_w : @widget.Widget, _ev : @widget.PointerEvent) -> Unit {
               dbl_api_out.set(@shared.tx("三击！"))
@@ -577,11 +577,11 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
             match app.host.val {
               Some(a) => {
                 a.bind_combo("Ctrl+Shift+K", fn() {
-                  combo_out.set("组合键 Ctrl+Shift+K 命中（" + @shell.now_ms().to_string() + "ms）")
+                  combo_out.set(@shared.tr_with("dyn.combo_keys", [("ms", @shell.now_ms().to_string())], "组合键 Ctrl+Shift+K 命中（\{@shell.now_ms().to_string()}ms）"))
                 })
                 // 键多击：同一键 60–400ms 内连按两次（自动重复不计）
                 a.bind_key_double("A", fn() {
-                  combo_out.set("A 键双击命中（" + @shell.now_ms().to_string() + "ms）")
+                  combo_out.set(@shared.tr_with("dyn.combo_hit_ms", [("ms", @shell.now_ms().to_string())], "A 键双击命中（\{@shell.now_ms().to_string()}ms）"))
                 })
               }
               None => ()

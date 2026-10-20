@@ -54,7 +54,7 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
           if s == "" {
             @shared.tx("当前主色：内置默认")
           } else {
-            "当前主色：\{s}"
+            @shared.tr_with("dyn.accent_now", [("c", s)], "当前主色：\{s}")
           }
         }),
       ],
@@ -185,8 +185,8 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
         @ui.text(@shared.tx("下方内容"), role=Body),
         @ui.row(
           [
-            @ui.tooltip(@ui.button(@shared.tx("悬停看提示")), "原生 tooltip：系统样式"),
-            @ui.tooltip(@ui.button(@shared.tx("再来一个"), variant=@ui.Soft), "第二个提示"),
+            @ui.tooltip(@ui.button(@shared.tx("悬停看提示")), @shared.tx("原生 tooltip：系统样式")),
+            @ui.tooltip(@ui.button(@shared.tx("再来一个"), variant=@ui.Soft), @shared.tx("第二个提示")),
           ],
           column_gap=10.0,
         ),

@@ -57,7 +57,7 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
               width=300.0,
             ),
             @ui.textarea(
-              @base.Store::new("多行文本输入演示。\n第二行内容。"),
+              @base.Store::new(@shared.tr("form.textarea_demo", "多行文本输入演示。\n第二行内容。")),
               rows=3,
               width=300.0,
             ),
@@ -78,11 +78,11 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
       "stepper 步进器 0..10 钳制；slider 自绘轨道 + thumb（拖拽 step 5 量化）；rate 五角星 hover 预亮——值都住 Store，展示端 bind 直连。",
       [
         @ui.stepper(qty, min=0, max=10, step=1),
-        @ui.bind_label(qty, fn(v) { "当前数量：\{v}" }),
+        @ui.bind_label(qty, fn(v) { @shared.tr_with("dyn.qty_now", [("v", v.to_string())], "当前数量：\{v}") }),
         @ui.slider(slider_val, min=0.0, max=100.0, step=5.0, width=200.0),
-        @ui.bind_label(slider_val, fn(v) { "当前值：\{v.round()}" }),
+        @ui.bind_label(slider_val, fn(v) { @shared.tr_with("dyn.slider_now", [("v", v.round().to_string())], "当前值：\{v.round()}") }),
         @ui.rate(rate_val),
-        @ui.bind_label(rate_val, fn(v) { "评分：\{v} 星" }),
+        @ui.bind_label(rate_val, fn(v) { @shared.tr_with("dyn.rate_now", [("v", v.to_string())], "评分：\{v} 星") }),
       ],
       code=[
         "let qty : @base.Store[Int] = @base.Store::new(3)",
@@ -223,7 +223,7 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
             @shared.tx("用户名"),
             @ui.input(@base.Store::new("moonbit"), placeholder=@shared.tx("登录名"), width=200.0, clearable=true),
           ),
-          @ui.form_item("城市", @ui.input(@base.Store::new("杭州"), placeholder=@shared.tx("城市名"), width=200.0)),
+          @ui.form_item(@shared.tx("城市"), @ui.input(@base.Store::new(@shared.tx("杭州")), placeholder=@shared.tx("城市名"), width=200.0)),
           @ui.form_item(@shared.tx("数量"), @ui.stepper(qty2, min=1, max=9)),
         ]),
       ],
@@ -253,7 +253,7 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
             error=err_mail,
           ),
         ]),
-        @ui.bind_label(count, fn(n : Int) { "已通过校验 \{n.to_string()} 项" }),
+        @ui.bind_label(count, fn(n : Int) { @shared.tr_with("dyn.valid_passed", [("n", n.to_string())], "已通过校验 \{n.to_string()} 项") }),
       ],
       code=[
         "let err_nick = @ui.validate(nick, @ui.all([@ui.required(), @ui.min_len(2)]))",

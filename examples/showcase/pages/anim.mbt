@@ -205,14 +205,14 @@ pub fn page_anim(_app : @shared.App) -> @widget.Node {
             ),
             @ui.button(@shared.tx("暂停"), variant=@ui.Soft, on_click=fn() {
               gif_h.pause()
-              gif_note.set("已暂停（running=\{gif_h.running}）")
+              gif_note.set(@shared.tr_with("dyn.gif_paused", [("r", gif_h.running.to_string())], "已暂停（running=\{gif_h.running}）"))
             }),
             @ui.button(@shared.tx("继续"), variant=@ui.Soft, on_click=fn() {
               gif_h.play()
-              gif_note.set("已继续（running=\{gif_h.running}）")
+              gif_note.set(@shared.tr_with("dyn.gif_resumed", [("r", gif_h.running.to_string())], "已继续（running=\{gif_h.running}）"))
             }),
             @ui.button(@shared.tx("读帧数"), variant=@ui.Text, on_click=fn() {
-              gif_note.set("已换 \{gif_h.frame_count()} 帧")
+              gif_note.set(@shared.tr_with("dyn.gif_frames", [("n", gif_h.frame_count().to_string())], "已换 \{gif_h.frame_count()} 帧"))
             }),
           ],
           column_gap=10.0,
