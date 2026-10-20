@@ -71,3 +71,32 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload vendor-v1 "$env:RUNNER_TEMP\dist\*.zip" "$env:RUNNER_TEMP\dist\*.sha256" --clobber
+
+      # gitee 是 GitHub 的镜像源（国内直连快，prebuild 的 VENDOR_BASES 两条都会试）。
+      # 需要 repo secret GITEE_TOKEN（gitee 私人令牌）；没配就跳过，不挡构建。
+      - name: 同步到 gitee 镜像
+        shell: pwsh
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+        run: |
+          if (-not $env:GITEE_TOKEN) {
+            Write-Host "未配置 GITEE_TOKEN，跳过 gitee 镜像"
+            exit 0
+          }
+          $v = "${{ inputs.version }}"
+          $repo = "https://gitee.com/api/v5/repos/noahliu0911/moonbit-native-gui"
+          $rel = Invoke-RestMethod "$repo/releases/tags/vendor-v1?access_token=$env:GITEE_TOKEN"
+          $rid = $rel.id
+          # 同名附件先删（gitee 的附件接口没有 --clobber 这种覆盖语义）
+          $old = Invoke-RestMethod "$repo/releases/$rid/attach_files?access_token=$env:GITEE_TOKEN"
+          foreach ($a in $old) {
+            if ($a.name -like "ffmpeg-windows-x64-*") {
+              Write-Host "删除旧附件 $($a.name)"
+              Invoke-RestMethod -Method Delete "$repo/releases/$rid/attach_files/$($a.id)?access_token=$env:GITEE_TOKEN"
+            }
+          }
+          Get-ChildItem "$env:RUNNER_TEMP\dist" | ForEach-Object {
+            Write-Host "上传 $($_.Name)"
+            curl.exe -sS -X POST "$repo/releases/$rid/attach_files?access_token=$env:GITEE_TOKEN" -F "file=@$($_.FullName)"
+            if ($LASTEXITCODE -ne 0) { throw "gitee 上传失败：$($_.Name)" }
+          }
