@@ -13,6 +13,9 @@ pub(all) struct App {
   selected : @base.Store[String]
   /// 当前语言标签（"zh-CN" / "en"）；切它触发整棵内容树按新 catalog 重建
   locale : @base.Store[String]
+  /// 结构重建代次：语言/透明等需要整树重建的改动 bump 它（bind_node 订阅）；
+  /// 由调用方用宿主 timer 推迟一拍再 bump，避免在自身回调里销毁正在执行的子树。
+  ui_gen : @base.Store[Int]
   /// 轻提示推送（转发 `toast_layer` 的函数值字段）
   toast : (String, @ui.SemanticType) -> Unit
   /// 深浅：跟随开关打开时由定时器写，按钮手动改时先关跟随

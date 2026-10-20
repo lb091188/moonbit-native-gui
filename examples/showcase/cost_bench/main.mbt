@@ -199,6 +199,7 @@ fn headless_app() -> @shared.App {
   {
     selected: @base.Store::new("基础组件"),
     locale: @base.Store::new("zh-CN"),
+    ui_gen: @base.Store::new(0),
     toast: fn(_t : String, _k : @ui.SemanticType) -> Unit { () },
     dark_mode: @base.Store::new(false),
     accent: @base.Store::new(""),
