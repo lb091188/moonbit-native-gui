@@ -113,7 +113,15 @@ pub fn Router::sidebar(
   groups : Array[(String, Array[String])],
   icons? : Array[(String, @icons.IconKind)] = [],
   labels? : Array[(String, String)] = [],
+  label_of? : (String) -> String = fn(_k) { "" },
   width? : Double = 180.0,
 ) -> @widget.Node {
-  @ui.menu_sections(groups, self.store_at(0), icons=icons, labels=labels, width=width)
+  @ui.menu_sections(
+    groups,
+    self.store_at(0),
+    icons=icons,
+    labels=labels,
+    label_of=label_of,
+    width=width,
+  )
 }

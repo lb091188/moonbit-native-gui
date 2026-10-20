@@ -618,7 +618,7 @@ fn menu_item(
   width : Double,
   selected : @base.Store[String],
   icon : @icons.IconKind?,
-  label~ : String = "",
+  label_of~ : () -> String = fn() { "" },
   skin~ : @style.Style = @style.empty_style(),
   focusable~ : Bool = false,
   step~ : (Int) -> Unit = fn(_d : Int) { () },
@@ -657,7 +657,6 @@ fn menu_item(
       @style.style(color="text_primary", border_radius=4.0).hover(background_color="fill_hover")
     )
     @style.apply(w, skin)
-    let shown = if label.length() > 0 { label } else { text }
     w.on_draw = Some(fn(
       self : @widget.Widget,
       p : @render.Painter,
@@ -665,6 +664,8 @@ fn menu_item(
     ) -> Unit {
       let st = @style.style_for(self)
       let rad = @style.number_of(st.border_radius, 4.0)
+      let lbl = label_of()
+      let shown = if lbl.length() > 0 { lbl } else { text }
       let act = selected.get() == text
       let fg = if act {
         @theme.theme_primary()
@@ -784,6 +785,7 @@ pub fn menu_sections(
   selected : @base.Store[String],
   icons? : Array[(String, @icons.IconKind)] = [],
   labels? : Array[(String, String)] = [],
+  label_of? : (String) -> String = fn(_k) { "" },
   foldable? : Bool = true,
   width? : Double = 180.0,
   class? : Array[@style.Style] = [],
@@ -806,7 +808,14 @@ pub fn menu_sections(
           width - 12.0,
           selected,
           icon_for(icons, it),
-          label=label_for(labels, it),
+          label_of=fn() {
+            let a = label_for(labels, it)
+            if a.length() > 0 {
+              a
+            } else {
+              label_of(it)
+            }
+          },
           skin=skin,
           focusable=true,
           step=fn(d : Int) {
