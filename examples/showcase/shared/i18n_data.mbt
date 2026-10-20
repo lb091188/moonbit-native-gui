@@ -8,7 +8,6 @@ pub const EN_CATALOG : String =
   "\"哪些属性会渐变\" = \"What animates\"\n" +
   "\"样式槽里的文本字段\" = \"Text fields in styles\"\n" +
   "\"GIF 动图\" = \"GIF animation\"\n" +
-  "\"圆角与柔焦\" = \"Corners & soft blur\"\n" +
   "\"主题色板\" = \"Theme palette\"\n" +
   "\"Button 按钮\" = \"Button\"\n" +
   "\"Label 与 Link\" = \"Label & Link\"\n" +
@@ -112,7 +111,6 @@ pub const EN_CATALOG : String =
   "\"desc§哪些属性会渐变\" = \"Hover fades the left card; the right also grows its font size. Color, border width, radius, font size and line height animate; opacity/shadow do not.\"\n" +
   "\"desc§样式槽里的文本字段\" = \"text_align, white_space, line_height and text_decoration are draw-time attributes applied via class.\"\n" +
   "\"desc§GIF 动图\" = \"A GIF component ticking by per-frame delay, with pause/resume and frame count.\"\n" +
-  "\"desc§圆角与柔焦\" = \"Two global toggles: square corners zeroes every styled radius; soft blur samples and blurs the pixels behind a glass panel.\"\n" +
   "\"desc§主题色板\" = \"Pick an accent and the whole palette derives via HSL; follow-system reads OS accent with a built-in fallback.\"\n" +
   "\"desc§Button 按钮\" = \"Four variants; the primary button drives the data page counter via a signal.\"\n" +
   "\"desc§Label 与 Link\" = \"Five typography roles; links underline on hover and echo the last click.\"\n" +
@@ -215,7 +213,6 @@ pub const EN_CATALOG : String =
   "[nav]\n" +
   "\"g.components\" = \"Components\"\n" +
   "\"g.system\" = \"System\"\n" +
-  "\"g.localization\" = \"Localization\"\n" +
   "\"基础组件\" = \"Basics\"\n" +
   "\"表单组件\" = \"Forms\"\n" +
   "\"导航组件\" = \"Navigation\"\n" +
@@ -231,8 +228,6 @@ pub const EN_CATALOG : String =
   "\"画布与富文本\" = \"Canvas & Rich Text\"\n" +
   "\"过渡与效果\" = \"Motion & Effects\"\n" +
   "\"系统能力探测\" = \"Sys Probe\"\n" +
-  "\"图标字体\" = \"Icon Font\"\n" +
-  "\"国际化\" = \"i18n\"\n" +
   "\"RTL 排版\" = \"RTL Type\"\n" +
   // —— 原生菜单栏 ——
   "[menu]\n" +

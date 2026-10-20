@@ -138,6 +138,8 @@
     border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 10px;font-size:12px;color:#4b5563
   }
   .minibtn:hover{background:#f7f8fa}
+  .minibtn.off{opacity:.45}
+  .mbar{display:flex;justify-content:flex-end;margin-bottom:10px}
 
   /* ---------- case rows ---------- */
   .group{margin-bottom:18px}
@@ -217,6 +219,7 @@
   .ses{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:12px 15px;margin-bottom:10px}
   .ses .sh{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
   .ses .sh .date{font-family:var(--mono);font-size:12.5px;font-weight:600}
+  .ses .ses-ai{margin-left:auto;font-size:11.5px;padding:2px 9px;border-radius:6px}
   .badge{font-size:11px;border-radius:5px;padding:1px 7px;background:#f1f3f6;color:#4b5563}
   .badge.plat{background:var(--accent-soft);color:#4338ca}
   .badge.cm{font-family:var(--mono)}
@@ -326,6 +329,7 @@
         <div class="grow"></div>
         <input class="search" id="in-search" placeholder="搜索编号或判据" autocomplete="off">
         <button class="minibtn" id="btn-copy">复制未测项</button>
+        <button class="minibtn" id="btn-ai">失败 → AI 提示词</button>
       </div>
       <div id="cases"></div>
       <div class="snote">
@@ -336,6 +340,7 @@
 
     <!-- ================= 总览 ================= -->
     <section class="view" id="v-matrix">
+      <div class="mbar"><button class="minibtn" id="btn-ai-all">全部失败项 → AI 提示词</button></div>
       <div class="mwrap" id="matrix"></div>
       <div class="mlegend">
         <span><i style="background:var(--pass-bar)"></i>通过</span>
@@ -363,6 +368,14 @@
     <p>每条结果都会记下顶栏的 commit 与当前时间。只有带上 commit，才能回答「这条是哪版挂的」。切换版本前记得改一下顶栏的 commit 字段。</p>
     <h3>历史从哪来</h3>
     <p>不需要手动开一轮测试。「历史」页按「平台 + 应用 + 日期 + commit」自动聚合，把同一天同一版本内的操作汇成一次测试，失败项单列。</p>
+    <h3>把失败项交给 AI 修</h3>
+    <p>三个入口都能一键把失败项拼成结构化提示词并复制到剪贴板，直接粘给 AI 对话即可：</p>
+    <ul>
+      <li>执行页右上的「失败 → AI 提示词」：当前平台 + 当前应用的失败项。</li>
+      <li>总览页右上的「全部失败项 → AI 提示词」：三个平台所有失败项，按平台 + 应用分段。</li>
+      <li>历史页每张卡片上的「复制为 AI 提示词」：那一次测试的失败项。</li>
+    </ul>
+    <p>提示词包含：仓库背景、平台与应用、commit、每条用例的判据与你填的现象备注，以及「现象 → 根因 → 修复方案」的回答格式要求。备注没写的失败项会标注「（未填写）」，记得补上现象再复制。</p>
     <h3>快捷键</h3>
     <ul>
       <li><kbd>1</kbd> 通过 · <kbd>2</kbd> 失败 · <kbd>3</kbd> 跳过 · <kbd>0</kbd> 清除</li>
@@ -622,6 +635,79 @@
   }
 
   function sessionKey(p, a, commit, date) { return [p, a, date, commit || '-'].join('|'); }
+
+  /* ======================= 失败项 → AI 提示词 ======================= */
+
+  function failsOf(p, a) {
+    return casesOf(a)
+      .filter(function (c) { var r = getRes(p, a, c.id); return r && r.s === 'fail'; })
+      .map(function (c) {
+        var r = getRes(p, a, c.id);
+        return { id: c.id, note: r.n || '', commit: r.c || '', d: r.d || '' };
+      });
+  }
+
+  function promptHeader() {
+    return [
+      '这是 MoonBit 跨平台 GUI 框架 native-gui 的一次真机测试失败记录，请帮我定位与修复。',
+      '',
+      '仓库背景：一套代码直出 Windows / Linux / macOS 原生窗口；库模块在 gui/，被测示例在 examples/，平台适配经验记录在 proposals/adaptation.md，FFI 规范在 .agents/skills/moonbit-c-binding/，链接参数由 gui/scripts/prebuild.py 托管。',
+      ''
+    ].join('\n');
+  }
+
+  function promptSection(p, a, entries, overallNote) {
+    var plat = PLATFORMS.filter(function (x) { return x.id === p; })[0];
+    var app = APPS.filter(function (x) { return x.id === a; })[0];
+    var lines = [];
+    lines.push('## 失败项：' + plat.name + ' · ' + app.name);
+    lines.push('- 平台：' + plat.name + '（' + plat.sub + '）');
+    lines.push('- 应用：' + app.name + '（运行命令 `' + app.cmd + '`）');
+    var commits = [];
+    entries.forEach(function (e) { if (e.commit && commits.indexOf(e.commit) < 0) commits.push(e.commit); });
+    if (commits.length) lines.push('- commit：' + commits.join('、'));
+    var dates = [];
+    entries.forEach(function (e) { if (e.d && dates.indexOf(e.d) < 0) dates.push(e.d); });
+    if (dates.length) lines.push('- 记录日期：' + dates.join('、'));
+    if (overallNote) lines.push('- 本轮整体备注：' + overallNote);
+    lines.push('');
+    entries.forEach(function (e, i) {
+      var c = CASE_BY_ID[e.id];
+      var gname = '';
+      for (var gi = 0; gi < GROUPS.length; gi++) if (GROUPS[gi].id === c.g) gname = GROUPS[gi].name;
+      lines.push((i + 1) + '. ' + e.id + '（' + gname + '）');
+      lines.push('   判据：' + (c ? c.t : ''));
+      lines.push('   现象：' + (e.note || '（未填写）'));
+    });
+    lines.push('');
+    return lines.join('\n');
+  }
+
+  function promptTail() {
+    return [
+      '## 要求',
+      '每条按「现象 → 根因（定位到具体文件与函数）→ 修复方案」回答；如果需要我补跑命令、贴读数或截图，明确列出。修复后我会逐条复测，库门禁是 cd gui && moon check --deny-warn。'
+    ].join('\n');
+  }
+
+  function promptFor(p, a, entries) {
+    return promptHeader() + promptSection(p, a, entries, db.notes[currentSessionKey()] || '') + '\n' + promptTail();
+  }
+
+  function promptForAll() {
+    var parts = [];
+    var total = 0;
+    PLATFORMS.forEach(function (p) {
+      APPS.forEach(function (a) {
+        var fs = failsOf(p.id, a.id);
+        if (!fs.length) return;
+        total += fs.length;
+        parts.push(promptSection(p.id, a.id, fs));
+      });
+    });
+    if (!total) return null;
+    return promptHeader() + parts.join('\n---\n\n') + '\n' + promptTail();
+  }
   function currentSessionKey() {
     return sessionKey(ui.platform, ui.app, (db.settings.commit || '').trim(), localDate());
   }
@@ -779,6 +865,10 @@
       b.onclick = function () { ui.filter = d[0]; renderRun(); };
       host.appendChild(b);
     });
+
+    var ai = document.getElementById('btn-ai');
+    ai.textContent = '失败 → AI 提示词' + (c.fail ? '（' + c.fail + '）' : '');
+    ai.classList.toggle('off', !c.fail);
   }
 
   function matchFilter(cid) {
@@ -1010,6 +1100,10 @@
 
     table.appendChild(tbody);
     host.appendChild(table);
+
+    var aiAll = document.getElementById('btn-ai-all');
+    aiAll.textContent = '全部失败项 → AI 提示词' + (grand.fail ? '（' + grand.fail + '）' : '');
+    aiAll.classList.toggle('off', !grand.fail);
   }
 
   function cellBtn(p, a, c) {
@@ -1095,6 +1189,18 @@
       h.appendChild(el('span', 'badge', appName(s.a)));
       h.appendChild(el('span', 'badge cm', s.commit || '未填 commit'));
       h.appendChild(el('span', 'badge', hmLocal(s.t0) + '–' + hmLocal(s.t1) + '（共 ' + s.count + ' 次操作）'));
+      if (fails.length) {
+        var aiBtn = el('button', 'minibtn ses-ai', '复制为 AI 提示词');
+        aiBtn.onclick = function () {
+          var entries = fails.map(function (cid) {
+            var res = db.results[key(s.p, s.a, cid)];
+            return { id: cid, note: res ? (res.n || '') : '', commit: s.commit, d: s.d };
+          });
+          copyText(promptHeader() + promptSection(s.p, s.a, entries, db.notes[s.k] || '') + '\n' + promptTail());
+          toast('已复制 ' + entries.length + ' 条失败项提示词');
+        };
+        h.appendChild(aiBtn);
+      }
       box.appendChild(h);
 
       var nums = el('div', 'snums');
@@ -1255,7 +1361,20 @@
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onScroll);
 
-    document.getElementById('btn-export').onclick = exportJSON;    document.getElementById('btn-import').onclick = function () { document.getElementById('file-import').click(); };
+    document.getElementById('btn-export').onclick = exportJSON;
+    document.getElementById('btn-ai').onclick = function () {
+      var fs = failsOf(ui.platform, ui.app);
+      if (!fs.length) { toast('当前应用在 ' + platformName(ui.platform) + ' 没有失败项'); return; }
+      copyText(promptFor(ui.platform, ui.app, fs));
+      toast('已复制 ' + fs.length + ' 条失败项的提示词');
+    };
+    document.getElementById('btn-ai-all').onclick = function () {
+      var text = promptForAll();
+      if (!text) { toast('还没有任何失败项'); return; }
+      copyText(text);
+      var n = (text.match(/^\d+\. T/gm) || []).length;
+      toast('已复制 ' + n + ' 条失败项的提示词（全部平台）');
+    };    document.getElementById('btn-import').onclick = function () { document.getElementById('file-import').click(); };
     document.getElementById('file-import').onchange = function () {
       if (this.files && this.files[0]) importJSON(this.files[0]);
       this.value = '';
@@ -1330,6 +1449,16 @@
       ta.remove();
     }
   }
+
+  // 供自动化测试探测的内部钩子
+  window.__ngtt = {
+    failsOf: failsOf,
+    promptFor: promptFor,
+    promptForAll: promptForAll,
+    promptSection: promptSection,
+    promptHeader: promptHeader,
+    promptTail: promptTail
+  };
 
   init();
 })();
