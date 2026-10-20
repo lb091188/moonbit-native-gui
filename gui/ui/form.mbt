@@ -83,8 +83,14 @@ pub fn checkbox(
         },
       )
       p.set_line_width(1.0)
-      // 框线走内描边：按设备格取整，14×14 的框在任意原点都是锐利的 1px
-      p.stroke_rect(0.0, 0.0, 14.0, 14.0)
+      // 框线走内描边：按设备格取整，14×14 的框在任意原点都是锐利的 1px；
+      // 圆角随控件令牌（关圆角回直角），与 radio/switch 的自带几何形态无关
+      let rad = @theme.radius_ctrl()
+      if rad > 0.0 {
+        p.stroke_round_rect(0.5, 0.5, 13.0, 13.0, rad)
+      } else {
+        p.stroke_rect(0.0, 0.0, 14.0, 14.0)
+      }
       if checked {
         p.set_stroke_color(if off.off {
           @theme.theme_text_secondary()
@@ -377,27 +383,38 @@ pub fn slider(
       let track = (r.w - 12.0).max(1.0)
       let ratio = ((state.get() - lo) / (hi - lo)).clamp(min=0.0, max=1.0)
       let cy = r.h / 2.0
+      // pill 类几何：轨道细条全圆端头、拇指正圆，不随圆角开关变方
       p.set_fill_color(if off.off {
         @theme.theme_fill_hover()
       } else {
-        @style.color_of(s.border_color, @theme.theme_border())
+        @theme.theme_fill_zebra()
       })
-      p.fill_rect(0.0, cy - 2.0, r.w, 4.0)
+      p.fill_round_rect(0.0, cy - 2.0, r.w, 4.0, 2.0)
       p.set_fill_color(if off.off {
         @theme.theme_text_secondary()
       } else {
         @style.color_of(s.color, @theme.theme_primary())
       })
-      p.fill_rect(0.0, cy - 2.0, 6.0 + track * ratio, 4.0)
+      p.fill_round_rect(0.0, cy - 2.0, (6.0 + track * ratio).max(4.0), 4.0, 2.0)
       let tx = 2.0 + track * ratio
-      p.fill_rect(tx, cy - 6.0, 12.0, 12.0)
+      // 拇指：面板底实心圆 + 强调色 1px 描边（旧口径整块涂强调色，与轨道段糊成一团）
+      let accent = if off.off {
+        @theme.theme_text_secondary()
+      } else {
+        @style.color_of(s.color, @theme.theme_primary())
+      }
+      p.set_fill_color(@theme.theme_bg_panel())
+      p.fill_round_rect(tx, cy - 6.0, 12.0, 12.0, 6.0)
+      p.set_stroke_color(accent)
+      p.set_line_width(1.5)
+      p.stroke_round_rect(tx, cy - 6.0, 12.0, 12.0, 6.0)
       if self.focused {
         // 拇指聚焦环：整圈画进控件矩形内（绘制按控件矩形裁剪），贴边时夹住
         p.set_stroke_color(@theme.theme_primary())
         p.set_line_width(1.0)
         let x0 = (tx - 2.0).max(0.0)
         let x1 = (tx + 14.0).min(r.w)
-        p.stroke_rect(x0, cy - 8.0, (x1 - x0).max(1.0), 16.0)
+        p.stroke_round_rect(x0, cy - 8.0, (x1 - x0).max(1.0), 16.0, 8.0)
       }
     })
     w.on_pointer = Some(fn(
@@ -486,10 +503,12 @@ pub fn progress(
       // 槽底=background_color，进度段=color（散参数 color 折块，class 覆盖同一条路）
       let s = @style.style_for(self)
       let ratio = (state.get() / hi).clamp(min=0.0, max=1.0)
+      // 细条按几何取全圆端头（pill 类形态不随圆角开关变方）
+      let pill = (r.h / 2.0).min(@style.number_of(s.border_radius, r.h / 2.0))
       p.set_fill_color(@style.color_of(s.background_color, @theme.theme_fill_zebra()))
-      p.fill_rect(0.0, 0.0, r.w, r.h)
+      p.fill_round_rect(0.0, 0.0, r.w, r.h, pill)
       p.set_fill_color(@style.color_of(s.color, ""))
-      p.fill_rect(0.0, 0.0, r.w * ratio, r.h)
+      p.fill_round_rect(0.0, 0.0, (r.w * ratio).max(pill * 2.0), r.h, pill)
     })
     handle(w)
     w
@@ -527,9 +546,9 @@ fn step_cell(
       let bg = @style.color_of(st.background_color, "")
       if bg.length() > 0 && !off.off {
         // 内缩并走圆角：外框（含聚焦高亮环）由行容器画在子件之下，
-        // 方形填充会啃掉边框与圆角；半径 = 外框 4 - 内缩 1。
+        // 方形填充会啃掉边框与圆角；半径 = 外框令牌 - 内缩 1。
         p.set_fill_color(bg)
-        p.fill_round_rect(1.0, 1.0, r.w - 2.0, r.h - 2.0, 3.0)
+        p.fill_round_rect(1.0, 1.0, r.w - 2.0, r.h - 2.0, @theme.radius_ctrl() - 1.0)
       }
       p.set_stroke_color(@theme.theme_border())
       p.set_line_width(1.0)
@@ -749,7 +768,6 @@ pub fn stepper(
         background_color="bg_panel",
         border_color="border",
         border_width=1.0,
-        border_radius=4.0,
       ),
     ] + class,
     handle=fn(w : @widget.Widget) -> Unit {
@@ -775,7 +793,7 @@ pub fn stepper(
             0.5,
             r.w - 1.0,
             r.h - 1.0,
-            @style.number_of(st.border_radius, 4.0),
+            @style.number_of(st.border_radius, @theme.radius_ctrl()),
           )
           p.stroke()
         }
@@ -946,6 +964,8 @@ pub fn button(
       r : @base.Rect,
     ) -> Unit {
       let s = @style.style_for(self)
+      // 圆角与颜色同通道：样式槽没给就现取控件令牌（关圆角时令牌给 0）
+      let rad = @style.number_of(s.border_radius, @theme.radius_ctrl())
       // 禁用态是组件语义，不走样式：文字转次要色、底色统一浅灰
       let fg = if off.off {
         @theme.theme_text_secondary()
@@ -955,7 +975,11 @@ pub fn button(
       let bg = if off.off { @theme.theme_fill_hover() } else { @style.color_of(s.background_color, "") }
       if bg.length() > 0 {
         p.set_fill_color(bg)
-        p.fill_rect(0.0, 0.0, r.w, r.h)
+        if rad > 0.0 {
+          fill_round_rect(p, 0.0, 0.0, r.w, r.h, rad)
+        } else {
+          p.fill_rect(0.0, 0.0, r.w, r.h)
+        }
       }
       match icon {
         Some(kind) => {
@@ -990,7 +1014,12 @@ pub fn button(
       if bd.length() > 0 {
         p.set_stroke_color(bd)
         p.set_line_width(@style.number_of(s.border_width, 1.0))
-        p.stroke_rect(0.0, 0.0, r.w, r.h)
+        if rad > 0.0 {
+          p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
+          p.stroke()
+        } else {
+          p.stroke_rect(0.5, 0.5, r.w - 1.0, r.h - 1.0)
+        }
       }
       if self.focused {
         match variant {
@@ -998,14 +1027,23 @@ pub fn button(
           Solid | Danger => {
             p.set_stroke_color("#ffffff")
             p.set_line_width(1.0)
-            p.stroke_rect(1.0, 1.0, r.w - 2.0, r.h - 2.0)
+            if rad > 0.0 {
+              p.round_rect_path(1.5, 1.5, r.w - 3.0, r.h - 3.0, (rad - 1.0).max(0.0))
+            } else {
+              p.stroke_rect(1.0, 1.0, r.w - 2.0, r.h - 2.0)
+            }
           }
           _ => {
             p.set_stroke_color(@theme.theme_primary())
             p.set_line_width(1.0)
-            p.stroke_rect(0.0, 0.0, r.w, r.h)
+            if rad > 0.0 {
+              p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
+            } else {
+              p.stroke_rect(0.0, 0.0, r.w, r.h)
+            }
           }
         }
+        p.stroke()
       }
     })
     w.on_pointer = Some(fn(

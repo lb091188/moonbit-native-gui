@@ -236,7 +236,7 @@ pub fn message_box(
         @style.apply(
           close_btn,
           @style.merge_all([
-            @style.style(color="text_secondary", border_radius=4.0).hover(background_color="fill_hover"),
+            @style.style(color="text_secondary", border_radius=@theme.radius_ctrl()).hover(background_color="fill_hover"),
             paint_subset(class),
           ]),
         )
@@ -249,7 +249,7 @@ pub fn message_box(
           let bg = @style.color_of(st.background_color, "")
           if bg.length() > 0 {
             p.set_fill_color(bg)
-            fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, 4.0))
+            fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, @theme.radius_ctrl()))
           }
           p.set_stroke_color(@style.color_of(st.color, @theme.theme_text_secondary()))
           p.set_line_width(1.4)
@@ -358,7 +358,7 @@ pub fn message_box(
               background_color="primary",
               border_color="border",
               border_width=1.0,
-              border_radius=4.0,
+              border_radius=@theme.radius_ctrl(),
             ).hover(background_color="primary_hover")
           } else {
             @style.style(
@@ -366,7 +366,7 @@ pub fn message_box(
               background_color="bg_panel",
               border_color="border",
               border_width=1.0,
-              border_radius=4.0,
+              border_radius=@theme.radius_ctrl(),
             ).hover(background_color="fill_hover")
           }
           @style.apply(b, @style.merge_all([skin, paint_subset(class)]))
@@ -382,7 +382,7 @@ pub fn message_box(
                 if primary { @theme.theme_primary() } else { @theme.theme_bg_panel() },
               ),
             )
-            fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, 4.0))
+            fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, @theme.radius_ctrl()))
             p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
             p.set_line_width(@style.number_of(st.border_width, 1.0))
             p.stroke_rect(0.0, 0.0, r.w, r.h)
@@ -452,7 +452,7 @@ pub fn message_box(
               background_color="bg_panel",
               border_color="border",
               border_width=1.0,
-              border_radius=6.0,
+              border_radius=@theme.radius_card(),
             ),
             paint_subset(class),
           ]),
@@ -464,7 +464,7 @@ pub fn message_box(
         ) -> Unit {
           let st = @style.style_for(self)
           p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
-          fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, 6.0))
+          fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, @theme.radius_card()))
           p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
           p.set_line_width(@style.number_of(st.border_width, 1.0))
           p.stroke_rect(0.0, 0.0, r.w, r.h)

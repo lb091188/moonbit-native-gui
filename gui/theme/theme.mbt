@@ -367,6 +367,44 @@ pub fn theme_chart_color(i : Int) -> String {
 pub let control_height : Double = 32.0
 
 ///|
+// ---- 圆角令牌（与颜色同思路：绘制期现取，切换只翻一个开关）----
+// 分层基准：控件 4 / 卡片·面板 6 / 对话框·浮层 8，上限 8。自带圆形态的
+// 组件（radio、switch、slider、头像、圆点）不吃这套开关，永远按几何取圆。
+
+///|
+/// 圆角总开关（进程级，默认开）。关掉后所有经令牌与样式槽的圆角按 0 解析。
+let corners_round_flag : Ref[Bool] = Ref(true)
+
+///|
+pub fn corners_round() -> Bool {
+  corners_round_flag.val
+}
+
+///|
+/// 设置圆角开关。只改值不触发重绘——调用方负责 `host_repaint_all()`。
+pub fn corners_round_set(on : Bool) -> Unit {
+  corners_round_flag.val = on
+}
+
+///|
+/// 控件层圆角（按钮、输入框、下拉、标签、图标按钮）。
+pub fn radius_ctrl() -> Double {
+  if corners_round_flag.val { 4.0 } else { 0.0 }
+}
+
+///|
+/// 卡片/面板层圆角。
+pub fn radius_card() -> Double {
+  if corners_round_flag.val { 6.0 } else { 0.0 }
+}
+
+///|
+/// 对话框/浮层容器层圆角。
+pub fn radius_overlay() -> Double {
+  if corners_round_flag.val { 8.0 } else { 0.0 }
+}
+
+///|
 /// 缺省字族的进程级缓存（None = 还没探过）。
 let g_default_family : Ref[String?] = Ref(None)
 

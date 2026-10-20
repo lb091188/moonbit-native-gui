@@ -37,11 +37,21 @@ fn overlay_pane(
       r : @base.Rect,
     ) -> Unit {
       let st = @style.style_for(self)
+      let rad = @style.number_of(st.border_radius, @theme.radius_overlay())
       p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
-      p.fill_rect(0.0, 0.0, r.w, r.h)
+      if rad > 0.0 {
+        p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
+      } else {
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      }
       p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
       p.set_line_width(@style.number_of(st.border_width, 1.0))
-      p.stroke_rect(0.0, 0.0, r.w, r.h)
+      if rad > 0.0 {
+        p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
+        p.stroke()
+      } else {
+        p.stroke_rect(0.0, 0.0, r.w, r.h)
+      }
     })
     @widget.mount_children(w, children)
     w
@@ -253,7 +263,7 @@ pub fn dropdown(
           background_color="bg_panel",
           border_color="border",
           border_width=1.0,
-          border_radius=4.0,
+          border_radius=@theme.radius_ctrl(),
         ).hover(background_color="fill_hover"),
         @style.merge_all(class),
       ]),
@@ -264,14 +274,25 @@ pub fn dropdown(
       r : @base.Rect,
     ) -> Unit {
       let st = @style.style_for(self)
+      let rad = @style.number_of(st.border_radius, @theme.radius_ctrl())
       p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
-      fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, 4.0))
+      p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
       p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
       p.set_line_width(@style.number_of(st.border_width, 1.0))
-      p.stroke_rect(0.0, 0.0, r.w, r.h)
+      if rad > 0.0 {
+        p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
+        p.stroke()
+      } else {
+        p.stroke_rect(0.0, 0.0, r.w, r.h)
+      }
       if self.focused {
         p.set_stroke_color(@theme.theme_primary())
-        p.stroke_rect(0.0, 0.0, r.w, r.h)
+        if rad > 0.0 {
+          p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
+        } else {
+          p.stroke_rect(0.0, 0.0, r.w, r.h)
+        }
+        p.stroke()
       }
       let _ = @text.draw_box_at(
         p,
@@ -368,7 +389,7 @@ fn tooltip_pane(
     @style.apply(
       pane_w,
       @style.merge_all([
-        @style.style(background_color="text_primary", color="#ffffff", border_radius=4.0),
+        @style.style(background_color="text_primary", color="#ffffff", border_radius=@theme.radius_ctrl()),
         skin,
       ]),
     )
@@ -379,7 +400,7 @@ fn tooltip_pane(
     ) -> Unit {
       let st = @style.style_for(self)
       p.set_fill_color(@style.color_of(st.background_color, @theme.theme_text_primary()))
-      fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, 4.0))
+      fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, @theme.radius_ctrl()))
       let _ = @text.draw_box_at(
         p,
         0.0,
@@ -594,7 +615,7 @@ pub fn dialog(
       @style.apply(
         close_btn,
         @style.merge_all([
-          @style.style(color="text_secondary", border_radius=4.0)
+          @style.style(color="text_secondary", border_radius=@theme.radius_ctrl())
             .hover(background_color="fill_hover"),
           paint_subset(class),
         ]),
@@ -608,7 +629,7 @@ pub fn dialog(
         let bg = @style.color_of(st.background_color, "")
         if bg.length() > 0 {
           p.set_fill_color(bg)
-          fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, 4.0))
+          fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, @theme.radius_ctrl()))
         }
         p.set_stroke_color(@style.color_of(st.color, @theme.theme_text_secondary()))
         p.set_line_width(1.4)
@@ -660,11 +681,11 @@ pub fn dialog(
         // 两档皮肤都折进槽：主档 常态 primary / 悬停 primary_hover，
         // 次档 常态 bg_panel / 悬停 fill_hover（悬停分支由 hover 桶承担）
         let skin = if primary {
-          @style.style(color="#ffffff", background_color="primary", border_color="border", border_width=1.0, border_radius=4.0).hover(
+          @style.style(color="#ffffff", background_color="primary", border_color="border", border_width=1.0, border_radius=@theme.radius_ctrl()).hover(
             background_color="primary_hover",
           )
         } else {
-          @style.style(color="text_regular", background_color="bg_panel", border_color="border", border_width=1.0, border_radius=4.0).hover(
+          @style.style(color="text_regular", background_color="bg_panel", border_color="border", border_width=1.0, border_radius=@theme.radius_ctrl()).hover(
             background_color="fill_hover",
           )
         }
@@ -685,7 +706,7 @@ pub fn dialog(
               },
             ),
           )
-          fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, 4.0))
+          fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, @theme.radius_ctrl()))
           p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
           p.set_line_width(@style.number_of(st.border_width, 1.0))
           p.stroke_round_rect(
@@ -693,7 +714,7 @@ pub fn dialog(
             0.0,
             r.w,
             r.h,
-            @style.number_of(st.border_radius, 4.0),
+            @style.number_of(st.border_radius, @theme.radius_ctrl()),
           )
           let _ = @text.draw_box_at(
             p,
@@ -764,7 +785,7 @@ pub fn dialog(
             background_color="bg_panel",
             border_color="border",
             border_width=1.0,
-            border_radius=6.0,
+            border_radius=@theme.radius_card(),
           ),
           paint_subset(class),
         ]),
@@ -776,7 +797,7 @@ pub fn dialog(
       ) -> Unit {
         let st = @style.style_for(self)
         p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
-        fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, 6.0))
+        fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, @theme.radius_card()))
         p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
         p.set_line_width(@style.number_of(st.border_width, 1.0))
         p.stroke_round_rect(
@@ -784,7 +805,7 @@ pub fn dialog(
           0.0,
           r.w,
           r.h,
-          @style.number_of(st.border_radius, 6.0),
+          @style.number_of(st.border_radius, @theme.radius_card()),
         )
       })
       panel.append_child(title_bar)

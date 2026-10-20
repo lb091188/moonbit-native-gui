@@ -125,7 +125,10 @@ pub fn panel(
     width=width,
     background_color="bg_panel",
     border_color="border",
-    class=class,
+    // 基准：面板层圆角 6（调用方 class 在后覆写）
+    class=[
+      @style.style(border_radius=@theme.radius_card()),
+    ] + class,
   )
 }
 
@@ -438,9 +441,9 @@ pub fn icon_button(
 ) -> @widget.Node {
   // 内置皮肤（圆角 + 悬停浅底 + 按下更深）写成样式块：基块没有底色，
   // 底色只从状态桶来，绘制期按 `self` 的态选桶即等价于旧的 hovered/pressed 分支
-  let skin = @style.style(border_radius=4.0).hover(background_color="fill_hover").active(
-    background_color="primary_light",
-  )
+  let skin = @style.style(border_radius=@theme.radius_ctrl()).hover(
+    background_color="fill_hover"
+  ).active(background_color="primary_light")
   let blocks : Array[@style.Style] = [
     skin,
     match fg_block(color) {
@@ -481,7 +484,7 @@ pub fn icon_button(
       let bg = @style.color_of(s.background_color, "")
       if !off.off && bg.length() > 0 {
         p.set_fill_color(bg)
-        fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(s.border_radius, 4.0))
+        fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(s.border_radius, @theme.radius_ctrl()))
       }
       let fallback = if off.off {
         @theme.theme_text_secondary()
@@ -494,7 +497,7 @@ pub fn icon_button(
       if self.focused {
         p.set_stroke_color(@theme.theme_primary())
         p.set_line_width(1.0)
-        p.stroke_round_rect(0.5, 0.5, r.w - 1.0, r.h - 1.0, 4.0)
+        p.stroke_round_rect(0.5, 0.5, r.w - 1.0, r.h - 1.0, @theme.radius_ctrl())
       }
     })
     w.on_pointer = Some(fn(
