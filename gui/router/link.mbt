@@ -86,12 +86,18 @@ pub fn Router::breadcrumb(self : Router) -> @widget.Node {
 /// 段条形态的入口载体：这一层候选一条 `segmented`，写这一层的选中键。
 /// 候选集在分支自己的子槽里是静态的（子槽随分支挂载才构造），所以不需要
 /// 「随父层换候选表」——那件事由子槽重新构造承担。
-pub fn Router::strip_at(self : Router, depth : Int, candidates : Array[Route]) -> @widget.Node {
+/// `label_of` 只改显示（本地化路由名），键仍是 `selected` 槽里的取值。
+pub fn Router::strip_at(
+  self : Router,
+  depth : Int,
+  candidates : Array[Route],
+  label_of? : (String) -> String = fn(k) { k },
+) -> @widget.Node {
   let names : Array[String] = []
   for r in candidates {
     names.push(r.key)
   }
-  @ui.segmented(names, self.store_at(depth))
+  @ui.segmented(names, self.store_at(depth), label_of=label_of)
 }
 
 ///|

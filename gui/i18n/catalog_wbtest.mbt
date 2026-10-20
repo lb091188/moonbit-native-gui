@@ -48,3 +48,28 @@ test "t_or 未定义键回落字面量" {
   assert_eq(t_or("gui.ui.dialog.confirm", "X"), "确定") // 内置默认命中
   assert_eq(t_or("some.unknown.key", "默认值"), "默认值") // 皆无 → 字面量
 }
+
+///|
+test "键里带等号：引号内的 `=` 不当分隔符" {
+  i18n_load(
+    "\"white_space=NoWrap 的说明\" = \"No-wrap note\"\nplain = \"Plain\"\n",
+  )
+  assert_eq(t_or("white_space=NoWrap 的说明", "?"), "No-wrap note")
+  assert_eq(t_or("plain", "?"), "Plain")
+  i18n_reset()
+}
+
+///|
+/// 静默失效的三种写法都要能查到：带引号的顶层键、`[段]` 前缀键、值里的 `\n`
+/// 转义；顶层键必须写在任何段头之前，`[meta]` 放最后。
+test "顶层键引号 / 段前缀 / 值内转义 / `[meta]` 顺序" {
+  i18n_load(
+    "\"圆角与柔焦\" = \"Corners\"\n\"两行\\n文本\" = \"Two\\nlines\"\n[menu]\nnav = \"Navigation\"\n[meta]\nlocale = \"en\"\n",
+  )
+  assert_eq(t_or("圆角与柔焦", "FALLBACK"), "Corners")
+  assert_eq(t_or("两行\n文本", "FALLBACK"), "Two\nlines")
+  assert_eq(t_or("menu.nav", "FALLBACK"), "Navigation")
+  assert_eq(i18n_locale(), "en")
+  i18n_reset()
+  assert_eq(t_or("圆角与柔焦", "FALLBACK"), "FALLBACK")
+}
