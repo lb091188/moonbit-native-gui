@@ -109,7 +109,18 @@ fn language_toggle_button(app : @shared.App, nav : @router.Router) -> @widget.No
       for k in page_keys() {
         nav.purge_built(k)
       }
-      nav.ensure_current()
+      // router 无「原地重挂当前页」公开口：借 goto 先切走再切回，强制当前页重建挂载
+      let cur = nav.path()
+      let mut other = ""
+      for k in page_keys() {
+        if k != cur && other.length() == 0 {
+          other = k
+        }
+      }
+      if other.length() > 0 && other != cur {
+        nav.goto(other)
+        nav.goto(cur)
+      }
       @widget.host_repaint_all()
       // 原生菜单栏不在树里：重建并重新挂，菜单文案随语言刷
       match app.host.val {
