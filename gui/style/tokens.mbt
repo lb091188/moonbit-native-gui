@@ -267,12 +267,12 @@ pub let progress_base : Style = style(
 )
 
 ///|
-/// 步进器值格 `stepper`（现状 44×32 边框格、13 号居中；两侧钮走 `button_border`）。
+/// 步进器值格 `stepper`（现状 44×(控件高−2) 输入格、13 号左对齐、自身不描边，
+/// 外框与聚焦环由行容器画一次；两侧钮走 `button_border`）。
 pub let stepper_field_base : Style = style(
   width=44.0,
-  height=@theme.control_height,
-  border_width=1.0,
-  border_color="border",
+  height=@theme.control_height - 2.0,
+  border_width=0.0,
   color="text_regular",
   font_size=13.0,
 )
