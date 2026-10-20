@@ -271,8 +271,10 @@ pub fn builtin_default() -> Catalog {
 
 ///|
 /// 装入当前目录（覆盖）——应用从外置 locale 文件读到的文本走这里。
+/// 尾部广播原生表面（菜单栏这类画在控件树之外的东西，见 `locale.mbt`）。
 pub fn i18n_load(text : String) -> Unit {
   g_store.cur = parse_catalog(text)
+  locale_notify()
 }
 
 ///|
@@ -280,6 +282,7 @@ pub fn i18n_load(text : String) -> Unit {
 /// 命名点明「默认语言已内置，这是往外挂一门语言」。
 pub fn i18n_extend(text : String) -> Unit {
   g_store.cur = parse_catalog(text)
+  locale_notify()
 }
 
 ///|
@@ -300,6 +303,7 @@ pub fn i18n_locale() -> String {
 pub fn i18n_reset() -> Unit {
   g_store.cur = g_builtin
   g_store.fb = None
+  locale_notify()
 }
 
 ///|

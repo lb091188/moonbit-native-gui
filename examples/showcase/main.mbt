@@ -122,14 +122,8 @@ fn language_toggle_button(app : @shared.App, nav : @router.Router) -> @widget.No
         nav.goto(cur)
       }
       @widget.host_repaint_all()
-      // 原生菜单栏不在树里：重建并重新挂，菜单文案随语言刷
-      match app.host.val {
-        Some(a) => {
-          let bar = build_menu_bar(app, nav)
-          let _ = bar.apply_to(a.window())
-        }
-        None => ()
-      }
+      // 原生菜单栏不在树里，但也不用这里刷：`set_menu_bar_localized` 登记的
+      // 构建器随 i18n 广播自动重挂（见挂载处）
     },
   )
 }
@@ -396,19 +390,16 @@ fn main {
         let _ = a.timer(200, pump.val)
       }
       (pump.val)()
-      // 原生菜单栏：模型翻译成原生菜单挂窗口；项点击经 WM_COMMAND 回收，
-      // 100ms 轮询表派发到模型回调（托盘菜单项走同一条派发链）
-      let bar = build_menu_bar(app, nav)
-      if bar.apply_to(a.window()) {
-        let menu_tick : Ref[() -> Unit] = Ref(fn() { () })
-        menu_tick.val = fn() -> Unit {
-          let _ = @shell.dispatch_menu_command()
-          let _ = a.timer(100, menu_tick.val)
-        }
-        (menu_tick.val)()
-      } else {
-        println("SHOWCASE-MENU: 菜单栏挂载失败（后端不支持或建菜单失败）")
+      // 原生菜单栏：登记「随语言的构建器」——挂载窗即刻生效，之后换语言
+      // 由 i18n 广播自动重挂（原生表面注册表，控件树之外的表面都走这条）。
+      // 项点击经 WM_COMMAND 回收，100ms 轮询表派发到模型回调（托盘菜单项同链）。
+      @widget.set_menu_bar_localized(fn(_w) { build_menu_bar(app, nav) })
+      let menu_tick : Ref[() -> Unit] = Ref(fn() { () })
+      menu_tick.val = fn() -> Unit {
+        let _ = @shell.dispatch_menu_command()
+        let _ = a.timer(100, menu_tick.val)
       }
+      (menu_tick.val)()
       // 「跟随系统」轮询：开关打开时每 2 秒读一次系统深浅与主色，
       // 变了就写进 App（App 的 subscribe 再落成 theme_apply）
       let tick : Ref[() -> Unit] = Ref(fn() { () })
