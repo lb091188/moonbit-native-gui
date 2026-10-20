@@ -54,7 +54,11 @@ fn font_mix_widget() -> @widget.Node {
         p,
         4.0,
         72.0,
-        @shared.tx("回退族名：") + fam + "（可用字体族 \{fam_count} 个）",
+        @shared.tr_with(
+          "dyn.fallback_family",
+          [("f", fam), ("n", fam_count.to_string())],
+          "回退族名：\{fam}（可用字体族 \{fam_count} 个）",
+        ),
         12.0,
         @theme.theme_text_secondary(),
       )

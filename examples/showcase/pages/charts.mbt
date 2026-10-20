@@ -268,7 +268,7 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
       @shared.tx("研发"),
       children=[
         @charts.TmItem::make(@shared.tx("前端"), value=30.0),
-        @charts.TmItem::make("后端", value=45.0),
+        @charts.TmItem::make(@shared.tx("后端"), value=45.0),
         @charts.TmItem::make(@shared.tx("测试"), value=15.0),
       ],
     ),

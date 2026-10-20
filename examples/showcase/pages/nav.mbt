@@ -50,11 +50,11 @@ pub fn page_nav(app : @shared.App) -> @widget.Node {
               ],
             ),
             @ui.dropdown(
-              "操作",
+              @shared.tx("操作"),
               [@shared.tx("打开"), @shared.tx("保存"), "-", @shared.tx("复制链接"), @shared.tx("删除")],
               on_select=fn(_i) { last_op.set(@shared.tx("菜单项已选")) },
             ),
-            @ui.bind_label(last_op, fn(s) { "最近操作：\{s}" }),
+            @ui.bind_label(last_op, fn(s) { @shared.tr_with("dyn.last_op", [("s", s)], "最近操作：\{s}") }),
           ],
           column_gap=16.0,
         ),
@@ -106,9 +106,9 @@ pub fn page_nav(app : @shared.App) -> @widget.Node {
       "顶部页签形态：选中主题色文字 + 底部指示条，内容区切换（子区预建 + 显隐，不重建）。",
       [
         @ui.tabs([
-          ("概览", @ui.text(@shared.tx("这里是概览页内容。"), role=@ui.Body)),
-          ("配置", @ui.text(@shared.tx("这里是配置页内容。"), role=@ui.Body)),
-          ("日志", @ui.text(@shared.tx("这里是日志页内容。"), role=@ui.Body)),
+          (@shared.tx("概览"), @ui.text(@shared.tx("这里是概览页内容。"), role=@ui.Body)),
+          (@shared.tx("配置"), @ui.text(@shared.tx("这里是配置页内容。"), role=@ui.Body)),
+          (@shared.tx("日志"), @ui.text(@shared.tx("这里是日志页内容。"), role=@ui.Body)),
         ]),
       ],
       code=[
@@ -123,7 +123,10 @@ pub fn page_nav(app : @shared.App) -> @widget.Node {
       "Breadcrumb 面包屑",
       "项名即页面名：点非当前项即直达（与侧边菜单共享同一导航状态）；当前项（导航状态里那个值）深色、点它不改值，分隔符 `/` 不可点。",
       [
-        @ui.breadcrumb(["数据展示", "导航组件", "基础组件"], app.selected),
+        @ui.breadcrumb(
+          ["数据展示", "导航组件", "基础组件"].map(x => @shared.nav_label(x)),
+          app.selected,
+        ),
       ],
       code=[
         "@ui.breadcrumb([\"数据展示\", \"导航组件\", \"基础组件\"], selected)",
@@ -167,7 +170,7 @@ pub fn page_nav(app : @shared.App) -> @widget.Node {
                 }
               })
             }),
-            @ui.bind_label(step, fn(n) { "当前第 \{n + 1} 步" }),
+            @ui.bind_label(step, fn(n) { @shared.tr_with("dyn.step_now", [("s", (n + 1).to_string())], "当前第 \{n + 1} 步") }),
           ],
           column_gap=8.0,
         ),

@@ -108,7 +108,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
     match app.host.val {
       Some(a) => {
         a.window().set_opacity(alpha)
-        layer_out.set("窗口 alpha 已置 " + alpha.to_string() + "（/255）")
+        layer_out.set(@shared.tr_with("dyn.alpha_set", [("a", alpha.to_string())], "窗口 alpha 已置 \{alpha.to_string()}（/255）"))
       }
       None => ()
     }
@@ -124,7 +124,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
           AlwaysOnTop => @shared.tx("置顶")
           Dock => @shared.tx("Dock 面板档")
         }
-        layer_out.set(@shared.tx("窗口层级已切到：") + tag)
+        layer_out.set(@shared.tr_with("dyn.layer_set", [("t", tag)], "窗口层级已切到：\{tag}"))
       }
       None => ()
     }
@@ -216,7 +216,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
           [
             @ui.text(@shared.tx("状态："), role=@ui.Secondary),
             @ui.bind_label(hk_status, fn(s) { s }),
-            @ui.bind_label(hk_hits, fn(n) { "命中 \{n} 次" }),
+            @ui.bind_label(hk_hits, fn(n) { @shared.tr_with("dyn.hits", [("n", n.to_string())], "命中 \{n} 次") }),
           ],
           column_gap=6.0,
         ),
@@ -429,7 +429,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
                           padding=20.0,
                         ),
                       ])
-                      multiwin_out.set("已开子窗，当前共 " + a.window_count().to_string() + " 扇")
+                      multiwin_out.set(@shared.tr_with("dyn.child_opened", [("n", a.window_count().to_string())], "已开子窗，当前共 \{a.window_count().to_string()} 扇"))
                     }
                     None => multiwin_out.set(@shared.tx("这台机器开不了第二扇窗（无窗口后端）"))
                   }
@@ -438,7 +438,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
             }),
             @ui.button(@shared.tx("列窗数"), variant=@ui.Soft, on_click=fn() {
               match app.host.val {
-                Some(a) => multiwin_out.set("当前共 " + a.window_count().to_string() + " 扇窗")
+                Some(a) => multiwin_out.set(@shared.tr_with("dyn.window_count", [("n", a.window_count().to_string())], "当前共 \{a.window_count().to_string()} 扇窗"))
                 None => ()
               }
             }),
@@ -451,7 +451,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
                         multiwin_out.set(@shared.tx("当前活动窗是主窗，不关它"))
                       } else {
                         act.close_window()
-                        multiwin_out.set("已关一扇子窗，剩 " + a.window_count().to_string() + " 扇")
+                        multiwin_out.set(@shared.tr_with("dyn.child_closed", [("n", a.window_count().to_string())], "已关一扇子窗，剩 \{a.window_count().to_string()} 扇"))
                       }
                     None => multiwin_out.set(@shared.tx("没有活动窗"))
                   }

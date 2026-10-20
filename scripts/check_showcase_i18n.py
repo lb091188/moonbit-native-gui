@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """演示板本地化覆盖率门禁：页面上每个取译口都必须能在内嵌英文目录里查到。
 
-口径（三条取译通道，一条漏了就静默显示中文——这正是「点了地球页面不动」的根因）：
+口径（四条取译通道，一条漏了就静默显示中文——这正是「点了地球页面不动」的根因）：
 ① `@shared.tx("中文")` / `tx("中文")`：键 = 中文原文（顶层键）；
 ② `@shared.section("段名", …)`：键 = `seg.` + 段名（`page()` 的 label_of 出口）；
-③ `@shared.nav_label`：键 = `nav.` + 侧栏页名（main 的路由表）。
+③ `@shared.nav_label`：键 = `nav.` + 侧栏页名（main 的路由表）；
+④ `@shared.tr_with("dyn.x", vars, zh)`：带插值的状态/回显串，模板里 `{名}` 由 tr_with 填。
 
 目录本体是 `examples/showcase/shared/i18n_data.mbt` 里的 MoonBit 串拼接常量，
 这里按它落成的 TOML 文本行反解：顶层键 = 中文原文，`[段]` 头之后的键带段前缀。
@@ -20,12 +21,26 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 SHOW = ROOT / "examples" / "showcase"
 
 
+def unescape_moon(s):
+    """MoonBit 源串解一层转义：`\\n`(源) → 真换行，`\\\\n`(源) → 反斜杠+n 两字符。"""
+    out, i = [], 0
+    tbl = {"n": "\n", "t": "\t", "r": "\r", '"': '"', "\\": "\\", "{": "{"}
+    while i < len(s):
+        if s[i] == "\\" and i + 1 < len(s) and s[i + 1] in tbl:
+            out.append(tbl[s[i + 1]])
+            i += 2
+            continue
+        out.append(s[i])
+        i += 1
+    return "".join(out)
+
+
 def catalog_keys():
     """反解 EN_CATALOG：返回 {带前缀的键} 集合，并顺带查 `[meta]` 是否在最后。"""
     text = (SHOW / "shared" / "i18n_data.mbt").read_text(encoding="utf-8")
-    # 拼出来的 TOML 文本 = 各 `"…"` 字面量段，把 `\"` 还原后按行拆
+    # 拼出来的 TOML 文本 = 各 `"…"` 字面量段解一层转义后的串联
     parts = re.findall(r'"((?:[^"\\]|\\.)*)"', text)
-    toml = "".join(p.replace('\\"', '"').replace("\\n", "\n") for p in parts)
+    toml = "".join(unescape_moon(p) for p in parts)
     keys, prefix, meta_at, lines = set(), "", None, toml.splitlines()
     for n, line in enumerate(lines):
         s = line.strip()
@@ -79,10 +94,32 @@ def nav_keys():
     }
 
 
+def dyn_keys():
+    """④状态/回显类插值串：`@shared.tr_with("dyn.x", …)` 的键。"""
+    got = set()
+    for p in (SHOW / "pages").glob("*.mbt"):
+        s = p.read_text(encoding="utf-8")
+        got |= set(re.findall(r'tr_with\("([^"]+)"', s))
+    return got
+
+
+def tr_keys():
+    """⑤显式键取译：`@shared.tr("x.y", 中文回落)`——带换行等不便当键的串走这条。"""
+    got = set()
+    for p in list(SHOW.glob("pages/*.mbt")) + list(SHOW.glob("shared/*.mbt")):
+        got |= set(re.findall(r'(?<!_)@shared\.tr\("([^"]+)"', p.read_text(encoding="utf-8")))
+    return got
+
+
 def main():
     keys, _ = catalog_keys()
     bad = []
-    for label, want in (("正文 tx", tx_keys()), ("段名 seg", seg_keys()), ("侧栏 nav", nav_keys())):
+    for label, want in (
+        ("正文 tx", tx_keys()),
+        ("段名 seg", seg_keys()),
+        ("侧栏 nav", nav_keys()),
+        ("插值 dyn", dyn_keys() | tr_keys()),
+    ):
         miss = sorted(k for k in want if k not in keys)
         print(f"{label}: 取译口 {len(want)}，目录缺 {len(miss)}")
         bad += miss

@@ -2948,3 +2948,20 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
   门禁跑法：`python3 scripts/check_showcase_i18n.py`（反解 `EN_CATALOG` 拼出的 TOML 文本，三条通道逐条查，缺任一即非零退出）。
 - **刻意不动的两类**，避免把演示内容翻成另一回事：`code=[…]` 代码块与 Markdown 样例正文（那是被渲染的**素材**，不是控件文案）；带 `\{}` 插值的动态回显串（按号数、按探测结果现拼，仍走中文；要译得逐处换成 `@shared.tr_with(key, vars, zh)`，目录条目用 `\{名}` 占位——机制已在，属可增量补的尾巴）。富文本段的范围属性按**字节区间**打点，样例串一旦换字就会错位，故那几处不套取译口。
 - **验证**：`cd gui && moon check` 零错误零警告；`moon test widget ui style theme render i18n router` 465 项里 462 通过（3 项红是 HEAD 上就红的步进器打字 ×2、密码遮罩光标 ×1，与本批无关）；`gui/i18n` 12/12（含把临时探针 `keyprobe_wbtest` 折成具名回归测试「顶层键引号 / 段前缀 / 值内转义 / `[meta]` 顺序」）；`examples/showcase` `moon build` 通过、`moon test shared` 3/3；覆盖率门禁 484/101/15 全绿，目录条目 827。**整页换语言的真机观感归使用者**：`moon run examples/showcase` → 点地球，看段条、段标题/说明、正文控件文案、侧栏与原生菜单一起切，再切回中文不残留。
+
+## 切语言后「新页面还是默认语言」：预建缓存没跟着作废（2026-10-21，macOS arm64 开发机）
+
+- **现象**：点地球后，正看着的那一页换了英文，但**再点开别的页**仍是中文——只有系统菜单和当前页对。
+- **根因**：`Router::remount_all` 只 unmount **在挂**的路径（`unmount` 里顺带 `purge_built(path)`），而演示板启动就 `Prefetch` 预建了十几页：**建过但没点开过的页只活在 `built` 缓存里，不在挂载表里**，重挂碰不到它们。下次导航到那条路径时 `build_now` 命中缓存，直接把旧语言（内置中文）建好的节点复用出去——看着就像「新页面用默认语言渲染」。
+- **修复**：`gui/router/prefetch.mbt` 新增 `Router::purge_all_built()`（全表丢节点 + `sub_bag_discard` 退掉构造期那批订阅）；`remount_all` 在卸完在挂子树后调它，再 `reanchor()` 把空闲预建队列拨回起点（`prefetch_step` 会跳过已建的，于是这些页按新文案在空闲里逐个补建回来）。回归测试 `remount_all：未挂载的预建页一并丢缓存，再点开按当前目录重建` 把「建过→重挂→`is_built` 必须为假→点开再跑一次 thunk」四步钉住。
+- **代价**：切语言那一刻缓存全空，**第一次**点开某页要现建（预热的收益推迟一轮空闲）；换语言本来就要整树重建，这笔比「页面语言错了」划算。
+
+## 状态/回显类插值串接 `tr_with`，以及按行扫描漏掉的那批（2026-10-21）
+
+- **报障**：主题色段的「当前主色：内置默认」翻了，但选了自定义色之后那行仍是中文「当前主色：#D64550」——**同一行里两个串，只套到了一个**。
+- **根因**（批处理脚本的口径错）：上一轮补套是按**整行**判断「这行已经有 `@shared.tx(` 就跳过」，于是同一行里剩下的字面量（`if … { tx("中文") } else { "中文：\{v}" }` 这种两分支、`@ui.tooltip(button(tx("…")), "提示正文")` 这种嵌套实参）全部漏网。改成**按字面量**判定：只有紧邻前缀是 `tx(` 的那一处算已套，同行其它 occurrence 各自处理。
+- **插值串换通道**：带 `\{}` 的显示串不能整串当键（值每次都不同），一律走 `@shared.tr_with("dyn.<语义名>", [("占位", 取值)], "中文原文\{原插值}")`——中文态回落原串，英文态按目录模板填 `{占位}`。本轮转 45 处（状态回显、计数、错误原因），另把 `"中文 " + x + " 中文"` 的**拼接式** 7 处也整式改成 `tr_with`。取值表达式注意类型：`r : Int` 要 `.to_string()`，`Err(e)` 里的 `e` 是 `AutostartError`/`NotifyError`/`OpenUrlError` 这些枚举、**不是 String**，目录表项要写 `("\{e}", …)` 形式借用它原本的 Show 口径，直接 `("e", e)` 会 4014 类型不匹配。
+- **两套转义别混**：目录条目本身是 MoonBit 源里的串，`"\"键\" = \"值\"\n"` 解一层给 TOML；值里要放 TOML 的换行转义（像 `form.textarea_demo` = `"Text area demo.\nSecond line."`）就得多写一层——源里落成 `\\n`，解一层后才是「反斜杠 + n」两字符交给 TOML 读手；写成 `\n` 会在拼出的目录文本里直接断行，那条键整个静默查不到（`scripts/check_showcase_i18n.py` 反解时也栽过一次，改成按 MoonBit 源规则单遍解转义才对）。
+- **MoonBit 的 `x.foo"str"` 语法是坑**：脚本套口时写成 `@shared.tx` + 字面量（少了括号），MoonBit 按 message-send 照收不误，**只有实参类型不是 String 的那两处才炸**（`@ui.tooltip` 的第二参）。批处理生成函数调用务必带括号：`@shared.tx("…")`。
+- **门禁加了第五条通道**：`scripts/check_showcase_i18n.py` 现在查 正文 tx 501 / 段名 seg 101 / 侧栏 nav 15 / 插值 dyn+显式 tr 57，缺任一即非零退出；`catalog_guard_wbtest` 抽查也补了 `seg.主题`、`dyn.accent_now` 填占位、`form.textarea_demo` 值内换行三条。
+- **验证**：`cd gui && moon check` 零错误零警告；`moon test router widget ui i18n style theme render base` 503 项 500 通过（3 项红是本机 HEAD 上就红的步进器打字 ×2、密码遮罩光标 ×1）；`examples/showcase` `moon build` 通过、`moon test shared` 3/3；覆盖率门禁四通道全绿、目录 900 条。**待真机**：`moon run examples/showcase` → 切英文 → 挨个点开没看过的页（尤其图表 / 系统集成 / 窗口），确认按当前语言建；再回中文切一次，看空闲预建把页面重新建回来不闪不炸。
