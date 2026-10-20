@@ -314,16 +314,21 @@ fn main {
                 @ui.ScrollState::new(),
                 handle=fn(v) { v.node.set_flex_grow(1.0) },
               ),
-              @ui.row(
+              @ui.col(
                 [
                   @ui.text("V" + SHOWCASE_VERSION, role=@ui.Secondary),
-                  theme_toggle_button(app),
-                  flat_toggle_button(app),
-                  translucent_toggle_button(app),
-                  language_toggle_button(app, nav),
+                  @ui.row(
+                    [
+                      theme_toggle_button(app),
+                      flat_toggle_button(app),
+                      translucent_toggle_button(app),
+                      language_toggle_button(app, nav),
+                    ],
+                    column_gap=6.0,
+                  ),
                 ],
                 padding=10.0,
-                column_gap=8.0,
+                row_gap=6.0,
               ),
             ],
             background_color=if app.translucent.get() { "#12161FCC" } else { "" },
