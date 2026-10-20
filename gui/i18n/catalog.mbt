@@ -40,22 +40,74 @@ fn i_trim(s : String) -> String {
   i_join(a, i, j)
 }
 
+///|
+/// 脱引号 + 解转义：TOML 基本串认的 `\\n \\t \\r \\" \\\\` 在此还原。
+/// 键与值同一条口径——键写成 `"中文原文"` 时也必须能按裸文本查到。
 fn i_unquote(s : String) -> String {
   let a = i_chars(s)
   let n = a.length()
-  if n >= 2 && a[0] == '"' && a[n - 1] == '"' {
-    i_join(a, 1, n - 1)
-  } else {
-    s
-  }
+  let body =
+    if n >= 2 && a[0] == '"' && a[n - 1] == '"' {
+      i_join(a, 1, n - 1)
+    } else {
+      s
+    }
+  i_unescape(body)
 }
 
+fn i_unescape(s : String) -> String {
+  if !s.to_array().exists(c => c == '\\') {
+    return s
+  }
+  let a = i_chars(s)
+  let n = a.length()
+  let out : Array[Char] = []
+  let mut i = 0
+  while i < n {
+    if a[i] == '\\' && i + 1 < n {
+      let nx = a[i + 1]
+      let rep : Char? = match nx {
+        'n' => Some('\n')
+        't' => Some('\t')
+        'r' => Some('\r')
+        '"' => Some('"')
+        '\\' => Some('\\')
+        _ => None
+      }
+      match rep {
+        Some(c) => {
+          out.push(c)
+          i = i + 2
+          continue
+        }
+        None => ()
+      }
+    }
+    out.push(a[i])
+    i += 1
+  }
+  i_join(out, 0, out.length())
+}
+
+///|
+/// 行内第一个「引号外」的 `=` 才是键值分隔符——键里带 `=`（如
+/// `white_space=NoWrap` 这类原文当键）时不能被截断。
 fn i_split_eq(line : String) -> (String, String)? {
   let a = i_chars(line)
   let n = a.length()
   let mut i = 0
+  let mut in_str = false
   while i < n {
-    if a[i] == '=' {
+    let c = a[i]
+    if in_str {
+      if c == '\\' {
+        i = i + 1
+      } else if c == '"' {
+        in_str = false
+      }
+    } else if c == '"' {
+      in_str = true
+    } else if c == '=' {
       return Some((i_join(a, 0, i), i_join(a, i + 1, n)))
     }
     i += 1
@@ -152,7 +204,7 @@ pub fn parse_catalog(text : String) -> Catalog {
     match i_split_eq(t) {
       None => ()
       Some((raw_key, raw_val)) => {
-        let full = prefix + i_trim(raw_key)
+        let full = prefix + i_unquote(i_trim(raw_key))
         let val = i_trim(raw_val)
         let a = i_chars(val)
         if a.length() > 0 && a[0] == '{' {

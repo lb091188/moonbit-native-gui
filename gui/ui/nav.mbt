@@ -156,9 +156,11 @@ fn hover_bg(w : @widget.Widget, color : String) -> String {
 /// 分段控制器 / 顶栏导航（EP Segmented）：选中面板底 + 主题色文字，悬停灰底。
 /// 键盘口径：每段各自进 Tab 链，空格/回车选中本段，←/↑ 上一段、→/↓ 下一段
 /// （到头环绕，选中随键走；焦点停在按键那一段）。
+/// `label_of` 只改**显示**（如本地化标签），`options` 仍是选中值与 `selected` 的取值域。
 pub fn segmented(
   options : Array[String],
   selected : @base.Store[String],
+  label_of? : (String) -> String = fn(k) { k },
   class? : Array[@style.Style] = [],
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
@@ -170,7 +172,7 @@ pub fn segmented(
     let idx = i
     items.push(
       nav_item(
-        opt,
+        label_of(opt),
         30.0,
         16.0,
         13.0,
