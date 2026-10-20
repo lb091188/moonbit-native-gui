@@ -12,105 +12,88 @@
 // ④ 声明式层与组件同住 `@ui`（`ui/declarative.mbt`）。
 
 ///|
-/// 演示用底图：三段色带 + 两块高对比方块，模糊前后差异一眼可辨。
-fn appearance_art() -> @render.Bitmap {
-  let bm = @render.Bitmap::new(360, 140)
-  bm.fill_area(0, 0, 120, 140, { r: 45, g: 104, b: 196, a: 255 })
-  bm.fill_area(120, 0, 240, 140, { r: 46, g: 158, b: 91, a: 255 })
-  bm.fill_area(240, 0, 360, 140, { r: 214, g: 69, b: 80, a: 255 })
-  bm.fill_area(40, 40, 120, 100, { r: 255, g: 255, b: 255, a: 255 })
-  bm.fill_area(220, 30, 300, 110, { r: 42, g: 47, b: 54, a: 255 })
-  bm
-}
-
-///|
-/// 圆角样例：卡片 6、按钮与输入框 4 —— 拨开关时这一排整体变直角。
-fn appearance_radius_samples(q : @base.Store[String]) -> @widget.Node {
-  @ui.row(
-    [
-      @ui.card(
-        [@ui.text("卡片圆角 6", role=@ui.Secondary)],
-        padding=12.0,
-        class=[@style.style(border_radius=6.0)],
-      ),
-      @ui.button("按钮 4", variant=@ui.Solid),
-      @ui.input(q, placeholder="输入框 4", width=160.0),
-    ],
-    column_gap=12.0,
-  )
-}
-
-///|
-/// 背景模糊演示：底图 + 一张压在它上方的玻璃面板；开关切换面板下方像素是否先糊。
-fn appearance_stage(app : @shared.App) -> @widget.Node {
-  let art = @render.Image::from_bitmap(appearance_art())
-  let bg = @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
-    w.node.set_width(@yoga.fixed(420.0))
-    w.node.set_height(@yoga.fixed(180.0))
-    w.on_draw = Some(fn(
-      _self : @widget.Widget,
-      p : @render.Painter,
-      r : @base.Rect,
-    ) -> Unit {
-      p.flush()
-      p.draw_image(art, 0.0, 0.0, r.w, r.h)
-    })
-    w
-  })
-  let glass = @ui.glass(
-    [
-      @ui.text("背景模糊", role=@ui.Section),
-      @ui.text("面板下方的像素先糊再回放", role=@ui.Secondary),
-      @ui.button("操作", variant=@ui.Border),
-    ],
-    padding=12.0,
-    blur_on=fn() { app.soft.get() },
-    class=[
-      @style.style(
-        position=@yoga.Absolute,
-        left=24.0,
-        top=24.0,
-        width=300.0,
-        height=120.0,
-      ),
-    ],
-  )
-  @ui.view([bg, glass], width=420.0, height=180.0)
-}
-
-///|
 pub fn page_basic(app : @shared.App) -> @widget.Node {
   // 两个悬停/光标组各配一个文本框状态
   let box_a : @base.Store[String] = @base.Store::new("组内输入框")
   let box_b : @base.Store[String] = @base.Store::new("组内输入框")
-  let radius_demo : @base.Store[String] = @base.Store::new("")
+  // RTL：文本 run 基方向开关 + 布局镜像对比 + 从右起排的右侧文字样例
+  let rtl = @base.Store::new(false)
+  let rtl_toggle = @ui.button(
+    "切换文本基方向 (LTR/RTL)",
+    on_click=fn() {
+      let v = !rtl.get()
+      rtl.set(v)
+      @text.set_base_dir(if v { @text.Rtl } else { @text.Ltr })
+      @widget.invalidate()
+      app.toast_push("文本基方向 → " + (if v { "RTL" } else { "LTR" }), @ui.Info)
+    },
+  )
+  let rtl_mixed = @ui.text("Hello مرحبا World 123 — 混排 bidi", font_size=16.0)
+  let mirror_items = ["一", "二", "三"].map(x => @ui.card([@ui.text(x)], padding=10.0))
+  let ltr_row = @ui.col(
+    [@ui.text("LTR 主轴", role=@ui.Secondary), @ui.row(mirror_items, column_gap=8.0)],
+    row_gap=4.0,
+  )
+  let rtl_row = @ui.col(
+    [
+      @ui.text("RTL 布局镜像（Style.direction）", role=@ui.Secondary),
+      @ui.row(
+        mirror_items,
+        column_gap=8.0,
+        class=[@style.style().set_direction(Some(@style.Rtl))],
+      ),
+    ],
+    row_gap=4.0,
+  )
   @shared.page([
     @shared.section(
-      "外观",
-      "圆角与柔焦",
-      "两个总开关：圆角关掉后全站经样式槽的圆角按 0 绘制；背景模糊把玻璃面板下方**已经画好的像素**读出来糊掉再回放（Painter::backdrop_blur，固定一档）。",
+      "RTL 排版",
+      "文本基方向与布局镜像",
+      "两段机制各管一头：`@text.set_base_dir` 改文本 run 的基方向（bidi 混排里谁先谁后），`Style.direction=Rtl` 把布局主轴镜像（行列反向排）。开关只动前者，布局不受牵连。",
       [
-        @ui.row(
-          [
-            @ui.text("圆角", role=@ui.Body),
-            @ui.switch(app.flat, on_change=fn(v) {
-              @style.set_square_corners(v)
-              @widget.host_repaint_all()
-            }),
-            @ui.text("背景模糊", role=@ui.Body),
-            @ui.switch(app.soft, on_change=fn(_v) {
-              @widget.host_repaint_all()
-            }),
-          ],
-          column_gap=12.0,
-        ),
-        appearance_radius_samples(radius_demo),
-        appearance_stage(app),
+        rtl_toggle,
+        rtl_mixed,
+        @ui.row([ltr_row, rtl_row], column_gap=24.0),
       ],
       code=[
-        "@style.set_square_corners(true)",
-        "@widget.host_repaint_all()",
-        "@ui.glass(children, blur_on=fn() { on })",
+        "@text.set_base_dir(@text.Rtl)",
+        "@ui.row(items, class=[@style.style().set_direction(Some(@style.Rtl))])",
+      ],
+    ),
+    @shared.section(
+      "字体排版",
+      "从右起排的右侧文字",
+      "阿拉伯语、波斯语、希伯来语、乌尔都语这类文字整段从右往左落笔：容器方向给 `Rtl`、文本对齐给 `End`，行首就贴在右缘。数字段在 bidi 里仍按 LTR 走（"
+      + "阿拉伯语里的拉丁数不反写），这是文本引擎的默认口径。字体按平台回退，"
+      + "mac/Linux 缺相应字形时显示为方框属系统字体集问题，不是排版错位。",
+      [
+        @ui.col(
+          [
+            @ui.text("العربية — 阿拉伯语：مرحبا بالعالم", font_size=16.0),
+            @ui.text("فارسی — 波斯语：سلام دنیا", font_size=16.0),
+            @ui.text("עברית — 希伯来语：שלום עולם", font_size=16.0),
+            @ui.text("اردو — 乌尔都语：دنیا کو سلام", font_size=16.0),
+            @ui.text("RTL 段落里的 1234 / ABC 保持原序不反写", font_size=14.0),
+          ],
+          row_gap=8.0,
+          class=[
+            @style.style(
+              direction=@yoga.RowReverse,
+              align_items=@yoga.AlignItems::FlexEnd,
+              text_align=@text.End,
+            ),
+          ],
+          width=480.0,
+        ),
+        @ui.text("上面这块：容器镜像 + 贴右对齐（点击任意一行可复制到 LTR 段对照）", role=@ui.Secondary),
+      ],
+      code=[
+        "@ui.col(lines,",
+        "  class=[@style.style(",
+        "    direction=@yoga.RowReverse,",
+        "    align_items=@yoga.AlignItems::FlexEnd,",
+        "    text_align=@text.End,",
+        "  )])",
       ],
     ),
     @shared.section(
