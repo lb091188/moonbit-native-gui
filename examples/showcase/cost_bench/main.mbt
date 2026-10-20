@@ -210,6 +210,8 @@ fn headless_app() -> @shared.App {
     dlg_form: @base.Store::new(false),
     dlg_name: @base.Store::new(""),
     dlg_result: @base.Store::new(""),
+    flat: @base.Store::new(false),
+    soft: @base.Store::new(false),
     host: Ref(None),
   }
 }
