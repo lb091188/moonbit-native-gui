@@ -11,6 +11,8 @@
 pub(all) struct App {
   /// 侧栏与页切换共用的导航状态（存页名）
   selected : @base.Store[String]
+  /// 当前语言标签（"zh-CN" / "en"）；切它触发整棵内容树按新 catalog 重建
+  locale : @base.Store[String]
   /// 轻提示推送（转发 `toast_layer` 的函数值字段）
   toast : (String, @ui.SemanticType) -> Unit
   /// 深浅：跟随开关打开时由定时器写，按钮手动改时先关跟随
@@ -49,4 +51,10 @@ pub(all) struct App {
 /// 推送一条轻提示（转发 toast 函数字段；函数值字段不能直接点调用）。
 pub fn App::toast_push(self : App, text : String, t : @ui.SemanticType) -> Unit {
   (self.toast)(text, t)
+}
+
+///|
+/// 取译：按当前 `@i18n` 目录查 key，缺失时回落 key 本身（便于用 i18n_cli check 发现漏配）。
+pub fn t(key : String) -> String {
+  @i18n.t_or(key, key)
 }
