@@ -124,6 +124,10 @@ pub(all) struct Widget {
   /// （与 CSS `:hover` 同义），所以包住别人的组件也能收到——不必依赖子控件把
   /// 移动事件冒泡上来（子控件可能自己消费掉移动）。
   mut on_hover_change : Option[(Widget, Bool) -> Unit]
+  /// 焦点得失回调（入参是本控件与新的聚焦值）：给「失焦即提交」的编辑类控件用
+  /// （数字框、可编辑下拉）。触发口径与 `on_hover_change` 同一条——宿主每帧同步
+  /// `focused` 时只在真正翻转的那一下调用。
+  mut on_focus_change : Option[(Widget, Bool) -> Unit]
   /// 输入法提交文本到达本控件（宿主按焦点 id 路由）；返回是否消费。
   mut on_commit : Option[(String) -> Bool]
   /// 组合串更新（文本 + 串内字节光标）；宿主每拍投给焦点控件。
@@ -202,6 +206,7 @@ pub fn Widget::new() -> Widget {
     pressed: false,
     focused: false,
     on_hover_change: None,
+    on_focus_change: None,
     on_commit: None,
     on_preedit: None,
     im_context: None,
@@ -662,8 +667,16 @@ pub fn Widget::by_id(self : Widget, id : Int) -> Widget? {
 ///|
 /// 按**焦点栈 id** 重排 `focused` 标志（一次遍历，宿主每帧画之前同步一次）。
 /// 焦点栈只记 id，控件绘制要的是「我是不是那个被聚焦的」，这层换算归宿主。
+/// 标志真正翻转时按控件触发 `on_focus_change`。
 pub fn Widget::set_focused_by_focus(self : Widget, focus_id : Int) -> Unit {
-  self.focused = focus_id > 0 && self.focus_id == focus_id
+  let on = focus_id > 0 && self.focus_id == focus_id
+  if self.focused != on {
+    self.focused = on
+    match self.on_focus_change {
+      Some(f) => f(self, on)
+      None => ()
+    }
+  }
   for k in self.kids {
     k.set_focused_by_focus(focus_id)
   }

@@ -573,10 +573,36 @@ fn step_cell(
 }
 
 ///|
+/// 输入串 → 整数：整串是「可选负号 + 十进制数字」才给 Some，空串、只一个负号、
+/// 含非数字字符都给 None。累加到 9 位就封顶（再长的数必然越界，夹取时落在端点上）。
+fn int_of_digits(s : String) -> Int? {
+  let n = s.length()
+  let neg = n > 0 && s.unsafe_get(0).to_int() == 45
+  let mut i = if neg { 1 } else { 0 }
+  if i >= n {
+    return None
+  }
+  let mut v = 0
+  while i < n {
+    let c = s.unsafe_get(i).to_int()
+    if c < 48 || c > 57 {
+      return None
+    }
+    if v < 100000000 {
+      v = v * 10 + (c - 48)
+    }
+    i += 1
+  }
+  Some(if neg { -v } else { v })
+}
+
+///|
 /// 步进器：`[-] 值 [+]` 共框三段（外框由行容器画、格与格之间只有一条分隔线，
 /// 三格同高同边——各自画一圈边框会看着像三个没粘在一起的盒子），按 step 增减
 /// 并夹在区间内；触边界那一侧自动禁用（禁用态必须跟着值走，见 state.mbt 那条实测）。
-/// 键盘口径：←/↓ 减、→/↑ 加（触界侧吃掉键但不改值），自动进 Tab 链，
+/// 中间格是输入框：只收数字（区间含负数时连负号一起收），回车或失焦才回写并夹取，
+/// 中途的半成品（空串、越界、`-`）不动值。
+/// 键盘口径：↑ 加、↓ 减（←/→ 归输入框移光标），整支控件占一个 Tab 位、落在中间格；
 /// 聚焦时外框描边转主题色。
 pub fn stepper(
   state : @base.Store[Int],
@@ -591,47 +617,107 @@ pub fn stepper(
   let inc = if step > 0 { step } else { 1 }
   let minus_off = Enabled::new(state.get() <= lo)
   let plus_off = Enabled::new(state.get() >= hi)
+  let text = @base.Store::new(state.get().to_string())
+  let lit = Ref(false)
   let sync = fn() -> Unit {
     let v = state.get()
     minus_off.off = v <= lo
     plus_off.off = v >= hi
   }
-  let value = @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
-    w.node.set_width(@yoga.fixed(44.0))
-    w.node.set_height(@yoga.fixed(@theme.control_height))
-    w.on_draw = Some(fn(
-      self : @widget.Widget,
-      p : @render.Painter,
-      r : @base.Rect,
-    ) -> Unit {
-      let st = @style.style_for(self)
-      let _ = @text.draw_box_at(
-        p,
-        0.0,
-        0.0,
-        r.w,
-        r.h,
-        state.get().to_string(),
-        @text.Font::new("", 13.0),
-        @style.color_of(st.color, @theme.theme_text_regular()),
-        align=@text.Center,
-        valign=@text.Center,
-        wrap=false,
-      )
-    })
-    w
+  let write = fn(v : Int) -> Unit { text.set(v.to_string()) }
+  let bump = fn(delta : Int) -> Unit {
+    state.set((state.get() + delta).clamp(min=lo, max=hi))
+    sync()
+  }
+  let commit = fn() -> Unit {
+    match int_of_digits(text.get()) {
+      Some(v) => {
+        state.set(v.clamp(min=lo, max=hi))
+        sync()
+      }
+      None => ()
+    }
+    write(state.get())
+  }
+  // 值变 → 中间格跟随；串已经表示同一个数就不动（`007` 这类在打的串不被顶回）
+  let sid = state.subscribe_id(fn(v : Int) -> Unit {
+    if int_of_digits(text.get()) != Some(v) {
+      write(v)
+    }
+    @widget.invalidate()
   })
+  @base.sub_bag_register(fn() { state.remove(sid) })
+  let num_text = fn(s : String) -> Bool {
+    let cs = s.to_array()
+    let mut ok = cs.length() > 0
+    for c in cs {
+      let n = c.to_int()
+      if !(n >= 48 && n <= 57) && !(c == '-' && lo < 0) {
+        ok = false
+      }
+    }
+    ok
+  }
   let subset = paint_subset(class)
+  let value = input(
+    text,
+    width=44.0,
+    focus_id=auto_focus_id(focus_id),
+    on_enter=fn() { commit() },
+    class=
+      [
+        subset,
+        @style.style(
+          border_width=0.0,
+          height=@theme.control_height - 2.0,
+        ),
+      ],
+    handle=fn(w : @widget.Widget) -> Unit {
+      w.on_focus_change = Some(fn(_self : @widget.Widget, on : Bool) -> Unit {
+        lit.val = on
+        if !on {
+          commit()
+        }
+        @widget.invalidate()
+      })
+      let prev_key = w.on_key
+      w.on_key = Some(fn(ev : @widget.KeyEvent) -> Bool {
+        let bare = (ev.mods & (
+          @base.MOD_CTRL | @base.MOD_ALT | @base.MOD_META
+        )) == 0
+        if ev.press && bare {
+          match @input.keysym_to_text(ev.keysym) {
+            Some(s) => if !num_text(s) {
+              return true
+            }
+            None => ()
+          }
+        }
+        match prev_key {
+          Some(f) => f(ev)
+          None => false
+        }
+      })
+      let prev_commit = w.on_commit
+      w.on_commit = Some(fn(t : String) -> Bool {
+        if num_text(t) {
+          match prev_commit {
+            Some(f) => f(t)
+            None => false
+          }
+        } else {
+          true
+        }
+      })
+    },
+  )
   view(
     [
       step_cell(
         "-",
         minus_off,
         true,
-        fn() {
-          state.set((state.get() - inc).clamp(min=lo, max=hi))
-          sync()
-        },
+        fn() { bump(-inc) },
         subset,
       ),
       value,
@@ -639,10 +725,7 @@ pub fn stepper(
         "+",
         plus_off,
         false,
-        fn() {
-          state.set((state.get() + inc).clamp(min=lo, max=hi))
-          sync()
-        },
+        fn() { bump(inc) },
         subset,
       ),
     ],
@@ -659,8 +742,9 @@ pub fn stepper(
       ),
     ] + class,
     handle=fn(w : @widget.Widget) -> Unit {
-      w.focus_id = auto_focus_id(focus_id)
-      // 外框底/描边是 view 的内置绘制：包一层，聚焦时末尾补一圈主题色
+      // 外框底/描边是 view 的内置绘制：包一层，聚焦时末尾补一圈主题色。
+      // 描边走 `round_rect_path` + `stroke`（居中描边，压在盒子最外一圈像素上）：
+      // 三格的悬停底内缩 1px，环内缩就会啃进环里（子件在父件之后画）。
       let prev = w.on_draw
       w.on_draw = Some(fn(
         self : @widget.Widget,
@@ -671,10 +755,18 @@ pub fn stepper(
           Some(f) => f(self, p, r)
           None => ()
         }
-        if self.focused {
+        if lit.val {
+          let st = @style.style_for(self)
           p.set_stroke_color(@theme.theme_primary())
           p.set_line_width(1.0)
-          p.stroke_rect(0.5, 0.5, r.w - 1.0, r.h - 1.0)
+          p.round_rect_path(
+            0.5,
+            0.5,
+            r.w - 1.0,
+            r.h - 1.0,
+            @style.number_of(st.border_radius, 4.0),
+          )
+          p.stroke()
         }
       })
       w.on_key = Some(fn(ev : @widget.KeyEvent) -> Bool {
@@ -682,16 +774,14 @@ pub fn stepper(
           return false
         }
         let ks = ev.keysym
-        if ks == @base.KS_LEFT || ks == @base.KS_DOWN {
+        if ks == @base.KS_DOWN {
           if !minus_off.off {
-            state.set((state.get() - inc).clamp(min=lo, max=hi))
-            sync()
+            bump(-inc)
           }
           true
-        } else if ks == @base.KS_RIGHT || ks == @base.KS_UP {
+        } else if ks == @base.KS_UP {
           if !plus_off.off {
-            state.set((state.get() + inc).clamp(min=lo, max=hi))
-            sync()
+            bump(inc)
           }
           true
         } else {

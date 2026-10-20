@@ -754,6 +754,22 @@ test "表单族只读样式槽：class 的绘制色落到标记控件" {
 }
 
 ///|
+/// 主题色串（`#rrggbb`）→ 位图像素四元组，供逐像素比对绘制颜色。
+fn rgb_of_hex(s : String) -> (Int, Int, Int, Int) {
+  let d = fn(i : Int) -> Int {
+    let c = s.unsafe_get(i).to_int()
+    if c >= 97 {
+      c - 87
+    } else if c >= 65 {
+      c - 55
+    } else {
+      c - 48
+    }
+  }
+  (d(1) * 16 + d(2), d(3) * 16 + d(4), d(5) * 16 + d(6), 255)
+}
+
+///|
 test "步进器三格共框：同高、首尾相接、点 +/- 改值且触界禁用" {
   let st = @base.Store::new(1)
   let root = @widget.Widget::new()
@@ -764,11 +780,15 @@ test "步进器三格共框：同高、首尾相接、点 +/- 改值且触界禁
   let cells = group.children()
   assert_eq(cells.length(), 3)
   let h = @theme.control_height
-  // 三格同高、且与整组同高（旧形态各画一圈边框，看着像三个没粘在一起的盒子）
+  // 外框那一圈由行容器画：两个钮与整组同高（自绘悬停底自己内缩 1px），
+  // 中间格整格铺底，让出上下各 1px 给框与焦点环
   assert_eq(group.rect.h, h)
+  assert_eq(cells[0].rect.h, h)
+  assert_eq(cells[2].rect.h, h)
+  assert_eq(cells[1].rect.h, h - 2.0)
+  assert_eq(cells[1].rect.y - group.rect.y, 1.0)
   let mut x = 0.0
   for c in cells {
-    assert_eq(c.rect.h, h)
     assert_eq(c.rect.x, x)
     x = x + c.rect.w
   }
@@ -790,6 +810,84 @@ test "步进器三格共框：同高、首尾相接、点 +/- 改值且触界禁
   st.set(0)
   tap(0)
   assert_eq(st.get(), 0)
+}
+
+///|
+test "步进器悬停底不吃焦点环：环压在盒子最外一圈像素" {
+  let st = @base.Store::new(7)
+  let root = mount_root([stepper(st, min=0, max=10)], 260.0, 60.0)
+  let row = kid(root, 0)
+  let cell = row.children()[1]
+  let plus = row.children()[2]
+  let _ = root.set_focused_by_focus(cell.focus_id)
+  plus.hovered = true
+  let bm = @render.Bitmap::new(108, 32)
+  let p = @render.Painter::new(bm)
+  row.paint_at(p, row.rect.x, row.rect.y)
+  p.end()
+  let ring = rgb_of_hex(@theme.theme_primary())
+  let hover = rgb_of_hex(@theme.theme_fill_hover())
+  // 四条边的中点都是主题色环，悬停底从环内侧那一列才开始
+  assert_eq(color_of(bm, 0, 16), ring)
+  assert_eq(color_of(bm, 107, 16), ring)
+  assert_eq(color_of(bm, 54, 0), ring)
+  assert_eq(color_of(bm, 92, 31), ring)
+  assert_eq(color_of(bm, 92, 1), hover)
+  assert_eq(color_of(bm, 106, 16), hover)
+}
+
+///|
+test "步进器中间格可打字：只收数字，回车与失焦才回写并夹取" {
+  let st = @base.Store::new(7)
+  let root = mount_root([stepper(st, min=0, max=10)], 260.0, 60.0)
+  let row = kid(root, 0)
+  let cell = row.children()[1]
+  let text_of = fn() -> String {
+    match root.im_context_of(cell.focus_id) {
+      Some((s, _)) => s
+      None => "<无输入法上下文>"
+    }
+  }
+  let _ = root.set_focused_by_focus(cell.focus_id)
+  key(root, cell, 'a'.to_int(), @base.MOD_CTRL)
+  key(root, cell, '2'.to_int(), 0)
+  key(root, cell, '5'.to_int(), 0)
+  assert_eq(text_of(), "25")
+  // 没提交前值不动，字母键吃掉进不了串
+  assert_eq(st.get(), 7)
+  key(root, cell, 'x'.to_int(), 0)
+  assert_eq(text_of(), "25")
+  // 回车：夹到上界并回写
+  key(root, cell, @base.KS_RETURN, 0)
+  assert_eq(st.get(), 10)
+  assert_eq(text_of(), "10")
+  // 失焦即提交
+  key(root, cell, 'a'.to_int(), @base.MOD_CTRL)
+  key(root, cell, '3'.to_int(), 0)
+  let _ = root.set_focused_by_focus(0)
+  assert_eq(st.get(), 3)
+  assert_eq(text_of(), "3")
+  // 空串/负号这类不成数的串不改值，串回到现值
+  let _ = root.set_focused_by_focus(cell.focus_id)
+  key(root, cell, 'a'.to_int(), @base.MOD_CTRL)
+  key(root, cell, @base.KS_BACKSPACE, 0)
+  assert_eq(text_of(), "")
+  key(root, cell, @base.KS_RETURN, 0)
+  assert_eq(st.get(), 3)
+  assert_eq(text_of(), "3")
+  // 值从别处变（+/- 之外的路径）→ 串跟随
+  st.set(4)
+  assert_eq(text_of(), "4")
+  // 长到越界的串：夹到上界，不在累加里溢出
+  key(root, cell, 'a'.to_int(), @base.MOD_CTRL)
+  let mut nines = 0
+  while nines < 14 {
+    key(root, cell, '9'.to_int(), 0)
+    nines = nines + 1
+  }
+  key(root, cell, @base.KS_RETURN, 0)
+  assert_eq(st.get(), 10)
+  assert_eq(text_of(), "10")
 }
 
 ///|
@@ -1075,7 +1173,7 @@ test "键盘可及性：单选空格选中本项，左右键在组内环绕换�
 }
 
 ///|
-test "键盘可及性：滑块方向键增减与 Home/End、步进器左右加减、评分箭头改星" {
+test "键盘可及性：滑块方向键增减与 Home/End、步进器上下加减、评分箭头改星" {
   let key = fn(root : @widget.Widget, w : @widget.Widget, ks : Int) -> Unit {
     let _ = root.dispatch_key(w.focus_id, { press: true, keysym: ks, mods: 0, })
   }
@@ -1094,21 +1192,23 @@ test "键盘可及性：滑块方向键增减与 Home/End、步进器左右加�
   let nv = @base.Store::new(5)
   let root2 = mount_root([stepper(nv, min=0, max=10, step=2)], 300.0, 60.0)
   let sp = kid(root2, 0)
-  assert_true(sp.focus_id > 0)
-  key(root2, sp, @base.KS_RIGHT)
+  // Tab 位落在中间格（输入框）：↑/↓ 经祖先链步进，←/→ 归光标不改值
+  let cell = sp.children()[1]
+  assert_true(cell.focus_id > 0)
+  key(root2, cell, @base.KS_UP)
   assert_eq(nv.get(), 7)
-  key(root2, sp, @base.KS_LEFT)
+  key(root2, cell, @base.KS_DOWN)
   assert_eq(nv.get(), 5)
-  // 步进器只吃方向键（Home/End 走滑块），触界侧吃掉键但不改值
-  key(root2, sp, @base.KS_HOME)
+  // 步进器只吃上下方向键（Home/End 走滑块），触界侧吃掉键但不改值
+  key(root2, cell, @base.KS_HOME)
   assert_eq(nv.get(), 5)
-  key(root2, sp, @base.KS_LEFT)
-  key(root2, sp, @base.KS_LEFT)
-  assert_eq(nv.get(), 1)
-  key(root2, sp, @base.KS_LEFT)
-  assert_eq(nv.get(), 0)
-  key(root2, sp, @base.KS_LEFT)
-  assert_eq(nv.get(), 0)
+  key(root2, cell, @base.KS_UP)
+  key(root2, cell, @base.KS_UP)
+  assert_eq(nv.get(), 9)
+  key(root2, cell, @base.KS_UP)
+  assert_eq(nv.get(), 10)
+  key(root2, cell, @base.KS_UP)
+  assert_eq(nv.get(), 10)
   let rv = @base.Store::new(3)
   let changes : Array[Int] = []
   let root3 = mount_root(
