@@ -314,6 +314,90 @@ test "绘制遍历：逐层平移到控件原点，并裁剪到控件矩形" {
 }
 
 ///|
+test "圆角擦角：弧外补回父层底色，不留透明洞" {
+  let root = column(Widget::new())
+  let _ = sized(root, 40.0, 40.0)
+  let card = sized(Widget::new(), 20.0, 20.0)
+  // holder 靠自身 padding 把卡片推到 (10,10)，四角外侧都有父层可读
+  let holder = sized(Widget::new(), 30.0, 30.0)
+  holder.node.set_padding_left(@yoga.fixed(10.0))
+  holder.node.set_padding_top(@yoga.fixed(10.0))
+  holder.append_child(card)
+  root.append_child(holder)
+  root.relayout(40.0, 40.0)
+  assert_eq((card.rect.x, card.rect.y), (10.0, 10.0))
+  root.on_draw = Some(fn(_w : Widget, p : @render.Painter, r : Rect) -> Unit {
+    p.set_fill_color("#ff0000")
+    p.fill_rect(0.0, 0.0, r.w, r.h)
+  })
+  // 卡片通铺方底 + 声明圆角：宿主收尾把四角弧外补回父层（红）
+  card.on_draw = Some(fn(w : Widget, p : @render.Painter, r : Rect) -> Unit {
+    w.clip_rounded = true
+    w.style_clip_radius = 6.0
+    p.set_fill_color("#0000ff")
+    p.fill_rect(0.0, 0.0, r.w, r.h)
+  })
+
+  let bm = @render.Bitmap::new(40, 40)
+  let p = @render.Painter::new(bm)
+  root.paint(p)
+  p.end()
+
+  // 卡片落在 (10,10)-(30,30)：正中是蓝，角盒弧外是红且**不透明**
+  assert_eq(color_of(bm, 20, 20), (0, 0, 255, 255))
+  assert_eq(color_of(bm, 10, 10), (255, 0, 0, 255))
+  assert_eq(color_of(bm, 29, 29), (255, 0, 0, 255))
+  // 弧内仍是卡片自己的蓝
+  assert_eq(color_of(bm, 15, 15), (0, 0, 255, 255))
+  // 底角的弧外带在**远端**：角盒首行贴着圆心的那一侧不该被动过
+  // （顶角公式套到底角会把缺口镜像到这里，实测 29,24 被啃成父层色）
+  assert_eq(color_of(bm, 29, 24), (0, 0, 255, 255))
+  assert_eq(color_of(bm, 24, 29), (0, 0, 255, 255))
+  // 整幅不留 a=0：光栅后端（mac/Windows）透明像素会露出黑/白底
+  let mut holes = 0
+  for y = 0; y < 40; y = y + 1 {
+    for x = 0; x < 40; x = x + 1 {
+      if bm.pixel(x, y).a == 0 {
+        holes += 1
+      }
+    }
+  }
+  assert_eq(holes, 0)
+}
+
+///|
+test "圆角擦角：贴窗口边读不到父层时保持方角，不打洞" {
+  let root = column(Widget::new())
+  let _ = sized(root, 20.0, 20.0)
+  let card = sized(Widget::new(), 20.0, 20.0)
+  root.append_child(card)
+  root.relayout(20.0, 20.0)
+  root.on_draw = Some(fn(_w : Widget, p : @render.Painter, r : Rect) -> Unit {
+    p.set_fill_color("#ff0000")
+    p.fill_rect(0.0, 0.0, r.w, r.h)
+  })
+  card.on_draw = Some(fn(w : Widget, p : @render.Painter, r : Rect) -> Unit {
+    w.clip_rounded = true
+    w.style_clip_radius = 6.0
+    p.set_fill_color("#0000ff")
+    p.fill_rect(0.0, 0.0, r.w, r.h)
+  })
+  let bm = @render.Bitmap::new(20, 20)
+  let p = @render.Painter::new(bm)
+  root.paint(p)
+  p.end()
+  let mut holes = 0
+  for y = 0; y < 20; y = y + 1 {
+    for x = 0; x < 20; x = x + 1 {
+      if bm.pixel(x, y).a == 0 {
+        holes += 1
+      }
+    }
+  }
+  assert_eq(holes, 0)
+}
+
+///|
 test "点击接管焦点：命中链上最近的可聚焦控件（自身无则向上找）" {
   let root = sized(Widget::new(), 100.0, 40.0)
   let outer = sized(Widget::new(), 60.0, 40.0)

@@ -25,14 +25,13 @@ fn ink_count(bm : @render.Bitmap, x1 : Int, y1 : Int) -> Int {
 /// 一块区域里「与横幅浅底不同」的像素数（浅底按左上角取；标记与强调条都算，
 /// 所以调用方给的范围要避开左缘 3px 强调条）
 fn mark_in(bm : @render.Bitmap, x0 : Int, y0 : Int, x1 : Int, y1 : Int) -> Int {
-  // 基准色取带内左上角：横幅现在默认圆角，(6,6) 这类位可能落在擦掉的角弧外，
-  // 拿它当底会把「圆角外的透明」误判成「有墨」
+  // 基准色从带内左缘中段取：横幅默认圆角，角上的像素是补回的父层底色，不是浅底
   let base = bm.pixel(x0 + 1, y0 + (y1 - y0) / 2)
   let mut n = 0
   for y = y0; y < y1; y = y + 1 {
     for x = x0; x < x1; x = x + 1 {
       let c = bm.pixel(x, y)
-      // 预乘位图里擦掉的角=全透明（RGB 归零），不当成墨
+      // 没画过的位（a==0）不当墨
       let d = if c.a == 0 {
         0
       } else {

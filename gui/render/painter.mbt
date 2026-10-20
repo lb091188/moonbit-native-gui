@@ -861,6 +861,22 @@ pub fn Painter::draw_image(
 }
 
 ///|
+/// 读回一个像素：坐标与 `fill_rect` 同一套（当前变换下的本地空间），先 flush
+/// 把 Cairo 的待输出落进缓冲。落在缓冲外返回 None（不当全透明处理，调用方要
+/// 据此放弃这次读回）。
+pub fn Painter::pixel_at(self : Painter, x : Double, y : Double) -> Color? {
+  self.flush()
+  let px = (self.state.tx + x).floor().to_int()
+  let py = (self.state.ty + y).floor().to_int()
+  let bm = self.bitmap
+  if bm.inside(px, py) {
+    Some(bm.pixel(px, py))
+  } else {
+    None
+  }
+}
+
+///|
 /// 图片源矩形 → 目标矩形；空图忽略。
 pub fn Painter::draw_image_from_rect(
   self : Painter,
