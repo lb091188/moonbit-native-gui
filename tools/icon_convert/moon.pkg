@@ -1,0 +1,12 @@
+// iconfont 转化 CLI（终端形态）：受众是 AI / prebuild / CI，非交互、无界面。
+// 文件 I/O 走官方 moonbitlang/x（fs/sys），本包不含自写 C、不进 prebuild link 面。
+import {
+  "moonbitlang/core/env" @env,
+  "moonbitlang/x/fs" @fs,
+  "moonbitlang/x/sys" @sys,
+  "NoahLiu/native-gui-tools/iconkit" @iconkit,
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"

@@ -1,0 +1,3 @@
+// i18n 运行时机制（消费面）：读 locales TOML 文本，查译/插值/复数。
+// 与 tools/i18nkit 共享格式不共享代码——本包自带极简读器，不引 fs/FFI，文件读取归应用层。
+supported_targets = "native"
