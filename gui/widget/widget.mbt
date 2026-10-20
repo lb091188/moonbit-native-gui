@@ -143,8 +143,8 @@ pub(all) struct Widget {
   /// 给复合控件的附属小件用（步进器的 +/- 格）：点它只是操作，不抢输入格的焦点。
   mut keep_focus_on_click : Bool
   /// 子树圆角裁切：绘制完自己与子件后，把本控件矩形四角、`style_clip_radius`
-  /// 半径圆角外的像素擦掉（Clear 混合的擦环 pass）。子件会通铺方底时用这道，
-  /// 免得方角内容啃掉容器圆角。
+  /// 半径圆角外的像素补回父层原值（绘制收尾的补角 pass，逐角读回外侧紧邻像素作
+  /// 底色）。子件会通铺方底时用这道，免得方角内容啃掉容器圆角。
   mut clip_rounded : Bool
   /// 配合 `clip_rounded` 的半径（绘制期现取，随圆角令牌与样式槽）。
   mut style_clip_radius : Double
@@ -1100,42 +1100,61 @@ pub fn Widget::paint_at(self : Widget, p : @render.Painter, ox : Double, oy : Do
   for k in widget_paint_order(self.kids) {
     k.paint_at(p, self.rect.x, self.rect.y)
   }
-  // 圆角裁切收尾：声明了 clip_rounded 的容器，把四角圆角弧外的像素擦掉
-  // （子件通铺方底不再啃圆角）。每角三块 Clear 矩形（外竖条+外横条+角盒弧外），
-  // 角盒弧外走「整盒减圆」的解析形状：用小半径近似为角盒减内切方，
-  // 余下四个 1px 级弧隙由抗锯齿覆盖补齐——三块相加恰好覆盖弧外全域。
+  // 圆角裁切收尾：声明了 clip_rounded 的容器，把四角圆角弧外的像素补回**父层
+  // 原值**（子件通铺方底不再啃圆角）。角盒里圆外部分 = 盒 - 四分之一圆，逐行
+  // 扫描：每角 r 行，行 y 的弦半宽 dx=sqrt(r²-yc²)，圆外即盒内左右两段；整数行
+  // 近似对 4..8px 半径误差 ≤1 格，余下 1px 级弧隙由抗锯齿覆盖补齐。
+  // `yc` 是**该行行心到圆心的竖直距离**，圆心在盒里靠内容那一侧的角上：顶两角的
+  // 圆心在盒底（yc = r-y-0.5），底两角的圆心在盒顶（yc = y+0.5）。两侧不分开算，
+  // 弧外带会被镜像到角盒内侧，底角就多出一道本不该动的缺口。
+  // 补色而不是擦成透明：mac/Windows 走纯光栅后端，整窗是一张不透明位图，弧外
+  // 擦成 a=0 就露出黑/白底（真机表现为圆角上的小勾勾）；X11 有合成器时擦洞会
+  // 透出桌面，同样不是要的。父层画完就被本控件盖住，弧外原本是什么，取本控件
+  // 外侧紧邻那一像素即是。读不到（贴窗口边、外侧本身没画）时这一角保持方角——
+  // 宁可方角也不要黑角。
   if self.clip_rounded && self.style_clip_radius > 0.0 {
     let r = self.style_clip_radius.min(self.rect.w / 2.0).min(self.rect.h / 2.0)
     let w = self.rect.w
     let h = self.rect.h
     p.set_global_alpha(1.0)
-    p.set_blend_mode(Clear)
-    // 上/下边（不含角盒）与左/右边（不含角盒）之外没有像素可擦，四角盒逐块：
-    // 角盒里圆外部分 = 盒 - 四分之一圆。逐行扫描：每角 r 行，行 y 的弦半宽
-    // dx=sqrt(r²-(r-1-y)²)，圆外即盒内左右两段。整数行近似对 4..8px 半径误差 ≤1 格。
-    for (cx0, cy0, left) in [
-      (0.0, 0.0, true),
-      (w - r, 0.0, false),
-      (0.0, h - r, true),
-      (w - r, h - r, false)
+    for (cx0, cy0, left, top) in [
+      (0.0, 0.0, true, true),
+      (w - r, 0.0, false, true),
+      (0.0, h - r, true, false),
+      (w - r, h - r, false, false)
     ] {
-      let mut yy = 0
-      while yy < r.floor().to_int() + 1 {
-        // 该行到圆心的竖直距离（盒顶行取 r-0.5 起），弦半宽外的段即弧外像素
-        let yc = (r - yy.to_double() - 0.5).max(0.0)
-        let half = (r * r - yc * yc).max(0.0).sqrt()
-        let outside = (r - half).max(0.0)
-        if outside > 0.0 {
-          if left {
-            p.fill_rect(cx0, cy0 + yy.to_double(), outside, 1.0)
-          } else {
-            p.fill_rect(cx0 + r - outside, cy0 + yy.to_double(), outside, 1.0)
+      // 左角读本控件左缘外一像素、右角读右缘外一像素，纵向取角盒中段
+      let sx = if left { -1.0 } else { w }
+      match p.pixel_at(sx, cy0 + r / 2.0) {
+        Some(back) if back.a > 0 => {
+          // Copy：整像素放回父层原值，不与本控件刚画的方底做 source-over
+          p.set_blend_mode(Copy)
+          p.set_fill_color(back.to_hex())
+          let mut yy = 0
+          while yy < r.floor().to_int() + 1 {
+            // 该行行心到圆心的竖直距离：顶角从盒底往上数，底角从盒顶往下数
+            let yc =
+              if top {
+                (r - yy.to_double() - 0.5).max(0.0)
+              } else {
+                yy.to_double() + 0.5
+              }
+            let half = (r * r - yc * yc).max(0.0).sqrt()
+            let outside = (r - half).max(0.0)
+            if outside > 0.0 {
+              if left {
+                p.fill_rect(cx0, cy0 + yy.to_double(), outside, 1.0)
+              } else {
+                p.fill_rect(cx0 + r - outside, cy0 + yy.to_double(), outside, 1.0)
+              }
+            }
+            yy += 1
           }
+          p.set_blend_mode(Normal)
         }
-        yy += 1
+        _ => ()
       }
     }
-    p.set_blend_mode(Normal)
   }
   p.set_global_alpha(inherited)
   p.restore()

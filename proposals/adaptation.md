@@ -2895,6 +2895,19 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **修复**：整条删除，不留半套 API——`gui/render/blur.mbt`、`gui/render/blur_wbtest.mbt` 删文件；`gui/render/painter.mbt` 去 `Painter::backdrop_blur`；`gui/ui/overlay.mbt` 去 `glass`；`docs/components.md` / `docs/zh/components.md` 去 glass 行；showcase 侧 `main.mbt` 去开关按钮与侧栏透明底色、`shared/app.mbt` 去 `translucent` 字段、`cost_bench/main.mbt` 去对应初始化。要做真毛玻璃只能重来：先补后端的高斯/分组能力，再谈 API。
 - **验证**：`cd gui && moon check` 零错误零警告；`moon test render ui base widget` 中 render 全绿，ui 的 3 条失败（步进器两条、密码遮罩光标一条）在 `1d1ff8f0` 干净 worktree 上同样失败，与本批无关；`examples/showcase` `moon check` 全绿。真机口径：侧栏底部只剩深浅/圆角/语言三颗按钮，不再有无效果的玻璃开关。
 
+## 圆角四角的黑/白勾勾：擦角 pass 两条根因（2026-10-20，mac 与 Ubuntu 都复现，真机截图）
+
+- **环境**：macOS（纯光栅后端）与 Ubuntu 24.04 + X11（Cairo 后端）同一条控件绘制收尾——`Widget::paint_at` 的 `clip_rounded` 圆角 pass。
+- **现象**：圆角容器（卡片、悬停组、输入框这类带底带框的）四角外侧各露出一道小勾勾，mac 上是黑的、Linux 上是白的；同一道缺口在底角比顶角更明显。
+- **根因一（打洞）**：收尾 pass 用 `set_blend_mode(Clear)` 把弧外像素擦成 `a=0`。整窗是**一张位图**贴给宿主的——mac 走 `CGImageCreate(kCGImageAlphaPremultipliedFirst)` 贴进 `drawRect:` 的上下文、Windows 走 WIC/32bpp 位图，两处都没有「窗口自己逐像素透明」这回事，透明像素就露出上下文底色（黑或白）；X11 那边有合成器，擦洞透出的是桌面。三条路径都不对，因为**要的不是洞，是父层原本那张脸**。
+- **根因二（底角公式镜像）**：逐行扫描的 `yc`（该行行心到圆心的竖直距离）四角共用顶角公式 `r-y-0.5`。顶两角圆心在角盒底，这个式子对；底两角圆心在角盒顶，应为 `y+0.5`。用错的结果是把弧外带镜像到角盒内侧——底角首行被啃进 3~4px（半径 6 时），正是截图里底角那道更粗的缺口。
+- **修复**：
+  1. `gui/render/painter.mbt` 新增 `Painter::pixel_at(x, y) -> Color?`：与 `fill_rect` 同一套本地坐标，先 `flush` 再读缓冲，越界返回 None（不当全透明）。
+  2. `gui/widget/widget.mbt` 收尾 pass 改为**补回父层原值**：每角读本控件外侧紧邻那一像素（左角 `x=-1`、右角 `x=w`，纵向取角盒中段）作底色，`set_blend_mode(Copy)` 整像素放回（不与刚画的方底做 source-over）；读不到（贴窗口边、外侧本身没画）时这一角保持方角——宁可方角也不要黑角。
+  3. 同处 `yc` 按 `top` 分支：顶角 `r-y-0.5`、底角 `y+0.5`。
+- **验证（助手侧无头判据）**：`gui/widget/widget_wbtest.mbt` 新增两条——① 卡片落在 (10,10)-(30,30)、半径 6：正中蓝、顶角弧外=父层红、底角弧外 (29,29)=红、底角弧内 (29,24)/(24,29) 仍是蓝（这条专挡根因二，旧公式下被啃成红）、整幅 40×40 无一个 `a=0`（这条专挡根因一，旧 pass 下角上全是洞）；② 卡片贴满 20×20 画布、四角外侧都读不到：保持方角且无 `a=0`。`moon check`（gui）零错误零警告；`moon test ui render text theme icons sys input win dbus chart mdview style base shell widget router` 1101 条，只剩上面那 3 条既有红。
+- **待真机（使用者判据）**：`moon run examples/showcase` → 基础组件页「悬停组与光标组」段（截图那处），顶角与底角四角都应与父层底色连续，无黑/白勾勾；切深色主题再看一遍。注意本栈仍**没有真圆角裁切**（后端缺 path clip），这道 pass 只是把弧外补回父层色，压在渐变/图片上的圆角仍会看到一圈采样底色。
+
 ### Windows 媒体示例的 ffmpeg 运行期 dll 分发(工具批,2026-10-20)
 
 - **环境**:Windows 10/11 x64,`moon run examples/audio`(video 同构)。
