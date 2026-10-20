@@ -2703,8 +2703,12 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
   `Lazy`=点开才建）。`系统集成` 标 `Eager`，托盘出现时机与改造前一致；
   `系统能力探测` 标 `Lazy`，启动期不再空跑探测。
 - 验证：`cd examples/showcase && moon run .`——看 `SHOWCASE-READY ... startup_ms=`
-  与切页时打出的 `SHOWCASE-ROUTE page=… pending=… path=…`；托盘应在启动即出，
+  与切页时打出的 `SHOWCASE-ROUTE page=… built=… pending=… path=…`；托盘应在启动即出，
   系统能力探测页的读数应在点开之后才出现。
+- 真机读数（Linux + X11）：`startup_ms=88`（无头量的全量构造是 261ms，启动只付首屏
+  34ms 那一份）、`SHOWCASE-PROF frames=860 layout=214ms paint=1043ms present=420ms
+  total=1677ms max_frame=80ms`——`max_frame` 对上判据里数据展示页的首帧 77ms，说明
+  剩下的账在 paint 不在构造；15 页逐页切完均无感。切页路径全对、退出正常。
 
 ## 样式侧表残账：丢弃钩子只挂在 remove_child 上，预建的构造也要包进回收袋（2026-10-20，`gui/router` + `gui/style`）
 
