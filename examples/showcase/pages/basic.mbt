@@ -24,24 +24,58 @@ fn appearance_art() -> @render.Bitmap {
 }
 
 ///|
-/// 模糊演示：同一张底图按开关取清晰/柔焦两态。
-fn appearance_demo(app : @shared.App) -> @widget.Node {
-  let art = appearance_art()
-  let sharp = @render.Image::from_bitmap(art)
-  let soft = @render.Image::from_bitmap(art.soft_blur())
-  @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
-    w.node.set_width(@yoga.fixed(360.0))
-    w.node.set_height(@yoga.fixed(140.0))
+/// 圆角样例：卡片 6、按钮与输入框 4 —— 拨开关时这一排整体变直角。
+fn appearance_radius_samples(q : @base.Store[String]) -> @widget.Node {
+  @ui.row(
+    [
+      @ui.card(
+        [@ui.text("卡片圆角 6", role=@ui.Secondary)],
+        padding=12.0,
+        class=[@style.style(border_radius=6.0)],
+      ),
+      @ui.button("按钮 4", variant=@ui.Solid),
+      @ui.input(q, placeholder="输入框 4", width=160.0),
+    ],
+    column_gap=12.0,
+  )
+}
+
+///|
+/// 背景模糊演示：底图 + 一张压在它上方的玻璃面板；开关切换面板下方像素是否先糊。
+fn appearance_stage(app : @shared.App) -> @widget.Node {
+  let art = @render.Image::from_bitmap(appearance_art())
+  let bg = @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.node.set_width(@yoga.fixed(420.0))
+    w.node.set_height(@yoga.fixed(180.0))
     w.on_draw = Some(fn(
       _self : @widget.Widget,
       p : @render.Painter,
       r : @base.Rect,
     ) -> Unit {
       p.flush()
-      p.draw_image(if app.soft.get() { soft } else { sharp }, 0.0, 0.0, r.w, r.h)
+      p.draw_image(art, 0.0, 0.0, r.w, r.h)
     })
     w
   })
+  let glass = @ui.glass(
+    [
+      @ui.text("背景模糊", role=@ui.Section),
+      @ui.text("面板下方的像素先糊再回放", role=@ui.Secondary),
+      @ui.button("操作", variant=@ui.Border),
+    ],
+    padding=12.0,
+    blur_on=fn() { app.soft.get() },
+    class=[
+      @style.style(
+        position=@yoga.Absolute,
+        left=24.0,
+        top=24.0,
+        width=300.0,
+        height=120.0,
+      ),
+    ],
+  )
+  @ui.view([bg, glass], width=420.0, height=180.0)
 }
 
 ///|
@@ -49,11 +83,12 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
   // 两个悬停/光标组各配一个文本框状态
   let box_a : @base.Store[String] = @base.Store::new("组内输入框")
   let box_b : @base.Store[String] = @base.Store::new("组内输入框")
+  let radius_demo : @base.Store[String] = @base.Store::new("")
   @shared.page([
     @shared.section(
       "外观",
       "圆角与柔焦",
-      "两个总开关：圆角关掉后全站经样式槽的圆角按 0 绘制；柔焦走固定一档的降采样模糊（Bitmap::soft_blur，无参数），用于背景图、封面这类面积可控的内容。",
+      "两个总开关：圆角关掉后全站经样式槽的圆角按 0 绘制；背景模糊把玻璃面板下方**已经画好的像素**读出来糊掉再回放（Painter::backdrop_blur，固定一档）。",
       [
         @ui.row(
           [
@@ -62,19 +97,20 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
               @style.set_square_corners(v)
               @widget.host_repaint_all()
             }),
-            @ui.text("柔焦模糊", role=@ui.Body),
+            @ui.text("背景模糊", role=@ui.Body),
             @ui.switch(app.soft, on_change=fn(_v) {
               @widget.host_repaint_all()
             }),
           ],
           column_gap=12.0,
         ),
-        appearance_demo(app),
+        appearance_radius_samples(radius_demo),
+        appearance_stage(app),
       ],
       code=[
         "@style.set_square_corners(true)",
         "@widget.host_repaint_all()",
-        "@render.Image::from_bitmap(art.soft_blur())",
+        "@ui.glass(children, blur_on=fn() { on })",
       ],
     ),
     @shared.section(
