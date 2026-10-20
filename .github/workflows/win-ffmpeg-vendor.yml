@@ -52,7 +52,8 @@ jobs:
           $zipName = "ffmpeg-windows-x64-$v-lgpl-shared.zip"
           Compress-Archive -Path $root -DestinationPath "$dist\$zipName" -CompressionLevel Optimal
           $hash = (Get-FileHash "$dist\$zipName" -Algorithm SHA256).Hash.ToLower()
-          "$hash  $zipName" | Out-File -Encoding ascii "$dist\$zipName.sha256"
+          # 行尾写 LF：CRLF 会让 macOS/Linux 的 `shasum -c` 把 \r 算进文件名而报找不到文件
+          [System.IO.File]::WriteAllText("$dist\$zipName.sha256", "$hash  $zipName`n", [System.Text.Encoding]::ASCII)
           Get-ChildItem $dist | Select-Object Name, Length | Format-Table
           Write-Host "sha256: $hash"
           Add-Content $env:GITHUB_STEP_SUMMARY "sha256: ``$hash``"
