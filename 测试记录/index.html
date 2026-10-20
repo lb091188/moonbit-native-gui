@@ -54,6 +54,16 @@
   .tools button.danger{color:var(--fail)}
   .tools button.danger:hover{background:var(--fail-soft);border-color:#f2c3c3}
 
+  .store-warn{background:#fdf6e2;border-bottom:1px solid #efe0b6;color:#7a5c12;font-size:12.5px;line-height:1.7}
+  .store-warn .wrap{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;padding-top:9px;padding-bottom:9px}
+  .store-warn b{color:#6b4d08}
+  .store-warn code{font-family:var(--mono);font-size:11.5px;background:#f6ead0;padding:1px 5px;border-radius:4px}
+  .store-warn button{
+    margin-left:auto;border:1px solid #e3cf9d;background:#fffdf7;border-radius:6px;
+    padding:2px 10px;font-size:12px;color:#7a5c12;flex:none
+  }
+  .store-warn button:hover{background:#fbf3df}
+
   /* ---------- tabs ---------- */
   .tabs{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
   .tabs .wrap{display:flex;align-items:center;gap:2px;height:44px}
@@ -272,6 +282,17 @@
   </div>
 </nav>
 
+<div class="store-warn" id="store-warn" hidden>
+  <div class="wrap">
+    <span>
+      <b>本地存储不可用</b>：页面跑在沙箱里（预览面板、内嵌 iframe），浏览器不允许读写 localStorage。
+      现在的记录只在内存，<b>刷新或关掉就没了</b>。两个办法：① 直接双击打开仓库里的 <code>测试记录/index.html</code>
+      （localhost 或 file:// 下可正常保存）；② 先点「导出」存成 JSON，下次用「导入」接上。
+    </span>
+    <button id="store-warn-close">知道了</button>
+  </div>
+</div>
+
 <main>
   <div class="wrap">
     <!-- ================= 执行 ================= -->
@@ -327,6 +348,7 @@
     </ul>
     <h3>数据存在哪</h3>
     <p>本机浏览器的 localStorage（键名 <code>ngtt.v1</code>），不上传任何服务器，关掉页面不丢。它绑定「这台机器的这个浏览器」，换浏览器或清站点数据会丢——所以提供了「导出」：得到的 JSON 可以放进 <code>测试记录/</code> 一起提交，需要时用「导入」合并回来（按时间取新、日志去重）。</p>
+    <p>页面被嵌在沙箱 iframe 里打开时（例如某些预览面板），浏览器会拒绝 localStorage，此时页面顶部会出现黄条提示，记录只留在内存。要正常保存，请用浏览器直接打开本文件。</p>
     <h3>用例库来源</h3>
     <p>取自仓库根目录 <code>_人工测试清单.md</code> 的 T1a–T8h，按应用归位。清单更新后，改本文件顶部的 <code>CASES</code> 数组即可。</p>
     <h3>已知边界</h3>
@@ -453,7 +475,40 @@
 
   /* ======================= 存取 ======================= */
 
+  /* 存储适配：沙箱 iframe（如预览面板）里 localStorage 会直接抛 SecurityError，
+     此时退到内存存储，并在页面上明说「刷新即丢」，不静默失败也不刷弹窗。 */
   var DB_KEY = 'ngtt.v1';
+  var memStore = {};
+  var storageOK = (function () {
+    try {
+      var probe = '__ngtt_probe__';
+      window.localStorage.setItem(probe, '1');
+      window.localStorage.removeItem(probe);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  })();
+
+  function readRaw() {
+    if (storageOK) {
+      try { return window.localStorage.getItem(DB_KEY); } catch (e) { storageOK = false; }
+    }
+    return Object.prototype.hasOwnProperty.call(memStore, DB_KEY) ? memStore[DB_KEY] : null;
+  }
+
+  function writeRaw(text) {
+    if (storageOK) {
+      try {
+        window.localStorage.setItem(DB_KEY, text);
+        return true;
+      } catch (e) {
+        storageOK = false;
+      }
+    }
+    memStore[DB_KEY] = text;
+    return false;
+  }
 
   function emptyDB() {
     return {
@@ -465,7 +520,7 @@
 
   var db;
   try {
-    var raw = localStorage.getItem(DB_KEY);
+    var raw = readRaw();
     db = raw ? Object.assign(emptyDB(), JSON.parse(raw)) : emptyDB();
   } catch (e) {
     db = emptyDB();
@@ -484,15 +539,19 @@
 
   var saveTimer = null;
   function save() {
-    try {
-      localStorage.setItem(DB_KEY, JSON.stringify(db));
-      var h = document.getElementById('save-hint');
-      h.textContent = '已保存 ' + hhmmss();
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(function () { h.textContent = ''; }, 2200);
-    } catch (e) {
-      toast('本地存储写入失败：' + e.message);
-    }
+    var persisted = writeRaw(JSON.stringify(db));
+    var h = document.getElementById('save-hint');
+    h.textContent = (persisted ? '已保存 ' : '已暂存内存 ') + hhmmss();
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () { h.textContent = ''; }, 2200);
+    if (!persisted) showStoreWarn();
+  }
+
+  var warnDismissed = false;
+  function showStoreWarn() {
+    if (warnDismissed) return;
+    var bar = document.getElementById('store-warn');
+    if (bar) bar.hidden = false;
   }
 
   /* ======================= 小工具 ======================= */
@@ -1181,6 +1240,16 @@
       if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'z' && ev.target.tagName !== 'INPUT' && ev.target.tagName !== 'TEXTAREA') {
         ev.preventDefault(); undo();
       }
+    });
+
+    document.getElementById('store-warn-close').onclick = function () {
+      warnDismissed = true;
+      document.getElementById('store-warn').hidden = true;
+    };
+    if (!storageOK) showStoreWarn();
+
+    window.addEventListener('beforeunload', function (ev) {
+      if (!storageOK && db.log.length) { ev.preventDefault(); ev.returnValue = ''; }
     });
 
     renderAll();
