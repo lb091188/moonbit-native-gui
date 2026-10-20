@@ -788,6 +788,8 @@ pub const EN_CATALOG : String =
   "\"dyn.child_closed\" = \"One child window closed, {n} left\"\n" +
   "\"dyn.dbl_total\" = \"Double-click hits: {n} total\"\n" +
   "\"dyn.combo_hit_ms\" = \"A-key double-click hit ({ms} ms)\"\n" +
+  "\"dyn.tray_backend_failed\" = \"Tray backend failed: {m}\"\n" +
+  "\"组件库演示板\" = \"Component Showcase\"\n" +
   // —— 段条短名（key = `seg.` + 段名；`page()` 的 label_of 出口取译）——
   "[seg]\n" +
   "\"主题\" = \"Theme\"\n" +

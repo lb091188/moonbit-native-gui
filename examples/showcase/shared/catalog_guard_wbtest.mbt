@@ -165,6 +165,8 @@ test "英文目录装载后抽查：正文/段标题/段描述/侧栏/菜单/插
   assert_eq(@i18n.t_with_or("gen.subtree", [("n", "3")], "?"), "Subtree generation 3")
   // 段条通道（`seg.` + 段名）与状态回显通道（`dyn.` + 语义名）
   assert_eq(@i18n.t_or("seg.主题", "?"), "Theme")
+  // 窗口标题走常量（`@shared.tx(SHOWCASE_TITLE)`），目录侧只能按这条键抽查
+  assert_eq(@i18n.t_or("组件库演示板", "?"), "Component Showcase")
   assert_eq(@i18n.t_with_or("dyn.accent_now", [("c", "#123456")], "?"), "Accent now: #123456")
   // 值里带 `\n` 的条目：读手要把转义还原成两行
   assert_true(@i18n.t_or("form.textarea_demo", "?").has_prefix("Text area demo.\n"))

@@ -58,6 +58,8 @@ struct TrayState {
   mut on_context : (() -> Unit)?
   /// 右键菜单的原生句柄（Win32 弹出菜单根；0 = 无）
   mut menu_handle : Int
+  /// 语言广播登记号（0 = 没登记过随语言重算的文案，见 tray_locale.mbt）
+  mut locale_key : Int
 }
 
 ///|
@@ -139,7 +141,7 @@ pub fn Tray::new(
 
 ///|
 fn new_tray_state() -> TrayState {
-  { on_click: None, on_context: None, menu_handle: 0 }
+  { on_click: None, on_context: None, menu_handle: 0, locale_key: 0 }
 }
 
 ///|
@@ -259,7 +261,9 @@ pub fn Tray::set_icon_name(self : Tray, name : String) -> Unit {
 ///|
 /// 设置悬浮提示。SNI 有 title/body 两段；Win32 只有一段 `szTip`，用 body（非空
 /// 时）否则 title。
-pub fn Tray::set_tooltip(self : Tray, title : String, body : String) -> Unit {
+///|
+/// 写进原生侧的提示语（不做语言口清理，供两条入口共用）。
+fn Tray::apply_tooltip(self : Tray, title : String, body : String) -> Unit {
   match self.backend {
     Native(slot) => {
       let text = if body == "" { title } else { body }
@@ -267,6 +271,14 @@ pub fn Tray::set_tooltip(self : Tray, title : String, body : String) -> Unit {
     }
     Sni(item) => item.set_tooltip(title, body)
   }
+}
+
+///|
+/// 设提示语（静态一次）。走过 `set_tooltip_localized` 的托盘再调这里，
+/// 以这次为准：对应的重算口随即停掉。
+pub fn Tray::set_tooltip(self : Tray, title : String, body : String) -> Unit {
+  self.clear_locale_tip()
+  self.apply_tooltip(title, body)
 }
 
 ///|
@@ -291,10 +303,10 @@ pub fn Tray::on_context(self : Tray, callback : () -> Unit) -> Unit {
 }
 
 ///|
-/// 挂右键菜单（复用 W20a 的菜单模型）。Win32：翻译成弹出菜单 HMENU 挂上，
-/// 选中项经菜单派发链回到 `MenuItem::on_click`。SNI：清空后逐项转成 DBusMenu
-/// 条目——**本实现是平铺一级菜单，子菜单被展平**（子项前置一条分隔线）。
-pub fn Tray::set_menu(self : Tray, menu : Menu) -> Unit {
+/// 把菜单挂进原生侧（不做语言口清理，供两条入口共用）。Win32：翻译成弹出菜单
+/// HMENU 挂上，选中项经菜单派发链回到 `MenuItem::on_click`。SNI：清空后逐项转成
+/// DBusMenu 条目——**本实现是平铺一级菜单，子菜单被展平**（子项前置一条分隔线）。
+fn Tray::apply_menu(self : Tray, menu : Menu) -> Unit {
   match self.backend {
     Native(slot) => {
       let h = @win.menu_popup_new()
@@ -311,6 +323,14 @@ pub fn Tray::set_menu(self : Tray, menu : Menu) -> Unit {
       tray_sni_add_items(item, menu.items)
     }
   }
+}
+
+///|
+/// 挂右键菜单（复用 W20a 的菜单模型）。走过 `set_menu_localized` 的托盘再调这里，
+/// 以这次为准：对应的重算口随即停掉。
+pub fn Tray::set_menu(self : Tray, menu : Menu) -> Unit {
+  self.clear_locale_menu()
+  self.apply_menu(menu)
 }
 
 ///|
@@ -351,6 +371,7 @@ pub fn Tray::popup_menu(self : Tray) -> Bool {
 ///|
 /// 移除托盘图标（幂等）。SNI 走注销 + 从注册表摘除；Win32 走 NIM_DELETE。
 pub fn Tray::remove(self : Tray) -> Unit {
+  self.drop_locale_surface()
   match self.backend {
     Native(slot) => {
       @win.tray_remove(slot)
