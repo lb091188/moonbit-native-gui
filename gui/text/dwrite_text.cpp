@@ -33,6 +33,10 @@
 
 namespace {
 
+// RTL 文本 run 基方向:0=LTR(默认,逐字同现状) 1=RTL。opt-in;并入布局缓存键、
+// 置位时刷缓存,ptw_layout/会话布局据此 SetReadingDirection。
+int g_pt_rtl = 0;
+
 IDWriteFactory *ptw_factory() {
   static IDWriteFactory *factory = nullptr;
   static int tried = 0;
@@ -197,9 +201,9 @@ static std::string ptw_cache_key(const char *path, const char *text, int len,
                                  int italic, int width_int, int wrap,
                                  int ellipsize, int align) {
   char head[160];
-  snprintf(head, sizeof(head), "%s|%g|%s|%d|%d|%d|%d|%d|%d|", path, size,
+  snprintf(head, sizeof(head), "%s|%g|%s|%d|%d|%d|%d|%d|%d|%d|", path, size,
            family != nullptr ? family : "", weight, italic, width_int, wrap,
-           ellipsize, align);
+           ellipsize, align, g_pt_rtl);
   std::string key(head);
   if (text != nullptr && len > 0) {
     key.append(text, static_cast<size_t>(len));
@@ -238,6 +242,9 @@ static IDWriteTextLayout *ptw_cached_layout(const char *path, const char *text,
                              : align == 2 ? DWRITE_TEXT_ALIGNMENT_TRAILING
                                           : DWRITE_TEXT_ALIGNMENT_LEADING);
   }
+  layout->SetReadingDirection(
+      g_pt_rtl ? DWRITE_READING_DIRECTION_RIGHT_TO_LEFT
+               : DWRITE_READING_DIRECTION_LEFT_TO_RIGHT);
   if (g_layout_cache_count >= 1024) {
     for (auto &kv : g_layout_cache) {
       kv.second->Release();
@@ -251,6 +258,19 @@ static IDWriteTextLayout *ptw_cached_layout(const char *path, const char *text,
 }
 
 } // namespace
+
+// 设 RTL 文本 run 基方向；变更时释放布局缓存（键已并入 rtl，刷一遍避免复用错乱）。
+extern "C" void pt_set_base_dir(int rtl) {
+  const int r = rtl ? 1 : 0;
+  if (g_pt_rtl != r) {
+    g_pt_rtl = r;
+    for (auto &kv : g_layout_cache) {
+      kv.second->Release();
+    }
+    g_layout_cache.clear();
+    g_layout_cache_count = 0;
+  }
+}
 
 extern "C" int pt_measure_font(const char *text, int len, double size,
                                const char *family, int weight, int italic,
@@ -1193,6 +1213,9 @@ IDWriteTextLayout *ptw_session_layout(PtwSession *s, int box_w,
                              : s->align == 2 ? DWRITE_TEXT_ALIGNMENT_TRAILING
                                              : DWRITE_TEXT_ALIGNMENT_LEADING);
   }
+  layout->SetReadingDirection(
+      g_pt_rtl ? DWRITE_READING_DIRECTION_RIGHT_TO_LEFT
+               : DWRITE_READING_DIRECTION_LEFT_TO_RIGHT);
   for (int i = 0; i < s->nf; i++) {
     // 存的是字节下标，落进布局前换成 UTF-16 码元下标（DWrite 口径）
     DWRITE_TEXT_RANGE range =

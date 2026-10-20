@@ -96,6 +96,29 @@ extern "c" fn pt_draw_box(
 ) -> Int = "pt_draw_box"
 
 ///|
+extern "c" fn pt_set_base_dir(rtl : Int) -> Unit = "pt_set_base_dir"
+
+///|
+/// 文本 run 基方向。`Rtl` 让段落内文字按右起排版(阿语/希伯来语、混排括号镜像)。
+/// 与 `gui/style` 的布局镜像(`Direction`)配套:一个管文字内部方向,一个管 UI 主轴。
+pub(all) enum TextDirection {
+  Ltr
+  Rtl
+}
+
+///|
+/// 设全局文本 run 基方向(opt-in,默认 Ltr 即现状)。置位后清 MoonBit 度量缓存,
+/// C 侧各自刷布局缓存,保证 RTL/LTR 串不串味。
+pub fn set_base_dir(dir : TextDirection) -> Unit {
+  let rtl = match dir {
+    Rtl => 1
+    Ltr => 0
+  }
+  pt_set_base_dir(rtl)
+  clear_measure_caches()
+}
+
+///|
 pub(all) struct TextMetrics {
   width : Int
   height : Int

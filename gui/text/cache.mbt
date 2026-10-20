@@ -136,6 +136,14 @@ let g_font_metrics_cache : StrCache[FontMetrics?] = StrCache::new()
 let g_line_cache : StrCache[Int?] = StrCache::new()
 
 ///|
+/// 清度量缓存:文本 run 基方向(LTR↔RTL)改变时调用——同一串的换行/宽度会变,
+/// 旧度量键失效。字体度量与行高目录无关,不必清。
+pub fn clear_measure_caches() -> Unit {
+  g_measure_font_cache.clear()
+  g_measure_cache.clear()
+}
+
+///|
 /// 字体键：族名 + 字号 + 字重 + 字形（度量只由这四者决定）。
 fn font_key(f : Font) -> String {
   f.name + "\u{1F}" + f.size.to_string() + "\u{1F}" + weight_value(f.weight).to_string() + "\u{1F}" + style_id(f.style).to_string()
