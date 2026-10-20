@@ -401,7 +401,12 @@ fn table_header(
                 @theme.theme_border()
               })
               p.set_line_width(1.0)
-              p.stroke_rect(bx, by, 14.0, 14.0)
+              let crad = @theme.radius_ctrl()
+              if crad > 0.0 {
+                p.stroke_round_rect(bx + 0.5, by + 0.5, 13.0, 13.0, crad)
+              } else {
+                p.stroke_rect(bx, by, 14.0, 14.0)
+              }
               if all {
                 p.set_stroke_color(@theme.theme_primary())
                 p.set_line_width(2.4)

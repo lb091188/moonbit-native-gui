@@ -91,10 +91,15 @@ fn nav_item(
       // 「选中 × 悬停」两轴的取色分支是数据态（不是状态桶，§1.5），留在调用方的
       // 调色回调里；样式槽给了同名属性就以样式为准（class 覆盖内置皮肤）
       let st = @style.style_for(self)
+      let rad = @theme.radius_ctrl()
       let c = @style.color_of(st.background_color, bg(self))
       if c.length() > 0 {
         p.set_fill_color(c)
-        p.fill_rect(0.0, 0.0, r.w, r.h)
+        if rad > 0.0 {
+          p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
+        } else {
+          p.fill_rect(0.0, 0.0, r.w, r.h)
+        }
       }
       let _ = @text.draw_box_at(
         p,
@@ -111,7 +116,11 @@ fn nav_item(
       if self.focused {
         p.set_stroke_color(@theme.theme_primary())
         p.set_line_width(1.0)
-        p.stroke_rect(0.5, 0.5, r.w - 1.0, r.h - 1.0)
+        if rad > 0.0 {
+          p.stroke_round_rect(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
+        } else {
+          p.stroke_rect(0.5, 0.5, r.w - 1.0, r.h - 1.0)
+        }
       }
     })
     w.cursor = @widget.CURSOR_HAND
@@ -195,7 +204,8 @@ pub fn segmented(
     padding=2.0,
     align_items=@yoga.AlignItems::Center,
     background_color="border",
-    class=class,
+    // 轨道默认胶囊形（调用方 class 在后覆写；关圆角时令牌给 0 回直角）
+    class=[@style.style(border_radius=@theme.radius_card())] + class,
     handle=handle,
   )
 }
@@ -296,7 +306,12 @@ pub fn pagination(
         let bg = @style.color_of(st.background_color, "")
         if bg.length() > 0 {
           p.set_fill_color(bg)
-          p.fill_rect(0.0, 0.0, r.w, r.h)
+          let rad = @theme.radius_ctrl()
+          if rad > 0.0 {
+            p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
+          } else {
+            p.fill_rect(0.0, 0.0, r.w, r.h)
+          }
         }
         draw_chevron(
           p,
@@ -552,7 +567,12 @@ fn collapse_panel(
     ) -> Unit {
       let st = @style.style_for(self)
       p.set_fill_color(@style.color_of(st.background_color, @theme.theme_info_light()))
-      p.fill_rect(0.0, 0.0, r.w, r.h)
+      let rad = @theme.radius_ctrl()
+      if rad > 0.0 {
+        p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
+      } else {
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      }
       fold_arrow(p, 14.0, r.h / 2.0, 4.0, open.val, @theme.theme_primary())
       let _ = @text.draw_at(
         p,
@@ -928,7 +948,7 @@ fn build_tree_rows(
       let bg = @style.color_of(st.background_color, "")
       if has_kids && bg.length() > 0 {
         p.set_fill_color(bg)
-        p.fill_rect(0.0, 0.0, r.w, r.h)
+        p.fill_round_rect(0.0, 0.0, r.w, r.h, @theme.radius_ctrl())
       }
       if has_kids {
         // 实心小三角：展开朝下、收起朝右
@@ -1222,8 +1242,9 @@ pub fn transfer(
           let bg = @style.color_of(st.background_color, "")
           if bg.length() > 0 {
             p.set_fill_color(bg)
-            p.fill_rect(0.0, 0.0, r.w, r.h)
+            p.fill_round_rect(0.0, 0.0, r.w, r.h, @theme.radius_ctrl())
           }
+          // 选择标记=正圆（自带几何形态，不随圆角开关变方）
           p.set_fill_color(
             if on {
               @theme.theme_primary()
@@ -1231,7 +1252,7 @@ pub fn transfer(
               @theme.theme_border()
             },
           )
-          p.fill_rect(6.0, (r.h - 8.0) / 2.0, 8.0, 8.0)
+          p.fill_round_rect(6.0, (r.h - 8.0) / 2.0, 8.0, 8.0, 4.0)
           let _ = @text.draw_box_at(
             p,
             20.0,
@@ -1323,7 +1344,7 @@ pub fn transfer(
       ) -> Unit {
         let st = @style.style_for(self)
         p.set_fill_color(@style.color_of(st.background_color, @theme.theme_info_light()))
-        p.fill_rect(0.0, 0.0, r.w, r.h)
+        p.fill_round_rect(0.0, 0.0, r.w, r.h, @theme.radius_ctrl())
         draw_chevron(p, r.w / 2.0, r.h / 2.0, 4.0, to_right, @style.color_of(st.color, @theme.theme_text_regular()))
       })
       b.cursor = @widget.CURSOR_HAND

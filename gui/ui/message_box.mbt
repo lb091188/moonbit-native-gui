@@ -382,10 +382,16 @@ pub fn message_box(
                 if primary { @theme.theme_primary() } else { @theme.theme_bg_panel() },
               ),
             )
-            fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, @theme.radius_ctrl()))
+            let rad = @style.number_of(st.border_radius, @theme.radius_ctrl())
+            fill_round_rect(p, 0.0, 0.0, r.w, r.h, rad)
             p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
             p.set_line_width(@style.number_of(st.border_width, 1.0))
-            p.stroke_rect(0.0, 0.0, r.w, r.h)
+            if rad > 0.0 {
+              p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
+              p.stroke()
+            } else {
+              p.stroke_rect(0.0, 0.0, r.w, r.h)
+            }
             let _ = @text.draw_box_at(
               p,
               0.0,
@@ -412,7 +418,12 @@ pub fn message_box(
                 },
               )
               p.set_line_width(1.0)
-              p.stroke_rect(1.0, 1.0, r.w - 2.0, r.h - 2.0)
+              if rad > 0.0 {
+                p.round_rect_path(1.5, 1.5, r.w - 3.0, r.h - 3.0, (rad - 1.0).max(0.0))
+                p.stroke()
+              } else {
+                p.stroke_rect(1.0, 1.0, r.w - 2.0, r.h - 2.0)
+              }
             }
           })
           b.on_pointer = Some(fn(
@@ -452,7 +463,7 @@ pub fn message_box(
               background_color="bg_panel",
               border_color="border",
               border_width=1.0,
-              border_radius=@theme.radius_card(),
+              border_radius=@theme.radius_overlay(),
             ),
             paint_subset(class),
           ]),
@@ -463,11 +474,17 @@ pub fn message_box(
           r : @base.Rect,
         ) -> Unit {
           let st = @style.style_for(self)
+          let rad = @style.number_of(st.border_radius, @theme.radius_overlay())
           p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
-          fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, @theme.radius_card()))
+          p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
           p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
           p.set_line_width(@style.number_of(st.border_width, 1.0))
-          p.stroke_rect(0.0, 0.0, r.w, r.h)
+          if rad > 0.0 {
+            p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
+            p.stroke()
+          } else {
+            p.stroke_rect(0.0, 0.0, r.w, r.h)
+          }
         })
         // Esc 收起、Enter 触发默认钮：键盘事件按焦点投递，面板自己就是焦点控件
         // （层级上它比遮罩深，键先到它这里）

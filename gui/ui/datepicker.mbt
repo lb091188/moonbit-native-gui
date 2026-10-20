@@ -44,11 +44,17 @@ fn setup_picker_field(
     r : @base.Rect,
   ) -> Unit {
     let st = @style.style_for(self)
+    let rad = @style.number_of(st.border_radius, @theme.radius_ctrl())
     p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
-    p.fill_rect(0.0, 0.0, r.w, r.h)
+    p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
     p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
     p.set_line_width(@style.number_of(st.border_width, 1.0))
-    p.stroke_rect(0.0, 0.0, r.w, r.h)
+    if rad > 0.0 {
+      p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
+      p.stroke()
+    } else {
+      p.stroke_rect(0.0, 0.0, r.w, r.h)
+    }
     let txt = text_of()
     let _ = @text.draw_box_at(
       p,
@@ -87,7 +93,12 @@ fn setup_picker_field(
     // 聚焦指示与输入框同口径：描边转主题色（覆盖在常态描边之上）
     if self.focused {
       p.set_stroke_color(@theme.theme_primary())
-      p.stroke_rect(0.0, 0.0, r.w, r.h)
+      if rad > 0.0 {
+        p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
+        p.stroke()
+      } else {
+        p.stroke_rect(0.0, 0.0, r.w, r.h)
+      }
     }
   })
   w.on_pointer = Some(fn(
@@ -188,11 +199,17 @@ fn time_popup(
       r : @base.Rect,
     ) -> Unit {
       let st = @style.style_for(self)
+      let rad = @style.number_of(st.border_radius, @theme.radius_overlay())
       p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
-      p.fill_rect(0.0, 0.0, r.w, r.h)
+      p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
       p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
       p.set_line_width(@style.number_of(st.border_width, 1.0))
-      p.stroke_rect(0.0, 0.0, r.w, r.h)
+      if rad > 0.0 {
+        p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
+        p.stroke()
+      } else {
+        p.stroke_rect(0.0, 0.0, r.w, r.h)
+      }
     })
     // 顶部时间显示是**占位的子控件**，不是画在面板上的浮层：画在 (0,0,28) 而子件
     // 从内边距起排，第一行步进就被它压住（真机反馈「时间选择器位置不对」）。
@@ -249,10 +266,16 @@ fn time_popup(
             ) -> Unit {
               let st = @style.style_for(self)
               p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
-              fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, @theme.radius_ctrl()))
+              let rad = @style.number_of(st.border_radius, @theme.radius_ctrl())
+              fill_round_rect(p, 0.0, 0.0, r.w, r.h, rad)
               p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
               p.set_line_width(@style.number_of(st.border_width, 1.0))
-              p.stroke_rect(0.0, 0.0, r.w, r.h)
+              if rad > 0.0 {
+                p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
+                p.stroke()
+              } else {
+                p.stroke_rect(0.0, 0.0, r.w, r.h)
+              }
               p.set_stroke_color(@style.color_of(st.color, @theme.theme_text_regular()))
               p.set_line_width(1.4)
               p.begin_path()
@@ -302,10 +325,16 @@ fn time_popup(
             ) -> Unit {
               let st = @style.style_for(self)
               p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
-              fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, @theme.radius_ctrl()))
+              let rad = @style.number_of(st.border_radius, @theme.radius_ctrl())
+              fill_round_rect(p, 0.0, 0.0, r.w, r.h, rad)
               p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
               p.set_line_width(@style.number_of(st.border_width, 1.0))
-              p.stroke_rect(0.0, 0.0, r.w, r.h)
+              if rad > 0.0 {
+                p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
+                p.stroke()
+              } else {
+                p.stroke_rect(0.0, 0.0, r.w, r.h)
+              }
               p.set_stroke_color(@style.color_of(st.color, @theme.theme_text_regular()))
               p.set_line_width(1.4)
               p.begin_path()
@@ -374,10 +403,16 @@ fn time_popup(
           ) -> Unit {
             let st = @style.style_for(self)
             p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
-            fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, @theme.radius_ctrl()))
+            let rad = @style.number_of(st.border_radius, @theme.radius_ctrl())
+            fill_round_rect(p, 0.0, 0.0, r.w, r.h, rad)
             p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
             p.set_line_width(@style.number_of(st.border_width, 1.0))
-            p.stroke_rect(0.0, 0.0, r.w, r.h)
+            if rad > 0.0 {
+              p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
+              p.stroke()
+            } else {
+              p.stroke_rect(0.0, 0.0, r.w, r.h)
+            }
             let f = @text.Font::new("", 12.0)
             let _ = @text.draw_box_at(
               p,

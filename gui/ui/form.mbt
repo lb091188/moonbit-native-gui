@@ -1358,13 +1358,15 @@ fn select_row(opt : String, selected : () -> Bool, on_pick : () -> Unit) -> @wid
     ) -> Unit {
       let st = @style.style_for(self)
       let act = selected()
+      // 行高亮内缩 2px 走圆角（贴边会被浮层自身的圆角裁出直角缺口）
+      let rad = @theme.radius_ctrl()
       if act {
         p.set_fill_color(@theme.theme_primary_light())
-        p.fill_rect(0.0, 0.0, r.w, r.h)
+        p.fill_round_rect(2.0, 0.0, (r.w - 4.0).max(1.0), r.h, rad)
       } else if st.background_color is Some(_) {
         // 悬停底色来自 hover 桶（样式没给就不画底）
         p.set_fill_color(@style.color_of(st.background_color, ""))
-        p.fill_rect(0.0, 0.0, r.w, r.h)
+        p.fill_round_rect(2.0, 0.0, (r.w - 4.0).max(1.0), r.h, rad)
       }
       let _ = @text.draw_box_at(
         p,

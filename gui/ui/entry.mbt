@@ -199,7 +199,12 @@ pub fn input(
       // 焦点框色改由 focus 桶供（样式没给就回落到主题描边色）
       p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
       p.set_line_width(@style.number_of(st.border_width, 1.0))
-      p.stroke_rect(0.0, 0.0, r.w, r.h)
+      if rad > 0.0 {
+        p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
+        p.stroke()
+      } else {
+        p.stroke_rect(0.0, 0.0, r.w, r.h)
+      }
       let txt = show_text()
       let pe = ed.preedit_text()
       // 占位符只在「没文本且没组合串」时画：少了组合串这一条，空框里打拼音

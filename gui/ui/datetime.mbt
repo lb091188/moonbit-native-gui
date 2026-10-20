@@ -323,11 +323,17 @@ fn build_calendar(
     r : @base.Rect,
   ) -> Unit {
     let st = @style.style_for(self)
+    let rad = @style.number_of(st.border_radius, @theme.radius_overlay())
     p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
-    p.fill_rect(0.0, 0.0, r.w, r.h)
+    p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
     p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
     p.set_line_width(@style.number_of(st.border_width, 1.0))
-    p.stroke_rect(0.0, 0.0, r.w, r.h)
+    if rad > 0.0 {
+      p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
+      p.stroke()
+    } else {
+      p.stroke_rect(0.0, 0.0, r.w, r.h)
+    }
   })
   let view_y = Ref(today.y)
   let view_m = Ref(today.m)
@@ -360,7 +366,7 @@ fn build_calendar(
       let bg = @style.color_of(st.background_color, "")
       if bg.length() > 0 {
         p.set_fill_color(bg)
-        p.fill_rect(0.0, 0.0, r.w, r.h)
+        p.fill_round_rect(0.0, 0.0, r.w, r.h, @theme.radius_ctrl())
       }
       draw_chevron(
         p,
@@ -486,13 +492,14 @@ fn build_calendar(
           let hbg = @style.color_of(sty.background_color, "")
           if hbg.length() > 0 {
             p.set_fill_color(hbg)
-            p.fill_rect(0.0, 0.0, r.w, r.h)
+            p.fill_round_rect(0.0, 0.0, r.w, r.h, @theme.radius_ctrl())
           }
         }
         let txt = d.d.to_string()
         if solid {
+          // 选中日=正圆（自带几何形态，不随圆角开关变方）
           p.set_fill_color(@theme.theme_primary())
-          p.fill_rect((r.w - 28.0) / 2.0, (r.h - 28.0) / 2.0, 28.0, 28.0)
+          p.fill_round_rect((r.w - 28.0) / 2.0, (r.h - 28.0) / 2.0, 28.0, 28.0, 14.0)
           let _ = @text.draw_box_at(
             p,
             0.0,
