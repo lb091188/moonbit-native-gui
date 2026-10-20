@@ -3,7 +3,7 @@
 //
 // 五条口径：
 // ① `input` 由 Store 驱动；`clearable` 在有内容且悬停/聚焦时右缘出 ✕，点它清空并回写 Store；
-// ② 数值用 `stepper`（Int 步进器——自绘栈无原生输入框语义）；
+// ② 数值用 `stepper`（Int 步进器——中间格就是输入框，打字回车/失焦才回写）；
 // ③ `radio_group` 的值是索引 `Store[Int]`；
 // ④ `checkbox` 的 Store 即状态源；
 // ⑤ 宽高/间距全走命名参数（没有 CSS 样式通道）。
