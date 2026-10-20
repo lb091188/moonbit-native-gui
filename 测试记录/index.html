@@ -1,0 +1,1210 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>native-gui 测试台</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#ffffff; --line:#e3e6eb; --line-2:#eef0f4;
+    --text:#1b2230; --muted:#6b7280; --faint:#98a2b3;
+    --accent:#4f46e5; --accent-soft:#ececfd;
+    --pass:#15803d; --pass-soft:#e7f6ed; --pass-bar:#34c26b;
+    --fail:#c9202c; --fail-soft:#fdeaea; --fail-bar:#e5484d;
+    --skip:#a15c07; --skip-soft:#fbf1e0; --skip-bar:#e0a13c;
+    --radius:10px;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--text);
+    font:14px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Segoe UI",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font:inherit;color:inherit;cursor:pointer}
+  input,textarea{font:inherit;color:inherit}
+  button:focus-visible,input:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{
+    outline:2px solid var(--accent); outline-offset:1px;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+
+  /* ---------- top ---------- */
+  .top{border-bottom:1px solid var(--line);background:#fff}
+  .top .wrap{display:flex;align-items:center;gap:20px;min-height:64px;flex-wrap:wrap;padding-top:10px;padding-bottom:10px}
+  .brand{display:flex;align-items:center;gap:11px;margin-right:auto}
+  .logo{
+    width:30px;height:30px;border-radius:8px;background:linear-gradient(145deg,#5b54f0,#3730c4);
+    color:#fff;display:grid;place-items:center;font-size:15px;font-weight:700;flex:none
+  }
+  .brand h1{font-size:15px;margin:0;font-weight:650;letter-spacing:.2px}
+  .brand .sub{font-size:12px;color:var(--muted);margin-top:1px}
+  .field{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted)}
+  .field input{
+    border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 8px;width:104px;
+    font-family:var(--mono);font-size:12px
+  }
+  .field input::placeholder{color:#b6bdc8;font-family:inherit}
+  .tools{display:flex;gap:6px}
+  .tools button{
+    border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 11px;font-size:12.5px;
+    transition:.12s
+  }
+  .tools button:hover{background:#f7f8fa;border-color:#d3d8e0}
+  .tools button.danger{color:var(--fail)}
+  .tools button.danger:hover{background:var(--fail-soft);border-color:#f2c3c3}
+
+  /* ---------- tabs ---------- */
+  .tabs{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+  .tabs .wrap{display:flex;align-items:center;gap:2px;height:44px}
+  .tabs button{
+    border:0;background:none;padding:0 14px;height:44px;font-size:13.5px;color:var(--muted);
+    border-bottom:2px solid transparent;margin-bottom:-1px
+  }
+  .tabs button:hover{color:var(--text)}
+  .tabs button.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+  .tabs .spacer{flex:1}
+  .save-hint{font-size:11.5px;color:var(--faint);transition:opacity .3s}
+
+  main{padding:22px 0 60px}
+  .view{display:none}
+  .view.on{display:block}
+
+  /* ---------- platform tabs ---------- */
+  .plat{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+  .plat button{
+    border:1px solid var(--line);background:#fff;border-radius:9px;padding:9px 16px;text-align:left;
+    min-width:148px;transition:.12s
+  }
+  .plat button:hover{border-color:#cdd3dd}
+  .plat button.on{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 0 0 1px var(--accent) inset}
+  .plat .pn{font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:6px}
+  .plat .ps{font-size:11px;color:var(--muted);margin-top:1px;font-family:var(--mono)}
+  .plat button.on .ps{color:#5b54c8}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--faint);flex:none}
+  .dot.ok{background:var(--pass-bar)} .dot.bad{background:var(--fail-bar)} .dot.mid{background:var(--skip-bar)}
+
+  /* ---------- app pills ---------- */
+  .apps{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:3px}
+  .app{
+    border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 13px;min-width:132px;text-align:left;
+    transition:.12s;flex:none
+  }
+  .app:hover{border-color:#cdd3dd}
+  .app.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset;background:#fdfdff}
+  .app .an{font-size:13px;font-weight:600;display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+  .app .an em{font-style:normal;font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:500}
+  .app .bar{height:3px;border-radius:2px;background:#eceef2;margin-top:7px;display:flex;overflow:hidden}
+  .app .bar i{display:block;height:100%}
+  .app .desc{font-size:11px;color:var(--muted);margin-top:5px}
+
+  /* ---------- listbar ---------- */
+  .listbar{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+  .chips{display:flex;gap:5px;flex-wrap:wrap}
+  .chips button{
+    border:1px solid transparent;background:#eceef2;border-radius:20px;padding:4px 11px;font-size:12px;color:#4b5563
+  }
+  .chips button:hover{background:#e4e7ec}
+  .chips button.on{background:var(--text);color:#fff}
+  .chips em{font-style:normal;opacity:.62;margin-left:4px;font-family:var(--mono);font-size:11px}
+  .listbar .grow{flex:1}
+  .search{
+    border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 9px;font-size:12.5px;width:170px
+  }
+  .minibtn{
+    border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 10px;font-size:12px;color:#4b5563
+  }
+  .minibtn:hover{background:#f7f8fa}
+
+  /* ---------- case rows ---------- */
+  .group{margin-bottom:18px}
+  .ghead{display:flex;align-items:center;gap:10px;margin:0 0 7px;padding-left:2px}
+  .ghead h3{font-size:12.5px;font-weight:650;margin:0;color:#39414f;letter-spacing:.2px}
+  .ghead .gc{font-size:11px;color:var(--faint);font-family:var(--mono)}
+  .ghead .line{flex:1;height:1px;background:var(--line-2)}
+  .rows{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:#fff}
+
+  .row{display:flex;gap:12px;padding:8px 12px;border-bottom:1px solid var(--line-2);align-items:flex-start}
+  .row:last-child{border-bottom:0}
+  .row:hover{background:#fafbfc}
+  .row[data-status="pass"]{background:#fcfefd;box-shadow:inset 2px 0 0 #b9e4c8}
+  .row[data-status="fail"]{background:#fffafa;box-shadow:inset 3px 0 0 var(--fail-bar)}
+  .row[data-status="skip"]{background:#fffdf9;box-shadow:inset 2px 0 0 #efd3a6}
+  .rid{
+    font-family:var(--mono);font-size:11.5px;font-weight:600;color:#4b5563;background:#f1f3f6;
+    border-radius:5px;padding:2px 6px;margin-top:1px;flex:none;min-width:38px;text-align:center
+  }
+  .row[data-status="pass"] .rid{background:var(--pass-soft);color:var(--pass)}
+  .row[data-status="fail"] .rid{background:var(--fail-soft);color:var(--fail)}
+  .row[data-status="skip"] .rid{background:var(--skip-soft);color:var(--skip)}
+  .cbody{flex:1;min-width:0}
+  .ct{font-size:13px;line-height:1.5}
+  .row[data-status="pass"] .ct{color:#4b5563}
+  .row[data-status="skip"] .ct{color:#6b7280}
+  .cd{font-size:11.5px;color:var(--faint);margin-top:3px;line-height:1.5}
+  .cnote{width:100%;border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12px;margin-top:6px;background:#fff}
+  .cnote::placeholder{color:#b6bdc8}
+  .addnote{
+    border:0;background:none;padding:0;margin-top:5px;font-size:11.5px;color:#9aa3b0;
+    border-bottom:1px dashed transparent
+  }
+  .addnote:hover{color:var(--accent);border-bottom-color:#c7c4f5}
+  .asts{display:flex;gap:4px;flex:none;margin-top:-1px}
+  .asts button{
+    border:1px solid var(--line);background:#fff;border-radius:6px;padding:4px 9px;font-size:12px;color:#5b6371;
+    transition:.1s;white-space:nowrap
+  }
+  .asts button:hover{background:#f6f7f9;border-color:#cfd5de}
+  .asts button[data-s="pass"].on{background:var(--pass-soft);border-color:#a9dcbc;color:var(--pass);font-weight:600}
+  .asts button[data-s="fail"].on{background:var(--fail-soft);border-color:#f0bcbc;color:var(--fail);font-weight:600}
+  .asts button[data-s="skip"].on{background:var(--skip-soft);border-color:#e8cf9f;color:var(--skip);font-weight:600}
+  .empty{color:var(--muted);font-size:13px;padding:26px;text-align:center;background:#fff;border:1px dashed var(--line);border-radius:var(--radius)}
+
+  /* ---------- session note ---------- */
+  .snote{margin-top:18px;background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px}
+  .snote label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}
+  .snote textarea{
+    width:100%;min-height:52px;resize:vertical;border:1px solid var(--line-2);border-radius:7px;
+    padding:8px 10px;font-size:12.5px;background:#fcfdfe;line-height:1.6
+  }
+
+  /* ---------- matrix ---------- */
+  .mwrap{background:#fff;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  table.mx{width:100%;border-collapse:collapse}
+  table.mx th,table.mx td{border-bottom:1px solid var(--line-2);padding:0;text-align:left}
+  table.mx thead th{padding:10px 14px;font-size:11.5px;font-weight:600;color:var(--muted);background:#fafbfc;letter-spacing:.3px}
+  table.mx tbody tr:last-child td{border-bottom:0}
+  table.mx tbody th{padding:10px 14px;font-size:13px;font-weight:600;width:170px}
+  table.mx tbody th span{display:block;font-family:var(--mono);font-size:11px;color:var(--faint);font-weight:400;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
+  .cell{display:block;width:100%;border:0;background:none;padding:9px 14px;text-align:left;transition:.1s}
+  .cell:hover{background:#f7f8fb}
+  .cell .cn{font-family:var(--mono);font-size:13px;font-weight:600}
+  .cell .cn i{font-style:normal;color:var(--faint);font-weight:400;font-size:11.5px}
+  .cell .cbar{height:4px;border-radius:2px;background:#eceef2;margin:6px 0 5px;display:flex;overflow:hidden}
+  .cell .cbar i{display:block;height:100%}
+  .cell .cm{font-size:11px;color:var(--muted)}
+  .cell .cm b{font-weight:600;color:var(--fail)}
+  .cell.done .cn{color:var(--pass)}
+  .totalcol{background:#fafbfc}
+  .mlegend{display:flex;gap:16px;font-size:11.5px;color:var(--muted);margin-top:10px;padding-left:2px;flex-wrap:wrap}
+  .mlegend span{display:flex;align-items:center;gap:5px}
+  .mlegend i{width:8px;height:8px;border-radius:2px;display:block}
+
+  /* ---------- history ---------- */
+  .ses{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:12px 15px;margin-bottom:10px}
+  .ses .sh{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .ses .sh .date{font-family:var(--mono);font-size:12.5px;font-weight:600}
+  .badge{font-size:11px;border-radius:5px;padding:1px 7px;background:#f1f3f6;color:#4b5563}
+  .badge.plat{background:var(--accent-soft);color:#4338ca}
+  .badge.cm{font-family:var(--mono)}
+  .ses .snums{display:flex;gap:12px;font-size:12px;margin-top:8px;color:var(--muted)}
+  .ses .snums b{font-family:var(--mono);font-weight:600}
+  .ses .snums .p b{color:var(--pass)} .ses .snums .f b{color:var(--fail)} .ses .snums .s b{color:var(--skip)}
+  .ses .snote-txt{font-size:12.5px;color:#39414f;margin-top:8px;padding:8px 10px;background:#fafbfc;border-radius:7px;white-space:pre-wrap}
+  .fails{margin:9px 0 0;padding:0;list-style:none;border-top:1px dashed var(--line);padding-top:9px}
+  .fails li{font-size:12.5px;display:flex;gap:8px;padding:3px 0;align-items:flex-start}
+  .fails li .fid{font-family:var(--mono);font-size:11px;color:var(--fail);background:var(--fail-soft);border-radius:4px;padding:1px 5px;flex:none}
+  .fails li .fn{color:#39414f}
+  .fails li .fn em{font-style:normal;color:var(--muted)}
+
+  /* ---------- dialog ---------- */
+  dialog{
+    border:1px solid var(--line);border-radius:12px;padding:0;max-width:640px;width:calc(100% - 40px);
+    box-shadow:0 24px 60px rgba(16,24,40,.18);color:var(--text)
+  }
+  dialog::backdrop{background:rgba(16,24,40,.34)}
+  dialog .dh{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center}
+  dialog .dh h2{font-size:14px;margin:0;font-weight:650}
+  dialog .dh button{margin-left:auto;border:0;background:none;font-size:18px;color:var(--muted);line-height:1;padding:2px 6px}
+  dialog .db{padding:16px 20px 20px;font-size:13px;line-height:1.75;max-height:66vh;overflow:auto}
+  dialog .db h3{font-size:12.5px;margin:16px 0 6px;color:#39414f}
+  dialog .db h3:first-child{margin-top:0}
+  dialog .db p{margin:0 0 8px;color:#4b5563}
+  dialog .db code{font-family:var(--mono);font-size:11.5px;background:#f1f3f6;border-radius:4px;padding:1px 5px}
+  dialog .db ul{margin:0 0 8px;padding-left:18px;color:#4b5563}
+  dialog .db kbd{font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:#fafbfc}
+
+  .toast{
+    position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(10px);opacity:0;
+    background:#1f2733;color:#fff;font-size:12.5px;padding:8px 15px;border-radius:8px;pointer-events:none;
+    transition:.22s;z-index:99
+  }
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  @media (max-width:720px){
+    .top .wrap{gap:10px}
+    .row{flex-wrap:wrap}
+    .asts{margin-left:50px}
+    .field input{width:88px}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <div class="logo">◈</div>
+      <div>
+        <h1>native-gui 测试台</h1>
+        <div class="sub">5 个应用 × 3 个平台 · 逐条记录，避免遗漏</div>
+      </div>
+    </div>
+    <label class="field">commit<input id="in-commit" placeholder="3f9a2c1" spellcheck="false" autocomplete="off"></label>
+    <label class="field">测试人<input id="in-tester" placeholder="可选" autocomplete="off"></label>
+    <div class="tools">
+      <button id="btn-export">导出</button>
+      <button id="btn-import">导入</button>
+      <button id="btn-help">说明</button>
+      <button id="btn-reset" class="danger">重置</button>
+    </div>
+    <input type="file" id="file-import" accept=".json,application/json" hidden>
+  </div>
+</header>
+
+<nav class="tabs">
+  <div class="wrap">
+    <button data-tab="run" class="on">执行</button>
+    <button data-tab="matrix">总览</button>
+    <button data-tab="history">历史</button>
+    <div class="spacer"></div>
+    <div class="save-hint" id="save-hint"></div>
+  </div>
+</nav>
+
+<main>
+  <div class="wrap">
+    <!-- ================= 执行 ================= -->
+    <section class="view on" id="v-run">
+      <div class="plat" id="plat"></div>
+      <div class="apps" id="apps"></div>
+      <div class="listbar">
+        <div class="chips" id="chips"></div>
+        <div class="grow"></div>
+        <input class="search" id="in-search" placeholder="搜索编号或判据" autocomplete="off">
+        <button class="minibtn" id="btn-copy">复制未测项</button>
+      </div>
+      <div id="cases"></div>
+      <div class="snote">
+        <label id="snote-label">这次测试的整体备注（可选）</label>
+        <textarea id="in-snote" placeholder="例如：主要挂在输入法组合串与托盘右键两条；进程退出码 0。"></textarea>
+      </div>
+    </section>
+
+    <!-- ================= 总览 ================= -->
+    <section class="view" id="v-matrix">
+      <div class="mwrap" id="matrix"></div>
+      <div class="mlegend">
+        <span><i style="background:var(--pass-bar)"></i>通过</span>
+        <span><i style="background:var(--fail-bar)"></i>失败</span>
+        <span><i style="background:var(--skip-bar)"></i>跳过</span>
+        <span><i style="background:#eceef2"></i>未测</span>
+        <span style="margin-left:auto;color:var(--faint)">点格子直接跳到该平台 + 该应用的执行清单</span>
+      </div>
+    </section>
+
+    <!-- ================= 历史 ================= -->
+    <section class="view" id="v-history">
+      <div id="history"></div>
+    </section>
+  </div>
+</main>
+
+<dialog id="dlg-help">
+  <div class="dh"><h2>怎么用</h2><button id="btn-help-close">×</button></div>
+  <div class="db">
+    <h3>记录一条结果</h3>
+    <p>选平台 → 选应用 → 在每行右侧点「通过 / 失败 / 跳过」。状态即点即存，不需要额外保存动作；失败项请补一句备注（现象、读数、报错行）。</p>
+    <h3>为什么带 commit</h3>
+    <p>每条结果都会记下顶栏的 commit 与当前时间。只有带上 commit，才能回答「这条是哪版挂的」。切换版本前记得改一下顶栏的 commit 字段。</p>
+    <h3>历史从哪来</h3>
+    <p>不需要手动开一轮测试。「历史」页按「平台 + 应用 + 日期 + commit」自动聚合，把同一天同一版本内的操作汇成一次测试，失败项单列。</p>
+    <h3>快捷键</h3>
+    <ul>
+      <li><kbd>1</kbd> 通过 · <kbd>2</kbd> 失败 · <kbd>3</kbd> 跳过 · <kbd>0</kbd> 清除</li>
+      <li><kbd>↓</kbd> <kbd>↑</kbd> 在用例间移动；<kbd>Enter</kbd> 聚焦备注</li>
+      <li><kbd>⌘Z</kbd> / <kbd>Ctrl+Z</kbd> 撤销上一步</li>
+    </ul>
+    <h3>数据存在哪</h3>
+    <p>本机浏览器的 localStorage（键名 <code>ngtt.v1</code>），不上传任何服务器，关掉页面不丢。它绑定「这台机器的这个浏览器」，换浏览器或清站点数据会丢——所以提供了「导出」：得到的 JSON 可以放进 <code>测试记录/</code> 一起提交，需要时用「导入」合并回来（按时间取新、日志去重）。</p>
+    <h3>用例库来源</h3>
+    <p>取自仓库根目录 <code>_人工测试清单.md</code> 的 T1a–T8h，按应用归位。清单更新后，改本文件顶部的 <code>CASES</code> 数组即可。</p>
+    <h3>已知边界</h3>
+    <ul>
+      <li>不存截图。失败项用文字备注，需要图就把文件名写进备注。</li>
+      <li>只在一台机器上记录：其余平台用远程桌面 / 虚拟机操作时，用同一份页面切平台标签记录即可。</li>
+      <li>浏览器禁用本地存储时（个别隐私模式），页面会提示写入失败，此时只能用导出备份。</li>
+    </ul>
+  </div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ======================= 数据定义 ======================= */
+
+  var PLATFORMS = [
+    { id: 'linux',   name: 'Linux',   sub: 'Ubuntu 24.04 · X11 · XFCE' },
+    { id: 'macos',   name: 'macOS',   sub: 'Apple Silicon' },
+    { id: 'windows', name: 'Windows', sub: 'Win32' }
+  ];
+
+  var APPS = [
+    { id: 'hello',    name: 'Hello',    desc: '最小窗口',      cmd: 'moon run examples/hello' },
+    { id: 'showcase', name: 'Showcase', desc: '完整演示板',    cmd: 'moon run examples/showcase' },
+    { id: 'browser',  name: 'Browser',  desc: 'WebView 示例',  cmd: 'moon run examples/browser' },
+    { id: 'audio',    name: 'Audio',    desc: '音频播放',      cmd: 'moon run examples/audio' },
+    { id: 'video',    name: 'Video',    desc: '视频帧源',      cmd: 'moon run examples/video' }
+  ];
+
+  var GROUPS = [
+    { id: 'T1', name: 'T1 最小窗口' },
+    { id: 'T2', name: 'T2 输入与输入法' },
+    { id: 'T3', name: 'T3 文字与图片' },
+    { id: 'T4', name: 'T4 窗口能力与原生件' },
+    { id: 'T5', name: 'T5 WebView' },
+    { id: 'T6', name: 'T6 该报错但不该崩的边界' },
+    { id: 'T7', name: 'T7 系统能力读数' },
+    { id: 'T8', name: 'T8 媒体线' }
+  ];
+
+  var CASES = [
+    /* ---- T1 ---- */
+    { id: 'T1a', g: 'T1', apps: ['hello'], t: '启动：出现带标题栏的窗口，进程不退出（不秒退、不闪退回登录）' },
+    { id: 'T1b', g: 'T1', apps: ['hello'], t: '自绘内容按窗口尺寸铺满，高分屏下文字与线条不糊', d: 'Retina / HiDPI 下不呈半透明毛边；糊了就是像素尺度换算错' },
+    { id: 'T1c', g: 'T1', apps: ['hello'], t: '点关闭按钮：窗口关闭，进程正常退出（退出码 0）' },
+    { id: 'T1d', g: 'T1', apps: ['hello'], t: '拖动标题栏、缩放窗口：拖得动，尺寸变化后内容跟着重排', d: '尺寸变化要报 resized；不跟就是回调没接上' },
+    { id: 'T1e', g: 'T1', apps: ['hello'], t: '切到别的应用再切回：不自动退出，焦点回来后按键仍能进输入框' },
+
+    /* ---- T2 ---- */
+    { id: 'T2a', g: 'T2', apps: ['showcase'], t: '键盘：字母 / 数字 / 中文标点能入框；回车、Tab、退格、删除、方向键、Home / End / PgUp / PgDn 行为与其它平台一致', d: '顺手敲一遍小键盘，十进制与除号最易漏' },
+    { id: 'T2b', g: 'T2', apps: ['showcase'], t: '修饰键：单独按 Shift / Ctrl / Option / Command 的按下与释放成对，不重复报按下' },
+    { id: 'T2c', g: 'T2', apps: ['showcase'], t: '中文输入法：组合串内联显示在光标处，回车上屏；候选窗贴着光标；切框或失焦时组合串清空', d: '候选窗位置不对就是字符矩形换算错' },
+    { id: 'T2d', g: 'T2', apps: ['showcase'], t: '鼠标：按下 / 抬起成对（左 1、中 2、右 3）；右键抬起弹上下文菜单；滚轮方向与系统设置一致' },
+    { id: 'T2e', g: 'T2', apps: ['showcase'], t: '悬停：鼠标在按钮上移动时 hover 态跟随', d: '不动就是没收到 mouseMoved / tracking 没挂上' },
+    { id: 'T2f', g: 'T2', apps: ['showcase'], t: '输入法焦点门：点窗口空白后按字母键不被输入法吞；再点回输入框打拼音照常内联上屏' },
+
+    /* ---- T3 ---- */
+    { id: 'T3a', g: 'T3', apps: ['showcase'], t: '各页文字不缺字、不裁字、基线对齐；折行与省略号按容器宽出（看表格长单元格）' },
+    { id: 'T3b', g: 'T3', apps: ['showcase'], t: '富文本区间换色 / 换字号落在正确的字上', d: '区间下标按 UTF-8 字节，中文段最易错' },
+    { id: 'T3c', g: 'T3', apps: ['showcase'], t: '图标墙、页内 PNG / JPEG 都要出图；GIF 只显示首帧静图（已知降级，不算坏图）' },
+    { id: 'T3d', g: 'T3', apps: ['showcase'], t: '系统切深色模式后，主题跟随系统的页要转深色；主色取系统强调色' },
+
+    /* ---- T4 ---- */
+    { id: 'T4a', g: 'T4', apps: ['showcase'], t: '菜单栏出现在系统规定位置；点菜单项回调真的跑到；右侧加速键文案正确', d: 'macOS 菜单条属 App 不属于窗口，多窗时后挂的赢' },
+    { id: 'T4b', g: 'T4', apps: ['showcase'], t: '文件对话框：打开 / 保存、选文件夹、多选、过滤器、初始目录、默认文件名各走一遍；取消返回 false' },
+    { id: 'T4c', g: 'T4', apps: ['showcase'], t: '消息框：各按钮组合（OK / OKCancel / YesNo / YesNoCancel / RetryCancel / AbortRetryIgnore）返回值与平台语义一致' },
+    { id: 'T4d', g: 'T4', apps: ['showcase'], t: '托盘：tray_supported 为 true 且出图标；左键计数走、挂菜单后能弹出且选中项回调跑到、移除后图标消失' },
+    { id: 'T4e', g: 'T4', apps: ['showcase'], t: '通知：notify_send 出现在通知中心（后端确实不支持时如实报「不可用」也算通过）', d: 'macOS 只认从 .app bundle 里跑的进程，裸 moon run 报不可用是正确行为；复验走 scripts/make_app.sh 打包' },
+    { id: 'T4f', g: 'T4', apps: ['showcase'], t: '全局热键：注册后切到别的应用前台，按组合仍能命中' },
+    { id: 'T4g', g: 'T4', apps: ['showcase'], t: '窗口增强：改标题、最小尺寸拖不到更小、无边框切换、自绘标题栏拖拽区移窗且不把这次按下送进控件' },
+    { id: 'T4h', g: 'T4', apps: ['showcase'], t: 'set_icon 后任务栏 / Dock 图标变化（macOS 只有应用图标一档）' },
+
+    /* ---- T5 ---- */
+    { id: 'T5a', g: 'T5', apps: ['browser'], t: 'webview_supported 为 true，页面加载出来；子件矩形与自绘区并排不重叠' },
+    { id: 'T5b', g: 'T5', apps: ['browser'], t: '导航：前进 / 后退 / 重载 / 停止可用；地址与标题变化回推到页面显示' },
+    { id: 'T5c', g: 'T5', apps: ['browser'], t: 'execute_javascript 带回调的那条拿到结果串（字符串不带引号）' },
+    { id: 'T5d', g: 'T5', apps: ['browser'], t: 'add_binding 后网页里调 window.<name>(payload) 能进 on_invoke' },
+    { id: 'T5e', g: 'T5', apps: ['browser'], t: '自定义协议 app:// 页面与资源加载；未注册的 scheme 报错而不是白屏' },
+    { id: 'T5f', g: 'T5', apps: ['browser'], t: 'webview_signal_mask 与实际支持的事件一致；平台没有公开口的下载 / 权限请求如实不发' },
+    { id: 'T5g', g: 'T5', apps: ['browser'], t: '弹窗策略两档（丢弃 / 当前 pane 内导航）都要看一眼' },
+    { id: 'T5h', g: 'T5', apps: ['browser'], t: '给了 data_dir 时 profile 行为如实（不落盘属如实降级）' },
+    { id: 'T5i', g: 'T5', apps: ['browser'], t: 'web 进程崩溃：回 kind=11 且 is_crashed 为 true' },
+    { id: 'T5j', g: 'T5', apps: ['browser'], t: '工具栏「演示 ▾」弹层条目可见、能点、选中后回调跑到、Esc 与点外收得起' },
+    { id: 'T5k', g: 'T5', apps: ['browser'], t: '地址框主修饰键：全选 / 复制 / 剪切 / 粘贴 / 撤销 / 按词移动（mac 用 Cmd，其它 Ctrl）；只读框也能全选复制' },
+    { id: 'T5l', g: 'T5', apps: ['browser'], t: '新窗拦截回显长 URL 后，状态栏不被顶穿、文字不错位' },
+
+    /* ---- T6 ---- */
+    { id: 'T6a', g: 'T6', apps: ['showcase'], t: '窗口开合十余次槽位不耗尽；多窗 + 附窗反复开合' },
+    { id: 'T6b', g: 'T6', apps: ['showcase'], t: '半屏 / 合盖唤醒后回来：窗口仍在、能重绘' },
+    { id: 'T6c', g: 'T6', apps: ['showcase'], t: '静置不动时 CPU 接近 0%（不是忙轮询），贴一行 top / 任务管理器读数' },
+
+    /* ---- T7 ---- */
+    { id: 'T7a', g: 'T7', apps: ['showcase'], t: '显示器：列出全部在线屏，主屏 primary=true；物理像素与硬件对得上；外接屏按摆放位置给 pos_x / pos_y' },
+    { id: 'T7b', g: 'T7', apps: ['showcase'], t: '模式表：分辨率与刷新率各占一条、不重复；refresh_centi=0 表示后端报未知' },
+    { id: 'T7c', g: 'T7', apps: ['showcase'], t: '空闲时间（静置 60 秒应≈60 秒）、内存总量、开机时长读数合理' },
+    { id: 'T7d', g: 'T7', apps: ['showcase'], t: '音量 / 壁纸 / 系统信息 / 揭示与打开走平台 CLI；首次可能弹授权，未授权给 CommandFailed 而不是崩' },
+    { id: 'T7e', g: 'T7', apps: ['showcase'], t: '平台没有对应面的能力给 Unsupported，不隐藏也不崩' },
+    { id: 'T7f', g: 'T7', apps: ['showcase'], t: '应用查找：扫出已安装应用与可执行文件命中（名字优先取显示名）' },
+    { id: 'T7g', g: 'T7', apps: ['showcase'], t: '机器 / 打印机 / 书签等条目能读到；读不到要分清是代码问题还是平台限制' },
+
+    /* ---- T8 ---- */
+    { id: 'T8a', g: 'T8', apps: ['audio', 'video'], t: '构建前置：ffmpeg 供给可用（brew / pkg-config 探到，或 prebuild 自动下载 vendor 归档并 sha256 通过）' },
+    { id: 'T8b', g: 'T8', apps: ['audio'], t: 'audio：放一首 mp3 / m4a 真出声，进度条与时间推进；暂停 / 继续 / 拖动 seek / 音量 0~1 / 循环都生效' },
+    { id: 'T8c', g: 'T8', apps: ['audio'], t: 'audio：输出设备不可用时给「静音降级」状态而不是崩，状态机照常' },
+    { id: 'T8d', g: 'T8', apps: ['video'], t: 'video：持续出帧，看得见画面在换；解不出来的格式给 MediaError 文本而不是白屏' },
+    { id: 'T8e', g: 'T8', apps: ['audio', 'video'], t: '平台没有播放器控制那族能力时如实给 Unsupported' },
+    { id: 'T8f', g: 'T8', apps: ['audio', 'video'], t: '播放器快捷键：M 静音 / 再按恢复、L 循环、空格播放暂停、↑↓ 音量；静音中拖音量到非零自动解除；焦点在输入框时空格进框' },
+    { id: 'T8g', g: 'T8', apps: ['audio', 'video'], t: '输入法开着时 M / L 不被吞' },
+    { id: 'T8h', g: 'T8', apps: ['video'], t: '全屏：双击进 / 出；全屏下指针静止约 2.5 秒控制条收起、指针隐藏，动一下恢复；Esc 退全屏' }
+  ];
+
+  var CASE_BY_ID = {};
+  CASES.forEach(function (c) { CASE_BY_ID[c.id] = c; });
+
+  var ST = {
+    pass: { label: '通过', color: 'var(--pass-bar)' },
+    fail: { label: '失败', color: 'var(--fail-bar)' },
+    skip: { label: '跳过', color: 'var(--skip-bar)' }
+  };
+
+  /* ======================= 存取 ======================= */
+
+  var DB_KEY = 'ngtt.v1';
+
+  function emptyDB() {
+    return {
+      v: 1, results: {}, log: [], notes: {},
+      settings: { commit: '', tester: '' },
+      ui: { platform: 'linux', app: 'hello' }
+    };
+  }
+
+  var db;
+  try {
+    var raw = localStorage.getItem(DB_KEY);
+    db = raw ? Object.assign(emptyDB(), JSON.parse(raw)) : emptyDB();
+  } catch (e) {
+    db = emptyDB();
+  }
+  if (!db.results) db.results = {};
+  if (!db.log) db.log = [];
+  if (!db.notes) db.notes = {};
+
+  var ui = {
+    tab: 'run',
+    platform: (db.ui && db.ui.platform) || 'linux',
+    app: (db.ui && db.ui.app) || 'hello',
+    filter: 'all',
+    q: ''
+  };
+
+  var saveTimer = null;
+  function save() {
+    try {
+      localStorage.setItem(DB_KEY, JSON.stringify(db));
+      var h = document.getElementById('save-hint');
+      h.textContent = '已保存 ' + hhmmss();
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(function () { h.textContent = ''; }, 2200);
+    } catch (e) {
+      toast('本地存储写入失败：' + e.message);
+    }
+  }
+
+  /* ======================= 小工具 ======================= */
+
+  function el(tag, cls, txt) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (txt != null) n.textContent = txt;
+    return n;
+  }
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function hhmmss() { var d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); }
+  function localDate(d) {
+    d = d || new Date();
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+  function nowISO() { return new Date().toISOString(); }
+  function hmLocal(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '--:--';
+    return pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+
+  var toastTimer = null;
+  function toast(msg) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('on'); }, 2000);
+  }
+
+  function key(p, a, c) { return p + '|' + a + '|' + c; }
+  function getRes(p, a, c) { return db.results[key(p, a, c)] || null; }
+  function casesOf(app) { return CASES.filter(function (c) { return c.apps.indexOf(app) >= 0; }); }
+
+  function counts(p, a) {
+    var list = casesOf(a), o = { total: list.length, pass: 0, fail: 0, skip: 0, untested: 0 };
+    list.forEach(function (c) {
+      var r = getRes(p, a, c.id);
+      if (!r || !r.s) o.untested++;
+      else o[r.s]++;
+    });
+    return o;
+  }
+
+  function sessionKey(p, a, commit, date) { return [p, a, date, commit || '-'].join('|'); }
+  function currentSessionKey() {
+    return sessionKey(ui.platform, ui.app, (db.settings.commit || '').trim(), localDate());
+  }
+
+  /* ======================= 记录 ======================= */
+
+  var undoStack = [];
+  var noteTimers = {};
+
+  function setStatus(cid, st) {
+    var p = ui.platform, a = ui.app;
+    var k = key(p, a, cid);
+    var prev = db.results[k] ? JSON.parse(JSON.stringify(db.results[k])) : null;
+    undoStack.push({ k: k, prev: prev });
+    if (undoStack.length > 50) undoStack.shift();
+
+    if (!st) {
+      delete db.results[k];
+    } else {
+      db.results[k] = {
+        s: st,
+        n: prev && prev.n ? prev.n : '',
+        t: nowISO(),
+        d: localDate(),
+        c: (db.settings.commit || '').trim()
+      };
+    }
+    db.log.push({
+      t: nowISO(), d: localDate(),
+      p: p, a: a, c: cid,
+      s: st || 'none',
+      n: prev && prev.n ? prev.n : '',
+      commit: (db.settings.commit || '').trim()
+    });
+    save();
+    renderRun();
+    if (st === 'fail') focusNote(cid);
+  }
+
+  function setNote(cid, note) {
+    var p = ui.platform, a = ui.app;
+    var k = key(p, a, cid);
+    if (!db.results[k]) return;
+    if (db.results[k].n === note) return;
+    db.results[k].n = note;
+    db.results[k].t = nowISO();
+    save();
+    // 备注按输入停顿合并成一条操作记录，避免每敲一个字都进历史
+    clearTimeout(noteTimers[cid]);
+    noteTimers[cid] = setTimeout(function () {
+      var cur = db.results[k];
+      if (!cur) return;
+      db.log.push({
+        t: nowISO(), d: localDate(),
+        p: p, a: a, c: cid,
+        s: cur.s, n: cur.n,
+        commit: (db.settings.commit || '').trim()
+      });
+      save();
+    }, 800);
+  }
+
+  function undo() {
+    var step = undoStack.pop();
+    if (!step) { toast('没有可撤销的操作'); return; }
+    if (step.prev) db.results[step.k] = step.prev;
+    else delete db.results[step.k];
+    // 撤销本身也写进日志，历史按最终态汇总，不会留下已撤回的失败项
+    var parts = step.k.split('|');
+    db.log.push({
+      t: nowISO(), d: localDate(),
+      p: parts[0], a: parts[1], c: parts[2],
+      s: step.prev ? step.prev.s : 'none',
+      n: step.prev ? (step.prev.n || '') : '',
+      commit: (db.settings.commit || '').trim()
+    });
+    save();
+    renderRun();
+    toast('已撤销上一步');
+  }
+
+  function focusNote(cid) {
+    var row = document.querySelector('.row[data-id="' + cid + '"]');
+    if (!row) return;
+    var box = row.querySelector('.cnote');
+    if (box) box.focus();
+  }
+
+  /* ======================= 渲染：平台 / 应用 ======================= */
+
+  function renderPlatforms() {
+    var host = document.getElementById('plat');
+    host.innerHTML = '';
+    PLATFORMS.forEach(function (p) {
+      var b = el('button');
+      if (p.id === ui.platform) b.className = 'on';
+      var agg = { pass: 0, fail: 0, total: 0 };
+      APPS.forEach(function (a) {
+        var c = counts(p.id, a.id);
+        agg.pass += c.pass; agg.fail += c.fail; agg.total += c.total;
+      });
+      var dotCls = agg.pass + agg.fail === 0 ? '' : (agg.fail > 0 ? 'bad' : (agg.pass === agg.total ? 'ok' : 'mid'));
+      var n = el('div', 'pn');
+      n.appendChild(el('i', 'dot ' + dotCls));
+      n.appendChild(document.createTextNode(p.name));
+      var s = el('div', 'ps', p.sub);
+      b.appendChild(n); b.appendChild(s);
+      b.onclick = function () { ui.platform = p.id; saveUI(); renderAll(); };
+      host.appendChild(b);
+    });
+  }
+
+  function renderApps() {
+    var host = document.getElementById('apps');
+    host.innerHTML = '';
+    APPS.forEach(function (a) {
+      var c = counts(ui.platform, a.id);
+      var b = el('button', 'app' + (a.id === ui.app ? ' on' : ''));
+      var n = el('div', 'an');
+      n.appendChild(document.createTextNode(a.name));
+      n.appendChild(el('em', null, c.pass + '/' + c.total));
+      b.appendChild(n);
+      var bar = el('div', 'bar');
+      [['pass', c.pass], ['fail', c.fail], ['skip', c.skip]].forEach(function (pair) {
+        if (!pair[1]) return;
+        var i = el('i');
+        i.style.width = (pair[1] / c.total * 100) + '%';
+        i.style.background = ST[pair[0]].color;
+        bar.appendChild(i);
+      });
+      b.appendChild(bar);
+      b.appendChild(el('div', 'desc', c.fail ? ('失败 ' + c.fail + ' · 未测 ' + c.untested) : (a.desc + (c.untested ? ' · 未测 ' + c.untested : ''))));
+      b.onclick = function () { ui.app = a.id; saveUI(); renderAll(); };
+      host.appendChild(b);
+    });
+  }
+
+  /* ======================= 渲染：用例列表 ======================= */
+
+  function renderChips() {
+    var host = document.getElementById('chips');
+    host.innerHTML = '';
+    var list = casesOf(ui.app), c = counts(ui.platform, ui.app);
+    var defs = [
+      ['all', '全部', list.length],
+      ['untested', '未测', c.untested],
+      ['fail', '失败', c.fail],
+      ['pass', '通过', c.pass],
+      ['skip', '跳过', c.skip]
+    ];
+    defs.forEach(function (d) {
+      var b = el('button', ui.filter === d[0] ? 'on' : '');
+      b.appendChild(document.createTextNode(d[1]));
+      b.appendChild(el('em', null, d[2]));
+      b.onclick = function () { ui.filter = d[0]; renderRun(); };
+      host.appendChild(b);
+    });
+  }
+
+  function matchFilter(cid) {
+    var r = getRes(ui.platform, ui.app, cid);
+    var st = r ? r.s : 'untested';
+    if (ui.filter === 'untested' && st !== 'untested') return false;
+    if (ui.filter !== 'all' && ui.filter !== 'untested' && st !== ui.filter) return false;
+    if (ui.q) {
+      var c = CASE_BY_ID[cid];
+      var hay = (cid + ' ' + c.t + ' ' + (c.d || '')).toLowerCase();
+      if (hay.indexOf(ui.q) < 0) return false;
+    }
+    return true;
+  }
+
+  function noteBox(cid, st, r, row) {
+    var inp = el('input', 'cnote');
+    inp.type = 'text';
+    inp.value = (r && r.n) || '';
+    inp.placeholder = st === 'fail' ? '必填：现象 / 读数 / 报错行' : '备注（可选）';
+    inp.maxLength = 500;
+    inp.oninput = function () { setNote(cid, inp.value); };
+    inp.onkeydown = function (ev) {
+      if (ev.key === 'Escape') { inp.blur(); if (row && row.parentNode) row.focus(); }
+      ev.stopPropagation();
+    };
+    return inp;
+  }
+
+  function renderRun() {
+    // 记录焦点位置：打勾后整行重建，键盘流不能断
+    var active = document.activeElement;
+    var restore = null;
+    if (active && active.closest) {
+      var ar = active.closest('.row');
+      if (ar) restore = { id: ar.dataset.id, note: active.classList.contains('cnote'), pos: active.selectionStart };
+    }
+
+    renderPlatforms();
+    renderApps();
+    renderChips();
+
+    var host = document.getElementById('cases');
+    host.innerHTML = '';
+    var visible = 0, total = 0;
+
+    GROUPS.forEach(function (g) {
+      var inGroup = casesOf(ui.app).filter(function (c) { return c.g === g.id; });
+      if (!inGroup.length) return;
+      var shown = inGroup.filter(function (c) { return matchFilter(c.id); });
+      if (!shown.length) return;
+      visible += shown.length; total += inGroup.length;
+
+      var wrap = el('div', 'group');
+      var gh = el('div', 'ghead');
+      gh.appendChild(el('h3', null, g.name));
+      var gp = inGroup.filter(function (c) { var r = getRes(ui.platform, ui.app, c.id); return r && r.s === 'pass'; }).length;
+      var gf = inGroup.filter(function (c) { var r = getRes(ui.platform, ui.app, c.id); return r && r.s === 'fail'; }).length;
+      gh.appendChild(el('span', 'gc', inGroup.length + ' 条 · 通过 ' + gp + (gf ? ' · 失败 ' + gf : '')));
+      gh.appendChild(el('div', 'line'));
+      wrap.appendChild(gh);
+
+      var rows = el('div', 'rows');
+      shown.forEach(function (c) {
+        var r = getRes(ui.platform, ui.app, c.id);
+        var st = r ? r.s : 'untested';
+        var row = el('div', 'row');
+        row.dataset.id = c.id;
+        row.dataset.status = st;
+        row.tabIndex = 0;
+        row.appendChild(el('div', 'rid', c.id));
+
+        var body = el('div', 'cbody');
+        body.appendChild(el('div', 'ct', c.t));
+        if (c.d) body.appendChild(el('div', 'cd', c.d));
+        if (st !== 'untested') {
+          if (st === 'pass' && !(r && r.n)) {
+            var add = el('button', 'addnote', '＋ 备注');
+            add.onclick = function () {
+              add.remove();
+              var box = noteBox(c.id, st, r, row);
+              body.appendChild(box);
+              box.focus();
+            };
+            body.appendChild(add);
+          } else {
+            body.appendChild(noteBox(c.id, st, r, row));
+          }
+        }
+        row.appendChild(body);
+
+        var acts = el('div', 'asts');
+        ['pass', 'fail', 'skip'].forEach(function (s) {
+          var b = el('button', st === s ? 'on' : '', ST[s].label);
+          b.dataset.s = s;
+          b.onclick = function () { setStatus(c.id, st === s ? null : s); };
+          acts.appendChild(b);
+        });
+        row.appendChild(acts);
+        rows.appendChild(row);
+      });
+      wrap.appendChild(rows);
+      host.appendChild(wrap);
+    });
+
+    if (!visible) {
+      host.appendChild(el('div', 'empty', ui.q || ui.filter !== 'all' ? '当前筛选下没有用例。' : '这个应用暂时没有用例。'));
+    }
+
+    var lb = document.getElementById('snote-label');
+    var sk = currentSessionKey();
+    var parts = sk.split('|');
+    lb.textContent = '这次测试的整体备注（' + platformName(parts[0]) + ' · ' + appName(parts[1]) + ' · ' + parts[2] + (parts[3] && parts[3] !== '-' ? ' · ' + parts[3] : ' · 未填 commit') + '）';
+    document.getElementById('in-snote').value = db.notes[sk] || '';
+
+    if (restore) {
+      var nr = document.querySelector('.row[data-id="' + restore.id + '"]');
+      if (nr) {
+        var nb = restore.note ? nr.querySelector('.cnote') : null;
+        if (nb) {
+          nb.focus({ preventScroll: true });
+          if (restore.pos != null) { try { nb.setSelectionRange(restore.pos, restore.pos); } catch (e) {} }
+        } else {
+          nr.focus({ preventScroll: true });
+        }
+      }
+    }
+  }
+
+  function platformName(id) {
+    for (var i = 0; i < PLATFORMS.length; i++) if (PLATFORMS[i].id === id) return PLATFORMS[i].name;
+    return id;
+  }
+  function appName(id) {
+    for (var i = 0; i < APPS.length; i++) if (APPS[i].id === id) return APPS[i].name;
+    return id;
+  }
+
+  /* ======================= 渲染：矩阵 ======================= */
+
+  function renderMatrix() {
+    var host = document.getElementById('matrix');
+    host.innerHTML = '';
+    var table = el('table', 'mx');
+
+    var thead = el('thead');
+    var htr = el('tr');
+    htr.appendChild(el('th', null, '应用'));
+    PLATFORMS.forEach(function (p) { htr.appendChild(el('th', null, p.name)); });
+    htr.appendChild(el('th', null, '合计'));
+    thead.appendChild(htr);
+    table.appendChild(thead);
+
+    var tbody = el('tbody');
+    var grand = { pass: 0, fail: 0, skip: 0, untested: 0, total: 0 };
+
+    APPS.forEach(function (a) {
+      var tr = el('tr');
+      var th = el('th');
+      th.appendChild(document.createTextNode(a.name));
+      var cmd = el('span', null, a.cmd);
+      cmd.title = a.cmd;
+      th.appendChild(cmd);
+      tr.appendChild(th);
+
+      var rowSum = { pass: 0, fail: 0, skip: 0, untested: 0, total: 0 };
+      PLATFORMS.forEach(function (p) {
+        var c = counts(p.id, a.id);
+        rowSum.pass += c.pass; rowSum.fail += c.fail; rowSum.skip += c.skip;
+        rowSum.untested += c.untested; rowSum.total += c.total;
+        var td = el('td');
+        td.appendChild(cellBtn(p.id, a.id, c));
+        tr.appendChild(td);
+      });
+
+      var tdSum = el('td', 'totalcol');
+      tdSum.appendChild(cellBtn(null, a.id, rowSum));
+      tr.appendChild(tdSum);
+      tbody.appendChild(tr);
+
+      grand.pass += rowSum.pass; grand.fail += rowSum.fail; grand.skip += rowSum.skip;
+      grand.untested += rowSum.untested; grand.total += rowSum.total;
+    });
+
+    var trF = el('tr');
+    var thF = el('th', 'totalcol', '全部');
+    trF.appendChild(thF);
+    PLATFORMS.forEach(function (p) {
+      var sum = { pass: 0, fail: 0, skip: 0, untested: 0, total: 0 };
+      APPS.forEach(function (a) {
+        var c = counts(p.id, a.id);
+        sum.pass += c.pass; sum.fail += c.fail; sum.skip += c.skip; sum.untested += c.untested; sum.total += c.total;
+      });
+      var td = el('td', 'totalcol');
+      td.appendChild(cellBtn(p.id, null, sum));
+      trF.appendChild(td);
+    });
+    var tdG = el('td', 'totalcol');
+    tdG.appendChild(cellBtn(null, null, grand));
+    trF.appendChild(tdG);
+    tbody.appendChild(trF);
+
+    table.appendChild(tbody);
+    host.appendChild(table);
+  }
+
+  function cellBtn(p, a, c) {
+    var b = el('button', 'cell' + (c.total && c.pass === c.total ? ' done' : ''));
+    var n = el('div', 'cn');
+    n.appendChild(document.createTextNode(c.pass));
+    var i = el('i', null, '/' + c.total);
+    n.appendChild(i);
+    b.appendChild(n);
+    var bar = el('div', 'cbar');
+    [['pass', c.pass], ['fail', c.fail], ['skip', c.skip]].forEach(function (pair) {
+      if (!pair[1]) return;
+      var seg = el('i');
+      seg.style.width = (pair[1] / c.total * 100) + '%';
+      seg.style.background = ST[pair[0]].color;
+      bar.appendChild(seg);
+    });
+    b.appendChild(bar);
+    var m = el('div', 'cm');
+    if (c.fail) {
+      m.appendChild(document.createTextNode('失败 '));
+      m.appendChild(el('b', null, c.fail));
+      m.appendChild(document.createTextNode(' · 未测 ' + c.untested));
+    } else if (c.untested === 0) {
+      m.textContent = '全部走完';
+    } else {
+      m.textContent = '未测 ' + c.untested;
+    }
+    b.appendChild(m);
+    b.onclick = function () {
+      if (p) ui.platform = p;
+      if (a) ui.app = a;
+      ui.filter = 'all'; ui.q = '';
+      document.getElementById('in-search').value = '';
+      saveUI();
+      renderAll();
+      switchTab('run');
+    };
+    return b;
+  }
+
+  /* ======================= 渲染：历史 ======================= */
+
+  function buildSessions() {
+    var map = {};
+    db.log.forEach(function (e) {
+      if (!e || !e.p || !e.a) return;
+      var k = sessionKey(e.p, e.a, e.commit || '', e.d || (e.t || '').slice(0, 10));
+      if (!map[k]) map[k] = { k: k, p: e.p, a: e.a, d: e.d || (e.t || '').slice(0, 10), commit: e.commit || '', last: {}, t0: e.t, t1: e.t, count: 0 };
+      var s = map[k];
+      s.last[e.c] = e.s;
+      s.count++;
+      if (e.t < s.t0) s.t0 = e.t;
+      if (e.t > s.t1) s.t1 = e.t;
+    });
+    var arr = Object.keys(map).map(function (k) { return map[k]; });
+    arr.sort(function (x, y) { return (y.t1 || '').localeCompare(x.t1 || ''); });
+    return arr;
+  }
+
+  function renderHistory() {
+    var host = document.getElementById('history');
+    host.innerHTML = '';
+    var sessions = buildSessions();
+    if (!sessions.length) {
+      host.appendChild(el('div', 'empty', '还没有记录。到「执行」页点几条结果，这里会自动按「平台 + 应用 + 日期 + commit」聚合出测试历史。'));
+      return;
+    }
+    sessions.forEach(function (s) {
+      var pass = 0, fail = 0, skip = 0, none = 0, fails = [];
+      Object.keys(s.last).forEach(function (cid) {
+        var st = s.last[cid];
+        if (st === 'pass') pass++;
+        else if (st === 'fail') { fail++; fails.push(cid); }
+        else if (st === 'skip') skip++;
+        else none++;
+      });
+
+      var box = el('div', 'ses');
+      var h = el('div', 'sh');
+      h.appendChild(el('span', 'date', s.d));
+      h.appendChild(el('span', 'badge plat', platformName(s.p)));
+      h.appendChild(el('span', 'badge', appName(s.a)));
+      h.appendChild(el('span', 'badge cm', s.commit || '未填 commit'));
+      h.appendChild(el('span', 'badge', hmLocal(s.t0) + '–' + hmLocal(s.t1) + '（共 ' + s.count + ' 次操作）'));
+      box.appendChild(h);
+
+      var nums = el('div', 'snums');
+      nums.appendChild(el('span', 'p', '通过 ')).appendChild(el('b', null, pass));
+      nums.appendChild(el('span', 'f', '失败 ')).appendChild(el('b', null, fail));
+      nums.appendChild(el('span', 's', '跳过 ')).appendChild(el('b', null, skip));
+      if (none) nums.appendChild(el('span', null, '清除 ' + none));
+      nums.appendChild(el('span', null, '覆盖 ' + (pass + fail + skip + none) + ' 条用例'));
+      box.appendChild(nums);
+
+      var note = db.notes[s.k];
+      if (note) box.appendChild(el('div', 'snote-txt', note));
+
+      if (fails.length) {
+        var ul = el('ul', 'fails');
+        fails.forEach(function (cid) {
+          var c = CASE_BY_ID[cid];
+          var li = el('li');
+          li.appendChild(el('span', 'fid', cid));
+          var fn = el('span', 'fn');
+          fn.appendChild(document.createTextNode(c ? c.t : cid));
+          var res = db.results[key(s.p, s.a, cid)];
+          if (res && res.n) {
+            var em = el('em', null, ' — ' + res.n);
+            fn.appendChild(em);
+          }
+          li.appendChild(fn);
+          ul.appendChild(li);
+        });
+        box.appendChild(ul);
+      }
+      host.appendChild(box);
+    });
+  }
+
+  /* ======================= 视图切换 ======================= */
+
+  function saveUI() {
+    db.ui = { platform: ui.platform, app: ui.app };
+    save();
+  }
+
+  function renderAll() {
+    renderRun();
+    renderMatrix();
+    renderHistory();
+  }
+
+  function switchTab(t) {
+    ui.tab = t;
+    Array.prototype.forEach.call(document.querySelectorAll('.tabs button[data-tab]'), function (b) {
+      b.classList.toggle('on', b.dataset.tab === t);
+    });
+    ['run', 'matrix', 'history'].forEach(function (v) {
+      document.getElementById('v-' + v).classList.toggle('on', v === t);
+    });
+    if (t === 'matrix') renderMatrix();
+    if (t === 'history') renderHistory();
+  }
+
+  /* ======================= 导入 / 导出 ======================= */
+
+  function exportJSON() {
+    var payload = JSON.stringify(db, null, 2);
+    var blob = new Blob([payload], { type: 'application/json' });
+    var a = document.createElement('a');
+    var d = new Date();
+    a.href = URL.createObjectURL(blob);
+    a.download = 'native-gui-测试记录-' + localDate(d).replace(/-/g, '') + '-' + pad(d.getHours()) + pad(d.getMinutes()) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+    toast('已导出 ' + Object.keys(db.results).length + ' 条结果、' + db.log.length + ' 条操作记录');
+  }
+
+  function importJSON(file) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var incoming;
+      try { incoming = JSON.parse(reader.result); } catch (e) { toast('解析失败：不是合法的 JSON'); return; }
+      if (!incoming || typeof incoming !== 'object' || !incoming.results) { toast('文件里没有 results，跳过'); return; }
+      var added = 0, updated = 0;
+      Object.keys(incoming.results).forEach(function (k) {
+        var inc = incoming.results[k];
+        var cur = db.results[k];
+        if (!cur) { db.results[k] = inc; added++; }
+        else if ((inc.t || '') > (cur.t || '')) { db.results[k] = inc; updated++; }
+      });
+      var seen = {};
+      db.log.forEach(function (e) { seen[e.t + '|' + e.p + '|' + e.a + '|' + e.c + '|' + e.s] = 1; });
+      (incoming.log || []).forEach(function (e) {
+        var sig = e.t + '|' + e.p + '|' + e.a + '|' + e.c + '|' + e.s;
+        if (!seen[sig]) { db.log.push(e); seen[sig] = 1; }
+      });
+      if (incoming.notes) {
+        Object.keys(incoming.notes).forEach(function (k) {
+          if (!db.notes[k]) db.notes[k] = incoming.notes[k];
+        });
+      }
+      db.log.sort(function (a, b) { return (a.t || '').localeCompare(b.t || ''); });
+      save();
+      renderAll();
+      toast('导入完成：新增 ' + added + ' 条，更新 ' + updated + ' 条');
+    };
+    reader.readAsText(file);
+  }
+
+  /* ======================= 事件绑定 ======================= */
+
+  function init() {
+    document.getElementById('in-commit').value = db.settings.commit || '';
+    document.getElementById('in-tester').value = db.settings.tester || '';
+
+    document.getElementById('in-commit').oninput = function () {
+      db.settings.commit = this.value;
+      save();
+      renderRun();
+    };
+    document.getElementById('in-tester').oninput = function () {
+      db.settings.tester = this.value;
+      save();
+    };
+
+    Array.prototype.forEach.call(document.querySelectorAll('.tabs button[data-tab]'), function (b) {
+      b.onclick = function () { switchTab(b.dataset.tab); };
+    });
+
+    document.getElementById('in-search').oninput = function () {
+      ui.q = this.value.trim().toLowerCase();
+      renderRun();
+    };
+
+    document.getElementById('in-snote').oninput = function () {
+      var sk = currentSessionKey();
+      if (this.value) db.notes[sk] = this.value;
+      else delete db.notes[sk];
+      save();
+    };
+
+    document.getElementById('btn-copy').onclick = function () {
+      var list = casesOf(ui.app).filter(function (c) {
+        var r = getRes(ui.platform, ui.app, c.id);
+        return !r || !r.s;
+      });
+      if (!list.length) { toast('这个应用在当前平台没有未测项'); return; }
+      var text = '【' + platformName(ui.platform) + ' · ' + appName(ui.app) + '】未测 ' + list.length + ' 条\n'
+        + list.map(function (c) { return c.id + '  ' + c.t; }).join('\n');
+      copyText(text);
+    };
+
+    document.getElementById('btn-export').onclick = exportJSON;
+    document.getElementById('btn-import').onclick = function () { document.getElementById('file-import').click(); };
+    document.getElementById('file-import').onchange = function () {
+      if (this.files && this.files[0]) importJSON(this.files[0]);
+      this.value = '';
+    };
+
+    document.getElementById('btn-help').onclick = function () { document.getElementById('dlg-help').showModal(); };
+    document.getElementById('btn-help-close').onclick = function () { document.getElementById('dlg-help').close(); };
+
+    document.getElementById('btn-reset').onclick = function () {
+      var n = Object.keys(db.results).length;
+      if (!confirm('清空全部记录？\n\n将删除 ' + n + ' 条结果与 ' + db.log.length + ' 条操作历史（用例库本身不动）。\n建议先「导出」留一份。')) return;
+      var keep = { settings: db.settings, ui: { platform: ui.platform, app: ui.app } };
+      db = Object.assign(emptyDB(), keep);
+      undoStack.length = 0;
+      save();
+      renderAll();
+      toast('已清空');
+    };
+
+    // 行内键盘操作
+    document.getElementById('cases').addEventListener('keydown', function (ev) {
+      var row = ev.target.closest ? ev.target.closest('.row') : null;
+      if (!row) return;
+      if (ev.target.tagName === 'INPUT') return;
+      var id = row.dataset.id;
+      if (ev.key === '1') { setStatus(id, 'pass'); ev.preventDefault(); }
+      else if (ev.key === '2') { setStatus(id, 'fail'); ev.preventDefault(); }
+      else if (ev.key === '3') { setStatus(id, 'skip'); ev.preventDefault(); }
+      else if (ev.key === '0' || ev.key === 'Delete' || ev.key === 'Backspace') { setStatus(id, null); ev.preventDefault(); }
+      else if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+        var rows = Array.prototype.slice.call(document.querySelectorAll('.row'));
+        var i = rows.indexOf(row) + (ev.key === 'ArrowDown' ? 1 : -1);
+        if (rows[i]) { rows[i].focus(); ev.preventDefault(); }
+      } else if (ev.key === 'Enter') {
+        var box = row.querySelector('.cnote');
+        if (box) { box.focus(); ev.preventDefault(); }
+      }
+    });
+
+    document.addEventListener('keydown', function (ev) {
+      if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'z' && ev.target.tagName !== 'INPUT' && ev.target.tagName !== 'TEXTAREA') {
+        ev.preventDefault(); undo();
+      }
+    });
+
+    renderAll();
+    switchTab('run');
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { toast('已复制到剪贴板'); }, fallback);
+    } else fallback();
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); toast('已复制到剪贴板'); }
+      catch (e) { toast('复制失败，请手动选择'); }
+      ta.remove();
+    }
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
