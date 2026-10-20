@@ -231,4 +231,13 @@ pub const EN_CATALOG : String =
   "\"系统能力探测\" = \"Sys Probe\"\n" +
   "\"图标字体\" = \"Icon Font\"\n" +
   "\"国际化\" = \"i18n\"\n" +
-  "\"RTL 排版\" = \"RTL Type\"\n"
+  "\"RTL 排版\" = \"RTL Type\"\n" +
+  // —— 原生菜单栏 ——
+  "[menu]\n" +
+  "nav = \"Navigation\"\n" +
+  "theme = \"Theme\"\n" +
+  "follow = \"Follow system\"\n" +
+  "light = \"Light\"\n" +
+  "dark = \"Dark\"\n" +
+  "help = \"Help\"\n" +
+  "about = \"About\"\n"

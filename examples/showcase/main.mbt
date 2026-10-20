@@ -43,6 +43,18 @@ fn apply_theme(app : @shared.App) -> Unit {
 }
 
 ///|
+/// 推迟一拍（宿主 timer）再执行：整树 bind_node 重建会销毁当前回调所在的子树，
+/// 必须在事件派发返回后再触发，否则黑屏（自毁重挂）。
+fn defer_next_tick(app : @shared.App, f : () -> Unit) -> Unit {
+  match app.host.val {
+    Some(a) => {
+      let _ = a.timer(1, f)
+    }
+    None => f()
+  }
+}
+
+///|
 /// 侧栏里的深/浅切换按钮：手动改即视为「不跟随系统」。
 fn theme_toggle_button(app : @shared.App) -> @widget.Node {
   @ui.icon_button(
@@ -63,7 +75,7 @@ fn flat_toggle_button(app : @shared.App) -> @widget.Node {
       let on = !@style.square_corners()
       @style.set_square_corners(on)
       app.flat.set(on)
-      @widget.host_repaint_all()
+      @widget.invalidate()
     },
   )
 }
@@ -80,7 +92,9 @@ fn translucent_toggle_button(app : @shared.App) -> @widget.Node {
         Some(a) => a.window().set_transparent_bg(on)
         None => ()
       }
-      @widget.host_repaint_all()
+      defer_next_tick(app, fn() {
+        app.ui_gen.update(fn(n) { n + 1 })
+      })
     },
   )
 }
@@ -113,13 +127,24 @@ fn language_toggle_button(app : @shared.App, nav : @router.Router) -> @widget.No
     on_click=fn() {
       let to_en = app.locale.get() != "en"
       let loc = if to_en { "en" } else { "zh-CN" }
-      @shared.set_locale_catalog(loc)
-      // 清路由已建页：否则页面内文案仍是旧语言（树重建时按新目录重挂）
-      for k in page_keys() {
-        nav.purge_built(k)
-      }
       app.locale.set(loc)
-      @widget.host_repaint_all()
+      // 推迟一拍：整树重建会销毁当前回调所在子树，不能同步做（否则黑屏）
+      defer_next_tick(app, fn() {
+        @shared.set_locale_catalog(loc)
+        // 清路由已建页：否则页面内文案仍是旧语言（树重建时按新目录重挂）
+        for k in page_keys() {
+          nav.purge_built(k)
+        }
+        app.ui_gen.update(fn(n) { n + 1 })
+        // 原生菜单栏不在 bind 树里：重建并重新挂到窗口，菜单项文案随语言刷
+        match app.host.val {
+          Some(a) => {
+            let bar = build_menu_bar(app, nav)
+            let _ = bar.apply_to(a.window())
+          }
+          None => ()
+        }
+      })
     },
   )
 }
@@ -130,24 +155,24 @@ fn language_toggle_button(app : @shared.App, nav : @router.Router) -> @widget.No
 /// 项点击经原生菜单派发链（`dispatch_menu_command`）回到这些回调。
 fn build_menu_bar(app : @shared.App, nav : @router.Router) -> @shell.MenuBar {
   let bar = @shell.MenuBar::new()
-  let nav_menu = bar.add_menu("导航")
+  let nav_menu = bar.add_menu(@shared.tr("menu.nav", "导航"))
   for name in ["基础组件", "表单组件", "数据展示", "系统集成"] {
-    let _ = nav_menu.add_item(name).set_on_click(nav.on_link(name))
+    let _ = nav_menu.add_item(@shared.nav_label(name)).set_on_click(nav.on_link(name))
   }
-  let theme = bar.add_menu("主题")
-  let _ = theme.add_check_item("跟随系统").set_on_click(fn() {
+  let theme = bar.add_menu(@shared.tr("menu.theme", "主题"))
+  let _ = theme.add_check_item(@shared.tr("menu.follow", "跟随系统")).set_on_click(fn() {
     app.follow.update(fn(v) { !v })
   })
-  let _ = theme.add_item("浅色").set_on_click(fn() {
+  let _ = theme.add_item(@shared.tr("menu.light", "浅色")).set_on_click(fn() {
     app.follow.set(false)
     app.dark_mode.set(false)
   })
-  let _ = theme.add_item("深色").set_on_click(fn() {
+  let _ = theme.add_item(@shared.tr("menu.dark", "深色")).set_on_click(fn() {
     app.follow.set(false)
     app.dark_mode.set(true)
   })
-  let help = bar.add_menu("帮助")
-  let _ = help.add_item("关于").set_on_click(fn() {
+  let help = bar.add_menu(@shared.tr("menu.help", "帮助"))
+  let _ = help.add_item(@shared.tr("menu.about", "关于")).set_on_click(fn() {
     app.toast_push("native-gui 组件库演示板 V" + SHOWCASE_VERSION, @ui.Info)
   })
   let _ = help.add_separator()
@@ -211,6 +236,7 @@ fn main {
   let app : @shared.App = {
     selected: nav.store_at(0),
     locale: @base.Store::new("zh-CN"),
+    ui_gen: @base.Store::new(0),
     toast: toast_push,
     dark_mode: @base.Store::new(@win.sys_color_scheme() == "dark"),
     // 启动即跟随系统主色调（系统无主色概念时回落内置 primary）
@@ -266,7 +292,7 @@ fn main {
   let slot : Ref[@widget.App?] = Ref(None)
   let mounted = @ui.mount_window(
     [
-      @widget.bind_node(app.locale.signal(), fn(_loc : String) -> @widget.Node {
+      @widget.bind_node(app.ui_gen.signal(), fn(_gen : Int) -> @widget.Node {
       @ui.row(
         [
           // 侧栏：可滚动的分组菜单（窗口矮时滚到底部项）+ 底部主题切换 + 版本号
@@ -316,6 +342,7 @@ fn main {
                 column_gap=8.0,
               ),
             ],
+            background_color=if app.translucent.get() { "#12161FCC" } else { "" },
             width=180.0,
           ),
           // 主区：路由视图——选中哪页挂哪页，没选过的只留空壳；对话框挂在这一列上
