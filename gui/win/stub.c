@@ -9434,6 +9434,26 @@ static NSImage *wm_icon_of(int slot) {
   return wm_icons[slot];
 }
 
+// 状态栏档位的图标副本：NSStatusItem 按 NSImage 的**点尺寸**直贴，32px 原图就是
+// 32pt，会顶出约 22pt 的菜单栏（真机表现为托盘图标大得离谱）。这里按菜单栏厚度
+// 缩一档再返回一份副本，图标表里的原件不动（同一份像素还要给窗口图标用）。
+static NSImage *wm_status_icon(int icon_slot) {
+  NSImage *src = wm_icon_of(icon_slot);
+  if (src == nil) {
+    return nil;
+  }
+  NSSize sz = [src size];
+  if (sz.width < 1.0 || sz.height < 1.0) {
+    return src;
+  }
+  CGFloat th = [[NSStatusBar systemStatusBar] thickness];
+  CGFloat side = (th >= 1.0 ? th : 22.0) - 6.0;
+  CGFloat k = side / (sz.width > sz.height ? sz.width : sz.height);
+  NSImage *out = [src copyWithZone:nil];
+  [out setSize:NSMakeSize(sz.width * k, sz.height * k)];
+  return out;
+}
+
 // BGRA 预乘像素（本栈 Bitmap 口径）→ NSImage：与 Win32 支的
 // CreateIconIndirect 同一份像素，逐字节直拷。
 int wm_icon_from_bgra(const unsigned char *px, int w, int h) {
@@ -9818,7 +9838,7 @@ static int wm_tray_alloc(int kind, int icon_slot, const char *tip) {
     [[NSStatusBar systemStatusBar] removeStatusItem:item];
     return 0;
   }
-  [btn setImage:wm_icon_of(icon_slot)];
+  [btn setImage:wm_status_icon(icon_slot)];
   [btn setImagePosition:NSImageOnly];
   [btn setTitle:@""];
   NSString *tipstr = wm_str(tip);
@@ -9867,7 +9887,7 @@ void wm_tray_set_icon(int slot, int icon_slot) {
   if (slot <= 0 || slot >= WM_MAX_TRAYS || wm_tray_items[slot] == nil) {
     return;
   }
-  [[wm_tray_items[slot] button] setImage:wm_icon_of(icon_slot)];
+  [[wm_tray_items[slot] button] setImage:wm_status_icon(icon_slot)];
 }
 
 void wm_tray_set_menu(int slot, int menu_handle) {
