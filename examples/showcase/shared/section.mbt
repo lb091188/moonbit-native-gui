@@ -40,7 +40,7 @@ pub fn section(
   {
     name,
     title: @i18n.t_or(title, title),
-    desc: @i18n.t_or(desc, desc),
+    desc: @i18n.t_or("desc§" + title, desc),
     content,
     code,
   }
