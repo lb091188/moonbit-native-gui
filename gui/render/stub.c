@@ -1112,26 +1112,468 @@ void img_free(int64_t h) {
   }
 }
 
-// ---- 动图（GIF）：macOS 退回静帧 ----
+// ---- 动图（GIF）：ImageIO 逐帧合成 ----
 //
-// ImageIO 给的是**原始子矩形帧**（与 WIC 同一条事实：它不替调用方合成），整幅
-// 合成要逐帧读「帧矩形 + disposal」两项，而它们在 ImageIO 里的公开程度不够确定
-// （disposal 不在 Apple 的 GIF 属性清单上）。没有真机可回证时硬写，错的形态是
-// 「动图错位/残影」这类肉眼难判的画面问题，所以按平台既有降级口径走：
-// `img_anim_decode_file` 给 0 = 解不出动图，`ui/gif` 组件退回**首帧静图**
-// （静态解码那条路仍取首帧，图不丢）。缺口记 TODO.md「mac 平台批」，真机上用
-// experiment 探针把属性键回证后再补。
-int64_t img_anim_decode_file(const char *path, int len) {
-  (void)path; (void)len; return 0;
+// ImageIO 给的是**原始子矩形帧**（与 WIC 同一条事实：它不替调用方合成），这里
+// 自建整幅画布逐帧合成，口径与 Windows 分支一一对应：
+//   - 画布 BGRA、**直通**（非预乘）alpha；合成 dst = src*a + dst*(1-a)；
+//   - 帧矩形取 GIF 字典里的 `ImageRectangle`（CGRect 字典表示）（原点=画布左上，y 向下），
+//     缺键按整幅 (0,0,w,h)；
+//   - disposal（GIF 字典里的 `DisposalMethod`，Number）：2=画完清矩形，
+//     3=还原到画本帧前的快照（快照必须在画之前存），0/1/未知=保留；
+//   - 延时 `kCGImagePropertyGIFDelayTime`（秒，Number），向下取整到毫秒、
+//     读不到退回 100；
+//   - 帧号单调递增不回绕（与 Linux/Windows 同口径）；`img_anim_copy` 出口把
+//     直通 BGRA 预乘（本栈 Bitmap 是预乘口径，静态图那条也如此）。
+// 注：disposal/image-rectangle 两键不在 Apple 的公开 GIF 属性清单上但实测可读
+// （键值即字符串 "ImageRectangle"/"DisposalMethod"（在 GIF 子字典内））；真机验证由使用方回证。
+
+#define IMG_MAX_FRAMES 256
+
+typedef struct {
+  CGImageSourceRef src;   // +1 归本表
+  int count;              // 帧数（>=1）
+  int w, h;               // 画布逻辑尺寸
+  int index;              // 单调帧号
+  int canvas_frame;       // 画布里现在是哪一显示帧（-1=空）
+  unsigned char *canvas;  // w*h*4 直通 BGRA
+  unsigned char *snap;    // disposal=3 快照
+} MacAnim;
+
+static MacAnim *img_anims[IMG_MAX];
+
+static MacAnim *anim_of(int64_t h) {
+  if (h <= 0 || h >= IMG_MAX) {
+    return NULL;
+  }
+  return img_anims[h];
 }
-int img_anim_is_static(int64_t h) { (void)h; return 1; }
-int img_anim_w(int64_t h) { (void)h; return 0; }
-int img_anim_h(int64_t h) { (void)h; return 0; }
-int img_anim_delay_ms(int64_t h) { (void)h; return 0; }
-int img_anim_frame(int64_t h) { (void)h; return -1; }
-int img_anim_advance(int64_t h) { (void)h; return 0; }
-int img_anim_copy(int64_t h, unsigned char *out) { (void)h; (void)out; return 0; }
-void img_anim_free(int64_t h) { (void)h; }
+
+static int anim_slot(void) {
+  for (int i = 1; i < IMG_MAX; i++) {
+    if (img_anims[i] == NULL) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+// 取帧 k 的 GIF 子字典属性（CFNumber/CFDictionary 都走这条）
+static CFTypeRef anim_gif_prop(CGImageSourceRef src, int k, CFStringRef key) {
+  CFDictionaryRef d = CGImageSourceCopyPropertiesAtIndex(src, (size_t)k, NULL);
+  if (d == NULL) {
+    return NULL;
+  }
+  CFDictionaryRef gif = (CFDictionaryRef)CFDictionaryGetValue(d, kCGImagePropertyGIFDictionary);
+  CFTypeRef v = NULL;
+  if (gif != NULL && CFGetTypeID(gif) == CFDictionaryGetTypeID()) {
+    const void *raw = CFDictionaryGetValue(gif, key);
+    if (raw != NULL) {
+      v = CFRetain(raw); // CFRetain(NULL) 会当场 abort，必须先判
+    }
+  }
+  CFRelease(d);
+  return v; // 调用方 CFRelease；NULL 表示没有
+}
+
+static double anim_num_or(CGImageSourceRef src, int k, CFStringRef key, double dflt) {
+  CFTypeRef v = anim_gif_prop(src, k, key);
+  double out = dflt;
+  if (v != NULL && CFGetTypeID(v) == CFNumberGetTypeID()) {
+    CFNumberGetValue((CFNumberRef)v, kCFNumberDoubleType, &out);
+  }
+  if (v != NULL) {
+    CFRelease(v);
+  }
+  return out;
+}
+
+// 把 CGImage 画进 RGBA 直通缓冲（行宽 w*4），返回 1 成功。
+// GIF 帧是索引色位图：CGBitmapContext 的 RGB 目标只认 8bpp 组件图，画索引图
+// 会直接失败（实测症状=合成全透明、动图一片空白），所以先试常规路径，失败
+// 退回「按调色板手工展开像素」那条（GIF 只有 Indexed 与少量 Direct 形态）。
+static int cg_to_rgba_indexed(CGImageRef img, unsigned char *buf, int w, int h) {
+  CGImageRef bmp = img;
+  CGDataProviderRef provider = NULL;
+  // 帧矩形可能比图像小：取子图再读原始索引，越界像素按整图裁掉
+  CGImageRef cropped = NULL;
+  size_t bw = CGImageGetWidth(img), bh = CGImageGetHeight(img);
+  if ((int)bw != w || (int)bh != h) {
+    cropped = CGImageCreateWithImageInRect(img, CGRectMake(0, 0, w, h));
+    if (cropped != NULL) {
+      bmp = cropped;
+    }
+  }
+  provider = CGImageGetDataProvider(bmp);
+  const UInt8 *data = NULL;
+  CFDataRef raw = provider != NULL ? CGDataProviderCopyData(provider) : NULL;
+  int ok = 0;
+  if (raw != NULL) {
+    data = CFDataGetBytePtr(raw);
+    size_t stride = CGImageGetBytesPerRow(bmp);
+    CGColorSpaceModel model = CGColorSpaceGetModel(CGImageGetColorSpace(bmp));
+    CGImageAlphaInfo alpha = CGImageGetAlphaInfo(bmp) & 0x7;
+    if (model == kCGColorSpaceModelIndexed && data != NULL) {
+      CGColorSpaceRef img_cs = CGImageGetColorSpace(bmp);
+      const UInt8 *pal = NULL;
+      size_t pal_len = 0;
+      if (img_cs != NULL) {
+        UInt8 tmp[256 * 4];
+        size_t n = CGColorSpaceGetColorTableCount(img_cs);
+        if (n > 0 && n <= 256) {
+          CGColorSpaceGetColorTable(img_cs, tmp);
+          pal = tmp;
+          pal_len = n * 4; // 该 API 恒按 RGBA 每项 4 字节吐出
+        }
+      }
+      if (pal != NULL && pal_len >= 4) {
+        int opaque = alpha == kCGImageAlphaNone || alpha == kCGImageAlphaNoneSkipLast ||
+          alpha == kCGImageAlphaNoneSkipFirst;
+        for (int y = 0; y < h; y++) {
+          const UInt8 *row = data + (size_t)y * stride;
+          unsigned char *out = buf + ((size_t)y * w) * 4;
+          for (int x = 0; x < w; x++) {
+            int idx = row[x];
+            const UInt8 *c = pal + (size_t)idx * 4;
+            out[0] = c[0];
+            out[1] = c[1];
+            out[2] = c[2];
+            out[3] = opaque ? 255 : c[3];
+            out += 4;
+          }
+        }
+        ok = 1;
+      }
+    } else if (data != NULL &&
+               CGImageGetBitsPerPixel(bmp) == 32 &&
+               (CGImageGetAlphaInfo(bmp) & 0x7) == kCGImageAlphaLast) {
+      // 8bit RGBA 直通原样拷（本栈只在 GIF 这条路用它，字节序按系统默认）
+      for (int y = 0; y < h; y++) {
+        memcpy(buf + ((size_t)y * w) * 4, data + (size_t)y * stride, (size_t)w * 4);
+      }
+      ok = 1;
+    }
+  }
+  if (raw != NULL) {
+    CFRelease(raw);
+  }
+  if (cropped != NULL) {
+    CGImageRelease(cropped);
+  }
+  return ok;
+}
+
+static int cg_to_rgba(CGImageRef img, unsigned char *buf, int w, int h) {
+  CGColorSpaceRef cs = CGColorSpaceCreateDeviceRGB();
+  CGContextRef ctx = CGBitmapContextCreate(
+      buf, (size_t)w, (size_t)h, 8, (size_t)w * 4, cs,
+      (CGBitmapInfo)(kCGImageAlphaLast | kCGBitmapByteOrderDefault));
+  if (cs != NULL) {
+    CGColorSpaceRelease(cs);
+  }
+  int ok = 0;
+  if (ctx != NULL) {
+    // CGBitmapContext 原点在左下、行 0 在内存首行=顶行；DrawImage 按用户空间画，
+    // 两者抵消后 buf 收到顶行优先的正置像素（与 draw_cg_to_bgra 同结论）。
+    CGContextDrawImage(ctx, CGRectMake(0, 0, w, h), img);
+    CGContextFlush(ctx);
+    CFRelease(ctx);
+    ok = 1;
+  }
+  if (!ok) {
+    ok = cg_to_rgba_indexed(img, buf, w, h);
+  }
+  return ok;
+}
+
+static int anim_frame_info(MacAnim *a, int k, int *delay, int *disposal,
+                           int *lx, int *ly, int *lw, int *lh) {
+  *delay = (int)(anim_num_or(a->src, k, kCGImagePropertyGIFDelayTime, 0.1) *
+                 1000.0);
+  if (*delay <= 0) {
+    *delay = 100; // 口径同 Linux/Windows：读不到退 100ms
+  }
+  // disposal 与帧矩形两键不在 Apple 公开清单上，键值即这两个字符串；读不到按默认
+  *disposal = (int)anim_num_or(a->src, k, CFSTR("DisposalMethod"), 0);
+  *lx = 0;
+  *ly = 0;
+  *lw = a->w;
+  *lh = a->h;
+  CFTypeRef r = anim_gif_prop(a->src, k, CFSTR("ImageRectangle"));
+  if (r != NULL && CFGetTypeID(r) == CFDictionaryGetTypeID()) {
+    CGRect rect = CGRectZero;
+    if (CGRectMakeWithDictionaryRepresentation((CFDictionaryRef)r, &rect) &&
+        rect.size.width > 0 && rect.size.height > 0) {
+      *lx = (int)(rect.origin.x + 0.5);
+      *ly = (int)(rect.origin.y + 0.5);
+      *lw = (int)(rect.size.width + 0.5);
+      *lh = (int)(rect.size.height + 0.5);
+    }
+  }
+  if (r != NULL) {
+    CFRelease(r);
+  }
+  return *lw > 0 && *lh > 0;
+}
+
+// 帧像素叠进画布（直通 alpha 源覆盖），只碰矩形与画布的交叠区。
+static void anim_blend(MacAnim *a, const unsigned char *rgba, int fw, int fh,
+                       int lx, int ly, int lw, int lh) {
+  int x0 = lx < 0 ? 0 : lx;
+  int y0 = ly < 0 ? 0 : ly;
+  int x1 = lx + lw;
+  int y1 = ly + lh;
+  if (x1 > a->w) {
+    x1 = a->w;
+  }
+  if (y1 > a->h) {
+    y1 = a->h;
+  }
+  for (int y = y0; y < y1; y++) {
+    int sy = y - ly;
+    if (sy >= fh) {
+      continue;
+    }
+    for (int x = x0; x < x1; x++) {
+      int sx = x - lx;
+      if (sx >= fw) {
+        continue;
+      }
+      const unsigned char *s = rgba + ((size_t)sy * fw + sx) * 4;
+      unsigned char *d = a->canvas + ((size_t)y * a->w + x) * 4;
+      int al = s[3];
+      if (al == 255) {
+        d[0] = s[2];
+        d[1] = s[1];
+        d[2] = s[0];
+        d[3] = 255;
+      } else if (al > 0) {
+        int da = d[3];
+        d[0] = (unsigned char)((s[2] * al + d[0] * (255 - al) + 127) / 255);
+        d[1] = (unsigned char)((s[1] * al + d[1] * (255 - al) + 127) / 255);
+        d[2] = (unsigned char)((s[0] * al + d[2] * (255 - al) + 127) / 255);
+        d[3] = (unsigned char)(al + da * (255 - al) / 255);
+      }
+    }
+  }
+}
+
+static void anim_clear_rect(MacAnim *a, int lx, int ly, int lw, int lh) {
+  int x0 = lx < 0 ? 0 : lx;
+  int y0 = ly < 0 ? 0 : ly;
+  int x1 = lx + lw > a->w ? a->w : lx + lw;
+  int y1 = ly + lh > a->h ? a->h : ly + lh;
+  for (int y = y0; y < y1; y++) {
+    memset(a->canvas + ((size_t)y * a->w + x0) * 4, 0, (size_t)(x1 - x0) * 4);
+  }
+}
+
+// 把画布合成到显示帧 idx：从上一个已合成帧继续；回绕（idx 不大于当前合成帧）重头合成。
+static void anim_render(MacAnim *a, int idx) {
+  if (a->canvas_frame == idx) {
+    return;
+  }
+  size_t bytes = (size_t)a->w * (size_t)a->h * 4;
+  int start;
+  if (a->canvas_frame >= 0 && idx == a->canvas_frame + 1) {
+    start = idx; // 增量续画
+  } else {
+    memset(a->canvas, 0, bytes);
+    a->canvas_frame = -1;
+    start = 0;
+  }
+  for (int k = start; k <= idx; k++) {
+    // 先按上一帧的 disposal 收拾画布，再画本帧（copy 出口停在「本帧可见」态）
+    if (k > 0) {
+      int pd = 0;
+      int p2 = 0;
+      int plx = 0, ply = 0, plw = 0, plh = 0;
+      if (anim_frame_info(a, k - 1, &pd, &p2, &plx, &ply, &plw, &plh)) {
+        if (p2 == 2) {
+          anim_clear_rect(a, plx, ply, plw, plh);
+        } else if (p2 == 3) {
+          memcpy(a->canvas, a->snap, bytes);
+        }
+      }
+    }
+    int delay = 0;
+    int disposal = 0;
+    int lx = 0, ly = 0, lw = 0, lh = 0;
+    if (!anim_frame_info(a, k, &delay, &disposal, &lx, &ly, &lw, &lh)) {
+      continue;
+    }
+    if (disposal == 3) {
+      memcpy(a->snap, a->canvas, bytes); // 要在画本帧**之前**存
+    }
+    CGImageRef img =
+        CGImageSourceCreateImageAtIndex(a->src, (size_t)k, NULL);
+    if (img != NULL) {
+      int fw = (int)CGImageGetWidth(img);
+      int fh = (int)CGImageGetHeight(img);
+      unsigned char *px = (unsigned char *)malloc((size_t)fw * fh * 4);
+      if (px != NULL) {
+        if (cg_to_rgba(img, px, fw, fh)) {
+          anim_blend(a, px, fw, fh, lx, ly, lw, lh);
+        }
+        free(px);
+      }
+      CGImageRelease(img);
+    }
+    a->canvas_frame = k;
+  }
+}
+
+int64_t img_anim_decode_file(const char *path, int len) {
+  if (path == NULL || len < 1) {
+    return 0;
+  }
+  char buf[4096];
+  if (len >= (int)sizeof(buf)) {
+    return 0;
+  }
+  memcpy(buf, path, (size_t)len);
+  buf[len] = '\0';
+  CFStringRef p = CFStringCreateWithCString(NULL, buf, kCFStringEncodingUTF8);
+  if (p == NULL) {
+    return 0;
+  }
+  CFURLRef url = CFURLCreateWithFileSystemPath(NULL, p, kCFURLPOSIXPathStyle, false);
+  CFRelease(p);
+  if (url == NULL) {
+    return 0;
+  }
+  CGImageSourceRef src = CGImageSourceCreateWithURL(url, NULL);
+  CFRelease(url);
+  if (src == NULL) {
+    return 0;
+  }
+  size_t count = CGImageSourceGetCount(src);
+  if (count < 1 || count > (size_t)IMG_MAX_FRAMES) {
+    CFRelease(src);
+    return 0;
+  }
+  CGImageRef first = CGImageSourceCreateImageAtIndex(src, 0, NULL);
+  if (first == NULL) {
+    CFRelease(src);
+    return 0;
+  }
+  int sw = (int)CGImageGetWidth(first);
+  int sh = (int)CGImageGetHeight(first);
+  CGImageRelease(first);
+  if (sw < 1 || sh < 1) {
+    CFRelease(src);
+    return 0;
+  }
+  int slot = anim_slot();
+  if (slot < 0) {
+    CFRelease(src);
+    return 0;
+  }
+  MacAnim *a = (MacAnim *)calloc(1, sizeof(MacAnim));
+  if (a == NULL) {
+    CFRelease(src);
+    return 0;
+  }
+  size_t bytes = (size_t)sw * (size_t)sh * 4;
+  a->src = src;
+  a->count = (int)count;
+  a->w = sw;
+  a->h = sh;
+  a->canvas = (unsigned char *)calloc(bytes, 1);
+  a->snap = (unsigned char *)malloc(bytes);
+  a->canvas_frame = -1;
+  a->index = 0;
+  if (a->canvas == NULL || a->snap == NULL) {
+    free(a->canvas);
+    free(a->snap);
+    free(a);
+    CFRelease(src);
+    return 0;
+  }
+  img_anims[slot] = a;
+  return (int64_t)slot;
+}
+
+// 单帧（PNG/JPEG 或单帧 GIF）算静图：组件按静帧画，不排自转。
+int img_anim_is_static(int64_t h) {
+  MacAnim *a = anim_of(h);
+  return (a == NULL || a->count <= 1) ? 1 : 0;
+}
+
+int img_anim_w(int64_t h) {
+  MacAnim *a = anim_of(h);
+  return a == NULL ? 0 : a->w;
+}
+
+int img_anim_h(int64_t h) {
+  MacAnim *a = anim_of(h);
+  return a == NULL ? 0 : a->h;
+}
+
+int img_anim_delay_ms(int64_t h) {
+  MacAnim *a = anim_of(h);
+  if (a == NULL) {
+    return 0;
+  }
+  int idx = (int)(((long)a->index % (long)a->count + a->count) % a->count);
+  int ms = (int)(anim_num_or(a->src, idx, kCGImagePropertyGIFDelayTime, 0.1) *
+                 1000.0);
+  return ms > 0 ? ms : 100;
+}
+
+// 单调递增、不回绕：与 Linux/Windows 同口径（组件侧 looping 判据三平台一致）。
+int img_anim_frame(int64_t h) {
+  MacAnim *a = anim_of(h);
+  return a == NULL ? -1 : a->index;
+}
+
+int img_anim_advance(int64_t h) {
+  MacAnim *a = anim_of(h);
+  if (a == NULL || a->count <= 1) {
+    return 0;
+  }
+  a->index = a->index + 1;
+  return 1;
+}
+
+int img_anim_copy(int64_t h, unsigned char *out) {
+  MacAnim *a = anim_of(h);
+  if (a == NULL || out == NULL) {
+    return 0;
+  }
+  int idx = (int)((long)a->index % (long)a->count);
+  anim_render(a, idx);
+  if (a->canvas_frame != idx) {
+    return 0;
+  }
+  // 直通 BGRA → 预乘（本栈 Bitmap 口径），与静态图那条归 Quartz 预乘略有舍入差，
+  // 记档 adaptation.md。
+  size_t n = (size_t)a->w * (size_t)a->h;
+  for (size_t i = 0; i < n; i++) {
+    unsigned char *d = out + i * 4;
+    const unsigned char *s = a->canvas + i * 4;
+    int al = s[3];
+    d[0] = (unsigned char)((s[0] * al + 127) / 255);
+    d[1] = (unsigned char)((s[1] * al + 127) / 255);
+    d[2] = (unsigned char)((s[2] * al + 127) / 255);
+    d[3] = (unsigned char)al;
+  }
+  return 1;
+}
+
+void img_anim_free(int64_t h) {
+  MacAnim *a = anim_of(h);
+  if (a == NULL) {
+    return;
+  }
+  if (a->src != NULL) {
+    CFRelease(a->src);
+  }
+  free(a->canvas);
+  free(a->snap);
+  free(a);
+  img_anims[h] = NULL;
+}
 
 // 落盘（PNG 导出用）：纯写字节，与后端无关，POSIX 路径即可。
 int fsw_write_file(const char *path, int plen, unsigned char *data, int dlen) {

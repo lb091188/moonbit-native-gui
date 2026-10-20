@@ -21,8 +21,9 @@ pub fn view(
   border_color? : String = "",
   align_items? : @yoga.AlignItems = @yoga.AlignItems::Stretch,
   justify_content? : @yoga.JustifyContent = @yoga.JustifyContent::FlexStart,
-  /// 圆角档（0 = 直角；控件自带圆角时传 `@theme.radius_*()` 令牌值），class 可覆写
-  corner_radius? : Double = 0.0,
+  /// 圆角档：默认随控件令牌（开圆角 4、关圆角 0）；传 0 显式直角，class 的
+  /// `border_radius` 可覆写档位。
+  corner_radius? : Double = -1.0,
   class? : Array[@style.Style] = [],
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
@@ -83,10 +84,22 @@ pub fn view(
       let s = @style.style_for(self)
       let bg = @style.color_of(s.background_color, "")
       let bd = @style.color_of(s.border_color, "")
-      let rad = @style.number_of(s.border_radius, 0.0)
-      // 圆角裁切随槽现取（关圆角令牌给 0，这一帧起就不擦）
-      self.clip_rounded = corner_radius > 0.0 || rad > 0.0
-      self.style_clip_radius = if rad > 0.0 { rad } else { corner_radius }
+      let rad0 = @style.number_of(s.border_radius, 0.0)
+      // 圆角兜底：样式槽没给时按 `corner_radius`；再没给（默认 -1）随控件令牌——
+      // 铺底/描边的矩形（含分隔线、卡片内衬这类「所有矩形」）默认跟开关方圆。
+      let rad = if rad0 > 0.0 {
+        rad0
+      } else if corner_radius == 0.0 {
+        0.0
+      } else if corner_radius > 0.0 {
+        corner_radius
+      } else {
+        @theme.radius_ctrl()
+      }
+      // 圆角裁切随槽现取（关圆角令牌给 0，这一帧起就不擦）；只在**本块自己铺底
+      // 或描边**时擦角——纯排版容器（无底无框）不该把贴边的兄弟内容啃掉一角
+      self.clip_rounded = rad > 0.0 && (bg.length() > 0 || bd.length() > 0)
+      self.style_clip_radius = rad
       if bg.length() > 0 {
         p.set_fill_color(bg)
         if rad > 0.0 {
