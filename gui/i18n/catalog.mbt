@@ -244,20 +244,41 @@ fn select_plural(locale : String, n : Int) -> String {
   }
 }
 
-// —— 运行时当前/回退目录（字段可换，绑定不可变）——
+// —— 运行时目录：内置默认（源语言）+ 当前 + 回退 ——
+// 默认语言**内置**：下面这份编译期就写死，应用不加载任何外置文件也能 t() 出中文 chrome。
+// 其它语言是**独立文件**（locales/*.toml），通过 i18n_extend/i18n_load 从外置文件夹读入文本后启用。
+
+const BUILTIN_DEFAULT : String =
+  "[meta]\nlocale = \"default\"\n[gui.ui.dialog]\nconfirm = \"确定\"\ncancel = \"取消\"\n[gui.ui.message_box]\nok = \"确定\"\n[gui.ui.datepicker]\ncancel = \"取消\"\n"
+
+let g_builtin : Catalog = parse_catalog(BUILTIN_DEFAULT)
+
 priv struct Store {
   mut cur : Catalog
   mut fb : Catalog?
 }
 
 let g_store : Store = Store::{
-  cur: { locale: "", texts: [], plurals: [] },
+  cur: g_builtin,
   fb: None,
 }
 
 ///|
-/// 装入当前目录（覆盖）。
+/// 内置默认目录（源语言 chrome），任何查译的最终兜底。
+pub fn builtin_default() -> Catalog {
+  g_builtin
+}
+
+///|
+/// 装入当前目录（覆盖）——应用从外置 locale 文件读到的文本走这里。
 pub fn i18n_load(text : String) -> Unit {
+  g_store.cur = parse_catalog(text)
+}
+
+///|
+/// 扩展一门语言：读入外置 locale 文本并设为当前。语义等同 i18n_load，
+/// 命名点明「默认语言已内置，这是往外挂一门语言」。
+pub fn i18n_extend(text : String) -> Unit {
   g_store.cur = parse_catalog(text)
 }
 
@@ -274,14 +295,29 @@ pub fn i18n_locale() -> String {
 }
 
 ///|
-/// 查译，主目录缺失时退到回退目录。
+/// 复位到「只有内置默认」：清空当前/回退，回到不加载任何外置文件的初始态。
+/// 应用整体换语言前的干净起点，也供测试隔离全局态。
+pub fn i18n_reset() -> Unit {
+  g_store.cur = g_builtin
+  g_store.fb = None
+}
+
+///|
+/// 查译链：当前目录 → 回退目录 → 内置默认目录。
+/// 零外置文件时即命中内置默认，故默认语言无需任何加载就能用。
 pub fn t(key : String) -> String? {
   match find_text(g_store.cur.texts, key) {
     Some(s) => Some(s)
-    None => match g_store.fb {
-      Some(f) => find_text(f.texts, key)
-      None => None
-    }
+    None =>
+      match g_store.fb {
+        Some(f) => {
+          match find_text(f.texts, key) {
+            Some(s) => Some(s)
+            None => find_text(g_builtin.texts, key)
+          }
+        }
+        None => find_text(g_builtin.texts, key)
+      }
   }
 }
 
