@@ -369,13 +369,13 @@
     <h3>历史从哪来</h3>
     <p>不需要手动开一轮测试。「历史」页按「平台 + 应用 + 日期 + commit」自动聚合，把同一天同一版本内的操作汇成一次测试，失败项单列。</p>
     <h3>把失败项交给 AI 修</h3>
-    <p>三个入口都能一键把失败项拼成结构化提示词并复制到剪贴板，直接粘给 AI 对话即可：</p>
+    <p>三个入口都能一键把失败项拼成提示词并复制到剪贴板，直接粘给 AI 对话即可：</p>
     <ul>
       <li>执行页右上的「失败 → AI 提示词」：当前平台 + 当前应用的失败项。</li>
       <li>总览页右上的「全部失败项 → AI 提示词」：三个平台所有失败项，按平台 + 应用分段。</li>
       <li>历史页每张卡片上的「复制为 AI 提示词」：那一次测试的失败项。</li>
     </ul>
-    <p>提示词包含：仓库背景、平台与应用、commit、每条用例的判据与你填的现象备注，以及「现象 → 根因 → 修复方案」的回答格式要求。备注没写的失败项会标注「（未填写）」，记得补上现象再复制。</p>
+    <p>格式刻意保持简短：每个应用一段，开头两行是平台与应用，随后每条失败三行——测试点、测试条目（用例编号）、遇到的问题（即你填的备注，没写会标「（未填写）」）。</p>
     <h3>快捷键</h3>
     <ul>
       <li><kbd>1</kbd> 通过 · <kbd>2</kbd> 失败 · <kbd>3</kbd> 跳过 · <kbd>0</kbd> 清除</li>
@@ -647,66 +647,38 @@
       });
   }
 
-  function promptHeader() {
-    return [
-      '这是 MoonBit 跨平台 GUI 框架 native-gui 的一次真机测试失败记录，请帮我定位与修复。',
-      '',
-      '仓库背景：一套代码直出 Windows / Linux / macOS 原生窗口；库模块在 gui/，被测示例在 examples/，平台适配经验记录在 proposals/adaptation.md，FFI 规范在 .agents/skills/moonbit-c-binding/，链接参数由 gui/scripts/prebuild.py 托管。',
-      ''
-    ].join('\n');
-  }
-
-  function promptSection(p, a, entries, overallNote) {
+  function promptSection(p, a, entries) {
     var plat = PLATFORMS.filter(function (x) { return x.id === p; })[0];
     var app = APPS.filter(function (x) { return x.id === a; })[0];
     var lines = [];
-    lines.push('## 失败项：' + plat.name + ' · ' + app.name);
-    lines.push('- 平台：' + plat.name + '（' + plat.sub + '）');
-    lines.push('- 应用：' + app.name + '（运行命令 `' + app.cmd + '`）');
-    var commits = [];
-    entries.forEach(function (e) { if (e.commit && commits.indexOf(e.commit) < 0) commits.push(e.commit); });
-    if (commits.length) lines.push('- commit：' + commits.join('、'));
-    var dates = [];
-    entries.forEach(function (e) { if (e.d && dates.indexOf(e.d) < 0) dates.push(e.d); });
-    if (dates.length) lines.push('- 记录日期：' + dates.join('、'));
-    if (overallNote) lines.push('- 本轮整体备注：' + overallNote);
-    lines.push('');
-    entries.forEach(function (e, i) {
+    lines.push('- 平台：' + plat.name);
+    lines.push('- 应用：' + app.name);
+    entries.forEach(function (e) {
       var c = CASE_BY_ID[e.id];
       var gname = '';
-      for (var gi = 0; gi < GROUPS.length; gi++) if (GROUPS[gi].id === c.g) gname = GROUPS[gi].name;
-      lines.push((i + 1) + '. ' + e.id + '（' + gname + '）');
-      lines.push('   判据：' + (c ? c.t : ''));
-      lines.push('   现象：' + (e.note || '（未填写）'));
+      for (var gi = 0; gi < GROUPS.length; gi++) if (c && GROUPS[gi].id === c.g) gname = GROUPS[gi].name.replace(/^T\d\s*/, '');
+      lines.push('- 测试点：' + gname);
+      lines.push('- 测试条目：' + e.id);
+      lines.push('- 遇到的问题：' + (e.note || '（未填写）'));
     });
-    lines.push('');
     return lines.join('\n');
   }
 
-  function promptTail() {
-    return [
-      '## 要求',
-      '每条按「现象 → 根因（定位到具体文件与函数）→ 修复方案」回答；如果需要我补跑命令、贴读数或截图，明确列出。修复后我会逐条复测，库门禁是 cd gui && moon check --deny-warn。'
-    ].join('\n');
-  }
-
   function promptFor(p, a, entries) {
-    return promptHeader() + promptSection(p, a, entries, db.notes[currentSessionKey()] || '') + '\n' + promptTail();
+    return promptSection(p, a, entries);
   }
 
   function promptForAll() {
     var parts = [];
-    var total = 0;
     PLATFORMS.forEach(function (p) {
       APPS.forEach(function (a) {
         var fs = failsOf(p.id, a.id);
         if (!fs.length) return;
-        total += fs.length;
         parts.push(promptSection(p.id, a.id, fs));
       });
     });
-    if (!total) return null;
-    return promptHeader() + parts.join('\n---\n\n') + '\n' + promptTail();
+    if (!parts.length) return null;
+    return parts.join('\n\n');
   }
   function currentSessionKey() {
     return sessionKey(ui.platform, ui.app, (db.settings.commit || '').trim(), localDate());
@@ -1196,7 +1168,7 @@
             var res = db.results[key(s.p, s.a, cid)];
             return { id: cid, note: res ? (res.n || '') : '', commit: s.commit, d: s.d };
           });
-          copyText(promptHeader() + promptSection(s.p, s.a, entries, db.notes[s.k] || '') + '\n' + promptTail());
+          copyText(promptSection(s.p, s.a, entries));
           toast('已复制 ' + entries.length + ' 条失败项提示词');
         };
         h.appendChild(aiBtn);
@@ -1455,9 +1427,7 @@
     failsOf: failsOf,
     promptFor: promptFor,
     promptForAll: promptForAll,
-    promptSection: promptSection,
-    promptHeader: promptHeader,
-    promptTail: promptTail
+    promptSection: promptSection
   };
 
   init();
