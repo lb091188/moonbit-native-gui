@@ -112,6 +112,7 @@ pub fn panel(
   padding? : Double = 10.0,
   row_gap? : Double = 6.0,
   width? : Double = 0.0,
+  class? : Array[@style.Style] = [],
 ) -> @widget.Node {
   let body : Array[@widget.Node] = [text(title, font_size=12.0, color="text_secondary")]
   for c in children {
@@ -124,6 +125,7 @@ pub fn panel(
     width=width,
     background_color="bg_panel",
     border_color="border",
+    class=class,
   )
 }
 
