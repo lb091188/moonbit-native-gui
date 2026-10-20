@@ -33,12 +33,34 @@ import subprocess
 import sys
 import tarfile
 import urllib.request
+import zipfile
 
 LIBS = ["libavformat", "libavcodec", "libswscale", "libswresample", "libavutil"]
 PKG = "NoahLiu/ffmpeg-mbt/src"
 
 # 导入库文件名（BtbN 构建无 lib 前缀）；与 LIBS 顺序对应
 WIN_LIBS = ["avformat.lib", "avcodec.lib", "swscale.lib", "swresample.lib", "avutil.lib"]
+
+# 运行期 dll（同一份 BtbN win64-lgpl-shared 9.0 归档的 bin/）。约 150MB，不入库：
+# 构建时缺失就从归档取一份放到 vendor/win/bin/，运行期由使用方放到 exe 同目录
+# 或 PATH（口径见 README）。
+WIN_RUNTIME_DLLS = [
+    "avcodec-63.dll",
+    "avformat-63.dll",
+    "avutil-61.dll",
+    "swscale-10.dll",
+    "swresample-7.dll",
+    "avdevice-63.dll",
+    "avfilter-12.dll",
+]
+
+WIN_DLL_URL = (
+    "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/"
+    "ffmpeg-n9.0-latest-win64-lgpl-shared-9.0.zip"
+)
+
+# 单个 dll 的体积下限：用来判掉残缺/半截文件，不是精确校验。
+WIN_DLL_MIN_BYTES = 100 * 1024
 
 # ---------------------------------------------------------------------------
 # mac vendor 归档（口径与 gui-webview 的 Release 资产同族）：自编 LGPL ffmpeg
@@ -72,6 +94,107 @@ MAC_VENDOR_TARBALLS: dict[str, tuple[str, str]] = {
 
 def win_vendor_dir() -> str:
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "vendor")
+
+
+def win_runtime_dir() -> str:
+    """运行期 dll 的构建期落点（与 mac 的 vendor/mac 对称，同样不进仓库）。"""
+    return os.path.join(win_vendor_dir(), "win", "bin")
+
+
+def win_runtime_ready(bin_dir: str) -> bool:
+    for name in WIN_RUNTIME_DLLS:
+        p = os.path.join(bin_dir, name)
+        if not os.path.isfile(p) or os.path.getsize(p) < WIN_DLL_MIN_BYTES:
+            return False
+    return True
+
+
+def _download(url: str, dest: str) -> bool:
+    try:
+        with urllib.request.urlopen(url, timeout=30) as resp, open(dest, "wb") as fh:
+            total = int(resp.headers.get("Content-Length") or 0)
+            done = 0
+            last = -5
+            while True:
+                chunk = resp.read(1 << 20)
+                if not chunk:
+                    break
+                fh.write(chunk)
+                done += len(chunk)
+                if total:
+                    pct = done * 100 // total
+                    if pct >= last + 5:
+                        last = pct
+                        print(
+                            f"ffmpeg(prebuild): {pct}% "
+                            f"({done // (1 << 20)}/{total // (1 << 20)} MB)",
+                            file=sys.stderr,
+                        )
+    except Exception as e:  # noqa: BLE001——网络失败返回 False，由调用方给手工步骤
+        print(f"ffmpeg(prebuild): 下载失败（{e}）", file=sys.stderr)
+        return False
+    return True
+
+
+def ensure_win_runtime_dlls() -> bool:
+    """构建期把运行期 dll 备到 vendor/win/bin/；就位返回 True。
+
+    缺则取 BtbN 的 win64-lgpl-shared 9.0 归档（与导入库同源）。失败只提示不中断
+    ——导入库链接照旧可用，只是运行期得自行放 dll。CI 已自备 dll 时用
+    NATIVE_GUI_SKIP_VENDOR=1 跳过这次 150MB 下载。
+    """
+    if os.environ.get("NATIVE_GUI_SKIP_VENDOR", "").strip().lower() in ("1", "true", "yes"):
+        print("ffmpeg(prebuild): NATIVE_GUI_SKIP_VENDOR 已设，跳过运行期 dll 准备", file=sys.stderr)
+        return False
+    bin_dir = win_runtime_dir()
+    if win_runtime_ready(bin_dir):
+        return True
+    os.makedirs(bin_dir, exist_ok=True)
+    src = os.environ.get("NATIVE_GUI_FFMPEG_ZIP", "").strip()
+    zip_path = os.path.join(win_vendor_dir(), "win", WIN_DLL_URL.rsplit("/", 1)[-1])
+    if src and os.path.isfile(src):
+        print(f"ffmpeg(prebuild): 用本地归档 {src}", file=sys.stderr)
+        shutil.copyfile(src, zip_path)
+    else:
+        url = src or WIN_DLL_URL
+        print(f"ffmpeg(prebuild): 取运行期 dll {url}", file=sys.stderr)
+        if not _download(url, zip_path):
+            print(
+                "ffmpeg(prebuild): 运行期 dll 未就位——构建仍可完成，但运行前要自备\n"
+                "  avcodec-63.dll 等与 exe 同目录（或 PATH）；离线可用 "
+                "NATIVE_GUI_FFMPEG_ZIP 指本地归档",
+                file=sys.stderr,
+            )
+            return False
+    try:
+        with zipfile.ZipFile(zip_path) as zf:
+            names = {
+                n.rsplit("/", 1)[-1]: n
+                for n in zf.namelist()
+                if "/bin/" in n and n.rsplit("/", 1)[-1] in WIN_RUNTIME_DLLS
+            }
+            for name, member in names.items():
+                with zf.open(member) as f, open(os.path.join(bin_dir, name), "wb") as out:
+                    shutil.copyfileobj(f, out)
+    except (zipfile.BadZipFile, OSError) as e:
+        print(f"ffmpeg(prebuild): 解包失败（{e}）", file=sys.stderr)
+        return False
+    finally:
+        try:
+            os.remove(zip_path)
+        except OSError:
+            pass
+    ok = win_runtime_ready(bin_dir)
+    if ok:
+        print(
+            f"ffmpeg(prebuild): 运行期 dll 已就位 {bin_dir}\n"
+            "  运行前把它们放到 exe 同目录（native-gui 仓库可跑 "
+            "python scripts/win_ffmpeg_dll.py 代劳）",
+            file=sys.stderr,
+        )
+    else:
+        print("ffmpeg(prebuild): 归档里没找齐 7 个运行期 dll", file=sys.stderr)
+    return ok
 
 
 def mac_vendor_dir() -> str:
@@ -395,11 +518,7 @@ def main() -> int:
             "ffmpeg(prebuild): Windows 走 vendor 导入库（BtbN lgpl-shared）",
             file=sys.stderr,
         )
-        print(
-            "ffmpeg(prebuild): 运行期需 avcodec-63.dll 等与 exe 同目录、或放进 PATH"
-            "（缺则加载期起不来）",
-            file=sys.stderr,
-        )
+        ensure_win_runtime_dlls()
         emit(
             {
                 "vars": {"FFMPEG_INC": inc_norm, "FFMPEG_STUB_CC": "/utf-8"},

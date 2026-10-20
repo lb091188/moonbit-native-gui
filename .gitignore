@@ -32,6 +32,8 @@
 # modules/ffmpeg-mbt/scripts/make_mac_ffmpeg_vendor.sh;vendor/ 根级其余内容
 # 是 Windows 的入库 vendor,勿动)
 /modules/ffmpeg-mbt/vendor/mac/
+# Windows 运行期 dll 的 prebuild 落点(约 150MB,构建时缺则从 BtbN 归档取)
+/modules/ffmpeg-mbt/vendor/win/
 # 制作脚本的本地产物目录(正式产物经 CI workflow 上传 artifact→Release,勿入库)
 /modules/ffmpeg-mbt/dist/
 

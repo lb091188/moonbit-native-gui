@@ -29,7 +29,9 @@ moon run examples/video
 
 把 dll 放到 **exe 同目录**或**加进 PATH** 即可（大版本须与 `vendor/` 导入库一致，取自同一份 BtbN/gyan win64-lgpl-shared 构建的 `bin/`）。
 
-**一条命令补齐（推荐）**：仓库自带 `scripts/win_ffmpeg_dll.py`，按「exe 同目录 → PATH → winget → scoop → 本地缓存 → 下载 BtbN 归档」的顺序找一份配套 dll，复制到 exe 旁；缺 exe 时先自动 `moon build`，`--run` 补完直接启动：
+**dll 从哪来**：`ffmpeg-mbt` 的 prebuild 在 Windows 构建时会先看 `modules/ffmpeg-mbt/vendor/win/bin`（与 macOS 的 `vendor/mac` 对称，都不入库），缺则从 BtbN 的 `win64-lgpl-shared 9.0` 归档取一份解到那儿（约 150MB，进度打在构建日志里；离线可 `NATIVE_GUI_FFMPEG_ZIP=<本地 zip>` 指过去，CI 已自备 dll 时用 `NATIVE_GUI_SKIP_VENDOR=1` 跳过）。
+
+**搬到 exe 旁**：产物目录由 moon 决定，dll 必须与 exe 同目录才加载得到，一条命令代劳（缺 exe 时先自动 `moon build`，`--run` 补完直接启动）：
 
 ```sh
 python scripts/win_ffmpeg_dll.py                 # audio + video 一起补齐
@@ -39,7 +41,7 @@ python scripts/win_ffmpeg_dll.py --dll-dir D:\ffmpeg\bin   # 手头已有 bin �
 python scripts/win_ffmpeg_dll.py --dry-run       # 只打印计划，不动文件
 ```
 
-`moon clean` 清掉 `_build` 后需要重跑一次（dll 跟着 exe 目录走）。
+来源顺序：`--dll-dir` → exe 同目录 → prebuild 落点 → PATH → winget → scoop → 旧缓存。`moon clean` 清掉 `_build` 后需要重跑一次（dll 跟着 exe 目录走）。
 
 **手工路径（脚本取不到来源时）**：
 
