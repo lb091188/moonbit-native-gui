@@ -164,7 +164,7 @@ fn chip(
     ) -> Unit {
       let s = @style.style_for(self)
       p.set_fill_color(@style.color_of(s.background_color, ""))
-      p.fill_rect(0.0, 0.0, r.w, r.h)
+      p.fill_round_rect(0.0, 0.0, r.w, r.h, @style.number_of(s.border_radius, @theme.radius_ctrl()))
       let _ = @text.draw_at(
         p,
         (r.w - tw.val) / 2.0,
@@ -409,8 +409,9 @@ fn avatar_of(
       r : @base.Rect,
     ) -> Unit {
       let s = @style.style_for(self)
+      // 头像=正圆（badge 同款几何形态：按半径一半取圆，不随圆角开关变方）
       p.set_fill_color(@style.color_of(s.background_color, ""))
-      p.fill_rect(0.0, 0.0, r.w, r.h)
+      p.fill_round_rect(0.0, 0.0, r.w, r.h, (r.w / 2.0).min(@style.number_of(s.border_radius, r.w / 2.0)))
       let tw = text_width(ch.val, font)
       let th = @text.line_height_font(font).unwrap_or(14).to_double()
       let _ = @text.draw_at(p, (r.w - tw) / 2.0, (r.h - th) / 2.0, ch.val, font, @style.color_of(s.color, ""))
@@ -1001,7 +1002,7 @@ pub fn carousel(
         ) -> Unit {
           if self.hovered {
             p.set_fill_color(@theme.theme_fill_hover())
-            p.fill_rect(0.0, 0.0, r.w, r.h)
+            p.fill_round_rect(0.0, 0.0, r.w, r.h, @theme.radius_ctrl())
           }
           let cx = r.w / 2.0
           let cy = r.h / 2.0
@@ -1065,7 +1066,8 @@ pub fn carousel(
               @theme.theme_border()
             },
           )
-          p.fill_rect(0.0, 0.0, r.w, r.h)
+          // 指示点=正圆（自带几何形态，不随圆角开关变方）
+          p.fill_round_rect(0.0, 0.0, r.w, r.h, (r.w / 2.0).min(4.0))
         })
         dot.cursor = @widget.CURSOR_HAND
         dot.on_pointer = Some(fn(

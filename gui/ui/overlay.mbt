@@ -145,15 +145,16 @@ fn menu_row(
     ) -> Unit {
       let st = @style.style_for(self)
       let act = selected()
+      // 行高亮内缩 2px 走圆角（与下拉候选行同口径，贴边会被浮层圆角裁出缺口）
       if act {
         p.set_fill_color(@theme.theme_primary_light())
-        p.fill_rect(0.0, 0.0, r.w, r.h)
+        p.fill_round_rect(2.0, 0.0, (r.w - 4.0).max(1.0), r.h, @theme.radius_ctrl())
       } else {
         // 悬停底来自 hover 桶：没给就是不铺底
         let bg = @style.color_of(st.background_color, "")
         if bg.length() > 0 {
           p.set_fill_color(bg)
-          p.fill_rect(0.0, 0.0, r.w, r.h)
+          p.fill_round_rect(2.0, 0.0, (r.w - 4.0).max(1.0), r.h, @theme.radius_ctrl())
         }
       }
       let _ = @text.draw_box_at(

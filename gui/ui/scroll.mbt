@@ -102,12 +102,13 @@ fn scroll_bar(state : ScrollState) -> @widget.Widget {
     // 只在真能滚的时候画（拇指长度按视口/内容比例）
     if ch > vh && vh > 0.0 {
       p.set_fill_color(@theme.theme_fill_zebra())
-      p.fill_rect(0.0, 0.0, r.w, r.h)
+      p.fill_round_rect(0.0, 0.0, r.w, r.h, r.w / 2.0)
       let thumb = (r.h * vh / ch).max(16.0)
       let travel = (r.h - thumb).max(0.0)
       let ratio = state.offset / (ch - vh)
       p.set_fill_color(@theme.theme_border())
-      p.fill_rect(1.0, ratio * travel, r.w - 2.0, thumb)
+      // 拇指胶囊形（几何取圆，不随圆角开关变方）
+      p.fill_round_rect(1.0, ratio * travel, r.w - 2.0, thumb, (r.w - 2.0) / 2.0)
     }
   })
   bar.on_pointer = Some(fn(

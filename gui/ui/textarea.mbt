@@ -293,8 +293,9 @@ pub fn textarea(
       st.view_h = (r.h - pad).max(1.0)
       st.content_h = lines.length().to_double() * line_h + pad * 2.0
       let sty = @style.style_for(self)
+      let rad = @style.number_of(sty.border_radius, @theme.radius_ctrl())
       p.set_fill_color(@style.color_of(sty.background_color, @theme.theme_bg_panel()))
-      p.fill_rect(0.0, 0.0, r.w, r.h)
+      p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
       let sel = ed.selection()
       let caret = ed.caret_pos()
       for i = 0; i < lines.length(); i = i + 1 {
@@ -353,7 +354,12 @@ pub fn textarea(
       // 焦点框色由 focus 桶供（样式没给就回落主题描边色）
       p.set_stroke_color(@style.color_of(sty.border_color, @theme.theme_border()))
       p.set_line_width(@style.number_of(sty.border_width, 1.0))
-      p.stroke_rect(0.0, 0.0, r.w, r.h)
+      if rad > 0.0 {
+        p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
+        p.stroke()
+      } else {
+        p.stroke_rect(0.0, 0.0, r.w, r.h)
+      }
     })
     w.on_key = Some(fn(ev : @widget.KeyEvent) -> Bool {
       if !ev.press || off.off {
