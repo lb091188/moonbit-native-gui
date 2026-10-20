@@ -60,7 +60,7 @@
 | `radio_group(options : Array[String], state : Store[Int], disabled?, direction?=Row, gap?=12.0, class?)` | 单选组：`options` 依次对应值 0..n-1；空格/回车选中本项、方向键换选、到头环绕 |
 | `switch(state : Store[Bool], on_text?, off_text?, disabled?, focus_id?, class?)` | 开关：40×20 胶囊 + 16 圆滑珠，可带开/关文案；空格/回车切换 |
 | `slider(state : Store[Double], min?=0.0, max?=100.0, step?=0.0, width?=160.0, disabled?, focus_id?, class?, handle?)` | 滑块：按下即取值、拖动跟手、`step>0` 吸附；方向键步进、Home/End 到端 |
-| `stepper(state : Store[Int], min?=0, max?=999, step?=1, focus_id?, class?)` | 数值步进器 `[-] 值 [+]`，共框三段、触界侧自动禁用；方向键增减 |
+| `stepper(state : Store[Int], min?=0, max?=999, step?=1, focus_id?, class?)` | 数值步进器 `[-] 值 [+]`，共框三段、中间格可直接打字（只收数字，回车或失焦才回写并夹取）、触界侧自动禁用；↑/↓ 增减，←/→ 移光标 |
 | `select(options : Array[String], value : Store[String], on_change?, …)` | 下拉选择，唯一入口、可输入形态走 `editable=true`：弹层在浮层图层，↑↓ 高亮 + 回车取 + Esc 收 |
 | `color_picker(value : Store[String], colors?=[内置 15 色], on_change?, …)` | 取色器：字段 + 色板网格；回车开板、←/→ 移一格、↑/↓ 移行、回车取色 |
 | `rate(value : Store[Int], max?=5, on_change?, …)` | 评分：矢量五角星 + 悬停预亮；方向键加减星、Home/End 清零/打满 |
