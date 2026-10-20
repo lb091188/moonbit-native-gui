@@ -58,3 +58,25 @@ pub fn App::toast_push(self : App, text : String, t : @ui.SemanticType) -> Unit 
 pub fn t(key : String) -> String {
   @i18n.t_or(key, key)
 }
+
+///|
+/// 带中文默认的取译：英文态命中目录，中文态（目录清空）回落 `zh`。
+pub fn tr(key : String, zh : String) -> String {
+  @i18n.t_or(key, zh)
+}
+
+///|
+/// 侧栏页名：键 = "nav." + 中文页名；中文态回落中文页名本身。
+pub fn nav_label(page_key : String) -> String {
+  @i18n.t_or("nav." + page_key, page_key)
+}
+
+///|
+/// 切当前语言的目录：en 载入英文目录，其余复位到内置中文默认。
+pub fn set_locale_catalog(locale : String) -> Unit {
+  if locale == "en" {
+    @i18n.i18n_load(EN_CATALOG)
+  } else {
+    @i18n.i18n_reset()
+  }
+}
