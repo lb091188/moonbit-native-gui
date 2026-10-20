@@ -317,3 +317,26 @@ pub fn t_count(key : String, n : Int) -> String? {
     }
   }
 }
+
+///|
+/// 行为不变取译：目录里有该键就用译文，否则用调用方给的字面量默认值。
+/// 框架 chrome 文案用它——不加载目录时与旧硬编码逐字一致，加载了才本地化。
+pub fn t_or(key : String, default : String) -> String {
+  match t(key) {
+    Some(s) => s
+    None => default
+  }
+}
+
+///|
+/// 带插值的行为不变取译。
+pub fn t_with_or(
+  key : String,
+  vars : Array[(String, String)],
+  default : String,
+) -> String {
+  match t_with(key, vars) {
+    Some(s) => s
+    None => default
+  }
+}

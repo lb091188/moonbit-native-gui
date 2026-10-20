@@ -18,4 +18,5 @@ import {
   "NoahLiu/native-gui/text",
   "NoahLiu/native-gui/theme",
   "NoahLiu/native-gui/style",
+  "NoahLiu/native-gui/i18n" @i18n,
 }
