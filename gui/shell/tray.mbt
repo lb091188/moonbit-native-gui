@@ -166,6 +166,17 @@ fn builtin_tray_handle() -> Int {
     return g_builtin_icon.val
   }
   let (w, h, argb) = @dbus.default_icon_pixmap()
+  let handle = argb_to_icon_handle(argb, w, h)
+  if handle > 0 {
+    g_builtin_icon.val = handle
+  }
+  handle
+}
+
+///|
+/// 大端 ARGB（不预乘，SNI 规范口径）→ `icon_from_bgra` 要的 BGRA 小端预乘句柄。
+/// 尺寸非正或像素不够给 0（调用方据此保持原图标）。
+fn argb_to_icon_handle(argb : Bytes, w : Int, h : Int) -> Int {
   let n = w * h
   if n <= 0 || argb.length() < n * 4 {
     return 0
@@ -181,14 +192,51 @@ fn builtin_tray_handle() -> Int {
     px[o + 3] = argb[o] // A
     i += 1
   }
-  let handle = match @win.icon_from_bgra(px, w, h) {
+  match @win.icon_from_bgra(px, w, h) {
     Some(ic) => ic.handle
     None => 0
   }
-  if handle > 0 {
-    g_builtin_icon.val = handle
+}
+
+///|
+/// 换图标（自绘位图）。`argb` 是 SNI 口径的 32 位大端 ARGB、不预乘，
+/// `n = w * h` 个像素、每像素 4 字节（`R G B A` 顺序）——Win/mac 侧内部换成
+/// BGRA 小端预乘再建原生句柄，SNI 侧直接进 `IconPixmap` 并发
+/// `NewIcon`。像素不合法（尺寸非正或字节不够）时静默保持原图标。
+pub fn Tray::set_icon_pixmap(self : Tray, w : Int, h : Int, argb : Bytes) -> Unit {
+  match self.backend {
+    Native(slot) => {
+      let handle = argb_to_icon_handle(argb, w, h)
+      if handle > 0 {
+        @win.tray_set_icon(slot, handle)
+      }
+    }
+    Sni(item) => {
+      let n = w * h
+      if n > 0 && argb.length() >= n * 4 {
+        item.set_pixmap(w, h, argb)
+        item.emit_new_icon()
+      }
+    }
   }
-  handle
+}
+
+///|
+/// 回到库内置月牙（与 `Tray::new` 不给图标时同一张脸，三平台同形）。
+pub fn Tray::set_icon_builtin(self : Tray) -> Unit {
+  match self.backend {
+    Native(slot) => {
+      let handle = builtin_tray_handle()
+      if handle > 0 {
+        @win.tray_set_icon(slot, handle)
+      }
+    }
+    Sni(item) => {
+      let (w, h, argb) = @dbus.default_icon_pixmap()
+      item.set_pixmap(w, h, argb)
+      item.emit_new_icon()
+    }
+  }
 }
 
 let g_builtin_icon : Ref[Int] = Ref(0)

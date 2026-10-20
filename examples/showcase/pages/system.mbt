@@ -24,21 +24,6 @@ fn dialog_parent(a : @widget.App) -> Int64 {
 }
 
 ///|
-/// 托盘派发表：挂上就跑，200ms 一拍自重排（宿主退出后 timer 自然不再响）。
-/// 命中左键/菜单项都在 dispatch 里派发，回调即页内计数。
-fn tray_poll_loop() -> Unit {
-  let tick : Ref[() -> Unit] = Ref(fn() { () })
-  tick.val = fn() -> Unit {
-    let _ = @shell.dispatch_tray_event()
-    match @widget.host_active() {
-      Some(a) => ignore(a.timer(200, tick.val))
-      None => ()
-    }
-  }
-  (tick.val)()
-}
-
-///|
 /// 「用指定程序打开」的演示对象：Windows 记事本、Linux gedit、macOS 给
 /// TextEdit 的可执行路径（这一档按 argv 直传，`open -a 应用名` 那种形态随
 /// mac 平台批再接）。挑不到的平台给空串，按钮直接演示 SpawnFailed。
@@ -52,45 +37,36 @@ fn open_probe_app() -> String {
 }
 
 ///|
-/// 托盘错误 → 可读串（TrayError 三档：没后端 / 图标没建成 / 后端具体失败）。
-fn tray_err_text(e : @shell.TrayError) -> String {
-  match e {
-    @shell.TrayError::Unsupported => @shared.tx("本平台没有托盘后端")
-    @shell.TrayError::IconLoadFailed => @shared.tx("图标加载失败")
-    @shell.TrayError::Backend(msg) => @shared.tr_with(
-        "dyn.tray_backend_failed",
-        [("m", msg)],
-        "托盘后端失败：\{msg}",
-      )
-  }
-}
-
-///|
-/// 托盘句柄与左键计数放进程级：切语言会原地重挂本页，页内局部 `Ref` 每次重挂都
-/// 换一个新的，旧句柄就成了孤儿（图标还在、按钮却管不着它）。
-let tray_holder : Ref[@shell.Tray?] = Ref(None)
-
-let tray_clicks : @base.Store[Int] = @base.Store::new(0)
-
-///|
-/// 托盘右键菜单（每次重建，取串口跟着当前语言）：菜单项点击经同一条
-/// `dispatch_menu_command` 派发链回到回调（main 挂了表）。
-fn tray_menu_of(app : @shared.App) -> @shell.Menu {
-  let menu = @shell.Menu::new(title=@shared.tx("托盘"))
-  let _ = menu.add_item(@shared.tx("冒个提示")).set_on_click(fn() {
-    app.toast_push(@shared.tx("来自托盘菜单"), @ui.Info)
-  })
-  let _ = menu.add_item(@shared.tx("回首页")).set_on_click(fn() {
-    app.selected.set("基础组件")
-  })
-  let _ = menu.add_separator()
-  let _ = menu.add_item(@shared.tx("退出")).set_on_click(fn() {
-    match app.host.val {
-      Some(a) => a.quit()
-      None => ()
-    }
-  })
-  menu
+/// 自绘档演示位图：32×32 实心琥珀圆，SNI 口径的大端 ARGB（每像素 `A R G B`）。
+/// 同一份字节交给 Win/mac 时由库内转成 BGRA 小端预乘，三平台拿到同一张脸。
+fn amber_pixmap() -> (Int, Int, Bytes) {
+  let w = 32
+  let h = 32
+  let r = 14.0
+  (
+    w,
+    h,
+    Bytes::makei(
+      w * h * 4,
+      fn(i) {
+        let px = i / 4
+        let x = (px % w).to_double() - 15.5
+        let y = (px / w).to_double() - 15.5
+        let off = i % 4
+        if x * x + y * y > r * r {
+          b'\x00'
+        } else if off == 0 {
+          b'\xff' // A
+        } else if off == 1 {
+          b'\xe8' // R
+        } else if off == 2 {
+          b'\xa3' // G
+        } else {
+          b'\x17' // B
+        }
+      },
+    ),
+  )
 }
 
 ///|
@@ -117,8 +93,6 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
   let cb_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没动过剪贴板）"))
   let timer_out : @base.Store[String] = @base.Store::new(@shared.tx("（表未起）"))
   let ticks : @base.Store[Int] = @base.Store::new(0)
-  let tray_note : @base.Store[String] = @base.Store::new(@shared.tx("（还没建托盘）"))
-  // 句柄与计数在模块级（见 tray_holder 处的说明）
   let auto_state : @base.Store[String] = @base.Store::new(@shared.tx("（未读）"))
   let ext_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没打开过外部）"))
   let si_out : @base.Store[String] = @base.Store::new(@shared.tx("（点「刷新」读一次）"))
@@ -412,96 +386,66 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
     @shared.section(
       "托盘",
       "系统托盘",
-      "托盘图标左键计数、右键弹菜单（「挂菜单」后）；dispatch 走 200ms 轮询表（宿主循环没有每帧钩子）。图标不传就用库内置月牙，三平台同一张脸；要换自己的一档，`@win.icon_from_bgra` 现建 32px BGRA 预乘位图照传。菜单复用 W20a 菜单模型。",
+      "托盘是应用级单例：由 main 在挂载期建好、默认挂上右键菜单并接左键计数，这一页只做「换提示 / 换图标」这类操作。句柄放页里不行——切语言会原地重挂本页，页内 Ref 每挂一次换一个新的，旧图标就成孤儿。提示语与菜单都登记在语言口上，换语言随广播重算；派发表也归 main（200ms 一拍，起表时宿主已就绪）。图标不传就是库内置月牙，三平台同一张脸。",
       [
-        // 零尺寸挂载钩子：建托盘（启动即出图标）在构造期，派发表起表必须挂
-        // 真·挂载时机（Node::on_mount）——node_of_new 的 finish 是构造期执行，
-        // 那时宿主还没建好，tray_poll_loop 首拍读到 @widget.host_active() 为 None
-        // 就永久不再重排，之后左右键事件全压在队列里没人抽，右键「自动弹出已挂
-        // 的菜单」也走不到；真机表现正是「图标在、点了没反应、菜单弹不出」。
-        // （与快捷键页轮询表、图表页推点同一条坑的第 3 处。）
-        @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
-          // 接线：提示语走语言口，左键回调指到本页的显示串上。
-          fn wire(t : @shell.Tray) -> Unit {
-            t.set_tooltip_localized(
-              fn() -> String { @shared.tx("libyue 演示板") },
-              fn() -> String { @shared.tx("左键计数 · W 族门面") },
-            )
-            t.on_click(fn() {
-              tray_clicks.update(fn(n) { n + 1 })
-              app.toast_push(@shared.tx("托盘左键被点了"), @ui.Info)
-            })
-          }
-
-          // 切语言会重挂本页：进程级 tray_holder 有货就复用同一枚图标，只重接线。
-          // 再建一次会多出一枚同 Id 托盘、旧句柄没人管（僵尸注册项那一条坑）。
-          match tray_holder.val {
-            Some(t) => wire(t)
-            // 不传图标：三平台都是库内置的那枚月牙（Linux SNI 读内置位图，
-            // Win/mac 走同一份位图建的句柄）。要换自己的一档就 `icon_from_bgra`
-            // 现建 32px BGRA 预乘位图照传；`wm_icon_from_bgra` 在 GTK 分支是失败
-            // 桩，所以拿到什么照传、拿不到也照建（旧写法把整段挂在 icon 成功之后，
-            // 于是 Linux 上托盘根本没起过）。
-            None =>
-            match @shell.Tray::new("libyue-showcase-tray") {
-              Ok(t) => {
-                wire(t)
-                tray_holder.val = Some(t)
-                tray_note.set(@shared.tr_with("dyn.tray_created", [("b", t.backend_name())], "已建（\{t.backend_name()}）"))
-              }
-              Err(e) => tray_note.set(tray_err_text(e))
-            }
-          }
-          w
-        }).on_mount(fn() -> Unit {
-          tray_poll_loop()
-        }),
         @ui.row(
           [
             @ui.button(@shared.tx("改提示"), variant=@ui.Soft, on_click=fn() {
-              match tray_holder.val {
+              match app.tray.val {
                 Some(t) => {
                   // 重新登记取串口：文案随语言、计数随左键一起走
                   t.set_tooltip_localized(
                     fn() -> String { @shared.tx("libyue 演示板") },
-                    fn() -> String { @shared.tr_with("dyn.tray_tooltip", [("n", tray_clicks.get().to_string())], "提示已改 · \{tray_clicks.get()} 次左键") },
+                    fn() -> String { @shared.tr_with("dyn.tray_tooltip", [("n", app.tray_clicks.get().to_string())], "提示已改 · \{app.tray_clicks.get()} 次左键") },
                   )
-                  tray_note.set(@shared.tx("提示已改（悬停托盘图标可见）"))
+                  app.tray_note.set(@shared.tx("提示已改（悬停托盘图标可见）"))
                 }
-                None => tray_note.set(@shared.tx("托盘未建，改不了提示"))
+                None => app.tray_note.set(@shared.tx("本平台没有托盘后端"))
               }
             }),
-            // 右键菜单：复用 W20a 菜单模型（Tray::set_menu_localized），
-            // 菜单项点击经同一条 dispatch_menu_command 派发链回到回调（main 挂了表）
-            @ui.button(@shared.tx("挂菜单"), variant=@ui.Soft, on_click=fn() {
-              match tray_holder.val {
+            @ui.button(@shared.tx("换自绘图标"), variant=@ui.Soft, on_click=fn() {
+              match app.tray.val {
                 Some(t) => {
-                  t.set_menu_localized(fn() -> @shell.Menu { tray_menu_of(app) })
-                  tray_note.set(@shared.tx("菜单已挂（右键托盘图标）"))
+                  let (w, h, px) = amber_pixmap()
+                  t.set_icon_pixmap(w, h, px)
+                  app.tray_note.set(@shared.tx("图标已换成自绘琥珀圆"))
                 }
-                None => tray_note.set(@shared.tx("托盘未建，挂不了菜单"))
+                None => app.tray_note.set(@shared.tx("本平台没有托盘后端"))
+              }
+            }),
+            @ui.button(@shared.tx("回内置图标"), variant=@ui.Text, on_click=fn() {
+              match app.tray.val {
+                Some(t) => {
+                  t.set_icon_builtin()
+                  app.tray_note.set(@shared.tx("图标已回库内置月牙"))
+                }
+                None => app.tray_note.set(@shared.tx("本平台没有托盘后端"))
               }
             }),
           ],
           column_gap=8.0,
         ),
-        @ui.bind_label(tray_note, fn(s) { s }),
-        @ui.bind_label(tray_clicks, fn(n) { @shared.tr_with("dyn.left_clicks", [("n", n.to_string())], "左键 \{n} 次") }),
+        @ui.bind_label(app.tray_note, fn(s) { s }),
+        @ui.bind_label(app.tray_clicks, fn(n) { @shared.tr_with("dyn.left_clicks", [("n", n.to_string())], "左键 \{n} 次") }),
       ],
       code=[
-        "// 不传 icon = 库内置月牙；自绘档走",
-        "// @win.icon_from_bgra(px32_bgra_premul, 32, 32)",
+        "// 建托盘（main 挂载期，应用级单例）：不传 icon = 库内置月牙",
         "match @shell.Tray::new(\"libyue-showcase-tray\") {",
         "  Ok(t) => {",
-        "    t.set_tooltip(\"libyue 演示板\", \"左键计数\")",
-        "    t.on_click(fn() { clicks.val = clicks.val + 1 })",
-        "    // 右键菜单：菜单模型翻译成弹出菜单挂上，",
-        "    // 选中项经 dispatch_menu_command 回到 on_click",
-        "    t.set_menu(menu)",
+        "    // 提示语/右键菜单登记进语言口：换语言随广播重算",
+        "    t.set_tooltip_localized(",
+        "      fn() { \"libyue 演示板\" },",
+        "      fn() { \"左键计数 · W 族门面\" },",
+        "    )",
+        "    t.set_menu_localized(fn() { menu })",
+        "    t.on_click(fn() { clicks.update(fn(n) { n + 1 }) })",
         "  }",
         "  Err(e) => ...",
         "}",
-        "// 派发表：宿主循环没有每帧钩子，示例自挂 200ms 表",
+        "// 换图标：大端 ARGB 自绘位图（Win/mac 内部转 BGRA 预乘）",
+        "t.set_icon_pixmap(32, 32, argb_bytes)",
+        "t.set_icon_builtin() // 回库内置月牙",
+        "// 派发表：宿主循环没有每帧钩子，200ms 一拍",
         "let _ = @shell.dispatch_tray_event()",
       ],
     ),

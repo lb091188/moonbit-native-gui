@@ -5,6 +5,7 @@ import {
 
   "NoahLiu/native-gui/ui",
   "NoahLiu/native-gui/sys",
+  "NoahLiu/native-gui/shell" @shell,
   "NoahLiu/native-gui/style" @style,
   "NoahLiu/native-gui/i18n" @i18n,
   "NoahLiu/yoga-mbt/src" @yoga,

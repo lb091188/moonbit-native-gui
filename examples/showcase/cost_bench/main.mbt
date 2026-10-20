@@ -214,6 +214,10 @@ fn headless_app() -> @shared.App {
     dlg_result: @base.Store::new(""),
     flat: @base.Store::new(false),
     host: Ref(None),
+    // 托盘归 main（无头 bench 不建托盘，句柄槽留空）
+    tray: Ref(None),
+    tray_clicks: @base.Store::new(0),
+    tray_note: @base.Store::new(""),
   }
 }
 
