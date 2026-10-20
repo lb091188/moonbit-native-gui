@@ -139,6 +139,9 @@ pub(all) struct Widget {
   mut im_cursor : Option[(Widget) -> Rect?]
   /// 焦点栈里的 id（0 = 不参与键盘焦点）
   mut focus_id : Int
+  /// 「点它不让位」：宿主点击让位（blur）语义会跳过命中链上带这个标记的区域。
+  /// 给复合控件的附属小件用（步进器的 +/- 格）：点它只是操作，不抢输入格的焦点。
+  mut keep_focus_on_click : Bool
   /// 光标形状请求（0 = 不请求，用默认箭头；1 手型 / 2 文本 I 形 / 3 横向调整 /
   /// 4 纵向调整）。全自绘栈没有原生控件，形状由宿主按命中路径下发：取悬停路径上
   /// **最深的那个非零请求**，所以包住一整组的 `cursor_group` 会自然回退生效。
@@ -212,6 +215,7 @@ pub fn Widget::new() -> Widget {
     im_context: None,
     im_cursor: None,
     focus_id: 0,
+    keep_focus_on_click: false,
     cursor: 0,
     cursor_fn: None,
     drag_payload: None,
@@ -514,6 +518,12 @@ pub fn Widget::focusable_at(self : Widget, x : Double, y : Double) -> Int? {
     }
   }
   None
+}
+
+///|
+/// 命中链上（含祖先）是否有「点它不让位」的控件——宿主让位（blur）前查这道。
+pub fn Widget::keep_focus_at(self : Widget, x : Double, y : Double) -> Bool {
+  self.hit_path(x, y).exists(w => w.keep_focus_on_click)
 }
 
 ///|

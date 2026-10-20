@@ -207,13 +207,30 @@ pub fn input(
       }
       let txt = show_text()
       let pe = ed.preedit_text()
+      // 样式槽给了居中就把绘制起点挪到盒中线（光标/选区仍按左对齐口径，
+      // 短数字格的显示居中就够用）
+      let cen = match st.text_align {
+        Some(@text.TextAlign::Center) => true
+        _ => false
+      }
+      let draw_x = fn(s : String) -> Double {
+        if cen {
+          let sw = match @text.measure_font(s, font) {
+            Some(m) => m.width.to_double()
+            None => 0.0
+          }
+          ((r.w - sw) / 2.0).max(pad)
+        } else {
+          pad
+        }
+      }
       // 占位符只在「没文本且没组合串」时画：少了组合串这一条，空框里打拼音
       // 屏幕上什么都不出现（组合照常在走），看起来就是「打不进字」——真机踩到。
       if txt.length() == 0 && ph.length() > 0 && pe.length() == 0 {
-        let _ = @text.draw_at(p, pad, ty, ph, font, @theme.theme_text_secondary())
+        let _ = @text.draw_at(p, draw_x(ph), ty, ph, font, @theme.theme_text_secondary())
       } else {
         if txt.length() > 0 {
-          let _ = @text.draw_at(p, pad, ty, txt, font, if off.off {
+          let _ = @text.draw_at(p, draw_x(txt), ty, txt, font, if off.off {
             @theme.theme_text_secondary()
           } else {
             @style.color_of(st.color, @theme.theme_text_regular())

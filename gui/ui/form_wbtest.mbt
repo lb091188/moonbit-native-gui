@@ -1449,3 +1449,39 @@ test "开关 on_change：用户拨动才回调，外部写值不回调" {
   on.set(false)
   assert_eq(hits.val, 1)
 }
+
+///|
+test "步进器：+/- 格声明点它不让位（宿主 blur 语义跳过），中间格独占焦点号" {
+  let st = @base.Store::new(5)
+  let root = mount_root([stepper(st)], 260.0, 60.0)
+  let row = kid(root, 0)
+  let cell = row.children()[1]
+  let minus = row.children()[0]
+  let plus = row.children()[2]
+  assert_eq(minus.focus_id, 0)
+  assert_eq(minus.keep_focus_on_click, true)
+  assert_eq(plus.keep_focus_on_click, true)
+  let _ = root.set_focused_by_focus(cell.focus_id)
+  let _ = root.dispatch_pointer_to(minus.id, {
+    kind: @widget.PointerKind::Down, x: 4.0, y: 4.0, button: 1, mods: 0,
+  })
+  let _ = root.dispatch_pointer_to(minus.id, {
+    kind: @widget.PointerKind::Up, x: 4.0, y: 4.0, button: 1, mods: 0,
+  })
+  assert_eq(st.get(), 4)
+  assert_eq(cell.focused, true)
+}
+
+///|
+test "链接：自动领号进 Tab 链，空格/回车激活" {
+  let hits = Ref(0)
+  let root = mount_root([link("点我", fn() { hits.val += 1 })], 120.0, 30.0)
+  let a = kid(root, 0)
+  assert_true(a.focus_id != 0)
+  let _ = root.set_focused_by_focus(a.focus_id)
+  assert_eq(a.focused, true)
+  key(root, a, @base.KS_RETURN, 0)
+  assert_eq(hits.val, 1)
+  key(root, a, @base.KS_SPACE, 0)
+  assert_eq(hits.val, 2)
+}

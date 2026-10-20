@@ -149,3 +149,19 @@ test "点空白与点到非焦点区不抢焦点、不改栈" {
   assert_eq(two.focused, false)
   host_reset()
 }
+
+///|
+test "keep_focus_at：命中链上任一档声明不让位即真，都不声明即假" {
+  let a = fake_win_app()
+  let outer = Widget::new()
+  let inner = Widget::new()
+  outer.set_size(100.0, 40.0)
+  inner.set_size(40.0, 40.0)
+  a.root.append_child(outer)
+  outer.append_child(inner)
+  a.root.relayout(200.0, 200.0)
+  assert_eq(a.root.keep_focus_at(20.0, 5.0), false)
+  inner.keep_focus_on_click = true
+  assert_eq(a.root.keep_focus_at(20.0, 20.0), true)
+  assert_eq(a.root.keep_focus_at(60.0, 20.0), false)
+}
