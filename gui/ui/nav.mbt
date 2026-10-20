@@ -654,7 +654,7 @@ fn menu_item(
     // 常态文字色与悬停底走样式（选中态是数据态：底色/文字/强调条留内置配色）
     @style.apply(
       w,
-      @style.style(color="text_primary", border_radius=4.0).hover(background_color="fill_hover")
+      @style.style(color="text_primary", border_radius=@theme.radius_ctrl()).hover(background_color="fill_hover")
     )
     @style.apply(w, skin)
     w.on_draw = Some(fn(
@@ -663,7 +663,7 @@ fn menu_item(
       r : @base.Rect,
     ) -> Unit {
       let st = @style.style_for(self)
-      let rad = @style.number_of(st.border_radius, 4.0)
+      let rad = @style.number_of(st.border_radius, @theme.radius_ctrl())
       let lbl = label_of()
       let shown = if lbl.length() > 0 { lbl } else { text }
       let act = selected.get() == text
@@ -708,7 +708,7 @@ fn menu_item(
       if self.focused {
         p.set_stroke_color(@theme.theme_primary())
         p.set_line_width(1.0)
-        p.stroke_round_rect(0.5, 0.5, r.w - 1.0, r.h - 1.0, 4.0)
+        p.stroke_round_rect(0.5, 0.5, r.w - 1.0, r.h - 1.0, @theme.radius_ctrl())
       }
     })
     w.cursor = @widget.CURSOR_HAND

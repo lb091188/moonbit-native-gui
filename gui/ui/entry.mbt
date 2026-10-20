@@ -180,8 +180,13 @@ pub fn input(
       let lh = @text.line_height_font(font).unwrap_or(18).to_double()
       let ty = ((r.h - lh) / 2.0).max(0.0)
       let st = @style.style_for(self)
+      let rad = @style.number_of(st.border_radius, @theme.radius_ctrl())
       p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
-      p.fill_rect(0.0, 0.0, r.w, r.h)
+      if rad > 0.0 {
+        p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
+      } else {
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      }
       match ed.selection() {
         Some((s, e)) => {
           let x0 = pad + prefix_width(ed, s, font, mask=mask)

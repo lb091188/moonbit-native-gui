@@ -652,7 +652,10 @@ pub fn card(
     row_gap=row_gap,
     background_color="bg_panel",
     border_color="border",
-    class=class,
+    // 基准：卡片层圆角 6（调用方 class 在后，覆写这条默认皮肤）
+    class=[
+      @style.style(border_radius=@theme.radius_card()),
+    ] + class,
   )
 }
 

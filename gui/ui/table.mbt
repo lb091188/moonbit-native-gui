@@ -268,7 +268,7 @@ fn draw_cell(
       // 标签形态与显示族的 tag_of_type 一致（浅底 + 主色字）
       p.set_fill_color(type_light_color(kind))
       let box_w = (r.w - 16.0).max(20.0)
-      fill_round_rect(p, 8.0, (r.h - 22.0) / 2.0, box_w.min(r.w - 16.0), 22.0, 4.0)
+      fill_round_rect(p, 8.0, (r.h - 22.0) / 2.0, box_w.min(r.w - 16.0), 22.0, @theme.radius_ctrl())
       let _ = @text.draw_box_at(
         p,
         8.0,

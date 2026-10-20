@@ -209,3 +209,17 @@ test "theme_from_system：深浅与主色四态、指纹只在真变了时不同
   theme_apply(default_theme())
   assert_eq(theme_primary(), before)
 }
+
+///|
+test "圆角令牌：默认开圆角给 4/6/8，关圆角全为 0，开关可复原" {
+  corners_round_set(true)
+  assert_eq(radius_ctrl(), 4.0)
+  assert_eq(radius_card(), 6.0)
+  assert_eq(radius_overlay(), 8.0)
+  corners_round_set(false)
+  assert_eq(radius_ctrl(), 0.0)
+  assert_eq(radius_card(), 0.0)
+  assert_eq(radius_overlay(), 0.0)
+  corners_round_set(true)
+  assert_eq(radius_ctrl(), 4.0)
+}
