@@ -69,18 +69,10 @@ fn flat_toggle_button(app : @shared.App) -> @widget.Node {
 }
 
 ///|
-/// 页名清单（路由 key 恒为中文，显示名另经 `nav_labels` 本地化）。
-fn page_keys() -> Array[String] {
-  [
-    "基础组件", "表单组件", "导航组件", "数据展示", "图表", "代码文档", "Store",
-    "反馈组件", "事件与布局", "窗口", "系统集成", "图标库", "画布与富文本",
-    "过渡与效果", "系统能力探测",
-  ]
-}
-
-///|
-/// 切语言按钮（月亮旁）：换目录 → 清已建页 → 改动 locale 触发整棵内容树重建。
-fn language_toggle_button(app : @shared.App, nav : @router.Router) -> @widget.Node {
+/// 切语言按钮（月亮旁）：只换目录——页面重挂、原生菜单重挂、正文与侧栏
+/// 取译全部由 i18n 广播驱动（`Router::localize_remount` +
+/// `@widget.set_menu_bar_localized`），这里不再手工刷任何表面。
+fn language_toggle_button(app : @shared.App) -> @widget.Node {
   @ui.icon_button(
     @icons.Earth,
     on_click=fn() {
@@ -88,25 +80,7 @@ fn language_toggle_button(app : @shared.App, nav : @router.Router) -> @widget.No
       let loc = if to_en { "en" } else { "zh-CN" }
       @shared.set_locale_catalog(loc)
       app.locale.set(loc)
-      // 只重建页面子树（router 自管，不经整树 bind，侧栏按钮不受牵连）
-      for k in page_keys() {
-        nav.purge_built(k)
-      }
-      // router 无「原地重挂当前页」公开口：借 goto 先切走再切回，强制当前页重建挂载
-      let cur = nav.path()
-      let mut other = ""
-      for k in page_keys() {
-        if k != cur && other.length() == 0 {
-          other = k
-        }
-      }
-      if other.length() > 0 && other != cur {
-        nav.goto(other)
-        nav.goto(cur)
-      }
       @widget.host_repaint_all()
-      // 原生菜单栏不在树里，但也不用这里刷：`set_menu_bar_localized` 登记的
-      // 构建器随 i18n 广播自动重挂（见挂载处）
     },
   )
 }
@@ -192,6 +166,8 @@ fn main {
     route_of_page(box, "系统能力探测", @pages.page_sysprobe, @router.Lazy),
   ]
   let nav = @router.new_router(routes)
+  // 页面随语言原地重挂（i18n 广播驱动，与原生菜单栏同一条注册链）
+  nav.localize_remount()
   let app : @shared.App = {
     selected: nav.store_at(0),
     locale: @base.Store::new("zh-CN"),
@@ -292,7 +268,7 @@ fn main {
                     [
                       theme_toggle_button(app),
                       flat_toggle_button(app),
-                      language_toggle_button(app, nav),
+                      language_toggle_button(app),
                     ],
                     column_gap=6.0,
                   ),

@@ -8,4 +8,5 @@ import {
   "NoahLiu/native-gui/ui",
   "NoahLiu/native-gui/icons",
   "NoahLiu/native-gui/widget" @widget,
+  "NoahLiu/native-gui/i18n" @i18n,
 }
