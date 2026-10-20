@@ -27,7 +27,7 @@ Every self-drawn widget and the component library live in `NoahLiu/native-gui/ui
 | `view(children, direction?=Column, row_gap?, column_gap?, padding?, width?, height?, grow?, background_color?, border_color?, align_items?, justify_content?, class?, handle?)` | Generic container: direction, gaps on both axes, padding, size, background and border. Size 0 fits the content; `grow=1.0` fills the remaining space |
 | `col(children, row_gap?, padding?, width?, height?, grow?, background_color?, border_color?, align_items?, class?, handle?)` | Vertical layout container (the Column form of `view`) |
 | `row(children, column_gap?, padding?, width?, height?, grow?, background_color?, border_color?, align_items?=Center, class?, handle?)` | Horizontal layout container (the Row form of `view`) |
-| `panel(title, children, padding?=10.0, row_gap?=6.0, width?)` | Titled panel: title on top, content below, panel background + border |
+| `panel(title, children, padding?=10.0, row_gap?=6.0, width?, class?)` | Titled panel: title on top, content below, panel background + border; pass skin such as corner radius through `class` |
 | `split(first, second, direction?=Horizontal, ratio?=0.5, min_first?, min_second?, class?, handle?)` | Draggable split pane; unifies `hsplit`/`vsplit` with the direction parameterized |
 | `scroll_view(children, state : ScrollState, width?, height?, class?, handle?)` | Vertical scroll container; `height` is the viewport height, 0 means the parent supplies it; overflow is clipped, the scrollbar is drawn on the right edge |
 
