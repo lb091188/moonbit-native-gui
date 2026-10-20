@@ -38,6 +38,7 @@ pub(all) struct Style {
   mut border_radius : Double?
   // —— flex 布局
   mut display : Display?
+  mut direction : Direction?
   mut flex_direction : FlexDirection?
   mut flex_wrap : FlexWrap?
   mut justify_content : JustifyContent?
@@ -101,6 +102,7 @@ pub fn empty_style() -> Style {
     border_color: None,
     border_radius: None,
     display: None,
+    direction: None,
     flex_direction: None,
     flex_wrap: None,
     justify_content: None,
@@ -188,6 +190,7 @@ pub fn merge(base : Style, over : Style) -> Style {
   s.border_color = pick(base.border_color, over.border_color)
   s.border_radius = pick(base.border_radius, over.border_radius)
   s.display = pick(base.display, over.display)
+  s.direction = pick(base.direction, over.direction)
   s.flex_direction = pick(base.flex_direction, over.flex_direction)
   s.flex_wrap = pick(base.flex_wrap, over.flex_wrap)
   s.justify_content = pick(base.justify_content, over.justify_content)
@@ -392,6 +395,12 @@ pub fn Style::set_border_radius(self : Style, v : Double?) -> Style {
 ///|
 pub fn Style::set_display(self : Style, v : Display?) -> Style {
   self.display = v
+  self
+}
+
+///|
+pub fn Style::set_direction(self : Style, v : Direction?) -> Style {
+  self.direction = v
   self
 }
 

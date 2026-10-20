@@ -30,6 +30,49 @@ pub fn resolved_count() -> Int {
 }
 
 ///|
+// RTL 布局镜像映射(纯函数,rtl=false 原样返回)。
+pub fn mirror_flex(v : @yoga.FlexDirection, rtl : Bool) -> @yoga.FlexDirection {
+  if !rtl {
+    v
+  } else {
+    match v {
+      @yoga.FlexDirection::Row => @yoga.FlexDirection::RowReverse
+      @yoga.FlexDirection::RowReverse => @yoga.FlexDirection::Row
+      x => x
+    }
+  }
+}
+
+///|
+pub fn mirror_justify(
+  v : @yoga.JustifyContent,
+  rtl : Bool,
+) -> @yoga.JustifyContent {
+  if !rtl {
+    v
+  } else {
+    match v {
+      @yoga.JustifyContent::FlexStart => @yoga.JustifyContent::FlexEnd
+      @yoga.JustifyContent::FlexEnd => @yoga.JustifyContent::FlexStart
+      x => x
+    }
+  }
+}
+
+///|
+pub fn mirror_align(v : @yoga.AlignItems, rtl : Bool) -> @yoga.AlignItems {
+  if !rtl {
+    v
+  } else {
+    match v {
+      @yoga.AlignItems::FlexStart => @yoga.AlignItems::FlexEnd
+      @yoga.AlignItems::FlexEnd => @yoga.AlignItems::FlexStart
+      x => x
+    }
+  }
+}
+
+///|
 /// 把样式落到控件：布局字段进 Yoga 节点，外观字段进侧表；`visibility` 落宿主
 /// `set_visible`，`cursor` 落 `Widget.cursor`，`z_index` 落绘制层序键。
 /// 多次 apply 逐属性叠加（与 merge 同一规则：后写的属性赢）。
@@ -104,8 +147,13 @@ pub fn apply(w : @widget.Widget, s : Style) -> Unit {
     Some(v) => n.set_display(v)
     None => ()
   }
+  // RTL 布局镜像:主轴 row 反向、起终对齐翻转。未设方向(=LTR)时逐字同现状。
+  let rtl = match s.direction {
+    Some(Direction::Rtl) => true
+    _ => false
+  }
   match s.flex_direction {
-    Some(v) => n.set_flex_direction(v)
+    Some(v) => n.set_flex_direction(mirror_flex(v, rtl))
     None => ()
   }
   match s.flex_wrap {
@@ -113,15 +161,15 @@ pub fn apply(w : @widget.Widget, s : Style) -> Unit {
     None => ()
   }
   match s.justify_content {
-    Some(v) => n.set_justify_content(v)
+    Some(v) => n.set_justify_content(mirror_justify(v, rtl))
     None => ()
   }
   match s.align_items {
-    Some(v) => n.set_align_items(v)
+    Some(v) => n.set_align_items(mirror_align(v, rtl))
     None => ()
   }
   match s.align_self {
-    Some(v) => n.set_align_self(Some(v))
+    Some(v) => n.set_align_self(Some(mirror_align(v, rtl)))
     None => ()
   }
   match s.flex {
