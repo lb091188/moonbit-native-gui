@@ -14,4 +14,5 @@ members = [
   "examples/audio",
   "examples/video",
   "examples/headless-audio",
+  "tools",
 ]

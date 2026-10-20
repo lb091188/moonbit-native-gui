@@ -1,0 +1,11 @@
+// i18n 预处理 CLI（终端形态）：extract / check。I/O 走 moonbitlang/x。
+import {
+  "moonbitlang/core/env" @env,
+  "moonbitlang/x/fs" @fs,
+  "moonbitlang/x/sys" @sys,
+  "NoahLiu/native-gui-tools/i18nkit" @i18nkit,
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"
