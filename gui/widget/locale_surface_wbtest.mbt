@@ -45,3 +45,32 @@ test "set_menu_bar_localized：注册即建一次，换目录再建一次，重�
   @i18n.i18n_reset()
   clear_locale_subs()
 }
+
+///|
+test "set_window_title_localized：注册即写一次，换目录再写，重复登记替换旧取串口" {
+  clear_locale_subs()
+  @i18n.i18n_reset()
+  let calls : Ref[Int] = Ref(0)
+  set_window_title_localized(fn(_w : @win.Window) -> String {
+    calls.val += 1
+    "标题"
+  })
+  assert_true(calls.val >= 1)
+  let a = calls.val
+  @i18n.i18n_load("[meta]\nlocale = \"en\"\n")
+  assert_true(calls.val > a)
+  // 换一任登记：旧口停住，新口接手（登记即写一次，广播再写一次）
+  let calls2 : Ref[Int] = Ref(0)
+  set_window_title_localized(fn(_w : @win.Window) -> String {
+    calls2.val += 1
+    "另一任"
+  })
+  assert_true(calls2.val >= 1)
+  let c = calls.val
+  let c2 = calls2.val
+  @i18n.i18n_load("[meta]\nlocale = \"de\"\n")
+  assert_eq(calls.val, c)
+  assert_true(calls2.val > c2)
+  @i18n.i18n_reset()
+  clear_locale_subs()
+}

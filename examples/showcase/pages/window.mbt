@@ -137,8 +137,12 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
       [
         @ui.row(
           [
-            win_button(app, last_op, @shared.tx("改标题"), fn(w : @win.Window) -> Unit {
-              w.set_title(@shared.tx("组件库演示板 · 标题已改"))
+            win_button(app, last_op, @shared.tx("改标题"), fn(_w : @win.Window) -> Unit {
+              // 改名也登记进语言口（后登记者为准）：之后切语言续着这个标题换译文，
+              // 不会被默认标题盖回去。
+              @widget.set_window_title_localized(fn(_) {
+                @shared.tx("组件库演示板 · 标题已改")
+              })
             }),
             win_button(app, last_op, @shared.tx("全屏切换"), fn(w : @win.Window) -> Unit {
               fs.val = !fs.val

@@ -1,5 +1,5 @@
 // 系统能力壳层：菜单栏/右键菜单、全局热键门面、托盘（SNI/Win32）、通知、
-// 外部打开——五条与控件树零耦合的通道，只吃 base 常量与 win/sys/dbus 后端。
+// 外部打开——五条与控件树零耦合的通道，只吃 base 常量、i18n 广播与 win/sys/dbus 后端。
 
 supported_targets = "native"
 
@@ -7,4 +7,5 @@ import {
   "NoahLiu/native-gui/win",
   "NoahLiu/native-gui/sys" @sys,
   "NoahLiu/native-gui/dbus" @dbus,
+  "NoahLiu/native-gui/i18n" @i18n,
 }

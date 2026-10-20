@@ -2965,3 +2965,12 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **MoonBit 的 `x.foo"str"` 语法是坑**：脚本套口时写成 `@shared.tx` + 字面量（少了括号），MoonBit 按 message-send 照收不误，**只有实参类型不是 String 的那两处才炸**（`@ui.tooltip` 的第二参）。批处理生成函数调用务必带括号：`@shared.tx("…")`。
 - **门禁加了第五条通道**：`scripts/check_showcase_i18n.py` 现在查 正文 tx 501 / 段名 seg 101 / 侧栏 nav 15 / 插值 dyn+显式 tr 57，缺任一即非零退出；`catalog_guard_wbtest` 抽查也补了 `seg.主题`、`dyn.accent_now` 填占位、`form.textarea_demo` 值内换行三条。
 - **验证**：`cd gui && moon check` 零错误零警告；`moon test router widget ui i18n style theme render base` 503 项 500 通过（3 项红是本机 HEAD 上就红的步进器打字 ×2、密码遮罩光标 ×1）；`examples/showcase` `moon build` 通过、`moon test shared` 3/3；覆盖率门禁四通道全绿、目录 900 条。**待真机**：`moon run examples/showcase` → 切英文 → 挨个点开没看过的页（尤其图表 / 系统集成 / 窗口），确认按当前语言建；再回中文切一次，看空闲预建把页面重新建回来不闪不炸。
+
+## 托盘提示语 / 右键菜单 / 窗口标题补进原生表面语言口（2026-10-21，macOS arm64 真机反馈）
+
+- **报障**：切语言后托盘图标的悬停提示仍是中文——页面、侧栏、原生菜单都换了，只有托盘不动。
+- **根因**：提示语是**建托盘那一刻**写进原生侧的（`t.set_tooltip(tx("…"), tx("…"))`），SNI/Win32 拿到的是一份**已经算完的字符串**；语言广播只管控件树与菜单栏，托盘这一头没人登记，原生侧就永远停在旧串。同一条缺陷还有两处：**右键菜单**（`set_menu` 一次成型）与**窗口标题**（`title=SHOWCASE_TITLE` 建窗时定死）。
+- **修复（按通道，不按控件）**：`gui/shell/tray_locale.mbt` 新增托盘语言口登记表——`Tray::set_tooltip_localized(title_of, body_of)` / `Tray::set_menu_localized(build)` 登记即算一次并写回原生侧，之后每次 `locale_notify` 按登记序重算；`TrayState.locale_key` 存登记号，`Tray::remove` 自动撤下，登记表不留孤儿。普通 `set_tooltip` / `set_menu` 生效即清掉对应口——**以最后一次写法为准**，两条入口不打架。`gui/widget/locale_surface.mbt` 同形补 `set_window_title_localized(title_of)`，与菜单栏共用一条 `on_locale_change` 链（单登记位，重复登记替换）。
+- **演示板接线**：托盘页改用两个 localized 口；`tray_holder` / `tray_clicks` 从页内 `let` **提到模块级**——切语言会原地重挂本页，页内 Ref 每次重挂都换新的，旧句柄成孤儿就是「图标还在、按钮管不着它」，还会同 Id 重复注册（僵尸注册项那条老坑）；建托盘处加「有货就只重接线」的守卫。「改标题」按钮改成再登记一任取串口（后登记者为准），改名后再切语言不会被默认标题盖回去。
+- **口径顺带补齐**：`托盘后端失败：\{msg}` 这类漏网的插值串改走 `dyn.` 通道；`scripts/check_showcase_i18n.py` 的取值正则原来要求 `tx("` 紧邻，取译口跨行写就漏检——改成先把源码折行再匹配（当场逮到 `dyn.tray_backend_failed` 缺条目）。窗口标题走常量 `tx(SHOWCASE_TITLE)`，脚本看不见常量，`catalog_guard_wbtest` 里按「组件库演示板」这条键抽查兜住。
+- **验证**：`cd gui && moon check` 零错误零警告；`moon test widget ui style theme render i18n router shell base` 548 项 545 通过（3 项红是步进器打字 ×2、密码遮罩光标 ×1，本机 HEAD 上就红）；`gui/shell/tray_locale_wbtest` 2 项、`gui/widget/locale_surface_wbtest` 2 项新登记链全过（含「换一任后旧口停住」）；`examples/showcase` `moon build` 零警告、`moon test shared` 3/3、覆盖率门禁 tx 501 / seg 101 / nav 15 / dyn+tr 59 全绿、目录 902 条。**待真机**：`moon run examples/showcase` → 系统集成页建托盘 → 切英文，悬停托盘图标看提示语换、右键看菜单项换；改提示后再切一次语言看续着换；主窗标题随语言换，「窗口」页点「改标题」后再切语言看没被盖回；退出进程确认托盘注销干净。

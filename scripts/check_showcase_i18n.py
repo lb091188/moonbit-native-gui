@@ -66,11 +66,16 @@ def catalog_keys():
     return keys, top_after_meta
 
 
+def src(p):
+    """读源并把换行折成空格：取译口常跨行写，按单行正则会漏。"""
+    return p.read_text(encoding="utf-8").replace("\\\n", "").replace("\n", " ")
+
+
 def tx_keys():
     """①正文取译口的键集合。"""
     got = set()
     for p in list((SHOW / "pages").glob("*.mbt")) + list((SHOW / "shared").glob("*.mbt")):
-        for m in re.finditer(r'@shared\.tx\("([^"\\]+)"\)|\btx\("([^"\\]+)"\)', p.read_text(encoding="utf-8")):
+        for m in re.finditer(r'@shared\.tx\(\s*"([^"\\]+)"\)|\btx\(\s*"([^"\\]+)"\)', src(p)):
             got.add(m.group(1) or m.group(2))
     return got
 
@@ -79,8 +84,7 @@ def seg_keys():
     """②段名通道（无汉字的段名如 `Markdown` 本来就不需要译，不计）。"""
     got = set()
     for p in (SHOW / "pages").glob("*.mbt"):
-        s = p.read_text(encoding="utf-8")
-        for m in re.finditer(r"@shared\.section\(\s*\n?\s*\"((?:[^\"\\]|\\.)*)\"", s):
+        for m in re.finditer(r'@shared\.section\(\s*"((?:[^"\\]|\\.)*)"', src(p)):
             if re.search(r"[一-鿿]", m.group(1)):
                 got.add("seg." + m.group(1))
     return got
@@ -88,7 +92,7 @@ def seg_keys():
 
 def nav_keys():
     """③侧栏页名通道：路由表里 `route_of_page(box, "页名", …)` 的第二个实参。"""
-    main = (SHOW / "main.mbt").read_text(encoding="utf-8")
+    main = src(SHOW / "main.mbt")
     return {
         "nav." + m.group(1) for m in re.finditer(r'route_of_page\(box,\s*"([^"]+)"', main)
     }
@@ -98,8 +102,7 @@ def dyn_keys():
     """④状态/回显类插值串：`@shared.tr_with("dyn.x", …)` 的键。"""
     got = set()
     for p in (SHOW / "pages").glob("*.mbt"):
-        s = p.read_text(encoding="utf-8")
-        got |= set(re.findall(r'tr_with\("([^"]+)"', s))
+        got |= set(re.findall(r'tr_with\(\s*"([^"]+)"', src(p)))
     return got
 
 
@@ -107,7 +110,7 @@ def tr_keys():
     """⑤显式键取译：`@shared.tr("x.y", 中文回落)`——带换行等不便当键的串走这条。"""
     got = set()
     for p in list(SHOW.glob("pages/*.mbt")) + list(SHOW.glob("shared/*.mbt")):
-        got |= set(re.findall(r'(?<!_)@shared\.tr\("([^"]+)"', p.read_text(encoding="utf-8")))
+        got |= set(re.findall(r'@shared\.tr\(\s*"([^"]+)"', src(p)))
     return got
 
 

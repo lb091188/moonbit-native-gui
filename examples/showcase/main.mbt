@@ -350,6 +350,9 @@ fn main {
       // 由 i18n 广播自动重挂（原生表面注册表，控件树之外的表面都走这条）。
       // 项点击经 WM_COMMAND 回收，100ms 轮询表派发到模型回调（托盘菜单项同链）。
       @widget.set_menu_bar_localized(fn(_w) { build_menu_bar(app, nav) })
+      // 窗口标题同一条链：默认标题按当前语言写，换语言随广播重写。
+      // （冒烟标记那行仍打常量 SHOWCASE_TITLE，与本串无关。）
+      @widget.set_window_title_localized(fn(_w) { @shared.tx(SHOWCASE_TITLE) })
       let menu_tick : Ref[() -> Unit] = Ref(fn() { () })
       menu_tick.val = fn() -> Unit {
         let _ = @shell.dispatch_menu_command()

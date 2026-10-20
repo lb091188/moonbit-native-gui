@@ -57,8 +57,40 @@ fn tray_err_text(e : @shell.TrayError) -> String {
   match e {
     @shell.TrayError::Unsupported => @shared.tx("本平台没有托盘后端")
     @shell.TrayError::IconLoadFailed => @shared.tx("图标加载失败")
-    @shell.TrayError::Backend(msg) => "托盘后端失败：\{msg}"
+    @shell.TrayError::Backend(msg) => @shared.tr_with(
+        "dyn.tray_backend_failed",
+        [("m", msg)],
+        "托盘后端失败：\{msg}",
+      )
   }
+}
+
+///|
+/// 托盘句柄与左键计数放进程级：切语言会原地重挂本页，页内局部 `Ref` 每次重挂都
+/// 换一个新的，旧句柄就成了孤儿（图标还在、按钮却管不着它）。
+let tray_holder : Ref[@shell.Tray?] = Ref(None)
+
+let tray_clicks : @base.Store[Int] = @base.Store::new(0)
+
+///|
+/// 托盘右键菜单（每次重建，取串口跟着当前语言）：菜单项点击经同一条
+/// `dispatch_menu_command` 派发链回到回调（main 挂了表）。
+fn tray_menu_of(app : @shared.App) -> @shell.Menu {
+  let menu = @shell.Menu::new(title=@shared.tx("托盘"))
+  let _ = menu.add_item(@shared.tx("冒个提示")).set_on_click(fn() {
+    app.toast_push(@shared.tx("来自托盘菜单"), @ui.Info)
+  })
+  let _ = menu.add_item(@shared.tx("回首页")).set_on_click(fn() {
+    app.selected.set("基础组件")
+  })
+  let _ = menu.add_separator()
+  let _ = menu.add_item(@shared.tx("退出")).set_on_click(fn() {
+    match app.host.val {
+      Some(a) => a.quit()
+      None => ()
+    }
+  })
+  menu
 }
 
 ///|
@@ -86,9 +118,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
   let timer_out : @base.Store[String] = @base.Store::new(@shared.tx("（表未起）"))
   let ticks : @base.Store[Int] = @base.Store::new(0)
   let tray_note : @base.Store[String] = @base.Store::new(@shared.tx("（还没建托盘）"))
-  let tray_clicks : @base.Store[Int] = @base.Store::new(0)
-  // 托盘句柄（挂载闭包里建托盘时填入）：挂菜单 / 改提示要拿它
-  let tray_holder : Ref[@shell.Tray?] = Ref(None)
+  // 句柄与计数在模块级（见 tray_holder 处的说明）
   let auto_state : @base.Store[String] = @base.Store::new(@shared.tx("（未读）"))
   let ext_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没打开过外部）"))
   let si_out : @base.Store[String] = @base.Store::new(@shared.tx("（点「刷新」读一次）"))
@@ -391,22 +421,36 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
         // 的菜单」也走不到；真机表现正是「图标在、点了没反应、菜单弹不出」。
         // （与快捷键页轮询表、图表页推点同一条坑的第 3 处。）
         @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
-          // 不传图标：三平台都是库内置的那枚月牙（Linux SNI 读内置位图，
-          // Win/mac 走同一份位图建的句柄）。要换自己的一档就 `icon_from_bgra`
-          // 现建 32px BGRA 预乘位图照传；`wm_icon_from_bgra` 在 GTK 分支是失败
-          // 桩，所以拿到什么照传、拿不到也照建（旧写法把整段挂在 icon 成功之后，
-          // 于是 Linux 上托盘根本没起过）。
-          match @shell.Tray::new("libyue-showcase-tray") {
-            Ok(t) => {
-              t.set_tooltip(@shared.tx("libyue 演示板"), @shared.tx("左键计数 · W 族门面"))
-              t.on_click(fn() {
-                tray_clicks.update(fn(n) { n + 1 })
-                app.toast_push(@shared.tx("托盘左键被点了"), @ui.Info)
-              })
-              tray_holder.val = Some(t)
-              tray_note.set(@shared.tr_with("dyn.tray_created", [("b", t.backend_name())], "已建（\{t.backend_name()}）"))
+          // 接线：提示语走语言口，左键回调指到本页的显示串上。
+          fn wire(t : @shell.Tray) -> Unit {
+            t.set_tooltip_localized(
+              fn() -> String { @shared.tx("libyue 演示板") },
+              fn() -> String { @shared.tx("左键计数 · W 族门面") },
+            )
+            t.on_click(fn() {
+              tray_clicks.update(fn(n) { n + 1 })
+              app.toast_push(@shared.tx("托盘左键被点了"), @ui.Info)
+            })
+          }
+
+          // 切语言会重挂本页：进程级 tray_holder 有货就复用同一枚图标，只重接线。
+          // 再建一次会多出一枚同 Id 托盘、旧句柄没人管（僵尸注册项那一条坑）。
+          match tray_holder.val {
+            Some(t) => wire(t)
+            // 不传图标：三平台都是库内置的那枚月牙（Linux SNI 读内置位图，
+            // Win/mac 走同一份位图建的句柄）。要换自己的一档就 `icon_from_bgra`
+            // 现建 32px BGRA 预乘位图照传；`wm_icon_from_bgra` 在 GTK 分支是失败
+            // 桩，所以拿到什么照传、拿不到也照建（旧写法把整段挂在 icon 成功之后，
+            // 于是 Linux 上托盘根本没起过）。
+            None =>
+            match @shell.Tray::new("libyue-showcase-tray") {
+              Ok(t) => {
+                wire(t)
+                tray_holder.val = Some(t)
+                tray_note.set(@shared.tr_with("dyn.tray_created", [("b", t.backend_name())], "已建（\{t.backend_name()}）"))
+              }
+              Err(e) => tray_note.set(tray_err_text(e))
             }
-            Err(e) => tray_note.set(tray_err_text(e))
           }
           w
         }).on_mount(fn() -> Unit {
@@ -417,32 +461,22 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
             @ui.button(@shared.tx("改提示"), variant=@ui.Soft, on_click=fn() {
               match tray_holder.val {
                 Some(t) => {
-                  t.set_tooltip(@shared.tx("libyue 演示板"), @shared.tr_with("dyn.tray_tooltip", [("n", tray_clicks.get().to_string())], "提示已改 · \{tray_clicks.get()} 次左键"))
+                  // 重新登记取串口：文案随语言、计数随左键一起走
+                  t.set_tooltip_localized(
+                    fn() -> String { @shared.tx("libyue 演示板") },
+                    fn() -> String { @shared.tr_with("dyn.tray_tooltip", [("n", tray_clicks.get().to_string())], "提示已改 · \{tray_clicks.get()} 次左键") },
+                  )
                   tray_note.set(@shared.tx("提示已改（悬停托盘图标可见）"))
                 }
                 None => tray_note.set(@shared.tx("托盘未建，改不了提示"))
               }
             }),
-            // 右键菜单：复用 W20a 菜单模型（Tray::set_menu）；菜单项点击
-            // 经同一条 dispatch_menu_command 派发链回到回调（main 挂了表）
+            // 右键菜单：复用 W20a 菜单模型（Tray::set_menu_localized），
+            // 菜单项点击经同一条 dispatch_menu_command 派发链回到回调（main 挂了表）
             @ui.button(@shared.tx("挂菜单"), variant=@ui.Soft, on_click=fn() {
               match tray_holder.val {
                 Some(t) => {
-                  let menu = @shell.Menu::new(title=@shared.tx("托盘"))
-                  let _ = menu.add_item(@shared.tx("冒个提示")).set_on_click(fn() {
-                    app.toast_push(@shared.tx("来自托盘菜单"), @ui.Info)
-                  })
-                  let _ = menu.add_item(@shared.tx("回首页")).set_on_click(fn() {
-                    app.selected.set("基础组件")
-                  })
-                  let _ = menu.add_separator()
-                  let _ = menu.add_item(@shared.tx("退出")).set_on_click(fn() {
-                    match app.host.val {
-                      Some(a) => a.quit()
-                      None => ()
-                    }
-                  })
-                  t.set_menu(menu)
+                  t.set_menu_localized(fn() -> @shell.Menu { tray_menu_of(app) })
                   tray_note.set(@shared.tx("菜单已挂（右键托盘图标）"))
                 }
                 None => tray_note.set(@shared.tx("托盘未建，挂不了菜单"))
