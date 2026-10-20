@@ -58,7 +58,7 @@
 | `textarea(store : Store[String], placeholder?, rows?=3, width?=260.0, height?, font_size?, family?, read_only?, focus_id?, caret_on?, …)` | 多行输入：贪心折行（空格/拉丁词/中日韩逐字）+ 垂直滚动，上下键跨显示行 |
 | `checkbox(content, state : Store[Bool], disabled?, enabled?, focus_id?, font_size?, class?, handle?)` | 复选框 + 文本标签，整行点击区；空格/回车切换 |
 | `radio_group(options : Array[String], state : Store[Int], disabled?, direction?=Row, gap?=12.0, class?)` | 单选组：`options` 依次对应值 0..n-1；空格/回车选中本项、方向键换选、到头环绕 |
-| `switch(state : Store[Bool], on_text?, off_text?, disabled?, focus_id?, class?)` | 开关：40×20 胶囊 + 16 圆滑珠，可带开/关文案；空格/回车切换 |
+| `switch(state : Store[Bool], on_text?, off_text?, disabled?, focus_id?, on_change?, class?)` | 开关：40×20 胶囊 + 16 圆滑珠，可带开/关文案；空格/回车切换；用户拨动后回调 `on_change(Bool)`（外部写值不回调） |
 | `slider(state : Store[Double], min?=0.0, max?=100.0, step?=0.0, width?=160.0, disabled?, focus_id?, class?, handle?)` | 滑块：按下即取值、拖动跟手、`step>0` 吸附；方向键步进、Home/End 到端 |
 | `stepper(state : Store[Int], min?=0, max?=999, step?=1, focus_id?, class?)` | 数值步进器 `[-] 值 [+]`，共框三段、中间格可直接打字（只收数字，回车或失焦才回写并夹取）、触界侧自动禁用；↑/↓ 增减，←/→ 移光标 |
 | `select(options : Array[String], value : Store[String], on_change?, …)` | 下拉选择，唯一入口、可输入形态走 `editable=true`：弹层在浮层图层，↑↓ 高亮 + 回车取 + Esc 收 |
