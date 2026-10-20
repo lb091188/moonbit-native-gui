@@ -18,6 +18,11 @@ pub fn Router::remount_all(self : Router) -> Unit {
   for k in leftovers {
     self.unmount(k)
   }
+  // 缓存里还剩「预建过、没点开过」的页——它们不在挂载表里，上面的 unmount 碰不到，
+  // 不一起丢就会在下次点开时把旧语言的节点直接复用出去。
+  self.purge_all_built()
+  // 队列回到起点：预建过的页刚被清空，让它们按新文案在空闲里重建回来
+  self.reanchor()
   for st in self.levels {
     st.set_always(st.get())
   }

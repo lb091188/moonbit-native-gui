@@ -33,6 +33,28 @@ test "remount_all：当前页原地重建，路径与挂载表回到自洽态" {
 }
 
 ///|
+/// 预建过但没点开过的页只活在缓存里：重挂必须把它一起丢掉，否则下次点开复用的是旧语言节点。
+test "remount_all：未挂载的预建页一并丢缓存，再点开按当前目录重建" {
+  let hits = Ref(0)
+  let r = new_router([rm_lf("甲", hits), rm_lf("乙", hits)])
+  let root = @widget.Widget::new()
+  root.set_size(600.0, 400.0)
+  root.set_column()
+  let _ = r.view(None).mount_into(root)
+  root.relayout(600.0, 400.0)
+  // 「乙」相当于空闲预建的产物：建进缓存，但从未挂上树
+  let _ = r.build_now("乙")
+  assert_eq(hits.val, 2)
+  assert_true(r.is_built("乙"))
+  r.remount_all()
+  assert_false(r.is_built("乙"))
+  // 点开时才重建，thunk 再跑一次
+  r.goto("乙")
+  assert_true(r.is_built("乙"))
+  assert_eq(hits.val, 4)
+}
+
+///|
 test "localize_remount：换目录广播即原地重挂" {
   let hits = Ref(0)
   let r = new_router([rm_lf("页", hits)])
