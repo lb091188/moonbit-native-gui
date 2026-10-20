@@ -29,3 +29,22 @@ test "soft_blur：全透明输入得到全透明输出" {
   let out = bm.soft_blur()
   assert_eq(out.pixel(8, 8).a, 0)
 }
+
+///|
+test "backdrop_blur：只糊矩形内已画内容，矩形外保持原样" {
+  let bm = Bitmap::new(80, 40)
+  let p = Painter::new(bm)
+  p.set_fill_color("#ff0000")
+  p.fill_rect(0.0, 0.0, 40.0, 40.0)
+  p.set_fill_color("#0000ff")
+  p.fill_rect(40.0, 0.0, 40.0, 40.0)
+  let ok = p.backdrop_blur(20.0, 10.0, 40.0, 20.0)
+  p.end()
+  assert_true(ok)
+  // 矩形内、边界附近应出现红蓝混合
+  let mixed = bm.pixel(41, 20)
+  assert_true(mixed.r > 32 && mixed.b > 32)
+  // 矩形外保持原样：上边一行仍是纯红/纯蓝
+  assert_eq((bm.pixel(5, 2).r, bm.pixel(5, 2).b), (255, 0))
+  assert_eq((bm.pixel(70, 2).b, bm.pixel(70, 2).r), (255, 0))
+}

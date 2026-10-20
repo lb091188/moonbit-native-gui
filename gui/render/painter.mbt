@@ -861,6 +861,51 @@ pub fn Painter::draw_image(
 }
 
 ///|
+/// 背景模糊：读出本控件矩形下方**已经画好的像素**，柔焦后原样回放。
+/// 坐标与 `fill_rect` 同一套（控件本地空间）；只支持平移（常规控件绘制路径），
+/// 非平移变换下结果无意义。返回是否执行。
+pub fn Painter::backdrop_blur(
+  self : Painter,
+  x : Double,
+  y : Double,
+  w : Double,
+  h : Double,
+) -> Bool {
+  if w <= 0.0 || h <= 0.0 {
+    return false
+  }
+  self.flush()
+  let bm = self.bitmap
+  let dx0 = (self.state.tx + x).floor().to_int()
+  let dy0 = (self.state.ty + y).floor().to_int()
+  let dx1 = (self.state.tx + x + w).ceil().to_int()
+  let dy1 = (self.state.ty + y + h).ceil().to_int()
+  let x0 = if dx0 < 0 { 0 } else { dx0 }
+  let y0 = if dy0 < 0 { 0 } else { dy0 }
+  let x1 = if dx1 > bm.width { bm.width } else { dx1 }
+  let y1 = if dy1 > bm.height { bm.height } else { dy1 }
+  if x1 <= x0 || y1 <= y0 {
+    return false
+  }
+  let cw = x1 - x0
+  let ch = y1 - y0
+  let crop = Bitmap::new(cw, ch)
+  for row = 0; row < ch; row = row + 1 {
+    for col = 0; col < cw; col = col + 1 {
+      let si = ((y0 + row) * bm.width + (x0 + col)) * 4
+      let di = (row * cw + col) * 4
+      crop.data[di] = bm.data[si]
+      crop.data[di + 1] = bm.data[si + 1]
+      crop.data[di + 2] = bm.data[si + 2]
+      crop.data[di + 3] = bm.data[si + 3]
+    }
+  }
+  let blurred = crop.soft_blur()
+  self.draw_canvas({ bitmap: blurred }, x, y, w, h)
+  true
+}
+
+///|
 /// 图片源矩形 → 目标矩形；空图忽略。
 pub fn Painter::draw_image_from_rect(
   self : Painter,

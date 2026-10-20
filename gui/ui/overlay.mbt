@@ -1005,3 +1005,42 @@ pub fn context_menu_for(
     w
   })
 }
+
+///|
+/// 玻璃面板：先模糊自身矩形下方的已画内容，再叠半透明面板底与 1px 描边，
+/// 子控件照常排在内容区。用于压在图片/内容上方的浮层卡片。
+/// 固定半径 6、模糊档位固定；`blur_on` 在绘制期取，切换后由调用方触发重绘。
+pub fn glass(
+  children : Array[@widget.Node],
+  padding? : Double = 12.0,
+  blur_on? : () -> Bool = fn() { true },
+  class? : Array[@style.Style] = [],
+  handle? : (@widget.Widget) -> Unit = default_handle,
+) -> @widget.Node {
+  @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    watch_theme()
+    w.on_draw = Some(fn(
+      _self : @widget.Widget,
+      p : @render.Painter,
+      r : @base.Rect,
+    ) -> Unit {
+      if blur_on() {
+        let _ = p.backdrop_blur(0.0, 0.0, r.w, r.h)
+      }
+      p.save()
+      p.set_global_alpha(0.72)
+      p.set_fill_color(@theme.theme_bg_panel())
+      p.fill_round_rect(0.0, 0.0, r.w, r.h, 6.0)
+      p.restore()
+      p.set_stroke_color(@theme.theme_border())
+      p.set_line_width(1.0)
+      p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, 6.0)
+      p.stroke()
+    })
+    @style.apply(w, @style.style(padding=padding))
+    fold_style(w, @style.empty_style(), class)
+    @widget.mount_children(w, children)
+    handle(w)
+    w
+  })
+}
