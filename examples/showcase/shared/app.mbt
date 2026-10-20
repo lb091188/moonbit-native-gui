@@ -42,8 +42,6 @@ pub(all) struct App {
   flat : @base.Store[Bool]
   /// 侧栏/菜单半透玻璃开关：整窗开背景透明 + 侧栏走 `@ui.glass` 应用内模糊
   translucent : @base.Store[Bool]
-  /// 柔焦模糊开关：演示位图背景的模糊态（`@render.Bitmap::soft_blur`）
-  soft : @base.Store[Bool]
   /// 宿主句柄（挂载时由 main 的 handle 回调填入）：窗口页要调 `@win.Window` 的
   /// 标题/尺寸/无边框、快捷键页要开轮询表，都经它取。页函数体跑完时还没挂载，
   /// 所以是 Ref——按钮点击时读，那时早已填上。

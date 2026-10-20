@@ -244,7 +244,6 @@ fn main {
     dlg_result: @base.Store::new(""),
     flat: @base.Store::new(false),
     translucent: @base.Store::new(false),
-    soft: @base.Store::new(false),
     // 宿主句柄：挂载时由下方 handle 回调填入（窗口页/快捷键页取用）
     host: Ref(None),
   }
