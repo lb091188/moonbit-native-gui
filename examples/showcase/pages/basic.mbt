@@ -12,11 +12,71 @@
 // ④ 声明式层与组件同住 `@ui`（`ui/declarative.mbt`）。
 
 ///|
+/// 演示用底图：三段色带 + 两块高对比方块，模糊前后差异一眼可辨。
+fn appearance_art() -> @render.Bitmap {
+  let bm = @render.Bitmap::new(360, 140)
+  bm.fill_area(0, 0, 120, 140, { r: 45, g: 104, b: 196, a: 255 })
+  bm.fill_area(120, 0, 240, 140, { r: 46, g: 158, b: 91, a: 255 })
+  bm.fill_area(240, 0, 360, 140, { r: 214, g: 69, b: 80, a: 255 })
+  bm.fill_area(40, 40, 120, 100, { r: 255, g: 255, b: 255, a: 255 })
+  bm.fill_area(220, 30, 300, 110, { r: 42, g: 47, b: 54, a: 255 })
+  bm
+}
+
+///|
+/// 模糊演示：同一张底图按开关取清晰/柔焦两态。
+fn appearance_demo(app : @shared.App) -> @widget.Node {
+  let art = appearance_art()
+  let sharp = @render.Image::from_bitmap(art)
+  let soft = @render.Image::from_bitmap(art.soft_blur())
+  @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.node.set_width(@yoga.fixed(360.0))
+    w.node.set_height(@yoga.fixed(140.0))
+    w.on_draw = Some(fn(
+      _self : @widget.Widget,
+      p : @render.Painter,
+      r : @base.Rect,
+    ) -> Unit {
+      p.flush()
+      p.draw_image(if app.soft.get() { soft } else { sharp }, 0.0, 0.0, r.w, r.h)
+    })
+    w
+  })
+}
+
+///|
 pub fn page_basic(app : @shared.App) -> @widget.Node {
   // 两个悬停/光标组各配一个文本框状态
   let box_a : @base.Store[String] = @base.Store::new("组内输入框")
   let box_b : @base.Store[String] = @base.Store::new("组内输入框")
   @shared.page([
+    @shared.section(
+      "外观",
+      "圆角与柔焦",
+      "两个总开关：圆角关掉后全站经样式槽的圆角按 0 绘制；柔焦走固定一档的降采样模糊（Bitmap::soft_blur，无参数），用于背景图、封面这类面积可控的内容。",
+      [
+        @ui.row(
+          [
+            @ui.text("圆角", role=@ui.Body),
+            @ui.switch(app.flat, on_change=fn(v) {
+              @style.set_square_corners(v)
+              @widget.host_repaint_all()
+            }),
+            @ui.text("柔焦模糊", role=@ui.Body),
+            @ui.switch(app.soft, on_change=fn(_v) {
+              @widget.host_repaint_all()
+            }),
+          ],
+          column_gap=12.0,
+        ),
+        appearance_demo(app),
+      ],
+      code=[
+        "@style.set_square_corners(true)",
+        "@widget.host_repaint_all()",
+        "@render.Image::from_bitmap(art.soft_blur())",
+      ],
+    ),
     @shared.section(
       "主题",
       "主题色板",
