@@ -142,6 +142,25 @@ pub fn Router::purge_built(self : Router, path : String) -> Unit {
 }
 
 ///|
+/// 丢掉**所有**已构造内容（在挂与否一视同仁），构造期那批订阅一并退掉。
+/// 给「整棵树的文案换了、每个缓存节点都旧了」的场合用（切语言、换皮肤）：
+/// 预建过但从没点开过的页只存在于缓存里，不 purge 就会被下次点开直接复用。
+pub fn Router::purge_all_built(self : Router) -> Unit {
+  let keys : Array[String] = []
+  let offs : Array[Array[() -> Unit]] = []
+  for (k, b) in self.built {
+    keys.push(k)
+    offs.push(b.offs)
+  }
+  for o in offs {
+    @base.sub_bag_discard(o)
+  }
+  for k in keys {
+    let _ = self.built.remove(k)
+  }
+}
+
+///|
 /// 当场构造这一条路径的内容并进缓存；已建过的直接回缓存里的节点（thunk 只跑一次）。
 /// 路径上没有 `build`（分支或非法路径）时 abort——调用方给的都是叶路径。
 pub fn Router::build_now(self : Router, path : String) -> @widget.Node {
