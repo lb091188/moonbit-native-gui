@@ -189,15 +189,22 @@ pub fn Router::built_count(self : Router) -> Int {
 }
 
 ///|
-/// 预建队列还剩多少个待建（跳过的 `Lazy` 不计）。
+/// 预建队列还剩多少个待建。`Lazy` 节点是豁免对象、不是欠账，不计入——
+/// 否则每次切页重新锚定后，队列尾部那个 `Lazy` 会永远挂着一个假的 `pending=1`。
 pub fn Router::pending_count(self : Router) -> Int {
   let mut n = 0
   let q = self.queue.val
   let i = self.queue_at.val
   if i < q.length() {
     for k in i..<q.length() {
-      if !self.is_built(q[k]) {
-        n += 1
+      let path = q[k]
+      if !self.is_built(path) {
+        match route_by_path(self.roots, path) {
+          Some(r) => if !load_of(r, self.default_load).is_lazy() {
+            n += 1
+          }
+          None => ()
+        }
       }
     }
   }
