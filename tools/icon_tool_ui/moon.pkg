@@ -1,0 +1,13 @@
+// iconfont 预览 GUI（界面形态）：读一份 [icons] TOML，网格逐个自绘 + 名字标签。
+// 受众是人（肉眼看转化对不对）；终端形态另见 icon_convert。
+import {
+  "moonbitlang/core/env" @env,
+  "moonbitlang/x/fs" @fs,
+  "NoahLiu/native-gui/ui" @ui,
+  "NoahLiu/native-gui/icons" @icons,
+  "NoahLiu/native-gui/widget" @widget,
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"

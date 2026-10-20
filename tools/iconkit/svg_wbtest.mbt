@@ -41,6 +41,12 @@ test "svg_to_entries keep 子集筛选" {
   assert_eq(sub[0].0, "b")
 }
 
+test "keep 名单支持换行分隔" {
+  let svg = "<svg viewBox=\"0 0 20 20\"><symbol id=\"a\"><path d=\"M0,0\"/></symbol><symbol id=\"b\"><path d=\"M1,1\"/></symbol><symbol id=\"c\"><path d=\"M2,2\"/></symbol></svg>"
+  let (sub, _) = svg_to_entries(svg, Some("a\nc\n"))
+  assert_eq(sub.length(), 2)
+}
+
 test "Q 折 C 换算数值正确" {
   // M0,10 Q5,-2 10,10 @ viewBox 0 0 20 20：中心(10,10)、scale100
   let (s, w) = convert_path("M0,10 Q5,-2 10,10 Z", 0.0, 0.0, 20.0, 20.0)

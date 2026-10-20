@@ -1,0 +1,13 @@
+// i18n 目录查看器（界面形态）：读一份 locale TOML，列出键/值/复数，缺译一眼可见。
+// 复用同模块 i18nkit 内核解析；终端形态（extract/check）另见 i18n_cli。
+import {
+  "moonbitlang/core/env" @env,
+  "moonbitlang/x/fs" @fs,
+  "NoahLiu/native-gui/ui" @ui,
+  "NoahLiu/native-gui/widget" @widget,
+  "NoahLiu/native-gui-tools/i18nkit" @i18nkit,
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"
