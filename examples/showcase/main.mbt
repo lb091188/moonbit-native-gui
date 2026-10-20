@@ -86,6 +86,45 @@ fn translucent_toggle_button(app : @shared.App) -> @widget.Node {
 }
 
 ///|
+/// 页名清单（路由 key 恒为中文，显示名另经 `nav_labels` 本地化）。
+fn page_keys() -> Array[String] {
+  [
+    "基础组件", "表单组件", "导航组件", "数据展示", "图表", "代码文档", "Store",
+    "反馈组件", "事件与布局", "窗口", "系统集成", "图标库", "画布与富文本",
+    "过渡与效果", "系统能力探测", "图标字体", "国际化", "RTL 排版",
+  ]
+}
+
+///|
+/// 侧栏显示名表：键=中文页名（路由 key），值=当前语言显示名。
+fn nav_labels() -> Array[(String, String)] {
+  let out : Array[(String, String)] = []
+  for k in page_keys() {
+    out.push((k, @shared.nav_label(k)))
+  }
+  out
+}
+
+///|
+/// 切语言按钮（月亮旁）：换目录 → 清已建页 → 改动 locale 触发整棵内容树重建。
+fn language_toggle_button(app : @shared.App, nav : @router.Router) -> @widget.Node {
+  @ui.icon_button(
+    @icons.Earth,
+    on_click=fn() {
+      let to_en = app.locale.get() != "en"
+      let loc = if to_en { "en" } else { "zh-CN" }
+      @shared.set_locale_catalog(loc)
+      // 清路由已建页：否则页面内文案仍是旧语言（树重建时按新目录重挂）
+      for k in page_keys() {
+        nav.purge_built(k)
+      }
+      app.locale.set(loc)
+      @widget.host_repaint_all()
+    },
+  )
+}
+
+///|
 /// 菜单栏模型（第十五批接线）：动作全部真实有效——「导航」切页、「主题」
 /// 拨深浅与跟随开关、「帮助」关于冒提示 / 退出角色项走 `App::quit`。
 /// 项点击经原生菜单派发链（`dispatch_menu_command`）回到这些回调。
@@ -227,6 +266,7 @@ fn main {
   let slot : Ref[@widget.App?] = Ref(None)
   let mounted = @ui.mount_window(
     [
+      @widget.bind_node(app.locale.signal(), fn(_loc : String) -> @widget.Node {
       @ui.row(
         [
           // 侧栏：可滚动的分组菜单（窗口矮时滚到底部项）+ 底部主题切换 + 版本号
@@ -236,10 +276,11 @@ fn main {
                 [
                   nav.sidebar(
                     [
-                      ("组件", ["基础组件", "表单组件", "导航组件", "数据展示", "图表", "代码文档", "Store", "反馈组件", "事件与布局", "窗口", "系统集成", "图标库", "画布与富文本", "过渡与效果"]),
-                      ("系统", ["系统能力探测"]),
-                      ("本地化", ["图标字体", "国际化", "RTL 排版"]),
+                      (@shared.tr("nav.g.components", "组件"), ["基础组件", "表单组件", "导航组件", "数据展示", "图表", "代码文档", "Store", "反馈组件", "事件与布局", "窗口", "系统集成", "图标库", "画布与富文本", "过渡与效果"]),
+                      (@shared.tr("nav.g.system", "系统"), ["系统能力探测"]),
+                      (@shared.tr("nav.g.localization", "本地化"), ["图标字体", "国际化", "RTL 排版"]),
                     ],
+                    labels=nav_labels(),
                     icons=[
                       ("基础组件", @icons.Appstore),
                       ("表单组件", @icons.Edit1),
@@ -269,6 +310,7 @@ fn main {
                   theme_toggle_button(app),
                   flat_toggle_button(app),
                   translucent_toggle_button(app),
+                  language_toggle_button(app, nav),
                 ],
                 padding=10.0,
                 column_gap=8.0,
@@ -315,7 +357,8 @@ fn main {
         ],
         grow=1.0,
         align_items=@yoga.AlignItems::Stretch,
-      ),
+      )
+      }),
     ],
     title=SHOWCASE_TITLE,
     width=1280,
