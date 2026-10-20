@@ -600,7 +600,8 @@ fn int_of_digits(s : String) -> Int? {
 /// 步进器：`[-] 值 [+]` 共框三段（外框由行容器画、格与格之间只有一条分隔线，
 /// 三格同高同边——各自画一圈边框会看着像三个没粘在一起的盒子），按 step 增减
 /// 并夹在区间内；触边界那一侧自动禁用（禁用态必须跟着值走，见 state.mbt 那条实测）。
-/// 中间格是输入框：只收数字（区间含负数时连负号一起收），回车或失焦才回写并夹取，
+/// 中间格是输入框：只收数字（区间含负数时连负号一起收），回车、失焦、点 +/- 或按
+/// ↑/↓ 都先把它回写并夹取（点钮不会让出焦点，不先成交就会按旧值走），
 /// 中途的半成品（空串、越界、`-`）不动值。
 /// 键盘口径：↑ 加、↓ 减（←/→ 归输入框移光标），整支控件占一个 Tab 位、落在中间格；
 /// 聚焦时外框描边转主题色。
@@ -625,10 +626,6 @@ pub fn stepper(
     plus_off.off = v >= hi
   }
   let write = fn(v : Int) -> Unit { text.set(v.to_string()) }
-  let bump = fn(delta : Int) -> Unit {
-    state.set((state.get() + delta).clamp(min=lo, max=hi))
-    sync()
-  }
   let commit = fn() -> Unit {
     match int_of_digits(text.get()) {
       Some(v) => {
@@ -639,11 +636,19 @@ pub fn stepper(
     }
     write(state.get())
   }
+  // 钮与方向键都先把「打字未提交」的串折进值再走步长：点 +/- 不会把焦点让出去，
+  // 少了这一步就是格上显示 5、按值加出 3。
+  let bump = fn(delta : Int) -> Unit {
+    commit()
+    state.set((state.get() + delta).clamp(min=lo, max=hi))
+    sync()
+  }
   // 值变 → 中间格跟随；串已经表示同一个数就不动（`007` 这类在打的串不被顶回）
   let sid = state.subscribe_id(fn(v : Int) -> Unit {
     if int_of_digits(text.get()) != Some(v) {
       write(v)
     }
+    sync()
     @widget.invalidate()
   })
   @base.sub_bag_register(fn() { state.remove(sid) })

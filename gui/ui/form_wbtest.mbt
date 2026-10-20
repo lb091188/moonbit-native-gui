@@ -891,6 +891,77 @@ test "步进器中间格可打字：只收数字，回车与失焦才回写并�
 }
 
 ///|
+/// 控件位图上的最暗不透明像素：字色深浅档（常态/禁用态）用它分辨。
+fn darkest_px(w : @widget.Widget) -> (Int, Int, Int, Int) {
+  let bm = @render.Bitmap::new(w.rect.w.round().to_int(), w.rect.h.round().to_int())
+  let p = @render.Painter::new(bm)
+  w.paint_at(p, w.rect.x, w.rect.y)
+  p.end()
+  let mut dark = (255, 255, 255, 255)
+  for y = 0; y < bm.height; y = y + 1 {
+    for x = 0; x < bm.width; x = x + 1 {
+      let c = color_of(bm, x, y)
+      if c.3 > 0 && c.0 + c.1 + c.2 < dark.0 + dark.1 + dark.2 {
+        dark = c
+      }
+    }
+  }
+  dark
+}
+
+///|
+test "步进器：打字未成交先落值再步进，外部改值时禁用态跟随" {
+  let st = @base.Store::new(2)
+  let root = mount_root([stepper(st, min=1, max=9)], 260.0, 60.0)
+  let row = kid(root, 0)
+  let cell = row.children()[1]
+  let minus = row.children()[0]
+  let plus = row.children()[2]
+  let text_of = fn() -> String {
+    match root.im_context_of(cell.focus_id) {
+      Some((s, _)) => s
+      None => "<无输入法上下文>"
+    }
+  }
+  let tap = fn(w : @widget.Widget) -> Unit {
+    let _ = root.dispatch_pointer_to(w.id, {
+      kind: @widget.PointerKind::Down, x: w.rect.x + 4.0, y: w.rect.y + 4.0, button: 1, mods: 0,
+    })
+    let _ = root.dispatch_pointer_to(w.id, {
+      kind: @widget.PointerKind::Up, x: w.rect.x + 4.0, y: w.rect.y + 4.0, button: 1, mods: 0,
+    })
+  }
+  let _ = root.set_focused_by_focus(cell.focus_id)
+  // 点 +/- 不吃焦点，格上那位数必须先成交再走步长（否则显示 5、加出 3）
+  key(root, cell, 'a'.to_int(), @base.MOD_CTRL)
+  key(root, cell, '5'.to_int(), 0)
+  tap(minus)
+  assert_eq(st.get(), 4)
+  assert_eq(text_of(), "4")
+  key(root, cell, 'a'.to_int(), @base.MOD_CTRL)
+  key(root, cell, '7'.to_int(), 0)
+  key(root, cell, @base.KS_UP, 0)
+  assert_eq(st.get(), 8)
+  assert_eq(text_of(), "8")
+  // 空串不成数：不动值，串先回到现值再步进
+  key(root, cell, 'a'.to_int(), @base.MOD_CTRL)
+  key(root, cell, @base.KS_BACKSPACE, 0)
+  tap(plus)
+  assert_eq(st.get(), 9)
+  assert_eq(text_of(), "9")
+  // 越界的数按区间夹取
+  key(root, cell, 'a'.to_int(), @base.MOD_CTRL)
+  key(root, cell, '0'.to_int(), 0)
+  key(root, cell, @base.KS_RETURN, 0)
+  assert_eq(st.get(), 1)
+  assert_eq(text_of(), "1")
+  // 值从外部变到端点：触界那侧的禁用字色要跟上（禁用态跟着值走）
+  let at_min = darkest_px(minus)
+  st.set(5)
+  assert_true(darkest_px(minus) != at_min, msg="外部改值后减号仍是禁用字色")
+}
+
+///|
 test "色板描边贴盒边：内侧描边口径下左右上下同列" {
   let sel = fn() -> Bool { false }
   let root = mount_root(
