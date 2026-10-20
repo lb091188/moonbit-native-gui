@@ -59,16 +59,23 @@ WIN_DLL_URL = (
     "ffmpeg-n9.0-latest-win64-lgpl-shared-9.0.zip"
 )
 
+# 本仓 vendor-v1 Release 的 Windows 归档（win-ffmpeg-vendor workflow 产物，与
+# mac 归档、miniaudio.h、WebView2 同处一档）。sha256 回填后这一路优先于上游
+# BtbN；空串表示尚未上传/未回填，直接走上游那一路。
+WIN_VENDOR_ARCHIVE: tuple[str, str] = (
+    "ffmpeg-windows-x64-9.0-lgpl-shared.zip",
+    "",
+)
+
 # 单个 dll 的体积下限：用来判掉残缺/半截文件，不是精确校验。
 WIN_DLL_MIN_BYTES = 100 * 1024
 
 # ---------------------------------------------------------------------------
-# mac vendor 归档（口径与 gui-webview 的 Release 资产同族）：自编 LGPL ffmpeg
-# 的动态库 + 头，打包时 id/依赖已 @rpath 化。体积不入库，缺失时下载校验 sha256，
-# 双镜像按序尝试、单源超时 20 秒，NATIVE_GUI_VENDOR_BASE 覆盖，离线可提前手工
-# 放置 `vendor/mac/`（已存在不动）。归档制作：scripts/make_mac_ffmpeg_vendor.sh。
+# vendor 归档（mac 的 dylib 与 Windows 的运行期 dll 同一套口径，与 gui-webview 的
+# Release 资产同族）：体积不入库，缺失时下载校验 sha256，双镜像按序尝试、单源
+# 超时 20 秒，NATIVE_GUI_VENDOR_BASE 覆盖，离线可提前手工放置（已存在不动）。
 # ---------------------------------------------------------------------------
-MAC_VENDOR_BASES = [
+VENDOR_BASES = [
     "https://github.com/lb091188/moonbit-native-gui/releases/download/vendor-v1",
     # gitee 镜像：gitee 的用户名与 GitHub 不同（noahliu0911 / lb091188），
     # 附件下载 URL 形状两边一致（releases/download/<tag>/<文件名>）。
@@ -136,12 +143,40 @@ def _download(url: str, dest: str) -> bool:
     return True
 
 
+def _install_win_zip(data: bytes, bin_dir: str) -> bool:
+    """把归档里的 bin/*.dll 解到 bin_dir（只取 WIN_RUNTIME_DLLS 那 7 个）。"""
+    import io
+
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as zf:
+            wanted = {
+                n.rsplit("/", 1)[-1]: n
+                for n in zf.namelist()
+                if "/bin/" in n and n.rsplit("/", 1)[-1] in WIN_RUNTIME_DLLS
+            }
+            if len(wanted) < len(WIN_RUNTIME_DLLS):
+                print(
+                    f"ffmpeg(prebuild): 归档里 dll 不全"
+                    f"（{len(wanted)}/{len(WIN_RUNTIME_DLLS)}）",
+                    file=sys.stderr,
+                )
+                return False
+            for name, member in wanted.items():
+                with zf.open(member) as f, open(os.path.join(bin_dir, name), "wb") as out:
+                    shutil.copyfileobj(f, out)
+    except (zipfile.BadZipFile, OSError) as e:
+        print(f"ffmpeg(prebuild): 解包失败（{e}）", file=sys.stderr)
+        return False
+    return win_runtime_ready(bin_dir)
+
+
 def ensure_win_runtime_dlls() -> bool:
     """构建期把运行期 dll 备到 vendor/win/bin/；就位返回 True。
 
-    缺则取 BtbN 的 win64-lgpl-shared 9.0 归档（与导入库同源）。失败只提示不中断
-    ——导入库链接照旧可用，只是运行期得自行放 dll。CI 已自备 dll 时用
-    NATIVE_GUI_SKIP_VENDOR=1 跳过这次 150MB 下载。
+    两级：先取本仓 vendor-v1 Release 的归档（sha256 校验 + 双镜像，与 mac 同族），
+    拿不到再退 BtbN 上游（滚动资产，没有可固定的 sha）。失败只提示不中断——导入
+    库链接照旧可用，只是运行期得自行放 dll。CI 已自备 dll 时用
+    NATIVE_GUI_SKIP_VENDOR=1 跳过这次下载。
     """
     if os.environ.get("NATIVE_GUI_SKIP_VENDOR", "").strip().lower() in ("1", "true", "yes"):
         print("ffmpeg(prebuild): NATIVE_GUI_SKIP_VENDOR 已设，跳过运行期 dll 准备", file=sys.stderr)
@@ -150,14 +185,35 @@ def ensure_win_runtime_dlls() -> bool:
     if win_runtime_ready(bin_dir):
         return True
     os.makedirs(bin_dir, exist_ok=True)
+
+    name, sha = WIN_VENDOR_ARCHIVE
+    if sha:
+        print(f"ffmpeg(prebuild): 取运行期 dll {name}（vendor 归档）", file=sys.stderr)
+        data = fetch_vendor_file(name, sha)
+        if data is not None and _install_win_zip(data, bin_dir):
+            print(
+                f"ffmpeg(prebuild): 运行期 dll 已就位 {bin_dir}（vendor 归档，sha256 通过）\n"
+                "  运行前把它们放到 exe 同目录（native-gui 仓库可跑 "
+                "python scripts/win_ffmpeg_dll.py 代劳）",
+                file=sys.stderr,
+            )
+            return True
+        print("ffmpeg(prebuild): vendor 归档没取到或校验不过，退 BtbN 上游", file=sys.stderr)
+
     src = os.environ.get("NATIVE_GUI_FFMPEG_ZIP", "").strip()
-    zip_path = os.path.join(win_vendor_dir(), "win", WIN_DLL_URL.rsplit("/", 1)[-1])
     if src and os.path.isfile(src):
         print(f"ffmpeg(prebuild): 用本地归档 {src}", file=sys.stderr)
-        shutil.copyfile(src, zip_path)
+        try:
+            with open(src, "rb") as fh:
+                data = fh.read()
+        except OSError as e:
+            print(f"ffmpeg(prebuild): 读本地归档失败（{e}）", file=sys.stderr)
+            return False
+        ok = _install_win_zip(data, bin_dir)
     else:
         url = src or WIN_DLL_URL
         print(f"ffmpeg(prebuild): 取运行期 dll {url}", file=sys.stderr)
+        zip_path = os.path.join(win_vendor_dir(), "win", url.rsplit("/", 1)[-1])
         if not _download(url, zip_path):
             print(
                 "ffmpeg(prebuild): 运行期 dll 未就位——构建仍可完成，但运行前要自备\n"
@@ -166,25 +222,16 @@ def ensure_win_runtime_dlls() -> bool:
                 file=sys.stderr,
             )
             return False
-    try:
-        with zipfile.ZipFile(zip_path) as zf:
-            names = {
-                n.rsplit("/", 1)[-1]: n
-                for n in zf.namelist()
-                if "/bin/" in n and n.rsplit("/", 1)[-1] in WIN_RUNTIME_DLLS
-            }
-            for name, member in names.items():
-                with zf.open(member) as f, open(os.path.join(bin_dir, name), "wb") as out:
-                    shutil.copyfileobj(f, out)
-    except (zipfile.BadZipFile, OSError) as e:
-        print(f"ffmpeg(prebuild): 解包失败（{e}）", file=sys.stderr)
-        return False
-    finally:
         try:
-            os.remove(zip_path)
-        except OSError:
-            pass
-    ok = win_runtime_ready(bin_dir)
+            with open(zip_path, "rb") as fh:
+                data = fh.read()
+        finally:
+            try:
+                os.remove(zip_path)
+            except OSError:
+                pass
+        ok = _install_win_zip(data, bin_dir)
+
     if ok:
         print(
             f"ffmpeg(prebuild): 运行期 dll 已就位 {bin_dir}\n"
@@ -221,7 +268,7 @@ def mac_vendor_tarball() -> tuple[str, str] | None:
 def vendor_bases() -> list[str]:
     env = os.environ.get("NATIVE_GUI_VENDOR_BASE", "")
     extra = [b.strip().rstrip("/") for b in env.split(",") if b.strip()]
-    return extra + MAC_VENDOR_BASES
+    return extra + VENDOR_BASES
 
 
 # 默认双镜像走**并行竞速**：同时向各镜像发请求，谁先返回完整且 sha256 校验
