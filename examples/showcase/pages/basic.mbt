@@ -16,83 +16,7 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
   // 两个悬停/光标组各配一个文本框状态
   let box_a : @base.Store[String] = @base.Store::new("组内输入框")
   let box_b : @base.Store[String] = @base.Store::new("组内输入框")
-  // RTL：文本 run 基方向开关 + 布局镜像对比 + 从右起排的右侧文字样例
-  let rtl = @base.Store::new(false)
-  let rtl_toggle = @ui.button(
-    "切换文本基方向 (LTR/RTL)",
-    on_click=fn() {
-      let v = !rtl.get()
-      rtl.set(v)
-      @text.set_base_dir(if v { @text.Rtl } else { @text.Ltr })
-      @widget.invalidate()
-      app.toast_push("文本基方向 → " + (if v { "RTL" } else { "LTR" }), @ui.Info)
-    },
-  )
-  let rtl_mixed = @ui.text("Hello مرحبا World 123 — 混排 bidi", font_size=16.0)
-  let mirror_items = ["一", "二", "三"].map(x => @ui.card([@ui.text(x)], padding=10.0))
-  let ltr_row = @ui.col(
-    [@ui.text("LTR 主轴", role=@ui.Secondary), @ui.row(mirror_items, column_gap=8.0)],
-    row_gap=4.0,
-  )
-  let rtl_row = @ui.col(
-    [
-      @ui.text("RTL 布局镜像（Style.direction）", role=@ui.Secondary),
-      @ui.row(
-        mirror_items,
-        column_gap=8.0,
-        class=[@style.style().set_direction(Some(@style.Rtl))],
-      ),
-    ],
-    row_gap=4.0,
-  )
   @shared.page([
-    @shared.section(
-      "RTL 排版",
-      "文本基方向与布局镜像",
-      "两段机制各管一头：`@text.set_base_dir` 改文本 run 的基方向（bidi 混排里谁先谁后），`Style.direction=Rtl` 把布局主轴镜像（行列反向排）。开关只动前者，布局不受牵连。",
-      [
-        rtl_toggle,
-        rtl_mixed,
-        @ui.row([ltr_row, rtl_row], column_gap=24.0),
-      ],
-      code=[
-        "@text.set_base_dir(@text.Rtl)",
-        "@ui.row(items, class=[@style.style().set_direction(Some(@style.Rtl))])",
-      ],
-    ),
-    @shared.section(
-      "字体排版",
-      "从右起排的右侧文字",
-      "阿拉伯语、波斯语、希伯来语、乌尔都语这类文字整段从右往左落笔：容器方向给 `Rtl`、文本对齐给 `End`，行首就贴在右缘。数字段在 bidi 里仍按 LTR 走（阿拉伯语里的拉丁数不反写），这是文本引擎的默认口径。字体按平台回退，mac/Linux 缺相应字形时显示为方框属系统字体集问题，不是排版错位。",
-      [
-        @ui.view(
-          [
-            @ui.text("العربية — 阿拉伯语：مرحبا بالعالم", font_size=16.0),
-            @ui.text("فارسی — 波斯语：سلام دنیا", font_size=16.0),
-            @ui.text("עברית — 希伯来语：שלום עולם", font_size=16.0),
-            @ui.text("اردو — 乌尔都语：دنیا کو سلام", font_size=16.0),
-            @ui.text("RTL 段落里的 1234 / ABC 保持原序不反写", font_size=14.0),
-          ],
-          direction=@yoga.Column,
-          row_gap=8.0,
-          class=[
-            @style.style(
-              align_items=@yoga.AlignItems::FlexEnd,
-              text_align=@text.End,
-            ).set_direction(Some(@style.Rtl)),
-          ],
-          width=480.0,
-        ),
-        @ui.text("这块容器：direction=Rtl 镜像 + 贴右对齐；上面的基方向开关翻动时，行内数字段的相对序会跟着翻", role=@ui.Secondary),
-      ],
-      code=[
-        "@ui.view(lines,",
-        "  class=[@style.style(",
-        "    align_items=@yoga.AlignItems::FlexEnd,",
-        "    text_align=@text.End,",
-        "  ).set_direction(Some(@style.Rtl))])",
-      ],
-    ),
     @shared.section(
       "主题",
       "主题色板",
@@ -142,6 +66,58 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
         "} else {",
         "  @theme.theme_apply(if dark { @theme.dark_theme() } else { @theme.default_theme() })",
         "}",
+      ],
+    ),
+    @shared.section(
+      "字体排版",
+      "各语言的行首方向",
+      "每一行都占满整行宽度，所以中文、英文从左缘起笔，阿拉伯语、波斯语、希伯来语、乌尔都语这类从右往左落笔的文字右端贴右缘——对齐只给文本自身的 `align=End`，方向另给 `direction=Rtl`。行内数字与拉丁段在 bidi 里仍按 LTR 走，不反写。字体按平台回退，缺相应字形时显示方框属系统字体集问题，不是排版错位。",
+      [
+        @ui.col(
+          [
+            @ui.text("简体中文 — 你好，世界", font_size=16.0),
+            @ui.text("English — Hello, world", font_size=16.0),
+            @ui.text(
+              "العربية — 阿拉伯语：مرحبا بالعالم",
+              font_size=16.0,
+              align=@text.End,
+              class=[@style.style().set_direction(Some(@style.Rtl))],
+            ),
+            @ui.text(
+              "فارسی — 波斯语：سلام دنیا",
+              font_size=16.0,
+              align=@text.End,
+              class=[@style.style().set_direction(Some(@style.Rtl))],
+            ),
+            @ui.text(
+              "עברית — 希伯来语：שלום עולם",
+              font_size=16.0,
+              align=@text.End,
+              class=[@style.style().set_direction(Some(@style.Rtl))],
+            ),
+            @ui.text(
+              "اردو — 乌尔都语：دنیا کو سلام",
+              font_size=16.0,
+              align=@text.End,
+              class=[@style.style().set_direction(Some(@style.Rtl))],
+            ),
+            @ui.text(
+              "RTL 行里的 1234 / ABC 保持原序不反写",
+              font_size=14.0,
+              align=@text.End,
+              class=[@style.style().set_direction(Some(@style.Rtl))],
+            ),
+          ],
+          row_gap=8.0,
+        ),
+      ],
+      code=[
+        "@ui.col([",
+        "  @ui.text(\"English — Hello, world\", font_size=16.0),",
+        "  @ui.text(\"العربية — مرحبا بالعالم\",",
+        "    font_size=16.0, align=@text.End,",
+        "    class=[@style.style().set_direction(Some(@style.Rtl))]),",
+        "], row_gap=8.0)",
       ],
     ),
     @shared.section(
