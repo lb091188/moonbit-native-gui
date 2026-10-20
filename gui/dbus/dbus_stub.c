@@ -180,3 +180,47 @@ double yue_dbus_f64_from_bits(int64_t bits) {
   memcpy(&v, &bits, sizeof(v));
   return v;
 }
+
+// ---- 退出信号兜底 ----
+// SIGINT/SIGTERM 的默认处置是当场终止进程：托盘注销来不及发，面板侧对已断开的
+// 注册项又要等它自己发现连接没了才清理（实测可在册几十分钟，期间是一个空白
+// 占位图标）。这里只把标志置起来（信号上下文里不分配、不 IO、不调 MoonBit
+// 蹦床），由宿主主循环下一拍取走并走正常退出路径。第二次同类信号恢复默认处置
+// 并立即自杀，避免循环卡死时连按无效。Windows 的通知区项由 shell 随进程回收，
+// 留空实现。
+#if defined(_WIN32)
+
+void yue_dbus_install_quit_signals(void) {}
+
+int32_t yue_dbus_quit_signal(void) { return 0; }
+
+#else
+
+#include <signal.h>
+
+static volatile sig_atomic_t yue_quit_signal_flag = 0;
+
+static void yue_quit_handler(int sig) {
+  if (yue_quit_signal_flag != 0) {
+    signal(sig, SIG_DFL);
+    raise(sig);
+    return;
+  }
+  yue_quit_signal_flag = 1;
+}
+
+void yue_dbus_install_quit_signals(void) {
+  signal(SIGINT, yue_quit_handler);
+  signal(SIGTERM, yue_quit_handler);
+}
+
+// 取走退出信号标志（读到 1 即清零，一次信号对应一次退出动作）。
+int32_t yue_dbus_quit_signal(void) {
+  if (yue_quit_signal_flag == 0) {
+    return 0;
+  }
+  yue_quit_signal_flag = 0;
+  return 1;
+}
+
+#endif

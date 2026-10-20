@@ -73,6 +73,11 @@ pub(all) struct Tray {
 let tray_by_slot : Map[Int, Tray] = Map([])
 
 ///|
+/// 是否需要退出兜底：只有建过 Linux(SNI) 托盘才置位。Win32 的通知区项由 shell
+/// 随进程回收，不需要注销；兜底开关决定主循环每拍要不要问一次信号标志。
+let quit_watch : Ref[Bool] = Ref(false)
+
+///|
 /// 当前桌面环境名（诊断与降级提示用；认不出为 "unknown"）。运行时真伪始终以
 /// `Tray::is_supported()` 为准，本函数只描述「跑在什么桌面上」。
 pub fn desktop_environment() -> String {
@@ -100,7 +105,12 @@ pub fn Tray::new(
   let id = basename_no_ext(icon_path)
   if @dbus.sni_watcher_present() {
     match @dbus.Item::create(id, icon_path) {
-      Ok(item) => return Ok({ backend: Sni(item), state: new_tray_state() })
+      Ok(item) => {
+        // 注册成功后装退出信号兜底，让 Ctrl+C / kill 走到 remove_all_trays
+        @dbus.dbus_install_quit_signals()
+        quit_watch.val = true
+        return Ok({ backend: Sni(item), state: new_tray_state() })
+      }
       Err(_) => () // watcher 不在线等，继续向下回退
     }
   }
@@ -306,6 +316,20 @@ pub fn Tray::remove(self : Tray) -> Unit {
     }
     Sni(item) => item.unregister()
   }
+}
+
+///|
+/// 注销本进程所有还在册的托盘图标（退出兜底，幂等）。宿主在拆台或收到退出
+/// 信号时调；单个图标仍用 `Tray::remove`，这里管整批。
+pub fn remove_all_trays() -> Unit {
+  @dbus.sni_unregister_all()
+}
+
+///|
+/// 是否收到过退出信号（SIGINT/SIGTERM），读一次清一次。没建过 SNI 托盘时恒
+/// false。宿主主循环每拍问一次，为真就走正常退出路径。
+pub fn quit_requested() -> Bool {
+  quit_watch.val && @dbus.dbus_quit_requested()
 }
 
 ///|

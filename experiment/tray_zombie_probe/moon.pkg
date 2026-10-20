@@ -1,0 +1,9 @@
+import {
+  "NoahLiu/native-gui/shell" @shell,
+  "NoahLiu/native-gui/dbus" @dbus,
+  "NoahLiu/native-gui/sys" @sys,
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"
