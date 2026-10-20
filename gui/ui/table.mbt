@@ -771,18 +771,38 @@ pub fn table(
     // 列宽是活的：表头拖动时改它，行内单元格跟着改宽（不重建树）
     let widths : Ref[Array[Double]] = Ref(table_widths(columns, width - 2.0))
     let body_cells : Ref[Array[Array[@widget.Widget]]] = Ref([])
-    @style.apply(w, @style.style(background_color="bg_panel", border_color="border", border_width=1.0))
+    @style.apply(w, @style.merge_all([
+      @style.style(
+        background_color="bg_panel",
+        border_color="border",
+        border_width=1.0,
+        border_radius=@theme.radius_card(),
+      ),
+      paint_subset(class),
+    ]))
     w.on_draw = Some(fn(
       self : @widget.Widget,
       p : @render.Painter,
       r : @base.Rect,
     ) -> Unit {
       let st = @style.style_for(self)
+      let rad = @style.number_of(st.border_radius, @theme.radius_card())
+      self.clip_rounded = rad > 0.0
+      self.style_clip_radius = rad
       p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
-      p.fill_rect(0.0, 0.0, r.w, r.h)
+      if rad > 0.0 {
+        p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
+      } else {
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      }
       p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
       p.set_line_width(@style.number_of(st.border_width, 1.0))
-      p.stroke_rect(0.0, 0.0, r.w, r.h)
+      if rad > 0.0 {
+        p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
+        p.stroke()
+      } else {
+        p.stroke_rect(0.0, 0.0, r.w, r.h)
+      }
     })
     // ---- 表头（共用构造） ----
     w.append_child(

@@ -38,6 +38,9 @@ fn overlay_pane(
     ) -> Unit {
       let st = @style.style_for(self)
       let rad = @style.number_of(st.border_radius, @theme.radius_overlay())
+
+      self.clip_rounded = rad > 0.0
+      self.style_clip_radius = rad
       p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
       if rad > 0.0 {
         p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
@@ -276,6 +279,9 @@ pub fn dropdown(
     ) -> Unit {
       let st = @style.style_for(self)
       let rad = @style.number_of(st.border_radius, @theme.radius_ctrl())
+
+      self.clip_rounded = rad > 0.0
+      self.style_clip_radius = rad
       p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
       p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
       p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
@@ -931,10 +937,20 @@ pub fn toast_layer(
           r : @base.Rect,
         ) -> Unit {
           p.set_fill_color(@theme.theme_bg_panel())
-          fill_round_rect(p, 0.0, 0.0, r.w, r.h, 4.0)
+          let rad = @theme.radius_ctrl()
+          if rad > 0.0 {
+            fill_round_rect(p, 0.0, 0.0, r.w, r.h, rad)
+          } else {
+            p.fill_rect(0.0, 0.0, r.w, r.h)
+          }
           p.set_stroke_color(@theme.theme_border())
           p.set_line_width(1.0)
-          p.stroke_rect(0.0, 0.0, r.w, r.h)
+          if rad > 0.0 {
+            p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
+            p.stroke()
+          } else {
+            p.stroke_rect(0.0, 0.0, r.w, r.h)
+          }
           let kind : @icons.IconKind = match t {
             Primary | Info => @icons.IconKind::InfoCircleFill
             Success => @icons.IconKind::CheckCircleFill
@@ -1042,22 +1058,34 @@ pub fn glass(
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
     w.on_draw = Some(fn(
-      _self : @widget.Widget,
+      self : @widget.Widget,
       p : @render.Painter,
       r : @base.Rect,
     ) -> Unit {
       if blur_on() {
         let _ = p.backdrop_blur(0.0, 0.0, r.w, r.h)
       }
+      // 半径随卡片令牌（关圆角=方玻璃），子件方底由擦角 pass 收进圆角
+      let rad = @style.number_of(@style.resolved(self).border_radius, @theme.radius_card())
+      self.clip_rounded = rad > 0.0
+      self.style_clip_radius = rad
       p.save()
       p.set_global_alpha(0.72)
       p.set_fill_color(@theme.theme_bg_panel())
-      p.fill_round_rect(0.0, 0.0, r.w, r.h, 6.0)
+      if rad > 0.0 {
+        p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
+      } else {
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      }
       p.restore()
       p.set_stroke_color(@theme.theme_border())
       p.set_line_width(1.0)
-      p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, 6.0)
-      p.stroke()
+      if rad > 0.0 {
+        p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
+        p.stroke()
+      } else {
+        p.stroke_rect(0.0, 0.0, r.w, r.h)
+      }
     })
     @style.apply(w, @style.style(padding=padding))
     fold_style(w, @style.empty_style(), class)

@@ -294,6 +294,9 @@ pub fn textarea(
       st.content_h = lines.length().to_double() * line_h + pad * 2.0
       let sty = @style.style_for(self)
       let rad = @style.number_of(sty.border_radius, @theme.radius_ctrl())
+
+      self.clip_rounded = rad > 0.0
+      self.style_clip_radius = rad
       p.set_fill_color(@style.color_of(sty.background_color, @theme.theme_bg_panel()))
       p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
       let sel = ed.selection()

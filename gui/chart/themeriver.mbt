@@ -438,7 +438,12 @@ pub fn trv_chart_t(
       r : @base.Rect,
     ) -> Unit {
       p.set_fill_color(@theme.theme_bg_panel())
-      p.fill_rect(0.0, 0.0, r.w, r.h)
+      let bgr = @theme.radius_card()
+      if bgr > 0.0 {
+        p.fill_round_rect(0.0, 0.0, r.w, r.h, bgr)
+      } else {
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      }
       trv_draw(p, r.w, r.h, names.get(), values.get(), bl, tension=tn, show_legend=lg)
     })
     handle(w)

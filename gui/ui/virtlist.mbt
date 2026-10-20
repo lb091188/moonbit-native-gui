@@ -183,11 +183,23 @@ pub fn table_v(
       r : @base.Rect,
     ) -> Unit {
       let st = @style.style_for(self)
+      let rad = @style.number_of(st.border_radius, @theme.radius_card())
+      self.clip_rounded = rad > 0.0
+      self.style_clip_radius = rad
       p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
-      p.fill_rect(0.0, 0.0, r.w, r.h)
+      if rad > 0.0 {
+        p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
+      } else {
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      }
       p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
       p.set_line_width(@style.number_of(st.border_width, 1.0))
-      p.stroke_rect(0.0, 0.0, r.w, r.h)
+      if rad > 0.0 {
+        p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
+        p.stroke()
+      } else {
+        p.stroke_rect(0.0, 0.0, r.w, r.h)
+      }
     })
     let head = table_header(
       columns,

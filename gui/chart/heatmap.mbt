@@ -299,7 +299,12 @@ pub fn heatmap_t(
       r : @base.Rect,
     ) -> Unit {
       p.set_fill_color(@theme.theme_bg_panel())
-      p.fill_rect(0.0, 0.0, r.w, r.h)
+      let bgr = @theme.radius_card()
+      if bgr > 0.0 {
+        p.fill_round_rect(0.0, 0.0, r.w, r.h, bgr)
+      } else {
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      }
       // 空串 = 跟随主题（on_draw 内现取，theme_apply 切换即重绘跟随）
       let low = if lc != "" { lc } else { @theme.theme_primary_light() }
       let high = if hc != "" { hc } else { @theme.theme_primary() }

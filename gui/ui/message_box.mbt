@@ -233,6 +233,8 @@ pub fn message_box(
         close_btn.node.set_width(@yoga.fixed(24.0))
         close_btn.node.set_height(@yoga.fixed(24.0))
         close_btn.cursor = @widget.CURSOR_HAND
+        // 键盘可及性：与动作钮同一条——自动领号进 Tab 链，空格/回车收起
+        close_btn.focus_id = auto_focus_id(0)
         @style.apply(
           close_btn,
           @style.merge_all([
@@ -259,6 +261,18 @@ pub fn message_box(
           p.move_to(r.w - 8.0, 8.0)
           p.line_to(8.0, r.h - 8.0)
           p.stroke()
+          // 焦点环：能聚焦就得看得见焦点在哪个钮上（与动作钮同口径）
+          if self.focused {
+            let frad = @theme.radius_ctrl()
+            p.set_stroke_color(@theme.theme_primary())
+            p.set_line_width(1.0)
+            if frad > 0.0 {
+              p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, frad)
+              p.stroke()
+            } else {
+              p.stroke_rect(0.5, 0.5, r.w - 1.0, r.h - 1.0)
+            }
+          }
         })
         close_btn.on_pointer = Some(fn(
           _s : @widget.Widget,
@@ -271,6 +285,17 @@ pub fn message_box(
               false
             }
             _ => false
+          }
+        })
+        close_btn.on_key = Some(fn(ev : @widget.KeyEvent) -> Bool {
+          if !ev.press {
+            return false
+          }
+          if ev.keysym == @base.KS_SPACE || ev.keysym == @base.KS_RETURN {
+            dismiss()
+            true
+          } else {
+            false
           }
         })
         // 正文区：图标 + (正文 / 副行)
@@ -383,6 +408,9 @@ pub fn message_box(
               ),
             )
             let rad = @style.number_of(st.border_radius, @theme.radius_ctrl())
+
+            self.clip_rounded = rad > 0.0
+            self.style_clip_radius = rad
             fill_round_rect(p, 0.0, 0.0, r.w, r.h, rad)
             p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
             p.set_line_width(@style.number_of(st.border_width, 1.0))
@@ -475,6 +503,9 @@ pub fn message_box(
         ) -> Unit {
           let st = @style.style_for(self)
           let rad = @style.number_of(st.border_radius, @theme.radius_overlay())
+
+          self.clip_rounded = rad > 0.0
+          self.style_clip_radius = rad
           p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
           p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
           p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))

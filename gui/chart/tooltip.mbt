@@ -373,7 +373,12 @@ pub fn ci_tooltip(
     ) -> Unit {
       box.val = (r.w, r.h)
       p.set_fill_color(@theme.theme_bg_panel())
-      p.fill_rect(0.0, 0.0, r.w, r.h)
+      let bgr = @theme.radius_card()
+      if bgr > 0.0 {
+        p.fill_round_rect(0.0, 0.0, r.w, r.h, bgr)
+      } else {
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      }
       draw(p, r.w, r.h)
       ci_tip_draw(p, tip, r.w, r.h)
     })

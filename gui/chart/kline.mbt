@@ -244,7 +244,12 @@ pub fn candlestick_t(
       r : @base.Rect,
     ) -> Unit {
       p.set_fill_color(@theme.theme_bg_panel())
-      p.fill_rect(0.0, 0.0, r.w, r.h)
+      let bgr = @theme.radius_card()
+      if bgr > 0.0 {
+        p.fill_round_rect(0.0, 0.0, r.w, r.h, bgr)
+      } else {
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      }
       kline_draw(p, r.w, r.h, candles.get(), yr, up_c, down_c)
     })
     handle(w)

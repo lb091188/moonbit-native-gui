@@ -67,14 +67,27 @@
   /* ---------- tabs ---------- */
   .tabs{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
   .tabs .wrap{display:flex;align-items:center;gap:2px;height:44px}
-  .tabs button{
+  .tabs button[data-tab]{
     border:0;background:none;padding:0 14px;height:44px;font-size:13.5px;color:var(--muted);
     border-bottom:2px solid transparent;margin-bottom:-1px
   }
-  .tabs button:hover{color:var(--text)}
-  .tabs button.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+  .tabs button[data-tab]:hover{color:var(--text)}
+  .tabs button[data-tab].on{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
   .tabs .spacer{flex:1}
   .save-hint{font-size:11.5px;color:var(--faint);transition:opacity .3s}
+
+  /* 吸顶条右侧的当前位置指示：选择器滚出视口后显示 */
+  .ctx{
+    display:flex;align-items:center;gap:7px;flex:none;max-width:52%;
+    border:1px solid var(--line);background:#f6f7f9;border-radius:20px;padding:3px 12px;
+    font-size:12.5px;color:#39414f;line-height:1.5;transition:.15s
+  }
+  .ctx:hover{background:#eef0f4;border-color:#d3d8e0}
+  .ctx b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ctx .sep{color:#b6bdc8}
+  .ctx em{font-style:normal;font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap}
+  .ctx em.bad{color:var(--fail)}
+  .ctx[hidden]{display:none}
 
   main{padding:22px 0 60px}
   .view{display:none}
@@ -246,6 +259,8 @@
     .row{flex-wrap:wrap}
     .asts{margin-left:50px}
     .field input{width:88px}
+    .ctx{max-width:56%;padding:3px 9px}
+    .ctx em{display:none}
   }
 </style>
 </head>
@@ -278,6 +293,13 @@
     <button data-tab="matrix">总览</button>
     <button data-tab="history">历史</button>
     <div class="spacer"></div>
+    <button class="ctx" id="ctx" hidden title="回到上方的平台与应用选择器">
+      <i class="dot" id="ctx-dot"></i>
+      <b id="ctx-plat"></b>
+      <span class="sep">·</span>
+      <b id="ctx-app"></b>
+      <em id="ctx-prog"></em>
+    </button>
     <div class="save-hint" id="save-hint"></div>
   </div>
 </nav>
@@ -336,6 +358,7 @@
   <div class="db">
     <h3>记录一条结果</h3>
     <p>选平台 → 选应用 → 在每行右侧点「通过 / 失败 / 跳过」。状态即点即存，不需要额外保存动作；失败项请补一句备注（现象、读数、报错行）。</p>
+    <p>往下滚、平台与应用选择器划出屏幕后，顶部标签栏右侧会出现「当前平台 · 当前应用 + 进度」，点它一键回到顶部重新选。</p>
     <h3>为什么带 commit</h3>
     <p>每条结果都会记下顶栏的 commit 与当前时间。只有带上 commit，才能回答「这条是哪版挂的」。切换版本前记得改一下顶栏的 commit 字段。</p>
     <h3>历史从哪来</h3>
@@ -883,10 +906,37 @@
         }
       }
     }
+
+    renderCtx();
   }
 
-  function platformName(id) {
-    for (var i = 0; i < PLATFORMS.length; i++) if (PLATFORMS[i].id === id) return PLATFORMS[i].name;
+  /* 吸顶条右侧的「当前平台 · 当前应用」指示 */
+  function renderCtx() {
+    var c = document.getElementById('ctx');
+    if (!c) return;
+    var n = counts(ui.platform, ui.app);
+    var dot = document.getElementById('ctx-dot');
+    dot.className = 'dot ' + (n.pass + n.fail === 0 ? '' : (n.fail ? 'bad' : (n.pass === n.total ? 'ok' : 'mid')));
+    document.getElementById('ctx-plat').textContent = platformName(ui.platform);
+    document.getElementById('ctx-app').textContent = appName(ui.app);
+    var em = document.getElementById('ctx-prog');
+    em.textContent = n.pass + '/' + n.total + (n.fail ? ' 失败 ' + n.fail : '');
+    em.className = n.fail ? 'bad' : '';
+    syncCtx();
+  }
+
+  function syncCtx() {
+    var c = document.getElementById('ctx');
+    if (!c) return;
+    if (ui.tab !== 'run') { c.hidden = true; return; }
+    var plat = document.getElementById('plat');
+    var tabs = document.querySelector('.tabs');
+    if (!plat || !tabs) { c.hidden = true; return; }
+    // 平台选择器一被吸顶条盖住，就补上「当前平台 · 当前应用」
+    c.hidden = plat.getBoundingClientRect().bottom > tabs.getBoundingClientRect().bottom + 1;
+  }
+
+  function platformName(id) {    for (var i = 0; i < PLATFORMS.length; i++) if (PLATFORMS[i].id === id) return PLATFORMS[i].name;
     return id;
   }
   function appName(id) {
@@ -1103,6 +1153,7 @@
     });
     if (t === 'matrix') renderMatrix();
     if (t === 'history') renderHistory();
+    renderCtx();
   }
 
   /* ======================= 导入 / 导出 ======================= */
@@ -1195,8 +1246,16 @@
       copyText(text);
     };
 
-    document.getElementById('btn-export').onclick = exportJSON;
-    document.getElementById('btn-import').onclick = function () { document.getElementById('file-import').click(); };
+    document.getElementById('ctx').onclick = function () {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    var scrollQueued = false;
+    function onScroll() { syncCtx(); }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+
+    document.getElementById('btn-export').onclick = exportJSON;    document.getElementById('btn-import').onclick = function () { document.getElementById('file-import').click(); };
     document.getElementById('file-import').onchange = function () {
       if (this.files && this.files[0]) importJSON(this.files[0]);
       this.value = '';
