@@ -10,6 +10,37 @@ let sni_iface : String = "org.kde.StatusNotifierItem"
 let watcher_name : String = "org.kde.StatusNotifierWatcher"
 
 ///|
+/// 本进程当前注册在总线上的托盘项（按对象路径唯一）。进程退出前必须逐个注销：
+/// 面板侧 watcher 对已断开的注册项清理不及时（实测残留可在册几十分钟，期间
+/// 托盘里是一个空白占位图标）。退出兜底 `sni_unregister_all` 按这张表收尾。
+let live_items : Array[Item] = []
+
+///|
+/// 从在册表里摘掉指定对象路径的项（没登记过时空操作）。
+fn drop_live_item(path : String) -> Unit {
+  let mut at = -1
+  let mut i = 0
+  while i < live_items.length() {
+    if live_items[i].path == path {
+      at = i
+      break
+    }
+    i = i + 1
+  }
+  if at >= 0 {
+    let _ = live_items.remove(at)
+  }
+}
+
+///|
+/// 注销本进程全部在册托盘项（退出兜底，幂等：逐项注销会把表清空）。
+pub fn sni_unregister_all() -> Unit {
+  for item in live_items.copy() {
+    item.unregister()
+  }
+}
+
+///|
 /// 一个托盘图标实例（对应总线上一个 StatusNotifierItem 对象）。
 pub struct Item {
   path : String
@@ -142,7 +173,10 @@ pub fn Item::create(id : String, icon_path : String) -> Result[Item, String] {
   c.items.set(path, item)
   c.menus.set(menu_path, item)
   match c.register_item_path(path) {
-    Ok(_) => Ok(item)
+    Ok(_) => {
+      live_items.push(item)
+      Ok(item)
+    }
     Err(e) => {
       // 失败路径与 unregister 对称清理：items 与 menus 两张表都摘，
       // 别把已占用的菜单对象路径留在注册表里
@@ -226,7 +260,9 @@ fn Conn::register_item_path(self : Conn, path : String) -> Result[Unit, String] 
 pub fn Item::unregister(self : Item) -> Unit {
   match g_conn.val {
     Some(c) => {
-      // fire-and-forget：watcher 不在时调用会失败，无需关心
+      // fire-and-forget：watcher 不在时调用会失败，无需关心。注销报文写进
+      // 套接字后即使进程随即退出，broker 也会在 EOF 之前把它转给 watcher
+      // （实测：注册项发完就走与等应答两种收尾，注册表都不留残留项）。
       let _ = c.call(
         watcher_name,
         "/StatusNotifierWatcher",

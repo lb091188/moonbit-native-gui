@@ -318,3 +318,29 @@ test "scratch3: GetLayout 应答字节" {
     Err(e) => println("err \{e}")
   }
 }
+
+///|
+test "线路字符串恒为合法 UTF-8" {
+  // 中文 + 间隔号 + emoji：配对完整的代理对合成 4 字节序列，不被当成非法值
+  let ok = utf8("libyue 演示板 · 🎉")
+  assert_eq(ok.length(), 24)
+  let emoji = utf8("🎉")
+  assert_eq(emoji[0].to_int(), 0xF0)
+  assert_eq(emoji[1].to_int(), 0x9F)
+  assert_eq(emoji[2].to_int(), 0x8E)
+  assert_eq(emoji[3].to_int(), 0x89)
+  // 未配对的半截代理对：@utf8.encode 遇到它直接 abort（进程当场终止，托盘注销
+  // 都来不及发）。线路出口先换成 U+FFFD，交给总线的字节恒为合法 UTF-8。
+  let lone = String::from_array(['x', (0xD83D).unsafe_to_char(), 'y'])
+  let fixed = utf8(lone)
+  assert_eq(fixed.length(), 5)
+  assert_eq(fixed[0].to_int(), 120)
+  assert_eq(fixed[1].to_int(), 0xEF)
+  assert_eq(fixed[2].to_int(), 0xBF)
+  assert_eq(fixed[3].to_int(), 0xBD)
+  assert_eq(fixed[4].to_int(), 121)
+  // 走一遍真实字段编码：u32 长度按替换后的字节数计
+  let buf = Buf::new()
+  buf.string(lone)
+  assert_eq(buf.len(), 4 + 5 + 1)
+}

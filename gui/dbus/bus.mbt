@@ -212,6 +212,22 @@ pub fn dbus_ensure_session() -> Result[Unit, String] {
 }
 
 ///|
+/// 装上退出信号兜底：SIGINT/SIGTERM 到达时不再当场终止进程，而是置标志由主
+/// 循环下一拍走正常退出（`dbus_quit_requested`）。托盘在用之前必须装——面板侧
+/// 对已断开的注册项清理不及时，进程不注销就在托盘里留一个空白占位图标，要等
+/// 它自己发现连接没了才消失。重复装无害；第二次同类信号按默认处置立即终止
+/// （循环卡死时连按仍有效）。
+pub fn dbus_install_quit_signals() -> Unit {
+  ffi_install_quit_signals()
+}
+
+///|
+/// 是否收到过退出信号（读一次清一次）。未装兜底时恒 false。
+pub fn dbus_quit_requested() -> Bool {
+  ffi_quit_signal() != 0
+}
+
+///|
 /// 取走入站数据：对每条活连接 poll 一次，可读就排空并分发。
 /// `timeout_ms` 缺省 0（非阻塞，看一眼就走），适合挂在宿主的每帧或每拍
 /// 定时器上；给正数时会阻塞到多这么久，只应在没有别的泵可依赖时用。
@@ -350,6 +366,7 @@ fn Conn::adopt_saved(self : Conn, bus : Int) -> Unit {
 /// 从当前连接与断线暂存的旧连接里一并摘除托盘项（注销用）：连接已断时
 /// 当前表里没有，但暂存连接还持着本项，只清一边会让它重连后复活。
 fn sni_drop_item(path : String, menu_path : String) -> Unit {
+  drop_live_item(path)
   match g_conn.val {
     Some(c) => {
       let _ = c.items.remove(path)

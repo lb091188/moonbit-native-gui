@@ -493,6 +493,7 @@ pub fn App::task(self : App, work : () -> Unit) -> Unit {
 /// 退出：只停派发，不拆对象（拆除由调用方在 `run` 返回后做）。`Loop` 是各窗
 /// 共用的，所以任一窗调它即整体退出。
 pub fn App::quit(self : App) -> Unit {
+  @shell.remove_all_trays()
   self.session.quit()
 }
 
@@ -947,6 +948,12 @@ pub fn App::step(self : App) -> Bool {
   }
   // 泵的「等 + 到期任务」段归壳层（webview/3D 路线只吃这一半就能跑起来）
   @shell.session_pump_advance()
+  // 退出信号（SIGINT/SIGTERM）到这一拍被取走：等事件的 poll 会被信号打断，
+  // 所以这里必能在下一拍读到。走 shutdown 收口，托盘注销先于进程结束。
+  if @shell.quit_requested() {
+    self.shutdown()
+    return false
+  }
   // 遍历一律走快照：排空途中关窗会改注册表
   for a in host_windows() {
     a.drain_events()
@@ -1030,6 +1037,7 @@ pub fn App::close_window(self : App) -> Unit {
   host_deregister(session)
   session.window.close()
   if host_close_action(session.primary, remaining) {
+    @shell.remove_all_trays()
     self.session.sched.quit()
     @win.wake()
   }
@@ -1045,6 +1053,7 @@ pub fn App::run(self : App) -> Unit {
 /// 关闭窗口并释放平台资源：把**所有**还在的窗一起拆掉（附窗可能还开着），
 /// 注册表随之复位。已拆过的窗句柄是 -1，`wm_close` 幂等，重复调无害。
 pub fn App::shutdown(self : App) -> Unit {
+  @shell.remove_all_trays()
   for a in host_windows() {
     a.session.running = false
     a.closed = true

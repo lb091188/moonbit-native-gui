@@ -91,3 +91,10 @@ test "Tray 生命周期（无托盘后端的机器自动跳过）" {
     }
   }
 }
+
+///|
+test "退出兜底：未收到退出信号时不报退出，批量注销可空跑" {
+  assert_false(quit_requested())
+  remove_all_trays()
+  remove_all_trays() // 幂等：在册表已空
+}
