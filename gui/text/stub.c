@@ -31,6 +31,10 @@ int pt_render_stats(int64_t *calls, int64_t *d2d_us, int64_t *read_us) {
 }
 #include <string.h>
 
+// RTL 文本 run 基方向：0=LTR(默认,逐字同现状) 1=RTL。opt-in，仅当应用调
+// pt_set_base_dir(1) 后生效;置位时清空布局缓存,并把该标志并入缓存键防串味。
+static int g_pt_rtl = 0;
+
 static PangoLayout *pt_make_layout(const char *text, int len, double size,
                                    const char *family, int weight,
                                    int italic) {
@@ -61,6 +65,9 @@ static PangoLayout *pt_make_layout(const char *text, int len, double size,
   }
   pango_layout_set_font_description(layout, desc);
   pango_font_description_free(desc);
+  pango_context_set_base_dir(pango_layout_get_context(layout),
+                             g_pt_rtl ? PANGO_DIRECTION_RTL
+                                       : PANGO_DIRECTION_LTR);
   pango_layout_set_text(layout, text, len);
   return layout;
 }
@@ -136,6 +143,14 @@ static void pt_cache_clear(void) {
   pt_cache_count = 0;
 }
 
+/* 设 RTL 文本 run 基方向；变更时清布局缓存（键已并入 rtl，清一遍更省复用错乱）。 */
+void pt_set_base_dir(int rtl) {
+  if (g_pt_rtl != (rtl ? 1 : 0)) {
+    g_pt_rtl = rtl ? 1 : 0;
+    pt_cache_clear();
+  }
+}
+
 /* 拿走 layout 的满引用；同键已存在时丢掉多余布局。 */
 static void pt_cache_put(const char *key, PangoLayout *layout) {
   if (pt_cache_count >= PT_CACHE_LIMIT) {
@@ -164,9 +179,9 @@ static char *pt_cache_key(const char *path, const char *text, int len,
                           int italic, int width_int, int wrap, int ellipsize,
                           int align) {
   char head[160];
-  snprintf(head, sizeof(head), "%s|%g|%s|%d|%d|%d|%d|%d|%d|", path, size,
+  snprintf(head, sizeof(head), "%s|%g|%s|%d|%d|%d|%d|%d|%d|%d|", path, size,
            family != NULL ? family : "", weight, italic, width_int, wrap,
-           ellipsize, align);
+           ellipsize, align, g_pt_rtl);
   if (len < 0) {
     len = text != NULL ? (int)strlen(text) : 0;
   }
@@ -983,6 +998,10 @@ void pt_set_batching(int on) {
 // Windows 的 pt_*/rt_* 由那个 TU 提供，防双定义。
 #elif defined(WM_STUB_MAC)
 
+// RTL 文本 run 基方向（mac 分支）：0=LTR(默认) 1=RTL，pt_line_create 据此挂段落方向。
+static int g_pt_rtl = 0;
+void pt_set_base_dir(int rtl) { g_pt_rtl = rtl ? 1 : 0; }
+
 // ---------------- macOS 后端（CoreText，prebuild 专编） ----------------
 //
 // CoreText 是纯 C API，这一支没有 Objective-C 语法（prebuild 统一按 ObjC 编，
@@ -1341,6 +1360,20 @@ static CTLineRef pt_line_create(PtPara *p, int with_ellipsis, int c0, int c1) {
                                        st->color);
       }
       CFRelease(e);
+    }
+  }
+  if (g_pt_rtl) {
+    CTParagraphStyleSetting set;
+    CTWritingDirection wd = kCTWritingDirectionRightToLeft;
+    set.spec = kCTParagraphStyleSpecifierBaseWritingDirection;
+    set.value = &wd;
+    set.valueSize = sizeof(wd);
+    CTParagraphStyleRef ps = CTParagraphStyleCreate(&set, 1);
+    if (ps != NULL) {
+      CFAttributedStringSetAttribute(
+          str, CFRangeMake(0, CFAttributedStringGetLength(str)),
+          kCTParagraphStyleAttributeName, ps);
+      CFRelease(ps);
     }
   }
   CTLineRef line = CTLineCreateWithAttributedString(str);
