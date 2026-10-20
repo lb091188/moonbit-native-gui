@@ -381,9 +381,14 @@ pub fn code_view(
       p : @render.Painter,
       r : @base.Rect,
     ) -> Unit {
-      // 代码块恒深底(One Dark 底色,深浅主题下都可读)
+      // 代码块恒深底(One Dark 底色,深浅主题下都可读)，圆角随卡片令牌
       p.set_fill_color("#282C34")
-      p.fill_rect(0.0, 0.0, r.w, r.h)
+      let rad = @theme.radius_card()
+      if rad > 0.0 {
+        p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
+      } else {
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      }
       let mut y = 14.0
       for segs in laid {
         for seg in segs {

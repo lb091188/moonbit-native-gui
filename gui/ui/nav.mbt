@@ -1184,11 +1184,21 @@ pub fn transfer(
         r : @base.Rect,
       ) -> Unit {
         let st = @style.style_for(self)
+        let rad = @style.number_of(st.border_radius, @theme.radius_card())
         p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
-        p.fill_rect(0.0, 0.0, r.w, r.h)
+        if rad > 0.0 {
+          p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
+        } else {
+          p.fill_rect(0.0, 0.0, r.w, r.h)
+        }
         p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
         p.set_line_width(@style.number_of(st.border_width, 1.0))
-        p.stroke_rect(0.0, 0.0, r.w, r.h)
+        if rad > 0.0 {
+          p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
+          p.stroke()
+        } else {
+          p.stroke_rect(0.0, 0.0, r.w, r.h)
+        }
       })
     }
 
@@ -1242,9 +1252,11 @@ pub fn transfer(
           let bg = @style.color_of(st.background_color, "")
           if bg.length() > 0 {
             p.set_fill_color(bg)
-            p.fill_round_rect(0.0, 0.0, r.w, r.h, @theme.radius_ctrl())
+            // 行高亮内缩 2px 走圆角：贴边会被圆角框啃出方角缺口
+            p.fill_round_rect(2.0, 0.0, (r.w - 4.0).max(1.0), r.h, @theme.radius_ctrl())
           }
-          // 选择标记=正圆（自带几何形态，不随圆角开关变方）
+          // 选择标记方圆随令牌：开=正圆，关=方块
+          let mark = @theme.radius_ctrl()
           p.set_fill_color(
             if on {
               @theme.theme_primary()
@@ -1252,7 +1264,11 @@ pub fn transfer(
               @theme.theme_border()
             },
           )
-          p.fill_round_rect(6.0, (r.h - 8.0) / 2.0, 8.0, 8.0, 4.0)
+          if mark > 0.0 {
+            p.fill_round_rect(6.0, (r.h - 8.0) / 2.0, 8.0, 8.0, 4.0)
+          } else {
+            p.fill_rect(6.0, (r.h - 8.0) / 2.0, 8.0, 8.0)
+          }
           let _ = @text.draw_box_at(
             p,
             20.0,

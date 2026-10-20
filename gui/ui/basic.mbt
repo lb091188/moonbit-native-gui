@@ -21,6 +21,8 @@ pub fn view(
   border_color? : String = "",
   align_items? : @yoga.AlignItems = @yoga.AlignItems::Stretch,
   justify_content? : @yoga.JustifyContent = @yoga.JustifyContent::FlexStart,
+  /// 圆角档（0 = 直角；控件自带圆角时传 `@theme.radius_*()` 令牌值），class 可覆写
+  corner_radius? : Double = 0.0,
   class? : Array[@style.Style] = [],
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
@@ -63,6 +65,9 @@ pub fn view(
       None => @style.empty_style()
     },
   ]
+  if corner_radius > 0.0 {
+    blocks.push(@style.style(border_radius=corner_radius))
+  }
   let anon = @style.merge_all(blocks)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()

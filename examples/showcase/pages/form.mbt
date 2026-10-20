@@ -21,6 +21,21 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
   let wifi_on : @base.Store[Bool] = @base.Store::new(true)
   let locked : @base.Store[Bool] = @base.Store::new(false)
   let dtr : @base.Store[@ui.DateTimeRange] = @base.Store::new({ start: None, end: None })
+  let nick : @base.Store[String] = @base.Store::new("")
+  let mail : @base.Store[String] = @base.Store::new("")
+  let err_nick = @ui.validate(nick, @ui.all([@ui.required(), @ui.min_len(2)]))
+  let err_mail = @ui.validate(mail, @ui.email())
+  let count : @base.Store[Int] = @base.Store::new(0)
+  let was_ok = Ref(false)
+  let bump_ok = fn(_s : String) -> Unit {
+    let ok = err_nick.get().length() == 0 && err_mail.get().length() == 0
+    if ok && !was_ok.val {
+      count.set(count.get() + 1)
+    }
+    was_ok.val = ok
+  }
+  err_nick.subscribe(bump_ok)
+  err_mail.subscribe(bump_ok)
   @shared.page([
     @shared.section(
       "输入",
@@ -201,24 +216,49 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
     @shared.section(
       "表单",
       "Form 表单",
-      "form_item 行布局（标签右对齐 + 控件区）+ form 分组标题。",
+      "form_item 行布局（标签右对齐 + 控件区）+ form 分组标题；placeholder 给空态提示。",
       [
         @ui.form("用户设置", [
           @ui.form_item(
             "用户名",
-            @ui.input(@base.Store::new("moonbit"), width=200.0, clearable=true),
+            @ui.input(@base.Store::new("moonbit"), placeholder="登录名", width=200.0, clearable=true),
           ),
-          @ui.form_item("城市", @ui.input(@base.Store::new("杭州"), width=200.0)),
+          @ui.form_item("城市", @ui.input(@base.Store::new("杭州"), placeholder="城市名", width=200.0)),
           @ui.form_item("数量", @ui.stepper(qty2, min=1, max=9)),
         ]),
       ],
       code=[
         "@ui.form(\"用户设置\", [",
         "  @ui.form_item(\"用户名\", @ui.input(",
-        "    @base.Store::new(\"moonbit\"), width=200.0, clearable=true,",
+        "    @base.Store::new(\"moonbit\"), placeholder=\"登录名\", width=200.0, clearable=true,",
         "  )),",
         "  @ui.form_item(\"数量\", @ui.stepper(qty2, min=1, max=9)),",
         "])",
+      ],
+    ),
+    @shared.section(
+      "表单校验",
+      "Form 校验与错误消息",
+      "validate(值槽, 规则) 把错误文案写进自己的 String 槽，form_item(error=) 在控件下方显示红字（行高固定，出现/消失不跳版）；规则即时重跑，改对了红字自己消失。",
+      [
+        @ui.form("注册资料", [
+          @ui.form_item(
+            "昵称",
+            @ui.input(nick, placeholder="至少 2 个字符", width=200.0),
+            error=err_nick,
+          ),
+          @ui.form_item(
+            "邮箱",
+            @ui.input(mail, placeholder="you@example.com", width=200.0),
+            error=err_mail,
+          ),
+        ]),
+        @ui.bind_label(count, fn(n : Int) { "已通过校验 \{n.to_string()} 项" }),
+      ],
+      code=[
+        "let err_nick = @ui.validate(nick, @ui.all([@ui.required(), @ui.min_len(2)]))",
+        "let err_mail = @ui.validate(mail, @ui.email())",
+        "@ui.form_item(\"昵称\", @ui.input(nick, placeholder=\"至少 2 个字符\"), error=err_nick)",
       ],
     ),
   ])

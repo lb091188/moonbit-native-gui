@@ -300,15 +300,29 @@ pub fn switch(
         @style.color_of(s.border_color, "")
       }
       p.set_fill_color(body)
-      p.fill_round_rect(0.0, 0.0, r.w, r.h, r.h / 2.0)
+      // 方圆随圆角令牌：开=胶囊轨道 + 圆珠，关=直角轨道 + 方珠
+      let rad = @theme.radius_ctrl()
+      if rad > 0.0 {
+        p.fill_round_rect(0.0, 0.0, r.w, r.h, r.h / 2.0)
+      } else {
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      }
       p.set_fill_color(@style.color_of(s.color, "#ffffff"))
       // 滑珠是圆：圆心离两端各一个半高，半径 8 → 珠沿与胶囊壁齐平
       let cx = if on { r.w - 10.0 } else { 10.0 }
-      p.fill_round_rect(cx - 8.0, r.h / 2.0 - 8.0, 16.0, 16.0, 8.0)
+      if rad > 0.0 {
+        p.fill_round_rect(cx - 8.0, r.h / 2.0 - 8.0, 16.0, 16.0, 8.0)
+      } else {
+        p.fill_rect(cx - 8.0, r.h / 2.0 - 8.0, 16.0, 16.0)
+      }
       if row.focused {
         p.set_stroke_color(@theme.theme_primary())
         p.set_line_width(1.0)
-        p.stroke_round_rect(0.5, 0.5, r.w - 1.0, r.h - 1.0, r.h / 2.0 - 0.5)
+        if rad > 0.0 {
+          p.stroke_round_rect(0.5, 0.5, r.w - 1.0, r.h - 1.0, r.h / 2.0 - 0.5)
+        } else {
+          p.stroke_rect(0.5, 0.5, r.w - 1.0, r.h - 1.0)
+        }
       }
     })
     row.node.set_flex_direction(@yoga.Row)
@@ -383,19 +397,28 @@ pub fn slider(
       let track = (r.w - 12.0).max(1.0)
       let ratio = ((state.get() - lo) / (hi - lo)).clamp(min=0.0, max=1.0)
       let cy = r.h / 2.0
-      // pill 类几何：轨道细条全圆端头、拇指正圆，不随圆角开关变方
+      // 方圆随令牌：开=轨道全圆端头 + 圆形拇指，关=直角轨道 + 方形拇指
+      let rad = @theme.radius_ctrl()
       p.set_fill_color(if off.off {
         @theme.theme_fill_hover()
       } else {
         @theme.theme_fill_zebra()
       })
-      p.fill_round_rect(0.0, cy - 2.0, r.w, 4.0, 2.0)
+      if rad > 0.0 {
+        p.fill_round_rect(0.0, cy - 2.0, r.w, 4.0, 2.0)
+      } else {
+        p.fill_rect(0.0, cy - 2.0, r.w, 4.0)
+      }
       p.set_fill_color(if off.off {
         @theme.theme_text_secondary()
       } else {
         @style.color_of(s.color, @theme.theme_primary())
       })
-      p.fill_round_rect(0.0, cy - 2.0, (6.0 + track * ratio).max(4.0), 4.0, 2.0)
+      if rad > 0.0 {
+        p.fill_round_rect(0.0, cy - 2.0, (6.0 + track * ratio).max(4.0), 4.0, 2.0)
+      } else {
+        p.fill_rect(0.0, cy - 2.0, (6.0 + track * ratio).max(4.0), 4.0)
+      }
       let tx = 2.0 + track * ratio
       // 拇指：面板底实心圆 + 强调色 1px 描边（旧口径整块涂强调色，与轨道段糊成一团）
       let accent = if off.off {
@@ -404,17 +427,29 @@ pub fn slider(
         @style.color_of(s.color, @theme.theme_primary())
       }
       p.set_fill_color(@theme.theme_bg_panel())
-      p.fill_round_rect(tx, cy - 6.0, 12.0, 12.0, 6.0)
+      if rad > 0.0 {
+        p.fill_round_rect(tx, cy - 6.0, 12.0, 12.0, 6.0)
+      } else {
+        p.fill_rect(tx, cy - 6.0, 12.0, 12.0)
+      }
       p.set_stroke_color(accent)
       p.set_line_width(1.5)
-      p.stroke_round_rect(tx, cy - 6.0, 12.0, 12.0, 6.0)
+      if rad > 0.0 {
+        p.stroke_round_rect(tx, cy - 6.0, 12.0, 12.0, 6.0)
+      } else {
+        p.stroke_rect(tx, cy - 6.0, 12.0, 12.0)
+      }
       if self.focused {
         // 拇指聚焦环：整圈画进控件矩形内（绘制按控件矩形裁剪），贴边时夹住
         p.set_stroke_color(@theme.theme_primary())
         p.set_line_width(1.0)
         let x0 = (tx - 2.0).max(0.0)
         let x1 = (tx + 14.0).min(r.w)
-        p.stroke_round_rect(x0, cy - 8.0, (x1 - x0).max(1.0), 16.0, 8.0)
+        if rad > 0.0 {
+          p.stroke_round_rect(x0, cy - 8.0, (x1 - x0).max(1.0), 16.0, 8.0)
+        } else {
+          p.stroke_rect(x0, cy - 8.0, (x1 - x0).max(1.0), 16.0)
+        }
       }
     })
     w.on_pointer = Some(fn(
@@ -503,8 +538,8 @@ pub fn progress(
       // 槽底=background_color，进度段=color（散参数 color 折块，class 覆盖同一条路）
       let s = @style.style_for(self)
       let ratio = (state.get() / hi).clamp(min=0.0, max=1.0)
-      // 细条按几何取全圆端头（pill 类形态不随圆角开关变方）
-      let pill = (r.h / 2.0).min(@style.number_of(s.border_radius, r.h / 2.0))
+      // 细条端头随圆角令牌：开=全圆端头，关=直角
+      let pill = (r.h / 2.0).min(@style.number_of(s.border_radius, @theme.radius_ctrl()))
       p.set_fill_color(@style.color_of(s.background_color, @theme.theme_fill_zebra()))
       p.fill_round_rect(0.0, 0.0, r.w, r.h, pill)
       p.set_fill_color(@style.color_of(s.color, ""))
@@ -529,6 +564,8 @@ fn step_cell(
     watch_theme()
     w.node.set_width(@yoga.fixed(32.0))
     w.node.set_height(@yoga.fixed(@theme.control_height))
+    // 点这格只是操作，焦点留在中间输入格（宿主让位语义跳过本区域）
+    w.keep_focus_on_click = true
     w.cursor = @widget.CURSOR_HAND
     fold_style(
       w,
@@ -700,6 +737,7 @@ pub fn stepper(
         @style.style(
           border_width=0.0,
           height=@theme.control_height - 2.0,
+          text_align=@text.TextAlign::Center,
         ),
       ],
     handle=fn(w : @widget.Widget) -> Unit {
@@ -763,6 +801,7 @@ pub fn stepper(
     width=108.0,
     height=@theme.control_height,
     align_items=@yoga.AlignItems::Center,
+    corner_radius=@theme.radius_ctrl(),
     class=[
       @style.style(
         background_color="bg_panel",
@@ -1080,10 +1119,13 @@ pub fn button(
 
 ///|
 /// 链接文字：主题色，悬停出下划线，点击回调（按下在抬起时才触发，与按钮同口径）。
+/// 键盘口径与按钮同一条：自动领号进 Tab 链（`focus_id=` 可指定），聚焦画焦点环，
+/// 空格/回车触发 `on_click`。
 pub fn link(
   text : String,
   on_click : () -> Unit,
   font_size? : Double = 13.0,
+  focus_id? : Int = 0,
   class? : Array[@style.Style] = [],
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
@@ -1091,6 +1133,7 @@ pub fn link(
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
     let tw = text_width(text, font)
+    w.focus_id = auto_focus_id(focus_id)
     w.node.set_width(@yoga.fixed(tw))
     w.node.set_height(@yoga.fixed(@text.line_height_font(font).unwrap_or(18).to_double()))
     w.node.set_flex_shrink(0.0)
@@ -1107,6 +1150,18 @@ pub fn link(
         p.set_fill_color(hue)
         p.fill_rect(0.0, r.h - 1.0, r.w, 1.0)
       }
+      // 焦点环：能聚焦就得看得见焦点在哪（与 button/icon_button 同口径）
+      if self.focused {
+        let rad = @theme.radius_ctrl()
+        p.set_stroke_color(@theme.theme_primary())
+        p.set_line_width(1.0)
+        if rad > 0.0 {
+          p.round_rect_path(0.5, 0.5, (r.w - 1.0).max(1.0), (r.h - 1.0).max(1.0), rad)
+          p.stroke()
+        } else {
+          p.stroke_rect(0.5, 0.5, (r.w - 1.0).max(1.0), (r.h - 1.0).max(1.0))
+        }
+      }
     })
     w.on_pointer = Some(fn(
       self : @widget.Widget,
@@ -1121,6 +1176,17 @@ pub fn link(
           false
         }
         _ => false
+      }
+    })
+    w.on_key = Some(fn(ev : @widget.KeyEvent) -> Bool {
+      if !ev.press {
+        return false
+      }
+      if ev.keysym == @base.KS_SPACE || ev.keysym == @base.KS_RETURN {
+        on_click()
+        true
+      } else {
+        false
       }
     })
     fold_style(w, @style.empty_style(), class)

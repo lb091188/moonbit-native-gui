@@ -57,6 +57,7 @@ pub const EN_CATALOG : String =
   "\"Checkbox / Radio / Switch\" = \"Checkbox / Radio / Switch\"\n" +
   "\"日期与时间选择\" = \"Date & time pickers\"\n" +
   "\"Form 表单\" = \"Form\"\n" +
+  "\"Form 校验与错误消息\" = \"Form validation & errors\"\n" +
   "\"表单与表格\" = \"MES form & table\"\n" +
   "\"编辑与排版\" = \"Editing & typography\"\n" +
   "\"方向与翻页\" = \"Direction & paging\"\n" +
@@ -160,6 +161,7 @@ pub const EN_CATALOG : String =
   "\"desc§Checkbox / Radio / Switch\" = \"Check and switch values are the Stores themselves; radio groups are mutually exclusive.\"\n" +
   "\"desc§日期与时间选择\" = \"A self-drawn calendar with month paging plus date/datetime range pickers; values live in Stores.\"\n" +
   "\"desc§Form 表单\" = \"form_item rows with right-aligned labels plus form group headings.\"\n" +
+  "\"desc§Form 校验与错误消息\" = \"validate(store, rule) writes messages into a String slot; form_item(error=) shows red below the control with fixed row height.\"\n" +
   "\"desc§表单与表格\" = \"MES form controls: input, select, tree, table and tabs.\"\n" +
   "\"desc§编辑与排版\" = \"Font styles, alignment, indent, undo/redo and save.\"\n" +
   "\"desc§方向与翻页\" = \"Arrows, collapse triangles, back-to-top, swap and drag.\"\n" +

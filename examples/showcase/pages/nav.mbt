@@ -158,7 +158,7 @@ pub fn page_nav(app : @shared.App) -> @widget.Node {
             }),
             @ui.button("下一步", variant=@ui.Solid, on_click=fn() {
               step.update(fn(n) {
-                let m = n + 2
+                let m = n + 1
                 if m > 2 {
                   2
                 } else {

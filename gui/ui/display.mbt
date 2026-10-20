@@ -409,9 +409,14 @@ fn avatar_of(
       r : @base.Rect,
     ) -> Unit {
       let s = @style.style_for(self)
-      // 头像=正圆（badge 同款几何形态：按半径一半取圆，不随圆角开关变方）
+      // 头像方圆随令牌：开=正圆（class 给 `border_radius` 可按档切方角圆），关=方块
+      let rad = @style.number_of(s.border_radius, @theme.radius_ctrl())
       p.set_fill_color(@style.color_of(s.background_color, ""))
-      p.fill_round_rect(0.0, 0.0, r.w, r.h, (r.w / 2.0).min(@style.number_of(s.border_radius, r.w / 2.0)))
+      if rad > 0.0 {
+        p.fill_round_rect(0.0, 0.0, r.w, r.h, (r.w / 2.0).min(rad))
+      } else {
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      }
       let tw = text_width(ch.val, font)
       let th = @text.line_height_font(font).unwrap_or(14).to_double()
       let _ = @text.draw_at(p, (r.w - tw) / 2.0, (r.h - th) / 2.0, ch.val, font, @style.color_of(s.color, ""))
@@ -830,7 +835,12 @@ fn timeline_row(
         p.fill_rect(9.0, top, 2.0, bottom - top)
       }
       p.set_fill_color(@style.color_of(s.background_color, ""))
-      p.fill_rect(5.0, cy - 5.0, 10.0, 10.0)
+      let rad = @theme.radius_ctrl()
+      if rad > 0.0 {
+        p.fill_round_rect(5.0, cy - 5.0, 10.0, 10.0, 5.0)
+      } else {
+        p.fill_rect(5.0, cy - 5.0, 10.0, 10.0)
+      }
     })
     w
   })
@@ -1066,8 +1076,13 @@ pub fn carousel(
               @theme.theme_border()
             },
           )
-          // 指示点=正圆（自带几何形态，不随圆角开关变方）
-          p.fill_round_rect(0.0, 0.0, r.w, r.h, (r.w / 2.0).min(4.0))
+          // 指示点方圆随令牌：开=正圆，关=方块
+          let rad = @theme.radius_ctrl()
+          if rad > 0.0 {
+            p.fill_round_rect(0.0, 0.0, r.w, r.h, r.w / 2.0)
+          } else {
+            p.fill_rect(0.0, 0.0, r.w, r.h)
+          }
         })
         dot.cursor = @widget.CURSOR_HAND
         dot.on_pointer = Some(fn(
