@@ -136,6 +136,16 @@ pub fn iconfont_count() -> Int {
 }
 
 ///|
+/// 已装入的图标名列表（保持装入顺序）。
+pub fn iconfont_names() -> Array[String] {
+  let out : Array[String] = []
+  for (k, _) in g_iconfont {
+    out.push(k)
+  }
+  out
+}
+
+///|
 /// 绘制 iconfont 图标：中心 (cx,cy)、内容半径 s、color 十六进制。
 /// 未装入或查无此名时静默（调用方先 iconfont_get 判存在再决定降级）。
 pub fn draw_iconfont(

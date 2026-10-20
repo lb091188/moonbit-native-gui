@@ -107,18 +107,16 @@ fn in_list(arr : Array[String], x : String) -> Bool {
 }
 
 ///|
-// 逗号分隔名单 → 数组；忽略空格与空项。
+// 逗号/换行/空格分隔的名单 → 数组；忽略空项。
 fn split_csv(s : String) -> Array[String] {
   let out : Array[String] = []
   let mut cur = ""
   for c in s {
-    if c == ',' {
+    if c == ',' || c == ' ' || c == '\n' || c == '\r' || c == '\t' {
       if cur.length() > 0 {
         out.push(cur)
       }
       cur = ""
-    } else if c == ' ' {
-      ()
     } else {
       cur = cur + c.to_string()
     }

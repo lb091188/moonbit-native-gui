@@ -382,6 +382,40 @@ pub fn icon(
 }
 
 ///|
+/// iconfont 图标：按名从运行时图标表（`@icons.iconfont_load` 装入的 `[icons]`）
+/// 取定点路径自绘，与内置 `icon` 同盒子口径（字形随盒子短边半幅）。
+/// 未装入或无名时画空（调用方可先 `@icons.iconfont_get` 判存在）。
+pub fn iconfont(
+  name : String,
+  size? : Double = 16.0,
+  color? : String = "",
+  class? : Array[@style.Style] = [],
+  handle? : (@widget.Widget) -> Unit = default_handle,
+) -> @widget.Node {
+  let anon = match fg_block(color) {
+    Some(b) => b
+    None => @style.empty_style()
+  }
+  @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    watch_theme()
+    w.node.set_width(@yoga.fixed(size))
+    w.node.set_height(@yoga.fixed(size))
+    fold_style(w, anon, class)
+    w.on_draw = Some(fn(
+      self : @widget.Widget,
+      p : @render.Painter,
+      r : @base.Rect,
+    ) -> Unit {
+      let s = @style.style_for(self)
+      let c = @style.color_of(s.color, @theme.theme_text_regular())
+      @icons.draw_iconfont(p, name, r.w / 2.0, r.h / 2.0, r.w.min(r.h) / 2.0, c)
+    })
+    handle(w)
+    w
+  })
+}
+
+///|
 /// §2 合并：按钮唯一入口在 `ui/form.mbt` 的 `button`（原 `button`，
 /// `variant = solid / soft / border / text / danger`）；本文件的旧 `button` 已删。
 
