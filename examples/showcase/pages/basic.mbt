@@ -63,11 +63,9 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
     @shared.section(
       "字体排版",
       "从右起排的右侧文字",
-      "阿拉伯语、波斯语、希伯来语、乌尔都语这类文字整段从右往左落笔：容器方向给 `Rtl`、文本对齐给 `End`，行首就贴在右缘。数字段在 bidi 里仍按 LTR 走（"
-      + "阿拉伯语里的拉丁数不反写），这是文本引擎的默认口径。字体按平台回退，"
-      + "mac/Linux 缺相应字形时显示为方框属系统字体集问题，不是排版错位。",
+      "阿拉伯语、波斯语、希伯来语、乌尔都语这类文字整段从右往左落笔：容器方向给 `Rtl`、文本对齐给 `End`，行首就贴在右缘。数字段在 bidi 里仍按 LTR 走（阿拉伯语里的拉丁数不反写），这是文本引擎的默认口径。字体按平台回退，mac/Linux 缺相应字形时显示为方框属系统字体集问题，不是排版错位。",
       [
-        @ui.col(
+        @ui.view(
           [
             @ui.text("العربية — 阿拉伯语：مرحبا بالعالم", font_size=16.0),
             @ui.text("فارسی — 波斯语：سلام دنیا", font_size=16.0),
@@ -75,25 +73,24 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
             @ui.text("اردو — 乌尔都语：دنیا کو سلام", font_size=16.0),
             @ui.text("RTL 段落里的 1234 / ABC 保持原序不反写", font_size=14.0),
           ],
+          direction=@yoga.Column,
           row_gap=8.0,
           class=[
             @style.style(
-              direction=@yoga.RowReverse,
               align_items=@yoga.AlignItems::FlexEnd,
               text_align=@text.End,
-            ),
+            ).set_direction(Some(@style.Rtl)),
           ],
           width=480.0,
         ),
-        @ui.text("上面这块：容器镜像 + 贴右对齐（点击任意一行可复制到 LTR 段对照）", role=@ui.Secondary),
+        @ui.text("这块容器：direction=Rtl 镜像 + 贴右对齐；上面的基方向开关翻动时，行内数字段的相对序会跟着翻", role=@ui.Secondary),
       ],
       code=[
-        "@ui.col(lines,",
+        "@ui.view(lines,",
         "  class=[@style.style(",
-        "    direction=@yoga.RowReverse,",
         "    align_items=@yoga.AlignItems::FlexEnd,",
         "    text_align=@text.End,",
-        "  )])",
+        "  ).set_direction(Some(@style.Rtl))])",
       ],
     ),
     @shared.section(
