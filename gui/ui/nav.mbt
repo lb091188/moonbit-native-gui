@@ -603,11 +603,22 @@ pub fn fill_round_rect(
 
 ///|
 /// 侧边菜单一项：40 高、文字左对齐、可选图标、选中态带左缘 3px 强调条。
+fn label_for(labels : Array[(String, String)], key : String) -> String {
+  for (k, v) in labels {
+    if k == key {
+      return v
+    }
+  }
+  ""
+}
+
+///|
 fn menu_item(
   text : String,
   width : Double,
   selected : @base.Store[String],
   icon : @icons.IconKind?,
+  label~ : String = "",
   skin~ : @style.Style = @style.empty_style(),
   focusable~ : Bool = false,
   step~ : (Int) -> Unit = fn(_d : Int) { () },
@@ -646,6 +657,7 @@ fn menu_item(
       @style.style(color="text_primary", border_radius=4.0).hover(background_color="fill_hover")
     )
     @style.apply(w, skin)
+    let shown = if label.length() > 0 { label } else { text }
     w.on_draw = Some(fn(
       self : @widget.Widget,
       p : @render.Painter,
@@ -685,7 +697,7 @@ fn menu_item(
         0.0,
         (r.w - tx).max(1.0),
         r.h,
-        text,
+        shown,
         font,
         fg,
         align=@text.Start,
@@ -771,6 +783,7 @@ pub fn menu_sections(
   sections : Array[(String, Array[String])],
   selected : @base.Store[String],
   icons? : Array[(String, @icons.IconKind)] = [],
+  labels? : Array[(String, String)] = [],
   foldable? : Bool = true,
   width? : Double = 180.0,
   class? : Array[@style.Style] = [],
@@ -793,6 +806,7 @@ pub fn menu_sections(
           width - 12.0,
           selected,
           icon_for(icons, it),
+          label=label_for(labels, it),
           skin=skin,
           focusable=true,
           step=fn(d : Int) {

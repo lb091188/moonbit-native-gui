@@ -171,6 +171,7 @@ fn main {
   let nav = @router.new_router(routes)
   let app : @shared.App = {
     selected: nav.store_at(0),
+    locale: @base.Store::new("zh-CN"),
     toast: toast_push,
     dark_mode: @base.Store::new(@win.sys_color_scheme() == "dark"),
     // 启动即跟随系统主色调（系统无主色概念时回落内置 primary）
