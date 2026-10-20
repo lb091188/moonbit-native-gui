@@ -36,7 +36,12 @@ pub fn line_chart_t(
       r : @base.Rect,
     ) -> Unit {
       p.set_fill_color(@theme.theme_bg_panel())
-      p.fill_rect(0.0, 0.0, r.w, r.h)
+      let bgr = @theme.radius_card()
+      if bgr > 0.0 {
+        p.fill_round_rect(0.0, 0.0, r.w, r.h, bgr)
+      } else {
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      }
       draw_line_chart(p, r.w, r.h, series.get(), fill, yr, tail)
     })
     handle(w)
@@ -74,7 +79,12 @@ pub fn bar_chart_t(
       r : @base.Rect,
     ) -> Unit {
       p.set_fill_color(@theme.theme_bg_panel())
-      p.fill_rect(0.0, 0.0, r.w, r.h)
+      let bgr = @theme.radius_card()
+      if bgr > 0.0 {
+        p.fill_round_rect(0.0, 0.0, r.w, r.h, bgr)
+      } else {
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      }
       draw_bar_chart(p, r.w, r.h, data.get(), horiz, hover.val, y_range=yr)
     })
     w.on_pointer = Some(fn(
@@ -134,7 +144,12 @@ pub fn donut_chart_t(
       r : @base.Rect,
     ) -> Unit {
       p.set_fill_color(@theme.theme_bg_panel())
-      p.fill_rect(0.0, 0.0, r.w, r.h)
+      let bgr = @theme.radius_card()
+      if bgr > 0.0 {
+        p.fill_round_rect(0.0, 0.0, r.w, r.h, bgr)
+      } else {
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      }
       draw_donut(p, r.w, r.h, data.get(), thick, mid, hover.val)
     })
     // 命中：按极坐标判扇区（12 点起顺时针），中心孔与图例区不算
@@ -247,7 +262,12 @@ pub fn gauge_t(
       r : @base.Rect,
     ) -> Unit {
       p.set_fill_color(@theme.theme_bg_panel())
-      p.fill_rect(0.0, 0.0, r.w, r.h)
+      let bgr = @theme.radius_card()
+      if bgr > 0.0 {
+        p.fill_round_rect(0.0, 0.0, r.w, r.h, bgr)
+      } else {
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      }
       draw_gauge(p, r.w, r.h, disp.val, bands)
     })
     let sid = value.subscribe_id(fn(v : Double) -> Unit {
@@ -294,7 +314,12 @@ pub fn scatter_t(
       r : @base.Rect,
     ) -> Unit {
       p.set_fill_color(@theme.theme_bg_panel())
-      p.fill_rect(0.0, 0.0, r.w, r.h)
+      let bgr = @theme.radius_card()
+      if bgr > 0.0 {
+        p.fill_round_rect(0.0, 0.0, r.w, r.h, bgr)
+      } else {
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      }
       draw_scatter(p, r.w, r.h, points.get(), line, d)
     })
     handle(w)

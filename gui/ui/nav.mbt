@@ -1185,6 +1185,8 @@ pub fn transfer(
       ) -> Unit {
         let st = @style.style_for(self)
         let rad = @style.number_of(st.border_radius, @theme.radius_card())
+        self.clip_rounded = rad > 0.0
+        self.style_clip_radius = rad
         p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
         if rad > 0.0 {
           p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)

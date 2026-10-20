@@ -794,7 +794,12 @@ pub fn geo_map_t(
       r : @base.Rect,
     ) -> Unit {
       p.set_fill_color(@theme.theme_bg_panel())
-      p.fill_rect(0.0, 0.0, r.w, r.h)
+      let bgr = @theme.radius_card()
+      if bgr > 0.0 {
+        p.fill_round_rect(0.0, 0.0, r.w, r.h, bgr)
+      } else {
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      }
       geo_draw_map(p, r.w, r.h, regions.get(), fl, labels)
     })
     handle(w)

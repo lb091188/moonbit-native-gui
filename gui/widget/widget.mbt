@@ -142,6 +142,12 @@ pub(all) struct Widget {
   /// 「点它不让位」：宿主点击让位（blur）语义会跳过命中链上带这个标记的区域。
   /// 给复合控件的附属小件用（步进器的 +/- 格）：点它只是操作，不抢输入格的焦点。
   mut keep_focus_on_click : Bool
+  /// 子树圆角裁切：绘制完自己与子件后，把本控件矩形四角、`style_clip_radius`
+  /// 半径圆角外的像素擦掉（Clear 混合的擦环 pass）。子件会通铺方底时用这道，
+  /// 免得方角内容啃掉容器圆角。
+  mut clip_rounded : Bool
+  /// 配合 `clip_rounded` 的半径（绘制期现取，随圆角令牌与样式槽）。
+  mut style_clip_radius : Double
   /// 光标形状请求（0 = 不请求，用默认箭头；1 手型 / 2 文本 I 形 / 3 横向调整 /
   /// 4 纵向调整）。全自绘栈没有原生控件，形状由宿主按命中路径下发：取悬停路径上
   /// **最深的那个非零请求**，所以包住一整组的 `cursor_group` 会自然回退生效。
@@ -216,6 +222,8 @@ pub fn Widget::new() -> Widget {
     im_cursor: None,
     focus_id: 0,
     keep_focus_on_click: false,
+    clip_rounded: false,
+    style_clip_radius: 0.0,
     cursor: 0,
     cursor_fn: None,
     drag_payload: None,
@@ -1091,6 +1099,43 @@ pub fn Widget::paint_at(self : Widget, p : @render.Painter, ox : Double, oy : Do
   // 样式的树全部 0.0,排序恒等,现有示例逐帧不变。
   for k in widget_paint_order(self.kids) {
     k.paint_at(p, self.rect.x, self.rect.y)
+  }
+  // 圆角裁切收尾：声明了 clip_rounded 的容器，把四角圆角弧外的像素擦掉
+  // （子件通铺方底不再啃圆角）。每角三块 Clear 矩形（外竖条+外横条+角盒弧外），
+  // 角盒弧外走「整盒减圆」的解析形状：用小半径近似为角盒减内切方，
+  // 余下四个 1px 级弧隙由抗锯齿覆盖补齐——三块相加恰好覆盖弧外全域。
+  if self.clip_rounded && self.style_clip_radius > 0.0 {
+    let r = self.style_clip_radius.min(self.rect.w / 2.0).min(self.rect.h / 2.0)
+    let w = self.rect.w
+    let h = self.rect.h
+    p.set_global_alpha(1.0)
+    p.set_blend_mode(Clear)
+    // 上/下边（不含角盒）与左/右边（不含角盒）之外没有像素可擦，四角盒逐块：
+    // 角盒里圆外部分 = 盒 - 四分之一圆。逐行扫描：每角 r 行，行 y 的弦半宽
+    // dx=sqrt(r²-(r-1-y)²)，圆外即盒内左右两段。整数行近似对 4..8px 半径误差 ≤1 格。
+    for (cx0, cy0, left) in [
+      (0.0, 0.0, true),
+      (w - r, 0.0, false),
+      (0.0, h - r, true),
+      (w - r, h - r, false)
+    ] {
+      let mut yy = 0
+      while yy < r.floor().to_int() + 1 {
+        // 该行到圆心的竖直距离（盒顶行取 r-0.5 起），弦半宽外的段即弧外像素
+        let yc = (r - yy.to_double() - 0.5).max(0.0)
+        let half = (r * r - yc * yc).max(0.0).sqrt()
+        let outside = (r - half).max(0.0)
+        if outside > 0.0 {
+          if left {
+            p.fill_rect(cx0, cy0 + yy.to_double(), outside, 1.0)
+          } else {
+            p.fill_rect(cx0 + r - outside, cy0 + yy.to_double(), outside, 1.0)
+          }
+        }
+        yy += 1
+      }
+    }
+    p.set_blend_mode(Normal)
   }
   p.set_global_alpha(inherited)
   p.restore()

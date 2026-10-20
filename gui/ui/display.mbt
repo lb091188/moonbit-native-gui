@@ -587,7 +587,14 @@ pub fn alert(
       let light = @style.color_of(s.background_color, "")
       let main = @style.color_of(s.color, "")
       p.set_fill_color(light)
-      p.fill_rect(0.0, 0.0, r.w, r.h)
+      let rad = @style.number_of(s.border_radius, @theme.radius_ctrl())
+      self.clip_rounded = rad > 0.0
+      self.style_clip_radius = rad
+      if rad > 0.0 {
+        p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
+      } else {
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      }
       p.set_fill_color(main)
       p.fill_rect(0.0, 0.0, 3.0, r.h)
       if closable {

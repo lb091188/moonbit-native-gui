@@ -84,6 +84,9 @@ pub fn view(
       let bg = @style.color_of(s.background_color, "")
       let bd = @style.color_of(s.border_color, "")
       let rad = @style.number_of(s.border_radius, 0.0)
+      // 圆角裁切随槽现取（关圆角令牌给 0，这一帧起就不擦）
+      self.clip_rounded = corner_radius > 0.0 || rad > 0.0
+      self.style_clip_radius = if rad > 0.0 { rad } else { corner_radius }
       if bg.length() > 0 {
         p.set_fill_color(bg)
         if rad > 0.0 {
