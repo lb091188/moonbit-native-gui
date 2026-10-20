@@ -9,8 +9,9 @@
 - Windows：dev 内容 vendor 进仓库（`vendor/include` 头 + `vendor/*.lib`
   导入库，取自 BtbN win64-lgpl-shared 构建，LGPLv3，见 vendor/FFMPEG-LICENSE.txt）。
   输出 `vars.FFMPEG_INC`（供 moon.pkg 的 stub-cc-flags 引用 `-I${build.FFMPEG_INC}`）
-  和 link_flags（导入库绝对路径）。运行期 dll 不进仓库：本地把
-  avcodec-63.dll 等与 exe 同目录或放 PATH（口径见 README）。
+  和 link_flags（导入库绝对路径）。运行期 dll 不进仓库：`ensure_win_runtime_dlls`
+  在构建时把它们取到 `vendor/win/bin`（本仓 vendor-v1 Release 的归档，双镜像 +
+  sha256；退化路是 BtbN 上游），运行期由使用方放到 exe 同目录或 PATH。
 - macOS：先走与 Linux 同一路——pkg-config 探测系统 ffmpeg（`brew install
   ffmpeg`），头与链接参数随构建注入；探不到时回退 **Release 下载的预编译
   dev 归档**（LGPL 自编、动态链 .dylib、id/依赖全部 @rpath 化，与本仓 webview
@@ -64,7 +65,7 @@ WIN_DLL_URL = (
 # BtbN；空串表示尚未上传/未回填，直接走上游那一路。
 WIN_VENDOR_ARCHIVE: tuple[str, str] = (
     "ffmpeg-windows-x64-9.0-lgpl-shared.zip",
-    "",
+    "8e14b2ae384982830d60a98cfc5c66d6bfcaf59d17f42170ca914edc1be38516",
 )
 
 # 单个 dll 的体积下限：用来判掉残缺/半截文件，不是精确校验。
@@ -189,7 +190,7 @@ def ensure_win_runtime_dlls() -> bool:
     name, sha = WIN_VENDOR_ARCHIVE
     if sha:
         print(f"ffmpeg(prebuild): 取运行期 dll {name}（vendor 归档）", file=sys.stderr)
-        data = fetch_vendor_file(name, sha)
+        data = fetch_vendor_file(name, sha, budget=WIN_VENDOR_BUDGET)
         if data is not None and _install_win_zip(data, bin_dir):
             print(
                 f"ffmpeg(prebuild): 运行期 dll 已就位 {bin_dir}（vendor 归档，sha256 通过）\n"
@@ -278,8 +279,14 @@ def vendor_bases() -> list[str]:
 # 是 socket 级，DNS 挂起与滴流要靠竞速+总预算双机制兜。
 MAC_VENDOR_BUDGET = 60
 
+# Windows 归档是 dll（64MB 量级）：按 800KB/s 的慢网也要 90 秒以上，总预算按体积
+# 给足，否则「数据还在流、预算先到」会把这一路判死（mac 的 10MB 不受影响）。
+WIN_VENDOR_BUDGET = 360
 
-def _fetch_race(bases: list[str], url_name: str, sha: str, socket_timeout: int) -> "bytes | None":
+
+def _fetch_race(
+    bases: list[str], url_name: str, sha: str, socket_timeout: int, budget: int = MAC_VENDOR_BUDGET
+) -> "bytes | None":
     import queue
     import threading
     import time
@@ -298,7 +305,7 @@ def _fetch_race(bases: list[str], url_name: str, sha: str, socket_timeout: int) 
     threads = [threading.Thread(target=worker, args=(b,), daemon=True) for b in bases]
     for t in threads:
         t.start()
-    deadline = time.monotonic() + MAC_VENDOR_BUDGET
+    deadline = time.monotonic() + budget
     left = len(bases)
     while left > 0:
         remain = deadline - time.monotonic()
@@ -318,14 +325,16 @@ def _fetch_race(bases: list[str], url_name: str, sha: str, socket_timeout: int) 
         print(f"ffmpeg(prebuild): 命中镜像 {base}", file=sys.stderr)
         return data
     print(
-        f"ffmpeg(prebuild): 全部镜像 {MAC_VENDOR_BUDGET} 秒总预算内都没给出"
+        f"ffmpeg(prebuild): 全部镜像 {budget} 秒总预算内都没给出"
         "校验通过的文件",
         file=sys.stderr,
     )
     return None
 
 
-def _fetch_serial(bases: list[str], url_name: str, sha: str, socket_timeout: int) -> "bytes | None":
+def _fetch_serial(
+    bases: list[str], url_name: str, sha: str, socket_timeout: int, budget: int = MAC_VENDOR_BUDGET
+) -> "bytes | None":
     """串行按序形态（NATIVE_GUI_VENDOR_BASE 指定自定义源时用——用户指内网/
     私有镜像时不并行外网）。单源仍线程包裹总预算兜底：DNS 挂起/滴流的
     socket 级教训不因串行而失效。"""
@@ -344,7 +353,7 @@ def _fetch_serial(bases: list[str], url_name: str, sha: str, socket_timeout: int
 
         t = threading.Thread(target=run, daemon=True)
         t.start()
-        t.join(MAC_VENDOR_BUDGET)
+        t.join(budget)
         data = box.get("data")
         if data is not None and hashlib.sha256(data).hexdigest() == sha:
             return data
@@ -352,12 +361,12 @@ def _fetch_serial(bases: list[str], url_name: str, sha: str, socket_timeout: int
     return None
 
 
-def fetch_vendor_file(url: str, sha: str) -> "bytes | None":
+def fetch_vendor_file(url: str, sha: str, budget: int = MAC_VENDOR_BUDGET) -> "bytes | None":
     bases = vendor_bases()
     if os.environ.get("NATIVE_GUI_VENDOR_BASE", "").strip():
         # 自定义源前置：串行按序，不做并行外网竞速
-        return _fetch_serial(bases, url, sha, MAC_VENDOR_TIMEOUT)
-    return _fetch_race(bases, url, sha, MAC_VENDOR_TIMEOUT)
+        return _fetch_serial(bases, url, sha, MAC_VENDOR_TIMEOUT, budget)
+    return _fetch_race(bases, url, sha, MAC_VENDOR_TIMEOUT, budget)
 
 
 def ensure_mac_vendor() -> bool:

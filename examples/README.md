@@ -29,7 +29,7 @@ moon run examples/video
 
 把 dll 放到 **exe 同目录**或**加进 PATH** 即可（大版本须与 `vendor/` 导入库一致，取自同一份 BtbN/gyan win64-lgpl-shared 构建的 `bin/`）。
 
-**dll 从哪来**：`ffmpeg-mbt` 的 prebuild 在 Windows 构建时会先看 `modules/ffmpeg-mbt/vendor/win/bin`（与 macOS 的 `vendor/mac` 对称，都不入库），缺则从 BtbN 的 `win64-lgpl-shared 9.0` 归档取一份解到那儿（约 150MB，进度打在构建日志里；离线可 `NATIVE_GUI_FFMPEG_ZIP=<本地 zip>` 指过去，CI 已自备 dll 时用 `NATIVE_GUI_SKIP_VENDOR=1` 跳过）。
+**dll 从哪来**：`ffmpeg-mbt` 的 prebuild 在 Windows 构建时会先看 `modules/ffmpeg-mbt/vendor/win/bin`（与 macOS 的 `vendor/mac` 对称，都不入库），缺则取本仓 `vendor-v1` Release 的 `ffmpeg-windows-x64-9.0-lgpl-shared.zip`（解出约 150MB，GitHub 与 gitee 双镜像竞速 + sha256 校验），两个镜像都拿不到才退 BtbN 上游；进度都打在构建日志里。离线可 `NATIVE_GUI_FFMPEG_ZIP=<本地 zip>` 指过去，CI 已自备 dll 时用 `NATIVE_GUI_SKIP_VENDOR=1` 跳过。
 
 **搬到 exe 旁**：产物目录由 moon 决定，dll 必须与 exe 同目录才加载得到，一条命令代劳（缺 exe 时先自动 `moon build`，`--run` 补完直接启动）：
 
