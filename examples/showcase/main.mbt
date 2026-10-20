@@ -69,23 +69,6 @@ fn flat_toggle_button(app : @shared.App) -> @widget.Node {
 }
 
 ///|
-/// 侧栏/菜单半透玻璃开关（月亮旁）：整窗背景透明 + 重绘（侧栏玻璃底由玻璃样式兑现）。
-fn translucent_toggle_button(app : @shared.App) -> @widget.Node {
-  @ui.icon_button(
-    @icons.MagicStick,
-    on_click=fn() {
-      let on = !app.translucent.get()
-      app.translucent.set(on)
-      match app.host.val {
-        Some(a) => a.window().set_transparent_bg(on)
-        None => ()
-      }
-      @widget.invalidate()
-    },
-  )
-}
-
-///|
 /// 页名清单（路由 key 恒为中文，显示名另经 `nav_labels` 本地化）。
 fn page_keys() -> Array[String] {
   [
@@ -237,7 +220,6 @@ fn main {
     dlg_name: @base.Store::new(""),
     dlg_result: @base.Store::new(""),
     flat: @base.Store::new(false),
-    translucent: @base.Store::new(false),
     // 宿主句柄：挂载时由下方 handle 回调填入（窗口页/快捷键页取用）
     host: Ref(None),
   }
@@ -310,7 +292,6 @@ fn main {
                     [
                       theme_toggle_button(app),
                       flat_toggle_button(app),
-                      translucent_toggle_button(app),
                       language_toggle_button(app, nav),
                     ],
                     column_gap=6.0,
@@ -320,7 +301,6 @@ fn main {
                 row_gap=6.0,
               ),
             ],
-            background_color=if app.translucent.get() { "#12161FCC" } else { "" },
             width=180.0,
           ),
           // 主区：路由视图——选中哪页挂哪页，没选过的只留空壳；对话框挂在这一列上

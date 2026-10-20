@@ -2884,3 +2884,13 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **验证（助手侧无头判据）**：`moon check`（gui）零错误；`moon test dbus shell widget` 210/210；`moon test` 全库 1079/1079。新增两条库测试：`gui/dbus/wire_wbtest.mbt`「线路字符串恒为合法 UTF-8」（中文+`·`+emoji 编码字节数、🎉 的四字节序列、孤立代理对换成 `EF BF BD` 且 `Buf::string` 的长度前缀按替换后计），`gui/shell/tray_wbtest.mbt`「退出兜底：未收到退出信号时不报退出，批量注销可空跑」。端到端用 `experiment/tray_zombie_probe`（只建托盘项、不开窗，`PROBE_MODE=async|sync|hold`）配注册表差集读数：正常退出、`kill -INT`、`kill -TERM` 三条各跑后 `comm -13` 前后差集为空（读数 `PROBE-SIGNAL ticks=18` / `PROBE-EXIT how=signal`，退出码 0）；`kill -9` 那次该条目 4 秒后被 watcher 自己摘掉——**watcher 什么时候清理已断开的在册项不由我们定**，另一条死名在册实测挂了 25 分钟以上。异步「发完就走」与同步「等 watcher 应答」两种注销各 4 趟都不留残留，故没保留同步形态（多一层最坏 1.5s 阻塞、无收益）。
 - **同批记录的一条测试副作用**：库的 SNI 单测在**真会话总线**上注册（`sni_wbtest.mbt` 的 `Item::create("wbtest-*")`、`tray_wbtest.mbt` 的 `Tray::new("libyue-wbtest")`），跑一次 `moon test dbus` 后注册表实测多出一条 `":1.963/StatusNotifierItem"`（主人已死）。面板上就会多一个空白占位——这是开发节奏里看到「僵尸」的另一个来源，具体漏在册的分支未定位。
 - **待真机（使用者判据）**：`moon run examples/showcase` 后按 ① 点窗口关闭 ② 终端 Ctrl+C ③ `kill -9` 三种方式各退一次，每次退完扫注册表看 `libyue-showcase-tray` 那条的宿主名是否还在；同时 `tail -f ~/.xsession-errors` 看运行期间是否还有 `g_utf8_validate` / `g_variant_new_string` 断言与本库的项同时出现。
+
+## 模糊链路（`@ui.glass` / `Painter::backdrop_blur` / `Bitmap::soft_blur`）整条下线（2026-10-20，使用者真机反馈「不可用」）
+
+- **环境**：Ubuntu 24.04 + X11 + XFCE 主链路，showcase 侧栏「半透玻璃」开关（`@icons.MagicStick` 那颗）。
+- **现象**：开关按下只有整窗透明 + 侧栏换一层固定色底（`#12161FCC`），看不到任何模糊；使用者判定该功能不可用，要求整条去掉。
+- **根因**（两条叠加，都在代码里可对证）：
+  1. **模糊 pass 从没接进侧栏**：`@ui.glass` 在全仓库零调用点（只在 `shared/app.mbt` 的注释里被提过一次），侧栏透明靠的是 `background_color` 常量，开关实际只调 `Window::set_transparent_bg`——「玻璃」二字没有落点。
+  2. **即便接上也不是想要的东西**：`backdrop_blur` 读回的是 `Painter.self.bitmap`，即**本窗口内已绘制的像素**，糊不到窗口外的桌面/下层内容；`soft_blur` 是 1/8 块平均降采样 + 双线性回放的近似，两后端都没有真卷积（`proposals/style-css-expansion.md` §1.1 与 §59 已记「目标读回+分组+模糊」为未做项）。加上 `set_transparent_bg` 本身需合成器（窗口页文案：无合成器静默无效），三段里任何一段缺位都出不了毛玻璃。
+- **修复**：整条删除，不留半套 API——`gui/render/blur.mbt`、`gui/render/blur_wbtest.mbt` 删文件；`gui/render/painter.mbt` 去 `Painter::backdrop_blur`；`gui/ui/overlay.mbt` 去 `glass`；`docs/components.md` / `docs/zh/components.md` 去 glass 行；showcase 侧 `main.mbt` 去开关按钮与侧栏透明底色、`shared/app.mbt` 去 `translucent` 字段、`cost_bench/main.mbt` 去对应初始化。要做真毛玻璃只能重来：先补后端的高斯/分组能力，再谈 API。
+- **验证**：`cd gui && moon check` 零错误零警告；`moon test render ui base widget` 中 render 全绿，ui 的 3 条失败（步进器两条、密码遮罩光标一条）在 `1d1ff8f0` 干净 worktree 上同样失败，与本批无关；`examples/showcase` `moon check` 全绿。真机口径：侧栏底部只剩深浅/圆角/语言三颗按钮，不再有无效果的玻璃开关。

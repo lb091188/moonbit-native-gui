@@ -126,7 +126,6 @@
 | `popover(trigger : Node, content : Node, width?, height?, class?, handle?)` | 气泡弹层：点 trigger 在其下方弹任意内容，再点收起；`width/height` 传 0 按内容定尺 |
 | `tooltip(content : Node, tip : String, delay_ms?=500, class?, handle?)` | 悬浮提示：停 `delay_ms` 后在下方开一层气泡，离开即收，走宿主 `on_hover_change` 父链语义 |
 | `context_menu_for(content : Node, items : Array[(String, () -> Unit)], width?=150.0, handle?)` | 右键上下文菜单：`items` 里文案 `"-"` 画分隔线；右键走「祖先优先」派发 |
-| `glass(children, padding?=12.0, blur_on? : () -> Bool, class?, handle?)` | 玻璃面板：绘制前把它下方已画的内容糊掉再回放，叠半透明面板底与 1px 描边；半径固定 6；绘制顺序须在背景内容之后 |
 
 ## 日期与时间
 

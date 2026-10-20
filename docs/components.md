@@ -126,7 +126,6 @@ Overlays — dialog / popover / menu / tooltip — all open on the window-wide *
 | `popover(trigger : Node, content : Node, width?, height?, class?, handle?)` | Popover: clicking the trigger drops arbitrary content below it, clicking again closes; `width/height` of 0 size to the content |
 | `tooltip(content : Node, tip : String, delay_ms?=500, class?, handle?)` | Tooltip: after a `delay_ms` hover it opens a bubble below and closes on leave; it rides the host's `on_hover_change`, a parent-chain semantics |
 | `context_menu_for(content : Node, items : Array[(String, () -> Unit)], width?=150.0, handle?)` | Right-click context menu: in `items` the label `"-"` draws a separator; right-click dispatch is "ancestor-first" |
-| `glass(children, padding?=12.0, blur_on? : () -> Bool, class?, handle?)` | Glass panel: blurs the already-painted content underneath before replaying it, then overlays a translucent panel background and a 1px border; fixed 6 radius; must be painted after the background content |
 
 ## Date & time
 
