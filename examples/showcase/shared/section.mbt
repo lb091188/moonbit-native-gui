@@ -35,7 +35,15 @@ pub fn section(
   content : Array[@widget.Node],
   code? : Array[String] = [],
 ) -> Section {
-  { name, title, desc, content, code }
+  // 段标题/描述是纯显示串：在出口统一取译（英文目录命中则英文，否则原中文）。
+  // 段名 name 仍作 key（segmented 选中值），不译。
+  {
+    name,
+    title: @i18n.t_or(title, title),
+    desc: @i18n.t_or(desc, desc),
+    content,
+    code,
+  }
 }
 
 ///|
