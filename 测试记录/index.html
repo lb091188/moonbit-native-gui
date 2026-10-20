@@ -375,7 +375,7 @@
       <li>总览页右上的「全部失败项 → AI 提示词」：三个平台所有失败项，按平台 + 应用分段。</li>
       <li>历史页每张卡片上的「复制为 AI 提示词」：那一次测试的失败项。</li>
     </ul>
-    <p>格式刻意保持简短：每个应用一段，开头两行是平台与应用，随后每条失败三行——测试点、测试条目（用例编号）、遇到的问题（即你填的备注，没写会标「（未填写）」）。</p>
+    <p>格式保持简短：开头两行是平台与应用，然后按「测试环节」分组，逐条列「序号、条目」，下一行是「问题：你填的备注」（没写会标「（未填写）」）。</p>
     <h3>快捷键</h3>
     <ul>
       <li><kbd>1</kbd> 通过 · <kbd>2</kbd> 失败 · <kbd>3</kbd> 跳过 · <kbd>0</kbd> 清除</li>
@@ -647,19 +647,28 @@
       });
   }
 
+  function caseSubject(c) {
+    var t = (c && c.t) || '';
+    var i = t.indexOf('：');
+    if (i < 0) i = t.indexOf('；');
+    return i > 0 ? t.slice(0, i) : t;
+  }
+
   function promptSection(p, a, entries) {
     var plat = PLATFORMS.filter(function (x) { return x.id === p; })[0];
     var app = APPS.filter(function (x) { return x.id === a; })[0];
     var lines = [];
     lines.push('- 平台：' + plat.name);
     lines.push('- 应用：' + app.name);
-    entries.forEach(function (e) {
-      var c = CASE_BY_ID[e.id];
-      var gname = '';
-      for (var gi = 0; gi < GROUPS.length; gi++) if (c && GROUPS[gi].id === c.g) gname = GROUPS[gi].name.replace(/^T\d\s*/, '');
-      lines.push('- 测试点：' + gname);
-      lines.push('- 测试条目：' + e.id);
-      lines.push('- 遇到的问题：' + (e.note || '（未填写）'));
+    // 按测试环节（用例分组）归并，顺序固定 T1→T8，组内重新编号
+    GROUPS.forEach(function (g) {
+      var inG = entries.filter(function (e) { var c = CASE_BY_ID[e.id]; return c && c.g === g.id; });
+      if (!inG.length) return;
+      lines.push('测试环节：' + g.name.replace(/^T\d\s*/, ''));
+      inG.forEach(function (e, i) {
+        lines.push((i + 1) + '、' + caseSubject(CASE_BY_ID[e.id]));
+        lines.push('问题：' + (e.note || '（未填写）'));
+      });
     });
     return lines.join('\n');
   }
@@ -1344,7 +1353,7 @@
       var text = promptForAll();
       if (!text) { toast('还没有任何失败项'); return; }
       copyText(text);
-      var n = (text.match(/^\d+\. T/gm) || []).length;
+      var n = (text.match(/^\d+、/gm) || []).length;
       toast('已复制 ' + n + ' 条失败项的提示词（全部平台）');
     };    document.getElementById('btn-import').onclick = function () { document.getElementById('file-import').click(); };
     document.getElementById('file-import').onchange = function () {
