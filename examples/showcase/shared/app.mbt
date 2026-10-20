@@ -65,6 +65,18 @@ pub fn tr(key : String, zh : String) -> String {
 }
 
 ///|
+/// 中文原文当 key 的取译（页正文用）：中文态回落原文，英文态命中「原文 → 译文」条目。
+pub fn tx(zh : String) -> String {
+  @i18n.t_or(zh, zh)
+}
+
+///|
+/// 带插值的取译：目录条目用 `\{名}` 占位；中文态回落 `zh`（调用处已插值好）。
+pub fn tr_with(key : String, vars : Array[(String, String)], zh : String) -> String {
+  @i18n.t_with_or(key, vars, zh)
+}
+
+///|
 /// 侧栏页名：键 = "nav." + 中文页名；中文态回落中文页名本身。
 pub fn nav_label(page_key : String) -> String {
   @i18n.t_or("nav." + page_key, page_key)

@@ -14,8 +14,8 @@
 ///|
 pub fn page_basic(app : @shared.App) -> @widget.Node {
   // 两个悬停/光标组各配一个文本框状态
-  let box_a : @base.Store[String] = @base.Store::new("组内输入框")
-  let box_b : @base.Store[String] = @base.Store::new("组内输入框")
+  let box_a : @base.Store[String] = @base.Store::new(@shared.tx("组内输入框"))
+  let box_b : @base.Store[String] = @base.Store::new(@shared.tx("组内输入框"))
   @shared.page([
     @shared.section(
       "主题",
@@ -24,26 +24,26 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
       [
         @ui.row(
           [
-            @ui.button("跟随系统", variant=@ui.Solid, on_click=fn() {
+            @ui.button(@shared.tx("跟随系统"), variant=@ui.Solid, on_click=fn() {
               app.follow.set(true)
             }),
-            @ui.button("默认蓝", on_click=fn() {
+            @ui.button(@shared.tx("默认蓝"), on_click=fn() {
               app.follow.set(false)
               app.accent.set("")
             }),
-            @ui.button("青", on_click=fn() {
+            @ui.button(@shared.tx("青"), on_click=fn() {
               app.follow.set(false)
               app.accent.set("#009688")
             }),
-            @ui.button("绿", on_click=fn() {
+            @ui.button(@shared.tx("绿"), on_click=fn() {
               app.follow.set(false)
               app.accent.set("#2E9E5B")
             }),
-            @ui.button("紫", on_click=fn() {
+            @ui.button(@shared.tx("紫"), on_click=fn() {
               app.follow.set(false)
               app.accent.set("#9141AC")
             }),
-            @ui.button("红", on_click=fn() {
+            @ui.button(@shared.tx("红"), on_click=fn() {
               app.follow.set(false)
               app.accent.set("#D64550")
             }),
@@ -52,7 +52,7 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
         ),
         @ui.bind(app.accent.signal(), fn(s) {
           if s == "" {
-            "当前主色：内置默认"
+            @shared.tx("当前主色：内置默认")
           } else {
             "当前主色：\{s}"
           }
@@ -75,34 +75,34 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
       [
         @ui.col(
           [
-            @ui.text("简体中文 — 你好，世界", font_size=16.0),
+            @ui.text(@shared.tx("简体中文 — 你好，世界"), font_size=16.0),
             @ui.text("English — Hello, world", font_size=16.0),
             @ui.text(
-              "العربية — 阿拉伯语：مرحبا بالعالم",
+              @shared.tx("العربية — 阿拉伯语：مرحبا بالعالم"),
               font_size=16.0,
               align=@text.End,
               class=[@style.style().set_direction(Some(@style.Rtl))],
             ),
             @ui.text(
-              "فارسی — 波斯语：سلام دنیا",
+              @shared.tx("فارسی — 波斯语：سلام دنیا"),
               font_size=16.0,
               align=@text.End,
               class=[@style.style().set_direction(Some(@style.Rtl))],
             ),
             @ui.text(
-              "עברית — 希伯来语：שלום עולם",
+              @shared.tx("עברית — 希伯来语：שלום עולם"),
               font_size=16.0,
               align=@text.End,
               class=[@style.style().set_direction(Some(@style.Rtl))],
             ),
             @ui.text(
-              "اردو — 乌尔都语：دنیا کو سلام",
+              @shared.tx("اردو — 乌尔都语：دنیا کو سلام"),
               font_size=16.0,
               align=@text.End,
               class=[@style.style().set_direction(Some(@style.Rtl))],
             ),
             @ui.text(
-              "RTL 行里的 1234 / ABC 保持原序不反写",
+              @shared.tx("RTL 行里的 1234 / ABC 保持原序不反写"),
               font_size=14.0,
               align=@text.End,
               class=[@style.style().set_direction(Some(@style.Rtl))],
@@ -127,12 +127,12 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
       [
         @ui.row(
           [
-            @ui.button("主要操作", variant=@ui.Solid, on_click=fn() {
+            @ui.button(@shared.tx("主要操作"), variant=@ui.Solid, on_click=fn() {
               app.counter.update(fn(n) { n + 1 })
             }),
-            @ui.button("次要操作", variant=@ui.Soft),
-            @ui.button("文字按钮", variant=@ui.Text),
-            @ui.button("危险操作", variant=@ui.Danger),
+            @ui.button(@shared.tx("次要操作"), variant=@ui.Soft),
+            @ui.button(@shared.tx("文字按钮"), variant=@ui.Text),
+            @ui.button(@shared.tx("危险操作"), variant=@ui.Danger),
           ],
           column_gap=8.0,
         ),
@@ -151,16 +151,16 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
       "Label 与 Link",
       "五级排版角色，字号颜色随角色；Link 主题色文字悬停下划线，最近点击信号回显。",
       [
-        @ui.text("标题文字（Title）", role=@ui.Title),
-        @ui.text("小节标题（Section）", role=@ui.Section),
-        @ui.text("正文文字（Body）", role=@ui.Body),
-        @ui.text("辅助文字（Secondary）", role=@ui.Secondary),
-        @ui.text("强调文字（Accent）", role=@ui.Accent),
+        @ui.text(@shared.tx("标题文字（Title）"), role=@ui.Title),
+        @ui.text(@shared.tx("小节标题（Section）"), role=@ui.Section),
+        @ui.text(@shared.tx("正文文字（Body）"), role=@ui.Body),
+        @ui.text(@shared.tx("辅助文字（Secondary）"), role=@ui.Secondary),
+        @ui.text(@shared.tx("强调文字（Accent）"), role=@ui.Accent),
         @ui.row(
           [
-            @ui.link("打开文档", fn() { app.picked_lang.set("docs") }),
-            @ui.link("帮助中心", fn() { app.picked_lang.set("help") }),
-            @ui.text("最近点击：", role=@ui.Body),
+            @ui.link(@shared.tx("打开文档"), fn() { app.picked_lang.set("docs") }),
+            @ui.link(@shared.tx("帮助中心"), fn() { app.picked_lang.set("help") }),
+            @ui.text(@shared.tx("最近点击："), role=@ui.Body),
             @ui.bind(app.picked_lang, fn(s) { s }),
           ],
           column_gap=10.0,
@@ -180,13 +180,13 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
       "Divider 与 Tooltip",
       "水平（默认）/竖直 1px 主题边框色；tooltip 给任意节点包原生悬浮提示（系统样式，主题化气泡见反馈页 Popover）。",
       [
-        @ui.text("上方内容", role=Body),
+        @ui.text(@shared.tx("上方内容"), role=Body),
         @ui.divider(),
-        @ui.text("下方内容", role=Body),
+        @ui.text(@shared.tx("下方内容"), role=Body),
         @ui.row(
           [
-            @ui.tooltip(@ui.button("悬停看提示"), "原生 tooltip：系统样式"),
-            @ui.tooltip(@ui.button("再来一个", variant=@ui.Soft), "第二个提示"),
+            @ui.tooltip(@ui.button(@shared.tx("悬停看提示")), "原生 tooltip：系统样式"),
+            @ui.tooltip(@ui.button(@shared.tx("再来一个"), variant=@ui.Soft), "第二个提示"),
           ],
           column_gap=10.0,
         ),
@@ -204,21 +204,21 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
       [
         @ui.hover_group(
           [
-            @ui.text("组标题：悬停我，或下面的子控件", role=@ui.Section),
+            @ui.text(@shared.tx("组标题：悬停我，或下面的子控件"), role=@ui.Section),
             @ui.row(
-              [@ui.input(box_a, width=200.0), @ui.button("组内按钮")],
+              [@ui.input(box_a, width=200.0), @ui.button(@shared.tx("组内按钮"))],
               column_gap=10.0,
             ),
-            @ui.text("子控件触发的事件同样改变组的样式", role=@ui.Secondary),
+            @ui.text(@shared.tx("子控件触发的事件同样改变组的样式"), role=@ui.Secondary),
           ],
           padding=14.0,
           row_gap=8.0,
         ),
         @ui.cursor_group(
           [
-            @ui.text("整组都是手型：移入试试，或移到子控件上", role=@ui.Section),
+            @ui.text(@shared.tx("整组都是手型：移入试试，或移到子控件上"), role=@ui.Section),
             @ui.row(
-              [@ui.input(box_b, width=200.0), @ui.button("组内按钮")],
+              [@ui.input(box_b, width=200.0), @ui.button(@shared.tx("组内按钮"))],
               column_gap=10.0,
             ),
           ],

@@ -20,7 +20,7 @@ pub fn page_store_demo(_app : @shared.App) -> @widget.Node {
       [
         @ui.row(
           [
-            @ui.button("计数 +1", variant=@ui.Solid, on_click=fn() {
+            @ui.button(@shared.tx("计数 +1"), variant=@ui.Solid, on_click=fn() {
               counter.update(fn(n) { n + 1 })
               // ↑ 动作本体；若 doubled 不靠 subscribe，这里就得再写
               //   doubled.set(counter.get() * 2)——信号版无此负担
@@ -52,9 +52,9 @@ pub fn page_store_demo(_app : @shared.App) -> @widget.Node {
       "信号写法：computed(fn() { counter.get() * 2 })——关系声明在定义处，多源合成/条件派生同一写法。",
       [
         @ui.descriptions([
-          ("手动（本页）", "动作里 set / subscribe 里 set / map 一对一"),
-          ("信号（主题页）", "computed 声明派生，batch 合并同回调多次 set"),
-          ("取舍", "两者共享同一内核，Store::signal / Signal::store 互转"),
+          (@shared.tx("手动（本页）"), @shared.tx("动作里 set / subscribe 里 set / map 一对一")),
+          (@shared.tx("信号（主题页）"), @shared.tx("computed 声明派生，batch 合并同回调多次 set")),
+          (@shared.tx("取舍"), @shared.tx("两者共享同一内核，Store::signal / Signal::store 互转")),
         ]),
       ],
       code=[
@@ -73,13 +73,16 @@ pub fn page_store_demo(_app : @shared.App) -> @widget.Node {
       [
         @ui.row(
           [
-            @ui.text("兄弟项（重建时不动）", role=@ui.Secondary),
+            @ui.text(@shared.tx("兄弟项（重建时不动）"), role=@ui.Secondary),
             @widget.bind_node(rebuild_n.signal(), fn(n : Int) -> @widget.Node {
               @ui.view(
                 [
-                  @ui.text("第 \{n} 代子树", role=@ui.Body),
                   @ui.text(
-                    "这棵子树每次点击都是全新控件；旁边那行字没有被重挂。",
+                    @shared.tr_with("gen.subtree", [("n", n.to_string())], "第 \{n} 代子树"),
+                    role=@ui.Body,
+                  ),
+                  @ui.text(
+                    @shared.tx("这棵子树每次点击都是全新控件；旁边那行字没有被重挂。"),
                     role=@ui.Secondary,
                     max_width=360.0,
                   ),
@@ -91,7 +94,7 @@ pub fn page_store_demo(_app : @shared.App) -> @widget.Node {
                 border_color="border",
               )
             }),
-            @ui.button("再挂一代", variant=@ui.Solid, on_click=fn() {
+            @ui.button(@shared.tx("再挂一代"), variant=@ui.Solid, on_click=fn() {
               rebuild_n.update(fn(n : Int) { n + 1 })
             }),
           ],

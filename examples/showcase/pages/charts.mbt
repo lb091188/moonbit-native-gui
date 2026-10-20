@@ -17,8 +17,8 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
   // ---- 折线：3 序列定长窗口，500ms 推点（三角波模拟监控曲线），可暂停 ----
   let line_series : @base.Store[Array[@charts.LineSeries]] = @base.Store::new([
     @charts.LineSeries::make("CPU", max_points=120),
-    @charts.LineSeries::make("内存", max_points=120),
-    @charts.LineSeries::make("磁盘", max_points=120),
+    @charts.LineSeries::make(@shared.tx("内存"), max_points=120),
+    @charts.LineSeries::make(@shared.tx("磁盘"), max_points=120),
   ])
   // 复选框语义与标签同向：勾上 = 暂停（断数据流，定时器照跑）
   let line_paused : @base.Store[Bool] = @base.Store::new(false)
@@ -47,14 +47,14 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
 
   // ---- 柱状：月度净值（含负值）+ Top 语言横向条 ----
   let bar_data : @base.Store[Array[@charts.BarItem]] = @base.Store::new([
-    @charts.BarItem::make("1月", 12.0),
-    @charts.BarItem::make("2月", -8.0),
-    @charts.BarItem::make("3月", 25.0),
-    @charts.BarItem::make("4月", 18.0),
-    @charts.BarItem::make("5月", -14.0),
-    @charts.BarItem::make("6月", 32.0),
-    @charts.BarItem::make("7月", 22.0),
-    @charts.BarItem::make("8月", 9.0),
+    @charts.BarItem::make(@shared.tx("1月"), 12.0),
+    @charts.BarItem::make(@shared.tx("2月"), -8.0),
+    @charts.BarItem::make(@shared.tx("3月"), 25.0),
+    @charts.BarItem::make(@shared.tx("4月"), 18.0),
+    @charts.BarItem::make(@shared.tx("5月"), -14.0),
+    @charts.BarItem::make(@shared.tx("6月"), 32.0),
+    @charts.BarItem::make(@shared.tx("7月"), 22.0),
+    @charts.BarItem::make(@shared.tx("8月"), 9.0),
   ])
   let bar_h_data : @base.Store[Array[@charts.BarItem]] = @base.Store::new([
     @charts.BarItem::make("MoonBit", 92.0),
@@ -65,11 +65,11 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
   ])
   // ---- 环形：流量来源占比 ----
   let donut_data : @base.Store[Array[@charts.DonutSlice]] = @base.Store::new([
-    @charts.DonutSlice::make("直接访问", 335.0),
-    @charts.DonutSlice::make("搜索引擎", 510.0),
-    @charts.DonutSlice::make("社交媒体", 234.0),
-    @charts.DonutSlice::make("外部链接", 148.0),
-    @charts.DonutSlice::make("邮件", 96.0),
+    @charts.DonutSlice::make(@shared.tx("直接访问"), 335.0),
+    @charts.DonutSlice::make(@shared.tx("搜索引擎"), 510.0),
+    @charts.DonutSlice::make(@shared.tx("社交媒体"), 234.0),
+    @charts.DonutSlice::make(@shared.tx("外部链接"), 148.0),
+    @charts.DonutSlice::make(@shared.tx("邮件"), 96.0),
   ])
   // ---- 仪表盘：自动（2Hz 三角波）+ 手动（滑杆）双演示 ----
   let gauge_auto : @base.Store[Double] = @base.Store::new(0.0)
@@ -106,21 +106,21 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
   ]
   // ---- 扩展段：雷达 / 热力 / K 线 / 漏斗 / 箱线 / 桑基（内置演示数据） ----
   let radar_ind : @base.Store[Array[@charts.RadarIndicator]] = @base.Store::new([
-    @charts.RadarIndicator::make("渲染", 100.0),
+    @charts.RadarIndicator::make(@shared.tx("渲染"), 100.0),
     @charts.RadarIndicator::make("IO", 100.0),
-    @charts.RadarIndicator::make("内存", 100.0),
-    @charts.RadarIndicator::make("启动", 100.0),
-    @charts.RadarIndicator::make("体积", 100.0),
-    @charts.RadarIndicator::make("功耗", 100.0),
+    @charts.RadarIndicator::make(@shared.tx("内存"), 100.0),
+    @charts.RadarIndicator::make(@shared.tx("启动"), 100.0),
+    @charts.RadarIndicator::make(@shared.tx("体积"), 100.0),
+    @charts.RadarIndicator::make(@shared.tx("功耗"), 100.0),
   ])
   let radar_ser : @base.Store[Array[@charts.RadarSeries]] = @base.Store::new([
-    @charts.RadarSeries::make("本方案", [88.0, 72.0, 80.0, 92.0, 85.0, 78.0]),
-    @charts.RadarSeries::make("对照", [70.0, 90.0, 65.0, 75.0, 60.0, 82.0]),
+    @charts.RadarSeries::make(@shared.tx("本方案"), [88.0, 72.0, 80.0, 92.0, 85.0, 78.0]),
+    @charts.RadarSeries::make(@shared.tx("对照"), [70.0, 90.0, 65.0, 75.0, 60.0, 82.0]),
   ])
   let heat : @base.Store[@charts.HeatGrid] = @base.Store::new(
     @charts.HeatGrid::make(
-      ["周一", "周二", "周三", "周四", "周五", "周六", "周日"],
-      ["上午", "下午", "晚间"],
+      [@shared.tx("周一"), @shared.tx("周二"), @shared.tx("周三"), @shared.tx("周四"), @shared.tx("周五"), @shared.tx("周六"), @shared.tx("周日")],
+      [@shared.tx("上午"), @shared.tx("下午"), @shared.tx("晚间")],
       [
         [3.0, 5.0, 7.0, 4.0, 6.0, 9.0, 8.0],
         [6.0, 8.0, 9.0, 7.0, 5.0, 10.0, 9.0],
@@ -138,25 +138,25 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
     @charts.Candle::make(99.0, 104.0, 96.0, 102.0),
   ])
   let funnel : @base.Store[Array[@charts.BarItem]] = @base.Store::new([
-    @charts.BarItem::make("浏览", 1000.0),
-    @charts.BarItem::make("加购", 420.0),
-    @charts.BarItem::make("下单", 260.0),
-    @charts.BarItem::make("支付", 190.0),
-    @charts.BarItem::make("复购", 80.0),
+    @charts.BarItem::make(@shared.tx("浏览"), 1000.0),
+    @charts.BarItem::make(@shared.tx("加购"), 420.0),
+    @charts.BarItem::make(@shared.tx("下单"), 260.0),
+    @charts.BarItem::make(@shared.tx("支付"), 190.0),
+    @charts.BarItem::make(@shared.tx("复购"), 80.0),
   ])
   let boxp : @base.Store[Array[(String, Array[Double])]] = @base.Store::new([
-    ("渲染", [12.0, 14.0, 15.0, 16.0, 18.0, 21.0, 25.0, 30.0]),
+    (@shared.tx("渲染"), [12.0, 14.0, 15.0, 16.0, 18.0, 21.0, 25.0, 30.0]),
     ("IO", [5.0, 6.0, 6.5, 7.0, 8.0, 9.0, 12.0]),
-    ("启动", [70.0, 75.0, 78.0, 80.0, 82.0, 90.0, 110.0]),
+    (@shared.tx("启动"), [70.0, 75.0, 78.0, 80.0, 82.0, 90.0, 110.0]),
   ])
   let sankey : @base.Store[@charts.SankeyData] = @base.Store::new(
     @charts.SankeyData::make(
       [
-        @charts.SankeyNode::make("浏览"),
-        @charts.SankeyNode::make("加购"),
-        @charts.SankeyNode::make("直接下单"),
-        @charts.SankeyNode::make("支付"),
-        @charts.SankeyNode::make("流失"),
+        @charts.SankeyNode::make(@shared.tx("浏览")),
+        @charts.SankeyNode::make(@shared.tx("加购")),
+        @charts.SankeyNode::make(@shared.tx("直接下单")),
+        @charts.SankeyNode::make(@shared.tx("支付")),
+        @charts.SankeyNode::make(@shared.tx("流失")),
       ],
       [
         @charts.SankeyLink::make(0, 1, 420.0),
@@ -172,12 +172,12 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
   let graph : @base.Store[@charts.GraphData] = @base.Store::new(
     @charts.GraphData::make(
       [
-        @charts.GraphNode::make("网关"),
-        @charts.GraphNode::make("服务 A"),
-        @charts.GraphNode::make("服务 B"),
-        @charts.GraphNode::make("服务 C"),
-        @charts.GraphNode::make("缓存"),
-        @charts.GraphNode::make("数据库", value=2.0),
+        @charts.GraphNode::make(@shared.tx("网关")),
+        @charts.GraphNode::make(@shared.tx("服务 A")),
+        @charts.GraphNode::make(@shared.tx("服务 B")),
+        @charts.GraphNode::make(@shared.tx("服务 C")),
+        @charts.GraphNode::make(@shared.tx("缓存")),
+        @charts.GraphNode::make(@shared.tx("数据库"), value=2.0),
       ],
       [
         @charts.GraphEdge::make(0, 1),
@@ -192,10 +192,10 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
     ),
   )
   let par_axes : @base.Store[Array[@charts.ParAxis]] = @base.Store::new([
-    @charts.ParAxis::make("延迟(ms)"),
-    @charts.ParAxis::make("吞吐(MB/s)"),
-    @charts.ParAxis::make("错误率(%)"),
-    @charts.ParAxis::make("饱和度(%)", min=Some(0.0), max=Some(100.0)),
+    @charts.ParAxis::make(@shared.tx("延迟(ms)")),
+    @charts.ParAxis::make(@shared.tx("吞吐(MB/s)")),
+    @charts.ParAxis::make(@shared.tx("错误率(%)")),
+    @charts.ParAxis::make(@shared.tx("饱和度(%)"), min=Some(0.0), max=Some(100.0)),
   ])
   let par_rows : @base.Store[Array[Array[Double]]] = @base.Store::new([
     [12.0, 320.0, 0.5, 40.0],
@@ -205,35 +205,35 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
     [15.0, 300.0, 0.8, 48.0],
   ])
   let pb_data : @base.Store[Array[@charts.BarItem]] = @base.Store::new([
-    @charts.BarItem::make("北京", 92.0),
-    @charts.BarItem::make("上海", 78.0),
-    @charts.BarItem::make("广州", 64.0),
-    @charts.BarItem::make("成都", 45.0),
-    @charts.BarItem::make("西安", 36.0),
+    @charts.BarItem::make(@shared.tx("北京"), 92.0),
+    @charts.BarItem::make(@shared.tx("上海"), 78.0),
+    @charts.BarItem::make(@shared.tx("广州"), 64.0),
+    @charts.BarItem::make(@shared.tx("成都"), 45.0),
+    @charts.BarItem::make(@shared.tx("西安"), 36.0),
   ])
   let sun_root : @base.Store[@charts.SunItem] = @base.Store::new(
     @charts.SunItem::make(
-      "访问来源",
+      @shared.tx("访问来源"),
       children=[
         @charts.SunItem::make(
-          "搜索",
+          @shared.tx("搜索"),
           children=[
-            @charts.SunItem::make("百度", value=Some(42.0)),
-            @charts.SunItem::make("必应", value=Some(18.0)),
+            @charts.SunItem::make(@shared.tx("百度"), value=Some(42.0)),
+            @charts.SunItem::make(@shared.tx("必应"), value=Some(18.0)),
           ],
         ),
-        @charts.SunItem::make("直接访问", value=Some(35.0)),
+        @charts.SunItem::make(@shared.tx("直接访问"), value=Some(35.0)),
         @charts.SunItem::make(
-          "外链",
+          @shared.tx("外链"),
           children=[
-            @charts.SunItem::make("社区", value=Some(22.0)),
-            @charts.SunItem::make("博客", value=Some(12.0)),
+            @charts.SunItem::make(@shared.tx("社区"), value=Some(22.0)),
+            @charts.SunItem::make(@shared.tx("博客"), value=Some(12.0)),
           ],
         ),
       ],
     ),
   )
-  let trv_names : @base.Store[Array[String]] = @base.Store::new(["移动端", "桌面端", "平板"])
+  let trv_names : @base.Store[Array[String]] = @base.Store::new([@shared.tx("移动端"), @shared.tx("桌面端"), @shared.tx("平板")])
   let trv_values : @base.Store[Array[Array[Double]]] = @base.Store::new([
     [12.0, 18.0, 25.0, 22.0, 30.0, 28.0, 20.0],
     [30.0, 32.0, 28.0, 35.0, 40.0, 38.0, 33.0],
@@ -241,11 +241,11 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
   ])
   let tree_root : @base.Store[@charts.TreeItem] = @base.Store::new(
     {
-      name: "产品线",
+      name: @shared.tx("产品线"),
       value: None,
       children: [
         {
-          name: "移动端",
+          name: @shared.tx("移动端"),
           value: Some(60.0),
           children: [
             { name: "iOS", value: Some(35.0), children: [] },
@@ -253,7 +253,7 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
           ],
         },
         {
-          name: "桌面端",
+          name: @shared.tx("桌面端"),
           value: Some(40.0),
           children: [
             { name: "Windows", value: Some(22.0), children: [] },
@@ -265,21 +265,21 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
   )
   let tm_items : @base.Store[Array[@charts.TmItem]] = @base.Store::new([
     @charts.TmItem::make(
-      "研发",
+      @shared.tx("研发"),
       children=[
-        @charts.TmItem::make("前端", value=30.0),
+        @charts.TmItem::make(@shared.tx("前端"), value=30.0),
         @charts.TmItem::make("后端", value=45.0),
-        @charts.TmItem::make("测试", value=15.0),
+        @charts.TmItem::make(@shared.tx("测试"), value=15.0),
       ],
     ),
     @charts.TmItem::make(
-      "设计",
+      @shared.tx("设计"),
       children=[
-        @charts.TmItem::make("视觉", value=18.0),
-        @charts.TmItem::make("交互", value=12.0),
+        @charts.TmItem::make(@shared.tx("视觉"), value=18.0),
+        @charts.TmItem::make(@shared.tx("交互"), value=12.0),
       ],
     ),
-    @charts.TmItem::make("运营", value=25.0),
+    @charts.TmItem::make(@shared.tx("运营"), value=25.0),
   ])
   let eff_points : @base.Store[Array[@charts.EffPoint]] = @base.Store::new([
     @charts.EffPoint::make(18.0, 72.0, size=20.0),
@@ -298,24 +298,24 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
       points: [22.0, 28.0, 25.0, 31.0, 36.0, 33.0, 40.0, 38.0, 45.0, 42.0, 50.0, 47.0, 55.0, 60.0, 58.0, 64.0],
     },
     {
-      name: "内存",
+      name: @shared.tx("内存"),
       max_points: 16,
       points: [40.0, 42.0, 41.0, 44.0, 46.0, 45.0, 48.0, 50.0, 49.0, 52.0, 55.0, 54.0, 57.0, 60.0, 59.0, 62.0],
     },
   ])
   let it_bar : @base.Store[Array[@charts.BarItem]] = @base.Store::new([
-    @charts.BarItem::make("一月", 120.0),
-    @charts.BarItem::make("二月", 96.0),
-    @charts.BarItem::make("三月", 145.0),
-    @charts.BarItem::make("四月", -35.0),
-    @charts.BarItem::make("五月", 168.0),
-    @charts.BarItem::make("六月", 132.0),
+    @charts.BarItem::make(@shared.tx("一月"), 120.0),
+    @charts.BarItem::make(@shared.tx("二月"), 96.0),
+    @charts.BarItem::make(@shared.tx("三月"), 145.0),
+    @charts.BarItem::make(@shared.tx("四月"), -35.0),
+    @charts.BarItem::make(@shared.tx("五月"), 168.0),
+    @charts.BarItem::make(@shared.tx("六月"), 132.0),
   ])
   let it_donut : @base.Store[Array[@charts.DonutSlice]] = @base.Store::new([
-    @charts.DonutSlice::make("研发", 42.0),
-    @charts.DonutSlice::make("市场", 26.0),
-    @charts.DonutSlice::make("运营", 18.0),
-    @charts.DonutSlice::make("职能", 14.0),
+    @charts.DonutSlice::make(@shared.tx("研发"), 42.0),
+    @charts.DonutSlice::make(@shared.tx("市场"), 26.0),
+    @charts.DonutSlice::make(@shared.tx("运营"), 18.0),
+    @charts.DonutSlice::make(@shared.tx("职能"), 14.0),
   ])
   @shared.page([
     @shared.section(
@@ -333,8 +333,8 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
         ).on_mount(fn() -> Unit { line_pump() }),
         @ui.row(
           [
-            @ui.checkbox("暂停推点", line_paused),
-            @ui.text("窗口容量 120，推点频率 2Hz；暂停只断数据流，自排通道继续。", role=@ui.Secondary),
+            @ui.checkbox(@shared.tx("暂停推点"), line_paused),
+            @ui.text(@shared.tx("窗口容量 120，推点频率 2Hz；暂停只断数据流，自排通道继续。"), role=@ui.Secondary),
           ],
           column_gap=12.0,
         ),
@@ -397,7 +397,7 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
             @charts.gauge_t(gauge_manual, thresholds=gauge_thresholds, width=240.0, height=180.0),
             @ui.col(
               [
-                @ui.text("手动值", role=@ui.Body),
+                @ui.text(@shared.tx("手动值"), role=@ui.Body),
                 @ui.slider(gauge_manual, min=0.0, max=1.0, step=0.01, width=160.0),
               ],
               row_gap=8.0,
@@ -481,7 +481,7 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
               unit=12.0,
               show_values=true,
             ),
-            @charts.sun_chart_t(sun_root, center_text=Some("总计 129")),
+            @charts.sun_chart_t(sun_root, center_text=Some(@shared.tx("总计 129"))),
             @charts.trv_chart_t(trv_names, trv_values),
             @charts.tree_chart_t(tree_root),
             @charts.tm_chart_t(tm_items),
@@ -515,7 +515,7 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
           [
             @charts.line_chart_it(it_line),
             @charts.bar_chart_it(it_bar),
-            @charts.donut_chart_it(it_donut, center="合计 100"),
+            @charts.donut_chart_it(it_donut, center=@shared.tx("合计 100")),
           ],
           row_gap=14.0,
           align_items=@yoga.AlignItems::FlexStart,

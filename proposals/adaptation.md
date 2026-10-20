@@ -2932,3 +2932,19 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **prebuild 为什么不干脆把 dll 直接放到 exe 旁**:实测 moon 传给 prebuild 的 stdin 只有 `{"env": ..., "paths": {"module_root": ..., "out_dir": "_build/native/<mode>/build/prebuild/<hash>"}}`——没有最终 exe 目录;而且 prebuild 跑在模块构建**之前**,exe 那时还不存在。所以「构建期备好」与「放到 exe 旁」必须拆成两步:prebuild 负责下载,脚本负责搬运(moon 侧没有 post-build 钩子)。
 - **为什么不换链接方式**:静态链与 `vendor/*.lib`(导入库)不兼容,且 LGPL 静态链接还要额外满足「可重链接」义务;把 dll 放进仓库会永久占用 git 历史体积。app-local 复制是 Windows 惯例,也是发布时的正确形态。
 - **验证**(本机 macOS,代码级):`--dry-run` 对「来源齐全 / 来源版本错配 / 缺 exe」三条路径的输出与退出码逐一核对;复制幂等(第二次报「已就位」),七个 dll 落位与 exe 同目录清单一致;prebuild 的 Windows 分支用 `platform.system` 打桩跑过三条路(跳过开关 / vendor/win 已就位 / 正常 emit JSON),stdout 只出 JSON。**Windows 真机复跑归使用者**——构建日志先看到「运行期 dll 已就位」,再按 `examples/README.md` 跑脚本,窗口出现即通过。
+
+## 演示板整页换语言：三条取译通道 + 目录读手的静默坑（2026-10-20，macOS arm64 开发机）
+
+- **报障口径**：「点地球只有系统菜单有反应」→「页面还是不会更新语言，是不是页面没有引入 key(t) 函数呢？」两条都对，根子是三件事叠在一起，逐条拆开记。
+- **读手层（`gui/i18n/catalog.mbt`）三个静默失效**，都不报错、只查不到：
+  1. 键写成 TOML 的带引号形态（`"中文原文" = "English"`）时，旧读手把引号留在键里，按裸文本永远查不到 → `i_unquote` 现在对**键与值同一条口径**：脱引号 + 解 `\n \t \r \" \\` 转义。
+  2. `[meta] locale = "en"` 写在**最前**时，按 TOML 段头规则它之后的裸键全带 `meta.` 前缀——整本目录静默作废。落成的 `EN_CATALOG` 把 `[meta]` 挪到最尾，并在 shared 的 `catalog_guard_wbtest` 里逐条自检「每条目录键都能按它应有的键查到」+ 显式断言 `[meta]` 之后不许再有顶层键。
+  3. 键里带 `=`（`white_space=NoWrap` 这类原文当键）被第一个 `=` 截断 → `i_split_eq` 跳过引号内的 `=`。
+- **广播层**：换语言不再靠调用方各自记得刷新——`i18n_load / i18n_extend / i18n_reset` 末尾统一 `locale_notify()`；原生菜单栏走 `@widget.set_menu_bar_localized`（注册表口径，重复注册替换），页面走 `@router.localize_remount()`（原地 unmount + 逐层 `set_always` 触发重建）。两个口都挂同一条广播，不会再出现「菜单动了、页面不动」。
+- **正文层（真正缺的那一刀）**：`@ui.text` 收到的字面量从来没经过 `t_or`，所以目录再全也不会显示。这轮把口径固定成**三条通道**，全部由 `scripts/check_showcase_i18n.py` 兜底：
+  ① 正文显示串 = `@shared.tx("中文原文")`（中文态回落原文，英文态命中「原文→译文」），共 484 处；
+  ② 页内段条 = `seg.` + 段名，`@ui.segmented` 新增 `label_of?` 形参（**只改显示，`options` 仍是选中值与 `selected` 的取值域**），`page()` 出口传 `@i18n.t_or("seg." + n, n)`，共 101 段；`@router.Router::strip_at` 同带 `label_of?` 透传；
+  ③ 侧栏/段条里的页名 = `nav.` + 页名（`nav_label`），路由表里那 15 个键值不参与翻译。
+  门禁跑法：`python3 scripts/check_showcase_i18n.py`（反解 `EN_CATALOG` 拼出的 TOML 文本，三条通道逐条查，缺任一即非零退出）。
+- **刻意不动的两类**，避免把演示内容翻成另一回事：`code=[…]` 代码块与 Markdown 样例正文（那是被渲染的**素材**，不是控件文案）；带 `\{}` 插值的动态回显串（按号数、按探测结果现拼，仍走中文；要译得逐处换成 `@shared.tr_with(key, vars, zh)`，目录条目用 `\{名}` 占位——机制已在，属可增量补的尾巴）。富文本段的范围属性按**字节区间**打点，样例串一旦换字就会错位，故那几处不套取译口。
+- **验证**：`cd gui && moon check` 零错误零警告；`moon test widget ui style theme render i18n router` 465 项里 462 通过（3 项红是 HEAD 上就红的步进器打字 ×2、密码遮罩光标 ×1，与本批无关）；`gui/i18n` 12/12（含把临时探针 `keyprobe_wbtest` 折成具名回归测试「顶层键引号 / 段前缀 / 值内转义 / `[meta]` 顺序」）；`examples/showcase` `moon build` 通过、`moon test shared` 3/3；覆盖率门禁 484/101/15 全绿，目录条目 827。**整页换语言的真机观感归使用者**：`moon run examples/showcase` → 点地球，看段条、段标题/说明、正文控件文案、侧栏与原生菜单一起切，再切回中文不残留。

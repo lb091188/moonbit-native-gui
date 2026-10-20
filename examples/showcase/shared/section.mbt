@@ -36,7 +36,7 @@ pub fn section(
   code? : Array[String] = [],
 ) -> Section {
   // 段标题/描述是纯显示串：在出口统一取译（英文目录命中则英文，否则原中文）。
-  // 段名 name 仍作 key（segmented 选中值），不译。
+  // 段名 name 作 segmented 的选中值不译，显示由 `page` 的 label_of 走 `seg.` 键。
   {
     name,
     title: @i18n.t_or(title, title),
@@ -62,10 +62,13 @@ pub fn page(secs : Array[Section]) -> @widget.Node {
   // 等于 min-content 高（= 全部段堆叠），这条下限会沿父链一路传上去，
   // 不归零段条会吃掉整块正文高度（实测 224px）。
   let flat = @style.style(min_height=0.0, min_width=0.0)
+  // 段名是 key（选中值不译），显示走 `seg.` 前缀取译——前缀是为了和正文里
+  // 「原文当 key」的条目划开：短名如「文字」撞正文的概率太高。
   let strip = @ui.col(
     [@ui.segmented(
       names,
       selected,
+      label_of=fn(n : String) -> String { @i18n.t_or("seg." + n, n) },
       class=[@style.style(flex_wrap=@yoga.Wrap, row_gap=4.0), flat],
     )],
     padding=10.0,
@@ -142,20 +145,20 @@ fn section_body(s : Section, selected : @base.Store[String]) -> @widget.Node {
 fn code_copy_row(lines : Array[String]) -> @widget.Node {
   @ui.row(
     [
-      @ui.text("代码", role=@ui.Secondary),
+      @ui.text(tx("代码"), role=@ui.Secondary),
       @ui.text("", role=@ui.Secondary, handle=fn(w) {
         w.node.set_flex_grow(1.0)
       }),
-      @ui.button("复制", variant=@ui.Text, on_click=fn() {
+      @ui.button(tx("复制"), variant=@ui.Text, on_click=fn() {
         // 提示必须跟真实结果：`clipboard_set_text` 的 Bool 就是「有没有写进去」，
         // 原先 `let _ =` 把它丢了，失败也照样弹「已复制」
         let ok = @sys.clipboard_set_text(lines.join("\n"))
         match code_toast.val {
           Some(push) =>
             if ok {
-              push("代码已复制 ✓", @ui.Success)
+              push(tx("代码已复制 ✓"), @ui.Success)
             } else {
-              push("复制失败：剪贴板不可用", @ui.Danger)
+              push(tx("复制失败：剪贴板不可用"), @ui.Danger)
             }
           None => ()
         }

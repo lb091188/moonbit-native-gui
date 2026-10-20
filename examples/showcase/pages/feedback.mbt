@@ -15,20 +15,20 @@ pub fn page_feedback(app : @shared.App) -> @widget.Node {
   let msg_kind : @base.Store[Int] = @base.Store::new(0)
   let msg_text : @base.Store[String] = @base.Store::new("")
   let msg_btns : @base.Store[Array[(String, Int)]] = @base.Store::new([("知道了", 1)])
-  let msg_resp : @base.Store[String] = @base.Store::new("（还没弹过自绘消息框）")
+  let msg_resp : @base.Store[String] = @base.Store::new(@shared.tx("（还没弹过自绘消息框）"))
   @shared.page([
     @shared.section(
       "横幅",
       "Alert 提示横幅",
       "四种语义类型：左侧色条 + 类型浅底 + 同族深字，文字垂直居中；最后一条是 `closable` 可关闭形态——点右侧 ✕ 收起整条横幅，`on_close` 回调可选（不需要另一个函数）。",
       [
-        @ui.alert("成功提示：配置已保存。", t=@ui.Success),
-        @ui.alert("信息提示：有新版本可用。", t=@ui.Info),
-        @ui.alert("警告提示：磁盘剩余空间不足。", t=@ui.Warning),
-        @ui.alert("错误提示：网络连接已断开。", t=@ui.Danger),
+        @ui.alert(@shared.tx("成功提示：配置已保存。"), t=@ui.Success),
+        @ui.alert(@shared.tx("信息提示：有新版本可用。"), t=@ui.Info),
+        @ui.alert(@shared.tx("警告提示：磁盘剩余空间不足。"), t=@ui.Warning),
+        @ui.alert(@shared.tx("错误提示：网络连接已断开。"), t=@ui.Danger),
         @ui.alert(
-          "可关闭横幅：点我右侧的 ✕ 试试。",
-          description="关闭回调可选，这里留默认（只收起）。",
+          @shared.tx("可关闭横幅：点我右侧的 ✕ 试试。"),
+          description=@shared.tx("关闭回调可选，这里留默认（只收起）。"),
           t=@ui.Warning,
           closable=true,
         ),
@@ -52,17 +52,17 @@ pub fn page_feedback(app : @shared.App) -> @widget.Node {
             // 列里默认 Stretch 会把按钮行拉到列宽、按钮顶在最左，看着偏了
             @ui.col(
               [
-                @ui.result("操作成功", subtitle="配置已写入并生效。", t=@ui.Success),
-                @ui.row([@ui.button("返回首页")], column_gap=8.0),
+                @ui.result(@shared.tx("操作成功"), subtitle="配置已写入并生效。", t=@ui.Success),
+                @ui.row([@ui.button(@shared.tx("返回首页"))], column_gap=8.0),
               ],
               row_gap=10.0,
               align_items=@yoga.AlignItems::Center,
             ),
             @ui.col(
               [
-                @ui.result("操作失败", subtitle="网络异常，请稍后重试。", t=@ui.Danger),
+                @ui.result(@shared.tx("操作失败"), subtitle="网络异常，请稍后重试。", t=@ui.Danger),
                 @ui.row(
-                  [@ui.button("重新加载", variant=@ui.Soft)],
+                  [@ui.button(@shared.tx("重新加载"), variant=@ui.Soft)],
                   column_gap=8.0,
                 ),
               ],
@@ -84,8 +84,8 @@ pub fn page_feedback(app : @shared.App) -> @widget.Node {
       "popover 给任意节点包点击弹层：内容为任意 Node，再次点击收起。",
       [
         @ui.popover(
-          @ui.button("打开气泡"),
-          @ui.text("气泡内容：任意 Node。", role=@ui.Body),
+          @ui.button(@shared.tx("打开气泡")),
+          @ui.text(@shared.tx("气泡内容：任意 Node。"), role=@ui.Body),
           width=180.0,
           height=60.0,
         ),
@@ -106,17 +106,17 @@ pub fn page_feedback(app : @shared.App) -> @widget.Node {
       [
         @ui.row(
           [
-            @ui.button("成功", on_click=fn() {
-              app.toast_push("保存成功", @ui.Success)
+            @ui.button(@shared.tx("成功"), on_click=fn() {
+              app.toast_push(@shared.tx("保存成功"), @ui.Success)
             }),
-            @ui.button("警告", on_click=fn() {
-              app.toast_push("连接超时，已重试", @ui.Warning)
+            @ui.button(@shared.tx("警告"), on_click=fn() {
+              app.toast_push(@shared.tx("连接超时，已重试"), @ui.Warning)
             }),
-            @ui.button("错误", on_click=fn() {
-              app.toast_push("提交失败：网络不可达", @ui.Danger)
+            @ui.button(@shared.tx("错误"), on_click=fn() {
+              app.toast_push(@shared.tx("提交失败：网络不可达"), @ui.Danger)
             }),
-            @ui.button("普通", variant=@ui.Solid, on_click=fn() {
-              app.toast_push("已加入下载队列", @ui.Info)
+            @ui.button(@shared.tx("普通"), variant=@ui.Solid, on_click=fn() {
+              app.toast_push(@shared.tx("已加入下载队列"), @ui.Info)
             }),
           ],
           column_gap=8.0,
@@ -136,16 +136,16 @@ pub fn page_feedback(app : @shared.App) -> @widget.Node {
       [
         @ui.row(
           [
-            @ui.button("基础对话框", on_click=fn() {
+            @ui.button(@shared.tx("基础对话框"), on_click=fn() {
               app.dlg_basic.set(true)
             }),
-            @ui.button("表单对话框", variant=@ui.Solid, on_click=fn() {
+            @ui.button(@shared.tx("表单对话框"), variant=@ui.Solid, on_click=fn() {
               app.dlg_form.set(true)
             }),
-            @ui.text("最近确认：", role=@ui.Body),
+            @ui.text(@shared.tx("最近确认："), role=@ui.Body),
             @ui.bind(app.dlg_result.signal(), fn(n) {
               if n == "" {
-                "（尚未提交）"
+                @shared.tx("（尚未提交）")
               } else {
                 n
               }
@@ -176,22 +176,22 @@ pub fn page_feedback(app : @shared.App) -> @widget.Node {
       [
         @ui.row(
           [
-            @ui.button("信息·单钮", on_click=fn() {
+            @ui.button(@shared.tx("信息·单钮"), on_click=fn() {
               msg_kind.set(0)
-              msg_text.set("这是一条信息档的自绘消息框。")
+              msg_text.set(@shared.tx("这是一条信息档的自绘消息框。"))
               msg_btns.set([("知道了", 1)])
               msg_open.set(true)
             }),
-            @ui.button("警告·是/否", variant=@ui.Soft, on_click=fn() {
+            @ui.button(@shared.tx("警告·是/否"), variant=@ui.Soft, on_click=fn() {
               msg_kind.set(1)
-              msg_text.set("要继续这个演示吗？")
-              msg_btns.set([("是", 1), ("否", 0)])
+              msg_text.set(@shared.tx("要继续这个演示吗？"))
+              msg_btns.set([(@shared.tx("是"), 1), (@shared.tx("否"), 0)])
               msg_open.set(true)
             }),
-            @ui.button("错误·三钮", variant=@ui.Danger, on_click=fn() {
+            @ui.button(@shared.tx("错误·三钮"), variant=@ui.Danger, on_click=fn() {
               msg_kind.set(2)
-              msg_text.set("演示用的错误消息。")
-              msg_btns.set([("重试", 2), ("忽略", 1), ("取消", 0)])
+              msg_text.set(@shared.tx("演示用的错误消息。"))
+              msg_btns.set([(@shared.tx("重试"), 2), (@shared.tx("忽略"), 1), (@shared.tx("取消"), 0)])
               msg_open.set(true)
             }),
           ],
@@ -205,7 +205,7 @@ pub fn page_feedback(app : @shared.App) -> @widget.Node {
           fn(t : (Int, String, Array[(String, Int)])) -> @widget.Node {
             @ui.message_box(
               msg_open,
-              "自绘消息框",
+              @shared.tx("自绘消息框"),
               t.1,
               kind=if t.0 == 1 {
                 @ui.Warning
@@ -214,7 +214,7 @@ pub fn page_feedback(app : @shared.App) -> @widget.Node {
               } else {
                 @ui.Information
               },
-              informative="Esc 收起 · Enter 走默认钮",
+              informative=@shared.tx("Esc 收起 · Enter 走默认钮"),
               buttons=t.2,
               on_response=fn(r : Int) {
                 msg_resp.set("自绘消息框响应：\{r}")

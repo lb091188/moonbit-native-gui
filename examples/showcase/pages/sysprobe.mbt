@@ -91,7 +91,7 @@ fn sp_group(
     @ui.row(
       [
         @ui.button(btn_label, variant=@ui.Solid, on_click=fn() { refresh() }),
-        @ui.text("读数因机而异；读不到的族显示原因，不影响其余部分。", role=@ui.Secondary),
+        @ui.text(@shared.tx("读数因机而异；读不到的族显示原因，不影响其余部分。"), role=@ui.Secondary),
       ],
       column_gap=10.0,
       align_items=@yoga.AlignItems::Center,
@@ -151,7 +151,7 @@ fn sp_sys_desktop() -> String {
       Ok(ps) => {
         buf.write_string("打印机: \{ps.length()} 台\n")
         for p in ps {
-          let ok = if @sys.prt_status_available(p.status) { "可用" } else { "不可用" }
+          let ok = if @sys.prt_status_available(p.status) { @shared.tx("可用") } else { @shared.tx("不可用") }
           buf.write_string("  \{sp_clip(p.name, 40)} [\{ok}]\n")
         }
       }
@@ -187,8 +187,8 @@ fn sp_monitors() -> String {
     Ok(mons) => {
       buf.write_string("全部输出: \{mons.length()} 个\n")
       for m in mons {
-        let conn = if m.connected { "已连接" } else { "未连接" }
-        let prim = if m.primary { "主输出" } else { "非主输出" }
+        let conn = if m.connected { @shared.tx("已连接") } else { @shared.tx("未连接") }
+        let prim = if m.primary { @shared.tx("主输出") } else { @shared.tx("非主输出") }
         buf.write_string("  \{m.name}: \{conn} \{prim}，支持模式 \{m.modes.length()} 种\n")
       }
     }
@@ -257,7 +257,7 @@ fn sp_browser_hist() -> String {
         Ok(items) => {
           buf.write_string("历史样本: \{items.length()} 条（列前 6）\n")
           for it in items {
-            let title = if it.title == "" { "(无标题)" } else { it.title }
+            let title = if it.title == "" { @shared.tx("(无标题)") } else { it.title }
             buf.write_string("  [\{it.visit_count}次] \{sp_clip(title, 34)}\n")
           }
         }
@@ -319,7 +319,7 @@ fn sp_bookmarks() -> String {
       Ok(items) => {
         buf.write_string("Firefox 历史: \{items.length()} 条（列前 6）\n")
         for it in items {
-          let title = if it.title == "" { "(无标题)" } else { it.title }
+          let title = if it.title == "" { @shared.tx("(无标题)") } else { it.title }
           buf.write_string("  [\{it.visit_count}次] \{sp_clip(title, 34)}\n")
         }
       }
@@ -386,10 +386,10 @@ pub fn page_sysprobe(_app : @shared.App) -> @widget.Node {
       "系统与桌面",
       "发行版 / 机器 / 内存 / 开机时长 / 桌面环境，以及环境变量、壁纸、打印机。全部只读。",
       sp_group(
-        "重新探测",
+        @shared.tx("重新探测"),
         [
-          (sys_a, "系统与机器", sp_sys_machine),
-          (sys_b, "桌面与外设", sp_sys_desktop),
+          (sys_a, @shared.tx("系统与机器"), sp_sys_machine),
+          (sys_b, @shared.tx("桌面与外设"), sp_sys_desktop),
         ],
       ),
     ),
@@ -397,15 +397,15 @@ pub fn page_sysprobe(_app : @shared.App) -> @widget.Node {
       "显示器",
       "显示器",
       "显示器在用模式与全部输出（三平台各自的原生读数，只读）。窗口列表不列：Linux 走 wmctrl、Windows 走 EnumWindows，macOS 只能靠辅助功能授权，属两平台概念。",
-      sp_group("重新探测", [(mon_a, "显示器", sp_monitors)]),
+      sp_group(@shared.tx("重新探测"), [(mon_a, @shared.tx("显示器"), sp_monitors)]),
     ),
     @shared.section(
       "应用文件",
       "应用与文件",
       "已装应用统计与常见二进制查找；VS Code 最近工作区。最近文件不列：Linux 读 xbel、Windows 读 Recent 目录，macOS 无对应面。",
       sp_group(
-        "重新探测",
-        [(app_a, "已装应用", sp_apps), (app_b, "编辑器工作区", sp_recent)],
+        @shared.tx("重新探测"),
+        [(app_a, @shared.tx("已装应用"), sp_apps), (app_b, @shared.tx("编辑器工作区"), sp_recent)],
       ),
     ),
     @shared.section(
@@ -413,10 +413,10 @@ pub fn page_sysprobe(_app : @shared.App) -> @widget.Node {
       "浏览器数据",
       "Chromium 系历史与下载、书签树；Firefox 历史。读的是本机浏览器的本地库，不上网。",
       sp_group(
-        "重新探测",
+        @shared.tx("重新探测"),
         [
-          (brw_a, "历史与下载", sp_browser_hist),
-          (brw_b, "书签与 Firefox", sp_bookmarks),
+          (brw_a, @shared.tx("历史与下载"), sp_browser_hist),
+          (brw_b, @shared.tx("书签与 Firefox"), sp_bookmarks),
         ],
       ),
     ),
@@ -424,7 +424,7 @@ pub fn page_sysprobe(_app : @shared.App) -> @widget.Node {
       "剪贴板电源",
       "剪贴板与桌面状态",
       "剪贴板文本、空闲读数、自启状态（只读）。电源计划与 D-Bus/MPRIS/通知能力不列：前者 macOS 无三值语义对位，后三者是 Linux 总线族。",
-      sp_group("重新探测", [(ses_a, "剪贴板与桌面状态", sp_clip_power)]),
+      sp_group(@shared.tx("重新探测"), [(ses_a, @shared.tx("剪贴板与桌面状态"), sp_clip_power)]),
     ),
   ])
 }

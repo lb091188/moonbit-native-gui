@@ -50,10 +50,10 @@ fn sticky_rows(g : Int) -> Array[@widget.Node] {
 pub fn page_data(app : @shared.App) -> @widget.Node {
   // 语言表基础数据 + 排序显示数据（表头点击写 sort，订阅里重排）
   let lang_base : Array[@ui.TableRow] = [
-    @ui.TableRow::make(["MoonBit", "2023", "多范式,云 + 端"]),
-    @ui.TableRow::make(["Rust", "2015", "系统编程"]),
-    @ui.TableRow::make(["Go", "2012", "云原生后端"]),
-    @ui.TableRow::make(["TypeScript", "2012", "前端大规模工程"]),
+    @ui.TableRow::make(["MoonBit", "2023", @shared.tx("多范式,云 + 端")]),
+    @ui.TableRow::make(["Rust", "2015", @shared.tx("系统编程")]),
+    @ui.TableRow::make(["Go", "2012", @shared.tx("云原生后端")]),
+    @ui.TableRow::make(["TypeScript", "2012", @shared.tx("前端大规模工程")]),
   ]
   // 初值给一份**快照**：Store 的内建去重按值比，若存的就是 `lang_base` 这个对象，
   // 「添加一行」原地 push 之后再 set，新旧值是同一个数组 ⇒ 通知被吞、整表不重建
@@ -86,31 +86,31 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
   }
 
   table_sort.subscribe(fn(_st) { reorder_langs() })
-  let table_picked : @base.Store[String] = @base.Store::new("未选中")
+  let table_picked : @base.Store[String] = @base.Store::new(@shared.tx("未选中"))
   let table_sel : @base.Store[Array[Int]] = @base.Store::new([])
   let rich_base : Array[@ui.TableRow] = [
     {
       cells: [
         @ui.CellText("MoonBit"),
-        @ui.CellTag("编译型", @ui.Primary),
-        @ui.CellColorBox("#2D68C4", "主题蓝"),
-        @ui.CellLines(["多范式", "云 + 端"]),
+        @ui.CellTag(@shared.tx("编译型"), @ui.Primary),
+        @ui.CellColorBox("#2D68C4", @shared.tx("主题蓝")),
+        @ui.CellLines([@shared.tx("多范式"), @shared.tx("云 + 端")]),
       ],
     },
     {
       cells: [
         @ui.CellText("Rust"),
-        @ui.CellTag("编译型", @ui.Primary),
-        @ui.CellColorBox("#D9822B", "主题橙"),
-        @ui.CellLines(["系统编程", "无 GC"]),
+        @ui.CellTag(@shared.tx("编译型"), @ui.Primary),
+        @ui.CellColorBox("#D9822B", @shared.tx("主题橙")),
+        @ui.CellLines([@shared.tx("系统编程"), @shared.tx("无 GC")]),
       ],
     },
     {
       cells: [
         @ui.CellText("Python"),
-        @ui.CellTag("解释型", @ui.Warning),
-        @ui.CellColorBox("#2E9E5B", "主题绿"),
-        @ui.CellLines(["脚本", "AI 生态"]),
+        @ui.CellTag(@shared.tx("解释型"), @ui.Warning),
+        @ui.CellColorBox("#2E9E5B", @shared.tx("主题绿")),
+        @ui.CellLines(["脚本", @shared.tx("AI 生态")]),
       ],
     },
   ]
@@ -143,13 +143,13 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
         (i + 1).to_string(),
         "条目 \{i + 1}",
         if i % 3 == 0 {
-          "甲组"
+          @shared.tx("甲组")
         } else if i % 3 == 1 {
-          "乙组"
+          @shared.tx("乙组")
         } else {
-          "丙组"
+          @shared.tx("丙组")
         },
-        "虚拟滚动演示行",
+        @shared.tx("虚拟滚动演示行"),
       ]),
     )
   }
@@ -183,8 +183,8 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
     })
     v_rows.set(rows)
   })
-  let transfer_left : @base.Store[Array[String]] = @base.Store::new(["北京", "上海", "广州"])
-  let transfer_right : @base.Store[Array[String]] = @base.Store::new(["深圳"])
+  let transfer_left : @base.Store[Array[String]] = @base.Store::new([@shared.tx("北京"), @shared.tx("上海"), @shared.tx("广州")])
+  let transfer_right : @base.Store[Array[String]] = @base.Store::new([@shared.tx("深圳")])
   @shared.page([
     @shared.section(
       "标签徽标",
@@ -198,7 +198,7 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
             @ui.tag_of_type("Warning", @ui.Warning),
             @ui.tag_of_type("Danger", @ui.Danger),
             @ui.tag_of_type("Info", @ui.Info),
-            @ui.tag("自定义实底", "#2D68C4"),
+            @ui.tag(@shared.tx("自定义实底"), "#2D68C4"),
             @ui.tag("v0.1.0", "#2E9E5B"),
           ],
           column_gap=6.0,
@@ -216,9 +216,9 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
           [
             @ui.badge_count(9),
             @ui.badge_count(128),
-            @ui.text("消息", role=@ui.Body),
+            @ui.text(@shared.tx("消息"), role=@ui.Body),
             @ui.badge_dot(),
-            @ui.text("在线", role=@ui.Body),
+            @ui.text(@shared.tx("在线"), role=@ui.Body),
           ],
           column_gap=16.0,
         ),
@@ -238,12 +238,12 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
       [
         @ui.row(
           [
-            @ui.statistic("任务数", "36"),
-            @ui.statistic("版本", "0.1.0"),
+            @ui.statistic(@shared.tx("任务数"), "36"),
+            @ui.statistic(@shared.tx("版本"), "0.1.0"),
             @ui.col(
               [
                 @ui.bind(app.visits, fn(s) { "访问量 \{s}" }),
-                @ui.text("由基础页与下方按钮联动", role=@ui.Secondary),
+                @ui.text(@shared.tx("由基础页与下方按钮联动"), role=@ui.Secondary),
               ],
               row_gap=2.0,
             ),
@@ -252,7 +252,7 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
         ),
         @ui.row(
           [
-            @ui.button("刷新访问量", variant=@ui.Solid, on_click=fn() {
+            @ui.button(@shared.tx("刷新访问量"), variant=@ui.Solid, on_click=fn() {
               app.counter.update(fn(n) { n + 1 })
             }),
             @ui.progress_line(app.ratio.store()),
@@ -274,10 +274,10 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
       [
         @ui.col(
           [
-            @ui.card([@ui.text("卡片内容：组件库全部用 theme_* 主题色着色。", role=Body)], title="卡片标题"),
+            @ui.card([@ui.text(@shared.tx("卡片内容：组件库全部用 theme_* 主题色着色。"), role=Body)], title=@shared.tx("卡片标题")),
             @ui.collapse([
-              ("如何使用组件库？", [@ui.text("moon add NoahLiu/native-gui 后即可用 @ui.* 访问。", role=Body)]),
-              ("支持哪些平台？", [@ui.text("Linux (X11) / Windows；macOS 进行中。", role=Body)]),
+              ("如何使用组件库？", [@ui.text(@shared.tx("moon add NoahLiu/native-gui 后即可用 @ui.* 访问。"), role=Body)]),
+              ("支持哪些平台？", [@ui.text(@shared.tx("Linux (X11) / Windows；macOS 进行中。"), role=Body)]),
             ]),
           ],
           row_gap=10.0,
@@ -299,14 +299,14 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
         @ui.col(
           [
             @ui.descriptions([
-              ("框架", "native-gui"),
-              ("渲染", "Cairo (Linux) / D2D (Windows)"),
-              ("组件层", "纯 MoonBit，零平台代码"),
+              (@shared.tx("框架"), "native-gui"),
+              (@shared.tx("渲染"), "Cairo (Linux) / D2D (Windows)"),
+              (@shared.tx("组件层"), @shared.tx("纯 MoonBit，零平台代码")),
             ]),
             @ui.timeline([
-              ("发布 0.1.0", "自绘栈占位上架。", @ui.Success),
-              ("迁移中", "组件库演示板迁移。", @ui.Primary),
-              ("规划中", "菜单/托盘/媒体线收口。", @ui.Warning),
+              (@shared.tx("发布 0.1.0"), @shared.tx("自绘栈占位上架。"), @ui.Success),
+              (@shared.tx("迁移中"), @shared.tx("组件库演示板迁移。"), @ui.Primary),
+              (@shared.tx("规划中"), @shared.tx("菜单/托盘/媒体线收口。"), @ui.Warning),
             ]),
           ],
           row_gap=12.0,
@@ -326,9 +326,9 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
           [
             @ui.table(
               [
-                @ui.TableColumn::make("语言", 140.0),
-                @ui.TableColumn::make("首发", 90.0, align=@text.Center),
-                @ui.TableColumn::make("定位", 0.0),
+                @ui.TableColumn::make(@shared.tx("语言"), 140.0),
+                @ui.TableColumn::make(@shared.tx("首发"), 90.0, align=@text.Center),
+                @ui.TableColumn::make(@shared.tx("定位"), 0.0),
               ],
               table_rows,
               width=440.0,
@@ -343,10 +343,10 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
             ),
             @ui.row(
               [
-                @ui.button("添加一行", on_click=fn() {
+                @ui.button(@shared.tx("添加一行"), on_click=fn() {
                   let n = lang_base.length() + 1
                   lang_base.push(
-                    @ui.TableRow::make(["新语言 \{n}", "2026", "演示 Store 驱动"]),
+                    @ui.TableRow::make(["新语言 \{n}", "2026", @shared.tx("演示 Store 驱动")]),
                   )
                   reorder_langs()
                 }),
@@ -362,10 +362,10 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
           [
             @ui.table(
               [
-                @ui.TableColumn::make("语言", 120.0),
-                @ui.TableColumn::make("类型", 100.0, sortable=false),
+                @ui.TableColumn::make(@shared.tx("语言"), 120.0),
+                @ui.TableColumn::make(@shared.tx("类型"), 100.0, sortable=false),
                 @ui.TableColumn::make("色板", 110.0, sortable=false),
-                @ui.TableColumn::make("特性", 0.0, sortable=false),
+                @ui.TableColumn::make(@shared.tx("特性"), 0.0, sortable=false),
               ],
               rich_rows,
               selection=table_sel,
@@ -406,10 +406,10 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
       [
         @ui.table_v(
           [
-            @ui.TableColumn::make("序号", 90.0, align=@text.End),
-            @ui.TableColumn::make("名称", 160.0),
-            @ui.TableColumn::make("分组", 110.0, align=@text.Center),
-            @ui.TableColumn::make("备注", 0.0),
+            @ui.TableColumn::make(@shared.tx("序号"), 90.0, align=@text.End),
+            @ui.TableColumn::make(@shared.tx("名称"), 160.0),
+            @ui.TableColumn::make(@shared.tx("分组"), 110.0, align=@text.Center),
+            @ui.TableColumn::make(@shared.tx("备注"), 0.0),
           ],
           v_rows,
           width=520.0,
@@ -456,9 +456,9 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
             @ui.transfer(transfer_left, transfer_right),
             @ui.carousel(
               [
-                @ui.text("第一屏：轮播内容可为任意 Node。", role=@ui.Body),
-                @ui.text("第二屏：自动轮播 3s 一切。", role=@ui.Body),
-                @ui.text("第三屏：悬停暂停，箭头/圆点手动切。", role=@ui.Body),
+                @ui.text(@shared.tx("第一屏：轮播内容可为任意 Node。"), role=@ui.Body),
+                @ui.text(@shared.tx("第二屏：自动轮播 3s 一切。"), role=@ui.Body),
+                @ui.text(@shared.tx("第三屏：悬停暂停，箭头/圆点手动切。"), role=@ui.Body),
               ],
               width=320.0,
               height=80.0,
@@ -479,7 +479,7 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
       "空状态",
       "Empty 空状态",
       "占位图 + 说明文字。",
-      [@ui.empty(description="这里还没有内容")],
+      [@ui.empty(description=@shared.tx("这里还没有内容"))],
       code=["@ui.empty(\"这里还没有内容\")"],
     ),
 

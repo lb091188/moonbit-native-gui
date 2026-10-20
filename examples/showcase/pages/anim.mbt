@@ -50,7 +50,7 @@ fn anim_gif_path() -> String {
 
 pub fn page_anim(_app : @shared.App) -> @widget.Node {
   let gif_h : @ui.GifHandle = @ui.GifHandle::make()
-  let gif_note : @base.Store[String] = @base.Store::new("自转中")
+  let gif_note : @base.Store[String] = @base.Store::new(@shared.tx("自转中"))
   @shared.page([
     @shared.section(
       "属性过渡",
@@ -59,9 +59,9 @@ pub fn page_anim(_app : @shared.App) -> @widget.Node {
       [
         @ui.row(
           [
-            hover_card("0 ms", "直接切换", 0.0),
-            hover_card("150 ms", "常用反馈", 150.0),
-            hover_card("600 ms", "慢到看得清", 600.0),
+            hover_card("0 ms", @shared.tx("直接切换"), 0.0),
+            hover_card("150 ms", @shared.tx("常用反馈"), 150.0),
+            hover_card("600 ms", @shared.tx("慢到看得清"), 600.0),
           ],
           column_gap=16.0,
         ),
@@ -83,7 +83,7 @@ pub fn page_anim(_app : @shared.App) -> @widget.Node {
         @ui.row(
           [
             @ui.view(
-              [@ui.text("底色过渡 300 ms", align=@text.Center)],
+              [@ui.text(@shared.tx("底色过渡 300 ms"), align=@text.Center)],
               width=170.0,
               height=48.0,
               align_items=@yoga.AlignItems::Center,
@@ -103,7 +103,7 @@ pub fn page_anim(_app : @shared.App) -> @widget.Node {
                 // 任意位置都命中文本，字号这一档才看得见。测量期读同一份插值
                 // 字号（`@style.resolved_for_measure`），所以字长大会连着盒子一起长。
                 @ui.text(
-                  "字号+底色",
+                  @shared.tx("字号+底色"),
                   align=@text.Center,
                   class=[
                     @style.style(font_size=13.0, transition_ms=300.0).hover(
@@ -141,7 +141,7 @@ pub fn page_anim(_app : @shared.App) -> @widget.Node {
                 @ui.view(
                   [
                     @ui.text(
-                      "下划线",
+                      @shared.tx("下划线"),
                       class=[@style.style(text_decoration=@style.Underline)],
                     ),
                   ],
@@ -151,26 +151,26 @@ pub fn page_anim(_app : @shared.App) -> @widget.Node {
                 @ui.view(
                   [
                     @ui.text(
-                      "右对齐（text_align）",
+                      @shared.tx("右对齐（text_align）"),
                       class=[@style.style(text_align=@text.End)],
                     ),
                   ],
                   width=180.0,
                   class=[@style.style(background_color="bg_page")],
                 ),
-                @ui.text("行高 32", class=[@style.style(line_height=32.0)]),
+                @ui.text(@shared.tx("行高 32"), class=[@style.style(line_height=32.0)]),
               ],
               column_gap=12.0,
             ),
             @ui.col(
               [
                 @ui.text(
-                  "折行：这段文字开了 white_space=Normal 并限宽 300，会按词折成多行；同一句改成 NoWrap 就停在盒宽外。",
+                  @shared.tx("折行：这段文字开了 white_space=Normal 并限宽 300，会按词折成多行；同一句改成 NoWrap 就停在盒宽外。"),
                   max_width=300.0,
                   class=[@style.style(white_space=@style.Normal)],
                 ),
                 @ui.text(
-                  "不折行：这段文字开了 white_space=NoWrap 并限宽 300，超出的部分不折行。",
+                  @shared.tx("不折行：这段文字开了 white_space=NoWrap 并限宽 300，超出的部分不折行。"),
                   max_width=300.0,
                   class=[@style.style(white_space=@style.NoWrap)],
                 ),
@@ -203,15 +203,15 @@ pub fn page_anim(_app : @shared.App) -> @widget.Node {
               height=48.0,
               state=gif_h,
             ),
-            @ui.button("暂停", variant=@ui.Soft, on_click=fn() {
+            @ui.button(@shared.tx("暂停"), variant=@ui.Soft, on_click=fn() {
               gif_h.pause()
               gif_note.set("已暂停（running=\{gif_h.running}）")
             }),
-            @ui.button("继续", variant=@ui.Soft, on_click=fn() {
+            @ui.button(@shared.tx("继续"), variant=@ui.Soft, on_click=fn() {
               gif_h.play()
               gif_note.set("已继续（running=\{gif_h.running}）")
             }),
-            @ui.button("读帧数", variant=@ui.Text, on_click=fn() {
+            @ui.button(@shared.tx("读帧数"), variant=@ui.Text, on_click=fn() {
               gif_note.set("已换 \{gif_h.frame_count()} 帧")
             }),
           ],

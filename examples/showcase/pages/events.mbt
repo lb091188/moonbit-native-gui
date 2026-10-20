@@ -35,7 +35,7 @@ fn mods_label(m : Int) -> String {
     s = s + "Meta "
   }
   if s.length() == 0 {
-    "(无)"
+    @shared.tx("(无)")
   } else {
     s
   }
@@ -138,7 +138,7 @@ fn key_focus_area(echo : @base.Store[String]) -> @widget.Node {
           0.0,
           (r.w - 20.0).max(1.0),
           r.h,
-          "键盘焦点区（点击聚焦，然后按任意键）",
+          @shared.tx("键盘焦点区（点击聚焦，然后按任意键）"),
           font,
           @theme.theme_text_regular(),
           align=@text.Center,
@@ -176,8 +176,8 @@ const KEY_AREA_FOCUS_ID : Int = 910
 ///|
 pub fn page_events(app : @shared.App) -> @widget.Node {
   // ---- 段一：鼠标（五类指针事件 + 双击判定） ----
-  let evt_mouse : @base.Store[String] = @base.Store::new("(移入色块区操作)")
-  let evt_dbl : @base.Store[String] = @base.Store::new("(在操作区快速连点两次)")
+  let evt_mouse : @base.Store[String] = @base.Store::new(@shared.tx("(移入色块区操作)"))
+  let evt_dbl : @base.Store[String] = @base.Store::new(@shared.tx("(在操作区快速连点两次)"))
   let dbl_n : Ref[Int] = Ref(0)
   // 双击判定与 input 的「双击选词」同一口径：400ms + 4px（monotonic 时钟）
   let last_down : Ref[(Int64, Double, Double)] = Ref((0L, 0.0, 0.0))
@@ -207,11 +207,16 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
   }
 
   // ---- 段三：捕获（命中即捕获，拖动演示） ----
-  let cap_log : @base.Store[String] = @base.Store::new("(在 A 区按下，拖到 B 区上再松手)")
+  let cap_log : @base.Store[String] = @base.Store::new(@shared.tx("(在 A 区按下，拖到 B 区上再松手)"))
 
   fn cap_area(tag : String) -> @widget.Node {
     @ui.col(
-      [@ui.text("\{tag} 区", role=@ui.Body)],
+      [
+        @ui.text(
+          @shared.tr_with("zone.tag", [("tag", tag)], tag + " 区"),
+          role=@ui.Body,
+        ),
+      ],
       width=150.0,
       height=80.0,
       handle=fn(w : @widget.Widget) -> Unit {
@@ -252,7 +257,7 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
   }
 
   // ---- 段五：键盘 ----
-  let key_echo : @base.Store[String] = @base.Store::new("(点击下面区域获得焦点，再按任意键)")
+  let key_echo : @base.Store[String] = @base.Store::new(@shared.tx("(点击下面区域获得焦点，再按任意键)"))
   @shared.page([
     @shared.section(
       "鼠标",
@@ -260,7 +265,7 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
       "五类指针事件（Down/Up/Move/Leave）走控件同一个 `on_pointer` 回调；坐标在交给处理器前已换算成**本地坐标**（Leave 保持窗口坐标），button 与修饰键位掩码随事件下发——修饰键不再需要轮询。双击判定 400ms + 4px，与输入框的「双击选词」同一口径。",
       [
         @ui.col(
-          [@ui.text("鼠标操作区", role=@ui.Body)],
+          [@ui.text(@shared.tx("鼠标操作区"), role=@ui.Body)],
           height=96.0,
           handle=fn(w : @widget.Widget) -> Unit {
             skin_panel(w)
@@ -318,15 +323,15 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
       [
         @ui.col(
           [
-            @ui.text("悬停秒表：把鼠标放进这块面板（或点上面那颗按钮都算）", role=@ui.Body),
+            @ui.text(@shared.tx("悬停秒表：把鼠标放进这块面板（或点上面那颗按钮都算）"), role=@ui.Body),
             @ui.row(
               [
-                @ui.button("组内按钮", variant=@ui.Solid, on_click=fn() {
-                  app.toast_push("悬停组里的按钮被点了", @ui.Success)
+                @ui.button(@shared.tx("组内按钮"), variant=@ui.Solid, on_click=fn() {
+                  app.toast_push(@shared.tx("悬停组里的按钮被点了"), @ui.Success)
                 }),
                 @ui.bind_label(watch_secs, fn(n) {
                   if n == 0 {
-                    "悬停计时：(未悬停)"
+                    @shared.tx("悬停计时：(未悬停)")
                   } else {
                     "悬停计时：\{n} s"
                   }
@@ -389,7 +394,7 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
       "`w.cursor` 是控件上的形状请求（0 默认 / 1 手型 / 2 文本 / 3 横向调整 / 4 纵向调整）；宿主每次移动按悬停路径取「**最深的非零请求**」下发——包住一整组的 `cursor_group` 会自然回退，组内子件自己提了形状以它为准。Crosshair/NotAllowed 平台没有，不强推。",
       [
         @ui.col(
-          [@ui.text("光标预览区（把鼠标放上来，再点下面按钮换形状）", role=@ui.Body)],
+          [@ui.text(@shared.tx("光标预览区（把鼠标放上来，再点下面按钮换形状）"), role=@ui.Body)],
           height=56.0,
           handle=fn(w : @widget.Widget) -> Unit {
             skin_panel(w)
@@ -398,19 +403,19 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
         ),
         @ui.row(
           [
-            @ui.button("手型", on_click=fn() {
+            @ui.button(@shared.tx("手型"), on_click=fn() {
               apply_cursor(@widget.CURSOR_HAND, "Hand")
             }),
-            @ui.button("文本", on_click=fn() {
+            @ui.button(@shared.tx("文本"), on_click=fn() {
               apply_cursor(@widget.CURSOR_TEXT, "Text")
             }),
-            @ui.button("横向调整", on_click=fn() {
+            @ui.button(@shared.tx("横向调整"), on_click=fn() {
               apply_cursor(@widget.CURSOR_RESIZE_H, "ResizeH")
             }),
-            @ui.button("纵向调整", on_click=fn() {
+            @ui.button(@shared.tx("纵向调整"), on_click=fn() {
               apply_cursor(@widget.CURSOR_RESIZE_V, "ResizeV")
             }),
-            @ui.button("默认", on_click=fn() {
+            @ui.button(@shared.tx("默认"), on_click=fn() {
               apply_cursor(@widget.CURSOR_DEFAULT, "Default")
             }),
           ],
@@ -418,14 +423,14 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
         ),
         @ui.bind_label(cur_now, fn(s) { "预览区当前光标：\{s}" }),
         @ui.text(
-          "组回退：下面一组的 cursor = ResizeH；组内文本没提请求 → 用组的形状，按钮自己请求了手型 → 以它为准。",
+          @shared.tx("组回退：下面一组的 cursor = ResizeH；组内文本没提请求 → 用组的形状，按钮自己请求了手型 → 以它为准。"),
           role=@ui.Secondary,
           max_width=640.0,
         ),
         @ui.cursor_group(
           [
-            @ui.text("组内文本（回退到组的横向调整）", role=@ui.Body),
-            @ui.button("组内按钮（自己的手型）", variant=@ui.Soft, on_click=fn() { () }),
+            @ui.text(@shared.tx("组内文本（回退到组的横向调整）"), role=@ui.Body),
+            @ui.button(@shared.tx("组内按钮（自己的手型）"), variant=@ui.Soft, on_click=fn() { () }),
           ],
           direction=@yoga.Row,
           column_gap=12.0,
@@ -469,21 +474,21 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
                   label: "组件",
                   children: [
                     {
-                      label: "基础",
+                      label: @shared.tx("基础"),
                       children: [
-                        { label: "图标", children: [] },
-                        { label: "分隔", children: [] },
+                        { label: @shared.tx("图标"), children: [] },
+                        { label: @shared.tx("分隔"), children: [] },
                       ],
                     },
                     {
                       label: "导航",
-                      children: [{ label: "分栏", children: [] }],
+                      children: [{ label: @shared.tx("分栏"), children: [] }],
                     },
                   ],
                 },
               ]),
               @ui.col(
-                [@ui.text("右侧详情区：拖动中间把手调整占比", role=@ui.Body)],
+                [@ui.text(@shared.tx("右侧详情区：拖动中间把手调整占比"), role=@ui.Body)],
                 padding=12.0,
               ),
               min_first=120.0,
@@ -495,7 +500,7 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
         @ui.row(
           [
             @ui.view(
-              [@ui.text("固定 80", color="#ffffff")],
+              [@ui.text(@shared.tx("固定 80"), color="#ffffff")],
               direction=@yoga.Row,
               width=80.0,
               height=40.0,
@@ -559,7 +564,7 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
               dbl_api_out.set("双击命中！累计 " + dbl_api_n.get().to_string() + " 次")
             })
             w.on_triple_click = Some(fn(_w : @widget.Widget, _ev : @widget.PointerEvent) -> Unit {
-              dbl_api_out.set("三击！")
+              dbl_api_out.set(@shared.tx("三击！"))
             })
           },
         ),
@@ -601,7 +606,7 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
 
 ///|
 /// W32 多击/组合键段的两块回显与计数（页函数里初始化，handle 里写入）。
-let dbl_api_out : @base.Store[String] = @base.Store::new("(双击上面色块)")
+let dbl_api_out : @base.Store[String] = @base.Store::new(@shared.tx("(双击上面色块)"))
 let dbl_api_n : @base.Store[Int] = @base.Store::new(0)
-let combo_out : @base.Store[String] = @base.Store::new("(按 Ctrl+Shift+K 触发)")
+let combo_out : @base.Store[String] = @base.Store::new(@shared.tx("(按 Ctrl+Shift+K 触发)"))
 
