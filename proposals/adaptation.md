@@ -2908,6 +2908,19 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **验证（助手侧无头判据）**：`gui/widget/widget_wbtest.mbt` 新增两条——① 卡片落在 (10,10)-(30,30)、半径 6：正中蓝、顶角弧外=父层红、底角弧外 (29,29)=红、底角弧内 (29,24)/(24,29) 仍是蓝（这条专挡根因二，旧公式下被啃成红）、整幅 40×40 无一个 `a=0`（这条专挡根因一，旧 pass 下角上全是洞）；② 卡片贴满 20×20 画布、四角外侧都读不到：保持方角且无 `a=0`。`moon check`（gui）零错误零警告；`moon test ui render text theme icons sys input win dbus chart mdview style base shell widget router` 1101 条，只剩上面那 3 条既有红。
 - **待真机（使用者判据）**：`moon run examples/showcase` → 基础组件页「悬停组与光标组」段（截图那处），顶角与底角四角都应与父层底色连续，无黑/白勾勾；切深色主题再看一遍。注意本栈仍**没有真圆角裁切**（后端缺 path clip），这道 pass 只是把弧外补回父层色，压在渐变/图片上的圆角仍会看到一圈采样底色。
 
+## 托盘图标三平台不同脸 + mac 大出菜单栏（2026-10-20，mac 真机截图 / Windows 真机截图）
+
+- **环境**：同一份 `@shell.Tray::new`，Linux 走 SNI、Windows 走 Shell_NotifyIcon、mac 走 NSStatusItem。
+- **现象**：Linux 面板上是库内置的金色月牙，Win/mac 是一枚琥珀圆；mac 那枚还大得离谱，顶出菜单栏。
+- **根因**（两条独立）：
+  1. **内置月牙只喂给了 SNI**：位图在 `@dbus/icon.mbt` 的 `default_icon_pixmap()`（SNI 规范的大端 ARGB），只有 Linux 支读它；Win/mac 显示的是调用方传进来的 `@win.Icon`——演示板自己现建的那枚琥珀圆。三条后端各拿各的图标源，没有共同的缺省档。
+  2. **mac 按 NSImage 的点尺寸直贴**：`wm_icon_from_bgra` 建的是 `initWithCGImage:size:NSMakeSize(w,h)`，32px 原图就是 32pt，而状态栏厚度约 22pt——`setImage:` 不做缩放，图标就撑出菜单栏。Windows 侧 `nid.hIcon` 由 Shell 自己缩到小图标档，所以只有 mac 显形。
+- **修复**：
+  1. `gui/shell/tray.mbt`：native 支（Win/mac）在 `icon` 与 `icon_path` 都拿不到句柄时，用 `default_icon_pixmap()` 换序+预乘（大端 ARGB → 小端 BGRA 预乘，`icon_from_bgra` 的口径）建一枚内置月牙，句柄进程级缓存只建一次。三平台缺省同一张脸。
+  2. `gui/win/stub.c` mac 支：新增 `wm_status_icon(icon_slot)`，按 `[[NSStatusBar systemStatusBar] thickness] - 6` 取档、保比例，返回**副本**（`copyWithZone:` 后 `setSize:`，不动图标表里的原件——同一份像素还要给窗口图标用）；建项与 `wm_tray_set_icon` 两处都改走它。
+  3. `examples/showcase/pages/system.mbt`：托盘演示不再自绘琥珀圆，`Tray::new("libyue-showcase-tray")` 不传图标即得月牙（自绘档在段说明与代码里仍给出口径）。
+- **验证**：`cd gui && moon check` 零错误零警告（含 mac 的 Objective-C 桩重编，`gui/build/win_stub_mac.o` 同批刷新）；`moon test shell base widget` 187/187；`examples/showcase` `moon build --target native` 通过。**助手侧看不到托盘**，以下待真机：三平台各跑一次 `moon run examples/showcase` → 系统集成页「托盘」段，看 ① 三处都是同一枚金色月牙 ② mac 菜单栏里那枚高度与相邻系统图标齐平、不被裁 ③ 切深色菜单栏月牙仍看得清。
+
 ### Windows 媒体示例的 ffmpeg 运行期 dll 分发(工具批,2026-10-20)
 
 - **环境**:Windows 10/11 x64,`moon run examples/audio`(video 同构)。

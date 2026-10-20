@@ -98,6 +98,8 @@ pub fn Tray::is_supported() -> Bool {
 /// Linux SNI 后端的图标走面板的主题图标名 / 程序内置位图，`icon_path` 只用于
 /// 推导托盘 Id；PNG 任意像素解码未内置，需要时用
 /// `set_icon_name` 指定主题图标名。
+/// Win/mac 两档都没给图标（`icon` 为空且 `icon_path` 读不出文件）时用库内置月牙
+/// 位图，与 Linux SNI 显示的是同一张脸。
 pub fn Tray::new(
   icon_path : String,
   icon? : @win.Icon? = None,
@@ -117,7 +119,11 @@ pub fn Tray::new(
   if @win.tray_supported() {
     let handle = match icon {
       Some(ic) => ic.handle
-      None => icon_handle_of(icon_path)
+      None =>
+        match icon_handle_of(icon_path) {
+          0 => builtin_tray_handle() // 没给图标就用库内置月牙
+          h => h
+        }
     }
     let slot = @win.tray_new(handle, id)
     if slot > 0 {
@@ -148,6 +154,42 @@ fn icon_handle_of(icon_path : String) -> Int {
     }
   }
 }
+
+///|
+/// 库内置月牙的 native 句柄（Win/mac 托盘缺省图标，与 Linux SNI 同一张脸）：
+/// `@dbus.default_icon_pixmap()` 出的是 SNI 口径的大端 ARGB（不预乘），这里换成
+/// `icon_from_bgra` 要的 BGRA 小端预乘。句柄只建一次，随进程常驻。
+fn builtin_tray_handle() -> Int {
+  if g_builtin_icon.val > 0 {
+    return g_builtin_icon.val
+  }
+  let (w, h, argb) = @dbus.default_icon_pixmap()
+  let n = w * h
+  if n <= 0 || argb.length() < n * 4 {
+    return 0
+  }
+  let px : FixedArray[Byte] = FixedArray::make(n * 4, b'\x00')
+  let mut i = 0
+  while i < n {
+    let o = i * 4
+    let a = argb[o].to_int()
+    px[o] = (argb[o + 3].to_int() * a / 255).to_byte() // B
+    px[o + 1] = (argb[o + 2].to_int() * a / 255).to_byte() // G
+    px[o + 2] = (argb[o + 1].to_int() * a / 255).to_byte() // R
+    px[o + 3] = argb[o] // A
+    i += 1
+  }
+  let handle = match @win.icon_from_bgra(px, w, h) {
+    Some(ic) => ic.handle
+    None => 0
+  }
+  if handle > 0 {
+    g_builtin_icon.val = handle
+  }
+  handle
+}
+
+let g_builtin_icon : Ref[Int] = Ref(0)
 
 ///|
 /// 从路径取不含扩展名的文件名，作托盘 Id。目录名里的点不算扩展名分隔。
