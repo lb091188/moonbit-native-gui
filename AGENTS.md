@@ -49,6 +49,7 @@ moon.work               workspace 成员清单:上面这些模块全部注册在
 proposals/              对内设计/方案/实测经验(纯中文，扁平一层，不分语言子目录)
 docs/                   对外文档站(VitePress，中英 docs/ 与 docs/zh/)
 测试记录/               测试记录台(单文件网页；数据存浏览器 localStorage，可一键导出 JSON 归档)
+测试文档/               测试用例文档(按应用→页面→段落组织；编号与测试台网页一一对应)
 ```
 
 **依赖隔离靠模块，不靠包**:`moon.mod` 的 import 决定整个模块的依赖闭包，`moon.pkg` 只能从模块已解析的依赖里挑包。所以「某个示例不拖累其它示例」必须做成*每示例一个模块*，把多个示例塞进同一份 `moon.mod` 会重新耦合。新增示例的做法:
@@ -67,5 +68,6 @@ docs/                   对外文档站(VitePress，中英 docs/ 与 docs/zh/)
 - FFI 规范: `.agents/skills/moonbit-c-binding/`、`.agents/skills/make-moonbit-c-bindings/`
 - MoonBit 语言与工具链: `.agents/skills/moonbit-agent-guide/`
 - 路线图: `TODO.md`
+- 测试用例: `测试文档/测试用例.md`(五个示例应用共 141 条，编号 `HL/SC/BR/AU/VD`；记录用 `测试记录/index.html`)
 - 模块拆分方案与判据: `proposals/module-structure.md`
 - 快速开始/架构: `README_ZH.md`(对外英文文档在 `docs/`,仓库根不再留英文 README)
