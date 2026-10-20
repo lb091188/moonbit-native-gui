@@ -395,6 +395,11 @@ def main() -> int:
             "ffmpeg(prebuild): Windows 走 vendor 导入库（BtbN lgpl-shared）",
             file=sys.stderr,
         )
+        print(
+            "ffmpeg(prebuild): 运行期需 avcodec-63.dll 等与 exe 同目录、或放进 PATH"
+            "（缺则加载期起不来）",
+            file=sys.stderr,
+        )
         emit(
             {
                 "vars": {"FFMPEG_INC": inc_norm, "FFMPEG_STUB_CC": "/utf-8"},

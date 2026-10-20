@@ -2894,3 +2894,12 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
   2. **即便接上也不是想要的东西**：`backdrop_blur` 读回的是 `Painter.self.bitmap`，即**本窗口内已绘制的像素**，糊不到窗口外的桌面/下层内容；`soft_blur` 是 1/8 块平均降采样 + 双线性回放的近似，两后端都没有真卷积（`proposals/style-css-expansion.md` §1.1 与 §59 已记「目标读回+分组+模糊」为未做项）。加上 `set_transparent_bg` 本身需合成器（窗口页文案：无合成器静默无效），三段里任何一段缺位都出不了毛玻璃。
 - **修复**：整条删除，不留半套 API——`gui/render/blur.mbt`、`gui/render/blur_wbtest.mbt` 删文件；`gui/render/painter.mbt` 去 `Painter::backdrop_blur`；`gui/ui/overlay.mbt` 去 `glass`；`docs/components.md` / `docs/zh/components.md` 去 glass 行；showcase 侧 `main.mbt` 去开关按钮与侧栏透明底色、`shared/app.mbt` 去 `translucent` 字段、`cost_bench/main.mbt` 去对应初始化。要做真毛玻璃只能重来：先补后端的高斯/分组能力，再谈 API。
 - **验证**：`cd gui && moon check` 零错误零警告；`moon test render ui base widget` 中 render 全绿，ui 的 3 条失败（步进器两条、密码遮罩光标一条）在 `1d1ff8f0` 干净 worktree 上同样失败，与本批无关；`examples/showcase` `moon check` 全绿。真机口径：侧栏底部只剩深浅/圆角/语言三颗按钮，不再有无效果的玻璃开关。
+
+### Windows 媒体示例的 ffmpeg 运行期 dll 分发(工具批,2026-10-20)
+
+- **环境**:Windows 10/11 x64,`moon run examples/audio`(video 同构)。
+- **现象**:两个示例启动即退,系统报缺少 `avcodec-63.dll` 等一批 dll;示例自身无任何输出,窗口从不出现。
+- **根因**:`ffmpeg-mbt` 的 Windows 侧走**导入库动态链接**(`vendor/*.lib` 指向 BtbN win64-lgpl-shared 9.0),导入库进链接 = exe 在**加载期**硬依赖 `avcodec-63.dll` / `avformat-63.dll` / `avutil-61.dll` / `swscale-10.dll` / `swresample-7.dll`。加载器在 `main` 之前解析导入表,缺任一个就拒绝加载——所以现象是「进程起不来」而非「示例内报错」(控制台一闪即退,Git Bash 退出码 127)。dll 共约 150MB 不入库,此前只在 README 写「放 exe 同目录或加进 PATH」,没有一步替使用者把文件搬到那儿,于是每条 Windows 新机器都要重踩一遍。
+- **修复**:新增 `scripts/win_ffmpeg_dll.py`,按「`--dll-dir` → exe 同目录 → PATH → winget 包目录 → scoop → 仓库 `.cache/ffmpeg-win` → 下载 BtbN 归档」七级顺序定位一份**版本配套**的 ffmpeg bin(判据是五个带大版本号的文件名同时命中,别的 ffmpeg 大版本自然排除),把其中 av*/sw* dll 复制到 exe 同目录(app-local,加载器第一顺位搜索);缺 exe 时先自动 `moon build examples/<name>`;`--run` 补完直接启动,`--dry-run` 只打计划。下载 URL 与 `.github/workflows/ci.yml` 同一份,落 `.cache/ffmpeg-win`(已 gitignore)。
+- **为什么不换链接方式**:静态链与 `vendor/*.lib`(导入库)不兼容,且 LGPL 静态链接还要额外满足「可重链接」义务;把 dll 放进仓库会永久占用 git 历史体积。app-local 复制是 Windows 惯例,也是发布时的正确形态。
+- **验证**(本机 macOS,代码级):`--dry-run` 对「来源齐全 / 来源版本错配 / 缺 exe」三条路径的输出与退出码逐一核对;复制幂等(第二次报「已就位」),七个 dll 落位与 exe 同目录清单一致。**Windows 真机复跑归使用者**——按 `examples/README.md` 的「一条命令补齐」跑一遍,窗口出现即通过。

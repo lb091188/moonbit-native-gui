@@ -29,7 +29,19 @@ moon run examples/video
 
 把 dll 放到 **exe 同目录**或**加进 PATH** 即可（大版本须与 `vendor/` 导入库一致，取自同一份 BtbN/gyan win64-lgpl-shared 构建的 `bin/`）。
 
-**怎么取（Windows 惯例 + 本仓的最短路径）**：
+**一条命令补齐（推荐）**：仓库自带 `scripts/win_ffmpeg_dll.py`，按「exe 同目录 → PATH → winget → scoop → 本地缓存 → 下载 BtbN 归档」的顺序找一份配套 dll，复制到 exe 旁；缺 exe 时先自动 `moon build`，`--run` 补完直接启动：
+
+```sh
+python scripts/win_ffmpeg_dll.py                 # audio + video 一起补齐
+python scripts/win_ffmpeg_dll.py audio           # 只补 audio
+python scripts/win_ffmpeg_dll.py video --run     # 补齐后启动
+python scripts/win_ffmpeg_dll.py --dll-dir D:\ffmpeg\bin   # 手头已有 bin 目录
+python scripts/win_ffmpeg_dll.py --dry-run       # 只打印计划，不动文件
+```
+
+`moon clean` 清掉 `_build` 后需要重跑一次（dll 跟着 exe 目录走）。
+
+**手工路径（脚本取不到来源时）**：
 
 - Windows 没有 unix 那种「装一个 dev 包就全局可见」的机制，惯例是 **app-local 部署**——把依赖 dll 与 exe 放同一目录（加载器第一顺位就找 exe 所在目录），发布时随包带出去。放 PATH 只适合开发机；静态链接则与 `vendor/*.lib`（导入库）不兼容，且 LGPL 静态链接还要额外满足「可重链接」义务，本仓不走这条。winget/scoop/choco 这类包管理器只是把文件放到某处，**并不能让 dll 被找到**，仍要 app-local 或 PATH。
 - **本仓最短路径**：winget 有与 `vendor/` **同源**的包 —— `BtbN.FFmpeg.LGPL.Shared.9.0`（BtbN / LGPL / **shared** / 9.0 分支，与 vendor 导入库出处一致）。装完 dll 落在该包目录的 `bin/`；winget 的 portable 包通常会把该 `bin` 加进 PATH，用 `where avcodec-63.dll` 确认，没有就手工把该目录加进 PATH。
