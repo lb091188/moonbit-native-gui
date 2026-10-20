@@ -35,6 +35,8 @@ pub(all) struct App {
   dlg_result : @base.Store[String]
   /// 圆角总开关：开启时全站圆角按 0 解析（`@style.set_square_corners`）
   flat : @base.Store[Bool]
+  /// 侧栏/菜单半透玻璃开关：整窗开背景透明 + 侧栏走 `@ui.glass` 应用内模糊
+  translucent : @base.Store[Bool]
   /// 柔焦模糊开关：演示位图背景的模糊态（`@render.Bitmap::soft_blur`）
   soft : @base.Store[Bool]
   /// 宿主句柄（挂载时由 main 的 handle 回调填入）：窗口页要调 `@win.Window` 的
