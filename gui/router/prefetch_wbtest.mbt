@@ -94,6 +94,12 @@ test "Lazy 节点不进空闲队列" {
   assert_false(r.is_built("甲/子/a2"))
   assert_true(r.is_built("乙/子/b2"))
   assert_eq(r.pending_count(), 0)
+  // 重新锚定之后也一样：被豁免的 Lazy 节点不算欠账
+  r.goto("甲/子")
+  r.ensure_current()
+  r.reanchor()
+  assert_eq(r.pending_count(), 0)
+  assert_false(r.is_built("甲/子/a2"))
 }
 
 ///|
