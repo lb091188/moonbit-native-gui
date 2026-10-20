@@ -1,0 +1,73 @@
+# Windows 运行期 ffmpeg dll 归档制作(手动触发,不在常规 CI 路径上)
+#
+# 产物: ffmpeg-windows-x64-<版本>-lgpl-shared.zip —— 只含运行期 dll 与 LGPL 文本,
+# 不含 exe/头/导入库(导入库已在仓库 vendor/ 里,头也入库)。打好后直接
+# gh release upload 到 vendor-v1,与 mac 归档、miniaudio.h、WebView2 同处一档。
+#
+# 回填: 日志与 step summary 里的 sha256 写进 modules/ffmpeg-mbt/prebuild.py 的
+# WIN_VENDOR_ARCHIVE,之后免装 ffmpeg 的 Windows 机器构建时按它下载校验。
+name: win-ffmpeg-vendor
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: ffmpeg 版本(BtbN 的 n9.0 分支)
+        default: "9.0"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 取 BtbN lgpl-shared 归档
+        shell: pwsh
+        run: |
+          $v = "${{ inputs.version }}"
+          $zip = "$env:RUNNER_TEMP\btb.zip"
+          Invoke-WebRequest -Uri "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n$v-latest-win64-lgpl-shared-$v.zip" -OutFile $zip
+          Expand-Archive $zip "$env:RUNNER_TEMP\btb"
+          # 归档内有 static/shared 多个 bin,按「含 avcodec-*.dll」挑 shared 那个
+          $bin = Get-ChildItem "$env:RUNNER_TEMP\btb" -Recurse -Directory -Filter bin |
+            Where-Object { (Get-ChildItem $_.FullName -Filter "avcodec-*.dll").Count -gt 0 } |
+            Select-Object -First 1
+          if ($null -eq $bin) { throw "ffmpeg bin 目录未找到" }
+          $root = "$env:RUNNER_TEMP\out\ffmpeg-windows-x64-$v-lgpl-shared"
+          New-Item -ItemType Directory -Force "$root\bin" | Out-Null
+          Copy-Item "$($bin.FullName)\av*.dll" "$root\bin"
+          Copy-Item "$($bin.FullName)\sw*.dll" "$root\bin"
+          Copy-Item "modules/ffmpeg-mbt/vendor/FFMPEG-LICENSE.txt" "$root\LICENSE.txt"
+          Get-ChildItem "$root\bin" | Select-Object Name, Length | Format-Table
+
+      - name: 打包并算 sha256
+        shell: pwsh
+        run: |
+          $v = "${{ inputs.version }}"
+          $root = "$env:RUNNER_TEMP\out\ffmpeg-windows-x64-$v-lgpl-shared"
+          $dist = "$env:RUNNER_TEMP\dist"
+          New-Item -ItemType Directory -Force $dist | Out-Null
+          $zipName = "ffmpeg-windows-x64-$v-lgpl-shared.zip"
+          Compress-Archive -Path $root -DestinationPath "$dist\$zipName" -CompressionLevel Optimal
+          $hash = (Get-FileHash "$dist\$zipName" -Algorithm SHA256).Hash.ToLower()
+          "$hash  $zipName" | Out-File -Encoding ascii "$dist\$zipName.sha256"
+          Get-ChildItem $dist | Select-Object Name, Length | Format-Table
+          Write-Host "sha256: $hash"
+          Add-Content $env:GITHUB_STEP_SUMMARY "sha256: ``$hash``"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-windows-vendor
+          path: |
+            ${{ runner.temp }}/dist/*.zip
+            ${{ runner.temp }}/dist/*.sha256
+          if-no-files-found: error
+
+      - name: 上传到 vendor-v1 Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload vendor-v1 "$env:RUNNER_TEMP\dist\*.zip" "$env:RUNNER_TEMP\dist\*.sha256" --clobber
