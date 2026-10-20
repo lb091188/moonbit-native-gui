@@ -12,12 +12,15 @@ exe 所在目录（app-local 部署，加载器第一顺位就找 exe 同目录�
 
   1. `--dll-dir` / 环境变量 NATIVE_GUI_FFMPEG_BIN
   2. exe 同目录（已齐则直接返回）
-  3. PATH 中能搜到 avcodec-63.dll 的目录
-  4. winget 包目录 %LOCALAPPDATA%\\Microsoft\\WinGet\\Packages\\*FFmpeg*
-  5. scoop %USERPROFILE%\\scoop\\apps\\ffmpeg*\\current\\bin
-  6. 仓库缓存 .cache/ffmpeg-win/bin
-  7. 下载 BtbN win64-lgpl-shared 9.0 归档并缓存到 .cache/ffmpeg-win
-     （NATIVE_GUI_FFMPEG_ZIP 可指本地 zip 文件或镜像 URL）
+  3. `modules/ffmpeg-mbt/vendor/win/bin`（ffmpeg-mbt 的 prebuild 构建时自动取的
+     落点，与导入库同源；缺它就先构建一次）
+  4. PATH 中能搜到 avcodec-63.dll 的目录
+  5. winget 包目录 %LOCALAPPDATA%\\Microsoft\\WinGet\\Packages\\*FFmpeg*
+  6. scoop %USERPROFILE%\\scoop\\apps\\ffmpeg*\\current\\bin
+  7. 仓库缓存 .cache/ffmpeg-win/bin（早期版本下载的落点，只读兼容）
+
+下载不归本脚本：`ffmpeg-mbt` 的 prebuild 在 Windows 构建时就会把 dll 取到
+`vendor/win/bin`，本脚本只负责把它搬到 exe 旁边。
 
 用法（仓库根）：
 
@@ -38,8 +41,6 @@ import re
 import shutil
 import subprocess
 import sys
-import urllib.request
-import zipfile
 from pathlib import Path
 
 # 与 modules/ffmpeg-mbt/vendor/*.lib 同源（BtbN win64-lgpl-shared 9.0）的导入库
@@ -56,11 +57,8 @@ OPTIONAL_DLLS = ["avdevice-63.dll", "avfilter-12.dll"]
 
 DLL_PATTERN = re.compile(r"^(av|sw)[a-z]+-\d+\.dll$", re.IGNORECASE)
 
-# BtbN 滚动构建（与 .github/workflows/ci.yml 同一 URL）。
-BTBN_ZIP_URL = (
-    "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/"
-    "ffmpeg-n9.0-latest-win64-lgpl-shared-9.0.zip"
-)
+# 单个 dll 的体积下限：判掉残缺/半截文件，不是精确校验。
+DLL_MIN_BYTES = 100 * 1024
 
 EXAMPLES = ["audio", "video"]
 
@@ -136,75 +134,14 @@ def scoop_dirs() -> list[Path]:
     return [p for p in apps.glob("ffmpeg*/current/bin") if p.is_dir()]
 
 
+def prebuild_dll_dir() -> Path:
+    """ffmpeg-mbt 的 prebuild 在 Windows 构建时取 dll 的落点（与导入库同源）。"""
+    return repo_root() / "modules" / "ffmpeg-mbt" / "vendor" / "win" / "bin"
+
+
 def cache_dir() -> Path:
-    return repo_root() / ".cache" / "ffmpeg-win"
-
-
-def download_zip(dest_dir: Path) -> Path | None:
-    """取 BtbN 归档到缓存目录（本地 zip 或 URL）。失败返回 None。"""
-    src = os.environ.get("NATIVE_GUI_FFMPEG_ZIP", "").strip()
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    zip_path = dest_dir / "ffmpeg-n9.0-latest-win64-lgpl-shared-9.0.zip"
-    if src:
-        local = Path(src)
-        if local.is_file():
-            print(f"win-ffmpeg-dll: 用本地归档 {local}", file=sys.stderr)
-            shutil.copyfile(local, zip_path)
-            return zip_path
-        url = src
-    else:
-        url = BTBN_ZIP_URL
-        local = None
-    print(f"win-ffmpeg-dll: 下载 {url}", file=sys.stderr)
-    try:
-        with urllib.request.urlopen(url, timeout=30) as resp:
-            total = int(resp.headers.get("Content-Length") or 0)
-            done = 0
-            last_pct = -5
-            with zip_path.open("wb") as fh:
-                while True:
-                    chunk = resp.read(1 << 20)
-                    if not chunk:
-                        break
-                    fh.write(chunk)
-                    done += len(chunk)
-                    if total:
-                        pct = done * 100 // total
-                        if pct >= last_pct + 5:
-                            last_pct = pct
-                            print(
-                                f"win-ffmpeg-dll: {pct}% "
-                                f"({done // (1 << 20)}/{total // (1 << 20)} MB)",
-                                file=sys.stderr,
-                            )
-    except Exception as e:  # noqa: BLE001——网络失败交给调用方提示手工路径
-        print(f"win-ffmpeg-dll: 下载失败（{e}）", file=sys.stderr)
-        zip_path.unlink(missing_ok=True)
-        return None
-    return zip_path
-
-
-def extract_bin(zip_path: Path) -> Path | None:
-    """从归档里挑出含 avcodec-*.dll 的那个 bin/，把 dll 解到 cache/bin。"""
-    out = cache_dir() / "bin"
-    out.mkdir(parents=True, exist_ok=True)
-    try:
-        with zipfile.ZipFile(zip_path) as zf:
-            names = [n for n in zf.namelist() if "/bin/" in n and n.lower().endswith(".dll")]
-            if not names:
-                print("win-ffmpeg-dll: 归档里没有 bin/*.dll", file=sys.stderr)
-                return None
-            for n in names:
-                name = n.rsplit("/", 1)[-1]
-                if not DLL_PATTERN.match(name):
-                    continue
-                with zf.open(n) as src, (out / name).open("wb") as dst:
-                    shutil.copyfileobj(src, dst)
-    except zipfile.BadZipFile as e:
-        print(f"win-ffmpeg-dll: 归档损坏（{e}）", file=sys.stderr)
-        return None
-    zip_path.unlink(missing_ok=True)
-    return out
+    """早期版本本脚本自己的下载落点，只读兼容。"""
+    return repo_root() / ".cache" / "ffmpeg-win" / "bin"
 
 
 def resolve_source(explicit: str | None, exe_dir: Path) -> tuple[Path | None, str]:
@@ -230,6 +167,10 @@ def resolve_source(explicit: str | None, exe_dir: Path) -> tuple[Path | None, st
     if cand:
         return cand
 
+    cand = probe(prebuild_dll_dir(), f"prebuild 落点 {prebuild_dll_dir()}")
+    if cand:
+        return cand
+
     for d in path_dirs():
         cand = probe(d, f"PATH {d}")
         if cand:
@@ -245,23 +186,12 @@ def resolve_source(explicit: str | None, exe_dir: Path) -> tuple[Path | None, st
         if cand:
             return cand
 
-    cached = cache_dir() / "bin"
-    cand = probe(cached, f"缓存 {cached}")
+    cand = probe(cache_dir(), f"缓存 {cache_dir()}")
     if cand:
         return cand
 
-    # 最后一路：下载归档（失败时返回 None，由调用方给手工步骤）
     for d in tried:
         print(f"win-ffmpeg-dll: 跳过 {d}", file=sys.stderr)
-    zip_path = download_zip(cache_dir())
-    if zip_path is None:
-        return None, ""
-    extracted = extract_bin(zip_path)
-    if extracted is None:
-        return None, ""
-    cand = probe(extracted, f"下载归档 {extracted}")
-    if cand:
-        return cand
     return None, ""
 
 
@@ -366,13 +296,13 @@ def main() -> int:
     ok = all(results)
     if not ok:
         print(
-            "win-ffmpeg-dll: 没取到与 vendor 导入库配套的 ffmpeg 运行库 dll。"
-            "手工三条路任选：\n"
-            "  1) 下 BtbN 的 win64-lgpl-shared 9.0 归档，解出 bin/ 后\n"
-            "     python scripts/win_ffmpeg_dll.py --dll-dir <那个 bin>\n"
-            "  2) NATIVE_GUI_FFMPEG_ZIP=<本地 zip 路径> python scripts/win_ffmpeg_dll.py\n"
-            "  3) winget install --id BtbN.FFmpeg.LGPL.Shared.9.0 后重跑本脚本\n"
-            "  三条都要求 dll 与 modules/ffmpeg-mbt/vendor/*.lib 同一大版本（9.0 系列）。",
+            "win-ffmpeg-dll: 没取到与 vendor 导入库配套的 ffmpeg 运行库 dll。\n"
+            "  dll 由 ffmpeg-mbt 的 prebuild 在构建时取到 "
+            "modules/ffmpeg-mbt/vendor/win/bin，先跑一次 `moon build examples/audio`；"
+            "构建时没下成（网络）可用 NATIVE_GUI_FFMPEG_ZIP=<本地 zip> 重试，\n"
+            "  或手工把 bin 目录指过来："
+            "python scripts/win_ffmpeg_dll.py --dll-dir <那个 bin>。\n"
+            "  dll 须与 modules/ffmpeg-mbt/vendor/*.lib 同一大版本（9.0 系列）。",
             file=sys.stderr,
         )
         return 1

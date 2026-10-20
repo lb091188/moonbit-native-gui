@@ -269,6 +269,10 @@ jobs:
       # dll(上一节放 PATH);非 Linux 平台的占位/跳过口径见各模块 prebuild。
       - name: 配置 MSVC 环境并检查/测试/构建
         shell: cmd
+        # dll 已在上一步取到并放进 PATH，跳过 ffmpeg-mbt prebuild 的 150MB 运行期
+        # dll 准备（落点是 vendor/win/bin，CI 用不着）。
+        env:
+          NATIVE_GUI_SKIP_VENDOR: "1"
         run: >-
           for /f "tokens=*" %%i in ('"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath')
           do call "%%i\VC\Auxiliary\Build\vcvars64.bat"
