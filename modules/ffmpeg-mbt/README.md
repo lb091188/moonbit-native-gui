@@ -19,7 +19,9 @@ LGPLv3，见 `vendor/FFMPEG-LICENSE.txt`；头路径经 prebuild 的
 `avcodec-63.dll` 等 7 个 dll 与 exe 同目录、或放进 PATH（自行从
 BtbN/gyan 的 win64-lgpl-shared 构建取同一大版本的 `bin/*.dll`；dll 主版本
 须与 vendor 导入库一致——avcodec-63/avformat-63/avutil-61/swscale-10/
-swresample-7/avdevice-63/avfilter-12）。
+swresample-7/avdevice-63/avfilter-12）。native-gui 仓库内可用
+`python scripts/win_ffmpeg_dll.py` 一条命令完成这件事（自动找来源、复制到
+exe 同目录）。
 
 **macOS**：两级——prebuild 先 pkg-config 探系统 ffmpeg（`brew install
 ffmpeg pkg-config`；brew 前缀显式拼进 `PKG_CONFIG_PATH`）；探不到回退

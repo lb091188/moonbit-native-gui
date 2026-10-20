@@ -35,6 +35,10 @@
 # 制作脚本的本地产物目录(正式产物经 CI workflow 上传 artifact→Release,勿入库)
 /modules/ffmpeg-mbt/dist/
 
+# Windows 运行期 ffmpeg dll 的本地缓存(scripts/win_ffmpeg_dll.py 下载落点,
+# 约 150MB,勿入库;补齐时复制到示例 exe 同目录)
+/.cache/
+
 # Python 缓存(moon package 与 git 同样排除)
 **/__pycache__/
 
