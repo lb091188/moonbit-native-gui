@@ -21,6 +21,8 @@ pub struct Router {
   mount_order : Ref[Array[String]]
   // 每个分支的子槽登记一条重置闭包，淘汰祖先链时用它把子孙槽的挂载态一起归零
   slot_resets : Map[String, () -> Unit]
+  // 语言广播句柄（remount.mbt）：0=未登记随语言重挂
+  locale_hook : Ref[Int]
 }
 
 ///|
@@ -77,6 +79,7 @@ pub fn new_router(
     mounted: Map([]),
     mount_order: Ref([]),
     slot_resets: Map([]),
+    locale_hook: Ref(0),
   }
 }
 

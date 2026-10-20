@@ -866,13 +866,14 @@ pub fn menu_sections(
         r : @base.Rect,
       ) -> Unit {
         let st = @style.style_for(self)
+        // 组标题绘制期现取译文（key=`nav.g.<组名>`）：换语言重绘即刷，不留建树旧字
         let _ = @text.draw_box_at(
           p,
           4.0,
           0.0,
           r.w,
           r.h,
-          title,
+          @i18n.t_or("nav.g." + title, title),
           head_font,
           @style.color_of(st.color, @theme.theme_text_secondary()),
           align=@text.Start,
