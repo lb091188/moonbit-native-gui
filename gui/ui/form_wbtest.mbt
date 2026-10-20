@@ -1419,3 +1419,26 @@ test "按钮图标位：测量让位、左槽落墨、文字盒右移" {
     ) > 0,
   )
 }
+
+///|
+/// 开关的回调只在用户拨动时触发；外部直接写 Store 不回调（与步进器同口径）。
+test "开关 on_change：用户拨动才回调，外部写值不回调" {
+  let on = @base.Store::new(false)
+  let hits : Ref[Int] = Ref(0)
+  let seen : Ref[Bool] = Ref(false)
+  let root = mount_root(
+    [
+      switch(on, on_change=fn(v) {
+        hits.val = hits.val + 1
+        seen.val = v
+      }),
+    ],
+    240.0,
+    60.0,
+  )
+  let row = kid(root, 0)
+  let _ = click(row, row.rect.x + 10.0, row.rect.y + 10.0)
+  assert_eq((on.get(), hits.val, seen.val), (true, 1, true))
+  on.set(false)
+  assert_eq(hits.val, 1)
+}

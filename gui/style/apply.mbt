@@ -246,8 +246,8 @@ pub fn apply(w : @widget.Widget, s : Style) -> Unit {
 /// 选桶（`hovered` / `pressed` / `focused`，三桶可同时命中并按桶内逐属性层叠）。
 pub fn resolved(w : @widget.Widget) -> Style {
   match resolved_table.get(w.id) {
-    Some(s) => s
-    None => empty_style()
+    Some(s) => square_corners_applied(s)
+    None => square_corners_applied(empty_style())
   }
 }
 
@@ -322,13 +322,14 @@ pub fn style_for(w : @widget.Widget) -> Style {
     Some(v) => v > 0.0
     None => false
   }
-  if animated {
+  let out2 = if animated {
     step(w.id, out, @shell.now_ms())
   } else {
     // 没配过渡的控件不留账
     forget_anim(w.id)
     out
   }
+  square_corners_applied(out2)
 }
 
 ///|

@@ -255,11 +255,17 @@ pub fn switch(
   off_text? : String = "",
   disabled? : Bool = false,
   focus_id? : Int = 0,
+  on_change? : (Bool) -> Unit = fn(_v : Bool) -> Unit { () },
   class? : Array[@style.Style] = [],
 ) -> @widget.Node {
   follow_store(state)
   @widget.node_of_new(fn(row : @widget.Widget) -> @widget.Widget {
     let off = enabled_cell(None, disabled)
+    let toggle = fn() {
+      let v = !state.get()
+      state.set(v)
+      on_change(v)
+    }
     row.focus_id = auto_focus_id(focus_id)
     let pill = @widget.Widget::new()
     pill.node.set_width(@yoga.fixed(40.0))
@@ -308,13 +314,13 @@ pub fn switch(
       let _ = (text(txt)).mount_into(row)
     }
     row.cursor_fn = Some(enabled_cursor(off, @widget.CURSOR_HAND))
-    attach_toggle(row, fn() { state.set(!state.get()) }, off)
+    attach_toggle(row, toggle, off)
     row.on_key = Some(fn(ev : @widget.KeyEvent) -> Bool {
       if !ev.press || off.off {
         return false
       }
       if ev.keysym == @base.KS_SPACE || ev.keysym == @base.KS_RETURN {
-        state.set(!state.get())
+        toggle()
         true
       } else {
         false
