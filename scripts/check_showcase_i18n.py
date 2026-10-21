@@ -38,8 +38,12 @@ def unescape_moon(s):
 def catalog_keys():
     """反解 EN_CATALOG：返回 {带前缀的键} 集合，并顺带查 `[meta]` 是否在最后。"""
     text = (SHOW / "shared" / "i18n_data.mbt").read_text(encoding="utf-8")
+    # 注释行里也有引号（`键="desc§"+标题`），不先摘掉会把首条字面量截错
+    body = "\n".join(
+        ln for ln in text.splitlines() if not ln.strip().startswith("//")
+    )
     # 拼出来的 TOML 文本 = 各 `"…"` 字面量段解一层转义后的串联
-    parts = re.findall(r'"((?:[^"\\]|\\.)*)"', text)
+    parts = re.findall(r'"((?:[^"\\]|\\.)*)"', body)
     toml = "".join(unescape_moon(p) for p in parts)
     keys, prefix, meta_at, lines = set(), "", None, toml.splitlines()
     for n, line in enumerate(lines):
@@ -114,14 +118,55 @@ def tr_keys():
     return got
 
 
+CJK = re.compile(r"[一-鿿]")
+
+
+def section_keys():
+    """⑥段标题与段描述：`section(name, title, desc)` 出口取译，键 = title /
+    `desc§` + title。只查三段都是单条字面量的段（拼接的 desc 交给人工）。"""
+    titles, descs = set(), set()
+    for p in (SHOW / "pages").glob("*.mbt"):
+        for m in re.finditer(
+            r'@shared\.section\(\s*"(?:[^"\\]|\\.)*",\s*"((?:[^"\\]|\\.)*)",\s*"((?:[^"\\]|\\.)*)"\s*[,)]',
+            src(p),
+        ):
+            title, desc = m.group(1), m.group(2)
+            if CJK.search(title):
+                titles.add(title)
+            if CJK.search(desc):
+                descs.add("desc§" + title)
+    return titles, descs
+
+
+def lib_keys():
+    """⑦库内建 chrome：gui/ 里 `t_or("gui.x", 中文)` 用到的键。
+
+    动态拼前缀的（`"gui.ui.datepicker.wd."` + 号）按展开后的 7 条星期名查。
+    """
+    got = set()
+    for p in (ROOT / "gui").rglob("*.mbt"):
+        if p.name.endswith("_wbtest.mbt"):
+            continue
+        for k in re.findall(r'"(gui\.[a-z_.0-9]+)"', src(p)):
+            got.add(k)
+    if any(k.endswith(".wd.") for k in got):
+        got = {k for k in got if not k.endswith(".wd.")}
+        got |= {"gui.ui.datepicker.wd." + str(i) for i in range(7)}
+    return got
+
+
 def main():
     keys, _ = catalog_keys()
     bad = []
+    sec_titles, sec_descs = section_keys()
     for label, want in (
         ("正文 tx", tx_keys()),
         ("段名 seg", seg_keys()),
         ("侧栏 nav", nav_keys()),
         ("插值 dyn", dyn_keys() | tr_keys()),
+        ("段标题 title", sec_titles),
+        ("段描述 desc§", sec_descs),
+        ("库 chrome", lib_keys()),
     ):
         miss = sorted(k for k in want if k not in keys)
         print(f"{label}: 取译口 {len(want)}，目录缺 {len(miss)}")
