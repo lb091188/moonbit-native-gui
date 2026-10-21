@@ -66,6 +66,7 @@ docs/                   对外文档站(VitePress，中英 docs/ 与 docs/zh/)
 - 使用文档索引: `docs/README.md`
 - 平台适配经验: `proposals/adaptation.md`(对内方案目录 `proposals/`,文档站只发对外使用文档与路线图)
 - FFI 规范: `.agents/skills/moonbit-c-binding/`、`.agents/skills/make-moonbit-c-bindings/`
+- 界面设计规范: `.agents/skills/native-gui-design/`(来自 `lb091188/native-gui-skills`；写或改界面前先读，间距刻度/字阶/圆角层级/token 都在里面)
 - MoonBit 语言与工具链: `.agents/skills/moonbit-agent-guide/`
 - 路线图: `TODO.md`
 - 测试用例: `测试文档/测试用例.md`(五个示例应用共 141 条，编号 `HL/SC/BR/AU/VD`；记录用 `测试记录/index.html`)

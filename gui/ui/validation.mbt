@@ -24,18 +24,32 @@ pub fn[T] validate(
 }
 
 ///|
-/// 必填：去首尾空白后为空即报错。
-pub fn required(msg~ : String = "不能为空") -> (String) -> String? {
+/// 必填：去首尾空白后为空即报错。默认消息随语言取译（`gui.ui.validation.required`），
+/// 传 `msg=` 用自己的串。
+pub fn required(msg~ : String = "") -> (String) -> String? {
+  let text = if msg.length() > 0 {
+    msg
+  } else {
+    @i18n.t_or("gui.ui.validation.required", "不能为空")
+  }
   fn(v : String) -> String? {
     let t = v.trim()
-    if t.length() == 0 { Some(msg) } else { None }
+    if t.length() == 0 { Some(text) } else { None }
   }
 }
 
 ///|
 /// 定长下限（按字符数粗口径，够用即可）。
 pub fn min_len(n : Int, msg~ : String = "") -> (String) -> String? {
-  let text = if msg.length() > 0 { msg } else { "至少 \{n.to_string()} 个字符" }
+  let text = if msg.length() > 0 {
+    msg
+  } else {
+    @i18n.t_with_or(
+      "gui.ui.validation.min_len",
+      [("n", n.to_string())],
+      "至少 \{n.to_string()} 个字符",
+    )
+  }
   fn(v : String) -> String? {
     if v.length() < n { Some(text) } else { None }
   }
@@ -43,7 +57,12 @@ pub fn min_len(n : Int, msg~ : String = "") -> (String) -> String? {
 
 ///|
 /// 邮箱粗规则：`x@y.z` 形态，只查 `@`、@ 后有点、结尾不是点，不做完整 RFC 校验。
-pub fn email(msg~ : String = "邮箱格式不对") -> (String) -> String? {
+pub fn email(msg~ : String = "") -> (String) -> String? {
+  let text = if msg.length() > 0 {
+    msg
+  } else {
+    @i18n.t_or("gui.ui.validation.email", "邮箱格式不对")
+  }
   fn(v : String) -> String? {
     let cs = v.to_array()
     let mut at = -1
@@ -59,7 +78,7 @@ pub fn email(msg~ : String = "邮箱格式不对") -> (String) -> String? {
     }
     let ok = at > 0 && at < cs.length() - 1 && dot_after &&
       cs[cs.length() - 1] != '.'
-    if ok { None } else { Some(msg) }
+    if ok { None } else { Some(text) }
   }
 }
 
@@ -69,7 +88,11 @@ pub fn int_range(lo : Int, hi : Int, msg~ : String = "") -> (String) -> String? 
   let text = if msg.length() > 0 {
     msg
   } else {
-    "须在 \{lo.to_string()}.. \{hi.to_string()} 之间"
+    @i18n.t_with_or(
+      "gui.ui.validation.int_range",
+      [("lo", lo.to_string()), ("hi", hi.to_string())],
+      "须在 \{lo.to_string()}.. \{hi.to_string()} 之间",
+    )
   }
   fn(v : String) -> String? {
     let bad = Some(text)
