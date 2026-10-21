@@ -151,6 +151,38 @@ test "下拉菜单：'-' 画分隔线、选中回调序号并收起" {
 }
 
 ///|
+/// 回归：触发件贴窗口底边时，弹层量完尺寸翻到锚点上方（间距不变），整块留在窗口里
+/// ——以前直接按请求位画，越出窗口的部分被裁掉，看着像「下拉被窗口吃掉」。
+test "下拉贴窗口底边：弹层翻到锚点上方，不被窗口切掉" {
+  let (root, col) = mounted(
+    view(
+      [view([], width=100.0, height=260.0), dropdown("操作", ["甲", "乙", "丙"])],
+      direction=@yoga.Column,
+    ),
+    300.0,
+    300.0,
+  )
+  with_overlay(root)
+  let trig = col.children()[1]
+  // 前提：按请求位（触发件下缘 + 2）放不下三层菜单
+  assert_true(trig.rect.y + trig.rect.h + 2.0 + 84.0 > 300.0)
+  click_at(root, trig, 10.0, 10.0)
+  assert_eq(@widget.overlay_count(), 1)
+  root.relayout(300.0, 300.0)
+  match @widget.overlay_rect_of(@widget.overlay_top_id()) {
+    Some(r) => {
+      assert_true(r.h > 80.0, msg="弹层没按三层菜单长开：\{r.h}")
+      assert_true(
+        r.y + r.h <= trig.rect.y + 0.5,
+        msg="没翻到锚点上方：弹层底 \{r.y + r.h} / 锚点顶 \{trig.rect.y}",
+      )
+      assert_true(r.y >= 0.0)
+    }
+    None => fail("点触发件没开层")
+  }
+}
+
+///|
 test "悬浮提示：延时到点才出现、离开即收、延时未到就离开则不出现" {
   let queue : Ref[Array[() -> Unit]] = Ref([])
   @shell.set_timer_hooks(

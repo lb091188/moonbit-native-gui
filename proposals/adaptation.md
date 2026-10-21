@@ -3017,3 +3017,11 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
   - macOS：`CanJoinAllSpaces | Stationary | IgnoresCycle` 三条本就等价（⌘` 循环、跨 Space），`Dock` 档另取 Dock 层 + `FullScreenAuxiliary`；无任务栏概念，无预留工作区 API。
 - **仍然没有的**：预留工作区。X11 要 `_NET_WM_STRUT(_PARTIAL)`、Windows 要 `SHAppBarMessage`（AppBar 那套约百行且只 Windows 有意义）、macOS 无公共 API。这条写成「不做」，免得再被按「Dock 就该挤开桌面」预期。
 - **验证**：`clang -fsyntax-only -x objective-c -fobjc-arc -DWM_STUB_MAC gui/win/stub.c` 通过（mac 分支本地可编）；Win32/GTK 两分支本机没有对应 SDK/头文件，**编译由 CI 的 Linux 与 Windows 作业兜**（`ci.yml` 已装 `libgtk-3-dev` 等）；`cd gui && moon check` 零错误零警告、`examples/showcase` `moon build` 零警告、覆盖率门禁七条通道全绿（目录 934 条，中英文段描述同步改写）。**待真机**：Linux 上点 Dock 应「装饰与焦点照旧、XFCE 任务栏与窗口列表里消失、切视口跟着走」；Windows 上点 Dock 任务栏与 Alt+Tab 当场消失（标题栏会换成工具窗口矮框——这是 TOOLWINDOW 的系统规则，若介意可在调用方先用 `set_borderless` 定外观）；macOS 上切 Space 跟着、别的全屏 App 之上仍可见、⌘` 循环里跳过它。
+
+## 下拉弹层被窗口底边切掉：浮层开出来还要按图层边界收位（2026-10-21，macOS arm64 真机反馈）
+
+- **报障**：表单页「Select 与 ColorPicker」贴近窗口底边时点开下拉，候选列表最后一项贴着窗口底边只剩半截——「下拉这种弹出会被窗口吃掉」。
+- **根因**：`overlay_show_at` 只把包裹层摆到「锚点下缘 + 2」，而弹层画在**整窗浮层图层**上，图层就是裁剪框，越出窗口的那部分像素直接没有。列表侧原有的「超 300 高套一层滚动」只保证**弹层自身**不超高，管不了「锚点离底边只剩十几像素」；`popup_place`（原生档弹层窗的翻边规则）也只服务原生档那一扇窗，图层档没人调它。
+- **修（补共用机制，不按组件各修一遍）**：`gui/widget/overlay.mbt` 新增纯函数 `popup_fit(x, y, w, h, bounds_w, bounds_h, anchor?)`——放得下不动；下方不够就翻到锚点上方（间距从「请求位 − 锚点下缘」里还原，翻上去同间距）；右方不够就与锚点右缘对齐；翻完仍越界（弹层比窗口还高）钳回边界内，宁可压住锚点也不切内容；边界给 0 视为未知，一律原样。`overlay_show_at` 在「内容挂进包裹层 + append 图层」之后多跑一轮 `relayout` 量出实测尺寸，收位后再布局一次——弹层尺寸必须挂载并布局才量得出，与原生档「先开框、量完再收框」是同一条口径。新增可选 `anchor? : Rect?`，各锚点浮层（popover / dropdown / tooltip / select / 取色 / combo / 日期时间四处）把触发件矩形传进去；右键菜单与轻提示没有锚点语义，只吃钳位那一半。
+- **两条坐标坑**：① 请求位是窗口坐标、包裹层的 left/top 是图层局部，`popup_fit` 全程在局部系里算（锚点同样先减图层原点），两个系混进一次比较就会错开一个图层宽；② tooltip 的锚点要在**排延时之前**把 `Rect` 抄出来——定时回调捕获控件本体是引用环（老坑），而翻边用的矩形必须与请求位同源，否则算出的间距是别的帧的。
+- **验证**：`gui/widget/overlay_wbtest` 新增 `popup_fit` 六情形纯函数用例（原样 / 翻上 / 翻左 / 钳到 0 / 无锚点只钳 / 边界未知原样）；`ui/overlay_wbtest` 新增「下拉贴窗口底边翻到锚点上方」端到端一条。**回退验证**：把收位结果改回写请求位（等于不翻边），该条即红并打出「没翻到锚点上方：弹层底 376 / 锚点顶 260」——切掉的正是真机上那 76px。`cd gui && moon check` 零错误零警告，库门禁 `moon test widget ui style theme render i18n router shell base mdview` 591/591 全绿，`examples/showcase` `moon build` 零警告；中英文档「浮层与消息」段补上这条收位承诺。**待真机**：`moon run examples/showcase` → 表单页滚到底边点开「下拉选择」与「取色」，看候选整块翻到字段上方；日期/时间弹层同看；再点靠近右缘的字段，看弹层与字段右缘对齐；顺手确认贴顶边的字段仍朝下开（不该无脑翻上）。

@@ -1580,6 +1580,7 @@ pub fn select(
         list_popup(rows, opts.length(), width),
         w.rect.x,
         w.rect.y + w.rect.h + 2.0,
+        anchor=Some(w.rect),
       )
     }
     let pick_hi = fn() -> Unit {
@@ -1736,6 +1737,7 @@ pub fn color_picker(
         ),
         w.rect.x,
         w.rect.y + w.rect.h + 2.0,
+        anchor=Some(w.rect),
       )
     }
     let pick_hi = fn() -> Unit {
@@ -1944,6 +1946,7 @@ fn combo_impl(
         list_popup(rows, cand.length(), width),
         w.rect.x,
         w.rect.y + w.rect.h + 2.0,
+        anchor=Some(w.rect),
       )
     }
     let accept = fn() -> Unit {

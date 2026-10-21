@@ -103,6 +103,7 @@ pub fn popover(
               overlay_pane([content], width, height, skin=paint_subset(class)),
               self.rect.x,
               self.rect.y + self.rect.h + 2.0,
+              anchor=Some(self.rect),
             )
           }
           false
@@ -256,6 +257,7 @@ pub fn dropdown(
         overlay_pane(rows, width, 0.0, skin=paint_subset(class)),
         w.rect.x,
         w.rect.y + w.rect.h + 2.0,
+        anchor=Some(w.rect),
       )
     }
     // 内置皮肤进槽（基块=常态、hover 桶=悬停底），class 的属性后落即覆盖
@@ -452,14 +454,16 @@ pub fn tooltip(
       if on {
         if timer.val == 0 && tip_id.val == 0 {
           // 锚点先算好再排延时：定时回调不捕获本控件（自捕获是引用环）
-          let ax = self.rect.x
-          let ay = self.rect.y + self.rect.h + 4.0
+          let anchor = self.rect
+          let ax = anchor.x
+          let ay = anchor.y + anchor.h + 4.0
           timer.val = @shell.set_timeout(delay_ms, fn() {
             timer.val = 0
             tip_id.val = @widget.overlay_show_at(
               tooltip_pane(tip, font, skin=paint_subset(class)),
               ax,
               ay,
+              anchor=Some(anchor),
             )
           })
         }

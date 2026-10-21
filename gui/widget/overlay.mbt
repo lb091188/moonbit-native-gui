@@ -201,13 +201,56 @@ pub fn overlay_visible() -> Bool {
 }
 
 ///|
+/// 弹层收位的纯规则（图层档）：请求位 `(x, y)` 配尺寸 `(w, h)` 越出图层边界
+/// `(bounds_w, bounds_h)` 时，有锚点就先翻到锚点另一侧（下方放不下就顶到锚点上方、
+/// 右方放不下就与锚点右缘对齐），翻完仍越界（弹层比可用空间还大）就钳回边界内——
+/// 宁可压住锚点，也不把弹层切成半截。没锚点（轻提示、右键菜单）只钳不翻。
+/// 边界给 0 视为未知，一律原样返回。
+pub fn popup_fit(
+  x : Double,
+  y : Double,
+  w : Double,
+  h : Double,
+  bounds_w : Double,
+  bounds_h : Double,
+  anchor? : Rect? = None,
+) -> (Double, Double) {
+  let mut px = x
+  let mut py = y
+  match anchor {
+    Some(a) => {
+      if bounds_h > 0.0 && py + h > bounds_h {
+        // 请求位就是「锚点下缘 + 间距」，间距从两者之差里还原，翻上去同间距
+        let gap = (y - (a.y + a.h)).max(0.0)
+        py = (a.y - h - gap).max(0.0)
+      }
+      if bounds_w > 0.0 && px + w > bounds_w {
+        px = (a.x + a.w - w).max(0.0)
+      }
+    }
+    None => ()
+  }
+  if bounds_w > 0.0 {
+    px = px.min((bounds_w - w).max(0.0))
+  }
+  if bounds_h > 0.0 {
+    py = py.min((bounds_h - h).max(0.0))
+  }
+  (px, py)
+}
+
+///|
 /// 在窗口坐标 `(x, y)` 处开一层浮层，内容挂在图层里的一个绝对定位包裹控件上。
 /// 返回句柄；没有宿主时返回 0（浮层不出现）。
+///
+/// `anchor` 给触发件在窗口坐标里的矩形：弹层量完尺寸后按图层边界收位（见
+/// `popup_fit`），贴窗口底边的下拉因此翻到上方而不是被切掉。不给就只在越界时钳位。
 pub fn overlay_show_at(
   content : Node,
   x : Double,
   y : Double,
   dismiss_on_outside? : Bool = true,
+  anchor? : Rect? = None,
 ) -> Int {
   match overlay_host() {
     None => 0
@@ -229,6 +272,31 @@ pub fn overlay_show_at(
       wrap.node.set_top(@yoga.fixed(y - h.layer.rect.y))
       let _ = content.mount_into(wrap)
       h.layer.append_child(wrap)
+      // 弹层尺寸要挂进树并布局一次才量得出，量完再按图层边界收位
+      h.root.relayout(h.root.rect.w, h.root.rect.h)
+      let lx = x - h.layer.rect.x
+      let ly = y - h.layer.rect.y
+      let local_anchor : Rect? = match anchor {
+        Some(a) => Some({
+          x: a.x - h.layer.rect.x,
+          y: a.y - h.layer.rect.y,
+          w: a.w,
+          h: a.h,
+        })
+        None => None
+      }
+      let (fx, fy) = popup_fit(
+        lx,
+        ly,
+        wrap.rect.w,
+        wrap.rect.h,
+        h.layer.rect.w,
+        h.layer.rect.h,
+        anchor=local_anchor,
+      )
+      wrap.node.set_left(@yoga.fixed(fx))
+      wrap.node.set_top(@yoga.fixed(fy))
+      h.root.relayout(h.root.rect.w, h.root.rect.h)
       h.items.push({
         id: cid,
         w: wrap,
