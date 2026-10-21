@@ -965,7 +965,7 @@ static HWND wm_wallpaper_host(void) {
   if (prog == NULL) {
     return NULL;
   }
-  DWORD ignored = 0;
+  DWORD_PTR ignored = 0;
   SendMessageTimeoutW(prog, 0x052C, 0, 0, SMTO_NORMAL, 500, &ignored);
   HWND found = NULL;
   EnumWindows(wm_each_desktop, (LPARAM)&found);
