@@ -24,12 +24,12 @@ pub impl Eq for DateYMD with fn equal(self, other) {
 pub extend DateYMD with Eq::{not_equal, equal}
 
 ///|
-pub impl Eq for TimeHM with fn equal(self, other) {
-  self.h == other.h && self.m == other.m
+pub impl Eq for TimeHMS with fn equal(self, other) {
+  self.h == other.h && self.m == other.m && self.s == other.s
 }
 
 ///|
-pub extend TimeHM with Eq::{not_equal, equal}
+pub extend TimeHMS with Eq::{not_equal, equal}
 
 ///|
 pub impl Eq for DateRange with fn equal(self, other) {
@@ -170,15 +170,17 @@ pub fn month_grid(y : Int, m : Int) -> Array[(DateYMD, Bool)] {
 }
 
 ///|
-/// 时间值（时 0-23 / 分 0-59；区间与日期时间选择的组成部分）。
-pub(all) struct TimeHM {
+/// 时间值（时 0-23 / 分 0-59 / 秒 0-59；区间与日期时间选择的组成部分）。
+/// 秒默认 0：只选时分的调用方不必填它（`time_clamp(h, m)`）。
+pub(all) struct TimeHMS {
   h : Int
   m : Int
+  s : Int
 }
 
 ///|
-/// 钳制到合法时间（时 0-23 / 分 0-59）。
-pub fn time_clamp(h : Int, m : Int) -> TimeHM {
+/// 钳制到合法时间（时 0-23 / 分 0-59 / 秒 0-59，秒不给即 0）。
+pub fn time_clamp(h : Int, m : Int, s? : Int = 0) -> TimeHMS {
   let hc = if h < 0 {
     0
   } else if h > 23 {
@@ -193,19 +195,33 @@ pub fn time_clamp(h : Int, m : Int) -> TimeHM {
   } else {
     m
   }
-  { h: hc, m: mc }
+  let sc = if s < 0 {
+    0
+  } else if s > 59 {
+    59
+  } else {
+    s
+  }
+  { h: hc, m: mc, s: sc }
 }
 
 ///|
 /// 时间比较：负 = a 早于 b，0 = 相同，正 = a 晚于 b。
-pub fn TimeHM::compare(a : TimeHM, b : TimeHM) -> Int {
-  a.h * 60 + a.m - (b.h * 60 + b.m)
+pub fn TimeHMS::compare(a : TimeHMS, b : TimeHMS) -> Int {
+  let sec_a = a.h * 3600 + a.m * 60 + a.s
+  let sec_b = b.h * 3600 + b.m * 60 + b.s
+  sec_a - sec_b
 }
 
 ///|
-/// 格式化为 HH:MM。
-pub fn TimeHM::format(self : TimeHM) -> String {
-  pad_two(self.h) + ":" + pad_two(self.m)
+/// 格式化为 HH:MM；`show_seconds` 给真出 HH:MM:SS。
+pub fn TimeHMS::format(self : TimeHMS, show_seconds? : Bool = false) -> String {
+  let base = pad_two(self.h) + ":" + pad_two(self.m)
+  if show_seconds {
+    base + ":" + pad_two(self.s)
+  } else {
+    base
+  }
 }
 
 ///|
@@ -218,15 +234,15 @@ pub(all) struct DateRange {
 ///|
 /// 时间区间值。
 pub(all) struct TimeRange {
-  start : TimeHM?
-  end : TimeHM?
+  start : TimeHMS?
+  end : TimeHMS?
 }
 
 ///|
-/// 日期时间区间值（日期对 + 各自时:分）。
+/// 日期时间区间值（日期对 + 各自时:分[:秒]）。
 pub(all) struct DateTimeRange {
-  start : (DateYMD, TimeHM)?
-  end : (DateYMD, TimeHM)?
+  start : (DateYMD, TimeHMS)?
+  end : (DateYMD, TimeHMS)?
 }
 
 ///|
@@ -415,7 +431,11 @@ fn build_calendar(
       0.0,
       r.w,
       r.h,
-      view_y.val.to_string() + " 年 " + view_m.val.to_string() + " 月",
+      @i18n.t_with_or(
+        "gui.ui.datepicker.month_year",
+        [("y", view_y.val.to_string()), ("m", view_m.val.to_string())],
+        "\{view_y.val} 年 \{view_m.val} 月",
+      ),
       head_font,
       @style.color_of(tst.color, @theme.theme_text_primary()),
       align=@text.Center,
@@ -429,11 +449,17 @@ fn build_calendar(
   let week = @widget.Widget::new()
   week.node.set_flex_direction(@yoga.Row)
   week.node.set_height(@yoga.fixed(week_h))
-  for name in ["日", "一", "二", "三", "四", "五", "六"] {
+  // 表头周日在前（`date_weekday` 0 = 周日，与月网格同口径）；单字随语言取译
+  let wd_zh = ["日", "一", "二", "三", "四", "五", "六"]
+  for i in 0..<7 {
+    let name = wd_zh[i]
     let c = @widget.Widget::new()
     c.node.set_width(@yoga.fixed(cell_w))
     c.node.set_height(@yoga.fixed(week_h))
-    let label = name
+    let label = @i18n.t_or(
+      "gui.ui.datepicker.wd." + i.to_string(),
+      name,
+    )
     @style.apply(c, @style.merge_all([@style.style(color="text_secondary"), skin]))
     c.on_draw = Some(fn(
       self : @widget.Widget,

@@ -106,14 +106,28 @@ test "日期区间选择器：先点起点再点终点，写回整段并收起" 
 }
 
 ///|
+/// 弹层里的控件 `rect` 带弹层偏移（x 可为负），按窗口坐标命中会打空——
+/// 步进格与按钮格一律按 id 直投事件（坐标仍给控件本地位置）。
+fn tap_pop(root : @widget.Widget, w : @widget.Widget, fx : Double, fy : Double) -> Unit {
+  let x = w.rect.x + fx
+  let y = w.rect.y + fy
+  let _ = root.dispatch_pointer_to(w.id, {
+    kind: @widget.PointerKind::Down, x, y, button: 1, mods: 0,
+  })
+  let _ = root.dispatch_pointer_to(w.id, {
+    kind: @widget.PointerKind::Up, x, y, button: 1, mods: 0,
+  })
+}
+
+///|
 test "时间区间：步进器改值、确定写回、取消不改" {
-  let v : @base.Store[TimeRange] = @base.Store::new({ start: Some(TimeHM::{ h: 9, m: 0 }), end: None })
+  let v : @base.Store[TimeRange] = @base.Store::new({ start: Some(TimeHMS::{ h: 9, m: 0, s: 0 }), end: None })
   let changes : Array[String] = []
   let (root, row) = mounted_with_overlay(
     time_range_picker(
       v,
       on_change=fn(r : TimeRange) -> Unit {
-        let f = fn(t : TimeHM?) -> String {
+        let f = fn(t : TimeHMS?) -> String {
           match t {
             Some(x) => x.format()
             None => "-"
@@ -131,15 +145,13 @@ test "时间区间：步进器改值、确定写回、取消不改" {
   assert_eq(@widget.overlay_count(), 1)
   root.relayout(400.0, 300.0)
   let panel = picker_panel(@widget.overlay_top_id())
-  // 面板子项：标题 28 / 时步进 32 / 分步进 32 / 按钮行 32（标题是占位子件，
-  // 所以步进行从索引 1 起）
-  let hour_row = panel.children()[1]
-  let plus_hour = hour_row.children()[2]
-  click_at(root, plus_hour, 15.0, 14.0)
-  click_at(root, plus_hour, 15.0, 14.0)
+  // 面板行序：+ 行 / 数值行 / − 行 / 单位行 / 按钮行；每行列序：时 / 分隔 / 分
+  let plus_hour = panel.children()[0].children()[0]
+  tap_pop(root, plus_hour, 15.0, 12.0)
+  tap_pop(root, plus_hour, 15.0, 12.0)
   // 确定：按钮行第 2 个
-  let btn_row = panel.children()[3]
-  click_at(root, btn_row.children()[1], 30.0, 14.0)
+  let btn_row = panel.children()[4]
+  tap_pop(root, btn_row.children()[1], 30.0, 14.0)
   assert_eq(changes, ["11:00~-"])
   match v.get().start {
     Some(t) => assert_eq(t.format(), "11:00")
@@ -149,8 +161,8 @@ test "时间区间：步进器改值、确定写回、取消不改" {
   click_at(root, start_field, 40.0, 16.0)
   root.relayout(400.0, 300.0)
   let panel2 = picker_panel(@widget.overlay_top_id())
-  click_at(root, panel2.children()[1].children()[2], 15.0, 14.0)
-  click_at(root, panel2.children()[3].children()[0], 30.0, 14.0)
+  tap_pop(root, panel2.children()[0].children()[2], 15.0, 12.0)
+  tap_pop(root, panel2.children()[4].children()[0], 30.0, 14.0)
   assert_eq(changes.length(), 1)
   match v.get().start {
     Some(t) => assert_eq(t.format(), "11:00")
@@ -192,8 +204,8 @@ test "日期时间区间：日期走日历、时间走步进，两侧各写各�
   click_at(root, start_time, 30.0, 16.0)
   root.relayout(500.0, 300.0)
   let panel = picker_panel(@widget.overlay_top_id())
-  click_at(root, panel.children()[1].children()[2], 15.0, 14.0)
-  click_at(root, panel.children()[3].children()[1], 30.0, 14.0)
+  tap_pop(root, panel.children()[0].children()[0], 15.0, 12.0)
+  tap_pop(root, panel.children()[4].children()[1], 30.0, 14.0)
   match v.get().start {
     Some(p) => assert_eq(p.1.format(), "10:00")
     None => assert_true(false)
@@ -260,23 +272,65 @@ test "日期选择只读样式槽：class 覆盖字段底、日历面板与箭�
 }
 
 ///|
-test "时间弹层：顶部时间是占位的子件，第一行步进不被压住" {
-  let n = time_popup(TimeHM::{ h: 9, m: 0 }, fn(_) { () }, fn() { () })
-  let root = @widget.Widget::new()
-  root.set_size(300.0, 300.0)
-  root.set_column()
-  let panel = n.mount_into(root)
-  root.relayout(300.0, 300.0)
+test "时间弹层：四行自上而下 + / 数值 / − / 单位，纵向不重叠、秒列可选" {
+  fn mounted_panel(secs : Bool) -> @widget.Widget {
+    let n = time_popup(
+      TimeHMS::{ h: 9, m: 0, s: 0 },
+      fn(_) { () },
+      fn() { () },
+      show_seconds=secs,
+    )
+    let root = @widget.Widget::new()
+    root.set_size(320.0, 320.0)
+    root.set_column()
+    let panel = n.mount_into(root)
+    root.relayout(320.0, 320.0)
+    panel
+  }
+
+  let panel = mounted_panel(false)
   let kids = panel.children()
-  assert_eq(kids.length(), 4)
-  // 旧形态把时间画在面板 (0,0,28) 上、不占布局：第一行步进从 y=10 起被压住
-  assert_eq((kids[0].rect.y, kids[0].rect.h), (10.0, 28.0))
+  // 行序：+ / 数值 / − / 单位 / 按钮
+  assert_eq(kids.length(), 5)
+  // 旧形态把时间画在面板 (0,0,28) 上、不占布局：第一行步进被压住（真机反馈）
+  assert_eq(kids[0].rect.y, 10.0)
   let mut prev_end = 0.0
   for c in kids {
     assert_true(c.rect.y >= prev_end, msg="弹层子件纵向重叠")
     prev_end = c.rect.y + c.rect.h
   }
   assert_true(panel.rect.h >= prev_end + 10.0, msg="弹层高度没包住内容")
+  // 两列形态：每行 时 / 分隔 / 分 = 3 格（按钮行不参与）
+  for i = 0; i < 4; i = i + 1 {
+    assert_eq(kids[i].children().length(), 3)
+  }
+  // 开秒：多一列 → 每行 5 格
+  let panel3 = mounted_panel(true)
+  assert_eq(panel3.children()[0].children().length(), 5)
+  assert_eq(panel3.children()[1].children().length(), 5)
+}
+
+///|
+/// 列内步进口径：+ 与 − 都在同一列（行 0 与行 2 的同列号），时到 23 回 0、
+/// 分/秒到 59 回 0，写回值走确定的那条。
+test "时间弹层步进：时/分/秒各自回绕，分步进 1 分钟" {
+  let got : Array[String] = []
+  let n = time_popup(
+    TimeHMS::{ h: 23, m: 59, s: 59 },
+    fn(t : TimeHMS) -> Unit { got.push(t.format(show_seconds=true)) },
+    fn() { () },
+    show_seconds=true,
+  )
+  let root = @widget.Widget::new()
+  root.set_size(320.0, 320.0)
+  root.set_column()
+  let panel = n.mount_into(root)
+  root.relayout(320.0, 320.0)
+  // 行 0 = + 行：格 0/2/4 分别是时/分/秒的 +
+  click_at(root, panel.children()[0].children()[0], 15.0, 12.0)
+  click_at(root, panel.children()[4].children()[1], 30.0, 14.0)
+  // 只动时列：23 + 1 回 0，分秒原样带过
+  assert_eq(got, ["00:59:59"])
 }
 
 ///|

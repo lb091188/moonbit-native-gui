@@ -129,14 +129,14 @@
 
 ## 日期与时间
 
-值模型（`ui/datetime.mbt`）：`DateYMD{y,m,d}`、`TimeHM{h,m}`、`DateRange`、`TimeRange`、`DateTimeRange`，配纯函数 `month_grid`/`month_shift`/`days_in_month`/`date_weekday`/`range_state_of`。
+值模型（`ui/datetime.mbt`）：`DateYMD{y,m,d}`、`TimeHMS{h,m,s}`（秒默认 0，`format(show_seconds=true)` 出 `HH:MM:SS`）、`DateRange`、`TimeRange`、`DateTimeRange`，配纯函数 `month_grid`/`month_shift`/`days_in_month`/`date_weekday`/`range_state_of`。
 
 | 构造器 | 用途 |
 |---|---|
 | `calendar(on_pick? : (DateYMD) -> Unit, …)` | 内联月历：‹/› 切月，点选一天 |
 | `date_picker(value : Store[DateYMD?], on_change?, …)` | 日期选择：字段 + 月历浮层，选中回显 `YYYY-MM-DD` |
 | `date_range_picker(value : Store[DateRange], on_change?, …)` | 日期区间选择器 |
-| `time_range_picker(value : Store[TimeRange], on_change?, …)` | 时间区间选择器，步进器形态、非 `input` |
+| `time_range_picker(value : Store[TimeRange], on_change?, …, show_seconds?)` | 时间区间选择器，列式步进弹层（每列 + / 数值 / − / 单位，`:` 分隔，到界回绕），非 `input`；`show_seconds=true` 多一列秒 |
 | `datetime_range_picker(value : Store[DateTimeRange], on_change?, …)` | 日期时间区间选择器 |
 
 > 「今天」走 `wm_local_date` → `@shell.local_ymd()` 取系统日历时间；单调钟 `now_ms` 不能推日期。
