@@ -435,7 +435,7 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
           direction=@yoga.Row,
           column_gap=12.0,
           cursor=@widget.CURSOR_RESIZE_H,
-          padding=10.0,
+          padding=12.0,
         ),
       ],
       code=[
@@ -500,19 +500,20 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
         @ui.row(
           [
             @ui.view(
+              // 饱和主色底上的反白：token 集里没有反白档，这里的十六进制是唯一例外
               [@ui.text(@shared.tx("固定 80"), color="#ffffff")],
               direction=@yoga.Row,
               width=80.0,
               height=40.0,
-              background_color="#3A5F8A",
+              background_color="primary",
               align_items=@yoga.AlignItems::Center,
               justify_content=@yoga.JustifyContent::Center,
             ),
             @ui.view(
-              [@ui.text("50%", color="#ffffff")],
+              [@ui.text("50%", color="text_primary")],
               direction=@yoga.Row,
               height=40.0,
-              background_color="#8A3A5F",
+              background_color="primary_light",
               align_items=@yoga.AlignItems::Center,
               justify_content=@yoga.JustifyContent::Center,
               handle=fn(w : @widget.Widget) -> Unit {
@@ -520,11 +521,11 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
               },
             ),
             @ui.view(
-              [@ui.text("flex 1", color="#ffffff")],
+              [@ui.text("flex 1", color="text_regular")],
               direction=@yoga.Row,
               height=40.0,
               grow=1.0,
-              background_color="#5F8A3A",
+              background_color="fill_hover",
               align_items=@yoga.AlignItems::Center,
               justify_content=@yoga.JustifyContent::Center,
             ),

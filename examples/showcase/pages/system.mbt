@@ -459,7 +459,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
             @ui.switch(auto_on, on_text=@shared.tx("开启自启"), off_text=@shared.tx("关闭自启")),
             @ui.bind_label(auto_state, fn(s) { s }),
           ],
-          column_gap=10.0,
+          column_gap=8.0,
           align_items=@yoga.AlignItems::Center,
         ),
       ],

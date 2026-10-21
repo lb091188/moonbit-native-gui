@@ -266,6 +266,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
                 width=220.0,
                 height=64.0,
                 padding=8.0,
+                class=[@style.style(border_radius=6.0)],
               ),
               on_drop=fn(d : @widget.DragData, _x : Double, _y : Double) -> Unit {
                 match d {
@@ -292,6 +293,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
                 width=220.0,
                 height=64.0,
                 padding=8.0,
+                class=[@style.style(border_radius=6.0)],
               ),
               accept=fn(d : @widget.DragData) -> Bool {
                 d.kind() == @widget.DataKind::FilePaths
@@ -430,7 +432,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
                             }),
                           ],
                           row_gap=12.0,
-                          padding=20.0,
+                          padding=24.0,
                         ),
                       ])
                       multiwin_out.set(@shared.tr_with("dyn.child_opened", [("n", a.window_count().to_string())], "已开子窗，当前共 \{a.window_count().to_string()} 扇"))

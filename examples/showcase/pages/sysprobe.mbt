@@ -63,10 +63,11 @@ fn sp_panel(
     ],
     width=width,
     row_gap=4.0,
-    padding=10.0,
+    padding=12.0,
     align_items=@yoga.AlignItems::FlexStart,
     background_color="bg_panel",
     border_color="border",
+    class=[@style.style(border_radius=6.0)],
   )
 }
 
@@ -93,12 +94,12 @@ fn sp_group(
         @ui.button(btn_label, variant=@ui.Solid, on_click=fn() { refresh() }),
         @ui.text(@shared.tx("读数因机而异；读不到的族显示原因，不影响其余部分。"), role=@ui.Secondary),
       ],
-      column_gap=10.0,
+      column_gap=8.0,
       align_items=@yoga.AlignItems::Center,
     ),
     @ui.row(
       boxes,
-      column_gap=10.0,
+      column_gap=8.0,
       align_items=@yoga.AlignItems::FlexStart,
     ),
   ]

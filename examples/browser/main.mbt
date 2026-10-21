@@ -354,6 +354,7 @@ fn main {
         ],
         column_gap=6.0,
         padding=8.0,
+        background_color="bg_panel",
         align_items=@yoga.AlignItems::Center,
       ),
       // webview 主体（建好后 mount 进来；引擎不在位则降级说明板）
@@ -402,7 +403,7 @@ fn main {
           ),
           @ui.row(
             [
-              @ui.text("结果", role=@ui.Secondary, font_size=12.0),
+              @ui.text("结果", role=@ui.Secondary),
               @ui.text_dyn(
                 result_view.signal(),
                 font_size=12.0,
@@ -431,6 +432,7 @@ fn main {
         ],
         padding=8.0,
         row_gap=4.0,
+        background_color="bg_panel",
       ),
     ],
     grow=1.0,
