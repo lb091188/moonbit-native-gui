@@ -419,10 +419,13 @@ test "密码遮罩：光标按遮罩串宽度定位（不是原文字宽）" {
     Some(m) => m.width.to_double()
     None => 0.0
   }
-  // 圆点与数字谁宽按平台字体集定（mac 的遮罩反而比数字窄），判据只咬一条：
-  // 光标贴的是**遮罩串**宽度。两者宽度差得开（>1px）才说明这条判据有区分度。
+  // 判据只咬一条与字体集无关的：光标贴的是**遮罩串**宽度。
   let rel = cur - w.rect.x
-  assert_true((mask_w - raw_w).abs() > 1.0)
   assert_true(rel >= pad + mask_w - 1.0 && rel <= pad + mask_w + 1.0)
-  assert_true((rel - (pad + raw_w)).abs() > 1.0)
+  // 「按原文字宽定位」的老毛病，只有在遮罩点与数字不同宽的字体集上才看得出来
+  // （DejaVu 的 `•` 与数字同宽、mac 的更窄）；同宽平台这条无从区分，跳过。
+  // CI 踩过：把「两者必须不同宽」当硬判据，在 Linux CI 上直接红。
+  if (mask_w - raw_w).abs() > 1.0 {
+    assert_true((rel - (pad + raw_w)).abs() > 1.0)
+  }
 }

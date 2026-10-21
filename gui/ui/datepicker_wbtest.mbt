@@ -368,7 +368,17 @@ test "日期段标签不折行：测量宽与断行口径一致" {
   let kids = colw.children()
   let labs = kids[1].children()
   // 单行标签与单行值同高（折行会让标签高出一整行）
-  assert_eq(labs[0].rect.h, labs[1].rect.h, msg="「选中：」标签折成了多行")
+  // 失败时把三量都带出来：盒宽、按测量口算出的应需宽、平台字体集给的像素 advance
+  // 合计——Linux(Pango) 与 mac(CoreText) 的小数口径不同，光看「折行了」定不了位。
+  let want = match @text.measure_font("选中：", @text.Font::new("", 13.0)) {
+    Some(m) => m.width
+    None => -1
+  }
+  assert_eq(
+    labs[0].rect.h,
+    labs[1].rect.h,
+    msg="「选中：」标签折成了多行：盒宽=\{labs[0].rect.w} 测量宽=\{want} 值标签高=\{labs[1].rect.h}",
+  )
   // 行整体落在 picker 之下，纵向不重叠
   assert_true(kids[1].rect.y >= kids[0].rect.y + kids[0].rect.h, msg="选中行压住 picker")
   ignore(root)
