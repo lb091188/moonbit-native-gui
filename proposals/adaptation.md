@@ -3032,3 +3032,10 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **根因**：`form_item` 的错误行走 `text_dyn(..., color="danger")`，而 `text_dyn` **不像 `text` 那样把散参数 `color` 折进样式槽**：`text` 那条是 `fg_block` → 样式槽 → 绘制期 `resolve_color(Var("danger"))` → 主题 hex；`text_dyn` 把串原样塞进 `TextSource.color`，`src.fg()` 又原样返回 `"danger"`，交给只认 hex 的文本层解析（`@render.Color::parse` 逐字符吃十六进制，`n` 一位就 `None`）→ 回退 `{0,0,0}` 黑。同一条取色口还管着 `bind`/`bind_label` 的 `color="text_secondary"`，凡散参数写 token 名都是黑字；样式表里那条 `form_error_base`（`color="danger"`）从来没接进这条链，所以缺陷一路活到真机。
 - **修**：`TextSource::fg()` 出口统一落色——空串照旧按角色现取主题色，给了串的过一遍 `parse_color` + `resolve_color`：hex 与命名色原样（与样式槽那条同口径），token 名在**绘制期**现取当前主题，换主题/暗色当场跟着变、不固化。修在这一处而不是给 `text_dyn` 补折块：`fg()` 是所有 `TextSource` 绘制路径的唯一取色口，`bind` 那条一起受益，也不必把 `text` 已有的折块改第二遍。
 - **验证**：`ui/basic_wbtest` 新增「文本散参数给 token 名：绘制期现取主题色，不落黑」——内存位图画一遍，数红通道压过绿蓝的墨像素；判据吃的是颜色像素，所以先拿 `#ff0000` **探一次管道**（本机文本层能否把 hex 落进位图），落不进去的平台打印跳过，不给假红。**回退验证**：把 `fg()` 改回原样返回串，该条即红并打出「红像素=0 黑像素=313」，与真机看到的一致。`cd gui && moon check` 零错误零警告、库门禁 591/591、`examples/showcase` `moon build` 零警告。**待真机**：`moon run examples/showcase` → 表单页「表单校验」清空必填项看错误文案是 danger 红；切暗色主题看红跟着主题走；切英文仍是同一条红字（消息换语言、颜色不换）。
+
+## 日期段那条长期红测：判据咬错了量（Linux 19/17 是折行档行带，不是折行）（2026-10-21，按 CI 数字定案）
+
+- **现象**：`ui/datepicker_wbtest.mbt:340` 在 Linux CI 上长期红、mac 本地绿。上一轮把四个量打进失败消息，这轮 CI 给出：标签高=19 值高=17 盒宽=45 测量宽=45。
+- **定案**：盒宽 == 测量宽 ⇒ 文本一行放得下，**根本没折**（真折行会是 ~34）。差的 2px 只能来自两条标签的测量档不同（同字号 13、同字族、同单行）：`text(role=Body)` 默认折行，带父给的宽度约束去量；`bind_label` 不折行，走自然宽度档。也就是说 Pango 在「set_width + WRAP_WORD_CHAR」那档用 `pango_layout_get_pixel_size` 报出的单行行带比自然档高 2px，CoreText 两档刚好相等。
+- **结论：判据写错了量，不是实现坏了**。这条用例要守的是「标签别折行、别压住 picker」——mac 上真实坏过（测量宽四舍五入报窄 1px → 折成两行 → 变高的盒行内垂直居中，把首行墨迹骑到 picker 下缘）。「两条盒高相等」从来不是这条缺陷的判据，只是 mac 上的巧合，拿它当判据就把 Linux 永久钉红。改成按**本平台自己的单行高**（值标签）算尺子：标签盒 ≥ 两倍单行高即折行；「选中行不压 picker」那条照旧。折行时新判据同样红（34 ≥ 2×17−1），mac 行为不变。
+- **验证**：`moon test ui -f "*日期段标签*"` mac 绿；**待 CI 回验**：Linux 该项转绿（这条不需要真机——CI 的四个量已经足够定案）。
