@@ -21,6 +21,7 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
   let wifi_on : @base.Store[Bool] = @base.Store::new(true)
   let locked : @base.Store[Bool] = @base.Store::new(false)
   let dtr : @base.Store[@ui.DateTimeRange] = @base.Store::new({ start: None, end: None })
+  let tr_secs : @base.Store[@ui.TimeRange] = @base.Store::new({ start: None, end: None })
   let nick : @base.Store[String] = @base.Store::new("")
   let mail : @base.Store[String] = @base.Store::new("")
   let err_nick = @ui.validate(nick, @ui.all([@ui.required(), @ui.min_len(2)]))
@@ -171,7 +172,7 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
     @shared.section(
       "日期",
       "日期与时间选择",
-      "全自绘月历（‹/› 切月）+ 内联 calendar；日期区间与日期时间区间选择器，选中值住 Store。",
+      "全自绘月历（‹/› 切月）+ 内联 calendar；日期区间与日期时间区间选择器，选中值住 Store。时间弹层是列式步进：每列自上而下 + / 数值 / − / 单位，列间以 `:` 分隔，时 0-23、分秒 0-59 到界回绕；`show_seconds=true` 多一列秒。占位串、月历表头与星期名、确定/取消都走 `gui.ui.datepicker.*` 取译口，切语言即时换。",
       [
         @ui.col(
           [
@@ -197,12 +198,36 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
           @ui.datetime_range_picker(dtr),
           @ui.bind_label(dtr, fn(r) {
             match (r.start, r.end) {
-              (Some((sd, st)), Some((ed, et))) =>
-                "日期时间区间：\{sd.format()} \{st.format()} ~ \{ed.format()} \{et.format()}"
+              (Some((sd, st)), Some((ed, et))) => @shared.tr_with(
+                  "dyn.dt_range",
+                  [
+                    ("a", sd.format()),
+                    ("b", st.format()),
+                    ("c", ed.format()),
+                    ("d", et.format()),
+                  ],
+                  "日期时间区间：\{sd.format()} \{st.format()} ~ \{ed.format()} \{et.format()}",
+                )
               _ => @shared.tx("日期时间区间：未完成选择")
             }
           }),
-        ]),
+        ], row_gap=6.0),
+        @ui.col(
+          [
+            @ui.time_range_picker(tr_secs, show_seconds=true, width=120.0),
+            @ui.bind_label(tr_secs, fn(r) {
+              match (r.start, r.end) {
+                (Some(a), Some(b)) => @shared.tr_with(
+                    "dyn.t_range",
+                    [("a", a.format(show_seconds=true)), ("b", b.format(show_seconds=true))],
+                    "时间区间：\{a.format(show_seconds=true)} ~ \{b.format(show_seconds=true)}",
+                  )
+                _ => @shared.tx("时间区间：未完成选择")
+              }
+            }),
+          ],
+          row_gap=6.0,
+        ),
       ],
       code=[
         "let dp : @base.Store[@ui.DateYMD?] = @base.Store::new(None)",
@@ -211,6 +236,7 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
         "@ui.calendar()",
         "let dtr : @base.Store[@ui.DateTimeRange] = @base.Store::new({ start: None, end: None })",
         "@ui.datetime_range_picker(dtr)",
+        "@ui.time_range_picker(tr, show_seconds=true, width=120.0)",
       ],
     ),
     @shared.section(
