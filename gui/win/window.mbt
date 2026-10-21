@@ -135,6 +135,14 @@ pub fn Window::set_transparent_bg(self : Window, on : Bool) -> Unit {
 /// 窗口层级档位。桌面拆两档：`Desktop`=桌面图标之下（壁纸场景，鼠标事件归桌面），
 /// `DesktopWidget`=图标之上、普通窗口之下（桌面小部件场景，本窗自己收事件）；
 /// 两档都不进任务栏、常驻各工作区。目标层由窗口管理器/Shell 兑现。
+/// 三平台兑现的具体内容：
+/// - Linux(X11)：`Desktop`/`DesktopWidget` 走 WM 的 `_NET_WM_WINDOW_TYPE_DESKTOP`
+///   与 `KEEP_BELOW`/`STICKY`/`SKIP_TASKBAR` 状态；`Dock` 走 `TYPE_DOCK` + `KEEP_ABOVE`。
+/// - Windows：`Desktop*` 压到 `HWND_BOTTOM`，`AlwaysOnTop` 与 `Dock` 都是
+///   `HWND_TOPMOST`（Shell 没有给普通 App 预留工作区的公共通道）。
+/// - macOS：三档面板类都配 `CanJoinAllSpaces | Stationary`（切 Space 也跟着在），
+///   `Dock` 再叠 `FullScreenAuxiliary` 并取 Dock 层——盖在全屏 App 的 Space 之上，
+///   这是 Cocoa 上「面板常驻」的正规形态。
 pub(all) enum WindowLayer {
   Normal
   Desktop

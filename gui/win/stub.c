@@ -8139,31 +8139,47 @@ void wm_set_opacity(int64_t id, int alpha) {
   }
 }
 
-// W34 窗口层级：0=normal 1=desktop(沉底) 2=always-on-top 3=dock。
-// Cocoa 直接给 CGWindowLevelForKey 的对应档。
+// W34 窗口层级：0=normal 1=desktop(沉底) 2=always-on-top 3=dock 4=桌面小部件。
+// Cocoa 除了给 CGWindowLevelForKey 的档位，还要配 collectionBehavior：
+// 只改 level 的话窗口仍只属于当前 Space，切 Space / 进全屏 App 就看不见了，
+// 用户侧观感是「Dock 档没效果」。三档面板类都按文档口径钉跨工作区。
 void wm_set_layer(int64_t id, int layer) {
   @autoreleasepool {
     WMState *s = wm_state(id);
     if (s == nil) {
       return;
     }
+    // 桌面两档与 Dock 档都常驻各工作区且不进窗口循环；差别在层级与是否盖全屏
+    NSWindowCollectionBehavior panel_behavior =
+      NSWindowCollectionBehaviorCanJoinAllSpaces |
+      NSWindowCollectionBehaviorStationary |
+      NSWindowCollectionBehaviorIgnoresCycle;
     switch (layer) {
     case 1:
       // 图标下：壁纸档，事件归 Finder 的桌面
       [s.win setLevel:CGWindowLevelForKey(kCGDesktopWindowLevelKey)];
+      [s.win setCollectionBehavior:panel_behavior];
       break;
     case 4:
       // 图标上、普通窗口下：桌面小部件档，本窗照收键鼠
       [s.win setLevel:CGWindowLevelForKey(kCGDesktopIconWindowLevelKey)];
+      [s.win setCollectionBehavior:panel_behavior];
       break;
     case 2:
       [s.win setLevel:CGWindowLevelForKey(kCGFloatingWindowLevelKey)];
+      [s.win setCollectionBehavior:NSWindowCollectionBehaviorDefault];
       break;
     case 3:
+      // Dock 档：跟系统 Dock 同一层，并且盖在全屏 App 的 Space 之上
+      // （FullScreenAuxiliary 是 macOS 上「面板常驻」的正规口径，无 AppBar 那套
+      // 预留工作区的公共 API）
       [s.win setLevel:CGWindowLevelForKey(kCGDockWindowLevelKey)];
+      [s.win setCollectionBehavior:panel_behavior |
+        NSWindowCollectionBehaviorFullScreenAuxiliary];
       break;
     default:
       [s.win setLevel:CGWindowLevelForKey(kCGNormalWindowLevelKey)];
+      [s.win setCollectionBehavior:NSWindowCollectionBehaviorDefault];
       break;
     }
   }
