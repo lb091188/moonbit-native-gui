@@ -113,13 +113,16 @@ pub fn text_source(
 }
 
 ///|
-/// 生效颜色：空串走主题正文色（主题切换后现取，不固化）。
+/// 生效颜色：空串走主题正文色（主题切换后现取，不固化）。给了串也不直接把串
+/// 交给文本层——`text_dyn`/`bind` 这类散参数 `color` 不进样式槽，token 名（`danger`）
+/// 到了只认 hex 的绘制层会被解析成黑字，所以在这里现取当前主题落色。
 pub fn TextSource::fg(self : TextSource) -> String {
-  if self.color.length() == 0 {
+  let raw = if self.color.length() == 0 {
     role_color(self.role)
   } else {
     self.color
   }
+  @style.resolve_color(@style.parse_color(raw))
 }
 
 ///|
