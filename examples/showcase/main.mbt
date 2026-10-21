@@ -334,35 +334,41 @@ fn main {
           @ui.col(
             [
               nav.view(None),
-              // 对话框挂窗口根：锚点自己是 0 尺寸占位，可见性只由 Store 驱动
-              @ui.dialog(
-                app.dlg_basic,
-                "删除确认",
-                [
-                  @ui.alert(
-                    "此操作不可撤销，请确认。",
-                    t=@ui.Warning,
-                    closable=true,
-                  ),
-                  @ui.text("确定要删除「示例项目」吗？", role=@ui.Body),
-                ],
-                confirm_text="删除",
-                cancel_text="取消",
-                on_confirm=fn() { app.dlg_result.set("已确认删除") },
-                close_on_mask=true,
-              ),
-              @ui.dialog(
-                app.dlg_form,
-                "新建连接",
-                [
-                  @ui.text("名称", role=@ui.Body),
-                  @ui.input(app.dlg_name, placeholder="例如：开发库", width=320.0),
-                  @ui.text("地址", role=@ui.Body),
-                  @ui.input(@base.Store::new(""), placeholder="host:port", width=320.0),
-                ],
-                on_confirm=fn() { app.dlg_result.set(app.dlg_name.get()) },
-                width=380.0,
-              ),
+              // 对话框挂窗口根：锚点自己是 0 尺寸占位，可见性只由 Store 驱动。
+              // 内容不在路由树上，切语言时没人替它重建 → 各套一层 `@widget.localized`，
+              // 换目录原位重建成当前语言的串（开着的那一层会按 Store 重开，内容换新的）。
+              @widget.localized(fn() -> @widget.Node {
+                @ui.dialog(
+                  app.dlg_basic,
+                  @shared.tx("删除确认"),
+                  [
+                    @ui.alert(
+                      @shared.tx("此操作不可撤销，请确认。"),
+                      t=@ui.Warning,
+                      closable=true,
+                    ),
+                    @ui.text(@shared.tx("确定要删除「示例项目」吗？"), role=@ui.Body),
+                  ],
+                  confirm_text=@shared.tx("删除"),
+                  cancel_text=@shared.tx("取消"),
+                  on_confirm=fn() { app.dlg_result.set(@shared.tx("已确认删除")) },
+                  close_on_mask=true,
+                )
+              }),
+              @widget.localized(fn() -> @widget.Node {
+                @ui.dialog(
+                  app.dlg_form,
+                  @shared.tx("新建连接"),
+                  [
+                    @ui.text(@shared.tx("名称"), role=@ui.Body),
+                    @ui.input(app.dlg_name, placeholder=@shared.tx("例如：开发库"), width=320.0),
+                    @ui.text(@shared.tx("地址"), role=@ui.Body),
+                    @ui.input(@base.Store::new(""), placeholder="host:port", width=320.0),
+                  ],
+                  on_confirm=fn() { app.dlg_result.set(app.dlg_name.get()) },
+                  width=380.0,
+                )
+              }),
             ],
             grow=1.0,
           ),
