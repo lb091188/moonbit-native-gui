@@ -164,7 +164,7 @@ Pick a page in the left menu and write against it on the right; each page's sour
 
 This library aims at writing native desktop apps in MoonBit. It now covers self-drawn widgets, charts, Markdown, an embedded WebView, and system capabilities — and there is still a lot worth doing:
 
-- **Platform compatibility**: mainline verification runs on Ubuntu (XFCE/GNOME/KDE) and Windows; the macOS backend is landing on the `mac` branch and not yet merged into master — whatever you hit on a Mac is valuable input.
+- **Platform compatibility**: Windows, Linux (Ubuntu XFCE/GNOME/KDE, Deepin) and macOS (Apple Silicon) are all verified on real devices against the same checklist (`测试文档/测试用例.md`); newly found platform differences are welcome as reports.
 - **Widgets and capabilities**: un-wrapped items and per-platform adaptation pitfalls are all welcome as issues first.
 - **Docs and examples**: the tutorial, component docs, and every showcase page are open for improvement.
 

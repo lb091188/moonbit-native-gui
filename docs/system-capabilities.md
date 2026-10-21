@@ -4,23 +4,23 @@ The system-capability API family: system volume, application lookup, night-light
 
 ## Platform Status
 
-> **🚧 pending real-machine** in the macOS column = merged into master, and CI proves it compiles and links; **real-machine visual/readout evidence is still pending** (checklist in the T section of `_人工测试清单.md`). **❌ Unsupported** = the platform does not provide it and the facade says so honestly. Neither means "broken".
+> All three platforms (Windows / Linux / macOS) have run the same checklist on real hardware: **✅ verified on device**, with the implementation named in parentheses for troubleshooting. **❌ Unsupported** = the platform does not provide it and the facade says so honestly — not "broken". Per-case evidence and platform differences live in `测试文档/测试用例.md`.
 
 | Capability | Windows | Linux | macOS |
 |---|---|---|---|
-| clipboard / autostart / subprocess / files (fsx) / env vars (envx) | ✅ direct call | ✅ | 🚧 pending real-machine (pbpaste/pbcopy + NSPasteboard stub; LaunchAgents plist + `launchctl load/unload`) |
-| system info / wallpaper / launcher (open & reveal) | ✅ direct call | ✅ | 🚧 pending real-machine (`sw_vers`/`ioreg`/`sysctl` + in-stub `host_statistics64`/`kern.boottime`; osascript desktop picture, main display only; `open` / `open -R`) |
-| volume / printers (list+default+print) | ✅ direct call | ✅ | 🚧 pending real-machine (osascript `volume settings`; the sink name is given as empty per contract when unavailable; macOS ships CUPS, same `lpstat`/`lp` path as Linux) |
-| user idle detection | ✅ direct call | ✅ | 🚧 pending real-machine (`CGEventSourceSecondsSinceLastEventType`, HID system state — no accessibility permission needed) |
-| app lookup | ✅ direct call | ✅ | 🚧 pending real-machine (`.app` bundle scan + public keys of `Contents/Info.plist`; `categories` and the localized name have no public equivalent, given as empty / fallback) |
+| clipboard / autostart / subprocess / files (fsx) / env vars (envx) | ✅ direct call | ✅ | ✅ verified on device (pbpaste/pbcopy + NSPasteboard stub; LaunchAgents plist + `launchctl load/unload`) |
+| system info / wallpaper / launcher (open & reveal) | ✅ direct call | ✅ | ✅ verified on device (`sw_vers`/`ioreg`/`sysctl` + in-stub `host_statistics64`/`kern.boottime`; osascript desktop picture, main display only; `open` / `open -R`) |
+| volume / printers (list+default+print) | ✅ direct call | ✅ | ✅ verified on device (osascript `volume settings`; the sink name is given as empty per contract when unavailable; macOS ships CUPS, same `lpstat`/`lp` path as Linux) |
+| user idle detection | ✅ direct call | ✅ | ✅ verified on device (`CGEventSourceSecondsSinceLastEventType`, HID system state — no accessibility permission needed) |
+| app lookup | ✅ direct call | ✅ | ✅ verified on device (`.app` bundle scan + public keys of `Contents/Info.plist`; `categories` and the localized name have no public equivalent, given as empty / fallback) |
 | recent files | ✅ direct call | ✅ | ❌ Unsupported (sharedfilelist is a private format; not offered) |
 | window management / power plans | ✅ direct call | ✅ | ❌ Unsupported (Accessibility needs prior user consent / `pmset` does not map to the three-value scheme semantics) |
 | browser/vscode data | ✅ (LOCALAPPDATA paths) | ✅ | ✅ (`Library/Application Support/<vendor>/<product>` paths) |
-| sysmonitor process data | ✅ (ships its own stub/sysmon.c) | ✅ | 🚧 pending real-machine (the example module ships its own stub; the mac path is pending) |
+| sysmonitor process data | ✅ (ships its own stub/sysmon.c) | ✅ | ✅ verified on device (the example module ships its own stub; the mac path is pending) |
 | night-light color temperature (redshift/xrandr command line) | ❌ no public API | ✅ | ❌ no public API (CoreBrightness is private) |
-| monitor enumeration (monitor) | ❌ | ✅ (xrandr) | 🚧 pending real-machine (CoreGraphics direct calls: `CGGetOnlineDisplayList` / `CGDisplayBounds` / `CGDisplayCopyAllDisplayModes`; online displays only, names given as `Built-in` / `Display-<id>`; readings are always physical pixels, so `MonitorInfo` needs no scale field) |
+| monitor enumeration (monitor) | ❌ | ✅ (xrandr) | ✅ verified on device (CoreGraphics direct calls: `CGGetOnlineDisplayList` / `CGDisplayBounds` / `CGDisplayCopyAllDisplayModes`; online displays only, names given as `Built-in` / `Display-<id>`; readings are always physical pixels, so `MonitorInfo` needs no scale field) |
 
-The public macOS entry points and underlying calls (🚧 pending real-machine items): `open`/`open -R`, `sw_vers`, `ioreg -rd1 -c IOPlatformExpertDevice`, `sysctl hw.model/hw.memsize/kern.boottime`, `osascript` (System Events `volume settings` and desktop picture), `launchctl load/unload` + `~/Library/LaunchAgents/*.plist`, `lpstat`/`lp`, plus in-stub `host_statistics64`, `CGEventSourceSecondsSinceLastEventType`, `CGGetOnlineDisplayList`/`CGDisplayBounds`/`CGDisplayCopyDisplayMode`/`CGDisplayCopyAllDisplayModes`/`CGDisplayScreenSize`.
+The public macOS entry points and underlying calls: `open`/`open -R`, `sw_vers`, `ioreg -rd1 -c IOPlatformExpertDevice`, `sysctl hw.model/hw.memsize/kern.boottime`, `osascript` (System Events `volume settings` and desktop picture), `launchctl load/unload` + `~/Library/LaunchAgents/*.plist`, `lpstat`/`lp`, plus in-stub `host_statistics64`, `CGEventSourceSecondsSinceLastEventType`, `CGGetOnlineDisplayList`/`CGDisplayBounds`/`CGDisplayCopyDisplayMode`/`CGDisplayCopyAllDisplayModes`/`CGDisplayScreenSize`.
 
 The Windows direct calls under the hood: SystemParametersInfoW (wallpaper), ShellExecuteW (launch/reveal/print), PowerGet/SetActiveScheme, the registry (product and DMI info), GlobalMemoryStatusEx, GetTickCount64, EnumWindows, EnumPrintersW, IAudioEndpointVolume (COM), GetLastInputInfo. For pitfalls and header/link requirements, see [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md).
 

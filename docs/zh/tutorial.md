@@ -164,7 +164,7 @@ moon run examples/showcase    # 基础/表单/导航/数据展示/反馈/事件�
 
 这个库的目标是用 MoonBit 写原生桌面应用，现覆盖自绘控件、图表、Markdown、内嵌 WebView 与系统能力，值得做的事还很多：
 
-- **平台兼容**：主力验证在 Ubuntu（XFCE/GNOME/KDE）与 Windows；macOS 后端在 `mac` 分支落地中、尚未合流 master——你在 mac 上跑出的任何问题都是宝贵输入。
+- **平台兼容**：Windows、Linux（Ubuntu XFCE/GNOME/KDE、Deepin）、macOS（Apple Silicon）三平台均已真机验证，按 `测试文档/测试用例.md` 同一份清单同步维护；新踩到的平台差异欢迎回报。
 - **控件与能力**：还没封装的条目、各平台的适配坑，都欢迎从 issue 开始讨论。
 - **文档与示例**：教程、组件文档、演示板每一页的例子，都欢迎改进。
 

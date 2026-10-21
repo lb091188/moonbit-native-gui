@@ -1,6 +1,6 @@
 # Documentation Index
 
-**native-gui** is a cross-platform desktop GUI framework for MoonBit. One codebase ships native Windows 🟩 / Linux 🟩 windows with desktop capabilities ready to use, and macOS 🟨 is merged into master (real-machine verification in progress); windows, pixels, the event loop, layout and widgets are all implemented in pure MoonBit; the mooncakes package is `NoahLiu/native-gui`.
+**native-gui** is a cross-platform desktop GUI framework for MoonBit. One codebase ships native Windows 🟩 / Linux 🟩 / macOS 🟩 windows with desktop capabilities ready to use; windows, pixels, the event loop, layout and widgets are all implemented in pure MoonBit; the mooncakes package is `NoahLiu/native-gui`.
 
 ## Package structure
 

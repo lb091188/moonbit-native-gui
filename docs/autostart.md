@@ -8,7 +8,7 @@
 |---|---|---|
 | Linux | Writes `<app_id>.desktop` into the XDG autostart directory | `$XDG_CONFIG_HOME/autostart/`, falling back to `$HOME/.config/autostart/` when unset |
 | Windows | Writes a value under HKCU `Software\Microsoft\Windows\CurrentVersion\Run` | The value name is the app_id; the value is the double-quoted executable path |
-| macOS | LaunchAgents plist + `launchctl load` / `unload` (real-machine verification pending) | `~/Library/LaunchAgents/<app_id>.plist` — Label is the app_id, ProgramArguments holds the executable, RunAtLoad true |
+| macOS | LaunchAgents plist + `launchctl load` / `unload` (verified on device) | `~/Library/LaunchAgents/<app_id>.plist` — Label is the app_id, ProgramArguments holds the executable, RunAtLoad true |
 
 ## API
 
