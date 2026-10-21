@@ -521,7 +521,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
     @shared.section(
       "层级",
       "窗口层级嵌入",
-      "`Window::set_layer` 换窗口的 z-order 档位：Normal 普通、Desktop 图标下（壁纸场景，鼠标事件归桌面）、DesktopWidget 图标上（桌面小部件场景，本窗照收键鼠）、AlwaysOnTop 置顶、Dock 面板档；桌面两档不进任务栏、常驻各工作区。Linux 改 `_NET_WM_WINDOW_TYPE`（换档时重挂窗口）并按 `_NET_WM_STATE` 的 BELOW/ABOVE/SKIP_* 请 WM 重排，macOS 走 `kCGDesktopWindowLevelKey`/`kCGDesktopIconWindowLevelKey`，Win32 走 `SetWindowPos` 的 BOTTOM/TOPMOST；目标层由窗口管理器/Shell 兑现，Windows 的桌面窗归 Explorer，客户窗压不进图标之下。",
+      "`Window::set_layer` 换窗口的 z-order 档位：Normal 普通、Desktop 图标下（壁纸场景，鼠标事件归桌面）、DesktopWidget 图标上（桌面小部件场景，本窗照收键鼠）、AlwaysOnTop 置顶、Dock 面板档；桌面两档不进任务栏、常驻各工作区。Linux 改 `_NET_WM_WINDOW_TYPE`（换档时重挂窗口）并按 `_NET_WM_STATE` 的 BELOW/ABOVE/SKIP_* 请 WM 重排，macOS 除取 `kCGDesktopWindowLevelKey`/`kCGDesktopIconWindowLevelKey` 等档位外还配 `CanJoinAllSpaces|Stationary`（切 Space 也跟着在），Dock 档再叠 `FullScreenAuxiliary` 并取 Dock 层——盖在全屏 App 的 Space 之上，这是 Cocoa 上面板常驻的正规形态（没有 AppBar 那套预留工作区的公共 API），Win32 走 `SetWindowPos` 的 BOTTOM/TOPMOST（Dock 档等同置顶）；目标层由窗口管理器/Shell 兑现，Windows 的桌面窗归 Explorer，客户窗压不进图标之下。",
       [
         @ui.row(
           [
