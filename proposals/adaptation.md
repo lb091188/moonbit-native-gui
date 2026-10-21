@@ -3006,3 +3006,14 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **根因**：Cocoa 分支的 `wm_set_layer` 只 `[win setLevel:CGWindowLevelForKey(...)]`。CG 层级是全局排序键，改完确实比普通窗高——但**窗口仍只属于它所在的那个 Space**，也不会进别的 App 的全屏 Space；而 `AlwaysOnTop` 已经给到 floating 层，两档在「同一个 Space、没有别的层可压」的场景下视觉等价，所以用户读到的是「没效果」。Linux 那侧不是这样：`_NET_WM_WINDOW_TYPE_DOCK` + `_NET_WM_STATE_ABOVE/STICKY/SKIP_TASKBAR` 由 WM 兑现，档位差别是实打实的（不进任务栏、跨工作区常驻）。
 - **修**：mac 三档面板类（`Desktop`/`DesktopWidget`/`Dock`）统一配 `CanJoinAllSpaces | Stationary | IgnoresCycle`（切 Space 跟着在、切 Space 动画里不位移、不进窗口循环），`Dock` 再叠 `FullScreenAuxiliary` 并把层取 `kCGDockWindowLevelKey`——盖在全屏 App 的 Space 之上，这就是 Cocoa 上「面板常驻」的正规形态。回到 `Normal`/`AlwaysOnTop` 显式写回 `NSWindowCollectionBehaviorDefault`，不留上一档的行为位。**不做的**：macOS 没有 Windows AppBar 那种「预留工作区」的公共 API，Dock 档在 mac 不会挤压别的窗口；Windows 侧 `Dock` 仍等于 `HWND_TOPMOST`，这条口径写进 `WindowLayer` 的注释与演示段说明，免得按 Linux 的语义去预期。
 - **验证**：`clang -fsyntax-only -x objective-c -fobjc-arc -DWM_STUB_MAC gui/win/stub.c` 通过（只剩既有的 API 弃用告警）；`cd gui && moon check` 零错误零警告；`moon test win base` 68/68；`examples/showcase` `moon build` 零警告。**待真机（mac）**：`moon run examples/showcase` → 窗口页「层级」：①点 Dock 后切到另一个 Space（或把别的 App 放全屏）窗口应跟过去、并浮在全屏之上，点「普通」后不再跟；②点「置顶」切 Space 应留在原 Space（与 Dock 档的区分点）；③桌面两档沉到壁纸/图标层且切 Space 常驻；④Windows 上复看 Dock 档=置顶、不预留工作区，与说明一致。
+
+## Dock 档收敛成「面板身份」而不是「窗口类型」（2026-10-21，逐轴对比后定的口径）
+
+- **为什么要改**：把 Dock 档按可观察轴摊开对比后，原语义是空的——Windows 上 `case 3` 与 `case 2` 同一行代码（纯别名）；Linux 靠 `TYPE_DOCK` 让 WM「按惯例」把它逐出任务栏/窗口列表/焦点列表，代码反而**主动发了 `SKIP_TASKBAR=0`**；macOS 只改 `level`，跨 Space 与全屏都不跟（就是上一节那条）。「能不能统一去边框」这条更是走不通：装饰归 WM/系统，客户端唯一「能」去掉装饰的办法是换窗口类型，而那正是连带把键盘焦点一起弄丢的做法。
+- **定下来的承诺**：面板三档（`Dock`/`Desktop`/`DesktopWidget`）只承诺三件事——**不进任务栏与窗口列表、不进窗口循环、跨工作区常驻**，`Dock` 另带压顶。**边框与装饰明确不在承诺内**，外观照调用方的 `styleMask` 与用户自己的系统窗口设置走。
+- **各平台落到哪条机制**：
+  - X11：不再换窗口类型（`kind` 只给「图标下」保留 `TYPE_DESKTOP`——那一档非压到图标之下不可），身份改由 `_NET_WM_STATE_ABOVE / SKIP_TASKBAR / SKIP_PAGER / STICKY` 显式声明，`skip_taskbar_hint/skip_pager_hint` 同步给 `panel` 三档 TRUE。好处：装饰与焦点不动、WM 不必猜、Wayland 下也至少是个诚实的客户端提示。
+  - Win32：`WS_EX_TOOLWINDOW`（1/3/4 三档给，切回普通/置顶清掉），并补一次 `SWP_FRAMECHANGED` 请 WM 重报框架——不改这个，任务栏与 Alt+Tab 的缓存要等下一次窗口变动才刷新，当场看着「没反应」。叠放仍走 `SetWindowPos` 的 TOPMOST/BOTTOM。
+  - macOS：`CanJoinAllSpaces | Stationary | IgnoresCycle` 三条本就等价（⌘` 循环、跨 Space），`Dock` 档另取 Dock 层 + `FullScreenAuxiliary`；无任务栏概念，无预留工作区 API。
+- **仍然没有的**：预留工作区。X11 要 `_NET_WM_STRUT(_PARTIAL)`、Windows 要 `SHAppBarMessage`（AppBar 那套约百行且只 Windows 有意义）、macOS 无公共 API。这条写成「不做」，免得再被按「Dock 就该挤开桌面」预期。
+- **验证**：`clang -fsyntax-only -x objective-c -fobjc-arc -DWM_STUB_MAC gui/win/stub.c` 通过（mac 分支本地可编）；Win32/GTK 两分支本机没有对应 SDK/头文件，**编译由 CI 的 Linux 与 Windows 作业兜**（`ci.yml` 已装 `libgtk-3-dev` 等）；`cd gui && moon check` 零错误零警告、`examples/showcase` `moon build` 零警告、覆盖率门禁七条通道全绿（目录 934 条，中英文段描述同步改写）。**待真机**：Linux 上点 Dock 应「装饰与焦点照旧、XFCE 任务栏与窗口列表里消失、切视口跟着走」；Windows 上点 Dock 任务栏与 Alt+Tab 当场消失（标题栏会换成工具窗口矮框——这是 TOOLWINDOW 的系统规则，若介意可在调用方先用 `set_borderless` 定外观）；macOS 上切 Space 跟着、别的全屏 App 之上仍可见、⌘` 循环里跳过它。
