@@ -5,7 +5,7 @@ pub fn ffmpeg_supported() -> Bool {
   if cached >= 0 {
     return cached == 1
   }
-  let ok = vf_version() > 0
+  let ok = vf_rt_ready() != 0 && vf_version() > 0
   supported_cache.val = if ok { 1 } else { 0 }
   ok
 }
@@ -404,6 +404,10 @@ pub fn subtitle_cues(path : String) -> Result[Array[SubCue], VfError] {
 
 ///|
 extern "c" fn vf_version() -> Int = "vf_version"
+
+///|
+/// 运行期 dll 是否齐备（Windows 上会真的加载；其余平台恒为 1）。
+extern "c" fn vf_rt_ready() -> Int = "vf_rt_ready"
 
 ///|
 #borrow(path)

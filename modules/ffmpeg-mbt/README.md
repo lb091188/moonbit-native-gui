@@ -20,10 +20,16 @@ prebuild 会把它们取到 `vendor/win/bin/`（与 macOS 的 `vendor/mac` 对�
 不入库；缺失则取 `vendor-v1` Release 的
 `ffmpeg-windows-x64-9.0-lgpl-shared.zip`——GitHub/gitee 双镜像竞速 + sha256
 校验，都拿不到才退 BtbN 上游；离线可用 `NATIVE_GUI_FFMPEG_ZIP` 指本地 zip，
-`NATIVE_GUI_SKIP_VENDOR=1` 跳过）。运行前把 `avcodec-63.dll` 等 7 个 dll 与
-exe 同目录、或放进 PATH（dll 主版本须与 vendor 导入库一致——avcodec-63/
-avformat-63/avutil-61/swscale-10/swresample-7/avdevice-63/avfilter-12）。
-native-gui 仓库内可用 `python scripts/win_ffmpeg_dll.py` 一条命令完成搬运。
+`NATIVE_GUI_SKIP_VENDOR=1` 跳过）。**开发期不必把 dll 复制到 exe 旁**：这 5 个
+dll 被声明为延迟加载（`/DELAYLOAD`，见 `src/ffmpeg_win_dll.c`），构建时 prebuild
+把 `vendor/win/bin` 的绝对路径编进 exe，`ffmpeg_supported()` 首次调用时按
+「exe 同目录/PATH → 该目录」顺序加载——这是 macOS `-rpath` 在 Windows 上的等价
+物，`moon add` 的工程也因此开箱可用（dll 走 `.mooncakes` 里那份）。
+**发布/分发时**再把 7 个 dll 与 exe 同目录即可（app-local 优先于上面的目录，dll
+主版本须与 vendor 导入库一致——avcodec-63/avformat-63/avutil-61/swscale-10/
+swresample-7/avdevice-63/avfilter-12）。native-gui 仓库内可用
+`python scripts/win_ffmpeg_dll.py` 一条命令完成这步搬运。要退回「dll 必须在
+exe 旁」的老行为，构建时设 `NATIVE_GUI_FFMPEG_NO_DELAYLOAD=1`。
 
 **macOS**：两级——prebuild 先 pkg-config 探系统 ffmpeg（`brew install
 ffmpeg pkg-config`；brew 前缀显式拼进 `PKG_CONFIG_PATH`）；探不到回退

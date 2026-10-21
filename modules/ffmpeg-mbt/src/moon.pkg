@@ -10,9 +10,12 @@ supported_targets = "native"
 // 代码页(GBK)读无 BOM 源文件，中文注释与 ffmpeg 头的 UTF-8 字节序列会被误读
 // 吞行（C4819 → 级联语法错误）；Linux/macOS=gcc/clang 的 -finput-charset=UTF-8
 // 显式声明同义）。只对 stub 编译生效，不影响 MoonBit 生成代码的编译。
+// Windows 上 FFMPEG_STUB_CC 还会带 `-DNG_FFMPEG_DELAYLOAD` 与
+// `-DNG_FFMPEG_BIN="<vendor/win/bin>"`，供 ffmpeg_win_dll.c 决定 dll 的查找路径。
 options(
     "native-stub": [
-        "ffmpeg_stub.c"
+        "ffmpeg_stub.c",
+        "ffmpeg_win_dll.c"
     ],
     link: {
         "native": {

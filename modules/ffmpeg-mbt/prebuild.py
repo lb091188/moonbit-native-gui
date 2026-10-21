@@ -574,10 +574,28 @@ def main() -> int:
             "ffmpeg(prebuild): Windows 走 vendor 导入库（BtbN lgpl-shared）",
             file=sys.stderr,
         )
-        ensure_win_runtime_dlls()
+        ready = ensure_win_runtime_dlls()
+        bin_dir = win_runtime_dir().replace("\\", "/")
+        stub_cc = "/utf-8"
+        if os.environ.get("NATIVE_GUI_FFMPEG_NO_DELAYLOAD", "").strip() not in ("", "0"):
+            print(
+                "ffmpeg(prebuild): NATIVE_GUI_FFMPEG_NO_DELAYLOAD 已设，"
+                "dll 仍需运行前放到 exe 同目录或 PATH",
+                file=sys.stderr,
+            )
+        else:
+            # 延迟加载 + 构建期记下 vendor 目录：exe 启动不要求 dll 就位，第一次用到
+            # ffmpeg 时按「exe 同目录/PATH → 该目录」查找（macOS 的 -rpath 等价物）。
+            stub_cc += f' -DNG_FFMPEG_DELAYLOAD -DNG_FFMPEG_BIN="{bin_dir}"'
+            if ready:
+                print(
+                    "ffmpeg(prebuild): 运行期 dll 从 "
+                    f"{bin_dir} 延误加载，无需复制到 exe 旁",
+                    file=sys.stderr,
+                )
         emit(
             {
-                "vars": {"FFMPEG_INC": inc_norm, "FFMPEG_STUB_CC": "/utf-8"},
+                "vars": {"FFMPEG_INC": inc_norm, "FFMPEG_STUB_CC": stub_cc},
                 "link_configs": [{"package": PKG, "link_flags": link_flags}],
             }
         )

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""把 ffmpeg 运行期 dll 放到媒体示例的 exe 同目录（Windows）。
+"""把 ffmpeg 运行期 dll 放到媒体示例的 exe 同目录（Windows，发布/分发时用）。
 
-audio / video 示例经 ffmpeg-mbt 的动态导入库链接，exe 在**加载期**硬依赖
-下列 5 个 dll，缺任一个都是「进程根本起不来」（窗口不出现、控制台一闪就退），
-而不是示例内报错：
+audio / video 示例经 ffmpeg-mbt 的动态导入库链接，运行期需要下列 5 个 dll。
+**开发期跑示例不需要本脚本**：这 5 个 dll 已被声明为延迟加载，且
+`vendor/win/bin` 的绝对路径编进了 exe，`ffmpeg_supported()` 首次调用时从那里
+加载（`moon add` 的工程走 `.mooncakes` 里那份）。本脚本做的是**发布形态**——
+把 dll 复制到 exe 旁做 app-local 部署，这样 exe 拷到别的机器上也能跑。
 
   avcodec-63.dll  avformat-63.dll  avutil-61.dll  swscale-10.dll  swresample-7.dll
 
