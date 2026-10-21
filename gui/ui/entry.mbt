@@ -158,8 +158,24 @@ pub fn input(
   let show_text = fn() -> String {
     if mask { mask_of(ed.get_text()) } else { ed.get_text() }
   }
-  let caret_x = fn() -> Double {
-    pad + prefix_width(ed, ed.caret_pos(), font, mask=mask)
+  // 文本起点：样式槽给了居中就把整串挪到盒中线。光标、选区、点击命中都跟着这
+  // 同一个起点——只挪字不挪光标，数字就会和光标各站一处（步进器格踩过）。
+  let origin_x = fn(self : @widget.Widget, txt : String) -> Double {
+    match @style.style_for(self).text_align {
+      Some(@text.TextAlign::Center) =>
+        match @text.measure_font(txt, font) {
+          Some(m) => ((self.rect.w - m.width.to_double()) / 2.0).max(pad)
+          None => pad
+        }
+      _ => pad
+    }
+  }
+  let shown_origin = fn(self : @widget.Widget) -> Double {
+    let t = show_text()
+    origin_x(self, if t.length() == 0 { ph } else { t })
+  }
+  let caret_at = fn(self : @widget.Widget) -> Double {
+    shown_origin(self) + prefix_width(ed, ed.caret_pos(), font, mask=mask)
   }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
@@ -190,10 +206,12 @@ pub fn input(
       } else {
         p.fill_rect(0.0, 0.0, r.w, r.h)
       }
+      let txt = show_text()
+      let ox = shown_origin(self)
       match ed.selection() {
         Some((s, e)) => {
-          let x0 = pad + prefix_width(ed, s, font, mask=mask)
-          let x1 = pad + prefix_width(ed, e, font, mask=mask)
+          let x0 = ox + prefix_width(ed, s, font, mask=mask)
+          let x1 = ox + prefix_width(ed, e, font, mask=mask)
           p.set_fill_color(@theme.theme_primary_light())
           p.fill_rect(x0, ty, (x1 - x0).max(1.0), lh)
         }
@@ -208,32 +226,15 @@ pub fn input(
       } else {
         p.stroke_rect(0.0, 0.0, r.w, r.h)
       }
-      let txt = show_text()
       let pe = ed.preedit_text()
-      // 样式槽给了居中就把绘制起点挪到盒中线（光标/选区仍按左对齐口径，
-      // 短数字格的显示居中就够用）
-      let cen = match st.text_align {
-        Some(@text.TextAlign::Center) => true
-        _ => false
-      }
-      let draw_x = fn(s : String) -> Double {
-        if cen {
-          let sw = match @text.measure_font(s, font) {
-            Some(m) => m.width.to_double()
-            None => 0.0
-          }
-          ((r.w - sw) / 2.0).max(pad)
-        } else {
-          pad
-        }
-      }
       // 占位符只在「没文本且没组合串」时画：少了组合串这一条，空框里打拼音
       // 屏幕上什么都不出现（组合照常在走），看起来就是「打不进字」——真机踩到。
       if txt.length() == 0 && ph.length() > 0 && pe.length() == 0 {
-        let _ = @text.draw_at(p, draw_x(ph), ty, ph, font, @theme.theme_text_secondary())
+        // 占位符按它自己的宽度取起点（空文本时光标也落在这个起点上）
+        let _ = @text.draw_at(p, ox, ty, ph, font, @theme.theme_text_secondary())
       } else {
         if txt.length() > 0 {
-          let _ = @text.draw_at(p, draw_x(txt), ty, txt, font, if off.off {
+          let _ = @text.draw_at(p, ox, ty, txt, font, if off.off {
             @theme.theme_text_secondary()
           } else {
             @style.color_of(st.color, @theme.theme_text_regular())
@@ -241,7 +242,7 @@ pub fn input(
         }
         if pe.length() > 0 {
           // 组合串画在 caret 处并加下划线，且只此一份（内核不并入文本）
-          let px = caret_x()
+          let px = ox + prefix_width(ed, ed.caret_pos(), font, mask=mask)
           let _ = @text.draw_at(p, px, ty, pe, font, @theme.theme_warning())
           let pw = match @text.measure_font(pe, font) {
             Some(m) => m.width.to_double()
@@ -253,7 +254,12 @@ pub fn input(
       }
       if self.focused && !off.off && caret_on() {
         p.set_fill_color(@theme.theme_text_primary())
-        p.fill_rect(caret_x(), 4.0, 1.0, (r.h - 8.0).max(1.0))
+        p.fill_rect(
+          ox + prefix_width(ed, ed.caret_pos(), font, mask=mask),
+          4.0,
+          1.0,
+          (r.h - 8.0).max(1.0),
+        )
       }
       if clear_shown(self) && !off.off {
         let (cx, cy, cw, ch) = clear_box(r)
@@ -327,14 +333,16 @@ pub fn input(
           last_down.val = now
           last_x.val = ev.x
           dragging.val = true
+          // 命中口径与绘制共用同一文本起点（居中档不跟着挪，点哪选哪就会偏半串）
+          let ox = shown_origin(_self)
           if dbl {
             let (s, e) = word_range(
               ed.get_text(),
-              byte_at_x(ed, ev.x, pad, font, mask=mask),
+              byte_at_x(ed, ev.x, ox, font, mask=mask),
             )
             ed.select_range(s, e)
           } else {
-            let at = byte_at_x(ed, ev.x, pad, font, mask=mask)
+            let at = byte_at_x(ed, ev.x, ox, font, mask=mask)
             ed.select_range(at, at)
             anchor.val = at
           }
@@ -344,7 +352,10 @@ pub fn input(
         @widget.PointerKind::Move => {
           if dragging.val {
             // 拖出的部分靠宿主的捕获期投递，选区可以越过框边缘继续走
-            ed.select_range(anchor.val, byte_at_x(ed, ev.x, pad, font, mask=mask))
+            ed.select_range(
+              anchor.val,
+              byte_at_x(ed, ev.x, shown_origin(_self), font, mask=mask),
+            )
             @widget.invalidate()
           }
           dragging.val
@@ -362,7 +373,7 @@ pub fn input(
     w.im_cursor = Some(fn(self : @widget.Widget) -> @base.Rect? {
       let rect = self.rect
       Some({
-        x: rect.x + caret_x(),
+        x: rect.x + caret_at(self),
         y: rect.y + 2.0,
         w: 1.0,
         h: (rect.h - 4.0).max(1.0),
