@@ -42,3 +42,17 @@ pub fn set_window_title_localized(title_of : (@win.Window) -> String) -> Unit {
   }
   title_slot.val = @i18n.on_locale_change(apply)
 }
+
+///|
+/// 随语言重建的一棵子树：每次换目录用 `build` 重新建一棵原位换上。
+/// 给挂在控件树里、但不在路由树上的常驻外壳用（对话框、浮层容器、侧栏脚）——
+/// 那些地方没有 `Router::localize_remount` 管，里面「构造期就摊成 Node 的字符串」
+/// （`text("名称")` 这类）不会随语言变，只能整棵重新建。
+/// 只登记一次监听、随进程常驻：给**建一次用到底**的外壳用，别放进反复建拆的循环里。
+pub fn localized(build : () -> Node) -> Node {
+  let gen : Store[Int] = Store::new(0)
+  let _ = @i18n.on_locale_change(fn(_l : String) -> Unit {
+    gen.update(fn(n : Int) -> Int { n + 1 })
+  })
+  bind_node(gen.signal(), fn(_n : Int) -> Node { build() })
+}

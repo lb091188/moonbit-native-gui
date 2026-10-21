@@ -74,3 +74,23 @@ test "set_window_title_localized：注册即写一次，换目录再写，重复
   @i18n.i18n_reset()
   clear_locale_subs()
 }
+
+///|
+/// 随语言重建的一棵子树：登记即建一次，换目录原位换一棵新的。
+test "localized：广播即重建子树，旧树让位" {
+  clear_locale_subs()
+  @i18n.i18n_reset()
+  let builds : Ref[Int] = Ref(0)
+  let root = Widget::new()
+  root.set_size(200.0, 80.0)
+  root.set_column()
+  let _ = localized(fn() -> Node {
+    builds.val += 1
+    node_of(Widget::new())
+  }).mount_into(root)
+  assert_eq(builds.val, 1)
+  @i18n.i18n_load("[meta]\nlocale = \"en\"\n")
+  assert_eq(builds.val, 2)
+  @i18n.i18n_reset()
+  clear_locale_subs()
+}

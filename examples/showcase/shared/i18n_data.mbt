@@ -818,6 +818,10 @@ pub const EN_CATALOG : String =
   "\"dyn.dt_range\" = \"Date-time range: {a} {b} ~ {c} {d}\"\n" +
   "\"dyn.t_range\" = \"Time range: {a} ~ {b}\"\n" +
   "\"时间区间：未完成选择\" = \"Time range: selection incomplete\"\n" +
+  "\"gui.ui.validation.required\" = \"Required\"\n" +
+  "\"gui.ui.validation.min_len\" = \"At least {n} characters\"\n" +
+  "\"gui.ui.validation.email\" = \"Not a valid email\"\n" +
+  "\"gui.ui.validation.int_range\" = \"Must be between {lo} and {hi}\"\n" +
   // —— 段条短名（key = `seg.` + 段名；`page()` 的 label_of 出口取译）——
   "[seg]\n" +
   "\"主题\" = \"Theme\"\n" +
