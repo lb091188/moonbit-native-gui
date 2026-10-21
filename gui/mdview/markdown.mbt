@@ -953,10 +953,13 @@ fn md_rich_label(
   for sp in spans {
     used_fonts.push(font_of(sp))
   }
-  let line_h = match @text.line_height_multi(used_fonts) {
+  let line_h_nat = match @text.line_height_multi(used_fonts) {
     Some(h) => h.to_double().max(1.0)
     None => size * 1.5
   }
+  // 正文行距给足：字体天然行高只保证字形不相撞（13 号约 17），排出来每行贴脸。
+  // 统一按字号 1.6 倍起排，标题这类大字号同样留得住呼吸。
+  let line_h = line_h_nat.max(size * 1.6)
   let box_h = line_h * rows.length().to_double()
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     @ui.watch_theme()
@@ -1102,5 +1105,6 @@ pub fn markdown_view(
       }
     }
   }
-  @ui.col(nodes, width=width, handle~)
+  // 块间留 6：段与段、标题与正文之间不贴脸（行内行距见 md_rich_label）
+  @ui.col(nodes, width=width, row_gap=6.0, handle~)
 }
