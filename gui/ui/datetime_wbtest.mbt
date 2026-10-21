@@ -80,7 +80,7 @@ test "日期数学：闰年、月长、星期与月份进退" {
 test "格式化与比较：补零、时间钳制、区间端点顺序不限" {
   assert_eq(d(2026, 1, 9).format(), "2026-01-09")
   assert_eq(d(2026, 12, 31).format(), "2026-12-31")
-  assert_eq((TimeHM::{ h: 9, m: 5 }).format(), "09:05")
+  assert_eq((TimeHMS::{ h: 9, m: 5, s: 0 }).format(), "09:05")
   assert_eq(time_clamp(25, -3).format(), "23:00")
   assert_true(DateYMD::compare(d(2026, 9, 30), d(2026, 10, 1)) < 0)
   assert_true(DateYMD::compare(d(2025, 12, 31), d(2026, 1, 1)) < 0)
@@ -93,7 +93,7 @@ test "格式化与比较：补零、时间钳制、区间端点顺序不限" {
     false,
   )
   assert_true(
-    TimeHM::compare((TimeHM::{ h: 9, m: 30 }), (TimeHM::{ h: 10, m: 0 })) < 0,
+    TimeHMS::compare((TimeHMS::{ h: 9, m: 30, s: 0 }), (TimeHMS::{ h: 10, m: 0, s: 0 })) < 0,
   )
 }
 

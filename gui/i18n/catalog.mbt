@@ -301,7 +301,7 @@ fn select_plural(locale : String, n : Int) -> String {
 // 其它语言是**独立文件**（locales/*.toml），通过 i18n_extend/i18n_load 从外置文件夹读入文本后启用。
 
 const BUILTIN_DEFAULT : String =
-  "[meta]\nlocale = \"default\"\n[gui.ui.dialog]\nconfirm = \"确定\"\ncancel = \"取消\"\n[gui.ui.message_box]\nok = \"确定\"\n[gui.ui.datepicker]\ncancel = \"取消\"\n"
+  "[meta]\nlocale = \"default\"\n[gui.ui.dialog]\nconfirm = \"确定\"\ncancel = \"取消\"\n[gui.ui.message_box]\nok = \"确定\"\n[gui.ui.datepicker]\ncancel = \"取消\"\nok = \"确定\"\nplaceholder = \"请选择日期\"\nrange_placeholder = \"请选择日期区间\"\ntitle = \"选择日期\"\nmonth_year = \"{y} 年 {m} 月\"\nunit.h = \"时\"\nunit.m = \"分\"\nunit.s = \"秒\"\nwd.0 = \"日\"\nwd.1 = \"一\"\nwd.2 = \"二\"\nwd.3 = \"三\"\nwd.4 = \"四\"\nwd.5 = \"五\"\nwd.6 = \"六\"\n"
 
 let g_builtin : Catalog = parse_catalog(BUILTIN_DEFAULT)
 
