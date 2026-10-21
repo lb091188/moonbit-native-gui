@@ -523,7 +523,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
     @shared.section(
       "层级",
       "窗口层级嵌入",
-      "`Window::set_layer` 换窗口层级。面板三档（图标下 / 图标上 / Dock）承诺的是同一件事：不进任务栏与窗口列表、不进窗口循环、跨工作区常驻，Dock 另带压顶；**边框与标题栏不在承诺内**，外观照你给的 styleMask 与系统窗口设置走。兑现手段各不同：Linux 显式发 `_NET_WM_STATE_ABOVE/SKIP_TASKBAR/SKIP_PAGER/STICKY`（不再换窗口类型，换 TYPE_DOCK 会让 WM 顺手摘装饰、逐出焦点列表），macOS 配 `CanJoinAllSpaces|Stationary|IgnoresCycle`、Dock 档再叠 `FullScreenAuxiliary` 取 Dock 层盖全屏 Space，Win32 用 `WS_EX_TOOLWINDOW` 管任务栏与 Alt+Tab、`SetWindowPos` 管叠放。三平台都没有「预留工作区」的公共通道（Windows AppBar 未接、macOS 无 API），目标层最终由 WM/Shell/AppKit 定。",      [
+      "`Window::set_layer` 换窗口层级。面板三档（图标下 / 图标上 / Dock）承诺的是同一件事：不进任务栏与窗口列表、不进窗口循环、跨工作区常驻，Dock 另带压顶；**边框与标题栏不在承诺内**，外观照你给的 styleMask 与系统窗口设置走。兑现手段各不同：Linux 显式发 `_NET_WM_STATE_ABOVE/SKIP_TASKBAR/SKIP_PAGER/STICKY`（不再换窗口类型，换 TYPE_DOCK 会让 WM 顺手摘装饰、逐出焦点列表），macOS 配 `CanJoinAllSpaces|Stationary|IgnoresCycle`、Dock 档再叠 `FullScreenAuxiliary` 取 Dock 层盖全屏 Space，Win32 用 `WS_EX_TOOLWINDOW` 管任务栏与 Alt+Tab、`SetWindowPos` 管叠放，「图标下」另把本窗挂进 Explorer 的壁纸 WorkerW——那是 Win32 上唯一压得住桌面图标的落点，代价是随 `WS_CHILD` 摘掉装饰、不再拿键盘焦点（这一档本就「事件归桌面」）。三平台都没有「预留工作区」的公共通道（Windows AppBar 未接、macOS 无 API），目标层最终由 WM/Shell/AppKit 定。",      [
         @ui.row(
           [
             @ui.button(@shared.tx("普通"), on_click=fn() { win_set_layer(@win.WindowLayer::Normal) }),
