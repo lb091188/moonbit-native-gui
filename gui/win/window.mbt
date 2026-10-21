@@ -132,17 +132,24 @@ pub fn Window::set_transparent_bg(self : Window, on : Bool) -> Unit {
 }
 
 ///|
-/// 窗口层级档位。桌面拆两档：`Desktop`=桌面图标之下（壁纸场景，鼠标事件归桌面），
-/// `DesktopWidget`=图标之上、普通窗口之下（桌面小部件场景，本窗自己收事件）；
-/// 两档都不进任务栏、常驻各工作区。目标层由窗口管理器/Shell 兑现。
-/// 三平台兑现的具体内容：
-/// - Linux(X11)：`Desktop`/`DesktopWidget` 走 WM 的 `_NET_WM_WINDOW_TYPE_DESKTOP`
-///   与 `KEEP_BELOW`/`STICKY`/`SKIP_TASKBAR` 状态；`Dock` 走 `TYPE_DOCK` + `KEEP_ABOVE`。
-/// - Windows：`Desktop*` 压到 `HWND_BOTTOM`，`AlwaysOnTop` 与 `Dock` 都是
-///   `HWND_TOPMOST`（Shell 没有给普通 App 预留工作区的公共通道）。
-/// - macOS：三档面板类都配 `CanJoinAllSpaces | Stationary`（切 Space 也跟着在），
-///   `Dock` 再叠 `FullScreenAuxiliary` 并取 Dock 层——盖在全屏 App 的 Space 之上，
-///   这是 Cocoa 上「面板常驻」的正规形态。
+/// 窗口层级档位。`Normal` 普通、`AlwaysOnTop` 置顶、`Dock` 面板；桌面拆两档：
+/// `Desktop`=桌面图标之下（壁纸场景，鼠标事件归桌面），`DesktopWidget`=图标之上、
+/// 普通窗口之下（桌面小部件场景，本窗自己收事件）。
+///
+/// **面板档（`Dock`/`Desktop`/`DesktopWidget`）承诺的三件事**：不进任务栏与窗口列表、
+/// 不进窗口循环、跨工作区常驻；`Dock` 另带压顶。**边框与标题栏不在承诺内**——
+/// 外观按调用方给的 `styleMask` 与用户自己的系统窗口设置走，本档不改类型、不动装饰。
+/// 三平台兑现手段：
+/// - Linux(X11)：`_NET_WM_STATE_ABOVE` + `SKIP_TASKBAR` + `SKIP_PAGER` + `STICKY`
+///   显式声明（不换窗口类型）；`Desktop` 档另走 `TYPE_DESKTOP`（压到图标之下非做不可）。
+///   Wayland 下这几条只是客户端提示，兑现归 compositor。
+/// - Windows：`WS_EX_TOOLWINDOW` 管任务栏与 Alt+Tab 身份，`SetWindowPos` 的
+///   TOPMOST/BOTTOM 管叠放；这一档会连带把标题栏换成系统给工具窗口的矮框（Win32
+///   的样式规则，改不掉），要自己定外观就先 `set_borderless`。没有预留工作区的
+///   公共通道（AppBar 那套没接）。
+/// - macOS：`CanJoinAllSpaces | Stationary | IgnoresCycle` 管跨 Space 与 ⌘` 循环，
+///   `Dock` 档再叠 `FullScreenAuxiliary` 并取 Dock 层（盖在全屏 App 的 Space 之上）。
+/// 目标层最终由窗口管理器/Shell/AppKit 兑现。
 pub(all) enum WindowLayer {
   Normal
   Desktop

@@ -931,12 +931,27 @@ void wm_set_opacity(int64_t id, int alpha) {
 
 /* W34 窗口层级：0=normal 1=desktop(图标下) 2=always-on-top 3=dock
  * 4=desktop-widget(图标上)。
- * Shell 桌面窗归 Explorer 所有，客户窗压不进它下面：1 与 4 都只能沉到 z-order
- * 底（视觉上恒在图标之上）；「不进任务栏」要 WS_EX_TOOLWINDOW，留待 Windows 批。 */
+ * 本档承诺的是「面板身份」：不进任务栏、不进 Alt+Tab 窗口循环 —— Win32 靠
+ * WS_EX_TOOLWINDOW（1/3/4 三档面板类都给，切回普通/置顶清掉）。**边框与标题栏
+ * 不在承诺内**：改 exstyle 会连带把标题栏换成工具窗口的矮框，那是系统的样式规则，
+ * 用户要什么外观由他自己的窗口设置与调用方的 styleMask 决定，这里不越俎代庖。
+ * Shell 桌面窗归 Explorer 所有，客户窗压不进它下面：1 与 4 只能沉到 z-order 底
+ * （视觉上恒在图标之上）。 */
 void wm_set_layer(int64_t id, int layer) {
   if (id <= 0 || id >= WM_MAX_WINDOWS) return;
   WmWindow *w = &wm_windows[id];
   if (w->hwnd == NULL) return;
+  int panel = (layer == 1 || layer == 3 || layer == 4);
+  DWORD ex = (DWORD)GetWindowLongPtrW(w->hwnd, GWL_EXSTYLE);
+  DWORD want = panel ? (ex | WS_EX_TOOLWINDOW) : (ex & ~WS_EX_TOOLWINDOW);
+  if (want != ex) {
+    SetWindowLongW(w->hwnd, GWL_EXSTYLE, want);
+    // 改扩展样式要请 WM 重报框架，否则任务栏与 Alt+Tab 的缓存等到下次窗口变动
+    // 才刷新（切档当场看着「没反应」就是这个）
+    SetWindowPos(w->hwnd, NULL, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED |
+                     SWP_NOACTIVATE);
+  }
   switch (layer) {
     case 1: case 4: SetWindowPos(w->hwnd, HWND_BOTTOM, 0,0,0,0, SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE); break;
     case 2: SetWindowPos(w->hwnd, HWND_TOPMOST, 0,0,0,0, SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE); break;
@@ -4705,18 +4720,26 @@ static void wm_send_state(Display *dpy, Window xid, long action,
  * 「unmap → 挂新类型 → 原位 remap」；_NET_WM_STATE 是运行期可读的，但画序归
  * WM 的内部栈管，所以要再发一条状态客户端消息。
  * 桌面两档的类型分工：图标下走 DESKTOP 型（挤到 nemo 图标窗之前，事件归桌面），
- * 图标上走 NORMAL 型 + BELOW 态（普通层栈底 = 桌面层之上，本窗照收键鼠）。 */
+ * 图标上走 NORMAL 型 + BELOW 态（普通层栈底 = 桌面层之上，本窗照收键鼠）。
+ * Dock 档同样保持 NORMAL 型：面板身份全部由 _NET_WM_STATE 显式声明
+ * （ABOVE + SKIP_TASKBAR + SKIP_PAGER + STICKY），不借 TYPE_DOCK——换类型会让 WM
+ * 顺手摘掉装饰、并把窗口逐出焦点列表，而外观该由用户的窗口设置说了算。 */
 void wm_set_layer(int64_t id, int layer) {
   if (id <= 0 || id >= WM_MAX_WINDOWS) return;
   WmWindow *w = &wm_windows[id];
   if (w->window == NULL) return;
   GtkWindow *win = GTK_WINDOW(w->window);
   int desktop = (layer == 1 || layer == 4);
-  int kind = (layer == 1) ? 1 : ((layer == 3) ? 2 : 0);
+  // 面板身份（不进任务栏、不进窗口列表、跨视口常驻）三档一起要
+  int panel = (layer == 1 || layer == 3 || layer == 4);
+  // 只有「图标下」需要换窗口类型（TYPE_DESKTOP 才压得到图标之下）。Dock 档
+  // 不再借类型表达身份：换 TYPE_DOCK 会连带让 WM 摘掉装饰、不给键盘焦点，
+  // 而外观归用户的窗口设置管，本档不越俎代庖——身份改由 _NET_WM_STATE 显式声明。
+  int kind = (layer == 1) ? 1 : 0;
   gtk_window_set_keep_below(win, desktop ? TRUE : FALSE);
   gtk_window_set_keep_above(win, (layer == 2 || layer == 3) ? TRUE : FALSE);
-  gtk_window_set_skip_taskbar_hint(win, desktop ? TRUE : FALSE);
-  gtk_window_set_skip_pager_hint(win, desktop ? TRUE : FALSE);
+  gtk_window_set_skip_taskbar_hint(win, panel ? TRUE : FALSE);
+  gtk_window_set_skip_pager_hint(win, panel ? TRUE : FALSE);
   GdkWindow *gw = gtk_widget_get_window(w->window);
   GdkDisplay *disp = gdk_display_get_default();
   wm_apply_type(win, gw, kind);
@@ -4751,9 +4774,9 @@ void wm_set_layer(int64_t id, int layer) {
   wm_send_state(dpy, xid, desktop ? 1 : 0, "_NET_WM_STATE_BELOW");
   wm_send_state(dpy, xid, (layer == 2 || layer == 3) ? 1 : 0,
                 "_NET_WM_STATE_ABOVE");
-  wm_send_state(dpy, xid, desktop ? 1 : 0, "_NET_WM_STATE_SKIP_TASKBAR");
-  wm_send_state(dpy, xid, desktop ? 1 : 0, "_NET_WM_STATE_SKIP_PAGER");
-  wm_send_state(dpy, xid, desktop ? 1 : 0, "_NET_WM_STATE_STICKY");
+  wm_send_state(dpy, xid, panel ? 1 : 0, "_NET_WM_STATE_SKIP_TASKBAR");
+  wm_send_state(dpy, xid, panel ? 1 : 0, "_NET_WM_STATE_SKIP_PAGER");
+  wm_send_state(dpy, xid, panel ? 1 : 0, "_NET_WM_STATE_STICKY");
   if (layer == 1) {
     gdk_window_lower(gw);
   }

@@ -118,9 +118,9 @@ Linux 列带 **X11** 的格只在 X11 会话成立，带 **DE** 的格行为随�
 | 窗口隐藏驻留（hide/show 唤回原位） | ✅ | ✅ | 🚧 |
 | 窗口透明（set_opacity 0–255） | 🚧 | ✅ | ❌ |
 | 窗口背景穿透（set_transparent_bg） | 🚧 | ✅ | ❌ |
-| 窗口层级嵌入（Normal/Desktop 图标下/AlwaysOnTop/Dock；macOS 面板档配 CanJoinAllSpaces+Stationary、Dock 档再叠 FullScreenAuxiliary 盖全屏 Space） | 🚧 | ✅ | 🚧 |
+| 窗口层级嵌入（Normal/图标下/图标上/AlwaysOnTop/Dock；面板身份=不进任务栏与窗口循环+跨工作区，边框装饰不承诺） | 🚧 | 🚧 | 🚧 |
 | 桌面小部件档（DesktopWidget：图标上、本窗收键鼠） | 🚧 | 🚧 | 🚧 |
-| 桌面档不进任务栏（SKIP_TASKBAR/SKIP_PAGER） | ❌ | 🚧 | ❌ |
+| 面板档不进任务栏与窗口循环（Dock/图标下/图标上：Win32 WS_EX_TOOLWINDOW、X11 _NET_WM_STATE_SKIP_*、macOS IgnoresCycle） | 🚧 | 🚧 | ✅ |
 | 自绘控件宿主 | ✅ | ✅ | 🚧 |
 | 声明式层 | ✅ | ✅ | 🚧 |
 | 样式层 | ✅ | ✅ | 🚧 |
