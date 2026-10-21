@@ -492,6 +492,7 @@ pub fn date_picker(
         ),
         w.rect.x,
         w.rect.y + w.rect.h + 2.0,
+        anchor=Some(w.rect),
       )
     }
 
@@ -578,6 +579,7 @@ pub fn date_range_picker(
         ),
         w.rect.x,
         w.rect.y + w.rect.h + 2.0,
+        anchor=Some(w.rect),
       )
     }
 
@@ -668,6 +670,7 @@ fn time_field(
         ),
         field.rect.x - 40.0,
         field.rect.y + field.rect.h + 2.0,
+        anchor=Some(field.rect),
       )
     }
 
@@ -803,6 +806,7 @@ pub fn datetime_range_picker(
             ),
             field.rect.x,
             field.rect.y + field.rect.h + 2.0,
+            anchor=Some(field.rect),
           )
         }
 

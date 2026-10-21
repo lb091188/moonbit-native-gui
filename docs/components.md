@@ -117,7 +117,7 @@ The display family also has `*_dyn` signal forms: `text` becomes a `Signal`, the
 
 ## Overlays & messages
 
-Overlays — dialog / popover / menu / tooltip — all open on the window-wide **overlay layer**, so they naturally sit above content and other overlays; no permanently hidden tree is needed.
+Overlays — dialog / popover / menu / tooltip — all open on the window-wide **overlay layer**, so they naturally sit above content and other overlays; no permanently hidden tree is needed. Anchored popups (select, popover, date/time panels, tooltips) are then fitted to that layer's box: if a list does not fit below its trigger it opens above it, if it overflows the right edge it aligns to the trigger's right, and anything still larger than the window is clamped inside — popups never get cut off by the window edge.
 
 | Constructor | Purpose |
 |---|---|
