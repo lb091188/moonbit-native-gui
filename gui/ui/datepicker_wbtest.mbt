@@ -334,7 +334,7 @@ test "时间弹层步进：时/分/秒各自回绕，分步进 1 分钟" {
 }
 
 ///|
-/// 日期段「选中：」标签与值标签同高、且不与 picker 重叠。真机 mac 上全角
+/// 日期段「选中：」标签不折行、且不与 picker 重叠。真机 mac 上全角
 /// 冒号的 advance 带小数，测量宽四舍五入报窄 1px，标签在自己的盒里折成两行，
 /// 变高的盒在行内垂直居中把首行墨迹骑到 picker 下缘（文本层改口径后此用例守门）。
 test "日期段标签不折行：测量宽与断行口径一致" {
@@ -367,18 +367,19 @@ test "日期段标签不折行：测量宽与断行口径一致" {
   )
   let kids = colw.children()
   let labs = kids[1].children()
-  // 单行标签与单行值同高（折行会让标签高出一整行）
-  // 失败时把三量都带出来：盒宽、按测量口算出的应需宽、平台字体集给的像素 advance
-  // 合计——Linux(Pango) 与 mac(CoreText) 的小数口径不同，光看「折行了」定不了位。
+  // 判据只咬「折没折行」：值标签是同字号（13）不折行档，它的盒高就是本平台
+  // 单行高；标签盒只要不到两倍单行高就没折。两条盒高**相等**不是这条缺陷的判据
+  // ——实测 Linux(Pango) 给 19/17：同字号同单行，走「带宽度约束的折行档」量出来的
+  // 行带比自然档高 2px（盒宽=测量宽=45，两行会是 ~34），mac(CoreText) 才刚好相等。
   let want = match @text.measure_font("选中：", @text.Font::new("", 13.0)) {
     Some(m) => m.width
     None => -1
   }
-  assert_eq(
-    labs[0].rect.h,
-    labs[1].rect.h,
-    msg="「选中：」标签高与值标签不等：标签高=\{labs[0].rect.h} 值高=\{labs[1].rect.h} " +
-      "盒宽=\{labs[0].rect.w} 测量宽=\{want}（折行则高≈2 倍；不等一倍高=字体集行高差异）",
+  let one_line = labs[1].rect.h
+  assert_true(
+    labs[0].rect.h < one_line * 2.0 - 1.0,
+    msg="「选中：」标签折成两行：标签高=\{labs[0].rect.h} 单行高=\{one_line} " +
+      "盒宽=\{labs[0].rect.w} 测量宽=\{want}",
   )
   // 行整体落在 picker 之下，纵向不重叠
   assert_true(kids[1].rect.y >= kids[0].rect.y + kids[0].rect.h, msg="选中行压住 picker")
