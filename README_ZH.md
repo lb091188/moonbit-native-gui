@@ -2,7 +2,7 @@
 
 > **来时的路**：本库最初是 [赵成(zcbenz)](https://github.com/zcbenz) 的 [Yue / libyue](https://github.com/yue/yue) 的 MoonBit 封装，布局沿用 [Yoga](https://github.com/facebook/yoga) 的 flexbox。如今两者都不再是运行时依赖，只作行为参考与语料来源。也感谢 [MoonBit](https://github.com/moonbitlang)。
 
-[MoonBit](https://github.com/moonbitlang) 的**跨平台桌面 GUI 框架**——一套 MoonBit 代码直出 Windows 🟩 / Linux 🟩 原生窗口，托盘、通知、快捷键、文件对话框等系统能力开箱即用，`moon add` 后零配置直接运行。macOS 🟨 后端已合入 master，真机验证收口中。
+[MoonBit](https://github.com/moonbitlang) 的**跨平台桌面 GUI 框架**——一套 MoonBit 代码直出 Windows 🟩 / Linux 🟩 / macOS 🟩 原生窗口，托盘、通知、快捷键、文件对话框等系统能力开箱即用，`moon add` 后零配置直接运行。三平台（Windows / Linux / macOS）同一套代码、同一份真机清单同步维护。
 
 简体中文 | [English（在线文档站）](https://moonbit-native-gui.pages.dev/)
 
@@ -101,7 +101,7 @@ moon run examples/browser        # 内嵌 WebView 浏览器
 | Ubuntu 24.04（XFCE / GNOME / KDE） | ✅ | 主链路 X11 |
 | Deepin 23 / 25 | ✅ | |
 | Windows 10 / 11 | ✅ | 产物是 GUI 子系统 exe，双击不弹控制台 |
-| macOS | 🚧 | 后端已并入 master（Cocoa / CoreText / ImageIO / WKWebView）；CI 全绿，待真机复验 |
+| macOS | ✅ | Apple Silicon 真机已验（Cocoa / CoreText / ImageIO / WKWebView）；与 Windows / Linux 同一份清单同步维护 |
 
 ## 文档导航
 

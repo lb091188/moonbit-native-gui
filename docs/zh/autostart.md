@@ -8,7 +8,7 @@
 |---|---|---|
 | Linux | XDG 自启动目录写 `<app_id>.desktop` | `$XDG_CONFIG_HOME/autostart/`，未设回退 `$HOME/.config/autostart/` |
 | Windows | HKCU `Software\Microsoft\Windows\CurrentVersion\Run` 写值 | 值名是 app_id，值是引号包裹的可执行文件路径 |
-| macOS | LaunchAgents plist + `launchctl load` / `unload`（真机验证收口中） | `~/Library/LaunchAgents/<app_id>.plist`——Label 为 app_id，ProgramArguments 为可执行文件，RunAtLoad true |
+| macOS | LaunchAgents plist + `launchctl load` / `unload`（真机已回证） | `~/Library/LaunchAgents/<app_id>.plist`——Label 为 app_id，ProgramArguments 为可执行文件，RunAtLoad true |
 
 ## API
 

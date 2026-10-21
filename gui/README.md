@@ -80,8 +80,8 @@ Optional capabilities in **separate modules** (a plain `moon add` of this module
 
 | | Windows | Linux | macOS |
 |---|---|---|---|
-| Status | ✅ 10 / 11 | ✅ X11 mainline | 🟨 backend merged, on-device verification closing |
-| Notes | GUI-subsystem exe: double-click opens no console window | Committed span **deepin 20 ~ Ubuntu 26**, staying on GTK3; Wayland sessions run, X11-dependent capabilities degrade per session | Cocoa / CoreText / ImageIO / WKWebView merged into master; on-device visual verification still closing, not yet part of the outward promise |
+| Status | ✅ 10 / 11 | ✅ X11 mainline | ✅ Apple Silicon, verified on device |
+| Notes | GUI-subsystem exe: double-click opens no console window | Committed span **deepin 20 ~ Ubuntu 26**, staying on GTK3; Wayland sessions run, X11-dependent capabilities degrade per session | Cocoa / CoreText / ImageIO / WKWebView; verified on Apple Silicon with the same checklist as Windows / Linux |
 
 ## Roadmap
 
@@ -90,7 +90,7 @@ Where this library is heading, in order of current effort (see the public roadma
 1. **Lower the barrier to entry** — a shortest path from "install moon" to "a window on screen" on the docs homepage, per-platform prerequisites in one sentence, build errors that carry their own fix hints.
 2. **Credibility** — CI gates on Linux and Windows for every batch, on-device verification checklists, and a version promise: the stable-surface list (what will not break within 1.x) and the 1.0 cut-off are being defined.
 3. **Content** — usage documentation rewritten for the self-drawn stack (tutorials, a per-component guide with screenshots), continuously expanded examples.
-4. **Platform coverage** — closing on-device verification for macOS; verifying the Linux compatibility span floor by floor (deepin 20 as the floor, Ubuntu 26 as the ceiling).
+4. **Platform coverage** — verifying the Linux compatibility span floor by floor (deepin 20 as the floor, Ubuntu 26 as the ceiling); macOS is on the same real-device checklist as Windows and Linux.
 
 Explicit non-goals: accessibility APIs, GTK4 / Qt backends, and platform-native widget skins — the self-drawn stack is the product.
 

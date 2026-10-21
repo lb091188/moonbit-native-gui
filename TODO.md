@@ -18,7 +18,7 @@
 
 - [ ] [~] **G5b** 输入通道补齐
   - ibus 一套复验（探针侧归因 libpinyin display-style，待确认）
-  - macOS：`NSTextInputClient` 通道已随 mac 合并落地（2026-10-18 d3020b9 补功能键闸，修导航键被输入法吞），剩真机复验（T 节）
+  - macOS：`NSTextInputClient` 通道已随 mac 合并落地（2026-10-18 d3020b9 补功能键闸，修导航键被输入法吞），三平台真机已复验
   - 肉眼确认项：preedit 下划线观感、候选窗是否贴组合串末尾、caret 闪烁观感（点击定位已用 xdotool 客观验通：点控件最左端 caret 归 0、原位插字符）
 - [ ] [~] **G7** 声明式层与组件宿主接线（`mount` 目标从 `View` 换 yoga-mbt 节点；恢复全仓门禁。宿主与声明式地基已就位：`@widget.App` + `@widget.Widget` 树 + `@widget.Node`/`bind_node`/`swap_node` + `@base.Store`/`@base.Signal`，验证归 `examples/showcase`；剩组件与图表挂新 Painter）
 - [ ] **G8** 原生子表面通道与其消费者（见 §4「浏览器」「视频」）
@@ -83,7 +83,7 @@
 - [ ] 文档：中英使用文档按新栈重写（`components`/`components-ui`/`declarative`/`layout`/`relink`/`system-capabilities`/`tutorial`），README 挂新截图
 - [ ] 文档：中英使用文档按新栈重写（`components`/`components-ui`/`declarative`/`layout`/`relink`/`system-capabilities`/`tutorial`），README 挂新截图
 - [ ] 发布：旧 `bin-*`/`vendor-*` 预构建发布链退役（mooncakes 侧 0.2.0 已于 2026-10-19 发布，见 roadmap「承诺与版本」）
-- [ ] 真机验证矩阵：Ubuntu GNOME / KDE / XFCE；Windows 10 / 11；macOS 真机已到位（T1–T8 执行中）
+- [ ] 真机验证矩阵：macOS 已按 `测试文档/测试用例.md` 跑完；Windows 10 / 11 本机冒烟已通；Ubuntu GNOME / KDE / XFCE 待排
 - [ ] [~] **平台批：WebView2 桩真实现 + ffmpeg Windows 真链接**（已完成面见 roadmap；剩余见子条目）
   - **win 子 HWND 容器**（P1）：`gui/win/stub.c` 补 `wm_surface_new/set_rect/close/container` Windows 真实现（`WS_CHILD` 面板 HWND，父=宿主窗，DefWindowProc + 背景刷 NULL 免闪白），`wm_init` 注册窗口类、`wm_close` 清 surface 槽——web 桩经 `wm_surface_container(surface_id)` 拿 parentHWND。
   - **WebView2 桩真实现**（P2/P3）：`gui/web/webview2_stub.c`（仅 `_WIN32` 有内容，~1450 行）——静态 Loader 链接形态（`WebView2LoaderStatic.lib` vendor 进 `gui/web/lib/`、头 vendor 进 `gui/web/include/`，NuGet Microsoft.Web.WebView2 1.0.4258.31，MIT）；事件模型与 WebKit 分支同构（COM 回调 push 队列、MoonBit 每帧消费式取）；`webview_predeclare_schemes` 名单经新 extern `wb_predeclare_scheme` 流到 C 桩、Environment 创建时经 `EnvironmentOptions4::SetCustomSchemeRegistrations` 注册（`WbReg`/`WbOptions` 手写 COM，secure=TRUE/authority=TRUE）；`webkit_stub.c` 两分支加 no-op 对齐。**验证**：`moon test ./gui/web` 17/17、`core` 118/118、examples `--deny-warn` 零警告；一次性探针 `examples/webprobe`（验证后已删）——load_html+标题事件+JS 求值、协议预注册+本地文件服务+导航（`PROBE-TITLE ScmPage`/`PROBE-DONE title=ScmPage url=probescm://local/index.html`/`PROBE-JS scheme-ok`）全链路真机通；`native-web` 冒烟 `supported=1` + GEO 真矩形 + 8 组统计。
@@ -93,7 +93,7 @@
 
 ## 3. 里程碑
 
-- **M3** macOS 地基：mac 平台批①-⑤ 已落（窗口/渲染/文本/webview/sys 各族），进度与缺口见 §7；真机目视复验待做
+- **M3** macOS 地基：mac 平台批①-⑤ 已落（窗口/渲染/文本/webview/sys 各族），真机目视已回证，遗留缺口见 §7
 
 ## 6. 跨平台能力面（Win 基础能力 + MBT 通用能力）
 
@@ -109,9 +109,9 @@
 
 #### W23 · 窗口显隐：`Window::hide`（与既有 `show` / `request_focus` 对称）
 
-- [~] **`Window::hide` 门面已落，Linux 后端已接**（2026-10-16）：`win/stub.c` 三分支 + `Window::hide`/`Window::is_hidden`，`show` 唤回 hide 前的屏幕原点（GTK 分支 `gtk_widget_hide` + `XWithdrawWindow` 撤管，语义区别于 `XIconifyWindow` 最小化；Windows 分支 `SW_HIDE` 记客户区原点供 `SetWindowPos` 复位，**Linux 侧本机 wbtest 真开窗通过、Windows 分支未上机**）。macOS 臂 2026-10-18 已随对齐批落地（86644a4：`orderOut:`/`makeKeyAndOrderFront:` + hidden 驻留标志，show 唤回清零）——剩三平台真机复验（T 节）与 mooncakes 发版（启动器「Esc 隐藏驻留」待发版接入）。
+- [~] **`Window::hide` 门面已落，Linux 后端已接**（2026-10-16）：`win/stub.c` 三分支 + `Window::hide`/`Window::is_hidden`，`show` 唤回 hide 前的屏幕原点（GTK 分支 `gtk_widget_hide` + `XWithdrawWindow` 撤管，语义区别于 `XIconifyWindow` 最小化；Windows 分支 `SW_HIDE` 记客户区原点供 `SetWindowPos` 复位，**Linux 侧本机 wbtest 真开窗通过、Windows 分支未上机**）。macOS 臂 2026-10-18 已随对齐批落地（86644a4：`orderOut:`/`makeKeyAndOrderFront:` + hidden 驻留标志，show 唤回清零）——三平台真机已复验，剩 mooncakes 发版（启动器「Esc 隐藏驻留」待发版接入）。
   - 动机：旗舰应用 moon-launcher（`lb091188/moon-launcher`）已把「Esc 隐藏驻留托盘」挂为其 README「已知边界」——发布包 0.1.1 只有 `show` 无 `hide`，启动器现在只能「Esc 清空→退出」。
-  - 验收判据（本机判据已过：幂等、hide 后 `request_focus` 不异常；**真机肉眼项待用户复验**）：启动器 Esc 后窗口隐藏且托盘/DBus 单实例存活，Wake 或托盘点击唤回**原位置**并自动聚焦输入框。
+  - 验收判据（本机判据已过：幂等、hide 后 `request_focus` 不异常；真机肉眼项已随三平台清单复验）：启动器 Esc 后窗口隐藏且托盘/DBus 单实例存活，Wake 或托盘点击唤回**原位置**并自动聚焦输入框。
 
 ### 6.3 与既有 §1/§2 的接缝（不改口径，仅指向）
 
@@ -124,7 +124,7 @@
 
 - [ ] **W7 真实注入验证**：微软拼音端到端（preedit 下划线/候选窗位置/commit 落框）、两窗互相遮挡与拖动重绘、跨程序剪贴板（复制→记事本→粘回）、文件对话框模态 run 与真选文件、主题跟随系统深浅/强调色——归 `examples/native-app` 人工清单（`_人工测试清单.md`）
 - [ ] **W20 批观感复验**：原生菜单栏（下拉/快捷键提示/勾选项）、全局快捷键（切到别的程序仍能触发）、托盘（图标出现/右键菜单/左键计数）、MessageBox（图标/按钮/返回值）、窗口标题与图标
-- [ ] **三平台真机矩阵**：Windows 10/11 本机冒烟已通（退出码 0）；macOS 真机已到位，T1–T8 人工清单执行中（2026-10-18 起）；Ubuntu GNOME / KDE / XFCE 待排
+- [ ] **三平台真机矩阵**：Windows 10/11 本机冒烟已通（退出码 0）；macOS 已按 `测试文档/测试用例.md` 跑完；Ubuntu GNOME / KDE / XFCE 待排
 
 ### 6.6 性能批（2026-10-13 真机反馈立项）
 
@@ -152,15 +152,15 @@
 - FFI 规范与坑：`.agents/skills/moonbit-c-binding/`（同步自 [moonbitlang/skills](https://github.com/moonbitlang/skills)，`~/.agents/skills/` 同版）
 - **跨平台能力批次表（Win 基础能力 + MBT 通用门面）：本文件 §6**（2026-10-12 定；只跟踪跨平台能力，Linux-only 细节不再入表）
 - 旧栈 API 参照面（可平移资产）：`experiment/async_coexist/lab/.mooncakes/NoahLiu/native-gui/yue/`（`tray.mbt`/`menu.mbt`/`misc.mbt`/`widgets.mbt`，本机离线可用）
-- 人工复验清单：`_人工测试清单.md`（跑 `moon run examples/native-app`）
+- 人工复验清单：`测试文档/测试用例.md`（跑 `moon run examples/native-app`；原 `_人工测试清单.md` 已迁并，只留跳转）
 
-## 7. mac 平台批（macOS 后端落地进度）
+## 7. mac 平台批（已落地，遗留缺口）
 
-> 口径同 §6：**门面定形态 + 各平台后端**。形态与坑记在 [proposals/adaptation.md](proposals/adaptation.md) 的「macOS 后端首批」节；真机复验清单在 `_人工测试清单.md` 的 T 节；编译/链接门禁是 `ci.yml` 的 macOS job（mac 已并 master，随 master 跑）。
+> 口径同 §6：**门面定形态 + 各平台后端**。形态与坑记在 [proposals/adaptation.md](proposals/adaptation.md) 的「macOS 后端首批」节；真机用例在 `测试文档/测试用例.md`（原 T 节已并入，三平台同一份）；编译/链接门禁是 `ci.yml` 的 macOS job。
 
 - [ ] **macOS GIF 动图分帧合成**：要逐帧读「帧矩形 + disposal」，disposal 不在 Apple 的 GIF 公开属性清单里——先真机用 experiment 探针把可得性回证，再补（当前 `img_anim_decode_file` 给 0，组件退回首帧静图，尺寸已按首帧给对）
 - [ ] **macOS 显示器「首选档」标记**：`CGDisplayModeIsPreferred` 在当前 SDK 已不声明（同族的 `CGDisplayCopyAllDisplayModes`/`GetPixelWidth`/`GetRefreshRate` 都还在），`preferred` 一律给 false。要做要先找到公开信号（ScreenCaptureKit 那侧的模式清单能否对上 `CGDirectDisplayID`），不拿私有形态或「当前档」冒充
-- [ ] **macOS 通知的后端名仍叫 WinBalloon**：mac 的通知实现在 win 桩的 `wm_notify_*`（NSUserNotification），而 `shell/notify.mbt` 的 `NotifyBackend` 只有 `Dbus`/`WinBalloon` 两档，于是 mac 上 `notify_backend_name()` 报 "win-balloon"。能力本身（标题+正文，无动作/持久化）与气泡同档，先不改门面；真机确认通知能用后再决定是否加第三档 `Cocoa`
+- [ ] **macOS 通知的后端名仍叫 WinBalloon**：mac 的通知实现在 win 桩的 `wm_notify_*`（NSUserNotification），而 `shell/notify.mbt` 的 `NotifyBackend` 只有 `Dbus`/`WinBalloon` 两档，于是 mac 上 `notify_backend_name()` 报 "win-balloon"。能力本身（标题+正文，无动作/持久化）与气泡同档，先不改门面；通知已真机验通（须从 `.app` bundle 起，裸跑报不可用是系统约束），是否加第三档 `Cocoa` 待定
 - [ ] **macOS 已明确不做的四族**：窗口管理（Accessibility 授权门槛）、夜间模式（CoreBrightness 私有）、电源方案（`pmset` 语义对不上三值方案）、媒体播放器枚举（无 MPRIS 对等物）——若将来要做，得先解决「授权弹窗由谁负责」的产品问题
-- [ ] **macOS 安装自启动的生效回证**：plist 写落点已通（纯函数有测试钉住），`launchctl load` 在新写入文件上的实际生效待真机确认（不通就换 `bootstrap gui/<uid>`，那要先给 sys 补一个取 uid 的口子）
-- [ ] **真机复验 T1-T6 全部目视项**（`_人工测试清单.md`）：CI 只证明「编得过、链得上」；Retina 观感、输入法内联、拖窗期间的循环、通知在非 bundle 进程下是否弹出，都要人看
+- [ ] **macOS 安装自启动的生效回证**：plist 写落点已通（纯函数有测试钉住），`launchctl load` 在新写入文件上的实际生效已真机回证；若要换 `bootstrap gui/<uid>`，得先给 sys 补一个取 uid 的口子
+- [x] **真机复验 T1-T6 全部目视项**（清单已并入 `测试文档/测试用例.md`）：Retina 观感、输入法内联、拖窗期间的循环、通知弹出——已按清单跑完；通知须从 `.app` bundle 起

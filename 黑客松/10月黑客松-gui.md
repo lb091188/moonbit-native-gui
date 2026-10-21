@@ -18,9 +18,8 @@ native-gui 是 MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出
 - **组件与图表成品齐全** —— 组件库、14 种交互图表、Markdown 视图、内嵌 WebView 都是库内成品；声明式组件、响应式数据、跨平台统一接口
 - **轻量产物、快速启动** —— 光栅、文字、布局纯 MoonBit 实现、不依赖 Skia；`hello` release **1.1 MB** / 约 0.1 s 出窗，`showcase` 15 页 **5.5 MB** / 约 1 s（Linux 实测）；重能力拆独立模块
 
-平台状态：**🟩 Windows / 🟩 Linux / 🟨 macOS**
- - 🟨 后端已合入 master，CI 全绿，待真机测试收口
- - 🟩 已真机测试
+平台状态：**🟩 Windows / 🟩 Linux / 🟩 macOS**
+ - 🟩 三平台均已真机测试（同一份清单，macOS 为 Apple Silicon）
 
 ## 与既有 GUI 能力的边界
 
@@ -55,7 +54,7 @@ match @core.Tray::new("my-player", icon=ic) {
 ## 10 月工作
 
 - **全面原生化收口**：删除 libyue 绑定包与 vendored 二进制（52 MB），更名 `NoahLiu/native-gui`，框架主体纯 MoonBit
-- **macOS 平台批（mac 分支，①–⑰）**：Cocoa 窗口 / CoreText / ImageIO / WKWebView / 系统能力族 / 媒体线，CI 全绿，待真机复验
+- **macOS 平台批（①–⑰）**：Cocoa 窗口 / CoreText / ImageIO / WKWebView / 系统能力族 / 媒体线，真机已验
 - **系统能力探测页**：showcase 第 15 页，五段只读探针（系统桌面 / 显示器窗口 / 应用文件 / 浏览器数据 / 剪贴板电源总线）
 - **图表扩展**：雷达 / 热力 / K 线 / 漏斗 / 箱线 / 桑基 / 树 / 矩形树 / 旭日九种 + 横切交互层，并入 showcase 图表页
 - **音视频示例**：audio / video 独立示例（播放列表 / 字幕双来源 / 倍速音画同步）

@@ -3,7 +3,7 @@ layout: home
 hero:
   name: native-gui
   text: A cross-platform desktop GUI framework for MoonBit
-  tagline: One MoonBit codebase ships native Windows 🟩 / Linux 🟩 windows, with desktop capabilities ready to use and zero config after moon add. macOS 🟨 is merged into master (real-machine verification in progress).
+  tagline: One MoonBit codebase ships native Windows 🟩 / Linux 🟩 / macOS 🟩 windows, with desktop capabilities ready to use and zero config after moon add — all three on the same real-device checklist.
   actions:
     - theme: brand
       text: Package structure

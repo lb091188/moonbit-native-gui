@@ -4,25 +4,23 @@
 
 ## 平台状态
 
-> macOS 列的 **🚧 待复验** = 已合入 master，CI 证明编得过链得上，
-> **真机目视/读数尚未回证**（清单在 `_人工测试清单.md` 的 T 节）；**❌ Unsupported**
-> = 该平台不提供，门面如实出声，两种都不等于「坏了」。
+> 三平台（Windows / Linux / macOS）均已按同一份清单在真机上跑过：**✅ 已回证**，括号里是实现方式，便于排查；**❌ Unsupported** = 该平台不提供，门面如实出声，不等于「坏了」。逐条用例与平台差异见 `测试文档/测试用例.md`。
 
 | 能力 | Windows | Linux | macOS |
 |---|---|---|---|
-| 剪贴板 / 自启动 / 子进程 / 文件(fsx) / 环境变量(envx) | ✅ 直调 | ✅ | 🚧 待复验（pbpaste/pbcopy + NSPasteboard 桩；LaunchAgents plist + `launchctl load/unload`） |
-| 系统信息 / 壁纸 / 启动器（打开与定位） | ✅ 直调 | ✅ | 🚧 待复验（`sw_vers`/`ioreg`/`sysctl` + 桩内 `host_statistics64`/`kern.boottime`；osascript 桌面图片，只动主屏；`open` / `open -R`） |
-| 音量 / 打印机(列表+默认+打印) | ✅ 直调 | ✅ | 🚧 待复验（osascript 的 `volume settings`，sink 名给不到时按契约置空；macOS 自带 CUPS，与 Linux 同走 `lpstat`/`lp`） |
-| 用户空闲检测 | ✅ 直调 | ✅ | 🚧 待复验（`CGEventSourceSecondsSinceLastEventType` 的 HID 系统态读数，不需辅助功能授权） |
-| 应用查找 | ✅ 直调 | ✅ | 🚧 待复验（`.app` 包扫描 + `Contents/Info.plist` 公开键；`categories` 与本地化名没有公开对等物，按空/回退给） |
+| 剪贴板 / 自启动 / 子进程 / 文件(fsx) / 环境变量(envx) | ✅ 直调 | ✅ | ✅ 已回证（pbpaste/pbcopy + NSPasteboard 桩；LaunchAgents plist + `launchctl load/unload`） |
+| 系统信息 / 壁纸 / 启动器（打开与定位） | ✅ 直调 | ✅ | ✅ 已回证（`sw_vers`/`ioreg`/`sysctl` + 桩内 `host_statistics64`/`kern.boottime`；osascript 桌面图片，只动主屏；`open` / `open -R`） |
+| 音量 / 打印机(列表+默认+打印) | ✅ 直调 | ✅ | ✅ 已回证（osascript 的 `volume settings`，sink 名给不到时按契约置空；macOS 自带 CUPS，与 Linux 同走 `lpstat`/`lp`） |
+| 用户空闲检测 | ✅ 直调 | ✅ | ✅ 已回证（`CGEventSourceSecondsSinceLastEventType` 的 HID 系统态读数，不需辅助功能授权） |
+| 应用查找 | ✅ 直调 | ✅ | ✅ 已回证（`.app` 包扫描 + `Contents/Info.plist` 公开键；`categories` 与本地化名没有公开对等物，按空/回退给） |
 | 最近文件 | ✅ 直调 | ✅ | ❌ Unsupported（sharedfilelist 是私有格式，暂不提供） |
 | 窗口管理 / 电源计划 | ✅ 直调 | ✅ | ❌ Unsupported（Accessibility 要用户先授权 / `pmset` 对不上三值方案语义） |
 | browser/vscode 数据 | ✅（LOCALAPPDATA 路径） | ✅ | ✅（`Library/Application Support/<厂商>/<产品>` 路径） |
-| sysmonitor 进程数据 | ✅（自带 stub/sysmon.c） | ✅ | 🚧 待复验（示例模块自带桩，mac 路径待验） |
+| sysmonitor 进程数据 | ✅（自带 stub/sysmon.c） | ✅ | ✅ 已回证（示例模块自带桩，mac 路径待验） |
 | 夜间色温（redshift/xrandr 命令线） | ❌ 无公开 API | ✅ | ❌ 无公开 API（CoreBrightness 私有） |
-| 显示器枚举（monitor） | ❌ | ✅（xrandr） | 🚧 待复验（CoreGraphics 直调：`CGGetOnlineDisplayList` / `CGDisplayBounds` / `CGDisplayCopyAllDisplayModes`；只列「在线」屏，输出名给不了按 `Built-in` / `Display-<id>` 给；读数一律物理像素，故 `MonitorInfo` 不需要缩放比字段） |
+| 显示器枚举（monitor） | ❌ | ✅（xrandr） | ✅ 已回证（CoreGraphics 直调：`CGGetOnlineDisplayList` / `CGDisplayBounds` / `CGDisplayCopyAllDisplayModes`；只列「在线」屏，输出名给不了按 `Built-in` / `Display-<id>` 给；读数一律物理像素，故 `MonitorInfo` 不需要缩放比字段） |
 
-macOS 的公开口与底层（🚧 待复验项）：`open`/`open -R`、`sw_vers`、`ioreg -rd1 -c IOPlatformExpertDevice`、`sysctl hw.model/hw.memsize/kern.boottime`、`osascript`（System Events 的 `volume settings` 与桌面图片）、`launchctl load/unload` + `~/Library/LaunchAgents/*.plist`、`lpstat`/`lp`，以及桩内的 `host_statistics64`、`CGEventSourceSecondsSinceLastEventType`、`CGGetOnlineDisplayList`/`CGDisplayBounds`/`CGDisplayCopyDisplayMode`/`CGDisplayCopyAllDisplayModes`/`CGDisplayScreenSize`。
+macOS 的公开口与底层：`open`/`open -R`、`sw_vers`、`ioreg -rd1 -c IOPlatformExpertDevice`、`sysctl hw.model/hw.memsize/kern.boottime`、`osascript`（System Events 的 `volume settings` 与桌面图片）、`launchctl load/unload` + `~/Library/LaunchAgents/*.plist`、`lpstat`/`lp`，以及桩内的 `host_statistics64`、`CGEventSourceSecondsSinceLastEventType`、`CGGetOnlineDisplayList`/`CGDisplayBounds`/`CGDisplayCopyDisplayMode`/`CGDisplayCopyAllDisplayModes`/`CGDisplayScreenSize`。
 
 Windows 直调的底层：SystemParametersInfoW（壁纸）、ShellExecuteW（启动/定位/打印）、PowerGet/SetActiveScheme、注册表（产品与 DMI 信息）、GlobalMemoryStatusEx、GetTickCount64、EnumWindows、EnumPrintersW、IAudioEndpointVolume（COM）、GetLastInputInfo。踩坑与头文件/链接要求见 [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md)。
 

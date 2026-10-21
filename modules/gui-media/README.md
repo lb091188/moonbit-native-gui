@@ -32,9 +32,9 @@ moon add NoahLiu/gui-media
 |---|---|---|
 | Linux | ✅ | ✅（pkg-config 探系统 libav*） |
 | Windows | ✅ 可编译可运行（单调时钟走 `QueryPerformanceCounter`） | ✅ vendor dev 包真链接；vendor 缺失时 prebuild 降级空 link_configs 保可构建，CI 的 Windows job 装运行库跑**真解码**测试 |
-| macOS | ⬜ 时钟分支已写（`mach_absolute_time`），未真机回证 | ❌ 未接（无 vendor 内容，门面给语义化降级） |
+| macOS | ✅ 时钟分支（`mach_absolute_time`）+ CoreAudio 后端，真机已回证 | ❌ 未接（无 vendor 内容，门面给语义化降级） |
 
-**媒体包整体目前只能在 Linux 上构建与测试。** 音频后端的 C 部分已跨平台（Windows 下由纯 C 探针 `experiment/media_probe/audio_backend_probe.c` 回证），但本包 import `ffmpeg-mbt`，测试可执行文件会把它一并链进来，所以非 Linux 上仍然编不过。
+**音频后端三平台均已回证；ffmpeg 解码的构建与断言仍以 Linux / Windows 为主。** macOS 上 ffmpeg 走 brew（prebuild 自动探），示例能构建链接并真机播放；但本包 import `ffmpeg-mbt`，测试可执行文件会把它一并链进来，所以 `moon test` 的全量口径仍压在 Linux / Windows。
 
 ## 快速上手
 
