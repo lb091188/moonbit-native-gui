@@ -731,3 +731,36 @@ test {
     msg="删除线起点 \{bx0} 不在被划字段的起点 \{pre_w} 上（偏左 \{pre_w - bx0.to_double()}）",
   )
 }
+
+///|
+/// 行距与块间距判据（真机反馈「每行挨到一起」）：正文行带至少 1.6 倍字号，
+/// 段与段之间留 6px 起。
+test "正文行距留前导，块间留缝" {
+  // 中文逐字可断：60 宽里一行放不下这么多字，必然折成多行
+  let root = mount_doc(
+    markdown_view("一二三四五六七八九十甲乙丙丁戊己庚辛壬癸", width=60.0),
+    360.0,
+    300.0,
+  )
+  let col = root.children()[0]
+  let para = col.children()[0]
+  let n_rows = (para.rect.h / (13.0 * 1.6)).floor().to_int()
+  assert_true(n_rows >= 2, msg="段落没折成多行：高 \{para.rect.h}")
+  // 每行都吃满 1.6 倍字号行距（不是字体天然行高那种贴脸排版）
+  assert_true(
+    para.rect.h >= n_rows.to_double() * 13.0 * 1.6 - 0.5,
+    msg="行距不足 1.6 倍字号：\{para.rect.h} / \{n_rows} 行",
+  )
+  let root2 = mount_doc(
+    markdown_view("第一段内容。\n\n第二段内容。", width=300.0),
+    360.0,
+    300.0,
+  )
+  let col2 = root2.children()[0]
+  let a = col2.children()[0]
+  let b = col2.children()[1]
+  assert_true(
+    b.rect.y - (a.rect.y + a.rect.h) >= 5.5,
+    msg="两段之间没留块间距：\{(b.rect.y - a.rect.y - a.rect.h)}",
+  )
+}
