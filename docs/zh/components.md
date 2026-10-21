@@ -29,7 +29,7 @@
 | `row(children, column_gap?, padding?, width?, height?, grow?, background_color?, border_color?, align_items?=Center, class?, handle?)` | 水平布局容器（`view` 的 Row 形态） |
 | `panel(title, children, padding?=10.0, row_gap?=6.0, width?, class?)` | 带标题面板：标题在上、内容在下，面板底 + 描边；圆角等皮肤经 `class` 传入 |
 | `split(first, second, direction?=Horizontal, ratio?=0.5, min_first?, min_second?, class?, handle?)` | 可拖分栏，`hsplit`/`vsplit` 合一、方向参数化 |
-| `scroll_view(children, state : ScrollState, width?, height?, class?, handle?)` | 垂直滚动容器；`height` 是视口高，0 表示由父给；超出裁剪、滚动条画右缘 |
+| `scroll_view(children, state : ScrollState, width?, height?, class?, handle?)` | 垂直滚动容器；`height` 是视口高，0 表示由父给；超出裁剪，滚动条是浮在右缘的拇指（不画轨道、不占宽度，悬停时满色、平时淡档） |
 
 > 滚动偏移在绘制期平移、不进布局；`ScrollState` 由 `ui/scroll.mbt` 提供。
 

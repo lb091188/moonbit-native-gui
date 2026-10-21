@@ -29,7 +29,7 @@ Every self-drawn widget and the component library live in `NoahLiu/native-gui/ui
 | `row(children, column_gap?, padding?, width?, height?, grow?, background_color?, border_color?, align_items?=Center, class?, handle?)` | Horizontal layout container (the Row form of `view`) |
 | `panel(title, children, padding?=10.0, row_gap?=6.0, width?, class?)` | Titled panel: title on top, content below, panel background + border; pass skin such as corner radius through `class` |
 | `split(first, second, direction?=Horizontal, ratio?=0.5, min_first?, min_second?, class?, handle?)` | Draggable split pane; unifies `hsplit`/`vsplit` with the direction parameterized |
-| `scroll_view(children, state : ScrollState, width?, height?, class?, handle?)` | Vertical scroll container; `height` is the viewport height, 0 means the parent supplies it; overflow is clipped, the scrollbar is drawn on the right edge |
+| `scroll_view(children, state : ScrollState, width?, height?, class?, handle?)` | Vertical scroll container; `height` is the viewport height, 0 means the parent supplies it; overflow is clipped, and the scrollbar is a thumb floating on the right edge (no track, no reserved width — opaque on hover, faded otherwise) |
 
 > Scroll offset shifts at paint time and stays out of layout; `ScrollState` is provided by `ui/scroll.mbt`.
 
