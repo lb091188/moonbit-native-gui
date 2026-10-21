@@ -65,7 +65,7 @@ moon run examples/browser        # 内嵌 WebView 浏览器
 | [declarative.md](declarative.md) | 声明式层与响应式：节点树与 `mount_window`、`Store` / `Signal`、`for_list` / `when`、原位替换 |
 | [layout.md](layout.md) | 布局：yoga-mbt 的 Flexbox 口径与 `@style` 的 `Style` 字段集、`class` 通道 |
 | [build.md](build.md) | 构建与链接：prebuild 托管链接参数、改 C 桩不重链的判别与处理 |
-| [roadmap.md](roadmap.md) | 对外路线图：定位、现在能拿到什么、平台与功能矩阵、承诺与版本、下一步、待定决策、明确不做 |
+| [roadmap.md](roadmap.md) | 对外路线图：功能点、功能描述、计划版本、开发与测试状态；附平台兼容面、承诺与版本、明确不做 |
 | [autostart.md](autostart.md) | 开机自启：Linux 写 XDG .desktop、Windows 写 HKCU Run 键，统一 `is_enabled` / `enable` / `disable` |
 | [system-capabilities.md](system-capabilities.md) | 系统能力总览（`@sys`）：音量、应用查找、色温、壁纸、显示器、窗口管理、剪贴板监听、系统信息、打印机、最近文件、浏览器历史等，统一 `Result` 语义；含子进程与 D-Bus 调用层两块共享基建 |
 
