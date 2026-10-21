@@ -9321,7 +9321,7 @@ static int wm_vk_to_mac_keycode(int vk) {
     case 0xDE: return 0x27; // '
     case 0xDB: return 0x21; // [
     case 0xDD: return 0x1E; // ]
-    case 0xDC: return 0x2A; // \
+    case 0xDC: return 0x2A; // 反斜杠键
     case 0xBD: return 0x1B; // -
     case 0xBB: return 0x18; // =
     case 0xC0: return 0x32; // `
