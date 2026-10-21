@@ -429,3 +429,48 @@ test "密码遮罩：光标按遮罩串宽度定位（不是原文字宽）" {
     assert_true((rel - (pad + raw_w)).abs() > 1.0)
   }
 }
+
+///|
+/// 居中档（步进器的数值格就是这样）：光标必须跟着居中的文本起点走。旧口径只挪字
+/// 不挪光标，数字与光标各站一处（Windows 真机反馈），点击命中也按左对齐算。
+test "居中档：光标跟着文本起点，不钉在左内边距" {
+  if !ui_text_guard() {
+    return
+  }
+  let store = @base.Store::new("123")
+  let e = input(
+    store,
+    width=120.0,
+    focus_id=1,
+    class=[@style.style(text_align=@text.TextAlign::Center)],
+  )
+  let root = @widget.Widget::new()
+  root.set_size(140.0, 60.0)
+  root.set_column()
+  let w = e.mount_into(root)
+  root.relayout(140.0, 60.0)
+  w.focused = true
+  let cur = match w.im_cursor {
+    Some(f) =>
+      match f(w) {
+        Some(r) => r.x
+        None => -1.0
+      }
+    None => -1.0
+  }
+  let tw = match @text.measure_font("123", @text.Font::new("", 13.0)) {
+    Some(m) => m.width.to_double()
+    None => 0.0
+  }
+  // 光标在整串末尾：起点(盒中线) + 整串宽 = (盒宽 + 串宽) / 2
+  let want = w.rect.x + ((w.rect.w + tw) / 2.0).max(4.0 + tw)
+  assert_true(
+    (cur - want).abs() < 1.0,
+    msg="居中光标没贴文本起点：光标=\{cur} 期望=\{want} 盒宽=\{w.rect.w} 串宽=\{tw}",
+  )
+  // 老口径（光标钉在左内边距 + 串宽）必须差出一截，否则这条判据没区分度
+  assert_true(
+    (cur - (w.rect.x + 4.0 + tw)).abs() > 8.0,
+    msg="光标还在左内边距上：\{cur}",
+  )
+}
