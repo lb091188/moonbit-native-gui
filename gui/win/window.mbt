@@ -145,8 +145,12 @@ pub fn Window::set_transparent_bg(self : Window, on : Bool) -> Unit {
 ///   Wayland 下这几条只是客户端提示，兑现归 compositor。
 /// - Windows：`WS_EX_TOOLWINDOW` 管任务栏与 Alt+Tab 身份，`SetWindowPos` 的
 ///   TOPMOST/BOTTOM 管叠放；这一档会连带把标题栏换成系统给工具窗口的矮框（Win32
-///   的样式规则，改不掉），要自己定外观就先 `set_borderless`。没有预留工作区的
-///   公共通道（AppBar 那套没接）。
+///   的样式规则，改不掉），要自己定外观就先 `set_borderless`。`Desktop`（图标下）
+///   另走一条：把本窗挂进 Explorer 的壁纸 WorkerW（图标由另一扇 SHELLDLL_DefView
+///   画，壁纸窗在它之下），这是 Win32 上唯一压得住桌面图标的落点——代价是随
+///   `WS_CHILD` 摘掉装饰、拿不到键盘焦点（本档承诺「事件归桌面」），位置按主屏
+///   那扇宿主换算；探不到宿主（非 Explorer 桌面）退回 z-order 底。`DesktopWidget`
+///   要「图标上且可交互」，不嵌入。没有预留工作区的公共通道（AppBar 那套没接）。
 /// - macOS：`CanJoinAllSpaces | Stationary | IgnoresCycle` 管跨 Space 与 ⌘` 循环，
 ///   `Dock` 档再叠 `FullScreenAuxiliary` 并取 Dock 层（盖在全屏 App 的 Space 之上）。
 /// 目标层最终由窗口管理器/Shell/AppKit 兑现。

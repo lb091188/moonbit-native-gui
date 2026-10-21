@@ -129,6 +129,10 @@ typedef struct {
   int hidden;
   int hidden_x;
   int hidden_y;
+  // 「图标下」现场（W34）：挂进壁纸 WorkerW 前的样式与父窗，切走原样还回去
+  int desk_embedded;
+  LONG_PTR desk_style;
+  HWND desk_parent;
   WmEv evs[64];
   WmEv last;
   int ev_head;
@@ -935,12 +939,62 @@ void wm_set_opacity(int64_t id, int alpha) {
  * WS_EX_TOOLWINDOW（1/3/4 三档面板类都给，切回普通/置顶清掉）。**边框与标题栏
  * 不在承诺内**：改 exstyle 会连带把标题栏换成工具窗口的矮框，那是系统的样式规则，
  * 用户要什么外观由他自己的窗口设置与调用方的 styleMask 决定，这里不越俎代庖。
- * Shell 桌面窗归 Explorer 所有，客户窗压不进它下面：1 与 4 只能沉到 z-order 底
- * （视觉上恒在图标之上）。 */
+ * 「图标下」(1) 靠挂进 Explorer 的壁纸窗兑现（见 wm_wallpaper_host）：那扇窗在
+ * 桌面图标之下、壁纸之上，正是这一档的位置；探不到宿主（非 Explorer 桌面）时
+ * 退回 z-order 底，视觉上仍在图标之上。4 档要「图标上且本窗可交互」，不嵌入。 */
+
+// 枚举顶层窗：找到带 SHELLDLL_DefView（画图标那扇）的窗，壁纸窗就是它**后一个**
+// WorkerW 兄弟——挂进壁纸窗即处在图标之下。
+static BOOL CALLBACK wm_each_desktop(HWND top, LPARAM lparam) {
+  if (FindWindowExW(top, NULL, L"SHELLDLL_DefView", NULL) == NULL) {
+    return TRUE;
+  }
+  HWND worker = FindWindowExW(NULL, top, L"WorkerW", NULL);
+  if (worker == NULL) {
+    return TRUE;
+  }
+  *(HWND *)lparam = worker;
+  return FALSE;
+}
+
+// 取 Explorer 的壁纸窗。Win10 2004 起默认没有这扇 WorkerW，得先发 0x052C 请
+// Progman 把它派生出来（Explorer 的内部消息，无参、返回值无意义，超时 500ms
+// 免得桌面卡住时把我们也拖住）。探不到返回 NULL，调用方退回 z-order 底。
+static HWND wm_wallpaper_host(void) {
+  HWND prog = FindWindowW(L"Progman", L"Program Manager");
+  if (prog == NULL) {
+    return NULL;
+  }
+  DWORD ignored = 0;
+  SendMessageTimeoutW(prog, 0x052C, 0, 0, SMTO_NORMAL, 500, &ignored);
+  HWND found = NULL;
+  EnumWindows(wm_each_desktop, (LPARAM)&found);
+  return found;
+}
+
+// 退出「图标下」：撤 WS_CHILD、还回原父窗、按屏幕位置复位并重报框架（不重报
+// 标题栏要等下一次窗口变动才回来）。
+static void wm_leave_desktop(WmWindow *w) {
+  if (!w->desk_embedded) {
+    return;
+  }
+  RECT sr;
+  GetWindowRect(w->hwnd, &sr);
+  SetWindowLongPtrW(w->hwnd, GWL_STYLE, w->desk_style);
+  SetParent(w->hwnd, w->desk_parent);
+  SetWindowPos(w->hwnd, HWND_TOP, sr.left, sr.top, 0, 0,
+               SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+  w->desk_embedded = 0;
+  w->desk_parent = NULL;
+}
+
 void wm_set_layer(int64_t id, int layer) {
   if (id <= 0 || id >= WM_MAX_WINDOWS) return;
   WmWindow *w = &wm_windows[id];
   if (w->hwnd == NULL) return;
+  if (layer != 1) {
+    wm_leave_desktop(w);
+  }
   int panel = (layer == 1 || layer == 3 || layer == 4);
   DWORD ex = (DWORD)GetWindowLongPtrW(w->hwnd, GWL_EXSTYLE);
   DWORD want = panel ? (ex | WS_EX_TOOLWINDOW) : (ex & ~WS_EX_TOOLWINDOW);
@@ -953,7 +1007,31 @@ void wm_set_layer(int64_t id, int layer) {
                      SWP_NOACTIVATE);
   }
   switch (layer) {
-    case 1: case 4: SetWindowPos(w->hwnd, HWND_BOTTOM, 0,0,0,0, SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE); break;
+    case 1: {
+      // 图标下：挂进壁纸窗才真在图标之下。宿主客户区原点=主屏 (0,0)，位置换算
+      // 一致；多屏时挂的是主屏那扇 WorkerW。挂进去会失去键盘焦点、标题栏随
+      // WS_CHILD 摘掉——本档承诺的就是「事件归桌面」的壁纸场景。
+      if (!w->desk_embedded) {
+        HWND host = wm_wallpaper_host();
+        if (host != NULL) {
+          RECT sr;
+          GetWindowRect(w->hwnd, &sr);
+          POINT tl = {sr.left, sr.top};
+          ScreenToClient(host, &tl);
+          w->desk_parent = GetParent(w->hwnd);
+          w->desk_style = GetWindowLongPtrW(w->hwnd, GWL_STYLE);
+          SetWindowLongPtrW(w->hwnd, GWL_STYLE, w->desk_style | WS_CHILD);
+          SetParent(w->hwnd, host);
+          SetWindowPos(w->hwnd, HWND_BOTTOM, tl.x, tl.y, 0, 0,
+                       SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+          w->desk_embedded = 1;
+          break;
+        }
+      }
+      SetWindowPos(w->hwnd, HWND_BOTTOM, 0,0,0,0, SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE);
+      break;
+    }
+    case 4: SetWindowPos(w->hwnd, HWND_BOTTOM, 0,0,0,0, SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE); break;
     case 2: SetWindowPos(w->hwnd, HWND_TOPMOST, 0,0,0,0, SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE); break;
     case 3: SetWindowPos(w->hwnd, HWND_TOPMOST, 0,0,0,0, SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE); break;
     default: SetWindowPos(w->hwnd, HWND_NOTOPMOST, 0,0,0,0, SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE); break;

@@ -3046,3 +3046,11 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **根因**：`gui/ui/entry.mbt` 的居中档是**半条路**——绘制时按样式槽 `text_align=Center` 把整串挪到盒中线，光标却仍按 `pad + 前缀宽` 画，选区底色与点击命中（`byte_at_x`）也按左对齐算。步进器数值格正是居中档（`width=44` + `text_align=Center`），于是数字在中间、光标钉在左边。原注释写着「光标/选区仍按左对齐口径，短数字格的显示居中就够用」——「够用」不成立，用户一眼就读成错位。
 - **修（一个起点，多处共用，不按组件补）**：把居中换算抽成 `origin_x(self, txt)` 与 `shown_origin(self)`（空框画占位符时按**占位符**宽度定起点，光标也贴它开头，不落在盒中线空处）；文本、光标、选区、组合串 preedit、`im_cursor`（输入法候选窗落点）、按下与拖拽的字符命中（`byte_at_x` 的 inset 参数）全部走同一个 `shown_origin`。左对齐档返回值就是原来的 `pad`，那条路径行为不变。
 - **验证**：`ui/entry_wbtest` 新增「居中档：光标跟着文本起点，不钉在左内边距」——经 `im_cursor` 拿光标矩形，判据两条：「光标 = 盒中线换算后的串尾」且「与老位置差出 >8px」（120 宽盒、22px 串：新 71 / 老 26，差 45）。**回退验证**：把 `origin_x` 短路成 `pad`，该条即红并打出「光标=26 期望=71」。`cd gui && moon check` 零错误零警告、`moon test ui` 208/208（步进器既有用例全过）。**待真机**：Windows/mac 点步进器数值格，光标贴数字末尾，打字、方向键、鼠标点选都跟手；空框有占位符时光标贴占位符开头。
+
+## Windows「图标下」压不住桌面图标：挂进 Explorer 的壁纸 WorkerW（2026-10-21，Windows 真机反馈）
+
+- **报障**：win 上点「图标下」还是遮住图标。
+- **根因**：Win32 分支此前只有 `SetWindowPos(HWND_BOTTOM)`，注释写的判断是「Shell 桌面窗归 Explorer 所有，客户窗压不进它下面」——这条只对了一半：`HWND_BOTTOM` 只到「所有普通顶层窗之下」，而桌面图标由 Explorer 的 `SHELLDLL_DefView` 画，那一层还在更下面。但**壁纸那扇 `WorkerW` 恰好在图标之下**，把窗挂进去就是这一档要的位置。
+- **机制**：`wm_wallpaper_host()` = `FindWindowW("Progman")` → 发 `0x052C`（Win10 2004 起 Progman 默认不派生壁纸 WorkerW，这条内部消息让它派生；用 `SendMessageTimeoutW` 卡 500ms，桌面卡住时不拖死我们）→ `EnumWindows` 找带 `SHELLDLL_DefView` 的那扇，取它**后一个** `WorkerW` 兄弟。挂前记下原样式与原父窗（本栈建窗都是顶层、父窗 NULL），加 `WS_CHILD` 后 `SetParent`，屏幕位置经 `ScreenToClient(host)` 换算过去（宿主客户区原点=主屏 (0,0)，主屏上看着不跳位），再 `HWND_BOTTOM` 排到兄弟序最低——壁纸之上、图标之下。切别的档时 `wm_leave_desktop` 原样还原并 `SWP_FRAMECHANGED` 重报框架（不重报标题栏要等下一次窗口变动才回来）。探不到宿主（非 Explorer 桌面、第三方壳）退回原来的 `HWND_BOTTOM`，不比现状坏。
+- **代价写进承诺**：`WS_CHILD` 摘掉非客户区（装饰不见），跨进程挂进 Explorer 后本窗拿不到键盘焦点——`Desktop` 档的语义本就是「壁纸场景、事件归桌面」，鼠标点击照旧落到图标上，这两条与承诺一致；`DesktopWidget`（图标上、要可交互）**不嵌入**，仍走 `HWND_BOTTOM`。多屏时挂的是主屏那扇 WorkerW，副屏位置会被宿主裁掉。以上都写进 `WindowLayer` 注释与演示段说明。
+- **验证**：**本机没有 Windows SDK 头文件，C 侧编译由 CI 的 Windows 作业兜**（MSVC `moon check`+build）；MoonBit 侧只改了注释与演示文案，`cd gui && moon check` 零错误零警告、`moon test ui` 208/208、`examples/showcase` `moon build` 零警告、i18n 覆盖门禁全绿（desc§ 那条中英文说明同步改写）。**待真机（Windows）**：①点「图标下」→ 窗沉到桌面图标之下、壁纸之上，任务栏与 Alt+Tab 里没有它；②点「图标上」→ 回到图标之上且仍可交互；③点「普通」/「置顶」→ 装饰与位置原样回来（重点看还原后没跑位、标题栏回来了）；④拖到副屏再点「图标下」，确认与「主屏宿主」这条说明一致。
