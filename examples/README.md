@@ -25,13 +25,15 @@ moon run examples/video
 
 （另 `avdevice-63.dll` / `avfilter-12.dll` 与 vendor 同版本配套，README 口径列全 7 个。）
 
-**缺 dll 时的表现不是「示例内报错」，而是进程根本启动不了**：Windows 加载器在 `main` 之前就拒绝加载，窗口从不出现，控制台一闪就退（Git Bash 下退出码 127，无任何输出）。audio 与 video 两个示例各自成模块，都吃这条前置。
+**缺 dll 时的表现**：Windows 加载器在 `main` 之前就解析导入表，缺则进程根本起不来（窗口从不出现、控制台一闪就退，Git Bash 下退出码 127、无输出）。`ffmpeg-mbt` 已把这 5 个 dll 改成**延迟加载**，并用构建期记下的 `vendor/win/bin` 兜底，所以现在缺 dll 表现为 `ffmpeg_supported()` 返回 false（媒体后端判为不可用），而不是启动即崩。audio 与 video 两个示例各自成模块，都吃这条前置。
 
-把 dll 放到 **exe 同目录**或**加进 PATH** 即可（大版本须与 `vendor/` 导入库一致，取自同一份 BtbN/gyan win64-lgpl-shared 构建的 `bin/`）。
+把 dll 放到 **exe 同目录**或**加进 PATH**（大版本须与 `vendor/` 导入库一致，取自同一份 BtbN/gyan win64-lgpl-shared 构建的 `bin/`）。开发期通常**不需要**做这件事——见下。
 
 **dll 从哪来**：`ffmpeg-mbt` 的 prebuild 在 Windows 构建时会先看 `modules/ffmpeg-mbt/vendor/win/bin`（与 macOS 的 `vendor/mac` 对称，都不入库），缺则取本仓 `vendor-v1` Release 的 `ffmpeg-windows-x64-9.0-lgpl-shared.zip`（解出约 150MB，GitHub 与 gitee 双镜像竞速 + sha256 校验），两个镜像都拿不到才退 BtbN 上游；进度都打在构建日志里。离线可 `NATIVE_GUI_FFMPEG_ZIP=<本地 zip>` 指过去，CI 已自备 dll 时用 `NATIVE_GUI_SKIP_VENDOR=1` 跳过。
 
-**搬到 exe 旁**：产物目录由 moon 决定，dll 必须与 exe 同目录才加载得到，一条命令代劳（缺 exe 时先自动 `moon build`，`--run` 补完直接启动）：
+**开发期为什么不用搬**：prebuild 把 `vendor/win/bin` 的绝对路径编进 exe，`ffmpeg_supported()` 首次调用时按「exe 同目录/PATH → 该目录」顺序加载（`src/ffmpeg_win_dll.c`，`/DELAYLOAD`）——macOS 用 `-rpath` 做到的事，Windows 靠这一手等价完成。`moon add` 别人的工程时 dll 就在 `.mooncakes` 里，同样适用。
+
+**发布/分发时才需要 app-local**：把 dll 与 exe 放同一目录（加载器第一顺位找 exe 所在目录，优先于上面那个构建期目录）。一条命令代劳（缺 exe 时先自动 `moon build`，`--run` 补完直接启动）：
 
 ```sh
 python scripts/win_ffmpeg_dll.py                 # audio + video 一起补齐

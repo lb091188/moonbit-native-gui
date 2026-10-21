@@ -244,6 +244,7 @@ Linux 列带 **X11** 的格只在 X11 会话成立，带 **DE** 的格行为随�
 | 功能点 | Windows | Linux | macOS |
 |---|---|---|---|
 | 解码引擎 | ✅ | ✅ | 🚧 |
+| 运行期库定位（Windows 延迟加载构建期 vendor 目录、免把 dll 复制到 exe 旁；mac `-rpath`；Linux 系统库） | 🚧 | ✅ | ✅ |
 | 音频输出 | ✅ | ✅ | ✅ |
 | 播放器组件 | 🚧 | ✅ | 🚧 |
 | 无头播放接口（HeadlessAudio/HeadlessVideo，注入 schedule 通道自 pump） | ✅ | ✅ | ✅ |
