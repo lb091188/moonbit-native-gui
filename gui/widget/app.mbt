@@ -568,6 +568,28 @@ pub fn App::move_focus(self : App, backward : Bool) -> Unit {
 }
 
 ///|
+/// 把焦点交给焦点栈里的某个 id（控件自己请焦点走这条：步进器点 +/- 要把焦点落到
+/// 中间那格）。先把焦点栈与控件树对齐一次，id 不在册就不改焦点并给 false。
+pub fn App::focus_by_id(self : App, id : Int) -> Bool {
+  self.sync_focus()
+  if self.focus.is_focused(id) {
+    return true
+  }
+  let prev = self.focus.current()
+  let ok = self.focus.focus(id)
+  if ok {
+    self.flush_ime_for_switch(prev)
+    self.mark_focus_rect(prev)
+    self.mark_focus_id_rect(id)
+    let _ = self.session.window.request_focus()
+    // 当场对齐一次焦点标志：请焦点的控件这一拍就能读到 `focused`
+    self.root.set_focused_by_focus(id)
+    self.schedule_paint()
+  }
+  ok
+}
+
+///|
 /// 原始事件的归类型。`win` 的 code 语义：0 键按下 1 键抬起 2 按钮按下
 /// 3 按钮抬起 4 指针移动 5 滚轮；两个数据槽按 C 侧 `WmEv.dx/dy` 命名，
 /// 到 MoonBit 是 `button`（dx：按钮号或滚轮横向）与 `axis`（dy：滚轮纵向，

@@ -165,3 +165,27 @@ test "keep_focus_at：命中链上任一档声明不让位即真，都不声明�
   assert_eq(a.root.keep_focus_at(20.0, 20.0), true)
   assert_eq(a.root.keep_focus_at(60.0, 20.0), false)
 }
+
+///|
+/// 控件自己请焦点（步进器点 +/- 要把焦点落到中间格那类）：走宿主的
+/// `focus_by_id`——在册号接管焦点并同步标志，不在册静默不做；本测试环境没有
+/// 挂上的宿主会话，控件侧 `request_host_focus` 该静默给 false。
+test "focus_by_id / request_host_focus：在册号接管，不在册与无宿主静默" {
+  host_reset()
+  let a = fake_win_app()
+  let (one, two) = two_fields(a)
+  a.mount([])
+  down_at(a, 100, 15) // 先进第一只
+  assert_eq(a.focus.current(), Some(7))
+  assert_true(a.focus_by_id(7)) // 已是焦点：幂等给 true
+  assert_true(a.focus_by_id(9)) // 交给第二只
+  assert_eq(a.focus.current(), Some(9))
+  a.root.set_focused_by_focus(9)
+  assert_eq((one.focused, two.focused), (false, true))
+  // 不在册的号：不改焦点、给 false
+  assert_false(a.focus_by_id(555))
+  assert_eq(a.focus.current(), Some(9))
+  assert_false(two.request_host_focus())
+  assert_eq(a.focus.current(), Some(9))
+  host_reset()
+}

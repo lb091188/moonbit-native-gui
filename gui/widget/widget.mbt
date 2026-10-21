@@ -683,6 +683,20 @@ pub fn Widget::by_id(self : Widget, id : Int) -> Widget? {
 }
 
 ///|
+/// 请宿主把焦点交给本控件（走 `focus_id`，宿主会先与控件树对齐焦点栈）。
+/// 没挂到树上、没有宿主或 id 不在册都给 false——静默不做，不打断当前焦点。
+pub fn Widget::request_host_focus(self : Widget) -> Bool {
+  if self.focus_id <= 0 {
+    false
+  } else {
+    match host_active() {
+      Some(a) => a.focus_by_id(self.focus_id)
+      None => false
+    }
+  }
+}
+
+///|
 /// 按**焦点栈 id** 重排 `focused` 标志（一次遍历，宿主每帧画之前同步一次）。
 /// 焦点栈只记 id，控件绘制要的是「我是不是那个被聚焦的」，这层换算归宿主。
 /// 标志真正翻转时按控件触发 `on_focus_change`。

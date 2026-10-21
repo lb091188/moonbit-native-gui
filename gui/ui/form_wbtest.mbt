@@ -849,7 +849,7 @@ test "步进器中间格可打字：只收数字，回车与失焦才回写并�
     }
   }
   let _ = root.set_focused_by_focus(cell.focus_id)
-  key(root, cell, 'a'.to_int(), @base.MOD_CTRL)
+  key(root, cell, 'a'.to_int(), mod_edit())
   key(root, cell, '2'.to_int(), 0)
   key(root, cell, '5'.to_int(), 0)
   assert_eq(text_of(), "25")
@@ -862,14 +862,14 @@ test "步进器中间格可打字：只收数字，回车与失焦才回写并�
   assert_eq(st.get(), 10)
   assert_eq(text_of(), "10")
   // 失焦即提交
-  key(root, cell, 'a'.to_int(), @base.MOD_CTRL)
+  key(root, cell, 'a'.to_int(), mod_edit())
   key(root, cell, '3'.to_int(), 0)
   let _ = root.set_focused_by_focus(0)
   assert_eq(st.get(), 3)
   assert_eq(text_of(), "3")
   // 空串/负号这类不成数的串不改值，串回到现值
   let _ = root.set_focused_by_focus(cell.focus_id)
-  key(root, cell, 'a'.to_int(), @base.MOD_CTRL)
+  key(root, cell, 'a'.to_int(), mod_edit())
   key(root, cell, @base.KS_BACKSPACE, 0)
   assert_eq(text_of(), "")
   key(root, cell, @base.KS_RETURN, 0)
@@ -879,7 +879,7 @@ test "步进器中间格可打字：只收数字，回车与失焦才回写并�
   st.set(4)
   assert_eq(text_of(), "4")
   // 长到越界的串：夹到上界，不在累加里溢出
-  key(root, cell, 'a'.to_int(), @base.MOD_CTRL)
+  key(root, cell, 'a'.to_int(), mod_edit())
   let mut nines = 0
   while nines < 14 {
     key(root, cell, '9'.to_int(), 0)
@@ -933,24 +933,24 @@ test "步进器：打字未成交先落值再步进，外部改值时禁用态�
   }
   let _ = root.set_focused_by_focus(cell.focus_id)
   // 点 +/- 不吃焦点，格上那位数必须先成交再走步长（否则显示 5、加出 3）
-  key(root, cell, 'a'.to_int(), @base.MOD_CTRL)
+  key(root, cell, 'a'.to_int(), mod_edit())
   key(root, cell, '5'.to_int(), 0)
   tap(minus)
   assert_eq(st.get(), 4)
   assert_eq(text_of(), "4")
-  key(root, cell, 'a'.to_int(), @base.MOD_CTRL)
+  key(root, cell, 'a'.to_int(), mod_edit())
   key(root, cell, '7'.to_int(), 0)
   key(root, cell, @base.KS_UP, 0)
   assert_eq(st.get(), 8)
   assert_eq(text_of(), "8")
   // 空串不成数：不动值，串先回到现值再步进
-  key(root, cell, 'a'.to_int(), @base.MOD_CTRL)
+  key(root, cell, 'a'.to_int(), mod_edit())
   key(root, cell, @base.KS_BACKSPACE, 0)
   tap(plus)
   assert_eq(st.get(), 9)
   assert_eq(text_of(), "9")
   // 越界的数按区间夹取
-  key(root, cell, 'a'.to_int(), @base.MOD_CTRL)
+  key(root, cell, 'a'.to_int(), mod_edit())
   key(root, cell, '0'.to_int(), 0)
   key(root, cell, @base.KS_RETURN, 0)
   assert_eq(st.get(), 1)
@@ -959,6 +959,42 @@ test "步进器：打字未成交先落值再步进，外部改值时禁用态�
   let at_min = darkest_px(minus)
   st.set(5)
   assert_true(darkest_px(minus) != at_min, msg="外部改值后减号仍是禁用字色")
+}
+
+///|
+/// 从没点过输入框直接连按 +/-：值与格上串必须一路同步，不留「按钮一个数、
+/// 框里另一个数」的各自为战。
+test "步进器：未聚焦连按 +/-，值与中间格始终同一条" {
+  let st = @base.Store::new(2)
+  let root = mount_root([stepper(st, min=1, max=9)], 260.0, 60.0)
+  let row = kid(root, 0)
+  let cell = row.children()[1]
+  let plus = row.children()[2]
+  let text_of = fn() -> String {
+    match root.im_context_of(cell.focus_id) {
+      Some((s, _)) => s
+      None => "<无输入法上下文>"
+    }
+  }
+  let tap = fn(w : @widget.Widget) -> Unit {
+    let _ = root.dispatch_pointer_to(w.id, {
+      kind: @widget.PointerKind::Down, x: w.rect.x + 4.0, y: w.rect.y + 4.0, button: 1, mods: 0,
+    })
+    let _ = root.dispatch_pointer_to(w.id, {
+      kind: @widget.PointerKind::Up, x: w.rect.x + 4.0, y: w.rect.y + 4.0, button: 1, mods: 0,
+    })
+  }
+
+  tap(plus)
+  tap(plus)
+  assert_eq(st.get(), 4)
+  assert_eq(text_of(), "4")
+  // 到界再按：值与串都停在界上，不越界也不留残串
+  st.set(8)
+  tap(plus)
+  tap(plus)
+  assert_eq(st.get(), 9)
+  assert_eq(text_of(), "9")
 }
 
 ///|
