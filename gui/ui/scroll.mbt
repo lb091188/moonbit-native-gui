@@ -1,4 +1,4 @@
-// 垂直滚动容器：视口裁剪 + 内容整块平移 + 自绘滚动条（滚轮、拖动、点轨道跳转）。
+// 垂直滚动容器：视口裁剪 + 内容整块平移 + 浮层滚动条（滚轮、拖动、点条跳转）。
 //
 // 平移用布局引擎的相对定位（`position: relative` + `top: -offset`）而不是在
 // 控件层另记一套偏移：相对偏移只改落位、不改常规流占位，正是滚动要的语义，
@@ -15,6 +15,9 @@ pub(all) struct ScrollState {
   mut offset : Double
   mut content_h : Double
   mut view_h : Double
+  /// 滚动条的「显形」位：指针在本视口内（含全部子项）或正按住拇指时为真，拇指
+  /// 画满色；否则画淡档。由视口的悬停回调写入（见 `scroll_bar_hover`）。
+  mut bar_hot : Bool
   /// 组件在挂载时写入：把当前 `offset` 落到内容节点的 `top` 并请求重绘。
   apply : Ref[() -> Unit]
 }
@@ -25,6 +28,7 @@ pub fn ScrollState::new() -> ScrollState {
     offset: 0.0,
     content_h: 0.0,
     view_h: 0.0,
+    bar_hot: false,
     apply: Ref(fn() { () }),
   }
 }
@@ -77,12 +81,29 @@ pub fn ScrollState::at_bottom(self : ScrollState) -> Bool {
 }
 
 ///|
-/// 滚动条宽度（轨道与拇指同宽）。
+/// 滚动条宽度（拇指宽；浮层档不画轨道）。
 const SCROLL_BAR_W : Double = 8.0
 
 ///|
-/// 滚动条控件（贴在视口右缘、与视口同高）：轨道 + 拇指（长度按视口/内容比例、
-/// 下限 16px 便于抓），点轨道跳转、按住拖动（拇指中心跟随指针）、松手即止。
+/// 拇指淡档不透明度：平时留一点痕迹便于定位，又不压住内容右缘。
+const SCROLL_BAR_IDLE_ALPHA : Double = 0.15
+
+///|
+/// 浮层滚动条的显形接线：视口悬停（含全部子项，宿主按祖先链派发悬停态）时把
+/// `state.bar_hot` 抬起，拇指画满色，离开落回淡档。`scroll_view` / `virt_list` /
+/// 多行框建视口时各接一次。
+pub fn scroll_bar_hover(viewport : @widget.Widget, state : ScrollState) -> Unit {
+  viewport.on_hover_change = Some(fn(_w : @widget.Widget, on : Bool) -> Unit {
+    if state.bar_hot != on {
+      state.bar_hot = on
+      @widget.invalidate()
+    }
+  })
+}
+
+///|
+/// 滚动条控件（浮层档：绝对贴在视口右缘、与视口同高，只画拇指）：拇指长度按
+/// 视口/内容比例、下限 16px 便于抓，点条跳转、按住拖动（拇指中心跟随指针）、松手即止。
 /// `scroll_view` 与 `virt_list` 共用。
 fn scroll_bar(state : ScrollState) -> @widget.Widget {
   let bar = @widget.Widget::new()
@@ -101,14 +122,17 @@ fn scroll_bar(state : ScrollState) -> @widget.Widget {
     let ch = state.content_h
     // 只在真能滚的时候画（拇指长度按视口/内容比例）
     if ch > vh && vh > 0.0 {
-      p.set_fill_color(@theme.theme_fill_zebra())
-      p.fill_round_rect(0.0, 0.0, r.w, r.h, r.w / 2.0)
+      // 轨道不画（那条整高的灰带会压住内容右缘），拇指按显形位分两档：
+      // 悬停/拖动满色，平时淡到 `SCROLL_BAR_IDLE_ALPHA`
+      let hot = state.bar_hot || dragging.val
+      p.set_global_alpha(if hot { 1.0 } else { SCROLL_BAR_IDLE_ALPHA })
       let thumb = (r.h * vh / ch).max(16.0)
       let travel = (r.h - thumb).max(0.0)
       let ratio = state.offset / (ch - vh)
       p.set_fill_color(@theme.theme_border())
       // 拇指胶囊形（几何取圆，不随圆角开关变方）
       p.fill_round_rect(1.0, ratio * travel, r.w - 2.0, thumb, (r.w - 2.0) / 2.0)
+      p.set_global_alpha(1.0)
     }
   })
   bar.on_pointer = Some(fn(
@@ -203,6 +227,7 @@ pub fn scroll_view(
     }
 
     viewport.append_child(scroll_bar(state))
+    scroll_bar_hover(viewport, state)
     viewport.on_draw = Some(fn(
       self : @widget.Widget,
       p : @render.Painter,

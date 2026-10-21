@@ -535,6 +535,7 @@ pub fn textarea(
     })
     // 滚动条：视口的绝对定位子控件（贴右缘、压在文字之上，才吃得到命中）
     w.append_child(scroll_bar(st))
+    scroll_bar_hover(w, st)
     // Store 被外部改动时回灌内核（内核才是文本权威）
     let sid = store.subscribe_id(fn(t : String) -> Unit {
       if t != ed.get_text() {

@@ -1,5 +1,5 @@
 // 滚动容器回归：滚轮改偏移并夹取、内容随偏移整体上移、滚动条在内容之上、
-// 拖动与点轨道改偏移、内容不足一屏时不滚也不画条。
+// 拖动与点条改偏移、内容不足一屏时不滚也不画条、浮层档不画轨道。
 // 几何（视口高/内容高）在第一帧绘制时抄进状态，所以用例都先 paint 一次。
 
 ///|
@@ -93,7 +93,7 @@ test "滚动容器：内容随偏移整体上移，滚动条在内容之上" {
 }
 
 ///|
-test "滚动容器：点轨道跳转与拖动拇指（松手后移动不再跟手）" {
+test "滚动容器：点条跳转与拖动拇指（松手后移动不再跟手）" {
   let st = ScrollState::new()
   let (root, vp) = mounted(
     scroll_view(scroll_rows(20, 20.0, @theme.theme_bg_panel()), st, width=200.0, height=100.0),
@@ -102,7 +102,7 @@ test "滚动容器：点轨道跳转与拖动拇指（松手后移动不再跟�
   )
   let bar = vp.children()[1]
   let _ = paint(root, 240, 140)
-  // 点轨道最下端：拇指中心对齐指针 → 偏移接近最大
+  // 点条最下端：拇指中心对齐指针 → 偏移接近最大
   let _ = root.dispatch_pointer({
     kind: @widget.PointerKind::Down,
     x: bar.rect.x + 4.0,
@@ -190,4 +190,45 @@ test "滚动容器：只给 grow 不给高度时视口不被内容撑高" {
   st.scroll_by(60.0)
   root.relayout(240.0, 140.0)
   assert_true(content.rect.y < y0 - 50.0, msg="偏移变了内容没上移")
+}
+
+///|
+/// 浮层滚动条：轨道不画（整高那条灰带会压住内容右缘），拇指平时画淡档，指针
+/// 进入视口（含全部子项，宿主按祖先链派发悬停态）即画满色。
+test "滚动条浮层档：不画轨道，悬停视口拇指提亮" {
+  let st = ScrollState::new()
+  let (root, vp) = mounted(
+    scroll_view(scroll_rows(20, 20.0, "#334455"), st, width=200.0, height=100.0),
+    240.0,
+    140.0,
+  )
+  let bar = vp.children()[1]
+  let _ = paint(root, 240, 140)
+  let bx = (bar.rect.x + 4.0).round().to_int()
+  let y_thumb = (bar.rect.y + 4.0).round().to_int()
+  let y_track = (bar.rect.y + 90.0).round().to_int()
+  let bm_idle = paint(root, 240, 140)
+  // 条所在那一列拇指之外露的是内容行底色：轨道确实没画
+  assert_eq(px(bm_idle, bx, y_track), (0x33, 0x44, 0x55, 0xFF))
+  let idle = px(bm_idle, bx, y_thumb)
+  let border = match @render.Color::parse(@theme.theme_border()) {
+    Some(c) => (c.r, c.g, c.b, 255)
+    None => (0, 0, 0, 0)
+  }
+  // 淡档既不是满色拇指，也不是「什么都没画」——落在内容底色与满色之间
+  assert_true(idle != border, msg="淡档不该是满色：\{idle.0},\{idle.1},\{idle.2}")
+  let between = fn(i : Int, a : Int, b : Int) -> Bool {
+    i > a.min(b) && i < a.max(b)
+  }
+  assert_true(
+    between(idle.0, 0x33, border.0) && between(idle.1, 0x44, border.1) && between(
+      idle.2,
+      0x55,
+      border.2,
+    ),
+    msg="淡档不是部分混合：淡=\{idle.0},\{idle.1},\{idle.2} 满=\{border.0},\{border.1},\{border.2} 内容=51,68,85",
+  )
+  root.set_hover(vp.id)
+  let hot = px(paint(root, 240, 140), bx, y_thumb)
+  assert_eq(hot, border)
 }

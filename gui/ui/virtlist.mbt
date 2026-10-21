@@ -132,6 +132,7 @@ pub fn[T] virt_list(
     })
     @base.sub_bag_register(fn() { items.signal().remove(sid) })
     viewport.append_child(scroll_bar(state))
+    scroll_bar_hover(viewport, state)
     render_window(true)
     handle(viewport)
     viewport
@@ -407,6 +408,7 @@ pub fn sticky_list(
       state.offset != before
     })
     viewport.append_child(scroll_bar(state))
+    scroll_bar_hover(viewport, state)
     handle(viewport)
     viewport
   })

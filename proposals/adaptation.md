@@ -3067,3 +3067,11 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **退路**：`NATIVE_GUI_FFMPEG_NO_DELAYLOAD=1` 时不发这两个宏，退回「dll 必须在 exe 旁」的老行为（发布打包若遇怪问题可一键回落）。
 - **验证（macOS，代码级）**：`moon check`（ffmpeg-mbt）、`moon test`（ffmpeg-mbt 全绿）、`moon build examples/audio` 全部零错误；新增的 C 文件在非 Windows 上只编译出 `vf_rt_ready(){return 1;}`（`nm` 确认导出 `_vf_rt_ready`），链接期**没有新增告警**（构建里那条 `libtool: warning: 'stub.o' has no symbols` 来自既有的 `win/text/webview` 空 stub，与本次无关）。模拟 `platform.system()=="Windows"` 跑 prebuild，`vars.FFMPEG_STUB_CC` 确为 `/utf-8 -DNG_FFMPEG_DELAYLOAD -DNG_FFMPEG_BIN="…/vendor/win/bin"`。**待 Windows 真机**：①不搬 dll 直接 `moon run examples/audio`，窗口出现且能播；②把 `vendor/win/bin` 改名后重跑，应得到 `ffmpeg_supported()==false` 而不是崩溃；③把 7 个 dll 复制到 exe 旁、同时删掉构建期目录，仍能跑（app-local 优先）；④`dumpbin /dependents <exe>.exe` 里 av*/sw* 应落在 delay-load 段。
 
+
+## 滚动条改浮层档：轨道不画、拇指淡档 15%、悬停视口满色（2026-10-21，使用者定的形态）
+
+- **报障**：侧边菜单被滚动条遮挡一部分，想要「悬浮显示的滚动条」，问现框架能不能做。
+- **本来就有的一半**：滚动条早就是视口的**绝对定位子控件**（贴右缘、压在内容之上、不占布局宽度、命中也归它），缺的只是「不常驻」。用到的原语全在库里，零新依赖：`Painter::set_global_alpha`（对话框遮罩在用）、宿主按祖先链派发的悬停态（`hovered` / `on_hover_change`，与 CSS `:hover` 同义，指针在子项上时父项也算悬停）、`invalidate()`。
+- **定下来的形态**：轨道整条不画——那条 `fill_zebra` 灰带正是压住侧栏右缘的东西；拇指两档，平时 **15% 不透明度**（不留 0%，否则长列表里完全看不出滚到哪），指针进入视口或按住拖动时提到满色。显形位挂 `ScrollState.bar_hot`，由 `scroll_bar_hover(viewport, state)` 一处接线；`scroll_view` / `virt_list` / 吸顶列表 / 多行框四处共用同一条 `scroll_bar`，各接一次即全变。
+- **不做定时器（使用者定的）**：少一个常驻 timer 与一轮淡出重绘，代价是「手一移开就落回淡档」而不是过一会儿再淡；换来的是零状态泄漏（页面反复建拆不留悬挂回调），也不必给每个滚动容器配回收袋。
+- **验证**：`ui/scroll_wbtest` 新增「滚动条浮层档：不画轨道，悬停视口拇指提亮」，三条判据：拇指之外露内容行底色（轨道确实没画）、淡档落在「内容底色 → 满色」之间（既不是满色也不是没画）、`root.set_hover(vp.id)` 后同一点位等于主题 border 满色。**回退验证**：把轨道画回去、淡档设成 1.0，该条即红并打出 `(245,247,250) != (51,68,85)`（fill_zebra 盖住了内容）。`textarea_wbtest` 的「滚到底拇指与轨道换位」判据在浮层档下语义不变（顶格回到内容底色），只改注释。`cd gui && moon check` 清缓存重编零错误零警告、库门禁 593/593、`examples/showcase` `moon build` 零警告；中英文档 `scroll_view` 行同步改写。**待真机**：`moon run examples/showcase` → ①侧栏右缘不再有灰带，进侧栏拇指亮起、离开落淡；②段正文与图表区同看；③多行框、虚拟列表拖拇指仍跟手；④暗色主题下淡档仍可辨。
