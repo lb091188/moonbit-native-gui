@@ -419,8 +419,10 @@ test "密码遮罩：光标按遮罩串宽度定位（不是原文字宽）" {
     Some(m) => m.width.to_double()
     None => 0.0
   }
-  // 圆点比数字宽：修正后的光标位置应贴遮罩串宽度，而不是原文字宽
+  // 圆点与数字谁宽按平台字体集定（mac 的遮罩反而比数字窄），判据只咬一条：
+  // 光标贴的是**遮罩串**宽度。两者宽度差得开（>1px）才说明这条判据有区分度。
   let rel = cur - w.rect.x
+  assert_true((mask_w - raw_w).abs() > 1.0)
   assert_true(rel >= pad + mask_w - 1.0 && rel <= pad + mask_w + 1.0)
-  assert_true(rel > pad + raw_w)
+  assert_true((rel - (pad + raw_w)).abs() > 1.0)
 }

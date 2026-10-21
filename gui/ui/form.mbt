@@ -682,6 +682,16 @@ pub fn stepper(
   let plus_off = Enabled::new(state.get() >= hi)
   let text = @base.Store::new(state.get().to_string())
   let lit = Ref(false)
+  // 中间格的内核控件（handle 里回填）：点 +/- 要把焦点落到这一格
+  let cell_ref : Ref[@widget.Widget?] = Ref(None)
+  let take_focus = fn() -> Unit {
+    match cell_ref.val {
+      Some(w) => if !w.focused {
+        let _ = w.request_host_focus()
+      }
+      None => ()
+    }
+  }
   let sync = fn() -> Unit {
     let v = state.get()
     minus_off.off = v <= lo
@@ -699,11 +709,13 @@ pub fn stepper(
     write(state.get())
   }
   // 钮与方向键都先把「打字未提交」的串折进值再走步长：点 +/- 不会把焦点让出去，
-  // 少了这一步就是格上显示 5、按值加出 3。
+  // 少了这一步就是格上显示 5、按值加出 3。走完步长再把焦点要给中间格，
+  // 否则点两下 +/- 后接着打字会打到别处去。
   let bump = fn(delta : Int) -> Unit {
     commit()
     state.set((state.get() + delta).clamp(min=lo, max=hi))
     sync()
+    take_focus()
   }
   // 值变 → 中间格跟随；串已经表示同一个数就不动（`007` 这类在打的串不被顶回）
   let sid = state.subscribe_id(fn(v : Int) -> Unit {
@@ -741,6 +753,7 @@ pub fn stepper(
         ),
       ],
     handle=fn(w : @widget.Widget) -> Unit {
+      cell_ref.val = Some(w)
       w.on_focus_change = Some(fn(_self : @widget.Widget, on : Bool) -> Unit {
         lit.val = on
         if !on {
