@@ -93,26 +93,12 @@ test "标签尺寸来自 Pango 测量；文本随信号变化就重测" {
 }
 
 ///|
-/// 回归：`text_dyn`/`bind` 的散参数 `color` 不进样式槽，token 名（`danger`）就
-/// 得在绘制期现取当前主题落色。不取的话只认 hex 的文本层解析失败，画出来是黑字
-/// （表单校验红字曾经就是黑的）。
-test "文本散参数给 token 名：绘制期现取主题色，不落黑" {
-  if !ui_text_guard() {
-    return
-  }
-  let root = mount_root(
-    [text_dyn(@base.Signal::new("至少 3 个字符"), font_size=16.0, color="danger")],
-    220.0,
-    30.0,
-  )
-  let bm = @render.Bitmap::new(220, 30)
-  let p = @render.Painter::new(bm)
-  root.paint(p)
-  p.end()
+/// 数「红通道压过绿蓝」的墨像素与「三通道都近黑」的墨像素。
+fn ink_red_dark(bm : @render.Bitmap, w : Int, h : Int) -> (Int, Int) {
   let mut red = 0
   let mut dark = 0
-  for y = 0; y < 30; y = y + 1 {
-    for x = 0; x < 220; x = x + 1 {
+  for y = 0; y < h; y = y + 1 {
+    for x = 0; x < w; x = x + 1 {
       let (r, g, b, a) = color_of(bm, x, y)
       if a > 128 {
         if r > g + 40 && r > b + 40 {
@@ -123,6 +109,40 @@ test "文本散参数给 token 名：绘制期现取主题色，不落黑" {
       }
     }
   }
+  (red, dark)
+}
+
+///|
+/// 用给定颜色串画一条 `text_dyn`，返回位图里的红/黑墨像素数。
+fn paint_dyn_ink(color : String) -> (Int, Int) {
+  let root = mount_root(
+    [text_dyn(@base.Signal::new("至少 3 个字符"), font_size=16.0, color=color)],
+    220.0,
+    30.0,
+  )
+  let bm = @render.Bitmap::new(220, 30)
+  let p = @render.Painter::new(bm)
+  root.paint(p)
+  p.end()
+  ink_red_dark(bm, 220, 30)
+}
+
+///|
+/// 回归：`text_dyn`/`bind` 的散参数 `color` 不进样式槽，token 名（`danger`）就
+/// 得在绘制期现取当前主题落色。不取的话只认 hex 的文本层解析失败，画出来是黑字
+/// （表单校验红字曾经就是黑的）。
+test "文本散参数给 token 名：绘制期现取主题色，不落黑" {
+  if !ui_text_guard() {
+    return
+  }
+  // 先探管道：本机文本层能否把 hex 色画进位图。画不进去的平台（判据吃的是颜色
+  // 像素）跳过，不给假红。
+  let (probe_red, probe_dark) = paint_dyn_ink("#ff0000")
+  if probe_red == 0 {
+    println("ui: skip (文本不落色进位图，黑像素=\{probe_dark})")
+    return
+  }
+  let (red, dark) = paint_dyn_ink("danger")
   assert_true(red > 5, msg="danger 色文字没画成红色（红像素=\{red} 黑像素=\{dark}）")
 }
 
