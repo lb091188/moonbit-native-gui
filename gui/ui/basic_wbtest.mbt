@@ -93,6 +93,40 @@ test "标签尺寸来自 Pango 测量；文本随信号变化就重测" {
 }
 
 ///|
+/// 回归：`text_dyn`/`bind` 的散参数 `color` 不进样式槽，token 名（`danger`）就
+/// 得在绘制期现取当前主题落色。不取的话只认 hex 的文本层解析失败，画出来是黑字
+/// （表单校验红字曾经就是黑的）。
+test "文本散参数给 token 名：绘制期现取主题色，不落黑" {
+  if !ui_text_guard() {
+    return
+  }
+  let root = mount_root(
+    [text_dyn(@base.Signal::new("至少 3 个字符"), font_size=16.0, color="danger")],
+    220.0,
+    30.0,
+  )
+  let bm = @render.Bitmap::new(220, 30)
+  let p = @render.Painter::new(bm)
+  root.paint(p)
+  p.end()
+  let mut red = 0
+  let mut dark = 0
+  for y = 0; y < 30; y = y + 1 {
+    for x = 0; x < 220; x = x + 1 {
+      let (r, g, b, a) = color_of(bm, x, y)
+      if a > 128 {
+        if r > g + 40 && r > b + 40 {
+          red = red + 1
+        } else if r < 60 && g < 60 && b < 60 {
+          dark = dark + 1
+        }
+      }
+    }
+  }
+  assert_true(red > 5, msg="danger 色文字没画成红色（红像素=\{red} 黑像素=\{dark}）")
+}
+
+///|
 test "两个字号混排按基线对齐（文本测量回灌布局的直接结果）" {
   if !ui_text_guard() {
     return
