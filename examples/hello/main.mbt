@@ -8,8 +8,8 @@ fn main {
     [
       @ui.view(
         [
-          @ui.text("Hello, MoonBit!", font_size=18.0),
-          @ui.text("你好，月兔！", font_size=18.0),
+          @ui.text("Hello, MoonBit!", role=@ui.Title),
+          @ui.text("你好，月兔！", role=@ui.Section),
           @ui.text("Built with native-gui on MoonBit", role=@ui.Secondary),
           @ui.row(
             [
@@ -26,7 +26,8 @@ fn main {
             column_gap=16.0,
           ),
         ],
-        row_gap=6.0,
+        row_gap=8.0,
+        padding=24.0,
         grow=1.0,
         align_items=@yoga.AlignItems::Center,
         justify_content=@yoga.JustifyContent::Center,

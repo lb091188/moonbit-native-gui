@@ -324,11 +324,12 @@ fn main {
                     column_gap=6.0,
                   ),
                 ],
-                padding=10.0,
+                padding=12.0,
                 row_gap=6.0,
               ),
             ],
             width=180.0,
+            background_color="bg_panel",
           ),
           // 主区：路由视图——选中哪页挂哪页，没选过的只留空壳；对话框挂在这一列上
           @ui.col(

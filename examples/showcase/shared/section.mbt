@@ -71,7 +71,7 @@ pub fn page(secs : Array[Section]) -> @widget.Node {
       label_of=fn(n : String) -> String { @i18n.t_or("seg." + n, n) },
       class=[@style.style(flex_wrap=@yoga.Wrap, row_gap=4.0), flat],
     )],
-    padding=10.0,
+    padding=16.0,
     class=[flat],
     // 段条是不可压缩的定高头部：正文够高时（Markdown 段整篇文档）压缩量
     // 会全落到「min=0 且没设 flex_shrink=0」的这一层，实测 44px → 23.3px，
@@ -123,7 +123,7 @@ fn section_body(s : Section, selected : @base.Store[String]) -> @widget.Node {
   @ui.col(
     [
       @ui.scroll_view(
-        [@ui.col(inner, row_gap=6.0, padding=14.0)],
+        [@ui.col(inner, row_gap=6.0, padding=16.0)],
         @ui.ScrollState::new(),
         handle=fn(v) { v.node.set_flex_grow(1.0) },
       ),

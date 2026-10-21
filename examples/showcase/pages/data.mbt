@@ -93,7 +93,7 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
       cells: [
         @ui.CellText("MoonBit"),
         @ui.CellTag(@shared.tx("编译型"), @ui.Primary),
-        @ui.CellColorBox("#2D68C4", @shared.tx("主题蓝")),
+        @ui.CellColorBox("primary", @shared.tx("主题蓝")),
         @ui.CellLines([@shared.tx("多范式"), @shared.tx("云 + 端")]),
       ],
     },
@@ -101,7 +101,7 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
       cells: [
         @ui.CellText("Rust"),
         @ui.CellTag(@shared.tx("编译型"), @ui.Primary),
-        @ui.CellColorBox("#D9822B", @shared.tx("主题橙")),
+        @ui.CellColorBox("warning", @shared.tx("主题橙")),
         @ui.CellLines([@shared.tx("系统编程"), @shared.tx("无 GC")]),
       ],
     },
@@ -109,7 +109,7 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
       cells: [
         @ui.CellText("Python"),
         @ui.CellTag(@shared.tx("解释型"), @ui.Warning),
-        @ui.CellColorBox("#2E9E5B", @shared.tx("主题绿")),
+        @ui.CellColorBox("success", @shared.tx("主题绿")),
         @ui.CellLines([@shared.tx("脚本"), @shared.tx("AI 生态")]),
       ],
     },
@@ -198,19 +198,19 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
             @ui.tag_of_type("Warning", @ui.Warning),
             @ui.tag_of_type("Danger", @ui.Danger),
             @ui.tag_of_type("Info", @ui.Info),
-            @ui.tag(@shared.tx("自定义实底"), "#2D68C4"),
-            @ui.tag("v0.1.0", "#2E9E5B"),
+            @ui.tag(@shared.tx("自定义实底"), "primary"),
+            @ui.tag("v0.1.0", "success"),
           ],
           column_gap=6.0,
         ),
         @ui.row(
           [
-            @ui.avatar("M", size=44.0, background_color="#2D68C4"),
-            @ui.avatar("N", size=36.0, background_color="#2E9E5B"),
-            @ui.avatar("X", size=30.0, background_color="#D64550"),
-            @ui.avatar("L", size=26.0, background_color="#D9822B"),
+            @ui.avatar("M", size=44.0, background_color="primary"),
+            @ui.avatar("N", size=36.0, background_color="success"),
+            @ui.avatar("X", size=30.0, background_color="danger"),
+            @ui.avatar("L", size=26.0, background_color="warning"),
           ],
-          column_gap=10.0,
+          column_gap=8.0,
         ),
         @ui.row(
           [
@@ -248,7 +248,7 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
               row_gap=2.0,
             ),
           ],
-          column_gap=40.0,
+          column_gap=24.0,
         ),
         @ui.row(
           [
@@ -274,17 +274,18 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
       [
         @ui.col(
           [
-            @ui.card([@ui.text(@shared.tx("卡片内容：组件库全部用 theme_* 主题色着色。"), role=Body)], title=@shared.tx("卡片标题")),
+            @ui.card([@ui.text(@shared.tx("卡片内容：组件库全部用 theme_* 主题色着色。"), role=Body)], title=@shared.tx("卡片标题"), class=[@style.style(border_radius=6.0)]),
             @ui.collapse([
               (@shared.tx("如何使用组件库？"), [@ui.text(@shared.tx("moon add NoahLiu/native-gui 后即可用 @ui.* 访问。"), role=Body)]),
               (@shared.tx("支持哪些平台？"), [@ui.text(@shared.tx("Linux (X11) / Windows；macOS 进行中。"), role=Body)]),
             ]),
           ],
-          row_gap=10.0,
+          row_gap=8.0,
         ),
       ],
       code=[
-        "@ui.card([@ui.text(\"卡片内容\")], title=\"卡片标题\")",
+        "@ui.card([@ui.text(\"卡片内容\")], title=\"卡片标题\",",
+        "         class=[@style.style(border_radius=6.0)])  // 卡片默认直角，圆角要显式给",
         "@ui.collapse([",
         "  (\"如何使用组件库？\", [@ui.text(\"moon add 后即可用 @ui.*\")]),",
         "  (\"支持哪些平台？\", [@ui.text(\"Linux / Windows\")]),",
@@ -464,7 +465,7 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
               height=80.0,
             ),
           ],
-          column_gap=20.0,
+          column_gap=24.0,
           align_items=@yoga.AlignItems::FlexStart,
         ),
       ],

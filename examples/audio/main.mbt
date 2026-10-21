@@ -314,7 +314,7 @@ fn main {
             max_width=860.0,
           ),
         ],
-        padding=12.0,
+        padding=0.0,
         row_gap=4.0,
       ),
       @ui.row(
@@ -348,10 +348,11 @@ fn main {
               ),
             ],
             width=260.0,
-            padding=10.0,
+            padding=12.0,
             row_gap=8.0,
             background_color="bg_panel",
             border_color="border",
+            class=[@style.style(border_radius=6.0)],
           ),
           // 右：播放器 + 状态区
           @ui.col(
@@ -375,7 +376,7 @@ fn main {
               ),
             ],
             grow=1.0,
-            padding=10.0,
+            padding=12.0,
             row_gap=8.0,
           ),
         ],
@@ -384,6 +385,8 @@ fn main {
       ),
     ],
     grow=1.0,
+    padding=16.0,
+    row_gap=16.0,
   )
   let mounted = @ui.mount_window(
     [body],

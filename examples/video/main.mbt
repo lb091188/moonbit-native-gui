@@ -341,7 +341,7 @@ fn main {
             max_width=960.0,
           ),
         ],
-        padding=12.0,
+        padding=0.0,
         row_gap=4.0,
       ),
       @ui.row(
@@ -350,9 +350,10 @@ fn main {
           @ui.col(
             [@ui.col([], grow=1.0, handle=fn(c) { player_holder.val = Some(c) })],
             grow=1.0,
-            padding=10.0,
+            padding=12.0,
             background_color="bg_panel",
             border_color="border",
+            class=[@style.style(border_radius=6.0)],
           ),
           // 侧栏：播放列表 + 载入入口 + 字幕 + 状态
           @ui.col(
@@ -407,10 +408,11 @@ fn main {
               ),
             ],
             width=280.0,
-            padding=10.0,
+            padding=12.0,
             row_gap=8.0,
             background_color="bg_panel",
             border_color="border",
+            class=[@style.style(border_radius=6.0)],
           ),
         ],
         grow=1.0,
@@ -418,6 +420,8 @@ fn main {
       ),
     ],
     grow=1.0,
+    padding=16.0,
+    row_gap=16.0,
   )
   let mounted = @ui.mount_window(
     [body],

@@ -55,7 +55,7 @@ pub fn page_feedback(app : @shared.App) -> @widget.Node {
                 @ui.result(@shared.tx("操作成功"), subtitle=@shared.tx("配置已写入并生效。"), t=@ui.Success),
                 @ui.row([@ui.button(@shared.tx("返回首页"))], column_gap=8.0),
               ],
-              row_gap=10.0,
+              row_gap=8.0,
               align_items=@yoga.AlignItems::Center,
             ),
             @ui.col(
@@ -66,11 +66,11 @@ pub fn page_feedback(app : @shared.App) -> @widget.Node {
                   column_gap=8.0,
                 ),
               ],
-              row_gap=10.0,
+              row_gap=8.0,
               align_items=@yoga.AlignItems::Center,
             ),
           ],
-          column_gap=40.0,
+          column_gap=24.0,
         ),
       ],
       code=[

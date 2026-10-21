@@ -131,7 +131,7 @@ pub fn page_code(_app : @shared.App) -> @widget.Node {
               line_numbers=true,
             ),
           ],
-          row_gap=10.0,
+          row_gap=8.0,
           align_items=@yoga.AlignItems::FlexStart,
         ),
       ],

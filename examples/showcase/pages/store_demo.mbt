@@ -87,7 +87,7 @@ pub fn page_store_demo(_app : @shared.App) -> @widget.Node {
                     max_width=360.0,
                   ),
                 ],
-                padding=10.0,
+                padding=12.0,
                 row_gap=4.0,
                 align_items=@yoga.AlignItems::FlexStart,
                 background_color=if n % 2 == 0 { "fill_hover" } else { "bg_panel" },

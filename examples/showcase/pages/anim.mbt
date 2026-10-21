@@ -27,8 +27,9 @@ fn hover_card(label : String, sub : String, dur : Double) -> @widget.Node {
       ).hover(
         background_color="primary",
         border_color="primary_hover",
-        border_width=3.0,
-        border_radius=18.0,
+        border_width=2.0,
+        border_radius=8.0,
+        // 饱和主色底上的反白：token 集里没有反白档，这里的十六进制是唯一例外
         color="#ffffff",
       ),
     ],
@@ -71,7 +72,7 @@ pub fn page_anim(_app : @shared.App) -> @widget.Node {
         "  background_color=\"bg_panel\", border_radius=4.0,",
         "  transition_ms=150.0,          // 时长写在基块上",
         ").hover(",
-        "  background_color=\"primary\", border_radius=18.0,",
+        "  background_color=\"primary\", border_radius=8.0,",
         ")",
       ],
     ),
@@ -215,7 +216,7 @@ pub fn page_anim(_app : @shared.App) -> @widget.Node {
               gif_note.set(@shared.tr_with("dyn.gif_frames", [("n", gif_h.frame_count().to_string())], "已换 \{gif_h.frame_count()} 帧"))
             }),
           ],
-          column_gap=10.0,
+          column_gap=8.0,
           align_items=@yoga.AlignItems::Center,
         ),
         @ui.bind_label(gif_note, fn(s) { s }, font_size=12.0, color="text_secondary"),

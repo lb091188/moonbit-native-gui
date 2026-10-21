@@ -276,7 +276,7 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
       "字体回退与混排行高",
       "左盒只有基准字体，右盒把末尾「28」换成 28px——两个盒子的盒高都取 `line_height()` 的混排口径，右盒必须被抬起来；不存在的族名经 `resolve_family` 回退（CSS 列表口径）。",
       [
-        @ui.view([font_mix_widget()], background_color="bg_panel", border_color="border", padding=8.0),
+        @ui.view([font_mix_widget()], background_color="bg_panel", border_color="border", padding=8.0, class=[@style.style(border_radius=6.0)]),
       ],
       code=[
         "let mixed = @text.AttributedText::new(\"基准 Base 28\")",
@@ -297,6 +297,7 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
           background_color="bg_panel",
           border_color="border",
           padding=8.0,
+          class=[@style.style(border_radius=6.0)],
         ),
       ],
       code=[
