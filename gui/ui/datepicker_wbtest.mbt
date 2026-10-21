@@ -377,7 +377,8 @@ test "日期段标签不折行：测量宽与断行口径一致" {
   assert_eq(
     labs[0].rect.h,
     labs[1].rect.h,
-    msg="「选中：」标签折成了多行：盒宽=\{labs[0].rect.w} 测量宽=\{want} 值标签高=\{labs[1].rect.h}",
+    msg="「选中：」标签高与值标签不等：标签高=\{labs[0].rect.h} 值高=\{labs[1].rect.h} " +
+      "盒宽=\{labs[0].rect.w} 测量宽=\{want}（折行则高≈2 倍；不等一倍高=字体集行高差异）",
   )
   // 行整体落在 picker 之下，纵向不重叠
   assert_true(kids[1].rect.y >= kids[0].rect.y + kids[0].rect.h, msg="选中行压住 picker")
