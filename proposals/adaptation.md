@@ -3117,3 +3117,11 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **另一半在绘制侧，不用改**：本栈的帧缓冲是 `Bitmap::new` 出来的全零数组，控件没画到的像素天然是 alpha=0；`root.paint` 只画树里真声明了底色的节点。所以「根容器不给 `background_color`」的窗，未铺底区域一直保持零 alpha——不需要每帧清透明。反过来说，**任何整片铺底的窗都测不出透视**：showcase 主窗整页有底色，开与不开长得一模一样。验证必须单开一扇「根不铺底」的窗（showcase 窗口页的「开透明测试窗」），窗里只放不透明卡片。
 - **顺带的两个口径**：①先 `set_borderless(true)` 再开透视——标题栏归系统画，留着它那块就不跟透视走；②字直接落在透明底上时，字形不透明、字后像素透明，抗锯齿边缘按半透明合成，属于预期而非瑕疵。
 - **待真机**：macOS 上点「开透明测试窗」，卡片外那圈应透出桌面；Windows（`WS_EX_LAYERED` 且色键留 0，需要 `UpdateLayeredWindow` 才有逐像素 alpha）与 GTK（RGBA visual 未在 realize 前选上）仍只有半条，路线图维持 🚧。
+
+## 背景透视：三个平台各有一道「第二开关」在丢 alpha（2026-10-22，Win32 / GTK 补口）
+
+- **同一件事的三个化身**：透视要的是帧里的逐像素 alpha 真到达屏幕，而三个平台都还有第二道门在丢它——AppKit 看**视图**的 `isOpaque`（NSView 默认 YES，窗口设了 `opaque=NO` 也没用），Win32 的 `StretchDIBits` 走 `BI_RGB` 时**忽略第 4 字节**，GTK 的 visual 不是 32 位时 cairo 直接把 alpha 拍平。三处都验证过「只开窗口级那个开关 = 什么都没发生」。
+- **Win32 特有的互斥**：整窗 alpha（`SetLayeredWindowAttributes` 的 `LWA_ALPHA`）与逐像素 alpha 共用同一个 `WS_EX_LAYERED`，一次只能用一种。两个门面各管一摊的写法会让它们互相顶掉——先开透视再调 alpha，透视当场消失；调回 100% 又把 layered 位摘掉，两者都失效。所以 alpha 与透视必须是**同一套窗级模式**，由最近一次设置决定谁在管这个位。
+- **约束**：Win32 的逐像素提交面就是**整窗内容**，只有「客户区 == 整窗」（无边框）时成立；带边框的窗只能退回整窗 alpha，这也是透视窗的真实形态。GTK 的 visual 只能在 realize **之前**选上，所以它是建窗动作、不是开关动作——等 `set_transparent_bg` 来了再补必然无效。
+- **GTK 另半条**：`app_paintable` 只关掉 GTK 自己画底，visual 不换照样不透；切完还要主动 queue_draw，GTK 不会因为 paintable 变了就把旧底清掉。
+- **待真机**：Windows 无边框窗上「透视 + 25% alpha」叠用（洞仍透出桌面、卡片一起变淡）；带边框窗点透视应当无变化。Linux 分 X11（有/无合成器）与 Wayland 各跑一次透视窗。
