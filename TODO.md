@@ -136,6 +136,21 @@
 - [ ] **文本布局缓存**（部分已做，仍是单帧成本里最重的一块）：纯文本度量已建 C 侧跨帧缓存 `g_layout_cache`（3c744db，Pango/DirectWrite 同批，键=字体四要素+宽约束等，上限 1024 整清）；剩：富文本 `rt_measure`/`rt_draw` 仍每次经 `ptw_session_layout` 现建 `IDWriteTextFormat` + `IDWriteTextLayout` 用完即 Release（`AttributedText::rt()` 每个文本节点每帧开两个会话），`ui` 的富文本节点一律走这条路；布局（yoga）每帧还会为**全树**文本节点各测一次，屏外的也照测。
 - [ ] **量出来再优化**：上面三条都还没在真机上分档计时（`experiment/text_bench` 已有先例可扩展）。建议先做一个「单帧成本分解」探针（根背景填充 / 控件绘制 / 文本 / memcpy+StretchDIBits 各占多少），再决定动哪一块。
 
+### 6.7 面板档（`Dock`）收口（2026-10-22 立项）
+
+> 定义见 [docs/zh/roadmap.md](docs/zh/roadmap.md)「已实现 · 窗口 · 面板档定义」：① 不进可切换窗口枚举 ② 压普通窗口 ③ 跨工作区常驻 ④ 全屏关系单列。Linux / macOS 四条齐（macOS ④ 取「辅助浮层」）；Windows 缺 ③，④ 三平台不一。
+
+- [ ] **Windows 跨工作区：跟随式（帧调度驱动）**
+  - 做法：`wm_set_layer` 进面板档（3 / 1 / 4）时登记面板窗，宿主每帧调度里按节流问一次 `IVirtualDesktopManager::IsWindowOnCurrentVirtualDesktop`（约 500ms 一档，别每帧问）；返回 FALSE 时取当前桌面 GUID 并 `MoveWindowToDesktop`，搬完重设 `HWND_TOPMOST`——搬窗会改 z 序。
+  - 当前桌面 GUID：`GetWindowDesktopId` 读一扇「当前桌面上的」顶层窗（前台窗优先），缓存最近一次搬入的 GUID 兜底。
+  - 退出面板档 / 关窗：注销登记，停止询问。
+  - 只走公开 API；**不碰** `IVirtualDesktopPinnedApps`（未公开，IID 与 vtable 随 build 变，系统升级即碎），私有 pin 只允许待在 `experiment/`。
+  - 验收：Win10 / Win11 各切一次桌面——面板仍随当前桌面出现且仍在普通窗口之上；切回原桌面不残留第二扇；回 Normal 档后行为与普通窗一致；`SHOWCASE-PROF` 对照无可见帧掉。
+- [ ] **全屏关系定档（定义 ④）**
+  - 现状三平台不一：Linux `_NET_WM_STATE_ABOVE` 通常被全屏盖住；Windows `HWND_TOPMOST` 在独占全屏与 DWM 全屏下表现不同，无确定语义；macOS 带 `FullScreenAuxiliary`，明确压在全屏之上。
+  - 待定：默认取「系统条」语义（被全屏盖住）；辅助浮层形态显式开关（如 `set_over_fullscreen(bool)`）——macOS 默认去掉 `FullScreenAuxiliary`、开关打开再加；Windows 需真机分别测独占全屏与 DWM 全屏两条路后再定实现。
+  - 验收：三平台在全屏 App 打开时的表现与所选语义一致；开关即切即生效，切档不残留旧行为。
+
 ## 4. 已知边界与风险
 
 - 自绘文本的**无障碍**（ATK / UIA / NSAccessibility）本栈暂不含，只记不办。
