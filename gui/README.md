@@ -102,7 +102,6 @@ Explicit non-goals: accessibility APIs, GTK4 / Qt backends, and platform-native 
 
 - Repository root [README](https://github.com/lb091188/moonbit-native-gui) — architecture, package map, contributing and gates
 - [Documentation site](https://moonbit-native-gui.pages.dev/) — usage docs, Chinese version under [`/zh/`](https://moonbit-native-gui.pages.dev/zh/)
-- [Platform adaptation notes](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md) — field-tested pitfalls, root causes and fixes per platform
 - [Public roadmap](https://github.com/lb091188/moonbit-native-gui/blob/master/docs/zh/roadmap.md) (Chinese) — positioning, support matrix, commitments, non-goals
 
 MIT License.
