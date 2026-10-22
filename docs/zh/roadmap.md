@@ -9,6 +9,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ 已完成：开发完成，且 Windows / Linux / macOS 真机都测过
 - 🚧 施工中：正在开发，或已经能用但还有平台没验（括号里写明差哪个）
 - ⏳ 未开始：列在「未实现但明确要做」里
+- 只存在于一个平台的能力（如 Linux 的 `wmctrl` 窗口管理），在该平台验过就算 ✅，条目里注明「仅 Linux」
 - 真正的非目标在文末「明确不做」
 
 ## 平台与当前版本
@@ -170,6 +171,11 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **空闲检测**：读系统空闲秒数（Linux X11、Windows；macOS 走 HID 系统态）
 - ✅ **开机自启**：写 autostart / Run 键 / LaunchAgents；开关即真实状态
 - ✅ **浏览器与编辑器历史**：Chromium 系历史与书签、Firefox 历史、VS Code 最近工作区
+- ✅ **窗口管理**：枚举窗口、按 id 或标题激活与关闭（仅 Linux，走 `wmctrl`）
+- ✅ **电源计划**：读可用计划集、读当前、切计划（Linux 走 `powerprofilesctl`；Windows 走 PowerGet / SetActiveScheme）
+- ✅ **夜间色温**：按百分比设色温与复位（仅 Linux，`redshift` 优先、否则 `xrandr --gamma`）
+- ✅ **剪贴板监视**：变更回调（仅 Linux X11，轮询 `xclip` / `xsel` 路线）
+- ✅ **子进程与文件原语**：`pr_run` 带超时与输出捕获；`fsx` / `envx` / JSON 读写
 - ✅ **传感器 / 蓝牙 / 磁盘**：Linux 侧硬件族只读读数
 - 🚧 **系统信息**：发行版、机器、内存、开机时长、桌面环境（Linux 过；Windows / macOS 施工中）
 - 🚧 **应用枚举**：已装应用清单与分类（Linux 过；Windows / macOS 施工中）
@@ -221,6 +227,8 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ⏳ **GPU 合成（可选后端）**：WebGPU 独立模块，present 走纹理上传 + quad；三级 fallback
 - ⏳ **控件级 GPU 绘制**：shader / vertex buffer 画控件路径，省掉 CPU 回读
 - ⏳ **性能治理**：每帧重绘范围、布局缓存、图表增量重绘
+- ⏳ **终端模拟**：等宽网格 + ANSI 颜色 + 光标，做成可嵌入的终端控件
+- ⏳ **WebGL 画布**：WebGL 上下文嵌进自绘区，走 GPU 合成那条线
 - ⏳ **macOS GIF 分帧合成**：disposal 需探测先回证；现退回首帧静图
 
 ### 输入与浮层
@@ -249,6 +257,11 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 - ⏳ **稳定面清单与 1.0 时点**：逐包划分承诺面 / 实验面，公告破坏性改动截止线
 - ⏳ **issue 模板与贡献指南**：对外投放配套
+
+### 可访问性
+
+- ⏳ **屏读语义**：控件挂 role / name / state，接 Linux AT-SPI、Windows IAccessible / UIA、macOS NSAccessibility
+- ⏳ **键盘可达性**：全量控件的 Tab 顺序与可见焦点环；当前只有输入类与部分容器可达
 
 ## Linux 兼容面
 
@@ -280,14 +293,14 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ## 明确不做
 
-- **无障碍**：自绘文本栈暂不含，只记不办。
-- **排印与绘制补口**：`letter_spacing`、`set_dashes`、终端模拟、WebGL 画布——不在计划内。
-- **最大化 / 置顶按钮**：Win32 段没写 `SC_MAXIMIZE` / `TOPMOST`，示例刻意不放按钮。
+- **`letter_spacing` 生效**：样式层收这个参数，测量与绘制没接（存了不用）；要用得先让文本栈支持字距。
+- **`set_dashes` 与虚线**：Painter 面不提供虚线，要虚线自己按段画。
+- **最大化按钮**：Win32 段没写 `SC_MAXIMIZE`，示例刻意不放这个按钮。
+- **macOS 四族**（Linux / Windows 有实现，macOS 明确不做）：窗口管理（要 Accessibility 授权；Linux 走 `wmctrl`）、夜间色温（CoreBrightness 私有；Linux 走 `redshift` / `xrandr`）、电源方案（`pmset` 对不上三值语义；Linux / Windows 都有）、媒体播放器枚举（无 MPRIS 对等物）。
 - **单平台能力进跨平台门面**：只有单一平台实现的能力不做门面，也不留挂账。
 - **Linux 工具包升级**：留守 GTK3——它是 deepin 20 到 Ubuntu 26 的公共交集；不引入 Qt。
 - **原生控件皮肤**：不作主题化路径；按平台开关的原生兜底例外需逐条登记评审。
 - **按参考实现平移接口**：接口由真实用例驱动，不为对齐而补。
-- **macOS 四族**：窗口管理（Accessibility 授权门槛）、夜间色温（CoreBrightness 私有）、电源方案（`pmset` 对不上三值）、媒体播放器枚举（无 MPRIS 对等物）。
 
 ## 承诺与版本
 
