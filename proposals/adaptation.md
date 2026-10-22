@@ -3125,3 +3125,11 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **约束**：Win32 的逐像素提交面就是**整窗内容**，只有「客户区 == 整窗」（无边框）时成立；带边框的窗只能退回整窗 alpha，这也是透视窗的真实形态。GTK 的 visual 只能在 realize **之前**选上，所以它是建窗动作、不是开关动作——等 `set_transparent_bg` 来了再补必然无效。
 - **GTK 另半条**：`app_paintable` 只关掉 GTK 自己画底，visual 不换照样不透；切完还要主动 queue_draw，GTK 不会因为 paintable 变了就把旧底清掉。
 - **待真机**：Windows 无边框窗上「透视 + 25% alpha」叠用（洞仍透出桌面、卡片一起变淡）；带边框窗点透视应当无变化。Linux 分 X11（有/无合成器）与 Wayland 各跑一次透视窗。
+
+## vendor 镜像有三份副本，不是两份：`gui-media` 被漏在名单外（2026-10-22）
+
+- **现象**：`miniaudio.h` 明明配了 Gitee 镜像，国内网络下却总是退回 GitHub 硬碰；而且只有单源 socket 超时，遇到滴流时一次构建可能吊死在第一个源上。
+- **根因**：vendor 下载逻辑在仓库里有**三份**——`modules/gui-webview/prebuild.py`、`modules/gui-media/prebuild.py`、`modules/ffmpeg-mbt/prebuild.py`，刻意不共享（每个模块都要能独立发布）。2026-10-18 那轮「并行竞速 + 60 秒总预算」只改了点名的两份（ffmpeg-mbt / webview），`gui-media` 不在名单里，于是它的 Gitee 地址一直写着 `lb091188`（**404**，同一个仓在 Gitee 归 `noahliu0911`），超时也一直只有那个 socket 级的 20 秒。
+- **为什么长期没暴露**：GitHub 通的时候一切正常，404 的镜像只是被静默跳过；而文档里「两处刻意各留一份」这句写得越肯定，越没人会去数第三份。
+- **做法**：改 vendor 的镜像或超时口径时，先用 `grep -rn "releases/download/vendor-v1" --include=prebuild.py .` 点清份数，别信文档里的「两处/三处」。三处已统一为：Gitee 用户名 `noahliu0911`、单源 socket 20 秒 + 总预算 60 秒（ffmpeg 的大归档另按体积放宽到 360 秒）。
+- **实测**：把 `modules/gui-media/media/miniaudio.h` 移走后用 `NATIVE_GUI_VENDOR_BASE=<gitee>` 跑 `ensure_miniaudio()`，命中 Gitee、sha256 通过、4 MB 落位。

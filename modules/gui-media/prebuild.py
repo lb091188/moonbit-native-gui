@@ -44,23 +44,48 @@ MAC_SYS_LIBS = ["-lpthread", "-lm"]
 # miniaudio.h 自 2026-10-14 起不再入库，改挂 Release 资产：构建时缺失即下载并
 # 校验 sha256；离线环境可提前手工放置（已存在不动）。
 #
-# 镜像按序尝试、不做延迟探测，单源超时 20 秒——理由与主模块
-# `gui/scripts/prebuild.py` 的同名逻辑逐字相同（sha256 过了才落盘，任何镜像都
-# 可验证；先测快慢会让两台机器从不同源取，丢掉可复现性）。两处**刻意各留一份**：
-# 本模块要能独立发布，不能反向依赖主模块的 scripts/。
+# 口径与 `modules/gui-webview/prebuild.py` 同源（2026-10-14 定案）：串行按序、
+# 不做延迟探测、sha256 过了才落盘（任何镜像都可验证；先测快慢会让两台机器从
+# 不同源取，丢掉可复现性）。单源 socket 超时 20 秒之外再给 60 秒**总预算**——
+# urlopen 的 timeout 是 socket 级，DNS 挂起与慢速滴流都不受它约束。
+# 两处**刻意各留一份**：本模块要能独立发布，不能反向依赖别处的 scripts/。
 # 外部源用环境变量 NATIVE_GUI_VENDOR_BASE 覆盖（单个 base 或逗号分隔列表）。
 _VENDOR_BASES = [
     "https://github.com/lb091188/moonbit-native-gui/releases/download/vendor-v1",
-    "https://gitee.com/lb091188/moonbit-native-gui/releases/download/vendor-v1",
+    # gitee 上的用户名与 GitHub 不同：同一个仓在 gitee 归 noahliu0911，
+    # 照抄 lb091188 会 404（只坏国内镜像，GitHub 通时看不出来）。
+    "https://gitee.com/noahliu0911/moonbit-native-gui/releases/download/vendor-v1",
 ]
 
 _VENDOR_TIMEOUT = 20
+_VENDOR_BUDGET = 60
 
 _VENDOR_MINIAUDIO = (
     "miniaudio.h",
     Path(__file__).resolve().parent / "media" / "miniaudio.h",
     "e9e742f8c4d7cdd0fc81ba7f1c47b719d98d45e0138849aa0ec1e574d554a1ee",
 )
+
+
+def _fetch_one(url: str) -> "bytes | None":
+    """单源下载，外套总预算——socket 级 timeout 挡不住 DNS 挂起与慢速滴流。"""
+    import threading
+
+    box: dict = {}
+
+    def run() -> None:
+        try:
+            box["data"] = urllib.request.urlopen(url, timeout=_VENDOR_TIMEOUT).read()
+        except Exception as e:  # noqa: BLE001——网络/URL 错误换下一个镜像
+            box["err"] = e
+
+    t = threading.Thread(target=run, daemon=True)
+    t.start()
+    t.join(_VENDOR_BUDGET)
+    if "data" not in box:
+        err = box.get("err", f"{_VENDOR_BUDGET} 秒总预算内无产出")
+        print(f"gui-media(prebuild): 镜像失败（{err}）", file=sys.stderr)
+    return box.get("data")
 
 
 def ensure_miniaudio() -> None:
@@ -71,11 +96,9 @@ def ensure_miniaudio() -> None:
     bases = [b.strip().rstrip("/") for b in env.split(",") if b.strip()] + _VENDOR_BASES
     for base in bases:
         url = f"{base}/{name}"
-        try:
-            print(f"gui-media(prebuild): 取 vendor {url} ...", file=sys.stderr)
-            data = urllib.request.urlopen(url, timeout=_VENDOR_TIMEOUT).read()
-        except Exception as e:  # noqa: BLE001——网络/URL 错误换下一个镜像
-            print(f"gui-media(prebuild): 镜像失败（{e}）", file=sys.stderr)
+        print(f"gui-media(prebuild): 取 vendor {url} ...", file=sys.stderr)
+        data = _fetch_one(url)
+        if data is None:
             continue
         if hashlib.sha256(data).hexdigest() != sha:
             print(
