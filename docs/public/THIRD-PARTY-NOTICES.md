@@ -32,5 +32,5 @@
 - 镜像 GitHub → Gitee，**不做延迟探测**：sha256 使得任何镜像都可验证，先测快慢会让两台机器从不同源取，丢掉可复现性。两模块策略不同——webview 并行竞速（谁先交出校验通过的文件用谁），gui-media 串行按序。
 - 单源超时 20 秒（不是 180），另加 60 秒总预算——实测国内直连 GitHub Release 资产可出现「15 秒 0 字节」；而 `urlopen` 的 timeout 是 socket 级，挡不住 DNS 挂起与慢速滴流。
 - 加镜像 = 在 `modules/gui-webview/prebuild.py` 的 `VENDOR_BASES` 或 `modules/gui-media/prebuild.py` 的 `_VENDOR_BASES` 加一行。Gitee 上的用户名与 GitHub 不同（同一个仓归 `noahliu0911`，GitHub 是 `lb091188`），照抄会 404。外部源（内网 / 离线目录）用环境变量 `NATIVE_GUI_VENDOR_BASE` 覆盖，接受单个 base 或逗号分隔列表，排在列表最前。
-- 两处下载逻辑刻意各留一份：两个模块都要能独立发布，不能反向依赖别处的 `scripts/`。
+- 下载逻辑有三份副本（`gui-webview` / `gui-media` / `ffmpeg-mbt`），刻意各留一份：每个模块都要能独立发布，不能反向依赖别处的 `scripts/`。改口径时先 `grep -rn "releases/download/vendor-v1" --include=prebuild.py .` 点清份数。
 - 全失败时 prebuild **不中断**，只打印手工放置的提示，让链接期给出明确的缺文件错误。
