@@ -3107,3 +3107,13 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
   - **macOS 的 `zoom:` 是切换式**：AppKit 没有「设成最大化」的一等口（绿色按钮默认是全屏，按住 Option 才是 zoom），所以先 `isZoomed` 比态、相同就返回，否则 `zoom:` 切一次——不比对的话连调两次 `set_maximized(true)` 会来回翻。切完置 `resized` / `need_draw`，让宿主按新尺寸重排一帧。
   - Win32 的还原靠系统的 `WINDOWPLACEMENT`（`SW_RESTORE` 自己取回最大化前的矩形与最大化状态），GTK 靠 WM 记的 normal hint，macOS 靠窗口的 `standardFrame`——三边都不需要自己存几何。
 - **验证**：新增 `gui/win/maximize_wbtest.mbt`：建窗 320×200 → 初始 `is_maximized == false` → `set_maximized(true)` 后读回 true 且客户区变大 → 再设一次幂等（尺寸读数不变）→ `set_maximized(false)` 后读回 false 且客户区回到 320×200（macOS 本机实跑通过，说明 `zoom:` 的还原几何确实由系统记着）。`cd gui && moon check` 零错误零警告、库门禁 1127/1127。**待真机**：①Linux X11 / Wayland 与 Windows 10/11 各跑同一 wbtest；②无边框档（`set_borderless(true)`）下切换仍可用；③用户手点系统最大化按钮后 `is_maximized` 读得对。
+
+## 背景透视（`set_transparent_bg`）：窗口侧开了洞，视图侧还在声明不透明（2026-10-22，macOS arm64）
+
+- **现象**：`set_transparent_bg(true)` 之后窗口外观没有任何变化；反过来 `set_opacity` 一切正常。roadmap 里这条写着「macOS 未接」，真机又看不出到底接没接。
+- **先分清两个 API（这一条最容易混）**：`set_opacity` 是**整窗 alpha**，Cocoa 侧走 `[win setAlphaValue:]`——连文字与控件一起淡，合成器把整窗当一张图缩放，用户看到的「窗口半透明」全是它。`set_transparent_bg` 是**背景透视**：控件没铺到的像素留 alpha=0，桌面从那些洞里透出来，铺了底色的控件照旧不透明。两者互不替代，可以叠。
+- **根因（macOS 少了半条）**：`wm_set_transparent_bg` 原本只做了窗口侧——`[win setOpaque:NO]` + `backgroundColor = clearColor`。但真正决定合成的是**视图**：`WMView` 没覆写 `isOpaque`，NSView 默认 `YES`，AppKit 于是仍按不透明视图合成，帧缓冲里 a=0 的像素不会露出桌面。窗口不透明位与视图不透明位是两个开关，缺一个都白搭。
+- **修**：`WMState` 加 `transparent` 标记（`wm_set_transparent_bg` 里置位并 `setNeedsDisplay`）；`WMView` 覆写 `- (BOOL)isOpaque`，开透视时回 `NO`、否则回 `YES`（不开时保持原行为，常规窗的合成路径不变）。
+- **另一半在绘制侧，不用改**：本栈的帧缓冲是 `Bitmap::new` 出来的全零数组，控件没画到的像素天然是 alpha=0；`root.paint` 只画树里真声明了底色的节点。所以「根容器不给 `background_color`」的窗，未铺底区域一直保持零 alpha——不需要每帧清透明。反过来说，**任何整片铺底的窗都测不出透视**：showcase 主窗整页有底色，开与不开长得一模一样。验证必须单开一扇「根不铺底」的窗（showcase 窗口页的「开透明测试窗」），窗里只放不透明卡片。
+- **顺带的两个口径**：①先 `set_borderless(true)` 再开透视——标题栏归系统画，留着它那块就不跟透视走；②字直接落在透明底上时，字形不透明、字后像素透明，抗锯齿边缘按半透明合成，属于预期而非瑕疵。
+- **待真机**：macOS 上点「开透明测试窗」，卡片外那圈应透出桌面；Windows（`WS_EX_LAYERED` 且色键留 0，需要 `UpdateLayeredWindow` 才有逐像素 alpha）与 GTK（RGBA visual 未在 realize 前选上）仍只有半条，路线图维持 🚧。
