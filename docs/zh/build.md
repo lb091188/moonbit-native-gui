@@ -37,14 +37,19 @@ rm -rf _build/native/debug/build/examples/<示例>/<示例>   # 该示例重链
 
 ## 4. vendor 大文件与镜像
 
-`WebView2.h`、`WebView2LoaderStatic.lib`、`miniaudio.h` 三个第三方文件不入库，入库会永久占用 git 历史体积，改由 prebuild 在缺失时下载，合计约 18.6 MB。
+`WebView2.h`、`WebView2LoaderStatic.lib`、`miniaudio.h` 三个第三方文件不入库，入库会永久占用 git 历史体积，改由**各自模块的 prebuild** 在缺失时下载，合计约 18 MB。已在位的不动——prebuild 只补缺。
 
-- **校验优先**：sha256 与两处 prebuild 的常量一致才落盘，任何镜像都可验证。
-- **镜像按序尝试**：GitHub → Gitee，不做延迟探测，避免两台机器从不同源取到不同内容。
-- **单源超时 20 秒**：国内直连 GitHub Release 资产可能长时间零字节，快速换源比干等有效。
-- **换源与加源**：改 `gui/scripts/prebuild.py` 与 `modules/gui-media/prebuild.py` 的 `VENDOR_BASES` 各一行；两处刻意各留一份，`gui-media` 要能独立发布。
-- **内网与离线**：环境变量 `NATIVE_GUI_VENDOR_BASE` 接受单个 base 或逗号分隔列表，排在最前；也可手工把文件放到对应路径，prebuild 只在缺失时下载，已存在不动。
-- 全部失败时 prebuild 不中断，只提示手工放置，把缺文件错误留给链接期给出。
+| 文件 | 下载方 | 何时下载 |
+|---|---|---|
+| `WebView2LoaderStatic.lib`（11 MB）、`WebView2.h`（2.8 MB） | `modules/gui-webview/prebuild.py` | **仅 Windows**；Linux / macOS 直接跳过，省下 14 MB |
+| `miniaudio.h`（4 MB） | `modules/gui-media/prebuild.py` | 缺失即下（各平台都要编） |
+
+- **校验优先**：sha256 与 prebuild 里的常量一致才落盘，任何镜像都可验证。
+- **镜像**：GitHub Release → Gitee，都**不做延迟探测**。两模块策略不同——webview 默认**并行竞速**（谁先交出校验通过的文件用谁，总耗时等于最快镜像）；gui-media 串行按序。
+- **超时**：单源 socket 超时 20 秒，另加 **60 秒总预算**兜底。`urlopen` 的 timeout 是 socket 级，DNS 挂起与慢速滴流不受它约束，只靠它会把一次构建吊死。
+- **换源与加源**：`modules/gui-webview/prebuild.py` 的 `VENDOR_BASES`、`modules/gui-media/prebuild.py` 的 `_VENDOR_BASES` 各改一行。两处**刻意各留一份**，两个模块都要能独立发布。**Gitee 的用户名与 GitHub 不同**（同一个仓在 gitee 归 `noahliu0911`，GitHub 是 `lb091188`），照抄会 404，而且只在 GitHub 不通时才暴露。
+- **内网与离线**：环境变量 `NATIVE_GUI_VENDOR_BASE` 接受单个 base 或逗号分隔列表，排在最前；设了它就不再并行竞速（webview 转串行按序）。也可手工把文件放到对应路径。
+- 全部失败时 prebuild 不中断，只打印手工放置提示，把缺文件错误留给链接期。
 
 授权与来源见 [THIRD-PARTY-NOTICES.md](/THIRD-PARTY-NOTICES.md)。
 
