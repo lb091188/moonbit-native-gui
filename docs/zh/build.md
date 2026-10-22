@@ -49,8 +49,8 @@ rm -rf _build/native/debug/build/examples/<示例>/<示例>   # 该示例重链
 FFmpeg 这两个归档**由我们制作**（macOS 自编 LGPLv3、@rpath 化，Windows 是从 BtbN lgpl-shared 重打包运行期 dll），不是上游现成产物——所以它们的授权文本与源码提供义务单独记在 [THIRD-PARTY-NOTICES.md](/THIRD-PARTY-NOTICES.md)。
 
 - **校验优先**：sha256 与 prebuild 里的常量一致才落盘，任何镜像都可验证。
-- **镜像**：GitHub Release → Gitee，都**不做延迟探测**。两模块策略不同——webview 默认**并行竞速**（谁先交出校验通过的文件用谁，总耗时等于最快镜像）；gui-media 串行按序。
-- **超时**：单源 socket 超时 20 秒，另加 **60 秒总预算**兜底。`urlopen` 的 timeout 是 socket 级，DNS 挂起与慢速滴流不受它约束，只靠它会把一次构建吊死。
+- **镜像**：GitHub Release → Gitee，都**不做延迟探测**。模块间策略不同——webview 与 ffmpeg 默认**并行竞速**（谁先交出校验通过的文件用谁，总耗时等于最快镜像）；gui-media 串行按序。
+- **超时**：单源 socket 超时 20 秒，另加**总预算**兜底（`urlopen` 的 timeout 是 socket 级，DNS 挂起与慢速滴流不受它约束，只靠它会把一次构建吊死）。预算按体积分档：mac 归档、`miniaudio.h`、WebView2 两件套 **60 秒**，Windows 的 64 MB dll 归档 **360 秒**——否则「数据还在流、预算先到」会把那一路误判成失败。
 - **换源与加源**：`modules/gui-webview/prebuild.py` 的 `VENDOR_BASES`、`modules/gui-media/prebuild.py` 的 `_VENDOR_BASES` 各改一行（另有 `modules/ffmpeg-mbt/prebuild.py` 管 dll 归档，镜像与超时口径同源）。三处**刻意各留一份**，每个模块都要能独立发布——别按「两处」去找，`grep -rn "releases/download/vendor-v1" --include=prebuild.py .` 点一遍份数。**Gitee 的用户名与 GitHub 不同**（同一个仓在 gitee 归 `noahliu0911`，GitHub 是 `lb091188`），照抄会 404，而且只在 GitHub 不通时才暴露。
 - **内网与离线**：环境变量 `NATIVE_GUI_VENDOR_BASE` 接受单个 base 或逗号分隔列表，排在最前；设了它就不再并行竞速（webview 转串行按序）。也可手工把文件放到对应路径。
 - 全部失败时 prebuild 不中断，只打印手工放置提示，把缺文件错误留给链接期。
