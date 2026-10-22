@@ -37,12 +37,16 @@ When debugging, first reproduce with a new main target: a fresh target is always
 
 ## 4. Vendored large files and mirrors
 
-Three third-party files are kept out of git — committing them would permanently bloat the git history — and are downloaded by **each module's own prebuild** when missing: about 18 MB in total. Anything already in place is left alone; prebuild only fills gaps.
+Three third-party files — plus both FFmpeg runtime archives (the Windows dll zip and the macOS arm64 dylib tarball) — are kept out of git; committing them would permanently bloat the git history. They are downloaded by **each module's own prebuild** when missing. Anything already in place is left alone; prebuild only fills gaps.
 
 | File | Downloaded by | When |
 |---|---|---|
 | `WebView2LoaderStatic.lib` (11 MB), `WebView2.h` (2.8 MB) | `modules/gui-webview/prebuild.py` | **Windows only**; Linux / macOS skip them and save 14 MB |
 | `miniaudio.h` (4 MB) | `modules/gui-media/prebuild.py` | Whenever missing (every platform compiles it) |
+| `ffmpeg-windows-x64-9.0-lgpl-shared.zip` (~64 MB, 7 dlls) | `modules/ffmpeg-mbt/prebuild.py` | **Windows only**, when the runtime dlls are missing; falls back to BtbN upstream |
+| `ffmpeg-macos-arm64-9.0.2-lgpl-shared.tar.gz` (~10 MB, 5 dylibs + headers) | same script | **macOS arm64 only**, when `vendor/mac` is missing; machines with brew ffmpeg go through pkg-config and skip it |
+
+Those two FFmpeg archives are **built by us**, not upstream artefacts (macOS is compiled from source with an LGPLv3, `@rpath`-only closure; the Windows zip repackages the runtime dlls from a BtbN lgpl-shared build). Their license texts and the LGPL source-offer obligation are recorded in [THIRD-PARTY-NOTICES.md](/THIRD-PARTY-NOTICES.md).
 
 - **Verification first**: a file is written only if its sha256 matches the constant in that prebuild script, so any mirror is verifiable.
 - **Mirrors**: GitHub Release → Gitee, with no latency probing — but the two modules differ. Webview **races the mirrors in parallel** (whichever returns a sha-verified file first wins, so the total cost is the fastest mirror); gui-media tries them serially in order.
