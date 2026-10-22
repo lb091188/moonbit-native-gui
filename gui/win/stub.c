@@ -7458,6 +7458,7 @@ typedef struct {
   int backing_h;
   size_t backing_cap;
   int hidden;    // W23 隐藏驻留：orderOut 后置 1，show 唤回清 0
+  int transparent; // 背景透视：opaque=NO 时视图也得跟着声明非不透明，否则 AppKit 按不透明合成、没画的像素露不出来
   int im_active; // 输入法焦点门：0 = 焦点不在输入框，键不经 NSTextInputContext
   NSEvent *down_ev; // 拖出起拖用的按下事件（beginDraggingSession 要求现场引用）
 }
@@ -8125,6 +8126,13 @@ static uint32_t wm_keysym_of(NSEvent *ev) {
   return [super resignFirstResponder];
 }
 
+// 本视图是否不透明：背景透视开着时必须回 NO，否则 AppKit 仍按不透明视图合成，
+// 帧缓冲里 a=0 的像素露不出桌面（真机症状：开了透视跟没开一样）。
+- (BOOL)isOpaque {
+  WMState *s = wm_state(vsid);
+  return (s != nil && s->transparent) ? NO : YES;
+}
+
 - (void)drawRect:(NSRect)dirtyRect {
   (void)dirtyRect;
   WMState *s = wm_state(vsid);
@@ -8349,18 +8357,20 @@ void wm_set_layer(int64_t id, int layer) {
   }
 }
 
-// W33 背景透明（Cocoa 档）：opaque=NO + 底色给 clear。绘制区每帧自填全幅
-// 像素，所以「露底」只在窗口还没画首帧时可见——与 GTK 只切 app_paintable
-// 位同口径，真·透明合成留待绘制批次深化。
+// W33 背景透明（Cocoa 档）：opaque=NO + 底色给 clear，并让视图自己声明非不透明
+// （见 WMView isOpaque）；绘制区不铺底的像素因此会露成透明，桌面从洞里透出。
+// 铺了底色的控件照旧不透明——「背景透视」要的就是这个效果，不是整窗 alpha。
 void wm_set_transparent_bg(int64_t id, int on) {
   @autoreleasepool {
     WMState *s = wm_state(id);
     if (s == nil) {
       return;
     }
+    s->transparent = on ? 1 : 0;
     [s.win setOpaque:on ? NO : YES];
     [s.win setBackgroundColor:on ? [NSColor clearColor]
                                  : [NSColor windowBackgroundColor]];
+    [s.view setNeedsDisplay:YES];
   }
 }
 

@@ -36,8 +36,8 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **多窗口**：`open_window` / `close_window` / `window_count` / `active_window` 四个门面
 - ✅ **窗口句柄与主窗判定**：`wid` 取句柄、`is_primary` 判主窗
 - ✅ **消息泵与每帧调度**：宿主事件循环：投递、命中、重排重绘都在这一拍里
-- 🚧 **窗口透明**：`set_opacity` 0–255；无合成器时静默无效（Linux 过；Windows 施工中；macOS 未接）
-- 🚧 **背景穿透**：`set_transparent_bg` 打开后未铺满处透出下层（Linux 过；Windows 施工中；macOS 未接）
+- 🚧 **窗口透明**：`set_opacity` 0–255，整窗连字一起淡；无合成器时静默无效（Linux 过；macOS 已验；Windows 施工中）
+- 🚧 **背景穿透**：`set_transparent_bg` 打开后控件没铺到的像素留透明、桌面从洞里透出（Linux 过；macOS 已接待真机；Windows 施工中）。验证要单开一扇「根不铺底」的窗——showcase 窗口页有「开透明测试窗」按钮
 - 🚧 **层级：普通档**：`WindowLayer::Normal`，与系统普通窗同档（Linux 过；Windows 待验）
 - 🚧 **层级：图标下**：`Desktop`，压在桌面图标之下（Linux 过；Windows 待验）
 - 🚧 **层级：图标上**：`DesktopWidget`，桌面小部件位，本窗照收键鼠（Linux 过；Windows 待验）
