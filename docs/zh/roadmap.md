@@ -42,7 +42,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - 🚧 **层级：图标下**：`Desktop`，压在桌面图标之下（Linux 过；Windows 待验）
 - 🚧 **层级：图标上**：`DesktopWidget`，桌面小部件位，本窗照收键鼠（Linux 过；Windows 待验）
 - 🚧 **层级：始终置顶**：`AlwaysOnTop`（Linux 过；Windows 待验）
-- 🚧 **层级：面板档**：不进任务栏、不进窗口循环、所有工作区显示、普通窗口上全屏窗口下（macOS 全屏关系相反；Windows 缺所有工作区）
+- 🚧 **层级：面板档**：不进任务栏、不进窗口循环、所有工作区显示、普通窗口上全屏窗口下（Linux 过；macOS、Windows 施工中）
 
 ### 渲染与绘制
 
