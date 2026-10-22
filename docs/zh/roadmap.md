@@ -37,7 +37,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **窗口句柄与主窗判定**：`wid` 取句柄、`is_primary` 判主窗
 - ✅ **消息泵与每帧调度**：宿主事件循环：投递、命中、重排重绘都在这一拍里
 - 🚧 **窗口透明**：`set_opacity` 0–255，整窗连字一起淡；无合成器时静默无效（Linux 过；macOS 已验；Windows 施工中）
-- 🚧 **背景穿透**：`set_transparent_bg` 打开后控件没铺到的像素留透明、桌面从洞里透出（Linux 过；macOS 已接待真机；Windows 施工中）。验证要单开一扇「根不铺底」的窗——showcase 窗口页有「开透明测试窗」按钮
+- 🚧 **背景穿透**：`set_transparent_bg` 打开后控件没铺到的像素留透明，桌面从洞里透出（Linux 过；macOS 已接待真机；Windows 施工中）
 - 🚧 **层级：普通档**：`WindowLayer::Normal`，与系统普通窗同档（Linux 过；Windows 待验）
 - 🚧 **层级：图标下**：`Desktop`，压在桌面图标之下（Linux 过；Windows 待验）
 - 🚧 **层级：图标上**：`DesktopWidget`，桌面小部件位，本窗照收键鼠（Linux 过；Windows 待验）
@@ -54,7 +54,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **裁剪与变换**：push / pop clip，平移缩放旋转
 - ✅ **圆角与抗锯齿**：真圆弧 + 1px 抗锯齿；圆角关闭时退直角
 - ✅ **线型端点与拐角**：LineCap：Butt / Round / Square；LineJoin：Miter / Round / Bevel
-- 🚧 **虚线**：`set_dashes(图案, 相位)`（on/off 交替、逻辑像素，空数组回实线）；Cairo 档走 `cairo_set_dash`，纯光栅器档按累计弧长切段，段端 butt 端帽、相位每子路径重置（macOS 光栅档已验；Linux cairo 档待真机）
+- 🚧 **虚线**：`set_dashes(图案, 相位)`，on/off 交替、逻辑像素，空数组回实线（macOS 已验；Linux / Windows 待真机）
 - ✅ **位图与图像解码**：PNG / JPEG / GIF（首帧静图）；缩放到目标矩形
 - ✅ **全局 alpha**：`opacity` 整层透明度，绘制期生效
 - ✅ **矢量图标**：19 类图标包，全量自绘，不依赖字体文件
@@ -68,7 +68,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **富文本区间属性**：`AttributedText`：按字节区间设字体与颜色，后设覆盖先设
 - ✅ **CJK 与 RTL 行首方向**：对齐给 `align`（Start/Center/End），方向给 `direction`，两者分开
 - ✅ **样式槽文本字段**：`text_align` / `white_space` / `line_height` / `text_decoration` 写入 class 即生效
-- 🚧 **字距**：`letter_spacing` 进 `Font.spacing`，贯通测量、绘制与计量缓存键；三平台原语 Pango 字距属性 / DirectWrite `SetCharacterSpacing` / CoreText `kCTKern`，宽增量恒为「字符数 × spacing」（macOS 已验；Linux / Windows 待真机）
+- 🚧 **字距**：`letter_spacing` 生效到测量与绘制，字间按设定值加宽（macOS 已验；Linux / Windows 待真机）
 
 ### 布局
 
