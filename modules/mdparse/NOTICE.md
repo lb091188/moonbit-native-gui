@@ -45,4 +45,4 @@ types.mbt
 
 ## 分发义务
 
-本模块随本仓库源码分发，`LICENSE` 与本文件必须同批保留。对外发布编译产物时，按仓库根 `THIRD-PARTY-NOTICES.md` 的清单把本模块 `LICENSE` 一并收进发布包的 `licenses/` 目录。
+本模块随本仓库源码分发，`LICENSE` 与本文件必须同批保留。对外发布编译产物时，按 `docs/THIRD-PARTY-NOTICES.md` 的清单把本模块 `LICENSE` 一并收进发布包的 `licenses/` 目录。

@@ -115,4 +115,4 @@ CommonMark 0.31.2 有 652 条规范用例，加 GFM 扩展与我们要的 4 项�
 | 测试 | 上游解析测试 147 条随源带入（删 6 条依赖序列化/HTML 的用例，改写 3 条为 AST 断言） |
 | 接入 | `gui/moon.mod` + `gui/mdview/moon.pkg` 改指新模块，别名仍是 `@mdast`，渲染层零改动 |
 | 门禁 | `mdparse` 147/147、`mdview` 32/32、两处 `moon check --deny-warn` 零错误零警告 |
-| 许可 | MIT；`LICENSE` 保留上游版权，`NOTICE.md` 列来源/删改/分发义务，`THIRD-PARTY-NOTICES.md` 两处登记 |
+| 许可 | MIT；`LICENSE` 保留上游版权，`NOTICE.md` 列来源/删改/分发义务，`THIRD-PARTY-NOTICES.md` 登记 |
