@@ -43,17 +43,21 @@ pub(all) struct Font {
   size : Double
   weight : FontWeight
   style : FontStyle
+  /// 字距（逻辑像素）：每个字符后追加的额外前进量，0 = 不调整。
+  /// 测量与绘制同源，宽度差恰为「字符数 × spacing」（三平台同口径）。
+  spacing : Double
 }
 
 ///|
-/// 创建字体（size 为逻辑像素，不是磅）。
+/// 创建字体（size 为逻辑像素，不是磅；spacing 为字距，逻辑像素）。
 pub fn Font::new(
   name : String,
   size : Double,
   weight? : FontWeight = Normal,
   style? : FontStyle = Roman,
+  spacing? : Double = 0.0,
 ) -> Font {
-  { name, size, weight, style }
+  { name, size, weight, style, spacing }
 }
 
 ///|

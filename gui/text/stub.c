@@ -37,7 +37,7 @@ static int g_pt_rtl = 0;
 
 static PangoLayout *pt_make_layout(const char *text, int len, double size,
                                    const char *family, int weight,
-                                   int italic) {
+                                   int italic, double spacing) {
   PangoFontMap *fm = pango_cairo_font_map_get_default();
   if (fm == NULL) {
     return NULL;
@@ -68,6 +68,16 @@ static PangoLayout *pt_make_layout(const char *text, int len, double size,
   pango_context_set_base_dir(pango_layout_get_context(layout),
                              g_pt_rtl ? PANGO_DIRECTION_RTL
                                        : PANGO_DIRECTION_LTR);
+  // 字距：letter_spacing 属性（Pango units）。0 不挂 attr list，与未启用时逐位同源
+  if (spacing != 0.0) {
+    PangoAttrList *attrs = pango_attr_list_new();
+    if (attrs != NULL) {
+      int units = (int)(spacing * PANGO_SCALE + (spacing > 0.0 ? 0.5 : -0.5));
+      pango_attr_list_insert(attrs, pango_attr_letter_spacing_new(units));
+      pango_layout_set_attributes(layout, attrs);
+      pango_attr_list_unref(attrs);
+    }
+  }
   pango_layout_set_text(layout, text, len);
   return layout;
 }
@@ -177,11 +187,11 @@ static void pt_cache_put(const char *key, PangoLayout *layout) {
 static char *pt_cache_key(const char *path, const char *text, int len,
                           double size, const char *family, int weight,
                           int italic, int width_int, int wrap, int ellipsize,
-                          int align) {
+                          int align, double spacing) {
   char head[160];
-  snprintf(head, sizeof(head), "%s|%g|%s|%d|%d|%d|%d|%d|%d|%d|", path, size,
+  snprintf(head, sizeof(head), "%s|%g|%s|%d|%d|%d|%d|%d|%d|%d|%g|", path, size,
            family != NULL ? family : "", weight, italic, width_int, wrap,
-           ellipsize, align, g_pt_rtl);
+           ellipsize, align, g_pt_rtl, spacing);
   if (len < 0) {
     len = text != NULL ? (int)strlen(text) : 0;
   }
@@ -204,15 +214,16 @@ static char *pt_cache_key(const char *path, const char *text, int len,
 /* 测量与 pt_draw 共用的「无盒」取布局：命中直接用，未命中建好入库。 */
 static PangoLayout *pt_plain_layout(const char *text, int len, double size,
                                     const char *family, int weight, int italic,
-                                    int max_width, int wrap, int ellipsize) {
+                                    int max_width, int wrap, int ellipsize,
+                                    double spacing) {
   char *key = pt_cache_key("m", text, len, size, family, weight, italic,
-                           max_width, wrap, ellipsize, 0);
+                           max_width, wrap, ellipsize, 0, spacing);
   if (key == NULL) {
     return NULL;
   }
   PangoLayout *layout = pt_cache_get(key);
   if (layout == NULL) {
-    layout = pt_make_layout(text, len, size, family, weight, italic);
+    layout = pt_make_layout(text, len, size, family, weight, italic, spacing);
     if (layout != NULL) {
       pt_apply_width(layout, max_width, wrap, ellipsize);
       pt_cache_put(key, layout);
@@ -250,16 +261,16 @@ static int pt_width_with_trailing_ws(PangoLayout *layout, const char *text,
 }
 
 // 测量：out = [width, height, baseline]（像素）。max_width <= 0 不约束；
-// ellipsize != 0 尾端省略；wrap != 0 按词断行。
+// ellipsize != 0 尾端省略；wrap != 0 按词断行；spacing 是字距（逻辑像素）。
 int pt_measure(const char *text, int len, double size, const char *family,
-               int max_width, int ellipsize, int wrap, int32_t *out_w,
-               int32_t *out_h, int32_t *out_baseline) {
+               double spacing, int max_width, int ellipsize, int wrap,
+               int32_t *out_w, int32_t *out_h, int32_t *out_baseline) {
   if (text == NULL || out_w == NULL || out_h == NULL || out_baseline == NULL) {
     return 0;
   }
   PangoLayout *layout =
       pt_plain_layout(text, len, size, family, 400, 0, max_width, wrap,
-                      ellipsize);
+                      ellipsize, spacing);
   if (layout == NULL) {
     return 0;
   }
@@ -322,8 +333,8 @@ int pt_font_line_height(double size, const char *family, int weight,
 // 在调用方缓冲上画文本：(x,y) 是布局盒左上角；返回 0 表示后端不可用。
 int pt_draw(unsigned char *data, int buf_w, int buf_h, double x, double y,
             const char *text, int len, double size, const char *family,
-            int r, int g, int b, int a, int max_width, int ellipsize,
-            int wrap) {
+            int r, int g, int b, int a, double spacing, int max_width,
+            int ellipsize, int wrap) {
   if (data == NULL || text == NULL || buf_w < 1 || buf_h < 1) {
     return 0;
   }
@@ -336,7 +347,7 @@ int pt_draw(unsigned char *data, int buf_w, int buf_h, double x, double y,
   cairo_t *cr = cairo_create(surf);
   PangoLayout *layout =
       pt_plain_layout(text, len, size, family, 400, 0, max_width, wrap,
-                      ellipsize);
+                      ellipsize, spacing);
   if (layout == NULL) {
     cairo_destroy(cr);
     cairo_surface_destroy(surf);
@@ -355,15 +366,15 @@ int pt_draw(unsigned char *data, int buf_w, int buf_h, double x, double y,
 // weight 为 0 时用 Pango 默认（Normal=400）；此函数与 pt_measure 的差异
 // 只在字体描述上，布局与换行/省略语义完全一致。
 int pt_measure_font(const char *text, int len, double size, const char *family,
-                    int weight, int italic, int max_width, int ellipsize,
-                    int wrap, int32_t *out_w, int32_t *out_h,
+                    int weight, int italic, double spacing, int max_width,
+                    int ellipsize, int wrap, int32_t *out_w, int32_t *out_h,
                     int32_t *out_baseline) {
   if (text == NULL || out_w == NULL || out_h == NULL || out_baseline == NULL) {
     return 0;
   }
   PangoLayout *layout =
       pt_plain_layout(text, len, size, family, weight, italic, max_width, wrap,
-                      ellipsize);
+                      ellipsize, spacing);
   if (layout == NULL) {
     return 0;
   }
@@ -390,7 +401,7 @@ static int pt_render_box(cairo_t *cr, double x, double y, double box_w,
                          double box_h, const char *text, int len, double size,
                          const char *family, int weight, int italic, int r,
                          int g, int b, int a, int align, int valign,
-                         int ellipsize, int wrap) {
+                         int ellipsize, int wrap, double spacing) {
   if (cr == NULL || text == NULL) {
     return 0;
   }
@@ -400,13 +411,13 @@ static int pt_render_box(cairo_t *cr, double x, double y, double box_w,
   int width_int = wrapped_axis ? (int)(box_w + 0.5) : 0;
   int align_eff = wrapped_axis ? align : 0;
   char *key = pt_cache_key("b", text, len, size, family, weight, italic,
-                           width_int, wrap, ellipsize, align_eff);
+                           width_int, wrap, ellipsize, align_eff, spacing);
   if (key == NULL) {
     return 0;
   }
   PangoLayout *layout = pt_cache_get(key);
   if (layout == NULL) {
-    layout = pt_make_layout(text, len, size, family, weight, italic);
+    layout = pt_make_layout(text, len, size, family, weight, italic, spacing);
     if (layout == NULL) {
       free(key);
       return 0;
@@ -458,7 +469,7 @@ int pt_draw_box(unsigned char *data, int buf_w, int buf_h, double x, double y,
                 double box_w, double box_h, const char *text, int len,
                 double size, const char *family, int weight, int italic, int r,
                 int g, int b, int a, int align, int valign, int ellipsize,
-                int wrap) {
+                int wrap, double spacing) {
   if (data == NULL || buf_w < 1 || buf_h < 1) {
     return 0;
   }
@@ -470,7 +481,8 @@ int pt_draw_box(unsigned char *data, int buf_w, int buf_h, double x, double y,
   }
   cairo_t *cr = cairo_create(surf);
   int ok = pt_render_box(cr, x, y, box_w, box_h, text, len, size, family, weight,
-                         italic, r, g, b, a, align, valign, ellipsize, wrap);
+                         italic, r, g, b, a, align, valign, ellipsize, wrap,
+                         spacing);
   cairo_destroy(cr);
   cairo_surface_flush(surf);
   cairo_surface_destroy(surf);
@@ -485,7 +497,7 @@ int pt_draw_box_cr(int64_t cr_id, double x, double y, double box_w,
                    double box_h, const char *text, int len, double size,
                    const char *family, int weight, int italic, int r, int g,
                    int b, int a, int align, int valign, int ellipsize,
-                   int wrap) {
+                   int wrap, double spacing) {
   cairo_t *cr = (cairo_t *)cr_session_context(cr_id);
   if (cr == NULL) {
     return 0;
@@ -500,7 +512,8 @@ int pt_draw_box_cr(int64_t cr_id, double x, double y, double box_w,
     cairo_clip(cr);
   }
   int ok = pt_render_box(cr, x, y, box_w, box_h, text, len, size, family, weight,
-                         italic, r, g, b, a, align, valign, ellipsize, wrap);
+                         italic, r, g, b, a, align, valign, ellipsize, wrap,
+                         spacing);
   cairo_restore(cr);
   return ok;
 }
@@ -690,7 +703,7 @@ static PangoLayout *rt_build(Rt *r) {
   }
   PangoLayout *layout = pt_make_layout(r->text, r->tlen, r->size,
                                        r->family ? r->family : "", r->weight,
-                                       r->italic);
+                                       r->italic, 0.0);
   if (layout == NULL) {
     return NULL;
   }
@@ -1084,6 +1097,8 @@ typedef struct {
   double total_w;
   double total_h;
   double baseline;
+  // 字距（逻辑像素）：每字之后追加的前进量，直接挂 kCTKern。
+  double spacing;
 } PtPara;
 
 // UTF-8 → 码点数组；非法字节给 U+FFFD 并前进一字节（不吞后面合法的续字节）
@@ -1376,12 +1391,28 @@ static CTLineRef pt_line_create(PtPara *p, int with_ellipsis, int c0, int c1) {
       CFRelease(ps);
     }
   }
+  // 字距：kCTKern 挂在整行上，值就是逻辑像素（与 Pango/DWrite 的 spacing 同域）。
+  // 实测它给每个字各加一份（含末字），宽度增量恰为 字符数 × spacing，
+  // 与 Pango 的 letter_spacing、DWrite 的 trailing-only 字符间距同口径。
+  if (p->spacing != 0.0) {
+    CFIndex wslen = CFAttributedStringGetLength(str);
+    if (wslen > 0) {
+      CFNumberRef kern = CFNumberCreate(NULL, kCFNumberDoubleType, &p->spacing);
+      if (kern != NULL) {
+        CFAttributedStringSetAttribute(str, CFRangeMake(0, wslen), kCTKernAttributeName,
+                                       kern);
+        CFRelease(kern);
+      }
+    }
+  }
   CTLineRef line = CTLineCreateWithAttributedString(str);
   CFRelease(str);
   return line;
 }
 
-// 宽度（不给画就顺手释放）
+// 宽度（不给画就顺手释放）。字距由 kCTKern 直接算进 advance（CTKern 对每个字
+// 各加一份，含末字），所以这里不再补——实测 13px 下 S=1 时 "a"/"ab"/"abc" 的
+// 宽增量是 2/4/6，"中文测" 同为 6，恰好 字符数 × S。
 static double pt_range_width(PtPara *p, int c0, int c1, int with_ellipsis) {
   CTLineRef l = pt_line_create(p, with_ellipsis, c0, c1);
   if (l == NULL) {
@@ -1648,12 +1679,13 @@ static void pt_draw_para(PtPara *p, unsigned char *data, int buf_w, int buf_h,
 
 // 通用入口：单样式段落（pt_* 一族）
 static PtPara *pt_para_simple(const char *text, int len, double size,
-                              const char *family, int weight, int italic, int r,
-                              int g, int b, int a) {
+                              const char *family, int weight, int italic,
+                              double spacing, int r, int g, int b, int a) {
   PtPara *p = (PtPara *)calloc(1, sizeof(PtPara));
   if (p == NULL) {
     return NULL;
   }
+  p->spacing = spacing;
   p->nchar = pt_decode(text, len, &p->chars);
   if (p->nchar == 0) {
     return p;
@@ -1704,13 +1736,14 @@ static int pt_write_metrics(int32_t *out_w, int32_t *out_h,
 // ---- pt_* 对外入口 ----
 
 int pt_measure_font(const char *text, int len, double size,
-                    const char *family, int weight, int italic, int max_width,
-                    int ellipsize, int wrap, int32_t *out_w, int32_t *out_h,
-                    int32_t *out_baseline) {
+                    const char *family, int weight, int italic, double spacing,
+                    int max_width, int ellipsize, int wrap, int32_t *out_w,
+                    int32_t *out_h, int32_t *out_baseline) {
   if (text == NULL || out_w == NULL || out_h == NULL || out_baseline == NULL) {
     return 0;
   }
-  PtPara *p = pt_para_simple(text, len, size, family, weight, italic, 0, 0, 0, 255);
+  PtPara *p = pt_para_simple(text, len, size, family, weight, italic, spacing,
+                             0, 0, 0, 255);
   if (p == NULL) {
     return 0;
   }
@@ -1721,10 +1754,10 @@ int pt_measure_font(const char *text, int len, double size,
 }
 
 int pt_measure(const char *text, int len, double size, const char *family,
-               int max_width, int ellipsize, int wrap, int32_t *out_w,
-               int32_t *out_h, int32_t *out_baseline) {
-  return pt_measure_font(text, len, size, family, 400, 0, max_width, ellipsize,
-                         wrap, out_w, out_h, out_baseline);
+               double spacing, int max_width, int ellipsize, int wrap,
+               int32_t *out_w, int32_t *out_h, int32_t *out_baseline) {
+  return pt_measure_font(text, len, size, family, 400, 0, spacing, max_width,
+                         ellipsize, wrap, out_w, out_h, out_baseline);
 }
 
 int pt_font_line_height(double size, const char *family, int weight,
@@ -1735,7 +1768,8 @@ int pt_font_line_height(double size, const char *family, int weight,
   // 与 Windows 同口径：取「单字 M 的排版行盒」，不取字体设计度量——后者与
   // measure() 差一两个像素，会让 line_height 低于 measure 的行高而违反契约。
   const char *probe = "Mg";
-  PtPara *p = pt_para_simple(probe, 2, size, family, weight, italic, 0, 0, 0, 255);
+  PtPara *p = pt_para_simple(probe, 2, size, family, weight, italic, 0.0, 0, 0,
+                             0, 255);
   if (p == NULL) {
     return 0;
   }
@@ -1753,11 +1787,13 @@ int pt_font_line_height(double size, const char *family, int weight,
 
 int pt_draw(unsigned char *data, int buf_w, int buf_h, double x, double y,
             const char *text, int len, double size, const char *family, int r,
-            int g, int b, int a, int max_width, int ellipsize, int wrap) {
+            int g, int b, int a, double spacing, int max_width, int ellipsize,
+            int wrap) {
   if (data == NULL || text == NULL || buf_w < 1 || buf_h < 1) {
     return 0;
   }
-  PtPara *p = pt_para_simple(text, len, size, family, 400, 0, r, g, b, a);
+  PtPara *p = pt_para_simple(text, len, size, family, 400, 0, spacing, r, g, b,
+                             a);
   if (p == NULL) {
     return 0;
   }
@@ -1773,11 +1809,12 @@ int pt_draw_box(unsigned char *data, int buf_w, int buf_h, double x, double y,
                 double box_w, double box_h, const char *text, int len,
                 double size, const char *family, int weight, int italic, int r,
                 int g, int b, int a, int align, int valign, int ellipsize,
-                int wrap) {
+                int wrap, double spacing) {
   if (data == NULL || text == NULL || buf_w < 1 || buf_h < 1) {
     return 0;
   }
-  PtPara *p = pt_para_simple(text, len, size, family, weight, italic, r, g, b, a);
+  PtPara *p = pt_para_simple(text, len, size, family, weight, italic, spacing,
+                             r, g, b, a);
   if (p == NULL) {
     return 0;
   }
@@ -1813,11 +1850,11 @@ int pt_draw_box_cr(int64_t cr_id, double x, double y, double box_w,
                    double box_h, const char *text, int len, double size,
                    const char *family, int weight, int italic, int r, int g,
                    int b, int a, int align, int valign, int ellipsize,
-                   int wrap) {
+                   int wrap, double spacing) {
   (void)cr_id; (void)x; (void)y; (void)box_w; (void)box_h; (void)text;
   (void)len; (void)size; (void)family; (void)weight; (void)italic; (void)r;
   (void)g; (void)b; (void)a; (void)align; (void)valign; (void)ellipsize;
-  (void)wrap;
+  (void)wrap; (void)spacing;
   return 0;
 }
 
@@ -2378,10 +2415,11 @@ int rt_draw_cr(int64_t cr_id, int64_t h, double x, double y, double box_w,
 #include <stdint.h>
 
 int pt_measure(const char *text, int len, double size, const char *family,
-               int max_width, int ellipsize, int wrap, int32_t *out_w,
-               int32_t *out_h, int32_t *out_baseline) {
-  (void)text; (void)len; (void)size; (void)family; (void)max_width;
-  (void)ellipsize; (void)wrap; (void)out_w; (void)out_h; (void)out_baseline;
+               double spacing, int max_width, int ellipsize, int wrap,
+               int32_t *out_w, int32_t *out_h, int32_t *out_baseline) {
+  (void)text; (void)len; (void)size; (void)family; (void)spacing;
+  (void)max_width; (void)ellipsize; (void)wrap; (void)out_w; (void)out_h;
+  (void)out_baseline;
   return 0;
 }
 
@@ -2399,21 +2437,21 @@ int pt_font_line_height(double size, const char *family, int weight,
 
 int pt_draw(unsigned char *data, int buf_w, int buf_h, double x, double y,
             const char *text, int len, double size, const char *family,
-            int r, int g, int b, int a, int max_width, int ellipsize,
-            int wrap) {
+            int r, int g, int b, int a, double spacing, int max_width,
+            int ellipsize, int wrap) {
   (void)data; (void)buf_w; (void)buf_h; (void)x; (void)y; (void)text;
   (void)len; (void)size; (void)family; (void)r; (void)g; (void)b; (void)a;
-  (void)max_width; (void)ellipsize; (void)wrap;
+  (void)spacing; (void)max_width; (void)ellipsize; (void)wrap;
   return 0;
 }
 
 int pt_measure_font(const char *text, int len, double size, const char *family,
-                    int weight, int italic, int max_width, int ellipsize,
-                    int wrap, int32_t *out_w, int32_t *out_h,
+                    int weight, int italic, double spacing, int max_width,
+                    int ellipsize, int wrap, int32_t *out_w, int32_t *out_h,
                     int32_t *out_baseline) {
   (void)text; (void)len; (void)size; (void)family; (void)weight; (void)italic;
-  (void)max_width; (void)ellipsize; (void)wrap; (void)out_w; (void)out_h;
-  (void)out_baseline;
+  (void)spacing; (void)max_width; (void)ellipsize; (void)wrap; (void)out_w;
+  (void)out_h; (void)out_baseline;
   return 0;
 }
 
@@ -2421,11 +2459,11 @@ int pt_draw_box(unsigned char *data, int buf_w, int buf_h, double x, double y,
                 double box_w, double box_h, const char *text, int len,
                 double size, const char *family, int weight, int italic, int r,
                 int g, int b, int a, int align, int valign, int ellipsize,
-                int wrap) {
+                int wrap, double spacing) {
   (void)data; (void)buf_w; (void)buf_h; (void)x; (void)y; (void)box_w;
   (void)box_h; (void)text; (void)len; (void)size; (void)family; (void)weight;
   (void)italic; (void)r; (void)g; (void)b; (void)a; (void)align; (void)valign;
-  (void)ellipsize; (void)wrap;
+  (void)ellipsize; (void)wrap; (void)spacing;
   return 0;
 }
 
@@ -2477,11 +2515,11 @@ int pt_draw_box_cr(int64_t cr_id, double x, double y, double box_w,
                    double box_h, const char *text, int len, double size,
                    const char *family, int weight, int italic, int r, int g,
                    int b, int a, int align, int valign, int ellipsize,
-                   int wrap) {
+                   int wrap, double spacing) {
   (void)cr_id; (void)x; (void)y; (void)box_w; (void)box_h; (void)text;
   (void)len; (void)size; (void)family; (void)weight; (void)italic;
   (void)r; (void)g; (void)b; (void)a; (void)align; (void)valign;
-  (void)ellipsize; (void)wrap;
+  (void)ellipsize; (void)wrap; (void)spacing;
   return 0;
 }
 
