@@ -96,13 +96,9 @@ moon run .
 | 目录 | 内容 |
 |---|---|
 | `examples/hello` | 最小窗口：一个原生窗口 + 基本控件 |
-| `examples/hello-themed` | 主题控件集 |
 | `examples/showcase` | 全功能演示板：组件库、交互图标、图表、系统接口 |
-| `examples/design-recipes` | 设计基准配方：工具栏 / 表单 / 卡片网格 / 列表 / 空态 |
-| `examples/i18n-demo` | 国际化：en / zh 译文并排对照 |
-| `examples/sysmonitor` | 系统监视器：`/proc`·`/sys` 数据 + 自绘图表 |
-| `examples/browser` | 内嵌 WebView（额外依赖 `gui-webview`） |
-| `examples/audio` · `video` | 音视频播放器（额外依赖 `gui-media`，需 ffmpeg，见 [examples/README.md](examples/README.md)） |
+| `examples/browser` | 浏览器演示 |
+| `examples/audio` · `video` | 音视频播放器|
 | `examples/headless-audio` | 无窗口、纯代码驱动播放 |
 
 ## 平台支持
