@@ -108,7 +108,10 @@ def ensure_miniaudio() -> None:
             continue
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(data)
-        print(f"gui-media(prebuild): 已就位 {dest}（sha256 校验通过）", file=sys.stderr)
+        print(
+            f"gui-media(prebuild): 已就位 {dest.name}（sha256 ✓）",
+            file=sys.stderr,
+        )
         return
     print(
         f"gui-media(prebuild): 全部镜像都没取到 {name}\n"
@@ -122,8 +125,7 @@ def link_configs() -> dict:
     system = platform.system()
     if system == "Darwin":
         print(
-            "gui-media(prebuild): macOS 走 miniaudio 的 CoreAudio 后端"
-            "（CoreAudio/AudioToolbox/Foundation，不链 dl/atomic）",
+            "gui-media(prebuild): macOS 走 CoreAudio 后端",
             file=sys.stderr,
         )
         return {
@@ -136,8 +138,7 @@ def link_configs() -> dict:
         }
     if system != "Linux":
         print(
-            "gui-media(prebuild): 其余平台空 link_configs——Windows 实测 miniaudio 的"
-            " WASAPI/COM 全走运行期加载（LoadLibrary），零额外库，不是降级",
+            "gui-media(prebuild): Windows 走运行期加载（LoadLibrary），零额外库",
             file=sys.stderr,
         )
         return {"link_configs": []}

@@ -571,7 +571,7 @@ def main() -> int:
             for p in (os.path.join(vendor, l).replace("\\", "/") for l in WIN_LIBS)
         )
         print(
-            "ffmpeg(prebuild): Windows 走 vendor 导入库（BtbN lgpl-shared）",
+            "ffmpeg(prebuild): 导入库就位（vendor BtbN）",
             file=sys.stderr,
         )
         ready = ensure_win_runtime_dlls()
@@ -589,8 +589,7 @@ def main() -> int:
             stub_cc += f' -DNG_FFMPEG_DELAYLOAD -DNG_FFMPEG_BIN="{bin_dir}"'
             if ready:
                 print(
-                    "ffmpeg(prebuild): 运行期 dll 从 "
-                    f"{bin_dir} 延误加载，无需复制到 exe 旁",
+                    "ffmpeg(prebuild): 运行期 dll 延迟加载，无需复制到 exe 旁",
                     file=sys.stderr,
                 )
         emit(
