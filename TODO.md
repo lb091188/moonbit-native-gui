@@ -122,7 +122,7 @@
 
 ### 6.4 真机验证（用户执行，助手只给步骤）
 
-- [ ] **W7 真实注入验证**：微软拼音端到端（preedit 下划线/候选窗位置/commit 落框）、两窗互相遮挡与拖动重绘、跨程序剪贴板（复制→记事本→粘回）、文件对话框模态 run 与真选文件、主题跟随系统深浅/强调色——归 `examples/native-app` 人工清单（`_人工测试清单.md`）
+- [ ] **W7 真实注入验证**：微软拼音端到端（preedit 下划线/候选窗位置/commit 落框）、两窗互相遮挡与拖动重绘、跨程序剪贴板（复制→记事本→粘回）、文件对话框模态 run 与真选文件、主题跟随系统深浅/强调色——归 `测试文档/测试用例.md`
 - [ ] **W20 批观感复验**：原生菜单栏（下拉/快捷键提示/勾选项）、全局快捷键（切到别的程序仍能触发）、托盘（图标出现/右键菜单/左键计数）、MessageBox（图标/按钮/返回值）、窗口标题与图标
 - [ ] **三平台真机矩阵**：Windows 10/11 本机冒烟已通（退出码 0）；macOS 已按 `测试文档/测试用例.md` 跑完；Ubuntu GNOME / KDE / XFCE 待排
 
@@ -168,7 +168,7 @@
 - FFI 规范与坑：`.agents/skills/moonbit-c-binding/`（同步自 [moonbitlang/skills](https://github.com/moonbitlang/skills)，`~/.agents/skills/` 同版）
 - **跨平台能力批次表（Win 基础能力 + MBT 通用门面）：本文件 §6**（2026-10-12 定；只跟踪跨平台能力，Linux-only 细节不再入表）
 - 旧栈 API 参照面（可平移资产）：`experiment/async_coexist/lab/.mooncakes/NoahLiu/native-gui/yue/`（`tray.mbt`/`menu.mbt`/`misc.mbt`/`widgets.mbt`，本机离线可用）
-- 人工复验清单：`测试文档/测试用例.md`（跑 `moon run examples/native-app`；原 `_人工测试清单.md` 已迁并，只留跳转）
+- 人工复验清单：`测试文档/测试用例.md`（跑 `moon run examples/native-app`）
 
 ## 7. mac 平台批（已落地，遗留缺口）
 
