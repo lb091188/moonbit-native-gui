@@ -345,7 +345,7 @@
 
     <!-- ================= 总览 ================= -->
     <section class="view" id="v-matrix">
-      <div class="mbar"><button class="minibtn" id="btn-ai-all">全部失败项 → AI 提示词</button></div>
+      <div class="mbar"><button class="minibtn" id="btn-ai-all">全部失败项 → AI 提示词</button><button class="minibtn" id="btn-summary">总体摘要（通过 / 失败 / 未测）</button></div>
       <div class="mwrap" id="matrix"></div>
       <div class="mlegend">
         <span><i style="background:var(--pass-bar)"></i>通过</span>
@@ -381,6 +381,9 @@
       <li>历史页每张卡片上的「复制为 AI 提示词」：那一次测试的失败项。</li>
     </ul>
     <p>格式保持简短：开头两行是平台与应用，然后按「测试环节」分组，逐条列「序号、条目」，下一行是「问题：你填的备注」（没写会标「（未填写）」）。</p>
+    <h3>复制总体情况（更新路线图用）</h3>
+    <p>总览页右上的「总体摘要」复制的是**整轮结果**，不是失败清单：表头写日期与 commit，第一行是「共 N 条：通过 / 失败 / 跳过 / 未测」，接着是一张「应用 × 平台」的通过率表，然后失败项按平台 → 应用 → 测试环节连续编号（1、2、3…），最后是未测项清单（按平台 + 应用列编号，超过 40 条截断）。</p>
+    <p>它不改路线图——用例按「页面段落」切、路线图按「功能点」切，两者不是一一对应。判一条路线图要不要从 🚧 变 ✅ 时看三样：该平台这一行有没有失败、相关用例是否都测过、未测清单里还剩什么。</p>
     <h3>快捷键</h3>
     <ul>
       <li><kbd>1</kbd> 通过 · <kbd>2</kbd> 失败 · <kbd>3</kbd> 跳过 · <kbd>0</kbd> 清除</li>
@@ -828,6 +831,99 @@
     });
     if (!parts.length) return null;
     return parts.join('\n\n');
+  }
+
+  /* ======================= 总体摘要（给路线图 / 周报用） ======================= */
+
+  /* 一条用例 ↔ 路线图一个功能点不成立（用例按页面段落切，路线图按功能切），
+     所以摘要不自动改路线图，只给三样能直接判读的东西：通过率、失败项、
+     未测项。判「某平台这条能不能从 🚧 变 ✅」靠这三样就够了。 */
+  function summaryText() {
+    var commit = (db.settings.commit || '').trim();
+    var g = { pass: 0, fail: 0, skip: 0, untested: 0, total: 0 };
+    var byPlat = {};
+    PLATFORMS.forEach(function (p) { byPlat[p.id] = { pass: 0, fail: 0, skip: 0, untested: 0, total: 0 }; });
+
+    var tbody = [];
+    APPS.forEach(function (a) {
+      var cells = PLATFORMS.map(function (p) {
+        var c = counts(p.id, a.id);
+        byPlat[p.id].pass += c.pass; byPlat[p.id].fail += c.fail; byPlat[p.id].skip += c.skip;
+        byPlat[p.id].untested += c.untested; byPlat[p.id].total += c.total;
+        g.pass += c.pass; g.fail += c.fail; g.skip += c.skip; g.untested += c.untested; g.total += c.total;
+        return c.pass + '/' + c.total + (c.fail ? '（失败 ' + c.fail + '）' : '');
+      });
+      tbody.push('| ' + a.name + ' | ' + cells.join(' | ') + ' |');
+    });
+
+    var L = [];
+    L.push('# native-gui 测试记录 · ' + localDate() + (commit ? ' · commit ' + commit : ' · commit 未填'));
+    L.push('');
+    var perPlat = byPlat[PLATFORMS[0].id].total;
+    L.push('用例 ' + perPlat + ' 条 × ' + PLATFORMS.length + ' 平台 = ' + g.total + ' 格：'
+      + '通过 ' + g.pass + ' · 失败 ' + g.fail + ' · 跳过 ' + g.skip + ' · 未测 ' + g.untested);
+    L.push('');
+    L.push('## 总览（通过 / 总数）');
+    L.push('| 应用 | ' + PLATFORMS.map(function (p) { return p.name; }).join(' | ') + ' |');
+    L.push('|---|' + PLATFORMS.map(function () { return '---'; }).join('|') + '|');
+    tbody.forEach(function (r) { L.push(r); });
+    L.push('| **平台合计** | ' + PLATFORMS.map(function (p) {
+      var s = byPlat[p.id];
+      return s.pass + '/' + s.total + (s.fail ? '（失败 ' + s.fail + '）' : '');
+    }).join(' | ') + ' |');
+
+    L.push('');
+    L.push('## 失败（' + g.fail + ' 条）');
+    if (!g.fail) {
+      L.push('无。');
+    } else {
+      var no = 0;
+      PLATFORMS.forEach(function (p) {
+        var any = APPS.some(function (a) { return failsOf(p.id, a.id).length > 0; });
+        if (!any) return;
+        L.push('');
+        L.push('### ' + p.name);
+        APPS.forEach(function (a) {
+          var fs = failsOf(p.id, a.id);
+          if (!fs.length) return;
+          L.push('**' + a.name + '**（' + a.cmd + '）');
+          pageTree(a.id).forEach(function (pg) {
+            pg.secs.forEach(function (sc) {
+              var inSec = fs.filter(function (e) {
+                var c = CASE_BY_ID[e.id];
+                return c && c.page === pg.name && c.sec === sc.name;
+              });
+              if (!inSec.length) return;
+              L.push('测试环节：' + (sc.name ? pg.name + ' · ' + sc.name : pg.name));
+              inSec.forEach(function (e) {
+                no++;
+                L.push(no + '、' + e.id + ' ' + caseSubject(CASE_BY_ID[e.id]));
+                L.push('   备注：' + (e.note || '（未填写）'));
+              });
+            });
+          });
+        });
+      });
+    }
+
+    L.push('');
+    L.push('## 未测（' + g.untested + ' 条）');
+    if (!g.untested) {
+      L.push('无。');
+    } else {
+      PLATFORMS.forEach(function (p) {
+        APPS.forEach(function (a) {
+          var ids = casesOf(a.id)
+            .filter(function (c) { var r = getRes(p.id, a.id, c.id); return !r || !r.s; })
+            .map(function (c) { return c.id; });
+          if (!ids.length) return;
+          var shown = ids.slice(0, 30);
+          L.push('- ' + p.name + ' · ' + a.name + '（' + ids.length + '）：' + shown.join('、')
+            + (ids.length > shown.length ? ' …（余 ' + (ids.length - shown.length) + ' 条）' : ''));
+        });
+      });
+    }
+    return L.join('\n');
   }
   function currentSessionKey() {
     return sessionKey(ui.platform, ui.app, (db.settings.commit || '').trim(), localDate());
@@ -1501,6 +1597,10 @@
       copyText(text);
       var n = (text.match(/^\d+、/gm) || []).length;
       toast('已复制 ' + n + ' 条失败项的提示词（全部平台）');
+    };
+    document.getElementById('btn-summary').onclick = function () {
+      copyText(summaryText());
+      toast('已复制总体摘要（通过 / 失败 / 未测）');
     };    document.getElementById('btn-import').onclick = function () { document.getElementById('file-import').click(); };
     document.getElementById('file-import').onchange = function () {
       if (this.files && this.files[0]) importJSON(this.files[0]);
@@ -1582,7 +1682,8 @@
     failsOf: failsOf,
     promptFor: promptFor,
     promptForAll: promptForAll,
-    promptSection: promptSection
+    promptSection: promptSection,
+    summaryText: summaryText
   };
 
   init();
