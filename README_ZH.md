@@ -4,7 +4,7 @@
 
 [MoonBit](https://github.com/moonbitlang) 的**跨平台桌面 GUI 框架**——一套 MoonBit 代码直出 Windows 🟩 / Linux 🟩 / macOS 🟩 原生窗口，托盘、通知、快捷键、文件对话框等系统能力开箱即用，`moon add` 后零配置直接运行。三平台（Windows / Linux / macOS）同一套代码、同一份真机清单同步维护。
 
-简体中文 | [English（在线文档站）](https://moonbit-native-gui.pages.dev/)
+📚 **在线文档**：<https://moonbit-native-gui.pages.dev/> —— 按浏览器语言自动进入中文或英文。
 
 ![组件库演示板](https://cdn.jsdelivr.net/gh/lb091188/moonbit-native-gui@master/docs/public/images/showcase-main.png)
 
@@ -14,7 +14,7 @@
 
 ## 核心特色
 
-**🖥 系统接口完备** —— 托盘、通知、全局快捷键、剪贴板、原生菜单、文件对话框、拖放、开机自启等桌面常用能力开箱即用，另有音量 / 电源 / 壁纸 / 显示器 / 打印机等系统查询。能力探测 + 结构化降级，不静默失败。详见 [系统能力总览](docs/zh/system-capabilities.md)。
+**🖥 系统接口完备** —— 托盘、通知、全局快捷键、剪贴板、原生菜单、文件对话框、拖放、开机自启等桌面常用能力开箱即用，另有音量 / 电源 / 壁纸 / 显示器 / 打印机等系统查询。能力探测 + 结构化降级，不静默失败。详见[在线文档](https://moonbit-native-gui.pages.dev/) · 系统能力总览。
 
 **🎨 渲染管线自绘** —— 不依赖 Skia 等重型图形引擎，控件观感跨平台一致，默认跟随系统强调色与明暗模式，主题可按需定制。
 
@@ -79,7 +79,7 @@ MoonBit 生态的 GUI 能力各有分工：[MoUI](https://github.com/wzzc-dev/Mo
 
 ## 快速开始
 
-刚接触 MoonBit？[文档站](https://moonbit-native-gui.pages.dev/zh/) 覆盖工具链与第一个窗口。前置是 MoonBit 原生工具链。
+刚接触 MoonBit？[在线文档](https://moonbit-native-gui.pages.dev/) 覆盖工具链与第一个窗口。前置是 MoonBit 原生工具链。
 
 ```sh
 moon add NoahLiu/native-gui
@@ -103,19 +103,6 @@ moon run examples/browser        # 内嵌 WebView 浏览器
 | Windows 10 / 11 | ✅ | 产物是 GUI 子系统 exe，双击不弹控制台 |
 | macOS | ✅ | Apple Silicon 真机已验（Cocoa / CoreText / ImageIO / WKWebView）；与 Windows / Linux 同一份清单同步维护 |
 
-## 文档导航
-
-📚 **在线文档**：<https://moonbit-native-gui.pages.dev/>，中文版在 [`/zh/`](https://moonbit-native-gui.pages.dev/zh/)。
-
-| 文档 | 内容 |
-|---|---|
-| [docs/README.md](docs/README.md) | 文档索引与包结构总览 |
-| [proposals/adaptation.md](proposals/adaptation.md) | 平台适配经验：各平台实测坑与修复 |
-| [docs/zh/autostart.md](docs/zh/autostart.md) | 跨平台开机自启 |
-| [proposals/tray.md](proposals/tray.md) | Linux 托盘：SNI 协议栈设计 |
-| [docs/zh/system-capabilities.md](docs/zh/system-capabilities.md) | 系统能力总览 |
-| [proposals/design.md](proposals/design.md) | 前端化设计口径 |
-
 ## 参与贡献
 
 报平台兼容问题、补控件、补文档都欢迎。macOS 后端已并入 master，真机目视复验是当前最大的开放事项，需要一台 Apple Silicon 机器。基本要求：
@@ -128,7 +115,7 @@ moon run examples/browser        # 内嵌 WebView 浏览器
 
 ## 许可
 
-`native-gui` 以 [MIT 许可](LICENSE) 发布。第三方资产的授权与来源见仓库根 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)。
+`native-gui` 以 [MIT 许可](LICENSE) 发布。第三方资产的授权与来源见 [THIRD-PARTY-NOTICES.md](docs/THIRD-PARTY-NOTICES.md)。
 
 ## 参考
 
