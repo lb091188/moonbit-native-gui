@@ -3158,5 +3158,8 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **`FindWindowW` 查不到消息窗**：`HWND_MESSAGE` 下的窗不进顶层窗枚举，跨进程按类名找不到（本仓的托盘窗 `yue_wm_tray` 就是消息窗，只能同进程用）。单实例的接收窗必须是**顶层隐藏窗**（`WS_POPUP`、不给 `WS_VISIBLE`）。判据：跨进程按类名/标题找窗的，一律建顶层窗；`adaptation.md` 里「单实例消息窗口是仓内首例自有 WNDPROC」是旧 libyue 链的说法，本仓自有 WNDPROC 已有 `wm_wndproc`、`wm_tray_wndproc` 两处。
 - **同进程二次 `CreateMutexW` 也回 `ERROR_ALREADY_EXISTS`**：幂等不能靠返回码，必须靠 static 句柄守卫（守卫在前，返回码才有意义）。
 - **sun_path 有硬上限**：macOS 104 / Linux 108，超长时 `bind` 直接失败而不是截断。判据：套接字路径由门面按 `SOCKET_PATH_LIMIT=100` 预算反推 slug 长度（目录长就截短），并且文件名带 uid——`/tmp` 是多用户共享目录，不带 uid 会让 B 用户把 A 用户的实例认成自己的。
+- **判活用的空连接会把「待抽槽」占死**：套接字臂的 `instance_claim` 判「有没有人在听」靠连一下就关，收端因此会先收到一条**零字节帧**；单槽待抽位若被这条空帧置位又不清（`take` 见长度为 0 就早退，没清标记），后面那条真帧永远抽不出来——`yi_inst_poll` 恒回 1、载荷恒为空。判据：读到 EOF 时按帧长分流，零字节只关连接不置位；`take` 一进就清位。实测（macOS 双进程探针）：修复前首实例 `done wakes=0`，修复后两条唤起按序落地 `wake #1 / wake #2`。
 - **`String[i]` 拿到的是 UTF-16 代码单元，不是 `Char`**：拿它 `.to_string()` 出的是十进制数（`'0'` 位写成 `digits[i].to_string()` 得 "48"，8 位十六进制哈希实测变 17 位），编译不报错、只有测出来的长度不对。判据：按码点处理一律 `s.to_array()` 或显式字符串表；`s[i]`/`unsafe_get` 只用于比较。
-- **验证**：本机 macOS `moon test -p NoahLiu/native-gui/shell` **53/53**（新增 6：slug 与哈希、路径预算、帧往返、解码防御、套接字臂同进程自环、门面端到端），全量库门禁 `moon test ui render … router` **1134/1134**、`moon check` 零警告、`moon build examples/showcase --target native` 通过。**待真机**：Windows 双进程防多开与置前（`wm_inst_*` 的 `_WIN32` 支只过了 CI 编译口径）、Linux 双进程 dbus 档、Linux 拔总线后落 socket 档。
+- **验证**：本机 macOS `moon test -p NoahLiu/native-gui/shell` **54/54**（新增 7：slug 与哈希、路径预算、帧往返、解码防御、套接字臂同进程自环、判活空连接、门面端到端），全量库门禁 1134/1134、`moon check` 零警告、`moon build examples/showcase --target native` 通过；`experiment/instance_probe`（hold/wake/self 三档命令行探针）在 macOS 真双进程跑通「第二个进程判到 existing → 唤起送达 → 首实例按序收到」。CI Windows job 870/870（含 win32 档的门面自环：互斥体 + 隐藏窗 + WM_COPYDATA 全链）、Linux 只剩既有的 `text/spacing_wbtest` 一条红（与本批无关，前一版 master 同样红）。**待真机**：Windows 双进程防多开与置前、Linux 双进程 dbus 档、Linux 拔总线后落 socket 档。
+
+

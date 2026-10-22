@@ -250,10 +250,17 @@ int32_t yi_inst_poll(void) {
       yi_buf_len += (int)n;
       continue;
     }
-    if (n == 0) { // 对端已 shutdown(SHUT_WR)：帧完整
+    if (n == 0) { // 对端已 shutdown(SHUT_WR)：帧读完
+      int32_t got = yi_buf_len;
       yi_errno = 0;
       close(yi_conn_fd);
       yi_conn_fd = -1;
+      if (got == 0) {
+        yi_buf_len = 0;
+        // 空连接：对方只是连一下判「有没有人在听」就收手（instance_claim 走的就是
+        // 这一步），不算一次唤起——别把待抽槽占死，让后面那条真帧进不来
+        return 0;
+      }
       yi_ready = 1;
       return 1;
     }
@@ -269,12 +276,15 @@ int32_t yi_inst_poll(void) {
 }
 
 int32_t yi_inst_take(char *out, int32_t cap) {
-  if (!yi_ready || out == NULL || cap <= 0 || yi_buf_len == 0) {
+  if (!yi_ready) {
+    return 0;
+  }
+  yi_ready = 0; // 一取就清，长度 0 也一样清掉，别留卡死的待抽标记
+  if (out == NULL || cap <= 0 || yi_buf_len == 0) {
     return 0;
   }
   int n = yi_buf_len < cap ? yi_buf_len : cap;
   memcpy(out, yi_buf, (size_t)n);
-  yi_ready = 0;
   yi_buf_len = 0;
   return n;
 }
