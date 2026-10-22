@@ -183,7 +183,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - 🚧 **应用枚举**：已装应用清单与分类（Linux 过；Windows / macOS 施工中）
 - 🚧 **最近文件**：系统最近文件列表（仅 Linux 有实现；macOS 无公开面）
 - 🚧 **壁纸与默认应用**：读写壁纸、查默认应用（仅 XFCE 实测；Windows / macOS 未接）
-- 🚧 **单实例**：进程级唯一 + 唤起已有实例（仅 Linux dbus 通道）
+- 🚧 **单实例**：进程级唯一 + 唤起已有实例（三平台各一条原生通道已接：Linux dbus 知名名、Windows 命名互斥体 + WM_COPYDATA、macOS AF_UNIX 套接字；Linux 无会话总线回落套接字。mac 白盒已过，Windows 与双进程防多开待真机）
 
 ### WebView
 
