@@ -4161,6 +4161,35 @@ void wm_window_toggle_fullscreen(int64_t id) {
   wm_window_set_fullscreen(id, win->fullscreen ? 0 : 1);
 }
 
+/* 最大化 / 还原：SW_MAXIMIZE / SW_RESTORE。还原要回到最大化前的矩形与状态，
+ * 这一份由系统的 WINDOWPLACEMENT 记着，SW_RESTORE 自己会取回；客户区尺寸变化
+ * 走 WM_SIZE 的既有记账，宿主不需要另外算。 */
+void wm_window_set_maximized(int64_t id, int on) {
+  if (id <= 0 || id >= WM_MAX_WINDOWS) {
+    return;
+  }
+  WmWindow *win = &wm_windows[id];
+  if (win->hwnd == NULL) {
+    return;
+  }
+  if (IsZoomed(win->hwnd) == (on ? TRUE : FALSE)) {
+    return;
+  }
+  ShowWindow(win->hwnd, on ? SW_MAXIMIZE : SW_RESTORE);
+}
+
+/* 现问平台：IsZoomed 读 WS_MAXIMIZE 位，用户点系统按钮之后同样读得对。 */
+int wm_window_is_maximized(int64_t id) {
+  if (id <= 0 || id >= WM_MAX_WINDOWS) {
+    return 0;
+  }
+  WmWindow *win = &wm_windows[id];
+  if (win->hwnd == NULL) {
+    return 0;
+  }
+  return IsZoomed(win->hwnd) ? 1 : 0;
+}
+
 int wm_window_surface_count(int64_t id) {
   (void)id;
   return 0;
@@ -5207,6 +5236,40 @@ void wm_window_toggle_fullscreen(int64_t id) {
     return;
   }
   wm_window_set_fullscreen(id, win->fullscreen ? 0 : 1);
+}
+
+// 最大化 / 还原：gtk_window_maximize / gtk_window_unmaximize（X11 下是
+// _NET_WM_STATE_MAXIMIZED_VERT|HORZ，Wayland 是 xdg_toplevel 的 state）。
+// 还原后几何由 WM 还原成进最大化前那套，宿主只等 size-allocate。
+void wm_window_set_maximized(int64_t id, int on) {
+  if (id <= 0 || id >= WM_MAX_WINDOWS) {
+    return;
+  }
+  WmWindow *win = &wm_windows[id];
+  if (win->window == NULL) {
+    return;
+  }
+  if (gtk_window_is_maximized(GTK_WINDOW(win->window)) == (on ? TRUE : FALSE)) {
+    return;
+  }
+  if (on) {
+    gtk_window_maximize(GTK_WINDOW(win->window));
+  } else {
+    gtk_window_unmaximize(GTK_WINDOW(win->window));
+  }
+}
+
+// 现问平台：GTK3 有同步查询口（gtk_window_is_maximized，3.12+），
+// 用户点标题栏按钮或 WM 自己最大化之后同样读得对。
+int wm_window_is_maximized(int64_t id) {
+  if (id <= 0 || id >= WM_MAX_WINDOWS) {
+    return 0;
+  }
+  WmWindow *win = &wm_windows[id];
+  if (win->window == NULL) {
+    return 0;
+  }
+  return gtk_window_is_maximized(GTK_WINDOW(win->window)) ? 1 : 0;
 }
 
 // 本窗已挂的原生子件数：>0 说明这扇窗里有网页这类「自绘像素盖不住」的东西，
@@ -8850,6 +8913,36 @@ void wm_window_toggle_fullscreen(int64_t id) {
   }
 }
 
+// 最大化 / 还原：AppKit 只有切换式的 zoom:（按住 Option 点绿色按钮是 zoom，
+// 普通点是全屏），所以这里先比态再切——目标态与当前态相同就不动，避免来回翻。
+// 还原后 frame 由系统记着（窗口的 standardFrame），zoom: 自己取回。
+void wm_window_set_maximized(int64_t id, int on) {
+  @autoreleasepool {
+    WMState *s = wm_state(id);
+    if (s == nil || s.win == nil) {
+      return;
+    }
+    if ([s.win isZoomed] == (on ? YES : NO)) {
+      return;
+    }
+    [s.win zoom:nil];
+    s->resized = 1;
+    s->need_draw = 1;
+  }
+}
+
+// 现问平台：isZoomed 读的是窗口当前的 frame 与 standardFrame 是否一致，
+// 用户点绿色按钮（zoom 档）之后同样读得对。
+int wm_window_is_maximized(int64_t id) {
+  @autoreleasepool {
+    WMState *s = wm_state(id);
+    if (s == nil || s.win == nil) {
+      return 0;
+    }
+    return [s.win isZoomed] ? 1 : 0;
+  }
+}
+
 // 浮层窗：无边框 + 不抢主窗焦点 + 挂在 owner 之上随其移动。
 void wm_window_set_popup(int64_t id, int64_t owner_id) {
   @autoreleasepool {
@@ -11365,6 +11458,8 @@ void wm_window_origin(int64_t id, int32_t *out_x, int32_t *out_y) {
 void wm_window_set_size(int64_t id, int w, int h) { (void)id; (void)w; (void)h; }
 void wm_window_set_fullscreen(int64_t id, int on) { (void)id; (void)on; }
 void wm_window_toggle_fullscreen(int64_t id) { (void)id; }
+void wm_window_set_maximized(int64_t id, int on) { (void)id; (void)on; }
+int wm_window_is_maximized(int64_t id) { (void)id; return 0; }
 int wm_window_surface_count(int64_t id) {
   (void)id;
   return 0;
