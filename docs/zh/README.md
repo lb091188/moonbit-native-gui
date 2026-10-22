@@ -35,14 +35,16 @@
 
 ## 演示
 
-示例由浅入深：
+示例由浅入深——`examples/` 下每个目录都是独立模块，进目录 `moon run .` 即可：
 
 ```sh
-moon run examples/hello          # 最小窗口
-moon run examples/hello-themed   # 主题控件集
-moon run examples/showcase       # 完整演示板
-moon run examples/browser        # 内嵌 WebView 浏览器
+cd examples/hello && moon run .
 ```
+
+- `examples/hello` —— 最小窗口
+- `examples/hello-themed` —— 主题控件集
+- `examples/showcase` —— 完整演示板
+- `examples/browser` —— 内嵌 WebView 浏览器
 
 `examples/showcase` 覆盖组件库全部家族、图表、代码与文档视图、系统集成与过渡效果，并带一页只读的系统能力探测。每页源码独立成文件（`examples/showcase/pages/*.mbt`），可直接复制改用。各组件截图：
 

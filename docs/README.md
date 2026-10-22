@@ -35,14 +35,16 @@ Don't confuse the two kinds of "optional": a sub-package you don't import stays 
 
 ## Demos
 
-Examples, from shallow to deep:
+Examples, from shallow to deep — every directory under `examples/` is a standalone module, so `cd` in and `moon run .`:
 
 ```sh
-moon run examples/hello          # minimal window
-moon run examples/hello-themed   # themed widget set
-moon run examples/showcase       # full demo board
-moon run examples/browser        # embedded WebView browser
+cd examples/hello && moon run .
 ```
+
+- `examples/hello` — minimal window
+- `examples/hello-themed` — themed widget set
+- `examples/showcase` — full demo board
+- `examples/browser` — embedded WebView browser
 
 `examples/showcase` covers every component family, charts, code & docs views, system integration and transitions, plus a read-only system capability probe page. Each page's source is its own file (`examples/showcase/pages/*.mbt`), ready to copy and adapt. Screenshots of the components:
 

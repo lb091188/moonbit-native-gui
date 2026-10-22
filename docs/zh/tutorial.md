@@ -146,10 +146,10 @@ handle=fn(a : @widget.App) -> Unit {
 
 ```sh
 git clone https://github.com/lb091188/moonbit-native-gui && cd moonbit-native-gui
-moon run examples/showcase    # 基础/表单/导航/数据展示/反馈/事件与布局/系统集成…
+cd examples/showcase && moon run .   # 基础/表单/导航/数据展示/反馈/事件与布局/系统集成…
 ```
 
-左边菜单选页、右边对着写，每页源码独立成文件（`examples/showcase/pages/*.mbt`），复制改写即可。想从小例子入手：`moon run examples/hello`（最小窗口）与 `moon run examples/hello-themed`（主题控件集）。
+左边菜单选页、右边对着写，每页源码独立成文件（`examples/showcase/pages/*.mbt`），复制改写即可。想从小例子入手，`cd` 进 `examples/hello`（最小窗口）或 `examples/hello-themed`（主题控件集）再 `moon run .`——`examples/` 下每个目录都是独立模块。
 
 **想系统学**——几本文档，对应几个面：
 

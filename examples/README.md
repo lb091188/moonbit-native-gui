@@ -10,9 +10,9 @@
 - **video**：视频区为主 + 侧栏播放列表/信息；字幕双来源——容器内嵌轨自动读取，或「选外挂 .srt」读文本传入（`on_subtitle` 回报来源与条数，可清除回内嵌轨）。控制条同上（逐帧键为 `←/→`），另有**缩放三档**（适配 / 铺满 / 1:1）与全屏。载入路径与 audio 同三条，默认资产 `assets/1.mp4`。
 
 ```sh
-# 仓库根（workspace 模式）
-moon run examples/audio
-moon run examples/video
+# 每个示例目录是一个独立模块，进目录跑；下面两条都从仓库根开始
+cd examples/audio && moon run .
+cd examples/video && moon run .
 ```
 
 依赖：[native-gui](https://mooncakes.io/docs/NoahLiu/native-gui)、[gui-media](https://mooncakes.io/docs/NoahLiu/gui-media)、[ffmpeg-mbt](https://mooncakes.io/docs/NoahLiu/ffmpeg-mbt)。
