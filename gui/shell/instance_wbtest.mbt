@@ -94,6 +94,26 @@ test "套接字臂：同进程声称 → 唤起 → 抽帧（Windows 无此臂�
 }
 
 ///|
+test "套接字臂：判活的空连接不能占死待抽槽（Windows 无此臂，跳过）" {
+  if @sys.sys_platform() == "windows" {
+    println("[skip] 套接字臂不在 Windows 编译")
+  } else {
+    let pb = @utf8.encode(instance_socket_path("io.moonbitlibyue.wbtest.empty"))
+    assert_eq(yi_inst_listen(pb), 1)
+    // 第二进程判活就是「连一下就走」：写零字节再关，收端读到 EOF 但帧长 0
+    assert_eq(yi_inst_wake(pb, Bytes::new(1), 0), 1)
+    assert_eq(yi_inst_poll(), 0)
+    // 真帧紧随其后：空连接若占了待抽槽，这里就永远读不到东西
+    let frame = instance_encode_args(["toggle"])
+    assert_eq(yi_inst_wake(pb, frame, frame.length()), 1)
+    assert_eq(yi_inst_poll(), 1)
+    let buf = Bytes::new(INSTANCE_PAYLOAD_CAP)
+    let n = yi_inst_take(buf, INSTANCE_PAYLOAD_CAP)
+    assert_eq(instance_decode_args(buf[:n].to_owned()), Some(["toggle"]))
+  }
+}
+
+///|
 test "门面端到端：声称 → 唤起 → 回调收到参数" {
   let id = "io.moonbitlibyue.wbtest.facade"
   let got : Ref[Array[String]] = Ref([])
