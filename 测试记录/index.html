@@ -394,7 +394,7 @@
     <p>本机浏览器的 localStorage（键名 <code>ngtt.v1</code>），不上传任何服务器，关掉页面不丢。它绑定「这台机器的这个浏览器」，换浏览器或清站点数据会丢——所以提供了「导出」：得到的 JSON 可以放进 <code>测试记录/</code> 一起提交，需要时用「导入」合并回来（按时间取新、日志去重）。</p>
     <p>页面被嵌在沙箱 iframe 里打开时（例如某些预览面板），浏览器会拒绝 localStorage，此时页面顶部会出现黄条提示，记录只留在内存。要正常保存，请用浏览器直接打开本文件。</p>
     <h3>用例库来源</h3>
-    <p>按「应用 → 页面 → 段落」组织，编号与 <code>测试文档/测试用例.md</code> 一一对应：<code>HL</code> = Hello、<code>SC</code> = Showcase、<code>BR</code> = Browser、<code>AU</code> = Audio、<code>VD</code> = Video。共 152 条：Hello 7、Showcase 97（15 个侧栏页 + 整板导航，105 个段落）、Browser 23、Audio 14、Video 11。改用例改本文件顶部的 <code>CASES</code> 数组，并同步文档。</p>
+    <p>按「应用 → 页面 → 段落」组织，编号与 <code>测试文档/测试用例.md</code> 一一对应：<code>HL</code> = Hello、<code>SC</code> = Showcase、<code>BR</code> = Browser、<code>AU</code> = Audio、<code>VD</code> = Video。共 152 条：Hello 7、Showcase 97（15 个侧栏页 + 整板导航，15 页合计 110 个段）、Browser 23、Audio 14、Video 11。改用例改本文件顶部的 <code>CASES</code> 数组，并同步文档。</p>
     <h3>已知边界</h3>
     <ul>
       <li>不存截图。失败项用文字备注，需要图就把文件名写进备注。</li>
