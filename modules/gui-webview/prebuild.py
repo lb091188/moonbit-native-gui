@@ -179,7 +179,7 @@ def ensure_release_files() -> None:
             continue
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(data)
-        print(f"prebuild: 已就位 {dest}（sha256 校验通过）", file=sys.stderr)
+        print(f"prebuild: 已就位 {dest.name}（sha256 ✓）", file=sys.stderr)
 
 
 def pkg_config(args: list[str], flag: str) -> list[str] | None:
