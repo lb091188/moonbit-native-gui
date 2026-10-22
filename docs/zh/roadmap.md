@@ -30,6 +30,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **改标题**：运行期改窗口标题；`set_window_title_localized` 可让它随语言重写
 - ✅ **改尺寸**：1280×720 ↔ 960×540 两档切换，切完布局照常重排
 - ✅ **全屏**：切全屏与还原；全屏态下自绘区跟着变大
+- 🚧 **最大化 / 还原（程序化）**：`set_maximized` / `is_maximized`，给无边框自绘标题栏自己放这个键用；读回现问平台不读缓存（macOS 已验；Linux / Windows 待真机）
 - ✅ **无边框**：切无边框窗口；标题栏与边框消失，内容区不变形
 - ✅ **显隐驻留**：`hide` / `show` 一对；`show` 唤回 hide 前的屏幕原点，不是居中重开
 - ✅ **多窗口**：`open_window` / `close_window` / `window_count` / `active_window` 四个门面
@@ -54,6 +55,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **裁剪与变换**：push / pop clip，平移缩放旋转
 - ✅ **圆角与抗锯齿**：真圆弧 + 1px 抗锯齿；圆角关闭时退直角
 - ✅ **线型端点与拐角**：LineCap：Butt / Round / Square；LineJoin：Miter / Round / Bevel
+- 🚧 **虚线**：`set_dashes(图案, 相位)`（on/off 交替、逻辑像素，空数组回实线）；Cairo 档走 `cairo_set_dash`，纯光栅器档按累计弧长切段，段端 butt 端帽、相位每子路径重置（macOS 光栅档已验；Linux cairo 档待真机）
 - ✅ **位图与图像解码**：PNG / JPEG / GIF（首帧静图）；缩放到目标矩形
 - ✅ **全局 alpha**：`opacity` 整层透明度，绘制期生效
 - ✅ **矢量图标**：19 类图标包，全量自绘，不依赖字体文件
@@ -67,6 +69,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **富文本区间属性**：`AttributedText`：按字节区间设字体与颜色，后设覆盖先设
 - ✅ **CJK 与 RTL 行首方向**：对齐给 `align`（Start/Center/End），方向给 `direction`，两者分开
 - ✅ **样式槽文本字段**：`text_align` / `white_space` / `line_height` / `text_decoration` 写入 class 即生效
+- 🚧 **字距**：`letter_spacing` 进 `Font.spacing`，贯通测量、绘制与计量缓存键；三平台原语 Pango 字距属性 / DirectWrite `SetCharacterSpacing` / CoreText `kCTKern`，宽增量恒为「字符数 × spacing」（macOS 已验；Linux / Windows 待真机）
 
 ### 布局
 
@@ -221,7 +224,6 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 - ⏳ **窗口内按键路由补齐**：跨页切换后的按键兜底路由，避免失焦后按键进不了页
 - ⏳ **窗口透明补口**：补 Windows 合成器路径与 macOS 的 alpha 通道
-- ⏳ **最大化 / 还原（程序化）**：`set_maximized` / `is_maximized` 三平台接口（Win32 `ShowWindow` + `IsZoomed`、GTK `gtk_window_maximize` + `gtk_window_is_maximized`、macOS `zoom:` + `isZoomed`）。系统标题栏自带的按钮本来就有，缺的是无边框自绘标题栏里自己放这个键的能力
 
 ### 渲染
 
@@ -231,11 +233,6 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ⏳ **终端模拟**：等宽网格 + ANSI 颜色 + 光标，做成可嵌入的终端控件
 - ⏳ **WebGL 画布**：WebGL 上下文嵌进自绘区，走 GPU 合成那条线
 - ⏳ **macOS GIF 分帧合成**：disposal 需探测先回证；现退回首帧静图
-- ⏳ **虚线（`set_dashes`）**：Painter 状态加 dash 与偏移，Cairo 侧走原生 `cairo_set_dash`；Windows 走纯光栅器，虚线要在折线层按累计弧长切段（闭合子路径的接缝与相位需定口径）。当前没有消费方，等图表参考线、自绘标题栏分隔这类需求带起来
-
-### 文字排印
-
-- ⏳ **字距（`letter_spacing`）**：样式层已暴露这个参数、测量与绘制没接，等于存了不用。接法：`Font` 加 spacing 字段并进度量缓存键，三条分支各用自己的原语——Pango 字距属性、DirectWrite `IDWriteTextLayout1::SetCharacterSpacing`、CoreText `kCTKern`；量宽与绘制同源，末字是否计一间与取整口径需三平台探针回证
 
 ### 输入与浮层
 

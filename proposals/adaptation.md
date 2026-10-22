@@ -3075,3 +3075,35 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **定下来的形态**：轨道整条不画——那条 `fill_zebra` 灰带正是压住侧栏右缘的东西；拇指两档，平时 **15% 不透明度**（不留 0%，否则长列表里完全看不出滚到哪），指针进入视口或按住拖动时提到满色。显形位挂 `ScrollState.bar_hot`，由 `scroll_bar_hover(viewport, state)` 一处接线；`scroll_view` / `virt_list` / 吸顶列表 / 多行框四处共用同一条 `scroll_bar`，各接一次即全变。
 - **不做定时器（使用者定的）**：少一个常驻 timer 与一轮淡出重绘，代价是「手一移开就落回淡档」而不是过一会儿再淡；换来的是零状态泄漏（页面反复建拆不留悬挂回调），也不必给每个滚动容器配回收袋。
 - **验证**：`ui/scroll_wbtest` 新增「滚动条浮层档：不画轨道，悬停视口拇指提亮」，三条判据：拇指之外露内容行底色（轨道确实没画）、淡档落在「内容底色 → 满色」之间（既不是满色也不是没画）、`root.set_hover(vp.id)` 后同一点位等于主题 border 满色。**回退验证**：把轨道画回去、淡档设成 1.0，该条即红并打出 `(245,247,250) != (51,68,85)`（fill_zebra 盖住了内容）。`textarea_wbtest` 的「滚到底拇指与轨道换位」判据在浮层档下语义不变（顶格回到内容底色），只改注释。`cd gui && moon check` 清缓存重编零错误零警告、库门禁 593/593、`examples/showcase` `moon build` 零警告；中英文档 `scroll_view` 行同步改写。**待真机**：`moon run examples/showcase` → ①侧栏右缘不再有灰带，进侧栏拇指亮起、离开落淡；②段正文与图表区同看；③多行框、虚拟列表拖拇指仍跟手；④暗色主题下淡档仍可辨。
+
+## 字距（`letter_spacing`）：样式层有字段、测量与绘制没人读（2026-10-22，macOS arm64）
+
+- **现象**：`Style.letter_spacing` 从 P1 起就在样式槽里（`style.mbt:14`），`set_letter_spacing` / `text` 的散参数都能写进去，但 `gui/style` 之外零处消费——写多少都不影响量宽与字形间距，等于死字段。
+- **根因**：字距是「度量」属性而不是「绘制」属性，必须进 `Font` 才可能同时被布局（yoga 的 measure 回调）与绘制（`draw_box_at`）看到；而 `Font` 只有四要素，`font_key` 也只哈希这四者，直接往后端传参数而不进 `Font` 的话，同串不同字距会命中同一条缓存宽度（错宽度比不生效更难查）。
+- **修**：`Font` 加 `spacing`（`Font::new` 的可选参，默认 0.0）；`font_key` 与 `measure_cached` 的键加上它；`pt_measure` / `pt_measure_font` / `pt_draw` / `pt_draw_box` / `pt_draw_box_cr` 五个 extern 各加一个 `double spacing`（紧跟字体参数之后）；`ui/base.mbt` 的 `text_eff` 读 `st.letter_spacing` 折进它建的那份 `Font`——这样测量与绘制两条路吃的是同一个字段，不需要第二处接线。
+- **三平台原语与口径差异**（这是本条最费劲的地方，三种实现的「每个字加几份」并不一致）：
+  - Pango：`pango_attr_letter_spacing_new(units)` 挂 attr list，只加在真的 `spacing != 0` 时（不挂 attr 的路径与改动前逐位同源）；布局缓存键加上 spacing。
+  - DWrite：`IDWriteTextLayout1::SetCharacterSpacing(leading, trailing, min)`。**只给 trailing**（`(0, S, 0)`）——leading+trailing 都给会变成字间加两倍；只给 trailing 时每个字各加一份，整串宽 = 自然宽 + 字符数 × S。
+  - CoreText：`kCTKern` 挂整行。原以为它只管「字与字之间」，末字那一道要自己补，先按「kern 补偿 + 量宽时加 n×S」写了一版，**实测宽度增量是期望的两倍**：13px 下 S=1 时 `"a"/"ab"/"abc"` 的增量是 2/4/6、`"中文测"` 是 6，即 kCTKern **对每个字各加一份（含末字）**，已经就是 CSS 口径。补偿撤掉后增量恰好是 字符数 × S。结论记在这里：CoreText 的 kern 值就是逻辑像素、按字计，不要当「字间一对」去算。
+- **验证**：新增 `gui/text/spacing_wbtest.mbt` 三条——①`"a"/"abc"/"中文测"/"hello world"` 在 S=1/2/4 下量宽差 = 字符数 × S（允许 1px 上取整误差）；②绘制同源：同串同原点，spacing 8 的墨迹右界严格大于 spacing 0（证明绘制那趟也吃到了字距，而不是只有测量被骗过去）；③同串不同字距不串缓存。`cd gui && moon check` 零错误零警告、库门禁 1121/1121。**待真机**：Linux（Pango）与 Windows（DWrite）各跑一次上面三条，读数应同为「字符数 × S」；观感项是 showcase「文字」页加一行 `letter-spacing: 2px` 字样看末字不裁。
+
+## 虚线（`set_dashes`）：Painter 状态没有 dash，两后端也各缺半边（2026-10-22，macOS arm64）
+
+- **现象**：`Painter` 的线型状态只有线宽/端点/拐角，没有虚线；想要参考线、分隔带、选中框这种「虚线框」只能自己按段拼 `move_to/line_to`。
+- **已有的半边**：`render/stub.c` 的 cairo 分支早就有 `cr_set_dash(id, double*, n, offset)`（只是 MoonBit 侧没人声明，属死代码）；纯光栅器一侧完全空白——`Raster::stroke` 是 `stroke_polys(path.flatten(m), lw)`，没有「按弧长切段」这一步。
+- **修**：`PainterState` 加 `dashes` / `dash_offset`（`snapshot` / `load_state` 同步拷贝，数组要 `copy()`——结构体是引用语义，浅拷会让 `save` 之后的 `set_dashes` 改到栈里那份）；`Painter::set_dashes(pattern, offset)` 做口径归一（负值按 0、全 0 或空 = 回实线，避免 cairo 报 invalid dash）后下发后端。
+  - Cairo：新增 `cr_dash_begin/add/end` 三段式，C 侧静态暂存 16 段再一次性 `cairo_set_dash`。**不走 `FixedArray[Double]` 直传**——MoonBit 数组当 `double*` 传 C 在这个仓里没有先例可依（只有 `FixedArray[Byte]` / `Bytes` 的既有用法），暂存式与渐变 stop 的三段式同形，风险最低。
+  - 纯光栅器：`Raster` 状态同样带 dashes/offset；`stroke` 先把折线过 `dash_polys`（新增于 `raster_path.mbt`，按累计弧长在段内线性插值切点），再交给 `stroke_polys` 走常规描边——切出来的都是开口折线，段端自然落 butt 端帽，与 cairo 的虚线语义一致。
+- **口径（TODO 里原来待定的两条，这里定死）**：①相位在**每个子路径起点重置**（cairo 的 dash 状态机就是 moveto 时 reset，两后端才能逐段对上）；②闭合子路径**不绕回补相位**，首尾接缝按图案留缝，不强行对齐成整周期。图案里出现 0 长段时状态机跳过（带 n×4+8 的步数上限防死循环）。
+- **验证**：新增 `gui/render/dash_wbtest.mbt` 五条——段数与周期（100px 线 + `[10,10]` ⇒ 5 段、段长 10、起点 5、周期 20）、相位偏移（offset=10 ⇒ 首段起点 15）、`set_dashes([])` 回整条实线、闭合矩形按图案断段、虚线进 `save/restore`。库门禁 1126/1126。**待真机**：Linux cairo 档同一图案的段落数与首段长度应与上面读数一致（这是两后端唯一的交叉校验点，mac 上跑不到 cairo）。
+- **已知边界**：只作用于 `stroke` 的路径档——`stroke_rect` / `stroke_round_rect` 在两后端都是「内侧边带填充」，不吃 dash（要用虚线框就自己 `move_to/line_to` 走路径档）。
+
+## 窗口最大化 / 还原：AppKit 只有切换式 zoom:，GTK 才有同步查询口（2026-10-22，macOS arm64）
+
+- **现象**：`Window` 有 `set_fullscreen` / `toggle_fullscreen` 却没有最大化，无边框自绘标题栏想放「最大化」键就没口可调（有系统标题栏的窗口三键本来就有）。
+- **修**：`Window::set_maximized(on)` / `Window::is_maximized()` + `wm_window_set_maximized` / `wm_window_is_maximized` 两个 extern，四分支：Win32 `ShowWindow(SW_MAXIMIZE/SW_RESTORE)` + `IsZoomed`；GTK `gtk_window_maximize/unmaximize` + `gtk_window_is_maximized`（3.12+，3.12 是本仓的 GTK3 下限之内）；macOS `zoom:` + `isZoomed`；占位分支空实现返 0。
+- **三处口径**：
+  - **读回现问平台，不缓存布尔**：用户点系统按钮、或 WM/AppKit 自己改的态，`is_maximized` 都要读得对。三个平台都有同步查询口（`IsZoomed` / `gtk_window_is_maximized` / `isZoomed`），不需要像 `fullscreen` 那样在 GTK 上记账本。
+  - **macOS 的 `zoom:` 是切换式**：AppKit 没有「设成最大化」的一等口（绿色按钮默认是全屏，按住 Option 才是 zoom），所以先 `isZoomed` 比态、相同就返回，否则 `zoom:` 切一次——不比对的话连调两次 `set_maximized(true)` 会来回翻。切完置 `resized` / `need_draw`，让宿主按新尺寸重排一帧。
+  - Win32 的还原靠系统的 `WINDOWPLACEMENT`（`SW_RESTORE` 自己取回最大化前的矩形与最大化状态），GTK 靠 WM 记的 normal hint，macOS 靠窗口的 `standardFrame`——三边都不需要自己存几何。
+- **验证**：新增 `gui/win/maximize_wbtest.mbt`：建窗 320×200 → 初始 `is_maximized == false` → `set_maximized(true)` 后读回 true 且客户区变大 → 再设一次幂等（尺寸读数不变）→ `set_maximized(false)` 后读回 false 且客户区回到 320×200（macOS 本机实跑通过，说明 `zoom:` 的还原几何确实由系统记着）。`cd gui && moon check` 零错误零警告、库门禁 1127/1127。**待真机**：①Linux X11 / Wayland 与 Windows 10/11 各跑同一 wbtest；②无边框档（`set_borderless(true)`）下切换仍可用；③用户手点系统最大化按钮后 `is_maximized` 读得对。
