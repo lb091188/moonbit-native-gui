@@ -1,0 +1,10 @@
+// 单实例双进程探针：走 `@shell` 门面，不起窗口。
+import {
+  "moonbitlang/core/env",
+  "NoahLiu/native-gui/shell" @shell,
+  "NoahLiu/native-gui/sys" @sys,
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"
