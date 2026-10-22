@@ -3076,6 +3076,13 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **不做定时器（使用者定的）**：少一个常驻 timer 与一轮淡出重绘，代价是「手一移开就落回淡档」而不是过一会儿再淡；换来的是零状态泄漏（页面反复建拆不留悬挂回调），也不必给每个滚动容器配回收袋。
 - **验证**：`ui/scroll_wbtest` 新增「滚动条浮层档：不画轨道，悬停视口拇指提亮」，三条判据：拇指之外露内容行底色（轨道确实没画）、淡档落在「内容底色 → 满色」之间（既不是满色也不是没画）、`root.set_hover(vp.id)` 后同一点位等于主题 border 满色。**回退验证**：把轨道画回去、淡档设成 1.0，该条即红并打出 `(245,247,250) != (51,68,85)`（fill_zebra 盖住了内容）。`textarea_wbtest` 的「滚到底拇指与轨道换位」判据在浮层档下语义不变（顶格回到内容底色），只改注释。`cd gui && moon check` 清缓存重编零错误零警告、库门禁 593/593、`examples/showcase` `moon build` 零警告；中英文档 `scroll_view` 行同步改写。**待真机**：`moon run examples/showcase` → ①侧栏右缘不再有灰带，进侧栏拇指亮起、离开落淡；②段正文与图表区同看；③多行框、虚拟列表拖拇指仍跟手；④暗色主题下淡档仍可辨。
 
+## Windows 文字颜色错位：FFI 参数顺序在 x64 Windows 上按位置共享槽位（2026-10-22，Windows 真机）
+
+- **现象**：Windows 上 hello 的标题发灰、次级文字发青（用户口述「褐色显示成灰色、浅灰显示成蓝绿色」），mac 正常。
+- **根因**：MoonBit `extern pt_draw_box / pt_draw_box_cr` 把 `spacing : Double` 放在 `r,g,b,a` **之前**，而 C 侧（stub.c 与 dwrite_text.cpp）都把 `spacing` 放在**最后**。SysV（mac/Linux）整数走 GP 寄存器序列、浮点走 XMM 序列，**各自按类别顺序对齐**，顺序错位碰巧无害；**Windows x64 按位置分配**（前 4 个位置 RCX/RDX/R8/R9 与 XMM0-3 共享编号，第 5 位起按位置落栈），于是 C 的 `r` 读到 spacing 的位模式（0.0 → 0），`g/b/a` 依次错一位——颜色变 RGB(0,R,G)、alpha=B：text_primary #2A2F36 → RGB(0,42,47)@21% 淡青灰、text_secondary #6B7480 → RGB(0,107,116)@50% 青绿、primary #2D68C4 → 深藏蓝，与真机观感逐条吻合。
+- **修**：MoonBit extern 与两处调用点把 `spacing` 挪到最后（与 C 一致）；C 侧不动。
+- **判据**：所有含浮点的 `extern "c"` 签名，MoonBit 与三份 C 实现（stub.c 的 Pango/CoreText 分支、dwrite_text.cpp）的参数顺序必须**逐位一致**，不能依赖 SysV 的类别分序列兜底——它会在 mac 上全绿、只在 Windows 上爆。本轮顺手核过 gui 全部混排 Int/Double 的 extern（cr_blit / cr_grad_stop / rt_new / rt_add_font / rt_draw / rt_measure / pt_measure / pt_measure_font / pt_draw），除 box 两处外均一致。
+
 ## 字距（`letter_spacing`）：样式层有字段、测量与绘制没人读（2026-10-22，macOS arm64）
 
 - **现象**：`Style.letter_spacing` 从 P1 起就在样式槽里（`style.mbt:14`），`set_letter_spacing` / `text` 的散参数都能写进去，但 `gui/style` 之外零处消费——写多少都不影响量宽与字形间距，等于死字段。

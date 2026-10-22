@@ -73,6 +73,10 @@ extern "c" fn pt_measure_font(
 ) -> Int = "pt_measure_font"
 
 ///|
+/// FFI 参数顺序三端必须逐位一致：Windows x64 的参数按「位置」分配寄存器与
+/// 栈槽，整数与浮点共用位置（SysV 是整数/浮点各自成序列）——spacing 放错
+/// 位置在 mac/Linux 上碰巧无害，在 Windows 上会把 r/g/b/a 整体错一位
+/// （颜色变成 RGB(0,R,G)、alpha=B，实测整窗文字发灰发青）。
 #borrow(data, text, family)
 extern "c" fn pt_draw_box(
   data : FixedArray[Byte],
@@ -88,7 +92,6 @@ extern "c" fn pt_draw_box(
   family : Bytes,
   weight : Int,
   italic : Int,
-  spacing : Double,
   r : Int,
   g : Int,
   b : Int,
@@ -97,6 +100,7 @@ extern "c" fn pt_draw_box(
   valign : Int,
   ellipsize : Int,
   wrap : Int,
+  spacing : Double,
 ) -> Int = "pt_draw_box"
 
 ///|
@@ -584,7 +588,6 @@ pub fn draw_in_box(
     fb,
     weight_value(font.weight),
     style_id(font.style),
-    font.spacing,
     c.r,
     c.g,
     c.b,
@@ -593,6 +596,7 @@ pub fn draw_in_box(
     align_id(valign),
     if ellipsize { 1 } else { 0 },
     if wrap { 1 } else { 0 },
+    font.spacing,
   ) == 1
 }
 
@@ -610,7 +614,6 @@ extern "c" fn pt_draw_box_cr(
   family : Bytes,
   weight : Int,
   italic : Int,
-  spacing : Double,
   r : Int,
   g : Int,
   b : Int,
@@ -619,6 +622,7 @@ extern "c" fn pt_draw_box_cr(
   valign : Int,
   ellipsize : Int,
   wrap : Int,
+  spacing : Double,
 ) -> Int = "pt_draw_box_cr"
 
 ///|
@@ -680,7 +684,6 @@ pub fn draw_box_at(
     fb,
     weight_value(font.weight),
     style_id(font.style),
-    font.spacing,
     c.r,
     c.g,
     c.b,
@@ -689,6 +692,7 @@ pub fn draw_box_at(
     align_id(valign),
     if ellipsize { 1 } else { 0 },
     if wrap { 1 } else { 0 },
+    font.spacing,
   ) == 1
 }
 
