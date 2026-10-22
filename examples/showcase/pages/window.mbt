@@ -137,6 +137,90 @@ fn open_transparent_demo(app : @shared.App, out : @base.Store[String]) -> Unit {
 }
 
 ///|
+/// 层级探针窗：层级讲的是「这扇窗在桌面上占哪一层」。在主窗上切，等于把整个演示板
+/// 丢到桌面层 / 面板档里去——验完还得切回来，中途演示板自己都不见了。所以单开一扇
+/// 小窗，五档全施加在它身上，主窗保持普通档。
+fn open_layer_probe(
+  app : @shared.App,
+  slot : Ref[@widget.App?],
+  out : @base.Store[String],
+) -> Unit {
+  match slot.val {
+    Some(_) => out.set(@shared.tx("层级探针窗已经开着（下面五档切的就是它）"))
+    None =>
+      match app.host.val {
+        Some(a) =>
+          match a.open_window(320, 180, @shared.tx("层级探针窗")) {
+            Some(child) => {
+              child.mount([
+                @ui.col(
+                  [
+                    @ui.text(@shared.tx("层级作用在我这扇窗上"), role=@ui.Title),
+                    @ui.text(
+                      @shared.tx("主窗保持普通档：切「图标下 / Dock」时只有我掉层，演示板不会跟着消失。"),
+                      role=@ui.Secondary,
+                    ),
+                  ],
+                  row_gap=8.0,
+                  padding=20.0,
+                ),
+              ])
+              slot.val = Some(child)
+              out.set(@shared.tx("已开层级探针窗：下面五档都切这一扇"))
+            }
+            None => out.set(@shared.tx("这台机器开不了第二扇窗（无窗口后端）"))
+          }
+        None => out.set(@shared.tx("宿主还没就绪"))
+      }
+  }
+}
+
+///|
+/// 驻留探针窗：`hide` 之后演示板不能跟着一起消失，否则没有按钮能把它唤回来。
+/// 本窗固定落到 (160, 160) 再记原点，"唤回" 时读 `origin()` 就能证明是回到原地
+/// 而不是居中重开。
+fn open_resident_probe(
+  app : @shared.App,
+  slot : Ref[@widget.App?],
+  out : @base.Store[String],
+) -> Unit {
+  match slot.val {
+    Some(_) => out.set(@shared.tx("驻留探针窗已经开着"))
+    None =>
+      match app.host.val {
+        Some(a) =>
+          match a.open_window(380, 220, @shared.tx("驻留探针窗")) {
+            Some(child) => {
+              let w = child.window()
+              w.move_to(160, 160)
+              child.mount([
+                @ui.col(
+                  [
+                    @ui.text(@shared.tx("显隐驻留"), role=@ui.Title),
+                    @ui.text(
+                      @shared.tx("点下面这颗后本窗 hide；主窗的「唤回」把它 show 回来。"),
+                      role=@ui.Secondary,
+                    ),
+                    @ui.button(@shared.tx("隐藏我自己"), variant=@ui.Soft, on_click=fn() {
+                      w.hide()
+                    }),
+                    @ui.text(@shared.tx("固定落在 (160, 160)"), role=@ui.Secondary),
+                  ],
+                  row_gap=8.0,
+                  padding=20.0,
+                ),
+              ])
+              slot.val = Some(child)
+              out.set(@shared.tx("已开驻留探针窗，落在 (160, 160)"))
+            }
+            None => out.set(@shared.tx("这台机器开不了第二扇窗（无窗口后端）"))
+          }
+        None => out.set(@shared.tx("宿主还没就绪"))
+      }
+  }
+}
+
+///|
 /// 窗口页。页内私有状态（回显/热键句柄/两个切换态）不进共享 App。
 pub fn page_window(app : @shared.App) -> @widget.Node {
   let last_op : @base.Store[String] = @base.Store::new(@shared.tx("（尚无操作）"))
@@ -159,6 +243,10 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
   let layer_out : @base.Store[String] = @base.Store::new(@shared.tx("（尚无操作）"))
   let transparent_on : Ref[Bool] = Ref(false)
   let tw_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没开过透明测试窗）"))
+  // 多开窗口的两个探针：层级与显隐都作用在独立小窗上，主窗不动
+  let layer_probe : Ref[@widget.App?] = Ref(None)
+  let resident_probe : Ref[@widget.App?] = Ref(None)
+  let resident_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没开驻留探针窗）"))
   fn win_set_opacity(alpha : Int) -> Unit {
     match app.host.val {
       Some(a) => {
@@ -169,9 +257,9 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
     }
   }
   fn win_set_layer(layer : @win.WindowLayer) -> Unit {
-    match app.host.val {
-      Some(a) => {
-        a.window().set_layer(layer)
+    match layer_probe.val {
+      Some(child) => {
+        child.window().set_layer(layer)
         let tag = match layer {
           Normal => @shared.tx("普通")
           Desktop => @shared.tx("桌面层（图标下·壁纸场景，事件归桌面）")
@@ -179,9 +267,9 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
           AlwaysOnTop => @shared.tx("置顶")
           Dock => @shared.tx("Dock 面板档")
         }
-        layer_out.set(@shared.tr_with("dyn.layer_set", [("t", tag)], "窗口层级已切到：\{tag}"))
+        layer_out.set(@shared.tr_with("dyn.layer_set", [("t", tag)], "探针窗层级已切到：\{tag}"))
       }
-      None => ()
+      None => layer_out.set(@shared.tx("先点「开层级探针窗」，层级施加在它身上而不是演示板"))
     }
   }
   @shared.page([
@@ -650,8 +738,27 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
 
     @shared.section(
       "层级",
-      "窗口层级嵌入",
-      "`Window::set_layer` 换窗口层级。面板三档（图标下 / 图标上 / Dock）承诺的是同一件事：不进任务栏与窗口列表、不进窗口循环、跨工作区常驻，Dock 另带压顶；**边框与标题栏不在承诺内**，外观照你给的 styleMask 与系统窗口设置走。兑现手段各不同：Linux 显式发 `_NET_WM_STATE_ABOVE/SKIP_TASKBAR/SKIP_PAGER/STICKY`（不再换窗口类型，换 TYPE_DOCK 会让 WM 顺手摘装饰、逐出焦点列表），macOS 配 `CanJoinAllSpaces|Stationary|IgnoresCycle`、Dock 档再叠 `FullScreenAuxiliary` 取 Dock 层盖全屏 Space，Win32 用 `WS_EX_TOOLWINDOW` 管任务栏与 Alt+Tab、`SetWindowPos` 管叠放，「图标下」另把本窗挂进 Explorer 的壁纸 WorkerW——那是 Win32 上唯一压得住桌面图标的落点，代价是随 `WS_CHILD` 摘掉装饰、不再拿键盘焦点（这一档本就「事件归桌面」）。三平台都没有「预留工作区」的公共通道（Windows AppBar 未接、macOS 无 API），目标层最终由 WM/Shell/AppKit 定。",      [
+      "窗口层级嵌入（探针窗）",
+      "`Window::set_layer` 换窗口层级。层级说的是「这扇窗在桌面上占哪一层」，所以演示不拿演示板本身开刀：点「开层级探针窗」单起一扇小窗，五档全切它，主窗留在普通档——切「图标下 / Dock」时不会连演示板一起掉层。面板三档（图标下 / 图标上 / Dock）承诺的是同一件事：不进任务栏与窗口列表、不进窗口循环、跨工作区常驻，Dock 另带压顶；**边框与标题栏不在承诺内**，外观照系统窗口设置走。兑现手段各不同：Linux 显式发 `_NET_WM_STATE_ABOVE/SKIP_TASKBAR/SKIP_PAGER/STICKY`（不换窗口类型，换 TYPE_DOCK 会让 WM 顺手摘装饰、逐出焦点列表），macOS 配 `CanJoinAllSpaces|Stationary|IgnoresCycle`、Dock 档再叠 `FullScreenAuxiliary` 取 Dock 层盖全屏 Space，Win32 用 `WS_EX_TOOLWINDOW` 管任务栏与 Alt+Tab、`SetWindowPos` 管叠放，「图标下」另把本窗挂进 Explorer 的壁纸 WorkerW——那是 Win32 上唯一压得住桌面图标的落点，代价是随 `WS_CHILD` 摘掉装饰、不再拿键盘焦点（这一档本就「事件归桌面」）。",
+      [
+        @ui.row(
+          [
+            @ui.button(@shared.tx("开层级探针窗"), variant=@ui.Solid, on_click=fn() {
+              open_layer_probe(app, layer_probe, layer_out)
+            }),
+            @ui.button(@shared.tx("关探针窗"), variant=@ui.Text, on_click=fn() {
+              match layer_probe.val {
+                Some(child) => {
+                  child.close_window()
+                  layer_probe.val = None
+                  layer_out.set(@shared.tx("探针窗已关"))
+                }
+                None => layer_out.set(@shared.tx("探针窗本来就没开"))
+              }
+            }),
+          ],
+          column_gap=8.0,
+        ),
         @ui.row(
           [
             @ui.button(@shared.tx("普通"), on_click=fn() { win_set_layer(@win.WindowLayer::Normal) }),
@@ -673,11 +780,74 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
         @ui.bind_label(layer_out, fn(s) { s }),
       ],
       code=[
-        "app.window().set_layer(@win.WindowLayer::AlwaysOnTop)   // 置顶",
-        "app.window().set_layer(@win.WindowLayer::Desktop)       // 图标下：壁纸场景",
-        "app.window().set_layer(@win.WindowLayer::DesktopWidget) // 图标上：小部件，可交互",
-        "app.window().set_layer(@win.WindowLayer::Dock)          // 面板档",
-        "app.window().set_layer(@win.WindowLayer::Normal)        // 复位",
+        "// 层级施加在探针窗上，主窗保持普通档",
+        "let child = app.open_window(320, 180, \"层级探针窗\")",
+        "child.window().set_layer(@win.WindowLayer::AlwaysOnTop)   // 置顶",
+        "child.window().set_layer(@win.WindowLayer::Desktop)       // 图标下：壁纸场景",
+        "child.window().set_layer(@win.WindowLayer::DesktopWidget) // 图标上：小部件，可交互",
+        "child.window().set_layer(@win.WindowLayer::Dock)          // 面板档",
+        "child.window().set_layer(@win.WindowLayer::Normal)        // 复位",
+      ],
+    ),
+
+    @shared.section(
+      "显隐驻留",
+      "hide / show 与屏幕原点",
+      "`hide` 把窗收起来、`show` 再放回来，回来的是 **hide 前的屏幕原点**，不是居中重开。这一条也没法拿主窗验：一 hide 演示板就没了，没有按钮能唤回。所以单开一扇「驻留探针窗」，固定落在 (160, 160)（用 `move_to` 定死，免得 WM 归位干扰判断）；窗里自带「隐藏我自己」，主窗这颗「唤回」负责 `show`，再点「读窗位置」核对坐标是否还是 (160, 160)。",
+      [
+        @ui.row(
+          [
+            @ui.button(@shared.tx("开驻留探针窗"), on_click=fn() {
+              open_resident_probe(app, resident_probe, resident_out)
+            }),
+            @ui.button(@shared.tx("隐藏"), variant=@ui.Soft, on_click=fn() {
+              match resident_probe.val {
+                Some(child) => {
+                  child.window().hide()
+                  resident_out.set(@shared.tx("已 hide：探针窗应当从屏幕上消失"))
+                }
+                None => resident_out.set(@shared.tx("先点「开驻留探针窗」"))
+              }
+            }),
+            @ui.button(@shared.tx("唤回"), variant=@ui.Soft, on_click=fn() {
+              match resident_probe.val {
+                Some(child) => {
+                  child.window().show()
+                  resident_out.set(@shared.tx("已 show：应当回到 hide 前的原点，不是居中重开"))
+                }
+                None => resident_out.set(@shared.tx("先点「开驻留探针窗」"))
+              }
+            }),
+            @ui.button(@shared.tx("读窗位置"), variant=@ui.Text, on_click=fn() {
+              match resident_probe.val {
+                Some(child) => {
+                  let (x, y) = child.window().origin()
+                  let hidden = child.window().is_hidden()
+                  let hs = if hidden { "true" } else { "false" }
+                  resident_out.set(
+                    @shared.tr_with(
+                      "dyn.probe_origin",
+                      [("x", x.to_string()), ("y", y.to_string()), ("h", hs)],
+                      "探针窗位置 (\{x}, \{y})，is_hidden=\{hs}",
+                    ),
+                  )
+                }
+                None => resident_out.set(@shared.tx("先点「开驻留探针窗」"))
+              }
+            }),
+          ],
+          column_gap=8.0,
+        ),
+        @ui.bind_label(resident_out, fn(s) { s }),
+      ],
+      code=[
+        "let child = app.open_window(380, 220, \"驻留探针窗\")",
+        "child.window().move_to(160, 160)",
+        "",
+        "child.window().hide()          // 收起",
+        "child.window().show()          // 放回：回到 hide 前的屏幕原点",
+        "let (x, y) = child.window().origin()",
+        "let hidden = child.window().is_hidden()",
       ],
     ),
   ])
