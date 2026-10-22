@@ -4,21 +4,21 @@
 
 [MoonBit](https://github.com/moonbitlang) 的**跨平台桌面 GUI 框架**——一套 MoonBit 代码直出 Windows 🟩 / Linux 🟩 / macOS 🟩 原生窗口，托盘、通知、快捷键、文件对话框等系统能力开箱即用，`moon add` 后零配置直接运行。三平台（Windows / Linux / macOS）同一套代码、同一份真机清单同步维护。
 
-📚 **在线文档**：<https://moonbit-native-gui.pages.dev/> —— 按浏览器语言自动进入中文或英文。
+[English](README.md) | 简体中文
 
-![组件库演示板](https://cdn.jsdelivr.net/gh/lb091188/moonbit-native-gui@master/docs/public/images/showcase-main.png)
+📚 **在线文档**：<https://moonbit-native-gui.pages.dev/>
 
-![Linux(XFCE)实机演示](https://cdn.jsdelivr.net/gh/lb091188/moonbit-native-gui@master/docs/public/images/showcase-anim-linux.webp) ![Windows 实机演示](https://cdn.jsdelivr.net/gh/lb091188/moonbit-native-gui@master/docs/public/images/showcase-anim-windows.webp)
-
-*图二 Linux(XFCE) · 图三:Windows —— 同一套 MoonBit 代码*
+![组件库演示板](./docs/public/images/showcase-main.png)
+![Linux(XFCE)实机演示](./docs/public/images/showcase-anim-linux.webp) 
+![Windows 实机演示](./docs/public/images/showcase-anim-windows.webp)
 
 ## 核心特色
 
-**🖥 系统接口完备** —— 托盘、通知、全局快捷键、剪贴板、原生菜单、文件对话框、拖放、开机自启等桌面常用能力开箱即用，另有音量 / 电源 / 壁纸 / 显示器 / 打印机等系统查询。能力探测 + 结构化降级，不静默失败。详见[在线文档](https://moonbit-native-gui.pages.dev/) · 系统能力总览。
+**🖥 系统接口完备** —— 托盘、通知、全局快捷键、剪贴板、原生菜单、文件对话框、拖放、开机自启等桌面常用能力开箱即用，另有音量 / 电源 / 壁纸 / 显示器 / 打印机等系统查询能力
 
 **🎨 渲染管线自绘** —— 不依赖 Skia 等重型图形引擎，控件观感跨平台一致，默认跟随系统强调色与明暗模式，主题可按需定制。
 
-**📊 界面组件齐全** —— 折线 / 柱 / 饼 / 仪表 / 散点等通用图，另有雷达 / 热力 / 蜡烛 / 漏斗 / 箱线 / 桑基 / 树 / 矩形树 / 旭日 / 地图等专项图，含横切交互层；Markdown 视图与自绘控件共用一个光栅器、一棵布局树；内嵌 WebView（可选模块 `gui-webview`）在同一窗口内承载原生 WebKit / WebView2 表面。
+**📊 界面组件齐全** —— 基础布局组件、表单组件、可交互图表、Markdown 渲染；另有独立的 gui-media 音视频播放和展示能力、gui-web 基于系统 webview 的 web 渲染能力。
 
 **📝 声明式 UI 与响应式状态** —— 界面以树描述，`mount_window` 一步挂载；状态放 `Store` / `Signal`，绑定点随数据自动刷新：
 
@@ -40,78 +40,90 @@ fn main {
 }
 ```
 
-> `moon run examples/showcase` —— 演示板：组件库、系统能力探测与扩展图表。
+> `cd examples/showcase && moon run .` —— 演示板：基础组件、交互图标、系统接口。
 
 ## 生态坐标
 
-MoonBit 生态的 GUI 能力各有分工：[MoUI](https://github.com/wzzc-dev/MoUI) 面向多端共享逻辑，[Sun](https://github.com/wzzc-dev/sun) 提供图形与文本渲染底层。native-gui 与它们零代码依赖，走第三条线——**桌面应用的一站式交付**：桌面常用能力开箱即用，常用控件做成现成组件。
+MoonBit 生态的 GUI 能力各有分工：[MoUI](https://github.com/wzzc-dev/MoUI) 基于 Skia 渲染引擎，面向多端共享界面逻辑；而 native-gui 基于系统渲染，定位**桌面应用的一站式交付**，励志让系统能力开箱即用，常用组件跨平台统一，日常应用一站式完成。
 
 ## 包结构
 
 `moon add NoahLiu/native-gui` 引入整个模块，MoonBit 只编译和链接你 import 的包，没用到的包不占二进制体积：
 
-| `moon.pkg` 中的 import | 别名 | 内容 |
-|---|---|---|
-| `NoahLiu/native-gui/base` | `@base` | 平台无关基元：`Store` / `Signal` / `ListStore` 响应式内核、焦点栈、键码常量、帧末合并与账本 |
-| `NoahLiu/native-gui/shell` | `@shell` | 系统能力壳层：菜单栏 / 右键菜单、全局热键门面、托盘、通知、外部打开，加上事件循环调度器与只读平台探针 |
-| `NoahLiu/native-gui/widget` | `@widget` | 自绘控件宿主：布局树映射、命中与事件路由、绘制遍历、声明式 `Node`、浮层（图层/原生两档）、拖放、输入映射、`App` 泵 |
-| `.../native-gui/ui` | `@ui` | 自绘控件与组件库：窗口挂载、标签 / 按钮、表单、显示、导航、日期、表格与虚拟列表、输入框、滚动、浮层、代码视图、声明式层 |
-| `.../native-gui/render` | `@render` | 光栅器：纯 MoonBit 软件光栅 + Cairo 后端；位图、画布、图像、PNG |
-| `.../native-gui/text` | `@text` | 文本层：字体族、字体、富文本与区间属性（Pango / DirectWrite） |
-| `.../native-gui/theme` | `@theme` | 主题系统：色板派生与变更订阅 |
-| `.../native-gui/icons` | `@icons` | 矢量图标系统 |
-| `.../native-gui/sys` | `@sys` | 系统能力：自启动、空闲、子进程、环境、文件、JSON、对话框、浏览器历史 / 书签、最近文件、壁纸、音量、电源、打印机、显示器、窗口控制、应用查找 |
-| `.../native-gui/input` | `@input` | 编辑内核与键码 |
-| `.../native-gui/win` | `@win` | 平台窗口后端（Win32 / GTK3 的 C 桩）：快捷键、图标、输入法、消息框、通知、托盘、surface |
-| `.../native-gui/dbus` | `@dbus` | Linux D-Bus 桥：托盘 SNI、通知、logind / upower、媒体、网络、屏保 |
-| `.../native-gui/chart` | `@chart` | 图表与横切交互层 |
-| `.../native-gui/mdview` | `@mdview` | Markdown 渲染视图 |
-| `.../native-gui/style` | `@style` | 样式层：样式表写成 MoonBit 值，含状态类与过渡 |
+| 别名 | 内容 |
+|---|---|
+| `@base` | 平台无关基元：`Store` / `Signal` / `ListStore` 响应式内核、焦点栈、键码常量、帧末合并与账本 |
+| `@shell` | 系统能力壳层：菜单栏 / 右键菜单、全局热键门面、托盘、通知、外部打开，加上事件循环调度器与只读平台探针 |
+| `@widget` | 自绘控件宿主：布局树映射、命中与事件路由、绘制遍历、声明式 `Node`、浮层（图层/原生两档）、拖放、输入映射、`App` 泵 |
+| `@ui` | 自绘控件与组件库：窗口挂载、标签 / 按钮、表单、显示、导航、日期、表格与虚拟列表、输入框、滚动、浮层、代码视图、声明式层 |
+| `@render` | 光栅器：纯 MoonBit 软件光栅 + Cairo 后端；位图、画布、图像、PNG |
+| `@text` | 文本层：字体族、字体、富文本与区间属性（Pango / DirectWrite） |
+| `@theme` | 主题系统：色板派生与变更订阅 |
+| `@icons` | 矢量图标系统 |
+| `@sys` | 系统能力：自启动、空闲、子进程、环境、文件、JSON、对话框、浏览器历史 / 书签、最近文件、壁纸、音量、电源、打印机、显示器、窗口控制、应用查找 |
+| `@input` | 编辑内核与键码 |
+| `@win` | 平台窗口后端（Win32 / GTK3 的 C 桩）：快捷键、图标、输入法、消息框、通知、托盘、surface |
+| `@dbus` | Linux D-Bus 桥：托盘 SNI、通知、logind / upower、媒体、网络、屏保 |
+| `@chart` | 图表与横切交互层 |
+| `@mdview` | Markdown 渲染视图 |
+| `@style` | 样式层：样式表写成 MoonBit 值，含状态类与过渡 |
 
-较重的可选能力放在**独立模块**，普通 `moon add` 不会带进来：
+较重能力放在**独立模块**，可选
 
 | 模块 | 内容 |
 |---|---|
 | `NoahLiu/gui-media` | 音视频引擎与播放器组件。 |
-| `NoahLiu/gui-webview` | 内嵌 WebView（WebKitGTK / WebView2）。 |
-
-两层「可选」要分清：没 import 的子包不占二进制体积——`moon.pkg` 的 import 是编译与链接边界；没依赖的模块根本不会被解析或预构建——`moon.mod` 的 import 决定依赖闭包。
+| `NoahLiu/gui-webview` | 内嵌 WebView（WebKitGTK / WebView2 / WKWebKit）。 |
 
 ## 快速开始
 
-刚接触 MoonBit？[在线文档](https://moonbit-native-gui.pages.dev/) 覆盖工具链与第一个窗口。前置是 MoonBit 原生工具链。
+前置是 MoonBit 原生工具链。刚接触 MoonBit？[在线文档](https://moonbit-native-gui.pages.dev/) 覆盖工具链与第一个窗口。
+
+在自己的工程里引入：
 
 ```sh
 moon add NoahLiu/native-gui
 ```
 
-然后跑一个自带示例：
+想看效果就克隆仓库跑示例——`examples/` 下每个目录都是独立模块，**进目录 `moon run .`** 即可：
 
 ```sh
-moon run examples/hello          # 最小窗口
-moon run examples/hello-themed   # 主题控件集
-moon run examples/showcase       # 完整演示板
-moon run examples/browser        # 内嵌 WebView 浏览器
+git clone https://github.com/lb091188/moonbit-native-gui.git
+cd moonbit-native-gui/examples/hello   # 换成下表任一目录
+moon run .
 ```
+
+| 目录 | 内容 |
+|---|---|
+| `examples/hello` | 最小窗口：一个原生窗口 + 基本控件 |
+| `examples/hello-themed` | 主题控件集 |
+| `examples/showcase` | 全功能演示板：组件库、交互图标、图表、系统接口 |
+| `examples/design-recipes` | 设计基准配方：工具栏 / 表单 / 卡片网格 / 列表 / 空态 |
+| `examples/i18n-demo` | 国际化：en / zh 译文并排对照 |
+| `examples/sysmonitor` | 系统监视器：`/proc`·`/sys` 数据 + 自绘图表 |
+| `examples/browser` | 内嵌 WebView（额外依赖 `gui-webview`） |
+| `examples/audio` · `video` | 音视频播放器（额外依赖 `gui-media`，需 ffmpeg，见 [examples/README.md](examples/README.md)） |
+| `examples/headless-audio` | 无窗口、纯代码驱动播放 |
 
 ## 平台支持
 
 | 平台 | 状态 | 说明 |
 |---|---|---|
-| Ubuntu 24.04（XFCE / GNOME / KDE） | ✅ | 主链路 X11 |
+| Ubuntu 24.04 | ✅ | XFCE / GNOME / KDE / Cinnamon |
 | Deepin 23 / 25 | ✅ | |
-| Windows 10 / 11 | ✅ | 产物是 GUI 子系统 exe，双击不弹控制台 |
-| macOS | ✅ | Apple Silicon 真机已验（Cocoa / CoreText / ImageIO / WKWebView）；与 Windows / Linux 同一份清单同步维护 |
+| Windows 10 / 11 | ✅ |  |
+| macOS | ✅ | Apple Silicon  |
 
 ## 参与贡献
 
-报平台兼容问题、补控件、补文档都欢迎。macOS 后端已并入 master，真机目视复验是当前最大的开放事项，需要一台 Apple Silicon 机器。基本要求：
+报平台兼容问题、补控件、补文档都欢迎。基本要求：
 
 - **提交门禁**：库模块在 `gui/` 下 `moon check` + `moon test ui render text theme icons sys input win dbus chart mdview style base shell widget` 零错误零警告
-- **经验留档**：实测坑与修复写进 [adaptation.md](proposals/adaptation.md)，不要只留在提交信息里
+- **经验留档**：实测坑与修复随代码记录，不要只留在提交信息里
 - **小批次**：一个提交一个内聚改动，提交信息简短
+- **进度与计划**：功能面全景与后续待做见[路线图](https://moonbit-native-gui.pages.dev/zh/roadmap)
 
-完整流程见 [AGENTS.md](AGENTS.md)（约束清单）与 [docs/zh/build.md](docs/zh/build.md)（构建、链接、新增示例模块）。
+[docs/zh/build.md](docs/zh/build.md)：构建、链接、新增示例模块。
 
 ## 许可
 
