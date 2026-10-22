@@ -39,6 +39,10 @@ pub(all) struct PainterState {
   /// 全局透明度（0..1，默认 1）：进绘制状态机，铺满填充/描边（含渐变）、文本、
   /// 图片/画布全路径——`Style.opacity` 的落点（design.md §5 P4）。
   mut global_alpha : Double
+  /// 虚线图案（on/off 交替，逻辑像素）；空 = 实线。只作用于描边。
+  mut dashes : Array[Double]
+  /// 虚线相位偏移（逻辑像素），0 = 从图案起点开始。
+  mut dash_offset : Double
 }
 
 ///|
@@ -95,6 +99,8 @@ fn snapshot(s : PainterState) -> PainterState {
     stroke_grad: s.stroke_grad,
     line_width: s.line_width,
     global_alpha: s.global_alpha,
+    dashes: s.dashes.copy(),
+    dash_offset: s.dash_offset,
   }
 }
 
@@ -112,6 +118,8 @@ fn load_state(target : PainterState, from : PainterState) -> Unit {
   target.stroke_grad = from.stroke_grad
   target.line_width = from.line_width
   target.global_alpha = from.global_alpha
+  target.dashes = from.dashes.copy()
+  target.dash_offset = from.dash_offset
 }
 
 ///|
@@ -147,6 +155,8 @@ pub fn Painter::new(bitmap : Bitmap) -> Painter {
       stroke_grad: None,
       line_width: 1.0,
       global_alpha: 1.0,
+      dashes: [],
+      dash_offset: 0.0,
     },
     stack: [],
   }
@@ -614,6 +624,38 @@ pub fn Painter::set_line_join(self : Painter, join : LineJoin) -> Unit {
   match self.backend {
     Some(CairoBackend(c)) => c.set_line_join(line_join_to_int(join))
     Some(PureBackend(_)) => ()
+    None => ()
+  }
+}
+
+///|
+/// 虚线图案：`pattern` 按 on/off 交替读（`[4, 2]` = 实 4 空 2，单位逻辑像素），
+/// 空数组或全 0 = 恢复实线；负值按 0 处理。`offset` 是相位偏移（图案起点前移的
+/// 距离），**每个子路径都从头起算**（与 cairo 的 dash 状态机同口径）。
+///
+/// 只作用于描边（`stroke`/`stroke_rect` 的路径档）。两后端的段划分按累计弧长做，
+/// 闭合子路径不绕回补相位——首尾接缝处留一道缝，这是「每子路径重置」的直接结果。
+pub fn Painter::set_dashes(
+  self : Painter,
+  pattern : Array[Double],
+  offset? : Double = 0.0,
+) -> Unit {
+  let clean : Array[Double] = []
+  let mut total = 0.0
+  for v in pattern {
+    let d = if v < 0.0 { 0.0 } else { v }
+    clean.push(d)
+    total = total + d
+  }
+  // 全 0（或空）等于实线：两后端都按清空处理，免得 cairo 报 invalid dash
+  let solid = total <= 0.0
+  self.state.dashes = if solid { [] } else { clean }
+  self.state.dash_offset = offset
+  match self.backend {
+    Some(CairoBackend(c)) =>
+      c.set_dashes(if solid { [] } else { clean }, offset)
+    Some(PureBackend(r)) =>
+      r.set_dashes(if solid { [] } else { clean }, offset)
     None => ()
   }
 }

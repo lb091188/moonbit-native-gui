@@ -97,6 +97,15 @@ extern "c" fn cr_set_line_cap(id : Int64, cap : Int) -> Unit = "cr_set_line_cap"
 extern "c" fn cr_set_line_join(id : Int64, join : Int) -> Unit = "cr_set_line_join"
 
 ///|
+extern "c" fn cr_dash_begin(id : Int64) -> Unit = "cr_dash_begin"
+
+///|
+extern "c" fn cr_dash_add(id : Int64, v : Double) -> Unit = "cr_dash_add"
+
+///|
+extern "c" fn cr_dash_end(id : Int64, offset : Double) -> Unit = "cr_dash_end"
+
+///|
 extern "c" fn cr_save(id : Int64) -> Unit = "cr_save"
 
 ///|
@@ -343,6 +352,21 @@ pub fn Cairo::set_line_cap(self : Cairo, cap : Int) -> Unit {
 /// W35：拐角形状（0=miter 1=round 2=bevel）。
 pub fn Cairo::set_line_join(self : Cairo, join : Int) -> Unit {
   cr_set_line_join(self.id, join)
+}
+
+///|
+/// 虚线三段式传数组（C 侧 `double*` 不走 MoonBit 数组直传：逐值 add 进 C 的
+/// 暂存区，最后一次 `cr_dash_end` 落 `cairo_set_dash`）。空数组 = 恢复实线。
+pub fn Cairo::set_dashes(
+  self : Cairo,
+  pattern : Array[Double],
+  offset : Double,
+) -> Unit {
+  cr_dash_begin(self.id)
+  for v in pattern {
+    cr_dash_add(self.id, v)
+  }
+  cr_dash_end(self.id, offset)
 }
 
 ///|

@@ -23,6 +23,8 @@ pub(all) struct RasterState {
   clip_y0 : Int
   clip_x1 : Int
   clip_y1 : Int
+  dashes : Array[Double]
+  dash_offset : Double
 }
 
 ///|
@@ -37,6 +39,8 @@ pub struct Raster {
   mut clip_y0 : Int
   mut clip_x1 : Int
   mut clip_y1 : Int
+  mut dashes : Array[Double]
+  mut dash_offset : Double
   stack : Array[RasterState]
 }
 
@@ -69,6 +73,8 @@ pub fn Raster::over(bitmap : Bitmap) -> Raster? {
       clip_y0: 0,
       clip_x1: bitmap.width,
       clip_y1: bitmap.height,
+      dashes: [],
+      dash_offset: 0.0,
       stack: [],
     })
   }
@@ -106,6 +112,8 @@ pub fn Raster::save(self : Raster) -> Unit {
     clip_y0: self.clip_y0,
     clip_x1: self.clip_x1,
     clip_y1: self.clip_y1,
+    dashes: self.dashes.copy(),
+    dash_offset: self.dash_offset,
   })
 }
 
@@ -127,6 +135,8 @@ pub fn Raster::restore(self : Raster) -> Unit {
       self.clip_y0 = s.clip_y0
       self.clip_x1 = s.clip_x1
       self.clip_y1 = s.clip_y1
+      self.dashes = s.dashes.copy()
+      self.dash_offset = s.dash_offset
     }
     None => ()
   }
@@ -193,6 +203,8 @@ pub fn Raster::fill(self : Raster) -> Unit {
 ///|
 /// 设备线宽 = 用户线宽 × sqrt(|det|)（非均匀缩放近似，记档）。
 /// 用完清空路径，口径同 `Raster::fill`（零线宽不落像素但同样清）。
+/// 虚线档先把折线按累计弧长切成「实段」（`dash_polys`），再逐段走常规描边——
+/// 段端是 butt 端帽，与 cairo 的虚线语义一致。
 pub fn Raster::stroke(self : Raster) -> Unit {
   let det = self.m.det().abs().sqrt()
   let lw = self.line_width * det
@@ -200,7 +212,13 @@ pub fn Raster::stroke(self : Raster) -> Unit {
     self.path.clear()
     return
   }
-  let polys = stroke_polys(self.path.flatten(self.m), lw)
+  let flat = self.path.flatten(self.m)
+  let dashed = if self.dashes.length() > 0 {
+    dash_polys(flat, self.dashes, self.dash_offset)
+  } else {
+    flat
+  }
+  let polys = stroke_polys(dashed, lw)
   fill_polys(self.bitmap, polys, (self.clip_x0, self.clip_y0, self.clip_x1, self.clip_y1), self.op, self.source)
   self.path.clear()
 }
@@ -757,6 +775,18 @@ pub fn Raster::set_gradient(self : Raster, g : Gradient) -> Unit {
 /// 线宽为负按 0 处理（门面已钳，这里兜底）。
 pub fn Raster::set_line_width(self : Raster, width : Double) -> Unit {
   self.line_width = if width < 0.0 { 0.0 } else { width }
+}
+
+///|
+/// 虚线图案：`[on, off, on, off, …]`（设备像素），空数组 = 实线。相位在每个
+/// 子路径起点重置（cairo 的 dash 状态机同口径）。
+pub fn Raster::set_dashes(
+  self : Raster,
+  pattern : Array[Double],
+  offset : Double,
+) -> Unit {
+  self.dashes = pattern.copy()
+  self.dash_offset = offset
 }
 
 ///|

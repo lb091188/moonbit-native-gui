@@ -267,10 +267,118 @@ pub(all) struct Poly {
 }
 
 ///|
+/// 把折线按虚线图案切成「实段」：`pattern` 是 on/off 交替的长度表（设备像素），
+/// `offset` 是相位偏移。返回的子路径都是**开口**折线（段端 butt 端帽），交给
+/// `stroke_polys` 走常规描边。
+///
+/// 两条口径（与 cairo 的 dash 状态机对齐，也是两后端能做像素级对照的前提）：
+/// - 相位在每个子路径起点重置（`offset` 只描述「从图案的第几段开始」）；
+/// - 闭合子路径不绕回补相位，首尾接缝处照图案留缝（不强行对齐成整周期）。
+fn dash_polys(
+  polys : Array[Poly],
+  pattern : Array[Double],
+  offset : Double,
+) -> Array[Poly] {
+  let out : Array[Poly] = []
+  // 周期：图案总和；全 0 时退回实线（不切）
+  let n = pattern.length()
+  let mut period = 0.0
+  for v in pattern {
+    period = period + v
+  }
+  if n == 0 || period <= 0.0 {
+    return polys
+  }
+  // 相位归一到 [0, period)：跳过整周期后落进某一段
+  let mut phase = offset - (offset / period).floor() * period
+  let mut k = 0
+  let mut on = true
+  let mut remain = pattern[0]
+  let mut guard_n = 0
+  while phase > 0.0 && guard_n < n * 4 + 8 {
+    if phase >= remain {
+      phase = phase - remain
+      k = (k + 1) % n
+      remain = pattern[k]
+      on = !on
+    } else {
+      remain = remain - phase
+      phase = 0.0
+    }
+    guard_n = guard_n + 1
+  }
+  // 图案里 0 长段会卡住状态机：起点先越过它们
+  let mut spin = 0
+  while remain <= 0.0 && spin < n * 4 + 8 {
+    k = (k + 1) % n
+    remain = pattern[k]
+    on = !on
+    spin = spin + 1
+  }
+  for poly in polys {
+    let pts = poly.pts
+    let m = pts.length()
+    if m < 2 {
+      continue
+    }
+    // 每子路径重置相位
+    let mut pk = k
+    let mut pon = on
+    let mut cur : Array[(Double, Double)] = []
+    let edges = m - 1
+    for i = 0; i < edges; i = i + 1 {
+      let (ax, ay) = pts[i]
+      let (bx, by) = pts[i + 1]
+      let dx = bx - ax
+      let dy = by - ay
+      let len = (dx * dx + dy * dy).sqrt()
+      if len < 0.000000001 {
+        continue
+      }
+      let ux = dx / len
+      let uy = dy / len
+      let mut t = 0.0
+      let mut steps = 0
+      while t < len && steps < 1024 {
+        steps = steps + 1
+        let seg = remain.min(len - t)
+        if pon {
+          if cur.length() == 0 {
+            cur.push((ax + ux * t, ay + uy * t))
+          }
+          cur.push((ax + ux * (t + seg), ay + uy * (t + seg)))
+        }
+        t = t + seg
+        remain = remain - seg
+        if remain <= 0.000000001 {
+          if pon && cur.length() >= 2 {
+            out.push({ pts: cur.copy(), closed: false })
+          }
+          cur = []
+          // 越到下一段；跳过 0 长段
+          let mut g2 = 0
+          let mut nr = 0.0
+          while nr <= 0.0 && g2 < n * 4 + 8 {
+            pk = (pk + 1) % n
+            nr = pattern[pk]
+            pon = !pon
+            g2 = g2 + 1
+          }
+          remain = nr
+        }
+      }
+    }
+    if pon && cur.length() >= 2 {
+      out.push({ pts: cur, closed: false })
+    }
+  }
+  out
+}
+
+///|
 /// 路径 → 设备空间折线集合（经矩阵变换 + 展平）。未闭合子路径在 fill 侧
 /// 自动闭线（stroke 侧保持开口、上端帽）。
-pub fn Path::flatten(self : Path, m : Mat2x3) -> Array[Poly] {
-  let polys : Array[Poly] = []
+pub fn Path::flatten(self : Path, m : Mat2x3) -> Array[Poly] {  let polys : Array[Poly] = []
   let cur : Array[(Double, Double)] = []
   let mut open = false
   let mut sx = 0.0
