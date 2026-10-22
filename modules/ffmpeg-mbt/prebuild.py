@@ -421,7 +421,10 @@ def ensure_mac_vendor() -> bool:
     for fn in os.listdir(libdir):
         if fn.endswith(".dylib"):
             os.chmod(os.path.join(libdir, fn), 0o755)
-    print(f"ffmpeg(prebuild): 已就位 {mac_vendor_dir()}（sha256 校验通过）", file=sys.stderr)
+    print(
+        "ffmpeg(prebuild): 已就位 dev 归档（sha256 ✓）",
+        file=sys.stderr,
+    )
     return mac_vendor_ready(libdir) is not None
 
 
