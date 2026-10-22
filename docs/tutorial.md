@@ -146,10 +146,10 @@ Themed forms for `@ui.text` / `@ui.button` (the four `button` `variant`s, `tag` 
 
 ```sh
 git clone https://github.com/lb091188/moonbit-native-gui && cd moonbit-native-gui
-moon run examples/showcase    # basics / forms / navigation / data display / feedback / events & layout / system integration…
+cd examples/showcase && moon run .   # basics / forms / navigation / data display / feedback / events & layout / system integration…
 ```
 
-Pick a page in the left menu and write against it on the right; each page's source is its own file (`examples/showcase/pages/*.mbt`), ready to copy and adapt. For smaller starting points: `moon run examples/hello` (minimal window) and `moon run examples/hello-themed` (themed widget set).
+Pick a page in the left menu and write against it on the right; each page's source is its own file (`examples/showcase/pages/*.mbt`), ready to copy and adapt. For smaller starting points, `cd` into `examples/hello` (minimal window) or `examples/hello-themed` (themed widget set) and `moon run .` — every directory under `examples/` is a standalone module.
 
 **Learn the layers** — a few documents, each covering one face:
 

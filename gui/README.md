@@ -38,14 +38,16 @@ fn main {
 }
 ```
 
-Runnable examples in this repository, from shallow to deep:
+Runnable examples in this repository, from shallow to deep — every directory under `examples/` is a standalone module, so `cd` in and `moon run .`:
 
 ```sh
-moon run examples/hello          # a minimal window
-moon run examples/hello-themed   # the themed widget set
-moon run examples/showcase       # full demo board: components + system probes + extended charts, 15 pages
-moon run examples/browser        # embedded WebView browser (demo menu + status bar)
+cd examples/hello && moon run .
 ```
+
+- `examples/hello` — a minimal window
+- `examples/hello-themed` — the themed widget set
+- `examples/showcase` — full demo board: components + system probes + extended charts, 15 pages
+- `examples/browser` — embedded WebView browser (demo menu + status bar)
 
 Each showcase page is its own source file under `examples/showcase/pages/` — the best copy-paste material library.
 

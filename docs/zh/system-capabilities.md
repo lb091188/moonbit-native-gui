@@ -24,7 +24,7 @@ macOS 的公开口与底层：`open`/`open -R`、`sw_vers`、`ioreg -rd1 -c IOPl
 
 Windows 直调的底层：SystemParametersInfoW（壁纸）、ShellExecuteW（启动/定位/打印）、PowerGet/SetActiveScheme、注册表（产品与 DMI 信息）、GlobalMemoryStatusEx、GetTickCount64、EnumWindows、EnumPrintersW、IAudioEndpointVolume（COM）、GetLastInputInfo。踩坑与头文件/链接要求见 [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md)。
 
-完整演示见 `moon run examples/showcase` 的「系统能力探测」页——每段可「重新探测」逐项呈现本机真实结果，不支持的能力显示对应错误文本。各能力在不同发行版 / 桌面环境的实测结论与原理见 [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md)——含 logind 路径、wpctl/pactl 差异、SQLite 库直读等。
+完整演示见演示板（`cd examples/showcase && moon run .`）的「系统能力探测」页——每段可「重新探测」逐项呈现本机真实结果，不支持的能力显示对应错误文本。各能力在不同发行版 / 桌面环境的实测结论与原理见 [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md)——含 logind 路径、wpctl/pactl 差异、SQLite 库直读等。
 
 ## 系统音量
 
@@ -295,7 +295,7 @@ let node = @guimedia.video("demo.mp4", subtitle="/path/demo.srt")
 
 播放控制条内置于 `audio` / `video` 两个节点组件：播放/暂停按钮、可拖进度条（松手防抖 180ms 后 seek）、时间文本（m:ss / m:ss）、音量滑条、循环开关；50ms 时钟自动 pump + 刷新，`free()` 后时钟自动停摆。
 
-播放演示见 `moon run examples/audio` / `moon run examples/video`——启动即自动载入默认资产，播放/暂停/拖进度/音量/倍速全部可交互。
+播放演示见 `cd examples/audio && moon run .` / `cd examples/video && moon run .`——启动即自动载入默认资产，播放/暂停/拖进度/音量/倍速全部可交互。
 
 ## 显示器配置
 

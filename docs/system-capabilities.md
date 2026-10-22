@@ -24,7 +24,7 @@ The public macOS entry points and underlying calls: `open`/`open -R`, `sw_vers`,
 
 The Windows direct calls under the hood: SystemParametersInfoW (wallpaper), ShellExecuteW (launch/reveal/print), PowerGet/SetActiveScheme, the registry (product and DMI info), GlobalMemoryStatusEx, GetTickCount64, EnumWindows, EnumPrintersW, IAudioEndpointVolume (COM), GetLastInputInfo. For pitfalls and header/link requirements, see [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md).
 
-The full demo is the "System Probes" page of `moon run examples/showcase` — each section can "re-probe" to show this machine's real results item by item, and unsupported capabilities show their error text. For field-tested conclusions and rationale per capability across distros / desktop environments — including the logind path, wpctl/pactl differences and direct SQLite reads — see [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md).
+The full demo is the "System Probes" page of the showcase demo (`cd examples/showcase && moon run .`) — each section can "re-probe" to show this machine's real results item by item, and unsupported capabilities show their error text. For field-tested conclusions and rationale per capability across distros / desktop environments — including the logind path, wpctl/pactl differences and direct SQLite reads — see [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md).
 
 ## System Volume
 
@@ -295,7 +295,7 @@ let node = @guimedia.video("demo.mp4", subtitle="/path/demo.srt")
 
 The playback control bar is built into the `audio` / `video` node components: play/pause button, draggable progress bar (seeks 180ms after drag-release debouncing), time text (m:ss / m:ss), volume slider, loop toggle. The 50ms clock pumps and refreshes automatically; after `free()` the clock halts on its own.
 
-Player demos: `moon run examples/audio` / `moon run examples/video` — the default asset auto-loads on startup, and play/pause/seek/volume/speed are all interactive.
+Player demos: `cd examples/audio && moon run .` / `cd examples/video && moon run .` — the default asset auto-loads on startup, and play/pause/seek/volume/speed are all interactive.
 
 ## Monitor Configuration
 
