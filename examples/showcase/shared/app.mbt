@@ -52,7 +52,16 @@ pub(all) struct App {
   tray_clicks : @base.Store[Int]
   /// 托盘操作回显（main 建托盘时写后端名，页里按钮改写）
   tray_note : @base.Store[String]
+  /// 单实例：本进程收到过的唤起条数（main 的 `on_instance_wake` 回调写，页里读）
+  inst_wakes : @base.Store[Int]
+  /// 单实例操作回显（main 声称时写「哪一档拿到了首实例」，页里按钮改写）
+  inst_note : @base.Store[String]
 }
+
+///|
+/// 演示板的单实例应用 id（反向域名形态，`@shell.instance_claim` 三平台共用）：
+/// main 声称用，系统集成页读后端与自环唤起也用，两边必须同一个串。
+pub const SHOWCASE_APP_ID : String = "com.moonbitlibyue.showcase"
 
 ///|
 /// 推送一条轻提示（转发 toast 函数字段；函数值字段不能直接点调用）。

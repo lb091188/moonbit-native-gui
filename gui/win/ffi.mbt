@@ -442,6 +442,31 @@ extern "c" fn wm_notify_update(
 extern "c" fn wm_notify_close(slot : Int) -> Unit = "wm_notify_close"
 
 ///|
+extern "c" fn wm_inst_supported() -> Int = "wm_inst_supported"
+
+///|
+#borrow(slug)
+extern "c" fn wm_inst_listen(slug : Bytes) -> Int = "wm_inst_listen"
+
+///|
+#borrow(slug, data)
+extern "c" fn wm_inst_wake(slug : Bytes, data : Bytes, len : Int) -> Int =
+  "wm_inst_wake"
+
+///|
+extern "c" fn wm_inst_poll() -> Int = "wm_inst_poll"
+
+///|
+#borrow(out)
+extern "c" fn wm_inst_take(out : Bytes, cap : Int) -> Int = "wm_inst_take"
+
+///|
+extern "c" fn wm_inst_last_errno() -> Int = "wm_inst_last_errno"
+
+///|
+extern "c" fn wm_inst_release() -> Unit = "wm_inst_release"
+
+///|
 extern "c" fn wm_notify_count() -> Int = "wm_notify_count"
 
 ///|

@@ -1,16 +1,17 @@
 // 系统集成页：文件对话框 / 消息框 / 通知 / 剪贴板 / 定时器 / 托盘 / 自启 /
-// 外部打开 / 系统信息 / 音量 / 平台专属能力（子进程、窗口管理、夜灯、电源、
-// 剪贴板监视）。
+// 外部打开 / 系统信息 / 音量 / 单实例 / 平台专属能力（子进程、窗口管理、夜灯、
+// 电源、剪贴板监视）。
 //
 // 四条口径：
 // ① 未接的能力整段不放（按钮不摆，口径写进本草头与人工清单）：关闭拦截（无
-//    should_close 钩子）、单实例（TODO §6 接线项）、无边框透明窗（stub 无分层
-//    窗口透明度）、屏幕常亮（无 keep_awake）、休眠锁屏事件、电量与网络（无电源
-//    事件通道）——后四样待平台批；
+//    should_close 钩子）、无边框透明窗（stub 无分层窗口透明度）、屏幕常亮（无
+//    keep_awake）、休眠锁屏事件、电量与网络（无电源事件通道）——后四样待平台批；
 // ② 演示位用「系统信息」（si_os/si_machine/si_memory/si_uptime + desktop_name），
 //    另带「音量」段（vol_* 三平台门面已在）；
 // ③ 通知走 `@shell.notify_send`（探测 + 结构化错误 + 后端名回显）；托盘走
 //    `@shell.Tray`，dispatch 由 200ms 轮询表驱动（宿主循环没有每帧钩子）；
+//    单实例走 `@shell.instance_*`：声称在 main 的启动路径，回调计数进 App.inst_wakes，
+//    抽帧搭同一条 200ms 泵；
 // ④ 文件对话框 parent 传宿主窗口 id（`App::wid().to_int64()`）。
 
 ///|
@@ -585,6 +586,62 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
         "}",
         "@sys.vol_set(50)",
         "@sys.vol_set_mute(true)",
+      ],
+    ),
+
+    @shared.section(
+      "单实例",
+      "防多开与唤起已有实例",
+      "三平台各一条原生通道、门面同一个 API：Windows 用 Local\\ 命名互斥体 + 隐藏窗口收 WM_COPYDATA；Linux 先争 D-Bus 知名名，没有会话总线时落 AF_UNIX 套接字；macOS 用 AF_UNIX 套接字。演示板启动时就声称了这个 app_id（见下方回显）。「读本机档」回显用的是哪一档、本进程收到过几条唤起；「自环唤起」由本进程给自己发一条，下一拍派发后切回首页并冒提示——真机双进程的验法：再开一个终端跑同一条 `moon run`，第二个进程打印 SHOWCASE-INST 后退出，已有窗口被唤回。",
+      [
+        @ui.row(
+          [
+            @ui.button(@shared.tx("读本机档"), on_click=fn() {
+              let arm = match @shell.instance_arm(@shared.SHOWCASE_APP_ID) {
+                Some(b) => @shell.instance_backend_name(b)
+                None => "-"
+              }
+              app.inst_note.set(@shared.tr_with(
+                "dyn.inst_state",
+                [
+                  ("a", arm),
+                  ("n", app.inst_wakes.get().to_string()),
+                  ("i", @shared.SHOWCASE_APP_ID),
+                ],
+                "app_id \{@shared.SHOWCASE_APP_ID} · 后端 \{arm} · 已收到唤起 \{app.inst_wakes.get()} 次",
+              ))
+            }),
+            @ui.button(@shared.tx("自环唤起"), variant=@ui.Soft, on_click=fn() {
+              match @shell.instance_wake(@shared.SHOWCASE_APP_ID, ["系统集成页"]) {
+                Ok(_) => app.inst_note.set(@shared.tx("已发出唤起：下一拍切回首页并冒提示"))
+                Err(e) => app.inst_note.set(
+                  @shared.tr_with(
+                    "dyn.inst_wake_failed",
+                    [("e", e.to_string())],
+                    "唤起失败：\{e}",
+                  ),
+                )
+              }
+            }),
+            @ui.text(
+              @shared.tx("唤起回调由 main 挂：切回首页 + 提示 + 计数"),
+              role=@ui.Secondary,
+            ),
+          ],
+          column_gap=8.0,
+          align_items=@yoga.AlignItems::Center,
+        ),
+        @ui.bind_label(app.inst_note, fn(s) { s }),
+      ],
+      code=[
+        "match @shell.instance_claim(\"com.moonbitlibyue.showcase\") {",
+        "  Ok(@shell.Primary) => ...   // 首实例：窗口照常开",
+        "  Ok(@shell.Existing) => ...  // 已有实例：唤起后自己退出",
+        "  Err(e) => println(\"降级：\\{e}\"),",
+        "}",
+        "@shell.on_instance_wake(fn(args) { show_window() })",
+        "// 宿主每拍抽一次（套接字/Win32 臂）；D-Bus 臂在 dbus_pump 里直达",
+        "let _ = @shell.dispatch_instance_wake()",
       ],
     ),
 

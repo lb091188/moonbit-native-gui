@@ -12,8 +12,8 @@
 //     否则下一拍就被盖回去。系统偏好读数用 `@win.sys_color_scheme/sys_accent`
 //     （与 `App::follow_system_theme` 内部同一来源，示例要能手动覆盖故自己开表）。
 //   - 菜单栏是模型翻译（`MenuBar::apply_to` → 原生菜单栏，点击经 `dispatch_menu_command`
-//     派发到模型回调，100ms 轮询表挂在宿主）；单实例是 dbus 层的
-//     `claim_name` + Wake（无会话总线的环境降级为不做，只打印说明）；
+//     派发到模型回调，100ms 轮询表挂在宿主）；单实例是 `@shell` 门面（三平台各一条
+//     原生通道，见 `shell/instance.mbt`），声称在 main、抽帧搭 200ms 泵；
 //     D-Bus 的排期通道与 200ms 泵都由宿主给。托盘也是应用级单例：main 挂载期建
 //     好并默认挂右键菜单，系统集成页只演示换提示 / 换图标。
 //   - 浏览器页在独立示例 `examples/browser`（WebView 重控件不随演示板起窗）。
@@ -249,23 +249,35 @@ fn main {
     tray: Ref(None),
     tray_clicks: @base.Store::new(0),
     tray_note: @base.Store::new(@shared.tx("（还没建托盘）")),
+    inst_wakes: @base.Store::new(0),
+    inst_note: @base.Store::new(@shared.tx("（还没声称过）")),
   }
   box.val = Some(app)
   // 深浅/主色任一变化即整体换主题；subscribe 注册不回调，故先应用一次
   app.dark_mode.subscribe(fn(_v) { apply_theme(app) })
   app.accent.subscribe(fn(_a) { apply_theme(app) })
   apply_theme(app)
-  // 单实例（dbus 层）：先声称总线名；已有实例就唤起它并退出。
-  // 无会话总线的环境（如 Windows 桌面）Err 降级为不做，只打印说明。
-  match @dbus.claim_name("com.moonbitlibyue.showcase") {
-    Ok(@dbus.PrimaryOwner) | Ok(@dbus.AlreadyOwner) =>
-      // 首实例：注册 Wake 回调——切回首页并冒提示
-      @dbus.on_wake(fn(_args : Array[String]) -> Unit {
+  // 单实例（@shell 门面，三平台各自的臂）：先声称；已有实例就唤起它并退出。
+  match @shell.instance_claim(@shared.SHOWCASE_APP_ID) {
+    Ok(@shell.Primary) => {
+      let arm = match @shell.instance_arm(@shared.SHOWCASE_APP_ID) {
+        Some(b) => @shell.instance_backend_name(b)
+        None => "?"
+      }
+      app.inst_note.set(@shared.tr_with(
+        "dyn.inst_primary",
+        [("a", arm)],
+        "本进程是首实例（后端 \{arm}）",
+      ))
+      // 首实例：注册唤起回调——切回首页并冒提示
+      @shell.on_instance_wake(fn(_args : Array[String]) -> Unit {
+        app.inst_wakes.set(app.inst_wakes.get() + 1)
         nav.goto("基础组件")
-        app.toast_push("已被第二实例唤起", @ui.Info)
+        app.toast_push(@shared.tx("已被第二实例唤起"), @ui.Info)
       })
-    Ok(@dbus.AlreadyExists) | Ok(@dbus.InQueue) => {
-      let _ = @dbus.wake_existing("com.moonbitlibyue.showcase", [])
+    }
+    Ok(@shell.Existing) => {
+      let _ = @shell.instance_wake(@shared.SHOWCASE_APP_ID, [])
       println("SHOWCASE-INST: 已有实例，已唤起并退出")
       return
     }
@@ -401,6 +413,8 @@ fn main {
       let pump : Ref[() -> Unit] = Ref(fn() { () })
       pump.val = fn() -> Unit {
         @dbus.dbus_pump()
+        // 单实例抽帧：套接字/Win32 臂在这拍落地，D-Bus 臂上面那泵已直达
+        let _ = @shell.dispatch_instance_wake()
         let _ = a.timer(200, pump.val)
       }
       (pump.val)()
