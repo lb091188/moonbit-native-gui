@@ -119,8 +119,9 @@ moon run .
 Platform compatibility reports, widgets and documentation are all welcome. The basics:
 
 - **Commit gate**: in `gui/`, `moon check` plus `moon test ui render text theme icons sys input win dbus chart mdview style base shell widget` must be clean — zero errors, zero warnings
-- **Write down what you learn**: field-tested pitfalls and fixes go into [adaptation.md](proposals/adaptation.md), not just the commit message
+- **Write down what you learn**: field-tested pitfalls and fixes are recorded with the code, not only in commit messages
 - **Small batches**: one coherent change per commit, short commit messages
+- **Roadmap**: what is done and what comes next is on the [roadmap](https://moonbit-native-gui.pages.dev/zh/roadmap) (Chinese)
 
 [docs/zh/build.md](docs/zh/build.md) (Chinese): building, linking, adding an example module.
 
