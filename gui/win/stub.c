@@ -4350,6 +4350,182 @@ int wm_clipboard_set_text(const char *text) {
   return 0;
 }
 
+/* ---------------- 单实例臂（命名互斥体 + 隐藏顶层窗 + WM_COPYDATA） ----------------
+ * 互斥体名 Local\moonbit_libyue_instance_<slug>（会话命名空间，免权限提升），
+ * 窗口类名 moonbit_libyue_instance_<slug>。窗口必须是**顶层隐藏窗**而不是
+ * HWND_MESSAGE 消息窗：消息窗不在顶层窗枚举表里，跨进程 FindWindowW 查不到。
+ * 载荷是门面编好的字节帧（原样搬运，C 侧不解析），收端只 memcpy 进静态缓冲，
+ * MoonBit 下一拍 wm_inst_poll/wm_inst_take 抽走——不在对方的 SendMessage 栈里
+ * 执行任何应用代码。 */
+#define WM_INST_CAP 65536
+#define WM_INST_MAGIC 0x59756549
+#define WM_INST_CLASS_PREFIX "moonbit_libyue_instance_"
+#define WM_INST_MUTEX_PREFIX "Local\\moonbit_libyue_instance_"
+
+static HANDLE wm_inst_mutex = NULL;
+static HWND wm_inst_hwnd = NULL;
+static char wm_inst_buf[WM_INST_CAP];
+static int wm_inst_got = 0; /* >0 = 有一条待抽帧，值即字节数 */
+static int wm_inst_errno = 0;
+
+/* UTF-8 名字 → 宽字符（源串按 ASCII 处理，非 ASCII 一律换成 '_'：窗口类名与
+ * 互斥体名都只吃门面派生过的 slug）。 */
+static void wm_inst_wide(const char *prefix, const char *slug, wchar_t *out,
+                         int cap) {
+  char raw[320];
+  size_t pn = strlen(prefix);
+  size_t sn = strlen(slug);
+  if (pn >= sizeof(raw)) {
+    pn = sizeof(raw) - 1;
+  }
+  if (pn + sn >= sizeof(raw)) {
+    sn = sizeof(raw) - 1 - pn;
+  }
+  memcpy(raw, prefix, pn);
+  for (size_t i = 0; i < sn; i++) {
+    unsigned char c = (unsigned char)slug[i];
+    raw[pn + i] =
+        ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+         (c >= '0' && c <= '9') || c == '_' || c == '-') ? (char)c : '_';
+  }
+  raw[pn + sn] = '\0';
+  memset(out, 0, (size_t)cap * sizeof(wchar_t));
+  MultiByteToWideChar(CP_UTF8, 0, raw, -1, out, cap);
+}
+
+static LRESULT CALLBACK wm_inst_wndproc(HWND hwnd, UINT msg, WPARAM wp,
+                                        LPARAM lp) {
+  if (msg == WM_COPYDATA) {
+    COPYDATASTRUCT *cds = (COPYDATASTRUCT *)lp;
+    if (cds != NULL && cds->dwData == WM_INST_MAGIC && wm_inst_got == 0 &&
+        cds->cbData > 0) {
+      int n = (int)cds->cbData;
+      if (n > WM_INST_CAP) {
+        n = WM_INST_CAP; /* 超长帧截断到此，门面解码失败即丢弃这一条唤起 */
+      }
+      memcpy(wm_inst_buf, cds->lpData, (size_t)n);
+      wm_inst_got = n;
+      /* 把宿主从 MsgWait 里叫回来，好让它当拍就抽这条帧 */
+      if (wm_waker != NULL) {
+        PostMessageW(wm_waker, WM_APP + 1, 0, 0);
+      }
+      return TRUE;
+    }
+    return FALSE;
+  }
+  return DefWindowProcW(hwnd, msg, wp, lp);
+}
+
+int wm_inst_supported(void) { return 1; }
+
+/* 声称进程唯一：1 = 本进程是首实例（互斥体新建成功、隐藏窗已备好），
+ * 2 = 已有首实例，<0 = 失败（原因见 wm_inst_last_errno）。 */
+int wm_inst_listen(const char *slug) {
+  if (slug == NULL) {
+    wm_inst_errno = ERROR_INVALID_PARAMETER;
+    return -1;
+  }
+  if (wm_inst_mutex != NULL) {
+    return 1; /* 同进程重复声称：幂等 */
+  }
+  wchar_t mutex_name[256];
+  wchar_t class_name[256];
+  wm_inst_wide(WM_INST_MUTEX_PREFIX, slug, mutex_name, 256);
+  wm_inst_wide(WM_INST_CLASS_PREFIX, slug, class_name, 256);
+  HANDLE h = CreateMutexW(NULL, FALSE, mutex_name);
+  if (h == NULL) {
+    wm_inst_errno = (int)GetLastError();
+    return -1;
+  }
+  if (GetLastError() == ERROR_ALREADY_EXISTS) {
+    /* 同进程对同名二次 CreateMutexW 也会给 ERROR_ALREADY_EXISTS，所以幂等
+     * 只能靠上面那个 static 句柄守卫，不能靠返回码。 */
+    CloseHandle(h);
+    return 2;
+  }
+  WNDCLASSEXW wc;
+  memset(&wc, 0, sizeof(wc));
+  wc.cbSize = sizeof(wc);
+  wc.lpfnWndProc = wm_inst_wndproc;
+  wc.hInstance = GetModuleHandleW(NULL);
+  wc.lpszClassName = class_name;
+  if (!RegisterClassExW(&wc)) {
+    DWORD reg_err = GetLastError();
+    if (reg_err != ERROR_CLASS_ALREADY_EXISTS) {
+      wm_inst_errno = (int)reg_err;
+      CloseHandle(h);
+      return -1;
+    }
+  }
+  HWND wnd = CreateWindowExW(0, class_name, class_name, WS_POPUP, 0, 0, 0, 0,
+                             NULL, NULL, wc.hInstance, NULL);
+  if (wnd == NULL) {
+    wm_inst_errno = (int)GetLastError();
+    CloseHandle(h);
+    return -1;
+  }
+  wm_inst_mutex = h;
+  wm_inst_hwnd = wnd;
+  return 1;
+}
+
+/* 把一帧字节送进首实例：1 = 对方已收下并回执，-1 = 找不到首实例窗口，
+ * -2 = 发送失败或对方没在抽消息。 */
+int wm_inst_wake(const char *slug, const char *data, int32_t len) {
+  if (slug == NULL || data == NULL || len <= 0 || len > WM_INST_CAP) {
+    wm_inst_errno = ERROR_INVALID_PARAMETER;
+    return -1;
+  }
+  wchar_t class_name[256];
+  wm_inst_wide(WM_INST_CLASS_PREFIX, slug, class_name, 256);
+  HWND target = FindWindowW(class_name, NULL);
+  if (target == NULL) {
+    wm_inst_errno = ERROR_NOT_FOUND;
+    return -1;
+  }
+  COPYDATASTRUCT cds;
+  cds.dwData = WM_INST_MAGIC;
+  cds.cbData = (DWORD)len;
+  cds.lpData = (void *)data;
+  LRESULT res = 0;
+  if (!SendMessageTimeoutW(target, WM_COPYDATA, 0, (LPARAM)&cds,
+                           SMTO_ABORTIFHUNG | SMTO_NORMAL, 3000, &res) ||
+      !res) {
+    wm_inst_errno = (int)GetLastError();
+    return -2;
+  }
+  return 1;
+}
+
+/* 1 = 有一条完整帧可抽，0 = 没有。 */
+int wm_inst_poll(void) { return wm_inst_got > 0 ? 1 : 0; }
+
+/* 把最近一条帧抄进 out（抄完即清），返回字节数；没有帧给 0。 */
+int wm_inst_take(char *out, int32_t cap) {
+  if (out == NULL || cap <= 0 || wm_inst_got <= 0) {
+    return 0;
+  }
+  int n = wm_inst_got < cap ? wm_inst_got : cap;
+  memcpy(out, wm_inst_buf, (size_t)n);
+  wm_inst_got = 0;
+  return n;
+}
+
+int wm_inst_last_errno(void) { return wm_inst_errno; }
+
+/* 撤回声称（幂等；进程退出时不调也对，句柄与窗口由系统随进程回收）。 */
+void wm_inst_release(void) {
+  if (wm_inst_hwnd != NULL) {
+    DestroyWindow(wm_inst_hwnd);
+    wm_inst_hwnd = NULL;
+  }
+  if (wm_inst_mutex != NULL) {
+    CloseHandle(wm_inst_mutex);
+    wm_inst_mutex = NULL;
+  }
+  wm_inst_got = 0;
+}
+
 #elif defined(WM_STUB_GTK)
 
 // ---------------- GTK3 后端（Linux，prebuild 专编） ----------------
@@ -7496,6 +7672,28 @@ int wm_hotkey_poll(void) {
   }
   return 0;
 }
+
+/* 单实例：Linux 走 D-Bus 名字声称（dbus/instance.mbt），没有会话总线时走
+ * shell 的 POSIX 套接字臂，本支只保证 wm_inst_* 符号不断。 */
+int wm_inst_supported(void) { return 0; }
+int wm_inst_listen(const char *slug) {
+  (void)slug;
+  return -1;
+}
+int wm_inst_wake(const char *slug, const char *data, int32_t len) {
+  (void)slug;
+  (void)data;
+  (void)len;
+  return -1;
+}
+int wm_inst_poll(void) { return 0; }
+int wm_inst_take(char *out, int32_t cap) {
+  (void)out;
+  (void)cap;
+  return 0;
+}
+int wm_inst_last_errno(void) { return 0; }
+void wm_inst_release(void) {}
 
 
 #elif defined(WM_STUB_MAC)
@@ -11205,6 +11403,28 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
   }
 }
 
+/* 单实例：macOS 走 shell 的 POSIX 套接字臂（shell_stub.c 的 yi_inst_*），
+ * 本支只保证 wm_inst_* 符号不断。 */
+int wm_inst_supported(void) { return 0; }
+int wm_inst_listen(const char *slug) {
+  (void)slug;
+  return -1;
+}
+int wm_inst_wake(const char *slug, const char *data, int32_t len) {
+  (void)slug;
+  (void)data;
+  (void)len;
+  return -1;
+}
+int wm_inst_poll(void) { return 0; }
+int wm_inst_take(char *out, int32_t cap) {
+  (void)out;
+  (void)cap;
+  return 0;
+}
+int wm_inst_last_errno(void) { return 0; }
+void wm_inst_release(void) {}
+
 #elif !defined(__linux__) && !defined(__APPLE__)
 
 /* 剪贴板三符号（占位）：macOS 走 sys 自己的 pbpaste/pbcopy 命令线。 */
@@ -11635,6 +11855,27 @@ void *wm_surface_container(int64_t surface_id) {
   (void)surface_id;
   return NULL;
 }
+
+/* 单实例：本支无原生面，符号占位。 */
+int wm_inst_supported(void) { return 0; }
+int wm_inst_listen(const char *slug) {
+  (void)slug;
+  return -1;
+}
+int wm_inst_wake(const char *slug, const char *data, int32_t len) {
+  (void)slug;
+  (void)data;
+  (void)len;
+  return -1;
+}
+int wm_inst_poll(void) { return 0; }
+int wm_inst_take(char *out, int32_t cap) {
+  (void)out;
+  (void)cap;
+  return 0;
+}
+int wm_inst_last_errno(void) { return 0; }
+void wm_inst_release(void) {}
 
 #endif
 // Linux 上 native-stub 的那次编译（无 _WIN32、无 WM_STUB_GTK）落不进任何

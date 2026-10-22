@@ -3149,3 +3149,14 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 
 - **根因**：`<项目名>.pages.dev` 在创建那一刻写定，后台没有改名入口；本仓试过「重命名旧项目占住新名字」，域名仍是旧的 `moonbit-libyue.pages.dev`，最后只能新建项目再删旧的（旧域随之成死链，站内链接已全部改指 `moonbit-native-gui.pages.dev`）。
 - **判据**：要换 pages.dev 域名只有「新建项目」与「挂自定义域」两条路，重命名不是。
+
+## 单实例补齐三平台：Win32 互斥体 + WM_COPYDATA、POSIX 套接字臂，门面落 `shell`（2026-10-22，Win32 / macOS / Linux）
+
+- **门面落位判据**：跨平台单实例的门面放 `shell/instance.mbt`（与 `Tray` 同制：shell 已同时引 `win`/`dbus`/`sys`），**不新建 `gui/instance` 包**——`dbus` 依赖 `sys`、反向不成，门面若引 `dbus` 又落在 `sys` 或 `dbus` 里都会把依赖方向拧断；新建包还要动 prebuild 与门禁清单，收益只有目录好看。
+- **Linux 无 SOCK_NONBLOCK 差异不露脸**：`dbus_stub.c` 的 POSIX 支在 `_WIN32 || __APPLE__` 编的是失败桩，`SOCK_NONBLOCK|SOCK_CLOEXEC` 从没在 macOS 上编译过；新的 `shell_stub.c` 要在 macOS 真跑，两个标志都不能用，一律 `socket(AF_UNIX, SOCK_STREAM, 0)` + `fcntl(F_SETFL, O_NONBLOCK)` + `fcntl(F_SETFD, FD_CLOEXEC)`。判据：凡要在 macOS 编的 socket 代码，创建标志只用 `SOCK_STREAM`，非阻塞与 CLOEXEC 走 fcntl。
+- **唤起通道不能等回执**：同进程自测时「发一条唤起」与「抽一条唤起」是同一个线程，发端阻塞等 ack 就是自等——实测 `poll` 满 3 秒给 `errno=60 (ETIMEDOUT)`。改成写完即 `shutdown(SHUT_WR)`、帧边界用 EOF 表达，收端下一拍读到 EOF 即成帧。判据：套接字臂的 wake 只保证「已交给内核」，不保证「已被对端抽走」（与 D-Bus 档的同步应答同级，别再往回加 ack）。
+- **`FindWindowW` 查不到消息窗**：`HWND_MESSAGE` 下的窗不进顶层窗枚举，跨进程按类名找不到（本仓的托盘窗 `yue_wm_tray` 就是消息窗，只能同进程用）。单实例的接收窗必须是**顶层隐藏窗**（`WS_POPUP`、不给 `WS_VISIBLE`）。判据：跨进程按类名/标题找窗的，一律建顶层窗；`adaptation.md` 里「单实例消息窗口是仓内首例自有 WNDPROC」是旧 libyue 链的说法，本仓自有 WNDPROC 已有 `wm_wndproc`、`wm_tray_wndproc` 两处。
+- **同进程二次 `CreateMutexW` 也回 `ERROR_ALREADY_EXISTS`**：幂等不能靠返回码，必须靠 static 句柄守卫（守卫在前，返回码才有意义）。
+- **sun_path 有硬上限**：macOS 104 / Linux 108，超长时 `bind` 直接失败而不是截断。判据：套接字路径由门面按 `SOCKET_PATH_LIMIT=100` 预算反推 slug 长度（目录长就截短），并且文件名带 uid——`/tmp` 是多用户共享目录，不带 uid 会让 B 用户把 A 用户的实例认成自己的。
+- **`String[i]` 拿到的是 UTF-16 代码单元，不是 `Char`**：拿它 `.to_string()` 出的是十进制数（`'0'` 位写成 `digits[i].to_string()` 得 "48"，8 位十六进制哈希实测变 17 位），编译不报错、只有测出来的长度不对。判据：按码点处理一律 `s.to_array()` 或显式字符串表；`s[i]`/`unsafe_get` 只用于比较。
+- **验证**：本机 macOS `moon test -p NoahLiu/native-gui/shell` **53/53**（新增 6：slug 与哈希、路径预算、帧往返、解码防御、套接字臂同进程自环、门面端到端），全量库门禁 `moon test ui render … router` **1134/1134**、`moon check` 零警告、`moon build examples/showcase --target native` 通过。**待真机**：Windows 双进程防多开与置前（`wm_inst_*` 的 `_WIN32` 支只过了 CI 编译口径）、Linux 双进程 dbus 档、Linux 拔总线后落 socket 档。

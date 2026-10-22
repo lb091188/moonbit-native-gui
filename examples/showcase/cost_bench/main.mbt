@@ -218,6 +218,9 @@ fn headless_app() -> @shared.App {
     tray: Ref(None),
     tray_clicks: @base.Store::new(0),
     tray_note: @base.Store::new(""),
+    // 单实例读数（无头 bench 不声称，槽位留初值）
+    inst_wakes: @base.Store::new(0),
+    inst_note: @base.Store::new(""),
   }
 }
 
