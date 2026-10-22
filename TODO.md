@@ -136,20 +136,21 @@
 - [ ] **文本布局缓存**（部分已做，仍是单帧成本里最重的一块）：纯文本度量已建 C 侧跨帧缓存 `g_layout_cache`（3c744db，Pango/DirectWrite 同批，键=字体四要素+宽约束等，上限 1024 整清）；剩：富文本 `rt_measure`/`rt_draw` 仍每次经 `ptw_session_layout` 现建 `IDWriteTextFormat` + `IDWriteTextLayout` 用完即 Release（`AttributedText::rt()` 每个文本节点每帧开两个会话），`ui` 的富文本节点一律走这条路；布局（yoga）每帧还会为**全树**文本节点各测一次，屏外的也照测。
 - [ ] **量出来再优化**：上面三条都还没在真机上分档计时（`experiment/text_bench` 已有先例可扩展）。建议先做一个「单帧成本分解」探针（根背景填充 / 控件绘制 / 文本 / memcpy+StretchDIBits 各占多少），再决定动哪一块。
 
-### 6.7 面板档（`Dock`）收口（2026-10-22 立项）
+### 6.7 面板档收口（2026-10-22 立项）
 
-> 定义见 [docs/zh/roadmap.md](docs/zh/roadmap.md)「已实现 · 窗口 · 面板档定义」：① 不进可切换窗口枚举 ② 压普通窗口 ③ 跨工作区常驻 ④ 全屏关系单列。Linux / macOS 四条齐（macOS ④ 取「辅助浮层」）；Windows 缺 ③，④ 三平台不一。
+> 定义见 [docs/zh/roadmap.md](docs/zh/roadmap.md)「已实现 · 窗口 · 层级：面板档」：**不进任务栏、不进窗口循环、所有工作区显示、普通窗口上全屏窗口下**。四条逐平台现状——Linux 四条齐（「全屏窗口下」依赖 WM 层序，XFCE 过、其余 DE 待验）；macOS 循环 / 所有工作区 / 普通窗口上三条齐，**全屏那条相反**；Windows 任务栏 / 循环 / 普通窗口上三条齐，**所有工作区没做**、**全屏关系未定**。
 
-- [ ] **Windows 跨工作区：跟随式（帧调度驱动）**
-  - 做法：`wm_set_layer` 进面板档（3 / 1 / 4）时登记面板窗，宿主每帧调度里按节流问一次 `IVirtualDesktopManager::IsWindowOnCurrentVirtualDesktop`（约 500ms 一档，别每帧问）；返回 FALSE 时取当前桌面 GUID 并 `MoveWindowToDesktop`，搬完重设 `HWND_TOPMOST`——搬窗会改 z 序。
+- [ ] **Windows · 所有工作区显示（跟随式，帧调度驱动）**
+  - 做法：`wm_set_layer` 进面板档时登记面板窗，宿主每帧调度里按节流问一次 `IVirtualDesktopManager::IsWindowOnCurrentVirtualDesktop`（约 500ms 一档，别逐帧问）；返回 FALSE 时取当前桌面 GUID 并 `MoveWindowToDesktop`，搬完重设 `HWND_TOPMOST`——搬窗会改 z 序。
   - 当前桌面 GUID：`GetWindowDesktopId` 读一扇「当前桌面上的」顶层窗（前台窗优先），缓存最近一次搬入的 GUID 兜底。
   - 退出面板档 / 关窗：注销登记，停止询问。
   - 只走公开 API；**不碰** `IVirtualDesktopPinnedApps`（未公开，IID 与 vtable 随 build 变，系统升级即碎），私有 pin 只允许待在 `experiment/`。
-  - 验收：Win10 / Win11 各切一次桌面——面板仍随当前桌面出现且仍在普通窗口之上；切回原桌面不残留第二扇；回 Normal 档后行为与普通窗一致；`SHOWCASE-PROF` 对照无可见帧掉。
-- [ ] **全屏关系定档（定义 ④）**
-  - 现状三平台不一：Linux `_NET_WM_STATE_ABOVE` 通常被全屏盖住；Windows `HWND_TOPMOST` 在独占全屏与 DWM 全屏下表现不同，无确定语义；macOS 带 `FullScreenAuxiliary`，明确压在全屏之上。
-  - 待定：默认取「系统条」语义（被全屏盖住）；辅助浮层形态显式开关（如 `set_over_fullscreen(bool)`）——macOS 默认去掉 `FullScreenAuxiliary`、开关打开再加；Windows 需真机分别测独占全屏与 DWM 全屏两条路后再定实现。
-  - 验收：三平台在全屏 App 打开时的表现与所选语义一致；开关即切即生效，切档不残留旧行为。
+  - 口径：这是「跟随」不是「钉住」——切桌面瞬间窗口从旧桌面消失、在新桌面出现，观感等价但语义弱一档，文档不写成「同时存在于所有桌面」。
+  - 验收：Win10 / Win11 各切一次桌面——面板随当前桌面出现且仍在普通窗口之上；切回原桌面不残留第二扇；回 Normal 档后行为与普通窗一致；`SHOWCASE-PROF` 对照无可见帧掉。
+- [ ] **全屏窗口下（三平台对齐定义）**
+  - **macOS 现在是反的**：`wm_set_layer` 的 Dock 档带 `NSWindowCollectionBehaviorFullScreenAuxiliary`，效果是压在全屏 App 之上。按定义要去掉这一位，改为全屏时不可见（退出全屏回来）。验收：全屏 App 打开时面板消失、退出后原位复现、切 Space 行为不变。
+  - **Windows 无「普通窗口上、全屏之下」这个档**：`HWND_TOPMOST` 是唯一能稳定压住普通窗口的手段，而独占全屏（DX）会盖掉 topmost 窗口、DWM 无边框全屏不一定。候选做法：用 `SHQueryUserNotificationState` 判 `QUNS_RUNNING_D3D_FULL_SCREEN` / `QUNS_PRESENTATION_MODE`，进入时临时 `HWND_NOTOPMOST` + `HWND_TOP`，退出回 `HWND_TOPMOST`。先真机分别测「独占全屏」与「F11 / 视频全屏」两路，再决定要不要这条降档逻辑；若两路表现已符合定义则不做。
+  - **Linux 待验层序**：`_NET_WM_STATE_ABOVE` 与 `_NET_WM_STATE_FULLSCREEN` 的先后由 WM 决定，XFCE 已过，需在 KDE / GNOME / Cinnamon 各验一次全屏 App 打开时面板是否被盖住；若某 DE 相反，登记为平台差异而不是改实现。
 
 ## 4. 已知边界与风险
 
