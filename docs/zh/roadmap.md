@@ -231,6 +231,11 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ⏳ **终端模拟**：等宽网格 + ANSI 颜色 + 光标，做成可嵌入的终端控件
 - ⏳ **WebGL 画布**：WebGL 上下文嵌进自绘区，走 GPU 合成那条线
 - ⏳ **macOS GIF 分帧合成**：disposal 需探测先回证；现退回首帧静图
+- ⏳ **虚线（`set_dashes`）**：Painter 状态加 dash 与偏移，Cairo 侧走原生 `cairo_set_dash`；Windows 走纯光栅器，虚线要在折线层按累计弧长切段（闭合子路径的接缝与相位需定口径）。当前没有消费方，等图表参考线、自绘标题栏分隔这类需求带起来
+
+### 文字排印
+
+- ⏳ **字距（`letter_spacing`）**：样式层已暴露这个参数、测量与绘制没接，等于存了不用。接法：`Font` 加 spacing 字段并进度量缓存键，三条分支各用自己的原语——Pango 字距属性、DirectWrite `IDWriteTextLayout1::SetCharacterSpacing`、CoreText `kCTKern`；量宽与绘制同源，末字是否计一间与取整口径需三平台探针回证
 
 ### 输入与浮层
 
@@ -292,8 +297,6 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ## 明确不做
 
-- **`letter_spacing` 生效**：样式层收这个参数，测量与绘制没接（存了不用）；要用得先让文本栈支持字距。
-- **`set_dashes` 与虚线**：Painter 面不提供虚线，要虚线自己按段画。
 - **macOS 四族**（Linux / Windows 有实现，macOS 明确不做）：窗口管理（要 Accessibility 授权；Linux 走 `wmctrl`）、夜间色温（CoreBrightness 私有；Linux 走 `redshift` / `xrandr`）、电源方案（`pmset` 对不上三值语义；Linux / Windows 都有）、媒体播放器枚举（无 MPRIS 对等物）。
 - **单平台能力进跨平台门面**：只有单一平台实现的能力不做门面，也不留挂账。
 - **Linux 工具包升级**：留守 GTK3——它是 deepin 20 到 Ubuntu 26 的公共交集；不引入 Qt。
