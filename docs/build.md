@@ -37,13 +37,18 @@ When debugging, first reproduce with a new main target: a fresh target is always
 
 ## 4. Vendored large files and mirrors
 
-Three third-party files are kept out of git — committing them would permanently bloat the git history — and are downloaded by prebuild when missing: `WebView2.h`, `WebView2LoaderStatic.lib`, `miniaudio.h`, about 18.6 MB in total.
+Three third-party files are kept out of git — committing them would permanently bloat the git history — and are downloaded by **each module's own prebuild** when missing: about 18 MB in total. Anything already in place is left alone; prebuild only fills gaps.
 
-- **Verification first**: a file is written only if its sha256 matches the constants in the two prebuild scripts, so any mirror is verifiable.
-- **Mirrors are tried in order**: GitHub → Gitee, with no latency probing, so two machines never fetch different content from different sources.
-- **20 s per source**: a direct connection to a GitHub Release asset from a CN network can stall at zero bytes for a long time; failing over quickly beats waiting.
-- **Swapping or adding a source**: edit one line of `VENDOR_BASES` in `gui/scripts/prebuild.py` and in `modules/gui-media/prebuild.py`. The two copies are deliberate — `gui-media` must be able to publish standalone.
-- **Intranet and offline**: the `NATIVE_GUI_VENDOR_BASE` environment variable takes a single base or a comma-separated list, tried first. You can also place the files at their target paths by hand — prebuild only downloads when missing and never touches existing files.
+| File | Downloaded by | When |
+|---|---|---|
+| `WebView2LoaderStatic.lib` (11 MB), `WebView2.h` (2.8 MB) | `modules/gui-webview/prebuild.py` | **Windows only**; Linux / macOS skip them and save 14 MB |
+| `miniaudio.h` (4 MB) | `modules/gui-media/prebuild.py` | Whenever missing (every platform compiles it) |
+
+- **Verification first**: a file is written only if its sha256 matches the constant in that prebuild script, so any mirror is verifiable.
+- **Mirrors**: GitHub Release → Gitee, with no latency probing — but the two modules differ. Webview **races the mirrors in parallel** (whichever returns a sha-verified file first wins, so the total cost is the fastest mirror); gui-media tries them serially in order.
+- **Timeouts**: 20 s per source, plus a **60 s overall budget**. `urlopen`'s timeout is socket-level — it does not cover DNS stalls or a slow trickle, and relying on it alone can hang a build.
+- **Swapping or adding a source**: edit one line of `VENDOR_BASES` in `modules/gui-webview/prebuild.py` and of `_VENDOR_BASES` in `modules/gui-media/prebuild.py`. The two copies are deliberate — both modules must be able to publish standalone. **The Gitee user differs from GitHub** (the repo lives under `noahliu0911` on Gitee vs `lb091188` on GitHub); copying the wrong one returns 404, and it only shows up when GitHub is unreachable.
+- **Intranet and offline**: the `NATIVE_GUI_VENDOR_BASE` environment variable takes a single base or a comma-separated list, tried first; setting it also disables the parallel race (webview goes serial). You can also place the files at their target paths by hand.
 - If every source fails, prebuild does not abort; it prints the manual-placement hint and leaves the missing-file error to the link step.
 
 Licenses and provenance: [THIRD-PARTY-NOTICES.md](/THIRD-PARTY-NOTICES.md).
