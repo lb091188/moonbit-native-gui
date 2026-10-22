@@ -1,5 +1,5 @@
 // App 宿主：把「窗口 + 事件循环 + 控件树 + 输入法通道 + 上屏」收成一处，
-// 分层依据 proposals/module-structure.md §3.1（App/Window、脏区重绘、命中测试、组件宿主同在 `widget`）。
+// 分层依据：App/Window、脏区重绘、命中测试、组件宿主同在 `widget`。
 //
 // 一条重要的分层约束：`input` 只依赖 `base`、与本包互不引用，所以编辑器与
 // 宿主的接缝做成控件回调形态——`on_key` /
