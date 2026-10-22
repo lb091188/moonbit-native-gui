@@ -1,10 +1,9 @@
 // 窗口页：窗口 API × 全局快捷键 × 拖放（应用内 + 系统级拖入 / 拖出）。
 //
 // 三条口径：
-// ① 窗口段只放后端真写得通的按钮——不放「最大化/还原」「置顶切换」（平台没有
-//    的能力不强推，见前端化设计文档的口径）；改尺寸用 `set_size_pixels`；取窗口
-//    经宿主 `App::window()`（控件层拿不到窗口，`set_fullscreen` 收在宿主上；
-//    标题/尺寸/无边框这类窗口级动作由上层直调 `@win.Window`）；
+// ① 窗口段只放后端真写得通的按钮；改尺寸用 `set_size_pixels`；取窗口经宿主
+//    `App::window()`（控件层拿不到窗口，`set_fullscreen` 收在宿主上；标题/
+//    尺寸/无边框/最大化这类窗口级动作由上层直调 `@win.Window`）；
 // ② 全局快捷键走 `@shell.hotkey_*` 门面（W22）：注册收 `Result`，命中经
 //    `hotkey_poll` 抽（id→加速串回查表在门面里，页内只记注册返回的句柄用于
 //    注销）；轮询表挂宿主 200ms 一拍；
@@ -84,6 +83,60 @@ fn win_button(
 }
 
 ///|
+/// 透明测试窗：单开一扇**无边框**窗，开背景透视后只放几块不透明的卡片。
+/// 主窗看不了这个效果——整页铺满底色，没有「没铺到的像素」；本窗根容器不铺底，
+/// 卡片之外那圈像素就是透明的，桌面从那里透出来。字直接落在透明底上时，
+/// 字形不透明、字后面的像素透明，抗锯齿边缘按半透明合成。
+fn open_transparent_demo(app : @shared.App, out : @base.Store[String]) -> Unit {
+  fn card(title : String, body : String) -> @widget.Node {
+    @ui.view(
+      [@ui.text(title, role=@ui.Title), @ui.text(body, role=@ui.Body)],
+      background_color="bg_panel",
+      border_color="primary",
+      padding=12.0,
+      row_gap=4.0,
+      corner_radius=10.0,
+    )
+  }
+
+  match app.host.val {
+    Some(a) =>
+      match a.open_window(380, 280, @shared.tx("透明窗测试")) {
+        Some(child) => {
+          let w = child.window()
+          // 先无边框再开透视：标题栏那块归系统画，留着它就不跟透视走
+          w.set_borderless(true)
+          w.set_transparent_bg(true)
+          child.mount([
+            @ui.col(
+              [
+                card(@shared.tx("这块不透明"), @shared.tx("卡片之外那圈像素应当是透明的，能看到桌面。")),
+                @ui.text(
+                  @shared.tx("这行字直接落在透明底上：字不透明，字后面的像素透明。"),
+                  role=@ui.Secondary,
+                ),
+                @ui.view(
+                  [@ui.button(@shared.tx("关掉本窗"), variant=@ui.Danger, on_click=fn() {
+                    child.close_window()
+                  })],
+                  background_color="bg_panel",
+                  padding=10.0,
+                  corner_radius=10.0,
+                ),
+              ],
+              row_gap=12.0,
+              padding=16.0,
+            ),
+          ])
+          out.set(@shared.tx("已开透明测试窗：无边框 + 背景透视，卡片外应透出桌面"))
+        }
+        None => out.set(@shared.tx("这台机器开不了第二扇窗（无窗口后端）"))
+      }
+    None => out.set(@shared.tx("宿主还没就绪"))
+  }
+}
+
+///|
 /// 窗口页。页内私有状态（回显/热键句柄/两个切换态）不进共享 App。
 pub fn page_window(app : @shared.App) -> @widget.Node {
   let last_op : @base.Store[String] = @base.Store::new(@shared.tx("（尚无操作）"))
@@ -92,6 +145,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
   let fs : Ref[Bool] = Ref(false)
   let bl : Ref[Bool] = Ref(false)
   let sz : Ref[Int] = Ref(1280)
+  let max_out : @base.Store[String] = @base.Store::new(@shared.tx("（未读过）"))
   // 快捷键：门面回查表在 shell 里，页内只记自己注册过的句柄（注销用）
   let hotkeys : Ref[Array[@shell.Hotkey]] = Ref([])
   let hk_status : @base.Store[String] = @base.Store::new(@shared.tx("（未注册）"))
@@ -104,6 +158,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
   let multiwin_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没开过子窗）"))
   let layer_out : @base.Store[String] = @base.Store::new(@shared.tx("（尚无操作）"))
   let transparent_on : Ref[Bool] = Ref(false)
+  let tw_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没开过透明测试窗）"))
   fn win_set_opacity(alpha : Int) -> Unit {
     match app.host.val {
       Some(a) => {
@@ -133,7 +188,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
     @shared.section(
       "窗口",
       "窗口 API",
-      "运行期操作窗口：改标题 / 全屏 / 尺寸切换（1280×720 ↔ 960×540）/ 无边框。系统标题栏自带的「最大化」按钮三平台都有，不用演示；「置顶」走上面的窗口层级档。这里不放最大化按钮，是因为本栈还没有 set_maximized 程序化接口——无边框形态下自绘标题栏里放不出这个键。",
+      "运行期操作窗口：改标题 / 全屏 / 尺寸切换（1280×720 ↔ 960×540）/ 无边框 / 最大化与还原。系统标题栏自带的「最大化」按钮三平台本来就有，`set_maximized` / `is_maximized` 补的是无边框自绘标题栏里自己放这个键的能力；`is_maximized` 现问平台不读缓存，所以你手点系统按钮之后它读出来的也是对的。「置顶」走下面的窗口层级档。",
       [
         @ui.row(
           [
@@ -163,11 +218,54 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
         ),
         @ui.row(
           [
+            win_button(app, last_op, @shared.tx("最大化"), fn(w : @win.Window) -> Unit {
+              w.set_maximized(true)
+              max_out.set(
+                if w.is_maximized() {
+                  @shared.tx("最大化态读回：true")
+                } else {
+                  @shared.tx("最大化态读回：false（这台机器没兑现）")
+                },
+              )
+            }),
+            win_button(app, last_op, @shared.tx("还原"), fn(w : @win.Window) -> Unit {
+              w.set_maximized(false)
+              max_out.set(
+                if w.is_maximized() {
+                  @shared.tx("最大化态读回：true（还原没兑现）")
+                } else {
+                  @shared.tx("最大化态读回：false")
+                },
+              )
+            }),
+            @ui.button(@shared.tx("读最大化态"), variant=@ui.Text, on_click=fn() {
+              match app.host.val {
+                Some(a) => {
+                  last_op.set(@shared.tx("读最大化态"))
+                  max_out.set(
+                    if a.window().is_maximized() {
+                      @shared.tx("最大化态读回：true（手点系统按钮也读得对）")
+                    } else {
+                      @shared.tx("最大化态读回：false")
+                    },
+                  )
+                }
+                None => ()
+              }
+            }),
+            @ui.text(@shared.tx("先点「最大化」再点「读最大化态」，也可手点系统按钮后回来读"), role=@ui.Secondary),
+          ],
+          column_gap=8.0,
+          align_items=@yoga.AlignItems::Center,
+        ),
+        @ui.row(
+          [
             @ui.text(@shared.tx("最近操作："), role=@ui.Secondary),
             @ui.bind_label(last_op, fn(s) { s }),
           ],
           column_gap=6.0,
         ),
+        @ui.bind_label(max_out, fn(s) { s }),
       ],
       code=[
         "// 宿主句柄挂载时由 main 的 handle 回调填入；窗口门面经它取",
@@ -178,6 +276,9 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
         "    w.set_fullscreen(true)",
         "    w.set_size_pixels(1280, 720)",
         "    w.set_borderless(true)",
+        "    w.set_maximized(true)      // 最大化",
+        "    if w.is_maximized() { }    // 现问平台，不读缓存布尔",
+        "    w.set_maximized(false)     // 还原",
         "  }",
         "  None => ()",
         "}",
@@ -486,7 +587,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
     @shared.section(
       "透明度",
       "窗口透明与背景穿透",
-      "`Window::set_opacity` 调整窗 alpha（0–255，需合成器；无合成器静默无效）。`set_transparent_bg` 打开背景穿透——控件没铺满的地方透出桌面/下层内容。两个档位可以叠：先开背景穿透，再调 alpha。",
+      "两件不同的事。`set_opacity` 是**整窗 alpha**（0–255）——连同文字与控件一起变淡，需要合成器，没有就静默无效。`set_transparent_bg` 是**背景透视**——控件没铺到的像素留成透明，桌面从那些洞透出来，铺了底色的控件照旧不透明。主窗看不了后者的效果：这一页整片铺满底色，没有「没铺到的像素」；点下面的「开透明测试窗」单开一扇无边框窗，里面只放几块卡片来验。",
       [
         @ui.row(
           [
@@ -501,7 +602,11 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
                 Some(a) => {
                   a.window().set_transparent_bg(on)
                   layer_out.set(
-                    if on { @shared.tx("背景穿透：开（控件未覆盖处透出桌面）") } else { @shared.tx("背景穿透：关") },
+                    if on {
+                      @shared.tx("背景穿透：开（本页铺满底色，看得见的只有 alpha 的变化；要点下面的测试窗才看得见透视）")
+                    } else {
+                      @shared.tx("背景穿透：关")
+                    },
                   )
                 }
                 None => ()
@@ -510,13 +615,36 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
           ],
           column_gap=8.0,
         ),
+        @ui.row(
+          [
+            @ui.button(@shared.tx("开透明测试窗"), on_click=fn() {
+              open_transparent_demo(app, tw_out)
+            }),
+            @ui.text(
+              @shared.tx("测试窗：无边框 + 背景透视，卡片外那圈应当是桌面；窗内自带「关掉本窗」"),
+              role=@ui.Secondary,
+            ),
+          ],
+          column_gap=8.0,
+          align_items=@yoga.AlignItems::Center,
+        ),
+        @ui.bind_label(tw_out, fn(s) { s }),
         @ui.bind_label(layer_out, fn(s) { s }),
       ],
       code=[
-        "// 整窗 alpha（0–255）",
+        "// 整窗 alpha（0–255）：连字一起淡，需合成器",
         "app.window().set_opacity(128) // 50%",
-        "// 背景穿透：控件没铺满的地方透出下层",
+        "// 背景透视：控件没铺到的像素留透明，桌面从洞里透出",
         "app.window().set_transparent_bg(true)",
+        "// 要看得见，得有一扇「根不铺底」的窗：单开一扇，只放不透明卡片",
+        "match app.open_window(380, 280, \"透明窗测试\") {",
+        "  Some(child) => {",
+        "    child.window().set_borderless(true)",
+        "    child.window().set_transparent_bg(true)",
+        "    child.mount([@ui.col([card1, card2], padding=16.0)]) // 根容器不给底色",
+        "  }",
+        "  None => ()",
+        "}",
       ],
     ),
 
