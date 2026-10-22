@@ -516,11 +516,11 @@
     { id: 'SC-9.7', app: 'showcase', page: '事件与布局', sec: '多击与组合键', t: '双击 / 三击 / 组合键', d: '双击与三击回调都跑到（400ms + 4px 阈值）；bind_combo 组合键在窗内命中' },
 
     /* --- 10 窗口 --- */
-    { id: 'SC-10.1', app: 'showcase', page: '窗口', sec: '窗口', t: '窗口 API', d: '改标题 / 全屏 / 1280×720 ↔ 960×540 / 无边框逐项生效；页面刻意不放最大化与置顶按钮' },
+    { id: 'SC-10.1', app: 'showcase', page: '窗口', sec: '窗口', t: '窗口 API', d: '改标题 / 全屏 / 1280×720 ↔ 960×540 / 无边框逐项生效；最大化后客户区变大、读回 true，还原后回到原位与尺寸、读回 false；手点系统按钮后读回也对' },
     { id: 'SC-10.2', app: 'showcase', page: '窗口', sec: '快捷键', t: '全局快捷键', d: 'Windows 下 Ctrl+Alt+C 在别的应用前台也命中；非 Windows 注册返回 Unsupported 而不是崩' },
     { id: 'SC-10.3', app: 'showcase', page: '窗口', sec: '拖放', t: '应用内拖放与系统拖入', d: '色块拖出 4px 起拖、目标面板描主色边、松手成交，可连续多次；从文件管理器拖文件进窗也能收到' },
     { id: 'SC-10.4', app: 'showcase', page: '窗口', sec: '多窗口', t: '开子窗 / 关子窗', d: '开第二扇窗后窗数 +1、活动窗切换正确；关子窗后计数回落，主窗不受影响' },
-    { id: 'SC-10.5', app: 'showcase', page: '窗口', sec: '透明度', t: '透明度与背景穿透', d: 'set_opacity 在有合成器时生效、无合成器静默无效不崩；开背景穿透后未铺满处透出下层' },
+    { id: 'SC-10.5', app: 'showcase', page: '窗口', sec: '透明度', t: '透明度与背景穿透', d: 'set_opacity 逐档变淡（无合成器静默无效不崩）；主窗开着穿透看不出变化是正常的（整页铺满底色）；「开透明测试窗」后为无边框窗、卡片外那圈透出桌面、卡片仍不透明' },
     { id: 'SC-10.6', app: 'showcase', page: '窗口', sec: '层级', t: '窗口层级嵌入', d: 'Normal / Desktop / DesktopWidget / AlwaysOnTop 各档 z-order 符合预期；Desktop 档鼠标事件归桌面' },
 
     /* --- 11 系统集成 --- */
