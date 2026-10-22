@@ -30,7 +30,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **改标题**：运行期改窗口标题；`set_window_title_localized` 可让它随语言重写
 - ✅ **改尺寸**：1280×720 ↔ 960×540 两档切换，切完布局照常重排
 - ✅ **全屏**：切全屏与还原；全屏态下自绘区跟着变大
-- 🚧 **最大化 / 还原（程序化）**：`set_maximized` / `is_maximized`，给无边框自绘标题栏自己放这个键用；读回现问平台不读缓存（macOS 已验；Linux / Windows 待真机）
+- 🚧 **最大化 / 还原（接口）**：`set_maximized` / `is_maximized`（macOS 已验；Linux / Windows 待真机）
 - ✅ **无边框**：切无边框窗口；标题栏与边框消失，内容区不变形
 - ✅ **显隐驻留**：`hide` / `show` 一对；`show` 唤回 hide 前的屏幕原点，不是居中重开
 - ✅ **多窗口**：`open_window` / `close_window` / `window_count` / `active_window` 四个门面
@@ -279,6 +279,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ### 桌面环境
 
+
 | 功能点          | XFCE | KDE | GNOME | Cinnamon | deepin 20 | deepin 23 | deepin 25 |
 | ------------ | ---- | --- | ----- | -------- | --------- | --------- | --------- |
 | 系统托盘         | ✅    | ？   | ？     | ✅        |           |           | ？         |
@@ -288,13 +289,10 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 | 默认应用 / 应用枚举  | ✅    | ？   | ？     | ？        |           |           | ？         |
 | 文件管理器「打开并选中」 | ✅    | ？   | ？     | ✅        |           |           | ？         |
 
-
-
 ## 明确不做
 
 - **macOS 四族**（Linux / Windows 有实现，macOS 明确不做）：窗口管理（要 Accessibility 授权；Linux 走 `wmctrl`）、夜间色温（CoreBrightness 私有；Linux 走 `redshift` / `xrandr`）、电源方案（`pmset` 对不上三值语义；Linux / Windows 都有）、媒体播放器枚举（无 MPRIS 对等物）。
-- **单平台能力进跨平台门面**：只有单一平台实现的能力不做门面，也不留挂账。
-- **Linux 工具包升级**：留守 GTK3——它是 deepin 20 到 Ubuntu 26 的公共交集；不引入 Qt。
+- **Linux 工具包升级**：留守 GTK3—— 低版本兼容的保障。
 - **原生控件皮肤**：不作主题化路径；按平台开关的原生兜底例外需逐条登记评审。
 - **按参考实现平移接口**：接口由真实用例驱动，不为对齐而补。
 
