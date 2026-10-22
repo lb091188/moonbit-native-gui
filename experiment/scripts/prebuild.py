@@ -44,7 +44,7 @@ def pkg_config(args: list[str], flag: str) -> list[str] | None:
 def link_configs() -> dict:
     if platform.system() != "Linux":
         print(
-            "experiment(prebuild): 非 Linux 平台降级为空 link_configs（ime_probe Windows 走 portable 桩零额外库）",
+            "experiment(prebuild): Windows 走 portable 桩，零额外库",
             file=sys.stderr,
         )
         return {"link_configs": []}
