@@ -37,12 +37,16 @@ rm -rf _build/native/debug/build/examples/<示例>/<示例>   # 该示例重链
 
 ## 4. vendor 大文件与镜像
 
-`WebView2.h`、`WebView2LoaderStatic.lib`、`miniaudio.h` 三个第三方文件不入库，入库会永久占用 git 历史体积，改由**各自模块的 prebuild** 在缺失时下载，合计约 18 MB。已在位的不动——prebuild 只补缺。
+`WebView2.h`、`WebView2LoaderStatic.lib`、`miniaudio.h` 三个第三方文件，以及 FFmpeg 的两个运行期归档（Windows 的 dll zip、macOS arm64 的 dylib tar.gz），都不入库——入库会永久占用 git 历史体积，改由**各自模块的 prebuild** 在缺失时下载。已在位的不动：prebuild 只补缺。
 
 | 文件 | 下载方 | 何时下载 |
 |---|---|---|
 | `WebView2LoaderStatic.lib`（11 MB）、`WebView2.h`（2.8 MB） | `modules/gui-webview/prebuild.py` | **仅 Windows**；Linux / macOS 直接跳过，省下 14 MB |
 | `miniaudio.h`（4 MB） | `modules/gui-media/prebuild.py` | 缺失即下（各平台都要编） |
+| `ffmpeg-windows-x64-9.0-lgpl-shared.zip`（约 64 MB，7 支 dll） | `modules/ffmpeg-mbt/prebuild.py` | **仅 Windows** 且本地缺运行期 dll；取不到再退 BtbN 上游 |
+| `ffmpeg-macos-arm64-9.0.2-lgpl-shared.tar.gz`（约 10 MB，5 支 dylib + 头） | 同上 | **仅 macOS arm64** 且缺 `vendor/mac`；装了 brew ffmpeg 的机器走 pkg-config，不下载 |
+
+FFmpeg 这两个归档**由我们制作**（macOS 自编 LGPLv3、@rpath 化，Windows 是从 BtbN lgpl-shared 重打包运行期 dll），不是上游现成产物——所以它们的授权文本与源码提供义务单独记在 [THIRD-PARTY-NOTICES.md](/THIRD-PARTY-NOTICES.md)。
 
 - **校验优先**：sha256 与 prebuild 里的常量一致才落盘，任何镜像都可验证。
 - **镜像**：GitHub Release → Gitee，都**不做延迟探测**。两模块策略不同——webview 默认**并行竞速**（谁先交出校验通过的文件用谁，总耗时等于最快镜像）；gui-media 串行按序。
