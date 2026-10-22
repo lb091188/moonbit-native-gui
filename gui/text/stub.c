@@ -68,7 +68,10 @@ static PangoLayout *pt_make_layout(const char *text, int len, double size,
   pango_context_set_base_dir(pango_layout_get_context(layout),
                              g_pt_rtl ? PANGO_DIRECTION_RTL
                                        : PANGO_DIRECTION_LTR);
-  // 字距：letter_spacing 属性（Pango units）。0 不挂 attr list，与未启用时逐位同源
+  pango_layout_set_text(layout, text, len);
+  // 字距：letter_spacing 属性（Pango units）。0 不挂 attr list，与未启用时逐位同源。
+  // 必须挂在 set_text **之后**：先挂属性再 set_text 时属性作用在当时的空文本上，
+  // Linux 真机实测量宽差恒为 0（spacing_wbtest 红）；文本就位后再挂才被 shaping 吃到。
   if (spacing != 0.0) {
     PangoAttrList *attrs = pango_attr_list_new();
     if (attrs != NULL) {
@@ -78,7 +81,6 @@ static PangoLayout *pt_make_layout(const char *text, int len, double size,
       pango_attr_list_unref(attrs);
     }
   }
-  pango_layout_set_text(layout, text, len);
   return layout;
 }
 
