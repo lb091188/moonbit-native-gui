@@ -124,9 +124,8 @@ pub fn Window::set_layer(self : Window, layer : WindowLayer) -> Unit {
 
 ///|
 /// 背景透视：开启后控件没铺到的像素留成透明，桌面从那里透出来；铺了底色的
-/// 控件照旧不透明（这一点与 `set_opacity` 的整窗 alpha 不同）。
-/// Linux/GTK 走 `gtk_widget_set_app_paintable`；Win32 打开 `WS_EX_LAYERED` 位；
-/// macOS 走 `opaque=NO` + 清底 + 视图声明非不透明。
+/// 控件照旧不透明（这一点与 `set_opacity` 的整窗 alpha 不同），两者可以叠加。
+/// Windows 上要先 `set_borderless(true)`：带边框时自动退回不透视。
 /// 要看得见效果，窗里得真有「没铺到的像素」——整页铺满底色的窗看不出来。
 pub fn Window::set_transparent_bg(self : Window, on : Bool) -> Unit {
   wm_set_transparent_bg(self.id, if on { 1 } else { 0 })

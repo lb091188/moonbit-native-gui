@@ -129,6 +129,21 @@ typedef struct {
   int hidden;
   int hidden_x;
   int hidden_y;
+  // 透明（W33）：trans_want 是上层意图，trans_mode 是当前实际档位。
+  //   0 = 普通档：GDI 贴图 + SetLayeredWindowAttributes(LWA_ALPHA) 做整窗 alpha
+  //   1 = 逐像素档：GDI 贴图不参与合成，改由 UpdateLayeredWindow(ULW_ALPHA) 提交
+  // 两档都要占 WS_EX_LAYERED，而 LWA_ALPHA 与逐像素 alpha 互斥（同一时刻只能
+  // 一种），故必须由 mode 决定谁在管这个位，不能各自开各自的。
+  // 逐像素档要求客户区 == 整窗（提交的位图就是整窗内容），故限无边框形态。
+  int trans_want;
+  int trans_mode;
+  int opacity; // 0–255；逐像素档当 SourceConstantAlpha 用
+  HDC layer_dc;     // 逐像素档的提交面：32bpp DIB + 兼容 DC
+  HBITMAP layer_bmp;
+  void *layer_bits;
+  HGDIOBJ layer_old;
+  int layer_w;
+  int layer_h;
   // 「图标下」现场（W34）：挂进壁纸 WorkerW 前的样式与父窗，切走原样还回去
   int desk_embedded;
   LONG_PTR desk_style;
@@ -539,7 +554,10 @@ static LRESULT CALLBACK wm_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       PAINTSTRUCT ps;
       HDC dc = BeginPaint(hwnd, &ps);
       if (w != NULL) {
-        if (w->frame != NULL && w->pending_w > 0 && w->pending_h > 0) {
+        if (w->trans_mode == 1) {
+          // 逐像素档：合成面已由 UpdateLayeredWindow 整块替换，GDI 这一趟什么
+          // 都不该画（画了就不透）；BeginPaint/EndPaint 只为把脏区销掉
+        } else if (w->frame != NULL && w->pending_w > 0 && w->pending_h > 0) {
           wm_blit(dc, w);
         } else {
           w->need_draw = 1;
@@ -841,6 +859,7 @@ int64_t wm_window_new(int width, int height, const char *title) {
   }
   WmWindow *w = &wm_windows[id];
   memset(w, 0, sizeof(*w));
+  w->opacity = 255; // memset 后是 0：逐像素档会拿它当 SourceConstantAlpha，不置满窗全透
   w->width = width > 1 ? width : 1;
   w->height = height > 1 ? height : 1;
   wchar_t wtitle[256];
@@ -913,13 +932,100 @@ int wm_is_hidden(int64_t id) {
   return wm_windows[id].hidden;
 }
 
-/* W33 窗口透明度（0–255，255=不透明）。Win32 走 WS_EX_LAYERED + SetLayeredWindowAttributes。 */
-void wm_set_opacity(int64_t id, int alpha) {
-  if (id <= 0 || id >= WM_MAX_WINDOWS) return;
-  WmWindow *w = &wm_windows[id];
-  if (w->hwnd == NULL) return;
+/* ---- 透明两档的公共件（W33）--------------------------------------------
+ * 为什么不能只靠 LWA_ALPHA：它把整窗当一张不透明图统一乘 alpha，帧里
+ * a=0 的像素照样被画成不透明——「背景穿透」要的逐像素 alpha 它给不了。
+ * 逐像素只能走 UpdateLayeredWindow(ULW_ALPHA)：自己持一块 32bpp 预乘
+ * BGRA 的 DIB，把帧原样拷进去整窗提交。这与 Bitmap 的字节口径完全一致
+ * （见文件头「像素缓冲归 MoonBit」），所以不需要任何换序或预乘换算。
+ * 代价是：提交的位图就是**整窗内容**，故只在客户区 == 整窗（无边框）时成立。 */
+static void wm_layer_release(WmWindow *w) {
+  if (w->layer_dc != NULL) {
+    if (w->layer_old != NULL) SelectObject(w->layer_dc, w->layer_old);
+    DeleteDC(w->layer_dc);
+    w->layer_dc = NULL;
+  }
+  if (w->layer_bmp != NULL) {
+    DeleteObject(w->layer_bmp);
+    w->layer_bmp = NULL;
+  }
+  w->layer_old = NULL;
+  w->layer_bits = NULL;
+  w->layer_w = 0;
+  w->layer_h = 0;
+}
+
+static int wm_layer_ensure(WmWindow *w, int bw, int bh) {
+  if (w->layer_dc != NULL && w->layer_w == bw && w->layer_h == bh) {
+    return 1;
+  }
+  wm_layer_release(w);
+  BITMAPINFO bi;
+  memset(&bi, 0, sizeof(bi));
+  bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+  bi.bmiHeader.biWidth = bw;
+  bi.bmiHeader.biHeight = -bh; // 负高 = 自上而下，与 Bitmap 的行序一致
+  bi.bmiHeader.biPlanes = 1;
+  bi.bmiHeader.biBitCount = 32;
+  bi.bmiHeader.biCompression = BI_RGB;
+  HDC screen = GetDC(NULL);
+  if (screen == NULL) {
+    return 0;
+  }
+  void *bits = NULL;
+  HBITMAP bmp = CreateDIBSection(screen, &bi, DIB_RGB_COLORS, &bits, NULL, 0);
+  ReleaseDC(NULL, screen);
+  if (bmp == NULL || bits == NULL) {
+    if (bmp != NULL) DeleteObject(bmp);
+    return 0;
+  }
+  HDC dc = CreateCompatibleDC(NULL);
+  if (dc == NULL) {
+    DeleteObject(bmp);
+    return 0;
+  }
+  w->layer_old = SelectObject(dc, bmp);
+  w->layer_dc = dc;
+  w->layer_bmp = bmp;
+  w->layer_bits = bits;
+  w->layer_w = bw;
+  w->layer_h = bh;
+  return 1;
+}
+
+/* 逐像素档的一次提交。pptDst / psize 都给 NULL：位置与尺寸沿用当前窗口
+ * （无边框形态下窗口尺寸就是客户区，正好等于位图尺寸）；若给 psize 非空，
+ * UpdateLayeredWindow 会顺手把窗口改成那个尺寸——带边框的窗会被切掉标题栏。 */
+static void wm_layered_submit(WmWindow *w) {
+  if (w->hwnd == NULL || w->frame == NULL || w->pending_w < 1 ||
+      w->pending_h < 1) {
+    return;
+  }
+  if (!wm_layer_ensure(w, w->pending_w, w->pending_h)) {
+    return;
+  }
+  size_t need = (size_t)w->pending_w * (size_t)w->pending_h * 4;
+  memcpy(w->layer_bits, w->frame, need);
+  HDC screen = GetDC(NULL);
+  if (screen == NULL) {
+    return;
+  }
+  POINT src = {0, 0};
+  BLENDFUNCTION bf;
+  bf.BlendOp = AC_SRC_OVER;
+  bf.BlendFlags = 0;
+  bf.SourceConstantAlpha = (BYTE)w->opacity;
+  bf.AlphaFormat = AC_SRC_ALPHA;
+  UpdateLayeredWindow(w->hwnd, screen, NULL, NULL, w->layer_dc, &src, 0, &bf,
+                      ULW_ALPHA);
+  ReleaseDC(NULL, screen);
+}
+
+/* 普通档的整窗 alpha。逐像素档在管 layered 位时不许走这里——LWA_ALPHA 会把
+ * 逐像素结果整个覆盖成「统一不透明度」，透视当场消失。 */
+static void wm_apply_alpha(WmWindow *w) {
   LONG ex = GetWindowLongW(w->hwnd, GWL_EXSTYLE);
-  if (alpha >= 255) {
+  if (w->opacity >= 255) {
     if (ex & WS_EX_LAYERED) {
       SetLayeredWindowAttributes(w->hwnd, 0, 255, LWA_ALPHA);
       SetWindowLongW(w->hwnd, GWL_EXSTYLE, ex & ~WS_EX_LAYERED);
@@ -929,8 +1035,43 @@ void wm_set_opacity(int64_t id, int alpha) {
   if (!(ex & WS_EX_LAYERED)) {
     SetWindowLongW(w->hwnd, GWL_EXSTYLE, ex | WS_EX_LAYERED);
   }
-  if (alpha < 0) alpha = 0;
-  SetLayeredWindowAttributes(w->hwnd, 0, (BYTE)alpha, LWA_ALPHA);
+  SetLayeredWindowAttributes(w->hwnd, 0, (BYTE)w->opacity, LWA_ALPHA);
+}
+
+/* 按「意图 + 形态」决定实际档位：透视只在无边框时兑现（见上），边框回来就退回
+ * 普通档，但 opacity 照旧生效——两个门面从此互不踩踏。 */
+static void wm_apply_trans(WmWindow *w) {
+  if (w->hwnd == NULL) {
+    return;
+  }
+  int want = (w->trans_want && w->borderless) ? 1 : 0;
+  if (want && w->trans_mode == 0) {
+    LONG ex = GetWindowLongW(w->hwnd, GWL_EXSTYLE);
+    if (!(ex & WS_EX_LAYERED)) {
+      SetWindowLongW(w->hwnd, GWL_EXSTYLE, ex | WS_EX_LAYERED);
+    }
+    w->trans_mode = 1;
+    wm_layered_submit(w); // 已有帧就立刻重提交，不必等下一次 present
+  } else if (!want && w->trans_mode == 1) {
+    w->trans_mode = 0;
+    wm_layer_release(w);
+    wm_apply_alpha(w);
+    InvalidateRect(w->hwnd, NULL, FALSE);
+  }
+}
+
+/* W33 窗口透明度（0–255，255=不透明）。普通档走 WS_EX_LAYERED +
+ * SetLayeredWindowAttributes；逐像素档把它当 SourceConstantAlpha 乘进提交。 */
+void wm_set_opacity(int64_t id, int alpha) {
+  if (id <= 0 || id >= WM_MAX_WINDOWS) return;
+  WmWindow *w = &wm_windows[id];
+  if (w->hwnd == NULL) return;
+  w->opacity = alpha < 0 ? 0 : (alpha > 255 ? 255 : alpha);
+  if (w->trans_mode == 1) {
+    wm_layered_submit(w);
+    return;
+  }
+  wm_apply_alpha(w);
 }
 
 /* W34 窗口层级：0=normal 1=desktop(图标下) 2=always-on-top 3=dock
@@ -1038,22 +1179,15 @@ void wm_set_layer(int64_t id, int layer) {
   }
 }
 
-/* W33 背景透明：Win32 走 WS_EX_LAYERED + LWA_COLORKEY 一档（色键值当前留 0，
- * 完整语义要接 UpdateLayeredWindow；本档仅打开 layered 位，供后续批次深化）。 */
+/* W33 背景透视（Win32）：记意图，实际由 wm_apply_trans 折算成档位。
+ * 不能用 LWA_COLORKEY 顶替——色键只认一个颜色，帧里 a=0 的像素并不等于
+ * 某个固定 RGB，把键设成黑又会把真正的黑色像素一起打穿。 */
 void wm_set_transparent_bg(int64_t id, int on) {
   if (id <= 0 || id >= WM_MAX_WINDOWS) return;
   WmWindow *w = &wm_windows[id];
   if (w->hwnd == NULL) return;
-  LONG ex = GetWindowLongW(w->hwnd, GWL_EXSTYLE);
-  if (on) {
-    if (!(ex & WS_EX_LAYERED)) {
-      SetWindowLongW(w->hwnd, GWL_EXSTYLE, ex | WS_EX_LAYERED);
-    }
-  } else {
-    if (ex & WS_EX_LAYERED) {
-      SetWindowLongW(w->hwnd, GWL_EXSTYLE, ex & ~WS_EX_LAYERED);
-    }
-  }
+  w->trans_want = on ? 1 : 0;
+  wm_apply_trans(w);
 }
 
 void wm_size(int64_t id, int32_t *out_w, int32_t *out_h) {
@@ -1126,6 +1260,12 @@ void wm_present(int64_t id, const unsigned char *rgba, int width, int height) {
   memcpy(w->frame, rgba, need);
   w->pending_w = width;
   w->pending_h = height;
+  if (w->trans_mode == 1) {
+    // 逐像素档不走 WM_PAINT：那一刻窗口的合成面由 UpdateLayeredWindow 整块替换，
+    // 再请 GDI 重画反而会在提交之后把不透明像素糊上去
+    wm_layered_submit(w);
+    return;
+  }
   InvalidateRect(w->hwnd, NULL, FALSE);
 }
 
@@ -1154,7 +1294,8 @@ void wm_close(int64_t id) {
       wm_menus[i] = NULL;
     }
   }
-  // 帧拷贝归桩所有，拆窗前先放掉（memset 之后就拿不到指针了）
+  // 帧拷贝与逐像素提交面归桩所有，拆窗前先放掉（memset 之后就拿不到指针了）
+  wm_layer_release(w);
   free(w->frame);
   w->frame = NULL;
   w->frame_cap = 0;
@@ -1361,6 +1502,8 @@ void wm_set_borderless(int64_t id, int on) {
   SetWindowPos(w->hwnd, NULL, 0, 0, r.right - r.left, r.bottom - r.top,
                SWP_NOMOVE | SWP_NOZORDER | SWP_FRAMECHANGED);
   w->borderless = on ? 1 : 0;
+  // 透视只在客户区 == 整窗时兑现：边框回来就退普通档，去掉边框就按原意图升回去
+  wm_apply_trans(w);
 }
 
 /* 反读：当前最小尺寸（探针/测试用）。 */
@@ -4635,6 +4778,16 @@ int64_t wm_window_new(int width, int height, const char *title) {
   w->width = width > 1 ? width : 1;
   w->height = height > 1 ? height : 1;
   w->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+  // 背景透视要 32 位 visual，而 visual 只能在 realize **之前**选上（realize 后
+  // 再设是空操作）；所以建窗时就选好，不能等 set_transparent_bg 来了再补。
+  // 没有合成器时 alpha 被忽略、观感与不选它一致，故无需探测合成器。
+  {
+    GdkScreen *screen = gtk_window_get_screen(GTK_WINDOW(w->window));
+    GdkVisual *rgba = screen != NULL ? gdk_screen_get_rgba_visual(screen) : NULL;
+    if (rgba != NULL) {
+      gtk_widget_set_visual(w->window, rgba);
+    }
+  }
   gtk_window_set_title(GTK_WINDOW(w->window), title ? title : "MoonBit");
   gtk_window_set_default_size(GTK_WINDOW(w->window), w->width, w->height);
   w->area = gtk_drawing_area_new();
@@ -4897,14 +5050,18 @@ void wm_set_layer(int64_t id, int layer) {
   wm_mark_draw(w);
 }
 
-/* W33 背景透明（GTK 档）：开 app_paintable 让本窗自己填底色，配合
- * RGBA visual 可实现真·透明背景（本档只切 paintable 位，visual 选 RGBA
- * 的接入留到 prebuild/visual 探测批次一起做）。 */
+/* W33 背景透视（GTK 档）：app_paintable 关掉 GTK 自己的底色绘制，visual 已在
+ * 建窗时选定 32 位（见 wm_window_new），于是帧里 a=0 的像素真的透出下层。
+ * 只切 paintable 是不够的：visual 不是 RGBA 时 GTK 直接把 alpha 丢掉，
+ * 而 visual 又只能在 realize 前选——这就是本档「接了却没效果」的那半条。 */
 void wm_set_transparent_bg(int64_t id, int on) {
   if (id <= 0 || id >= WM_MAX_WINDOWS) return;
   WmWindow *w = &wm_windows[id];
   if (w->window == NULL) return;
   gtk_widget_set_app_paintable(w->window, on ? TRUE : FALSE);
+  // 切完要重画一次：GTK 不会因为 paintable 变了就自己把旧底清掉
+  gtk_widget_queue_draw(w->window);
+  wm_mark_draw(w);
 }
 
 void wm_size(int64_t id, int32_t *out_w, int32_t *out_h) {

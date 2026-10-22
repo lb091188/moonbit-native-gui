@@ -36,8 +36,8 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **多窗口**：`open_window` / `close_window` / `window_count` / `active_window` 四个门面
 - ✅ **窗口句柄与主窗判定**：`wid` 取句柄、`is_primary` 判主窗
 - ✅ **消息泵与每帧调度**：宿主事件循环：投递、命中、重排重绘都在这一拍里
-- 🚧 **窗口透明**：`set_opacity` 0–255，整窗连字一起淡；无合成器时静默无效（Linux 过；macOS 已验；Windows 施工中）
-- 🚧 **背景穿透**：`set_transparent_bg` 打开后控件没铺到的像素留透明，桌面从洞里透出（Linux 过；macOS 已接待真机；Windows 施工中）
+- 🚧 **窗口透明**：`set_opacity` 0–255，整窗连字一起淡；无合成器时静默无效（macOS 已验；Linux / Windows 待真机）
+- 🚧 **背景穿透**：`set_transparent_bg` 打开后控件没铺到的像素留透明，桌面从洞里透出；Windows 需无边框（macOS 已验；Linux / Windows 待真机）
 - 🚧 **层级：普通档**：`WindowLayer::Normal`，与系统普通窗同档（Linux 过；Windows 待验）
 - 🚧 **层级：图标下**：`Desktop`，压在桌面图标之下（Linux 过；Windows 待验）
 - 🚧 **层级：图标上**：`DesktopWidget`，桌面小部件位，本窗照收键鼠（Linux 过；Windows 待验）
@@ -222,7 +222,6 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 ### 窗口
 
 - ⏳ **窗口内按键路由补齐**：跨页切换后的按键兜底路由，避免失焦后按键进不了页
-- ⏳ **窗口透明补口**：补 Windows 合成器路径与 macOS 的 alpha 通道
 
 ### 渲染
 
