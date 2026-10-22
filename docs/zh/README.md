@@ -72,6 +72,6 @@ cd examples/hello && moon run .
 | [system-capabilities.md](system-capabilities.md) | 系统能力总览（`@sys`）：音量、应用查找、色温、壁纸、显示器、窗口管理、剪贴板监听、系统信息、打印机、最近文件、浏览器历史等，统一 `Result` 语义；含子进程与 D-Bus 调用层两块共享基建 |
 | [THIRD-PARTY-NOTICES.md](../THIRD-PARTY-NOTICES.md) | 第三方授权与来源：随源码入库的资产、我们自编或重打包挂在 Release 上的二进制、以及随之而来的分发义务 |
 
-对内的工程记录——平台适配经验、Linux 托盘设计、前端化设计、模块拆分方案、GPU 架构决策——在仓库的 [`proposals/`](https://github.com/lb091188/moonbit-native-gui/tree/master/proposals) 目录，不在本站发布。
+对内的工程记录——平台适配经验、Linux 托盘设计、前端化设计、GPU 架构决策——在仓库的 [`proposals/`](https://github.com/lb091188/moonbit-native-gui/tree/master/proposals) 目录，不在本站发布。
 
 项目总览与快速开始入口见仓库根 [README_ZH.md](https://github.com/lb091188/moonbit-native-gui/blob/master/README_ZH.md)。

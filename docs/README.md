@@ -72,7 +72,7 @@ cd examples/hello && moon run .
 | [system-capabilities.md](system-capabilities.md) | System capabilities overview (`@sys`): volume, app lookup, color temperature, wallpaper, monitors, window management, clipboard watch, system info, printers, recent files, browser history and more, with unified `Result` semantics; plus the shared subprocess and D-Bus call layers |
 | [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) | Third-party licenses and provenance: assets shipped in-repo, binaries we build and host on Releases, and the obligations that follow (Chinese only) |
 
-Internal engineering records — platform adaptation field notes, the Linux tray design, the frontend-style design, the module-split plan and the GPU architecture decision — live in the repository's [`proposals/`](https://github.com/lb091188/moonbit-native-gui/tree/master/proposals) directory and are not published on this site.
+Internal engineering records — platform adaptation field notes, the Linux tray design, the frontend-style design and the GPU architecture decision — live in the repository's [`proposals/`](https://github.com/lb091188/moonbit-native-gui/tree/master/proposals) directory and are not published on this site.
 
 For the project overview and quick start, see [README.md](https://github.com/lb091188/moonbit-native-gui/#readme) at the repository root.
 
