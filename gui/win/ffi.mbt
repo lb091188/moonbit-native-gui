@@ -204,6 +204,14 @@ extern "c" fn wm_window_toggle_fullscreen(id : Int64) -> Unit =
   "wm_window_toggle_fullscreen"
 
 ///|
+extern "c" fn wm_window_set_maximized(id : Int64, on : Int) -> Unit =
+  "wm_window_set_maximized"
+
+///|
+extern "c" fn wm_window_is_maximized(id : Int64) -> Int =
+  "wm_window_is_maximized"
+
+///|
 extern "c" fn wm_window_surface_count(id : Int64) -> Int =
   "wm_window_surface_count"
 

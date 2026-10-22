@@ -301,6 +301,23 @@ pub fn Window::toggle_fullscreen(self : Window) -> Unit {
 }
 
 ///|
+/// 最大化 / 还原（程序化）。给无边框自绘标题栏自己放这个键用；有系统标题栏的
+/// 窗口三键本来就有，这里补的是「自绘档也能切换」。
+///
+/// 后端：Win32 `ShowWindow(SW_MAXIMIZE/SW_RESTORE)`、GTK `gtk_window_maximize`
+/// /`unmaximize`、macOS `zoom:`。幂等：已是目标态再调不重做。
+pub fn Window::set_maximized(self : Window, on : Bool) -> Unit {
+  wm_window_set_maximized(self.id, if on { 1 } else { 0 })
+}
+
+///|
+/// 当前是否最大化：**现问平台**，不读缓存布尔——用户点了系统按钮（或 WM 自己
+/// 最大化）之后这里也要读得对。后端不可用返回 false。
+pub fn Window::is_maximized(self : Window) -> Bool {
+  wm_window_is_maximized(self.id) != 0
+}
+
+///|
 /// 设绘图区光标形状：0 默认箭头 / 1 手型 / 2 文本 I 形 / 3 横向调整 / 4 纵向调整。
 /// 全自绘栈没有原生控件，形状只能由宿主按命中路径下发（见 `Widget::cursor_at`）。
 pub fn Window::set_cursor(self : Window, kind : Int) -> Unit {
