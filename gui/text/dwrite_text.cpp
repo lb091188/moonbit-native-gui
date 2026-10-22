@@ -23,6 +23,7 @@
 #include <d2d1.h>
 #include <d2d1helper.h> // D2D1::ColorF/Point2F/RenderTargetProperties（C++ 头）
 #include <dwrite.h>
+#include <dwrite_1.h> // IDWriteTextLayout1::SetCharacterSpacing（字距）
 #include <wincodec.h> // WIC 位图渲染目标（比 DC 目标快：绑一次、不逐调用重绑）
 #include <stdint.h>
 #include <stdio.h>
@@ -199,11 +200,11 @@ static int g_layout_cache_count = 0;
 static std::string ptw_cache_key(const char *path, const char *text, int len,
                                  double size, const char *family, int weight,
                                  int italic, int width_int, int wrap,
-                                 int ellipsize, int align) {
+                                 int ellipsize, int align, double spacing) {
   char head[160];
-  snprintf(head, sizeof(head), "%s|%g|%s|%d|%d|%d|%d|%d|%d|%d|", path, size,
+  snprintf(head, sizeof(head), "%s|%g|%s|%d|%d|%d|%d|%d|%d|%d|%g|", path, size,
            family != nullptr ? family : "", weight, italic, width_int, wrap,
-           ellipsize, align, g_pt_rtl);
+           ellipsize, align, g_pt_rtl, spacing);
   std::string key(head);
   if (text != nullptr && len > 0) {
     key.append(text, static_cast<size_t>(len));
@@ -218,11 +219,11 @@ static IDWriteTextLayout *ptw_cached_layout(const char *path, const char *text,
                                             int len, double size,
                                             const char *family, int weight,
                                             int italic, int width_int,
-                                            int wrap, int ellipsize,
-                                            int align) {
+                                            int wrap, int ellipsize, int align,
+                                            double spacing) {
   const std::string key = ptw_cache_key(path, text, len, size, family, weight,
                                         italic, width_int, wrap, ellipsize,
-                                        align);
+                                        align, spacing);
   auto it = g_layout_cache.find(key);
   if (it != g_layout_cache.end()) {
     return it->second;
@@ -241,6 +242,19 @@ static IDWriteTextLayout *ptw_cached_layout(const char *path, const char *text,
     layout->SetTextAlignment(align == 1   ? DWRITE_TEXT_ALIGNMENT_CENTER
                              : align == 2 ? DWRITE_TEXT_ALIGNMENT_TRAILING
                                           : DWRITE_TEXT_ALIGNMENT_LEADING);
+  }
+  // 字距：DWrite 的口在 IDWriteTextLayout1::SetCharacterSpacing（Win8+ 一等接口）。
+  // 只给 trailing：每个字的前进量各加一份 ⇒ 整串宽 = 自然宽 + 字符数 × spacing
+  // （与 Pango 的 letter_spacing、CSS letter-spacing 同口径；leading 也给会在
+  // 字与字之间加两倍）。
+  if (spacing != 0.0) {
+    IDWriteTextLayout1 *l1 = nullptr;
+    if (SUCCEEDED(layout->QueryInterface(__uuidof(IDWriteTextLayout1),
+                                         reinterpret_cast<void **>(&l1))) &&
+        l1 != nullptr) {
+      l1->SetCharacterSpacing(0.0f, static_cast<FLOAT>(spacing), 0.0f);
+      l1->Release();
+    }
   }
   layout->SetReadingDirection(
       g_pt_rtl ? DWRITE_READING_DIRECTION_RIGHT_TO_LEFT
@@ -274,22 +288,22 @@ extern "C" void pt_set_base_dir(int rtl) {
 
 extern "C" int pt_measure_font(const char *text, int len, double size,
                                const char *family, int weight, int italic,
-                               int max_width, int ellipsize, int wrap,
-                               int32_t *out_w, int32_t *out_h,
+                               double spacing, int max_width, int ellipsize,
+                               int wrap, int32_t *out_w, int32_t *out_h,
                                int32_t *out_baseline);
 
 extern "C" int pt_measure(const char *text, int len, double size,
-                          const char *family, int max_width, int ellipsize,
-                          int wrap, int32_t *out_w, int32_t *out_h,
-                          int32_t *out_baseline) {
-  return pt_measure_font(text, len, size, family, 400, 0, max_width, ellipsize,
-                         wrap, out_w, out_h, out_baseline);
+                          const char *family, double spacing, int max_width,
+                          int ellipsize, int wrap, int32_t *out_w,
+                          int32_t *out_h, int32_t *out_baseline) {
+  return pt_measure_font(text, len, size, family, 400, 0, spacing, max_width,
+                         ellipsize, wrap, out_w, out_h, out_baseline);
 }
 
 extern "C" int pt_measure_font(const char *text, int len, double size,
                                const char *family, int weight, int italic,
-                               int max_width, int ellipsize, int wrap,
-                               int32_t *out_w, int32_t *out_h,
+                               double spacing, int max_width, int ellipsize,
+                               int wrap, int32_t *out_w, int32_t *out_h,
                                int32_t *out_baseline) {
   if (text == nullptr || out_w == nullptr || out_h == nullptr ||
       out_baseline == nullptr) {
@@ -297,7 +311,7 @@ extern "C" int pt_measure_font(const char *text, int len, double size,
   }
   IDWriteTextLayout *layout = ptw_cached_layout("m", text, len, size, family,
                                                 weight, italic, max_width,
-                                                wrap, ellipsize, 0);
+                                                wrap, ellipsize, 0, spacing);
   if (layout == nullptr) {
     return 0;
   }
@@ -1051,13 +1065,13 @@ void ptw_box_offsets(IDWriteTextLayout *layout, int align, int valign,
 extern "C" int pt_draw(unsigned char *data, int buf_w, int buf_h, double x,
                        double y, const char *text, int len, double size,
                        const char *family, int r, int g, int b, int a,
-                       int max_width, int ellipsize, int wrap) {
+                       double spacing, int max_width, int ellipsize, int wrap) {
   if (data == nullptr || text == nullptr || buf_w < 1 || buf_h < 1) {
     return 0;
   }
   IDWriteTextLayout *layout = ptw_cached_layout("m", text, len, size, family,
                                                 400, 0, max_width, wrap,
-                                                ellipsize, 0);
+                                                ellipsize, 0, spacing);
   if (layout == nullptr) {
     return 0;
   }
@@ -1079,7 +1093,7 @@ extern "C" int pt_draw_box(unsigned char *data, int buf_w, int buf_h, double x,
                            const char *text, int len, double size,
                            const char *family, int weight, int italic, int r,
                            int g, int b, int a, int align, int valign,
-                           int ellipsize, int wrap) {
+                           int ellipsize, int wrap, double spacing) {
   if (data == nullptr || text == nullptr || buf_w < 1 || buf_h < 1) {
     return 0;
   }
@@ -1087,7 +1101,7 @@ extern "C" int pt_draw_box(unsigned char *data, int buf_w, int buf_h, double x,
   IDWriteTextLayout *layout = ptw_cached_layout(
       "b", text, len, size, family, weight, italic,
       wrapped_axis ? static_cast<int>(box_w) : 0, wrap, ellipsize,
-      wrapped_axis ? align : 0);
+      wrapped_axis ? align : 0, spacing);
   if (layout == nullptr) {
     return 0;
   }
@@ -1109,11 +1123,12 @@ extern "C" int pt_draw_box_cr(int64_t cr_id, double x, double y, double box_w,
                               double box_h, const char *text, int len,
                               double size, const char *family, int weight,
                               int italic, int r, int g, int b, int a, int align,
-                              int valign, int ellipsize, int wrap) {
+                              int valign, int ellipsize, int wrap,
+                              double spacing) {
   (void)cr_id; (void)x; (void)y; (void)box_w; (void)box_h; (void)text;
   (void)len; (void)size; (void)family; (void)weight; (void)italic; (void)r;
   (void)g; (void)b; (void)a; (void)align; (void)valign; (void)ellipsize;
-  (void)wrap;
+  (void)wrap; (void)spacing;
   return 0; // Windows 无 cairo 会话：MoonBit 侧按 cairo_id()==None 走光栅路径
 }
 

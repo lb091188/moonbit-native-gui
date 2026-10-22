@@ -88,7 +88,7 @@ pub fn Font::resolve(self : Font) -> Font {
   if self.name.length() == 0 || family_available(self.name) {
     self
   } else {
-    Font::new("", self.size, weight=self.weight, style=self.style)
+    Font::new("", self.size, weight=self.weight, style=self.style, spacing=self.spacing)
   }
 }
 

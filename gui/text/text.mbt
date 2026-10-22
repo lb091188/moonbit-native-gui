@@ -12,6 +12,7 @@ extern "c" fn pt_measure(
   len : Int,
   size : Double,
   family : Bytes,
+  spacing : Double,
   max_width : Int,
   ellipsize : Int,
   wrap : Int,
@@ -47,6 +48,7 @@ extern "c" fn pt_draw(
   g : Int,
   b : Int,
   a : Int,
+  spacing : Double,
   max_width : Int,
   ellipsize : Int,
   wrap : Int,
@@ -61,6 +63,7 @@ extern "c" fn pt_measure_font(
   family : Bytes,
   weight : Int,
   italic : Int,
+  spacing : Double,
   max_width : Int,
   ellipsize : Int,
   wrap : Int,
@@ -85,6 +88,7 @@ extern "c" fn pt_draw_box(
   family : Bytes,
   weight : Int,
   italic : Int,
+  spacing : Double,
   r : Int,
   g : Int,
   b : Int,
@@ -135,8 +139,9 @@ pub fn measure(
   max_width? : Int = 0,
   ellipsize? : Bool = false,
   wrap? : Bool = false,
+  spacing? : Double = 0.0,
 ) -> TextMetrics? {
-  measure_cached(text, size, family, max_width, ellipsize, wrap)
+  measure_cached(text, size, family, max_width, ellipsize, wrap, spacing)
 }
 
 ///|
@@ -147,6 +152,7 @@ fn measure_uncached(
   max_width : Int,
   ellipsize : Bool,
   wrap : Bool,
+  spacing : Double,
 ) -> TextMetrics? {
   let tb = @utf8.encode(text)
   let fb = @utf8.encode(family)
@@ -158,6 +164,7 @@ fn measure_uncached(
     tb.length(),
     size,
     fb,
+    spacing,
     max_width,
     if ellipsize { 1 } else { 0 },
     if wrap { 1 } else { 0 },
@@ -227,6 +234,7 @@ pub fn draw_to(
   max_width? : Int = 0,
   ellipsize? : Bool = false,
   wrap? : Bool = false,
+  spacing? : Double = 0.0,
 ) -> Bool {
   if target.width < 1 || target.height < 1 {
     return false
@@ -254,6 +262,7 @@ pub fn draw_to(
     c.g,
     c.b,
     c.a,
+    spacing,
     max_width,
     if ellipsize { 1 } else { 0 },
     if wrap { 1 } else { 0 },
@@ -302,6 +311,7 @@ fn measure_font_uncached(
     fb,
     weight_value(font.weight),
     style_id(font.style),
+    font.spacing,
     max_width,
     if ellipsize { 1 } else { 0 },
     if wrap { 1 } else { 0 },
@@ -574,6 +584,7 @@ pub fn draw_in_box(
     fb,
     weight_value(font.weight),
     style_id(font.style),
+    font.spacing,
     c.r,
     c.g,
     c.b,
@@ -599,6 +610,7 @@ extern "c" fn pt_draw_box_cr(
   family : Bytes,
   weight : Int,
   italic : Int,
+  spacing : Double,
   r : Int,
   g : Int,
   b : Int,
@@ -668,6 +680,7 @@ pub fn draw_box_at(
     fb,
     weight_value(font.weight),
     style_id(font.style),
+    font.spacing,
     c.r,
     c.g,
     c.b,

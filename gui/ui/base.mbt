@@ -148,7 +148,11 @@ fn text_eff(
     Some(v) => v
     None => f0.weight
   }
-  let font = @text.Font::new(fam, sz, weight=wt, style=f0.style)
+  let sp = match st.letter_spacing {
+    Some(v) => v
+    None => f0.spacing
+  }
+  let font = @text.Font::new(fam, sz, weight=wt, style=f0.style, spacing=sp)
   let align = match st.text_align {
     Some(v) => v
     None => src.align

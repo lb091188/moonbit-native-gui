@@ -144,9 +144,10 @@ pub fn clear_measure_caches() -> Unit {
 }
 
 ///|
-/// 字体键：族名 + 字号 + 字重 + 字形（度量只由这四者决定）。
+/// 字体键：族名 + 字号 + 字重 + 字形 + 字距（度量由这五者决定；漏掉字距会
+/// 让不同字距的同一串命中同一条宽度）。
 fn font_key(f : Font) -> String {
-  f.name + "\u{1F}" + f.size.to_string() + "\u{1F}" + weight_value(f.weight).to_string() + "\u{1F}" + style_id(f.style).to_string()
+  f.name + "\u{1F}" + f.size.to_string() + "\u{1F}" + weight_value(f.weight).to_string() + "\u{1F}" + style_id(f.style).to_string() + "\u{1F}" + f.spacing.to_string()
 }
 
 ///|
@@ -184,7 +185,7 @@ pub fn measure_font_cached(
 }
 
 ///|
-/// 测量（族名 + 字号）：键 = 族名 + 字号 + 宽度约束 + 标志 + 文本。
+/// 测量（族名 + 字号）：键 = 族名 + 字号 + 字距 + 宽度约束 + 标志 + 文本。
 pub fn measure_cached(
   text : String,
   size : Double,
@@ -192,10 +193,11 @@ pub fn measure_cached(
   max_width : Int,
   ellipsize : Bool,
   wrap : Bool,
+  spacing : Double,
 ) -> TextMetrics? {
-  let key = family + "\u{1F}" + size.to_string() + "\u{1F}" + max_width.to_string() + "\u{1F}" + (if ellipsize { "1" } else { "0" }) + "\u{1F}" + (if wrap { "1" } else { "0" }) + "\u{1F}" + text
+  let key = family + "\u{1F}" + size.to_string() + "\u{1F}" + spacing.to_string() + "\u{1F}" + max_width.to_string() + "\u{1F}" + (if ellipsize { "1" } else { "0" }) + "\u{1F}" + (if wrap { "1" } else { "0" }) + "\u{1F}" + text
   cache_get(g_measure_cache, key, fn() {
-    measure_uncached(text, size, family, max_width, ellipsize, wrap)
+    measure_uncached(text, size, family, max_width, ellipsize, wrap, spacing)
   })
 }
 
