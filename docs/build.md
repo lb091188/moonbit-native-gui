@@ -48,7 +48,20 @@ Three third-party files are kept out of git — committing them would permanentl
 
 Licenses and provenance: [THIRD-PARTY-NOTICES.md](/THIRD-PARTY-NOTICES.md).
 
-## 5. Related
+## 5. Adding an example module
+
+Dependency isolation is per module, not per package: the imports in `moon.mod` decide a module's whole dependency closure, and `moon.pkg` can only pick packages already resolved there. So "one example must not drag in the others" requires **one module per example** — packing several examples into one `moon.mod` re-couples them. To add one:
+
+1. Create `examples/<name>/` with `main.mbt` + `moon.pkg`, and its **own** `moon.mod`:
+   `name = "NoahLiu/native-gui-examples-<name>"`, importing only the modules this example really uses.
+2. Append `examples/<name>` to `members` in `moon.work`.
+3. Name it explicitly in CI if it needs to build or smoke-test; never replace that with a single `moon build` over the whole workspace (a failure then tells you nothing about who broke it).
+4. Artifacts follow the module name: `_build/native/<mode>/build/NoahLiu/native-gui-examples-<name>/native-gui-examples-<name>.exe`
+   (`scripts/make_app.sh` and `release-bin.yml` depend on this layout).
+
+`examples/assets/` is a shared asset directory, not a module — don't put code there.
+
+## 6. Related
 
 - Platform adaptation pitfalls and verification: [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md)
 - Environment setup and your first project: [tutorial.md](tutorial.md)

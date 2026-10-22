@@ -124,7 +124,7 @@ moon run examples/browser        # 内嵌 WebView 浏览器
 - **经验留档**：实测坑与修复写进 [adaptation.md](proposals/adaptation.md)，不要只留在提交信息里
 - **小批次**：一个提交一个内聚改动，提交信息简短
 
-完整流程见 [AGENTS.md](AGENTS.md)。
+完整流程见 [AGENTS.md](AGENTS.md)（约束清单）与 [docs/zh/build.md](docs/zh/build.md)（构建、链接、新增示例模块）。
 
 ## 许可
 
