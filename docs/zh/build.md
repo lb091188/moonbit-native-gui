@@ -48,7 +48,20 @@ rm -rf _build/native/debug/build/examples/<示例>/<示例>   # 该示例重链
 
 授权与来源见 [THIRD-PARTY-NOTICES.md](/THIRD-PARTY-NOTICES.md)。
 
-## 5. 相关
+## 5. 新增示例模块
+
+依赖隔离靠模块、不靠包：`moon.mod` 的 import 决定整个模块的依赖闭包，`moon.pkg` 只能从模块已解析的依赖里挑包。所以「某个示例不拖累其它示例」必须做成**每示例一个模块**，把多个示例塞进同一份 `moon.mod` 会重新耦合。新增一个示例：
+
+1. 建目录 `examples/<name>/`（含 `main.mbt` + `moon.pkg`），写一份**自己的** `moon.mod`：
+   `name = "NoahLiu/native-gui-examples-<name>"`，import 只列该示例真用到的模块。
+2. 把 `examples/<name>` 追加进 `moon.work` 的 `members`。
+3. 需要在 CI 里构建/冒烟就点名追加，别改成一个 `moon build` 扫整个 workspace（失败看不出是谁坏的）。
+4. 产物路径按模块名走：`_build/native/<mode>/build/NoahLiu/native-gui-examples-<name>/native-gui-examples-<name>.exe`
+   （`scripts/make_app.sh`、`release-bin.yml` 依赖这个口径）。
+
+`examples/assets/` 是共享资产目录，不是模块，不要往里放代码。
+
+## 6. 相关
 
 - 平台适配坑与验证：[adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md)
 - 环境准备与第一个工程：[tutorial.md](tutorial.md)
