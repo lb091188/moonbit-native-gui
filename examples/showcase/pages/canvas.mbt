@@ -277,6 +277,19 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
       "左盒只有基准字体，右盒把末尾「28」换成 28px——两个盒子的盒高都取 `line_height()` 的混排口径，右盒必须被抬起来；不存在的族名经 `resolve_family` 回退（CSS 列表口径）。",
       [
         @ui.view([font_mix_widget()], background_color="bg_panel", border_color="border", padding=8.0, class=[@style.style(border_radius=6.0)]),
+        // 字距：同一句话两档 `letter_spacing`，量宽与绘制同源（只吃在字符之间）
+        @ui.row(
+          [
+            @ui.text(@shared.tx("字距 0：MoonBit GUI 字距对照"), role=@ui.Body),
+            @ui.text(
+              @shared.tx("字距 4：MoonBit GUI 字距对照"),
+              role=@ui.Body,
+              class=[@style.style(letter_spacing=4.0)],
+            ),
+          ],
+          column_gap=24.0,
+          align_items=@yoga.AlignItems::Center,
+        ),
       ],
       code=[
         "let mixed = @text.AttributedText::new(\"基准 Base 28\")",
@@ -308,8 +321,111 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
         "let path = @render.Path::new()",
         "path.move_to(0.0, 0.0)",
         "path.line_to(40.0, 20.0)",
+        "path.bezier_curve_to(60.0, 0.0, 80.0, 40.0, 100.0, 20.0)",
         "path.close()",
         "p.draw_path(path)",
+      ],
+    ),
+
+    @shared.section(
+      "虚线",
+      "set_dashes 图案与相位",
+      "`set_dashes(图案, 相位)`：数组是 on/off 交替的段长（逻辑像素，跟缩放走），相位是图案的起笔偏移；`set_dashes([])` 回实线。三行分别是 `[10, 6]`、同图案 `offset=8`、清空回实线——第二行整条往后错 8px，段数不变。虚线进 `save/restore`，嵌套绘制不会串到下一条线。纯光栅后端只存 state（描边框仍在），Cairo 档才是真断段。",
+      [
+        @ui.view(
+          [dash_widget()],
+          background_color="bg_panel",
+          border_color="border",
+          padding=8.0,
+          class=[@style.style(border_radius=6.0)],
+        ),
+      ],
+      code=[
+        "p.set_line_width(2.0)",
+        "p.set_dashes([10.0, 6.0])          // 10 实 6 空",
+        "p.stroke_rect(20.0, 20.0, 460.0, 1.0)",
+        "p.set_dashes([10.0, 6.0], offset=8.0) // 相位后移 8px",
+        "p.set_dashes([])                   // 回实线",
+      ],
+    ),
+
+    @shared.section(
+      "裁剪与变换",
+      "clip_rect / translate / rotate / scale",
+      "左块先 `clip_rect` 再画一串越界的圆与横线——超出矩形的部分被切掉，只留 120×120 那块；右块用 `translate` 挪原点、`rotate` 转 20°、`scale` 放大 1.6 倍各画一个圆角块。三者都改当前变换矩阵，必须包在 `save` / `restore` 里，否则后面的绘制全跟着歪。",
+      [
+        @ui.view(
+          [clip_transform_widget()],
+          background_color="bg_panel",
+          border_color="border",
+          padding=8.0,
+          class=[@style.style(border_radius=6.0)],
+        ),
+      ],
+      code=[
+        "p.save()",
+        "p.clip_rect(20.0, 20.0, 120.0, 120.0)  // 之后画的都只在这块里",
+        "p.fill_rect(0.0, 0.0, 400.0, 400.0)",
+        "p.restore()                            // 裁剪跟着出栈",
+        "",
+        "p.save()",
+        "p.translate(380.0, 60.0)",
+        "p.rotate(0.349)                        // 20°",
+        "p.fill_round_rect(-60.0, -24.0, 120.0, 48.0, 8.0)",
+        "p.restore()",
+        "p.save()",
+        "p.translate(380.0, 170.0)",
+        "p.scale(1.6, 1.6)",
+        "p.fill_round_rect(-40.0, -12.0, 80.0, 24.0, 6.0)",
+        "p.restore()",
+      ],
+    ),
+
+    @shared.section(
+      "圆角与合成",
+      "圆角半径、抗锯齿与整层 alpha",
+      "上排三个同尺寸块只有圆角不同（0 / 8 / 24）：圆弧走真圆弧 + 1px 抗锯齿，斜边不出现台阶；圆角关掉（侧栏那个圆角开关）时退直角。下排是 `set_global_alpha`：同样三个圆叠着画，右边那次整层 35% —— alpha 是**绘制期乘算**，不是把颜色调淡，所以重叠处会自己叠深。",
+      [
+        @ui.view(
+          [round_alpha_widget()],
+          background_color="bg_panel",
+          border_color="border",
+          padding=8.0,
+          class=[@style.style(border_radius=6.0)],
+        ),
+      ],
+      code=[
+        "// 半径：0 / 8 / 24，同一个 96×56 块",
+        "p.fill_round_rect(x, y, 96.0, 56.0, 8.0)",
+        "p.stroke_round_rect(x, y, 96.0, 56.0, 8.0)",
+        "",
+        "// 整层 alpha：绘制期乘算，重叠处自然叠深",
+        "p.set_global_alpha(0.35)",
+        "p.arc(cx, cy, 34.0, 0.0, 6.28318)",
+        "p.fill()",
+        "p.set_global_alpha(1.0)",
+      ],
+    ),
+
+    @shared.section(
+      "位图",
+      "PNG / JPEG / GIF 首帧与缩放",
+      "`Image::new_from_file` 解 PNG / JPEG / GIF（动图只取首帧，动图播放见「过渡与效果」页），`draw_image` 缩放到目标矩形。下面同一张 PNG 画三档尺寸、再画 GIF 的首帧：放大靠双线性，图的宽高比按目标矩形走。",
+      [
+        @ui.view(
+          [image_widget()],
+          background_color="bg_panel",
+          border_color="border",
+          padding=8.0,
+          class=[@style.style(border_radius=6.0)],
+        ),
+      ],
+      code=[
+        "let img = @render.Image::new_from_file(\"assets/icon.png\")",
+        "if img.is_empty() { /* 图不在位：跳过，不崩 */ }",
+        "p.draw_image(img, 24.0, 24.0, 64.0, 64.0)    // 缩到 64",
+        "p.draw_image(img, 120.0, 24.0, 128.0, 128.0) // 缩到 128",
+        "p.draw_image_from_rect(img, 280.0, 24.0, 120.0, 120.0, 0.0, 0.0, 40.0, 40.0)",
       ],
     ),
   ])
@@ -368,6 +484,226 @@ fn line_style_widget() -> @widget.Node {
       p.set_line_width(3.0)
       p.draw_path(path)
       p.stroke()
+    })
+    w
+  })
+}
+
+///|
+/// 示例资源路径候选（`moon run` 可能从仓库根或 `examples/` 起跑，逐个探测）。
+fn canvas_asset(name : String) -> String {
+  for c in [
+    "examples/showcase/assets/" + name,
+    "assets/" + name,
+    "showcase/assets/" + name,
+  ] {
+    if @sys.sys_path_exists(c) {
+      return c
+    }
+  }
+  "examples/showcase/assets/" + name
+}
+
+///|
+/// 虚线演示块：三行同一条横线，只有图案/相位不同。
+fn dash_widget() -> @widget.Node {
+  @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.node.set_width(@yoga.fixed(520.0))
+    w.node.set_height(@yoga.fixed(170.0))
+    w.on_draw = Some(fn(_w : @widget.Widget, p : @render.Painter, r : @base.Rect) -> Unit {
+      p.set_fill_color(@theme.theme_bg_panel())
+      p.fill_rect(0.0, 0.0, r.w, r.h)
+      p.set_stroke_color(@theme.theme_primary())
+      p.set_line_width(2.0)
+      // 三行：默认图案 / 相位后移 / 清空回实线
+      let rows : Array[(Array[Double], Double)] = [
+        ([10.0, 6.0], 0.0),
+        ([10.0, 6.0], 8.0),
+        ([], 0.0),
+      ]
+      for i in 0..<3 {
+        let (pat, off) = rows[i]
+        p.set_dashes(pat, offset=off)
+        p.begin_path()
+        p.move_to(24.0, 46.0 + i.to_double() * 44.0)
+        p.line_to(496.0, 46.0 + i.to_double() * 44.0)
+        p.stroke()
+      }
+      p.set_dashes([])
+      p.flush()
+      let notes : Array[String] = [
+        @shared.tx("set_dashes([10, 6])"),
+        @shared.tx("同一图案，offset = 8"),
+        @shared.tx("set_dashes([]) 回实线"),
+      ]
+      for i in 0..<3 {
+        let _ = @text.draw_text_at(
+          p,
+          24.0,
+          14.0 + i.to_double() * 44.0,
+          notes[i],
+          11.0,
+          @theme.theme_text_secondary(),
+        )
+      }
+    })
+    w
+  })
+}
+
+///|
+/// 裁剪与变换演示块：左边裁一块、右边转一个、放大一个。
+fn clip_transform_widget() -> @widget.Node {
+  @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.node.set_width(@yoga.fixed(520.0))
+    w.node.set_height(@yoga.fixed(240.0))
+    w.on_draw = Some(fn(_w : @widget.Widget, p : @render.Painter, r : @base.Rect) -> Unit {
+      p.set_fill_color(@theme.theme_bg_panel())
+      p.fill_rect(0.0, 0.0, r.w, r.h)
+      // 左：裁剪框
+      p.save()
+      p.clip_rect(24.0, 40.0, 140.0, 140.0)
+      p.set_fill_color(@theme.theme_primary_light())
+      p.fill_rect(0.0, 0.0, 300.0, 240.0)
+      p.set_fill_color(@theme.theme_primary())
+      for i in 0..<5 {
+        p.arc(40.0 + i.to_double() * 44.0, 110.0, 40.0, 0.0, 6.28318)
+        p.fill()
+      }
+      p.restore()
+      // 裁剪框边界（画在裁剪外面，看清切口）
+      p.set_stroke_color(@theme.theme_border())
+      p.set_line_width(1.0)
+      p.stroke_rect(24.0, 40.0, 140.0, 140.0)
+      // 右：变换三连
+      p.set_fill_color(@theme.theme_primary())
+      p.save()
+      p.translate(330.0, 90.0)
+      p.rotate(0.349)
+      p.fill_round_rect(-70.0, -28.0, 140.0, 56.0, 8.0)
+      p.restore()
+      p.save()
+      p.translate(330.0, 186.0)
+      p.scale(1.6, 1.6)
+      p.set_fill_color(@theme.theme_success())
+      p.fill_round_rect(-46.0, -14.0, 92.0, 28.0, 6.0)
+      p.restore()
+      p.flush()
+      let _ = @text.draw_text_at(
+        p,
+        24.0,
+        14.0,
+        @shared.tx("clip_rect(24, 40, 140, 140)"),
+        11.0,
+        @theme.theme_text_secondary(),
+      )
+      let _ = @text.draw_text_at(
+        p,
+        250.0,
+        14.0,
+        @shared.tx("translate + rotate(20°) / scale(1.6)"),
+        11.0,
+        @theme.theme_text_secondary(),
+      )
+    })
+    w
+  })
+}
+
+///|
+/// 圆角与整层 alpha：上排三档半径，下排叠圆（右半 35% alpha）。
+fn round_alpha_widget() -> @widget.Node {
+  @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.node.set_width(@yoga.fixed(520.0))
+    w.node.set_height(@yoga.fixed(220.0))
+    w.on_draw = Some(fn(_w : @widget.Widget, p : @render.Painter, r : @base.Rect) -> Unit {
+      p.set_fill_color(@theme.theme_bg_panel())
+      p.fill_rect(0.0, 0.0, r.w, r.h)
+      // 上排：半径 0 / 8 / 24
+      let radii : Array[Double] = [0.0, 8.0, 24.0]
+      for i in 0..<3 {
+        let x = 24.0 + i.to_double() * 160.0
+        p.set_fill_color(@theme.theme_primary_light())
+        p.fill_round_rect(x, 34.0, 140.0, 56.0, radii[i])
+        p.set_stroke_color(@theme.theme_primary())
+        p.set_line_width(1.0)
+        p.stroke_round_rect(x, 34.0, 140.0, 56.0, radii[i])
+      }
+      // 下排：三个圆，前两个不透明、后两个叠 35%
+      p.set_fill_color(@theme.theme_primary())
+      p.set_global_alpha(1.0)
+      for i in 0..<2 {
+        p.arc(90.0 + i.to_double() * 50.0, 158.0, 34.0, 0.0, 6.28318)
+        p.fill()
+      }
+      p.set_global_alpha(0.35)
+      for i in 0..<2 {
+        p.arc(240.0 + i.to_double() * 50.0, 158.0, 34.0, 0.0, 6.28318)
+        p.fill()
+      }
+      p.set_global_alpha(1.0)
+      p.flush()
+      let _ = @text.draw_text_at(
+        p,
+        24.0,
+        14.0,
+        @shared.tx("圆角 0 / 8 / 24（真圆弧 + 1px 抗锯齿）"),
+        11.0,
+        @theme.theme_text_secondary(),
+      )
+      let _ = @text.draw_text_at(
+        p,
+        200.0,
+        122.0,
+        @shared.tx("右边两个：set_global_alpha(0.35)"),
+        11.0,
+        @theme.theme_text_secondary(),
+      )
+    })
+    w
+  })
+}
+
+///|
+/// 位图：同一张 PNG 三档缩放 + GIF 首帧；图不在位时只画占位框，不崩。
+fn image_widget() -> @widget.Node {
+  @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.node.set_width(@yoga.fixed(520.0))
+    w.node.set_height(@yoga.fixed(200.0))
+    w.on_draw = Some(fn(_w : @widget.Widget, p : @render.Painter, r : @base.Rect) -> Unit {
+      p.set_fill_color(@theme.theme_bg_panel())
+      p.fill_rect(0.0, 0.0, r.w, r.h)
+      let png = @render.Image::new_from_file(canvas_asset("tray_moon_full.png"))
+      let gif = @render.Image::new_from_file(canvas_asset("dot.gif"))
+      if png.is_empty() {
+        p.set_stroke_color(@theme.theme_border())
+        p.set_line_width(1.0)
+        p.stroke_rect(24.0, 34.0, 64.0, 64.0)
+      } else {
+        p.draw_image(png, 24.0, 34.0, 64.0, 64.0)
+        p.draw_image(png, 108.0, 34.0, 128.0, 128.0)
+      }
+      if !gif.is_empty() {
+        // 源图 40×40 里只取左上 20×20，放大到 80×80（draw_image_from_rect）
+        p.draw_image_from_rect(gif, 260.0, 34.0, 80.0, 80.0, 0.0, 0.0, 20.0, 20.0)
+      }
+      p.flush()
+      let _ = @text.draw_text_at(
+        p,
+        24.0,
+        14.0,
+        @shared.tx("PNG 64×64 / 128×128，GIF 首帧取左上 20×20 放大到 80"),
+        11.0,
+        @theme.theme_text_secondary(),
+      )
+      let _ = @text.draw_text_at(
+        p,
+        360.0,
+        60.0,
+        @shared.tx("缩放不糊边"),
+        11.0,
+        @theme.theme_text_secondary(),
+      )
     })
     w
   })

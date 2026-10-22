@@ -1,5 +1,6 @@
 // 系统集成页：文件对话框 / 消息框 / 通知 / 剪贴板 / 定时器 / 托盘 / 自启 /
-// 外部打开 / 系统信息 / 音量。
+// 外部打开 / 系统信息 / 音量 / 平台专属能力（子进程、窗口管理、夜灯、电源、
+// 剪贴板监视）。
 //
 // 四条口径：
 // ① 未接的能力整段不放（按钮不摆，口径写进本草头与人工清单）：关闭拦截（无
@@ -97,6 +98,10 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
   let ext_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没打开过外部）"))
   let si_out : @base.Store[String] = @base.Store::new(@shared.tx("（点「刷新」读一次）"))
   let vol_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没读过音量）"))
+  // 平台专属能力：一个回显行管全部，剪贴板监视另带自己的行与句柄
+  let plat_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没动过）"))
+  let watch_out : @base.Store[String] = @base.Store::new(@shared.tx("（监视未启动）"))
+  let watcher : Ref[@sys.ClipboardWatcher?] = Ref(None)
   // 周期表句柄（0 = 没起）；停表用
   let tick_id : Ref[Int] = Ref(0)
   // 自启动开关：Store 是唯一态，subscribe 落进真实系统状态。
@@ -582,6 +587,213 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
         "@sys.vol_set_mute(true)",
       ],
     ),
+
+    @shared.section(
+      "平台专属",
+      "子进程与平台专属能力",
+      "这一组在路线图上都是「已实现」，但**对位只在部分平台**：按钮全摆出来，本机没有就当场报原因，不藏也不假装能用。`pr_run` 三平台都有（带超时与输出捕获）；窗口管理走 `wmctrl`、夜间色温走 `redshift` 或 `xrandr`、剪贴板监视轮询 `xclip` / `xsel`，这三样只有 Linux X11；电源计划 Linux 走 `powerprofilesctl`、Windows 走 PowerGet / SetActiveScheme。",
+      [
+        @ui.row(
+          [
+            @ui.button(@shared.tx("跑子进程"), on_click=fn() {
+              let is_win = @sys.sys_platform() == "windows"
+              let r = if is_win {
+                @sys.pr_run("cmd", ["/c", "echo hello from pr_run"])
+              } else {
+                @sys.pr_run("sh", ["-c", "echo hello from pr_run"])
+              }
+              match r {
+                Ok(o) =>
+                  plat_out.set(
+                    @shared.tr_with(
+                      "dyn.proc_ok",
+                      [("c", o.exit_code.to_string()), ("s", o.stdout.trim().to_owned())],
+                      "子进程退出码 \{o.exit_code}，输出：\{o.stdout.trim()}",
+                    ),
+                  )
+                Err(e) => plat_out.set("子进程失败：\{e}")
+              }
+            }),
+            @ui.button(@shared.tx("跑超时档"), variant=@ui.Soft, on_click=fn() {
+              let is_win = @sys.sys_platform() == "windows"
+              let r = if is_win {
+                @sys.pr_run("cmd", ["/c", "ping -n 3 127.0.0.1"], timeout_ms=150)
+              } else {
+                @sys.pr_run("sh", ["-c", "sleep 2"], timeout_ms=150)
+              }
+              match r {
+                Ok(o) => plat_out.set("超时档竟然跑完了，退出码 \{o.exit_code}")
+                Err(e) => plat_out.set("超时档按预期失败：\{e}")
+              }
+            }),
+            @ui.text(@shared.tx("pr_run：命令 + 参数 + 超时，回 stdout 与退出码"), role=@ui.Secondary),
+          ],
+          column_gap=8.0,
+          align_items=@yoga.AlignItems::Center,
+        ),
+        @ui.row(
+          [
+            @ui.button(@shared.tx("列窗口"), on_click=fn() {
+              if !@sys.win_supported() {
+                plat_out.set(@shared.tx("窗口管理：仅 Linux X11（走 wmctrl），本机没有"))
+              } else {
+                match @sys.win_list() {
+                  Ok(ws) => {
+                    let sb = StringBuilder()
+                    sb.write_string("窗口 \{ws.length()} 个（列前 5）：\n")
+                    let n = if ws.length() > 5 { 5 } else { ws.length() }
+                    for i in 0..<n {
+                      sb.write_string("  \{ws[i].id} · \{ws[i].title}\n")
+                    }
+                    plat_out.set(sb.to_string())
+                  }
+                  Err(e) => plat_out.set("窗口列表读不到：\{e}")
+                }
+              }
+            }),
+            @ui.button(@shared.tx("激活第一扇"), variant=@ui.Soft, on_click=fn() {
+              if !@sys.win_supported() {
+                plat_out.set(@shared.tx("激活窗口：仅 Linux X11（走 wmctrl）"))
+              } else {
+                match @sys.win_list() {
+                  Ok(ws) =>
+                    if ws.length() == 0 {
+                      plat_out.set(@shared.tx("没有可激活的窗口"))
+                    } else {
+                      match @sys.win_activate(ws[0].id) {
+                        Ok(_) => plat_out.set("已激活：\{ws[0].title}")
+                        Err(e) => plat_out.set("激活失败：\{e}")
+                      }
+                    }
+                  Err(e) => plat_out.set("窗口列表读不到：\{e}")
+                }
+              }
+            }),
+            @ui.text(@shared.tx("win_list / win_activate / win_close"), role=@ui.Secondary),
+          ],
+          column_gap=8.0,
+          align_items=@yoga.AlignItems::Center,
+        ),
+        @ui.row(
+          [
+            @ui.button(@shared.tx("夜间色温 60%"), on_click=fn() {
+              match @sys.nl_set_temperature(60) {
+                Ok(_) => plat_out.set(@shared.tx("夜间色温已设 60%（redshift 优先，否则 xrandr gamma）"))
+                Err(@sys.NightlightError::Unsupported) =>
+                  plat_out.set(@shared.tx("夜间色温：本机没有 redshift 也没有可用 xrandr 输出"))
+                Err(e) => plat_out.set("夜间色温设置失败：\{e}")
+              }
+            }),
+            @ui.button(@shared.tx("色温复位"), variant=@ui.Text, on_click=fn() {
+              match @sys.nl_reset() {
+                Ok(_) => plat_out.set(@shared.tx("夜间色温已复位"))
+                Err(@sys.NightlightError::Unsupported) =>
+                  plat_out.set(@shared.tx("夜间色温复位：本机没有色温后端"))
+                Err(e) => plat_out.set("复位失败：\{e}")
+              }
+            }),
+            @ui.button(@shared.tx("读电源计划"), variant=@ui.Soft, on_click=fn() {
+              if !@sys.pp_supported() {
+                plat_out.set(@shared.tx("电源计划：本机没有 powerprofilesctl（Linux）或 PowerGet（Windows）"))
+              } else {
+                match @sys.pp_current() {
+                  Ok(cur) =>
+                    match @sys.pp_profiles() {
+                      Ok(ps) => {
+                        let names : Array[String] = []
+                        for x in ps {
+                          names.push(x.to_string())
+                        }
+                        plat_out.set(
+                          @shared.tr_with(
+                            "dyn.pp_now",
+                            [("c", cur.to_string()), ("a", names.join(" / "))],
+                            "当前电源计划：\{cur}；可选：\{names.join(" / ")}",
+                          ),
+                        )
+                      }
+                      Err(e) => plat_out.set("电源计划列表读不到：\{e}")
+                    }
+                  Err(e) => plat_out.set("当前电源计划读不到：\{e}")
+                }
+              }
+            }),
+            @ui.button(@shared.tx("切性能档"), variant=@ui.Text, on_click=fn() {
+              match @sys.pp_set(@sys.PowerProfile::PPerformance) {
+                Ok(_) => plat_out.set(@shared.tx("电源计划已切到性能档"))
+                Err(e) => plat_out.set("切换失败：\{e}")
+              }
+            }),
+          ],
+          column_gap=8.0,
+        ),
+        @ui.row(
+          [
+            @ui.button(@shared.tx("启动剪贴板监视"), on_click=fn() {
+              match watcher.val {
+                Some(_) => watch_out.set(@shared.tx("监视已经在跑（改一下剪贴板试试）"))
+                None => {
+                  let w = @sys.cbw_start_watch(
+                    fn(ms : Int, f : () -> Unit) -> Unit {
+                      match app.host.val {
+                        Some(a) => ignore(a.timer(ms, f))
+                        None => ()
+                      }
+                    },
+                    interval_ms=800,
+                    fn(text : String) -> Unit {
+                      let t = if text.length() > 40 {
+                        sp_clip_text(text, 40)
+                      } else {
+                        text
+                      }
+                      watch_out.set("剪贴板变了：\{t}")
+                    },
+                  )
+                  watcher.val = Some(w)
+                  watch_out.set(@shared.tx("剪贴板监视已启动（800ms 轮询，仅 Linux X11）"))
+                }
+              }
+            }),
+            @ui.button(@shared.tx("停止监视"), variant=@ui.Text, on_click=fn() {
+              match watcher.val {
+                Some(w) => {
+                  @sys.cbw_stop(w)
+                  watcher.val = None
+                  watch_out.set(@shared.tx("剪贴板监视已停止"))
+                }
+                None => watch_out.set(@shared.tx("监视本来就没起"))
+              }
+            }),
+            @ui.text(@shared.tx("cbw_start_watch：宿主 timer 当排期通道"), role=@ui.Secondary),
+          ],
+          column_gap=8.0,
+          align_items=@yoga.AlignItems::Center,
+        ),
+        @ui.bind_label(plat_out, fn(s) { s }),
+        @ui.bind_label(watch_out, fn(s) { s }),
+      ],
+      code=[
+        "// 子进程（三平台）：命令 + 参数 + 超时，回 stdout 与退出码",
+        "match @sys.pr_run(\"sh\", [\"-c\", \"echo hello\"], timeout_ms=2000) {",
+        "  Ok(o) => println(\"{o.exit_code}: {o.stdout}\")",
+        "  Err(e) => println(\"{e}\")",
+        "}",
+        "// 窗口管理（仅 Linux X11，走 wmctrl）",
+        "match @sys.win_list() {",
+        "  Ok(ws) => @sys.win_activate(ws[0].id)",
+        "  Err(e) => ...",
+        "}",
+        "// 夜间色温（仅 Linux）",
+        "@sys.nl_set_temperature(60)",
+        "@sys.nl_reset()",
+        "// 电源计划（Linux / Windows）",
+        "@sys.pp_set(@sys.PowerProfile::PPerformance)",
+        "// 剪贴板监视（仅 Linux X11）：排期通道由宿主 timer 给",
+        "let w = @sys.cbw_start_watch(fn(ms, f) { app.timer(ms, f) }, cb=fn(t) { ... })",
+        "@sys.cbw_stop(w)",
+      ],
+    ),
   ])
 }
 
@@ -616,4 +828,22 @@ fn read_sysinfo() -> String {
   }
   sb.write_string("桌面：\{@sys.desktop_name()}")
   sb.to_string()
+}
+
+///|
+/// 按字符截断到前 n 个（超出补省略号）：剪贴板回显用，避免长文本顶穿一行。
+fn sp_clip_text(s : String, n : Int) -> String {
+  let buf = StringBuilder()
+  let mut i = 0
+  for ch in s {
+    if i >= n {
+      break
+    }
+    buf.write_char(ch)
+    i = i + 1
+  }
+  if i >= n {
+    buf.write_string("…")
+  }
+  buf.to_string()
 }
