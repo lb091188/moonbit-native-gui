@@ -18,4 +18,4 @@
 | [showcase-lazy-loading-and-router.md](showcase-lazy-loading-and-router.md) | showcase 懒加载与单窗口路由 |
 | [style-css-expansion.md](style-css-expansion.md) | 样式层 CSS 属性扩展清单 |
 
-第三方授权与来源登记见仓库根 [THIRD-PARTY-NOTICES.md](../THIRD-PARTY-NOTICES.md)。
+第三方授权与来源登记见 [THIRD-PARTY-NOTICES.md](../docs/THIRD-PARTY-NOTICES.md)。
