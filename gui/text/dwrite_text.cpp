@@ -252,7 +252,15 @@ static IDWriteTextLayout *ptw_cached_layout(const char *path, const char *text,
     if (SUCCEEDED(layout->QueryInterface(__uuidof(IDWriteTextLayout1),
                                          reinterpret_cast<void **>(&l1))) &&
         l1 != nullptr) {
-      l1->SetCharacterSpacing(0.0f, static_cast<FLOAT>(spacing), 0.0f);
+      // 第 4 个参数是 DWRITE_TEXT_RANGE：IDWriteTextLayout1::SetCharacterSpacing
+      // 的签名是 (leading, trailing, minimumAdvanceWidth, textRange) 四参，
+      // 少给 range 会 C2660。range 长度按 UTF-16 码元算（与 CreateTextLayout 的
+      // textLength 同口径），不能拿 UTF-8 字节数——CJK 会多算一倍多。
+      const int wlen = (text != nullptr && len > 0)
+                           ? MultiByteToWideChar(CP_UTF8, 0, text, len, nullptr, 0)
+                           : 0;
+      DWRITE_TEXT_RANGE range = {0, wlen > 0 ? static_cast<UINT32>(wlen) : 0};
+      l1->SetCharacterSpacing(0.0f, static_cast<FLOAT>(spacing), 0.0f, range);
       l1->Release();
     }
   }
