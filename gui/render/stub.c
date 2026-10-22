@@ -298,6 +298,31 @@ void cr_set_dash(int64_t id, const double* dashes, int n, double offset) {
   }
 }
 
+/* 虚线数组的三段式通道（MoonBit 侧逐值 add，末次 end 落 cairo_set_dash）：
+ * MoonBit 的 FixedArray[Double] 直传 C 的 ABI 没有先例可依，改走「C 侧暂存 +
+ * 逐值写」。单线程 UI 循环内使用，静态暂存区无需加锁；容量 16 段，超出丢弃
+ * （虚线图案超过 16 段在观感上已无意义）。 */
+#define CR_DASH_MAX 16
+static double cr_dash_buf[CR_DASH_MAX];
+static int cr_dash_n = 0;
+
+void cr_dash_begin(int64_t id) {
+  (void)id;
+  cr_dash_n = 0;
+}
+
+void cr_dash_add(int64_t id, double v) {
+  (void)id;
+  if (cr_dash_n < CR_DASH_MAX) {
+    cr_dash_buf[cr_dash_n++] = v;
+  }
+}
+
+void cr_dash_end(int64_t id, double offset) {
+  cr_set_dash(id, cr_dash_buf, cr_dash_n, offset);
+  cr_dash_n = 0;
+}
+
 void cr_save(int64_t id) {
   cairo_t *cr = CR_OF(id);
   if (cr) {
@@ -940,6 +965,9 @@ void cr_set_line_join(int64_t id, int join) { (void)id; (void)join; }
 void cr_set_dash(int64_t id, const double* dashes, int n, double offset) {
   (void)id; (void)dashes; (void)n; (void)offset;
 }
+void cr_dash_begin(int64_t id) { (void)id; }
+void cr_dash_add(int64_t id, double v) { (void)id; (void)v; }
+void cr_dash_end(int64_t id, double offset) { (void)id; (void)offset; }
 void cr_save(int64_t id) { (void)id; }
 void cr_restore(int64_t id) { (void)id; }
 void cr_translate(int64_t id, double dx, double dy) { (void)id; (void)dx; (void)dy; }
@@ -1651,6 +1679,9 @@ void cr_set_line_join(int64_t id, int join) { (void)id; (void)join; }
 void cr_set_dash(int64_t id, const double* dashes, int n, double offset) {
   (void)id; (void)dashes; (void)n; (void)offset;
 }
+void cr_dash_begin(int64_t id) { (void)id; }
+void cr_dash_add(int64_t id, double v) { (void)id; (void)v; }
+void cr_dash_end(int64_t id, double offset) { (void)id; (void)offset; }
 void cr_save(int64_t id) { (void)id; }
 void cr_restore(int64_t id) { (void)id; }
 void cr_translate(int64_t id, double dx, double dy) { (void)id; (void)dx; (void)dy; }
