@@ -1582,7 +1582,7 @@ MPRIS(媒体控制)是这族里唯一「总线优先、命令兜底」的倒置�
 - **workspace 任一成员的 prebuild 硬失败会挡死全部 moon 命令**:`modules/ffmpeg-mbt/prebuild.py` 缺 pkg-config 即非零退出,`moon.work` 五成员里任何包跑 check/test 都先过它;而主 `scripts/prebuild.py` 非 Linux 本就优雅降级(空 link_configs)。修复:ffmpeg prebuild 补「非 Linux 输出空 link_configs 且 exit 0」分支(Linux 行为不变),与主脚本同口径;ffmpeg 消费方(gui-media)本就是过渡期红点,不在新栈验证路径上。
 - **非 Linux 占位桩的 GLib 类型在 MSVC 下语法错误**:`win/gtk_stub_portable.c` 用 `gint32` 作占位函数返回类型——该文件整体包在 `#if !defined(__linux__)` 里,Linux 上从不编译故从未暴露;MSVC 下 6 处 C2059(无 glib.h,`gint32` 未定义)。改 `int32_t`(ABI 同为 32 位整型,extern 原型不变)。教训:占位桩也要按「能在 Windows 真编译」的标准写,MSVC 是占位桩的第一位真实读者。
 - **`chensuiyi/subproc` 的 C 桩用 POSIX `poll.h`,Windows 编译必炸**:`sys` 的 `procrun.mbt` 基于 @subproc(自己注释就写着「仅 Linux」),sys 与依赖它的 chart 包全被连坐编译失败。Windows 子进程层(spawn→限时回收→输出捕获)归 W14 用 CreateProcess 重做,替换 MoonBit 侧的 @subproc 依赖;在此之前 sys/chart 在 Windows 不可验证。
-- **分包测试的连带编译问题 Windows 与 Linux 同款**:workspace 内 cd 进成员目录裸跑 `moon test` 会把主包红点一并编进来,须 `-p` 限定包/模块名(HANDOFF.md 已记,此处确认 Windows 一致)。
+- **分包测试的连带编译问题 Windows 与 Linux 同款**:workspace 内 cd 进成员目录裸跑 `moon test` 会把主包红点一并编进来,须 `-p` 限定包/模块名(Linux 侧早已记录,此处确认 Windows 同款)。
 - **验证**(2026-10-11,本机):`moon check` 287 errors / 68 warnings 与 Linux 基线**逐字持平**;纯 MoonBit 包全绿——yoga-mbt 96/96、core 62/62、input 10/10、mdview 26/26、theme 7/8(挂的「控件高度基准」一条依赖 Pango 字体实测,占位文本后端必挂,归文本后端批)、icons 2/4(挂的两条是「真画出像素」绘制断言,归渲染后端批);ui 因 `TextMetrics::unwrap` 空值 panic(同归文本批)、sys/chart 因 subproc 编译失败(归 W14)。
 
 ### MoonBit 原生 GUI 栈 · Windows 窗口地基(W2,stub 合一 + Win32 后端)
@@ -3133,3 +3133,13 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **为什么长期没暴露**：GitHub 通的时候一切正常，404 的镜像只是被静默跳过；而文档里「两处刻意各留一份」这句写得越肯定，越没人会去数第三份。
 - **做法**：改 vendor 的镜像或超时口径时，先用 `grep -rn "releases/download/vendor-v1" --include=prebuild.py .` 点清份数，别信文档里的「两处/三处」。三处已统一为：Gitee 用户名 `noahliu0911`、单源 socket 20 秒 + 总预算 60 秒（ffmpeg 的大归档另按体积放宽到 360 秒）。
 - **实测**：把 `modules/gui-media/media/miniaudio.h` 移走后用 `NATIVE_GUI_VENDOR_BASE=<gitee>` 跑 `ensure_miniaudio()`，命中 Gitee、sha256 通过、4 MB 落位。
+
+## 文档站的授权文件是双份：根目录与 `docs/public/` 逐字副本（2026-10-22）
+
+- **根因**：VitePress 只把 `docs/` 当源目录、`docs/public/` 当静态资源，仓库根的 `THIRD-PARTY-NOTICES.md` 两头都不在，站内 `/THIRD-PARTY-NOTICES.md` 链接会被死链检查判红（首次部署即因此构建失败）。故内容复制一份进 `docs/public/`，`docs/.vitepress/config.mts` 另有 `/^\/THIRD-PARTY-NOTICES/` 豁免行——那份文件内部按 GitHub 语境写仓库相对链接，站点侧按原始文本呈现。
+- **判据**：改根文件必须同批 `cp` 到 `docs/public/`，两份当前逐字节相同；把「看起来重复」的那份删掉，文档站构建直接失败。
+
+## Cloudflare Pages 的子域在创建项目时选定，重命名项目不换域名（2026-10-15 实测）
+
+- **根因**：`<项目名>.pages.dev` 在创建那一刻写定，后台没有改名入口；本仓试过「重命名旧项目占住新名字」，域名仍是旧的 `moonbit-libyue.pages.dev`，最后只能新建项目再删旧的（旧域随之成死链，站内链接已全部改指 `moonbit-native-gui.pages.dev`）。
+- **判据**：要换 pages.dev 域名只有「新建项目」与「挂自定义域」两条路，重命名不是。

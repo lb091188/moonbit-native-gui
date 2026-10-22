@@ -43,3 +43,6 @@
 4. 静态入库的 Windows 导入库（`*.lib`）本身不含 FFmpeg 代码，只是链接期符号表——但**运行期 dll 必须与同一份 LGPL 构建配套**，发布说明里要写清版本串；
 5. **我们自编或重打包的 FFmpeg 二进制**（`vendor-v1` 上的 `ffmpeg-macos-arm64-*.tar.gz` 与 `ffmpeg-windows-x64-*.zip`）同样受 LGPL-3 约束，发版时要一并给出：**对应源码**的获取位置（`https://ffmpeg.org/releases/ffmpeg-<版本>.tar.xz`，版本见归档名）与**构建脚本**（mac 侧 configure 参数全在 `modules/ffmpeg-mbt/scripts/make_mac_ffmpeg_vendor.sh`，这是「同一份源码 + 同一份参数」可复现的唯一凭据）；并在发布说明写明归档名与 sha256（与 `prebuild.py` 里回填的常量一致）。`--enable-version3` 只是把默认的 LGPLv2.1 升到 LGPLv3，**不等于** GPL——`--enable-gpl` 才会改变许可，我们的构建没有用它。
 
+## 文档站副本
+
+`docs/public/THIRD-PARTY-NOTICES.md` 是本文件的逐字副本：文档站只发布 `docs/public/` 下的静态文件，根目录这份站内取不到。改本文件后同批 `cp THIRD-PARTY-NOTICES.md docs/public/`，两份必须一致。
