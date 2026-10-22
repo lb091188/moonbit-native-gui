@@ -136,6 +136,25 @@
 - [ ] **文本布局缓存**（部分已做，仍是单帧成本里最重的一块）：纯文本度量已建 C 侧跨帧缓存 `g_layout_cache`（3c744db，Pango/DirectWrite 同批，键=字体四要素+宽约束等，上限 1024 整清）；剩：富文本 `rt_measure`/`rt_draw` 仍每次经 `ptw_session_layout` 现建 `IDWriteTextFormat` + `IDWriteTextLayout` 用完即 Release（`AttributedText::rt()` 每个文本节点每帧开两个会话），`ui` 的富文本节点一律走这条路；布局（yoga）每帧还会为**全树**文本节点各测一次，屏外的也照测。
 - [ ] **量出来再优化**：上面三条都还没在真机上分档计时（`experiment/text_bench` 已有先例可扩展）。建议先做一个「单帧成本分解」探针（根背景填充 / 控件绘制 / 文本 / memcpy+StretchDIBits 各占多少），再决定动哪一块。
 
+### 6.7 文字与绘制的三项补口（2026-10-22 立项）
+
+> 对应 [docs/zh/roadmap.md](docs/zh/roadmap.md)「已规划」里的 窗口·最大化/还原、渲染·虚线、文字排印·字距。三条都是「门面定形态 + 各平台后端」形态（换平台有对应原生原语）。
+
+- [ ] **最大化 / 还原（程序化）**：门面 `Window::set_maximized` + `Window::is_maximized`（`gui/win/window.mbt` + `stub.c` 三分支）。
+  - 后端：Win32 `ShowWindow(SW_MAXIMIZE / SW_RESTORE)` + `IsZoomed`；GTK `gtk_window_maximize` / `gtk_window_unmaximize` + `gtk_window_is_maximized`；macOS `zoom:` + `isZoomed`。
+  - 口径：系统标题栏的三键三平台本来就有（Win32 建档走 `WS_OVERLAPPEDWINDOW`，自带 `WS_MAXIMIZEBOX`，`stub.c:854`）；`set_borderless` 才清掉最大化位（`stub.c:1348`，保留 `WS_MINIMIZEBOX` 但无标题栏也不画键）——本条补的是**无边框自绘标题栏里自己放这个键**的能力，不是「平台没有」。
+  - 验收：三平台真机各切一次，还原后客户区尺寸与位置回到最大化前；无边框档下同样可用；用户点系统按钮之后 `is_maximized` 也要读得对（不靠缓存布尔）。
+- [ ] **字距 `letter_spacing`**：样式层已暴露该参数，测量与绘制都没接，等于死字段（`gui/style/style.mbt:14`，`gui/style` 之外 0 处消费）。
+  - 做法：`Font` 加 `spacing` 字段（`gui/text/font.mbt:43`，`Font::new` 加可选参）→ `font_key` 带上它（`gui/text/cache.mbt:148`，漏加会命中错宽度）→ 4 个 extern 加参 → 三分支各用原生原语：Pango `pango_attr_letter_spacing_new`（`stub.c:700` 已有 attr list）、DWrite `IDWriteTextLayout1::SetCharacterSpacing` 并把 spacing 加进 `ptw_cache_key`（`dwrite_text.cpp:200`）、CoreText `kCTKern`（`pt_line_create`，`stub.c:1301` 起按段挂）→ 最后一跳在 `gui/ui/base.mbt` 的 `text_eff` 落一行。
+  - 口径待探针：末字是否计一间（Pango / DWrite 计；CTKern 系数用「`ab` 宽 − `a` 宽」反推）；宽度是 `Int`，取整统一按上限，否则末字被裁。
+  - 验收：同串在 spacing 0 与 S 下量宽差 = 字符数 × S，三平台读数一致；量宽与绘制同源，不出现「排得下但末字缺一段」。
+  - 相关：[proposals/style-css-expansion.md](proposals/style-css-expansion.md) 的 S5（其中「DirectWrite 无一等字距」已过时——Win8+ 的 `IDWriteTextLayout1::SetCharacterSpacing` 就是一等接口）。
+- [ ] **虚线 `set_dashes`**：`Painter` 补 dash 图案 + 偏移（状态结构 `gui/render/painter.mbt:31` 起，`state.clone` / `load_state` 两处同步）。
+  - Cairo（Linux / macOS）：原生 `cairo_set_dash`；数组按渐变 stops 的三段式传（MoonBit 侧循环 + C 侧 `cr_set_dash_begin/add/end`，参考 `gui/render/cairo.mbt:370`）。
+  - Windows：不走 Cairo，`Raster::stroke` 是 `stroke_polys(path.flatten(m), lw)`（`gui/render/raster.mbt:203`），虚线要在折线层按累计弧长切段（新增 `dash_polys`）。
+  - 口径待定：闭合子路径的接缝（绕回补相位 or 留一道缝）、两后端相位一致性。
+  - 验收：同一图案在 Cairo 与光栅器上段落数一致；wbtest 断言首段实线长度与段数。当前无消费方，先接口 + 测试，不接演示，等图表参考线 / 自绘标题栏分隔带起来。
+
 ## 4. 已知边界与风险
 
 - 自绘文本的**无障碍**（ATK / UIA / NSAccessibility）本栈暂不含，只记不办。
