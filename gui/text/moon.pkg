@@ -13,7 +13,7 @@ supported_targets = "native"
 // 任何分支、编出空翻译单元（防与归档双定义）。dwrite_text.cpp 是 Windows 的
 // DirectWrite 实现（dwrite.h 是 C++ 专属头，C TU 编不了），由 native-stub
 // 直接编（moon 认 .cpp，实测）；两文件的平台分支互斥，非本平台各自编出空
-// 翻译单元。链接参数按 AGENTS 规则 1 全部由 prebuild 托管。
+// 翻译单元。链接参数全部由 prebuild 托管。
 options(
   "native-stub": [ "stub.c", "dwrite_text.cpp" ],
 )

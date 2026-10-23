@@ -49,7 +49,7 @@ WebGPU 可用 → GPU 合成（Layer 1+2 都开）
 
 **MoonBit 侧现成绑定**：`moonbit-community/wgpu-mbt`（Apache-2.0，2026-09 活跃，pin v29.0.1.1）。它按 `native-stub` + `MBT_WGPU_NATIVE_LIB` dlopen + prebuild 下发链接参数的模式组织——与本仓 webview / media 模块的独立模块形态同构。
 
-**回调线程坑**：`webgpu.h` 明确警告 `WGPURequestAdapterCallback` 等回调可能在任意线程自发触发，重入是 UB。wgpu-mbt 用 C 侧 mutex 守护的静态槽 + 1 ms 轮询吃掉回调，MoonBit 侧只见 `device_poll` 之类同步外形——与本仓 `wm_hotkey_poll` 同一手法。**这层轮询必须留在 C 侧**，不做 C→MoonBit 回调（对齐 AGENTS 规则 3）。
+**回调线程坑**：`webgpu.h` 明确警告 `WGPURequestAdapterCallback` 等回调可能在任意线程自发触发，重入是 UB。wgpu-mbt 用 C 侧 mutex 守护的静态槽 + 1 ms 轮询吃掉回调，MoonBit 侧只见 `device_poll` 之类同步外形——与本仓 `wm_hotkey_poll` 同一手法。**这层轮询必须留在 C 侧**，不做 C→MoonBit 回调。
 
 ## 落地路线
 

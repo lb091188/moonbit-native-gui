@@ -15,7 +15,7 @@ supported_targets = "native"
 // 的那次编译都落不进任何实现分支（分支条件带 __linux__/__APPLE__ 闸），编出
 // 空 TU，防 wm_* 与 prebuild 的 .a 双定义。Windows 的系统库链接参数（user32
 // 等）由 prebuild 的 Windows 分支下发，macOS 的框架参数（Cocoa 等）由 Darwin
-// 分支下发；链接参数按 AGENTS 规则 1 全部由 prebuild 托管。
+// 分支下发；链接参数全部由 prebuild 托管。
 //
 // win_gui.c 只有一段 MSVC 链接 pragma（GUI 子系统 + 入口点）与一个 marker
 // 符号，无平台实现；与 stub.c 同编进包归档 libwin.lib，被 window.mbt 的

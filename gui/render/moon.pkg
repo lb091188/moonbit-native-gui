@@ -11,7 +11,7 @@ import {
 // 走 native-stub 自编的那条分支——Windows 与 macOS 的光栅部分都是占位（真渲染
 // 是纯 MoonBit 光栅器，plan 矩阵定案，运行时探针 cr_begin 返回 0 即选纯路径），
 // **图片解码两支都已实装**（Windows WIC / macOS ImageIO；macOS 的 GIF 动图暂退
-// 回静帧，缺口见 TODO.md「mac 平台批」）。链接参数按 AGENTS 规则 1 全部由
+// 回静帧，缺口见 TODO.md「mac 平台批」）。链接参数全部由
 // prebuild 托管。
 supported_targets = "native"
 

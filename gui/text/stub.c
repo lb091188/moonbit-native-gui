@@ -8,7 +8,7 @@
 //                   不传的那次编译必须落进别的分支，防与 .a 双定义。
 //   其余平台      → Windows 走 DirectWrite（系统 SDK 头 dwrite.h，native-stub
 //                   直接可见，不需要 prebuild）；macOS 的 CoreText 待真机，
-//                   现在是占位 no-op。运行时探测选择（AGENTS 规则 11）：探到
+//                   现在是占位 no-op。运行时探测选择：探到
 //                   占位即退降级，不用编译指令。
 
 #if defined(WM_STUB_PANGO)

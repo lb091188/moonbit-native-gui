@@ -14,7 +14,7 @@ Link parameters are **fully hosted by prebuild** — neither users nor contribut
 - Never hand-write `cc-link-flags` — linking is emitted entirely by prebuild; manual edits conflict with it.
 - New platform C capabilities follow the "single `stub.c`, multiple branches + prebuild macros" layout; see `gui/win/stub.c` for precedent. The link flags still belong to prebuild.
 
-The rules for aligning FFI declarations with trampolines are in the repository-root [AGENTS.md](https://github.com/lb091188/moonbit-native-gui/blob/master/AGENTS.md) and `.agents/skills/moonbit-c-binding/`.
+The rules for aligning FFI declarations with trampolines are in `.agents/skills/moonbit-c-binding/`.
 
 ## 3. The one pitfall: editing a C stub doesn't relink
 

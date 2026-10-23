@@ -233,7 +233,7 @@ void mbt_adev_close(MaPlayer *p) {
 
 /* 单调墙钟（ms）：视频播放时钟的推进基准。
  *
- * 分平台（单一 stub.c 多分支 + 平台宏，先例 yue/win/stub.c；AGENTS 规则 11）：
+ * 分平台（单一 stub.c 多分支 + 平台宏，先例 yue/win/stub.c）：
  *   _WIN32    → QueryPerformanceCounter / QueryPerformanceFrequency。QPC 是
  *               Windows 的单调高精度计数器；GetTickCount 粒度粗（~15.6ms）
  *               且会被系统时间调整带偏，这里不用。
