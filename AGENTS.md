@@ -9,7 +9,7 @@
 - **与用户交流全部使用中文**——代码、命令、路径、专有名词除外。
 - **每完成一个功能或修复即提交并推送**——一个功能一次提交，提交信息只写「【标签】做了什么」，原理与原因一概不写。
 - **功能按「已规划 → 待办 → 已实现」流转**——确定做的功能先写进 `docs/zh/roadmap.md`「已规划」；要动手时先放进 `TODO.md`；完成后从 `TODO.md` 删除，路线图条目从「已规划」移进「已实现」并按平台标状态(✅已验 / 🚧已合入待真机 / ❌未做 / ⏳待定)，同批补 `测试文档/测试用例.md` 与 `测试记录/index.html`(测试记录按应用、应用内按页面逻辑排序)；roadmap 与 TODO 不得互相矛盾。
-- **新内容按「目录」落位**——示例一律 `examples/<name>/` 独立模块并注册进 `moon.work`，依赖只写自己的 `moon.mod`；不往既有示例模块里塞第二个示例，不往 `modules/` 里放示例。
+- **新内容按落位判据落位**——先读 `proposals/placement.md`；示例一律 `examples/<name>/` 独立模块并注册进 `moon.work`。
 - **改领域配置先读对应指导文档**——`moon.pkg` / `moon.mod` / 链接与依赖 → [docs/zh/build.md](docs/zh/build.md)；FFI / C 绑定 → `.agents/skills/moonbit-c-binding/`；平台适配 → `proposals/adaptation.md`(实测坑与适配经验回写此文件，与代码同批提交)。
 
 ## 常用命令与门禁
@@ -22,8 +22,9 @@ moon run examples/hello       # 最小窗口(另有 hello-themed / showcase 等)
 
 裸 `moon test` 会连带 examples / experiment / 媒体模块(含平台适配缺口，非库缺陷)，不作库门禁。
 
-## 目录(放东西的第一判据，文档与资料用到再读)
+## 目录
 
+- 放东西的第一判据:`proposals/placement.md`
 - 库模块 NoahLiu/native-gui，唯一发布单元之一:`gui/`
 - 每个示例一个独立模块 NoahLiu/native-gui-examples-<name>:`examples/<name>/`
 - 探针与微基准模块:`experiment/`
@@ -41,5 +42,3 @@ moon run examples/hello       # 最小窗口(另有 hello-themed / showcase 等)
 - 使用文档索引:`docs/README.md`
 - 路线图:`docs/zh/roadmap.md`
 - 待办:`TODO.md`
-
-**依赖隔离靠模块，不靠包**:`moon.mod` 的 import 决定整个模块的依赖闭包，`moon.pkg` 只能从已解析依赖里挑包。所以「某个示例不拖累其它示例」必须每示例一个模块。
