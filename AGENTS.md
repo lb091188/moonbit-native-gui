@@ -30,7 +30,7 @@ cd gui && moon test ui render text theme icons sys input win dbus chart mdview s
 moon run examples/hello       # 最小窗口(另有 hello-themed / showcase 等)
 ```
 
-裸 `moon test` 会连带 examples / experiment / 媒体模块(含平台适配缺口，非库缺陷)，不作库门禁。其余命令、产物路径与「改了 C 桩不重链」的处理见文末「目录索引」中的构建文档。
+裸 `moon test` 会连带 examples / experiment / 媒体模块(含平台适配缺口，非库缺陷)，不作库门禁。
 
 ## 目录地图(放东西的第一判据)
 
@@ -49,8 +49,6 @@ docs/                   对外文档站(VitePress，中英 docs/ 与 docs/zh/)
 
 ## 目录索引(文档与资料，用到再读)
 
-- **定位与上手**:`README_ZH.md`
-- **构建 / 链接 / 新增示例模块的完整流程**:`docs/zh/build.md`(含其余命令、产物路径、「改了 C 桩不重链」的处理)
 - **FFI / C 绑定细节**:`.agents/skills/moonbit-c-binding/`、`.agents/skills/make-moonbit-c-bindings/`
 - **DBus / SNI 实现与真总线读数**:`proposals/adaptation.md`(搜 D-Bus / SNI)、`gui/dbus/`
 - **写或改界面之前**:`.agents/skills/native-gui-design/`(间距刻度、字阶、圆角层级、token 都在里面)
