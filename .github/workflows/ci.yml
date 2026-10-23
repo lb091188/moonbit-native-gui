@@ -6,13 +6,13 @@
 #   experiment/ 独立探针/微基准模块 `NoahLiu/native-gui-experiment`
 #   modules/    媒体(gui-media)、布局(yoga-mbt)、ffmpeg-mbt 等独立模块（示例一律在 examples/ 下）
 #
-# 门禁口径(AGENTS.md 规则 6):库门禁一律在 `gui/` 下按包路径限定。裸 `moon test`
+# 门禁口径:库门禁一律在 `gui/` 下按包路径限定。裸 `moon test`
 # 在 workspace 里会连带示例/探针/媒体模块(其中含既有的平台适配缺口),不作库门禁。
 #
 # 平台:Windows ✅ / Linux ✅(X11 + GTK3,当前主链路) / macOS 🚧 后端落地中
 #   (gui/win/stub.c 的 WM_STUB_MAC 分支是 Cocoa 真实现,由 mac 平台批逐族补齐;
 #   macOS job 只验「编得过、链得上」——runner 无窗口服务会话,视觉与交互验证
-#   按 AGENTS 规则 6 由使用者在真机做,批次口径见 TODO.md 的「mac 平台批」一节)。
+#   由使用者在真机做,批次口径见 TODO.md 的「mac 平台批」一节)。
 #
 # 链接参数由 `gui/scripts/prebuild.py`(`gui/moon.mod` 的 prebuild 钩子)按当前
 # 系统生成并传播;prebuild 只能给自己模块内的包下发配置(moon 拒绝外部包名),
@@ -445,7 +445,7 @@ jobs:
 
       # 尽力冒烟：macOS runner 有登录会话与窗口服务，`hello` 这类常驻事件循环的
       # 进程活着到超时就说明「窗口建出来了、循环转起来了」；退出码 124 = 存活。
-      # 标 continue-on-error：这一条不是门禁（真机目视仍按 AGENTS 规则 6 由使用者
+      # 标 continue-on-error：这一条不是门禁（真机目视仍由使用者
       # 做，条目见 `测试文档/测试用例.md`），但红/绿本身就是有用的证据。
       - name: GUI 冒烟(hello 存活 20 秒即算通过,不卡门禁)
         continue-on-error: true

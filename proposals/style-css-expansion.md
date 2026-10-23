@@ -18,7 +18,7 @@
 4. **gradient 渲染层已完备，但 Style 层没字段。**
    `Gradient` 线性+径向（`render/gradient.mbt`）、`Painter::set_fill_gradient/stroke_gradient`（`painter.mbt:549`）在 **Cairo 与 Raster 双后端均已测试**（`painter_wbtest.mbt:243`、`blend_wbtest.mbt:117`）。缺的只是把它接到 `Style`。
 
-5. **文档矛盾（AGENTS.md 规则 12）需修**：roadmap.md:162 仍写"全局 alpha 与**硬阴影** ✅/✅/🚧"，但硬阴影已删——roadmap 与代码互相矛盾，应先对齐。
+5. **文档矛盾需修**：roadmap.md:162 仍写"全局 alpha 与**硬阴影** ✅/✅/🚧"，但硬阴影已删——roadmap 与代码互相矛盾，应先对齐。
 
 ## 一、当前属性覆盖盘点
 
@@ -69,14 +69,14 @@
 
 ## 四、分期实施（按 Tier A 优先）
 
-- [ ] **S0 修文档矛盾**：roadmap.md:162 硬阴影条目与代码对齐（规则 12）。
+- [ ] **S0 修文档矛盾**：roadmap.md:162 硬阴影条目与代码对齐。
 - [ ] **S1 设计令牌**：space/radius/type/duration scale 进 theme + factory 消费。
 - [ ] **S2 background-gradient**：Style 字段 + 双后端接入 + 半透明 stop 口径钉测试。
 - [ ] **S3 每角 radius + 每边 border**：扩 `trace_round_rect` 四半径 + raster 快路 guard；四边条合成 + 角接缝。
 - [ ] **S4 mix-blend-mode / overflow / line-through**：语义暴露 + 自绘线扩展。
 - [ ] **S5（选做，贵）letter_spacing**：三引擎 stub + measure/paint 一致性；先确认 DWrite 逐字形方案再排期。
 
-> 每项按 AGENTS.md：代码改动同批把「环境+现象+根因+修复+验证」回写 `proposals/adaptation.md`；交付面写进 `docs/zh/roadmap.md` 对应小节（平台列 ✅/🚧/❌/⏳）。真机视觉由用户验证。
+> 每项按仓库约定：代码改动同批把「环境+现象+根因+修复+验证」回写 `proposals/adaptation.md`；交付面写进 `docs/zh/roadmap.md` 对应小节（平台列 ✅/🚧/❌/⏳）。真机视觉由用户验证。
 
 ## 五、风险 / 不对称陷阱
 - **raster 快路 vs path 回退**：每角不等半径若漏 guard，raster 解析快路会画错（应退回 path）。

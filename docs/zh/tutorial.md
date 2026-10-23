@@ -168,4 +168,4 @@ cd examples/showcase && moon run .   # 基础/表单/导航/数据展示/反馈/
 - **控件与能力**：还没封装的条目、各平台的适配坑，都欢迎从 issue 开始讨论。
 - **文档与示例**：教程、组件文档、演示板每一页的例子，都欢迎改进。
 
-参与没有门槛：提 issue 描述问题或想法、直接提 PR 都行。开始前只需记住三条——`moon check` 零错误零警告、`moon test` 全绿再提交，实测踩坑连同修复写进 [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md)，一个内聚改动一批提交。完整流程（新增控件的 FFI 规范、prebuild 链接托管）见仓库根 [AGENTS.md](https://github.com/lb091188/moonbit-native-gui/blob/master/AGENTS.md)。
+参与没有门槛：提 issue 描述问题或想法、直接提 PR 都行。开始前只需记住三条——`moon check` 零错误零警告、`moon test` 全绿再提交，实测踩坑连同修复写进 [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md)，一个内聚改动一批提交。完整流程（新增示例模块、prebuild 链接托管）见 [build.md](build.md)；FFI 规范见仓库 `.agents/skills/moonbit-c-binding/`。

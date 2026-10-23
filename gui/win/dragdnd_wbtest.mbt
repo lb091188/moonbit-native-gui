@@ -1,6 +1,6 @@
 // W23 拖放后端的环境读数：有显示服务时挂接/幂等/计数/效果写回真读数，无头
 // 环境打印跳过（与 taskbar/notify 的环境分支同款口径）。跨进程真拖（Windows
-// OLE、Linux XDND）归真机清单 S26/S27——协议互操作单测自洽不算数（规则 5）；
+// OLE、Linux XDND）归真机清单 S26/S27——协议互操作单测自洽不算数；
 // Windows 侧另有 experiment/drag_probe 的纯 C 探针，Linux 侧 XDND 的 motion 由
 // 指针驱动、合成不了跨进程拖拽，API 用法正确性靠这里与冒烟/真机覆盖。
 

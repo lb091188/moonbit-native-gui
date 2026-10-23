@@ -1,6 +1,6 @@
 # 平台适配经验
 
-各平台实测坑与结论,每条只记「坑 + 修复」;协议互操作结论均来自真总线、真面板验证。Linux 按发行版 → 桌面环境组织,Windows / macOS 按版本;新增结论写进对应小节。
+各平台实测坑与结论,每条只记「坑 + 修复」;协议互操作结论均来自真总线、真面板验证,单测自洽不算数。Linux 按发行版 → 桌面环境组织,Windows / macOS 按版本;新增结论写进对应小节。条目只收代码读不出的四类——平台反直觉行为、实测读数与容差、被否掉的路及其原因、环境与版本约束,一句根因 + 一句判据;实测坑与适配经验同代码改动回写本文件,不留提交说明或会话记忆。
 
 ## 图标数据与生成器(2026-09-29)
 
@@ -42,7 +42,7 @@
 
 ### MoonBit cfg(platform=)
 
-- **定案(2026-10-11):平台分派弃用 cfg,即便日后工具链修好也不翻案**——MoonBit 侧跨平台选择一律「运行时探测 + 模式匹配」,探测形态照 render 包既有的降级探针(画一笔验像素、会话句柄非零),已入 AGENTS.md 硬性规则。
+- **定案(2026-10-11):平台分派弃用 cfg,即便日后工具链修好也不翻案**——MoonBit 侧跨平台选择一律「运行时探测 + 模式匹配」,探测形态照 render 包既有的降级探针(画一笔验像素、会话句柄非零)。
 
 ### 原生渲染/文本矩阵与文字三层差异(新栈定案,2026-10-11)
 
@@ -53,7 +53,7 @@
 
 ### MoonBit 原生 GUI 栈 · 纯 MoonBit 光栅器(W4,Windows/mac 渲染后端)
 
-- **架构**:`render` 拆出四个纯 MoonBit 文件——`raster_path.mbt`(路径命令/仿射矩阵/贝塞尔自适应展平/弧→贝塞尔 kappa)、`raster_fill.mbt`(4×4 超采样非零环绕扫描线填充 + miter 上限 10/butt cap 折线偏移描边)、`raster_blend.mbt`(25 混合模式:Porter-Duff 九式预乘闭式 + 16 个 W3C 公式非预乘域 + 渐变求值)、`raster.mbt`(`Raster` 会话,与 `Cairo` 方法面逐条镜像);`Painter` 门面改双后端枚举,**运行时探针**(`Cairo::over` 建不出会话即纯路径)选择,无编译指令(AGENTS 规则 11)。桩合并为 `render/stub.c`:cairo 真实现挂 `WM_STUB_CAIRO` 宏仅 prebuild(Linux)编,非 Linux 全占位保链接、探针探到占位即退纯路径。文本层经 `Painter::cairo_id()` 探测:cairo 后端画在会话上下文,纯后端返回 None(W5 据此走直接往 Bitmap 画的 DirectWrite 形态),`Painter::raster()` 取纯会话。
+- **架构**:`render` 拆出四个纯 MoonBit 文件——`raster_path.mbt`(路径命令/仿射矩阵/贝塞尔自适应展平/弧→贝塞尔 kappa)、`raster_fill.mbt`(4×4 超采样非零环绕扫描线填充 + miter 上限 10/butt cap 折线偏移描边)、`raster_blend.mbt`(25 混合模式:Porter-Duff 九式预乘闭式 + 16 个 W3C 公式非预乘域 + 渐变求值)、`raster.mbt`(`Raster` 会话,与 `Cairo` 方法面逐条镜像);`Painter` 门面改双后端枚举,**运行时探针**(`Cairo::over` 建不出会话即纯路径)选择,无编译指令。桩合并为 `render/stub.c`:cairo 真实现挂 `WM_STUB_CAIRO` 宏仅 prebuild(Linux)编,非 Linux 全占位保链接、探针探到占位即退纯路径。文本层经 `Painter::cairo_id()` 探测:cairo 后端画在会话上下文,纯后端返回 None(W5 据此走直接往 Bitmap 画的 DirectWrite 形态),`Painter::raster()` 取纯会话。
 - **覆盖量化的口径**:4×4 超采样、每像素 16 样本、覆盖 0..256(每样本 16)——与 cairo 解析覆盖的单像素差被「对拍容差带 ≤16(一个采样档)」吸收;满覆盖/零覆盖像素精确。跨点判定用半开区间 `(ay<=ys)!=(by2<=ys)` 防顶点重计;非零环绕扫描「非零区间收样」,开折线 fill 自动闭边(**末边就是环绕边,边数 = n 而非 n+1——写 n+1 会 pts[n] 越界,单测全是闭合路径测不出,真窗口 45 帧当场崩,教训:开放路径要有专项用例**)。
 - **预乘取整必须两步,不能合并**:源预乘是 255 域(`(v·a+127)/255`)、覆盖缩放是 256 域(`·cov/256`),合并成 65536 域一步会吞掉 255/256 的比例差(不透明满覆盖实测 254 而非 255,成片差一);合成侧 Normal 的 `s+(d·inv+127)/255` 与 Bitmap::paint 同式,矩形路径逐位一致。
 - **与 cairo 的已知口径差(容差带内)**:①AA 覆盖 16 级量化 vs cairo 解析覆盖;②blit 最近邻 vs cairo 双线性(1:1 与不透明像素逐位一致,缩放采样有差——采样域收口语义已镜像:恒落在源子矩形内防串色);③渐变 stop 非预乘插值(CSS/W3C 口径)vs cairo 预乘域(半透明 stop 中间色有差,不透明 stop 无差);④描边设备线宽 = 用户线宽×sqrt(|det|),非均匀缩放的笔帽近似;⑤斜矩阵 clip 取包围盒。25 混合模式的 W3C 公式值双平台同测同过(cairo 算子与手算公式在 8bit 域一致)。
@@ -76,7 +76,7 @@
 
 - **批 A 只修了 GTK 分支,同一条缺陷在 Windows 还在**:d1fb1e8 把 `win/stub.c` 的 GTK 分支 `wm_window_new` 改成扫 `area == NULL` 复用槽位,`_WIN32` 分支(同一函数的另一条路)仍是 `wm_next_id++`——附窗反复开合会吃光 32 槽并让 `open_window` 静默返回 `None`。修法照 GTK 逐字对齐,判据换成 `hwnd == NULL`(建窗成功必设、`wm_close` 里 memset 清零,拆过的槽与没用过的槽同样可取)。
 - **真正拦住多窗的是 `wm_init` 不幂等**:`app_window()` 每开一扇窗都调一次 `@win.init_backend()`,而 Win32 的 `RegisterClassExW` **同名类重复注册返回 0**(`ERROR_CLASS_ALREADY_EXISTS`)——于是第一次成功、第二次起就返回「后端不可用」,`App::open_window` 在 Windows 上永远给 `None`(主窗反而是第一次调用,所以单窗示例一直正常)。修成「waker 窗口已在则整段直接返回 1」并把 `ERROR_CLASS_ALREADY_EXISTS` 视为成功。GTK 分支用 `gtk_init_check`,它本来就幂等,所以这条只在 Windows 露出来——**「一条路径两次调用」是批 A 引入的新形状,单窗时代的所有冒烟都测不到它**。
-- **回证方式(探针包 `experiment/multiwin_probe`)**:①建-拆 40 轮(> 桩的 `WM_MAX_WINDOWS=32` 上限)仍建得出,`opened=40 failed=0`;探针**只建不 show**,于是 40 次建拆不在桌面闪窗。②两轮「开附窗→泵 60ms→关掉它」,打印 `sub_wid/primary/active_is_sub/count` 与 `before/after/main_running`,证明多窗宿主在真有两个 HWND 时派发仍然成立:新窗即当前窗(`active_is_sub=true`)、`primary=false`、关附窗后主窗 `running=true` 且在窗数回落。③收尾 `MULTIWIN-DONE` 行 + 退出码 0。跑法 `moon run experiment/multiwin_probe`;无显示服务打印 `MULTIWIN SKIP`。真窗观感(两窗互相遮挡/拖动重绘、附窗里的 preedit)仍按 AGENTS 规则 6 留使用者复验;`examples/native-app` 在 Windows 的启动冒烟回证 `NATIVE-APP-MW wins=1 ... ` 与退出码 0(按钮点击需要注入,归 W7)。
+- **回证方式(探针包 `experiment/multiwin_probe`)**:①建-拆 40 轮(> 桩的 `WM_MAX_WINDOWS=32` 上限)仍建得出,`opened=40 failed=0`;探针**只建不 show**,于是 40 次建拆不在桌面闪窗。②两轮「开附窗→泵 60ms→关掉它」,打印 `sub_wid/primary/active_is_sub/count` 与 `before/after/main_running`,证明多窗宿主在真有两个 HWND 时派发仍然成立:新窗即当前窗(`active_is_sub=true`)、`primary=false`、关附窗后主窗 `running=true` 且在窗数回落。③收尾 `MULTIWIN-DONE` 行 + 退出码 0。跑法 `moon run experiment/multiwin_probe`;无显示服务打印 `MULTIWIN SKIP`。真窗观感(两窗互相遮挡/拖动重绘、附窗里的 preedit)仍留使用者复验;`examples/native-app` 在 Windows 的启动冒烟回证 `NATIVE-APP-MW wins=1 ... ` 与退出码 0(按钮点击需要注入,归 W7)。
 - **顺带补的口径**:`_WIN32` 分支调用 `snprintf` 却没引 `<stdio.h>`,MSVC 只给 `C4013 隐式声明;假定外部返回 int`——与「UCRT 无 `_getwcwd`」同形的静默坑,补头后本桩单编零警告。
 
 ### MoonBit 原生 GUI 栈 · 历史族的三平台数据根（W14e，平移 master 现成分支）
@@ -240,7 +240,7 @@
 - **W22 的范围收敛**：「托盘 / 通知 / 热键三族门面统一」里，托盘（`core/tray.mbt`）与通知（`core/notify.mbt`的门面在 W20c/W21a 已各自落成，本批**不重构它们的既有 API**（改错误类型与探测命名是纯破坏性改动，调用方零收益）；真正缺的一面是**热键根本没有跨平台门面**——W20b 只落在 win 包（`register_global_shortcut` 等自由函数 + `parse_accelerator` 纯函数），Linux/macOS 调用方无从写同构代码。故 W22 = 补 `core/hotkey.mbt`，形态对齐另两族：**探测 `hotkey_supported()` + 结构化错误 `HotkeyError{Unsupported, Failed(String)}` + 泵钩子 `hotkey_poll()`**。
 - **后端现状与降级口径**：Windows 真实现（`RegisterHotKey` + 线程队列，W20b 已验）；Linux 的 X11 `XGrabKey` 与 macOS 的 Carbon/AppKit 热键**未接**，一律 `Err(Unsupported)`——「没做」与「失败」分两档，调用方据此藏 UI，与 tray 的 SNI watcher 不在线、notify 的无后端同口径。
 - **加速串进出，id 回查在门面**：注册收字符串（`"Ctrl+Alt+F9"` / `"CmdOrCtrl+Shift+M"`，`CmdOrCtrl` 按平台映射 Ctrl/Cmd——解析委托 win 的纯函数，不在 core 重写一份）；轮询 `hotkey_poll()` 命中给 `Hotkey{id, spec}`——Win32 的 `poll` 只回 id，**加速串回查表由门面自己持**（进程级、与 win 注册表同生命周期；表外 id 的 `spec` 给空串，表示不是经本门面注册的）。
-- **平台探测走运行期 `@sys.sys_platform()`**（C 桩 `ffi_sys_platform` 回 1/2/3 → "windows"/"macos"/"linux"），与 AGENTS 规则 11「运行时探测 + 模式匹配、禁用 `#cfg`」一致；`is_mac` 判据同源（决定 `CmdOrCtrl` 映射）。
+- **平台探测走运行期 `@sys.sys_platform()`**（C 桩 `ffi_sys_platform` 回 1/2/3 → "windows"/"macos"/"linux"），与「运行时探测 + 模式匹配、禁用 `#cfg`」的定案一致；`is_mac` 判据同源（决定 `CmdOrCtrl` 映射）。
 - **两个本工具链小坑（都已在代码里踩过）**：① `Array` **没有 `find`**——回查表线性扫用手写循环（`for h in arr { if … return Some(h) }`）；数组追加用 `arr.push(x)`，**不要写 `arr + [x]`**（解析器把 `+` 当 infix，报 `unexpected token infix 1`，错误信息离根因很远）。② `inspect(value, content="…")` 的 `content` 是**与 value 字符串化结果比较**的字符串——布尔值要传 `"true"`/`"false"`，传 "supported" 这类描述词必失败（本批与 taskbar 批各踩一次，记此一处）。
 - **回证**：`gui/core/hotkey_wbtest.mbt` 2 条（未注册 id 回查给空串；「连上了才硬断言」——后端可用时空加速串必须走 `Err(Failed)` 而不是崩或静默成功，其余平台只打印 skip）；`moon test ./gui/core` **118/118**（原 116 + 新增 2）。`examples/native-app` 的热键区块从直调 `@win.*` 切到 `@core.hotkey_*`（注册 / 轮询两处，轮询命中直接拿 spec 回显），`--deny-warn` 零警告、冒烟 100 秒无 panic 无 CRITICAL。
 - **本批未做且不假装完成**：macOS 热键后端（门面已就位，后端落地不改调用方）；Linux `XGrabKey` 已在同批 W22 Linux 档落地，见下文「Linux 全局热键后端」条；tray/notify 两族既有 API 的统一重构（明确不做，理由见第一条）。
@@ -288,7 +288,7 @@
 
 - **引子**：上一批把媒体包挪进独立模块时，把「媒体在 Windows 上构建不了」的根因概括成「POSIX 时钟 + ffmpeg 未接」。本批把其中**属于我们自己的那一半**做掉——`audio_stub.c` 是媒体的音频后端（miniaudio 设备层 + PCM 队列），**零 ffmpeg 依赖**，它能不能编、编出来能不能跑，可以单独钉死，不必等 ffmpeg 那条线。
 - **现象（MSVC 实测）**：`audio_stub.c` 报 `error C2065: "CLOCK_MONOTONIC": 未声明的标识符`，并附一条 `warning C4013: "clock_gettime" 未定义`——`CLOCK_MONOTONIC` 是 POSIX 专有常量，MSVC 的 `<time.h>` 不提供（`clock_gettime` 也只在 UCRT 的部分版本里有）。
-- **修复（单一 stub.c 多分支 + 平台宏，先例 `win/stub.c`；AGENTS 规则 11）**：`mbt_now_ms` 按平台三分支——`_WIN32` 走 `QueryPerformanceCounter` / `QueryPerformanceFrequency`（QPC 是 Windows 的单调高精度计数器；**不用 `GetTickCount`**：粒度粗 ~15.6ms，且会被系统时间调整带偏）；`__APPLE__` 走 `mach_absolute_time` + `mach_timebase_info`（不用 `clock_gettime`：`CLOCK_MONOTONIC` 在 macOS 要 10.12+，mach 更保守且同为单调计数）；其余 POSIX 保持 `clock_gettime(CLOCK_MONOTONIC)` **原样不变**。三支都返回「自任意固定起点的毫秒数」，只用于差分（`elapsed = now - wall0`），绝对值无意义——所以起点因平台而异不影响播放时钟。
+- **修复（单一 stub.c 多分支 + 平台宏，先例 `win/stub.c`）**：`mbt_now_ms` 按平台三分支——`_WIN32` 走 `QueryPerformanceCounter` / `QueryPerformanceFrequency`（QPC 是 Windows 的单调高精度计数器；**不用 `GetTickCount`**：粒度粗 ~15.6ms，且会被系统时间调整带偏）；`__APPLE__` 走 `mach_absolute_time` + `mach_timebase_info`（不用 `clock_gettime`：`CLOCK_MONOTONIC` 在 macOS 要 10.12+，mach 更保守且同为单调计数）；其余 POSIX 保持 `clock_gettime(CLOCK_MONOTONIC)` **原样不变**。三支都返回「自任意固定起点的毫秒数」，只用于差分（`elapsed = now - wall0`），绝对值无意义——所以起点因平台而异不影响播放时钟。
 - **两处溢出防线**：①Windows 分支拆成 `(ticks / freq) * 1000 + ((ticks % freq) * 1000) / freq`，避免 `ticks * 1000` 在 64 位溢出（QPC 计数自开机起累计，10MHz 下一年 ≈ 3.15e14，乘 1000 后仍有量级余量，但拆开更稳）；②macOS 分支用 `__uint128_t` 过渡 `t * numer / denom`，防 Apple Silicon 上 numer/denom 非 1:1 时中间乘积溢出。
 - **两份拷贝同步改**：`media/audio_stub.c` 与 `src/audio_stub.c` 此前逐字节相同（md5 `2b807752…`）。改时一度只在 `src/` 多写一句注释，结果两份**不再**逐字节相同——当场回退那行，两份恢复一致（改后 md5 均为 `856a4c98e3879e77aa5108f7bb4dcfd8`）。理由：旧链下线时的「归一」要能直接取一份，两份静默漂移会让这件事没法机械判断。
 - **回证（纯 C 探针 `experiment/media_probe/audio_backend_probe.c`，直接 `#include` 平台后端）**：末行 **`AUDIO-BACKEND-OK`**、**48 条断言全过**、0 失败——①**时钟**：连续/五连读单调非减、为正、`Sleep(60)` 后推进 61ms（落在 [40,400] 区间）；②**设备开参数**：`channels ∈ [1,8]` 且 `rate > 0` 才收，`0`/`9`/`-1`/`rate=0`/负 rate 一律回 NULL；③**队列与音量语义**（与设备是否存在无关）：push 追加、`queued_bytes` 累计 400→600、非法 push 不改队列、`clear` 清零且二次幂等、`played_bytes` 非负、volume 钳到 [0,1]（0.5/1/0.25 读回一致、-1→0、2→1）；④**设备生命周期两分支都跑**（不假设环境）：本机有真设备 → `start=0`/`is_started=1`/二次 start=-1/`played_bytes` 真的推进（实测 35280 字节）/pause=0/二次 pause=-1；无设备（CI/headless）→ start=-1 且状态恒 0；⑤**NULL 参数防御全档**（该给失败档给失败档、不该崩的不崩）。探针另**直读 `QueryPerformanceFrequency` 报出 10000000 Hz**，证明走的是 QPC 高精度分支而非粗粒度回退。编法见探针头注释（`-I <moon>/include` 供 `moonbit.h`；补 `ole32.lib uuid.lib` 供 miniaudio 的 WASAPI 后端；`#pragma warning(disable:4244)` 只压 miniaudio 单头内部那一处赋值窄化，不压自家告警——探针本体 /W4 零告警）。
@@ -496,7 +496,7 @@
 
 ### MoonBit 原生 GUI 栈 G0 · 真机回证：`im_focus` 是纯通道成立的前提，preedit 缺口定位在探针挂法
 
-环境：Ubuntu 24.04 + X11 + XFCE，`GTK_IM_MODULE=fcitx`（fcitx5）。执行人：协作方真机（AGENTS 规则 6）。
+环境：Ubuntu 24.04 + X11 + XFCE，`GTK_IM_MODULE=fcitx`（fcitx5）。执行人：协作方真机。
 
 - **现象**：探针模式 B 下每按一键都直接落成一次 commit、preedit 恒 0，输入法像根本没接管——不是 fcitx5 不工作，而是 `GtkIMMulticontext` 在上下文**未激活**时落回内建的 `GtkIMContextSimple`（只处理 Latin-1，组合串与候选都不走）。
 - **根因**：只调了 `gtk_im_context_set_client_window` 就够了让上下文可用，但**没调 `gtk_im_context_focus_in`**，它一直处于失活态，`filter_keypress` 因此从不消费按键。
@@ -684,7 +684,7 @@
 - **缺陷一：文本无视控件原点**。文本层（`pt_draw*`/`rt_draw`）一直是「拿 `Bitmap.data` 自建 surface 画字」，那条路径**不经过 Painter 的 CTM 与 clip**——于是宿主每层 `translate + clip_rect` 对文字完全无效，真窗口上所有控件的文字都挤在窗口左上角（截图见 `控件首批` 前后对照）。修法是把 Cairo 会话交出去：render 桩新增 `void *cr_session_context(int64_t id)`（返回该会话的 `cairo_t*`），text 桩新增 `pt_draw_box_cr` 与 `rt_draw_cr`，在**调用方的上下文**上 `cairo_save → set_source_rgba → move_to → pango_cairo_show_layout → cairo_restore`（save/restore 保住调用方的 source 与裁剪，画完不污染）。MoonBit 侧对应 `Painter::cairo_id()`、`@text.draw_box_at / draw_at / draw_text_at`、`AttributedText::draw_at`。旧的 `draw_to/draw_in_box/draw(target,…)` 保留（离屏自绘、图表缓冲还要用）。
 - **缺陷二：嵌套绘制重复累加偏移**。`Widget::paint` 逐层 `p.translate(self.rect.x, self.rect.y)`，而 `rect` 是**绝对**矩形——于是第二层起把祖先的偏移又加了一遍（第二行的文字直接掉到窗口外）。改成 `paint_at(p, ox, oy)`：只平移「自己相对已平移原点」的差值，并把本控件的绝对原点传给子层。
 - **为什么前面几批没发现**：批次1 的绘制用例里中间那层控件正好在 `(0,0)`，绝对=相对，测试自然通过；示例的状态行只报计数与文本，不报像素。**结论：GUI 的「退出码 0 + 状态对」不等于画面对**——累积验证页从此留两条机器可查的路：`NATIVE-APP-RECTS` 几何行（每个根子项的 `x,y,wxh`，注入坐标按它取，不再靠猜截图）+ 需要看画面时 `import -window <id> x.png` 截图核对。
-- **跨静态库的链接**：text 桩引用了 render 桩的符号，`moon test -p .../gui/text` 在**链接期**报 `undefined reference to cr_session_context`（编译期无感）。按 AGENTS 规则 1，链接参数只在 `scripts/prebuild.py` 改：text 的 `link_flags` 追加 `-lrender_cairo_stub`（消费者在前的顺序即可）。
+- **跨静态库的链接**：text 桩引用了 render 桩的符号，`moon test -p .../gui/text` 在**链接期**报 `undefined reference to cr_session_context`（编译期无感）。链接参数只在 `scripts/prebuild.py` 改：text 的 `link_flags` 追加 `-lrender_cairo_stub`（消费者在前的顺序即可）。
 - **禁用态必须是单元而不是布尔**：测试抓到步进器的真 bug——`disabled` 若在建树时固化进闭包，值走到边界后 `-`/`+` 的禁用态仍停在挂载那一刻。改为 `Enabled { mut off : Bool }`，绘制与事件每次现取；组合控件（复选行、开关、步进器两侧）共用同一个单元，`set_disabled(cell, v)` 随时改。
 - **拖动状态由组件自持**：滑块用 `dragging : Ref[Bool]` 而不是读宿主的 `pressed`——宿主的 `pressed` 只在真实事件流里置位，组件在**任何**投递路径下都要能把拖动做完（否则无头用例根本测不到拖动）。
 - **两条坐标口径（本批 4 条用例一起踩的）**：① `dispatch_pointer` / `dispatch_pointer_to` 收的是**窗口坐标**，投递时才折算本地——测试里传局部坐标会静默不命中（表现为「点了没反应」）；② 按坐标命中的 `dispatch_pointer` **投不进来自控件外**的拖动，出界移动必须走 `root.dispatch_pointer_to(w.id, ev)`（等价宿主的捕获期投递）。
@@ -1175,7 +1175,7 @@
 
 - **平移面**：旧链 `traybus` 的 `sni.mbt`(731 行，StatusNotifierItem 对象面 + DBusMenu 服务端)、`icon.mbt`(75 行，程序生成的默认图标位图)、`instance.mbt`(221 行，单实例名字声称/唤醒)、`filemanager.mbt`(98 行，FileManager1 `ShowItems`) 逐行平移进 `dbus`；**之前从 `bus.mbt` 剥掉的托盘挂钩在同批接回**：`Conn.items`/`menus` 两张注册表、`NameOwnerChanged(arg0=watcher)` 重启后逐项重注册、断线迁移时把托盘项一起带回、入站调用三路分派（单实例 `Wake` 先应答后触发 → 路径命中 `items`/`menus` 走 SNI 的 `handle_call` → 最后才是 `CallReq` 兜底）。这正是「基建包先剥语义、能力包回来再接」的收口方式。
 - **测试同批平移并把 `inspect` 换成 `assert`**：`sni_wbtest`(212)/`instance_wbtest`(93)/`filemanager_wbtest`(24)，本轮实测这三份里 40 余处旧 `inspect(x, content=…)`。
-- **真总线回证（协议侧，规则 5 第一半）**：本机 XFCE 面板（`xfce4-panel`）就是 StatusNotifierWatcher。示例里点「托盘图标」后，watcher 的 `RegisteredStatusNotifierItems` 从 **9 条变成 10 条**（多出来的就是本进程的项），退出前对称注销；`sni_wbtest` 的真总线用例创建多托盘项、验路径与菜单对象互不覆盖、注销后两张表都干净。
+- **真总线回证（协议侧）**：本机 XFCE 面板（`xfce4-panel`）就是 StatusNotifierWatcher。示例里点「托盘图标」后，watcher 的 `RegisteredStatusNotifierItems` 从 **9 条变成 10 条**（多出来的就是本进程的项），退出前对称注销；`sni_wbtest` 的真总线用例创建多托盘项、验路径与菜单对象互不覆盖、注销后两张表都干净。
 - **一条注入/测试环境的坑（判据先行）**：连跑多轮「创建-注销托盘项」的测试时，偶发 `托盘注册失败: org.freedesktop.DBus.Error.NoReply` 或 `NameHasOwner` 拿到非 true。根因不是代码：**测试进程没有主循环，面板对托盘项的同步属性查询只能在 `call_sync` 的泵里被顺带服务**，积压多轮后 xfce4-panel 的一次查询会卡住，后续注册就超时。判据是「重跑即好、且 `dbus-send` 查 `RegisteredStatusNotifierItems` 仍然在线」；修法是让测试进程别长时间不泵（示例里宿主每 200 ms `dbus_pump()` 就不存在这个问题）。当时顺手加过一段 debug 打印定位，确认分支后就撤了。
 - **验证**：`moon test -p NoahLiu/native-gui/dbus` **62/62**（新增 12：sni 6 / 单实例 4 / 文件管理器 2），三连跑零 skip；`moon check ./examples/native-sys --deny-warn` 零警告、`moon build` 通过；真窗口回证 `pool=:1.479`、五键几何行 `tray=747,391,110x32`、退出码 0。**待使用者肉眼复验**：点示例里的「托盘图标」后 XFCE 通知区是否出现图标、右键是否弹出「刷新探测 / 退出」菜单、点图标后窗口里的「托盘点击」计数是否 +1。
 
@@ -1196,7 +1196,7 @@
 - **SASL EXTERNAL 不需要客户端显式传凭据**：连接时内核自动带上 `SCM_CREDENTIALS`、服务端读 `SO_PEERCRED`，客户端只发 `AUTH EXTERNAL <hex(uid)>` 即可（旧链 shim 里也没有 `sendmsg`，这一点是查证过的而不是猜的）。
 - **对外面比旧链干净一处**：旧链的入站方法调用要求处理者拿到同包的 priv `Conn`/`Msg` 才能应答；新包给出 `CallReq{bus, sender, path, iface, action, args, reply, reply_error}`，`reply` 的签名**由参数值推导**（`gdbus_args_wire`），信号订阅回调也只拿到已解码的 `GDBusValue` 数组——线协议值类型不外泄，能力模块与外部调用方看到的是同一份。
 - **三条工具链写法（本批实测）**：① 结构体字面量的字段用 `字段: 值`，写成 `=` 直接报 `Unexpected '=' in struct expression`；② **函数类型的结构体字段不是方法**——`req.reply_error(...)` 报 `Type CallReq has no method reply_error`，要先 `let f = req.reply_error` 再调；③ `;` 不是注释（`;;` 也不是），拿它当行内注释会连锁解析失败。
-- **真总线回证（规则 5 的总线侧）**：`moon test -p NoahLiu/native-gui/dbus` **23/23**——会话总线握手成功（本端唯一名 `:1.392`）、`ListNames` 真返回并含 `org.freedesktop.DBus`、不存在方法的错误名/错误文本真拿到、信号 `AddMatch` 真登记、`dbus_pump` 空转不阻塞不判死、系统总线 `ListNames` 返回 96 个名字。**面板侧（托盘图标真出现在 XFCE 通知区）与通知弹窗仍待使用者真机复验**，随 SNI/通知模块批次。
+- **真总线回证（总线侧）**：`moon test -p NoahLiu/native-gui/dbus` **23/23**——会话总线握手成功（本端唯一名 `:1.392`）、`ListNames` 真返回并含 `org.freedesktop.DBus`、不存在方法的错误名/错误文本真拿到、信号 `AddMatch` 真登记、`dbus_pump` 空转不阻塞不判死、系统总线 `ListNames` 返回 96 个名字。**面板侧（托盘图标真出现在 XFCE 通知区）与通知弹窗仍待使用者真机复验**，随 SNI/通知模块批次。
 - **后续批次**：SNI 托盘 + DBusMenu（含真实面板复验）、通知（`org.freedesktop.Notifications` 与 `set_progress`）、UPower/logind/NetworkManager/屏保/MPRIS 监视、单实例、以及 `brightness` 的 logind `SetBrightness` 注入实做。
 
 ### MoonBit 原生 GUI 栈 · 系统能力累积验证页（`examples/native-sys`）
@@ -1332,7 +1332,7 @@
 - bluez(org.bluez,系统总线)接口要点:对象枚举用 ObjectManager.GetManagedObjects,应答形状 a{oa{sa{sv}}}(路径 → 接口名 → 该接口的属性字典),按接口名 filter 出 Adapter1 / Device1 两摊;Adapter1 的 Powered / Discovering 与 Device1 的 Name / Alias / Paired / Connected / Trusted 都从字典里取。开扫描用 Adapter1.StartDiscovery(空参),配对用 Device1.Pair(空参),连接用 Device1.Connect——三者都是空参方法,应答为空。**无蓝牙适配器是合法状态**:org.bluez 不在线或枚举不到 Adapter1,bt_supported() 给 false、查询类 API 给 Unsupported,不当异常处理。
 - iio-sensor-proxy(net.hadess.SensorProxy,系统总线)接口要点:属性 HasAccelerometer / HasAmbientLight / LightLevel / AccelerometerOrientation 全在同一对象 `/net/hadess/SensorProxy` 的单一接口上(与 udisks / bluez 的多接口多对象不同)。**取值前必须 ClaimLight/ReleaseLight(或 ClaimAccelerometer/ReleaseAccelerometer)**:传感器不点灯时读数停在旧值,取完必须释放,否则别人(如自动亮度)读不到新值。AccelerometerOrientation 的类型是**字符串**(不是枚举整数),取值如 "normal"/"left-up"/"bottom-down"。
 - Windows NLM GetConnectivity 在 UI 线程调用可秒级冻结并连带原生布局断言崩溃(实测 Win10 19045 宿主机,网络环境差时必现):showcase 启动 3.7~4.7s 稳定 abort(0xC0000409 = fast-fail),崩前 stderr 打出 yoga 顶层断言「availableHeight is indefinite so heightMeasureMode must be YGMeasureModeUndefined」;崩率随网络环境 0%~100% 漂移(网络健康时查询毫秒级,与提交时冒烟存活一致,极易误判为代码回归)。定位路径:同一 exe 二分页面(仅系统集成页消失即 0 崩)→ 只禁网络初值查询+回调注册即 10/10 稳 → 预热/延迟查询均无效(查询存在即冻结,与时机无关)。根因:GetConnectivity 慢路径单次可达秒级,注册时的同步初值查询冻结 UI 线程数秒,返回瞬间 yoga 在积压布局上走 ScrollView 内容测量的 GetPreferred* 路径(该路径以 NaN 高度调 YGNodeCalculateLayout,对 height 样式已定义的容器是 fatal)。修复:shim 新增 yue_mbt_netwin_start/netwin_cached——后台 MTA 线程独占 COM 与轮询(interval 默认 5s),结果写进程级缓存,UI 线程只读缓存(network_status 缓存未就绪返回 QueryFailed,on_network_status_change 不再同步回填初值,g_net_last 改 None=未知态、首值必派发)。跨线程 COM 的 apartment 问题因接口指针创建与使用都在同一线程自然消解。验证:moon check 零警告、128 测全过、showcase 冒烟 12/12 存活(修复前同环境 7/10 崩)。
-- **多托盘项的 DBusMenu 对象路径必须随项路径派生(CORE2,白盒 + 真总线回归)**:SNI 的 Menu 属性旧实现恒返回 `/MenuBar`,menus 注册表(菜单对象路径 → Item)同键互覆——建第二个托盘项时 `c.menus.set("/MenuBar", item2)` 直接顶掉第一项的路由,面板从此只认最后注册那项的菜单(第一项的布局查询/点名落到第二项上或 UnknownObject);注销时按新键也清不掉旧键,注册表永久脏。修复:`menu_path_of(项路径)` 派生(`/StatusNotifierItem`→`/MenuBar`、`/StatusNotifierItem_N`→`/MenuBar_N`,首项沿用 ksni 约定),unregister 与 create 失败路径对称清理 items + menus 两张表;`Conn::next_item_path` 改为扫首个空闲路径(旧实现按 items.length()+1 编号,注销中间项后新项复用已占用路径,与菜单路由一起撞车)。真总线回归(sni_wbtest,无面板 watcher 自动跳过):建两项断言路径/菜单路径互异,经 `gdbus_call_session(自身唯一名, 各菜单路径, GetLayout)` 分别拿到各自菜单标签(互不含对方标签),注销后两表清零且新项从头拿路径;暂存修复前代码(menu_path_of 恒 /MenuBar)相关用例精确失败。**面板侧双图标与各自菜单的实际弹出行为需真机目视复核**(AGENTS 规则 5/6)。
+- **多托盘项的 DBusMenu 对象路径必须随项路径派生(CORE2,白盒 + 真总线回归)**:SNI 的 Menu 属性旧实现恒返回 `/MenuBar`,menus 注册表(菜单对象路径 → Item)同键互覆——建第二个托盘项时 `c.menus.set("/MenuBar", item2)` 直接顶掉第一项的路由,面板从此只认最后注册那项的菜单(第一项的布局查询/点名落到第二项上或 UnknownObject);注销时按新键也清不掉旧键,注册表永久脏。修复:`menu_path_of(项路径)` 派生(`/StatusNotifierItem`→`/MenuBar`、`/StatusNotifierItem_N`→`/MenuBar_N`,首项沿用 ksni 约定),unregister 与 create 失败路径对称清理 items + menus 两张表;`Conn::next_item_path` 改为扫首个空闲路径(旧实现按 items.length()+1 编号,注销中间项后新项复用已占用路径,与菜单路由一起撞车)。真总线回归(sni_wbtest,无面板 watcher 自动跳过):建两项断言路径/菜单路径互异,经 `gdbus_call_session(自身唯一名, 各菜单路径, GetLayout)` 分别拿到各自菜单标签(互不含对方标签),注销后两表清零且新项从头拿路径;暂存修复前代码(menu_path_of 恒 /MenuBar)相关用例精确失败。**面板侧双图标与各自菜单的实际弹出行为需真机目视复核**。
 - **断线自愈重连不得无条件新建连接(CORE2,白盒 + 真总线回归)**:`try_reconnect` 旧实现拿到 g_saved 就直接 connect_session/connect_system 并覆盖 g_conn/g_sys_conn——若断线后按需路径(sni_available / Item::create / system_conn)已重建过一条活连接,这条连同它的 fd 与 glib fd 监视一起被泄漏(g_conns 注册表按 fd 路由,覆盖后再无引用能 unwatch/close),订阅与托盘项也分裂在两条连接上,信号只到达被 orphan 的那条。修复:迁移逻辑收敛为 `Conn::adopt_saved(bus)`,由 connect_session/connect_system 在任一新连接建立时立即调用(按需重建与自愈重连同路),`try_reconnect` 先看 g_conn/g_sys_conn 是否已是活连接——是则只补一次迁移(幂等),不再新建。附带修了两个老问题:迁移时本连接已占用的路径不重复注册(防同连接重复 RegisterStatusNotifierItem 出双图标);`Item::unregister` 在连接已断时也清暂存旧连接里的项(旧实现只清当前表,项会随重连复活)。托盘项的重新注册经 `sys_post_delayed(0, …)` 投回主循环:register_item_path 内部 call_sync 要泵总线,同步执行会让 sni_available / Tray::is_supported 这类谓词在 GUI 回调里被调用时阻塞至 1.5s,并让泵期间到达的入站调用重入派发(与 netmon/UPower 回调严禁 call_sync 同一条纪律)。真总线回归:mark_dead 模拟断线 → 按需重建 → try_reconnect 后 g_conn 仍是同一条(唯一名不变)、g_conns 不新增;暂存修复前行为(无条件新建)精确失败。
 
 - sysmonitor 实测(Ubuntu 24.04 XFCE X11,口径同篇首性能基准:启动中位、稳态 Rss、release 二进制):启动(exec → 窗口 map)5 轮 77/78/81/82/88ms,中位 81ms(hello 基线 70ms 是空载系统,本次系统载有 1042 进程);稳态进程页前台 1Hz 刷新 CPU 2-3%(采样 + 派生数据 + 千行表格重建 + 重绘合计约 25ms/秒),Rss 84.9MB → 100s 后 85.8MB 走平;二进制 7.72MB(hello 对照 7.03MB)。千行进程页验收达标:1053 进程全量采样 14.94ms/次(release,≈14µs/进程,每进程两次 /proc 读取),1Hz 下采样占空 1.5%。
@@ -1717,7 +1717,7 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 ### ffmpeg 动态链 FFI(workspace 子模块 modules/ffmpeg-mbt)
 
 - 形态:moon.work workspace 成员 `modules/ffmpeg-mbt`(module `NoahLiu/ffmpeg-mbt`),与主 module 并列(yue 不 import 它,避免给 GUI 库强加系统库依赖;主 module 因 examples 直接用 @ffmbt 而声明,GUI 库用户不传染)。动态链零 vendored:编译期 pkg-config 探测 libav*(含音频的 libswresample),运行期加载系统 .so。
-- **链接传播**:库包 moon.pkg 的 link 段不会传播给最终链接(AGENTS 规则 2 的老坑)——照主仓库架构给子模块挂自己的 `prebuild.py`(moon.mod options --moonbit-unstable-prebuild),输出 `{"link_configs":[{"package":"NoahLiu/ffmpeg/src","link_flags":"-lavformat ..."}]}` 自动传播给依赖方 main 包;link 段从 moon.pkg 移除。测试方式:在 module 目录内 `moon test src`(workspace 根的全量 test 会连带 examples,他人未完成代码会干扰)。
+- **链接传播**:库包 moon.pkg 的 link 段不会传播给最终链接——照主仓库架构给子模块挂自己的 `prebuild.py`(moon.mod options --moonbit-unstable-prebuild),输出 `{"link_configs":[{"package":"NoahLiu/ffmpeg/src","link_flags":"-lavformat ..."}]}` 自动传播给依赖方 main 包;link 段从 moon.pkg 移除。测试方式:在 module 目录内 `moon test src`(workspace 根的全量 test 会连带 examples,他人未完成代码会干扰)。
 - **FFI 三个坑(真机 gdb 定位)**:① extern 类型声明必须 `#external`(缺它时 GC 把 FFI 返回裸指针当 GC 堆对象,drop 走 mi_free 段错误——崩栈 moonbit_drop_object→mi_free);② C 侧句柄失败不返回 NULL,统一哑句柄+vf_ok 探测(NULL↔Option 转换语义不确定);③ MoonBit 侧中间裸值立即装 struct 字段再传(miniaudio 的持有模式)。FFI 指针参数按新 toolchain 要求逐个 `#borrow` 注解。
 - Demuxer 形态(2026-10 音频并入后):open 只开容器探测流(vstream/astream),视频/音频解码器**显式按需打开**(open_video_decoder RGBA/sws、open_audio_decoder s16 交错/swr)——纯音频文件不再因无视频流被拒(旧版 NoVideoStream 直接 Err 的坑)。同一 Demuxer 实例上视频/音频解码器**共享 AVFormatContext 读游标会互吃 packet**,视频带音轨的场景必须双 Demuxer(同文件各 open 一个,VideoPlayer 即此形态)。
 - 音频解码坑:①vf_decode_pcm 的 EOF 冲刷——av_read_frame 返回 AVERROR_EOF 后还要 `avcodec_send_packet(NULL)` + 继续 receive_frame 取解码器残留帧(AAC 尾部 ≈1 帧样本),否则尾部丢帧(实测 m4a 45056 帧 vs wav 44100 帧的差即编码器延迟);②seek 后 swr 要重 init 丢弃旧位置重采样缓存,否则残音。
@@ -1823,7 +1823,7 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 
 ### 音频频谱动画（纯 MoonBit FFT，零 C / 零 libavfilter，2026-10-16）
 
-- 形态：取样点在 `ap_fill` 的**重采样之后、入队之前**（引擎开一个 `pcm_tap` 回调，跑在主线程的 MoonBit 侧，不碰设备回调线程——规则 3「不做 C→MoonBit 回调」在组件内部同样成立）。样本环是 1024 点窗口 + 16384 帧回看深度，绘制时按 `queued_frames` 往回看同样多的帧再算，把「取样比耳朵快约 0.23 秒（高水位 40000 字节 ÷ 44.1kHz 立体声 s16 的 176400 B/s）」这条补回来；倍速下喂的是重采样后的流，与耳朵听到的同源。
+- 形态：取样点在 `ap_fill` 的**重采样之后、入队之前**（引擎开一个 `pcm_tap` 回调，跑在主线程的 MoonBit 侧，不碰设备回调线程——「不做 C→MoonBit 回调」在组件内部同样成立）。样本环是 1024 点窗口 + 16384 帧回看深度，绘制时按 `queued_frames` 往回看同样多的帧再算，把「取样比耳朵快约 0.23 秒（高水位 40000 字节 ÷ 44.1kHz 立体声 s16 的 176400 B/s）」这条补回来；倍速下喂的是重采样后的流，与耳朵听到的同源。
 - 为什么不走 ffmpeg：`showspectrum`/`ebur128` 要先给绑定层搭一套 filter graph，新增的 C 面远大于收益；1024 点 radix-2 在 MoonBit 里百来行、30fps 下算力可忽略，符合「能用 MoonBit 解决的不进 C」。
 - 判据（全在无头层钉死）：FFT 本体用**直流输入**钉（只有 bin 0 有值、其余 bins < 1e-6）；分带用 440 Hz / 1000 Hz 正弦钉落点（24 段对数分带 40 Hz..16 kHz，440 Hz 在第 9 段附近）；立体声下混与单声道同形；喂两窗后回看一窗仍点亮同段。
 - 工具链坑：① **记录字段存闭包必须写成 `(self.tap)(...)`**，`self.tap(...)` 会被当方法解析、报 `Type AudioPlayer has no method tap`；② `String.trim()` 给的是 `StringView`，喂要 `String` 的函数得 `.to_owned()`（`s[0:n]` 同理）；③ 只改数组内容不整体重赋值时字段别标 `mut`，否则吃 `unused_mut` 警告（`--deny-warn` 下就是错误）。
@@ -2027,7 +2027,7 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **现象**:窗口页四个按钮只有「全屏切换」有效,「改标题」「无边框切换」按下去毫无变化,「还原尺寸」也看不出作用。
 - **根因(三条各不相同)**:① 改标题 / 无边框——`gui/win/stub.c` 的 **GTK 分支是 W20e 留下的空实现**(`wm_set_title` / `wm_set_borderless` 整段 `(void)id;`),当年段首注释写的口径是「属 Linux 后端内部事务、不进路线图」,而 Win32 分支两条都实做了:于是 MoonBit 门面调过去无害、屏幕上什么都没有。② 还原尺寸——`wm_window_set_size` 在 GTK 分支**是真实现**(`gtk_window_resize`),但演示按钮写死 `set_size_pixels(1280, 720)`,而 1280×720 正是 showcase 的启动尺寸:不手动拖过窗口就点不出差别,这是演示缺判据不是后端缺口。③ 全屏——Win32 与 GTK 两分支都实做,所以只有它「有用」。
 - **修复**:①GTK 分支补上 `gtk_window_set_title`(id 越界、`win->window == NULL`、`title == NULL` 三道守卫)与 `gtk_window_set_decorated(on ? FALSE : TRUE)`;同段的**图标 / 最小尺寸 / 自绘标题栏拖拽区仍是空实现**,理由写进段首注释(GdkPixbuf 的源与 HICON 不同宗;`geometry_hints` 未接;`begin_move_drag` 要按下时的指针与按钮号,本栈还没把这条请求送到窗口层),不留「看着像没坏」的空白。②演示按钮改成 1280×720 ↔ 960×540 两档切换(按钮名改「尺寸切换」、段文案同步),每次点击都有可见结果。③MoonBit 侧 `set_title` / `set_borderless` 的文档从「非 Windows 后端空实现」改成**逐后端点名**(Win32 改样式位重算外框 / GTK 走 `set_decorated` / macOS 仍空)。
-- **验证**:窗口级动作无头判不了(要真窗口 + 窗口管理器),按规则 6 交真机。本批门禁读数:`cd gui && moon check --deny-warn` 零警告、库全包 937/937、`cd examples && moon check --deny-warn` 零警告、`moon build showcase --target native` 链接通过(gtk-3 本就在链接面上)。
+- **验证**:窗口级动作无头判不了(要真窗口 + 窗口管理器),交真机。本批门禁读数:`cd gui && moon check --deny-warn` 零警告、库全包 937/937、`cd examples && moon check --deny-warn` 零警告、`moon build showcase --target native` 链接通过(gtk-3 本就在链接面上)。
 - **口径**:后端能力不齐时**演示不许放按钮**(本仓先例:「最大化/还原」「置顶」因 Win32 段没写就不放按钮)。空实现的 API 留在门面里可以(跨平台形状一致),但演示与文档必须点名哪个后端没接。
 - **待真机复验**(用户执行):「改标题」→ 标题栏变成「组件库演示板 · 标题已改」(顺带验 UTF-8 中文标题);「无边框切换」→ 标题栏与边框消失、再点回来;「尺寸切换」→ 两档大小来回可见;「全屏切换」照旧。
 
@@ -2066,7 +2066,7 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **新增判据**：`experiment/clipboard_probe` —— 先 `@win.init_backend()`（与真实图形应用同形态：GTK 分支就是 `gtk_init_check`）再写，写完**保持存活 6 秒**，期间由外部进程读回。本机实测（外部读者是独立的 python-gi 进程）：`backend=true / available=true / set_ok=true`，外部读到 100 字符、含中文、弯引号、双反斜杠、制表符与尾部标记，`PROBE-AFTER-HOLD` 与写入完全一致 → **Linux 的 GtkClipboard 写路径跨进程成立**，所以这次坏的不是写、是报信。
 - **一条正确行为，别当 bug 查**：纯命令行进程（没初始化窗口后端）里 `clipboard_available()` 恒 false 并退回命令线 xclip；本机**没装 xclip** → 那种进程写剪贴板确实会失败，这是语义化降级不是缺陷。要复现「应用内」的行为必须先 `init_backend`，否则探针读数会把人带偏（我第一次跑探针就读到 `available=false`，差点归因错）。
 - **修复**：复制按钮按真实结果分支——成功才弹「代码已复制 ✓」，失败弹「复制失败：剪贴板不可用」（Danger 档）。全仓另一处 `let _ = clipboard_set_text` 在 `gui/ui/clipboard.mbt` 的内核槽里：内核 `copy()` 没有回报通道，且失败时内部剪贴板仍然兜底，按设计保留不动。
-- **验证**：`moon check clipboard_probe --deny-warn` 零警告、`cd examples && moon check --deny-warn` 零错误零警告、`moon build showcase --target native` 链接通过、库侧无改动（core+ui+sys 486/486 复跑通过）。可见结果（去浏览器粘贴）按规则 6 归真机（清单 S15）。
+- **验证**：`moon check clipboard_probe --deny-warn` 零警告、`cd examples && moon check --deny-warn` 零错误零警告、`moon build showcase --target native` 链接通过、库侧无改动（core+ui+sys 486/486 复跑通过）。可见结果（去浏览器粘贴）归真机（清单 S15）。
 - **待真机复验**（用户执行）：代码区点「复制」→ 去浏览器/编辑器 Ctrl+V 应见同一段代码；若弹的是「复制失败：剪贴板不可用」，把这句原文贴我——那说明应用内探测没走到 GtkClipboard，是另一条根因，而现在至少分得清了。
 
 ## 「在文件管理器显示」只开目录不选中：两条通道要在 core 会师（2026-10-14，真机反馈）
@@ -2075,7 +2075,7 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **根因**：`@sys.reveal_in_file_manager` 的 Linux 分支就是 `xdg-open <父目录>`，它自己的文档注释写着「总线通道的『打开并选中』随 DBus 线接入，当前一律落到打开父目录（选中态丢失）」—— 而 `FileManager1.ShowItems` 那一半**早就住在 `@dbus`**（`filemanager_available` / `show_items` / `file_uri` 三条齐全，URI 百分号编码还有测试覆盖），只是**没人把两条接起来**。接不起来是分层决定的：`@dbus` 依赖 `@sys`，sys 不能反向 import dbus，会师点只能是 core。
 - **外测（本机）**：`gdbus` 问 `NameHasOwner org.freedesktop.FileManager1` → `(true,)`（Thunar 注册了它）；`thunar --help` 里**没有** `--select` 这类命令行开关 —— 总线是唯一能带选中的通道，退回 `xdg-open` 必然丢选中。
 - **修复**：新增 `gui/core/reveal.mbt`，`@core.reveal_in_file_manager(path)`：Linux 且 FileManager1 在线时走 `show_items([reveal_uri(path, cwd)])`，不在线或这次调用失败才退回 `@sys` 的命令行路径；Windows 仍由 sys 直调 `explorer /select`。纯函数 `reveal_uri(path, cwd)` 单独露出来钉测试（选中态成不成就看这一串：必须绝对化 + 百分号编码）。sys 那条的文档改成点名「这是退路，要选中走 `@core`」；演示两处（showcase 外部段、systemprobe 的 reveal）改调 core 版。
-- **验证**：core 新增 1 条 URI 回归（相对路径绝对化、空格、中文三段）→ `moon test core` 138/138、库全包 939/939、`cd gui` 与 `cd examples` 的 `--deny-warn` 零错误零警告、`moon build showcase`/`moon build systemprobe` 链接通过。真机可见结果（Thunar 里高亮那一项）按规则 6 归用户（清单 S14）。
+- **验证**：core 新增 1 条 URI 回归（相对路径绝对化、空格、中文三段）→ `moon test core` 138/138、库全包 939/939、`cd gui` 与 `cd examples` 的 `--deny-warn` 零错误零警告、`moon build showcase`/`moon build systemprobe` 链接通过。真机可见结果（Thunar 里高亮那一项）归用户（清单 S14）。
 - **口径**：**两条通道分住两层时，会师点必须是同时看得见两者的那一层**，并且文档要点名退路会丢什么（这里丢「选中」）。否则能力齐备、行为却停在退路上，看起来就像「没做」。
 - **待真机复验**（用户执行）：showcase 外部段点「在文件管理器显示 TODO.md」→ Thunar 打开仓库根目录且 **TODO.md 处于选中态**；systemprobe 的 reveal（`/tmp`）应把 `/tmp` 本身选中。
 
@@ -2086,7 +2086,7 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **取证链**（三条各自独立）：① 会话总线上 `org.kde.StatusNotifierWatcher` 的 `NameHasOwner` 用 `gdbus` 外测为 `(true,)`（XFCE 面板的通知区在挂着）；② `moon test dbus` 里既有的四条「真总线」SNI 用例（多托盘项路径/菜单路由/注销对称清理/断线自愈）在本机全过——注册链是通的；③ 读 `Tray::new` 的分支：`sni_watcher_present()` 为真即走 `@dbus.Item::create`，与 `icon` 参数无关。
 - **修复（只动演示）**：图标句柄**照传而不作门槛**——`let ic = icon_from_bgra(...)` 后直接 `Tray::new(id, icon=ic)`；成功时把句柄留在持有者里（Win32 的 HICON 在托盘存活期不能释放），失败时才 `free`（Linux 下 `ic` 本就是 `None`，两处都按 Option 走）。
 - **口径**：**平台专属的「可选输入」不能当能力开关**——句柄/句柄型资源在别的后端可能恒空，把它当成建对象的前置条件就把那条平台整条路径堵死了。与「后端没接的能力不放按钮」是同一条纪律的另一面：这里是不该藏的按钮被藏了。
-- **验证**：`cd examples && moon check --deny-warn` 零错误零警告、`moon build showcase`/`moon build native-app` 均链接通过；库侧无改动（938/938 复测见提交）。Linux 托盘的**可见结果**（面板出图标、左键计数、右键弹菜单）按规则 6 归真机复验（清单 S13）。
+- **验证**：`cd examples && moon check --deny-warn` 零错误零警告、`moon build showcase`/`moon build native-app` 均链接通过；库侧无改动（938/938 复测见提交）。Linux 托盘的**可见结果**（面板出图标、左键计数、右键弹菜单）归真机复验（清单 S13）。
 - **待真机复验**（用户执行）：切到系统集成页的「托盘」段 → 回显应为「已建（sni）」、XFCE 面板通知区出现托盘图标；左键点击计数走、`挂菜单` 后右键出菜单、`改提示` 后悬停可见新提示。若仍不出图标，把回显原文贴我（那已经是另一条根因）。
 
 ## 周期表「停不住」：自重排时把新句柄丢了，取消打在早已跑掉的旧号上（2026-10-14，真机反馈）
@@ -2304,7 +2304,7 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **环境**:Windows 10 19044 开发机,MSVC `/W4`,纯 C 探针直接 `#include ../../gui/win/stub.c`(不链 moon 运行时)。
 - **现象/动机**:用户提「拖放应该还有与外部的交互,拖入、拖出,内部也应该能支持多次拖放吧」。W21c 只落了应用内拖放,系统级(从资源管理器拖文件进窗口)当时明确记为「随平台批」。内部多次拖放经核实是**既有能力**(`route_pointer` 抬起即释放捕获,会话在 `drag_drop`/`drag_cancel` 里复位,不是一次性对象),本批补回归钉住;系统级**拖入**在本批落地,**拖出**(`DoDragDrop` + `IDropSource` + `IDataObject`)另批。
 - **根因/设计口径**(为什么长这样):
-  - OLE 的 `IDropTarget` 回调打在**本线程的消息派发**里,与托盘/菜单/热键同一条约束(规则 3:不做 C→MoonBit 回调)⇒ C 侧把 `DragEnter`/`DragOver`/`DragLeave`/`Drop` 压进进程级环形队列(64 槽),宿主每拍 `wm_dragdnd_poll` 抽。载荷不进队列,单独放一块 64KB 缓冲,`wm_dragdnd_payload` 按「进入/投递」时读回的最近一份取。
+  - OLE 的 `IDropTarget` 回调打在**本线程的消息派发**里,与托盘/菜单/热键同一条约束(不做 C→MoonBit 回调)⇒ C 侧把 `DragEnter`/`DragOver`/`DragLeave`/`Drop` 压进进程级环形队列(64 槽),宿主每拍 `wm_dragdnd_poll` 抽。载荷不进队列,单独放一块 64KB 缓冲,`wm_dragdnd_payload` 按「进入/投递」时读回的最近一份取。
   - **效果两段式**:`DragEnter` 时 MoonBit 还没机会判「这个落点收不收」(回调必须立刻给 `pdweffect`),所以 C 侧按「这份格式认不认得」先给承诺值(CF_HDROP/CF_UNICODETEXT 给 COPY,认不出给 NONE);之后每次 `DragOver`/`Drop` 读 MoonBit 上一拍 `wm_dragdnd_set_effect` 写回的 per-window 标志。于是应用侧的 `accept` 判断能反映到系统光标,而回调侧不需要同步问 MoonBit。
   - **`accept` 必须另开一条钩子**:`on_drop` 一调就是真投递(有副作用),悬停期问「收不收」不能复用它 ⇒ `Widget::drag_accept` + `drag_wants`(没装钩子时按「收」),`@ui.drop_target(accept=)` 同时挂 `on_drop` 与 `drag_accept` 两处。
   - **会话复用,不另建一套**:`core/drag.mbt` 的进程级单例 `drag_current` 是 App 内拖放已有的,外部事件按 ENTER→`drag_begin(data,0,x,y)`、OVER→`drag_move`、LEAVE→`drag_cancel`、DROP→`drag_drop` 喂进同一条,落点命中(`drop_target_at`)与高亮(`drag_hover`)全部复用;落点树按**事件所属窗**找(`drag_window_root_of` 遍历 `host_windows()` 比 `a.window.id`),`drag_root()` 在外部会话期间优先返回那张树。
@@ -2342,7 +2342,7 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **现象**:文件拖进窗口时鼠标是**禁止符**、松手不收(= S26 第①项失败)。同一份代码在探针里是全绿的。
 - **根因**:`wm_dnd_fetch` 只走 `GetDataHere` 一条腿(当时的注释理由是「省掉 IMalloc 释放这条腿」)。**资源管理器的数据对象对 CF_HDROP 常只实现 `GetData`**,`GetDataHere` 直接给 `E_NOTIMPL`/`MK_E_UNAVAILABLE` ⇒ `QueryGetData` 明明认得出格式、载荷却取不回来 ⇒ `wm_dnd_extract` 判「这份东西我不认识」⇒ `DragEnter` 承诺 NONE,于是**一进来就是禁止符**,后面 MoonBit 再怎么写回都救不回来(效果初值就是 NONE)。
 - **修复**:取数据改**两条腿**——先 `GetDataHere`(我们递空 `GMEM_MOVEABLE`,取回的归我们 `GlobalFree`),**失败再退 `GetData`**(对方自己分配 medium,所有权在 medium,必须 `ReleaseStgMedium` 放、不能再 `GlobalFree`)。释放口径随取法走,故把返回从裸 `HGLOBAL` 换成 `WmDndBlob{h, via_medium, medium}` + `wm_dnd_blob_free`,`wm_dnd_extract` 的两个分支都改用它。
-- **为什么探针照绿**:探针那只合成数据对象**两条都实现**,所以「只走一条腿」这种错在合成对象上永远看不出来——正是规则 5 说的那类「单测自洽 ≠ 互操作通过」。现给 `ProbeDo` 加 `no_get_data_here`/`no_get_data` 两个开关,新增 9 条判据钉住「只实现 `GetData` 的对象也要认得出 Paths(4)/Text(1) 并承诺 COPY」,以及「两条都不给时才老实答 NONE、载荷为空」。
+- **为什么探针照绿**:探针那只合成数据对象**两条都实现**,所以「只走一条腿」这种错在合成对象上永远看不出来——正是「单测自洽 ≠ 互操作通过」那类问题。现给 `ProbeDo` 加 `no_get_data_here`/`no_get_data` 两个开关,新增 9 条判据钉住「只实现 `GetData` 的对象也要认得出 Paths(4)/Text(1) 并承诺 COPY」,以及「两条都不给时才老实答 NONE、载荷为空」。
 - **顺带加的诊断落盘**(跨进程真拖只能真人跑,出问题要有读数):设环境变量 `NATIVEGUI_DND_LOG=<绝对路径>` 后,`gui/win/stub.c` 把拖放链关键节点逐条追加写进那个文件——`ole_init ready=…`、`enable slot=… hwnd=… ok/FAILED hr=…`、`enter slot=… recognized=… payload=… promised=… pt=…`、`over slot=… answered=…`(只在答的效果变了时落一行,不刷屏)、`set_effect slot=… effect=…`、`drop slot=… recognized=… eff=…`。没设变量时一个字节都不写。据此一眼分得清是「OLE 没起来」「没注册上」「载荷取不回」「MoonBit 答了 NONE」哪一环。
 - **验证方式**:探针 `experiment/drag_probe/dragdnd_probe.c` 末行 **`DRAGDND-OK`**,判据 **93 条**(84 → 93);`moon test core ui win` **355/355**、库全包 **941/942**(唯一红仍是 `si_machine` 的 BIOS 注册表读数,本机环境基线)、`cd gui && moon check --deny-warn` 零警告、`moon build showcase --target native` 链接通过。真机复验仍归 `测试文档/测试用例.md`(建议带 `NATIVEGUI_DND_LOG` 跑一次并把日志贴回)。
 
@@ -2409,7 +2409,7 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 
 - **环境**：Windows 10 19044 开发机，跑 `cd gui && moon test sys`（或全包测试）时反复弹系统对话框。
 - **现象**：用户反馈「你测试的时候总是提示『需要使用新应用以打开 libyue-invalid-probe 链接』」。
-- **根因**：`sys/launcher_wbtest.mbt` 里有一条 Windows 探针 `open_url("libyue-invalid-probe://no-such-scheme")`，注释写着「用无效目标的 SpawnFailed 语义做探针（**不弹窗**）」——这句是错的。`ShellExecuteW` 走的是系统关联/协议分发：**未注册的协议不返回 `SE_ERR_*`**，而是把「你要用哪个应用打开」的选择器交给用户（等价于成功），所以既拿不到期望的 `SpawnFailed`，又每次跑测试都在开发者桌面上弹窗。测试有真实系统副作用，还违反「真机动作归用户复验」的分工（规则 6）。
+- **根因**：`sys/launcher_wbtest.mbt` 里有一条 Windows 探针 `open_url("libyue-invalid-probe://no-such-scheme")`，注释写着「用无效目标的 SpawnFailed 语义做探针（**不弹窗**）」——这句是错的。`ShellExecuteW` 走的是系统关联/协议分发：**未注册的协议不返回 `SE_ERR_*`**，而是把「你要用哪个应用打开」的选择器交给用户（等价于成功），所以既拿不到期望的 `SpawnFailed`，又每次跑测试都在开发者桌面上弹窗。测试有真实系统副作用，还违反「真机动作归用户复验」的分工。
 - **修复**：新增纯判据 `open_supported()`（Windows/Linux/macOS 为真，运行时探测、不碰系统），测试改成只断它 + **在交出去之前就返回**的负例（`open_file("")`→`NotFound`、`open_file_with("", …)`→`SpawnFailed`、`reveal_in_file_manager("")`→`NotFound`/macOS 的 `Unsupported`），真开动作只留在示例按钮里（S28 由用户复验）。顺带把 `open_url` 的 macOS 分支补上（`open` 一条，与 `open_file` 同口径），`open_supported` 与三条面的分派表因此一致。
 - **口径**：库测试里**不许**出现 `ShellExecute*` / `xdg-open` / `open` 的真实目标调用；要验「后端接没接上」用纯判据，要验「真开出来是什么」写进 `测试文档/测试用例.md` 让人跑。以后再有「拿无效目标探错误档」的想法，先确认该无效性能在**不启动系统 UI** 的前提下返错——协议的无效性恰恰不满足这条。
 - **验证方式**：`moon test sys` **186/187**（唯一红仍是 `si_machine` 读 BIOS 注册表的本机环境基线），跑测试期间桌面不再出现任何对话框；`cd gui && moon check --deny-warn` 与 examples 零警告。
@@ -2473,7 +2473,7 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **口径(再次记档)**:像素级/数值级判据一律先问「另一侧后端的读数是多少」,阈值取交集;本仓判据翻车四连——radio 圆心、launcher 回读、dragdnd effect 初值、本次覆盖精度——全是同一形状。
 ## macOS 后端首批（mac 平台批①-⑧，2026-10-15；编译与链接由 CI 的 macOS job 回证，真机项待复验）
 
-- **环境**：GitHub Actions `macos-latest`（Apple Silicon，Xcode CLT 自带 clang 与 SDK 框架）。**本地开发机是 Ubuntu/X11，摸不到 macOS 的窗口服务**，所以这一族的「编得过、链得上」全部由 CI 证明，「跑得起来、看起来对」按 AGENTS 规则 6 交真机（清单在 `测试文档/测试用例.md`）。
+- **环境**：GitHub Actions `macos-latest`（Apple Silicon，Xcode CLT 自带 clang 与 SDK 框架）。**本地开发机是 Ubuntu/X11，摸不到 macOS 的窗口服务**，所以这一族的「编得过、链得上」全部由 CI 证明，「跑得起来、看起来对」交真机（清单在 `测试文档/测试用例.md`）。
 - **分支形态（与 Linux/Windows 同一条「单一 stub.c 多分支 + prebuild 宏」）**：`win/stub.c` 的 `WM_STUB_MAC`（Cocoa，Objective-C）、`render/stub.c` 的 `WM_STUB_MAC`（ImageIO，纯 C）、`text/stub.c` 的 `WM_STUB_MAC`（CoreText，纯 C）、`web/webkit_stub.c` 的 `WB_HAVE_WKWEBVIEW`（WebKit，Objective-C）。**占位分支的条件一律加 `&& !defined(__APPLE__)` 闸**：macOS 上 native-stub 那次不带宏的编译必须编出空翻译单元，否则与 prebuild 归档双定义。prebuild 的 Darwin 分支用 `cc -x objective-c -fobjc-arc` 编归档（`link_configs` 没有编译期字段，`c_flags` 被静默忽略——同 GTK/Pango 那条实测），框架按 `-framework` 逐包下发。
 - **实测坑（CI 第一轮就炸出来的两处 API 形态错，记下来免得再犯）**：
   1. CoreText 的函数**文本对象在前**——`CTLineDraw(line, ctx)`，与 CGContext 一族 `(ctx, ...)` 的直觉相反；
@@ -2621,7 +2621,7 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 
 **需求**（用户）：全局按键按平台习惯走——Linux 没有「Win 键」只有 Super、mac 的主修饰键是 Cmd；并且 mac 上要默认有 Cmd+Q / Cmd+W / Ctrl+Cmd+F 这类系统档加速键，体验与系统其它软件一致。
 **三条口径**：
-- **词表同源**：`CmdOrCtrl`（连同 `cmdorctl`/`commandorcontrol` 与 `control`/`option`/`command`/`win` 别名）在 `@win.parse_accelerator`（全局热键、菜单加速键）早就有，窗口内的 `parse_combo` 这次补齐同一套——同一串 spec 不该在窗口内与系统层有两个意思。平台读数走运行期 `@shell.platform_is_macos()`（AGENTS 规则 11，不用 `#cfg(platform=)`）。
+- **词表同源**：`CmdOrCtrl`（连同 `cmdorctl`/`commandorcontrol` 与 `control`/`option`/`command`/`win` 别名）在 `@win.parse_accelerator`（全局热键、菜单加速键）早就有，窗口内的 `parse_combo` 这次补齐同一套——同一串 spec 不该在窗口内与系统层有两个意思。平台读数走运行期 `@shell.platform_is_macos()`（不用 `#cfg(platform=)`）。
 - **系统档只在 macOS 注册**：Linux 的 Super、Windows 的 Win 各有桌面归属，应用不该抢；那两档的关窗/退出本来就由 WM 与系统给。
 - **派发排在焦点链与兜底通道之前**：本栈没有原生应用菜单，这三条在别的 mac 软件里由菜单给；排在页面之后就会被输入框或播放器快捷键抢走。`App::set_system_keys(false)` 留给要自己接管的调用方。mods 按全等比——多按一个 Shift 不算命中。
 **新增口**：`Window::toggle_fullscreen`（三平台桩各一条）。mac 直接问 AppKit（`styleMask` 的全屏位），自己不记态——绿色按钮那条路改的态也跟得上；Win32/GTK 按记录态取反，WM 自己改的（F11 一类）追不上，记档取舍。
@@ -2814,7 +2814,7 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 ### macOS 真机反馈修复集（2026-10-19）
 
 - **系统级拖出：拖拽图形不从指针下起飞、有时整趟拖不出来、回报效果恒为「没成交」**：三处独立根因同一条报障。
-  - **桩与 extern 蹦床参数个数不对齐**（AGENTS 规则 4 的反例）：mac 臂的 `wm_dragdnd_send` 写成 6 参 `(id, payload, len, allowed, int64 x, int64 y)` 并把动作当返回值，而 `gui/win/ffi.mbt` 的声明与 Win32/GTK 两支都是 5 参 `(id, payload, len, allowed, int32_t *out_effect)`、返回「走没走成」。实际调用里第 5 个寄存器装的是 `Ref[Int]` 的指针，被 mac 侧当成 x 用、y 是残值；效果写不回 `out_effect` ⇒ 门面永远读 0（`Rejected`）。口径：跨平台符号一律「返回 0=这趟没起来、1=走完并写 `out_effect`」，新平台臂改签名前先对齐声明。
+  - **桩与 extern 蹦床参数个数不对齐**：mac 臂的 `wm_dragdnd_send` 写成 6 参 `(id, payload, len, allowed, int64 x, int64 y)` 并把动作当返回值，而 `gui/win/ffi.mbt` 的声明与 Win32/GTK 两支都是 5 参 `(id, payload, len, allowed, int32_t *out_effect)`、返回「走没走成」。实际调用里第 5 个寄存器装的是 `Ref[Int]` 的指针，被 mac 侧当成 x 用、y 是残值；效果写不回 `out_effect` ⇒ 门面永远读 0（`Rejected`）。口径：跨平台符号一律「返回 0=这趟没起来、1=走完并写 `out_effect`」，新平台臂改签名前先对齐声明。
   - **算出来的起拖点没被用上**：`setDraggingFrame:` 的矩形按视图坐标系（左下原点）给，旧实现固定 `(-24,-24)`/`(-90,-14)` 一类以视图原点为基准的值 ⇒ 图标与文本纸片都从窗口左下角飞，且 frame 不覆盖指针所在处。改法：起拖点取存档按下事件的 `locationInWindow`，`[view convertPoint:fromView:nil]` 换到视图坐标，文件档以它为中心错位叠放、文本档以它为中心居中。
   - **拿拖入挂接当拖出的门**：起拖前查「本窗是否 `registerForDraggedTypes` 过」，没挂就直接 `return 1`——按门面语义这是「走完、效果 0」，于是 `drag_source(external=true)` 既不真拖、也**不再回落到应用内会话**（`Ok` 那支绝不回落）。出站拖拽不需要入站注册，门直接去掉。
 - **验证方式**：`moon check`/`moon test win widget ui` 在库侧过；mac 臂的 C 只能在 mac 上编译，本批 Linux 主机无法自校编译，真机判据=色块/文本/文件三档各拖到访达与文本编辑器一次，拖拽图形跟手、松手成交、`on_external` 回报的效果与实际落点一致（复制/移动/链接随修饰键）。

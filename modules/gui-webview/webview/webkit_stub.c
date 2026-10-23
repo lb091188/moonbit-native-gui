@@ -4,7 +4,7 @@
 //
 // 四条口径：
 // ① **只能动态链** WebKitGTK（发行版的 webkit2gtk-4.1，自带 libsoup-3.0），运行期
-//    依赖已知并接受；链接参数由 scripts/prebuild.py 全权托管（AGENTS 规则 1/2）。
+//    依赖已知并接受；链接参数由 scripts/prebuild.py 全权托管。
 // ② 分支形态照 yue/win/stub.c：prebuild 带 -DWB_HAVE_WEBKIT 专编真实现进
 //    libyue_web.a；Linux 上不带该宏的那次编译落不进任何分支，编出空翻译单元，
 //    于是符号只有一份。缺 webkit 开发包时 prebuild 改编「无宏」的占位分支

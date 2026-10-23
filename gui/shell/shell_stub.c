@@ -6,7 +6,7 @@
 //           收端读到 EOF 即拿到完整载荷。不等回执：回执得由首实例的泵来发，
 //           同一拍里唤起方自己不会泵，同进程自测时更是自等。
 //   poll  ：每拍抽一次；监听 fd 有可读就 accept，连接上的字节攒进静态缓冲。
-// 只用标准头，故直接走 moon 的 native-stub；链接参数按 AGENTS 规则 1 由
+// 只用标准头，故直接走 moon 的 native-stub；链接参数由
 // scripts/prebuild.py 托管（本桩无新增）。Windows 臂（命名互斥体 + WM_COPYDATA）
 // 在 win/stub.c，这里对 _WIN32 编译失败桩。
 // 返回值约定：>0 成功语义 / 0 无事件 / <0 失败，原因取 yi_inst_last_errno。

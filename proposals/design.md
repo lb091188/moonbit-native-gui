@@ -509,7 +509,7 @@ fn render(ctx : Ctx) -> @widget.Node {
 ## 5. 门禁口径
 
 - 每批单独提交；收口条件固定：`cd gui && moon check` 零错零警 + 分包测试通过，观感逐页比对不回退。
-- 实测坑按 `AGENTS.md` 规则 7 回写 `proposals/adaptation.md`；使用类说明写进 `docs/zh/` 下的使用文档，不写进本文件。
+- 实测坑回写 `proposals/adaptation.md`；使用类说明写进 `docs/zh/` 下的使用文档，不写进本文件。
 - 动画的代价是「连续置脏重绘」每帧多少钱，所以它排在脏矩形与文本布局缓存之后：局部脏区一帧的实测读数决定过渡能开多长，不决定它怎么设计（读数与判据写在 `proposals/adaptation.md`，不在这里重复）。`opacity` 是**静态属性**（画一帧就够），不参与插值集合。
 
 ## 6. 口径记录

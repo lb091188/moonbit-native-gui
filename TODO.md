@@ -1,6 +1,6 @@
 # 路线图 — MoonBit 原生 GUI 栈
 
-记号：`[~]` 部分（缺口写在子条目）· `[ ]` 未开始。完成项不驻留——删除并同批写进 [docs/zh/roadmap.md](docs/zh/roadmap.md)（AGENTS.md 规则 12）。
+记号：`[~]` 部分（缺口写在子条目）· `[ ]` 未开始。完成项不驻留——删除并同批写进 [docs/zh/roadmap.md](docs/zh/roadmap.md)。
 
 - **唯一主线**：自绘栈（新栈拥有窗口/像素/事件循环/布局，控件全部基于 Painter 自绘 + 自定义主题，不提供独立原生控件）。
 - **更名与目录定案（2026-10-12）**：主模块 `NoahLiu/moonbit-libyue` → **`NoahLiu/native-gui`**（mooncakes 新包名，首版 0.1.0 占位；`NoahLiu/moonbit-libyue` 与 `NoahLiu/yue-media` 已于 2026-10-19 在 mooncakes 标记废弃，理由「已更名」）；子模块 `NoahLiu/yue-media` → `NoahLiu/gui-media`、`NoahLiu/yue-examples` → `NoahLiu/gui-examples`；**库模块根落在 `gui/`**：15 个库包（`gui/base` … `gui/style`；原 `gui/web` 于 2026-10-16 G9 Batch 1 出成独立模块 `modules/gui-webview`；原 `gui/core` 于 2026-10-17 G9 Batch 2 import 迁移后整包退场）与 `moon.mod` 都在其下，模块名不变故 mooncakes 包路径 `NoahLiu/native-gui/<包>` 与既有 import 全部不变；`examples/`、`experiment/` 拆为**独立模块**（`NoahLiu/native-gui-examples` / `NoahLiu/native-gui-experiment`），经 `moon.work` 本地解析依赖库模块，构建/测试不再牵连库门禁；旧链 `yue/` 已删除。GitHub 仓库名 2026-10-13 已改为 **`moonbit-native-gui`**（旧名 301 重定向）；项目显示名（README 首行、文档站 title/hero、许可行）2026-10-15 随 0.1.1 重发统一为 **native-gui**，旧名只留更名注。

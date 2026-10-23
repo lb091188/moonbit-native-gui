@@ -14,7 +14,7 @@
 - 不手写 `cc-link-flags`——链接一律由 prebuild 下发，手改会与它冲突。
 - 新增平台 C 能力按「单一 `stub.c` 多分支 + prebuild 宏」组织，先例见 `gui/win/stub.c`；链接参数仍归 prebuild。
 
-FFI 声明与蹦床对齐的规范见仓库根 [AGENTS.md](https://github.com/lb091188/moonbit-native-gui/blob/master/AGENTS.md) 与 `.agents/skills/moonbit-c-binding/`。
+FFI 声明与蹦床对齐的规范见 `.agents/skills/moonbit-c-binding/`。
 
 ## 3. 唯一的坑：改了 C 桩不重链
 
