@@ -320,6 +320,8 @@ See @references/asan-validation.md for details.
 
 6. **Forgetting the `MOONBIT_FFI_EXPORT` macro.** Without it, the function is invisible to the MoonBit linker.
 
+7. **Trampoline and C prototype mismatch.** Every `extern "c"` trampoline must match the C function-pointer prototype bit-for-bit, including the parameter count. A mismatch is undefined behavior at the ABI level, not a compile error.
+
 ## References
 
 @references/ownership-and-memory.md
