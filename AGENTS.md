@@ -1,9 +1,6 @@
-# AGENTS.md — native-gui AI 协作规则
+# AI 协作规则
 
 ## 硬性规则
-
-> 编号被 `proposals/`、`.github/workflows/`、`README_ZH.md` 等按号引用（如「规则 6」）。只可改措辞，**不可重排、不可删号复用**；新增规则一律追加在末尾。
-
 1. **链接参数由 prebuild 全权托管**——任何 `moon.pkg` 都不写链接参数，勿手改(`gui/scripts/prebuild.py` 是唯一出口)。
 2. **库包不得放 `link` 段**——moon 会生成无 main 的 `.exe` 导致构建失败；链接配置统一走 prebuild。
 3. **FFI 改动必须对照 `.agents/skills/moonbit-c-binding/`**——平台 C 按「单一 stub.c 多分支」组织；不做 C→MoonBit 回调。
