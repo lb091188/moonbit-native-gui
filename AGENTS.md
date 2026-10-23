@@ -1,8 +1,5 @@
 # AGENTS.md — native-gui AI 协作规则
 
-MoonBit 跨平台桌面 GUI 框架(包 `NoahLiu/native-gui`)，一套代码直出 Windows / Linux / macOS 原生窗口。主链路 **Ubuntu 24.04 + X11 + XFCE**。
-本文件只放**每轮都必须遵守的约束**，文档与资料统一见文末「目录索引」。
-
 ## 硬性规则
 
 > 编号被 `proposals/`、`.github/workflows/`、`README_ZH.md` 等按号引用（如「规则 6」）。只可改措辞，**不可重排、不可删号复用**；新增规则一律追加在末尾。
