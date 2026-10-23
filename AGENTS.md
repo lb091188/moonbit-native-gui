@@ -13,7 +13,7 @@
 10. **代码注释与使用文档只说内容**——只写「是什么/怎么用/怎么做」；原理、根因写进 `proposals/adaptation.md` 等专门文档。
 11. **MoonBit 侧跨平台分派一律运行时探测 + 模式匹配**——禁用 `#cfg(platform=)` 等编译指令，三平台同构优先。
 12. **TODO 收口即删，交付面同批写进路线图**——完成即从 `TODO.md` 删除，不留 `[x]` 堆积；状态进 `docs/zh/roadmap.md`(✅已验 / 🚧已合入待真机 / ❌未做 / ⏳待定)；roadmap 与 TODO 不得互相矛盾。
-13. **新内容按「目录地图」落位**——示例一律 `examples/<name>/` 独立模块并注册进 `moon.work`，依赖只写自己的 `moon.mod`；不往既有示例模块里塞第二个示例，不往 `modules/` 里放示例。
+13. **新内容按「目录」落位**——示例一律 `examples/<name>/` 独立模块并注册进 `moon.work`，依赖只写自己的 `moon.mod`；不往既有示例模块里塞第二个示例，不往 `modules/` 里放示例。
 14. **经验条目只收「代码读不出的四类」**——判据：删掉这条，未来是否会有人因它做出错误决定？**收**：平台反直觉行为、实测读数与容差、被否掉的路及其原因、环境与版本约束。**不收**：能由 diff 复述的实现步骤、「是什么/怎么用」、过程叙事。一条一事，一句根因 + 一句判据。
 
 ## 常用命令与门禁
@@ -26,28 +26,24 @@ moon run examples/hello       # 最小窗口(另有 hello-themed / showcase 等)
 
 裸 `moon test` 会连带 examples / experiment / 媒体模块(含平台适配缺口，非库缺陷)，不作库门禁。
 
-## 目录地图(放东西的第一判据)
+## 目录(放东西的第一判据，文档与资料用到再读)
 
-```
-gui/                    库模块 NoahLiu/native-gui——唯一发布单元之一
-examples/<name>/        每个示例 = 一个独立模块 NoahLiu/native-gui-examples-<name>
-experiment/             探针与微基准模块
-modules/                yoga-mbt / mdparse / gui-media / gui-webview / ffmpeg-mbt
-moon.work               workspace 成员清单:上面这些模块全部注册在此
-proposals/              对内设计/方案/实测经验(纯中文，扁平一层)
-docs/                   对外文档站(VitePress，中英 docs/ 与 docs/zh/)
-测试文档/ 测试记录/      用例文档与记录台(单文件网页，编号一一对应)
-```
+- 库模块 NoahLiu/native-gui，唯一发布单元之一:`gui/`
+- 每个示例一个独立模块 NoahLiu/native-gui-examples-<name>:`examples/<name>/`
+- 探针与微基准模块:`experiment/`
+- 子模块(yoga-mbt / mdparse / gui-media / gui-webview / ffmpeg-mbt):`modules/`
+- workspace 成员清单，上面这些模块全部注册在此:`moon.work`
+- 对内设计/方案/实测经验(纯中文，扁平一层；文档站只发对外使用文档与路线图):`proposals/`
+- 对外文档站(VitePress，中英双语):`docs/`、`docs/zh/`
+- 测试用例文档与记录台(单文件网页；用例编号 `HL/SC/BR/AU/VD` 与记录台一一对应):`测试文档/测试用例.md`、`测试记录/index.html`
+- FFI / C 绑定细节:`.agents/skills/moonbit-c-binding/`、`.agents/skills/make-moonbit-c-bindings/`
+- DBus / SNI 实现与真总线读数:`gui/dbus/`、`proposals/adaptation.md`(搜 D-Bus / SNI)
+- 平台适配经验:`proposals/adaptation.md`
+- 写或改界面之前(间距刻度、字阶、圆角层级、token 都在里面):`.agents/skills/native-gui-design/`
+- MoonBit 语言与工具链:`.agents/skills/moonbit-agent-guide/`
+- 模块拆分判据:`proposals/module-structure.md`
+- 使用文档索引:`docs/README.md`
+- 路线图:`docs/zh/roadmap.md`
+- 待办:`TODO.md`
 
 **依赖隔离靠模块，不靠包**:`moon.mod` 的 import 决定整个模块的依赖闭包，`moon.pkg` 只能从已解析依赖里挑包。所以「某个示例不拖累其它示例」必须每示例一个模块。
-
-## 目录索引(文档与资料，用到再读)
-
-- **FFI / C 绑定细节**:`.agents/skills/moonbit-c-binding/`、`.agents/skills/make-moonbit-c-bindings/`
-- **DBus / SNI 实现与真总线读数**:`proposals/adaptation.md`(搜 D-Bus / SNI)、`gui/dbus/`
-- **写或改界面之前**:`.agents/skills/native-gui-design/`(间距刻度、字阶、圆角层级、token 都在里面)
-- **平台适配经验**:`proposals/adaptation.md`(对内方案目录 `proposals/`；文档站只发对外使用文档与路线图)
-- **MoonBit 语言与工具链**:`.agents/skills/moonbit-agent-guide/`
-- **使用文档索引**:`docs/README.md` · **路线图**:`docs/zh/roadmap.md` · **待办**:`TODO.md`
-- **测试用例**:`测试文档/测试用例.md`(编号 `HL/SC/BR/AU/VD`，与 `测试记录/index.html` 一一对应)
-- **模块拆分判据**:`proposals/module-structure.md`
