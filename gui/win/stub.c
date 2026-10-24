@@ -133,6 +133,7 @@ typedef struct {
   // 隐藏不产生平台失焦事件，宿主靠 Hidden 清在途输入法组合串。
   int hidden_ev;
   int shown_ev;
+  int focus_lost; // 刚失去键盘焦点（WM_KILLFOCUS；浮层「点外收起」与输入法交接用）
   // 透明（W33）：trans_want 是上层意图，trans_mode 是当前实际档位。
   //   0 = 普通档：GDI 贴图 + SetLayeredWindowAttributes(LWA_ALPHA) 做整窗 alpha
   //   1 = 逐像素档：GDI 贴图不参与合成，改由 UpdateLayeredWindow(ULW_ALPHA) 提交
@@ -530,6 +531,15 @@ static LRESULT CALLBACK wm_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       // CreateWindowW 期间就会来 WM_SIZE：槽号经 CREATESTRUCT 先行落位
       CREATESTRUCTW *cs = (CREATESTRUCTW *)lp;
       SetWindowLongPtrW(hwnd, GWLP_USERDATA, (LONG_PTR)(intptr_t)cs->lpCreateParams);
+      return 0;
+    }
+    case WM_KILLFOCUS: {
+      // 整窗让出键盘焦点（切到别的应用 / 切到别的窗）：与 GTK/mac 分支同一
+      // 标志位，宿主 LostFocus 据此交还输入法会话、原生浮层据此「点外收起」
+      WmWindow *w = wm_of(hwnd);
+      if (w != NULL) {
+        w->focus_lost = 1;
+      }
       return 0;
     }
     case WM_SIZE: {
@@ -1226,6 +1236,10 @@ int wm_event(int64_t id) {
   if (w->resized) {
     w->resized = 0;
     return 2;
+  }
+  if (w->focus_lost) {
+    w->focus_lost = 0;
+    return 5; // 失去键盘焦点（浮层收起 / 输入法交接用；与 GTK/mac 支同码）
   }
   if (w->hidden_ev) {
     w->hidden_ev = 0;
@@ -4584,7 +4598,7 @@ typedef struct {
   // 隐藏不产生平台失焦事件，宿主靠 Hidden 清在途输入法组合串。
   int hidden_ev;
   int shown_ev;
-  int fullscreen;  // 上次 wm_window_set_fullscreen 的期望态（翻转键按它取反）
+  int fullscreen; // 上次 wm_window_set_fullscreen 的期望态（翻转键按它取反）
   int width;
   int height;
   const unsigned char *pending; // 待贴的 ARGB32 缓冲（指向下面的 backing）
@@ -8083,6 +8097,16 @@ static uint32_t wm_keysym_of(NSEvent *ev) {
   (void)sender;
   self->closing = 1; // 不在这里销毁：拆对象由 MoonBit 侧看到事件 3 后调 wm_close
   return NO;
+}
+
+- (void)windowDidResignKey:(NSNotification *)note {
+  (void)note;
+  // 整窗让出键盘焦点（切到别的应用 / 切到别的窗）：与窗内转移（WMView 的
+  // resignFirstResponder，isKeyWindow 挡着、只报点进网页子件那档）共用一个
+  // 标志位，宿主 LostFocus 据此交还输入法会话——少了这条，切换应用后半截
+  // 拼音原样挂着、唤回还在（真机实测）。orderOut 隐藏也会走到这里，与
+  // Hidden 事件各管各的（失焦交接 + 显隐事件），多清一次幂等无害。
+  self->focus_lost = 1;
 }
 
 - (void)dealloc {
