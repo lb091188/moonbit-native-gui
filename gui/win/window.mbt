@@ -14,6 +14,13 @@ pub(all) enum Event {
   /// 刚失去键盘焦点（原生浮层据此「点外收起」：点网页区时按钮事件被
   /// webview 子窗吃掉，只有焦点转移能告诉我们用户点了别处）
   LostFocus
+  /// 窗口刚从屏幕隐藏驻留（`hide` 的真实转换；已隐藏再 hide 不再发）。
+  /// 宿主据此清在途输入法组合串——隐藏不产生平台失焦事件，不补这条
+  /// 组合串会一直挂着、唤回后原样还在（真机实测）。
+  Hidden
+  /// 窗口刚从隐藏驻留唤回（`show` 的真实转换；首次显示不发，只有
+  /// 隐藏过的窗才有「唤回」）。
+  Shown
 }
 
 ///|
@@ -190,6 +197,8 @@ pub fn Window::poll_event(self : Window) -> Event {
   match wm_event(self.id) {
     5 => Event::LostFocus
     3 => Event::Closing
+    6 => Event::Hidden
+    7 => Event::Shown
     2 => {
       let ow = Ref(0)
       let oh = Ref(0)

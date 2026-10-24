@@ -18,6 +18,8 @@ fn fake_win_app() -> App {
     dirty_rect: None,
     dirty_full: false,
     system_keys: true,
+    hidden_cbs: [],
+    shown_cbs: [],
   }
 }
 

@@ -129,6 +129,10 @@ typedef struct {
   int hidden;
   int hidden_x;
   int hidden_y;
+  // 显隐事件（W23b）：hide/show 真实转换各置一位，wm_event 弹出一次。
+  // 隐藏不产生平台失焦事件，宿主靠 Hidden 清在途输入法组合串。
+  int hidden_ev;
+  int shown_ev;
   // 透明（W33）：trans_want 是上层意图，trans_mode 是当前实际档位。
   //   0 = 普通档：GDI 贴图 + SetLayeredWindowAttributes(LWA_ALPHA) 做整窗 alpha
   //   1 = 逐像素档：GDI 贴图不参与合成，改由 UpdateLayeredWindow(ULW_ALPHA) 提交
@@ -896,6 +900,7 @@ void wm_show(int64_t id) {
       SetWindowPos(w->hwnd, NULL, w->hidden_x, w->hidden_y, 0, 0,
                    SWP_NOSIZE | SWP_NOZORDER);
       w->hidden = 0;
+      w->shown_ev = 1; // 首次显示不发，只有隐藏过的窗才有「唤回」
     }
     ShowWindow(w->hwnd, SW_SHOW);
     SetFocus(w->hwnd);
@@ -922,6 +927,7 @@ void wm_hide(int64_t id) {
   w->hidden_x = tl.x;
   w->hidden_y = tl.y;
   w->hidden = 1;
+  w->hidden_ev = 1;
   ShowWindow(w->hwnd, SW_HIDE);
 }
 
@@ -1220,6 +1226,14 @@ int wm_event(int64_t id) {
   if (w->resized) {
     w->resized = 0;
     return 2;
+  }
+  if (w->hidden_ev) {
+    w->hidden_ev = 0;
+    return 6; // 刚隐藏驻留（宿主据此清在途输入法组合串）
+  }
+  if (w->shown_ev) {
+    w->shown_ev = 0;
+    return 7; // 从隐藏驻留唤回
   }
   if (w->need_draw) {
     w->need_draw = 0;
@@ -4566,6 +4580,10 @@ typedef struct {
   int resized;     // 尺寸变了，本次取事件时回报新宽高
   int closing;     // 窗口管理器请求关闭
   int focus_lost;  // 刚失去键盘焦点（原生浮层据此「点外收起」）
+  // 显隐事件（W23b）：hide/show 真实转换各置一位，wm_event 弹出一次。
+  // 隐藏不产生平台失焦事件，宿主靠 Hidden 清在途输入法组合串。
+  int hidden_ev;
+  int shown_ev;
   int fullscreen;  // 上次 wm_window_set_fullscreen 的期望态（翻转键按它取反）
   int width;
   int height;
@@ -5040,6 +5058,7 @@ void wm_show(int64_t id) {
       // WM 会重新摆放（W23 验收=唤回原位）
       gtk_window_move(GTK_WINDOW(w->window), w->hidden_x, w->hidden_y);
       w->hidden = 0;
+      w->shown_ev = 1; // 首次显示不发，只有隐藏过的窗才有「唤回」
     }
     gtk_widget_show_all(w->window);
     gtk_widget_grab_focus(w->area);
@@ -5073,6 +5092,7 @@ void wm_hide(int64_t id) {
   w->hidden_x = x;
   w->hidden_y = y;
   w->hidden = 1;
+  w->hidden_ev = 1;
   gtk_widget_hide(w->window);
   if (gw != NULL && GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
     XWithdrawWindow(gdk_x11_get_default_xdisplay(), gdk_x11_window_get_xid(gw),
@@ -5293,6 +5313,14 @@ int wm_event(int64_t id) {
   if (w->focus_lost) {
     w->focus_lost = 0;
     return 5; // 失去键盘焦点（浮层收起用）
+  }
+  if (w->hidden_ev) {
+    w->hidden_ev = 0;
+    return 6; // 刚隐藏驻留（宿主据此清在途输入法组合串）
+  }
+  if (w->shown_ev) {
+    w->shown_ev = 0;
+    return 7; // 从隐藏驻留唤回
   }
   if (w->need_draw) {
     w->need_draw = 0;
@@ -7784,6 +7812,10 @@ typedef struct {
   int resized;
   int closing;
   int focus_lost;
+  // 显隐事件（W23b）：hide/show 真实转换各置一位，wm_event 弹出一次。
+  // 隐藏不产生平台失焦事件，宿主靠 Hidden 清在途输入法组合串。
+  int hidden_ev;
+  int shown_ev;
   int width;  // 物理像素
   int height;
   WmEv evs[64];
@@ -8621,11 +8653,15 @@ void wm_show(int64_t id) {
     if (s == nil) {
       return;
     }
+    int was_hidden = s->hidden;
     [s.win makeKeyAndOrderFront:nil];
     [NSApp activateIgnoringOtherApps:YES];
     [s.view updateTrackingAreas];
     [s.win invalidateCursorRectsForView:s.view];
     s->hidden = 0; // W23 唤回：Cocoa 的 frame 不随 orderOut 丢，无需复位
+    if (was_hidden) {
+      s->shown_ev = 1; // 首次显示不发，只有隐藏过的窗才有「唤回」
+    }
     s->need_draw = 1;
     wm_pump(); // 把映射请求推出去，别让首帧等到下一次 wait
   }
@@ -8641,6 +8677,7 @@ void wm_hide(int64_t id) {
       return;
     }
     s->hidden = 1;
+    s->hidden_ev = 1;
     [s.win orderOut:nil];
   }
 }
@@ -8781,6 +8818,14 @@ int wm_event(int64_t id) {
   if (s->focus_lost) {
     s->focus_lost = 0;
     return 5;
+  }
+  if (s->hidden_ev) {
+    s->hidden_ev = 0;
+    return 6; // 刚隐藏驻留（宿主据此清在途输入法组合串）
+  }
+  if (s->shown_ev) {
+    s->shown_ev = 0;
+    return 7; // 从隐藏驻留唤回
   }
   if (s->need_draw) {
     s->need_draw = 0;

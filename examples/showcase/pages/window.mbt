@@ -178,7 +178,9 @@ fn open_layer_probe(
 ///|
 /// 驻留探针窗：`hide` 之后演示板不能跟着一起消失，否则没有按钮能把它唤回来。
 /// 本窗固定落到 (160, 160) 再记原点，"唤回" 时读 `origin()` 就能证明是回到原地
-/// 而不是居中重开。
+/// 而不是居中重开。窗里另带两样：显隐事件回显（`App::on_hidden` / `App::on_shown`
+/// 计数）与「2 秒后自动隐藏」开关——勾上后点进输入框打拼音（组合串在屏、焦点
+/// 不动），到点本窗 hide，唤回后组合串应已清（隐藏清组合串的真机验法）。
 fn open_resident_probe(
   app : @shared.App,
   slot : Ref[@widget.App?],
@@ -189,10 +191,47 @@ fn open_resident_probe(
     None =>
       match app.host.val {
         Some(a) =>
-          match a.open_window(380, 220, @shared.tx("驻留探针窗")) {
+          match a.open_window(380, 330, @shared.tx("驻留探针窗")) {
             Some(child) => {
               let w = child.window()
               w.move_to(160, 160)
+              let hidden_n = Ref(0)
+              let shown_n = Ref(0)
+              let hits : @base.Store[String] = @base.Store::new(
+                @shared.tx("（还没有显隐事件）"),
+              )
+              let note = fn() -> Unit {
+                hits.set(
+                  @shared.tr_with(
+                    "dyn.vis_events",
+                    [
+                      ("h", hidden_n.val.to_string()),
+                      ("s", shown_n.val.to_string()),
+                    ],
+                    "已隐藏 \{hidden_n.val} 次 · 已显示 \{shown_n.val} 次",
+                  ),
+                )
+              }
+              child.on_hidden(fn() -> Unit {
+                hidden_n.val = hidden_n.val + 1
+                note()
+              })
+              child.on_shown(fn() -> Unit {
+                shown_n.val = shown_n.val + 1
+                note()
+              })
+              // 自动隐藏：勾选起一次性 2 秒延时，取消即停表（验法见窗内说明）
+              let auto : @base.Store[Bool] = @base.Store::new(false)
+              let timer_id : Ref[Int] = Ref(-1)
+              let _ = auto.signal().subscribe(fn(on : Bool) -> Unit {
+                if on {
+                  timer_id.val = child.timer(2000, fn() -> Unit { w.hide() })
+                } else if timer_id.val >= 0 {
+                  let _ = child.cancel_timer(timer_id.val)
+                  timer_id.val = -1
+                }
+              })
+              let demo : @base.Store[String] = @base.Store::new("")
               child.mount([
                 @ui.col(
                   [
@@ -204,6 +243,15 @@ fn open_resident_probe(
                     @ui.button(@shared.tx("隐藏我自己"), variant=@ui.Soft, on_click=fn() {
                       w.hide()
                     }),
+                    @ui.checkbox(@shared.tx("2 秒后自动隐藏"), auto),
+                    @ui.text(
+                      @shared.tx(
+                        "验隐藏清组合串：勾上 → 点输入框打拼音（别提交）→ 到点本窗 hide → 主窗唤回，组合串应已清。",
+                      ),
+                      role=@ui.Secondary,
+                    ),
+                    @ui.input(demo, placeholder=@shared.tx("在这里打拼音"), width=320.0),
+                    @ui.bind_label(hits, fn(s : String) { s }),
                     @ui.text(@shared.tx("固定落在 (160, 160)"), role=@ui.Secondary),
                   ],
                   row_gap=8.0,
