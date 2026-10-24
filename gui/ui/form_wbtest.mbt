@@ -67,6 +67,26 @@ test "单选组：点第几项就写第几项，横向排列" {
 }
 
 ///|
+test "单选组光标：整行手型（与 checkbox/switch 行同口径），整组禁用回默认箭头" {
+  let pick = @base.Store::new(0)
+  let root = mount_root([radio_group(["甲", "乙"], pick)], 300.0, 60.0)
+  let group = kid(root, 0)
+  for row in group.children() {
+    assert_eq(
+      root.cursor_at(row.rect.x + 6.0, row.rect.y + row.rect.h / 2.0),
+      @widget.CURSOR_HAND,
+    )
+  }
+  let off = @base.Store::new(0)
+  let root2 = mount_root([radio_group(["甲", "乙"], off, disabled=true)], 300.0, 60.0)
+  let row2 = kid(root2, 0).children()[0]
+  assert_eq(
+    root2.cursor_at(row2.rect.x + 6.0, row2.rect.y + row2.rect.h / 2.0),
+    @widget.CURSOR_DEFAULT,
+  )
+}
+
+///|
 test "开关：胶囊尺寸固定，点击换值，绘制跟随 Store 现值" {
   let on = @base.Store::new(false)
   let root = mount_root([switch(on, on_text="开", off_text="关")], 240.0, 60.0)

@@ -169,6 +169,8 @@ Value model (`ui/datetime.mbt`): `DateYMD{y,m,d}`, `TimeHMS{h,m,s}` (seconds def
 | `hover_group(children, on_click?, …)` | Hover group: hovering anywhere inside, including all children, puts the whole group into hover state and swaps its background; a click fires `on_click`; hover state in this stack is already parent-chain semantics, so no pointer polling is needed |
 | `cursor_group(children, direction?, row_gap?, column_gap?, padding?, width?, cursor?=CURSOR_HAND, handle?)` | Cursor group: any position inside uses the `cursor` shape; a child that requests its own shape wins, the rest fall back to the group's shape |
 
+Built-in composite controls follow the same semantics: clickable blocks such as radio rows, calendar cells and month arrows, table rows and nav items all request the hand cursor at the block root; disabled or unpickable parts (a disabled radio group, out-of-month calendar cells) make no request and fall back to the default arrow.
+
 ## Declarative mounting
 
 | Constructor | Purpose |

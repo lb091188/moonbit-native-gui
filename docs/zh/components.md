@@ -169,6 +169,8 @@
 | `hover_group(children, on_click?, …)` | 悬停组：组内任意位置含全部子控件悬停即整组进入悬停态换底色，点击触发 `on_click`；本栈悬停态是父链语义、无需轮询指针 |
 | `cursor_group(children, direction?, row_gap?, column_gap?, padding?, width?, cursor?=CURSOR_HAND, handle?)` | 光标组：组内任意位置用 `cursor` 形状；子件自己提形状时以子件为准，其余回落组的形状 |
 
+内置组合控件走同一套语义：radio 行、月历格与翻月箭头、表格行、导航项等整块可点的组合件都在块根设手型；禁用或不可选的部位（禁用的 radio 组、跨月日历格）不提请求，回默认箭头。
+
 ## 声明式挂载
 
 | 构造器 | 用途 |

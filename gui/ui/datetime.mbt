@@ -396,6 +396,7 @@ fn build_calendar(
         @style.color_of(st.color, @theme.theme_text_regular()),
       )
     })
+    b.cursor = @widget.CURSOR_HAND
     let delta = if right { 1 } else { -1 }
     b.on_pointer = Some(fn(
       _self : @widget.Widget,
@@ -563,6 +564,14 @@ fn build_calendar(
             align=@text.Center,
             valign=@text.Center,
           )
+        }
+      })
+      // 本月内的格子才可选：手型；跨月格不提请求，回默认箭头（与悬停底同条件）
+      c.cursor_fn = Some(fn(_w : @widget.Widget) -> Int {
+        if inm.val {
+          @widget.CURSOR_HAND
+        } else {
+          @widget.CURSOR_DEFAULT
         }
       })
       c.on_pointer = Some(fn(
