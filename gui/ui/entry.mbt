@@ -123,6 +123,9 @@ pub fn input(
   on_enter? : () -> Unit = fn() { () },
   on_change? : (String) -> Unit = fn(_s : String) { () },
   clearable? : Bool = false,
+  /// mount 时交出编辑内核：改选区 / 读文本这类组件外的操作用它拿句柄
+  /// （步进器的「聚焦全选」即此用法）。
+  editor? : (@input.Editor) -> Unit = fn(_e : @input.Editor) -> Unit { () },
   class? : Array[@style.Style] = [],
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
@@ -179,6 +182,7 @@ pub fn input(
   }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
+    editor(ed)
     let off = enabled_cell(None, false)
     w.focus_id = auto_focus_id(focus_id)
     w.cursor = @widget.CURSOR_TEXT
