@@ -57,6 +57,26 @@ FFmpeg 这两个归档**由我们制作**（macOS 自编 LGPLv3、@rpath 化，W
 
 授权与来源见 [THIRD-PARTY-NOTICES.md](/THIRD-PARTY-NOTICES.md)。
 
+### Windows 运行期 ffmpeg dll（audio / video 的运行前置）
+
+`ffmpeg-mbt` 在 Windows 由 prebuild 用 `vendor/*.lib` 导入库链接，生成的 exe 加载期依赖 5 支 dll：`avcodec-63` / `avformat-63` / `avutil-61` / `swscale-10` / `swresample-7`；另 `avdevice-63` / `avfilter-12` 与 vendor 同版本配套，口径列全 7 支。
+
+- **缺 dll 不再启动即崩**：这 5 支已改延迟加载，构建期还把 `vendor/win/bin` 的绝对路径编进 exe——`ffmpeg_supported()` 首次调用按「exe 同目录 / PATH → 构建期目录」顺序找（`src/ffmpeg_win_dll.c`，`/DELAYLOAD`），找不到时媒体后端报不可用，窗口照常起。
+- **开发期不用搬 dll**：上表的 `ffmpeg-windows-…zip` 下载干的就是这件事——解到 `modules/ffmpeg-mbt/vendor/win/bin`（不入库），加载兜底直接用它；`moon add` 引进来的工程同样吃这条路径。macOS 对称：`vendor/mac` 或 brew ffmpeg（pkg-config）；Linux：系统 ffmpeg 开发包（`libav*-dev`，pkg-config 探测）。
+- **发布 / 分发才需要 app-local**：dll 与 exe 放同一目录（加载器第一顺位），或脚本代劳（缺 exe 先自动 `moon build`，`--run` 补完直接启动）：
+
+```sh
+python scripts/win_ffmpeg_dll.py                 # audio + video 一起补齐
+python scripts/win_ffmpeg_dll.py audio           # 只补 audio
+python scripts/win_ffmpeg_dll.py video --run     # 补齐后启动
+python scripts/win_ffmpeg_dll.py --dll-dir D:\ffmpeg\bin   # 手头已有 bin 目录
+python scripts/win_ffmpeg_dll.py --dry-run       # 只打印计划，不动文件
+```
+
+  来源顺序：`--dll-dir` → exe 同目录 → prebuild 落点 → PATH → winget → scoop → 旧缓存；`moon clean` 后重跑一次（dll 跟 exe 目录走）。
+- **手工取 dll 的口径**：winget 装 `BtbN.FFmpeg.LGPL.Shared.9.0`，与 `vendor/` 导入库同源（BtbN / LGPL / **shared** / 9.0）。⚠️ 别拿 `Gyan.FFmpeg` 当来源——静态构建，`bin/` 只有三个 exe、零 dll，借不出来；BtbN 的 `*.GPL` static 分支同理。认准 **Shared**；包管理器只把文件放到某处，不能让 dll 被找到，仍要 app-local 或 PATH。
+- 对外发预构建二进制时 dll 随包与版本串义务见 [THIRD-PARTY-NOTICES.md](/THIRD-PARTY-NOTICES.md)。
+
 ## 5. 新增示例模块
 
 依赖隔离靠模块、不靠包：`moon.mod` 的 import 决定整个模块的依赖闭包，`moon.pkg` 只能从模块已解析的依赖里挑包。所以「某个示例不拖累其它示例」必须做成**每示例一个模块**，把多个示例塞进同一份 `moon.mod` 会重新耦合。新增一个示例：
