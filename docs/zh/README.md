@@ -42,7 +42,6 @@ cd examples/hello && moon run .
 ```
 
 - `examples/hello` —— 最小窗口
-- `examples/hello-themed` —— 主题控件集
 - `examples/showcase` —— 完整演示板
 - `examples/browser` —— 内嵌 WebView 浏览器
 

@@ -42,7 +42,6 @@ cd examples/hello && moon run .
 ```
 
 - `examples/hello` — minimal window
-- `examples/hello-themed` — themed widget set
 - `examples/showcase` — full demo board
 - `examples/browser` — embedded WebView browser
 

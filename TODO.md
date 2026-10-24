@@ -35,7 +35,7 @@
 （P1 样式层、P3 响应式补强、P4 绘制能力、P5 动画 `transition` 与逐组件样式通道已交付，见 roadmap「组件层与前端化」；真机反馈修复集迁入 adaptation。）
 
 - [~] **P2 组件层**收尾：
-  - [ ] 观感逐页比对不回退（真机由用户复验，`examples/hello`、`hello-themed`、`showcase`、`sysmonitor`）。
+  - [ ] 观感逐页比对不回退（真机由用户复验，`examples/hello`、`showcase`、`sysmonitor`）。
 
 ### 控件（一律自绘，不再引入原生控件皮肤；家族名对应 master `yue/components/` 九个源文件）
 
