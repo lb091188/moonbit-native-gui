@@ -38,6 +38,10 @@ pub(all) struct App {
   key_fallthrough : Array[(KeyEvent) -> Bool]
   /// macOS 系统档默认加速键的开关（见 `App::set_system_keys`）
   mut system_keys : Bool
+  /// 本窗隐藏驻留回调（见 `App::on_hidden`）
+  hidden_cbs : Array[() -> Unit]
+  /// 本窗从隐藏驻留唤回的回调（见 `App::on_shown`）
+  shown_cbs : Array[() -> Unit]
 }
 
 ///|
@@ -222,6 +226,8 @@ fn app_window(
         dirty_rect: None,
         dirty_full: false,
         system_keys: true,
+        hidden_cbs: [],
+        shown_cbs: [],
       }
       host_add_app(app)
       install_host_hooks()
@@ -245,6 +251,8 @@ pub fn test_app(s : @shell.Session) -> App {
     dirty_rect: None,
     dirty_full: false,
     system_keys: true,
+    hidden_cbs: [],
+    shown_cbs: [],
   }
 }
 
@@ -500,6 +508,42 @@ pub fn App::quit(self : App) -> Unit {
 ///|
 pub fn App::is_running(self : App) -> Bool {
   !self.closed && self.session.is_running()
+}
+
+///|
+/// 注册本窗「被隐藏驻留」（`hide` 的真实转换）回调：可注册多个，按注册序触发。
+/// 典型用途是托盘/单实例唤起前记状态、隐藏驻留时暂停动画。回调时机在事件
+/// 拍内（`hide()` 调用后的下一拍），此时窗口已撤出屏幕。
+pub fn App::on_hidden(self : App, f : () -> Unit) -> Unit {
+  let _ = self.hidden_cbs.push(f)
+}
+
+///|
+/// 注册本窗「从隐藏驻留唤回」（`show` 的真实转换）回调：可注册多个，按注册序
+/// 触发。首次显示不发——只有隐藏过的窗才有「唤回」。
+pub fn App::on_shown(self : App, f : () -> Unit) -> Unit {
+  let _ = self.shown_cbs.push(f)
+}
+
+///|
+/// 隐藏驻留的宿主侧收口：与「整窗失焦」同一套输入法交接（在途 commit 归当前
+/// 控件、清掉组合串显示、打断引擎侧未完成的组合、复位去重缓存），再触发应用
+/// 回调。隐藏不产生平台失焦事件，少了这条组合串会一直挂着、唤回后原样还在
+/// （真机实测）。焦点栈不动：唤回时控件焦点照旧。
+fn App::handle_hidden(self : App) -> Unit {
+  self.flush_ime_for_switch(self.focus.current())
+  for f in self.hidden_cbs {
+    f()
+  }
+}
+
+///|
+/// 唤回的宿主侧收口：只触发应用回调（输入法会话在隐藏时已清，重挂的焦点
+/// 会由 `pump_ime` 重新对齐）。
+fn App::handle_shown(self : App) -> Unit {
+  for f in self.shown_cbs {
+    f()
+  }
 }
 
 ///|
@@ -1018,6 +1062,8 @@ fn App::drain_events(self : App) -> Unit {
       }
       @win.NeedsDraw => self.schedule_paint()
       @win.Resized => self.schedule_paint()
+      @win.Hidden => self.handle_hidden()
+      @win.Shown => self.handle_shown()
       @win.LostFocus => {
         // 键盘焦点被拿走（点进网页子件、浮层或别的窗口接管）：把输入法这一会话
         // 交还给系统——在途 commit 归当前控件、清掉组合串显示、打断引擎侧未完成的

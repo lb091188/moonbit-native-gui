@@ -394,7 +394,7 @@
     <p>本机浏览器的 localStorage（键名 <code>ngtt.v1</code>），不上传任何服务器，关掉页面不丢。它绑定「这台机器的这个浏览器」，换浏览器或清站点数据会丢——所以提供了「导出」：得到的 JSON 可以放进 <code>测试记录/</code> 一起提交，需要时用「导入」合并回来（按时间取新、日志去重）。</p>
     <p>页面被嵌在沙箱 iframe 里打开时（例如某些预览面板），浏览器会拒绝 localStorage，此时页面顶部会出现黄条提示，记录只留在内存。要正常保存，请用浏览器直接打开本文件。</p>
     <h3>用例库来源</h3>
-    <p>按「应用 → 页面 → 段落」组织，编号与 <code>测试文档/测试用例.md</code> 一一对应：<code>HL</code> = Hello、<code>SC</code> = Showcase、<code>BR</code> = Browser、<code>AU</code> = Audio、<code>VD</code> = Video。共 151 条：Hello 7、Showcase 96（15 个侧栏页 + 整板导航，15 页合计 110 个段）、Browser 23、Audio 14、Video 11。改用例改本文件顶部的 <code>CASES</code> 数组，并同步文档。</p>
+    <p>按「应用 → 页面 → 段落」组织，编号与 <code>测试文档/测试用例.md</code> 一一对应：<code>HL</code> = Hello、<code>SC</code> = Showcase、<code>BR</code> = Browser、<code>AU</code> = Audio、<code>VD</code> = Video。共 152 条：Hello 7、Showcase 97（15 个侧栏页 + 整板导航，15 页合计 111 个段）、Browser 23、Audio 14、Video 11。改用例改本文件顶部的 <code>CASES</code> 数组，并同步文档。</p>
     <h3>已知边界</h3>
     <ul>
       <li>不存截图。失败项用文字备注，需要图就把文件名写进备注。</li>
@@ -527,6 +527,7 @@
     { id: 'SC-10.5', app: 'showcase', page: '窗口', sec: '透明度', t: '透明度与背景穿透', d: 'set_opacity 逐档变淡（无合成器静默无效不崩）；主窗开着穿透看不出变化是正常的（整页铺满底色）；「开透明测试窗」后为无边框窗、卡片外那圈透出桌面、卡片仍不透明；Windows 带边框主窗点穿透应无变化，透视只在无边框窗成立' },
     { id: 'SC-10.6', app: 'showcase', page: '窗口', sec: '层级', t: '窗口层级嵌入（探针窗）', d: '五档都切到探针窗上：主窗保持普通档，切「图标下 / Dock」只有探针窗掉层；面板三档不进任务栏与窗口列表、Dock 另带压顶；关探针窗后窗数回落' },
     { id: 'SC-10.7', app: 'showcase', page: '窗口', sec: '显隐驻留', t: 'hide / show 与屏幕原点', d: 'hide 后探针窗消失、主窗不受影响；show 回到 hide 前原点（160,160）而不是居中重开；is_hidden 读数一致' },
+    { id: 'SC-10.8', app: 'showcase', page: '窗口', sec: '显隐事件', t: '显隐事件与组合串清理', d: '开探针窗勾「2 秒后自动隐藏」，点输入框打拼音（别提交）等自动隐藏，主窗唤回：组合串已清、框内无残留；回显「已隐藏 N 次 · 已显示 M 次」随每次 hide / show 各 +1；刚开窗不产生事件记录' },
 
     /* --- 11 系统集成 --- */
     { id: 'SC-11.1', app: 'showcase', page: '系统集成', sec: '文件', t: '文件对话框', d: '打开对话回显所选路径；保存把一行文本写进所选文件；取消返回 false' },

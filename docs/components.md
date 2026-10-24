@@ -178,6 +178,15 @@ Built-in composite controls follow the same semantics: clickable blocks such as 
 | `mount_window(children : Array[Node], title?="", width?=800, height?=600, handle? : (App) -> Unit)` | Describe a tree and mount it into a window: build the host (window + event loop + overlay layer + IME channel) → mount → hand it back for the caller's `run`. Returns `None` when no display service exists. This stack offers no `center`/`on_close` parameters: centering is left to the WM, closing stops the host loop, and cleanup goes after `run()` |
 | `mount_window_render(render : () -> Array[Node], title?, width?, height?, handle?)` | The render-slot form, an alternative to a static node array: `render` is called once at mount to build the first frame; after that, all reactivity relies on the tree's `for_list`/`when`/`*_dyn` self-subscribing, self-diffing |
 
+## Window show/hide events
+
+| Entry point | Purpose |
+|---|---|
+| `App::on_hidden(f : () -> Unit)` | Fires when this window has just been hidden from the screen (a real transition of `window().hide()`); register several, they fire in registration order. Runs inside the next event batch, when the window is already off screen |
+| `App::on_shown(f : () -> Unit)` | Fires when this window is woken back from its hidden residency (a real transition of `show()`); the first showing does not fire — only a window that has been hidden has a "wake-up" |
+
+Two guarantees: **hiding clears the IME session** — hiding produces no platform focus-loss event, so the host performs the same handover as for a whole-window focus loss on the hidden tick (in-flight commits go to the current widget, the composition string display is cleared, the engine-side composition is interrupted); after wake-up no half-typed pinyin lingers. **The focus stack is untouched** — widget focus survives the round trip, same tier as a whole-window focus loss. For a demo see the residency probe window on the showcase "Window" page (show/hide counter readout plus an "auto-hide after 2s" switch that verifies composition clearing).
+
 ## Component library documentation index
 
 - Tutorial and first window: [tutorial.md](tutorial.md)
