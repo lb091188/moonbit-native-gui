@@ -1,6 +1,6 @@
 # 组件配方
 
-每个配方都是可编译的完整写法，取值只用 `baseline.md` 的刻度。主仓可运行版在 `examples/design-recipes/`（`moon check` 门禁覆盖）。
+每个配方都是可编译的完整写法，取值只用 `baseline.md` 的刻度。主仓可运行素材见 `examples/showcase/`（`moon check` 门禁覆盖）。
 
 ## 工具栏
 

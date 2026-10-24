@@ -1,5 +1,5 @@
 # 二进制发布:推 bin-* 标签(如 bin-v0.1.0)触发,各平台矩阵各自编译 release
-# 可执行文件(hello / hello-themed / showcase 三件套),打包为 bin-<平台>.zip
+# 可执行文件(hello / showcase 两件套),打包为 bin-<平台>.zip
 # 汇聚到 GitHub Release 资产。
 #
 # 与 CI 的分工:CI 每次 push 验证「可检查可测试可链接」,本工作流产出「可分发
@@ -24,9 +24,9 @@ on:
 permissions:
   contents: write
 
-# 三件套的包路径(仓库根 workspace 口径,见 moon.work)
+# 两件套的包路径(仓库根 workspace 口径,见 moon.work)
 env:
-  BIN_PKGS: examples/hello examples/hello-themed examples/showcase
+  BIN_PKGS: examples/hello examples/showcase
 
 jobs:
   build:
@@ -81,7 +81,7 @@ jobs:
           $py = (Get-Command python).Source
           Copy-Item $py "$env:USERPROFILE\.moon\bin\python3.exe"
 
-      # 构建三件套(release + strip)。产物统一带 .exe 后缀(含 Linux),
+      # 构建两件套(release + strip)。产物统一带 .exe 后缀(含 Linux),
       # 打包时仅在 Windows 保留。链接参数由库模块的 prebuild 按平台下发,
       # 示例模块构建时自动继承(见 ci.yml 说明),此处无需任何链接配置。
       - name: 构建(MSVC 环境)
@@ -112,7 +112,7 @@ jobs:
                   stream.reconfigure(encoding="utf-8", errors="replace")
               except (AttributeError, OSError):
                   pass
-          names = ["hello", "hello-themed", "showcase"]
+          names = ["hello", "showcase"]
           for name in names:
               p = f"_build/native/release/build/NoahLiu/native-gui-examples-{name}/native-gui-examples-{name}.exe"
               if not os.path.exists(p):
@@ -128,7 +128,7 @@ jobs:
                   )
               print(f"{name}.exe: Subsystem GUI(2)")
 
-      - name: 收集三件套打包
+      - name: 收集两件套打包
         shell: python
         run: |
           import os, shutil, sys
@@ -141,7 +141,7 @@ jobs:
                   pass
           # MoonBit native 后端各平台产物统一带 .exe 后缀(含 Linux),
           # 仅 Windows 包内保留后缀,其余平台重命名去掉
-          names = ["hello", "hello-themed", "showcase"]
+          names = ["hello", "showcase"]
           stage = "staging"
           os.makedirs(stage, exist_ok=True)
           for name in names:
@@ -174,7 +174,7 @@ jobs:
           draft: false
           name: Binaries ${{ github.ref_name }}
           body: |
-            可执行包(hello / hello-themed / showcase 三件套):
+            可执行包(hello / showcase 两件套):
 
             | 包 | 运行要求 |
             |---|---|

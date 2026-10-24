@@ -18,7 +18,7 @@
 ```sh
 cd gui && moon check          # 门禁:零错误零警告
 cd gui && moon test ui render text theme icons sys input win dbus chart mdview style base shell widget router
-moon run examples/hello       # 最小窗口(另有 hello-themed / showcase 等)
+moon run examples/hello       # 最小窗口(另有 showcase 等)
 ```
 
 裸 `moon test` 会连带 examples / experiment / 媒体模块(含平台适配缺口，非库缺陷)，不作库门禁。
