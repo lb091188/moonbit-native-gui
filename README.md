@@ -96,13 +96,10 @@ moon run .
 | Directory | What it is |
 |---|---|
 | `examples/hello` | Minimal window: one native window plus basic controls |
-| `examples/hello-themed` | The themed widget set |
 | `examples/showcase` | Full demo board: component library, interactive icons, charts, system surfaces |
-| `examples/design-recipes` | Design-baseline recipes: toolbar / forms / card grid / list / empty state |
-| `examples/i18n-demo` | Internationalisation: en / zh translations side by side |
 | `examples/sysmonitor` | System monitor: `/proc`·`/sys` data plus self-drawn charts |
 | `examples/browser` | Embedded WebView (extra dependency `gui-webview`) |
-| `examples/audio` · `video` | Audio/video players (extra dependency `gui-media`, needs ffmpeg — see [examples/README.md](examples/README.md)) |
+| `examples/audio` · `video` | Audio/video players (extra dependency `gui-media`, needs ffmpeg — see [build.md](docs/build.md)) |
 | `examples/headless-audio` | No window; playback driven purely from code |
 
 ## Platform support

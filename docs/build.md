@@ -57,6 +57,26 @@ Those two FFmpeg archives are **built by us**, not upstream artefacts (macOS is 
 
 Licenses and provenance: [THIRD-PARTY-NOTICES.md](/THIRD-PARTY-NOTICES.md).
 
+### Windows runtime FFmpeg DLLs (prerequisite for audio / video)
+
+On Windows, `ffmpeg-mbt` is linked by prebuild against the `vendor/*.lib` import libraries, so the produced exe depends at load time on five DLLs: `avcodec-63` / `avformat-63` / `avutil-61` / `swscale-10` / `swresample-7` (`avdevice-63` / `avfilter-12` are version-locked companions; the full list is quoted as seven).
+
+- **Missing DLLs no longer crash at startup**: those five are delay-loaded, and the build bakes the absolute path of `vendor/win/bin` into the exe — on first call `ffmpeg_supported()` resolves them in the order "exe directory / PATH → build-time directory" (`src/ffmpeg_win_dll.c`, `/DELAYLOAD`). If none is found, the media backend reports unavailable and the window still opens.
+- **No DLL juggling during development**: the `ffmpeg-windows-…zip` download in the table above exists exactly for this — it is unpacked into `modules/ffmpeg-mbt/vendor/win/bin` (not committed), which the loader falls back to. Projects pulled in via `moon add` benefit from the same path. macOS is symmetric: `vendor/mac` or brew ffmpeg (pkg-config); Linux: the system FFmpeg dev package (`libav*-dev`, probed via pkg-config).
+- **App-local staging is only needed for release / distribution**: put the DLLs next to the exe (the loader's first search location), or let the script do it (it runs `moon build` first when the exe is missing; `--run` launches afterwards):
+
+```sh
+python scripts/win_ffmpeg_dll.py                 # stage both audio and video
+python scripts/win_ffmpeg_dll.py audio           # audio only
+python scripts/win_ffmpeg_dll.py video --run     # stage, then launch
+python scripts/win_ffmpeg_dll.py --dll-dir D:\ffmpeg\bin   # you already have a bin dir
+python scripts/win_ffmpeg_dll.py --dry-run       # print the plan only
+```
+
+  Source order: `--dll-dir` → exe directory → prebuild location → PATH → winget → scoop → old cache; re-run once after `moon clean` (DLLs follow the exe directory).
+- **Manual sourcing**: `winget install BtbN.FFmpeg.LGPL.Shared.9.0` — same provenance as the `vendor/` import libraries (BtbN / LGPL / **shared** / 9.0). ⚠️ Don't use `Gyan.FFmpeg`: those are static builds (`bin/` holds three exe files and zero DLLs — nothing to borrow); BtbN's `*.GPL` static branches are the same. Look for **Shared**; package managers only place files somewhere, they don't make DLLs findable — it is still app-local or PATH.
+- Bundling and version-string obligations when shipping prebuilt binaries: [THIRD-PARTY-NOTICES.md](/THIRD-PARTY-NOTICES.md).
+
 ## 5. Adding an example module
 
 Dependency isolation is per module, not per package: the imports in `moon.mod` decide a module's whole dependency closure, and `moon.pkg` can only pick packages already resolved there. So "one example must not drag in the others" requires **one module per example** — packing several examples into one `moon.mod` re-couples them. To add one:
