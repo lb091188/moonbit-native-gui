@@ -200,7 +200,10 @@ pub fn radio_group(
           // XFCE 的默认字体实测如此），标记会把行撑破、圆圈顶被上一行盖住
           w.node.set_min_height(@yoga.fixed(20.0))
           w.focus_id = auto_focus_id(0)
-          attach_toggle(w, fn() { state.set(idx) }, Enabled::new(disabled))
+          let off = Enabled::new(disabled)
+          attach_toggle(w, fn() { state.set(idx) }, off)
+          // 整行是点击区：可用时手型、禁用回默认（与 checkbox/switch 行同口径）
+          w.cursor_fn = Some(enabled_cursor(off, @widget.CURSOR_HAND))
           // 聚焦环画在 dot 上（行本身不铺底）：包一层原绘制，末尾补一圈主题色
           if w.kids.length() > 0 {
             let dot_w = w.kids[0]

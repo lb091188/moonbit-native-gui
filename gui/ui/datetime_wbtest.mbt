@@ -260,3 +260,17 @@ test "外部改 Store 即换选中格；区间格子映射端点实心、中间�
   let empty : DateRange = { start: None, end: None }
   assert_eq(cell_name(range_state_of(empty, d(2026, 10, 4))), "plain")
 }
+
+///|
+test "日历光标：翻月箭头与本月格手型，跨月格回默认箭头" {
+  let (_root, panel) = mounted(calendar(today=d(2026, 10, 11)), 300.0, 300.0)
+  let head = panel.children()[0]
+  assert_eq(head.children()[0].cursor_request(), @widget.CURSOR_HAND)
+  assert_eq(head.children()[2].cursor_request(), @widget.CURSOR_HAND)
+  // 42 格的光标请求与 month_grid 的在月标记逐一对应
+  let grid = month_grid(2026, 10)
+  for i = 0; i < 42; i = i + 1 {
+    let want = if grid[i].1 { @widget.CURSOR_HAND } else { @widget.CURSOR_DEFAULT }
+    assert_eq(cell_at(panel, i).cursor_request(), want)
+  }
+}
