@@ -569,7 +569,7 @@ fn step_cell(
     w.node.set_height(@yoga.fixed(@theme.control_height))
     // 点这格只是操作，焦点留在中间输入格（宿主让位语义跳过本区域）
     w.keep_focus_on_click = true
-    w.cursor = @widget.CURSOR_HAND
+    w.cursor_fn = Some(enabled_cursor(off, @widget.CURSOR_HAND))
     fold_style(
       w,
       @style.empty_style().hover(background_color="fill_hover").active(
@@ -588,6 +588,10 @@ fn step_cell(
         // 内缩并走圆角：外框（含聚焦高亮环）由行容器画在子件之下，
         // 方形填充会啃掉边框与圆角；半径 = 外框令牌 - 内缩 1。
         p.set_fill_color(bg)
+        p.fill_round_rect(1.0, 1.0, r.w - 2.0, r.h - 2.0, @theme.radius_ctrl() - 1.0)
+      } else if off.off {
+        // 禁用档与按钮族同口径：fill_hover 底（字色换次级由下方分支给）
+        p.set_fill_color(@theme.theme_fill_hover())
         p.fill_round_rect(1.0, 1.0, r.w - 2.0, r.h - 2.0, @theme.radius_ctrl() - 1.0)
       }
       p.set_stroke_color(@theme.theme_border())

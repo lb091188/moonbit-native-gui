@@ -1570,3 +1570,38 @@ test "步进器:聚焦中间格即全选,打字整体替换;↑↓ 步进后同�
   type_key(a.root, cell.focus_id, @base.KS_RETURN)
   assert_eq(s.get(), 3)
 }
+
+///|
+test "步进器:到界那侧按钮呈禁用档(灰底,光标回箭头)" {
+  match @text.measure("Ag", 13.0) {
+    Some(_) => ()
+    None => {
+      println("ui: skip (无文本测量后端)")
+      return
+    }
+  }
+  let s = @base.Store::new(0)
+  let a = @widget.test_app(@shell.fake_session(911, @shell.host_new_wid(), false, 300, 200))
+  a.root.set_column()
+  @widget.mount_children(a.root, [stepper(s, min=0, max=2)])
+  a.root.relayout(300.0, 200.0)
+  let row = a.root.children()[1]
+  let minus = row.children()[0]
+  let plus = row.children()[2]
+  let my = minus.rect.y + minus.rect.h / 2.0
+  // 到界（0 已是下界）：减号侧光标回箭头，加号侧仍是手型
+  assert_eq(a.root.cursor_at(minus.rect.x + 16.0, my), @widget.CURSOR_DEFAULT)
+  assert_eq(a.root.cursor_at(plus.rect.x + 16.0, my), @widget.CURSOR_HAND)
+  // 禁用底：像素上减号侧是 fill_hover 灰底（≠外框面板底），加号侧无底
+  let bm = @render.Bitmap::new(300, 200)
+  let p = @render.Painter::new(bm)
+  a.root.paint(p)
+  p.end()
+  fn px(x : Int, y : Int) -> (Int, Int, Int, Int) {
+    let c = bm.pixel(x, y)
+    (c.r, c.g, c.b, c.a)
+  }
+  let dis = px((minus.rect.x + 8.0).round().to_int(), my.round().to_int())
+  let en = px((plus.rect.x + 8.0).round().to_int(), my.round().to_int())
+  assert_true(dis != en)
+}
