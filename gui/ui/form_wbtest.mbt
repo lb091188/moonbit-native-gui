@@ -1541,3 +1541,32 @@ test "链接：自动领号进 Tab 链，空格/回车激活" {
   key(root, a, @base.KS_SPACE, 0)
   assert_eq(hits.val, 2)
 }
+
+///|
+/// 模拟一次打字：按焦点 id 走控件层的按键路由（与宿主同一条链）。
+fn type_key(root : @widget.Widget, focus_id : Int, keysym : Int) -> Unit {
+  let _ = root.dispatch_key(focus_id, { press: true, keysym, mods: 0 })
+}
+
+///|
+test "步进器:聚焦中间格即全选,打字整体替换;↑↓ 步进后同样全选" {
+  let s = @base.Store::new(12)
+  let a = @widget.test_app(@shell.fake_session(910, @shell.host_new_wid(), false, 300, 200))
+  a.root.set_column()
+  @widget.mount_children(a.root, [stepper(s, min=0, max=999)])
+  a.root.relayout(300.0, 200.0)
+  // root[0] 是浮层图层（test_app 建宿主时挂上），步进器是 root[1]
+  let cell = a.root.children()[1].children()[1]
+  // 聚焦（与点 +/- 后的 take_focus 同一条 focus_by_id 路）：on_focus_change 全选
+  let _ = a.focus_by_id(cell.focus_id)
+  // 全选后打 7：整体替换（不是在 12 中间插成 172 / 17）
+  type_key(a.root, cell.focus_id, '7'.to_int())
+  type_key(a.root, cell.focus_id, @base.KS_RETURN)
+  assert_eq(s.get(), 7)
+  // ↑ 步进一格（7→8），焦点未动也重新全选，再打 3 仍是整体替换
+  type_key(a.root, cell.focus_id, @base.KS_UP)
+  assert_eq(s.get(), 8)
+  type_key(a.root, cell.focus_id, '3'.to_int())
+  type_key(a.root, cell.focus_id, @base.KS_RETURN)
+  assert_eq(s.get(), 3)
+}

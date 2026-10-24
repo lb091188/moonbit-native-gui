@@ -685,8 +685,16 @@ pub fn stepper(
   let plus_off = Enabled::new(state.get() >= hi)
   let text = @base.Store::new(state.get().to_string())
   let lit = Ref(false)
-  // 中间格的内核控件（handle 里回填）：点 +/- 要把焦点落到这一格
+  // 中间格的内核控件与编辑内核（handle 里回填）：点 +/- 要把焦点落到这一格；
+  // 拿到编辑内核是为了「聚焦即全选」——步进器的打字主流是换一个数而不是改一位
   let cell_ref : Ref[@widget.Widget?] = Ref(None)
+  let cell_ed : Ref[@input.Editor?] = Ref(None)
+  let select_all = fn() -> Unit {
+    match cell_ed.val {
+      Some(e) => e.select_all()
+      None => ()
+    }
+  }
   let take_focus = fn() -> Unit {
     match cell_ref.val {
       Some(w) => if !w.focused {
@@ -719,6 +727,13 @@ pub fn stepper(
     state.set((state.get() + delta).clamp(min=lo, max=hi))
     sync()
     take_focus()
+    // 焦点已在中格时 take_focus 不动焦点标志，↑/↓ 连步后接着打字也要整体替换
+    match cell_ref.val {
+      Some(w) => if w.focused {
+        select_all()
+      }
+      None => ()
+    }
   }
   // 值变 → 中间格跟随；串已经表示同一个数就不动（`007` 这类在打的串不被顶回）
   let sid = state.subscribe_id(fn(v : Int) -> Unit {
@@ -746,6 +761,7 @@ pub fn stepper(
     width=44.0,
     focus_id=auto_focus_id(focus_id),
     on_enter=fn() { commit() },
+    editor=fn(e : @input.Editor) -> Unit { cell_ed.val = Some(e) },
     class=
       [
         subset,
@@ -759,7 +775,11 @@ pub fn stepper(
       cell_ref.val = Some(w)
       w.on_focus_change = Some(fn(_self : @widget.Widget, on : Bool) -> Unit {
         lit.val = on
-        if !on {
+        if on {
+          // 点击先落光标、焦点标志画前才翻转，所以这里晚于点击定位——
+          // 点击 / Tab / 点钮聚焦统一收成「全选」，打字即整体替换
+          select_all()
+        } else {
           commit()
         }
         @widget.invalidate()
