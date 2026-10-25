@@ -441,6 +441,8 @@ fn time_popup(
       justify_content=@yoga.JustifyContent::FlexEnd,
       width=160.0,
       align_items=@yoga.AlignItems::Center,
+      // 与上方「时/分」标题行拉开一档（间距刻度 12），四行步进体保持紧凑
+      handle=fn(w : @widget.Widget) -> Unit { w.set_margin(top=12.0) },
     ).mount_into(panel)
     panel
   })
