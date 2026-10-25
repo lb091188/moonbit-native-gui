@@ -466,3 +466,33 @@ test "拖源 external：系统级起不来时回落应用内会话" {
   let _ = @widget.drag_cancel()
   @widget.clear_drag_root()
 }
+
+///|
+test "拖拽反馈光标：悬停张手、按下与开拖握拳、松手回张手" {
+  let src = drag_source(
+    plain_box(80.0, 30.0),
+    payload=fn() -> @widget.DragData? { Some(@widget.DragData::Text("载荷")) },
+  )
+  let (root, wrap) = mounted(
+    view([src], align_items=@yoga.AlignItems::FlexStart),
+    320.0,
+    200.0,
+  )
+  @widget.set_drag_root(root)
+  let sw = wrap.children()[0]
+  let sx = sw.rect.x + 8.0
+  let sy = sw.rect.y + 8.0
+  // 悬停可拖：张手
+  assert_eq(root.cursor_at(sx, sy), @widget.CURSOR_GRAB)
+  // 按下（未过阈值）：握拳
+  let (h, cap) = drag_step(root, @widget.PointerKind::Down, sx, sy, -1, -1)
+  assert_eq(root.cursor_at(sx, sy), @widget.CURSOR_GRABBING)
+  // 过阈值开拖：会话进行中仍握拳
+  let _ = drag_step(root, @widget.PointerKind::Move, sx + 12.0, sy, h, cap)
+  assert_true(@widget.drag_active())
+  assert_eq(root.cursor_at(sx + 12.0, sy), @widget.CURSOR_GRABBING)
+  // 松手（此处无落点，会话照常收尾）：回到张手
+  let _ = drag_step(root, @widget.PointerKind::Up, sx + 12.0, sy, h, cap)
+  assert_false(@widget.drag_active())
+  assert_eq(root.cursor_at(sx, sy), @widget.CURSOR_GRAB)
+}

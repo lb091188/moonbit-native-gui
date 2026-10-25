@@ -27,6 +27,12 @@ pub const CURSOR_RESIZE_V : Int = 4
 /// GTK `GDK_BLANK_CURSOR` / mac 空白 `NSCursor`。
 pub const CURSOR_HIDDEN : Int = 5
 
+/// 张开的手：悬停在可拖拽的内容上（`drag_source` 用）。
+pub const CURSOR_GRAB : Int = 6
+
+/// 握紧的拳：拖拽会话进行中（按下/开拖后；会话期间宿主统一用它）。
+pub const CURSOR_GRABBING : Int = 7
+
 ///|
 pub(all) enum PointerKind {
   Down

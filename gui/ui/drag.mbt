@@ -62,6 +62,15 @@ pub fn drag_source(
     // 三态：armed = 按下且在等阈值；dragging = 已经开拖（会话在跑）
     let armed : Ref[Bool] = Ref(false)
     let dragging : Ref[Bool] = Ref(false)
+    // 拖拽反馈光标：悬停可拖张手，按下（等阈值）与开拖后握拳——拖拽会话
+    // 期间宿主会统一改握拳，这里管的是按下未过阈值的那一档
+    w.cursor_fn = Some(fn(_self : @widget.Widget) -> Int {
+      if armed.val || dragging.val {
+        @widget.CURSOR_GRABBING
+      } else {
+        @widget.CURSOR_GRAB
+      }
+    })
     let ox : Ref[Double] = Ref(0.0)
     let oy : Ref[Double] = Ref(0.0)
     w.on_pointer = Some(fn(

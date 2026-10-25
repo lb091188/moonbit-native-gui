@@ -707,7 +707,13 @@ fn App::route(self : App, ev : @win.InputEvent) -> Unit {
         _ => false
       }
       if wants_cursor {
-        let want = self.root.cursor_at(pev.x, pev.y)
+        // 应用内拖拽会话进行中：全程握拳（悬停路径此刻被捕获，落点命中与否
+        // 由落点自己的描边高亮表达，光标不再随点下的控件改形）
+        let want = if drag_active() {
+          CURSOR_GRABBING
+        } else {
+          self.root.cursor_at(pev.x, pev.y)
+        }
         if want != self.session.cursor_kind {
           self.session.cursor_kind = want
           self.session.window.set_cursor(want)

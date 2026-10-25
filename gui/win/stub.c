@@ -503,6 +503,9 @@ static HCURSOR wm_load_cursor(int kind) {
     name = IDC_SIZEWE;
   } else if (kind == 4) {
     name = IDC_SIZENS;
+  } else if (kind == 6 || kind == 7) {
+    /* 6 = 张手 / 7 = 握拳：Win32 没有握拳系统光标，两张手都落 IDC_HAND */
+    name = IDC_HAND;
   }
   return LoadCursorW(NULL, name);
 }
@@ -5876,6 +5879,10 @@ void wm_set_cursor(int64_t id, int kind) {
       name = "ew-resize";
     } else if (kind == 4) {
       name = "ns-resize";
+    } else if (kind == 6) {
+      name = "grab";
+    } else if (kind == 7) {
+      name = "grabbing";
     }
     cur = gdk_cursor_new_from_name(dpy, name);
     if (cur == NULL) {
@@ -8162,6 +8169,8 @@ static uint32_t wm_keysym_of(NSEvent *ev) {
   NSCursor *cur = nil;
   switch (s->cursor_kind) {
     case 1: cur = [NSCursor pointingHandCursor]; break;
+    case 6: cur = [NSCursor openHandCursor]; break;
+    case 7: cur = [NSCursor closedHandCursor]; break;
     case 2: cur = [NSCursor IBeamCursor]; break;
     case 3: cur = [NSCursor resizeLeftRightCursor]; break;
     case 4: cur = [NSCursor resizeUpDownCursor]; break;
