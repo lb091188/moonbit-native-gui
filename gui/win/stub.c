@@ -8606,8 +8606,9 @@ static uint32_t wm_keysym_of(NSEvent *ev) {
 @end
 
 // 应用级委托：最后一扇窗关掉**不能**终结进程（循环归 MoonBit）。
-// 通知诊断日志（NATIVEGUI_NOTIFY_LOG 指到文件才落盘）：didDeliver / didFail
-// 把系统的裁决原话带出来——「已发送却没弹」时靠它分辨收下没显示还是直接拒收。
+// 通知诊断日志（NATIVEGUI_NOTIFY_LOG 指到文件才落盘）：auth / post /
+// willPresent 把授权与投递的裁决原话带出来——「已发送却没弹」时靠它分辨
+// 授权没过、投递出错还是收下了没呈现。注意日志走 vfprintf，只认 %s/%d。
 static void wm_notify_log(const char *fmt, ...) {
   const char *path = getenv("NATIVEGUI_NOTIFY_LOG");
   if (path == NULL || path[0] == '\0') {
@@ -8630,28 +8631,6 @@ static void wm_notify_log(const char *fmt, ...) {
 
 @implementation WMAppDelegate
 
-- (void)userNotificationCenter:(NSUserNotificationCenter *)center
-       didDeliverNotification:(NSUserNotification *)notification {
-  (void)center;
-  wm_notify_log("didDeliver id=%s",
-                notification.identifier != nil
-                    ? [notification.identifier UTF8String]
-                    : "(nil)");
-}
-
-- (void)userNotificationCenter:(NSUserNotificationCenter *)center
- didFailToDeliverNotification:(NSUserNotification *)notification
-                      inError:(NSError *)error {
-  (void)center;
-  wm_notify_log("didFail id=%s err=%s",
-                notification.identifier != nil
-                    ? [notification.identifier UTF8String]
-                    : "(nil)",
-                error.localizedDescription != nil
-                    ? [error.localizedDescription UTF8String]
-                    : "(nil)");
-}
-
 - (void)userNotificationCenter:(UNUserNotificationCenter *)center
        willPresentNotification:(UNNotification *)notification
          withCompletionHandler:(void (^)(UNNotificationPresentationOptions))handler {
@@ -8659,10 +8638,10 @@ static void wm_notify_log(const char *fmt, ...) {
   // 前台也弹横幅并入中心列表：UN 这条的新系统默认就是前台静默，
   // 想要「点了看得见」必须在这里显式给呈现选项
   handler(UNNotificationPresentationOptionBanner | UNNotificationPresentationOptionList);
-  wm_notify_log("willPresent id=%@",
+  wm_notify_log("willPresent id=%s",
                 notification.request.identifier != nil
-                    ? notification.request.identifier
-                    : @"(nil)");
+                    ? [notification.request.identifier UTF8String]
+                    : "(nil)");
 }
 
 - (void)userNotificationCenter:(UNUserNotificationCenter *)center
@@ -10532,7 +10511,7 @@ int wm_tray_supported(void) {
 }
 
 // 内部：分配槽并落到状态栏。kind 0 托盘图标 / 1 通知槽（mac 的通知另走
-// NSUserNotification，本函数只服务 kind 0）。
+// UNUserNotificationCenter，本函数只服务 kind 0）。
 static int wm_tray_alloc(int kind, int icon_slot, const char *tip) {
   if (!wm_tray_supported()) {
     return 0;
@@ -10693,7 +10672,7 @@ int wm_tray_tooltip(int slot, char *out, int cap) {
   return wm_clamp_cap(out, cap, wm_tray_tips[slot]);
 }
 
-// ---- 桌面通知（NSUserNotification）--------------------------------------
+// ---- 桌面通知（UNUserNotificationCenter）---------------------------------
 //
 // mac 通知正路：UNUserNotificationCenter（macOS 10.14 起、26.x 上唯一还会
 // 弹横幅的一档）。老 NSUserNotification 在新系统被降级成「只进中心不弹条」，
@@ -10705,6 +10684,9 @@ int wm_tray_tooltip(int slot, char *out, int cap) {
 // 槽标识稳定为 native-gui-<slot>：同 identifier 再 post 即覆盖（update 语义），
 // close 按 identifier 摘已投递与待投递。标题读数走本层缓存。
 static NSString *wm_un_titles[WM_MAX_TRAYS]; // 槽在用标记（非 nil）+ 标题缓存
+static NSMutableArray *wm_un_pend = nil; // 授权落定前的排队 content（slot/kind/content）
+static BOOL wm_un_auth_done = NO;        // 授权已有裁决（含设置里的历史遗留）
+static BOOL wm_un_auth_ok = NO;          // 裁决为 granted
 
 static BOOL wm_un_bundled(void) {
   return [[NSBundle mainBundle] bundleIdentifier] != nil;
@@ -10714,24 +10696,75 @@ static NSString *wm_un_ident(int slot) {
   return [[NSString alloc] initWithFormat:@"native-gui-%d", slot];
 }
 
-static void wm_un_ensure(void) {
-  static BOOL ready = NO;
-  if (ready) {
+static int wm_un_deliver(int slot, UNMutableNotificationContent *c);
+
+// 把排队的补投掉。只在主线程、授权 granted 后被调。
+static void wm_un_flush(void) {
+  if (!wm_un_auth_ok || wm_un_pend == nil) {
     return;
   }
-  ready = YES;
+  for (NSDictionary *p in wm_un_pend) {
+    wm_un_deliver([p[@"slot"] intValue], p[@"content"]);
+  }
+  [wm_un_pend removeAllObjects];
+}
+
+static void wm_un_ensure(void) {
+  static BOOL asked = NO;
+  if (asked) {
+    return;
+  }
+  asked = YES;
   UNUserNotificationCenter *nc = [UNUserNotificationCenter currentNotificationCenter];
   [nc setDelegate:wm_app_delegate];
-  [nc requestAuthorizationWithOptions:(UNAuthorizationOptionAlert |
-                                       UNAuthorizationOptionSound)
-                    completionHandler:^(BOOL granted, NSError *err) {
-    wm_notify_log("auth granted=%d err=%@",
-                  granted ? 1 : 0,
-                  err.localizedDescription != nil ? err.localizedDescription : @"(nil)");
+  // 先读授权现状：设置里早已允许/拒绝的直接定案，只有没问过（notDetermined）
+  // 才弹系统授权框。回调线程不保证是主线程，队列与投递统一回主线程做。
+  [nc getNotificationSettingsWithCompletionHandler:^(UNNotificationSettings *s) {
+    UNAuthorizationStatus st = s.authorizationStatus;
+    dispatch_async(dispatch_get_main_queue(), ^{
+      if (st == UNAuthorizationStatusAuthorized ||
+          st == UNAuthorizationStatusProvisional) {
+        wm_notify_log("auth status=authorized");
+        wm_un_auth_done = YES;
+        wm_un_auth_ok = YES;
+        wm_un_flush();
+        return;
+      }
+      if (st == UNAuthorizationStatusDenied) {
+        wm_notify_log("auth status=denied —— 系统设置里本应用的通知总开关是关的");
+        wm_un_auth_done = YES;
+        wm_un_auth_ok = NO;
+        if (wm_un_pend != nil) {
+          [wm_un_pend removeAllObjects];
+        }
+        return;
+      }
+      wm_notify_log("auth status=notDetermined —— 弹系统授权框");
+      [nc requestAuthorizationWithOptions:(UNAuthorizationOptionAlert |
+                                           UNAuthorizationOptionSound)
+                        completionHandler:^(BOOL granted, NSError *err) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+          wm_notify_log("auth granted=%d err=%s",
+                        granted ? 1 : 0,
+                        err.localizedDescription != nil
+                            ? [err.localizedDescription UTF8String]
+                            : "(nil)");
+          wm_un_auth_done = YES;
+          wm_un_auth_ok = granted;
+          if (granted) {
+            wm_un_flush();
+          } else if (wm_un_pend != nil) {
+            [wm_un_pend removeAllObjects];
+          }
+        });
+      }];
+    });
   }];
 }
 
 // slot>0 = 按同 identifier 覆盖（update 语义）；slot<=0 = 领新槽。返回槽号。
+// 授权没落定（授权框还在屏幕上/还没问到）时先排队：未授权状态下 add 的请求
+// 被系统静默收下却不投（err 也是 nil），落定后也不会补投。
 static int wm_un_post(int slot, const char *title, const char *text, int kind) {
   UNMutableNotificationContent *c = [UNMutableNotificationContent new];
   NSString *t = wm_str(title);
@@ -10754,17 +10787,38 @@ static int wm_un_post(int slot, const char *title, const char *text, int kind) {
       return 0;
     }
   }
+  if (!wm_un_auth_done) {
+    if (wm_un_pend == nil) {
+      wm_un_pend = [NSMutableArray new];
+    }
+    if ([wm_un_pend count] < 32) {
+      [wm_un_pend addObject:@{ @"slot" : @(slot),
+                               @"content" : c }];
+    }
+    wm_un_titles[slot] = t != nil ? t : @" ";
+    return slot;
+  }
+  if (!wm_un_auth_ok) {
+    return 0; // 已被拒：门面按失败报，不假装成功
+  }
+  return wm_un_deliver(slot, c);
+}
+
+static int wm_un_deliver(int slot, UNMutableNotificationContent *c) {
   NSString *ident = wm_un_ident(slot);
   UNNotificationRequest *req =
       [UNNotificationRequest requestWithIdentifier:ident content:c trigger:nil];
   [[UNUserNotificationCenter currentNotificationCenter]
       addNotificationRequest:req
        withCompletionHandler:^(NSError *err) {
-         wm_notify_log("post id=%@ err=%@",
-                       ident,
-                       err.localizedDescription != nil ? err.localizedDescription : @"(nil)");
+         wm_notify_log("post id=%s err=%s",
+                       [ident UTF8String],
+                       err.localizedDescription != nil
+                           ? [err.localizedDescription UTF8String]
+                           : "(nil)");
        }];
-  wm_un_titles[slot] = t != nil ? t : @" ";
+  wm_un_titles[slot] =
+      c.title != nil && [c.title length] > 0 ? c.title : @" ";
   return slot;
 }
 
@@ -11921,8 +11975,7 @@ int wm_tray_tooltip(int slot, char *out, int cap) {
 int wm_menu_popup_new(void) { return 0; }
 
 /* W21a 通知占位（macOS 等）：supported 恒 0、发/更新恒 0 = 不可用，MoonBit 层
- * 走语义化降级（macOS 原生档是 NSUserNotification/UNUserNotificationCenter，
- * 将来随 mac 平台批补）。 */
+ * 走语义化降级（macOS 原生档是 UNUserNotificationCenter，将来自随 mac 批补齐）。 */
 int wm_notify_supported(void) { return 0; }
 int wm_notify_send(int icon_slot, const char *title, const char *text,
                    int kind) {

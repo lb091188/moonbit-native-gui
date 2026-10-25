@@ -3163,3 +3163,11 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **验证**：本机 macOS `moon test -p NoahLiu/native-gui/shell` **54/54**（新增 7：slug 与哈希、路径预算、帧往返、解码防御、套接字臂同进程自环、判活空连接、门面端到端），全量库门禁 1134/1134、`moon check` 零警告、`moon build examples/showcase --target native` 通过；`experiment/instance_probe`（hold/wake/self 三档命令行探针）在 macOS 真双进程跑通「第二个进程判到 existing → 唤起送达 → 首实例按序收到」。CI Windows job 870/870（含 win32 档的门面自环：互斥体 + 隐藏窗 + WM_COPYDATA 全链）、Linux 只剩既有的 `text/spacing_wbtest` 一条红（与本批无关，前一版 master 同样红）。**待真机**：Windows 双进程防多开与置前、Linux 双进程 dbus 档、Linux 拔总线后落 socket 档。
 
 
+
+## mac 通知迁 UNUserNotificationCenter 后仍不弹：异步授权与同步投递之间没有排队（2026-10-24,真机反馈「还是不行」）
+
+**现象**（用户 mac 真机）：迁到 UN 之后设置面板里通知全开、接口也报「已发送」，横幅还是不出现。
+**定位**：两个硬伤叠着。① **授权是异步裁决，post 是同步立即 `addNotificationRequest`**——首次使用时授权状态是 notDetermined，UN 对未授权状态下 add 的请求**静默收下却不投（完成回调 err 也是 nil）**，之后授权框点完「允许」也**不补投**；而「弹授权框的那次点击」恰恰是第一次 post——首条必丢，点第二次本应好（授权已落定），但用户在首次失败后多半直接判死。② **诊断日志本身是坏的**：`NATIVEGUI_NOTIFY_LOG` 走 `vfprintf`，三处调用传了 `%@`（ObjC 对象格式符，`vfprintf` 不认识），读数成乱码——上一轮日志里 `didDeliver id=@` 就是它，等于盲修。另外 `UNAuthorizationStatusEphemeral` 是 iOS App Clip 专属，macOS 上编译不可用（`cc` 真编才暴露，不编 mac 分支的语法检查探不到）。
+**修复**：`wm_un_ensure` 先 `getNotificationSettings` 读授权现状——authorized 直接放行、denied 明写日志并把队列清掉、只有 notDetermined 才 `requestAuthorization` 弹框；授权没落定前 `wm_un_post` 把 content 排进 `wm_un_pend`（照常返回槽号），落定后回主线程 `wm_un_flush` 补投（回调线程不保证是主线程，UN 的调用统一回 main queue）；denied 时 `wm_un_post` 返回 0 让门面报失败，不假装成功。日志 `%@` 全改 `UTF8String`+`%s`。NSUserNotification 时代的 `didDeliver/didFail` delegate 方法随之清掉（UN 时代永不回调的死代码）。
+**教训**：① **「先 ensure 再 post」不构成时序保证**——异步授权与同步投递之间必须自己排队，UN 对未授权请求「不报错、不投递、不补投」的三不行为靠文档读不出来，只能按「首条必丢」倒推。② **诊断通道先自检再取证**——喂一条已知值看输出对不对，vfprintf 遇 `%@` 是未定义行为，日志坏了修什么都是盲修。③ 平台枚举按目标平台过一遍可用性，`-fsyntax-only` 不带平台宏等于什么都没查。
+**验证**：mac 桩 `cc -DWM_STUB_MAC` 编译零错误、`moon build examples/showcase --target native` 通过并重新打包；库门禁 1143/1143、`--deny-warn` 干净。真机复验（授权框 → 允许 → 首条即弹横幅）归用户。
