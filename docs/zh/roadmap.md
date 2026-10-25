@@ -33,6 +33,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - 🚧 **最大化 / 还原（接口）**：`set_maximized` / `is_maximized`（macOS 已验；Linux / Windows 待真机）
 - ✅ **无边框**：切无边框窗口；标题栏与边框消失，内容区不变形
 - ✅ **显隐驻留**：`hide` / `show` 一对；`show` 唤回 hide 前的屏幕原点，不是居中重开
+- 🚧 **透视窗默认底让位**：宿主给每个 App 根铺的 `bg_page` 默认底曾把透视窗铺满整窗（实测不透明）——新增 `App::set_transparent_bg`（转窗口层 + 默认底让位，关透视恢复），showcase 透明测试窗改走它
 - 🚧 **显隐事件与组合串清理**：`Hidden` / `Shown` 事件（`hide` / `show` 真实转换时发，首次显示不发）；隐藏拍清在途输入法组合串、焦点栈不动；整窗失焦同一条交接链（macOS 补 `windowDidResignKey`、Windows 补 `WM_KILLFOCUS` 上报）；`App::on_hidden` / `App::on_shown` 暴露给应用
 - ✅ **多窗口**：`open_window` / `close_window` / `window_count` / `active_window` 四个门面
 - ✅ **窗口句柄与主窗判定**：`wid` 取句柄、`is_primary` 判主窗

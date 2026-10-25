@@ -17,6 +17,7 @@ fn fake_host_app() -> App {
     system_keys: true,
     hidden_cbs: [],
     shown_cbs: [],
+    page_fill: true,
   }
 }
 

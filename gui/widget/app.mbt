@@ -42,6 +42,8 @@ pub(all) struct App {
   hidden_cbs : Array[() -> Unit]
   /// 本窗从隐藏驻留唤回的回调（见 `App::on_shown`）
   shown_cbs : Array[() -> Unit]
+  /// 宿主默认页面底是否在画（`App::set_transparent_bg` 按透视开关）
+  mut page_fill : Bool
 }
 
 ///|
@@ -209,12 +211,6 @@ fn app_window(
     None => None
     Some(session) => {
       let root = Widget::new()
-      // 缺省底色：宿主先铺一层主题页面色，最小示例不必自己写 on_draw 才有背景
-      // （要别的底色/图案照常覆盖 root.on_draw 即可）
-      root.on_draw = Some(fn(_w : Widget, p : @render.Painter, r : Rect) -> Unit {
-        p.set_fill_color(@theme.theme_bg_page())
-        p.fill_rect(0.0, 0.0, r.w, r.h)
-      })
       let app : App = {
         session,
         root,
@@ -228,7 +224,17 @@ fn app_window(
         system_keys: true,
         hidden_cbs: [],
         shown_cbs: [],
+        page_fill: true,
       }
+      // 缺省底色：宿主先铺一层主题页面色，最小示例不必自己写 on_draw 才有背景
+      // （要别的底色/图案照常覆盖 root.on_draw 即可）；背景透视开着时本底让位——
+      // 铺满整窗的默认底会把「没铺到的像素」吃光，透视形同虚设（透明测试窗实测）
+      root.on_draw = Some(fn(_w : Widget, p : @render.Painter, r : Rect) -> Unit {
+        if app.page_fill {
+          p.set_fill_color(@theme.theme_bg_page())
+          p.fill_rect(0.0, 0.0, r.w, r.h)
+        }
+      })
       host_add_app(app)
       install_host_hooks()
       Some(app)
@@ -253,6 +259,7 @@ pub fn test_app(s : @shell.Session) -> App {
     system_keys: true,
     hidden_cbs: [],
     shown_cbs: [],
+    page_fill: true,
   }
 }
 
@@ -307,6 +314,16 @@ pub fn App::window(self : App) -> @win.Window {
 ///|
 /// 本窗全屏开关（播放器「铺满整屏」这类窗口级动作）。控件层拿不到窗口，
 /// 所以由宿主把请求转到这里；尺寸变化照常走 allocate，调用方不用自己重算。
+///|
+/// 背景透视开关（转给本窗平台层），并让宿主默认页面底随之让位——铺满整窗的
+/// `bg_page` 会把「没铺到的像素」吃光，透视开着时它必须退场；关透视时恢复。
+/// 想要的观感是「控件没铺到的像素透出桌面」时，本窗的内容就别再整片铺底。
+pub fn App::set_transparent_bg(self : App, on : Bool) -> Unit {
+  self.page_fill = !on
+  self.session.window.set_transparent_bg(on)
+}
+
+///|
 pub fn App::set_fullscreen(self : App, on : Bool) -> Unit {
   if self.closed {
     return

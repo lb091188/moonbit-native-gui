@@ -104,9 +104,11 @@ fn open_transparent_demo(app : @shared.App, out : @base.Store[String]) -> Unit {
       match a.open_window(380, 280, @shared.tx("透明窗测试")) {
         Some(child) => {
           let w = child.window()
-          // 先无边框再开透视：标题栏那块归系统画，留着它就不跟透视走
+          // 先无边框再开透视：标题栏那块归系统画，留着它就不跟透视走。
+          // 透视必须走 App::set_transparent_bg——宿主默认页面底会铺满整窗，
+          // 直调窗口层摘不掉它，卡片外那圈就不是真透明（实测踩过）
           w.set_borderless(true)
-          w.set_transparent_bg(true)
+          child.set_transparent_bg(true)
           child.mount([
             @ui.col(
               [
@@ -723,7 +725,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
     @shared.section(
       "透明度",
       "窗口透明与背景穿透",
-      "两件不同的事。`set_opacity` 是**整窗 alpha**（0–255）——连同文字与控件一起变淡，需要合成器，没有就静默无效。`set_transparent_bg` 是**背景透视**——控件没铺到的像素留成透明，桌面从那些洞透出来，铺了底色的控件照旧不透明（Windows 上要无边框才成立，带边框的窗自动退回不透视）。主窗看不了后者的效果：这一页整片铺满底色，没有「没铺到的像素」；点下面的「开透明测试窗」单开一扇无边框窗，里面只放几块卡片来验。",
+      "两件不同的事。`set_opacity` 是**整窗 alpha**（0–255）——连同文字与控件一起变淡，需要合成器，没有就静默无效。`set_transparent_bg` 是**背景透视**——控件没铺到的像素留成透明，桌面从那些洞透出来，铺了底色的控件照旧不透明（Windows 上要无边框才成立，带边框的窗自动退回不透视）；**要经 `App::set_transparent_bg` 开**——宿主默认页面底会铺满整窗，直调窗口层摘不掉它。主窗看不了后者的效果：这一页整片铺满底色，没有「没铺到的像素」；点下面的「开透明测试窗」单开一扇无边框窗，里面只放几块卡片来验。",
       [
         @ui.row(
           [
@@ -736,7 +738,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
               let on = transparent_on.val
               match app.host.val {
                 Some(a) => {
-                  a.window().set_transparent_bg(on)
+                  a.set_transparent_bg(on)
                   layer_out.set(
                     if on {
                       @shared.tx("背景穿透：开（本页铺满底色，看得见的只有 alpha 的变化；要点下面的测试窗才看得见透视）")
@@ -771,12 +773,12 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
         "// 整窗 alpha（0–255）：连字一起淡，需合成器",
         "app.window().set_opacity(128) // 50%",
         "// 背景透视：控件没铺到的像素留透明，桌面从洞里透出",
-        "app.window().set_transparent_bg(true)",
+        "app.set_transparent_bg(true)   // 宿主默认底随之让位",
         "// 要看得见，得有一扇「根不铺底」的窗：单开一扇，只放不透明卡片",
         "match app.open_window(380, 280, \"透明窗测试\") {",
         "  Some(child) => {",
         "    child.window().set_borderless(true)",
-        "    child.window().set_transparent_bg(true)",
+        "    child.set_transparent_bg(true) // 同上：走 App 门面，别直调窗口层",
         "    child.mount([@ui.col([card1, card2], padding=16.0)]) // 根容器不给底色",
         "  }",
         "  None => ()",
