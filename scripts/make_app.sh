@@ -62,4 +62,4 @@ PLIST
 codesign -s - --force "$out" >/dev/null
 
 echo "已产出 $out"
-echo "跑它：open \"$out\"   （或直接执行 $out/Contents/MacOS/$exec_name）"
+echo "跑它：open \"$out\"   （或直接执行 ${out}/Contents/MacOS/${exec_name}）"
