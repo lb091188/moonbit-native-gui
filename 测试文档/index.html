@@ -316,10 +316,20 @@
   <div class="wrap">
     <span>
       <b>本地存储不可用</b>：页面跑在沙箱里（预览面板、内嵌 iframe），浏览器不允许读写 localStorage。
-      现在的记录只在内存，<b>刷新或关掉就没了</b>。两个办法：① 直接双击打开仓库里的 <code>测试记录/index.html</code>
-      （localhost 或 file:// 下可正常保存）；② 先点「导出」存成 JSON，下次用「导入」接上。
+      现在的记录只在内存，<b>刷新或关掉就没了</b>。两个办法：① 换普通浏览器直接打开本页地址（记录绑「这台机器的这个浏览器」）；
+      ② 先点「导出」存成 JSON，下次用「导入」接回。
     </span>
     <button id="store-warn-close">知道了</button>
+  </div>
+</div>
+
+<div class="store-warn" id="cases-warn" hidden>
+  <div class="wrap">
+    <span>
+      <b>用例清单加载失败</b>：用例唯一来源是同目录的 <code>测试用例.md</code>，本页要通过本地 HTTP 服务打开
+      （VS Code Live Server、<code>python3 -m http.server</code> 均可）；直接双击 file:// 会被浏览器拦掉读取。
+    </span>
+    <button id="cases-warn-close">知道了</button>
   </div>
 </div>
 
@@ -391,10 +401,10 @@
       <li><kbd>⌘Z</kbd> / <kbd>Ctrl+Z</kbd> 撤销上一步</li>
     </ul>
     <h3>数据存在哪</h3>
-    <p>本机浏览器的 localStorage（键名 <code>ngtt.v1</code>），不上传任何服务器，关掉页面不丢。它绑定「这台机器的这个浏览器」，换浏览器或清站点数据会丢——所以提供了「导出」：得到的 JSON 可以放进 <code>测试记录/</code> 一起提交，需要时用「导入」合并回来（按时间取新、日志去重）。</p>
+    <p>本机浏览器的 localStorage（键名 <code>ngtt.v1</code>），不上传任何服务器，关掉页面不丢。它绑定「这台机器的这个浏览器」，换浏览器或清站点数据会丢——所以提供了「导出」：得到的 JSON 可以放进 <code>测试文档/</code> 一起提交，需要时用「导入」合并回来（按时间取新、日志去重）。</p>
     <p>页面被嵌在沙箱 iframe 里打开时（例如某些预览面板），浏览器会拒绝 localStorage，此时页面顶部会出现黄条提示，记录只留在内存。要正常保存，请用浏览器直接打开本文件。</p>
     <h3>用例库来源</h3>
-    <p>按「应用 → 页面 → 段落」组织，编号与 <code>测试文档/测试用例.md</code> 一一对应：<code>HL</code> = Hello、<code>SC</code> = Showcase、<code>BR</code> = Browser、<code>AU</code> = Audio、<code>VD</code> = Video。共 152 条：Hello 7、Showcase 97（15 个侧栏页 + 整板导航，15 页合计 111 个段）、Browser 23、Audio 14、Video 11。改用例改本文件顶部的 <code>CASES</code> 数组，并同步文档。</p>
+    <p>按「应用 → 页面 → 段落」组织，编号与 <code>测试文档/测试用例.md</code> 一一对应：<code>HL</code> = Hello、<code>SC</code> = Showcase、<code>BR</code> = Browser、<code>AU</code> = Audio、<code>VD</code> = Video。条数与应用内计数在加载时从用例文档现算。改用例只改 <code>测试用例.md</code>，本页刷新即生效。</p>
     <h3>已知边界</h3>
     <ul>
       <li>不存截图。失败项用文字备注，需要图就把文件名写进备注。</li>
@@ -426,206 +436,60 @@
     { id: 'video',    name: 'Video',    desc: '视频帧源',      cmd: 'cd examples/video && moon run .' }
   ];
 
-  /* 用例库：按「应用 → 页面 → 段落」组织。
-     id 与 测试文档/测试用例.md 一一对应：
-       HL = hello，SC = showcase，BR = browser，AU = audio，VD = video
-       SC-<页号>.<段号>，其余为 <前缀>-1.<序>。 */
-  var CASES = [
-    /* ===================== Hello（examples/hello） ===================== */
-    { id: 'HL-1.1', app: 'hello', page: '主窗口', sec: '启动与外观', t: '启动出窗', d: '400×300 窗口、标题 Hello, MoonBit!、进程常驻不退出' },
-    { id: 'HL-1.2', app: 'hello', page: '主窗口', sec: '启动与外观', t: '三行文字与居中', d: '英文标题 / 中文副题 / 次级色说明三行齐全，整块在窗内水平垂直居中' },
-    { id: 'HL-1.3', app: 'hello', page: '主窗口', sec: '启动与外观', t: '高分屏清晰', d: 'Retina / HiDPI 下笔画不发虚、细线不呈半透明毛边' },
-    { id: 'HL-1.4', app: 'hello', page: '主窗口', sec: '内容与链接', t: '三个链接', d: 'mooncakes / docs / GitHub 点击各开对应地址到默认浏览器' },
-    { id: 'HL-1.5', app: 'hello', page: '主窗口', sec: '窗口操作', t: '拖动与缩放', d: '拖标题栏移窗；缩放后内容跟着重排、保持居中、不裁字' },
-    { id: 'HL-1.6', app: 'hello', page: '主窗口', sec: '窗口操作', t: '失焦与回焦', d: '切到别的应用再切回：不退出、不闪白、内容完整重绘' },
-    { id: 'HL-1.7', app: 'hello', page: '主窗口', sec: '退出', t: '关闭退出', d: '点关闭按钮窗口消失，进程正常退出（退出码 0）' },
+  /* 用例库：唯一事实源是同目录的 `测试用例.md`，页面加载时取回解析成清单。
+     md 表格一行 = | 编号 | 段落 | 检查点 | 操作 | 预期 |，映射成
+     { id, app, page, sec, t, d }（d = 预期原文）；条数在加载时现算。
+     page 取 ### 小节名；browser / audio / video 的 ### 是功能段，
+     page 用各应用的固定名。改用例只改 md，本文件不再存清单。 */
+  var CASES = [];
+  var CASE_PAGE_OF_APP = { browser: '浏览器窗口', audio: '音频播放器', video: '视频播放器' };
+  var CASE_APP_OF_PREFIX = { HL: 'hello', SC: 'showcase', BR: 'browser', AU: 'audio', VD: 'video' };
 
-    /* ===================== Showcase（examples/showcase） ===================== */
-    { id: 'SC-0.1', app: 'showcase', page: '整板导航', sec: '', t: '十五页逐页切换', d: '侧栏 15 项逐页点开，标题与内容一一对应，无空白页、无上一页残留' },
-    { id: 'SC-0.2', app: 'showcase', page: '整板导航', sec: '', t: '全局观感（深浅两套）', d: '侧栏是面板底、主区是页面底，两栏一眼分开；卡片/面板四角 6、控件 4，没有圆角大于 8 的元素；没有投影，层次靠底色与 1px 描边；深色下文字与描边仍然清楚（无写死浅色）' },
+  function parseCases(md) {
+    var lines = md.split(/\r?\n/);
+    var out = [];
+    var page = '';
+    var fence = false;
+    for (var i = 0; i < lines.length; i++) {
+      var ln = lines[i];
+      if (/^\s*```/.test(ln)) { fence = !fence; continue; }
+      if (fence) continue;
+      var h = ln.match(/^###\s+(.+?)\s*$/);
+      if (h) {
+        page = h[1].replace(/[（(][^）)]*[）)]\s*$/, '').replace(/^[\d.]+\s+/, '').trim();
+        continue;
+      }
+      if (!/^\|\s*(HL|SC|BR|AU|VD)-\d/.test(ln)) continue;
+      var cells = ln.split('|');
+      if (cells.length < 7) continue;
+      var idm = cells[1].trim().match(/^(HL|SC|BR|AU|VD)-/);
+      var sec = cells[2].trim();
+      var d = cells[6].trim();
+      var app = CASE_APP_OF_PREFIX[idm[1]];
+      out.push({
+        id: cells[1].trim(), app: app,
+        page: CASE_PAGE_OF_APP[app] || page,
+        sec: sec === '—' ? '' : sec, t: cells[3].trim(), d: d
+      });
+    }
+    return out;
+  }
 
-    /* --- 1 基础组件 --- */
-    { id: 'SC-1.1', app: 'showcase', page: '基础组件', sec: '主题', t: '主题色板', d: '选主色后整套色板（hover / 浅底 / 语义色）即时派生；切深浅沿用主色；手动选色会关掉「跟随系统」' },
-    { id: 'SC-1.2', app: 'showcase', page: '基础组件', sec: '字体排版', t: '各语言的行首方向', d: '每行占满整宽；中英左缘起笔、RTL 文字右端贴右缘；行内数字与拉丁不串行' },
-    { id: 'SC-1.3', app: 'showcase', page: '基础组件', sec: '按钮', t: 'Button 四变体', d: '四种变体外观正确；hover / pressed / disabled 三态可辨' },
-    { id: 'SC-1.4', app: 'showcase', page: '基础组件', sec: '文字链接', t: 'Label 与 Link', d: '五级角色字号颜色各不相同；Link 悬停出下划线；点击后回显最近一次点击的值' },
-    { id: 'SC-1.5', app: 'showcase', page: '基础组件', sec: '分隔提示', t: 'Divider 与 Tooltip', d: '水平 / 竖直分隔各 1px 主题边框色；tooltip 悬停出现在指针旁、系统样式、移开即消失' },
-    { id: 'SC-1.6', app: 'showcase', page: '基础组件', sec: '悬停光标', t: 'HoverGroup 与 CursorGroup', d: '指针落在卡片内任意子控件上，整张卡片高亮；光标形状随组设置变化' },
-
-    /* --- 2 表单组件 --- */
-    { id: 'SC-2.1', app: 'showcase', page: '表单组件', sec: '输入', t: '输入框与多行', d: '打字、光标、选区、退格正常；密码框逐字符遮罩；多行自动折行、超宽出滚动条' },
-    { id: 'SC-2.2', app: 'showcase', page: '表单组件', sec: '数值', t: '步进器 / 滑杆 / 评分', d: '步进器 0..10 钳制，到界那侧按钮呈禁用样式（灰底 + 次级字、光标回箭头、点了没反应）；点 +/- 后中间格带聚焦环；聚焦（点击 / Tab / 点钮 / ↑↓）即全选，打一个数字整体替换；打字的数在失焦/回车后写回值并夹取，格上串与值始终一致；滑杆按 step=5 量化；评分悬停预亮、点击定值' },
-    { id: 'SC-2.3', app: 'showcase', page: '表单组件', sec: '选择', t: 'Select 与 ColorPicker', d: '点字段弹候选、悬停高亮、选中打 ✓；clearable 的 ✕ 能清空；取色器点预设色后 hex 值更新' },
-    { id: 'SC-2.4', app: 'showcase', page: '表单组件', sec: '开关', t: 'Checkbox / Radio / Switch', d: '单选组点击互斥；第二组保持禁用态；开关开态靠右且为主题蓝；悬停单选行整行手型、禁用组回箭头' },
-    { id: 'SC-2.5', app: 'showcase', page: '表单组件', sec: '日期', t: '日期与时间选择', d: '月份与天数正确；区间起止顺序合法；选中值回显；时间弹层是 + / 数值 / − / 单位 四行、列间 `:` 分隔，时 0-23 分秒 0-59 到界回绕，带秒那条多一列且回显 HH:MM:SS；日历本月格与 ‹/› 悬停手型、跨月格回箭头' },
-    { id: 'SC-2.6', app: 'showcase', page: '表单组件', sec: '表单', t: 'Form 行布局', d: '标签右对齐、控件区左对齐成列；分组标题层级分明；placeholder 给出空态提示' },
-    { id: 'SC-2.7', app: 'showcase', page: '表单组件', sec: '表单校验', t: '校验与错误消息', d: '触发校验后红字出现在控件下方；行高固定不跳版；改对后红字自动消失' },
-    { id: 'SC-2.8', app: 'showcase', page: '表单组件', sec: '输入', t: '输入法通道', d: '系统输入法打中文：组合串内联在光标处、候选窗贴光标；提交后文字进值；焦点切走时组合串清空；切到别的应用再切回同样已清（切窗 = 整窗失焦，同一条交接链）' },
-
-    /* --- 3 导航组件 --- */
-    { id: 'SC-3.1', app: 'showcase', page: '导航组件', sec: '侧栏', t: 'Side Menu 侧边导航', d: '本页左侧即组件：组标题可折叠；选中项浅蓝底 + 主题色强调条；点页面真切换' },
-    { id: 'SC-3.2', app: 'showcase', page: '导航组件', sec: '菜单', t: '右键 / 下拉 / 原生菜单栏', d: '右键任意节点弹主题化菜单（悬停高亮、点外收起）；下拉展开候选；原生菜单栏点项回调跑到' },
-    { id: 'SC-3.3', app: 'showcase', page: '导航组件', sec: '分段', t: 'Segmented 分段控制器', d: '选中白底 + 主题色文字、悬停灰底；点页面名整页真切过去，不是只改高亮' },
-    { id: 'SC-3.4', app: 'showcase', page: '导航组件', sec: '页签', t: 'Tabs 页签', d: '选中项主题色 + 底部指示条；切页签内容跟着切，不闪烁、不重建' },
-    { id: 'SC-3.5', app: 'showcase', page: '导航组件', sec: '面包屑', t: 'Breadcrumb 面包屑', d: '点非当前项直接跳页；当前项深色且点击不改值；分隔符不可点' },
-    { id: 'SC-3.6', app: 'showcase', page: '导航组件', sec: '分页', t: 'Pagination 分页', d: '当前页主题色实底白字、其余悬停浅蓝；点页码切换' },
-    { id: 'SC-3.7', app: 'showcase', page: '导航组件', sec: '步骤条', t: 'Steps 步骤条', d: '完成 / 当前 / 待办三态配色正确；推进与回退按钮各生效一次' },
-
-    /* --- 4 数据展示 --- */
-    { id: 'SC-4.1', app: 'showcase', page: '数据展示', sec: '标签徽标', t: 'Tag / Avatar / Badge', d: '五种语义 Tag 浅底深字、自定义实底色；头像四尺寸；角标 99+ 封顶、圆点形态正确' },
-    { id: 'SC-4.2', app: 'showcase', page: '数据展示', sec: '统计进度', t: 'Statistic 与 Progress', d: '统计值正确；进度条主题色填充 + 浅灰轨道；与基础页按钮同源联动' },
-    { id: 'SC-4.3', app: 'showcase', page: '数据展示', sec: '卡片折叠', t: 'Card 与 Collapse', d: '卡片标题栏 + 底部分隔线 + 边框齐全；各折叠面板独立开关，初始第一项展开' },
-    { id: 'SC-4.4', app: 'showcase', page: '数据展示', sec: '描述时间线', t: 'Descriptions 与 Timeline', d: '键灰值深的键值网格；色点 + 竖线，节点色跟随语义类型，末项无连线' },
-    { id: 'SC-4.5', app: 'showcase', page: '数据展示', sec: '表格', t: 'Table 单选与多选', d: '斑马纹与悬停底色；拖列边界改宽；点表头排序（新列默认升序、箭头正确）；单选行回显；「添加一行」整表重建后选中态仍对' },
-    { id: 'SC-4.6', app: 'showcase', page: '数据展示', sec: '虚拟滚动', t: '万行表格滚动', d: '万行滚动流畅无卡顿；表头排序（序号列按数值）；滚轮 / 拖滚动条 / 键盘翻页都跟手' },
-    { id: 'SC-4.7', app: 'showcase', page: '数据展示', sec: '树形', t: 'Tree 树形控件', d: '缩进层级正确；▸ / ▾ 展开折叠到位，子项不串位' },
-    { id: 'SC-4.8', app: 'showcase', page: '数据展示', sec: '穿梭轮播', t: 'Transfer 与 Carousel', d: '穿梭框选中行后 ›/‹ 移到对侧；轮播箭头与圆点手动切、3 秒自动切、悬停暂停' },
-    { id: 'SC-4.9', app: 'showcase', page: '数据展示', sec: '空状态', t: 'Empty 空状态', d: '占位图 + 说明文字居中显示，与容器留白协调' },
-    { id: 'SC-4.10', app: 'showcase', page: '数据展示', sec: '粘性列表', t: '吸顶分组列表', d: '滚动时组标题吸顶，跨组边界时吸顶文字随之切换（不是事先累加高度算的）' },
-
-    /* --- 5 图表 --- */
-    { id: 'SC-5.1', app: 'showcase', page: '图表', sec: '折线', t: 'Line 折线 / 面积', d: '500ms 推点、满 120 点丢最旧；多序列主题色循环；y 轴自适应；右端最新值标注；面积形态半透明填充' },
-    { id: 'SC-5.2', app: 'showcase', page: '图表', sec: '柱状', t: 'Bar 纵向与横向', d: '正负值以 0 为基线（正主题色 / 负红色）；横向条长类目名不挤；悬停高亮 + 数值标注' },
-    { id: 'SC-5.3', app: 'showcase', page: '图表', sec: '环形', t: 'Donut 环形图', d: '12 点起顺时针五色循环；中心汇总值与右侧图例（值 + 百分比）对得上；悬停扇区外扩且图例同步高亮' },
-    { id: 'SC-5.4', app: 'showcase', page: '图表', sec: '仪表盘', t: 'Gauge 仪表盘', d: '阈值分段着色（≤60 绿 / ≤85 橙 / 红）；左侧 2Hz 自动更新且插值平滑无跳变；右侧滑杆跟手' },
-    { id: 'SC-5.5', app: 'showcase', page: '图表', sec: '散点', t: 'Scatter 散点图', d: '2000 点半透明小圆点；双轴刻度与网格；最小二乘趋势线叠加位置正确' },
-    { id: 'SC-5.6', app: 'showcase', page: '图表', sec: '扩展', t: '六种扩展图表', d: '雷达 / 热力 / K 线 / 漏斗 / 箱线 / 桑基六图都出图，无空白块、无串图' },
-    { id: 'SC-5.7', app: 'showcase', page: '图表', sec: '新图表', t: '八种图表', d: '关系图 / 平行坐标 / 象形柱 / 旭日 / 主题河流 / 树图 / 矩形树图 / 特效散点八图都出图' },
-    { id: 'SC-5.8', app: 'showcase', page: '图表', sec: '交互', t: '缩放与 tooltip', d: '滚轮以鼠标为锚点缩放、左键拖拽平移；donut 无 x 轴故无缩放；tooltip 与图例点击生效' },
-
-    /* --- 6 代码文档 --- */
-    { id: 'SC-6.1', app: 'showcase', page: '代码文档', sec: '代码高亮', t: 'CodeView 代码高亮', d: '多语言关键字着色正确、行号连续；点顶行「复制」写入剪贴板并有 toast 回显' },
-    { id: 'SC-6.2', app: 'showcase', page: '代码文档', sec: 'Markdown', t: 'Markdown 渲染', d: '标题 / 粗斜体 / 删除线 / 行内代码 / 链接 / 嵌套列表 / 任务列表复选框 / 引用 / 分隔线 / 表格列对齐 / 脚注上下标都正确' },
-
-    /* --- 7 Store --- */
-    { id: 'SC-7.1', app: 'showcase', page: 'Store', sec: '手动派生', t: '手动计数器与三种派生', d: '改值后计数与三种派生值都更新；未自动接的派生要靠「刷新界面」才变（这正是本段要演示的代价）' },
-    { id: 'SC-7.2', app: 'showcase', page: 'Store', sec: '信号对照', t: '信号版对照', d: 'computed 派生随源值即时更新，数值与手动版一致' },
-    { id: 'SC-7.3', app: 'showcase', page: 'Store', sec: '原位重挂', t: 'bind_node 原位重建', d: '点击后子树销毁重建（底色随奇偶换、文字随计数），兄弟项位置不动、无残影' },
-
-    /* --- 8 反馈组件 --- */
-    { id: 'SC-8.1', app: 'showcase', page: '反馈组件', sec: '横幅', t: 'Alert 提示横幅', d: '四种语义色条 + 类型浅底 + 同族深字；可关闭横幅点 ✕ 收起整条' },
-    { id: 'SC-8.2', app: 'showcase', page: '反馈组件', sec: '结果页', t: 'Result 结果页', d: '大色块符号 + 标题 + 描述，四种语义类型都正确；操作区由调用方摆在旁边' },
-    { id: 'SC-8.3', app: 'showcase', page: '反馈组件', sec: '气泡', t: 'Popover 气泡弹层', d: '点节点弹层、再点收起；弹层内容可为任意节点，点外点击的行为一致' },
-    { id: 'SC-8.4', app: 'showcase', page: '反馈组件', sec: '轻提示', t: 'Toast 轻提示', d: '推送后顶部居中出现、2.6 秒自动消失；多条向上堆叠；压在对话框之上不被遮' },
-    { id: 'SC-8.5', app: 'showcase', page: '反馈组件', sec: '对话框', t: 'Dialog 对话框', d: '同窗遮罩 + 居中面板；点确认/取消后自动收起；连着开两次不残留遮罩' },
-    { id: 'SC-8.6', app: 'showcase', page: '反馈组件', sec: '消息框', t: '自绘消息框', d: '三平台同构；Esc 收起、Enter 走默认钮；回调收到的是按钮编号' },
-
-    /* --- 9 事件与布局 --- */
-    { id: 'SC-9.1', app: 'showcase', page: '事件与布局', sec: '鼠标', t: '指针事件', d: 'Down / Up / Move / Leave 都进同一回调；坐标为本地坐标（Leave 为窗口坐标）；button 与修饰键位正确' },
-    { id: 'SC-9.2', app: 'showcase', page: '事件与布局', sec: '悬停', t: '悬停态与 on_hover_change', d: '组内任意子件悬停，整组进入 hover；离开后整组撤离，不粘住' },
-    { id: 'SC-9.3', app: 'showcase', page: '事件与布局', sec: '捕获', t: '按下捕获', d: '按下后把指针移出控件矩形，Move / Up 仍投给按下者；松手后捕获归还' },
-    { id: 'SC-9.4', app: 'showcase', page: '事件与布局', sec: '光标', t: 'Cursor 光标形状', d: '手型 / 文本 I 形 / 横向与纵向调整箭头各就各位；组内取最深的非零请求' },
-    { id: 'SC-9.5', app: 'showcase', page: '事件与布局', sec: '键盘', t: 'KeyEvent 键盘', d: '点区域聚焦后按键才进；只投按下不投抬起；Tab / Shift+Tab 走焦点链' },
-    { id: 'SC-9.6', app: 'showcase', page: '事件与布局', sec: '布局', t: '嵌套布局与三种宽度', d: '固定 / 百分比 / flex 三模型表现正确；拖 8px 把手改占比，首栏 ≥120、次栏 ≥80，拖动期不丢事件' },
-    { id: 'SC-9.7', app: 'showcase', page: '事件与布局', sec: '多击与组合键', t: '双击 / 三击 / 组合键', d: '双击与三击回调都跑到（400ms + 4px 阈值）；bind_combo 组合键在窗内命中' },
-
-    /* --- 10 窗口 --- */
-    { id: 'SC-10.1', app: 'showcase', page: '窗口', sec: '窗口', t: '窗口 API', d: '改标题 / 全屏 / 1280×720 ↔ 960×540 / 无边框逐项生效；最大化后客户区变大、读回 true，还原后回到原位与尺寸、读回 false；手点系统按钮后读回也对' },
-    { id: 'SC-10.2', app: 'showcase', page: '窗口', sec: '快捷键', t: '全局快捷键', d: 'Windows 下 Ctrl+Alt+C 在别的应用前台也命中；非 Windows 注册返回 Unsupported 而不是崩' },
-    { id: 'SC-10.3', app: 'showcase', page: '窗口', sec: '拖放', t: '应用内拖放与系统拖入', d: '色块拖出 4px 起拖、目标面板描主色边、松手成交，可连续多次；从文件管理器拖文件进窗也能收到' },
-    { id: 'SC-10.4', app: 'showcase', page: '窗口', sec: '多窗口', t: '开子窗 / 关子窗', d: '开第二扇窗后窗数 +1、活动窗切换正确；关子窗后计数回落，主窗不受影响' },
-    { id: 'SC-10.5', app: 'showcase', page: '窗口', sec: '透明度', t: '透明度与背景穿透', d: 'set_opacity 逐档变淡（无合成器静默无效不崩）；主窗开着穿透看不出变化是正常的（整页铺满底色）；「开透明测试窗」后为无边框窗、卡片外那圈透出桌面、卡片仍不透明；Windows 带边框主窗点穿透应无变化，透视只在无边框窗成立' },
-    { id: 'SC-10.6', app: 'showcase', page: '窗口', sec: '层级', t: '窗口层级嵌入（探针窗）', d: '五档都切到探针窗上：主窗保持普通档，切「图标下 / Dock」只有探针窗掉层；面板三档不进任务栏与窗口列表、Dock 另带压顶；关探针窗后窗数回落' },
-    { id: 'SC-10.7', app: 'showcase', page: '窗口', sec: '显隐驻留', t: 'hide / show 与屏幕原点', d: 'hide 后探针窗消失、主窗不受影响；show 回到 hide 前原点（160,160）而不是居中重开；is_hidden 读数一致' },
-    { id: 'SC-10.8', app: 'showcase', page: '窗口', sec: '显隐事件', t: '显隐事件与组合串清理', d: '开探针窗勾「2 秒后自动隐藏」，点输入框打拼音（别提交）等自动隐藏，主窗唤回：组合串已清、框内无残留；回显「已隐藏 N 次 · 已显示 M 次」随每次 hide / show 各 +1；刚开窗不产生事件记录' },
-
-    /* --- 11 系统集成 --- */
-    { id: 'SC-11.1', app: 'showcase', page: '系统集成', sec: '文件', t: '文件对话框', d: '打开对话回显所选路径；保存把一行文本写进所选文件；取消返回 false' },
-    { id: 'SC-11.2', app: 'showcase', page: '系统集成', sec: '消息框', t: '原生消息框', d: '信息档是/否、错误档是/否/取消；返回值归一为语义枚举，与自绘消息框并存不冲突' },
-    { id: 'SC-11.3', app: 'showcase', page: '系统集成', sec: '通知', t: '系统通知', d: '普通通知与带进度通知出现在通知中心；后端不可用时明说失败（macOS 须从 .app bundle 起，裸跑报不可用属系统约束；打包后已验证能弹）' },
-    { id: 'SC-11.4', app: 'showcase', page: '系统集成', sec: '剪贴板', t: '剪贴板读写', d: '写入后点「读取」回读一致；也能粘到别的程序里' },
-    { id: 'SC-11.5', app: 'showcase', page: '系统集成', sec: '定时器', t: '定时器与延时', d: '周期定时器按间隔推进且可停；set_timeout 到点触发一次，不早不晚' },
-    { id: 'SC-11.6', app: 'showcase', page: '系统集成', sec: '托盘', t: '系统托盘', d: '托盘由 main 建（应用级单例，进不进页面都在）；左键计数走；右键菜单默认已挂且选中项回调跑到；提示语随「改提示」与语言更新；两种图标都换得动；三平台同一张缺省月牙' },
-    { id: 'SC-11.7', app: 'showcase', page: '系统集成', sec: '自启', t: '开机自启动', d: '开关状态与真实自启动项一致（Linux 写 autostart、Win 写 Run 键）；关闭即撤销' },
-    { id: 'SC-11.8', app: 'showcase', page: '系统集成', sec: '外部', t: '打开外部', d: 'URL 交默认浏览器；文件交默认或指定程序；路径交文件管理器；不存在的路径给 NotFound 不崩' },
-    { id: 'SC-11.9', app: 'showcase', page: '系统集成', sec: '信息音量', t: '系统信息与音量', d: '发行版 / 机器 / 内存 / 开机时长 / 桌面环境读数合理；音量读、设百分比、切静音都生效' },
-    { id: 'SC-11.10', app: 'showcase', page: '系统集成', sec: '平台专属', t: '子进程与平台专属能力', d: '子进程回 stdout 与退出码；超时档按超时失败不卡死；窗口管理 / 夜灯 / 剪贴板监视在本机没有对位时报明原因不崩；监视启动后改剪贴板能回显新文本' },
-    { id: 'SC-11.11', app: 'showcase', page: '系统集成', sec: '单实例', t: '防多开、后端档位与唤起', d: '「读本机档」回显后端 dbus / win32 / socket 之一（不是 -）与累计唤起数；「自环唤起」后 200ms 内切回首页并冒提示、计数 +1；再起第二个进程：不另开窗，打印 SHOWCASE-INST: 已有实例，已唤起并退出 后自退，跑着的那扇被唤回首页并冒提示' },
-
-    /* --- 12 图标库 --- */
-    { id: 'SC-12.1', app: 'showcase', page: '图标库', sec: '十九类图标墙', t: '分类全量出图', d: '19 个分类逐个切换，每类图标全部出图，无空白格、无错位、无串图' },
-    { id: 'SC-12.2', app: 'showcase', page: '图标库', sec: '十九类图标墙', t: '缩放与密度', d: '拉窗后图标网格重排，不裁切、不重叠、不出现半个图标' },
-
-    /* --- 13 画布与富文本 --- */
-    { id: 'SC-13.1', app: 'showcase', page: '画布与富文本', sec: '自绘', t: 'Painter 自绘', d: '矩形 / 圆弧 / 填充 / 描边 / 文字都正确；缩放窗口场景不变形；「旋转色相」三色循环；渐变圆正常' },
-    { id: 'SC-13.2', app: 'showcase', page: '画布与富文本', sec: '富文本', t: 'AttributedText 区间样式', d: '0-6 号 24px Black、8-11 号红色落在正确字上；换行 / 省略号开关生效；改写文本后属性保留' },
-    { id: 'SC-13.3', app: 'showcase', page: '画布与富文本', sec: '字体', t: '字体回退、混排行高与字距', d: '左盒单字体、右盒末位 28px：右盒盒高被抬起；不存在的族名按 CSS 列表口径回退；字距 4 那行整体更宽、字内不变形' },
-    { id: 'SC-13.4', app: 'showcase', page: '画布与富文本', sec: '线型与路径', t: '端点 / 拐角与 Path', d: 'Butt / Round / Square 三种端点与 Miter / Round / Bevel 三种拐角可辨；Path 直通绘制正确' },
-    { id: 'SC-13.5', app: 'showcase', page: '画布与富文本', sec: '虚线', t: 'set_dashes 图案与相位', d: '第一行 10 实 6 空；第二行段数相同但整条后错 8px；第三行回实线；三行之间不串图案' },
-    { id: 'SC-13.6', app: 'showcase', page: '画布与富文本', sec: '裁剪与变换', t: 'clip_rect / translate / rotate / scale', d: '左块只留 140×140 窗口、越界部分被切平；右块一个转 20°、一个放大 1.6 倍，位置正确且不影响其他绘制' },
-    { id: 'SC-13.7', app: 'showcase', page: '画布与富文本', sec: '圆角与合成', t: '圆角半径与整层 alpha', d: '半径 0 / 8 / 24 可辨、圆弧无台阶；35% alpha 那对整体变淡且重叠处更深；圆角开关切直角后三块全变直角' },
-    { id: 'SC-13.8', app: 'showcase', page: '画布与富文本', sec: '位图', t: 'PNG 缩放与 GIF 首帧', d: '64 与 128 两档都不糊边、比例不变；GIF 取左上 20×20 放大到 80×80；资源缺失时只留占位框、不崩' },
-
-    /* --- 14 过渡与效果 --- */
-    { id: 'SC-14.1', app: 'showcase', page: '过渡与效果', sec: '属性过渡', t: 'Transition 插值', d: '三块卡片不同 transition_ms：悬停底色 / 描边 / 圆角 / 字色平滑过渡；中途移开从当前帧续接不跳变' },
-    { id: 'SC-14.2', app: 'showcase', page: '过渡与效果', sec: '插值范围', t: '哪些属性会渐变', d: '底色平滑过渡；右边卡片改字号 13→17 也渐变，盒子同步长大不被裁' },
-    { id: 'SC-14.3', app: 'showcase', page: '过渡与效果', sec: '文本与效果', t: '样式槽文本字段', d: 'text_align 定对齐、white_space 定折行、line_height 抬行盒、text_decoration 画下划线，四项都生效' },
-    { id: 'SC-14.4', app: 'showcase', page: '过渡与效果', sec: '动图', t: 'GIF 动图', d: '按每帧时长自动播放；暂停 / 继续与已换帧数读数正确；静图退回首帧' },
-
-    /* --- 15 系统能力探测 --- */
-    { id: 'SC-15.1', app: 'showcase', page: '系统能力探测', sec: '系统桌面', t: '系统与桌面', d: '发行版 / 机器 / 内存 / 开机时长 / 桌面环境；环境变量、壁纸、打印机只读列出，读不到时要分清代码问题还是平台限制' },
-    { id: 'SC-15.2', app: 'showcase', page: '系统能力探测', sec: '显示器', t: '显示器读数', d: '在用模式与全部输出与系统设置一致；不可用项留空不崩；多屏时按摆放位置给坐标' },
-    { id: 'SC-15.3', app: 'showcase', page: '系统能力探测', sec: '应用文件', t: '应用与文件', d: '已装应用统计与常见二进制查找命中；VS Code 最近工作区能读到' },
-    { id: 'SC-15.4', app: 'showcase', page: '系统能力探测', sec: '浏览器', t: '浏览器数据', d: 'Chromium 系历史、下载、书签树；Firefox 历史；读的是本机库、不上网、不写' },
-    { id: 'SC-15.5', app: 'showcase', page: '系统能力探测', sec: '剪贴板电源', t: '剪贴板与桌面状态', d: '剪贴板文本、空闲读数（静置 60 秒应≈60）、自启状态三项只读且正确' },
-
-    /* ===================== Browser（examples/browser） ===================== */
-    { id: 'BR-1.1', app: 'browser', page: '浏览器窗口', sec: '工具栏与地址栏', t: '后退 / 前进', d: '有历史时可退可进并回推地址；load_html 装的页不入历史，此时后退是空操作且如实提示' },
-    { id: 'BR-1.2', app: 'browser', page: '浏览器窗口', sec: '工具栏与地址栏', t: '重载 / 停止', d: '重载重新加载并置「加载中」；加载中点「停止」状态变「已停止」，页面不再继续加载' },
-    { id: 'BR-1.3', app: 'browser', page: '浏览器窗口', sec: '工具栏与地址栏', t: '地址栏与「进入」', d: '输入 URL 回车或点「进入」都能加载；空输入与非法地址不崩、有状态提示' },
-    { id: 'BR-1.4', app: 'browser', page: '浏览器窗口', sec: '工具栏与地址栏', t: '「演示 ▾」菜单键盘可及', d: '空格 / 回车 / ↓ 打开，↑/↓ 移高亮，Esc 收起；弹层条目可见可点，点外也能收起' },
-    { id: 'BR-1.23', app: 'browser', page: '浏览器窗口', sec: '工具栏与地址栏', t: '地址框文本编辑键', d: '全选 / 剪切 / 复制 / 粘贴 / 撤销 / 按词移动在框内生效（mac 用 Cmd，其它 Ctrl）；只读结果区也能全选复制；跨程序粘贴不在本轮承诺（框内走内核内部缓冲）' },
-    { id: 'BR-1.5', app: 'browser', page: '浏览器窗口', sec: '网页区', t: '首屏与子件矩形', d: '首屏本地协议页出图；webview 矩形与工具栏、状态栏并排不重叠、不留缝' },
-    { id: 'BR-1.6', app: 'browser', page: '浏览器窗口', sec: '网页区', t: '页面内滚动与点击', d: '网页内滚轮滚动、按钮点击、页内链接跳转都正常，事件不被原生层吃掉' },
-    { id: 'BR-1.7', app: 'browser', page: '浏览器窗口', sec: '网页区', t: '标题与地址回推', d: '页面标题变化同步到顶部；跳转后地址栏与「当前 URL」一致' },
-    { id: 'BR-1.8', app: 'browser', page: '浏览器窗口', sec: '演示·加载', t: 'example.com（需外网）', d: '有外网时页面能加载；无外网时允许失败，但要有失败状态与事件流水，不能静默白屏' },
-    { id: 'BR-1.9', app: 'browser', page: '浏览器窗口', sec: '演示·加载', t: '本地协议页 yuedemo://', d: '首页与 style.css 都由协议供给、样式生效；点「去第二页」后能「←」回首页（会话内历史）' },
-    { id: 'BR-1.10', app: 'browser', page: '浏览器窗口', sec: '演示·加载', t: '本地 HTML 片段', d: 'load_html 后片段显示出来；此页不入历史，后退为空操作并有提示' },
-    { id: 'BR-1.11', app: 'browser', page: '浏览器窗口', sec: '演示·加载', t: '注销协议与失败路径', d: '注销 yuedemo 后重载应报加载失败（不白屏）；未注册 scheme 请求走错误面而不是静默' },
-    { id: 'BR-1.12', app: 'browser', page: '浏览器窗口', sec: '演示·JS 与 DOM', t: 'JS 互操作三连', d: '1+41 回 `42`、document.title 回当前标题、改写标题后顶部回显「由原生改写 ✓」' },
-    { id: 'BR-1.13', app: 'browser', page: '浏览器窗口', sec: '演示·JS 与 DOM', t: 'DOM 抓取四项', d: '正文 / 链接 / meta / 结构四项都返回有效结果，不是空串或异常文本' },
-    { id: 'BR-1.14', app: 'browser', page: '浏览器窗口', sec: '演示·JS 与 DOM', t: 'Cookie 查询', d: '返回当前页 cookie；无 cookie 时如实给空而不是报错' },
-    { id: 'BR-1.15', app: 'browser', page: '浏览器窗口', sec: '演示·JS 与 DOM', t: '原生绑定注册 / 移除', d: '注册后网页里调 demoBinding 进 on_invoke 并在状态栏回包；移除后再调应失败而不是静默丢弃' },
-    { id: 'BR-1.16', app: 'browser', page: '浏览器窗口', sec: '演示·JS 与 DOM', t: 'web 进程崩溃', d: '触发崩溃后 is_crashed 为 true、事件流水有记录；重载可恢复，不拖死整个应用' },
-    { id: 'BR-1.17', app: 'browser', page: '浏览器窗口', sec: '演示·策略', t: '新窗策略切换', d: '拦截时不弹新窗、放行时按策略弹；切换后立即生效，状态栏策略读数同步变' },
-    { id: 'BR-1.18', app: 'browser', page: '浏览器窗口', sec: '演示·策略', t: '权限策略切换', d: '拦截 / 放行切换后相机等权限请求行为随之变化；平台没有该事件时必须如实不报' },
-    { id: 'BR-1.19', app: 'browser', page: '浏览器窗口', sec: '演示·策略', t: '下载策略切换', d: '拦截时不落盘、放行时落盘；平台没有下载事件时如实不发，不假装成功' },
-    { id: 'BR-1.20', app: 'browser', page: '浏览器窗口', sec: '状态栏与结果区', t: '状态栏常驻读数', d: '加载状态（0 就绪 / 1 加载中 / 2 完成 / 3 失败）与当前 URL 常驻显示，长 URL 截断不错位' },
-    { id: 'BR-1.21', app: 'browser', page: '浏览器窗口', sec: '状态栏与结果区', t: '事件流水', d: '每次导航 / 能力调用追加一行；连续操作后历史仍在，不被覆盖' },
-    { id: 'BR-1.22', app: 'browser', page: '浏览器窗口', sec: '状态栏与结果区', t: '结果区截断与复制', d: '长结果默认截断、可展开看全文、可复制；展开后布局不被顶穿' },
-
-    /* ===================== Audio（examples/audio） ===================== */
-    { id: 'AU-1.1', app: 'audio', page: '音频播放器', sec: '列表与载入', t: '选择文件载入', d: '选 mp3 / m4a 后加入播放列表并显示「正在播放：文件名」；不支持的后缀不被接受' },
-    { id: 'AU-1.2', app: 'audio', page: '音频播放器', sec: '列表与载入', t: '选择目录扫描', d: '扫描目录内音频文件并报告数量；目录里没有音频或读不了时给明确提示' },
-    { id: 'AU-1.3', app: 'audio', page: '音频播放器', sec: '列表与载入', t: '空列表状态', d: '未载入时显示「播放列表为空」与引导文案，控件不假死' },
-    { id: 'AU-1.4', app: 'audio', page: '音频播放器', sec: '播放控制', t: '播放 / 暂停', d: '▶ / ❚❚ 切换，声音随之中断与恢复，按钮图标与状态同步' },
-    { id: 'AU-1.5', app: 'audio', page: '音频播放器', sec: '播放控制', t: '进度与 seek', d: '进度条随时间推进、时间读数同步；拖动 seek 后从新位置继续播，不回到开头' },
-    { id: 'AU-1.6', app: 'audio', page: '音频播放器', sec: '播放控制', t: '音量与静音', d: '音量 0~1 生效；静音中把音量拖到非零应自动解除静音' },
-    { id: 'AU-1.7', app: 'audio', page: '音频播放器', sec: '播放控制', t: '倍速', d: '切倍速后「倍速 Nx」标签与实际播放速度一致，音调不出现明显失真' },
-    { id: 'AU-1.8', app: 'audio', page: '音频播放器', sec: '循环与切歌', t: '循环播放', d: '开启循环后播完自动回到开头继续；关闭后播完停住' },
-    { id: 'AU-1.9', app: 'audio', page: '音频播放器', sec: '循环与切歌', t: '列表切歌', d: '点另一首切换过去，标题、进度与时间重置，上一首不留残音' },
-    { id: 'AU-1.10', app: 'audio', page: '音频播放器', sec: '状态与降级', t: '无输出设备', d: '拔掉或切到不存在的设备后给「静音降级」状态而不崩，再次可选设备时能恢复' },
-    { id: 'AU-1.11', app: 'audio', page: '音频播放器', sec: '状态与降级', t: '不支持的格式', d: '给 MediaError 文案而不是白屏或卡死；界面仍可继续操作' },
-    { id: 'AU-1.12', app: 'audio', page: '音频播放器', sec: '状态与降级', t: '同名歌词', d: '有同名 .lrc 时显示「歌词 N 行」；没有时明确说「没配上同名 .lrc」' },
-    { id: 'AU-1.13', app: 'audio', page: '音频播放器', sec: '快捷键', t: '播放器快捷键', d: '空格播放暂停、↑↓ 音量、M 静音/恢复、L 循环开关，播放中都生效' },
-    { id: 'AU-1.14', app: 'audio', page: '音频播放器', sec: '快捷键', t: '焦点优先', d: '焦点在输入框时空格进输入框、M / L 不被播放器抢走' },
-
-    /* ===================== Video（examples/video） ===================== */
-    { id: 'VD-1.1', app: 'video', page: '视频播放器', sec: '列表与载入', t: '选择文件载入', d: '选 mp4 / mkv 后出首帧并显示「正在播放：文件名」；列表出现该条目' },
-    { id: 'VD-1.2', app: 'video', page: '视频播放器', sec: '列表与载入', t: '空列表状态', d: '未载入时给「播放列表为空」与引导文案，界面仍可操作' },
-    { id: 'VD-1.3', app: 'video', page: '视频播放器', sec: '画面与帧', t: '持续出帧', d: '播放时画面持续在换，帧数 / 帧率读数跟着涨，不是定格一张' },
-    { id: 'VD-1.4', app: 'video', page: '视频播放器', sec: '画面与帧', t: '缩放不变形', d: '拉窗后画面按原比例显示，不拉伸变形、不留异常黑边' },
-    { id: 'VD-1.5', app: 'video', page: '视频播放器', sec: '画面与帧', t: '不支持的格式', d: '给 MediaError 文本而不是白屏；应用不退出' },
-    { id: 'VD-1.6', app: 'video', page: '视频播放器', sec: '控制条', t: '播放 / 暂停', d: '按钮与画面状态同步，暂停后画面定住且不再耗帧' },
-    { id: 'VD-1.7', app: 'video', page: '视频播放器', sec: '控制条', t: '进度 seek', d: '拖动进度后画面跳到对应位置并继续播，时间读数与画面一致' },
-    { id: 'VD-1.8', app: 'video', page: '视频播放器', sec: '控制条', t: '字幕', d: '内嵌轨自动读取并显示条数；外挂 SRT 能解析；0 条时如实说明是「这条片没有字幕」还是「时间轴格式错」' },
-    { id: 'VD-1.9', app: 'video', page: '视频播放器', sec: '全屏', t: '全屏进出', d: '双击画面进全屏、再双击退出，Esc 也能退；进出后画面比例正确' },
-    { id: 'VD-1.10', app: 'video', page: '视频播放器', sec: '全屏', t: '控制条自动收起', d: '全屏下指针静止约 2.5 秒控制条收起且指针隐藏，动一下或单击即恢复' },
-    { id: 'VD-1.11', app: 'video', page: '视频播放器', sec: '快捷键', t: '快捷键与焦点', d: '空格 / ↑↓ / M / L 与音频一致；焦点在输入框时不抢字' }
-  ];
+  function loadCases(done) {
+    fetch('测试用例.md', { cache: 'no-cache' }).then(function (r) {
+      if (!r.ok) throw new Error(r.status);
+      return r.text();
+    }).then(function (md) {
+      CASES = parseCases(md);
+      CASES.forEach(function (c) { CASE_BY_ID[c.id] = c; });
+      done(true);
+    }).catch(function () {
+      document.getElementById('cases-warn').hidden = false;
+      done(false);
+    });
+  }
 
   var CASE_BY_ID = {};
-  CASES.forEach(function (c) { CASE_BY_ID[c.id] = c; });
 
   var ST = {
     pass: { label: '通过', color: 'var(--pass-bar)' },
@@ -1651,6 +1515,9 @@
     document.getElementById('store-warn-close').onclick = function () {
       warnDismissed = true;
       document.getElementById('store-warn').hidden = true;
+  };
+  document.getElementById('cases-warn-close').onclick = function () {
+    document.getElementById('cases-warn').hidden = true;
     };
     if (!storageOK) showStoreWarn();
 
@@ -1687,7 +1554,7 @@
     summaryText: summaryText
   };
 
-  init();
+  loadCases(function (ok) { if (ok) init(); });
 })();
 </script>
 </body>

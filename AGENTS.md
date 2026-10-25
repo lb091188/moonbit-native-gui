@@ -9,7 +9,7 @@
 - **不做本地冒烟测试，真机 GUI 测试由用户执行**——助手负责代码与 `moon check`/`moon test`/`moon build` 零错误零警告；视觉与交互给操作步骤清单交用户，不远程驱动，不在反馈前下结论。
 - **与用户交流全部使用中文**——代码、命令、路径、专有名词除外。
 - **每完成一个功能或修复即提交并推送**——一个功能一次提交，提交信息只写「【标签】做了什么」，原理与原因一概不写。
-- **功能按「已规划 → 待办 → 已实现」流转**——确定做的功能先写进 `docs/zh/roadmap.md`「已规划」；要动手时先放进 `TODO.md`；完成后从 `TODO.md` 删除，路线图条目从「已规划」移进「已实现」并按平台标状态(✅已验 / 🚧已合入待真机 / ❌未做 / ⏳待定)，同批补 `测试文档/测试用例.md` 与 `测试记录/index.html`(测试记录按应用、应用内按页面逻辑排序)；roadmap 与 TODO 不得互相矛盾。
+- **功能按「已规划 → 待办 → 已实现」流转**——确定做的功能先写进 `docs/zh/roadmap.md`「已规划」；要动手时先放进 `TODO.md`；完成后从 `TODO.md` 删除，路线图条目从「已规划」移进「已实现」并按平台标状态(✅已验 / 🚧已合入待真机 / ❌未做 / ⏳待定)，同批补 `测试文档/测试用例.md`(记录台加载它现算清单，不用另改记录台)；roadmap 与 TODO 不得互相矛盾。
 - **新内容按落位判据落位**——先读 `proposals/placement.md`；示例一律 `examples/<name>/` 独立模块并注册进 `moon.work`。
 - **改领域配置先读对应指导文档**——`moon.pkg` / `moon.mod` / 链接与依赖 → [docs/zh/build.md](docs/zh/build.md)；FFI / C 绑定 → `.agents/skills/moonbit-c-binding/`；平台适配 → `proposals/adaptation.md`(实测坑与适配经验回写此文件，与代码同批提交)。
 
@@ -33,7 +33,7 @@ moon run examples/hello       # 最小窗口(另有 showcase 等)
 - workspace 成员清单，上面这些模块全部注册在此:`moon.work`
 - 对内设计/方案/实测经验(纯中文，扁平一层；文档站只发对外使用文档与路线图):`proposals/`
 - 对外文档站(VitePress，中英双语):`docs/`、`docs/zh/`
-- 测试用例文档与记录台(单文件网页；用例编号 `HL/SC/BR/AU/VD` 与记录台一一对应):`测试文档/测试用例.md`、`测试记录/index.html`
+- 测试用例文档与记录台(记录台运行时解析用例文档现算清单；用例编号 `HL/SC/BR/AU/VD` 一一对应；经本地 HTTP 服务打开):`测试文档/`(`测试用例.md` + `index.html`)
 - FFI / C 绑定细节:`.agents/skills/moonbit-c-binding/`、`.agents/skills/make-moonbit-c-bindings/`
 - DBus / SNI 实现与真总线读数:`gui/dbus/`、`proposals/adaptation.md`(搜 D-Bus / SNI)
 - 平台适配经验:`proposals/adaptation.md`
