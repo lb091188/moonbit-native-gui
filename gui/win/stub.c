@@ -8605,10 +8605,54 @@ static uint32_t wm_keysym_of(NSEvent *ev) {
 @end
 
 // 应用级委托：最后一扇窗关掉**不能**终结进程（循环归 MoonBit）。
-@interface WMAppDelegate : NSObject <NSApplicationDelegate>
+// 通知诊断日志（NATIVEGUI_NOTIFY_LOG 指到文件才落盘）：didDeliver / didFail
+// 把系统的裁决原话带出来——「已发送却没弹」时靠它分辨收下没显示还是直接拒收。
+static void wm_notify_log(const char *fmt, ...) {
+  const char *path = getenv("NATIVEGUI_NOTIFY_LOG");
+  if (path == NULL || path[0] == '\0') {
+    return;
+  }
+  FILE *f = fopen(path, "a");
+  if (f == NULL) {
+    return;
+  }
+  va_list ap;
+  va_start(ap, fmt);
+  vfprintf(f, fmt, ap);
+  va_end(ap);
+  fputc('\n', f);
+  fclose(f);
+}
+
+@interface WMAppDelegate : NSObject <NSApplicationDelegate, NSUserNotificationCenterDelegate>
 @end
 
 @implementation WMAppDelegate
+
+- (void)userNotificationCenter:(NSUserNotificationCenter *)center
+       didDeliverNotification:(NSUserNotification *)notification {
+  (void)center;
+  wm_notify_log("didDeliver id=%@",
+                notification.identifier != nil ? notification.identifier : @"(nil)");
+}
+
+- (void)userNotificationCenter:(NSUserNotificationCenter *)center
+ didFailToDeliverNotification:(NSUserNotification *)notification
+                      inError:(NSError *)error {
+  (void)center;
+  wm_notify_log("didFail id=%@ err=%@",
+                notification.identifier != nil ? notification.identifier : @"(nil)",
+                error.localizedDescription != nil ? error.localizedDescription : @"(nil)");
+}
+
+- (BOOL)userNotificationCenter:(NSUserNotificationCenter *)center
+    shouldPresentNotification:(NSUserNotification *)notification {
+  (void)center;
+  (void)notification;
+  // 本应用在前台也弹横幅：系统默认前台应用只进通知中心不弹条，用户侧就是
+  // 「点了没反应」
+  return YES;
+}
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:
     (NSApplication *)sender {
   (void)sender;
@@ -10669,6 +10713,9 @@ static int wm_notify_alloc(const char *title, const char *text, int kind) {
   NSUserNotificationCenter *nc = [NSUserNotificationCenter defaultUserNotificationCenter];
   if (nc == nil) {
     return 0;
+  }
+  if ([nc delegate] == nil) {
+    [nc setDelegate:wm_app_delegate];
   }
   int slot = -1;
   for (int i = 1; i < WM_MAX_TRAYS; i++) {
