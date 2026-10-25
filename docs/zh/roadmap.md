@@ -180,6 +180,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **显示器枚举**：在线屏、分辨率、刷新率、物理尺寸、模式列表
 - ✅ **空闲检测**：读系统空闲秒数（Linux X11、Windows；macOS 走 HID 系统态）
 - ✅ **开机自启**：写 autostart / Run 键 / LaunchAgents；开关即真实状态
+- ✅ **mac 通知迁移 UNUserNotificationCenter**：老 NSUserNotification 在新 macOS（26.x 实测）被降级成「只进中心不弹条」——通知后端整体迁到 UN：bundle 探测、首次使用请求 alert/sound/timeSensitive 授权（老授权自动补齐）、同 identifier 覆盖即更新、按标识摘除、授权异步裁决前投递排队、声音默认有声（对齐 Win32）、delegate 答复带 Banner|List|Sound、`NATIVEGUI_NOTIFY_LOG` 门控诊断。**前台横幅的钥匙是时间敏感档**：缺档时前台 delegate 询问派发不可靠（忙时静默），标记+授权后忙循环也正常（真机日志 + 探针定案，见 `proposals/adaptation.md`）；mac 真机已验（横幅+声音），Linux 走 D-Bus、Windows 走托盘气泡不受影响
 - ✅ **浏览器与编辑器历史**：Chromium 系历史与书签、Firefox 历史、VS Code 最近工作区
 - ✅ **窗口管理**：枚举窗口、按 id 或标题激活与关闭（仅 Linux，走 `wmctrl`）
 - ✅ **电源计划**：读可用计划集、读当前、切计划（Linux 走 `powerprofilesctl`；Windows 走 PowerGet / SetActiveScheme）
@@ -262,9 +263,10 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ⏳ **KDE / GNOME / DDE 实测**：托盘、通知、深浅色、壁纸、默认应用的桌面环境矩阵
 - ⏳ **显示器「首选档」**：`CGDisplayModeIsPreferred` 已不在 SDK，需找公开替代信号
 - ⏳ **dock 徽标与 LauncherEntry**：macOS `NSDockTile`、Linux `LauncherEntry` 的任务栏进度对位
-- 🚧 **mac 通知迁移 UNUserNotificationCenter**：老 NSUserNotification 在新 macOS（26.x 实测）被降级成「只进中心不弹条」，shouldPresent 也救不回——通知后端整体迁到 UN（bundle 探测 + 首次使用请求 alert/sound/timeSensitive 授权、老授权自动补齐 + 同 identifier 覆盖即更新 + 按标识摘除 + 授权异步裁决前投递排队）；声音口径对齐 Win32 默认有声；前台横幅的钥匙是**时间敏感档**（标记 + 授权，缺档时前台 delegate 询问派发不可靠、忙时静默，探针实测定案见 `proposals/adaptation.md`）；delegate 答复带 Banner|List|Sound；`NATIVEGUI_NOTIFY_LOG` 门控投递诊断
 - ⏳ **通知时间敏感档的粒度**：目前所有通知默认 timeSensitive（保前台可见）；按 kind 分档或开放给应用自选待定，用户在系统设置关掉时间敏感会回到前台静默
 - ⏳ **通知后端命名**：macOS 仍报 win-balloon，需加第三档后端名
+- ⏳ **mac 自启动升级登录项形态**：现走 LaunchAgents plist（系统「App 后台活动」按可执行文件名显示、身份栏标 ad-hoc 开发者）；换 `SMAppService`/登录项可显示应用名与图标
+- ⏳ **mac autostart 查询读系统侧禁用位**：`autostart_is_enabled` 目前按 plist 存在与否判断，系统设置「App 后台活动」里关掉后 plist 仍在、会误报已开启（Linux 档已认 Hidden 位，mac 补 launchd 状态读数）
 
 ### 媒体
 
