@@ -11370,6 +11370,11 @@ static NSArray<NSDraggingItem *> *wm_dnd_build_items(NSPoint at) {
             p = [[NSFileManager defaultManager].currentDirectoryPath
                 stringByAppendingPathComponent:p];
           }
+          // 归一化 `..` / `~`：粘贴板里带 `..` 段的文件 URL 在访达侧解析不稳
+          // （实测拷出来是一个文件夹）。GTK（g_canonicalize_filename）与 Win32
+          // （GetFullPathNameW）的绝对化本就归一化，mac 在这里对齐；之后的存在
+          // 检查、URL 与日志用的都是同一条干净路径。
+          p = [p stringByStandardizingPath];
           BOOL isdir = NO;
           BOOL exists = [[NSFileManager defaultManager] fileExistsAtPath:p
                                                              isDirectory:&isdir];
