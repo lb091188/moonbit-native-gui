@@ -18,7 +18,7 @@
 /// 热键错误 → 可读串（门面的两档：没后端 / 有backend但这次没成）。
 fn hotkey_err_text(e : @shell.HotkeyError) -> String {
   match e {
-    @shell.HotkeyError::Unsupported => @shared.tx("本平台没有全局快捷键后端（当前仅 Windows）")
+    @shell.HotkeyError::Unsupported => @shared.tx("本平台没有全局快捷键后端（Wayland 会话）")
     @shell.HotkeyError::Failed(why) => "注册失败：\{why}"
   }
 }
@@ -423,7 +423,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
     @shared.section(
       "快捷键",
       "全局快捷键",
-      "应用外生效的系统快捷键（Ctrl+Alt+C，仅 Windows；别的平台注册即返回 Unsupported）。门面持有 id→加速串回查表，轮询命中直接给 Hotkey。",
+      "应用外生效的系统快捷键：统一写 CmdOrCtrl+Alt+C，macOS 落 Cmd、Windows/Linux 落 Ctrl（Wayland 会话注册返回 Unsupported）。门面持有 id→键名回查表，轮询命中直接给 Hotkey，键名是平台规范名（mac 上显示 Cmd+Alt+C）。",
       [
         // 零尺寸挂载钩子：段首次选中时启动轮询表（见 hotkey_poll_loop）。
         // 首拍必须挂真·挂载时机（Node::on_mount）——node_of_new 的 finish 是
@@ -434,8 +434,8 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
         ),
         @ui.row(
           [
-            @ui.button(@shared.tx("注册 Ctrl+Alt+C"), on_click=fn() {
-              match @shell.hotkey_register("Ctrl+Alt+C") {
+            @ui.button(@shared.tx("注册 CmdOrCtrl+Alt+C"), on_click=fn() {
+              match @shell.hotkey_register("CmdOrCtrl+Alt+C") {
                 Ok(hk) => {
                   hotkeys.val.push(hk)
                   hk_status.set(@shared.tx("已注册（切到别的窗口按一下）"))
@@ -463,9 +463,9 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
         ),
       ],
       code=[
-        "match @shell.hotkey_register(\"Ctrl+Alt+C\") {",
-        "  Ok(hk) => // hk.id / hk.spec（回查表门面自持）",
-        "  Err(Unsupported) => // 非 Windows",
+        "match @shell.hotkey_register(\"CmdOrCtrl+Alt+C\") {",
+        "  Ok(hk) => // hk.id / hk.spec（平台规范键名，门面自持）",
+        "  Err(Unsupported) => // Wayland 会话",
         "  Err(Failed(why)) => // 组合被占用 / 表满",
         "}",
         "// 宿主每拍抽一次（本页 200ms 表；native-app 每帧）",

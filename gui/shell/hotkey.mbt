@@ -42,8 +42,9 @@ pub impl Show for HotkeyError with fn output(self, logger) {
 pub extend HotkeyError with Show::{to_string, output}
 
 ///|
-/// 已注册的热键：`id` 是后端注册 id，`spec` 是注册时给的归一化加速串
-/// （poll 命中后回查给调用方，避免调用方自己再持一张表）。
+/// 已注册的热键：`id` 是后端注册 id，`spec` 是**平台规范显示名**——注册成功后
+/// 由门面按修饰位与主键现算（mac `Cmd+…`、其余 `Ctrl+…`），不是原始入参：
+/// 入参里的别名（`CmdOrCtrl` / `Option` / `Meta`…）不该出现在回显里。
 pub(all) struct Hotkey {
   id : Int
   spec : String
@@ -89,8 +90,9 @@ pub fn hotkey_register(spec : String) -> Result[Hotkey, HotkeyError] {
       match @win.register_global_shortcut(hk) {
         None => Err(Failed("注册失败（组合被占用或表满）：\{spec}"))
         Some(id) => {
-          hotkey_registry.val.push({ id, spec })
-          Ok({ id, spec })
+          let label = @win.hotkey_label(hk, is_mac)
+          hotkey_registry.val.push({ id, spec: label })
+          Ok({ id, spec: label })
         }
       }
   }
