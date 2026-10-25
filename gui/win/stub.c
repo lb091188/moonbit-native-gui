@@ -10691,10 +10691,10 @@ static int wm_notify_alloc(const char *title, const char *text, int kind) {
   }
   [n setIdentifier:[NSString stringWithFormat:@"native-gui-%d", slot]];
   [n setSoundName:kind >= 2 ? NSUserNotificationDefaultSoundName : nil];
-  // 立即投递：早先写 distantFuture 想让通知「停在通知中心」，但新 macOS（26.x
-  // 实测）尊重未来投递日期——通知进「定时」队列，横幅与列表都不出现，用户侧
-  // 就是「发了没效果」。立即投递同样入中心历史，close 仍按已投递摘除。
-  [n setDeliveryDate:[NSDate date]];
+  // 不设 deliveryDate（默认立即投递）：bundle 探针当年验证「能弹」用的就是裸
+  // deliverNotification:——带任何「现在/未来」日期都会被新 macOS（26.x 实测）
+  // 归进定时档，横幅与列表都不出现，用户侧「发了没效果」。立即投递同样入中
+  // 心历史，close 仍按已投递摘除。
   [nc deliverNotification:n];
   wm_notifs[slot] = n;
   return slot;
