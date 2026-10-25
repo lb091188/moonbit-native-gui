@@ -162,6 +162,7 @@ MAC_WIN_FRAMEWORKS = [
     "-framework", "CoreGraphics",    # CGContext 贴像素、CGImage 造图标
     "-framework", "Carbon",          # RegisterEventHotKey 一族（全局快捷键）
     "-framework", "IOKit",           # 电源/显示器相关的读数
+    "-framework", "UserNotifications",  # 通知中心（UNUserNotificationCenter，mac 通知正路）
 ]
 MAC_SYS_FRAMEWORKS = [
     "-framework", "Cocoa",           # NSWorkspace（打开/揭示、壁纸）、NSFileManager

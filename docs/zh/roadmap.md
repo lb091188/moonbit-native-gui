@@ -262,7 +262,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ⏳ **KDE / GNOME / DDE 实测**：托盘、通知、深浅色、壁纸、默认应用的桌面环境矩阵
 - ⏳ **显示器「首选档」**：`CGDisplayModeIsPreferred` 已不在 SDK，需找公开替代信号
 - ⏳ **dock 徽标与 LauncherEntry**：macOS `NSDockTile`、Linux `LauncherEntry` 的任务栏进度对位
-- 🚧 **mac 通知投递时机与前台呈现**：去掉 `deliveryDate`（任何日期在新 macOS 都归定时档不显示）；补 `shouldPresentNotification: YES`（系统默认前台应用只进中心不弹条，「点了没反应」的主因之一）；`NATIVEGUI_NOTIFY_LOG` 门控 didDeliver/didFail 诊断（mac 复验中）
+- 🚧 **mac 通知迁移 UNUserNotificationCenter**：老 NSUserNotification 在新 macOS（26.x 实测）被降级成「只进中心不弹条」，shouldPresent 也救不回——通知后端整体迁到 UN（bundle 探测 + 首次使用请求 alert/sound 授权 + willPresent 显式 Banner|List 前台也弹 + 同 identifier 覆盖即更新 + 按标识摘除）；`NATIVEGUI_NOTIFY_LOG` 门控投递诊断（mac 复验中）
 - ⏳ **通知后端命名**：macOS 仍报 win-balloon，需加第三档后端名
 
 ### 媒体

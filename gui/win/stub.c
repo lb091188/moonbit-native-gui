@@ -7783,6 +7783,7 @@ void wm_inst_release(void) {}
 #include <time.h>
 
 #import <Cocoa/Cocoa.h>
+#import <UserNotifications/UserNotifications.h>
 #import <CoreGraphics/CoreGraphics.h>
 #import <CoreText/CoreText.h>
 
@@ -8624,7 +8625,7 @@ static void wm_notify_log(const char *fmt, ...) {
   fclose(f);
 }
 
-@interface WMAppDelegate : NSObject <NSApplicationDelegate, NSUserNotificationCenterDelegate>
+@interface WMAppDelegate : NSObject <NSApplicationDelegate, UNUserNotificationCenterDelegate>
 @end
 
 @implementation WMAppDelegate
@@ -8651,13 +8652,24 @@ static void wm_notify_log(const char *fmt, ...) {
                     : "(nil)");
 }
 
-- (BOOL)userNotificationCenter:(NSUserNotificationCenter *)center
-    shouldPresentNotification:(NSUserNotification *)notification {
+- (void)userNotificationCenter:(UNUserNotificationCenter *)center
+       willPresentNotification:(UNNotification *)notification
+         withCompletionHandler:(void (^)(UNNotificationPresentationOptions))handler {
   (void)center;
-  (void)notification;
-  // 本应用在前台也弹横幅：系统默认前台应用只进通知中心不弹条，用户侧就是
-  // 「点了没反应」
-  return YES;
+  // 前台也弹横幅并入中心列表：UN 这条的新系统默认就是前台静默，
+  // 想要「点了看得见」必须在这里显式给呈现选项
+  handler(UNNotificationPresentationOptionBanner | UNNotificationPresentationOptionList);
+  wm_notify_log("willPresent id=%@",
+                notification.request.identifier != nil
+                    ? notification.request.identifier
+                    : @"(nil)");
+}
+
+- (void)userNotificationCenter:(UNUserNotificationCenter *)center
+ didReceiveNotificationResponse:(UNNotificationResponse *)response
+         withCompletionHandler:(void (^)(void))handler {
+  (void)center;
+  handler();
 }
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:
     (NSApplication *)sender {
@@ -10683,130 +10695,135 @@ int wm_tray_tooltip(int slot, char *out, int cap) {
 
 // ---- 桌面通知（NSUserNotification）--------------------------------------
 //
-// 与 Win32 支的托盘气泡不同，macOS 有系统级通知中心；UNUserNotificationCenter
-// 要求调用者是**已签名的 bundle**（裸二进制拿不到授权），所以这里用仍在
-// SDK 里的 NSUserNotification 一档（deprecated 但可用），`kind` 只映射到
-// 提示音：>=2 响一声，其余静默（mac 没有「进度/严重程度」的原生对位）。
-//
-// 投递前提是**进程跑在 .app bundle 里**（`wm_notify_supported` 按它如实回答，
-// 打包口 `scripts/make_app.sh`）；换 UserNotifications.framework 那条现代路要
-// bundle + 用户授权，且非 bundle 进程调 `currentNotificationCenter` 是直接
-// abort（探针回证），比现在这条更挑运行形态。
+// mac 通知正路：UNUserNotificationCenter（macOS 10.14 起、26.x 上唯一还会
+// 弹横幅的一档）。老 NSUserNotification 在新系统被降级成「只进中心不弹条」，
+// shouldPresent 也救不回来（实测）。三条前提：
+// ① 进程必须跑在 .app bundle 里（裸二进制连 currentNotificationCenter 都
+//    直接 abort——探针回证；打包口 scripts/make_app.sh）；
+// ② 首次使用要请求授权（alert|sound），系统在首次发送前给授权框；
+// ③ 前台呈现走 delegate 的 willPresent 显式给 Banner|List。
+// 槽标识稳定为 native-gui-<slot>：同 identifier 再 post 即覆盖（update 语义），
+// close 按 identifier 摘已投递与待投递。标题读数走本层缓存。
+static NSString *wm_un_titles[WM_MAX_TRAYS]; // 槽在用标记（非 nil）+ 标题缓存
 
-static NSUserNotification *wm_notifs[WM_MAX_TRAYS];
+static BOOL wm_un_bundled(void) {
+  return [[NSBundle mainBundle] bundleIdentifier] != nil;
+}
 
-int wm_notify_supported(void) {
-  @autoreleasepool {
-    // 探针回证（本机 macOS 26.5）：这一档只认**从 .app bundle 里跑的进程**——
-    // 裸二进制的 deliverNotification: 被系统静默丢弃（连 didDeliver/didFail 都
-    // 不回调），同一个二进制放进带 CFBundleIdentifier 的 bundle 里立刻投递。
-    // 所以「有没有后端」按进程形态如实回答：没打包就是没有，别让门面拿着
-    // 「已交给系统」的槽号冒充发出去了（真机反馈：mac 通知没影）。
-    // 打包口：scripts/make_app.sh。
-    if ([[NSBundle mainBundle] bundleIdentifier] == nil) {
+static NSString *wm_un_ident(int slot) {
+  return [[NSString alloc] initWithFormat:@"native-gui-%d", slot];
+}
+
+static void wm_un_ensure(void) {
+  static BOOL ready = NO;
+  if (ready) {
+    return;
+  }
+  ready = YES;
+  UNUserNotificationCenter *nc = [UNUserNotificationCenter currentNotificationCenter];
+  [nc setDelegate:wm_app_delegate];
+  [nc requestAuthorizationWithOptions:(UNAuthorizationOptionAlert |
+                                       UNAuthorizationOptionSound)
+                    completionHandler:^(BOOL granted, NSError *err) {
+    wm_notify_log("auth granted=%d err=%@",
+                  granted ? 1 : 0,
+                  err.localizedDescription != nil ? err.localizedDescription : @"(nil)");
+  }];
+}
+
+// slot>0 = 按同 identifier 覆盖（update 语义）；slot<=0 = 领新槽。返回槽号。
+static int wm_un_post(int slot, const char *title, const char *text, int kind) {
+  UNMutableNotificationContent *c = [UNMutableNotificationContent new];
+  NSString *t = wm_str(title);
+  NSString *b = wm_str(text);
+  if (t != nil) {
+    c.title = t;
+  }
+  if (b != nil) {
+    c.body = b;
+  }
+  if (kind >= 2) {
+    c.sound = [UNNotificationSound defaultSound];
+  }
+  if (slot <= 0) {
+    slot = 1;
+    while (slot < WM_MAX_TRAYS && wm_un_titles[slot] != nil) {
+      slot++;
+    }
+    if (slot >= WM_MAX_TRAYS) {
       return 0;
     }
-    return [NSUserNotificationCenter defaultUserNotificationCenter] != nil ? 1
-                                                                           : 0;
   }
+  NSString *ident = wm_un_ident(slot);
+  UNNotificationRequest *req =
+      [UNNotificationRequest requestWithIdentifier:ident content:c trigger:nil];
+  [[UNUserNotificationCenter currentNotificationCenter]
+      addNotificationRequest:req
+       withCompletionHandler:^(NSError *err) {
+         wm_notify_log("post id=%@ err=%@",
+                       ident,
+                       err.localizedDescription != nil ? err.localizedDescription : @"(nil)");
+       }];
+  wm_un_titles[slot] = t != nil ? t : @" ";
+  return slot;
 }
 
 static int wm_notify_slot_of(int slot) {
   return slot > 0 && slot < WM_MAX_TRAYS ? slot : 0;
 }
 
-static int wm_notify_alloc(const char *title, const char *text, int kind) {
-  NSUserNotificationCenter *nc = [NSUserNotificationCenter defaultUserNotificationCenter];
-  if (nc == nil) {
-    return 0;
-  }
-  if ([nc delegate] == nil) {
-    [nc setDelegate:wm_app_delegate];
-  }
-  int slot = -1;
-  for (int i = 1; i < WM_MAX_TRAYS; i++) {
-    if (wm_notifs[i] == nil) {
-      slot = i;
-      break;
+int wm_notify_supported(void) {
+  @autoreleasepool {
+    if (!wm_un_bundled()) {
+      return 0;
     }
+    return [UNUserNotificationCenter currentNotificationCenter] != nil ? 1 : 0;
   }
-  if (slot < 0) {
-    return 0;
-  }
-  NSUserNotification *n = [[NSUserNotification alloc] init];
-  NSString *t = wm_str(title);
-  NSString *b = wm_str(text);
-  if (t != nil) {
-    [n setTitle:t];
-  }
-  if (b != nil) {
-    [n setInformativeText:b];
-  }
-  [n setIdentifier:[NSString stringWithFormat:@"native-gui-%d", slot]];
-  [n setSoundName:kind >= 2 ? NSUserNotificationDefaultSoundName : nil];
-  // 不设 deliveryDate（默认立即投递）：bundle 探针当年验证「能弹」用的就是裸
-  // deliverNotification:——带任何「现在/未来」日期都会被新 macOS（26.x 实测）
-  // 归进定时档，横幅与列表都不出现，用户侧「发了没效果」。立即投递同样入中
-  // 心历史，close 仍按已投递摘除。
-  [nc deliverNotification:n];
-  wm_notifs[slot] = n;
-  return slot;
 }
 
 int wm_notify_send(int icon_slot, const char *title, const char *text,
                    int kind) {
   @autoreleasepool {
-    (void)icon_slot; // mac 的通知不带自定义图标（NSUserNotification 无此入口）
-    return wm_notify_alloc(title, text, kind);
+    (void)icon_slot; // mac 的通知不带自定义图标（content 无此入口）
+    if (!wm_un_bundled()) {
+      return 0;
+    }
+    wm_un_ensure();
+    return wm_un_post(0, title, text, kind);
   }
 }
 
 int wm_notify_update(int slot, const char *title, const char *text, int kind) {
   @autoreleasepool {
-    slot = wm_notify_slot_of(slot);
-    if (slot == 0) {
-      return wm_notify_alloc(title, text, kind);
-    }
-    NSUserNotification *n = wm_notifs[slot];
-    if (n == nil) {
+    if (!wm_un_bundled()) {
       return 0;
     }
-    NSString *t = wm_str(title);
-    NSString *b = wm_str(text);
-    if (t != nil) {
-      [n setTitle:t];
-    }
-    if (b != nil) {
-      [n setInformativeText:b];
-    }
-    [n setSoundName:kind >= 2 ? NSUserNotificationDefaultSoundName : nil];
-    [[NSUserNotificationCenter defaultUserNotificationCenter]
-        deliverNotification:n]; // 同 identifier 即替换
-    return 1;
+    wm_un_ensure();
+    return wm_un_post(wm_notify_slot_of(slot), title, text, kind);
   }
 }
 
 void wm_notify_close(int slot) {
   @autoreleasepool {
+    if (!wm_un_bundled()) {
+      return;
+    }
     slot = wm_notify_slot_of(slot);
     if (slot == 0) {
       return;
     }
-    NSUserNotification *n = wm_notifs[slot];
-    if (n != nil) {
-      NSUserNotificationCenter *nc =
-          [NSUserNotificationCenter defaultUserNotificationCenter];
-      [nc removeDeliveredNotification:n];
-      [nc removeScheduledNotification:n];
-    }
-    wm_notifs[slot] = nil;
+    NSString *ident = wm_un_ident(slot);
+    UNUserNotificationCenter *nc = [UNUserNotificationCenter currentNotificationCenter];
+    [nc removeDeliveredNotificationsWithIdentifiers:@[ ident ]];
+    [nc removePendingNotificationRequestsWithIdentifiers:@[ ident ]];
+    wm_un_titles[slot] = nil;
   }
 }
 
 int wm_notify_count(void) {
   int n = 0;
   for (int i = 1; i < WM_MAX_TRAYS; i++) {
-    if (wm_notifs[i] != nil) {
+    if (wm_un_titles[i] != nil) {
       n++;
     }
   }
@@ -10816,13 +10833,14 @@ int wm_notify_count(void) {
 int wm_notify_title(int slot, char *out, int cap) {
   @autoreleasepool {
     slot = wm_notify_slot_of(slot);
-    NSUserNotification *n = slot == 0 ? nil : wm_notifs[slot];
-    if (n == nil) {
+    NSString *t = slot == 0 ? nil : wm_un_titles[slot];
+    if (t == nil) {
       return wm_clamp_cap(out, cap, "");
     }
-    return wm_clamp_cap(out, cap, [[n title] UTF8String]);
+    return wm_clamp_cap(out, cap, [t UTF8String]);
   }
 }
+
 
 // ---- 任务栏进度 -----------------------------------------------------------
 //
