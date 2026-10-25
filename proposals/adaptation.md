@@ -3180,3 +3180,11 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **本批保留的有效修复**：① 声音口径对齐 Win32（NIIF 默认有声）——UN 的 `content.sound` 不设即完全无声，之前只有 kind>=2（错误级）才带声，用户「默认静音」的直接来源；② `UNAuthorizationStatusEphemeral` 是 iOS App Clip 专属，macOS 编译不可用。
 **教训**：① 平台回调「派发在主线程」的深层含义是「派发在 `[NSApp run]` 的事件循环」——手工循环必须实测 delegate 族回调，空闲时能进不算数（那个窗口不保证再来）；② 探针矩阵要包含「忙循环」档：性能形态差异能让「代码相同、行为不同」，只测空闲档会得出假阴性；③ `dispatch_async(main)` 是否被 drain 逐等待原语实测，别按「CFRunLoop 会带 main queue」的常识推。
 **验证**：`experiment/notify_mac_probe`（MoonBit 全栈、自动发两条、`NATIVEGUI_NOTIFY_LOG` 读数）四轮对照读数如上；库门禁 1143/1143、`--deny-warn` 干净。真机复验口径：前台点按钮→通知进中心（横幅受边界）；把 showcase 切到失焦再发→横幅与声音正常。
+
+## mac UN 前台横幅真相修正：钥匙是「时间敏感档」，不是主循环形态（2026-10-24,接上条,真机日志 + 探针双确认）
+
+**上条结论被推翻**：加了 `content.interruptionLevel = TimeSensitive` + 授权带 `UNAuthorizationOptionTimeSensitive` 之后，忙循环探针与 showcase（前台高频重绘）的 `willPresent` 全部正常派发、横幅声音齐全——**「手工循环架构边界」的结论作废**，真正缺的是时间敏感档：没有这一档，UN 对前台通知的 delegate 呈现询问派发不可靠（空闲偶发可用、忙时一律静默），三种等待原语都救不回来；加上这一档，同样的忙循环立刻正常。机理推测：时间敏感通知走 UN 更积极的呈现询问通道，不依赖那条不可靠的派发路径。
+**落地三件**：① `content.sound` 一律默认（对齐 Win32）；② `interruptionLevel = TimeSensitive` + 授权/补授权带 TimeSensitive 选项——老授权（alert|sound 时代给的）用 `getNotificationSettings` 的 `timeSensitiveSetting` 判缺后 `requestAuthorization` 补齐，已决定的选项不重弹框（真机日志 `auth re-grant=1`）；③ delegate 答复的呈现选项必须**带 Sound**（`Banner|List|Sound`）——给什么呈现什么，缺 Sound 前台无声。
+**过程教训（对自己上一条的修正）**：① 「架构边界」的结论下早了——存在未试过的单一开关（时间敏感档）时，别把「多轮原语都救不回」升格成架构定论；② 「从 IDE 终端跑 → 责任进程身份挂终端」的推断也被真机日志推翻（终端跑补授权与 willPresent 一切正常），探索期的机制推测一律标注「待验证」，别写进结论段；③ 诊断日志的时间戳（`post at +0.001s` / `settle exit at +3.0s`）把「回执快、回调不来」拆成了两个可分别定位的事实，是这几轮排查里最值钱的读数。
+**代价与待办**：时间敏感档用户可在系统设置里关，关了回到前台静默；按 kind 分档（警告/错误才 timeSensitive）或开放给应用自选挂 roadmap ⏳。
+**验证**：showcase 真机日志——`auth status=authorized, 补请求时间敏感档` → `auth re-grant=1` → `post ×2 err=nil` → `willPresent ×2`；忙循环探针同样 `willPresent ×2`。门禁 1143/1143、`--deny-warn` 干净。

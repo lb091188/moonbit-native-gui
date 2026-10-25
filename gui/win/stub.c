@@ -8613,12 +8613,15 @@ static void wm_notify_log(const char *fmt, ...);
 
 void wm_wakeup(void);
 
-// UN 前台呈现的实测边界（2026-10-24，忙循环探针四轮对照）：UN 的 delegate
-// 前台呈现询问只在 [NSApp run] 形态的主循环里派发；本库手工循环下——空闲主
-// 循环偶尔能进，高频重绘时一律静默（通知只进通知中心，post err 恒 nil）。
-// nextEvent / CFRunLoopRunInMode / 主循环顶层同款等待三种原语都救不回来，
-// 纯 ObjC 忙循环（[NSApp run]）对照完全正常——这是手工循环架构对 UN 前台
-// 呈现的边界。后台（应用失焦）路径不受影响：系统直接呈现，横幅与声音正常。
+// UN 前台呈现的口径（2026-10-24 实测定案）：前台横幅的钥匙是**时间敏感档**
+// ——content.interruptionLevel=TimeSensitive + 授权带 TimeSensitive 选项
+// （老授权用 requestAuthorization 补齐，已决定的选项不重弹框）。没有这一档
+// 时，UN 对前台通知的 delegate 呈现询问派发不可靠：空闲偶发可用、应用高频
+// 重绘时一律静默（通知照进通知中心，post err 恒 nil），nextEvent /
+// CFRunLoopRunInMode / 主循环顶层等待三种原语都救不回来，纯 ObjC [NSApp run]
+// 忙循环对照正常——当时误判为手工循环的架构边界，时间敏感档加上后忙循环也
+// 正常派发，推翻。delegate 答复的呈现选项必须带 Sound（给什么呈现什么，
+// 缺了前台无声）。代价：时间敏感档用户可在系统设置里关，关了回到静默档。
 
 static void wm_notify_log(const char *fmt, ...) {
   const char *path = getenv("NATIVEGUI_NOTIFY_LOG");
@@ -8648,7 +8651,9 @@ static void wm_notify_log(const char *fmt, ...) {
   (void)center;
   // 前台也弹横幅并入中心列表：UN 这条的新系统默认就是前台静默，
   // 想要「点了看得见」必须在这里显式给呈现选项
-  handler(UNNotificationPresentationOptionBanner | UNNotificationPresentationOptionList);
+  handler(UNNotificationPresentationOptionBanner |
+          UNNotificationPresentationOptionList |
+          UNNotificationPresentationOptionSound);
   wm_notify_log("willPresent id=%s",
                 notification.request.identifier != nil
                     ? [notification.request.identifier UTF8String]
@@ -10735,10 +10740,37 @@ static void wm_un_ensure(void) {
     dispatch_async(dispatch_get_main_queue(), ^{
       if (st == UNAuthorizationStatusAuthorized ||
           st == UNAuthorizationStatusProvisional) {
-        wm_notify_log("auth status=authorized");
-        wm_un_auth_done = YES;
-        wm_un_auth_ok = YES;
-        wm_un_flush();
+        // 老授权（alert|sound 时代给的）缺时间敏感档，provisional 本身就是
+        // 静默档（只进中心不弹条）——都补一次全选项请求：已决定的选项不重
+        // 弹框，系统只补缺的那一档
+        if (st == UNAuthorizationStatusAuthorized &&
+            s.timeSensitiveSetting == UNNotificationSettingEnabled) {
+          wm_notify_log("auth status=authorized");
+          wm_un_auth_done = YES;
+          wm_un_auth_ok = YES;
+          wm_un_flush();
+          return;
+        }
+        wm_notify_log("auth status=authorized, 补请求时间敏感档");
+        [nc requestAuthorizationWithOptions:(UNAuthorizationOptionAlert |
+                                             UNAuthorizationOptionSound |
+                                             UNAuthorizationOptionTimeSensitive)
+                          completionHandler:^(BOOL granted, NSError *err) {
+          dispatch_async(dispatch_get_main_queue(), ^{
+            wm_notify_log("auth re-grant=%d err=%s",
+                          granted ? 1 : 0,
+                          err.localizedDescription != nil
+                              ? [err.localizedDescription UTF8String]
+                              : "(nil)");
+            wm_un_auth_done = YES;
+            wm_un_auth_ok = granted;
+            if (granted) {
+              wm_un_flush();
+            } else if (wm_un_pend != nil) {
+              [wm_un_pend removeAllObjects];
+            }
+          });
+        }];
         return;
       }
       if (st == UNAuthorizationStatusDenied) {
@@ -10752,7 +10784,8 @@ static void wm_un_ensure(void) {
       }
       wm_notify_log("auth status=notDetermined —— 弹系统授权框");
       [nc requestAuthorizationWithOptions:(UNAuthorizationOptionAlert |
-                                           UNAuthorizationOptionSound)
+                                           UNAuthorizationOptionSound |
+                                           UNAuthorizationOptionTimeSensitive)
                         completionHandler:^(BOOL granted, NSError *err) {
         dispatch_async(dispatch_get_main_queue(), ^{
           wm_notify_log("auth granted=%d err=%s",
@@ -10790,6 +10823,11 @@ static int wm_un_post(int slot, const char *title, const char *text, int kind) {
   }
   // 声音口径对齐 Win32（NIIF 默认有声）：门面暂无静音入口，三平台默认都响
   c.sound = [UNNotificationSound defaultSound];
+  if (@available(macOS 12.0, *)) {
+    // 实验口径：时间敏感级别看系统是否前台直接呈现（绕开 delegate 问询——
+    // 手工循环主循环下 delegate 派发不可靠，见下方边界注释）
+    c.interruptionLevel = UNNotificationInterruptionLevelTimeSensitive;
+  }
   if (slot <= 0) {
     slot = 1;
     while (slot < WM_MAX_TRAYS && wm_un_titles[slot] != nil) {
