@@ -583,9 +583,13 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
                 height=64.0,
                 padding=8.0,
               ),
-              // 相对路径由后端绝对化（对方程序拿到的是完整位置）
+              // 相对路径由后端按进程 CWD 绝对化（标准启动 `cd examples/showcase &&
+              // moon run .`，CWD 在本模块目录），必须指到**真实存在**的文件——
+              // 不存在的路径三平台都按死条目跳过，全空则本机拖出失败、回落应用内
               payload=fn() {
-                Some(@widget.DragData::Paths([ "README.md", "proposals/adaptation.md" ]))
+                Some(@widget.DragData::Paths([
+                  "../../README.md", "../../proposals/adaptation.md",
+                ]))
               },
               external=true,
               on_external=fn(r) { out.set("文件拖出：\{drag_send_text(r)}") },

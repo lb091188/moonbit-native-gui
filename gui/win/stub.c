@@ -3182,10 +3182,12 @@ static HGLOBAL wm_dsrc_make_hdrop(const unsigned char *body, int n) {
     DWORD attr = GetFileAttributesW(out_path);
     wm_dnd_log("src hdrop path=%ls resolved=%d exists=%d", out_path,
                (full > 0 && full < WM_DS_ONE_MAX) ? 1 : 0,
-               (attr != INVALID_FILE_ATTRIBUTES &&
-                (attr & FILE_ATTRIBUTE_DIRECTORY) == 0)
-                   ? 1
-                   : 0);
+               attr != INVALID_FILE_ATTRIBUTES ? 1 : 0);
+    if (attr == INVALID_FILE_ATTRIBUTES) {
+      // 不存在的路径是「死条目」：资源管理器拒收整趟拖拽。跳过它；全跳完时
+      // used==0 走下面的 NULL，拖出失败、组件层回落应用内会话。
+      continue;
+    }
     int out = lstrlenW(out_path);
     if (used + out + 1 > WM_DS_LIST_MAX - 1) {
       return NULL; // 装不下：整条放弃，不给半截表
@@ -6689,7 +6691,13 @@ static void wm_dnd_on_data_get(GtkWidget *widget, GdkDragContext *ctx,
     }
     // 相对路径绝对化（g_canonicalize_filename 以 cwd 为基），对方拿到完整位置
     gchar *abs = g_canonicalize_filename(parts[i], NULL);
-    gchar *uri = g_filename_to_uri(abs != NULL ? abs : parts[i], NULL, NULL);
+    // 不存在的路径是死条目（落点拒收整趟拖拽）：跳过；全跳完时 m==0 不给 uris
+    if (abs == NULL ||
+        !g_file_test(abs, G_FILE_TEST_EXISTS)) {
+      g_free(abs);
+      continue;
+    }
+    gchar *uri = g_filename_to_uri(abs, NULL, NULL);
     g_free(abs);
     if (uri != NULL) {
       uris[m++] = uri;
@@ -11367,7 +11375,9 @@ static NSArray<NSDraggingItem *> *wm_dnd_build_items(NSPoint at) {
                                                              isDirectory:&isdir];
           wm_mac_dnd_log("src item path=%s exists=%d dir=%d", [p UTF8String],
                          exists ? 1 : 0, isdir ? 1 : 0);
-          NSURL *url = [NSURL fileURLWithPath:p];
+          // 不存在的路径是「死条目」：访达拒收整趟拖拽，跳过它（全跳完时
+          // items==0 走 send 的失败分支，组件层回落应用内会话）
+          NSURL *url = exists ? [NSURL fileURLWithPath:p] : nil;
           // 建不出 url 的路径不进数组（空 writer 正是那条异常的成因）
           if (url != nil) {
             NSDraggingItem *di =
