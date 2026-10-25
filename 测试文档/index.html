@@ -464,7 +464,8 @@
       if (cells.length < 7) continue;
       var idm = cells[1].trim().match(/^(HL|SC|BR|AU|VD)-/);
       var sec = cells[2].trim();
-      var d = cells[6].trim();
+      // 倒数第二格才是「预期」：最后一格是行尾竖线后的空串
+      var d = cells[cells.length - 2].trim();
       var app = CASE_APP_OF_PREFIX[idm[1]];
       out.push({
         id: cells[1].trim(), app: app,
