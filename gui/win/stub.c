@@ -8632,17 +8632,23 @@ static void wm_notify_log(const char *fmt, ...) {
 - (void)userNotificationCenter:(NSUserNotificationCenter *)center
        didDeliverNotification:(NSUserNotification *)notification {
   (void)center;
-  wm_notify_log("didDeliver id=%@",
-                notification.identifier != nil ? notification.identifier : @"(nil)");
+  wm_notify_log("didDeliver id=%s",
+                notification.identifier != nil
+                    ? [notification.identifier UTF8String]
+                    : "(nil)");
 }
 
 - (void)userNotificationCenter:(NSUserNotificationCenter *)center
  didFailToDeliverNotification:(NSUserNotification *)notification
                       inError:(NSError *)error {
   (void)center;
-  wm_notify_log("didFail id=%@ err=%@",
-                notification.identifier != nil ? notification.identifier : @"(nil)",
-                error.localizedDescription != nil ? error.localizedDescription : @"(nil)");
+  wm_notify_log("didFail id=%s err=%s",
+                notification.identifier != nil
+                    ? [notification.identifier UTF8String]
+                    : "(nil)",
+                error.localizedDescription != nil
+                    ? [error.localizedDescription UTF8String]
+                    : "(nil)");
 }
 
 - (BOOL)userNotificationCenter:(NSUserNotificationCenter *)center
