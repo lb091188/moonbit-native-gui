@@ -3171,3 +3171,12 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **修复**：`wm_un_ensure` 先 `getNotificationSettings` 读授权现状——authorized 直接放行、denied 明写日志并把队列清掉、只有 notDetermined 才 `requestAuthorization` 弹框；授权没落定前 `wm_un_post` 把 content 排进 `wm_un_pend`（照常返回槽号），落定后回主线程 `wm_un_flush` 补投（回调线程不保证是主线程，UN 的调用统一回 main queue）；denied 时 `wm_un_post` 返回 0 让门面报失败，不假装成功。日志 `%@` 全改 `UTF8String`+`%s`。NSUserNotification 时代的 `didDeliver/didFail` delegate 方法随之清掉（UN 时代永不回调的死代码）。
 **教训**：① **「先 ensure 再 post」不构成时序保证**——异步授权与同步投递之间必须自己排队，UN 对未授权请求「不报错、不投递、不补投」的三不行为靠文档读不出来，只能按「首条必丢」倒推。② **诊断通道先自检再取证**——喂一条已知值看输出对不对，vfprintf 遇 `%@` 是未定义行为，日志坏了修什么都是盲修。③ 平台枚举按目标平台过一遍可用性，`-fsyntax-only` 不带平台宏等于什么都没查。
 **验证**：mac 桩 `cc -DWM_STUB_MAC` 编译零错误、`moon build examples/showcase --target native` 通过并重新打包；库门禁 1143/1143、`--deny-warn` 干净。真机复验（授权框 → 允许 → 首条即弹横幅）归用户。
+
+## mac UN 通知前台横幅：delegate 呈现询问只在 `[NSApp run]` 形态主循环里派发——手工循环下前台静默是架构边界（2026-10-24,「授权修完仍不弹」+「为什么默认静音」,忙循环探针多轮对照）
+
+**现象**（用户 mac 真机）：授权竞态修完（22b5c896），通知照旧「已发送、进通知中心、没横幅没声音」；用户追问「为什么是默认静音的」。
+**排除过程**（探针读数逐档收敛，纯 ObjC 探针与 MoonBit 全栈探针 `experiment/notify_mac_probe` 交叉对照）：授权状态 authorized、delegate 设置时机（启动早设/运行期设）无关；`NSApp.isRunning` 位、`[NSApp run]`、`active` 各档——**`open` 启动（active=1）+ 手工循环 + 空闲主循环：willPresent 正常派发、横幅正常弹**；同一探针加一个 16ms 高频重绘的忙循环：**willPresent 从此永不派发**；纯 ObjC 同款忙循环（`[NSApp run]`）：照常派发。为救回忙循环试了三种等待原语——投递后同步 `nextEventMatchingMask` 泵、`CFRunLoopRunInMode`、把等待挪回主循环顶层同款形态——全部等满时长零回调。期间量到一组关键读数：main queue 的 block 在**主循环顶层的等待拍**里 0.002s 就 drain，同样的 block 在投递调用栈（timer 回调内）发起的等待里永不执行；UN 的投递回执（post err=nil）0.002s 就回（XPC reply 不经主线程），delegate 呈现询问却彻底不来。
+**结论**：UN 的前台呈现走「问 delegate」这一步，其回调派发依赖 `[NSApp run]` 形态建立的主循环机制；本库手工循环（主循环归 MoonBit）下，**空闲主循环偶尔能进、高频重绘一律静默**——通知照投、照进通知中心、post 无错误，只是横幅与声音都不出。这是架构级边界，不是能靠等待原语补齐的缺口。**后台路径不受影响**：应用失焦后发的通知由系统直接呈现，横幅与声音正常（用户在探针 v2 亲证过横幅）。
+**本批保留的有效修复**：① 声音口径对齐 Win32（NIIF 默认有声）——UN 的 `content.sound` 不设即完全无声，之前只有 kind>=2（错误级）才带声，用户「默认静音」的直接来源；② `UNAuthorizationStatusEphemeral` 是 iOS App Clip 专属，macOS 编译不可用。
+**教训**：① 平台回调「派发在主线程」的深层含义是「派发在 `[NSApp run]` 的事件循环」——手工循环必须实测 delegate 族回调，空闲时能进不算数（那个窗口不保证再来）；② 探针矩阵要包含「忙循环」档：性能形态差异能让「代码相同、行为不同」，只测空闲档会得出假阴性；③ `dispatch_async(main)` 是否被 drain 逐等待原语实测，别按「CFRunLoop 会带 main queue」的常识推。
+**验证**：`experiment/notify_mac_probe`（MoonBit 全栈、自动发两条、`NATIVEGUI_NOTIFY_LOG` 读数）四轮对照读数如上；库门禁 1143/1143、`--deny-warn` 干净。真机复验口径：前台点按钮→通知进中心（横幅受边界）；把 showcase 切到失焦再发→横幅与声音正常。

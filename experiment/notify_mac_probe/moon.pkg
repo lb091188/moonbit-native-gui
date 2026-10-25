@@ -1,0 +1,10 @@
+// mac 通知栈探针：与示例应用同一条栈（MoonBit 主循环 + win 桩 + UN），
+// 启动后自动发两条通知，不用人点按钮。定位「showcase 点了没横幅」用。
+import {
+  "NoahLiu/native-gui/widget" @widget,
+  "NoahLiu/native-gui/win",
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"

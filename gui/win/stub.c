@@ -8609,6 +8609,17 @@ static uint32_t wm_keysym_of(NSEvent *ev) {
 // 通知诊断日志（NATIVEGUI_NOTIFY_LOG 指到文件才落盘）：auth / post /
 // willPresent 把授权与投递的裁决原话带出来——「已发送却没弹」时靠它分辨
 // 授权没过、投递出错还是收下了没呈现。注意日志走 vfprintf，只认 %s/%d。
+static void wm_notify_log(const char *fmt, ...);
+
+void wm_wakeup(void);
+
+// UN 前台呈现的实测边界（2026-10-24，忙循环探针四轮对照）：UN 的 delegate
+// 前台呈现询问只在 [NSApp run] 形态的主循环里派发；本库手工循环下——空闲主
+// 循环偶尔能进，高频重绘时一律静默（通知只进通知中心，post err 恒 nil）。
+// nextEvent / CFRunLoopRunInMode / 主循环顶层同款等待三种原语都救不回来，
+// 纯 ObjC 忙循环（[NSApp run]）对照完全正常——这是手工循环架构对 UN 前台
+// 呈现的边界。后台（应用失焦）路径不受影响：系统直接呈现，横幅与声音正常。
+
 static void wm_notify_log(const char *fmt, ...) {
   const char *path = getenv("NATIVEGUI_NOTIFY_LOG");
   if (path == NULL || path[0] == '\0') {
@@ -10764,8 +10775,10 @@ static void wm_un_ensure(void) {
 
 // slot>0 = 按同 identifier 覆盖（update 语义）；slot<=0 = 领新槽。返回槽号。
 // 授权没落定（授权框还在屏幕上/还没问到）时先排队：未授权状态下 add 的请求
-// 被系统静默收下却不投（err 也是 nil），落定后也不会补投。
+// 被系统静默收下却不投（err 也是 nil），落定后也不会补投。kind 在 mac 上不
+// 分级（声音一律默认，见上），参数保留与门面/Win32 同形。
 static int wm_un_post(int slot, const char *title, const char *text, int kind) {
+  (void)kind;
   UNMutableNotificationContent *c = [UNMutableNotificationContent new];
   NSString *t = wm_str(title);
   NSString *b = wm_str(text);
@@ -10775,9 +10788,8 @@ static int wm_un_post(int slot, const char *title, const char *text, int kind) {
   if (b != nil) {
     c.body = b;
   }
-  if (kind >= 2) {
-    c.sound = [UNNotificationSound defaultSound];
-  }
+  // 声音口径对齐 Win32（NIIF 默认有声）：门面暂无静音入口，三平台默认都响
+  c.sound = [UNNotificationSound defaultSound];
   if (slot <= 0) {
     slot = 1;
     while (slot < WM_MAX_TRAYS && wm_un_titles[slot] != nil) {
@@ -10806,13 +10818,15 @@ static int wm_un_post(int slot, const char *title, const char *text, int kind) {
 
 static int wm_un_deliver(int slot, UNMutableNotificationContent *c) {
   NSString *ident = wm_un_ident(slot);
+  double t0 = [NSDate timeIntervalSinceReferenceDate];
   UNNotificationRequest *req =
       [UNNotificationRequest requestWithIdentifier:ident content:c trigger:nil];
   [[UNUserNotificationCenter currentNotificationCenter]
       addNotificationRequest:req
        withCompletionHandler:^(NSError *err) {
-         wm_notify_log("post id=%s err=%s",
+         wm_notify_log("post id=%s at +%.3fs err=%s",
                        [ident UTF8String],
+                       [NSDate timeIntervalSinceReferenceDate] - t0,
                        err.localizedDescription != nil
                            ? [err.localizedDescription UTF8String]
                            : "(nil)");
