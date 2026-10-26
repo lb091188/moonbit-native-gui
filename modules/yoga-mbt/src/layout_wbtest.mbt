@@ -1557,3 +1557,26 @@ test "交叉轴不确定时主轴基准仍是 max-content（不随可用空间�
   assert_eq(c.layout().width, 1000.0)
   assert_eq(c.layout().height, 10.0)
 }
+
+///|
+test "行容器内确定高度的内容项，基准不被可用宽压窄" {
+  // 交叉轴（行容器里是高）确定 ≠ 主轴尺寸可由可用空间算：可用宽是**限制**不是
+  // 定宽，拿它去量内容宽会让溢出量凭空消失（横滚内容被压平、滚动条不见）。
+  let root = Node::new()
+  root.set_width(fixed(100.0))
+  root.set_height(fixed(100.0))
+  root.set_flex_direction(Row)
+  root.set_align_items(FlexStart)
+  let c = Node::new()
+  c.set_height(fixed(20.0))
+  c.set_measure(fn(aw : Double?, _ah : Double?) -> (Double, Double) {
+    match aw {
+      Some(v) if v > 0.0 => (v.min(200.0), 20.0)
+      _ => (200.0, 20.0)
+    }
+  })
+  root.append_child(c)
+  calculate_layout(root, Some(100.0), Some(100.0))
+  assert_eq(c.layout().width, 200.0)
+  assert_eq(c.layout().height, 20.0)
+}

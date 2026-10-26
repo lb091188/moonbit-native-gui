@@ -269,7 +269,7 @@ test "横滚内容宽 = max(自然宽, 视口宽)：percent 子项拿视口当�
 test "横滚内容宽：自然宽超视口时才溢出可滚" {
   let st = ScrollState::new()
   let long = "一段不可折行的长内容长内容长内容长内容长内容长内容长内容长内容"
-  let (root, vp) = mounted(
+  let (root, _vp) = mounted(
     scroll_view(
       [col([view([text(long, font_size=14.0)], handle=fn(w : @widget.Widget) -> Unit {
         w.node.set_width(@yoga.percent(100.0))

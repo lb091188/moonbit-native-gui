@@ -346,7 +346,25 @@ fn main {
           // 主区：路由视图——选中哪页挂哪页，没选过的只留空壳；对话框挂在这一列上
           @ui.col(
             [
-              nav.view(None),
+              // 右侧 = 窗口宽 - 侧栏宽，最低 600：再窄整块横向滚动
+              // （`scroll_view` 的 hscroll 档内容宽 = max(自然宽, 视口宽)，
+              //  页列的 min_width 600 即自然宽下限）
+              @ui.scroll_view(
+                [
+                  @ui.col(
+                    [nav.view(None)],
+                    class=[@style.style(min_width=600.0)],
+                    handle=fn(c : @widget.Widget) -> Unit {
+                      c.node.set_width(@yoga.percent(100.0))
+                    },
+                  ),
+                ],
+                @ui.ScrollState::new(),
+                hscroll=true,
+                handle=fn(v : @widget.Widget) -> Unit {
+                  v.node.set_flex_grow(1.0)
+                },
+              ),
               // 对话框挂窗口根：锚点自己是 0 尺寸占位，可见性只由 Store 驱动。
               // 内容不在路由树上，切语言时没人替它重建 → 各套一层 `@widget.localized`，
               // 换目录原位重建成当前语言的串（开着的那一层会按 Store 重开，内容换新的）。

@@ -109,15 +109,14 @@ fn section_body(s : Section, selected : @base.Store[String]) -> @widget.Node {
     @ui.text(s.title, role=@ui.Section),
   ]
   if s.desc.length() > 0 {
-    // 说明文字必须折行：单行不折会把段容器撑到可视区外（右侧整片裁字）
-    inner.push(
-      @ui.text(s.desc, role=@ui.Secondary, max_width=900.0, wrap=true),
-    )
+    // 说明折行跟随容器宽（`wrap=true` 的文本在库里就是 percent 100 块级）：
+    // 不设上限，段标题/描述/正文/代码同一条右缘，窗口多宽排多宽
+    inner.push(@ui.text(s.desc, role=@ui.Secondary, wrap=true))
   }
   inner.push(holder)
   if s.code.length() > 0 {
     inner.push(code_copy_row(s.code))
-    inner.push(@ui.scroll_view([@ui.code_view(s.code, lang="moonbit", line_numbers=true)], @ui.ScrollState::new(), hscroll=true))
+    inner.push(@ui.code_view(s.code, lang="moonbit", line_numbers=true))
   }
   // 本容器是显隐切换对象；滚动视口在 handle 里撑满剩余高度
   @ui.col(
