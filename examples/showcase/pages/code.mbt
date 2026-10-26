@@ -69,7 +69,7 @@ fn md_demo_escape(s : String) -> String {
 
 ///|
 /// 复制串：由演示源文逐行派生的 markdown_view 调用源码。
-fn demo_md_code(width : Double) -> Array[String] {
+fn demo_md_code(_width : Double) -> Array[String] {
   let lines = demo_md_lines()
   let code : Array[String] = ["@mdview.markdown_view("]
   let n = lines.length()
@@ -77,7 +77,6 @@ fn demo_md_code(width : Double) -> Array[String] {
     let tail = if i < n - 1 { " +" } else { "," }
     code.push("  \"\{md_demo_escape(line)}\\n\"\{tail}")
   }
-  code.push("  width=\{width},")
   code.push(")")
   code
 }
@@ -149,7 +148,7 @@ pub fn page_code(_app : @shared.App) -> @widget.Node {
       "Markdown 渲染",
       "mdast 解析 + 富文本行自绘：标题/段落/粗斜体/删除线/行内代码/链接（悬浮手型）/自动链接/引用式链接/嵌套列表/任务列表（真复选框）/引用/分隔线/围栏代码块/表格（列对齐）/脚注（正文上标 + 文末定义）；emoji 区间按 UTF-16 计量不错位，演示文本与复制串同源。",
       [
-        @mdview.markdown_view(demo, width=md_w),
+        @mdview.markdown_view(demo)
       ],
       code=demo_md_code(md_w),
     ),

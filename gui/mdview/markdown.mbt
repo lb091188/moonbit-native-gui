@@ -749,7 +749,19 @@ fn md_rich_label(
   ctx : MDCtx,
   max_w? : Double = 0.0,
 ) -> @widget.Node {
-  let limit = if max_w > 0.0 { max_w } else { ctx.width }
+  // 折行产出走 Ref:显式定宽(max_w/ctx.width > 0,旧口径)构造期折一次、
+  // 节点定宽定高;宽度 0(跟随容器)由 yoga measure 按可用宽重折——布局引擎
+  // 的宽度约束就是响应式来源,不需要任何 resize 监听。limit 变化才重折。
+  let rows_ref : Ref[Array[MDLine]] = Ref([])
+  let row_w_ref : Ref[Double] = Ref(1.0)
+  let limit_ref : Ref[Double] = Ref(-1.0)
+  let static_limit : Double? = if max_w > 0.0 {
+    Some(max_w)
+  } else if ctx.width > 0.0 {
+    Some(ctx.width)
+  } else {
+    None
+  }
   let regular = @text.Font::new("", size)
   let bold = @text.Font::new("", size, weight=@text.Bold)
   let italic = @text.Font::new("", size, style=@text.Italic)
@@ -834,50 +846,6 @@ fn md_rich_label(
     }
   }
 
-  // 贪心折行:单元放不下就整单元换行(不做词内断开)
-  let lines : Array[Array[MDSpan]] = []
-  let cur : Array[MDSpan] = []
-  let cur_w = Ref(0.0)
-  fn end_line() -> Unit {
-    if cur.length() > 0 {
-      lines.push(cur.copy())
-      cur.clear()
-      cur_w.val = 0.0
-    }
-  }
-
-  fn put(unit : String, span : MDSpan) -> Unit {
-    let uw = unit_w(unit, span)
-    if cur_w.val + uw > limit && cur.length() > 0 {
-      end_line()
-    }
-    let n = cur.length()
-    if n > 0 && md_same_style(cur[n - 1], span) {
-      cur[n - 1].text = cur[n - 1].text + unit
-    } else {
-      cur.push({ ..span, text: unit })
-    }
-    cur_w.val += uw
-  }
-
-  for span in spans {
-    for unit in md_units(span.text) {
-      if unit == "\n" {
-        end_line()
-      } else if unit_w(unit, span) > limit {
-        // 单个单元就比整行宽(长 URL / 长单词):按字符硬切,不然必然撑破容器
-        for ch in unit {
-          put(ch.to_string(), span)
-        }
-      } else {
-        put(unit, span)
-      }
-    }
-  }
-  if cur.length() > 0 || lines.length() == 0 {
-    lines.push(cur.copy())
-  }
-
   fn build_at(line : Array[MDSpan]) -> @text.AttributedText {
     let parts : Array[String] = []
     for sp in line {
@@ -941,14 +909,69 @@ fn md_rich_label(
     { spans: line, xs: xs, ws: ws, w: w, at: build_at(line) }
   }
 
+  // 贪心折行:单元放不下就整单元换行(不做词内断开)。整个产出段按 limit
+  // 参数化,写 rows_ref / row_w_ref。
+  fn relay_out(limit : Double) -> Unit {
+    if limit_ref.val == limit && rows_ref.val.length() > 0 {
+      return
+    }
+    limit_ref.val = limit
+  let lines : Array[Array[MDSpan]] = []
+  let cur : Array[MDSpan] = []
+  let cur_w = Ref(0.0)
+  fn end_line() -> Unit {
+    if cur.length() > 0 {
+      lines.push(cur.copy())
+      cur.clear()
+      cur_w.val = 0.0
+    }
+  }
+
+  fn put(unit : String, span : MDSpan) -> Unit {
+    let uw = unit_w(unit, span)
+    if cur_w.val + uw > limit && cur.length() > 0 {
+      end_line()
+    }
+    let n = cur.length()
+    if n > 0 && md_same_style(cur[n - 1], span) {
+      cur[n - 1].text = cur[n - 1].text + unit
+    } else {
+      cur.push({ ..span, text: unit })
+    }
+    cur_w.val += uw
+  }
+
+  for span in spans {
+    for unit in md_units(span.text) {
+      if unit == "\n" {
+        end_line()
+      } else if unit_w(unit, span) > limit {
+        // 单个单元就比整行宽(长 URL / 长单词):按字符硬切,不然必然撑破容器
+        for ch in unit {
+          put(ch.to_string(), span)
+        }
+      } else {
+        put(unit, span)
+      }
+    }
+  }
+  if cur.length() > 0 || lines.length() == 0 {
+    lines.push(cur.copy())
+  }
+
+
   let rows : Array[MDLine] = []
   for ln in lines {
     rows.push(geo(ln))
   }
-  let mut row_w = 1.0
-  for g in rows {
-    row_w = row_w.max(g.w)
+    let mut row_w = 1.0
+    for g in rows {
+      row_w = row_w.max(g.w)
+    }
+    rows_ref.val = rows
+    row_w_ref.val = row_w
   }
+
   let used_fonts : Array[@text.Font] = [regular]
   for sp in spans {
     used_fonts.push(font_of(sp))
@@ -960,12 +983,33 @@ fn md_rich_label(
   // 正文行距给足：字体天然行高只保证字形不相撞（13 号约 17），排出来每行贴脸。
   // 统一按字号 1.6 倍起排，标题这类大字号同样留得住呼吸。
   let line_h = line_h_nat.max(size * 1.6)
-  let box_h = line_h * rows.length().to_double()
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     @ui.watch_theme()
     let fps = Ref("")
-    w.node.set_width(@yoga.fixed(row_w))
-    w.node.set_height(@yoga.fixed(box_h))
+    match static_limit {
+    Some(l) => {
+      relay_out(l)
+      w.node.set_width(@yoga.fixed(row_w_ref.val))
+      w.node.set_height(@yoga.fixed(line_h * rows_ref.val.length().to_double()))
+    }
+    None => {
+      // 跟随容器:显式 100%(yoga「不设宽」在主轴上是内容宽,块级组件要
+      // 任何父形态都跟容器必须显式 percent);yoga 布局时按可用宽问高度,
+      // 宽变即重折——响应式重排
+      w.node.set_width(@yoga.percent(100.0))
+      w.node.set_measure(fn(aw : Double?, _ah : Double?) -> (Double, Double) {
+        let limit = match aw {
+          Some(v) if v >= 1.0 => v
+          _ => 560.0
+        }
+        relay_out(limit)
+        (
+          row_w_ref.val.max(limit),
+          line_h * rows_ref.val.length().to_double(),
+        )
+      })
+    }
+    }
     w.on_draw = Some(fn(
       _self : @widget.Widget,
       p : @render.Painter,
@@ -974,13 +1018,13 @@ fn md_rich_label(
       let cur_fp = @theme.theme_fingerprint_of(@theme.theme_current())
       if cur_fp != fps.val {
         fps.val = cur_fp
-        for g in rows {
+        for g in rows_ref.val {
           g.at = build_at(g.spans)
         }
       }
       p.set_stroke_color(@theme.theme_text_regular())
       let mut y = 0.0
-      for g in rows {
+      for g in rows_ref.val {
         let _ = g.at.draw_at(p, 0.0, y, g.w, line_h)
         for i, sp in g.spans {
           if sp.strike {
@@ -1003,7 +1047,7 @@ fn md_rich_label(
     if has_link {
       fn hit_url(mx : Double, my : Double) -> String {
         let li = (my / line_h).floor().to_int()
-        match rows.get(li) {
+        match rows_ref.val.get(li) {
           Some(g) => {
             for j, s in g.spans {
               if s.url != "" && mx >= g.xs[j] && mx < g.xs[j] + g.ws[j] {
@@ -1060,9 +1104,11 @@ fn md_rich_label(
 /// 缩进块通用);正文脚注引用按出现顺序编号,文末分隔线后逐条渲染被
 /// 引用的脚注定义;链接点击经 on_link 回调交调用方(open_url 属系统
 /// 能力线,接入后由调用方转接默认浏览器)。
+/// width:0(缺省)= 跟随容器——段落按 yoga 布局的可用宽折行,窗口
+/// resize 自动重排;>0 = 构造期定宽(旧口径,显式定宽的排版不再变)。
 pub fn markdown_view(
   source : String,
-  width? : Double = 560.0,
+  width? : Double = 0.0,
   on_link? : (String) -> Unit = fn(_u : String) -> Unit { () },
   handle? : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {

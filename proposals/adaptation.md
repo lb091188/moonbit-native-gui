@@ -3195,3 +3195,11 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **架构注**：sys 的 mac 侧窗口/屏幕实现在 win 桩（`wm_win_*_mac`/`wm_screen_tint_apply`/`wm_permission_*`），sys_stub.c 按 `__APPLE__` 分支转发——先例是 wm_file_*；sys 包（C native-stub）写不了 ObjC，转发是既定架构不是绕路。
 **教训**：① 「明确不做」要带复查机制——判据（授权门槛/语义对不上）随基础设施变化会失效：权限族立项后「授权门槛」不再是理由；② 平台能力判据写进代码注释的（如「Windows 无公开色温 API」）要与 roadmap 同步复查，注释错误会传染决策；③ FFI 的 ok 出参漏写 C 侧参数不会链接失败、只在运行期读 0——extern 声明与 C 签名逐参数对照。
 **验证**：全量库门禁（`moon test sys` 209/209 起步，各批独立全绿）；真机验证清单归用户（权限引导框、窗口列表/激活/关闭、色温覆盖层观感、电源计划提权弹框）。
+
+## 组件「缺省跟随容器宽」的布局语义：yoga 的「不设宽」在主轴是内容宽（2026-10-24,真机「resize 后内容不重排」定位）
+
+**现象**（用户 mac 真机）：拖窗口宽度，showcase 右侧内容不 reflow（图标不换行、markdown 不重排）。**LAYOUT-FRAME 诊断读数（NATIVEGUI_LAYOUT_LOG 门控，paint 帧宽度变化时打一行）证明框架的 resize→relayout 链路全程健康**（拖动中 w 逐级更新、每帧 relayout），现象全部出在内容侧定宽：markdown_view 演示写死 width=480（构造期定宽）、icon_grid 手工按 per_row 分行（已改 flex_wrap）、code_view 按最长行定宽（已改 percent 100）。
+**库级语义定案**：**块级组件不显式设宽 = 跟随容器，必须显式 `set_width(@yoga.percent(100.0))`**——yoga 的「不设宽」在交叉轴（col 里的子项）是 stretch、在主轴上是内容宽，组件内部无法预知父形态，percent 是唯一任何父形态都跟的写法。`input` 的 `width?=0`（不传不定宽）就是这个语义的既有范例。
+**mdview 响应式改造**：段落折行产出 Ref 化，跟随模式下节点挂 `set_measure`（yoga 布局时按可用宽问高度）——宽变即重折，折行缓存按 limit 失效，零 resize 监听；显式 width 保留静态路径（构造期折一次、定宽定高，wbtest 旧用例零回归）。`markdown_view` 的 `width?` 缺省从 560 改 0（跟随）。
+**教训**：① 「resize 后不重排」先拿 LAYOUT-FRAME 读数分层（事件/账本/布局/内容四层各一段证据），不要从视觉直接跳框架结论；② yoga 尺寸语义按轴理解——「auto」永远先问内容，跟随是显式选择（stretch/percent），组件作者不能假设父的轴向；③ 生成脚本生成的页面改布局，脚本模板要同批改（icons.mbt 与 gen_showcase_icons.py 双改）。
+**验证**：mdview 33/33（显式 width 用例零回归）+ ui/mdview 合跑 247/247；全量库门禁 1152/1152、`--deny-warn` 干净。真机（showcase「代码文档」页拖宽度 markdown 重排、图标库 wrap 重排）归用户。
