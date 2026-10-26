@@ -224,13 +224,6 @@ fn md_info_lang(info : String) -> String {
 ///|
 /// 整块代码文本按 \n 切行(顺去 \r 与末尾空行),供 code_view 使用。
 ///|
-/// 代码块不可折:长行交横向滚动(scroll_view 的 hscroll 档),视口高随内容,
-/// 纵向不滚。滚动画在底缘,纵向不超时按 scroll_view 既有口径不出描边。
-fn md_code_scroll(inner : @widget.Node) -> @widget.Node {
-  @ui.scroll_view([inner], @ui.ScrollState::new(), hscroll=true)
-}
-
-///|
 fn md_split_code_lines(code : String) -> Array[String] {
   let lines : Array[String] = []
   let cur = Ref(StringBuilder())
@@ -535,7 +528,8 @@ fn md_table(
   for row in rows {
     nodes.push(@ui.row(cells_of(row, false)))
   }
-  @ui.col(nodes)
+  // 列宽不可折(等分 percent,窄到极限也不折行):视口自带横向滚动,与代码块同口径
+  @ui.scroll_view([@ui.col(nodes)], @ui.ScrollState::new(), hscroll=true)
 }
 
 ///|
@@ -580,12 +574,12 @@ fn md_render_blocks(blocks : Array[@mdast.Block], ctx : MDCtx) -> Array[@widget.
       }
       FencedCode(info~, code~, ..) =>
         nodes.push(
-          md_code_scroll(@ui.code_view(md_split_code_lines(code), lang=md_info_lang(info))),
+          @ui.code_view(md_split_code_lines(code), lang=md_info_lang(info)),
         )
       IndentedCode(code~, ..) =>
-        nodes.push(md_code_scroll(@ui.code_view(md_split_code_lines(code))))
+        nodes.push(@ui.code_view(md_split_code_lines(code)))
       MathBlock(value~, ..) =>
-        nodes.push(md_code_scroll(@ui.code_view(md_split_code_lines(value), lang="math")))
+        nodes.push(@ui.code_view(md_split_code_lines(value), lang="math"))
       Blockquote(children~, ..) =>
         // 引用收块:子块(段落/列表/嵌套引用)整体递归进竖条内容区
         nodes.push(md_quoted(md_render_blocks(children, ctx)))
@@ -631,8 +625,7 @@ fn md_render_blocks(blocks : Array[@mdast.Block], ctx : MDCtx) -> Array[@widget.
         }
       }
       Table(header~, alignments~, rows~, ..) =>
-        // 表格列宽构造期定,不可折:窄窗走横向滚动(与代码块同口径)
-        nodes.push(md_code_scroll(md_table(header, alignments, rows, ctx)))
+        nodes.push(md_table(header, alignments, rows, ctx))
       DefinitionList(items~, ..) =>
         for item in items {
           nodes.push(

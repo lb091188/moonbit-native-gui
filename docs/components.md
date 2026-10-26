@@ -44,7 +44,7 @@ Every self-drawn widget and the component library live in `NoahLiu/native-gui/ui
 | `divider(text?, vertical?=false, color?, class?)` | Divider, unifying `separator` + the labelled `divider`: empty `text` draws a plain line (`vertical` picks horizontal/vertical), with text it draws a centered breaking line |
 | `image(path, width?, height?, handle?)` | Image: decodes a file (PNG/JPEG/GIF first frame); size 0 uses the original dimensions |
 | `icon(kind : @icons.IconKind, size?=16.0, color?, class?, handle?)` | Vector icon: `size` is the box edge; empty colour means the theme body text colour, resolved live with the theme |
-| `code_view(lines : Array[String], lang?="moonbit", font_size?=13.0, line_numbers?=false, handle?)` | Code highlight view on a One Dark background, deliberately not theme-following: 8-language keyword tables + token coloring, optional line-number column, size fits the content |
+| `code_view(lines : Array[String], lang?="moonbit", font_size?=13.0, line_numbers?=false, handle?)` | Code highlight view on a One Dark background, deliberately not theme-following: 8-language keyword tables + token coloring, optional line-number column, size fits the content; **ships with its own horizontal scrollbar** (code lines never wrap, so a long line wider than the container gets a bottom scroll bar — callers do not wrap it in `scroll_view`) |
 | `gif(path, width?, height?, looping?=true, running?=true, state?, handle?)` | Animated image: `looping=false` stops after one pass; a non-GIF still image draws a single frame |
 
 ## Form controls

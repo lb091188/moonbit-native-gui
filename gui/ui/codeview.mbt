@@ -324,6 +324,8 @@ fn classify_word(
 /// 代码高亮视图（深底代码块，One Dark 调色板，不随主题）：构造期逐
 /// token 分词并测宽（等宽字体），on_draw 逐段画色；行首可选行号列。
 /// 高度按行数、宽度按最长行自适应（内容不变则尺寸恒定）。
+/// 代码行不可折，属「不可折内容」——组件自带横向滚动视口（与表格同口径），
+/// 调用方直接摆进容器即可，不必再包 `scroll_view`。
 pub fn code_view(
   lines : Array[String],
   lang? : String = "moonbit",
@@ -372,7 +374,7 @@ pub fn code_view(
   }
   let content_w = max_line_w + 32.0
   let view_h = line_h * laid.length().to_double() + 28.0
-  @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+  let canvas = @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
     // 宽 = 内容宽(最长行 + 内边距):代码行不可折,「跟随容器」对它是裁字——
     // 不可折内容走「内容宽 + 外层横向滚动」(特例,跟随语义适用可折内容)。
@@ -415,4 +417,6 @@ pub fn code_view(
     handle(w)
     w
   })
+  // 自带横滚视口：高即内容高（纵向不滚），宽超出容器时底缘出横条
+  scroll_view([canvas], ScrollState::new(), height=view_h, hscroll=true)
 }
