@@ -189,14 +189,18 @@ fn attach_text_measure(
     Double,
   ) {
     let (font, _align, wrap, line_h, _u) = text_eff(@style.resolved_for_measure(id), src)
-    // 有盒宽上限就用它，否则用父给的可用宽（0 视为不约束）
-    let cap = if src.max_width > 0.0 {
-      src.max_width
-    } else {
-      match avail_w {
-        Some(v) => v
-        None => 0.0
-      }
+    // max_width 是**上限**不是定值：与父给的可用宽取小——语义写成「覆盖可用
+    // 宽」的话，窗口内容区窄于上限时文本仍按上限宽折行，右侧整片截字（真机
+    // 「段描述不换行」即此）。可用宽拿不到（None/0）才单独用上限。
+    let avail = match avail_w {
+      Some(v) if v > 0.0 => Some(v)
+      _ => None
+    }
+    let cap = match (src.max_width > 0.0, avail) {
+      (true, Some(v)) => src.max_width.min(v)
+      (true, None) => src.max_width
+      (false, Some(v)) => v
+      (false, None) => 0.0
     }
     let box_w = cap.floor().to_int()
     let do_wrap = wrap && box_w > 0
