@@ -1500,3 +1500,60 @@ test "gap 计入剩余空间：grow 项不得吃掉间隙" {
   assert_eq(b.layout().width, 60.0)
   assert_eq(b.layout().left + b.layout().width, 100.0)
 }
+
+///|
+// 折行文本的模拟测量：自然单行宽 1000、行高 10，按可用宽算行数。
+// 可用宽拿不到（不受约束）就答单行。
+fn wrap_leaf() -> Node {
+  let n = Node::new()
+  n.set_measure(fn(aw : Double?, _ah : Double?) -> (Double, Double) {
+    match aw {
+      Some(v) if v > 0.0 => {
+        // 自然单行宽 1000：给得下 1 行，否则按 500 一档累加
+        let lines = if v >= 1000.0 {
+          1.0
+        } else if v >= 500.0 {
+          2.0
+        } else {
+          3.0
+        }
+        (v, lines * 10.0)
+      }
+      _ => (1000.0, 10.0)
+    }
+  })
+  n
+}
+
+///|
+test "交叉轴定宽时主轴基准按定宽量，不取 max-content" {
+  // 真机缺口：段描述节点宽 percent 100（交叉轴已定 661），主轴高却按
+  // max-content 的单行答（14），折成两行的 28 被丢弃——文本根本不折行。
+  let root = Node::new()
+  root.set_width(fixed(600.0))
+  root.set_height(fixed(300.0))
+  root.set_flex_direction(Column)
+  let c = wrap_leaf()
+  c.set_width(percent(100.0))
+  root.append_child(c)
+  calculate_layout(root, Some(600.0), Some(300.0))
+  assert_eq(c.layout().width, 600.0)
+  // 1000/600 → 2 行 × 10
+  assert_eq(c.layout().height, 20.0)
+}
+
+///|
+test "交叉轴不确定时主轴基准仍是 max-content（不随可用空间漂移）" {
+  // 上条的另一半：项自身没给交叉尺寸、也不被拉伸时，基准必须取 max-content
+  // （YG3d 定案），否则折行项基准随可用空间漂移、弹性收缩算不到溢出量。
+  let root = Node::new()
+  root.set_width(fixed(600.0))
+  root.set_height(fixed(300.0))
+  root.set_flex_direction(Column)
+  root.set_align_items(FlexStart)
+  let c = wrap_leaf()
+  root.append_child(c)
+  calculate_layout(root, Some(600.0), Some(300.0))
+  assert_eq(c.layout().width, 1000.0)
+  assert_eq(c.layout().height, 10.0)
+}

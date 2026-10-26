@@ -922,13 +922,19 @@ fn layout_into_impl(
         axis_size(c, basis_val, main_is_row, child_pct_w, child_pct_h),
         ratio_main,
       )
-    let base = basis_style.unwrap_or(intrinsic_size(
-      c,
-      main_is_row,
-      Max,
-      child_pct_w,
-      child_pct_h,
-    ))
+    // 基准取法分三档：① 显式尺寸/比例钦定 → 用它；② **本项交叉轴尺寸确定**
+    // → 用「按该定宽量得的主轴尺寸」（上面 content 那一趟已经量过），定宽下的
+    // 内容尺寸就是它的真实主轴尺寸，与可用空间无关、不随窗口漂移；③ 交叉轴不
+    // 确定 → max-content 内在值（定案见 adaptation YG3d：拿「当前可用空间下的
+    // 测量值」当基准会让折行项的基准随可用空间漂移，弹性收缩算不到溢出量）。
+    // 缺 ② 时定宽折行文本的主轴高会按「单行不折」算（真机：容器 661、measure
+    // 已答 28，落地仍是单行 14）。
+    let base = match (basis_style, cross_definite) {
+      (Some(v), _) => v
+      (None, Some(_)) => content.0
+      (None, None) =>
+        intrinsic_size(c, main_is_row, Max, child_pct_w, child_pct_h)
+    }
     let min_v = if main_is_row { c.style.min_width } else { c.style.min_height }
     let min_style = axis_size(c, min_v, main_is_row, child_pct_w, child_pct_h)
     // web 语义：主轴 min:auto → 规范 §4.5 的 content size suggestion，
