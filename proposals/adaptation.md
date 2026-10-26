@@ -3188,3 +3188,10 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **过程教训（对自己上一条的修正）**：① 「架构边界」的结论下早了——存在未试过的单一开关（时间敏感档）时，别把「多轮原语都救不回」升格成架构定论；② 「从 IDE 终端跑 → 责任进程身份挂终端」的推断也被真机日志推翻（终端跑补授权与 willPresent 一切正常），探索期的机制推测一律标注「待验证」，别写进结论段；③ 诊断日志的时间戳（`post at +0.001s` / `settle exit at +3.0s`）把「回执快、回调不来」拆成了两个可分别定位的事实，是这几轮排查里最值钱的读数。
 **代价与待办**：时间敏感档用户可在系统设置里关，关了回到前台静默；按 kind 分档（警告/错误才 timeSensitive）或开放给应用自选挂 roadmap ⏳。
 **验证**：showcase 真机日志——`auth status=authorized, 补请求时间敏感档` → `auth re-grant=1` → `post ×2 err=nil` → `willPresent ×2`；忙循环探针同样 `willPresent ×2`。门禁 1143/1143、`--deny-warn` 干净。
+
+## mac 单平台族昇格为跨平台实现：授权作为基础设施立项（2026-10-24,「能抽象的都应该做」决策）
+
+**决策**：2026-10-19 收口系统能力探测页时判「macOS 四族明确不做」，用户复查推翻——「交给单平台的是无法抽象的；能抽象成跨平台接口的肯定应该做；授权是躲不开的场景，用最好的方式弹出授权」。本批落地：**@sys 权限族**（系统权限 probe/request，mac 走 TCC 公开口 + 系统自带引导框；操作提权随能力批）、**窗口管理 mac 档**（CGWindowList 列表/归属应用激活免授权，AX 关闭要辅助功能，缺失报 `WinError::Denied`）、**夜间色温 Windows 档**（SetDeviceGammaRamp 直调——推翻本仓「Windows 无公开色温 API」的旧判：gamma 桌面斜坡就是公开口，系统「夜间模式」开关存 CloudStore 私有 blob 与 gamma 直调互不干扰）、**夜间色温 mac 档**（Night Shift 私有口做不了 → f.lux 同款全屏点击穿透覆盖层，`CGShieldingWindowLevel` + 跨空间 + `ignoresMouseEvents`）、**电源计划 mac 档**（低电量开关降级映射 [Balanced, PowerSaver]，读 `pmset -g` 免权限、写 `osascript` 管理员授权弹框——用户取消按失败出声）。**评估后不做的**：SMAppService 登录项（只能注册主应用自身，与 `autostart_enable(app_id)` 按 id 参数化语义对不上，roadmap「明确不做」）。
+**架构注**：sys 的 mac 侧窗口/屏幕实现在 win 桩（`wm_win_*_mac`/`wm_screen_tint_apply`/`wm_permission_*`），sys_stub.c 按 `__APPLE__` 分支转发——先例是 wm_file_*；sys 包（C native-stub）写不了 ObjC，转发是既定架构不是绕路。
+**教训**：① 「明确不做」要带复查机制——判据（授权门槛/语义对不上）随基础设施变化会失效：权限族立项后「授权门槛」不再是理由；② 平台能力判据写进代码注释的（如「Windows 无公开色温 API」）要与 roadmap 同步复查，注释错误会传染决策；③ FFI 的 ok 出参漏写 C 侧参数不会链接失败、只在运行期读 0——extern 声明与 C 签名逐参数对照。
+**验证**：全量库门禁（`moon test sys` 209/209 起步，各批独立全绿）；真机验证清单归用户（权限引导框、窗口列表/激活/关闭、色温覆盖层观感、电源计划提权弹框）。

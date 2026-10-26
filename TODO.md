@@ -177,6 +177,5 @@
 - [ ] **macOS GIF 动图分帧合成**：要逐帧读「帧矩形 + disposal」，disposal 不在 Apple 的 GIF 公开属性清单里——先真机用 experiment 探针把可得性回证，再补（当前 `img_anim_decode_file` 给 0，组件退回首帧静图，尺寸已按首帧给对）
 - [ ] **macOS 显示器「首选档」标记**：`CGDisplayModeIsPreferred` 在当前 SDK 已不声明（同族的 `CGDisplayCopyAllDisplayModes`/`GetPixelWidth`/`GetRefreshRate` 都还在），`preferred` 一律给 false。要做要先找到公开信号（ScreenCaptureKit 那侧的模式清单能否对上 `CGDirectDisplayID`），不拿私有形态或「当前档」冒充
 - [ ] **macOS 通知的后端名仍叫 WinBalloon**：mac 的通知实现在 win 桩的 `wm_notify_*`（NSUserNotification），而 `shell/notify.mbt` 的 `NotifyBackend` 只有 `Dbus`/`WinBalloon` 两档，于是 mac 上 `notify_backend_name()` 报 "win-balloon"。能力本身（标题+正文，无动作/持久化）与气泡同档，先不改门面；通知已真机验通（须从 `.app` bundle 起，裸跑报不可用是系统约束），是否加第三档 `Cocoa` 待定
-- [ ] **macOS 昇格三族（2026-10-24 立项，原「明确不做」复查）**：授权作为躲不开的场景立项 @sys 权限基础设施（系统权限一次性授权 + 操作提权每次一弹），随后三族随批补齐——窗口管理 mac 档（CGWindowList/AX，辅助功能授权引导）、夜间色温 Windows 档（SetDeviceGammaRamp 直调）、夜间色温 mac 档（全屏点击穿透覆盖层）、电源计划 mac 档（低电量开关映射两档，写走管理员授权弹框）；明细见 roadmap「已规划-系统能力」。媒体播放器枚举维持不做（无 MPRIS 对等物）
 - [ ] **macOS 安装自启动的生效回证**：plist 写落点已通（纯函数有测试钉住），`launchctl load` 在新写入文件上的实际生效已真机回证；若要换 `bootstrap gui/<uid>`，得先给 sys 补一个取 uid 的口子
 - [x] **真机复验 T1-T6 全部目视项**（清单已并入 `测试文档/测试用例.md`）：Retina 观感、输入法内联、拖窗期间的循环、通知弹出——已按清单跑完；通知须从 `.app` bundle 起
