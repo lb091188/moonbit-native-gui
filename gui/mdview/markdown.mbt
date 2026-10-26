@@ -223,6 +223,14 @@ fn md_info_lang(info : String) -> String {
 
 ///|
 /// 整块代码文本按 \n 切行(顺去 \r 与末尾空行),供 code_view 使用。
+///|
+/// 代码块不可折:长行交横向滚动(scroll_view 的 hscroll 档),视口高随内容,
+/// 纵向不滚。滚动画在底缘,纵向不超时按 scroll_view 既有口径不出描边。
+fn md_code_scroll(inner : @widget.Node) -> @widget.Node {
+  @ui.scroll_view([inner], @ui.ScrollState::new(), hscroll=true)
+}
+
+///|
 fn md_split_code_lines(code : String) -> Array[String] {
   let lines : Array[String] = []
   let cur = Ref(StringBuilder())
@@ -572,12 +580,12 @@ fn md_render_blocks(blocks : Array[@mdast.Block], ctx : MDCtx) -> Array[@widget.
       }
       FencedCode(info~, code~, ..) =>
         nodes.push(
-          @ui.code_view(md_split_code_lines(code), lang=md_info_lang(info)),
+          md_code_scroll(@ui.code_view(md_split_code_lines(code), lang=md_info_lang(info))),
         )
       IndentedCode(code~, ..) =>
-        nodes.push(@ui.code_view(md_split_code_lines(code)))
+        nodes.push(md_code_scroll(@ui.code_view(md_split_code_lines(code))))
       MathBlock(value~, ..) =>
-        nodes.push(@ui.code_view(md_split_code_lines(value), lang="math"))
+        nodes.push(md_code_scroll(@ui.code_view(md_split_code_lines(value), lang="math")))
       Blockquote(children~, ..) =>
         // 引用收块:子块(段落/列表/嵌套引用)整体递归进竖条内容区
         nodes.push(md_quoted(md_render_blocks(children, ctx)))

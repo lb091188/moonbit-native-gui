@@ -374,11 +374,10 @@ pub fn code_view(
   let view_h = line_h * laid.length().to_double() + 28.0
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    // 宽跟随容器:显式 100%(yoga 的「不设宽」在主轴上是内容宽,只有交叉轴
-    // 才 stretch——块级组件要任何父形态下都跟容器,必须显式 percent)。
-    // 超宽行交给滚动视口裁;高度 = 行数,与宽无关,保留 fixed。
-    let _ = content_w
-    w.node.set_width(@yoga.percent(100.0))
+    // 宽 = 内容宽(最长行 + 内边距):代码行不可折,「跟随容器」对它是裁字——
+    // 不可折内容走「内容宽 + 外层横向滚动」(特例,跟随语义适用可折内容)。
+    // 高度 = 行数,与宽无关,保留 fixed。
+    w.node.set_width(@yoga.fixed(content_w))
     w.node.set_height(@yoga.fixed(view_h))
     w.on_draw = Some(fn(
       _self : @widget.Widget,

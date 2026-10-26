@@ -20,6 +20,12 @@ pub(all) struct ScrollState {
   mut bar_hot : Bool
   /// 组件在挂载时写入：把当前 `offset` 落到内容节点的 `top` 并请求重绘。
   apply : Ref[() -> Unit]
+  /// 横向档（`hscroll=true` 才启用）：横偏移与内容/视口宽，语义同纵向三件。
+  mut offset_x : Double
+  mut content_w : Double
+  mut view_w : Double
+  /// 横向版的「应用偏移」：把 `offset_x` 落到内容节点 `left` 并请求重绘。
+  apply_x : Ref[() -> Unit]
 }
 
 ///|
@@ -30,6 +36,33 @@ pub fn ScrollState::new() -> ScrollState {
     view_h: 0.0,
     bar_hot: false,
     apply: Ref(fn() { () }),
+    offset_x: 0.0,
+    content_w: 0.0,
+    view_w: 0.0,
+    apply_x: Ref(fn() { () }),
+  }
+}
+
+///|
+/// 可滚的最大横偏移（内容宽 - 视口宽，不足时为 0）。
+pub fn ScrollState::max_x(self : ScrollState) -> Double {
+  (self.content_w - self.view_w).max(0.0)
+}
+
+///|
+/// 设横偏移：越界夹到 `[0, max_x]`，随后落布局并请求重绘。
+pub fn ScrollState::set_offset_x(self : ScrollState, v : Double) -> Unit {
+  let m = self.max_x()
+  let nv = if v < 0.0 {
+    0.0
+  } else if v > m {
+    m
+  } else {
+    v
+  }
+  if nv != self.offset_x {
+    self.offset_x = nv
+    (self.apply_x.val)()
   }
 }
 
@@ -175,6 +208,72 @@ fn scroll_bar(state : ScrollState) -> @widget.Widget {
 }
 
 ///|
+/// 横向滚动条（浮层档：绝对贴在视口底缘、与视口同宽，只画拇指）：几何与交互
+/// 全部按纵向条的横轴镜像。
+fn scroll_bar_h(state : ScrollState) -> @widget.Widget {
+  let bar = @widget.Widget::new()
+  bar.node.set_position(@yoga.Absolute)
+  bar.node.set_left(@yoga.fixed(0.0))
+  bar.node.set_right(@yoga.fixed(0.0))
+  bar.node.set_bottom(@yoga.fixed(0.0))
+  bar.node.set_height(@yoga.fixed(SCROLL_BAR_W))
+  let dragging = Ref(false)
+  bar.on_draw = Some(fn(
+    _self : @widget.Widget,
+    p : @render.Painter,
+    r : @base.Rect,
+  ) -> Unit {
+    let vw = state.view_w
+    let cw = state.content_w
+    if cw > vw && vw > 0.0 {
+      let hot = state.bar_hot || dragging.val
+      p.set_global_alpha(if hot { 1.0 } else { SCROLL_BAR_IDLE_ALPHA })
+      let thumb = (r.w * vw / cw).max(16.0)
+      let travel = (r.w - thumb).max(0.0)
+      let ratio = state.offset_x / (cw - vw)
+      p.set_fill_color(@theme.theme_border())
+      p.fill_round_rect(ratio * travel, 1.0, thumb, r.h - 2.0, (r.h - 2.0) / 2.0)
+      p.set_global_alpha(1.0)
+    }
+  })
+  bar.on_pointer = Some(fn(
+    self : @widget.Widget,
+    ev : @widget.PointerEvent,
+  ) -> Bool {
+    let vw = self.rect.w
+    let m = state.max_x()
+    let thumb = (vw * vw / state.content_w).max(16.0)
+    let travel = (vw - thumb).max(0.0)
+    let x_to_offset : (Double) -> Double = fn(x : Double) -> Double {
+      if travel <= 0.0 {
+        0.0
+      } else {
+        ((x - thumb / 2.0) / travel).clamp(min=0.0, max=1.0) * m
+      }
+    }
+    match ev.kind {
+      @widget.PointerKind::Down => {
+        dragging.val = true
+        state.set_offset_x(x_to_offset(ev.x))
+        true
+      }
+      @widget.PointerKind::Move => {
+        if dragging.val {
+          state.set_offset_x(x_to_offset(ev.x))
+        }
+        true
+      }
+      @widget.PointerKind::Up => {
+        dragging.val = false
+        true
+      }
+      @widget.PointerKind::Leave => false
+    }
+  })
+  bar
+}
+
+///|
 /// 垂直滚动容器：`height` 是视口高（0 = 由父容器给），内容按自然高度排布并可
 /// 超出视口；超出部分被裁剪，滚动条画在右缘。
 pub fn scroll_view(
@@ -182,6 +281,7 @@ pub fn scroll_view(
   state : ScrollState,
   width? : Double = 0.0,
   height? : Double = 0.0,
+  hscroll? : Bool = false,
   class? : Array[@style.Style] = [],
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
@@ -214,10 +314,17 @@ pub fn scroll_view(
     )
     let content = @widget.Widget::new()
     content.node.set_flex_direction(@yoga.Column)
-    content.node.set_width(@yoga.percent(100.0))
     content.node.set_position(@yoga.Relative)
     // 不收缩：内容必须按自然高度撑开，超出视口的部分才谈得上滚动
     content.node.set_flex_shrink(0.0)
+    if hscroll {
+      // 横向档：内容按自然宽撑开可超视口(align-start 退掉交叉轴 stretch、
+      // 不设 percent)——代码长行/表格这类不可收缩内容横滚而不是被裁
+      content.node.set_align_self(Some(@yoga.AlignItems::FlexStart))
+      content.node.set_left(@yoga.fixed(0.0 - state.offset_x))
+    } else {
+      content.node.set_width(@yoga.percent(100.0))
+    }
     content.node.set_top(@yoga.fixed(0.0 - state.offset))
     @widget.mount_children(content, children)
     viewport.append_child(content)
@@ -225,8 +332,15 @@ pub fn scroll_view(
       content.node.set_top(@yoga.fixed(0.0 - state.offset))
       @widget.invalidate()
     }
+    state.apply_x.val = fn() -> Unit {
+      content.node.set_left(@yoga.fixed(0.0 - state.offset_x))
+      @widget.invalidate()
+    }
 
     viewport.append_child(scroll_bar(state))
+    if hscroll {
+      viewport.append_child(scroll_bar_h(state))
+    }
     scroll_bar_hover(viewport, state)
     viewport.on_draw = Some(fn(
       self : @widget.Widget,
@@ -236,6 +350,8 @@ pub fn scroll_view(
       // 布局已定：把几何抄给状态（滚动条比例与夹取都用它），再画一层描边
       state.view_h = r.h
       state.content_h = content.rect.h
+      state.view_w = r.w
+      state.content_w = content.rect.w
       if state.content_h > state.view_h {
         let st = @style.style_for(self)
         p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
@@ -244,6 +360,14 @@ pub fn scroll_view(
       }
     })
     viewport.on_scroll = Some(fn(ev : @widget.ScrollEvent) -> Bool {
+      // 横向分量(触控板横滑/滚轮 dx)先走;有横滚余量时消费掉,不混进纵向
+      if hscroll && ev.dx != 0.0 && state.max_x() > 0.0 {
+        let bx = state.offset_x
+        state.set_offset_x(bx - ev.dx * 30.0)
+        if state.offset_x != bx {
+          return true
+        }
+      }
       let before = state.offset
       // 一格滚 3 行（与常见桌面滚动量同量级），dy 正=向上滚
       state.scroll_by(0.0 - ev.dy * 30.0)

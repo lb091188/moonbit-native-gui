@@ -3203,3 +3203,9 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **mdview 响应式改造**：段落折行产出 Ref 化，跟随模式下节点挂 `set_measure`（yoga 布局时按可用宽问高度）——宽变即重折，折行缓存按 limit 失效，零 resize 监听；显式 width 保留静态路径（构造期折一次、定宽定高，wbtest 旧用例零回归）。`markdown_view` 的 `width?` 缺省从 560 改 0（跟随）。
 **教训**：① 「resize 后不重排」先拿 LAYOUT-FRAME 读数分层（事件/账本/布局/内容四层各一段证据），不要从视觉直接跳框架结论；② yoga 尺寸语义按轴理解——「auto」永远先问内容，跟随是显式选择（stretch/percent），组件作者不能假设父的轴向；③ 生成脚本生成的页面改布局，脚本模板要同批改（icons.mbt 与 gen_showcase_icons.py 双改）。
 **验证**：mdview 33/33（显式 width 用例零回归）+ ui/mdview 合跑 247/247；全量库门禁 1152/1152、`--deny-warn` 干净。真机（showcase「代码文档」页拖宽度 markdown 重排、图标库 wrap 重排）归用户。
+
+## 布局语义补全：不可折内容「内容宽 + 横滚」（2026-10-24,「最小宽应该有滚动」决策)
+
+**决策**：窄窗时「最小宽 + 横向滚动」与「收缩 + 折行」并存，按内容可折性选——可折内容(文本/段落)跟随容器折行；不可折内容(代码长行/表格列宽)内容宽撑开 + 外层横向滚动，不裁字。落地：ScrollState 扩横向三件(offset_x/content_w/view_w + apply_x)，`scroll_view(hscroll=true)`——content `align_self FlexStart` 退掉交叉轴 stretch、不收缩、`left = -offset_x` 平移(与纵向下移同机制)；横条底缘浮层(纵条镜像)；滚轮 dx/触控板横滑先消费横向余量。mdview 三处代码块与 showcase section 代码块接 `md_code_scroll` 包裹。
+**坑**：① yoga `set_align_self` 收 `AlignItems?`(Some 包裹)，与 set_align_items 的非可选不同；② scroll_view 的描边只在「纵向可滚」时画——横滚视口纵向不滚时无描边，代码块自带深底圆角，视觉自洽；③ 视口高 auto = 内容高(纵向不滚)，`min_height 0` 不影响。
+**验证**：ui/mdview 合跑 247/247；全量库门禁 1152/1152、`--deny-warn` 干净。真机：窄窗看「代码文档」页长行代码块出底缘横条、拖动横滚；markdown 表格(表格列宽未包,随本批口径另批)。

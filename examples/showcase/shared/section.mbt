@@ -117,7 +117,7 @@ fn section_body(s : Section, selected : @base.Store[String]) -> @widget.Node {
   inner.push(holder)
   if s.code.length() > 0 {
     inner.push(code_copy_row(s.code))
-    inner.push(@ui.code_view(s.code, lang="moonbit", line_numbers=true))
+    inner.push(@ui.scroll_view([@ui.code_view(s.code, lang="moonbit", line_numbers=true)], @ui.ScrollState::new(), hscroll=true))
   }
   // 本容器是显隐切换对象；滚动视口在 handle 里撑满剩余高度
   @ui.col(
