@@ -630,7 +630,9 @@ fn md_render_blocks(blocks : Array[@mdast.Block], ctx : MDCtx) -> Array[@widget.
           no += 1
         }
       }
-      Table(header~, alignments~, rows~, ..) => nodes.push(md_table(header, alignments, rows, ctx))
+      Table(header~, alignments~, rows~, ..) =>
+        // 表格列宽构造期定,不可折:窄窗走横向滚动(与代码块同口径)
+        nodes.push(md_code_scroll(md_table(header, alignments, rows, ctx)))
       DefinitionList(items~, ..) =>
         for item in items {
           nodes.push(
@@ -1000,11 +1002,11 @@ fn md_rich_label(
       w.node.set_width(@yoga.fixed(row_w_ref.val))
       w.node.set_height(@yoga.fixed(line_h * rows_ref.val.length().to_double()))
     }
-    None => {
-      // 跟随容器:显式 100%(yoga「不设宽」在主轴上是内容宽,块级组件要
-      // 任何父形态都跟容器必须显式 percent);yoga 布局时按可用宽问高度,
-      // 宽变即重折——响应式重排
-      w.node.set_width(@yoga.percent(100.0))
+    None =>
+      // 跟随容器:不设宽,yoga 才会把容器可用宽传进 measure 的 aw(设了宽
+      // ——percent 也一样——aw 就不来了,折行只能落 fallback)。min-content
+      // 探询已按「最窄可折」答,节点不会被探询宽撑大;宽随最长行,窄于容器
+      // 时节点与容器同宽。
       w.node.set_measure(fn(aw : Double?, _ah : Double?) -> (Double, Double) {
         let limit = match aw {
           Some(v) if v >= 1.0 => v
@@ -1016,7 +1018,6 @@ fn md_rich_label(
           line_h * rows_ref.val.length().to_double(),
         )
       })
-    }
     }
     w.on_draw = Some(fn(
       _self : @widget.Widget,
