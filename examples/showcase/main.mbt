@@ -346,14 +346,14 @@ fn main {
           // 主区：路由视图——选中哪页挂哪页，没选过的只留空壳；对话框挂在这一列上
           @ui.col(
             [
-              // 右侧 = 窗口宽 - 侧栏宽，最低 600：再窄整块横向滚动
+              // 右侧 = 窗口宽 - 侧栏宽，最低 400：再窄整块横向滚动
               // （`scroll_view` 的 hscroll 档内容宽 = max(自然宽, 视口宽)，
-              //  页列的 min_width 600 即自然宽下限）
+              //  页列的 min_width 400 即自然宽下限）
               @ui.scroll_view(
                 [
                   @ui.col(
                     [nav.view(None)],
-                    class=[@style.style(min_width=600.0)],
+                    class=[@style.style(min_width=400.0)],
                     handle=fn(c : @widget.Widget) -> Unit {
                       c.node.set_width(@yoga.percent(100.0))
                     },

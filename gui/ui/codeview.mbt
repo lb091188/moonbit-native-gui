@@ -376,10 +376,10 @@ pub fn code_view(
   let view_h = line_h * laid.length().to_double() + 28.0
   let canvas = @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    // 宽 = 内容宽(最长行 + 内边距):代码行不可折,「跟随容器」对它是裁字——
-    // 不可折内容走「内容宽 + 外层横向滚动」(特例,跟随语义适用可折内容)。
-    // 高度 = 行数,与宽无关,保留 fixed。
-    w.node.set_width(@yoga.fixed(content_w))
+    // 宽 = max(容器宽, 最长行)：代码行不可折，比容器窄时**铺满容器**（深底条
+    // 不断在最长行处），比容器宽时交给自带视口横滚。高度 = 行数,与宽无关。
+    w.node.set_width(@yoga.percent(100.0))
+    w.node.set_min_width(@yoga.fixed(content_w))
     w.node.set_height(@yoga.fixed(view_h))
     w.on_draw = Some(fn(
       _self : @widget.Widget,
@@ -417,6 +417,15 @@ pub fn code_view(
     handle(w)
     w
   })
-  // 自带横滚视口：高即内容高（纵向不滚），宽超出容器时底缘出横条
-  scroll_view([canvas], ScrollState::new(), height=view_h, hscroll=true)
+  // 自带横滚视口：宽跟随容器（flex 1，摆进任何容器都占满行宽），高即内容高
+  // （纵向不滚），代码比容器宽时底缘出横条
+  scroll_view(
+    [canvas],
+    ScrollState::new(),
+    height=view_h,
+    hscroll=true,
+    handle=fn(v : @widget.Widget) -> Unit {
+      v.node.set_width(@yoga.percent(100.0))
+    },
+  )
 }

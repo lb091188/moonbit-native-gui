@@ -44,7 +44,7 @@
 | `divider(text?, vertical?=false, color?, class?)` | 分隔线，`separator` + 带字 `divider` 合一：`text` 空 = 直线档（`vertical` 定横/竖），给字 = 居中断线档 |
 | `image(path, width?, height?, handle?)` | 图像：按文件解码（PNG/JPEG/GIF 首帧）；尺寸给 0 用原始尺寸 |
 | `icon(kind : @icons.IconKind, size?=16.0, color?, class?, handle?)` | 矢量图标：`size` 是盒子边长，颜色空 = 主题正文色，随主题现取 |
-| `code_view(lines : Array[String], lang?="moonbit", font_size?=13.0, line_numbers?=false, handle?)` | 代码高亮视图，One Dark 深底、不随主题：8 语言关键字表 + 词分类着色，可选行号列，尺寸按内容自适应；**自带横向滚动**（代码行不可折，长行超出容器时底缘出横条，调用方不必再包 `scroll_view`） |
+| `code_view(lines : Array[String], lang?="moonbit", font_size?=13.0, line_numbers?=false, handle?)` | 代码高亮视图，One Dark 深底、不随主题：8 语言关键字表 + 词分类着色，可选行号列；**宽跟随容器（flex 1）**——窄代码深底条铺满整行，代码比容器宽时**自带横向滚动**（调用方不必再包 `scroll_view`），高按行数 |
 | `gif(path, width?, height?, looping?=true, running?=true, state?, handle?)` | 动图：`looping=false` 播完一轮就停；非 GIF 静图只画一帧 |
 
 ## 表单控件

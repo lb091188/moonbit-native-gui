@@ -119,3 +119,22 @@ test "code_view 组件：行数翻倍高度近似翻倍（行高恒定）" {
   // 新增两行 ≈ 两倍单行高（容差一行的一半）
   assert_true((grew - per_line * 2.0).abs() < per_line)
 }
+
+///|
+test "code_view 宽跟随容器，代码比容器宽时才溢出横滚" {
+  // flex 1 口径：窄代码的深底条铺满整行（不断在最长行处），长行撑出视口交
+  // 自带横滚。视口 → 内容包裹层 → 画布，画布才是那块深底。
+  let (root_s, vp_s) = mounted(code_view(["fn main {}"]), 640.0, 200.0)
+  let _ = paint(root_s, 640, 200)
+  let canvas_s = vp_s.children()[0].children()[0]
+  assert_eq(canvas_s.rect.w, vp_s.rect.w)
+  let long_line =
+    "let x = \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\""
+  let (root_l, vp_l) = mounted(code_view([long_line]), 400.0, 200.0)
+  let _ = paint(root_l, 400, 200)
+  let canvas_l = vp_l.children()[0].children()[0]
+  assert_true(
+    canvas_l.rect.w > vp_l.rect.w,
+    msg="长行没撑出视口，canvas=\{canvas_l.rect.w} vp=\{vp_l.rect.w}",
+  )
+}
