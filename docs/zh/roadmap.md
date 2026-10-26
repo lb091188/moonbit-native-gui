@@ -259,6 +259,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ### 系统能力
 
+- ⏳ **mdview 响应式宽度**：`markdown_view` 的排版宽度是构造期定宽参数（演示页写死 480），窗口 resize 后不重排——改造为按容器宽动态重排（排版缓存随 Widget.rect.w 失效）。诊断结论：框架 resize→relayout 链路健康（探针三段 + LAYOUT-FRAME 读数证明），此类「resize 后不重排」均为内容侧定宽形态
 - ✅ **权限基础设施（@sys permission）**（🚧 已合入待真机）：系统权限一次性授权的横切族——`permission_probe(kind)` 探测（`AXIsProcessTrusted`/`CGPreflightScreenCaptureAccess` 公开口）、`permission_request(kind)` 弹**系统自带引导框**（不替用户点弹窗）；两态语义（TCC 的未请求与拒绝公开层不可区分，应用侧按「未授→请求→引导→回来再探」走）；Win/Linux 恒 NotNeeded。**操作提权**（每次一弹：macOS 管理员 `osascript`、将来 Windows UAC）随各自能力批处理，首批消费者电源计划 mac 写档已用。showcase「系统集成」页有演示
 - ✅ **窗口管理 macOS 档**（🚧 已合入待真机）：win_list 走 `CGWindowList`（窗口 id / 标题——标题需屏幕录制权限，无权限时无标题窗被跳过、列表变短即权限信号）、win_activate 走归属应用激活（免授权）、win_close 走 `AXUIElement` 关闭按钮（辅助功能，缺失报 `Denied` 引导用 permission_request）；行格式对齐 Windows 桩（`0x<winid>\t-1\t<title>`），sys 桩按平台转发到 win 桩（ObjC）
 - ✅ **夜间色温 Windows 档**（🚧 已合入待真机）：`SetDeviceGammaRamp` 直调（gdi32，全虚拟屏 DC 一把设齐所有输出）；ramp 构造是 MoonBit 纯函数（pow 曲线，gamma 千分比与 xrandr 路径同源——红提亮/蓝衰减/绿恒 1.00），恒等斜坡即复位；撤掉「无公开 API」的旧判（gamma 桌面斜坡就是公开口）

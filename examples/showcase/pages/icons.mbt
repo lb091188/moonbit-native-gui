@@ -1,29 +1,23 @@
 // 图标库页:全量矢量图标(矢量自绘,非字体字形)按分组展示,悬停看名称。
 // 本页由 scripts/gen_showcase_icons.py 生成,勿手改;分组定义见该脚本 GROUPS。
-// 网格为竖排 vbox 包行(每行 24 个)——外层容器必须 vbox,否则行组被
-// 水平排布、超宽截断(图标墙首版即此 bug)。口径:图标走 @ui.icon、
-// 悬停名走 @ui.tooltip、间距走容器参数(column_gap/row_gap)。
+// 网格是响应式 wrap:全部图标进单容器(flex_wrap),按容器宽自动换行——
+// 窗口变宽变窄都 reflow(2026-10-24 由手工 per_row 分行改来)。口径:
+// 图标走 @ui.icon、悬停名走 @ui.tooltip、间距走容器参数(column_gap/row_gap)。
 
 ///|
-/// 一组图标的网格:vbox 包行,每行 per_row 个,悬停 tooltip 显示名称。
+/// 一组图标的网格:单容器 wrap,按容器宽自动换行,悬停 tooltip 显示名称。
 fn icon_grid(kinds : Array[@icons.IconKind], per_row : Int) -> @widget.Node {
-  let rows : Array[@widget.Node] = []
-  for row in 0..<((kinds.length() + per_row - 1) / per_row) {
-    let items : Array[@widget.Node] = []
-    for col in 0..<per_row {
-      let idx = row * per_row + col
-      if idx < kinds.length() {
-        items.push(
-          @ui.tooltip(
-            @ui.icon(kinds[idx], size=30.0),
-            @icons.icon_name(kinds[idx]),
-          ),
-        )
-      }
-    }
-    rows.push(@ui.row(items, column_gap=8.0))
+  // per_row 参数保留兼容既有调用点(不再参与换行,响应式后由容器宽决定)
+  let _ = per_row
+  let items : Array[@widget.Node] = []
+  for k in kinds {
+    items.push(@ui.tooltip(@ui.icon(k, size=30.0), @icons.icon_name(k)))
   }
-  @ui.col(rows, row_gap=8.0)
+  @ui.row(
+    items,
+    column_gap=8.0,
+    class=[@style.style(flex_wrap=@yoga.Wrap, row_gap=8.0)],
+  )
 }
 
 ///|
