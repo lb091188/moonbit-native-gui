@@ -147,6 +147,10 @@ fn nl_ramp_identity_word(i : Int) -> Int {
 #borrow(ramp, ok)
 extern "c" fn ffi_nl_set_ramp(ramp : Bytes, ok : Ref[Int]) -> Unit = "yue_sys_nl_set_ramp"
 
+///|
+#borrow(ok)
+extern "c" fn ffi_screen_tint_apply(percent : Int, ok : Ref[Int]) -> Unit = "wm_screen_tint_apply"
+
 // ---------------------------------------------------------------------------
 // 后端探测（redshift 优先；可用性判定均为只读调用）
 // ---------------------------------------------------------------------------
@@ -224,6 +228,11 @@ pub fn nl_supported() -> Bool {
   if sys_platform() == "windows" {
     return true
   }
+  // macOS 走全屏点击穿透覆盖层（Night Shift 私有口做不了，f.lux 同款替代
+  // 机制；实现住 win 桩的 wm_screen_tint_apply）
+  if sys_platform() == "macos" {
+    return true
+  }
   nl_backend() is Some(_)
 }
 
@@ -234,6 +243,14 @@ pub fn nl_supported() -> Bool {
 /// 无主输出取首个已连接输出）。
 pub fn nl_set_temperature(percent : Int) -> Result[Unit, NightlightError] {
   let p = nl_clamp_percent(percent)
+  if sys_platform() == "macos" {
+    let ok = Ref(0)
+    ffi_screen_tint_apply(p, ok)
+    if ok.val != 1 {
+      return Err(CommandFailed("覆盖层设置失败"))
+    }
+    return Ok(())
+  }
   if sys_platform() == "windows" {
     let w = nl_warmth(p)
     let ramp = nl_ramp_bytes(nl_red_gamma(w), nl_blue_gamma(w))
@@ -259,6 +276,14 @@ pub fn nl_set_temperature(percent : Int) -> Result[Unit, NightlightError] {
 /// 复位色温（恢复中性）：redshift 存在走 `redshift -x`，否则走
 /// `xrandr --gamma 1.00:1.00:1.00`（不带 --output，复位全部输出）。
 pub fn nl_reset() -> Result[Unit, NightlightError] {
+  if sys_platform() == "macos" {
+    let ok = Ref(0)
+    ffi_screen_tint_apply(100, ok)
+    if ok.val != 1 {
+      return Err(CommandFailed("覆盖层复位失败"))
+    }
+    return Ok(())
+  }
   if sys_platform() == "windows" {
     let ok = Ref(0)
     ffi_nl_set_ramp(nl_ramp_bytes(1000, 1000), ok)

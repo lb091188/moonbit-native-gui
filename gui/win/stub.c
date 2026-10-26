@@ -11071,6 +11071,59 @@ void *wm_win_list_mac(int32_t *ok) {
   }
 }
 
+// ---- 夜间色温（mac 档）：全屏点击穿透暖色覆盖层 ----------------------------
+//
+// Night Shift 无公开控制口（CoreBrightness 私有，`com.apple.CoreBrightness`
+// 域随版本漂移）——覆盖层是 f.lux 同款替代机制：每屏一扇置顶窗，跨空间常驻
+// （含全屏空间）、点击穿透，暖色 alpha 按 percent 换算（0 = 最暖、100 = 中性
+// 不盖）。percent 语义与门面一致：覆盖暖度 = (100 - percent)。
+// level 取 CGShieldingWindowLevel：色温要盖一切（菜单/ dock / 全屏），与
+// Night Shift 的实际效果对位。
+
+static NSMutableArray *wm_tint_windows = nil;
+
+void wm_screen_tint_apply(int32_t percent, int32_t *ok) {
+  @autoreleasepool {
+    *ok = 0;
+    if (wm_tint_windows == nil) {
+      wm_tint_windows = [NSMutableArray new];
+    }
+    for (NSWindow *w in wm_tint_windows) {
+      [w orderOut:nil];
+    }
+    [wm_tint_windows removeAllObjects];
+    int32_t warmth =
+        100 - (percent < 0 ? 0 : percent > 100 ? 100 : percent);
+    if (warmth <= 0) {
+      *ok = 1; // 中性：不盖
+      return;
+    }
+    double alpha = warmth / 100.0 * 0.22;
+    for (NSScreen *screen in [NSScreen screens]) {
+      NSWindow *w = [[NSWindow alloc]
+          initWithContentRect:[screen frame]
+                    styleMask:NSWindowStyleMaskBorderless
+                      backing:NSBackingStoreBuffered
+                        defer:NO];
+      [w setLevel:CGShieldingWindowLevel()];
+      [w setOpaque:NO];
+      [w setHasShadow:NO];
+      [w setBackgroundColor:
+              [NSColor colorWithCalibratedRed:1.0
+                                        green:0.55
+                                         blue:0.0
+                                        alpha:alpha]];
+      [w setIgnoresMouseEvents:YES];
+      [w setCollectionBehavior:NSWindowCollectionBehaviorCanJoinAllSpaces |
+                               NSWindowCollectionBehaviorStationary |
+                               NSWindowCollectionBehaviorFullScreenAuxiliary];
+      [w orderFrontRegardless];
+      [wm_tint_windows addObject:w];
+    }
+    *ok = 1;
+  }
+}
+
 int32_t wm_win_activate_mac(const char *id_or_title, int32_t *ok) {
   @autoreleasepool {
     *ok = 0;
