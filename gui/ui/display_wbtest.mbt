@@ -635,3 +635,20 @@ test "标签 class 改字号跟随测宽" {
   )
   assert_true(big.rect.w > plain.rect.w)
 }
+
+///|
+test "text 折行:wrap=true 且容器窄于 max_width 时按可用宽折(max_width 是上限不是定值)" {
+  // 400 字中文长句:430 容器、900 上限——按 430 折应得多行;若按 900 折或
+  // 单行不折,右侧整片截字(真机「段描述被裁」)
+  let mut long = ""
+  for _ in 0..<20 {
+    long = long + "这是一段很长的说明文字用于验证折行行为"
+  }
+  let (root, kid) = mounted(text(long, max_width=900.0, wrap=true), 430.0, 400.0)
+  println("TEXT-WRAP-PROBE rect=\{kid.rect.w}x\{kid.rect.h} textlen=\{long.length()}")
+  // 单行高约 21px;按 430 折至少 3 行
+  assert_true(kid.rect.h > 40.0)
+  // 折行宽不超过容器
+  assert_true(kid.rect.w <= 431.0)
+  let _ = root
+}

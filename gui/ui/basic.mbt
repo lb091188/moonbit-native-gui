@@ -226,6 +226,13 @@ pub fn text_dyn(
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
     fold_style(w, anon, class)
+    // 折行文本是块级内容:宽显式跟容器(yoga「不设宽」的节点宽 = measure
+    // 返回的行宽,会把节点撑出容器——真机「段描述单行溢出」即此);折行宽
+    // 由 measure 的可用宽定,max_width 只是上限。单行文本(wrap=false)保持
+    // 按内容宽占位(标签形态)。
+    if wrap {
+      w.node.set_width(@yoga.percent(100.0))
+    }
     attach_text_measure(w, src)
     w.on_draw = Some(fn(
       self : @widget.Widget,

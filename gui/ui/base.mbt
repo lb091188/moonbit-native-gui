@@ -175,8 +175,10 @@ fn text_eff(
 
 ///|
 /// 把文本状态接到布局引擎的测量面：内容尺寸来自 Pango，基线同源。
-/// 近似口径（记档）：min-content 探询（请求轴 `Some(0.0)`）按「不受约束」处理
-/// ——本层还没有按 min-content 定宽的弹性场景，接进省略号自适应时再细化。
+/// min-content 探询（yoga 请求轴 `Some(0.0)`）：wrap 文本按「最窄可折」答
+/// （量级 = 单字符宽）——按「不受约束」答会把大行宽当节点最小宽沿父链撑住，
+/// 窗口窄于它就单行溢出（真机「段描述被裁」的机制根）；不折文本的 min-content
+/// 本来就是整行，照常答整行宽。
 fn attach_text_measure(
   w : @widget.Widget,
   src : TextSource,
@@ -202,7 +204,14 @@ fn attach_text_measure(
       (false, Some(v)) => v
       (false, None) => 0.0
     }
-    let box_w = cap.floor().to_int()
+    let probing = match avail_w {
+      Some(v) => v <= 0.0
+      None => false
+    }
+    // 探询按 1px 箱折：measure_font 给的宽 = 最宽不可断单元（min-content 的
+    // 文本口径），高给单行（min 宽才是撑宽元凶，节点高由正式 measure 按真实
+    // 可用宽算）
+    let box_w = if probing { 1 } else { cap.floor().to_int() }
     let do_wrap = wrap && box_w > 0
     match @text.measure_font(
       src.text,
@@ -214,7 +223,9 @@ fn attach_text_measure(
       Some(m) => {
         // `line_height` 是行盒高：单行档精确生效；折行档要多行行距，那要等
         // 文本层开行距接口（记档在 design.md §1.1），这里只在单行时覆盖
-        let h = if line_h > 0.0 && !do_wrap {
+        let h = if probing {
+          font.size * 1.6
+        } else if line_h > 0.0 && !do_wrap {
           line_h
         } else {
           m.height.to_double()
