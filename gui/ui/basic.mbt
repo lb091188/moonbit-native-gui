@@ -226,10 +226,9 @@ pub fn text_dyn(
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
     fold_style(w, anon, class)
-    // 折行文本是块级内容:宽显式跟容器(yoga「不设宽」的节点宽 = measure
-    // 返回的行宽,会把节点撑出容器——真机「段描述单行溢出」即此);折行宽
-    // 由 measure 的可用宽定,max_width 只是上限。单行文本(wrap=false)保持
-    // 按内容宽占位(标签形态)。
+    // 折行文本是块级内容:显式 percent 100 跟容器(块级组件跟随容器必须
+    // 显式 percent);折行宽由 measure 的可用宽定,max_width 只是上限。
+    // 单行文本(wrap=false)按内容宽占位(标签形态)。
     if wrap {
       w.node.set_width(@yoga.percent(100.0))
     }
@@ -360,19 +359,43 @@ pub fn image(
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let img = @render.Image::new_from_file(path)
-  let w0 = if width > 0.0 { width } else { img.get_width() }
-  let h0 = if height > 0.0 { height } else { img.get_height() }
+  let iw = img.get_width()
+  let ih = img.get_height()
+  let ratio = if ih > 0.0 { iw / ih } else { 1.0 }
+  let box_h = if height > 0.0 {
+    height
+  } else if width > 0.0 {
+    width / ratio
+  } else {
+    ih
+  }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
-    w.node.set_width(@yoga.fixed(w0))
-    w.node.set_height(@yoga.fixed(h0))
+    if width > 0.0 || height > 0.0 {
+      w.node.set_width(if width > 0.0 { @yoga.fixed(width) } else { @yoga.fixed(iw) })
+      w.node.set_height(@yoga.fixed(box_h))
+    } else {
+      // 不给尺寸 = 跟随容器：可用宽比原图窄时等比缩，宽够用时保持原图（不放大）
+      w.node.set_measure(fn(aw : Double?, _ah : Double?) -> (Double, Double) {
+        let cap = match aw {
+          Some(v) if v > 0.0 => v
+          _ => iw
+        }
+        let ww = cap.min(iw)
+        (ww, ww / ratio)
+      })
+    }
     w.on_draw = Some(fn(
       _self : @widget.Widget,
       p : @render.Painter,
       r : @base.Rect,
     ) -> Unit {
-      if !img.is_empty() {
+      if !img.is_empty() && iw > 0.0 && ih > 0.0 {
+        // contain：取盒子与原图比例的小者等比落笔，居中
+        let s = (r.w / iw).min(r.h / ih)
+        let dw = iw * s
+        let dh = ih * s
         p.flush()
-        p.draw_image(img, 0.0, 0.0, r.w, r.h)
+        p.draw_image(img, (r.w - dw) / 2.0, (r.h - dh) / 2.0, dw, dh)
       }
     })
     handle(w)
