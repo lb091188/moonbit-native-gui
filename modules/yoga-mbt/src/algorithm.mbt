@@ -922,17 +922,41 @@ fn layout_into_impl(
         axis_size(c, basis_val, main_is_row, child_pct_w, child_pct_h),
         ratio_main,
       )
-    // 基准取法分三档：① 显式尺寸/比例钦定 → 用它；② **本项交叉轴尺寸确定**
+    // 本项交叉轴是否被定住：自身给了确定交叉尺寸，或被拉伸到父的确定内交叉。
+    // 只在**父主轴为列**时启用下面的替代算路：那时 c_avail_cross 就是「定住的
+    // 交叉宽」；父主轴为行时 c_avail_main 是可用宽**限制**，拿它量的值当基准
+    // 会让项被可用宽压窄（老用例「行容器内确定高度的内容项」钉着这条）。
+    let item_align = match c.style.align_self {
+      Some(a) => a
+      None => s.align_items
+    }
+    let is_stretch = match item_align {
+      Stretch => true
+      _ => false
+    }
+    let stretch_pinned = if is_stretch {
+      own_cross_def is Some(_)
+    } else {
+      false
+    }
+    let cross_pinned = if main_is_row {
+      false
+    } else if cross_definite is Some(_) {
+      true
+    } else {
+      stretch_pinned
+    }
+    // 基准取法分三档：① 显式尺寸/比例钦定 → 用它；② **本项交叉轴定住**
     // → 用「按该定宽量得的主轴尺寸」（上面 content 那一趟已经量过），定宽下的
-    // 内容尺寸就是它的真实主轴尺寸，与可用空间无关、不随窗口漂移；③ 交叉轴不
-    // 确定 → max-content 内在值（定案见 adaptation YG3d：拿「当前可用空间下的
-    // 测量值」当基准会让折行项的基准随可用空间漂移，弹性收缩算不到溢出量）。
+    // 内容尺寸就是它的真实主轴尺寸，与可用空间无关、不随窗口漂移；③ 否则 →
+    // max-content 内在值（定案见 adaptation YG3d：拿「当前可用空间下的测量值」
+    // 当基准会让折行项的基准随可用空间漂移，弹性收缩算不到溢出量）。
     // 缺 ② 时定宽折行文本的主轴高会按「单行不折」算（真机：容器 661、measure
     // 已答 28，落地仍是单行 14）。
-    let base = match (basis_style, cross_definite) {
+    let base = match (basis_style, cross_pinned) {
       (Some(v), _) => v
-      (None, Some(_)) => content.0
-      (None, None) =>
+      (None, true) => content.0
+      (None, false) =>
         intrinsic_size(c, main_is_row, Max, child_pct_w, child_pct_h)
     }
     let min_v = if main_is_row { c.style.min_width } else { c.style.min_height }
@@ -941,16 +965,20 @@ fn layout_into_impl(
     // 即该项在主轴上的 **min-content 尺寸**（不再用「当前可用空间下的测量值」
     // 近似，否则文本会被压到最长词以下）；有比例换算值时不超过它。
     // 显式 Fixed(0) 才是 0。
-    let min_main = match min_style {
-      Some(v) => v
-      None => {
-        let mc =
-          intrinsic_size(c, main_is_row, Min, child_pct_w, child_pct_h)
-        match ratio_main {
-          Some(t) => mc.min(t)
-          None => mc
-        }
-      }
+    // 交叉轴定住时，min-content 必须**按那个定宽算**（css-sizing：内在贡献以
+    // 确定的交叉尺寸为参照）——否则可换行容器的下限按「无定宽时全堆叠」算，
+    // 图标网格 18 项被算成 18 行高 676（真值一行 30），容器白撑一大块空白，
+    // 看着就是「不换行 / 纵向堆」。这里复用 content（同一定宽已量过），
+    // 不另调 measure_content：那对容器节点会写子项 layout，有副作用。
+    let mc = match (min_style, cross_pinned) {
+      (Some(v), _) => v
+      (None, true) => content.0
+      (None, false) =>
+        intrinsic_size(c, main_is_row, Min, child_pct_w, child_pct_h)
+    }
+    let min_main = match ratio_main {
+      Some(t) => mc.min(t)
+      None => mc
     }
     let max_v = if main_is_row { c.style.max_width } else { c.style.max_height }
     let max_main = axis_size(c, max_v, main_is_row, child_pct_w, child_pct_h)

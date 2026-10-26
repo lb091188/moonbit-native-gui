@@ -1453,30 +1453,36 @@ test "内在尺寸缓存:改子项后重排不用旧内在尺寸" {
 }
 
 ///|
-test "换行容器作列子项：主轴 min:auto 等于 min-content 高，显式 min 0 才归位" {
-  // 父是列，子项为可换行的行容器（6 个 80x30，一行放得下）。规范 §4.5：
-  // 列内子项的 min-height:auto 取其 min-content 高 = 全部堆叠 = 6*30+5*4=200，
-  // 于是子项被顶到 200 而实际只用一行 30。段条这类容器必须显式 min 0，
-  // 否则这条下限会沿父链一路把正文挤扁（showcase 实测段条 224px）。
-  let root = Node::new()
-  root.set_width(fixed(1000.0))
-  root.set_height(fixed(700.0))
-  root.set_flex_direction(Column)
-  let strip = Node::new()
-  strip.set_flex_direction(Row)
-  strip.set_flex_wrap(Wrap)
-  strip.set_row_gap(4.0)
-  let mut i = 0
-  while i < 6 {
-    strip.append_child(leaf(80.0, 30.0))
-    i += 1
+test "换行容器作列子项：主轴 min:auto 按定住的交叉宽算，不需要显式 min 0" {
+  // 父是列、子项是可换行的行容器。规范 §4.5 + css-sizing：内在贡献以**确定的
+  // 交叉尺寸**为参照——交叉轴被定住（自身给宽，或被拉伸到父的确定内交叉）时，
+  // 主轴 min-content 就按那个宽度量。旧口径拿「无定宽时全堆叠」当下限，把容器
+  // 顶到 6*30+5*4=200（真机 showcase 段条 224px 挤扁正文），当时的解法是调用方
+  // 补 min 0——那又让容器永远只有一行高，折到第二行就被裁（「段不换行」）。
+  // 两头都错在没按定宽算，此处一并收口：宽到放得下 = 一行，窄到放不下 = 两行。
+  let mk = fn(box : Double) -> Node {
+    let root = Node::new()
+    root.set_width(fixed(box))
+    root.set_height(fixed(700.0))
+    root.set_flex_direction(Column)
+    let strip = Node::new()
+    strip.set_flex_direction(Row)
+    strip.set_flex_wrap(Wrap)
+    strip.set_row_gap(4.0)
+    strip.set_column_gap(4.0)
+    let mut i = 0
+    while i < 6 {
+      strip.append_child(leaf(80.0, 30.0))
+      i += 1
+    }
+    root.append_child(strip)
+    calculate_layout(root, Some(box), Some(700.0))
+    strip
   }
-  root.append_child(strip)
-  calculate_layout(root, Some(1000.0), Some(700.0))
-  assert_eq(strip.layout().height, 200.0)
-  strip.set_min_height(fixed(0.0))
-  calculate_layout(root, Some(1000.0), Some(700.0))
-  assert_eq(strip.layout().height, 30.0)
+  // 1000 宽：6 项一行放得下（6*80+5*4=500）→ 高一行
+  assert_eq(mk(1000.0).layout().height, 30.0)
+  // 300 宽：一行只放 3 项 → 两行 = 30+4+30
+  assert_eq(mk(300.0).layout().height, 64.0)
 }
 
 ///|

@@ -58,9 +58,10 @@ pub fn page(secs : Array[Section]) -> @widget.Node {
   // 段条超宽真换行（flex_wrap 走样式槽；行距给 4，不然两行贴在一起）
   // 段条放在**列**里：列的交叉轴会把段条拉成整宽，段多才按整宽折行。
   // （放在 row 里时段条按内容定宽，折行数会翻倍、把正文挤扁——实测 224px。）
-  // 段条与它的包裹容器都要显式 min=0：换行容器的「主轴 min:auto」按 CSS §4.5
-  // 等于 min-content 高（= 全部段堆叠），这条下限会沿父链一路传上去，
-  // 不归零段条会吃掉整块正文高度（实测 224px）。
+  // 段条只给 `min_width=0`，**不给 min_height=0**：换行容器的「主轴 min:auto」
+  // 现按定住的交叉宽算（yoga 定案），一行放得下就是一行高、放不下自动长到两行；
+  // 早先这里补 min 0 是为了躲「下限=全部段堆叠」把正文挤扁，那同时把段条钉死
+  // 在一行高、折到第二行就被裁（真机「段不换行」），两头都错在没按定宽算。
   let flat = @style.style(min_height=0.0, min_width=0.0)
   // 段名是 key（选中值不译），显示走 `seg.` 前缀取译——前缀是为了和正文里
   // 「原文当 key」的条目划开：短名如「文字」撞正文的概率太高。
@@ -69,7 +70,7 @@ pub fn page(secs : Array[Section]) -> @widget.Node {
       names,
       selected,
       label_of=fn(n : String) -> String { @i18n.t_or("seg." + n, n) },
-      class=[@style.style(flex_wrap=@yoga.Wrap, row_gap=4.0), flat],
+      class=[@style.style(flex_wrap=@yoga.Wrap, row_gap=4.0, min_width=0.0)],
     )],
     padding=16.0,
     class=[flat],
