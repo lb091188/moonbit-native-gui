@@ -259,6 +259,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ### 系统能力
 
+- ⏳ **滚动视口横向滚动 + 内容最小宽语义**：内容有不可收缩下限（代码块长行、mdview 表格列宽）且窄于视口时，现在只裁不滚——scroll_view 补横向滚动档（视口按内容 min 宽出横向条），「最小宽 + 滚动」与「收缩 + 折行」并存按组件语义选
 - ✅ **组件缺省跟随容器宽（mdview/code_view）**（🚧 已合入待真机）：`markdown_view` 的 width 改语义——0（缺省）= 跟随容器，段落折行走 yoga measure（布局时按可用宽重折，宽变即重排，无任何 resize 监听）；>0 = 构造期定宽（旧口径保留，wbtest 显式 width 用例零回归）。`code_view` 宽改 percent 100（背景条满容器，超宽行交滚动视口）。**库级语义定案：块级组件不显式设宽 = 跟随容器**——yoga 的「不设宽」在主轴是内容宽，必须显式 percent（记 adaptation）。showcase「代码文档」页 markdown 已去定宽。框架 resize→relayout 链路健康由探针三段 + LAYOUT-FRAME 读数证明，此类「resize 后不重排」均为内容侧定宽形态
 - ✅ **权限基础设施（@sys permission）**（🚧 已合入待真机）：系统权限一次性授权的横切族——`permission_probe(kind)` 探测（`AXIsProcessTrusted`/`CGPreflightScreenCaptureAccess` 公开口）、`permission_request(kind)` 弹**系统自带引导框**（不替用户点弹窗）；两态语义（TCC 的未请求与拒绝公开层不可区分，应用侧按「未授→请求→引导→回来再探」走）；Win/Linux 恒 NotNeeded。**操作提权**（每次一弹：macOS 管理员 `osascript`、将来 Windows UAC）随各自能力批处理，首批消费者电源计划 mac 写档已用。showcase「系统集成」页有演示
 - ✅ **窗口管理 macOS 档**（🚧 已合入待真机）：win_list 走 `CGWindowList`（窗口 id / 标题——标题需屏幕录制权限，无权限时无标题窗被跳过、列表变短即权限信号）、win_activate 走归属应用激活（免授权）、win_close 走 `AXUIElement` 关闭按钮（辅助功能，缺失报 `Denied` 引导用 permission_request）；行格式对齐 Windows 桩（`0x<winid>\t-1\t<title>`），sys 桩按平台转发到 win 桩（ObjC）
