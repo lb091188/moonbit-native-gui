@@ -263,7 +263,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **窗口管理 macOS 档**（🚧 已合入待真机）：win_list 走 `CGWindowList`（窗口 id / 标题——标题需屏幕录制权限，无权限时无标题窗被跳过、列表变短即权限信号）、win_activate 走归属应用激活（免授权）、win_close 走 `AXUIElement` 关闭按钮（辅助功能，缺失报 `Denied` 引导用 permission_request）；行格式对齐 Windows 桩（`0x<winid>\t-1\t<title>`），sys 桩按平台转发到 win 桩（ObjC）
 - ✅ **夜间色温 Windows 档**（🚧 已合入待真机）：`SetDeviceGammaRamp` 直调（gdi32，全虚拟屏 DC 一把设齐所有输出）；ramp 构造是 MoonBit 纯函数（pow 曲线，gamma 千分比与 xrandr 路径同源——红提亮/蓝衰减/绿恒 1.00），恒等斜坡即复位；撤掉「无公开 API」的旧判（gamma 桌面斜坡就是公开口）
 - ✅ **夜间色温 macOS 档**（🚧 已合入待真机）：全屏点击穿透覆盖层（每屏一扇置顶窗，`CGShieldingWindowLevel` + 跨空间常驻 + `ignoresMouseEvents`，暖色 alpha = 暖度×0.22，percent 100 即摘除）；Night Shift 私有口做不了，f.lux 同款替代机制；实现落 win 桩 `wm_screen_tint_apply`
-- ⏳ **电源计划 macOS 档（降级映射）**：档集合退化为 [Balanced, PowerSaver]（低电量开关映射，High Power 机型限定不做）；读走 `pmset -g`（免权限）、写走 `osascript` 管理员授权弹框（走权限族的操作提权档）
+- ✅ **电源计划 macOS 档（降级映射）**（🚧 已合入待真机）：档集合退化 [Balanced, PowerSaver]（低电量开关映射，性能档不做——High Power 机型限定）；读走 `pmset -g`（免权限），写走 `osascript` 管理员授权弹框（每次一弹的操作提权，用户取消按失败出声）；实现全走 CLI（pr_run），解析纯函数白盒钉住
 - ⏳ **mac 自启动升级登录项形态**：现走 LaunchAgents plist（系统「App 后台活动」按可执行文件名显示、身份栏标 ad-hoc 开发者）；换 `SMAppService`/登录项可显示应用名与图标
 - ⏳ **mac autostart 查询读系统侧禁用位**：`autostart_is_enabled` 目前按 plist 存在与否判断，系统设置「App 后台活动」里关掉后 plist 仍在、会误报已开启（Linux 档已认 Hidden 位，mac 补 launchd 状态读数）
 - ⏳ **Wayland 原生路径**：portal / 夜灯 / 全局热键在 Wayland 会话的原生通道

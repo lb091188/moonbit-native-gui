@@ -286,11 +286,11 @@ extern "c" fn ffi_pp_set(guid : Bytes, ok : Ref[Int]) -> Int = "yue_sys_pp_set"
 /// 当前系统是否支持电源计划（powerprofilesctl 存在且可查询）。每次调用
 /// 真实探测，高频场景请调用方自行缓存结果。
 pub fn pp_supported() -> Bool {
-  // macOS 的电源方案没有可对齐的公开口：`pmset` 能读到 `lowpowermode`，
-  // 但「性能档」在 mac 上不是一套可枚举的 scheme（High Power Mode 机型限定、
-  // 写操作要多权限），三值语义对不上 → 按「没做」出声，不跑 powerprofilesctl。
+  // macOS 走降级映射：档集合退化为 [Balanced, PowerSaver]（低电量开关，
+  // High Power 机型限定不做）；读走 `pmset -g`（免权限），写走 `osascript`
+  // 管理员授权弹框（每次一弹的操作提权，走权限叙事）
   if sys_platform() == "macos" {
-    return false
+    return true
   }
   if sys_platform() == "windows" {
     return true
@@ -319,16 +319,47 @@ fn pp_windows_profile_of(guid : String) -> PowerProfile? {
   None
 }
 
+// ---------------------------------------------------------------------------
+// macOS 降级映射（低电量开关 ↔ 两档语义）
+// ---------------------------------------------------------------------------
+
+///|
+/// `pmset -g` 输出解析：取 `lowpowermode` 行的值（1/0），读不到给 None。
+fn pp_mac_parse_lowpower(output : String) -> Bool? {
+  for line in output.split("\n") {
+    let parts = line.split(" ")
+    let seen : Array[String] = []
+    for part in parts {
+      if part != "" {
+        let _ = seen.push(part.to_owned())
+      }
+    }
+    if seen.length() >= 2 && seen[0] == "lowpowermode" {
+      return Some(seen[seen.length() - 1] == "1")
+    }
+  }
+  None
+}
+
+///|
+/// mac 档切低电量的 osascript 命令（管理员授权弹框，用户每次输密码/确认）。
+fn pp_mac_set_args(enable_lowpower : Bool) -> Array[String] {
+  let v = if enable_lowpower { "1" } else { "0" }
+  [
+    "-e",
+    "do shell script \"pmset -a lowpowermode \{v}\" with administrator privileges",
+  ]
+}
+
 ///|
 /// 可用电源计划列表（按 `powerprofilesctl list` 输出序；power-profiles-
 /// daemon 未安装 → PpUnsupported；查询失败 → PpCommandFailed；输出中
 /// 解析不到任何计划 → PpParseFailed）。
 pub fn pp_profiles() -> Result[Array[PowerProfile], PowerProfileError] {
-  // macOS 的电源方案没有可对齐的公开口：`pmset` 能读到 `lowpowermode`，
-  // 但「性能档」在 mac 上不是一套可枚举的 scheme（High Power Mode 机型限定、
-  // 写操作要多权限），三值语义对不上 → 按「没做」出声，不跑 powerprofilesctl。
+  // macOS 档集合退化：只有均衡/省电两档（低电量开关映射），性能档不做
+  //（High Power 机型限定且写要提权）。推荐序与系统设置一致：均衡在前。
   if sys_platform() == "macos" {
-    return Err(PpUnsupported)
+    return Ok([PBalanced, PPowerSaver])
   }
   if sys_platform() == "windows" {
     // 推荐序与 Windows 设置一致：均衡在前
@@ -354,11 +385,21 @@ pub fn pp_profiles() -> Result[Array[PowerProfile], PowerProfileError] {
 /// → PpUnsupported；查询失败 → PpCommandFailed；输出不是已知计划名 →
 /// PpParseFailed）。
 pub fn pp_current() -> Result[PowerProfile, PowerProfileError] {
-  // macOS 的电源方案没有可对齐的公开口：`pmset` 能读到 `lowpowermode`，
-  // 但「性能档」在 mac 上不是一套可枚举的 scheme（High Power Mode 机型限定、
-  // 写操作要多权限），三值语义对不上 → 按「没做」出声，不跑 powerprofilesctl。
   if sys_platform() == "macos" {
-    return Err(PpUnsupported)
+    match pr_run("pmset", ["-g"], timeout_ms=4000) {
+      Ok(o) =>
+        match pp_mac_parse_lowpower(o.stdout) {
+          Some(true) => return Ok(PPowerSaver)
+          Some(false) => return Ok(PBalanced)
+          None =>
+            return Err(
+              PpParseFailed("pmset -g: 没有 lowpowermode 行"),
+            )
+        }
+      Err(NonZeroExit(127, _)) => return Err(PpUnsupported)
+      Err(e) =>
+        return Err(PpCommandFailed("pmset -g: \{pp_first_line("\{e}")}"))
+    }
   }
   if sys_platform() == "windows" {
     let ok = Ref(0)
@@ -390,11 +431,22 @@ pub fn pp_current() -> Result[PowerProfile, PowerProfileError] {
 /// 调用方自行走授权流程）。power-profiles-daemon 未安装 → PpUnsupported；
 /// 查询与执行失败 → PpCommandFailed。
 pub fn pp_set(profile : PowerProfile) -> Result[Unit, PowerProfileError] {
-  // macOS 的电源方案没有可对齐的公开口：`pmset` 能读到 `lowpowermode`，
-  // 但「性能档」在 mac 上不是一套可枚举的 scheme（High Power Mode 机型限定、
-  // 写操作要多权限），三值语义对不上 → 按「没做」出声，不跑 powerprofilesctl。
   if sys_platform() == "macos" {
-    return Err(PpUnsupported)
+    // 性能档不在 mac 档集合里（High Power 机型限定且要提权）
+    if profile is PPerformance {
+      return Err(PpCommandFailed("macOS 没有性能档（High Power 机型限定）"))
+    }
+    // 写走管理员授权弹框（每次一弹的操作提权；用户取消密码框按失败出声）
+    match pr_run("osascript", pp_mac_set_args(profile is PPowerSaver), timeout_ms=120000) {
+      Ok(_) => return Ok(())
+      Err(NonZeroExit(code, err)) =>
+        return Err(
+          PpCommandFailed(
+            "osascript: 退出码 \{code}（\{pp_first_line(err)}；取消授权也走这里）",
+          ),
+        )
+      Err(e) => return Err(PpCommandFailed("osascript: \{pp_first_line("\{e}")}"))
+    }
   }
   if sys_platform() == "windows" {
     let ok = Ref(0)

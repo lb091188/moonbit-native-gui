@@ -32,3 +32,28 @@ test "pp Windows 直调读数环：profiles 非空 + current 可识别 + set 回
     }
   }
 }
+
+///|
+test "mac 降级映射:pmset lowpowermode 行解析" {
+  // fixture 按真实 pmset -g 输出格式(多空格对齐 + 前导空格)
+  let out = "System-wide power settings:\n SleepDisabled 0\nCurrently in use:\n standby              1\n lowpowermode         0\n hibernatemode        3\n"
+  assert_eq(pp_mac_parse_lowpower(out), Some(false))
+  let on = " lowpowermode         1\n"
+  assert_eq(pp_mac_parse_lowpower(on), Some(true))
+  assert_eq(pp_mac_parse_lowpower("no-such-line\n"), None)
+  assert_eq(pp_mac_parse_lowpower(""), None)
+}
+
+///|
+test "mac 降级映射:档集合与 osascript 命令构造" {
+  // osascript 的提权命令走管理员授权弹框,命令体要对
+  assert_eq(
+    pp_mac_set_args(true)[1],
+    "do shell script \"pmset -a lowpowermode 1\" with administrator privileges",
+  )
+  assert_eq(
+    pp_mac_set_args(false)[1],
+    "do shell script \"pmset -a lowpowermode 0\" with administrator privileges",
+  )
+  assert_eq(pp_mac_set_args(true)[0], "-e")
+}
