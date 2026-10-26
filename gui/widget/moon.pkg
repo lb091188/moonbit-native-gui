@@ -9,6 +9,7 @@ import {
   "NoahLiu/native-gui/shell" @shell,
   "NoahLiu/yoga-mbt/src" @yoga,
   "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/env" @env,
   "NoahLiu/native-gui/render",
   "NoahLiu/native-gui/theme",
   "NoahLiu/native-gui/win",

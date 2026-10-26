@@ -967,6 +967,10 @@ fn text_batch_init() -> Unit {
 /// 一帧的绘制：根控件恒等尺寸取窗口内容尺寸，布局→绘制→上屏。
 /// 脏区非整窗时把绘制器裁到脏区——控件遍历的视口剔除按当前裁剪框判交，
 /// 裁剪外整块跳过；位图按窗复用保留上一帧内容，裁剪外像素即上一帧。
+// 布局诊断读数的上一帧宽（见 paint_frame 的 NATIVEGUI_LAYOUT_LOG）。
+let layout_log_last_w : Ref[Int] = Ref(0)
+
+///|
 pub fn App::paint_frame(self : App) -> Unit {
   text_batch_init()
   // 帧号先进一格：被画到的控件在这一格里记账，自转组件据此判断「这帧有没有我」
@@ -976,6 +980,14 @@ pub fn App::paint_frame(self : App) -> Unit {
   self.dirty_full = false
   self.dirty_rect = None
   let (w, h) = self.session.window.size()
+  // 诊断读数：NATIVEGUI_LAYOUT_LOG 非空时，宽度变化的绘制帧打一行——
+  // 定位「resize 后内容不重排」类问题的断点（事件 / 账本 / 布局哪层没跟上）。
+  // 关闭时零开销（每帧一次字符串比较之外只有一次 env 读……env 读也在门里）。
+  if w != layout_log_last_w.val &&
+    @env.get_env_var("NATIVEGUI_LAYOUT_LOG") is Some(_) {
+    layout_log_last_w.val = w
+    println("LAYOUT-FRAME w=\{w} h=\{h}")
+  }
   if w < 1 || h < 1 {
     // 盒还没成好，这一帧画不了——但**别把脏标记吃掉**：画不了就没布局，收框也就
     // 永远量不到内容尺寸，两者互相等就成了「窗在、点位对、整块空白」的死局
