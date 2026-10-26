@@ -1563,6 +1563,46 @@ static void pt_layout(PtPara *p, int max_width, int ellipsize, int wrap) {
     if (line_end <= line_start) {
       line_end = i > line_start ? i : line_start + 1;
     }
+    // 贪心装完后按「整行联排实宽」修剪。累加用的是各断行单元的**孤测**宽，
+    // 而 CoreText 联排时才施加标点/混排字距调整（实测每单元约 +0.9px），
+    // 孤测之和会系统性低估整行宽——真机 mac：842 限宽累加 838.5 判定放得下，
+    // 联排实宽 878.8，行尾三个字符被节点裁掉（「段描述吞字」）。回退到放得
+    // 下为止；只剩单个断行单元时按 min-content 语义允许超（与长词硬断同档）。
+    if (lim > 0.0 && line_end > line_start + 1) {
+      double actual = pt_range_width(p, line_start, line_end, 0);
+      while (actual > lim && line_end > line_start + 1) {
+        int k = line_start;
+        int prev_boundary = line_start;
+        int on_boundary = 0;
+        while (k < line_end) {
+          int ue = pt_unit_end(p, k);
+          if (ue == line_end) {
+            on_boundary = 1;
+            break;
+          }
+          if (ue > line_end) {
+            break;
+          }
+          prev_boundary = ue;
+          k = ue;
+        }
+        int new_end;
+        if (on_boundary) {
+          if (prev_boundary <= line_start) {
+            break;
+          }
+          new_end = prev_boundary;
+        } else {
+          new_end = line_end - 1;
+        }
+        if (new_end <= line_start) {
+          break;
+        }
+        line_end = new_end;
+        actual = pt_range_width(p, line_start, line_end, 0);
+      }
+      i = line_end;
+    }
     CTLineRef l = pt_line_create(p, 0, line_start, line_end);
     if (l != NULL) {
       double asc = 0, desc = 0, lead = 0;
