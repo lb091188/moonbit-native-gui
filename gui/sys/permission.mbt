@@ -118,6 +118,22 @@ pub fn permission_request(kind : PermissionKind) -> Result[Unit, PermissionError
 }
 
 ///|
+/// 便捷组合（能力入口的内联权限守卫）：已授权（或本平台不需要）返回
+/// `true`，调用方直接干活；未授权则**弹系统引导框**并返回 `false`——调用方
+/// 提示「已弹授权框，授权后重试」即可，用户回来再走一遍入口自然通过。
+/// 探测失败按未授权处理（同样给引导，宁多弹不静默失败）。
+pub fn permission_ensure(kind : PermissionKind) -> Bool {
+  match permission_probe(kind) {
+    Ok(PermGranted) => true
+    Ok(PermNotNeeded) => true
+    _ => {
+      let _ = permission_request(kind)
+      false
+    }
+  }
+}
+
+///|
 #borrow(ok)
 extern "c" fn ffi_permission_probe(kind : Int, ok : Ref[Int]) -> Int = "wm_permission_probe"
 
