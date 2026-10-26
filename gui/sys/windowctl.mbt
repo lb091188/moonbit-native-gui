@@ -53,6 +53,8 @@ pub(all) enum WinError {
   ParseFailed(String)
   /// 参数非法（id_or_title / 标题为空），带说明
   InvalidParam(String)
+  /// 权限缺失（mac 关闭窗口要辅助功能；用 @sys.permission_request 引导）
+  Denied(String)
 }
 
 ///|
@@ -62,6 +64,7 @@ pub impl Show for WinError with fn output(self, logger) {
     CommandFailed(m) => logger.write_string("WinError::CommandFailed(\{m})")
     ParseFailed(m) => logger.write_string("WinError::ParseFailed(\{m})")
     InvalidParam(m) => logger.write_string("WinError::InvalidParam(\{m})")
+    Denied(m) => logger.write_string("WinError::Denied(\{m})")
   }
 }
 
@@ -401,16 +404,16 @@ fn win_win_parse_list(blob : String) -> Array[WindowInfo] {
   out
 }
 ///|
-// macOS 本族保持 Unsupported：mac 的窗口枚举/激活/关闭只有 Accessibility
-// 一条路（`AXUIElement` 或 osascript 问 System Events），两者都要求用户先授予
-// 「辅助功能」权限，未授权时直接报错——不是我们能替用户点的弹窗，故按「没做」
-// 出声而不是跑一次注定失败的命令。Linux 侧若不装 wmctrl/xdotool 也是同样口径。
+// macOS 档：列表/激活走 CGWindowList + NSRunningApplication（免授权，标题要
+// 屏幕录制权限——未授权时无标题窗被解析跳过，列表显著变短即权限信号）；关闭
+// 走 AX（辅助功能，缺失报 Denied）。实现在 win 桩（wm_win_*_mac），sys 桩
+// 按平台转发。
 pub fn win_supported() -> Bool {
   if sys_platform() == "windows" {
     return true
   }
   if sys_platform() == "macos" {
-    return false
+    return true
   }
   if !pr_available() {
     return false
@@ -424,7 +427,12 @@ pub fn win_supported() -> Bool {
 /// Err([WinError.CommandFailed])。
 pub fn win_list() -> Result[Array[WindowInfo], WinError] {
   if sys_platform() == "macos" {
-    return Err(Unsupported)
+    let ok = Ref(0)
+    let b = ffi_win_list(ok)
+    if ok.val != 1 {
+      return Err(CommandFailed("CGWindowList 枚举失败"))
+    }
+    return Ok(win_win_parse_list(@utf8.decode_lossy(b)))
   }
   if sys_platform() == "windows" {
     let ok = Ref(0)
@@ -449,7 +457,12 @@ pub fn win_activate(id_or_title : String) -> Result[Unit, WinError] {
     return Err(InvalidParam("窗口 id 或标题为空"))
   }
   if sys_platform() == "macos" {
-    return Err(Unsupported)
+    let ok = Ref(0)
+    let _ = ffi_win_activate(@utf8.encode(id_or_title), ok)
+    if ok.val == 1 {
+      return Ok(())
+    }
+    return Err(CommandFailed("窗口不存在或激活失败"))
   }
   if sys_platform() == "windows" {
     let ok = Ref(0)
@@ -470,7 +483,15 @@ pub fn win_close(title : String) -> Result[Unit, WinError] {
     return Err(InvalidParam("窗口标题为空"))
   }
   if sys_platform() == "macos" {
-    return Err(Unsupported)
+    let ok = Ref(0)
+    let _ = ffi_win_close(@utf8.encode(title), ok)
+    if ok.val == 1 {
+      return Ok(())
+    }
+    if ok.val == 2 {
+      return Err(Denied("关闭别的应用的窗口要辅助功能权限——用 permission_request(PermAccessibility) 引导授权"))
+    }
+    return Err(CommandFailed("窗口不存在"))
   }
   if sys_platform() == "windows" {
     let ok = Ref(0)

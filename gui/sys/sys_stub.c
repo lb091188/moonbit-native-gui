@@ -2398,6 +2398,12 @@ static BOOL CALLBACK sys_win_enum_cb(HWND h, LPARAM lp) {
 #endif
 
 // 枚举可见顶层窗口：行「0xhwnd\tmonitor\ttitle\n」（UTF-8）。
+// mac 档实现在 win 桩（ObjC：CGWindowList/NSRunningApplication/AX），
+// 这里只转发——sys 的 native-stub 按 C 编，写不了 ObjC。
+#if defined(__APPLE__)
+extern void *wm_win_list_mac(int32_t *ok);
+#endif
+
 void *yue_sys_win_list(int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
@@ -2415,6 +2421,8 @@ void *yue_sys_win_list(int32_t *ok) {
   free(ctx.blob.buf);
   *ok = 1;
   return out;
+#elif defined(__APPLE__)
+  return wm_win_list_mac(ok);
 #else
   return moonbit_make_bytes(0, 0);
 #endif
@@ -2527,6 +2535,9 @@ int32_t yue_sys_win_activate(const char *id_or_title, int32_t *ok) {
   SetForegroundWindow(h);
   *ok = 1;
   return 0;
+#elif defined(__APPLE__)
+  extern int32_t wm_win_activate_mac(const char *id_or_title, int32_t *ok);
+  return wm_win_activate_mac(id_or_title, ok);
 #else
   (void)id_or_title;
   return 0;
@@ -2544,6 +2555,9 @@ int32_t yue_sys_win_close(const char *title, int32_t *ok) {
   PostMessageW(h, WM_CLOSE, 0, 0);
   *ok = 1;
   return 0;
+#elif defined(__APPLE__)
+  extern int32_t wm_win_close_mac(const char *title, int32_t *ok);
+  return wm_win_close_mac(title, ok);
 #else
   (void)title;
   return 0;

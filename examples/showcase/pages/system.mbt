@@ -728,7 +728,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
           [
             @ui.button(@shared.tx("列窗口"), on_click=fn() {
               if !@sys.win_supported() {
-                plat_out.set(@shared.tx("窗口管理：仅 Linux X11（走 wmctrl），本机没有"))
+                plat_out.set(@shared.tx("窗口管理：本平台没有窗口枚举后端"))
               } else {
                 match @sys.win_list() {
                   Ok(ws) => {
@@ -746,7 +746,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
             }),
             @ui.button(@shared.tx("激活第一扇"), variant=@ui.Soft, on_click=fn() {
               if !@sys.win_supported() {
-                plat_out.set(@shared.tx("激活窗口：仅 Linux X11（走 wmctrl）"))
+                plat_out.set(@shared.tx("激活窗口：本平台没有窗口枚举后端"))
               } else {
                 match @sys.win_list() {
                   Ok(ws) =>

@@ -10984,6 +10984,177 @@ void wm_permission_request(int kind) {
   }
 }
 
+// ---- 窗口管理（mac 档，sys/windowctl 的 mac 后端）--------------------------
+//
+// 列表走 CGWindowList（免权限；窗口标题 kCGWindowName 要屏幕录制权限，未授
+// 权时标题为空——行按 Windows 桩同口径跳过，列表会显著变短，权限引导在门面
+// 侧给）。行格式对齐 Windows 桩：「0x<winid>\t-1\t<title>\n」。
+// 激活按归属应用（NSRunningApplication.activate，免授权）——同应用多窗只置
+// 前应用，窗口级精确 Raise 要 AX，属后续增强。
+// 关闭走 AX（辅助功能权限，缺失时 ok=2 让门面报语义化权限错误）：遍历归属
+// 应用的 AXWindows，标题不区分大小写子串匹配，命中按 close button。
+//
+// ok 出参约定：1 = 成功；0 = 找不到/失败；2 = 权限缺失（辅助功能）。
+
+static pid_t wm_win_pid_for(const char *id_or_title) {
+  if (id_or_title == NULL || id_or_title[0] == '\0') {
+    return 0;
+  }
+  CFArrayRef wins = CGWindowListCopyWindowInfo(
+      kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements,
+      kCGNullWindowID);
+  if (wins == NULL) {
+    return 0;
+  }
+  pid_t found = 0;
+  int by_id = id_or_title[0] == '0' &&
+              (id_or_title[1] == 'x' || id_or_title[1] == 'X');
+  unsigned long long wid = by_id ? strtoull(id_or_title + 2, NULL, 16) : 0;
+  for (NSDictionary *w in (__bridge NSArray *)wins) {
+    NSNumber *num = w[(__bridge NSString *)kCGWindowNumber];
+    if (num == nil) {
+      continue;
+    }
+    if (by_id) {
+      if (num.unsignedLongLongValue == wid) {
+        NSNumber *pid = w[(__bridge NSString *)kCGWindowOwnerPID];
+        found = pid != nil ? pid.intValue : 0;
+        break;
+      }
+    } else {
+      NSString *name = w[(__bridge NSString *)kCGWindowName];
+      if (name == nil || [name length] == 0) {
+        continue;
+      }
+      NSString *needle = [NSString stringWithUTF8String:id_or_title];
+      NSRange r = [name rangeOfString:needle
+                              options:NSCaseInsensitiveSearch];
+      if (r.location != NSNotFound) {
+        NSNumber *pid = w[(__bridge NSString *)kCGWindowOwnerPID];
+        found = pid != nil ? pid.intValue : 0;
+        break;
+      }
+    }
+  }
+  CFRelease(wins);
+  return found;
+}
+
+void *wm_win_list_mac(int32_t *ok) {
+  @autoreleasepool {
+    *ok = 0;
+    CFArrayRef wins = CGWindowListCopyWindowInfo(
+        kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements,
+        kCGNullWindowID);
+    if (wins == NULL) {
+      return moonbit_make_bytes(0, 0);
+    }
+    NSMutableString *blob = [NSMutableString new];
+    for (NSDictionary *w in (__bridge NSArray *)wins) {
+      NSNumber *num = w[(__bridge NSString *)kCGWindowNumber];
+      NSString *name = w[(__bridge NSString *)kCGWindowName];
+      if (num == nil || name == nil || [name length] == 0) {
+        continue;
+      }
+      [blob appendFormat:@"0x%llx\t-1\t%@\n",
+                         num.unsignedLongLongValue, name];
+    }
+    CFRelease(wins);
+    const char *utf8 = [blob UTF8String];
+    int len = (int)strlen(utf8);
+    void *out = moonbit_make_bytes(len, 0);
+    if (out != NULL) {
+      memcpy(out, utf8, (size_t)len);
+      *ok = 1;
+    }
+    return out;
+  }
+}
+
+int32_t wm_win_activate_mac(const char *id_or_title, int32_t *ok) {
+  @autoreleasepool {
+    *ok = 0;
+    pid_t pid = wm_win_pid_for(id_or_title);
+    if (pid == 0) {
+      return 0;
+    }
+    NSRunningApplication *app =
+        [NSRunningApplication runningApplicationWithProcessIdentifier:pid];
+    if (app == nil) {
+      return 0;
+    }
+    if ([app activateWithOptions:NSApplicationActivateAllWindows]) {
+      *ok = 1;
+    }
+    return 0;
+  }
+}
+
+int32_t wm_win_close_mac(const char *title, int32_t *ok) {
+  @autoreleasepool {
+    *ok = 0;
+    // 关闭要按到别的应用的关闭按钮：辅助功能权限缺失时给语义化权限错误
+    NSDictionary *trustOpts = @{
+      (__bridge NSString *)kAXTrustedCheckOptionPrompt : @NO
+    };
+    if (!AXIsProcessTrustedWithOptions(
+            (__bridge CFDictionaryRef)trustOpts)) {
+      *ok = 2;
+      return 0;
+    }
+    pid_t pid = wm_win_pid_for(title);
+    if (pid == 0) {
+      return 0;
+    }
+    AXUIElementRef app = AXUIElementCreateApplication(pid);
+    if (app == nil) {
+      return 0;
+    }
+    CFArrayRef windows = NULL;
+    AXUIElementCopyAttributeValue(app, kAXWindowsAttribute,
+                                  (CFTypeRef *)&windows);
+    int32_t done = 0;
+    if (windows != NULL) {
+      NSString *needle = [NSString stringWithUTF8String:title];
+      for (id w in (__bridge NSArray *)windows) {
+        AXUIElementRef win = (__bridge AXUIElementRef)w;
+        CFTypeRef t = NULL;
+        if (AXUIElementCopyAttributeValue(win, kAXTitleAttribute,
+                                          &t) == kAXErrorSuccess &&
+            t != NULL) {
+          NSString *axTitle =
+              CFBridgingRelease(t); // t 为 CFStringRef
+          NSRange r = [axTitle rangeOfString:needle
+                                     options:NSCaseInsensitiveSearch];
+          if (r.location != NSNotFound) {
+            CFTypeRef closeBtn = NULL;
+            if (AXUIElementCopyAttributeValue(win, kAXCloseButtonAttribute,
+                                              &closeBtn) ==
+                    kAXErrorSuccess &&
+                closeBtn != NULL) {
+              AXError pr = AXUIElementPerformAction(
+                  (AXUIElementRef)closeBtn, kAXPressAction);
+              if (pr == kAXErrorSuccess) {
+                done = 1;
+              }
+              CFRelease(closeBtn);
+            }
+          }
+        }
+        if (done) {
+          break;
+        }
+      }
+      CFRelease(windows);
+    }
+    CFRelease(app);
+    if (done) {
+      *ok = 1;
+    }
+    return 0;
+  }
+}
+
 int wm_notify_title(int slot, char *out, int cap) {
   @autoreleasepool {
     slot = wm_notify_slot_of(slot);

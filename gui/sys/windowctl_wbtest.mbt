@@ -296,5 +296,6 @@ test "win Windows 直调读数环：枚举到本进程窗口 + 标题子串命�
     Ok(_) => println("win: activate unexpected hit (容忍)")
     Err(Unsupported) => assert_true(false)
     Err(ParseFailed(_)) => println("win: activate miss (parse)")
+    Err(Denied(_)) => println("win: activate miss (denied)")
   }
 }
