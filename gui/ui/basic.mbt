@@ -359,43 +359,19 @@ pub fn image(
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let img = @render.Image::new_from_file(path)
-  let iw = img.get_width()
-  let ih = img.get_height()
-  let ratio = if ih > 0.0 { iw / ih } else { 1.0 }
-  let box_h = if height > 0.0 {
-    height
-  } else if width > 0.0 {
-    width / ratio
-  } else {
-    ih
-  }
+  let w0 = if width > 0.0 { width } else { img.get_width() }
+  let h0 = if height > 0.0 { height } else { img.get_height() }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
-    if width > 0.0 || height > 0.0 {
-      w.node.set_width(if width > 0.0 { @yoga.fixed(width) } else { @yoga.fixed(iw) })
-      w.node.set_height(@yoga.fixed(box_h))
-    } else {
-      // 不给尺寸 = 跟随容器：可用宽比原图窄时等比缩，宽够用时保持原图（不放大）
-      w.node.set_measure(fn(aw : Double?, _ah : Double?) -> (Double, Double) {
-        let cap = match aw {
-          Some(v) if v > 0.0 => v
-          _ => iw
-        }
-        let ww = cap.min(iw)
-        (ww, ww / ratio)
-      })
-    }
+    w.node.set_width(@yoga.fixed(w0))
+    w.node.set_height(@yoga.fixed(h0))
     w.on_draw = Some(fn(
       _self : @widget.Widget,
       p : @render.Painter,
       r : @base.Rect,
     ) -> Unit {
-      if !img.is_empty() && iw > 0.0 && ih > 0.0 {
-        // contain：取盒子与原图比例的小者等比落笔，居中
-        let s = (r.w / iw).min(r.h / ih)
-        let dw = iw * s
-        let dh = ih * s
+      if !img.is_empty() {
         p.flush()
-        p.draw_image(img, (r.w - dw) / 2.0, (r.h - dh) / 2.0, dw, dh)
+        p.draw_image(img, 0.0, 0.0, r.w, r.h)
       }
     })
     handle(w)

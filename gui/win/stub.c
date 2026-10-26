@@ -8591,7 +8591,28 @@ static uint32_t wm_keysym_of(NSEvent *ev) {
                         kCGRenderingIntentDefault);
   }
   if (img != NULL) {
-    CGContextDrawImage(ctx, self.bounds, img);
+    // 上一帧**按原尺寸贴左上角**，不拉伸填满视图。拖窗口时视图尺寸先变、
+    // MoonBit 的新帧后到，这一段里若把旧帧拉满 bounds，整屏内容就被糊成变形
+    // 的一坨（用户观感「resize 时截图拉伸填充窗口」）。稳态下帧宽恰好等于
+    // 视图宽，dst 与 bounds 重合，行为不变；只有尺寸不一致的这一瞬才显形。
+    // 非翻转视图 y 从底起，所以「贴左上」= origin.y = bounds 高 − 帧高。
+    CGFloat f = wm_scale_of(s);
+    CGFloat iw = (CGFloat)s->backing_w / f;
+    CGFloat ih = (CGFloat)s->backing_h / f;
+    NSRect b = self.bounds;
+    if (iw > 0.5 && ih > 0.5 && (iw < b.size.width - 0.5 || ih < b.size.height - 0.5)) {
+      // 露出的新区域用帧的左上角像素填（自绘 UI 的左上通常是窗口底色），
+      // 免得留下系统预铺的拉伸残影
+      unsigned char *tl = s->backing;
+      CGContextSetRGBFillColor(ctx, (CGFloat)tl[2] / 255.0,
+                               (CGFloat)tl[1] / 255.0, (CGFloat)tl[0] / 255.0,
+                               1.0);
+      CGContextFillRect(ctx, b);
+    }
+    NSRect dst = (iw > 0.5 && ih > 0.5)
+                     ? NSMakeRect(0, b.size.height - ih, iw, ih)
+                     : b;
+    CGContextDrawImage(ctx, dst, img);
     CGImageRelease(img);
   } else {
     s->need_draw = 1;
