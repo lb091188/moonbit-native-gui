@@ -291,3 +291,47 @@ test "横滚内容宽：自然宽超视口时才溢出可滚" {
   )
   assert_true(st.max_x() > 0.0)
 }
+
+///|
+test "横滚下限档：内容宽只看 min_content_width，不被子项自然宽顶宽" {
+  // 自然宽档会让子项（自带横滚的宽代码块）的自然宽一路上浮，把外层容器的
+  // min-width 顶掉（设 400 实得 573）。下限档下外层只认那个数，
+  // 更宽的内容由它自己的视口滚。
+  let long_line =
+    "let x = \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\""
+  let st = ScrollState::new()
+  let inner_code : Ref[@widget.Widget] = Ref(@widget.Widget::new())
+  let page = col([
+    view(
+      [code_view([long_line])],
+      handle=fn(w : @widget.Widget) -> Unit { inner_code.val = w },
+    ),
+  ])
+  let (root, vp) = mounted(
+    scroll_view(
+      [page],
+      st,
+      width=500.0,
+      height=200.0,
+      hscroll=true,
+      min_content_width=400.0,
+    ),
+    500.0,
+    220.0,
+  )
+  let _ = paint(root, 500, 220)
+  // 外层内容宽 = 视口宽（500 > 400 下限），不被代码的 573+ 顶宽
+  let outer_content = vp.children()[0]
+  assert_true(
+    outer_content.rect.w < 520.0,
+    msg="外层被子项自然宽顶到 \{outer_content.rect.w}，min_content_width 没生效",
+  )
+  assert_eq(st.max_x(), 0.0)
+  // 代码块自己仍然滚得动：它的视口 500，内容比它宽
+  let code_vp = inner_code.val.children()[0]
+  let code_content = code_vp.children()[0]
+  assert_true(
+    code_content.rect.w > code_vp.rect.w,
+    msg="代码块没溢出自己的视口，content=\{code_content.rect.w}",
+  )
+}

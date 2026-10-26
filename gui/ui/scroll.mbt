@@ -276,12 +276,19 @@ fn scroll_bar_h(state : ScrollState) -> @widget.Widget {
 ///|
 /// 垂直滚动容器：`height` 是视口高（0 = 由父容器给），内容按自然高度排布并可
 /// 超出视口；超出部分被裁剪，滚动条画在右缘。
+/// `hscroll=true` 开横向档，内容宽有两档：
+/// - 缺省（`min_content_width=0`）= 自然宽档：`max(子项自然宽, 视口宽)`，给
+///   代码长行/表格这类不可折内容用；
+/// - 给了 `min_content_width` = 下限档：`max(min_content_width, 视口宽)`，
+///   **不取子项自然宽**——子项更宽时由它自己的滚动负责，这个 min-width 才是
+///   唯一说了算的数。
 pub fn scroll_view(
   children : Array[@widget.Node],
   state : ScrollState,
   width? : Double = 0.0,
   height? : Double = 0.0,
   hscroll? : Bool = false,
+  min_content_width? : Double = 0.0,
   class? : Array[@style.Style] = [],
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
@@ -318,13 +325,18 @@ pub fn scroll_view(
     // 不收缩：内容必须按自然高度撑开，超出视口的部分才谈得上滚动
     content.node.set_flex_shrink(0.0)
     if hscroll {
-      // 横向档：内容宽 = max(自然宽, 视口宽)——`align_self FlexStart` 退掉交叉轴
-      // stretch 让自然宽可超视口，`min_width percent 100` 补回视口下限。缺下限
-      // 时内容只有自然宽，内部 percent 子项（表格列）没有确定参照，会拿内在
-      // 探询值当基准并冻住（真机 resize 后表格不重排）。
+      // 横向档：`align_self FlexStart` 退掉交叉轴 stretch，让内容可比视口宽
       content.node.set_align_self(Some(@yoga.AlignItems::FlexStart))
-      content.node.set_min_width(@yoga.percent(100.0))
       content.node.set_left(@yoga.fixed(0.0 - state.offset_x))
+      if min_content_width > 0.0 {
+        // 下限档：内容宽 = max(min_content_width, 视口宽)，不看子项自然宽
+        content.node.set_width(@yoga.percent(100.0))
+        content.node.set_min_width(@yoga.fixed(min_content_width))
+      } else {
+        // 自然宽档：内容宽 = max(自然宽, 视口宽)——缺视口下限时内部 percent
+        // 子项（表格等分列）没有确定参照（真机 markdown 表格 resize 不重排）
+        content.node.set_min_width(@yoga.percent(100.0))
+      }
     } else {
       content.node.set_width(@yoga.percent(100.0))
     }
