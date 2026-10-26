@@ -1198,7 +1198,10 @@ fn layout_into_impl(
     // 交叉轴内容尺寸（用最终主尺寸约束重测）
     for it in line {
       match it.cross_definite {
-        Some(v) => it.final_cross = v
+        // 规范 §9.4：交叉轴尺寸无论来自确定值还是内容，都要过 min/max 夹取
+        // （漏了这步时 `width: 100%` + `min-width: 400` 的下限被绕过——
+        // 容器比 400 窄时项仍等于容器宽，min-width 静默失效）
+        Some(v) => it.final_cross = clamp3(v, it.min_cross, it.max_cross)
         None =>
           match it.node.style.aspect_ratio {
             // 规范 §9.4：主轴尺寸已定（含弹性解析结果）→ 交叉轴假想尺寸由比例换算

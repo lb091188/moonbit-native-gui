@@ -335,3 +335,26 @@ test "横滚下限档：内容宽只看 min_content_width，不被子项自然�
     msg="代码块没溢出自己的视口，content=\{code_content.rect.w}",
   )
 }
+
+///|
+test "横滚下限档：视口窄于下限时内容钉在下限并可滚" {
+  // min-width 的完整语义：< 下限取下限，> 下限取分配宽。
+  // 交叉轴确定值漏过 min/max 夹取时，这里会得 300（跟随视口）而不是 400。
+  let st = ScrollState::new()
+  let (root, vp) = mounted(
+    scroll_view(
+      [col([text("内容", font_size=12.0)])],
+      st,
+      width=300.0,
+      height=120.0,
+      hscroll=true,
+      min_content_width=400.0,
+    ),
+    300.0,
+    140.0,
+  )
+  let _ = paint(root, 300, 140)
+  let content = vp.children()[0]
+  assert_eq(content.rect.w, 400.0)
+  assert_eq(st.max_x(), 100.0)
+}

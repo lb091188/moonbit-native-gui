@@ -1580,3 +1580,25 @@ test "行容器内确定高度的内容项，基准不被可用宽压窄" {
   assert_eq(c.layout().width, 200.0)
   assert_eq(c.layout().height, 20.0)
 }
+
+///|
+test "交叉轴确定值仍过 min/max 夹取：width 100% + min-width 400 取 400" {
+  // 漏夹取时 `min-width` 被 `width: 100%` 静默绕过（真机：容器给右侧设
+  // min-width 400，窄窗下内容仍等于视口宽，滚不起来）
+  let root = Node::new()
+  root.set_width(fixed(300.0))
+  root.set_height(fixed(200.0))
+  root.set_flex_direction(Column)
+  root.set_align_items(FlexStart)
+  let a = leaf(100.0, 20.0)
+  a.set_width(percent(100.0))
+  a.set_min_width(fixed(400.0))
+  let b = leaf(100.0, 20.0)
+  b.set_width(percent(100.0))
+  b.set_max_width(fixed(120.0))
+  root.append_child(a)
+  root.append_child(b)
+  calculate_layout(root, Some(300.0), Some(200.0))
+  assert_eq(a.layout().width, 400.0)
+  assert_eq(b.layout().width, 120.0)
+}
