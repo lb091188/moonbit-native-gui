@@ -207,6 +207,31 @@ n.set_progress("正在导出 3/8 个文件", 37.5, width=4)
 n.show()
 ```
 
+## 系统权限（macOS）
+
+躲不开的系统授权做成横切族。macOS 走 TCC：探测走公开口（`AXIsProcessTrusted` / `CGPreflightScreenCaptureAccess`），请求弹**系统自带引导框**（「打开系统设置」对话框），不替用户点任何东西。Windows / Linux 无此概念，恒 `PermNotNeeded`。状态只有「已授 / 未授」两态——「未请求」与「拒绝」在公开 API 层不可区分，应用侧统一按「未授 → 请求 → 引导 → 用户回来再探」的节奏走。
+
+| 函数 | 说明 |
+|---|---|
+| `permission_supported() -> Bool` | 当前平台是否有权限族（macOS） |
+| `permission_probe(kind) -> Result[PermissionStatus, PermissionError]` | 探测当前状态：`PermGranted` / `PermNotGranted` / `PermNotNeeded` |
+| `permission_request(kind) -> Result[Unit, PermissionError]` | 弹系统引导框；**不阻塞等待**，引导后由调用方在合适时机重新探测 |
+
+`PermissionKind`：`PermAccessibility`（辅助功能——激活/操作其他应用窗口要）、`PermScreenRecording`（屏幕录制——读到其他应用窗口标题要）。
+
+```moonbit
+match @sys.permission_probe(@sys.PermAccessibility) {
+  Ok(@sys.PermGranted) => () // 直接干活
+  Ok(_) => {
+    let _ = @sys.permission_request(@sys.PermAccessibility)
+    // 引导框已弹，等用户回来再探
+  }
+  Err(e) => println(e)
+}
+```
+
+另一档「操作提权」（每次一弹：macOS 管理员密码框、将来 Windows UAC）不落本族，随各自能力批处理（如电源计划 macOS 档的写操作走 `osascript` 管理员授权）。
+
 ## 夜间色温
 
 以百分比 0-100 表示色温（0 = 最暖、100 = 6500K 中性即不改动）。两条后端自动探测：`redshift` 存在时优先（`-P -O <K>` 一次性设色温），否则 `xrandr --output <首选输出> --gamma R:G:B`（蓝通道衰减越多越暖；绿通道恒 1.00）。

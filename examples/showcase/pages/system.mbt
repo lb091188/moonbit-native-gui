@@ -690,6 +690,42 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
         ),
         @ui.row(
           [
+            @ui.button(@shared.tx("辅助功能权限"), on_click=fn() {
+              match @sys.permission_probe(@sys.PermAccessibility) {
+                Ok(@sys.PermGranted) =>
+                  plat_out.set(@shared.tx("辅助功能：已授权"))
+                Ok(_) => {
+                  let _ = @sys.permission_request(@sys.PermAccessibility)
+                  plat_out.set(
+                    @shared.tx("辅助功能：未授权，已弹系统引导框——授权后回来重探"),
+                  )
+                }
+                Err(e) => plat_out.set("辅助功能权限探测失败：\{e}")
+              }
+            }),
+            @ui.button(@shared.tx("屏幕录制权限"), variant=@ui.Soft, on_click=fn() {
+              match @sys.permission_probe(@sys.PermScreenRecording) {
+                Ok(@sys.PermGranted) =>
+                  plat_out.set(@shared.tx("屏幕录制：已授权"))
+                Ok(_) => {
+                  let _ = @sys.permission_request(@sys.PermScreenRecording)
+                  plat_out.set(
+                    @shared.tx("屏幕录制：未授权，已弹系统引导框——授权后回来重探"),
+                  )
+                }
+                Err(e) => plat_out.set("屏幕录制权限探测失败：\{e}")
+              }
+            }),
+            @ui.text(
+              @shared.tx("permission_probe / permission_request（mac）"),
+              role=@ui.Secondary,
+            ),
+          ],
+          column_gap=8.0,
+          align_items=@yoga.AlignItems::Center,
+        ),
+        @ui.row(
+          [
             @ui.button(@shared.tx("列窗口"), on_click=fn() {
               if !@sys.win_supported() {
                 plat_out.set(@shared.tx("窗口管理：仅 Linux X11（走 wmctrl），本机没有"))

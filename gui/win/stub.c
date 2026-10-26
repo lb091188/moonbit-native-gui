@@ -10936,6 +10936,54 @@ int wm_notify_count(void) {
   return n;
 }
 
+// ---- 系统权限（macOS TCC）------------------------------------------------
+//
+// 授权是系统面的躲不开场景，这里先落 mac 两档首批消费者要用的：
+//   kind 0 = 辅助功能（Accessibility）——窗口管理的激活/关闭要
+//   kind 1 = 屏幕录制（Screen Recording）——枚举窗口标题要
+// 探测走公开口（AXIsProcessTrusted / CGPreflightScreenCaptureAccess），请求
+// 走系统自带引导框（AXIsProcessTrustedWithOptions 的 prompt 版弹「打开系统
+// 设置」对话框、CGRequestScreenCaptureAccess 同理）——引导归系统，不替用户
+// 点任何东西。状态语义只有「当前已授/未授」两态：TCC 的未请求与拒绝在公开
+// API 层不可区分，应用侧语义统一按「未授→请求→引导→用户回来再探」走。
+
+int wm_permission_probe(int kind, int32_t *ok) {
+  @autoreleasepool {
+    if (ok != NULL) {
+      *ok = 1;
+    }
+    if (kind == 0) {
+      return AXIsProcessTrusted() ? 1 : 0;
+    }
+    if (kind == 1) {
+      if (@available(macOS 10.15, *)) {
+        return CGPreflightScreenCaptureAccess() ? 1 : 0;
+      }
+      return 1; // 10.15 前没有屏幕录制权限概念
+    }
+    if (ok != NULL) {
+      *ok = 0; // 未知 kind
+    }
+    return -1;
+  }
+}
+
+void wm_permission_request(int kind) {
+  @autoreleasepool {
+    if (kind == 0) {
+      NSDictionary *opts = @{
+        (__bridge NSString *)kAXTrustedCheckOptionPrompt : @YES
+      };
+      AXIsProcessTrustedWithOptions(
+          (__bridge CFDictionaryRef)opts); // 弹系统引导对话框
+    } else if (kind == 1) {
+      if (@available(macOS 10.15, *)) {
+        CGRequestScreenCaptureAccess(); // 弹系统引导对话框
+      }
+    }
+  }
+}
+
 int wm_notify_title(int slot, char *out, int cap) {
   @autoreleasepool {
     slot = wm_notify_slot_of(slot);
