@@ -104,6 +104,50 @@ fn nl_redshift_set_args(percent : Int) -> Array[String] {
 }
 
 // ---------------------------------------------------------------------------
+// Windows gamma 直调（SetDeviceGammaRamp）
+// ---------------------------------------------------------------------------
+
+///|
+/// Windows gamma ramp 字节串：三通道各 256 项 WORD 小端（1536 字节），曲线 =
+/// pow(i/255, gamma)，gamma 千分比与 xrandr 路径同源（红提亮/蓝衰减，绿恒
+/// 1.00）。语义与 `--gamma` 完全一致——GDI 的 ramp 就是这条幂曲线。
+/// 全 1.00（identity）即复位：pow 归一曲线尾值 65535、i*257 恒等斜坡。
+fn nl_ramp_bytes(red_permille : Int, blue_permille : Int) -> Bytes {
+  let out : Array[Byte] = []
+  for ch in 0..<3 {
+    let permille = match ch {
+      0 => red_permille
+      1 => 1000
+      _ => blue_permille
+    }
+    let g = permille.to_double() / 1000.0
+    for i in 0..<256 {
+      let v = @math.pow(i.to_double() / 255.0, g) * 65535.0
+      let w = if v < 0.0 {
+        0
+      } else if v > 65535.0 {
+        65535
+      } else {
+        v.to_int()
+      }
+      let _ = out.push((w & 0xFF).to_byte())
+      let _ = out.push(((w >> 8) & 0xFF).to_byte())
+    }
+  }
+  Bytes::from_array(out)
+}
+
+///|
+/// 单通道恒等斜坡 WORD 值：i*257（0,257,…,65535）。
+fn nl_ramp_identity_word(i : Int) -> Int {
+  i * 257
+}
+
+///|
+#borrow(ramp, ok)
+extern "c" fn ffi_nl_set_ramp(ramp : Bytes, ok : Ref[Int]) -> Unit = "yue_sys_nl_set_ramp"
+
+// ---------------------------------------------------------------------------
 // 后端探测（redshift 优先；可用性判定均为只读调用）
 // ---------------------------------------------------------------------------
 
@@ -174,10 +218,11 @@ fn nl_backend() -> NlBackend? {
 /// 当前系统是否支持夜间色温调节（redshift 或 xrandr 任一可用）。
 /// 每次调用真实探测，高频场景请调用方自行缓存结果。
 pub fn nl_supported() -> Bool {
-  // Windows 无公开色温 API：夜间模式状态存 CloudStore 二进制 blob，
-  // 跨版本脆弱，不做 hack（诚实 Unsupported，gamma 直调待评估）
+  // Windows 走 SetDeviceGammaRamp 直调（gdi32 公开口，全虚拟屏 DC 一把设齐
+  // 所有输出；曲线换算与 xrandr gamma 同源）。系统「夜间模式」的开关状态
+  // 存 CloudStore 私有 blob，不碰；gamma 直调与其互不干扰。
   if sys_platform() == "windows" {
-    return false
+    return true
   }
   nl_backend() is Some(_)
 }
@@ -189,6 +234,16 @@ pub fn nl_supported() -> Bool {
 /// 无主输出取首个已连接输出）。
 pub fn nl_set_temperature(percent : Int) -> Result[Unit, NightlightError] {
   let p = nl_clamp_percent(percent)
+  if sys_platform() == "windows" {
+    let w = nl_warmth(p)
+    let ramp = nl_ramp_bytes(nl_red_gamma(w), nl_blue_gamma(w))
+    let ok = Ref(0)
+    ffi_nl_set_ramp(ramp, ok)
+    if ok.val != 1 {
+      return Err(CommandFailed("SetDeviceGammaRamp 失败"))
+    }
+    return Ok(())
+  }
   match nl_backend() {
     None => Err(Unsupported)
     Some(NlRedshift) => nl_run("redshift", nl_redshift_set_args(p))
@@ -204,6 +259,14 @@ pub fn nl_set_temperature(percent : Int) -> Result[Unit, NightlightError] {
 /// 复位色温（恢复中性）：redshift 存在走 `redshift -x`，否则走
 /// `xrandr --gamma 1.00:1.00:1.00`（不带 --output，复位全部输出）。
 pub fn nl_reset() -> Result[Unit, NightlightError] {
+  if sys_platform() == "windows" {
+    let ok = Ref(0)
+    ffi_nl_set_ramp(nl_ramp_bytes(1000, 1000), ok)
+    if ok.val != 1 {
+      return Err(CommandFailed("SetDeviceGammaRamp 复位失败"))
+    }
+    return Ok(())
+  }
   match nl_backend() {
     None => Err(Unsupported)
     Some(NlRedshift) => nl_run("redshift", ["-x"])
@@ -240,4 +303,40 @@ fn nl_pick_output() -> String? {
       }
     }
   }
+}
+
+///|
+test "nl_ramp_bytes 形状：长度/端点/通道序/恒等" {
+  let r = nl_ramp_bytes(1000, 1000)
+  assert_eq(r.length(), 1536)
+  // 恒等 gamma(千分比 1000)= pow(i/255, 1.0)*65535 = i*257,三通道一致
+  for ch in 0..<3 {
+    for i in [0, 1, 128, 255] {
+      let off = ch * 512 + i * 2
+      let w = r[off].to_int() | (r[off + 1].to_int() << 8)
+      assert_eq(w, nl_ramp_identity_word(i))
+    }
+  }
+}
+
+///|
+test "nl_ramp_bytes 蓝衰减：最暖档蓝通道低于红通道" {
+  // warmth=100:红 gamma 0.85(上提)、蓝 gamma 2.20(下压)
+  let r = nl_ramp_bytes(850, 2200)
+  let word_at = fn(ch : Int, i : Int) -> Int {
+    let off = ch * 512 + i * 2
+    r[off].to_int() | (r[off + 1].to_int() << 8)
+  }
+  // 中段采样:红应高于蓝(gamma<1 上提 vs gamma>1 下压)
+  assert_true(word_at(0, 128) > word_at(2, 128))
+  // 单调递增(GDI ramp 约束)
+  let mut prev = 0
+  for i in 0..<256 {
+    let w = word_at(2, i)
+    assert_true(w >= prev)
+    prev = w
+  }
+  // 端点:0 → 0,255 → 65535
+  assert_eq(word_at(2, 0), 0)
+  assert_eq(word_at(2, 255), 65535)
 }

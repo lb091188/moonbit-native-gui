@@ -771,9 +771,9 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
           [
             @ui.button(@shared.tx("夜间色温 60%"), on_click=fn() {
               match @sys.nl_set_temperature(60) {
-                Ok(_) => plat_out.set(@shared.tx("夜间色温已设 60%（redshift 优先，否则 xrandr gamma）"))
+                Ok(_) => plat_out.set(@shared.tx("夜间色温已设 60%（Windows gamma 直调 / Linux redshift 或 xrandr）"))
                 Err(@sys.NightlightError::Unsupported) =>
-                  plat_out.set(@shared.tx("夜间色温：本机没有 redshift 也没有可用 xrandr 输出"))
+                  plat_out.set(@shared.tx("夜间色温：本平台没有可用的色温后端"))
                 Err(e) => plat_out.set("夜间色温设置失败：\{e}")
               }
             }),
@@ -781,7 +781,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
               match @sys.nl_reset() {
                 Ok(_) => plat_out.set(@shared.tx("夜间色温已复位"))
                 Err(@sys.NightlightError::Unsupported) =>
-                  plat_out.set(@shared.tx("夜间色温复位：本机没有色温后端"))
+                  plat_out.set(@shared.tx("夜间色温：本平台没有可用的色温后端"))
                 Err(e) => plat_out.set("复位失败：\{e}")
               }
             }),

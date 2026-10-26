@@ -261,7 +261,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 - ⏳ **权限基础设施（@sys permission）**：躲不开的系统授权做成横切族，两档语义——**系统权限**（一次性：辅助功能、屏幕录制、通知、全盘访问；probe 查状态 / request 引导到系统设置对应面板，不替用户点弹窗）与**操作提权**（每次一弹：macOS 管理员 `osascript` 密码框，将来 Windows UAC 与子进程提权场景）。Windows / Linux 的系统权限恒 NotNeeded。首批消费者是窗口管理 mac 档（辅助功能）与电源计划 mac 写档（管理员提权）
 - ✅ **窗口管理 macOS 档**（🚧 已合入待真机）：win_list 走 `CGWindowList`（窗口 id / 标题——标题需屏幕录制权限，无权限时无标题窗被跳过、列表变短即权限信号）、win_activate 走归属应用激活（免授权）、win_close 走 `AXUIElement` 关闭按钮（辅助功能，缺失报 `Denied` 引导用 permission_request）；行格式对齐 Windows 桩（`0x<winid>\t-1\t<title>`），sys 桩按平台转发到 win 桩（ObjC）
-- ⏳ **夜间色温 Windows 档**：`SetDeviceGammaRamp` 直调（percent→色温→RGB 三通道斜坡，redshift 同式换算），percent 100 = 标准斜坡即复位；撤掉「无公开 API」的旧判（gamma 桌面斜坡就是公开口）
+- ✅ **夜间色温 Windows 档**（🚧 已合入待真机）：`SetDeviceGammaRamp` 直调（gdi32，全虚拟屏 DC 一把设齐所有输出）；ramp 构造是 MoonBit 纯函数（pow 曲线，gamma 千分比与 xrandr 路径同源——红提亮/蓝衰减/绿恒 1.00），恒等斜坡即复位；撤掉「无公开 API」的旧判（gamma 桌面斜坡就是公开口）
 - ⏳ **夜间色温 macOS 档**：全屏点击穿透覆盖窗（置顶 + 跨空间 + `ignoresMouseEvents`，暖色 alpha 按 percent 换算）；实现落 win 桩（sys 的 mac 侧符号本就直链 win 桩先例：wm_file_*）
 - ⏳ **电源计划 macOS 档（降级映射）**：档集合退化为 [Balanced, PowerSaver]（低电量开关映射，High Power 机型限定不做）；读走 `pmset -g`（免权限）、写走 `osascript` 管理员授权弹框（走权限族的操作提权档）
 - ⏳ **mac 自启动升级登录项形态**：现走 LaunchAgents plist（系统「App 后台活动」按可执行文件名显示、身份栏标 ad-hoc 开发者）；换 `SMAppService`/登录项可显示应用名与图标

@@ -2565,6 +2565,29 @@ int32_t yue_sys_win_close(const char *title, int32_t *ok) {
 }
 
 // ---------------------------------------------------------------------------
+// 夜间色温 Windows 直调（SetDeviceGammaRamp，gdi32）：ramp 是三通道各 256 项
+// WORD 小端（1536 字节），曲线由 MoonBit 侧构造（gamma 千分比与 xrandr 路径
+// 同源）。全虚拟屏 DC 一把设齐所有输出；复位传恒等斜坡（i*257）。
+// ---------------------------------------------------------------------------
+
+void yue_sys_nl_set_ramp(const void *ramp, int32_t *ok) {
+  *ok = 0;
+#if defined(_WIN32)
+  HDC dc = GetDC(NULL);
+  if (dc == NULL) {
+    return;
+  }
+  BOOL r = SetDeviceGammaRamp(dc, (const WORD *)ramp);
+  ReleaseDC(NULL, dc);
+  if (r) {
+    *ok = 1;
+  }
+#else
+  (void)ramp;
+#endif
+}
+
+// ---------------------------------------------------------------------------
 // 平台批③（Windows 直调）：文件修改时间（appfind/recent 的排序依据）。
 // ---------------------------------------------------------------------------
 
