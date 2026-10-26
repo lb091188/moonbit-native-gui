@@ -264,8 +264,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **夜间色温 Windows 档**（🚧 已合入待真机）：`SetDeviceGammaRamp` 直调（gdi32，全虚拟屏 DC 一把设齐所有输出）；ramp 构造是 MoonBit 纯函数（pow 曲线，gamma 千分比与 xrandr 路径同源——红提亮/蓝衰减/绿恒 1.00），恒等斜坡即复位；撤掉「无公开 API」的旧判（gamma 桌面斜坡就是公开口）
 - ✅ **夜间色温 macOS 档**（🚧 已合入待真机）：全屏点击穿透覆盖层（每屏一扇置顶窗，`CGShieldingWindowLevel` + 跨空间常驻 + `ignoresMouseEvents`，暖色 alpha = 暖度×0.22，percent 100 即摘除）；Night Shift 私有口做不了，f.lux 同款替代机制；实现落 win 桩 `wm_screen_tint_apply`
 - ✅ **电源计划 macOS 档（降级映射）**（🚧 已合入待真机）：档集合退化 [Balanced, PowerSaver]（低电量开关映射，性能档不做——High Power 机型限定）；读走 `pmset -g`（免权限），写走 `osascript` 管理员授权弹框（每次一弹的操作提权，用户取消按失败出声）；实现全走 CLI（pr_run），解析纯函数白盒钉住
-- ⏳ **mac 自启动升级登录项形态**：现走 LaunchAgents plist（系统「App 后台活动」按可执行文件名显示、身份栏标 ad-hoc 开发者）；换 `SMAppService`/登录项可显示应用名与图标
-- ⏳ **mac autostart 查询读系统侧禁用位**：`autostart_is_enabled` 目前按 plist 存在与否判断，系统设置「App 后台活动」里关掉后 plist 仍在、会误报已开启（Linux 档已认 Hidden 位，mac 补 launchd 状态读数）
+- ✅ **mac autostart 查询读系统侧禁用位**（🚧 已合入待真机）：`autostart_is_enabled` 在 plist 存在基础上再读 `launchctl print-disabled gui/<uid>`——用户在系统设置「App 后台活动」关掉的条目不再误报已开启（Linux 档认 Hidden 位，mac 认 launchd disabled，两平台口径对齐）；launchctl 读不到时按 plist 宽松放行
 - ⏳ **Wayland 原生路径**：portal / 夜灯 / 全局热键在 Wayland 会话的原生通道
 - ⏳ **KDE / GNOME / DDE 实测**：托盘、通知、深浅色、壁纸、默认应用的桌面环境矩阵
 - ⏳ **显示器「首选档」**：`CGDisplayModeIsPreferred` 已不在 SDK，需找公开替代信号
@@ -314,6 +313,8 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 | 文件管理器「打开并选中」 | ✅    | ？   | ？     | ✅        |           |           | ？         |
 
 ## 明确不做
+
+- **mac 自启动换 `SMAppService` 登录项形态**：`SMAppService.mainApp` 只能注册主应用自身，而 `autostart_enable(app_id)` 是按 id 参数化的门面语义（任意 app_id、落点透明）——语义对不上，维持 LaunchAgents plist 路线（代价：系统「App 后台活动」里按可执行文件名显示、ad-hoc 签名标「身份不明」，均为本机自测可接受项）
 
 - **macOS 四族**（Linux / Windows 有实现，macOS 明确不做）：窗口管理（要 Accessibility 授权；Linux 走 `wmctrl`）、夜间色温（CoreBrightness 私有；Linux 走 `redshift` / `xrandr`）、电源方案（`pmset` 对不上三值语义；Linux / Windows 都有）、媒体播放器枚举（无 MPRIS 对等物）。
 - **Linux 工具包升级**：留守 GTK3—— 低版本兼容的保障。

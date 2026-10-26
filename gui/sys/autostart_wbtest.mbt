@@ -228,3 +228,15 @@ test "macOS 的 plist 正文：Label/ProgramArguments/RunAtLoad 与 XML 转义" 
     Some(d) => assert_true(d.contains("/Library/LaunchAgents"))
   }
 }
+
+///|
+test "mac launchd 禁用位解析" {
+  // fixture 按真实 launchctl print-disabled gui/<uid> 输出格式(tab 缩进 + 引号 key)
+  let out = "{\n\t\"com.apple.xpc.launchd.disabled\" => false\n\t\"libyue.showcase\" => true\n\t\"com.other.app\" => false\n}"
+  assert_true(autostart_mac_disabled_by_launchd(out, "libyue.showcase"))
+  assert_false(autostart_mac_disabled_by_launchd(out, "com.other.app"))
+  assert_false(autostart_mac_disabled_by_launchd(out, "not.in.list"))
+  assert_false(autostart_mac_disabled_by_launchd("", "libyue.showcase"))
+  // 子串不误伤:app_id 是另一条的前缀时只认整键
+  assert_false(autostart_mac_disabled_by_launchd(out, "libyue"))
+}

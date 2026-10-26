@@ -374,6 +374,22 @@ pub fn autostart_path(app_id : String) -> Result[String, AutostartError] {
 ///|
 /// 查询是否已启用。Linux：`.desktop` 在且未被 Hidden / X-GNOME 关掉；
 /// Windows：Run 值存在即为启用。
+///|
+/// `launchctl print-disabled gui/<uid>` 输出解析：`"<app_id>" => true` 即该
+/// 条目被系统侧禁用（用户在系统设置「App 后台活动」里关掉的开关——plist
+/// 还在，launchd 的 disabled 状态才是真值）。没找到条目或 `=> false` 都算
+/// 未禁用。
+fn autostart_mac_disabled_by_launchd(output : String, app_id : String) -> Bool {
+  let needle = "\"" + app_id + "\""
+  for line in output.split("\n") {
+    if line.contains(needle) {
+      return line.contains("=> true")
+    }
+  }
+  false
+}
+
+///|
 pub fn autostart_is_enabled(app_id : String) -> Result[Bool, AutostartError] {
   if !autostart_valid_app_id(app_id) {
     return Err(InvalidAppId)
@@ -395,7 +411,27 @@ pub fn autostart_is_enabled(app_id : String) -> Result[Bool, AutostartError] {
         Ok(f) => f
         Err(e) => return Err(e)
       }
-      Ok(sys_read_text_file(file) is Some(_))
+      if sys_read_text_file(file) is None {
+        return Ok(false)
+      }
+      // plist 在还要看系统侧开关：用户在系统设置「App 后台活动」里关掉的
+      // 条目 plist 仍在，launchd 的 disabled 状态才是真值；launchctl 读不到
+      // （异常环境）按 plist 判断宽松放行
+      match pr_run("id", ["-u"], timeout_ms=2000) {
+        Ok(o) => {
+          let uid = pp_first_line(o.stdout)
+          match pr_run(
+            "launchctl",
+            ["print-disabled", "gui/\{uid}"],
+            timeout_ms=3000,
+          ) {
+            Ok(o2) =>
+              Ok(!autostart_mac_disabled_by_launchd(o2.stdout, app_id))
+            Err(_) => Ok(true)
+          }
+        }
+        Err(_) => Ok(true)
+      }
     }
     "windows" =>
       match autostart_win_read(app_id) {
