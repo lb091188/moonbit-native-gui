@@ -1,0 +1,9 @@
+// 窗口 resize 桩链探针：set_size 后账本与 Resized 事件是否到位。
+import {
+  "NoahLiu/native-gui/widget" @widget,
+  "NoahLiu/native-gui/win",
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"
