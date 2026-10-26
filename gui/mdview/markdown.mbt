@@ -1007,10 +1007,13 @@ fn md_rich_label(
       // ——percent 也一样——aw 就不来了,折行只能落 fallback)。min-content
       // 探询已按「最窄可折」答,节点不会被探询宽撑大;宽随最长行,窄于容器
       // 时节点与容器同宽。
+      // 不受约束(内在 max-content 探询)时答**自身最长行自然宽**,不落任何
+      // 常量:常量会顺着「单元格自然宽 → 行自然宽 → percent 列的参照」把
+      // 表格冻在该值上(真机 resize 后表格不重排、溢出滚不回来)。
       w.node.set_measure(fn(aw : Double?, _ah : Double?) -> (Double, Double) {
         let limit = match aw {
           Some(v) if v >= 1.0 => v
-          _ => 560.0
+          _ => row_w_ref.val.max(1.0)
         }
         relay_out(limit)
         (

@@ -232,3 +232,62 @@ test "滚动条浮层档：不画轨道，悬停视口拇指提亮" {
   let hot = px(paint(root, 240, 140), bx, y_thumb)
   assert_eq(hot, border)
 }
+
+///|
+test "横滚内容宽 = max(自然宽, 视口宽)：percent 子项拿视口当参照" {
+  // 真机 markdown 表格：横滚内容只有自然宽时，内部 percent 列的参照就是那个
+  // 自然宽（还常被内在探询的兜底常量撑大），resize 后列宽纹丝不动、溢出部分
+  // 滚不回来。补上视口下限后 percent 有确定参照，窄内容铺满视口、宽内容才溢出。
+  let st = ScrollState::new()
+  let cell : Ref[@widget.Widget] = Ref(@widget.Widget::new())
+  let body = col([
+    view(
+      [text("甲", font_size=12.0)],
+      handle=fn(w : @widget.Widget) -> Unit {
+        w.node.set_width(@yoga.percent(50.0))
+        cell.val = w
+      },
+    ),
+  ])
+  let (root, vp) = mounted(
+    scroll_view([body], st, width=400.0, height=80.0, hscroll=true),
+    420.0,
+    100.0,
+  )
+  let _ = paint(root, 420, 100)
+  // 视口 400（含 1px 描边）→ 半宽约 199，远大于「甲」的自然宽
+  assert_true(
+    cell.val.rect.w > 150.0 && cell.val.rect.w < 210.0,
+    msg="percent 50 没按视口宽解析，得 \{cell.val.rect.w}",
+  )
+  // 窄内容被下限撑到视口宽：不该产生横向溢出，也不该画横条
+  assert_true(st.content_w <= vp.rect.w + 1.0, msg="内容宽 \{st.content_w} 越过视口")
+  assert_eq(st.max_x(), 0.0)
+}
+
+///|
+test "横滚内容宽：自然宽超视口时才溢出可滚" {
+  let st = ScrollState::new()
+  let long = "一段不可折行的长内容长内容长内容长内容长内容长内容长内容长内容"
+  let (root, vp) = mounted(
+    scroll_view(
+      [col([view([text(long, font_size=14.0)], handle=fn(w : @widget.Widget) -> Unit {
+        w.node.set_width(@yoga.percent(100.0))
+      })], handle=fn(w : @widget.Widget) -> Unit {
+        w.node.set_width(@yoga.percent(100.0))
+      })],
+      st,
+      width=200.0,
+      height=60.0,
+      hscroll=true,
+    ),
+    220.0,
+    80.0,
+  )
+  let _ = paint(root, 220, 80)
+  assert_true(
+    st.content_w > st.view_w,
+    msg="内容应超视口，得 content=\{st.content_w} view=\{st.view_w}",
+  )
+  assert_true(st.max_x() > 0.0)
+}

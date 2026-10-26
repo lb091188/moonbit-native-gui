@@ -318,9 +318,12 @@ pub fn scroll_view(
     // 不收缩：内容必须按自然高度撑开，超出视口的部分才谈得上滚动
     content.node.set_flex_shrink(0.0)
     if hscroll {
-      // 横向档：内容按自然宽撑开可超视口(align-start 退掉交叉轴 stretch、
-      // 不设 percent)——代码长行/表格这类不可收缩内容横滚而不是被裁
+      // 横向档：内容宽 = max(自然宽, 视口宽)——`align_self FlexStart` 退掉交叉轴
+      // stretch 让自然宽可超视口，`min_width percent 100` 补回视口下限。缺下限
+      // 时内容只有自然宽，内部 percent 子项（表格列）没有确定参照，会拿内在
+      // 探询值当基准并冻住（真机 resize 后表格不重排）。
       content.node.set_align_self(Some(@yoga.AlignItems::FlexStart))
+      content.node.set_min_width(@yoga.percent(100.0))
       content.node.set_left(@yoga.fixed(0.0 - state.offset_x))
     } else {
       content.node.set_width(@yoga.percent(100.0))
