@@ -32,6 +32,13 @@ description: Design rules for building user interfaces with NoahLiu/native-gui (
 - 一个界面里主色（`primary`）只用在主操作、选中项、焦点环上；正文与结构用 `text_primary` / `text_regular` / `text_secondary`，底用 `bg_page` / `bg_panel`。
 - 可点的东西有 `hover` / `active` 反馈，输入类有 `focus`；用 `Style::hover(...)` 之类的状态桶，不是自己另画一层。
 
+## 布局纪律（防空白带 / 防塌陷 / 防裁切）
+
+1. **确定高度要层层给**：`grow=1.0` 只在祖先链高度确定的前提下有得可分。内容自带滚动时，外层再套一个纵向 `scroll_view` 会掐断链条（滚动容器的内容高 = 自然高），带 `grow` 的子项直接塌成 0。外层只需要横滚时用 `scroll_view(hscroll=true, vscroll=false)`（内容高钉视口）；库版本没有 `vscroll` 参数时，外层干脆别包纵滚。
+2. **折行容器别包「自身无宽的列」**：只想加外边距就直接给容器 `class=[@style.style(margin=16.0)]`，不要套一层不设宽的 padding 列——旧库版本里这层会把折行子项的纵向下限按「无约束全堆叠」顶起来（段条下凭空多一大片空白，实测 236 vs 真值 66）。确需包裹列时给它 `width_percent=100.0`。
+3. **别用 `min_height=0` 躲折行撑高**：下限归零会同时把容器钉死在一行高，真折到第二行就被裁。正确参照是「定住的宽」：自身显式宽，或父列有确定内宽时被拉伸（见第 2 条）。
+4. **min-width 两档**：`scroll_view` 横滚默认是自然宽档 `max(子项自然宽, 视口)`；想要「至少这么宽，窄了可滚、宽了跟随」给 `min_content_width=`（下限档不看子项自然宽）。用错档时内容自然宽会静默顶掉你设的值。
+
 ## 已知陷阱（web 直觉会写错的地方）
 
 - **布局枚举不在 `@style` 里**：`Display` / `FlexDirection` / `JustifyContent` / `AlignItems` / `FlexWrap` / `PositionType` 的类型名有再导出，枚举构造子没有。写 `@yoga.Row` 要在自己的 `moon.mod` 与 `moon.pkg` 各引一次 `NoahLiu/yoga-mbt`（包路径 `src`），否则 `[4020] Package "yoga" not found`。
