@@ -4,8 +4,8 @@
 // **面在 MoonBit**：Linux（及各 XDG 桌面）拼 `$XDG_CONFIG_HOME/autostart`
 // 下的 `.desktop` 并写盘——纯字符串 + 既有的文本文件读写入口（`fsx.mbt`），
 // 不需要任何平台接口。**只有 Windows 的注册表写入需要 C**（HKCU 的 Run 键，
-// 见 `sys_stub.c` 的自启动节）。macOS 显式 `Unsupported`（要走
-// LaunchAgents plist，留待真机）。
+// 见 `sys_stub.c` 的自启动节）。macOS 走 LaunchAgents plist（同样是纯
+// MoonBit 文本落盘，见下）。
 //
 // 典型用法：
 //   match autostart_enable("com.example.MyApp") {
@@ -19,7 +19,8 @@
 //   Linux   $XDG_CONFIG_HOME/autostart/<app_id>.desktop（XDG_CONFIG_HOME 未设
 //           则回退 $HOME/.config/autostart）
 //   Windows HKCU\Software\Microsoft\Windows\CurrentVersion\Run 的 <app_id> 值
-//   macOS   Unsupported
+//   macOS   $HOME/Library/LaunchAgents/<app_id>.plist（RunAtLoad；只落文件，
+//           不跑 launchctl——语义同另两臂：下次登录生效）
 
 ///|
 /// 自启动操作错误（新栈的结构化错误口径：不支持与失败分开，不静默）。
@@ -266,9 +267,11 @@ fn autostart_win_remove(app_id : String) -> Result[Unit, AutostartError] {
 
 // ---------------------------------------------------------------------------
 // macOS：LaunchAgents 的 plist（与 Linux 同一形态——面在 MoonBit，落点是一个
-// 文本文件，不需要 C）。启用/停用另要过一次 `launchctl`：这里用 `load` /
-// `unload` 这对**已废弃但仍在**的动词，因为新写法 `bootstrap gui/<uid>` 要
-// 用户的 uid，而本包没有暴露取 uid 的口子（取 uid 属另一族，不为这一条引入）。
+// 文本文件，不需要 C）。**只落文件、不跑 launchctl load/unload**：语义与
+// Linux/Windows 两臂一致 = 重新登录后生效；`load` 会立刻拉起一个应用副本，
+// `unload` 则可能把当前进程自己杀掉（登录拉起的那份就是它）——真机
+// 「自启关不掉、plist 删不掉」的根因。新式 bootstrap gui/<uid> 要 uid，
+// 本包不暴露取 uid 的口子，也一并记档不用。
 // ---------------------------------------------------------------------------
 
 fn autostart_mac_xml_escape(v : String) -> String {
@@ -321,15 +324,6 @@ pub fn autostart_mac_plist(app_id : String, exe : String) -> String {
     buf.write_char('\n')
   }
   buf.to_string()
-}
-
-///|
-/// 跑一条 launchctl（命令不存在/非零退出都算失败，交调用方归成语义化 Err）。
-fn autostart_mac_launchctl(verb : String, file : String) -> Bool {
-  match pr_run("launchctl", [verb, file], timeout_ms=8000) {
-    Ok(o) => o.exit_code == 0
-    _ => false
-  }
 }
 
 ///|
@@ -445,7 +439,8 @@ pub fn autostart_is_enabled(app_id : String) -> Result[Bool, AutostartError] {
 
 ///|
 /// 启用：Linux 建目录 + 写 `.desktop`；Windows 写 Run 键（值由
-/// `autostart_run_value` 拼成带引号形态）。幂等：重复 enable 覆盖旧条目。
+/// `autostart_run_value` 拼成带引号形态）；macOS 建目录 + 写 LaunchAgents
+/// plist。幂等：重复 enable 覆盖旧条目。三臂都只落文件，下次登录生效。
 pub fn autostart_enable(app_id : String) -> Result[Unit, AutostartError] {
   if !autostart_valid_app_id(app_id) {
     return Err(InvalidAppId)
@@ -496,10 +491,7 @@ pub fn autostart_enable(app_id : String) -> Result[Unit, AutostartError] {
       if !sys_write_text_file(file, autostart_mac_plist(app_id, exe)) {
         return Err(IoFailed("写入失败: " + file + " (目录不存在或无权限)"))
       }
-      // 交给 launchd：load 失败不撤销文件（下次登录仍会生效），但如实报失败
-      if !autostart_mac_launchctl("load", file) {
-        return Err(IoFailed("launchctl load 失败: " + file))
-      }
+      // 不 load：plist 就位即「下次登录生效」。当场 load 会立刻多拉起一个副本
       Ok(())
     }
     _ => Err(Unsupported)
@@ -507,8 +499,8 @@ pub fn autostart_enable(app_id : String) -> Result[Unit, AutostartError] {
 }
 
 ///|
-/// 禁用：Linux 删 `.desktop`；Windows 删 Run 键值。幂等：目标本就不在也是
-/// 成功。
+/// 禁用：删各自落点（`.desktop` / Run 键值 / LaunchAgents plist），不触碰
+/// 运行中的实例。幂等：目标本就不在也是成功。
 pub fn autostart_disable(app_id : String) -> Result[Unit, AutostartError] {
   if !autostart_valid_app_id(app_id) {
     return Err(InvalidAppId)
@@ -531,8 +523,8 @@ pub fn autostart_disable(app_id : String) -> Result[Unit, AutostartError] {
         Ok(f) => f
         Err(e) => return Err(e)
       }
-      // 先 unload（没装载过也算成功，与「幂等删除」同档），再删 plist
-      let _ = autostart_mac_launchctl("unload", file)
+      // 只删 plist、不 unload：动运行中的 job 可能把当前进程自己杀掉
+      // （登录拉起的那份就是它），删了文件下次登录自然不再拉起
       if sys_remove_file(file) {
         Ok(())
       } else {
