@@ -793,3 +793,34 @@ test "跟随容器的富文本 measure 三档分答：列表标签不塌成一�
   walk(root)
   assert_eq(narrow.val, 0)
 }
+
+///|
+test "探询档不顶高块盒：一行列表项就是一行高" {
+  // 真机反馈：Markdown 页每个列表项之间空出半屏。根因在 measure 的 min/max-content
+  // 两档——它们把**上一次折叠**的行数当成本档高度回答（1px 箱折出「一单元一行」的
+  // 几十行），整棵 md 列照这个被顶高的内在尺寸排，单行项因此占五六行到十几行高。
+  // 判据：任何块不超过两行行盒，整篇不超过「块数 × 两行 + 块间距」；三个宽度各测一遍
+  // （换宽会换一档先被问，正是顶高最容易复现的时机）。
+  let src =
+    "- 无序列表项一\n- 列表项二(含 `代码`)\n\n1. 有序列表第一项\n2. 有序列表第二项\n\n段落一行文字。\n"
+  let line_h = 13.0 * 1.6
+  for w in [900.0, 640.0, 1100.0] {
+    let root = @widget.Widget::new()
+    root.set_size(w, 700.0)
+    root.set_column()
+    let md = markdown_view(src).mount_into(root)
+    root.relayout(w, 700.0)
+    let n = md.kids.length()
+    for i, blk in md.kids {
+      assert_true(
+        blk.rect.h <= line_h * 2.0 + 0.5,
+        msg="宽 \{w} 下块\{i} 高 \{blk.rect.h} 超过两行行盒：一行项被探询档顶高",
+      )
+    }
+    let cap = line_h * 2.0 * n.to_double() + 6.0 * (n - 1).to_double()
+    assert_true(
+      md.rect.h <= cap,
+      msg="宽 \{w} 下整篇高 \{md.rect.h} 被探询档顶高（\{n} 块）",
+    )
+  }
+}

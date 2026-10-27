@@ -731,18 +731,24 @@ fn md_same_style(a : MDSpan, b : MDSpan) -> Bool {
 
 ///|
 /// 一行富文本的几何:`at` 是该行的绘制对象,`xs`/`ws` 是行内各片段的像素起点
-/// 与宽度(删除线横线与链接命中按它换算)。
+/// 与宽度(删除线横线与链接命中按它换算)。三者全部**惰性**建:一次 min-content
+/// 探询能折出上百条行,全量建对象是这一页卡顿的主因,而其中绝大多数行永远不会
+/// 被画。`sum` 是折行期逐单元宽的累加(免费拿到的估算宽,只在探询档用)。
 priv struct MDLine {
   spans : Array[MDSpan]
+  sum : Double
+  mut w : Double
   xs : Array[Double]
   ws : Array[Double]
-  w : Double
   mut at : @text.AttributedText
+  mut at_ready : Bool
+  mut geo_ready : Bool
 }
 
 ///|
 /// 富文本行(自绘):先按可用宽度贪心折行(中文逐字、拉丁逐词、`\n` 硬换行),
-/// 每行拼一个 AttributedText;删除线段按该行像素区间补画横线;带地址的链接段
+/// 每行按需拼一个 AttributedText(只有真要画、或要被父级当内在宽用的行才建);
+/// 删除线段按该行像素区间补画横线;带地址的链接段
 /// 可点击(按行号 + 行内像素区间命中,经 ctx.on_link 交调用方),悬浮手型光标;
 /// sup 段用小一号字体;链接/代码段主题色,主题指纹变化时只重建绘制对象。
 /// 区间端点由 [md_span_ranges] 按 UTF-8 字节计量。
@@ -755,9 +761,14 @@ fn md_rich_label(
   // 折行产出走 Ref:显式定宽(max_w/ctx.width > 0,旧口径)构造期折一次、
   // 节点定宽定高;宽度 0(跟随容器)由 yoga measure 按可用宽重折——布局引擎
   // 的宽度约束就是响应式来源,不需要任何 resize 监听。limit 变化才重折。
+  // `rows_ref` 只保存**要画的那一档**折叠:一次布局里 yoga 会交替问 max-content
+  // (aw=None)、min-content(aw<1)、正式档三遍,若共用一份折叠状态,每遍都把上
+  // 一遍的产出顶掉(重折 + 逐行建对象),而探询档的答案还可能是顶之前算的旧值。
+  // 两个探询档各记一份备忘,不碰 rows_ref。
   let rows_ref : Ref[Array[MDLine]] = Ref([])
-  let row_w_ref : Ref[Double] = Ref(1.0)
-  let limit_ref : Ref[Double] = Ref(-1.0)
+  let drawn_limit : Ref[Double] = Ref(-1.0)
+  let min_ans = Ref((0.0, 0.0))
+  let max_ans = Ref((0.0, 0.0))
   let static_limit : Double? = if max_w > 0.0 {
     Some(max_w)
   } else if ctx.width > 0.0 {
@@ -897,82 +908,114 @@ fn md_rich_label(
     }
   }
 
-  fn geo(line : Array[MDSpan]) -> MDLine {
-    let xs : Array[Double] = []
-    let ws : Array[Double] = []
-    let n = line.length()
-    for i in 0..<n {
-      let a = joint_w(line, i)
-      let b = joint_w(line, i + 1)
-      xs.push(a)
-      ws.push((b - a).max(0.0))
-    }
-    let lw = joint_w(line, n)
-    let w = if lw < 1.0 { 1.0 } else { lw }
-    { spans: line, xs: xs, ws: ws, w: w, at: build_at(line) }
-  }
-
-  // 贪心折行:单元放不下就整单元换行(不做词内断开)。整个产出段按 limit
-  // 参数化,写 rows_ref / row_w_ref。
-  fn relay_out(limit : Double) -> Unit {
-    if limit_ref.val == limit && rows_ref.val.length() > 0 {
-      return
-    }
-    limit_ref.val = limit
-  let lines : Array[Array[MDSpan]] = []
-  let cur : Array[MDSpan] = []
-  let cur_w = Ref(0.0)
-  fn end_line() -> Unit {
-    if cur.length() > 0 {
-      lines.push(cur.copy())
-      cur.clear()
-      cur_w.val = 0.0
+  fn mk_line(line : Array[MDSpan], sum : Double) -> MDLine {
+    {
+      spans: line,
+      sum,
+      w: 0.0,
+      xs: [],
+      ws: [],
+      at: @text.AttributedText::new("", valign=@text.Center, wrap=false),
+      at_ready: false,
+      geo_ready: false,
     }
   }
 
-  fn put(unit : String, span : MDSpan) -> Unit {
-    let uw = unit_w(unit, span)
-    if cur_w.val + uw > limit && cur.length() > 0 {
-      end_line()
+  /// 该行的绘制对象：首次真要画才建（建一次 = 一次 C 端排版会话）。
+  fn line_at(line : MDLine) -> @text.AttributedText {
+    if !line.at_ready {
+      line.at = build_at(line.spans)
+      line.at_ready = true
     }
-    let n = cur.length()
-    if n > 0 && md_same_style(cur[n - 1], span) {
-      cur[n - 1].text = cur[n - 1].text + unit
-    } else {
-      cur.push({ ..span, text: unit })
-    }
-    cur_w.val += uw
+    line.at
   }
 
-  for span in spans {
-    for unit in md_units(span.text) {
-      if unit == "\n" {
-        end_line()
-      } else if unit_w(unit, span) > limit {
-        // 单个单元就比整行宽(长 URL / 长单词):按字符硬切,不然必然撑破容器
-        for ch in unit {
-          put(ch.to_string(), span)
-        }
-      } else {
-        put(unit, span)
+  /// 整行联合排版宽：拿真正绘制用的那份对象量，首次用到才付测宽。
+  fn line_w(line : MDLine) -> Double {
+    if line.w <= 0.0 {
+      let lw = line_at(line).get_bounds_for(0.0, 0.0).width
+      line.w = if lw < 1.0 { 1.0 } else { lw }
+    }
+    line.w
+  }
+
+  /// 行内各段的像素起点与宽度：只有带删除线/链接的行需要，且只量一次。
+  fn line_geo(line : MDLine) -> Unit {
+    if !line.geo_ready {
+      let n = line.spans.length()
+      for i in 0..<n {
+        let a = joint_w(line.spans, i)
+        let b = joint_w(line.spans, i + 1)
+        line.xs.push(a)
+        line.ws.push((b - a).max(0.0))
+      }
+      line.geo_ready = true
+    }
+  }
+
+  fn rows_w(rows : Array[MDLine]) -> Double {
+    let mut w = 1.0
+    for g in rows {
+      w = w.max(line_w(g))
+    }
+    w
+  }
+
+  /// 探询档用的估算宽：逐单元宽累加，不逐行建对象。
+  fn rows_sum_w(rows : Array[MDLine]) -> Double {
+    let mut w = 1.0
+    for g in rows {
+      w = w.max(g.sum)
+    }
+    w
+  }
+
+  // 贪心折行:单元放不下就整单元换行(不做词内断开)。只产出段与逐单元累加宽,
+  // 绘制几何留到真要画的那一行才建。
+  fn fold_at(limit : Double) -> Array[MDLine] {
+    let rows : Array[MDLine] = []
+    let cur : Array[MDSpan] = []
+    let cur_w = Ref(0.0)
+    fn end_line() -> Unit {
+      if cur.length() > 0 {
+        rows.push(mk_line(cur.copy(), cur_w.val))
+        cur.clear()
+        cur_w.val = 0.0
       }
     }
-  }
-  if cur.length() > 0 || lines.length() == 0 {
-    lines.push(cur.copy())
-  }
 
-
-  let rows : Array[MDLine] = []
-  for ln in lines {
-    rows.push(geo(ln))
-  }
-    let mut row_w = 1.0
-    for g in rows {
-      row_w = row_w.max(g.w)
+    fn put(unit : String, span : MDSpan) -> Unit {
+      let uw = unit_w(unit, span)
+      if cur_w.val + uw > limit && cur.length() > 0 {
+        end_line()
+      }
+      let n = cur.length()
+      if n > 0 && md_same_style(cur[n - 1], span) {
+        cur[n - 1].text = cur[n - 1].text + unit
+      } else {
+        cur.push({ ..span, text: unit })
+      }
+      cur_w.val += uw
     }
-    rows_ref.val = rows
-    row_w_ref.val = row_w
+
+    for span in spans {
+      for unit in md_units(span.text) {
+        if unit == "\n" {
+          end_line()
+        } else if unit_w(unit, span) > limit {
+          // 单个单元就比整行宽(长 URL / 长单词):按字符硬切,不然必然撑破容器
+          for ch in unit {
+            put(ch.to_string(), span)
+          }
+        } else {
+          put(unit, span)
+        }
+      }
+    }
+    if cur.length() > 0 || rows.length() == 0 {
+      rows.push(mk_line(cur.copy(), cur_w.val))
+    }
+    rows
   }
 
   let used_fonts : Array[@text.Font] = [regular]
@@ -991,9 +1034,11 @@ fn md_rich_label(
     let fps = Ref("")
     match static_limit {
     Some(l) => {
-      relay_out(l)
-      w.node.set_width(@yoga.fixed(row_w_ref.val))
-      w.node.set_height(@yoga.fixed(line_h * rows_ref.val.length().to_double()))
+      let rows = fold_at(l)
+      rows_ref.val = rows
+      drawn_limit.val = l
+      w.node.set_width(@yoga.fixed(rows_w(rows)))
+      w.node.set_height(@yoga.fixed(line_h * rows.length().to_double()))
     }
     None =>
       // 跟随容器:不设宽,yoga 才会把容器可用宽传进 measure 的 aw(设了宽
@@ -1003,25 +1048,39 @@ fn md_rich_label(
       // 不受约束(内在 max-content 探询)时答**自身最长行自然宽**,不落任何
       // 常量:常量会顺着「单元格自然宽 → 行自然宽 → percent 列的参照」把
       // 表格冻在该值上(真机 resize 后表格不重排、溢出滚不回来)。
+      // 三档各自成答:宽和高都取**本档自己那次**折叠的产出。此前探询档拿的是
+      // 顶之前算好的旧行数(1px 档折出「一字一行」的几十行高),整棵 md 列按这
+      // 个被顶高的 max-content 排,真机表现就是列表项之间空出半屏。
       w.node.set_measure(fn(aw : Double?, _ah : Double?) -> (Double, Double) {
-        let n_h = line_h * rows_ref.val.length().to_double()
         match aw {
           // 正式档：按容器可用宽折，节点与可用宽同宽（块级跟随）
           Some(v) if v >= 1.0 => {
-            relay_out(v)
-            (row_w_ref.val.max(v), line_h * rows_ref.val.length().to_double())
+            if drawn_limit.val != v || rows_ref.val.length() == 0 {
+              rows_ref.val = fold_at(v)
+              drawn_limit.val = v
+            }
+            let rows = rows_ref.val
+            (rows_w(rows).max(v), line_h * rows.length().to_double())
           }
-          // min-content 探询（Some(0)）：1px 箱折，答最窄可折单元宽
+          // min-content 探询（Some(0)）：1px 箱折，答最窄可折单元宽。
+          // 这一档能折出「一单元一行」的上百条行，故只算宽不建绘制对象，
+          // 且答案按档备忘——每次布局重折是这页滚动卡顿的来源。
           Some(_) => {
-            relay_out(1.0)
-            (row_w_ref.val, n_h)
+            if min_ans.val.0 <= 0.0 {
+              let rows = fold_at(1.0)
+              min_ans.val = (
+                rows_sum_w(rows), line_h * rows.length().to_double(),
+              )
+            }
+            min_ans.val
           }
           // max-content 探询（None）：单行不折，答自身最长行自然宽。
-          // 此前拿上一次折叠的残state 当答案（初值 1px → max-content=单字宽
-          // 13），整棵 md 列被自己的 max-content 撑不起来、塌成一字一行
           None => {
-            relay_out(1000000.0)
-            (row_w_ref.val, n_h)
+            if max_ans.val.0 <= 0.0 {
+              let rows = fold_at(1000000.0)
+              max_ans.val = (rows_w(rows), line_h * rows.length().to_double())
+            }
+            max_ans.val
           }
         }
       })
@@ -1035,15 +1094,16 @@ fn md_rich_label(
       if cur_fp != fps.val {
         fps.val = cur_fp
         for g in rows_ref.val {
-          g.at = build_at(g.spans)
+          g.at_ready = false
         }
       }
       p.set_stroke_color(@theme.theme_text_regular())
       let mut y = 0.0
       for g in rows_ref.val {
-        let _ = g.at.draw_at(p, 0.0, y, g.w, line_h)
+        let _ = line_at(g).draw_at(p, 0.0, y, line_w(g), line_h)
         for i, sp in g.spans {
           if sp.strike {
+            line_geo(g)
             p.begin_path()
             p.move_to(g.xs[i], y + line_h * 0.5)
             p.line_to(g.xs[i] + g.ws[i], y + line_h * 0.5)
@@ -1065,9 +1125,12 @@ fn md_rich_label(
         let li = (my / line_h).floor().to_int()
         match rows_ref.val.get(li) {
           Some(g) => {
-            for j, s in g.spans {
-              if s.url != "" && mx >= g.xs[j] && mx < g.xs[j] + g.ws[j] {
-                return s.url
+            if g.spans.any(fn(s : MDSpan) -> Bool { s.url != "" }) {
+              line_geo(g)
+              for j, s in g.spans {
+                if s.url != "" && mx >= g.xs[j] && mx < g.xs[j] + g.ws[j] {
+                  return s.url
+                }
               }
             }
             ""
