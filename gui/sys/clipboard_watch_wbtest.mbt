@@ -156,6 +156,17 @@ test "ClipboardError Show 文本" {
 }
 
 ///|
+test "cbw_xclip_no_text：xclip「无文本」读数不再混报成命令失败" {
+  // 真机读数（Linux）：剪贴板为空或只有图片/文件时 xclip -o 退出 1 并打
+  // 「Error: target STRING not available」，此前归 CommandFailed，演示里
+  // 与真的命令失败混成一句「读不到」。
+  assert_true(cbw_xclip_no_text("Error: target STRING not available"))
+  assert_true(cbw_xclip_no_text("Error: target UTF8_STRING not available\n"))
+  assert_false(cbw_xclip_no_text("Error: Can't open display"))
+  assert_false(cbw_xclip_no_text(""))
+}
+
+///|
 test "cbw_get_text：真实只读探测（三平台原生后端，结果随环境打印记录）" {
   if !pr_available() {
     println("cbw_get_text: skip (无子进程后端)")

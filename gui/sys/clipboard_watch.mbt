@@ -167,12 +167,24 @@ fn cbw_get_text_pbpaste() -> Result[String, ClipboardError] {
 }
 
 ///|
+/// xclip 的「剪贴板里没有可转成文本的目标」读数：`xclip -o` 在剪贴板为空或
+/// 只有图片/文件时退出 1 并往 stderr 打 `Error: target STRING not available`。
+/// 这是「读到了、但没文本」，不是命令失败——归 NoText 与 GtkClipboard 档同口径。
+fn cbw_xclip_no_text(err : String) -> Bool {
+  err.contains("not available")
+}
+
+///|
 fn cbw_get_text_xclip() -> Result[String, ClipboardError] {
   match pr_run("xclip", ["-selection", "clipboard", "-o"], timeout_ms=2000) {
     Ok(o) => cbw_text_or_none(o.stdout)
     Err(NonZeroExit(127, _)) => Err(Unsupported)
     Err(NonZeroExit(code, err)) =>
-      Err(CommandFailed("xclip: 退出码 \{code}（\{cbw_first_line(err)}）"))
+      if cbw_xclip_no_text(err) {
+        Err(NoText)
+      } else {
+        Err(CommandFailed("xclip: 退出码 \{code}（\{cbw_first_line(err)}）"))
+      }
     Err(Timeout(m)) => Err(CommandFailed(m))
     Err(SpawnFailed(m)) => Err(CommandFailed(m))
     Err(Signaled(sig)) => Err(CommandFailed("xclip: 被信号 \{sig} 终止"))

@@ -226,14 +226,14 @@ let _ = @sys.nl_reset()
 
 ## Wallpaper
 
-Windows calls `SystemParametersInfoW` (SPI_SETDESKWALLPAPER) directly. Linux dispatches by `XDG_CURRENT_DESKTOP`, with DE recognition handled by a pure function inside the sys package. **XFCE** uses `xfconf-query` to read/write the `/backdrop/<screen>/monitor<output>/<workspace>/last-image` property on the xfce4-desktop channel; with multiple monitors it takes a connected output. **GNOME** uses `gsettings` to read/write `picture-uri` on `org.gnome.desktop.background`, falling back to `picture-uri-dark` when unset. **KDE** uses `qdbus6`/`qdbus` to call plasmashell's `evaluateScript`; this repo has not verified KDE on real hardware.
+Windows calls `SystemParametersInfoW` (SPI_SETDESKWALLPAPER) directly. Linux dispatches by `XDG_CURRENT_DESKTOP`, with DE recognition handled by a pure function inside the sys package. **XFCE** uses `xfconf-query` to read/write the `/backdrop/<screen>/monitor<output>/<workspace>/last-image` property on the xfce4-desktop channel; with multiple monitors it takes a connected output. **KDE** uses `qdbus6`/`qdbus` to call plasmashell's `evaluateScript`; this repo has not verified KDE on real hardware. The remaining gsettings-based desktops are driven by one target table (same table for read and write): **GNOME** and the derivatives sharing its schema (**Budgie/Unity**) read `picture-uri` on `org.gnome.desktop.background`, falling back to `picture-uri-dark` when unset; **Cinnamon** reads its own fork, `org.cinnamon.desktop.background picture-uri`; **MATE** reads `org.mate.background picture-filename`, which stores a bare path, so writes do not add `file://`.
 
 | Function | Description |
 |---|---|
 | `wp_get() -> Result[String, WallpaperError]` | read the current wallpaper path |
 | `wp_set(path) -> Result[Unit, WallpaperError]` | set the wallpaper; changes the desktop appearance |
 
-Error `WallpaperError`: `Unsupported` (subprocess unavailable on Linux, or KDE's qdbus absent) / `UnknownDesktop(String)` (not XFCE/GNOME/KDE; carries the raw `XDG_CURRENT_DESKTOP`) / `CommandFailed(String)` / `ParseFailed(String)` / `InvalidParam(String)`. An XFCE write creates the property when it does not exist.
+Error `WallpaperError`: `Unsupported` (subprocess unavailable on Linux, or KDE's qdbus absent) / `UnknownDesktop(String)` (neither the XFCE/KDE branches nor a row of the gsettings target table — LXQt, Deepin, Wayland compositors; carries the raw `XDG_CURRENT_DESKTOP`) / `CommandFailed(String)` / `ParseFailed(String)` / `InvalidParam(String)`. An XFCE write creates the property when it does not exist.
 
 ```moonbit
 match @sys.wp_get() {

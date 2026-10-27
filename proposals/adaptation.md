@@ -3318,3 +3318,11 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **顺带量到的库侧缺口（记债未做）**：光栅档对越界源窗没有统一口径——源窗**完全**在图外时把整张源图缩进目标画了出来（n=1600），源窗**部分**越界时整块不画（n=0），两种都不是可预期的语义；cairo 档形态又不同（Linux 真机看得见、mac 看不见同一处误用）。触发条件：任何一次 from_rect 误用都会被它掩盖成「某一平台没画」。修法方向：在门面 `draw_canvas_from_rect` 里先把源窗与位图求交、交集按比例映进目标矩形、空集不画，三平台一实现，两后端不再各自解释越界。
 **教训**：八参数、两组同型矩形的 API 天生易写反，且**写反了往往只是画错位置而不报错**——演示里它活了很久，因为「看不见」在 mac 上被当成正常。参数序要有用例钉（`painter_wbtest`「源子矩形 → 目标矩形」已在），跨后端可见性差异要按「同一份代码两个平台读数不同」来查，不能按「哪个平台是对的」来猜。
 **验证**：showcase 构建过；演示两处（绘制与复制串）同步改为源在前，段描述去掉未渲染的 `**` 星号。库门禁与 `moon check` 见提交信息。
+
+## Linux 系统读数两处缺口：壁纸分派表漏 gsettings 系桌面、xclip「无文本」被当命令失败（2026-10-28,真机「Cinnamon 壁纸读不到 / 剪贴板报退出码 1」）
+
+**症状一**：Cinnamon 真机 `wp_get()` 报 `UnknownDesktop(Cinnamon)`——桌面环境**认得出名字**（`desktop_parse_value` 命中 X-Cinnamon），但 `wp_get_linux` 的分派只有 XFCE/GNOME/KDE 三条，其余一律 UnknownDesktop。**症状二**：`cbw_get_text()` 报 `CommandFailed(xclip: 退出码 1（Error: target STRING not available））`——这句 xclip 正文的含义是「剪贴板里没有可转成文本的目标」（空、或装着图片/文件），与 GtkClipboard 档的「读到空串」是同一件事，却走了命令失败那条路。
+**修复一（表化分派）**：新增落点表 `wp_gsettings_target(env)` → `WpGsettings { schema, keys, uri }`，读写共用一张：GNOME 与同 schema 的衍生桌面 Budgie/Unity 取 `org.gnome.desktop.background` 的 `picture-uri`（回退 `picture-uri-dark`）、Cinnamon 取自家 fork 的 `org.cinnamon.desktop.background picture-uri`、MATE 取 `org.mate.background picture-filename`——**MATE 存的是裸路径**，`uri=false` 让写值不再套 `file://`（套了就是给一个路径键塞 URI）。`wp_get_gnome`/`wp_gnome_set_args` 退役成表驱动。LXQt（pcmanfm-qt 的 conf）与 Deepin（dde 自有 schema）不进表：机制不同源，硬套 GNOME 的键只会读出与桌面无关的值，诚实报 UnknownDesktop 更好。
+**修复二（错误归位）**：`cbw_xclip_no_text` 认 xclip 的 `not available` 正文 → 归 `NoText`；演示侧同步把「当前无文本（空或图片/文件）」与「读不到」分成两句，不再混报。
+**教训**：① 「认得出桌面」不等于「会读它的壁纸」——分派表要按**机制**列全，新增一族配置（gsettings）时用一个纯函数表把 schema/键/值形态收在一处，比在分派点堆 if 更容易核漏；② 子进程的错误正文里带着语义（xclip 这句就是「没文本」），只按退出码归错会把常态当成故障；③ 值形态是键的属性不是桌面的属性——同为 gsettings，URI 键与路径键的写法不同。
+**验证**：`wallpaper_wbtest` 新增落点表用例（Cinnamon/MATE/GNOME 系逐条 + 不在表内的六个环境给 None）与写参数表用例（MATE 裸路径、GNOME file://）；`clipboard_watch_wbtest` 新增 `cbw_xclip_no_text` 判据。库门禁 1171/1171、`moon check` 零警告、showcase 构建过。**待真机**：Cinnamon 上壁纸读出当前图、设置生效；Linux 剪贴板空/图片时显示「当前无文本」。

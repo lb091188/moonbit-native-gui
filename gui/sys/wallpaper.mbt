@@ -1,7 +1,9 @@
 // 当前桌面壁纸：读/设置按桌面环境分派。
 //   Linux XFCE : xfconf-query 读写 xfce4-desktop 频道的
 //            /backdrop/<screen>/monitor<输出>/<workspace>/last-image 属性
-//   Linux GNOME: gsettings 读写 org.gnome.desktop.background 的 picture-uri
+//   Linux GNOME: gsettings 读 org.gnome.desktop.background 的 picture-uri
+//   Linux gsettings 系（Cinnamon/MATE/Budgie/Unity）: 同一套读写，落点由
+//            wp_gsettings_target 给（schema、依次尝试的键、写值是否 file:// 形态）
 //   Linux KDE  : qdbus6/qdbus 调 plasmashell 的 evaluateScript（Plasma 脚本约定）
 //   macOS      : osascript 问 System Events 的 desktop picture（首次可能被
 //            「自动化」授权拦下，错误消息带 osascript 正文）
@@ -288,10 +290,56 @@ fn wp_xfce_set_args(prop : String, path : String) -> Array[String] {
 }
 
 ///|
-/// gsettings 写 GNOME 壁纸参数表（KEY 为 picture-uri 等，值以 file://
-/// URI 形式写入）。
-fn wp_gnome_set_args(key : String, path : String) -> Array[String] {
-  ["set", "org.gnome.desktop.background", key, "file://\{path}"]
+/// gsettings 系桌面的壁纸落点：schema + 依次尝试的键 + 写值形态。
+/// `uri=true` 写 `file://<路径>`（GNOME 一族的 picture-uri 是 URI），
+/// `uri=false` 写裸路径（MATE 的 picture-filename 存的就是路径）。
+priv struct WpGsettings {
+  schema : String
+  keys : Array[String]
+  uri : Bool
+}
+
+///|
+/// 桌面环境 → gsettings 壁纸落点。GNOME 本体与读同一 schema 的衍生桌面
+/// （Ubuntu/Budgie/Unity）有亮/暗两张图，按 picture-uri → picture-uri-dark
+/// 依次取；Cinnamon 是自家 fork 的同名 schema；MATE 只有一个裸路径键。
+/// 不在表内的（XFCE 走 xfconf、KDE 走 qdbus、LXQt/Deepin 既不用 gsettings
+/// 也不用 GNOME schema）给 None，由调用方分派或报 UnknownDesktop。
+fn wp_gsettings_target(env : DesktopEnv) -> WpGsettings? {
+  match env {
+    Gnome | Budgie | Unity =>
+      Some({
+        schema: "org.gnome.desktop.background",
+        keys: ["picture-uri", "picture-uri-dark"],
+        uri: true,
+      })
+    Cinnamon =>
+      Some({
+        schema: "org.cinnamon.desktop.background",
+        keys: ["picture-uri"],
+        uri: true,
+      })
+    Mate =>
+      Some({
+        schema: "org.mate.background",
+        keys: ["picture-filename"],
+        uri: false,
+      })
+    _ => None
+  }
+}
+
+///|
+/// gsettings 读参数表。
+fn wp_gsettings_get_args(schema : String, key : String) -> Array[String] {
+  ["get", schema, key]
+}
+
+///|
+/// gsettings 写参数表：写表内首个键（亮色档），形态随 `uri`。
+fn wp_gsettings_set_args(t : WpGsettings, path : String) -> Array[String] {
+  let value = if t.uri { "file://\{path}" } else { path }
+  ["set", t.schema, t.keys[0], value]
 }
 
 ///|
@@ -539,11 +587,15 @@ fn wp_get_linux() -> Result[String, WallpaperError] {
   if !pr_available() {
     return Err(Unsupported)
   }
-  match desktop_detect() {
+  let env = desktop_detect()
+  match env {
     Xfce => wp_get_xfce()
-    Gnome => wp_get_gnome()
     Kde => wp_get_kde()
-    _ => Err(UnknownDesktop(desktop_name()))
+    _ =>
+      match wp_gsettings_target(env) {
+        Some(t) => wp_get_gsettings(t)
+        None => Err(UnknownDesktop(desktop_name()))
+      }
   }
 }
 
@@ -578,9 +630,9 @@ fn wp_set_linux(path : String) -> Result[Unit, WallpaperError] {
   if !pr_available() {
     return Err(Unsupported)
   }
-  match desktop_detect() {
+  let env = desktop_detect()
+  match env {
     Xfce => wp_set_xfce(path)
-    Gnome => wp_apply("gsettings", wp_gnome_set_args("picture-uri", path))
     Kde =>
       match wp_kde_prog() {
         None => Err(Unsupported)
@@ -592,7 +644,11 @@ fn wp_set_linux(path : String) -> Result[Unit, WallpaperError] {
             wp_kde_write_script(path),
           ])
       }
-    _ => Err(UnknownDesktop(desktop_name()))
+    _ =>
+      match wp_gsettings_target(env) {
+        Some(t) => wp_apply("gsettings", wp_gsettings_set_args(t, path))
+        None => Err(UnknownDesktop(desktop_name()))
+      }
   }
 }
 
@@ -680,25 +736,26 @@ fn wp_xfce_props() -> Array[String] {
 }
 
 ///|
-/// GNOME 读壁纸：picture-uri 为主，未设置回退 picture-uri-dark。
-fn wp_get_gnome() -> Result[String, WallpaperError] {
-  match wp_read_gsettings_key("picture-uri") {
-    Err(e) => Err(e)
-    Ok(Some(path)) => Ok(path)
-    Ok(None) =>
-      match wp_read_gsettings_key("picture-uri-dark") {
-        Err(e) => Err(e)
-        Ok(Some(path)) => Ok(path)
-        Ok(None) => Err(ParseFailed("gsettings picture-uri 未设置"))
-      }
+/// 按落点读 gsettings 系壁纸：依次试表内键，第一个有值的算数；全空给
+/// ParseFailed（「没设置」与「工具跑不通」不是一回事，后者由 wp_run_capture 报）。
+fn wp_get_gsettings(t : WpGsettings) -> Result[String, WallpaperError] {
+  for key in t.keys {
+    match wp_read_gsettings_key(t.schema, key) {
+      Err(e) => return Err(e)
+      Ok(Some(path)) => return Ok(path)
+      Ok(None) => ()
+    }
   }
+  Err(ParseFailed("\{t.schema} 的键 \{t.keys[0]} 未设置"))
 }
 
 ///|
 /// 读一个 gsettings 字符串键（解析失败/未设置为 Ok(None)）。
-fn wp_read_gsettings_key(key : String) -> Result[String?, WallpaperError] {
-  match
-    wp_run_capture("gsettings", ["get", "org.gnome.desktop.background", key]) {
+fn wp_read_gsettings_key(
+  schema : String,
+  key : String,
+) -> Result[String?, WallpaperError] {
+  match wp_run_capture("gsettings", wp_gsettings_get_args(schema, key)) {
     Err(e) => Err(e)
     Ok((code, out)) =>
       if code != 0 {

@@ -251,14 +251,14 @@ let _ = @sys.nl_reset()
 
 ## 壁纸
 
-Windows 走 `SystemParametersInfoW`（SPI_SETDESKWALLPAPER）直调。Linux 按 `XDG_CURRENT_DESKTOP` 分派，DE 识别用 sys 包内自带的纯函数。**XFCE** 走 `xfconf-query` 读写 xfce4-desktop 频道的 `/backdrop/<screen>/monitor<输出>/<workspace>/last-image` 属性（多个显示器时取已连接输出）；**GNOME** 走 `gsettings` 读写 `org.gnome.desktop.background` 的 `picture-uri`（未设置回退 `picture-uri-dark`）；**KDE** 走 `qdbus6`/`qdbus` 调 plasmashell 的 `evaluateScript`；本仓库未在 KDE 真机验证。
+Windows 走 `SystemParametersInfoW`（SPI_SETDESKWALLPAPER）直调。Linux 按 `XDG_CURRENT_DESKTOP` 分派，DE 识别用 sys 包内自带的纯函数。**XFCE** 走 `xfconf-query` 读写 xfce4-desktop 频道的 `/backdrop/<screen>/monitor<输出>/<workspace>/last-image` 属性（多个显示器时取已连接输出）；**KDE** 走 `qdbus6`/`qdbus` 调 plasmashell 的 `evaluateScript`；本仓库未在 KDE 真机验证。其余 gsettings 系桌面由一张落点表统一驱动（读写同一表）：**GNOME** 与同 schema 的衍生桌面 **Budgie/Unity** 取 `org.gnome.desktop.background` 的 `picture-uri`（未设置回退 `picture-uri-dark`）、**Cinnamon** 取自家 fork 的 `org.cinnamon.desktop.background picture-uri`、**MATE** 取 `org.mate.background picture-filename`（存的是裸路径，写值不套 `file://`）。
 
 | 函数 | 说明 |
 |---|---|
 | `wp_get() -> Result[String, WallpaperError]` | 读当前壁纸路径 |
 | `wp_set(path) -> Result[Unit, WallpaperError]` | 设置壁纸（会改变桌面外观） |
 
-错误 `WallpaperError`：`Unsupported`（Linux 上子进程不可用、KDE 的 qdbus 不在）/ `UnknownDesktop(String)`（非 XFCE/GNOME/KDE，带 `XDG_CURRENT_DESKTOP` 原文）/ `CommandFailed(String)` / `ParseFailed(String)` / `InvalidParam(String)`。XFCE 写入时属性不存在会创建。
+错误 `WallpaperError`：`Unsupported`（Linux 上子进程不可用、KDE 的 qdbus 不在）/ `UnknownDesktop(String)`（既不在 XFCE/KDE 分支、也不在 gsettings 落点表内，如 LXQt/Deepin/Wayland 合成器，带 `XDG_CURRENT_DESKTOP` 原文）/ `CommandFailed(String)` / `ParseFailed(String)` / `InvalidParam(String)`。XFCE 写入时属性不存在会创建。
 
 ```moonbit
 match @sys.wp_get() {

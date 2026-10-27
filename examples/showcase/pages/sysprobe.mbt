@@ -364,6 +364,10 @@ fn sp_clip_power() -> String {
   let buf = StringBuilder()
   match @sys.cbw_get_text() {
     Ok(t) => buf.write_string("剪贴板文本: \{sp_clip(t, 56)}\n")
+    // 「没有文本」与「读不出来」是两件事：前者是剪贴板当前装着图片/文件
+    // （或什么都没装），后者才是探测失败
+    Err(@sys.ClipboardError::NoText) =>
+      buf.write_string("剪贴板: 当前无文本内容（空或图片/文件）\n")
     Err(e) => buf.write_string("剪贴板: 读不到：\{e}\n")
   }
   if @sys.idle_supported() {

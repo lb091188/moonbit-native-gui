@@ -193,7 +193,7 @@ test "wp_parse_uint / wp_parse_gsettings_uri / wp_unquote" {
 }
 
 ///|
-test "wp_xfce_set_args / wp_gnome_set_args：写路径参数" {
+test "wp_xfce_set_args / wp_gsettings_set_args：写路径参数" {
   // XFCE：-n 属性不存在则创建，-t string 显式类型
   let xfce = wp_xfce_set_args(
     "/backdrop/screen0/monitorNone-1/workspace0/last-image", "/a.png",
@@ -203,14 +203,44 @@ test "wp_xfce_set_args / wp_gnome_set_args：写路径参数" {
     "/backdrop/screen0/monitorNone-1/workspace0/last-image", "-n", "-t",
     "string", "-s", "/a.png",
   ])
-  // GNOME：写 picture-uri，值转 file:// URI
-  assert_eq(wp_gnome_set_args("picture-uri", "/a.png"), [
+  // gsettings 系：写落点表的首个键，值形态随表（GNOME 一族是 file:// URI）
+  let gnome = wp_gsettings_target(Gnome).unwrap()
+  assert_eq(wp_gsettings_set_args(gnome, "/a.png"), [
     "set", "org.gnome.desktop.background", "picture-uri", "file:///a.png",
   ])
-  assert_eq(wp_gnome_set_args("picture-uri-dark", "/b.png"), [
-    "set", "org.gnome.desktop.background", "picture-uri-dark",
-    "file:///b.png",
+  assert_eq(wp_gsettings_get_args(gnome.schema, "picture-uri-dark"), [
+    "get", "org.gnome.desktop.background", "picture-uri-dark",
   ])
+  // MATE 的 picture-filename 存裸路径，写值不能再套 file://
+  let mate = wp_gsettings_target(Mate).unwrap()
+  assert_eq(
+    wp_gsettings_set_args(mate, "/a.png"),
+    ["set", "org.mate.background", "picture-filename", "/a.png"],
+  )
+}
+
+///|
+test "wp_gsettings_target：gsettings 系桌面的壁纸落点表" {
+  // Cinnamon 用自家 fork 的 schema（真机读数：壁纸报 UnknownDesktop(Cinnamon)）
+  let cin = wp_gsettings_target(Cinnamon)
+  assert_eq(cin.unwrap().schema, "org.cinnamon.desktop.background")
+  assert_eq(cin.unwrap().keys, ["picture-uri"])
+  assert_true(cin.unwrap().uri)
+  // GNOME 与读同一 schema 的衍生桌面同表，亮/暗两档依次取
+  for env in [Gnome, Budgie, Unity] {
+    let t = wp_gsettings_target(env).unwrap()
+    assert_eq(t.schema, "org.gnome.desktop.background")
+    assert_eq(t.keys, ["picture-uri", "picture-uri-dark"])
+  }
+  let mate = wp_gsettings_target(Mate).unwrap()
+  assert_eq(mate.schema, "org.mate.background")
+  assert_eq(mate.keys, ["picture-filename"])
+  assert_false(mate.uri)
+  // 不走 gsettings 的（xfconf / qdbus / 各自配置文件）一律不在表内，
+  // 由调用方分派或诚实报 UnknownDesktop，而不是拿 GNOME 的键糊弄
+  for env in [Xfce, Kde, Lxqt, Deepin, Windows, Unknown] {
+    assert_true(wp_gsettings_target(env) is None)
+  }
 }
 
 ///|
