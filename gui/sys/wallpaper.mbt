@@ -1,11 +1,13 @@
 // 当前桌面壁纸：读/设置按桌面环境分派。
-//   XFCE   : xfconf-query 读写 xfce4-desktop 频道的
+//   Linux XFCE : xfconf-query 读写 xfce4-desktop 频道的
 //            /backdrop/<screen>/monitor<输出>/<workspace>/last-image 属性
-//   GNOME  : gsettings 读写 org.gnome.desktop.background 的 picture-uri
-//   KDE    : qdbus6/qdbus 调 plasmashell 的 evaluateScript（Plasma 脚本约定）
-// 其余桌面环境给语义化 Err(UnknownDesktop)。桌面环境识别用本包的
+//   Linux GNOME: gsettings 读写 org.gnome.desktop.background 的 picture-uri
+//   Linux KDE  : qdbus6/qdbus 调 plasmashell 的 evaluateScript（Plasma 脚本约定）
+//   macOS      : osascript 问 System Events 的 desktop picture（首次可能被
+//            「自动化」授权拦下，错误消息带 osascript 正文）
+//   Windows    : SystemParametersInfo SPI_GET/SETDESKWALLPAPER 直调
+// 其余不认识的桌面环境给语义化 Err(UnknownDesktop)。桌面环境识别用本包的
 // [desktop_detect]（XDG_CURRENT_DESKTOP），已连接显示器枚举复用 [mon_list]。
-// Windows / macOS 的系统直调随各自平台批接入，当前非 Linux 给 Unsupported。
 // 目录/路径解析与命令参数构造都是纯函数，wallpaper_wbtest.mbt 白盒覆盖。
 
 ///|
@@ -346,7 +348,10 @@ fn wp_first_line(s : String) -> String {
 
 ///|
 /// 运行命令并捕获标准输出：底层走 [pr_run]，非零退出还原为
-/// (退出码, 空 stdout) 正常返回，其余错误映射为 WallpaperError。
+/// (退出码, stderr 首行外全文)——失败趟把 stderr 顶进 stdout 槽，调用方
+/// 只在码 0 时解析输出、失败时把它拼进错误消息（不吞真实原因的纪律，
+/// macOS 的 osascript 被「自动化」授权拦下时，退出码 1 背后的正文就在这）。
+/// 其余错误映射为 WallpaperError。
 fn wp_run_capture(
   prog : String,
   args : Array[String],
@@ -354,7 +359,7 @@ fn wp_run_capture(
 ) -> Result[(Int, String), WallpaperError] {
   match pr_run(prog, args, timeout_ms~) {
     Ok(o) => Ok((o.exit_code, o.stdout))
-    Err(NonZeroExit(code, _)) => Ok((code, ""))
+    Err(NonZeroExit(code, err)) => Ok((code, err))
     Err(Timeout(m)) => Err(CommandFailed(m))
     Err(SpawnFailed(m)) => Err(CommandFailed(m))
     Err(Signaled(sig)) => Err(CommandFailed("\{prog}: 被信号 \{sig} 终止"))
@@ -424,7 +429,10 @@ fn wp_apply(
   match wp_run_capture(prog, args) {
     Err(e) => Err(e)
     Ok((0, _)) => Ok(())
-    Ok((code, _)) => Err(CommandFailed("\{prog}: 退出码 \{code}"))
+    Ok((code, err)) =>
+      Err(
+        CommandFailed("\{prog}: 退出码 \{code}（\{wp_first_line(err)}）"),
+      )
   }
 }
 
@@ -467,7 +475,9 @@ fn wp_get_mac() -> Result[String, WallpaperError] {
     Err(e) => Err(e)
     Ok((code, out)) => {
       if code != 0 {
-        return Err(CommandFailed("osascript 读壁纸: 退出码 \{code}"))
+        return Err(
+          CommandFailed("osascript 读壁纸: 退出码 \{code}（\{wp_first_line(out)}）"),
+        )
       }
       let p = wp_trim(out)
       if p == "" {
@@ -486,7 +496,10 @@ fn wp_set_mac(path : String) -> Result[Unit, WallpaperError] {
   match wp_mac_run(script) {
     Err(e) => Err(e)
     Ok((0, _)) => Ok(())
-    Ok((code, _)) => Err(CommandFailed("osascript 写壁纸: 退出码 \{code}"))
+    Ok((code, err)) =>
+      Err(
+        CommandFailed("osascript 写壁纸: 退出码 \{code}（\{wp_first_line(err)}）"),
+      )
   }
 }
 
@@ -591,7 +604,9 @@ fn wp_get_xfce() -> Result[String, WallpaperError] {
     Err(e) => Err(e)
     Ok((code, out)) => {
       if code != 0 {
-        return Err(CommandFailed("xfconf-query -l: 退出码 \{code}"))
+        return Err(
+          CommandFailed("xfconf-query -l: 退出码 \{code}（\{wp_first_line(out)}）"),
+        )
       }
       let candidates : Array[String] = []
       for line in wp_split_lines(out) {
@@ -618,8 +633,12 @@ fn wp_get_xfce() -> Result[String, WallpaperError] {
                 Ok(path)
               }
             }
-            Ok((code2, _)) =>
-              Err(CommandFailed("xfconf-query -p: 退出码 \{code2}"))
+            Ok((code2, err2)) =>
+              Err(
+                CommandFailed(
+                  "xfconf-query -p: 退出码 \{code2}（\{wp_first_line(err2)}）",
+                ),
+              )
           }
       }
     }
@@ -680,7 +699,9 @@ fn wp_read_gsettings_key(key : String) -> Result[String?, WallpaperError] {
     Err(e) => Err(e)
     Ok((code, out)) =>
       if code != 0 {
-        Err(CommandFailed("gsettings get \{key}: 退出码 \{code}"))
+        Err(
+          CommandFailed("gsettings get \{key}: 退出码 \{code}（\{wp_first_line(out)}）"),
+        )
       } else {
         Ok(wp_parse_gsettings_uri(out))
       }
