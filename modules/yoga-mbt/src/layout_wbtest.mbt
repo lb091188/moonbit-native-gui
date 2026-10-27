@@ -1644,3 +1644,32 @@ test "交叉轴确定值仍过 min/max 夹取：width 100% + min-width 400 取 4
   assert_eq(a.layout().width, 400.0)
   assert_eq(b.layout().width, 120.0)
 }
+
+///|
+test "行内 percent(100) 项溢出时被 shrink（min:auto 按 min-content 收口）" {
+  // CSS §4.5：percent 基准项的 min:auto = 内容建议（min-content）被指定
+  // 尺寸建议收口——把 percent 解析值当 min 会让行容器一挤就整行溢出，
+  // 兄弟件被顶出窗口（真机「bind 回显不出字」的机制根）。
+  let root = Node::new()
+  root.set_width(fixed(1100.0))
+  root.set_height(fixed(700.0))
+  root.set_flex_direction(Column)
+  let row = Node::new()
+  row.set_flex_direction(Row)
+  row.set_gap(0.0, 8.0)
+  let a = leaf(52.0, 18.0)
+  a.set_flex_shrink(0.0)
+  let b = Node::new()
+  b.set_measure(fn(_aw, _ah) { (65.0, 15.0) })
+  b.set_width(percent(100.0))
+  b.set_height(fixed(15.0))
+  row.append_child(a)
+  row.append_child(b)
+  root.append_child(row)
+  calculate_layout(root, Some(1100.0), Some(700.0))
+  // 基准 1100 + 固定 52 + 间隙 8 溢出 60；b 按基准加权独摊收缩 → 1040，
+  // 行不溢出（min 曾被顶成 1100 时 b 纹丝不动，右缘 1152）
+  assert_eq(b.layout().width, 1040.0)
+  assert_eq(b.layout().left, 60.0)
+  assert_eq(row.layout().width, 1100.0)
+}

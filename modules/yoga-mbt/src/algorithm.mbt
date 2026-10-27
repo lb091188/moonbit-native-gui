@@ -501,7 +501,23 @@ fn intrinsic_border_size(
     resolve_value(edge_value(s.border, 3), base_w)
   let style_axis = if want_row { s.width } else { s.height }
   let base_axis = if want_row { base_w } else { base_h }
-  let raw = match definite_size(style_axis, base_axis) {
+  // min 探询不把「可解析 Percent」当确定尺寸直取：CSS 内在贡献里 percent
+  // 按内容口径走——直取会把 flex 项的 min:auto 顶成 percent 基准本身，
+  // 行容器一挤 percent 项永远缩不动、整行溢出（bind 回显被顶出窗口即此）。
+  // Fixed 仍按确定值直取（内容可溢出，现状口径）。
+  let min_probe = match kind {
+    Min => true
+    Max => false
+  }
+  let definite : Double? = if min_probe {
+    match style_axis {
+      Percent(_) => None
+      v => definite_size(v, base_axis)
+    }
+  } else {
+    definite_size(style_axis, base_axis)
+  }
+  let raw = match definite {
     Some(d) => d
     None =>
       if n.children.length() == 0 {
@@ -1005,6 +1021,21 @@ fn layout_into_impl(
     let min_main = match ratio_main {
       Some(t) => mc.min(t)
       None => mc
+    }
+    // 指定尺寸建议收口（CSS §4.5）：**主轴尺寸属性**（width/height 样式，
+    // 不是 flex-basis）有可解析确定值时，内容建议不超过它——percent 件的
+    // min 跟着内容长，会把遮罩这类「percent 跟宿主」的件顶得比宿主还宽
+    // （溢出窗口）；basis 显式给值不参与（语料 F 行：basis 0 + min auto
+    // 仍按内容下限 60）。
+    let min_main = match axis_size(
+      c,
+      child_main_style,
+      main_is_row,
+      child_pct_w,
+      child_pct_h,
+    ) {
+      Some(v) => min_main.min(v)
+      None => min_main
     }
     let max_v = if main_is_row { c.style.max_width } else { c.style.max_height }
     let max_main = axis_size(c, max_v, main_is_row, child_pct_w, child_pct_h)

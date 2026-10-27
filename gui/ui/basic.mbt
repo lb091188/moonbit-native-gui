@@ -230,8 +230,14 @@ pub fn text_dyn(
     // 折行文本是块级内容:显式 percent 100 跟容器(块级组件跟随容器必须
     // 显式 percent);折行宽由 measure 的可用宽定,max_width 只是上限。
     // 单行文本(wrap=false)按内容宽占位(标签形态)。
+    // percent 基准 + 不收缩只在列容器里自洽;进了行容器 percent 基准就是
+    // 整行宽,必须可收缩,否则后面的兄弟件被挤出容器外(真机「链接点击后
+    // bind 回显不出字」即此——回显件被顶到窗口外,拖窗口也不回来)。
+    // 「不参与收缩」是标签形态(单行)的现状口径,只归 wrap=false。
     if wrap {
       w.node.set_width(@yoga.percent(100.0))
+    } else if shrink_by_role {
+      w.node.set_flex_shrink(0.0)
     }
     attach_text_measure(w, src)
     w.on_draw = Some(fn(
@@ -241,10 +247,6 @@ pub fn text_dyn(
     ) -> Unit {
       let _ = draw_text_in(self, p, src)
     })
-    // 角色形态沿用 `label_t` 现状:不参与收缩,文本按自然宽占位
-    if shrink_by_role {
-      w.node.set_flex_shrink(0.0)
-    }
     let sid = sig.subscribe(fn(v : String) -> Unit { relabel(w, src, v) })
     @base.sub_bag_register(fn() { sig.remove(sid) })
     handle(w)
