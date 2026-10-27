@@ -375,6 +375,15 @@ fn md_scan_blocks(blocks : Array[@mdast.Block], s : MDFootScan) -> Unit {
 }
 
 ///|
+/// 行内块内容列（列表/任务/定义/脚注/引用行的右半）：**吃掉行内剩余宽**。
+/// 不给 grow 时它是 shrink-to-fit，盒宽=自身 max-content，而折行判据按逐单元
+/// 累加宽算，两者差不到 1px 就整体折出第二行——第二行又被单行的行盒裁掉，
+/// 真机看着就是「列表项尾巴丢了」。块级内容的折行宽应当是文档宽减去标记列。
+fn md_content_col(nodes : Array[@widget.Node]) -> @widget.Node {
+  @ui.col(nodes, grow=1.0)
+}
+
+///|
 /// 列表项内容:段落直接展平(不套段落外距,行距一致),其余块递归。
 fn md_item_content(children : Array[@mdast.Block], ctx : MDCtx) -> Array[@widget.Node] {
   let nodes : Array[@widget.Node] = []
@@ -447,7 +456,7 @@ fn md_quoted(content : Array[@widget.Node]) -> @widget.Node {
     })
     b
   })
-  @ui.row([bar, @ui.col(content)], column_gap=10.0)
+  @ui.row([bar, md_content_col(content)], column_gap=10.0)
 }
 
 ///|
@@ -600,14 +609,14 @@ fn md_render_blocks(blocks : Array[@mdast.Block], ctx : MDCtx) -> Array[@widget.
               nodes.push(
                 @ui.row([
                   @ui.checkbox("", @base.Store::new(ck)),
-                  @ui.col(md_item_content(item.children, ctx)),
+                  md_content_col(md_item_content(item.children, ctx)),
                 ]),
               )
             None =>
               nodes.push(
                 @ui.row([
                   md_marker(md_list_marker("•"), 18.0),
-                  @ui.col(md_item_content(item.children, ctx)),
+                  md_content_col(md_item_content(item.children, ctx)),
                 ]),
               )
           }
@@ -618,7 +627,7 @@ fn md_render_blocks(blocks : Array[@mdast.Block], ctx : MDCtx) -> Array[@widget.
           nodes.push(
             @ui.row([
               md_marker("\{no}.", 18.0),
-              @ui.col(md_item_content(item.children, ctx)),
+              md_content_col(md_item_content(item.children, ctx)),
             ]),
           )
           no += 1
@@ -635,7 +644,9 @@ fn md_render_blocks(blocks : Array[@mdast.Block], ctx : MDCtx) -> Array[@widget.
             nodes.push(
               @ui.row([
                 md_marker("·", 18.0),
-                md_rich_label(md_flatten_inline(def, ctx), 13.0, ctx),
+                md_content_col([
+                  md_rich_label(md_flatten_inline(def, ctx), 13.0, ctx),
+                ]),
               ]),
             )
           }
@@ -1221,7 +1232,7 @@ pub fn markdown_view(
             nodes.push(
               @ui.row([
                 md_marker("\{num}.", 24.0),
-                @ui.col(md_item_content(children, ctx)),
+                md_content_col(md_item_content(children, ctx)),
               ]),
             )
           }

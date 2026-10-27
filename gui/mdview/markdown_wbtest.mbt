@@ -824,3 +824,42 @@ test "探询档不顶高块盒：一行列表项就是一行高" {
     )
   }
 }
+
+///|
+test "行内块内容吃掉行内剩余宽：单行项不折第二行、不被行盒裁掉" {
+  // 真机反馈：任务项「(点复选框可勾选)」与两条脚注定义的尾巴看不见。根因不在
+  // 折行判据，在**定盒**：列表/任务/脚注/引用行的右半是不给宽的列，行容器里
+  // shrink-to-fit 成自身 max-content，盒宽与「逐单元累加」的折行判据差不到 1px
+  // 就整体折出第二行，第二行又被单行的行盒裁掉。判据：整棵演示文档里，任何
+  // 自己画字的叶子都不许比它的父盒高（三个宽度各扫一遍）。
+  let src =
+    "支持 **粗体**、`行内代码` 与 [链接](https://x.y),引用式链接见[主页][home]。\n\n- 无序列表项一\n- 无序列表项二(含 `代码`)\n  - 嵌套列表项\n1. 有序列表第一项\n- [x] 任务列表已完成项(点复选框可勾选)\n\n> 引用块:主题色竖条 + 缩进排版。\n\n正文脚注[^1]。\n\n[home]: https://x.y\n[^1]: 脚注定义一:在文末分隔线后按引用顺序渲染。\n"
+  fn fmt(r : @base.Rect) -> String {
+    "(\{r.x},\{r.y},\{r.w}x\{r.h})"
+  }
+
+  for w in [1100.0, 680.0, 460.0] {
+    let root = @widget.Widget::new()
+    root.set_size(w, 900.0)
+    root.set_column()
+    let _ = markdown_view(src).mount_into(root)
+    root.relayout(w, 900.0)
+    let clipped : Array[String] = []
+    fn walk(x : @widget.Widget, ph : Double) -> Unit {
+      // 只查「自己画字、又被裁」的叶子：容器比父高是嵌套内容，不算裁字
+      if x.kids.length() == 0 && x.rect.h > 1.0 && x.rect.h > ph + 0.5 {
+        clipped.push("父高 \{ph} 叶 \{fmt(x.rect)}")
+      }
+      for c in x.kids {
+        walk(c, x.rect.h)
+      }
+    }
+    walk(root, 1000000.0)
+    let readout = clipped.join(" | ")
+    assert_eq(
+      readout,
+      "",
+      msg="宽 \{w} 下有叶子被行盒裁掉：\{readout}",
+    )
+  }
+}
