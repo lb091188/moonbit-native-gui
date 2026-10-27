@@ -330,7 +330,7 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
     @shared.section(
       "虚线",
       "set_dashes 图案与相位",
-      "`set_dashes(图案, 相位)`：数组是 on/off 交替的段长（逻辑像素，跟缩放走），相位是图案的起笔偏移；`set_dashes([])` 回实线。三行分别是 `[10, 6]`、同图案 `offset=8`、清空回实线——第二行整条往后错 8px，段数不变。虚线进 `save/restore`，嵌套绘制不会串到下一条线。纯光栅后端只存 state（描边框仍在），Cairo 档才是真断段。",
+      "`set_dashes(图案, 相位)`：数组是 on/off 交替的段长（逻辑像素，跟缩放走），相位是图案的起笔偏移；`set_dashes([])` 回实线。三行分别是 `[10, 6]`、同图案 `offset=8`、清空回实线——第二行整条往后错 8px，段数不变。虚线进 `save/restore`，嵌套绘制不会串到下一条线。纯光栅后端只存 state（描边框仍在），Cairo 档才是真断段。要给**控件整框虚线**不必来画布：样式槽有 `border_style`（solid/dashed/dotted，周期随 border_width），见基础组件页「分隔提示」段；这里演示的是 Painter 层的自由图案与相位。",
       [
         @ui.view(
           [dash_widget()],

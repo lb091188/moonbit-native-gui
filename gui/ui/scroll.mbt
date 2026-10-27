@@ -380,8 +380,9 @@ pub fn scroll_view(
       if state.content_h > state.view_h {
         let st = @style.style_for(self)
         p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
-        p.set_line_width(@style.number_of(st.border_width, 1.0))
+        let dashed = set_border_pen(p, st)
         p.stroke_rect(0.0, 0.0, r.w, r.h)
+        reset_border_pen(p, dashed)
       }
     })
     viewport.on_scroll = Some(fn(ev : @widget.ScrollEvent) -> Bool {

@@ -85,7 +85,7 @@ supported_targets = "native"
 | | `width_percent` `height_percent` | `Double` |
 | 边距 | `padding` + `padding_left/right/top/bottom` | `Double` |
 | | `margin` + `margin_left/right/top/bottom` | `Double` |
-| 边框 | `border_width` `border_color` `border_radius` | `Double` / `String` / `Double` |
+| 边框 | `border_width` `border_color` `border_radius` `border_style` | `Double` / `String` / `Double` / `BorderStyle`（`Solid`/`Dashed`/`Dotted`，虚线周期随 border_width） |
 | 布局 | `display` | `@yoga.Flex` / `@yoga.Display::None` |
 | | `flex_direction` | `@yoga.Row` `RowReverse` `Column` `ColumnReverse` |
 | | `flex_wrap` | `@yoga.NoWrap` `Wrap` `WrapReverse` |

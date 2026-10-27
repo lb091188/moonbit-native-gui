@@ -41,6 +41,17 @@ pub(all) enum WhiteSpace {
 }
 
 ///|
+/// 边框线形：CSS `border-style` 的三档。虚线图案不是自由数组——按
+/// `border_width` 派生（dashed = 实 3 空 2、dotted = 圆头点、间距 2 倍宽），
+/// 与 CSS「线形定档、粗细定周期」同口径。自定义图案仍走 Painter 层
+/// `set_dashes`（画布即时绘制）。
+pub(all) enum BorderStyle {
+  Solid
+  Dashed
+  Dotted
+}
+
+///|
 /// 可见性：`visibility` 只两档（折叠占位一类没有对应绘制语义，不设）。
 /// `hidden` 落宿主 `Widget::set_visible(false)`（仍参与布局，与 CSS 同义）。
 pub(all) enum Visibility {

@@ -940,3 +940,39 @@ test "图标字形随盒子缩放、不溢出、居中" {
   assert_true(b.2 - b.0 >= 10 && b.2 - b.0 <= 17)
   assert_eq((b.0 + b.2) / 2, (b.1 + b.3) / 2)
 }
+
+///|
+test "border_style：虚/点边沿像素比实线少，画完复位不漏给同帧兄弟" {
+  let bd = @style.style(border_color="#ff0000", border_width=2.0)
+  let mk = fn(extra : @style.Style) -> @widget.Node {
+    view([], width=181.0, height=41.0, class=[bd, extra])
+  }
+  let solid = mk(@style.empty_style())
+  let dashed = mk(@style.style(border_style=@style.Dashed))
+  let dotted = mk(@style.style(border_style=@style.Dotted))
+  // 排在虚档之后：画笔没复位就会串到这里（同帧 painter 状态共享）
+  let solid2 = mk(@style.empty_style())
+  let root = mount_root([solid, dashed, dotted, solid2], 185.0, 170.0)
+  let bm = @render.Bitmap::new(185, 170)
+  let p = @render.Painter::new(bm)
+  root.paint(p)
+  p.end()
+  let edge_ink = fn(y : Int) -> Int {
+    let mut n = 0
+    for x = 0; x < 181; x = x + 1 {
+      if color_of(bm, x, y).0 > 96 {
+        n = n + 1
+      }
+    }
+    n
+  }
+  let s1 = edge_ink(1)
+  let d = edge_ink(42)
+  let t = edge_ink(83)
+  let s2 = edge_ink(124)
+  println("BORDER-STYLE solid=\{s1.to_string()} dashed=\{d.to_string()} dotted=\{t.to_string()} solid2=\{s2.to_string()}")
+  assert_true(s1 > 170)
+  assert_true(d < s1)
+  assert_true(t < d)
+  assert_true(s2 > 170)
+}

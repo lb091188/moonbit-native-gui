@@ -110,13 +110,14 @@ pub fn view(
       }
       if bd.length() > 0 {
         p.set_stroke_color(bd)
-        p.set_line_width(@style.number_of(s.border_width, 1.0))
+        let dashed = set_border_pen(p, s)
         if rad > 0.0 {
           p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
           p.stroke()
         } else {
           p.stroke_rect(0.0, 0.0, r.w, r.h)
         }
+        reset_border_pen(p, dashed)
       }
     })
     @widget.mount_children(w, children)

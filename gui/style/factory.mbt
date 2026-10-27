@@ -49,6 +49,7 @@ pub fn style(
   border_width? : Double,
   border_color? : String,
   border_radius? : Double,
+  border_style? : BorderStyle,
   // —— flex 布局
   display? : Display,
   flex_direction? : FlexDirection,
@@ -156,6 +157,7 @@ pub fn style(
     None => ()
   }
   s.border_width = border_width
+  s.border_style = border_style
   match border_color {
     Some(c) => s.border_color = Some(check_color(parse_color(c)))
     None => ()
@@ -217,6 +219,7 @@ pub fn Style::hover(
   border_width? : Double,
   border_color? : String,
   border_radius? : Double,
+  border_style? : BorderStyle,
   visibility? : Visibility,
   cursor? : Int,
 ) -> Style {
@@ -238,6 +241,7 @@ pub fn Style::hover(
   b.text_decoration = text_decoration
   b.white_space = white_space
   b.border_width = border_width
+  b.border_style = border_style
   match border_color {
     Some(c) => b.border_color = Some(check_color(parse_color(c)))
     None => ()
@@ -267,6 +271,7 @@ pub fn Style::active(
   border_width? : Double,
   border_color? : String,
   border_radius? : Double,
+  border_style? : BorderStyle,
   visibility? : Visibility,
   cursor? : Int,
 ) -> Style {
@@ -288,6 +293,7 @@ pub fn Style::active(
   b.text_decoration = text_decoration
   b.white_space = white_space
   b.border_width = border_width
+  b.border_style = border_style
   match border_color {
     Some(c) => b.border_color = Some(check_color(parse_color(c)))
     None => ()
@@ -317,6 +323,7 @@ pub fn Style::focus(
   border_width? : Double,
   border_color? : String,
   border_radius? : Double,
+  border_style? : BorderStyle,
   visibility? : Visibility,
   cursor? : Int,
 ) -> Style {
@@ -338,6 +345,7 @@ pub fn Style::focus(
   b.text_decoration = text_decoration
   b.white_space = white_space
   b.border_width = border_width
+  b.border_style = border_style
   match border_color {
     Some(c) => b.border_color = Some(check_color(parse_color(c)))
     None => ()

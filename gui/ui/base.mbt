@@ -408,10 +408,49 @@ pub fn paint_subset(class : Array[@style.Style]) -> @style.Style {
   out.background_color = s.background_color
   out.border_color = s.border_color
   out.border_width = s.border_width
+  out.border_style = s.border_style
   out.border_radius = s.border_radius
   out.hover = s.hover
   out.active = s.active
   out.focus = s.focus
   out
+}
+
+///|
+/// 边框画笔：线宽照样式槽，线形按 `border_style` 三档落虚线（CSS 口径：
+/// dashed = 实 3 空 2、dotted = 圆头点，周期由 `border_width` 派生）。
+/// 返回是否铺了虚档——painter 状态同帧跨控件共享，描完必须 [reset_border_pen]。
+fn set_border_pen(p : @render.Painter, s : @style.Style) -> Bool {
+  let w = @style.number_of(s.border_width, 1.0)
+  p.set_line_width(w)
+  match s.border_style {
+    None | Some(@style.Solid) => false
+    Some(@style.Dashed) =>
+      if w > 0.0 {
+        p.set_dashes([3.0 * w, 2.0 * w])
+        true
+      } else {
+        false
+      }
+    Some(@style.Dotted) =>
+      if w > 0.0 {
+        // 段长给「近零」而非 0：cairo 对 0 长段整个图案直接跳过不画（实测
+        // 零墨），1/10 像素的段在圆头下就是干净的圆点
+        p.set_dashes([0.1, 2.0 * w])
+        p.set_line_cap(@render.Round)
+        true
+      } else {
+        false
+      }
+  }
+}
+
+///|
+/// 还原 [set_border_pen] 铺下的虚档与圆头（返回 false 时调用也无害）。
+fn reset_border_pen(p : @render.Painter, dashed : Bool) -> Unit {
+  if dashed {
+    p.set_dashes([])
+    p.set_line_cap(@render.Butt)
+  }
 }
 

@@ -166,3 +166,18 @@ test "merge_all：class 数组按序合并、尾赢" {
   let e = merge_all([])
   assert_true(e.padding_left is None && e.color is None && e.hover is None)
 }
+
+///|
+test "border_style：工厂 / merge 覆写 / 状态桶都接这根槽" {
+  let a = style(border_style=Dashed)
+  assert_true(a.border_style is Some(Dashed))
+  assert_true(style().border_style is None)
+  let m = merge(style(border_style=Dotted), style(border_style=Solid))
+  assert_true(m.border_style is Some(Solid))
+  let h = style().hover(border_style=Dashed)
+  assert_true(h.hover is Some(_) )
+  match h.hover {
+    Some(b) => assert_true(b.border_style is Some(Dashed))
+    None => assert_true(false)
+  }
+}

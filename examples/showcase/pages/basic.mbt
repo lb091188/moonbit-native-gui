@@ -178,7 +178,7 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
     @shared.section(
       "分隔提示",
       "Divider 与 Tooltip",
-      "水平（默认）/竖直 1px 主题边框色；tooltip 给任意节点包原生悬浮提示（系统样式，主题化气泡见反馈页 Popover）。",
+      "水平（默认）/竖直 1px 主题边框色；tooltip 给任意节点包原生悬浮提示（系统样式，主题化气泡见反馈页 Popover）。容器描边的线形走样式槽 `border_style`：solid/dashed/dotted 三档，虚线周期由 `border_width` 派生（与 CSS 同口径），卡片、面板、滚动视口这类读描边槽的容器都吃这条。",
       [
         @ui.text(@shared.tx("上方内容"), role=Body),
         @ui.divider(),
@@ -190,11 +190,28 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
           ],
           column_gap=8.0,
         ),
+        @ui.row(
+          [
+            @ui.card(
+              [@ui.text(@shared.tx("dashed：实 3 空 2"), role=@ui.Secondary)],
+              padding=12.0,
+              class=[@style.style(border_style=@style.Dashed)],
+            ),
+            @ui.card(
+              [@ui.text(@shared.tx("dotted：圆头点"), role=@ui.Secondary)],
+              padding=12.0,
+              class=[@style.style(border_style=@style.Dotted, border_width=2.0)],
+            ),
+          ],
+          column_gap=8.0,
+        ),
       ],
       code=[
         "@ui.divider()",
         "@ui.divider(vertical=true)",
         "@ui.tooltip(@ui.button(\"悬停看提示\"), \"原生 tooltip：系统样式\")",
+        "@ui.card([..], class=[@style.style(border_style=@style.Dashed)])",
+        "@ui.card([..], class=[@style.style(border_style=@style.Dotted, border_width=2.0)])",
       ],
     ),
     @shared.section(
