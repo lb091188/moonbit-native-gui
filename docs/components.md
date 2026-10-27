@@ -37,7 +37,7 @@ Every self-drawn widget and the component library live in `NoahLiu/native-gui/ui
 
 | Constructor | Purpose |
 |---|---|
-| `text(content, role?=Plain, font_size?=13.0, color?, weight?, family?, align?, max_width?, wrap?, ellipsis?, class?, handle?)` | Text, unifying `label` + `label_t`: with a `role` it takes the role's font size, weight and theme colour; size comes from Pango measurement and feeds the layout engine, so text participates in baseline alignment |
+| `text(content, role?=Plain, font_size?=13.0, color?, weight?, family?, align?, max_width?, wrap?, ellipsis?, max_lines?=0, class?, handle?)` | Text, unifying `label` + `label_t`: with a `role` it takes the role's font size, weight and theme colour; size comes from Pango measurement and feeds the layout engine, so text participates in baseline alignment; when `wrap` is on, `max_lines`>0 clamps the line count — extra lines are cut and the last kept line ends with … (0 = unlimited) |
 | `text_dyn(sig : Signal[String], role?, font_size?, color?, …, class?, handle?)` | Signal-driven text: on change it edits the text in place and recomputes only this chain; the counterpart of the old `bind_label` and the prototype of the display `*_dyn` family |
 | `bind_label(store : Store[A], f : (A) -> String, font_size?, color?, handle?)` | Declarative text binding: initial value `f(store.get())`, then every `set` updates the text in place and re-measures; always single-line |
 | `bind(sig : Signal[A], f : (A) -> String, font_size?, color?, handle?)` | Text binding in signal form: takes a source signal or a `computed` derived signal directly |

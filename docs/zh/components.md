@@ -37,7 +37,7 @@
 
 | 构造器 | 用途 |
 |---|---|
-| `text(content, role?=Plain, font_size?=13.0, color?, weight?, family?, align?, max_width?, wrap?, ellipsis?, class?, handle?)` | 文本，`label` + `label_t` 合一：`role` 给了按角色取字号/字重/主题色；尺寸来自 Pango 测量并进布局引擎，能参与基线对齐 |
+| `text(content, role?=Plain, font_size?=13.0, color?, weight?, family?, align?, max_width?, wrap?, ellipsis?, max_lines?=0, class?, handle?)` | 文本，`label` + `label_t` 合一：`role` 给了按角色取字号/字重/主题色；尺寸来自 Pango 测量并进布局引擎，能参与基线对齐；`wrap` 时 `max_lines`>0 做行数钳制——超过第 N 行截断、行末补 …（0 = 不限） |
 | `text_dyn(sig : Signal[String], role?, font_size?, color?, …, class?, handle?)` | 随信号更新的文本：值变就地改字、只重算这一条链；旧 `bind_label` 的对应物，展示类 `*_dyn` 的原型 |
 | `bind_label(store : Store[A], f : (A) -> String, font_size?, color?, handle?)` | 声明式文本绑定：初值 `f(store.get())`，之后每次 `set` 就地更新文本并重测；恒单行 |
 | `bind(sig : Signal[A], f : (A) -> String, font_size?, color?, handle?)` | 信号版文本绑定：源信号或 `computed` 派生信号都能直接喂 |
