@@ -1,13 +1,13 @@
-// 剪贴板文本监听：Linux 优先经 GtkClipboard 只读轮询（与 `clipboard.mbt`
-// 同一档后端选择，进程内取值、无子进程开销），没有 GTK 时退回 xclip，
-// 文本内容变化时通过回调派发新文本。命令路线经 procrun 的 [pr_run]
-// （spawn → 限时回收 → 捕获 stdout），不自行 spawn。
+// 剪贴板文本监听：三平台只读轮询，后端选择与 `clipboard.mbt` 同一条落点
+// （Windows CF_UNICODETEXT / Linux GtkClipboard→xclip / macOS
+// NSPasteboard→pbpaste），文本内容变化时通过回调派发新文本。命令路线经
+// procrun 的 [pr_run]（spawn → 限时回收 → 捕获 stdout），不自行 spawn。
 //
 // 与 methods.mbt 里 libyue 原生 Clipboard 的 start_watching / on_change
 // 的分工：后者由 GUI 事件循环驱动（需 initialize 的应用环境）；本模块
 // 是纯轮询实现，任意 MoonBit 进程可用，回调落在调用方上下文。
 //
-// 只读监测无副作用：读失败（如 xclip 未安装、选区无文本）静默跳过该
+// 只读监测无副作用：读失败（后端不在、选区无文本 NoText）静默跳过该
 // 拍，不触发回调。定时器由调用方注入（本包不引 GUI 核心层），[cbw_stop]
 // 置停靠标志，下一拍回调发现标志为 false 就不再续期。
 //
@@ -21,9 +21,10 @@
 
 ///|
 pub(all) enum ClipboardError {
-  /// 当前平台/环境不支持（非 Linux，或 xclip 不存在——Unix 以退出码
-  /// 127 呈现命令缺失）
+  /// 当前平台/环境不支持（认不出的平台，或该平台的原生后端与命令线都不在）
   Unsupported
+  /// 剪贴板可读但当前没有文本内容（复制的是图片/文件等，与「不支持」分开）
+  NoText
   /// 命令执行失败（spawn 失败 / 非零退出 / 超时 / 被信号终止），带原因
   CommandFailed(String)
 }
@@ -32,6 +33,7 @@ pub(all) enum ClipboardError {
 pub impl Show for ClipboardError with fn output(self, logger) {
   match self {
     Unsupported => logger.write_string("ClipboardError::Unsupported")
+    NoText => logger.write_string("ClipboardError::NoText")
     CommandFailed(m) =>
       logger.write_string("ClipboardError::CommandFailed(\{m})")
   }
@@ -99,27 +101,75 @@ fn cbw_first_line(s : String) -> String {
 // ---------------------------------------------------------------------------
 
 ///|
-/// 读剪贴板当前文本（只读；文本原样返回，不做去空白）。Linux 有 GTK 后端时
-/// 走进程内取值，否则经 xclip；xclip 缺失（退出码 127）或无 X 会话时给
-/// `Unsupported`。
+/// 读剪贴板当前文本（只读；文本原样返回，不做去空白）。三平台各走原生后端，
+/// 与 `clipboard.mbt` 同一条落点：Windows 读 CF_UNICODETEXT，Linux 优先
+/// GtkClipboard（不在退回 xclip），macOS 优先 NSPasteboard（不在退回
+/// pbpaste）。可读但没文本给 `NoText`（复制的是图片/文件等），后端与命令线
+/// 都不在才给 `Unsupported`——两件事不再混报。
 pub fn cbw_get_text() -> Result[String, ClipboardError] {
-  if linux_on_gtk_clipboard() {
-    let ok = Ref(0)
-    let bytes = ffi_clipboard_gtk_get_text(ok)
-    if ok.val == 1 {
-      Ok(@utf8.decode_lossy(bytes))
-    } else {
-      Err(Unsupported)
+  match sys_platform() {
+    "windows" => {
+      let ok = Ref(0)
+      let bytes = ffi_clipboard_get_text(ok)
+      if ok.val != 1 {
+        Err(CommandFailed("OpenClipboard/GetClipboardData 失败"))
+      } else {
+        cbw_text_or_none(@utf8.decode_lossy(bytes))
+      }
     }
-  } else {
-    cbw_get_text_xclip()
+    "linux" =>
+      if linux_on_gtk_clipboard() {
+        let ok = Ref(0)
+        let bytes = ffi_clipboard_gtk_get_text(ok)
+        if ok.val == 1 {
+          cbw_text_or_none(@utf8.decode_lossy(bytes))
+        } else {
+          cbw_get_text_xclip()
+        }
+      } else {
+        cbw_get_text_xclip()
+      }
+    "macos" =>
+      if macos_on_ns_clipboard() {
+        let ok = Ref(0)
+        let bytes = ffi_clipboard_gtk_get_text(ok)
+        if ok.val == 1 {
+          cbw_text_or_none(@utf8.decode_lossy(bytes))
+        } else {
+          cbw_get_text_pbpaste()
+        }
+      } else {
+        cbw_get_text_pbpaste()
+      }
+    _ => Err(Unsupported)
+  }
+}
+
+///|
+/// 空串按「无文本」报（NoText），非空原样返回。
+fn cbw_text_or_none(t : String) -> Result[String, ClipboardError] {
+  if t == "" { Err(NoText) } else { Ok(t) }
+}
+
+///|
+/// macOS 命令线兜底：pbpaste（缺失/失败给 Unsupported，与 xclip 同口径）。
+fn cbw_get_text_pbpaste() -> Result[String, ClipboardError] {
+  if !pr_available() {
+    return Err(Unsupported)
+  }
+  match pr_run("pbpaste", []) {
+    Ok(o) => cbw_text_or_none(o.stdout)
+    Err(NonZeroExit(127, _)) => Err(Unsupported)
+    Err(NonZeroExit(code, err)) =>
+      Err(CommandFailed("pbpaste: 退出码 \{code}（\{cbw_first_line(err)}）"))
+    Err(e) => Err(CommandFailed("\{e}"))
   }
 }
 
 ///|
 fn cbw_get_text_xclip() -> Result[String, ClipboardError] {
   match pr_run("xclip", ["-selection", "clipboard", "-o"], timeout_ms=2000) {
-    Ok(o) => Ok(o.stdout)
+    Ok(o) => cbw_text_or_none(o.stdout)
     Err(NonZeroExit(127, _)) => Err(Unsupported)
     Err(NonZeroExit(code, err)) =>
       Err(CommandFailed("xclip: 退出码 \{code}（\{cbw_first_line(err)}）"))

@@ -146,24 +146,28 @@ test "ClipboardError Show 文本" {
     "ClipboardError::Unsupported",
   )
   assert_eq(
+    ClipboardError::NoText.to_string(),
+    "ClipboardError::NoText",
+  )
+  assert_eq(
     ClipboardError::CommandFailed("退出码 1").to_string(),
     "ClipboardError::CommandFailed(退出码 1)",
   )
 }
 
 ///|
-test "cbw_get_text：真实只读探测（有 xclip 与 X 会话时读到文本）" {
+test "cbw_get_text：真实只读探测（三平台原生后端，结果随环境打印记录）" {
   if !pr_available() {
-    println("cbw_get_text: skip (non-linux)")
+    println("cbw_get_text: skip (无子进程后端)")
     return
   }
-  // 只读探测，结果因环境而异打印记录：Ok(文本) / xclip 缺失 Unsupported /
-  // 无 X display 时 CommandFailed（pr_run 子进程环境不含 DISPLAY，与
-  // mon_list 冒烟同因，不作硬断言）
+  // 只读探测，不作硬断言：Ok(文本) / 剪贴板无文本 NoText /
+  // 后端与命令线都不在 Unsupported / 子进程失败 CommandFailed
   match cbw_get_text() {
     Ok(t) => println("cbw_get_text: Ok（\{t.length()} 字符）: \{t}")
+    Err(ClipboardError::NoText) => println("cbw_get_text: NoText（当前无文本）")
     Err(ClipboardError::Unsupported) =>
-      println("cbw_get_text: Unsupported（xclip 未安装）")
+      println("cbw_get_text: Unsupported（后端与命令线都不在）")
     Err(e) => println("cbw_get_text: \{e}")
   }
 }
