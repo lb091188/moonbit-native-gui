@@ -153,6 +153,9 @@ typedef struct {
   int desk_embedded;
   LONG_PTR desk_style;
   HWND desk_parent;
+  // 挂进去的那扇壁纸窗本身：撤档/隐藏/销毁时要请它重画我们压过的那块，
+  // 否则 WorkerW 不自绘暴露区，壁纸上留着本窗最后一帧（真机「残影」）
+  HWND desk_host;
   WmEv evs[64];
   WmEv last;
   int ev_head;
@@ -180,6 +183,9 @@ static HICON wm_icon_get(int slot);
 /* 前置声明：拆窗时撤销外部拖入挂接（W23a 的拖入段定义在窗口之后，RevokeDragDrop
  * 必须在 DestroyWindow 之前）。 */
 void wm_dragdnd_disable(int64_t id);
+/* 前置声明：请壁纸窗重画本窗占过的那块（W34 的「图标下」段定义在窗口之后，
+ * hide/close 要在撤下子窗之前叫它）。 */
+static void wm_desk_repaint_host(WmWindow *w);
 
 /* 菜单句柄表（W20a）：下标即对外句柄（1 起）。每个槽存一个 HMENU——菜单条或
  * 子菜单都占一个槽；子菜单的 HMENU 由 CreatePopupMenu 建、AppendMenuW(MF_POPUP)
@@ -936,14 +942,18 @@ void wm_hide(int64_t id) {
   if (w->hwnd == NULL || w->hidden) {
     return;
   }
-  RECT c;
-  GetClientRect(w->hwnd, &c);
-  POINT tl = {c.left, c.top};
-  ClientToScreen(w->hwnd, &tl);
-  w->hidden_x = tl.x;
-  w->hidden_y = tl.y;
+  // 记的是**整窗**原点：show 的复位走 SetWindowPos，那条 API 收的正是整窗
+  // 原点。此前记客户区原点（ClientToScreen）再当整窗原点写回，带边框的窗每
+  // 走一轮 hide/show 就往下左偏一个标题栏与边框的厚度。
+  RECT wr;
+  if (GetWindowRect(w->hwnd, &wr)) {
+    w->hidden_x = wr.left;
+    w->hidden_y = wr.top;
+  }
   w->hidden = 1;
   w->hidden_ev = 1;
+  // 「图标下」档挂着时隐藏：WorkerW 不自绘暴露区，先请它重画本窗占的那块
+  wm_desk_repaint_host(w);
   ShowWindow(w->hwnd, SW_HIDE);
 }
 
@@ -1135,6 +1145,22 @@ static HWND wm_wallpaper_host(void) {
   return found;
 }
 
+// 请壁纸窗重画本窗占过的那块：WorkerW 不像普通窗那样自绘暴露区，撤掉子窗
+// 后那块像素一直留着最后一帧（真机读数：切回主窗后壁纸层有残影）。矩形在
+// 还挂着的时候现算（移动/改尺寸都不取陈旧值），再换算到宿主客户区。
+static void wm_desk_repaint_host(WmWindow *w) {
+  if (!w->desk_embedded || w->desk_host == NULL) {
+    return;
+  }
+  RECT sr;
+  if (!GetWindowRect(w->hwnd, &sr)) {
+    return;
+  }
+  MapWindowPoints(NULL, w->desk_host, (POINT *)&sr, 2);
+  InvalidateRect(w->desk_host, &sr, TRUE);
+  UpdateWindow(w->desk_host);
+}
+
 // 退出「图标下」：撤 WS_CHILD、还回原父窗、按屏幕位置复位并重报框架（不重报
 // 标题栏要等下一次窗口变动才回来）。
 static void wm_leave_desktop(WmWindow *w) {
@@ -1143,12 +1169,14 @@ static void wm_leave_desktop(WmWindow *w) {
   }
   RECT sr;
   GetWindowRect(w->hwnd, &sr);
+  wm_desk_repaint_host(w);
   SetWindowLongPtrW(w->hwnd, GWL_STYLE, w->desk_style);
   SetParent(w->hwnd, w->desk_parent);
   SetWindowPos(w->hwnd, HWND_TOP, sr.left, sr.top, 0, 0,
                SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED);
   w->desk_embedded = 0;
   w->desk_parent = NULL;
+  w->desk_host = NULL;
 }
 
 void wm_set_layer(int64_t id, int layer) {
@@ -1187,6 +1215,7 @@ void wm_set_layer(int64_t id, int layer) {
           SetParent(w->hwnd, host);
           SetWindowPos(w->hwnd, HWND_BOTTOM, tl.x, tl.y, 0, 0,
                        SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+          w->desk_host = host;
           w->desk_embedded = 1;
           break;
         }
@@ -1317,6 +1346,8 @@ void wm_close(int64_t id) {
   }
   if (w->hwnd != NULL) {
     HWND hwnd = w->hwnd;
+    // 「图标下」档挂着时销毁：先请壁纸窗重画本窗占的那块（摘钩后现算不了）
+    wm_desk_repaint_host(w);
     w->hwnd = NULL; // WM_DESTROY 里还会再清一次；先摘钩防重入
     wm_dragdnd_disable(id); // 拖放挂接要在 HWND 还活着时撤（OLE 按 hwnd 记账）
     DestroyWindow(hwnd);
@@ -4258,9 +4289,68 @@ void *wm_surface_container(int64_t surface_id) {
   return (void *)wm_surfaces[surface_id].hwnd;
 }
 void wm_window_set_popup(int64_t id, int64_t owner_id) { (void)id; (void)owner_id; }
-void wm_window_move(int64_t id, int x, int y) { (void)id; (void)x; (void)y; }
+
+/* 客户区原点相对整窗原点的偏移（标题栏与边框都算在整窗矩形里）。带边框的窗
+ * 摆位要按它补偿，move 与 origin 才互逆；无边框窗与 WS_CHILD 无框，偏移天然
+ * 为 0。 */
+static void wm_client_offset(HWND hwnd, LONG *dx, LONG *dy) {
+  RECT wr;
+  POINT cp = { 0, 0 };
+  *dx = 0;
+  *dy = 0;
+  if (!GetWindowRect(hwnd, &wr)) {
+    return;
+  }
+  if (!ClientToScreen(hwnd, &cp)) {
+    return;
+  }
+  *dx = cp.x - wr.left;
+  *dy = cp.y - wr.top;
+}
+
+/* 摆到屏幕坐标，语义是**客户区原点**（与 mac 臂同口径）。本臂进程声明了
+ * Per-Monitor V2，Win32 坐标就是物理像素，与整栈口径一致。 */
+void wm_window_move(int64_t id, int x, int y) {
+  if (id <= 0 || id >= WM_MAX_WINDOWS) {
+    return;
+  }
+  WmWindow *w = &wm_windows[id];
+  if (w->hwnd == NULL) {
+    return;
+  }
+  LONG dx = 0;
+  LONG dy = 0;
+  wm_client_offset(w->hwnd, &dx, &dy);
+  POINT tl = { x - dx, y - dy }; // 整窗原点（屏幕坐标）
+  if (w->desk_embedded && w->desk_host != NULL) {
+    // 「图标下」档挂着时是 WS_CHILD，SetWindowPos 收的是**宿主客户区**坐标
+    ScreenToClient(w->desk_host, &tl);
+  }
+  SetWindowPos(w->hwnd, NULL, tl.x, tl.y, 0, 0,
+               SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+/* 客户区在屏幕上的原点。此前本臂是空桩、输出从不写，MoonBit 侧的 Ref 保持
+ * 0——无论窗口摆在哪都读回 (0,0)（真机读数）。读不到时不写输出，调用方拿
+ * (0,0) 摆位只会贴边，不崩。 */
 void wm_window_origin(int64_t id, int32_t *out_x, int32_t *out_y) {
-  (void)id; (void)out_x; (void)out_y;
+  if (id <= 0 || id >= WM_MAX_WINDOWS) {
+    return;
+  }
+  WmWindow *w = &wm_windows[id];
+  if (w->hwnd == NULL) {
+    return;
+  }
+  POINT cp = { 0, 0 };
+  if (!ClientToScreen(w->hwnd, &cp)) {
+    return;
+  }
+  if (out_x != NULL) {
+    *out_x = (int32_t)cp.x;
+  }
+  if (out_y != NULL) {
+    *out_y = (int32_t)cp.y;
+  }
 }
 
 /* 改窗口尺寸（原生浮层要先量内容再定框，避免开一个空框再撑大）：参数是

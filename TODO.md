@@ -179,3 +179,34 @@
 - [ ] **macOS 通知的后端名仍叫 WinBalloon**：mac 的通知实现在 win 桩的 `wm_notify_*`（NSUserNotification），而 `shell/notify.mbt` 的 `NotifyBackend` 只有 `Dbus`/`WinBalloon` 两档，于是 mac 上 `notify_backend_name()` 报 "win-balloon"。能力本身（标题+正文，无动作/持久化）与气泡同档，先不改门面；通知已真机验通（须从 `.app` bundle 起，裸跑报不可用是系统约束），是否加第三档 `Cocoa` 待定
 - [ ] **macOS 安装自启动的生效回证**：plist 写落点已通（纯函数有测试钉住），`launchctl load` 在新写入文件上的实际生效已真机回证；若要换 `bootstrap gui/<uid>`，得先给 sys 补一个取 uid 的口子
 - [x] **真机复验 T1-T6 全部目视项**（清单已并入 `测试文档/测试用例.md`）：Retina 观感、输入法内联、拖窗期间的循环、通知弹出——已按清单跑完；通知须从 `.app` bundle 起
+
+## 8. Windows 平台批（2026-10-28 交接：mac 侧编不到也跑不到的项）
+
+背景：本轮在 mac 读码定位。win32 那条 C 臂本地编不到（无 mingw），**编译以 CI 的 windows job 为准**，行为确认全在那台 Windows 真机。
+
+### 8.1 已改待验（本批已提交，pull 后即可验）
+
+- [ ] **`wm_window_move` / `wm_window_origin` 补实**（win32 臂此前是空桩，输出从不写）
+  - 判据：窗口页「开驻留探针窗」→ 窗应落在 (160,160)；点「读窗位置」应回 `(160, 160)`、`is_hidden=false`。此前无论窗在哪都回 `(0,0)`，且 `move_to` 静默不生效。
+  - 口径：move 与 origin **互逆**，都按**客户区原点**、物理像素（本臂进程已声明 Per-Monitor V2）；带边框的窗内部补偿标题栏厚度。
+  - 顺带修：`hide`→`show` 每轮偏一个标题栏厚度（原桩记客户区原点、`show` 却按整窗原点写回 `SetWindowPos`）。验法：带边框窗连做三轮 hide/show，位置读数不动。
+- [ ] **「图标下」档撤档/隐藏/关闭时请 WorkerW 重画**（真机「壁纸层残影」）
+  - 判据：把某扇窗设到「图标下」，随后四条路径各验一次——切回主窗、撤回普通档、`hide`、`close`；壁纸上都不应留下该窗的最后一帧。
+  - 若仍有残影：记下**哪条路径**留下的、当时那扇窗是否还挂着（决定要不要把失效点从桩侧挪到宿主侧）。
+
+### 8.2 待诊断（没动手，先要读数）
+
+- [ ] **透明测试窗整片空白**（`set_borderless(true)` + `App::set_transparent_bg(true)` 的子窗看不到内容）
+  - 已排除：present 链在逐像素档是通的（`wm_present` 拷帧后直接 `wm_layered_submit`，不走 WM_PAINT，避免 GDI 把不透明像素糊回去）。
+  - 三个候选，按可能性排：① `UpdateLayeredWindow` 走 `pptDst=NULL, psize=NULL`「沿用当前窗口尺寸」，而子窗刚建好时窗口矩形与客户帧尺寸可能不一致（200% DPI 下帧是物理像素、窗是逻辑尺寸），提交的面与窗框对不上；② `w->borderless` 没被 `set_borderless` 更新 → `want=0` 不进逐像素档（但那时应显示不透明内容，与读数不符）；③ 子宿主（`App::open_window` 开的子窗）根本没跑 present 循环。
+  - 不改代码就能收的两条读数：① 那扇窗**在不在**（Alt+Tab / 任务栏里有没有它；按 8.1 的 `origin` 读数推位置，看能不能点中「关掉本窗」）；② 同段把「透明度」滑到 128，看**主窗**是否变淡（那是 `wm_apply_alpha` 普通档，另一条路）。窗在且能点中 → 候选 ①；窗根本不在 → 候选 ③。
+  - 定了再补：必要时加 `wm_trans_state(id, out4)` 只读探针（打 `trans_want` / `borderless` / `trans_mode` / `pending_w×pending_h` 与 `GetWindowRect` 的差），一轮读数收口。
+
+### 8.3 未实现（win32 臂空桩，不在本批范围）
+
+- [ ] **`wm_window_set_popup` 空桩**：原生弹层（无边框 + 不进任务栏 + transient 到 owner + 恒在 owner 之上）在 Windows 上完全没接——任何要盖住 webview 子表面的浮层在那边就是普通窗。mac 臂的实现可对照（`WM_STUB_MAC` 段）。
+- [ ] `wm_permission_request` 空桩属有意占位（见 adaptation「extern 直连 `wm_*` 须各平台分支留占位」）。
+
+### 8.4 验通后的收尾
+
+8.1 两条移进 `docs/zh/roadmap.md` 对应能力行并按平台标 ✅；`测试文档/测试用例.md` 窗口组补「读窗位置」「图标下撤档无残影」两条；8.2 的诊断结论回写 `proposals/adaptation.md`。

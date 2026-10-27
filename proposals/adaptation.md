@@ -3335,3 +3335,12 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **修复**：`pr_locale_vars(ctype, lang)` 出一对变量——`LC_CTYPE` 随会话（取父进程 `LC_CTYPE`，其次 `LANG`；空/`C`/`POSIX` 都算没挑到，退 `C.UTF-8`）、`LC_MESSAGES=C` 固定英文；**不再设 `LC_ALL`**。`LANGUAGE` 不透传（GLib 的消息翻译优先看它，透传会把文案带回本地化）；`LC_NUMERIC`/`LC_TIME`/`LC_COLLATE` 一律不设＝保持 C，数字与时间格式不因转发 LANG 而变。
 **教训**：① 「让输出语言恒定」和「让输出字符集恒定」是两件事，用一条 `LC_ALL` 同时钉死，代价是**所有非 ASCII 数据**（路径、文件名、书签标题、打印机名）静默变问号——数据坏掉不像解析失败那样会报错，只以「看着像乱码」的形式在真机暴露；② 子进程白名单环境里，凡是**值可能非 ASCII** 的读数，字符集必须显式随会话；③ 判据要能自动跑：`locale charmap` 一条命令就把「子进程字符集＝会话字符集」钉成用例（会话本身无 UTF-8 locale 时打印跳过，不误伤纯 ASCII 主机）。
 **验证**：`procrun_wbtest` 新增 `pr_locale_vars` 纯函数用例（优先级、`C`/`POSIX`/空串退化、表内无 `LC_ALL`）与子进程实测两条（`LC_MESSAGES=C`、`LC_CTYPE` 非 ASCII、`LC_ALL` 未设；`locale charmap` 非 ASCII），旧「环境固定 C locale」用例改钉新契约；`monitor/envx/windowctl` 三处提到 LC_ALL 的注释同步改口径。库门禁 1173/1173、`moon check` 零警告。**待真机**：Linux（Cinnamon）重开「系统探针 → 系统与桌面」，壁纸行应显出 `/home/lkyh/图片/哈巴雪山.jpg`；音量、显示器、窗口列表三处解析不因换 locale 对而退化。
+
+## win32 臂的 `wm_window_move`/`wm_window_origin` 是链接空桩：位置读数恒 (0,0)、摆位静默不生效（2026-10-28,真机「Windows 读窗口位置无论在哪儿都回 0,0」）
+
+**症状**：`Window::origin()` 在 Windows 上恒给 `(0, 0)`；同一段里「驻留探针窗」用 `move_to(160,160)` 定死位置那一步也没生效（静默）。
+**根因**：门面声明与另两臂都是实的（GTK 走 `gdk_window_get_origin`、mac 走 `convertRectToScreen` × scale），只有 win32 臂留着一行 `{ (void)id; (void)out_x; (void)out_y; }` —— 输出指针从不写，MoonBit 侧 `Ref(0)` 保持 0。`wm_window_move` 同一条空桩。这类占位是**为了让 showcase 在三平台都链接得过**而留的（同一批还有 `wm_window_set_popup`、`wm_permission_request`），代价是能力面「有 API、无实现」，调用方拿到的不是错误而是一个像样的假值。
+**修复**：win32 臂补两条实现，语义钉在**客户区原点、物理像素**（本臂进程声明 Per-Monitor V2，Win32 坐标即物理像素，与整栈一致）：`origin` 走 `ClientToScreen(0,0)`；`move` 先用 `GetWindowRect` 与 `ClientToScreen` 量出「客户区原点相对整窗原点的偏移」（标题栏 + 边框），按它补偿后 `SetWindowPos`，两函数互逆；挂进 WorkerW 的「图标下」档是 `WS_CHILD`，`SetWindowPos` 收的是宿主客户区坐标，故那条路径上先 `ScreenToClient(host)` 换算。
+**同批修掉的两条同源错位**：① `wm_hide` 记的是客户区原点（`ClientToScreen`），`wm_show` 却把它当整窗原点写回 `SetWindowPos` —— 带边框的窗每走一轮 hide/show 就往下左偏一个标题栏厚度，现统一记 `GetWindowRect` 的整窗原点；② 「图标下」撤档/隐藏/关闭时没人请 WorkerW 重画本窗占过的那块（WorkerW 不自绘暴露区），壁纸上留着最后一帧 = 真机「残影」，现记 `desk_host` 并在三条路径上 `InvalidateRect` + `UpdateWindow`。
+**教训**：跨平台桩的**空实现必须让调用方拿得到「没做」这个事实**——`{ (void)… }` 让 `origin` 返回一个合法的 (0,0)，比返回错误更难查（读数看着像「贴左边贴上了」）。要么在门面侧写明「本平台不支持」并给 `*_supported()`，要么让桩写出哨兵值由门面翻译成错误；顺手一条判据：新补一个平台臂时，把同臂所有 `{ (void)` 一行桩列成清单进 TODO（本批列进 `TODO.md` §8.3）。
+**验证**：mac 侧只能做括号/符号自查（本机无 mingw，win32 臂编不到），**编译以 CI windows job 为准**；行为判据与读数清单在 `TODO.md` §8.1（move/origin 互逆、hide/show 三轮不漂、图标下四条路径无残影）。8.2 另记一条未诊断项（透明测试窗逐像素档空白）与三个候选机制。
