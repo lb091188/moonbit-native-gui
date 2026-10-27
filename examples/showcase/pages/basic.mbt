@@ -3,13 +3,6 @@
 // `@ui.bind` 直连，无手动 subscribe 接线。勾选类在表单组件页，右键菜单
 // 在导航组件页。
 //
-// 四处口径：
-// ① 间距是布局容器的属性（段正文容器带 `row_gap`），控件不自己挂外边距；
-// ② 文本框只有 Store 驱动的 `input`（Store 是文本状态的唯一权威），
-//    「组内输入框」各配一个页内 Store；
-// ③ `hover_group` / `cursor_group` 内建悬停父链语义与光标最深请求，
-//    调用点不传 `on_change` / `radius`；
-// ④ 声明式层与组件同住 `@ui`（`ui/declarative.mbt`）。
 
 ///|
 pub fn page_basic(app : @shared.App) -> @widget.Node {
@@ -127,12 +120,19 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
       [
         @ui.row(
           [
-            @ui.button(@shared.tx("主要操作"), variant=@ui.Solid, on_click=fn() {
-              app.counter.update(fn(n) { n + 1 })
-            }),
+            @ui.button(@shared.tx("主要操作"), variant=@ui.Solid),
             @ui.button(@shared.tx("次要操作"), variant=@ui.Soft),
             @ui.button(@shared.tx("文字按钮"), variant=@ui.Text),
             @ui.button(@shared.tx("危险操作"), variant=@ui.Danger),
+          ],
+          column_gap=8.0,
+        ),
+        @ui.row(
+          [
+            @ui.button(@shared.tx("主要操作"), disabled=true, variant=@ui.Solid),
+            @ui.button(@shared.tx("次要操作"), disabled=true, variant=@ui.Soft),
+            @ui.button(@shared.tx("文字按钮"), disabled=true, variant=@ui.Text),
+            @ui.button(@shared.tx("危险操作"), disabled=true, variant=@ui.Danger),
           ],
           column_gap=8.0,
         ),
