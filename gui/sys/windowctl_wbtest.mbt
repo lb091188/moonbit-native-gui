@@ -246,8 +246,9 @@ test "win_list：真实环境探测（wmctrl -l 读取结果记录）" {
     println("win_list: skip (wmctrl 不可用)")
     return
   }
-  // pr_run 的子进程环境只传 PATH/XDG_RUNTIME_DIR/HOME/LC_ALL，不含
-  // DISPLAY；无 X display 时 wmctrl 以 "Cannot open display." 非零退出，
+  // pr_run 的子进程环境按白名单构造（PATH/XDG_RUNTIME_DIR/HOME 与 DISPLAY
+  // 等会话变量都在）；无 X display 的机器上 wmctrl 仍以 "Cannot open display."
+  // 非零退出，
   // 本条记录真实结果、不断言（与 monitor_wbtest 的 mon_list 冒烟同法）
   match win_list() {
     Ok(ws) => {

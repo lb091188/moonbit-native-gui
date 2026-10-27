@@ -57,7 +57,7 @@ test "envx_set/envx_unset：进程内写读改删环" {
 ///|
 test "envx_set/envx_unset：进程内生效（子进程可见）" {
   assert_true(envx_set(envx_probe_name, "child-visible") is Ok(_))
-  // procrun 传 PATH/XDG_RUNTIME_DIR/HOME 与 LC_ALL，不透传本变量，
+  // procrun 传白名单变量与 locale 对，不透传本变量，
   // 因此子进程读不到属预期；此处断言本进程读得到即可
   assert_eq(envx_get(envx_probe_name), Some("child-visible"))
   assert_true(envx_unset(envx_probe_name) is Ok(_))

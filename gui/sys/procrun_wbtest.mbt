@@ -260,18 +260,100 @@ test "pr_run:被信号终止（子进程自发 TERM，只读）" {
 }
 
 ///|
-test "pr_run:子进程环境固定 C locale" {
-  // POSIX 侧的环境块由 pr_env_blob 构造并强制 LC_ALL=C（输出语言恒定可
-  // 解析）；Windows 侧传空块＝继承父环境，没有 locale 语义这回事
+test "pr_locale_vars：字符集随会话、消息固定英文，不再设 LC_ALL" {
+  // LC_ALL 会连字符集一起钉成 ASCII——真机 Cinnamon 的中文壁纸路径因此就地
+  // 变问号。解析只依赖英文文案，那是 LC_MESSAGES 一件事。
+  assert_eq(
+    pr_locale_vars(None, None),
+    [("LC_CTYPE", "C.UTF-8"), ("LC_MESSAGES", "C")],
+  )
+  // LC_CTYPE 优先于 LANG；C/POSIX/空串都算「没挑到」，退到下一个来源
+  assert_eq(
+    pr_locale_vars(Some("C"), Some("zh_CN.UTF-8")),
+    [("LC_CTYPE", "zh_CN.UTF-8"), ("LC_MESSAGES", "C")],
+  )
+  assert_eq(
+    pr_locale_vars(Some("zh_CN.UTF-8"), Some("en_US.UTF-8")),
+    [("LC_CTYPE", "zh_CN.UTF-8"), ("LC_MESSAGES", "C")],
+  )
+  assert_eq(
+    pr_locale_vars(Some("POSIX"), Some("  ")),
+    [("LC_CTYPE", "C.UTF-8"), ("LC_MESSAGES", "C")],
+  )
+  // 别名大小写与点号写法原样透传（glibc 认 C.utf8）
+  assert_eq(
+    pr_locale_vars(Some("C.utf8"), None)[0],
+    ("LC_CTYPE", "C.utf8"),
+  )
+  // 表里不许再出现 LC_ALL
+  for (k, _) in pr_locale_vars(Some("zh_CN.UTF-8"), None) {
+    assert_false(k == "LC_ALL")
+  }
+}
+
+///|
+test "pr_run:子进程 locale 对（消息英文、字符集非 ASCII、LC_ALL 不设）" {
+  // POSIX 侧的环境块由 pr_env_blob 构造；Windows 传空块＝继承父环境，
+  // 没有 locale 语义这回事
   if !pr_posix_guard() {
     return
   }
-  match pr_run("sh", ["-c", "printf %s \"$LC_ALL\""]) {
-    Ok(o) => assert_eq(o.stdout, "C")
+  match pr_run(
+    "sh",
+    [
+      "-c",
+      "printf '%s|%s|%s' \"$LC_MESSAGES\" \"$LC_CTYPE\" \"$LC_ALL\"",
+    ],
+  ) {
+    Ok(o) => {
+      let parts : Array[String] = o.stdout.split("|")
+        .map(fn(v : StringView) -> String { v.to_owned() })
+        .collect()
+      assert_eq(parts.length(), 3)
+      assert_eq(parts[0], "C")
+      assert_true(
+        parts[1] != "" && parts[1] != "C" && parts[1] != "POSIX",
+        msg="LC_CTYPE 落回 ASCII（\{parts[1]}）：非 ASCII 路径会被工具转成问号",
+      )
+      assert_eq(parts[2], "")
+    }
     Err(e) => {
       println("pr_run sh failed: \{e}")
       assert_true(false)
     }
+  }
+}
+
+///|
+test "pr_run:子进程字符集＝会话字符集（中文路径不被转成问号的前提）" {
+  // 真机读数：Cinnamon 的壁纸路径 `/home/lkyh/图片/哈巴雪山.jpg` 在演示里显示
+  // 成 `/home/lkyh/??/?????.jpg`。丢字发生在**子进程一侧**——`LC_ALL=C` 把字符集
+  // 也钉成 ASCII，gsettings 这类按 locale 字符集转一遍再输出的工具就把非 ASCII
+  // 就地换成问号。这条用例钉住「子进程 charmap 不是 ASCII」这个前提。
+  if !pr_posix_guard() {
+    return
+  }
+  let parent_utf8 = pr_pick_ctype(
+    sys_getenv("LC_CTYPE"),
+    sys_getenv("LANG"),
+  ) is Some(_)
+  match pr_run("locale", ["charmap"], timeout_ms=2000) {
+    Ok(o) => {
+      let cs = o.stdout.trim(chars=" \t\n\r").to_owned()
+      let ascii =
+        cs == "US-ASCII" || cs == "ANSI_X3.4-1968" || cs == "ASCII"
+      if ascii && !parent_utf8 {
+        println(
+          "skip: 会话本身没有 UTF-8 locale（父 LANG/LC_CTYPE 未设），子进程无从跟随",
+        )
+      } else {
+        assert_false(
+          ascii,
+          msg="子进程字符集落成 ASCII（\{cs}）：工具输出里的中文会被转成问号",
+        )
+      }
+    }
+    Err(e) => println("skip: `locale charmap` 不可用：\{e}")
   }
 }
 

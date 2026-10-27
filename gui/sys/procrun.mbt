@@ -2,8 +2,9 @@
 // 的命令行工具调用封装，供音量/显示器/壁纸/窗口/打印机/电源计划等需要
 // 调系统命令的模块共用。原生 spawn/wait 由 sys 桩提供（POSIX 分支 Linux 与
 // macOS 共用：fork + setsid 自成进程组 + execvpe/execvp；Windows 分支
-// CreateProcessW + CREATE_NO_WINDOW 不闪控制台），Linux 子进程环境强制
-// C locale 使输出语言恒定可解析，Windows 传空环境块＝继承父进程环境；
+// CreateProcessW + CREATE_NO_WINDOW 不闪控制台），Linux 子进程环境钉
+// `LC_MESSAGES=C`（英文文案可解析）而字符集 `LC_CTYPE` 随会话（钉成 ASCII 会
+// 把中文路径变成问号，见 pr_locale_vars），Windows 传空环境块＝继承父进程环境；
 // 退出码 0 归一为 Ok，非零退出归一为 Err 并携带 stderr，调用方无需判码。
 // 平台差异（记档于 proposals/adaptation.md）：命令不存在在 Unix 惯例下由子
 // 进程以退出码 127 呈现（NonZeroExit），Windows 下 CreateProcessW 直接失败
@@ -132,8 +133,45 @@ fn pr_args_blob(args : Array[String]) -> Bytes {
 }
 
 ///|
-/// POSIX 最小环境：逐个转发名单内的变量，末尾固定追加 C locale 使输出
-/// 语言恒定可解析。
+/// 挑子进程的字符集名：`LC_CTYPE` 优先，其次 `LANG`；空串与 `C`/`POSIX`
+/// 都是 ASCII 字符集（等于没挑到），一律算无效。
+fn pr_pick_ctype(ctype : String?, lang : String?) -> String? {
+  fn usable(v : String?) -> String? {
+    match v {
+      Some(s) => {
+        let t = s.trim(chars=" \t\n\r").to_owned()
+        if t == "" || t == "C" || t == "POSIX" { None } else { Some(t) }
+      }
+      None => None
+    }
+  }
+  match usable(ctype) {
+    Some(c) => Some(c)
+    None => usable(lang)
+  }
+}
+
+///|
+/// 子进程的 locale 变量对：字符集 + 消息语言。
+/// **不再用一条 `LC_ALL=C` 打天下**：LC_ALL 覆盖所有类别，把字符集也钉成
+/// ASCII，于是 gsettings 这类「按 locale 字符集转一遍再输出」的工具把中文路径
+/// 就地打成问号（真机 Cinnamon 读数 `壁纸: /home/lkyh/??/?????.jpg`）。解析
+/// 真正依赖的只是**英文文案**（pactl 的「音量:」/xrandr 的 "connected"），那归
+/// `LC_MESSAGES` 一件事；字符集必须跟着会话走，两头都不让步。
+/// 其余类别（LC_NUMERIC/LC_TIME/LC_COLLATE）不设置＝保持 C，数字与时间格式
+/// 不因转发 LANG 而变；`LANGUAGE` 不透传（GLib 的消息翻译优先看它，透传会把
+/// 文案带回本地化）。
+fn pr_locale_vars(ctype : String?, lang : String?) -> Array[(String, String)] {
+  let cs = match pr_pick_ctype(ctype, lang) {
+    Some(c) => c
+    None => "C.UTF-8"
+  }
+  [("LC_CTYPE", cs), ("LC_MESSAGES", "C")]
+}
+
+///|
+/// POSIX 最小环境：逐个转发名单内的变量，末尾固定 locale 对（字符集随会话、
+/// 消息恒定英文，见 [pr_locale_vars]）。
 fn pr_env_posix(buf : StringBuilder, names : Array[String]) -> Unit {
   for name in names {
     match sys_getenv(name) {
@@ -146,8 +184,12 @@ fn pr_env_posix(buf : StringBuilder, names : Array[String]) -> Unit {
       None => ()
     }
   }
-  buf.write_string("LC_ALL=C")
-  buf.write_char('\u{0}')
+  for (k, v) in pr_locale_vars(sys_getenv("LC_CTYPE"), sys_getenv("LANG")) {
+    buf.write_string(k)
+    buf.write_char('=')
+    buf.write_string(v)
+    buf.write_char('\u{0}')
+  }
 }
 
 ///|

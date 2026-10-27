@@ -3326,3 +3326,12 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **修复二（错误归位）**：`cbw_xclip_no_text` 认 xclip 的 `not available` 正文 → 归 `NoText`；演示侧同步把「当前无文本（空或图片/文件）」与「读不到」分成两句，不再混报。
 **教训**：① 「认得出桌面」不等于「会读它的壁纸」——分派表要按**机制**列全，新增一族配置（gsettings）时用一个纯函数表把 schema/键/值形态收在一处，比在分派点堆 if 更容易核漏；② 子进程的错误正文里带着语义（xclip 这句就是「没文本」），只按退出码归错会把常态当成故障；③ 值形态是键的属性不是桌面的属性——同为 gsettings，URI 键与路径键的写法不同。
 **验证**：`wallpaper_wbtest` 新增落点表用例（Cinnamon/MATE/GNOME 系逐条 + 不在表内的六个环境给 None）与写参数表用例（MATE 裸路径、GNOME file://）；`clipboard_watch_wbtest` 新增 `cbw_xclip_no_text` 判据。库门禁 1171/1171、`moon check` 零警告、showcase 构建过。**待真机**：Cinnamon 上壁纸读出当前图、设置生效；Linux 剪贴板空/图片时显示「当前无文本」。
+
+## 子进程环境钉 `LC_ALL=C` 把中文路径吃成问号：字符集与消息语言要分开设（2026-10-28,真机 Cinnamon「壁纸: /home/lkyh/??/?????.jpg」）
+
+**症状**：gsettings 系桌面的壁纸读数里，非 ASCII 段逐字变成 `?`（命令行同一条 `gsettings get` 给的是 `'file:///home/lkyh/图片/哈巴雪山.jpg'`）。同一行文本里应用自己的中文（「打印机: 1 台」）显示正常。
+**定位**：丢字不在本仓的读取链——mac 无头跑同一条链（`pr_run` 捕获 → `@utf8.decode_lossy` → `wp_parse_gsettings_uri` 剥引号与 `file://`）字节级等值（`图片`→22270/29255 原样回来），中文完好；显示字体也没问题（同一行别处的中文正常）。剩下的唯一差异是**我们给子进程的环境**：`pr_env_posix` 一条 `LC_ALL=C` 打天下。`LC_ALL` 覆盖所有 locale 类别，把 **`LC_CTYPE` 字符集也钉成 ASCII**（`locale charmap` 在 `LC_ALL=C` 下给 `US-ASCII`/`ANSI_X3.4-1968`），于是按 locale 字符集转一遍再输出的那一段把不可表示的字符逐个换成 `?`。
+**当初为什么钉 C**：解析依赖英文文案（pactl 中文环境输出「音量:」而非 `Volume:`，见本文件「音量双后端」条；xrandr 的 `connected` 同理）。但那件事归 **`LC_MESSAGES`** 一类管，与字符集无关。
+**修复**：`pr_locale_vars(ctype, lang)` 出一对变量——`LC_CTYPE` 随会话（取父进程 `LC_CTYPE`，其次 `LANG`；空/`C`/`POSIX` 都算没挑到，退 `C.UTF-8`）、`LC_MESSAGES=C` 固定英文；**不再设 `LC_ALL`**。`LANGUAGE` 不透传（GLib 的消息翻译优先看它，透传会把文案带回本地化）；`LC_NUMERIC`/`LC_TIME`/`LC_COLLATE` 一律不设＝保持 C，数字与时间格式不因转发 LANG 而变。
+**教训**：① 「让输出语言恒定」和「让输出字符集恒定」是两件事，用一条 `LC_ALL` 同时钉死，代价是**所有非 ASCII 数据**（路径、文件名、书签标题、打印机名）静默变问号——数据坏掉不像解析失败那样会报错，只以「看着像乱码」的形式在真机暴露；② 子进程白名单环境里，凡是**值可能非 ASCII** 的读数，字符集必须显式随会话；③ 判据要能自动跑：`locale charmap` 一条命令就把「子进程字符集＝会话字符集」钉成用例（会话本身无 UTF-8 locale 时打印跳过，不误伤纯 ASCII 主机）。
+**验证**：`procrun_wbtest` 新增 `pr_locale_vars` 纯函数用例（优先级、`C`/`POSIX`/空串退化、表内无 `LC_ALL`）与子进程实测两条（`LC_MESSAGES=C`、`LC_CTYPE` 非 ASCII、`LC_ALL` 未设；`locale charmap` 非 ASCII），旧「环境固定 C locale」用例改钉新契约；`monitor/envx/windowctl` 三处提到 LC_ALL 的注释同步改口径。库门禁 1173/1173、`moon check` 零警告。**待真机**：Linux（Cinnamon）重开「系统探针 → 系统与桌面」，壁纸行应显出 `/home/lkyh/图片/哈巴雪山.jpg`；音量、显示器、窗口列表三处解析不因换 locale 对而退化。
