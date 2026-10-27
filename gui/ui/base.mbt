@@ -204,8 +204,10 @@ fn attach_text_measure(
       (false, Some(v)) => v
       (false, None) => 0.0
     }
+    // 探询只对折行文本生效(不折文本的 min-content 本来就是整行,照常按
+    // 「不受约束」答;max_width=1 + wrap=false 会让 Pango 返回 None)
     let probing = match avail_w {
-      Some(v) => v <= 0.0
+      Some(v) => v <= 0.0 && wrap
       None => false
     }
     // 探询按 1px 箱折：measure_font 给的宽 = 最宽不可断单元（min-content 的
