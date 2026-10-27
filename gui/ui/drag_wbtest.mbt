@@ -412,7 +412,7 @@ test "拖源包文本：按下落在文本上照样过阈值开拖" {
   }
   let src = drag_source(
     view(
-      [text("拖我", role=Body)],
+      [text("拖我")],
       width=120.0,
       height=64.0,
       padding=8.0,
@@ -446,7 +446,7 @@ test "拖源 external：系统级起不来时回落应用内会话" {
   }
   let src = drag_source(
     view(
-      [text("拖我出去", role=Body)],
+      [text("拖我出去")],
       width=120.0,
       height=64.0,
       padding=8.0,

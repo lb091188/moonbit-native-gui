@@ -139,7 +139,7 @@ supported_targets = "native"
 | `@ui.row(children, column_gap, padding, ...)` | 横向便捷形态，`align_items` 默认 **`Center`** |
 | `@ui.panel(title, children, ...)` | `padding=10.0`、`row_gap=6.0`、底 `bg_panel` + `border` 描边 |
 | `@ui.card(children, title, ...)` | `padding=12.0`、`row_gap=6.0`，标题走 14 + `SemiBold` + `text_primary` |
-| `@ui.text(content, ...)` | `font_size=13.0`、`role=@ui.Plain`。给了 `role` 后：字号与字重由角色决定（显式 `font_size` / `weight` 被覆盖），颜色默认取角色 token（显式 `color` 优先） |
+| `@ui.text(content, ...)` | 缺省 `font_size=13.0`、折行（`wrap?=true`，单行标签显式 `wrap=false`）。排版档挂 `class` 字阶预设（`@style.text_heading` / `text_title` / `text_secondary` / `text_accent`）：预设给字号字重与颜色 token，显式 `color` 散参数优先 |
 | `@ui.button(text, ...)` | `variant=@ui.Soft`、`font_size=13.0`、`icon_size=14.0`（图标槽 = `icon_size + 6.0`）、`min_width=0.0` |
 | `@ui.divider(...)` | 分隔线，颜色默认取 `border`（`color=` 可覆盖） |
 | `@ui.glass(children, ...)` | 玻璃面板：`padding=12.0`、半径固定 6、`blur_on? : () -> Bool = fn() { true }`（绘制期取值）；绘制顺序必须在背景内容之后 |
@@ -170,7 +170,7 @@ supported_targets = "native"
 ```moonbit
 fn main {
   let app = match @ui.mount_window(
-    [@ui.card([@ui.text("Hello", role=@ui.Body)], title="示例")],
+    [@ui.card([@ui.text("Hello")], title="示例")],
     title="示例窗口",
     width=480,
     height=320,
@@ -190,8 +190,8 @@ fn main {
 
 ```moonbit
 // 角色走体系，字号字重颜色都不手写
-@ui.text("季度报告", role=@ui.Title)
-@ui.text("最后更新 3 天前", role=@ui.Secondary)
+@ui.text("季度报告", class=[@style.text_heading])
+@ui.text("最后更新 3 天前", class=[@style.text_secondary])
 
 // 卡片 + 面板：库默认内边距就是基准档
 @ui.card([@ui.text("内容")], title="概览", padding=12.0)

@@ -92,7 +92,7 @@ fn sp_group(
     @ui.row(
       [
         @ui.button(btn_label, variant=@ui.Solid, on_click=fn() { refresh() }),
-        @ui.text(@shared.tx("读数因机而异；读不到的族显示原因，不影响其余部分。"), role=@ui.Secondary),
+        @ui.text(@shared.tx("读数因机而异；读不到的族显示原因，不影响其余部分。"), class=[@style.text_secondary]),
       ],
       column_gap=8.0,
       align_items=@yoga.AlignItems::Center,

@@ -14,7 +14,7 @@
 
 **键盘可及性内建。** 表单族控件（按钮/复选/单选/开关/步进/滑杆/评分/下拉/取色/日期时间/分段）默认自动领焦点号进 Tab 链，聚焦时描边转主题色；空格/回车激活，方向键按控件语义调值或换选。
 
-**文本角色 `TextRole`：** `Plain` 无角色、走显式 size/weight；`Title` · `Section` · `Accent` 走 SemiBold 主题字号；`Body` · `Secondary`。
+**文本排版预设（原 `TextRole` 退役）：** 角色收编为 `@style` 字阶预设，`class` 挂档——`text_heading`(18 SemiBold) · `text_title`(14 SemiBold) · `text_secondary`(12 次要色) · `text_accent`(13 SemiBold 主色)；正文 13 是 `text` 缺省档，不挂。字号读 `@theme` 字阶令牌。
 
 **语义色 `SemanticType`：** `Primary` · `Success` · `Warning` · `Danger` · `Info`。存的是 theme token 名，换主题现取、不固化快照。
 
@@ -37,8 +37,8 @@
 
 | 构造器 | 用途 |
 |---|---|
-| `text(content, role?=Plain, font_size?=13.0, color?, weight?, family?, align?, max_width?, wrap?, ellipsis?, max_lines?=0, class?, handle?)` | 文本，`label` + `label_t` 合一：`role` 给了按角色取字号/字重/主题色；尺寸来自 Pango 测量并进布局引擎，能参与基线对齐；`wrap` 时 `max_lines`>0 做行数钳制——超过第 N 行截断、行末补 …（0 = 不限） |
-| `text_dyn(sig : Signal[String], role?, font_size?, color?, …, class?, handle?)` | 随信号更新的文本：值变就地改字、只重算这一条链；旧 `bind_label` 的对应物，展示类 `*_dyn` 的原型 |
+| `text(content, font_size?=13.0, color?, weight?, family?, align?, max_width?, wrap?=true, ellipsis?, max_lines?=0, class?, handle?)` | 文本，`label` + `label_t` 合一：尺寸来自 Pango 测量并进布局引擎，能参与基线对齐；`wrap` 缺省 true（块级段落缺省），单行标签显式 `wrap=false`（行内挤不过兄弟件时收缩、末端出 …）；排版档走 `class`（`@style.text_heading` 等字阶预设）；`wrap` 时 `max_lines`>0 做行数钳制——超过第 N 行截断、行末补 …（0 = 不限） |
+| `text_dyn(sig : Signal[String], font_size?, color?, …, wrap?=true, class?, handle?)` | 随信号更新的文本：值变就地改字、只重算这一条链；旧 `bind_label` 的对应物，展示类 `*_dyn` 的原型 |
 | `bind_label(store : Store[A], f : (A) -> String, font_size?, color?, handle?)` | 声明式文本绑定：初值 `f(store.get())`，之后每次 `set` 就地更新文本并重测；恒单行 |
 | `bind(sig : Signal[A], f : (A) -> String, font_size?, color?, handle?)` | 信号版文本绑定：源信号或 `computed` 派生信号都能直接喂 |
 | `divider(text?, vertical?=false, color?, class?)` | 分隔线，`separator` + 带字 `divider` 合一：`text` 空 = 直线档（`vertical` 定横/竖），给字 = 居中断线档 |

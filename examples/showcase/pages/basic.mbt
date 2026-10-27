@@ -149,29 +149,29 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
     @shared.section(
       "文字链接",
       "Label 与 Link",
-      "五级排版角色，字号颜色随角色；Link 主题色文字悬停下划线，最近点击信号回显。",
+      "五级字阶预设（class=@style.text_*），字号字重颜色走主题字阶令牌，正文为缺省档不挂；Link 主题色文字悬停下划线，最近点击信号回显。",
       [
-        @ui.text(@shared.tx("标题文字（Title）"), role=@ui.Title),
-        @ui.text(@shared.tx("小节标题（Section）"), role=@ui.Section),
-        @ui.text(@shared.tx("正文文字（Body）"), role=@ui.Body),
-        @ui.text(@shared.tx("辅助文字（Secondary）"), role=@ui.Secondary),
-        @ui.text(@shared.tx("强调文字（Accent）"), role=@ui.Accent),
+        @ui.text(@shared.tx("标题文字（Title）"), class=[@style.text_heading]),
+        @ui.text(@shared.tx("小节标题（Section）"), class=[@style.text_title]),
+        @ui.text(@shared.tx("正文文字（Body）")),
+        @ui.text(@shared.tx("辅助文字（Secondary）"), class=[@style.text_secondary]),
+        @ui.text(@shared.tx("强调文字（Accent）"), class=[@style.text_accent]),
         @ui.row(
           [
             @ui.link(@shared.tx("打开文档"), fn() { app.picked_lang.set("docs") }),
             @ui.link(@shared.tx("帮助中心"), fn() { app.picked_lang.set("help") }),
-            @ui.text(@shared.tx("最近点击："), role=@ui.Body),
+            @ui.text(@shared.tx("最近点击：")),
             @ui.bind(app.picked_lang, fn(s) { s }),
           ],
           column_gap=8.0,
         ),
       ],
       code=[
-        "@ui.text(\"标题文字\", role=@ui.Title)",
-        "@ui.text(\"小节标题\", role=@ui.Section)",
-        "@ui.text(\"正文文字\", role=@ui.Body)",
-        "@ui.text(\"辅助文字\", role=@ui.Secondary)",
-        "@ui.text(\"强调文字\", role=@ui.Accent)",
+        "@ui.text(\"标题文字\", class=[@style.text_heading])",
+        "@ui.text(\"小节标题\", class=[@style.text_title])",
+        "@ui.text(\"正文文字\")",
+        "@ui.text(\"辅助文字\", class=[@style.text_secondary])",
+        "@ui.text(\"强调文字\", class=[@style.text_accent])",
         "@ui.link(\"打开文档\", fn() { app.picked_lang.set(\"docs\") })",
       ],
     ),
@@ -180,9 +180,9 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
       "Divider 与 Tooltip",
       "水平（默认）/竖直 1px 主题边框色；tooltip 给任意节点包原生悬浮提示（系统样式，主题化气泡见反馈页 Popover）。容器描边的线形走样式槽 `border_style`：solid/dashed/dotted 三档，虚线周期由 `border_width` 派生（与 CSS 同口径），卡片、面板、滚动视口这类读描边槽的容器都吃这条。",
       [
-        @ui.text(@shared.tx("上方内容"), role=Body),
+        @ui.text(@shared.tx("上方内容")),
         @ui.divider(),
-        @ui.text(@shared.tx("下方内容"), role=Body),
+        @ui.text(@shared.tx("下方内容")),
         @ui.row(
           [
             @ui.tooltip(@ui.button(@shared.tx("悬停看提示")), @shared.tx("原生 tooltip：系统样式")),
@@ -193,12 +193,12 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
         @ui.row(
           [
             @ui.card(
-              [@ui.text(@shared.tx("dashed：实 3 空 2"), role=@ui.Secondary)],
+              [@ui.text(@shared.tx("dashed：实 3 空 2"), class=[@style.text_secondary])],
               padding=12.0,
               class=[@style.style(border_style=@style.Dashed)],
             ),
             @ui.card(
-              [@ui.text(@shared.tx("dotted：圆头点"), role=@ui.Secondary)],
+              [@ui.text(@shared.tx("dotted：圆头点"), class=[@style.text_secondary])],
               padding=12.0,
               class=[@style.style(border_style=@style.Dotted, border_width=2.0)],
             ),
@@ -221,19 +221,19 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
       [
         @ui.hover_group(
           [
-            @ui.text(@shared.tx("组标题：悬停我，或下面的子控件"), role=@ui.Section),
+            @ui.text(@shared.tx("组标题：悬停我，或下面的子控件"), class=[@style.text_title]),
             @ui.row(
               [@ui.input(box_a, width=200.0), @ui.button(@shared.tx("组内按钮"))],
               column_gap=8.0,
             ),
-            @ui.text(@shared.tx("子控件触发的事件同样改变组的样式"), role=@ui.Secondary),
+            @ui.text(@shared.tx("子控件触发的事件同样改变组的样式"), class=[@style.text_secondary]),
           ],
           padding=12.0,
           row_gap=8.0,
         ),
         @ui.cursor_group(
           [
-            @ui.text(@shared.tx("整组都是手型：移入试试，或移到子控件上"), role=@ui.Section),
+            @ui.text(@shared.tx("整组都是手型：移入试试，或移到子控件上"), class=[@style.text_title]),
             @ui.row(
               [@ui.input(box_b, width=200.0), @ui.button(@shared.tx("组内按钮"))],
               column_gap=8.0,
@@ -246,7 +246,7 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
       code=[
         "@ui.hover_group(",
         "  [",
-        "    @ui.text(\"组标题\", role=@ui.Section),",
+        "    @ui.text(\"组标题\", class=[@style.text_title]),",
         "    @ui.row([@ui.input(box, width=200.0), @ui.button(\"组内按钮\")], column_gap=8.0),",
         "  ],",
         "  padding=12.0,",
@@ -254,7 +254,7 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
         ")",
         "@ui.cursor_group(",
         "  [",
-        "    @ui.text(\"整组都是手型\", role=@ui.Section),",
+        "    @ui.text(\"整组都是手型\", class=[@style.text_title]),",
         "    @ui.input(box, width=200.0),",
         "    @ui.button(\"组内按钮\"),",
         "  ],",

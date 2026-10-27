@@ -72,6 +72,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **样式槽文本字段**：`text_align` / `white_space` / `line_height` / `text_decoration` 写入 class 即生效
 - 🚧 **字距**：`letter_spacing` 生效到测量与绘制，字间按设定值加宽（macOS 已验；Linux / Windows 待真机）
 - 🚧 **行数钳制**：`measure_font` / `draw_box_at` 加 `max_lines`——折行文本超过行数上限时截断、第 N 行末尾出 …（MoonBit 侧二分前缀截断，三平台一实现，不碰平台 C 代码）；`TextSource` 与 `text` / `text_dyn` 透传 `max_lines`。无示例入口，判定走测试文档附录 D 库级用例
+- 🚧 **文本件口径定案**：`TextRole` 退役——角色收编为 `@style` 字阶预设（`class` 挂 `text_heading` / `text_title` / `text_secondary` / `text_accent`，字号读 `@theme` 字阶令牌，正文 13 为缺省档）；`text` / `text_dyn` 缺省折行（块级段落语义），单行标签显式 `wrap=false`（下限归 0，行内挤不过兄弟件时收缩、末端出 …）；折行档撤 percent(100)，flex 全线 `0 1 auto`；showcase 100 处与其他示例 26 处 `role=` 全量迁 `class`（Linux / Windows 待真机）
 
 ### 布局
 
@@ -232,10 +233,6 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 ### 工程与交付
 
 （见「已实现」。）
-
-### 组件
-
-- ⏳ **文本件口径定案（预制样式 + 默认折行 + 全线 0 1 auto）**：`TextRole` 退役，角色收编为 `@style` 排版预设（字号/字重/颜色走主题字阶令牌，theme 补字阶档）；`text` 默认折行（块级段落语义缺省），单行标签显式 `wrap=false`；flex 口径全线 `0 1 auto`（折行档撤 percent(100)，内容基准可收缩，min:auto 内容下限兜底——引擎已修，五语境无头验证过）；单行收缩串末端省略号；showcase 100 处 `role=` 迁移。行数钳制（`max_lines`）已先行合入，见「已实现 → 文字排印」。背景与机制见 adaptation「percent 主尺寸的 min:auto」与「文本节点不设宽」两节。
 
 ### 窗口
 

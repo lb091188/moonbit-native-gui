@@ -326,7 +326,7 @@ fn main {
               ),
               @ui.col(
                 [
-                  @ui.text("V" + SHOWCASE_VERSION, role=@ui.Secondary),
+                  @ui.text("V" + SHOWCASE_VERSION, class=[@style.text_secondary]),
                   @ui.row(
                     [
                       theme_toggle_button(app),
@@ -382,7 +382,7 @@ fn main {
                       t=@ui.Warning,
                       closable=true,
                     ),
-                    @ui.text(@shared.tx("确定要删除「示例项目」吗？"), role=@ui.Body),
+                    @ui.text(@shared.tx("确定要删除「示例项目」吗？")),
                   ],
                   confirm_text=@shared.tx("删除"),
                   cancel_text=@shared.tx("取消"),
@@ -395,9 +395,9 @@ fn main {
                   app.dlg_form,
                   @shared.tx("新建连接"),
                   [
-                    @ui.text(@shared.tx("名称"), role=@ui.Body),
+                    @ui.text(@shared.tx("名称")),
                     @ui.input(app.dlg_name, placeholder=@shared.tx("例如：开发库"), width=320.0),
-                    @ui.text(@shared.tx("地址"), role=@ui.Body),
+                    @ui.text(@shared.tx("地址")),
                     @ui.input(@base.Store::new(""), placeholder="host:port", width=320.0),
                   ],
                   on_confirm=fn() { app.dlg_result.set(app.dlg_name.get()) },

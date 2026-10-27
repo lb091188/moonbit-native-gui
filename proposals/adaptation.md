@@ -3280,6 +3280,13 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **教训**：**同一语义三个地方都要成立**——内在探询不给 percent 顶腰、flex 收集处按指定尺寸收口、组件侧不折行才停用收缩；缺任何一处，行容器就溢出。另外「症状所在的节点」不等于「刚改的节点」：bind 无字的病灶在它左边的兄弟件上。
 **验证**：yoga 新增「行内 percent(100) 项溢出时被 shrink」（基准 1100+固定 52+间隙 8 → percent 项 1040、行不溢出）；ui 新增「行容器内折行文本可收缩：bind 回显件不被顶出容器」（点击后回显件完整落行内）。全 workspace 1585/1585、`moon check` 零警告。真机待复验：基础页链接点击出字、反馈页「最近确认」出字、对话框确认有反馈、md 列表正常宽。
 
+## 文本件口径定案：TextRole 退役进 @style 字阶预设，缺省折行 + flex 0 1 auto（2026-10-27,真机「回显不贴标签、中间一个 flex 占位」收口）
+
+**症状**：上一批把折行档改可收缩后，基础页「最近点击：」仍与回显件隔着半行空白——percent 盒收缩只解到「行内剩余宽」，盒本身还占满行，兄弟件被推到行尾。占位不在收缩量上，在**基准**上：折行档的 percent(100) 基准天生是整行。
+**定案（三件一体）**：① `TextRole` / `role_font` / `role_color` / `has_role` / `shrink_by_role` 全退役，五档角色收编为 `@style` 字阶预设（`text_heading` / `text_title` / `text_secondary` / `text_accent`，正文 13 是缺省档不挂），字号读新增的 `@theme.font_size_*` 字阶令牌；`default_font_family` 的平台探族（Windows 钉雅黑）并入 `text_source` 缺省字族，不再只随角色生效。② `text` / `text_dyn` 的 `wrap` 缺省翻 true（块级段落语义缺省），单行标签显式 `wrap=false`。③ 布局基准全线 `0 1 auto`：折行档**撤 percent(100)**——不设 grow/shrink，内容基准（measure 自然宽）起步，溢出靠上批修好的 min:auto 内容下限收缩；单行档 `min_width` 归 0 且 ellipsize 恒真，挤不过兄弟件时收缩、末端出 …（`bind` 同步这条）。
+**块级跟随的新前提**：撤 percent 后，折行文本的折行宽来自「父给确定宽」——列容器 stretch 子项走 `measure_content` 的 `pinned_w` 传播（yoga-mbt 已有），父列自己被 shrink-to-fit（auto 宽 / align FlexStart）时子项按 max-content 排、不折行。这与 CSS `align-items:flex-start` 下的 shrink-to-fit 同口径，**不是引擎 bug**；坑在测试语境——wbtest 的 `mounted` 助手把根定成 FlexStart，量块级跟随必须直挂确定宽根，否则测到的是 shrink-to-fit。
+**验证**：ui 新增「文本件口径：缺省折行按可用宽排，单行档收缩让宽不溢出」与「回显紧贴标签（±1px）」断言；`text_split_wbtest` 角色档改钉字阶预设（theme 令牌值 + 预设色键现取）。库门禁 1165/1165、`moon check` 零警告、全 workspace 构建过（showcase 100 处 + 其他示例 26 处 `role=` 全迁 `class`）。真机待复验：基础页文字链接段（五档观感、回显贴标签）、面包屑、表单/卡片标题、日期格标题、窄窗单行标签出 …、md 页与反馈页回显。
+
 ## 富文本 measure 三档不许共用一份折叠状态：探询档顶高块盒 + 每档全量重折（2026-10-27,真机「Markdown 页列表项之间空出半屏、开页与滚动发涩」）
 
 **症状**：showcase「代码文档 → Markdown」段，一行高的列表项各占 6~13 行（圆点被居中的高行盒甩到半屏之下），整篇文档高 1409（真值 369）；换宽与开页时明显发涩。上一批「三档分答」只把 max-content 的**宽**改对，没动三档共用的那份折叠状态。

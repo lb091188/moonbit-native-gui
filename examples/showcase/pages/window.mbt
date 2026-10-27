@@ -90,7 +90,7 @@ fn win_button(
 fn open_transparent_demo(app : @shared.App, out : @base.Store[String]) -> Unit {
   fn card(title : String, body : String) -> @widget.Node {
     @ui.view(
-      [@ui.text(title, role=@ui.Title), @ui.text(body, role=@ui.Body)],
+      [@ui.text(title, class=[@style.text_heading]), @ui.text(body)],
       background_color="bg_panel",
       border_color="primary",
       padding=12.0,
@@ -115,7 +115,7 @@ fn open_transparent_demo(app : @shared.App, out : @base.Store[String]) -> Unit {
                 card(@shared.tx("这块不透明"), @shared.tx("卡片之外那圈像素应当是透明的，能看到桌面。")),
                 @ui.text(
                   @shared.tx("这行字直接落在透明底上：字不透明，字后面的像素透明。"),
-                  role=@ui.Secondary,
+                  class=[@style.text_secondary],
                 ),
                 @ui.view(
                   [@ui.button(@shared.tx("关掉本窗"), variant=@ui.Danger, on_click=fn() {
@@ -157,10 +157,10 @@ fn open_layer_probe(
               child.mount([
                 @ui.col(
                   [
-                    @ui.text(@shared.tx("层级作用在我这扇窗上"), role=@ui.Title),
+                    @ui.text(@shared.tx("层级作用在我这扇窗上"), class=[@style.text_heading]),
                     @ui.text(
                       @shared.tx("主窗保持普通档：切「图标下 / Dock」时只有我掉层，演示板不会跟着消失。"),
-                      role=@ui.Secondary,
+                      class=[@style.text_secondary],
                     ),
                   ],
                   row_gap=8.0,
@@ -237,10 +237,10 @@ fn open_resident_probe(
               child.mount([
                 @ui.col(
                   [
-                    @ui.text(@shared.tx("显隐驻留"), role=@ui.Title),
+                    @ui.text(@shared.tx("显隐驻留"), class=[@style.text_heading]),
                     @ui.text(
                       @shared.tx("点下面这颗后本窗 hide；主窗的「唤回」把它 show 回来。"),
-                      role=@ui.Secondary,
+                      class=[@style.text_secondary],
                     ),
                     @ui.button(@shared.tx("隐藏我自己"), variant=@ui.Soft, on_click=fn() {
                       w.hide()
@@ -250,11 +250,11 @@ fn open_resident_probe(
                       @shared.tx(
                         "验隐藏清组合串：勾上 → 点输入框打拼音（别提交）→ 到点本窗 hide → 主窗唤回，组合串应已清。",
                       ),
-                      role=@ui.Secondary,
+                      class=[@style.text_secondary],
                     ),
                     @ui.input(demo, placeholder=@shared.tx("在这里打拼音"), width=320.0),
                     @ui.bind_label(hits, fn(s : String) { s }),
-                    @ui.text(@shared.tx("固定落在 (160, 160)"), role=@ui.Secondary),
+                    @ui.text(@shared.tx("固定落在 (160, 160)"), class=[@style.text_secondary]),
                   ],
                   row_gap=8.0,
                   padding=20.0,
@@ -391,14 +391,14 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
                 None => ()
               }
             }),
-            @ui.text(@shared.tx("先点「最大化」再点「读最大化态」，也可手点系统按钮后回来读"), role=@ui.Secondary),
+            @ui.text(@shared.tx("先点「最大化」再点「读最大化态」，也可手点系统按钮后回来读"), class=[@style.text_secondary]),
           ],
           column_gap=8.0,
           align_items=@yoga.AlignItems::Center,
         ),
         @ui.row(
           [
-            @ui.text(@shared.tx("最近操作："), role=@ui.Secondary),
+            @ui.text(@shared.tx("最近操作："), class=[@style.text_secondary]),
             @ui.bind_label(last_op, fn(s) { s }),
           ],
           column_gap=6.0,
@@ -457,7 +457,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
         ),
         @ui.row(
           [
-            @ui.text(@shared.tx("状态："), role=@ui.Secondary),
+            @ui.text(@shared.tx("状态："), class=[@style.text_secondary]),
             @ui.bind_label(hk_status, fn(s) { s }),
             @ui.bind_label(hk_hits, fn(n) { @shared.tr_with("dyn.hits", [("n", n.to_string())], "命中 \{n} 次") }),
           ],
@@ -487,7 +487,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
           [
             @ui.drag_source(
               @ui.view(
-                [@ui.text(@shared.tx("拖我"), role=@ui.Body)],
+                [@ui.text(@shared.tx("拖我"))],
                 background_color="primary_light",
                 border_color="primary",
                 width=120.0,
@@ -496,10 +496,10 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
               ),
               payload=fn() { Some(@widget.DragData::Text(@shared.tx("窗口页的拖放演示"))) },
             ),
-            @ui.text(@shared.tx("拖到右边 →"), role=@ui.Secondary),
+            @ui.text(@shared.tx("拖到右边 →"), class=[@style.text_secondary]),
             @ui.drop_target(
               @ui.view(
-                [@ui.text(@shared.tx("投放区（松手成交）"), role=@ui.Secondary)],
+                [@ui.text(@shared.tx("投放区（松手成交）"), class=[@style.text_secondary])],
                 background_color="bg_panel",
                 border_color="border",
                 width=220.0,
@@ -526,7 +526,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
           [
             @ui.drop_target(
               @ui.view(
-                [@ui.text(@shared.tx("只收文件（从资源管理器拖进来）"), role=@ui.Secondary)],
+                [@ui.text(@shared.tx("只收文件（从资源管理器拖进来）"), class=[@style.text_secondary])],
                 background_color="bg_panel",
                 border_color="border",
                 width=220.0,
@@ -553,7 +553,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
               } else {
                 @shared.tx("系统级拖入：本机后端未接（拖放仍限应用内）")
               },
-              role=@ui.Secondary,
+              class=[@style.text_secondary],
             ),
           ],
           column_gap=12.0,
@@ -563,7 +563,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
           [
             @ui.drag_source(
               @ui.view(
-                [@ui.text(@shared.tr("drag.out.text", "拖我出去\n（浏览器/编辑器）"), role=@ui.Body)],
+                [@ui.text(@shared.tr("drag.out.text", "拖我出去\n（浏览器/编辑器）"))],
                 background_color="primary_light",
                 border_color="primary",
                 width=120.0,
@@ -576,7 +576,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
             ),
             @ui.drag_source(
               @ui.view(
-                [@ui.text(@shared.tr("drag.out.files", "拖文件出去\n（桌面/资源管理器）"), role=@ui.Body)],
+                [@ui.text(@shared.tr("drag.out.files", "拖文件出去\n（桌面/资源管理器）"))],
                 background_color="bg_panel",
                 border_color="primary",
                 width=150.0,
@@ -600,7 +600,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
               } else {
                 @shared.tx("系统级拖出：本机后端未接（自动回落应用内拖放）")
               },
-              role=@ui.Secondary,
+              class=[@style.text_secondary],
             ),
           ],
           column_gap=12.0,
@@ -608,15 +608,15 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
         ),
         @ui.row(
           [
-            @ui.text(@shared.tx("投放回显："), role=@ui.Secondary),
+            @ui.text(@shared.tx("投放回显："), class=[@style.text_secondary]),
             @ui.bind_label(dnd, fn(s) { s }),
-            @ui.text(@shared.tx("外部回显："), role=@ui.Secondary),
+            @ui.text(@shared.tx("外部回显："), class=[@style.text_secondary]),
             @ui.bind_label(ext, fn(s) { s }),
           ],
           column_gap=6.0,
         ),
         @ui.row(
-          [@ui.text(@shared.tx("拖出回显："), role=@ui.Secondary), @ui.bind_label(out, fn(s) {
+          [@ui.text(@shared.tx("拖出回显："), class=[@style.text_secondary]), @ui.bind_label(out, fn(s) {
             s
           })],
           column_gap=6.0,
@@ -668,8 +668,8 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
                       child.mount([
                         @ui.col(
                           [
-                            @ui.text(@shared.tx("这是第二扇窗"), role=@ui.Title),
-                            @ui.text(@shared.tx("主窗与子窗事件各自独立；关本窗不退出应用。"), role=@ui.Secondary),
+                            @ui.text(@shared.tx("这是第二扇窗"), class=[@style.text_heading]),
+                            @ui.text(@shared.tx("主窗与子窗事件各自独立；关本窗不退出应用。"), class=[@style.text_secondary]),
                             @ui.button(@shared.tx("关掉我自己"), variant=@ui.Danger, on_click=fn() {
                               child.close_window()
                             }),
@@ -764,7 +764,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
             }),
             @ui.text(
               @shared.tx("测试窗：无边框 + 背景透视，卡片外那圈应当是桌面；窗内自带「关掉本窗」"),
-              role=@ui.Secondary,
+              class=[@style.text_secondary],
             ),
           ],
           column_gap=8.0,

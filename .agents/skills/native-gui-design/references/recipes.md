@@ -29,7 +29,7 @@
 
 ```moonbit
 fn field(label : String, control : @widget.Node) -> @widget.Node {
-  @ui.col([@ui.text(label, role=@ui.Secondary), control], row_gap=4.0)
+  @ui.col([@ui.text(label, class=[@style.text_secondary]), control], row_gap=4.0)
 }
 
 @ui.card(
@@ -58,7 +58,7 @@ fn field(label : String, control : @widget.Node) -> @widget.Node {
 @ui.row(
   [
     @ui.view([@ui.card([
-      @ui.text("运行时长", role=@ui.Secondary),
+      @ui.text("运行时长", class=[@style.text_secondary]),
       @ui.text("128 h", font_size=20.0, weight=@text.SemiBold, color="text_primary"),
       @ui.button("查看", variant=@ui.Text),
     ], padding=12.0, row_gap=8.0, class=[@style.style(border_radius=6.0)])], grow=1.0),
@@ -76,9 +76,9 @@ fn field(label : String, control : @widget.Node) -> @widget.Node {
 fn list_row(name : String, owner : String, state : String, zebra : Bool) -> @widget.Node {
   @ui.row(
     [
-      @ui.view([@ui.text(name, role=@ui.Body)], grow=1.0),
-      @ui.view([@ui.text(owner, role=@ui.Secondary)], width=120.0),
-      @ui.view([@ui.text(state, role=@ui.Secondary)], width=72.0),
+      @ui.view([@ui.text(name)], grow=1.0),
+      @ui.view([@ui.text(owner, class=[@style.text_secondary])], width=120.0),
+      @ui.view([@ui.text(state, class=[@style.text_secondary])], width=72.0),
     ],
     padding=8.0,
     column_gap=8.0,
@@ -151,7 +151,7 @@ fn list_row(name : String, owner : String, state : String, zebra : Bool) -> @wid
   [
     background, // 任意内容节点（图片/图表/色块）
     @ui.glass(
-      [@ui.text("背景模糊", role=@ui.Section), @ui.text("下方像素先糊再回放", role=@ui.Secondary)],
+      [@ui.text("背景模糊", class=[@style.text_title]), @ui.text("下方像素先糊再回放", class=[@style.text_secondary])],
       padding=12.0,
       blur_on=fn() { on }, // 绘制期取值；切换后调用方触发重绘
       class=[@style.style(position=@yoga.Absolute, left=24.0, top=24.0, width=300.0, height=120.0)],

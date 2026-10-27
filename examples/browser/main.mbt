@@ -403,7 +403,7 @@ fn main {
           ),
           @ui.row(
             [
-              @ui.text("结果", role=@ui.Secondary),
+              @ui.text("结果", class=[@style.text_secondary]),
               @ui.text_dyn(
                 result_view.signal(),
                 font_size=12.0,
@@ -536,10 +536,10 @@ fn main {
                 let _ = @ui
                   .view(
                     [
-                      @ui.text("webview 引擎不在位", role=@ui.Body),
+                      @ui.text("webview 引擎不在位"),
                       @ui.text(
                         "本机缺 WebView2 运行时 / webkit2gtk-4.1。装上后重启本示例自动走 webview 分支。",
-                        role=@ui.Secondary,
+                        class=[@style.text_secondary],
                       ),
                     ],
                     padding=12.0,

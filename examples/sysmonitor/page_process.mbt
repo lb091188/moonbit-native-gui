@@ -302,7 +302,7 @@ fn page_process(app : App) -> @widget.Node {
   let query_store : @base.Store[String] = @base.Store::new("")
   let nice_store : @base.Store[String] = @base.Store::new("10")
   let tools : Array[@widget.Node] = [
-    @ui.text("搜索", color="text_secondary", role=Body),
+    @ui.text("搜索", color="text_secondary"),
     // 搜索框：文本经 store 双向投影，on_change 里重建派生数据
     @ui.input(
       query_store,

@@ -201,7 +201,7 @@ fn main {
           .view(
             [
               @ui.empty(description=note),
-              @ui.text("用左侧「选择文件…」或「选择目录…」载入音频", role=@ui.Secondary),
+              @ui.text("用左侧「选择文件…」或「选择目录…」载入音频", class=[@style.text_secondary]),
             ],
             row_gap=6.0,
             align_items=@yoga.AlignItems::Center,
@@ -307,10 +307,10 @@ fn main {
     [
       @ui.col(
         [
-          @ui.text("音频播放", role=@ui.Section),
+          @ui.text("音频播放", class=[@style.text_title]),
           @ui.text(
             "gui-media audio（ffmpeg 解码 + 设备直出）：列表点选换曲，控制条是图标按钮 + 进度/音量条，歌词按同名 .lrc 自动配对；快捷键 空格播放/暂停、回车全屏、←/→ ±5 秒、↑/↓ 音量、Esc 退全屏。",
-            role=@ui.Secondary,
+            class=[@style.text_secondary],
             max_width=860.0,
           ),
         ],
@@ -322,7 +322,7 @@ fn main {
           // 左：播放列表 + 载入入口
           @ui.col(
             [
-              @ui.text("播放列表", role=@ui.Secondary),
+              @ui.text("播放列表", class=[@style.text_secondary]),
               @ui.scroll_view(
                 [@ui.col([], handle=fn(c) { list_holder.val = Some(c) })],
                 @ui.ScrollState::new(),

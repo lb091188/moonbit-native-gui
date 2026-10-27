@@ -278,7 +278,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
           } else {
             @shared.tx("通知后端不可用（按钮会报失败）")
           },
-          role=@ui.Secondary,
+          class=[@style.text_secondary],
         ),
       ],
       code=[
@@ -625,7 +625,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
             }),
             @ui.text(
               @shared.tx("唤起回调由 main 挂：切回首页 + 提示 + 计数"),
-              role=@ui.Secondary,
+              class=[@style.text_secondary],
             ),
           ],
           column_gap=8.0,
@@ -683,7 +683,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
                 Err(e) => plat_out.set("超时档按预期失败：\{e}")
               }
             }),
-            @ui.text(@shared.tx("pr_run：命令 + 参数 + 超时，回 stdout 与退出码"), role=@ui.Secondary),
+            @ui.text(@shared.tx("pr_run：命令 + 参数 + 超时，回 stdout 与退出码"), class=[@style.text_secondary]),
           ],
           column_gap=8.0,
           align_items=@yoga.AlignItems::Center,
@@ -731,7 +731,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
                 }
               }
             }),
-            @ui.text(@shared.tx("win_list / win_activate / win_close"), role=@ui.Secondary),
+            @ui.text(@shared.tx("win_list / win_activate / win_close"), class=[@style.text_secondary]),
           ],
           column_gap=8.0,
           align_items=@yoga.AlignItems::Center,
@@ -827,7 +827,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
                 None => watch_out.set(@shared.tx("监视本来就没起"))
               }
             }),
-            @ui.text(@shared.tx("cbw_start_watch：宿主 timer 当排期通道"), role=@ui.Secondary),
+            @ui.text(@shared.tx("cbw_start_watch：宿主 timer 当排期通道"), class=[@style.text_secondary]),
           ],
           column_gap=8.0,
           align_items=@yoga.AlignItems::Center,

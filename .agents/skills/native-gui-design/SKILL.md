@@ -16,7 +16,7 @@ description: Design rules for building user interfaces with NoahLiu/native-gui (
 ## 五条硬规则
 
 1. **间距只从刻度取值**：`2 / 4 / 6 / 8 / 12 / 16 / 24`。不用 5、7、10、15、13 这类档位外的数——一次一档对齐，整套界面才齐。见 `references/baseline.md`。
-2. **文字用角色，不手写字号**：`@ui.text(..., role=@ui.Title)` 之类走 `TextRole`。角色自带字号、字重与颜色 token，主题切换跟随；手写的 `font_size=` 会脱离体系。只有角色覆盖不掉时才写显式值。
+2. **文字用字阶预设，不手写字号**：`@ui.text(..., class=[@style.text_heading])` 之类挂 `@style` 字阶预设（`text_heading` 18 / `text_title` 14 / `text_secondary` 12 / `text_accent` 13 主色；正文 13 是缺省档不挂）。预设自带字号、字重与颜色 token，主题切换跟随；手写的 `font_size=` 会脱离体系。只有预设覆盖不掉时才写显式值。（原 `role=@ui.*` / `TextRole` 已退役。）
 3. **圆角小且分层级**：控件沿用库默认 `4`；卡片 `6`、面板 `6`、对话框与浮层 `8`，都要**显式给**（`card` / `panel` 默认是直角，靠 `class=[@style.style(border_radius=6.0)]`）。若某个构造报 `no parameter with label class~`，说明库版本早于该参数加入，先升级；升不了就用 `@ui.view` 自搭同形态。`border_radius` 不超过 8。
 4. **层次靠描边和底色分层，不靠投影**：`Style` 不提供 `box_shadow`。层级顺序是 `bg_page`（页面底）→ `bg_panel`（面板/卡片底）→ `border`（1px 描边）→ 强调色。整层明暗用 `opacity=`。模糊只有一种用法：`@ui.glass` 把它下方已画的内容糊掉（固定一档），不进默认基准、不做窗口背后毛玻璃。
 5. **颜色一律写 token，不写死十六进制**：`background_color="bg_panel"`、`color="text_secondary"`。十六进制与 CSS 命名色只在自定义主题里出现，界面代码里出现就是暗色模式失效的隐患。20 个 token 见 `references/mapping.md`。
@@ -27,7 +27,7 @@ description: Design rules for building user interfaces with NoahLiu/native-gui (
 
 - 所有 `padding` / `row_gap` / `column_gap` 的值都在刻度内。
 - 没有出现 `border_radius` 大于 8。
-- 文本节点没有手写 `font_size=`（数字型强调与自定义标题除外），其余走 `role`。
+- 文本节点没有手写 `font_size=`（数字型强调与自定义标题除外），其余挂 `class` 字阶预设。
 - 颜色字符串全是 token；没写死 `#` 值或 CSS 色名。
 - 一个界面里主色（`primary`）只用在主操作、选中项、焦点环上；正文与结构用 `text_primary` / `text_regular` / `text_secondary`，底用 `bg_page` / `bg_panel`。
 - 可点的东西有 `hover` / `active` 反馈，输入类有 `focus`；用 `Style::hover(...)` 之类的状态桶，不是自己另画一层。

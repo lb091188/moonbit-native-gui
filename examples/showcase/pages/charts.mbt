@@ -334,7 +334,7 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
         @ui.row(
           [
             @ui.checkbox(@shared.tx("暂停推点"), line_paused),
-            @ui.text(@shared.tx("窗口容量 120，推点频率 2Hz；暂停只断数据流，自排通道继续。"), role=@ui.Secondary),
+            @ui.text(@shared.tx("窗口容量 120，推点频率 2Hz；暂停只断数据流，自排通道继续。"), class=[@style.text_secondary]),
           ],
           column_gap=12.0,
         ),
@@ -397,7 +397,7 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
             @charts.gauge_t(gauge_manual, thresholds=gauge_thresholds, width=240.0, height=180.0),
             @ui.col(
               [
-                @ui.text(@shared.tx("手动值"), role=@ui.Body),
+                @ui.text(@shared.tx("手动值")),
                 @ui.slider(gauge_manual, min=0.0, max=1.0, step=0.01, width=160.0),
               ],
               row_gap=8.0,

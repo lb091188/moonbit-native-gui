@@ -9,6 +9,7 @@ import {
 
   "NoahLiu/native-gui/widget" @widget,
   "NoahLiu/native-gui/ui",
+  "NoahLiu/native-gui/style" @style,
   "NoahLiu/native-gui/theme" @theme,
   "NoahLiu/native-gui/render" @render,
   "NoahLiu/native-gui/text" @text,

@@ -348,7 +348,7 @@ test "日期段标签不折行：测量宽与断行口径一致" {
         date_picker(dp, clearable=true, width=170.0),
         row(
           [
-            text("选中：", role=Body),
+            text("选中："),
             bind_label(dp, fn(d : DateYMD?) -> String {
               match d {
                 Some(v) => v.format()

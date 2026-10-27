@@ -84,7 +84,7 @@ fn main {
     [
       @ui.col(
         [
-          @ui.text("Hello, MoonBit!", role=@ui.Title),
+          @ui.text("Hello, MoonBit!", class=[@style.text_heading]),
           @ui.button("Click me", variant=@ui.Solid, on_click=fn() {
             count.update(fn(n) { n + 1 })
           }),

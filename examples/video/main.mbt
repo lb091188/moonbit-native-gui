@@ -194,7 +194,7 @@ fn main {
           .view(
             [
               @ui.empty(description=note),
-              @ui.text("用右侧「选择文件…」或「选择目录…」载入视频", role=@ui.Secondary),
+              @ui.text("用右侧「选择文件…」或「选择目录…」载入视频", class=[@style.text_secondary]),
             ],
             row_gap=6.0,
             align_items=@yoga.AlignItems::Center,
@@ -334,10 +334,10 @@ fn main {
     [
       @ui.col(
         [
-          @ui.text("视频播放", role=@ui.Section),
+          @ui.text("视频播放", class=[@style.text_title]),
           @ui.text(
             "视频区为主，侧栏是播放列表与信息；字幕双来源——容器内嵌轨自动读取，或选外挂 .srt 文本传入。控制条是图标按钮 + 进度/音量条，另有缩放三档（适配/铺满/1:1）与全屏；快捷键 空格播放/暂停、回车全屏、←/→ 逐帧、↑/↓ 音量、Esc 退全屏。",
-            role=@ui.Secondary,
+            class=[@style.text_secondary],
             max_width=960.0,
           ),
         ],
@@ -358,7 +358,7 @@ fn main {
           // 侧栏：播放列表 + 载入入口 + 字幕 + 状态
           @ui.col(
             [
-              @ui.text("播放列表", role=@ui.Secondary),
+              @ui.text("播放列表", class=[@style.text_secondary]),
               @ui.scroll_view(
                 [@ui.col([], handle=fn(c) { list_holder.val = Some(c) })],
                 @ui.ScrollState::new(),

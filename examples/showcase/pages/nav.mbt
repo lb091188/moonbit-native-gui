@@ -106,15 +106,15 @@ pub fn page_nav(app : @shared.App) -> @widget.Node {
       "顶部页签形态：选中主题色文字 + 底部指示条，内容区切换（子区预建 + 显隐，不重建）。",
       [
         @ui.tabs([
-          (@shared.tx("概览"), @ui.text(@shared.tx("这里是概览页内容。"), role=@ui.Body)),
-          (@shared.tx("配置"), @ui.text(@shared.tx("这里是配置页内容。"), role=@ui.Body)),
-          (@shared.tx("日志"), @ui.text(@shared.tx("这里是日志页内容。"), role=@ui.Body)),
+          (@shared.tx("概览"), @ui.text(@shared.tx("这里是概览页内容。"))),
+          (@shared.tx("配置"), @ui.text(@shared.tx("这里是配置页内容。"))),
+          (@shared.tx("日志"), @ui.text(@shared.tx("这里是日志页内容。"))),
         ]),
       ],
       code=[
         "@ui.tabs([",
-        "  (\"概览\", @ui.text(\"这里是概览页内容。\", role=@ui.Body)),",
-        "  (\"配置\", @ui.text(\"这里是配置页内容。\", role=@ui.Body)),",
+        "  (\"概览\", @ui.text(\"这里是概览页内容。\")),",
+        "  (\"配置\", @ui.text(\"这里是配置页内容。\")),",
         "])",
       ],
     ),

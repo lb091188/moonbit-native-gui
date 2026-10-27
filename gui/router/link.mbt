@@ -60,12 +60,12 @@ fn Router::crumb_row(self : Router, p : String) -> @widget.Node {
   let n = parts.length()
   for i in 0..<n {
     if i > 0 {
-      items.push(@ui.text(" / ", role=@ui.Secondary))
+      items.push(@ui.text(" / ", font_size=12.0, color="text_secondary", wrap=false))
     }
     let seg = parts[i]
     let target = join_upto(parts, i + 1)
     items.push(if i + 1 == n {
-      @ui.text(seg, role=@ui.Body)
+      @ui.text(seg, wrap=false)
     } else {
       @ui.link(seg, self.on_link(target))
     })

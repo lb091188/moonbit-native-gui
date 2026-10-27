@@ -235,11 +235,14 @@ fn time_popup(
   }
 
   fn caption_cell(key : String, zh : String) -> @widget.Node {
-    cell(text(@i18n.t_or(key, zh), font_size=11.0, role=Secondary), col_w)
+    cell(
+      text(@i18n.t_or(key, zh), font_size=11.0, color="text_secondary", wrap=false),
+      col_w,
+    )
   }
 
   fn sep(mark : String) -> @widget.Node {
-    cell(text(mark, font_size=16.0), sep_w)
+    cell(text(mark, font_size=16.0, wrap=false), sep_w)
   }
 
   fn row_of(items : Array[@widget.Node]) -> @widget.Node {
@@ -731,7 +734,7 @@ pub fn time_range_picker(
       },
       show_seconds=show_seconds,
     ).mount_into(w)
-    let _ = text("~", font_size=13.0).mount_into(w)
+    let _ = text("~", font_size=13.0, wrap=false).mount_into(w)
     let _ = time_field(
       width,
       fn() -> TimeHMS? { value.get().end },
@@ -861,7 +864,7 @@ pub fn datetime_range_picker(
       },
       show_seconds=show_seconds,
     ).mount_into(w)
-    let _ = text("~", font_size=13.0).mount_into(w)
+    let _ = text("~", font_size=13.0, wrap=false).mount_into(w)
     let _ = date_field(false).mount_into(w)
     let _ = time_field(
       time_width,

@@ -136,7 +136,9 @@ pub fn panel(
   width? : Double = 0.0,
   class? : Array[@style.Style] = [],
 ) -> @widget.Node {
-  let body : Array[@widget.Node] = [text(title, font_size=12.0, color="text_secondary")]
+  let body : Array[@widget.Node] = [
+    text(title, font_size=12.0, color="text_secondary", wrap=false),
+  ]
   for c in children {
     body.push(c)
   }
@@ -196,26 +198,25 @@ fn separator_impl(
 /// 随信号更新的文本：文本变化 → 改状态 → 重设测量回调（标脏节点）→
 /// 请求重绘，布局只重算这一条链。订阅退订随本代回收袋，重挂不留死订阅。
 /// 就地改文本、不重建子树，是展示类 `*_dyn` 信号版的原型。
+/// `wrap` 缺省 true（块级段落语义缺省），单行标签显式 `wrap=false`。
+/// 排版角色走 `class` 挂 @style 字阶预设（`text_heading`/`text_title`/…）。
 pub fn text_dyn(
   sig : @base.Signal[String],
-  role? : TextRole = Plain,
   font_size? : Double = 13.0,
   color? : String = "",
   weight? : @text.FontWeight = @text.Normal,
   family? : String = "",
   align? : @text.TextAlign = @text.Start,
   max_width? : Double = 0.0,
-  wrap? : Bool = false,
+  wrap? : Bool = true,
   ellipsis? : Bool = false,
   max_lines? : Int = 0,
-  shrink_by_role? : Bool = false,
   anon? : @style.Style = @style.empty_style(),
   class? : Array[@style.Style] = [],
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let src = text_source(
     sig.get(),
-    role=role,
     font_size=font_size,
     color=color,
     weight=weight,
@@ -223,23 +224,17 @@ pub fn text_dyn(
     align=align,
     max_width=max_width,
     wrap=wrap,
-    ellipsis=ellipsis,
+    ellipsis=ellipsis || !wrap,
     max_lines=max_lines,
   )
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
     fold_style(w, anon, class)
-    // 折行文本是块级内容:显式 percent 100 跟容器(块级组件跟随容器必须
-    // 显式 percent);折行宽由 measure 的可用宽定,max_width 只是上限。
-    // 单行文本(wrap=false)按内容宽占位(标签形态)。
-    // percent 基准 + 不收缩只在列容器里自洽;进了行容器 percent 基准就是
-    // 整行宽,必须可收缩,否则后面的兄弟件被挤出容器外(真机「链接点击后
-    // bind 回显不出字」即此——回显件被顶到窗口外,拖窗口也不回来)。
-    // 「不参与收缩」是标签形态(单行)的现状口径,只归 wrap=false。
-    if wrap {
-      w.node.set_width(@yoga.percent(100.0))
-    } else if shrink_by_role {
-      w.node.set_flex_shrink(0.0)
+    // flex 口径全线 0 1 auto（文本件口径定案）：不设宽、不设 grow/shrink——
+    // 折行档按 measure 的可用宽折，内容基准可收缩，min:auto 内容下限由引擎
+    // 兜底；单行档把下限归 0，挤不过兄弟件时收缩、末端出省略号。
+    if !wrap {
+      w.node.set_min_width(@yoga.fixed(0.0))
     }
     attach_text_measure(w, src)
     w.on_draw = Some(fn(
@@ -257,56 +252,41 @@ pub fn text_dyn(
 }
 
 ///|
-/// 文本（§2 合并入口：原 `label` + `label_t` 一台）：`role` 给了就按角色取字号
-/// 字重与主题色（`role_font` / `role_color`，现状 `label_t` 的排版体系），
-/// 不给走显式 `size` / `weight` / `family`。尺寸来自 Pango 测量（measure 与
-/// baseline 都接进布局引擎，所以文本能参与基线对齐）。
-/// 两条现状差按调用点保持：角色形态默认折行且 `flex_shrink=0`（`label_t` 原样），
-/// 无角色形态不折行（`label` 原样）；散参数改名与 class 接线随后续批。
+/// 文本（§2 合并入口：原 `label` + `label_t` 一台）。尺寸来自 Pango 测量
+/// （measure 与 baseline 都接进布局引擎，所以文本能参与基线对齐）。
+/// 排版口径（文本件口径定案）：`wrap` 缺省 true（块级段落语义缺省），
+/// 单行标签显式 `wrap=false`（收缩时末端出 …）；flex 全线 0 1 auto。
+/// 排版角色走 `class` 挂 @style 字阶预设（`text_heading` / `text_title` /
+/// `text_secondary` / `text_accent`；正文 13 是缺省档，不必挂）。
 pub fn text(
   content : String,
-  role? : TextRole = Plain,
   font_size? : Double = 13.0,
   color? : String = "",
   weight? : @text.FontWeight = @text.Normal,
   family? : String = "",
   align? : @text.TextAlign = @text.Start,
   max_width? : Double = 0.0,
-  wrap? : Bool = false,
+  wrap? : Bool = true,
   ellipsis? : Bool = false,
   max_lines? : Int = 0,
   class? : Array[@style.Style] = [],
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  let f = role_font(role)
-  let eff_size = if has_role(role) { f.size } else { font_size }
-  let eff_weight =
-    if has_role(role) {
-      match role {
-        Title | Section | Accent => @text.SemiBold
-        _ => @text.Normal
-      }
-    } else {
-      weight
-    }
-  let eff_wrap = if wrap { true } else { role is Body }
   let anon = match fg_block(color) {
     Some(b) => b
     None => @style.empty_style()
   }
   text_dyn(
     @base.Signal::new(content),
-    role=role,
-    font_size=eff_size,
+    font_size=font_size,
     color=color,
-    weight=eff_weight,
+    weight=weight,
     family=family,
     align=align,
     max_width=max_width,
-    wrap=eff_wrap,
+    wrap=wrap,
     ellipsis=ellipsis,
     max_lines=max_lines,
-    shrink_by_role=has_role(role),
     anon=anon,
     class=class,
     handle=handle,

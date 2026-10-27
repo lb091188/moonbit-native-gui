@@ -3,7 +3,7 @@
 // 归到真机验证清单里。
 
 fn ln_text() -> @widget.Node {
-  @ui.text("内容", role=@ui.Body)
+  @ui.text("内容")
 }
 
 fn ln_lf(k : String) -> Route {

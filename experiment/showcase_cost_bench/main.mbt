@@ -28,7 +28,7 @@ fn count_widgets(w : @widget.Widget) -> (Int, Int) {
 /// 一段典型内容：标题 + 一行控件 + 一叠文本行 + 统计块 + 提示条
 fn page_of(idx : Int, label : (Int) -> String) -> @widget.Node {
   let parts : Array[@widget.Node] = [
-    @ui.text("第 " + idx.to_string() + " 页", role=@ui.Title),
+    @ui.text("第 " + idx.to_string() + " 页", class=[@style.text_heading]),
     @ui.row(
       [
         @ui.button("保存", variant=@ui.Solid),
@@ -42,7 +42,7 @@ fn page_of(idx : Int, label : (Int) -> String) -> @widget.Node {
     @ui.divider(),
   ]
   for i = 0; i < TEXTS_PER_PAGE; i = i + 1 {
-    let _ = parts.push(@ui.text(label(i), font_size=13.0, role=@ui.Secondary))
+    let _ = parts.push(@ui.text(label(i), font_size=13.0, class=[@style.text_secondary]))
   }
   let _ = parts.push(@ui.statistic("访问量", "1,234"))
   let _ = parts.push(@ui.alert("提示", description="这一段描述用来带出提示条的画法", t=@ui.Info))

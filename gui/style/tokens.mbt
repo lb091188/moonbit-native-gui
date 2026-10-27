@@ -11,19 +11,27 @@
 // - 无对应可表达属性的组件（image/icon/virt_list 的行内容由回调自定）不给块。
 
 // ---- 文本与颜色 ----
+// 文本五档即「文本件排版预设」：`text`/`text_dyn` 的 `class` 直接挂这些档，
+// 字号读 @theme 字阶令牌（TextRole 退役后的唯一角色去处）。
 
 ///|
 /// 正文文本（`text` 基础档：13 / `text_regular`，现状 `label` 缺省）。
-pub let text_base : Style = style(font_size=13.0, color="text_regular")
+pub let text_base : Style = style(
+  font_size=@theme.font_size_body,
+  color="text_regular",
+)
 
 ///|
 /// 次要小字（12 / `text_secondary`，现状 `Secondary` 角色）。
-pub let text_secondary : Style = style(font_size=12.0, color="text_secondary")
+pub let text_secondary : Style = style(
+  font_size=@theme.font_size_secondary,
+  color="text_secondary",
+)
 
 ///|
 /// 区块/面板标题（14 SemiBold / `text_primary`，现状 `Section` 角色与 card 标题）。
 pub let text_title : Style = style(
-  font_size=14.0,
+  font_size=@theme.font_size_section,
   font_weight=@text.SemiBold,
   color="text_primary",
 )
@@ -31,7 +39,7 @@ pub let text_title : Style = style(
 ///|
 /// 大标题（18 SemiBold / `text_primary`，现状 `Title` 角色）。
 pub let text_heading : Style = style(
-  font_size=18.0,
+  font_size=@theme.font_size_title,
   font_weight=@text.SemiBold,
   color="text_primary",
 )
@@ -39,7 +47,7 @@ pub let text_heading : Style = style(
 ///|
 /// 强调文本（13 SemiBold / `primary`，现状 `Accent` 角色）。
 pub let text_accent : Style = style(
-  font_size=13.0,
+  font_size=@theme.font_size_body,
   font_weight=@text.SemiBold,
   color="primary",
 )

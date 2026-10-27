@@ -128,9 +128,18 @@ pub fn[A] bind(
   color? : String = "",
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  let src = text_source(f(sig.get()), font_size=font_size, color=color, wrap=false)
+  let src = text_source(
+    f(sig.get()),
+    font_size=font_size,
+    color=color,
+    wrap=false,
+    ellipsis=true,
+  )
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
+    // 单行档口径（同 text_dyn 的 wrap=false）：下限归 0，挤不过兄弟件时
+    // 收缩、末端出省略号。
+    w.node.set_min_width(@yoga.fixed(0.0))
     attach_text_measure(w, src)
     w.on_draw = Some(fn(
       _s : @widget.Widget,

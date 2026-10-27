@@ -14,7 +14,7 @@ Every self-drawn widget and the component library live in `NoahLiu/native-gui/ui
 
 **Keyboard accessibility is built in.** Form-family controls (button / checkbox / radio / switch / stepper / slider / rate / select / color picker / date-time / segmented) claim a focus id by default and join the Tab chain; the focus border turns the theme accent. Space/Enter activate, arrow keys adjust the value or move the selection per control semantics.
 
-**`TextRole`:** `Plain` carries no role and uses explicit size/weight; `Title` · `Section` · `Accent` use SemiBold at theme font sizes; `Body` · `Secondary`.
+**Typography presets (the old `TextRole` is retired):** roles were folded into `@style` type-scale presets applied via `class` — `text_heading` (18 SemiBold) · `text_title` (14 SemiBold) · `text_secondary` (12, secondary colour) · `text_accent` (13 SemiBold, primary); body 13 is the `text` default and needs no preset. Sizes read from `@theme` type-scale tokens.
 
 **`SemanticType`:** `Primary` · `Success` · `Warning` · `Danger` · `Info`. Values are stored as theme token names and resolved live on theme switch, never frozen as snapshots.
 
@@ -37,8 +37,8 @@ Every self-drawn widget and the component library live in `NoahLiu/native-gui/ui
 
 | Constructor | Purpose |
 |---|---|
-| `text(content, role?=Plain, font_size?=13.0, color?, weight?, family?, align?, max_width?, wrap?, ellipsis?, max_lines?=0, class?, handle?)` | Text, unifying `label` + `label_t`: with a `role` it takes the role's font size, weight and theme colour; size comes from Pango measurement and feeds the layout engine, so text participates in baseline alignment; when `wrap` is on, `max_lines`>0 clamps the line count — extra lines are cut and the last kept line ends with … (0 = unlimited) |
-| `text_dyn(sig : Signal[String], role?, font_size?, color?, …, class?, handle?)` | Signal-driven text: on change it edits the text in place and recomputes only this chain; the counterpart of the old `bind_label` and the prototype of the display `*_dyn` family |
+| `text(content, font_size?=13.0, color?, weight?, family?, align?, max_width?, wrap?=true, ellipsis?, max_lines?=0, class?, handle?)` | Text, unifying `label` + `label_t`: size comes from Pango measurement and feeds the layout engine, so text participates in baseline alignment; `wrap` defaults to true (block-level paragraph semantics), single-line labels pass `wrap=false` explicitly (shrinks against row siblings and ends with …); typography tiers go through `class` (`@style.text_heading` etc.); when `wrap` is on, `max_lines`>0 clamps the line count — extra lines are cut and the last kept line ends with … (0 = unlimited) |
+| `text_dyn(sig : Signal[String], font_size?, color?, …, wrap?=true, class?, handle?)` | Signal-driven text: on change it edits the text in place and recomputes only this chain; the counterpart of the old `bind_label` and the prototype of the display `*_dyn` family |
 | `bind_label(store : Store[A], f : (A) -> String, font_size?, color?, handle?)` | Declarative text binding: initial value `f(store.get())`, then every `set` updates the text in place and re-measures; always single-line |
 | `bind(sig : Signal[A], f : (A) -> String, font_size?, color?, handle?)` | Text binding in signal form: takes a source signal or a `computed` derived signal directly |
 | `divider(text?, vertical?=false, color?, class?)` | Divider, unifying `separator` + the labelled `divider`: empty `text` draws a plain line (`vertical` picks horizontal/vertical), with text it draws a centered breaking line |

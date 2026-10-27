@@ -4,7 +4,7 @@
 fn rm_lf(k : String, hits : Ref[Int]) -> Route {
   route_leaf(k, fn() -> @widget.Node {
     hits.val += 1
-    @ui.text("内容", role=@ui.Body)
+    @ui.text("内容")
   })
 }
 

@@ -280,10 +280,9 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
         // 字距：同一句话两档 `letter_spacing`，量宽与绘制同源（只吃在字符之间）
         @ui.row(
           [
-            @ui.text(@shared.tx("字距 0：MoonBit GUI 字距对照"), role=@ui.Body),
+            @ui.text(@shared.tx("字距 0：MoonBit GUI 字距对照")),
             @ui.text(
               @shared.tx("字距 4：MoonBit GUI 字距对照"),
-              role=@ui.Body,
               class=[@style.style(letter_spacing=4.0)],
             ),
           ],

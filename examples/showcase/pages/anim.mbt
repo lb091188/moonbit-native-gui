@@ -9,7 +9,7 @@ fn hover_card(label : String, sub : String, dur : Double) -> @widget.Node {
   @ui.view(
     [
       @ui.text(label, align=@text.Center),
-      @ui.text(sub, role=@ui.Secondary, align=@text.Center),
+      @ui.text(sub, class=[@style.text_secondary], align=@text.Center),
     ],
     width=170.0,
     height=64.0,

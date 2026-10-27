@@ -26,7 +26,7 @@ fn main {
     rows.push(
       @ui.row(
         [
-          @ui.text(k, role=@ui.Secondary),
+          @ui.text(k, class=[@style.text_secondary]),
           @ui.text(shown),
         ],
         column_gap=16.0,

@@ -127,11 +127,11 @@ fn page_sensors(app : App) -> @widget.Node {
   let nodes : Array[@widget.Node] = []
   if app.gpu_busy_hists.length() == 0 {
     nodes.push(
-      @ui.text("未检测到显卡", color="text_secondary", role=Body),
+      @ui.text("未检测到显卡", color="text_secondary"),
     )
   }
   for i in 0..<app.gpu_busy_hists.length() {
-    nodes.push(@ui.text(gpu_label(i, "使用率（%）"), role=@ui.Section))
+    nodes.push(@ui.text(gpu_label(i, "使用率（%）"), class=[@style.text_title]))
     nodes.push(
       @charts.line_chart_t(
         app.gpu_busy_hists[i],
@@ -140,13 +140,13 @@ fn page_sensors(app : App) -> @widget.Node {
         area=true,
       ),
     )
-    nodes.push(@ui.text(gpu_label(i, "显存（GB）"), role=@ui.Section))
+    nodes.push(@ui.text(gpu_label(i, "显存（GB）"), class=[@style.text_title]))
     nodes.push(
       @charts.line_chart_t(app.gpu_vram_hists[i], height=220.0, area=true),
     )
   }
   nodes.push(@ui.divider())
-  nodes.push(@ui.text("温度传感器", role=@ui.Section))
+  nodes.push(@ui.text("温度传感器", class=[@style.text_title]))
   // 空态:无可用温度来源(非 N 卡无厂商 SDK / 机器无 hwmon 节点)是
   // 合法状态,给一行说明而不是空白
   nodes.push(

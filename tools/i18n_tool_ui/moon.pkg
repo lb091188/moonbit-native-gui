@@ -4,6 +4,7 @@ import {
   "moonbitlang/core/env" @env,
   "moonbitlang/x/fs" @fs,
   "NoahLiu/native-gui/ui" @ui,
+  "NoahLiu/native-gui/style" @style,
   "NoahLiu/native-gui/widget" @widget,
   "NoahLiu/native-gui-tools/i18nkit" @i18nkit,
 }

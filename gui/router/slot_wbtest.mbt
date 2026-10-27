@@ -2,7 +2,7 @@
 // 淘汰把这一代订阅一起退掉，单层树同样能挂。
 
 fn sl_text() -> @widget.Node {
-  @ui.text("内容", role=@ui.Body)
+  @ui.text("内容")
 }
 
 fn sl_lf(k : String, hits : Ref[Int]) -> Route {
@@ -185,7 +185,7 @@ test "入口载体挂在分支内容前面" {
       for c in cs {
         names.push(c.key)
       }
-      @ui.text("入口:" + names.join(","), role=@ui.Title)
+      @ui.text("入口:" + names.join(","), wrap=false)
     }
   let root = sl_mount(r.view(Some(bar)))
   assert_true(sl_count(root) > 4)

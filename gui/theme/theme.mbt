@@ -367,6 +367,25 @@ pub fn theme_chart_color(i : Int) -> String {
 pub let control_height : Double = 32.0
 
 ///|
+// ---- 字阶令牌（文本件排版预设的唯一来源，@style.text_* 从这里取值）----
+
+///|
+/// 正文档字号（13）。
+pub let font_size_body : Double = 13.0
+
+///|
+/// 次要小字字号（12）。
+pub let font_size_secondary : Double = 12.0
+
+///|
+/// 区块/面板标题字号（14，配 SemiBold）。
+pub let font_size_section : Double = 14.0
+
+///|
+/// 大标题字号（18，配 SemiBold）。
+pub let font_size_title : Double = 18.0
+
+///|
 // ---- 圆角令牌（与颜色同思路：绘制期现取，切换只翻一个开关）----
 // 分层基准：控件 4 / 卡片·面板 6 / 对话框·浮层 8，上限 8。自带圆形态的
 // 组件（radio、switch、slider、头像、圆点）不吃这套开关，永远按几何取圆。

@@ -1,6 +1,7 @@
 import {
   "NoahLiu/yoga-mbt/src" @yoga,
   "NoahLiu/native-gui/ui",
+  "NoahLiu/native-gui/style" @style,
   "NoahLiu/native-gui/sys" @sys,
 }
 

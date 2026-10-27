@@ -42,7 +42,7 @@ fn sticky_rows(g : Int) -> Array[@widget.Node] {
   let rows : Array[@widget.Node] = []
   for i = 0; i < 4; i = i + 1 {
     let label = @shared.tr_with("dyn.sticky_row", [("g", g.to_string()), ("r", (i + 1).to_string())], "第 \{g} 组 · 第 \{i + 1} 行（滚动时看顶部吸顶条）")
-    rows.push(@ui.text(label, role=@ui.Body))
+    rows.push(@ui.text(label))
   }
   rows
 }
@@ -216,9 +216,9 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
           [
             @ui.badge_count(9),
             @ui.badge_count(128),
-            @ui.text(@shared.tx("消息"), role=@ui.Body),
+            @ui.text(@shared.tx("消息")),
             @ui.badge_dot(),
-            @ui.text(@shared.tx("在线"), role=@ui.Body),
+            @ui.text(@shared.tx("在线")),
           ],
           column_gap=16.0,
         ),
@@ -243,7 +243,7 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
             @ui.col(
               [
                 @ui.bind(app.visits, fn(s) { @shared.tr_with("dyn.visits", [("s", s)], "访问量 \{s}") }),
-                @ui.text(@shared.tx("由基础页与下方按钮联动"), role=@ui.Secondary),
+                @ui.text(@shared.tx("由基础页与下方按钮联动"), class=[@style.text_secondary]),
               ],
               row_gap=2.0,
             ),
@@ -274,10 +274,10 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
       [
         @ui.col(
           [
-            @ui.card([@ui.text(@shared.tx("卡片内容：组件库全部用 theme_* 主题色着色。"), role=Body)], title=@shared.tx("卡片标题"), class=[@style.style(border_radius=6.0)]),
+            @ui.card([@ui.text(@shared.tx("卡片内容：组件库全部用 theme_* 主题色着色。"))], title=@shared.tx("卡片标题"), class=[@style.style(border_radius=6.0)]),
             @ui.collapse([
-              (@shared.tx("如何使用组件库？"), [@ui.text(@shared.tx("moon add NoahLiu/native-gui 后即可用 @ui.* 访问。"), role=Body)]),
-              (@shared.tx("支持哪些平台？"), [@ui.text(@shared.tx("Linux (X11) / Windows；macOS 进行中。"), role=Body)]),
+              (@shared.tx("如何使用组件库？"), [@ui.text(@shared.tx("moon add NoahLiu/native-gui 后即可用 @ui.* 访问。"))]),
+              (@shared.tx("支持哪些平台？"), [@ui.text(@shared.tx("Linux (X11) / Windows；macOS 进行中。"))]),
             ]),
           ],
           row_gap=8.0,
@@ -457,9 +457,9 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
             @ui.transfer(transfer_left, transfer_right),
             @ui.carousel(
               [
-                @ui.text(@shared.tx("第一屏：轮播内容可为任意 Node。"), role=@ui.Body),
-                @ui.text(@shared.tx("第二屏：自动轮播 3s 一切。"), role=@ui.Body),
-                @ui.text(@shared.tx("第三屏：悬停暂停，箭头/圆点手动切。"), role=@ui.Body),
+                @ui.text(@shared.tx("第一屏：轮播内容可为任意 Node。")),
+                @ui.text(@shared.tx("第二屏：自动轮播 3s 一切。")),
+                @ui.text(@shared.tx("第三屏：悬停暂停，箭头/圆点手动切。")),
               ],
               width=320.0,
               height=80.0,

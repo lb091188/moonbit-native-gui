@@ -8,9 +8,9 @@ fn main {
     [
       @ui.view(
         [
-          @ui.text("Hello, MoonBit!", role=@ui.Title),
-          @ui.text("你好，月兔！", role=@ui.Section),
-          @ui.text("Built with native-gui on MoonBit", role=@ui.Secondary),
+          @ui.text("Hello, MoonBit!", class=[@style.text_heading]),
+          @ui.text("你好，月兔！", class=[@style.text_title]),
+          @ui.text("Built with native-gui on MoonBit", class=[@style.text_secondary]),
           @ui.row(
             [
               @ui.link("mooncakes", fn() {

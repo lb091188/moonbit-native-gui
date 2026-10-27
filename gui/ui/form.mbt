@@ -114,7 +114,7 @@ pub fn checkbox(
     //（真机 XFCE 默认字体实测），与 radio 行同一条 min_height 口径
     row.node.set_min_height(@yoga.fixed(20.0))
     row.append_child(box)
-    let _ = (text(content, font_size=font_size)).mount_into(row)
+    let _ = (text(content, font_size=font_size, wrap=false)).mount_into(row)
     row.cursor_fn = Some(enabled_cursor(off, @widget.CURSOR_HAND))
     attach_toggle(row, fn() { state.set(!state.get()) }, off)
     row.on_key = Some(fn(ev : @widget.KeyEvent) -> Bool {
@@ -190,7 +190,7 @@ pub fn radio_group(
     })
     items.push(
       view(
-        [dot, text(options[i])],
+        [dot, text(options[i], wrap=false)],
         direction=@yoga.Row,
         column_gap=6.0,
         align_items=@yoga.AlignItems::Center,
@@ -334,7 +334,7 @@ pub fn switch(
     row.append_child(pill)
     let txt = if state.get() { on_text } else { off_text }
     if txt.length() > 0 {
-      let _ = (text(txt)).mount_into(row)
+      let _ = (text(txt, wrap=false)).mount_into(row)
     }
     row.cursor_fn = Some(enabled_cursor(off, @widget.CURSOR_HAND))
     attach_toggle(row, toggle, off)
@@ -1257,6 +1257,7 @@ pub fn form_item(
                 font_size=13.0,
                 color="text_secondary",
                 align=@text.End,
+                wrap=false,
               ),
             ],
             direction=@yoga.Row,
@@ -1291,7 +1292,9 @@ pub fn form(
   row_gap? : Double = 8.0,
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  let nodes : Array[@widget.Node] = [text(title, role=Section)]
+  let nodes : Array[@widget.Node] = [
+    text(title, class=[@style.text_title], wrap=false),
+  ]
   for it in items {
     nodes.push(it)
   }

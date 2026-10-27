@@ -73,17 +73,16 @@ pub fn page_store_demo(_app : @shared.App) -> @widget.Node {
       [
         @ui.row(
           [
-            @ui.text(@shared.tx("兄弟项（重建时不动）"), role=@ui.Secondary),
+            @ui.text(@shared.tx("兄弟项（重建时不动）"), class=[@style.text_secondary]),
             @widget.bind_node(rebuild_n.signal(), fn(n : Int) -> @widget.Node {
               @ui.view(
                 [
                   @ui.text(
                     @shared.tr_with("gen.subtree", [("n", n.to_string())], "第 \{n} 代子树"),
-                    role=@ui.Body,
                   ),
                   @ui.text(
                     @shared.tx("这棵子树每次点击都是全新控件；旁边那行字没有被重挂。"),
-                    role=@ui.Secondary,
+                    class=[@style.text_secondary],
                     max_width=360.0,
                   ),
                 ],

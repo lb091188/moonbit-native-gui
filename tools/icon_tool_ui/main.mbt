@@ -10,7 +10,7 @@ fn tile(name : String) -> @widget.Node {
   @ui.col(
     [
       @ui.iconfont(name, size=32.0),
-      @ui.text(name, role=@ui.Secondary),
+      @ui.text(name, class=[@style.text_secondary]),
     ],
     row_gap=2.0,
     width=110.0,

@@ -108,12 +108,12 @@ fn section_body(s : Section, selected : @base.Store[String]) -> @widget.Node {
     selected.subscribe(ensure)
   })
   let inner : Array[@widget.Node] = [
-    @ui.text(s.title, role=@ui.Section),
+    @ui.text(s.title, class=[@style.text_title]),
   ]
   if s.desc.length() > 0 {
-    // 说明折行跟随容器宽（`wrap=true` 的文本在库里就是 percent 100 块级）：
+    // 说明折行跟随容器宽（`text` 缺省即折行，flex 0 1 auto 按可用宽排）：
     // 不设上限，段标题/描述/正文/代码同一条右缘，窗口多宽排多宽
-    inner.push(@ui.text(s.desc, role=@ui.Secondary, wrap=true))
+    inner.push(@ui.text(s.desc, class=[@style.text_secondary], wrap=true))
   }
   inner.push(holder)
   if s.code.length() > 0 {
@@ -146,8 +146,8 @@ fn section_body(s : Section, selected : @base.Store[String]) -> @widget.Node {
 fn code_copy_row(lines : Array[String]) -> @widget.Node {
   @ui.row(
     [
-      @ui.text(tx("代码"), role=@ui.Secondary),
-      @ui.text("", role=@ui.Secondary, handle=fn(w) {
+      @ui.text(tx("代码"), class=[@style.text_secondary]),
+      @ui.text("", class=[@style.text_secondary], handle=fn(w) {
         w.node.set_flex_grow(1.0)
       }),
       @ui.button(tx("复制"), variant=@ui.Text, on_click=fn() {

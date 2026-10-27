@@ -31,7 +31,7 @@
 | `@ui.Accent` | 13 | SemiBold | `primary` | 强调词、链接式操作 |
 | `@ui.Plain` | 13 | Normal | `text_regular` | 无角色，此时才由调用方给 `font_size` / `color` |
 
-写法：`@ui.text("保存成功", role=@ui.Secondary)`。上表的字号、字重、颜色由 `role_font` / `role_color` 给出，换主题自动跟随——这就是不要手写 `font_size=` 的原因。
+写法：`@ui.text("保存成功", class=[@style.text_secondary])`。上表的字号、字重、颜色由 `@style` 字阶预设给出（字号读 `@theme` 字阶令牌），换主题自动跟随——这就是不要手写 `font_size=` 的原因。
 
 数字型强调（统计数、金额）用 20 或 26 + `SemiBold` + `text_primary`，配一行 `@ui.Secondary` 说明；这是唯一允许脱离字阶的地方。
 

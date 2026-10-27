@@ -11,7 +11,7 @@ fn main {
   let count : @base.Store[Int] = @base.Store::new(0)
   let app = match @ui.mount_window(
     [@ui.col([
-      @ui.text("计数", role=@ui.Title),
+      @ui.text("计数", class=[@style.text_heading]),
       @ui.button("加一", on_click=fn() { count.update(fn(n) { n + 1 }) }),
       @ui.bind_label(count, fn(n : Int) -> String { "\{n}" }),
     ], padding=16.0, row_gap=8.0)],

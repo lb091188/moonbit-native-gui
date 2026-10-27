@@ -1,8 +1,8 @@
-// 文本族与分隔布局回归：按宽量高、角色字号/颜色、标签按宽折行、
+// 文本族与分隔布局回归：按宽量高、字阶预设、标签按宽折行、
 // 分隔把手拖动改首栏尺寸与两端夹取。
 
 ///|
-test "按宽量高：给宽换行后更高、角色字号越大行越高" {
+test "按宽量高：给宽换行后更高、字号越大行越高" {
   if !ui_text_guard() {
     return
   }
@@ -10,20 +10,35 @@ test "按宽量高：给宽换行后更高、角色字号越大行越高" {
   let one_line = measure_text_height(long)
   let wrapped = measure_text_height(long, width=120.0)
   assert_true(wrapped > one_line * 1.5)
-  // 角色字号：Title(18) 比 Secondary(12) 高
-  let t = measure_text_height("短", role=Title)
-  let s = measure_text_height("短", role=Secondary)
+  // 字号档：18 比 12 高
+  let t = measure_text_height(
+    "短",
+    font=@text.Font::new("", 18.0, weight=@text.SemiBold),
+  )
+  let s = measure_text_height("短", font=@text.Font::new("", 12.0))
   assert_true(t > s)
 }
 
 ///|
-test "文字角色：字号与颜色随角色，Accent 用主色" {
-  assert_eq(role_font(Title).size, 18.0)
-  assert_eq(role_font(Secondary).size, 12.0)
-  assert_true(role_font(Title).size > role_font(Body).size)
-  assert_eq(role_color(Accent), @theme.theme_primary())
-  assert_eq(role_color(Secondary), @theme.theme_text_secondary())
-  assert_true(role_color(Body) != role_color(Secondary))
+test "字阶预设：字号读 theme 字阶令牌，颜色键在绘制期现取主题" {
+  assert_eq(@style.text_heading.font_size, Some(@theme.font_size_title))
+  assert_eq(@style.text_secondary.font_size, Some(@theme.font_size_secondary))
+  assert_eq(@theme.font_size_title, 18.0)
+  assert_eq(@theme.font_size_section, 14.0)
+  assert_eq(@theme.font_size_body, 13.0)
+  assert_eq(@theme.font_size_secondary, 12.0)
+  // Accent 落主色、Secondary 落次要色（预设存 token 键，现取才见色值）
+  assert_eq(
+    @style.resolve_color(@style.text_accent.color.unwrap()),
+    @theme.theme_primary(),
+  )
+  assert_eq(
+    @style.resolve_color(@style.text_secondary.color.unwrap()),
+    @theme.theme_text_secondary(),
+  )
+  let base_c = @style.resolve_color(@style.text_base.color.unwrap())
+  let sec_c = @style.resolve_color(@style.text_secondary.color.unwrap())
+  assert_true(base_c != sec_c)
 }
 
 ///|
@@ -33,16 +48,16 @@ test "主题化标签：按 max_width 折行（高度随之变高），固定色
   }
   let long = "标签文字很长很长很长很长很长很长很长很长很长很长很长很长"
   let (_, narrow) = mounted(
-    text(long, max_width=80.0, role=Body),
+    text(long, max_width=80.0),
     200.0,
     300.0,
   )
-  let (_, wide) = mounted(text(long, max_width=0.0, role=Body), 200.0, 300.0)
+  let (_, wide) = mounted(text(long, max_width=0.0), 200.0, 300.0)
   assert_true(narrow.rect.h > wide.rect.h)
   assert_true(wide.rect.w > 100.0)
   // 固定色：绘制像素取色（Accent 是主色，这里给死灰色）
   let (root, fixed) = mounted(
-    text("固定色", color="#888888", wrap=false, role=Body),
+    text("固定色", color="#888888", wrap=false),
     160.0,
     40.0,
   )

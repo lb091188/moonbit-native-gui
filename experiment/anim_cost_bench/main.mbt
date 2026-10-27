@@ -27,7 +27,7 @@ fn build_page() -> @widget.Node {
       [
         @ui.button("保存", variant=@ui.Solid),
         @ui.input(@base.Store::new("输入框内容")),
-        @ui.text("一行说明文字，用来占住交叉轴", role=@ui.Secondary),
+        @ui.text("一行说明文字，用来占住交叉轴", class=[@style.text_secondary]),
       ],
       column_gap=8.0,
     ))

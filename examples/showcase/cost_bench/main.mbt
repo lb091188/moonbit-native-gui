@@ -232,7 +232,7 @@ fn warm_up() -> Unit {
   let root = @widget.Widget::new()
   root.set_size(W.to_double(), H.to_double())
   root.set_column()
-  let w = (@ui.text("预热", role=@ui.Title).mount)(root)
+  let w = (@ui.text("预热", class=[@style.text_heading]).mount)(root)
   root.relayout(W.to_double(), H.to_double())
   let bm = @render.Bitmap::new(W, H)
   let p = @render.Painter::new(bm)
