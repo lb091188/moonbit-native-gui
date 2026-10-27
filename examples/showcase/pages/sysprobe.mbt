@@ -199,10 +199,14 @@ fn sp_monitors() -> String {
 }
 
 ///|
-/// 已装应用：桌面项统计 + 常见二进制查找。
+/// 已装应用：清单统计 + **按关键词在清单里找**（三平台同一判法：mac 的
+/// .app、Windows 的开始菜单、Linux 的 .desktop 都汇进 appfind_installed，
+/// 显示名/id/exec 任一命中即算）+ which 语义的二进制查找用跨平台常见名。
+/// 不拿发行版专属名（google-chrome 这类）当探针——那是 Linux 的命名，
+/// 在 mac/Windows 上「未找到」是命名错而不是能力缺。
 fn sp_apps() -> String {
   let buf = StringBuilder()
-  match @sys.appfind_installed() {
+  let apps : Array[@sys.AppEntry] = match @sys.appfind_installed() {
     Ok(list) => {
       let first : Array[String] = []
       for i = 0; i < list.length(); i = i + 1 {
@@ -212,11 +216,31 @@ fn sp_apps() -> String {
         first.push(list[i].name)
       }
       buf.write_string("已装应用: \{list.length()} 个，例如 \{first.join("、")}\n")
+      list
     }
-    Err(e) => buf.write_string("已装应用: 读不到：\{e}\n")
+    Err(e) => {
+      buf.write_string("已装应用: 读不到：\{e}\n")
+      []
+    }
   }
-  buf.write_string("二进制查找:\n")
-  for name in ["sh", "firefox", "code", "google-chrome"] {
+  buf.write_string("按关键词找应用:\n")
+  for kw in ["chrome", "code", "firefox"] {
+    let mut hit = ""
+    for a in apps {
+      let hay = (a.name + " " + a.id + " " + a.exec).to_lower()
+      if hay.contains(kw) {
+        hit = a.name
+        break
+      }
+    }
+    if hit == "" {
+      buf.write_string("  \{kw} → 未装\n")
+    } else {
+      buf.write_string("  \{kw} → \{hit}\n")
+    }
+  }
+  buf.write_string("二进制查找（which 语义）:\n")
+  for name in ["git", "node", "python3"] {
     match @sys.appfind_executable(name) {
       Ok(p) => buf.write_string("  \{name} → \{sp_clip(p, 52)}\n")
       Err(_) => buf.write_string("  \{name} → 未找到\n")
@@ -403,7 +427,7 @@ pub fn page_sysprobe(_app : @shared.App) -> @widget.Node {
     @shared.section(
       "应用文件",
       "应用与文件",
-      "已装应用统计与常见二进制查找；VS Code 最近工作区。最近文件不列：Linux 读 xbel、Windows 读 Recent 目录，macOS 无对应面。",
+      "已装应用统计与关键词查找（三平台同一判法，不拿发行版专属名当探针）、which 语义二进制查找；VS Code 最近工作区。最近文件不列：Linux 读 xbel、Windows 读 Recent 目录，macOS 无对应面。",
       sp_group(
         @shared.tx("重新探测"),
         [(app_a, @shared.tx("已装应用"), sp_apps), (app_b, @shared.tx("编辑器工作区"), sp_recent)],
