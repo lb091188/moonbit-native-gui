@@ -55,27 +55,22 @@ pub fn page(secs : Array[Section]) -> @widget.Node {
   for s in secs {
     names.push(s.name)
   }
-  // 段条超宽真换行（flex_wrap 走样式槽；行距给 4，不然两行贴在一起）
-  // 段条放在**列**里：列的交叉轴会把段条拉成整宽，段多才按整宽折行。
-  // （放在 row 里时段条按内容定宽，折行数会翻倍、把正文挤扁——实测 224px。）
-  // 段条只给 `min_width=0`，**不给 min_height=0**：换行容器的「主轴 min:auto」
-  // 现按定住的交叉宽算（yoga 定案），一行放得下就是一行高、放不下自动长到两行；
-  // 早先这里补 min 0 是为了躲「下限=全部段堆叠」把正文挤扁，那同时把段条钉死
-  // 在一行高、折到第二行就被裁（真机「段不换行」），两头都错在没按定宽算。
+  // 段条超宽真换行（flex_wrap 走样式槽；行距给 4，不然两行贴在一起）。
+  // 段条是页列的**直接子项**，四周 16 走 `margin`，不再包一层 padding 列：
+  // 包裹列自身没有宽度（纯靠 stretch 定宽）时，它的 min-content 高仍按
+  // 「无定宽全堆叠」算，段条会把整块正文高度顶起来（实测 236 vs 真值 66）。
   let flat = @style.style(min_height=0.0, min_width=0.0)
   // 段名是 key（选中值不译），显示走 `seg.` 前缀取译——前缀是为了和正文里
   // 「原文当 key」的条目划开：短名如「文字」撞正文的概率太高。
-  let strip = @ui.col(
-    [@ui.segmented(
-      names,
-      selected,
-      label_of=fn(n : String) -> String { @i18n.t_or("seg." + n, n) },
-      class=[@style.style(flex_wrap=@yoga.Wrap, row_gap=4.0, min_width=0.0)],
-    )],
-    padding=16.0,
-    class=[flat],
+  let strip = @ui.segmented(
+    names,
+    selected,
+    label_of=fn(n : String) -> String { @i18n.t_or("seg." + n, n) },
+    class=[
+      @style.style(flex_wrap=@yoga.Wrap, row_gap=4.0, min_width=0.0, margin=16.0),
+    ],
     // 段条是不可压缩的定高头部：正文够高时（Markdown 段整篇文档）压缩量
-    // 会全落到「min=0 且没设 flex_shrink=0」的这一层，实测 44px → 23.3px，
+    // 会全落到「min=0 且没设 flex_shrink=0」的层上，实测 44px → 23.3px，
     // 标签戳出条外。收缩的活儿交给下面的正文列（min=0 + grow）。
     handle=fn(w : @widget.Widget) -> Unit { w.node.set_flex_shrink(0.0) },
   )
@@ -83,7 +78,13 @@ pub fn page(secs : Array[Section]) -> @widget.Node {
   for s in secs {
     bodies.push(section_body(s, selected))
   }
-  @ui.col([strip, @ui.col(bodies, grow=1.0, class=[flat])], grow=1.0)
+  // 页列自带 percent(100) 宽：折行容器的内在下限以「自身 style 定住的宽」为
+  // 参照，纯 stretch 的列不做这个参照（实测同一条段条两种写法差 170px）。
+  @ui.col(
+    [strip, @ui.col(bodies, grow=1.0, class=[flat])],
+    grow=1.0,
+    class=[@style.style(width_percent=100.0)],
+  )
 }
 
 ///|

@@ -282,6 +282,8 @@ fn scroll_bar_h(state : ScrollState) -> @widget.Widget {
 /// - 给了 `min_content_width` = 下限档：`max(min_content_width, 视口宽)`，
 ///   **不取子项自然宽**——子项更宽时由它自己的滚动负责，这个 min-width 才是
 ///   唯一说了算的数。
+/// `vscroll=false` 关纵向档：内容高钉住视口（percent 100），不纵滚也不出纵向
+/// 滚动条——子项自己带滚动（如段正文各自滚动）时，用它横滚而不打断纵向确定高。
 pub fn scroll_view(
   children : Array[@widget.Node],
   state : ScrollState,
@@ -289,6 +291,7 @@ pub fn scroll_view(
   height? : Double = 0.0,
   hscroll? : Bool = false,
   min_content_width? : Double = 0.0,
+  vscroll? : Bool = true,
   class? : Array[@style.Style] = [],
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
@@ -324,6 +327,11 @@ pub fn scroll_view(
     content.node.set_position(@yoga.Relative)
     // 不收缩：内容必须按自然高度撑开，超出视口的部分才谈得上滚动
     content.node.set_flex_shrink(0.0)
+    if !vscroll {
+      // 纵向档关：内容高钉住视口——子项的 grow 才有确定剩余空间可分，
+      // 比视口高的部分被裁（滚动交给子项自己的视口）
+      content.node.set_height(@yoga.percent(100.0))
+    }
     if hscroll {
       // 横向档：`align_self FlexStart` 退掉交叉轴 stretch，让内容可比视口宽
       content.node.set_align_self(Some(@yoga.AlignItems::FlexStart))
@@ -352,7 +360,9 @@ pub fn scroll_view(
       @widget.invalidate()
     }
 
-    viewport.append_child(scroll_bar(state))
+    if vscroll {
+      viewport.append_child(scroll_bar(state))
+    }
     if hscroll {
       viewport.append_child(scroll_bar_h(state))
     }

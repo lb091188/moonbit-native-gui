@@ -1486,6 +1486,42 @@ test "换行容器作列子项：主轴 min:auto 按定住的交叉宽算，不�
 }
 
 ///|
+test "换行容器隔着 stretch-only 列层：定宽照样下传，中间层不虚高" {
+  // 上一条只覆盖「换行容器直接作列子项」。showcase 段条外面还包着自身不给宽、
+  // 只靠拉伸定宽的列层——该层测内在下限时若不把「父钦定的拉伸宽」当确定宽
+  // 继续下传，折行子项就按无定宽全堆叠答（实测包裹列 232 vs 真值 62），
+  // 空白沿父链一路顶上去。此处钉两层包裹：宽到一行、窄到两行都对。
+  let mk = fn(box : Double) -> (Node, Node) {
+    let root = Node::new()
+    root.set_width(fixed(box))
+    root.set_height(fixed(700.0))
+    root.set_flex_direction(Column)
+    let page = Node::new()
+    page.set_flex_direction(Column)
+    let strip = Node::new()
+    strip.set_flex_direction(Row)
+    strip.set_flex_wrap(Wrap)
+    strip.set_row_gap(4.0)
+    strip.set_column_gap(4.0)
+    let mut i = 0
+    while i < 6 {
+      strip.append_child(leaf(80.0, 30.0))
+      i += 1
+    }
+    page.append_child(strip)
+    root.append_child(page)
+    calculate_layout(root, Some(box), Some(700.0))
+    (page, strip)
+  }
+  let (page, strip) = mk(1000.0)
+  assert_eq(strip.layout().height, 30.0)
+  assert_eq(page.layout().height, 30.0)
+  let (page2, strip2) = mk(300.0)
+  assert_eq(strip2.layout().height, 64.0)
+  assert_eq(page2.layout().height, 64.0)
+}
+
+///|
 test "gap 计入剩余空间：grow 项不得吃掉间隙" {
   // 行宽 100，间隙 10，两个子项：固定 30 + grow 1
   // 规范 §9.7/§9.9.1：剩余空间 = 内主轴 − Σ基准 − 间隙总和 = 100-30-10 = 60

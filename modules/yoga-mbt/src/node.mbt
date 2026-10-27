@@ -36,7 +36,7 @@ pub struct Node {
   // 测量缓存：键 = (可用宽, 可用高)，值 = (宽, 高, 基线)。
   // **跨布局驻留**：有效性由节点的版本面判定（见 cache_rev），样式没变的
   // 子树在下一轮直接拿它，测量回调（文本即 Pango）因此不必每帧重跑
-  measure_cache : Array[((Option[Double], Option[Double]), (Double, Double, Option[Double]))]
+  measure_cache : Array[((Option[Double], Option[Double], Option[Double]), (Double, Double, Option[Double]))]
   // 内在尺寸缓存：键 = ((请求行轴?, 求 min-content?), (宽参照, 高参照))，
   // 值 = 边框盒尺寸。与测量缓存同一失效时机（cache_rev）
   intrinsic_cache : Array[(((Bool, Bool), (Option[Double], Option[Double])), Double)]

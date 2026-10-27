@@ -352,25 +352,31 @@ fn round_to_grid(
 /// 测量节点内容尺寸（带缓存）。同一节点在同一次布局里会被父容器测两轮
 /// （base 测量与交叉轴重测），深层子树还会被逐层重复，命中时直接复用尺寸
 /// 与基线。
+/// `pinned_w` = 本节点宽已被父级钦定（列容器里被拉伸到父的确定内宽）时传该
+/// 宽：钦定宽当作确定尺寸继续下传，Stretch 孙项的内在下限才按这一定宽算，
+/// 不再按「无定宽全堆叠」（stretch-only 的中间列层虚高即缺这条传播）。
 fn measure_content(
   c : Node,
   avail_w : Option[Double],
   avail_h : Option[Double],
+  pinned_w? : Option[Double] = None,
 ) -> (Double, Double) {
   cache_fresh(c)
   // 命中比较逐项做，避免每次调用都为构造键而分配
   for e in c.measure_cache {
-    let (kw, kh) = e.0
-    if opt_eq(kw, avail_w) && opt_eq(kh, avail_h) {
+    let (kw, kh, kp) = e.0
+    if opt_eq(kw, avail_w) && opt_eq(kh, avail_h) && opt_eq(kp, pinned_w) {
       c.baseline = e.1.2
       return (e.1.0, e.1.1)
     }
   }
-  let result = measure_content_uncached(c, avail_w, avail_h)
+  let result = measure_content_uncached(c, avail_w, avail_h, pinned_w)
   if c.measure_cache.length() >= cache_slots {
     c.measure_cache.clear()
   }
-  c.measure_cache.push(((avail_w, avail_h), (result.0, result.1, c.baseline)))
+  c.measure_cache.push(
+    ((avail_w, avail_h, pinned_w), (result.0, result.1, c.baseline)),
+  )
   result
 }
 
@@ -381,6 +387,7 @@ fn measure_content_uncached(
   c : Node,
   avail_w : Option[Double],
   avail_h : Option[Double],
+  pinned_w : Option[Double],
 ) -> (Double, Double) {
   if c.children.length() == 0 {
     let s = c.style
@@ -409,11 +416,15 @@ fn measure_content_uncached(
           }
         None => None
       }
-    let w = first_some(definite_size(s.width, avail_w), None).unwrap_or(cw + pb_w)
+    let w =
+      first_some(
+        pinned_w,
+        definite_size(s.width, avail_w),
+      ).unwrap_or(cw + pb_w)
     let h = first_some(definite_size(s.height, avail_h), None).unwrap_or(ch + pb_h)
     (w, h)
   } else {
-    layout_into(c, avail_w, avail_h, None, None)
+    layout_into(c, avail_w, avail_h, pinned_w, None)
   }
 }
 
@@ -891,17 +902,6 @@ fn layout_into_impl(
       axis_size(c, child_cross_style, !main_is_row, child_pct_w, child_pct_h),
       first_some(own_cross_def.map(fn(v) { (v - pad_border_cross).max(0.0) }), None),
     )
-    let content = if main_is_row {
-      measure_content(c, c_avail_main, c_avail_cross)
-    } else {
-      let (w, h) = measure_content(c, c_avail_cross, c_avail_main)
-      (h, w)
-    }
-    let content_cross0 = content.1
-    let basis_val = match c.style.flex_basis {
-      Auto => child_main_style
-      v => v
-    }
     let cross_definite = axis_size(
       c,
       child_cross_style,
@@ -909,6 +909,40 @@ fn layout_into_impl(
       child_pct_w,
       child_pct_h,
     )
+    let item_align = match c.style.align_self {
+      Some(a) => a
+      None => s.align_items
+    }
+    let is_stretch = match item_align {
+      Stretch => true
+      _ => false
+    }
+    // 交叉宽是否由 stretch 钦定：父主轴为列、本项无显式交叉宽、父内交叉确定。
+    // 是 → 按「钦定宽」测本项（measure_content 的 pinned_w），确定感才会继续
+    // 下传孙项；否则中间列层（自身无宽、只被拉伸）里的折行子项会按
+    // 「无定宽全堆叠」算内在下限，整层虚高。
+    let no_pin = main_is_row || !is_stretch || (cross_definite is Some(_))
+    let stretch_w : Double? = if no_pin {
+      None
+    } else {
+      own_cross_def.map(fn(v) { (v - pad_border_cross).max(0.0) })
+    }
+    let content = if main_is_row {
+      measure_content(c, c_avail_main, c_avail_cross)
+    } else {
+      let (w, h) = measure_content(
+        c,
+        c_avail_cross,
+        c_avail_main,
+        pinned_w=stretch_w,
+      )
+      (h, w)
+    }
+    let content_cross0 = content.1
+    let basis_val = match c.style.flex_basis {
+      Auto => child_main_style
+      v => v
+    }
     // 规范 §9.2：有首选比例 + 基准为 content + 交叉轴尺寸确定 → 主轴基准由比例换算
     let ratio_main = match (c.style.aspect_ratio, cross_definite) {
       (Some(r), Some(cv)) => Some(if main_is_row { cv * r } else { cv / r })
@@ -926,14 +960,6 @@ fn layout_into_impl(
     // 只在**父主轴为列**时启用下面的替代算路：那时 c_avail_cross 就是「定住的
     // 交叉宽」；父主轴为行时 c_avail_main 是可用宽**限制**，拿它量的值当基准
     // 会让项被可用宽压窄（老用例「行容器内确定高度的内容项」钉着这条）。
-    let item_align = match c.style.align_self {
-      Some(a) => a
-      None => s.align_items
-    }
-    let is_stretch = match item_align {
-      Stretch => true
-      _ => false
-    }
     let stretch_pinned = if is_stretch {
       own_cross_def is Some(_)
     } else {

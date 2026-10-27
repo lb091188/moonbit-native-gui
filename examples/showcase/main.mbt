@@ -348,11 +348,14 @@ fn main {
             [
               // 右侧 = 窗口宽 - 侧栏宽，min-width 400：窗口窄过它时整块横向滚动。
               // 下限档（`min_content_width`）只看这个数，不看子项自然宽——
-              // 更宽的演示（长代码行/宽表格）由它自己的视口滚
+              // 更宽的演示（长代码行/宽表格）由它自己的视口滚。
+              // 纵向档关掉（`vscroll=false`）：页 = 段条 + 段正文，段正文自带
+              // 滚动并要吃「视口减段条」的确定高，外层再纵滚会把确定高掐断。
               @ui.scroll_view(
                 [
                   @ui.col(
                     [nav.view(None)],
+                    grow=1.0,
                     handle=fn(c : @widget.Widget) -> Unit {
                       c.node.set_width(@yoga.percent(100.0))
                     },
@@ -361,6 +364,7 @@ fn main {
                 @ui.ScrollState::new(),
                 hscroll=true,
                 min_content_width=400.0,
+                vscroll=false,
                 handle=fn(v : @widget.Widget) -> Unit {
                   v.node.set_flex_grow(1.0)
                 },
