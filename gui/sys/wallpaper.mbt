@@ -469,8 +469,9 @@ fn wp_mac_run(script : String) -> Result[(Int, String), WallpaperError] {
 }
 
 fn wp_get_mac() -> Result[String, WallpaperError] {
-  let script =
-    "tell application \"System Events\" to get POSIX path of (get picture of desktop 1)"
+  // `picture` 属性本身就是 POSIX 路径字符串（System Events 字典口径），
+  // 不能再套 `POSIX path of`——对字符串做文件转换报 -1728（真机实测）
+  let script = "tell application \"System Events\" to get picture of desktop 1"
   match wp_mac_run(script) {
     Err(e) => Err(e)
     Ok((code, out)) => {
@@ -482,6 +483,8 @@ fn wp_get_mac() -> Result[String, WallpaperError] {
       let p = wp_trim(out)
       if p == "" {
         Err(ParseFailed("osascript 读壁纸: 空串"))
+      } else if p == "missing value" {
+        Err(ParseFailed("桌面未设置壁纸"))
       } else {
         Ok(p)
       }
