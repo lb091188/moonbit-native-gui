@@ -1004,15 +1004,26 @@ fn md_rich_label(
       // 常量:常量会顺着「单元格自然宽 → 行自然宽 → percent 列的参照」把
       // 表格冻在该值上(真机 resize 后表格不重排、溢出滚不回来)。
       w.node.set_measure(fn(aw : Double?, _ah : Double?) -> (Double, Double) {
-        let limit = match aw {
-          Some(v) if v >= 1.0 => v
-          _ => row_w_ref.val.max(1.0)
+        let n_h = line_h * rows_ref.val.length().to_double()
+        match aw {
+          // 正式档：按容器可用宽折，节点与可用宽同宽（块级跟随）
+          Some(v) if v >= 1.0 => {
+            relay_out(v)
+            (row_w_ref.val.max(v), line_h * rows_ref.val.length().to_double())
+          }
+          // min-content 探询（Some(0)）：1px 箱折，答最窄可折单元宽
+          Some(_) => {
+            relay_out(1.0)
+            (row_w_ref.val, n_h)
+          }
+          // max-content 探询（None）：单行不折，答自身最长行自然宽。
+          // 此前拿上一次折叠的残state 当答案（初值 1px → max-content=单字宽
+          // 13），整棵 md 列被自己的 max-content 撑不起来、塌成一字一行
+          None => {
+            relay_out(1000000.0)
+            (row_w_ref.val, n_h)
+          }
         }
-        relay_out(limit)
-        (
-          row_w_ref.val.max(limit),
-          line_h * rows_ref.val.length().to_double(),
-        )
       })
     }
     w.on_draw = Some(fn(

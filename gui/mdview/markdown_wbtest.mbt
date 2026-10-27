@@ -764,3 +764,32 @@ test "正文行距留前导，块间留缝" {
     msg="两段之间没留块间距：\{(b.rect.y - a.rect.y - a.rect.h)}",
   )
 }
+
+///|
+test "跟随容器的富文本 measure 三档分答：列表标签不塌成一字一行" {
+  // 塌形守卫：max-content 探询（aw=None）曾拿上一次折叠的残 state 当答案
+  // （初值 1px → 答出单字宽），整棵 md 列按被顶坏的 max-content 排，真机
+  // 表现就是列表一字一行。现在三档分答：正式档铺满、min 档 1px 箱、
+  // max 档单行自然宽。断言：拉伸列 1100 下没有任何「窄于 30 且高过 30」
+  // 的竖条叶子。
+  let root = @widget.Widget::new()
+  root.set_size(1100.0, 700.0)
+  root.set_column()
+  let inner = @ui.col(
+    [markdown_view("- 无序列表项一二三\n- 列表项二(含 `代码`)\n\n段落一行文字。\n")],
+    padding=16.0,
+  )
+  let _ = inner.mount_into(root)
+  root.relayout(1100.0, 700.0)
+  let narrow = Ref(0)
+  fn walk(w : @widget.Widget) -> Unit {
+    if w.children().length() == 0 && w.rect.w < 30.0 && w.rect.h > 30.0 {
+      narrow.val = narrow.val + 1
+    }
+    for c in w.children() {
+      walk(c)
+    }
+  }
+  walk(root)
+  assert_eq(narrow.val, 0)
+}
