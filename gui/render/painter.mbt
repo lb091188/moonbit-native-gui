@@ -615,7 +615,7 @@ fn line_join_to_int(j : LineJoin) -> Int {
 pub fn Painter::set_line_cap(self : Painter, cap : LineCap) -> Unit {
   match self.backend {
     Some(CairoBackend(c)) => c.set_line_cap(line_cap_to_int(cap))
-    Some(PureBackend(_)) => ()
+    Some(PureBackend(r)) => r.set_line_cap(line_cap_to_int(cap))
     None => ()
   }
 }
@@ -718,6 +718,20 @@ pub fn Painter::stroke_rect(
   h : Double,
 ) -> Unit {
   self.raster_gate()
+  // 虚线档（dashed/dotted 边框）两后端一律退通用路径：两家的 stroke_rect 都是
+  // 「四带填充」的内侧复现，不吃虚线也不落端帽；内侧语义按「居中矩形内缩
+  // 半线宽」换算后交给 stroke()（虚线切段与圆头端帽都在那里统一）
+  if self.state.dashes.length() > 0 {
+    let lw = self.state.line_width
+    self.begin_path()
+    self.move_to(x + lw / 2.0, y + lw / 2.0)
+    self.line_to(x + w - lw / 2.0, y + lw / 2.0)
+    self.line_to(x + w - lw / 2.0, y + h - lw / 2.0)
+    self.line_to(x + lw / 2.0, y + h - lw / 2.0)
+    self.close_path()
+    self.stroke()
+    return
+  }
   match self.backend {
     Some(CairoBackend(c)) => {
       self.apply_stroke()

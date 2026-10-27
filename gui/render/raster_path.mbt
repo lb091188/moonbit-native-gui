@@ -267,6 +267,20 @@ pub(all) struct Poly {
 }
 
 ///|
+/// 圆心 (cx,cy)、半径 r 的正 24 边形（设备坐标）——Round 端帽的墨点。
+/// r 是亚像素到几像素的小半径（dotted 点 = 线宽一半），24 边对 AA 覆盖的
+/// 误差在 1/2 档以下，与贝塞尔展平容差同档。
+fn cap_circle(cx : Double, cy : Double, r : Double) -> Poly {
+  let pts : Array[(Double, Double)] = []
+  let n = 24
+  for i in 0..<n {
+    let a = 6.283185307179586 * i.to_double() / n.to_double()
+    pts.push((cx + r * @math.cos(a), cy + r * @math.sin(a)))
+  }
+  { pts, closed: true }
+}
+
+///|
 /// 把折线按虚线图案切成「实段」：`pattern` 是 on/off 交替的长度表（设备像素），
 /// `offset` 是相位偏移。返回的子路径都是**开口**折线（段端 butt 端帽），交给
 /// `stroke_polys` 走常规描边。

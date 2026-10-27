@@ -25,6 +25,7 @@ pub(all) struct RasterState {
   clip_y1 : Int
   dashes : Array[Double]
   dash_offset : Double
+  line_cap : Int
 }
 
 ///|
@@ -41,6 +42,7 @@ pub struct Raster {
   mut clip_y1 : Int
   mut dashes : Array[Double]
   mut dash_offset : Double
+  mut line_cap : Int
   stack : Array[RasterState]
 }
 
@@ -75,6 +77,7 @@ pub fn Raster::over(bitmap : Bitmap) -> Raster? {
       clip_y1: bitmap.height,
       dashes: [],
       dash_offset: 0.0,
+      line_cap: 0,
       stack: [],
     })
   }
@@ -114,6 +117,7 @@ pub fn Raster::save(self : Raster) -> Unit {
     clip_y1: self.clip_y1,
     dashes: self.dashes.copy(),
     dash_offset: self.dash_offset,
+    line_cap: self.line_cap,
   })
 }
 
@@ -137,6 +141,7 @@ pub fn Raster::restore(self : Raster) -> Unit {
       self.clip_y1 = s.clip_y1
       self.dashes = s.dashes.copy()
       self.dash_offset = s.dash_offset
+      self.line_cap = s.line_cap
     }
     None => ()
   }
@@ -203,8 +208,9 @@ pub fn Raster::fill(self : Raster) -> Unit {
 ///|
 /// 设备线宽 = 用户线宽 × sqrt(|det|)（非均匀缩放近似，记档）。
 /// 用完清空路径，口径同 `Raster::fill`（零线宽不落像素但同样清）。
-/// 虚线档先把折线按累计弧长切成「实段」（`dash_polys`），再逐段走常规描边——
-/// 段端是 butt 端帽，与 cairo 的虚线语义一致。
+/// 虚线档先把折线按累计弧长切成「实段」（`dash_polys`），再逐段走常规描边。
+/// `line_cap` 为 round 时，每条**开口**段的两端补半径 = 设备线宽一半的圆点
+/// （dotted 边框的圆头点；闭合回路与首尾重合的整圆不加，与 cairo 同口径）。
 pub fn Raster::stroke(self : Raster) -> Unit {
   let det = self.m.det().abs().sqrt()
   let lw = self.line_width * det
@@ -219,6 +225,24 @@ pub fn Raster::stroke(self : Raster) -> Unit {
     flat
   }
   let polys = stroke_polys(dashed, lw)
+  if self.line_cap == 1 {
+    let half = lw / 2.0
+    for poly in dashed {
+      let n = poly.pts.length()
+      if n < 2 {
+        continue
+      }
+      let (fx, fy) = poly.pts[0]
+      let (lx, ly) = poly.pts[n - 1]
+      let is_loop =
+        poly.closed ||
+          (n >= 3 && (lx - fx).abs() < 0.000000001 && (ly - fy).abs() < 0.000000001)
+      if !is_loop {
+        polys.push(cap_circle(fx, fy, half))
+        polys.push(cap_circle(lx, ly, half))
+      }
+    }
+  }
   fill_polys(self.bitmap, polys, (self.clip_x0, self.clip_y0, self.clip_x1, self.clip_y1), self.op, self.source)
   self.path.clear()
 }
@@ -472,6 +496,10 @@ pub fn Raster::stroke_round_rect(
   h : Double,
   radius : Double,
 ) -> Bool {
+  // 虚线档（dashed/dotted 边框）退通用路径：解析环带不切段、不落端帽
+  if self.dashes.length() > 0 {
+    return false
+  }
   if !self.m.axis_aligned() {
     return false
   }
@@ -787,6 +815,14 @@ pub fn Raster::set_dashes(
 ) -> Unit {
   self.dashes = pattern.copy()
   self.dash_offset = offset
+}
+
+///|
+/// 端帽形状（0=butt / 1=round / 2=square，与 cairo 线形编码同源）。Round 在
+/// `stroke()` 里给每条开口折线段的两端补半径 = 线宽一半的圆点——dotted 边框
+/// 的「圆头点」吃的就是这条（0.1px 段在 butt 档没有墨）。
+pub fn Raster::set_line_cap(self : Raster, cap : Int) -> Unit {
+  self.line_cap = cap
 }
 
 ///|
