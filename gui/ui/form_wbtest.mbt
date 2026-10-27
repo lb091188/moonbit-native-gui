@@ -67,7 +67,7 @@ test "单选组：点第几项就写第几项，横向排列" {
 }
 
 ///|
-test "单选组光标：整行手型（与 checkbox/switch 行同口径），整组禁用回默认箭头" {
+test "单选组光标：整行手型（与 checkbox/switch 行同口径），整组禁用出禁止光标" {
   let pick = @base.Store::new(0)
   let root = mount_root([radio_group(["甲", "乙"], pick)], 300.0, 60.0)
   let group = kid(root, 0)
@@ -82,7 +82,7 @@ test "单选组光标：整行手型（与 checkbox/switch 行同口径），整
   let row2 = kid(root2, 0).children()[0]
   assert_eq(
     root2.cursor_at(row2.rect.x + 6.0, row2.rect.y + row2.rect.h / 2.0),
-    @widget.CURSOR_DEFAULT,
+    @widget.CURSOR_NOT_ALLOWED,
   )
 }
 
@@ -1572,7 +1572,7 @@ test "步进器:聚焦中间格即全选,打字整体替换;↑↓ 步进后同�
 }
 
 ///|
-test "步进器:到界那侧按钮呈禁用档(灰底,光标回箭头)" {
+test "步进器:到界那侧按钮呈禁用档(灰底,光标出禁止形)" {
   match @text.measure("Ag", 13.0) {
     Some(_) => ()
     None => {
@@ -1589,8 +1589,8 @@ test "步进器:到界那侧按钮呈禁用档(灰底,光标回箭头)" {
   let minus = row.children()[0]
   let plus = row.children()[2]
   let my = minus.rect.y + minus.rect.h / 2.0
-  // 到界（0 已是下界）：减号侧光标回箭头，加号侧仍是手型
-  assert_eq(a.root.cursor_at(minus.rect.x + 16.0, my), @widget.CURSOR_DEFAULT)
+  // 到界（0 已是下界）：减号侧禁止光标，加号侧仍是手型
+  assert_eq(a.root.cursor_at(minus.rect.x + 16.0, my), @widget.CURSOR_NOT_ALLOWED)
   assert_eq(a.root.cursor_at(plus.rect.x + 16.0, my), @widget.CURSOR_HAND)
   // 禁用底：像素上减号侧是 fill_hover 灰底（≠外框面板底），加号侧无底
   let bm = @render.Bitmap::new(300, 200)

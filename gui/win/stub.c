@@ -506,6 +506,9 @@ static HCURSOR wm_load_cursor(int kind) {
   } else if (kind == 6 || kind == 7) {
     /* 6 = 张手 / 7 = 握拳：Win32 没有握拳系统光标，两张手都落 IDC_HAND */
     name = IDC_HAND;
+  } else if (kind == 8) {
+    /* 8 = 禁止（禁用态可交互件） */
+    name = IDC_NO;
   }
   return LoadCursorW(NULL, name);
 }
@@ -5885,6 +5888,8 @@ void wm_set_cursor(int64_t id, int kind) {
       name = "grab";
     } else if (kind == 7) {
       name = "grabbing";
+    } else if (kind == 8) {
+      name = "not-allowed";
     }
     cur = gdk_cursor_new_from_name(dpy, name);
     if (cur == NULL) {
@@ -8183,6 +8188,7 @@ static uint32_t wm_keysym_of(NSEvent *ev) {
     case 2: cur = [NSCursor IBeamCursor]; break;
     case 3: cur = [NSCursor resizeLeftRightCursor]; break;
     case 4: cur = [NSCursor resizeUpDownCursor]; break;
+    case 8: cur = [NSCursor operationNotAllowedCursor]; break;
     case 5: {
       /* 5 = 隐藏指针：1×1 透明图的空白光标（无公开 hiddenCursor 口） */
       static NSCursor *blank = nil;

@@ -33,6 +33,11 @@ pub const CURSOR_GRAB : Int = 6
 /// 握紧的拳：拖拽会话进行中（按下/开拖后；会话期间宿主统一用它）。
 pub const CURSOR_GRABBING : Int = 7
 
+/// 禁止（🚫）：禁用态的可交互件悬停其上——「这里能点但现在不让点」。
+/// 宿主分别映射 Win32 `IDC_NO` / GTK `not-allowed` / mac
+/// `operationNotAllowedCursor`。
+pub const CURSOR_NOT_ALLOWED : Int = 8
+
 ///|
 pub(all) enum PointerKind {
   Down
