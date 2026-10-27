@@ -4562,6 +4562,24 @@ void wm_inst_release(void) {
   wm_inst_got = 0;
 }
 
+/* ---- 系统权限 / 屏幕色温占位：两能力只有 mac 档有真实现（TCC 探测/引导、
+ * 暖色覆盖层），Windows 无对应概念——门面在 sys_platform() != "macos" 早退，
+ * 这里的空桩只为符号可链。 */
+int wm_permission_probe(int kind, int32_t *ok) {
+  (void)kind;
+  if (ok != NULL) {
+    *ok = 1;
+  }
+  return 0;
+}
+void wm_permission_request(int kind) { (void)kind; }
+void wm_screen_tint_apply(int32_t percent, int32_t *ok) {
+  (void)percent;
+  if (ok != NULL) {
+    *ok = 1;
+  }
+}
+
 #elif defined(WM_STUB_GTK)
 
 // ---------------- GTK3 后端（Linux，prebuild 专编） ----------------
@@ -7093,6 +7111,24 @@ int wm_notify_send(int icon_slot, const char *title, const char *text,
   (void)text;
   (void)kind;
   return 0;
+}
+/* ---- 系统权限 / 屏幕色温占位：两能力只有 mac 档有真实现（TCC 探测/引导、
+ * 暖色覆盖层），Linux 无对应概念——门面在 sys_platform() != "macos" 早退，
+ * 这里的空桩只为符号可链（真实现住 WM_STUB_MAC 分支，随 prebuild 进
+ * libyue_win_stub_mac.a）。 */
+int wm_permission_probe(int kind, int32_t *ok) {
+  (void)kind;
+  if (ok != NULL) {
+    *ok = 1;
+  }
+  return 0;
+}
+void wm_permission_request(int kind) { (void)kind; }
+void wm_screen_tint_apply(int32_t percent, int32_t *ok) {
+  (void)percent;
+  if (ok != NULL) {
+    *ok = 1;
+  }
 }
 /* 任务栏进度（§6.3）占位：Linux 的任务栏进度另有 Unity LauncherEntry（DBus）
  * 路径、macOS 是 dock 徽标（NSDockTile），都归跨平台门面批；这里的失败桩让
@@ -12388,6 +12424,22 @@ int wm_hotkey_register(int mods, int vk, int keysym) {
 }
 void wm_hotkey_unregister(int id) { (void)id; }
 int wm_hotkey_poll(void) { return 0; }
+
+/* 系统权限 / 屏幕色温占位（macOS 等）：真实现住 WM_STUB_MAC 分支。 */
+int wm_permission_probe(int kind, int32_t *ok) {
+  (void)kind;
+  if (ok != NULL) {
+    *ok = 1;
+  }
+  return 0;
+}
+void wm_permission_request(int kind) { (void)kind; }
+void wm_screen_tint_apply(int32_t percent, int32_t *ok) {
+  (void)percent;
+  if (ok != NULL) {
+    *ok = 1;
+  }
+}
 
 int64_t wm_now_ms(void) {
   return 0;
