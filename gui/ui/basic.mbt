@@ -207,6 +207,7 @@ pub fn text_dyn(
   max_width? : Double = 0.0,
   wrap? : Bool = false,
   ellipsis? : Bool = false,
+  max_lines? : Int = 0,
   shrink_by_role? : Bool = false,
   anon? : @style.Style = @style.empty_style(),
   class? : Array[@style.Style] = [],
@@ -223,6 +224,7 @@ pub fn text_dyn(
     max_width=max_width,
     wrap=wrap,
     ellipsis=ellipsis,
+    max_lines=max_lines,
   )
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
@@ -272,6 +274,7 @@ pub fn text(
   max_width? : Double = 0.0,
   wrap? : Bool = false,
   ellipsis? : Bool = false,
+  max_lines? : Int = 0,
   class? : Array[@style.Style] = [],
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
@@ -302,6 +305,7 @@ pub fn text(
     max_width=max_width,
     wrap=eff_wrap,
     ellipsis=ellipsis,
+    max_lines=max_lines,
     shrink_by_role=has_role(role),
     anon=anon,
     class=class,

@@ -191,3 +191,50 @@ test "空文本与空缓冲的安全边界" {
   let bm2 = @render.Bitmap::new(60, 20)
   assert_eq(draw_to(bm2, 1.0, 1.0, "abc", 14.0, "oops"), true)
 }
+
+///|
+test "max_lines 行数钳制：超高截断出省略号、矮内容原样、单行限高即省略" {
+  let long = "这是一段用来验证行数钳制的说明文字这一段足够长一定会超过两行这是一段用来验证行数钳制的说明文字这一段足够长一定会超过两行"
+  let font = Font::new("", 13.0)
+  // 整段高（不限行数）
+  let full = match measure_font(long, font, max_width=300, wrap=true) {
+    Some(m) => m
+    None => {
+      assert_eq(false, true)
+      abort("unreachable")
+    }
+  }
+  // 钳到 2 行：高不超过 2 行，且明显矮于整段
+  let clamped = match measure_font(long, font, max_width=300, wrap=true, max_lines=2) {
+    Some(m) => m
+    None => {
+      assert_eq(false, true)
+      abort("unreachable")
+    }
+  }
+  let one = match measure_font("中", font, wrap=false) {
+    Some(m) => m.height
+    None => 0
+  }
+  assert_eq(clamped.height <= one * 2, true)
+  assert_eq(clamped.height < full.height, true)
+  // 不超限的内容原样返回（高度一致）
+  let short = "短句一行"
+  match (
+    measure_font(short, font, max_width=300, wrap=true),
+    measure_font(short, font, max_width=300, wrap=true, max_lines=2),
+  ) {
+    (Some(a), Some(b)) => assert_eq(a.height, b.height)
+    _ => assert_eq(false, true)
+  }
+  // max_lines=1 等价单行截断：高一行、宽不超可用宽
+  let single = match measure_font(long, font, max_width=300, wrap=true, max_lines=1) {
+    Some(m) => m
+    None => {
+      assert_eq(false, true)
+      abort("unreachable")
+    }
+  }
+  assert_eq(single.height <= one * 1 + 1, true)
+  assert_eq(single.width <= 300, true)
+}

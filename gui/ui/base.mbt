@@ -81,6 +81,8 @@ pub(all) struct TextSource {
   mut align : @text.TextAlign
   mut wrap : Bool
   mut ellipsis : Bool
+  /// 行数钳制：0 = 不限；> 0 且折行时超行截断、第 max_lines 行末尾出 …
+  mut max_lines : Int
   /// 盒宽上限（像素）；0 = 不设限。换行与省略都按它算
   mut max_width : Double
 }
@@ -98,6 +100,7 @@ pub fn text_source(
   align? : @text.TextAlign = @text.Start,
   wrap? : Bool = false,
   ellipsis? : Bool = false,
+  max_lines? : Int = 0,
   max_width? : Double = 0.0,
 ) -> TextSource {
   {
@@ -108,6 +111,7 @@ pub fn text_source(
     align,
     wrap,
     ellipsis,
+    max_lines,
     max_width,
   }
 }
@@ -221,6 +225,7 @@ fn attach_text_measure(
       max_width=box_w,
       ellipsize=src.ellipsis,
       wrap=do_wrap,
+      max_lines=if probing { 0 } else { src.max_lines },
     ) {
       Some(m) => {
         // `line_height` 是行盒高：单行档精确生效；折行档要多行行距，那要等
@@ -270,6 +275,7 @@ fn draw_text_in(w : @widget.Widget, p : @render.Painter, src : TextSource) -> Bo
     valign=@text.Center,
     ellipsize=src.ellipsis,
     wrap=wrap1,
+    max_lines=src.max_lines,
   )
   if underline && src.text.length() > 0 {
     // 下划线按测量宽自绘（文本层的 range 属性只有 font+color，没有下划线接口，

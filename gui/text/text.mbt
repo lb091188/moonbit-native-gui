@@ -285,14 +285,90 @@ fn align_id(a : TextAlign) -> Int {
 ///|
 /// 按字体量一段文本（字重/斜体参与度量）。度量是纯函数，按输入键走缓存
 /// （见 cache.mbt）：布局期每个文本控件每帧都会经测量回调问它。
+/// `max_lines` > 0 且 `wrap` 时为行数钳制：超过 max_lines 行截断，第
+/// max_lines 行末尾补省略号（MoonBit 侧前缀截断，三平台一实现）。
 pub fn measure_font(
   text : String,
   font : Font,
   max_width? : Int = 0,
   ellipsize? : Bool = false,
   wrap? : Bool = false,
+  max_lines? : Int = 0,
 ) -> TextMetrics? {
-  measure_font_cached(text, font, max_width, ellipsize, wrap)
+  if max_lines > 0 && wrap {
+    let clamped = clamp_lines(text, font, max_width, max_lines)
+    measure_font_cached(clamped, font, max_width, ellipsize, wrap)
+  } else {
+    measure_font_cached(text, font, max_width, ellipsize, wrap)
+  }
+}
+
+///|
+/// 行数钳制：整段放不进 max_lines 行时，二分「第 max_lines 行内连省略号
+/// 一起放得下的最长码点前缀」，补 … 返回；放得下原样返回。行高取后端
+/// 对单字布局的实际行盒高（不取 K 地板行高——C 侧折行布局用的是自然行高，
+/// 两个口径混着比会把 N 行限成 N+1 行）。
+fn clamp_lines(
+  text : String,
+  font : Font,
+  max_width : Int,
+  max_lines : Int,
+) -> String {
+  let probe = match measure_font_cached("中", font, 0, false, false) {
+    Some(m) => m.height
+    None => return text
+  }
+  let limit = probe * max_lines
+  match measure_font_cached(text, font, max_width, false, true) {
+    None => return text
+    Some(m) => if m.height <= limit {
+      return text
+    }
+  }
+  // 码点总数（String 迭代按码点给 Char）
+  let mut total = 0
+  for _ in text {
+    total += 1
+  }
+  // fits(前缀码点数)：前缀 + … 的折行高不超限
+  fn fits(cnt : Int) -> Bool {
+    let sb = StringBuilder()
+    let mut i = 0
+    for ch in text {
+      if i >= cnt {
+        break
+      }
+      sb.write_char(ch)
+      i += 1
+    }
+    sb.write_string("…")
+    match measure_font_cached(sb.to_string(), font, max_width, false, true) {
+      None => true
+      Some(m) => m.height <= limit
+    }
+  }
+
+  let mut lo = 0
+  let mut hi = total
+  while lo < hi {
+    let mid = (lo + hi + 1) / 2
+    if fits(mid) {
+      lo = mid
+    } else {
+      hi = mid - 1
+    }
+  }
+  let sb = StringBuilder()
+  let mut i = 0
+  for ch in text {
+    if i >= lo {
+      break
+    }
+    sb.write_char(ch)
+    i += 1
+  }
+  sb.write_string("…")
+  sb.to_string()
 }
 
 ///|
@@ -629,6 +705,7 @@ extern "c" fn pt_draw_box_cr(
 /// 把文本画在**调用方 Painter 的 Cairo 会话**上：控件原点（宿主的 translate）
 /// 与裁剪都生效，所以组件里的文字落在自己盒内、也不会画到邻居身上。
 /// 语义与 `draw_in_box` 一致（(x,y) 相对当前坐标系，盒内对齐）。
+/// `max_lines` > 0 且 `wrap` 时为行数钳制（同 `measure_font`，截断补 …）。
 /// 无 Cairo 会话（纯矩形降级路径）返回 false，由调用方决定退不退。
 pub fn draw_box_at(
   p : @render.Painter,
@@ -643,7 +720,13 @@ pub fn draw_box_at(
   valign? : TextAlign = Start,
   ellipsize? : Bool = false,
   wrap? : Bool = true,
+  max_lines? : Int = 0,
 ) -> Bool {
+  let text = if max_lines > 0 && wrap {
+    clamp_lines(text, font, box_w.floor().to_int(), max_lines)
+  } else {
+    text
+  }
   let id = match p.cairo_id() {
     Some(i) => i
     // 纯光栅器后端没有 cairo 会话：走离屏 + blit 的等价通道
