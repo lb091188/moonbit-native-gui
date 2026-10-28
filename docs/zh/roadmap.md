@@ -235,7 +235,8 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ### 工程与交付
 
-（见「已实现」。）
+- ⏳ **黑客松验收引导文档**：评委向——预打包下载、三平台运行要求、验收点与示例页映射，落 `docs/zh/hackathon-acceptance.md`（英文镜像同路径 `docs/`）
+- ⏳ **预打包扩到三平台五示例**：`release-bin` 工作流补 macOS 腿、收编 browser / audio / video（Windows 随包 FFmpeg DLL、mac 随包 dylib + `@executable_path` rpath）；2026-10-31 推 `bin-*` 标签出包
 
 ### 窗口
 

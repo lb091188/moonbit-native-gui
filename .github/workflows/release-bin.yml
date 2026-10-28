@@ -1,18 +1,26 @@
 # 二进制发布:推 bin-* 标签(如 bin-v0.1.0)触发,各平台矩阵各自编译 release
-# 可执行文件(hello / showcase 两件套),打包为 bin-<平台>.zip
-# 汇聚到 GitHub Release 资产。
+# 可执行文件(hello / showcase / browser / audio / video 五件套),打包为
+# bin-<平台>.zip 汇聚到 GitHub Release 资产。
 #
 # 与 CI 的分工:CI 每次 push 验证「可检查可测试可链接」,本工作流产出「可分发
 # 的二进制」。交叉编译不可行(MoonBit native 后端调本机 C 工具链链本机静态库,
 # 且各平台库格式与系统依赖(GTK3/X11 与 Win32/系统 DLL)互不可移植),必须各平台自建。
 #
-# 平台:Windows ✅ / Linux ✅ / macOS 🚧 后端暂未开发(win/stub.c 的 macOS
-# 分支是占位空实现,建不出窗口,故不发 macOS 产物;口径与 README 平台表一致)。
+# 平台:Windows ✅ / Linux ✅ / macOS ✅(三平台后端均已真机验证)。
+#
+# FFmpeg 随包:audio / video 运行期要 FFmpeg 动态库,由 modules/ffmpeg-mbt 的
+# prebuild 在构建时取得——Windows 走 vendor-v1 归档落 vendor/win/bin,打包时
+# 复制进 zip 与 exe 同目录;macOS 走 vendor-v1 归档落 vendor/mac/lib,打包时
+# 复制进 zip、并给二进制补 @executable_path rpath + adhoc 重签(链接期下发的
+# 是构建机绝对路径,分发后无效)。Linux 直接链系统 FFmpeg,无需随包。
+# WebView:Windows 走静态 WebView2Loader(运行期 Evergreen 系统自带)、
+# macOS 走系统 WKWebView、Linux 需 WebKit2gtk 运行库,均无额外分发物。
 #
 # 运行时依赖(release 说明里同步):
-# - Linux: 目标机需 GTK3 / Pango / X11 / WebKit2gtk 运行库(Ubuntu 24.04 自带)
-# - Windows: Windows 10/11 x64;自绘栈无 WebView 依赖,无需附加 DLL;
-#   产物为 GUI 子系统(双击运行不弹控制台黑框,机制见 gui/win/win_gui.c)
+# - Linux: 目标机需 GTK3 / Pango / X11 / WebKit2gtk / FFmpeg 运行库(Ubuntu 24.04 自带)
+# - Windows: Windows 10/11 x64;解压即用(FFmpeg DLL 在包内,双击不弹控制台黑框,
+#   机制见 gui/win/win_gui.c)
+# - macOS: Apple Silicon,解压即用(FFmpeg dylib 在包内;Gatekeeper 首启见引导文档)
 name: release-bin
 
 
@@ -24,9 +32,9 @@ on:
 permissions:
   contents: write
 
-# 两件套的包路径(仓库根 workspace 口径,见 moon.work)
+# 五件套的包路径(仓库根 workspace 口径,见 moon.work)
 env:
-  BIN_PKGS: examples/hello examples/showcase
+  BIN_PKGS: examples/hello examples/showcase examples/browser examples/audio examples/video
 
 jobs:
   build:
@@ -36,6 +44,7 @@ jobs:
         include:
           - { plat: linux-x64, os: ubuntu-latest }
           - { plat: windows-x64, os: windows-latest }
+          - { plat: macos-arm64, os: macos-latest }
 
     runs-on: ${{ matrix.os }}
     env:
@@ -44,14 +53,16 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: 安装 Linux 依赖(GTK3/Pango/X11/WebKit 开发包)
+      - name: 安装 Linux 依赖(GTK3/Pango/X11/WebKit/FFmpeg 开发包)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential pkg-config \
             libgtk-3-dev libpango1.0-dev libfontconfig1-dev libx11-dev \
-            libwebkit2gtk-4.1-dev
+            libwebkit2gtk-4.1-dev \
+            libavformat-dev libavcodec-dev libswscale-dev \
+            libswresample-dev libavutil-dev
 
       - name: 安装 moon 工具链
         if: runner.os != 'Windows'
@@ -81,9 +92,10 @@ jobs:
           $py = (Get-Command python).Source
           Copy-Item $py "$env:USERPROFILE\.moon\bin\python3.exe"
 
-      # 构建两件套(release + strip)。产物统一带 .exe 后缀(含 Linux),
+      # 构建五件套(release + strip)。产物统一带 .exe 后缀(含 Linux/mac),
       # 打包时仅在 Windows 保留。链接参数由库模块的 prebuild 按平台下发,
-      # 示例模块构建时自动继承(见 ci.yml 说明),此处无需任何链接配置。
+      # 示例模块构建时自动继承(见 ci.yml 说明),此处无需任何链接配置;
+      # FFmpeg 缺失时 prebuild 自取 vendor-v1 归档(Linux 用系统包,见文件头)。
       - name: 构建(MSVC 环境)
         if: runner.os == 'Windows'
         shell: cmd
@@ -112,7 +124,7 @@ jobs:
                   stream.reconfigure(encoding="utf-8", errors="replace")
               except (AttributeError, OSError):
                   pass
-          names = ["hello", "showcase"]
+          names = ["hello", "showcase", "browser", "audio", "video"]
           for name in names:
               p = f"_build/native/release/build/NoahLiu/native-gui-examples-{name}/native-gui-examples-{name}.exe"
               if not os.path.exists(p):
@@ -128,10 +140,10 @@ jobs:
                   )
               print(f"{name}.exe: Subsystem GUI(2)")
 
-      - name: 收集两件套打包
+      - name: 收集五件套打包
         shell: python
         run: |
-          import os, shutil, sys
+          import glob, os, shutil, subprocess, sys
           # Windows CI 控制台常为 cp1252 等代码页,裸 print 中文会
           # UnicodeEncodeError(prebuild.py 同款处理),先转 UTF-8
           for stream in (sys.stdout, sys.stderr):
@@ -139,9 +151,9 @@ jobs:
                   stream.reconfigure(encoding="utf-8", errors="replace")
               except (AttributeError, OSError):
                   pass
-          # MoonBit native 后端各平台产物统一带 .exe 后缀(含 Linux),
+          # MoonBit native 后端各平台产物统一带 .exe 后缀(含 Linux/mac),
           # 仅 Windows 包内保留后缀,其余平台重命名去掉
-          names = ["hello", "showcase"]
+          names = ["hello", "showcase", "browser", "audio", "video"]
           stage = "staging"
           os.makedirs(stage, exist_ok=True)
           for name in names:
@@ -151,6 +163,37 @@ jobs:
               dst = name + (".exe" if sys.platform == "win32" else "")
               shutil.copy2(src, os.path.join(stage, dst))
               print(f"打包: {dst} ({os.path.getsize(src)} bytes)")
+          # 第三方许可随包(LGPL 分发要求带许可文本)
+          notices = "docs/THIRD-PARTY-NOTICES.md"
+          if os.path.isfile(notices):
+              shutil.copy2(notices, os.path.join(stage, "THIRD-PARTY-NOTICES.md"))
+          # Windows: FFmpeg 运行期 dll 与 exe 同目录(prebuild 构建期自取
+          # vendor-v1 归档落 modules/ffmpeg-mbt/vendor/win/bin)
+          if sys.platform == "win32":
+              dll_dir = "modules/ffmpeg-mbt/vendor/win/bin"
+              dlls = sorted(glob.glob(os.path.join(dll_dir, "*.dll")))
+              if not dlls:
+                  raise SystemExit(f"FFmpeg 运行库缺失: {dll_dir}(audio / video 运行必需)")
+              for dll in dlls:
+                  shutil.copy2(dll, stage)
+              print(f"FFmpeg DLL 随包: {len(dlls)} 个")
+          # macOS: vendor dylib 与二进制同目录;链接期下发的 rpath 是构建机
+          # 绝对路径,分发后无效,给二进制补 @executable_path 并 adhoc 重签
+          if sys.platform == "darwin":
+              dylib_dir = "modules/ffmpeg-mbt/vendor/mac/lib"
+              dylibs = sorted(glob.glob(os.path.join(dylib_dir, "*.dylib")))
+              if not dylibs:
+                  raise SystemExit(f"FFmpeg dylib 缺失: {dylib_dir}(audio / video 运行必需)")
+              for dylib in dylibs:
+                  shutil.copy2(dylib, stage)
+              print(f"FFmpeg dylib 随包: {len(dylibs)} 个")
+              for name in names:
+                  bin_path = os.path.join(stage, name)
+                  # 已有同值 rpath 时 -add_rpath 失败,无碍
+                  subprocess.run(["install_name_tool", "-add_rpath",
+                                  "@executable_path", bin_path], check=False)
+                  subprocess.run(["codesign", "--force", "--sign", "-", bin_path],
+                                 check=True)
           shutil.make_archive(f"bin-{os.environ['BIN_PLAT']}", "zip", stage)
           print(f"完成: bin-{os.environ['BIN_PLAT']}.zip")
 
@@ -174,12 +217,15 @@ jobs:
           draft: false
           name: Binaries ${{ github.ref_name }}
           body: |
-            可执行包(hello / showcase 两件套):
+            可执行包(hello / showcase / browser / audio / video 五件套):
 
             | 包 | 运行要求 |
             |---|---|
-            | bin-linux-x64.zip | x64 Linux,需 GTK3 / Pango / X11 / WebKit2gtk 运行库(Ubuntu 24.04 自带) |
-            | bin-windows-x64.zip | Windows 10/11 x64;解压即用(无附加 DLL,双击不弹控制台黑框) |
+            | bin-linux-x64.zip | x64 Linux;需 GTK3 / Pango / X11 / WebKit2gtk / FFmpeg 运行库(Ubuntu 24.04 自带) |
+            | bin-windows-x64.zip | Windows 10/11 x64;解压即用(FFmpeg DLL 在包内,WebView2 Runtime 系统自带,双击不弹控制台黑框) |
+            | bin-macos-arm64.zip | Apple Silicon macOS;解压即用(FFmpeg dylib 在包内;首次打开被 Gatekeeper 拦时右键「打开」或 `xattr -dr com.apple.quarantine <目录>`) |
 
-            解压后直接运行对应可执行文件;源码方式 `moon run examples/showcase` 见 README。
+            各可执行文件说明:`hello` 最小窗口;`showcase` 全功能演示板(15 页,含系统能力探测页);`browser` 内嵌浏览器演示;`audio` / `video` 音视频演示(依赖包内 FFmpeg)。
+
+            验收引导(每个演示的操作路径与验收点)见文档站「黑客松验收指引」;源码方式 `moon run examples/showcase` 见 README。
           files: 'bin-*.zip'
