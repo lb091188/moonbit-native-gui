@@ -137,6 +137,8 @@ typedef struct {
   // 拿到过键盘焦点（WM_SETFOCUS）：浮层「失焦即收起」的武装判据——映射期的
   // 焦点来回只发 focus-out，没拿到过焦点的失焦不算「用户点了别处」。
   int focus_gained;
+  int popup;    // 这扇窗是弹层窗（wm_window_set_popup 标过；wm_show 据此补 z 序）
+  HWND owner;   // 弹层的 owner（GWLP_HWNDPARENT 同步设的句柄，看它的 TOPMOST 带）
   // 透明（W33）：trans_want 是上层意图，trans_mode 是当前实际档位。
   //   0 = 普通档：GDI 贴图 + SetLayeredWindowAttributes(LWA_ALPHA) 做整窗 alpha
   //   1 = 逐像素档：GDI 贴图不参与合成，改由 UpdateLayeredWindow(ULW_ALPHA) 提交
@@ -938,6 +940,16 @@ void wm_show(int64_t id) {
     }
     ShowWindow(w->hwnd, SW_SHOW);
     SetFocus(w->hwnd);
+    if (w->popup) {
+      // z 序保险：owned 关系若没把弹层抬到 owner 客户区的子件（webview）之上
+      // （Windows 真机反馈弹层被网页区压住），显式置顶一次；owner 在 TOPMOST
+      // 带时弹层同带，才不会沉到 owner 之下。
+      int owner_top =
+          w->owner != NULL &&
+          (GetWindowLongW(w->owner, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0;
+      SetWindowPos(w->hwnd, owner_top ? HWND_TOPMOST : HWND_TOP, 0, 0, 0, 0,
+                   SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    }
     // 与 GTK 桩同口径：把 map 后已就绪的消息跑掉，再标首帧
     wm_pump();
     w->need_draw = 1;
@@ -4356,7 +4368,9 @@ void wm_window_set_popup(int64_t id, int64_t owner_id) {
       wm_windows[owner_id].hwnd != NULL) {
     SetWindowLongPtrW(w->hwnd, GWLP_HWNDPARENT,
                       (LONG_PTR)wm_windows[owner_id].hwnd);
+    w->owner = wm_windows[owner_id].hwnd;
   }
+  w->popup = 1;
 }
 
 // 这扇窗拿到过键盘焦点没有：浮层「失焦即收起」的武装判据（见 WmWindow.focus_gained）
