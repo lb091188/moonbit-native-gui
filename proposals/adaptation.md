@@ -1055,6 +1055,12 @@
 - **判据**：「先开框、量完再收」这条链上，**量尺必须在与视口解耦的条件下做**，否则视口就是内容的天花板，收缩档永远自证达标；改窗口样式（有框↔无边框）后任何读框几何前都要 `SWP_FRAMECHANGED` 刷一次，`GetWindowRect` 不会替你即时反映 `GWL_STYLE` 的改动。
 - **验证**：`cd gui && moon check --deny-warn` 全绿、`moon test widget ui` 338/338；Windows 真机复验清单交用户（菜单应完整 16 项、贴按钮下沿）。
 
+### MoonBit 原生 GUI 栈 · Linux 弹层「灰边与残影」= 旧弹层没关在叠窗（2026-10-28 真机反馈）
+
+- **现象判读先别信「背景」**：菜单右侧多出的灰柱不是窗口背景也不是 size_request 死边（GTK 建窗全树已无 size_request，先排除了这条旧坑）——是**上一扇 320 宽的旧弹层没关掉**，被 208 宽的新窗压住只剩右边一条；「残影」= 逐次点击叠出来的真窗口。判据：灰柱宽度恰等于新旧窗宽差、高度与窗同、关一个就少一条。
+- **叠窗的两环成因**：① GTK 下 `gtk_widget_grab_focus` 只管应用内焦点，WM 不给弹层窗输入焦点 → focus-in 永不到来 → 「拿到过焦点才算」的失焦收起永不触发；修法：弹层窗 show 后补 `gtk_window_present` + `gdk_window_focus(GDK_CURRENT_TIME)` 向 WM 主动要焦点。② ui 层 `overlay_alive` 只查图层栈、不认原生档 → dropdown 以为「没开着」又开一扇；修法：widget 开 `overlay_native_opened(id)` 查询口，`overlay_alive` 两栈都认。两环各自独立成灾，只修一条仍会叠。
+- **验证**：`cd gui && moon check --deny-warn` 全绿、`moon test widget ui` 338/338（GTK 段随用户机编译验证）；Linux 真机清单：反复开关菜单不再叠窗、点外/再点触发件都能收、灰柱与残影消失。
+
 ### MoonBit 原生 GUI 栈 · 媒体播放器（批 D：新包 `yue/media`，CPU 回灌 + 软解）
 
 - **引擎是平移不是重写**：`modules/gui-media` 的 `audio_player.mbt`(416 行) 与 `video_player.mbt`(476 行) 实测**零 @yue 依赖**（只有组件包装层碰 UI），于是引擎与 15 条既有回归整段搬进新包 `yue/media`，只改测试素材路径与一个公开口。旧链踩过的坑（音画不同轴、seek 后进度从零重涨、换载崩溃、播完态与初始态要区分）就随那批测试一起进了新栈——**这批的价值一半在「把老师写对的东西接住」**。

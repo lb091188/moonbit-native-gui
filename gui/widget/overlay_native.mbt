@@ -125,6 +125,17 @@ pub fn overlay_native_count() -> Int {
 }
 
 ///|
+/// 指定句柄是不是还开着的原生档浮层：`overlay_alive` 必须认这一档——图层栈里
+/// 没有原生层的条目，只查栈会让组件以为「没开着」而再叠一扇（Linux 真机
+/// 弹层逐次累积、屏上留旧窗的成因之一）。
+pub fn overlay_native_opened(id : Int) -> Bool {
+  match g_native.val.get(id) {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
 /// 量内容实际尺寸：弹层根控件的可见子项矩形并集（隐藏项矩形已被清零，天然排除）。
 fn overlay_content_size(app : App) -> (Int, Int) {
   let mut w = 0.0

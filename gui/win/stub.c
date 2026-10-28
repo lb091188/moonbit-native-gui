@@ -4825,6 +4825,7 @@ typedef struct {
   int focus_lost;  // 刚失去键盘焦点（原生浮层据此「点外收起」）
   // 拿到过键盘焦点（focus-in）：浮层「失焦即收起」的武装判据，与 Win/mac 分支同口径
   int focus_gained;
+  int popup;       // 这扇窗是弹层窗（wm_window_set_popup 标过；wm_show 据此要 WM 焦点）
   // 显隐事件（W23b）：hide/show 真实转换各置一位，wm_event 弹出一次。
   // 隐藏不产生平台失焦事件，宿主靠 Hidden 清在途输入法组合串。
   int hidden_ev;
@@ -5309,6 +5310,17 @@ void wm_show(int64_t id) {
     }
     gtk_widget_show_all(w->window);
     gtk_widget_grab_focus(w->area);
+    if (w->popup) {
+      // 弹层向 WM 要输入焦点：grab_focus 只管应用内焦点，WM 不给焦点则
+      // focus-in 永不到来——「失焦即收起」不触发、旧弹层越叠越多（真机读数：
+      // 菜单右侧灰柱正是没关掉的上一扇宽窗）。present 走 _NET_ACTIVE_WINDOW
+      // 请求，X11 下再补一条 gdk_window_focus 兜底。
+      gtk_window_present(GTK_WINDOW(w->window));
+      GdkWindow *gw = gtk_widget_get_window(w->window);
+      if (gw != NULL) {
+        gdk_window_focus(gw, GDK_CURRENT_TIME);
+      }
+    }
     // 必须把 map 请求推出去并跑一轮就绪事件：GDK 输出缓冲不 flush 的话，
     // X 服务端收不到 map，poll 就只能等到超时（实测 frames=0 的原因）。
     gdk_display_flush(gdk_display_get_default());
@@ -5760,6 +5772,7 @@ void wm_window_set_popup(int64_t id, int64_t owner_id) {
     gtk_window_set_transient_for(GTK_WINDOW(w->window),
                                  GTK_WINDOW(wm_windows[owner_id].window));
   }
+  w->popup = 1;
 }
 
 // 这扇窗拿到过键盘焦点没有：浮层「失焦即收起」的武装判据（见 WmWindow.focus_gained）

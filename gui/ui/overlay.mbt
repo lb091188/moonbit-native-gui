@@ -62,12 +62,12 @@ fn overlay_pane(
 }
 
 ///|
-/// 浮层是否还开着（句柄有效即开着：点外部会被图层收起，句柄随之失效——
-/// 组件因此不必自己跟踪「外面关掉了」这件事）。
+/// 浮层是否还开着（图层栈或原生档任一处有效即开着：点外部会被图层/失焦收起，
+/// 句柄随之失效——组件因此不必自己跟踪「外面关掉了」这件事）。
 fn overlay_alive(id : Int) -> Bool {
   match @widget.overlay_rect_of(id) {
     Some(_) => true
-    None => false
+    None => @widget.overlay_native_opened(id)
   }
 }
 
