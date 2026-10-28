@@ -70,8 +70,9 @@ fn overlay_native_open(
       let iw = if w < 80.0 { 320 } else { w.round().to_int() }
       let ih = if h < 40.0 { 200 } else { h.round().to_int() }
       if g_native_probe_on.val {
+        let o = a.session.window.origin()
         (g_native_probe.val)(
-          "POPUP-OPEN cid=\{cid} req=(\{x.round().to_int()},\{y.round().to_int()}) init=(\{iw},\{ih})"
+          "POPUP-OPEN cid=\{cid} req=(\{x.round().to_int()},\{y.round().to_int()}) init=(\{iw},\{ih}) owner=(\{o.0},\{o.1}) pos=(\{o.0 + x.round().to_int()},\{o.1 + y.round().to_int()})"
         )
       }
       match a.open_popup(x.round().to_int(), y.round().to_int(), iw, ih) {
@@ -160,9 +161,10 @@ pub fn overlay_fit_pass(app : App) -> Unit {
       Some(pop) => {
         let (w, h) = overlay_content_size(pop)
         let (cw, ch) = pop.session.window.size()
-        if g_native_probe_on.val {
+        if g_native_probe_on.val && (passes < 4 || w != cw || h != ch) {
+          let (ox, oy) = pop.session.window.origin()
           (g_native_probe.val)(
-            "POPUP-FIT cid=\{cid} meas=(\{w},\{h}) cur=(\{cw},\{ch}) passes=\{passes}"
+            "POPUP-FIT cid=\{cid} meas=(\{w},\{h}) cur=(\{cw},\{ch}) at=(\{ox},\{oy}) passes=\{passes}"
           )
         }
         if passes >= 3 {

@@ -127,10 +127,18 @@ fn main {
     result_open.set(false)
     result_full.set(full)
   }
-  // 弹层探针：`NGUI_POPUP_PROBE=1` 时把原生档开框/收框读数打进底部「事件」行
-  // （moon run 的子进程 stdout 会被缓冲，控制台看不到，读数走界面）
+  // 弹层探针：`NGUI_POPUP_PROBE=1` 时把开框/收框读数累积进「结果」区（可展开）
+  // ——moon run 的子进程 stdout 会被缓冲，控制台看不到，读数走界面
   if @sys.envx_get("NGUI_POPUP_PROBE") is Some(_) {
-    @widget.overlay_native_probe_to(fn(s) { ev(s) })
+    let pline : Array[String] = []
+    @widget.overlay_native_probe_to(fn(s) {
+      pline.push(s)
+      if pline.length() > 12 {
+        let _ = pline.remove(0)
+      }
+      result_open.set(true)
+      result_full.set("弹层探针：\n" + pline.join("\n"))
+    })
   }
   fn nav_to(u : String) -> Unit {
     match wv.val {

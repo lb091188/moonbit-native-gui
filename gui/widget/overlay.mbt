@@ -256,7 +256,13 @@ pub fn overlay_show_at(
     None => 0
     Some(h) => {
       let cid = overlay_cid()
-      if overlay_native_tier() && overlay_native_open(cid, content, x, y, 0.0, 0.0) {
+      let native = overlay_native_tier()
+      if g_native_probe_on.val {
+        (g_native_probe.val)(
+          "POPUP-REQ cid=\{cid} tier=\{if native { 1 } else { 0 }} req=(\{x.round().to_int()},\{y.round().to_int()})"
+        )
+      }
+      if native && overlay_native_open(cid, content, x, y, 0.0, 0.0) {
         // 原生档：所在窗有网页区，图层盖不住，改开真窗口（见 overlay_native.mbt）
         invalidate()
         return cid
@@ -297,6 +303,11 @@ pub fn overlay_show_at(
       wrap.node.set_left(@yoga.fixed(fx))
       wrap.node.set_top(@yoga.fixed(fy))
       h.root.relayout(h.root.rect.w, h.root.rect.h)
+      if g_native_probe_on.val {
+        (g_native_probe.val)(
+          "POPUP-LAYER cid=\{cid} fit=(\{fx.round().to_int()},\{fy.round().to_int()}) size=(\{wrap.rect.w.round().to_int()},\{wrap.rect.h.round().to_int()}) bounds=(\{h.layer.rect.w.round().to_int()},\{h.layer.rect.h.round().to_int()})"
+        )
+      }
       h.items.push({
         id: cid,
         w: wrap,
