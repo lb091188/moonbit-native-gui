@@ -1181,6 +1181,14 @@ static void wm_desk_purge(HWND host) {
 }
 
 // 撤掉本窗占过的那块：宿主整层重建一次（见 wm_desk_purge）。
+//
+// 调用点分两类：① 本窗离开宿主面（hide/close/撤档）之后；② 本窗还挂着但**挪了
+// 位置或改了尺寸**（wm_window_move / wm_window_set_size）。后者能无脑每步都清，
+// 是因为「图标下」档本身没有交互：子窗挂在 WorkerW 里、桌面图标层
+// （SHELLDLL_DefView）在它上面，鼠标与键盘事件被图标层截走，本窗连
+// WM_LBUTTONDOWN 都收不到，档内的位置/尺寸变化只可能来自程序自己驱动，
+// 不存在「跟随鼠标拖动、每帧一清会卡顿」这回事。代价是每次挪动整张壁纸层
+// （含桌面图标、以及别的「图标下」窗）闪一下，所以**别在档内做逐帧动画**。
 static void wm_desk_repaint_host(WmWindow *w) {
   if (!w->desk_embedded || w->desk_host == NULL) {
     return;
@@ -4357,6 +4365,9 @@ void wm_window_move(int64_t id, int x, int y) {
   }
   SetWindowPos(w->hwnd, NULL, tl.x, tl.y, 0, 0,
                SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+  // 挪完立刻清原位那块（宿主不自绘暴露区）。本档无交互、挪动只由程序驱动，
+  // 所以不必节流——详见 wm_desk_repaint_host 的说明。
+  wm_desk_repaint_host(w);
 }
 
 /* 客户区在屏幕上的原点。此前本臂是空桩、输出从不写，MoonBit 侧的 Ref 保持
@@ -4402,6 +4413,8 @@ void wm_window_set_size(int64_t id, int w, int h) {
   AdjustWindowRectEx(&r, st, FALSE, ex);
   SetWindowPos(win->hwnd, NULL, 0, 0, r.right - r.left, r.bottom - r.top,
                SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+  // 改尺寸同样会露出原位没画过的宿主面，清一次（档内无交互，不必节流）
+  wm_desk_repaint_host(win);
 }
 
 /* 全屏开关（播放器要的「铺满整屏」是窗口级动作，不是把控件尺寸改大）：
