@@ -108,6 +108,7 @@ fn main {
   let tracks : Ref[Array[String]] = Ref([])
   let selected : @base.Store[String] = @base.Store::new("")
   let track_line : @base.Store[String] = @base.Store::new("（还没载入曲目）")
+  let list_title : @base.Store[String] = @base.Store::new("播放列表")
   let tick_line : @base.Store[String] = @base.Store::new("")
   let lyric_line : @base.Store[String] = @base.Store::new("")
   let err_line : @base.Store[String] = @base.Store::new("")
@@ -221,11 +222,13 @@ fn main {
       Some(h) => {
         h.clear_children()
         if tracks.val.is_empty() {
+          list_title.set("播放列表")
           let _ = @ui.empty(description="播放列表为空").mount_into(h)
           mount_empty_player("没有可播放的音频")
           return
         }
         let names = display_names()
+        list_title.set("播放列表 · \{names.length()}")
         if pick_first || !arr_str_has(names, selected.get()) {
           selected.set(names[0])
         } else {
@@ -315,8 +318,13 @@ fn main {
             max_width=860.0,
           ),
           @ui.bind_label(track_line, fn(s) { s }),
-          @ui.bind_label(tick_line, fn(s) { s }, font_size=12.0, color="text_secondary"),
-          @ui.bind_label(lyric_line, fn(s) { s }, font_size=12.0, color="text_secondary"),
+          @ui.row(
+            [
+              @ui.bind_label(tick_line, fn(s) { s }, font_size=12.0, color="text_secondary"),
+              @ui.bind_label(lyric_line, fn(s) { s }, font_size=12.0, color="text_secondary"),
+            ],
+            column_gap=12.0,
+          ),
           @widget.bind_node(err_line.signal(), fn(e : String) -> @widget.Node {
             if e.length() == 0 {
               @ui.view([])
@@ -326,14 +334,14 @@ fn main {
           }),
         ],
         padding=0.0,
-        row_gap=4.0,
+        row_gap=6.0,
       ),
       @ui.row(
         [
           // 左：播放列表 + 载入入口
           @ui.col(
             [
-              @ui.text("播放列表", class=[@style.text_secondary]),
+              @ui.bind_label(list_title, fn(s) { s }, font_size=12.0, color="text_secondary"),
               @ui.scroll_view(
                 [@ui.col([], handle=fn(c) { list_holder.val = Some(c) })],
                 @ui.ScrollState::new(),
@@ -377,6 +385,7 @@ fn main {
         ],
         grow=1.0,
         align_items=@yoga.AlignItems::Stretch,
+        column_gap=16.0,
       ),
     ],
     grow=1.0,
