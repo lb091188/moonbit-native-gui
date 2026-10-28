@@ -161,10 +161,19 @@ pub fn overlay_fit_pass(app : App) -> Unit {
       Some(pop) => {
         let (w, h) = overlay_content_size(pop)
         let (cw, ch) = pop.session.window.size()
-        if g_native_probe_on.val && (passes < 4 || w != cw || h != ch) {
+        if g_native_probe_on.val && (passes < 3 || w != cw || h != ch) {
           let (ox, oy) = pop.session.window.origin()
+          let kids : Array[String] = []
+          for k in pop.root.children() {
+            if kids.length() < 4 {
+              let vis = if k.visible { "" } else { "(h)" }
+              kids.push(
+                "\{k.rect.w.round().to_int()}x\{k.rect.h.round().to_int()}\{vis}",
+              )
+            }
+          }
           (g_native_probe.val)(
-            "POPUP-FIT cid=\{cid} meas=(\{w},\{h}) cur=(\{cw},\{ch}) at=(\{ox},\{oy}) passes=\{passes}"
+            "POPUP-FIT cid=\{cid} meas=(\{w},\{h}) cur=(\{cw},\{ch}) at=(\{ox},\{oy}) passes=\{passes} kids=[\{kids.join(" ")}]"
           )
         }
         if passes >= 3 {

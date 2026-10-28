@@ -132,12 +132,16 @@ fn main {
   if @sys.envx_get("NGUI_POPUP_PROBE") is Some(_) {
     let pline : Array[String] = []
     @widget.overlay_native_probe_to(fn(s) {
-      pline.push(s)
-      if pline.length() > 12 {
-        let _ = pline.remove(0)
+      // 连读去重：同一读数每拍重复时只留一条，免得把 OPEN/REQ 行挤出窗口
+      let dup = pline.length() > 0 && pline[pline.length() - 1] == s
+      if !dup {
+        pline.push(s)
+        if pline.length() > 12 {
+          let _ = pline.remove(0)
+        }
+        result_open.set(true)
+        result_full.set("弹层探针：\n" + pline.join("\n"))
       }
-      result_open.set(true)
-      result_full.set("弹层探针：\n" + pline.join("\n"))
     })
   }
   fn nav_to(u : String) -> Unit {
