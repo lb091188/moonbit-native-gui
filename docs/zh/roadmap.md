@@ -14,8 +14,8 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ## 平台与当前版本
 
-- **Linux** · X11 完整 wayland 有限支持（协议限制），规划测试发行版： deepin 20、23、25；Ubuntu 24、26（XFCE、KDE、GNOME、Cinnamon），基于 GTK3
-  - deepin 20 首测（2026-10-28）：本库的 prebuild 链已按 Python 3.7 口径跑通，卡在 MoonBit 工具链自带 runtime 的 `SYS_pidfd_open`（内核头 / glibc 太老，非本库缺陷），口径与处置见 [build.md](build.md) §2「低版本发行版」
+- **Linux** · X11 完整 wayland 有限支持（协议限制），规划测试发行版：deepin 23、25；Ubuntu 24、26（XFCE、KDE、GNOME、Cinnamon），基于 GTK3
+  - deepin 20（2026-10-28 首测后**移出支持目标**）：本库的 prebuild 链已降到 Python 3.7 口径并跑通到编译，墙在 MoonBit 工具链自带 runtime 用的 `SYS_pidfd_open`（该机内核头已 5.18，缺的是 glibc 冻结表里的宏，升内核头补不上）；坑与自救记在 [build.md](build.md) §2「低版本发行版」，不再占测试承诺
 - **Windows** · 10 / 11
 - **macOS** · Apple Silicon
 

@@ -30,15 +30,15 @@ sudo apt install build-essential pkg-config python3 \
 
 ⚠️ **`python` 这个命令本身必须是 Python 3**。deepin 20、CentOS 7 一类机器上 `/usr/bin/python` 还是 2.7，moon 会优先拿它跑 prebuild，脚本开头的中文注释直接触发 `SyntaxError: Non-ASCII character ... pep-0263`，整次 native 构建起手就红。两条修法见 §6 第一行。
 
-### 低版本发行版（deepin 20 / Debian 10 / CentOS 7 一类）
+### 低版本发行版（deepin 20 / Debian 10 基线）——不承诺支持
 
-这类机器的差别集中在两处：**`python` 指向 2.7**，以及 **Python 3 本身只有 3.7**。
+这一档我们**不测也不保**（墙在最后一条），但踩坑记录留在这里给自救用：
 
-- **先解决解释器**：按 §6 第一行把 `python` 换成 3，或临时 `MOON_PYTHON_OVERRIDE=python3`。
-- **Python 3.7 够用**：五个 prebuild 脚本按 **3.7 口径**写——只用 f-string、`subprocess.run(capture_output=)`、`Path` 这些 3.7 就有的面，不用 3.8+ 才有的参数与语法（`Path.unlink(missing_ok=)`、`shutil.copytree(dirs_exist_ok=)`、海象等一律写成等价形态）。3.8 以下的机器上 prebuild 报 `TypeError: ... unexpected keyword argument` 就是这条口径破了，见 §6。
-- **开发包**：Debian 10 基线的 apt 包名与上面那份清单同名可装（GTK 3.24 / Pango 1.42 都在库里）。
-- **两处能力会降级**：内嵌 WebView 探的是 `webkit2gtk-4.1`，Debian 10 只有 4.0——探不到时 `@web` 退成占位实现、能力报 `Unsupported`，其余部分不受影响；媒体模块要的系统 ffmpeg 开发包在老发行版上版本偏旧，**尚未实测**。
-- **地板在 MoonBit 工具链自带的 runtime C 源，不在本库**：deepin 20 实测（2026-10-28），moon 本体、五个模块的 prebuild、本库的 C 桩都能跑（脚本已按 3.7 口径修好），但编到工具链自带的 `~/.moon/lib/runtime/process.c` / `thread_pool.c` 时报 `'SYS_pidfd_open' undeclared`——这台机器的内核头 / glibc 里没有这个 syscall 常量。出路：换 glibc 较新的机器或发行版；或试用 `MOON_CC` 包一层给编译器补 `-DSYS_pidfd_open=<该架构的 syscall 号>`（**未实测**，且属工具链侧的补丁，不是本库支持的口径）。
+- **解释器**：`python` 指向 2.7 时按 §6 第一行换成 3；本库的 prebuild 脚本按 **Python 3.7 口径**写（f-string、`subprocess.run(capture_output=)`、`Path` 为止，不用 `missing_ok` / `dirs_exist_ok` / 海象这类更新的面），3.7.3 上实测五个脚本全过。
+- **C++ 编译器是硬前置**：`gui/text/dwrite_text.cpp` 三平台都要编，缺 g++ 报 `cc1plus`。
+- **开发包**：Debian 10 基线的 apt 包名与上面那份清单同名可装（GTK 3.24 / Pango 1.42）。
+- **两处能力会降级**：内嵌 WebView 探 `webkit2gtk-4.1`，Debian 10 只有 4.0 → 退占位实现；媒体模块要的系统 ffmpeg 版本偏旧，未实测。
+- **不支持的真正原因在工具链，不在本库**：MoonBit 自带 runtime 的 C 源（`~/.moon/lib/runtime/process.c` / `thread_pool.c`）无条件用 `SYS_pidfd_open`。deepin 20 实测：内核头已是 **5.18**（`pidfd_open` 是 5.3 引入的，内核侧有这个调用），却仍报 `undeclared`——机理推断是这个宏来自 **glibc 构建时冻结的 syscall 表**（该机 glibc 2.28 对着 4.18 时代的头生成），所以**升 `linux-libc-dev` 补不上**（该机已是最新）。这一步之前，本库的 prebuild 与 C/C++ 桩全部编过。（推断未在该机 grep 取证；要自救可试 `MOON_CC` 包一层补 `-DSYS_pidfd_open=434`，x86_64 号，未实测。）
 
 ### macOS
 
@@ -132,7 +132,7 @@ moon build examples/hello --target native --release --strip
 | 在仓库里跑 `examples/hello`，prebuild 却报**别的模块**缺依赖（如 `ffmpeg(prebuild): 缺少 libavformat 开发包`） | 不是示例依赖写错：moon 对 workspace 模块图里**每个**带 prebuild 的模块逐个跑脚本，任一非零退出就挡住整次构建；媒体模块在 Linux 上是硬失败（Windows / macOS 分支降级为空链接条目） | 照它打出的那行 apt 装上：`sudo apt install -y libavformat-dev libavcodec-dev libswscale-dev libswresample-dev libavutil-dev`；只想跑示例就 `MOON_WORK=off moon run .`（绕开 workspace，见 §4） |
 | `cc: error trying to exec 'cc1plus': execvp: 没有那个文件或目录`（编译 `dwrite_text.cpp` 时） | 机器上没有 C++ 编译器：`gui/text/dwrite_text.cpp` 三平台都要编一遍，非 Windows 也只是编成空翻译单元 | `sudo apt install g++`（`build-essential` 本应带上它，装不全就单独补） |
 | 仓库里已经修好的 prebuild 报错，在 `MOON_WORK=off` 下又原样出现（行号都一样） | 那条路径跑的是**注册表归档里那份脚本**（落在 `examples/<示例>/.mooncakes/NoahLiu/native-gui/scripts/prebuild.py`），注册表侧改不动 | 验证修复就回 workspace 跑（去掉 `MOON_WORK=off`）；要让消费方吃到只能**重新发包**——脚本随包发布，属对外 API 面的一部分 |
-| `~/.moon/lib/runtime/process.c: error: 'SYS_pidfd_open' undeclared` | 地板在 **MoonBit 工具链自带的 runtime C 源**：这台机器的内核头 / glibc 太老，没有该 syscall 常量。与本库无关，prebuild 与本库的桩此时都已编过 | 换 glibc 较新的机器 / 发行版；见 §2「低版本发行版」的 `MOON_CC` 兜底（未实测） |
+| `~/.moon/lib/runtime/process.c: error: 'SYS_pidfd_open' undeclared` | 地板在 **MoonBit 工具链自带的 runtime C 源**：它无条件用 `SYS_pidfd_open`，而这个宏来自 glibc 构建时冻结的 syscall 表（老 glibc 就算配新内核头也没有它，升 `linux-libc-dev` 补不上）。与本库无关，此时本库的 prebuild 与桩都已编过 | 换 glibc 较新的机器 / 发行版；这一档**不承诺支持**，自救口径见 §2「低版本发行版」 |
 | prebuild 在 stderr 打「缺少 gtk+-3.0 开发包」一类提示后继续走，最后链接期爆 `undefined reference to gtk_*` / `pango_*` | 开发包没装全。prebuild 探不到包时只警告、**不下发链接条目**，错误推迟到链接期才露头 | 补 §2 的 apt 清单，重跑 `moon build`；仍链旧结果就 `moon clean` 一次 |
 | `Package 'webkit2gtk-4.1' not found`，且只有 `@web` 用不了 | 不是故障，是设计：探不到 webkit 时 `@web` 退成占位实现、能力报 `Unsupported`，不让整包链接失败 | 要内嵌浏览器就装 `libwebkit2gtk-4.1-dev` |
 | `moon.mod.json ... is no longer supported` | 依赖缓存里第三方包带的还是旧清单（注册表侧改不动） | 对 `.mooncakes/**/moon.{mod,pkg}.json` 逐个 `moon fmt`，循环到解图收敛（CI 同口径） |

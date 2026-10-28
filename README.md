@@ -112,7 +112,7 @@ If `moon run` fails before it ever opens a window, it is almost always a missing
 |---|---|---|
 | Ubuntu 24.04 | ✅ | XFCE / GNOME / KDE / Cinnamon |
 | Deepin 23 / 25 | ✅ | |
-| Deepin 20 / Debian 10 base | 🚧 | This library now builds through prebuild on the Python 3.7 baseline; the wall is `SYS_pidfd_open` in the runtime C sources that ship with the MoonBit toolchain (kernel headers / glibc too old) — see [docs/build.md](docs/build.md) §2 |
+| Deepin 20 / Debian 10 base | ❌ | **not a supported target**: this library builds through prebuild on the Python 3.7 baseline, but the wall is `SYS_pidfd_open` in the runtime C sources that ship with the MoonBit toolchain (glibc's frozen syscall table — new kernel headers don't add it). Pitfalls and self-rescue notes: [docs/build.md](docs/build.md) §2 |
 | Windows 10 / 11 | ✅ | |
 | macOS | ✅ | Apple Silicon |
 
