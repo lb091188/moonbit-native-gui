@@ -71,7 +71,7 @@ Playback / progress / speed control, external and embedded subtitle tracks, A/V 
 
 - **macOS notifications**: only available when launched from an `.app` bundle; running the bare binary reports unavailable — an OS constraint, not a library defect. Tray / hotkeys and the rest work from the bare binary.
 - **Linux**: media and `browser` depend on system FFmpeg and WebKit2gtk respectively — see the §2 install list.
-- Platform status follows the [README platform table](https://github.com/lb091188/moonbit-native-gui) and the [roadmap](roadmap.md): all three platforms are verified on real machines.
+- Platform status follows the [README platform table](https://github.com/lb091188/moonbit-native-gui) and the [roadmap](zh/roadmap.md): all three platforms are verified on real machines.
 
 ## 5. Building from source
 
