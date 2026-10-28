@@ -16,17 +16,16 @@
 
 > 已完成的功能点全部收进 [docs/zh/roadmap.md](docs/zh/roadmap.md)「功能面全景」；本节只留未完成项。
 
-- [ ] [~] **G5b** 输入通道补齐
+- [ ] [~] **G5b** 输入通道补齐（macOS 的 `NSTextInputClient` 通道已随 mac 批落地并三平台真机复验，移出本文件）
   - ibus 一套复验（探针侧归因 libpinyin display-style，待确认）
-  - macOS：`NSTextInputClient` 通道已随 mac 合并落地（2026-10-18 d3020b9 补功能键闸，修导航键被输入法吞），三平台真机已复验
-  - 肉眼确认项：preedit 下划线观感、候选窗是否贴组合串末尾、caret 闪烁观感（点击定位已用 xdotool 客观验通：点控件最左端 caret 归 0、原位插字符）
+  - 只剩肉眼观感项：preedit 下划线、候选窗是否贴组合串末尾、caret 闪烁（点击定位已用 xdotool 客观验通：点控件最左端 caret 归 0、原位插字符）
 - [ ] [~] **G7** 声明式层与组件宿主接线（`mount` 目标从 `View` 换 yoga-mbt 节点；恢复全仓门禁。宿主与声明式地基已就位：`@widget.App` + `@widget.Widget` 树 + `@widget.Node`/`bind_node`/`swap_node` + `@base.Store`/`@base.Signal`，验证归 `examples/showcase`；剩组件与图表挂新 Painter）
 - [ ] **G8** 原生子表面通道与其消费者（见 §4「浏览器」「视频」）
 - [ ] **G10 窗口内按键路由补齐**（2026-10-16 播放器快捷键一批暴露的面）
   - [ ] **焦点链会抢走窗口级兜底**：`ui.button` 的键盘口径是「空格/回车激活」。于是用户 Tab 过任何一个按钮之后，空格就不再是播放器的「播放/暂停」而是「按下那个按钮」——与 Web 一致，但播放器用户预期相反。待定口径：播放器快捷键是否要**优先于**焦点链（给 `add_key_fallthrough` 加「抢占档」），还是把按钮激活键收成只 `Enter`（改 ui 公共行为，波及所有表单）。先立判据再动：同一窗内「Tab 到按钮 + 按空格」的期望行为写进契约与 wbtest。
   - [ ] **方向键与滚动/焦点导航的归属**：`←/→/↑/↓` 在 `ui.slider`、`ui.input`（光标移动）、滚动容器与本批的播放器音量键之间目前**没有优先级记录**——同一条键谁先吃，靠的是「焦点链先问、兜底后问」这条隐式规则。要把可达路径写成表（哪个控件在焦点上时四个方向键分别归谁）。
 
-## 2. 框架能力域 — 全部待在新栈重做
+## 2. 框架能力域（本节只留未完成项；已交付的按能力域收进 [docs/zh/roadmap.md](docs/zh/roadmap.md)「已实现」）
 
 > 清单已按 master 线参考副本逐包核对（2026-10-11，`/home/lkyh/ownCode/moonbit-libyue` 的 master，比本仓 origin/master 新）；条目里的文件/函数名均指 master 现行资产。
 
@@ -37,19 +36,10 @@
 - [~] **P2 组件层**收尾：
   - [ ] 观感逐页比对不回退（真机由用户复验，`examples/hello`、`showcase`、`sysmonitor`）。
 
-### 控件（一律自绘，不再引入原生控件皮肤；家族名对应 master `yue/components/` 九个源文件）
-
-（九族件数与清单见 roadmap「控件与组件清单」。）
-
-- [~] 基础原语：`group`/`separator`/标签/图像/图标/按钮已落新包 **`ui`**（首批 7 件，另附 `container`；文本 measure/baseline 首次回灌布局引擎，`on_pointer`/`on_draw` 首参为控件本身以免自捕获引用环；`type=` 因是保留字改 `kind : ButtonKind`；`yue/components` 属旧链路红点，按批替换）；表单族 15 件已全部落 `ui/form.mbt` + `ui/entry.mbt` + `ui/textarea.mbt`；`tab` 已由 `ui/nav.mbt` 的 `tabs_t` 承担（页签头行 + 预建页区显隐），`scroll` 已落 `ui/scroll.mbt`（垂直滚动容器 + 自绘滚动条，平移用 yoga 新补的相对定位偏移），`splitter` 已落 `ui/split.mbt`（`hsplit`/`vsplit`）、`combo` 已落 `ui/form.mbt`
-
 ### 主题、声明式与应用层
 
-- [ ] [~] 主题系统
-  - 新栈刻意不做：原生控件 CSS 下发（全自绘后色板是唯一来源）
-- [ ] [~] 声明式层（`declarative/` 612 行、24 构造器）：地基已落（`Node{mount:(Widget)->Widget}`、`node_of`/`node_of_new`/`mount_children`/`App::mount`、`invalidate` 回路）；**L1 构造器全集落 `ui/declarative.mbt`**——`vbox`/`hbox`/`text_edit`/`picker`/`scroll`/`tab`/`date_picker`（改名者，旧调用点原样跑在新栈上）+ `mount_window`（建宿主并挂载）+ `bind`/`bind_label`（Store/信号驱动的文本绑定），与组件**同名**的（`label`/`button`/`entry`/`checkbox`/`container`/`group`/`separator`/`image`/`icon`/`radio_group`/`slider`/`progress`）直接用组件、不再包第二层；`hover_group` 已落（本栈宿主悬停态是父链语义，旧链路那套全局指针轮询不需要）；`overlay_scroll` 即 `scroll_v`（滚动条一直是视口的绝对定位子控件）。`cursor_group` 已落（配套新增窗口层光标通道：`wm_set_cursor` FFI + `Widget.cursor` 请求 + 宿主按悬停路径取「最深非零」下发）；`combo`（可编辑下拉：`entry` + 随输入过滤的候选浮层，↑↓/回车/Esc 走按键沿祖先链冒泡）已落 `ui/form.mbt`；`gif`（动图组件，走 `@render.Animation` 的逐帧迭代 + 进程级延时通道）已落 `ui/gif.mbt`。**L1 构造器全集到此收口**（旧 24 个里除 `mount`（即 `App::mount`）与同名组件外都已到位）。
 - [ ] 富文本编辑（远期 WYSIWYG 块编辑器）
-- [ ] 代码高亮、终端模拟器、WebGL 画布（旧栈即无，列为待评估）
+- [ ] 终端模拟器、WebGL 画布（旧栈即无，列为待评估；代码高亮已交付，见 roadmap「代码高亮」）
 
 ### 系统集成（master 参考面：`yue/system` 31 源文件 + `yue/traybus` 16 源文件，属可平移资产）
 
@@ -74,13 +64,13 @@
   - [ ] 批 D2c 再余项（不假装完成）：ASS 样式渲染（颜色/定位，目前只按文本叠加）、多字幕轨列表与切换（现在只取 `av_find_best_stream` 选中的那条）、倍速听感复验（是否仍同步；音高随动已定案不做——时间拉伸要相位声码器，口径见 media/audio.mbt 注释）
 - [~] **批 E 原生弹层窗口**（已完成面见 roadmap 同节；剩余见子条目）
   - [~] **批 E 余项**：「点外收起」的可用判据仍欠——失焦自收在映射期会误触发（对照实验：开=约两秒自关且 `hides=0`；关=常驻），故 `overlay_set_dismiss_on_blur` **默认关**，等「拿到过焦点才算」的判据；另欠弹层锚点跟随 owner 滚动/移动、六件各自的尺寸提示
+  - [ ] **Windows 臂 `wm_window_set_popup` 是空桩**：原生弹层（无边框 + 不进任务栏 + transient 到 owner + 恒在 owner 之上）在 Windows 上完全没接——任何要盖住 webview 子表面的浮层在那边就是普通窗。mac 臂的实现可对照（`WM_STUB_MAC` 段）。`wm_permission_request` 的空桩属有意占位、不算缺陷（见 adaptation「extern 直连 `wm_*` 须各平台分支留占位」）
 - 积木原则：一个能力一个接口、可单独不用；能力之间不互相依赖（webview 不依赖媒体层，反之亦然，两者只依赖窗口/布局/事件层）；框架只给原语不给产品（爬虫框架、站点适配、内容解析、开发者面板、页面脚本库不进库）；每项能力给探测 + 语义化降级；新 API 一律走 `Painter`/`Bitmap` 门面
 - 明确不做（避免反复讨论）：网络拦截/改写、代理配置、一窗多 webview 并排、Linux 上把 webview 变纹理、首批硬解、首批 GPU 合成、网页内 `<video>` 与自绘播放器统一、macOS 13 及以下的持久化隔离（根因是 Apple API 边界：持久化 profile 需 macOS 14+ 且有 bundle id）
 - 平台后端（随各自真机）：Windows WebView2——**2026-10-13 平台批已接**（两级异步 COM 创建 Environment→Controller、失败走 dead 语义降级、就绪前 load 排队、13 事件 push 队列同构 WebKit 分支、自定义 scheme 经 `EnvironmentOptions4::SetCustomSchemeRegistrations` 预注册 + `WebResourceRequested` 回包（`CreateWebResourceResponse`，404 给明确空响应）；vendor 口径：NuGet Microsoft.Web.WebView2 1.0.4258.31 的 `WebView2LoaderStatic.lib` + 头 vendor 进 `gui/web/`，prebuild 下发链接参数；**真机验证**：web wbtest 17/17、一次性探针 load_html/标题事件/JS 求值/协议页导航/DOM 求值全通、`native-web` 冒烟 `supported=1` + GEO 真矩形 + 8 组统计；坑见 `adaptation.md`——未预注册 scheme 导航直接失败、COM propput 少 self 参数在 x64 上静默写坏 vtable、`GetCustomSchemeRegistrations` 数组必须 `CoTaskMemAlloc`（静态数组会被引擎 free 触发堆损坏 0xC0000374））。**未接**：跨 HWND 焦点与滚轮转发。macOS WKWebView（自定义协议走**公开**的 `WKURLSchemeHandler`（macOS 10.13+），libyue 当年那条 `WKBrowsingContextController registerSchemeForCustomProtocol:` 是更老的私有路线；要验的是公开入口够不够用：自定义 scheme 默认非标准、origin/localStorage 行为要另配；**另需真机验一条**：`loadHTMLString:baseURL:` 是否入前进/后退历史——Apple 无文档承诺，而 Linux 实测 `load_html` 不入历史、WebView2 文档明写 `NavigateToString` 不改历史，若 mac 相反就要在 `web` 里抹平或写进契约）
 
 ### 交付面（webview 批 A/B 落地后接上）
 
-- [ ] 文档：中英使用文档按新栈重写（`components`/`components-ui`/`declarative`/`layout`/`relink`/`system-capabilities`/`tutorial`），README 挂新截图
 - [ ] 文档：中英使用文档按新栈重写（`components`/`components-ui`/`declarative`/`layout`/`relink`/`system-capabilities`/`tutorial`），README 挂新截图
 - [ ] 发布：旧 `bin-*`/`vendor-*` 预构建发布链退役（mooncakes 侧 0.2.0 已于 2026-10-19 发布，见 roadmap「承诺与版本」）
 - [ ] 真机验证矩阵：macOS 已按 `测试文档/测试用例.md` 跑完；Windows 10 / 11 本机冒烟已通；Ubuntu GNOME / KDE / XFCE 待排
@@ -103,7 +93,7 @@
 
 ### 6.1 W20 · Win 基础能力（Windows 桩层，按现有范式）
 
-> 范式：`win/stub.c` 的 `_WIN32` 分支加真实现 → `include` 或 `ffi.mbt` 声明 extern → `win/window.mbt` 加 `Window::*` 方法 → 纯函数/探针可测的抽成纯函数 → `examples/native-app` 累积验证页加一节 → 真机项进人工清单。
+> 范式：`win/stub.c` 的 `_WIN32` 分支加真实现 → `include` 或 `ffi.mbt` 声明 extern → `win/window.mbt` 加 `Window::*` 方法 → 纯函数/探针可测的抽成纯函数 → `examples/showcase` 对应页加一节 → 真机项进人工清单。
 
 ### 6.2 W21 · MBT 通用能力（跨平台同构，不依赖平台）
 
@@ -168,7 +158,7 @@
 - FFI 规范与坑：`.agents/skills/moonbit-c-binding/`（同步自 [moonbitlang/skills](https://github.com/moonbitlang/skills)，`~/.agents/skills/` 同版）
 - **跨平台能力批次表（Win 基础能力 + MBT 通用门面）：本文件 §6**（2026-10-12 定；只跟踪跨平台能力，Linux-only 细节不再入表）
 - 旧栈 API 参照面（可平移资产）：`experiment/async_coexist/lab/.mooncakes/NoahLiu/native-gui/yue/`（`tray.mbt`/`menu.mbt`/`misc.mbt`/`widgets.mbt`，本机离线可用）
-- 人工复验清单：`测试文档/测试用例.md`（跑 `moon run examples/native-app`）
+- 人工复验清单：`测试文档/测试用例.md`（跑 `moon run examples/showcase`）
 
 ## 7. mac 平台批（已落地，遗留缺口）
 
@@ -178,74 +168,3 @@
 - [ ] **macOS 显示器「首选档」标记**：`CGDisplayModeIsPreferred` 在当前 SDK 已不声明（同族的 `CGDisplayCopyAllDisplayModes`/`GetPixelWidth`/`GetRefreshRate` 都还在），`preferred` 一律给 false。要做要先找到公开信号（ScreenCaptureKit 那侧的模式清单能否对上 `CGDirectDisplayID`），不拿私有形态或「当前档」冒充
 - [ ] **macOS 通知的后端名仍叫 WinBalloon**：mac 的通知实现在 win 桩的 `wm_notify_*`（NSUserNotification），而 `shell/notify.mbt` 的 `NotifyBackend` 只有 `Dbus`/`WinBalloon` 两档，于是 mac 上 `notify_backend_name()` 报 "win-balloon"。能力本身（标题+正文，无动作/持久化）与气泡同档，先不改门面；通知已真机验通（须从 `.app` bundle 起，裸跑报不可用是系统约束），是否加第三档 `Cocoa` 待定
 - [ ] **macOS 安装自启动的生效回证**：plist 写落点已通（纯函数有测试钉住），`launchctl load` 在新写入文件上的实际生效已真机回证；若要换 `bootstrap gui/<uid>`，得先给 sys 补一个取 uid 的口子
-- [x] **真机复验 T1-T6 全部目视项**（清单已并入 `测试文档/测试用例.md`）：Retina 观感、输入法内联、拖窗期间的循环、通知弹出——已按清单跑完；通知须从 `.app` bundle 起
-
-## 8. Windows 平台批（2026-10-28 交接：mac 侧编不到也跑不到的项）
-
-背景：本轮在 mac 读码定位。win32 那条 C 臂本地编不到（无 mingw），**编译以 CI 的 windows job 为准**，行为确认全在那台 Windows 真机。
-
-> **2026-10-28 Windows 真机回证（Windows 10 21H2 19044 / DPI 96）**：本批两项已在本机验通/定位，做法是把 `gui/win/stub.c` 原样 `#include` 进一个探针 TU，直接调 `wm_*` 门面 + 原生反查 + GDI 抓屏做像素判据（探针不入库，落在 `C:\ProgramData\wmprobe\`）；本机 MSVC 14.44 + SDK 26100 编得过，`moon build examples/showcase` 全链通过，`moon test gui/win` 32/32、`moon check gui/win --deny-warn` 零输出。
-> **注意：本机 DPI 是 96**，交接里怀疑的「200% DPI 下帧物理/窗逻辑对不上」在本机复现不出来，也无法在此排除——见 8.2 的结论。
-
-### 8.1 已改待验（本批已提交，pull 后即可验）
-
-- [x] **`wm_window_move` / `wm_window_origin` 补实**（win32 臂此前是空桩，输出从不写）——**2026-10-28 本机验通**
-  - 判据：窗口页「开驻留探针窗」→ 窗应落在 (160,160)；点「读窗位置」应回 `(160, 160)`、`is_hidden=false`。此前无论窗在哪都回 `(0,0)`，且 `move_to` 静默不生效。
-  - 口径：move 与 origin **互逆**，都按**客户区原点**、物理像素（本臂进程已声明 Per-Monitor V2）；带边框的窗内部补偿标题栏厚度。
-  - 顺带修：`hide`→`show` 每轮偏一个标题栏厚度（原桩记客户区原点、`show` 却按整窗原点写回 `SetWindowPos`）。验法：带边框窗连做三轮 hide/show，位置读数不动。
-  - **实测读数**（带边框窗 380×220，客户区相对整窗偏移 (8,31)）：`move(160,160)` → `origin=(160,160)`、`winrect=(152,129)`（补偿到位）；再 `move(400,300)` → `(400,300)`（不是碰巧）；无边框窗 `move(200,200)` → `(200,200)`、`winrect == client == 380×220`；hide/show 三轮 `hidden=1 → shown=0`、`origin` 恒 `(160,160)`、`winrect` 恒 `(152,129)`，客户区与整窗**双零漂移**。MoonBit 侧 `Window::move_to`/`origin` 是直传（`gui/win/popup.mbt:19/27`），故页面按钮级读数与上表等价。
-- [x] **「图标下」档撤档/隐藏/关闭时请 WorkerW 重画**（真机「壁纸层残影」）——**2026-10-28 本机修好并验通**
-  - 判据：把某扇窗设到「图标下」，随后四条路径各验一次——切回主窗、撤回普通档、`hide`、`close`；壁纸上都不应留下该窗的最后一帧。
-  - **本机读数（2026-10-28，修前）**：三条路径（撤档→普通档后把窗挪走、`hide`、`close`）**全部留残影**，量化到像素：320×180 的纯红块撤掉后原地仍占 57394–57600/57600 像素、纯绿块 56399/57600，且**跨进程退出仍在**（下一轮抓屏基线整块就是那帧，等于被烙进壁纸层，持续数分钟不自愈）。
-  - **与透明测试窗无关**：验残影的那几轮没有开任何透明窗/逐像素窗，残影照出——两件事互相独立。
-  - **原修法为何无效**：`wm_desk_repaint_host` 在子窗**还挂着**时 `InvalidateRect(host) + UpdateWindow(host)`，宿主的 `WM_PAINT` 裁剪区扣掉了子窗那块，等于什么都没画；摘钩之后又没人再请求重画。但**顺序不是唯一问题**——把重画挪到摘钩之后也一样。逐条抓屏计数（残留 57600/57600 一个不少）：`RedrawWindow(host, rect, RDW_INVALIDATE|RDW_ERASE|RDW_UPDATENOW)`、`RedrawWindow(host, NULL, NULL, …|RDW_ALLCHILDREN|RDW_FRAME)`、`SendMessage(host, WM_PAINT)`、`WM_SETREDRAW` 关开、`WM_ERASEBKGND`、`WM_NCPAINT`、`Progman` 的 `WM_COMMAND 0x7402`、`Progman` 整窗重画、宿主 `SWP_FRAMECHANGED`、全系统 `WM_SETTINGCHANGE` 广播、`DwmFlush`——**全是 no-op**：WorkerW 根本不自绘暴露区。
-  - **预防路也堵死**：摘钩前先把子窗 `ShowWindow(SW_HIDE)`，等 250ms 再摘钩——`after_hide=57600`、`after_detach=57600`，隐藏子窗这一步同样不触发宿主擦除，残影照出。
-  - **逐像素路也堵死**：想让这一档走分层提交（像素由 DWM 合成、不落宿主 GDI 面）——实测**逐像素子窗挂进 WorkerW 后根本不显示**（`trans_mode=1`、`embedded=1`、重提交后屏上 0/57600）。
-  - **最终采纳**：`ShowWindow(host, SW_HIDE)` → `ShowWindow(host, SW_SHOW)`（`wm_desk_purge`）。
-    - 为什么不用另一条能清的 `SPI_SETDESKWALLPAPER`：实测 `SPI_SETDESKWALLPAPER(0, NULL, SPIF_SENDCHANGE)` 会把**纯色桌面重画成注册表里留存的壁纸图**（本机注册表 `WallPaper` 仍是 `img0.jpg`，而实际桌面是纯色；调用后宿主客户区 1920×1080 **逐像素全变**，等于是改用户的桌面外观）。传「当前路径」同理。**弃用**。
-    - 隐藏时长：实测 `0ms`（hide 立刻 show）、`30ms`、`60ms` 三种结果完全一致（残影都归零、恢复后与干净态 `whole_diff=0`），说明重建发生在隐藏那一刻，不必留可见空白期，故代码里不 `Sleep`，也不阻塞 UI。
-    - 外观不变：宿主 hide/show 前后整张宿主客户区逐像素比对 `diff=0`，宿主句柄不变，注册表不动。
-  - **改后读数（四条路径 × 门面直调）**：`wm_set_layer(id,1)` 挂进壁纸层后 `embedded_visible=57600`（确实在壁纸层上可见），随后 ① 撤档回普通 ② 撤档到置顶 ③ `wm_hide` ④ `wm_close`，四条全部 `leftover=0 CLEAN`、`final=0`；把补丁 `git stash` 掉重跑同一探针，四条**全部 `leftover=57600 RESIDUE`**——对照成立。
-  - 调用顺序（这次一并改了）：残影是「窗不可见」那一刻产生的，所以 `wm_hide` 改成先 `ShowWindow(SW_HIDE)` 再 purge；`wm_close` 改成 `DestroyWindow` 之后再 purge；`wm_leave_desktop` 改成摘钩 + 复位之后再 purge（原来三处都排在窗还可见的时候）。
-  - 已知代价：整个壁纸层（连桌面图标、以及别的挂在同一 WorkerW 下的「图标下」窗）会闪一下，约 30–80ms；Explorer 重建后 `desk_host` 失效时 `IsWindow` 检查会让它安全跳过。
-  - **档内移动/改尺寸也已补上（2026-10-28 同日，同一批）**：在「图标下」档**里面**调用 `move_to` / 改尺寸时，旧位置同样留残影（同为宿主不自绘暴露区）。原先判成「本批不处理、要先定节流方案」，前提是错的——**这一档根本没有交互**：子窗挂在 `WorkerW` 里，桌面图标层（`SHELLDLL_DefView`）在它上面，鼠标与键盘事件被图标层截走，本窗连 `WM_LBUTTONDOWN`/`WM_LBUTTONUP` 都收不到，所以「跟随鼠标拖动、每帧一清会卡顿」这个顾虑不存在，档内的位置/尺寸变化只可能来自程序自己驱动，无脑每步清即可。改法：`wm_window_move` 与 `wm_window_set_size` 末尾各调一次 `wm_desk_repaint_host`（未挂载时是 no-op）。**读数**：挂进档内后连移 3 次，原位 `old_spot=57600 RESIDUE`（修前）→ `0 CLEAN`（修后）；档内缩小 120px 后露出的那条带子 `exposed_band=0 CLEAN`。代价同撤档：每次挪动整张壁纸层闪一下，所以**别在档内做逐帧动画**。
-
-### 8.2 待诊断（没动手，先要读数）
-
-- [x] **透明测试窗整片空白**（`set_borderless(true)` + `App::set_transparent_bg(true)` 的子窗看不到内容）——**2026-10-28 定位并已修（本批补丁）**
-  - 已排除：present 链在逐像素档是通的（`wm_present` 拷帧后直接 `wm_layered_submit`，不走 WM_PAINT，避免 GDI 把不透明像素糊回去）。
-  - **三个候选的判定**：③ 子宿主没跑 present —— **否**（探针里同一顺序 `borderless → transparent_bg → present`，`trans_want=1/borderless=1/trans_mode=1/IsWindowVisible=1/WS_EX_LAYERED=1`，帧确实进了 `layer_bits`）；① 提交面与窗框尺寸对不上 —— **否**（`pending=380×280`、`winrect=380×280`、`client=380×280`、`delta=(0,0)`）；② `borderless` 没更新 —— **否**（读数见上）。真正的原因不在候选里：**`UpdateLayeredWindow` 的 `psize` 传 NULL 时这次提交不落地**。
-  - **四组合实测**（240×150 逐像素档窗，每组合独立开一扇，抓屏数上屏像素）：`dst=NULL,psize=NULL` → `ok=1, err=0`，屏上 **0/36000**；`dst=有,psize=NULL` → `ok=1, err=0`，**0/36000**；`dst=NULL,psize=有` → **36000/36000**；`dst=有,psize=有` → **36000/36000**。即：**只要 `psize` 非空就上屏，`pptDst` 传不传无所谓**；`psize` 为空时 API 返回成功但一个像素都不画，且 `err=0`——所以调用方没有任何错误可捕获。
-  - **修复**：`wm_layered_submit` 显式给 `SIZE ps = {pending_w, pending_h}`（`pptDst` 仍 NULL，位置不动）。补丁后同一探针只走 `wm_present`：卡片 17629–18000/18000 上屏、透明区角落纯黑像素 2/1600（桌面真的透出来）、`opacity=128` 时纯色像素掉到 0（变淡生效）、边框回来退普通档后 `winrect` 仍是 380×280。`moon test gui/win` 32/32、`moon check --deny-warn` 零输出。
-  - **仍未验**：①②候选指向的 200% DPI 场景本机（DPI 96）复现不出来。补丁把窗口尺寸交给 `psize`（= 帧的物理像素尺寸），理论上会让「帧是物理、窗是逻辑」的机器自动对齐，但**这条只有真 200% DPI 机上能验**；顺带一个待观察项：`pending` 落后于窗口（改尺寸与 present 之间）时，非空 `psize` 会把窗口拽回上一帧的尺寸，是否可感知要看真机帧序。
-  - 无需再加 `wm_trans_state` 只读探针：上面四组合已把机制钉死，探针只会复述同一组字段。
-
-### 8.3 现场新发现并已修：托盘图标退出后残留（「菜单弹不出来」的真因）——2026-10-28
-
-- [x] **`remove_all_trays()` 只做 SNI 兜底，Win32 的 Native 槽从不 `NIM_DELETE`**
-  - 现象（老刘报的）：托盘图标还在通知区，**右键它既不出菜单也不出 tooltip**，看起来像「托盘菜单坏了」。
-  - 定位：菜单本身没坏——showcase 右键实测弹出 `#32768` 窗 `rect=(1713,959) 150×101`，四项齐全（冒个提示 / 回首页 / 报左键计数 / 退出）。真正的问题是**进程退出后留下的僵尸图标**：没有窗口接 `WM_TRAY_CB`，点它自然什么都不发生。实测把它悬停一下图标就自己消失——那是 Shell 发现宿主窗口没了才顺手删的。
-  - 根因：`gui/shell/tray.mbt` 的 `remove_all_trays()` 只有一行 `@dbus.sni_unregister_all()`；旁边的注释把它写成了设计假设：「Win32 的通知区项由 shell 随进程回收，不需要注销」。**这条假设不成立**，`gui/win` 侧也从来没有批量注销的门面（只有单个 `wm_tray_remove(slot)`）。
-  - 修复：`remove_all_trays()` 先取 `tray_by_slot.to_array()` 快照，逐个 `Tray::remove()`（内含 `wm_tray_remove` + 摘表 + 清语言口），再走 SNI 兜底；`quit_watch` 上那句错注释一并改正。
-  - 验证：重建后走菜单「退出」→ 图标**立即消失**（不再需要鼠标扫过），`moon test gui/shell` 55/55（新增用例「批量注销真的摘掉 Win32 槽」量 `@win.tray_count()` 从 1 到 0，旧实现下恒为 1）。
-  - **已知边界（未处理）**：`taskkill` / 崩溃 / 断电这类非正常退出仍会留僵尸图标——Win32 通病（没有 `SetConsoleCtrlHandler` 或 Job Object 兜底时谁也拦不住），只能靠用户悬停一下让 Shell 回收。
-
-- **同批清理**：上一轮残影实验在壁纸层（WorkerW `hwnd=131884`）烙下的白色窗口帧，用 `ShowWindow(host, SW_HIDE)` → `SW_SHOW` 清掉（未重设壁纸、未写注册表，桌面外观不变）。**这条同时给 8.1 的口径提供了实机背书**：残影确实跨进程持久，且宿主 hide/show 是有效的清理通道。
-
-### 8.4 未实现（win32 臂空桩，不在本批范围）
-
-- [ ] **`wm_window_set_popup` 空桩**：原生弹层（无边框 + 不进任务栏 + transient 到 owner + 恒在 owner 之上）在 Windows 上完全没接——任何要盖住 webview 子表面的浮层在那边就是普通窗。mac 臂的实现可对照（`WM_STUB_MAC` 段）。
-- [ ] `wm_permission_request` 空桩属有意占位（见 adaptation「extern 直连 `wm_*` 须各平台分支留占位」）。
-
-### 8.5 验通后的收尾
-
-8.1 两条移进 `docs/zh/roadmap.md` 对应能力行并按平台标 ✅；`测试文档/测试用例.md` 窗口组补「读窗位置」「图标下撤档无残影」两条；8.2 的诊断结论回写 `proposals/adaptation.md`。
-
-**2026-10-28 进度**：8.1 两条、8.2、8.3 全部收口——8.1 位置口径与「图标下」残影修复都已验通并写进 roadmap（`层级：图标下` 标 ✅）；测试用例的「位置读数」与「图标下撤档无残影」两条都从「已知缺陷」改成已验通；8.2（`UpdateLayeredWindow` 的 `psize`）与 8.3（托盘僵尸图标）的诊断结论已回写 adaptation，残影那条的最终方案与读数也补在了同一处。只剩 8.4 的 `wm_window_set_popup` 空桩仍不在本批。
-
-### 8.6 系统能力两处读不到（2026-10-28 第二批，虚拟机真机截图）
-
-- [x] **Windows 显示器枚举从来没接**：`mon_list()` 只有 Linux / macOS 两臂，Windows 掉进 mac 臂恒 `Unsupported`。已加 `yue_sys_mon_win`（`EnumDisplayDevicesW` + `EnumDisplaySettingsExW`），与 mac 臂共用行式格式与解析函数（`mon_parse_mac` → `mon_parse_blob`）。QXL 虚拟屏实测 `DISPLAY1: 1920x1080 @64.0Hz 位置 +0+0，模式 30 种`。
-- [x] **虚拟机里 `si_machine()` 恒失败**：QEMU/SeaBIOS 上注册表 `HARDWARE\DESCRIPTION\System\BIOS` 存在但**一个值都没有**，`GetSystemFirmwareTable('RSMB')` 也回 `ERROR_INVALID_FUNCTION`（用户态没有固件表）。改为注册表 → WMI（`Win32_ComputerSystem`）两级取数，序列号 `Win32_BIOS` → `Win32_ComputerSystemProduct` → `MachineGuid` 依次兜底。实测显示 `机器: BOCHS_ BXPC____（序列号 MachineGuid）`。
-- **代价**：sys 包链接多了 `oleaut32.lib`（`SysAllocString`/`VariantClear`）与 `wbemuuid.lib`（`CLSID_WbemLocator`/`IID_IWbemLocator` 两个 GUID 常量，C 模式取不到 `__uuidof`）。WMI 只在注册表镜像为空时才走，真机不付这份开销。
-- **仍是边界**：Windows 侧 `mm_width`/`mm_height` 恒 0（GDI 不报物理尺寸，要解得自己解析 `DeviceKey` 下的 EDID）；`MonitorMode.preferred` 在三平台都恒 false。

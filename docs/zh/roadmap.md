@@ -39,7 +39,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **窗口句柄与主窗判定**：`wid` 取句柄、`is_primary` 判主窗
 - ✅ **消息泵与每帧调度**：宿主事件循环：投递、命中、重排重绘都在这一拍里
 - 🚧 **窗口透明**：`set_opacity` 0–255，整窗连字一起淡；无合成器时静默无效（macOS 已验；Linux / Windows 待真机）
-- 🚧 **背景穿透**：`set_transparent_bg` 打开后控件没铺到的像素留透明，桌面从洞里透出；Windows 需无边框（macOS 已验；Linux / Windows 待真机）
+- 🚧 **背景穿透**：`set_transparent_bg` 打开后控件没铺到的像素留透明，桌面从洞里透出；Windows 需无边框（macOS 已验；Windows 2026-10-28 验通，**根因是 `UpdateLayeredWindow` 的 `psize` 传 NULL 时提交不落地**——API 返回 TRUE、`GetLastError()=0`，但一个像素都不画，调用方没有任何错误可捕获；四组合实测「只要 `psize` 非空就上屏，`pptDst` 传不传无所谓」，补丁显式给 SIZE、位置仍不动。**剩一条只有真机能验**：帧是物理像素、窗是逻辑像素的 200% DPI 场景本机（DPI 96）复现不出来；Linux 待真机）
 - 🚧 **层级：普通档**：`WindowLayer::Normal`，与系统普通窗同档（Linux 过；Windows 待验）
 - ✅ **层级：图标下**：`Desktop`，压在桌面图标之下（Linux 过；Windows 2026-10-28 验通——挂进壁纸 WorkerW，撤档/隐藏/关闭、以及档内移动与改尺寸时让宿主整层重建一次以清掉 GDI 残影，代价是壁纸层闪 30–80ms；档内无交互，键鼠归桌面图标层，故挪动只由程序驱动）
 - 🚧 **层级：图标上**：`DesktopWidget`，桌面小部件位，本窗照收键鼠（Linux 过；Windows 待验）
@@ -171,6 +171,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **绑定与重建**：`bind_node` 原位重建子树、`bind_label` 与各 `*_dyn` 入口
 - ✅ **页面路由**：路由树、每层选中键、link 绑定、Eager / Prefetch / Lazy 三档预建
 - ✅ **样式与主题**：样式槽 + 状态桶 + 命名类；20 个颜色 token；跟随系统明暗与强调色
+- ✅ **声明式层**：`Node{mount:(Widget)->Widget}` 地基（`node_of`/`mount_children`/`App::mount`/`invalidate` 回路）+ **L1 构造器全集**（`ui/declarative.mbt`：`vbox`/`hbox`/`text_edit`/`picker`/`scroll`/`tab`/`date_picker`/`mount_window`/`bind`/`bind_label`/`hover_group`/`cursor_group`/`overlay_scroll`/`combo`/`gif`；与组件同名的 12 个直接复用组件、不包第二层）。旧链 24 构造器除 `mount`（即 `App::mount`）与同名件外全部到位**到此收口**。`cursor_group` 配套窗口层光标通道（`wm_set_cursor` + `Widget.cursor` 请求 + 宿主按悬停路径取「最深非零」下发）；`combo` 走按键沿祖先链冒泡（↑↓/回车/Esc）；`gif` 走 `@render.Animation` 逐帧迭代 + 进程级延时通道
 
 ### 系统能力
 
@@ -179,7 +180,8 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **打开与定位**：URL 交浏览器、文件交默认程序、路径交文件管理器；不存在给 NotFound 不崩
 - ✅ **剪贴板**：读写系统剪贴板文本
 - ✅ **音量与静音**：读音量、设百分比、切静音
-- ✅ **显示器枚举**：在线屏、分辨率、刷新率、物理尺寸、模式列表
+- ✅ **显示器枚举**：在线屏、分辨率、刷新率、物理尺寸、模式列表（三平台各一条官方通道：Linux 解析 `xrandr`、macOS 直调 CoreGraphics、Windows 走 GDI 的 `EnumDisplayDevicesW` + `EnumDisplaySettingsExW`，2026-10-28 接上并真机验通——此前 Windows 掉进 mac 臂恒 `Unsupported`。读数边界：`connected` 恒真（三平台都没有「接了但断电」的公开清单）、`name` Windows 取 `DISPLAY1` 这种设备名去前缀、`mm_width`/`mm_height` 仅 Linux 有（Windows 的 GDI 不报物理尺寸）、`preferred` 三平台恒 false（没有公开信号，不拿「当前档」冒充））
+- ✅ **系统托盘**：通知区图标 + 右键/左键菜单（Linux 走 SNI，Windows 走 `Shell_NotifyIcon`）。**退出前必须逐个 `NIM_DELETE`**——Win32 的通知区项不随进程回收，宿主窗口没了会留僵尸图标（右键它既不出菜单也不出 tooltip，得等 Shell 下次鼠标扫过才清）；2026-10-28 修：`remove_all_trays()` 原先只有 SNI 兜底，改为取槽位快照逐个摘除再兜底。**仍是边界**：`taskkill` / 崩溃 / 断电这类非正常退出拦不住，Win32 通病
 - ✅ **空闲检测**：读系统空闲秒数（Linux X11、Windows；macOS 走 HID 系统态）
 - ✅ **开机自启**：写 autostart / Run 键 / LaunchAgents；开关即真实状态
 - ✅ **mac 通知迁移 UNUserNotificationCenter**：老 NSUserNotification 在新 macOS（26.x 实测）被降级成「只进中心不弹条」——通知后端整体迁到 UN：bundle 探测、首次使用请求 alert/sound/timeSensitive 授权（老授权自动补齐）、同 identifier 覆盖即更新、按标识摘除、授权异步裁决前投递排队、声音默认有声（对齐 Win32）、delegate 答复带 Banner|List|Sound、`NATIVEGUI_NOTIFY_LOG` 门控诊断。**前台横幅的钥匙是时间敏感档**：缺档时前台 delegate 询问派发不可靠（忙时静默），标记+授权后忙循环也正常（真机日志 + 探针定案，见 `proposals/adaptation.md`）；mac 真机已验（横幅+声音），Linux 走 D-Bus、Windows 走托盘气泡不受影响
@@ -190,7 +192,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **剪贴板监视**：变更回调（仅 Linux X11，轮询 `xclip` / `xsel` 路线）
 - ✅ **子进程与文件原语**：`pr_run` 带超时与输出捕获；`fsx` / `envx` / JSON 读写
 - ✅ **传感器 / 蓝牙 / 磁盘**：Linux 侧硬件族只读读数
-- 🚧 **系统信息**：发行版、机器、内存、开机时长、桌面环境（Linux 过；Windows / macOS 施工中）
+- 🚧 **系统信息**：发行版、机器、内存、开机时长、桌面环境（Linux 过；Windows 的机器与内存已接并真机验通——机器走「注册表 `HARDWARE\DESCRIPTION\System\BIOS` → 空则 WMI `Win32_ComputerSystem`」两级，序列号 `Win32_BIOS` → `Win32_ComputerSystemProduct` → `MachineGuid` 依次兜底，**虚拟机（QEMU/SeaBIOS）上那个注册表键存在但一个值都没有**，用户态只剩 WMI 一条路；macOS 施工中）
 - 🚧 **应用枚举**：已装应用清单与分类（Linux 过；Windows / macOS 施工中）
 - 🚧 **最近文件**：系统最近文件列表（仅 Linux 有实现；macOS 无公开面）
 - 🚧 **壁纸与默认应用**：读写壁纸、查默认应用（仅 XFCE 实测；Windows / macOS 未接）

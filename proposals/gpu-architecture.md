@@ -87,4 +87,4 @@ WebGPU 可用 → GPU 合成（Layer 1+2 都开）
 - **已就位**：`RenderCtx` + `on_render` 协议口子。
 - **下一步**：`modules/gui-gpu` 独立模块开工，第一步三角形色块验收；参赛赛季内 GPU 不动。
 
-架构决策与实测依据见 [roadmap.md](../docs/zh/roadmap.md)「GPU 合成与 3D 路径」小节。跟踪项见 [TODO.md](https://github.com/lb091188/moonbit-native-gui/blob/master/TODO.md) §1 G11。
+架构决策与实测依据见 [roadmap.md](../docs/zh/roadmap.md)「GPU 合成与 3D 路径」小节。跟踪项见同一份 roadmap 的「已规划 · 渲染」节（⏳ GPU 合成与控件级 GPU 绘制两条）。

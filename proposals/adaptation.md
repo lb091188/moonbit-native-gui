@@ -3342,8 +3342,8 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **根因**：门面声明与另两臂都是实的（GTK 走 `gdk_window_get_origin`、mac 走 `convertRectToScreen` × scale），只有 win32 臂留着一行 `{ (void)id; (void)out_x; (void)out_y; }` —— 输出指针从不写，MoonBit 侧 `Ref(0)` 保持 0。`wm_window_move` 同一条空桩。这类占位是**为了让 showcase 在三平台都链接得过**而留的（同一批还有 `wm_window_set_popup`、`wm_permission_request`），代价是能力面「有 API、无实现」，调用方拿到的不是错误而是一个像样的假值。
 **修复**：win32 臂补两条实现，语义钉在**客户区原点、物理像素**（本臂进程声明 Per-Monitor V2，Win32 坐标即物理像素，与整栈一致）：`origin` 走 `ClientToScreen(0,0)`；`move` 先用 `GetWindowRect` 与 `ClientToScreen` 量出「客户区原点相对整窗原点的偏移」（标题栏 + 边框），按它补偿后 `SetWindowPos`，两函数互逆；挂进 WorkerW 的「图标下」档是 `WS_CHILD`，`SetWindowPos` 收的是宿主客户区坐标，故那条路径上先 `ScreenToClient(host)` 换算。
 **同批修掉的两条同源错位**：① `wm_hide` 记的是客户区原点（`ClientToScreen`），`wm_show` 却把它当整窗原点写回 `SetWindowPos` —— 带边框的窗每走一轮 hide/show 就往下左偏一个标题栏厚度，现统一记 `GetWindowRect` 的整窗原点；② 「图标下」撤档/隐藏/关闭时没人请 WorkerW 重画本窗占过的那块（WorkerW 不自绘暴露区），壁纸上留着最后一帧 = 真机「残影」，现记 `desk_host` 并在三条路径上 `InvalidateRect` + `UpdateWindow`。
-**教训**：跨平台桩的**空实现必须让调用方拿得到「没做」这个事实**——`{ (void)… }` 让 `origin` 返回一个合法的 (0,0)，比返回错误更难查（读数看着像「贴左边贴上了」）。要么在门面侧写明「本平台不支持」并给 `*_supported()`，要么让桩写出哨兵值由门面翻译成错误；顺手一条判据：新补一个平台臂时，把同臂所有 `{ (void)` 一行桩列成清单进 TODO（本批列进 `TODO.md` §8.3）。
-**验证**：mac 侧只能做括号/符号自查（本机无 mingw，win32 臂编不到），**编译以 CI windows job 为准**；行为判据与读数清单在 `TODO.md` §8.1（move/origin 互逆、hide/show 三轮不漂、图标下四条路径无残影）。8.2 另记一条未诊断项（透明测试窗逐像素档空白）与三个候选机制。
+**教训**：跨平台桩的**空实现必须让调用方拿得到「没做」这个事实**——`{ (void)… }` 让 `origin` 返回一个合法的 (0,0)，比返回错误更难查（读数看着像「贴左边贴上了」）。要么在门面侧写明「本平台不支持」并给 `*_supported()`，要么让桩写出哨兵值由门面翻译成错误；顺手一条判据：新补一个平台臂时，把同臂所有 `{ (void)` 一行桩列成清单（本批剩余的两条空桩——`wm_window_set_popup` 与有意占位的 `wm_permission_request`——跟踪项已收进 `TODO.md` §2「批 E 原生弹层窗口」）。
+**验证**：mac 侧只能做括号/符号自查（本机无 mingw，win32 臂编不到），**编译以 CI windows job 为准**；行为判据与读数清单见下文三节专题（本文件「`UpdateLayeredWindow` 的 `psize`…」「WorkerW 不自绘暴露区…」「托盘僵尸图标…」）与 `测试文档/测试用例.md` SC-10.9 / 10.10 / 10.11。
 
 ## `UpdateLayeredWindow` 的 `psize` 传 NULL 时「返回成功但一个像素都不画」（2026-10-28，Windows 真机「透明测试窗整片空白」的根因）
 
