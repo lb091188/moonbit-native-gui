@@ -198,16 +198,16 @@ pub fn Spectrum::levels(
     }
     k = k + 1
   }
-  // 缓动：rise 每拍吃五成（约 3 拍到位），fall 每拍退一成五——条子起落都
-  // 带过渡，不闪跳
+  // 缓动：33ms 一拍，rise 每拍吃三成（约 9 拍 / 300ms 到位），fall 每拍退
+  // 一成二（尾巴略长，峰值多留一瞬）——条子起落都带过渡，不闪跳
   let mut b = 0
   while b < self.bands {
     let prev = self.levels[b]
     let v = peaks[b]
     self.levels[b] = if v > prev {
-      prev + (v - prev) * 0.5
+      prev + (v - prev) * 0.3
     } else {
-      prev - prev * 0.15
+      prev - prev * 0.12
     }
     b = b + 1
   }
