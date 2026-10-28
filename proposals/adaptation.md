@@ -3361,7 +3361,11 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **实测无效的通道**（逐条单独试、每条都抓屏数像素）：`RedrawWindow(host, rect, RDW_INVALIDATE|RDW_ERASE|RDW_UPDATENOW)`、`RedrawWindow(host, NULL, NULL, …|RDW_ALLCHILDREN)`、`SendMessage(host, WM_PAINT)`、`SendMessage(host, WM_SETREDRAW, FALSE/TRUE)` + 整窗失效、`Progman` 的 `WM_COMMAND 0x7402`（老「刷新桌面」口子）、`Progman` 的 `RedrawWindow`、宿主 `SetWindowPos(… SWP_FRAMECHANGED)`——一条都没动那 5.7 万像素。
 **实测有效的两条**（都得让壁纸层整体重建，代价是桌面闪一下）：① `SystemParametersInfoW(SPI_SETDESKWALLPAPER, 0, 当前路径, SPIF_SENDCHANGE)`——**不带** `SPIF_UPDATEINIFILE` 就不写注册表，实测同样清干净（57600/56399 → 0/0）；② `ShowWindow(host, SW_HIDE)` → `ShowWindow(host, SW_SHOW)`（57392 → 0）。
 **另一条设计路已堵死**：想让「图标下」档走逐像素提交（像素由 DWM 合成、不落宿主 GDI 面）——实测**逐像素子窗挂进 WorkerW 后根本不显示**（`trans_mode=1`、`embedded=1`、重提交后屏上 0/57600），这一档只能用 GDI 画进宿主面，残影必须靠清屏通道解决。
-**现状**：桩里现有那段 `wm_desk_repaint_host` 在本机（Windows 10 21H2 19044）是实测 no-op，保留着是因为它可能在别的 Windows 版本上有效；改不改、走哪条通道（或降级为已知边界）等口径决定，见 `TODO.md` §8.1。
+**修复（2026-10-28 次日定案并落地）**：`wm_desk_repaint_host` 改成 `wm_desk_purge`——`ShowWindow(host, SW_HIDE)` 紧接 `ShowWindow(host, SW_SHOW)`，隐藏时长 **0ms**（实测 0/30/60ms 三种结果一致，重建发生在隐藏那一刻，不必留可见空白期，也不阻塞 UI）。不选另一条同样能清的 `SPI_SETDESKWALLPAPER`：实测 `SPI_SETDESKWALLPAPER(0, NULL, SPIF_SENDCHANGE)` 会把**纯色桌面重画成注册表里留存的壁纸图**（本机注册表 `WallPaper=img0.jpg` 而实际桌面是纯色，调用后宿主客户区 1920×1080 逐像素全变），那是改用户外观。宿主 hide/show 前后整张宿主客户区逐像素比对 `diff=0`、宿主句柄不变、注册表不动。
+**同时改了三处调用顺序**：残影产生于「窗不可见」那一刻，所以 `wm_hide` 要先 `ShowWindow(SW_HIDE)` 再 purge；`wm_close` 要在 `DestroyWindow` 之后 purge；`wm_leave_desktop` 要在摘钩 + 复位之后 purge（原来三处都排在窗还可见时）。
+**最终读数**：门面直调四条路径（撤档回普通 / 撤档到置顶 / `hide` / `close`），挂进去时 `embedded_visible=57600`，撤掉后**全部 `leftover=0`**；同一探针把补丁 `git stash` 掉重跑，四条**全部 `leftover=57600`**，对照成立。`moon test gui/win` 32/32、`moon check --deny-warn` 全仓零输出。
+**已知代价**：整个壁纸层（连桌面图标、以及别的挂在同一 WorkerW 下的「图标下」窗）会闪一下，约 30–80ms。这条路绑宿主身份，Explorer 重建后 `desk_host` 会失效——`IsWindow(host)` 检查让它安全跳过（跳过即退回已知边界，不崩）。
+**另两条路已实测堵死**：① 预防——摘钩前先把子窗 `ShowWindow(SW_HIDE)` 等 250ms 再摘，`after_hide` 与 `after_detach` 都是 57600，隐藏子窗同样不触发宿主擦除；② 绕开——让这一档走逐像素提交，逐像素子窗挂进 WorkerW 根本不显示。
 **教训**：① 「请对方重画」的前提是**对方会重画**——WorkerW 是 Explorer 用来承载壁纸的壳，它本身不处理 `WM_PAINT`，`InvalidateRect` 这类请求全部落空；② 判断「谁该负责清屏」要看**像素到底落在谁的面上**，而不是看谁在代码里父子上更近；③ 这类不可自愈的视觉脏数据必须用「跨进程复测」确认持久性——同一个进程里看到的「还在」可能是帧缓存没刷，跨进程还在才是真烙进去了。
 
 ## Win32 通知区图标不随进程回收：只做 SNI 兜底的 `remove_all_trays()` 会留僵尸图标（2026-10-28 真机）

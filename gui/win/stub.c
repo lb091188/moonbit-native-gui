@@ -183,8 +183,9 @@ static HICON wm_icon_get(int slot);
 /* 前置声明：拆窗时撤销外部拖入挂接（W23a 的拖入段定义在窗口之后，RevokeDragDrop
  * 必须在 DestroyWindow 之前）。 */
 void wm_dragdnd_disable(int64_t id);
-/* 前置声明：请壁纸窗重画本窗占过的那块（W34 的「图标下」段定义在窗口之后，
- * hide/close 要在撤下子窗之前叫它）。 */
+/* 前置声明：宿主整层重建（W34 的「图标下」段定义在窗口之后，hide/close 要在
+ * 撤下子窗之后叫它）。 */
+static void wm_desk_purge(HWND host);
 static void wm_desk_repaint_host(WmWindow *w);
 
 /* 菜单句柄表（W20a）：下标即对外句柄（1 起）。每个槽存一个 HMENU——菜单条或
@@ -952,9 +953,10 @@ void wm_hide(int64_t id) {
   }
   w->hidden = 1;
   w->hidden_ev = 1;
-  // 「图标下」档挂着时隐藏：WorkerW 不自绘暴露区，先请它重画本窗占的那块
-  wm_desk_repaint_host(w);
+  // 「图标下」档挂着时隐藏：WorkerW 不自绘暴露区，残影是「窗消失」这一步产生的，
+  // 所以先隐藏本窗再让宿主整层重建（顺序反了会在隐藏前就清，白闪一次）
   ShowWindow(w->hwnd, SW_HIDE);
+  wm_desk_repaint_host(w);
 }
 
 int wm_is_hidden(int64_t id) {
@@ -1151,31 +1153,51 @@ static HWND wm_wallpaper_host(void) {
   return found;
 }
 
-// 请壁纸窗重画本窗占过的那块：WorkerW 不像普通窗那样自绘暴露区，撤掉子窗
-// 后那块像素一直留着最后一帧（真机读数：切回主窗后壁纸层有残影）。矩形在
-// 还挂着的时候现算（移动/改尺寸都不取陈旧值），再换算到宿主客户区。
+// 「图标下」档的像素是 GDI 画进壁纸宿主（WorkerW）的重定向面里的。撤掉子窗后
+// 那块像素留在宿主面上，而 WorkerW 不自绘暴露区——真机逐条实测（每条单独试、
+// 抓宿主客户区数像素，残留 57600/57600 一个不少）：RedrawWindow（含
+// RDW_ERASE|RDW_UPDATENOW|RDW_ALLCHILDREN|RDW_FRAME）、WM_PAINT、
+// WM_SETREDRAW、WM_ERASEBKGND、WM_NCPAINT、Progman 的 WM_COMMAND 0x7402、
+// 宿主 SWP_FRAMECHANGED、全系统 WM_SETTINGCHANGE 广播、DwmFlush——全是 no-op。
+//
+// 能清干净且**不动用户外观**的只有这一条：把宿主整层藏起来再显示——壁纸层在
+// 藏起来那一刻就重建了，残影归零；恢复后宿主客户区逐像素与干净态完全一致、
+// 宿主句柄不变、注册表不动。
+//
+// 另一条能清的 `SPI_SETDESKWALLPAPER(0, NULL, SPIF_SENDCHANGE)` 实测会把**纯色
+// 桌面重画成注册表里留存的壁纸图**（1920×1080 全屏逐像素比对：每个像素都变），
+// 那是改用户的桌面外观，不能用。
+//
+// 代价：整个壁纸层（连桌面图标、以及别的「图标下」窗一起）闪一下。所有调用点
+// 都排在「本窗已经不可见之后」，所以藏宿主时不会再把本窗一起藏一次。
+// 实测隐藏时长取 0 也够（hide 立刻 show 与隔 30/60ms 结果相同，残影都归零），
+// 说明重建发生在隐藏那一刻，不必留出可见的空白期，于是这里不 Sleep。
+static void wm_desk_purge(HWND host) {
+  if (host == NULL || !IsWindow(host)) {
+    return;
+  }
+  ShowWindow(host, SW_HIDE);
+  ShowWindow(host, SW_SHOW);
+}
+
+// 撤掉本窗占过的那块：宿主整层重建一次（见 wm_desk_purge）。
 static void wm_desk_repaint_host(WmWindow *w) {
   if (!w->desk_embedded || w->desk_host == NULL) {
     return;
   }
-  RECT sr;
-  if (!GetWindowRect(w->hwnd, &sr)) {
-    return;
-  }
-  MapWindowPoints(NULL, w->desk_host, (POINT *)&sr, 2);
-  InvalidateRect(w->desk_host, &sr, TRUE);
-  UpdateWindow(w->desk_host);
+  wm_desk_purge(w->desk_host);
 }
 
 // 退出「图标下」：撤 WS_CHILD、还回原父窗、按屏幕位置复位并重报框架（不重报
-// 标题栏要等下一次窗口变动才回来）。
+// 标题栏要等下一次窗口变动才回来）。残影清理排在摘钩之后——先让窗真正离开
+// 宿主面，再整层重建宿主，一次就够。
 static void wm_leave_desktop(WmWindow *w) {
   if (!w->desk_embedded) {
     return;
   }
+  HWND host = w->desk_host;
   RECT sr;
   GetWindowRect(w->hwnd, &sr);
-  wm_desk_repaint_host(w);
   SetWindowLongPtrW(w->hwnd, GWL_STYLE, w->desk_style);
   SetParent(w->hwnd, w->desk_parent);
   SetWindowPos(w->hwnd, HWND_TOP, sr.left, sr.top, 0, 0,
@@ -1183,6 +1205,7 @@ static void wm_leave_desktop(WmWindow *w) {
   w->desk_embedded = 0;
   w->desk_parent = NULL;
   w->desk_host = NULL;
+  wm_desk_purge(host);
 }
 
 void wm_set_layer(int64_t id, int layer) {
@@ -1352,11 +1375,11 @@ void wm_close(int64_t id) {
   }
   if (w->hwnd != NULL) {
     HWND hwnd = w->hwnd;
-    // 「图标下」档挂着时销毁：先请壁纸窗重画本窗占的那块（摘钩后现算不了）
-    wm_desk_repaint_host(w);
     w->hwnd = NULL; // WM_DESTROY 里还会再清一次；先摘钩防重入
     wm_dragdnd_disable(id); // 拖放挂接要在 HWND 还活着时撤（OLE 按 hwnd 记账）
     DestroyWindow(hwnd);
+    // 「图标下」档挂着时销毁：窗没了残影才出来，所以清在这里而不是销毁之前
+    wm_desk_repaint_host(w);
   }
   // 拆掉本次会话建的所有菜单（W20a）：HMENU 归桩所有，随窗口销毁一起放
   for (int i = 1; i < WM_MAX_MENUS; i++) {

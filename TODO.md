@@ -194,15 +194,21 @@
   - 口径：move 与 origin **互逆**，都按**客户区原点**、物理像素（本臂进程已声明 Per-Monitor V2）；带边框的窗内部补偿标题栏厚度。
   - 顺带修：`hide`→`show` 每轮偏一个标题栏厚度（原桩记客户区原点、`show` 却按整窗原点写回 `SetWindowPos`）。验法：带边框窗连做三轮 hide/show，位置读数不动。
   - **实测读数**（带边框窗 380×220，客户区相对整窗偏移 (8,31)）：`move(160,160)` → `origin=(160,160)`、`winrect=(152,129)`（补偿到位）；再 `move(400,300)` → `(400,300)`（不是碰巧）；无边框窗 `move(200,200)` → `(200,200)`、`winrect == client == 380×220`；hide/show 三轮 `hidden=1 → shown=0`、`origin` 恒 `(160,160)`、`winrect` 恒 `(152,129)`，客户区与整窗**双零漂移**。MoonBit 侧 `Window::move_to`/`origin` 是直传（`gui/win/popup.mbt:19/27`），故页面按钮级读数与上表等价。
-- [ ] **「图标下」档撤档/隐藏/关闭时请 WorkerW 重画**（真机「壁纸层残影」）——**实测：本批的修法在本机完全无效，残影照旧**
+- [x] **「图标下」档撤档/隐藏/关闭时请 WorkerW 重画**（真机「壁纸层残影」）——**2026-10-28 本机修好并验通**
   - 判据：把某扇窗设到「图标下」，随后四条路径各验一次——切回主窗、撤回普通档、`hide`、`close`；壁纸上都不应留下该窗的最后一帧。
-  - 若仍有残影：记下**哪条路径**留下的、当时那扇窗是否还挂着（决定要不要把失效点从桩侧挪到宿主侧）。
-  - **本机读数（2026-10-28）**：三条路径（撤档→普通档后把窗挪走、`hide`、`close`）**全部留残影**，量化到像素：320×180 的纯红块撤掉后原地仍占 57394–57600/57600 像素、纯绿块 56399/57600，且**跨进程退出仍在**（下一轮抓屏基线整块就是那帧，等于被烙进壁纸层，持续数分钟不自愈）。
+  - **本机读数（2026-10-28，修前）**：三条路径（撤档→普通档后把窗挪走、`hide`、`close`）**全部留残影**，量化到像素：320×180 的纯红块撤掉后原地仍占 57394–57600/57600 像素、纯绿块 56399/57600，且**跨进程退出仍在**（下一轮抓屏基线整块就是那帧，等于被烙进壁纸层，持续数分钟不自愈）。
   - **与透明测试窗无关**：验残影的那几轮没有开任何透明窗/逐像素窗，残影照出——两件事互相独立。
-  - **现行修法为何无效**：`wm_desk_repaint_host` 在子窗**还挂着**时 `InvalidateRect(host) + UpdateWindow(host)`，宿主的 `WM_PAINT` 裁剪区扣掉了子窗那块，等于什么都没画；摘钩之后又没人再请求重画。但**顺序不是唯一问题**——实测把重画挪到摘钩之后、甚至用 `RedrawWindow(host, rect, RDW_INVALIDATE|RDW_ERASE|RDW_UPDATENOW)`、`RedrawWindow(host, NULL, NULL, …|RDW_ALLCHILDREN)`、`SendMessage(host, WM_PAINT)`、`WM_SETREDRAW` 关开、`Progman` 的 `WM_COMMAND 0x7402`（老「刷新桌面」口子）、宿主 `SWP_FRAMECHANGED`，**逐条实测全都不动那 5.7 万像素**：WorkerW 根本不自绘暴露区。
-  - **实测有效的只有两条**（都得让壁纸层整体重建，代价是桌面闪一下）：① `SystemParametersInfoW(SPI_SETDESKWALLPAPER, 0, 当前路径, SPIF_SENDCHANGE)`（**不带** `SPIF_UPDATEINIFILE` 就不写注册表，实测同样清干净：57600/56399 → 0/0）；② `ShowWindow(host, SW_HIDE)` → `ShowWindow(host, SW_SHOW)`（同样 57392 → 0）。
-  - **另一条设计路已堵死**：想让「图标下」档走逐像素提交（像素由 DWM 合成、不落宿主 GDI 面）——实测**逐像素子窗挂进 WorkerW 后根本不显示**（`trans_mode=1`、`embedded=1`、重提交后屏上 0/57600），故这一档只能用 GDI 画进宿主面。
-  - **待定口径**（要 老刘 拍板）：① 接受闪一下，选壁纸重设（与宿主身份无关、最稳）；② 选宿主 hide/show（更便宜，但绑宿主身份、Explorer 重建后 `desk_host` 会失效、还会连带影响别的挂在该 WorkerW 下的窗）；③ 不修，把「图标下」档的残影写成已知边界。
+  - **原修法为何无效**：`wm_desk_repaint_host` 在子窗**还挂着**时 `InvalidateRect(host) + UpdateWindow(host)`，宿主的 `WM_PAINT` 裁剪区扣掉了子窗那块，等于什么都没画；摘钩之后又没人再请求重画。但**顺序不是唯一问题**——把重画挪到摘钩之后也一样。逐条抓屏计数（残留 57600/57600 一个不少）：`RedrawWindow(host, rect, RDW_INVALIDATE|RDW_ERASE|RDW_UPDATENOW)`、`RedrawWindow(host, NULL, NULL, …|RDW_ALLCHILDREN|RDW_FRAME)`、`SendMessage(host, WM_PAINT)`、`WM_SETREDRAW` 关开、`WM_ERASEBKGND`、`WM_NCPAINT`、`Progman` 的 `WM_COMMAND 0x7402`、`Progman` 整窗重画、宿主 `SWP_FRAMECHANGED`、全系统 `WM_SETTINGCHANGE` 广播、`DwmFlush`——**全是 no-op**：WorkerW 根本不自绘暴露区。
+  - **预防路也堵死**：摘钩前先把子窗 `ShowWindow(SW_HIDE)`，等 250ms 再摘钩——`after_hide=57600`、`after_detach=57600`，隐藏子窗这一步同样不触发宿主擦除，残影照出。
+  - **逐像素路也堵死**：想让这一档走分层提交（像素由 DWM 合成、不落宿主 GDI 面）——实测**逐像素子窗挂进 WorkerW 后根本不显示**（`trans_mode=1`、`embedded=1`、重提交后屏上 0/57600）。
+  - **最终采纳**：`ShowWindow(host, SW_HIDE)` → `ShowWindow(host, SW_SHOW)`（`wm_desk_purge`）。
+    - 为什么不用另一条能清的 `SPI_SETDESKWALLPAPER`：实测 `SPI_SETDESKWALLPAPER(0, NULL, SPIF_SENDCHANGE)` 会把**纯色桌面重画成注册表里留存的壁纸图**（本机注册表 `WallPaper` 仍是 `img0.jpg`，而实际桌面是纯色；调用后宿主客户区 1920×1080 **逐像素全变**，等于是改用户的桌面外观）。传「当前路径」同理。**弃用**。
+    - 隐藏时长：实测 `0ms`（hide 立刻 show）、`30ms`、`60ms` 三种结果完全一致（残影都归零、恢复后与干净态 `whole_diff=0`），说明重建发生在隐藏那一刻，不必留可见空白期，故代码里不 `Sleep`，也不阻塞 UI。
+    - 外观不变：宿主 hide/show 前后整张宿主客户区逐像素比对 `diff=0`，宿主句柄不变，注册表不动。
+  - **改后读数（四条路径 × 门面直调）**：`wm_set_layer(id,1)` 挂进壁纸层后 `embedded_visible=57600`（确实在壁纸层上可见），随后 ① 撤档回普通 ② 撤档到置顶 ③ `wm_hide` ④ `wm_close`，四条全部 `leftover=0 CLEAN`、`final=0`；把补丁 `git stash` 掉重跑同一探针，四条**全部 `leftover=57600 RESIDUE`**——对照成立。
+  - 调用顺序（这次一并改了）：残影是「窗不可见」那一刻产生的，所以 `wm_hide` 改成先 `ShowWindow(SW_HIDE)` 再 purge；`wm_close` 改成 `DestroyWindow` 之后再 purge；`wm_leave_desktop` 改成摘钩 + 复位之后再 purge（原来三处都排在窗还可见的时候）。
+  - 已知代价：整个壁纸层（连桌面图标、以及别的挂在同一 WorkerW 下的「图标下」窗）会闪一下，约 30–80ms；Explorer 重建后 `desk_host` 失效时 `IsWindow` 检查会让它安全跳过。
+  - **已知边界（本批未处理）**：在「图标下」档**里面**调用 `move_to` / 改尺寸时不清旧位置——旧位置同样会留残影（拖动就会拖出一道）。没顺手修是因为每帧重建宿主会让拖动明显卡顿，得先定节流方案（例如拖动结束/位移停下 200ms 后再 purge 一次），否则会从「偶尔残留」变成「拖不动」。
 
 ### 8.2 待诊断（没动手，先要读数）
 
@@ -235,4 +241,4 @@
 
 8.1 两条移进 `docs/zh/roadmap.md` 对应能力行并按平台标 ✅；`测试文档/测试用例.md` 窗口组补「读窗位置」「图标下撤档无残影」两条；8.2 的诊断结论回写 `proposals/adaptation.md`。
 
-**2026-10-28 进度**：8.1 第一条与 8.2 已执行——roadmap「显隐驻留」行补了 Windows 位置口径、测试用例补「位置读数」与「图标下无残影（当前为已知缺陷）」两条、两条诊断结论已回写 adaptation。8.3（托盘僵尸图标）已定位、已修、已验通并回写 adaptation。**8.1 第二条（残影）未修**，等 8.1 里的口径决定后再动；`wm_window_set_popup` 空桩（8.4）仍不在本批。
+**2026-10-28 进度**：8.1 两条、8.2、8.3 全部收口——8.1 位置口径与「图标下」残影修复都已验通并写进 roadmap（`层级：图标下` 标 ✅）；测试用例的「位置读数」与「图标下撤档无残影」两条都从「已知缺陷」改成已验通；8.2（`UpdateLayeredWindow` 的 `psize`）与 8.3（托盘僵尸图标）的诊断结论已回写 adaptation，残影那条的最终方案与读数也补在了同一处。只剩 8.4 的 `wm_window_set_popup` 空桩仍不在本批。

@@ -41,7 +41,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - 🚧 **窗口透明**：`set_opacity` 0–255，整窗连字一起淡；无合成器时静默无效（macOS 已验；Linux / Windows 待真机）
 - 🚧 **背景穿透**：`set_transparent_bg` 打开后控件没铺到的像素留透明，桌面从洞里透出；Windows 需无边框（macOS 已验；Linux / Windows 待真机）
 - 🚧 **层级：普通档**：`WindowLayer::Normal`，与系统普通窗同档（Linux 过；Windows 待验）
-- 🚧 **层级：图标下**：`Desktop`，压在桌面图标之下（Linux 过；Windows 待验）
+- ✅ **层级：图标下**：`Desktop`，压在桌面图标之下（Linux 过；Windows 2026-10-28 验通——挂进壁纸 WorkerW，撤档/隐藏/关闭时让宿主整层重建一次以清掉 GDI 残影，代价是壁纸层闪 30–80ms）
 - 🚧 **层级：图标上**：`DesktopWidget`，桌面小部件位，本窗照收键鼠（Linux 过；Windows 待验）
 - 🚧 **层级：始终置顶**：`AlwaysOnTop`（Linux 过；Windows 待验）
 - 🚧 **层级：面板档**：不进任务栏、不进窗口循环、所有工作区显示、普通窗口上全屏窗口下（Linux 过；macOS、Windows 施工中）
