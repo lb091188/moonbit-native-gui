@@ -160,11 +160,14 @@ pub fn overlay_fit_pass(app : App) -> Unit {
       None => ()
       Some(pop) => {
         let (cw, ch) = pop.session.window.size()
-        // 量尺那一拍按「高度未定」重排：内容比当前窗高时，弹性收缩会把面板
-        // 压成视口高，照原样量出来恒等于窗高，框就永远长不开
-        // （Windows 真机 kids=[208x200]，16 项菜单应有 ~448）
+        // 量尺那一拍把「可用高度」与**根自身的固定高**一起解掉：paint_frame 每帧
+        // 把根钉成当前窗尺寸，只传 None 可用高没用——根的 fixed 高就是天花板，
+        // 弹性收缩仍把面板压成视口高，meas 恒等 cur（真机两轮复测：只解可用高
+        // 不够，kids 仍是 [208x200]）。量完立刻钉回去，paint 每帧照常重设。
+        pop.root.node.set_height(@yoga.undefined())
         @yoga.calculate_layout(pop.root.node, Some(cw.to_double()), None)
         pop.root.collect_abs(0.0, 0.0)
+        pop.root.node.set_height(@yoga.fixed(ch.to_double()))
         let (w, h) = overlay_content_size(pop)
         if g_native_probe_on.val && (passes < 3 || w != cw || h != ch) {
           let (ox, oy) = pop.session.window.origin()
