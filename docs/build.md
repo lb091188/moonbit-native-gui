@@ -15,7 +15,7 @@ Then check `moon version --all`: moon / moonc / core must come from the same ins
 
 ## 2. Install the development dependencies
 
-The library draws its own pixels over native FFI, so a build needs four things: **a C toolchain, pkg-config, Python 3, and — on Linux — the GTK3 / Pango / FontConfig / X11 development packages**. Python 3 is not optional: the link parameters are produced by `gui/scripts/prebuild.py`, which moon executes when building a native target (which interpreter actually runs it is the first row of §6).
+The library draws its own pixels over native FFI, so a build needs four things: **a C toolchain, pkg-config, Python 3 (≥ 3.7) and — on Linux — the GTK3 / Pango / FontConfig / X11 development packages**. Python 3 is not optional: the link parameters are produced by `gui/scripts/prebuild.py`, which moon executes when building a native target (which interpreter actually runs it is the first row of §6).
 
 ### Linux (Debian / Ubuntu family)
 
@@ -27,6 +27,16 @@ sudo apt install build-essential pkg-config python3 \
 Add only what you use: `libwebkit2gtk-4.1-dev` for the embedded WebView (`@web`); `libavformat-dev libavcodec-dev libswscale-dev libswresample-dev libavutil-dev` for the media modules (`NoahLiu/gui-media` / `ffmpeg-mbt`).
 
 ⚠️ **The `python` command itself must be Python 3.** On deepin 20, CentOS 7 and similar machines `/usr/bin/python` is still 2.7, moon picks it first, and the Chinese comments at the top of the script trip `SyntaxError: Non-ASCII character ... pep-0263` — every native build fails before it starts. Both fixes are in the first row of §6.
+
+### Older distributions (deepin 20 / Debian 10 / CentOS 7 and the like)
+
+Two things differ on these machines: **`python` points at 2.7**, and **the Python 3 available is only 3.7**.
+
+- **Fix the interpreter first**: follow the first row of §6 so `python` resolves to 3, or use `MOON_PYTHON_OVERRIDE=python3` for a one-off.
+- **Python 3.7 is enough**: all five prebuild scripts are written to the **3.7 baseline** — f-strings, `subprocess.run(capture_output=)` and `Path` are the extent of it; anything newer (the `missing_ok=` argument of `Path.unlink`, `dirs_exist_ok=` of `shutil.copytree`, the walrus operator) is spelled out in an equivalent form. A `TypeError: ... unexpected keyword argument` from prebuild on a sub-3.8 interpreter means that baseline leaked — see §6.
+- **Development packages**: the apt list above uses the same package names on a Debian 10 base (GTK 3.24 / Pango 1.42 are both in the archive).
+- **Two capabilities degrade**: the embedded WebView probes for `webkit2gtk-4.1`, while Debian 10 only ships 4.0 — when it is not found, `@web` falls back to a placeholder and the capability reports `Unsupported`, leaving everything else alone. The system FFmpeg dev packages on old distributions carry an older ABI and are **not tested yet**.
+- The toolchain itself (moon / moonc) runs on these machines: on deepin 20 a build gets as far as executing prebuild, where the interpreter choice above is what stops it.
 
 ### macOS
 
@@ -53,7 +63,7 @@ moon **locates MSVC out of the box** on Windows: plain PowerShell / Git Bash can
 
 ```sh
 moon version --all                 # the three pieces come from one install
-python -V && python3 -V            # both must be 3.x — the first one especially
+python -V && python3 -V            # both must be 3.x (≥ 3.7) — the first one especially
 pkg-config --modversion gtk+-3.0   # Linux: a version number = dev packages present
 cc --version                       # Linux / macOS: a C toolchain is reachable
 ```
@@ -102,6 +112,7 @@ So "let me just see it" still means building one example per §4 — `examples/h
 |---|---|---|
 | `SyntaxError: Non-ASCII character '\xe7' ... but no encoding declared; see pep-0263` followed by `Failed to run prebuild script` | moon **ignores the shebang** for `.py` prebuild scripts and takes the first usable interpreter in PATH in the order `python` → `python3`, which lands on Python 2 | One-off: `MOON_PYTHON_OVERRIDE=python3 moon build`. Permanent: `ln -s "$(command -v python3)" ~/.local/bin/python`, make sure that directory is first in PATH, then **open a new terminal** (Debian-family only prepends `~/.local/bin` at login, and only if it already exists) |
 | `Running prebuild script for module ... needs \`python\` or \`python3\` executable in PATH` | no Python 3 on the machine | install python3 per §2 |
+| prebuild raises `TypeError: ... got an unexpected keyword argument 'missing_ok'` (or any other 3.8+-only argument/syntax) | the interpreter is Python 3.7 while the script reached for a newer stdlib surface — the repository baseline is that **scripts must run on 3.7** | update to current master (the four `unlink(missing_ok=True)` calls now use the equivalent form); if it still reproduces, open an issue with the full traceback |
 | prebuild prints "缺少 gtk+-3.0 开发包"-style warnings on stderr and keeps going, then linking fails with `undefined reference to gtk_*` / `pango_*` | development packages incomplete: when a probe fails, prebuild only warns and **emits no link entry**, so the error surfaces one step later | install the apt list from §2, re-run `moon build`; add `moon clean` if it still links the old result |
 | `Package 'webkit2gtk-4.1' not found`, and only `@web` is unusable | not a defect, by design: without webkit, `@web` degrades to a placeholder and the capability reports `Unsupported` rather than breaking the whole link | install `libwebkit2gtk-4.1-dev` if you need the embedded browser |
 | `moon.mod.json ... is no longer supported` | a third-party package in the dependency cache still ships the old manifest (the registry side cannot be rewritten) | run `moon fmt` over each `.mooncakes/**/moon.{mod,pkg}.json` until resolution converges (what CI does) |

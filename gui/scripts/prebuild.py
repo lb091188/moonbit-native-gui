@@ -93,7 +93,8 @@ def compile_stub(
         objs.append(obj.as_posix())
     # 先删旧归档再建：`ar rcs` 对同名成员是替换，但对改了名的成员是**追加**，
     # 源文件改名/拆分后会留下重名符号（multiple definition）。
-    lib.unlink(missing_ok=True)
+    if lib.exists():
+        lib.unlink()
     cmd = ["ar", "rcs", lib.as_posix(), *objs]
     run = subprocess.run(cmd, capture_output=True, text=True)
     if run.returncode != 0:
@@ -144,7 +145,8 @@ def compile_mac_stub(src: Path, lib_name: str, extra_cflags: list[str]) -> str:
     if run.returncode != 0:
         print(f"stub: {' '.join(cmd)} 失败\n{run.stderr}", file=sys.stderr)
         return ""
-    lib.unlink(missing_ok=True)
+    if lib.exists():
+        lib.unlink()
     run = subprocess.run(
         ["ar", "rcs", lib.as_posix(), obj.as_posix()], capture_output=True, text=True
     )

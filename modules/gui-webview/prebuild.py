@@ -244,7 +244,8 @@ def compile_webkit_stub(win_archive: Path) -> str:
         print(f"stub: {' '.join(cmd)} 失败\n{run.stderr}", file=sys.stderr)
         return ""
     # 先删旧归档再建：`ar rcs` 对改了名的成员是追加，会留重复符号
-    lib.unlink(missing_ok=True)
+    if lib.exists():
+        lib.unlink()
     run = subprocess.run(["ar", "rcs", lib.as_posix(), obj.as_posix()],
                          capture_output=True, text=True)
     if run.returncode != 0:
@@ -314,7 +315,8 @@ def compile_mac_webkit_stub() -> str:
     if run.returncode != 0:
         print(f"stub: {' '.join(cmd)} 失败\n{run.stderr}", file=sys.stderr)
         return ""
-    lib.unlink(missing_ok=True)
+    if lib.exists():
+        lib.unlink()
     run = subprocess.run(["ar", "rcs", lib.as_posix(), obj.as_posix()],
                          capture_output=True, text=True)
     if run.returncode != 0:

@@ -15,7 +15,7 @@ irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
 
 ## 2. 装开发依赖
 
-本库自绘、走原生 FFI，构建期要四样：**C 工具链、pkg-config、Python 3、Linux 上的 GTK3 / Pango / FontConfig / X11 开发包**。Python 3 不是可选依赖——链接参数由 `gui/scripts/prebuild.py` 产出，moon 构建 native 目标时执行它（谁去执行它见 §6 第一条）。
+本库自绘、走原生 FFI，构建期要四样：**C 工具链、pkg-config、Python 3（≥3.7）、Linux 上的 GTK3 / Pango / FontConfig / X11 开发包**。Python 3 不是可选依赖——链接参数由 `gui/scripts/prebuild.py` 产出，moon 构建 native 目标时执行它（谁去执行它见 §6 第一条）。
 
 ### Linux（Debian / Ubuntu 系）
 
@@ -27,6 +27,16 @@ sudo apt install build-essential pkg-config python3 \
 只有用到对应能力时才需要再装：内嵌 WebView（`@web`）加 `libwebkit2gtk-4.1-dev`；媒体模块（`NoahLiu/gui-media` / `ffmpeg-mbt`）加 `libavformat-dev libavcodec-dev libswscale-dev libswresample-dev libavutil-dev`。
 
 ⚠️ **`python` 这个命令本身必须是 Python 3**。deepin 20、CentOS 7 一类机器上 `/usr/bin/python` 还是 2.7，moon 会优先拿它跑 prebuild，脚本开头的中文注释直接触发 `SyntaxError: Non-ASCII character ... pep-0263`，整次 native 构建起手就红。两条修法见 §6 第一行。
+
+### 低版本发行版（deepin 20 / Debian 10 / CentOS 7 一类）
+
+这类机器的差别集中在两处：**`python` 指向 2.7**，以及 **Python 3 本身只有 3.7**。
+
+- **先解决解释器**：按 §6 第一行把 `python` 换成 3，或临时 `MOON_PYTHON_OVERRIDE=python3`。
+- **Python 3.7 够用**：五个 prebuild 脚本按 **3.7 口径**写——只用 f-string、`subprocess.run(capture_output=)`、`Path` 这些 3.7 就有的面，不用 3.8+ 才有的参数与语法（`Path.unlink(missing_ok=)`、`shutil.copytree(dirs_exist_ok=)`、海象等一律写成等价形态）。3.8 以下的机器上 prebuild 报 `TypeError: ... unexpected keyword argument` 就是这条口径破了，见 §6。
+- **开发包**：Debian 10 基线的 apt 包名与上面那份清单同名可装（GTK 3.24 / Pango 1.42 都在库里）。
+- **两处能力会降级**：内嵌 WebView 探的是 `webkit2gtk-4.1`，Debian 10 只有 4.0——探不到时 `@web` 退成占位实现、能力报 `Unsupported`，其余部分不受影响；媒体模块要的系统 ffmpeg 开发包在老发行版上版本偏旧，**尚未实测**。
+- 工具链本身（moon / moonc）在这类机器上跑得起来：deepin 20 实测能一路走到执行 prebuild，卡住的点是上面那条解释器选择。
 
 ### macOS
 
@@ -53,7 +63,7 @@ moon 在 Windows 上定位 MSVC **开箱即用**，普通 PowerShell / Git Bash 
 
 ```sh
 moon version --all                 # 三件套配套
-python -V && python3 -V            # 两条都必须是 3.x，第一条尤其
+python -V && python3 -V            # 两条都必须是 3.x（≥3.7），第一条尤其
 pkg-config --modversion gtk+-3.0   # Linux：打出版本号 = 开发包齐
 cc --version                       # Linux / macOS：C 工具链在位
 ```
@@ -102,6 +112,7 @@ moon build examples/hello --target native --release --strip
 |---|---|---|
 | `SyntaxError: Non-ASCII character '\xe7' ... but no encoding declared; see pep-0263` 紧跟 `Failed to run prebuild script` | moon 执行 `.py` prebuild 时**不看 shebang**，按 PATH 里 `python` → `python3` 取第一个能用的解释器，于是拿到 Python 2 | 一次性：`MOON_PYTHON_OVERRIDE=python3 moon build`；长期：`ln -s "$(command -v python3)" ~/.local/bin/python` 并确保该目录在 PATH 最前，然后**重开终端**（Debian 系只在登录时把 `~/.local/bin` 前置进 PATH，目录当时不存在就不进） |
 | `Running prebuild script for module ... needs \`python\` or \`python3\` executable in PATH` | 机器上没有 Python 3 | 按 §2 装 python3 |
+| prebuild 抛 `TypeError: ... got an unexpected keyword argument 'missing_ok'`（或同类 3.8+ 才有的参数/语法） | 解释器是 Python 3.7 而脚本用到了更新版本的 stdlib 面——仓库口径是**脚本必须跑在 3.7 上** | 更新到当前 master（四处 `unlink(missing_ok=True)` 已改等价写法）；仍复现就把整行 traceback 提到 issue |
 | prebuild 在 stderr 打「缺少 gtk+-3.0 开发包」一类提示后继续走，最后链接期爆 `undefined reference to gtk_*` / `pango_*` | 开发包没装全。prebuild 探不到包时只警告、**不下发链接条目**，错误推迟到链接期才露头 | 补 §2 的 apt 清单，重跑 `moon build`；仍链旧结果就 `moon clean` 一次 |
 | `Package 'webkit2gtk-4.1' not found`，且只有 `@web` 用不了 | 不是故障，是设计：探不到 webkit 时 `@web` 退成占位实现、能力报 `Unsupported`，不让整包链接失败 | 要内嵌浏览器就装 `libwebkit2gtk-4.1-dev` |
 | `moon.mod.json ... is no longer supported` | 依赖缓存里第三方包带的还是旧清单（注册表侧改不动） | 对 `.mooncakes/**/moon.{mod,pkg}.json` 逐个 `moon fmt`，循环到解图收敛（CI 同口径） |
