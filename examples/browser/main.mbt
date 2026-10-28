@@ -231,7 +231,7 @@ fn main {
           ),
           @ui.button("进入", variant=@ui.Solid, on_click=load_current),
           @ui.dropdown(
-            "演示 ▾",
+            "演示",
             [
               "example.com（需外网）",
               "本地协议页 yuedemo://",
