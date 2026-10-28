@@ -3398,3 +3398,12 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **C 侧三个坑**：① `wbemidl.h` 的 `CLSID_WbemLocator`/`IID_IWbemLocator` 是 `extern` 常量，C 模式用不了 `__uuidof`，必须链 **wbemuuid.lib**（同 `IFileDialog` 那批的坑）；`SysAllocString`/`VariantClear` 在 **oleaut32.lib**——于是 `gui/scripts/prebuild.py` 的 sys 包链接串多了这两个库。② `ConnectServer` 之后要 `CoSetProxyBlanket(…RPC_C_AUTHN_WINNT…RPC_C_IMP_LEVEL_IMPERSONATE…)`，不设的话 `ExecQuery` 在部分机器上回 `E_ACCESSDENIED`。③ 每条查询自建连接、自释放，**不缓存 `IWbemServices`**：`si_machine` 可能从任意线程进，COM 代理跨套间复用不安全；这条路径只在注册表为空时才走到，慢一点无妨。
 
 **教训**：① 「读不到」先分清是**没实现**还是**环境不给**——显示器是前者（Windows 臂从来没接），机器是后者（固件不交表），两者的修法完全不同；② 「注册表里有这个键」不等于「键里有值」——`Test-Path` 为真、`ValueCount=0` 这种情况必须量到值层面；③ 平台的固件表接口（`GetSystemFirmwareTable`）在虚拟机上可能是 `ERROR_INVALID_FUNCTION`，而 WMI 仍读得到——把 WMI 当**兜底**而不是主路径，真机上就不必为它付 COM 的那份开销。
+
+## RTL 行不贴右缘：Pango 把 LEFT/RIGHT 对齐档按段落自检方向解释（2026-10-28，用户 Linux 真机截图「字体排版」页）
+
+**症状**：演示板「基础组件 → 字体排版 → 各语言的行首方向」：四行以阿拉伯/波斯/希伯来/乌尔都字母起头的串（`align=End` + `direction=Rtl`）全部贴**左**缘，而同一批里以拉丁字母起头的「RTL 行里的 1234 / ABC…」同款配置正确贴右缘。截图逐行量墨迹：四行 left=197..198（贴左），末行 left=1013 / right=1262（贴右）。
+**定位与本机复现**：五行走的是同一条路径（`ui.text` 缺省 `wrap=true` → Linux 侧「设 Pango 宽度 + `pango_layout_set_alignment`」档），配置逐位相同、唯一差异是内容。纯 C 探针（本机 Pango 1.52.1，渲染进位图再扫墨迹，与库同口径）直接复现：同一段含 RTL 字符的内容，`PANGO_ALIGN_RIGHT` 渲染后墨迹落在左缘（1..206）、`PANGO_ALIGN_LEFT` 反而落在右缘（793..998）；纯 LTR 内容各档全部正常。
+**根因**：Pango 新版布局把 `PANGO_ALIGN_LEFT/RIGHT` 当**相对段落方向**的 start/end 解释，而段落方向缺省 `auto_dir=TRUE` 按「首强字符」逐段自检——首字是 RTL 字符的段被整段判成 RTL 基方向，对齐档跟着翻转；末行首字是拉丁字母，判 LTR，所以是对的。mac 臂自算 dx 偏移、Windows 臂 DWrite `TRAILING`（基方向 LTR）都是**绝对**左右档，只有 Linux 踩这一档，所以只有 Linux 错。
+**修复**：`gui/text/stub.c` 的 `pt_make_layout` 加一行 `pango_layout_set_auto_dir(layout, FALSE)`——段落方向钉死在 `pango_context_set_base_dir` 设的全局档上（缺省 LTR，与文本层契约「默认 Ltr 即现状」一致；应用调 `set_base_dir(Rtl)` 后整窗按 RTL）。这同时修掉一个暗差异：此前 auto_dir 让 Linux 逐段自检基方向，Win/mac 固定 LTR，同一段混排串在 Linux 的段内排序本就与另两平台不同；钉住后三平台同口径。纯文本与富文本（`rt_build`）全走 `pt_make_layout`，一处覆盖。
+**验证**：新增 wbtest「RTL 起头的串盒内对齐仍是绝对左右缘」——修前红（End 档墨迹贴左）、修后绿，回证测试确实守着这个回归；本机探针 pin 后四组读数：无论内容 LTR/RTL、上下文基方向 LTR/RTL，`ALIGN_LEFT` 一律落左缘、`ALIGN_RIGHT` 一律落右缘。库门禁 1177 条，除两条既有红（`text/spacing_wbtest` 字距、`win/maximize_wbtest` 最大化，前批已记录与本批无关）全绿；`moon check --deny-warn` 零输出、`moon build examples/showcase` 通过。
+**教训**：①「对齐参数」在各排版引擎并不天然同义——Pango 的 LEFT/RIGHT 是相对段落方向的，拿到手先量落位再当绝对值用；② 排版引擎的「自动」行为（auto_dir 首强字符自检）会连坐看似无关的属性（对齐），不想让它自作主张就显式钉死；③ 跨平台库的平台缺陷，先看「另两个平台为什么对」再动刀——mac 自算 dx、Win 绝对 TRAILING 反证了 Linux 该给绝对档。
