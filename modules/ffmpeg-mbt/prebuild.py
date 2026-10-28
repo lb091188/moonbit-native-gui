@@ -95,7 +95,7 @@ MAC_DYLIBS = ["avformat", "avcodec", "swscale", "swresample", "avutil"]
 MAC_VENDOR_TARBALLS: dict[str, tuple[str, str]] = {
     "arm64": (
         "ffmpeg-macos-arm64-9.0.2-lgpl-shared.tar.gz",
-        "809a07df51184884a9e326936ef580b35294057f0ddcae0d7ecae6edaebb923d",
+        "9fdff76c33ebc3a60757c725d2d4affd280bfbc46f5b8d3d86f3dd6728a14572",
     ),
 }
 

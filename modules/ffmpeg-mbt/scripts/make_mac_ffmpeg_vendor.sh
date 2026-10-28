@@ -96,8 +96,13 @@ COPYING.GPLv3）。动态链接你的程序不必开源；修改本库则须依 
 EOF
 cp COPYING.LGPLv2.1 COPYING.GPLv3 "$STAGE/" 2>/dev/null || true
 
-tar -C "$WORK" -czf "$DIST/$NAME.tar.gz" "$NAME"
-shasum -a 256 "$DIST/$NAME.tar.gz" | tee "$DIST/$NAME.tar.gz.sha256"
+# COPYFILE_DISABLE=1：macOS 自带 bsdtar 默认把 xattr 打成 ._* AppleDouble
+# 兄弟文件混进归档，解包侧会多出一树垃圾（判据不受影响但脏）。
+COPYFILE_DISABLE=1 tar -C "$WORK" -czf "$DIST/$NAME.tar.gz" "$NAME"
+# 校验行只写 <hash>  <文件名>（相对名、LF 行尾）：对绝对路径算 shasum 会把
+# CI 机器的 /Users/runner/... 写进第二列，别的机器 shasum -c 必然找不到文件。
+# 与 win-ffmpeg-vendor.yml 的 WriteAllText 口径一致。
+(cd "$DIST" && shasum -a 256 "$NAME.tar.gz") | tee "$DIST/$NAME.tar.gz.sha256"
 
 echo "==> 完成：$DIST/$NAME.tar.gz"
 echo "    上传（征得维护者确认后）："
