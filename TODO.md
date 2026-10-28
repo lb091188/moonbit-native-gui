@@ -149,6 +149,7 @@
 - **过渡期已收口（2026-10-15）**：`examples/*`、`examples`、`modules/gui-media` 全量编译通过、各模块 `--deny-warn` 零警告；分支仍不宜积压——一批完成即提交推送。
 - 回归基线：旧栈约 660 条测试随绑定文件消失，属净覆盖损失；补法是新栈每包自建 wbtest 并随资产平移测试。
 - [ ] **prebuild 入口不假设外部解释器**：五个模块声明的 `.py` 全是 Py3-only，而 moon 按 PATH 里 `python` → `python3` 取第一个（不看 shebang），`python` 仍是 2.7 的发行版（deepin 20 / CentOS 7）整条 native 链起手红。修法：声明入口换成 Py2 可解析的 ASCII 引导壳，真身改名（moon 按扩展名选解释器，`.py3` 不会被直接执行），壳找一个版本 ≥3 的解释器 `os.execv` 过去。机理、用户侧临时口径与验证指纹见 [proposals/adaptation.md](proposals/adaptation.md)「构建与链接」；对外口径已写进 `docs/zh/build.md` §6。
+- [ ] **媒体模块在 Linux 上的 prebuild 硬失败会挡住不相干的示例**（2026-10-28 deepin 20 实测）：moon 对 workspace 模块图里每个带 prebuild 的模块逐个跑脚本、任一非零退出即整体失败，于是 `examples/hello` 会因为系统缺 `libav*-dev` 而起手红——Windows / macOS 分支已降级为空链接条目，Linux 独硬。待定口径：Linux 也降级（错误推迟到链接期、消息要指回 apt 清单），还是留硬失败但给 `NATIVE_GUI_*` 跳过开关；对外处置已写进 `docs/zh/build.md` §6。
 
 ## 5. 随手可查
 
