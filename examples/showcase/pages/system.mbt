@@ -26,6 +26,68 @@ fn dialog_parent(a : @widget.App) -> Int64 {
 }
 
 ///|
+/// 去掉最后一段目录（Windows 的 `\` 与 POSIX 的 `/` 都认），已到根就给空串。
+fn demo_parent_dir(p : String) -> String {
+  let mut end = p.length()
+  while end > 0 {
+    let c = p.unsafe_get(end - 1).to_int()
+    if c == 47 || c == 92 {
+      end = end - 1
+    } else {
+      break
+    }
+  }
+  let mut i = end
+  while i > 0 {
+    let c = p.unsafe_get(i - 1).to_int()
+    if c == 47 || c == 92 {
+      break
+    }
+    i = i - 1
+  }
+  if i <= 1 {
+    ""
+  } else {
+    p[0:i - 1].to_owned()
+  }
+}
+
+///|
+/// 「外部打开」演示用的文档：从工作目录逐级上溯找 `TODO.md`，找到就给绝对路径。
+///
+/// 为什么不写死相对路径：`open_file` 按**工作目录**归一，而演示板可能从仓库根
+/// （在仓库根 `moon run .`）、包目录（`cd examples/showcase && moon run .`）、
+/// `_build/native/debug/build/…/` （直接双击 exe）启动，写死的 `"TODO.md"` 只
+/// 在其中一种下成立，其余必然 `NotFound`——看着就像「文档路径过期了」。上溯
+/// 8 级够覆盖 `_build` 那种深落点；都找不到才退回 `"TODO.md"`，让失败保持真实。
+fn demo_doc_path() -> String {
+  let mut dir = @sys.current_dir()
+  if dir == "" {
+    return "TODO.md"
+  }
+  // 分隔符跟着工作目录走：`C:\…` 用反斜杠，POSIX 用斜杠（混着给 Win32 也认，
+  // 但回显出来难看，且 `explorer /select` 只认反斜杠）
+  let sep = if dir.length() > 1 && dir.unsafe_get(1).to_int() == 58 {
+    "\\"
+  } else {
+    "/"
+  }
+  let mut i = 0
+  while i < 8 {
+    let p = dir + sep + "TODO.md"
+    if @sys.sys_path_exists(p) {
+      return p
+    }
+    dir = demo_parent_dir(dir)
+    if dir == "" {
+      break
+    }
+    i = i + 1
+  }
+  "TODO.md"
+}
+
+///|
 /// 「用指定程序打开」的演示对象：Windows 记事本、Linux gedit、macOS 给
 /// TextEdit 的可执行路径（这一档按 argv 直传，`open -a 应用名` 那种形态随
 /// mac 平台批再接）。挑不到的平台给空串，按钮直接演示 SpawnFailed。
@@ -97,6 +159,8 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
   let ticks : @base.Store[Int] = @base.Store::new(0)
   let auto_state : @base.Store[String] = @base.Store::new(@shared.tx("（未读）"))
   let ext_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没打开过外部）"))
+  // 「外部打开」三个按钮共用的文档路径：建页时解析一次（见 demo_doc_path）
+  let ext_doc : String = demo_doc_path()
   let si_out : @base.Store[String] = @base.Store::new(@shared.tx("（点「刷新」读一次）"))
   let vol_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没读过音量）"))
   // 平台专属能力：一个回显行管全部，剪贴板监视另带自己的行与句柄
@@ -483,7 +547,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
     @shared.section(
       "外部",
       "打开外部",
-      "把 URL 交给默认浏览器、把文件交给默认程序或指定程序、把路径交给文件管理器。文件走 `@sys.open_file` / `@sys.open_file_with`（相对路径按工作目录归一，路径不存在先给 `NotFound`，不把「打不开」说成「已交给系统」）；定位走 `@shell.reveal_in_file_manager`：Linux 先试会话总线的 `FileManager1.ShowItems`（打开并**选中**），不在线才退回 `xdg-open` 打开父目录（选中态丢失），Windows 直调 `explorer /select`（分隔符统一成反斜杠才会选中）。Ok 只表示已交给系统，之后归操作系统。",
+      "把 URL 交给默认浏览器、把文件交给默认程序或指定程序、把路径交给文件管理器。文件走 `@sys.open_file` / `@sys.open_file_with`（相对路径按工作目录归一，路径不存在先给 `NotFound`，不把「打不开」说成「已交给系统」）；定位走 `@shell.reveal_in_file_manager`：Linux 先试会话总线的 `FileManager1.ShowItems`（打开并**选中**），不在线才退回 `xdg-open` 打开父目录（选中态丢失），Windows 直调 `explorer /select`（分隔符统一成反斜杠才会选中）。Ok 只表示已交给系统，之后归操作系统。演示用的文档从工作目录逐级上溯解析（本机解析到：`\{ext_doc}`）——写死相对路径的话，从 `_build` 里直接起 exe 就会 `NotFound`。",
       [
         @ui.row(
           [
@@ -494,20 +558,20 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
               }
             }),
             @ui.button(@shared.tx("在文件管理器显示 TODO.md"), variant=@ui.Soft, on_click=fn() {
-              match @shell.reveal_in_file_manager("TODO.md") {
+              match @shell.reveal_in_file_manager(ext_doc) {
                 Ok(_) => ext_out.set(@shared.tx("已交给文件管理器"))
                 Err(e) => ext_out.set(@shared.tr_with("dyn.reveal_failed", [("e", "\{e}")], "显示失败：\{e}"))
               }
             }),
             @ui.button(@shared.tx("用默认程序打开 TODO.md"), variant=@ui.Soft, on_click=fn() {
-              match @sys.open_file("TODO.md") {
+              match @sys.open_file(ext_doc) {
                 Ok(_) => ext_out.set(@shared.tx("已交给默认程序"))
                 Err(e) => ext_out.set(@shared.tr_with("dyn.default_open_failed", [("e", "\{e}")], "默认程序打开失败：\{e}"))
               }
             }),
             @ui.button(@shared.tx("用指定程序打开 TODO.md"), variant=@ui.Soft, on_click=fn() {
               let app = open_probe_app()
-              match @sys.open_file_with(app, "TODO.md") {
+              match @sys.open_file_with(app, ext_doc) {
                 Ok(_) => ext_out.set(@shared.tr_with("dyn.opened_with", [("a", app)], "已交给 \{app}"))
                 Err(e) => ext_out.set(@shared.tr_with("dyn.chosen_open_failed", [("a", app), ("e", "\{e}")], "指定程序（\{app}）打开失败：\{e}"))
               }
@@ -528,12 +592,14 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
         "  Ok(_) => println(\"已交给默认浏览器\")",
         "  Err(e) => println(\"失败: \\{e}\")",
         "}",
+        "// 相对路径按工作目录归一；换目录跑就 NotFound，所以先上溯解析成绝对路径",
+        "let doc = demo_doc_path()",
         "// 打开并选中：Linux 走 FileManager1.ShowItems，退回 xdg-open 父目录\n",
-        "match @shell.reveal_in_file_manager(\"TODO.md\") { ... }",
-        "// 用默认程序打开（相对路径按工作目录归一，路径不存在先给 NotFound）",
-        "match @sys.open_file(\"TODO.md\") { ... }",
+        "match @shell.reveal_in_file_manager(doc) { ... }",
+        "// 用默认程序打开",
+        "match @sys.open_file(doc) { ... }",
         "// 用指定程序打开：app 可以是 PATH 里的命令名或完整可执行路径",
-        "match @sys.open_file_with(\"notepad.exe\", \"TODO.md\") { ... }",
+        "match @sys.open_file_with(\"notepad.exe\", doc) { ... }",
       ],
     ),
     @shared.section(
