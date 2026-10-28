@@ -77,7 +77,7 @@ MoonBit 生态的 GUI 能力各有分工：[MoUI](https://github.com/wzzc-dev/Mo
 
 ## 快速开始
 
-前置是 MoonBit 原生工具链。刚接触 MoonBit？[在线文档](https://moonbit-native-gui.pages.dev/) 覆盖工具链与第一个窗口。
+前置是 MoonBit 原生工具链，外加构建期的四样：C 工具链、Python 3、pkg-config，Linux 上再要 GTK3 一族开发包。三平台的安装清单、环境自检与「起手就红」的处置都在 **[docs/zh/build.md](docs/zh/build.md)「构建与运行」**——刚接触 MoonBit 的话，[在线文档](https://moonbit-native-gui.pages.dev/) 的五分钟上手教程覆盖工具链与第一个窗口。
 
 在自己的工程里引入：
 
@@ -101,6 +101,8 @@ moon run .
 | `examples/audio` · `video` | 音视频播放器|
 | `examples/headless-audio` | 无窗口、纯代码驱动播放 |
 
+`moon run` 起手就报错——多半是构建依赖没装齐（Linux 的 GTK3 开发包、或 `python` 还指向 2.7）——对照 [docs/zh/build.md](docs/zh/build.md) §2 与 §6 处置。
+
 ## 平台支持
 
 | 平台 | 状态 | 说明 |
@@ -119,7 +121,7 @@ moon run .
 - **小批次**：一个提交一个内聚改动，提交信息简短
 - **进度与计划**：功能面全景与后续待做见[路线图](https://moonbit-native-gui.pages.dev/zh/roadmap)
 
-[docs/zh/build.md](docs/zh/build.md)：构建、链接、新增示例模块。
+[docs/zh/build.md](docs/zh/build.md)：从零装环境、构建与产物落点、预构建二进制、常见失败处置，以及链接参数托管与新增示例模块的机制。
 
 ## 许可
 

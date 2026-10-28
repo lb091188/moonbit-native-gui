@@ -6,6 +6,12 @@ hero:
   tagline: 一套 MoonBit 代码直出 Windows 🟩 / Linux 🟩 / macOS 🟩 原生窗口，系统能力开箱即用，moon add 之后零配置；三平台同一份真机清单同步维护。
   actions:
     - theme: brand
+      text: 五分钟上手
+      link: /zh/tutorial
+    - theme: alt
+      text: 构建与环境
+      link: /zh/build
+    - theme: alt
       text: 包结构
       link: /zh/README
     - theme: alt
@@ -51,3 +57,5 @@ fn main {
 ```
 
 `@ui.*` 来自 `NoahLiu/native-gui/ui`——完整包表见[文档索引](/zh/README)。
+
+`moon add` 之前先把环境装好：本库走原生 FFI，需要 C 工具链、Python 3 与（Linux）GTK3 一族开发包。三平台的清单、自检命令与「起手就红」的处置都在[构建与运行](/zh/build)。

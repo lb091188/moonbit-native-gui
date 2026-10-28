@@ -41,6 +41,8 @@ Examples, from shallow to deep — every directory under `examples/` is a standa
 cd examples/hello && moon run .
 ```
 
+Before running it, install the development dependencies per §2 of [build.md](build.md) — missing GTK3 dev packages, or a `python` that still points at 2.7, make a native build fail before it starts (fixes in §6 of the same page).
+
 - `examples/hello` — minimal window
 - `examples/showcase` — full demo board
 - `examples/browser` — embedded WebView browser
@@ -65,7 +67,7 @@ cd examples/hello && moon run .
 | [components.md](components.md) | Component quick-reference (`@ui`): constructor signatures and purposes for every widget, grouped by family |
 | [declarative.md](declarative.md) | Declarative layer and reactivity: the node tree and `mount_window`, `Store` / `Signal`, `for_list` / `when`, in-place replacement |
 | [layout.md](layout.md) | Layout: the Flexbox semantics of yoga-mbt, the `Style` field set of `@style`, and the `class` channel |
-| [build.md](build.md) | Build and linking: how prebuild hosts link flags, and how to spot and fix a C stub edited without relinking |
+| [build.md](build.md) | Build and run: installing the dependencies from scratch (per-platform lists + a self-check), build commands and artefact paths, the state of prebuilt binaries, failure → fix; on the mechanism side, how prebuild hosts link flags and how to spot a C stub edited without relinking |
 | [zh/roadmap.md](zh/roadmap.md) | Public roadmap: positioning, what you can use today, platform and feature matrix, commitments and versioning, next steps, open decisions, explicit non-goals (Chinese only) |
 | [autostart.md](autostart.md) | Autostart: XDG `.desktop` on Linux, HKCU Run key on Windows, one `is_enabled` / `enable` / `disable` API |
 | [system-capabilities.md](system-capabilities.md) | System capabilities overview (`@sys`): volume, app lookup, color temperature, wallpaper, monitors, window management, clipboard watch, system info, printers, recent files, browser history and more, with unified `Result` semantics; plus the shared subprocess and D-Bus call layers |

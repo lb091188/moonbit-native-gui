@@ -6,6 +6,12 @@ hero:
   tagline: One MoonBit codebase ships native Windows 🟩 / Linux 🟩 / macOS 🟩 windows, with desktop capabilities ready to use and zero config after moon add — all three on the same real-device checklist.
   actions:
     - theme: brand
+      text: Get started in 5 minutes
+      link: /tutorial
+    - theme: alt
+      text: Build & environment
+      link: /build
+    - theme: alt
       text: Package structure
       link: /README
     - theme: alt
@@ -51,3 +57,5 @@ fn main {
 ```
 
 `@ui.*` comes from `NoahLiu/native-gui/ui` — the full package table is in the [documentation index](/README).
+
+Before `moon add`, get the environment in place: the library uses native FFI, so it needs a C toolchain, Python 3 and (on Linux) the GTK3 family of development packages. The per-platform lists, the self-check commands and what to do when a build fails immediately are all in [Build & run](/build).

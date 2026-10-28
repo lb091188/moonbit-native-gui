@@ -77,7 +77,7 @@ Heavier capabilities live in **separate modules** and are optional:
 
 ## Quick start
 
-The prerequisite is the MoonBit native toolchain. New to MoonBit? The [documentation site](https://moonbit-native-gui.pages.dev/) covers the toolchain and your first window.
+The prerequisites are the MoonBit native toolchain plus four build-time pieces: a C toolchain, Python 3, pkg-config, and — on Linux — the GTK3 family of development packages. The per-platform install lists, the self-check commands and the "build fails immediately" fixes are all in **[docs/build.md](docs/build.md) ("Build & run")**. New to MoonBit? The [documentation site](https://moonbit-native-gui.pages.dev/) covers the toolchain and your first window.
 
 In your own project:
 
@@ -102,6 +102,8 @@ moon run .
 | `examples/audio` · `video` | Audio/video players (extra dependency `gui-media`, needs ffmpeg — see [build.md](docs/build.md)) |
 | `examples/headless-audio` | No window; playback driven purely from code |
 
+If `moon run` fails before it ever opens a window, it is almost always a missing build dependency (the GTK3 dev packages on Linux, or `python` still pointing at 2.7) — see §2 and §6 of [docs/build.md](docs/build.md).
+
 ## Platform support
 
 | Platform | Status | Notes |
@@ -120,7 +122,7 @@ Platform compatibility reports, widgets and documentation are all welcome. The b
 - **Small batches**: one coherent change per commit, short commit messages
 - **Roadmap**: what is done and what comes next is on the [roadmap](https://moonbit-native-gui.pages.dev/zh/roadmap) (Chinese)
 
-[docs/zh/build.md](docs/zh/build.md) (Chinese): building, linking, adding an example module.
+[docs/build.md](docs/build.md): environment from scratch, build commands and artefact paths, prebuilt binaries, failure → fix, plus the linking mechanism and how to add an example module.
 
 ## License
 

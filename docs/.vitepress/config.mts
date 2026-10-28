@@ -95,7 +95,7 @@ export default defineConfig({
               { text: 'Declarative & reactivity', link: '/declarative' },
               { text: 'Layout & styling', link: '/layout' },
               { text: 'System capabilities', link: '/system-capabilities' },
-              { text: 'Build & linking', link: '/build' },
+              { text: 'Build & run', link: '/build' },
             ],
           },
           {
@@ -128,7 +128,7 @@ export default defineConfig({
               { text: '声明式与响应式', link: '/zh/declarative' },
               { text: '布局样式', link: '/zh/layout' },
               { text: '系统能力总览', link: '/zh/system-capabilities' },
-              { text: '构建与链接', link: '/zh/build' },
+              { text: '构建与运行', link: '/zh/build' },
             ],
           },
           {

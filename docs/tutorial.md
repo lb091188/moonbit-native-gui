@@ -25,6 +25,21 @@ sudo apt install build-essential pkg-config python3 \
 
 Install more only when you use the matching feature: embedded WebView (`@web`) needs `libwebkit2gtk-4.1-dev`; the media module (`NoahLiu/gui-media`) needs `libavformat-dev libavcodec-dev libswscale-dev libswresample-dev libavutil-dev`. If the runtime reports missing GTK libraries, the apt list above is most likely incomplete.
 
+⚠️ Then run `python -V` as well: on deepin 20, CentOS 7 and similar machines `python` is still 2.7, and moon prefers it when running prebuild — the build then fails immediately with a `pep-0263` SyntaxError. Fixes are in §6 of [build.md](build.md).
+
+</details>
+
+<details>
+<summary>macOS (Apple Silicon) environment setup</summary>
+
+Xcode's command line tools are all you need:
+
+```sh
+xcode-select --install
+```
+
+Windows, text and image decoding go through the system frameworks (Cocoa / CoreText / ImageIO): prebuild compiles the Objective-C stubs itself and emits the `-framework` flags, so **neither GTK nor brew is required**. Only the media module (`NoahLiu/gui-media`) needs ffmpeg — `brew install ffmpeg`, or let prebuild fetch our own arm64 archive from Releases.
+
 </details>
 
 <details>

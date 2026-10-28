@@ -25,6 +25,21 @@ sudo apt install build-essential pkg-config python3 \
 
 只有用到对应能力时才需要再装：内嵌 WebView（`@web`）加 `libwebkit2gtk-4.1-dev`；媒体模块（`NoahLiu/gui-media`）加 `libavformat-dev libavcodec-dev libswscale-dev libswresample-dev libavutil-dev`。运行时若报 GTK 库缺失，多半是上面这份 apt 清单没装全。
 
+⚠️ 装完再敲一句 `python -V`：deepin 20、CentOS 7 这类机器上 `python` 仍是 2.7，而 moon 跑 prebuild 时优先用它，构建会在起手就报 `pep-0263` 的 SyntaxError——修法见 [build.md](build.md) §6。
+
+</details>
+
+<details>
+<summary>macOS（Apple Silicon）环境准备</summary>
+
+只需要 Xcode 命令行工具：
+
+```sh
+xcode-select --install
+```
+
+窗口、文本、图片解码都走系统框架（Cocoa / CoreText / ImageIO），由 prebuild 直接编 Objective-C 桩并下发 `-framework` 参数——**不需要 GTK，也不需要 brew**。只有媒体模块（`NoahLiu/gui-media`）另需 ffmpeg：`brew install ffmpeg`，或让 prebuild 从 Release 拉我们自编的 arm64 归档。
+
 </details>
 
 <details>
