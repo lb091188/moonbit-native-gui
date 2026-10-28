@@ -2,6 +2,8 @@
 // 地址栏/进入/演示菜单）+ webview 主体 + 底部状态栏（常驻加载状态与 URL、事件流水、
 // 结果区：长结果截断、可展开看全文、可复制）。能力演示入口全部收进「演示」
 // 菜单（下拉组件，键盘可及：空格/回车/↓ 开、↑/↓ 移高亮、Esc 收起）。
+// 多窗口径：整窗结构收在 `open_browser` 一条函数里，首窗走 mount_window、
+// 新窗策略放行档经 `App::open_window` 另起一扇独立的浏览器窗（各带 webview）。
 //
 // 要点（四条口径）：
 // ① scheme 名要在建第一扇 webview **之前**经 `webview_predeclare_schemes`
@@ -80,13 +82,22 @@ priv enum LoadKind {
 
 ///|
 fn main {
+  open_browser("浏览器示例", HOME_URL, None)
+}
+
+///|
+/// 建一扇浏览器窗：自己的工具栏/地址栏/webview/状态栏/权限对话框/策略位。
+/// 首窗（owner=None）经 mount_window 建宿主并驱动整组窗口的循环；新窗
+/// （新窗策略放行档）经 `App::open_window` 挂进同一循环，退出裁决仍归
+/// 主窗/最后一扇。
+fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
   let toast = @ui.toast_layer(duration_ms=2200)
   // 状态区四条线：加载标签（编码「kind|文本」，bind_node 重建换语义色）、
   // 常驻 URL 与标题、事件流水、能力结果（截断 + 可展开）
-  let url_in : @base.Store[String] = @base.Store::new(HOME_URL)
+  let url_in : @base.Store[String] = @base.Store::new(home)
   let status : @base.Store[String] = @base.Store::new("0|就绪")
   let loading : @base.Store[Bool] = @base.Store::new(false)
-  let cur_url : @base.Store[String] = @base.Store::new(HOME_URL)
+  let cur_url : @base.Store[String] = @base.Store::new(home)
   let title_st : @base.Store[String] = @base.Store::new("（无标题）")
   let ev_count : @base.Store[Int] = @base.Store::new(0)
   let ev_line : @base.Store[String] = @base.Store::new("（事件流水显示在此）")
@@ -523,12 +534,7 @@ fn main {
     ],
     grow=1.0,
   )
-  let mounted = @ui.mount_window(
-    [body],
-    title="浏览器示例",
-    width=1120,
-    height=780,
-    handle=fn(a : @widget.App) {
+  let setup = fn(a : @widget.App) -> Unit {
       // webview 建在首帧之后（宿主循环已跑、窗口已上屏，与 showcase 旧页
       // 「选中页才建」的时机同口径）
       let _ = a.timer(0, fn() -> Unit {
@@ -563,10 +569,15 @@ fn main {
                   show_result("加载失败（结构化原因）\n\{reason}\n\n原始载荷：\n\{raw}")
                 }
                 @web.NewWindow(u) => {
-                  ev(if pol_newwin.val { "新窗请求已放行（当前页导航）" } else { "新窗请求被策略拦下" })
-                  show_result(
-                    "新窗请求（\{if pol_newwin.val { "放行：已在当前页导航" } else { "拦下" }}）：\n\{u}\n\n当前策略：\n\{policy_text()}"
-                  )
+                  if pol_newwin.val {
+                    // 放行档=真实浏览器语义：另起一扇带完整工具栏的独立窗并导航过去
+                    ev("新窗请求已放行：另起一扇浏览器窗 \{clip(u, 60)}")
+                    show_result("新窗请求（放行）：已另起一扇独立浏览器窗\n\{u}\n\n当前策略：\n\{policy_text()}")
+                    open_browser("新窗 · \{clip(u, 24)}", u, Some(a))
+                  } else {
+                    ev("新窗请求被策略拦下")
+                    show_result("新窗请求（拦下）：\n\{u}\n\n当前策略：\n\{policy_text()}")
+                  }
                 }
                 @web.Permission(c) => {
                   perm_text.set(c)
@@ -611,7 +622,7 @@ fn main {
             let _ = a.timer(80, tick.val)
             // 首页：本地协议页（无需外网）；协议就绪失败则停在 about:blank
             if prepare_scheme(v) {
-              v.load_url(HOME_URL)
+              v.load_url(home)
               set_status(Loading, "加载中")
             } else {
               set_status(Ready, "协议注册失败，请在演示菜单重试或输入 URL")
@@ -644,16 +655,28 @@ fn main {
           }
         }
       })
-    },
-  )
-  match mounted {
+  }
+  match owner {
     None => {
-      println("BROWSER-SKIP: 本平台没有窗口后端或没有显示服务")
-      return
+      // 首窗：mount_window 建宿主；host.run() 驱动整组窗口（多窗共用泵）
+      let mounted = @ui.mount_window([body], title=title, width=1120, height=780, handle=setup)
+      match mounted {
+        None => println("BROWSER-SKIP: 本平台没有窗口后端或没有显示服务")
+        Some(host) => {
+          println("BROWSER-READY")
+          host.run()
+        }
+      }
     }
     Some(host) => {
-      println("BROWSER-READY")
-      host.run()
+      // 新窗：挂进既有循环；建不起来如实报，不静默
+      match host.open_window(1120, 780, title) {
+        None => println("BROWSER-NEWWIN-FAIL: 新窗建不起来（窗口上限/平台拒绝）")
+        Some(a2) => {
+          a2.mount([body])
+          setup(a2)
+        }
+      }
     }
   }
 }
