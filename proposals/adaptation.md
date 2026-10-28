@@ -1033,6 +1033,13 @@
 - **本批只给通道 + 一份自绘弹层示例**：`core/overlay.mbt` 那六件（tooltip/下拉/右键菜单/对话框/轻提示/悬浮卡）目前仍走自绘图层，把它们接成「有 webview 时用原生档」是下一步（判据：所在窗存在已挂载的 pane 时才切原生窗口，否则保持图层——没有网页时没必要多开一扇窗）。
 - **验证**：`moon test -p NoahLiu/native-gui/core` **71/71**（新增 1 条摆位回归，含七种边界）；`moon check win`/`core`/三个示例 `--deny-warn` 零警告；ui 110/110、web 11/11、media 18/18 未掉；全仓红点仍 287 errors / 68 warnings。真窗口回证见上（弹层 240x150 落在 (422,334)、IsViewable、选项即自关、主窗不受影响）。**待使用者目视**：弹层的无边框观感与 keep-above 在多显示器/切窗后的表现。
 
+### MoonBit 原生 GUI 栈 · 原生档弹层的「点外收起」武装与 Win32 弹层落地（2026-10-28 真机反馈）
+
+- **Win32 的 `wm_window_set_popup` 原本是空桩**：弹层于是按 `WS_OVERLAPPEDWINDOW` 的普通窗（标题栏 + 初始 320x200 白底）上屏，Windows 真机看到的就是「一片白板」。落地后三件事：`GWL_STYLE=WS_POPUP` 去框、`WS_EX_TOOLWINDOW` 不进任务栏/Alt+Tab、`GWLP_HWNDPARENT=owner` 让 owned 窗恒压 owner 之上并随其移动。无边框后客户区==整窗，`wm_client_offset` 自然为 0，move 与 origin 互逆不用另补。
+- **macOS 无边框窗默认拒绝成为 key**：`canBecomeKeyWindow` 对 borderless 返回 NO，`wm_show` 的 `makeKeyAndOrderFront` 与 `request_focus` 全部空转——弹层既收不到键盘（Esc/↑↓ 失效），也等不到 `resignKey`，「失焦即收起」这条通道整个不存在（真机反馈「菜单点开就关不掉」的 mac 侧根因）。修法：`WMPopupWindow : NSWindow` 只覆写 `canBecomeKeyWindow` 返回 YES、**不加 ivar**，set_popup 里对既有窗 `object_setClass` 换 isa（只换弹层，普通窗不受影响）。
+- **「拿到过焦点才算」判据补上，失焦收起默认开**：三平台窗状态各加 `focus_gained` 位（Win `WM_SETFOCUS` / GTK `focus-in-event` / mac `windowDidBecomeKey:`），经 `wm_window_had_focus` 查询；`overlay_on_lost_focus` 要求该弹层窗**当过 key** 才收——批 E 记过的「映射期 focus-out 噪声两秒自关」被这条判据直接挡掉，`g_dismiss_on_blur` 从默认关翻成默认开（开关保留）。
+- **验证**：`cd gui && moon check` 零错误零警告、`moon test widget win ui` 370/370、mac 桩重编（`win_stub_mac.o`）通过。真机清单（用户执行）：浏览器示例「演示」菜单——点浮层外收起、Esc/↑↓ 键盘、Windows 侧弹层应无边框贴按钮且不再白板。
+
 ### MoonBit 原生 GUI 栈 · 媒体播放器（批 D：新包 `yue/media`，CPU 回灌 + 软解）
 
 - **引擎是平移不是重写**：`modules/gui-media` 的 `audio_player.mbt`(416 行) 与 `video_player.mbt`(476 行) 实测**零 @yue 依赖**（只有组件包装层碰 UI），于是引擎与 15 条既有回归整段搬进新包 `yue/media`，只改测试素材路径与一个公开口。旧链踩过的坑（音画不同轴、seek 后进度从零重涨、换载崩溃、播完态与初始态要区分）就随那批测试一起进了新栈——**这批的价值一半在「把老师写对的东西接住」**。

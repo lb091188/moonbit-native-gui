@@ -188,6 +188,9 @@ extern "c" fn wm_window_set_popup(
 ) -> Unit = "wm_window_set_popup"
 
 ///|
+extern "c" fn wm_window_had_focus(id : Int64) -> Int = "wm_window_had_focus"
+
+///|
 extern "c" fn wm_window_move(id : Int64, x : Int, y : Int) -> Unit =
   "wm_window_move"
 

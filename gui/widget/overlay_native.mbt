@@ -8,7 +8,9 @@
 //    才知道，所以开一个临时框、挂内容、首帧后按实测矩形 `set_size_pixels` 收到
 //    贴合大小（最多三次，避免布局回环）；
 // ③ **点外收起靠失焦**：点在网页区时按钮事件被 webview 子窗吃掉，只有焦点转移
-//    会告诉我们「用户点了别处」，所以弹层窗收到 `LostFocus` 就收起自己；
+//    会告诉我们「用户点了别处」，所以弹层窗收到 `LostFocus` 就收起自己。武装
+//    判据是「拿到过焦点才算」（`Window::had_focus`）：映射期的焦点来回只发送焦，
+//    没当过 key 的窗失焦不算用户点击（真机实测：不设判据时弹层约两秒自关）。
 // ④ **Esc 收起**：挂在弹层自己窗的按键兜底通道上（焦点在内容里时先过焦点链，
 //    Esc 一般没人吃），收到按下态 Esc 就收起本层——收起经 0ms 延时挪出按键
 //    派发现场再关窗，不在派发中途拆自己的窗。
@@ -147,11 +149,10 @@ pub fn overlay_fit_pass(app : App) -> Unit {
 }
 
 ///|
-/// 「失焦即收起」的开关，**默认关**。真窗口实测：弹层开出来约两秒就自己没了，
-/// 而内容里的「收起」从没被点过（`hides=0`）——映射期的焦点来回会立刻送一次
-/// focus-out。在没有「拿到过焦点才算」的判据之前，宁可让浮层常驻、由内容自己收，
-/// 也不要「开一下就自己消失」这种更坏的现象。
-let g_dismiss_on_blur : Ref[Bool] = Ref(false)
+/// 「失焦即收起」的开关，**默认开**。判据是下面 `overlay_on_lost_focus` 里的
+/// 「拿到过焦点才算」：真窗口早期实测的「弹层开出来约两秒自关」是映射期 focus-out
+/// 误触发，没拿到过焦点的失焦现在被这条判据挡掉（对照实验见 adaptation.md）。
+let g_dismiss_on_blur : Ref[Bool] = Ref(true)
 
 ///|
 pub fn overlay_set_dismiss_on_blur(on : Bool) -> Unit {
@@ -168,6 +169,10 @@ pub fn overlay_dismiss_on_blur() -> Bool {
 /// 靠命中，原生档只能靠这条）。开关见上。
 pub fn overlay_on_lost_focus(app : App) -> Unit {
   if !g_dismiss_on_blur.val {
+    return
+  }
+  // 武装判据：这扇弹层窗从没拿到过键盘焦点的失焦 = 映射期噪声，不收
+  if !app.session.window.had_focus() {
     return
   }
   let mut top = 0

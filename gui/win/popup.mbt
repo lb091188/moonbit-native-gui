@@ -20,6 +20,13 @@ pub fn Window::move_to(self : Window, x : Int, y : Int) -> Unit {
 }
 
 ///|
+/// 这扇窗拿到过键盘焦点没有：原生浮层「失焦即收起」的武装判据——映射期的
+/// 焦点来回只发送焦，没当过 key 的窗失焦不算「用户点了别处」。
+pub fn Window::had_focus(self : Window) -> Bool {
+  wm_window_had_focus(self.id) != 0
+}
+
+///|
 /// 客户区在屏幕上的原点（拿不到时给 (0,0)，调用方按它摆位不会崩，只会贴边）。
 pub fn Window::origin(self : Window) -> (Int, Int) {
   let ox = Ref(0)

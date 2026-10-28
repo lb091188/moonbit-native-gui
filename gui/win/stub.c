@@ -134,6 +134,9 @@ typedef struct {
   int hidden_ev;
   int shown_ev;
   int focus_lost; // 刚失去键盘焦点（WM_KILLFOCUS；浮层「点外收起」与输入法交接用）
+  // 拿到过键盘焦点（WM_SETFOCUS）：浮层「失焦即收起」的武装判据——映射期的
+  // 焦点来回只发 focus-out，没拿到过焦点的失焦不算「用户点了别处」。
+  int focus_gained;
   // 透明（W33）：trans_want 是上层意图，trans_mode 是当前实际档位。
   //   0 = 普通档：GDI 贴图 + SetLayeredWindowAttributes(LWA_ALPHA) 做整窗 alpha
   //   1 = 逐像素档：GDI 贴图不参与合成，改由 UpdateLayeredWindow(ULW_ALPHA) 提交
@@ -544,6 +547,14 @@ static LRESULT CALLBACK wm_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       // CreateWindowW 期间就会来 WM_SIZE：槽号经 CREATESTRUCT 先行落位
       CREATESTRUCTW *cs = (CREATESTRUCTW *)lp;
       SetWindowLongPtrW(hwnd, GWLP_USERDATA, (LONG_PTR)(intptr_t)cs->lpCreateParams);
+      return 0;
+    }
+    case WM_SETFOCUS: {
+      // 拿到键盘焦点：给浮层「失焦即收起」武装（见 WmWindow.focus_gained）
+      WmWindow *w = wm_of(hwnd);
+      if (w != NULL) {
+        w->focus_gained = 1;
+      }
       return 0;
     }
     case WM_KILLFOCUS: {
@@ -4325,7 +4336,36 @@ void *wm_surface_container(int64_t surface_id) {
   }
   return (void *)wm_surfaces[surface_id].hwnd;
 }
-void wm_window_set_popup(int64_t id, int64_t owner_id) { (void)id; (void)owner_id; }
+
+// 原生弹层窗（Win32 真实现）：无边框 + 不进任务栏/Alt+Tab + transient 到 owner
+// （owned 窗恒压在 owner 之上、随其移动、owner 关闭时一并收）。此前这里是空桩，
+// 弹层于是带着标题栏按初始 320x200 的普通窗上屏，就是一块白板（Windows 真机反馈）。
+void wm_window_set_popup(int64_t id, int64_t owner_id) {
+  if (id <= 0 || id >= WM_MAX_WINDOWS) {
+    return;
+  }
+  WmWindow *w = &wm_windows[id];
+  if (w->hwnd == NULL) {
+    return;
+  }
+  SetWindowLongPtrW(w->hwnd, GWL_STYLE, (LONG_PTR)WS_POPUP);
+  SetWindowLongPtrW(w->hwnd, GWL_EXSTYLE,
+                    (LONG_PTR)(GetWindowLongW(w->hwnd, GWL_EXSTYLE) |
+                               WS_EX_TOOLWINDOW));
+  if (owner_id > 0 && owner_id < WM_MAX_WINDOWS &&
+      wm_windows[owner_id].hwnd != NULL) {
+    SetWindowLongPtrW(w->hwnd, GWLP_HWNDPARENT,
+                      (LONG_PTR)wm_windows[owner_id].hwnd);
+  }
+}
+
+// 这扇窗拿到过键盘焦点没有：浮层「失焦即收起」的武装判据（见 WmWindow.focus_gained）
+int wm_window_had_focus(int64_t id) {
+  if (id <= 0 || id >= WM_MAX_WINDOWS) {
+    return 0;
+  }
+  return wm_windows[id].focus_gained;
+}
 
 /* 客户区原点相对整窗原点的偏移（标题栏与边框都算在整窗矩形里）。带边框的窗
  * 摆位要按它补偿，move 与 origin 才互逆；无边框窗与 WS_CHILD 无框，偏移天然
@@ -4752,6 +4792,8 @@ typedef struct {
   int resized;     // 尺寸变了，本次取事件时回报新宽高
   int closing;     // 窗口管理器请求关闭
   int focus_lost;  // 刚失去键盘焦点（原生浮层据此「点外收起」）
+  // 拿到过键盘焦点（focus-in）：浮层「失焦即收起」的武装判据，与 Win/mac 分支同口径
+  int focus_gained;
   // 显隐事件（W23b）：hide/show 真实转换各置一位，wm_event 弹出一次。
   // 隐藏不产生平台失焦事件，宿主靠 Hidden 清在途输入法组合串。
   int hidden_ev;
@@ -4941,6 +4983,8 @@ static gboolean wm_on_area_focus_in(GtkWidget *area, GdkEventFocus *ev,
   if (w->im != NULL && w->im_active) {
     gtk_im_context_focus_in(w->im);
   }
+  // 给浮层「失焦即收起」武装（见 WmWindow.focus_gained）
+  w->focus_gained = 1;
   return FALSE;
 }
 
@@ -5685,6 +5729,14 @@ void wm_window_set_popup(int64_t id, int64_t owner_id) {
     gtk_window_set_transient_for(GTK_WINDOW(w->window),
                                  GTK_WINDOW(wm_windows[owner_id].window));
   }
+}
+
+// 这扇窗拿到过键盘焦点没有：浮层「失焦即收起」的武装判据（见 WmWindow.focus_gained）
+int wm_window_had_focus(int64_t id) {
+  if (id <= 0 || id >= WM_MAX_WINDOWS) {
+    return 0;
+  }
+  return wm_windows[id].focus_gained;
 }
 
 void wm_window_move(int64_t id, int x, int y) {
@@ -7956,6 +8008,7 @@ void wm_inst_release(void) {}
 #include <time.h>
 
 #import <Cocoa/Cocoa.h>
+#import <objc/runtime.h> // object_setClass：弹层窗换可成为 key 的子类
 #import <UserNotifications/UserNotifications.h>
 #import <CoreGraphics/CoreGraphics.h>
 #import <CoreText/CoreText.h>
@@ -8015,6 +8068,9 @@ typedef struct {
   int resized;
   int closing;
   int focus_lost;
+  // 拿到过键盘焦点（windowDidBecomeKey）：浮层「失焦即收起」的武装判据，
+  // 与 Win/GTK 分支同口径。
+  int focus_gained;
   // 显隐事件（W23b）：hide/show 真实转换各置一位，wm_event 弹出一次。
   // 隐藏不产生平台失焦事件，宿主靠 Hidden 清在途输入法组合串。
   int hidden_ev;
@@ -8286,6 +8342,13 @@ static uint32_t wm_keysym_of(NSEvent *ev) {
   (void)sender;
   self->closing = 1; // 不在这里销毁：拆对象由 MoonBit 侧看到事件 3 后调 wm_close
   return NO;
+}
+
+- (void)windowDidBecomeKey:(NSNotification *)note {
+  (void)note;
+  // 给浮层「失焦即收起」武装（见 WMState.focus_gained）：映射期的焦点来回只会
+  // 送 resignKey，没当过 key 的窗失焦不算「用户点了别处」。
+  self->focus_gained = 1;
 }
 
 - (void)windowDidResignKey:(NSNotification *)note {
@@ -9646,7 +9709,19 @@ int wm_window_is_maximized(int64_t id) {
   }
 }
 
-// 浮层窗：无边框 + 不抢主窗焦点 + 挂在 owner 之上随其移动。
+// 浮层窗：无边框 + 挂在 owner 之上随其移动 + 自己拿键盘焦点（见下方子类注释）。
+// 无边框 NSWindow 默认拒绝成为 key（canBecomeKeyWindow 对 borderless 返回 NO），
+// 弹层于是既收不到键盘、也等不到「resignKey = 用户点了别处」——「点外收起」与
+// Esc/↑↓ 整族失效。子类只翻 canBecomeKeyWindow、不加 ivar，所以对既有窗
+// object_setClass 换 isa 是安全的（只给弹层换，普通窗不受影响）。
+@interface WMPopupWindow : NSWindow
+@end
+@implementation WMPopupWindow
+- (BOOL)canBecomeKeyWindow {
+  return YES;
+}
+@end
+
 void wm_window_set_popup(int64_t id, int64_t owner_id) {
   @autoreleasepool {
     WMState *s = wm_state(id);
@@ -9654,6 +9729,9 @@ void wm_window_set_popup(int64_t id, int64_t owner_id) {
       return;
     }
     [s.win setStyleMask:NSWindowStyleMaskBorderless];
+    if (![s.win isKindOfClass:[WMPopupWindow class]]) {
+      object_setClass(s.win, [WMPopupWindow class]);
+    }
     [s.win setLevel:NSFloatingWindowLevel];
     [s.win setHasShadow:NO];
     [s.win setHidesOnDeactivate:NO];
@@ -9665,6 +9743,14 @@ void wm_window_set_popup(int64_t id, int64_t owner_id) {
     if (owner != nil && owner.win != nil && owner != s) {
       [owner.win addChildWindow:s.win ordered:NSWindowAbove];
     }
+  }
+}
+
+// 这扇窗拿到过键盘焦点没有：浮层「失焦即收起」的武装判据（见 WMState.focus_gained）
+int wm_window_had_focus(int64_t id) {
+  @autoreleasepool {
+    WMState *s = wm_state(id);
+    return (s != nil && s->focus_gained) ? 1 : 0;
   }
 }
 
@@ -12592,6 +12678,7 @@ void wm_surface_set_rect(int64_t surface_id, int x, int y, int w, int h) {
 }
 void wm_surface_close(int64_t surface_id) { (void)surface_id; }
 void wm_window_set_popup(int64_t id, int64_t owner_id) { (void)id; (void)owner_id; }
+int wm_window_had_focus(int64_t id) { (void)id; return 0; }
 void wm_window_move(int64_t id, int x, int y) { (void)id; (void)x; (void)y; }
 void wm_window_origin(int64_t id, int32_t *out_x, int32_t *out_y) {
   (void)id; (void)out_x; (void)out_y;
