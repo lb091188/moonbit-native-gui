@@ -807,6 +807,36 @@ pub fn draw_text_at(
 }
 
 ///|
+/// 带描边的单行文本：先按 8 方向位移画描边色，再画正色。位移描边不走
+/// 字形轮廓，三平台同源；给视频字幕这类叠在动态画面上的文本用。
+pub fn draw_text_outlined(
+  p : @render.Painter,
+  x : Double,
+  y : Double,
+  text : String,
+  size : Double,
+  color : String,
+  outline_color? : String = "#000000",
+  family? : String = "",
+) -> Bool {
+  let offsets : Array[(Double, Double)] = [
+    (-1.0, 0.0), (1.0, 0.0), (0.0, -1.0), (0.0, 1.0),
+    (-0.7, -0.7), (0.7, -0.7), (-0.7, 0.7), (0.7, 0.7),
+  ]
+  for off in offsets {
+    let _ = draw_at(
+      p,
+      x + off.0,
+      y + off.1,
+      text,
+      Font::new(family, size),
+      outline_color,
+    )
+  }
+  draw_at(p, x, y, text, Font::new(family, size), color)
+}
+
+///|
 /// 文本渲染统计（性能诊断）：DWrite 路径 ptw_render 的 [调用数, 准备微秒,
 /// D2D 提交微秒, 读回混合微秒]；非 Windows 后端恒 0。
 pub fn render_stats() -> (Int64, Int64, Int64, Int64) {

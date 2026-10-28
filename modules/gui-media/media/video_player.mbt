@@ -268,14 +268,18 @@ pub fn video(
     }
     if sub.length() > 0 {
       p.flush()
-      let _ = @text.draw_text_at(
-        p,
-        8.0,
-        r.h - 26.0,
-        sub.replace(old="\n", new=" "),
-        15.0,
-        "#ffffff",
-      )
+      // 字幕白字黑描边水平居中：描边让白字叠在任何画面上都读得清
+      let txt = sub.replace(old="\n", new=" ")
+      let x = match @text.measure(txt, 15.0) {
+        Some(m) =>
+          if m.width.to_double() < r.w - 16.0 {
+            (r.w - m.width.to_double()) / 2.0
+          } else {
+            8.0
+          }
+        None => 8.0
+      }
+      let _ = @text.draw_text_outlined(p, x, r.h - 26.0, txt, 15.0, "#ffffff")
     }
   })
   screen.on_pointer = Some(fn(

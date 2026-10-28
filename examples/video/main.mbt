@@ -1,11 +1,11 @@
 // 视频播放示例：gui-media 的 video 全包组件（引擎/控制条/字幕叠加）。
 // 布局同音频示例：页头是标题/说明/状态行，下方左侧播放列表（含字幕入口）、
 // 右侧视频面板，两块同 bg_panel 底与描边。载入路径三条——默认资产
-// （examples/assets/1.mp4，从当前目录逐级向上找）、文件对话框
+// （examples/assets/1.mp4，从当前目录逐级向上找），文件对话框
 // 选视频、目录对话框选文件夹后扫描成播放列表。字幕双来源：不给外挂文本时
-// 组件自动读**容器内嵌轨**；「选外挂 .srt」读文本后经 subtitle 参数传入
-// （外部文件读取归调用方）。换曲走 holder clear_children + 重挂 video；
-// 打开失败经 on_error 落错误横幅，引擎不在位时组件画说明板（不静默）。
+// 组件自动读**容器内嵌轨**；视频旁有同名 .srt 则自动配对读入，「选外挂
+// .srt」再手动换（外部文件读取归调用方）。换片走 holder clear_children +
+// 重挂 video；打开失败经 on_error 落错误横幅，引擎不在位时组件画说明板（不静默）。
 
 ///|
 /// 视频扩展名（目录扫描与文件对话框过滤共用）。
@@ -119,8 +119,10 @@ fn main {
   let tick_line : @base.Store[String] = @base.Store::new("")
   let sub_line : @base.Store[String] = @base.Store::new("字幕：未打开（打开时回报来源与条数）")
   let err_line : @base.Store[String] = @base.Store::new("")
-  // 外挂字幕文本（空串 = 用容器内嵌轨；读取归本示例，组件只收文本）
+  // 外挂字幕文本（空串 = 优先同名 .srt 配对，再退容器内嵌轨；读取归本示例，
+  // 组件只收文本）；sub_off 是「用内嵌轨」的显式关闸，关掉后不再自动配对
   let sub_text : Ref[String] = Ref("")
+  let sub_off : Ref[Bool] = Ref(false)
   let list_holder : Ref[@widget.Widget?] = Ref(None)
   let player_holder : Ref[@widget.Widget?] = Ref(None)
   let host : Ref[@widget.App?] = Ref(None)
@@ -144,10 +146,35 @@ fn main {
     }
     names
   }
+  /// 同名 .srt 配对：把视频扩展名换成 .srt，存在就读文本传进组件
+  /// （外部文件的读取归调用方，组件不碰磁盘路径）。
+  fn sidecar_subtitle(path : String) -> String {
+    let mut dot = -1
+    let mut slash = -1
+    for i = 0; i < path.length(); i = i + 1 {
+      if path[i] == '.' {
+        dot = i
+      } else if path[i] == '/' {
+        slash = i
+      }
+    }
+    let base = if dot > slash { path[0:dot].to_owned() } else { path }
+    let cand = base + ".srt"
+    if !@sys.sys_path_exists(cand) {
+      return ""
+    }
+    match @sys.sys_read_text_file(cand) {
+      Some(t) => t
+      None => ""
+    }
+  }
   /// 把播放器挂进视频区（换载语义：清掉旧的再挂新的）。
   fn mount_player(path : String, display : String) -> Unit {
     err_line.set("")
     track_line.set("正在播放：\{display}")
+    if !sub_off.val && sub_text.val.length() == 0 {
+      sub_text.val = sidecar_subtitle(path)
+    }
     match player_holder.val {
       Some(h) => {
         h.clear_children()
@@ -315,7 +342,8 @@ fn main {
           match @sys.sys_read_text_file(p) {
             Some(t) => {
               sub_text.val = t
-              toast("已读外挂字幕：\{base_name(p)}（换曲也沿用）", @ui.Success)
+              sub_off.val = false
+              toast("已读外挂字幕：\{base_name(p)}（换片也沿用）", @ui.Success)
               // 重挂当前片让 subtitle 参数立即生效
               let names = display_names()
               let idx = arr_str_idx(names, selected.get())
@@ -333,6 +361,7 @@ fn main {
   }
   fn clear_subtitle() -> Unit {
     sub_text.val = ""
+    sub_off.val = true
     sub_line.set("字幕：回到容器内嵌轨（外挂文本已清除）")
     let names = display_names()
     let idx = arr_str_idx(names, selected.get())
