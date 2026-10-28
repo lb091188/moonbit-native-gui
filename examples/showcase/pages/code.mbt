@@ -69,7 +69,7 @@ fn md_demo_escape(s : String) -> String {
 }
 
 ///|
-/// 复制串：由演示源文逐行派生的 markdown_view 调用源码。
+/// 复制串：由演示源文逐行派生的 markdown_view 调用源码（含 on_link 接线）。
 fn demo_md_code(_width : Double) -> Array[String] {
   let lines = demo_md_lines()
   let code : Array[String] = ["@mdview.markdown_view("]
@@ -78,6 +78,10 @@ fn demo_md_code(_width : Double) -> Array[String] {
     let tail = if i < n - 1 { " +" } else { "," }
     code.push("  \"\{md_demo_escape(line)}\\n\"\{tail}")
   }
+  code.push("  on_link=fn(u) { match @sys.open_url(u) {")
+  code.push("    Ok(_) => println(\"已交给默认程序\")")
+  code.push("    Err(e) => println(\"打开失败: \\{e}\")")
+  code.push("  } },")
   code.push(")")
   code
 }
@@ -86,6 +90,9 @@ fn demo_md_code(_width : Double) -> Array[String] {
 pub fn page_code(_app : @shared.App) -> @widget.Node {
   let md_w = 480.0
   let demo = demo_md_lines().join("\n")
+  let link_out : @base.Store[String] = @base.Store::new(
+    @shared.tx("（还没点过链接）"),
+  )
   @shared.page([
     @shared.section(
       "代码高亮",
@@ -147,9 +154,29 @@ pub fn page_code(_app : @shared.App) -> @widget.Node {
     @shared.section(
       "Markdown",
       "Markdown 渲染",
-      "mdast 解析 + 富文本行自绘：标题/段落/粗斜体/删除线/行内代码/链接（悬浮手型）/自动链接/引用式链接/嵌套列表/任务列表（真复选框）/引用/分隔线/围栏代码块/表格（列对齐）/脚注（正文上标 + 文末定义）；emoji 区间按 UTF-16 计量不错位，演示文本与复制串同源。",
+      "mdast 解析 + 富文本行自绘：标题/段落/粗斜体/删除线/行内代码/链接（悬浮手型，点击经 on_link 回调，示例接 `@sys.open_url` 交默认程序）/自动链接/引用式链接/嵌套列表/任务列表（真复选框）/引用/分隔线/围栏代码块/表格（列对齐）/脚注（正文上标 + 文末定义）；emoji 区间按 UTF-16 计量不错位，演示文本与复制串同源。",
       [
-        @mdview.markdown_view(demo)
+        @mdview.markdown_view(demo, on_link=fn(u : String) -> Unit {
+          match @sys.open_url(u) {
+            Ok(_) =>
+              link_out.set(
+                @shared.tr_with(
+                  "dyn.md_link_opened",
+                  [("u", u)],
+                  "已交给默认程序：\{u}",
+                ),
+              )
+            Err(e) =>
+              link_out.set(
+                @shared.tr_with(
+                  "dyn.md_link_failed",
+                  [("u", u), ("e", "\{e}")],
+                  "打开失败：\{e}（\{u}）",
+                ),
+              )
+          }
+        }),
+        @ui.bind_label(link_out, fn(s) { s }),
       ],
       code=demo_md_code(md_w),
     ),
