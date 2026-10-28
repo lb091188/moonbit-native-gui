@@ -51,7 +51,8 @@ typedef struct {
   int64_t surface_id;
   char *data_dir;
   int new_window_in_place;  // 0 丢弃（默认）/ 1 在当前 pane 里导航过去
-  int permission_allow;     // 0 默认拒绝 / 1 自动允许
+  int permission_allow;     // 0 挂起待决（对话框档）/ 1 自动允许
+  WebKitPermissionRequest *pending_perm; // 扣住的待决权限请求（respond 落判后 unref）
   int download_allow;       // 0 拦下 / 1 交给引擎默认（默认允许）
   int crashed;
   int64_t eval_seq;
@@ -216,9 +217,9 @@ static gboolean wb_on_decide_policy(WebKitWebView *w,
   return FALSE;  // 其余（导航/响应）交回默认处理
 }
 
-// 权限默认拒绝：把请求报给上层（它可以在提示里给「允许」再改模式）。
-// 返回 TRUE = 我们自己处理完了（引擎默认是放行，所以拒绝就是返回 TRUE）；
-// 放行则显式 allow 之后同样返回 TRUE，两条路都不走默认处理器。
+// 权限：自动放行档立即 allow；拒绝档**扣住待决**——上层弹「同意/不同意」后经
+// wb_respond_permission 延后落判（请求没人决定就一直活着，ref 住即可，这是
+// WebKitGTK 示例的常规做法）。两条路都报 kind=9，返回 TRUE 不走引擎默认处理器。
 static gboolean wb_on_permission(WebKitWebView *w, WebKitPermissionRequest *pr,
                                  gpointer data) {
   (void)w;
@@ -226,6 +227,13 @@ static gboolean wb_on_permission(WebKitWebView *w, WebKitPermissionRequest *pr,
   wb_push(v, 9, 0, G_OBJECT_TYPE_NAME(pr));
   if (v->permission_allow) {
     webkit_permission_request_allow(pr);
+  } else {
+    // 新的来了旧的还没落判：旧的一律按拒绝收口，不留无主扣件
+    if (v->pending_perm != NULL) {
+      webkit_permission_request_deny(v->pending_perm);
+      g_object_unref(v->pending_perm);
+    }
+    v->pending_perm = g_object_ref(pr);
   }
   return TRUE;
 }
@@ -782,6 +790,23 @@ void wb_set_permission_mode(int64_t id, int allow) {
   }
 }
 
+// 落判扣住的权限请求：1 允许 / 0 拒绝；没有挂起件时是空操作。
+// 返回是否命中（上层据此区分「对话框点了个空」与真落判）。
+int wb_respond_permission(int64_t id, int allow) {
+  WbView *v = wb_get(id);
+  if (v == NULL || v->pending_perm == NULL) {
+    return 0;
+  }
+  if (allow != 0) {
+    webkit_permission_request_allow(v->pending_perm);
+  } else {
+    webkit_permission_request_deny(v->pending_perm);
+  }
+  g_object_unref(v->pending_perm);
+  v->pending_perm = NULL;
+  return 1;
+}
+
 void wb_set_download_mode(int64_t id, int allow) {
   WbView *v = wb_get(id);
   if (v != NULL) {
@@ -862,6 +887,10 @@ void wb_destroy(int64_t id) {
   }
   // 容器没了就说明视图已经随那棵窗口树一起销毁，只还自己 alloc 的东西，
   // 不再碰那个悬垂指针
+  if (v->pending_perm != NULL) {
+    webkit_permission_request_deny(v->pending_perm);
+    g_object_unref(v->pending_perm);
+  }
   g_free(v->data_dir);
   g_free(v->eval_text);
   memset(v, 0, sizeof(WbView));
@@ -941,6 +970,8 @@ typedef struct {
   int64_t surface_id;
   int new_window_in_place;
   int permission_allow;
+  // 扣住的媒体授权待决块（respond_permission 落判后置 nil；ARC 持 block）
+  void (^pending_media_decision)(WKPermissionDecision);
   int download_allow;
   int crashed;
   int64_t eval_seq;
@@ -1397,9 +1428,19 @@ static int wb_scheme_slot(WMBView *v, const char *scheme) {
   snprintf(buf, sizeof(buf), "MediaCapture:type=%d", (int)type);
   if (v != nil) {
     wb_push(v, 9, 0, buf);
+    if (v->permission_allow) {
+      decisionHandler(WKPermissionDecisionGrant);
+    } else {
+      // 挂起待决档：扣住 decisionHandler，上层对话框经 respond_permission 落判。
+      // 新的来了旧的没落：旧的一律按拒绝收口，不留无主扣件
+      if (v->pending_media_decision != nil) {
+        v->pending_media_decision(WKPermissionDecisionDeny);
+      }
+      v->pending_media_decision = decisionHandler;
+    }
+  } else {
+    decisionHandler(WKPermissionDecisionDeny);
   }
-  decisionHandler(v != nil && v->permission_allow ? WKPermissionDecisionGrant
-                                                  : WKPermissionDecisionDeny);
 }
 
 @end
@@ -1451,10 +1492,12 @@ static NSUUID *wb_uuid_for_dir(const char *dir) {
 // wb_persistence() 先出声，上层据此告诉用户 profile 不会持久，而不是静默
 // 换成本来就在磁盘上的共享默认存储）。
 static WKWebsiteDataStore *wb_store_for_dir(const char *dir) {
-  if (wb_persistence() == 1 && @available(macOS 14.0, *)) {
-    NSUUID *u = wb_uuid_for_dir(dir);
-    if (u != nil) {
-      return [WKWebsiteDataStore dataStoreForIdentifier:u];
+  if (@available(macOS 14.0, *)) {
+    if (wb_persistence() == 1) {
+      NSUUID *u = wb_uuid_for_dir(dir);
+      if (u != nil) {
+        return [WKWebsiteDataStore dataStoreForIdentifier:u];
+      }
     }
   }
   return [WKWebsiteDataStore nonPersistentDataStore];
@@ -1594,6 +1637,12 @@ void wb_destroy(int64_t id) {
       [v.view removeFromSuperview];
     }
     v.view = nil;
+    // 扣着的授权块随窗销毁落一记拒绝：不给引擎留「永不回调」的悬案
+    if (v->pending_media_decision != nil) {
+      void (^h)(WKPermissionDecision) = v->pending_media_decision;
+      v->pending_media_decision = nil;
+      h(WKPermissionDecisionDeny);
+    }
     wb_views[(int)id] = nil; // ARC 随表位清掉 ucc/handlers
   }
 }
@@ -1952,7 +2001,22 @@ void wb_set_permission_mode(int64_t id, int allow) {
   if (v != nil) {
     v->permission_allow = allow != 0 ? 1 : 0;
   }
-  // macOS 没有权限请求的公开口：旗标存着，kind=9 不发（掩码如实回 bit2=0）
+  // 自动放行=1 立即 grant 并报 kind=9；=0 扣住待决（媒体授权，macOS 12+ 公开口）
+  // ——定位授权在 mac 无公开回调，见 media capture 回调处注释
+}
+
+// 落判扣住的媒体授权：1 允许 / 0 拒绝；无挂起件时空操作。返回是否命中。
+int wb_respond_permission(int64_t id, int allow) {
+  @autoreleasepool {
+    WMBView *v = wb_get(id);
+    if (v == nil || v->pending_media_decision == nil) {
+      return 0;
+    }
+    void (^h)(WKPermissionDecision) = v->pending_media_decision;
+    v->pending_media_decision = nil;
+    h(allow != 0 ? WKPermissionDecisionGrant : WKPermissionDecisionDeny);
+    return 1;
+  }
 }
 
 void wb_set_download_mode(int64_t id, int allow) {
@@ -2138,6 +2202,10 @@ int wb_event_text(int64_t id, char *out, int cap) {
 }
 void wb_set_new_window_policy(int64_t id, int in_place) { (void)id; (void)in_place; }
 void wb_set_permission_mode(int64_t id, int allow) { (void)id; (void)allow; }
+int wb_respond_permission(int64_t id, int allow) {
+  (void)id; (void)allow;
+  return 0;
+}
 void wb_set_download_mode(int64_t id, int allow) { (void)id; (void)allow; }
 int wb_has_download_signal(int64_t id) { (void)id; return 0; }
 int wb_has_create_signal(int64_t id) { (void)id; return 0; }

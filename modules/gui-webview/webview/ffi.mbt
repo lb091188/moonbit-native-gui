@@ -138,6 +138,10 @@ extern "c" fn wb_set_permission_mode(id : Int64, allow : Int) -> Unit =
   "wb_set_permission_mode"
 
 ///|
+extern "c" fn wb_respond_permission(id : Int64, allow : Int) -> Int =
+  "wb_respond_permission"
+
+///|
 extern "c" fn wb_set_download_mode(id : Int64, allow : Int) -> Unit =
   "wb_set_download_mode"
 

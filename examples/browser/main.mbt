@@ -93,6 +93,9 @@ fn main {
   let result_full : @base.Store[String] = @base.Store::new("（能力结果显示在此）")
   let result_open : @base.Store[Bool] = @base.Store::new(false)
   let result_view : @base.Store[String] = @base.Store::new("（能力结果显示在此）")
+  // 权限对话框：Permission 事件置文本并弹出，允许/拒绝两钮落 respond_permission
+  let perm_ask : @base.Store[Bool] = @base.Store::new(false)
+  let perm_text : @base.Store[String] = @base.Store::new("")
   let wv : Ref[@web.Webview?] = Ref(None)
   let holder : Ref[@widget.Widget?] = Ref(None)
   // 三类策略的当前档（false = 拦截；启动排期重试时统一落到拦截）
@@ -483,6 +486,40 @@ fn main {
         row_gap=4.0,
         background_color="bg_panel",
       ),
+      // 权限对话框：拒绝档把请求扣住待决，两钮经 respond_permission 落判
+      @ui.dialog(
+        perm_ask,
+        "网页权限请求",
+        [
+          @ui.text("页面正在请求以下权限：", class=[@style.text_secondary]),
+          @ui.text_dyn(perm_text.signal(), wrap=true),
+        ],
+        confirm_text="允许",
+        cancel_text="拒绝",
+        on_confirm=fn() {
+          match wv.val {
+            Some(v) =>
+              if v.respond_permission(true) {
+                ev("权限请求已允许")
+              } else {
+                ev("允许落判空（无挂起件）")
+              }
+            None => ()
+          }
+        },
+        on_cancel=fn() {
+          match wv.val {
+            Some(v) =>
+              if v.respond_permission(false) {
+                ev("权限请求已拒绝")
+              } else {
+                ev("拒绝落判空（无挂起件）")
+              }
+            None => ()
+          }
+        },
+        width=380.0,
+      ),
     ],
     grow=1.0,
   )
@@ -532,8 +569,9 @@ fn main {
                   )
                 }
                 @web.Permission(c) => {
-                  ev(if pol_perm.val { "权限请求已放行" } else { "权限请求被策略拒绝" })
-                  show_result("权限请求（\{if pol_perm.val { "放行" } else { "拒绝" }}）：\{c}\n\n当前策略：\n\{policy_text()}")
+                  perm_text.set(c)
+                  ev(if pol_perm.val { "权限请求已自动放行（策略档）" } else { "权限请求待决：请在对话框选择" })
+                  perm_ask.set(true)
                 }
                 @web.Download(d) => {
                   ev(if pol_dl.val { "下载已放行（交引擎默认）" } else { "下载被策略拦下" })

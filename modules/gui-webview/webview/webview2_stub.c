@@ -94,7 +94,10 @@ struct WbView {
   int loading;         // 无同步 is_loading，Starting/Completed 对账
   int crashed;
   int new_window_in_place; // 0 丢弃（默认）/ 1 在当前 pane 里导航过去
-  int permission_allow;    // 0 默认拒绝 / 1 自动允许
+  int permission_allow;    // 0 挂起待决（对话框档）/ 1 自动允许
+  // 扣住的待决权限：args 走 GetDeferral，Complete 前引擎都不落判
+  ICoreWebView2PermissionRequestedEventArgs *pending_perm;
+  ICoreWebView2Deferral *pending_perm_deferral;
   int download_allow;      // 0 拦下 / 1 交给引擎默认（默认允许）
   int64_t eval_seq;
   char *eval_text; // 最近一次求值回包全文（见 WB_EVAL_TEXT_MAX）
@@ -587,9 +590,29 @@ static HRESULT STDMETHODCALLTYPE WbHnd_PermReq_inv(
     free(u8);
     CoTaskMemFree(uri);
   }
-  args->lpVtbl->put_State(args, v->permission_allow
-                                    ? COREWEBVIEW2_PERMISSION_STATE_ALLOW
-                                    : COREWEBVIEW2_PERMISSION_STATE_DENY);
+  if (v->permission_allow) {
+    args->lpVtbl->put_State(args, COREWEBVIEW2_PERMISSION_STATE_ALLOW);
+  } else {
+    // 挂起待决档：GetDeferral 扣住决定权，上层对话框经 wb_respond_permission
+    // 落判（put_State + Complete）。新的来了旧的没落：旧的一律按拒绝收口。
+    if (v->pending_perm != NULL) {
+      v->pending_perm->lpVtbl->put_State(
+          v->pending_perm, COREWEBVIEW2_PERMISSION_STATE_DENY);
+      v->pending_perm_deferral->lpVtbl->Complete(v->pending_perm_deferral);
+      v->pending_perm->lpVtbl->Release(v->pending_perm);
+      v->pending_perm_deferral->lpVtbl->Release(v->pending_perm_deferral);
+      v->pending_perm = NULL;
+      v->pending_perm_deferral = NULL;
+    }
+    ICoreWebView2Deferral *def = NULL;
+    if (SUCCEEDED(args->lpVtbl->GetDeferral(args, &def)) && def != NULL) {
+      args->lpVtbl->AddRef(args); // 落判时要再摸 args，扣一份引用
+      v->pending_perm = args;
+      v->pending_perm_deferral = def;
+    } else {
+      args->lpVtbl->put_State(args, COREWEBVIEW2_PERMISSION_STATE_DENY);
+    }
+  }
   return S_OK;
 }
 
@@ -1900,6 +1923,25 @@ void wb_set_permission_mode(int64_t id, int allow) {
   }
 }
 
+// 落判扣住的权限请求：1 允许 / 0 拒绝；无挂起件时空操作。返回是否命中。
+// 顺序必须是 put_State → deferral Complete → Release（引擎只认这个序）。
+int wb_respond_permission(int64_t id, int allow) {
+  WbView *v = wb_get(id);
+  if (v == NULL || v->pending_perm == NULL) {
+    return 0;
+  }
+  v->pending_perm->lpVtbl->put_State(
+      v->pending_perm,
+      allow != 0 ? COREWEBVIEW2_PERMISSION_STATE_ALLOW
+                 : COREWEBVIEW2_PERMISSION_STATE_DENY);
+  v->pending_perm_deferral->lpVtbl->Complete(v->pending_perm_deferral);
+  v->pending_perm->lpVtbl->Release(v->pending_perm);
+  v->pending_perm_deferral->lpVtbl->Release(v->pending_perm_deferral);
+  v->pending_perm = NULL;
+  v->pending_perm_deferral = NULL;
+  return 1;
+}
+
 void wb_set_download_mode(int64_t id, int allow) {
   WbView *v = wb_get(id);
   if (v != NULL) {
@@ -2078,6 +2120,16 @@ void wb_destroy(int64_t id) {
   }
   WbView *v = &wb_pool[id];
   wb_unsubclass_chrome(v); // 先还原 WndProc（Close 摘子窗前后都安全）
+  // 扣着的权限件随视图销毁按拒绝收口，不给引擎留悬案
+  if (v->pending_perm != NULL) {
+    v->pending_perm->lpVtbl->put_State(v->pending_perm,
+                                       COREWEBVIEW2_PERMISSION_STATE_DENY);
+    v->pending_perm_deferral->lpVtbl->Complete(v->pending_perm_deferral);
+    v->pending_perm->lpVtbl->Release(v->pending_perm);
+    v->pending_perm_deferral->lpVtbl->Release(v->pending_perm_deferral);
+    v->pending_perm = NULL;
+    v->pending_perm_deferral = NULL;
+  }
   if (v->ctrl != NULL) {
     v->ctrl->lpVtbl->Close(v->ctrl); // 从 parent HWND 摘掉并停引擎
     v->ctrl->lpVtbl->Release(v->ctrl);

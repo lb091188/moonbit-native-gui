@@ -144,6 +144,9 @@ test "事件分派：kind 映射逐条对上，JS 回包按序号配对后出队
   v.dispatch(7, 4L, "again")
   assert_eq(got, ["4:hello"])
   assert_eq(v.eval_waiters.length(), 0)
+  // 权限落判：没有挂起件时是空操作且如实回 false（「对话框点了空」的判据）
+  assert_eq(v.respond_permission(false), false)
+  assert_eq(v.respond_permission(true), false)
 }
 
 ///|

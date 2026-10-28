@@ -1061,6 +1061,13 @@
 - **叠窗的两环成因**：① GTK 下 `gtk_widget_grab_focus` 只管应用内焦点，WM 不给弹层窗输入焦点 → focus-in 永不到来 → 「拿到过焦点才算」的失焦收起永不触发；修法：弹层窗 show 后补 `gtk_window_present` + `gdk_window_focus(GDK_CURRENT_TIME)` 向 WM 主动要焦点。② ui 层 `overlay_alive` 只查图层栈、不认原生档 → dropdown 以为「没开着」又开一扇；修法：widget 开 `overlay_native_opened(id)` 查询口，`overlay_alive` 两栈都认。两环各自独立成灾，只修一条仍会叠。
 - **验证**：`cd gui && moon check --deny-warn` 全绿、`moon test widget ui` 338/338（GTK 段随用户机编译验证）；Linux 真机清单：反复开关菜单不再叠窗、点外/再点触发件都能收、灰柱与残影消失。
 
+### MoonBit 原生 GUI 栈 · 批 F1 权限挂起待决（2026-10-29，用户拍板「权限不该干巴巴进日志」）
+
+- **形态**：拒绝档（默认）从「立即 deny + 报事件」改为**扣住待决**——上层弹「同意/不同意」，点按后 `Webview::respond_permission(allow)` 落判（返回是否命中，区分「点了空」）；自动放行档（`set_permission_mode(true)`）不变，立即 grant 并报 kind=9。三平台扣法：GTK `g_object_ref` 住 `WebKitPermissionRequest`（挂起期间它一直活着，决定延后合法）；mac 扣 `decisionHandler` block（ARC 强持有，`requestMediaCapturePermissionForOrigin:` macOS 12+ 公开口）；WebView2 `GetDeferral` 扣 `PermissionRequestedEventArgs`，落判序 put_State → Complete → Release。
+- **两条护栏**：① 新请求来了旧的没落判——旧的一律按拒绝收口，三平台同款「不留无主扣件」；② 视图销毁（wb_destroy）对挂起件也落一记拒绝，不给引擎留「永不回调」的悬案。
+- **本轮两个坑**：① ObjC 实例变量没有 @property，点语法（`v.pending…`）编译报 property not found，一律 `v->`；② 「wbtest 链接缺 wb_* 符号」的真因是 prebuild 桩归档比源旧（缓存没跟源失效），clean 全量重建后恢复——以后见到 `Undefined symbols _wb_*` 先怀疑桩归档过期，别急着怀疑链接参数。
+- **验证**：`moon check --deny-warn` 全绿、webview 18/18（新增「无挂起时落判是空操作且回 false」回归）、examples browser check/build 全绿；真机清单交用户（mac 用媒体项触发，定位无公开回调）。
+
 ### MoonBit 原生 GUI 栈 · 媒体播放器（批 D：新包 `yue/media`，CPU 回灌 + 软解）
 
 - **引擎是平移不是重写**：`modules/gui-media` 的 `audio_player.mbt`(416 行) 与 `video_player.mbt`(476 行) 实测**零 @yue 依赖**（只有组件包装层碰 UI），于是引擎与 15 条既有回归整段搬进新包 `yue/media`，只改测试素材路径与一个公开口。旧链踩过的坑（音画不同轴、seek 后进度从零重涨、换载崩溃、播完态与初始态要区分）就随那批测试一起进了新栈——**这批的价值一半在「把老师写对的东西接住」**。

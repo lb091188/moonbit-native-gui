@@ -609,10 +609,22 @@ pub fn Webview::set_new_window_policy(self : Webview, in_place : Bool) -> Unit {
 }
 
 ///|
-/// 权限请求：默认拒绝（事件照报，调用方可弹原生提示后改成允许再重试）。
+/// 权限请求：拒绝档（默认）**扣住待决**——事件照报，调用方弹「同意/不同意」后
+/// 经 `respond_permission` 延后落判；自动放行档立即 allow。
 pub fn Webview::set_permission_mode(self : Webview, allow : Bool) -> Unit {
   if self.handle != 0L {
     wb_set_permission_mode(self.handle, if allow { 1 } else { 0 })
+  }
+}
+
+///|
+/// 落判扣住的权限请求：`allow` 决定允许/拒绝；没有挂起件时是空操作，
+/// 返回是否真落判（调用方据此区分「对话框点了空」）。
+pub fn Webview::respond_permission(self : Webview, allow : Bool) -> Bool {
+  if self.handle != 0L {
+    wb_respond_permission(self.handle, if allow { 1 } else { 0 }) != 0
+  } else {
+    false
   }
 }
 
