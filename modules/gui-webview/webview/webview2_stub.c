@@ -334,6 +334,8 @@ wb_hnd_qi(IUnknown *self, REFIID riid, void **out, const IID *own) {
 
 // 事件族：Invoke(sender, args)——宏展开 handler 类型与 vtable，函数体随后定义。
 // args 类型显式传（EventArgs 名 ≠ Handler 名加后缀，预处理拼不出来）。
+// 本文件所有 Vtbl 实例都不加 const：COM 结构里的 lpVtbl 是非 const 指针，
+// 赋 &vt 会被 MSVC 报 C4090（不同的 const 限定符）。
 #define WB_EVT_HANDLER(TAG, ITF, ARGS_ITF)                                     \
   struct WbHnd_##TAG { ITF itf; WbView *v; };                                  \
   static HRESULT STDMETHODCALLTYPE WbHnd_##TAG##_qi(                           \
@@ -350,7 +352,7 @@ wb_hnd_qi(IUnknown *self, REFIID riid, void **out, const IID *own) {
   }                                                                            \
   static HRESULT STDMETHODCALLTYPE WbHnd_##TAG##_inv(                          \
       ITF *self, ICoreWebView2 *sender, ARGS_ITF *args);                       \
-  static const ITF##Vtbl WbHnd_##TAG##_vt = {                                  \
+  static ITF##Vtbl WbHnd_##TAG##_vt = {                                        \
       WbHnd_##TAG##_qi, WbHnd_##TAG##_ref, WbHnd_##TAG##_rel,                  \
       WbHnd_##TAG##_inv,                                                       \
   };
@@ -399,7 +401,7 @@ static HRESULT STDMETHODCALLTYPE WbHnd_FocusGot_inv(
   wb_push(((struct WbHnd_FocusGot *)self)->v, 16, 0, NULL);
   return S_OK;
 }
-static const ICoreWebView2FocusChangedEventHandlerVtbl WbHnd_FocusGot_vt = {
+static ICoreWebView2FocusChangedEventHandlerVtbl WbHnd_FocusGot_vt = {
     WbHnd_FocusGot_qi, WbHnd_FocusGot_ref, WbHnd_FocusGot_rel,
     WbHnd_FocusGot_inv,
 };
@@ -431,7 +433,7 @@ static HRESULT STDMETHODCALLTYPE WbHnd_FocusLost_inv(
   wb_push(((struct WbHnd_FocusLost *)self)->v, 17, 0, NULL);
   return S_OK;
 }
-static const ICoreWebView2FocusChangedEventHandlerVtbl WbHnd_FocusLost_vt = {
+static ICoreWebView2FocusChangedEventHandlerVtbl WbHnd_FocusLost_vt = {
     WbHnd_FocusLost_qi, WbHnd_FocusLost_ref, WbHnd_FocusLost_rel,
     WbHnd_FocusLost_inv,
 };
@@ -721,7 +723,7 @@ typedef struct {
 } WbCtrlReq;
 
 static void wb_on_ready(WbView *v);
-static const ICoreWebView2CreateCoreWebView2ControllerCompletedHandlerVtbl wb_ctrl_req_vt;
+static ICoreWebView2CreateCoreWebView2ControllerCompletedHandlerVtbl wb_ctrl_req_vt;
 
 static HRESULT STDMETHODCALLTYPE WbEnvReq_qi(
     ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandler *self,
@@ -778,7 +780,7 @@ static HRESULT STDMETHODCALLTYPE WbEnvReq_inv(
   free(req);
   return S_OK;
 }
-static const ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandlerVtbl
+static ICoreWebView2CreateCoreWebView2EnvironmentCompletedHandlerVtbl
     wb_env_req_vt = {WbEnvReq_qi, WbEnvReq_ref, WbEnvReq_rel, WbEnvReq_inv};
 
 static HRESULT STDMETHODCALLTYPE WbCtrlReq_qi(
@@ -824,7 +826,7 @@ static HRESULT STDMETHODCALLTYPE WbCtrlReq_inv(
   free(req);
   return S_OK;
 }
-static const ICoreWebView2CreateCoreWebView2ControllerCompletedHandlerVtbl
+static ICoreWebView2CreateCoreWebView2ControllerCompletedHandlerVtbl
     wb_ctrl_req_vt = {WbCtrlReq_qi, WbCtrlReq_ref, WbCtrlReq_rel,
                       WbCtrlReq_inv};
 
@@ -1099,7 +1101,7 @@ static HRESULT STDMETHODCALLTYPE WbReg_get_origins(
 }
 static HRESULT STDMETHODCALLTYPE WbReg_set_origins(
     ICoreWebView2CustomSchemeRegistration *self, UINT32 count,
-    LPWSTR *origins) {
+    LPCWSTR *origins) {
   (void)self;
   (void)count;
   (void)origins;
@@ -1121,13 +1123,13 @@ static HRESULT STDMETHODCALLTYPE WbReg_put_authority(
   (void)value;
   return S_OK;
 }
-static const ICoreWebView2CustomSchemeRegistrationVtbl wb_reg_vt = {
+static ICoreWebView2CustomSchemeRegistrationVtbl wb_reg_vt = {
     WbReg_qi,          WbReg_ref,         WbReg_rel,       WbReg_get_name,
     WbReg_get_secure,  WbReg_put_secure,  WbReg_get_origins,
     WbReg_set_origins, WbReg_get_authority, WbReg_put_authority,
 };
 
-static ICoreWebView2CustomSchemeRegistration **wb_regs_build(UINT32 *count) {
+static WbReg **wb_regs_build(UINT32 *count) {
   *count = 0;
   for (int i = 0; i < wb_predeclared_n; i++) {
     if (i >= WB_MAX_SCHEMES) {
@@ -1145,7 +1147,7 @@ static ICoreWebView2CustomSchemeRegistration **wb_regs_build(UINT32 *count) {
     wb_regs_n = i + 1;
   }
   *count = (UINT32)wb_regs_n;
-  return (ICoreWebView2CustomSchemeRegistration **)wb_regs;
+  return wb_regs;
 }
 
 // ---- WbOptions：单实例、四个子接口嵌套（QI 按子槽偏移分派）----
@@ -1251,6 +1253,38 @@ static HRESULT STDMETHODCALLTYPE WbOpt_put_bool(ICoreWebView2EnvironmentOptions 
   (void)value;
   return S_OK;
 }
+// Options2/3 的布尔属性：形参 self 类型按接口各自来一份（共用基类那份，
+// 装进 vtable 会撞 MSVC C4113「参数列表不同」）。
+static HRESULT STDMETHODCALLTYPE WbOpt2_get_bool(
+    ICoreWebView2EnvironmentOptions2 *self, BOOL *value) {
+  (void)self;
+  if (value == NULL) {
+    return E_POINTER;
+  }
+  *value = FALSE;
+  return S_OK;
+}
+static HRESULT STDMETHODCALLTYPE WbOpt2_put_bool(
+    ICoreWebView2EnvironmentOptions2 *self, BOOL value) {
+  (void)self;
+  (void)value;
+  return S_OK;
+}
+static HRESULT STDMETHODCALLTYPE WbOpt3_get_bool(
+    ICoreWebView2EnvironmentOptions3 *self, BOOL *value) {
+  (void)self;
+  if (value == NULL) {
+    return E_POINTER;
+  }
+  *value = FALSE;
+  return S_OK;
+}
+static HRESULT STDMETHODCALLTYPE WbOpt3_put_bool(
+    ICoreWebView2EnvironmentOptions3 *self, BOOL value) {
+  (void)self;
+  (void)value;
+  return S_OK;
+}
 static HRESULT STDMETHODCALLTYPE WbOpt_get_args(
     ICoreWebView2EnvironmentOptions *self, LPWSTR *value) {
   (void)self;
@@ -1271,18 +1305,18 @@ static HRESULT STDMETHODCALLTYPE WbOpt_get_sso(
   (void)self;
   return WbOpt_get_bool(self, value);
 }
-static const ICoreWebView2EnvironmentOptionsVtbl wb_opt_base_vt = {
+static ICoreWebView2EnvironmentOptionsVtbl wb_opt_base_vt = {
     WbOpt_base_qi, WbOpt_base_ref, WbOpt_base_rel,
     WbOpt_get_args, WbOpt_put_str, WbOpt_get_lang, WbOpt_put_str,
     WbOpt_get_ver, WbOpt_put_str, WbOpt_get_sso, WbOpt_put_bool,
 };
-static const ICoreWebView2EnvironmentOptions2Vtbl wb_opt2_vt = {
+static ICoreWebView2EnvironmentOptions2Vtbl wb_opt2_vt = {
     WbOpt_opt2_qi, WbOpt_opt2_ref, WbOpt_opt2_rel,
-    WbOpt_get_bool, WbOpt_put_bool, // ExclusiveUserDataFolderAccess
+    WbOpt2_get_bool, WbOpt2_put_bool, // ExclusiveUserDataFolderAccess
 };
-static const ICoreWebView2EnvironmentOptions3Vtbl wb_opt3_vt = {
+static ICoreWebView2EnvironmentOptions3Vtbl wb_opt3_vt = {
     WbOpt_opt3_qi, WbOpt_opt3_ref, WbOpt_opt3_rel,
-    WbOpt_get_bool, WbOpt_put_bool, // IsCustomCrashReportingEnabled
+    WbOpt3_get_bool, WbOpt3_put_bool, // IsCustomCrashReportingEnabled
 };
 static HRESULT STDMETHODCALLTYPE WbOpt_get_regs(
     ICoreWebView2EnvironmentOptions4 *self, UINT32 *count,
@@ -1321,7 +1355,7 @@ static HRESULT STDMETHODCALLTYPE WbOpt_set_regs(
   (void)regs;
   return S_OK;
 }
-static const ICoreWebView2EnvironmentOptions4Vtbl wb_opt4_vt = {
+static ICoreWebView2EnvironmentOptions4Vtbl wb_opt4_vt = {
     WbOpt_opt4_qi, WbOpt_opt4_ref, WbOpt_opt4_rel,
     WbOpt_get_regs, WbOpt_set_regs,
 };
@@ -1651,7 +1685,7 @@ static HRESULT STDMETHODCALLTYPE WbEvalReq_inv(
   free(req);
   return S_OK;
 }
-static const ICoreWebView2ExecuteScriptCompletedHandlerVtbl wb_eval_vt = {
+static ICoreWebView2ExecuteScriptCompletedHandlerVtbl wb_eval_vt = {
     WbEvalReq_qi, WbEvalReq_ref, WbEvalReq_rel, WbEvalReq_inv};
 
 // 取最近一次 JS 求值回包全文：拷进 out（cap 上限），返回全文总长（>cap 表示
@@ -1719,7 +1753,7 @@ static HRESULT STDMETHODCALLTYPE WbScriptDummy_inv(
   (void)id;
   return S_OK;
 }
-static const ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandlerVtbl
+static ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandlerVtbl
     wb_script_vtbl = {WbScriptDummy_qi, WbScriptDummy_ref, WbScriptDummy_rel,
                       WbScriptDummy_inv};
 static ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler
@@ -1957,7 +1991,7 @@ static HRESULT STDMETHODCALLTYPE WbCookieReq_inv(
   free(req);
   return S_OK;
 }
-static const ICoreWebView2GetCookiesCompletedHandlerVtbl wb_cookie_vt = {
+static ICoreWebView2GetCookiesCompletedHandlerVtbl wb_cookie_vt = {
     WbCookieReq_qi, WbCookieReq_ref, WbCookieReq_rel, WbCookieReq_inv};
 
 void wb_get_cookies(int64_t id, const char *uri) {

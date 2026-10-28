@@ -285,14 +285,15 @@ def link_configs() -> dict:
         # ShellExecuteW 在 shell32，子进程与文件函数属 kernel32（默认已链）。
         # W21d 自启动写 HKCU Run 键要 advapi32（Reg* 一组）。
         # 平台批①电源方案直调要 powrprof（PowerGet/SetActiveScheme）。
-        # 平台批③显示器枚举要 gdi32（EnumDisplayDevices/EnumDisplaySettings
-        # 在 user32，但 DC 相关的 SetProcessDPIAware 一族旁边我们用不上，故
-        # 保持原样）；机器 DMI 的 WMI 兜底要 oleaut32（SysAllocString /
+        # 平台批③显示器枚举（EnumDisplayDevices/EnumDisplaySettings）在 user32，
+        # 不需要额外库；机器 DMI 的 WMI 兜底要 oleaut32（SysAllocString /
         # VariantClear）与 wbemuuid（CLSID_WbemLocator / IID_IWbemLocator 两个
         # GUID 常量，同样只能链库取符号）。
+        # 夜间色温 Windows 档要 gdi32：SetDeviceGammaRamp 是 gdi32 导出（GetDC
+        # 在 user32，两个库都要才连得上；漏链报 LNK2019 __imp_SetDeviceGammaRamp）。
         entries.append({
             "package": SYS_PACKAGE,
-            "link_flags": "ole32.lib oleaut32.lib wbemuuid.lib shell32.lib uuid.lib user32.lib advapi32.lib powrprof.lib winspool.lib",
+            "link_flags": "ole32.lib oleaut32.lib wbemuuid.lib shell32.lib uuid.lib user32.lib gdi32.lib advapi32.lib powrprof.lib winspool.lib",
         })
         # 文本层（text/dwrite_text.cpp 的 Windows 分支）走系统 DirectWrite：
         # dwrite.lib 供 DWriteCreateFactory、d2d1.lib 供 D2D 的 DC 渲染目标

@@ -3420,3 +3420,20 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **修复**：`gui/text/stub.c` 的 `pt_make_layout` 加一行 `pango_layout_set_auto_dir(layout, FALSE)`——段落方向钉死在 `pango_context_set_base_dir` 设的全局档上（缺省 LTR，与文本层契约「默认 Ltr 即现状」一致；应用调 `set_base_dir(Rtl)` 后整窗按 RTL）。这同时修掉一个暗差异：此前 auto_dir 让 Linux 逐段自检基方向，Win/mac 固定 LTR，同一段混排串在 Linux 的段内排序本就与另两平台不同；钉住后三平台同口径。纯文本与富文本（`rt_build`）全走 `pt_make_layout`，一处覆盖。
 **验证**：新增 wbtest「RTL 起头的串盒内对齐仍是绝对左右缘」——修前红（End 档墨迹贴左）、修后绿，回证测试确实守着这个回归；本机探针 pin 后四组读数：无论内容 LTR/RTL、上下文基方向 LTR/RTL，`ALIGN_LEFT` 一律落左缘、`ALIGN_RIGHT` 一律落右缘。库门禁 1177 条，除两条既有红（`text/spacing_wbtest` 字距、`win/maximize_wbtest` 最大化，前批已记录与本批无关）全绿；`moon check --deny-warn` 零输出、`moon build examples/showcase` 通过。
 **教训**：①「对齐参数」在各排版引擎并不天然同义——Pango 的 LEFT/RIGHT 是相对段落方向的，拿到手先量落位再当绝对值用；② 排版引擎的「自动」行为（auto_dir 首强字符自检）会连坐看似无关的属性（对齐），不想让它自作主张就显式钉死；③ 跨平台库的平台缺陷，先看「另两个平台为什么对」再动刀——mac 自算 dx、Win 绝对 TRAILING 反证了 Linux 该给绝对档。
+
+## Windows 链接串漏了 `gdi32.lib`：夜间色温的桩能编，每个用到 sys 的 exe 都断在 `LNK2019 __imp_SetDeviceGammaRamp`（2026-10-28，用户 Windows 真机 `moon build` 日志）
+
+**症状**：桩全部编过，链接期第一条硬错 `libsys.lib(sys_stub.obj) : error LNK2019: 无法解析的外部符号 __imp_SetDeviceGammaRamp，函数 yue_sys_nl_set_ramp 中引用了该符号`，紧跟 `fatal error LNK1120` 落在 `dialog_probe.exe`，整次构建 `failed when building project`。
+**根因**：夜间色温 Windows 档那批只改了 C 桩（`yue_sys_nl_set_ramp` 直调 `SetDeviceGammaRamp`）与 MoonBit 侧，**没同批改 `gui/scripts/prebuild.py` 的 sys 包 Windows 链接串**，里面没有 `gdi32.lib`。同一段注释当时还写着「平台批③显示器枚举要 gdi32（…故保持原样）」——把「用到 DC 一族」和「要链 gdi32」混成一句，flags 里既没有 gdi32，这句话也就从没被对着核过。
+**判据**：① `__imp_` 打头的是 Win32 **导入函数**，符号在哪个 `.lib` 就该链哪个：`SetDeviceGammaRamp` 在 `gdi32.lib`（同一函数里的 `GetDC`/`ReleaseDC` 在 `user32`，两个都得在）；② 报错行的 `lib<归档>(<对象>.obj)` 直接点名包，去 prebuild 找那个包 Windows 分支的 `link_flags` 一行即可，不必翻桩源码；③ `sys_stub.obj` 是一个整体，进了链接就全体生效——**每个用到 sys 的 main 包都断在同一条**，首个失败者是哪个示例不说明问题。
+**修法**：sys 包 Windows 链接串补 `gdi32.lib`，注释按 API 归属逐条重写（枚举显示器在 user32、不需要额外库；gamma 斜坡在 gdi32）。对外口径进 `docs/zh|en build.md`：§6 两行（`__imp_*` 缺库、MSVC COM 告警）、§8 一条须知（Windows 分支每用一个新的 Win32 API，同批把库补进链接串）。
+**验证**：本机只能验「没碰坏别的」——`moon test sys` 215/215、`py_compile` 过；改动全在 Windows 分支，mac 走不到。真机复验（用户 Windows）：`moon build --target native` 起手的 `LNK2019/LNK1120` 消失，`experiment/dialog_probe` 与其余 exe 全部链过。
+**教训**：① Windows 上「桩编得过」不等于「库链得上」，`moon check` 与非 Windows 门禁都抓不到缺库——链接串是平台分支代码，改桩就要同批改；② 注释里的「要 X 库」与 flags 里的实际清单是一对可核对读数，二者不符本身就是缺陷，写注释时逐条对着 flags 核；③ 巡检不止报错那一处：本轮把全仓 C/C++ 源按 gdi32/dwmapi/shcore/uxtheme/msimg32/winmm/iphlpapi/psapi 一族符号扫了一遍，只有 sys 缺（`win/stub.c` 的 `CreateDIBSection`/`StretchDIBits` 早就带着 gdi32；`experiment/icon_probe` 是手工编译的探针，注释里已列明库）。
+
+## WebView2 桩 31 条 MSVC 告警的三类根因：`Vtbl` 不许加 `const`、`self` 形参类型逐接口各写一份（2026-10-28，同轮 Windows 真机日志）
+
+**症状**：`modules/gui-webview/webview/webview2_stub.c` 刷一片 `C4090 不同的 const 限定符`（约 25 条，落在 766/1141/1330×4/1399-1412/1442/1679/1726/1978）、`C4113 参数列表不同`（4 条，1281/1285 两对）、`C4133 类型不兼容`（1 条，1296）。都不挡构建，但把上面那条真错误埋进噪声里。
+**三类根因与修法**：① **`const` 的 Vtbl**——SDK 的 COM 结构里 `lpVtbl` 字段是**非 const 指针**，`static const IXVtbl vt = {...}` 再 `x->lpVtbl = &vt` 每处赋值吃一条 C4090；本文件 13 处显式声明加 `WB_EVT_HANDLER` 宏模板（展开覆盖 12 个事件 handler）一律去掉 `const`，一条规则清掉绝大多数告警。② **一个实现塞两个接口的 vtable**——`WbOpt_get_bool`/`WbOpt_put_bool` 按基类 `ICoreWebView2EnvironmentOptions *self` 写，装进 `EnvironmentOptions2/3` 的表里就是 C4113；补 `WbOpt2_*`/`WbOpt3_*` 各按自己 `self` 类型的四份小桩。这条不是风格问题：`WbOptions` 是四个子接口**顺序嵌套**的结构，QI 交出的是 `&o->opt2` 这样的子槽指针、`rel/ref` 靠 `offsetof` 反推对象，拿基类签名去解引用 `self` 会读到错位内存——正好处处 `(void)self` 才一直没出事。③ **`LPCWSTR` 与 `LPWSTR` 之差**——SDK 的 `SetAllowedOrigins` 收 `LPCWSTR *`，桩写成 `LPWSTR *`；同族 `GetAllowedOrigins` 的出参却是 `LPWSTR **`，一对属性上下不对称，只能逐个查头。顺带把 `wb_regs_build()` 的返回类型从接口指针改成实现类型 `WbReg **`，调用点少一次强转，C4133 随之消失。
+**判据**：MSVC 的行号指着 **vtable 初始化列表里的那一项**（不是函数定义行）——顺着它看数组下标是 SDK 声明的第几个槽，再去 `include/WebView2.h` 抄那一槽的原签名，比猜快。
+**验证**：告警只有 MSVC 编得出来，本机 clang 复现不了；改动全在 `#ifdef _WIN32` 分支内，mac/Linux 编的是空翻译单元。真机复验口径：同一份 `moon build --target native` 日志里 `webview2_stub.c` 应一行不出。
+**教训**：① C 模式手写 COM，`Vtbl` 实例加 `const` 是「看着更安全、实际每处赋值都报警」的写法，按 SDK 字段类型来；② 编译器不替你查「同一个函数塞进不同接口的 vtable」（只给 C4113），`self` 类型关乎内存布局；③ 告警清零的收益是可读数——31 行噪声里埋着一条 LNK2019，Windows 排查先清噪声。
