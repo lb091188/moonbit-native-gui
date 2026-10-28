@@ -8,19 +8,23 @@
 //       （默认资产 examples/assets/1.mp3，播 6 秒后退出）
 
 ///|
-fn asset_candidates(name : String) -> Array[String] {
-  [
-    "examples/assets/" + name,
-    "../assets/" + name,
-    "assets/" + name,
-  ]
-}
-
-///|
+/// 默认资产的稳健解析：从当前目录逐级向上找 `examples/assets/<name>` 或
+/// `assets/<name>`，moon run 无论从仓库根还是模块目录起跑都能命中。
 fn resolve_asset(name : String) -> String? {
-  for c in asset_candidates(name) {
-    if @sys.sys_path_exists(c) {
-      return Some(c)
+  let cwd = @sys.current_dir()
+  let dirs : Array[String] = [cwd]
+  for i = 1; i < cwd.length(); i = i + 1 {
+    let ch = cwd[i]
+    if ch == '/' || ch == '\\' {
+      dirs.push(cwd[0:i].to_owned())
+    }
+  }
+  for d in dirs {
+    for sub in ["examples/assets", "assets"] {
+      let c = d + "/" + sub + "/" + name
+      if @sys.sys_path_exists(c) {
+        return Some(c)
+      }
     }
   }
   None

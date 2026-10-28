@@ -1,7 +1,7 @@
 // 视频播放示例：gui-media 的 video 全包组件（引擎/控制条/字幕叠加）。
 // 布局同音频示例：页头是标题/说明/状态行，下方左侧播放列表（含字幕入口）、
 // 右侧视频面板，两块同 bg_panel 底与描边。载入路径三条——默认资产
-// （examples/assets/1.mp4，路径对 cwd 稳健解析）、文件对话框
+// （examples/assets/1.mp4，从当前目录逐级向上找）、文件对话框
 // 选视频、目录对话框选文件夹后扫描成播放列表。字幕双来源：不给外挂文本时
 // 组件自动读**容器内嵌轨**；「选外挂 .srt」读文本后经 subtitle 参数传入
 // （外部文件读取归调用方）。换曲走 holder clear_children + 重挂 video；
@@ -86,17 +86,23 @@ fn arr_str_idx(a : Array[String], x : String) -> Int {
 }
 
 ///|
-/// 默认资产的候选路径（moon run 可能从仓库根或模块目录起跑，逐个探测）。
-fn asset_candidates(name : String) -> Array[String] {
-  ["examples/assets/" + name, "assets/" + name, name]
-}
-
-///|
-/// 解析默认资产：返回第一个存在的候选路径，都不在则 None。
+/// 默认资产的稳健解析：从当前目录逐级向上找 `examples/assets/<name>` 或
+/// `assets/<name>`，moon run 无论从仓库根还是模块目录起跑都能命中。
 fn resolve_asset(name : String) -> String? {
-  for c in asset_candidates(name) {
-    if @sys.sys_path_exists(c) {
-      return Some(c)
+  let cwd = @sys.current_dir()
+  let dirs : Array[String] = [cwd]
+  for i = 1; i < cwd.length(); i = i + 1 {
+    let ch = cwd[i]
+    if ch == '/' || ch == '\\' {
+      dirs.push(cwd[0:i].to_owned())
+    }
+  }
+  for d in dirs {
+    for sub in ["examples/assets", "assets"] {
+      let c = d + "/" + sub + "/" + name
+      if @sys.sys_path_exists(c) {
+        return Some(c)
+      }
     }
   }
   None
@@ -448,7 +454,7 @@ fn main {
           None => {
             tracks.val = []
             rebuild_list(true)
-            err_line.set("默认资产 1.mp4 没找到（候选：examples/assets/）；用「选择文件…」载入本地视频")
+            err_line.set("默认资产 1.mp4 没找到（从当前目录逐级向上找 examples/assets/）；用「选择文件…」载入本地视频")
           }
         }
       })

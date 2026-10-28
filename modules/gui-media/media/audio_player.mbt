@@ -175,34 +175,49 @@ pub fn audio(
     p.set_fill_color(@theme.theme_bg_panel())
     p.fill_rect(0.0, 0.0, r.w, r.h)
     // 频谱条：底部对齐、等宽槽位，电平来自「回看队列深度」那一窗样本
-    if spectrum && r.h > 12.0 {
+    let line = lrc_at(lrc, engine.current())
+    // 歌词独占底部条带（44px），柱子只画条带以上的区域，两者不叠在同一块抢注意力
+    let strip = if line.length() > 0 { 44.0 } else { 0.0 }
+    let bars_h = r.h - strip
+    if spectrum && bars_h > 12.0 {
       let lv = sp.levels(engine.queued_frames(), engine.sample_rate())
       let n = lv.length()
       let slot = r.w / n.to_double()
       let bw = slot * 0.62
       p.set_global_alpha(ap_spectrum_alpha)
+      p.set_fill_color(@theme.theme_primary())
       for b = 0; b < n; b = b + 1 {
-        let h = lv[b] * (r.h - 6.0)
+        let h = lv[b] * (bars_h - 6.0)
         if h > 0.5 {
-          p.set_fill_color(@theme.theme_primary())
-          p.fill_rect(
+          p.fill_round_rect(
             b.to_double() * slot + (slot - bw) / 2.0,
-            r.h - h,
+            bars_h - h,
             bw,
             h,
+            2.0,
           )
         }
       }
       p.set_global_alpha(1.0)
     }
-    let line = lrc_at(lrc, engine.current())
     if line.length() > 0 {
       p.flush()
+      let txt = line.replace(old="\n", new=" ")
+      // 歌词在条带内水平居中（量出宽度再落笔，超宽退回左对齐）
+      let x = match @text.measure(txt, 15.0) {
+        Some(m) =>
+          if m.width.to_double() < r.w - 16.0 {
+            (r.w - m.width.to_double()) / 2.0
+          } else {
+            8.0
+          }
+        None => 8.0
+      }
       let _ = @text.draw_text_at(
         p,
-        8.0,
+        x,
         r.h - 26.0,
-        line.replace(old="\n", new=" "),
+        txt,
         15.0,
         @theme.theme_text_primary(),
       )

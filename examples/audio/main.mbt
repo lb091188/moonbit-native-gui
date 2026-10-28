@@ -2,8 +2,8 @@
 // 设备直出），控制条（播放/进度/音量/倍速/-5s·+5s 跳转）由组件自带。
 // 布局：页头是标题/说明/状态行，下方左侧播放列表（当前曲目高亮、点击换曲）、
 // 右侧播放器面板，两块同 bg_panel 底与描边；
-// 载入路径三条——默认资产（examples/assets/1.mp3，路径对 cwd
-// 稳健解析）、文件对话框选音频、目录对话框选文件夹后扫描成播放列表。
+// 载入路径三条——默认资产（examples/assets/1.mp3，从当前目录逐级向上
+// 找）、文件对话框选音频、目录对话框选文件夹后扫描成播放列表。
 // 换曲走 holder clear_children + 重挂 audio；打开失败经 on_error 落
 // 错误横幅，解码引擎不在位时组件画说明板（探测 + 降级，不静默）。
 // 带视频轨的文件走 video，见同模块的 video 示例。
@@ -85,17 +85,23 @@ fn arr_str_idx(a : Array[String], x : String) -> Int {
 }
 
 ///|
-/// 默认资产的候选路径（moon run 可能从仓库根或模块目录起跑，逐个探测）。
-fn asset_candidates(name : String) -> Array[String] {
-  ["examples/assets/" + name, "assets/" + name, name]
-}
-
-///|
-/// 解析默认资产：返回第一个存在的候选路径，都不在则 None。
+/// 默认资产的稳健解析：从当前目录逐级向上找 `examples/assets/<name>` 或
+/// `assets/<name>`，moon run 无论从仓库根还是模块目录起跑都能命中。
 fn resolve_asset(name : String) -> String? {
-  for c in asset_candidates(name) {
-    if @sys.sys_path_exists(c) {
-      return Some(c)
+  let cwd = @sys.current_dir()
+  let dirs : Array[String] = [cwd]
+  for i = 1; i < cwd.length(); i = i + 1 {
+    let ch = cwd[i]
+    if ch == '/' || ch == '\\' {
+      dirs.push(cwd[0:i].to_owned())
+    }
+  }
+  for d in dirs {
+    for sub in ["examples/assets", "assets"] {
+      let c = d + "/" + sub + "/" + name
+      if @sys.sys_path_exists(c) {
+        return Some(c)
+      }
     }
   }
   None
@@ -413,7 +419,7 @@ fn main {
           None => {
             tracks.val = []
             rebuild_list(true)
-            err_line.set("默认资产 1.mp3 没找到（候选：examples/assets/）；用「选择文件…」载入本地音频")
+            err_line.set("默认资产 1.mp3 没找到（从当前目录逐级向上找 examples/assets/）；用「选择文件…」载入本地音频")
           }
         }
       })
