@@ -21,6 +21,7 @@
 #include <libswscale/swscale.h>
 #include <libswresample/swresample.h>
 #include <libavutil/imgutils.h>
+#include <libavutil/log.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "moonbit.h"
@@ -72,9 +73,17 @@ int32_t vf_version(void) {
     return (int32_t)avformat_version();
 }
 
+/* 解码器日志压到 ERROR 档：aac 等解码器逐帧吐 warning（如
+ * "Could not update timestamps for discarded samples"），会刷满
+ * 宿主终端；ERROR 以下与 GUI 无关，真错误仍保留。 */
+static void vf_quiet_logs(void) {
+    av_log_set_level(AV_LOG_ERROR);
+}
+
 /* 打开容器并定位媒体流。失败不返回 NULL：返回哑句柄（fmt=NULL），
  * 由 vf_ok 探测——FFI 侧避免 NULL/Option 语义不确定。 */
 VfFmt *vf_open(const char *path) {
+    vf_quiet_logs();
     VfFmt *f = (VfFmt *)malloc(sizeof(VfFmt));
     f->vstream = -1;
     f->astream = -1;
