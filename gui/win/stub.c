@@ -1025,9 +1025,14 @@ static int wm_layer_ensure(WmWindow *w, int bw, int bh) {
   return 1;
 }
 
-/* 逐像素档的一次提交。pptDst / psize 都给 NULL：位置与尺寸沿用当前窗口
- * （无边框形态下窗口尺寸就是客户区，正好等于位图尺寸）；若给 psize 非空，
- * UpdateLayeredWindow 会顺手把窗口改成那个尺寸——带边框的窗会被切掉标题栏。 */
+/* 逐像素档的一次提交。pptDst 给 NULL（位置不动），但 **psize 必须给**：本机
+ * 实测（Windows 10 19044 / DPI 96，四组合对照）「pDst=NULL,psize=NULL」与
+ * 「pDst=非空,psize=NULL」两种都返回 TRUE 且 err=0 而**像素一帧都不上屏**，
+ * 带 psize 的两种都立刻上屏——症状正是真机「透明测试窗整片空白」。
+ * 原因直白：退回 GDI 合成面的那一步要用 psize 才知道提交面往哪块客户区贴，
+ * 不给就整块不算数（文档写的是「尺寸不变可传 NULL」，与实测不符，按实测走）。
+ * 非空 psize 会让 ULW 顺带把窗口设成这个尺寸；本档只在无边框形态生效，那形态
+ * 下窗口尺寸本就该等于客户区，故不产生可见变化（带边框的窗不会走到这里）。 */
 static void wm_layered_submit(WmWindow *w) {
   if (w->hwnd == NULL || w->frame == NULL || w->pending_w < 1 ||
       w->pending_h < 1) {
@@ -1043,12 +1048,13 @@ static void wm_layered_submit(WmWindow *w) {
     return;
   }
   POINT src = {0, 0};
+  SIZE ps = {w->pending_w, w->pending_h};
   BLENDFUNCTION bf;
   bf.BlendOp = AC_SRC_OVER;
   bf.BlendFlags = 0;
   bf.SourceConstantAlpha = (BYTE)w->opacity;
   bf.AlphaFormat = AC_SRC_ALPHA;
-  UpdateLayeredWindow(w->hwnd, screen, NULL, NULL, w->layer_dc, &src, 0, &bf,
+  UpdateLayeredWindow(w->hwnd, screen, NULL, &ps, w->layer_dc, &src, 0, &bf,
                       ULW_ALPHA);
   ReleaseDC(NULL, screen);
 }

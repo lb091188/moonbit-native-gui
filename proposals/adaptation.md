@@ -3344,3 +3344,22 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **同批修掉的两条同源错位**：① `wm_hide` 记的是客户区原点（`ClientToScreen`），`wm_show` 却把它当整窗原点写回 `SetWindowPos` —— 带边框的窗每走一轮 hide/show 就往下左偏一个标题栏厚度，现统一记 `GetWindowRect` 的整窗原点；② 「图标下」撤档/隐藏/关闭时没人请 WorkerW 重画本窗占过的那块（WorkerW 不自绘暴露区），壁纸上留着最后一帧 = 真机「残影」，现记 `desk_host` 并在三条路径上 `InvalidateRect` + `UpdateWindow`。
 **教训**：跨平台桩的**空实现必须让调用方拿得到「没做」这个事实**——`{ (void)… }` 让 `origin` 返回一个合法的 (0,0)，比返回错误更难查（读数看着像「贴左边贴上了」）。要么在门面侧写明「本平台不支持」并给 `*_supported()`，要么让桩写出哨兵值由门面翻译成错误；顺手一条判据：新补一个平台臂时，把同臂所有 `{ (void)` 一行桩列成清单进 TODO（本批列进 `TODO.md` §8.3）。
 **验证**：mac 侧只能做括号/符号自查（本机无 mingw，win32 臂编不到），**编译以 CI windows job 为准**；行为判据与读数清单在 `TODO.md` §8.1（move/origin 互逆、hide/show 三轮不漂、图标下四条路径无残影）。8.2 另记一条未诊断项（透明测试窗逐像素档空白）与三个候选机制。
+
+## `UpdateLayeredWindow` 的 `psize` 传 NULL 时「返回成功但一个像素都不画」（2026-10-28，Windows 真机「透明测试窗整片空白」的根因）
+
+**症状**：`set_borderless(true)` + `App::set_transparent_bg(true)` 的子窗整片空白——窗在、能点、`trans_mode=1`、帧也确实进了 `layer_bits`，屏上就是什么都没有。主窗「透明度」滑到 128 那条路（`wm_apply_alpha` 走 `SetLayeredWindowAttributes(LWA_ALPHA)`）是好的，所以不是整条 layered 通道死。
+**定位**：交接时列的三个候选（提交面与窗框尺寸对不上 / `borderless` 没更新 / 子宿主没跑 present）**一个都不是**——探针把字段全打出来：`trans_want=1 / borderless=1 / trans_mode=1 / IsWindowVisible=1 / WS_EX_LAYERED=1`，`pending=380×280`、`winrect=380×280`、`client=380×280`、`delta=(0,0)`。真因是桩在 `wm_layered_submit` 里把 `pptDst` 与 `psize` **都**传了 NULL。
+**四组合实测**（240×150 逐像素档窗、每组合独立开一扇、GDI `BitBlt|CAPTUREBLT` 抓屏数上屏像素）：`dst=NULL,psize=NULL` → `ok=1,err=0`、屏上 **0/36000**；`dst=有,psize=NULL` → `ok=1,err=0`、**0/36000**；`dst=NULL,psize=有` → **36000/36000**；`dst=有,psize=有` → **36000/36000**。结论：**`psize` 非空就上屏，`pptDst` 无所谓**。`psize` 为空时 API 返回 TRUE、`GetLastError()` 为 0——调用方没有任何错误可捕获，只能靠看屏。
+**修复**：`wm_layered_submit` 显式给 `SIZE ps = {pending_w, pending_h}`，`pptDst` 仍 NULL（位置不动）。文档写的是「尺寸不变可传 NULL」，与实测不符；按实测走。非空 `psize` 会让 ULW 顺带把窗口设成这个尺寸——本档只在无边框形态生效，那形态下窗口尺寸本就该等于客户区，无可见变化。
+**验证**：补丁后同一探针只走 `wm_present`：卡片 17629–18000/18000 上屏、透明区角落纯黑像素 2/1600（桌面真透出来）、`opacity=128` 时纯色像素掉到 0、边框回来后 `winrect` 仍 380×280；`moon test gui/win` 32/32、`moon check --deny-warn` 零输出。真机目视同批留档（`C:/ProgramData/wmprobe/v9_card.bmp`）。
+**教训**：① 「API 返回成功」不等于「效果发生了」——这类**成功但无副作用**的调用（ULW、`SetWindowPos` 的某些组合、`InvalidateRect` 遇上不自绘的窗）只能靠像素判据兜；② 跨平台桩里凡是把平台 API 的默认语义（「不传就沿用当前值」）当契约用，都要在**目标机器**上量一次，文档与实现不一致时以实测为准；③ 定位这类「什么都不显示」的问题，先把**状态字段**（谁在管这个档位）与**像素**（到底有没有画）分开收，二者一对就能排除掉一半候选。
+
+## WorkerW 不自绘暴露区：撤掉挂在它下面的子窗后，壁纸层留着最后一帧，且**没有任何重画通道能清**（2026-10-28，Windows 真机「壁纸层残影」）
+
+**症状**：窗切到「图标下」（`SetParent` 进壁纸 WorkerW、`WS_CHILD`）后，撤档 / `hide` / `close`，壁纸上留下该窗最后一帧。量化：320×180 纯色块撤掉后原地仍占 57394–57600/57600 像素（另一色 56399/57600），**跨进程退出仍在**、持续数分钟不自愈。与透明测试窗无关（残影那几轮没开任何逐像素窗）。
+**根因**：`wm_desk_repaint_host` 的时机是「子窗还挂着」时 `InvalidateRect(host) + UpdateWindow(host)`——宿主的 `WM_PAINT` 裁剪区扣掉了子窗那块，等于什么都没画；摘钩之后又没人再请求重画。但**顺序不是唯一问题**：把重画挪到摘钩之后仍然无效。
+**实测无效的通道**（逐条单独试、每条都抓屏数像素）：`RedrawWindow(host, rect, RDW_INVALIDATE|RDW_ERASE|RDW_UPDATENOW)`、`RedrawWindow(host, NULL, NULL, …|RDW_ALLCHILDREN)`、`SendMessage(host, WM_PAINT)`、`SendMessage(host, WM_SETREDRAW, FALSE/TRUE)` + 整窗失效、`Progman` 的 `WM_COMMAND 0x7402`（老「刷新桌面」口子）、`Progman` 的 `RedrawWindow`、宿主 `SetWindowPos(… SWP_FRAMECHANGED)`——一条都没动那 5.7 万像素。
+**实测有效的两条**（都得让壁纸层整体重建，代价是桌面闪一下）：① `SystemParametersInfoW(SPI_SETDESKWALLPAPER, 0, 当前路径, SPIF_SENDCHANGE)`——**不带** `SPIF_UPDATEINIFILE` 就不写注册表，实测同样清干净（57600/56399 → 0/0）；② `ShowWindow(host, SW_HIDE)` → `ShowWindow(host, SW_SHOW)`（57392 → 0）。
+**另一条设计路已堵死**：想让「图标下」档走逐像素提交（像素由 DWM 合成、不落宿主 GDI 面）——实测**逐像素子窗挂进 WorkerW 后根本不显示**（`trans_mode=1`、`embedded=1`、重提交后屏上 0/57600），这一档只能用 GDI 画进宿主面，残影必须靠清屏通道解决。
+**现状**：桩里现有那段 `wm_desk_repaint_host` 在本机（Windows 10 21H2 19044）是实测 no-op，保留着是因为它可能在别的 Windows 版本上有效；改不改、走哪条通道（或降级为已知边界）等口径决定，见 `TODO.md` §8.1。
+**教训**：① 「请对方重画」的前提是**对方会重画**——WorkerW 是 Explorer 用来承载壁纸的壳，它本身不处理 `WM_PAINT`，`InvalidateRect` 这类请求全部落空；② 判断「谁该负责清屏」要看**像素到底落在谁的面上**，而不是看谁在代码里父子上更近；③ 这类不可自愈的视觉脏数据必须用「跨进程复测」确认持久性——同一个进程里看到的「还在」可能是帧缓存没刷，跨进程还在才是真烙进去了。

@@ -184,23 +184,35 @@
 
 背景：本轮在 mac 读码定位。win32 那条 C 臂本地编不到（无 mingw），**编译以 CI 的 windows job 为准**，行为确认全在那台 Windows 真机。
 
+> **2026-10-28 Windows 真机回证（Windows 10 21H2 19044 / DPI 96）**：本批两项已在本机验通/定位，做法是把 `gui/win/stub.c` 原样 `#include` 进一个探针 TU，直接调 `wm_*` 门面 + 原生反查 + GDI 抓屏做像素判据（探针不入库，落在 `C:\ProgramData\wmprobe\`）；本机 MSVC 14.44 + SDK 26100 编得过，`moon build examples/showcase` 全链通过，`moon test gui/win` 32/32、`moon check gui/win --deny-warn` 零输出。
+> **注意：本机 DPI 是 96**，交接里怀疑的「200% DPI 下帧物理/窗逻辑对不上」在本机复现不出来，也无法在此排除——见 8.2 的结论。
+
 ### 8.1 已改待验（本批已提交，pull 后即可验）
 
-- [ ] **`wm_window_move` / `wm_window_origin` 补实**（win32 臂此前是空桩，输出从不写）
+- [x] **`wm_window_move` / `wm_window_origin` 补实**（win32 臂此前是空桩，输出从不写）——**2026-10-28 本机验通**
   - 判据：窗口页「开驻留探针窗」→ 窗应落在 (160,160)；点「读窗位置」应回 `(160, 160)`、`is_hidden=false`。此前无论窗在哪都回 `(0,0)`，且 `move_to` 静默不生效。
   - 口径：move 与 origin **互逆**，都按**客户区原点**、物理像素（本臂进程已声明 Per-Monitor V2）；带边框的窗内部补偿标题栏厚度。
   - 顺带修：`hide`→`show` 每轮偏一个标题栏厚度（原桩记客户区原点、`show` 却按整窗原点写回 `SetWindowPos`）。验法：带边框窗连做三轮 hide/show，位置读数不动。
-- [ ] **「图标下」档撤档/隐藏/关闭时请 WorkerW 重画**（真机「壁纸层残影」）
+  - **实测读数**（带边框窗 380×220，客户区相对整窗偏移 (8,31)）：`move(160,160)` → `origin=(160,160)`、`winrect=(152,129)`（补偿到位）；再 `move(400,300)` → `(400,300)`（不是碰巧）；无边框窗 `move(200,200)` → `(200,200)`、`winrect == client == 380×220`；hide/show 三轮 `hidden=1 → shown=0`、`origin` 恒 `(160,160)`、`winrect` 恒 `(152,129)`，客户区与整窗**双零漂移**。MoonBit 侧 `Window::move_to`/`origin` 是直传（`gui/win/popup.mbt:19/27`），故页面按钮级读数与上表等价。
+- [ ] **「图标下」档撤档/隐藏/关闭时请 WorkerW 重画**（真机「壁纸层残影」）——**实测：本批的修法在本机完全无效，残影照旧**
   - 判据：把某扇窗设到「图标下」，随后四条路径各验一次——切回主窗、撤回普通档、`hide`、`close`；壁纸上都不应留下该窗的最后一帧。
   - 若仍有残影：记下**哪条路径**留下的、当时那扇窗是否还挂着（决定要不要把失效点从桩侧挪到宿主侧）。
+  - **本机读数（2026-10-28）**：三条路径（撤档→普通档后把窗挪走、`hide`、`close`）**全部留残影**，量化到像素：320×180 的纯红块撤掉后原地仍占 57394–57600/57600 像素、纯绿块 56399/57600，且**跨进程退出仍在**（下一轮抓屏基线整块就是那帧，等于被烙进壁纸层，持续数分钟不自愈）。
+  - **与透明测试窗无关**：验残影的那几轮没有开任何透明窗/逐像素窗，残影照出——两件事互相独立。
+  - **现行修法为何无效**：`wm_desk_repaint_host` 在子窗**还挂着**时 `InvalidateRect(host) + UpdateWindow(host)`，宿主的 `WM_PAINT` 裁剪区扣掉了子窗那块，等于什么都没画；摘钩之后又没人再请求重画。但**顺序不是唯一问题**——实测把重画挪到摘钩之后、甚至用 `RedrawWindow(host, rect, RDW_INVALIDATE|RDW_ERASE|RDW_UPDATENOW)`、`RedrawWindow(host, NULL, NULL, …|RDW_ALLCHILDREN)`、`SendMessage(host, WM_PAINT)`、`WM_SETREDRAW` 关开、`Progman` 的 `WM_COMMAND 0x7402`（老「刷新桌面」口子）、宿主 `SWP_FRAMECHANGED`，**逐条实测全都不动那 5.7 万像素**：WorkerW 根本不自绘暴露区。
+  - **实测有效的只有两条**（都得让壁纸层整体重建，代价是桌面闪一下）：① `SystemParametersInfoW(SPI_SETDESKWALLPAPER, 0, 当前路径, SPIF_SENDCHANGE)`（**不带** `SPIF_UPDATEINIFILE` 就不写注册表，实测同样清干净：57600/56399 → 0/0）；② `ShowWindow(host, SW_HIDE)` → `ShowWindow(host, SW_SHOW)`（同样 57392 → 0）。
+  - **另一条设计路已堵死**：想让「图标下」档走逐像素提交（像素由 DWM 合成、不落宿主 GDI 面）——实测**逐像素子窗挂进 WorkerW 后根本不显示**（`trans_mode=1`、`embedded=1`、重提交后屏上 0/57600），故这一档只能用 GDI 画进宿主面。
+  - **待定口径**（要 老刘 拍板）：① 接受闪一下，选壁纸重设（与宿主身份无关、最稳）；② 选宿主 hide/show（更便宜，但绑宿主身份、Explorer 重建后 `desk_host` 会失效、还会连带影响别的挂在该 WorkerW 下的窗）；③ 不修，把「图标下」档的残影写成已知边界。
 
 ### 8.2 待诊断（没动手，先要读数）
 
-- [ ] **透明测试窗整片空白**（`set_borderless(true)` + `App::set_transparent_bg(true)` 的子窗看不到内容）
+- [x] **透明测试窗整片空白**（`set_borderless(true)` + `App::set_transparent_bg(true)` 的子窗看不到内容）——**2026-10-28 定位并已修（本批补丁）**
   - 已排除：present 链在逐像素档是通的（`wm_present` 拷帧后直接 `wm_layered_submit`，不走 WM_PAINT，避免 GDI 把不透明像素糊回去）。
-  - 三个候选，按可能性排：① `UpdateLayeredWindow` 走 `pptDst=NULL, psize=NULL`「沿用当前窗口尺寸」，而子窗刚建好时窗口矩形与客户帧尺寸可能不一致（200% DPI 下帧是物理像素、窗是逻辑尺寸），提交的面与窗框对不上；② `w->borderless` 没被 `set_borderless` 更新 → `want=0` 不进逐像素档（但那时应显示不透明内容，与读数不符）；③ 子宿主（`App::open_window` 开的子窗）根本没跑 present 循环。
-  - 不改代码就能收的两条读数：① 那扇窗**在不在**（Alt+Tab / 任务栏里有没有它；按 8.1 的 `origin` 读数推位置，看能不能点中「关掉本窗」）；② 同段把「透明度」滑到 128，看**主窗**是否变淡（那是 `wm_apply_alpha` 普通档，另一条路）。窗在且能点中 → 候选 ①；窗根本不在 → 候选 ③。
-  - 定了再补：必要时加 `wm_trans_state(id, out4)` 只读探针（打 `trans_want` / `borderless` / `trans_mode` / `pending_w×pending_h` 与 `GetWindowRect` 的差），一轮读数收口。
+  - **三个候选的判定**：③ 子宿主没跑 present —— **否**（探针里同一顺序 `borderless → transparent_bg → present`，`trans_want=1/borderless=1/trans_mode=1/IsWindowVisible=1/WS_EX_LAYERED=1`，帧确实进了 `layer_bits`）；① 提交面与窗框尺寸对不上 —— **否**（`pending=380×280`、`winrect=380×280`、`client=380×280`、`delta=(0,0)`）；② `borderless` 没更新 —— **否**（读数见上）。真正的原因不在候选里：**`UpdateLayeredWindow` 的 `psize` 传 NULL 时这次提交不落地**。
+  - **四组合实测**（240×150 逐像素档窗，每组合独立开一扇，抓屏数上屏像素）：`dst=NULL,psize=NULL` → `ok=1, err=0`，屏上 **0/36000**；`dst=有,psize=NULL` → `ok=1, err=0`，**0/36000**；`dst=NULL,psize=有` → **36000/36000**；`dst=有,psize=有` → **36000/36000**。即：**只要 `psize` 非空就上屏，`pptDst` 传不传无所谓**；`psize` 为空时 API 返回成功但一个像素都不画，且 `err=0`——所以调用方没有任何错误可捕获。
+  - **修复**：`wm_layered_submit` 显式给 `SIZE ps = {pending_w, pending_h}`（`pptDst` 仍 NULL，位置不动）。补丁后同一探针只走 `wm_present`：卡片 17629–18000/18000 上屏、透明区角落纯黑像素 2/1600（桌面真的透出来）、`opacity=128` 时纯色像素掉到 0（变淡生效）、边框回来退普通档后 `winrect` 仍是 380×280。`moon test gui/win` 32/32、`moon check --deny-warn` 零输出。
+  - **仍未验**：①②候选指向的 200% DPI 场景本机（DPI 96）复现不出来。补丁把窗口尺寸交给 `psize`（= 帧的物理像素尺寸），理论上会让「帧是物理、窗是逻辑」的机器自动对齐，但**这条只有真 200% DPI 机上能验**；顺带一个待观察项：`pending` 落后于窗口（改尺寸与 present 之间）时，非空 `psize` 会把窗口拽回上一帧的尺寸，是否可感知要看真机帧序。
+  - 无需再加 `wm_trans_state` 只读探针：上面四组合已把机制钉死，探针只会复述同一组字段。
 
 ### 8.3 未实现（win32 臂空桩，不在本批范围）
 
@@ -210,3 +222,5 @@
 ### 8.4 验通后的收尾
 
 8.1 两条移进 `docs/zh/roadmap.md` 对应能力行并按平台标 ✅；`测试文档/测试用例.md` 窗口组补「读窗位置」「图标下撤档无残影」两条；8.2 的诊断结论回写 `proposals/adaptation.md`。
+
+**2026-10-28 进度**：8.1 第一条与 8.2 已执行——roadmap「显隐驻留」行补了 Windows 位置口径、测试用例补「位置读数」与「图标下无残影（当前为已知缺陷）」两条、两条诊断结论已回写 adaptation。**8.1 第二条（残影）未修**，等 8.1 里的口径决定后再动；`wm_window_set_popup` 空桩（8.3）仍不在本批。
