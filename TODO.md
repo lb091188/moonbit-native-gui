@@ -64,15 +64,8 @@
   - [ ] 批 D2c 再余项（不假装完成）：ASS 样式渲染（颜色/定位，目前只按文本叠加）、多字幕轨列表与切换（现在只取 `av_find_best_stream` 选中的那条）、倍速听感复验（是否仍同步；音高随动已定案不做——时间拉伸要相位声码器，口径见 media/audio.mbt 注释）
 - [~] **批 E 原生弹层窗口**（已完成面见 roadmap 同节；剩余见子条目）
   - [ ] 弹层锚点跟随 owner 滚动/移动、六件各自的尺寸提示（「点外收起」判据与 Windows 臂 set_popup/surface 计数已于 2026-10-28 落地，三平台真机复验收尾后移 roadmap）
-- [ ] **批 F1 权限请求挂起待决 + 示例对话框**（2026-10-28 用户拍板：权限不该只进日志，要弹「同意/不同意」）：
-  - 桩侧：三平台把权限请求**扣住不立即决定**（GTK `g_object_ref` 住 `WebKitPermissionRequest`；mac 扣 `decisionHandler` block；WebView2 走 `GetDeferral`），新增 `wb_respond_permission(sid, allow)` 延后落判；`permission_allow=1` 的自动放行档保留（放行即报不扣），=0 改为「扣住 + 报事件」
-  - MBT 侧：`Webview::respond_permission(allow)` 公开口 + wbtest 钉「无挂起时是空操作」
-  - 示例侧：Permission 事件弹 `@ui.dialog`（允许/拒绝两钮），点击落 respond 并记事件行
-  - mac 定位无公开回调（SDK 头核对，见 adaptation 2026-10-28 条），对话框在 mac 由媒体授权触发验证
-- [ ] **批 F2 浏览器示例多窗：新窗=独立窗口**（2026-10-28 用户拍板：真实浏览器语义）：
-  - 示例结构从「单窗全局变量」重构为「建一扇浏览器窗」的函数：每窗自己的 webview/地址栏/状态区/策略位，经 `App::open_window` 起新窗
-  - 新窗策略放行档从「当前页原地导航」升级为「起一扇带完整工具栏的新窗并导航到目标 URL」；拦截档与原地导航保留为可切换口径
-  - 桩侧「一窗多 webview 并排」仍是明确不做（见本节末），本条是**多窗各自一枚 webview**，不破该口径
+- [~] **批 F1 权限请求挂起待决 + 示例对话框**（2026-10-28 用户拍板：权限不该只进日志，要弹「同意/不同意」）——**已实现待真机**（60c2b7c3）：三平台桩扣住请求（GTK ref 住 WebKitPermissionRequest / mac 扣 decisionHandler block / WebView2 GetDeferral），`Webview::respond_permission(allow)` 落判并回是否命中，示例 Permission 事件弹 `@ui.dialog`；自动放行档不变；护栏=新到旧收+销毁收口。待 mac/Linux/Windows 真机复验后移 roadmap（mac 由媒体项触发验证，定位无公开回调）。
+- [~] **批 F2 浏览器示例多窗：新窗=独立窗口**（2026-10-28 用户拍板：真实浏览器语义）——**已实现待真机**（bfe9690d）：整窗结构收进 `open_browser(title,home,owner)`，新窗策略放行档经 `App::open_window` 另起一扇带完整工具栏的独立浏览器窗并导航目标 URL；拦截档与原地导航保留为可切换口径。待三平台真机复验后移 roadmap。桩侧「一窗多 webview 并排」仍是明确不做（见本节末），本条是**多窗各自一枚 webview**，不破该口径。
 - 积木原则：一个能力一个接口、可单独不用；能力之间不互相依赖（webview 不依赖媒体层，反之亦然，两者只依赖窗口/布局/事件层）；框架只给原语不给产品（爬虫框架、站点适配、内容解析、开发者面板、页面脚本库不进库）；每项能力给探测 + 语义化降级；新 API 一律走 `Painter`/`Bitmap` 门面
 - 明确不做（避免反复讨论）：网络拦截/改写、代理配置、一窗多 webview 并排、Linux 上把 webview 变纹理、首批硬解、首批 GPU 合成、网页内 `<video>` 与自绘播放器统一、macOS 13 及以下的持久化隔离（根因是 Apple API 边界：持久化 profile 需 macOS 14+ 且有 bundle id）
 - 平台后端（随各自真机）：Windows WebView2——**2026-10-13 平台批已接**（两级异步 COM 创建 Environment→Controller、失败走 dead 语义降级、就绪前 load 排队、13 事件 push 队列同构 WebKit 分支、自定义 scheme 经 `EnvironmentOptions4::SetCustomSchemeRegistrations` 预注册 + `WebResourceRequested` 回包（`CreateWebResourceResponse`，404 给明确空响应）；vendor 口径：NuGet Microsoft.Web.WebView2 1.0.4258.31 的 `WebView2LoaderStatic.lib` + 头 vendor 进 `gui/web/`，prebuild 下发链接参数；**真机验证**：web wbtest 17/17、一次性探针 load_html/标题事件/JS 求值/协议页导航/DOM 求值全通、`native-web` 冒烟 `supported=1` + GEO 真矩形 + 8 组统计；坑见 `adaptation.md`——未预注册 scheme 导航直接失败、COM propput 少 self 参数在 x64 上静默写坏 vtable、`GetCustomSchemeRegistrations` 数组必须 `CoTaskMemAlloc`（静态数组会被引擎 free 触发堆损坏 0xC0000374））。**未接**：跨 HWND 焦点与滚轮转发。macOS WKWebView（自定义协议走**公开**的 `WKURLSchemeHandler`（macOS 10.13+），libyue 当年那条 `WKBrowsingContextController registerSchemeForCustomProtocol:` 是更老的私有路线；要验的是公开入口够不够用：自定义 scheme 默认非标准、origin/localStorage 行为要另配；**另需真机验一条**：`loadHTMLString:baseURL:` 是否入前进/后退历史——Apple 无文档承诺，而 Linux 实测 `load_html` 不入历史、WebView2 文档明写 `NavigateToString` 不改历史，若 mac 相反就要在 `web` 里抹平或写进契约）
