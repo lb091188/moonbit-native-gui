@@ -51,6 +51,8 @@ test "radix-2 FFT：直流只点亮 bin 0" {
 test "频谱：440Hz 正弦落在对应频段" {
   let sp = Spectrum::make(bands=24)
   sp.feed(sp_sine(440.0, 44100, 1024, 1), 1)
+  // 电平经缓动逐拍爬升，连取两拍才到位
+  let _ = sp.levels(0, 44100)
   let lv = sp.levels(0, 44100)
   assert_eq(lv.length(), 24)
   let peak = sp_argmax(lv)
@@ -68,7 +70,10 @@ test "频谱：立体声下混与队列回看" {
   mono.feed(sp_sine(1000.0, 44100, 1024, 1), 1)
   let st = Spectrum::make(bands=24)
   st.feed(sp_sine(1000.0, 44100, 1024, 2), 2)
+  // 电平经缓动逐拍爬升，连取两拍才到位
+  let _ = mono.levels(0, 44100)
   let a = mono.levels(0, 44100)
+  let _ = st.levels(0, 44100)
   let b = st.levels(0, 44100)
   assert_eq(sp_argmax(a), sp_argmax(b))
   assert_true(b[sp_argmax(b)] > 0.3)
@@ -76,6 +81,7 @@ test "频谱：立体声下混与队列回看" {
   let back = Spectrum::make(bands=24)
   back.feed(sp_sine(1000.0, 44100, 1024, 1), 1)
   back.feed(sp_sine(1000.0, 44100, 1024, 1), 1)
+  let _ = back.levels(1024, 44100)
   let c = back.levels(1024, 44100)
   assert_true(c[sp_argmax(c)] > 0.3)
 }
@@ -92,6 +98,8 @@ test "频谱：静音、不足窗与 reset" {
     assert_true(v < 0.01)
   }
   sp.feed(sp_sine(440.0, 44100, 1024, 1), 1)
+  // 电平经缓动逐拍爬升，连取两拍才到位
+  let _ = sp.levels(0, 44100)
   let lit = sp.levels(0, 44100)
   assert_true(lit[sp_argmax(lit)] > 0.3)
   // 还不够一个窗口：读数保持，不清零
