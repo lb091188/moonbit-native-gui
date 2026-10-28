@@ -1,5 +1,5 @@
-// 浏览器示例：「正常的浏览器」形态——顶部工具栏（后退/前进/重载/停止/地址栏/
-// 进入/演示菜单）+ webview 主体 + 底部状态栏（常驻加载状态与 URL、事件流水、
+// 浏览器示例：「正常的浏览器」形态——顶部工具栏（后退/前进/重载-停止合一/
+// 地址栏/进入/演示菜单）+ webview 主体 + 底部状态栏（常驻加载状态与 URL、事件流水、
 // 结果区：长结果截断、可展开看全文、可复制）。能力演示入口全部收进「演示」
 // 菜单（下拉组件，键盘可及：空格/回车/↓ 开、↑/↓ 移高亮、Esc 收起）。
 //
@@ -85,6 +85,7 @@ fn main {
   // 常驻 URL 与标题、事件流水、能力结果（截断 + 可展开）
   let url_in : @base.Store[String] = @base.Store::new(HOME_URL)
   let status : @base.Store[String] = @base.Store::new("0|就绪")
+  let loading : @base.Store[Bool] = @base.Store::new(false)
   let cur_url : @base.Store[String] = @base.Store::new(HOME_URL)
   let title_st : @base.Store[String] = @base.Store::new("（无标题）")
   let ev_count : @base.Store[Int] = @base.Store::new(0)
@@ -106,6 +107,7 @@ fn main {
       Done => "2"
       Failed => "3"
     }
+    loading.set(k is Loading)
     status.set(tag + "|" + text)
   }
   fn ev(text : String) -> Unit {
@@ -191,24 +193,31 @@ fn main {
               None => ()
             }
           }),
-          @ui.button("⟳ 重载", variant=@ui.Soft, on_click=fn() {
-            match wv.val {
-              Some(v) => {
-                v.reload()
-                set_status(Loading, "加载中")
-              }
-              None => ()
-            }
-          }),
-          @ui.button("✕ 停止", variant=@ui.Text, on_click=fn() {
-            match wv.val {
-              Some(v) => {
-                v.stop()
-                set_status(Ready, "已停止")
-              }
-              None => ()
-            }
-          }),
+          @widget.bind_node(
+            loading.signal(),
+            fn(busy : Bool) -> @widget.Node {
+              // 重载/停止合一：加载中显「停止」，其余显「重载」；图标与文字同高
+              @ui.button(
+                if busy { "停止" } else { "重载" },
+                variant=@ui.Soft,
+                icon=Some(if busy { @icons.Stop } else { @icons.Reload }),
+                icon_size=14.0,
+                on_click=fn() {
+                  match wv.val {
+                    Some(v) =>
+                      if busy {
+                        v.stop()
+                        set_status(Ready, "已停止")
+                      } else {
+                        v.reload()
+                        set_status(Loading, "加载中")
+                      }
+                    None => ()
+                  }
+                },
+              )
+            },
+          ),
           @ui.input(
             url_in,
             placeholder="输入 URL，回车或点「进入」加载",
