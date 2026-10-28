@@ -264,6 +264,7 @@ fn main {
               "-",
               "策略触发·新窗(当前页)",
               "策略触发·定位(当前页)",
+              "策略触发·媒体(当前页)",
               "策略触发·下载(当前页)",
             ],
             on_select=fn(i : Int) {
@@ -380,8 +381,13 @@ fn main {
                     v.execute_javascript(
                       "navigator.geolocation.getCurrentPosition(function(){},function(){})",
                     )
-                    ev("已执行定位请求（引擎只在安全上下文发 permission-request：https 页有回声，本地片段/ http 页静默拒）")
+                    ev("已执行定位请求（Linux/Windows 有 permission-request 回声；mac 公开 API 无定位回调，验权限策略用「媒体」项）")
                   } else if i == 19 {
+                    v.execute_javascript(
+                      "navigator.mediaDevices.getUserMedia({audio:true}).catch(function(){})",
+                    )
+                    ev("已执行媒体权限请求（三平台都走策略：mac 12+ 公开回调已接）")
+                  } else if i == 20 {
                     v.execute_javascript(
                       "var b=new Blob(['native-gui download probe'],{type:'text/plain'});var u=URL.createObjectURL(b);var a=document.createElement('a');a.href=u;a.download='ngui.txt';document.body.appendChild(a);a.click();",
                     )
@@ -520,16 +526,18 @@ fn main {
                   show_result("加载失败（结构化原因）\n\{reason}\n\n原始载荷：\n\{raw}")
                 }
                 @web.NewWindow(u) => {
-                  ev("新窗请求被策略拦下")
-                  show_result("新窗请求（默认拦下）：\n\{u}\n\n当前策略：\n\{policy_text()}")
+                  ev(if pol_newwin.val { "新窗请求已放行（当前页导航）" } else { "新窗请求被策略拦下" })
+                  show_result(
+                    "新窗请求（\{if pol_newwin.val { "放行：已在当前页导航" } else { "拦下" }}）：\n\{u}\n\n当前策略：\n\{policy_text()}"
+                  )
                 }
                 @web.Permission(c) => {
-                  ev("权限请求被策略拒绝")
-                  show_result("权限请求（默认拒绝）：\{c}\n\n当前策略：\n\{policy_text()}")
+                  ev(if pol_perm.val { "权限请求已放行" } else { "权限请求被策略拒绝" })
+                  show_result("权限请求（\{if pol_perm.val { "放行" } else { "拒绝" }}）：\{c}\n\n当前策略：\n\{policy_text()}")
                 }
                 @web.Download(d) => {
-                  ev("下载被策略拦下")
-                  show_result("下载请求（默认拦下）：\{d}\n\n当前策略：\n\{policy_text()}")
+                  ev(if pol_dl.val { "下载已放行（交引擎默认）" } else { "下载被策略拦下" })
+                  show_result("下载请求（\{if pol_dl.val { "放行：交引擎默认" } else { "拦下" }}）：\{d}\n\n当前策略：\n\{policy_text()}")
                 }
                 @web.Cookies(j) =>
                   show_result("Cookie 回包（\{j.length()} 字节）\n\{j}")

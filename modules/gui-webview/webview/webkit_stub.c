@@ -1382,6 +1382,26 @@ static int wb_scheme_slot(WMBView *v, const char *scheme) {
   return nil;
 }
 
+// 媒体（摄像头/麦克风）权限请求：kind=9 报上层，再按策略 Grant/Deny。
+// 定位授权在 macOS 的公开 WKUIDelegate 里**没有回调**（本机 SDK 头核对，只有
+// iOS 一侧有），所以 mac 上「策略·权限」的可验入口是这一条而非 geolocation。
+- (void)webView:(WKWebView *)webView
+    requestMediaCapturePermissionForOrigin:(WKSecurityOrigin *)origin
+                          initiatedByFrame:(WKFrameInfo *)frame
+                                      type:(WKMediaCaptureType)type
+                           decisionHandler:
+                               (void (^)(WKPermissionDecision decision))decisionHandler {
+  (void)webView; (void)origin; (void)frame;
+  WMBView *v = wb_get(self->sid);
+  char buf[48];
+  snprintf(buf, sizeof(buf), "MediaCapture:type=%d", (int)type);
+  if (v != nil) {
+    wb_push(v, 9, 0, buf);
+  }
+  decisionHandler(v != nil && v->permission_allow ? WKPermissionDecisionGrant
+                                                  : WKPermissionDecisionDeny);
+}
+
 @end
 
 // ---- 全局探测 ----
