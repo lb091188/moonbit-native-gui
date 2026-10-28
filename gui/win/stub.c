@@ -4555,9 +4555,20 @@ int wm_window_is_maximized(int64_t id) {
   return IsZoomed(win->hwnd) ? 1 : 0;
 }
 
+// 本窗已挂的原生子件数（浮层档位判据 `overlay_native_tier` 的读源）。此前是恒 0
+// 的桩：Windows 于是永远走图层档，弹层画在自绘底上被 WebView2 子件盖住，
+// 「演示菜单只剩一条窄条」（真机反馈）的根因就在这。
 int wm_window_surface_count(int64_t id) {
-  (void)id;
-  return 0;
+  if (id <= 0 || id >= WM_MAX_WINDOWS) {
+    return 0;
+  }
+  int n = 0;
+  for (int i = 1; i < WM_MAX_SURFACES; i++) {
+    if (wm_surfaces[i].hwnd != NULL && wm_surfaces[i].window_id == id) {
+      n++;
+    }
+  }
+  return n;
 }
 
 /* 剪贴板三符号：Windows 的真路径在 sys 桩自己的 CF_UNICODETEXT

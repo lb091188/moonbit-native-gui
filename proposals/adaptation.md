@@ -1041,6 +1041,13 @@
 - **「拿到过焦点才算」判据补上，失焦收起默认开**：三平台窗状态各加 `focus_gained` 位（Win `WM_SETFOCUS` / GTK `focus-in-event` / mac `windowDidBecomeKey:`），经 `wm_window_had_focus` 查询；`overlay_on_lost_focus` 要求该弹层窗**当过 key** 才收——批 E 记过的「映射期 focus-out 噪声两秒自关」被这条判据直接挡掉，`g_dismiss_on_blur` 从默认关翻成默认开（开关保留）。
 - **验证**：`cd gui && moon check` 零错误零警告、`moon test widget win ui` 370/370、mac 桩重编（`win_stub_mac.o`）通过。真机清单（用户执行）：浏览器示例「演示」菜单——点浮层外收起、Esc/↑↓ 键盘、Windows 侧弹层应无边框贴按钮且不再白板。
 
+### MoonBit 原生 GUI 栈 · Windows 浮层「窄条」的真根因：`wm_window_surface_count` 恒 0 桩（2026-10-28 同线续）
+
+- **上一条修完白板后 Windows 菜单仍只剩贴按钮的一条窄白**，且探针（只挂在原生档路径上）**一行读数都没出**——这条「没有读数」本身就是读数：Windows 上根本没进原生档。判据链：`overlay_native_tier()` 读 `Window::has_child_surfaces()` 读 `wm_window_surface_count`，而 Win32 段那条是**恒 0 的桩**（GTK/mac 段都是真实现，唯独 Windows 漏了）——于是有网页区的窗也走图层档，弹层画在自绘底上被 WebView2 子件整个盖住，只有浮在工具栏与网页区交界之上的几像素露出来，看着像「弹层被压住/收框收坏」，其实是档位判错。
+- **判据**：跨平台桩补齐时，**读源函数比消费函数更容易漏**——`wm_surface_new`（写侧）有真实现、`wm_window_surface_count`（读侧）是桩，写读不对称不会编译报错，只在依赖读数的那条分支上静默降级。排查时「探针没出声」优先于「探针读数异常」去怀疑：**先确认代码路径进没进**。
+- **修法**：Windows 段按 `wm_surfaces[]` 槽表（hwnd 非空且 window_id 匹配）计数，与 mac 段同口径。修后 Windows 应进原生档：弹层走上一批落地的真窗口（无边框+owner），窄条症状与白板一并消失；待 Windows 真机复验。
+- **验证**：`cd gui && moon check --deny-warn` 全绿、`moon test widget win ui` 370/370（本机 mac 段不受影响；Win32 段随用户机 MSVC 编译验证）。
+
 ### MoonBit 原生 GUI 栈 · 媒体播放器（批 D：新包 `yue/media`，CPU 回灌 + 软解）
 
 - **引擎是平移不是重写**：`modules/gui-media` 的 `audio_player.mbt`(416 行) 与 `video_player.mbt`(476 行) 实测**零 @yue 依赖**（只有组件包装层碰 UI），于是引擎与 15 条既有回归整段搬进新包 `yue/media`，只改测试素材路径与一个公开口。旧链踩过的坑（音画不同轴、seek 后进度从零重涨、换载崩溃、播完态与初始态要区分）就随那批测试一起进了新栈——**这批的价值一半在「把老师写对的东西接住」**。
