@@ -3248,6 +3248,13 @@ void *yue_sys_mon_mac(int32_t *ok) {
   }
   return sys_mon_blob_out(&blob, ok);
 }
+
+// 非 Windows：符号要在（MoonBit 侧的 extern 是无条件的，三平台同一套链接）。
+// mac 上 mon_list 走的是上面那一臂，这个恒给「不可用」。
+void *yue_sys_mon_win(int32_t *ok) {
+  *ok = 0;
+  return moonbit_make_bytes(0, 0);
+}
 #elif defined(_WIN32)
 // Windows 臂：GDI 的显示设备口一家打齐——EnumDisplayDevicesW 列「贴合桌面的
 // 显示适配器」（每块屏一条，含 VMware/QXL 这类虚拟显卡）、

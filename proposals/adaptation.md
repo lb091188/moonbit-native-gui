@@ -3386,6 +3386,7 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 
 **显示器（真缺口）**：`mon_list()` 当时只有 Linux（xrandr）与 macOS（CoreGraphics）两臂，**Windows 直接掉进 mac 臂**，桩体恒回 `ok=0` → `Unsupported`。也就是说 Windows 上从来没接过显示器枚举，与虚拟机无关。
 **修法**：`yue_sys_mon_win`（`EnumDisplayDevicesW` 列贴桌面的适配器 + `EnumDisplaySettingsExW` 取当前档与模式表），输出与 mac 臂同一份 `MON`/`MODE` 行式文本，MoonBit 侧复用同一个解析函数（`mon_parse_mac` 因此改名 `mon_parse_blob`）。实测 QXL 虚拟显卡读到 `DISPLAY1: 1920x1080 @64.0Hz 位置 +0+0，支持模式 30 种`。
+**回马枪（mac 链接断，同日）**：这一段当时写成 `#if __APPLE__ / #elif _WIN32 / #else` 三臂，但只有最后的 `#else` 同时给了两个符号的桩——mac 臂里 `yue_sys_mon_win` 压根没定义，而 MoonBit 侧 `extern "c" fn ffi_mon_win` 是无条件的（三平台同一套链接），于是 mac 上 `moon run examples/showcase` 报 `Undefined symbols: _yue_sys_mon_win`。**修法**：mac 臂末尾补一个恒回 `ok=0` 的 `yue_sys_mon_win` 桩，与 `_WIN32` 臂里那个 `yue_sys_mon_mac` 桩对称。**教训**：加平台臂时，「另外几臂的符号桩」属于同一批改动；而且 `moon check` 只编不链可执行体，抓不到这类缺口——必须 `moon build --target native` 把带 `extern` 的示例真链一次。
 
 **机器（虚拟机固件的坑）**：`si_machine()` 的 Windows 臂一直只读注册表 `HKLM\HARDWARE\DESCRIPTION\System\BIOS`——那是内核从 SMBIOS 抄的镜像。这台 QEMU/SeaBIOS 机器上这个键**存在但 `ValueCount=0`**（一个值都没有，`GetSubKeyNames` 也空）。继续往下查：
 - `GetSystemFirmwareTable('RSMB', 0, …)` → 返回 0，`GetLastError()=ERROR_INVALID_FUNCTION(1)`；`EnumSystemFirmwareTables` 连一个 provider 都不给 → **用户态没有固件表可读**；
