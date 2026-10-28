@@ -100,6 +100,30 @@ test "退出兜底：未收到退出信号时不报退出，批量注销可空�
 }
 
 ///|
+test "退出兜底：批量注销真的摘掉 Win32 槽（否则退出后留僵尸图标）" {
+  // 量的是 @win.tray_count()：只做 SNI 兜底时它注销后仍为 1——进程退出后
+  // 通知区那个图标没有任何窗口接回调，右键既不弹菜单也不出 tooltip，要等
+  // 鼠标扫过才被 Shell 顺手清掉。
+  if !Tray::is_supported() {
+    println("skip: 本机没有可用的托盘后端")
+  } else {
+    match Tray::new("libyue-wbtest-batch") {
+      Err(e) => println("skip: 建托盘失败(\{e})")
+      Ok(t) =>
+        match t.backend() {
+          Native(_) => {
+            assert_eq(@win.tray_count(), 1)
+            remove_all_trays()
+            assert_eq(@win.tray_count(), 0)
+          }
+          // SNI 侧由 sni 自己的表收尾，这里只验不崩
+          Sni(_) => remove_all_trays()
+        }
+    }
+  }
+}
+
+///|
 test "自绘位图换图标：像素口径换算与非法输入保持原图标" {
   let solid = Bytes::makei(2 * 2 * 4, fn(_i) { b'\xff' })
   // 尺寸非正 / 字节不够 → 0（调用方据此保持原图标，不把空句柄塞给后端）

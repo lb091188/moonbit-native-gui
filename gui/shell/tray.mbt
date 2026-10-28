@@ -75,8 +75,9 @@ pub(all) struct Tray {
 let tray_by_slot : Map[Int, Tray] = Map([])
 
 ///|
-/// 是否需要退出兜底：只有建过 Linux(SNI) 托盘才置位。Win32 的通知区项由 shell
-/// 随进程回收，不需要注销；兜底开关决定主循环每拍要不要问一次信号标志。
+/// 是否需要退出兜底：只有建过 Linux(SNI) 托盘才置位。兜底开关只决定主循环
+/// 每拍要不要问一次信号标志；**注销本身两端都要做**——Win32 的通知区项不会
+/// 随进程回收，不显式 NIM_DELETE 就留僵尸图标（见 `remove_all_trays`）。
 let quit_watch : Ref[Bool] = Ref(false)
 
 ///|
@@ -432,7 +433,18 @@ pub fn Tray::remove(self : Tray) -> Unit {
 ///|
 /// 注销本进程所有还在册的托盘图标（退出兜底，幂等）。宿主在拆台或收到退出
 /// 信号时调；单个图标仍用 `Tray::remove`，这里管整批。
+///
+/// Win32 的 Native 槽必须逐个发 NIM_DELETE。早先这里只做 SNI 兜底，依据是
+/// 「shell 会随进程回收通知区项」——**实测不成立**：进程退出后图标留在通知
+/// 区，右键它既不弹菜单也不出 tooltip（没有窗口处理回调），要等鼠标扫过才
+/// 被 Shell 顺手清掉，看起来就是「托盘图标还在，但点了没反应」。
 pub fn remove_all_trays() -> Unit {
+  // 先取快照：下面的 remove 会改 tray_by_slot，边遍历边删不安全。
+  for entry in tray_by_slot.to_array() {
+    let (_, tray) = entry
+    tray.remove()
+  }
+  // SNI 托盘不进 tray_by_slot（点击走 DBus 信号直达回调），按自己的表收尾。
   @dbus.sni_unregister_all()
 }
 
