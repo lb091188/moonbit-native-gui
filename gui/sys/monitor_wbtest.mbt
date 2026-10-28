@@ -295,8 +295,8 @@ test "mon_split_tab：制表符分列并保留空字段" {
 }
 
 ///|
-test "mon_parse_mac：MON 开屏、MODE 归属、孤儿与坏行丢弃" {
-  let infos = mon_parse_mac(mon_mac_sample())
+test "mon_parse_blob：MON 开屏、MODE 归属、孤儿与坏行丢弃" {
+  let infos = mon_parse_blob(mon_mac_sample())
   assert_eq(infos.length(), 2)
   let a = infos[0]
   assert_eq(a.name, "Built-in")
@@ -325,23 +325,45 @@ test "mon_parse_mac：MON 开屏、MODE 归属、孤儿与坏行丢弃" {
 }
 
 ///|
-test "mon_parse_mac：空文本与整表畸形都给空清单" {
-  assert_eq(mon_parse_mac("").length(), 0)
-  assert_eq(mon_parse_mac("随便一行\n").length(), 0)
+test "mon_parse_blob：空文本与整表畸形都给空清单" {
+  assert_eq(mon_parse_blob("").length(), 0)
+  assert_eq(mon_parse_blob("随便一行\n").length(), 0)
   // 只有 MODE 没有 MON → 孤儿行，全丢
-  assert_eq(mon_parse_mac("MODE\t1\t1\t0\t1\t1\n").length(), 0)
+  assert_eq(mon_parse_blob("MODE\t1\t1\t0\t1\t1\n").length(), 0)
   // 字段数不对的 MODE 不进模式表
-  let one = mon_parse_mac("MON\tX\t0\t0\t0\t0\t0\nMODE\t800\t600\n")
+  let one = mon_parse_blob("MON\tX\t0\t0\t0\t0\t0\nMODE\t800\t600\n")
   assert_eq(one.length(), 1)
   assert_eq(one[0].modes.length(), 0)
 }
 
 ///|
 test "mon_current_from(mac 样例)：只取有当前档的屏" {
-  let cur = mon_current_from(mon_parse_mac(mon_mac_sample()))
+  let cur = mon_current_from(mon_parse_blob(mon_mac_sample()))
   assert_eq(cur.length(), 1)
   assert_eq(cur[0].name, "Built-in")
   assert_eq(cur[0].width, 3024)
   assert_eq(cur[0].height, 1964)
   assert_eq(cur[0].pos_x, 0)
+}
+
+///|
+test "mon_parse_blob(Windows 样例)：DISPLAY1 / 主输出 / 当前档" {
+  // 本机实测形态（QEMU QXL 虚拟显卡）：GDI 的清单，1920x1080@64Hz 是当前档
+  let text =
+    "MON\tDISPLAY1\t1\t0\t0\t0\t0\n" +
+    "MODE\t1024\t768\t6400\t0\t0\n" +
+    "MODE\t1920\t1080\t6400\t1\t0\n" +
+    "MODE\t2560\t1440\t6400\t0\t0\n"
+  let infos = mon_parse_blob(text)
+  assert_eq(infos.length(), 1)
+  let m = infos[0]
+  assert_eq(m.name, "DISPLAY1")
+  assert_true(m.primary)
+  assert_true(m.connected)
+  assert_eq(m.width, 1920)
+  assert_eq(m.height, 1080)
+  assert_eq(m.refresh_centi, 6400)
+  assert_eq(m.pos_x, 0)
+  assert_eq(m.mm_width, 0)
+  assert_eq(m.modes.length(), 3)
 }

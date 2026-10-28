@@ -493,6 +493,14 @@ fn si_read_first_file(paths : Array[String]) -> String? {
 extern "c" fn ffi_reg_sz(subkey : Bytes, value : Bytes, ok : Ref[Int]) -> Bytes = "yue_sys_reg_sz"
 
 ///|
+/// Windows 直调：机器 DMI 的 WMI 兜底（一行三列 `厂商\t型号\t序列号`，缺失给
+/// 空串）。注册表那张 BIOS 镜像在虚拟机里整个是空的（固件不把 SMBIOS 表交给
+/// 用户态，连 GetSystemFirmwareTable 都不认这张表），只能退到 WMI。非 Windows
+/// 平台恒给 ok=0。
+#borrow(ok)
+extern "c" fn ffi_wmi_machine(ok : Ref[Int]) -> Bytes = "yue_sys_wmi_machine"
+
+///|
 /// Windows 直调：物理内存快照（KB）。
 #borrow(total_kb, avail_kb, ok)
 extern "c" fn ffi_memory_kb(
@@ -518,6 +526,48 @@ fn si_win_reg(subkey : String, value : String) -> String? {
   } else {
     Some(v)
   }
+}
+
+///|
+/// 解析 WMI 机器兜底的输出：一行三列（`厂商\t型号\t序列号`，缺的列给空串）。
+/// 列数不足按缺列补空——WMI 那边这三项本来就是可空的（虚拟机常只给前两项）。
+/// 首行全空（一个字段都没有）判为取不到。
+fn si_parse_wmi_machine(text : String) -> (String, String, String)? {
+  let lines = si_split_lines(text)
+  if lines.length() == 0 {
+    return None
+  }
+  let cols : Array[String] = []
+  let mut cur = StringBuilder()
+  for ch in lines[0] {
+    if ch == '\t' {
+      cols.push(si_trim(cur.to_string()))
+      cur = StringBuilder()
+    } else {
+      cur.write_char(ch)
+    }
+  }
+  cols.push(si_trim(cur.to_string()))
+  let vendor = if cols.length() > 0 { cols[0] } else { "" }
+  let product = if cols.length() > 1 { cols[1] } else { "" }
+  let serial = if cols.length() > 2 { cols[2] } else { "" }
+  if vendor == "" && product == "" && serial == "" {
+    None
+  } else {
+    Some((vendor, product, serial))
+  }
+}
+
+///|
+/// WMI 兜底：取厂商 / 型号 / 序列号（注册表镜像为空时才走到）。取不到给 None
+/// ——调用方据此保留注册表那条原始错误，别把「两条路都失败」说成「解析失败」。
+fn si_win_machine_wmi() -> (String, String, String)? {
+  let ok = Ref(0)
+  let blob = ffi_wmi_machine(ok)
+  if ok.val != 1 {
+    return None
+  }
+  si_parse_wmi_machine(@utf8.decode_lossy(blob))
 }
 
 ///|
@@ -737,18 +787,41 @@ pub fn si_machine() -> Result[MachineInfo, SysInfoError] {
       Ok({ vendor, product, serial, })
     }
     "windows" => {
-      // BIOS DMI 的注册表镜像（HKLM\HARDWARE\DESCRIPTION\System\BIOS）
+      // BIOS DMI 的注册表镜像（HKLM\HARDWARE\DESCRIPTION\System\BIOS）。真机
+      // 常态走这一条；虚拟机（QEMU/SeaBIOS 实测）里这张镜像一个值都没有——
+      // 固件不把 SMBIOS 表交给用户态，连 GetSystemFirmwareTable('RSMB') 都返回
+      // ERROR_INVALID_FUNCTION，于是退 WMI（Win32_ComputerSystem）。
       let bios = "HARDWARE\\DESCRIPTION\\System\\BIOS"
-      let vendor = match si_win_reg(bios, "SystemManufacturer") {
+      let mut vendor = si_win_reg(bios, "SystemManufacturer")
+      let mut product = si_win_reg(bios, "SystemProductName")
+      let mut serial = si_win_reg(bios, "SerialNumber")
+      if vendor is None || product is None || serial is None {
+        match si_win_machine_wmi() {
+          Some((v, p, s)) => {
+            if vendor is None && v != "" {
+              vendor = Some(v)
+            }
+            if product is None && p != "" {
+              product = Some(p)
+            }
+            if serial is None && s != "" {
+              serial = Some(s)
+            }
+          }
+          None => ()
+        }
+      }
+      let vendor = match vendor {
         Some(v) => v
         None => return Err(SiReadFailed(bios + ":SystemManufacturer"))
       }
-      let product = match si_win_reg(bios, "SystemProductName") {
+      let product = match product {
         Some(v) => v
         None => return Err(SiReadFailed(bios + ":SystemProductName"))
       }
-      // 序列号：BIOS SerialNumber 常缺（组装机），兜底 MachineGuid（机器唯一标识）
-      let serial = match si_win_reg(bios, "SerialNumber") {
+      // 序列号：BIOS SerialNumber 常缺（组装机、虚拟机），兜底 MachineGuid
+      // （机器唯一标识）
+      let serial = match serial {
         Some(v) if v != "" => v
         _ =>
           match si_win_reg(

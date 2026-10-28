@@ -242,3 +242,10 @@
 8.1 两条移进 `docs/zh/roadmap.md` 对应能力行并按平台标 ✅；`测试文档/测试用例.md` 窗口组补「读窗位置」「图标下撤档无残影」两条；8.2 的诊断结论回写 `proposals/adaptation.md`。
 
 **2026-10-28 进度**：8.1 两条、8.2、8.3 全部收口——8.1 位置口径与「图标下」残影修复都已验通并写进 roadmap（`层级：图标下` 标 ✅）；测试用例的「位置读数」与「图标下撤档无残影」两条都从「已知缺陷」改成已验通；8.2（`UpdateLayeredWindow` 的 `psize`）与 8.3（托盘僵尸图标）的诊断结论已回写 adaptation，残影那条的最终方案与读数也补在了同一处。只剩 8.4 的 `wm_window_set_popup` 空桩仍不在本批。
+
+### 8.6 系统能力两处读不到（2026-10-28 第二批，虚拟机真机截图）
+
+- [x] **Windows 显示器枚举从来没接**：`mon_list()` 只有 Linux / macOS 两臂，Windows 掉进 mac 臂恒 `Unsupported`。已加 `yue_sys_mon_win`（`EnumDisplayDevicesW` + `EnumDisplaySettingsExW`），与 mac 臂共用行式格式与解析函数（`mon_parse_mac` → `mon_parse_blob`）。QXL 虚拟屏实测 `DISPLAY1: 1920x1080 @64.0Hz 位置 +0+0，模式 30 种`。
+- [x] **虚拟机里 `si_machine()` 恒失败**：QEMU/SeaBIOS 上注册表 `HARDWARE\DESCRIPTION\System\BIOS` 存在但**一个值都没有**，`GetSystemFirmwareTable('RSMB')` 也回 `ERROR_INVALID_FUNCTION`（用户态没有固件表）。改为注册表 → WMI（`Win32_ComputerSystem`）两级取数，序列号 `Win32_BIOS` → `Win32_ComputerSystemProduct` → `MachineGuid` 依次兜底。实测显示 `机器: BOCHS_ BXPC____（序列号 MachineGuid）`。
+- **代价**：sys 包链接多了 `oleaut32.lib`（`SysAllocString`/`VariantClear`）与 `wbemuuid.lib`（`CLSID_WbemLocator`/`IID_IWbemLocator` 两个 GUID 常量，C 模式取不到 `__uuidof`）。WMI 只在注册表镜像为空时才走，真机不付这份开销。
+- **仍是边界**：Windows 侧 `mm_width`/`mm_height` 恒 0（GDI 不报物理尺寸，要解得自己解析 `DeviceKey` 下的 EDID）；`MonitorMode.preferred` 在三平台都恒 false。

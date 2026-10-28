@@ -148,6 +148,12 @@ pub extend MonitorError with Show::{to_string, output}
 extern "c" fn ffi_mon_mac(ok : Ref[Int]) -> Bytes = "yue_sys_mon_mac"
 
 ///|
+/// Windows 直调：GDI 的显示设备清单，行式格式与 macOS 臂完全一致（同一份
+/// 解析函数吃），非 Windows 平台恒给 ok=0。
+#borrow(ok)
+extern "c" fn ffi_mon_win(ok : Ref[Int]) -> Bytes = "yue_sys_mon_win"
+
+///|
 /// 字符是否空白（空格 / 制表）。
 fn mon_is_ws(ch : Char) -> Bool {
   ch == ' ' || ch == '\t'
@@ -661,10 +667,11 @@ fn mon_tab_flag(toks : Array[String], i : Int) -> Bool {
 }
 
 ///|
-/// 解析 yue_sys_mon_mac 的行式清单：`MON` 行开一个显示器，随后的 `MODE` 行
-/// 归它。字段数不合的记录整条跳过（上层按「少一台/少一档」降级，不整体失败）。
-/// connected 恒真：CG 的在线清单里没有「接了但关掉」那一档。
-fn mon_parse_mac(text : String) -> Array[MonitorInfo] {
+/// 解析 `yue_sys_mon_mac` / `yue_sys_mon_win` 的行式清单（两臂同一份格式）：
+/// `MON` 行开一个显示器，随后的 `MODE` 行归它。字段数不合的记录整条跳过
+/// （上层按「少一台/少一档」降级，不整体失败）。connected 恒真：CG 的在线
+/// 清单与 GDI 的「贴合桌面的适配器」清单里都没有「接了但关掉」那一档。
+fn mon_parse_blob(text : String) -> Array[MonitorInfo] {
   let drafts : Array[MonDraft] = []
   let mut idx = -1 // 当前草稿下标，-1 = 未开始
   for line in mon_split_lines(text) {
@@ -727,9 +734,12 @@ fn mon_current_from(infos : Array[MonitorInfo]) -> Array[CurrentOutput] {
 
 ///|
 /// 枚举显示器：Linux 走 xrandr（含未连接的输出），macOS 走 CoreGraphics
-/// （只列在线的输出，名字是 Built-in / Display-<id>）。Windows 未接 →
-/// Unsupported。
+/// （只列在线的输出，名字是 Built-in / Display-<id>），Windows 走 GDI 的
+/// 显示设备口（只列贴合桌面的适配器，名字是 DISPLAY1 这种设备名）。
 pub fn mon_list() -> Result[Array[MonitorInfo], MonitorError] {
+  if sys_platform() == "windows" {
+    return mon_list_win()
+  }
   if sys_platform() != "linux" {
     return mon_list_mac()
   }
@@ -761,7 +771,26 @@ fn mon_list_mac() -> Result[Array[MonitorInfo], MonitorError] {
     return Err(Unsupported)
   }
   let text = @utf8.decode_lossy(blob)
-  let infos = mon_parse_mac(text)
+  let infos = mon_parse_blob(text)
+  if infos.length() == 0 {
+    Err(ParseFailed(mon_first_line(text)))
+  } else {
+    Ok(infos)
+  }
+}
+
+///|
+/// Windows 臂：与 mac 臂同形态（同一份行式清单、同一个解析函数），差别只在
+/// 数据来源是 GDI 的显示设备口。物理毫米恒 0（GDI 不报，要解 EDID 才有），
+/// 名字是 `DISPLAY1` 这种去掉 `\\.\` 前缀的设备名。
+fn mon_list_win() -> Result[Array[MonitorInfo], MonitorError] {
+  let ok = Ref(0)
+  let blob = ffi_mon_win(ok)
+  if ok.val != 1 {
+    return Err(Unsupported)
+  }
+  let text = @utf8.decode_lossy(blob)
+  let infos = mon_parse_blob(text)
   if infos.length() == 0 {
     Err(ParseFailed(mon_first_line(text)))
   } else {

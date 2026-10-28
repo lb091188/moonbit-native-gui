@@ -18,7 +18,7 @@
 | browser/vscode 数据 | ✅（LOCALAPPDATA 路径） | ✅ | ✅（`Library/Application Support/<厂商>/<产品>` 路径） |
 | sysmonitor 进程数据 | ✅（自带 stub/sysmon.c） | ✅ | ✅ 已回证（示例模块自带桩，mac 路径待验） |
 | 夜间色温（redshift/xrandr 命令线） | ❌ 无公开 API | ✅ | ❌ 无公开 API（CoreBrightness 私有） |
-| 显示器枚举（monitor） | ❌ | ✅（xrandr） | ✅ 已回证（CoreGraphics 直调：`CGGetOnlineDisplayList` / `CGDisplayBounds` / `CGDisplayCopyAllDisplayModes`；只列「在线」屏，输出名给不了按 `Built-in` / `Display-<id>` 给；读数一律物理像素，故 `MonitorInfo` 不需要缩放比字段） |
+| 显示器枚举（monitor） | ✅ 直调（`EnumDisplayDevicesW` / `EnumDisplaySettingsExW`；真机与 QEMU QXL 虚拟屏均回证，虚拟屏读到 `DISPLAY1: 1920x1080 @64Hz`） | ✅（xrandr） | ✅ 已回证（CoreGraphics 直调：`CGGetOnlineDisplayList` / `CGDisplayBounds` / `CGDisplayCopyAllDisplayModes`；只列「在线」屏，输出名给不了按 `Built-in` / `Display-<id>` 给；读数一律物理像素，故 `MonitorInfo` 不需要缩放比字段） |
 
 macOS 的公开口与底层：`open`/`open -R`、`sw_vers`、`ioreg -rd1 -c IOPlatformExpertDevice`、`sysctl hw.model/hw.memsize/kern.boottime`、`osascript`（System Events 的 `volume settings` 与桌面图片）、`launchctl load/unload` + `~/Library/LaunchAgents/*.plist`、`lpstat`/`lp`，以及桩内的 `host_statistics64`、`CGEventSourceSecondsSinceLastEventType`、`CGGetOnlineDisplayList`/`CGDisplayBounds`/`CGDisplayCopyDisplayMode`/`CGDisplayCopyAllDisplayModes`/`CGDisplayScreenSize`。
 
@@ -324,16 +324,19 @@ let node = @guimedia.video("demo.mp4", subtitle="/path/demo.srt")
 
 ## 显示器配置
 
-Linux 解析 `xrandr --query` 输出，macOS 直调 CoreGraphics（`CGGetOnlineDisplayList` 一家），两处都给出每个输出的名称 / 连接状态 / 当前分辨率 × 刷新率 / 位置 / 物理尺寸 / 支持的模式列表；分辨率与位置都是**物理像素**。刷新率以厘赫兹整数表示（×100，如 5995 = 59.95Hz），避免浮点解析与比较。
+Linux 解析 `xrandr --query` 输出，macOS 直调 CoreGraphics（`CGGetOnlineDisplayList` 一家），Windows 直调 GDI 的显示设备口（`EnumDisplayDevicesW` + `EnumDisplaySettingsExW`），三处都给出每个输出的名称 / 连接状态 / 当前分辨率 × 刷新率 / 位置 / 物理尺寸 / 支持的模式列表；分辨率与位置都是**物理像素**。刷新率以厘赫兹整数表示（×100，如 5995 = 59.95Hz），避免浮点解析与比较。
 
 | 函数 | 说明 |
 |---|---|
-| `mon_list() -> Result[Array[MonitorInfo], MonitorError]` | 枚举显示器输出，含未接通的，保持 xrandr 顺序（Linux）；macOS 只列在线屏 |
+| `mon_list() -> Result[Array[MonitorInfo], MonitorError]` | 枚举显示器输出，含未接通的，保持 xrandr 顺序（Linux）；macOS / Windows 只列在线屏 |
 | `mon_current() -> Result[Array[CurrentOutput], MonitorError]` | 当前输出简化快照（已连接且有当前模式），不含模式列表 |
 
-`MonitorInfo{ name, connected, primary, width, height, refresh_centi, pos_x, pos_y, mm_width, mm_height, modes }`；`MonitorMode{ width, height, refresh_centi, preferred, current }`；`CurrentOutput{ name, width, height, refresh_centi, pos_x, pos_y }`。错误 `MonitorError`：`Unsupported`（Windows，或 macOS 上探不到在线显示器 / 非 macOS 平台的探测）/ `CommandFailed(String)`（Linux 的 xrandr 起不来或退出码非零）/ `ParseFailed(String)`（一条输出都没有）。
+`MonitorInfo{ name, connected, primary, width, height, refresh_centi, pos_x, pos_y, mm_width, mm_height, modes }`；`MonitorMode{ width, height, refresh_centi, preferred, current }`；`CurrentOutput{ name, width, height, refresh_centi, pos_x, pos_y }`。错误 `MonitorError`：`Unsupported`（macOS 上探不到在线显示器 / Windows 上枚举不到显示设备 / 非三平台）/ `CommandFailed(String)`（Linux 的 xrandr 起不来或退出码非零）/ `ParseFailed(String)`（一条输出都没有）。
+
+Windows 侧三条读数差异：`connected` 恒真——GDI 的这份清单是「贴合桌面的适配器」，没有「接了但断电」那一档；`name` 取 `DeviceName` 去掉 `\\.\` 前缀（`DISPLAY1`），驱动描述（`Red Hat QXL controller` 这种）会随驱动语言变，不作稳定标识；`mm_width`/`mm_height` 恒 0——GDI 不报物理尺寸，真要拿得解 `DeviceKey` 下的 EDID 二进制，本批不做；`preferred` 同样恒 false。模式表按 `(宽, 高, 厘赫兹)` 去重且只取 32bpp，同一分辨率的多份时序配置不会重复计入。
 
 macOS 侧四条读数差异：`connected` 恒真（macOS 没有「接了但关掉」的公开清单，离线屏不出现在表里）；`name` 是 `Built-in`（内建屏）或 `Display-<CGDirectDisplayID>`（其余）——公开的 CG 接口没有显示器名，`NSScreen.localizedName` 属于 ObjC 侧；`refresh_centi` 在内建面板的部分模式上给 0（后端报「未知」，不冒充数值），`mm_width`/`mm_height` 同档缺省时给 0；`MonitorMode.preferred` 恒 false——当前 SDK 没有公开的「首选/原生模式」信号，不拿「当前档」冒充它。
+
 
 ```moonbit
 match @sys.mon_current() {
@@ -412,16 +415,18 @@ match @sys.pp_profiles() {
 
 ## 系统信息
 
-只读 `/proc` 与 `/sys` 文本：发行版标识（`/etc/os-release`）、机器 DMI 标识（`/sys/class/dmi/id/`）、物理内存（`/proc/meminfo`）、开机时长（`/proc/uptime`）。非 Linux 一律 `Unsupported`；文件不存在或权限不足给 `Err` 并带路径，不以空串代替。
+Linux 只读 `/proc` 与 `/sys` 文本：发行版标识（`/etc/os-release`）、机器 DMI 标识（`/sys/class/dmi/id/`）、物理内存（`/proc/meminfo`）、开机时长（`/proc/uptime`）。Windows 走注册表（`Windows NT\CurrentVersion` 的 `ProductName`/`DisplayVersion`、`HARDWARE\DESCRIPTION\System\BIOS` 的 DMI 镜像）+ `GlobalMemoryStatusEx`/`GetTickCount64`，机器标识在注册表镜像为空时退 WMI（`Win32_ComputerSystem` 的 `Manufacturer`/`Model`）。macOS 走 `sw_vers` / `ioreg -rd1 -c IOPlatformExpertDevice` + `sysctl -n hw.model`，内存与开机时长走桩内直调。读不到一律给 `Err` 并带路径/接口名，不以空串代替。
 
 | 函数 | 说明 |
 |---|---|
-| `si_os() -> Result[OsInfo, SysInfoError]` | 发行版：`OsInfo{ pretty_name, id, version_id }` |
-| `si_machine() -> Result[MachineInfo, SysInfoError]` | 机器：`MachineInfo{ vendor, product, serial }`（序列号多数发行版仅 root 可读，读不到给 `Err`） |
+| `si_os() -> Result[OsInfo, SysInfoError]` | 发行版：`OsInfo{ pretty_name, id, version_id }`（Windows 是 `ProductName + DisplayVersion`） |
+| `si_machine() -> Result[MachineInfo, SysInfoError]` | 机器：`MachineInfo{ vendor, product, serial }`（序列号多数发行版仅 root 可读、虚拟机常空，读不到给 `Err` 或兜底机器唯一标识） |
 | `si_memory() -> Result[MemoryInfo, SysInfoError]` | 内存：`MemoryInfo{ total_kb, available_kb }`（单位 kB，available_kb 即 MemAvailable） |
 | `si_uptime() -> Result[Double, SysInfoError]` | 开机时长（秒） |
 
-错误 `SysInfoError`：`SiUnsupported`（非 Linux）/ `SiReadFailed(String)`（带路径）/ `SiParseFailed(String)`。
+错误 `SysInfoError`：`SiUnsupported`（非三平台）/ `SiReadFailed(String)`（带路径或接口名）/ `SiParseFailed(String)`。
+
+Windows 侧 `si_machine()` 的两级取数（真机与虚拟机都要能读到）：先读注册表 `HKLM\HARDWARE\DESCRIPTION\System\BIOS`（内核从 SMBIOS 抄的镜像，真机常态可用）；这张镜像是空的（QEMU/SeaBIOS 实测一个值都没有——固件不把 SMBIOS 表交给用户态，连 `GetSystemFirmwareTable('RSMB')` 都返回 `ERROR_INVALID_FUNCTION`）时退 WMI 的 `Win32_ComputerSystem`，本机回证读到 `BOCHS_ / BXPC____`；序列号 `BIOS SerialNumber` → WMI `Win32_BIOS.SerialNumber` / `Win32_ComputerSystemProduct.IdentifyingNumber` → `HKLM\SOFTWARE\Microsoft\Cryptography\MachineGuid` 依次兜底。
 
 ```moonbit
 let os = @sys.si_os() // Ok({ pretty_name: "Ubuntu 24.04.5 LTS", id: "ubuntu", .. })

@@ -325,3 +325,22 @@ test "macOS 读数解析：sw_vers 三行与 ioreg 的带引号键" {
   )
   assert_eq(si_trim("\t  \n"), "")
 }
+
+///|
+test "si_parse_wmi_machine：三列 / 缺列补空 / 全空判读不到" {
+  // 本机实测形态（QEMU/SeaBIOS 虚拟机）：厂商与型号有，序列号空
+  assert_eq(
+    si_parse_wmi_machine("BOCHS_\tBXPC____\t\n"),
+    Some(("BOCHS_", "BXPC____", "")),
+  )
+  // 真机形态：三项齐全
+  assert_eq(
+    si_parse_wmi_machine("Dell Inc.\tOptiPlex 7090\tABC123\n"),
+    Some(("Dell Inc.", "OptiPlex 7090", "ABC123")),
+  )
+  // 只有第一列（WMI 的 Model 取不到）：缺列补空串，不算失败
+  assert_eq(si_parse_wmi_machine("LENOVO\n"), Some(("LENOVO", "", "")))
+  // 一个字段都没有 → None（调用方保留注册表那条原始错误）
+  assert_true(si_parse_wmi_machine("") is None)
+  assert_true(si_parse_wmi_machine("\t\t\n") is None)
+}

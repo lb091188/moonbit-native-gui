@@ -32,6 +32,7 @@
 #include <windows.h>
 #include <wchar.h>
 #include <wctype.h>
+#include <stdarg.h> // 显示器清单逐行拼装的变参（sys_mon_line）
 #include <shobjidl.h>
 #include <shlobj.h> // SHCreateItemFromParsingName
 // ShellExecuteW（分离式启动）不在 LEAN_AND_MEAN 的窗口头集合里
@@ -39,6 +40,13 @@
 #include <mmdeviceapi.h>
 #include <endpointvolume.h>
 #include <winspool.h>
+// 机器 DMI 的 WMI 兜底（QEMU/SeaBIOS 这类固件不给用户态 SMBIOS 表，注册表
+// 镜像也是空的，只能问 WMI）。oleauto.h 供 SysAllocString/VariantClear，
+// wbemuuid.lib 供 CLSID_WbemLocator / IID_IWbemLocator 两个 GUID 常量
+// ——C 模式用不了 __uuidof，只能链库取 extern 符号（同 IFileDialog 的坑）。
+#include <wbemidl.h>
+#include <oleauto.h>
+#include <wbemcli.h>
 #else
 #include <dirent.h>
 #include <dlfcn.h> // 空闲查询的 X11/XSS 运行期取符号（W21e）
@@ -2243,6 +2251,167 @@ void *yue_sys_reg_sz(const char *subkey, const char *value, int32_t *ok) {
 #endif
 }
 
+// ---------------------------------------------------------------------------
+// 机器 DMI 的 WMI 兜底（Windows）：先问 WMI 的 Win32_ComputerSystem。
+// 为什么需要它：注册表 HARDWARE\DESCRIPTION\System\BIOS 是内核从 SMBIOS 抄的
+// 镜像，QEMU/SeaBIOS 这类固件不把 SMBIOS 表交给用户态（实测
+// GetSystemFirmwareTable('RSMB') 连表都不认，返回 ERROR_INVALID_FUNCTION），
+// 于是那张镜像整个是空的、值一个都没有——真机上 si_machine 走的注册表路径
+// 在虚拟机里恒失败。WMI 能读到，是因为 mssmbios 驱动把表留在了内核内存里，
+// WMI 提供方走 IOCTL 取，不经用户态固件表。
+//
+// 输出一行三列（'\t' 分隔、'\n' 收尾）：厂商 / 型号 / 序列号，缺失给空串。
+// 一个字段都取不到才给 0 字节（调用方据此保留原始错误）。
+// ---------------------------------------------------------------------------
+#define SYS_WMI_FIELD 128
+
+// 宽字符 → UTF-8（截断不报错，够用：DMI 串都是短串）。
+#if defined(_WIN32)
+static void sys_wmi_utf8(const wchar_t *w, char *out, int cap) {
+  out[0] = 0;
+  if (w == NULL || cap <= 1) {
+    return;
+  }
+  int n = WideCharToMultiByte(CP_UTF8, 0, w, -1, out, cap - 1, NULL, NULL);
+  if (n <= 0) {
+    out[0] = 0;
+  } else {
+    out[n < cap ? n : cap - 1] = 0;
+  }
+}
+
+// 执行一条 WQL，取第一行的若干字符串属性。返回取到的非空字段数。
+// 每次调用自建连接、自释放：si_machine 可能从任意线程进，缓存 IWbemServices
+// 跨套间复用不安全，而这条路径只在注册表镜像为空时才走到，慢一点无妨。
+static int sys_wmi_row(const wchar_t *query, const wchar_t *const *props,
+                       char (*outs)[SYS_WMI_FIELD], int nprops) {
+  int got = 0;
+  for (int i = 0; i < nprops; i++) {
+    outs[i][0] = 0;
+  }
+  HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+  // S_FALSE = 本线程已初始化过（幂等）；RPC_E_CHANGED_MODE = 已被别种模型
+  // 初始化过，COM 照样可用——两条都不算失败（同文件对话框那处）
+  int co_owned = (hr == S_OK);
+  if (hr != S_OK && hr != S_FALSE && hr != RPC_E_CHANGED_MODE) {
+    return 0;
+  }
+  IWbemLocator *loc = NULL;
+  IWbemServices *svc = NULL;
+  IEnumWbemClassObject *en = NULL;
+  IWbemClassObject *obj = NULL;
+  BSTR ns = SysAllocString(L"ROOT\\CIMV2");
+  BSTR lang = SysAllocString(L"WQL");
+  BSTR q = SysAllocString(query);
+  if (ns == NULL || lang == NULL || q == NULL) {
+    goto done;
+  }
+  hr = CoCreateInstance(&CLSID_WbemLocator, NULL, CLSCTX_INPROC_SERVER,
+                        &IID_IWbemLocator, (void **)&loc);
+  if (FAILED(hr) || loc == NULL) {
+    goto done;
+  }
+  hr = loc->lpVtbl->ConnectServer(loc, ns, NULL, NULL, NULL, 0, NULL, NULL,
+                                  &svc);
+  if (FAILED(hr) || svc == NULL) {
+    goto done;
+  }
+  hr = CoSetProxyBlanket((IUnknown *)svc, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE,
+                         NULL, RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE,
+                         NULL, EOAC_NONE);
+  if (FAILED(hr)) {
+    goto done;
+  }
+  hr = svc->lpVtbl->ExecQuery(
+      svc, lang, q,
+      WBEM_FLAG_FORWARD_ONLY | WBEM_FLAG_RETURN_IMMEDIATELY, NULL, &en);
+  if (FAILED(hr) || en == NULL) {
+    goto done;
+  }
+  ULONG ret = 0;
+  hr = en->lpVtbl->Next(en, WBEM_INFINITE, 1, &obj, &ret);
+  if (FAILED(hr) || ret == 0 || obj == NULL) {
+    goto done;
+  }
+  for (int i = 0; i < nprops; i++) {
+    VARIANT vt;
+    VariantInit(&vt);
+    hr = obj->lpVtbl->Get(obj, props[i], 0, &vt, NULL, NULL);
+    if (SUCCEEDED(hr) && vt.vt == VT_BSTR && vt.bstrVal != NULL) {
+      sys_wmi_utf8(vt.bstrVal, outs[i], SYS_WMI_FIELD);
+      if (outs[i][0] != 0) {
+        got++;
+      }
+    }
+    VariantClear(&vt);
+  }
+done:
+  if (obj != NULL) {
+    obj->lpVtbl->Release(obj);
+  }
+  if (en != NULL) {
+    en->lpVtbl->Release(en);
+  }
+  if (svc != NULL) {
+    svc->lpVtbl->Release(svc);
+  }
+  if (loc != NULL) {
+    loc->lpVtbl->Release(loc);
+  }
+  SysFreeString(q);
+  SysFreeString(lang);
+  SysFreeString(ns);
+  if (co_owned) {
+    CoUninitialize();
+  }
+  return got;
+}
+#endif
+
+// 机器 DMI（厂商 / 型号 / 序列号），一行三列 UTF-8。取不到给 0 字节。
+void *yue_sys_wmi_machine(int32_t *ok) {
+  *ok = 0;
+#if defined(_WIN32)
+  static const wchar_t *cs_query =
+      L"SELECT Manufacturer, Model FROM Win32_ComputerSystem";
+  static const wchar_t *cs_props[2] = { L"Manufacturer", L"Model" };
+  static const wchar_t *sn_query = L"SELECT SerialNumber FROM Win32_BIOS";
+  static const wchar_t *sn_props[1] = { L"SerialNumber" };
+  static const wchar_t *cp_query =
+      L"SELECT IdentifyingNumber FROM Win32_ComputerSystemProduct";
+  static const wchar_t *cp_props[1] = { L"IdentifyingNumber" };
+  char cs[2][SYS_WMI_FIELD];
+  char sn[1][SYS_WMI_FIELD];
+  char cp[1][SYS_WMI_FIELD];
+  int n = sys_wmi_row(cs_query, cs_props, cs, 2);
+  // 序列号：BIOS 的 SerialNumber 在虚拟机里常空/占位（"0" / "To be filled
+  // by O.E.M."），取不到再问 ComputerSystemProduct 的 IdentifyingNumber
+  if (sys_wmi_row(sn_query, sn_props, sn, 1) == 0) {
+    sys_wmi_row(cp_query, cp_props, cp, 1);
+  } else {
+    cp[0][0] = 0;
+  }
+  const char *serial = sn[0][0] != 0 ? sn[0] : cp[0];
+  if (n == 0 && serial[0] == 0) {
+    return moonbit_make_bytes(0, 0);
+  }
+  char line[SYS_WMI_FIELD * 3 + 8];
+  int len = snprintf(line, sizeof(line), "%s\t%s\t%s\n", cs[0], cs[1], serial);
+  if (len <= 0) {
+    return moonbit_make_bytes(0, 0);
+  }
+  if (len > (int)sizeof(line) - 1) {
+    len = (int)sizeof(line) - 1;
+  }
+  void *out = moonbit_make_bytes(len, 0);
+  memcpy(out, line, (size_t)len);
+  *ok = 1;
+  return out;
+#else
+  return moonbit_make_bytes(0, 0);
+#endif
+}
+
 // 物理内存快照（KB）。
 int32_t yue_sys_memory_kb(int64_t *total_kb, int64_t *avail_kb, int32_t *ok) {
   *ok = 0;
@@ -2891,9 +3060,11 @@ int yue_sys_clipboard_gtk_set_text(const char *text) {
 // 「当前档」由与 CGDisplayCopyDisplayMode 的同尺寸同刷新率比对得出，
 // 「首选档」恒 0——那两个 Is* 谓词在当前 SDK 上已不声明（见循环内注释）。
 // ---------------------------------------------------------------------------
-#if defined(__APPLE__)
+// 行式清单的拼装件（mac / Windows 两臂共用）：一个可增长的文本缓冲 + 一行
+// 一行的 vsnprintf。放不下就整行丢弃——清单宁缺毋滥，切一半的行会让上层解析
+// 错位。
+#if defined(__APPLE__) || defined(_WIN32)
 #define SYS_MON_MAX 32
-#define SYS_MON_DEDUPE 256
 
 typedef struct {
   char *buf;
@@ -2928,6 +3099,23 @@ static void sys_mon_line(sys_mon_blob_t *b, const char *fmt, ...) {
   va_end(ap);
   b->len += (size_t)need;
 }
+
+// 把 buf 交给 MoonBit（拷一份、释放自己的），并标记成功；空缓冲给 0 字节。
+static void *sys_mon_blob_out(sys_mon_blob_t *b, int32_t *ok) {
+  if (b->buf == NULL) {
+    return moonbit_make_bytes(0, 0);
+  }
+  void *out = moonbit_make_bytes((int)b->len, 0);
+  memcpy(out, b->buf, b->len);
+  free(b->buf);
+  b->buf = NULL;
+  *ok = 1;
+  return out;
+}
+#endif
+
+#if defined(__APPLE__)
+#define SYS_MON_DEDUPE 256
 
 static int sys_mon_round(double v) { return (int)(v < 0 ? v - 0.5 : v + 0.5); }
 
@@ -3058,19 +3246,143 @@ void *yue_sys_mon_mac(int32_t *ok) {
       CGDisplayModeRelease(cur);
     }
   }
-  if (blob.buf == NULL) {
+  return sys_mon_blob_out(&blob, ok);
+}
+#elif defined(_WIN32)
+// Windows 臂：GDI 的显示设备口一家打齐——EnumDisplayDevicesW 列「贴合桌面的
+// 显示适配器」（每块屏一条，含 VMware/QXL 这类虚拟显卡）、
+// EnumDisplaySettingsExW 给当前档与模式表。
+//
+// 与 mac 臂的差别（都记档在 docs/zh/adaptation.md）：
+// ① 物理毫米拿不到——EnumDisplayDevices 不报尺寸，真正的 EDID 要走
+//    DeviceKey 下的 EDID 二进制自己解，本批不做，故 mm 恒 0（上层文档已约定
+//    「未报为 0」）；② 名字取 DeviceName 去掉 `\\.\` 前缀（DISPLAY1），
+//    DeviceString（"Red Hat QXL controller"）是驱动描述、会随驱动换语言，
+//    不适合当稳定标识；③ 未接但通电的输出 Windows 不列（EnumDisplayDevices
+//    只给贴了桌面的适配器），故 connected 恒 1，与 mac 臂同形态。
+void *yue_sys_mon_win(int32_t *ok) {
+  *ok = 0;
+  sys_mon_blob_t blob;
+  blob.buf = NULL;
+  blob.len = 0;
+  blob.cap = 0;
+  DISPLAY_DEVICEW dd;
+  int found = 0;
+  for (DWORD i = 0; i < SYS_MON_MAX; i++) {
+    ZeroMemory(&dd, sizeof(dd));
+    dd.cb = sizeof(dd);
+    if (!EnumDisplayDevicesW(NULL, i, &dd, 0)) {
+      break;
+    }
+    const wchar_t *nm = dd.DeviceName;
+    if (nm[0] == L'\\' && nm[1] == L'\\' && nm[2] == L'.' && nm[3] == L'\\') {
+      nm += 4; // \\.\DISPLAY1 -> DISPLAY1
+    }
+    char name[64];
+    int wn = WideCharToMultiByte(CP_UTF8, 0, nm, -1, name, (int)sizeof(name) - 1,
+                                 NULL, NULL);
+    if (wn <= 0) {
+      name[0] = 0;
+    }
+    int primary = (dd.StateFlags & DISPLAY_DEVICE_PRIMARY_DEVICE) != 0 ? 1 : 0;
+    int attached =
+        (dd.StateFlags & DISPLAY_DEVICE_ATTACHED_TO_DESKTOP) != 0 ? 1 : 0;
+
+    DEVMODEW dm;
+    ZeroMemory(&dm, sizeof(dm));
+    dm.dmSize = sizeof(dm);
+    int cur_w = 0;
+    int cur_h = 0;
+    int cur_centi = 0;
+    int cur_x = 0;
+    int cur_y = 0;
+    if (attached && EnumDisplaySettingsExW(dd.DeviceName, ENUM_CURRENT_SETTINGS,
+                                          &dm, 0)) {
+      cur_w = (int)dm.dmPelsWidth;
+      cur_h = (int)dm.dmPelsHeight;
+      cur_centi = dm.dmDisplayFrequency > 1 ? (int)dm.dmDisplayFrequency * 100 : 0;
+      cur_x = (int)dm.dmPosition.x;
+      cur_y = (int)dm.dmPosition.y;
+    }
+    sys_mon_line(&blob, "MON\t%s\t%d\t%d\t%d\t0\t0\n", name, primary, cur_x,
+                 cur_y);
+
+    // 模式表：EDS_RAWMODE 把驱动报的全部时序列出来（同一分辨率在不同刷新率、
+    // 不同色深下会各来一条），故先按 (宽, 高, 厘赫兹) 去重、只留 32bpp 那一档
+    // ——非 32bpp 的条目对本栈没有意义，留着只会让「支持模式 N 种」虚高。
+    int seen_w[SYS_MON_MAX * 8];
+    int seen_h[SYS_MON_MAX * 8];
+    int seen_c[SYS_MON_MAX * 8];
+    int seen_n = 0;
+    int cur_emitted = 0;
+    DEVMODEW mm;
+    for (DWORD m = 0; m < 4096; m++) {
+      ZeroMemory(&mm, sizeof(mm));
+      mm.dmSize = sizeof(mm);
+      if (!EnumDisplaySettingsExW(dd.DeviceName, m, &mm, EDS_RAWMODE)) {
+        break;
+      }
+      if (mm.dmPelsWidth == 0 || mm.dmPelsHeight == 0) {
+        continue;
+      }
+      if (mm.dmBitsPerPel != 0 && mm.dmBitsPerPel != 32) {
+        continue;
+      }
+      int w = (int)mm.dmPelsWidth;
+      int h = (int)mm.dmPelsHeight;
+      int centi = mm.dmDisplayFrequency > 1 ? (int)mm.dmDisplayFrequency * 100 : 0;
+      int dup = 0;
+      for (int s = 0; s < seen_n; s++) {
+        if (seen_w[s] == w && seen_h[s] == h && seen_c[s] == centi) {
+          dup = 1;
+          break;
+        }
+      }
+      if (dup) {
+        continue;
+      }
+      if (seen_n < (int)(sizeof(seen_w) / sizeof(seen_w[0]))) {
+        seen_w[seen_n] = w;
+        seen_h[seen_n] = h;
+        seen_c[seen_n] = centi;
+        seen_n++;
+      }
+      int is_cur = (cur_w > 0 && w == cur_w && h == cur_h && centi == cur_centi)
+                       ? 1
+                       : 0;
+      if (is_cur) {
+        cur_emitted = 1;
+      }
+      sys_mon_line(&blob, "MODE\t%d\t%d\t%d\t%d\t0\n", w, h, centi, is_cur);
+    }
+    // 当前档不在模式表里（部分虚拟显卡的当前时序不出现在 EDS_RAWMODE 清单）
+    // 时补一条，上层不至于拿到空表——与 mac 臂同一兜底。
+    if (!cur_emitted && cur_w > 0) {
+      sys_mon_line(&blob, "MODE\t%d\t%d\t%d\t1\t0\n", cur_w, cur_h, cur_centi);
+    }
+    found++;
+  }
+  if (found == 0) {
+    free(blob.buf);
     return moonbit_make_bytes(0, 0);
   }
-  void *out = moonbit_make_bytes((int)blob.len, 0);
-  memcpy(out, blob.buf, blob.len);
-  free(blob.buf);
-  *ok = 1;
-  return out;
+  return sys_mon_blob_out(&blob, ok);
+}
+
+// 非 macOS：符号要在（MoonBit 侧的 extern 是无条件的，三平台同一套链接）。
+// Windows 上 mon_list 走的是上面那一臂，这个恒给「不可用」。
+void *yue_sys_mon_mac(int32_t *ok) {
+  *ok = 0;
+  return moonbit_make_bytes(0, 0);
 }
 #else
-// 非 macOS：符号要在（MoonBit 侧的 extern 是无条件的，三平台同一套链接），
-// 探测一律给「不可用」，mon_list 随之退 Unsupported。
+// 非 mac / 非 Windows：符号要在（MoonBit 侧的 extern 是无条件的，三平台同一
+// 套链接），探测一律给「不可用」，mon_list 随之退 Unsupported。
 void *yue_sys_mon_mac(int32_t *ok) {
+  *ok = 0;
+  return moonbit_make_bytes(0, 0);
+}
+void *yue_sys_mon_win(int32_t *ok) {
   *ok = 0;
   return moonbit_make_bytes(0, 0);
 }

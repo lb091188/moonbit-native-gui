@@ -3379,3 +3379,21 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **验证**：重建后走菜单「退出」→ 图标**立即消失**（抓屏时先把光标移离托盘区，避免 Shell 顺手清理干扰判断）；`moon test gui/shell` 55/55，新增用例量 `@win.tray_count()` 由 1 到 0（旧实现下恒为 1）。
 **遗留边界**：`taskkill` / 崩溃 / 断电仍留僵尸图标，Win32 通病——没有 `SetConsoleCtrlHandler` 或 Job Object 兜底时拦不住，只能靠用户悬停让 Shell 回收。
 **教训**：① 「系统会自动回收」这类**默认行为**必须验证**时机**——进程退出与资源释放不是同一件事，中间窗口期正是用户能看到的缺陷；② 跨平台抽象里「另一端不需要做 X」的注释最容易掩盖漏实现，写这种断言时该顺手在目标平台量一次；③ 用户报「菜单弹不出来」时，要先分清是**菜单没画出来**还是**根本没人处理这次点击**——前者查 `TrackPopupMenuEx`，后者查图标宿主进程还在不在。
+
+## 虚拟机里的「机器」与「显示器」都读不到：一条是虚拟机固件不给表，一条是 Windows 臂压根没接（2026-10-28，QEMU/SeaBIOS 虚拟机截图）
+
+**症状**：演示板「系统能力探测 → 系统桌面 → 系统与机器」里 `机器: 读不到：SysInfoError::SiReadFailed(HARDWARE\DESCRIPTION\System\BIOS:SystemManufacturer)`；同一个探针页的「显示器」分段也是空的。用户判断：虚拟机的虚拟显示器应该读得到。
+
+**显示器（真缺口）**：`mon_list()` 当时只有 Linux（xrandr）与 macOS（CoreGraphics）两臂，**Windows 直接掉进 mac 臂**，桩体恒回 `ok=0` → `Unsupported`。也就是说 Windows 上从来没接过显示器枚举，与虚拟机无关。
+**修法**：`yue_sys_mon_win`（`EnumDisplayDevicesW` 列贴桌面的适配器 + `EnumDisplaySettingsExW` 取当前档与模式表），输出与 mac 臂同一份 `MON`/`MODE` 行式文本，MoonBit 侧复用同一个解析函数（`mon_parse_mac` 因此改名 `mon_parse_blob`）。实测 QXL 虚拟显卡读到 `DISPLAY1: 1920x1080 @64.0Hz 位置 +0+0，支持模式 30 种`。
+
+**机器（虚拟机固件的坑）**：`si_machine()` 的 Windows 臂一直只读注册表 `HKLM\HARDWARE\DESCRIPTION\System\BIOS`——那是内核从 SMBIOS 抄的镜像。这台 QEMU/SeaBIOS 机器上这个键**存在但 `ValueCount=0`**（一个值都没有，`GetSubKeyNames` 也空）。继续往下查：
+- `GetSystemFirmwareTable('RSMB', 0, …)` → 返回 0，`GetLastError()=ERROR_INVALID_FUNCTION(1)`；`EnumSystemFirmwareTables` 连一个 provider 都不给 → **用户态没有固件表可读**；
+- `HKLM\SYSTEM\CurrentControlSet\Services\mssmbios\Data` 只有 `AcpiData`/`BiosData`/`RegistersData`，逐字节找 `_SM_`/`_SM3_`/`BOCHS` 全无 → 原始 SMBIOS 表**不在注册表里**；
+- 而 WMI 读得到：`Win32_ComputerSystem` 给 `Manufacturer="BOCHS_"`、`Model="BXPC____"`（`Win32_BIOS`/`Win32_ComputerSystemProduct` 的序列号则全 null）。
+
+**结论**：SMBIOS 表只留在 mssmbios 驱动那边，WMI 提供方走 IOCTL 取，**用户态唯一的路就是 WMI**。
+**修法**：`si_machine()` 的 Windows 臂改成两级——注册表镜像（真机常态）→ 空则 `yue_sys_wmi_machine`（`Win32_ComputerSystem` 的 `Manufacturer`/`Model`，序列号再依次试 `Win32_BIOS.SerialNumber`、`Win32_ComputerSystemProduct.IdentifyingNumber`，最后落 `MachineGuid`）。实测页面显示 `机器: BOCHS_ BXPC____（序列号 a2d70bed-…）`。
+**C 侧三个坑**：① `wbemidl.h` 的 `CLSID_WbemLocator`/`IID_IWbemLocator` 是 `extern` 常量，C 模式用不了 `__uuidof`，必须链 **wbemuuid.lib**（同 `IFileDialog` 那批的坑）；`SysAllocString`/`VariantClear` 在 **oleaut32.lib**——于是 `gui/scripts/prebuild.py` 的 sys 包链接串多了这两个库。② `ConnectServer` 之后要 `CoSetProxyBlanket(…RPC_C_AUTHN_WINNT…RPC_C_IMP_LEVEL_IMPERSONATE…)`，不设的话 `ExecQuery` 在部分机器上回 `E_ACCESSDENIED`。③ 每条查询自建连接、自释放，**不缓存 `IWbemServices`**：`si_machine` 可能从任意线程进，COM 代理跨套间复用不安全；这条路径只在注册表为空时才走到，慢一点无妨。
+
+**教训**：① 「读不到」先分清是**没实现**还是**环境不给**——显示器是前者（Windows 臂从来没接），机器是后者（固件不交表），两者的修法完全不同；② 「注册表里有这个键」不等于「键里有值」——`Test-Path` 为真、`ValueCount=0` 这种情况必须量到值层面；③ 平台的固件表接口（`GetSystemFirmwareTable`）在虚拟机上可能是 `ERROR_INVALID_FUNCTION`，而 WMI 仍读得到——把 WMI 当**兜底**而不是主路径，真机上就不必为它付 COM 的那份开销。
