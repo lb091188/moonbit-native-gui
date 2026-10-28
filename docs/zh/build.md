@@ -92,7 +92,7 @@ moon run . --target native
 cd examples/hello && MOON_WORK=off moon run .
 ```
 
-这条只解析该示例自己的依赖闭包（`native-gui` + `yoga-mbt` + 传递依赖），**其余成员的 prebuild 一概不跑**——媒体、探针、ffmpeg 的开发包齐不齐都与你无关。代价是用的是注册表里的发布版，不是你工作区里改过的代码。
+这条只解析该示例自己的依赖闭包（`native-gui` + `yoga-mbt` + 传递依赖），**其余成员的 prebuild 一概不跑**——媒体、探针、ffmpeg 的开发包齐不齐都与你无关。代价是用的是注册表里的发布版，不是你工作区里改过的代码：**连库的 prebuild 脚本也是发布归档里那一份**，仓库里改的脚本要重新发包后这条路径才吃得到（实测：deepin 20 上 workspace 模式已按 Python 3.7 口径跑过 prebuild，`MOON_WORK=off` 仍报旧归档里的 `missing_ok`）。
 
 ```sh
 # 要连着库的改动一起跑：留在 workspace 里（默认）
@@ -131,6 +131,7 @@ moon build examples/hello --target native --release --strip
 | prebuild 抛 `TypeError: ... got an unexpected keyword argument 'missing_ok'`（或同类 3.8+ 才有的参数/语法） | 解释器是 Python 3.7 而脚本用到了更新版本的 stdlib 面——仓库口径是**脚本必须跑在 3.7 上** | 更新到当前 master（四处 `unlink(missing_ok=True)` 已改等价写法）；仍复现就把整行 traceback 提到 issue |
 | 在仓库里跑 `examples/hello`，prebuild 却报**别的模块**缺依赖（如 `ffmpeg(prebuild): 缺少 libavformat 开发包`） | 不是示例依赖写错：moon 对 workspace 模块图里**每个**带 prebuild 的模块逐个跑脚本，任一非零退出就挡住整次构建；媒体模块在 Linux 上是硬失败（Windows / macOS 分支降级为空链接条目） | 照它打出的那行 apt 装上：`sudo apt install -y libavformat-dev libavcodec-dev libswscale-dev libswresample-dev libavutil-dev`；只想跑示例就 `MOON_WORK=off moon run .`（绕开 workspace，见 §4） |
 | `cc: error trying to exec 'cc1plus': execvp: 没有那个文件或目录`（编译 `dwrite_text.cpp` 时） | 机器上没有 C++ 编译器：`gui/text/dwrite_text.cpp` 三平台都要编一遍，非 Windows 也只是编成空翻译单元 | `sudo apt install g++`（`build-essential` 本应带上它，装不全就单独补） |
+| 仓库里已经修好的 prebuild 报错，在 `MOON_WORK=off` 下又原样出现（行号都一样） | 那条路径跑的是**注册表归档里那份脚本**（落在 `examples/<示例>/.mooncakes/NoahLiu/native-gui/scripts/prebuild.py`），注册表侧改不动 | 验证修复就回 workspace 跑（去掉 `MOON_WORK=off`）；要让消费方吃到只能**重新发包**——脚本随包发布，属对外 API 面的一部分 |
 | `~/.moon/lib/runtime/process.c: error: 'SYS_pidfd_open' undeclared` | 地板在 **MoonBit 工具链自带的 runtime C 源**：这台机器的内核头 / glibc 太老，没有该 syscall 常量。与本库无关，prebuild 与本库的桩此时都已编过 | 换 glibc 较新的机器 / 发行版；见 §2「低版本发行版」的 `MOON_CC` 兜底（未实测） |
 | prebuild 在 stderr 打「缺少 gtk+-3.0 开发包」一类提示后继续走，最后链接期爆 `undefined reference to gtk_*` / `pango_*` | 开发包没装全。prebuild 探不到包时只警告、**不下发链接条目**，错误推迟到链接期才露头 | 补 §2 的 apt 清单，重跑 `moon build`；仍链旧结果就 `moon clean` 一次 |
 | `Package 'webkit2gtk-4.1' not found`，且只有 `@web` 用不了 | 不是故障，是设计：探不到 webkit 时 `@web` 退成占位实现、能力报 `Unsupported`，不让整包链接失败 | 要内嵌浏览器就装 `libwebkit2gtk-4.1-dev` |
