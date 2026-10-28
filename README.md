@@ -90,8 +90,10 @@ To see it running, clone the repository and run an example — every directory u
 ```sh
 git clone https://github.com/lb091188/moonbit-native-gui.git
 cd moonbit-native-gui/examples/hello   # or any directory in the table below
-moon run .
+MOON_WORK=off moon run .               # skip the workspace: resolve only this example's closure
 ```
+
+`MOON_WORK=off` makes the example resolve the published library from the registry, so the media / probe / ffmpeg members never run their prebuild and the minimal dependency list is enough to see a window. Drop it when you want to run against your own changes to the library — at the price of having every development package installed (including `libav*-dev`).
 
 | Directory | What it is |
 |---|---|

@@ -38,10 +38,10 @@
 示例由浅入深——`examples/` 下每个目录都是独立模块，进目录 `moon run .` 即可：
 
 ```sh
-cd examples/hello && moon run .
+cd examples/hello && MOON_WORK=off moon run .
 ```
 
-跑之前先按 [build.md](build.md) §2 装齐开发依赖——缺 GTK3 一族开发包，或 `python` 仍指向 2.7，都会让 native 构建起手就红（处置见同页 §6）。
+`MOON_WORK=off` 只解析该示例自己的依赖闭包，媒体 / 探针 / ffmpeg 成员的 prebuild 不跑；留在 workspace 里跑则要按 [build.md](build.md) §2 装齐全部开发包——缺 GTK3 一族，或 `python` 仍指向 2.7，都会让 native 构建起手就红（处置见同页 §6）。
 
 - `examples/hello` —— 最小窗口
 - `examples/showcase` —— 完整演示板

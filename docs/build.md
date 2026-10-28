@@ -83,7 +83,21 @@ Link parameters are emitted by the library's prebuild to every main package that
 
 ### In this repository
 
-The repo is a `moon.work` workspace holding the library, the probes, five sub-modules, seven examples and the tools. **Name the modules you build; don't sweep the whole workspace**: a bare `moon test` also pulls in examples / experiment / the media modules, which have platform-coverage gaps that are not library defects.
+The repo is a `moon.work` workspace holding the library, the probes, five sub-modules, seven examples and the tools. **Know which of the two modes you are in:**
+
+```sh
+# Just want to see it run: skip the workspace, the example resolves the published library from the registry
+cd examples/hello && MOON_WORK=off moon run .
+```
+
+That resolves only this example's own dependency closure (`native-gui` + `yoga-mbt` + transitive deps) and **runs no other member's prebuild** — whether the media, probe or ffmpeg packages are installed stops mattering. The price is that you get the published version, not the code in your working tree.
+
+```sh
+# Want to run against your own changes to the library: stay in the workspace (the default)
+cd examples/hello && moon run .
+```
+
+That requires the whole workspace module graph to get through: moon runs the prebuild script of every member that declares one, and any non-zero exit blocks the build — so the §2 development packages (including the five `libav*-dev` ones for media) must all be installed. Either way, **name the modules you build; don't sweep the whole workspace**: a bare `moon test` also pulls in examples / experiment / the media modules, which have platform-coverage gaps that are not library defects.
 
 ```sh
 cd gui && moon check                       # library gate: zero errors, zero warnings
@@ -113,7 +127,7 @@ So "let me just see it" still means building one example per §4 — `examples/h
 | `SyntaxError: Non-ASCII character '\xe7' ... but no encoding declared; see pep-0263` followed by `Failed to run prebuild script` | moon **ignores the shebang** for `.py` prebuild scripts and takes the first usable interpreter in PATH in the order `python` → `python3`, which lands on Python 2 | One-off: `MOON_PYTHON_OVERRIDE=python3 moon build`. Permanent: `ln -s "$(command -v python3)" ~/.local/bin/python`, make sure that directory is first in PATH, then **open a new terminal** (Debian-family only prepends `~/.local/bin` at login, and only if it already exists) |
 | `Running prebuild script for module ... needs \`python\` or \`python3\` executable in PATH` | no Python 3 on the machine | install python3 per §2 |
 | prebuild raises `TypeError: ... got an unexpected keyword argument 'missing_ok'` (or any other 3.8+-only argument/syntax) | the interpreter is Python 3.7 while the script reached for a newer stdlib surface — the repository baseline is that **scripts must run on 3.7** | update to current master (the four `unlink(missing_ok=True)` calls now use the equivalent form); if it still reproduces, open an issue with the full traceback |
-| Running `examples/hello` in this repository, but prebuild complains about a dependency of **another module** (e.g. `ffmpeg(prebuild): 缺少 libavformat 开发包`) | not a broken example dependency: moon runs the prebuild script of **every** module in the workspace module graph that declares one, and any non-zero exit blocks the whole build. The media module hard-fails on Linux (its Windows / macOS branches degrade to empty link entries) | install what it prints: `sudo apt install -y libavformat-dev libavcodec-dev libswresample-dev libavutil-dev libswscale-dev`; or **don't build inside the workspace** — a project of your own that does `moon add NoahLiu/native-gui` resolves only its own dependency closure, so the media module never enters the graph |
+| Running `examples/hello` in this repository, but prebuild complains about a dependency of **another module** (e.g. `ffmpeg(prebuild): 缺少 libavformat 开发包`) | not a broken example dependency: moon runs the prebuild script of **every** module in the workspace module graph that declares one, and any non-zero exit blocks the whole build. The media module hard-fails on Linux (its Windows / macOS branches degrade to empty link entries) | install what it prints: `sudo apt install -y libavformat-dev libavcodec-dev libswresample-dev libavutil-dev libswscale-dev`; or to run an example without any of that, `MOON_WORK=off moon run .` (bypasses the workspace — see §4) |
 | prebuild prints "缺少 gtk+-3.0 开发包"-style warnings on stderr and keeps going, then linking fails with `undefined reference to gtk_*` / `pango_*` | development packages incomplete: when a probe fails, prebuild only warns and **emits no link entry**, so the error surfaces one step later | install the apt list from §2, re-run `moon build`; add `moon clean` if it still links the old result |
 | `Package 'webkit2gtk-4.1' not found`, and only `@web` is unusable | not a defect, by design: without webkit, `@web` degrades to a placeholder and the capability reports `Unsupported` rather than breaking the whole link | install `libwebkit2gtk-4.1-dev` if you need the embedded browser |
 | `moon.mod.json ... is no longer supported` | a third-party package in the dependency cache still ships the old manifest (the registry side cannot be rewritten) | run `moon fmt` over each `.mooncakes/**/moon.{mod,pkg}.json` until resolution converges (what CI does) |

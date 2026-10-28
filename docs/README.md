@@ -38,10 +38,10 @@ Don't confuse the two kinds of "optional": a sub-package you don't import stays 
 Examples, from shallow to deep — every directory under `examples/` is a standalone module, so `cd` in and `moon run .`:
 
 ```sh
-cd examples/hello && moon run .
+cd examples/hello && MOON_WORK=off moon run .
 ```
 
-Before running it, install the development dependencies per §2 of [build.md](build.md) — missing GTK3 dev packages, or a `python` that still points at 2.7, make a native build fail before it starts (fixes in §6 of the same page).
+`MOON_WORK=off` resolves only this example's own dependency closure, so the media / probe / ffmpeg members never run their prebuild; staying in the workspace means installing every development package per §2 of [build.md](build.md) — missing GTK3 dev packages, or a `python` that still points at 2.7, make a native build fail before it starts (fixes in §6 of the same page).
 
 - `examples/hello` — minimal window
 - `examples/showcase` — full demo board

@@ -90,8 +90,10 @@ moon add NoahLiu/native-gui
 ```sh
 git clone https://github.com/lb091188/moonbit-native-gui.git
 cd moonbit-native-gui/examples/hello   # 换成下表任一目录
-moon run .
+MOON_WORK=off moon run .               # 绕开 workspace：只解析本示例的依赖闭包
 ```
+
+`MOON_WORK=off` 让示例按注册表里已发布的库版本解析，媒体 / 探针 / ffmpeg 那几个成员的 prebuild 一概不跑，装齐 §2 那份最小依赖就能看效果；要连着库的改动一起跑就去掉它，代价是整套开发包（含 `libav*-dev`）都得在位。
 
 | 目录 | 内容 |
 |---|---|

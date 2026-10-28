@@ -83,7 +83,21 @@ moon run . --target native
 
 ### 在本仓库里
 
-仓库是 `moon.work` workspace，成员含库、探针、五个子模块、七个示例与工具。构建**按模块点名，别裸扫全仓**：不带限定的 `moon test` 会连带 examples / experiment / 媒体模块，其中有平台适配缺口，不是库缺陷。
+仓库是 `moon.work` workspace，成员含库、探针、五个子模块、七个示例与工具。**先分清两种跑法**：
+
+```sh
+# 只想看效果：绕开 workspace，示例按注册表里已发布的库版本解析
+cd examples/hello && MOON_WORK=off moon run .
+```
+
+这条只解析该示例自己的依赖闭包（`native-gui` + `yoga-mbt` + 传递依赖），**其余成员的 prebuild 一概不跑**——媒体、探针、ffmpeg 的开发包齐不齐都与你无关。代价是用的是注册表里的发布版，不是你工作区里改过的代码。
+
+```sh
+# 要连着库的改动一起跑：留在 workspace 里（默认）
+cd examples/hello && moon run .
+```
+
+这条要整个 workspace 的模块图都能过：moon 对每个带 prebuild 的成员逐个跑脚本，任一非零退出就挡住整次构建，所以 §2 的开发包（含媒体模块那五个 `libav*-dev`）得装齐。构建**按模块点名，别裸扫全仓**：不带限定的 `moon test` 会连带 examples / experiment / 媒体模块，其中有平台适配缺口，不是库缺陷。
 
 ```sh
 cd gui && moon check                       # 库门禁：零错误零警告
@@ -113,7 +127,7 @@ moon build examples/hello --target native --release --strip
 | `SyntaxError: Non-ASCII character '\xe7' ... but no encoding declared; see pep-0263` 紧跟 `Failed to run prebuild script` | moon 执行 `.py` prebuild 时**不看 shebang**，按 PATH 里 `python` → `python3` 取第一个能用的解释器，于是拿到 Python 2 | 一次性：`MOON_PYTHON_OVERRIDE=python3 moon build`；长期：`ln -s "$(command -v python3)" ~/.local/bin/python` 并确保该目录在 PATH 最前，然后**重开终端**（Debian 系只在登录时把 `~/.local/bin` 前置进 PATH，目录当时不存在就不进） |
 | `Running prebuild script for module ... needs \`python\` or \`python3\` executable in PATH` | 机器上没有 Python 3 | 按 §2 装 python3 |
 | prebuild 抛 `TypeError: ... got an unexpected keyword argument 'missing_ok'`（或同类 3.8+ 才有的参数/语法） | 解释器是 Python 3.7 而脚本用到了更新版本的 stdlib 面——仓库口径是**脚本必须跑在 3.7 上** | 更新到当前 master（四处 `unlink(missing_ok=True)` 已改等价写法）；仍复现就把整行 traceback 提到 issue |
-| 在仓库里跑 `examples/hello`，prebuild 却报**别的模块**缺依赖（如 `ffmpeg(prebuild): 缺少 libavformat 开发包`） | 不是示例依赖写错：moon 对 workspace 模块图里**每个**带 prebuild 的模块逐个跑脚本，任一非零退出就挡住整次构建；媒体模块在 Linux 上是硬失败（Windows / macOS 分支降级为空链接条目） | 照它打出的那行 apt 装上：`sudo apt install -y libavformat-dev libavcodec-dev libswscale-dev libswresample-dev libavutil-dev`；不想装就**别在 workspace 里跑**——自己的工程 `moon add NoahLiu/native-gui` 只解析该工程的依赖闭包，媒体模块根本不进图 |
+| 在仓库里跑 `examples/hello`，prebuild 却报**别的模块**缺依赖（如 `ffmpeg(prebuild): 缺少 libavformat 开发包`） | 不是示例依赖写错：moon 对 workspace 模块图里**每个**带 prebuild 的模块逐个跑脚本，任一非零退出就挡住整次构建；媒体模块在 Linux 上是硬失败（Windows / macOS 分支降级为空链接条目） | 照它打出的那行 apt 装上：`sudo apt install -y libavformat-dev libavcodec-dev libswscale-dev libswresample-dev libavutil-dev`；只想跑示例就 `MOON_WORK=off moon run .`（绕开 workspace，见 §4） |
 | prebuild 在 stderr 打「缺少 gtk+-3.0 开发包」一类提示后继续走，最后链接期爆 `undefined reference to gtk_*` / `pango_*` | 开发包没装全。prebuild 探不到包时只警告、**不下发链接条目**，错误推迟到链接期才露头 | 补 §2 的 apt 清单，重跑 `moon build`；仍链旧结果就 `moon clean` 一次 |
 | `Package 'webkit2gtk-4.1' not found`，且只有 `@web` 用不了 | 不是故障，是设计：探不到 webkit 时 `@web` 退成占位实现、能力报 `Unsupported`，不让整包链接失败 | 要内嵌浏览器就装 `libwebkit2gtk-4.1-dev` |
 | `moon.mod.json ... is no longer supported` | 依赖缓存里第三方包带的还是旧清单（注册表侧改不动） | 对 `.mooncakes/**/moon.{mod,pkg}.json` 逐个 `moon fmt`，循环到解图收敛（CI 同口径） |
