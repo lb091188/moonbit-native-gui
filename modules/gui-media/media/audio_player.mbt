@@ -27,6 +27,10 @@ pub fn ap_skip(cur : Double, duration_s : Double, delta : Double) -> Double {
 let ap_skip_step : Double = 5.0
 
 ///|
+/// 频谱条的透明度：半透明融进面板底色，注意力让给歌词文字。
+let ap_spectrum_alpha : Double = 0.4
+
+///|
 /// 音频播放控件。`width`/`height` 是整块控件尺寸（默认只有一条控制条高）；
 /// 组件被外层撑高时，多出来的高度归上方舞台区（歌词写在这块底部，无输出设备
 /// 的降级说明也写在这块，频谱动画落在这块）。`lyric` 传**已读好的 LRC 文本**
@@ -176,6 +180,7 @@ pub fn audio(
       let n = lv.length()
       let slot = r.w / n.to_double()
       let bw = slot * 0.62
+      p.set_global_alpha(ap_spectrum_alpha)
       for b = 0; b < n; b = b + 1 {
         let h = lv[b] * (r.h - 6.0)
         if h > 0.5 {
@@ -188,6 +193,7 @@ pub fn audio(
           )
         }
       }
+      p.set_global_alpha(1.0)
     }
     let line = lrc_at(lrc, engine.current())
     if line.length() > 0 {

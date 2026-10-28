@@ -1,6 +1,7 @@
 // 音频播放示例：gui-media 的 audio 音频组件（ffmpeg 解码 + miniaudio
 // 设备直出），控制条（播放/进度/音量/倍速/-5s·+5s 跳转）由组件自带。
-// 布局：左侧播放列表（当前曲目高亮、点击换曲），右侧播放器与状态区；
+// 布局：页头是标题/说明/状态行，下方左侧播放列表（当前曲目高亮、点击换曲）、
+// 右侧播放器面板，两块同 bg_panel 底与描边；
 // 载入路径三条——默认资产（examples/assets/1.mp3，路径对 cwd
 // 稳健解析）、文件对话框选音频、目录对话框选文件夹后扫描成播放列表。
 // 换曲走 holder clear_children + 重挂 audio；打开失败经 on_error 落
@@ -313,6 +314,16 @@ fn main {
             class=[@style.text_secondary],
             max_width=860.0,
           ),
+          @ui.bind_label(track_line, fn(s) { s }),
+          @ui.bind_label(tick_line, fn(s) { s }, font_size=12.0, color="text_secondary"),
+          @ui.bind_label(lyric_line, fn(s) { s }, font_size=12.0, color="text_secondary"),
+          @widget.bind_node(err_line.signal(), fn(e : String) -> @widget.Node {
+            if e.length() == 0 {
+              @ui.view([])
+            } else {
+              @ui.alert(e, t=@ui.Danger)
+            }
+          }),
         ],
         padding=0.0,
         row_gap=4.0,
@@ -354,30 +365,14 @@ fn main {
             border_color="border",
             class=[@style.style(border_radius=6.0)],
           ),
-          // 右：播放器 + 状态区
+          // 右：播放器（面板底与左侧一致，舞台直接融进面板）
           @ui.col(
-            [
-              @ui.col([], grow=1.0, handle=fn(c) { player_holder.val = Some(c) }),
-              @ui.col(
-                [
-                  @ui.bind_label(track_line, fn(s) { s }),
-                  @ui.bind_label(tick_line, fn(s) { s }, font_size=12.0, color="text_secondary"),
-                  @ui.bind_label(lyric_line, fn(s) { s }, font_size=12.0, color="text_secondary"),
-                  @widget.bind_node(err_line.signal(), fn(e : String) -> @widget.Node {
-                    if e.length() == 0 {
-                      @ui.view([])
-                    } else {
-                      @ui.alert(e, t=@ui.Danger)
-                    }
-                  }),
-                ],
-                row_gap=6.0,
-                padding=8.0,
-              ),
-            ],
+            [@ui.col([], grow=1.0, handle=fn(c) { player_holder.val = Some(c) })],
             grow=1.0,
             padding=12.0,
-            row_gap=8.0,
+            background_color="bg_panel",
+            border_color="border",
+            class=[@style.style(border_radius=6.0)],
           ),
         ],
         grow=1.0,
