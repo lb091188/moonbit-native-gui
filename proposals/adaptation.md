@@ -1048,6 +1048,13 @@
 - **修法**：Windows 段按 `wm_surfaces[]` 槽表（hwnd 非空且 window_id 匹配）计数，与 mac 段同口径。修后 Windows 应进原生档：弹层走上一批落地的真窗口（无边框+owner），窄条症状与白板一并消失；待 Windows 真机复验。
 - **验证**：`cd gui && moon check --deny-warn` 全绿、`moon test widget win ui` 370/370（本机 mac 段不受影响；Win32 段随用户机 MSVC 编译验证）。
 
+### MoonBit 原生 GUI 栈 · 原生档弹层的收框假量尺与摆位框宽补偿（2026-10-28 探针第三轮读数）
+
+- **读数**（Windows，探针 `POPUP-FIT`）：`meas=(208,200) cur=(208,200) kids=[208x200 0x0(h)]`——16 项菜单应有约 448 高，面板在布局里被**弹性收缩压成视口高**，于是「量内容→长窗」的收框循环量到的永远是当前窗自己，锁死在初框 200。修法是量尺那一拍按「高度未定」重排（`calculate_layout(width=Some(cw), height=None)` + `collect_abs`）再量；paint 每帧照常按窗尺寸重排，量完即弃不残留。
+- **同轮第二读数**：`pos=(1158,176)` vs `at=(1150,145)`，差 (8,31) 恰是标题栏+边框——`set_popup` 改了 `GWL_STYLE` 但框尺寸没立刻重算，随后 `wm_window_move` 的 `wm_client_offset` 读到旧框值，弹层朝左上偏一个框宽。修法：样式改完补一次 `SetWindowPos(SWP_FRAMECHANGED)` 强制重算，move 的补偿自然归零。
+- **判据**：「先开框、量完再收」这条链上，**量尺必须在与视口解耦的条件下做**，否则视口就是内容的天花板，收缩档永远自证达标；改窗口样式（有框↔无边框）后任何读框几何前都要 `SWP_FRAMECHANGED` 刷一次，`GetWindowRect` 不会替你即时反映 `GWL_STYLE` 的改动。
+- **验证**：`cd gui && moon check --deny-warn` 全绿、`moon test widget ui` 338/338；Windows 真机复验清单交用户（菜单应完整 16 项、贴按钮下沿）。
+
 ### MoonBit 原生 GUI 栈 · 媒体播放器（批 D：新包 `yue/media`，CPU 回灌 + 软解）
 
 - **引擎是平移不是重写**：`modules/gui-media` 的 `audio_player.mbt`(416 行) 与 `video_player.mbt`(476 行) 实测**零 @yue 依赖**（只有组件包装层碰 UI），于是引擎与 15 条既有回归整段搬进新包 `yue/media`，只改测试素材路径与一个公开口。旧链踩过的坑（音画不同轴、seek 后进度从零重涨、换载崩溃、播完态与初始态要区分）就随那批测试一起进了新栈——**这批的价值一半在「把老师写对的东西接住」**。

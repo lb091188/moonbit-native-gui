@@ -4370,6 +4370,12 @@ void wm_window_set_popup(int64_t id, int64_t owner_id) {
                       (LONG_PTR)wm_windows[owner_id].hwnd);
     w->owner = wm_windows[owner_id].hwnd;
   }
+  // 样式改完强制重算框尺寸：不刷这一下，随后的 wm_window_move 里
+  // wm_client_offset 还读到旧标题栏+边框的补偿值（真机读数 pos 与 at 差
+  // (8,31) 即此），弹层会朝左上偏一个框宽
+  SetWindowPos(w->hwnd, NULL, 0, 0, 0, 0,
+               SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE |
+                   SWP_FRAMECHANGED);
   w->popup = 1;
 }
 

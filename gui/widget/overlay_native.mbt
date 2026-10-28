@@ -159,8 +159,13 @@ pub fn overlay_fit_pass(app : App) -> Unit {
     match g_native.val.get(cid) {
       None => ()
       Some(pop) => {
-        let (w, h) = overlay_content_size(pop)
         let (cw, ch) = pop.session.window.size()
+        // 量尺那一拍按「高度未定」重排：内容比当前窗高时，弹性收缩会把面板
+        // 压成视口高，照原样量出来恒等于窗高，框就永远长不开
+        // （Windows 真机 kids=[208x200]，16 项菜单应有 ~448）
+        @yoga.calculate_layout(pop.root.node, Some(cw.to_double()), None)
+        pop.root.collect_abs(0.0, 0.0)
+        let (w, h) = overlay_content_size(pop)
         if g_native_probe_on.val && (passes < 3 || w != cw || h != ch) {
           let (ox, oy) = pop.session.window.origin()
           let kids : Array[String] = []
