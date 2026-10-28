@@ -203,8 +203,9 @@ pub fn audio(
     if line.length() > 0 {
       p.flush()
       let txt = line.replace(old="\n", new=" ")
-      // 歌词在条带内水平居中（量出宽度再落笔，超宽退回左对齐）
-      let x = match @text.measure(txt, 15.0) {
+      // 歌词加粗主题色，配系统黑体族；居中前按粗体量宽
+      let font = @text.Font::new("", 15.0, weight=@text.Bold)
+      let x = match @text.measure_font(txt, font) {
         Some(m) =>
           if m.width.to_double() < r.w - 16.0 {
             (r.w - m.width.to_double()) / 2.0
@@ -213,14 +214,7 @@ pub fn audio(
           }
         None => 8.0
       }
-      let _ = @text.draw_text_at(
-        p,
-        x,
-        r.h - 26.0,
-        txt,
-        15.0,
-        @theme.theme_text_primary(),
-      )
+      let _ = @text.draw_at(p, x, r.h - 26.0, txt, font, @theme.theme_primary())
     }
     if engine.is_muted() {
       p.flush()

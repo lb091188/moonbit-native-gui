@@ -38,8 +38,9 @@ pub(all) struct Spectrum {
 }
 
 ///|
-/// 建分析器。`bands` 是画出来的条数（对数分带）。
-pub fn Spectrum::make(bands? : Int = 24) -> Spectrum {
+/// 建分析器。`bands` 是画出来的条数（对数分带）；条数少些单条更宽，
+/// 视觉上更从容。
+pub fn Spectrum::make(bands? : Int = 18) -> Spectrum {
   let cap = sp_window + sp_lookback
   {
     ring: Array::make(cap, 0.0),
@@ -197,15 +198,16 @@ pub fn Spectrum::levels(
     }
     k = k + 1
   }
-  // 快起慢落： rise 直接吃七成，fall 每拍退一成八，条子才有「呼吸」而不是一团糊
+  // 缓动：rise 每拍吃五成（约 3 拍到位），fall 每拍退一成五——条子起落都
+  // 带过渡，不闪跳
   let mut b = 0
   while b < self.bands {
     let prev = self.levels[b]
     let v = peaks[b]
     self.levels[b] = if v > prev {
-      prev + (v - prev) * 0.7
+      prev + (v - prev) * 0.5
     } else {
-      prev - prev * 0.18
+      prev - prev * 0.15
     }
     b = b + 1
   }
