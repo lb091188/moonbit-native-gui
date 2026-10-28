@@ -80,10 +80,6 @@ priv enum LoadKind {
 
 ///|
 fn main {
-  // 弹层探针：`NGUI_POPUP_PROBE=1` 时打印原生档开框/收框读数（真机诊断用）
-  if @sys.envx_get("NGUI_POPUP_PROBE") is Some(_) {
-    @widget.overlay_native_probe(true)
-  }
   let toast = @ui.toast_layer(duration_ms=2200)
   // 状态区四条线：加载标签（编码「kind|文本」，bind_node 重建换语义色）、
   // 常驻 URL 与标题、事件流水、能力结果（截断 + 可展开）
@@ -130,6 +126,11 @@ fn main {
   fn show_result(full : String) -> Unit {
     result_open.set(false)
     result_full.set(full)
+  }
+  // 弹层探针：`NGUI_POPUP_PROBE=1` 时把原生档开框/收框读数打进底部「事件」行
+  // （moon run 的子进程 stdout 会被缓冲，控制台看不到，读数走界面）
+  if @sys.envx_get("NGUI_POPUP_PROBE") is Some(_) {
+    @widget.overlay_native_probe_to(fn(s) { ev(s) })
   }
   fn nav_to(u : String) -> Unit {
     match wv.val {

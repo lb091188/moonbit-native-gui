@@ -31,11 +31,27 @@ pub fn overlay_native_tier() -> Bool {
 }
 
 ///|
-/// 弹层探针（真机诊断用，默认关）：开着时打印每层的开框请求/初框尺寸与
-/// 逐拍收框读数（实测内容 vs 当前窗），用来分辨「弹层被压住」与「收框收坏」。
-let g_native_probe : Ref[Bool] = Ref(false)
+/// 弹层探针（真机诊断用，默认关）：开着时把每层的开框请求/初框尺寸与逐拍
+/// 收框读数（实测内容 vs 当前窗）交给探针口——用来分辨「弹层被压住」与
+/// 「收框收坏」。默认口是 stdout；`moon run` 下子进程 stdout 可能被缓冲看不到，
+/// 调用方可换 `overlay_native_probe_to` 把读数接进自己的界面。
+let g_native_probe : Ref[(String) -> Unit] = Ref(fn(_s : String) { () })
+let g_native_probe_on : Ref[Bool] = Ref(false)
 pub fn overlay_native_probe(on : Bool) -> Unit {
-  g_native_probe.val = on
+  g_native_probe_on.val = on
+  g_native_probe.val =
+    if on {
+      fn(s : String) { println(s) }
+    } else {
+      fn(_s : String) { () }
+    }
+}
+
+///|
+/// 探针读数改走自定义出口（开着才有人构串调它）。
+pub fn overlay_native_probe_to(sink : (String) -> Unit) -> Unit {
+  g_native_probe_on.val = true
+  g_native_probe.val = sink
 }
 
 ///|
@@ -53,9 +69,9 @@ fn overlay_native_open(
     Some(a) => {
       let iw = if w < 80.0 { 320 } else { w.round().to_int() }
       let ih = if h < 40.0 { 200 } else { h.round().to_int() }
-      if g_native_probe.val {
-        println(
-          "POPUP-OPEN cid=\{cid} req=(\{x.round().to_int()},\{y.round().to_int()}) init=(\{iw},\{ih})",
+      if g_native_probe_on.val {
+        (g_native_probe.val)(
+          "POPUP-OPEN cid=\{cid} req=(\{x.round().to_int()},\{y.round().to_int()}) init=(\{iw},\{ih})"
         )
       }
       match a.open_popup(x.round().to_int(), y.round().to_int(), iw, ih) {
@@ -144,9 +160,9 @@ pub fn overlay_fit_pass(app : App) -> Unit {
       Some(pop) => {
         let (w, h) = overlay_content_size(pop)
         let (cw, ch) = pop.session.window.size()
-        if g_native_probe.val {
-          println(
-            "POPUP-FIT cid=\{cid} meas=(\{w},\{h}) cur=(\{cw},\{ch}) passes=\{passes}",
+        if g_native_probe_on.val {
+          (g_native_probe.val)(
+            "POPUP-FIT cid=\{cid} meas=(\{w},\{h}) cur=(\{cw},\{ch}) passes=\{passes}"
           )
         }
         if passes >= 3 {
