@@ -8039,7 +8039,6 @@ void wm_inst_release(void) {}
 #include <time.h>
 
 #import <Cocoa/Cocoa.h>
-#import <objc/runtime.h> // object_setClass：弹层窗换可成为 key 的子类
 #import <UserNotifications/UserNotifications.h>
 #import <CoreGraphics/CoreGraphics.h>
 #import <CoreText/CoreText.h>
@@ -8089,6 +8088,22 @@ typedef struct {
   int vsid; // 槽号，一切状态经 wm_state(vsid) 取（不持对象指针，免得拆窗后悬垂）
 }
 - (void)setSlot:(int)sid;
+@end
+
+// 所有窗都建是这个子类：弹层（无边框）默认被 AppKit 拒绝成为 key
+// （canBecomeKeyWindow 对 borderless 返回 NO），键盘与「resignKey = 用户点了别处」
+// 整族失效，故按标志翻权限。**不能**对已建好的 NSWindow 用 object_setClass 换
+// isa——AppKit 给窗挂的内部 KVO（_windowLayerContext）按类记账，换类后 dealloc
+// 摘观察者即抛 NSRangeException 崩进程（真机崩溃栈实证），只能建窗起就用子类。
+@interface WMWindow : NSWindow {
+@public
+  int wm_allow_key; // 弹层标志（wm_window_set_popup 置 1）
+}
+@end
+@implementation WMWindow
+- (BOOL)canBecomeKeyWindow {
+  return wm_allow_key ? YES : [super canBecomeKeyWindow];
+}
 @end
 
 // 每窗状态：ARC 管理的对象，槽表 strong 引用；拆窗时置 nil 一起回收。
@@ -9009,7 +9024,7 @@ int64_t wm_window_new(int width, int height, const char *title) {
     NSWindowStyleMask mask =
         NSWindowStyleMaskTitled | NSWindowStyleMaskClosable |
         NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable;
-    NSWindow *win = [[NSWindow alloc]
+    NSWindow *win = [[WMWindow alloc]
         initWithContentRect:NSMakeRect(0, 0, pw, ph)
                   styleMask:mask
                     backing:NSBackingStoreBuffered
@@ -9740,19 +9755,9 @@ int wm_window_is_maximized(int64_t id) {
   }
 }
 
-// 浮层窗：无边框 + 挂在 owner 之上随其移动 + 自己拿键盘焦点（见下方子类注释）。
-// 无边框 NSWindow 默认拒绝成为 key（canBecomeKeyWindow 对 borderless 返回 NO），
-// 弹层于是既收不到键盘、也等不到「resignKey = 用户点了别处」——「点外收起」与
-// Esc/↑↓ 整族失效。子类只翻 canBecomeKeyWindow、不加 ivar，所以对既有窗
-// object_setClass 换 isa 是安全的（只给弹层换，普通窗不受影响）。
-@interface WMPopupWindow : NSWindow
-@end
-@implementation WMPopupWindow
-- (BOOL)canBecomeKeyWindow {
-  return YES;
-}
-@end
-
+// 浮层窗：无边框 + 挂在 owner 之上随其移动 + 自己拿键盘焦点。
+// 拿焦点靠 WMWindow 子类的 wm_allow_key 标志（类与「为什么不能对活窗
+// object_setClass」的教训记在文件前部 WMWindow 处）。
 void wm_window_set_popup(int64_t id, int64_t owner_id) {
   @autoreleasepool {
     WMState *s = wm_state(id);
@@ -9760,8 +9765,8 @@ void wm_window_set_popup(int64_t id, int64_t owner_id) {
       return;
     }
     [s.win setStyleMask:NSWindowStyleMaskBorderless];
-    if (![s.win isKindOfClass:[WMPopupWindow class]]) {
-      object_setClass(s.win, [WMPopupWindow class]);
+    if ([s.win isKindOfClass:[WMWindow class]]) {
+      ((WMWindow *)s.win)->wm_allow_key = 1;
     }
     [s.win setLevel:NSFloatingWindowLevel];
     [s.win setHasShadow:NO];
