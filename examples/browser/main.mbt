@@ -44,7 +44,7 @@ const SCHEME_CSS : String = "body{font-family:sans-serif;margin:24px auto;max-wi
 
 ///|
 /// 本地 HTML 片段（load_html 装的页面**不入历史**）。
-const LOCAL_HTML : String = "<html><head><meta charset=\"utf-8\"><title>本地片段</title></head><body style='font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%'><h3>load_html 本地片段 ✓</h3><button onclick=\"callNative()\">JS 调原生绑定</button><p style='margin:14px 0 4px'>策略触发（配底部「策略·…」菜单项验拦截/放行）：</p><button onclick=\"window.open('https://example.com')\">触发新窗请求</button><button onclick=\"navigator.geolocation.getCurrentPosition(function(){},function(){})\">触发定位权限请求</button><button onclick=\"var a=document.createElement('a');a.href='data:text/plain,ngui';a.download='ngui.txt';document.body.appendChild(a);a.click()\">触发下载请求</button><p id='r' style='color:#888'></p><script>function callNative(){var r=document.getElementById('r');try{demoBinding('来自网页的调用');r.textContent='已调用原生绑定（看窗口底部状态栏）';}catch(e){r.textContent='原生绑定不在位：'+e.message;}}</script></body></html>"
+const LOCAL_HTML : String = "<html><head><meta charset=\"utf-8\"><title>本地片段</title></head><body style='font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%'><h3>load_html 本地片段 ✓</h3><button onclick=\"callNative()\">JS 调原生绑定</button><p style='margin:14px 0 4px'>策略触发（配底部「策略·…」菜单项验拦截/放行）：</p><button onclick=\"window.open('https://example.com')\">触发新窗请求</button><button onclick=\"navigator.geolocation.getCurrentPosition(function(){},function(){})\">触发定位权限请求</button><button onclick=\"var b=new Blob(['native-gui download probe'],{type:'text/plain'});var u=URL.createObjectURL(b);var a=document.createElement('a');a.href=u;a.download='ngui.txt';document.body.appendChild(a);a.click()\">触发下载请求</button><p id='r' style='color:#888'></p><script>function callNative(){var r=document.getElementById('r');try{demoBinding('来自网页的调用');r.textContent='已调用原生绑定（看窗口底部状态栏）';}catch(e){r.textContent='原生绑定不在位：'+e.message;}}</script></body></html>"
 
 ///|
 /// 首页地址。
@@ -261,6 +261,10 @@ fn main {
               "策略·新窗切换",
               "策略·权限切换",
               "策略·下载切换",
+              "-",
+              "策略触发·新窗(当前页)",
+              "策略触发·定位(当前页)",
+              "策略触发·下载(当前页)",
             ],
             on_select=fn(i : Int) {
               match wv.val {
@@ -369,6 +373,19 @@ fn main {
                     pol_dl.val = !pol_dl.val
                     v.set_download_mode(pol_dl.val)
                     show_result("策略切换完成\n\{policy_text()}")
+                  } else if i == 17 {
+                    v.execute_javascript("window.open('https://example.com')")
+                    ev("已执行 window.open（新窗事件按策略拦/落，见结果区）")
+                  } else if i == 18 {
+                    v.execute_javascript(
+                      "navigator.geolocation.getCurrentPosition(function(){},function(){})",
+                    )
+                    ev("已执行定位请求（引擎只在安全上下文发 permission-request：https 页有回声，本地片段/ http 页静默拒）")
+                  } else if i == 19 {
+                    v.execute_javascript(
+                      "var b=new Blob(['native-gui download probe'],{type:'text/plain'});var u=URL.createObjectURL(b);var a=document.createElement('a');a.href=u;a.download='ngui.txt';document.body.appendChild(a);a.click();",
+                    )
+                    ev("已执行 blob 下载（真实源页才走下载通道）")
                   } else {
                     ()
                   }
