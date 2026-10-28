@@ -111,6 +111,7 @@ MOON_WORK=off moon run .               # 绕开 workspace：只解析本示例�
 |---|---|---|
 | Ubuntu 24.04 | ✅ | XFCE / GNOME / KDE / Cinnamon |
 | Deepin 23 / 25 | ✅ | |
+| Deepin 20 / Debian 10 基线 | 🚧 | 本库侧已按 Python 3.7 口径跑通到编译；卡在 MoonBit 工具链自带 runtime 的 `SYS_pidfd_open`（内核头 / glibc 太老），见 [docs/zh/build.md](docs/zh/build.md) §2 |
 | Windows 10 / 11 | ✅ |  |
 | macOS | ✅ | Apple Silicon  |
 

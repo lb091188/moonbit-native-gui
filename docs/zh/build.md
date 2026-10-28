@@ -26,6 +26,8 @@ sudo apt install build-essential pkg-config python3 \
 
 只有用到对应能力时才需要再装：内嵌 WebView（`@web`）加 `libwebkit2gtk-4.1-dev`；媒体模块（`NoahLiu/gui-media` / `ffmpeg-mbt`）加 `libavformat-dev libavcodec-dev libswscale-dev libswresample-dev libavutil-dev`。
 
+**C++ 编译器也在必需之列**：`gui/text/dwrite_text.cpp` 在**每个平台**都要过一遍编译（非 Windows 平台编成空翻译单元，防与归档双定义），所以 `build-essential` 得真把 g++ 装上——机器上只有 gcc 时报的是 `cc: error trying to exec 'cc1plus'`，补 `sudo apt install g++` 即可。
+
 ⚠️ **`python` 这个命令本身必须是 Python 3**。deepin 20、CentOS 7 一类机器上 `/usr/bin/python` 还是 2.7，moon 会优先拿它跑 prebuild，脚本开头的中文注释直接触发 `SyntaxError: Non-ASCII character ... pep-0263`，整次 native 构建起手就红。两条修法见 §6 第一行。
 
 ### 低版本发行版（deepin 20 / Debian 10 / CentOS 7 一类）
@@ -36,7 +38,7 @@ sudo apt install build-essential pkg-config python3 \
 - **Python 3.7 够用**：五个 prebuild 脚本按 **3.7 口径**写——只用 f-string、`subprocess.run(capture_output=)`、`Path` 这些 3.7 就有的面，不用 3.8+ 才有的参数与语法（`Path.unlink(missing_ok=)`、`shutil.copytree(dirs_exist_ok=)`、海象等一律写成等价形态）。3.8 以下的机器上 prebuild 报 `TypeError: ... unexpected keyword argument` 就是这条口径破了，见 §6。
 - **开发包**：Debian 10 基线的 apt 包名与上面那份清单同名可装（GTK 3.24 / Pango 1.42 都在库里）。
 - **两处能力会降级**：内嵌 WebView 探的是 `webkit2gtk-4.1`，Debian 10 只有 4.0——探不到时 `@web` 退成占位实现、能力报 `Unsupported`，其余部分不受影响；媒体模块要的系统 ffmpeg 开发包在老发行版上版本偏旧，**尚未实测**。
-- 工具链本身（moon / moonc）在这类机器上跑得起来：deepin 20 实测能一路走到执行 prebuild，卡住的点是上面那条解释器选择。
+- **地板在 MoonBit 工具链自带的 runtime C 源，不在本库**：deepin 20 实测（2026-10-28），moon 本体、五个模块的 prebuild、本库的 C 桩都能跑（脚本已按 3.7 口径修好），但编到工具链自带的 `~/.moon/lib/runtime/process.c` / `thread_pool.c` 时报 `'SYS_pidfd_open' undeclared`——这台机器的内核头 / glibc 里没有这个 syscall 常量。出路：换 glibc 较新的机器或发行版；或试用 `MOON_CC` 包一层给编译器补 `-DSYS_pidfd_open=<该架构的 syscall 号>`（**未实测**，且属工具链侧的补丁，不是本库支持的口径）。
 
 ### macOS
 
@@ -128,6 +130,8 @@ moon build examples/hello --target native --release --strip
 | `Running prebuild script for module ... needs \`python\` or \`python3\` executable in PATH` | 机器上没有 Python 3 | 按 §2 装 python3 |
 | prebuild 抛 `TypeError: ... got an unexpected keyword argument 'missing_ok'`（或同类 3.8+ 才有的参数/语法） | 解释器是 Python 3.7 而脚本用到了更新版本的 stdlib 面——仓库口径是**脚本必须跑在 3.7 上** | 更新到当前 master（四处 `unlink(missing_ok=True)` 已改等价写法）；仍复现就把整行 traceback 提到 issue |
 | 在仓库里跑 `examples/hello`，prebuild 却报**别的模块**缺依赖（如 `ffmpeg(prebuild): 缺少 libavformat 开发包`） | 不是示例依赖写错：moon 对 workspace 模块图里**每个**带 prebuild 的模块逐个跑脚本，任一非零退出就挡住整次构建；媒体模块在 Linux 上是硬失败（Windows / macOS 分支降级为空链接条目） | 照它打出的那行 apt 装上：`sudo apt install -y libavformat-dev libavcodec-dev libswscale-dev libswresample-dev libavutil-dev`；只想跑示例就 `MOON_WORK=off moon run .`（绕开 workspace，见 §4） |
+| `cc: error trying to exec 'cc1plus': execvp: 没有那个文件或目录`（编译 `dwrite_text.cpp` 时） | 机器上没有 C++ 编译器：`gui/text/dwrite_text.cpp` 三平台都要编一遍，非 Windows 也只是编成空翻译单元 | `sudo apt install g++`（`build-essential` 本应带上它，装不全就单独补） |
+| `~/.moon/lib/runtime/process.c: error: 'SYS_pidfd_open' undeclared` | 地板在 **MoonBit 工具链自带的 runtime C 源**：这台机器的内核头 / glibc 太老，没有该 syscall 常量。与本库无关，prebuild 与本库的桩此时都已编过 | 换 glibc 较新的机器 / 发行版；见 §2「低版本发行版」的 `MOON_CC` 兜底（未实测） |
 | prebuild 在 stderr 打「缺少 gtk+-3.0 开发包」一类提示后继续走，最后链接期爆 `undefined reference to gtk_*` / `pango_*` | 开发包没装全。prebuild 探不到包时只警告、**不下发链接条目**，错误推迟到链接期才露头 | 补 §2 的 apt 清单，重跑 `moon build`；仍链旧结果就 `moon clean` 一次 |
 | `Package 'webkit2gtk-4.1' not found`，且只有 `@web` 用不了 | 不是故障，是设计：探不到 webkit 时 `@web` 退成占位实现、能力报 `Unsupported`，不让整包链接失败 | 要内嵌浏览器就装 `libwebkit2gtk-4.1-dev` |
 | `moon.mod.json ... is no longer supported` | 依赖缓存里第三方包带的还是旧清单（注册表侧改不动） | 对 `.mooncakes/**/moon.{mod,pkg}.json` 逐个 `moon fmt`，循环到解图收敛（CI 同口径） |
