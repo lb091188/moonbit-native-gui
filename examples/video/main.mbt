@@ -1,5 +1,6 @@
-// 视频播放示例：gui-media 的 video 全包组件（引擎/控制条/字幕叠加），
-// 视频区为主、右侧栏是播放列表与信息。载入路径三条——默认资产
+// 视频播放示例：gui-media 的 video 全包组件（引擎/控制条/字幕叠加）。
+// 布局同音频示例：页头是标题/说明/状态行，下方左侧播放列表（含字幕入口）、
+// 右侧视频面板，两块同 bg_panel 底与描边。载入路径三条——默认资产
 // （examples/assets/1.mp4，路径对 cwd 稳健解析）、文件对话框
 // 选视频、目录对话框选文件夹后扫描成播放列表。字幕双来源：不给外挂文本时
 // 组件自动读**容器内嵌轨**；「选外挂 .srt」读文本后经 subtitle 参数传入
@@ -108,6 +109,7 @@ fn main {
   let tracks : Ref[Array[String]] = Ref([])
   let selected : @base.Store[String] = @base.Store::new("")
   let track_line : @base.Store[String] = @base.Store::new("（还没载入视频）")
+  let list_title : @base.Store[String] = @base.Store::new("播放列表")
   let tick_line : @base.Store[String] = @base.Store::new("")
   let sub_line : @base.Store[String] = @base.Store::new("字幕：未打开（打开时回报来源与条数）")
   let err_line : @base.Store[String] = @base.Store::new("")
@@ -194,7 +196,7 @@ fn main {
           .view(
             [
               @ui.empty(description=note),
-              @ui.text("用右侧「选择文件…」或「选择目录…」载入视频", class=[@style.text_secondary]),
+              @ui.text("用左侧「选择文件…」或「选择目录…」载入视频", class=[@style.text_secondary]),
             ],
             row_gap=6.0,
             align_items=@yoga.AlignItems::Center,
@@ -213,11 +215,13 @@ fn main {
       Some(h) => {
         h.clear_children()
         if tracks.val.is_empty() {
+          list_title.set("播放列表")
           let _ = @ui.empty(description="播放列表为空").mount_into(h)
           mount_empty_player("没有可播放的视频")
           return
         }
         let names = display_names()
+        list_title.set("播放列表 · \{names.length()}")
         if pick_first || !arr_str_has(names, selected.get()) {
           selected.set(names[0])
         } else {
@@ -336,29 +340,35 @@ fn main {
         [
           @ui.text("视频播放", class=[@style.text_title]),
           @ui.text(
-            "视频区为主，侧栏是播放列表与信息；字幕双来源——容器内嵌轨自动读取，或选外挂 .srt 文本传入。控制条是图标按钮 + 进度/音量条，另有缩放三档（适配/铺满/1:1）与全屏；快捷键 空格播放/暂停、回车全屏、←/→ 逐帧、↑/↓ 音量、Esc 退全屏。",
+            "gui-media video（ffmpeg 解码 + 设备直出）：左侧播放列表点选换片，右侧视频区；字幕双来源——容器内嵌轨自动读取，或选外挂 .srt 文本传入。控制条是图标按钮 + 进度/音量条，另有缩放三档（适配/铺满/1:1）与全屏；快捷键 空格播放/暂停、回车全屏、←/→ 逐帧、↑/↓ 音量、Esc 退全屏。",
             class=[@style.text_secondary],
             max_width=960.0,
           ),
+          @ui.bind_label(track_line, fn(s) { s }),
+          @ui.row(
+            [
+              @ui.bind_label(tick_line, fn(s) { s }, font_size=12.0, color="text_secondary"),
+              @ui.bind_label(sub_line, fn(s) { s }, font_size=12.0, color="text_secondary"),
+            ],
+            column_gap=12.0,
+          ),
+          @widget.bind_node(err_line.signal(), fn(e : String) -> @widget.Node {
+            if e.length() == 0 {
+              @ui.view([])
+            } else {
+              @ui.alert(e, t=@ui.Danger)
+            }
+          }),
         ],
         padding=0.0,
-        row_gap=4.0,
+        row_gap=6.0,
       ),
       @ui.row(
         [
-          // 视频区（主）
-          @ui.col(
-            [@ui.col([], grow=1.0, handle=fn(c) { player_holder.val = Some(c) })],
-            grow=1.0,
-            padding=12.0,
-            background_color="bg_panel",
-            border_color="border",
-            class=[@style.style(border_radius=6.0)],
-          ),
-          // 侧栏：播放列表 + 载入入口 + 字幕 + 状态
+          // 左：播放列表 + 载入入口 + 字幕
           @ui.col(
             [
-              @ui.text("播放列表", class=[@style.text_secondary]),
+              @ui.bind_label(list_title, fn(s) { s }, font_size=12.0, color="text_secondary"),
               @ui.scroll_view(
                 [@ui.col([], handle=fn(c) { list_holder.val = Some(c) })],
                 @ui.ScrollState::new(),
@@ -390,26 +400,19 @@ fn main {
                 ],
                 row_gap=6.0,
               ),
-              @ui.divider(),
-              @ui.col(
-                [
-                  @ui.bind_label(track_line, fn(s) { s }),
-                  @ui.bind_label(tick_line, fn(s) { s }, font_size=12.0, color="text_secondary"),
-                  @ui.bind_label(sub_line, fn(s) { s }, font_size=12.0, color="text_secondary"),
-                  @widget.bind_node(err_line.signal(), fn(e : String) -> @widget.Node {
-                    if e.length() == 0 {
-                      @ui.view([])
-                    } else {
-                      @ui.alert(e, t=@ui.Danger)
-                    }
-                  }),
-                ],
-                row_gap=4.0,
-              ),
             ],
-            width=280.0,
+            width=260.0,
             padding=12.0,
             row_gap=8.0,
+            background_color="bg_panel",
+            border_color="border",
+            class=[@style.style(border_radius=6.0)],
+          ),
+          // 右：视频区（面板底与左侧一致）
+          @ui.col(
+            [@ui.col([], grow=1.0, handle=fn(c) { player_holder.val = Some(c) })],
+            grow=1.0,
+            padding=12.0,
             background_color="bg_panel",
             border_color="border",
             class=[@style.style(border_radius=6.0)],
@@ -417,6 +420,7 @@ fn main {
         ],
         grow=1.0,
         align_items=@yoga.AlignItems::Stretch,
+        column_gap=16.0,
       ),
     ],
     grow=1.0,
