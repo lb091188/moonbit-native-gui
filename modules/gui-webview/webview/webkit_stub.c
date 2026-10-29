@@ -657,11 +657,21 @@ int wb_available(void) { return 1; }
 // 这个句柄的视图还在不在（窗口拆掉后一律 0）：调用方据此停泵、清待办
 int wb_alive(int64_t id) { return wb_get(id) != NULL ? 1 : 0; }
 
+// g_signal_lookup 只认「类已实例化」的类型：WebKitDownload / WebKitWebContext
+// 平时没有实例，直接 lookup 恒 0，会把在位的信号误判成缺失（真机取证
+// 2026-10-30：下载全被引擎默认悄悄写进 ~/下载，钩子因这层误判从没挂上）。
+// 先撑起类再查；类对象由 GObject 永久缓存，ref 不还也无妨（就这两个）。
+static void wb_ensure_signal_classes(void) {
+  g_type_class_ref(WEBKIT_TYPE_WEB_CONTEXT);
+  g_type_class_ref(WEBKIT_TYPE_DOWNLOAD);
+}
+
 // 可选信号在位掩码：1 下载 2 进程终止 4 权限 8 新窗（缺哪条就少哪条回证）。
 // 下载那口=现代钩子两条都得在（context 的 download-started + WebKitDownload
 // 的 decide-destination）；view 级 "download" 信号在 WebKitGTK ≥2.6 不存在，
 // 拿它探会恒报缺失。
 int wb_signal_mask(void) {
+  wb_ensure_signal_classes();
   int m = 0;
   if (g_signal_lookup("download-started", WEBKIT_TYPE_WEB_CONTEXT) != 0 &&
       g_signal_lookup("decide-destination", WEBKIT_TYPE_DOWNLOAD) != 0) {
@@ -732,6 +742,7 @@ int64_t wb_create(int64_t surface_id, int w, int h, const char *uri,
   // 下载入口挂 context 级 download-started（view 级 "download" 信号不存在）；
   // 一个 context 只挂一次（没给 data_dir 的视图共享默认 context，回调里按
   // 发起视图归属），在位情况记进掩码回证
+  wb_ensure_signal_classes();
   WebKitWebContext *wctx = webkit_web_view_get_context(view);
   v->has_download_signal = 0;
   if (g_signal_lookup("download-started", WEBKIT_TYPE_WEB_CONTEXT) != 0 &&
