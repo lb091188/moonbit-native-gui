@@ -11,7 +11,8 @@ supported_targets = "native"
 // 吞行（C4819 → 级联语法错误）；Linux/macOS=gcc/clang 的 -finput-charset=UTF-8
 // 显式声明同义）。只对 stub 编译生效，不影响 MoonBit 生成代码的编译。
 // Windows 上 FFMPEG_STUB_CC 还会带 `-DNG_FFMPEG_DELAYLOAD` 与
-// `-DNG_FFMPEG_BIN="<vendor/win/bin>"`，供 ffmpeg_win_dll.c 决定 dll 的查找路径。
+// `-DNG_FFMPEG_BIN=<vendor/win/bin 裸路径记号>`，供 ffmpeg_win_dll.c 决定 dll 的
+// 查找路径（引号传不进宏，字符串化在 C 侧做）。
 options(
     "native-stub": [
         "ffmpeg_stub.c",

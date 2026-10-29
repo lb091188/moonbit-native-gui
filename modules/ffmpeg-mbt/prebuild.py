@@ -589,7 +589,15 @@ def main() -> int:
         else:
             # 延迟加载 + 构建期记下 vendor 目录：exe 启动不要求 dll 就位，第一次用到
             # ffmpeg 时按「exe 同目录/PATH → 该目录」查找（macOS 的 -rpath 等价物）。
-            stub_cc += f' -DNG_FFMPEG_DELAYLOAD -DNG_FFMPEG_BIN="{bin_dir}"'
+            # 值只能传裸路径记号：Windows 这条链上引号到不了宏（见 proposals/
+            # adaptation.md），字符串化在 ffmpeg_win_dll.c 里做。
+            if any(c.isspace() for c in bin_dir):
+                print(
+                    "ffmpeg(prebuild): 警告：vendor 路径含空白，"
+                    "-DNG_FFMPEG_BIN 会被命令行拆断，dll 回落目录将失效",
+                    file=sys.stderr,
+                )
+            stub_cc += f" -DNG_FFMPEG_DELAYLOAD -DNG_FFMPEG_BIN={bin_dir}"
             if ready:
                 print(
                     "ffmpeg(prebuild): 运行期 dll 延迟加载，无需复制到 exe 旁",

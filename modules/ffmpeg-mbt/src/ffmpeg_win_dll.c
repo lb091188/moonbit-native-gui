@@ -3,7 +3,7 @@
 //! 构建期 prebuild.py 按需注入两个宏：
 //! - `NG_FFMPEG_DELAYLOAD`：让 vendor 导入库对应的 5 个 dll **延迟加载**，exe 启动
 //!   时不再要求它们就位；
-//! - `NG_FFMPEG_BIN="<目录>"`：构建机上 `vendor/win/bin` 的绝对路径。
+//! - `NG_FFMPEG_BIN=<目录>`：构建机上 `vendor/win/bin` 的绝对路径（裸路径记号）。
 //!
 //! `vf_rt_ready()` 在第一次用到 ffmpeg 前把这 5 个 dll 显式加载：先按系统默认顺序
 //! （exe 同目录 / 系统目录 / PATH，发布时自带的 dll 走这里），找不到再到构建期记下
@@ -26,8 +26,15 @@
 #pragma comment(linker, "/DELAYLOAD:avutil-61.dll")
 #endif
 
-#ifndef NG_FFMPEG_BIN
-#define NG_FFMPEG_BIN ""
+// 构建期记下的 vendor 目录：prebuild 以**裸路径记号** -D 下发（Windows 这条链上
+// 引号到不了宏，见 proposals/adaptation.md），这里两级宏把记号串化成字符串字面量；
+// 未下发（如 NATIVE_GUI_FFMPEG_NO_DELAYLOAD 档）为空串，回落自动关闭。
+#define NG_FFMPEG_STR2(x) #x
+#define NG_FFMPEG_STR(x) NG_FFMPEG_STR2(x)
+#ifdef NG_FFMPEG_BIN
+static const char *const vf_bin_dir = NG_FFMPEG_STR(NG_FFMPEG_BIN);
+#else
+static const char *const vf_bin_dir = "";
 #endif
 
 // 与 prebuild.py 的 WIN_LIBS 一一对应（同一份 BtbN win64-lgpl-shared 9.0 归档）。
@@ -47,10 +54,10 @@ int vf_rt_ready(void) {
   int n = (int)(sizeof(vf_dll_names) / sizeof(vf_dll_names[0]));
   for (int i = 0; i < n; i++) {
     HMODULE mod = LoadLibraryA(vf_dll_names[i]);
-    if (mod == NULL && NG_FFMPEG_BIN[0] != '\0') {
+    if (mod == NULL && vf_bin_dir[0] != '\0') {
       // 构建期记下的 vendor 目录：只在默认搜索失败时临时加进搜索路径，
       // 免得盖过用户自己放在 exe 旁的 dll（那才是发布时的正确形态）。
-      SetDllDirectoryA(NG_FFMPEG_BIN);
+      SetDllDirectoryA(vf_bin_dir);
       mod = LoadLibraryA(vf_dll_names[i]);
       SetDllDirectoryA(NULL);
     }

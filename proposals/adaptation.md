@@ -3481,3 +3481,12 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **判据**：MSVC 的行号指着 **vtable 初始化列表里的那一项**（不是函数定义行）——顺着它看数组下标是 SDK 声明的第几个槽，再去 `include/WebView2.h` 抄那一槽的原签名，比猜快。
 **验证**：告警只有 MSVC 编得出来，本机 clang 复现不了；改动全在 `#ifdef _WIN32` 分支内，mac/Linux 编的是空翻译单元。真机复验口径：同一份 `moon build --target native` 日志里 `webview2_stub.c` 应一行不出。
 **教训**：① C 模式手写 COM，`Vtbl` 实例加 `const` 是「看着更安全、实际每处赋值都报警」的写法，按 SDK 字段类型来；② 编译器不替你查「同一个函数塞进不同接口的 vtable」（只给 C4113），`self` 类型关乎内存布局；③ 告警清零的收益是可读数——31 行噪声里埋着一条 LNK2019，Windows 排查先清噪声。
+
+## MSVC 链路上 `-D` 值的引号到不了宏：`NG_FFMPEG_BIN` 展开成裸路径记号，`ffmpeg_win_dll.c` 一片语法错（2026-10-29，用户 Windows 真机 `moon build` 日志）
+
+**症状**：延迟加载首上 Windows 真机即炸：`ffmpeg_win_dll.c(50)` 起 `error C2065: "C": 未声明的标识符`、`C2143 缺少")"(在":"前面)`、`C2059 ")"`，57/61/65 行级联报 `mod 未声明`/`return`/`}`；同批其余 C 桩全部编过。cl 命令行里是 `-DNG_FFMPEG_BIN=C:/…/vendor/win/bin`——prebuild.py 明明写的是 `-DNG_FFMPEG_BIN="<目录>"`，引号在路上没了。
+**根因**：Windows 上这条 flags 从 moon 到 cl 走的是「拼命令行字符串 → MSVC argv 解析」，`"` 被当参数分组符剥掉，宏值成了裸记号序列；`NG_FFMPEG_BIN[0]` 展开成 `C:/Users/…[0]`，`C` 被当标识符、`:` 打断 if 语句，后面全是级联。同一条 `-I"C:/…"` 也被剥了引号但侥幸活着——路径无空格，引号本来就可有可无；宏要当字符串字面量用就必炸。这个 -D 只在 Windows 分支下发、使用点只在 `#ifdef _WIN32` 里，mac/Linux 门禁永远编不到，写下的引号写法从没在真机成立过。
+**判据**：① 指纹对号：`“C”: 未声明的标识符` + `: 前缺 ")"` 正是裸路径被当代码解析的形状，对着第 50 行一读即中；② 打印出来的 cl 命令行就是直接证据——源头写了引号、落点收到裸值；③ 排环境：windows.h 包含成功（49 行 `HMODULE`/`LoadLibraryA` 零错），缺 INCLUDE 变量会死在 C1083，不会走进语法分析。
+**修法**：不在 `-D` 上传引号，改 C 侧两级宏记号字符串化：`NG_FFMPEG_STR(NG_FFMPEG_BIN)`（`#x` 套一层）把裸记号还原成字符串字面量，使用点统一走 `vf_bin_dir`；默认值不能参与串化（`#` 作用到 `""` 得到的是含两个引号字符的串，不是空串），用 `#ifdef` 分支直写空串。prebuild 去掉值上的引号，路径含空白时打警告（空白在 argv 层就拆断记号，串化救不了）。cl/gcc/clang 通用。
+**验证**：本机 clang 以与 cl 同形的裸记号 `-DNG_FFMPEG_BIN=C:/…` 编样例，串化读数与路径逐字一致（len=98）；无 `-D` 档 len=0。`moon check`（gui、ffmpeg-mbt）零输出、`moon test`（ffmpeg-mbt）1599/1599、`moon build examples/audio` 通过。mac 编不到 Windows 分支，C 侧待真机：`moon build` 该文件一行错误不出；`moon run examples/audio` dll 不搬家能播（回落目录生效）。
+**教训**：① 跨平台下发的 `-D` 值别带引号，也别指望宏值直接当字符串用——Windows 这条链引号进不了宏，字符串字面量在 C 源里用 `#` 串化还原才是正位；② 宏默认值与串化宏要分开处理，`#` 作用到 `""` 串进去的是引号字符不是空串；③ 只在单平台分支生效的代码，「写完」的判定在该平台真机过门禁——上一条目挂着的「待 Windows 真机」清单就是为此留的窗口。
