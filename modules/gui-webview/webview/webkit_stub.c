@@ -252,22 +252,59 @@ static WebKitWebView *wb_on_create(WebKitWebView *w,
   return NULL;  // 本栈不做「一窗多 webview」，弹窗一律不落成新视图
 }
 
+// 下载落点：kind=10 在本处理器上报（载荷=源 URL）。放行档弹保存对话框
+// （GtkFileChooserNative 同步跑，与 mac NSSavePanel runModal 同形态），确定即设
+// file:// 落点；拦下档 / 对话框取消一律取消下载——WebKitGTK 不设落点的下载不会写盘。
 static void wb_on_download(WebKitWebView *w, WebKitDownload *dl, gpointer data) {
   (void)w;
   WbView *v = (WbView *)data;
-  const char *dest = dl ? webkit_download_get_destination(dl) : "";
   const char *uri = "";
+  char suggest[256] = {0};
   if (dl != NULL) {
     WebKitURIRequest *req = webkit_download_get_request(dl);
     uri = req ? webkit_uri_request_get_uri(req) : "";
+    WebKitURIResponse *resp = webkit_download_get_response(dl);
+    const char *name =
+        resp ? webkit_uri_response_get_suggested_filename(resp) : NULL;
+    if (name != NULL && name[0] != '\0') {
+      snprintf(suggest, sizeof(suggest), "%s", name);
+    }
   }
   wb_push(v, 10, 0, uri);
-  if (v->download_allow) {
-    webkit_download_set_allow_overwrite(dl, TRUE);
+  if (dl == NULL) {
+    return;
+  }
+  if (!v->download_allow) {
+    webkit_download_cancel(dl);
+    return;
+  }
+  webkit_download_set_allow_overwrite(dl, TRUE);
+  GtkWidget *top = gtk_widget_get_toplevel(v->view);
+  // 标题与按钮文案传 NULL：跟系统 locale，与 mac NSSavePanel 全系统本地化同口径
+  GtkFileChooserNative *dlg = gtk_file_chooser_native_new(
+      NULL, GTK_IS_WINDOW(top) ? GTK_WINDOW(top) : NULL,
+      GTK_FILE_CHOOSER_ACTION_SAVE, NULL, NULL);
+  if (suggest[0] != '\0') {
+    gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dlg), suggest);
+  }
+  if (gtk_native_dialog_run(GTK_NATIVE_DIALOG(dlg)) == GTK_RESPONSE_ACCEPT) {
+    GFile *f = gtk_file_chooser_get_file(GTK_FILE_CHOOSER(dlg));
+    if (f != NULL) {
+      gchar *path = g_file_get_path(f);
+      if (path != NULL) {
+        gchar *furi = g_filename_to_uri(path, NULL, NULL);
+        if (furi != NULL) {
+          webkit_download_set_destination(dl, furi);
+          g_free(furi);
+        }
+        g_free(path);
+      }
+      g_object_unref(f);
+    }
   } else {
     webkit_download_cancel(dl);
   }
-  (void)dest;
+  g_object_unref(dlg);
 }
 
 static void wb_on_terminated(WebKitWebView *w, WebKitWebProcessTerminationReason why,

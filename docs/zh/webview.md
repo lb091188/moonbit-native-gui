@@ -6,7 +6,7 @@
 
 - **导航**：`load_url` / `load_html` / 后退 / 前进 / 重载 / 停止；标题、URL、开始、提交、完成、失败、跳转（重定向）事件。
 - **互操作**：`execute_javascript` 求值（按序号配对回包）、DOM 抓取（正文 / 链接 / meta / 结构）、raw binding（页面调原生，回包走 `on_invoke`）。
-- **策略**：新窗（拦下 / 放行）、下载（拦下 / 放行；mac 放行档弹系统保存对话框）。
+- **策略**：新窗（拦下 / 放行）、下载（拦下 / 放行；放行档弹系统保存对话框——mac `NSSavePanel`、Linux `GtkFileChooserNative`）。
 - **其他**：Cookie 查询、自定义协议（`register_protocol`，文件根目录形态）、持久化探测、渲染进程终止事件。
 
 事件统一经 per-view 队列上报（`on_event`），队列满丢最旧：事件是提示，不是账本。

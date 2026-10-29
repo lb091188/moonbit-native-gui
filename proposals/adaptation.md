@@ -1069,6 +1069,14 @@
 - **修法**：`overlay_fit_pass` 放大分支比较与取 max 都对 `g_native_req` 做；探针 `POPUP-FIT` 行补 `req=` 读数便于真机分辨「申请了没收下」与「没申请」。前三拍内的收窄申请照旧（幂等）。
 - **验证**：`cd gui && moon check --deny-warn` 全绿、`moon test widget ui` 338/338；KDE 真机清单交用户（`NGUI_POPUP_PROBE=1` 看 `req=` 链：应从 (320,200) 收到 (208,430) 后停；屏上弹层宽应贴合菜单面板、右侧无死边）。
 
+### MoonBit 原生 GUI 栈 · Linux 下载「事件报了、保存框没弹」= 放行档没设落点（2026-10-29 真机反馈）
+
+- **现象**（Ubuntu 24 KDE X11）：browser 示例「策略触发·下载(当前页)」放行档下事件区报了下载事件，保存框从未弹出，盘上也没有文件。拦下档与 mac 同形（取消），缺的只是放行档后半段。
+- **根因**：GTK 段 `wb_on_download` 放行档只调了 `webkit_download_set_allow_overwrite`，**从头到尾没设 destination**——WebKitGTK 的下载没有落点不会写盘（同接口 mac 在 `decideDestination` 回调里 `runModal` 弹 NSSavePanel 定落点，Linux 漏了对应的「弹框定落点」一步）。kind=10 在落点决策前就上报，于是「事件有、框没有」。
+- **修法**：`wb_on_download` 放行档补 `GtkFileChooserNative` + `gtk_native_dialog_run`（信号处理器内同步定落点，与 mac `runModal` 同形态；标题/按钮传 NULL 跟系统 locale），确定即 `g_filename_to_uri` 后 `webkit_download_set_destination`；拦下档 / 对话框取消一律 `webkit_download_cancel`。建议文件名取 `webkit_uri_response_get_suggested_filename`（Content-Disposition / URL 末段，blob 下载以引擎给的实际值为准）。
+- **判据**：三平台下载放行档的落点都要在引擎回调里**同步**给死——mac `completionHandler(nil)`、WebKitGTK 不设 destination，都是「不给落点即取消」的同一条引擎事实；新接一个引擎先问「落点不给会怎样」。
+- **验证**：`cd gui && moon check --deny-warn` 全绿、`moon test widget ui` 338/338；本机无 WebKitGTK，GTK 段随用户机编译验证；真机清单：演示菜单 → 策略触发·下载(当前页) → 保存框弹出且预填建议名 → 选落点后文件落盘、内容为 probe 文本；点取消则无文件、事件区无异常增长。
+
 ### MoonBit 原生 GUI 栈 · 批 F1 权限挂起待决（2026-10-29，用户拍板「权限不该干巴巴进日志」）
 
 - **形态**：拒绝档（默认）从「立即 deny + 报事件」改为**扣住待决**——上层弹「同意/不同意」，点按后 `Webview::respond_permission(allow)` 落判（返回是否命中，区分「点了空」）；自动放行档（`set_permission_mode(true)`）不变，立即 grant 并报 kind=9。三平台扣法：GTK `g_object_ref` 住 `WebKitPermissionRequest`（挂起期间它一直活着，决定延后合法）；mac 扣 `decisionHandler` block（ARC 强持有，`requestMediaCapturePermissionForOrigin:` macOS 12+ 公开口）；WebView2 `GetDeferral` 扣 `PermissionRequestedEventArgs`，落判序 put_State → Complete → Release。

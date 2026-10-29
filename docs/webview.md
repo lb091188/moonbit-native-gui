@@ -6,7 +6,7 @@
 
 - **Navigation**: `load_url` / `load_html` / back / forward / reload / stop; title, URL, started, committed, finished, failed and redirect events.
 - **Interop**: `execute_javascript` (replies paired by sequence number), DOM capture (body / links / meta / structure), raw bindings (page calls native; replies arrive via `on_invoke`).
-- **Policies**: new window (block / allow), downloads (block / allow; on macOS the allow path shows the system save dialog).
+- **Policies**: new window (block / allow), downloads (block / allow; the allow path shows the system save dialog — `NSSavePanel` on macOS, `GtkFileChooserNative` on Linux).
 - **Others**: cookie queries, custom schemes (`register_protocol`, file-root form), persistence probing, renderer-terminated events.
 
 Events are reported per view through a queue (`on_event`); when the queue is full the oldest entry is dropped — events are hints, not a ledger.
