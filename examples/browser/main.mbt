@@ -371,7 +371,6 @@ fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
                     }
                   } else if i == 13 {
                     pol_newwin.val = !pol_newwin.val
-                    v.set_new_window_policy(pol_newwin.val)
                     show_result("策略切换完成\n\{policy_text()}")
                   } else if i == 14 {
                     pol_dl.val = !pol_dl.val
@@ -537,7 +536,7 @@ fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
                 }
                 @web.Download(d) => {
                   let how = if pol_dl.val {
-                    "放行：mac 弹保存对话框，Linux/Windows 交引擎默认"
+                    "放行：mac/Linux 弹保存对话框定落点，Windows 交引擎默认"
                   } else {
                     "拦下"
                   }
@@ -565,7 +564,6 @@ fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
             let tick : Ref[() -> Unit] = Ref(fn() { () })
             tick.val = fn() -> Unit {
               if v.add_raw_binding("demoBinding") {
-                v.set_new_window_policy(pol_newwin.val)
                 v.set_download_mode(pol_dl.val)
               } else {
                 tries.val = tries.val + 1
