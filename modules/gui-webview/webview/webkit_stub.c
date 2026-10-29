@@ -907,9 +907,11 @@ void wb_destroy(int64_t id) {
 // 照旧：**探测 + 语义化降级**，探不到引擎时 wb_available() 给 0。
 //
 // 与另两平台的差异（都写进 docs/zh/adaptation.md，不静默）：
-// - **kind=10 下载 / kind=9 权限请求不发**：WKWebView 到 macOS 15 才有公开的
-//   下载与权限请求口（`WKDownload` / `WKUIDelegate` 的媒体授权仍只到文件面板），
-//   本层不接私有 API。`wb_signal_mask()` 如实回 10（=进程终止 2 | 新窗 8）。
+// - **kind=10 下载**走 `WKDownload`（macOS 11.3+ 公开 API）：保存落点用
+//   `NSSavePanel`，拦下档 / 取消落判 nil；**kind=9 权限请求**走
+//   `requestMediaCapturePermissionForOrigin`（macOS 12+，媒体专用；定位在
+//   公开 WKUIDelegate 里没有回调）。`wb_signal_mask()` 如实回 15
+//   （=下载 1 | 进程终止 2 | 权限 4 | 新窗 8）。
 // - **kind=4 导航提交**由 `decidePolicyForNavigationAction`（放行那一刻）给出，
 //   WebKit 侧是引擎自己的 COMMITTED 状态、Windows 侧是 ContentLoading——三家都是
 //   「最接近提交」的公开口，不是同一时刻。
@@ -964,7 +966,8 @@ typedef struct {
 }
 @end
 
-@interface WMBView : NSObject <WKNavigationDelegate, WKUIDelegate> {
+@interface WMBView : NSObject <WKNavigationDelegate, WKUIDelegate,
+                              WKDownloadDelegate> {
 @public
   int sid;
   int64_t surface_id;
@@ -1340,7 +1343,72 @@ static int wb_scheme_slot(WMBView *v, const char *scheme) {
     NSString *u = [[[navigationAction request] URL] absoluteString];
     wb_push(v, 4, 0, u != nil ? [u UTF8String] : "");
   }
+  // 页面声明的下载（<a download> / blob:）：交下载通道，不导航成文本页
+  if (@available(macOS 11.3, *)) {
+    if (navigationAction.shouldPerformDownload) {
+      decisionHandler(WKNavigationActionPolicyDownload);
+      return;
+    }
+  }
   decisionHandler(WKNavigationActionPolicyAllow);
+}
+
+// 引擎展示不了的 MIME（附件类响应）同样落成下载
+- (void)webView:(WKWebView *)webView
+    decidePolicyForNavigationResponse:(WKNavigationResponse *)navigationResponse
+                      decisionHandler:
+                          (void (^)(WKNavigationResponsePolicy))decisionHandler {
+  (void)webView;
+  if (@available(macOS 11.3, *)) {
+    if (!navigationResponse.canShowMIMEType) {
+      decisionHandler(WKNavigationResponsePolicyDownload);
+      return;
+    }
+  }
+  decisionHandler(WKNavigationResponsePolicyAllow);
+}
+
+// 下载句柄到手：挂上 delegate，落点由 download:decideDestination… 决定
+- (void)webView:(WKWebView *)webView
+    navigationAction:(WKNavigationAction *)navigationAction
+     didBecomeDownload:(WKDownload *)download API_AVAILABLE(macos(11.3)) {
+  (void)webView; (void)navigationAction;
+  download.delegate = self;
+}
+
+- (void)webView:(WKWebView *)webView
+    navigationResponse:(WKNavigationResponse *)navigationResponse
+       didBecomeDownload:(WKDownload *)download API_AVAILABLE(macos(11.3)) {
+  (void)webView; (void)navigationResponse;
+  download.delegate = self;
+}
+
+// 下载落点：kind=10 报上层（载荷同另两支=源 URL），放行档弹保存对话框，
+// 拦下档 / 对话框取消一律 completionHandler(nil) 落判取消
+- (void)download:(WKDownload *)download
+    decideDestinationUsingResponse:(NSURLResponse *)response
+                 suggestedFilename:(NSString *)suggestedFilename
+                 completionHandler:
+                     (void (^)(NSURL *_Nullable))completionHandler
+    API_AVAILABLE(macos(11.3)) {
+  (void)response;
+  WMBView *v = wb_get(self->sid);
+  NSString *src = [[[download originalRequest] URL] absoluteString];
+  if (v != nil) {
+    wb_push(v, 10, 0, src != nil ? [src UTF8String] : "");
+  }
+  if (v == nil || !v->download_allow) {
+    completionHandler(nil);
+    return;
+  }
+  NSSavePanel *panel = [NSSavePanel savePanel];
+  [panel setNameFieldStringValue:suggestedFilename];
+  NSInteger r = [panel runModal];
+  if (r == NSModalResponseOK && [panel URL] != nil) {
+    completionHandler([panel URL]);
+  } else {
+    completionHandler(nil);
+  }
 }
 
 - (void)webView:(WKWebView *)webView
@@ -1505,7 +1573,8 @@ static WKWebsiteDataStore *wb_store_for_dir(const char *dir) {
 
 // bit0 下载、bit1 进程终止、bit2 权限、bit3 新窗
 int wb_signal_mask(void) {
-  return 2 | 8;
+  // 下载(1) | 进程终止(2) | 权限请求(4) | 新窗(8)：四类都有公开回调
+  return 1 | 2 | 4 | 8;
 }
 
 void wb_predeclare_scheme(const char *scheme) {

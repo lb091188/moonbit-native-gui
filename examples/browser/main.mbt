@@ -398,14 +398,14 @@ fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
                     ev("已执行定位请求（Linux/Windows 有 permission-request 回声；mac 公开 API 无定位回调，验权限策略用「媒体」项）")
                   } else if i == 19 {
                     v.execute_javascript(
-                      "navigator.mediaDevices.getUserMedia({audio:true}).catch(function(){})",
+                      "if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){demoBinding('getUserMedia 不可用：当前页不是安全上下文（https/localhost）')}else{navigator.mediaDevices.getUserMedia({audio:true}).then(function(s){s.getTracks().forEach(function(t){t.stop()});demoBinding('getUserMedia 成功（轨道已停止）')}).catch(function(e){demoBinding('getUserMedia 失败：'+e.name)})}",
                     )
-                    ev("已执行媒体权限请求（三平台都走策略：mac 12+ 公开回调已接）")
+                    ev("已发起媒体权限请求（mac 12+ 弹应用侧确认框；非安全上下文页会直报不可用）")
                   } else if i == 20 {
                     v.execute_javascript(
                       "var b=new Blob(['native-gui download probe'],{type:'text/plain'});var u=URL.createObjectURL(b);var a=document.createElement('a');a.href=u;a.download='ngui.txt';document.body.appendChild(a);a.click();",
                     )
-                    ev("已执行 blob 下载（真实源页才走下载通道）")
+                    ev("已发起 blob 下载（放行档弹保存对话框，拦下档落判取消）")
                   } else {
                     ()
                   }
