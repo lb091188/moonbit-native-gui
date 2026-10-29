@@ -106,9 +106,10 @@ fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
   let result_view : @base.Store[String] = @base.Store::new("（能力结果显示在此）")
   let wv : Ref[@web.Webview?] = Ref(None)
   let holder : Ref[@widget.Widget?] = Ref(None)
-  // 两类策略的当前档（false = 拦截；启动排期重试时统一落到拦截）
+  // 两类策略的当前档（false = 拦截；新窗默认拦下，下载默认放行——
+  // 保存对话框本身就是确认，拦下档手动切）
   let pol_newwin : Ref[Bool] = Ref(false)
-  let pol_dl : Ref[Bool] = Ref(false)
+  let pol_dl : Ref[Bool] = Ref(true)
   let ev_no : Ref[Int] = Ref(0)
   fn set_status(k : LoadKind, text : String) -> Unit {
     let tag = match k {
@@ -535,8 +536,13 @@ fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
                   }
                 }
                 @web.Download(d) => {
-                  ev(if pol_dl.val { "下载已放行（交引擎默认）" } else { "下载被策略拦下" })
-                  show_result("下载请求（\{if pol_dl.val { "放行：交引擎默认" } else { "拦下" }}）：\{d}\n\n当前策略：\n\{policy_text()}")
+                  let how = if pol_dl.val {
+                    "放行：mac 弹保存对话框，Linux/Windows 交引擎默认"
+                  } else {
+                    "拦下"
+                  }
+                  ev(if pol_dl.val { "下载已放行" } else { "下载被策略拦下" })
+                  show_result("下载请求（\{how}）：\{d}\n\n当前策略：\n\{policy_text()}")
                 }
                 @web.Cookies(j) =>
                   show_result("Cookie 回包（\{j.length()} 字节）\n\{j}")
