@@ -46,7 +46,7 @@ const SCHEME_CSS : String = "body{font-family:sans-serif;margin:24px auto;max-wi
 
 ///|
 /// 本地 HTML 片段（load_html 装的页面**不入历史**）。
-const LOCAL_HTML : String = "<html><head><meta charset=\"utf-8\"><title>本地片段</title></head><body style='font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%'><h3>load_html 本地片段 ✓</h3><button onclick=\"callNative()\">JS 调原生绑定</button><p style='margin:14px 0 4px'>策略触发（配底部「策略·…」菜单项验拦截/放行）：</p><button onclick=\"window.open('https://example.com')\">触发新窗请求</button><button onclick=\"navigator.geolocation.getCurrentPosition(function(){},function(){})\">触发定位权限请求</button><button onclick=\"var b=new Blob(['native-gui download probe'],{type:'text/plain'});var u=URL.createObjectURL(b);var a=document.createElement('a');a.href=u;a.download='ngui.txt';document.body.appendChild(a);a.click()\">触发下载请求</button><p id='r' style='color:#888'></p><script>function callNative(){var r=document.getElementById('r');try{demoBinding('来自网页的调用');r.textContent='已调用原生绑定（看窗口底部状态栏）';}catch(e){r.textContent='原生绑定不在位：'+e.message;}}</script></body></html>"
+const LOCAL_HTML : String = "<html><head><meta charset=\"utf-8\"><title>本地片段</title></head><body style='font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%'><h3>load_html 本地片段 ✓</h3><button onclick=\"callNative()\">JS 调原生绑定</button><p style='margin:14px 0 4px'>策略触发（配底部「策略·…」菜单项验拦截/放行）：</p><button onclick=\"window.open('https://example.com')\">触发新窗请求</button><button onclick=\"var b=new Blob(['native-gui download probe'],{type:'text/plain'});var u=URL.createObjectURL(b);var a=document.createElement('a');a.href=u;a.download='ngui.txt';document.body.appendChild(a);a.click()\">触发下载请求</button><p id='r' style='color:#888'></p><script>function callNative(){var r=document.getElementById('r');try{demoBinding('来自网页的调用');r.textContent='已调用原生绑定（看窗口底部状态栏）';}catch(e){r.textContent='原生绑定不在位：'+e.message;}}</script></body></html>"
 
 ///|
 /// 首页地址。
@@ -86,7 +86,7 @@ fn main {
 }
 
 ///|
-/// 建一扇浏览器窗：自己的工具栏/地址栏/webview/状态栏/权限对话框/策略位。
+/// 建一扇浏览器窗：自己的工具栏/地址栏/webview/状态栏/策略位。
 /// 首窗（owner=None）经 mount_window 建宿主并驱动整组窗口的循环；新窗
 /// （新窗策略放行档）经 `App::open_window` 挂进同一循环，退出裁决仍归
 /// 主窗/最后一扇。
@@ -104,14 +104,10 @@ fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
   let result_full : @base.Store[String] = @base.Store::new("（能力结果显示在此）")
   let result_open : @base.Store[Bool] = @base.Store::new(false)
   let result_view : @base.Store[String] = @base.Store::new("（能力结果显示在此）")
-  // 权限对话框：Permission 事件置文本并弹出，允许/拒绝两钮落 respond_permission
-  let perm_ask : @base.Store[Bool] = @base.Store::new(false)
-  let perm_text : @base.Store[String] = @base.Store::new("")
   let wv : Ref[@web.Webview?] = Ref(None)
   let holder : Ref[@widget.Widget?] = Ref(None)
-  // 三类策略的当前档（false = 拦截；启动排期重试时统一落到拦截）
+  // 两类策略的当前档（false = 拦截；启动排期重试时统一落到拦截）
   let pol_newwin : Ref[Bool] = Ref(false)
-  let pol_perm : Ref[Bool] = Ref(false)
   let pol_dl : Ref[Bool] = Ref(false)
   let ev_no : Ref[Int] = Ref(0)
   fn set_status(k : LoadKind, text : String) -> Unit {
@@ -184,12 +180,11 @@ fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
     let c = @sys.sys_write_text_file(root + "/style.css", SCHEME_CSS)
     a && b && c && v.register_protocol("yuedemo", root)
   }
-  /// 三档策略当前态的可读串（策略切换后整组回显）。
+  /// 两类策略当前态的可读串（策略切换后整组回显）。
   fn policy_text() -> String {
     let nw = if pol_newwin.val { "放行" } else { "拦截" }
-    let pm = if pol_perm.val { "放行" } else { "拦截" }
     let dl = if pol_dl.val { "放行" } else { "拦截" }
-    "新窗：\{nw}\n权限：\{pm}\n下载：\{dl}"
+    "新窗：\{nw}\n下载：\{dl}"
   }
 
   // scheme 预声明：建第一扇 webview 前的最后声明机会（三平台取严）
@@ -273,12 +268,9 @@ fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
               "原生绑定 注册/移除",
               "-",
               "策略·新窗切换",
-              "策略·权限切换",
               "策略·下载切换",
               "-",
               "策略触发·新窗(当前页)",
-              "策略触发·定位(当前页)",
-              "策略触发·媒体(当前页)",
               "策略触发·下载(当前页)",
             ],
             on_select=fn(i : Int) {
@@ -381,27 +373,13 @@ fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
                     v.set_new_window_policy(pol_newwin.val)
                     show_result("策略切换完成\n\{policy_text()}")
                   } else if i == 14 {
-                    pol_perm.val = !pol_perm.val
-                    v.set_permission_mode(pol_perm.val)
-                    show_result("策略切换完成\n\{policy_text()}")
-                  } else if i == 15 {
                     pol_dl.val = !pol_dl.val
                     v.set_download_mode(pol_dl.val)
                     show_result("策略切换完成\n\{policy_text()}")
-                  } else if i == 17 {
+                  } else if i == 16 {
                     v.execute_javascript("window.open('https://example.com')")
                     ev("已执行 window.open（新窗事件按策略拦/落，见结果区）")
-                  } else if i == 18 {
-                    v.execute_javascript(
-                      "navigator.geolocation.getCurrentPosition(function(){},function(){})",
-                    )
-                    ev("已执行定位请求（Linux/Windows 有 permission-request 回声；mac 公开 API 无定位回调，验权限策略用「媒体」项）")
-                  } else if i == 19 {
-                    v.execute_javascript(
-                      "if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){demoBinding('getUserMedia 不可用：当前页不是安全上下文（https/localhost）')}else{var done=false;setTimeout(function(){if(!done){demoBinding('3 秒内引擎未发起媒体请求：mac 未签名/未打包形态下采集设备枚举为空（平台限制，见 adaptation.md）')}},3000);navigator.mediaDevices.getUserMedia({audio:true}).then(function(s){done=true;s.getTracks().forEach(function(t){t.stop()});demoBinding('getUserMedia 成功（轨道已停止）')}).catch(function(e){done=true;demoBinding('getUserMedia 失败：'+e.name)})}",
-                    )
-                    ev("已发起媒体权限请求（Linux/Win 走策略回调；mac 示例形态枚举不到采集设备，3 秒后回包说明）")
-                  } else if i == 20 {
+                  } else if i == 17 {
                     v.execute_javascript(
                       "var b=new Blob(['native-gui download probe'],{type:'text/plain'});var u=URL.createObjectURL(b);var a=document.createElement('a');a.href=u;a.download='ngui.txt';document.body.appendChild(a);a.click();",
                     )
@@ -497,40 +475,6 @@ fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
         row_gap=4.0,
         background_color="bg_panel",
       ),
-      // 权限对话框：拒绝档把请求扣住待决，两钮经 respond_permission 落判
-      @ui.dialog(
-        perm_ask,
-        "网页权限请求",
-        [
-          @ui.text("页面正在请求以下权限：", class=[@style.text_secondary]),
-          @ui.text_dyn(perm_text.signal(), wrap=true),
-        ],
-        confirm_text="允许",
-        cancel_text="拒绝",
-        on_confirm=fn() {
-          match wv.val {
-            Some(v) =>
-              if v.respond_permission(true) {
-                ev("权限请求已允许")
-              } else {
-                ev("允许落判空（无挂起件）")
-              }
-            None => ()
-          }
-        },
-        on_cancel=fn() {
-          match wv.val {
-            Some(v) =>
-              if v.respond_permission(false) {
-                ev("权限请求已拒绝")
-              } else {
-                ev("拒绝落判空（无挂起件）")
-              }
-            None => ()
-          }
-        },
-        width=380.0,
-      ),
     ],
     grow=1.0,
   )
@@ -580,9 +524,15 @@ fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
                   }
                 }
                 @web.Permission(c) => {
-                  perm_text.set(c)
-                  ev(if pol_perm.val { "权限请求已自动放行（策略档）" } else { "权限请求待决：请在对话框选择" })
-                  perm_ask.set(true)
+                  // 权限不做演示（mac 需签名打包才拿得到回调，见 README）；
+                  // 事件来了立即拒绝，不让请求挂在引擎里
+                  ev("权限请求已默认拒绝：\{clip(c, 80)}")
+                  match wv.val {
+                    Some(v) => {
+                      let _ = v.respond_permission(false)
+                    }
+                    None => ()
+                  }
                 }
                 @web.Download(d) => {
                   ev(if pol_dl.val { "下载已放行（交引擎默认）" } else { "下载被策略拦下" })
@@ -610,7 +560,6 @@ fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
             tick.val = fn() -> Unit {
               if v.add_raw_binding("demoBinding") {
                 v.set_new_window_policy(pol_newwin.val)
-                v.set_permission_mode(pol_perm.val)
                 v.set_download_mode(pol_dl.val)
               } else {
                 tries.val = tries.val + 1

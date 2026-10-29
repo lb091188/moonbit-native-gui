@@ -29,7 +29,7 @@
 | 模块 | 内容 |
 |---|---|
 | `NoahLiu/gui-media` | 音视频引擎与播放器组件。 |
-| `NoahLiu/gui-webview` | 内嵌 WebView（WebKitGTK / WebView2）。 |
+| `NoahLiu/gui-webview` | 内嵌 WebView（WebKitGTK / WebView2 / WKWebView），定位是「浏览器表现力 + 原生能力配合」，见 [webview.md](webview.md)。 |
 
 两种「可选」不要混：没 import 的子包不进二进制——`moon.pkg` 的 import 是编译与链接边界；没依赖的模块连解析和 prebuild 都不发生——`moon.mod` 的 import 决定依赖闭包。能力要选后者，就必须住在自己的模块里。
 

@@ -103,6 +103,7 @@ export default defineConfig({
             text: 'Platform notes',
             items: [
               { text: 'Autostart', link: '/autostart' },
+              { text: 'Embedded WebView', link: '/webview' },
             ],
           },
         ],
@@ -137,6 +138,7 @@ export default defineConfig({
             text: '平台与工程',
             items: [
               { text: '开机自启动', link: '/zh/autostart' },
+              { text: '内嵌 webview', link: '/zh/webview' },
               { text: '对外路线图', link: '/zh/roadmap' },
             ],
           },

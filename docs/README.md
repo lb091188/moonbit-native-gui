@@ -29,7 +29,7 @@ Heavier optional capabilities live in separate modules, and `moon add NoahLiu/na
 | Module | Contents |
 |---|---|
 | `NoahLiu/gui-media` | Audio/video engine and the player component. |
-| `NoahLiu/gui-webview` | Embedded WebView (WebKitGTK / WebView2). |
+| `NoahLiu/gui-webview` | Embedded WebView (WebKitGTK / WebView2 / WKWebView) — browser expressiveness paired with native capabilities; see [webview.md](webview.md). |
 
 Don't confuse the two kinds of "optional": a sub-package you don't import stays out of your binary — the `moon.pkg` import is the compile/link boundary; a module you don't depend on is not even resolved or prebuilt — the `moon.mod` import decides the dependency closure. For a capability to reach the latter, it must live in its own module.
 

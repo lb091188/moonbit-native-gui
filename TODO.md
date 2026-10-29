@@ -64,7 +64,7 @@
   - [ ] 批 D2c 再余项（不假装完成）：ASS 样式渲染（颜色/定位，目前只按文本叠加）、多字幕轨列表与切换（现在只取 `av_find_best_stream` 选中的那条）、倍速听感复验（是否仍同步；音高随动已定案不做——时间拉伸要相位声码器，口径见 media/audio.mbt 注释）
 - [~] **批 E 原生弹层窗口**（已完成面见 roadmap 同节；剩余见子条目）
   - [ ] 弹层锚点跟随 owner 滚动/移动、六件各自的尺寸提示（「点外收起」判据与 Windows 臂 set_popup/surface 计数已于 2026-10-28 落地，三平台真机复验收尾后移 roadmap）
-- [~] **批 F1 权限请求挂起待决 + 示例对话框**（2026-10-28 用户拍板：权限不该只进日志，要弹「同意/不同意」）——**已实现待真机**（60c2b7c3）：三平台桩扣住请求（GTK ref 住 WebKitPermissionRequest / mac 扣 decisionHandler block / WebView2 GetDeferral），`Webview::respond_permission(allow)` 落判并回是否命中，示例 Permission 事件弹 `@ui.dialog`；自动放行档不变；护栏=新到旧收+销毁收口。待 mac/Linux/Windows 真机复验后移 roadmap（mac 由媒体项触发验证，定位无公开回调）。
+- [~] **批 F1 权限请求挂起待决（能力保留、示例不演示）**（2026-10-28 用户拍板：权限不该只进日志，要有「同意/不同意」的落判口）——2026-10-29 用户再拍板：webview 定位收在「浏览器表现力 + 原生能力配合」，权限不做演示。现状（60c2b7c3 + 66e98523）：三平台桩扣住请求（GTK ref 住 WebKitPermissionRequest / mac 扣 decisionHandler block / WebView2 GetDeferral），`Webview::respond_permission(allow)` 落判并回是否命中；示例已撤「策略·权限」与对话框，Permission 事件到达即默认拒绝并记流水；mac 这条回调需签名打包才拿得到（裸二进制形态 WebKit 枚举不到采集设备，探针见 `experiment/webkit_media_probe/`），签名必要性写进 `docs/zh/webview.md`。Linux/Windows 真机复验后移 roadmap。
 - [~] **批 F2 浏览器示例多窗：新窗=独立窗口**（2026-10-28 用户拍板：真实浏览器语义）——**已实现待真机**（bfe9690d）：整窗结构收进 `open_browser(title,home,owner)`，新窗策略放行档经 `App::open_window` 另起一扇带完整工具栏的独立浏览器窗并导航目标 URL；拦截档与原地导航保留为可切换口径。待三平台真机复验后移 roadmap。桩侧「一窗多 webview 并排」仍是明确不做（见本节末），本条是**多窗各自一枚 webview**，不破该口径。
 - 积木原则：一个能力一个接口、可单独不用；能力之间不互相依赖（webview 不依赖媒体层，反之亦然，两者只依赖窗口/布局/事件层）；框架只给原语不给产品（爬虫框架、站点适配、内容解析、开发者面板、页面脚本库不进库）；每项能力给探测 + 语义化降级；新 API 一律走 `Painter`/`Bitmap` 门面
 - 明确不做（避免反复讨论）：网络拦截/改写、代理配置、一窗多 webview 并排、Linux 上把 webview 变纹理、首批硬解、首批 GPU 合成、网页内 `<video>` 与自绘播放器统一、macOS 13 及以下的持久化隔离（根因是 Apple API 边界：持久化 profile 需 macOS 14+ 且有 bundle id）
