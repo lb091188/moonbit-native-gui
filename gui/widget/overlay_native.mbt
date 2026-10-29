@@ -20,6 +20,10 @@
 /// （宿主归 App，宿主再持 App 就是引用环）。
 let g_native : Ref[Map[Int, App]] = Ref(Map([]))
 let g_native_passes : Ref[Map[Int, Int]] = Ref(Map([]))
+/// 最近一次向窗口申请的尺寸（收框放大分支的地板）。窗口实读在 WM 慢拍时
+/// 还停在初框值，拿它当地板会把已经收窄的申请反向钉回初框宽（KDE X11 真机
+/// 弹层右侧恒留一条 320−内容宽的死边，即此成因）。
+let g_native_req : Ref[Map[Int, (Int, Int)]] = Ref(Map([]))
 
 ///|
 /// 该不该走原生档：当前窗有已挂载的原生子件就走。无宿主/无窗一律走图层。
@@ -81,6 +85,7 @@ fn overlay_native_open(
           pop.mount([content])
           g_native.val.set(cid, pop)
           g_native_passes.val.set(cid, 0)
+          g_native_req.val.set(cid, (iw, ih))
           // Esc 收起：挂在弹层自己窗的按键兜底通道上，焦点链先问
           // 完才轮到它，菜单项等不吃 Esc 就落到这里。关窗挪到 0ms 延时里做，
           // 不在按键派发中途拆派发所在的窗。
@@ -110,6 +115,7 @@ fn overlay_native_close(cid : Int) -> Bool {
     Some(pop) => {
       let _ = g_native.val.remove(cid)
       let _ = g_native_passes.val.remove(cid)
+      let _ = g_native_req.val.remove(cid)
       if !pop.closed {
         pop.close_window()
       }
@@ -154,7 +160,9 @@ fn overlay_content_size(app : App) -> (Int, Int) {
 ///|
 /// 首帧后收框：宿主每拍调一次，同一浮层最多试三帧（布局可能因宽度变化再长高）。
 /// 三帧用尽后仍放行**放大**——内容后来长宽了（例如顶部轻提示又推来一条更宽的），
-/// 框子不跟着长就会把多出来的内容切掉；收缩仍受三帧限制，避免宽度回环里来回改尺寸。
+/// 框子不跟着长就会把多出来的内容切掉；放大的地板是**最近一次申请的尺寸**
+/// `g_native_req`，不是窗口实读（WM 慢拍时实读停在初框，会把窄申请反向顶回
+/// 初框宽）；收缩仍受三帧限制，避免宽度回环里来回改尺寸。
 pub fn overlay_fit_pass(app : App) -> Unit {
   let hits : Array[Int] = []
   for cid, pop in g_native.val {
@@ -182,6 +190,10 @@ pub fn overlay_fit_pass(app : App) -> Unit {
         let (w, h) = overlay_content_size(pop)
         if g_native_probe_on.val && (passes < 3 || w != cw || h != ch) {
           let (ox, oy) = pop.session.window.origin()
+          let req_txt = match g_native_req.val.get(cid) {
+            Some((rw, rh)) => "(\{rw},\{rh})"
+            None => "-"
+          }
           let kids : Array[String] = []
           for k in pop.root.children() {
             if kids.length() < 4 {
@@ -192,17 +204,25 @@ pub fn overlay_fit_pass(app : App) -> Unit {
             }
           }
           (g_native_probe.val)(
-            "POPUP-FIT cid=\{cid} meas=(\{w},\{h}) cur=(\{cw},\{ch}) at=(\{ox},\{oy}) passes=\{passes} kids=[\{kids.join(" ")}]"
+            "POPUP-FIT cid=\{cid} meas=(\{w},\{h}) cur=(\{cw},\{ch}) req=\{req_txt} at=(\{ox},\{oy}) passes=\{passes} kids=[\{kids.join(" ")}]"
           )
         }
+        let (rw, rh) = match g_native_req.val.get(cid) {
+          Some(r) => r
+          None => (cw, ch)
+        }
         if passes >= 3 {
-          if w > cw || h > ch {
-            pop.session.window.set_size_pixels(w.max(cw), h.max(ch))
+          if w > rw || h > rh {
+            let nw = w.max(rw)
+            let nh = h.max(rh)
+            g_native_req.val.set(cid, (nw, nh))
+            pop.session.window.set_size_pixels(nw, nh)
           }
           continue
         }
         g_native_passes.val.set(cid, passes + 1)
         if w > 1 && h > 1 && (w != cw || h != ch) {
+          g_native_req.val.set(cid, (w, h))
           pop.session.window.set_size_pixels(w, h)
         }
       }

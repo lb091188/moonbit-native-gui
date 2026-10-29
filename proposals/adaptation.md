@@ -1061,6 +1061,14 @@
 - **叠窗的两环成因**：① GTK 下 `gtk_widget_grab_focus` 只管应用内焦点，WM 不给弹层窗输入焦点 → focus-in 永不到来 → 「拿到过焦点才算」的失焦收起永不触发；修法：弹层窗 show 后补 `gtk_window_present` + `gdk_window_focus(GDK_CURRENT_TIME)` 向 WM 主动要焦点。② ui 层 `overlay_alive` 只查图层栈、不认原生档 → dropdown 以为「没开着」又开一扇；修法：widget 开 `overlay_native_opened(id)` 查询口，`overlay_alive` 两栈都认。两环各自独立成灾，只修一条仍会叠。
 - **验证**：`cd gui && moon check --deny-warn` 全绿、`moon test widget ui` 338/338（GTK 段随用户机编译验证）；Linux 真机清单：反复开关菜单不再叠窗、点外/再点触发件都能收、灰柱与残影消失。
 
+### MoonBit 原生 GUI 栈 · KDE X11 弹层右侧死边的又一成因：收框放大分支拿慢拍窗读当地板（2026-10-29 真机截图）
+
+- **现象**（Ubuntu 24 KDE X11，browser 演示菜单）：弹层窗左侧 208px 是菜单面板，右侧恒多一条 112px 的 #F5F6F7 竖条（弹层根的 `bg_page` 底），高度却是贴合的。与上一条「灰柱=旧窗没关」不同形：这次窗自身就是 320 宽——初框宽原样留在了屏上。
+- **读数推演**：收框前三拍每拍申请 `set_size_pixels(208,430)`；KDE 合成器对新映射窗的 Configure 回包慢，三拍内 `wm_size` 读回的 `cur` 仍是初框 (320,200)；第四拍起进「只放行放大」分支，旧代码算 `max(内容, cur)` = `(320,430)`——**把宽度反向钉回初框 320**，高度照常贴合。此后内容宽 208 永远不再大于 320，该分支不再触发，死边锁死。XFCE/Win32/mac 的 resize 回包赶在三拍内应用，故只有 KDE 踩中；112px 恰为 320−208，与截图逐像素吻合。
+- **判据**：「先开框、量完再收」链上的任何「以当前窗读数为地板/上限」的逻辑，在 WM 异步应用几何时都不可信——**读数是上一拍的事实，申请才是本拍的意图**。放大分支的地板改用记账的「最近一次申请尺寸」（`g_native_req`，开框记初值、每次申请即更新），慢拍时窄申请不再被陈旧宽读数顶回。
+- **修法**：`overlay_fit_pass` 放大分支比较与取 max 都对 `g_native_req` 做；探针 `POPUP-FIT` 行补 `req=` 读数便于真机分辨「申请了没收下」与「没申请」。前三拍内的收窄申请照旧（幂等）。
+- **验证**：`cd gui && moon check --deny-warn` 全绿、`moon test widget ui` 338/338；KDE 真机清单交用户（`NGUI_POPUP_PROBE=1` 看 `req=` 链：应从 (320,200) 收到 (208,430) 后停；屏上弹层宽应贴合菜单面板、右侧无死边）。
+
 ### MoonBit 原生 GUI 栈 · 批 F1 权限挂起待决（2026-10-29，用户拍板「权限不该干巴巴进日志」）
 
 - **形态**：拒绝档（默认）从「立即 deny + 报事件」改为**扣住待决**——上层弹「同意/不同意」，点按后 `Webview::respond_permission(allow)` 落判（返回是否命中，区分「点了空」）；自动放行档（`set_permission_mode(true)`）不变，立即 grant 并报 kind=9。三平台扣法：GTK `g_object_ref` 住 `WebKitPermissionRequest`（挂起期间它一直活着，决定延后合法）；mac 扣 `decisionHandler` block（ARC 强持有，`requestMediaCapturePermissionForOrigin:` macOS 12+ 公开口）；WebView2 `GetDeferral` 扣 `PermissionRequestedEventArgs`，落判序 put_State → Complete → Release。
