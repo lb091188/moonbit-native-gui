@@ -177,6 +177,14 @@ rm -rf _build/native/debug/build/examples/<example>/<example>   # relink this ex
 
 Then run `moon build` / `moon test` again: the stub is recompiled and a fresh exe is linked.
 
+**Modules with prebuild-compiled archives have one more layer**: `modules/gui-webview/webview/webkit_stub.c` does not go through native-stub — `prebuild.py` compiles it into `modules/gui-webview/build/libgui_webview*.a` (`..._mac.a` on macOS). The archive itself has an mtime check (a newer source triggers recompilation), but only if prebuild re-runs and the exe relinks. The surest way to tell "did my change get in" is by symbols:
+
+```sh
+nm modules/gui-webview/build/libgui_webview.a | grep -c gtk_file_chooser_native_new
+```
+
+A symbol referenced by the new code is always 0 in a stale archive; for the exe use `nm -D <exe> | grep <symbol>` (GTK/WebKit symbols are dynamically linked and appear as undefined). When in doubt after editing such a stub: `rm -rf modules/gui-webview/build && moon clean`.
+
 When debugging, first reproduce with a new main target: a fresh target is always linked fresh. If main runs fine but the test crashes, the test binary almost certainly linked a stale archive, not a logic bug. The finer per-platform records are in [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md).
 
 ## 10. Vendored large files and mirrors

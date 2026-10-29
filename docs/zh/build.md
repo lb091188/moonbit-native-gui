@@ -177,6 +177,14 @@ rm -rf _build/native/debug/build/examples/<示例>/<示例>   # 该示例重链
 
 删完再 `moon build` / `moon test`，会重新编译桩并链新 exe。
 
+**webview / media 这类 prebuild 专编归档多一层**：`modules/gui-webview/webview/webkit_stub.c` 不走 native-stub，由 `prebuild.py` 专编成 `modules/gui-webview/build/libgui_webview*.a`（mac 是 `..._mac.a`）。归档自身有 mtime 判断（源更新会重编），但前提是 prebuild 重跑、exe 重链——判定「改动进没进」用符号最稳：
+
+```sh
+nm modules/gui-webview/build/libgui_webview.a | grep -c gtk_file_chooser_native_new
+```
+
+新代码引用的符号旧归档里必为 0；查 exe 同理（`nm -D <exe> | grep <符号>`，GTK/WebKit 动态链接的符号以未定义形式出现）。改这类桩后拿不准就：`rm -rf modules/gui-webview/build && moon clean`。
+
 排查时先用新的 main 目标复现一轮：新 target 每次都是新链接，若 main 正常而 test 崩，基本可断定 test 二进制链了旧归档，不是代码逻辑问题。更细的平台实测记在 [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md)。
 
 ## 10. vendor 大文件与镜像
