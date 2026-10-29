@@ -266,6 +266,12 @@ static WebKitWebView *wb_on_create(WebKitWebView *w,
 // 下载落点：kind=10 在本处理器上报（载荷=源 URL）。放行档弹保存对话框
 // （GtkFileChooserNative 同步跑，与 mac NSSavePanel runModal 同形态），确定即设
 // file:// 落点；拦下档 / 对话框取消一律取消下载——WebKitGTK 不设落点的下载不会写盘。
+// NG_WEBVIEW_DL_LOG=1 时把弹框链路逐拍打到 stderr（真机诊断弹框不弹用）。
+static int wb_dl_log_on(void) {
+  const char *e = getenv("NG_WEBVIEW_DL_LOG");
+  return e != NULL && e[0] != '\0' && strcmp(e, "0") != 0;
+}
+
 static void wb_on_download(WebKitWebView *w, WebKitDownload *dl, gpointer data) {
   (void)w;
   WbView *v = (WbView *)data;
@@ -286,6 +292,8 @@ static void wb_on_download(WebKitWebView *w, WebKitDownload *dl, gpointer data) 
     return;
   }
   if (!v->download_allow) {
+    if (wb_dl_log_on())
+      fprintf(stderr, "WB-DL 拦下档：取消 %s\n", uri);
     webkit_download_cancel(dl);
     return;
   }
@@ -295,10 +303,23 @@ static void wb_on_download(WebKitWebView *w, WebKitDownload *dl, gpointer data) 
   GtkFileChooserNative *dlg = gtk_file_chooser_native_new(
       NULL, GTK_IS_WINDOW(top) ? GTK_WINDOW(top) : NULL,
       GTK_FILE_CHOOSER_ACTION_SAVE, NULL, NULL);
+  if (wb_dl_log_on())
+    fprintf(stderr,
+            "WB-DL 放行：uri=%s suggest=%s top_is_win=%d dlg=%p "
+            "session=%s portal=%s wayland=%s x11=%s\n",
+            uri, suggest[0] ? suggest : "-",
+            GTK_IS_WINDOW(top) ? 1 : 0, (void *)dlg,
+            getenv("XDG_SESSION_TYPE") ? getenv("XDG_SESSION_TYPE") : "-",
+            getenv("GTK_USE_PORTAL") ? getenv("GTK_USE_PORTAL") : "-",
+            getenv("WAYLAND_DISPLAY") ? getenv("WAYLAND_DISPLAY") : "-",
+            getenv("DISPLAY") ? getenv("DISPLAY") : "-");
   if (suggest[0] != '\0') {
     gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dlg), suggest);
   }
-  if (gtk_native_dialog_run(GTK_NATIVE_DIALOG(dlg)) == GTK_RESPONSE_ACCEPT) {
+  gint resp = gtk_native_dialog_run(GTK_NATIVE_DIALOG(dlg));
+  if (wb_dl_log_on())
+    fprintf(stderr, "WB-DL 对话框返回 %d（ACCEPT=-3）\n", (int)resp);
+  if (resp == GTK_RESPONSE_ACCEPT) {
     GFile *f = gtk_file_chooser_get_file(GTK_FILE_CHOOSER(dlg));
     if (f != NULL) {
       gchar *path = g_file_get_path(f);
@@ -306,6 +327,8 @@ static void wb_on_download(WebKitWebView *w, WebKitDownload *dl, gpointer data) 
         gchar *furi = g_filename_to_uri(path, NULL, NULL);
         if (furi != NULL) {
           webkit_download_set_destination(dl, furi);
+          if (wb_dl_log_on())
+            fprintf(stderr, "WB-DL 落点已设：%s\n", furi);
           g_free(furi);
         }
         g_free(path);
