@@ -125,6 +125,16 @@ fn overlay_native_close(cid : Int) -> Bool {
 }
 
 ///|
+/// 最新开的原生档浮层句柄（没有给 0）。
+fn overlay_native_top() -> Int {
+  let mut top = 0
+  for cid, _ in g_native.val {
+    top = if cid > top { cid } else { top }
+  }
+  top
+}
+
+///|
 /// 原生档在开数（诊断与 `overlay_count` 用）。
 pub fn overlay_native_count() -> Int {
   g_native.val.length()

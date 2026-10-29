@@ -420,14 +420,25 @@ pub fn overlay_hide(id : Int) -> Unit {
 }
 
 ///|
-/// 关掉最上面一层（点浮层外收起用）。
+/// 关掉最上面一层（点浮层外收起用）。图层栈为空而原生档浮层开着（带网页区的
+/// 窗，弹层走真窗口档，弹层内容不在任何图层栈里）时关最新那扇弹层窗——关窗
+/// 挪 0ms 延时：调用点（菜单项点击等）就在弹层自己窗的派发现场里，当场拆窗
+/// 等于派发中途拆派发所在的窗（与 Esc 收起同一口径）。
 pub fn overlay_hide_top() -> Unit {
   match overlay_host() {
     Some(h) =>
       if h.items.length() > 0 {
         overlay_hide(h.items[h.items.length() - 1].id)
+        return
       }
     None => ()
+  }
+  let top = overlay_native_top()
+  if top != 0 {
+    let _ = @shell.set_timeout(0, fn() -> Unit {
+      let _ = overlay_native_close(top)
+      invalidate()
+    })
   }
 }
 
