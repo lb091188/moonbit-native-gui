@@ -214,7 +214,18 @@ static gboolean wb_on_decide_policy(WebKitWebView *w,
     webkit_policy_decision_ignore(d);
     return TRUE;  // 已处理：不在这里开第二个视图
   }
-  return FALSE;  // 其余（导航/响应）交回默认处理
+  if (type == WEBKIT_POLICY_DECISION_TYPE_RESPONSE) {
+    // 不可展示的响应（octet-stream 等）必须显式转下载：本桩连着 decide-policy，
+    // 返回 FALSE 的「默认」是 use——引擎试展示失败即死在 WebKitPolicyError/102
+    //（CAN_NOT_SHOW_URI），"download" 信号永远不来。
+    WebKitResponsePolicyDecision *rd = WEBKIT_RESPONSE_POLICY_DECISION(d);
+    if (!webkit_response_policy_decision_is_mime_type_supported(rd)) {
+      webkit_policy_decision_download(d);
+      return TRUE;  // 转下载：进 "download" 信号，落点/取消在 wb_on_download
+    }
+    return FALSE;  // 可展示的响应（页面/图片/文本）交回默认
+  }
+  return FALSE;  // 导航决策交回默认
 }
 
 // 权限：自动放行档立即 allow；拒绝档**扣住待决**——上层弹「同意/不同意」后经

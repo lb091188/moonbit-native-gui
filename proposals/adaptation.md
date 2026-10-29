@@ -3490,3 +3490,12 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **修法**：不在 `-D` 上传引号，改 C 侧两级宏记号字符串化：`NG_FFMPEG_STR(NG_FFMPEG_BIN)`（`#x` 套一层）把裸记号还原成字符串字面量，使用点统一走 `vf_bin_dir`；默认值不能参与串化（`#` 作用到 `""` 得到的是含两个引号字符的串，不是空串），用 `#ifdef` 分支直写空串。prebuild 去掉值上的引号，路径含空白时打警告（空白在 argv 层就拆断记号，串化救不了）。cl/gcc/clang 通用。
 **验证**：本机 clang 以与 cl 同形的裸记号 `-DNG_FFMPEG_BIN=C:/…` 编样例，串化读数与路径逐字一致（len=98）；无 `-D` 档 len=0。`moon check`（gui、ffmpeg-mbt）零输出、`moon test`（ffmpeg-mbt）1599/1599、`moon build examples/audio` 通过。mac 编不到 Windows 分支，C 侧待真机：`moon build` 该文件一行错误不出；`moon run examples/audio` dll 不搬家能播（回落目录生效）。
 **教训**：① 跨平台下发的 `-D` 值别带引号，也别指望宏值直接当字符串用——Windows 这条链引号进不了宏，字符串字面量在 C 源里用 `#` 串化还原才是正位；② 宏默认值与串化宏要分开处理，`#` 作用到 `""` 串进去的是引号字符不是空串；③ 只在单平台分支生效的代码，「写完」的判定在该平台真机过门禁——上一条目挂着的「待 Windows 真机」清单就是为此留的窗口。
+
+## WebKitGTK 下载直链死在 `WebKitPolicyError/102`：decide-policy 连着信号时 `return FALSE` 是 use，不是「交回引擎默认」（2026-10-29，用户 Linux 真机 `examples/browser` 截图）
+
+**症状**：示例地址栏直接输 http 下载直链（.dmg），事件区只有「加载失败（结构化原因）WebKitPolicyError/102 http://…」，`download` 信号与下载事件从未出现；本地页 blob 锚点下载同样无声。`8db2a3f6` 的保存对话框代码从未被走到。
+**根因**：`wb_on_decide_policy` 只答 NEW_WINDOW_ACTION（ignore），其余 `return FALSE`，注释当作「交回默认处理」——但 decide-policy 一旦连了处理器，返回 FALSE 的语义是「不拦」= 引擎按 use 走「试着展示」；`application/octet-stream` 展示不了，落到 PolicyError/102（CAN_NOT_SHOW_URI）。正确的路是 `webkit_policy_decision_download()` 把响应决策转成下载、进 "download" 信号；「不可展示 MIME 自动下载」的引擎默认只在**没连处理器**时存在，连了信号与要引擎默认不可兼得。
+**判据**：① `WebKitPolicyError/102` 就是「决策被答成 use 但展示不了」的指纹，看到它先查 decide-policy 处理器答了什么；② 「事件区有没有下载事件」分两层——一条下载事件都没有是信号层断（本条），有事件没弹框是处理层断（弹框实现），先分层再动刀。
+**修法**：`wb_on_decide_policy` 补 RESPONSE 分支：`webkit_response_policy_decision_is_mime_type_supported()` 为假 → `webkit_policy_decision_download(d)` + return TRUE（转进 "download" 信号，落点/取消在 `wb_on_download`）；可展示响应与导航决策仍 return FALSE。同批示例层删掉两处 `set_new_window_policy(pol_newwin.val)`：库契约 `in_place=true` 是「当前 pane 导航过去」，示例的放行=自开独立窗，两层各干一件事曾把主窗也带到目标站（`window.open` 测试一开新窗主窗跟着跳）。
+**验证**：改动全在 `#ifdef WB_HAVE_WEBKIT` 分支，mac 编不到；门禁 `moon check` 零输出、`moon test` 1599/1599、`examples/browser` 构建通过。真机复验（用户 Linux）：①先 `rm -rf modules/gui-webview/build && moon clean && moon build`（build.md §9 归档缓存）；②地址栏直链 .dmg → 弹保存框、确定落盘、取消无文件；③本地页「发起 blob 下载」→ 放行档弹框、拦下档落地取消；④`window.open` → 另起一扇独立窗，主窗不再跟跳。
+**教训**：① WebKitGTK 的 decide-policy 是「连了就得答」的信号——只处理关心的分支、其余 return FALSE，等于把不关心的分支强行答成 use；② mac 门禁编不到 Linux 分支 + 桩走预编归档缓存，两层都会吞掉「改动进没进」的验证，真机先清缓存再判行为；③ 引擎「默认行为」与「有处理器时的 FALSE」不是一个东西，接引擎信号前先量好这两层的分界。
