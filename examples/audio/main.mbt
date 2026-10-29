@@ -1,9 +1,11 @@
 // 音频播放示例：gui-media 的 audio 音频组件（ffmpeg 解码 + miniaudio
-// 设备直出），控制条（播放/进度/音量/倍速/-5s·+5s 跳转）由组件自带。
+// 设备直出），控制条（播放/进度/音量/倍速/-5s·+5s 跳转）由组件自带，
+// 排法照成熟播放器：左组播放/跳转/循环/倍速，右组进度+时间、静音+音量、
+// 全屏；演示默认开循环方便测试。
 // 布局：页头是标题/说明/状态行，下方左侧播放列表（当前曲目高亮、点击换曲）、
 // 右侧播放器面板，两块同 bg_panel 底与描边；
-// 载入路径三条——默认资产（examples/assets/1.mp3，从当前目录逐级向上
-// 找）、文件对话框选音频、目录对话框选文件夹后扫描成播放列表。
+// 载入路径三条——默认资产（examples/audio/assets/1.mp3，从当前目录逐级
+// 向上找）、文件对话框选音频、目录对话框选文件夹后扫描成播放列表。
 // 换曲走 holder clear_children + 重挂 audio；打开失败经 on_error 落
 // 错误横幅，解码引擎不在位时组件画说明板（探测 + 降级，不静默）。
 // 带视频轨的文件走 video，见同模块的 video 示例。
@@ -85,8 +87,8 @@ fn arr_str_idx(a : Array[String], x : String) -> Int {
 }
 
 ///|
-/// 默认资产的稳健解析：从当前目录逐级向上找 `examples/assets/<name>` 或
-/// `assets/<name>`，moon run 无论从仓库根还是模块目录起跑都能命中。
+/// 默认资产的稳健解析：从当前目录逐级向上找 `examples/audio/assets/<name>`
+/// 或 `audio/assets/<name>`，moon run 无论从仓库根还是模块目录起跑都能命中。
 fn resolve_asset(name : String) -> String? {
   let cwd = @sys.current_dir()
   let dirs : Array[String] = [cwd]
@@ -97,7 +99,7 @@ fn resolve_asset(name : String) -> String? {
     }
   }
   for d in dirs {
-    for sub in ["examples/assets", "assets"] {
+    for sub in ["examples/audio/assets", "audio/assets"] {
       let c = d + "/" + sub + "/" + name
       if @sys.sys_path_exists(c) {
         return Some(c)
@@ -176,6 +178,7 @@ fn main {
           width=560.0,
           height=220.0,
           auto_play=true,
+          looping=true,
           on_tick=fn(t : Double, playing : Bool) -> Unit {
             tick_line.set(
               (if playing { "▶ " } else { "❚❚ " }) + @media.vp_fmt_time(t),
@@ -319,7 +322,7 @@ fn main {
         [
           @ui.text("音频播放", class=[@style.text_title]),
           @ui.text(
-            "gui-media audio（ffmpeg 解码 + 设备直出）：列表点选换曲，控制条是图标按钮 + 进度/音量条，歌词按同名 .lrc 自动配对；快捷键 空格播放/暂停、回车全屏、←/→ ±5 秒、↑/↓ 音量、Esc 退全屏。",
+            "gui-media audio（ffmpeg 解码 + 设备直出）：列表点选换曲，控制条左组播放/跳转/循环/倍速、右组进度与时间 + 静音+音量 + 全屏（档位键钉宽，切档不跳），演示默认开循环方便测试；歌词按同名 .lrc 自动配对；快捷键 空格播放/暂停、回车全屏、←/→ ±5 秒、↑/↓ 音量、Esc 退全屏。",
             class=[@style.text_secondary],
             max_width=860.0,
           ),
@@ -419,7 +422,7 @@ fn main {
           None => {
             tracks.val = []
             rebuild_list(true)
-            err_line.set("默认资产 1.mp3 没找到（从当前目录逐级向上找 examples/assets/）；用「选择文件…」载入本地音频")
+            err_line.set("默认资产 1.mp3 没找到（从当前目录逐级向上找 examples/audio/assets/）；用「选择文件…」载入本地音频")
           }
         }
       })

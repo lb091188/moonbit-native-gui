@@ -240,7 +240,7 @@ Dependency isolation is per module, not per package: the imports in `moon.mod` d
 4. Artifacts follow the module name: `_build/native/<mode>/build/NoahLiu/native-gui-examples-<name>/native-gui-examples-<name>.exe`
    (`scripts/make_app.sh` and `release-bin.yml` depend on this layout).
 
-`examples/assets/` is a shared asset directory, not a module — don't put code there.
+Demo assets live in each example's own `examples/<name>/assets/` (not a module — don't put code there; the old shared `examples/assets/` has been split into the examples).
 
 ## 12. Related
 

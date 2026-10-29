@@ -215,6 +215,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **音频输出**：miniaudio 设备层；Linux / Windows / macOS 三端出声
 - ✅ **视频解码与出帧**：ffmpeg 解码 + 帧回传（Linux / Windows）
 - ✅ **播放器控制条**：播放暂停、进度 seek、音量、时间读数
+- 🚧 **控制条重排**：照成熟播放器排法——静音键并入音量组（进度+时间 → 静音+音量 → 全屏收尾），倍速/缩放档位键钉宽切档不横跳；演示默认开循环、演示资产入各示例模块目录（已合入待真机）
 - ✅ **无头播放**：`HeadlessAudio` / `HeadlessVideo`，注入 schedule 通道自 pump
 - 🚧 **字幕**：内嵌轨自动读 + 外挂 SRT（Linux 过；Windows / macOS 待补）
 - 🚧 **歌词**：同名 .lrc 配对（Linux 过；Windows / macOS 待补）

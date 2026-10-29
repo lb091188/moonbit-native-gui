@@ -240,7 +240,7 @@ python scripts/win_ffmpeg_dll.py --dry-run       # 只打印计划，不动文�
 4. 产物路径按模块名走：`_build/native/<mode>/build/NoahLiu/native-gui-examples-<name>/native-gui-examples-<name>.exe`
    （`scripts/make_app.sh`、`release-bin.yml` 依赖这个口径）。
 
-`examples/assets/` 是共享资产目录，不是模块，不要往里放代码。
+演示资产放各自示例的 `examples/<name>/assets/`（不是模块、不要往里放代码；旧共享目录 `examples/assets/` 已拆入各示例）。
 
 ## 12. 相关
 

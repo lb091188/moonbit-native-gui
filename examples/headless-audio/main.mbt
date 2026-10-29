@@ -5,11 +5,11 @@
 // 能调音量/倍速/跳转，区别只在没有窗口。
 //
 // 跑法：moon run examples/headless-audio
-//       （默认资产 examples/assets/1.mp3，播 6 秒后退出）
+//       （默认资产复用 audio 示例的 examples/audio/assets/1.mp3，播 6 秒后退出）
 
 ///|
-/// 默认资产的稳健解析：从当前目录逐级向上找 `examples/assets/<name>` 或
-/// `assets/<name>`，moon run 无论从仓库根还是模块目录起跑都能命中。
+/// 默认资产的稳健解析：从当前目录逐级向上找 `examples/audio/assets/<name>`
+/// 或 `audio/assets/<name>`，moon run 无论从仓库根还是模块目录起跑都能命中。
 fn resolve_asset(name : String) -> String? {
   let cwd = @sys.current_dir()
   let dirs : Array[String] = [cwd]
@@ -20,7 +20,7 @@ fn resolve_asset(name : String) -> String? {
     }
   }
   for d in dirs {
-    for sub in ["examples/assets", "assets"] {
+    for sub in ["examples/audio/assets", "audio/assets"] {
       let c = d + "/" + sub + "/" + name
       if @sys.sys_path_exists(c) {
         return Some(c)
@@ -35,7 +35,7 @@ fn main {
   let path = match resolve_asset("1.mp3") {
     Some(p) => p
     None => {
-      println("HEADLESS: 找不到 assets/1.mp3（候选 examples/assets/）")
+      println("HEADLESS: 找不到 assets/1.mp3（候选 examples/audio/assets/）")
       return
     }
   }

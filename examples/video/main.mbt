@@ -1,8 +1,10 @@
 // 视频播放示例：gui-media 的 video 全包组件（引擎/控制条/字幕叠加）。
 // 布局同音频示例：页头是标题/说明/状态行，下方左侧播放列表（含字幕入口）、
 // 右侧视频面板，两块同 bg_panel 底与描边。载入路径三条——默认资产
-// （examples/assets/1.mp4，从当前目录逐级向上找），文件对话框
-// 选视频、目录对话框选文件夹后扫描成播放列表。字幕双来源：不给外挂文本时
+// （examples/video/assets/1.mp4，从当前目录逐级向上找），文件对话框
+// 选视频、目录对话框选文件夹后扫描成播放列表。控制条排法照成熟播放器
+// （左组播放/跳转/循环/倍速/缩放，右组进度+时间、静音+音量、全屏），
+// 演示默认开循环方便测试。字幕双来源：不给外挂文本时
 // 组件自动读**容器内嵌轨**；视频旁有同名 .srt 则自动配对读入，「选外挂
 // .srt」再手动换（外部文件读取归调用方）。换片走 holder clear_children +
 // 重挂 video；打开失败经 on_error 落错误横幅，引擎不在位时组件画说明板（不静默）。
@@ -86,8 +88,8 @@ fn arr_str_idx(a : Array[String], x : String) -> Int {
 }
 
 ///|
-/// 默认资产的稳健解析：从当前目录逐级向上找 `examples/assets/<name>` 或
-/// `assets/<name>`，moon run 无论从仓库根还是模块目录起跑都能命中。
+/// 默认资产的稳健解析：从当前目录逐级向上找 `examples/video/assets/<name>`
+/// 或 `video/assets/<name>`，moon run 无论从仓库根还是模块目录起跑都能命中。
 fn resolve_asset(name : String) -> String? {
   let cwd = @sys.current_dir()
   let dirs : Array[String] = [cwd]
@@ -98,7 +100,7 @@ fn resolve_asset(name : String) -> String? {
     }
   }
   for d in dirs {
-    for sub in ["examples/assets", "assets"] {
+    for sub in ["examples/video/assets", "video/assets"] {
       let c = d + "/" + sub + "/" + name
       if @sys.sys_path_exists(c) {
         return Some(c)
@@ -184,6 +186,7 @@ fn main {
           width=760.0,
           height=420.0,
           auto_play=true,
+          looping=true,
           on_tick=fn(t : Double, frames : Int, playing : Bool) -> Unit {
             if frames % 8 == 0 {
               tick_line.set(
@@ -375,7 +378,7 @@ fn main {
         [
           @ui.text("视频播放", class=[@style.text_title]),
           @ui.text(
-            "gui-media video（ffmpeg 解码 + 设备直出）：左侧播放列表点选换片，右侧视频区；字幕双来源——容器内嵌轨自动读取，或选外挂 .srt 文本传入。控制条是图标按钮 + 进度/音量条，另有缩放三档（适配/铺满/1:1）与全屏；快捷键 空格播放/暂停、回车全屏、←/→ 逐帧、↑/↓ 音量、Esc 退全屏。",
+            "gui-media video（ffmpeg 解码 + 设备直出）：左侧播放列表点选换片，右侧视频区；字幕双来源——容器内嵌轨自动读取，或选外挂 .srt 文本传入。控制条左组播放/逐帧/循环/倍速/缩放、右组进度与时间 + 静音+音量 + 全屏（档位键钉宽，切档不跳），演示默认开循环方便测试；快捷键 空格播放/暂停、回车全屏、←/→ 逐帧、↑/↓ 音量、Esc 退全屏。",
             class=[@style.text_secondary],
             max_width=960.0,
           ),
@@ -483,7 +486,7 @@ fn main {
           None => {
             tracks.val = []
             rebuild_list(true)
-            err_line.set("默认资产 1.mp4 没找到（从当前目录逐级向上找 examples/assets/）；用「选择文件…」载入本地视频")
+            err_line.set("默认资产 1.mp4 没找到（从当前目录逐级向上找 examples/video/assets/）；用「选择文件…」载入本地视频")
           }
         }
       })
