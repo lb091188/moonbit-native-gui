@@ -1,11 +1,13 @@
-// 播放器控制条（`video` 与 `audio` 共用）：左边一排真按钮（悬停浅底、Tab 可达、
-// 焦点环由 `ui` 画），右边一块自绘显示区（进度轨 + 音量条 + 时间文字）。
+// 播放器控制条（`video` 与 `audio` 共用），参照成熟播放器的通行排法：
+// 左组起播类真按钮（悬停浅底、Tab 可达、焦点环由 `ui` 画），右组收尾类——
+// 进度轨 + 时间一块弹性自绘，随后静音键、音量条、全屏键依次排开
+// （静音与音量成组、全屏贴最右）。
 //
 // 三条口径：
 // ① 分区判据只有一份——绘制与命中都读 `BAR_*`，改一处不会漏另一处；显示区之外
-//    的按键都是独立控件，不再参与像素分区（旧版把播放/跳转/倍速画在同一块自绘
-//    区里，代价是它们没有悬停、没有焦点环、也进不了 Tab 链）；
-// ② 倍速与缩放用**文字按钮**显示当前档——图标说不清「1.25x」和「铺满」；
+//    的按键都是独立控件，不参与像素分区；
+// ② 倍速与缩放用**文字按钮**显示当前档（图标说不清「1.25x」和「铺满」），
+//    并按最宽档钉住按钮宽——切档只换字不挪邻位；
 // ③ 进度抬手才 seek（真 seek 要回退到关键帧，每步都发就是一场风暴），音量每步
 //    生效（它不触发解码，边拖边听才是预期）。
 
@@ -17,9 +19,10 @@ const BAR_TIME_W : Double = 150.0
 const BAR_GAP : Double = 8.0
 
 ///|
-/// 进度轨至少留多宽（窄到放不下「轨道 + 音量 + 时间」时音量条整个让位，
-/// 绘制与命中同一条判据，否则会出现「看得见却点不着」或反过来）。
-const BAR_TRACK_MIN : Double = 120.0
+/// 文字档位键的钉宽（按最宽档 + 左右 12px 内边距取值）：倍速最宽「1.25x」、
+/// 缩放最宽「适配」。窄档被 `min_width` 抬到同宽，档位切换按钮不横跳。
+const BAR_SPEED_W : Double = 60.0
+const BAR_ZOOM_W : Double = 52.0
 
 ///|
 /// 全屏观感：多少拍（33ms/拍）无指针活动就收条 + 藏指针（约 2.5 秒）。
@@ -122,24 +125,10 @@ pub fn vp_fit_rect(
 }
 
 ///|
-/// 音量条左端（贴着右侧时间文字，倒着排以免窄条时互相压住）。
-fn bar_vol_x(w : Double) -> Double { w - BAR_TIME_W - BAR_VOL_W - BAR_GAP }
-
-///|
-/// 放不放得下「轨道 + 音量 + 时间」三件。
-fn bar_has_volume(w : Double) -> Bool {
-  w >= BAR_TRACK_MIN + BAR_GAP * 2.0 + BAR_VOL_W + BAR_TIME_W
-}
-
-///|
-/// 进度轨宽度（窄到 40px 以下就不再缩，否则拖动没有分辨率可言）。
+/// 进度轨宽度（时间文字左侧留一档 `BAR_GAP`；窄到 40px 以下就不再缩，
+/// 否则拖动没有分辨率可言。音量条是右侧独立控件，窄时由布局压它让位）。
 fn bar_track_w(w : Double) -> Double {
-  let right = if bar_has_volume(w) {
-    bar_vol_x(w) - BAR_GAP
-  } else {
-    w - BAR_TIME_W - BAR_GAP
-  }
-  let t = right
+  let t = w - BAR_TIME_W - BAR_GAP
   if t < 40.0 { 40.0 } else { t }
 }
 
@@ -179,16 +168,15 @@ pub fn bar_vol_apply(
 }
 
 ///|
-/// 显示区的命中分区：`x` 是显示区本地横坐标。返回 (分区名, 比例 0..1)，
-/// 分区名是 `"seek"|"volume"|""`（空串=右侧时间文字，不响应）。纯函数，
-/// 独立于绘制与事件投递，方便无头断言。
+/// 进度区的命中分区：`x` 是进度区本地横坐标。返回 (分区名, 比例 0..1)，
+/// 分区名是 `"seek"|""`（空串=右侧时间文字，不响应；音量条是右侧独立
+/// 控件，命中就是自身宽内的比例，不在这条判据里）。纯函数，独立于绘制
+/// 与事件投递，方便无头断言。
 pub fn bar_hit(x : Double, w : Double) -> (String, Double) {
   if w <= 0.0 {
     ("", 0.0)
   } else if x > w - BAR_TIME_W {
     ("", 0.0)
-  } else if bar_has_volume(w) && x >= bar_vol_x(w) {
-    ("volume", bar_clamp01((x - bar_vol_x(w)) / BAR_VOL_W))
   } else {
     ("seek", bar_clamp01(x / bar_track_w(w)))
   }
@@ -241,24 +229,21 @@ fn player_set_fullscreen(on : Bool) -> Bool {
 }
 
 ///|
-/// 显示区：进度轨 + 音量条 + 时间文字。读数与动作都经闭包取，两个组件共用
-/// 同一份绘制与命中判据。`dragging` 由调用方的时钟读——拖动期间即使暂停也要
-/// 重绘，抬手才落 seek。
-fn player_display(
+/// 进度区：进度轨 + 时间文字（弹性伸展，静音/音量在它右侧）。读数与动作都经
+/// 闭包取，两个组件共用同一份绘制与命中判据。`dragging` 由调用方的时钟读
+/// ——拖动期间即使暂停也要重绘，抬手才落 seek。
+fn player_seek(
   pos : () -> Double,
   dur : () -> Double,
-  vol : () -> Double,
-  set_vol : (Double) -> Unit,
   seek_to : (Double) -> Unit,
   dragging : Ref[Bool],
 ) -> @widget.Widget {
   let w = @widget.Widget::new()
   w.node.set_flex_grow(1.0)
   w.node.set_height(@yoga.fixed(BAR_H))
-  // 窄到只剩时间文字时轨道就点不着了，给个下限让布局去挤按钮而不是挤轨道
+  // 窄到只剩时间文字时轨道就点不着了，给个下限让布局去挤音量条而不是挤轨道
   w.node.set_min_width(@yoga.fixed(200.0))
   let drag_frac : Ref[Double] = Ref(0.0)
-  let vol_drag : Ref[Bool] = Ref(false)
   let bar_w : Ref[Double] = Ref(0.0)
   w.on_draw = Some(fn(
     _w : @widget.Widget,
@@ -275,13 +260,6 @@ fn player_display(
     p.fill_rect(0.0, 15.0, bar_track_w(r.w), 4.0)
     p.set_fill_color(@theme.theme_primary())
     p.fill_rect(0.0, 15.0, bar_track_w(r.w) * frac, 4.0)
-    if bar_has_volume(r.w) {
-      let v = vol()
-      p.set_fill_color(@theme.theme_border())
-      p.fill_rect(bar_vol_x(r.w), 15.0, BAR_VOL_W, 4.0)
-      p.set_fill_color(@theme.theme_text_secondary())
-      p.fill_rect(bar_vol_x(r.w), 15.0, BAR_VOL_W * v, 4.0)
-    }
     p.flush()
     let _ = @text.draw_text_at(
       p,
@@ -303,23 +281,16 @@ fn player_display(
           dragging.val = true
           drag_frac.val = hit.1
           @widget.invalidate()
-        } else if hit.0 == "volume" {
-          vol_drag.val = true
-          set_vol(hit.1)
-          @widget.invalidate()
         }
         true
       }
       @widget.PointerKind::Move => {
-        let hit = bar_hit(ev.x, bar_w.val)
         if dragging.val {
+          let hit = bar_hit(ev.x, bar_w.val)
           drag_frac.val = hit.1
           @widget.invalidate()
-        } else if vol_drag.val {
-          set_vol(hit.1)
-          @widget.invalidate()
         }
-        dragging.val || vol_drag.val
+        dragging.val
       }
       @widget.PointerKind::Up => {
         if dragging.val {
@@ -327,10 +298,59 @@ fn player_display(
           seek_to(drag_frac.val * dur())
           @widget.invalidate()
         }
-        vol_drag.val = false
         true
       }
-      @widget.PointerKind::Leave => dragging.val || vol_drag.val
+      @widget.PointerKind::Leave => dragging.val
+    }
+  })
+  w
+}
+
+///|
+/// 音量条：贴在静音键右侧的固定宽自绘轨（宽时 80px；窄窗由布局压缩让它位，
+/// 下限 40px 保拖动分辨率）。每步生效（音量不触发解码，边拖边听才是预期）。
+fn player_volume(
+  vol : () -> Double,
+  set_vol : (Double) -> Unit,
+) -> @widget.Widget {
+  let w = @widget.Widget::new()
+  w.node.set_width(@yoga.fixed(BAR_VOL_W))
+  w.node.set_height(@yoga.fixed(BAR_H))
+  w.node.set_min_width(@yoga.fixed(40.0))
+  let vol_w : Ref[Double] = Ref(BAR_VOL_W)
+  w.on_draw = Some(fn(
+    _w : @widget.Widget,
+    p : @render.Painter,
+    r : @base.Rect,
+  ) -> Unit {
+    vol_w.val = r.w
+    p.set_fill_color(@theme.theme_bg_panel())
+    p.fill_rect(0.0, 0.0, r.w, r.h)
+    p.set_fill_color(@theme.theme_border())
+    p.fill_rect(0.0, 15.0, r.w, 4.0)
+    p.set_fill_color(@theme.theme_text_secondary())
+    p.fill_rect(0.0, 15.0, r.w * bar_clamp01(vol()), 4.0)
+  })
+  w.on_pointer = Some(fn(
+    _w : @widget.Widget,
+    ev : @widget.PointerEvent,
+  ) -> Bool {
+    match ev.kind {
+      @widget.PointerKind::Down => {
+        set_vol(bar_clamp01(ev.x / vol_w.val))
+        @widget.invalidate()
+        true
+      }
+      @widget.PointerKind::Move => {
+        // 只在按住拖动时生效：悬停划过不改音量
+        if _w.pressed {
+          set_vol(bar_clamp01(ev.x / vol_w.val))
+          @widget.invalidate()
+        }
+        _w.pressed
+      }
+      @widget.PointerKind::Up => true
+      @widget.PointerKind::Leave => _w.pressed
     }
   })
   w
@@ -400,7 +420,9 @@ fn player_bind_keys(
 }
 
 ///|
-/// 整条控制条。`zoom` 给 `None` 时不画缩放键（音频没有画面可缩）。
+/// 整条控制条，排法照成熟播放器：左组「播放 → 跳转 → 循环 → 档位」，右组
+/// 「进度+时间 → 静音 → 音量 → 全屏」——静音与音量成组、全屏收尾。
+/// `zoom` 给 `None` 时不画缩放键（音频没有画面可缩）。
 fn player_bar(
   playing : @base.Store[Bool],
   speed : @base.Store[Double],
@@ -418,7 +440,8 @@ fn player_bar(
   on_loop : () -> Unit,
   on_full : () -> Unit,
   on_zoom : () -> Unit,
-  display : @widget.Widget,
+  seek : @widget.Widget,
+  volume : @widget.Widget,
 ) -> @widget.Node {
   let kids : Array[@widget.Node] = [
     @widget.bind_node(playing.signal(), fn(p : Bool) -> @widget.Node {
@@ -441,14 +464,6 @@ fn player_bar(
       icon_size=16.0,
       box_size=28.0,
     ),
-    @widget.bind_node(muted.signal(), fn(m : Bool) -> @widget.Node {
-      @ui.icon_button(
-        if m { @icons.Hide } else { @icons.Sound },
-        on_click=on_mute,
-        icon_size=16.0,
-        box_size=28.0,
-      )
-    }),
     // 循环开关：图标恒 `Sync`，开着用主题色点亮（无独立关态字形）
     @widget.bind_node(looping.signal(), fn(l : Bool) -> @widget.Node {
       @ui.icon_button(
@@ -465,6 +480,7 @@ fn player_bar(
         on_click=on_speed,
         variant=@ui.Text,
         font_size=12.0,
+        min_width=BAR_SPEED_W,
       )
     }),
   ]
@@ -476,11 +492,23 @@ fn player_bar(
           on_click=on_zoom,
           variant=@ui.Text,
           font_size=12.0,
+          min_width=BAR_ZOOM_W,
         )
       }),
     )
     None => ()
   }
+  kids.push(@widget.node_of(seek))
+  // 静音与音量成组（成熟播放器通行排法）：静音键贴音量条左沿
+  kids.push(@widget.bind_node(muted.signal(), fn(m : Bool) -> @widget.Node {
+    @ui.icon_button(
+      if m { @icons.Hide } else { @icons.Sound },
+      on_click=on_mute,
+      icon_size=16.0,
+      box_size=28.0,
+    )
+  }))
+  kids.push(@widget.node_of(volume))
   kids.push(@widget.bind_node(full.signal(), fn(f : Bool) -> @widget.Node {
     @ui.icon_button(
       if f { @icons.FullscreenExit } else { @icons.Fullscreen },
@@ -489,7 +517,6 @@ fn player_bar(
       box_size=28.0,
     )
   }))
-  kids.push(@widget.node_of(display))
   @ui.row(
     kids,
     column_gap=2.0,

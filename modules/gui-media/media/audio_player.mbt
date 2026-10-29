@@ -254,17 +254,19 @@ pub fn audio(
       @widget.CURSOR_DEFAULT
     }
   })
-  let display = player_display(
+  let seek = player_seek(
     fn() -> Double { engine.current() },
     fn() -> Double { engine.duration() },
-    fn() -> Double { engine.get_volume() },
-    fn(v : Double) -> Unit { apply_vol(v) },
     fn(t : Double) -> Unit {
       engine.seek(t)
       sp.reset()
       @widget.invalidate()
     },
     dragging,
+  )
+  let volume = player_volume(
+    fn() -> Double { engine.get_volume() },
+    fn(v : Double) -> Unit { apply_vol(v) },
   )
   let root = @widget.Widget::new()
   root.node.set_flex_direction(@yoga.Column)
@@ -290,7 +292,8 @@ pub fn audio(
         toggle_loop,
         toggle_full,
         fn() -> Unit { () },
-        display,
+        seek,
+        volume,
       )
     } else {
       @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
