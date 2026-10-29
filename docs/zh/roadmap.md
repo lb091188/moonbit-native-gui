@@ -254,7 +254,6 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ### 输入与浮层
 
-- ⏳ **输入框编辑链路收口**：系统剪贴板开关在带输入框的正式示例补齐（`@ui.use_system_clipboard(true)`，现仅 showcase 开；快捷键内核 `Editor::handle_key` 与剪贴板桥均已现成）；输入框右键编辑菜单（撤销/剪切/复制/粘贴/全选，`MenuRole` 角色现成）走 `Menu::popup_at` 三平台原生弹出（win `TrackPopupMenu` / mac `NSMenu popUpMenu` / Linux `GtkMenu`）
 - ⏳ **浮层原生档**：弹层走原生 popup / transient；Windows 侧接口待核
 - ⏳ **浮层「点外收起」判据**：统一点外收起判定并补回归
 
