@@ -221,32 +221,33 @@ def find_win_stub_archive() -> Path | None:
     return None
 
 
-def stub_mark_path(lib: Path) -> Path:
-    return lib.with_suffix(lib.suffix + ".srcsha")
+def stub_tag(src: Path) -> str:
+    """源码内容指纹（sha256 前 8 位）：编进归档文件名。"""
+    return hashlib.sha256(src.read_bytes()).hexdigest()[:8]
 
 
-def stub_is_fresh(lib: Path, src: Path) -> bool:
-    """归档「新鲜」= 比源码新 **且** 内容指纹一致。只看 mtime 会被保留时间戳的
-    同步方式骗过：拉了新代码、源文件时间没动，归档就停在旧实现且毫无声息
-    （判「进没进」的人工口径是 build.md §9 的 nm 符号计数，这里是它的自动化）。"""
-    mark = stub_mark_path(lib)
-    if not lib.exists() or not mark.exists():
-        return False
-    digest = hashlib.sha256(src.read_bytes()).hexdigest()
-    return (
-        mark.read_text().strip() == digest
-        and lib.stat().st_mtime >= src.stat().st_mtime
-    )
+def stub_lib(dir: Path, prefix: str, tag: str) -> Path:
+    return dir / f"{prefix}-{tag}.a"
 
 
-def stub_write_mark(lib: Path, src: Path) -> None:
-    stub_mark_path(lib).write_text(
-        hashlib.sha256(src.read_bytes()).hexdigest()
-    )
+def prune_stub_libs(dir: Path, prefix: str, keep: Path) -> None:
+    """同前缀旧指纹的归档清掉，防堆积；无指纹旧名与 .srcsha 边车一并清
+    （后两者是更早两版判据的残留）。"""
+    for old in dir.glob(f"{prefix}-*.a"):
+        if old != keep:
+            old.unlink()
+    for legacy in (dir / f"{prefix}.a", dir / f"{prefix}.a.srcsha"):
+        if legacy.exists():
+            legacy.unlink()
 
 
 def compile_webkit_stub(win_archive: Path) -> str:
-    """把 webkit_stub.c 带 -DWB_HAVE_WEBKIT 编成静态库，返回库路径；失败给空串。"""
+    """把 webkit_stub.c 带 -DWB_HAVE_WEBKIT 编成静态库，返回库路径；失败给空串。
+
+    归档名带源码指纹（libgui_webview-<tag>.a）：源码变 → 名字变 → link_flags 变
+    → moon 失效链接目标、exe 重链。只看 mtime 的旧判据有两层洞——被保留时间戳的
+    同步方式骗过是一层；更根本的是归档内容变了而 link_flags 字符串没变，moon 不
+    重链，exe 一直跑旧桩（真机踩实：归档 nm 新符号俱在、行为仍是旧代码）。"""
     cflags = pkg_config([WEBKIT_PKG_CONFIG], "--cflags")
     if cflags is None:
         print(
@@ -256,26 +257,27 @@ def compile_webkit_stub(win_archive: Path) -> str:
         return ""
     src = MODULE_ROOT / "webview" / "webkit_stub.c"
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
-    lib = BUILD_DIR / "libgui_webview.a"
-    if stub_is_fresh(lib, src):
-        return lib.as_posix()
-    cc = shutil.which("cc") or shutil.which("gcc") or "cc"
-    obj = BUILD_DIR / "webkit_stub.o"
-    cmd = [cc, "-c", "-O2", "-fPIC", "-DWB_HAVE_WEBKIT", "-o", obj.as_posix(),
-           src.as_posix(), *cflags]
-    run = subprocess.run(cmd, capture_output=True, text=True)
-    if run.returncode != 0:
-        print(f"stub: {' '.join(cmd)} 失败\n{run.stderr}", file=sys.stderr)
-        return ""
-    # 先删旧归档再建：`ar rcs` 对改了名的成员是追加，会留重复符号
-    if lib.exists():
-        lib.unlink()
-    run = subprocess.run(["ar", "rcs", lib.as_posix(), obj.as_posix()],
-                         capture_output=True, text=True)
-    if run.returncode != 0:
-        print(f"stub: ar 失败\n{run.stderr}", file=sys.stderr)
-        return ""
-    stub_write_mark(lib, src)
+    tag = stub_tag(src)
+    lib = stub_lib(BUILD_DIR, "libgui_webview", tag)
+    if not lib.exists():
+        cc = shutil.which("cc") or shutil.which("gcc") or "cc"
+        obj = BUILD_DIR / "webkit_stub.o"
+        cmd = [cc, "-c", "-O2", "-fPIC", "-DWB_HAVE_WEBKIT", "-o", obj.as_posix(),
+               src.as_posix(), *cflags]
+        run = subprocess.run(cmd, capture_output=True, text=True)
+        if run.returncode != 0:
+            print(f"stub: {' '.join(cmd)} 失败\n{run.stderr}", file=sys.stderr)
+            return ""
+        # 先删旧归档再建：`ar rcs` 对改了名的成员是追加，会留重复符号
+        if lib.exists():
+            lib.unlink()
+        run = subprocess.run(["ar", "rcs", lib.as_posix(), obj.as_posix()],
+                             capture_output=True, text=True)
+        if run.returncode != 0:
+            print(f"stub: ar 失败\n{run.stderr}", file=sys.stderr)
+            return ""
+        prune_stub_libs(BUILD_DIR, "libgui_webview", lib)
+        print(f"prebuild: webkit 桩重编（指纹 {tag}）", file=sys.stderr)
     return lib.as_posix()
 
 
@@ -326,28 +328,32 @@ def find_win_mac_stub_archive() -> Path | None:
 
 
 def compile_mac_webkit_stub() -> str:
-    """把 webkit_stub.c 带 -DWB_HAVE_WKWEBVIEW 专编成静态库；失败给空串。"""
+    """把 webkit_stub.c 带 -DWB_HAVE_WKWEBVIEW 专编成静态库；失败给空串。
+
+    归档名带源码指纹，机制同 Linux 分支（源码变 → 归档名变 → link_flags 变
+    → moon 重链 exe）。"""
     src = MODULE_ROOT / "webview" / "webkit_stub.c"
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
-    lib = BUILD_DIR / "libgui_webview_mac.a"
-    if stub_is_fresh(lib, src):
-        return lib.as_posix()
-    cc = shutil.which("cc") or shutil.which("clang") or "cc"
-    obj = BUILD_DIR / "webkit_stub_mac.o"
-    cmd = [cc, "-c", "-O2", *MAC_OBJC_CFLAGS, "-DWB_HAVE_WKWEBVIEW",
-           "-o", obj.as_posix(), src.as_posix()]
-    run = subprocess.run(cmd, capture_output=True, text=True)
-    if run.returncode != 0:
-        print(f"stub: {' '.join(cmd)} 失败\n{run.stderr}", file=sys.stderr)
-        return ""
-    if lib.exists():
-        lib.unlink()
-    run = subprocess.run(["ar", "rcs", lib.as_posix(), obj.as_posix()],
-                         capture_output=True, text=True)
-    if run.returncode != 0:
-        print(f"stub: ar 失败\n{run.stderr}", file=sys.stderr)
-        return ""
-    stub_write_mark(lib, src)
+    tag = stub_tag(src)
+    lib = stub_lib(BUILD_DIR, "libgui_webview_mac", tag)
+    if not lib.exists():
+        cc = shutil.which("cc") or shutil.which("clang") or "cc"
+        obj = BUILD_DIR / "webkit_stub_mac.o"
+        cmd = [cc, "-c", "-O2", *MAC_OBJC_CFLAGS, "-DWB_HAVE_WKWEBVIEW",
+               "-o", obj.as_posix(), src.as_posix()]
+        run = subprocess.run(cmd, capture_output=True, text=True)
+        if run.returncode != 0:
+            print(f"stub: {' '.join(cmd)} 失败\n{run.stderr}", file=sys.stderr)
+            return ""
+        if lib.exists():
+            lib.unlink()
+        run = subprocess.run(["ar", "rcs", lib.as_posix(), obj.as_posix()],
+                             capture_output=True, text=True)
+        if run.returncode != 0:
+            print(f"stub: ar 失败\n{run.stderr}", file=sys.stderr)
+            return ""
+        prune_stub_libs(BUILD_DIR, "libgui_webview_mac", lib)
+        print(f"prebuild: webkit mac 桩重编（指纹 {tag}）", file=sys.stderr)
     return lib.as_posix()
 
 
@@ -373,10 +379,12 @@ def link_configs() -> dict:
         win_dir = win_archive.parent
         entries.append({
             "package": PKG,
+            # 归档名带源码指纹（-l 名跟随实际文件名）：指纹变 → link_flags 变
+            # → moon 失效链接目标，exe 必然重链新桩
             # 路径整体加双引号：撇号用户名会按 shell 词法拆碎整条 link_flags
             # （主仓 adaptation.md「同族第二条·撇号路径」教训，同口径预防）
             "link_flags": (
-                f"-L{BUILD_DIR.as_posix()} -lgui_webview "
+                f"-L{BUILD_DIR.as_posix()} -l{Path(web_lib).name[3:-2]} "
                 f'-L"{win_dir.as_posix()}" -lyue_win_stub '
                 + " ".join([*webkit_libs, *sys_libs])
             ),
@@ -416,9 +424,10 @@ def link_configs() -> dict:
         win_dir = win_archive.parent
         entries.append({
             "package": PKG,
+            # 归档名带源码指纹（-l 名跟随实际文件名），机制同 Linux 分支
             # 路径整体加双引号：撇号用户名的教训同 Linux 分支
             "link_flags": (
-                f"-L{BUILD_DIR.as_posix()} -lgui_webview_mac "
+                f"-L{BUILD_DIR.as_posix()} -l{Path(web_lib).name[3:-2]} "
                 f'-L"{win_dir.as_posix()}" -lyue_win_stub_mac '
                 + " ".join([*MAC_WEB_FRAMEWORKS, *MAC_WIN_FRAMEWORKS])
             ),
