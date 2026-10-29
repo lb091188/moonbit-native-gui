@@ -1,6 +1,17 @@
 // W20c 托盘门面回归：纯函数部分（文件名 → 托盘 Id、桌面环境名、错误 Show）。
-// 后端可用性与回调消息落点归 experiment/tray_probe（纯 C 探针直喂 wm_tray_*），
-// 这里的 wbtest 不碰真托盘——那会往用户的系统通知区插图标。
+// 后端可用性与回调消息落点归 experiment/tray_probe（纯 C 探针直喂 wm_tray_*）。
+// 真建托盘的几条默认 skip——门禁跑在开发机真桌面上，真注册会往系统通知区
+// 插图标，测试一红进程带项退出、注销报文没发出去，Linux 面板就留幽灵图标；
+// 设 NG_TRAY_WBTEST=1 手动跑互操作验证。
+
+///|
+/// 真总线托盘测试开关（shell 与 dbus 的 wbtest 同口径）。
+fn real_tray_wbtest_enabled() -> Bool {
+  match @sys.sys_getenv("NG_TRAY_WBTEST") {
+    Some(v) => v != "" && v != "0"
+    None => false
+  }
+}
 
 ///|
 test "basename_no_ext：常见路径" {
@@ -47,10 +58,13 @@ test "TrayError 的 Show 三种变体" {
 }
 
 ///|
-test "Tray 生命周期（无托盘后端的机器自动跳过）" {
-  // 这条会真的往系统通知区插一次图标再摘掉（建→摘在同一拍内完成）。无托盘
-  // 后端的环境（无显示服务 / Linux watcher 不在线）跳过而非造假——探测即口径。
-  if !Tray::is_supported() {
+test "Tray 生命周期（NG_TRAY_WBTEST=1 才真跑）" {
+  // 真往系统通知区插一次图标再摘掉（建→摘在同一拍内完成）。默认 skip 见文件
+  // 头；无托盘后端的环境（无显示服务 / Linux watcher 不在线）同样跳过而非
+  // 造假——探测即口径。
+  if !real_tray_wbtest_enabled() {
+    println("skip: 默认不碰真托盘（设 NG_TRAY_WBTEST=1 跑）")
+  } else if !Tray::is_supported() {
     println("skip: 本机没有可用的托盘后端")
   } else {
     match Tray::new("libyue-wbtest") {
@@ -104,7 +118,9 @@ test "退出兜底：批量注销真的摘掉 Win32 槽（否则退出后留僵�
   // 量的是 @win.tray_count()：只做 SNI 兜底时它注销后仍为 1——进程退出后
   // 通知区那个图标没有任何窗口接回调，右键既不弹菜单也不出 tooltip，要等
   // 鼠标扫过才被 Shell 顺手清掉。
-  if !Tray::is_supported() {
+  if !real_tray_wbtest_enabled() {
+    println("skip: 默认不碰真托盘（设 NG_TRAY_WBTEST=1 跑）")
+  } else if !Tray::is_supported() {
     println("skip: 本机没有可用的托盘后端")
   } else {
     match Tray::new("libyue-wbtest-batch") {
@@ -137,8 +153,10 @@ test "自绘位图换图标：像素口径换算与非法输入保持原图标" 
 }
 
 ///|
-test "Tray::set_icon_pixmap / set_icon_builtin（无托盘后端的机器自动跳过）" {
-  if !Tray::is_supported() {
+test "Tray::set_icon_pixmap / set_icon_builtin（NG_TRAY_WBTEST=1 才真跑）" {
+  if !real_tray_wbtest_enabled() {
+    println("skip: 默认不碰真托盘（设 NG_TRAY_WBTEST=1 跑）")
+  } else if !Tray::is_supported() {
     println("skip: 本机没有可用的托盘后端")
   } else {
     match Tray::new("libyue-wbtest-icon") {
