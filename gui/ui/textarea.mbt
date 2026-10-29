@@ -481,6 +481,22 @@ pub fn textarea(
     ) -> Bool {
       match ev.kind {
         @widget.PointerKind::Down => {
+          if ev.button == 3 {
+            // 右键开内置编辑菜单（祖先挂了自定义 context_menu_for 时先轮到祖先）
+            return show_edit_menu(
+              self,
+              ev.x,
+              ev.y,
+              ed,
+              can_edit=!ro,
+              can_copy=!ro,
+              changed=fn() -> Unit {
+                push()
+                ensure_visible(lines_of(ed.get_text(), self.rect.w))
+                @widget.invalidate()
+              },
+            )
+          }
           let lines = lines_of(text_of(), self.rect.w)
           let now = @shell.now_ms()
           let dbl = (now - last_down.val) < 400L &&

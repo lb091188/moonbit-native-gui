@@ -54,8 +54,8 @@
 | 构造器 | 用途 |
 |---|---|
 | `button(text, on_click?, variant?=Soft, color?, background_color?, font_size?, min_width?, focus_id?, disabled?, enabled?, class?, handle?)` | 按钮，`variant : ButtonVariant` = `Solid`/`Soft`/`Border`/`Text`/`Danger`；键盘空格/回车激活 |
-| `input(store : Store[String], placeholder?, password?=false, read_only?=false, font_size?, family?, width?, focus_id?, caret_on?, …)` | 单行输入框：选区/双击选词/撤销重做/Ctrl+A-C-V/占位符/只读/密码遮罩/IME 内联全语义；`clearable` 悬停/聚焦出 ✕、点它清空 |
-| `textarea(store : Store[String], placeholder?, rows?=3, width?=260.0, height?, font_size?, family?, read_only?, focus_id?, caret_on?, …)` | 多行输入：贪心折行（空格/拉丁词/中日韩逐字）+ 垂直滚动，上下键跨显示行 |
+| `input(store : Store[String], placeholder?, password?=false, read_only?=false, font_size?, family?, width?, focus_id?, caret_on?, …)` | 单行输入框：选区/双击选词/撤销重做/Ctrl+A-C-V/占位符/只读/密码遮罩/IME 内联全语义；`clearable` 悬停/聚焦出 ✕、点它清空；右键出编辑菜单（剪切/复制/粘贴/全选，密码框无复制/剪切）；Ctrl/Cmd+C/X/V 默认接系统剪贴板（`use_system_clipboard(false)` 可关） |
+| `textarea(store : Store[String], placeholder?, rows?=3, width?=260.0, height?, font_size?, family?, read_only?, focus_id?, caret_on?, …)` | 多行输入：贪心折行（空格/拉丁词/中日韩逐字）+ 垂直滚动，上下键跨显示行；右键出编辑菜单；Ctrl/Cmd+C/X/V 默认接系统剪贴板 |
 | `checkbox(content, state : Store[Bool], disabled?, enabled?, focus_id?, font_size?, class?, handle?)` | 复选框 + 文本标签，整行点击区；空格/回车切换 |
 | `radio_group(options : Array[String], state : Store[Int], disabled?, direction?=Row, gap?=12.0, class?)` | 单选组：`options` 依次对应值 0..n-1；空格/回车选中本项、方向键换选、到头环绕 |
 | `switch(state : Store[Bool], on_text?, off_text?, disabled?, focus_id?, on_change?, class?)` | 开关：40×20 胶囊 + 16 圆滑珠，可带开/关文案；空格/回车切换；用户拨动后回调 `on_change(Bool)`（外部写值不回调） |

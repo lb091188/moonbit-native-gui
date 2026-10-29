@@ -18,3 +18,9 @@ title = "国际化示例"
 greeting = "你好，{name}！"
 switch = "切换语言"
 saved = { one = "已保存 {n} 项", other = "已保存 {n} 项" }
+
+[gui.ui.edit]
+cut = "剪切"
+copy = "复制"
+paste = "粘贴"
+select_all = "全选"

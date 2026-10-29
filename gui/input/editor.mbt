@@ -51,9 +51,9 @@ pub fn Editor::new() -> Editor {
 
 ///|
 /// 装外部剪贴板（W16）：`get` 取系统剪贴板文本（拿不到给 None = 回退内置
-/// clip）、`set` 把复制的文本写出去。宿主在确有系统剪贴板时装（见
-/// `ui` 的 use_system_clipboard——测试默认不装，Ctrl+X 不该动使用者
-/// 的剪贴板）。内核自身不依赖任何平台层。
+/// clip）、`set` 把复制的文本写出去。ui 的 use_system_clipboard 默认开，
+/// 探测不到系统剪贴板时自动不装（回退内置 clip）；要隔离（如自动化测试
+/// 不碰使用者剪贴板）就显式关掉。内核自身不依赖任何平台层。
 pub fn Editor::set_clipboard(
   self : Editor,
   get : () -> String?,
@@ -77,7 +77,7 @@ fn Editor::clip_publish(self : Editor, text : String) -> Unit {
 
 ///|
 /// 粘贴的取数落点：装了外部剪贴板就现取（空/失败回退内置 clip）。
-fn Editor::clip_fetch(self : Editor) -> String {
+pub fn Editor::clip_fetch(self : Editor) -> String {
   match self.clip_ext_get {
     Some(g) =>
       match g() {

@@ -19,3 +19,9 @@ title = "i18n Demo"
 greeting = "Hello, {name}!"
 switch = "Switch language"
 saved = { one = "{n} item saved", other = "{n} items saved" }
+
+[gui.ui.edit]
+cut = "Cut"
+copy = "Copy"
+paste = "Paste"
+select_all = "Select All"

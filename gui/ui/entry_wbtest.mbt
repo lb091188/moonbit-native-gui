@@ -228,6 +228,7 @@ fn caret_of(w : @widget.Widget) -> Int {
 
 ///|
 test "Shift+箭头扩选，主修饰键+A 全选、+C/X/V 走内核内部剪贴板" {
+  use_system_clipboard(false)
   let (root, w, store) = mounted_entry("abc", 200.0)
   // caret 先到末尾
   press(root, w, w.rect.x + w.rect.w - 1.0)
@@ -249,6 +250,7 @@ test "Shift+箭头扩选，主修饰键+A 全选、+C/X/V 走内核内部剪贴�
 
 ///|
 test "只读：编辑键不吃，导航与复制照旧" {
+  use_system_clipboard(false)
   let (root, w, store) = mounted_entry("锁住", 200.0, read_only=true)
   key(root, w, 'a'.to_int(), 0)
   key(root, w, @base.KS_BACKSPACE, 0)

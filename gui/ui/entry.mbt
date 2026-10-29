@@ -321,6 +321,21 @@ pub fn input(
     w.on_pointer = Some(fn(_self : @widget.Widget, ev : @widget.PointerEvent) -> Bool {
       match ev.kind {
         @widget.PointerKind::Down => {
+          if ev.button == 3 {
+            // 右键开内置编辑菜单（祖先挂了自定义 context_menu_for 时先轮到祖先）
+            return show_edit_menu(
+              _self,
+              ev.x,
+              ev.y,
+              ed,
+              can_edit=!ro,
+              can_copy=!ro && !mask,
+              changed=fn() -> Unit {
+                push()
+                @widget.invalidate()
+              },
+            )
+          }
           if clear_shown(_self) && !off.off {
             let (cx, cy, cw, ch) = clear_box(_self.rect)
             if ev.x >= cx && ev.x <= cx + cw && ev.y >= cy && ev.y <= cy + ch {
