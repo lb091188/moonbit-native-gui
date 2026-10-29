@@ -177,9 +177,9 @@ pub fn Router::build_now(self : Router, path : String) -> @widget.Node {
           let _ = self.built.set(path, { node: n, offs })
           n
         }
-        None => @abort.abort("路由节点没有 build：" + path)
+        None => abort("路由节点没有 build：" + path)
       }
-      None => @abort.abort("路由表里没有这条路径：" + path)
+      None => abort("路由表里没有这条路径：" + path)
     }
   }
 }

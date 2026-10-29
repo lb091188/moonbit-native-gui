@@ -250,7 +250,7 @@ pub fn check_color(c : Color) -> Color {
       if color_tokens.contains(name) {
         c
       } else {
-        @abort.abort(unknown_token_message(name))
+        abort(unknown_token_message(name))
       }
     _ => c
   }

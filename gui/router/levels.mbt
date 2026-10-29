@@ -55,7 +55,7 @@ pub fn new_router(
 ) -> Router {
   let errs = tree_errors(roots)
   if errs.length() > 0 {
-    @abort.abort("路由表不合法：" + errs.join("；"))
+    abort("路由表不合法：" + errs.join("；"))
   }
   let depth = tree_depth(roots)
   let levels : Array[@base.Store[String]] = []
@@ -159,7 +159,7 @@ pub fn Router::children_at(self : Router, depth : Int) -> Array[String] {
 /// 该层的权威选中键，供任意 link 载体绑定；越界 abort。
 pub fn Router::store_at(self : Router, depth : Int) -> @base.Store[String] {
   if depth < 0 || depth >= self.levels.length() {
-    @abort.abort(
+    abort(
       "取层越界：" + depth.to_string() + "，本路由共 " +
         self.levels.length().to_string() + " 层",
     )

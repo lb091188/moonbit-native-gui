@@ -185,7 +185,7 @@ fn join_path(parent : String, key : String) -> String {
 pub fn tree_depth(roots : Array[Route]) -> Int {
   let errs = tree_errors(roots)
   if errs.length() > 0 {
-    @abort.abort("路由表不合法：" + errs.join("；"))
+    abort("路由表不合法：" + errs.join("；"))
   }
   let mut best = 0
   for r in roots {
