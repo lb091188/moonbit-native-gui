@@ -221,7 +221,7 @@ static gboolean wb_on_decide_policy(WebKitWebView *w,
     WebKitResponsePolicyDecision *rd = WEBKIT_RESPONSE_POLICY_DECISION(d);
     if (!webkit_response_policy_decision_is_mime_type_supported(rd)) {
       webkit_policy_decision_download(d);
-      return TRUE;  // 转下载：进 "download" 信号，落点/取消在 wb_on_download
+      return TRUE;  // 转下载：进 download-started，落点/取消在 decide-destination
     }
     return FALSE;  // 可展示的响应（页面/图片/文本）交回默认
   }
@@ -263,82 +263,158 @@ static WebKitWebView *wb_on_create(WebKitWebView *w,
   return NULL;  // 本栈不做「一窗多 webview」，弹窗一律不落成新视图
 }
 
-// 下载落点：kind=10 在本处理器上报（载荷=源 URL）。放行档弹保存对话框
-// （GtkFileChooserNative 同步跑，与 mac NSSavePanel runModal 同形态），确定即设
-// file:// 落点；拦下档 / 对话框取消一律取消下载——WebKitGTK 不设落点的下载不会写盘。
-// NG_WEBVIEW_DL_LOG=1 时把弹框链路逐拍打到 stderr（真机诊断弹框不弹用）。
+// NG_WEBVIEW_DL_LOG=1 时把下载链路逐拍打到 stderr（真机诊断下载不出框用）。
 static int wb_dl_log_on(void) {
   const char *e = getenv("NG_WEBVIEW_DL_LOG");
   return e != NULL && e[0] != '\0' && strcmp(e, "0") != 0;
 }
 
-static void wb_on_download(WebKitWebView *w, WebKitDownload *dl, gpointer data) {
-  (void)w;
-  WbView *v = (WbView *)data;
-  const char *uri = "";
-  char suggest[256] = {0};
-  if (dl != NULL) {
-    WebKitURIRequest *req = webkit_download_get_request(dl);
-    uri = req ? webkit_uri_request_get_uri(req) : "";
-    WebKitURIResponse *resp = webkit_download_get_response(dl);
-    const char *name =
-        resp ? webkit_uri_response_get_suggested_filename(resp) : NULL;
-    if (name != NULL && name[0] != '\0') {
-      snprintf(suggest, sizeof(suggest), "%s", name);
+// 下载入口与落点（WebKitGTK 没有 view 级 "download" 信号——2.6 起就没有，现代
+// 发行版 g_signal_lookup 恒 0，挂它等于没挂）：入口是 context 的
+// "download-started"（拿到 WebKitDownload），落点是每个下载的
+// "decide-destination"（带建议名；返回 TRUE 扣住落点自己定，返回 FALSE 落进
+// 引擎默认=悄悄写进 ~/下载，事件与对话框全没有）。落点走异步档：弹
+// GtkFileChooserNative 后立即返回，响应回调里 set_destination / cancel；
+// 对话框开着期间引擎不写盘（WebKitGTK 2.40+ 的异步契约）。
+// 挂起槽 ref 住下载与对话框，响应或视图拆掉时收口（cancel 会同时释放引擎侧
+// 挂起的落点回调，WebkitDownload 由引擎自持，槽里的 ref 只是挂起期锚）。
+#define WB_DL_MAX_PENDING 8
+typedef struct {
+  WebKitDownload *dl;
+  GtkFileChooserNative *dlg;
+  WbView *v;
+} WbDlPending;
+static WbDlPending wb_dl_pending[WB_DL_MAX_PENDING];
+
+// 对话框的回收挪到 idle：响应回调还在对话框自己的 response 信号发射链里，
+// 当场 unref 可能把正在发射的对象析构掉（gtk_dialog_run 对此是先 ref 后收）
+static gboolean wb_dl_dlg_reclaim(gpointer data) {
+  g_object_unref(G_OBJECT(data));
+  return G_SOURCE_REMOVE;
+}
+
+// 对话框响应：确定即设落点（绝对路径；本地路径拿不到按取消收口，不挂死等）
+static void wb_on_dl_response(GtkNativeDialog *nd, gint resp, gpointer data) {
+  (void)nd;
+  WbDlPending *p = (WbDlPending *)data;
+  if (p == NULL || p->dl == NULL) {
+    return;  // 槽已被视图销毁收口：无主响应直接丢弃
+  }
+  if (resp == GTK_RESPONSE_ACCEPT) {
+    GFile *f = gtk_file_chooser_get_file(GTK_FILE_CHOOSER(p->dlg));
+    gchar *path = f != NULL ? g_file_get_path(f) : NULL;
+    if (path != NULL) {
+      if (wb_dl_log_on())
+        fprintf(stderr, "WB-DL 落点已设：%s\n", path);
+      webkit_download_set_destination(p->dl, path);
+      g_free(path);
+    } else {
+      if (wb_dl_log_on())
+        fprintf(stderr, "WB-DL 无本地路径可设，按取消收口\n");
+      webkit_download_cancel(p->dl);
     }
-  }
-  wb_push(v, 10, 0, uri);
-  if (dl == NULL) {
-    return;
-  }
-  if (!v->download_allow) {
+    if (f != NULL) {
+      g_object_unref(f);
+    }
+  } else {
     if (wb_dl_log_on())
-      fprintf(stderr, "WB-DL 拦下档：取消 %s\n", uri);
+      fprintf(stderr, "WB-DL 对话框返回 %d（取消下载）\n", (int)resp);
+    webkit_download_cancel(p->dl);
+  }
+  GtkFileChooserNative *dlg = p->dlg;
+  g_object_unref(p->dl);
+  memset(p, 0, sizeof(*p));
+  g_idle_add(wb_dl_dlg_reclaim, dlg);
+}
+
+static gboolean wb_on_decide_destination(WebKitDownload *dl,
+                                         const gchar *suggested, gpointer data) {
+  WbView *v = (WbView *)data;
+  if (v == NULL || !v->download_allow || !wb_view_alive(v)) {
+    // 视图没了 / 拦下档 / 决策期切档的兜底：一律取消
     webkit_download_cancel(dl);
-    return;
+    return TRUE;
   }
   webkit_download_set_allow_overwrite(dl, TRUE);
-  GtkWidget *top = gtk_widget_get_toplevel(v->view);
+  GtkWidget *top = gtk_widget_get_toplevel(GTK_WIDGET(v->view));
   // 标题与按钮文案传 NULL：跟系统 locale，与 mac NSSavePanel 全系统本地化同口径
   GtkFileChooserNative *dlg = gtk_file_chooser_native_new(
       NULL, GTK_IS_WINDOW(top) ? GTK_WINDOW(top) : NULL,
       GTK_FILE_CHOOSER_ACTION_SAVE, NULL, NULL);
+  gtk_native_dialog_set_modal(GTK_NATIVE_DIALOG(dlg), TRUE);
+  if (suggested != NULL && suggested[0] != '\0') {
+    gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dlg), suggested);
+  }
+  WbDlPending *slot = NULL;
+  for (int i = 0; i < WB_DL_MAX_PENDING; i++) {
+    if (wb_dl_pending[i].dl == NULL) {
+      slot = &wb_dl_pending[i];
+      break;
+    }
+  }
+  if (slot == NULL) {
+    // 挂起槽满（同批 8 个下载都没人理对话框）：放引擎默认落点保底
+    if (wb_dl_log_on())
+      fprintf(stderr, "WB-DL 挂起槽满，交引擎默认\n");
+    return FALSE;
+  }
+  slot->dl = g_object_ref(dl);
+  slot->dlg = dlg;
+  slot->v = v;
+  g_signal_connect(dlg, "response", G_CALLBACK(wb_on_dl_response), slot);
+  gtk_native_dialog_show(GTK_NATIVE_DIALOG(dlg));
   if (wb_dl_log_on())
     fprintf(stderr,
-            "WB-DL 放行：uri=%s suggest=%s top_is_win=%d dlg=%p "
+            "WB-DL 放行：suggested=%s top_is_win=%d dlg=%p "
             "session=%s portal=%s wayland=%s x11=%s\n",
-            uri, suggest[0] ? suggest : "-",
-            GTK_IS_WINDOW(top) ? 1 : 0, (void *)dlg,
+            suggested ? suggested : "-", GTK_IS_WINDOW(top) ? 1 : 0,
+            (void *)dlg,
             getenv("XDG_SESSION_TYPE") ? getenv("XDG_SESSION_TYPE") : "-",
             getenv("GTK_USE_PORTAL") ? getenv("GTK_USE_PORTAL") : "-",
             getenv("WAYLAND_DISPLAY") ? getenv("WAYLAND_DISPLAY") : "-",
             getenv("DISPLAY") ? getenv("DISPLAY") : "-");
-  if (suggest[0] != '\0') {
-    gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dlg), suggest);
+  return TRUE;
+}
+
+// download-started（context 级）：kind=10 在此上报（载荷=源 URL），拦下档就地
+// 取消；context 可能多视图共享（没给 data_dir 的视图都挂默认 context），归属
+// 按下载记录的发起视图（webkit_download_get_web_view）定。
+static void wb_on_download_started(WebKitWebContext *ctx, WebKitDownload *dl,
+                                   gpointer data) {
+  (void)ctx;
+  (void)data;
+  if (dl == NULL) {
+    return;
   }
-  gint resp = gtk_native_dialog_run(GTK_NATIVE_DIALOG(dlg));
-  if (wb_dl_log_on())
-    fprintf(stderr, "WB-DL 对话框返回 %d（ACCEPT=-3）\n", (int)resp);
-  if (resp == GTK_RESPONSE_ACCEPT) {
-    GFile *f = gtk_file_chooser_get_file(GTK_FILE_CHOOSER(dlg));
-    if (f != NULL) {
-      gchar *path = g_file_get_path(f);
-      if (path != NULL) {
-        gchar *furi = g_filename_to_uri(path, NULL, NULL);
-        if (furi != NULL) {
-          webkit_download_set_destination(dl, furi);
-          if (wb_dl_log_on())
-            fprintf(stderr, "WB-DL 落点已设：%s\n", furi);
-          g_free(furi);
-        }
-        g_free(path);
+  WbView *v = NULL;
+  WebKitWebView *wv = webkit_download_get_web_view(dl);
+  if (wv != NULL) {
+    for (int i = 0; i < WB_MAX_VIEWS; i++) {
+      if (wb_pool[i].view == wv) {
+        v = &wb_pool[i];
+        break;
       }
-      g_object_unref(f);
     }
-  } else {
-    webkit_download_cancel(dl);
   }
-  g_object_unref(dlg);
+  WebKitURIRequest *req = webkit_download_get_request(dl);
+  const char *uri = req ? webkit_uri_request_get_uri(req) : NULL;
+  if (uri == NULL || uri[0] == '\0') {
+    WebKitURIResponse *resp = webkit_download_get_response(dl);
+    uri = resp ? webkit_uri_response_get_uri(resp) : NULL;
+  }
+  uri = uri ? uri : "";
+  if (v != NULL) {
+    wb_push(v, 10, 0, uri);
+  }
+  if (wb_dl_log_on())
+    fprintf(stderr, "WB-DL started：uri=%s view=%d allow=%d\n", uri,
+            v != NULL ? 1 : 0, v != NULL ? v->download_allow : -1);
+  if (v != NULL && !v->download_allow) {
+    webkit_download_cancel(dl);
+    return;
+  }
+  g_signal_connect(dl, "decide-destination",
+                   G_CALLBACK(wb_on_decide_destination), v);
 }
 
 static void wb_on_terminated(WebKitWebView *w, WebKitWebProcessTerminationReason why,
@@ -581,10 +657,14 @@ int wb_available(void) { return 1; }
 // 这个句柄的视图还在不在（窗口拆掉后一律 0）：调用方据此停泵、清待办
 int wb_alive(int64_t id) { return wb_get(id) != NULL ? 1 : 0; }
 
-// 可选信号在位掩码：1 下载 2 进程终止 4 权限 8 新窗（缺哪条就少哪条回证）
+// 可选信号在位掩码：1 下载 2 进程终止 4 权限 8 新窗（缺哪条就少哪条回证）。
+// 下载那口=现代钩子两条都得在（context 的 download-started + WebKitDownload
+// 的 decide-destination）；view 级 "download" 信号在 WebKitGTK ≥2.6 不存在，
+// 拿它探会恒报缺失。
 int wb_signal_mask(void) {
   int m = 0;
-  if (g_signal_lookup("download", WEBKIT_TYPE_WEB_VIEW) != 0) {
+  if (g_signal_lookup("download-started", WEBKIT_TYPE_WEB_CONTEXT) != 0 &&
+      g_signal_lookup("decide-destination", WEBKIT_TYPE_DOWNLOAD) != 0) {
     m |= 1;
   }
   if (g_signal_lookup("web-process-terminated", WEBKIT_TYPE_WEB_VIEW) != 0) {
@@ -649,9 +729,19 @@ int64_t wb_create(int64_t surface_id, int w, int h, const char *uri,
   g_signal_connect(view, "decide-policy", G_CALLBACK(wb_on_decide_policy), v);
   g_signal_connect(view, "load-failed", G_CALLBACK(wb_on_load_failed), v);
   g_signal_connect(view, "close", G_CALLBACK(wb_on_close_view), v);
-  if (g_signal_lookup("download", WEBKIT_TYPE_WEB_VIEW) != 0) {
-    g_signal_connect(view, "download", G_CALLBACK(wb_on_download), v);
+  // 下载入口挂 context 级 download-started（view 级 "download" 信号不存在）；
+  // 一个 context 只挂一次（没给 data_dir 的视图共享默认 context，回调里按
+  // 发起视图归属），在位情况记进掩码回证
+  WebKitWebContext *wctx = webkit_web_view_get_context(view);
+  v->has_download_signal = 0;
+  if (g_signal_lookup("download-started", WEBKIT_TYPE_WEB_CONTEXT) != 0 &&
+      g_signal_lookup("decide-destination", WEBKIT_TYPE_DOWNLOAD) != 0) {
     v->has_download_signal = 1;
+    if (g_object_get_data(G_OBJECT(wctx), "wb-dl-hook") == NULL) {
+      g_signal_connect(wctx, "download-started",
+                       G_CALLBACK(wb_on_download_started), NULL);
+      g_object_set_data(G_OBJECT(wctx), "wb-dl-hook", (gpointer)1);
+    }
   }
   if (g_signal_lookup("web-process-terminated", WEBKIT_TYPE_WEB_VIEW) != 0) {
     g_signal_connect(view, "web-process-terminated",
@@ -961,6 +1051,18 @@ void wb_destroy(int64_t id) {
   if (v->pending_perm != NULL) {
     webkit_permission_request_deny(v->pending_perm);
     g_object_unref(v->pending_perm);
+  }
+  // 挂起的下载对话框随视图拆掉收口：cancel 会同时释放引擎侧挂起的落点回调；
+  // 对话框 dispose 后即使来无主响应，槽已清、回调直接丢弃
+  for (int i = 0; i < WB_DL_MAX_PENDING; i++) {
+    WbDlPending *p = &wb_dl_pending[i];
+    if (p->dl != NULL && p->v == v) {
+      webkit_download_cancel(p->dl);
+      gtk_native_dialog_destroy(GTK_NATIVE_DIALOG(p->dlg));
+      g_object_unref(p->dlg);
+      g_object_unref(p->dl);
+      memset(p, 0, sizeof(*p));
+    }
   }
   g_free(v->data_dir);
   g_free(v->eval_text);

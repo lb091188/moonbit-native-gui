@@ -25,6 +25,6 @@ The `Permission` event plus `set_permission_mode` and `respond_permission(allow)
 
 | Platform | Engine | Notable differences |
 |---|---|---|
-| Linux | WebKitGTK | Requires distro WebKitGTK dev packages; downloads / permissions / new windows / renderer termination all have public signals |
+| Linux | WebKitGTK | Requires distro WebKitGTK dev packages; downloads go through `download-started` + `decide-destination` (destination chosen via an async `GtkFileChooserNative`), permissions / new windows / renderer termination have public signals |
 | Windows | WebView2 | Loader and SDK headers are downloaded by prebuild; downloads / permissions / new windows use public COM events |
 | macOS | WKWebView | Downloads via `WKDownload` (macOS 11.3+, destination through `NSSavePanel`); permissions are media-only and need signing; per-directory persistence needs a bundle id, bare binaries honestly report non-persistent |

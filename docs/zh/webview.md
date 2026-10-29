@@ -25,6 +25,6 @@
 
 | 平台 | 引擎 | 典型差异 |
 |---|---|---|
-| Linux | WebKitGTK | 需要发行版的 WebKitGTK 开发包；下载 / 权限 / 新窗 / 进程终止都有公开信号 |
+| Linux | WebKitGTK | 需要发行版的 WebKitGTK 开发包；下载走 `download-started` + `decide-destination`（落点异步弹 `GtkFileChooserNative`），权限 / 新窗 / 进程终止有公开信号 |
 | Windows | WebView2 | Loader 与 SDK 头由 prebuild 下载；下载 / 权限 / 新窗走公开 COM 事件 |
 | macOS | WKWebView | 下载走 `WKDownload`（macOS 11.3+，保存落点用 `NSSavePanel`）；权限仅媒体且需签名；按目录持久化要 bundle id，裸二进制如实报不可持久 |
