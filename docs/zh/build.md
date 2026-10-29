@@ -177,7 +177,7 @@ rm -rf _build/native/debug/build/examples/<示例>/<示例>   # 该示例重链
 
 删完再 `moon build` / `moon test`，会重新编译桩并链新 exe。
 
-**webview / media 这类 prebuild 专编归档多一层**：`modules/gui-webview/webview/webkit_stub.c` 不走 native-stub，由 `prebuild.py` 专编成 `modules/gui-webview/build/libgui_webview*.a`（mac 是 `..._mac.a`）。归档自身有 mtime 判断（源更新会重编），但前提是 prebuild 重跑、exe 重链——判定「改动进没进」用符号最稳：
+**webview / media 这类 prebuild 专编归档多一层**：`modules/gui-webview/webview/webkit_stub.c` 不走 native-stub，由 `prebuild.py` 专编成 `modules/gui-webview/build/libgui_webview*.a`（mac 是 `..._mac.a`）。归档的重建判据是「mtime 更新 **且** 源码 sha256 指纹一致」（指纹写在归档旁的 `*.srcsha`）——mtime 单独用会被保留时间戳的同步方式骗过（拉了新代码、时间没动，归档停在旧实现且毫无声息）。前提仍是 prebuild 重跑、exe 重链——判定「改动进没进」用符号最稳：
 
 ```sh
 nm modules/gui-webview/build/libgui_webview.a | grep -c gtk_file_chooser_native_new

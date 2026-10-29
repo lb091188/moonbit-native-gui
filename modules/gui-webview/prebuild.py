@@ -221,6 +221,30 @@ def find_win_stub_archive() -> Path | None:
     return None
 
 
+def stub_mark_path(lib: Path) -> Path:
+    return lib.with_suffix(lib.suffix + ".srcsha")
+
+
+def stub_is_fresh(lib: Path, src: Path) -> bool:
+    """归档「新鲜」= 比源码新 **且** 内容指纹一致。只看 mtime 会被保留时间戳的
+    同步方式骗过：拉了新代码、源文件时间没动，归档就停在旧实现且毫无声息
+    （判「进没进」的人工口径是 build.md §9 的 nm 符号计数，这里是它的自动化）。"""
+    mark = stub_mark_path(lib)
+    if not lib.exists() or not mark.exists():
+        return False
+    digest = hashlib.sha256(src.read_bytes()).hexdigest()
+    return (
+        mark.read_text().strip() == digest
+        and lib.stat().st_mtime >= src.stat().st_mtime
+    )
+
+
+def stub_write_mark(lib: Path, src: Path) -> None:
+    stub_mark_path(lib).write_text(
+        hashlib.sha256(src.read_bytes()).hexdigest()
+    )
+
+
 def compile_webkit_stub(win_archive: Path) -> str:
     """把 webkit_stub.c 带 -DWB_HAVE_WEBKIT 编成静态库，返回库路径；失败给空串。"""
     cflags = pkg_config([WEBKIT_PKG_CONFIG], "--cflags")
@@ -233,7 +257,7 @@ def compile_webkit_stub(win_archive: Path) -> str:
     src = MODULE_ROOT / "webview" / "webkit_stub.c"
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
     lib = BUILD_DIR / "libgui_webview.a"
-    if lib.exists() and lib.stat().st_mtime >= src.stat().st_mtime:
+    if stub_is_fresh(lib, src):
         return lib.as_posix()
     cc = shutil.which("cc") or shutil.which("gcc") or "cc"
     obj = BUILD_DIR / "webkit_stub.o"
@@ -251,6 +275,7 @@ def compile_webkit_stub(win_archive: Path) -> str:
     if run.returncode != 0:
         print(f"stub: ar 失败\n{run.stderr}", file=sys.stderr)
         return ""
+    stub_write_mark(lib, src)
     return lib.as_posix()
 
 
@@ -305,7 +330,7 @@ def compile_mac_webkit_stub() -> str:
     src = MODULE_ROOT / "webview" / "webkit_stub.c"
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
     lib = BUILD_DIR / "libgui_webview_mac.a"
-    if lib.exists() and lib.stat().st_mtime >= src.stat().st_mtime:
+    if stub_is_fresh(lib, src):
         return lib.as_posix()
     cc = shutil.which("cc") or shutil.which("clang") or "cc"
     obj = BUILD_DIR / "webkit_stub_mac.o"
@@ -322,6 +347,7 @@ def compile_mac_webkit_stub() -> str:
     if run.returncode != 0:
         print(f"stub: ar 失败\n{run.stderr}", file=sys.stderr)
         return ""
+    stub_write_mark(lib, src)
     return lib.as_posix()
 
 
