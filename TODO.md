@@ -38,6 +38,7 @@
 
 ### 主题、声明式与应用层
 
+- [ ] **输入框编辑链路收口**（roadmap「已规划·输入与浮层」）：①各带输入框的正式示例补 `@ui.use_system_clipboard(true)`（快捷键内核/剪贴板桥现成，开关默认关是测试保护）；②输入框右键编辑菜单——`@shell` 加 `Menu::popup_at`（win `TrackPopupMenu`/mac `NSMenu popUpMenu`/Linux `GtkMenu`，`MenuRole::Undo/Cut/Copy/Paste/SelectAll` 现成），`@ui` 在 input/textarea 挂右键装配、按 Editor 态启停
 - [ ] 富文本编辑（远期 WYSIWYG 块编辑器）
 - [ ] 终端模拟器、WebGL 画布（旧栈即无，列为待评估；代码高亮已交付，见 roadmap「代码高亮」）
 

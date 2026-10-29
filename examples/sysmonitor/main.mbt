@@ -311,6 +311,9 @@ fn main {
   }
   // 首帧立即采一次（第二帧起差值速率才有值）；定时与主题跟随在挂载后接
   sample_once(app)
+  // 输入框的 Ctrl+C/X/V 接系统剪贴板；要在建 UI 前开（开关只影响此后新建的
+  // 输入框，见 gui/ui/clipboard.mbt）
+  @ui.use_system_clipboard(true)
   let mounted = @ui.mount_window(
     [@ui.row([app_shell(app)], grow=1.0, padding=6.0)],
     title=MON_TITLE,

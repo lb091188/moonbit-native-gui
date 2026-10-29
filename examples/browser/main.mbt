@@ -91,6 +91,9 @@ fn main {
 /// （新窗策略放行档）经 `App::open_window` 挂进同一循环，退出裁决仍归
 /// 主窗/最后一扇。
 fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
+  // 输入框的 Ctrl+C/X/V 接系统剪贴板；要在建 UI 前开（开关只影响此后新建的
+  // 输入框，见 gui/ui/clipboard.mbt），首窗与放行档新窗都打这过
+  @ui.use_system_clipboard(true)
   let toast = @ui.toast_layer(duration_ms=2200)
   // 状态区四条线：加载标签（编码「kind|文本」，bind_node 重建换语义色）、
   // 常驻 URL 与标题、事件流水、能力结果（截断 + 可展开）

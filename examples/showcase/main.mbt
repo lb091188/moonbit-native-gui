@@ -188,6 +188,10 @@ fn route_of_page(
 ///|
 fn main {
   let t_start = @win.now_ms()
+  // 输入框的 Ctrl+C/X/V 接系统剪贴板（演示板按真实使用形态开；探测不可用
+  // 时内核自动保持内部剪贴板，见 gui/ui/clipboard.mbt）。要在建 UI 前开——
+  // 开关只影响此后新建的输入框，预取页随路由建在挂载期，放 main 头上才罩得住
+  @ui.use_system_clipboard(true)
   let box : Ref[@shared.App?] = Ref(None)
   let toast_push = @ui.toast_layer(duration_ms=2600)
   // 代码区「复制」的回显走同一 toast 层
@@ -500,9 +504,6 @@ fn main {
       return
     }
     Some(host) => {
-      // 输入框的 Ctrl+C/X/V 接系统剪贴板（演示板按真实使用形态开；探测不可用
-      // 时内核自动保持内部剪贴板，见 gui/ui/clipboard.mbt）
-      @ui.use_system_clipboard(true)
       let t_ready = @win.now_ms()
       println(
         "SHOWCASE-READY title=\{SHOWCASE_TITLE} pages=15 follow=1 " +
