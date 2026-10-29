@@ -398,9 +398,9 @@ fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
                     ev("已执行定位请求（Linux/Windows 有 permission-request 回声；mac 公开 API 无定位回调，验权限策略用「媒体」项）")
                   } else if i == 19 {
                     v.execute_javascript(
-                      "if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){demoBinding('getUserMedia 不可用：当前页不是安全上下文（https/localhost）')}else{navigator.mediaDevices.getUserMedia({audio:true}).then(function(s){s.getTracks().forEach(function(t){t.stop()});demoBinding('getUserMedia 成功（轨道已停止）')}).catch(function(e){demoBinding('getUserMedia 失败：'+e.name)})}",
+                      "if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)){demoBinding('getUserMedia 不可用：当前页不是安全上下文（https/localhost）')}else{var done=false;setTimeout(function(){if(!done){demoBinding('3 秒内引擎未发起媒体请求：mac 未签名/未打包形态下采集设备枚举为空（平台限制，见 adaptation.md）')}},3000);navigator.mediaDevices.getUserMedia({audio:true}).then(function(s){done=true;s.getTracks().forEach(function(t){t.stop()});demoBinding('getUserMedia 成功（轨道已停止）')}).catch(function(e){done=true;demoBinding('getUserMedia 失败：'+e.name)})}",
                     )
-                    ev("已发起媒体权限请求（mac 12+ 弹应用侧确认框；非安全上下文页会直报不可用）")
+                    ev("已发起媒体权限请求（Linux/Win 走策略回调；mac 示例形态枚举不到采集设备，3 秒后回包说明）")
                   } else if i == 20 {
                     v.execute_javascript(
                       "var b=new Blob(['native-gui download probe'],{type:'text/plain'});var u=URL.createObjectURL(b);var a=document.createElement('a');a.href=u;a.download='ngui.txt';document.body.appendChild(a);a.click();",
