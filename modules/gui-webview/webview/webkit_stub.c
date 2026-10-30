@@ -439,6 +439,14 @@ static void wb_on_load_failed(WebKitWebView *w, WebKitLoadEvent ev,
   (void)w;
   (void)ev;
   WbView *v = (WbView *)data;
+  // PolicyError/102（FRAME_LOAD_INTERRUPTED_BY_POLICY_CHANGE）是引擎对「这次
+  // 导航被策略决定打断」的例行口令——本栈唯一来源就是响应/锚点被转成下载的
+  // 当下，主帧加载按「失败」收尾；下载事件（kind=10）是同一件事的另一面，
+  // 这里不再当加载失败上报（真机：直链/blob 下载成功也伴一行 102）。
+  if (err != NULL && err->domain == WEBKIT_POLICY_ERROR &&
+      err->code == WEBKIT_POLICY_ERROR_FRAME_LOAD_INTERRUPTED_BY_POLICY_CHANGE) {
+    return;
+  }
   // 载荷口径：uri|domain|code|message（三段定长、其余全归 message——错误文本里
   // 可能有 '|'）。MoonBit 侧 nav_error_parse 按这个拆成结构。
   char buf[WB_EV_TEXT];
