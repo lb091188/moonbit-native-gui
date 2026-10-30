@@ -100,7 +100,9 @@ fn resolve_asset(name : String) -> String? {
     }
   }
   for d in dirs {
-    for sub in ["examples/video/assets", "video/assets"] {
+    // assets/video 一档给预构建包:包内可执行文件叫 video,POSIX 上同名
+    // 目录建不出来,随包演示文件落 assets/video
+    for sub in ["examples/video/assets", "video/assets", "assets/video"] {
       let c = d + "/" + sub + "/" + name
       if @sys.sys_path_exists(c) {
         return Some(c)

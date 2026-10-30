@@ -2,7 +2,8 @@
 # release 可执行文件(hello / showcase / browser / audio / video 五件套),
 # 打包为 bin-<平台>.zip,发布到固定单一名「Binaries」(tag bin)下覆盖更新——
 # 不按版本开 Release,拿到的永远是最新构建;音视频演示文件随包
-# (audio/assets、video/assets,示例从启动目录逐级向上解析)。
+# (assets/audio、assets/video——POSIX 包内可执行文件叫 audio/video,同名
+# 目录建不出来;示例从启动目录逐级向上解析)。
 #
 # 与 CI 的分工:CI 每次 push 验证「可检查可测试可链接」,本工作流产出「可分发
 # 的二进制」。交叉编译不可行(MoonBit native 后端调本机 C 工具链链本机静态库,
@@ -166,14 +167,15 @@ jobs:
               dst = name + (".exe" if sys.platform == "win32" else "")
               shutil.copy2(src, os.path.join(stage, dst))
               print(f"打包: {dst} ({os.path.getsize(src)} bytes)")
-          # 音视频演示文件随包:示例从启动目录逐级向上找 audio/assets、
-          # video/assets,放进包里从解压目录启动即可播默认演示与外挂字幕
+          # 音视频演示文件随包:示例从启动目录逐级向上找 assets/audio、
+          # assets/video(放这里是因为 POSIX 包内可执行文件就叫 audio/video,
+          # 同名目录建不出来),从解压目录启动即可播默认演示与外挂字幕
           for exe_dir, sub in [("audio", "examples/audio/assets"),
                                ("video", "examples/video/assets")]:
               if not os.path.isdir(sub):
                   raise SystemExit(f"演示文件缺失: {sub}")
-              shutil.copytree(sub, os.path.join(stage, exe_dir, "assets"))
-              print(f"演示文件随包: {exe_dir}/assets <- {sub}")
+              shutil.copytree(sub, os.path.join(stage, "assets", exe_dir))
+              print(f"演示文件随包: assets/{exe_dir} <- {sub}")
           # 第三方许可随包(LGPL 分发要求带许可文本)
           notices = "docs/THIRD-PARTY-NOTICES.md"
           if os.path.isfile(notices):

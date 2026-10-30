@@ -19,7 +19,7 @@
 | `hello` | 最小窗口（框架体积与启动速度的基线样本） |
 | `showcase` | 全功能演示板：组件族、14 种交互图表、Markdown / 代码视图、主题跟随、系统集成页、系统能力探测页 |
 | `browser` | 内嵌浏览器演示：地址栏导航、本地站点、JS 互操作、策略拦截 |
-| `audio` / `video` | 音频 / 视频播放器演示，演示文件已随包（`audio/assets`、`video/assets`；Windows / macOS 包内另带 FFmpeg 动态库） |
+| `audio` / `video` | 音频 / 视频播放器演示，演示文件已随包（`assets/audio`、`assets/video`；Windows / macOS 包内另带 FFmpeg 动态库） |
 
 ## 2. 首次运行
 

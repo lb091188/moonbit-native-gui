@@ -19,7 +19,7 @@ Every zip contains the same five executables plus third-party notices (`THIRD-PA
 | `hello` | Minimal window (baseline for binary size and startup time) |
 | `showcase` | Full demo board: widget families, 14 interactive chart types, Markdown / code views, theme following, system-integration page, system-capability probe page |
 | `browser` | Embedded browser demo: address-bar navigation, local site, JS interop, policy interception |
-| `audio` / `video` | Audio / video player demos with bundled media files (`audio/assets`, `video/assets`; FFmpeg dynamic libraries are bundled in the Windows / macOS packages) |
+| `audio` / `video` | Audio / video player demos with bundled media files (`assets/audio`, `assets/video`; FFmpeg dynamic libraries are bundled in the Windows / macOS packages) |
 
 ## 2. First run
 
