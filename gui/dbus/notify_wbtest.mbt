@@ -77,12 +77,17 @@ test {
     }
     Err(NfUnsupported) => println("notify: skip（会话总线/通知服务不可用）")
     Err(NfFailed(m)) => {
-      // 总线在、通知服务没装（CI runner 与无桌面会话的机器就是这样）：那是环境
-      // 缺项，与上一条同一口径——打印跳过，不当成代码失败
-      let no_service =
-        m.contains("ServiceUnknown") || m.contains(".service files")
-      if no_service {
-        println("notify: skip（通知服务未安装：\{m}）")
+      // 两种环境缺项，同一口径打印跳过、不当成代码失败：
+      //   ServiceUnknown —— 总线在、通知服务没装（CI runner 与无桌面会话的机器）
+      //   gdbus.timeout —— 桌面机装了 xfce4-notifyd 这类单实例服务，它驻留
+      //     在用户真会话总线上，对 dbus-run-session 的临时总线激活不应答，
+      //     GetCapabilities 超时（本机实测；真会话总线上同调用即刻应答）
+      let env_gap =
+        m.contains("ServiceUnknown") ||
+        m.contains(".service files") ||
+        m.contains("gdbus.timeout")
+      if env_gap {
+        println("notify: skip（通知服务不可用：\{m}）")
       } else {
         println("notify_caps failed: \{m}")
         assert_true(false)

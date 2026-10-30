@@ -283,6 +283,13 @@ int pt_measure(const char *text, int len, double size, const char *family,
   int w = 0, h = 0;
   pango_layout_get_pixel_size(layout, &w, &h);
   w = pt_width_with_trailing_ws(layout, text, len, w);
+  // Pango 的 letter_spacing 只落在字与字之间,末字不加——实测宽增量 =
+  // (字符数-1)×s,单字符恒 0。DWrite 的 trailing 与 CoreText 的 kCTKern
+  // 都给到 字符数×s,CSS letter-spacing 也在末字后加——测量宽度在这里补回
+  // 一份,三平台测量总量同口径(见 spacing_wbtest)。
+  if (spacing != 0.0 && len > 0) {
+    w += (int)(spacing + (spacing > 0.0 ? 0.5 : -0.5));
+  }
   int baseline = pango_layout_get_baseline(layout);
   *out_w = w;
   *out_h = h;
@@ -387,6 +394,13 @@ int pt_measure_font(const char *text, int len, double size, const char *family,
   int w = 0, h = 0;
   pango_layout_get_pixel_size(layout, &w, &h);
   w = pt_width_with_trailing_ws(layout, text, len, w);
+  // Pango 的 letter_spacing 只落在字与字之间,末字不加——实测宽增量 =
+  // (字符数-1)×s,单字符恒 0。DWrite 的 trailing 与 CoreText 的 kCTKern
+  // 都给到 字符数×s,CSS letter-spacing 也在末字后加——测量宽度在这里补回
+  // 一份,三平台测量总量同口径(见 spacing_wbtest)。
+  if (spacing != 0.0 && len > 0) {
+    w += (int)(spacing + (spacing > 0.0 ? 0.5 : -0.5));
+  }
   int baseline = pango_layout_get_baseline(layout);
   *out_w = w;
   *out_h = h;

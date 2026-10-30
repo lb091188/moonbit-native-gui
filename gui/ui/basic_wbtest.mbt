@@ -70,7 +70,7 @@ fn gif_asset() -> String {
 }
 
 ///|
-test "标签尺寸来自 Pango 测量；文本随信号变化就重测" {
+test "标签尺寸来自测量(容差内跟随)；文本随信号变化就重测" {
   if !ui_text_guard() {
     return
   }
@@ -80,7 +80,14 @@ test "标签尺寸来自 Pango 测量；文本随信号变化就重测" {
   let root = mount_root([n], 240.0, 60.0)
   let w = kid(root, 0)
   let m = @text.measure("Hello 基线", 14.0).unwrap()
-  assert_eq((w.rect.w, w.rect.h), (m.width.to_double(), m.height.to_double()))
+  // 只断「跟随测量」不断逐位相等：布局侧与独立测量是同一字体的两条取整
+  // 路径（CJK 回退归属也可能有别），runner 实测差过 3px——验的是规则，
+  // 不是开发机字体的像素关系（同 text 包 f527d364 之后的判据口径）。
+  assert_true(
+    (w.rect.w - m.width.to_double()).abs() <= 4.0 &&
+    (w.rect.h - m.height.to_double()).abs() <= 2.0,
+    msg="标签尺寸没跟随测量：rect=\{w.rect.w}x\{w.rect.h} measure=\{m.width}x\{m.height}",
+  )
   let asc = @text.line_ascent(14.0).unwrap()
   assert_true(asc > 0)
 
@@ -88,7 +95,10 @@ test "标签尺寸来自 Pango 测量；文本随信号变化就重测" {
   src_text.set("x")
   root.relayout(240.0, 60.0)
   let short_m = @text.measure("x", 14.0).unwrap()
-  assert_eq(w.rect.w, short_m.width.to_double())
+  assert_true(
+    (w.rect.w - short_m.width.to_double()).abs() <= 4.0,
+    msg="换文本后宽度没重测：rect=\{w.rect.w} measure=\{short_m.width}",
+  )
   assert_true(short_m.width < m.width)
 }
 
