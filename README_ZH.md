@@ -8,8 +8,6 @@
 
 📚 [**在线文档**](https://moonbit-native-gui.pages.dev/zh/)
 
-📦 **零环境体验**：三平台预构建演示包（hello / showcase / browser / audio / video）在 [GitHub Releases](https://github.com/lb091188/moonbit-native-gui/releases)，解压即跑；每个演示的体验点与操作路径见[体验文档](https://moonbit-native-gui.pages.dev/zh/experience)。
-
 ![组件库演示板](./docs/public/images/showcase-main.png)
 ![Linux(XFCE)实机演示](./docs/public/images/showcase-anim-linux.webp) 
 ![Windows 实机演示](./docs/public/images/showcase-anim-windows.webp)
@@ -50,35 +48,11 @@ MoonBit 生态的 GUI 能力各有分工：[MoUI](https://github.com/wzzc-dev/Mo
 
 ## 快速开始
 
-三条路，与[体验文档](https://moonbit-native-gui.pages.dev/zh/experience)同一套分法：
+- [体验文档](https://moonbit-native-gui.pages.dev/zh/experience)：下载预构建包真体验，或基于库做应用（`moon add`、最小窗口、跑示例）。
+- [构建与运行](https://moonbit-native-gui.pages.dev/zh/build)：改库与参与开发——环境安装、构建门禁、测试口径与失败处置。
+- [包结构](https://moonbit-native-gui.pages.dev/zh/packages)：15 个包别名与两个独立模块的内容一览。
 
-**① 真体验：预构建包** —— [GitHub Releases](https://github.com/lb091188/moonbit-native-gui/releases) 的「Binaries」按平台取一个 zip，解压即跑；体验点与操作路径见[体验文档](https://moonbit-native-gui.pages.dev/zh/experience)。
-
-**② 基于库做应用** —— ②③ 需要开发环境：MoonBit 原生工具链 + C 工具链 + Python 3 + pkg-config（Linux 再加 GTK3 一族开发包），安装清单见[构建与运行](https://moonbit-native-gui.pages.dev/zh/build)。自己的工程里引入：
-
-```sh
-moon add NoahLiu/native-gui
-```
-
-想看效果就克隆仓库跑示例——`examples/` 下每个目录都是独立模块，进目录 `moon run .` 即可：
-
-```sh
-git clone https://github.com/lb091188/moonbit-native-gui.git
-cd moonbit-native-gui/examples/hello   # 换成下表任一目录
-MOON_WORK=off moon run .               # 按注册表已发布的库版本解析；连着库改动跑就去掉它
-```
-
-| 目录 | 内容 |
-|---|---|
-| `examples/hello` | 最小窗口：一个原生窗口 + 基本控件 |
-| `examples/showcase` | 全功能演示板：组件库、交互图标、图表、系统接口 |
-| `examples/browser` | 内嵌 WebView 浏览器（额外依赖 `gui-webview`）|
-| `examples/audio` · `video` | 音视频播放器（额外依赖 `gui-media`，需 ffmpeg）|
-| `examples/headless-audio` | 无窗口、纯代码驱动播放 |
-
-`moon run` 起手就报错——多半是构建依赖没装齐，对照[构建与运行](https://moonbit-native-gui.pages.dev/zh/build)处置。
-
-**③ 改库 / 参与开发** —— 工具链与依赖安装、构建门禁、测试口径与常见失败处置全在[构建与运行](https://moonbit-native-gui.pages.dev/zh/build)；包的组成见[包结构](https://moonbit-native-gui.pages.dev/zh/packages)。
+完整文档：https://moonbit-native-gui.pages.dev/zh/
 
 ## 平台支持
 

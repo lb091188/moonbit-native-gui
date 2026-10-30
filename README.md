@@ -8,8 +8,6 @@ English | [简体中文](README_ZH.md)
 
 📚 **Documentation**: <https://moonbit-native-gui.pages.dev/>
 
-📦 **Zero-setup demos**: prebuilt packages for all three platforms (hello / showcase / browser / audio / video) are on [GitHub Releases](https://github.com/lb091188/moonbit-native-gui/releases) — unzip and run; where to click and what to look for: the [experience guide](https://moonbit-native-gui.pages.dev/experience).
-
 ![Component showcase](./docs/public/images/showcase-main.png)
 ![Live demo on Linux (XFCE)](./docs/public/images/showcase-anim-linux.webp)
 ![Live demo on Windows](./docs/public/images/showcase-anim-windows.webp)
@@ -50,35 +48,11 @@ GUI capability in the MoonBit ecosystem has more than one lane: [MoUI](https://g
 
 ## Quick start
 
-Three lanes, the same split as the [experience guide](https://moonbit-native-gui.pages.dev/experience):
+- [Experience guide](https://moonbit-native-gui.pages.dev/experience): try the prebuilt demos, or build apps on the library (`moon add`, a minimal window, running the examples).
+- [Build & run](https://moonbit-native-gui.pages.dev/build): working on the library — environment setup, build gates, test policy, failure fixes.
+- [Package layout](https://moonbit-native-gui.pages.dev/packages): the 15 package aliases and the two optional modules at a glance.
 
-**1. Zero-setup demo** — grab the platform zip from the single [Binaries](https://github.com/lb091188/moonbit-native-gui/releases) release, unzip and run; the walkthrough lives in the [experience guide](https://moonbit-native-gui.pages.dev/experience).
-
-**2. Build an app on the library** — lanes 2 and 3 need a development environment: the MoonBit native toolchain, a C toolchain, Python 3, pkg-config and — on Linux — the GTK3 family of dev packages; install lists in [Build & run](https://moonbit-native-gui.pages.dev/build). In your own project:
-
-```sh
-moon add NoahLiu/native-gui
-```
-
-To see it running, clone the repository and run an example — every directory under `examples/` is a standalone module, so **`cd` in and `moon run .`**:
-
-```sh
-git clone https://github.com/lb091188/moonbit-native-gui.git
-cd moonbit-native-gui/examples/hello   # or any directory in the table below
-MOON_WORK=off moon run .               # resolve the published library from the registry; drop it to run against your own changes
-```
-
-| Directory | What it is |
-|---|---|
-| `examples/hello` | Minimal window: one native window plus basic controls |
-| `examples/showcase` | Full demo board: component library, interactive icons, charts, system surfaces |
-| `examples/browser` | Embedded WebView (extra dependency `gui-webview`) |
-| `examples/audio` · `video` | Audio/video players (extra dependency `gui-media`, needs ffmpeg) |
-| `examples/headless-audio` | No window; playback driven purely from code |
-
-If `moon run` fails before it ever opens a window, it is almost always a missing build dependency — see [Build & run](https://moonbit-native-gui.pages.dev/build).
-
-**3. Work on the library** — toolchain and dependency setup, build gates, test policy and troubleshooting all live in [Build & run](https://moonbit-native-gui.pages.dev/build); the package composition is in [Package layout](https://moonbit-native-gui.pages.dev/packages).
+Full docs: https://moonbit-native-gui.pages.dev/
 
 ## Platform support
 
