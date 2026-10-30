@@ -68,9 +68,10 @@ cd examples/hello && MOON_WORK=off moon run .
 | [declarative.md](declarative.md) | Declarative layer and reactivity: the node tree and `mount_window`, `Store` / `Signal`, `for_list` / `when`, in-place replacement |
 | [layout.md](layout.md) | Layout: the Flexbox semantics of yoga-mbt, the `Style` field set of `@style`, and the `class` channel |
 | [build.md](build.md) | Build and run: installing the dependencies from scratch (per-platform lists + a self-check), build commands and artefact paths, the state of prebuilt binaries, failure → fix; on the mechanism side, how prebuild hosts link flags and how to spot a C stub edited without relinking |
+| [packages.md](packages.md) | Package layout: the 15 package aliases and the two optional modules at a glance |
 | [zh/roadmap.md](zh/roadmap.md) | Public roadmap: positioning, what you can use today, platform and feature matrix, commitments and versioning, next steps, open decisions, explicit non-goals (Chinese only) |
 | [autostart.md](autostart.md) | Autostart: XDG `.desktop` on Linux, HKCU Run key on Windows, one `is_enabled` / `enable` / `disable` API |
-| [experience.md](experience.md) | Experience guide: prebuilt binary download, first run per platform, what to try mapped to demo pages, building from source |
+| [experience.md](experience.md) | Experience guide: try the prebuilt demos and build apps on the library; library work is pointed to Build & run |
 | [system-capabilities.md](system-capabilities.md) | System capabilities overview (`@sys`): volume, app lookup, color temperature, wallpaper, monitors, window management, clipboard watch, system info, printers, recent files, browser history and more, with unified `Result` semantics; plus the shared subprocess and D-Bus call layers |
 | [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) | Third-party licenses and provenance: assets shipped in-repo, binaries we build and host on Releases, and the obligations that follow (Chinese only) |
 

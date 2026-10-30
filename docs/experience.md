@@ -1,8 +1,10 @@
 # Experience Guide
 
-Run native-gui on all three platforms with **zero setup**: grab the prebuilt demo packages from GitHub Releases and walk each demo's what-to-try points. Prefer building from source? See §5.
+Three ways to use native-gui; this guide covers the first two. For working on the library itself, head straight to [Build & run](build.md).
 
-## 1. Download prebuilt packages
+## 1. Try it for real: prebuilt packages
+
+### Download and first run
 
 Open [GitHub Releases](https://github.com/lb091188/moonbit-native-gui/releases) and pick the **Binaries** release (one fixed name, always the latest build), one zip per platform:
 
@@ -20,8 +22,6 @@ Every zip contains the same five executables plus third-party notices (`THIRD-PA
 | `showcase` | Full demo board: widget families, 14 interactive chart types, Markdown / code views, theme following, system-integration page, system-capability probe page |
 | `browser` | Embedded browser demo: address-bar navigation, local site, JS interop, policy interception |
 | `audio` / `video` | Audio / video player demos with bundled media files (`assets/audio`, `assets/video`; FFmpeg dynamic libraries are bundled in the Windows / macOS packages) |
-
-## 2. First run
 
 **Windows**: unzip and double-click the `.exe`; no console window appears. The WebView2 Runtime needed by `browser` ships with the OS.
 
@@ -42,13 +42,13 @@ sudo apt install libgtk-3-0 libpango-1.0-0 libx11-6 \
   libwebkit2gtk-4.1-0 libavcodec60 libavformat60 libswscale7
 ```
 
-## 3. What to try, per demo
+### What to try, per demo
 
-### hello — minimal window
+#### hello — minimal window
 
 Launch and a native window appears, with no third-party windowing library behind it — the tangible sample of the lightweight-artifact / fast-startup claim.
 
-### showcase — components / charts / system capabilities
+#### showcase — components / charts / system capabilities
 
 Switch pages in the left sidebar:
 
@@ -58,31 +58,69 @@ Switch pages in the left sidebar:
 - **System integration page**: live demos of the tray, desktop notification, global shortcut, autostart, clipboard and other facade APIs
 - **System capability probe page**: five read-only probe groups (system desktop / monitors & windows / app & files / browser data / clipboard & power & bus), demonstrating capability detection with structured degradation — an unavailable capability reports a structured reason instead of failing silently
 
-### browser — embedded WebView
+#### browser — embedded WebView
 
 - Address-bar navigation, back/forward and history
 - A local site served through the custom scheme (local content channel)
 - JS interop: execute-and-fetch in the page, JS↔native two-way binding demos
 - The "policy trigger" menu entries (new window / geolocation / download): intercepted and reported by default, allow from the dialog — the library's policy loop, right there
 
-### audio / video — media line
+#### audio / video — media line
 
 Playback / progress / speed control, external and embedded subtitle tracks, A/V sync under speed changes. FFmpeg dynamic libraries are bundled in the Windows / macOS packages; Linux uses the system FFmpeg.
 
-## 4. Known platform differences (honest scope)
+### Known platform differences (honest scope)
 
 - **macOS notifications**: only available when launched from an `.app` bundle; running the bare binary reports unavailable — an OS constraint, not a library defect. Tray / hotkeys and the rest work from the bare binary.
-- **Linux**: media and `browser` depend on system FFmpeg and WebKit2gtk respectively — see the §2 install list.
+- **Linux**: media and `browser` depend on system FFmpeg and WebKit2gtk respectively — see the install list above.
 - Platform status follows the [README platform table](https://github.com/lb091188/moonbit-native-gui) and the [roadmap](zh/roadmap.md): all three platforms are verified on real machines.
 
-## 5. Building from source
+## 2. Build apps on the library
 
-Install the [MoonBit toolchain](https://www.moonbitlang.com), then:
+In your own project:
 
 ```sh
-git clone https://github.com/lb091188/moonbit-native-gui
-cd moonbit-native-gui
-moon run examples/showcase --target native   # or examples/<other>
+moon add NoahLiu/native-gui
 ```
 
-Dependency setup and failure fixes are in [Build & run](build.md); see the [tutorial](tutorial.md) for a five-minute start.
+Minimal window:
+
+```moonbit
+fn main {
+  let app = match @ui.mount_window(
+    [@ui.text("Hello, MoonBit!", font_size=18.0)],
+    title="Hello, MoonBit!",
+    width=400,
+    height=300,
+  ) {
+    None => {
+      // no window backend or no display service on this host
+      return
+    }
+    Some(a) => a
+  }
+  app.run()
+}
+```
+
+To see it running, clone the repository and run an example — every directory under `examples/` is a standalone module, so **`cd` in and `moon run .`**:
+
+```sh
+git clone https://github.com/lb091188/moonbit-native-gui.git
+cd moonbit-native-gui/examples/hello   # or any directory in the table below
+MOON_WORK=off moon run .               # resolve the published library from the registry; drop it to run against your own changes
+```
+
+| Directory | What it is |
+|---|---|
+| `examples/hello` | Minimal window: one native window plus basic controls |
+| `examples/showcase` | Full demo board: component library, interactive icons, charts, system surfaces |
+| `examples/browser` | Embedded WebView (extra dependency `gui-webview`) |
+| `examples/audio` · `video` | Audio/video players (extra dependency `gui-media`, needs ffmpeg) |
+| `examples/headless-audio` | No window; playback driven purely from code |
+
+Going deeper: [Components](components.md), [Declarative & reactivity](declarative.md), [Layout & styling](layout.md), [System capabilities](system-capabilities.md), [Embedded WebView](webview.md).
+
+## 3. Working on the library
+
+Adding widgets, fixing platforms, reporting compatibility: the toolchain and dependency setup, build gates, test policy and troubleshooting all live in [Build & run](build.md); the package composition is in [Package layout](packages.md); how to contribute is in the README.

@@ -68,9 +68,10 @@ cd examples/hello && MOON_WORK=off moon run .
 | [declarative.md](declarative.md) | 声明式层与响应式：节点树与 `mount_window`、`Store` / `Signal`、`for_list` / `when`、原位替换 |
 | [layout.md](layout.md) | 布局：yoga-mbt 的 Flexbox 口径与 `@style` 的 `Style` 字段集、`class` 通道 |
 | [build.md](build.md) | 构建与运行：从零装依赖（三平台清单 + 环境自检）、构建命令与产物落点、预构建二进制现状、常见失败处置；机制侧是 prebuild 托管链接参数与改 C 桩不重链的坑 |
+| [packages.md](packages.md) | 包结构：15 个包别名与两个独立模块的内容一览 |
 | [roadmap.md](roadmap.md) | 对外路线图：功能点、功能描述、计划版本、开发与测试状态；附平台兼容面、承诺与版本、明确不做 |
 | [autostart.md](autostart.md) | 开机自启：Linux 写 XDG .desktop、Windows 写 HKCU Run 键，统一 `is_enabled` / `enable` / `disable` |
-| [experience.md](experience.md) | 体验文档：预构建包下载、三平台首次运行、体验点与示例页操作路径映射、源码方式运行 |
+| [experience.md](experience.md) | 体验文档：真体验（预构建包）与基于库的应用开发两条路，库开发引导到构建与运行 |
 | [system-capabilities.md](system-capabilities.md) | 系统能力总览（`@sys`）：音量、应用查找、色温、壁纸、显示器、窗口管理、剪贴板监听、系统信息、打印机、最近文件、浏览器历史等，统一 `Result` 语义；含子进程与 D-Bus 调用层两块共享基建 |
 | [THIRD-PARTY-NOTICES.md](../THIRD-PARTY-NOTICES.md) | 第三方授权与来源：随源码入库的资产、我们自编或重打包挂在 Release 上的二进制、以及随之而来的分发义务 |
 

@@ -1,8 +1,10 @@
 # 体验文档
 
-不装任何开发环境，用 GitHub Releases 上的**预构建演示包**把 native-gui 在三个平台跑起来；每个演示给出一眼可验的体验点与操作路径。想直接从源码跑，见 §5。
+用 native-gui 有三条路，本文覆盖前两条；改库与参与开发直接看[构建与运行](build.md)。
 
-## 1. 下载预构建包
+## 一、真体验：预构建包
+
+### 下载与首次运行
 
 到 [GitHub Releases](https://github.com/lb091188/moonbit-native-gui/releases) 的 **Binaries**（固定单一名，始终是最新构建），按平台取一个 zip：
 
@@ -20,8 +22,6 @@
 | `showcase` | 全功能演示板：组件族、14 种交互图表、Markdown / 代码视图、主题跟随、系统集成页、系统能力探测页 |
 | `browser` | 内嵌浏览器演示：地址栏导航、本地站点、JS 互操作、策略拦截 |
 | `audio` / `video` | 音频 / 视频播放器演示，演示文件已随包（`assets/audio`、`assets/video`；Windows / macOS 包内另带 FFmpeg 动态库） |
-
-## 2. 首次运行
 
 **Windows**：解压后双击对应 `.exe` 即可，不弹控制台黑框；`browser` 依赖的 WebView2 Runtime 系统自带。
 
@@ -42,13 +42,13 @@ sudo apt install libgtk-3-0 libpango-1.0-0 libx11-6 \
   libwebkit2gtk-4.1-0 libavcodec60 libavformat60 libswscale7
 ```
 
-## 3. 体验点与操作路径
+### 体验点与操作路径
 
-### hello —— 最小窗口
+#### hello —— 最小窗口
 
 启动即出原生窗口，无第三方窗口库——轻量产物、快速启动的直观样本。
 
-### showcase —— 组件 / 图表 / 系统能力
+#### showcase —— 组件 / 图表 / 系统能力
 
 左侧栏切页，逐页看：
 
@@ -58,31 +58,69 @@ sudo apt install libgtk-3-0 libpango-1.0-0 libx11-6 \
 - **系统集成页**：托盘、桌面通知、全局快捷键、开机自启、剪贴板等门面接口的现场演示
 - **系统能力探测页**：五段只读探针（系统桌面 / 显示器窗口 / 应用文件 / 浏览器数据 / 剪贴板电源总线），展示「能力探测 + 结构化降级」——某项系统上不可用会给出结构化原因，不静默失败
 
-### browser —— 内嵌 WebView
+#### browser —— 内嵌 WebView
 
 - 地址栏导航、前进后退与历史
 - 自定义协议打开的本地站点（本地内容通道）
 - JS 互操作：页面执行取回、JS↔原生双向绑定演示
 - 菜单「策略触发」三项（新窗 / 定位 / 下载）：默认拦截并回报、可在对话框放行——库的策略面闭环就在这里
 
-### audio / video —— 媒体线
+#### audio / video —— 媒体线
 
 播放 / 进度 / 倍速，外挂与内嵌字幕双来源，倍速下音画同步。Windows / macOS 包内已带 FFmpeg 动态库；Linux 用系统 FFmpeg。
 
-## 4. 已知平台差异（诚实口径）
+### 已知平台差异（诚实口径）
 
 - **macOS 通知**：需从 `.app` bundle 启动才可用，直接跑二进制会报不可用——系统约束，非库缺陷；其余托盘 / 热键等能力裸跑可用。
-- **Linux**：音视频与 `browser` 分别依赖系统 FFmpeg 与 WebKit2gtk，见 §2 的安装清单。
+- **Linux**：音视频与 `browser` 分别依赖系统 FFmpeg 与 WebKit2gtk，见上面的安装清单。
 - 平台状态以 [README 平台表](https://github.com/lb091188/moonbit-native-gui) 与 [路线图](roadmap.md) 为准：三平台均已真机验证。
 
-## 5. 源码方式运行
+## 二、基于库的应用开发
 
-装 [MoonBit 工具链](https://www.moonbitlang.com) 后：
+自己的工程里引入：
 
 ```sh
-git clone https://github.com/lb091188/moonbit-native-gui
-cd moonbit-native-gui
-moon run examples/showcase --target native   # 或 examples/<其他示例>
+moon add NoahLiu/native-gui
 ```
 
-依赖安装、失败处置见[构建与运行](build.md)；五分钟上手见[教程](tutorial.md)。
+最小窗口：
+
+```moonbit
+fn main {
+  let app = match @ui.mount_window(
+    [@ui.text("Hello, MoonBit!", font_size=18.0)],
+    title="Hello, MoonBit!",
+    width=400,
+    height=300,
+  ) {
+    None => {
+      // 本平台没有窗口后端或没有显示服务
+      return
+    }
+    Some(a) => a
+  }
+  app.run()
+}
+```
+
+想看效果就克隆仓库跑示例——`examples/` 下每个目录都是独立模块，进目录 `moon run .` 即可：
+
+```sh
+git clone https://github.com/lb091188/moonbit-native-gui.git
+cd moonbit-native-gui/examples/hello   # 换成下表任一目录
+MOON_WORK=off moon run .               # 按注册表已发布的库版本解析；连着库改动跑就去掉它
+```
+
+| 目录 | 内容 |
+|---|---|
+| `examples/hello` | 最小窗口：一个原生窗口 + 基本控件 |
+| `examples/showcase` | 全功能演示板：组件库、交互图标、图表、系统接口 |
+| `examples/browser` | 内嵌 WebView 浏览器（额外依赖 `gui-webview`）|
+| `examples/audio` · `video` | 音视频播放器（额外依赖 `gui-media`，需 ffmpeg）|
+| `examples/headless-audio` | 无窗口、纯代码驱动播放 |
+
+深入各面：[组件速查](components.md)、[声明式与响应式](declarative.md)、[布局样式](layout.md)、[系统能力总览](system-capabilities.md)、[内嵌 WebView](webview.md)。
+
+## 三、库开发
+
+改库、加控件、报平台兼容问题：工具链与依赖安装、构建门禁、测试口径与常见失败处置全在[构建与运行](build.md)；包的组成见[包结构](packages.md)；参与方式见 README「参与贡献」。

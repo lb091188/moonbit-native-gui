@@ -48,40 +48,13 @@ fn main {
 
 GUI capability in the MoonBit ecosystem has more than one lane: [MoUI](https://github.com/wzzc-dev/MoUI) is built on the Skia rendering engine and targets interface logic shared across platforms, while native-gui renders through the system and aims at **one-stop delivery for desktop apps** — system capabilities out of the box, common widgets consistent across platforms, everyday applications finished in one place.
 
-## Package layout
-
-`moon add NoahLiu/native-gui` brings in the whole module. MoonBit compiles and links only the packages you import, so unused packages add nothing to your binary:
-
-| Alias | Contents |
-|---|---|
-| `@base` | Platform-free primitives: the `Store` / `Signal` / `ListStore` reactive core, the focus stack, key-code constants, end-of-frame batching and the frame ledger |
-| `@shell` | System-capability shell: menu bars / context menus, the global-hotkey facade, tray, notifications, open-externally, plus the loop scheduler and read-only platform probes |
-| `@widget` | Self-drawn widget host: layout-tree mapping, hit-testing and event routing, paint walk, declarative `Node`, overlays (layer and native tiers), drag & drop, input mapping, the `App` pump |
-| `@ui` | Self-drawn controls and the component library: window mounting, labels / buttons, forms, display, navigation, date, tables and virtual lists, entries, scrolling, overlays, code view, declarative layer |
-| `@render` | Rasterizer: pure-MoonBit software raster plus a Cairo backend; bitmaps, canvas, images, PNG |
-| `@text` | Text layer: font families, fonts, rich text and range attributes (Pango / DirectWrite) |
-| `@theme` | Theme system: palette derivation and change subscription |
-| `@icons` | Vector icon system |
-| `@sys` | System capabilities: autostart, idle, subprocess, environment, files, JSON, dialogs, browser history / bookmarks, recent files, wallpaper, volume, power, printers, monitors, window control, app lookup |
-| `@input` | Editing core and key codes |
-| `@win` | Platform window backends (Win32 / GTK3 C stubs): hotkeys, icons, input methods, message boxes, notifications, tray, surfaces |
-| `@dbus` | Linux D-Bus bridge: tray SNI, notifications, logind / upower, media, network, screensaver |
-| `@chart` | Charts and the cross-cutting interaction layer |
-| `@mdview` | Markdown rendering view |
-| `@style` | Style layer: stylesheets as MoonBit values, with state classes and transitions |
-
-Heavier capabilities live in **separate modules** and are optional:
-
-| Module | Contents |
-|---|---|
-| `NoahLiu/gui-media` | Audio/video engine and player components. |
-| `NoahLiu/gui-webview` | Embedded WebView (WebKitGTK / WebView2 / WKWebKit). |
-
 ## Quick start
 
-The prerequisites are the MoonBit native toolchain plus four build-time pieces: a C toolchain, Python 3, pkg-config, and — on Linux — the GTK3 family of development packages. The per-platform install lists, the self-check commands and the "build fails immediately" fixes are all in **[docs/build.md](docs/build.md) ("Build & run")**. New to MoonBit? The [documentation site](https://moonbit-native-gui.pages.dev/) covers the toolchain and your first window.
+Three lanes, the same split as the [experience guide](https://moonbit-native-gui.pages.dev/experience):
 
-In your own project:
+**1. Zero-setup demo** — grab the platform zip from the single [Binaries](https://github.com/lb091188/moonbit-native-gui/releases) release, unzip and run; the walkthrough lives in the [experience guide](https://moonbit-native-gui.pages.dev/experience).
+
+**2. Build an app on the library** — lanes 2 and 3 need a development environment: the MoonBit native toolchain, a C toolchain, Python 3, pkg-config and — on Linux — the GTK3 family of dev packages; install lists in [Build & run](https://moonbit-native-gui.pages.dev/build). In your own project:
 
 ```sh
 moon add NoahLiu/native-gui
@@ -92,21 +65,20 @@ To see it running, clone the repository and run an example — every directory u
 ```sh
 git clone https://github.com/lb091188/moonbit-native-gui.git
 cd moonbit-native-gui/examples/hello   # or any directory in the table below
-MOON_WORK=off moon run .               # skip the workspace: resolve only this example's closure
+MOON_WORK=off moon run .               # resolve the published library from the registry; drop it to run against your own changes
 ```
-
-`MOON_WORK=off` makes the example resolve the published library from the registry, so the media / probe / ffmpeg members never run their prebuild and the minimal dependency list is enough to see a window. Drop it when you want to run against your own changes to the library — at the price of having every development package installed (including `libav*-dev`).
 
 | Directory | What it is |
 |---|---|
 | `examples/hello` | Minimal window: one native window plus basic controls |
 | `examples/showcase` | Full demo board: component library, interactive icons, charts, system surfaces |
-| `examples/sysmonitor` | System monitor: `/proc`·`/sys` data plus self-drawn charts |
 | `examples/browser` | Embedded WebView (extra dependency `gui-webview`) |
-| `examples/audio` · `video` | Audio/video players (extra dependency `gui-media`, needs ffmpeg — see [build.md](docs/build.md)) |
+| `examples/audio` · `video` | Audio/video players (extra dependency `gui-media`, needs ffmpeg) |
 | `examples/headless-audio` | No window; playback driven purely from code |
 
-If `moon run` fails before it ever opens a window, it is almost always a missing build dependency (the GTK3 dev packages on Linux, or `python` still pointing at 2.7) — see §2 and §6 of [docs/build.md](docs/build.md).
+If `moon run` fails before it ever opens a window, it is almost always a missing build dependency — see [Build & run](https://moonbit-native-gui.pages.dev/build).
+
+**3. Work on the library** — toolchain and dependency setup, build gates, test policy and troubleshooting all live in [Build & run](https://moonbit-native-gui.pages.dev/build); the package composition is in [Package layout](https://moonbit-native-gui.pages.dev/packages).
 
 ## Platform support
 
@@ -114,7 +86,7 @@ If `moon run` fails before it ever opens a window, it is almost always a missing
 |---|---|---|
 | Ubuntu 24.04 | ✅ | XFCE / GNOME / KDE / Cinnamon |
 | Deepin 23 / 25 | ✅ | |
-| Deepin 20 / Debian 10 base | ❌ | **not a supported target**: this library builds through prebuild on the Python 3.7 baseline, but the wall is `SYS_pidfd_open` in the runtime C sources that ship with the MoonBit toolchain (glibc's frozen syscall table — new kernel headers don't add it). Pitfalls and self-rescue notes: [docs/build.md](docs/build.md) §2 |
+| Deepin 20 / Debian 10 base | ❌ | **not a supported target**: this library builds through prebuild on the Python 3.7 baseline, but the wall is `SYS_pidfd_open` in the runtime C sources that ship with the MoonBit toolchain (glibc's frozen syscall table — new kernel headers don't add it). Pitfalls and self-rescue notes: [Build & run](https://moonbit-native-gui.pages.dev/build) |
 | Windows 10 / 11 | ✅ | |
 | macOS | ✅ | Apple Silicon |
 
@@ -127,7 +99,7 @@ Platform compatibility reports, widgets and documentation are all welcome. The b
 - **Small batches**: one coherent change per commit, short commit messages
 - **Roadmap**: what is done and what comes next is on the [roadmap](https://moonbit-native-gui.pages.dev/zh/roadmap) (Chinese)
 
-[docs/build.md](docs/build.md): environment from scratch, build commands and artefact paths, prebuilt binaries, failure → fix, plus the linking mechanism and how to add an example module.
+[Build & run](https://moonbit-native-gui.pages.dev/build): environment from scratch, build commands and artefact paths, prebuilt binaries, failure → fix, plus the linking mechanism and how to add an example module.
 
 ## License
 

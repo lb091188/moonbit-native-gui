@@ -48,64 +48,37 @@ fn main {
 
 MoonBit 生态的 GUI 能力各有分工：[MoUI](https://github.com/wzzc-dev/MoUI) 基于 Skia 渲染引擎，面向多端共享界面逻辑；而 native-gui 基于系统渲染，定位**桌面应用的一站式交付**，力求让系统能力开箱即用，常用组件跨平台统一，日常应用一站式完成。
 
-## 包结构
-
-`moon add NoahLiu/native-gui` 引入整个模块，MoonBit 只编译和链接你 import 的包，没用到的包不占二进制体积：
-
-| 别名 | 内容 |
-|---|---|
-| `@base` | 平台无关基元：`Store` / `Signal` / `ListStore` 响应式内核、焦点栈、键码常量、帧末合并与账本 |
-| `@shell` | 系统能力壳层：菜单栏 / 右键菜单、全局热键门面、托盘、通知、外部打开，加上事件循环调度器与只读平台探针 |
-| `@widget` | 自绘控件宿主：布局树映射、命中与事件路由、绘制遍历、声明式 `Node`、浮层（图层/原生两档）、拖放、输入映射、`App` 泵 |
-| `@ui` | 自绘控件与组件库：窗口挂载、标签 / 按钮、表单、显示、导航、日期、表格与虚拟列表、输入框、滚动、浮层、代码视图、声明式层 |
-| `@render` | 光栅器：纯 MoonBit 软件光栅 + Cairo 后端；位图、画布、图像、PNG |
-| `@text` | 文本层：字体族、字体、富文本与区间属性（Pango / DirectWrite） |
-| `@theme` | 主题系统：色板派生与变更订阅 |
-| `@icons` | 矢量图标系统 |
-| `@sys` | 系统能力：自启动、空闲、子进程、环境、文件、JSON、对话框、浏览器历史 / 书签、最近文件、壁纸、音量、电源、打印机、显示器、窗口控制、应用查找 |
-| `@input` | 编辑内核与键码 |
-| `@win` | 平台窗口后端（Win32 / GTK3 的 C 桩）：快捷键、图标、输入法、消息框、通知、托盘、surface |
-| `@dbus` | Linux D-Bus 桥：托盘 SNI、通知、logind / upower、媒体、网络、屏保 |
-| `@chart` | 图表与横切交互层 |
-| `@mdview` | Markdown 渲染视图 |
-| `@style` | 样式层：样式表写成 MoonBit 值，含状态类与过渡 |
-
-较重能力放在**独立模块**，可选
-
-| 模块 | 内容 |
-|---|---|
-| `NoahLiu/gui-media` | 音视频引擎与播放器组件。 |
-| `NoahLiu/gui-webview` | 内嵌 WebView（WebKitGTK / WebView2 / WKWebKit）。 |
-
 ## 快速开始
 
-前置是 MoonBit 原生工具链，外加构建期的四样：C 工具链、Python 3、pkg-config，Linux 上再要 GTK3 一族开发包。三平台的安装清单、环境自检与「起手就红」的处置都在 **[docs/zh/build.md](docs/zh/build.md)「构建与运行」**——刚接触 MoonBit 的话，[在线文档](https://moonbit-native-gui.pages.dev/) 的五分钟上手教程覆盖工具链与第一个窗口。
+三条路，与[体验文档](https://moonbit-native-gui.pages.dev/zh/experience)同一套分法：
 
-在自己的工程里引入：
+**① 真体验：预构建包** —— [GitHub Releases](https://github.com/lb091188/moonbit-native-gui/releases) 的「Binaries」按平台取一个 zip，解压即跑；体验点与操作路径见[体验文档](https://moonbit-native-gui.pages.dev/zh/experience)。
+
+**② 基于库做应用** —— ②③ 需要开发环境：MoonBit 原生工具链 + C 工具链 + Python 3 + pkg-config（Linux 再加 GTK3 一族开发包），安装清单见[构建与运行](https://moonbit-native-gui.pages.dev/zh/build)。自己的工程里引入：
 
 ```sh
 moon add NoahLiu/native-gui
 ```
 
-想看效果就克隆仓库跑示例——`examples/` 下每个目录都是独立模块，**进目录 `moon run .`** 即可：
+想看效果就克隆仓库跑示例——`examples/` 下每个目录都是独立模块，进目录 `moon run .` 即可：
 
 ```sh
 git clone https://github.com/lb091188/moonbit-native-gui.git
 cd moonbit-native-gui/examples/hello   # 换成下表任一目录
-MOON_WORK=off moon run .               # 绕开 workspace：只解析本示例的依赖闭包
+MOON_WORK=off moon run .               # 按注册表已发布的库版本解析；连着库改动跑就去掉它
 ```
-
-`MOON_WORK=off` 让示例按注册表里已发布的库版本解析，媒体 / 探针 / ffmpeg 那几个成员的 prebuild 一概不跑，装齐 §2 那份最小依赖就能看效果；要连着库的改动一起跑就去掉它，代价是整套开发包（含 `libav*-dev`）都得在位。
 
 | 目录 | 内容 |
 |---|---|
 | `examples/hello` | 最小窗口：一个原生窗口 + 基本控件 |
 | `examples/showcase` | 全功能演示板：组件库、交互图标、图表、系统接口 |
 | `examples/browser` | 内嵌 WebView 浏览器（额外依赖 `gui-webview`）|
-| `examples/audio` · `video` | 音视频播放器（额外依赖 `gui-media`，需 ffmpeg——见 [docs/zh/build.md](docs/zh/build.md)）|
+| `examples/audio` · `video` | 音视频播放器（额外依赖 `gui-media`，需 ffmpeg）|
 | `examples/headless-audio` | 无窗口、纯代码驱动播放 |
 
-`moon run` 起手就报错——多半是构建依赖没装齐（Linux 的 GTK3 开发包、或 `python` 还指向 2.7）——对照 [docs/zh/build.md](docs/zh/build.md) §2 与 §6 处置。
+`moon run` 起手就报错——多半是构建依赖没装齐，对照[构建与运行](https://moonbit-native-gui.pages.dev/zh/build)处置。
+
+**③ 改库 / 参与开发** —— 工具链与依赖安装、构建门禁、测试口径与常见失败处置全在[构建与运行](https://moonbit-native-gui.pages.dev/zh/build)；包的组成见[包结构](https://moonbit-native-gui.pages.dev/zh/packages)。
 
 ## 平台支持
 
@@ -113,7 +86,7 @@ MOON_WORK=off moon run .               # 绕开 workspace：只解析本示例�
 |---|---|---|
 | Ubuntu 24.04 | ✅ | XFCE / GNOME / KDE / Cinnamon |
 | Deepin 23 / 25 | ✅ | |
-| Deepin 20 / Debian 10 基线 | ❌ | **不作为支持目标**：本库侧已按 Python 3.7 口径跑通到编译，墙在 MoonBit 工具链自带 runtime 用的 `SYS_pidfd_open`（老 glibc 的冻结 syscall 表，升内核头补不上），坑与自救见 [docs/zh/build.md](docs/zh/build.md) §2 |
+| Deepin 20 / Debian 10 基线 | ❌ | **不作为支持目标**：本库侧已按 Python 3.7 口径跑通到编译，墙在 MoonBit 工具链自带 runtime 用的 `SYS_pidfd_open`（老 glibc 的冻结 syscall 表，升内核头补不上），坑与自救见[构建与运行](https://moonbit-native-gui.pages.dev/zh/build) |
 | Windows 10 / 11 | ✅ |  |
 | macOS | ✅ | Apple Silicon  |
 
@@ -126,7 +99,7 @@ MOON_WORK=off moon run .               # 绕开 workspace：只解析本示例�
 - **小批次**：一个提交一个内聚改动，提交信息简短
 - **进度与计划**：功能面全景与后续待做见[路线图](https://moonbit-native-gui.pages.dev/zh/roadmap)
 
-[docs/zh/build.md](docs/zh/build.md)：从零装环境、构建与产物落点、预构建二进制、常见失败处置，以及链接参数托管与新增示例模块的机制。
+[构建与运行](https://moonbit-native-gui.pages.dev/zh/build)：从零装环境、构建与产物落点、预构建二进制、常见失败处置，以及链接参数托管与新增示例模块的机制。
 
 ## 许可
 
