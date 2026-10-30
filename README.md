@@ -8,6 +8,8 @@ English | [简体中文](README_ZH.md)
 
 📚 **Documentation**: <https://moonbit-native-gui.pages.dev/>
 
+📦 **Zero-setup demos**: prebuilt packages for all three platforms (hello / showcase / browser / audio / video) are on [GitHub Releases](https://github.com/lb091188/moonbit-native-gui/releases) — unzip and run; where to click and what to look for: the [experience guide](https://moonbit-native-gui.pages.dev/experience).
+
 ![Component showcase](./docs/public/images/showcase-main.png)
 ![Live demo on Linux (XFCE)](./docs/public/images/showcase-anim-linux.webp)
 ![Live demo on Windows](./docs/public/images/showcase-anim-windows.webp)

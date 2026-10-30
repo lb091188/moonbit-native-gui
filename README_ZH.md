@@ -1,12 +1,14 @@
 # native-gui [![CI](https://github.com/lb091188/moonbit-native-gui/actions/workflows/ci.yml/badge.svg)](https://github.com/lb091188/moonbit-native-gui/actions/workflows/ci.yml)
 
-> **来时的路**：本库最初是 [赵成(zcbenz)](https://github.com/zcbenz) 的 [Yue / libyue](https://github.com/yue/yue) 的 MoonBit 封装，布局沿用 [Yoga](https://github.com/facebook/yoga) 的 flexbox。如今两者都不再是运行时依赖，只作行为参考与语料来源。也感谢 [MoonBit](https://github.com/moonbitlang)。
+> **来时的路**：本库最初是 [赵成(zcbenz)](https://github.com/zcbenz) 的 [Yue / libyue](https://github.com/yue/yue) 的 MoonBit 封装，如今`libyue`、`yoga`不再是运行时依赖，只作行为参考。感谢 libyue、yoga、[MoonBit](https://github.com/moonbitlang)。
 
-[MoonBit](https://github.com/moonbitlang) 的**跨平台桌面 GUI 框架**——一套 MoonBit 代码直出 Windows 🟩 / Linux 🟩 / macOS 🟩 原生窗口，托盘、通知、快捷键、文件对话框等系统能力开箱即用，`moon add` 后零配置直接运行。三平台（Windows / Linux / macOS）同一套代码、同一份真机清单同步维护。
+[MoonBit](https://github.com/moonbitlang) 的**跨平台桌面 GUI 框架** —— 一套 MoonBit 代码直出 Windows 🟩 / Linux 🟩 / macOS 🟩 原生窗口，托盘、通知、快捷键、文件对话框等系统能力开箱即用，`moon add` 后零配置直接运行。
 
 [English](README.md) | 简体中文
 
-📚 **在线文档**：<https://moonbit-native-gui.pages.dev/>
+📚 [**在线文档**](https://moonbit-native-gui.pages.dev/zh/)
+
+📦 **零环境体验**：三平台预构建演示包（hello / showcase / browser / audio / video）在 [GitHub Releases](https://github.com/lb091188/moonbit-native-gui/releases)，解压即跑；每个演示的体验点与操作路径见[体验文档](https://moonbit-native-gui.pages.dev/zh/experience)。
 
 ![组件库演示板](./docs/public/images/showcase-main.png)
 ![Linux(XFCE)实机演示](./docs/public/images/showcase-anim-linux.webp) 
@@ -18,7 +20,7 @@
 
 **🎨 渲染管线自绘** —— 不依赖 Skia 等重型图形引擎，控件观感跨平台一致，默认跟随系统强调色与明暗模式，主题可按需定制。
 
-**📊 界面组件齐全** —— 基础布局组件、表单组件、可交互图表、Markdown 渲染；另有独立的 gui-media 音视频播放和展示能力、gui-web 基于系统 webview 的 web 渲染能力。
+**📊 界面组件齐全** —— 基础布局组件、表单组件、可交互图表、Markdown 渲染；另有独立的 gui-media 音视频播放和展示能力、gui-webview 基于系统 webview 的 web 渲染能力。
 
 **📝 声明式 UI 与响应式状态** —— 界面以树描述，`mount_window` 一步挂载；状态放 `Store` / `Signal`，绑定点随数据自动刷新：
 
@@ -44,7 +46,7 @@ fn main {
 
 ## 生态坐标
 
-MoonBit 生态的 GUI 能力各有分工：[MoUI](https://github.com/wzzc-dev/MoUI) 基于 Skia 渲染引擎，面向多端共享界面逻辑；而 native-gui 基于系统渲染，定位**桌面应用的一站式交付**，励志让系统能力开箱即用，常用组件跨平台统一，日常应用一站式完成。
+MoonBit 生态的 GUI 能力各有分工：[MoUI](https://github.com/wzzc-dev/MoUI) 基于 Skia 渲染引擎，面向多端共享界面逻辑；而 native-gui 基于系统渲染，定位**桌面应用的一站式交付**，力求让系统能力开箱即用，常用组件跨平台统一，日常应用一站式完成。
 
 ## 包结构
 
@@ -99,8 +101,8 @@ MOON_WORK=off moon run .               # 绕开 workspace：只解析本示例�
 |---|---|
 | `examples/hello` | 最小窗口：一个原生窗口 + 基本控件 |
 | `examples/showcase` | 全功能演示板：组件库、交互图标、图表、系统接口 |
-| `examples/browser` | 浏览器演示 |
-| `examples/audio` · `video` | 音视频播放器|
+| `examples/browser` | 内嵌 WebView 浏览器（额外依赖 `gui-webview`）|
+| `examples/audio` · `video` | 音视频播放器（额外依赖 `gui-media`，需 ffmpeg——见 [docs/zh/build.md](docs/zh/build.md)）|
 | `examples/headless-audio` | 无窗口、纯代码驱动播放 |
 
 `moon run` 起手就报错——多半是构建依赖没装齐（Linux 的 GTK3 开发包、或 `python` 还指向 2.7）——对照 [docs/zh/build.md](docs/zh/build.md) §2 与 §6 处置。

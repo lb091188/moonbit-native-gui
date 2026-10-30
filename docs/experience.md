@@ -1,8 +1,8 @@
-# Hackathon Acceptance Guide
+# Experience Guide
 
-For judges and reviewers: how to walk the promised capabilities on all three platforms using **prebuilt binaries**. Skip the environment entirely with §1; for building from source see §5.
+Run native-gui on all three platforms with **zero setup**: grab the prebuilt demo packages from GitHub Releases and walk each demo's what-to-try points. Prefer building from source? See §5.
 
-## 1. Download prebuilt binaries
+## 1. Download prebuilt packages
 
 Open [GitHub Releases](https://github.com/lb091188/moonbit-native-gui/releases) and pick the **Binaries** release (produced by `bin-*` tags), one zip per platform:
 
@@ -38,13 +38,11 @@ sudo apt install libgtk-3-0 libpango-1.0-0 libx11-6 \
   libwebkit2gtk-4.1-0 libavcodec60 libavformat60 libswscale7
 ```
 
-## 3. Acceptance points and where to click
-
-Mapped one-to-one to the "expected deliverables" section of the project application.
+## 3. What to try, per demo
 
 ### hello — minimal window
 
-Launch and a native window appears, with no third-party windowing library behind it. This is the evidence for the lightweight-artifact / fast-startup claim.
+Launch and a native window appears, with no third-party windowing library behind it — the tangible sample of the lightweight-artifact / fast-startup claim.
 
 ### showcase — components / charts / system capabilities
 
@@ -61,7 +59,7 @@ Switch pages in the left sidebar:
 - Address-bar navigation, back/forward and history
 - A local site served through the custom scheme (local content channel)
 - JS interop: execute-and-fetch in the page, JS↔native two-way binding demos
-- The "policy trigger" menu entries (new window / geolocation / download): intercepted and reported by default, allow from the dialog — a closed intercept/allow loop, the direct evidence for the policy surface in the application
+- The "policy trigger" menu entries (new window / geolocation / download): intercepted and reported by default, allow from the dialog — the library's policy loop, right there
 
 ### audio / video — media line
 

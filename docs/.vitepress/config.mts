@@ -96,7 +96,7 @@ export default defineConfig({
               { text: 'Layout & styling', link: '/layout' },
               { text: 'System capabilities', link: '/system-capabilities' },
               { text: 'Build & run', link: '/build' },
-              { text: 'Hackathon acceptance', link: '/hackathon-acceptance' },
+              { text: 'Experience guide', link: '/experience' },
             ],
           },
           {
@@ -131,7 +131,7 @@ export default defineConfig({
               { text: '布局样式', link: '/zh/layout' },
               { text: '系统能力总览', link: '/zh/system-capabilities' },
               { text: '构建与运行', link: '/zh/build' },
-              { text: '黑客松验收指引', link: '/zh/hackathon-acceptance' },
+              { text: '体验文档', link: '/zh/experience' },
             ],
           },
           {

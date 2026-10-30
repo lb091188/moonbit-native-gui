@@ -85,7 +85,7 @@
 ## 3. 里程碑
 
 - **M3** macOS 地基：mac 平台批①-⑤ 已落（窗口/渲染/文本/webview/sys 各族），真机目视已回证，遗留缺口见 §7
-- **M4** 黑客松验收（2026-10-31）：`release-bin` 扩三平台五示例（补 mac 腿、收编 browser / audio / video，FFmpeg DLL/dylib 随包）+ 验收引导文档 `docs/zh/hackathon-acceptance.md`；到点推 `bin-*` 标签出包，标签前先实测 browser 在 Windows runner 的链接
+- **M4** 预打包与体验文档（2026-10-31）：`release-bin` 扩三平台五示例（补 mac 腿、收编 browser / audio / video，FFmpeg DLL/dylib 随包）+ 体验文档 `docs/zh/experience.md`；到点推 `bin-*` 标签出包，标签前先实测 browser 在 Windows runner 的链接
 
 ## 6. 跨平台能力面（Win 基础能力 + MBT 通用能力）
 
