@@ -45,8 +45,13 @@ const SCHEME_PAGE2 : String = "<!doctype html><html><head><meta charset=\"utf-8\
 const SCHEME_CSS : String = "body{font-family:sans-serif;margin:24px auto;max-width:560px;color:#222}h1{font-size:22px}.lead{color:#555;line-height:1.6}.card{border:1px solid #d5d9e0;border-radius:8px;padding:14px;margin-top:16px}button{font-size:14px;padding:6px 14px;margin-right:8px;border:1px solid #b0b6c0;border-radius:6px;background:#f5f7fa;cursor:pointer}button:hover{background:#e8ecf2}.note{color:#888;font-size:13px;margin-top:10px}a{color:#0366d6}"
 
 ///|
+/// 下载探针文件：协议真实 URL。blob 下载在 WebView2 上不走 DownloadStarting
+/// （引擎缺口），探针必须走引擎常规下载管线才能进策略扣放闭环。
+const NGUI_TXT : String = "native-gui 下载探针文件\n由 yuedemo:// 协议供给，下载走引擎常规下载管线。\n"
+
+///|
 /// 本地 HTML 片段（load_html 装的页面**不入历史**）。
-const LOCAL_HTML : String = "<html><head><meta charset=\"utf-8\"><title>本地片段</title></head><body style='font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%'><h3>load_html 本地片段 ✓</h3><button onclick=\"callNative()\">JS 调原生绑定</button><p style='margin:14px 0 4px'>策略触发（配底部「策略·…」菜单项验拦截/放行）：</p><button onclick=\"window.open('https://example.com')\">触发新窗请求</button><button onclick=\"var b=new Blob(['native-gui download probe'],{type:'text/plain'});var u=URL.createObjectURL(b);var a=document.createElement('a');a.href=u;a.download='ngui.txt';document.body.appendChild(a);a.click()\">触发下载请求</button><p id='r' style='color:#888'></p><script>function callNative(){var r=document.getElementById('r');try{demoBinding('来自网页的调用');r.textContent='已调用原生绑定（看窗口底部状态栏）';}catch(e){r.textContent='原生绑定不在位：'+e.message;}}</script></body></html>"
+const LOCAL_HTML : String = "<html><head><meta charset=\"utf-8\"><title>本地片段</title></head><body style='font-family:sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%'><h3>load_html 本地片段 ✓</h3><button onclick=\"callNative()\">JS 调原生绑定</button><p style='margin:14px 0 4px'>策略触发（配底部「策略·…」菜单项验拦截/放行）：</p><button onclick=\"window.open('https://example.com')\">触发新窗请求</button><button onclick=\"var a=document.createElement('a');a.href='ngui.txt';a.download='ngui.txt';document.body.appendChild(a);a.click()\">触发下载请求</button><p id='r' style='color:#888'></p><script>function callNative(){var r=document.getElementById('r');try{demoBinding('来自网页的调用');r.textContent='已调用原生绑定（看窗口底部状态栏）';}catch(e){r.textContent='原生绑定不在位：'+e.message;}}</script></body></html>"
 
 ///|
 /// 首页地址。
@@ -182,7 +187,8 @@ fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
     let a = @sys.sys_write_text_file(root + "/index.html", SCHEME_INDEX)
     let b = @sys.sys_write_text_file(root + "/page2.html", SCHEME_PAGE2)
     let c = @sys.sys_write_text_file(root + "/style.css", SCHEME_CSS)
-    a && b && c && v.register_protocol("yuedemo", root)
+    let d = @sys.sys_write_text_file(root + "/ngui.txt", NGUI_TXT)
+    a && b && c && d && v.register_protocol("yuedemo", root)
   }
   /// 两类策略当前态的可读串（策略切换后整组回显）。
   fn policy_text() -> String {

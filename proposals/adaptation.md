@@ -3527,3 +3527,12 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **三平台扣住机制**：Linux=`decide-destination` 返回 TRUE 扣住（2.40+ 异步契约），`webkit_download_cancel` 落判时顺手释放引擎侧挂起的落点回调；mac=扣住 `decideDestination` 的 completionHandler（ARC 持 block，允许延后调）；Windows=`DownloadStarting` 走 `GetDeferral` + `put_Handled(TRUE)` 压默认浮层，落判 `put_ResultFilePath` / `put_Cancel` + `Complete`。三平台待决槽同容量（8），视图销毁一律按取消收口（mac 落 nil、Windows Cancel+Complete）。
 **判据**：① 库的能力面上，UI 策略（弹什么框、存到哪）一律归应用层，库只给「上报 + 扣住 + 落判」三件套——新接引擎能力先问「这件事的落判归谁」；② 事件载荷要带 id 的场景=同视图可有多件挂起（下载天然并发，权限单件挂起即可）；③ Windows 的建议名没有独立口，从默认 `ResultFilePath` 末段拆。
 **验证**：`moon check` 零警、`moon test` 1597/1599（2 红为本机环境固有）、`examples/browser` 构建过、Linux 真机清单（保存框/拦下/自动档三路）；Windows/mac 待真机。
+
+## WebView2 就绪窗口竞态与 blob 下载不起步：绑定 shim 丢失、探针改走真实 URL（2026-10-30，Windows 真机打包测试）
+
+- **现象一（绑定丢失）**：bin 包里的 browser 在冷启动后，页面点「JS 调原生绑定」报 `demoBinding is not defined`；热缓存下又能好。现象二（下载不起步）：load_html 片段页的下载探针（blob + `<a download>`）点了毫无反应——保存框不弹、状态无变化。
+- **根因一**：WebView2 的环境/控制器创建是异步的，`WbView` 句柄在 `wb_create` 即登记、`ready` 要等创建回调——中间是就绪窗口。`wb_add_user_script` 在窗口内**静默丢弃**注入（`AddScriptToExecuteOnDocumentCreated` 要 web 在位），而 `wb_add_binding` **不看丢弃与否，句柄在就返回 1**——示例的重试 tick 首拍（80ms）落进窗口就停止重试，shim 永远没注上。冷启动创建慢必现、热缓存快则偶过。WebKit 两臂同步注册无此窗口。
+- **修一**：注入拆 `wb_add_user_script_checked` 返回真假，`wb_add_binding` 只在 shim 真注上时返回 1——重试 tick 自然续拍到就绪为止（上限 60 拍）。教训：**「调用了注入口」不等于「注入成功」**，异步就绪的引擎，注入口的返回值必须反映真伪，调用方的重试语义才成立。
+- **根因二**：blob 下载不引发导航，WebView2 的 `DownloadStarting` 对它不起步（引擎缺口，上游 WebView2Feedback #4562/#2180 同类）；WebKitGTK 上 ba26ab18 挂协议 base 后能走通，属引擎差异不是桩缺陷。
+- **修二**：browser 示例的下载探针从 blob 换成协议真实 URL（`yuedemo://local/ngui.txt` + `download` 属性强制落盘不渲染），三引擎同走常规下载管线进「上报-扣住-落判」闭环；blob 路径的引擎差异记档于此，库侧不做 blob 特判。
+- **验证**：gui-webview `moon check` 零警、`moon test` 1599 全绿（Linux/webkit 臂不受影响）；webview2 桩 MSVC 编译与真机行为由 CI Windows job + 用户真机复验（demoBinding 点按、下载探针弹保存框落盘）。

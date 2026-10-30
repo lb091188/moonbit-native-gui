@@ -1837,28 +1837,34 @@ static ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandlerVtbl
 static ICoreWebView2AddScriptToExecuteOnDocumentCreatedCompletedHandler
     wb_script_hnd = {&wb_script_vtbl};
 
-void wb_add_user_script(int64_t id, const char *source) {
+// 注入常驻脚本并回报是否真的注上：AddScriptToExecuteOnDocumentCreated
+// 要 web 在位，就绪窗口里没有挂点，此时返回 0——调用方（绑定 shim 的
+// 注册重试 tick）拿真假决定是否再来一拍。
+static int wb_add_user_script_checked(int64_t id, const char *source) {
   WbView *v = wb_get(id);
-  if (v == NULL || source == NULL) {
-    return;
-  }
-  // 就绪前缓存不住（AddScriptToExecuteOnDocumentCreated 要 web 在位）——
-  // 就绪后补。绑定 shim 的注册时机在 MoonBit 层绑定重试 tick（就绪后），
-  // 实际不会撞上未就绪窗口；撞上就静默丢（记档差异）。
-  if (!v->ready) {
-    return;
+  if (v == NULL || source == NULL || !v->ready) {
+    return 0;
   }
   wchar_t *w = wb_utf8_to_wide(source);
   if (w == NULL) {
-    return;
+    return 0;
   }
   v->web->lpVtbl->AddScriptToExecuteOnDocumentCreated(
       v->web, w, &wb_script_hnd);
   free(w);
+  return 1;
+}
+
+void wb_add_user_script(int64_t id, const char *source) {
+  wb_add_user_script_checked(id, source);
 }
 
 // 注册「页面 → 原生」通道：注入 shim 把 window.<name>(payload) 变成
-// window.chrome.webview.postMessage(JSON.stringify(payload))
+// window.chrome.webview.postMessage(JSON.stringify(payload))。
+// 返回 1 = shim 真的注上了；就绪窗口里返回 0，让 MoonBit 层的重试
+// tick 继续拍——早先只要句柄在就返回 1，首拍撞上未就绪就停止重试，
+// shim 被静默丢弃，页面报 demoBinding is not defined（2026-10-30
+// Windows 真机，冷启动必现）。
 int wb_add_binding(int64_t id, const char *name) {
   WbView *v = wb_get(id);
   if (v == NULL || name == NULL || name[0] == '\0') {
@@ -1872,8 +1878,7 @@ int wb_add_binding(int64_t id, const char *name) {
            "catch(e){window.chrome.webview.postMessage(String(e));}};"
            "})();",
            name, name);
-  wb_add_user_script(id, shim);
-  return 1;
+  return wb_add_user_script_checked(id, shim);
 }
 
 int wb_register_scheme(int64_t id, const char *scheme, const char *root) {
