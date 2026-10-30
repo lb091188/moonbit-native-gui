@@ -10,6 +10,7 @@
 
 - [体验文档](https://moonbit-native-gui.pages.dev/zh/experience)：下载预构建包体验，或基于 `native-gui` 开发应用。
 - [构建与运行](https://moonbit-native-gui.pages.dev/zh/build)：参与 `native-gui` 库的开发。
+- [包结构](https://moonbit-native-gui.pages.dev/zh/packages)：15 个包别名与两个独立模块的一览。
 
 📚 [**在线文档**](https://moonbit-native-gui.pages.dev/zh/)
 
