@@ -290,9 +290,12 @@ fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
                       show_result("协议未就绪（文件写失败或引擎不支持）")
                     }
                   } else if i == 2 {
-                    v.load_html(LOCAL_HTML)
+                    // base 挂协议地址：不给 base 落 about:blank 不透明源，引擎的
+                    // blob 注册表按顶层源分区对账，此页的 blob 下载会无声解析不到
+                    // （挂同源后与首页同一条已验证的下载路径）
+                    v.load_html(LOCAL_HTML, base_uri="yuedemo://local/fragment.html")
                     set_status(Ready, "本地片段")
-                    ev("load_html 完成（此页不入历史，后退无效）")
+                    ev("load_html 完成（base=yuedemo://local/fragment.html，不入历史）")
                   } else if i == 3 {
                     let _ = v.unregister_protocol("yuedemo")
                     v.load_url(HOME_URL)
