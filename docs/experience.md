@@ -25,11 +25,15 @@ Every zip contains the same five executables plus third-party notices (`THIRD-PA
 
 **Windows**: unzip and double-click the `.exe`; no console window appears. The WebView2 Runtime needed by `browser` ships with the OS.
 
-**macOS**: unzip and run `./hello` in a terminal (or right-click → Open for the first Gatekeeper prompt); the bundled `.dylib` files must stay in the same directory as the executables. Alternatively clear the quarantine attribute for the whole folder:
+**macOS**: the bundled `.dylib` files must stay in the same directory as the executables. The first launch of each binary gets one Gatekeeper block (the packages are ad-hoc signed, not notarized, and the downloaded zip carries the quarantine attribute). Two ways past it:
 
-```sh
-xattr -dr com.apple.quarantine <folder>
-```
+1. **Clear quarantine in a terminal (recommended, unblocks all five at once)**:
+
+   ```sh
+   xattr -dr com.apple.quarantine <folder>
+   ```
+
+2. **The GUI way (macOS 15+; right-click → Open no longer offers a bypass)**: click Done on the block dialog → System Settings → Privacy & Security → the Security section → **Open Anyway** next to the blocked app (valid for about an hour after the block, per executable).
 
 **Linux**: unzip, `chmod +x <file>`, run. Runtime libraries (preinstalled on Ubuntu 24.04; install by name on other distros):
 

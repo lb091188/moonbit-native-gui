@@ -194,6 +194,23 @@ jobs:
                                   "@executable_path", bin_path], check=False)
                   subprocess.run(["codesign", "--force", "--sign", "-", bin_path],
                                  check=True)
+              # Gatekeeper 首拦放行说明随包(adhoc 签名必拦一次;macOS 15 起
+              # 右键「打开」不再给放行按钮,写清 xattr 一行与设置的路径)
+              with open(os.path.join(stage, "README-FIRST.txt"), "w",
+                        encoding="utf-8") as f:
+                  f.write(
+                      "首次运行被拦看这里 / If macOS blocks the first launch\n"
+                      "----------------------------------------------------\n"
+                      "终端进入解压目录执行(一次性放行全部五个):\n"
+                      "  xattr -dr com.apple.quarantine .\n"
+                      "或:系统设置 - 隐私与安全性 - 「安全性」段 - 「仍要打开」\n"
+                      "(每个可执行文件各一次,拦截后约 1 小时内有效)。\n"
+                      "Or: System Settings - Privacy & Security - Security -\n"
+                      "\"Open Anyway\" (per executable, valid ~1 hour).\n"
+                      "\n"
+                      "包内 .dylib 必须与可执行文件同目录,不要拆开拷贝。\n"
+                      "Keep the .dylib files next to the executables (do not\n"
+                      "split them out of this folder).\n")
           shutil.make_archive(f"bin-{os.environ['BIN_PLAT']}", "zip", stage)
           print(f"完成: bin-{os.environ['BIN_PLAT']}.zip")
 
