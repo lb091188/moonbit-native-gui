@@ -13,7 +13,7 @@ license = "MIT"
 repository = "https://github.com/lb091188/moonbit-native-gui"
 
 import {
-  "NoahLiu/native-gui@0.2.0",
+  "NoahLiu/native-gui@0.3.0",
   "NoahLiu/ffmpeg-mbt@0.2.0",
   "NoahLiu/yoga-mbt@0.1.1",
 }
