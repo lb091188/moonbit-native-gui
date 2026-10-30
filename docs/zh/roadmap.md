@@ -207,6 +207,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **DOM 抓取**：正文 / 链接 / meta / 结构四项，走脚本求值取 JSON
 - ✅ **自定义协议**：`register_protocol` 注册文件根，页面与样式都走协议供给
 - ✅ **策略面**：新窗、权限、下载三项可切；拦截与放行即时生效
+- 🚧 **下载落点归应用层**：库只上报 `Download` 事件（id/uri/建议名）并按档位扣住待决，落判走 `respond_download(id, allow, path)`——保存框从三平台桩移进应用（browser 示例演示）；自动档（默认）交引擎默认落点，库内零弹框。Linux 真机已验，Windows/mac 待真机
 - ✅ **崩溃恢复**：`is_crashed` 探到后重载恢复，不拖死应用
 - ✅ **cookie 共享与隔离**：引擎默认共享；隔离走 pane 级 profile，库层不做同步
 

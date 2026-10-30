@@ -146,6 +146,16 @@ extern "c" fn wb_set_download_mode(id : Int64, allow : Int) -> Unit =
   "wb_set_download_mode"
 
 ///|
+/// 落判扣住的下载（path 为本地绝对路径；空串/allow=0 一律取消）
+#borrow(path)
+extern "c" fn wb_respond_download(
+  id : Int64,
+  dl_id : Int64,
+  allow : Int,
+  path : Bytes,
+) -> Int = "wb_respond_download"
+
+///|
 #borrow(uri)
 extern "c" fn wb_get_cookies(id : Int64, uri : Bytes) -> Unit = "wb_get_cookies"
 

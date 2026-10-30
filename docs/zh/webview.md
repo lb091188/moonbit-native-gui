@@ -6,7 +6,7 @@
 
 - **导航**：`load_url` / `load_html` / 后退 / 前进 / 重载 / 停止；标题、URL、开始、提交、完成、失败、跳转（重定向）事件。
 - **互操作**：`execute_javascript` 求值（按序号配对回包）、DOM 抓取（正文 / 链接 / meta / 结构）、raw binding（页面调原生，回包走 `on_invoke`）。
-- **策略**：新窗（拦下 / 放行）、下载（拦下 / 放行；放行档弹系统保存对话框——mac `NSSavePanel`、Linux `GtkFileChooserNative`）。
+- **策略**：新窗（拦下 / 放行）、下载（自动档 = 默认，报事件后交引擎默认落点，库不弹框；询问档 = 事件后扣住待决，`respond_download(id, allow, path)` 落判——**保存框是应用层的事**，browser 示例用 `sys` 文件对话框演示）。
 - **其他**：Cookie 查询、自定义协议（`register_protocol`，文件根目录形态）、持久化探测、渲染进程终止事件。
 
 事件统一经 per-view 队列上报（`on_event`），队列满丢最旧：事件是提示，不是账本。
@@ -25,6 +25,6 @@
 
 | 平台 | 引擎 | 典型差异 |
 |---|---|---|
-| Linux | WebKitGTK | 需要发行版的 WebKitGTK 开发包；下载走 `download-started` + `decide-destination`（落点异步弹 `GtkFileChooserNative`），权限 / 新窗 / 进程终止有公开信号 |
-| Windows | WebView2 | Loader 与 SDK 头由 prebuild 下载；下载 / 权限 / 新窗走公开 COM 事件 |
-| macOS | WKWebView | 下载走 `WKDownload`（macOS 11.3+，保存落点用 `NSSavePanel`）；权限仅媒体且需签名；按目录持久化要 bundle id，裸二进制如实报不可持久 |
+| Linux | WebKitGTK | 需要发行版的 WebKitGTK 开发包；下载走 `download-started` + `decide-destination`（询问档扣住落点等 `respond_download`），权限 / 新窗 / 进程终止有公开信号 |
+| Windows | WebView2 | Loader 与 SDK 头由 prebuild 下载；下载 / 权限 / 新窗走公开 COM 事件（下载询问档扣 `DownloadStarting` 的 deferral，落点经 `put_ResultFilePath`） |
+| macOS | WKWebView | 下载走 `WKDownload`（macOS 11.3+，落点经 `decideDestination` 的 completionHandler 扣住延后答）；权限仅媒体且需签名；按目录持久化要 bundle id，裸二进制如实报不可持久 |

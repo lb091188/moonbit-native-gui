@@ -63,7 +63,9 @@ pub(all) enum WebEvent {
   EvalResult(Int64, String)
   NewWindow(String)
   Permission(String)
-  Download(String)
+  /// 下载请求（询问档扣住待决后上报；`id` 供 `respond_download` 对账）。
+  /// 库不做 UI 策略——保存框是应用层的事。
+  Download(DownloadRequest)
   ProcessTerminated(String)
   CloseRequested
   Cookies(String)
@@ -73,6 +75,32 @@ pub(all) enum WebEvent {
   /// 网页交回键盘焦点
   FocusLost
   Unknown(Int, String)
+}
+
+///|
+/// 一条下载请求。`suggested` 是引擎建议文件名（可能为空，直接喂保存框的
+/// 初始名即可）；`id` 在询问档下唯一，`respond_download` 按它对账。
+pub(all) struct DownloadRequest {
+  id : Int64
+  uri : String
+  suggested : String
+}
+
+///|
+/// 拆桩侧载荷 `uri|建议名`（uri 不含裸 '|'；没有 '|' 时整个当 uri）。
+fn download_request_parse(id : Int64, raw : String) -> DownloadRequest {
+  let mut uri = raw
+  let mut suggested = ""
+  let mut i = 0
+  for ch in raw.iter() {
+    if ch == '|' {
+      uri = raw[:i].to_owned()
+      suggested = raw[i + 1 :].to_owned()
+      break
+    }
+    i = i + 1
+  }
+  { id, uri, suggested }
 }
 
 ///|
@@ -355,7 +383,7 @@ fn Webview::dispatch(self : Webview, kind : Int, num : Int64, text : String) -> 
     7 => EvalResult(num, text)
     8 => NewWindow(text)
     9 => Permission(text)
-    10 => Download(text)
+    10 => Download(download_request_parse(num, text))
     11 => ProcessTerminated(text)
     12 => CloseRequested
     13 => Cookies(text)
@@ -629,10 +657,35 @@ pub fn Webview::respond_permission(self : Webview, allow : Bool) -> Bool {
 }
 
 ///|
-/// 下载：默认交给引擎（回报目标地址），可改成拦下。
-pub fn Webview::set_download_mode(self : Webview, allow : Bool) -> Unit {
+/// 下载档位。`true`（默认）= 自动档：报 `Download` 事件后直接交引擎默认
+/// 落点（Windows 运行时默认体验、mac/Linux 静默存系统下载目录），库不弹任何
+/// 框。`false` = 询问档：下载事件后扣住待决，等 `respond_download` 落判；
+/// 一直不落判的下载在视图销毁时按取消收口。
+pub fn Webview::set_download_mode(self : Webview, auto : Bool) -> Unit {
   if self.handle != 0L {
-    wb_set_download_mode(self.handle, if allow { 1 } else { 0 })
+    wb_set_download_mode(self.handle, if auto { 1 } else { 0 })
+  }
+}
+
+///|
+/// 落判扣住的下载（询问档）：`allow=false` 取消；`allow=true` 且 `path` 非空
+/// 存到 `path`（本地绝对路径，取自保存框回填）。对不上任何待决件时是空操作，
+/// 返回是否真落判。
+pub fn Webview::respond_download(
+  self : Webview,
+  id : Int64,
+  allow : Bool,
+  path : String,
+) -> Bool {
+  if self.handle != 0L {
+    wb_respond_download(
+      self.handle,
+      id,
+      if allow { 1 } else { 0 },
+      @utf8.encode(path),
+    ) != 0
+  } else {
+    false
   }
 }
 

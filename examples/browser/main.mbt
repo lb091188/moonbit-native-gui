@@ -377,7 +377,6 @@ fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
                     show_result("策略切换完成\n\{policy_text()}")
                   } else if i == 14 {
                     pol_dl.val = !pol_dl.val
-                    v.set_download_mode(pol_dl.val)
                     show_result("策略切换完成\n\{policy_text()}")
                   } else if i == 16 {
                     v.execute_javascript("window.open('https://example.com')")
@@ -386,7 +385,7 @@ fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
                     v.execute_javascript(
                       "var b=new Blob(['native-gui download probe'],{type:'text/plain'});var u=URL.createObjectURL(b);var a=document.createElement('a');a.href=u;a.download='ngui.txt';document.body.appendChild(a);a.click();",
                     )
-                    ev("已发起 blob 下载（放行档弹保存对话框，拦下档落判取消）")
+                    ev("已发起 blob 下载（放行档弹保存框定落点，拦下档取消）")
                   } else {
                     ()
                   }
@@ -537,14 +536,42 @@ fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
                     None => ()
                   }
                 }
-                @web.Download(d) => {
-                  let how = if pol_dl.val {
-                    "放行：mac/Linux 弹保存对话框定落点，Windows 交引擎默认"
-                  } else {
-                    "拦下"
+                @web.Download(req) => {
+                  // 库只上报与扣住（询问档），落判在本层：放行=弹系统保存框
+                  // 定落点，拦下/对话框取消=取消下载
+                  match wv.val {
+                    Some(v) => {
+                      if pol_dl.val {
+                        let dlg = @sys.FileDialog::new_save()
+                        if req.suggested != "" {
+                          dlg.set_filename(req.suggested)
+                        }
+                        let ok = dlg.run_for_window(a.wid().to_int64())
+                        let path = if ok { dlg.get_result() } else { "" }
+                        dlg.destroy()
+                        if ok && path != "" {
+                          let _ = v.respond_download(req.id, true, path)
+                          ev("下载放行：\{clip(path, 80)}")
+                          show_result(
+                            "下载请求（放行）：\{req.uri}\n落点：\{path}\n\n当前策略：\n\{policy_text()}",
+                          )
+                        } else {
+                          let _ = v.respond_download(req.id, false, "")
+                          ev("下载已取消（对话框取消）")
+                          show_result(
+                            "下载请求（取消）：\{req.uri}\n\n当前策略：\n\{policy_text()}",
+                          )
+                        }
+                      } else {
+                        let _ = v.respond_download(req.id, false, "")
+                        ev("下载被策略拦下")
+                        show_result(
+                          "下载请求（拦下）：\{req.uri}\n\n当前策略：\n\{policy_text()}",
+                        )
+                      }
+                    }
+                    None => ()
                   }
-                  ev(if pol_dl.val { "下载已放行" } else { "下载被策略拦下" })
-                  show_result("下载请求（\{how}）：\{d}\n\n当前策略：\n\{policy_text()}")
                 }
                 @web.Cookies(j) =>
                   show_result("Cookie 回包（\{j.length()} 字节）\n\{j}")
@@ -567,7 +594,9 @@ fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
             let tick : Ref[() -> Unit] = Ref(fn() { () })
             tick.val = fn() -> Unit {
               if v.add_raw_binding("demoBinding") {
-                v.set_download_mode(pol_dl.val)
+                // 下载走询问档：事件后扣住待决，放行/拦下由下面的 Download
+                // 分支按当前策略落判（库不做 UI 策略，保存框在本示例层）
+                v.set_download_mode(false)
               } else {
                 tries.val = tries.val + 1
                 if tries.val < 60 {

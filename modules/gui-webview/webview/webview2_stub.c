@@ -77,6 +77,7 @@ WB_FWD_HND(ResReq, ICoreWebView2WebResourceRequestedEventHandler)
 typedef struct WbView WbView;
 
 #define WB_MAX_SCHEMES 16
+#define WB_DL_MAX_PENDING 8  // 下载待决槽（与 Linux/mac 支同容量）
 
 struct WbView {
   int64_t id;
@@ -98,7 +99,15 @@ struct WbView {
   // 扣住的待决权限：args 走 GetDeferral，Complete 前引擎都不落判
   ICoreWebView2PermissionRequestedEventArgs *pending_perm;
   ICoreWebView2Deferral *pending_perm_deferral;
-  int download_allow;      // 0 拦下 / 1 交给引擎默认（默认允许）
+  // 1 自动档=报事件后交运行时默认体验（默认）/ 0 询问档=扣住待决等 respond_download
+  int download_allow;
+  // 扣住的下载待决（询问档）：DownloadStarting 走 GetDeferral + put_Handled
+  // 压默认浮层，respond_download 落判；视图销毁一律按取消收口
+  struct {
+    int64_t id;
+    ICoreWebView2DownloadStartingEventArgs *args;
+    ICoreWebView2Deferral *deferral;
+  } dl_holds[WB_DL_MAX_PENDING];
   int64_t eval_seq;
   char *eval_text; // 最近一次求值回包全文（见 WB_EVAL_TEXT_MAX）
   int eval_len;
@@ -125,6 +134,7 @@ struct WbView {
 #define WB_MAX_VIEWS 32
 static WbView wb_pool[WB_MAX_VIEWS];
 static int wb_next_id = 1;
+static int64_t wb_dl_next_id = 1;  // 下载待决件 id（事件 num 与 respond 对账用）
 
 // ---- 基础工具 ----
 
@@ -621,24 +631,69 @@ static HRESULT STDMETHODCALLTYPE WbHnd_DlStart_inv(
     ICoreWebView2DownloadStartingEventArgs *args) {
   (void)sender;
   WbView *v = ((struct WbHnd_DlStart *)self)->v;
-  // uri 要穿过 DownloadOperation 拿（args 上没有 get_Uri）
+  // uri 要穿过 DownloadOperation 拿（args 上没有 get_Uri）；建议名从默认落点
+  // 路径的末段取（此 SDK 层没有独立的 SuggestedFileName 口）
+  char uri8[WB_EV_TEXT] = {0};
+  char suggested[260] = {0};
   ICoreWebView2DownloadOperation *op = NULL;
   if (SUCCEEDED(args->lpVtbl->get_DownloadOperation(args, &op)) &&
       op != NULL) {
     LPWSTR uri = NULL;
     if (SUCCEEDED(op->lpVtbl->get_Uri(op, &uri)) && uri != NULL) {
       char *u8 = wb_wide_to_utf8(uri);
-      wb_push(v, 10, 0, u8 ? u8 : "");
-      free(u8);
+      if (u8 != NULL) {
+        snprintf(uri8, sizeof(uri8), "%s", u8);
+        free(u8);
+      }
       CoTaskMemFree(uri);
+    }
+    LPWSTR rfp = NULL;
+    if (SUCCEEDED(op->lpVtbl->get_ResultFilePath(op, &rfp)) && rfp != NULL) {
+      char *u8 = wb_wide_to_utf8(rfp);
+      if (u8 != NULL) {
+        const char *base = strrchr(u8, '\\');
+        const char *base2 = strrchr(u8, '/');
+        if (base2 != NULL && (base == NULL || base2 > base)) {
+          base = base2;
+        }
+        snprintf(suggested, sizeof(suggested), "%s",
+                 base != NULL ? base + 1 : u8);
+        free(u8);
+      }
+      CoTaskMemFree(rfp);
     }
     op->lpVtbl->Release(op);
   }
-  if (!v->download_allow) {
-    // 拦下：Handle 住再 Cancel（不 Handle 的话默认处理器照下不误）
-    args->lpVtbl->put_Handled(args, TRUE);
-    args->lpVtbl->put_Cancel(args, TRUE);
+  char payload[WB_EV_TEXT];
+  snprintf(payload, sizeof(payload), "%s|%s", uri8, suggested);
+  if (v->download_allow) {
+    // 自动档：报事件（id=0）后交运行时默认体验（右上角下载浮层 + 默认目录）
+    wb_push(v, 10, 0, payload);
+    return S_OK;
   }
+  // 询问档：压掉默认浮层 + 扣 deferral，等 respond_download 落判
+  ICoreWebView2Deferral *def = NULL;
+  int slot = -1;
+  for (int i = 0; i < WB_DL_MAX_PENDING; i++) {
+    if (v->dl_holds[i].args == NULL) {
+      slot = i;
+      break;
+    }
+  }
+  if (slot < 0 || FAILED(args->lpVtbl->GetDeferral(args, &def)) || def == NULL) {
+    // 待决槽满 / 扣不住 deferral：保底交运行时默认
+    wb_push(v, 10, 0, payload);
+    if (def != NULL) {
+      def->lpVtbl->Release(def);
+    }
+    return S_OK;
+  }
+  args->lpVtbl->put_Handled(args, TRUE);  // 默认浮层不出，宿主接手
+  v->dl_holds[slot].id = wb_dl_next_id++;
+  v->dl_holds[slot].args = args;
+  args->lpVtbl->AddRef(args);
+  v->dl_holds[slot].deferral = def;  // GetDeferral 给的引用即持有
+  wb_push(v, 10, v->dl_holds[slot].id, payload);
   return S_OK;
 }
 
@@ -1949,6 +2004,38 @@ void wb_set_download_mode(int64_t id, int allow) {
   }
 }
 
+// 落判扣住的下载：allow=1 且 path 非空 → 设落点开下；否则一律取消。
+// 返回是否真落判（id 对不上任何待决件=0）。
+int wb_respond_download(int64_t id, int64_t dl_id, int allow, const char *path) {
+  WbView *v = wb_get(id);
+  if (v == NULL) {
+    return 0;
+  }
+  for (int i = 0; i < WB_DL_MAX_PENDING; i++) {
+    if (v->dl_holds[i].args != NULL && v->dl_holds[i].id == dl_id) {
+      if (allow && path != NULL && path[0] != '\0') {
+        wchar_t *w = wb_utf8_to_wide(path);
+        if (w != NULL) {
+          v->dl_holds[i].args->lpVtbl->put_ResultFilePath(
+              v->dl_holds[i].args, w);
+          free(w);
+        } else {
+          v->dl_holds[i].args->lpVtbl->put_Cancel(
+              v->dl_holds[i].args, TRUE);
+        }
+      } else {
+        v->dl_holds[i].args->lpVtbl->put_Cancel(v->dl_holds[i].args, TRUE);
+      }
+      v->dl_holds[i].deferral->lpVtbl->Complete(v->dl_holds[i].deferral);
+      v->dl_holds[i].args->lpVtbl->Release(v->dl_holds[i].args);
+      v->dl_holds[i].deferral->lpVtbl->Release(v->dl_holds[i].deferral);
+      memset(&v->dl_holds[i], 0, sizeof(v->dl_holds[i]));
+      return 1;
+    }
+  }
+  return 0;
+}
+
 // cookie 回包：kind=13，结构化 JSON 数组（与 WebKit 分支同一形态）
 typedef struct {
   ICoreWebView2GetCookiesCompletedHandler itf;
@@ -2129,6 +2216,16 @@ void wb_destroy(int64_t id) {
     v->pending_perm_deferral->lpVtbl->Release(v->pending_perm_deferral);
     v->pending_perm = NULL;
     v->pending_perm_deferral = NULL;
+  }
+  // 扣住的下载待决随视图销毁按取消收口（同上口径）
+  for (int i = 0; i < WB_DL_MAX_PENDING; i++) {
+    if (v->dl_holds[i].args != NULL) {
+      v->dl_holds[i].args->lpVtbl->put_Cancel(v->dl_holds[i].args, TRUE);
+      v->dl_holds[i].deferral->lpVtbl->Complete(v->dl_holds[i].deferral);
+      v->dl_holds[i].args->lpVtbl->Release(v->dl_holds[i].args);
+      v->dl_holds[i].deferral->lpVtbl->Release(v->dl_holds[i].deferral);
+      memset(&v->dl_holds[i], 0, sizeof(v->dl_holds[i]));
+    }
   }
   if (v->ctrl != NULL) {
     v->ctrl->lpVtbl->Close(v->ctrl); // 从 parent HWND 摘掉并停引擎

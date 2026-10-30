@@ -95,7 +95,8 @@ test "事件分派：kind 映射逐条对上，JS 回包按序号配对后出队
       NavRedirected(t) => log.push("redirect:" + t)
       LoadFailed(t) => log.push("fail:" + t)
       Permission(t) => log.push("perm:" + t)
-      Download(t) => log.push("dl:" + t)
+      Download(req) =>
+        log.push("dl:" + req.id.to_string() + ":" + req.uri + "|" + req.suggested)
       NewWindow(t) => log.push("win:" + t)
       Cookies(t) => log.push("cookies:" + t)
       ProcessTerminated(t) => log.push("crash:" + t)
@@ -112,7 +113,7 @@ test "事件分派：kind 映射逐条对上，JS 回包按序号配对后出队
   v.dispatch(15, 0L, "https://e.x/2")
   v.dispatch(14, 0L, "https://e.x/2|WebKitNetworkError|-1|boom")
   v.dispatch(9, 0L, "GeolocationPermissionRequest")
-  v.dispatch(10, 0L, "https://e.x/f.zip")
+  v.dispatch(10, 7L, "https://e.x/f.zip|f.zip")
   v.dispatch(8, 0L, "https://e.x/open")
   v.dispatch(13, 0L, "[]")
   v.dispatch(11, 0L, "reason=1")
@@ -129,7 +130,7 @@ test "事件分派：kind 映射逐条对上，JS 回包按序号配对后出队
       "redirect:https://e.x/2",
       "fail:https://e.x/2|WebKitNetworkError|-1|boom",
       "perm:GeolocationPermissionRequest",
-      "dl:https://e.x/f.zip",
+      "dl:7:https://e.x/f.zip|f.zip",
       "win:https://e.x/open",
       "cookies:[]",
       "crash:reason=1",
