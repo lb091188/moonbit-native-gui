@@ -3394,3 +3394,24 @@ void *yue_sys_mon_win(int32_t *ok) {
   return moonbit_make_bytes(0, 0);
 }
 #endif
+
+// 系统权限 / 屏幕色温占位（非 mac）：真实现住 win 桩的 WM_STUB_MAC 分支，
+// 门面在 sys_platform() != "macos" 早退，这里只为符号可链。占位须住声明者
+// sys 的桩——sys 的白盒测试 exe 只链 sys 包，空桩住 win 桩时 Windows 链接
+// 报 LNK2019（2026-10-30 CI 实测）。
+#if !defined(__APPLE__)
+int wm_permission_probe(int kind, int32_t *ok) {
+  (void)kind;
+  if (ok != NULL) {
+    *ok = 1;
+  }
+  return 0;
+}
+void wm_permission_request(int kind) { (void)kind; }
+void wm_screen_tint_apply(int32_t percent, int32_t *ok) {
+  (void)percent;
+  if (ok != NULL) {
+    *ok = 1;
+  }
+}
+#endif
