@@ -1,6 +1,8 @@
-# 二进制发布:推 bin-* 标签(如 bin-v0.1.0)触发,各平台矩阵各自编译 release
-# 可执行文件(hello / showcase / browser / audio / video 五件套),打包为
-# bin-<平台>.zip 汇聚到 GitHub Release 资产。
+# 二进制发布:workflow_dispatch 或推 bin-* 标签触发,各平台矩阵各自编译
+# release 可执行文件(hello / showcase / browser / audio / video 五件套),
+# 打包为 bin-<平台>.zip,发布到固定单一名「Binaries」(tag bin)下覆盖更新——
+# 不按版本开 Release,拿到的永远是最新构建;音视频演示文件随包
+# (audio/assets、video/assets,示例从启动目录逐级向上解析)。
 #
 # 与 CI 的分工:CI 每次 push 验证「可检查可测试可链接」,本工作流产出「可分发
 # 的二进制」。交叉编译不可行(MoonBit native 后端调本机 C 工具链链本机静态库,
@@ -25,6 +27,7 @@ name: release-bin
 
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'bin-*'
@@ -163,6 +166,14 @@ jobs:
               dst = name + (".exe" if sys.platform == "win32" else "")
               shutil.copy2(src, os.path.join(stage, dst))
               print(f"打包: {dst} ({os.path.getsize(src)} bytes)")
+          # 音视频演示文件随包:示例从启动目录逐级向上找 audio/assets、
+          # video/assets,放进包里从解压目录启动即可播默认演示与外挂字幕
+          for exe_dir, sub in [("audio", "examples/audio/assets"),
+                               ("video", "examples/video/assets")]:
+              if not os.path.isdir(sub):
+                  raise SystemExit(f"演示文件缺失: {sub}")
+              shutil.copytree(sub, os.path.join(stage, exe_dir, "assets"))
+              print(f"演示文件随包: {exe_dir}/assets <- {sub}")
           # 第三方许可随包(LGPL 分发要求带许可文本)
           notices = "docs/THIRD-PARTY-NOTICES.md"
           if os.path.isfile(notices):
@@ -201,16 +212,13 @@ jobs:
                   f.write(
                       "首次运行被拦看这里 / If macOS blocks the first launch\n"
                       "----------------------------------------------------\n"
-                      "终端进入解压目录执行(一次性放行全部五个):\n"
-                      "  xattr -dr com.apple.quarantine .\n"
-                      "或:系统设置 - 隐私与安全性 - 「安全性」段 - 「仍要打开」\n"
-                      "(每个可执行文件各一次,拦截后约 1 小时内有效)。\n"
-                      "Or: System Settings - Privacy & Security - Security -\n"
-                      "\"Open Anyway\" (per executable, valid ~1 hour).\n"
+                      "终端在解压目录执行:xattr -dr com.apple.quarantine .\n"
+                      "Run in a terminal inside the unzipped folder: xattr -dr com.apple.quarantine .\n"
+                      "或系统设置 - 隐私与安全性 - 「仍要打开」\n"
+                      "Or System Settings - Privacy & Security - Open Anyway\n"
                       "\n"
-                      "包内 .dylib 必须与可执行文件同目录,不要拆开拷贝。\n"
-                      "Keep the .dylib files next to the executables (do not\n"
-                      "split them out of this folder).\n")
+                      ".dylib 与 audio/assets、video/assets 请与可执行文件保持同目录。\n"
+                      "Keep the .dylib files and the assets folders next to the executables.\n")
           shutil.make_archive(f"bin-{os.environ['BIN_PLAT']}", "zip", stage)
           print(f"完成: bin-{os.environ['BIN_PLAT']}.zip")
 
@@ -228,21 +236,25 @@ jobs:
         with:
           merge-multiple: true
 
-      - name: 发布二进制到 Release
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: false
-          name: Binaries ${{ github.ref_name }}
-          body: |
-            可执行包(hello / showcase / browser / audio / video 五件套):
+      - name: 发布到固定 Release「Binaries」资产覆盖更新
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > NOTES.md <<'EOF'
+          三平台预构建演示包：hello / showcase / browser / audio / video，解压即跑；音视频演示文件已随包。
+          Prebuilt demo packages: hello / showcase / browser / audio / video. Unzip and run; demo media files are bundled.
 
-            | 包 | 运行要求 |
-            |---|---|
-            | bin-linux-x64.zip | x64 Linux;需 GTK3 / Pango / X11 / WebKit2gtk / FFmpeg 运行库(Ubuntu 24.04 自带) |
-            | bin-windows-x64.zip | Windows 10/11 x64;解压即用(FFmpeg DLL 在包内,WebView2 Runtime 系统自带,双击不弹控制台黑框) |
-            | bin-macos-arm64.zip | Apple Silicon macOS;解压即用(FFmpeg dylib 在包内;首次打开被 Gatekeeper 拦时右键「打开」或 `xattr -dr com.apple.quarantine <目录>`) |
+          - bin-windows-x64.zip：Windows 10/11 x64，解压即用 / Windows 10/11 x64, ready to run
+          - bin-macos-arm64.zip：Apple Silicon，首次启动放行见包内 README-FIRST.txt / Apple Silicon, see README-FIRST.txt for the first-launch bypass
+          - bin-linux-x64.zip：x64 Linux，需 GTK3 / Pango / X11 / WebKit2gtk / FFmpeg 运行库 / x64 Linux, needs GTK3 / Pango / X11 / WebKit2gtk / FFmpeg runtime libs
 
-            各可执行文件说明:`hello` 最小窗口;`showcase` 全功能演示板(15 页,含系统能力探测页);`browser` 内嵌浏览器演示;`audio` / `video` 音视频演示(依赖包内 FFmpeg)。
-
-            体验引导(每个演示的操作路径与体验点)见文档站「体验文档」;源码方式 `moon run examples/showcase` 见 README。
-          files: 'bin-*.zip'
+          体验路径见文档站「体验文档」 / Walkthrough: https://moonbit-native-gui.pages.dev/zh/experience
+          EOF
+          sed -i 's/^          //' NOTES.md
+          gh release view bin --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create bin --repo "$GITHUB_REPOSITORY" \
+                 --title "Binaries" --notes-file NOTES.md
+          gh release edit bin --repo "$GITHUB_REPOSITORY" \
+            --title "Binaries" --notes-file NOTES.md
+          gh release upload bin --repo "$GITHUB_REPOSITORY" --clobber bin-*.zip
+          echo "已发布/更新: 固定 Release「Binaries」"

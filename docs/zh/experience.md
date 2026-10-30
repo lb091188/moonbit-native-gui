@@ -4,7 +4,7 @@
 
 ## 1. 下载预构建包
 
-到 [GitHub Releases](https://github.com/lb091188/moonbit-native-gui/releases) 找 **Binaries** 版（`bin-*` 标签产出），按平台取一个 zip：
+到 [GitHub Releases](https://github.com/lb091188/moonbit-native-gui/releases) 的 **Binaries**（固定单一名，始终是最新构建），按平台取一个 zip：
 
 | 包 | 平台 |
 |---|---|
@@ -19,7 +19,7 @@
 | `hello` | 最小窗口（框架体积与启动速度的基线样本） |
 | `showcase` | 全功能演示板：组件族、14 种交互图表、Markdown / 代码视图、主题跟随、系统集成页、系统能力探测页 |
 | `browser` | 内嵌浏览器演示：地址栏导航、本地站点、JS 互操作、策略拦截 |
-| `audio` / `video` | 音频 / 视频播放器演示（Windows / macOS 包内自带 FFmpeg 动态库） |
+| `audio` / `video` | 音频 / 视频播放器演示，演示文件已随包（`audio/assets`、`video/assets`；Windows / macOS 包内另带 FFmpeg 动态库） |
 
 ## 2. 首次运行
 
