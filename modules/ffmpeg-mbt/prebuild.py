@@ -44,15 +44,14 @@ WIN_LIBS = ["avformat.lib", "avcodec.lib", "swscale.lib", "swresample.lib", "avu
 
 # 运行期 dll（同一份 BtbN win64-lgpl-shared 9.0 归档的 bin/）。约 150MB，不入库：
 # 构建时缺失就从归档取一份放到 vendor/win/bin/，运行期由使用方放到 exe 同目录
-# 或 PATH（口径见 README）。
+# 或 PATH（口径见 README）。只列实际链接的五支——WIN_LIBS / pkg-config 的
+# LIBS 都是这五支，上游 bin 目录里的 avdevice/avfilter 没人链接，随包是死重。
 WIN_RUNTIME_DLLS = [
     "avcodec-63.dll",
     "avformat-63.dll",
     "avutil-61.dll",
     "swscale-10.dll",
     "swresample-7.dll",
-    "avdevice-63.dll",
-    "avfilter-12.dll",
 ]
 
 WIN_DLL_URL = (
