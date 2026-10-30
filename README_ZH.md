@@ -6,6 +6,11 @@
 
 [English](README.md) | 简体中文
 
+## 快速开始
+
+- [体验文档](https://moonbit-native-gui.pages.dev/zh/experience)：下载预构建包体验，或基于 `native-gui` 开发应用。
+- [构建与运行](https://moonbit-native-gui.pages.dev/zh/build)：参与 `native-gui` 库的开发。
+
 📚 [**在线文档**](https://moonbit-native-gui.pages.dev/zh/)
 
 ![组件库演示板](./docs/public/images/showcase-main.png)
@@ -46,13 +51,6 @@ fn main {
 
 MoonBit 生态的 GUI 能力各有分工：[MoUI](https://github.com/wzzc-dev/MoUI) 基于 Skia 渲染引擎，面向多端共享界面逻辑；而 native-gui 基于系统渲染，定位**桌面应用的一站式交付**，力求让系统能力开箱即用，常用组件跨平台统一，日常应用一站式完成。
 
-## 快速开始
-
-- [体验文档](https://moonbit-native-gui.pages.dev/zh/experience)：下载预构建包真体验，或基于库做应用（`moon add`、最小窗口、跑示例）。
-- [构建与运行](https://moonbit-native-gui.pages.dev/zh/build)：改库与参与开发——环境安装、构建门禁、测试口径与失败处置。
-- [包结构](https://moonbit-native-gui.pages.dev/zh/packages)：15 个包别名与两个独立模块的内容一览。
-
-完整文档：https://moonbit-native-gui.pages.dev/zh/
 
 ## 平台支持
 
@@ -60,7 +58,7 @@ MoonBit 生态的 GUI 能力各有分工：[MoUI](https://github.com/wzzc-dev/Mo
 |---|---|---|
 | Ubuntu 24.04 | ✅ | XFCE / GNOME / KDE / Cinnamon |
 | Deepin 23 / 25 | ✅ | |
-| Deepin 20 / Debian 10 基线 | ❌ | **不作为支持目标**：本库侧已按 Python 3.7 口径跑通到编译，墙在 MoonBit 工具链自带 runtime 用的 `SYS_pidfd_open`（老 glibc 的冻结 syscall 表，升内核头补不上），坑与自救见[构建与运行](https://moonbit-native-gui.pages.dev/zh/build) |
+| Deepin 20 | ❌ | 待 MoonBit 修复 Deepin 20 的编译，详见 [构建与运行](https://moonbit-native-gui.pages.dev/zh/build) |
 | Windows 10 / 11 | ✅ |  |
 | macOS | ✅ | Apple Silicon  |
 

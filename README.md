@@ -2,9 +2,14 @@
 
 > **Where it came from**: this library started as a MoonBit binding of [Cheng Zhao (zcbenz)](https://github.com/zcbenz)'s [Yue / libyue](https://github.com/yue/yue), with layout following [Yoga](https://github.com/facebook/yoga)'s flexbox. Neither is a runtime dependency any more — both stay as references for behaviour and as sources of material. Thanks also to [MoonBit](https://github.com/moonbitlang).
 
-A **cross-platform desktop GUI framework** for [MoonBit](https://github.com/moonbitlang) — one MoonBit codebase ships native windows on Windows 🟩 / Linux 🟩 / macOS 🟩, with tray, notifications, shortcuts, file dialogs and other desktop capabilities ready to use and zero configuration after `moon add`. All three platforms (Windows / Linux / macOS) share one codebase and one synchronised real-machine checklist.
+A **cross-platform desktop GUI framework** for [MoonBit](https://github.com/moonbitlang) — one MoonBit codebase ships native windows on Windows 🟩 / Linux 🟩 / macOS 🟩, with tray, notifications, shortcuts, file dialogs and other desktop capabilities ready to use and zero configuration after `moon add`.
 
 English | [简体中文](README_ZH.md)
+
+## Quick start
+
+- [Experience guide](https://moonbit-native-gui.pages.dev/experience): try the prebuilt demos, or build apps on `native-gui`.
+- [Build & run](https://moonbit-native-gui.pages.dev/build): working on the `native-gui` library itself.
 
 📚 **Documentation**: <https://moonbit-native-gui.pages.dev/>
 
@@ -46,13 +51,6 @@ fn main {
 
 GUI capability in the MoonBit ecosystem has more than one lane: [MoUI](https://github.com/wzzc-dev/MoUI) is built on the Skia rendering engine and targets interface logic shared across platforms, while native-gui renders through the system and aims at **one-stop delivery for desktop apps** — system capabilities out of the box, common widgets consistent across platforms, everyday applications finished in one place.
 
-## Quick start
-
-- [Experience guide](https://moonbit-native-gui.pages.dev/experience): try the prebuilt demos, or build apps on the library (`moon add`, a minimal window, running the examples).
-- [Build & run](https://moonbit-native-gui.pages.dev/build): working on the library — environment setup, build gates, test policy, failure fixes.
-- [Package layout](https://moonbit-native-gui.pages.dev/packages): the 15 package aliases and the two optional modules at a glance.
-
-Full docs: https://moonbit-native-gui.pages.dev/
 
 ## Platform support
 
@@ -60,7 +58,7 @@ Full docs: https://moonbit-native-gui.pages.dev/
 |---|---|---|
 | Ubuntu 24.04 | ✅ | XFCE / GNOME / KDE / Cinnamon |
 | Deepin 23 / 25 | ✅ | |
-| Deepin 20 / Debian 10 base | ❌ | **not a supported target**: this library builds through prebuild on the Python 3.7 baseline, but the wall is `SYS_pidfd_open` in the runtime C sources that ship with the MoonBit toolchain (glibc's frozen syscall table — new kernel headers don't add it). Pitfalls and self-rescue notes: [Build & run](https://moonbit-native-gui.pages.dev/build) |
+| Deepin 20 | ❌ | waiting on MoonBit to fix the build for Deepin 20 — see [Build & run](https://moonbit-native-gui.pages.dev/build) |
 | Windows 10 / 11 | ✅ | |
 | macOS | ✅ | Apple Silicon |
 
