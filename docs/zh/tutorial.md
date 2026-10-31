@@ -65,20 +65,18 @@ cd my_app
 moon add NoahLiu/native-gui
 ```
 
-`moon new` 生成的工程需要三处手工调整：
+当前 `moon new` 模板的结构：根目录是库包（`my_app.mbt`、空的 `moon.pkg`），可执行入口在 `cmd/main/` 子包（`main.mbt` + `moon.pkg`）。工程需要两处手工调整（从零路径与常见卡点另见[应用开发者体验](dev-experience.md)）：
 
 - **`moon.mod`：把 `preferred_target = "wasm"` 改为 `"native"`**——本库走原生 FFI，只支持 native 后端；模板默认已是 native 时跳过。
 
-- **入口文件改名：`my_app.mbt` → `main.mbt`**——当前版本的 moon 只把名为 `main.mbt` 的文件识别为程序入口；用模板默认文件名会报 `Missing main function`。
-
-- **`moon.pkg` 整个替换为**——moon 的 DSL 格式，不是 JSON：
+- **`cmd/main/moon.pkg` 整个替换为**——moon 的 DSL 格式，不是 JSON：
 
   ```
   import {
     "NoahLiu/native-gui/base",
-    "NoahLiu/native-gui/shell",
     "NoahLiu/native-gui/widget" @widget,
     "NoahLiu/native-gui/ui",
+    "NoahLiu/native-gui/style" @style,
   }
 
   pkgtype(kind: "executable")
@@ -86,11 +84,13 @@ moon add NoahLiu/native-gui
   supported_targets = "native"
   ```
 
-  `import` 让代码能访问库：`@ui.*` 提供控件、组件与声明式入口（`mount_window` 与各节点构造器），`@base.*`/`@shell.*`/`@widget.*` 提供应用宿主与响应式状态（`Store` / `Signal`）。`pkgtype(kind: "executable")` 与 `supported_targets = "native"` 声明本包是可执行入口、只出原生目标。
+  `import` 让代码能访问库：`@ui.*` 提供控件、组件与声明式入口（`mount_window` 与各节点构造器），`@base.*` 提供响应式状态（`Store` / `Signal`），`@style.*` 提供字阶等样式类，`@widget.*` 提供应用宿主 `App`。`pkgtype(kind: "executable")` 与 `supported_targets = "native"` 声明本包是可执行入口、只出原生目标。
+
+  入口在 `cmd/main/main.mbt`——moon 只把名为 `main.mbt` 的文件识别为程序入口，自建入口文件时保持这个文件名。
 
 ## 3. 第一个窗口
 
-把 `main.mbt` 整个替换为：
+把 `cmd/main/main.mbt` 整个替换为：
 
 ```moonbit
 fn main {
@@ -124,7 +124,7 @@ fn main {
 ```
 
 ```sh
-moon run .
+moon run cmd/main
 ```
 
 窗口出现：一个标题、一个按钮、一行「已点 0 次」；点按钮，数字自动 +1。这是**响应式状态**——`count` 一变，`bind_label` 自动刷新，无需「点击后改文本」的胶水代码。界面用 `@ui.col([...])` / `@ui.text(...)` / `@ui.button(...)` 等**节点构造器**声明成一棵树，交给 `mount_window` 一次挂载；`mount_window` 在没有窗口后端或没有显示服务时返回 `None`，示例据此结构化退出。

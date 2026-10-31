@@ -79,31 +79,7 @@ Playback / progress / speed control, external and embedded subtitle tracks, A/V 
 
 ## 2. Build apps on the library
 
-In your own project:
-
-```sh
-moon add NoahLiu/native-gui
-```
-
-Minimal window:
-
-```moonbit
-fn main {
-  let app = match @ui.mount_window(
-    [@ui.text("Hello, MoonBit!", font_size=18.0)],
-    title="Hello, MoonBit!",
-    width=400,
-    height=300,
-  ) {
-    None => {
-      // no window backend or no display service on this host
-      return
-    }
-    Some(a) => a
-  }
-  app.run()
-}
-```
+The from-zero path — toolchain, `moon new`, two configuration adjustments, first window, common blockers — is in the [App developer experience](dev-experience.md); MoonBit syntax and reactivity are covered in the [five-minute tutorial](tutorial.md).
 
 To see it running, clone the repository and run an example — every directory under `examples/` is a standalone module, so **`cd` in and `moon run .`**:
 

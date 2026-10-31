@@ -79,33 +79,9 @@ sudo apt install libgtk-3-0 libpango-1.0-0 libx11-6 \
 
 ## 二、基于库的应用开发
 
-自己的工程里引入：
+从零路径——装工具链、`moon new`、两处配置调整、第一个窗口、常见卡点——见[应用开发者体验](dev-experience.md)；MoonBit 语法与响应式讲解见[五分钟上手教程](tutorial.md)。
 
-```sh
-moon add NoahLiu/native-gui
-```
-
-最小窗口：
-
-```moonbit
-fn main {
-  let app = match @ui.mount_window(
-    [@ui.text("Hello, MoonBit!", font_size=18.0)],
-    title="Hello, MoonBit!",
-    width=400,
-    height=300,
-  ) {
-    None => {
-      // 本平台没有窗口后端或没有显示服务
-      return
-    }
-    Some(a) => a
-  }
-  app.run()
-}
-```
-
-想看效果就克隆仓库跑示例——`examples/` 下每个目录都是独立模块，进目录 `moon run .` 即可：
+想先看效果就克隆仓库跑示例——`examples/` 下每个目录都是独立模块，进目录 `moon run .` 即可：
 
 ```sh
 git clone https://github.com/lb091188/moonbit-native-gui.git

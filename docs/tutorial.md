@@ -65,20 +65,18 @@ cd my_app
 moon add NoahLiu/native-gui
 ```
 
-The project `moon new` generates needs three manual adjustments:
+The current `moon new` template: the root package is a library (`my_app.mbt` and an empty `moon.pkg`), and the executable entry lives in the `cmd/main/` sub-package (`main.mbt` + `moon.pkg`). The project needs two manual adjustments (the from-zero path and common blockers are in the [App developer experience](dev-experience.md)):
 
 - **`moon.mod`: change `preferred_target = "wasm"` to `"native"`** — this library uses native FFI and supports only the native backend; skip if the template already defaults to native.
 
-- **Rename the entry file: `my_app.mbt` → `main.mbt`** — the current moon only recognizes a file named `main.mbt` as the program entry; the template's default file name reports `Missing main function`.
-
-- **Replace the whole `moon.pkg` with** — moon's DSL format, not JSON:
+- **Replace the whole `cmd/main/moon.pkg` with** — moon's DSL format, not JSON:
 
   ```
   import {
     "NoahLiu/native-gui/base",
-    "NoahLiu/native-gui/shell",
-    "NoahLiu/native-gui/widget" @widget,,
+    "NoahLiu/native-gui/widget" @widget,
     "NoahLiu/native-gui/ui",
+    "NoahLiu/native-gui/style" @style,
   }
 
   pkgtype(kind: "executable")
@@ -86,11 +84,13 @@ The project `moon new` generates needs three manual adjustments:
   supported_targets = "native"
   ```
 
-  `import` gives the code access to the library: `@ui.*` provides widgets, components, and the declarative entries (`mount_window` and the node constructors), `@base.*`/`@shell.*`/`@widget.*` provides the app host and reactive state (`Store` / `Signal`). `pkgtype(kind: "executable")` and `supported_targets = "native"` declare this package an executable entry that builds only for the native target.
+  `import` gives the code access to the library: `@ui.*` provides widgets, components, and the declarative entries (`mount_window` and the node constructors), `@base.*` provides reactive state (`Store` / `Signal`), `@style.*` provides type-scale style classes, and `@widget.*` provides the app host `App`. `pkgtype(kind: "executable")` and `supported_targets = "native"` declare this package an executable entry that builds only for the native target.
+
+  The entry file is `cmd/main/main.mbt` — moon only recognizes a file named `main.mbt` as the program entry; keep that file name when creating your own entry files.
 
 ## 3. Your first window
 
-Replace `main.mbt` entirely with:
+Replace `cmd/main/main.mbt` entirely with:
 
 ```moonbit
 fn main {
@@ -124,7 +124,7 @@ fn main {
 ```
 
 ```sh
-moon run .
+moon run cmd/main
 ```
 
 A window appears: a title, a button, and a "Clicked 0 times" line. Click the button and the number ticks up by itself. That is **reactive state**: when `count` changes, `bind_label` refreshes on its own — no "update the text on click" glue code. The UI is declared as a tree of **node constructors** (`@ui.col([...])` / `@ui.text(...)` / `@ui.button(...)`) and mounted in one `mount_window` call; `mount_window` returns `None` when there is no window backend or no display service, and the example exits accordingly.

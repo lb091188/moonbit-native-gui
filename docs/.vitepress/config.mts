@@ -90,6 +90,7 @@ export default defineConfig({
             text: 'Guide',
             items: [
               { text: 'Doc index', link: '/README' },
+              { text: 'App developer experience', link: '/dev-experience' },
               { text: 'Tutorial', link: '/tutorial' },
               { text: 'Components', link: '/components' },
               { text: 'Declarative & reactivity', link: '/declarative' },
@@ -126,6 +127,7 @@ export default defineConfig({
             text: '指南',
             items: [
               { text: '文档索引', link: '/zh/README' },
+              { text: '应用开发者体验', link: '/zh/dev-experience' },
               { text: '五分钟上手教程', link: '/zh/tutorial' },
               { text: '组件速查', link: '/zh/components' },
               { text: '声明式与响应式', link: '/zh/declarative' },

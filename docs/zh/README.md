@@ -63,6 +63,7 @@ cd examples/hello && MOON_WORK=off moon run .
 
 | 文档 | 内容 |
 |---|---|
+| [dev-experience.md](dev-experience.md) | 应用开发者体验：从零到第一个窗口——装工具链、建工程（`moon new` 模板的两处调整）、运行与常见卡点 |
 | [tutorial.md](tutorial.md) | 五分钟上手：装工具链、建工程、做出第一扇带点击计数的窗口 |
 | [components.md](components.md) | 组件速查（`@ui`）：各控件构造器的入口签名与用途，按家族分组 |
 | [declarative.md](declarative.md) | 声明式层与响应式：节点树与 `mount_window`、`Store` / `Signal`、`for_list` / `when`、原位替换 |
