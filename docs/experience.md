@@ -6,7 +6,7 @@ Two ways to try native-gui without writing code: download the prebuilt packages 
 
 ### Download and first run
 
-Open [GitHub Releases](https://github.com/lb091188/moonbit-native-gui/releases) and pick the **Binaries** release (one fixed name, always the latest build), one zip per platform:
+Open [GitHub Releases](https://github.com/lb091188/moonbit-native-gui/releases) and pick the **Binaries** release (one fixed name, always the latest build), one zip per platform; in China, a [Gitee mirror](https://gitee.com/noahliu0911/moonbit-native-gui/releases/tag/bin) carries the same build, updated in sync:
 
 | Package | Platform |
 |---|---|

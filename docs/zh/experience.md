@@ -6,7 +6,7 @@
 
 ### 下载与首次运行
 
-到 [GitHub Releases](https://github.com/lb091188/moonbit-native-gui/releases) 的 **Binaries**（固定单一名，始终是最新构建），按平台取一个 zip：
+到 [GitHub Releases](https://github.com/lb091188/moonbit-native-gui/releases) 的 **Binaries**（固定单一名，始终是最新构建），按平台取一个 zip；国内直连可用 [Gitee 镜像](https://gitee.com/noahliu0911/moonbit-native-gui/releases/tag/bin)（同一构建，同步覆盖更新）：
 
 | 包 | 平台 |
 |---|---|
