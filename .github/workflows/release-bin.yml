@@ -203,9 +203,15 @@ jobs:
                   raise SystemExit(f"FFmpeg dylib 缺失: {dylib_dir}(audio / video 运行必需)")
               lib_dir = os.path.join(stage, "lib")
               os.makedirs(lib_dir, exist_ok=True)
-              for dylib in dylibs:
+              # 只随实际链接的五族(WIN_LIBS / pkg-config 的 LIBS 同口径):
+              # 上游归档里的 avdevice/avfilter 无人链接,整目录拷是死重
+              prefixes = ("libavformat", "libavcodec", "libavutil",
+                          "libswscale", "libswresample")
+              kept = [d for d in dylibs
+                      if os.path.basename(d).startswith(prefixes)]
+              for dylib in kept:
                   shutil.copy2(dylib, lib_dir)
-              print(f"FFmpeg dylib 随包: {len(dylibs)} 个 -> lib/")
+              print(f"FFmpeg dylib 随包: {len(kept)}/{len(dylibs)} 个 -> lib/")
               version = next(l.split('"')[1] for l in open("gui/moon.mod")
                              if l.startswith("version"))
               apps = [("hello", "Hello"), ("showcase", "Showcase"),
