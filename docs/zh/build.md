@@ -85,14 +85,22 @@ moon run . --target native
 
 ### 在本仓库里
 
-仓库是 `moon.work` workspace，成员含库、探针、五个子模块、七个示例与工具。**先分清两种跑法**：
+仓库是 `moon.work` workspace，成员含库、探针、五个子模块、七个示例与工具。各示例的模块依赖与额外安装：
+
+| 示例 | 模块依赖 | 额外安装 |
+|---|---|---|
+| `hello` / `showcase` / `sysmonitor` | 仅 native-gui | §2 基础清单即可 |
+| `browser` | + `gui-webview` | Linux 加 `libwebkit2gtk-4.1-dev`；Windows / macOS 用系统 WebView，无需额外安装 |
+| `audio` / `video` / `headless-audio` | + `gui-media`（需 ffmpeg） | Linux 加 §2 的 `libav*-dev` 五件；Windows / macOS 构建期自动取得，见下 |
+
+**先分清两种跑法**：
 
 ```sh
 # 只想看效果：绕开 workspace，示例按注册表里已发布的库版本解析
 cd examples/hello && MOON_WORK=off moon run .
 ```
 
-这条只解析该示例自己的依赖闭包（`native-gui` + `yoga-mbt` + 传递依赖），**其余成员的 prebuild 一概不跑**——媒体、探针、ffmpeg 的开发包齐不齐都与你无关。代价是用的是注册表里的发布版，不是你工作区里改过的代码：**连库的 prebuild 脚本也是发布归档里那一份**，仓库里改的脚本要重新发包后这条路径才吃得到（实测：deepin 20 上 workspace 模式已按 Python 3.7 口径跑过 prebuild，`MOON_WORK=off` 仍报旧归档里的 `missing_ok`）。
+这条只解析该示例自己的依赖闭包（`native-gui` + `yoga-mbt` + 传递依赖），**其余成员的 prebuild 一概不跑**——媒体、探针、ffmpeg 的开发包齐不齐都与你无关。代价是用的是注册表里的发布版，不是你工作区里改过的代码：**连库的 prebuild 脚本也是发布归档里那一份**，仓库里改的脚本要重新发包后这条路径才吃得到。
 
 ```sh
 # 要连着库的改动一起跑：留在 workspace 里（默认）
@@ -108,6 +116,12 @@ cd examples/hello && moon run .            # 任一示例：进目录跑
 moon build examples/showcase --target native   # 仓库根按路径点名构建
 ```
 
+**audio / video 的 FFmpeg 动态库（本地源码跑）**：
+
+- **Linux**：链系统 FFmpeg，运行用系统运行库，无需额外动作。
+- **Windows**：构建时自动把 5 支 dll 取到 `modules/ffmpeg-mbt/vendor/win/bin/`（不入库，缺则从 Release 归档下载），该目录已编进 exe 作加载兜底——本地 `moon run .` 直接能跑。把 exe 分发给别人才需要 dll 与 exe 同目录，见 §10「Windows 运行期 ffmpeg dll」。
+- **macOS**：`brew install ffmpeg` 优先；没装 brew 时构建期自动取预编译 dylib 到 `modules/ffmpeg-mbt/vendor/mac/` 并设好 rpath，本地直接跑。分发才要复制 dylib 进 `.app` 并重签（发布工作流代劳）。
+
 ### 产物落点与发布构建
 
 ```sh
@@ -118,9 +132,9 @@ moon build examples/hello --target native --release --strip
 
 ## 5. 不想编：预构建二进制
 
-**现状如实**：GitHub Releases 上目前只有 `vendor-v1` 一条，装的是**构建期 vendor 输入**（ffmpeg 两平台归档、`miniaudio.h`、WebView2 两件套，见 §10），不是能双击运行的应用。应用二进制的发布链（`release-bin.yml`：推 `bin-*` 标签 → Linux / Windows 各编 hello + showcase 两件套 → `bin-linux-x64.zip` / `bin-windows-x64.zip` 挂 Release）已经就位，**新栈尚未发过正式 bin release**；macOS 产物暂不发，口径与该工作流头注一致。
+GitHub Releases 现有两条：**Binaries**（tag `bin`，由 `release-bin.yml` 自动发布）——三平台 zip（`bin-windows-x64.zip` / `bin-macos-arm64.zip` / `bin-linux-x64.zip`），每包含 hello / showcase / browser / audio / video 五个演示应用与第三方许可，体验点与运行要求见 [experience.md](experience.md)；以及 `vendor-v1`（构建期 vendor 输入，见 §10）。
 
-所以「先看看效果」的正路仍是按 §4 编一条示例——`examples/hello` 从零到窗口只吃 §2 那份依赖清单。
+不想下载就按 §4 编一条示例——`examples/hello` 从零到窗口只吃 §2 那份依赖清单。
 
 ## 6. 常见失败 → 处置
 

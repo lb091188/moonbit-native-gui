@@ -1,13 +1,13 @@
-# 布局样式（@style + yoga-mbt）
+# 布局样式（@style + @yoga）
 
-布局引擎是本仓自研的 **yoga-mbt**，纯 MoonBit 的 CSS Flexbox Level 1 实现；样式写成 MoonBit 值住在 `@style` 包，`Style` 结构体的字段名就是 CSS 属性名连字符写下划线。组件既给散参数 `padding=` / `row_gap=` …，也收 `class? : Array[@style.Style]` 叠样式块。本文是布局面速查，样式值模型与状态桶的完整设计见 [design.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/design.md)。
+布局走 **CSS Flexbox（Level 1）** 口径，由 MoonBit 实现的布局引擎 yoga-mbt 驱动；样式写成 MoonBit 值住在 `@style` 包，`Style` 结构体的字段名就是 CSS 属性名连字符写下划线。组件既给散参数 `padding=` / `row_gap=` …，也收 `class? : Array[@style.Style]` 叠样式块。本文是布局面速查。
 
 ## 两条写入路径
 
 - **散参数**：`@ui.col/row/view` 直接吃 `padding` / `row_gap` / `column_gap` / `width` / `height` / `grow` / `align_items` / `background_color` / `border_color`。它们是 `Style` 对应字段的糖，只有一条去向：折进匿名块。
 - **`class` 通道**：给一个或多个 `@style.style(...)` 造出的 `Style` 块，数组尾赢——后者的同名属性盖过前者。所有组件都收 `class?`。
 
-两条合并成一份 `Style`，落到控件样式槽与 Yoga 节点。
+两条合并成一份 `Style`，落到控件与布局节点。
 
 ## 布局字段速查（`Style`）
 
@@ -66,10 +66,9 @@
 
 ## 增量重排
 
-属性 setter 与结构、回调变更一律 `mark_changed`，用全局时钟加节点 `rev` 记版本；布局入口按「子树版本 + 入参指纹」跳过没动的子树。于是 `bind_label` 改文本只重算那一条链，整帧布局近乎常数级。这层不需要调用方操心，但解释了为什么推荐就地改、而不是整棵重建，见 [declarative.md](declarative.md)。
+布局是增量的：属性与结构的变更只重算有变化的子树，`bind_label` 改文本只重算那一条链，整帧布局近乎常数级。这层不需要调用方操心，但它解释了为什么推荐就地改、而不是整棵重建，见 [declarative.md](declarative.md)。
 
 ## 相关文档
 
-- 样式值模型、状态桶、主题联动：[design.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/design.md) §1
 - 组件与散参数：[components.md](components.md)
 - 响应式与整棵 / 原位替换：[declarative.md](declarative.md)

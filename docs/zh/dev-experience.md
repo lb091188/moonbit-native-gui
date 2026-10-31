@@ -41,11 +41,11 @@ pkgtype(kind: "executable")
 supported_targets = "native"
 ```
 
-`import` 决定代码里能引用哪些别名：`@ui` 提供控件、组件与声明式入口（`mount_window` 与各节点构造器）。按需再加——响应式状态 `@base`、样式类 `@style`、应用宿主 `@widget`、系统能力 `@sys`——15 个包的别名速查见[包结构](packages.md)。没 import 的包不编译不链接，不占二进制体积。标准库 `moonbitlang/core` 由 moon 自动注入，不需要写进 import。
+`import` 决定代码里能引用哪些别名：`@ui` 提供控件、组件与声明式入口（`mount_window` 与各节点构造器）。按需再加——响应式状态 `@base`、样式类 `@style`、应用宿主 `@widget`、系统能力 `@sys`——17 个包的别名速查见[包结构](packages.md)。没 import 的包不编译不链接，不占二进制体积。标准库 `moonbitlang/core` 由 moon 自动注入，不需要写进 import。
 
 **② `moon.mod`**——把 `preferred_target = "wasm"` 改为 `"native"`。本库所有包只支持 native 后端；不改的话构建直接报「包不支持当前目标」。
 
-传递依赖不用管：`yoga-mbt` 等由库自己声明，`moon add` 后自动进 `.mooncakes/`，无需手动添加。
+传递依赖不用管：它们由库自己声明，`moon add` 后自动进 `.mooncakes/`，无需手动添加。
 
 ## 4. 第一个窗口
 

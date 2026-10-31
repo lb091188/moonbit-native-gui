@@ -1,6 +1,6 @@
 # native-gui
 
-A **cross-platform desktop GUI framework for MoonBit** — one codebase ships native windows on Windows / Linux / macOS, desktop capabilities ready to use, zero config after `moon add`. Windows, pixels, the event loop, layout and every widget belong to the library itself and are written in pure MoonBit; no libyue dependency. Platform specifics converge in five thin C layers: windows, text, image decoding, WebView, media.
+A **cross-platform desktop GUI framework for MoonBit** — one codebase ships native windows on Windows / Linux / macOS, desktop capabilities ready to use, zero config after `moon add`. Windows, pixels, the event loop, layout and every widget belong to the library itself and are written in pure MoonBit.
 
 > Formerly `moonbit-libyue` (renamed 2026-10). The mooncakes package is **`NoahLiu/native-gui`** and all existing import paths are unchanged.
 

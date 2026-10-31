@@ -1,6 +1,6 @@
 # 声明式层与响应式（@base + @widget + @ui）
 
-界面用一棵**节点树**描述，状态用 `Store` / `Signal` 持有，框架负责「数据变了 UI 跟着变」。本文讲这套接线怎么写；样式见 [layout.md](layout.md) 与 [design.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/design.md)，组件见 [components.md](components.md)。
+界面用一棵**节点树**描述，状态用 `Store` / `Signal` 持有，框架负责「数据变了 UI 跟着变」。本文讲这套接线怎么写；样式见 [layout.md](layout.md)，组件见 [components.md](components.md)。
 
 ## 1. 节点树与挂载
 
@@ -41,7 +41,7 @@ fn main {
 | `@widget.mount_children(parent, children)` | 把一批 `Node` 挂到某个父控件下 |
 | 组件的 `handle? : (Widget) -> Unit` | 建组件时拿回它内部的 `Widget` |
 
-> **坑（务必记住）**：需要宿主在场的动作——`set_timeout`、图表推点、托盘派发表——**不能写在构造期**。`page(app)` 这类函数求值早于建窗，那时 `app.host` 还是 `None`、进程级 timer 通道还没装上，第一拍跑在空通道上，循环不再重排就死掉。这类动作挂到 `Node::on_mount` 或 `handle` 回调上，两者都在挂载之后跑。
+> **坑（务必记住）**：需要宿主在场的动作——`set_timeout`、图表推点、托盘派发表——**不能写在构造期**。`page(app)` 这类函数求值早于建窗，那时宿主还没就位，写了不生效。这类动作挂到 `Node::on_mount` 或 `handle` 回调上，两者都在挂载之后跑。
 
 ## 3. Store：一个值的盒子
 
@@ -113,7 +113,7 @@ let rows : @base.ListStore[String] = @base.ListStore::new(["a", "b"])
 - `@widget.bind_node(sig : Signal[T], f : (T) -> Node)`：信号一变，用 `f(v)` 造的新节点**原位替换**旧节点。
 - `@widget.swap_node(sig : Signal[Bool], a : Node, b : Node)`：按布尔在两个节点间原位切换。
 
-「原位替换」由引擎的 `insert_child` / `remove_child_at` 与控件层的 `index_of` / `move_child` 支撑。替换不重建父链，命中矩形每帧从布局结果重取，不需要「推迟一拍 / 强制重排」这类规避。
+「原位替换」不重建父链，命中矩形每帧从布局结果重取，不需要「推迟一拍 / 强制重排」这类规避。
 
 ## 7. 重绘回路
 
@@ -123,5 +123,4 @@ let rows : @base.ListStore[String] = @base.ListStore::new(["a", "b"])
 
 - 组件与参数：[components.md](components.md)
 - 布局样式：`Style` 值与 `class` 通道见 [layout.md](layout.md)
-- 视图层与响应式设计口径：[design.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/design.md) §3 响应式、§4 视图层
 - 五分钟上手：[tutorial.md](tutorial.md)

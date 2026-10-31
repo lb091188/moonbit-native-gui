@@ -19,7 +19,7 @@ hero:
       link: https://github.com/lb091188/moonbit-native-gui
 features:
   - title: 一套代码，三个平台
-    details: Windows / Linux / macOS 原生窗口，控件观感一致；默认跟随系统深浅色与强调色，主题可定制。
+    details: Windows / Linux / macOS 原生窗口，控件观感一致；默认跟随系统深浅色与强调色，界面文案中英可切，主题可定制。
   - title: 界面写成树，数据变了自动刷新
     details: 界面用代码声明成一棵树，mount_window 一步挂载；数据一变，绑定的界面自动刷新，不用手写刷新胶水。
   - title: 桌面能力开箱即用

@@ -19,12 +19,12 @@
 - **Windows（WebView2）**：`PermissionRequested` + deferral。
 - **macOS（WKWebView）**：只有媒体采集回调（`requestMediaCapturePermissionForOrigin`，macOS 12+；定位在公开 `WKUIDelegate` 里没有回调）。
 
-**mac 上这条回调要求应用正确打包并签名**（含 `NSCameraUsageDescription` / `NSMicrophoneUsageDescription`）。未签名 / 裸二进制形态下 WebKit 枚举不到采集设备，页面 `getUserMedia` 会挂起、回调不会触发——这不是桩的问题，是引擎侧的既成行为（实测记录见 `proposals/adaptation.md` 与 `experiment/webkit_media_probe/`）。因此本仓示例不做权限演示；事件到达时默认拒绝并记一行事件流水，不让请求挂在引擎里。
+**mac 上这条回调要求应用正确打包并签名**（含 `NSCameraUsageDescription` / `NSMicrophoneUsageDescription`）。未签名 / 裸二进制形态下 WebKit 枚举不到采集设备，页面 `getUserMedia` 会挂起、回调不会触发——这不是本模块的问题，是引擎侧的既成行为（实测记录见 `proposals/adaptation.md` 与 `experiment/webkit_media_probe/`）。因此本仓示例不做权限演示；事件到达时默认拒绝并记一行事件流水，不让请求挂在引擎里。
 
 ## 平台差异简表
 
 | 平台 | 引擎 | 典型差异 |
 |---|---|---|
 | Linux | WebKitGTK | 需要发行版的 WebKitGTK 开发包；下载走 `download-started` + `decide-destination`（询问档扣住落点等 `respond_download`），权限 / 新窗 / 进程终止有公开信号 |
-| Windows | WebView2 | Loader 与 SDK 头由 prebuild 下载；下载 / 权限 / 新窗走公开 COM 事件（下载询问档扣 `DownloadStarting` 的 deferral，落点经 `put_ResultFilePath`） |
+| Windows | WebView2 | Loader 与 SDK 头构建时自动下载；下载 / 权限 / 新窗走公开 COM 事件（下载询问档扣 `DownloadStarting` 的 deferral，落点经 `put_ResultFilePath`） |
 | macOS | WKWebView | 下载走 `WKDownload`（macOS 11.3+，落点经 `decideDestination` 的 completionHandler 扣住延后答）；权限仅媒体且需签名；按目录持久化要 bundle id，裸二进制如实报不可持久 |

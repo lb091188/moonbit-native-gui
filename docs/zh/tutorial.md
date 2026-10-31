@@ -16,16 +16,16 @@ irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
 <details>
 <summary>Linux（Ubuntu 24.04）环境准备</summary>
 
-本库自绘、走原生 FFI，构建只需要 C 工具链、pkg-config、Python 3 与 GTK3 / Pango / FontConfig / X11 的开发包；Python 3 用于跑库的 prebuild 脚本：
+本库自绘、走原生 FFI，构建只需要 C 工具链、pkg-config、Python 3 与 GTK3 / Pango / FontConfig / X11 的开发包：
 
 ```sh
 sudo apt install build-essential pkg-config python3 \
   libgtk-3-dev libpango1.0-dev libfontconfig1-dev libx11-dev
 ```
 
-只有用到对应能力时才需要再装：内嵌 WebView（`@web`）加 `libwebkit2gtk-4.1-dev`；媒体模块（`NoahLiu/gui-media`）加 `libavformat-dev libavcodec-dev libswscale-dev libswresample-dev libavutil-dev`。运行时若报 GTK 库缺失，多半是上面这份 apt 清单没装全。
+只有用到对应能力时才需要再装：内嵌 WebView（`gui-webview` 模块）加 `libwebkit2gtk-4.1-dev`；媒体模块（`NoahLiu/gui-media`）加 `libavformat-dev libavcodec-dev libswscale-dev libswresample-dev libavutil-dev`。运行时若报 GTK 库缺失，多半是上面这份 apt 清单没装全。
 
-⚠️ 装完再敲一句 `python -V`：deepin 20、CentOS 7 这类机器上 `python` 仍是 2.7，而 moon 跑 prebuild 时优先用它，构建会在起手就报 `pep-0263` 的 SyntaxError——修法见 [build.md](build.md) §6。
+⚠️ 装完再敲一句 `python -V`：deepin 20、CentOS 7 这类机器上 `python` 仍是 2.7，而构建脚本优先用它，起手就报 `pep-0263` 的 SyntaxError——修法见 [build.md](build.md) §6。
 
 </details>
 
@@ -38,14 +38,14 @@ sudo apt install build-essential pkg-config python3 \
 xcode-select --install
 ```
 
-窗口、文本、图片解码都走系统框架（Cocoa / CoreText / ImageIO），由 prebuild 直接编 Objective-C 桩并下发 `-framework` 参数——**不需要 GTK，也不需要 brew**。只有媒体模块（`NoahLiu/gui-media`）另需 ffmpeg：`brew install ffmpeg`，或让 prebuild 从 Release 拉我们自编的 arm64 归档。
+窗口、文本、图片解码都走系统框架（Cocoa / CoreText / ImageIO）——**不需要 GTK，也不需要 brew**。只有媒体模块（`NoahLiu/gui-media`）另需 ffmpeg：`brew install ffmpeg`。
 
 </details>
 
 <details>
 <summary>Windows（10/11，x64）环境准备</summary>
 
-需要 Python 3 与 MSVC C++ 工具链——Python 3 跑 prebuild，工具链选 VS 2022 Build Tools 的「使用 C++ 的桌面开发」工作负载：
+需要 Python 3 与 MSVC C++ 工具链，工具链选 VS 2022 Build Tools 的「使用 C++ 的桌面开发」工作负载：
 
 ```powershell
 irm https://cli.moonbitlang.com/install/powershell.ps1 | iex            # MoonBit
@@ -155,7 +155,7 @@ handle=fn(a : @widget.App) -> Unit {
 }
 ```
 
-把 `@ui.text` / `@ui.button` 换成主题化形态（`button` 的 `variant` 四档、`tag` / `alert` / `card` 等）见 [components.md](components.md)；样式表（`Style` 值 + `hover` / `active` / `focus` 状态、过渡）见 [design.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/design.md)。
+把 `@ui.text` / `@ui.button` 换成主题化形态（`button` 的 `variant` 四档、`tag` / `alert` / `card` 等）见 [components.md](components.md)；样式表（`Style` 值 + `hover` / `active` / `focus` 状态、过渡）见 [layout.md](layout.md)。
 
 **想照着抄**——演示板就是素材库：
 
@@ -173,7 +173,7 @@ cd examples/showcase && moon run .   # 基础/表单/导航/数据展示/反馈/
 - [components.md](components.md)：全部控件与组件的入参与事件速查
 - [system-capabilities.md](system-capabilities.md)（中文）：系统能力（`@sys`）——音量 / 应用查找 / 壁纸 / 显示器 / 剪贴板 / 电源 / 打印机…，统一 `Result` 语义
 
-**遇到问题**——[adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md) 按平台记满实测坑与根因；托盘方案看 [tray.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/tray.md)。
+**遇到问题**——常见构建失败与处置见[构建与运行](build.md) §6。
 
 ## 6. 给库贡献者的留言
 

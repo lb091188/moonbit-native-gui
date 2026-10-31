@@ -8,23 +8,23 @@
 
 | 能力 | Windows | Linux | macOS |
 |---|---|---|---|
-| 剪贴板 / 自启动 / 子进程 / 文件(fsx) / 环境变量(envx) | ✅ 直调 | ✅ | ✅ 已回证（pbpaste/pbcopy + NSPasteboard 桩；LaunchAgents plist + `launchctl load/unload`） |
-| 系统信息 / 壁纸 / 启动器（打开与定位） | ✅ 直调 | ✅ | ✅ 已回证（`sw_vers`/`ioreg`/`sysctl` + 桩内 `host_statistics64`/`kern.boottime`；osascript 桌面图片，只动主屏；`open` / `open -R`） |
+| 剪贴板 / 自启动 / 子进程 / 文件(fsx) / 环境变量(envx) | ✅ 直调 | ✅ | ✅ 已回证（pbpaste/pbcopy + NSPasteboard；LaunchAgents plist + `launchctl load/unload`） |
+| 系统信息 / 壁纸 / 启动器（打开与定位） | ✅ 直调 | ✅ | ✅ 已回证（`sw_vers`/`ioreg`/`sysctl`；osascript 桌面图片，只动主屏；`open` / `open -R`） |
 | 音量 / 打印机(列表+默认+打印) | ✅ 直调 | ✅ | ✅ 已回证（osascript 的 `volume settings`，sink 名给不到时按契约置空；macOS 自带 CUPS，与 Linux 同走 `lpstat`/`lp`） |
 | 用户空闲检测 | ✅ 直调 | ✅ | ✅ 已回证（`CGEventSourceSecondsSinceLastEventType` 的 HID 系统态读数，不需辅助功能授权） |
 | 应用查找 | ✅ 直调 | ✅ | ✅ 已回证（`.app` 包扫描 + `Contents/Info.plist` 公开键；`categories` 与本地化名没有公开对等物，按空/回退给） |
 | 最近文件 | ✅ 直调 | ✅ | ❌ Unsupported（sharedfilelist 是私有格式，暂不提供） |
 | 窗口管理 / 电源计划 | ✅ 直调 | ✅ | ❌ Unsupported（Accessibility 要用户先授权 / `pmset` 对不上三值方案语义） |
 | browser/vscode 数据 | ✅（LOCALAPPDATA 路径） | ✅ | ✅（`Library/Application Support/<厂商>/<产品>` 路径） |
-| sysmonitor 进程数据 | ✅（自带 stub/sysmon.c） | ✅ | ✅ 已回证（示例模块自带桩，mac 路径待验） |
+| sysmonitor 进程数据 | ✅（示例模块自带探针） | ✅ | ✅ 已回证（示例模块自带，mac 路径待验） |
 | 夜间色温（redshift/xrandr 命令线） | ❌ 无公开 API | ✅ | ❌ 无公开 API（CoreBrightness 私有） |
 | 显示器枚举（monitor） | ✅ 直调（`EnumDisplayDevicesW` / `EnumDisplaySettingsExW`；真机与 QEMU QXL 虚拟屏均回证，虚拟屏读到 `DISPLAY1: 1920x1080 @64Hz`） | ✅（xrandr） | ✅ 已回证（CoreGraphics 直调：`CGGetOnlineDisplayList` / `CGDisplayBounds` / `CGDisplayCopyAllDisplayModes`；只列「在线」屏，输出名给不了按 `Built-in` / `Display-<id>` 给；读数一律物理像素，故 `MonitorInfo` 不需要缩放比字段） |
 
-macOS 的公开口与底层：`open`/`open -R`、`sw_vers`、`ioreg -rd1 -c IOPlatformExpertDevice`、`sysctl hw.model/hw.memsize/kern.boottime`、`osascript`（System Events 的 `volume settings` 与桌面图片）、`launchctl load/unload` + `~/Library/LaunchAgents/*.plist`、`lpstat`/`lp`，以及桩内的 `host_statistics64`、`CGEventSourceSecondsSinceLastEventType`、`CGGetOnlineDisplayList`/`CGDisplayBounds`/`CGDisplayCopyDisplayMode`/`CGDisplayCopyAllDisplayModes`/`CGDisplayScreenSize`。
+macOS 的公开口与底层：`open`/`open -R`、`sw_vers`、`ioreg -rd1 -c IOPlatformExpertDevice`、`sysctl hw.model/hw.memsize/kern.boottime`、`osascript`（System Events 的 `volume settings` 与桌面图片）、`launchctl load/unload` + `~/Library/LaunchAgents/*.plist`、`lpstat`/`lp`，以及进程内直调的 `host_statistics64`、`CGEventSourceSecondsSinceLastEventType`、`CGGetOnlineDisplayList`/`CGDisplayBounds`/`CGDisplayCopyDisplayMode`/`CGDisplayCopyAllDisplayModes`/`CGDisplayScreenSize`。
 
 Windows 直调的底层：SystemParametersInfoW（壁纸）、ShellExecuteW（启动/定位/打印）、PowerGet/SetActiveScheme、注册表（产品与 DMI 信息）、GlobalMemoryStatusEx、GetTickCount64、EnumWindows、EnumPrintersW、IAudioEndpointVolume（COM）、GetLastInputInfo。踩坑与头文件/链接要求见 [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md)。
 
-完整演示见演示板（`cd examples/showcase && moon run .`）的「系统能力探测」页——每段可「重新探测」逐项呈现本机真实结果，不支持的能力显示对应错误文本。各能力在不同发行版 / 桌面环境的实测结论与原理见 [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md)——含 logind 路径、wpctl/pactl 差异、SQLite 库直读等。
+完整演示见演示板（`cd examples/showcase && moon run .`）的「系统能力探测」页——每段可「重新探测」逐项呈现本机真实结果，不支持的能力显示对应错误文本。
 
 ## 系统音量
 
@@ -279,7 +279,7 @@ let _ = @sys.wp_set("/home/me/Pictures/wall.png")
 
 解码走 ffmpeg FFI（进程内动态链，格式随系统 ffmpeg：MP3/OGG/M4A/AAC/FLAC/WAV…），输出由内嵌 miniaudio 设备层直出（s16 PCM 队列，零重采样）。无输出设备环境（CI/headless）自动静音降级，状态机照常。
 
-三平台都要系统给得出 ffmpeg：Linux 用发行版的 dev 包（`apt install libav*-dev`），Windows 用 vendor 进仓库的头与导入库（运行期 dll 自行放置），macOS 用 `brew install ffmpeg`（`modules/ffmpeg-mbt/prebuild.py` 走 pkg-config 探测，探不到就非零退出并给出这一行安装提示——媒体线不静默造一份「看着能链、跑起来没解码器」的桩）。音频设备后端按平台由 miniaudio 选：Linux ALSA/Pulse、Windows WASAPI、macOS CoreAudio，所以 `gui-media` 在 mac 上要多链三个框架（CoreAudio/AudioToolbox/Foundation），**不链** `-ldl`/`-latomic`（mac 的 dlopen 在 libSystem 里，也没有 libatomic 这个库）。
+三平台都要系统给得出 ffmpeg：Linux 用发行版的 dev 包（`apt install libav*-dev`），Windows 用 vendor 进仓库的头与导入库（运行期 dll 自行放置），macOS 用 `brew install ffmpeg`（构建期走 pkg-config 探测，探不到就非零退出并给出这一行安装提示——媒体线不静默降级成跑起来没解码器的样子）。音频设备后端按平台由 miniaudio 选：Linux ALSA/Pulse、Windows WASAPI、macOS CoreAudio。
 
 ### AudioPlayer（对标浏览器 `<audio>`）
 
@@ -548,7 +548,7 @@ match @sys.ffx_history(limit=10) {
 
 | 函数 | 说明 |
 |---|---|
-| `pr_available() -> Bool` | 当前平台是否支持子进程执行（Linux / macOS / Windows 三主平台为真，基于 sys 包自有 C 桩） |
+| `pr_available() -> Bool` | 当前平台是否支持子进程执行（Linux / macOS / Windows 三主平台为真） |
 | `pr_run(cmd, args, timeout_ms? = 5000) -> Result[ProcOutput, ProcError]` | 运行命令并归一结果（超时进程会被强制终止） |
 
 `ProcOutput{ stdout, exit_code }`；错误 `ProcError`：`Unsupported`（非 Linux / macOS / Windows 主平台）/ `SpawnFailed(String)`（命令不存在时由子进程以退出码 127 呈现，归入非零退出）/ `Timeout(String)` / `NonZeroExit(Int, String)` / `Signaled(Int)`。
@@ -565,7 +565,7 @@ match @sys.pr_run("wpctl", ["get-volume", "@DEFAULT_SINK@"]) {
 
 ## 共享基建：通用 D-Bus 调用层（@dbus）
 
-面向任意服务的方法调用与属性读写，是媒体控制（MPRIS）等模块的公共地基。连接复用 `bus.mbt` 的进程级会话 / 系统连接，编解码复用 `wire.mbt` 的线协议；同步调用 1.5 秒超时，应答超时给 `gdbus.timeout`。
+面向任意服务的方法调用与属性读写，是媒体控制（MPRIS）等模块的公共地基。复用进程级的会话 / 系统总线连接；同步调用 1.5 秒超时，应答超时给 `gdbus.timeout`。
 
 | 函数 | 说明 |
 |---|---|

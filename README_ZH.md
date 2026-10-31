@@ -11,7 +11,7 @@
 - [体验文档](https://moonbit-native-gui.pages.dev/zh/experience)：预构建包直接试跑五个演示应用。
 - [应用开发](https://moonbit-native-gui.pages.dev/zh/dev-experience)：使用 moonbit 和 native-gui 构建桌面应用程序。
 - [构建与运行](https://moonbit-native-gui.pages.dev/zh/build)：参与 `native-gui` 库的开发。
-- [包结构](https://moonbit-native-gui.pages.dev/zh/packages)：15 个包别名与两个独立模块的一览。
+- [包结构](https://moonbit-native-gui.pages.dev/zh/packages)：17 个包别名与两个独立模块的一览。
 
 📚 [**在线文档**](https://moonbit-native-gui.pages.dev/zh/)
 
@@ -23,7 +23,7 @@
 
 **🖥 系统接口完备** —— 托盘、通知、全局快捷键、剪贴板、原生菜单、文件对话框、拖放、开机自启等桌面常用能力开箱即用，另有音量 / 电源 / 壁纸 / 显示器 / 打印机等系统查询能力
 
-**🎨 渲染管线自绘** —— 不依赖 Skia 等重型图形引擎，控件观感跨平台一致，默认跟随系统强调色与明暗模式，主题可按需定制。
+**🎨 渲染管线自绘** —— 不依赖 Skia 等重型图形引擎，控件观感跨平台一致，默认跟随系统强调色与明暗模式，主题可按需定制；内置控件文案可本地化（随包中英两套）。
 
 **📊 界面组件齐全** —— 基础布局组件、表单组件、可交互图表、Markdown 渲染；另有独立的 gui-media 音视频播放和展示能力、gui-webview 基于系统 webview 的 web 渲染能力。
 

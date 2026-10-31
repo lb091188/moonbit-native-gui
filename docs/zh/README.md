@@ -12,17 +12,19 @@
 | `NoahLiu/native-gui/shell` | `@shell` | 系统能力壳层：菜单、全局热键门面、托盘、通知、外部打开、事件循环调度器与只读平台探针 |
 | `NoahLiu/native-gui/widget` | `@widget` | 自绘控件宿主：布局树映射、命中与事件路由、绘制遍历、声明式 `Node`、浮层两档、拖放、输入映射、`App` 泵 |
 | `.../native-gui/ui` | `@ui` | 自绘控件与组件库：窗口挂载、标签 / 按钮、表单、显示、导航、日期、表格与虚拟列表、输入框、滚动、浮层、代码视图、声明式层 |
-| `.../native-gui/render` | `@render` | 光栅器：纯 MoonBit 软件光栅 + Cairo 后端；位图、画布、图像、PNG |
+| `.../native-gui/render` | `@render` | 画布与图像：自绘画布、位图、图像与 PNG |
 | `.../native-gui/text` | `@text` | 文本层：字体族、字体、富文本与区间属性（Pango / DirectWrite） |
 | `.../native-gui/theme` | `@theme` | 主题系统：色板派生与变更订阅 |
 | `.../native-gui/icons` | `@icons` | 矢量图标系统 |
 | `.../native-gui/sys` | `@sys` | 系统能力：自启动、空闲、子进程、环境、文件、JSON、对话框、浏览器历史 / 书签、最近文件、壁纸、音量、电源、打印机、显示器、窗口控制、应用查找 |
 | `.../native-gui/input` | `@input` | 编辑内核与键码 |
-| `.../native-gui/win` | `@win` | 平台窗口后端（Win32 / GTK3 的 C 桩）：快捷键、图标、输入法、消息框、通知、托盘、surface |
-| `.../native-gui/dbus` | `@dbus` | Linux D-Bus 桥：托盘 SNI、通知、logind / upower、媒体、网络、屏保 |
+| `.../native-gui/win` | `@win` | 平台窗口层：窗口、快捷键、图标、输入法、消息框、通知、托盘 |
+| `.../native-gui/dbus` | `@dbus` | Linux D-Bus 调用：托盘 SNI、通知、logind / upower、媒体、网络、屏保等系统服务 |
 | `.../native-gui/chart` | `@chart` | 图表与横切交互层 |
 | `.../native-gui/mdview` | `@mdview` | Markdown 渲染视图 |
 | `.../native-gui/style` | `@style` | 样式层：样式表写成 MoonBit 值，含状态类与过渡 |
+| `.../native-gui/i18n` | `@i18n` | 界面文案多语言：TOML 词表查译 / 插值 / 复数，可订阅语言切换；内置控件文案可本地化（随包中英两套） |
+| `.../native-gui/router` | `@router` | 单窗口页面路由：路由树 + 每层选中键 + link 绑定，任意组件接 `on_link` 导航 |
 
 较重的可选能力放在独立模块，`moon add NoahLiu/native-gui` 不会把它们拉进来：
 
@@ -31,7 +33,7 @@
 | `NoahLiu/gui-media` | 音视频引擎与播放器组件。 |
 | `NoahLiu/gui-webview` | 内嵌 WebView（WebKitGTK / WebView2 / WKWebView），定位是「浏览器表现力 + 原生能力配合」，见 [webview.md](webview.md)。 |
 
-两种「可选」不要混：没 import 的子包不进二进制——`moon.pkg` 的 import 是编译与链接边界；没依赖的模块连解析和 prebuild 都不发生——`moon.mod` 的 import 决定依赖闭包。能力要选后者，就必须住在自己的模块里。
+一句话记住边界：没 import 的包不进你的二进制；WebView 与媒体引擎住在独立模块里，默认依赖根本没有它们。
 
 ## 演示
 
@@ -41,7 +43,7 @@
 cd examples/hello && MOON_WORK=off moon run .
 ```
 
-`MOON_WORK=off` 只解析该示例自己的依赖闭包，媒体 / 探针 / ffmpeg 成员的 prebuild 不跑；留在 workspace 里跑则要按 [build.md](build.md) §2 装齐全部开发包——缺 GTK3 一族，或 `python` 仍指向 2.7，都会让 native 构建起手就红（处置见同页 §6）。
+`MOON_WORK=off` 只解析该示例自己的依赖，不必装齐全仓的开发包；留在 workspace 里跑则要按 [build.md](build.md) §2 装齐全部开发包——缺 GTK3 一族，或 `python` 仍指向 2.7，都会让 native 构建起手就红（处置见同页 §6）。
 
 - `examples/hello` —— 最小窗口
 - `examples/showcase` —— 完整演示板
@@ -67,9 +69,9 @@ cd examples/hello && MOON_WORK=off moon run .
 | [tutorial.md](tutorial.md) | 五分钟上手：装工具链、建工程、做出第一扇带点击计数的窗口 |
 | [components.md](components.md) | 组件速查（`@ui`）：各控件构造器的入口签名与用途，按家族分组 |
 | [declarative.md](declarative.md) | 声明式层与响应式：节点树与 `mount_window`、`Store` / `Signal`、`for_list` / `when`、原位替换 |
-| [layout.md](layout.md) | 布局：yoga-mbt 的 Flexbox 口径与 `@style` 的 `Style` 字段集、`class` 通道 |
-| [build.md](build.md) | 构建与运行：从零装依赖（三平台清单 + 环境自检）、构建命令与产物落点、预构建二进制现状、常见失败处置；机制侧是 prebuild 托管链接参数与改 C 桩不重链的坑 |
-| [packages.md](packages.md) | 包结构：15 个包别名与两个独立模块的内容一览 |
+| [layout.md](layout.md) | 布局：Flexbox 布局口径与 `@style` 的 `Style` 字段集、`class` 通道 |
+| [build.md](build.md) | 构建与运行：从零装依赖（三平台清单 + 环境自检）、构建命令与产物落点、预构建二进制现状、常见失败处置；面向库开发的机制细节在后半段 |
+| [packages.md](packages.md) | 包结构：17 个包别名与两个独立模块的内容一览 |
 | [roadmap.md](roadmap.md) | 对外路线图：功能点、功能描述、计划版本、开发与测试状态；附平台兼容面、承诺与版本、明确不做 |
 | [autostart.md](autostart.md) | 开机自启：Linux 写 XDG .desktop、Windows 写 HKCU Run 键，统一 `is_enabled` / `enable` / `disable` |
 | [experience.md](experience.md) | 体验文档：真体验——预构建包直接跑、克隆仓库跑示例；写应用与改库分别引导到应用开发者体验与构建与运行 |
