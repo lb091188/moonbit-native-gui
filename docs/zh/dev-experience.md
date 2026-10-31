@@ -41,7 +41,7 @@ pkgtype(kind: "executable")
 supported_targets = "native"
 ```
 
-`import` 决定代码里能引用哪些别名：`@ui` 提供控件、组件与声明式入口（`mount_window` 与各节点构造器）。按需再加——响应式状态 `@base`、样式类 `@style`、应用宿主 `@widget`、系统能力 `@sys`——15 个包的别名速查见[包结构](packages.md)。没 import 的包不编译不链接，不占二进制体积。
+`import` 决定代码里能引用哪些别名：`@ui` 提供控件、组件与声明式入口（`mount_window` 与各节点构造器）。按需再加——响应式状态 `@base`、样式类 `@style`、应用宿主 `@widget`、系统能力 `@sys`——15 个包的别名速查见[包结构](packages.md)。没 import 的包不编译不链接，不占二进制体积。标准库 `moonbitlang/core` 由 moon 自动注入，不需要写进 import。
 
 **② `moon.mod`**——把 `preferred_target = "wasm"` 改为 `"native"`。本库所有包只支持 native 后端；不改的话构建直接报「包不支持当前目标」。
 
@@ -82,6 +82,8 @@ moon run cmd/main
 | `@ui` 报「找不到包」 | `cmd/main/moon.pkg` 没写包级 import——`moon add` 只改 `moon.mod`（模块级），见 §3 ① |
 | 构建报「包不支持 wasm / 目标不可用」 | `moon.mod` 的 `preferred_target` 还是模板默认的 wasm，改成 native，见 §3 ② |
 | `Missing main function` | moon 只把名为 `main.mbt` 的文件当程序入口——模板已放在 `cmd/main/`，自建入口文件时保持这个文件名 |
+| `Parsing error: unexpected token {`（读 `moon.pkg`） | `moon.pkg` 是 DSL 格式，不是 JSON，别写 `{ ... }`；根目录的 `moon.pkg` 保持为空，依赖只在 `cmd/main/moon.pkg` 里声明 |
+| `Cannot inject the standard library moonbitlang/core: Cannot load the core file` | 工具链装残了（多为升级中断，`~/.moon/lib` 丢失）——重跑一遍官方安装脚本即可修复，与你的工程无关 |
 | Linux 起手就红：缺 GTK 头文件 / `pep-0263` 报错 | 构建依赖没装齐，或 `python` 还指向 2.7——对照[构建与运行](build.md) §2 与 §6 |
 | 程序直接退出、没有窗口 | `mount_window` 返回 `None`：无窗口后端或无显示服务（如无 X 的 SSH 会话）——结构化退出是预期行为 |
 

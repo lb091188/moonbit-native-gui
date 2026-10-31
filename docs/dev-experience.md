@@ -41,7 +41,7 @@ pkgtype(kind: "executable")
 supported_targets = "native"
 ```
 
-The `import` list decides which aliases your code can reference: `@ui` provides the widgets, components, and the declarative entry (`mount_window` and the node constructors). Add more as needed — reactive state `@base`, style classes `@style`, the app host `@widget`, system capabilities `@sys`; the 15-alias table is in [Package layout](packages.md). Packages you don't import are neither compiled nor linked, costing no binary size.
+The `import` list decides which aliases your code can reference: `@ui` provides the widgets, components, and the declarative entry (`mount_window` and the node constructors). Add more as needed — reactive state `@base`, style classes `@style`, the app host `@widget`, system capabilities `@sys`; the 15-alias table is in [Package layout](packages.md). Packages you don't import are neither compiled nor linked, costing no binary size. The standard library `moonbitlang/core` is injected by moon automatically — it does not belong in the import list.
 
 **② `moon.mod`** — change `preferred_target = "wasm"` to `"native"`. Every package in this library supports only the native backend; leave it as wasm and the build reports an unsupported-target error.
 
@@ -82,6 +82,8 @@ A window appears — the path is through.
 | `@ui` reports an unresolved package | the package-level import is missing from `cmd/main/moon.pkg` — `moon add` only touches `moon.mod` (module level), see §3 ① |
 | build reports package not available on wasm / unsupported target | `preferred_target` in `moon.mod` is still the template's wasm default — change it to native, see §3 ② |
 | `Missing main function` | moon only recognizes a file literally named `main.mbt` as the program entry — the template already puts it in `cmd/main/`; keep that file name when creating your own entry files |
+| `Parsing error: unexpected token {` while reading `moon.pkg` | `moon.pkg` is a DSL format, not JSON — never write `{ ... }` in it; the root `moon.pkg` stays empty, and dependencies are declared only in `cmd/main/moon.pkg` |
+| `Cannot inject the standard library moonbitlang/core: Cannot load the core file` | the toolchain install is broken (usually an interrupted upgrade left `~/.moon/lib` missing) — re-run the official installer to repair; nothing wrong with your project |
 | Linux fails at the start: missing GTK headers / `pep-0263` error | build dependencies incomplete, or `python` still points to 2.7 — see [Build & run](build.md) §2 and §6 |
 | the program exits with no window | `mount_window` returned `None`: no window backend or no display service (e.g. an SSH session without X) — the structured exit is expected behavior |
 
