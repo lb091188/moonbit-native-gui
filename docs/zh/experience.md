@@ -71,6 +71,12 @@ sudo apt install libgtk-3-0 libpango-1.0-0 libx11-6 \
 
 播放 / 进度 / 倍速，外挂与内嵌字幕双来源，倍速下音画同步。Windows / macOS 包内已带 FFmpeg 动态库；Linux 用系统 FFmpeg。
 
+### 已知平台差异（诚实口径）
+
+- **macOS 通知**：必须从 `.app` bundle 启动——包内即 `.app`，双击启动通知可用（已真机复验）；直接跑 `Contents/MacOS` 里的二进制仍会报不可用，系统约束，非库缺陷。
+- **Linux**：音视频与 `browser` 分别依赖系统 FFmpeg 与 WebKit2gtk，见上面的安装清单。
+- 平台状态以 [README 平台表](https://github.com/lb091188/moonbit-native-gui) 与 [路线图](roadmap.md) 为准：三平台均已真机验证。
+
 ## 二、跑仓库示例
 
 预构建包之外，还可以克隆仓库直接跑示例（需先装 MoonBit 工具链，见[五分钟上手教程](tutorial.md) §1）——`examples/` 下每个目录都是独立模块，进目录 `moon run .` 即可：

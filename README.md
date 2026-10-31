@@ -2,7 +2,7 @@
 
 > **Where it came from**: this library started as a MoonBit binding of [Cheng Zhao (zcbenz)](https://github.com/zcbenz)'s [Yue / libyue](https://github.com/yue/yue), with layout following [Yoga](https://github.com/facebook/yoga)'s flexbox. Neither is a runtime dependency any more — both stay as references for behaviour and as sources of material. Thanks also to [MoonBit](https://github.com/moonbitlang).
 
-A **cross-platform desktop GUI framework** for [MoonBit](https://github.com/moonbitlang) — one MoonBit codebase ships native windows on Windows 🟩 / Linux 🟩 / macOS 🟩, with tray, notifications, shortcuts, file dialogs and other desktop capabilities ready to use and zero configuration after `moon add`.
+A **cross-platform desktop GUI framework** for [MoonBit](https://github.com/moonbitlang) — one MoonBit codebase ships native windows on Windows 🟩 / Linux 🟩 / macOS 🟩, with tray, notifications, shortcuts, file dialogs and other desktop capabilities ready to use.
 
 English | [简体中文](README_ZH.md)
 
@@ -15,15 +15,19 @@ English | [简体中文](README_ZH.md)
 
 📚 **Documentation**: <https://moonbit-native-gui.pages.dev/>
 
-![Component showcase](./docs/public/images/showcase-main.png)
-![Live demo on Linux (XFCE)](./docs/public/images/showcase-anim-linux.webp)
-![Live demo on Windows](./docs/public/images/showcase-anim-windows.webp)
+![Hello minimal window](./docs/public/images/app-hello.png)
+![Component showcase on Windows](./docs/public/images/os-windows.png)
+![Dark theme on Linux](./docs/public/images/os-linux.png)
+![English UI on macOS](./docs/public/images/os-macos.png)
+![Embedded browser](./docs/public/images/app-browser.png)
+![Audio player](./docs/public/images/app-audio.png)
+![Video player](./docs/public/images/app-video.png)
 
 ## Highlights
 
 **🖥 Full system surfaces** — tray, notifications, global shortcuts, clipboard, native menus, file dialogs, drag & drop, autostart and other desktop essentials work out of the box, plus system queries for volume / power / wallpaper / monitors / printers.
 
-**🎨 Self-drawn rendering pipeline** — no Skia-class graphics engine; widgets look the same on every platform, follow the system accent colour and light/dark mode by default, and the theme is fully customizable.
+**🎨 Consistent look, lightweight** — no heavyweight graphics engine; the same widget appearance on all three platforms, with small artifacts and fast startup. Follows the system light/dark mode and accent colour by default, theme fully customizable; built-in control text is localizable (English and Chinese ship with the package).
 
 **📊 A complete widget set** — layout primitives, form controls, interactive charts, Markdown rendering; separately, `gui-media` brings audio/video playback and display, and `gui-webview` brings web rendering on the system webview.
 

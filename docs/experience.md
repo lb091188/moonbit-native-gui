@@ -73,7 +73,7 @@ Playback / progress / speed control, external and embedded subtitle tracks, A/V 
 
 ### Known platform differences (honest scope)
 
-- **macOS notifications**: require an `.app` bundle launch — the packages ship `.app` bundles now, so double-click launches should have them (real-machine verification in progress); running the bare binary from `Contents/MacOS` still reports unavailable, an OS constraint, not a library defect.
+- **macOS notifications**: require an `.app` bundle launch — the packages ship `.app` bundles, and notifications work on double-click launch (verified on device); running the bare binary from `Contents/MacOS` still reports unavailable, an OS constraint, not a library defect.
 - **Linux**: media and `browser` depend on system FFmpeg and WebKit2gtk respectively — see the install list above.
 - Platform status follows the [README platform table](https://github.com/lb091188/moonbit-native-gui) and the [roadmap](zh/roadmap.md): all three platforms are verified on real machines.
 

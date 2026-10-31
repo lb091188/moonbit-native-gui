@@ -2,7 +2,7 @@
 
 > **来时的路**：本库最初是 [赵成(zcbenz)](https://github.com/zcbenz) 的 [Yue / libyue](https://github.com/yue/yue) 的 MoonBit 封装，如今`libyue`、`yoga`不再是运行时依赖，只作行为参考。感谢 libyue、yoga、[MoonBit](https://github.com/moonbitlang)。
 
-[MoonBit](https://github.com/moonbitlang) 的**跨平台桌面 GUI 框架** —— 一套 MoonBit 代码直出 Windows 🟩 / Linux 🟩 / macOS 🟩 原生窗口，托盘、通知、快捷键、文件对话框等系统能力开箱即用，`moon add` 后零配置直接运行。
+[MoonBit](https://github.com/moonbitlang) 的**跨平台桌面 GUI 框架** —— 一套 MoonBit 代码直出 Windows 🟩 / Linux 🟩 / macOS 🟩 原生窗口，托盘、通知、快捷键、文件对话框等系统能力开箱即用。
 
 [English](README.md) | 简体中文
 
@@ -15,15 +15,19 @@
 
 📚 [**在线文档**](https://moonbit-native-gui.pages.dev/zh/)
 
-![组件库演示板](./docs/public/images/showcase-main.png)
-![Linux(XFCE)实机演示](./docs/public/images/showcase-anim-linux.webp) 
-![Windows 实机演示](./docs/public/images/showcase-anim-windows.webp)
+![Hello 最小窗口](./docs/public/images/app-hello.png)
+![Windows 上的组件演示板](./docs/public/images/os-windows.png)
+![Linux 上的深色主题](./docs/public/images/os-linux.png)
+![macOS 上的英文界面](./docs/public/images/os-macos.png)
+![内嵌浏览器](./docs/public/images/app-browser.png)
+![音频播放器](./docs/public/images/app-audio.png)
+![视频播放器](./docs/public/images/app-video.png)
 
 ## 核心特色
 
 **🖥 系统接口完备** —— 托盘、通知、全局快捷键、剪贴板、原生菜单、文件对话框、拖放、开机自启等桌面常用能力开箱即用，另有音量 / 电源 / 壁纸 / 显示器 / 打印机等系统查询能力
 
-**🎨 渲染管线自绘** —— 不依赖 Skia 等重型图形引擎，控件观感跨平台一致，默认跟随系统强调色与明暗模式，主题可按需定制；内置控件文案可本地化（随包中英两套）。
+**🎨 观感一致且轻量** —— 不依赖重型图形引擎，三个平台同一套控件外观、产物小启动快；默认跟随系统强调色与明暗模式，主题可按需定制；内置控件文案可本地化（随包中英两套）。
 
 **📊 界面组件齐全** —— 基础布局组件、表单组件、可交互图表、Markdown 渲染；另有独立的 gui-media 音视频播放和展示能力、gui-webview 基于系统 webview 的 web 渲染能力。
 
