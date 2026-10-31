@@ -16,9 +16,10 @@
 | `NoahLiu/gui-sys` | gui/sys | 纯读写系统工具：剪贴板、自启、壁纸、打印机、音量、电源、历史等 | 无（core + moonsqlitefile） |
 | `NoahLiu/gui-window` | gui/win | 窗口层 + GUI 辅助族：窗口、事件循环、surface、拖放、IME、任务栏、托盘、通知、热键、单实例、对话框 | 无 |
 | `NoahLiu/gui-dbus` | gui/dbus | D-Bus/SNI：托盘 Linux 半边、通知、MPRIS、UPower、NetworkManager、logind、单实例 | gui-sys |
-| `NoahLiu/native-gui` | — | 聚合 facade：base/render/text/theme/widget/ui/shell 等 + 统一 API（平台分派） | 上述三模块 + gui-webview / gui-media |
+| `NoahLiu/gui-shell` | gui/shell + gui/i18n | 集成层：六通道统一门面（菜单/热键/托盘/通知/外部打开/单实例）+ 事件泵 + 平台分派，与控件树零耦合 | gui-window、gui-sys、gui-dbus（i18n 随迁为同模块包） |
+| `NoahLiu/native-gui` | — | 组件工具包 + 聚合 facade：base/render/text/theme/widget/ui/chart 等 | gui-shell + gui-webview / gui-media |
 
-三模块与 gui-webview / gui-media 同形态：独立模块、独立发版、prebuild 自管、钉版。
+模块依赖是严格分层的有向无环：`gui-dbus → gui-sys`；`gui-window` 零内部依赖；`gui-shell → 前三模块`；facade → gui-shell + 两个扩展模块。三模块与 gui-webview / gui-media 同形态：独立模块、独立发版、prebuild 自管、钉版。
 
 ## 依赖规则
 
@@ -33,15 +34,17 @@
 - 事件型能力从此不进 gui-sys。存量例外：sys 的 clipboard_watch 半只脚踩事件型（Linux 轮询 xclip/xsel 路线），不动，记为存量债。
 - 纯读写能力不进 gui-window。
 - instance 归 gui-window：「是否首实例」是互斥量检查（纯读写），但收益动作「唤起已有实例」是窗口行为。
-- **tray 双半边各住各模块**：Win32 半边 `win/tray.mbt`（gui-window），Linux 半边 `dbus/sni.mbt`（gui-dbus）；统一 API 与后端选择在 facade 层（双后端图见 [tray.md](tray.md)）。**gui-window 不依赖 gui-dbus**——两者是平行兄弟：win 包只依赖 core/utf8，dbus 包只依赖 sys，互相零 import；facade 运行期选边（SNI watcher 在线走 SNI，否则 Win32，否则 `Err(Unsupported)`）。这样 gui-window 在 Windows/macOS 上零 D-Bus 包袱，gui-dbus 独立可消费。
+- **tray 双半边各住各模块**：Win32 半边 `win/tray.mbt`（gui-window），Linux 半边 `dbus/sni.mbt`（gui-dbus）；统一 API 与后端选择在 gui-shell（双后端图见 [tray.md](tray.md)）。**gui-window 不依赖 gui-dbus**——两者是平行兄弟：win 包只依赖 core/utf8，dbus 包只依赖 sys，互相零 import；gui-shell 运行期选边（SNI watcher 在线走 SNI，否则 Win32，否则 `Err(Unsupported)`）。gui-window 在 Windows/macOS 上零 D-Bus 包袱，gui-dbus 独立可消费。
+- **gui-shell 是 facade 的集成层**：全仓唯一同时 import 三个能力模块的层；上承组件层（widget/ui/chart/router/style 与两个扩展模块都吃它的通道与事件词汇），下接三个能力模块，吸收全部平台差异。它不认识 widget——依赖方向是组件层依赖 shell，不是反过来。
+- **i18n 随 gui-shell 迁**：i18n 是零依赖纯包（无 FFI，文件读取归应用层），搬家是机械活；留在 facade 则 gui-shell 为拿它必须依赖 facade，而 facade 又依赖 gui-shell——模块环，禁止。「升格独立 gui-i18n 模块」无独立检索面，判据不满足，不做。
 
-## 拆分顺序（23 步，每步一提交，步间保持全绿可发布）
+## 拆分顺序（26 步，每步一提交，步间保持全绿可发布）
 
 1. roadmap 落「已规划」条目（已完成，见「模块化」小节）；TODO 待动手再进。
-2. 基线固化：全量 check/test 绿；快照 win/sys/dbus 三包 `pkg.generated.mbti`；记录三方依赖版本（moonsqlitefile 等）。
+2. 基线固化：全量 check/test 绿；快照 win/sys/dbus/shell/i18n 五包 `pkg.generated.mbti`；记录三方依赖版本（moonsqlitefile 等）。
 3. 建 `modules/gui-sys`：整体迁移 gui/sys（.mbt + sys_stub.c + moon.pkg）+ LICENSE/NOTICE/README，keywords 铺长尾（clipboard/autostart/wallpaper/printer/volume/power/history…）。
 4. prebuild 切割：gui 的 prebuild.py 摘 sys 分支；gui-sys 自管（sys 基本纯 native-stub，预计零成本）。
-5. 全仓 import 改写（约 25 处 moon.pkg）：chart/dbus/shell/ui 四包 + gui-webview + examples（audio/browser/headless-audio/hello/showcase 各子包/sysmonitor/video）+ experiment 各 probe；显式 `@sys` 别名保 .mbt 代码零改动。
+5. 全仓 import 改写：chart/dbus/shell/ui 四包 + gui-webview + examples（audio/browser/headless-audio/hello/showcase 各子包/sysmonitor/video）+ experiment 各 probe；显式 `@sys` 别名保 .mbt 代码零改动。
 6. 注册与文档：moon.work、facade 钉版依赖、AGENTS.md 门禁命令、build.md、测试文档同步。
 7. 门禁 → 提交 → `gui-sys@0.1.0` 发版 + 钉版清单同步。
 8. 建 `modules/gui-window`：整体迁移 gui/win（stub.c 四平台分支 + win_gui.c + 全部 mbt/wbtest）+ 文档关键词（window/tray/notification/global hotkey/IME/single instance/taskbar）。
@@ -54,17 +57,21 @@
 15. import 改写：shell、showcase、tray_zombie_probe；注册与文档同步。
 16. 门禁 → 提交 → Linux 真机清单（SNI 托盘/通知/MPRIS/单实例/logind）交用户。
 17. `gui-dbus@0.1.0` 发版 + 钉版同步。
-18. gui-window 模块内分包：`window` 核心 + `tray`/`hotkey`/`notify`/`instance`/`dialog` 平级包，测试随迁；同模块 import，无需新原语。
-19. 核验 facade 对外 mbti 与第 2 步快照一致。
-20. 托盘/热键真机复验 → 提交 → `gui-window@0.2.0`。
-21. （可选）gui-sys 工具族按消费场景分包，有独立检索价值的才拆。
-22. facade 定型：README/落地页「模块菜单」一节（每模块一行定位与单用场景）；中英文档同步；facade 标记版本另行决定。
-23. webview 壳编排层单独立项（见「后续」）。
+18. 建 `modules/gui-shell`：迁移 gui/shell 全部（含 shell_stub.c）+ gui/i18n 整包随迁为 `gui-shell/i18n`；依赖指 gui-window / gui-sys / gui-dbus。
+19. import 改写（shell 与 i18n 的消费方，已扫全）：facade 的 chart/router/style/ui/widget 五包、gui-media、gui-webview、examples（headless-audio、showcase 各子包）、experiment（hotkey/instance/menu/timer/tray_zombie 五个 probe）；显式别名保 .mbt 零改动。
+20. 注册 → 门禁 → 提交 → `gui-shell@0.1.0` 发版 + 钉版同步。
+21. gui-window 模块内分包：`window` 核心 + `tray`/`hotkey`/`notify`/`instance`/`dialog` 平级包，测试随迁；gui-shell 六个门面文件原位不动、import 路径随分包改指；同模块内无需新原语。
+22. 核验 facade 对外 mbti 与第 2 步快照一致。
+23. 托盘/热键真机复验 → 提交 → `gui-window@0.2.0`。
+24. （可选）gui-sys 工具族按消费场景分包，有独立检索价值的才拆。
+25. facade 定型：定位收窄为「组件工具包 + 聚合 facade」，README/落地页「模块菜单」一节（每模块一行定位与单用场景，六个模块）；中英文档同步；facade 标记版本另行决定。
+26. webview 壳编排层按三段式推进（见「后续」）。
 
 ## 修订记录
 
 - 2026-10-31 初版：tray/notify/hotkey/instance/message_box 计划迁入 gui-sys（gui-sys 依赖 gui-window 的隐藏消息窗原语）。
-- 2026-10-31 修订：五件留在 gui-window、模块内分包（tray/hotkey/notify/instance/dialog）。理由：①事件循环寄生，与消息泵同模块，免掉「gui-window 暴露隐藏消息窗原语」的额外设计；②托盘两半边（window + dbus）比（sys + dbus）语义齐整；③不设独立 tray 模块——那会对 gui-window（Win32 半边）与 gui-dbus（Linux 半边）形成双向扇入，比现状差。
+- 2026-10-31 一修：五件留在 gui-window、模块内分包（tray/hotkey/notify/instance/dialog）。理由：①事件循环寄生，与消息泵同模块，免掉「gui-window 暴露隐藏消息窗原语」的额外设计；②托盘两半边（window + dbus）比（sys + dbus）语义齐整；③不设独立 tray 模块——那会对 gui-window（Win32 半边）与 gui-dbus（Linux 半边）形成双向扇入，比现状差。
+- 2026-10-31 二修：shell 独立为 gui-shell、webview 壳定为三段式。①初判「shell 无独立消费场景不拆」被 webview 壳规划推翻——壳产品就是「不带工具包消费 shell」的场景；而依赖隔离靠模块不靠包（placement.md），壳模块不能为拿 shell 去依赖 facade（闭包会拖进整个控件工具包），故 shell 必须独立。②i18n 随迁：留在 facade 会成环（gui-shell→facade→gui-shell），纯包搬家无技术障碍。③webview 壳的 `native-gui/webapp` facade 内包形态划掉——模块=发布单元、模块行=检索面，两条自家判据都不允许；定为三段式（探针验证 → 独立模块发布）。
 
 ## 不变量与验收
 
@@ -73,6 +80,9 @@
 - prebuild 迁移的验收在真机（用户执行）：GUI 行为一律出操作清单，不远程驱动、不在反馈前下结论。
 - 发版节奏：每模块 0.1.0 起发；facade 钉版清单全仓同步。
 
-## 后续
+## 后续：webview 壳编排层（三段式）
 
-- **webview 壳编排层**：基于 gui-window + gui-webview 的薄编排——IPC 命令契约（`register_protocol`/JS 求值往返上定义字符串协议 + MoonBit 端 CommandRegistry + 注入 `window.__*__.invoke` 运行时）、前端资产装载约定、dev 加载约定（加载 Vite dev URL）。打包器与 CLI 无限期后置。拆分完成后单独立项。
+- **验证期**：experiment 探针/示例验证 IPC 契约——shell 六通道的 JSON 投影 + 应用自定义命令（MoonBit 端 CommandRegistry + 注入 `window.__*__.invoke` 运行时，跑在 gui-webview 的协议/JS 求值往返上）。不占任何发版线。
+- **发布期**：独立模块（名字届时定），依赖 gui-shell + gui-window + gui-sys + gui-dbus + gui-webview，独立货架位与发版节奏。
+- **import 纪律**：能力一律经 gui-shell 消费，不绕过 shell 直碰 gui-dbus——绕行等于把平台分派抄一份。
+- **两条设计观察**：①主客易位——gui-webview 从「嵌进原生界面的子件」（矩形由布局给）转为「WebView 主面」，原生退居能力层，同一 pane 组件两种站位，后端不改；②打包器与 CLI 无限期后置，dev 加载约定（Vite dev URL）与资产装载约定（`register_protocol` 供给嵌入资源）先行。
