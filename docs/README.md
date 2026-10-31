@@ -1,63 +1,6 @@
 # Documentation Index
 
-**native-gui** is a cross-platform desktop GUI framework for MoonBit. One codebase ships native Windows 🟩 / Linux 🟩 / macOS 🟩 windows with desktop capabilities ready to use and zero config after `moon add`; all three platforms are maintained against the same real-device checklist, and the mooncakes package is `NoahLiu/native-gui`.
-
-## Package structure
-
-`moon add NoahLiu/native-gui` pulls in the whole module, but MoonBit compiles and links only the packages you import — anything you don't import stays out of your binary:
-
-| Import in `moon.pkg` | Alias | Contents |
-|---|---|---|
-| `NoahLiu/native-gui/base` | `@base` | Platform-free primitives: `Store` / `Signal` / `ListStore`, the focus stack, key codes, end-of-frame batching and the frame ledger |
-| `NoahLiu/native-gui/shell` | `@shell` | System-capability shell: menus, global hotkeys, tray, notifications, reveal, the loop scheduler and read-only platform probes |
-| `NoahLiu/native-gui/widget` | `@widget` | Self-drawn widget host: layout mapping, hit-testing, event routing, paint walk, declarative `Node`, overlays, drag & drop, input mapping, the `App` pump |
-| `.../native-gui/ui` | `@ui` | Self-drawn widgets and the component library: window mounting, labels / buttons, forms, display, navigation, date, tables and virtual lists, text entries, scrolling, overlays, code view, declarative layer |
-| `.../native-gui/render` | `@render` | Rasterizer: a pure-MoonBit software raster plus a Cairo backend; bitmaps, canvas, images, PNG |
-| `.../native-gui/text` | `@text` | Text layer: font families, fonts, rich text and range attributes (Pango / DirectWrite) |
-| `.../native-gui/theme` | `@theme` | Theme system: palette derivation and change subscription |
-| `.../native-gui/icons` | `@icons` | Vector icon system |
-| `.../native-gui/sys` | `@sys` | OS capabilities: autostart, idle, subprocesses, environment, files, JSON, dialogs, browser history / bookmarks, recent files, wallpaper, volume, power, printers, monitors, window control, app lookup |
-| `.../native-gui/input` | `@input` | Editing core and key codes |
-| `.../native-gui/win` | `@win` | Platform window backends (Win32 / GTK3 C stubs): hotkeys, icons, IME, message boxes, notifications, tray, surfaces |
-| `.../native-gui/dbus` | `@dbus` | Linux D-Bus bridge: tray SNI, notifications, logind / upower, media, network, screensaver |
-| `.../native-gui/chart` | `@chart` | Charts and the cross-cutting interactive layer |
-| `.../native-gui/mdview` | `@mdview` | Markdown rendering view |
-| `.../native-gui/style` | `@style` | Style layer: stylesheets written as MoonBit values, with state classes and transitions |
-
-Heavier optional capabilities live in separate modules, and `moon add NoahLiu/native-gui` never pulls them in:
-
-| Module | Contents |
-|---|---|
-| `NoahLiu/gui-media` | Audio/video engine and the player component. |
-| `NoahLiu/gui-webview` | Embedded WebView (WebKitGTK / WebView2 / WKWebView) — browser expressiveness paired with native capabilities; see [webview.md](webview.md). |
-
-Don't confuse the two kinds of "optional": a sub-package you don't import stays out of your binary — the `moon.pkg` import is the compile/link boundary; a module you don't depend on is not even resolved or prebuilt — the `moon.mod` import decides the dependency closure. For a capability to reach the latter, it must live in its own module.
-
-## Demos
-
-Examples, from shallow to deep — every directory under `examples/` is a standalone module, so `cd` in and `moon run .`:
-
-```sh
-cd examples/hello && MOON_WORK=off moon run .
-```
-
-`MOON_WORK=off` resolves only this example's own dependency closure, so the media / probe / ffmpeg members never run their prebuild; staying in the workspace means installing every development package per §2 of [build.md](build.md) — missing GTK3 dev packages, or a `python` that still points at 2.7, make a native build fail before it starts (fixes in §6 of the same page).
-
-- `examples/hello` — minimal window
-- `examples/showcase` — full demo board
-- `examples/browser` — embedded WebView browser
-
-`examples/showcase` covers every component family, charts, code & docs views, system integration and transitions, plus a read-only system capability probe page. Each page's source is its own file (`examples/showcase/pages/*.mbt`), ready to copy and adapt. Screenshots of the components:
-
-![Basic components](/images/showcase-basic.png)
-
-![Form components](/images/showcase-form.png)
-
-![Data display](/images/showcase-data.png)
-
-![Code & docs](/images/showcase-code.png)
-
-![System integration](/images/showcase-system.png)
+For what native-gui is, see the [home page](/). Find docs by goal:
 
 ## Routing
 
@@ -67,13 +10,13 @@ cd examples/hello && MOON_WORK=off moon run .
 | [tutorial.md](tutorial.md) | Five-minute start: install the toolchain, create a project, and build your first window with a click counter |
 | [components.md](components.md) | Component quick-reference (`@ui`): constructor signatures and purposes for every widget, grouped by family |
 | [declarative.md](declarative.md) | Declarative layer and reactivity: the node tree and `mount_window`, `Store` / `Signal`, `for_list` / `when`, in-place replacement |
-| [layout.md](layout.md) | Layout: the Flexbox semantics of yoga-mbt, the `Style` field set of `@style`, and the `class` channel |
-| [build.md](build.md) | Build and run: installing the dependencies from scratch (per-platform lists + a self-check), build commands and artefact paths, the state of prebuilt binaries, failure → fix; on the mechanism side, how prebuild hosts link flags and how to spot a C stub edited without relinking |
-| [packages.md](packages.md) | Package layout: the 15 package aliases and the two optional modules at a glance |
+| [layout.md](layout.md) | Layout: the Flexbox layout semantics, the `Style` field set of `@style`, and the `class` channel |
+| [build.md](build.md) | Build and run: installing the dependencies from scratch (per-platform lists + a self-check), build commands and artefact paths, the state of prebuilt binaries, failure → fix; library-development mechanics in the second half |
+| [packages.md](packages.md) | Package layout: the 17 package aliases and the two optional modules at a glance |
+| [system-capabilities.md](system-capabilities.md) | System capabilities overview (`@sys`): volume, app lookup, color temperature, wallpaper, monitors, window management, clipboard watch, autostart, system info, printers, recent files, browser history and more, with unified `Result` semantics; plus the shared subprocess and D-Bus call layers |
+| [webview.md](webview.md) | Embedded WebView: using the `gui-webview` module, with per-platform notes |
 | [zh/roadmap.md](zh/roadmap.md) | Public roadmap: positioning, what you can use today, platform and feature matrix, commitments and versioning, next steps, open decisions, explicit non-goals (Chinese only) |
-| [autostart.md](autostart.md) | Autostart: XDG `.desktop` on Linux, HKCU Run key on Windows, one `is_enabled` / `enable` / `disable` API |
 | [experience.md](experience.md) | Experience guide: try it for real — run the prebuilt demos or the repository examples; app building and library work are routed to the App developer experience and Build & run |
-| [system-capabilities.md](system-capabilities.md) | System capabilities overview (`@sys`): volume, app lookup, color temperature, wallpaper, monitors, window management, clipboard watch, system info, printers, recent files, browser history and more, with unified `Result` semantics; plus the shared subprocess and D-Bus call layers |
 | [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) | Third-party licenses and provenance: assets shipped in-repo, binaries we build and host on Releases, and the obligations that follow (Chinese only) |
 
 Internal engineering records — platform adaptation field notes, the Linux tray design, the frontend-style design and the GPU architecture decision — live in the repository's [`proposals/`](https://github.com/lb091188/moonbit-native-gui/tree/master/proposals) directory and are not published on this site.

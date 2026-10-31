@@ -149,7 +149,7 @@ So "let me just see it" still means building one example per §4 — `examples/h
 
 - moon runs the library module's `gui/scripts/prebuild.py` at build time, wired up via `options(--moonbit-unstable-prebuild)` in `gui/moon.mod`. It emits `link_configs` for the current system and propagates them automatically to every main package that depends on this library module. The declaration carries a script path only, **no command field** — which interpreter runs it is moon's choice per the first row of §6.
 - prebuild also probes system libraries: on Linux it looks for GTK3 / Pango / FontConfig / X11, `webkit2gtk-4.1` for the embedded WebView, and ffmpeg for the media module. If GTK is not found, it exits non-zero with a fix hint; if webkit is not found, `@web` degrades to a placeholder implementation and the capability reports `Unsupported`, instead of failing the whole link.
-- The result: after `moon add NoahLiu/native-gui`, `moon run` works with zero configuration. Link flags are never written and should not be written.
+- The result: link flags are never written by hand and should not be — the prebuild supplies them.
 
 ## 8. Notes for contributors
 

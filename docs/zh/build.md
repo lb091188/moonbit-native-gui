@@ -15,7 +15,7 @@ irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
 
 ## 2. 装开发依赖
 
-本库自绘、走原生 FFI，构建期要四样：**C 工具链、pkg-config、Python 3（≥3.7）、Linux 上的 GTK3 / Pango / FontConfig / X11 开发包**。Python 3 不是可选依赖——链接参数由 `gui/scripts/prebuild.py` 产出，moon 构建 native 目标时执行它（谁去执行它见 §6 第一条）。
+库走原生 FFI，构建期要四样：**C 工具链、pkg-config、Python 3（≥3.7）、Linux 上的 GTK3 / Pango / FontConfig / X11 开发包**。Python 3 不是可选依赖——链接参数由 `gui/scripts/prebuild.py` 产出，moon 构建 native 目标时执行它（谁去执行它见 §6 第一条）。
 
 ### Linux（Debian / Ubuntu 系）
 
@@ -163,7 +163,7 @@ GitHub Releases 现有两条：**Binaries**（tag `bin`，由 `release-bin.yml` 
 
 - moon 在构建时执行库模块的 `gui/scripts/prebuild.py`，它由 `gui/moon.mod` 的 `options(--moonbit-unstable-prebuild)` 挂上，按当前系统输出 `link_configs`，并自动传播给依赖本库模块的所有 main 包。声明的只有脚本路径，**没有命令字段**——用哪个解释器由 moon 按 §6 第一行的顺序挑。
 - prebuild 同时探测系统库：Linux 找 GTK3 / Pango / FontConfig / X11，内嵌 WebView 找 `webkit2gtk-4.1`，媒体模块找 ffmpeg。探不到 GTK 就非零退出并给修复提示；探不到 webkit 则 `@web` 退成占位实现、能力报 `Unsupported`，不让整包链接失败。
-- 结果：`moon add NoahLiu/native-gui` 后 `moon run` 零配置，链接 flags 不用写也不该写。
+- 结果：链接 flags 不用写也不该写，由 prebuild 统一给出。
 
 ## 8. 贡献者须知
 

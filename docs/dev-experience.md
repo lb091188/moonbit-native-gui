@@ -1,6 +1,6 @@
 # App Developer Experience
 
-The complete path from zero to your first window: on a fresh machine, a native desktop app written in MoonBit with native-gui within minutes. Written for app developers who have never used MoonBit. If you just want to see it run without writing code, the [experience guide](experience.md) has prebuilt packages.
+The complete path from zero to your first window: install the toolchain, create the project, two configuration adjustments, and a native window on screen. Written for app developers who have never used MoonBit. If you just want to see it run without writing code, the [experience guide](experience.md) has prebuilt packages.
 
 ## 1. Install the toolchain
 

@@ -16,7 +16,7 @@ irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
 <details>
 <summary>Linux（Ubuntu 24.04）环境准备</summary>
 
-本库自绘、走原生 FFI，构建只需要 C 工具链、pkg-config、Python 3 与 GTK3 / Pango / FontConfig / X11 的开发包：
+库走原生 FFI，构建只需要 C 工具链、pkg-config、Python 3 与 GTK3 / Pango / FontConfig / X11 的开发包：
 
 ```sh
 sudo apt install build-essential pkg-config python3 \
@@ -177,7 +177,7 @@ cd examples/showcase && moon run .   # 基础/表单/导航/数据展示/反馈/
 
 ## 6. 给库贡献者的留言
 
-这个库的目标是用 MoonBit 写原生桌面应用，现覆盖自绘控件、图表、Markdown、内嵌 WebView 与系统能力，值得做的事还很多：
+这个库的目标是用 MoonBit 写原生桌面应用，现覆盖控件、图表、Markdown、内嵌 WebView 与系统能力，值得做的事还很多：
 
 - **平台兼容**：Windows、Linux（Ubuntu XFCE/GNOME/KDE、Deepin）、macOS（Apple Silicon）三平台均已真机验证，按 `测试文档/测试用例.md` 同一份清单同步维护；新踩到的平台差异欢迎回报。
 - **控件与能力**：还没封装的条目、各平台的适配坑，都欢迎从 issue 开始讨论。
