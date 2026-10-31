@@ -89,7 +89,9 @@ fn arr_str_idx(a : Array[String], x : String) -> Int {
 
 ///|
 /// 默认资产的稳健解析：从当前目录逐级向上找 `examples/video/assets/<name>`
-/// 或 `video/assets/<name>`，moon run 无论从仓库根还是模块目录起跑都能命中。
+/// 或 `assets/video/<name>`，moon run 无论从仓库根还是模块目录起跑都能命中；
+/// 最后一档按可执行文件位置找 `../Resources/assets/video/<name>`——macOS 的
+/// .app 从 Finder 启动时 cwd 是 `/`，演示文件随包放在 bundle 的 Resources 里。
 fn resolve_asset(name : String) -> String? {
   let cwd = @sys.current_dir()
   let dirs : Array[String] = [cwd]
@@ -107,6 +109,13 @@ fn resolve_asset(name : String) -> String? {
       if @sys.sys_path_exists(c) {
         return Some(c)
       }
+    }
+  }
+  let exe = @sys.exe_dir()
+  if exe != "" {
+    let c = exe + "/../Resources/assets/video/" + name
+    if @sys.sys_path_exists(c) {
+      return Some(c)
     }
   }
   None

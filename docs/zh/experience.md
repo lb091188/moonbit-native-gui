@@ -21,11 +21,11 @@
 | `hello` | 最小窗口（框架体积与启动速度的基线样本） |
 | `showcase` | 全功能演示板：组件族、14 种交互图表、Markdown / 代码视图、主题跟随、系统集成页、系统能力探测页 |
 | `browser` | 内嵌浏览器演示：地址栏导航、本地站点、JS 互操作、策略拦截 |
-| `audio` / `video` | 音频 / 视频播放器演示，演示文件已随包（`assets/audio`、`assets/video`；Windows / macOS 包内另带 FFmpeg 动态库） |
+| `audio` / `video` | 音频 / 视频播放器演示，演示文件已随包；Windows / macOS 包内另带 FFmpeg 动态库 |
 
 **Windows**：解压后双击对应 `.exe` 即可，不弹控制台黑框；`browser` 依赖的 WebView2 Runtime 系统自带。
 
-**macOS**：包内 `.dylib` 必须与可执行文件同目录，不要拆开拷贝。首次启动会被 Gatekeeper 拦一次（包是 adhoc 签名、未经 Apple 公证，浏览器下载还带隔离属性），两个放行办法任选其一：
+**macOS**：五个应用是 `.app` bundle，解压后**双击直接运行**，不会开终端。首次启动会被 Gatekeeper 拦一次（包是 adhoc 签名、未经 Apple 公证，浏览器下载还带隔离属性），两个放行办法任选其一：
 
 1. **终端一行清隔离（推荐，五个程序一次放行）**：
 
@@ -33,7 +33,9 @@
    xattr -dr com.apple.quarantine <解压目录>
    ```
 
-2. **图形路径（macOS 15 起，右键「打开」已不再给放行按钮）**：被拦的对话框点「完成」→ 系统设置 → 隐私与安全性 → 「安全性」段 → 被拦条目旁点**「仍要打开」**（拦截后约 1 小时内有效，每个可执行文件各来一遍）。
+2. **图形路径（macOS 15 起，右键「打开」已不再给放行按钮）**：被拦的对话框点「完成」→ 系统设置 → 隐私与安全性 → 「安全性」段 → 被拦条目旁点**「仍要打开」**（拦截后约 1 小时内有效，每个 app 各来一遍）。
+
+`lib/` 里的 `.dylib` 五个 app 共用，与 `.app` 保持同目录，不要拆散拷贝。
 
 **Linux**：解压后 `chmod +x <文件>` 运行。运行库需求（Ubuntu 24.04 自带，其他发行版按名安装）：
 
@@ -71,7 +73,7 @@ sudo apt install libgtk-3-0 libpango-1.0-0 libx11-6 \
 
 ### 已知平台差异（诚实口径）
 
-- **macOS 通知**：需从 `.app` bundle 启动才可用，直接跑二进制会报不可用——系统约束，非库缺陷；其余托盘 / 热键等能力裸跑可用。
+- **macOS 通知**：必须从 `.app` bundle 启动——本批起包内已是 `.app`，双击启动预期可用（真机复验中）；若直接跑 `Contents/MacOS` 里的二进制仍会报不可用，系统约束，非库缺陷。
 - **Linux**：音视频与 `browser` 分别依赖系统 FFmpeg 与 WebKit2gtk，见上面的安装清单。
 - 平台状态以 [README 平台表](https://github.com/lb091188/moonbit-native-gui) 与 [路线图](roadmap.md) 为准：三平台均已真机验证。
 

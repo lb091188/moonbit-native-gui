@@ -65,6 +65,10 @@ extern "c" fn ffi_sys_spawn_detached(
 #borrow(ok)
 extern "c" fn ffi_sys_getcwd(ok : Ref[Int]) -> Bytes = "yue_sys_getcwd"
 
+///|
+#borrow(ok)
+extern "c" fn ffi_sys_exe_dir(ok : Ref[Int]) -> Bytes = "yue_sys_exe_dir"
+
 // ---------------------------------------------------------------------------
 // 纯逻辑层（白盒测试覆盖）
 // ---------------------------------------------------------------------------
@@ -170,6 +174,15 @@ pub fn spawn_detached(file : String, arg : String) -> Result[Unit, String] {
 pub fn current_dir() -> String {
   let ok = Ref(0)
   let v = ffi_sys_getcwd(ok)
+  if ok.val == 1 { @utf8.decode_lossy(v) } else { "" }
+}
+
+///|
+/// 当前可执行文件所在目录（读不到为空串）。Finder/LaunchServices 启动
+/// .app 时 cwd 是 `/`，「资源按 exe 旁边找」要用这个，不能拿 cwd 充数。
+pub fn exe_dir() -> String {
+  let ok = Ref(0)
+  let v = ffi_sys_exe_dir(ok)
   if ok.val == 1 { @utf8.decode_lossy(v) } else { "" }
 }
 

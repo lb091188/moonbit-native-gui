@@ -21,11 +21,11 @@ Every zip contains the same five executables plus third-party notices (`THIRD-PA
 | `hello` | Minimal window (baseline for binary size and startup time) |
 | `showcase` | Full demo board: widget families, 14 interactive chart types, Markdown / code views, theme following, system-integration page, system-capability probe page |
 | `browser` | Embedded browser demo: address-bar navigation, local site, JS interop, policy interception |
-| `audio` / `video` | Audio / video player demos with bundled media files (`assets/audio`, `assets/video`; FFmpeg dynamic libraries are bundled in the Windows / macOS packages) |
+| `audio` / `video` | Audio / video player demos with bundled media files; FFmpeg dynamic libraries are bundled in the Windows / macOS packages |
 
 **Windows**: unzip and double-click the `.exe`; no console window appears. The WebView2 Runtime needed by `browser` ships with the OS.
 
-**macOS**: the bundled `.dylib` files must stay in the same directory as the executables. The first launch of each binary gets one Gatekeeper block (the packages are ad-hoc signed, not notarized, and the downloaded zip carries the quarantine attribute). Two ways past it:
+**macOS**: the five apps are `.app` bundles — after unzipping, **double-click to run**, no Terminal involved. The first launch of each app gets one Gatekeeper block (the packages are ad-hoc signed, not notarized, and the downloaded zip carries the quarantine attribute). Two ways past it:
 
 1. **Clear quarantine in a terminal (recommended, unblocks all five at once)**:
 
@@ -33,7 +33,9 @@ Every zip contains the same five executables plus third-party notices (`THIRD-PA
    xattr -dr com.apple.quarantine <folder>
    ```
 
-2. **The GUI way (macOS 15+; right-click → Open no longer offers a bypass)**: click Done on the block dialog → System Settings → Privacy & Security → the Security section → **Open Anyway** next to the blocked app (valid for about an hour after the block, per executable).
+2. **The GUI way (macOS 15+; right-click → Open no longer offers a bypass)**: click Done on the block dialog → System Settings → Privacy & Security → the Security section → **Open Anyway** next to the blocked app (valid for about an hour after the block, per app).
+
+The `.dylib` files in `lib/` are shared by all five apps — keep that folder next to the `.app` bundles.
 
 **Linux**: unzip, `chmod +x <file>`, run. Runtime libraries (preinstalled on Ubuntu 24.04; install by name on other distros):
 
@@ -71,7 +73,7 @@ Playback / progress / speed control, external and embedded subtitle tracks, A/V 
 
 ### Known platform differences (honest scope)
 
-- **macOS notifications**: only available when launched from an `.app` bundle; running the bare binary reports unavailable — an OS constraint, not a library defect. Tray / hotkeys and the rest work from the bare binary.
+- **macOS notifications**: require an `.app` bundle launch — the packages ship `.app` bundles now, so double-click launches should have them (real-machine verification in progress); running the bare binary from `Contents/MacOS` still reports unavailable, an OS constraint, not a library defect.
 - **Linux**: media and `browser` depend on system FFmpeg and WebKit2gtk respectively — see the install list above.
 - Platform status follows the [README platform table](https://github.com/lb091188/moonbit-native-gui) and the [roadmap](zh/roadmap.md): all three platforms are verified on real machines.
 

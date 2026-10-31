@@ -613,6 +613,76 @@ void *yue_sys_getcwd(int32_t *ok) {
 #endif
 }
 
+// 当前可执行文件所在目录（失败 ok=0 返回空文本）。Finder/LaunchServices
+// 启动 .app 时 cwd 是 /，「资源按 exe 旁边找」的场景（打包演示文件进
+// bundle）靠这个，不能拿 cwd 充数。
+void *yue_sys_exe_dir(int32_t *ok) {
+  *ok = 0;
+#if defined(_WIN32)
+  wchar_t *w = (wchar_t *)malloc(sizeof(wchar_t) * 32768);
+  if (w == NULL) {
+    return moonbit_make_bytes(0, 0);
+  }
+  DWORD n = GetModuleFileNameW(NULL, w, 32768);
+  if (n == 0 || n >= 32768) {
+    free(w);
+    return moonbit_make_bytes(0, 0);
+  }
+  DWORD dir = 0;
+  for (DWORD i = 0; i < n; i++) {
+    if (w[i] == L'\\' || w[i] == L'/') {
+      dir = i;
+    }
+  }
+  w[dir] = L'\0';
+  void *out = win_wide_bytes(w);
+  free(w);
+  *ok = 1;
+  return out;
+#elif defined(__APPLE__)
+  char buf[4096];
+  uint32_t size = sizeof(buf);
+  if (_NSGetExecutablePath(buf, &size) != 0) {
+    return moonbit_make_bytes(0, 0);
+  }
+  char real[4096];
+  if (realpath(buf, real) == NULL) {
+    snprintf(real, sizeof(real), "%s", buf);
+  }
+  char *slash = strrchr(real, '/');
+  if (slash == NULL) {
+    return moonbit_make_bytes(0, 0);
+  }
+  *slash = '\0';
+  size_t len = strlen(real);
+  void *out = moonbit_make_bytes((int)len, 0);
+  if (len > 0) {
+    memcpy(out, real, len);
+  }
+  *ok = 1;
+  return out;
+#else
+  char buf[4096];
+  ssize_t n = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+  if (n <= 0) {
+    return moonbit_make_bytes(0, 0);
+  }
+  buf[n] = '\0';
+  char *slash = strrchr(buf, '/');
+  if (slash == NULL) {
+    return moonbit_make_bytes(0, 0);
+  }
+  *slash = '\0';
+  size_t len = strlen(buf);
+  void *out = moonbit_make_bytes((int)len, 0);
+  if (len > 0) {
+    memcpy(out, buf, len);
+  }
+  *ok = 1;
+  return out;
+#endif
+}
+
 // 分离式启动：execvp 直传 argv（不经 shell，参数里无命令替换风险），子
 // 进程脱离会话与新进程组，标准输入输出全接 /dev/null。双 fork + 一根
 // CLOEXEC 管道：中间进程只读「真正子进程有没有 exec 成功」——exec 成功

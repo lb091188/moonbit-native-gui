@@ -167,15 +167,17 @@ jobs:
               dst = name + (".exe" if sys.platform == "win32" else "")
               shutil.copy2(src, os.path.join(stage, dst))
               print(f"打包: {dst} ({os.path.getsize(src)} bytes)")
-          # 音视频演示文件随包:示例从启动目录逐级向上找 assets/audio、
-          # assets/video(放这里是因为 POSIX 包内可执行文件就叫 audio/video,
-          # 同名目录建不出来),从解压目录启动即可播默认演示与外挂字幕
-          for exe_dir, sub in [("audio", "examples/audio/assets"),
-                               ("video", "examples/video/assets")]:
-              if not os.path.isdir(sub):
-                  raise SystemExit(f"演示文件缺失: {sub}")
-              shutil.copytree(sub, os.path.join(stage, "assets", exe_dir))
-              print(f"演示文件随包: assets/{exe_dir} <- {sub}")
+          # 音视频演示文件随包(Windows/Linux):示例从启动目录逐级向上找
+          # assets/audio、assets/video(放这里是因为 POSIX 包内可执行文件就叫
+          # audio/video,同名目录建不出来),从解压目录启动即可播默认演示与外挂
+          # 字幕;macOS 走 .app,演示文件进各自 bundle 的 Resources(见下)
+          if sys.platform != "darwin":
+              for exe_dir, sub in [("audio", "examples/audio/assets"),
+                                   ("video", "examples/video/assets")]:
+                  if not os.path.isdir(sub):
+                      raise SystemExit(f"演示文件缺失: {sub}")
+                  shutil.copytree(sub, os.path.join(stage, "assets", exe_dir))
+                  print(f"演示文件随包: assets/{exe_dir} <- {sub}")
           # 第三方许可随包(LGPL 分发要求带许可文本)
           notices = "docs/THIRD-PARTY-NOTICES.md"
           if os.path.isfile(notices):
@@ -190,23 +192,65 @@ jobs:
               for dll in dlls:
                   shutil.copy2(dll, stage)
               print(f"FFmpeg DLL 随包: {len(dlls)} 个")
-          # macOS: vendor dylib 与二进制同目录;链接期下发的 rpath 是构建机
-          # 绝对路径,分发后无效,给二进制补 @executable_path 并 adhoc 重签
+          # macOS: 五个应用打成 .app bundle——双击直跑不开终端(Finder 对裸
+          # 可执行文件只会调终端),Dock 有正名,通知走 bundle 通道(裸二进制
+          # 通知不可用是系统约束)。dylib 共享一份在包根 lib/,五个 app 的
+          # rpath 指过来,不重复五份;audio/video 的演示文件进各自 Resources
           if sys.platform == "darwin":
               dylib_dir = "modules/ffmpeg-mbt/vendor/mac/lib"
               dylibs = sorted(glob.glob(os.path.join(dylib_dir, "*.dylib")))
               if not dylibs:
                   raise SystemExit(f"FFmpeg dylib 缺失: {dylib_dir}(audio / video 运行必需)")
+              lib_dir = os.path.join(stage, "lib")
+              os.makedirs(lib_dir, exist_ok=True)
               for dylib in dylibs:
-                  shutil.copy2(dylib, stage)
-              print(f"FFmpeg dylib 随包: {len(dylibs)} 个")
-              for name in names:
-                  bin_path = os.path.join(stage, name)
-                  # 已有同值 rpath 时 -add_rpath 失败,无碍
+                  shutil.copy2(dylib, lib_dir)
+              print(f"FFmpeg dylib 随包: {len(dylibs)} 个 -> lib/")
+              version = next(l.split('"')[1] for l in open("gui/moon.mod")
+                             if l.startswith("version"))
+              apps = [("hello", "Hello"), ("showcase", "Showcase"),
+                      ("browser", "Browser"), ("audio", "Audio"),
+                      ("video", "Video")]
+              plist = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+                       '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" '
+                       '"http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n'
+                       '<plist version="1.0">\n<dict>\n'
+                       '  <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>\n'
+                       '  <key>CFBundlePackageType</key><string>APPL</string>\n'
+                       '  <key>CFBundleName</key><string>{display}</string>\n'
+                       '  <key>CFBundleExecutable</key><string>{name}</string>\n'
+                       '  <key>CFBundleIdentifier</key>'
+                       '<string>com.noahliu.native-gui.{name}</string>\n'
+                       '  <key>CFBundleShortVersionString</key><string>{version}</string>\n'
+                       '  <key>CFBundleVersion</key><string>{version}</string>\n'
+                       '  <key>NSHighResolutionCapable</key><true/>\n'
+                       '  <key>LSMinimumSystemVersion</key><string>11.0</string>\n'
+                       '</dict>\n</plist>\n')
+              for name, display in apps:
+                  contents = os.path.join(stage, f"{display}.app", "Contents")
+                  macdir = os.path.join(contents, "MacOS")
+                  resdir = os.path.join(contents, "Resources")
+                  os.makedirs(macdir)
+                  os.makedirs(resdir)
+                  shutil.move(os.path.join(stage, name), os.path.join(macdir, name))
+                  with open(os.path.join(contents, "Info.plist"), "w",
+                            encoding="utf-8") as f:
+                      f.write(plist.format(display=display, name=name,
+                                           version=version))
+                  if name in ("audio", "video"):
+                      shutil.copytree(f"examples/{name}/assets",
+                                      os.path.join(resdir, "assets", name))
+                  # dylib 引用是 @rpath(mac vendor 归档把 id 全部 @rpath 化),
+                  # 这里补「bundle 内向上三级的共享 lib/」;已有同值 rpath 时
+                  # -add_rpath 失败,无碍
+                  exe = os.path.join(macdir, name)
                   subprocess.run(["install_name_tool", "-add_rpath",
-                                  "@executable_path", bin_path], check=False)
-                  subprocess.run(["codesign", "--force", "--sign", "-", bin_path],
+                                  "@executable_path/../../../lib", exe],
+                                 check=False)
+                  subprocess.run(["codesign", "--force", "--sign", "-",
+                                  os.path.join(stage, f"{display}.app")],
                                  check=True)
+                  print(f"打包: {display}.app (v{version})")
               # Gatekeeper 首拦放行说明随包(adhoc 签名必拦一次;macOS 15 起
               # 右键「打开」不再给放行按钮,写清 xattr 一行与设置的路径)
               with open(os.path.join(stage, "README-FIRST.txt"), "w",
@@ -219,8 +263,8 @@ jobs:
                       "或系统设置 - 隐私与安全性 - 「仍要打开」\n"
                       "Or System Settings - Privacy & Security - Open Anyway\n"
                       "\n"
-                      ".dylib 与 audio/assets、video/assets 请与可执行文件保持同目录。\n"
-                      "Keep the .dylib files and the assets folders next to the executables.\n")
+                      "双击 .app 直接运行。lib/ 里的 .dylib 五个 app 共用,不要拆散。\n"
+                      "Double-click the .app bundles to run. Keep the shared lib/ folder next to them.\n")
           shutil.make_archive(f"bin-{os.environ['BIN_PLAT']}", "zip", stage)
           print(f"完成: bin-{os.environ['BIN_PLAT']}.zip")
 

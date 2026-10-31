@@ -179,3 +179,11 @@ test {
       reveal_in_file_manager("launcher_no_such_file_zzz.md") is Err(Unsupported),
   )
 }
+
+///|
+test "exe_dir：非空且确是目录，末尾无分隔符" {
+  let d = exe_dir()
+  assert_true(d != "", msg="exe_dir 为空")
+  assert_true(!d.has_suffix("/") && !d.has_suffix("\\"))
+  assert_true(sys_path_exists(d), msg="exe_dir 不是存在的路径:\{d}")
+}
