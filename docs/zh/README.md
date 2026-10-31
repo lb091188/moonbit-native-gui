@@ -1,6 +1,6 @@
 # 文档索引
 
-**native-gui**：MoonBit 的跨平台桌面 GUI 框架。一套代码直出 Windows 🟩 / Linux 🟩 / macOS 🟩 原生窗口，系统能力开箱即用，Windows / Linux / macOS 三平台同一份真机清单同步维护；窗口、像素、事件循环、布局与控件全部纯 MoonBit 实现，mooncakes 包名 `NoahLiu/native-gui`。
+**native-gui**：MoonBit 的跨平台桌面 GUI 框架。一套代码直出 Windows 🟩 / Linux 🟩 / macOS 🟩 原生窗口，系统能力开箱即用，`moon add` 后零配置；三平台同一份真机清单同步维护，mooncakes 包名 `NoahLiu/native-gui`。
 
 ## 包结构
 
