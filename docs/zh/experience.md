@@ -1,6 +1,6 @@
 # 体验文档
 
-用 native-gui 有三条路，本文覆盖前两条；改库与参与开发直接看[构建与运行](build.md)。
+两种不写代码的体验：下载预构建包（§一）或克隆仓库跑示例（§二）。自己写应用，从零路径见[应用开发者体验](dev-experience.md)；改库与参与开发直接看[构建与运行](build.md)。
 
 ## 一、真体验：预构建包
 
@@ -71,17 +71,9 @@ sudo apt install libgtk-3-0 libpango-1.0-0 libx11-6 \
 
 播放 / 进度 / 倍速，外挂与内嵌字幕双来源，倍速下音画同步。Windows / macOS 包内已带 FFmpeg 动态库；Linux 用系统 FFmpeg。
 
-### 已知平台差异（诚实口径）
+## 二、跑仓库示例
 
-- **macOS 通知**：必须从 `.app` bundle 启动——本批起包内已是 `.app`，双击启动预期可用（真机复验中）；若直接跑 `Contents/MacOS` 里的二进制仍会报不可用，系统约束，非库缺陷。
-- **Linux**：音视频与 `browser` 分别依赖系统 FFmpeg 与 WebKit2gtk，见上面的安装清单。
-- 平台状态以 [README 平台表](https://github.com/lb091188/moonbit-native-gui) 与 [路线图](roadmap.md) 为准：三平台均已真机验证。
-
-## 二、基于库的应用开发
-
-从零路径——装工具链、`moon new`、两处配置调整、第一个窗口、常见卡点——见[应用开发者体验](dev-experience.md)；MoonBit 语法与响应式讲解见[五分钟上手教程](tutorial.md)。
-
-想先看效果就克隆仓库跑示例——`examples/` 下每个目录都是独立模块，进目录 `moon run .` 即可：
+预构建包之外，还可以克隆仓库直接跑示例（需先装 MoonBit 工具链，见[五分钟上手教程](tutorial.md) §1）——`examples/` 下每个目录都是独立模块，进目录 `moon run .` 即可：
 
 ```sh
 git clone https://github.com/lb091188/moonbit-native-gui.git
@@ -97,7 +89,7 @@ MOON_WORK=off moon run .               # 按注册表已发布的库版本解析
 | `examples/audio` · `video` | 音视频播放器（额外依赖 `gui-media`，需 ffmpeg）|
 | `examples/headless-audio` | 无窗口、纯代码驱动播放 |
 
-深入各面：[组件速查](components.md)、[声明式与响应式](declarative.md)、[布局样式](layout.md)、[系统能力总览](system-capabilities.md)、[内嵌 WebView](webview.md)。
+示例之上深入各面：[组件速查](components.md)、[声明式与响应式](declarative.md)、[布局样式](layout.md)、[系统能力总览](system-capabilities.md)、[内嵌 WebView](webview.md)。
 
 ## 三、库开发
 

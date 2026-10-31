@@ -1,6 +1,6 @@
 # Experience Guide
 
-Three ways to use native-gui; this guide covers the first two. For working on the library itself, head straight to [Build & run](build.md).
+Two ways to try native-gui without writing code: download the prebuilt packages (§1) or clone the repository and run the examples (§2). For building your own app, the from-zero path is in the [App developer experience](dev-experience.md); for working on the library itself, head straight to [Build & run](build.md).
 
 ## 1. Try it for real: prebuilt packages
 
@@ -77,11 +77,9 @@ Playback / progress / speed control, external and embedded subtitle tracks, A/V 
 - **Linux**: media and `browser` depend on system FFmpeg and WebKit2gtk respectively — see the install list above.
 - Platform status follows the [README platform table](https://github.com/lb091188/moonbit-native-gui) and the [roadmap](zh/roadmap.md): all three platforms are verified on real machines.
 
-## 2. Build apps on the library
+## 2. Run the repository examples
 
-The from-zero path — toolchain, `moon new`, two configuration adjustments, first window, common blockers — is in the [App developer experience](dev-experience.md); MoonBit syntax and reactivity are covered in the [five-minute tutorial](tutorial.md).
-
-To see it running, clone the repository and run an example — every directory under `examples/` is a standalone module, so **`cd` in and `moon run .`**:
+Beyond the prebuilt packages, you can also clone the repository and run the examples directly (the MoonBit toolchain is needed first — see the [five-minute tutorial](tutorial.md) §1) — every directory under `examples/` is a standalone module, so **`cd` in and `moon run .`**:
 
 ```sh
 git clone https://github.com/lb091188/moonbit-native-gui.git
@@ -97,7 +95,7 @@ MOON_WORK=off moon run .               # resolve the published library from the 
 | `examples/audio` · `video` | Audio/video players (extra dependency `gui-media`, needs ffmpeg) |
 | `examples/headless-audio` | No window; playback driven purely from code |
 
-Going deeper: [Components](components.md), [Declarative & reactivity](declarative.md), [Layout & styling](layout.md), [System capabilities](system-capabilities.md), [Embedded WebView](webview.md).
+Beyond the examples: [Components](components.md), [Declarative & reactivity](declarative.md), [Layout & styling](layout.md), [System capabilities](system-capabilities.md), [Embedded WebView](webview.md).
 
 ## 3. Working on the library
 

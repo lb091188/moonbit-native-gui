@@ -72,7 +72,7 @@ cd examples/hello && MOON_WORK=off moon run .
 | [packages.md](packages.md) | Package layout: the 15 package aliases and the two optional modules at a glance |
 | [zh/roadmap.md](zh/roadmap.md) | Public roadmap: positioning, what you can use today, platform and feature matrix, commitments and versioning, next steps, open decisions, explicit non-goals (Chinese only) |
 | [autostart.md](autostart.md) | Autostart: XDG `.desktop` on Linux, HKCU Run key on Windows, one `is_enabled` / `enable` / `disable` API |
-| [experience.md](experience.md) | Experience guide: try the prebuilt demos and build apps on the library; library work is pointed to Build & run |
+| [experience.md](experience.md) | Experience guide: try it for real — run the prebuilt demos or the repository examples; app building and library work are routed to the App developer experience and Build & run |
 | [system-capabilities.md](system-capabilities.md) | System capabilities overview (`@sys`): volume, app lookup, color temperature, wallpaper, monitors, window management, clipboard watch, system info, printers, recent files, browser history and more, with unified `Result` semantics; plus the shared subprocess and D-Bus call layers |
 | [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) | Third-party licenses and provenance: assets shipped in-repo, binaries we build and host on Releases, and the obligations that follow (Chinese only) |
 

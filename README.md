@@ -8,8 +8,8 @@ English | [简体中文](README_ZH.md)
 
 ## Quick start
 
-- [App developer experience](https://moonbit-native-gui.pages.dev/dev-experience): build one from scratch — toolchain, `moon new`, your first window, common blockers.
 - [Experience guide](https://moonbit-native-gui.pages.dev/experience): run the five prebuilt demo apps, no code needed.
+- [App development](https://moonbit-native-gui.pages.dev/dev-experience): build desktop applications with MoonBit and native-gui.
 - [Build & run](https://moonbit-native-gui.pages.dev/build): working on the `native-gui` library itself.
 - [Package layout](https://moonbit-native-gui.pages.dev/packages): the 15 package aliases and the two optional modules at a glance.
 

@@ -8,8 +8,8 @@
 
 ## 快速开始
 
-- [应用开发者体验](https://moonbit-native-gui.pages.dev/zh/dev-experience)：从零写一个——装工具链、`moon new`、第一个窗口与常见卡点。
 - [体验文档](https://moonbit-native-gui.pages.dev/zh/experience)：预构建包直接试跑五个演示应用。
+- [应用开发](https://moonbit-native-gui.pages.dev/zh/dev-experience)：使用 moonbit 和 native-gui 构建桌面应用程序。
 - [构建与运行](https://moonbit-native-gui.pages.dev/zh/build)：参与 `native-gui` 库的开发。
 - [包结构](https://moonbit-native-gui.pages.dev/zh/packages)：15 个包别名与两个独立模块的一览。
 
