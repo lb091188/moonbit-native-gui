@@ -118,7 +118,7 @@ Artefacts follow the module name: `_build/native/<debug|release>/build/<module>/
 
 ## 5. Rather not build: prebuilt binaries
 
-GitHub Releases carries two entries: **Binaries** (tag `bin`, published automatically by `release-bin.yml`) — three per-platform zips (`bin-windows-x64.zip` / `bin-macos-arm64.zip` / `bin-linux-x64.zip`), each bundling the hello / showcase / browser / audio / video demo apps plus third-party notices; walkthrough and runtime requirements in [experience.md](experience.md). In China, a [Gitee mirror](https://gitee.com/noahliu0911/moonbit-native-gui/releases/tag/bin) carries the same build, updated manually. The other entry, `vendor-v1`, holds the **build-time vendor inputs** (see §10).
+GitHub Releases carries two entries: **Binaries** (tag `bin`, published automatically by `release-bin.yml`) — three per-platform zips (`bin-windows-x64.zip` / `bin-macos-arm64.zip` / `bin-linux-x64.zip`), each bundling the hello / showcase / browser / audio / video demo apps plus third-party notices; walkthrough and runtime requirements in [experience.md](experience.md). In China, get it from the [Gitee mirror](https://gitee.com/noahliu0911/moonbit-native-gui/releases/tag/bin). The other entry, `vendor-v1`, holds the **build-time vendor inputs** (see §10).
 
 So "let me just see it" still means building one example per §4 — `examples/hello` needs nothing beyond the dependency list in §2.
 
