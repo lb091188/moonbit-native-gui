@@ -25,7 +25,7 @@ const SHOWCASE_TITLE : String = "组件库演示板"
 ///|
 /// 侧栏底部的版本号。本地留一份，只用于显示；权威值是库模块 `gui/moon.mod`
 /// 的 version。
-const SHOWCASE_VERSION : String = "0.1.1"
+const SHOWCASE_VERSION : String = "0.3.0"
 
 ///|
 /// 主题应用：主色空串用内置基准盘，非空按 HSL 公式派生；深浅随 `dark`。
