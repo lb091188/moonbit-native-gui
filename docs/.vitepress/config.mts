@@ -64,7 +64,7 @@ const moonbitGrammar = {
 
 export default defineConfig({
   title: 'native-gui',
-  description: 'MoonBit 原生跨平台桌面 GUI 库:自绘控件 + 自定义主题',
+  description: 'MoonBit 原生跨平台桌面 GUI 库：统一观感 + 自定义主题',
   cleanUrls: true,
   lastUpdated: true,
   head: [
@@ -104,7 +104,6 @@ export default defineConfig({
           {
             text: 'Platform notes',
             items: [
-              { text: 'Autostart', link: '/autostart' },
               { text: 'Embedded WebView', link: '/webview' },
             ],
           },
@@ -141,7 +140,6 @@ export default defineConfig({
           {
             text: '平台与工程',
             items: [
-              { text: '开机自启动', link: '/zh/autostart' },
               { text: '内嵌 webview', link: '/zh/webview' },
               { text: '对外路线图', link: '/zh/roadmap' },
             ],
