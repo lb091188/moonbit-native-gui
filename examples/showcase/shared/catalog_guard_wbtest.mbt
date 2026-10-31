@@ -160,7 +160,8 @@ test "英文目录装载后抽查：正文/段标题/段描述/侧栏/菜单/插
   assert_eq(@i18n.t_or("文本基方向与布局镜像", "?"), "Base direction & layout mirror")
   assert_true(@i18n.t_or("desc§从右起排的右侧文字", "?").has_prefix("Arabic"))
   assert_eq(@i18n.t_or("nav.基础组件", "?"), "Basics")
-  assert_eq(@i18n.t_or("nav.g.components", "?"), "Components")
+  assert_eq(@i18n.t_or("nav.g.组件", "?"), "Components")
+  assert_eq(@i18n.t_or("nav.g.系统", "?"), "System")
   assert_eq(@i18n.t_or("menu.theme", "?"), "Theme")
   assert_eq(@i18n.t_with_or("gen.subtree", [("n", "3")], "?"), "Subtree generation 3")
   // 段条通道（`seg.` + 段名）与状态回显通道（`dyn.` + 语义名）

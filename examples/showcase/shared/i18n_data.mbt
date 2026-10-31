@@ -1025,8 +1025,8 @@ pub const EN_CATALOG : String =
   "\"鼠标\" = \"Mouse\"\n" +
   // —— 侧栏分组名 ——
   "[nav]\n" +
-  "\"g.components\" = \"Components\"\n" +
-  "\"g.system\" = \"System\"\n" +
+  "\"g.组件\" = \"Components\"\n" +
+  "\"g.系统\" = \"System\"\n" +
   "\"基础组件\" = \"Basics\"\n" +
   "\"表单组件\" = \"Forms\"\n" +
   "\"导航组件\" = \"Navigation\"\n" +
