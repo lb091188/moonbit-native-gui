@@ -132,7 +132,7 @@ moon build examples/hello --target native --release --strip
 
 ## 5. 不想编：预构建二进制
 
-GitHub Releases 现有两条：**Binaries**（tag `bin`，由 `release-bin.yml` 自动发布）——三平台 zip（`bin-windows-x64.zip` / `bin-macos-arm64.zip` / `bin-linux-x64.zip`），每包含 hello / showcase / browser / audio / video 五个演示应用与第三方许可，体验点与运行要求见 [experience.md](experience.md)；国内直连可用 [Gitee 镜像](https://gitee.com/noahliu0911/moonbit-native-gui/releases/tag/bin)（同一构建，同步覆盖更新）；以及 `vendor-v1`（构建期 vendor 输入，见 §10）。
+GitHub Releases 现有两条：**Binaries**（tag `bin`，由 `release-bin.yml` 自动发布）——三平台 zip（`bin-windows-x64.zip` / `bin-macos-arm64.zip` / `bin-linux-x64.zip`），每包含 hello / showcase / browser / audio / video 五个演示应用与第三方许可，体验点与运行要求见 [experience.md](experience.md)；国内直连可用 [Gitee 镜像](https://gitee.com/noahliu0911/moonbit-native-gui/releases/tag/bin)（同一构建，手动更新）；以及 `vendor-v1`（构建期 vendor 输入，见 §10）。
 
 不想下载就按 §4 编一条示例——`examples/hello` 从零到窗口只吃 §2 那份依赖清单。
 
