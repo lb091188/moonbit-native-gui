@@ -294,6 +294,11 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ⏳ **macOS ffmpeg 解码**：接系统解码器或自带二进制；现视频走 Unsupported
 - ⏳ **硬解与 GPU 合成**：解码输出直达纹理，省掉 CPU 回读
 
+### 模块化
+
+- ⏳ **能力模块拆分**：`sys` → `NoahLiu/gui-sys`（纯读写系统工具：剪贴板、自启、壁纸、打印机、音量、历史等，无事件循环依赖）、`win` → `NoahLiu/gui-window`（窗口层与 GUI 辅助族：窗口、事件循环、IME、托盘、通知、热键、单实例、对话框，模块内按包细分）、`dbus` → `NoahLiu/gui-dbus`（D-Bus/SNI，依赖 gui-sys）；`native-gui` 保留聚合 facade、开箱即用不变；顺序 sys → win → dbus → 包级细化，每个模块独立发版，与 gui-webview / gui-media 同形态
+- ⏳ **webview 壳编排层**：基于 gui-window + gui-webview 的薄编排——IPC 命令契约、前端资产装载约定、dev 加载约定；能力模块拆分完成后启动
+
 ### 工程与交付
 
 - ⏳ **稳定面清单与 1.0 时点**：逐包划分承诺面 / 实验面，公告破坏性改动截止线
