@@ -76,7 +76,7 @@
 
 | 项 | 定 |
 | --- | --- |
-| 扩展名 | **两阶段**：现行 `.mng.html`——零插件白拿 HTML 高亮（编辑器 0 档，`.html` 兜底系统不会误判成图片）；自家 VS Code 扩展（1 档）落地即切裸 `.mng`——查证编辑器生态无占用（2026-11-01），MNG 图像格式已被 APNG/WebP 取代、浏览器早弃支持，仅剩文件管理器图片关联的残余噪音，接受。`.mui` 一并排除：Windows MUI 本地化资源文件（`*.exe.mui`）系统级占用 + React 组件库 MUI（原 Material-UI）心智撞车，两个都是活物 |
+| 扩展名 | **两阶段**：现行 `.mng.html`——零插件白拿 HTML 高亮（编辑器 0 档，`.html` 兜底系统不会误判成图片）；自家 VS Code 扩展（1 档）落地即切裸 `.mng`——查证编辑器生态无占用（2026-11-01），MNG 图像格式已被 APNG/WebP 取代、浏览器早弃支持，仅剩文件管理器图片关联的残余噪音，接受。先例：`.ts`（TypeScript）与 MPEG-TS 视频流重名共存，媒体重名在开发语境无害，编辑器语言注册由自家扩展接管。`.mui` 一并排除：Windows MUI 本地化资源文件（`*.exe.mui`）系统级占用 + React 组件库 MUI（原 Material-UI）心智撞车，两个都是活物 |
 | 文件结构 | `<script setup lang="moonbit">`（页状态与逻辑，MoonBit 原文）+ `<template>`（单根树），Vue SFC 形态 |
 | 插值 | 文本节点 `{{ expr }}` |
 | 表达式属性 | `:attr="expr"`；属性值可用单引号包 MoonBit 双引号串 |
