@@ -6,7 +6,7 @@
 ## 模板预编译（2026-11-01 启动，方案见 [proposals/native-template.md](proposals/native-template.md)；总顺序：模板 → VS Code 插件 → 拆包）
 
 - Phase 0 探针已完成（2026-11-01：单次热替换 10.4 ms、泄漏 0、订阅跨代恒定，见 `experiment/ir_probe` 与方案回写）
-- [ ] **模板编译器 `build` 子命令**（`tools/`）：`.mng.html` 解析器 + 拼接器 + source map 错误回映射；golden 用例钉脱糖表；生成码对照 `template_spike_wbtest` 契约
+- 编译器 `build` 子命令已完成（2026-11-02：`tools/mngkit` 内核 + `tools/mng_cli`，golden 6/6、source map 错误回映射端到端验通）
 - [ ] **`dev` 子命令**：watch + 改动分类（表达式集合 ⊆ 注册表 → 推 IR 补丁；否则回退）+ 单实例通道推 token/类；回退时 `moon build` → 杀旧 → 带参重启
 - [ ] **VS Code 插件 1 档**：`.mng` 语言注册 + MoonBit 表达式着色 injection + snippets；落地即把模板文件切裸 `.mng`
 - [ ] **拆包**（[proposals/module-split.md](proposals/module-split.md)）：sys → win → dbus → shell 顺序，等工具二进制独立发布动机集中做

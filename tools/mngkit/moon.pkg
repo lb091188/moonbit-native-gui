@@ -1,0 +1,2 @@
+// 模板编译器内核（.mng.html → MoonBit）：解析器 + 拼接器 + source map。
+// 纯 MoonBit 零依赖；契约见 proposals/native-template.md「Spike 契约」。
