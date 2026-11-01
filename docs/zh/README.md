@@ -8,7 +8,7 @@ native-gui 是什么见[首页](/zh/)。按目标找文档：
 |---|---|
 | [dev-experience.md](dev-experience.md) | 应用开发者体验：从零到第一个窗口——装工具链、建工程（`moon new` 模板的两处调整）、运行与常见卡点 |
 | [tutorial.md](tutorial.md) | 五分钟上手：装工具链、建工程、做出第一扇带点击计数的窗口 |
-| [howto.md](howto.md) | 场景教程：19 个「我想做 X」的常见场景（布局/交互/样式主题/系统能力），每场景目标、思路、代码与坑 |
+| [howto.md](howto.md) | 场景教程：19 个「我想做 X」的常见场景（布局/交互/样式主题/系统能力），每场景说明、代码与注意事项 |
 | [components.md](components.md) | 组件速查（`@ui`）：各控件构造器的入口签名与用途，按家族分组 |
 | [declarative.md](declarative.md) | 声明式层与响应式：节点树与 `mount_window`、`Store` / `Signal`、`for_list` / `when`、原位替换 |
 | [layout.md](layout.md) | 布局：Flexbox 布局口径与 `@style` 的 `Style` 字段集、`class` 通道 |

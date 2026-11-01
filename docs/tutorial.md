@@ -168,7 +168,7 @@ Pick a page in the left menu and write against it on the right; each page's sour
 
 **Learn the layers** — a few documents, each covering one face:
 
-- [howto.md](howto.md): how-to guides — for concrete goals like "center my content", "add and remove list items" or "refresh on a timer", 19 recipes each with the approach, paste-ready code and pitfalls
+- [howto.md](howto.md): how-to guides — for concrete goals like "center my content", "add and remove list items" or "refresh on a timer", 19 recipes with paste-ready code and notes
 - [declarative.md](declarative.md): describe the UI as a node tree (`Node` / `mount_window`) and bind state with `Store` / `Signal` — the click counter in section 3 is its minimal form
 - [layout.md](layout.md): layout styling (the flex / padding / margin fields of `Style`, and the loose parameters plus the `class` channel of `@ui.col` / `@ui.row`)
 - [components.md](components.md): a quick reference to every widget and component's parameters and events
