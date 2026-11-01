@@ -300,6 +300,16 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ⏳ **能力模块拆分**：`sys` → `NoahLiu/gui-sys`（纯读写系统工具，无事件循环依赖）、`win` → `NoahLiu/gui-window`（窗口层与 GUI 辅助族：窗口、事件循环、IME、托盘、通知、热键、单实例、对话框，模块内按包细分）、`dbus` → `NoahLiu/gui-dbus`（D-Bus/SNI，依赖 gui-sys）、`shell` + `i18n` → `NoahLiu/gui-shell`（集成层：六通道统一门面、事件泵、平台分派，依赖上述三模块）；`native-gui` 收窄为「组件工具包 + 聚合 facade」、开箱即用不变；顺序 sys → win → dbus → shell → 包级细化，每个模块独立发版，与 gui-webview / gui-media 同形态
 - ⏳ **webview 壳编排层**：独立模块规划，三段式——experiment 探针验证 IPC 契约 → 成型后独立模块发布；建在 gui-shell + gui-webview 之上，能力一律经 shell 六通道消费不绕行；IPC 命令面 = shell 六通道的 JSON 投影 + 应用自定义命令；webview 从「嵌进原生界面的子件」转「WebView 主面」，原生退居能力层
 
+### 开发体验
+
+- ⏳ **模板预编译编译器**：单文件组件（Vue 风模板 + MoonBit script）经工具预编译生成 `.mbt` 再走 `moon build`；表达式原样拼接、`moon check` 唯一类型门禁；v1 指令集：插值、动态属性、事件、双向绑定、条件、keyed 列表、默认 slot；spike 先于编译器（showcase 选页对照钉死语法与产物契约）；CLI 错误回映射模板行列（source map）为 DX 生死线
+- ⏳ **模板热更新（IR 热应用）**：编译器旁路产出模板 IR（结构数据，表达式按哈希引用已编译闭包）；dev 档注册表 + 应用内 applier 经单实例通道原位重挂（复用路由 unmount / remount 机关）；结构 / 绑定改动亚秒，表达式 / 逻辑改动自动回退重启；v2 方向按实测痛感排队：受限表达式求值器、子树对账状态保活、列表行模板热编辑
+- ⏳ **样式 token / 类热更新**：dev 工具经单实例通道推 token 与命名类变更，应用侧指纹重建；模板编译器强制「样式进槽」——`<style>` 段与 `class` 引用之外出现样式字面量即编译报错
+- ⏳ **模板样式章**：`<style>` 段编译期摊平进命名类注册表（类选择器、一层后代、`var(--token)`、深浅变体；不做运行时级联）；布局属性样式化口径——构造参数为默认值、类槽为覆盖，children / 事件 / 键 / 行列选型留结构侧；口径收紧独立于模板先行（存量受益）
+- ⏳ **dev 工具二进制**：本路线的 Vite 位次，`moon install` 分发；子命令 `dev`（watch + 改动分类 + IR / token 通道推送 + 回退编排）/ `build`（纯生产产物零 dev 痕迹）/ `preview`（独立预览窗：同一 applier + mock 状态）/ `lsp`（模板诊断、补全、跳转）
+- ⏳ **编辑器支持（VS Code）**：四档——0 档零插件（HTML 可关联扩展名 + tasks/problemMatcher 错误进 Problems，随模板 v1）；1 档轻插件（表达式着色 injection + snippets）；2 档 LSP 薄壳接工具 `lsp` 子命令（触发：v1 用出真痛感）；3 档预览集成挂终态
+- ⏳ **上游诉求**：moonbitlang native 目标 hot reload / 运行时多模块 + native 增量链接；落地当天 IR 通道升格真代码热换、状态迁移层（快照设计）复活、回退路径消失
+
 ### 工程与交付
 
 - ⏳ **稳定面清单与 1.0 时点**：逐包划分承诺面 / 实验面，公告破坏性改动截止线
