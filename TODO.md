@@ -1,7 +1,12 @@
 # TODO — 当前进行中的工作
 
-> 只记「已实现、待复验 / 待收尾」的现行事项；规划与未来批次见 [docs/zh/roadmap.md](docs/zh/roadmap.md)「已规划」，实测坑与口径见 [proposals/adaptation.md](proposals/adaptation.md)。完成一项删一项，并同步路线图状态。
+> 只记「已实现、待复验 / 待收尾」的现行事项；规划与未来批次见 [docs/zh/roadmap.md](docs/zh/roadmap.md)「已规划」，实测坑与口径见 [experience/adaptation.md](experience/adaptation.md)。完成一项删一项，并同步路线图状态。
 
+
+## 模板预编译（2026-11-01 启动，方案见 [proposals/native-template.md](proposals/native-template.md)）
+
+- [ ] **spike 契约**：showcase 表单页「目标模板版 + 应生成 MoonBit 版」对照，钉死脱糖表契约与语法（扩展名、插值、值槽、组件映射、script 段）；生成码以 wbtest 落盘过 `moon check`；契约经用户确认冻结
+- [ ] **Phase 0 探针**：手工 IR 补丁打进 showcase 单页，验证「init 建状态 → 按 IR 构树 → 沿 holder 原位重挂」亚秒可见、订阅整代退订；实测延迟数字回写方案——探针不过，IR 通道整体不发生
 
 ## 发布与验收（2026-10-31，基于固定「Binaries」Release 最新包）
 
