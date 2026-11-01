@@ -3,9 +3,13 @@
 > 只记「已实现、待复验 / 待收尾」的现行事项；规划与未来批次见 [docs/zh/roadmap.md](docs/zh/roadmap.md)「已规划」，实测坑与口径见 [experience/adaptation.md](experience/adaptation.md)。完成一项删一项，并同步路线图状态。
 
 
-## 模板预编译（2026-11-01 启动，方案见 [proposals/native-template.md](proposals/native-template.md)）
+## 模板预编译（2026-11-01 启动，方案见 [proposals/native-template.md](proposals/native-template.md)；总顺序：模板 → VS Code 插件 → 拆包）
 
-- [ ] **Phase 0 探针**：手工 IR 补丁打进 showcase 单页，验证「init 建状态 → 按 IR 构树 → 沿 holder 原位重挂」亚秒可见、订阅整代退订；实测延迟数字回写方案——探针不过，IR 通道整体不发生
+- [ ] **Phase 0 探针**（`experiment/ir_probe`）：手工 IR + 注册表 + applier v0，验证「结构补丁 → 沿 holder 原位重挂」耗时亚秒、订阅整代退订不残留；实测数字回写方案——不过则 IR 通道整体不发生
+- [ ] **模板编译器 `build` 子命令**（`tools/`）：`.mng.html` 解析器 + 拼接器 + source map 错误回映射；golden 用例钉脱糖表；生成码对照 `template_spike_wbtest` 契约
+- [ ] **`dev` 子命令**：watch + 改动分类（表达式集合 ⊆ 注册表 → 推 IR 补丁；否则回退）+ 单实例通道推 token/类；回退时 `moon build` → 杀旧 → 带参重启
+- [ ] **VS Code 插件 1 档**：`.mng` 语言注册 + MoonBit 表达式着色 injection + snippets；落地即把模板文件切裸 `.mng`
+- [ ] **拆包**（[proposals/module-split.md](proposals/module-split.md)）：sys → win → dbus → shell 顺序，等工具二进制独立发布动机集中做
 
 ## 发布与验收（2026-10-31，基于固定「Binaries」Release 最新包）
 

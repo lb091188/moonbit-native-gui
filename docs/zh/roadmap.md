@@ -298,7 +298,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 ### 模块化
 
 - ⏳ **能力模块拆分**：`sys` → `NoahLiu/gui-sys`（纯读写系统工具，无事件循环依赖）、`win` → `NoahLiu/gui-window`（窗口层与 GUI 辅助族：窗口、事件循环、IME、托盘、通知、热键、单实例、对话框，模块内按包细分）、`dbus` → `NoahLiu/gui-dbus`（D-Bus/SNI，依赖 gui-sys）、`shell` + `i18n` → `NoahLiu/gui-shell`（集成层：六通道统一门面、事件泵、平台分派，依赖上述三模块）；`native-gui` 收窄为「组件工具包 + 聚合 facade」、开箱即用不变；顺序 sys → win → dbus → shell → 包级细化，每个模块独立发版，与 gui-webview / gui-media 同形态
-- ⏳ **webview 壳编排层**：独立模块规划，三段式——experiment 探针验证 IPC 契约 → 成型后独立模块发布；建在 gui-shell + gui-webview 之上，能力一律经 shell 六通道消费不绕行；IPC 命令面 = shell 六通道的 JSON 投影 + 应用自定义命令；webview 从「嵌进原生界面的子件」转「WebView 主面」，原生退居能力层
+- ⏳ **webview 壳编排层**：独立模块规划，三段式——experiment 探针验证 IPC 契约 → 成型后独立模块发布；建在 gui-shell + gui-webview 之上，能力一律经 shell 六通道消费不绕行；IPC 命令面 = shell 六通道的 JSON 投影 + 应用自定义命令；webview 从「嵌进原生界面的子件」转「WebView 主面」，原生退居能力层。**等触发信号**（2026-11-01 定）：出现真实用户「Web 技术栈做桌面 UI」诉求、或具体产品需要复用现成 Web 组件面才启动——与本仓 MoonBit 全栈原生自绘定位相反，不主动推进；gui-webview 底料与「双面架构收拢」思路保留
 
 ### 开发体验
 
