@@ -76,7 +76,7 @@
 
 | 项 | 定 |
 | --- | --- |
-| 扩展名 | `.mng.html`（moon native gui；HTML 可关联，服务编辑器 0 档）。`.mng` 裸扩展名与既有图像格式 MNG（Multiple-image Network Graphics，MIME `video/x-mng`）重名——按「无重名才换」规则**保持 `.mng.html`** |
+| 扩展名 | `.mng.html`（moon native gui；HTML 可关联，服务编辑器 0 档）。`.mng` 裸扩展名与图像格式 MNG（Multiple-image Network Graphics，MIME `video/x-mng`）重名，但该格式已被 APNG/WebP 取代、浏览器早已弃支持——按「无重名才换」规则**保持 `.mng.html`**。`.mui` 一并排除：Windows MUI 本地化资源文件（`*.exe.mui`）系统级占用 + React 组件库 MUI（原 Material-UI）心智撞车，两个都是活物 |
 | 文件结构 | `<script setup lang="moonbit">`（页状态与逻辑，MoonBit 原文）+ `<template>`（单根树），Vue SFC 形态 |
 | 插值 | 文本节点 `{{ expr }}` |
 | 表达式属性 | `:attr="expr"`；属性值可用单引号包 MoonBit 双引号串 |
