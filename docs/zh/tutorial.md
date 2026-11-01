@@ -168,6 +168,7 @@ cd examples/showcase && moon run .   # 基础/表单/导航/数据展示/反馈/
 
 **想系统学**——几本文档，对应几个面：
 
+- [howto.md](howto.md)：场景教程——「我想让内容居中」「我要列表增删」「我要定时刷新」这类具体目标，19 个场景每篇给思路、可抄代码与常见坑
 - [declarative.md](declarative.md)：节点树（`Node` / `mount_window`）描述界面、`Store` / `Signal` 绑定状态——本教程第 3 节的计数点击就是它的最小形态
 - [layout.md](layout.md)：布局样式（`Style` 的 flex / padding / margin 字段，`@ui.col` / `@ui.row` 的散参数与 `class` 通道）
 - [components.md](components.md)：全部控件与组件的入参与事件速查

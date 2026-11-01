@@ -8,6 +8,7 @@ For what native-gui is, see the [home page](/). Find docs by goal:
 |---|---|
 | [dev-experience.md](dev-experience.md) | App developer experience: from zero to your first window — toolchain, project setup (the two adjustments the `moon new` template needs), running, and common blockers |
 | [tutorial.md](tutorial.md) | Five-minute start: install the toolchain, create a project, and build your first window with a click counter |
+| [howto.md](howto.md) | How-to guides: 19 "I want to…" recipes (layout / interaction / styling & theme / system capabilities), each with goal, approach, code and pitfalls |
 | [components.md](components.md) | Component quick-reference (`@ui`): constructor signatures and purposes for every widget, grouped by family |
 | [declarative.md](declarative.md) | Declarative layer and reactivity: the node tree and `mount_window`, `Store` / `Signal`, `for_list` / `when`, in-place replacement |
 | [layout.md](layout.md) | Layout: the Flexbox layout semantics, the `Style` field set of `@style`, and the `class` channel |

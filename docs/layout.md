@@ -72,4 +72,5 @@ Every property setter, plus structural and callback changes, calls `mark_changed
 
 - Style value model, state buckets, theme linkage: [design.md (Chinese)](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/design.md) §1
 - Components and loose parameters: [components.md](components.md)
+- Layout recipes (centering, header/body/footer, splits, scrolling, wrapping): [howto.md](howto.md) §1
 - Reactivity and whole-tree / in-place replacement: [declarative.md](declarative.md)

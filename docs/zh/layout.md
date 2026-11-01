@@ -71,4 +71,5 @@
 ## 相关文档
 
 - 组件与命名参数：[components.md](components.md)
+- 布局场景怎么写（居中、三段式、分栏、滚动、换行）：[howto.md](howto.md) §1
 - 响应式与原位替换：[declarative.md](declarative.md)
