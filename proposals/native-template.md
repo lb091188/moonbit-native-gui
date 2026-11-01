@@ -48,46 +48,57 @@
 5. **终态：独立工具二进制**（本路线的 Vite 位次）：一个自包含 native 可执行，`moon install` 分发；子命令 `dev` / `build`（纯生产产物，零 dev 痕迹）/ `preview`（独立预览窗：同一 applier + mock 状态）/ `lsp`。无侵入边界——只编排模板文件、token 文件、`moon build`、应用进程四样，应用侧 dev 面仅 theme/IR 两个监听，生产构建零痕迹；不做插件系统、不做 dev server（取 Vite 的一命令体验，不取其工程规模）。命名按路线门面标准起（开放问题 5）。
 6. **灰度**：新页面用模板写，存量页面不迁移。
 
-## Spike 契约（2026-11-01，showcase 表单页；冻结候选，待确认）
+## Spike 契约（2026-11-01 冻结，showcase 表单页）
+
+**语法总原则**：**对齐 Vue，不改语法**——只按平台能力限制收窄，每处收窄在此记档；Vue 开发者除 MoonBit 表达式本身外零学习成本。
 
 **选页**：`examples/showcase/pages/form.mbt`——脱糖表 8 行覆盖 7 行（keyed 列表只钉语法、生成器 v1 收口），组件族最全（受控输入/步进/滑杆/开关/表单/校验）。
 
 | 脱糖行 | spike 覆盖 |
 | --- | --- |
-| `{expr}` 插值 | ✓ 文本节点 |
-| `:attr` 动态属性 | ✓（`placeholder` / `error`） |
-| `@event` 事件 | ✓（`@click`） |
-| 双向绑定 | ✓——**无专指令**：`:value` 直传 Store 对象（受控组件本来就吃 Store，不是 Vue 的 value+event 二线制） |
-| 条件块 | ✓ `<if :test>`（Bool 槽限定） |
-| keyed 列表 | 语法钉死 `<for>`，生成器 v1 收口 |
-| 组件标签 | ✓ `ui-*` 内置表 + `@component` 声明 |
+| `{{ expr }}` 插值 | ✓ 文本节点（Vue 默认分隔符） |
+| `:attr` 动态属性 | ✓（`placeholder` / `error`），Vue 简写原味 |
+| `@event` 事件 | ✓（`@click`），Vue 简写原味 |
+| `v-model` 双向绑定 | ✓ 语法原味；编译落点 = 值槽直传 Store（受控组件本来就吃 Store，无 setter/getter 二线制——语法对齐、落点从简） |
+| `v-if` 条件 | ✓ 全家（`v-if` / `v-else-if` / `v-else`），表达式任意；`v-show` → `when` 显隐 |
+| `v-for` 列表 | 语法钉死，生成器 v1 收口 |
+| 组件标签 | ✓ `ui-*` 内置表 + script setup 的 `let` 绑定即暴露（对齐 setup 心智） |
 | 默认 slot | ✓ 子元素 → children 数组（form / form_item / section） |
 
-**语法落定**（冻结候选）：
+**能力限制收窄记档**（语法不为此改形，超范围编译报错提示）：
+
+- `v-for` 的源限 Store/Signal 槽——字面量数组没有响应语义；
+- 事件与 `v-model` 的修饰符（`.stop` / `.prevent` / `.lazy` / `.number`…）不支持；
+- 模板根 v1 单根（Vue3 fragment 多根暂不支持）；
+- 具名 slot 不支持（默认 slot 已覆盖），动态组件留 v2。
+
+**语法落定**（已冻结）：
 
 | 项 | 定 |
 | --- | --- |
-| 扩展名 | `.mui.html`（HTML 可关联，服务编辑器 0 档） |
-| 文件结构 | `<script moonbit>`（页状态与逻辑，MoonBit 原文）+ `<template>`（一棵树） |
-| 插值 | 文本节点 `{expr}` |
+| 扩展名 | `.mng.html`（moon native gui；HTML 可关联，服务编辑器 0 档）。`.mng` 裸扩展名与既有图像格式 MNG（Multiple-image Network Graphics，MIME `video/x-mng`）重名——按「无重名才换」规则**保持 `.mng.html`** |
+| 文件结构 | `<script setup lang="moonbit">`（页状态与逻辑，MoonBit 原文）+ `<template>`（单根树），Vue SFC 形态 |
+| 插值 | 文本节点 `{{ expr }}` |
 | 表达式属性 | `:attr="expr"`；属性值可用单引号包 MoonBit 双引号串 |
 | 静态属性 | 字面量按 MoonBit 字面量规则解析透传（`0` / `0.0` / `true` / 串） |
-| 值槽 | `:value="store"` 直传 Store；落到映射表条目声明的位置参数 |
+| 双向绑定 | `v-model="store"`；落点 = 直传 Store 对象到映射表条目声明的值槽参数 |
 | 事件 | `@click="handler"`；事件名查映射表条目，未知 `@` 报错 |
-| 结构条件 | `<if :test="bool_slot">` 只接 Bool 槽（派生条件在 script 写 computed）→ `bind_node` 原位重建 |
-| keyed 列表 | `<for :each="store" :key="id" as="it">` → ListStore keyed |
-| 组件标签 | `ui-*` → `@ui.*`（`-`→`_`）内置表；跨包组件 script 段声明 `// @component 名 = 路径.函数` |
+| 结构条件 | `v-if` / `v-else-if` / `v-else` 表达式任意：词法提取响应源 → 单槽名直用其 signal、否则包 `computed` → `bind_node` 按 match 链原位重建；`v-show` → `when` 显隐 |
+| keyed 列表 | `v-for="it in items" :key="it.id"` → ListStore keyed，`it` 即迭代元素 |
+| 组件暴露 | script setup 的 `let` 绑定（值为函数引用，如 `let sh_section = @shared.section`）即可用作模板标签（对齐 setup 暴露心智；生成码解析到绑定的值直接调用，不经函数值）；`ui-*` → `@ui.*`（`-`→`_`）内置表兜底 |
 | script 段 | MoonBit 原文进生成函数体前段（`let` / `fn` 均可） |
 | 生成函数签名 | `fn <文件名去扩展>() -> @widget.Node`；app 注入挂开放问题 |
 | 动态文本响应源 | 词法提取：表达式内 script 声明的槽名（裸引用或 `.get()`）即源；单源 `bind_label(store, fn(v){…})`、源本身是 Signal 用 `bind`、多源包 `computed`、零源 `@ui.text(expr)` |
-| 文本节点 | 静态 → `@ui.text`；含 `{}` → 上一行规则 |
+| 文本节点 | 静态 → `@ui.text`；含 `{{ }}` → 上一行规则 |
 | i18n | 编译器零魔法：要翻译的文案显式 `@shared.tx(...)`（与现仓习惯一致） |
 
 **对照片段**（模板源 → 生成码；生成码全文落盘 `examples/showcase/template_spike_wbtest.mbt`，`moon check` 门禁验证「可读可编译可无头构造」）：
 
 ```html
-<script moonbit>
-// @component sh-section = @shared.section
+<script setup lang="moonbit">
+let sh_page = @shared.page
+let sh_section = @shared.section
+
 let qty : @base.Store[Int] = @base.Store::new(3)
 let wifi_on : @base.Store[Bool] = @base.Store::new(true)
 let nick : @base.Store[String] = @base.Store::new("")
@@ -102,26 +113,69 @@ fn on_reset() {
 </script>
 
 <template>
-  <sh-section :title='@shared.tx("数值")' :subtitle='@shared.tx("步进器 / 滑杆 / 评分")' desc="stepper 0..10 钳制。">
-    <ui-stepper :value="qty" min="0" max="10" step="1" />
-    当前数量：{qty}
-  </sh-section>
-  <sh-section :title='@shared.tx("开关")' subtitle="Checkbox" desc="开关驱动结构条件。">
-    <ui-checkbox :label='@shared.tx("自动开启")' :value="wifi_on" />
-    <if :test="wifi_on">
-      <ui-text :text='@shared.tx("已开启")' />
-    </if>
-    <ui-button :text='@shared.tx("重置")' @click="on_reset" />
-  </sh-section>
-  <sh-section :title='@shared.tx("表单校验")' subtitle="Form" desc="规则即时重跑。">
-    <ui-form :title='@shared.tx("注册资料")'>
-      <ui-form-item :label='@shared.tx("昵称")' :error="err_nick">
-        <ui-input :value="nick" :placeholder='@shared.tx("至少 2 个字符")' width="200.0" />
-      </ui-form-item>
-    </ui-form>
-    已通过校验 {passed} 项
-  </sh-section>
+  <sh-page>
+    <sh-section :title='@shared.tx("数值")' :subtitle='@shared.tx("步进器 / 滑杆 / 评分")' desc="stepper 0..10 钳制。">
+      <ui-stepper v-model="qty" min="0" max="10" step="1" />
+      当前数量：{{ qty }}
+    </sh-section>
+    <sh-section :title='@shared.tx("开关")' subtitle="Checkbox" desc="开关驱动结构条件。">
+      <ui-checkbox :label='@shared.tx("自动开启")' v-model="wifi_on" />
+      <ui-text v-if="wifi_on" :text='@shared.tx("已开启")' />
+      <ui-text v-else :text='@shared.tx("已关闭")' />
+      <ui-button :text='@shared.tx("重置")' @click="on_reset" />
+    </sh-section>
+    <sh-section :title='@shared.tx("表单校验")' subtitle="Form" desc="规则即时重跑。">
+      <ui-form :title='@shared.tx("注册资料")'>
+        <ui-form-item :label='@shared.tx("昵称")' :error="err_nick">
+          <ui-input v-model="nick" :placeholder='@shared.tx("至少 2 个字符")' width="200.0" />
+        </ui-form-item>
+      </ui-form>
+      已通过校验 {{ passed }} 项
+    </sh-section>
+  </sh-page>
 </template>
+```
+
+生成码（节选；全文见 wbtest）：
+
+```moonbit
+fn template_spike() -> @widget.Node {
+  // —— script 段原文 ——
+  let qty : @base.Store[Int] = @base.Store::new(3)
+  // …（略）…
+  fn on_reset() {
+    qty.set(3)
+    nick.set("")
+  }
+  // —— 模板树（let 绑定的组件解析到绑定的值直接调用）——
+  @shared.page([
+    @shared.section("数值", "步进器 / 滑杆 / 评分", "stepper 0..10 钳制。", [
+      @ui.stepper(qty, min=0, max=10, step=1),
+      @ui.bind_label(qty, fn(v) { "当前数量：\{v}" }),
+    ]),
+    @shared.section("开关", "Checkbox", "开关驱动结构条件。", [
+      @ui.checkbox(@shared.tx("自动开启"), wifi_on),
+      @widget.bind_node(wifi_on.signal(), fn(on) {
+        if on {
+          @ui.text(@shared.tx("已开启"))
+        } else {
+          @ui.text(@shared.tx("已关闭"))
+        }
+      }),
+      @ui.button(@shared.tx("重置"), on_click=on_reset),
+    ]),
+    @shared.section("表单校验", "Form", "规则即时重跑。", [
+      @ui.form(@shared.tx("注册资料"), [
+        @ui.form_item(@shared.tx("昵称"), @ui.input(
+            nick,
+            placeholder=@shared.tx("至少 2 个字符"),
+            width=200.0,
+          ), error=err_nick),
+      ]),
+      @ui.bind(passed, fn(v) { "已通过校验 \{v} 项" }),
+    ]),
+  ])
+}
 ```
 
 生成码（节选；全文见 wbtest）：
@@ -286,8 +340,8 @@ web 面（webview 壳）天然拥有真 HMR——HTML/CSS 就是那条命令流�
 
 ## 开放问题（待讨论）
 
-1. 语法细节：**spike 已落定草案**（见「Spike 契约」节）——插值 `{}`、`:attr`、`:value` 值槽、`@event`、`<if :test>`、`<for>`、`ui-*` 内置表 + `// @component` 声明；待确认后冻结。
-2. 单文件格式与扩展名：**已定 `.mui.html`**；script 段原文进生成函数体前段、模板树进后段（见 Spike 契约）。
+1. ~~语法细节~~：**已冻结**（2026-11-01）——语法对齐 Vue：`{{ }}`、`:attr`、`@event`、`v-model`（落点直传 Store）、`v-if` 全家 + `v-show`、`v-for`、`ui-*` 内置表 + script setup `let` 绑定暴露；收窄项见「Spike 契约」记档。
+2. ~~单文件格式与扩展名~~：**已定 `.mng.html`**（`.mng` 与图像格式 MNG 重名，按「无重名才换」规则保留 `.html` 后缀）；script 段原文进生成函数体前段、模板树进后段。
 3. 生成物提交 or 忽略（本方案倾向提交 + CI 校验新鲜度）。
 4. spike 已选 showcase 表单页；生成函数签名 v1 定 `fn <文件名去扩展>() -> @widget.Node`——app 注入需求与组件 props 类型化（带参组件）留 v2。
 5. 工具命名——按路线门面标准起：终态是本路线的 Vite 位次，对外 DX 的第一入口。

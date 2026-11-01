@@ -34,7 +34,7 @@ fn template_spike() -> @widget.Node {
         if on {
           @ui.text(@shared.tx("已开启"))
         } else {
-          @ui.col([])
+          @ui.text(@shared.tx("已关闭"))
         }
       }),
       @ui.button(@shared.tx("重置"), on_click=on_reset),
