@@ -76,7 +76,7 @@
 
 | 项 | 定 |
 | --- | --- |
-| 扩展名 | `.mng.html`（moon native gui；HTML 可关联，服务编辑器 0 档）。`.mng` 裸扩展名与图像格式 MNG（Multiple-image Network Graphics，MIME `video/x-mng`）重名，但该格式已被 APNG/WebP 取代、浏览器早已弃支持——按「无重名才换」规则**保持 `.mng.html`**。`.mui` 一并排除：Windows MUI 本地化资源文件（`*.exe.mui`）系统级占用 + React 组件库 MUI（原 Material-UI）心智撞车，两个都是活物 |
+| 扩展名 | **两阶段**：现行 `.mng.html`——零插件白拿 HTML 高亮（编辑器 0 档，`.html` 兜底系统不会误判成图片）；自家 VS Code 扩展（1 档）落地即切裸 `.mng`——查证编辑器生态无占用（2026-11-01），MNG 图像格式已被 APNG/WebP 取代、浏览器早弃支持，仅剩文件管理器图片关联的残余噪音，接受。`.mui` 一并排除：Windows MUI 本地化资源文件（`*.exe.mui`）系统级占用 + React 组件库 MUI（原 Material-UI）心智撞车，两个都是活物 |
 | 文件结构 | `<script setup lang="moonbit">`（页状态与逻辑，MoonBit 原文）+ `<template>`（单根树），Vue SFC 形态 |
 | 插值 | 文本节点 `{{ expr }}` |
 | 表达式属性 | `:attr="expr"`；属性值可用单引号包 MoonBit 双引号串 |
@@ -326,7 +326,7 @@ web 面（webview 壳）天然拥有真 HMR——HTML/CSS 就是那条命令流�
 
 | 档 | 内容 | 成本 / 触发 |
 | --- | --- | --- |
-| 0 档：零插件 | HTML 可关联扩展名 + `files.associations` 白拿高亮；`tasks.json` + problemMatcher 把错误回映射接进 Problems 面板 | 零成本，随模板 v1；扩展名判据就此落定 |
+| 0 档：零插件 | HTML 可关联扩展名（`.mng.html`）+ `files.associations` 白拿高亮；`tasks.json` + problemMatcher 把错误回映射接进 Problems 面板 | 零成本，随模板 v1；1 档落地后文件切裸 `.mng`（终态名） |
 | 1 档：轻插件 | 静态贡献包：associations 打包 + TextMate injection（属性值 MoonBit 表达式着色；官方 vscode-moonbit grammar 复用待查 license）+ snippets | 一两天，v1 期间顺手 |
 | 2 档：LSP | 工具 `lsp` 子命令：诊断推送、组件/状态/handler/token/类名补全、模板 ↔ 生成码 ↔ MoonBit 跳转（复用 source map） | 触发：v1 用出真痛感；语法/注册表稳定前不动工 |
 | 3 档：预览集成 | LSP 拉起预览窗（Slint LSP preview 模式对位），对应终态 `preview` 子命令 | 挂终态 |
