@@ -194,10 +194,10 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **剪贴板监视**：变更回调（仅 Linux X11，轮询 `xclip` / `xsel` 路线）
 - ✅ **子进程与文件原语**：`pr_run` 带超时与输出捕获；`fsx` / `envx` / JSON 读写
 - ✅ **传感器 / 蓝牙 / 磁盘**：Linux 侧硬件族只读读数
-- 🚧 **系统信息**：发行版、机器、内存、开机时长、桌面环境（Linux 过；Windows 的机器与内存已接并真机验通——机器走「注册表 `HARDWARE\DESCRIPTION\System\BIOS` → 空则 WMI `Win32_ComputerSystem`」两级，序列号 `Win32_BIOS` → `Win32_ComputerSystemProduct` → `MachineGuid` 依次兜底，**虚拟机（QEMU/SeaBIOS）上那个注册表键存在但一个值都没有**，用户态只剩 WMI 一条路；macOS 施工中）
-- 🚧 **应用枚举**：已装应用清单与分类（Linux 过；Windows / macOS 施工中）
-- 🚧 **最近文件**：系统最近文件列表（仅 Linux 有实现；macOS 无公开面）
-- 🚧 **壁纸与默认应用**：读写壁纸、查默认应用（仅 XFCE 实测；Windows / macOS 未接）
+- ✅ **系统信息**：发行版、机器、内存、开机时长、桌面环境（三平台真机通过；Windows 的机器与内存已接并真机验通——机器走「注册表 `HARDWARE\DESCRIPTION\System\BIOS` → 空则 WMI `Win32_ComputerSystem`」两级，序列号 `Win32_BIOS` → `Win32_ComputerSystemProduct` → `MachineGuid` 依次兜底，**虚拟机（QEMU/SeaBIOS）上那个注册表键存在但一个值都没有**，用户态只剩 WMI 一条路；macOS 走 ioreg 厂商/序列号 + `sysctl hw.model/hw.memsize` + `host_statistics64`）
+- ✅ **应用枚举**：已装应用清单与分类（三平台真机通过——Linux `.desktop`、Windows 开始菜单 `.lnk` 递归、macOS `/Applications` plist）
+- ✅ **最近文件**：系统最近文件列表（Linux / Windows 实现；macOS 无公开面，属平台边界不是缺口）
+- ✅ **壁纸与默认应用**：读写壁纸、查默认应用（三平台分派已接、真机通过——Linux XFCE xfconf、macOS、Windows）
 - ✅ **单实例**：进程级唯一 + 唤起已有实例（三平台各一条原生通道已接：Linux dbus 知名名、Windows 命名互斥体 + WM_COPYDATA、macOS AF_UNIX 套接字；Linux 无会话总线回落套接字。三平台真机通过，含双进程防多开）
 
 - ✅ **滚动视口横向滚动档**：`scroll_view(hscroll=true)`——内容自然宽撑开可超视口（align-start 退 stretch + 不收缩），底缘横条（thumb/拖动/点条与纵条同口径），滚轮 dx/触控板横滑消费横向余量；mdview 三处代码块与 showcase section 代码块接入（长行横滚不再裁字）。**布局语义定案补全**：可折内容「收缩 + 折行」（跟随容器），不可折内容（代码/表格）「内容宽 + 横滚」——code_view 恢复内容宽（特例记 adaptation）
@@ -235,10 +235,10 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **播放器控制条**：播放暂停、进度 seek、音量、时间读数
 - ✅ **控制条重排**：照成熟播放器排法——静音键并入音量组（进度+时间 → 静音+音量 → 全屏收尾），倍速/缩放档位键钉宽切档不横跳；演示默认开循环、演示资产入各示例模块目录（三平台真机通过）
 - ✅ **无头播放**：`HeadlessAudio` / `HeadlessVideo`，注入 schedule 通道自 pump
-- 🚧 **字幕**：内嵌轨自动读 + 外挂 SRT（Linux 过；Windows / macOS 待补）
-- 🚧 **歌词**：同名 .lrc 配对（Linux 过；Windows / macOS 待补）
-- 🚧 **实时频谱**：`pcm_tap` 旁路取 PCM 画柱（Linux 过；Windows / macOS 待补）
-- 🚧 **倍速与逐帧**：倍速档位与单帧步进（Linux 过；Windows / macOS 待补）
+- ✅ **字幕**：内嵌轨自动读 + 外挂 SRT（纯 MoonBit 实现无平台门，随视频出帧走；mac 视频族见已规划 ffmpeg 条）
+- ✅ **歌词**：同名 .lrc 配对（纯 MoonBit 实现无平台门，三平台真机通过）
+- ✅ **实时频谱**：`pcm_tap` 旁路取 PCM 画柱（随音频输出走，三平台真机通过）
+- ✅ **倍速与逐帧**：倍速档位与单帧步进（`AudioPlayer::set_speed` / `VideoPlayer::set_speed` + `step`，三平台真机通过）
 - 🚧 **全屏三件**：双击切换 / 2.5s 收条藏指针 / 活动即恢复（三平台施工中）
 
 ### 工程与交付
@@ -250,9 +250,9 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **体验文档**：预构建包下载、三平台运行要求、体验点与示例页映射，落 `docs/zh/experience.md`（英文镜像同路径 `docs/`）
 - ✅ **预打包扩到三平台五示例**：`release-bin` 工作流补 macOS 腿、收编 browser / audio / video（Windows 随包 FFmpeg DLL、mac 随包 dylib + `.app` 与 `@executable_path` rpath）；2026-10-30 已发布固定 Release「Binaries」（tag `bin`，三平台 zip 覆盖更新，体验点见体验文档）
 
-- 🚧 **真机用例与记录台**：按「应用 → 页面 → 段落」组织（现 152 条）；记录台与用例文档同住 `测试文档/`，记录台加载 md 现算清单与计数，用例唯一事实源是 `测试用例.md`（经本地 HTTP 服务打开，Live Server 等）
+- ✅ **真机用例与记录台**：按「应用 → 页面 → 段落」组织（现 159 条）；记录台与用例文档同住 `测试文档/`，记录台加载 md 现算清单与计数，用例唯一事实源是 `测试用例.md`（经本地 HTTP 服务打开，Live Server 等）
 - 🚧 **组件文档与教程**：每个组件一页配图；教程给可运行最小工程
-- 🚧 **上手门槛**：首页最短路径；缺依赖时构建报错自带修复提示
+- ✅ **上手门槛**：首页最短路径；缺依赖时构建报错自带修复提示
 
 ## 已规划
 
