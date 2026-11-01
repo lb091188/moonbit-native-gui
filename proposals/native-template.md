@@ -300,6 +300,8 @@ fn template_spike() -> @widget.Node {
 
 **终态**：`dev` / `build` / `preview` / `lsp` 四子命令（见「工具与编辑器支持」）；双面收拢完全体——web 面 Vite HMR、native 面 IR 通道，同一 dev 命令编排两个底座；上游汇合点——moonbitlang native 热重载落地当天，IR 通道升格真代码热换、快照设计原样复活、全部回退路径消失。
 
+**Phase 0 探针结果（2026-11-01，`experiment/ir_probe`，无头）**：手工 IR + 注册表 + applier v0（落点全为生产 API），200 轮 v1↔v2 结构交替热替换——单次「摘+建+挂」**10.4 ms**（验收线 1000 ms 的 1/75）；旧代订阅整袋退订干净（渲染不叠加、订阅数跨代恒定）；受控组件（stepper/slider）自身订阅计入现役代属正确口径。**探针通过，IR 通道主假设成立。**
+
 ### 探测结论（2026-11-01，Windows 开发机、showcase、native）
 
 - **构建基线**：无改动增量 1.9s、改一个叶子页面 `moon check` 0.5s / `moon build` 5.8s、改 facade ui 层 10.6s——编译近乎免费，**大头是 AOT 链接**（≈3.4s）加 moon 自身地板（1.9s，与应用大小无关，hello 无改动 1.5–2.6s）。这是 AOT 换「开发表现 = 生产表现」的固定税，应用层唯一杠杆是 dev 宿主瘦链接；亚秒级只有换口径（已否）或工具链原生支持（上游需求）。
