@@ -8,7 +8,7 @@
 // `TextEditorHost` 收口形态（四签名 process_key/commit/preedit/set_cursor_rect
 // 逐一对应，只是从「一个 host 对象」换成「焦点控件的回调表」）。
 //
-// 三条既有纪律在这里继续成立（见 proposals/adaptation.md）：时基必须先
+// 三条既有纪律在这里继续成立（见 experience/adaptation.md）：时基必须先
 // `Loop::start`；置脏必须 `@win.wake()` 否则睡在 `wait` 里的循环不会醒；
 // 输入法每拍只喂**已提交**文本，`im_reset` 只在逻辑焦点换控件那一瞬调一次
 // （每拍调会一直打断组合，见 `Window::im_reset` 注释）。

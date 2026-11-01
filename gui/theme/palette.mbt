@@ -1,5 +1,5 @@
 // 主题调色数学：hex 解析复用 `@render.Color::parse`（CSS 口径——8 位写法透明度
-// 在尾，与 libyue 的 #AARRGGBB 是已知分岔，见 proposals/adaptation.md）。
+// 在尾，与 libyue 的 #AARRGGBB 是已知分岔，见 experience/adaptation.md）。
 // HSL / 混色 / 明度升降按同一套语义实现，便于逐值比对。
 
 ///|

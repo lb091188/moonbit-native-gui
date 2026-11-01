@@ -56,7 +56,7 @@ pub(all) struct Style {
   mut left : Double?
   mut z_index : Int?
   // 整层透明度（0..1，画期把 global alpha 乘进全路径）。不提供投影（box_shadow），
-  // 前置条件见 proposals/adaptation.md「阴影」节。
+  // 前置条件见 experience/adaptation.md「阴影」节。
   mut opacity : Double?
   // 状态桶切换的过渡时长（毫秒；不写或 0 = 直接切换）
   mut transition_ms : Double?

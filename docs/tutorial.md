@@ -155,7 +155,7 @@ handle=fn(a : @widget.App) -> Unit {
 }
 ```
 
-Themed forms for `@ui.text` / `@ui.button` (the four `button` `variant`s, `tag` / `alert` / `card`, …) are in [components.md](components.md); stylesheets (`Style` values plus `hover` / `active` / `focus` states and transitions) in [design.md (Chinese)](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/design.md).
+Themed forms for `@ui.text` / `@ui.button` (the four `button` `variant`s, `tag` / `alert` / `card`, …) are in [components.md](components.md); stylesheets (`Style` values plus `hover` / `active` / `focus` states and transitions) in [design.md (Chinese)](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/design.md).
 
 **Copy from a working app** — the demo board is the material library:
 
@@ -174,7 +174,7 @@ Pick a page in the left menu and write against it on the right; each page's sour
 - [components.md](components.md): a quick reference to every widget and component's parameters and events
 - [system-capabilities.md](system-capabilities.md): OS capabilities (`@sys`) — volume / app lookup / wallpaper / monitors / clipboard / power / printers…, with unified `Result` semantics
 
-**Hit a problem** — [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md) records field-tested pitfalls and root causes per platform, including the tray backends.
+**Hit a problem** — [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md) records field-tested pitfalls and root causes per platform, including the tray backends.
 
 ## 6. A note to contributors
 
@@ -184,4 +184,4 @@ This library aims at writing native desktop apps in MoonBit. It now covers self-
 - **Widgets and capabilities**: un-wrapped items and per-platform adaptation pitfalls are all welcome as issues first.
 - **Docs and examples**: the tutorial, component docs, and every showcase page are open for improvement.
 
-No barrier to taking part: file an issue describing a problem or idea, or send a PR directly. Before you start, remember three things — `moon check` passes with zero errors and zero warnings and `moon test` is all green before committing; field-tested pitfalls go into [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md) together with their fixes; one cohesive change per batch. The full process (adding example modules, prebuild-hosted linking) is in [build.md](build.md); the FFI rules are in the repo's `.agents/skills/moonbit-c-binding/`.
+No barrier to taking part: file an issue describing a problem or idea, or send a PR directly. Before you start, remember three things — `moon check` passes with zero errors and zero warnings and `moon test` is all green before committing; field-tested pitfalls go into [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md) together with their fixes; one cohesive change per batch. The full process (adding example modules, prebuild-hosted linking) is in [build.md](build.md); the FFI rules are in the repo's `.agents/skills/moonbit-c-binding/`.

@@ -588,7 +588,7 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
               // 不存在的路径三平台都按死条目跳过，全空则本机拖出失败、回落应用内
               payload=fn() {
                 Some(@widget.DragData::Paths([
-                  "../../README.md", "../../proposals/adaptation.md",
+                  "../../README.md", "../../experience/adaptation.md",
                 ]))
               },
               external=true,

@@ -76,7 +76,7 @@
 - [ ] **S4 mix-blend-mode / overflow / line-through**：语义暴露 + 自绘线扩展。
 - [ ] **S5（选做，贵）letter_spacing**：三引擎 stub + measure/paint 一致性；先确认 DWrite 逐字形方案再排期。
 
-> 每项按仓库约定：代码改动同批把「环境+现象+根因+修复+验证」回写 `proposals/adaptation.md`；交付面写进 `docs/zh/roadmap.md` 对应小节（平台列 ✅/🚧/❌/⏳）。真机视觉由用户验证。
+> 每项按仓库约定：代码改动同批把「环境+现象+根因+修复+验证」回写 `experience/adaptation.md`；交付面写进 `docs/zh/roadmap.md` 对应小节（平台列 ✅/🚧/❌/⏳）。真机视觉由用户验证。
 
 ## 五、风险 / 不对称陷阱
 - **raster 快路 vs path 回退**：每角不等半径若漏 guard，raster 解析快路会画错（应退回 path）。

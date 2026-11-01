@@ -1,6 +1,6 @@
 # 构建与运行
 
-从零到跑起来的完整流程：装什么、敲什么命令、产物落在哪、不想编的时候拿什么、报错怎么处置（§1–§6）。后半段讲这套构建的机制——链接参数怎么托管、改桩不重链的坑、vendor 文件从哪来（§7–§12）。原理与逐平台实测记录在 [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md)「构建与链接」。
+从零到跑起来的完整流程：装什么、敲什么命令、产物落在哪、不想编的时候拿什么、报错怎么处置（§1–§6）。后半段讲这套构建的机制——链接参数怎么托管、改桩不重链的坑、vendor 文件从哪来（§7–§12）。原理与逐平台实测记录在 [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md)「构建与链接」。
 
 ## 1. 装 MoonBit 工具链
 
@@ -199,7 +199,7 @@ nm modules/gui-webview/build/libgui_webview-*.a | grep -c gtk_file_chooser_nativ
 
 新代码引用的符号旧归档里必为 0；查 exe 同理（`nm -D <exe> | grep <符号>`，GTK/WebKit 动态链接的符号以未定义形式出现）。改这类桩后拿不准就：`rm -rf modules/gui-webview/build && moon clean`。
 
-排查时先用新的 main 目标复现一轮：新 target 每次都是新链接，若 main 正常而 test 崩，基本可断定 test 二进制链了旧归档，不是代码逻辑问题。更细的平台实测记在 [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md)。
+排查时先用新的 main 目标复现一轮：新 target 每次都是新链接，若 main 正常而 test 崩，基本可断定 test 二进制链了旧归档，不是代码逻辑问题。更细的平台实测记在 [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md)。
 
 ## 10. vendor 大文件与镜像
 
@@ -258,6 +258,6 @@ python scripts/win_ffmpeg_dll.py --dry-run       # 只打印计划，不动文�
 
 ## 12. 相关
 
-- 平台适配坑与验证：[adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md)
+- 平台适配坑与验证：[adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md)
 - 环境准备与第一个工程：[tutorial.md](tutorial.md)
 - 组件与 API：[components.md](components.md)

@@ -1,6 +1,6 @@
 # Layout Styling (@style + yoga-mbt)
 
-The layout engine is this repository's own **yoga-mbt**, a pure-MoonBit implementation of CSS Flexbox Level 1. Styles are MoonBit values living in the `@style` package, and `Style` field names are CSS property names with hyphens written as underscores. Components accept loose parameters (`padding=` / `row_gap=` …) as well as a `class? : Array[@style.Style]` array that stacks style blocks. This page is a quick reference for the layout surface; the full design of the style value model and state buckets is in [design.md (Chinese)](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/design.md).
+The layout engine is this repository's own **yoga-mbt**, a pure-MoonBit implementation of CSS Flexbox Level 1. Styles are MoonBit values living in the `@style` package, and `Style` field names are CSS property names with hyphens written as underscores. Components accept loose parameters (`padding=` / `row_gap=` …) as well as a `class? : Array[@style.Style]` array that stacks style blocks. This page is a quick reference for the layout surface; the full design of the style value model and state buckets is in [design.md (Chinese)](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/design.md).
 
 ## Two write paths
 
@@ -70,7 +70,7 @@ Every property setter, plus structural and callback changes, calls `mark_changed
 
 ## Related docs
 
-- Style value model, state buckets, theme linkage: [design.md (Chinese)](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/design.md) §1
+- Style value model, state buckets, theme linkage: [design.md (Chinese)](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/design.md) §1
 - Components and loose parameters: [components.md](components.md)
 - Layout recipes (centering, header/body/footer, splits, scrolling, wrapping): [howto.md](howto.md) §1
 - Reactivity and whole-tree / in-place replacement: [declarative.md](declarative.md)

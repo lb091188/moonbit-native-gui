@@ -1,6 +1,6 @@
 # Build & run
 
-The full path from an empty machine to a running window: what to install, what to type, where the artefacts land, what to grab if you would rather not build, and how to fix the errors (§1–§6). The second half covers the mechanism behind all of it — how link flags are hosted, the stub-edited-but-not-relinked pitfall, and where vendored files come from (§7–§12). The rationale and the per-platform field records live in the "Build & linking" section of [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md).
+The full path from an empty machine to a running window: what to install, what to type, where the artefacts land, what to grab if you would rather not build, and how to fix the errors (§1–§6). The second half covers the mechanism behind all of it — how link flags are hosted, the stub-edited-but-not-relinked pitfall, and where vendored files come from (§7–§12). The rationale and the per-platform field records live in the "Build & linking" section of [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md).
 
 ## 1. Install the MoonBit toolchain
 
@@ -185,7 +185,7 @@ nm modules/gui-webview/build/libgui_webview.a | grep -c gtk_file_chooser_native_
 
 A symbol referenced by the new code is always 0 in a stale archive; for the exe use `nm -D <exe> | grep <symbol>` (GTK/WebKit symbols are dynamically linked and appear as undefined). When in doubt after editing such a stub: `rm -rf modules/gui-webview/build && moon clean`.
 
-When debugging, first reproduce with a new main target: a fresh target is always linked fresh. If main runs fine but the test crashes, the test binary almost certainly linked a stale archive, not a logic bug. The finer per-platform records are in [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md).
+When debugging, first reproduce with a new main target: a fresh target is always linked fresh. If main runs fine but the test crashes, the test binary almost certainly linked a stale archive, not a logic bug. The finer per-platform records are in [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md).
 
 ## 10. Vendored large files and mirrors
 
@@ -244,6 +244,6 @@ Demo assets live in each example's own `examples/<name>/assets/` (not a module �
 
 ## 12. Related
 
-- Platform adaptation pitfalls and verification: [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md)
+- Platform adaptation pitfalls and verification: [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md)
 - Environment setup and your first project: [tutorial.md](tutorial.md)
 - Components and API: [components.md](components.md)

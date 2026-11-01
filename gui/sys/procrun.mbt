@@ -6,7 +6,7 @@
 // `LC_MESSAGES=C`（英文文案可解析）而字符集 `LC_CTYPE` 随会话（钉成 ASCII 会
 // 把中文路径变成问号，见 pr_locale_vars），Windows 传空环境块＝继承父进程环境；
 // 退出码 0 归一为 Ok，非零退出归一为 Err 并携带 stderr，调用方无需判码。
-// 平台差异（记档于 proposals/adaptation.md）：命令不存在在 Unix 惯例下由子
+// 平台差异（记档于 experience/adaptation.md）：命令不存在在 Unix 惯例下由子
 // 进程以退出码 127 呈现（NonZeroExit），Windows 下 CreateProcessW 直接失败
 // （SpawnFailed 带错误码）。
 

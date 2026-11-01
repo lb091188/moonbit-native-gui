@@ -19,7 +19,7 @@ The `Permission` event plus `set_permission_mode` and `respond_permission(allow)
 - **Windows (WebView2)**: `PermissionRequested` + deferral.
 - **macOS (WKWebView)**: media capture only (`requestMediaCapturePermissionForOrigin`, macOS 12+); geolocation has no callback in the public `WKUIDelegate`.
 
-**On macOS this callback requires the app to be properly bundled and code-signed** (with `NSCameraUsageDescription` / `NSMicrophoneUsageDescription`). In unsigned / bare-binary form WebKit enumerates no capture devices, the page's `getUserMedia` hangs and the callback never fires — an engine-side reality, not a stub bug (measurements in `proposals/adaptation.md` and `experiment/webkit_media_probe/`). The examples therefore do not demo permissions; incoming events are denied by default and logged as one event line, so requests never dangle inside the engine.
+**On macOS this callback requires the app to be properly bundled and code-signed** (with `NSCameraUsageDescription` / `NSMicrophoneUsageDescription`). In unsigned / bare-binary form WebKit enumerates no capture devices, the page's `getUserMedia` hangs and the callback never fires — an engine-side reality, not a stub bug (measurements in `experience/adaptation.md` and `experiment/webkit_media_probe/`). The examples therefore do not demo permissions; incoming events are denied by default and logged as one event line, so requests never dangle inside the engine.
 
 ## Platform differences
 

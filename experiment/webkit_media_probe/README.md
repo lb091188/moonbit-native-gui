@@ -10,4 +10,4 @@ clang -fobjc-arc -framework Cocoa -framework WebKit -o wkprobe wkprobe.m
 PROBE_SPI=1 ./wkprobe  # 附加：WebKit 私有偏好全开是否解除挂起
 ```
 
-结论与判据见文件头注释，对应 `proposals/adaptation.md` 的 webview 一节。
+结论与判据见文件头注释，对应 `experience/adaptation.md` 的 webview 一节。

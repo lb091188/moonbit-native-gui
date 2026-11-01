@@ -8,8 +8,9 @@
 | `examples/<name>/` | 示例；每个示例一个独立模块 `NoahLiu/native-gui-examples-<name>`，注册进 `moon.work`，依赖只写自己的 `moon.mod` | 往既有示例模块里塞第二个示例 |
 | `experiment/` | 探针与微基准模块 | 要长期维护的功能代码 |
 | `modules/` | 子模块：yoga-mbt / mdparse / gui-media / gui-webview / ffmpeg-mbt | 示例 |
-| `proposals/` | 对内设计/方案/实测经验，纯中文，扁平一层 | 对外使用文档 |
-| `docs/` | 对外文档站（VitePress，中英双语），只发对外使用文档与路线图 | 对内方案与实测经验 |
+| `proposals/` | 对内方案/计划——要做或在做的提案，纯中文，扁平一层 | 对外使用文档；已收口的定案（迁 `experience/`） |
+| `experience/` | 对内经验与定案：实测坑与结论（adaptation）、已收口设计定案（design）、仓库判据（placement），纯中文，扁平一层 | 待做的方案计划（进 `proposals/`）、对外使用文档 |
+| `docs/` | 对外文档站（VitePress，中英双语），只发对外使用文档与路线图 | 对内方案、计划与实测经验 |
 | `测试文档/` | 用例文档与记录台（记录台运行时解析用例 md，编号一一对应，经本地 HTTP 服务打开） | |
 | `.agents/skills/` | 领域指导：FFI、界面设计、MoonBit 语言与工具链 | |
 

@@ -27,7 +27,7 @@
 #endif
 
 // 构建期记下的 vendor 目录：prebuild 以**裸路径记号** -D 下发（Windows 这条链上
-// 引号到不了宏，见 proposals/adaptation.md），这里两级宏把记号串化成字符串字面量；
+// 引号到不了宏，见 experience/adaptation.md），这里两级宏把记号串化成字符串字面量；
 // 未下发（如 NATIVE_GUI_FFMPEG_NO_DELAYLOAD 档）为空串，回落自动关闭。
 #define NG_FFMPEG_STR2(x) #x
 #define NG_FFMPEG_STR(x) NG_FFMPEG_STR2(x)
