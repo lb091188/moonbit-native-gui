@@ -174,7 +174,7 @@ Pick a page in the left menu and write against it on the right; each page's sour
 - [components.md](components.md): a quick reference to every widget and component's parameters and events
 - [system-capabilities.md](system-capabilities.md): OS capabilities (`@sys`) — volume / app lookup / wallpaper / monitors / clipboard / power / printers…, with unified `Result` semantics
 
-**Hit a problem** — [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md) records field-tested pitfalls and root causes per platform; the tray design is in [tray.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/tray.md).
+**Hit a problem** — [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/proposals/adaptation.md) records field-tested pitfalls and root causes per platform, including the tray backends.
 
 ## 6. A note to contributors
 

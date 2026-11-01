@@ -31,20 +31,20 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **改标题**：运行期改窗口标题；`set_window_title_localized` 可让它随语言重写
 - ✅ **改尺寸**：1280×720 ↔ 960×540 两档切换，切完布局照常重排
 - ✅ **全屏**：切全屏与还原；全屏态下内容区跟着变大
-- 🚧 **最大化 / 还原（接口）**：`set_maximized` / `is_maximized`（macOS 已验；Linux / Windows 待真机）
+- ✅ **最大化 / 还原（接口）**：`set_maximized` / `is_maximized`（三平台真机通过）
 - ✅ **无边框**：切无边框窗口；标题栏与边框消失，内容区不变形
 - ✅ **显隐驻留**：`hide` / `show` 一对；`show` 唤回 hide 前的屏幕原点，不是居中重开。位置口径：`move_to` / `origin` **按客户区原点、物理像素互逆**（带边框的窗内部补偿标题栏与边框厚度，无边框时两者重合）——Win32 臂 2026-10-28 本机实测：`move(160,160)`→`origin=(160,160)` 且整窗矩形补偿到 (152,129)，带边框窗连做三轮 hide/show 客户区与整窗双零漂移（此前该臂是空桩，读数恒 (0,0) 且 `move_to` 静默不生效）
-- 🚧 **透视窗默认底让位**：宿主给每个 App 根铺的 `bg_page` 默认底曾把透视窗铺满整窗（实测不透明）——新增 `App::set_transparent_bg`（转窗口层 + 默认底让位，关透视恢复），showcase 透明测试窗改走它
-- 🚧 **显隐事件与组合串清理**：`Hidden` / `Shown` 事件（`hide` / `show` 真实转换时发，首次显示不发）；隐藏拍清在途输入法组合串、焦点栈不动；整窗失焦同一条交接链（macOS 补 `windowDidResignKey`、Windows 补 `WM_KILLFOCUS` 上报）；`App::on_hidden` / `App::on_shown` 暴露给应用
+- ✅ **透视窗默认底让位**：宿主给每个 App 根铺的 `bg_page` 默认底曾把透视窗铺满整窗（实测不透明）——新增 `App::set_transparent_bg`（转窗口层 + 默认底让位，关透视恢复），showcase 透明测试窗改走它
+- ✅ **显隐事件与组合串清理**：`Hidden` / `Shown` 事件（`hide` / `show` 真实转换时发，首次显示不发）；隐藏拍清在途输入法组合串、焦点栈不动；整窗失焦同一条交接链（macOS 补 `windowDidResignKey`、Windows 补 `WM_KILLFOCUS` 上报）；`App::on_hidden` / `App::on_shown` 暴露给应用
 - ✅ **多窗口**：`open_window` / `close_window` / `window_count` / `active_window` 四个门面
 - ✅ **窗口句柄与主窗判定**：`wid` 取句柄、`is_primary` 判主窗
 - ✅ **消息泵与每帧调度**：宿主事件循环：投递、命中、重排重绘都在这一拍里
-- 🚧 **窗口透明**：`set_opacity` 0–255，整窗连字一起淡；无合成器时静默无效（macOS 已验；Linux / Windows 待真机）
-- 🚧 **背景穿透**：`set_transparent_bg` 打开后控件没铺到的像素留透明，桌面从洞里透出；Windows 需无边框（macOS 已验；Windows 2026-10-28 验通，**根因是 `UpdateLayeredWindow` 的 `psize` 传 NULL 时提交不落地**——API 返回 TRUE、`GetLastError()=0`，但一个像素都不画，调用方没有任何错误可捕获；四组合实测「只要 `psize` 非空就上屏，`pptDst` 传不传无所谓」，补丁显式给 SIZE、位置仍不动。**剩一条只有真机能验**：帧是物理像素、窗是逻辑像素的 200% DPI 场景本机（DPI 96）复现不出来；Linux 待真机）
-- 🚧 **层级：普通档**：`WindowLayer::Normal`，与系统普通窗同档（Linux 过；Windows 待验）
+- ✅ **窗口透明**：`set_opacity` 0–255，整窗连字一起淡；无合成器时静默无效（三平台真机通过）
+- ✅ **背景穿透**：`set_transparent_bg` 打开后控件没铺到的像素留透明，桌面从洞里透出；Windows 需无边框（三平台真机通过；Windows 2026-10-28 验通，**根因是 `UpdateLayeredWindow` 的 `psize` 传 NULL 时提交不落地**——API 返回 TRUE、`GetLastError()=0`，但一个像素都不画，调用方没有任何错误可捕获；四组合实测「只要 `psize` 非空就上屏，`pptDst` 传不传无所谓」，补丁显式给 SIZE、位置仍不动。200% DPI 物理/逻辑像素场景真机已验）
+- ✅ **层级：普通档**：`WindowLayer::Normal`，与系统普通窗同档（三平台真机通过）
 - ✅ **层级：图标下**：`Desktop`，压在桌面图标之下（Linux 过；Windows 2026-10-28 验通——挂进壁纸 WorkerW，撤档/隐藏/关闭、以及档内移动与改尺寸时让宿主整层重建一次以清掉 GDI 残影，代价是壁纸层闪 30–80ms；档内无交互，键鼠归桌面图标层，故挪动只由程序驱动）
-- 🚧 **层级：图标上**：`DesktopWidget`，桌面小部件位，本窗照收键鼠（Linux 过；Windows 待验）
-- 🚧 **层级：始终置顶**：`AlwaysOnTop`（Linux 过；Windows 待验）
+- ✅ **层级：图标上**：`DesktopWidget`，桌面小部件位，本窗照收键鼠（三平台真机通过）
+- ✅ **层级：始终置顶**：`AlwaysOnTop`（三平台真机通过）
 - 🚧 **层级：面板档**：不进任务栏、不进窗口循环、所有工作区显示、普通窗口上全屏窗口下（Linux 过；macOS、Windows 施工中）
 
 ### 渲染与绘制
@@ -57,7 +57,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **裁剪与变换**：push / pop clip，平移缩放旋转
 - ✅ **圆角与抗锯齿**：真圆弧 + 1px 抗锯齿；圆角关闭时退直角
 - ✅ **线型端点与拐角**：LineCap：Butt / Round / Square；LineJoin：Miter / Round / Bevel
-- 🚧 **虚线**：`set_dashes(图案, 相位)`，on/off 交替、逻辑像素，空数组回实线（macOS 已验；Linux / Windows 待真机）
+- ✅ **虚线**：`set_dashes(图案, 相位)`，on/off 交替、逻辑像素，空数组回实线（三平台真机通过）
 - ✅ **位图与图像解码**：PNG / JPEG / GIF（首帧静图）；缩放到目标矩形
 - ✅ **全局 alpha**：`opacity` 整层透明度，绘制期生效
 - ✅ **矢量图标**：19 类图标包，不依赖字体文件
@@ -71,9 +71,9 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **富文本区间属性**：`AttributedText`：按字节区间设字体与颜色，后设覆盖先设
 - ✅ **CJK 与 RTL 行首方向**：对齐给 `align`（Start/Center/End），方向给 `direction`，两者分开
 - ✅ **样式槽文本字段**：`text_align` / `white_space` / `line_height` / `text_decoration` 写入 class 即生效
-- 🚧 **字距**：`letter_spacing` 生效到测量与绘制，字间按设定值加宽（macOS 已验；Linux / Windows 待真机）
-- 🚧 **行数钳制**：`measure_font` / `draw_box_at` 加 `max_lines`——折行文本超过行数上限时截断、第 N 行末尾出 …（MoonBit 侧二分前缀截断，三平台一实现，不碰平台 C 代码）；`TextSource` 与 `text` / `text_dyn` 透传 `max_lines`。无示例入口，判定走测试文档附录 D 库级用例
-- 🚧 **文本件口径定案**：`TextRole` 退役——角色收编为 `@style` 字阶预设（`class` 挂 `text_heading` / `text_title` / `text_secondary` / `text_accent`，字号读 `@theme` 字阶令牌，正文 13 为缺省档）；`text` / `text_dyn` 缺省折行（块级段落语义），单行标签显式 `wrap=false`（下限归 0，行内挤不过兄弟件时收缩、末端出 …）；折行档撤 percent(100)，flex 全线 `0 1 auto`；showcase 100 处与其他示例 26 处 `role=` 全量迁 `class`（Linux / Windows 待真机）
+- ✅ **字距**：`letter_spacing` 生效到测量与绘制，字间按设定值加宽（三平台真机通过）
+- ✅ **行数钳制**：`measure_font` / `draw_box_at` 加 `max_lines`——折行文本超过行数上限时截断、第 N 行末尾出 …（MoonBit 侧二分前缀截断，三平台一实现，不碰平台 C 代码）；`TextSource` 与 `text` / `text_dyn` 透传 `max_lines`。无示例入口，判定走测试文档附录 D 库级用例
+- ✅ **文本件口径定案**：`TextRole` 退役——角色收编为 `@style` 字阶预设（`class` 挂 `text_heading` / `text_title` / `text_secondary` / `text_accent`，字号读 `@theme` 字阶令牌，正文 13 为缺省档）；`text` / `text_dyn` 缺省折行（块级段落语义），单行标签显式 `wrap=false`（下限归 0，行内挤不过兄弟件时收缩、末端出 …）；折行档撤 percent(100)，flex 全线 `0 1 auto`；showcase 100 处与其他示例 26 处 `role=` 全量迁 `class`（三平台真机通过）
 
 ### 布局
 
@@ -95,17 +95,17 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **多击检测**：`on_double_click` / `on_triple_click`，400ms + 4px 阈值
 - ✅ **编辑内核**：选区、双击选词、Shift+箭头、undo/redo、只读、密码遮罩；UTF-8 码点边界对齐
 - ✅ **输入法通道**：组合串内联、候选窗贴光标、切框清空；Linux ibus/fcitx、Windows TSF、macOS NSTextInputClient
-- 🚧 **输入法焦点门**：焦点控件绑定 + filter 门 + focus_in/out 同步（Linux 过；Windows / macOS 待验）
+- ✅ **输入法焦点门**：焦点控件绑定 + filter 门 + focus_in/out 同步（三平台真机通过）
 
 ### 组件
 
 - ✅ **按钮**：五变体 Solid / Soft / Border / Text / Danger，图标槽与禁用态
 - ✅ **文字与链接**：五级排版角色；Link 主题色 + 悬停下划线
 - ✅ **输入框**：单行、多行、密码；placeholder、只读、清空
-- 🚧 **输入框编辑套件**：系统剪贴板默认接通（Ctrl/Cmd+C/X/V 开箱互通，探测不可用自动降级内部槽，测试可 `use_system_clipboard(false)` 显式关）；单行/多行右键内置编辑菜单（剪切/复制/粘贴/全选；密码框不给复制，只读框只读档），文案走 `gui.ui.edit.*`
+- ✅ **输入框编辑套件**：系统剪贴板默认接通（Ctrl/Cmd+C/X/V 开箱互通，探测不可用自动降级内部槽，测试可 `use_system_clipboard(false)` 显式关）；单行/多行右键内置编辑菜单（剪切/复制/粘贴/全选；密码框不给复制，只读框只读档），文案走 `gui.ui.edit.*`
 - ✅ **步进器**：0..10 钳制；点 +/− 后中间格接焦点，可直接键盘改
-- 🚧 **步进器聚焦全选**：中间格聚焦（点击 / Tab / 点加减 / ↑↓）即全选，打字整体替换
-- 🚧 **步进器到界禁用样式**：触界侧按钮呈禁用档（fill_hover 灰底 + 次级字，光标回箭头）
+- ✅ **步进器聚焦全选**：中间格聚焦（点击 / Tab / 点加减 / ↑↓）即全选，打字整体替换
+- ✅ **步进器到界禁用样式**：触界侧按钮呈禁用档（fill_hover 灰底 + 次级字，光标回箭头）
 - ✅ **滑杆**：轨道 + 拇指，按 step 量化
 - ✅ **评分**：五角星悬停预亮、点击定值
 - ✅ **下拉选择**：点字段弹候选、悬停高亮、选中打勾、可清空
@@ -134,9 +134,9 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **气泡与轻提示**：Popover 点开点收；Toast 顶部居中、2.6s 自动消失、可堆叠
 - ✅ **对话框**：遮罩 + 居中面板，确认/取消后自动收起；随语言重建
 - ✅ **拖放**：应用内 4px 起拖 + 落点描边；系统级拖入文件与文本
-- 🚧 **拖出文件存在性校验与路径归一化**：三平台跳过不存在的拖出路径（死条目会被访达/资源管理器整趟拒收）、全空则本机拖出失败回落应用内；演示载荷改指仓库根真实文件（原相对路径在标准启动 CWD 下不存在，实测拖不出去）；mac 侧路径归一化 `..`/`~` 对齐 GTK/Win32（带 `..` 段的文件 URL 在访达实测拷出整个文件夹）（mac 已验：拖出到访达为复制、落成两个文件；Linux / Windows 待真机）
-- 🚧 **拖拽反馈光标**：新增 `CURSOR_GRAB` / `CURSOR_GRABBING` 两档（Win32 落 IDC_HAND、GTK grab/grabbing、macOS open/closedHand）；拖源悬停张手、按下与拖拽全程握拳（会话期间宿主统一给）
-- 🚧 **光标组语义补齐**：radio 行、月历格与翻月箭头悬停手型，禁用组与跨月格回默认箭头
+- ✅ **拖出文件存在性校验与路径归一化**：三平台跳过不存在的拖出路径（死条目会被访达/资源管理器整趟拒收）、全空则本机拖出失败回落应用内；演示载荷改指仓库根真实文件（原相对路径在标准启动 CWD 下不存在，实测拖不出去）；mac 侧路径归一化 `..`/`~` 对齐 GTK/Win32（带 `..` 段的文件 URL 在访达实测拷出整个文件夹）（三平台真机通过：mac 拖出到访达为复制、落成两个文件）
+- ✅ **拖拽反馈光标**：新增 `CURSOR_GRAB` / `CURSOR_GRABBING` 两档（Win32 落 IDC_HAND、GTK grab/grabbing、macOS open/closedHand）；拖源悬停张手、按下与拖拽全程握拳（会话期间宿主统一给）
+- ✅ **光标组语义补齐**：radio 行、月历格与翻月箭头悬停手型，禁用组与跨月格回默认箭头
 
 ### 图表
 
@@ -177,7 +177,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ### 系统能力
 
-- 🚧 **全局快捷键键名随平台**：门面回查/回显给平台规范名（mac `Cmd+…`、其余 `Ctrl+…`，`CmdOrCtrl` 等别名不外泄）；showcase 演示注册 `CmdOrCtrl+Alt+C`
+- ✅ **全局快捷键键名随平台**：门面回查/回显给平台规范名（mac `Cmd+…`、其余 `Ctrl+…`，`CmdOrCtrl` 等别名不外泄）；showcase 演示注册 `CmdOrCtrl+Alt+C`
 - ✅ **文件对话框**：打开 / 保存 / 选目录；返回所选路径，取消返回 None
 - ✅ **打开与定位**：URL 交浏览器、文件交默认程序、路径交文件管理器；不存在给 NotFound 不崩
 - ✅ **剪贴板**：读写系统剪贴板文本
@@ -198,7 +198,24 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - 🚧 **应用枚举**：已装应用清单与分类（Linux 过；Windows / macOS 施工中）
 - 🚧 **最近文件**：系统最近文件列表（仅 Linux 有实现；macOS 无公开面）
 - 🚧 **壁纸与默认应用**：读写壁纸、查默认应用（仅 XFCE 实测；Windows / macOS 未接）
-- 🚧 **单实例**：进程级唯一 + 唤起已有实例（三平台各一条原生通道已接：Linux dbus 知名名、Windows 命名互斥体 + WM_COPYDATA、macOS AF_UNIX 套接字；Linux 无会话总线回落套接字。mac 白盒已过，Windows 与双进程防多开待真机）
+- ✅ **单实例**：进程级唯一 + 唤起已有实例（三平台各一条原生通道已接：Linux dbus 知名名、Windows 命名互斥体 + WM_COPYDATA、macOS AF_UNIX 套接字；Linux 无会话总线回落套接字。三平台真机通过，含双进程防多开）
+
+- ✅ **滚动视口横向滚动档**：`scroll_view(hscroll=true)`——内容自然宽撑开可超视口（align-start 退 stretch + 不收缩），底缘横条（thumb/拖动/点条与纵条同口径），滚轮 dx/触控板横滑消费横向余量；mdview 三处代码块与 showcase section 代码块接入（长行横滚不再裁字）。**布局语义定案补全**：可折内容「收缩 + 折行」（跟随容器），不可折内容（代码/表格）「内容宽 + 横滚」——code_view 恢复内容宽（特例记 adaptation）
+- ✅ **组件缺省跟随容器宽（mdview/code_view）**：`markdown_view` 的 width 改语义——0（缺省）= 跟随容器，段落折行走 yoga measure（布局时按可用宽重折，宽变即重排，无任何 resize 监听）；>0 = 构造期定宽（旧口径保留，wbtest 显式 width 用例零回归）。`code_view` 宽改 percent 100（背景条满容器，超宽行交滚动视口）。**库级语义定案：块级组件不显式设宽 = 跟随容器**——yoga 的「不设宽」在主轴是内容宽，必须显式 percent（记 adaptation）。showcase「代码文档」页 markdown 已去定宽。框架 resize→relayout 链路健康由探针三段 + LAYOUT-FRAME 读数证明，此类「resize 后不重排」均为内容侧定宽形态
+- ✅ **定宽折行文本按定宽落地（yoga 子项基准三档取法）**：子项交叉轴尺寸确定时，主轴基准取「按该定宽量得的内容尺寸」，不再取 max-content 内在值——此前定宽折行文本的高按「单行不折」落地（measure 已答两行、节点仍是一行高）。交叉轴不确定时仍走 max-content（YG3d 定案不变，反向守卫用例钉住）。yoga 105/105
+- ✅ **横滚内容宽 = max(自然宽, 视口宽)**：`scroll_view(hscroll=true)` 的内容补 `min_width percent 100` 下限。缺下限时内容只有自然宽，内部 percent 子项（表格等分列）没有确定参照、还常被内在探询的兜底常量撑大，resize 后列宽纹丝不动、溢出部分滚不回来；补下限后 percent 有确定参照，窄内容铺满视口、宽内容才溢出可滚。mdview 富文本的 max-content 探询同步改为答自身最长行自然宽（去掉 560 兜底常量）。markdown 表格列宽 resize 跟随由无头探针实证（900→列 300、500→列 166.7）
+- ✅ **code_view 自带横向滚动 + 宽跟随容器**：代码行不可折，与表格同口径由组件自带 hscroll 视口（视口高即内容高，纵向不滚），调用方不再外包 `scroll_view`——此前每个调用点都要记得包，漏了就裁字。视口与画布宽都取 percent 100（flex 1，摆进任何容器都占满行宽），画布另钉 `min_width=最长行`：窄代码深底条铺满整行、长代码撑出视口横滚。mdview 的 `md_code_scroll` 助手随之撤除，表格横滚折进 `md_table` 本体
+- ✅ **换行容器的 min:auto 按定住的交叉宽算**：列内可换行子项的主轴下限，此前按「无定宽时全堆叠」算（18 项图标网格下限 676、真值 30），调用方补 `min_height=0` 又把它钉死成一行、折到第二行被裁（「段不换行」）。现按 css-sizing 以**定住的交叉宽**为参照量：一行放得下就是一行高，放不下自动长到两行，showcase 的 `min_height=0` 全部撤除。只在父主轴为列时启用（父为行时可用宽是限制不是定宽）；实现上复用已算过的那趟测量，不新调容器测量（会就地改写兄弟项 layout）。图标库页/段条流式换行由无头探针实证（900→1 行、500→2 行）
+- ✅ **定宽沿测量链下传 + 滚动视口纵向档**：上一条的定宽口径补齐「隔着自身无宽的拉伸列层」形态——父级按 stretch 钦定的交叉宽现随 `measure_content(pinned_w)` 逐层下传，段条不再被包层按全堆叠顶高（实测 236→66）。`scroll_view` 新增 `vscroll=false`（内容高钉视口、只横滚），showcase 右侧改用该档 + 页列自带 percent 宽 + 段条 margin 化：段正文视口重新拿回「窗口 − 段条」的确定高（无头 1100×700 → 634）
+- ✅ **样式层 `border_style`（CSS 三档虚线框）**：`Style` 补 `border_style` 槽（`Solid`/`Dashed`/`Dotted`），虚线周期按 `border_width` 派生（dashed = 实 3 空 2、dotted = 圆头点），与 CSS「线形定档、粗细定周期」同口径；通用容器（`view`/`col`/`row`/`panel`/`card`）与滚动视口描边即吃这条，画完复位不漏同帧兄弟。自由图案/相位仍在 Painter 层 `set_dashes`（画布页演示），两者分工记进 showcase 文案。2026-10-27 补纯光栅档（mac/Windows）两处接线：`line_cap` Round 端帽真实落墨（dotted 点全靠它）、直角 `stroke_rect` 虚线档退通用路径（旧档画成实线一圈）
+
+- ✅ **showcase 右侧宽度形态 + 横滚下限档**：右侧内容区 = 窗口宽 − 侧栏宽，`min-width=400`（< 400 钉在 400 并可滚，> 400 用分配宽），窗口窄过「侧栏 + 400」时整块横向滚动。为此 `scroll_view` 的横向档拆成两档：自然宽档 `max(子项自然宽, 视口)`（代码/表格用）与**下限档** `min_content_width` = `max(该值, 视口)`，后者不看子项自然宽——此前子项（自带横滚的宽代码块）的自然宽会一路上浮把外层 min-width 顶掉（探针：设 400 实得 806）。段描述去掉 `max_width=900` 常量，与段标题/正文/代码同一条右缘、随窗口折行
+- ✅ **权限基础设施（@sys permission）**：系统权限一次性授权的横切族——`permission_probe(kind)` 探测（`AXIsProcessTrusted`/`CGPreflightScreenCaptureAccess` 公开口）、`permission_request(kind)` 弹**系统自带引导框**（不替用户点弹窗）；两态语义（TCC 的未请求与拒绝公开层不可区分，应用侧按「未授→请求→引导→回来再探」走）；Win/Linux 恒 NotNeeded。**操作提权**（每次一弹：macOS 管理员 `osascript`、将来 Windows UAC）随各自能力批处理，首批消费者电源计划 mac 写档已用。showcase「系统集成」页有演示
+- ✅ **窗口管理 macOS 档**：win_list 走 `CGWindowList`（窗口 id / 标题——标题需屏幕录制权限，无权限时无标题窗被跳过、列表变短即权限信号）、win_activate 走归属应用激活（免授权）、win_close 走 `AXUIElement` 关闭按钮（辅助功能，缺失报 `Denied` 引导用 permission_request）；行格式对齐 Windows 桩（`0x<winid>\t-1\t<title>`），sys 桩按平台转发到 win 桩（ObjC）
+- ✅ **夜间色温 Windows 档**：`SetDeviceGammaRamp` 直调（gdi32，全虚拟屏 DC 一把设齐所有输出）；ramp 构造是 MoonBit 纯函数（pow 曲线，gamma 千分比与 xrandr 路径同源——红提亮/蓝衰减/绿恒 1.00），恒等斜坡即复位；撤掉「无公开 API」的旧判（gamma 桌面斜坡就是公开口）
+- ✅ **夜间色温 macOS 档**：全屏点击穿透覆盖层（每屏一扇置顶窗，`CGShieldingWindowLevel` + 跨空间常驻 + `ignoresMouseEvents`，暖色 alpha = 暖度×0.22，percent 100 即摘除）；Night Shift 私有口做不了，f.lux 同款替代机制；实现落 win 桩 `wm_screen_tint_apply`
+- ✅ **电源计划 macOS 档（降级映射）**：档集合退化 [Balanced, PowerSaver]（低电量开关映射，性能档不做——High Power 机型限定）；读走 `pmset -g`（免权限），写走 `osascript` 管理员授权弹框（每次一弹的操作提权，用户取消按失败出声）；实现全走 CLI（pr_run），解析纯函数白盒钉住
+- ✅ **mac autostart 查询读系统侧禁用位**：`autostart_is_enabled` 在 plist 存在基础上再读 `launchctl print-disabled gui/<uid>`——用户在系统设置「App 后台活动」关掉的条目不再误报已开启（Linux 档认 Hidden 位，mac 认 launchd disabled，两平台口径对齐）；launchctl 读不到时按 plist 宽松放行
 
 ### WebView
 
@@ -207,7 +224,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **DOM 抓取**：正文 / 链接 / meta / 结构四项，走脚本求值取 JSON
 - ✅ **自定义协议**：`register_protocol` 注册文件根，页面与样式都走协议供给
 - ✅ **策略面**：新窗、权限、下载三项可切；拦截与放行即时生效
-- 🚧 **下载落点归应用层**：库只上报 `Download` 事件（id/uri/建议名）并按档位扣住待决，落判走 `respond_download(id, allow, path)`——保存框从三平台桩移进应用（browser 示例演示）；自动档（默认）交引擎默认落点，库内零弹框。Linux 真机已验，Windows/mac 待真机
+- ✅ **下载落点归应用层**：库只上报 `Download` 事件（id/uri/建议名）并按档位扣住待决，落判走 `respond_download(id, allow, path)`——保存框从三平台桩移进应用（browser 示例演示）；自动档（默认）交引擎默认落点，库内零弹框（三平台真机通过）
 - ✅ **崩溃恢复**：`is_crashed` 探到后重载恢复，不拖死应用
 - ✅ **cookie 共享与隔离**：引擎默认共享；隔离走 pane 级 profile，库层不做同步
 
@@ -216,7 +233,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **音频输出**：miniaudio 设备层；Linux / Windows / macOS 三端出声
 - ✅ **视频解码与出帧**：ffmpeg 解码 + 帧回传（Linux / Windows）
 - ✅ **播放器控制条**：播放暂停、进度 seek、音量、时间读数
-- 🚧 **控制条重排**：照成熟播放器排法——静音键并入音量组（进度+时间 → 静音+音量 → 全屏收尾），倍速/缩放档位键钉宽切档不横跳；演示默认开循环、演示资产入各示例模块目录（已合入待真机）
+- ✅ **控制条重排**：照成熟播放器排法——静音键并入音量组（进度+时间 → 静音+音量 → 全屏收尾），倍速/缩放档位键钉宽切档不横跳；演示默认开循环、演示资产入各示例模块目录（三平台真机通过）
 - ✅ **无头播放**：`HeadlessAudio` / `HeadlessVideo`，注入 schedule 通道自 pump
 - 🚧 **字幕**：内嵌轨自动读 + 外挂 SRT（Linux 过；Windows / macOS 待补）
 - 🚧 **歌词**：同名 .lrc 配对（Linux 过；Windows / macOS 待补）
@@ -229,6 +246,10 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **三平台 CI**：检查 + 库测试 + 构建 + 启动冒烟，push 与 PR 都跑
 - ✅ **文档站**：中英双语 VitePress 站，含教程、组件、布局、系统能力、路线图
 - ✅ **场景教程**：四域 19 个「我想做 X」场景（布局：居中/三段式/分栏/滚动/换行；交互：输入/列表增删/弹窗/toast/定时/显隐/表单/多窗口；样式主题；系统能力），每场景说明、可抄代码与注意事项，落 `docs/zh/howto.md`（英文镜像同路径 `docs/`），与上手教程、布局、组件文档互链
+
+- ✅ **体验文档**：预构建包下载、三平台运行要求、体验点与示例页映射，落 `docs/zh/experience.md`（英文镜像同路径 `docs/`）
+- ✅ **预打包扩到三平台五示例**：`release-bin` 工作流补 macOS 腿、收编 browser / audio / video（Windows 随包 FFmpeg DLL、mac 随包 dylib + `.app` 与 `@executable_path` rpath）；2026-10-30 已发布固定 Release「Binaries」（tag `bin`，三平台 zip 覆盖更新，体验点见体验文档）
+
 - 🚧 **真机用例与记录台**：按「应用 → 页面 → 段落」组织（现 152 条）；记录台与用例文档同住 `测试文档/`，记录台加载 md 现算清单与计数，用例唯一事实源是 `测试用例.md`（经本地 HTTP 服务打开，Live Server 等）
 - 🚧 **组件文档与教程**：每个组件一页配图；教程给可运行最小工程
 - 🚧 **上手门槛**：首页最短路径；缺依赖时构建报错自带修复提示
@@ -236,11 +257,6 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 ## 已规划
 
 规划内容，开发之后会移到上一栏。
-
-### 工程与交付
-
-- ✅ **体验文档**：预构建包下载、三平台运行要求、体验点与示例页映射，落 `docs/zh/experience.md`（英文镜像同路径 `docs/`）
-- ✅ **预打包扩到三平台五示例**：`release-bin` 工作流补 macOS 腿、收编 browser / audio / video（Windows 随包 FFmpeg DLL、mac 随包 dylib + `.app` 与 `@executable_path` rpath）；2026-10-30 已发布固定 Release「Binaries」（tag `bin`，三平台 zip 覆盖更新，体验点见体验文档）
 
 ### 窗口
 
@@ -267,22 +283,6 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ### 系统能力
 
-- ✅ **滚动视口横向滚动档**（🚧 已合入待真机）：`scroll_view(hscroll=true)`——内容自然宽撑开可超视口（align-start 退 stretch + 不收缩），底缘横条（thumb/拖动/点条与纵条同口径），滚轮 dx/触控板横滑消费横向余量；mdview 三处代码块与 showcase section 代码块接入（长行横滚不再裁字）。**布局语义定案补全**：可折内容「收缩 + 折行」（跟随容器），不可折内容（代码/表格）「内容宽 + 横滚」——code_view 恢复内容宽（特例记 adaptation）
-- ✅ **组件缺省跟随容器宽（mdview/code_view）**（🚧 已合入待真机）：`markdown_view` 的 width 改语义——0（缺省）= 跟随容器，段落折行走 yoga measure（布局时按可用宽重折，宽变即重排，无任何 resize 监听）；>0 = 构造期定宽（旧口径保留，wbtest 显式 width 用例零回归）。`code_view` 宽改 percent 100（背景条满容器，超宽行交滚动视口）。**库级语义定案：块级组件不显式设宽 = 跟随容器**——yoga 的「不设宽」在主轴是内容宽，必须显式 percent（记 adaptation）。showcase「代码文档」页 markdown 已去定宽。框架 resize→relayout 链路健康由探针三段 + LAYOUT-FRAME 读数证明，此类「resize 后不重排」均为内容侧定宽形态
-- ✅ **定宽折行文本按定宽落地（yoga 子项基准三档取法）**（🚧 已合入待真机）：子项交叉轴尺寸确定时，主轴基准取「按该定宽量得的内容尺寸」，不再取 max-content 内在值——此前定宽折行文本的高按「单行不折」落地（measure 已答两行、节点仍是一行高）。交叉轴不确定时仍走 max-content（YG3d 定案不变，反向守卫用例钉住）。yoga 105/105
-- ✅ **横滚内容宽 = max(自然宽, 视口宽)**（🚧 已合入待真机）：`scroll_view(hscroll=true)` 的内容补 `min_width percent 100` 下限。缺下限时内容只有自然宽，内部 percent 子项（表格等分列）没有确定参照、还常被内在探询的兜底常量撑大，resize 后列宽纹丝不动、溢出部分滚不回来；补下限后 percent 有确定参照，窄内容铺满视口、宽内容才溢出可滚。mdview 富文本的 max-content 探询同步改为答自身最长行自然宽（去掉 560 兜底常量）。markdown 表格列宽 resize 跟随由无头探针实证（900→列 300、500→列 166.7）
-- ✅ **code_view 自带横向滚动 + 宽跟随容器**（🚧 已合入待真机）：代码行不可折，与表格同口径由组件自带 hscroll 视口（视口高即内容高，纵向不滚），调用方不再外包 `scroll_view`——此前每个调用点都要记得包，漏了就裁字。视口与画布宽都取 percent 100（flex 1，摆进任何容器都占满行宽），画布另钉 `min_width=最长行`：窄代码深底条铺满整行、长代码撑出视口横滚。mdview 的 `md_code_scroll` 助手随之撤除，表格横滚折进 `md_table` 本体
-- ✅ **换行容器的 min:auto 按定住的交叉宽算**（🚧 已合入待真机）：列内可换行子项的主轴下限，此前按「无定宽时全堆叠」算（18 项图标网格下限 676、真值 30），调用方补 `min_height=0` 又把它钉死成一行、折到第二行被裁（「段不换行」）。现按 css-sizing 以**定住的交叉宽**为参照量：一行放得下就是一行高，放不下自动长到两行，showcase 的 `min_height=0` 全部撤除。只在父主轴为列时启用（父为行时可用宽是限制不是定宽）；实现上复用已算过的那趟测量，不新调容器测量（会就地改写兄弟项 layout）。图标库页/段条流式换行由无头探针实证（900→1 行、500→2 行）
-- ✅ **定宽沿测量链下传 + 滚动视口纵向档**（🚧 已合入待真机）：上一条的定宽口径补齐「隔着自身无宽的拉伸列层」形态——父级按 stretch 钦定的交叉宽现随 `measure_content(pinned_w)` 逐层下传，段条不再被包层按全堆叠顶高（实测 236→66）。`scroll_view` 新增 `vscroll=false`（内容高钉视口、只横滚），showcase 右侧改用该档 + 页列自带 percent 宽 + 段条 margin 化：段正文视口重新拿回「窗口 − 段条」的确定高（无头 1100×700 → 634）
-- ✅ **样式层 `border_style`（CSS 三档虚线框）**（🚧 已合入待真机）：`Style` 补 `border_style` 槽（`Solid`/`Dashed`/`Dotted`），虚线周期按 `border_width` 派生（dashed = 实 3 空 2、dotted = 圆头点），与 CSS「线形定档、粗细定周期」同口径；通用容器（`view`/`col`/`row`/`panel`/`card`）与滚动视口描边即吃这条，画完复位不漏同帧兄弟。自由图案/相位仍在 Painter 层 `set_dashes`（画布页演示），两者分工记进 showcase 文案。2026-10-27 补纯光栅档（mac/Windows）两处接线：`line_cap` Round 端帽真实落墨（dotted 点全靠它）、直角 `stroke_rect` 虚线档退通用路径（旧档画成实线一圈）
-
-- ✅ **showcase 右侧宽度形态 + 横滚下限档**（🚧 已合入待真机）：右侧内容区 = 窗口宽 − 侧栏宽，`min-width=400`（< 400 钉在 400 并可滚，> 400 用分配宽），窗口窄过「侧栏 + 400」时整块横向滚动。为此 `scroll_view` 的横向档拆成两档：自然宽档 `max(子项自然宽, 视口)`（代码/表格用）与**下限档** `min_content_width` = `max(该值, 视口)`，后者不看子项自然宽——此前子项（自带横滚的宽代码块）的自然宽会一路上浮把外层 min-width 顶掉（探针：设 400 实得 806）。段描述去掉 `max_width=900` 常量，与段标题/正文/代码同一条右缘、随窗口折行
-- ✅ **权限基础设施（@sys permission）**（🚧 已合入待真机）：系统权限一次性授权的横切族——`permission_probe(kind)` 探测（`AXIsProcessTrusted`/`CGPreflightScreenCaptureAccess` 公开口）、`permission_request(kind)` 弹**系统自带引导框**（不替用户点弹窗）；两态语义（TCC 的未请求与拒绝公开层不可区分，应用侧按「未授→请求→引导→回来再探」走）；Win/Linux 恒 NotNeeded。**操作提权**（每次一弹：macOS 管理员 `osascript`、将来 Windows UAC）随各自能力批处理，首批消费者电源计划 mac 写档已用。showcase「系统集成」页有演示
-- ✅ **窗口管理 macOS 档**（🚧 已合入待真机）：win_list 走 `CGWindowList`（窗口 id / 标题——标题需屏幕录制权限，无权限时无标题窗被跳过、列表变短即权限信号）、win_activate 走归属应用激活（免授权）、win_close 走 `AXUIElement` 关闭按钮（辅助功能，缺失报 `Denied` 引导用 permission_request）；行格式对齐 Windows 桩（`0x<winid>\t-1\t<title>`），sys 桩按平台转发到 win 桩（ObjC）
-- ✅ **夜间色温 Windows 档**（🚧 已合入待真机）：`SetDeviceGammaRamp` 直调（gdi32，全虚拟屏 DC 一把设齐所有输出）；ramp 构造是 MoonBit 纯函数（pow 曲线，gamma 千分比与 xrandr 路径同源——红提亮/蓝衰减/绿恒 1.00），恒等斜坡即复位；撤掉「无公开 API」的旧判（gamma 桌面斜坡就是公开口）
-- ✅ **夜间色温 macOS 档**（🚧 已合入待真机）：全屏点击穿透覆盖层（每屏一扇置顶窗，`CGShieldingWindowLevel` + 跨空间常驻 + `ignoresMouseEvents`，暖色 alpha = 暖度×0.22，percent 100 即摘除）；Night Shift 私有口做不了，f.lux 同款替代机制；实现落 win 桩 `wm_screen_tint_apply`
-- ✅ **电源计划 macOS 档（降级映射）**（🚧 已合入待真机）：档集合退化 [Balanced, PowerSaver]（低电量开关映射，性能档不做——High Power 机型限定）；读走 `pmset -g`（免权限），写走 `osascript` 管理员授权弹框（每次一弹的操作提权，用户取消按失败出声）；实现全走 CLI（pr_run），解析纯函数白盒钉住
-- ✅ **mac autostart 查询读系统侧禁用位**（🚧 已合入待真机）：`autostart_is_enabled` 在 plist 存在基础上再读 `launchctl print-disabled gui/<uid>`——用户在系统设置「App 后台活动」关掉的条目不再误报已开启（Linux 档认 Hidden 位，mac 认 launchd disabled，两平台口径对齐）；launchctl 读不到时按 plist 宽松放行
 - ⏳ **Wayland 原生路径**：portal / 夜灯 / 全局热键在 Wayland 会话的原生通道
 - ⏳ **KDE / GNOME / DDE 实测**：托盘、通知、深浅色、壁纸、默认应用的桌面环境矩阵
 - ⏳ **显示器「首选档」**：`CGDisplayModeIsPreferred` 已不在 SDK，需找公开替代信号

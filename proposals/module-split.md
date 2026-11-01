@@ -34,7 +34,7 @@
 - 事件型能力从此不进 gui-sys。存量例外：sys 的 clipboard_watch 半只脚踩事件型（Linux 轮询 xclip/xsel 路线），不动，记为存量债。
 - 纯读写能力不进 gui-window。
 - instance 归 gui-window：「是否首实例」是互斥量检查（纯读写），但收益动作「唤起已有实例」是窗口行为。
-- **tray 双半边各住各模块**：Win32 半边 `win/tray.mbt`（gui-window），Linux 半边 `dbus/sni.mbt`（gui-dbus）；统一 API 与后端选择在 gui-shell（双后端图见 [tray.md](tray.md)）。**gui-window 不依赖 gui-dbus**——两者是平行兄弟：win 包只依赖 core/utf8，dbus 包只依赖 sys，互相零 import；gui-shell 运行期选边（SNI watcher 在线走 SNI，否则 Win32，否则 `Err(Unsupported)`）。gui-window 在 Windows/macOS 上零 D-Bus 包袱，gui-dbus 独立可消费。
+- **tray 双半边各住各模块**：Win32 半边 `win/tray.mbt`（gui-window），Linux 半边 `dbus/sni.mbt`（gui-dbus）；统一 API 与后端选择在 gui-shell。**gui-window 不依赖 gui-dbus**——两者是平行兄弟：win 包只依赖 core/utf8，dbus 包只依赖 sys，互相零 import；gui-shell 运行期选边（SNI watcher 在线走 SNI，否则 Win32，否则 `Err(Unsupported)`）。gui-window 在 Windows/macOS 上零 D-Bus 包袱，gui-dbus 独立可消费。
 - **gui-shell 是 facade 的集成层**：全仓唯一同时 import 三个能力模块的层；上承组件层（widget/ui/chart/router/style 与两个扩展模块都吃它的通道与事件词汇），下接三个能力模块，吸收全部平台差异。它不认识 widget——依赖方向是组件层依赖 shell，不是反过来。
 - **i18n 随 gui-shell 迁**：i18n 是零依赖纯包（无 FFI，文件读取归应用层），搬家是机械活；留在 facade 则 gui-shell 为拿它必须依赖 facade，而 facade 又依赖 gui-shell——模块环，禁止。「升格独立 gui-i18n 模块」无独立检索面，判据不满足，不做。
 
