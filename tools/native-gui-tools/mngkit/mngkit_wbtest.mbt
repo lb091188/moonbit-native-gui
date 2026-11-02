@@ -684,3 +684,56 @@ test "样式章：flex 简写展开 grow/shrink/basis；坏值报错" {
     },
   )
 }
+
+///|
+test "引号：外层双引号里的单引号串自动换成双引号（单字符 Char 不动）" {
+  let src = [
+    "<script setup lang=\"moonbit\">",
+    "let flag : @base.Store[Bool] = @base.Store::new(true)",
+    "</script>",
+    "<template>",
+    "  <ui-col>",
+    "    <ui-text :text=\"@shared.tx('已开启')\" />",
+    "    备注 {{ 'abc' }}",
+    "    <ui-text v-if=\"flag\" text=\"开\" />",
+    "    <ui-text v-else text=\"关\" />",
+    "  </ui-col>",
+    "</template>",
+  ].join("\n")
+  let code = match compile(src, "q.mng") {
+    Ok(o) => o.code
+    Err(e) => abort("\{e}")
+  }
+  assert_true(contains_sub(code, "@shared.tx(\"已开启\")"))
+  assert_true(contains_sub(code, "\\{\"abc\"}"))
+}
+
+///|
+test "引号：真正的 Char 字面量保持不动；含转义的单引号串报错指路" {
+  let src = [
+    "<script setup lang=\"moonbit\">",
+    "let c : @base.Store[String] = @base.Store::new(\"a\")",
+    "</script>",
+    "<template>",
+    "  <ui-col>",
+    "    <ui-text v-if=\"c.get() == 'a'\" text=\"是\" />",
+    "    <ui-text v-else text=\"否\" />",
+    "  </ui-col>",
+    "</template>",
+  ].join("\n")
+  let code = match compile(src, "q2.mng") {
+    Ok(o) => o.code
+    Err(e) => abort("\{e}")
+  }
+  assert_true(contains_sub(code, "== 'a'"))
+  let bad = compile(
+    "<template>\n  <ui-col>\n    <ui-text :text=\"@shared.tx('it\\'s')\" />\n  </ui-col>\n</template>",
+    "q3.mng",
+  )
+  assert_true(
+    match bad {
+      Err(e) => contains_sub(e, "字符字面量")
+      _ => false
+    },
+  )
+}

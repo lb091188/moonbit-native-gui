@@ -79,7 +79,7 @@
 | 扩展名 | **裸 `.mng`**——语言注册由自家 VS Code 扩展接管；编辑器生态无占用（MNG 图像格式已被 APNG/WebP 取代、浏览器早弃支持，仅剩文件管理器图片关联的残余噪音，接受）。先例：`.ts`（TypeScript）与 MPEG-TS 视频流重名共存，媒体重名在开发语境无害。`.mui` 排除：Windows MUI 本地化资源文件（`*.exe.mui`）系统级占用 + React 组件库 MUI（原 Material-UI）心智撞车 |
 | 文件结构 | `<script setup lang="moonbit">`（页状态与逻辑，MoonBit 原文）+ `<template>`（单根树），Vue SFC 形态 |
 | 插值 | 文本节点 `{{ expr }}` |
-| 表达式属性 | `:attr="expr"`；属性值可用单引号包 MoonBit 双引号串 |
+| 表达式属性 | `:attr="expr"`。引号三式都认：① 外层单引号包 MoonBit 双引号串（`:text='@shared.tx("开")'`）；② 外层双引号内用 `\"` 转义；③ 外层双引号里按 JS 习惯写 `'多字符'`——编译期自动换成双引号串。单字符 `'a'` 仍是 Char 字面量不动；含转义或内嵌双引号的单引号串不自动换，编译报错并给可行写法 |
 | 静态属性 | 字面量按 MoonBit 字面量规则解析透传（`0` / `0.0` / `true` / 串） |
 | 双向绑定 | `v-model="store"`；落点 = 直传 Store 对象到映射表条目声明的值槽参数 |
 | 事件 | `@click="handler"`；事件名查映射表条目，未知 `@` 报错 |

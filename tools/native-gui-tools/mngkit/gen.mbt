@@ -197,7 +197,8 @@ fn split_interp(raw : String, pos : Pos) -> Result[Array[Piece], String] {
       if !closed {
         return Err("\{pos_str(pos)}：插值 {{ 未闭合")
       }
-      out.push(PExpr(a[start:j].map(fn(c) { c.to_string() }).join("").trim().to_owned()))
+      let expr = a[start:j].map(fn(c) { c.to_string() }).join("").trim().to_owned()
+      out.push(PExpr(requote_expr(expr)))
       i = j + 2
     } else {
       lit.push(a[i])
@@ -1000,6 +1001,10 @@ fn compile_impl(
   match root {
     Text(_, _) => return Err("\{filename}：模板根需是元素，不是文本")
     Elem(_, _, _, _) => ()
+  }
+  match check_expr_quotes(sfc.roots, filename) {
+    Ok(_) => ()
+    Err(e) => return Err(e)
   }
   let info = analyze_script(sfc.script, sfc.script_line0)
   let style_rules = if sfc.style.trim().to_owned().length() > 0 {

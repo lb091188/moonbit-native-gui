@@ -551,3 +551,170 @@ fn sources_of(e : String, slots : Map[String, SlotKind]) -> Array[String] {
   })
   out
 }
+
+///|
+/// 表达式文本里的单引号串 → 双引号串（JS 习惯兼容）。
+/// 只换「多字符、无转义、无内嵌双引号」的 span；单字符保持 Char 字面量，
+/// 含转义/双引号的原样留着交给 `char_literal_hint` 报错。双引号串内部一律跳过。
+fn requote_expr(e : String) -> String {
+  let a = chars_of(e)
+  let n = a.length()
+  let out = StringBuilder()
+  let mut i = 0
+  while i < n {
+    let c = a[i]
+    if c == '"' {
+      out.write_char(c)
+      i += 1
+      while i < n {
+        let ch = a[i]
+        out.write_char(ch)
+        if ch == '\\' && i + 1 < n {
+          out.write_char(a[i + 1])
+          i += 2
+          continue
+        }
+        i += 1
+        if ch == '"' {
+          break
+        }
+      }
+      continue
+    }
+    if c == '\'' {
+      let start = i
+      let mut j = i + 1
+      while j < n && a[j] != '\'' {
+        if a[j] == '\\' {
+          j += 1
+        }
+        j += 1
+      }
+      if j < n && a[j] == '\'' {
+        let body = slice_str(a, start + 1, j)
+        let safe = chars_of(body).length() != 1 &&
+          !body.has_prefix("\\") &&
+          !contains_sub(body, "\\") &&
+          !contains_sub(body, "\"")
+        if safe {
+          out.write_char('"')
+          out.write_string(body)
+          out.write_char('"')
+        } else {
+          out.write_string(slice_str(a, start, j + 1))
+        }
+        i = j + 1
+        continue
+      }
+      out.write_char(c)
+      i += 1
+      continue
+    }
+    out.write_char(c)
+    i += 1
+  }
+  out.to_string()
+}
+
+///|
+/// 表达式里的单引号误用：MoonBit 没有单引号串，`'多字符'` 是非法字符字面量。
+/// 扫描时跳过双引号串；`'x'` / `'\n'` 这类合法字符字面量放过。
+fn char_literal_hint(e : String) -> String? {
+  let a = chars_of(e)
+  let n = a.length()
+  let mut i = 0
+  while i < n {
+    let c = a[i]
+    if c == '"' {
+      i += 1
+      while i < n && a[i] != '"' {
+        if a[i] == '\\' {
+          i += 1
+        }
+        i += 1
+      }
+      i += 1
+      continue
+    }
+    if c == '\'' {
+      let start = i
+      let mut j = i + 1
+      let mut closed = false
+      while j < n && a[j] != '\'' {
+        if a[j] == '\\' {
+          j += 1
+        }
+        j += 1
+      }
+      if j < n && a[j] == '\'' {
+        closed = true
+      }
+      if closed {
+        let body = slice_str(a, start + 1, j)
+        let b = chars_of(body)
+        let legal = b.length() == 1 || (b.length() > 0 && b[0] == '\\')
+        if !legal {
+          return Some(body)
+        }
+        i = j + 1
+        continue
+      }
+      i += 1
+      continue
+    }
+    i += 1
+  }
+  None
+}
+
+///|
+/// 模板里所有表达式位置的单引号串误用检查（属性表达式 / 事件 / v-model / 条件 / 插值）。
+/// 命中即编译报错并给两种可行写法，别丢给 moon check 的字符字面量报错。
+fn check_expr_quotes(nodes : Array[TNode], filename : String) -> Result[Unit, String] {
+  for n in nodes {
+    match n {
+      Elem(_, attrs, kids, _) => {
+        for a in attrs {
+          match a.kind {
+            Dyn | Event | Model | If | ElseIf | Show => {
+              if a.has_value {
+                match char_literal_hint(a.value) {
+                  Some(body) =>
+                    return Err(
+                      "\{filename}：\{pos_str(a.pos)}：`'\{body}'` 是 MoonBit 字符字面量，不是字符串——外层用单引号包双引号串（如 :text='@shared.tx(\"\{body}\")'），或外层双引号里写 \\\" 转义",
+                    )
+                  None => ()
+                }
+              }
+            }
+            _ => ()
+          }
+        }
+        match check_expr_quotes(kids, filename) {
+          Ok(_) => ()
+          Err(e) => return Err(e)
+        }
+      }
+      Text(raw, pos) => {
+        match split_interp(raw, pos) {
+          Ok(pieces) =>
+            for p in pieces {
+              match p {
+                PExpr(e) =>
+                  match char_literal_hint(e) {
+                    Some(body) =>
+                      return Err(
+                        "\{filename}：\{pos_str(pos)}：插值里的 `'\{body}'` 是 MoonBit 字符字面量，不是字符串——写双引号串（如 \"\{body}\"）",
+                      )
+                    None => ()
+                  }
+                _ => ()
+              }
+            }
+          Err(_) => ()
+        }
+      }
+    }
+  }
+  Ok(())
+}

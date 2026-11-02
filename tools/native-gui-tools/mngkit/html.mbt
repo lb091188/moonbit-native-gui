@@ -133,15 +133,32 @@ fn parse_attr(c : Cur) -> Result[Attr, String] {
   }
   let quote = cur_peek(c)
   c.i += 1
-  let start = c.i
-  while !cur_eof(c) && cur_peek(c) != quote {
+  // 值内允许 `\<外层引号>` 转义（原样保留反斜杠，MoonBit 侧照吃）
+  let out = StringBuilder()
+  while !cur_eof(c) {
+    let ch = cur_peek(c)
+    if ch == '\\' && c.i + 1 < c.cs.length() && c.cs[c.i + 1] == quote {
+      out.write_char('\\')
+      out.write_char(quote)
+      c.i += 2
+      continue
+    }
+    if ch == quote {
+      break
+    }
+    out.write_char(ch)
     c.i += 1
   }
   if cur_eof(c) {
     return Err(cur_err(c, "属性值引号未闭合"))
   }
-  let value = c.cs[start:c.i].map(fn(ch) { ch.to_string() }).join("")
+  let raw_value = out.to_string()
   c.i += 1
+  // 表达式属性里 JS 习惯的单引号串在编译期换成双引号串（单字符 Char 不动）
+  let value = match kind {
+    Dyn | Event | Model | If | ElseIf | Show | For => requote_expr(raw_value)
+    _ => raw_value
+  }
   Ok({ kind, name: bare, value, has_value: true, pos })
 }
 

@@ -333,6 +333,10 @@
           "name": "constant.character.moonbit.mng"
         },
         {
+          "match": "'[^'\\\\]{2,}'",
+          "name": "string.quoted.single.mng"
+        },
+        {
           "match": "@[A-Za-z_][A-Za-z0-9_]*",
           "name": "variable.other.package.moonbit.mng"
         },
