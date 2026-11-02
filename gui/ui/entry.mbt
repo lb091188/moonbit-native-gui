@@ -111,22 +111,36 @@ pub fn auto_focus_id(explicit : Int) -> Int {
 /// 单行输入框。文本经 `store` 双向投影；`focus_id` 决定它能否吃键盘焦点
 /// （宿主的 Tab 环绕与按键投递都按它走），**不给就自动分配**——输入框默认就该能点进能打字。
 pub fn input(
+  /// 双向绑定的文本 Store。
   store : @base.Store[String],
+  /// 占位文字，空或未输入时显示。
   placeholder? : String = "",
+  /// 密码框：显示为掩码。
   password? : Bool = false,
+  /// 只读：可选中不可改。
   read_only? : Bool = false,
+  /// 字号（逻辑像素）。
   font_size? : Double = 13.0,
+  /// 字族名，空串走系统默认字族。
   family? : String = "",
+  /// 固定宽度，0 = 按内容测量。
   width? : Double = 0.0,
+  /// Tab 焦点序号：传正数才可 Tab 到，0 = 自动领号。
   focus_id? : Int = 0,
+  /// 光标可见谓词。
   caret_on? : () -> Bool = fn() -> Bool { true },
+  /// 回车回调。
   on_enter? : () -> Unit = fn() { () },
+  /// 值变化回调。
   on_change? : (String) -> Unit = fn(_s : String) { () },
+  /// 带清除按钮（有内容且聚焦时出）。
   clearable? : Bool = false,
   /// mount 时交出编辑内核：改选区 / 读文本这类组件外的操作用它拿句柄
   /// （步进器的「聚焦全选」即此用法）。
   editor? : (@input.Editor) -> Unit = fn(_e : @input.Editor) -> Unit { () },
+  /// 命名样式类（`class_of([...])`），排在散参数之后 ⇒ 类覆盖散参数。
   class? : Array[@style.Style] = [],
+  /// 挂载后交出宿主 Widget 句柄的逃生舱。
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let ed = @input.Editor::new()

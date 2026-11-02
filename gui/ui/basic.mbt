@@ -9,22 +9,36 @@
 /// 通用容器：方向、两个轴的间距、内边距、尺寸、底色与描边。
 /// 尺寸给 0 表示按内容；要撑满剩余空间用 `grow=1.0`。
 pub fn view(
+  /// 子节点数组，按容器方向排。
   children : Array[@widget.Node],
+  /// 主轴方向（Column / Row 等）。
   direction? : @yoga.FlexDirection = @yoga.Column,
+  /// 行间距（纵向相邻子节点的间隙）。
   row_gap? : Double = 0.0,
+  /// 列间距（横向相邻子节点的间隙）。
   column_gap? : Double = 0.0,
+  /// 四边同宽的内边距。
   padding? : Double = 0.0,
+  /// 固定宽度，0 = 按内容测量。
   width? : Double = 0.0,
+  /// 固定高度，0 = 按内容测量。
   height? : Double = 0.0,
+  /// 父容器主轴余量的分配比例，0 = 不参与。
   grow? : Double = 0.0,
+  /// 底色（主题色名或 `#rrggbb`），空串 = 不画。
   background_color? : String = "",
+  /// 描边色，空串 = 不描边。
   border_color? : String = "",
+  /// 交叉轴对齐。
   align_items? : @yoga.AlignItems = @yoga.AlignItems::Stretch,
+  /// 主轴对齐。
   justify_content? : @yoga.JustifyContent = @yoga.JustifyContent::FlexStart,
   /// 圆角档：默认随控件令牌（开圆角 4、关圆角 0）；传 0 显式直角，class 的
   /// `border_radius` 可覆写档位。
   corner_radius? : Double = -1.0,
+  /// 命名样式类（`class_of([...])`），排在散参数之后 ⇒ 类覆盖散参数。
   class? : Array[@style.Style] = [],
+  /// 挂载后交出宿主 Widget 句柄的逃生舱。
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   // 散参数（颜色与布局同规则）全部折进匿名块：`class` 在后 ⇒ class > 散参数
@@ -129,11 +143,17 @@ pub fn view(
 ///|
 /// 带标题的面板（标题在上、内容在下，面板底 + 描边）。
 pub fn panel(
+  /// 面板标题（次要色小字）。
   title : String,
+  /// 子节点数组，按容器方向排。
   children : Array[@widget.Node],
+  /// 四边同宽的内边距。
   padding? : Double = 10.0,
+  /// 行间距（纵向相邻子节点的间隙）。
   row_gap? : Double = 6.0,
+  /// 固定宽度，0 = 按内容测量。
   width? : Double = 0.0,
+  /// 命名样式类（`class_of([...])`），排在散参数之后 ⇒ 类覆盖散参数。
   class? : Array[@style.Style] = [],
 ) -> @widget.Node {
   let body : Array[@widget.Node] = [
@@ -327,17 +347,29 @@ pub fn text_dyn(
 /// 排版角色走 `class` 挂 @style 字阶预设（`text_heading` / `text_title` /
 /// `text_secondary` / `text_accent`；正文 13 是缺省档，不必挂）。
 pub fn text(
+  /// 要显示的文本。
   content : String,
+  /// 字号（逻辑像素）。
   font_size? : Double,
+  /// 文字色（主题色名或 `#rrggbb`），空串随主题。
   color? : String = "",
+  /// 字重。
   weight? : @text.FontWeight,
+  /// 字族名，空串走系统默认字族。
   family? : String = "",
+  /// 水平对齐。
   align? : @text.TextAlign,
+  /// 换行宽度上限，0 = 不限。
   max_width? : Double = 0.0,
+  /// 是否自动换行；块级段落默认 true，单行标签显式 false。
   wrap? : Bool = true,
+  /// 不换行时末端溢出画省略号。
   ellipsis? : Bool = false,
+  /// 最多显示行数，0 = 不限。
   max_lines? : Int = 0,
+  /// 命名样式类（`class_of([...])`），排在散参数之后 ⇒ 类覆盖散参数。
   class? : Array[@style.Style] = [],
+  /// 挂载后交出宿主 Widget 句柄的逃生舱。
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   text_node_of(

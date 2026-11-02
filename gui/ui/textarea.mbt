@@ -167,18 +167,31 @@ pub fn line_of_caret(lines : Array[TextLine], at : Int) -> Int {
 /// preedit 内联与单行框同源；换行键插入 `\n`，上下键按**显示行**移动（记住起算 x，
 /// 短行移动后仍回到该 x），Home/End 走行首行尾（带 Ctrl 仍是全文首末）。
 pub fn textarea(
+  /// 双向绑定的文本 Store。
   store : @base.Store[String],
+  /// 占位文字，空或未输入时显示。
   placeholder? : String = "",
+  /// 初始行数（每行按行高撑开）。
   rows? : Int = 3,
+  /// 固定宽度，0 = 按内容测量。
   width? : Double = 260.0,
+  /// 固定高度，0 = 按内容测量。
   height? : Double = 0.0,
+  /// 字号（逻辑像素）。
   font_size? : Double = 13.0,
+  /// 字族名，空串走系统默认字族。
   family? : String = "",
+  /// 只读：可选中不可改。
   read_only? : Bool = false,
+  /// Tab 焦点序号：传正数才可 Tab 到，0 = 自动领号。
   focus_id? : Int = 0,
+  /// 光标可见谓词。
   caret_on? : () -> Bool = fn() -> Bool { true },
+  /// 值变化回调。
   on_change? : (String) -> Unit = fn(_s : String) -> Unit { () },
+  /// 命名样式类（`class_of([...])`），排在散参数之后 ⇒ 类覆盖散参数。
   class? : Array[@style.Style] = [],
+  /// 挂载后交出宿主 Widget 句柄的逃生舱。
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let ed = @input.Editor::new()
