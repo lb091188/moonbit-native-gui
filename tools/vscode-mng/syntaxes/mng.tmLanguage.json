@@ -279,7 +279,7 @@
               "name": "constant.numeric.mng"
             },
             {
-              "match": "\\b(solid|dashed|dotted|visible|hidden|normal|no_wrap|thin|extra_light|light|medium|semi_bold|bold|extra_bold|black|start|center|end|left|right)\\b",
+              "match": "\\\\b(solid|dashed|dotted|visible|hidden|normal|no[_-]wrap|thin|extra[_-]light|light|medium|semi[_-]bold|bold|extra[_-]bold|black|start|center|end|left|right|space[_-]between|space[_-]around|space[_-]evenly|flex[_-]start|flex[_-]end|baseline|stretch|row|row[_-]reverse|column|column[_-]reverse|wrap|wrap[_-]reverse|relative|absolute|flex|none)\\\\b",
               "name": "support.constant.mng"
             }
           ]

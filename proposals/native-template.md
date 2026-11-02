@@ -318,9 +318,9 @@ Web 主面壳形态不做（roadmap「明确不做」）。原生面是唯一主
 ## 样式章：`<style>` 段与 class 通道（落地口径）
 
 - **`<style>` 段编译期摊平**：类选择器 → 生成体内 `@style.define_class("名", @style.style(…))` 注册条目（每次构建幂等重注册）；元素 `class="a b"` → `class=@style.class_of(["a","b"])`。属性名即 `@style.style` 工厂的参数名（CSS kebab 自动转 snake；`padding`/`margin` 简写与逐边并存）。
-- **值形态四档**：数字（`font-size: 14`）、`var(--令牌)`、颜色字面量（`#rrggbb`）、枚举关键字（font-weight / text-align / white-space / border-style / visibility）。`var(--令牌)` 分两种：颜色属性查 20 枚主题色令牌（primary / text_primary / border / bg_panel …，绘制期按当前主题落色），数值属性查尺度令牌（control_height / font_size_* / radius_*）。
+- **值形态五档**：数字（`font-size: 14`）、`var(--令牌)`、颜色字面量（`#rrggbb`）、绘制枚举关键字（font-weight / text-align / white-space / border-style / visibility）、布局枚举关键字（display / flex-direction / flex-wrap / justify-content / align-items / align-self / position，CSS 原味写法：`space-between`、`flex-end`、`row-reverse`、`nowrap`…，生成 `@yoga.*` 枚举表达式——模板所在包需 `import "NoahLiu/yoga-mbt/src" @yoga`，showcase pages 已具备）。`var(--令牌)` 分两种：颜色属性查 20 枚主题色令牌（primary / text_primary / border / bg_panel …，绘制期按当前主题落色），数值属性查尺度令牌（control_height / font_size_* / radius_*）。
 - **深浅两份值**：颜色走 `var(--令牌)` 即自带两份值（主题表就是深色变体的落点）；需要字面量分化时写 `.名:dark { … }`，编译成第二枚 `名:dark` 类，生成码里按 `@win.sys_color_scheme() == "dark"` 选（应用自管深浅时走令牌；App 注入落地后判定源换成应用自己的开关）。
-- **不做**：运行时级联 / 特异性 / 继承 / 伪类 / 元素与后代选择器 / 布局枚举值（display、flex-direction、justify-content 等属结构侧）——`<style>` 内遇到即编译报错，不静默仲裁（vanilla-extract / CSS Modules 套路：能算的在 build 期算完，运行时零新机制）。
+- **不做**：运行时级联 / 特异性 / 继承 / 伪类 / 元素与后代选择器——`<style>` 内遇到即编译报错，不静默仲裁（vanilla-extract / CSS Modules 套路：能算的在 build 期算完，运行时零新机制）。行/列容器的**选型**仍属结构侧（`<ui-col>`/`<ui-row>`），`flex-direction` 只做覆盖微调。
 - **硬约定是编译规则**：模板属性里的样式字面量（color / background_color / border_color / border_width / border_radius / font_size / font_family / font_weight / opacity）一律编译报错，必须进 `<style>` 或 `class`；动态 `:属性="表达式"` 不受限。
 - **布局属性样式化（现状）**：`@style` 的 `Style` 已含布局全量（flex_direction / justify_content / align_items / align_self / flex / 双向 gap / padding×4 / margin×4 / 宽高 min/max / border / display），`apply` 分流口径是「布局走 Yoga、外观进槽」。口径三条：
   1. 构造参数 = 默认值，类槽 = 覆盖（合并序沿 registry「散写匿名块优先级高、排尾」）；

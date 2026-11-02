@@ -484,7 +484,7 @@ test "样式章：深浅两份值——dark 档注册第二枚类、按系统偏
 ///|
 test "样式章：坏属性/坏令牌/非类选择器/主题字面量都编译报错" {
   let bad_prop = compile(
-    "<style>\n.card { display: flex; }\n</style>\n<template>\n  <ui-col class=\"card\" />\n</template>",
+    "<style>\n.card { box-shadow: none; }\n</style>\n<template>\n  <ui-col class=\"card\" />\n</template>",
     "a.mng",
   )
   assert_true(
@@ -600,4 +600,46 @@ test "dev 形态：expr/cond/handler/state 四类登记齐（键与 IR 同口径
   assert_true(contains_sub(code, "reg.handler(\"on_reset\", on_reset)"))
   assert_true(contains_sub(code, "reg.bool(\"wifi\", wifi)"))
   assert_true(contains_sub(code, "@shared.mng_dev_page(\"card\", reg, fn() {"))
+}
+
+///|
+test "样式章：布局枚举关键字 → @yoga 枚举；坏关键字报错" {
+  let src = [
+    "<style>",
+    ".bar {",
+    "  justify-content: space-between;",
+    "  align-items: center;",
+    "  align-self: flex-end;",
+    "  flex-direction: row-reverse;",
+    "  flex-wrap: nowrap;",
+    "  display: flex;",
+    "  position: absolute;",
+    "}",
+    "</style>",
+    "<template>",
+    "  <ui-col class=\"bar\" />",
+    "</template>",
+  ].join("\n")
+  let code = match compile(src, "layout.mng") {
+    Ok(o) => o.code
+    Err(e) => abort("\{e}")
+  }
+  assert_true(contains_sub(code, "justify_content=@yoga.JustifyContent::SpaceBetween"))
+  assert_true(contains_sub(code, "align_items=@yoga.AlignItems::Center"))
+  assert_true(contains_sub(code, "align_self=@yoga.AlignItems::FlexEnd"))
+  assert_true(contains_sub(code, "flex_direction=@yoga.FlexDirection::RowReverse"))
+  assert_true(contains_sub(code, "flex_wrap=@yoga.FlexWrap::NoWrap"))
+  assert_true(contains_sub(code, "display=@yoga.Display::Flex"))
+  assert_true(contains_sub(code, "position=@yoga.PositionType::Absolute"))
+  // 坏关键字：报错且指路
+  let bad = compile(
+    "<style>\n.bar { justify-content: middle; }\n</style>\n<template>\n  <ui-col class=\"bar\" />\n</template>",
+    "layout2.mng",
+  )
+  assert_true(
+    match bad {
+      Err(e) => contains_sub(e, "不认关键字")
+      _ => false
+    },
+  )
 }

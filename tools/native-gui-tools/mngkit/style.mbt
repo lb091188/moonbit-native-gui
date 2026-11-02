@@ -83,6 +83,16 @@ fn prop_kind_of(name : String) -> PropKind {
     "white_space" => PKEnum("@style.WhiteSpace", "normal=Normal,no_wrap=NoWrap")
     "border_style" => PKEnum("@style.BorderStyle", "solid=Solid,dashed=Dashed,dotted=Dotted")
     "visibility" => PKEnum("@style.Visibility", "visible=Visible,hidden=Hidden")
+    // 布局枚举（@yoga 类型；模板所在包需 import NoahLiu/yoga-mbt/src as @yoga）
+    "display" => PKEnum("@yoga.Display", "flex=Flex,none=None")
+    "flex_direction" =>
+      PKEnum("@yoga.FlexDirection", "row=Row,row_reverse=RowReverse,column=Column,column_reverse=ColumnReverse")
+    "flex_wrap" => PKEnum("@yoga.FlexWrap", "nowrap=NoWrap,no_wrap=NoWrap,wrap=Wrap,wrap_reverse=WrapReverse")
+    "justify_content" =>
+      PKEnum("@yoga.JustifyContent", "flex_start=FlexStart,start=FlexStart,left=FlexStart,flex_end=FlexEnd,end=FlexEnd,right=FlexEnd,center=Center,space_between=SpaceBetween,space_around=SpaceAround,space_evenly=SpaceEvenly")
+    "align_items" | "align_self" =>
+      PKEnum("@yoga.AlignItems", "stretch=Stretch,flex_start=FlexStart,start=FlexStart,flex_end=FlexEnd,end=FlexEnd,center=Center,baseline=Baseline")
+    "position" => PKEnum("@yoga.PositionType", "relative=Relative,absolute=Absolute")
     _ =>
       if arr_contains(number_props(), name) {
         PKNumber
