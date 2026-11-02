@@ -58,7 +58,7 @@ test "默认推导：moon.mod 目录当模板根，app-id 由 name 派生" {
   assert_eq(conf.dir, root)
   assert_eq(conf.templates.length(), 1)
   assert_eq(conf.templates[0], root)
-  assert_eq(conf.build, "moon build")
+  assert_eq(conf.build, "moon build .")
   assert_eq(conf.app_id, "acme.demo-app")
   assert_eq(conf.poll_ms, 300)
 }
@@ -158,16 +158,26 @@ fn contains_sub_p(s : String, sub : String) -> Bool {
 }
 
 ///|
-test "Artifacts 段解析：取段内最后一个存在的文件，无产物给 None" {
+test "Artifacts 段解析：按模块名挑，别家模块的行不认（裸 workspace 构建的回归）" {
   write_file_p("/tmp/mng_proj_artifact.bin", "x")
+  write_file_p("/tmp/mng_proj_tool.bin", "x")
+  // 裸 `moon build` 会列整个 workspace；本模块的行在中间，最后一条是别的模块
   let log = [
-    "Finished. moon: ran 3 tasks, now up to date",
     "Artifacts:",
-    "  NoahLiu/demo  native  /tmp/mng_proj_nope",
-    "  NoahLiu/demo2  native  /tmp/mng_proj_artifact.bin",
+    "  NoahLiu/other  native  /tmp/mng_proj_tool.bin",
+    "  Acme/app  native  /tmp/mng_proj_artifact.bin",
+    "  NoahLiu/native-gui-tools/mng_cli  native  /tmp/mng_proj_tool.bin",
     "",
-    "trailing",
   ].join("\n")
-  assert_eq(artifact_of_log(log), Some("/tmp/mng_proj_artifact.bin"))
-  assert_eq(artifact_of_log("no artifacts here"), None)
+  assert_eq(artifact_of_log(log, "Acme/app"), Some("/tmp/mng_proj_artifact.bin"))
+  // 只有子包（cmd/main）也认
+  let log2 = [
+    "Artifacts:",
+    "  Acme/app/cmd/main  native  /tmp/mng_proj_artifact.bin",
+    "  NoahLiu/other  native  /tmp/mng_proj_tool.bin",
+  ].join("\n")
+  assert_eq(artifact_of_log(log2, "Acme/app"), Some("/tmp/mng_proj_artifact.bin"))
+  // 全不是本模块 → None（让调用方提示补 run，而不是乱起别的程序）
+  assert_eq(artifact_of_log(log, "Acme/elsewhere"), None)
+  assert_eq(artifact_of_log("no artifacts here", "Acme/app"), None)
 }

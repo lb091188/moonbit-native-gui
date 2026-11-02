@@ -273,7 +273,7 @@ fn load_dev_conf(
     None => return Err("找不到 mng.toml / moon.mod / moon.work——在项目里跑，或先 `mng_cli init`")
   }
   let templates : Array[String] = []
-  let mut build = "moon build"
+  let mut build = "moon build ."
   let mut run = ""
   let mut app_id = ""
   let mut poll_ms = 300
@@ -417,7 +417,7 @@ fn mng_toml_template() -> String {
     "templates = [\".\"]",
     "",
     "# 构建命令",
-    "build = \"moon build\"",
+    "build = \"moon build .\"",
     "",
     "# 启动命令；留空 = 跑一次 build 后从 Artifacts 输出抓可执行路径",
     "run = \"\"",

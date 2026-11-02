@@ -61,9 +61,9 @@ fn filter_files(spec : String) -> Array[String] {
 }
 
 ///|
-/// 跑一次 build 并从输出里抓可执行路径（`Artifacts:` 段尾 token）。
+/// 跑一次 build 并从输出里抓可执行路径（`Artifacts:` 段里属于本模块的那一行）。
 /// 只在 `run` 未配置时用；build 本身走 `sh -c` 以拿到输出。
-fn derive_run(build_cmd : String) -> Result[String, String] {
+fn derive_run(build_cmd : String, module_name : String) -> Result[String, String] {
   let tmp = match @env.get_env_var("TMPDIR") {
     Some(d) if d != "" => d
     _ => "/tmp"
@@ -86,17 +86,24 @@ fn derive_run(build_cmd : String) -> Result[String, String] {
     Some(t) => t
     None => return Err("读不到 build 日志 " + log)
   }
-  match artifact_of_log(text) {
+  match artifact_of_log(text, module_name) {
     Some(p) => Ok(p)
-    None => Err("build 输出里没抓到可执行路径——在 mng.toml 补 run")
+    None => Err("build 输出里没抓到本模块的可执行路径——在 mng.toml 补 run")
   }
 }
 
 ///|
-/// `moon build` 的 `Artifacts:` 段 → 最后一个存在的绝对路径。
-fn artifact_of_log(text : String) -> String? {
+/// `moon build` 的 `Artifacts:` 段 → **属于本模块**的可执行绝对路径。
+/// 行形如 `  <包路径>  native  /abs/path`：包路径等于模块名（模块根包）优先，
+/// 其次取模块下的子包（如 `cmd/main`）；别家模块的行一律不认（裸 `moon build`
+/// 会构建整个 workspace，取「最后一条」会抓错应用）。
+fn artifact_of_log(text : String, module_name : String) -> String? {
+  if module_name.length() == 0 {
+    return None
+  }
   let mut artifacts = false
-  let mut found = ""
+  let mut exact = ""
+  let mut prefix = ""
   for raw in text.split("\n") {
     let line = raw.to_owned()
     let t = line.trim_end().to_owned()
@@ -112,22 +119,34 @@ fn artifact_of_log(text : String) -> String? {
       continue
     }
     let xs = collect_array_dev(t.split(" ").filter(fn(x) { x.length() > 0 }).map(fn(x) { x.to_owned() }))
-    if xs.length() > 0 {
-      let cand = xs[xs.length() - 1]
-      if cand.has_prefix("/") {
-        let exists = @fs.is_file(cand) catch {
-          _ => false
-        }
-        if exists {
-          found = cand
-        }
-      }
+    if xs.length() < 2 {
+      continue
+    }
+    let pkg = xs[0]
+    let cand = xs[xs.length() - 1]
+    if !cand.has_prefix("/") {
+      continue
+    }
+    let exists = @fs.is_file(cand) catch {
+      _ => false
+    }
+    if !exists {
+      continue
+    }
+    if pkg == module_name {
+      exact = cand
+      break
+    }
+    if prefix.length() == 0 && pkg.has_prefix(module_name + "/") {
+      prefix = cand
     }
   }
-  if found.length() == 0 {
-    None
+  if exact.length() > 0 {
+    Some(exact)
+  } else if prefix.length() > 0 {
+    Some(prefix)
   } else {
-    Some(found)
+    None
   }
 }
 
@@ -240,7 +259,7 @@ fn cmd_dev(args : Array[String]) -> Int {
   // build（run 留空时顺带从 Artifacts 推导启动命令）
   let mut run_expr = conf.run
   if run_expr.length() == 0 {
-    match derive_run(conf.build) {
+    match derive_run(conf.build, module_name_at(conf.dir)) {
       Ok(cmd) => {
         run_expr = cmd
         eprintln("DEV 从 Artifacts 抓到可执行：" + cmd)

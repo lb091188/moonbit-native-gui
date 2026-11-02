@@ -53,7 +53,7 @@ pub fn <stem>() -> @widget.Node {
 ## 落地状态
 
 - **A**：编译器 dev 档、`mng_dev_page`、showcase 演示页改调生成页（手写注册表删除）、`mng dev` 产 dev 形态。
-- **B**：`mng.toml` 与 `mng dev` 无参（向上找配置、递归扫模板、生成码落模板所在包、一拍改动合并重启、app-id 派生、`run` 留空时从 build 的 `Artifacts` 抓可执行）、撞名按包聚合、`mng_cli init` 样板；模板文件与用它的页面同包（演示页模板已移进 `examples/showcase/pages/`）。
+- **B**：`mng.toml` 与 `mng dev` 无参（向上找配置、递归扫模板、生成码落模板所在包、一拍改动合并重启、app-id 派生、`run` 留空时从 build 的 `Artifacts` 按模块名挑可执行、默认 `moon build .` 只建本包）、撞名按包聚合、`mng_cli init` 样板；模板文件与用它的页面同包（演示页模板已移进 `examples/showcase/pages/`）。
 
 ## 后续
 
