@@ -318,6 +318,8 @@ jobs:
           && moon test
           && cd ..\..
           && moon build examples/hello --target native
+          && cd tools\native-gui-tools
+          && moon check
 
   macos:
     name: macOS(静态检查 + 测试 + 链接)
