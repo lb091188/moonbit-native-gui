@@ -1159,3 +1159,132 @@ test "sig_params：参数表带默认值与参数级文档" {
   assert_eq(ps[1].3, "\"\"")
   assert_eq(ps[1].4, "占位文字，未输入时显示。")
 }
+
+///|
+/// 语义分词：取令牌覆盖的原文（夹具全 BMP，字符下标即码元下标）。
+fn sem_text_at(src : String, t : SemTok) -> String {
+  let a = chars_of(src)
+  slice_str(a, t.start, t.start + t.len)
+}
+
+///|
+/// 语义分词：第一个覆盖原文为 `text` 的令牌。
+fn sem_find_tok(src : String, toks : Array[SemTok], text : String) -> SemTok? {
+  for t in toks {
+    if sem_text_at(src, t) == text {
+      return Some(t)
+    }
+  }
+  None
+}
+
+///|
+/// 语义分词：覆盖原文为 `text` 的全部令牌是否都落在给定档位。
+fn sem_all_ty(src : String, toks : Array[SemTok], text : String, ty : Int) -> Bool {
+  let mut seen = false
+  for t in toks {
+    if sem_text_at(src, t) == text {
+      seen = true
+      if t.ty != ty {
+        return false
+      }
+    }
+  }
+  seen
+}
+
+///|
+fn sem_fixture() -> String {
+  [
+    "<script setup lang=\"moonbit\">",
+    "fn page(limit : Int) -> @widget.Node",
+    "let qty : @base.Store[Int] = @base.Store::new(3)",
+    "fn bump(x : Int) -> Int { qty.set(x) }",
+    "let msg = \"共 \\{qty} 个\"",
+    "</script>",
+    "<template>",
+    "  <ui-stepper v-model=\"qty\" :max=\"limit\" />",
+    "  <ui-button text=\"重置\" @click=\"bump\" />",
+    "</template>",
+  ].join("\n") + "\n"
+}
+
+///|
+test "semantic：类型/变量/参数/函数/方法/命名空间分档与修饰位" {
+  let src = sem_fixture()
+  let toks = semantic_tokens(src)
+  // let 绑定声明：variable + declaration + readonly；引用处 variable + readonly
+  let q = sem_find_tok(src, toks, "qty")
+  assert_true(q is Some(_))
+  assert_eq(q.unwrap().ty, 8) // variable
+  assert_eq(q.unwrap().mods, 5) // declaration | readonly
+  assert_true(sem_all_ty(src, toks, "qty", 8))
+  // props 参数与 fn 签名参数：parameter
+  assert_true(sem_all_ty(src, toks, "limit", 7))
+  let l = sem_find_tok(src, toks, "limit")
+  assert_eq(l.unwrap().mods, 1) // declaration
+  assert_true(sem_all_ty(src, toks, "x", 7))
+  // 类型（含成员链上的 @base.Store 与泛型 Int / 返回 Node）
+  assert_true(sem_all_ty(src, toks, "Store", 1))
+  assert_true(sem_all_ty(src, toks, "Int", 1))
+  assert_true(sem_all_ty(src, toks, "Node", 1))
+  // 命名空间（@base / @widget）
+  assert_true(sem_all_ty(src, toks, "@base", 0))
+  assert_true(sem_all_ty(src, toks, "@widget", 0))
+  // :: 后与调用形态 → function；fn 声明名带 declaration
+  assert_true(sem_all_ty(src, toks, "new", 12))
+  assert_true(sem_all_ty(src, toks, "bump", 12))
+  let b = sem_find_tok(src, toks, "bump")
+  assert_eq(b.unwrap().mods, 1)
+  // 方法调用 .set(
+  assert_true(sem_all_ty(src, toks, "set", 13))
+  // 字符串插值里的状态名也分档
+  assert_eq(sem_find_tok(src, toks, "msg").unwrap().mods, 5)
+  // 纯文本属性值不发语义令牌
+  assert_true(sem_find_tok(src, toks, "重置") is None)
+}
+
+///|
+test "semantic：let mut 无 readonly、成员访问 property、残缺文档不炸" {
+  let src = [
+    "<script setup lang=\"moonbit\">",
+    "fn page(n : Int) -> @widget.Node",
+    "let mut count = 0",
+    "let label = \"x\"",
+    "let n2 = count.length",
+    "</script>",
+    "<template>",
+    "  <ui-text :text=\"label\" />",
+    "</template>",
+  ].join("\n") + "\n"
+  let toks = semantic_tokens(src)
+  let c = sem_find_tok(src, toks, "count")
+  assert_eq(c.unwrap().ty, 8)
+  assert_eq(c.unwrap().mods, 1) // mut：无 readonly
+  let lb = sem_find_tok(src, toks, "label")
+  assert_eq(lb.unwrap().mods, 5)
+  // 成员引用不带调用 → property
+  assert_true(sem_all_ty(src, toks, "length", 9))
+  // 残缺文档：无 script / 未闭合 template，不抛错
+  assert_true(semantic_tokens("<template><ui-col>").length() >= 0)
+  assert_eq(semantic_tokens("").length(), 0)
+}
+
+///|
+test "semantic：插值后的标签不再被吞（}} 停止界回归）" {
+  let src = [
+    "<script setup lang=\"moonbit\">",
+    "let qty : @base.Store[Int] = @base.Store::new(3)",
+    "</script>",
+    "<template>",
+    "  当前数量：{{ qty }}",
+    "  <ui-input v-model=\"qty\" />",
+    "</template>",
+  ].join("\n") + "\n"
+  let toks = semantic_tokens(src)
+  // let 声明 + 插值 + v-model 共三处 qty，缺一即扫描跑穿
+  assert_eq(
+    toks.filter(fn(t) { sem_text_at(src, t) == "qty" }).length(),
+    3,
+  )
+}

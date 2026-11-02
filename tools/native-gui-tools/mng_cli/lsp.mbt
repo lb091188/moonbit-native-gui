@@ -1319,7 +1319,7 @@ fn lsp_handle(docs : Map[String, String], body : String) -> LspOut {
         None => ()
       }
       let caps = "{\"capabilities\":{\"textDocumentSync\":1," + "\"completionProvider\":{\"triggerCharacters\":[\"<\",\":\",\"@\",\"{\",\" \",\"\\\"\",\".\",\"-\",\"(\"]},"
-      let caps2 = "\"hoverProvider\":true,\"definitionProvider\":true}," + "\"serverInfo\":{\"name\":\"mng_cli\",\"version\":\"0.1.0\"}}"
+      let caps2 = "\"hoverProvider\":true,\"definitionProvider\":true,\"semanticTokensProvider\":{\"legend\":" + sem_legend_json() + ",\"full\":true}}," + "\"serverInfo\":{\"name\":\"mng_cli\",\"version\":\"0.1.0\"}}"
       lsp_ok(respond(caps + caps2))
     }
     "shutdown" => lsp_ok(respond("null"))
@@ -1380,6 +1380,17 @@ fn lsp_handle(docs : Map[String, String], body : String) -> LspOut {
           lsp_ok(respond(lsp_definition(u, text, l, c)))
         }
         _ => lsp_ok(respond("[]"))
+      }
+    }
+    "textDocument/semanticTokens/full" => {
+      let uri = doc_uri(parsed)
+      match uri {
+        Some(u) => {
+          let text = docs.get_or_default(u, "")
+          let toks = @mngkit.semantic_tokens(text)
+          lsp_ok(respond("{\"data\":" + sem_encode(text, toks) + "}"))
+        }
+        None => lsp_ok(respond("{\"data\":[]}"))
       }
     }
     _ =>

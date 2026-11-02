@@ -13,6 +13,45 @@ let client = null;
 let status = null;
 let warned = false;
 
+// 语义令牌 legend（标准序，与 mng_cli lsp 服务端 sem_legend_types/mods 同序拷贝）。
+// 服务端只发标识符类（类型/变量/参数/函数/方法/属性/命名空间），其余区间维持 TextMate。
+const SEMANTIC_TYPES = [
+  'namespace',
+  'type',
+  'class',
+  'enum',
+  'interface',
+  'struct',
+  'typeParameter',
+  'parameter',
+  'variable',
+  'property',
+  'enumMember',
+  'event',
+  'function',
+  'method',
+  'macro',
+  'label',
+  'comment',
+  'string',
+  'number',
+  'regexp',
+  'operator',
+  'keyword',
+];
+const SEMANTIC_MODIFIERS = [
+  'declaration',
+  'definition',
+  'readonly',
+  'static',
+  'deprecated',
+  'abstract',
+  'async',
+  'modification',
+  'documentation',
+  'defaultLibrary',
+];
+
 function outputChannel() {
   if (!outputChannel._ch) {
     outputChannel._ch = vscode.window.createOutputChannel('MNG');
@@ -394,6 +433,28 @@ function registerProviders(ctx) {
         }
       },
     })
+  );
+
+  ctx.subscriptions.push(
+    vscode.languages.registerSemanticTokensProvider(
+      'mng',
+      {
+        provideDocumentSemanticTokens: async (doc) => {
+          if (!client) {
+            return new vscode.SemanticTokens(new Uint32Array(0));
+          }
+          try {
+            const res = await client.request('textDocument/semanticTokens/full', {
+              textDocument: { uri: doc.uri.toString() },
+            });
+            return new vscode.SemanticTokens(new Uint32Array((res && res.data) || []));
+          } catch (_) {
+            return new vscode.SemanticTokens(new Uint32Array(0));
+          }
+        },
+      },
+      new vscode.SemanticTokensLegend(SEMANTIC_TYPES, SEMANTIC_MODIFIERS)
+    )
   );
 }
 

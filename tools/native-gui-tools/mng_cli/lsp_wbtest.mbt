@@ -379,3 +379,134 @@ test "LSP：指令悬浮不再当组件；提示文案随 locale 中英切换" {
   }
   lsp_locale[0] = ""
 }
+
+///|
+/// 从 reply 里抠 "data":[ 整数数组（测试用极简抠法）。
+fn sem_wb_data(reply : String) -> Array[Int] {
+  let out : Array[Int] = []
+  let a = chars_of_cli(reply)
+  let key = chars_of_cli("\"data\":[")
+  let n = a.length()
+  let m = key.length()
+  let mut start = -1
+  let mut i = 0
+  while i + m <= n {
+    let mut ok = true
+    for k in 0..<m {
+      if a[i + k] != key[k] {
+        ok = false
+      }
+    }
+    if ok {
+      start = i + m
+      break
+    }
+    i += 1
+  }
+  if start < 0 {
+    return out
+  }
+  let mut cur = ""
+  let mut j = start
+  while j < n && a[j] != ']' {
+    let c = a[j]
+    if c == ',' {
+      match parse_uint(cur) {
+        Some(v) => out.push(v)
+        None => ()
+      }
+      cur = ""
+    } else {
+      cur = cur + c.to_string()
+    }
+    j += 1
+  }
+  match parse_uint(cur) {
+    Some(v) => out.push(v)
+    None => ()
+  }
+  out
+}
+
+///|
+/// delta 数据还原扫描：是否存在覆盖 `word` 的令牌（返回档位，无则 -1）。
+fn sem_wb_ty(text : String, data : Array[Int], word : String) -> Int {
+  let starts : Array[Int] = [0]
+  let a = chars_of_cli(text)
+  for k, c in a {
+    if c == '\n' {
+      starts.push(k + 1)
+    }
+  }
+  let mut pl = 0
+  let mut pc = 0
+  let mut k = 0
+  while k + 4 < data.length() {
+    let dl = data[k]
+    let line = pl + dl
+    let ch = if dl == 0 { pc + data[k + 1] } else { data[k + 1] }
+    let len = data[k + 2]
+    let ty = data[k + 3]
+    let off = starts[line] + ch
+    if off + len <= a.length() && slice_cli(a, off, off + len) == word {
+      return ty
+    }
+    pl = line
+    pc = ch
+    k += 5
+  }
+  -1
+}
+
+///|
+test "LSP：semanticTokens/full 能力声明、分档与 delta 编码" {
+  let docs : Map[String, String] = Map([])
+  let uri = "file:///tmp/lsp_sem.mng"
+  let text = tpl_ok()
+  let _ = docs.set(uri, text)
+  // 握手带 semanticTokensProvider 与标准 legend
+  let init = lsp_handle(docs, req(1, "initialize", "{}"))
+  match init.reply {
+    Some(r) =>
+      assert_true(
+        contains_sub_l(r, "semanticTokensProvider") &&
+        contains_sub_l(r, "\"parameter\"") &&
+        contains_sub_l(r, "\"defaultLibrary\""),
+      )
+    None => assert_true(false)
+  }
+  let out = lsp_handle(
+    docs,
+    req(
+      2,
+      "textDocument/semanticTokens/full",
+      "{\"textDocument\":{\"uri\":\"" + uri + "\"}}",
+    ),
+  )
+  let reply = match out.reply {
+    Some(r) => r
+    None => ""
+  }
+  let data = sem_wb_data(reply)
+  assert_true(data.length() > 0 && data.length() % 5 == 0)
+  // let 绑定与插值里的状态名 → variable；类型 / 命名空间照档
+  assert_eq(sem_wb_ty(text, data, "qty"), 8)
+  assert_eq(sem_wb_ty(text, data, "Store"), 1)
+  assert_eq(sem_wb_ty(text, data, "@base"), 0)
+  // class 值与 CSS var 不走语义令牌（维持 TextMate）
+  assert_eq(sem_wb_ty(text, data, "card"), -1)
+  assert_eq(sem_wb_ty(text, data, "text_primary"), -1)
+  // 未知 uri → 空 data
+  let miss = lsp_handle(
+    docs,
+    req(
+      3,
+      "textDocument/semanticTokens/full",
+      "{\"textDocument\":{\"uri\":\"file:///tmp/none.mng\"}}",
+    ),
+  )
+  match miss.reply {
+    Some(r) => assert_true(contains_sub_l(r, "\"data\":[]"))
+    None => assert_true(false)
+  }
+}
