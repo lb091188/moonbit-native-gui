@@ -34,3 +34,12 @@
 - [ ] **2.4 code_view 主题化**：One Dark 硬编码色板（gui/ui/codeview.mbt）抽成按 `Theme` 派生的代码配色（深浅基底各一套：背景/前景/关键字/字符串/注释映射 theme token 或派生），默认跟 `theme_current()`；保留显式 `code_theme` 参数给刻意场景
 - [ ] **1.2 原生子件登记流程成文**：gui/win/surface.mbt 头注写死登记清单——①三平台桩各实现挂载/移除/矩形同步 ②能力缺失平台的兜底行为（`None`）③探针 + 真机用例；第一个按流程演练的候选是 gui-media 视频直出（另批）
 - [ ] **2.5 主题定制示例恢复**：按落位判据建 `examples/theme-playground/` 独立模块注册 moon.work，四个最小页——`theme_from_accent` 换主色 / `theme_apply` 全量覆盖 / `follow_system_theme` 接线 / `class` 单组件覆盖；同批补 `测试文档/测试用例.md` 对应用例
+
+
+## 样式系统补全（2026-11-02 拍板，方案与风险注记见 [proposals/style-css-expansion.md](proposals/style-css-expansion.md)；S0 文档矛盾与 S5 letter_spacing 已完成，余项按 Tier 顺序）
+
+- [ ] **S1 设计令牌（性价比最高）**：`space-scale` / `radius-scale` / `type-scale` / `duration-scale` 进 `Theme`（现只有 20 颜色令牌 + control_height + 散字面量），`style(...)` factory 与 `gui/style/tokens.mbt`（~80 个组件级 Style 常量，非令牌）改为消费令牌；纯 Style 层零后端
+- [ ] **S2 background-gradient**：Style 加渐变字段（线性/径向 + stops，渲染层 `Gradient` 与 `set_fill_gradient` 双后端已测，缺的只是接线）+ factory kwargs + merge/setter；box 绘制处 `set_fill_color` → `set_fill_gradient`；半透明 stop 在 raster（非预乘插值）与 Cairo 的口径差钉 golden 测试
+- [ ] **S3 每角 radius + 每边 border**：`trace_round_rect` 四等弧推广到四半径（raster 解析快路加不等半径 guard 退 path，漏 guard 会画错）；每边宽/色用 `clip_rect`+`fill_rect` 叠四边条，难点在带半径时的角部接缝
+- [ ] **S4 mix-blend-mode / overflow / 删除线**：blend_mode Style 字段接 `Painter::set_blend_mode`（25 个 BlendMode 双后端已备）；`overflow: hidden/clip` 语义化暴露（clip_rect 双后端已裁）；text-decoration 扩 line-through / overline（同 underline 自绘线法，零 C）
+- [ ] **Tier B 多行 line-height（真 leading，贵）**：三引擎各改一次 stub（Pango line attr / DWRITE_LINE_METRICS / kCTLineSpacingAttributeName），必须同时穿透 measure/paint（`resolved_for_measure` 同步，否则量画不一致）；注意与框增大触发的整窗重算（transition.mbt）相互作用

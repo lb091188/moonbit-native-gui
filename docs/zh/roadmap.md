@@ -262,6 +262,10 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 - 🚧 **三条产品原则落差补齐**（2026-11-02 拍板；清单与验收口径见 [proposals/principles-gap.md](proposals/principles-gap.md)）：分层求透（1.1 原生句柄透出 MoonBit、1.2 原生子件登记流程成文、1.4 `@ui` 公共面收窄；~~1.3 grid 布局原语~~ 2026-11-02 定案不做——本质是自动化 flex 手拼，按「不为对齐而补」家规留档待真实用例）、视觉掌控下放（2.1 主题 JSON 加载、2.2 跟随系统默认接线、2.3 `dark:`/`light:` 变体接入消费、2.4 code_view 主题化、2.5 主题定制示例恢复）、平台抹平（3.1 窗口族同签名未实现端可探测，文档步 + 签名步两步走）；既有提案已覆盖的差距不在此重复（见方案 §四对照表）。拆分待办与进度见 TODO「设计原则补齐」节
 
+### 样式系统
+
+- 🚧 **样式系统 CSS 补全**（2026-11-02 拍板；方案、后端就绪度与风险注记见 [proposals/style-css-expansion.md](proposals/style-css-expansion.md)）：图形后端实为 Cairo + Pure Raster 两条（Win/mac 共用 Raster）；S0 文档矛盾与 S5 letter_spacing（三平台真机通过）已完成；余项——S1 设计令牌（space/radius/type/duration 四阶进 Theme + factory/tokens 消费，性价比最高）、S2 background-gradient（渲染层已备，缺 Style 接线；半透明 stop 口径差钉 golden）、S3 每角 radius + 每边 border（raster 快路 guard 防画错）、S4 mix-blend-mode / overflow / 删除线、Tier B 多行 line-height（真 leading，量画一致是硬约束）；box-shadow / backdrop-blur / dashed 不排便宜工期（需先建 blur/dash 基建，见方案 Tier C）。拆分待办见 TODO「样式系统补全」节
+
 ### 窗口
 
 - ⏳ **窗口内按键路由补齐**：跨页切换后的按键兜底路由，避免失焦后按键进不了页
