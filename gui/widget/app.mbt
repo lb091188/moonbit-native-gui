@@ -263,6 +263,20 @@ pub fn test_app(s : @shell.Session) -> App {
   }
 }
 
+///|
+/// 无头测试宿主（headless-tester P2）：进程内假窗（哨兵句柄，平台桩对
+/// 越界 id 全部早退）+ 无头泵（`step` 不真睡）。应用泵行为由此可断言：
+/// 定时器到期、脏区合并、`follow_system_theme` 轮询、`overlay_fit_pass`
+/// 三帧收框。用例驱动形态：改状态 → `step()` 若干拍 → 断言。
+/// **虚窗 ≠ 真窗**：平台窗口映射 / FFI / 输入法 / Retina 观感仍归真机人工验。
+pub fn App::test_headless(width : Int, height : Int) -> App {
+  @shell.session_set_headless(true)
+  let a = test_app(@shell.fake_session(-1, @shell.host_new_wid(), true, width, height))
+  host_add_app(a)
+  install_host_hooks()
+  a
+}
+
 /// 首个宿主入口（主窗）。再要一扇窗用 `App::open_window`，或在本表已空时
 /// 再调一次本函数（那扇又成主窗）。
 pub fn App::new(width : Int, height : Int, title : String) -> App? {

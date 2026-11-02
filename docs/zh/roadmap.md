@@ -321,7 +321,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 ### 工程与交付
 
 - ⏳ **稳定面清单与 1.0 时点**：逐包划分承诺面 / 实验面，公告破坏性改动截止线
-- 🚧 **无头测试门面 uitest**（2026-11-02 立项；方案与坑清单见 [proposals/headless-tester.md](proposals/headless-tester.md)）：本仓不缺无头能力（wbtest 2.8 万行、合成指针事件与位图断言齐全），缺的是**对外门面**与**应用泵无头路径**——P1 公开包 `gui/uitest`（`test-import` 消费、name 定位不靠下标、显式 `frame()` 并行安全、`Capabilities` 显式守卫、form_wbtest 示范迁移）；P2 虚窗哨兵（`id < 0` 运行时哨兵，`App::step` 驱动定时器/脏区合并/主题轮询/浮层收框可断言，C 桩零改动）；真机人工验的分工不变。拆分待办见 TODO「无头测试门面」节
+- 🚧 **无头测试门面 uitest**（2026-11-02 立项；方案与坑清单见 [proposals/headless-tester.md](proposals/headless-tester.md)）：本仓不缺无头能力（wbtest 2.8 万行、合成指针事件与位图断言齐全），缺的是**对外门面**与**应用泵无头路径**——P1 公开包 `gui/uitest`（`test-import` 消费、name 定位不靠下标、显式 `frame()` 并行安全、`Capabilities` 显式守卫、form_wbtest 示范迁移）；✅P2 虚窗哨兵（`Window::virtual_` id<0 哨兵 + `App::test_headless` 假窗与无头泵 wait(0)，定时器经 step 驱动可断言，C 桩零改动）；真机人工验的分工不变。拆分待办见 TODO「无头测试门面」节
 - ⏳ **issue 模板与贡献指南**：对外投放配套
 
 ### 可访问性

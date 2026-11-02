@@ -33,7 +33,6 @@
 
 ## 无头测试门面（2026-11-02 立项，方案与坑清单见 [proposals/headless-tester.md](proposals/headless-tester.md)；判据：没有显示服务的机器上，用使用者写代码的方式断言「点了按钮，界面变成那样」）
 
-- [ ] **P2 虚窗哨兵（应用泵层，单独立项）**：`Window::virtual_(width, height)`（id = -1 运行时哨兵；`size` 回字段、`present` 拷进程内快照缓冲、`poll_event` 从内存队列取、show/hide/request_focus 空操作；**哨兵分支只放 MoonBit 侧，C 桩一行不改**）；`App::test_headless` 造虚窗 Session 走 host_add_app；`session_pump_advance` 虚窗模式 `wait(0)` 不真睡；拿到定时器到期 / 脏区合并 / `follow_system_theme` 轮询 / `overlay_fit_pass` 三帧收框的可断言驱动（这些现在只能真机人工看）；真机人工验分工不变（平台窗口映射 / FFI / 输入法 / Retina 观感仍归人工）
 - [ ] **开放问题（随期定）**：Capabilities 跳过计数是否进 CI 门禁（先观察不设阈值）；`test_headless` 对外公开与否（公开即契约，须连同「虚窗 ≠ 真窗」语义边界写文档）；像素快照基线（PNG + 容差，工作量远大于 P1 主体，建议单独立项）；`name`/`role` 将来接无障碍时复用同一对字段（倾向复用，本期不承诺）
 
 ## 文本选择与屏读语义（2026-11-03 拍板，方案与坑清单见 [proposals/text-selection-a11y.md](proposals/text-selection-a11y.md)；两个消费者一块地基，做完一项删一项并同步路线图）

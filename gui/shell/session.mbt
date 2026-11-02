@@ -212,7 +212,13 @@ pub fn set_repaint_sink(f : () -> Unit) -> Unit {
 /// 排空/输入法/绘制在 widget 层的 `step` 里继续。
 pub fn session_pump_advance() -> Unit {
   let l = host_loop()
-  let budget = l.wait_budget(@win.now_ms())
+  // 无头泵模式（test_headless 置位）：不真睡，定时器到期由测试侧显式
+  // 驱动 step 逐步结算——真睡会让用例跑出真实时长，还可能被 waker 卡住
+  let budget = if headless_pump.val {
+    Some(0)
+  } else {
+    l.wait_budget(@win.now_ms())
+  }
   let _ = @win.wait(
     match budget {
       Some(ms) => ms
@@ -220,6 +226,21 @@ pub fn session_pump_advance() -> Unit {
     },
   )
   let _ = l.advance(@win.now_ms())
+}
+
+///|
+/// 无头泵模式标志（headless-tester P2）：`App::test_headless` 置位后
+/// 泵推进 `wait(0)`，不真睡。
+let headless_pump : Ref[Bool] = Ref(false)
+
+///|
+pub fn session_set_headless(on : Bool) -> Unit {
+  headless_pump.val = on
+}
+
+///|
+pub fn session_is_headless() -> Bool {
+  headless_pump.val
 }
 
 ///|

@@ -1,6 +1,6 @@
 # 无头测试门面：从白盒 wbtest 到对外 `uitest`
 
-> 状态：**P1 已落地（2026-11-03）**。`gui/uitest` 公开包就位（mount/mount_all、by_name/by_text/nth/hit、click/pointer/type_text/key/scroll/drag、frame/rect/text/role/pixel/bitmap/capabilities + guard_text/guard_decode 计数守卫）；`Widget` 拆 `name`（定位面，`.named` 写）/`label`（文本面，bind/relabel 写）双字段（§4.3 单 name 字段与「动态文本写回」自相矛盾——`.named("count")` 会覆盖文本初值，实践裁决拆开）；黑盒 `uitest_test.mbt`（moon.pkg 文本格式 test-import 写法是 `import {…} for "test"`）6 用例证「包外可用」；form_wbtest 追加门面示范用例。示范迁移口径修正：form 的 19 处 click 中 17 处是自定义坐标语义（边缘不命中/stepper ± 格），硬换中心点击会破坏断言——「删私有 click」改为「新增用例一律走门面」，旧用例与私有 click 留待批次二。P2 虚窗哨兵见 §5。
+> 状态：**P1 已落地（2026-11-03）**。`gui/uitest` 公开包就位（mount/mount_all、by_name/by_text/nth/hit、click/pointer/type_text/key/scroll/drag、frame/rect/text/role/pixel/bitmap/capabilities + guard_text/guard_decode 计数守卫）；`Widget` 拆 `name`（定位面，`.named` 写）/`label`（文本面，bind/relabel 写）双字段（§4.3 单 name 字段与「动态文本写回」自相矛盾——`.named("count")` 会覆盖文本初值，实践裁决拆开）；黑盒 `uitest_test.mbt`（moon.pkg 文本格式 test-import 写法是 `import {…} for "test"`）6 用例证「包外可用」；form_wbtest 追加门面示范用例。示范迁移口径修正：form 的 19 处 click 中 17 处是自定义坐标语义（边缘不命中/stepper ± 格），硬换中心点击会破坏断言——「删私有 click」改为「新增用例一律走门面」，旧用例与私有 click 留待批次二。P2 已落地（2026-11-03）：`Window::virtual_(w, h)`（id=-1 哨兵，size() 回字段、其余动作经桩 `id<=0` 早退空转，C 桩一行不改）+ `App::test_headless(w, h)`（`@shell.fake_session` 假窗 + 无头泵 `wait(0)`——**落地修正**：仓库既有 fake_session 假窗通路已覆盖方案原设想的「虚窗 Session」，P2 增量收敛为对外形态与不真睡的泵标志）。定时器经 step 逐步结算可断言；平台映射/FFI/输入法/Retina 观感仍归真机人工验。
 
 > **状态**：已立项（2026-11-02 拍板；拆分待办见根 TODO「无头测试门面」节，尚未动代码）
 > **跟踪**：TODO P1 → P2

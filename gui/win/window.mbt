@@ -231,12 +231,26 @@ pub fn Window::poll_event(self : Window) -> Event {
 }
 
 ///|
-/// 当前宽高（尺寸事件之外的兜底读取）。
+/// 当前宽高（尺寸事件之外的兜底读取）。虚窗哨兵（`virtual_`，id<0）回
+/// 构造字段；真窗 close 后（id 置 -1）回最后已知值。
 pub fn Window::size(self : Window) -> (Int, Int) {
+  if self.id <= 0L {
+    return (self.width, self.height)
+  }
   let ow = Ref(self.width)
   let oh = Ref(self.height)
   wm_size(self.id, ow, oh)
   (ow.val, oh.val)
+}
+
+///|
+/// 虚窗哨兵（无头测试用，headless-tester P2）：id = -1 的进程内假窗——
+/// `size()` 读回构造字段，其余窗口级动作经桩的 `id <= 0` 早退全部空转
+/// （**C 桩一行不改**，真句柄语义零变化）。
+/// **虚窗 ≠ 真窗**：平台窗口映射 / FFI / 输入法 / Retina 观感不在此覆盖，
+/// 真机人工验的分工不变。
+pub fn Window::virtual_(width : Int, height : Int) -> Window {
+  { id: -1L, width, height }
 }
 
 ///|
