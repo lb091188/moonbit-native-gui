@@ -476,3 +476,82 @@ fn dot_index(s : String) -> Int? {
   }
   None
 }
+
+///|
+/// 目录里找顶层 `fn <名>` 所在的源码文件（跳转用）；扫描顺序与签名解析一致。
+fn scan_dir_for_file(s : Sigs, dir : String, fname : String) -> String? {
+  let files = io_ls(s, dir)
+  files.sort()
+  for f in files {
+    if f.has_suffix("_test.mbt") || f.has_suffix("_wbtest.mbt") {
+      continue
+    }
+    if f.has_suffix(".mbt") {
+      match io_read(s, dir + "/" + f) {
+        Some(text) =>
+          match find_fn_in_text(text, fname) {
+            Some(_) => return Some(dir + "/" + f)
+            None => ()
+          }
+        None => ()
+      }
+    }
+  }
+  for f in files {
+    if f.has_suffix(".mng") {
+      match io_read(s, dir + "/" + f) {
+        Some(text) =>
+          match find_fn_in_mng(text, fname) {
+            Some(_) => return Some(dir + "/" + f)
+            None => ()
+          }
+        None => ()
+      }
+    }
+  }
+  None
+}
+
+///|
+/// 组件路径 → 定义所在源码文件（`@别名.名` 或同包裸名）；找不到返回 None。
+pub fn Sigs::locate(self : Sigs, path : String) -> String? {
+  if !self.ready {
+    let pkgs : Map[String, String] = Map([])
+    match io_read(self, self.pkg_dir + "/moon.pkg") {
+      Some(text) => parse_imports(text, pkgs)
+      None => ()
+    }
+    for (al, pkg) in pkgs {
+      let _ = self.aliases.set(al, dir_of_pkg(self, pkg))
+    }
+    self.ready = true
+  }
+  if path.length() == 0 {
+    return None
+  }
+  let (al, fname) = if path.has_prefix("@") {
+    let body = path[1:].to_owned()
+    match dot_index(body) {
+      Some(d) => (body[:d].to_owned(), body[d + 1:].to_owned())
+      None => ("", "")
+    }
+  } else {
+    ("", path)
+  }
+  if fname.length() == 0 {
+    return None
+  }
+  let dir = if al.length() == 0 {
+    self.pkg_dir
+  } else {
+    match self.aliases.get(al) {
+      Some(d) => d
+      None => ""
+    }
+  }
+  if dir.length() == 0 {
+    None
+  } else {
+    scan_dir_for_file(self, dir, fname)
+  }
+}

@@ -12,6 +12,8 @@ fn usage() -> Unit {
   println("  map-errors --map <out.mbt.map> <log>   把日志中 <gen>.mbt:行:列 映射回模板行列")
   println("  ir <input.mng>                    打印模板的 IR 补丁（调试与注册表校准）")
   println("  new <name>                             生成 .mng 页样板")
+  println("  lsp                                    语言服务（stdio JSON-RPC：诊断/补全/hover/跳转）")
+  println("  --version                              版本与 mng-schema 位（插件握手用）")
   println("  dev ...                                watch + 契约分类 + 回退编排（dev 无参看细目）")
 }
 
@@ -41,6 +43,14 @@ fn basename(p : String) -> String {
     }
   }
   a[start:].map(fn(c) { c.to_string() }).join("")
+}
+
+///|
+/// --version：版本与 mng-schema 位（编辑器插件启动时握手，对不上则补全降级）。
+fn cmd_version() -> Int {
+  println("mng_cli 0.1.0")
+  println("mng-schema 1")
+  0
 }
 
 ///|
@@ -320,7 +330,9 @@ fn main {
     rest.push(args[j])
     j += 1
   }
-  let code = if cmd == "build" {
+  let code = if cmd == "--version" || cmd == "-V" || cmd == "version" {
+    cmd_version()
+  } else if cmd == "build" {
     cmd_build(rest)
   } else if cmd == "map-errors" {
     cmd_map_errors(rest)
@@ -330,6 +342,8 @@ fn main {
     cmd_ir(rest)
   } else if cmd == "new" {
     cmd_new(rest)
+  } else if cmd == "lsp" {
+    cmd_lsp(rest)
   } else {
     usage()
     2

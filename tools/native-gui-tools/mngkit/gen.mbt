@@ -1120,3 +1120,36 @@ pub fn compile_with(
 pub fn compile(src : String, filename : String) -> Result[GenOut, String] {
   compile_with(src, filename, fn(_path) { None })
 }
+
+///|
+/// 内置组件标签表（编辑器补全用）：`ui-*` 标签名。
+pub fn builtin_tags() -> Array[String] {
+  [
+    "ui-text",
+    "ui-button",
+    "ui-input",
+    "ui-textarea",
+    "ui-stepper",
+    "ui-slider",
+    "ui-rate",
+    "ui-switch",
+    "ui-checkbox",
+    "ui-radio-group",
+    "ui-select",
+    "ui-form",
+    "ui-form-item",
+    "ui-col",
+    "ui-row",
+    "ui-view",
+    "ui-panel",
+  ]
+}
+
+///|
+/// 内置组件的参数名（位置参数序 + `class` 等通用项由调用方另补）。
+pub fn builtin_params(tag : String) -> Array[String]? {
+  match builtin_decl(tag) {
+    Some(d) => Some(d.positional)
+    None => None
+  }
+}

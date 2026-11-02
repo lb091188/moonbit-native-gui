@@ -249,3 +249,59 @@ fn parse_mng_decl(l : String) -> Result[(String, CompDecl), String] {
   }
   Ok((tag, { path, positional }))
 }
+
+///|
+/// script 段里可作为表达式补全的符号：props 参数 + let 绑定 + 函数名（按首现序）。
+pub fn script_symbols(src : String) -> Array[String] {
+  let sfc = match parse_sfc(src) {
+    Ok(v) => v
+    Err(_) => return []
+  }
+  let info = analyze_script(sfc.script, sfc.script_line0)
+  let out : Array[String] = []
+  for p in info.params {
+    out.push(p.name)
+  }
+  for x in info.lets {
+    out.push(x)
+  }
+  for l in info.lines {
+    let t = l.trim().to_owned()
+    if t.has_prefix("fn ") {
+      let a = chars_of(t)
+      let mut i = 3
+      while i < a.length() && (a[i] == ' ' || a[i] == '\t') {
+        i += 1
+      }
+      let mut j = i
+      while j < a.length() && is_ident_char(a[j]) {
+        j += 1
+      }
+      let nm = slice_str(a, i, j)
+      if nm.length() > 0 && !arr_contains(out, nm) {
+        out.push(nm)
+      }
+    }
+  }
+  out
+}
+
+///|
+/// `<style>` 段里定义的类名（去重、按首现序）。
+pub fn style_class_names(src : String) -> Array[String] {
+  let sfc = match parse_sfc(src) {
+    Ok(v) => v
+    Err(_) => return []
+  }
+  let rules = match parse_style(sfc.style) {
+    Ok(r) => r
+    Err(_) => return []
+  }
+  let out : Array[String] = []
+  for r in rules {
+    if !arr_contains(out, r.class) {
+      out.push(r.class)
+    }
+  }
+  out
+}

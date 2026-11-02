@@ -92,3 +92,23 @@ pub fn kill(pid : Int) -> Bool {
 pub fn sleep_ms(ms : Int) -> Unit {
   ffi_sleep_ms(ms)
 }
+
+///|
+#borrow(out)
+extern "c" fn ffi_read_stdin(out : Bytes, cap : Int) -> Int = "mngpr_read_stdin"
+
+///|
+#borrow(data)
+extern "c" fn ffi_write_stdout(data : Bytes, len : Int) -> Int = "mngpr_write_stdout"
+
+///|
+/// 从 stdin 读一段（阻塞）；0 = EOF，<0 = 出错。LSP 报文循环用。
+pub fn read_stdin(out : Bytes, cap : Int) -> Int {
+  ffi_read_stdin(out, cap)
+}
+
+///|
+/// 写一段到 stdout（全量写出返回 len，否则返回实际字节数）。
+pub fn write_stdout(data : Bytes, len : Int) -> Int {
+  ffi_write_stdout(data, len)
+}

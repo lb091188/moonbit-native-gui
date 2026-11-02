@@ -14,7 +14,7 @@
 - 样式章已完成（2026-11-02：`<style>` 类选择器摊平成 `define_class`、`class="a b"` → `class_of`、`var(--令牌)`（20 枚主题色 + 尺度令牌）、`#rrggbb`、枚举关键字、`.名:dark` 深浅两档按 `@win.sys_color_scheme()` 选；模板属性里的样式字面量编译报错；IR v1 带 class 转 COLD；mngkit 测试 18/18；真机视觉待用户按清单验）
 - 撞名检测与注册表键控已完成（2026-11-02：build/dev 报同包 stem 撞名并点名文件；dev 注册表与 holder 按 IR 的 `page` 键控，多页并存不串表，showcase dev 页与 wbtest 同步）
 - 工具与 GUI 解耦已完成（2026-11-02：`mng_cli` 不再依赖 `gui/sys`——`gui/sys` 在 Linux 上链 GTK 剪贴板符号，命令行工具不能带上它；改为 tools 内自给 `proc`（进程原语）与 `inst`（单实例客户端，帧格式与 shell 通道一致），二进制只链 libc/libgcc；proc/inst 无头测试 6/6）
-- [ ] **工具链收口（余项）**：`lsp` 与 `--version` 子命令、native-gui-tools 补 mooncakes 发布配置
+- 工具链收口已完成（2026-11-02：`mng_cli lsp` stdio JSON-RPC（initialize / didOpen·didChange / completion / hover / definition / shutdown，诊断走 compile 错误坐标）；`--version` 报 `mng-cli 0.1.0` + `mng-schema 1` 供插件握手；native-gui-tools 的 moon.mod 描述与发布配置就位；LSP 无头回归 1 条）
 - [ ] **拆包**（[proposals/module-split.md](proposals/module-split.md)）：sys → win → dbus → shell 顺序，等工具二进制独立发布动机集中做
 
 ## 发布与验收（2026-10-31，基于固定「Binaries」Release 最新包）

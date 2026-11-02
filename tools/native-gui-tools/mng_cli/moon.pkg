@@ -2,6 +2,7 @@
 // 进程与单实例客户端在 tools 内自给（proc / inst），不依赖 GUI 库。
 import {
   "moonbitlang/core/env" @env,
+  "moonbitlang/core/encoding/utf8" @utf8,
   "moonbitlang/x/fs" @fs,
   "moonbitlang/x/sys" @sys,
   "NoahLiu/native-gui-tools/mngkit" @mngkit,

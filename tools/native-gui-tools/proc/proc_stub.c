@@ -192,6 +192,29 @@ void mngpr_sleep_ms(int32_t ms) {
   }
 }
 
+int32_t mngpr_read_stdin(char *out, int32_t cap) {
+  if (out == NULL || cap <= 0) {
+    return -1;
+  }
+  DWORD got = 0;
+  HANDLE h = GetStdHandle(STD_INPUT_HANDLE);
+  if (!ReadFile(h, out, (DWORD)cap, &got, NULL)) {
+    mngpr_err = (int32_t)GetLastError();
+    return -1;
+  }
+  return (int32_t)got;
+}
+
+int32_t mngpr_write_stdout(const char *data, int32_t len) {
+  DWORD put = 0;
+  HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
+  if (!WriteFile(h, data, (DWORD)len, &put, NULL)) {
+    mngpr_err = (int32_t)GetLastError();
+    return (int32_t)put;
+  }
+  return (int32_t)put;
+}
+
 #else
 
 #include <unistd.h>
@@ -361,6 +384,39 @@ void mngpr_sleep_ms(int32_t ms) {
   if (ms > 0) {
     usleep((useconds_t)ms * 1000);
   }
+}
+
+int32_t mngpr_read_stdin(char *out, int32_t cap) {
+  if (out == NULL || cap <= 0) {
+    return -1;
+  }
+  for (;;) {
+    ssize_t n = read(0, out, (size_t)cap);
+    if (n < 0 && errno == EINTR) {
+      continue;
+    }
+    if (n < 0) {
+      mngpr_err = errno;
+      return -1;
+    }
+    return (int32_t)n;
+  }
+}
+
+int32_t mngpr_write_stdout(const char *data, int32_t len) {
+  int32_t off = 0;
+  while (off < len) {
+    ssize_t w = write(1, data + off, (size_t)(len - off));
+    if (w < 0 && errno == EINTR) {
+      continue;
+    }
+    if (w <= 0) {
+      mngpr_err = errno;
+      return off;
+    }
+    off += (int32_t)w;
+  }
+  return off;
 }
 
 #endif

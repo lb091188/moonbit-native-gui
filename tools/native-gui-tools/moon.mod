@@ -4,7 +4,7 @@ version = "0.1.0"
 
 preferred_target = "native"
 
-description = "native-gui 的开发期工具（iconfont 转化 / i18n 预处理）：纯内核 + 终端 + 界面三态，不发布、不随应用分发"
+description = "native-gui 的开发期工具：模板编译器与 dev 循环（mng_cli）、iconfont 转化、i18n 预处理"
 
 license = "MIT"
 
