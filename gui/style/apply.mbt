@@ -176,6 +176,18 @@ pub fn apply(w : @widget.Widget, s : Style) -> Unit {
     Some(v) => n.set_flex_grow(v)
     None => ()
   }
+  match s.flex_shrink {
+    Some(v) => n.set_flex_shrink(v)
+    None => ()
+  }
+  match s.flex_basis {
+    Some(v) => n.set_flex_basis(@yoga.fixed(v))
+    None => ()
+  }
+  match s.flex_basis_percent {
+    Some(v) => n.set_flex_basis(@yoga.percent(v))
+    None => ()
+  }
   match s.row_gap {
     Some(v) => n.set_row_gap(v)
     None => ()

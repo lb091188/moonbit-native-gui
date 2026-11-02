@@ -128,7 +128,7 @@ fn number_props() -> Array[String] {
     "margin_bottom",
     "border_width",
     "border_radius",
-    "flex",
+    "flex_shrink",
     "gap",
     "row_gap",
     "column_gap",
@@ -187,6 +187,94 @@ fn num_lit(v : String) -> String {
     v
   } else {
     v + ".0"
+  }
+}
+
+///|
+/// 空白切分（非空段）。
+fn split_ws(s : String) -> Array[String] {
+  let out : Array[String] = []
+  let a = chars_of(s)
+  let mut cur = ""
+  for c in a {
+    if c == ' ' || c == '\t' || c == '\n' || c == '\r' {
+      if cur.length() > 0 {
+        out.push(cur)
+        cur = ""
+      }
+    } else {
+      cur = cur + c.to_string()
+    }
+  }
+  if cur.length() > 0 {
+    out.push(cur)
+  }
+  out
+}
+
+///|
+/// flex basis：`<n>%` 进百分比字段，数字进像素字段；`auto` 等不收。
+fn flex_basis_pair(tok : String, pos : Pos) -> Result[(String, String), String] {
+  let a = chars_of(tok)
+  if a.length() > 1 && a[a.length() - 1] == '%' {
+    let num = slice_str(a, 0, a.length() - 1).trim().to_owned()
+    if is_number_text(num) {
+      return Ok(("flex_basis_percent", num_lit(num)))
+    }
+  }
+  if is_number_text(tok) {
+    Ok(("flex_basis", num_lit(tok)))
+  } else {
+    Err(
+      "\{pos_str(pos)}：flex basis 要像素或百分比（`100%` / `120`）；`auto` 用 width/height 表达",
+    )
+  }
+}
+
+///|
+/// 属性展开：`flex` 按 CSS 简写拆成 grow/shrink/basis 三件套，`flex_basis` 认百分比，
+/// 其余属性单值直传。
+fn style_expand(prop : String, raw : String, pos : Pos) -> Result[Array[(String, String)], String] {
+  if prop == "flex" {
+    let toks = split_ws(raw)
+    if toks.length() == 0 {
+      return Err("\{pos_str(pos)}：flex 缺值")
+    }
+    if toks.length() > 3 {
+      return Err("\{pos_str(pos)}：flex 最多三段：grow shrink basis")
+    }
+    if !is_number_text(toks[0]) {
+      return Err(
+        "\{pos_str(pos)}：flex 要 CSS 简写（grow / grow shrink / grow shrink basis），见到 `\{toks[0]}`",
+      )
+    }
+    let out : Array[(String, String)] = []
+    out.push(("flex", num_lit(toks[0])))
+    let shrink = if toks.length() >= 2 {
+      if !is_number_text(toks[1]) {
+        return Err("\{pos_str(pos)}：flex shrink 要数值，见到 `\{toks[1]}`")
+      }
+      num_lit(toks[1])
+    } else {
+      "1.0"
+    }
+    out.push(("flex_shrink", shrink))
+    let basis_tok = if toks.length() == 3 { toks[2] } else { "0" }
+    match flex_basis_pair(basis_tok, pos) {
+      Ok(p) => out.push(p)
+      Err(e) => return Err(e)
+    }
+    Ok(out)
+  } else if prop == "flex_basis" {
+    match flex_basis_pair(raw.trim().to_owned(), pos) {
+      Ok(p) => Ok([p])
+      Err(e) => Err(e)
+    }
+  } else {
+    match style_value_of(prop, raw, pos) {
+      Ok(e) => Ok([(prop, e)])
+      Err(x) => Err(x)
+    }
   }
 }
 
@@ -402,11 +490,13 @@ fn parse_style(text : String) -> Result[Array[StyleRule], String] {
         return Err(cur_err(c, "属性 `\{key}` 缺冒号"))
       }
       let raw = read_while(c, fn(ch) { ch != ';' && ch != '}' })
-      let e = match style_value_of(key, raw, ppos) {
+      let pairs = match style_expand(key, raw, ppos) {
         Ok(v) => v
         Err(x) => return Err(x)
       }
-      props.push({ name: key, expr: e })
+      for (n, e) in pairs {
+        props.push({ name: n, expr: e })
+      }
       if c.i < n && cur_peek(c) == ';' {
         c.i += 1
       }

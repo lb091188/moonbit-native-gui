@@ -46,6 +46,11 @@ pub(all) struct Style {
   mut align_items : AlignItems?
   mut align_self : AlignItems?
   mut flex : Double?
+  // CSS `flex` 简写的另外两段：grow 用上面的 `flex`，这里是 shrink 与 basis
+  // （basis 以像素或父容器百分比给）
+  mut flex_shrink : Double?
+  mut flex_basis : Double?
+  mut flex_basis_percent : Double?
   mut row_gap : Double?
   mut column_gap : Double?
   // —— 定位（底层 yoga 现成，含百分比 inset；Style 首批只开逻辑像素值）
@@ -111,6 +116,9 @@ pub fn empty_style() -> Style {
     align_items: None,
     align_self: None,
     flex: None,
+    flex_shrink: None,
+    flex_basis: None,
+    flex_basis_percent: None,
     row_gap: None,
     column_gap: None,
     position: None,
@@ -200,6 +208,9 @@ pub fn merge(base : Style, over : Style) -> Style {
   s.align_items = pick(base.align_items, over.align_items)
   s.align_self = pick(base.align_self, over.align_self)
   s.flex = pick(base.flex, over.flex)
+  s.flex_shrink = pick(base.flex_shrink, over.flex_shrink)
+  s.flex_basis = pick(base.flex_basis, over.flex_basis)
+  s.flex_basis_percent = pick(base.flex_basis_percent, over.flex_basis_percent)
   s.row_gap = pick(base.row_gap, over.row_gap)
   s.column_gap = pick(base.column_gap, over.column_gap)
   s.position = pick(base.position, over.position)

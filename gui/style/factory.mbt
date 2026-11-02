@@ -58,6 +58,9 @@ pub fn style(
   align_items? : AlignItems,
   align_self? : AlignItems,
   flex? : Double,
+  flex_shrink? : Double,
+  flex_basis? : Double,
+  flex_basis_percent? : Double,
   gap? : Double,
   row_gap? : Double,
   column_gap? : Double,
@@ -170,6 +173,9 @@ pub fn style(
   s.align_items = align_items
   s.align_self = align_self
   s.flex = flex
+  s.flex_shrink = flex_shrink
+  s.flex_basis = flex_basis
+  s.flex_basis_percent = flex_basis_percent
   match gap {
     Some(v) => {
       s.row_gap = Some(v)

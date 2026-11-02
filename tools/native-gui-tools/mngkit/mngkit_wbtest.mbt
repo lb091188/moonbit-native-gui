@@ -643,3 +643,44 @@ test "样式章：布局枚举关键字 → @yoga 枚举；坏关键字报错" {
     },
   )
 }
+
+///|
+test "样式章：flex 简写展开 grow/shrink/basis；坏值报错" {
+  let src = [
+    "<style>",
+    ".a { flex: 1 0 100%; }",
+    ".b { flex: 2; }",
+    ".c { flex_basis: 40%; flex-shrink: 0; }",
+    "</style>",
+    "<template>",
+    "  <ui-col class=\"a\" />",
+    "</template>",
+  ].join("\n")
+  let code = match compile(src, "flex.mng") {
+    Ok(o) => o.code
+    Err(e) => abort("\{e}")
+  }
+  assert_true(contains_sub(code, "flex=1.0, flex_shrink=0.0, flex_basis_percent=100.0"))
+  assert_true(contains_sub(code, "flex=2.0, flex_shrink=1.0, flex_basis=0.0"))
+  assert_true(contains_sub(code, "flex_basis_percent=40.0, flex_shrink=0.0"))
+  let bad_auto = compile(
+    "<style>\n.a { flex: 1 0 auto; }\n</style>\n<template>\n  <ui-col class=\"a\" />\n</template>",
+    "f1.mng",
+  )
+  assert_true(
+    match bad_auto {
+      Err(e) => contains_sub(e, "basis 要像素或百分比")
+      _ => false
+    },
+  )
+  let bad_len = compile(
+    "<style>\n.a { flex: 1 2 3 4; }\n</style>\n<template>\n  <ui-col class=\"a\" />\n</template>",
+    "f2.mng",
+  )
+  assert_true(
+    match bad_len {
+      Err(e) => contains_sub(e, "最多三段")
+      _ => false
+    },
+  )
+}
