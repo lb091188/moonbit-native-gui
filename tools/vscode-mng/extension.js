@@ -534,10 +534,27 @@ function stopClient() {
   }
 }
 
+function registerDevCommand(ctx) {
+  ctx.subscriptions.push(
+    vscode.commands.registerCommand('mng.dev', function () {
+      const ws = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0];
+      if (!ws) {
+        vscode.window.showWarningMessage('MNG: dev 需要先打开工程目录');
+        return;
+      }
+      const cli = vscode.workspace.getConfiguration('mng').get('cliPath', 'mng');
+      const t = vscode.window.createTerminal({ name: 'MNG dev', cwd: ws.uri.fsPath });
+      t.show();
+      t.sendText(cli + ' dev');
+    })
+  );
+}
+
 function activate(ctx) {
   status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   status.show();
   ctx.subscriptions.push(status);
+  registerDevCommand(ctx);
 
   const diagnostics = vscode.languages.createDiagnosticCollection('mng');
   ctx.subscriptions.push(diagnostics);

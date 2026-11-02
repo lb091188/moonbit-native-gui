@@ -89,6 +89,10 @@ TextMate 是正则文法，只能按词形近似（大写当类型、其余小�
 
 真机验证清单（装 0.2.4 后）：打开 `examples/showcase/pages/dev_demo.mng`——①`qty`/`nick` 是变量档（不可变，亮于正文）；②`Store`/`String`/`Int` 是类型档；③`on_reset` 函数档、`qty.set()`/`@shared.tx()` 方法档；④`@shared` 命名空间档；⑤`{{ qty }}`、`v-model="nick"`、`:text="@shared.tx(…)"`、`@click="on_reset"` 与 script 段同档；⑥带 props 签名头的页里，签名参数是 parameter 档（与变量不同色）；⑦关 LSP 后着色退回纯 TextMate 不报错。
 
+## 命令面板
+
+- **MNG: dev — 模板开发循环**：在集成终端里对工作区根执行 `mng dev`（读 `mng.toml` 盯整个工程的 `.mng` 与主题文件）。可执行文件取 `mng.cliPath` 设置（默认 `mng`，装法见「装」）；停 Ctrl-C。
+
 ## 已知边界
 
 - 跨工程索引不做：跳转与补全只按当前文件所在包的 `moon.pkg` 解析导入。
