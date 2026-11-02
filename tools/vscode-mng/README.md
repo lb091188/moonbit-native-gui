@@ -9,9 +9,9 @@
    ```sh
    npx @vscode/vsce package
    ```
-   得到 `mng-vscode-0.2.2.vsix`，VS Code → 扩展 → `…` → 从 VSIX 安装（覆盖旧版加 `--force`）：
+   得到 `mng-vscode-0.2.3.vsix`，VS Code → 扩展 → `…` → 从 VSIX 安装（覆盖旧版加 `--force`）：
    ```sh
-   code --install-extension mng-vscode-0.2.2.vsix --force
+   code --install-extension mng-vscode-0.2.3.vsix --force
    ```
    或开发期直接把本目录软链到 `~/.vscode/extensions/`。**升级后必须 Reload Window**，TextMate 文法随扩展加载，不重载仍是旧着色。
 3. 设置（可选）：`mng.cliPath` 指向可执行文件（默认先查 PATH，再查 `~/.moon/bin`）；`mng.enableLsp=false` 只要着色与 snippets。
@@ -26,7 +26,7 @@
 | snippets | 页骨架、props 头、单根模板、`v-model`、条件链、样式类、组件调用、跨包绑定 |
 | 补全 | 标签 = 内置组件表 + 页内符号；属性 = 内置参数 + `v-*` / `@事件`；表达式与 script 段 = 页内符号 + `moon.pkg` 的 `@别名` 表，`@别名.` 后给该包 `.mbti` 的公开成员（函数 / `类型::方法` / 类型 / 常量）；`class="…"` = 本文件 `<style>` 的类名；`<style>` 段 = 属性名（kebab）+ `var(--令牌)` 的主题色/尺度令牌 |
 | 诊断 | 编译错误的模板行列（与 `mng_cli build` 同源），显示在 Problems 面板 |
-| hover | 内置组件参数表；`@别名.成员` 显示源码声明行；`@别名` 显示包目录 |
+| hover | 内置组件参数表；`v-*` 指令 / `@事件` / `:动态参数` 各给说明；`@别名.成员` 显示源码声明行；`@别名` 显示包目录。文案随编辑器语言（`vscode.env.language`）中英切换；诊断文本来自编译器，暂为中文 |
 | 跳转 | 组件标签 → 组件源码（内置 `ui-*` 走 `@ui.<名>`）；页内标识符 → 声明行；`@别名.成员` → 该包源码文件与行号；裸 `@别名` → 包入口（`.mbti` / `moon.pkg`） |
 
 **刻意不做**：原生 HTML / CSS 的语义补全（能力子集与原生差距大，原生只作高亮底子）；v1 没有真实类型 hover（需桥 `moon ide` 与 source map 正向索引，另批）。

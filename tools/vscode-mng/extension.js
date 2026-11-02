@@ -112,6 +112,7 @@ class MngClient {
     return this.request('initialize', {
       processId: process.pid,
       rootUri: rootUri || null,
+      locale: vscode.env.language,
       capabilities: {
         textDocument: {
           synchronization: { dynamicRegistration: false },
@@ -121,7 +122,7 @@ class MngClient {
           publishDiagnostics: {},
         },
       },
-      clientInfo: { name: 'mng-vscode', version: '0.2.2' },
+      clientInfo: { name: 'mng-vscode', version: '0.2.3' },
     }).then((res) => {
       this.notify('initialized', {});
       return res;

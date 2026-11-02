@@ -306,3 +306,36 @@ test "LSP：<style> 令牌与属性名补全、错误坐标回到模板行" {
     None => assert_true(false)
   }
 }
+
+///|
+test "LSP：指令悬浮不再当组件；提示文案随 locale 中英切换" {
+  let docs : Map[String, String] = Map([])
+  let uri = "file:///tmp/lsp_hover_i18n.mng"
+  let text = [
+    "<script setup lang=\"moonbit\">",
+    "let qty : @base.Store[Int] = @base.Store::new(0)",
+    "</script>",
+    "<template>",
+    "  <ui-stepper v-model=\"qty\" max=\"10\" />",
+    "</template>",
+  ].join("\n") + "\n"
+  let _ = lsp_handle(docs, did_open(uri, text))
+  // 默认中文：v-model 是指令说明，不再报成自定义组件
+  match lsp_handle(docs, req(30, "textDocument/hover", pos_params(uri, 4, 16))).reply {
+    Some(r) =>
+      assert_true(contains_sub_l(r, "双向绑定") && !contains_sub_l(r, "自定义组件"))
+    None => assert_true(false)
+  }
+  // locale=en → 英文
+  let _ = lsp_handle(docs, req(31, "initialize", "{\"locale\":\"en-US\"}"))
+  match lsp_handle(docs, req(32, "textDocument/hover", pos_params(uri, 4, 16))).reply {
+    Some(r) => assert_true(contains_sub_l(r, "two-way binding"))
+    None => assert_true(false)
+  }
+  match lsp_handle(docs, req(33, "textDocument/hover", pos_params(uri, 4, 6))).reply {
+    Some(r) =>
+      assert_true(contains_sub_l(r, "ui-stepper") && contains_sub_l(r, "params:"))
+    None => assert_true(false)
+  }
+  lsp_locale[0] = ""
+}

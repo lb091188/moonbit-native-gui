@@ -5,6 +5,21 @@
 // v1 不做：真实类型 hover（需桥 moon ide + source map 正向索引）、跨工程索引。
 
 ///|
+/// 编辑器语言（initialize.params.locale，如 zh-cn / en）；空 = 中文。
+let lsp_locale : Array[String] = [""]
+
+///|
+/// 提示文案：zh 开头（或未上报）走中文，其余走英文。
+fn lmsg(zh : String, en : String) -> String {
+  let l = lsp_locale[0]
+  if l.length() == 0 || l.has_prefix("zh") {
+    zh
+  } else {
+    en
+  }
+}
+
+///|
 /// 一条报文处理结果：回应（有 id 时）、附带通知（诊断）、是否退出。
 priv struct LspOut {
   reply : String?
@@ -858,18 +873,13 @@ fn lsp_hover(uri : String, text : String, line : Int, ch : Int) -> String {
   let off = offset_of(text, line, ch)
   let (ctx, partial, tag) = lsp_context(text, off)
   let content = match ctx {
-    "attr" | "tag" => {
-      let tag = expand_token(text, off, tag)
-      if tag.length() > 0 {
-        match @mngkit.builtin_params(tag) {
-          Some(ps) => "`<" + tag + ">` 参数：" + ps.join(", ")
-          None => "自定义组件 `<" + tag + ">`（参数见其 props 头）"
-        }
-      } else {
-        ""
-      }
-    }
-    "class" => "类 `" + partial + "`：由 `<style>` 摊平进命名类注册表"
+    "tag" => component_hover(expand_token(text, off, tag))
+    "attr" => attr_hover(text, off, partial, tag)
+    "class" =>
+      lmsg(
+        "类 `" + partial + "`：由 `<style>` 摊平进命名类注册表",
+        "Class `" + partial + "`: flattened from `<style>` into the named-class registry",
+      )
     "expr" | "script" => hover_pkg_member(uri, text, off, partial)
     _ => ""
   }
@@ -877,6 +887,78 @@ fn lsp_hover(uri : String, text : String, line : Int, ch : Int) -> String {
     "null"
   } else {
     "{\"contents\":{\"kind\":\"markdown\",\"value\":" + jq(content) + "}}"
+  }
+}
+
+///|
+/// 标签悬浮：内置组件给参数表，自定义组件指路 props 头。
+fn component_hover(tag : String) -> String {
+  if tag.length() == 0 {
+    return ""
+  }
+  match @mngkit.builtin_params(tag) {
+    Some(ps) =>
+      lmsg(
+        "`<" + tag + ">` 参数：" + ps.join(", "),
+        "`<" + tag + ">` params: " + ps.join(", "),
+      )
+    None =>
+      lmsg(
+        "自定义组件 `<" + tag + ">`（参数见其 props 头）",
+        "Custom component `<" + tag + ">` (params: see its props head)",
+      )
+  }
+}
+
+///|
+/// 属性位悬浮：指令 / 事件 / 动态参数各给一句，普通属性回落到组件的参数表。
+fn attr_hover(text : String, off : Int, partial : String, tag : String) -> String {
+  let tok = expand_token(text, off, partial)
+  if tok.has_prefix("v-") {
+    match tok {
+      "v-model" =>
+        lmsg(
+          "`v-model`：双向绑定，值写 script 里的 Store 名",
+          "`v-model`: two-way binding; name a Store declared in <script>",
+        )
+      "v-if" | "v-else-if" =>
+        lmsg(
+          "`" + tok + "`：条件渲染，值为 Bool 表达式",
+          "`" + tok + "`: conditional render; value is a Bool expression",
+        )
+      "v-show" =>
+        lmsg(
+          "`v-show`：显隐切换，值为 Bool 表达式（保留布局）",
+          "`v-show`: toggle visibility; Bool expression (keeps layout)",
+        )
+      "v-else" =>
+        lmsg("`v-else`：与最近的 `v-if` 配对", "`v-else`: pairs with the nearest `v-if`")
+      "v-for" =>
+        lmsg(
+          "`v-for`：v1 不支持，列表请用 ListStore 组件",
+          "`v-for`: not supported in v1; use ListStore components for lists",
+        )
+      _ => lmsg("模板指令", "Template directive")
+    }
+  } else if tok.has_prefix("@") {
+    lmsg(
+      "`" + tok + "`：事件，值写 script 里的 handler 名",
+      "`" + tok + "`: event; name a handler fn from <script>",
+    )
+  } else if tok.has_prefix(":") {
+    lmsg(
+      "`" + tok + "`：动态参数，值是表达式",
+      "`" + tok + "`: bound prop; value is an expression",
+    )
+  } else if tok == "class" {
+    lmsg(
+      "`class`：引用 `<style>` 里定义的类名",
+      "`class`: references a class defined in <style>",
+    )
+  } else if tag.length() > 0 {
+    component_hover(tag)
+  } else {
+    ""
   }
 }
 
@@ -926,8 +1008,11 @@ fn lsp_definition(uri : String, text : String, line : Int, ch : Int) -> String {
   let off = offset_of(text, line, ch)
   let (ctx, partial, tag) = lsp_context(text, off)
   let sigs = sigs_for(uri)
-  let loc = if ctx == "tag" || ctx == "attr" {
-    component_loc(sigs, text, off, tag)
+  let loc = if ctx == "tag" {
+    component_loc(sigs, text, expand_token(text, off, tag))
+  } else if ctx == "attr" {
+    // 属性位跳组件本身（属性名不是组件名）
+    component_loc(sigs, text, tag)
   } else {
     symbol_loc(sigs, uri, text, off, partial)
   }
@@ -942,10 +1027,8 @@ fn lsp_definition(uri : String, text : String, line : Int, ch : Int) -> String {
 fn component_loc(
   sigs : @mngkit.Sigs,
   text : String,
-  off : Int,
-  tag : String,
+  name : String,
 ) -> @mngkit.Loc? {
-  let name = expand_token(text, off, tag)
   if name.length() == 0 {
     return None
   }
@@ -1036,6 +1119,14 @@ fn lsp_handle(docs : Map[String, String], body : String) -> LspOut {
   }
   match meth {
     "initialize" => {
+      match jpath(parsed, "params/locale") {
+        Some(x) =>
+          match json_str(x) {
+            Some(l) => lsp_locale[0] = l
+            None => ()
+          }
+        None => ()
+      }
       let caps = "{\"capabilities\":{\"textDocumentSync\":1," + "\"completionProvider\":{\"triggerCharacters\":[\"<\",\":\",\"@\",\"{\",\" \",\"\\\"\",\".\",\"-\",\"(\"]},"
       let caps2 = "\"hoverProvider\":true,\"definitionProvider\":true}," + "\"serverInfo\":{\"name\":\"mng_cli\",\"version\":\"0.1.0\"}}"
       lsp_ok(respond(caps + caps2))
