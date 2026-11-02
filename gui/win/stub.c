@@ -1293,12 +1293,16 @@ void wm_set_layer(int64_t id, int layer) {
 /* W33 背景透视（Win32）：记意图，实际由 wm_apply_trans 折算成档位。
  * 不能用 LWA_COLORKEY 顶替——色键只认一个颜色，帧里 a=0 的像素并不等于
  * 某个固定 RGB，把键设成黑又会把真正的黑色像素一起打穿。 */
-void wm_set_transparent_bg(int64_t id, int on) {
-  if (id <= 0 || id >= WM_MAX_WINDOWS) return;
+/* 返回档：0=已应用 1=平台无此能力 2=前置不满足（MoonBit 转 Failed 带原因）。 */
+int wm_set_transparent_bg(int64_t id, int on) {
+  if (id <= 0 || id >= WM_MAX_WINDOWS) return 1;
   WmWindow *w = &wm_windows[id];
-  if (w->hwnd == NULL) return;
+  if (w->hwnd == NULL) return 1;
+  // 前置：无边框（W33 口径——带边框的窗不透视）
+  if (on && !w->borderless) return 2;
   w->trans_want = on ? 1 : 0;
   wm_apply_trans(w);
+  return 0;
 }
 
 void wm_size(int64_t id, int32_t *out_w, int32_t *out_h) {
@@ -4362,6 +4366,13 @@ int64_t wm_native_handle(int64_t id) {
   return (int64_t)(intptr_t)w->hwnd;
 }
 
+// 窗口外壳能力位（Window::shell_caps 的 C 侧，MoonBit 同序解码）：
+// 1=title 2=icon 4=min_size 8=drag_rect 16=borderless 32=opacity
+// 64=transparent_bg 128=layer。Win32 支全真。
+int64_t wm_shell_caps(void) {
+  return 255;
+}
+
 // 原生弹层窗（Win32 真实现）：无边框 + 不进任务栏/Alt+Tab + transient 到 owner
 // （owned 窗恒压在 owner 之上、随其移动、owner 关闭时一并收）。此前这里是空桩，
 // 弹层于是带着标题栏按初始 320x200 的普通窗上屏，就是一块白板（Windows 真机反馈）。
@@ -5507,14 +5518,16 @@ void wm_set_layer(int64_t id, int layer) {
  * 建窗时选定 32 位（见 wm_window_new），于是帧里 a=0 的像素真的透出下层。
  * 只切 paintable 是不够的：visual 不是 RGBA 时 GTK 直接把 alpha 丢掉，
  * 而 visual 又只能在 realize 前选——这就是本档「接了却没效果」的那半条。 */
-void wm_set_transparent_bg(int64_t id, int on) {
-  if (id <= 0 || id >= WM_MAX_WINDOWS) return;
+/* 返回档：0=已应用 1=平台无此能力（对齐 Win32 支的透明底返回口径）。 */
+int wm_set_transparent_bg(int64_t id, int on) {
+  if (id <= 0 || id >= WM_MAX_WINDOWS) return 1;
   WmWindow *w = &wm_windows[id];
-  if (w->window == NULL) return;
+  if (w->window == NULL) return 1;
   gtk_widget_set_app_paintable(w->window, on ? TRUE : FALSE);
   // 切完要重画一次：GTK 不会因为 paintable 变了就自己把旧底清掉
   gtk_widget_queue_draw(w->window);
   wm_mark_draw(w);
+  return 0;
 }
 
 void wm_size(int64_t id, int32_t *out_w, int32_t *out_h) {
@@ -5756,6 +5769,26 @@ int64_t wm_native_handle(int64_t id) {
     return 0;
   }
   return (int64_t)(intptr_t)win->window;
+}
+
+// 窗口外壳能力位（1=title 2=icon 4=min_size 8=drag_rect 16=borderless
+// 32=opacity 64=transparent_bg 128=layer）。X11 支：title/borderless/layer 真；
+// opacity 与 transparent_bg 要合成器（_NET_WM_CM_S0 有主才算，没有时
+// gdk_window_set_opacity / app_paintable 静默无效，探测口径与之一致）；
+// icon/min_size/drag_rect 是空桩、title 读回未实现，都不给位。
+int64_t wm_shell_caps(void) {
+  int64_t caps = 1 | 16 | 128;
+  GdkDisplay *gd = gdk_display_get_default();
+  if (gd != NULL) {
+    Display *d = gdk_x11_display_get_xdisplay(gd);
+    if (d != NULL) {
+      Atom cm = XInternAtom(d, "_NET_WM_CM_S0", True);
+      if (cm != None && XGetSelectionOwner(d, cm) != None) {
+        caps |= 32 | 64;
+      }
+    }
+  }
+  return caps;
 }
 
 // ---- 原生弹层窗口 ----
@@ -9163,17 +9196,19 @@ void wm_set_layer(int64_t id, int layer) {
 // W33 背景透明（Cocoa 档）：opaque=NO + 底色给 clear，并让视图自己声明非不透明
 // （见 WMView isOpaque）；绘制区不铺底的像素因此会露成透明，桌面从洞里透出。
 // 铺了底色的控件照旧不透明——「背景透视」要的就是这个效果，不是整窗 alpha。
-void wm_set_transparent_bg(int64_t id, int on) {
+/* 返回档：0=已应用 1=平台无此能力（对齐 Win32/GTK 支的透明底返回口径）。 */
+int wm_set_transparent_bg(int64_t id, int on) {
   @autoreleasepool {
     WMState *s = wm_state(id);
     if (s == nil) {
-      return;
+      return 1;
     }
     s->transparent = on ? 1 : 0;
     [s.win setOpaque:on ? NO : YES];
     [s.win setBackgroundColor:on ? [NSColor clearColor]
                                  : [NSColor windowBackgroundColor]];
     [s.view setNeedsDisplay:YES];
+    return 0;
   }
 }
 
@@ -9900,6 +9935,13 @@ int64_t wm_native_handle(int64_t id) {
     return 0;
   }
   return (int64_t)(uintptr_t)(__bridge void *)s.win;
+}
+
+// 窗口外壳能力位（位表同 GTK 支注释）。Cocoa 支：title/min_size/drag_rect/
+// borderless/opacity/transparent_bg/layer 全真；icon 不给——set_icon 在 mac 落
+// NSApp 应用图标（应用级），不是窗口族能力。
+int64_t wm_shell_caps(void) {
+  return 1 | 4 | 8 | 16 | 32 | 64 | 128;
 }
 
 int wm_window_surface_count(int64_t id) {
@@ -12348,7 +12390,7 @@ int wm_is_hidden(int64_t id) {
 
 void wm_set_opacity(int64_t id, int alpha) { (void)id; (void)alpha; }
 void wm_set_layer(int64_t id, int layer) { (void)id; (void)layer; }
-void wm_set_transparent_bg(int64_t id, int on) { (void)id; (void)on; }
+int wm_set_transparent_bg(int64_t id, int on) { (void)id; (void)on; return 1; }
 
 void wm_size(int64_t id, int32_t *out_w, int32_t *out_h) {
   (void)id;
@@ -12777,6 +12819,11 @@ void wm_inst_release(void) {}
 // 平台原生窗口句柄（逃生口）：无窗口后端恒 0。
 int64_t wm_native_handle(int64_t id) {
   (void)id;
+  return 0;
+}
+
+// 窗口外壳能力位：无窗口后端恒 0。
+int64_t wm_shell_caps(void) {
   return 0;
 }
 

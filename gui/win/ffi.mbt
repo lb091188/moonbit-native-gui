@@ -32,7 +32,10 @@ extern "c" fn wm_set_opacity(id : Int64, alpha : Int) -> Unit = "wm_set_opacity"
 extern "c" fn wm_set_layer(id : Int64, layer : Int) -> Unit = "wm_set_layer"
 
 ///|
-extern "c" fn wm_set_transparent_bg(id : Int64, on : Int) -> Unit = "wm_set_transparent_bg"
+extern "c" fn wm_shell_caps() -> Int64 = "wm_shell_caps"
+
+///|
+extern "c" fn wm_set_transparent_bg(id : Int64, on : Int) -> Int = "wm_set_transparent_bg"
 
 ///|
 #borrow(out_w, out_h)

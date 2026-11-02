@@ -318,9 +318,11 @@ pub fn App::window(self : App) -> @win.Window {
 /// 背景透视开关（转给本窗平台层），并让宿主默认页面底随之让位——铺满整窗的
 /// `bg_page` 会把「没铺到的像素」吃光，透视开着时它必须退场；关透视时恢复。
 /// 想要的观感是「控件没铺到的像素透出桌面」时，本窗的内容就别再整片铺底。
+/// 失败档（平台无此能力 / 前置不满足）在这里收平为空操作；要分辨就直调
+/// `Window::set_transparent_bg`（`Result` 带原因）或先探 `Window::shell_caps`。
 pub fn App::set_transparent_bg(self : App, on : Bool) -> Unit {
   self.page_fill = !on
-  self.session.window.set_transparent_bg(on)
+  let _ = self.session.window.set_transparent_bg(on)
 }
 
 ///|

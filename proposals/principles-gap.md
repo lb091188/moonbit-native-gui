@@ -127,6 +127,8 @@
 
 ### 3.1 同签名未实现端可探测
 
+> ✅ 已落地（2026-11-02）：①文档步——窗口族方法契约注释逐平台钉死（含 GTK 无边框可设但读回恒 false、mac 标题读写全真等事实修正）；②签名步——`Window::shell_caps()` 八位能力探测（GTK 的 opacity/transparent_bg 位实时探合成器）+ `set_transparent_bg` 改 `Result`（`Unsupported`/`Failed` 带原因，对齐系统能力族口径）。
+
 **现状**：窗口方法族存在「同签名、悄悄无效」：W20e 窗口增强（改标题/图标/最小尺寸/无边框）非 Windows 端空实现、读回 0/false（`gui/win/window.mbt`）；`set_opacity` 无合成器时静默无效；`set_transparent_bg` Windows 需先无边框的前置不报。而系统能力族是 `*_supported()` 真探测 + `Unsupported`/`Failed` 分档——同一库内两套口径。
 
 **为什么要加**：「诚实降级」是全库纪律（README Highlights 明写），窗口方法族读回假值与之相悖。调用方无法区分「本平台没实现」「当前环境不生效」「调用失败」，跨平台代码会写出看似统一、实际只在单平台生效的逻辑。

@@ -24,7 +24,6 @@
 
 ## 设计原则补齐（2026-11-02 拍板，落差清单见 [proposals/principles-gap.md](proposals/principles-gap.md)；按其 §五 优先级排序，做完一项删一项并同步路线图）
 
-- [ ] **3.1 窗口族诚实降级（分两步）**：①文档步——`Window::set_title/set_icon/set_min_size/set_opacity/set_transparent_bg` 等契约注释逐平台钉死读回值含义（非 Windows 空实现读回 0/false、无合成器静默无效、Windows 透明底前置无边框，全部写明）；②签名步（0.x 破坏性改动）——补 `*_supported()` 探测或 setter 返回 `Result`/`Bool`，前置不满足进 `Failed` 档带原因文案（对齐系统能力族口径）
 - [ ] **1.4 `@ui` 公共面收窄**：`button_skin` / `button_skin_token` / `paint_subset` / `fold_color` / `mask_of` 逐个判断去向——纯实现细节去 pub（0.x 破坏记提交信息），确有外部价值的（如 `fold_style`）保留并写文档；同批核对 examples 与测试文档无引用
 - [ ] **2.3 `dark:`/`light:` 变体接入组件消费**：从 `gui/style/tokens.mbt` 挑 2–3 个确需深浅分档的内置样式（阴影深浅 / 边框强度 / 代码视图底色）改变体前缀写法；补「切深浅后变体生效 + 重绘」回归测试
 - [ ] **2.4 code_view 主题化**：One Dark 硬编码色板（gui/ui/codeview.mbt）抽成按 `Theme` 派生的代码配色（深浅基底各一套：背景/前景/关键字/字符串/注释映射 theme token 或派生），默认跟 `theme_current()`；保留显式 `code_theme` 参数给刻意场景

@@ -117,7 +117,10 @@ pub fn Window::is_hidden(self : Window) -> Bool {
 }
 
 ///|
-/// 设置整窗透明度（0=全透，255=不透明）。Linux 需合成器在无合成器环境下静默无效。
+/// 设置整窗透明度（0=全透，255=不透明，连同文字与控件一起变淡）。
+/// 平台口径：Win32（`WS_EX_LAYERED`）与 macOS（`alphaValue`）真实现；
+/// Linux 走 `gdk_window_set_opacity`，X11 需合成器，**无合成器静默无效**
+/// ——先探 `shell_caps().opacity`。
 pub fn Window::set_opacity(self : Window, alpha : Int) -> Unit {
   let a = if alpha < 0 { 0 } else if alpha > 255 { 255 } else { alpha }
   wm_set_opacity(self.id, a)
@@ -125,6 +128,7 @@ pub fn Window::set_opacity(self : Window, alpha : Int) -> Unit {
 
 ///|
 /// 设置窗口层级。`layer`：0=普通 1=桌面(沉底，图标下面壁纸上面) 2=置顶 3=dock(面板)。
+/// 三平台全真（Win32 桌面档 / X11 `_NET_WM_STATE` 族 / Cocoa level + collectionBehavior）。
 pub fn Window::set_layer(self : Window, layer : WindowLayer) -> Unit {
   wm_set_layer(self.id, window_layer_to_int(layer))
 }
@@ -132,10 +136,23 @@ pub fn Window::set_layer(self : Window, layer : WindowLayer) -> Unit {
 ///|
 /// 背景透视：开启后控件没铺到的像素留成透明，桌面从那里透出来；铺了底色的
 /// 控件照旧不透明（这一点与 `set_opacity` 的整窗 alpha 不同），两者可以叠加。
-/// Windows 上要先 `set_borderless(true)`：带边框时自动退回不透视。
 /// 要看得见效果，窗里得真有「没铺到的像素」——整页铺满底色的窗看不出来。
-pub fn Window::set_transparent_bg(self : Window, on : Bool) -> Unit {
-  wm_set_transparent_bg(self.id, if on { 1 } else { 0 })
+///
+/// 诚实降级（对齐系统能力族口径）：平台没有这条能力（`shell_caps().transparent_bg`
+/// 为 false，如无窗口后端）返回 `Err(Unsupported)`；前置不满足返回
+/// `Err(Failed(原因))`——Windows 带边框的窗不支持透视，先 `set_borderless(true)`。
+pub fn Window::set_transparent_bg(
+  self : Window,
+  on : Bool,
+) -> Result[Unit, WindowShellError] {
+  if self.id <= 0L {
+    return Err(Failed("窗口已关闭"))
+  }
+  match wm_set_transparent_bg(self.id, if on { 1 } else { 0 }) {
+    0 => Ok(())
+    1 => Err(Unsupported)
+    _ => Err(Failed("Windows 透明底前置无边框：先 set_borderless(true)"))
+  }
 }
 
 ///|
@@ -353,8 +370,60 @@ pub fn Window::native_handle(self : Window) -> Int64 {
 
 // ---------------------- 窗口增强（W20e）------------------------------------
 // 自绘栈下窗口外壳要能被应用改：运行中改标题、设窗口图标（走 W20f 的图标
-// 句柄）、最小尺寸、自绘标题栏拖拽区、无边框开关。非 Windows 后端是空实现，
-// 故新增状态在那些平台上读回为 0/false——调用方按语义降级（不静默失败）。
+// 句柄）、最小尺寸、自绘标题栏拖拽区、无边框开关。
+//
+// **诚实降级口径**：这族方法同签名、跨平台实现不一——每条方法的契约注释
+// 逐平台钉死；调用方用 `Window::shell_caps()` 先探再调，读回值在未实现平台
+// 是 0/false/空串（各方法注释写明），不要拿读回值当「没设过」的证据。
+
+///|
+/// 窗口外壳能力探测（进程级，与具体窗口无关；对齐系统能力族 `*_supported()`
+/// 口径）。位与 C 侧 `wm_shell_caps` 一致；占位后端（无窗口平台）恒全 false。
+pub(all) struct WindowShellCaps {
+  /// 运行中改标题（三平台全真；GTK 的 `title()` **读回**未实现、恒空串）
+  title : Bool
+  /// 窗口图标（仅 Win32 真；mac 上 `set_icon` 落 NSApp 应用图标、不算窗口族；GTK 空）
+  icon : Bool
+  /// 最小客户区尺寸（Win32/mac 真；GTK 空实现、读回恒 (0, 0)）
+  min_size : Bool
+  /// 自绘标题栏拖拽区（Win32/mac 真；GTK 空实现、读回恒全 0）
+  drag_rect : Bool
+  /// 无边框开关（三平台全真；GTK 的 `is_borderless()` **读回**未实现、恒 false）
+  borderless : Bool
+  /// 整窗透明度（Win32/mac 真；GTK 需合成器——X11 无 `_NET_WM_CM_S0` 主时静默无效）
+  opacity : Bool
+  /// 背景透视（Win32/mac 真；GTK 需合成器；Win32 另有前置无边框，见 set_transparent_bg）
+  transparent_bg : Bool
+  /// 窗口层级档（三平台全真）
+  layer : Bool
+}
+
+///|
+/// 读本平台窗口外壳能力。各方法契约注释里的「哪平台真」以这里为准；
+/// 探测是实时口径（GTK 的合成器位随环境变化）。
+pub fn Window::shell_caps(self : Window) -> WindowShellCaps {
+  ignore(self)
+  let c = wm_shell_caps()
+  {
+    title: (c & 1L) != 0L,
+    icon: (c & 2L) != 0L,
+    min_size: (c & 4L) != 0L,
+    drag_rect: (c & 8L) != 0L,
+    borderless: (c & 16L) != 0L,
+    opacity: (c & 32L) != 0L,
+    transparent_bg: (c & 64L) != 0L,
+    layer: (c & 128L) != 0L,
+  }
+}
+
+///|
+/// 窗口外壳操作的失败档（对齐系统能力族 `Unsupported`/`Failed` 分档）。
+pub(all) enum WindowShellError {
+  /// 平台没有这条能力（`shell_caps` 对应位为 false）
+  Unsupported
+  /// 平台有能力但前置/状态不满足（文案带原因）
+  Failed(String)
+}
 
 ///|
 /// 窗口图标的落点：大图标（任务栏/Alt+Tab）/ 小图标（标题栏）/ 两者。
@@ -365,8 +434,9 @@ pub(all) enum IconTarget {
 }
 
 ///|
-/// 运行中改窗口标题（Win32 `SetWindowTextW` / GTK `gtk_window_set_title`；
-/// macOS 后端空实现）。
+/// 运行中改窗口标题。三平台全真：Win32 `SetWindowTextW` /
+/// GTK `gtk_window_set_title` / macOS `setTitle:`。
+/// 注意读回不对称：`title()` 在 GTK 恒空串（读回未实现）。
 pub fn Window::set_title(self : Window, title : String) -> Unit {
   wm_set_title(self.id, @utf8.encode(title))
 }
@@ -374,6 +444,9 @@ pub fn Window::set_title(self : Window, title : String) -> Unit {
 ///|
 /// 设窗口图标。`icon` 传 `None` 表示清空窗口图标；图标句柄归调用方所有，
 /// 窗口显示期间须保持其存活（先 free 会让窗口持一个悬垂 HICON）。
+/// 平台口径：仅 Win32 真（大/小 HICON）；GTK 空实现（无效果、不报错）；
+/// macOS 落 `NSApp` 应用图标（应用级、换 Dock 图标），不是窗口族能力——
+/// 用 `shell_caps().icon` 分辨。
 pub fn Window::set_icon(
   self : Window,
   icon : Icon?,
@@ -394,6 +467,7 @@ pub fn Window::set_icon(
 ///|
 /// 设最小客户区尺寸（像素；某轴传 0 即该轴不限制）。改的是**客户区**下限，
 /// 后端按当前样式外扩成整窗下限（Win32 `WM_GETMINMAXINFO` 拦）。
+/// 平台口径：Win32/mac 真；GTK 空实现（`min_size()` 读回恒 (0, 0)）。
 pub fn Window::set_min_size(self : Window, width : Int, height : Int) -> Unit {
   wm_set_min_size(self.id, width, height)
 }
@@ -402,6 +476,8 @@ pub fn Window::set_min_size(self : Window, width : Int, height : Int) -> Unit {
 /// 设自绘标题栏的拖拽区（客户区像素矩形；宽或高 <= 0 即清空）。命中区内的
 /// 按下交给系统当作「拖动窗口」，应用在该区收不到点击事件——这是自绘标题栏
 /// 的代价，区域要画得与「可拖」的视觉一致。
+/// 平台口径：Win32/mac 真（mac 侧配合无边框拖拽 `performWindowDrag`）；
+/// GTK 空实现（`drag_rect()` 读回恒全 0）。
 pub fn Window::set_drag_rect(
   self : Window,
   x : Int,
@@ -415,13 +491,15 @@ pub fn Window::set_drag_rect(
 ///|
 /// 无边框开关（自绘标题栏形态）：去掉系统标题栏与边框、保留最小化，
 /// **客户区尺寸保持不变**（后端按新样式重算外框）。
-/// Win32 改样式位重算外框；GTK 走 `gtk_window_set_decorated`。
+/// 三平台全真：Win32 改样式位重算外框 / GTK `gtk_window_set_decorated` /
+/// macOS 改 `styleMask`。
+/// 注意读回不对称：`is_borderless()` 在 GTK 恒 false（读回未实现）。
 pub fn Window::set_borderless(self : Window, on : Bool) -> Unit {
   wm_set_borderless(self.id, if on { 1 } else { 0 })
 }
 
 ///|
-/// 读回最小尺寸（非 Windows 后端恒 (0, 0)）。
+/// 读回最小尺寸（GTK 空实现，恒 (0, 0)；以 `shell_caps().min_size` 分辨）。
 pub fn Window::min_size(self : Window) -> (Int, Int) {
   let w = Ref(0)
   let h = Ref(0)
@@ -430,7 +508,7 @@ pub fn Window::min_size(self : Window) -> (Int, Int) {
 }
 
 ///|
-/// 读回拖拽区（非 Windows 后端恒全 0）。
+/// 读回拖拽区（GTK 空实现，恒全 0；以 `shell_caps().drag_rect` 分辨）。
 pub fn Window::drag_rect(self : Window) -> (Int, Int, Int, Int) {
   let x = Ref(0)
   let y = Ref(0)
@@ -441,13 +519,15 @@ pub fn Window::drag_rect(self : Window) -> (Int, Int, Int, Int) {
 }
 
 ///|
-/// 读回无边框开关（非 Windows 后端恒 false）。
+/// 读回无边框开关（GTK 读回未实现恒 false，设了也 false；以
+/// `shell_caps().borderless` 分辨「平台没实现」与「读不到」）。
 pub fn Window::is_borderless(self : Window) -> Bool {
   wm_is_borderless(self.id) != 0
 }
 
 ///|
-/// 读回系统侧当前窗口标题（空串表示读不到；非 Windows 后端空实现）。
+/// 读回系统侧当前窗口标题（空串 = 读不到；GTK 读回未实现恒空串，
+/// Win/mac 真）。
 pub fn Window::title(self : Window) -> String {
   let buf = Bytes::new(256)
   let n = wm_window_title(self.id, buf, 256)
