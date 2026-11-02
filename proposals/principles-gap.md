@@ -113,6 +113,8 @@
 
 ### 2.5 主题定制示例模块恢复
 
+> ✅ 已落地（2026-11-02）：`examples/theme-playground/` 独立模块注册 moon.work——四张卡对应换主色 / 全量覆盖 / 持续跟随 / 类槽单组件覆盖；空占位 hello-themed 已顺手清掉；测试用例 TP-1.1..5.1 共 7 条进 `测试文档/测试用例.md`（记录台同批加应用条目）。
+
 **现状**：`examples/hello-themed`、`examples/design-recipes` 已删（commit 37070e54，目录仅剩空占位）；现存定制示范只有 showcase `apply_theme` 一处片段。
 
 **为什么要加**：「简单直观的主题配置能力」需要可抄的最小起点。现在上手路径断了：文档讲概念，示例看不全，能抄的散在 demo 板里。
