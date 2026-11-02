@@ -71,7 +71,7 @@
 
 - [ ] **S0 修文档矛盾**：roadmap.md:162 硬阴影条目与代码对齐。
 - [x] **S1 设计令牌**（2026-11-02 落地）：四阶进 `Theme`（`space_scale`/`radius_scale`/`type_scale`/`duration_scale`，pub(all) 破坏记提交信息）+ 基准常量与静态间距令牌（`space_2..24`）+ 运行时 getter（`theme_space/radius/type_size/duration`，越界首末夹取）+ `from_json` 白名单同步扩四字段；`tokens.mbt` 35 处刻度间距字面量换令牌单源（非刻度组件现状值保留并自注释）。时长阶基准 80/120/200/320 为初值（库内 transition 无集中档，供样式与应用按档取用）。
-- [ ] **S2 background-gradient**：Style 字段 + 双后端接入 + 半透明 stop 口径钉测试。
+- [x] **S2 background-gradient**（2026-11-02 落地）：`GradientSpec`（归一化几何 Linear/Radial + stops 复用 style `Color`——token 名绘制期现取）+ `style(background_gradient=)` kwargs + merge/setter；`apply_gradient_bg` 落色助手，view 盒子（view/col/row/panel/card 全走它）渐变优先、不足两 stop 回落纯色。半透明 stop 双后端插值口径差已在 adaptation.md「与 cairo 的已知口径差」记档，不透明 stop 主链 wbtest 像素钉死，半透明 golden 归 Windows/mac 批。
 - [ ] **S3 每角 radius + 每边 border**：扩 `trace_round_rect` 四半径 + raster 快路 guard；四边条合成 + 角接缝。
 - [ ] **S4 mix-blend-mode / overflow / line-through**：语义暴露 + 自绘线扩展。
 - [ ] **S5（选做，贵）letter_spacing**：三引擎 stub + measure/paint 一致性；先确认 DWrite 逐字形方案再排期。
