@@ -44,6 +44,10 @@ pub fn from_json(
   }
   let vals : Map[String, String] = Map([])
   let mut palette : Array[String]? = None
+  let mut space_scale : Array[Double]? = None
+  let mut radius_scale : Array[Double]? = None
+  let mut type_scale : Array[Double]? = None
+  let mut duration_scale : Array[Double]? = None
   for kv in pairs {
     let k = kv.0
     let v = kv.1
@@ -60,6 +64,34 @@ pub fn from_json(
           palette = Some(cs)
         }
         _ => return Err("chart_palette: 必须是颜色字符串数组")
+      }
+      continue
+    }
+    if k == "space_scale" || k == "radius_scale" || k == "type_scale" || k == "duration_scale" {
+      match v {
+        @sys.VscJArr(xs) => {
+          let ds : Array[Double] = []
+          for x in xs {
+            match x {
+              @sys.VscJFloat(f) => ds.push(f)
+              @sys.VscJInt(n) => ds.push(n.to_double())
+              _ => return Err("\{k}: 必须是数字数组")
+            }
+          }
+          if ds.length() == 0 {
+            return Err("\{k}: 不能是空数组（去掉该字段即回落基准）")
+          }
+          if k == "space_scale" {
+            space_scale = Some(ds)
+          } else if k == "radius_scale" {
+            radius_scale = Some(ds)
+          } else if k == "type_scale" {
+            type_scale = Some(ds)
+          } else {
+            duration_scale = Some(ds)
+          }
+        }
+        _ => return Err("\{k}: 必须是数字数组")
       }
       continue
     }
@@ -102,6 +134,22 @@ pub fn from_json(
     chart_palette: match palette {
       Some(p) => p
       None => base.chart_palette
+    },
+    space_scale: match space_scale {
+      Some(x) => x
+      None => base.space_scale
+    },
+    radius_scale: match radius_scale {
+      Some(x) => x
+      None => base.radius_scale
+    },
+    type_scale: match type_scale {
+      Some(x) => x
+      None => base.type_scale
+    },
+    duration_scale: match duration_scale {
+      Some(x) => x
+      None => base.duration_scale
     },
   })
 }

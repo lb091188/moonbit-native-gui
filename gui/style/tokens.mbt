@@ -66,7 +66,7 @@ pub let panel_base : Style = style(
   border_width=1.0,
   border_color="border",
   padding=10.0,
-  row_gap=6.0,
+  row_gap=@theme.space_6,
 )
 
 ///|
@@ -75,8 +75,8 @@ pub let card : Style = style(
   background_color="bg_panel",
   border_width=1.0,
   border_color="border",
-  padding=12.0,
-  row_gap=6.0,
+  padding=@theme.space_12,
+  row_gap=@theme.space_6,
 )
 
 ///|
@@ -92,8 +92,8 @@ pub let button_solid : Style = style(
   background_color="primary",
   color="#fff",
   font_size=13.0,
-  padding_left=12.0,
-  padding_right=12.0,
+  padding_left=@theme.space_12,
+  padding_right=@theme.space_12,
   height=@theme.control_height,
 )
 .hover(background_color="primary_hover", color="#fff")
@@ -107,8 +107,8 @@ pub let button_base : Style = style(
   background_color="primary_light",
   color="primary",
   font_size=13.0,
-  padding_left=12.0,
-  padding_right=12.0,
+  padding_left=@theme.space_12,
+  padding_right=@theme.space_12,
   height=@theme.control_height,
 )
 .hover(background_color="primary", color="#fff")
@@ -123,8 +123,8 @@ pub let button_border : Style = style(
   border_width=1.0,
   border_color="border",
   font_size=13.0,
-  padding_left=12.0,
-  padding_right=12.0,
+  padding_left=@theme.space_12,
+  padding_right=@theme.space_12,
   height=@theme.control_height,
 )
 .hover(background_color="fill_hover")
@@ -135,8 +135,8 @@ pub let button_border : Style = style(
 pub let button_text : Style = style(
   color="primary",
   font_size=13.0,
-  padding_left=12.0,
-  padding_right=12.0,
+  padding_left=@theme.space_12,
+  padding_right=@theme.space_12,
   height=@theme.control_height,
 )
 .hover(background_color="fill_hover")
@@ -148,8 +148,8 @@ pub let button_danger : Style = style(
   background_color="danger",
   color="#fff",
   font_size=13.0,
-  padding_left=12.0,
-  padding_right=12.0,
+  padding_left=@theme.space_12,
+  padding_right=@theme.space_12,
   height=@theme.control_height,
 )
 .hover(background_color="danger_hover", color="#fff")
@@ -206,7 +206,7 @@ pub let input_disabled : Style = style(
 /// 多行输入 `textarea`（皮肤同 `input_base`，现状另带 padding 4 与行内边距）。
 pub let textarea_base : Style = merge(
   input_base,
-  style(padding=4.0, width=260.0),
+  style(padding=@theme.space_4, width=260.0),
 )
 
 ///|
@@ -305,7 +305,7 @@ pub let form_error_base : Style = style(font_size=12.0, color="danger", height=1
 
 ///|
 /// 表单容器 `form`（现状无底色：列布局行距 8，标题走 `text_title`）。
-pub let form_base : Style = style(row_gap=8.0)
+pub let form_base : Style = style(row_gap=@theme.space_8)
 
 // ---- 弹层与浮层 ----
 
@@ -325,7 +325,7 @@ pub let overlay_row_base : Style = style(
   height=28.0,
   font_size=13.0,
   color="text_regular",
-  padding_left=8.0,
+  padding_left=@theme.space_8,
 )
 .hover(background_color="fill_hover")
 
@@ -382,8 +382,8 @@ pub let menu_row_base : Style = style(
 /// 悬停浅灰、选中浅主色 + 主色字）。
 pub let side_menu_base : Style = style(
   width=180.0,
-  padding=6.0,
-  row_gap=2.0,
+  padding=@theme.space_6,
+  row_gap=@theme.space_2,
   background_color="bg_panel",
 )
 
@@ -467,8 +467,8 @@ pub let tag_base : Style = style(
   height=24.0,
   font_size=12.0,
   color="#fff",
-  padding_left=8.0,
-  padding_right=8.0,
+  padding_left=@theme.space_8,
+  padding_right=@theme.space_8,
 )
 
 ///|
@@ -507,19 +507,19 @@ pub let descriptions_label_base : Style = style(
 ///|
 /// 空态 `empty`（现状 42 号图标走 `border`、文案 12 / `text_secondary`、padding 16）。
 pub let empty_base : Style = style(
-  padding=16.0,
+  padding=@theme.space_16,
   font_size=12.0,
   color="text_secondary",
-  row_gap=8.0,
+  row_gap=@theme.space_8,
 )
 
 ///|
 /// 结果页 `result`（现状标题 16 SemiBold、副题 12 / `text_secondary`、padding 16）。
 pub let result_base : Style = style(
-  padding=16.0,
+  padding=@theme.space_16,
   font_size=12.0,
   color="text_secondary",
-  row_gap=6.0,
+  row_gap=@theme.space_6,
 )
 
 ///|
@@ -533,14 +533,14 @@ pub let result_title_base : Style = style(
 ///|
 /// 时间线（现状条目高 56、竖线 `border`、节点点色随类型、标题 13 SemiBold
 /// `text_primary`、描述 12 / `text_secondary`）。
-pub let timeline_base : Style = style(height=56.0, row_gap=12.0)
+pub let timeline_base : Style = style(height=56.0, row_gap=@theme.space_12)
 
 ///|
 /// 提示 `alert`（现状浅类型底 + 左缘 3px 类型条，标题 13 SemiBold、描述 12；
 /// 高 36/56 由有无描述决定）。
 pub let alert_base : Style = style(
   height=36.0,
-  padding_left=12.0,
+  padding_left=@theme.space_12,
   font_size=13.0,
   font_weight=@text.SemiBold,
 )
@@ -576,7 +576,7 @@ pub let transfer_col_base : Style = style(
 ///|
 /// 步骤条 `steps`（现状容器高 40、数字块 24×24、已完成浅主色/当前主色白字/
 /// 待办浅灰底、连线高 2）。
-pub let steps_base : Style = style(height=40.0, column_gap=6.0)
+pub let steps_base : Style = style(height=40.0, column_gap=@theme.space_6)
 
 ///|
 /// 步骤当前档（现状主色底 + 白字）。
@@ -595,8 +595,8 @@ pub let breadcrumb_base : Style = style(
   height=24.0,
   font_size=13.0,
   color="text_secondary",
-  padding_left=4.0,
-  padding_right=4.0,
+  padding_left=@theme.space_4,
+  padding_right=@theme.space_4,
 )
 .hover(color="primary")
 
@@ -635,16 +635,16 @@ pub let collapse_base : Style = style(
 /// 选中面板底主色字）。
 pub let segmented_base : Style = style(
   background_color="border",
-  padding=2.0,
-  column_gap=4.0,
+  padding=@theme.space_2,
+  column_gap=@theme.space_4,
 )
 
 ///|
 /// 分段项（现状高 30、左右 16、13 号 `text_regular`）。
 pub let segmented_item_base : Style = style(
   height=30.0,
-  padding_left=16.0,
-  padding_right=16.0,
+  padding_left=@theme.space_16,
+  padding_right=@theme.space_16,
   font_size=13.0,
   color="text_regular",
 )
@@ -700,8 +700,8 @@ pub let calendar_base : Style = style(
   background_color="bg_panel",
   border_width=1.0,
   border_color="border",
-  padding_top=8.0,
-  padding_left=8.0,
+  padding_top=@theme.space_8,
+  padding_left=@theme.space_8,
 )
 
 ///|

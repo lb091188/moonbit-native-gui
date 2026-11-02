@@ -28,7 +28,6 @@
 
 ## 样式系统补全（2026-11-02 拍板，方案与风险注记见 [proposals/style-css-expansion.md](proposals/style-css-expansion.md)；S0 文档矛盾与 S5 letter_spacing 已完成，余项按 Tier 顺序）
 
-- [ ] **S1 设计令牌（性价比最高）**：`space-scale` / `radius-scale` / `type-scale` / `duration-scale` 进 `Theme`（现只有 20 颜色令牌 + control_height + 散字面量），`style(...)` factory 与 `gui/style/tokens.mbt`（~80 个组件级 Style 常量，非令牌）改为消费令牌；纯 Style 层零后端
 - [ ] **S2 background-gradient**：Style 加渐变字段（线性/径向 + stops，渲染层 `Gradient` 与 `set_fill_gradient` 双后端已测，缺的只是接线）+ factory kwargs + merge/setter；box 绘制处 `set_fill_color` → `set_fill_gradient`；半透明 stop 在 raster（非预乘插值）与 Cairo 的口径差钉 golden 测试
 - [ ] **S3 每角 radius + 每边 border**：`trace_round_rect` 四等弧推广到四半径（raster 解析快路加不等半径 guard 退 path，漏 guard 会画错）；每边宽/色用 `clip_rect`+`fill_rect` 叠四边条，难点在带半径时的角部接缝
 - [ ] **S4 mix-blend-mode / overflow / 删除线**：blend_mode Style 字段接 `Painter::set_blend_mode`（25 个 BlendMode 双后端已备）；`overflow: hidden/clip` 语义化暴露（clip_rect 双后端已裁）；text-decoration 扩 line-through / overline（同 underline 自绘线法，零 C）

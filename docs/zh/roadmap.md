@@ -264,7 +264,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ### 样式系统
 
-- 🚧 **样式系统 CSS 补全**（2026-11-02 拍板；方案、后端就绪度与风险注记见 [proposals/style-css-expansion.md](proposals/style-css-expansion.md)）：图形后端实为 Cairo + Pure Raster 两条（Win/mac 共用 Raster）；S0 文档矛盾与 S5 letter_spacing（三平台真机通过）已完成；余项——S1 设计令牌（space/radius/type/duration 四阶进 Theme + factory/tokens 消费，性价比最高）、S2 background-gradient（渲染层已备，缺 Style 接线；半透明 stop 口径差钉 golden）、S3 每角 radius + 每边 border（raster 快路 guard 防画错）、S4 mix-blend-mode / overflow / 删除线、Tier B 多行 line-height（真 leading，量画一致是硬约束）；box-shadow / backdrop-blur / dashed 不排便宜工期（需先建 blur/dash 基建，见方案 Tier C）。拆分待办见 TODO「样式系统补全」节
+- 🚧 **样式系统 CSS 补全**（2026-11-02 拍板；方案、后端就绪度与风险注记见 [proposals/style-css-expansion.md](proposals/style-css-expansion.md)）：图形后端实为 Cairo + Pure Raster 两条（Win/mac 共用 Raster）；S0 文档矛盾与 S5 letter_spacing（三平台真机通过）已完成；余项——✅S1 设计令牌（四阶进 Theme + tokens 消费）、S2 background-gradient、S2 background-gradient（渲染层已备，缺 Style 接线；半透明 stop 口径差钉 golden）、S3 每角 radius + 每边 border（raster 快路 guard 防画错）、S4 mix-blend-mode / overflow / 删除线、Tier B 多行 line-height（真 leading，量画一致是硬约束）；box-shadow / backdrop-blur / dashed 不排便宜工期（需先建 blur/dash 基建，见方案 Tier C）。拆分待办见 TODO「样式系统补全」节
 
 ### 窗口
 

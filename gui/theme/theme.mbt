@@ -32,6 +32,14 @@ pub(all) struct Theme {
   bg_panel : String
   /// 图表系列色板（≥5 色，按序取用；随主色色相旋转，保证相邻系列可分辨）
   chart_palette : Array[String]
+  /// 间距阶（档位数组；基准 space_scale_base，见 scale.mbt）
+  space_scale : Array[Double]
+  /// 半径阶（基准 radius_scale_base）
+  radius_scale : Array[Double]
+  /// 字阶（基准 type_scale_base）
+  type_scale : Array[Double]
+  /// 时长阶 ms（基准 duration_scale_base）
+  duration_scale : Array[Double]
 }
 
 ///|
@@ -61,6 +69,10 @@ pub fn default_theme() -> Theme {
     chart_palette: [
       "#2D68C4", "#2E9E5B", "#D9822B", "#8E5CC7", "#199FB0",
     ],
+    space_scale: space_scale_base,
+    radius_scale: radius_scale_base,
+    type_scale: type_scale_base,
+    duration_scale: duration_scale_base,
   }
 }
 
@@ -91,6 +103,10 @@ pub fn dark_theme() -> Theme {
     chart_palette: [
       "#5B8DEF", "#4CB878", "#E5A04C", "#A98BE8", "#4FB6C8",
     ],
+    space_scale: space_scale_base,
+    radius_scale: radius_scale_base,
+    type_scale: type_scale_base,
+    duration_scale: duration_scale_base,
   }
 }
 
@@ -190,6 +206,10 @@ pub fn theme_from_accent(accent : String, dark? : Bool = false) -> Theme {
     bg_page: base.bg_page,
     bg_panel: base.bg_panel,
     chart_palette,
+    space_scale: base.space_scale,
+    radius_scale: base.radius_scale,
+    type_scale: base.type_scale,
+    duration_scale: base.duration_scale,
   }
 }
 

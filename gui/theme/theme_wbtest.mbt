@@ -313,3 +313,53 @@ test "theme_is_dark：按页面底亮度分档" {
   assert_true(theme_is_dark())
   theme_apply(default_theme())
 }
+
+///|
+test "设计令牌四阶：getter 越界夹取、静态令牌与基准同步" {
+  // 静态间距令牌与基准档锁同步（双份定义的防漂移钉）
+  let base = [space_2, space_4, space_6, space_8, space_12, space_16, space_24]
+  assert_eq(base, space_scale_base)
+  // 基准档取值与越界夹取
+  assert_eq(theme_space(0), 2.0)
+  assert_eq(theme_space(6), 24.0)
+  assert_eq(theme_space(-1), 2.0)
+  assert_eq(theme_space(99), 24.0)
+  assert_eq(theme_radius(0), 4.0)
+  assert_eq(theme_radius(2), 8.0)
+  assert_eq(theme_radius(9), 8.0)
+  assert_eq(theme_type_size(3), 18.0)
+  assert_eq(theme_duration(1), 120.0)
+  // 换定制阶后 getter 跟随
+  theme_apply({
+    ..default_theme(),
+    space_scale: [3.0, 5.0, 9.0],
+    duration_scale: [100.0],
+  })
+  assert_eq(theme_space(1), 5.0)
+  assert_eq(theme_space(5), 9.0) // 末档夹取
+  assert_eq(theme_duration(2), 100.0)
+  theme_apply(default_theme())
+}
+
+///|
+test "from_json：四阶定制，缺省回落基准" {
+  let t = match from_json(
+    "{\"space_scale\": [4.0, 8.0, 12.0], \"duration_scale\": [100, 150]}",
+  ) {
+    Ok(t) => t
+    Err(e) => abort(e)
+  }
+  assert_eq(t.space_scale, [4.0, 8.0, 12.0])
+  assert_eq(t.duration_scale, [100.0, 150.0])
+  assert_eq(t.radius_scale, radius_scale_base)
+  assert_eq(t.type_scale, type_scale_base)
+  // 非法形态报错
+  match from_json("{\"space_scale\": [1, \"x\"]}") {
+    Ok(_) => abort("非数字应报错")
+    Err(e) => assert_true(e.contains("数字数组"))
+  }
+  match from_json("{\"radius_scale\": []}") {
+    Ok(_) => abort("空阶应报错")
+    Err(e) => assert_true(e.contains("空数组"))
+  }
+}
