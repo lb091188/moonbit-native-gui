@@ -6,7 +6,8 @@
 ## 模板预编译（2026-11-01 启动，方案见 [proposals/native-template.md](proposals/native-template.md)；总顺序：模板 → VS Code 插件 → 拆包）
 
 - Phase 0 探针已完成（2026-11-01：单次热替换 10.4 ms、泄漏 0、订阅跨代恒定，见 `experiment/ir_probe` 与方案回写）
-- 编译器 `build` 子命令已完成（2026-11-02：`tools/mngkit` 内核 + `tools/mng_cli`，golden 6/6、source map 错误回映射端到端验通）
+- 编译器 `build` 子命令已完成（2026-11-02：`tools/mngkit` 内核 + `tools/mng_cli`，golden 9/9、source map 错误回映射端到端验通；`ir`/`new` 子命令就位）
+- [ ] **HOT 补丁真机复验**：dev 循环（watch→HOT 推送→showcase「模板 Dev」页原位重建）已实现，端到端 GUI 验证由用户执行——步骤：①`moon run tools/mng_cli -- dev --watch examples/showcase/dev_demo.mng.html --out-dir examples/showcase/pages --build-cmd "moon build ./examples/showcase" --run-cmd "./target/native/debug/build/NoahLiu/native-gui-examples-showcase/cmd/main/main.exe"`（可执行路径按平台取 `moon build` 产物）②应用进「模板 Dev」页 ③改模板静态结构保存 → 亚秒可见（HOT）④改 `{{ qty }}` 为 `{{ qty + 1 }}` 保存 → COLD 重启（注册表键在 dev 页手写、对齐 `moon run tools/mng_cli -- ir examples/showcase/dev_demo.mng.html` 输出）
 - `dev` 子命令已完成（2026-11-02：watch 内容对比 + 契约分类 HOT/COLD + 回退编排 build→杀旧→带参重启，无头自测验通；HOT 的进程内补丁推送待应用侧 dev 监听落地，本版打标不打断；配套 gui/sys 进程原语补 pr_spawn/pr_alive/pr_kill/pr_sleep_ms，僵尸探活收尸已钉测试）
 - [ ] **VS Code 插件 1 档**：`.mng` 语言注册 + MoonBit 表达式着色 injection + snippets；落地即把模板文件切裸 `.mng`
 - [ ] **拆包**（[proposals/module-split.md](proposals/module-split.md)）：sys → win → dbus → shell 顺序，等工具二进制独立发布动机集中做

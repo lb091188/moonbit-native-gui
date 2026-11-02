@@ -271,3 +271,4 @@ test "IR 边界：自定义组件与 v-else-if 链转 COLD（ir_of 报错）" {
     },
   )
 }
+

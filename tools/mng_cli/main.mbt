@@ -10,6 +10,8 @@ fn usage() -> Unit {
   println("用法：moon run tools/mng_cli -- <子命令> ...")
   println("  build <input.mng.html> -o <out.mbt>    编译模板：产出 out.mbt 与 out.mbt.map")
   println("  map-errors --map <out.mbt.map> <log>   把日志中 <gen>.mbt:行:列 映射回模板行列")
+  println("  ir <input.mng.html>                    打印模板的 IR 补丁（调试与注册表校准）")
+  println("  new <name>                             生成 .mng.html 页样板")
   println("  dev ...                                watch + 契约分类 + 回退编排（dev 无参看细目）")
 }
 
@@ -317,6 +319,10 @@ fn main {
     cmd_map_errors(rest)
   } else if cmd == "dev" {
     cmd_dev(rest)
+  } else if cmd == "ir" {
+    cmd_ir(rest)
+  } else if cmd == "new" {
+    cmd_new(rest)
   } else {
     usage()
     2

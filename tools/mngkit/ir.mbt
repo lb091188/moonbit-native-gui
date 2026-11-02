@@ -60,7 +60,7 @@ fn ir_val_json(v : IrVal) -> String {
   match v {
     ILitStr(s) => "{\"lit\":\"" + jstr(s) + "\"}"
     ILitNum(x) => "{\"lit\":" + x + "}"
-    ILitBool(b) => "{\"lit\":" + b + "}"
+    ILitBool(b) => "{\"lit\":\"" + b + "\"}"
     IExpr(e) => "{\"expr\":\"" + jstr(e) + "\"}"
     IState(s) => "{\"state\":\"" + jstr(s) + "\"}"
   }

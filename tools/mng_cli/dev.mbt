@@ -274,3 +274,88 @@ fn cmd_dev(args : Array[String]) -> Int {
   }
   0
 }
+
+///|
+fn snake_of(s : String) -> String {
+  let cs = chars_of(s)
+  let out : Array[String] = []
+  for c in cs {
+    if c == '-' {
+      out.push("_")
+    } else {
+      out.push(c.to_string())
+    }
+  }
+  out.join("")
+}
+
+///|
+/// ir 子命令：打印模板的 IR 补丁（调试 + 应用侧注册表键校准）。
+fn cmd_ir(args : Array[String]) -> Int {
+  if args.length() != 1 {
+    println("ir 需要一个 .mng.html 路径")
+    return 2
+  }
+  let src = match slurp(args[0]) {
+    Some(s) => s
+    None => {
+      println("读不到文件：" + args[0])
+      return 1
+    }
+  }
+  match @mngkit.ir_of(src, args[0]) {
+    Ok(j) => {
+      println(j)
+      0
+    }
+    Err(e) => {
+      println(args[0] + " IR 产出失败：")
+      println(e)
+      1
+    }
+  }
+}
+
+///|
+/// new 子命令：生成 .mng.html 页样板（script setup + 最小模板 + @mng 提示）。
+fn cmd_new(args : Array[String]) -> Int {
+  if args.length() != 1 {
+    println("new 需要一个页名（生成 <名字>.mng.html）")
+    return 2
+  }
+  let name = args[0]
+  if !name.has_suffix(".mng.html") {
+    return cmd_new([name + ".mng.html"])
+  }
+  let stem = basename(name)
+  let stem = if stem.has_suffix(".mng.html") {
+    stem[:stem.length() - 9].to_owned()
+  } else {
+    stem
+  }
+  let snake = snake_of(stem)
+  let tpl = [
+    "<script setup lang=\"moonbit\">",
+    "// 页状态：Store/Signal 声明在此；被模板引用的 let 绑定即响应槽。",
+    "let qty : @base.Store[Int] = @base.Store::new(0)",
+    "",
+    "// 跨包组件：let 绑定 + @mng positional 声明（参数顺序 = 位置参数）",
+    "// let sh_section = @shared.section",
+    "// @mng sh-section = @shared.section positional(title, subtitle, desc, children)",
+    "</script>",
+    "",
+    "<template>",
+    "  <ui-col row_gap=\"8.0\">",
+    "    <ui-stepper v-model=\"qty\" max=\"10\" />",
+    "    当前数量：{{ qty }}",
+    "  </ui-col>",
+    "</template>",
+    "",
+  ].join("\n")
+  if !spit(name, tpl) {
+    println("写不出文件：" + name)
+    return 1
+  }
+  println("OK " + name + "（生成函数名 " + snake + "；把生成码接进包内即可编译）")
+  0
+}

@@ -205,6 +205,7 @@ fn main {
     route_of_page(box, "图表", @pages.page_charts, @router.Prefetch),
     route_of_page(box, "代码文档", @pages.page_code, @router.Prefetch),
     route_of_page(box, "Store", @pages.page_store_demo, @router.Prefetch),
+    route_of_page(box, "模板 Dev", @pages.page_mng_dev, @router.Eager),
     route_of_page(box, "反馈组件", @pages.page_feedback, @router.Prefetch),
     route_of_page(box, "事件与布局", @pages.page_events, @router.Prefetch),
     route_of_page(box, "窗口", @pages.page_window, @router.Prefetch),
@@ -273,11 +274,21 @@ fn main {
         [("a", arm)],
         "本进程是首实例（后端 \{arm}）",
       ))
-      // 首实例：注册唤起回调——切回首页并冒提示
-      @shell.on_instance_wake(fn(_args : Array[String]) -> Unit {
-        app.inst_wakes.set(app.inst_wakes.get() + 1)
-        nav.goto("基础组件")
-        app.toast_push(@shared.tx("已被第二实例唤起"), @ui.Info)
+      // 首实例：注册唤起回调——模板补丁走 --mng-hot 原位重挂；其余切回首页冒提示
+      @shell.on_instance_wake(fn(args : Array[String]) -> Unit {
+        if args.length() == 2 && args[0] == "--mng-hot" {
+          match @shared.mng_dev_apply_from_file(args[1]) {
+            Ok(_) => {
+              nav.goto("模板 Dev")
+              app.toast_push(@shared.tx("模板补丁已应用"), @ui.Info)
+            }
+            Err(e) => app.toast_push(@shared.tr_with("dyn.mng_err", [("a", e)], "补丁失败：\{e}"), @ui.Warning)
+          }
+        } else {
+          app.inst_wakes.set(app.inst_wakes.get() + 1)
+          nav.goto("基础组件")
+          app.toast_push(@shared.tx("已被第二实例唤起"), @ui.Info)
+        }
       })
     }
     Ok(@shell.Existing) => {

@@ -1,0 +1,16 @@
+<script setup lang="moonbit">
+let qty : @base.Store[Int] = @base.Store::new(3)
+let wifi : @base.Store[Bool] = @base.Store::new(true)
+let nick : @base.Store[String] = @base.Store::new("")
+</script>
+<template>
+  <ui-col row_gap="8.0">
+    <ui-checkbox :label='@shared.tx("自动开启")' v-model="wifi" />
+    <ui-text v-if="wifi" :text='@shared.tx("已开启")' />
+    <ui-text v-else text="已关闭" />
+    <ui-stepper v-model="qty" max="10" />
+    当前数量：{{ qty }}
+    <ui-input v-model="nick" placeholder="试试结构热更" />
+    <ui-button text="重置" @click="on_reset" />
+  </ui-col>
+</template>
