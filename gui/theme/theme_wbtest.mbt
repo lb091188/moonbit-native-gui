@@ -223,3 +223,84 @@ test "圆角令牌：默认开圆角给 4/6/8，关圆角全为 0，开关可复
   corners_round_set(true)
   assert_eq(radius_ctrl(), 4.0)
 }
+
+///|
+test "from_json：全字段合法加载" {
+  let j = [
+    "{",
+    "  \"primary\": \"#123456\",",
+    "  \"bg_panel\": \"#abcdef\",",
+    "  \"chart_palette\": [\"#111111\", \"#222222\", \"#333333\", \"#444444\", \"#555555\"]",
+    "}",
+  ].join("\n")
+  let t = match from_json(j) {
+    Ok(t) => t
+    Err(e) => abort(e)
+  }
+  assert_eq(t.primary, "#123456")
+  assert_eq(t.bg_panel, "#abcdef")
+  assert_eq(t.chart_palette.length(), 5)
+  // 未出现的字段回落浅色基底
+  assert_eq(t.border, default_theme().border)
+}
+
+///|
+test "from_json：部分缺省回落暗色基底" {
+  let t = match from_json("{\"primary\": \"#96C\"}", base=dark_theme()) {
+    Ok(t) => t
+    Err(e) => abort(e)
+  }
+  assert_eq(t.primary, "#96C")
+  assert_eq(t.bg_page, dark_theme().bg_page)
+  assert_eq(t.chart_palette, dark_theme().chart_palette)
+}
+
+///|
+test "from_json：未知字段报错且带字段名" {
+  match from_json("{\"primary\": \"#123456\", \"color\": \"#654321\"}") {
+    Ok(_) => abort("未知字段应报错")
+    Err(e) => assert_true(contains_str_m(e, "color"))
+  }
+}
+
+///|
+test "from_json：类型不符与非法颜色值报错" {
+  match from_json("{\"primary\": 3}") {
+    Ok(_) => abort("非字符串应报错")
+    Err(e) => assert_true(contains_str_m(e, "primary"))
+  }
+  match from_json("{\"border\": \"#zzzzzz\"}") {
+    Ok(_) => abort("非法颜色应报错")
+    Err(e) => assert_true(contains_str_m(e, "border"))
+  }
+  match from_json("{\"chart_palette\": [\"#111111\", 2]}") {
+    Ok(_) => abort("色板混类型应报错")
+    Err(e) => assert_true(contains_str_m(e, "chart_palette"))
+  }
+  match from_json("{\"chart_palette\": \"#111111\"}") {
+    Ok(_) => abort("色板非数组应报错")
+    Err(e) => assert_true(contains_str_m(e, "chart_palette"))
+  }
+}
+
+///|
+test "from_json：顶层非对象与坏 JSON 报错、显式空色板合法" {
+  match from_json("[1, 2]") {
+    Ok(_) => abort("数组顶层应报错")
+    Err(e) => assert_true(contains_str_m(e, "对象"))
+  }
+  match from_json("{\"primary\": }") {
+    Ok(_) => abort("坏 JSON 应报错")
+    Err(e) => assert_true(contains_str_m(e, "解析失败"))
+  }
+  let t = match from_json("{\"chart_palette\": []}") {
+    Ok(t) => t
+    Err(e) => abort(e)
+  }
+  assert_eq(t.chart_palette.length(), 0)
+}
+
+///|
+fn contains_str_m(haystack : String, needle : String) -> Bool {
+  haystack.contains(needle)
+}

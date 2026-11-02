@@ -1,5 +1,6 @@
 import {
   "NoahLiu/native-gui/render",
+  "NoahLiu/native-gui/sys",
   "NoahLiu/native-gui/text",
 }
 
