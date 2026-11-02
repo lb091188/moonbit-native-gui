@@ -1,4 +1,4 @@
-// iconfont 预览 GUI 入口。用法：moon run tools/icon_tool_ui -- <iconfont.toml>
+// iconfont 预览 GUI 入口。用法：moon run tools/native-gui-tools/icon_tool_ui -- <iconfont.toml>
 
 fn slurp(p : String) -> String? {
   let s = @fs.read_file_to_string(p) catch { _ => return None }
@@ -20,7 +20,7 @@ fn tile(name : String) -> @widget.Node {
 fn main {
   let raw = @env.args()
   if raw.length() < 2 {
-    println("用法：moon run tools/icon_tool_ui -- <iconfont.toml>")
+    println("用法：moon run tools/native-gui-tools/icon_tool_ui -- <iconfont.toml>")
     return
   }
   let path = raw[1]

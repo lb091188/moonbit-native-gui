@@ -30,6 +30,7 @@ moon run examples/hello       # 最小窗口(另有 showcase 等)
 - 每个示例一个独立模块 NoahLiu/native-gui-examples-<name>:`examples/<name>/`
 - 探针与微基准模块:`experiment/`
 - 子模块(yoga-mbt / mdparse / gui-media / gui-webview / ffmpeg-mbt):`modules/`
+- DX 工具总目录，moon 模块与非 moon 工具（编辑器插件）同层分放:`tools/`
 - workspace 成员清单，上面这些模块全部注册在此:`moon.work`
 - 对内方案/计划——要做或在做的提案(纯中文，扁平一层；文档站只发对外使用文档与路线图):`proposals/`
 - 对内经验与定案——实测坑、已收口设计定案、仓库判据(纯中文):`experience/`

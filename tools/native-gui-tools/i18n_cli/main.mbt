@@ -1,7 +1,7 @@
 // i18n 预处理 CLI。子命令：extract <src_dir>；check <locales_dir> <locale> <src_dir>。
 
 fn usage() -> Unit {
-  println("用法：moon run tools/i18n_cli -- <子命令> ...")
+  println("用法：moon run tools/native-gui-tools/i18n_cli -- <子命令> ...")
   println("  extract <src_dir>                       打印源码用到的所有 t() 键（每行一个）")
   println("  check <locales_dir> <locale> <src_dir>  比对源码用量与目录定义，报缺失/残项")
   println("  缺失非空时退出码为 1（供 CI 门禁）。")

@@ -1,6 +1,6 @@
 // iconfont 运行时加载器（消费面）：读工具产出的 `[icons]` TOML 文本，
 // 存 name→定点路径串，绘制复用同包的 fill_icon_path（与内置矢量图标同口径）。
-// 与 tools/i18nkit·iconkit「共享格式不共享代码」：这里自带一份够用的极简读器，
+// 与 tools/native-gui-tools/i18nkit·iconkit「共享格式不共享代码」：这里自带一份够用的极简读器，
 // gui 不引 fs/FFI——文件读取由应用层负责，本层只吃字符串。
 
 let g_iconfont : Array[(String, String)] = []

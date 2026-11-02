@@ -1,4 +1,4 @@
-// i18n 目录查看器入口。用法：moon run tools/i18n_tool_ui -- <locale.toml>
+// i18n 目录查看器入口。用法：moon run tools/native-gui-tools/i18n_tool_ui -- <locale.toml>
 
 fn slurp(p : String) -> String? {
   let s = @fs.read_file_to_string(p) catch { _ => return None }
@@ -8,7 +8,7 @@ fn slurp(p : String) -> String? {
 fn main {
   let raw = @env.args()
   if raw.length() < 2 {
-    println("用法：moon run tools/i18n_tool_ui -- <locale.toml>")
+    println("用法：moon run tools/native-gui-tools/i18n_tool_ui -- <locale.toml>")
     return
   }
   let path = raw[1]

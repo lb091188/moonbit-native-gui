@@ -4,7 +4,7 @@
 // 等应用侧 dev 监听落地，本轮占位不打断应用。
 
 fn usage_dev() -> Unit {
-  println("用法：moon run tools/mng_cli -- dev --watch <文件或目录[,...]> --out-dir <生成码目录> --build-cmd <可执行 [参数...]> --run-cmd <可执行 [参数...]> [--poll-ms 300]")
+  println("用法：moon run tools/native-gui-tools/mng_cli -- dev --watch <文件或目录[,...]> --out-dir <生成码目录> --build-cmd <可执行 [参数...]> --run-cmd <可执行 [参数...]> [--poll-ms 300]")
   println("  watch：.mng 文件或目录（目录取其中 *.mng）")
   println("  out-dir：生成码落点（<stem>.gen.mbt），应指向应用包内同包目录")
   println("  build-cmd / run-cmd：按首个空格拆成可执行 + 参数直起，不穿 shell")
