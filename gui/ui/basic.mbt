@@ -116,7 +116,13 @@ pub fn view(
         Some(_) => true
         None => false
       }
-      self.clip_rounded = rad > 0.0 && (bg.length() > 0 || has_grad || bd.length() > 0)
+      let has_side = @style.has_per_side_border(s)
+      // 四角有效半径：per-corner ?? 统一值（S3）；不等半径走 4R 路径
+      let (rtl, rtr, rbr, rbl) = @style.corner_radii_of(s, rad)
+      let uniform = rtl == rtr && rtr == rbr && rbr == rbl
+      let no_corner = rtl <= 0.0 && rtr <= 0.0 && rbr <= 0.0 && rbl <= 0.0
+      self.clip_rounded = (rad > 0.0 || !uniform) &&
+        (bg.length() > 0 || has_grad || bd.length() > 0 || has_side)
       self.style_clip_radius = rad
       // 渐变优先：可解析（≥2 有效 stop）就铺渐变，否则回落纯色
       let filled = match s.background_gradient {
@@ -127,16 +133,41 @@ pub fn view(
         p.set_fill_color(bg)
       }
       if filled || bg.length() > 0 {
-        if rad > 0.0 {
+        if !uniform {
+          p.fill_round_rect4(0.0, 0.0, r.w, r.h, rtl, rtr, rbr, rbl)
+        } else if rad > 0.0 {
           fill_round_rect(p, 0.0, 0.0, r.w, r.h, rad)
         } else {
           p.fill_rect(0.0, 0.0, r.w, r.h)
         }
       }
-      if bd.length() > 0 {
+      if has_side && no_corner {
+        // 每边边框（S3）：无圆角时逐边内缘条（不带线形——诚实口径）
+        let (bt, brt, bb, blt) = @style.side_borders_of(s)
+        if bt.width > 0.0 && bt.color.length() > 0 {
+          p.set_fill_color(bt.color)
+          p.fill_rect(0.0, 0.0, r.w, bt.width)
+        }
+        if brt.width > 0.0 && brt.color.length() > 0 {
+          p.set_fill_color(brt.color)
+          p.fill_rect(r.w - brt.width, 0.0, brt.width, r.h)
+        }
+        if bb.width > 0.0 && bb.color.length() > 0 {
+          p.set_fill_color(bb.color)
+          p.fill_rect(0.0, r.h - bb.width, r.w, bb.width)
+        }
+        if blt.width > 0.0 && blt.color.length() > 0 {
+          p.set_fill_color(blt.color)
+          p.fill_rect(0.0, 0.0, blt.width, r.h)
+        }
+      } else if bd.length() > 0 {
+        // 统一描边（含 per-side 带圆角的回落：角部接缝 v1 不做，见 sides.mbt）
         p.set_stroke_color(bd)
         let dashed = set_border_pen(p, s)
-        if rad > 0.0 {
+        if !uniform {
+          p.round_rect4_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rtl, rtr, rbr, rbl)
+          p.stroke()
+        } else if rad > 0.0 {
           p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
           p.stroke()
         } else {

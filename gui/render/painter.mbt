@@ -348,6 +348,143 @@ fn Painter::trace_round_rect(
 }
 
 ///|
+/// 四半径归一（CSS over-constraint 口径）：负值取 0；相邻角之和超出边长时
+/// 全体等比缩小（f = min(边长/相邻和)），保证路径闭合不交叉。
+fn clamp_radius4(
+  tl : Double,
+  tr : Double,
+  br : Double,
+  bl : Double,
+  w : Double,
+  h : Double,
+) -> (Double, Double, Double, Double) {
+  let z = fn(v : Double) -> Double { if v < 0.0 { 0.0 } else { v } }
+  let a = z(tl)
+  let b = z(tr)
+  let c = z(br)
+  let d = z(bl)
+  let mut f = 1.0
+  let consider = fn(sum : Double, len : Double) -> Unit {
+    if sum > 0.0 && len > 0.0 {
+      let k = len / sum
+      if k < f {
+        f = k
+      }
+    }
+  }
+  consider(a + b, w)
+  consider(c + d, w)
+  consider(a + d, h)
+  consider(b + c, h)
+  (a * f, b * f, c * f, d * f)
+}
+
+///|
+/// 四半径圆角矩形路径（左上/右上/右下/左下，顺时针）；几何与单半径版同族。
+fn Painter::trace_round_rect4(
+  self : Painter,
+  x : Double,
+  y : Double,
+  w : Double,
+  h : Double,
+  tl : Double,
+  tr : Double,
+  br : Double,
+  bl : Double,
+) -> Unit {
+  if w <= 0.0 || h <= 0.0 {
+    return ()
+  }
+  let (rtl, rtr, rbr, rbl) = clamp_radius4(tl, tr, br, bl, w, h)
+  let q = 1.5707963267948966
+  self.move_to(x + rtl, y)
+  self.line_to(x + w - rtr, y)
+  if rtr > 0.0 {
+    self.arc(x + w - rtr, y + rtr, rtr, 3.0 * q, 4.0 * q)
+  } else {
+    self.line_to(x + w, y)
+  }
+  self.line_to(x + w, y + h - rbr)
+  if rbr > 0.0 {
+    self.arc(x + w - rbr, y + h - rbr, rbr, 0.0, q)
+  } else {
+    self.line_to(x + w, y + h)
+  }
+  self.line_to(x + rbl, y + h)
+  if rbl > 0.0 {
+    self.arc(x + rbl, y + h - rbl, rbl, q, 2.0 * q)
+  } else {
+    self.line_to(x, y + h)
+  }
+  self.line_to(x, y + rtl)
+  if rtl > 0.0 {
+    self.arc(x + rtl, y + rtl, rtl, 2.0 * q, 3.0 * q)
+  } else {
+    self.line_to(x, y)
+  }
+  self.close_path()
+}
+
+///|
+/// 四半径全等判断（纯语法：参数逐个相等即可，无需几何）。
+fn radius4_equal(tl : Double, tr : Double, br : Double, bl : Double) -> Bool {
+  tl == tr && tr == br && br == bl
+}
+
+///|
+/// 四半径圆角矩形填充。解析快路只支持等半径——四值全等走单半径快路
+/// （`fill_round_rect` 内部的 raster 解析填充），不等半径退通用路径
+/// （漏这条 guard 不等半径会被等半径快路画错）。
+pub fn Painter::fill_round_rect4(
+  self : Painter,
+  x : Double,
+  y : Double,
+  w : Double,
+  h : Double,
+  tl : Double,
+  tr : Double,
+  br : Double,
+  bl : Double,
+) -> Unit {
+  if radius4_equal(tl, tr, br, bl) {
+    self.fill_round_rect(x, y, w, h, tl)
+    return
+  }
+  self.raster_gate()
+  match self.backend {
+    Some(CairoBackend(_c)) => {
+      self.begin_path()
+      self.trace_round_rect4(x, y, w, h, tl, tr, br, bl)
+      self.fill()
+    }
+    Some(PureBackend(_raster)) => {
+      // 不等半径无解析快路，直接路径填充（fill 内 apply_fill 同源同算子）
+      self.begin_path()
+      self.trace_round_rect4(x, y, w, h, tl, tr, br, bl)
+      self.fill()
+    }
+    None => ()
+  }
+}
+
+///|
+/// 四半径圆角矩形路径开启（供描边调用方 stroke()）。
+pub fn Painter::round_rect4_path(
+  self : Painter,
+  x : Double,
+  y : Double,
+  w : Double,
+  h : Double,
+  tl : Double,
+  tr : Double,
+  br : Double,
+  bl : Double,
+) -> Unit {
+  self.begin_path()
+  self.trace_round_rect4(x, y, w, h, tl, tr, br, bl)
+}
+
+///|
 fn clamp_radius(r : Double, w : Double, h : Double) -> Double {
   if r < 0.0 {
     0.0

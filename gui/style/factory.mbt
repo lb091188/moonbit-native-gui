@@ -79,6 +79,19 @@ pub fn style(
   visibility? : Visibility,
   cursor? : Int,
   background_gradient? : GradientSpec,
+  // —— 每角圆角 / 每边边框（S3；None 回落统一值）
+  border_top_left_radius? : Double,
+  border_top_right_radius? : Double,
+  border_bottom_right_radius? : Double,
+  border_bottom_left_radius? : Double,
+  border_top_width? : Double,
+  border_top_color? : String,
+  border_right_width? : Double,
+  border_right_color? : String,
+  border_bottom_width? : Double,
+  border_bottom_color? : String,
+  border_left_width? : Double,
+  border_left_color? : String,
   // —— 状态桶：收整块（具名块复用）
   hover? : Style,
   active? : Style,
@@ -94,6 +107,30 @@ pub fn style(
     None => ()
   }
   s.background_gradient = background_gradient
+  s.border_top_left_radius = border_top_left_radius
+  s.border_top_right_radius = border_top_right_radius
+  s.border_bottom_right_radius = border_bottom_right_radius
+  s.border_bottom_left_radius = border_bottom_left_radius
+  s.border_top_width = border_top_width
+  match border_top_color {
+    Some(c) => s.border_top_color = Some(check_color(parse_color(c)))
+    None => ()
+  }
+  s.border_right_width = border_right_width
+  match border_right_color {
+    Some(c) => s.border_right_color = Some(check_color(parse_color(c)))
+    None => ()
+  }
+  s.border_bottom_width = border_bottom_width
+  match border_bottom_color {
+    Some(c) => s.border_bottom_color = Some(check_color(parse_color(c)))
+    None => ()
+  }
+  s.border_left_width = border_left_width
+  match border_left_color {
+    Some(c) => s.border_left_color = Some(check_color(parse_color(c)))
+    None => ()
+  }
   s.font_size = font_size
   s.font_family = font_family
   s.font_weight = font_weight

@@ -72,7 +72,7 @@
 - [ ] **S0 修文档矛盾**：roadmap.md:162 硬阴影条目与代码对齐。
 - [x] **S1 设计令牌**（2026-11-02 落地）：四阶进 `Theme`（`space_scale`/`radius_scale`/`type_scale`/`duration_scale`，pub(all) 破坏记提交信息）+ 基准常量与静态间距令牌（`space_2..24`）+ 运行时 getter（`theme_space/radius/type_size/duration`，越界首末夹取）+ `from_json` 白名单同步扩四字段；`tokens.mbt` 35 处刻度间距字面量换令牌单源（非刻度组件现状值保留并自注释）。时长阶基准 80/120/200/320 为初值（库内 transition 无集中档，供样式与应用按档取用）。
 - [x] **S2 background-gradient**（2026-11-02 落地）：`GradientSpec`（归一化几何 Linear/Radial + stops 复用 style `Color`——token 名绘制期现取）+ `style(background_gradient=)` kwargs + merge/setter；`apply_gradient_bg` 落色助手，view 盒子（view/col/row/panel/card 全走它）渐变优先、不足两 stop 回落纯色。半透明 stop 双后端插值口径差已在 adaptation.md「与 cairo 的已知口径差」记档，不透明 stop 主链 wbtest 像素钉死，半透明 golden 归 Windows/mac 批。
-- [ ] **S3 每角 radius + 每边 border**：扩 `trace_round_rect` 四半径 + raster 快路 guard；四边条合成 + 角接缝。
+- [x] **S3 每角 radius + 每边 border**（2026-11-02 落地）：`Painter::fill_round_rect4` / `round_rect4_path` + `trace_round_rect4`（CSS over-constraint 归一：相邻角和超边长全体等比缩小）；raster 快路 guard = 四值全等走单半径解析快路、不等退路径（同像素回归钉快路同源）。Style 12 字段（per-corner radius ×4 / per-side width·color ×8）+ factory kwargs + `corner_radii_of`/`side_borders_of`/`has_per_*` 解析助手；view 盒子接线——不等半径走 4R 填充/描边，per-side 在四角全 0 时逐边内缘条（fill_rect，不带线形），带圆角回落统一描边（角部接缝诚实降级，后续要真接缝再立项）。
 - [ ] **S4 mix-blend-mode / overflow / line-through**：语义暴露 + 自绘线扩展。
 - [ ] **S5（选做，贵）letter_spacing**：三引擎 stub + measure/paint 一致性；先确认 DWrite 逐字形方案再排期。
 

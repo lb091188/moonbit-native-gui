@@ -70,6 +70,20 @@ pub(all) struct Style {
   mut cursor : Int?
   // 背景渐变（S2）：给了且可解析（≥2 个有效 stop）时优先于 `background_color`
   mut background_gradient : GradientSpec?
+  // —— 每角圆角 / 每边边框（S3；None = 回落统一 border_radius / border_width·color。
+  // 每边边框当前只在无圆角时逐边落，带圆角回落统一描边——角部接缝诚实降级）
+  mut border_top_left_radius : Double?
+  mut border_top_right_radius : Double?
+  mut border_bottom_right_radius : Double?
+  mut border_bottom_left_radius : Double?
+  mut border_top_width : Double?
+  mut border_top_color : Color?
+  mut border_right_width : Double?
+  mut border_right_color : Color?
+  mut border_bottom_width : Double?
+  mut border_bottom_color : Color?
+  mut border_left_width : Double?
+  mut border_left_color : Color?
   // —— 状态桶（构造端：工厂状态参数收整块 + 三个状态方法收属性参数，§1.3）
   mut hover : Style?
   mut active : Style?
@@ -134,6 +148,18 @@ pub fn empty_style() -> Style {
     visibility: None,
     cursor: None,
     background_gradient: None,
+    border_top_left_radius: None,
+    border_top_right_radius: None,
+    border_bottom_right_radius: None,
+    border_bottom_left_radius: None,
+    border_top_width: None,
+    border_top_color: None,
+    border_right_width: None,
+    border_right_color: None,
+    border_bottom_width: None,
+    border_bottom_color: None,
+    border_left_width: None,
+    border_left_color: None,
     hover: None,
     active: None,
     focus: None,
@@ -227,6 +253,24 @@ pub fn merge(base : Style, over : Style) -> Style {
   s.visibility = pick(base.visibility, over.visibility)
   s.cursor = pick(base.cursor, over.cursor)
   s.background_gradient = pick(base.background_gradient, over.background_gradient)
+  s.border_top_left_radius = pick(base.border_top_left_radius, over.border_top_left_radius)
+  s.border_top_right_radius = pick(base.border_top_right_radius, over.border_top_right_radius)
+  s.border_bottom_right_radius = pick(
+    base.border_bottom_right_radius,
+    over.border_bottom_right_radius,
+  )
+  s.border_bottom_left_radius = pick(
+    base.border_bottom_left_radius,
+    over.border_bottom_left_radius,
+  )
+  s.border_top_width = pick(base.border_top_width, over.border_top_width)
+  s.border_top_color = pick(base.border_top_color, over.border_top_color)
+  s.border_right_width = pick(base.border_right_width, over.border_right_width)
+  s.border_right_color = pick(base.border_right_color, over.border_right_color)
+  s.border_bottom_width = pick(base.border_bottom_width, over.border_bottom_width)
+  s.border_bottom_color = pick(base.border_bottom_color, over.border_bottom_color)
+  s.border_left_width = pick(base.border_left_width, over.border_left_width)
+  s.border_left_color = pick(base.border_left_color, over.border_left_color)
   s.hover = pick_style(base.hover, over.hover)
   s.active = pick_style(base.active, over.active)
   s.focus = pick_style(base.focus, over.focus)
