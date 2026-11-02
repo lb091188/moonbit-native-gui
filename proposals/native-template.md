@@ -76,7 +76,7 @@
 
 | 项 | 定 |
 | --- | --- |
-| 扩展名 | **两阶段**：现行 `.mng.html`——零插件白拿 HTML 高亮（编辑器 0 档，`.html` 兜底系统不会误判成图片）；自家 VS Code 扩展（1 档）落地即切裸 `.mng`——查证编辑器生态无占用（2026-11-01），MNG 图像格式已被 APNG/WebP 取代、浏览器早弃支持，仅剩文件管理器图片关联的残余噪音，接受。先例：`.ts`（TypeScript）与 MPEG-TS 视频流重名共存，媒体重名在开发语境无害，编辑器语言注册由自家扩展接管。`.mui` 一并排除：Windows MUI 本地化资源文件（`*.exe.mui`）系统级占用 + React 组件库 MUI（原 Material-UI）心智撞车，两个都是活物 |
+| 扩展名 | **裸 `.mng`**——语言注册由自家 VS Code 扩展接管；编辑器生态无占用（MNG 图像格式已被 APNG/WebP 取代、浏览器早弃支持，仅剩文件管理器图片关联的残余噪音，接受）。先例：`.ts`（TypeScript）与 MPEG-TS 视频流重名共存，媒体重名在开发语境无害。`.mui` 排除：Windows MUI 本地化资源文件（`*.exe.mui`）系统级占用 + React 组件库 MUI（原 Material-UI）心智撞车 |
 | 文件结构 | `<script setup lang="moonbit">`（页状态与逻辑，MoonBit 原文）+ `<template>`（单根树），Vue SFC 形态 |
 | 插值 | 文本节点 `{{ expr }}` |
 | 表达式属性 | `:attr="expr"`；属性值可用单引号包 MoonBit 双引号串 |
@@ -324,16 +324,21 @@ Web 主面壳形态不做（roadmap「明确不做」）。原生面是唯一主
   3. 收益：gap / 对齐这类高频布局微调从重启档进亚秒档（类是 Style 数据，指纹重建 + 类重 apply 现成路径）。
 - 口径收紧**独立于模板有价值**（存量代码受益），可作先行小步。
 
-## 工具与编辑器支持（2026-11-01）
+## 工具与编辑器支持（2026-11-02 定形）
 
-四档各带触发条件。关键认知：LSP 最贵的数据源全部在已规划基建里——source map（错误回映射副产品）、dev 注册表、类注册表；插件不是独立工程，是工具二进制的子命令 + 薄壳（Slint 同构：`slint-lsp` 住主仓 `tools/lsp`）。
+关键认知：LSP 最贵的数据源全部在已规划基建里——source map（错误回映射副产品）、dev 注册表、类注册表；插件不是独立工程，是工具二进制的子命令 + 薄壳（Slint 同构：`slint-lsp` 住主仓 `tools/lsp`）。
 
-| 档 | 内容 | 成本 / 触发 |
-| --- | --- | --- |
-| 0 档：零插件 | HTML 可关联扩展名（`.mng.html`）+ `files.associations` 白拿高亮；`tasks.json` + problemMatcher 把错误回映射接进 Problems 面板 | 零成本，随模板 v1；1 档落地后文件切裸 `.mng`（终态名） |
-| 1 档：轻插件 | 静态贡献包：associations 打包 + TextMate injection（属性值 MoonBit 表达式着色；官方 vscode-moonbit grammar 复用待查 license）+ snippets | 一两天，v1 期间顺手 |
-| 2 档：LSP | 工具 `lsp` 子命令：诊断推送、组件/状态/handler/token/类名补全、模板 ↔ 生成码 ↔ MoonBit 跳转（复用 source map） | 触发：v1 用出真痛感；语法/注册表稳定前不动工 |
-| 3 档：预览集成 | LSP 拉起预览窗（Slint LSP preview 模式对位），对应终态 `preview` 子命令 | 挂终态 |
+**分工：语义计算全在 `mng_cli lsp`，VSIX 只做静态贡献包。**
+
+| 侧 | 内容 |
+| --- | --- |
+| VSIX（`tools/vscode-mng/`，纯 TS，不进 moon.work） | `.mng` 语言注册 + TextMate 高亮（HTML 底子 + MoonBit 表达式着色，只给颜色不给语义）+ snippets + 定位/安装 `mng_cli` 的引导 |
+| `mng_cli lsp`（stdio JSON-RPC） | v1 方法集：`initialize` / `didOpen`·`didChange` / `completion` / `hover` / `definition` / `publishDiagnostics`；诊断沿用 `moon check` → `map-errors` 回映射口径；语义计算复用 mngkit，LSP 只做编解码 |
+
+- **补全目录的来源**：表达式内补同文件 script 段的 Store/Signal/props/函数名；标签补内置组件表 + 项目内组件；组件参数与类型读 `pkg.generated.mbti`（`moon check` 产，位置参在前、labeled 带 `?`）；class 与 token 读样式章摊平产物。**不引入原生 HTML/CSS 的语义补全**——能力子集与原生差距大，原生只作高亮底子。
+- **真实类型 hover 不在 v1**：需桥 `moon ide` + source map 正向索引，另批。
+- **握手与降级**：插件启动对 `mng_cli --version` 报 schema 位，对不上则补全降级为空，高亮与 snippets 照用。
+- **发布分离**：工具随 `NoahLiu/native-gui-tools` 走 mooncakes（`moon install` / `moonx`）；插件走 VSIX。与 gui 同批配对发版的规则不变。
 
 ## 与既有规划的关系
 
@@ -345,7 +350,7 @@ Web 主面壳形态不做（roadmap「明确不做」）。原生面是唯一主
 ## 开放问题（待讨论）
 
 1. ~~语法细节~~：**已冻结**（2026-11-01）——语法对齐 Vue：`{{ }}`、`:attr`、`@event`、`v-model`（落点直传 Store）、`v-if` 全家 + `v-show`、`v-for`、`ui-*` 内置表 + script setup `let` 绑定暴露；收窄项见「Spike 契约」记档。
-2. ~~单文件格式与扩展名~~：**已定 `.mng.html`**（`.mng` 与图像格式 MNG 重名，按「无重名才换」规则保留 `.html` 后缀）；script 段原文进生成函数体前段、模板树进后段。
+2. ~~单文件格式与扩展名~~：**`.mng`**（裸，语言注册由自家扩展接管）；script 段原文进生成函数体前段、模板树进后段。
 3. 生成物提交 or 忽略（本方案倾向提交 + CI 校验新鲜度）。
 4. spike 已选 showcase 表单页；生成函数签名 v1 定 `fn <文件名去扩展>() -> @widget.Node`——app 注入需求与组件 props 类型化（带参组件）留 v2。
 5. 工具命名——按路线门面标准起：终态是本路线的 Vite 位次，对外 DX 的第一入口。

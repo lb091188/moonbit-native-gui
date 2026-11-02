@@ -305,7 +305,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ⏳ **模板热更新（IR 热应用）**：编译器旁路产出模板 IR（结构数据，表达式按哈希引用已编译闭包）；dev 档注册表 + 应用内 applier 经单实例通道原位重挂（复用路由 unmount / remount 机关）；结构 / 绑定改动亚秒，表达式 / 逻辑改动自动回退重启；v2 方向按实测痛感排队：受限表达式求值器、子树对账状态保活、列表行模板热编辑
 - ⏳ **样式 token / 类热更新**：dev 工具经单实例通道推 token 与命名类变更，应用侧指纹重建；模板编译器强制「样式进槽」——`<style>` 段与 `class` 引用之外出现样式字面量即编译报错
 - ⏳ **模板样式章**：`<style>` 段编译期摊平进命名类注册表（类选择器、一层后代、`var(--token)`、深浅变体；不做运行时级联）；布局属性样式化口径——构造参数为默认值、类槽为覆盖，children / 事件 / 键 / 行列选型留结构侧；口径收紧独立于模板先行（存量受益）
-- ⏳ **dev 工具二进制**：本路线的 Vite 位次，`moon install` 分发；子命令 `dev`（watch + 改动分类 + IR / token 通道推送 + 回退编排）/ `build`（纯生产产物零 dev 痕迹）/ `new`（新 `.mng.html` 页样板脚手架）/ `preview`（独立预览窗：同一 applier + mock 状态）/ `lsp`（模板诊断、补全、跳转）
+- ⏳ **dev 工具二进制**：本路线的 Vite 位次，`moon install` 分发；子命令 `dev`（watch + 改动分类 + IR / token 通道推送 + 回退编排）/ `build`（纯生产产物零 dev 痕迹）/ `new`（新 `.mng` 页样板脚手架）/ `preview`（独立预览窗：同一 applier + mock 状态）/ `lsp`（模板诊断、补全、跳转）
 - ⏳ **编辑器支持（VS Code）**：四档——0 档零插件（HTML 可关联扩展名 + tasks/problemMatcher 错误进 Problems，随模板 v1）；1 档轻插件（表达式着色 injection + snippets）；2 档 LSP 薄壳接工具 `lsp` 子命令（触发：v1 用出真痛感）；3 档预览集成挂终态
 - ⏳ **上游诉求**：moonbitlang native 目标 hot reload / 运行时多模块 + native 增量链接；落地当天 IR 通道升格真代码热换、状态迁移层（快照设计）复活、回退路径消失
 

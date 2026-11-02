@@ -1,5 +1,5 @@
 // mng_dev 白盒：补丁解析 → applier 构树 → holder 原位替换 → 旧代整袋退订。
-// 注册表键与 dev_demo.mng.html 坐标一致（真实补丁形态由 tools/mng_cli ir 产出）。
+// 注册表键与 dev_demo.mng 坐标一致（真实补丁形态由 tools/mng_cli ir 产出）。
 
 ///|
 fn demo_ir() -> String {

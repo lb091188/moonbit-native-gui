@@ -5,7 +5,7 @@
 
 fn usage_dev() -> Unit {
   println("用法：moon run tools/mng_cli -- dev --watch <文件或目录[,...]> --out-dir <生成码目录> --build-cmd <可执行 [参数...]> --run-cmd <可执行 [参数...]> [--poll-ms 300]")
-  println("  watch：.mng.html 文件或目录（目录取其中 *.mng.html）")
+  println("  watch：.mng 文件或目录（目录取其中 *.mng）")
   println("  out-dir：生成码落点（<stem>.gen.mbt），应指向应用包内同包目录")
   println("  build-cmd / run-cmd：按首个空格拆成可执行 + 参数直起，不穿 shell")
   println("  分类：script 段未变且表达式集合 ⊆ 基线 → HOT（只更新生成码并打标，不打断应用）；否则 COLD（build 成功后杀旧起新）")
@@ -36,7 +36,7 @@ fn split_cmd(cmd : String) -> (String, Array[String])? {
 }
 
 ///|
-/// 收集 watch 目标：目录取其中 *.mng.html，文件原样。
+/// 收集 watch 目标：目录取其中 *.mng，文件原样。
 fn collect_watch(p : String) -> Array[String] {
   let isdir = @fs.is_dir(p) catch {
     _ => false
@@ -47,7 +47,7 @@ fn collect_watch(p : String) -> Array[String] {
       _ => return out
     }
     for f in entries {
-      if f.has_suffix(".mng.html") {
+      if f.has_suffix(".mng") {
         out.push(p + "/" + f)
       }
     }
@@ -143,7 +143,7 @@ fn cmd_dev(args : Array[String]) -> Int {
     }
   }
   if files.length() == 0 {
-    eprintln("watch 目标里没有 .mng.html")
+    eprintln("watch 目标里没有 .mng")
     return 2
   }
   // 应用输出日志
@@ -293,7 +293,7 @@ fn snake_of(s : String) -> String {
 /// ir 子命令：打印模板的 IR 补丁（调试 + 应用侧注册表键校准）。
 fn cmd_ir(args : Array[String]) -> Int {
   if args.length() != 1 {
-    println("ir 需要一个 .mng.html 路径")
+    println("ir 需要一个 .mng 路径")
     return 2
   }
   let src = match slurp(args[0]) {
@@ -317,19 +317,19 @@ fn cmd_ir(args : Array[String]) -> Int {
 }
 
 ///|
-/// new 子命令：生成 .mng.html 页样板（script setup + 最小模板 + @mng 提示）。
+/// new 子命令：生成 .mng 页样板（script setup + 最小模板 + @mng 提示）。
 fn cmd_new(args : Array[String]) -> Int {
   if args.length() != 1 {
-    println("new 需要一个页名（生成 <名字>.mng.html）")
+    println("new 需要一个页名（生成 <名字>.mng）")
     return 2
   }
   let name = args[0]
-  if !name.has_suffix(".mng.html") {
-    return cmd_new([name + ".mng.html"])
+  if !name.has_suffix(".mng") {
+    return cmd_new([name + ".mng"])
   }
   let stem = basename(name)
-  let stem = if stem.has_suffix(".mng.html") {
-    stem[:stem.length() - 9].to_owned()
+  let stem = if stem.has_suffix(".mng") {
+    stem[:stem.length() - 4].to_owned()
   } else {
     stem
   }

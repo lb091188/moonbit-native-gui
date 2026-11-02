@@ -1,17 +1,17 @@
 // mng 编译 CLI。子命令：
-//   build <input.mng.html> -o <out.mbt>   编译出生成码 + <out.mbt>.map（source map）
+//   build <input.mng> -o <out.mbt>   编译出生成码 + <out.mbt>.map（source map）
 //   map-errors --map <out.mbt.map> <log>  把 moon check 日志里的生成码行列映射回模板
 //
 // DX 生死线（proposals/native-template.md）：错误回映射。用法——
-//   moon run tools/mng_cli -- build page.mng.html -o page.mbt
+//   moon run tools/mng_cli -- build page.mng -o page.mbt
 //   moon check > check.log 2>&1; moon run tools/mng_cli -- map-errors --map page.mbt.map check.log
 
 fn usage() -> Unit {
   println("用法：moon run tools/mng_cli -- <子命令> ...")
-  println("  build <input.mng.html> -o <out.mbt>    编译模板：产出 out.mbt 与 out.mbt.map")
+  println("  build <input.mng> -o <out.mbt>    编译模板：产出 out.mbt 与 out.mbt.map")
   println("  map-errors --map <out.mbt.map> <log>   把日志中 <gen>.mbt:行:列 映射回模板行列")
-  println("  ir <input.mng.html>                    打印模板的 IR 补丁（调试与注册表校准）")
-  println("  new <name>                             生成 .mng.html 页样板")
+  println("  ir <input.mng>                    打印模板的 IR 补丁（调试与注册表校准）")
+  println("  new <name>                             生成 .mng 页样板")
   println("  dev ...                                watch + 契约分类 + 回退编排（dev 无参看细目）")
 }
 

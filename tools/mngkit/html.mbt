@@ -1,4 +1,4 @@
-// .mng.html 解析器：顶层 <script setup lang="moonbit"> + <template> 单根树。
+// .mng 解析器：顶层 <script setup lang="moonbit"> + <template> 单根树。
 // 手写递归下降，全程带行列坐标；不支持实体与 CDATA（v1 记档）。
 
 ///|

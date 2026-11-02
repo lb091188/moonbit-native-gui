@@ -789,7 +789,7 @@ fn stem_of(filename : String) -> String {
 }
 
 ///|
-/// 编译入口：.mng.html 源码 → 生成 MoonBit + source map。
+/// 编译入口：.mng 源码 → 生成 MoonBit + source map。
 pub fn compile(src : String, filename : String) -> Result[GenOut, String] {
   let sfc = match parse_sfc(src) {
     Ok(v) => v
