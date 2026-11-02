@@ -454,7 +454,7 @@ function activate(ctx) {
       warned = true;
       vscode.window
         .showWarningMessage(
-          'MNG：未找到 mng_cli（补全/诊断不可用，着色与 snippets 照用）。装法：moon install tools/native-gui-tools，或在设置 mng.cliPath 指向可执行文件。',
+          'MNG：未找到 mng_cli（补全/诊断不可用，着色与 snippets 照用）。装法：在仓库根执行 moon install ./tools/native-gui-tools/mng_cli，或在设置 mng.cliPath 指向可执行文件。',
           '打开设置'
         )
         .then((pick) => {
