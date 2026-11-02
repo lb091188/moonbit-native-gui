@@ -139,6 +139,36 @@ jobs:
           fi
           grep -aE "Total tests" /tmp/mt.out | tail -1
 
+      # 模板生成物新鲜度对账：对每个提交的 .mng 用 dev 形态重新编译，与提交的
+      # <stem>.gen.mbt diff——不一致即「手改生成码」或「改了模板忘重新生成」。
+      # 生成码头注释带来源绝对路径，故这里必须传绝对路径（与 dev 循环同形）。
+      - name: 生成物新鲜度(模板对账)
+        run: |
+          set -e
+          status=0
+          while IFS= read -r f; do
+            abs="$PWD/$f"
+            dir=$(dirname "$f")
+            stem=$(basename "${f%.mng}")
+            out="/tmp/fresh_$(echo "$f" | tr '/' '_').gen.mbt"
+            if ! moon run tools/native-gui-tools/mng_cli -- gen "$abs" -o "$out" >/dev/null 2>&1; then
+              echo "::error title=模板编译失败::$f"
+              status=1
+              continue
+            fi
+            committed="$dir/$stem.gen.mbt"
+            if [ -f "$committed" ]; then
+              if ! diff -u "$committed" "$out" >/tmp/fresh.diff 2>&1; then
+                echo "::error title=生成物过期::$committed —— 重跑 dev 循环或 mng_cli gen 重新生成并提交"
+                head -20 /tmp/fresh.diff
+                status=1
+              fi
+            else
+              echo "提示：$f 有模板无生成码（$committed 不存在；dev 形态生成码由 dev 循环首跑产出，可不入库）"
+            fi
+          done < <(find examples -name "*.mng" -not -path "*/.mooncakes/*" -not -path "*/_build/*" -not -path "*/target/*")
+          exit $status
+
       # webview 扩展模块(G9 Batch 1):libwebkit2gtk-4.1-dev 已在系统依赖里,
       # 本步回证「主模块再无 web、新模块自带 prebuild 编译链与测试」。
       - name: 单元测试(gui-webview 模块)

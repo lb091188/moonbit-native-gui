@@ -9,6 +9,7 @@
 fn usage() -> Unit {
   println("用法：moon run tools/native-gui-tools/mng_cli -- <子命令> ...")
   println("  build <input.mng> -o <out.mbt>    编译模板：产出 out.mbt 与 out.mbt.map")
+  println("  gen <input.mng> -o <out.mbt>      dev 形态编译（CI 生成物对账用，无 map）")
   println("  map-errors --map <out.mbt.map> <log>   把日志中 <gen>.mbt:行:列 映射回模板行列")
   println("  ir <input.mng>                    打印模板的 IR 补丁（调试与注册表校准）")
   println("  new <name>                             生成 .mng 页样板")
@@ -103,6 +104,58 @@ fn cmd_build(args : Array[String]) -> Int {
         return 1
       }
       println("OK " + out + "（+ .map）")
+      return 0
+    }
+  }
+}
+
+///|
+/// gen 子命令：dev 形态编译单个模板（生成码写 -o，不写 map）。与 dev 循环
+/// 的首轮编译同一形态——CI 生成物新鲜度对账用：重生成后与提交的
+/// `<stem>.gen.mbt` diff，不一致即「手改生成码或忘重新生成」。
+fn cmd_gen(args : Array[String]) -> Int {
+  let mut input = ""
+  let mut out = ""
+  let mut k = 0
+  while k < args.length() {
+    if args[k] == "-o" && k + 1 < args.length() {
+      out = args[k + 1]
+      k += 2
+    } else {
+      input = args[k]
+      k += 1
+    }
+  }
+  if input.length() == 0 || out.length() == 0 {
+    println("gen 需要输入文件与 -o 输出路径")
+    return 2
+  }
+  match stem_conflict_msg(input) {
+    Some(m) => {
+      println(m)
+      return 1
+    }
+    None => ()
+  }
+  let src = match slurp(input) {
+    Some(s) => s
+    None => {
+      println("读不到文件：" + input)
+      return 1
+    }
+  }
+  match mng_compile_dev(src, input) {
+    Err(e) => {
+      println(input + " 编译失败：")
+      println(e)
+      return 1
+    }
+    Ok(r) => {
+      if !spit(out, r.code) {
+        println("写不出文件：" + out)
+        return 1
+      }
+      println("OK " + out)
       return 0
     }
   }
@@ -335,6 +388,8 @@ fn main {
     cmd_version()
   } else if cmd == "build" {
     cmd_build(rest)
+  } else if cmd == "gen" {
+    cmd_gen(rest)
   } else if cmd == "map-errors" {
     cmd_map_errors(rest)
   } else if cmd == "dev" {
