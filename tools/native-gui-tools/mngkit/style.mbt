@@ -181,6 +181,22 @@ fn is_hex_color(v : String) -> Bool {
 }
 
 ///|
+/// 数值（可带 `px` 后缀）→ MoonBit Double 字面量；非数值给 None。
+fn num_or_px(v : String) -> String? {
+  let s = v.trim().to_owned()
+  if is_number_text(s) {
+    return Some(num_lit(s))
+  }
+  if s.length() > 2 && s.has_suffix("px") {
+    let head = s[:s.length() - 2].to_owned().trim().to_owned()
+    if is_number_text(head) {
+      return Some(num_lit(head))
+    }
+  }
+  None
+}
+
+///|
 /// 数值串 → MoonBit Double 字面量（无小数点补 `.0`）。
 fn num_lit(v : String) -> String {
   if contains_sub(v, ".") || contains_sub(v, "e") || contains_sub(v, "E") {
@@ -222,12 +238,13 @@ fn flex_basis_pair(tok : String, pos : Pos) -> Result[(String, String), String] 
       return Ok(("flex_basis_percent", num_lit(num)))
     }
   }
-  if is_number_text(tok) {
-    Ok(("flex_basis", num_lit(tok)))
-  } else {
-    Err(
-      "\{pos_str(pos)}：flex basis 要像素或百分比（`100%` / `120`）；`auto` 用 width/height 表达",
-    )
+  match num_or_px(tok) {
+    Some(e) => Ok(("flex_basis", e))
+    None => {
+      Err(
+        "\{pos_str(pos)}：flex basis 要像素或百分比（`100%` / `120` / `120px`）；`auto` 用 width/height 表达",
+      )
+    }
   }
 }
 
@@ -243,18 +260,20 @@ fn style_expand(prop : String, raw : String, pos : Pos) -> Result[Array[(String,
     if toks.length() > 3 {
       return Err("\{pos_str(pos)}：flex 最多三段：grow shrink basis")
     }
-    if !is_number_text(toks[0]) {
-      return Err(
-        "\{pos_str(pos)}：flex 要 CSS 简写（grow / grow shrink / grow shrink basis），见到 `\{toks[0]}`",
-      )
+    let grow = match num_or_px(toks[0]) {
+      Some(e) => e
+      None =>
+        return Err(
+          "\{pos_str(pos)}：flex 要 CSS 简写（grow / grow shrink / grow shrink basis），见到 `\{toks[0]}`",
+        )
     }
     let out : Array[(String, String)] = []
-    out.push(("flex", num_lit(toks[0])))
+    out.push(("flex", grow))
     let shrink = if toks.length() >= 2 {
-      if !is_number_text(toks[1]) {
-        return Err("\{pos_str(pos)}：flex shrink 要数值，见到 `\{toks[1]}`")
+      match num_or_px(toks[1]) {
+        Some(e) => e
+        None => return Err("\{pos_str(pos)}：flex shrink 要数值，见到 `\{toks[1]}`")
       }
-      num_lit(toks[1])
     } else {
       "1.0"
     }
@@ -315,10 +334,9 @@ fn style_value_of(prop : String, raw : String, pos : Pos) -> Result[String, Stri
           Err("\{pos_str(pos)}：颜色要写 `var(--令牌)` 或 `#rrggbb`，见到 `\{v}`")
         }
       PKNumber =>
-        if is_number_text(v) {
-          Ok(num_lit(v))
-        } else {
-          Err("\{pos_str(pos)}：`\{prop}` 要数值或 `var(--令牌)`，见到 `\{v}`")
+        match num_or_px(v) {
+          Some(e) => Ok(e)
+          None => Err("\{pos_str(pos)}：`\{prop}` 要数值（可带 `px`）或 `var(--令牌)`，见到 `\{v}`")
         }
       PKInt =>
         if is_number_text(v) {

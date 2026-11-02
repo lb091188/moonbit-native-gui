@@ -737,3 +737,20 @@ test "引号：真正的 Char 字面量保持不动；含转义的单引号串�
     },
   )
 }
+
+///|
+test "样式章：数值可带 px 后缀（数值即逻辑像素）" {
+  let src = [
+    "<style>",
+    ".t { font-size: 20px; padding: 8px; border-width: 1px; flex: 1 0 100px; }",
+    "</style>",
+    "<template>",
+    "  <ui-text class=\"t\" text=\"x\" />",
+    "</template>",
+  ].join("\n")
+  let code = match compile(src, "px.mng") {
+    Ok(o) => o.code
+    Err(e) => abort("\{e}")
+  }
+  assert_true(contains_sub(code, "font_size=20.0, padding=8.0, border_width=1.0, flex=1.0, flex_shrink=0.0, flex_basis=100.0"))
+}

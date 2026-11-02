@@ -9,7 +9,8 @@ fn on_reset() {
 }
 </script>
 <template>
-  <ui-col row_gap="8.0">
+  <ui-col class="demo" row_gap="8.0">
+    <ui-text class="demo-title" :text='@shared.tx("字号示例 20px")' />
     <ui-checkbox :label='@shared.tx("自动开启")' v-model="wifi" />
     <ui-text v-if="wifi" :text='@shared.tx("已开启")' />
     <ui-text v-else text="已关闭" />
@@ -19,3 +20,15 @@ fn on_reset() {
     <ui-button text="重置" @click="on_reset" />
   </ui-col>
 </template>
+<style>
+  /* 类槽只作用于挂它的那个控件——Style 没有继承，字号要挂在文字元素自己的类上 */
+  .demo-title {
+    font-size: 20px;
+    font-weight: bold;
+    color: var(--text_primary);
+  }
+  .demo {
+    justify-content: center;
+    align-items: flex-start;
+  }
+</style>
