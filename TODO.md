@@ -33,7 +33,6 @@
 - [ ] **2.1 主题 JSON 加载**：`@theme.from_json(String) -> Result[Theme, String]`——字段名白名单 = `Theme` 字段、未知字段报错、允许部分缺省（回落 `default_theme()`/`dark_theme()` 基底）；复用 `@sys` JSON 原语，不引属性名解析器；wbtest 覆盖（合法 / 未知字段 / 缺省回落）
 - [ ] **2.2 跟随系统默认接线 + 表述对齐**：`mount_window` 默认做一次 `theme_from_system` 探测并应用（单次探测无轮询成本；显式 `theme_apply` 的应用不受影响；轮询跟随器保持 opt-in）；docs/zh/index.md「默认跟随系统深浅色」与 tutorial.md「默认已整套跟随」两处表述落实后核对为真
 - [ ] **3.1 窗口族诚实降级（分两步）**：①文档步——`Window::set_title/set_icon/set_min_size/set_opacity/set_transparent_bg` 等契约注释逐平台钉死读回值含义（非 Windows 空实现读回 0/false、无合成器静默无效、Windows 透明底前置无边框，全部写明）；②签名步（0.x 破坏性改动）——补 `*_supported()` 探测或 setter 返回 `Result`/`Bool`，前置不满足进 `Failed` 档带原因文案（对齐系统能力族口径）
-- [ ] **1.3 grid 布局原语**：`@ui.grid(columns, children, gap?, …)`——纯 MoonBit 不引 CSS grid 全语义，先测后布两遍走（一遍测子项列宽、一遍按列组装行容器），支持等宽 N 列与显式列宽两档；放 gui/ui 布局组与 row/col 同级；wbtest + showcase 示例页
 - [ ] **1.4 `@ui` 公共面收窄**：`button_skin` / `button_skin_token` / `paint_subset` / `fold_color` / `mask_of` 逐个判断去向——纯实现细节去 pub（0.x 破坏记提交信息），确有外部价值的（如 `fold_style`）保留并写文档；同批核对 examples 与测试文档无引用
 - [ ] **2.3 `dark:`/`light:` 变体接入组件消费**：从 `gui/style/tokens.mbt` 挑 2–3 个确需深浅分档的内置样式（阴影深浅 / 边框强度 / 代码视图底色）改变体前缀写法；补「切深浅后变体生效 + 重绘」回归测试
 - [ ] **2.4 code_view 主题化**：One Dark 硬编码色板（gui/ui/codeview.mbt）抽成按 `Theme` 派生的代码配色（深浅基底各一套：背景/前景/关键字/字符串/注释映射 theme token 或派生），默认跟 `theme_current()`；保留显式 `code_theme` 参数给刻意场景
