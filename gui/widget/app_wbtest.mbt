@@ -185,3 +185,19 @@ test "无 im_context 声明的控件不参与输入法轮次" {
   )
   assert_eq(root.dispatch_commit(3, "a"), false)
 }
+
+///|
+test "theme_apply_system_once：干净进程只应用一次" {
+  theme_auto_done.val = false
+  assert_true(theme_apply_system_once())
+  assert_false(theme_apply_system_once())
+}
+
+///|
+test "theme_apply_system_once：显式 theme_apply 后跳过，不覆盖显式选择" {
+  @theme.theme_apply(@theme.dark_theme())
+  assert_true(@theme.theme_explicitly_applied())
+  let fp = @theme.theme_fingerprint_of(@theme.theme_current())
+  assert_false(theme_apply_system_once())
+  assert_eq(@theme.theme_fingerprint_of(@theme.theme_current()), fp)
+}

@@ -147,7 +147,7 @@ A window appears: a title, a button, and a "Clicked 0 times" line. Click the but
 
 Once your first app runs, pick a path by goal:
 
-**Make it look good** — out of the box the app already follows the system light/dark mode and accent color; connect it in one `follow_system_theme` line:
+**Make it look good** — the first window probes the system light/dark mode and accent color once by default (skipped when you have applied a theme explicitly); for continuous following (live recolor when the system switches), connect it in one `follow_system_theme` line:
 
 ```moonbit
 handle=fn(a : @widget.App) -> Unit {

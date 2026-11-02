@@ -25,7 +25,6 @@
 ## 设计原则补齐（2026-11-02 拍板，落差清单见 [proposals/principles-gap.md](proposals/principles-gap.md)；按其 §五 优先级排序，做完一项删一项并同步路线图）
 
 - [ ] **1.1 平台原生句柄透出**：三平台桩各加 `wm_native_handle(slot) -> int64_t`（Windows 取槽表 hwnd / GTK 复用 `wm_surface_container` 取法、口径在契约注释钉死 / mac 取桩内 NSWindow*，无窗口后端回 0），MoonBit 侧 `Window::native_handle() -> Int64`，文档标注「裸句柄、平台语义、仅逃生用，跨平台代码不得依赖」；白盒测试覆盖
-- [ ] **2.2 跟随系统默认接线 + 表述对齐**：`mount_window` 默认做一次 `theme_from_system` 探测并应用（单次探测无轮询成本；显式 `theme_apply` 的应用不受影响；轮询跟随器保持 opt-in）；docs/zh/index.md「默认跟随系统深浅色」与 tutorial.md「默认已整套跟随」两处表述落实后核对为真
 - [ ] **3.1 窗口族诚实降级（分两步）**：①文档步——`Window::set_title/set_icon/set_min_size/set_opacity/set_transparent_bg` 等契约注释逐平台钉死读回值含义（非 Windows 空实现读回 0/false、无合成器静默无效、Windows 透明底前置无边框，全部写明）；②签名步（0.x 破坏性改动）——补 `*_supported()` 探测或 setter 返回 `Result`/`Bool`，前置不满足进 `Failed` 档带原因文案（对齐系统能力族口径）
 - [ ] **1.4 `@ui` 公共面收窄**：`button_skin` / `button_skin_token` / `paint_subset` / `fold_color` / `mask_of` 逐个判断去向——纯实现细节去 pub（0.x 破坏记提交信息），确有外部价值的（如 `fold_style`）保留并写文档；同批核对 examples 与测试文档无引用
 - [ ] **2.3 `dark:`/`light:` 变体接入组件消费**：从 `gui/style/tokens.mbt` 挑 2–3 个确需深浅分档的内置样式（阴影深浅 / 边框强度 / 代码视图底色）改变体前缀写法；补「切深浅后变体生效 + 重绘」回归测试

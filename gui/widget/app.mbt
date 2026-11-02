@@ -360,6 +360,27 @@ pub fn App::follow_system_theme(self : App, interval_ms? : Int = 1000) -> () -> 
 }
 
 ///|
+/// 一次性系统主题默认接线：进程内首个窗口挂载前做一次 `theme_from_system`
+/// 探测并应用（单次探测、无轮询；深浅与主色读不出的桌面回落亮色基准）。
+/// 应用此前已显式 `theme_apply`（含已接 `follow_system_theme`）时跳过，
+/// 显式选择不被默认覆盖；持续跟随仍走 opt-in 的 `follow_system_theme`。
+/// 返回是否实际应用。
+let theme_auto_done : Ref[Bool] = Ref(false)
+
+///|
+pub fn theme_apply_system_once() -> Bool {
+  if theme_auto_done.val || @theme.theme_explicitly_applied() {
+    return false
+  }
+  theme_auto_done.val = true
+  let _ = @theme.theme_apply_system(
+    fn() -> String { @win.sys_color_scheme() },
+    fn() -> String { @win.sys_accent() },
+  )
+  true
+}
+
+///|
 /// 把声明式节点树挂进根控件（内容入口）。挂载即建控件，之后信号驱动的
 /// 重挂走 `bind_node` 的原位替换；挂完标一次脏，下一帧就有内容。
 /// 多窗时每窗挂自己那棵，浮层图层升回自己那层的最后。

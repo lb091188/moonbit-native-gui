@@ -75,6 +75,8 @@
 
 ### 2.2 跟随系统主题默认接线
 
+> ✅ 已落地（2026-11-02）：`@widget.theme_apply_system_once`——进程内首个窗口挂载前探测一次并应用；显式 `theme_apply` 过（含已接跟随器）跳过；持续轮询仍 opt-in。教程/文档表述已按「默认一次性探测 + 轮询 opt-in」对齐。
+
 **现状**：进程初始主题硬编码 `default_theme()`（`gui/theme/theme.mbt`）；`follow_system_theme` 是 opt-in 且靠轮询（默认 1s，指纹防抖，`gui/widget/app.mbt`）。三平台探针本身扎实（注册表 / GSettings 含回退 / NSAppearance）。README 写 "followed by default"，实现是 opt-in——表述强于实现。
 
 **为什么要加**：深色系统首次启动白闪是桌面应用常见差评点；「跟随系统」是多数用户的默认期待，不该要求每个应用记得接线。

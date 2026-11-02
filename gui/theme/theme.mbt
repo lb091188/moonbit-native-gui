@@ -209,6 +209,17 @@ let theme_box : ThemeBox = { t: default_theme(), subs: [], }
 let theme_sub_next_id : Ref[Int] = Ref(0)
 
 ///|
+/// 显式应用标记：`theme_apply` 被调过即置位。窗口层的默认主题接线据此跳过
+/// ——应用已自己定主题（含已接跟随器）时，系统默认探测不得覆盖显式选择。
+let theme_explicit_flag : Ref[Bool] = Ref(false)
+
+///|
+/// 本进程是否显式应用过主题（`theme_apply` 调用过即真）。
+pub fn theme_explicitly_applied() -> Bool {
+  theme_explicit_flag.val
+}
+
+///|
 /// 读取当前主题快照。
 pub fn theme_current() -> Theme {
   theme_box.t
@@ -233,6 +244,7 @@ pub fn off_theme_change(handle : Int) -> Unit {
 /// 应用整套主题：替换快照并通知订阅者。控件全部自绘，这里既不下发原生 CSS、
 /// 也不做整体重绘兜底（重绘由订阅方各自触发）。
 pub fn theme_apply(t : Theme) -> Unit {
+  theme_explicit_flag.val = true
   theme_box.t = t
   let snapshot = theme_box.subs.copy()
   for input in snapshot {

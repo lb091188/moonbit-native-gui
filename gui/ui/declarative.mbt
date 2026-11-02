@@ -272,6 +272,10 @@ pub fn hover_group(
 ///
 /// 窗口居中由 WM 决定、关闭只把宿主循环停下，故不提供 `center` / `on_close`，
 /// 退出后的收尾写在调用方 `run()` 之后。
+///
+/// 主题默认接线：进程内首次挂窗自动探测一次系统深浅与主色并应用；此前
+/// 显式 `theme_apply` 过（含已接 `follow_system_theme`）则不覆盖。持续跟随
+/// 仍是 opt-in（`App::follow_system_theme`）。
 pub fn mount_window(
   children : Array[@widget.Node],
   title? : String = "",
@@ -279,6 +283,7 @@ pub fn mount_window(
   height? : Int = 600,
   handle? : (@widget.App) -> Unit = fn(_a : @widget.App) -> Unit { () },
 ) -> @widget.App? {
+  let _ = @widget.theme_apply_system_once()
   match @widget.App::new(width, height, title) {
     None => None
     Some(app) => {

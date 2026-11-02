@@ -147,7 +147,7 @@ moon run cmd/main
 
 第一个应用跑起来之后，按目标选路径：
 
-**想做得好看**——默认已整套跟随系统深浅与主色，`follow_system_theme` 一行接上：
+**想做得好看**——起窗默认自动探测一次系统深浅与主色（显式 `theme_apply` 过则不覆盖）；要持续跟随（系统切换界面即时变色），`follow_system_theme` 一行接上：
 
 ```moonbit
 handle=fn(a : @widget.App) -> Unit {
