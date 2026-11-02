@@ -12,7 +12,7 @@ import {
   "NoahLiu/native-gui/theme",
   "NoahLiu/native-gui/icons",
   "NoahLiu/native-gui/style" @style,
-  "NoahLiu/native-gui/win",
+  "NoahLiu/gui-window/win",
   "NoahLiu/native-gui/dbus" @dbus,
   "NoahLiu/native-gui-examples-showcase/shared",
   "NoahLiu/native-gui-examples-showcase/pages",

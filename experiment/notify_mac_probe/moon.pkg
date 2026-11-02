@@ -2,7 +2,7 @@
 // 启动后自动发两条通知，不用人点按钮。定位「showcase 点了没横幅」用。
 import {
   "NoahLiu/native-gui/widget" @widget,
-  "NoahLiu/native-gui/win",
+  "NoahLiu/gui-window/win",
 }
 
 pkgtype(kind: "executable")

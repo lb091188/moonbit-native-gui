@@ -3,7 +3,7 @@ import {
   "NoahLiu/native-gui/widget" @widget,
 
   "NoahLiu/native-gui/ui",
-  "NoahLiu/native-gui/win",
+  "NoahLiu/gui-window/win",
   "NoahLiu/gui-sys/sys" @sys,
 }
 

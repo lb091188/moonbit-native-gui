@@ -8,7 +8,7 @@ import {
   "NoahLiu/native-gui/chart",
   "NoahLiu/native-gui/text",
   "NoahLiu/native-gui/mdview",
-  "NoahLiu/native-gui/win",
+  "NoahLiu/gui-window/win",
 }
 
 pkgtype(kind: "executable")

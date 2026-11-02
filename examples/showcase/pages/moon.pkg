@@ -10,7 +10,7 @@ import {
   "NoahLiu/native-gui/render" @render,
   "NoahLiu/native-gui/text" @text,
   "NoahLiu/native-gui/ui",
-  "NoahLiu/native-gui/win" @win,
+  "NoahLiu/gui-window/win" @win,
   "NoahLiu/gui-sys/sys" @sys,
   "NoahLiu/native-gui/icons",
   "NoahLiu/native-gui/chart" @charts,

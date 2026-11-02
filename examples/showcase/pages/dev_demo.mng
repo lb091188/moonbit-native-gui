@@ -10,25 +10,29 @@ fn on_reset() {
 </script>
 <template>
   <ui-col class="demo" row_gap="8.0">
-    <ui-text class="demo-title" :text='@shared.tx("字号示例 20px")' />
-    <ui-checkbox :label='@shared.tx("自动开启")' v-model="wifi" />
-    <ui-text v-if="wifi" :text='@shared.tx("已开启")' />
+    <ui-text class="demo-title" :text="@shared.tx('字号示例 16px')" />
+    <ui-checkbox :label="@shared.tx('自动开启')" v-model="wifi" />
+    <ui-text v-if="wifi" :text="@shared.tx('已开启')" />
     <ui-text v-else text="已关闭" />
     <ui-stepper v-model="qty" max="10" />
     当前数量：{{ qty }}
-    <ui-input v-model="nick" placeholder="试试结构热更" />
-    <ui-button text="重置" @click="on_reset" />
+    <ui-input class="try-input" v-model="nick" placeholder="试试结构热更" />
+    <ui-button text="重1置" @click="on_reset" />
   </ui-col>
 </template>
 <style>
   /* 类槽只作用于挂它的那个控件——Style 没有继承，字号要挂在文字元素自己的类上 */
   .demo-title {
-    font-size: 20px;
-    font-weight: bold;
-    color: var(--text_primary);
+    color: var(--text_secondary);
   }
   .demo {
+    flex: 1;
+    width: 100%;
+    font-size: 16px;
     justify-content: center;
-    align-items: flex-start;
+    align-items: center;
+  }
+  .try-input{
+    width: 300px;
   }
 </style>

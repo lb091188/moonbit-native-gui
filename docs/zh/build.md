@@ -85,13 +85,13 @@ moon run . --target native
 
 ### 在本仓库里
 
-仓库是 `moon.work` workspace，成员含库、探针、六个子模块、七个示例与工具。各示例的模块依赖与额外安装：
+仓库是 `moon.work` workspace，成员含库、探针、七个子模块、七个示例与工具。各示例的模块依赖与额外安装：
 
 | 示例 | 模块依赖 | 额外安装 |
 |---|---|---|
-| `hello` / `showcase` / `sysmonitor` | native-gui + gui-sys | §2 基础清单即可 |
+| `hello` / `showcase` / `sysmonitor` | native-gui + gui-sys + gui-window | §2 基础清单即可 |
 | `browser` | + `gui-webview` | Linux 加 `libwebkit2gtk-4.1-dev`；Windows / macOS 用系统 WebView，无需额外安装 |
-| `audio` / `video` / `headless-audio` | + `gui-media`（需 ffmpeg）+ `gui-sys` | Linux 加 §2 的 `libav*-dev` 五件；Windows / macOS 构建期自动取得，见下 |
+| `audio` / `video` / `headless-audio` | + `gui-media`（需 ffmpeg）+ `gui-sys` + `gui-window` | Linux 加 §2 的 `libav*-dev` 五件；Windows / macOS 构建期自动取得，见下 |
 
 **先分清两种跑法**：
 

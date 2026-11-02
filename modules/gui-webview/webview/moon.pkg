@@ -17,7 +17,7 @@ import {
   "NoahLiu/native-gui/base",
   "NoahLiu/native-gui/shell",
   "NoahLiu/native-gui/widget" @widget,
-  "NoahLiu/native-gui/win",
+  "NoahLiu/gui-window/win",
   "NoahLiu/native-gui/render",
   "NoahLiu/gui-sys/sys",
 }
