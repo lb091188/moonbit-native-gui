@@ -1,6 +1,7 @@
-// D-Bus 通用基建（方案 §2 的 `dbus`）：线路格式编解码 + 会话/系统总线
-// 连接 + 通用方法调用与属性读写。后续批次的能力模块（托盘 SNI、通知、
-// UPower/logind/NetworkManager 监视、单实例）作为同包文件接进来。
+// D-Bus 通用基建（NoahLiu/gui-dbus，模块拆分之一）：线路格式编解码 +
+// 会话/系统总线连接 + 通用方法调用与属性读写；托盘 SNI、通知、
+// UPower/logind/NetworkManager 监视、单实例同包。依赖 gui-sys（零 GUI
+// 依赖）；Windows/mac 上桩为空实现，能力如实 Unsupported。
 //
 // 与旧链 traybus 的一条分层差：本包不挂 glib fd 监视、也不依赖 GUI 层，
 // 入站数据由宿主周期调 `dbus_pump` 取走，断线自愈的延迟重连走

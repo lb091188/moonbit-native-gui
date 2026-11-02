@@ -8,6 +8,7 @@ members = [
   "modules/gui-webview",
   "modules/gui-sys",
   "modules/gui-window",
+  "modules/gui-dbus",
   "examples/hello",
   "examples/showcase",
   "examples/browser",

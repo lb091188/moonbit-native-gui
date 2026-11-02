@@ -1,6 +1,6 @@
 import {
   "NoahLiu/native-gui/shell" @shell,
-  "NoahLiu/native-gui/dbus" @dbus,
+  "NoahLiu/gui-dbus/dbus" @dbus,
   "NoahLiu/gui-sys/sys" @sys,
 }
 
