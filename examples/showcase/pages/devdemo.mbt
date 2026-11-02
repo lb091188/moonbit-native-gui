@@ -22,12 +22,12 @@ pub fn page_mng_dev(_app : @shared.App) -> @widget.Node {
     qty.set(3)
     nick.set("")
   })
-  @shared.mng_dev_set_reg(reg)
+  @shared.mng_dev_set_reg("dev_demo", reg)
   @ui.col(
     [
       @ui.text(@shared.tx("本页是模板热更演示：由 tools/native-gui-tools/mng_cli dev 推送补丁原位重建。保存模板后亚秒可见。"), max_lines=3),
       @widget.node_of_new(fn(w : @widget.Widget) {
-        @shared.mng_dev_bind_holder(w)
+        @shared.mng_dev_bind_holder("dev_demo", w)
         w
       }),
     ],

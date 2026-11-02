@@ -62,6 +62,13 @@ fn cmd_build(args : Array[String]) -> Int {
     println("build 需要输入文件与 -o 输出路径")
     return 2
   }
+  match stem_conflict_msg(input) {
+    Some(m) => {
+      println(m)
+      return 1
+    }
+    None => ()
+  }
   let src = match slurp(input) {
     Some(s) => s
     None => {

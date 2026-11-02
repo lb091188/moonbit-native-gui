@@ -152,6 +152,14 @@ fn cmd_dev(args : Array[String]) -> Int {
   let baselines : Map[String, String] = Map([])
   let mut ok = true
   for f in files {
+    match stem_conflict_msg(f) {
+      Some(m) => {
+        eprintln(m)
+        ok = false
+        continue
+      }
+      None => ()
+    }
     let src = match slurp(f) {
       Some(s) => s
       None => {

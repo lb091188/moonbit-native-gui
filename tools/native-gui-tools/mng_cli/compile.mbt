@@ -103,3 +103,64 @@ fn mng_compile(src : String, path : String) -> Result[@mngkit.GenOut, String] {
   let sigs = @mngkit.sigs_new(ws_root(dir), dir, @mngkit.io_new(fs_read, fs_ls))
   @mngkit.compile_with(src, path, fn(p : String) { sigs.resolve(p) })
 }
+
+///|
+/// 文件名 → 生成函数名（与 mngkit 同规则：去首个扩展段、非法字符转下划线）。
+fn stem_of_file(name : String) -> String {
+  let base = basename(name)
+  let a = chars_of(base)
+  let mut end = a.length()
+  let mut k = 0
+  while k < a.length() {
+    if a[k] == '.' {
+      end = k
+      break
+    }
+    k += 1
+  }
+  let mut out = ""
+  for i in 0..<end {
+    let c = a[i]
+    out = out + (if is_ident_char(c) { c.to_string() } else { "_" })
+  }
+  if out.length() == 0 {
+    "page"
+  } else if is_digit_m(chars_of(out)[0]) {
+    "_" + out
+  } else {
+    out
+  }
+}
+
+///|
+fn is_digit_m(c : Char) -> Bool {
+  c >= '0' && c <= '9'
+}
+
+///|
+/// 同包 stem 撞名：同目录下多个 .mng 产出同名生成函数（同包 pub fn 冲突）。
+fn stem_conflicts(path : String) -> Array[String] {
+  let dir = dir_of(path)
+  let self = basename(path)
+  let stem = stem_of_file(self)
+  let out : Array[String] = []
+  for f in fs_ls(dir) {
+    if f.has_suffix(".mng") && f != self && stem_of_file(f) == stem {
+      out.push(dir + "/" + f)
+    }
+  }
+  out
+}
+
+///|
+/// 撞名报错文本（build/dev 共用）；无撞名返回 None。
+fn stem_conflict_msg(path : String) -> String? {
+  let c = stem_conflicts(path)
+  if c.length() == 0 {
+    None
+  } else {
+    let head = path + " 与同包的 " + c.join("、")
+    let tail = "生成同名函数 `" + stem_of_file(path) + "`（生成函数名取文件 stem）——改一个文件名"
+    Some(head + " " + tail)
+  }
+}

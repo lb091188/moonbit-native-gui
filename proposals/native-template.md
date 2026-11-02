@@ -88,7 +88,7 @@
 | 组件暴露 | `ui-*` → `@ui.*`（`-`→`_`）内置表；同包组件按标签名直接找 `fn 组件名`（零声明）；跨包写 `let 组件名 = @包.函数`——路径取自右值、参数顺序与类型取自源码签名（`pkg.generated.mbti` 不含位置参数名，故扫包内 `*.mbt` 顶层声明与 `*.mng` 的 props 头）。只作组件绑定的 `let` 不进生成体（免未用变量警告）。不规则落点（子元素参数不是 `Array[@widget.Node]`）用一行 `// @mng 标签 = 路径 positional(…)` 覆盖——它是逃生口，不是日常 |
 | 组件参数（props） | script 段第一个 `fn` 声明若**只有签名、无函数体**（其后不带 `{`）即本组件的 props 头，编译器拿它当生成函数头并升 `pub`；不写则退回 `fn <stem>() -> @widget.Node`。必填走位置参数（MoonBit 位置参不能有默认值），可选走 `名? : 类型 = 默认值`（默认值可以是非常量表达式，体内绑定为裸类型）；模板里按参数名写属性（`title="…"` / `:qty="store"`），回调 prop 用 `@事件名`（按 `名` / `on_名` 在参数表里查）。未被模板或 script 引用的 prop 生成 `let _ = 名` 垫片，保住零警告门禁 |
 | script 段 | MoonBit 原文进生成函数体前段（`let` / `fn` 均可） |
-| 生成函数签名 | `fn <文件名去扩展>() -> @widget.Node`；app 注入挂开放问题 |
+| 生成函数签名 | 默认 `pub fn <文件 stem>() -> @widget.Node`；写 props 头则用它（升 `pub`）。stem = basename 去首个扩展段，同包撞名 build 期报错并点名文件 |
 | 动态文本响应源 | 词法提取：表达式内 script 声明的槽名（裸引用或 `.get()`）即源；单源 `bind_label(store, fn(v){…})`、源本身是 Signal 用 `bind`、多源包 `computed`、零源 `@ui.text(expr)` |
 | 文本节点 | 静态 → `@ui.text`；含 `{{ }}` → 上一行规则 |
 | i18n | 编译器零魔法：要翻译的文案显式 `@shared.tx(...)`（与现仓习惯一致） |
@@ -301,7 +301,7 @@ fn template_spike() -> @widget.Node {
 
 **终态**：`dev` / `build` / `preview` / `lsp` 四子命令（见「工具与编辑器支持」）；单面编排到底——native 面一个底座（2026-11-02 定案不做第二壳，web 内容经 gui-webview 组件嵌入、其开发循环归前端自己的 Vite，不经本工具链）；上游汇合点——moonbitlang native 热重载落地当天，IR 通道升格真代码热换、快照设计原样复活、全部回退路径消失。
 
-**HOT 补丁通道落地（2026-11-02）**：编译器第二产物 IR（`mngkit.ir_of`，JSON：结构树 + 参数三态 lit/expr/state + 动态槽坐标键 `t:行:列` / `c:行:列` + requires 清单）；dev 子命令 HOT 分支产 IR 经单实例通道 `instance_wake(app_id, ["--mng-hot", 路径])` 推送；应用侧 applier（showcase「模板 Dev」页 `shared/mng_dev.mbt`：类型化注册表手写登记 + JSON 构树 + sub_bag 原位替换）——无头 wbtest 钉死「构树必须在订阅袋窗口内」（computed 的依赖订阅发生在构造时，只包挂载会泄漏，探针口径的产品化复现）；v1 补丁边界：col/row/text/dyn/if/button/checkbox/switch/stepper/input，v-for / v-else-if / 自定义组件 / children 形组件转 COLD。**待真机**：dev 循环端到端 GUI 验证（TODO 有步骤清单）。
+**HOT 补丁通道落地（2026-11-02）**：编译器第二产物 IR（`mngkit.ir_of`，JSON：结构树 + 参数三态 lit/expr/state + 动态槽坐标键 `t:行:列` / `c:行:列` + requires 清单）；dev 子命令 HOT 分支产 IR 经单实例通道 `instance_wake(app_id, ["--mng-hot", 路径])` 推送；应用侧 applier（showcase「模板 Dev」页 `shared/mng_dev.mbt`：类型化注册表手写登记 + JSON 构树 + sub_bag 原位替换；注册表与 holder 按 IR 的 `page` 键控，多页并存不串表）——无头 wbtest 钉死「构树必须在订阅袋窗口内」（computed 的依赖订阅发生在构造时，只包挂载会泄漏，探针口径的产品化复现）；v1 补丁边界：col/row/text/dyn/if/button/checkbox/switch/stepper/input，v-for / v-else-if / 自定义组件 / children 形组件转 COLD。**待真机**：dev 循环端到端 GUI 验证（TODO 有步骤清单）。
 
 **Phase 0 探针结果（2026-11-01，`experiment/ir_probe`，无头）**：手工 IR + 注册表 + applier v0（落点全为生产 API），200 轮 v1↔v2 结构交替热替换——单次「摘+建+挂」**10.4 ms**（验收线 1000 ms 的 1/75）；旧代订阅整袋退订干净（渲染不叠加、订阅数跨代恒定）；受控组件（stepper/slider）自身订阅计入现役代属正确口径。**探针通过，IR 通道主假设成立。**
 

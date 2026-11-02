@@ -45,10 +45,10 @@ fn demo_reg(
 test "applier:补丁构树挂上 holder，动态槽走注册表" {
   let fires = Ref(0)
   let reg = demo_reg(fires, @base.Store::new(3), @base.Store::new(true), @base.Store::new(""))
-  mng_dev_set_reg(reg)
+  mng_dev_set_reg("dev_demo", reg)
   let holder = @widget.Widget::new()
   let _ = holder.set_column()
-  mng_dev_bind_holder(holder)
+  mng_dev_bind_holder("dev_demo", holder)
   match mng_dev_apply(demo_ir()) {
     Ok(_) => ()
     Err(e) => abort("apply1: \{e}")
@@ -67,10 +67,10 @@ test "applier:旧代订阅整袋退订，迭代不累积" {
   let fires = Ref(0)
   let qty : @base.Store[Int] = @base.Store::new(3)
   let reg = demo_reg(fires, qty, @base.Store::new(true), @base.Store::new(""))
-  mng_dev_set_reg(reg)
+  mng_dev_set_reg("dev_demo", reg)
   let holder = @widget.Widget::new()
   let _ = holder.set_column()
-  mng_dev_bind_holder(holder)
+  mng_dev_bind_holder("dev_demo", holder)
   let mut i = 0
   while i < 5 {
     match mng_dev_apply(demo_ir()) {
@@ -88,10 +88,10 @@ test "applier:旧代订阅整袋退订，迭代不累积" {
 
 ///|
 test "applier:缺注册项报错并带键名" {
-  mng_dev_set_reg(mng_reg_new())
+  mng_dev_set_reg("dev_demo", mng_reg_new())
   let holder = @widget.Widget::new()
   let _ = holder.set_column()
-  mng_dev_bind_holder(holder)
+  mng_dev_bind_holder("dev_demo", holder)
   let r = mng_dev_apply(demo_ir())
   assert_true(
     match r {
@@ -124,4 +124,16 @@ fn contains_sub_m(s : String, sub : String) -> Bool {
     i += 1
   }
   false
+}
+
+///|
+test "applier:补丁按 page 取页，未挂载页报错带页名" {
+  let ir = "{\"v\":1,\"page\":\"ghost\",\"root\":{\"k\":\"text\",\"v\":\"x\"}}"
+  let r = mng_dev_apply(ir)
+  assert_true(
+    match r {
+      Err(e) => contains_sub_m(e, "ghost") && contains_sub_m(e, "未挂载")
+      _ => false
+    },
+  )
 }

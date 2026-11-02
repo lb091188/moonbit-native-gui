@@ -329,18 +329,21 @@ fn mj_arr(m : MJ?) -> Array[MJ]? {
 // ---------------------------------------------------------------------------
 
 ///|
-let mng_holder : Ref[@widget.Widget?] = Ref(None)
+/// 页 → 内容容器（模板补丁的原位替换落点）。
+let mng_holders : Map[String, @widget.Widget] = Map([])
 
 ///|
-let mng_live : Ref[@widget.Widget?] = Ref(None)
+/// 页 → (现役树, 该代订阅退订函数)。
+let mng_lives : Map[String, (@widget.Widget, Array[() -> Unit])] = Map([])
 
 ///|
-let mng_live_offs : Ref[Array[() -> Unit]] = Ref([])
+/// 页 → 注册表（`page` 取 IR 的 `page` 键，即模板文件 stem）。
+let mng_regs : Map[String, MngReg] = Map([])
 
 ///|
-/// dev 页登记内容容器（模板补丁的原位替换落点）。
-pub fn mng_dev_bind_holder(w : @widget.Widget) -> Unit {
-  mng_holder.val = Some(w)
+/// dev 页登记内容容器（按页登记，补丁按 IR 的 `page` 取）。
+pub fn mng_dev_bind_holder(page : String, w : @widget.Widget) -> Unit {
+  let _ = mng_holders.set(page, w)
 }
 
 ///|
@@ -579,25 +582,32 @@ fn mj_param(j : MJ, name : String, reg : MngReg, default : String) -> Result[MPa
 }
 
 ///|
-/// 补丁应用：解析 → 构树 → 沿登记 holder 原位替换（整代退订照路由纪律）。
+/// 补丁应用：解析 → 按 `page` 取页 → 构树 → 沿登记 holder 原位替换（整代退订照路由纪律）。
 pub fn mng_dev_apply(json : String) -> Result[Unit, String] {
-  let holder = match mng_holder.val {
-    Some(h) => h
-    None => return Err("dev 页未挂载（holder 未登记）——先打开「模板 Dev」页")
-  }
   let parsed = match jp_value({ cs: chars_of_m(json), i: 0 }) {
     Ok(v) => v
     Err(e) => return Err(e)
+  }
+  let page = match mj_str(mj_get(parsed, "page")) {
+    Some(p) => p
+    None => return Err("补丁缺 page")
+  }
+  let holder = match mng_holders.get(page) {
+    Some(h) => h
+    None => return Err("页「\{page}」未挂载（holder 未登记）——先打开该页")
   }
   let root = match mj_get(parsed, "root") {
     Some(r) => r
     None => return Err("补丁缺 root")
   }
-  let reg = mng_current_reg()
+  let reg = match mng_regs.get(page) {
+    Some(r) => r
+    None => return Err("页「\{page}」未登记注册表——该页挂载时用 mng_dev_set_reg 登记")
+  }
   // 摘旧：整袋退订（照路由 slot 的回收纪律）
-  match mng_live.val {
-    Some(old) => {
-      @base.sub_bag_discard(mng_live_offs.val)
+  match mng_lives.get(page) {
+    Some((old, offs)) => {
+      @base.sub_bag_discard(offs)
       let _ = holder.remove_child(old)
     }
     None => ()
@@ -613,28 +623,16 @@ pub fn mng_dev_apply(json : String) -> Result[Unit, String] {
     }
   }
   let w = node.mount_into(holder)
-  mng_live_offs.val = @base.sub_bag_end()
-  mng_live.val = Some(w)
+  let offs = @base.sub_bag_end()
+  let _ = mng_lives.set(page, (w, offs))
   @widget.invalidate()
   Ok(())
 }
 
 ///|
-/// 当前注册表（dev 页挂载时登记；wake 早于页面挂载时为空 → applier 报缺）。
-let mng_reg_current : Ref[MngReg?] = Ref(None)
-
-///|
-/// dev 页挂载时登记本页注册表。
-pub fn mng_dev_set_reg(reg : MngReg) -> Unit {
-  mng_reg_current.val = Some(reg)
-}
-
-///|
-fn mng_current_reg() -> MngReg {
-  match mng_reg_current.val {
-    Some(r) => r
-    None => mng_reg_new()
-  }
+/// dev 页挂载时按页登记注册表（键与 IR 的 `page` 一致 = 模板文件 stem）。
+pub fn mng_dev_set_reg(page : String, reg : MngReg) -> Unit {
+  let _ = mng_regs.set(page, reg)
 }
 
 ///|
