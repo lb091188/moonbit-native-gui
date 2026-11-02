@@ -1,5 +1,5 @@
 // dev 档登记表：把模板树摊成应用侧注册表要的键值。
-// 键与 IR 现状一致：动态文本/参数 `t:行:列`、条件 `c:行:列`、事件与状态用名字；
+// 键与 IR 现状一致：动态文本/参数 `t:<内容哈希>`、条件 `c:<内容哈希>`、事件与状态用名字；
 // 值语义与生产生成同一套改写（裸槽补 `.get()`）。IR v1 边界外的节点（自定义组件、
 // v-for、children 形）不会进补丁，这里仍按同一套规则扫，注册项闲置无副作用。
 
@@ -95,15 +95,20 @@ fn dev_walk(
             Ok(v) => v
             Err(err) => return Err(err)
           }
-          dev_push_val(regs.exprs, "t:\{pos.line}:\{pos.col}", e, pos)
+          dev_push_val(regs.exprs, bind_key("t", norm), e, pos)
         }
       }
       Elem(tag, attrs, children, pos) => {
-        let tk = "t:\{pos.line}:\{pos.col}"
-        // 条件槽（v-if / v-show：键取元素坐标，值 = 条件表达式）
+        // 条件槽（v-if / v-show：键取条件表达式内容）
         for a in attrs {
           match a.kind {
-            If | Show => dev_push_val(regs.conds, "c:\{pos.line}:\{pos.col}", rewrite_value(a.value, ctx.slots), a.pos)
+            If | Show =>
+              dev_push_val(
+                regs.conds,
+                bind_key("c", a.value.trim().to_owned()),
+                rewrite_value(a.value, ctx.slots),
+                a.pos,
+              )
             _ => ()
           }
         }
@@ -152,9 +157,14 @@ fn dev_walk(
           }
           match dyn_text {
             Some(a) =>
-              dev_push_val(regs.exprs, tk, rewrite_value(a.value, ctx.slots), a.pos)
+              dev_push_val(
+                regs.exprs,
+                bind_key("t", a.value.trim().to_owned()),
+                rewrite_value(a.value, ctx.slots),
+                a.pos,
+              )
             None =>
-              // 元素文本插值：键 = 首个文本子节点的坐标（IR 同口径）
+              // 元素文本插值：键与 IR 同口径（表达式内容哈希）
               if children.length() > 0 {
                 match children[0] {
                   Text(raw, tp) => {
@@ -164,34 +174,51 @@ fn dev_walk(
                         Ok(v) => v
                         Err(err) => return Err(err)
                       }
-                      dev_push_val(regs.exprs, "t:\{tp.line}:\{tp.col}", e, tp)
+                      dev_push_val(regs.exprs, bind_key("t", norm), e, tp)
                     }
                   }
                   _ => ()
                 }
               }
           }
-        } else if tag.has_prefix("ui-") {
+        } else if hot_comp_tag(tag) {
+          // 通用组件的动态参数：与 IR 同一张 v1 参数表、同一套内容键
+          for a in attrs {
+            match a.kind {
+              Dyn =>
+                if hot_comp_arg(tag, a.name) && hot_comp_dyn_arg(tag, a.name) {
+                  dev_push_val(
+                    regs.exprs,
+                    bind_key("t", a.value.trim().to_owned()),
+                    rewrite_value(a.value, ctx.slots),
+                    a.pos,
+                  )
+                }
+              _ => ()
+            }
+          }
+          // 元素文本内容（text 位置参）：IR 把所有文本子节点拼成一条表达式
           match builtin_decl(tag) {
             Some(d) =>
-              for spec in d.positional {
-                if spec == "children" || spec == "child" {
-                  continue
-                }
-                for a in attrs {
-                  match a.kind {
-                    Dyn =>
-                      if a.name == spec {
-                        // 键取属性坐标（IR 对通用组件参数同口径）
-                        dev_push_val(
-                          regs.exprs,
-                          "t:\{a.pos.line}:\{a.pos.col}",
-                          rewrite_value(a.value, ctx.slots),
-                          a.pos,
-                        )
-                      }
+              if arr_contains(d.positional, "text") {
+                let mut raw = ""
+                let mut tp = pos
+                for c in children {
+                  match c {
+                    Text(x, q) => {
+                      raw = raw + x
+                      tp = q
+                    }
                     _ => ()
                   }
+                }
+                let norm = normalize_text(raw)
+                if has_interp(norm) {
+                  let e = match dev_interp_expr(ctx, raw, tp) {
+                    Ok(v) => v
+                    Err(err) => return Err(err)
+                  }
+                  dev_push_val(regs.exprs, bind_key("t", norm), e, tp)
                 }
               }
             None => ()

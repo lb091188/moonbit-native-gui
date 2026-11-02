@@ -236,7 +236,7 @@ fn tir_src() -> String {
 }
 
 ///|
-test "IR 输出：结构树 + 坐标键动态槽 + states/handlers 清单" {
+test "IR 输出：结构树 + 内容键动态槽 + states/handlers 清单" {
   let ir = match ir_of(tir_src(), "tir.mng") {
     Ok(j) => j
     Err(e) => abort("\{e}")
@@ -252,11 +252,72 @@ test "IR 输出：结构树 + 坐标键动态槽 + states/handlers 清单" {
 }
 
 ///|
+test "HOT 键稳定：动态槽上方插静态行，IR 与登记表键都不漂" {
+  let a = [
+    "<script setup lang=\"moonbit\">",
+    "let qty : @base.Store[Int] = @base.Store::new(0)",
+    "</script>",
+    "<template>",
+    "  <ui-col row_gap=\"8.0\">",
+    "    <ui-text :text='@shared.tx(\"A\")' />",
+    "    <ui-stepper v-model=\"qty\" max=\"10\" />",
+    "  </ui-col>",
+    "</template>",
+  ].join("\n")
+  let b = [
+    "<script setup lang=\"moonbit\">",
+    "let qty : @base.Store[Int] = @base.Store::new(0)",
+    "</script>",
+    "<template>",
+    "  <ui-col row_gap=\"8.0\">",
+    "    <ui-text text=\"插一行\" />",
+    "    <ui-text :text='@shared.tx(\"A\")' />",
+    "    <ui-stepper v-model=\"qty\" max=\"10\" />",
+    "  </ui-col>",
+    "</template>",
+  ].join("\n")
+  let ia = match ir_of(a, "a.mng") {
+    Ok(j) => j
+    Err(e) => abort("\{e}")
+  }
+  let ib = match ir_of(b, "b.mng") {
+    Ok(j) => j
+    Err(e) => abort("\{e}")
+  }
+  assert_true(contains_sub(ia, "\"key\":\"t:3fc746ec39ec6f8e\""))
+  assert_true(contains_sub(ib, "\"key\":\"t:3fc746ec39ec6f8e\""))
+  // 非位置参数也进 IR，补丁重建不丢 max
+  assert_true(contains_sub(ib, "\"max\":{\"lit\":10}"))
+  let ga = match compile_dev(a, "a.mng", fn(_p : String) -> String? { None }) {
+    Ok(o) => o.code
+    Err(e) => abort("\{e}")
+  }
+  let gb = match compile_dev(b, "b.mng", fn(_p : String) -> String? { None }) {
+    Ok(o) => o.code
+    Err(e) => abort("\{e}")
+  }
+  assert_true(contains_sub(ga, "reg.expr(\"t:3fc746ec39ec6f8e\""))
+  assert_true(contains_sub(gb, "reg.expr(\"t:3fc746ec39ec6f8e\""))
+}
+
+///|
 test "IR 边界：自定义组件与 v-else-if 链转 COLD（ir_of 报错）" {
-  let r1 = ir_of(t2_src(), "t2.mng")
+  // 参数表外（:error）与自定义组件都要转 COLD；先钉自定义标签本身
+  let r1 = ir_of(
+    "<template>\n  <ui-col>\n    <my-card />\n  </ui-col>\n</template>",
+    "t2b.mng",
+  )
   assert_true(
     match r1 {
-      Err(e) => contains_sub(e, "v1 补丁边界")
+      Err(e) => contains_sub(e, "自定义组件") && contains_sub(e, "v1 补丁边界")
+      _ => false
+    },
+  )
+  // 富模板里先撞上 <ui-input :error>（v1 参数表外），同样给了 COLD 指路
+  let rfull = ir_of(t2_src(), "t2.mng")
+  assert_true(
+    match rfull {
+      Err(e) => contains_sub(e, "不在 v1 补丁表")
       _ => false
     },
   )
@@ -575,7 +636,7 @@ test "dev 形态：登记语句逐字 + mng_dev_page 调用（状态保活骨架
     "pub fn page() -> @widget.Node {",
     "  let qty : @base.Store[Int] = @base.Store::new(3)",
     "  let reg = @shared.mng_reg_new()",
-    "  reg.expr(\"t:7:5\", fn() { \"当前数量：\\{qty.get()}\" })",
+    "  reg.expr(\"t:498fd9ec4581764e\", fn() { \"当前数量：\\{qty.get()}\" })",
     "  reg.int(\"qty\", qty)",
     "  @shared.mng_dev_page(\"page\", reg, fn() {",
     "    @ui.col([",
@@ -594,9 +655,9 @@ test "dev 形态：expr/cond/handler/state 四类登记齐（键与 IR 同口径
     Ok(o) => o.code
     Err(e) => abort("\{e}")
   }
-  assert_true(contains_sub(code, "reg.expr(\"t:8:18\", fn() { @shared.tx(\"开\") })"))
-  assert_true(contains_sub(code, "reg.expr(\"t:11:5\", fn() { \"数量：\\{qty.get()}\" })"))
-  assert_true(contains_sub(code, "reg.cond(\"c:9:5\", fn() { wifi.get() })"))
+  assert_true(contains_sub(code, "reg.expr(\"t:415a516b3b7f7a0d\", fn() { @shared.tx(\"开\") })"))
+  assert_true(contains_sub(code, "reg.expr(\"t:39f608ac1ab1248e\", fn() { \"数量：\\{qty.get()}\" })"))
+  assert_true(contains_sub(code, "reg.cond(\"c:7ca01cd40e3676b6\", fn() { wifi.get() })"))
   assert_true(contains_sub(code, "reg.handler(\"on_reset\", on_reset)"))
   assert_true(contains_sub(code, "reg.bool(\"wifi\", wifi)"))
   assert_true(contains_sub(code, "@shared.mng_dev_page(\"card\", reg, fn() {"))

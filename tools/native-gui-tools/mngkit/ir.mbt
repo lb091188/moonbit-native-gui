@@ -1,8 +1,8 @@
 // IR 输出：模板编译器第二产物（dev 档热更新供给端）。结构是数据、行为按
 // 键引用——结构补丁经单实例通道进应用，applier 查注册表原位重建。
 // v1 边界：参数值三态（lit 字面量 / expr 动态串槽 / state 值槽目标）；动态
-// 槽键用模板坐标（t:行:列 / c:行:列），应用侧手写注册表按坐标登记；
-// 生成器未覆盖的组件与不支持槽型进 IR 即报（应用侧转 COLD）。
+// 槽键用表达式内容哈希（t:<hash> / c:<hash>），结构增删挪不换键；生成器
+// 未覆盖的组件、applier v1 参数表外的参数与不支持槽型进 IR 即报（应用侧转 COLD）。
 
 ///|
 priv enum IrVal {
@@ -17,7 +17,7 @@ priv enum IrVal {
 fn ir_val_of(a : Attr) -> IrVal {
   match a.kind {
     Model => IState(a.value.trim().to_owned())
-    Dyn => IExpr("t:\{a.pos.line}:\{a.pos.col}")
+    Dyn => IExpr(bind_key("t", a.value.trim().to_owned()))
     _ => {
       // 静态：数字 / 布尔 / 字符串字面量（单引号=MoonBit 串，双引号=串）/ 裸串
       let v = a.value.trim().to_owned()
@@ -119,7 +119,7 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
         }
       }
       if has_expr {
-        out.push(IDynText("t:\{pos.line}:\{pos.col}"))
+        out.push(IDynText(bind_key("t", norm)))
       } else {
         out.push(IText(norm))
       }
@@ -127,11 +127,11 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
     }
     Elem(tag, attrs, children, pos) => {
       let mut show : Attr? = None
-      let mut cond : String? = None
+      let mut cond : Attr? = None
       for a in attrs {
         match a.kind {
           Show => show = Some(a)
-          If => cond = Some(a.value)
+          If => cond = Some(a)
           For =>
             return Err("\{pos_str(pos)}：v-for 不在 v1 补丁边界（应用侧转 COLD）")
           Plain | Dyn =>
@@ -149,7 +149,10 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
         Ok(_) => ()
         Err(e) => return Err(e)
       }
-      let cond_key = "c:\{pos.line}:\{pos.col}"
+      let cond_key = match cond {
+        Some(a) => bind_key("c", a.value.trim().to_owned())
+        None => ""
+      }
       let built : IrNode = if tag == "ui-col" || tag == "ui-row" {
         let mut gap = 0.0
         for a in attrs {
@@ -160,7 +163,21 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
                   ILitNum(x) => gap = parse_double(x)
                   _ => ()
                 }
+              } else {
+                return Err(
+                  "\{pos_str(a.pos)}：<\{tag}> 的参数 \{a.name} 不在 v1 补丁表（应用侧转 COLD）",
+                )
               }
+            Dyn => {
+              return Err(
+                "\{pos_str(a.pos)}：<\{tag}> 的动态参数 \{a.name} 不在 v1 补丁表（应用侧转 COLD）",
+              )
+            }
+            Event | Model => {
+              return Err(
+                "\{pos_str(a.pos)}：<\{tag}> 的事件/绑定不在 v1 补丁表（应用侧转 COLD）",
+              )
+            }
             _ => ()
           }
         }
@@ -171,6 +188,21 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
         }
       } else if tag == "ui-text" {
         // 文本内容：:text 动态 → expr 槽；静态 → 字面
+        for a in attrs {
+          match a.kind {
+            Plain | Dyn =>
+              if a.name != "text" {
+                return Err(
+                  "\{pos_str(a.pos)}：<ui-text> 的参数 \{a.name} 不在 v1 补丁表（应用侧转 COLD）",
+                )
+              }
+            Event | Model =>
+              return Err(
+                "\{pos_str(a.pos)}：<ui-text> 的事件/绑定不在 v1 补丁表（应用侧转 COLD）",
+              )
+            _ => ()
+          }
+        }
         let mut found : Attr? = None
         for a in attrs {
           match a.kind {
@@ -184,7 +216,7 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
         match found {
           Some(a) =>
             match a.kind {
-              Dyn => IDynText("t:\{pos.line}:\{pos.col}")
+              Dyn => IDynText(bind_key("t", a.value.trim().to_owned()))
               _ => IText(text_of_lit(a))
             }
           None =>
@@ -201,13 +233,17 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
             }
         }
       } else {
-        // 通用组件：位置/标签参数平铺（positional spec 展开成参数名对）
+        // 通用组件：位置参数 + 其余标签参数平铺；只收 applier v1 参数表
         let decl = match resolve_comp(tag, pos) {
           Ok(d) => d
           Err(e) => return Err(e)
         }
+        if !hot_comp_tag(tag) {
+          return Err(
+            "\{pos_str(pos)}：组件 <\{tag}> 不在 v1 补丁表（应用侧转 COLD）",
+          )
+        }
         let args : Array[(String, IrVal)] = []
-        let click : String? = None
         for spec in decl.positional {
           match spec {
             "children" =>
@@ -234,14 +270,10 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
                 None => {
                   // 元素文本内容：动态→expr 槽，静态→lit
                   let mut raw = ""
-                  let mut tpos = pos
                   let mut bad = false
                   for c in children {
                     match c {
-                      Text(x, q) => {
-                        raw = raw + x
-                        tpos = q
-                      }
+                      Text(x, _) => raw = raw + x
                       _ => bad = true
                     }
                   }
@@ -250,7 +282,7 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
                   }
                   let raw = normalize_text(raw)
                   if has_interp(raw) {
-                    args.push(("text", IExpr("t:\{tpos.line}:\{tpos.col}")))
+                    args.push(("text", IExpr(bind_key("t", raw))))
                   } else if raw.length() > 0 {
                     args.push(("text", ILitStr(raw)))
                   }
@@ -276,17 +308,43 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
             }
           }
         }
+        // 位置参之外的标签参数（max / min / placeholder …）
+        for a in attrs {
+          match a.kind {
+            Plain | Dyn =>
+              if !hot_comp_arg(tag, a.name) {
+                return Err(
+                  "\{pos_str(a.pos)}：<\{tag}> 的参数 \{a.name} 不在 v1 补丁表（应用侧转 COLD）",
+                )
+              } else if args_has(args, a.name) {
+                ()
+              } else if (a.kind is Dyn) && !hot_comp_dyn_arg(tag, a.name) {
+                return Err(
+                  "\{pos_str(a.pos)}：<\{tag}> 的动态参数 \{a.name} 不在 v1 补丁表（应用侧转 COLD）",
+                )
+              } else {
+                args.push((a.name, ir_val_of(a)))
+              }
+            Model => ()
+            Event => ()
+            _ => ()
+          }
+        }
+        // 事件：v1 只认 button 的 click
         let mut click2 : String? = None
         for a in attrs {
           match a.kind {
             Event =>
-              if a.name == "click" {
+              if tag == "ui-button" && a.name == "click" {
                 click2 = Some(a.value.trim().to_owned())
+              } else {
+                return Err(
+                  "\{pos_str(a.pos)}：<\{tag}> 的事件 @\{a.name} 不在 v1 补丁表（应用侧转 COLD）",
+                )
               }
             _ => ()
           }
         }
-        let _ = click
         IComp(tag, args, click2)
       }
       // v-show / v-if 包裹
@@ -370,6 +428,84 @@ fn resolve_comp(tag : String, pos : Pos) -> Result[CompDecl, String] {
     // let 绑定组件在补丁里按黑盒处理（v1 不跨补丁重建自定义组件）
     Err("\{pos_str(pos)}：自定义组件 <\{tag}> 不在 v1 补丁边界（应用侧转 COLD）")
   }
+}
+
+///|
+/// applier v1 表内的通用组件（col/row/text 另走专用分支）。
+fn hot_comp_tag(tag : String) -> Bool {
+  match tag {
+    "ui-button" | "ui-checkbox" | "ui-switch" | "ui-stepper" | "ui-input" => true
+    _ => false
+  }
+}
+
+///|
+/// 各组件 v1 只认的参数名；表外参数一律转 COLD，避免补丁静默丢参。
+fn hot_comp_arg(tag : String, name : String) -> Bool {
+  match tag {
+    "ui-button" =>
+      match name {
+        "text" => true
+        _ => false
+      }
+    "ui-checkbox" =>
+      match name {
+        "label" | "value" => true
+        _ => false
+      }
+    "ui-switch" =>
+      match name {
+        "value" => true
+        _ => false
+      }
+    "ui-stepper" =>
+      match name {
+        "value" | "min" | "max" => true
+        _ => false
+      }
+    "ui-input" =>
+      match name {
+        "value" | "placeholder" => true
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+/// 动态参数只收 applier 能按表达式重取的：button 文本、checkbox 标签、
+/// input 占位符（数值参数 min/max 只收字面量）。
+fn hot_comp_dyn_arg(tag : String, name : String) -> Bool {
+  match tag {
+    "ui-button" =>
+      match name {
+        "text" => true
+        _ => false
+      }
+    "ui-checkbox" =>
+      match name {
+        "label" => true
+        _ => false
+      }
+    "ui-input" =>
+      match name {
+        "placeholder" => true
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn args_has(args : Array[(String, IrVal)], name : String) -> Bool {
+  let mut i = 0
+  while i < args.length() {
+    if args[i].0 == name {
+      return true
+    }
+    i += 1
+  }
+  false
 }
 
 ///|

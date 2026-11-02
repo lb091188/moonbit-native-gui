@@ -1,8 +1,8 @@
 // 模板 dev 面（应用侧）：IR 注册表 + applier + holder 原位替换。
 // 补丁由 dev 工具经单实例通道推送（args = ["--mng-hot", <ir 路径>]）。
 // v1 边界：组件 col/row/text/dyn/if/button/checkbox/switch/stepper/input，
-// 参数三态 lit/expr/state；动态槽键 = 模板坐标（t:行:列），v-if 键 = c:行:列，
-// state 与 handler 键 = 变量/函数名——dev 演示页按坐标手写登记。
+// 参数三态 lit/expr/state；动态槽键 = 表达式内容哈希（t:… / c:…），
+// state 与 handler 键 = 变量/函数名——结构增删挪不换键。
 // 边界依据见 proposals/native-template.md「结构热更新」节。
 
 ///|
@@ -442,9 +442,9 @@ fn mj_node(j : MJ, reg : MngReg) -> Result[@widget.Node, String] {
         None => 0.0
       }
       if kind == "col" {
-        Ok(@ui.col(kids, row_gap=gap, grow=1.0))
+        Ok(@ui.col(kids, row_gap=gap))
       } else {
-        Ok(@ui.row(kids, column_gap=gap, grow=1.0))
+        Ok(@ui.row(kids, column_gap=gap))
       }
     }
     "button" => {
@@ -521,7 +521,7 @@ fn mj_node(j : MJ, reg : MngReg) -> Result[@widget.Node, String] {
           }
           let phs = match ph {
             MParamStatic(s) => s
-            MParamDyn(_) => ""
+            MParamDyn(sig) => sig.get()
           }
           Ok(@ui.input(st, placeholder=phs))
         }

@@ -301,7 +301,7 @@ fn template_spike() -> @widget.Node {
 
 **终态**：`dev` / `build` / `preview` / `lsp` 四子命令（见「工具与编辑器支持」）；单面编排到底——native 面一个底座（2026-11-02 定案不做第二壳，web 内容经 gui-webview 组件嵌入、其开发循环归前端自己的 Vite，不经本工具链）；上游汇合点——moonbitlang native 热重载落地当天，IR 通道升格真代码热换、快照设计原样复活、全部回退路径消失。
 
-**HOT 补丁通道落地（2026-11-02）**：编译器第二产物 IR（`mngkit.ir_of`，JSON：结构树 + 参数三态 lit/expr/state + 动态槽坐标键 `t:行:列` / `c:行:列` + requires 清单）；dev 子命令 HOT 分支产 IR 经单实例通道 `instance_wake(app_id, ["--mng-hot", 路径])` 推送；应用侧 applier（showcase「模板 Dev」页 `shared/mng_dev.mbt`：类型化注册表手写登记 + JSON 构树 + sub_bag 原位替换；注册表与 holder 按 IR 的 `page` 键控，多页并存不串表）——无头 wbtest 钉死「构树必须在订阅袋窗口内」（computed 的依赖订阅发生在构造时，只包挂载会泄漏，探针口径的产品化复现）；v1 补丁边界：col/row/text/dyn/if/button/checkbox/switch/stepper/input，v-for / v-else-if / 自定义组件 / children 形组件转 COLD。**待真机**：dev 循环端到端 GUI 验证（TODO 有步骤清单）。
+**HOT 补丁通道落地（2026-11-02）**：编译器第二产物 IR（`mngkit.ir_of`，JSON：结构树 + 参数三态 lit/expr/state + 动态槽内容键 `t:<hash>` / `c:<hash>` + requires 清单）；dev 子命令 HOT 分支产 IR 经单实例通道 `instance_wake(app_id, ["--mng-hot", 路径])` 推送；应用侧 applier（showcase「模板 Dev」页 `shared/mng_dev.mbt`：类型化注册表手写登记 + JSON 构树 + sub_bag 原位替换；注册表与 holder 按 IR 的 `page` 键控，多页并存不串表）——无头 wbtest 钉死「构树必须在订阅袋窗口内」（computed 的依赖订阅发生在构造时，只包挂载会泄漏，探针口径的产品化复现）；v1 补丁边界：col/row/text/dyn/if/button/checkbox/switch/stepper/input，参数表内才进补丁（col/row 只收 gap；button text/click；checkbox label/value；switch value；stepper value/min/max；input value/placeholder），v-for / v-else-if / 自定义组件 / children 形组件 / 表外参数转 COLD。**待真机**：dev 循环端到端 GUI 验证（TODO 有步骤清单）。
 
 **Phase 0 探针结果（2026-11-01，`experiment/ir_probe`，无头）**：手工 IR + 注册表 + applier v0（落点全为生产 API），200 轮 v1↔v2 结构交替热替换——单次「摘+建+挂」**10.4 ms**（验收线 1000 ms 的 1/75）；旧代订阅整袋退订干净（渲染不叠加、订阅数跨代恒定）；受控组件（stepper/slider）自身订阅计入现役代属正确口径。**探针通过，IR 通道主假设成立。**
 
