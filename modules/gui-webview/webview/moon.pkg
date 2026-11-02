@@ -19,7 +19,7 @@ import {
   "NoahLiu/native-gui/widget" @widget,
   "NoahLiu/native-gui/win",
   "NoahLiu/native-gui/render",
-  "NoahLiu/native-gui/sys",
+  "NoahLiu/gui-sys/sys",
 }
 
 // webkit_stub.c 三条分支：WebKitGTK（Linux，prebuild 带 -DWB_HAVE_WEBKIT 专编）、

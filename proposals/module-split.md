@@ -42,6 +42,7 @@
 
 1. roadmap 落「已规划」条目（已完成，见「模块化」小节）；TODO 待动手再进。
 2. 基线固化：全量 check/test 绿；快照 win/sys/dbus/shell/i18n 五包 `pkg.generated.mbti`；记录三方依赖版本（moonsqlitefile 等）。
+   - **基线（2026-11-02 记录）**：gui `moon check` 零错误零警告，门禁包集合 `moon test` 1183/1183；工具链 moon 0.1.20261028。五包 mbti sha256——sys `fde6bac9…c038086`（798 行）、win `2ca5b5d3…14eec1`（334 行）、dbus `bcb51841…ab0c245`（297 行）、shell `299e5279…c36e37e`（358 行）、i18n `f714fcb5…63b15e6f`（48 行）。三方依赖：yoga-mbt@0.1.1、mdparse@0.1.0、moonsqlitefile@0.8.0（gui）、moonbitlang/x@0.5.5（tools）；gui-sys 迁出后依赖面 = core + moonsqlitefile。
 3. 建 `modules/gui-sys`：整体迁移 gui/sys（.mbt + sys_stub.c + moon.pkg）+ LICENSE/NOTICE/README，keywords 铺长尾（clipboard/autostart/wallpaper/printer/volume/power/history…）。
 4. prebuild 切割：gui 的 prebuild.py 摘 sys 分支；gui-sys 自管（sys 基本纯 native-stub，预计零成本）。
 5. 全仓 import 改写：chart/dbus/shell/ui 四包 + gui-webview + examples（audio/browser/headless-audio/hello/showcase 各子包/sysmonitor/video）+ experiment 各 probe；显式 `@sys` 别名保 .mbt 代码零改动。
@@ -69,6 +70,7 @@
 
 ## 修订记录
 
+- 2026-11-02 三修（gui-sys 批次落地回写）：①原步骤 4「sys 基本纯 native-stub，预计零成本」低估——sys 桩在 Linux/mac 有三组转发符号真实现住 win 桩归档（剪贴板 GTK/NSPasteboard、mac 窗口枚举/激活/关闭、mac 权限探测/屏幕色温），已整体抽入 gui-sys 自管档 `sys_ext.c`（prebuild 按平台编静态库下发），win 桩同步删净，gui-sys 与 gui-window 保持零依赖。②**文件对话框归属修正**：`sys/dialog.mbt` 的 `run_for_window` 要挂父窗口（GTK 臂直读 win 桩内部槽表、mac 臂用 `WMState`），按「窗口本体 → gui-window」判据改派 `@win`（Windows 臂 C 实现同步从 sys 桩迁 win 桩）；消费方 audio/video/browser/showcase/dialog_probe 同批改 `@win.FileDialog`。③步骤 2 基线与步骤 3-7 见上方「基线」注；发版待用户执行。
 - 2026-10-31 初版：tray/notify/hotkey/instance/message_box 计划迁入 gui-sys（gui-sys 依赖 gui-window 的隐藏消息窗原语）。
 - 2026-10-31 一修：五件留在 gui-window、模块内分包（tray/hotkey/notify/instance/dialog）。理由：①事件循环寄生，与消息泵同模块，免掉「gui-window 暴露隐藏消息窗原语」的额外设计；②托盘两半边（window + dbus）比（sys + dbus）语义齐整；③不设独立 tray 模块——那会对 gui-window（Win32 半边）与 gui-dbus（Linux 半边）形成双向扇入，比现状差。
 - 2026-10-31 二修：shell 独立为 gui-shell、webview 壳定为三段式。①初判「shell 无独立消费场景不拆」被 webview 壳规划推翻——壳产品就是「不带工具包消费 shell」的场景；而依赖隔离靠模块不靠包（placement.md），壳模块不能为拿 shell 去依赖 facade（闭包会拖进整个控件工具包），故 shell 必须独立。②i18n 随迁：留在 facade 会成环（gui-shell→facade→gui-shell），纯包搬家无技术障碍。③webview 壳的 `native-gui/webapp` facade 内包形态划掉——模块=发布单元、模块行=检索面，两条自家判据都不允许；定为三段式（探针验证 → 独立模块发布）。

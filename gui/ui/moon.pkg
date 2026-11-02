@@ -14,7 +14,7 @@ import {
   "NoahLiu/native-gui/input",
   "NoahLiu/native-gui/icons",
   "NoahLiu/native-gui/render",
-  "NoahLiu/native-gui/sys",
+  "NoahLiu/gui-sys/sys",
   "NoahLiu/native-gui/text",
   "NoahLiu/native-gui/theme",
   "NoahLiu/native-gui/style",

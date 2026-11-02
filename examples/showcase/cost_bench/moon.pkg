@@ -6,7 +6,7 @@ import {
   "NoahLiu/native-gui/render" @render,
   "NoahLiu/native-gui/ui",
   "NoahLiu/native-gui/win" @win,
-  "NoahLiu/native-gui/sys" @sys,
+  "NoahLiu/gui-sys/sys" @sys,
   "NoahLiu/native-gui/style",
   "NoahLiu/native-gui-examples-showcase/shared",
   "NoahLiu/native-gui-examples-showcase/pages",

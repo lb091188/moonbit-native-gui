@@ -13,6 +13,6 @@ import {
   "NoahLiu/native-gui/render",
   "NoahLiu/native-gui/text",
   "NoahLiu/native-gui/theme",
-  "NoahLiu/native-gui/sys",
+  "NoahLiu/gui-sys/sys",
   "NoahLiu/native-gui/ui",
 }

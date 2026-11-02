@@ -1,0 +1,20 @@
+// 系统能力包（NoahLiu/gui-sys，模块拆分之一）：纯读写系统面——剪贴板、
+// 自启动、壁纸、打印机、音量、电源、显示器、空闲检测、历史等。无窗口、
+// 无事件循环，任何进程可调（CLI 可用）。
+//
+// C 端两笔：sys_stub.c 纯 native-stub（只用标准头）；剪贴板 GTK/NSPasteboard、
+// mac 窗口枚举/权限/色温这几段要平台头的实现住 sys_ext.c，由模块自己的
+// prebuild.py 编静态库并下发链接参数（本包不再跨包直链 gui-window 的桩）。
+
+import {
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/math",
+  "moonbitlang/core/env",
+  "prowk/moonsqlitefile" @moonsqlitefile,
+}
+
+supported_targets = "native"
+
+options(
+  "native-stub": [ "sys_stub.c" ],
+)

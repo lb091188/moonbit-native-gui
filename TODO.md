@@ -17,7 +17,7 @@
 - 撞名检测与注册表键控已完成（2026-11-02：build/dev 报同包 stem 撞名并点名文件；dev 注册表与 holder 按 IR 的 `page` 键控，多页并存不串表，showcase dev 页与 wbtest 同步）
 - 工具与 GUI 解耦已完成（2026-11-02：`mng_cli` 不再依赖 `gui/sys`——`gui/sys` 在 Linux 上链 GTK 剪贴板符号，命令行工具不能带上它；改为 tools 内自给 `proc`（进程原语）与 `inst`（单实例客户端，帧格式与 shell 通道一致），二进制只链 libc/libgcc；proc/inst 无头测试 6/6）
 - 工具链收口已完成（2026-11-02：`mng_cli lsp` stdio JSON-RPC（initialize / didOpen·didChange / completion / hover / definition / shutdown，诊断走 compile 错误坐标）；`--version` 报 `mng-cli 0.1.0` + `mng-schema 1` 供插件握手；native-gui-tools 的 moon.mod 描述与发布配置就位；LSP 无头回归 1 条）
-- [ ] **拆包**（[proposals/module-split.md](proposals/module-split.md)）：sys → win → dbus → shell 顺序，等工具二进制独立发布动机集中做
+- [ ] **拆包**（[proposals/module-split.md](proposals/module-split.md)）：sys → win → dbus → shell 顺序。**gui-sys 批次已完成**（2026-11-02：`modules/gui-sys` 独立模块 + 自管 prebuild（剪贴板 GTK/NSPasteboard、mac 窗口枚举/权限/色温转发实现抽入 `sys_ext.c` 自管档，win 桩删净）、全仓 18 个 moon.pkg import 改写 + 9 个消费方模块钉版 0.1.0、文件对话框 `FileDialog` 改派 `@win`（窗口域归属，消费方 audio/video/browser/showcase/dialog_probe 同批改写）、gui 门禁 966/966 与全仓 1674/1674 绿；发版 `gui-sys@0.1.0` 待用户执行 `moon publish`）。下一批 gui-window（prebuild 迁移最重，真机清单随批交用户）
 
 ## 发布与验收（2026-10-31，基于固定「Binaries」Release 最新包）
 

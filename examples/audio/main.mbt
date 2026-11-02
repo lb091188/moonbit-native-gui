@@ -279,7 +279,7 @@ fn main {
   fn pick_audio_file() -> Unit {
     match host.val {
       Some(a) => {
-        let dlg = @sys.FileDialog::new_open()
+        let dlg = @win.FileDialog::new_open()
         dlg.set_filters("音频文件:wav,mp3,ogg,m4a,flac,aac,opus,wma|所有文件:*")
         if dlg.run_for_window(a.wid().to_int64()) {
           let p = dlg.get_result()
@@ -298,8 +298,8 @@ fn main {
   fn pick_audio_dir() -> Unit {
     match host.val {
       Some(a) => {
-        let dlg = @sys.FileDialog::new_open()
-        dlg.set_options(@sys.FILE_OPTION_PICK_FOLDERS)
+        let dlg = @win.FileDialog::new_open()
+        dlg.set_options(@win.FILE_OPTION_PICK_FOLDERS)
         if dlg.run_for_window(a.wid().to_int64()) {
           let dir = dlg.get_result()
           match @sys.fsx_list_dir(dir) {

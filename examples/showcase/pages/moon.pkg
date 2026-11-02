@@ -11,7 +11,7 @@ import {
   "NoahLiu/native-gui/text" @text,
   "NoahLiu/native-gui/ui",
   "NoahLiu/native-gui/win" @win,
-  "NoahLiu/native-gui/sys" @sys,
+  "NoahLiu/gui-sys/sys" @sys,
   "NoahLiu/native-gui/icons",
   "NoahLiu/native-gui/chart" @charts,
   "NoahLiu/native-gui/theme",

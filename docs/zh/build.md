@@ -85,13 +85,13 @@ moon run . --target native
 
 ### 在本仓库里
 
-仓库是 `moon.work` workspace，成员含库、探针、五个子模块、七个示例与工具。各示例的模块依赖与额外安装：
+仓库是 `moon.work` workspace，成员含库、探针、六个子模块、七个示例与工具。各示例的模块依赖与额外安装：
 
 | 示例 | 模块依赖 | 额外安装 |
 |---|---|---|
-| `hello` / `showcase` / `sysmonitor` | 仅 native-gui | §2 基础清单即可 |
+| `hello` / `showcase` / `sysmonitor` | native-gui + gui-sys | §2 基础清单即可 |
 | `browser` | + `gui-webview` | Linux 加 `libwebkit2gtk-4.1-dev`；Windows / macOS 用系统 WebView，无需额外安装 |
-| `audio` / `video` / `headless-audio` | + `gui-media`（需 ffmpeg） | Linux 加 §2 的 `libav*-dev` 五件；Windows / macOS 构建期自动取得，见下 |
+| `audio` / `video` / `headless-audio` | + `gui-media`（需 ffmpeg）+ `gui-sys` | Linux 加 §2 的 `libav*-dev` 五件；Windows / macOS 构建期自动取得，见下 |
 
 **先分清两种跑法**：
 
@@ -148,7 +148,7 @@ GitHub Releases 现有两条：**Binaries**（tag `bin`，由 `release-bin.yml` 
 | 仓库里已经修好的 prebuild 报错，在 `MOON_WORK=off` 下又原样出现（行号都一样） | 那条路径跑的是**注册表归档里那份脚本**（落在 `examples/<示例>/.mooncakes/NoahLiu/native-gui/scripts/prebuild.py`），注册表侧改不动 | 验证修复就回 workspace 跑（去掉 `MOON_WORK=off`）；要让消费方吃到只能**重新发包**——脚本随包发布，属对外 API 面的一部分 |
 | `~/.moon/lib/runtime/process.c: error: 'SYS_pidfd_open' undeclared` | 地板在 **MoonBit 工具链自带的 runtime C 源**：它无条件用 `SYS_pidfd_open`，而这个宏来自 glibc 构建时冻结的 syscall 表（老 glibc 就算配新内核头也没有它，升 `linux-libc-dev` 补不上）。与本库无关，此时本库的 prebuild 与桩都已编过 | 换 glibc 较新的机器 / 发行版；这一档**不承诺支持**，自救口径见 §2「低版本发行版」 |
 | prebuild 在 stderr 打「缺少 gtk+-3.0 开发包」一类提示后继续走，最后链接期爆 `undefined reference to gtk_*` / `pango_*` | 开发包没装全。prebuild 探不到包时只警告、**不下发链接条目**，错误推迟到链接期才露头 | 补 §2 的 apt 清单，重跑 `moon build`；仍链旧结果就 `moon clean` 一次 |
-| Windows 链接期爆 `error LNK2019: 无法解析的外部符号 __imp_SetDeviceGammaRamp`（或任意 `__imp_*`），紧跟着 `fatal error LNK1120` | `__imp_` 打头的是 Win32 **导入函数**：桩编得过，但它所在的 `.lib` 没链上。`SetDeviceGammaRamp` 在 `gdi32.lib`，`gui/scripts/prebuild.py` 的 sys 包 Windows 分支当时缺它；`sys_stub.obj` 整个进不了链接，所以每个用到 sys 的 exe 都断在同一条 | 更新到当前 master（sys 包已补 `gdi32.lib`）。自己加 Windows 直调时按归属补库：取 DC 与消息循环→`user32`、DC 绘图与 gamma 斜坡→`gdi32`、注册表→`advapi32`、`ShellExecuteW`/`SH*`→`shell32`、COM 基础→`ole32`、`SysAllocString`→`oleaut32`、WMI 的 GUID 常量→`wbemuuid` |
+| Windows 链接期爆 `error LNK2019: 无法解析的外部符号 __imp_SetDeviceGammaRamp`（或任意 `__imp_*`），紧跟着 `fatal error LNK1120` | `__imp_` 打头的是 Win32 **导入函数**：桩编得过，但它所在的 `.lib` 没链上。`SetDeviceGammaRamp` 在 `gdi32.lib`，`sys` 桩的 Windows 链接条目当时缺它；`sys_stub.obj` 整个进不了链接，所以每个用到 sys 的 exe 都断在同一条 | 更新到当前 master（sys 已拆 `modules/gui-sys`，其 prebuild 的 Windows 条目已含 `gdi32.lib`）。自己加 Windows 直调时按归属补库：取 DC 与消息循环→`user32`、DC 绘图与 gamma 斜坡→`gdi32`、注册表→`advapi32`、`ShellExecuteW`/`SH*`→`shell32`、COM 基础→`ole32`、`SysAllocString`→`oleaut32`、WMI 的 GUID 常量→`wbemuuid` |
 | 构建不中断，但 MSVC 刷一片 `warning C4090: 不同的"const"限定符` / `C4113: 参数列表不同` / `C4133: 类型不兼容` | 桩里的 COM 写法与 SDK 头对不上三类：`const` 的 Vtbl 赋给非 `const` 的 `lpVtbl`、一个实现函数塞进多个接口的 vtable（`self` 形参类型必须逐接口各写一份）、`LPWSTR*` 与 `LPCWSTR*` 之差 | 不挡构建，但每一行都指着「这个槽运行期按 SDK 那份签名被调用」——照 `include/WebView2.h` 的声明逐条改桩；`modules/gui-webview/webview/webview2_stub.c` 三类已清 |
 | `Package 'webkit2gtk-4.1' not found`，且只有 `@web` 用不了 | 不是故障，是设计：探不到 webkit 时 `@web` 退成占位实现、能力报 `Unsupported`，不让整包链接失败 | 要内嵌浏览器就装 `libwebkit2gtk-4.1-dev` |
 | `moon.mod.json ... is no longer supported` | 依赖缓存里第三方包带的还是旧清单（注册表侧改不动） | 对 `.mooncakes/**/moon.{mod,pkg}.json` 逐个 `moon fmt`，循环到解图收敛（CI 同口径） |

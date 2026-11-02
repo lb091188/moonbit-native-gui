@@ -1,5 +1,6 @@
+// 文件对话框探针（dialog 随拆包归 gui-window 域，@win）。
 import {
-  "NoahLiu/native-gui/sys",
+  "NoahLiu/native-gui/win" @win,
 }
 
 pkgtype(kind: "executable")

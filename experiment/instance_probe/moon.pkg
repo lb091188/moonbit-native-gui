@@ -2,7 +2,7 @@
 import {
   "moonbitlang/core/env",
   "NoahLiu/native-gui/shell" @shell,
-  "NoahLiu/native-gui/sys" @sys,
+  "NoahLiu/gui-sys/sys" @sys,
 }
 
 pkgtype(kind: "executable")

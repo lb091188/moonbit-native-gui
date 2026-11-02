@@ -1,5 +1,5 @@
 import {
-  "NoahLiu/native-gui/sys",
+  "NoahLiu/gui-sys/sys",
   "NoahLiu/native-gui/win",
 }
 

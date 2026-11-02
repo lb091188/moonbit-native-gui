@@ -10,7 +10,7 @@ supported_targets = "native"
 
 import {
   "moonbitlang/core/encoding/utf8",
-  "NoahLiu/native-gui/sys",
+  "NoahLiu/gui-sys/sys",
 }
 
 // 桩只用标准头，直接走 native-stub；链接参数由
