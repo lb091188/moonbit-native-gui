@@ -192,6 +192,14 @@ pub(all) struct Widget {
   /// 整层透明度（resolved `Style.opacity` 的落点，design.md §5 P4）：绘制遍历
   /// 进本控件时把「祖先累乘 × 自身」塞进 Painter 的 `global_alpha`，默认 1.0。
   mut alpha_paint : Double
+  /// 语义名（测试定位与将来无障碍共用的一对字段之一）：默认空串；
+  /// `Node::named` 包装器写。定位面。
+  mut name : String
+  /// 可见文本面：动态文本绑定（bind/relabel）与静态文本构造写，
+  /// `@uitest.text()` 读它。与 name 分开——显式语义名不该被文本覆盖。
+  mut label : String
+  /// 控件类名（如 "button"）：组件构造时写，测试断言与将来无障碍共用。
+  mut role : String
   /// 混合模式（样式 `blend_mode` 落点，apply 写入）：本控件自绘与子树画在
   /// 其下内容之上时的混合算子，画完恢复 Normal。
   mut blend_paint : @render.BlendMode
@@ -248,6 +256,9 @@ pub fn Widget::new() -> Widget {
     on_discard: None,
     z_index_paint: 0.0,
     alpha_paint: 1.0,
+    name: "",
+    label: "",
+    role: "",
     blend_paint: Normal,
     clip_content: true,
     paints_state: false,

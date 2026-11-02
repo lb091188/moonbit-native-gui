@@ -1,0 +1,20 @@
+// 无头测试门面（headless-tester P1）：用使用者写代码的方式断言
+// 「点了按钮，界面变成那样」。**不依赖 ui**（防 test-import 自引用成环），
+// 使用者在自己的 moon.pkg 里写 test-import 引本包。
+import {
+  "NoahLiu/yoga-mbt/src" @yoga,
+  "NoahLiu/native-gui/base" @base,
+  "NoahLiu/native-gui/widget" @widget,
+  "NoahLiu/native-gui/render" @render,
+  "NoahLiu/native-gui/text" @text,
+}
+
+// 黑盒回归（uitest_test.mbt）以使用者视角引本包与组件库（文本格式：
+// `import {…} for "test"` 即 test-import）
+import {
+  "NoahLiu/native-gui/uitest" @uitest,
+  "NoahLiu/native-gui/ui" @ui,
+  "NoahLiu/native-gui/base" @base,
+} for "test"
+
+supported_targets = "native"

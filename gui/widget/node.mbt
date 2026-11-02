@@ -145,3 +145,28 @@ pub fn swap_node(sig : Signal[Bool], a : Node, b : Node) -> Node {
     },
   }
 }
+
+///|
+/// 语义名包装器：挂载后把控件 `name` 写成本名（测试定位用，`@uitest.by_name`
+/// 按它找；将来无障碍复用同一对字段）。纯增量——不动任何既有构造器签名。
+pub fn Node::named(self : Node, name : String) -> Node {
+  {
+    mount: fn(parent : Widget) -> Widget {
+      let w = (self.mount)(parent)
+      w.name = name
+      w
+    },
+  }
+}
+
+///|
+/// 控件类名包装器：挂载后写 `role`（如 "button"），测试断言与将来无障碍共用。
+pub fn Node::with_role(self : Node, role : String) -> Node {
+  {
+    mount: fn(parent : Widget) -> Widget {
+      let w = (self.mount)(parent)
+      w.role = role
+      w
+    },
+  }
+}

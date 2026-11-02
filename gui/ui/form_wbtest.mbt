@@ -1601,3 +1601,26 @@ test "步进器:到界那侧按钮呈禁用档(灰底,光标出禁止形)" {
   let en = px((plus.rect.x + 8.0).round().to_int(), my.round().to_int())
   assert_true(dis != en)
 }
+
+///|
+/// 门面示范（headless-tester P1 迁移口径）：新增用例一律走 `@uitest`——
+/// 按 name 定位、Tester::click 中心点击、动态文本经 label 面断言。
+/// 既有用例与私有 click 不动（自定义坐标语义 17/19 处，见方案落地注）。
+test "门面示范：复选框点选与文本断言（@uitest 写法）" {
+  let on = @base.Store::new(false)
+  let t = @uitest.mount_all([
+    checkbox("同意条款", on).named("agree"),
+    bind_label(on, fn(v) { if v { "已勾选" } else { "未勾选" } }).named("state"),
+  ], 260.0, 80.0)
+  assert_eq(t.text(t.by_name("state")), Some("未勾选"))
+  assert_eq(on.get(), false)
+  t.click(t.by_name("agree"))
+  assert_eq(on.get(), true)
+  t.frame()
+  assert_eq(t.text(t.by_name("state")), Some("已勾选"))
+  // 再点回来；role 面未写时给空串
+  t.click(t.by_name("agree"))
+  assert_eq(on.get(), false)
+  t.frame()
+  assert_eq(t.text(t.by_name("state")), Some("未勾选"))
+}

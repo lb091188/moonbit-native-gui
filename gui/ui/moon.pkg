@@ -20,3 +20,8 @@ import {
   "NoahLiu/native-gui/style",
   "NoahLiu/native-gui/i18n" @i18n,
 }
+
+// 白盒回归的门面示范（form_wbtest 新用例）：以包外同款写法引 @uitest
+import {
+  "NoahLiu/native-gui/uitest" @uitest,
+} for "wbtest"

@@ -168,6 +168,8 @@ pub fn[A] bind(
     // 单行档口径（同 text_dyn 的 wrap=false）：下限归 0，挤不过兄弟件时
     // 收缩、末端出省略号。
     w.node.set_min_width(@yoga.fixed(0.0))
+    // 初值文本进 label（文本面，定位面 name 归 .named；relabel 同步写回）
+    w.label = src.text
     attach_text_measure(w, src)
     w.on_draw = Some(fn(
       _s : @widget.Widget,

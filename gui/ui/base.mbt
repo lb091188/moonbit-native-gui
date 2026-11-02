@@ -293,9 +293,11 @@ pub fn watch_theme() -> Unit {
 
 ///|
 /// 换文本后让布局重新测量：重设一次测量回调即 `mark_changed`，下一帧只重算
-/// 这一条链（脏区增量重排）。
+/// 这一条链（脏区增量重排）。动态文本同步写回控件 `name`——`@uitest.text()`
+/// 与将来无障碍读的是这一份，不写回就永远读到初值。
 pub fn relabel(w : @widget.Widget, src : TextSource, text : String) -> Unit {
   src.text = text
+  w.label = text
   attach_text_measure(w, src)
   @widget.invalidate()
 }
