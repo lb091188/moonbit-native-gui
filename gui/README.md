@@ -96,7 +96,7 @@ Where this library is heading (see the public roadmap for the full picture):
 3. **Input & overlays** — selection and copy for static text (read-only editor with hit-testing, selection highlight and Ctrl+C / context-menu copy).
 4. **Further content** — an embeddable terminal widget, a WebGL canvas host, macOS GIF frame-disposal composition.
 
-Explicit non-goals: accessibility APIs, GTK4 / Qt backends, and platform-native widget skins — the self-drawn stack is the product.
+Explicit non-goals: GTK4 / Qt backends, and platform-native widget skins — the self-drawn stack is the product. Accessibility (screen readers) goes through self-built bridges (NSAccessibility / AT-SPI / UIA, planned), not inherited from native widgets.
 
 **Versioning**: at `0.x` the interfaces still evolve per batch; breaking changes are recorded in commit messages and the docs ship in the same batch.
 

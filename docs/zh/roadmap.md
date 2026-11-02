@@ -281,7 +281,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ### 输入与浮层
 
-- ⏳ **静态文本选中与复制**：标签/文本段挂只读 Editor（命中测试、选区高亮、Ctrl+C / 右键复制）——折行布局与命中直接复用 textarea 现成模板；input/textarea 的编辑链路已齐，此条只补纯展示文本
+- 🚧 **静态文本选中与复制**（2026-11-03 拍板立项，方案与坑清单见 [proposals/text-selection-a11y.md](proposals/text-selection-a11y.md)；与屏读语义共用地基——TextLayout 偏移映射 / name·role 字段 / 焦点链）：标签/文本段挂只读 Editor（命中测试、选区高亮、Ctrl+C / 右键复制）——折行布局与命中从 textarea 抽 TextLayout 复用（textarea/entry 等价改用）；input/textarea 的编辑链路已齐，此条只补纯展示文本；首批 label/text + code_view，markdown 段落次批，AttributedText 缓批单独立项
 - ⏳ **浮层原生档**：弹层走原生 popup / transient；Windows 侧接口待核
 - ⏳ **浮层「点外收起」判据**：统一点外收起判定并补回归
 
@@ -326,7 +326,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ### 可访问性
 
-- ⏳ **屏读语义**：控件挂 role / name / state，接 Linux AT-SPI、Windows IAccessible / UIA、macOS NSAccessibility
+- 🚧 **屏读语义**（2026-11-03 拍板做、自建桥不借原生控件白拿——gui/README.md non-goals 旧口径随批修正；方案、语义槽表桥架构与坑清单见 [proposals/text-selection-a11y.md](proposals/text-selection-a11y.md)）：控件挂 role / name / state，接 macOS NSAccessibility、Linux AT-SPI、Windows UIA provider（MSAA 不做）；阶段排序 mac → Linux → Windows；与静态文本选中共用地基，uitest「name/role 复用同一对字段」开放问题就此收口（另加 enabled 字段与值回调面）
 - ⏳ **键盘可达性**：全量控件的 Tab 顺序与可见焦点环；当前只有输入类与部分容器可达
 
 ## Linux 兼容说明
