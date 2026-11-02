@@ -62,6 +62,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **全局 alpha**：`opacity` 整层透明度，绘制期生效
 - ✅ **矢量图标**：19 类图标包，不依赖字体文件
 - ✅ **过渡动画**：状态桶插值：三条颜色 + 边框宽 + 圆角 + 字号 + 行高，按真实时间推进
+- 🚧 **macOS GIF 分帧合成**：ImageIO 自建画布逐帧合成，disposal 全档（0/1 保留、2 清帧矩形、3 还原快照）+ ImageRectangle 子矩形 + 索引色调色板兜底，帧号/时长/换帧口径与 Linux / Windows 一致（mac 本机 moon test gui/render 61/61；真机 showcase 复验待，透明底 GIF 出底色块=透明索引缺口另补）
 
 ### 文字排印
 
@@ -96,6 +97,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **编辑内核**：选区、双击选词、Shift+箭头、undo/redo、只读、密码遮罩；UTF-8 码点边界对齐
 - ✅ **输入法通道**：组合串内联、候选窗贴光标、切框清空；Linux ibus/fcitx、Windows TSF、macOS NSTextInputClient
 - ✅ **输入法焦点门**：焦点控件绑定 + filter 门 + focus_in/out 同步（三平台真机通过）
+- 🚧 **浮层原生档**：所在窗挂有原生子件（网页区）时，六件浮层组件（气泡/下拉/提示/对话框/Toast/右键菜单）自动改开真窗口——无边框、不进任务栏、transient 到 owner、恒在 owner 之上，档位只看 `has_child_surfaces()`；无网页区维持同窗图层档。三平台接口全真，经 2026-10-28/29 多轮真机迭代收口（白板/窄条/收框量尺/KDE 死边/点外不收，见 adaptation.md）（Linux 真机多轮已过；Windows/mac 末轮清单待复验）
 
 ### 组件
 
@@ -182,6 +184,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **打开与定位**：URL 交浏览器、文件交默认程序、路径交文件管理器；不存在给 NotFound 不崩
 - ✅ **剪贴板**：读写系统剪贴板文本
 - ✅ **音量与静音**：读音量、设百分比、切静音
+- 🚧 **任务栏进度（Windows）**：`Window::set_taskbar_progress` / `set_taskbar_state` / `clear_taskbar_progress`，ITaskbarList3 进程级单例、五态写入口；只写不读（Win32 无 getter，非 Windows `taskbar_supported` 恒 false 语义化降级）（W20g 合入；真机观感复验待，测试用例尚无专条，复验时补）
 - ✅ **显示器枚举**：在线屏、分辨率、刷新率、物理尺寸、模式列表（三平台各一条官方通道：Linux 解析 `xrandr`、macOS 直调 CoreGraphics、Windows 走 GDI 的 `EnumDisplayDevicesW` + `EnumDisplaySettingsExW`，2026-10-28 接上并真机验通——此前 Windows 掉进 mac 臂恒 `Unsupported`。读数边界：`connected` 恒真（三平台都没有「接了但断电」的公开清单）、`name` Windows 取 `DISPLAY1` 这种设备名去前缀、`mm_width`/`mm_height` 仅 Linux 有（Windows 的 GDI 不报物理尺寸）、`preferred` 三平台恒 false（没有公开信号，不拿「当前档」冒充））
 - ✅ **系统托盘**：通知区图标 + 右键/左键菜单（Linux 走 SNI，Windows 走 `Shell_NotifyIcon`）。**退出前必须逐个 `NIM_DELETE`**——Win32 的通知区项不随进程回收，宿主窗口没了会留僵尸图标（右键它既不出菜单也不出 tooltip，得等 Shell 下次鼠标扫过才清）；2026-10-28 修：`remove_all_trays()` 原先只有 SNI 兜底，改为取槽位快照逐个摘除再兜底。**仍是边界**：`taskkill` / 崩溃 / 断电这类非正常退出拦不住，Win32 通病
 - ✅ **空闲检测**：读系统空闲秒数（Linux X11、Windows；macOS 走 HID 系统态）
@@ -274,15 +277,13 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 - ⏳ **GPU 合成（可选后端）**：WebGPU 独立模块，present 走纹理上传 + quad；三级 fallback
 - ⏳ **控件级 GPU 绘制**：shader / vertex buffer 画控件路径，省掉 CPU 回读
-- ⏳ **性能治理**：每帧重绘范围、布局缓存、图表增量重绘
+- ⏳ **性能治理（先量化再立项，2026-11-03 核查改写）**：已落地零散件——局部置脏（按窗标脏区）、分段帧账本（LAYOUT-FRAME 读数）、组件级布局缓存（textarea 折行 / 图表布局 / 文字 C 侧）；缺的是系统性——先做性能基线探针（experiment/ 独立模块：帧耗时分段 + 每帧重绘范围 + 布局重算次数三组读数），有数据再定 yoga 布局缓存与图表增量重绘立不立项
 - ⏳ **终端模拟**：等宽网格 + ANSI 颜色 + 光标，做成可嵌入的终端控件
-- ⏳ **WebGL 画布**：WebGL 上下文嵌进界面，走 GPU 合成
-- ⏳ **macOS GIF 分帧合成**：disposal 需探测先回证；现退回首帧静图
+- ⏳ **GPU 内容画布**（2026-11-03 由「WebGL 画布」改写归并——桌面原生语境无 WebGL，不按 Web 语境平移）：GPU 上下文嵌进界面，走 gpu-architecture 的 `RenderCtx::Gpu`（Layer 2 第三步），3D/场景图归未来 gui-3d 独立模块
 
 ### 输入与浮层
 
 - 🚧 **静态文本选中与复制**（2026-11-03 拍板立项，方案与坑清单见 [proposals/text-selection-a11y.md](proposals/text-selection-a11y.md)；与屏读语义共用地基——TextLayout 偏移映射 / name·role 字段 / 焦点链）：标签/文本段挂只读 Editor（命中测试、选区高亮、Ctrl+C / 右键复制）——折行布局与命中从 textarea 抽 TextLayout 复用（textarea/entry 等价改用）；input/textarea 的编辑链路已齐，此条只补纯展示文本；首批 label/text + code_view，markdown 段落次批，AttributedText 缓批单独立项
-- ⏳ **浮层原生档**：弹层走原生 popup / transient；Windows 侧接口待核
 - ⏳ **浮层「点外收起」判据**：统一点外收起判定并补回归
 
 ### 状态与路由
@@ -294,9 +295,8 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ⏳ **Wayland 原生路径**：portal / 夜灯 / 全局热键在 Wayland 会话的原生通道
 - ⏳ **KDE / GNOME / DDE 实测**：托盘、通知、深浅色、壁纸、默认应用的桌面环境矩阵
 - ⏳ **显示器「首选档」**：`CGDisplayModeIsPreferred` 已不在 SDK，需找公开替代信号
-- ⏳ **dock 徽标与 LauncherEntry**：macOS `NSDockTile`、Linux `LauncherEntry` 的任务栏进度对位
-- ⏳ **通知时间敏感档的粒度**：目前所有通知默认 timeSensitive（保前台可见）；按 kind 分档或开放给应用自选待定，用户在系统设置关掉时间敏感会回到前台静默
-- ⏳ **通知后端命名**：macOS 仍报 win-balloon，需加第三档后端名
+- ⏳ **dock 徽标与 LauncherEntry**：macOS `NSDockTile` badgeLabel、Linux `com.canonical.Unity.LauncherEntry` Update 信号（count/progress），与已实现的 Windows 任务栏进度拼跨平台门面（shell 层分派，与 notify 门面同构）；Windows `SetOverlayIcon` 是状态图标语义非计数徽标，做不做同批定
+- ⏳ **通知时间敏感档的粒度**：缺省维持 timeSensitive（mac 前台横幅钥匙，实测定案见 adaptation.md）；`notify_send` 开 `urgent?` 可选参（缺省 true，仅 mac 臂映射 `interruptionLevel`），关掉档位=接受前台忙时静默；用户在系统设置关掉时间敏感授权后同样回到前台静默（现存风险）；Linux/Windows 无对位忽略
 
 ### 媒体
 
@@ -322,7 +322,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 - ⏳ **稳定面清单与 1.0 时点**：逐包划分承诺面 / 实验面，公告破坏性改动截止线
 - 🚧 **无头测试门面 uitest**（2026-11-02 立项；方案与坑清单见 [proposals/headless-tester.md](proposals/headless-tester.md)）：本仓不缺无头能力（wbtest 2.8 万行、合成指针事件与位图断言齐全），缺的是**对外门面**与**应用泵无头路径**——P1 公开包 `gui/uitest`（`test-import` 消费、name 定位不靠下标、显式 `frame()` 并行安全、`Capabilities` 显式守卫、form_wbtest 示范迁移）；✅P2 虚窗哨兵（`Window::virtual_` id<0 哨兵 + `App::test_headless` 假窗与无头泵 wait(0)，定时器经 step 驱动可断言，C 桩零改动）；真机人工验的分工不变。拆分待办见 TODO「无头测试门面」节
-- ⏳ **issue 模板与贡献指南**：对外投放配套
+- ⏳ **贡献入口**：ISSUE 模板（bug/feature 两表 + config）、CONTRIBUTING 骨架（指向 build.md 与门禁命令，不与 AGENTS.md 双源）、PR 模板简版
 
 ### 可访问性
 

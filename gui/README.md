@@ -94,7 +94,7 @@ Where this library is heading (see the public roadmap for the full picture):
 1. **Rendering performance** — an optional GPU-composited backend (WebGPU), per-widget GPU drawing, per-frame redraw scoping, layout caching and incremental chart redraws.
 2. **Windows** — key-routing fallback after in-window page switches, so keystrokes reach the page after navigation.
 3. **Input & overlays** — selection and copy for static text (read-only editor with hit-testing, selection highlight and Ctrl+C / context-menu copy).
-4. **Further content** — an embeddable terminal widget, a WebGL canvas host, macOS GIF frame-disposal composition.
+4. **Further content** — an embeddable terminal widget, a GPU content canvas host (WebGPU).
 
 Explicit non-goals: GTK4 / Qt backends, and platform-native widget skins — the self-drawn stack is the product. Accessibility (screen readers) goes through self-built bridges (NSAccessibility / AT-SPI / UIA, planned), not inherited from native widgets.
 
