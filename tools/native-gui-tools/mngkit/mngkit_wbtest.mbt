@@ -171,13 +171,13 @@ test "文本归一化：模板缩进不进生成串；多源插值走 computed" 
 ///|
 test "静态属性字面量判定：裸串按字符串、单引号透传 MoonBit 表达式、数字原样" {
   let code = match compile(
-      "<template>\n  <ui-text text=\"你好\" font_size='13.0' color=\"#3584e4\" />\n</template>",
+      "<template>\n  <ui-col row_gap='8.0' grow=\"1.0\" label=\"栏\" />\n</template>",
       "h.mng",
     ) {
     Ok(o) => o.code
     Err(e) => abort("\{e}")
   }
-  assert_true(contains_sub(code, "@ui.text(\"你好\", font_size=13.0, color=\"#3584e4\")"))
+  assert_true(contains_sub(code, "], row_gap=8.0, grow=1.0, label=\"栏\")"))
 }
 
 ///|
@@ -417,4 +417,124 @@ test "@mng 覆盖优先于自动解析（不规则落点逃生口）" {
   }
   assert_true(contains_sub(code, "  @shared.page(["))
   assert_true(contains_sub(code, "@ui.text(\"x\"),"))
+}
+
+///|
+test "样式章：<style> 摊平成 define_class、class 引用出 class_of、令牌与关键字落点" {
+  let src = [
+    "<script setup lang=\"moonbit\">",
+    "let qty : @base.Store[Int] = @base.Store::new(1)",
+    "</script>",
+    "<style>",
+    ".card {",
+    "  color: var(--text_primary);",
+    "  background-color: #ffffff;",
+    "  font-size: 14;",
+    "  font-weight: semi-bold;",
+    "  padding: 8;",
+    "}",
+    "</style>",
+    "<template>",
+    "  <ui-col class=\"card\" row_gap=\"8.0\">",
+    "    <ui-text text=\"x\" />",
+    "  </ui-col>",
+    "</template>",
+  ].join("\n")
+  let code = match compile(src, "card.mng") {
+    Ok(o) => o.code
+    Err(e) => abort("\{e}")
+  }
+  assert_true(
+    contains_sub(
+      code,
+      "@style.define_class(\"card\", @style.style(color=\"text_primary\", background_color=\"#ffffff\", font_size=14.0, font_weight=@text.FontWeight::SemiBold, padding=8.0))",
+    ),
+  )
+  assert_true(contains_sub(code, "class=@style.class_of([\"card\"])"))
+}
+
+///|
+test "样式章：深浅两份值——dark 档注册第二枚类、按系统偏好选" {
+  let src = [
+    "<style>",
+    ".card {",
+    "  background-color: #ffffff;",
+    "}",
+    ".card:dark {",
+    "  background-color: #101014;",
+    "}",
+    "</style>",
+    "<template>",
+    "  <ui-col class=\"card\" />",
+    "</template>",
+  ].join("\n")
+  let code = match compile(src, "card.mng") {
+    Ok(o) => o.code
+    Err(e) => abort("\{e}")
+  }
+  assert_true(contains_sub(code, "@style.define_class(\"card:dark\", @style.style(background_color=\"#101014\"))"))
+  assert_true(
+    contains_sub(
+      code,
+      "class=@style.class_of(if @win.sys_color_scheme() == \"dark\" { [\"card\", \"card:dark\"] } else { [\"card\"] })",
+    ),
+  )
+}
+
+///|
+test "样式章：坏属性/坏令牌/非类选择器/主题字面量都编译报错" {
+  let bad_prop = compile(
+    "<style>\n.card { display: flex; }\n</style>\n<template>\n  <ui-col class=\"card\" />\n</template>",
+    "a.mng",
+  )
+  assert_true(
+    match bad_prop {
+      Err(e) => contains_sub(e, "不是 Style 属性")
+      _ => false
+    },
+  )
+  let bad_tok = compile(
+    "<style>\n.card { color: var(--nope); }\n</style>\n<template>\n  <ui-col class=\"card\" />\n</template>",
+    "b.mng",
+  )
+  assert_true(
+    match bad_tok {
+      Err(e) => contains_sub(e, "不是主题色令牌")
+      _ => false
+    },
+  )
+  let bad_sel = compile(
+    "<style>\ndiv { color: var(--border); }\n</style>\n<template>\n  <ui-col />\n</template>",
+    "c.mng",
+  )
+  assert_true(
+    match bad_sel {
+      Err(e) => contains_sub(e, "只支持类选择器")
+      _ => false
+    },
+  )
+  let literal = compile(
+    "<template>\n  <ui-button text=\"x\" color=\"primary\" />\n</template>",
+    "d.mng",
+  )
+  assert_true(
+    match literal {
+      Err(e) => contains_sub(e, "样式字面量") && contains_sub(e, "class=")
+      _ => false
+    },
+  )
+}
+
+///|
+test "样式章：class 不在 IR v1 补丁边界（转 COLD）" {
+  let r = ir_of(
+    "<template>\n  <ui-col class=\"card\">\n    <ui-text text=\"x\" />\n  </ui-col>\n</template>",
+    "e.mng",
+  )
+  assert_true(
+    match r {
+      Err(e) => contains_sub(e, "class 不在 v1 补丁边界")
+      _ => false
+    },
+  )
 }

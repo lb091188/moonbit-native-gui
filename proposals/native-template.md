@@ -315,15 +315,18 @@ fn template_spike() -> @widget.Node {
 
 Web 主面壳形态不做（roadmap「明确不做」）。原生面是唯一主面：样式 token/类通道 + 模板 IR 通道（双亚秒）+ dev 宿主回退。应用里需要 web 内容时，**gui-webview 组件填满窗口即兼容方案**——该场景下前端侧 HMR 归 Vite（web 项目自己的循环），本工具链不编排第二底座。
 
-## 样式章：`<style>` 段与布局属性样式化（2026-11-01）
+## 样式章：`<style>` 段与 class 通道（落地口径）
 
-- **`<style>` 段编译期摊平**：类选择器 → `define_class` 注册条目；元素 `class="a b"` → 生成 `class = class_of(["a","b"])`。支持子集：类选择器、一层后代、`var(--token)` 引主题令牌、深浅变体编译成两份值。不做运行时级联/特异性/继承链/伪类——冲突编译期报错，不静默仲裁（vanilla-extract / CSS Modules 套路：级联在 build 期算完，运行时零新机制）。
-- **硬约定升格为编译规则**：「样式值进 token/class 槽才热」由编译器强制——`<style>` 段与 `class` 引用之外出现样式字面量即编译报错。
-- **布局属性样式化（现状已查证）**：`@style` 的 `Style` 已含布局全量（flex_direction / justify_content / align_items / align_self / flex / 双向 gap / padding×4 / margin×4 / 宽高 min/max / border / display），`apply` 分流口径本就是「布局走 Yoga、外观进槽」。此前「居中不随主题热」的真因是构造参数 build 期焊死、不进类注册表，不是系统缺能力。口径收紧三条：
-  1. 构造参数 = 默认值，类槽 = 覆盖（合并序沿 registry「散写匿名块优先级高、排尾」成文）；
+- **`<style>` 段编译期摊平**：类选择器 → 生成体内 `@style.define_class("名", @style.style(…))` 注册条目（每次构建幂等重注册）；元素 `class="a b"` → `class=@style.class_of(["a","b"])`。属性名即 `@style.style` 工厂的参数名（CSS kebab 自动转 snake；`padding`/`margin` 简写与逐边并存）。
+- **值形态四档**：数字（`font-size: 14`）、`var(--令牌)`、颜色字面量（`#rrggbb`）、枚举关键字（font-weight / text-align / white-space / border-style / visibility）。`var(--令牌)` 分两种：颜色属性查 20 枚主题色令牌（primary / text_primary / border / bg_panel …，绘制期按当前主题落色），数值属性查尺度令牌（control_height / font_size_* / radius_*）。
+- **深浅两份值**：颜色走 `var(--令牌)` 即自带两份值（主题表就是深色变体的落点）；需要字面量分化时写 `.名:dark { … }`，编译成第二枚 `名:dark` 类，生成码里按 `@win.sys_color_scheme() == "dark"` 选（应用自管深浅时走令牌；App 注入落地后判定源换成应用自己的开关）。
+- **不做**：运行时级联 / 特异性 / 继承 / 伪类 / 元素与后代选择器 / 布局枚举值（display、flex-direction、justify-content 等属结构侧）——`<style>` 内遇到即编译报错，不静默仲裁（vanilla-extract / CSS Modules 套路：能算的在 build 期算完，运行时零新机制）。
+- **硬约定是编译规则**：模板属性里的样式字面量（color / background_color / border_color / border_width / border_radius / font_size / font_family / font_weight / opacity）一律编译报错，必须进 `<style>` 或 `class`；动态 `:属性="表达式"` 不受限。
+- **布局属性样式化（现状）**：`@style` 的 `Style` 已含布局全量（flex_direction / justify_content / align_items / align_self / flex / 双向 gap / padding×4 / margin×4 / 宽高 min/max / border / display），`apply` 分流口径是「布局走 Yoga、外观进槽」。口径三条：
+  1. 构造参数 = 默认值，类槽 = 覆盖（合并序沿 registry「散写匿名块优先级高、排尾」）；
   2. 结构性例外留结构侧：children、事件、键、row/col 选型（`flex_direction` 虽在 Style，行列构造选择仍是结构决定，样式只做覆盖微调）；
-  3. 收益：gap / 对齐这类高频布局微调从重启档进亚秒档（类是 Style 数据，指纹重建 + 类重 apply 现成路径）。
-- 口径收紧**独立于模板有价值**（存量代码受益），可作先行小步。
+  3. gap / 对齐这类高频布局微调走类槽即进亚秒档（类是 Style 数据，指纹重建 + 类重 apply 现成路径）。
+- **IR v1 边界**：带 `class` 的元素不进补丁（应用侧转 COLD），避免热更丢类。
 
 ## 工具与编辑器支持（2026-11-02 定形）
 

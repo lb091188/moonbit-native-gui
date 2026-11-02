@@ -11,7 +11,7 @@
 - `dev` 子命令已完成（2026-11-02：watch 内容对比 + 契约分类 HOT/COLD + 回退编排 build→杀旧→带参重启，无头自测验通；HOT 的进程内补丁推送待应用侧 dev 监听落地，本版打标不打断；配套 gui/sys 进程原语补 pr_spawn/pr_alive/pr_kill/pr_sleep_ms，僵尸探活收尸已钉测试）
 - [ ] **编辑器支持**：语义进 `mng_cli lsp` 子命令（stdio JSON-RPC：initialize / didOpen·didChange / completion / hover / definition / publishDiagnostics），VSIX（`tools/vscode-mng/`）只做静态贡献包——`.mng` 语言注册 + TextMate 高亮（HTML 底子 + MoonBit 表达式着色）+ snippets + `mng_cli` 定位引导；补全目录取 script 段槽名与 props、`pkg.generated.mbti` 的组件参数、样式章的类与 token，不引入原生 HTML/CSS 语义
 - 组件带参已完成（2026-11-02：script 段「只有签名无函数体」的 fn 头即 props（必填位置参、可选 `名? : 类型 = 默认值`，探针结论见 `experience/adaptation.md`）；跨包组件路径从 `let` 右值取、参数顺序从源码签名解析（`mngkit.Sigs` 注入文件端口），同包组件按标签名零声明；`// @mng` 降为不规则落点逃生口；未用 prop 出 `let _ =` 垫片、纯组件绑定的 let 不进生成体，保住零警告门禁；mngkit 测试 14/14）
-- [ ] **样式章落地**：`<style>` 段解析 + 类选择器摊平成 `define_class` 条目、`class="a b"` → `class_of(["a","b"])`、`var(--token)` 引主题令牌；`<style>`/`class` 之外出现样式字面量即编译报错
+- 样式章已完成（2026-11-02：`<style>` 类选择器摊平成 `define_class`、`class="a b"` → `class_of`、`var(--令牌)`（20 枚主题色 + 尺度令牌）、`#rrggbb`、枚举关键字、`.名:dark` 深浅两档按 `@win.sys_color_scheme()` 选；模板属性里的样式字面量编译报错；IR v1 带 class 转 COLD；mngkit 测试 18/18；真机视觉待用户按清单验）
 - [ ] **工具链收口**：同包 stem 撞名检测、dev 注册表按 IR 的 `page` 键控、`mng_cli` 摘掉 GUI 依赖（单实例客户端 shell → sys，独立分发不装 GTK）、`lsp` 与 `--version` 子命令、native-gui-tools 补 mooncakes 发布配置
 - [ ] **拆包**（[proposals/module-split.md](proposals/module-split.md)）：sys → win → dbus → shell 顺序，等工具二进制独立发布动机集中做
 

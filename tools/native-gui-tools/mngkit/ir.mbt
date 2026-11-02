@@ -134,6 +134,12 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
           If => cond = Some(a.value)
           For =>
             return Err("\{pos_str(pos)}：v-for 不在 v1 补丁边界（应用侧转 COLD）")
+          Plain | Dyn =>
+            if a.name == "class" {
+              return Err(
+                "\{pos_str(a.pos)}：class 不在 v1 补丁边界（应用侧转 COLD）",
+              )
+            }
           _ => ()
         }
       }

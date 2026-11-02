@@ -58,6 +58,8 @@ priv struct Ctx {
   cache : Map[String, CompDecl]
   // 路径 → 该函数全部参数名（自定义组件的 @事件 回调落点查表用）
   sigs : Map[String, Array[String]]
+  // 本文件 `<style>` 摊平出的规则（class → class_of、深色档选取用）
+  style_rules : Array[StyleRule]
   // 被当组件消费的 let 名（生成体里按需丢弃）
   used_lets : Array[String]
 }
@@ -838,12 +840,25 @@ fn gen_elem_base(
     used2[k] = true
     match a.kind {
       Plain => {
-        let v = if a.has_value {
-          lit_of(a.value)
+        let key = snake(a.name)
+        if key == "class" {
+          if !a.has_value {
+            return Err("\{pos_str(a.pos)}：class 需要类名（class=\"a b\"）")
+          }
+          let ce = class_expr(ctx.style_rules, class_names_of(a.value))
+          labeled.push(("class=" + ce, a.pos))
+        } else if arr_contains(themed_props(), key) {
+          return Err(
+            "\{pos_str(a.pos)}：样式字面量 `\{key}` 不写在模板上——进 <style> 的类，用 class=\"名\" 引用（值随主题热）",
+          )
         } else {
-          "true"
+          let v = if a.has_value {
+            lit_of(a.value)
+          } else {
+            "true"
+          }
+          labeled.push((key + "=" + v, a.pos))
         }
-        labeled.push((snake(a.name) + "=" + v, a.pos))
       }
       Dyn => labeled.push((snake(a.name) + "=" + a.value, a.pos))
       Event => {
@@ -986,6 +1001,14 @@ pub fn compile_with(
     Elem(_, _, _, _) => ()
   }
   let info = analyze_script(sfc.script, sfc.script_line0)
+  let style_rules = if sfc.style.trim().to_owned().length() > 0 {
+    match parse_style(sfc.style) {
+      Ok(r) => r
+      Err(e) => return Err(e)
+    }
+  } else {
+    []
+  }
   let ctx : Ctx = {
     slots: info.slots,
     lets: info.lets,
@@ -994,6 +1017,7 @@ pub fn compile_with(
     resolve,
     cache: Map([]),
     sigs: Map([]),
+    style_rules,
     used_lets: [],
   }
   // ① 先生成模板树：其间登记被消费的组件 let 与解析到的签名
@@ -1069,6 +1093,10 @@ pub fn compile_with(
         { line: info.line0 + (if info.head_line >= 0 { info.head_line } else { 0 }), col: 1 },
       )
     }
+  }
+  // `<style>` 摊平：注册命名类（先于任何 class_of 引用执行）
+  for stmt in style_defs(ctx.style_rules) {
+    g_emit(g, stmt, { line: sfc.style_line0, col: 1 })
   }
   for k, l in info.lines {
     let drop = map_has(head_lines, k) || (map_has(comp_lines, k) && !arr_contains(used, let_at(info, k)))

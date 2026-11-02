@@ -303,10 +303,10 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 - ⏳ **模板预编译编译器**：单文件组件（Vue 风模板 + MoonBit script）经工具预编译生成 `.mbt` 再走 `moon build`；表达式原样拼接、`moon check` 唯一类型门禁；v1 指令集：插值、动态属性、事件、双向绑定、条件、keyed 列表、默认 slot；组件带参（props 走签名头：必填位置参、可选具名默认值），跨包组件路径与参数顺序从源码签名自动解析、同包组件零声明；spike 先于编译器（showcase 选页对照钉死语法与产物契约）；CLI 错误回映射模板行列（source map）为 DX 生死线
 - ⏳ **模板热更新（IR 热应用）**：编译器旁路产出模板 IR（结构数据，表达式按哈希引用已编译闭包）；dev 档注册表 + 应用内 applier 经单实例通道原位重挂（复用路由 unmount / remount 机关）；结构 / 绑定改动亚秒，表达式 / 逻辑改动自动回退重启；v2 方向按实测痛感排队：受限表达式求值器、子树对账状态保活、列表行模板热编辑
-- ⏳ **样式 token / 类热更新**：dev 工具经单实例通道推 token 与命名类变更，应用侧指纹重建；模板编译器强制「样式进槽」——`<style>` 段与 `class` 引用之外出现样式字面量即编译报错
-- ⏳ **模板样式章**：`<style>` 段编译期摊平进命名类注册表（类选择器、一层后代、`var(--token)`、深浅变体；不做运行时级联）；布局属性样式化口径——构造参数为默认值、类槽为覆盖，children / 事件 / 键 / 行列选型留结构侧；口径收紧独立于模板先行（存量受益）
+- ⏳ **样式 token / 类热更新**：dev 工具经单实例通道推 token 与命名类变更，应用侧指纹重建；编译器侧的「样式进槽」强制已落——模板属性里的样式字面量一律编译报错，必须进 `<style>` 或 `class`
+- 🚧 **模板样式章**：`<style>` 段编译期摊平进命名类注册表（类选择器、`var(--令牌)`、`#rrggbb`、枚举关键字、`.名:dark` 深浅两档；运行时级联 / 元素与后代选择器 / 布局枚举值不做）；元素 `class="a b"` → `class_of`；布局属性样式化口径——构造参数为默认值、类槽为覆盖，children / 事件 / 键 / 行列选型留结构侧（Linux 真机待验）
 - ⏳ **dev 工具二进制**：本路线的 Vite 位次，`moon install` 分发；子命令 `dev`（watch + 改动分类 + IR / token 通道推送 + 回退编排）/ `build`（纯生产产物零 dev 痕迹）/ `new`（新 `.mng` 页样板脚手架）/ `preview`（独立预览窗：同一 applier + mock 状态）/ `lsp`（模板诊断、补全、跳转）
-- ⏳ **编辑器支持（VS Code）**：四档——0 档零插件（HTML 可关联扩展名 + tasks/problemMatcher 错误进 Problems，随模板 v1）；1 档轻插件（表达式着色 injection + snippets）；2 档 LSP 薄壳接工具 `lsp` 子命令（触发：v1 用出真痛感）；3 档预览集成挂终态
+- ⏳ **编辑器支持**：语义进工具 `lsp` 子命令（stdio JSON-RPC：诊断、补全、hover、跳转；补全目录取 script 段槽名与 props、`pkg.generated.mbti` 组件参数、样式章的类与令牌），VSIX（`tools/vscode-mng/`）只做静态贡献包——`.mng` 语言注册 + TextMate 高亮 + snippets + 工具定位引导；不引入原生 HTML/CSS 语义
 - ⏳ **上游诉求**：moonbitlang native 目标 hot reload / 运行时多模块 + native 增量链接；落地当天 IR 通道升格真代码热换、状态迁移层（快照设计）复活、回退路径消失
 
 ### 工程与交付

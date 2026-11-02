@@ -80,6 +80,8 @@ priv struct Sfc {
   script : String
   script_line0 : Int
   roots : Array[TNode]
+  style : String
+  style_line0 : Int
 }
 
 ///|
@@ -253,11 +255,54 @@ fn parse_nodes(c : Cur, stop : String) -> Result[Array[TNode], String] {
 }
 
 ///|
-/// 顶层扫描：找出 script 与 template 两块。
+/// 原文段读取（script / style）：从开标签 `>` 之后读到 `</名字`，返回内容与首行行号；
+/// 调用结束时游标停在闭标签之后。
+fn read_raw(c : Cur, name : String) -> Result[(String, Int), String] {
+  let content_start = c.i
+  let line0 = pos_at(c, c.i).line
+  let nm = chars_of(name)
+  let n = c.cs.length()
+  let mut end = c.i
+  let mut found = false
+  while end + 2 + nm.length() <= n {
+    if c.cs[end] == '<' && c.cs[end + 1] == '/' {
+      let mut k = 0
+      let mut same = true
+      while k < nm.length() {
+        if c.cs[end + 2 + k] != nm[k] {
+          same = false
+        }
+        k += 1
+      }
+      if same {
+        found = true
+        break
+      }
+    }
+    end += 1
+  }
+  if !found {
+    return Err(cur_err(c, "缺 </\{name}>"))
+  }
+  let content = c.cs[content_start:end].map(fn(ch) { ch.to_string() }).join("")
+  c.i = end + 2
+  let _ = read_tag_name(c)
+  skip_ws(c)
+  match expect(c, '>', "闭标签") {
+    Ok(_) => ()
+    Err(e) => return Err(e)
+  }
+  Ok((content, line0))
+}
+
+///|
+/// 顶层扫描：找出 script、template 与可选 style 三块。
 fn parse_sfc(src : String) -> Result[Sfc, String] {
   let c = make_cur(src)
   let mut script = ""
   let mut script_line0 = 0
+  let mut style = ""
+  let mut style_line0 = 0
   let mut roots : Array[TNode] = []
   let mut got_template = false
   while true {
@@ -267,38 +312,22 @@ fn parse_sfc(src : String) -> Result[Sfc, String] {
     }
     let _ = expect(c, '<', "顶层标签")
     let name = read_tag_name(c)
-    if name == "script" {
+    if name == "script" || name == "style" {
       // 吃掉属性直到 '>'
       while !cur_eof(c) && cur_peek(c) != '>' {
         c.i += 1
       }
-      let _ = expect(c, '>', "script 开标签")
-      let content_start = c.i
-      let line0 = pos_at(c, c.i).line
-      // 找 </script
-      let mut end = c.i
-      let n = c.cs.length()
-      while end + 8 <= n &&
-        !(c.cs[end] == '<' &&
-          c.cs[end + 1] == '/' &&
-          c.cs[end + 2] == 's' &&
-          c.cs[end + 3] == 'c' &&
-          c.cs[end + 4] == 'r' &&
-          c.cs[end + 5] == 'i' &&
-          c.cs[end + 6] == 'p' &&
-          c.cs[end + 7] == 't') {
-        end += 1
-      }
-      if end + 8 > n {
-        return Err(cur_err(c, "script 段缺 </script>"))
-      }
-      script = c.cs[content_start:end].map(fn(ch) { ch.to_string() }).join("")
-      script_line0 = line0
-      c.i = end + 2
-      let _ = read_tag_name(c)
-      skip_ws(c)
-      match expect(c, '>', "script 闭标签") {
-        Ok(_) => ()
+      let _ = expect(c, '>', name + " 开标签")
+      match read_raw(c, name) {
+        Ok((content, ln)) => {
+          if name == "script" {
+            script = content
+            script_line0 = ln
+          } else {
+            style = content
+            style_line0 = ln
+          }
+        }
         Err(e) => return Err(e)
       }
     } else if name == "template" {
@@ -314,11 +343,11 @@ fn parse_sfc(src : String) -> Result[Sfc, String] {
         Err(e) => return Err(e)
       }
     } else {
-      return Err(cur_err(c, "顶层只允许 <script setup> 与 <template>，见到 <\{name}>"))
+      return Err(cur_err(c, "顶层只允许 <script setup>、<template> 与 <style>，见到 <\{name}>"))
     }
   }
   if !got_template {
     return Err("缺 <template> 段")
   }
-  Ok({ script, script_line0, roots })
+  Ok({ script, script_line0, roots, style, style_line0 })
 }
