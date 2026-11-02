@@ -586,9 +586,9 @@ test "样式章：<style> 摊平成 define_class、class 引用出 class_of、�
     ".card {",
     "  color: var(--text_primary);",
     "  background-color: #ffffff;",
-    "  font-size: 14;",
-    "  font-weight: semi-bold;",
-    "  padding: 8;",
+    "  font-size: 14px;",
+    "  font-weight: 600;",
+    "  padding: 8px;",
     "}",
     "</style>",
     "<template>",
@@ -1096,4 +1096,47 @@ test "样式章：width/height 的百分比落到 *_percent" {
       _ => false
     },
   )
+}
+
+///|
+test "样式章：CSS 子集——只认规范属性名与值形态" {
+  let base = fn(body : String) -> String {
+    "<style>\n.a { " + body + " }\n</style>\n<template>\n  <ui-col class=\"a\" />\n</template>"
+  }
+  let ok = fn(body : String) -> String {
+    match compile(base(body), "css.mng") {
+      Ok(o) => o.code
+      Err(e) => abort("\{e}")
+    }
+  }
+  let bad = fn(body : String, hint : String) -> Bool {
+    match compile(base(body), "css.mng") {
+      Err(e) => contains_sub(e, hint)
+      Ok(_) => false
+    }
+  }
+  // 非 CSS 属性名不再出现在模板面（运行时字段仍在）
+  assert_true(bad("width-percent: 100;", "不是 Style 属性"))
+  assert_true(bad("height-percent: 50;", "不是 Style 属性"))
+  assert_true(bad("transition-ms: 120;", "不是 Style 属性"))
+  // 长度要单位，零可省略
+  assert_true(bad("padding: 8;", "要像素长度"))
+  assert_true(bad("font-size: 14;", "要像素长度"))
+  let zero = ok("padding: 0;")
+  assert_true(contains_sub(zero, "padding=0.0"))
+  let px = ok("padding: 8px;")
+  assert_true(contains_sub(px, "padding=8.0"))
+  // 字重按 CSS 数值/关键字
+  assert_true(contains_sub(ok("font-weight: 700;"), "font_weight=@text.FontWeight::Bold"))
+  assert_true(contains_sub(ok("font-weight: bold;"), "font_weight=@text.FontWeight::Bold"))
+  assert_true(bad("font-weight: thin;", "不认关键字"))
+  // cursor 收 CSS 关键字
+  assert_true(contains_sub(ok("cursor: pointer;"), "cursor=1"))
+  assert_true(bad("cursor: 2;", "只认 default / pointer / text"))
+  // 过渡用 CSS 名字 + 毫秒
+  assert_true(contains_sub(ok("transition-duration: 120ms;"), "transition_ms=120.0"))
+  assert_true(bad("transition-duration: .12s;", "要毫秒"))
+  // flex 的 grow/shrink 是无单位数，basis 是长度/百分比
+  assert_true(contains_sub(ok("flex: 1;"), "flex=1.0"))
+  assert_true(bad("flex: 1px;", "无单位数"))
 }

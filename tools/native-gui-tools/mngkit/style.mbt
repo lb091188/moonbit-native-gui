@@ -106,6 +106,9 @@ pub fn style_props() -> Array[String] {
     "align_self",
     "position",
     "flex",
+    "flex-shrink",
+    "opacity",
+    "transition-duration",
   ]
   let out : Array[String] = []
   for n in snake_names {
@@ -137,10 +140,13 @@ fn kebab_name(s : String) -> String {
 /// 属性名 → 类别（决定允许的值形态与字面量强制范围）。
 priv enum PropKind {
   PKColor
-  PKNumber
+  PKNumber // 长度：`16px` / 0 / width·height 的 `%`
+  PKFactor // 无单位数值：opacity / flex-shrink
+  PKTime // 时间：transition-duration（毫秒）
   PKInt
   PKString
   PKEnum(String, String) // (类型全路径, 关键字表 `键=MoonBit 构造子` 串)
+  PKKwInt(String) // 关键字 → 整数（cursor）
   PKUnknown
 }
 
@@ -149,8 +155,12 @@ fn prop_kind_of(name : String) -> PropKind {
   match name {
     "color" | "background_color" | "border_color" => PKColor
     "font_family" => PKString
-    "z_index" | "cursor" => PKInt
-    "font_weight" => PKEnum("@text.FontWeight", "thin=Thin,extra_light=ExtraLight,light=Light,normal=Normal,medium=Medium,semi_bold=SemiBold,bold=Bold,extra_bold=ExtraBold,black=Black")
+    "z_index" => PKInt
+    "cursor" => PKKwInt("default=0,pointer=1,text=2")
+    "opacity" | "flex_shrink" => PKFactor
+    "transition_duration" => PKTime
+    "font_weight" =>
+      PKEnum("@text.FontWeight", "normal=Normal,bold=Bold,100=Thin,200=ExtraLight,300=Light,400=Normal,500=Medium,600=SemiBold,700=Bold,800=ExtraBold,900=Black")
     "text_align" => PKEnum("@text.TextAlign", "start=Start,left=Start,center=Center,end=End,right=End")
     "white_space" => PKEnum("@style.WhiteSpace", "normal=Normal,no_wrap=NoWrap")
     "border_style" => PKEnum("@style.BorderStyle", "solid=Solid,dashed=Dashed,dotted=Dotted")
@@ -181,9 +191,7 @@ fn number_props() -> Array[String] {
     "line_height",
     "letter_spacing",
     "width",
-    "width_percent",
     "height",
-    "height_percent",
     "min_width",
     "min_height",
     "max_width",
@@ -200,7 +208,6 @@ fn number_props() -> Array[String] {
     "margin_bottom",
     "border_width",
     "border_radius",
-    "flex_shrink",
     "gap",
     "row_gap",
     "column_gap",
@@ -208,8 +215,6 @@ fn number_props() -> Array[String] {
     "right",
     "bottom",
     "left",
-    "opacity",
-    "transition_ms",
   ]
 }
 
@@ -253,19 +258,55 @@ fn is_hex_color(v : String) -> Bool {
 }
 
 ///|
-/// 数值（可带 `px` 后缀）→ MoonBit Double 字面量；非数值给 None。
-fn num_or_px(v : String) -> String? {
+/// 无单位数值（flex-grow / flex-shrink / opacity）：CSS 的 `<number>`。
+fn bare_number(v : String) -> String? {
   let s = v.trim().to_owned()
   if is_number_text(s) {
-    return Some(num_lit(s))
+    Some(num_lit(s))
+  } else {
+    None
   }
+}
+
+///|
+/// 文本是否是「零」（`0` / `0.0` / `-0`）——CSS 长度里只有 0 可省略单位。
+fn is_zero_text(s : String) -> Bool {
+  let a = chars_of(s)
+  let mut i = 0
+  if i < a.length() && (a[i] == '-' || a[i] == '+') {
+    i += 1
+  }
+  let mut digits = 0
+  while i < a.length() {
+    let c = a[i]
+    if c >= '0' && c <= '9' {
+      if c != '0' {
+        return false
+      }
+      digits += 1
+    } else if c != '.' {
+      return false
+    }
+    i += 1
+  }
+  digits > 0
+}
+
+///|
+/// CSS 长度：`16px`，或零可省略单位；百分比只走 width/height。
+fn length_or_zero(v : String) -> String? {
+  let s = v.trim().to_owned()
   if s.length() > 2 && s.has_suffix("px") {
     let head = s[:s.length() - 2].to_owned().trim().to_owned()
     if is_number_text(head) {
       return Some(num_lit(head))
     }
   }
-  None
+  if is_zero_text(s) {
+    Some("0.0")
+  } else {
+    None
+  }
 }
 
 ///|
@@ -310,11 +351,11 @@ fn flex_basis_pair(tok : String, pos : Pos) -> Result[(String, String), String] 
       return Ok(("flex_basis_percent", num_lit(num)))
     }
   }
-  match num_or_px(tok) {
+  match length_or_zero(tok) {
     Some(e) => Ok(("flex_basis", e))
     None => {
       Err(
-        "\{pos_str(pos)}：flex basis 要像素或百分比（`100%` / `120` / `120px`）；`auto` 用 width/height 表达",
+        "\{pos_str(pos)}：flex basis 要像素或百分比（`100%` / `120px` / `0`）；`auto` 用 width/height 表达",
       )
     }
   }
@@ -332,19 +373,19 @@ fn style_expand(prop : String, raw : String, pos : Pos) -> Result[Array[(String,
     if toks.length() > 3 {
       return Err("\{pos_str(pos)}：flex 最多三段：grow shrink basis")
     }
-    let grow = match num_or_px(toks[0]) {
+    let grow = match bare_number(toks[0]) {
       Some(e) => e
       None =>
         return Err(
-          "\{pos_str(pos)}：flex 要 CSS 简写（grow / grow shrink / grow shrink basis），见到 `\{toks[0]}`",
+          "\{pos_str(pos)}：flex 要 CSS 简写（grow / grow shrink / grow shrink basis），grow 是无单位数，见到 `\{toks[0]}`",
         )
     }
     let out : Array[(String, String)] = []
     out.push(("flex", grow))
     let shrink = if toks.length() >= 2 {
-      match num_or_px(toks[1]) {
+      match bare_number(toks[1]) {
         Some(e) => e
-        None => return Err("\{pos_str(pos)}：flex shrink 要数值，见到 `\{toks[1]}`")
+        None => return Err("\{pos_str(pos)}：flex shrink 要无单位数值，见到 `\{toks[1]}`")
       }
     } else {
       "1.0"
@@ -375,8 +416,6 @@ fn percent_prop(prop : String) -> String? {
   match prop {
     "width" => Some("width_percent")
     "height" => Some("height_percent")
-    "width_percent" => Some("width_percent")
-    "height_percent" => Some("height_percent")
     _ => None
   }
 }
@@ -433,11 +472,49 @@ fn style_value_of(prop : String, raw : String, pos : Pos) -> Result[(String, Str
             Err("\{pos_str(pos)}：`\{prop}` 的百分比要数值，见到 `\{v}`")
           }
         } else {
-          match num_or_px(v) {
+          match length_or_zero(v) {
             Some(e) => Ok((prop, e))
-            None => Err("\{pos_str(pos)}：`\{prop}` 要数值（可带 `px`）或 `var(--令牌)`，见到 `\{v}`")
+            None =>
+              Err(
+                "\{pos_str(pos)}：`\{prop}` 要像素长度（`16px`；0 可省略单位）或 `var(--令牌)`，见到 `\{v}`",
+              )
           }
         }
+      PKFactor =>
+        match bare_number(v) {
+          Some(e) => Ok((prop, e))
+          None => Err("\{pos_str(pos)}：`\{prop}` 要无单位数值（如 `1`），见到 `\{v}`")
+        }
+      PKTime =>
+        if v.length() > 2 && v.has_suffix("ms") {
+          let head = v[:v.length() - 2].to_owned().trim().to_owned()
+          if is_number_text(head) {
+            Ok(("transition_ms", num_lit(head)))
+          } else {
+            Err("\{pos_str(pos)}：`transition-duration` 的时长要数值 + `ms`，见到 `\{v}`")
+          }
+        } else {
+          Err(
+            "\{pos_str(pos)}：`transition-duration` 要毫秒（`120ms`）；秒制请先换算成毫秒",
+          )
+        }
+      PKKwInt(table) => {
+        let key = snake(v)
+        let toks = split_arr(table, ",")
+        let mut found = ""
+        for t in toks {
+          let kv = split_arr(t, "=")
+          if kv.length() == 2 && kv[0] == key {
+            found = kv[1]
+            break
+          }
+        }
+        if found.length() > 0 {
+          Ok((prop, found))
+        } else {
+          Err("\{pos_str(pos)}：`cursor` 只认 default / pointer / text，见到 `\{v}`")
+        }
+      }
       PKInt =>
         if is_number_text(v) {
           Ok((prop, int_text(v)))

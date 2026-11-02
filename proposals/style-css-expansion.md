@@ -31,7 +31,7 @@
 | 边框 | `border_width`/`border_color`/`border_radius`（**均四边/四角同值**） | 每边独立宽/色、每角独立半径、`border-style`（dashed） |
 | 布局 | display/flex_direction/wrap/justify/align/self/gap/position/z_index | — |
 | 效果 | `opacity`（两路：全局 alpha `alpha_paint` + 色 alpha） | box-shadow、backdrop-blur、mix-blend-mode（渲染层有 BlendMode，Style 无字段） |
-| 过渡 | `transition_ms`（`transition.mbt`，不插值 opacity，macOS 🚧） | — |
+| 过渡 | `transition_ms`（模板面写 `transition-duration: 120ms`；`transition.mbt`，不插值 opacity，macOS 🚧） | — |
 | 状态 | `hover`/`active`/`focus` 嵌套桶 | — |
 
 应用路径 `apply.mbt:36-194` 三分：布局→Yoga；opacity/visibility/cursor→Widget 宿主字段；其余→进程级 side table `resolved_table`（paint 期读 `style_for`）。
