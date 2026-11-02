@@ -1,0 +1,11 @@
+import {
+  "NoahLiu/native-gui/base" @base,
+  "NoahLiu/native-gui/widget" @widget,
+  "NoahLiu/native-gui/ui" @ui,
+  "NoahLiu/native-gui/theme" @theme,
+  "NoahLiu/native-gui/style" @style,
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"

@@ -435,7 +435,8 @@
     { id: 'showcase', name: 'Showcase', desc: '完整演示板',    cmd: 'cd examples/showcase && moon run .' },
     { id: 'browser',  name: 'Browser',  desc: 'WebView 示例',  cmd: 'cd examples/browser && moon run .' },
     { id: 'audio',    name: 'Audio',    desc: '音频播放',      cmd: 'cd examples/audio && moon run .' },
-    { id: 'video',    name: 'Video',    desc: '视频帧源',      cmd: 'cd examples/video && moon run .' }
+    { id: 'video',    name: 'Video',    desc: '视频帧源',      cmd: 'cd examples/video && moon run .' },
+    { id: 'theme-playground', name: 'Theme Playground', desc: '主题定制工作台', cmd: 'cd examples/theme-playground && moon run .' }
   ];
 
   /* 用例库：唯一事实源是同目录的 `测试用例.md`，页面加载时取回解析成清单。
@@ -445,7 +446,7 @@
      page 用各应用的固定名。改用例只改 md，本文件不再存清单。 */
   var CASES = [];
   var CASE_PAGE_OF_APP = { browser: '浏览器窗口', audio: '音频播放器', video: '视频播放器' };
-  var CASE_APP_OF_PREFIX = { HL: 'hello', SC: 'showcase', BR: 'browser', AU: 'audio', VD: 'video' };
+  var CASE_APP_OF_PREFIX = { HL: 'hello', SC: 'showcase', BR: 'browser', AU: 'audio', VD: 'video', TP: 'theme-playground' };
 
   function parseCases(md) {
     var lines = md.split(/\r?\n/);

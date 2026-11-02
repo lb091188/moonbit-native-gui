@@ -18,3 +18,13 @@ cd examples/video && moon run .
 依赖：[native-gui](https://mooncakes.io/docs/NoahLiu/native-gui)、[gui-media](https://mooncakes.io/docs/NoahLiu/gui-media)、[ffmpeg-mbt](https://mooncakes.io/docs/NoahLiu/ffmpeg-mbt)。
 
 Windows 跑这两个示例的 ffmpeg 运行期 dll——缺了会怎样、从哪来、发布时怎么随包——统一见 [docs/zh/build.md](../docs/zh/build.md) 的「Windows 运行期 ffmpeg dll」一节。
+
+## theme-playground（主题定制工作台）
+
+主题系统的四个定制入口各一张卡：`theme_from_accent` 换主色（一个颜色公式派生整套色板）、`theme_apply` 全量覆盖（浅/深基准一键换）、`follow_system_theme` 持续跟随（每 2s 轮询系统偏好；起窗默认已一次性探测）、`class` 类槽单组件覆盖（颜色写 token，换主题随动、不碰别的组件）。
+
+```sh
+cd examples/theme-playground && moon run .
+```
+
+依赖：[native-gui](https://mooncakes.io/docs/NoahLiu/native-gui)。
