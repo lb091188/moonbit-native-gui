@@ -28,7 +28,6 @@
 
 ## 样式系统补全（2026-11-02 拍板，方案与风险注记见 [proposals/style-css-expansion.md](proposals/style-css-expansion.md)；S0 文档矛盾与 S5 letter_spacing 已完成，余项按 Tier 顺序）
 
-- [ ] **S4 mix-blend-mode / overflow / 删除线**：blend_mode Style 字段接 `Painter::set_blend_mode`（25 个 BlendMode 双后端已备）；`overflow: hidden/clip` 语义化暴露（clip_rect 双后端已裁）；text-decoration 扩 line-through / overline（同 underline 自绘线法，零 C）
 - [ ] **Tier B 多行 line-height（真 leading，贵）**：三引擎各改一次 stub（Pango line attr / DWRITE_LINE_METRICS / kCTLineSpacingAttributeName），必须同时穿透 measure/paint（`resolved_for_measure` 同步，否则量画不一致）；注意与框增大触发的整窗重算（transition.mbt）相互作用
 
 

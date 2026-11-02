@@ -286,6 +286,16 @@ pub fn apply(w : @widget.Widget, s : Style) -> Unit {
     Some(c) => w.cursor = c
     None => ()
   }
+  match s.blend_mode {
+    Some(m) => w.blend_paint = m
+    None => ()
+  }
+  match s.overflow {
+    // 溢出：默认裁到控件矩形；Visible 档跳过裁切（逃生口）
+    Some(Visible) => w.clip_content = false
+    Some(Hidden) => w.clip_content = true
+    None => ()
+  }
   let prev = match resolved_table.get(w.id) {
     Some(p) => p
     None => empty_style()

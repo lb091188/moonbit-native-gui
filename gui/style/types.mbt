@@ -27,10 +27,21 @@ pub(all) enum Direction {
 }
 
 ///|
-/// 下划线形态：CSS `text-decoration` 在本栈只有画得出的一条线，故只有两档。
+/// 文本装饰线：CSS `text-decoration` 的自绘三档（下划线/删除线/上划线）与无。
+/// 折行文本的线落最后一行下方/上方（与 underline 同一降级口径）。
 pub(all) enum TextDecoration {
   Underline
-  None
+  LineThrough
+  Overline
+  DecoNone
+}
+
+///|
+/// 溢出形态：`Hidden` 裁到控件矩形（默认，与本栈控件绘制现状一致），
+/// `Visible` 跳过裁切（阴影/越界装饰的逃生口）。
+pub(all) enum Overflow {
+  Visible
+  Hidden
 }
 
 ///|

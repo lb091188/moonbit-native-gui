@@ -78,7 +78,7 @@ pub fn TextSource::fg(self : TextSource) -> String {
 fn text_eff(
   st : @style.Style,
   src : TextSource,
-) -> (@text.Font, @text.TextAlign, Bool, Double, Bool) {
+) -> (@text.Font, @text.TextAlign, Bool, Double, @style.TextDecoration) {
   let f0 = src.font
   let fam = match st.font_family {
     Some(v) => v
@@ -110,11 +110,11 @@ fn text_eff(
     Some(v) => v
     None => 0.0
   }
-  let underline = match st.text_decoration {
-    Some(@style.TextDecoration::Underline) => true
-    _ => false
+  let deco = match st.text_decoration {
+    Some(d) => d
+    None => @style.DecoNone
   }
-  (font, align, wrap, line_h, underline)
+  (font, align, wrap, line_h, deco)
 }
 
 ///|
@@ -201,7 +201,7 @@ fn draw_text_in(w : @widget.Widget, p : @render.Painter, src : TextSource) -> Bo
     Some(c) => @style.resolve_color(c)
     None => src.fg()
   }
-  let (font1, align1, wrap1, _line_h, underline) = text_eff(st, src)
+  let (font1, align1, wrap1, _line_h, deco) = text_eff(st, src)
   let drew = @text.draw_box_at(
     p,
     0.0,
@@ -217,17 +217,33 @@ fn draw_text_in(w : @widget.Widget, p : @render.Painter, src : TextSource) -> Bo
     wrap=wrap1,
     max_lines=src.max_lines,
   )
-  if underline && src.text.length() > 0 {
-    // 下划线按测量宽自绘（文本层的 range 属性只有 font+color，没有下划线接口，
-    // 与 `link` 的悬停下划线同一手法）：单行档精确，折行档只落最后一行下方
-    draw_underline(p, w, src, font1, box_w, fg1, align1)
+  let has_line = match deco {
+    @style.Underline | @style.LineThrough | @style.Overline => true
+    _ => false
+  }
+  let need_line = has_line && src.text.length() > 0
+  if need_line {
+    // 装饰线按测量宽自绘（文本层的 range 属性只有 font+color，没有装饰线接口，
+    // 与 `link` 的悬停下划线同一手法）：单行档精确，折行档只落最后一行
+    let y_of = fn(_top : Double, baseline : Double, th : Double) -> Double {
+      match deco {
+        @style.TextDecoration::Underline => baseline + 1.5
+        // 删除线穿 x-height 中部（CSS 口径约为基线上方 0.3×行盒高）
+        @style.TextDecoration::LineThrough => baseline - 0.30 * th
+        @style.TextDecoration::Overline => 0.5
+        @style.TextDecoration::DecoNone => 0.0
+      }
+    }
+    draw_deco_line(p, w, src, font1, box_w, fg1, align1, y_of)
   }
   drew
 }
 
 ///|
-/// 单行下划线：基线下方 1.5px 起一条 1px 线，宽度与左右位置按对齐算。
-fn draw_underline(
+/// 单行装饰线：宽度与左右位置按对齐算，纵向位置由 `y_of` 给（下划线基线下
+/// 1.5px / 删除线基线上 0.3×行高 / 上划线盒顶内 0.5px）。线必须落在盒内：
+/// 越界时贴边画而不是丢掉——丢了就是「样式没生效」，比画偏一格坏。
+fn draw_deco_line(
   p : @render.Painter,
   w : @widget.Widget,
   src : TextSource,
@@ -235,6 +251,7 @@ fn draw_underline(
   box_w : Double,
   color : String,
   align : @text.TextAlign,
+  y_of : (Double, Double, Double) -> Double,
 ) -> Unit {
   let m = match @text.measure_font(src.text, font, wrap=false) {
     Some(m) => m
@@ -247,9 +264,8 @@ fn draw_underline(
     return ()
   }
   let top = ((r.h - th) / 2.0).max(0.0)
-  // 线必须落在盒内：后端给的行盒不够高（有的平台 height 只算到基线）时贴着
-  // 底边画，而不是把整条下划线丢掉——丢了就是「样式没生效」，比画低一格坏。
-  let y = (top + m.baseline.to_double() + 1.5).min(r.h - 1.0).max(0.0)
+  let y = y_of(top, m.baseline.to_double(), th)
+  let y = y.min(r.h - 1.0).max(0.0)
   let x = if align is @text.TextAlign::Center {
     ((box_w - tw) / 2.0).max(0.0)
   } else if align is @text.TextAlign::End {

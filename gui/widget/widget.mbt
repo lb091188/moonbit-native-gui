@@ -192,6 +192,11 @@ pub(all) struct Widget {
   /// 整层透明度（resolved `Style.opacity` 的落点，design.md §5 P4）：绘制遍历
   /// 进本控件时把「祖先累乘 × 自身」塞进 Painter 的 `global_alpha`，默认 1.0。
   mut alpha_paint : Double
+  /// 混合模式（样式 `blend_mode` 落点，apply 写入）：本控件自绘与子树画在
+  /// 其下内容之上时的混合算子，画完恢复 Normal。
+  mut blend_paint : @render.BlendMode
+  /// 内容裁切（样式 `overflow` 落点）：true 裁到控件矩形（默认），false 跳过。
+  mut clip_content : Bool
   /// 本控件的绘制是否随 `hovered` / `pressed` / `focused` 变化（样式带状态桶即为真，
   /// 由 `@style.apply` 写入）。宿主据此决定悬停变化的标脏范围。
   mut paints_state : Bool
@@ -243,6 +248,8 @@ pub fn Widget::new() -> Widget {
     on_discard: None,
     z_index_paint: 0.0,
     alpha_paint: 1.0,
+    blend_paint: Normal,
+    clip_content: true,
     paints_state: false,
   }
 }
@@ -1125,12 +1132,19 @@ pub fn Widget::paint_at(self : Widget, p : @render.Painter, ox : Double, oy : Do
   self.paint_epoch = paint_epoch_ref.val
   p.save()
   p.translate(self.rect.x - ox, self.rect.y - oy)
-  p.clip_rect(0.0, 0.0, self.rect.w, self.rect.h)
+  // 溢出裁切（overflow）：默认裁到控件矩形；Visible 档跳过（越界装饰逃生口）
+  if self.clip_content {
+    p.clip_rect(0.0, 0.0, self.rect.w, self.rect.h)
+  }
   // 整层透明度:祖先累乘 × 自身(on_draw 与其子树都在这段 alpha 内绘制)
   let inherited = p.global_alpha()
   let own = self.alpha_paint
   if own < 1.0 || inherited < 1.0 {
     p.set_global_alpha(inherited * own)
+  }
+  // 混合模式（blend_mode）：本控件与其下内容的混合（restore 快照自动恢复）
+  if !(self.blend_paint is Normal) {
+    p.set_blend_mode(self.blend_paint)
   }
   match self.on_render {
     Some(f) => f(self, @render.Cpu(p), self.rect)

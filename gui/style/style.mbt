@@ -84,6 +84,10 @@ pub(all) struct Style {
   mut border_bottom_color : Color?
   mut border_left_width : Double?
   mut border_left_color : Color?
+  // 混合模式（S4）：整个控件（自绘 + 子树）与其下内容的混合，绘制期生效
+  mut blend_mode : @render.BlendMode?
+  // 溢出（S4）：Hidden 裁到控件矩形（默认）、Visible 跳过裁切
+  mut overflow : Overflow?
   // —— 状态桶（构造端：工厂状态参数收整块 + 三个状态方法收属性参数，§1.3）
   mut hover : Style?
   mut active : Style?
@@ -160,6 +164,8 @@ pub fn empty_style() -> Style {
     border_bottom_color: None,
     border_left_width: None,
     border_left_color: None,
+    blend_mode: None,
+    overflow: None,
     hover: None,
     active: None,
     focus: None,
@@ -271,6 +277,8 @@ pub fn merge(base : Style, over : Style) -> Style {
   s.border_bottom_color = pick(base.border_bottom_color, over.border_bottom_color)
   s.border_left_width = pick(base.border_left_width, over.border_left_width)
   s.border_left_color = pick(base.border_left_color, over.border_left_color)
+  s.blend_mode = pick(base.blend_mode, over.blend_mode)
+  s.overflow = pick(base.overflow, over.overflow)
   s.hover = pick_style(base.hover, over.hover)
   s.active = pick_style(base.active, over.active)
   s.focus = pick_style(base.focus, over.focus)

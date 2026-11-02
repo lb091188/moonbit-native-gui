@@ -92,6 +92,9 @@ pub fn style(
   border_bottom_color? : String,
   border_left_width? : Double,
   border_left_color? : String,
+  // —— S4：混合模式与溢出
+  blend_mode? : @render.BlendMode,
+  overflow? : Overflow,
   // —— 状态桶：收整块（具名块复用）
   hover? : Style,
   active? : Style,
@@ -131,6 +134,8 @@ pub fn style(
     Some(c) => s.border_left_color = Some(check_color(parse_color(c)))
     None => ()
   }
+  s.blend_mode = blend_mode
+  s.overflow = overflow
   s.font_size = font_size
   s.font_family = font_family
   s.font_weight = font_weight
