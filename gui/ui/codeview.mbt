@@ -1,12 +1,87 @@
 // 代码高亮：多语言分词（tokenize_lang / tokenize_moonbit）与 code_view
-// 组件（深底代码块，逐 token 着色自绘）。构造期逐 token 测宽预排版，
-// on_draw 现画（不随主题，One Dark 恒深底）。
+// 组件（代码块，逐 token 着色自绘）。构造期逐 token 测宽预排版，on_draw
+// 现画；颜色按角色（TokenRole）在绘制期从 `CodeTheme` 现取——默认跟
+// `theme_current()`（深浅基底各一套映射），`code_theme` 显式传参可钉死。
+
+///|
+/// 代码 token 的着色角色（颜色在绘制期按 `CodeTheme` 现算，随主题走）。
+pub(all) enum TokenRole {
+  Fg // 普通文本/标点/运算符
+  Keyword
+  Ty // 类型/构造器（大写开头）
+  Call // 函数调用（后随 '('）
+  StrLit // 字符串字面量
+  NumLit // 数字
+  Comment
+  LineNo // 行号列（布局内部用，分词不产出）
+}
 
 ///|
 /// 代码高亮的着色单元。
 pub(all) struct Token {
   text : String
-  color : String
+  role : TokenRole
+}
+
+///|
+/// 代码块配色（角色 → 色值）。色值写语义 token 名以外的直接色值也合法
+/// （刻意钉死的场景）；默认由 `code_theme_of` 从 `Theme` 派生。
+pub(all) struct CodeTheme {
+  bg : String
+  text : String
+  keyword : String
+  ty : String
+  call : String
+  str_lit : String
+  num_lit : String
+  comment : String
+  line_no : String
+}
+
+///|
+/// 从主题派生代码配色：按 `bg_panel` 亮度判深浅基底，两套映射——
+/// 深：底=面板底、亮字；浅：底=斑马纹（比面板沉一档的代码面板底）。
+/// 角色→token：关键字=主色、调用=主色悬停、类型=警示、字符串=成功、
+/// 数字=危险、注释/行号=次要文字；普通文本=主要文字。
+pub fn code_theme_of(t : @theme.Theme) -> CodeTheme {
+  let dark = match @theme.parse_hex(t.bg_panel) {
+    Some((r, g, b)) =>
+      (0.299 * r.to_double() + 0.587 * g.to_double() + 0.114 * b.to_double()) /
+      255.0 < 0.5
+    None => false
+  }
+  {
+    bg: if dark { t.bg_panel } else { t.fill_zebra },
+    text: t.text_primary,
+    keyword: t.primary,
+    ty: t.warning,
+    call: t.primary_hover,
+    str_lit: t.success,
+    num_lit: t.danger,
+    comment: t.text_secondary,
+    line_no: t.text_secondary,
+  }
+}
+
+///|
+/// 当前主题的代码配色（绘制期现取的默认源）。
+pub fn code_theme_current() -> CodeTheme {
+  code_theme_of(@theme.theme_current())
+}
+
+///|
+/// 角色 → 色值。
+fn role_color(ct : CodeTheme, role : TokenRole) -> String {
+  match role {
+    Fg => ct.text
+    Keyword => ct.keyword
+    Ty => ct.ty
+    Call => ct.call
+    StrLit => ct.str_lit
+    NumLit => ct.num_lit
+    Comment => ct.comment
+    LineNo => ct.line_no
+  }
 }
 
 ///|
@@ -158,7 +233,7 @@ pub fn tokenize_lang(line : String, lang : String) -> Array[Token] {
         }
         i = i + 1
       }
-      out.push({ text: s.to_string(), color: "#98C379", })
+      out.push({ text: s.to_string(), role: StrLit })
     } else if ch == '/' &&
       i + 1 < n &&
       cs[i + 1] == '/' &&
@@ -169,7 +244,7 @@ pub fn tokenize_lang(line : String, lang : String) -> Array[Token] {
         comment.write_char(cs[i])
         i = i + 1
       }
-      out.push({ text: comment.to_string(), color: "#5C6370", })
+      out.push({ text: comment.to_string(), role: Comment })
       break
     } else if ch == '#' && comment_prefix == "#" {
       flush('#')
@@ -178,7 +253,7 @@ pub fn tokenize_lang(line : String, lang : String) -> Array[Token] {
         comment.write_char(cs[i])
         i = i + 1
       }
-      out.push({ text: comment.to_string(), color: "#5C6370", })
+      out.push({ text: comment.to_string(), role: Comment })
       break
     } else if ch == '-' &&
       i + 1 < n &&
@@ -190,11 +265,11 @@ pub fn tokenize_lang(line : String, lang : String) -> Array[Token] {
         comment.write_char(cs[i])
         i = i + 1
       }
-      out.push({ text: comment.to_string(), color: "#5C6370", })
+      out.push({ text: comment.to_string(), role: Comment })
       break
     } else if c == 32 {
       flush(ch)
-      out.push({ text: " ", color: "#ABB2BF", })
+      out.push({ text: " ", role: Fg })
     } else {
       let ident = (c >= 65 && c <= 90) ||
         (c >= 97 && c <= 122) ||
@@ -218,7 +293,7 @@ pub fn tokenize_lang(line : String, lang : String) -> Array[Token] {
         // 词与运算符串互切:先冲刷再按新词性开串;()[]{},;: 标点单字符
         flush(ch)
         if !ident && !dot_in_word && !is_op_char(ch) {
-          out.push({ text: char_to_string(ch), color: "#ABB2BF", })
+          out.push({ text: char_to_string(ch), role: Fg })
         } else if ident || dot_in_word {
           buf.val.write_char(ch)
           kind.val = 1
@@ -273,9 +348,9 @@ pub fn tokenize_moonbit(line : String) -> Array[Token] {
 }
 
 ///|
-/// 词分类着色:关键字(大小写不敏感)紫;纯数字橙;@ 限定名按最后一段、
-/// 裸标识符按首字符,大写开头视为类型/构造器黄;后随 '(' 的小写标识符
-/// 视为函数调用蓝;其余灰。
+/// 词分类着色:关键字(大小写不敏感);纯数字;@ 限定名按最后一段、
+/// 裸标识符按首字符,大写开头视为类型/构造器;后随 '(' 的小写标识符
+/// 视为函数调用;其余普通文本。
 fn classify_word(
   word : String,
   keywords : Array[String],
@@ -284,7 +359,7 @@ fn classify_word(
   let lowered = ascii_lower(word)
   for k in keywords {
     if ascii_lower(k) == lowered {
-      return { text: word, color: "#C678DD", }
+      return { text: word, role: Keyword }
     }
   }
   // 着色主体:@ 限定名取最后 '.' 段,裸词取整词
@@ -298,22 +373,22 @@ fn classify_word(
   }
   let c0 = head.unsafe_get(0).to_int()
   if c0 >= 65 && c0 <= 90 {
-    return { text: word, color: "#E5C07B", }
+    return { text: word, role: Ty }
   }
   let is_num = word.length() > 0
   for i in 0..<word.length() {
     let c = word.unsafe_get(i).to_int()
     if !((c >= 48 && c <= 57) || c == 46) {
       if is_call && !(c0 >= 48 && c0 <= 57) {
-        return { text: word, color: "#61AFEF", }
+        return { text: word, role: Call }
       }
-      return { text: word, color: "#ABB2BF", }
+      return { text: word, role: Fg }
     }
   }
   if is_num {
-    return { text: word, color: "#D19A66", }
+    return { text: word, role: NumLit }
   }
-  { text: word, color: "#ABB2BF", }
+  { text: word, role: Fg }
 }
 
 // ---------------------------------------------------------------------------
@@ -321,8 +396,11 @@ fn classify_word(
 // ---------------------------------------------------------------------------
 
 ///|
-/// 代码高亮视图（深底代码块，One Dark 调色板，不随主题）：构造期逐
-/// token 分词并测宽（等宽字体），on_draw 逐段画色；行首可选行号列。
+/// 代码高亮视图（代码块，配色跟主题——深浅基底各一套映射，深浅切换与
+/// 换主色后重绘即随）：构造期逐 token 分词并测宽（等宽字体），on_draw
+/// 逐段按 `CodeTheme` 现取色；行首可选行号列。
+/// `code_theme` 显式传参可钉死一套配色（刻意场景，如截图比对）；缺省跟
+/// `theme_current()`。
 /// 高度按行数、宽度按最长行自适应（内容不变则尺寸恒定）。
 /// 代码行不可折，属「不可折内容」——组件自带横向滚动视口（与表格同口径），
 /// 调用方直接摆进容器即可，不必再包 `scroll_view`。
@@ -331,10 +409,12 @@ pub fn code_view(
   lang? : String = "moonbit",
   font_size? : Double = 13.0,
   line_numbers? : Bool = false,
+  code_theme? : CodeTheme,
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let font = @text.Font::new("Monospace", font_size)
-  // 预排版:逐 token 测宽(分词与测量一次完成,重绘零分词开销)
+  // 预排版:逐 token 测宽(分词与测量一次完成,重绘零分词开销);颜色角色
+  // 留到绘制期解析,主题切换后重绘即随
   let line_h = match @text.line_height_font(font) {
     Some(h) => h.to_double() + 5.0
     None => font_size * 1.7
@@ -346,11 +426,11 @@ pub fn code_view(
   } else {
     0.0
   }
-  // 每行 (文本, 色, x, 宽) 的预排版表
-  let laid : Array[Array[(String, String, Double, Double)]] = []
+  // 每行 (文本, 角色, x, 宽) 的预排版表
+  let laid : Array[Array[(String, TokenRole, Double, Double)]] = []
   let mut max_line_w = 0.0
   for idx, line in lines {
-    let segs : Array[(String, String, Double, Double)] = []
+    let segs : Array[(String, TokenRole, Double, Double)] = []
     let mut x = num_off
     if line_numbers {
       let num_txt = (idx + 1).to_string()
@@ -360,11 +440,11 @@ pub fn code_view(
       }
       let num_str = pad.to_string() + num_txt
       let nw = text_width(num_str, font)
-      segs.push((num_str, "#6B7280", 16.0, nw))
+      segs.push((num_str, LineNo, 16.0, nw))
     }
     for tok in tokenize_lang(line, lang) {
       let w = text_width(tok.text, font)
-      segs.push((tok.text, tok.color, x, w))
+      segs.push((tok.text, tok.role, x, w))
       x = x + w
     }
     if x > max_line_w {
@@ -376,7 +456,7 @@ pub fn code_view(
   let view_h = line_h * laid.length().to_double() + 28.0
   let canvas = @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    // 宽 = max(容器宽, 最长行)：代码行不可折，比容器窄时**铺满容器**（深底条
+    // 宽 = max(容器宽, 最长行)：代码行不可折，比容器窄时**铺满容器**（底色条
     // 不断在最长行处），比容器宽时交给自带视口横滚。高度 = 行数,与宽无关。
     w.node.set_width(@yoga.percent(100.0))
     w.node.set_min_width(@yoga.fixed(content_w))
@@ -386,8 +466,12 @@ pub fn code_view(
       p : @render.Painter,
       r : @base.Rect,
     ) -> Unit {
-      // 代码块恒深底(One Dark 底色,深浅主题下都可读)，圆角随卡片令牌
-      p.set_fill_color("#282C34")
+      // 配色：显式传了 code_theme 钉死；否则绘制期跟当前主题（深浅/换主色随动）
+      let ct = match code_theme {
+        Some(c) => c
+        None => code_theme_current()
+      }
+      p.set_fill_color(ct.bg)
       let rad = @theme.radius_card()
       if rad > 0.0 {
         p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
@@ -405,7 +489,7 @@ pub fn code_view(
             line_h,
             seg.0,
             font,
-            seg.1,
+            role_color(ct, seg.1),
             align=@text.Start,
             valign=@text.Center,
             wrap=false,

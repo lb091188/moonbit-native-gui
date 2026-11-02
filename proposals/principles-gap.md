@@ -103,6 +103,8 @@
 
 ### 2.4 code_view 主题化
 
+> ✅ 已落地（2026-11-02）：`Token.color` 角色化为 `Token.role`（0.x 破坏），新增 `CodeTheme` + `code_theme_of(Theme)`（按 bg_panel 亮度分深浅两套映射，色值全走语义 token）与 `code_theme_current()`；`code_view` 缺省绘制期跟 `theme_current()`，`code_theme` 显式传参可钉死。
+
 **现状**：code_view 整套 One Dark 色板硬编码（`gui/ui/codeview.mbt`），不随主题；docs/zh/components.md 自认。
 
 **为什么要加**：组件矩阵里唯一整块脱离主题的组件——浅色主题下是突兀的深底块，深色定制主题下色板不跟。违背「框架仅提供默认外观，但允许覆盖」的口径。

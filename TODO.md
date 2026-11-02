@@ -26,7 +26,6 @@
 
 - [ ] **1.4 `@ui` 公共面收窄**：`button_skin` / `button_skin_token` / `paint_subset` / `fold_color` / `mask_of` 逐个判断去向——纯实现细节去 pub（0.x 破坏记提交信息），确有外部价值的（如 `fold_style`）保留并写文档；同批核对 examples 与测试文档无引用
 - [ ] **2.3 `dark:`/`light:` 变体接入组件消费**：从 `gui/style/tokens.mbt` 挑 2–3 个确需深浅分档的内置样式（阴影深浅 / 边框强度 / 代码视图底色）改变体前缀写法；补「切深浅后变体生效 + 重绘」回归测试
-- [ ] **2.4 code_view 主题化**：One Dark 硬编码色板（gui/ui/codeview.mbt）抽成按 `Theme` 派生的代码配色（深浅基底各一套：背景/前景/关键字/字符串/注释映射 theme token 或派生），默认跟 `theme_current()`；保留显式 `code_theme` 参数给刻意场景
 
 
 ## 样式系统补全（2026-11-02 拍板，方案与风险注记见 [proposals/style-css-expansion.md](proposals/style-css-expansion.md)；S0 文档矛盾与 S5 letter_spacing 已完成，余项按 Tier 顺序）
