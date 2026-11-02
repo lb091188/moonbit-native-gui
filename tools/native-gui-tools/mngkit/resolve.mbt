@@ -351,6 +351,74 @@ fn find_fn_in_text(text : String, fname : String) -> String? {
 }
 
 ///|
+/// 一个源码文本里顶层 `fn <名>` 上方的 `///` 文档注释（到 `///|` 分隔符为止）。
+fn find_doc_in_text(text : String, fname : String) -> String? {
+  let lines = split_arr(text, "\n")
+  let mut i = 0
+  let n = lines.length()
+  while i < n {
+    let raw = lines[i]
+    if !(raw.has_prefix(" ") || raw.has_prefix("\t")) {
+      if decl_head_matches(raw.trim().to_owned(), fname) {
+        let out : Array[String] = []
+        let mut k = i - 1
+        while k >= 0 {
+          let d = lines[k].trim().to_owned()
+          if d == "///|" || !(d.has_prefix("///")) {
+            break
+          }
+          let cs = chars_of(d)
+          out.push(slice_str(cs, 3, cs.length()).trim().to_owned())
+          k -= 1
+        }
+        if out.length() == 0 {
+          return None
+        }
+        let joined = out.rev().join("\n")
+        return Some(joined)
+      }
+    }
+    i += 1
+  }
+  None
+}
+
+///|
+/// 目录里的源码找文档注释（与签名扫描同一选取口径）。
+fn scan_dir_for_doc(s : Sigs, dir : String, fname : String) -> String? {
+  let files = io_ls(s, dir)
+  files.sort()
+  for f in files {
+    if f.has_suffix("_test.mbt") || f.has_suffix("_wbtest.mbt") {
+      continue
+    }
+    if f.has_suffix(".mbt") {
+      match io_read(s, dir + "/" + f) {
+        Some(text) => {
+          match find_doc_in_text(text, fname) {
+            Some(d) => return Some(d)
+            None => ()
+          }
+        }
+        None => ()
+      }
+    }
+  }
+  None
+}
+
+///|
+/// 组件路径 → 声明上方的文档注释原文（编辑器 hover 用）；没有给 None。
+pub fn Sigs::doc_of(self : Sigs, path : String) -> String? {
+  let (dir, fname) = self.path_dir(path)
+  if dir.length() == 0 {
+    None
+  } else {
+    scan_dir_for_doc(self, dir, fname)
+  }
+}
+
+///|
 /// 一个 .mng 里找同名 props 头（生成的 .gen.mbt 未必已落盘）。
 fn find_fn_in_mng(text : String, fname : String) -> String? {
   let sfc = match parse_sfc(text) {
@@ -423,11 +491,11 @@ fn sigs_ready(s : Sigs) -> Unit {
 }
 
 ///|
-/// 解析入口：`@别名.名` 或同包裸名 `名` → 签名原文；解析不到返回 None（组件需 `// @mng` 覆盖）。
-pub fn Sigs::resolve(self : Sigs, path : String) -> String? {
+/// `@别名.名` / 同包裸名 → (所在包目录, 函数名)；解析不出给 ("", "")。
+fn Sigs::path_dir(self : Sigs, path : String) -> (String, String) {
   sigs_ready(self)
   if path.length() == 0 {
-    return None
+    return ("", "")
   }
   let (al, fname) = if path.has_prefix("@") {
     let body = path[1:].to_owned()
@@ -439,19 +507,29 @@ pub fn Sigs::resolve(self : Sigs, path : String) -> String? {
     ("", path)
   }
   if fname.length() == 0 {
+    return ("", "")
+  }
+  let dir = if al.length() == 0 {
+    self.pkg_dir
+  } else {
+    match self.aliases.get(al) {
+      Some(d) => d
+      None => ""
+    }
+  }
+  (dir, fname)
+}
+
+///|
+/// 解析入口：`@别名.名` 或同包裸名 `名` → 签名原文；解析不到返回 None（组件需 `// @mng` 覆盖）。
+pub fn Sigs::resolve(self : Sigs, path : String) -> String? {
+  let (dir, fname) = self.path_dir(path)
+  if fname.length() == 0 {
     return None
   }
   match self.fn_cache.get(path) {
     Some(cached) => if cached.length() > 0 { Some(cached) } else { None }
     None => {
-      let dir = if al.length() == 0 {
-        self.pkg_dir
-      } else {
-        match self.aliases.get(al) {
-          Some(d) => d
-          None => ""
-        }
-      }
       let found = if dir.length() == 0 {
         None
       } else {
@@ -522,29 +600,9 @@ fn scan_dir_for_file(s : Sigs, dir : String, fname : String) -> String? {
 ///|
 /// 组件路径 → 定义所在源码文件（`@别名.名` 或同包裸名）；找不到返回 None。
 pub fn Sigs::locate(self : Sigs, path : String) -> String? {
-  sigs_ready(self)
-  if path.length() == 0 {
-    return None
-  }
-  let (al, fname) = if path.has_prefix("@") {
-    let body = path[1:].to_owned()
-    match dot_index(body) {
-      Some(d) => (body[:d].to_owned(), body[d + 1:].to_owned())
-      None => ("", "")
-    }
-  } else {
-    ("", path)
-  }
+  let (dir, fname) = self.path_dir(path)
   if fname.length() == 0 {
     return None
-  }
-  let dir = if al.length() == 0 {
-    self.pkg_dir
-  } else {
-    match self.aliases.get(al) {
-      Some(d) => d
-      None => ""
-    }
   }
   if dir.length() == 0 {
     None
