@@ -44,7 +44,7 @@ pub fn <stem>() -> @widget.Node {
 
 - **状态保活**：script 段在 `mng_dev_page` 外执行一次（建状态），模板树放进 `build` 闭包里捕获这一代状态；补丁到达时只重建 `build()` 的树并原位替换 holder 的子节点，**页内状态不重置**（与手写演示页的实际行为一致）。
 - 登记键沿用 IR 现状：动态文本/参数 `t:行:列`（ui-text 的 `:text` 与插值文本取元素/文本子节点坐标，通用组件参数取属性坐标）、条件 `c:行:列`、事件与状态用名字。
-- IR v1 边界不变：自定义组件、children 形组件、v-for 走 COLD，不强行登记。
+- 热更边界：class / `<style>` 值 / 受限表达式（字面量、Store、运算、if、`@shared.tx`·`tr`、插值）走 HOT；自定义组件、children 形组件、v-for、script、文法外表达式走 COLD，不强行登记。
 
 ## 应用侧通用件
 

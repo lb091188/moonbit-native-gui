@@ -44,7 +44,7 @@
 1. **spike 先于编译器**：挑 showcase 一个页面，手写「目标模板版」+「它应该被编译成的 MoonBit 版」，两边对照钉死语法与产物契约。契约冻结前不写解析器。
 2. **`build` 子命令**（住 `tools/`，workspace 成员现成）：解析器 + 拼接器 + 源映射——DX 生死线是错误回映射。**已落地**（2026-11-02，`tools/native-gui-tools/mngkit` 内核 + `tools/native-gui-tools/mng_cli` 终端：build / map-errors，golden 6/6、错误回映射端到端验通；按冻结契约生成，`v-for` 按记档收口报错）。
 3. **Phase 0 探针（先于 IR 协议）**：手工 IR 补丁打进 showcase 单页，验证「init 建状态 → 按 IR 构树 → 沿 holder 原位重挂」亚秒可见、订阅整代退订干净——探针不过，IR 通道整体不发生。旁路小探针：moonbit native 能否出共享库（relink 小 .so + 起进程或可把回退档压到 ~1s，进程每次是新的、不碰 GC 互通）；不成立归并上游增量链接诉求。
-4. **`dev` 子命令**：watch + 改动分类（表达式集合 ⊆ 注册表 → 推 IR 补丁；否则回退）+ 经单实例通道推 token/类变更；回退时 `moon build` → 杀旧进程 → 带参重启。**v1 已落地**（2026-11-02，`tools/native-gui-tools/mng_cli` dev：watch 内容对比 + 契约分类（`mngkit.contract_of`，script 逐字同且表达式集合 ⊆ 基线 → HOT）+ 回退编排直起进程；HOT 补丁推送与应用侧 dev 监听同批落地，本版打标不打断；配套 `@sys` 增 pr_spawn / pr_alive（僵尸收尸）/ pr_kill / pr_sleep_ms）。
+4. **`dev` 子命令**：watch + 改动分类（`mngkit.hot_ir`：script 逐字同；结构 / class / `<style>` 值 / 受限表达式 → HOT，否则回退）+ 经单实例通道推 IR 补丁；回退时 `moon build` → 杀旧进程 → 带参重启并唤醒回改动页。**已落地**（2026-11-02，`tools/native-gui-tools/mng_cli` dev：watch 内容对比 + hot_ir 分类 + 回退编排；HOT 补丁经单实例通道推送，D-Bus 臂补套接字旁路；应用侧按 `classes` 重注册命名类、按 `eval` AST 登记新表达式；配套 `@sys` 增 pr_spawn / pr_alive（僵尸收尸）/ pr_kill / pr_sleep_ms）。
 5. **终态：独立工具二进制**（本路线的 Vite 位次）：一个自包含 native 可执行，`moon install` 分发；子命令 `dev` / `build`（纯生产产物，零 dev 痕迹）/ `new`（新 `.mng.html` 页样板脚手架）/ `preview`（独立预览窗：同一 applier + mock 状态）/ `lsp`。无侵入边界——只编排模板文件、token 文件、`moon build`、应用进程四样，应用侧 dev 面仅 theme/IR 两个监听，生产构建零痕迹；不做插件系统、不做 dev server（取 Vite 的一命令体验，不取其工程规模）。命名按路线门面标准起（开放问题 5）。**依赖边界**（2026-11-02 定）：工具二进制不依赖 GUI 库——`gui/sys` 在 Linux 上要链 GTK 剪贴板符号，命令行工具带上它就得装 GTK 开发包；进程原语（`tools/native-gui-tools/proc`）与单实例客户端（`tools/native-gui-tools/inst`，帧格式与 shell 通道逐字一致）在 tools 内自给，`mng_cli` 只链 libc/libgcc。工具模块仍留 `NoahLiu/native-gui` 依赖给 GUI 预览工具（i18n/icon 三态），但 `mng_cli` 的包闭包不含任何 GUI 包。**发布纪律**（2026-11-02 定）：工具独立于主包发布——MoonBit 发布单元是模块，住进 gui 会让所有应用白拉工具源码，而消费者只要提交在仓的生成码、只有作者 `moon install` 装；开发期 tools 留 workspace 同仓同 CI，终态齐活（dev/build/new/preview/lsp）再补 mooncakes 发布配置；`mngkit` 留 tools 内，待第三方单独消费编译器内核的场景出现再拆。版本协议：工具与 gui **同批配对发版**（内置组件表 ↔ `@ui.*` 签名、IR schema ↔ applier 是强耦合面；gui 破坏性改动同批重发工具），一致性由同仓 CI 钉住（组件签名变更即 showcase 生成码编不过）。
 6. **灰度**：新页面用模板写，存量页面不迁移。
 
@@ -247,7 +247,7 @@ fn template_spike() -> @widget.Node {
 
 ### 落点：三件自建基建 + 一条上游需求（2026-11 收敛版）
 
-1. **样式 token 热更新（样式通道主形态）**：`theme_fingerprint` + `watch_theme` + 指纹变化重建绘制对象的机制现成；dev 工具经单实例通道向运行中应用发 `reload-theme`，应用侧 dev 档只留一个 theme reload 监听。不重启、亚秒可见、与生产同路径——调样式工作流的主力。配套硬约定：样式值进 token/class 槽才热，模板样式属性编译为 token/class 引用、不写内联字面量（二轮起升格为编译器强制规则，见样式章）。结构改动的主通道让位 IR 热应用（见下节）。
+1. **样式值热更新（现行）**：`<style>` 规则随 IR 补丁以数据下发（属性名 + 编译期值表达式），应用侧先重注册命名类再重建树——类名与样式值都进入亚秒档。主题 token 的定义改动仍走重启（`reload-theme` 通道未做）。配套硬约定不变：模板样式属性不写内联字面量，一律进 `<style>` / `class`（编译器强制，见样式章）。
 2. **dev 宿主（回退路径）**：瘦链接 + 启动直达——只挂 facade 核心、不链 chart/media/webview（构建 3–4s 档），吃 `--page` 等启动参数直接落在目标页。工具编排：模板重编译 → `moon build` → 杀旧进程 → 带参重启。二轮定位收窄：表达式/逻辑改动（闭包集合变化）时的自动回退，不再是结构改动的主力循环（见下节）。
 3. **Painter 原型沙盒**：小 dev 应用直出绘图 API，原型自定义控件与画法（showcase 画布页为雏形）。原型工具，不承载热替换。
 4. **向上游提需求**：native 目标的 hot reload / 运行时多模块支持（顺带诉求：native 增量链接——实测构建大头在链接）。moonbitlang 侧落地第一天，被砍的快照设计原样复活为状态迁移层。
@@ -279,13 +279,13 @@ fn template_spike() -> @widget.Node {
 
 **循环与分类**：保存 → 工具重解析 → 判「表达式集合 ⊆ 应用注册表键集」（握手：应用报键集）→ 是：推 IR 补丁，亚秒；否（新表达式文本 / script 段改动）：自动回退 dev 宿主重启。工具每笔保存告知走了哪条路，不给假预期。
 
-**v1 边界**：补丁粒度 = 整组件（不做树 diff）；页内状态随补丁重置；keyed 列表行模板当不透明单元（行内结构编辑回退，列表数据变化走既有 keyed 机制本就热）。
+**v1 边界**：补丁粒度 = 整组件（不做树 diff）；script 段 Store 保活，控件内部态（焦点/滚动/IME）随子树重建重置；keyed 列表行模板当不透明单元（行内结构编辑回退，列表数据变化走既有 keyed 机制本就热）。
 
 **v2 三方向（按实测痛感排队，不按愿景补齐）**：
 
 | 方向 | 补掉的 v1 边界 | 新风险 | 触发条件 |
 | --- | --- | --- | --- |
-| v2a 受限表达式求值器 | 表达式文本热改 | 双求值语义（dev 解释 / prod codegen），golden 钉平 | 回退日志中表达式改动占比高 |
+| v2a 受限表达式求值器 | 表达式文本热改 | 双求值语义（dev 解释 / prod codegen），golden 钉平 | **v2a-1 已落地（2026-11-02）**：字面量 / Store / `.get()` / `.to_string()` / 算术比较逻辑 / if / `@shared.tx`·`tr` / 字符串插值；文法外与新符号仍回退 |
 | v2b 子树对账 + 状态保活 | 整组件重挂、页内状态重置 | applier 变对账器（真正复杂度大头） | 状态重置在真实迭代里碍事 |
 | v2c 列表行模板热编辑 | 行内结构回退 | 依赖 v2b 的状态下放 | 列表密集页成迭代主战场 |
 
@@ -293,15 +293,16 @@ fn template_spike() -> @widget.Node {
 
 | 改动 | v1 | v2 |
 | --- | --- | --- |
-| 样式值 | 亚秒（token/类通道） | 亚秒 |
+| 样式值 | 亚秒（类定义随补丁重注册） | 亚秒 |
 | 结构加减挪、绑定换目标 | 亚秒（IR） | 亚秒 |
-| 表达式文本（受限文法内） | 回退 3–4s | 亚秒 |
+| 表达式文本（受限文法内） | 亚秒（dev VM） | 亚秒 |
+| 表达式文本（文法外）/ 新函数 | 回退 3–4s | 亚秒 |
 | 列表行内结构 | 回退 | 亚秒 |
 | script / 逻辑 | 回退（与 Slint 改 Rust 持平） | 回退 |
 
 **终态**：`dev` / `build` / `preview` / `lsp` 四子命令（见「工具与编辑器支持」）；单面编排到底——native 面一个底座（2026-11-02 定案不做第二壳，web 内容经 gui-webview 组件嵌入、其开发循环归前端自己的 Vite，不经本工具链）；上游汇合点——moonbitlang native 热重载落地当天，IR 通道升格真代码热换、快照设计原样复活、全部回退路径消失。
 
-**HOT 补丁通道落地（2026-11-02）**：编译器第二产物 IR（`mngkit.ir_of`，JSON：结构树 + 参数三态 lit/expr/state + 动态槽内容键 `t:<hash>` / `c:<hash>` + requires 清单）；dev 子命令 HOT 分支产 IR 经单实例通道 `instance_wake(app_id, ["--mng-hot", 路径])` 推送；应用侧 applier（showcase「模板 Dev」页 `shared/mng_dev.mbt`：类型化注册表手写登记 + JSON 构树 + sub_bag 原位替换；注册表与 holder 按 IR 的 `page` 键控，多页并存不串表）——无头 wbtest 钉死「构树必须在订阅袋窗口内」（computed 的依赖订阅发生在构造时，只包挂载会泄漏，探针口径的产品化复现）；v1 补丁边界：col/row/text/dyn/if/button/checkbox/switch/stepper/input，参数表内才进补丁（col/row 只收 gap；button text/click；checkbox label/value；switch value；stepper value/min/max；input value/placeholder），v-for / v-else-if / 自定义组件 / children 形组件 / 表外参数转 COLD。**待真机**：dev 循环端到端 GUI 验证（TODO 有步骤清单）。
+**HOT 补丁通道落地（2026-11-02）**：编译器第二产物 IR（`mngkit.ir_of`，JSON：结构树 + 参数三态 lit/expr/state + 动态槽内容键 `t:<hash>` / `c:<hash>` + `classes` 类定义数据 + `eval` 新表达式 AST + requires 清单）；dev 子命令 HOT 分支产 IR 经单实例通道 `instance_wake(app_id, ["--mng-hot", 路径])` 推送（D-Bus 臂另补套接字旁路供 dev 工具送达；Windows 仍缺工具侧 Win32 客户端）；应用侧 applier（showcase「模板 Dev」页 `shared/mng_dev.mbt`：类型化注册表 + JSON 构树 + sub_bag 原位替换；注册表与 holder 按 IR 的 `page` 键控）——无头 wbtest 钉死「构树必须在订阅袋窗口内」；每次补丁先按 `classes` 重注册命名类（样式值热更），再登记 `eval` 里缺失的表达式键（受限 VM 求值，已编译闭包优先）。v1 补丁边界：col/row/text/dyn/if/button/checkbox/switch/stepper/input，参数表内才进补丁（col/row 只收 gap；button text/click；checkbox label/value；switch value；stepper value/min/max；input value/placeholder）；v-for / v-else-if / 自定义组件 / children 形组件 / 表外参数 / 文法外表达式转 COLD，COLD 重启后按改动页 stem 唤醒回页。**待真机**：dev 循环端到端 GUI 验证（TODO 有步骤清单）。
 
 **Phase 0 探针结果（2026-11-01，`experiment/ir_probe`，无头）**：手工 IR + 注册表 + applier v0（落点全为生产 API），200 轮 v1↔v2 结构交替热替换——单次「摘+建+挂」**10.4 ms**（验收线 1000 ms 的 1/75）；旧代订阅整袋退订干净（渲染不叠加、订阅数跨代恒定）；受控组件（stepper/slider）自身订阅计入现役代属正确口径。**探针通过，IR 通道主假设成立。**
 
@@ -329,7 +330,7 @@ Web 主面壳形态不做（roadmap「明确不做」）。原生面是唯一主
   1. 构造参数 = 默认值，类槽 = 覆盖（合并序沿 registry「散写匿名块优先级高、排尾」）；
   2. 结构性例外留结构侧：children、事件、键、row/col 选型（`flex_direction` 虽在 Style，行列构造选择仍是结构决定，样式只做覆盖微调）；
   3. gap / 对齐这类高频布局微调走类槽即进亚秒档（类是 Style 数据，指纹重建 + 类重 apply 现成路径）。
-- **IR v1 边界**：带 `class` 的元素不进补丁（应用侧转 COLD），避免热更丢类。
+- **IR 与 class**：class 名随节点进 IR；`<style>` 规则编成 `classes` 数据（属性名 + 编译期值表达式），补丁先重注册命名类再重建树——类名与样式值都可热更。
 
 ## 工具与编辑器支持（2026-11-02 定形）
 

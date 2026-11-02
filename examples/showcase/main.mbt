@@ -284,6 +284,11 @@ fn main {
             }
             Err(e) => app.toast_push(@shared.tr_with("dyn.mng_err", [("a", e)], "补丁失败：\{e}"), @ui.Warning)
           }
+        } else if args.length() == 2 && args[0] == "--mng-page" {
+          match @shared.mng_dev_page_title(args[1]) {
+            Some(title) => nav.goto(title)
+            None => println("SHOWCASE-DEV: 未登记的模板页 " + args[1])
+          }
         } else {
           app.inst_wakes.set(app.inst_wakes.get() + 1)
           nav.goto("基础组件")

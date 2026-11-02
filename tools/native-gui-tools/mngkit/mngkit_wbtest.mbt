@@ -181,39 +181,134 @@ test "静态属性字面量判定：裸串按字符串、单引号透传 MoonBit
 }
 
 ///|
-test "契约分类：结构重排 HOT；表达式换目标 / script 变动 COLD" {
-  let base_src = "<script setup lang=\"moonbit\">\nlet a : @base.Store[Int] = @base.Store::new(1)\n</script>\n<template>\n  <ui-col>\n    <ui-stepper v-model=\"a\" />\n    值 {{ a }}\n  </ui-col>\n</template>"
-  let base = match contract_of(base_src, "x.mng") {
-    Ok(c) => c
-    Err(e) => abort("\{e}")
+test "受限表达式热更：文案/条件在文法内 HOT，并带 eval AST" {
+  let base = [
+    "<script setup lang=\"moonbit\">",
+    "let qty : @base.Store[Int] = @base.Store::new(1)",
+    "let wifi : @base.Store[Bool] = @base.Store::new(true)",
+    "let nick : @base.Store[String] = @base.Store::new(\"\")",
+    "</script>",
+    "<template>",
+    "  <ui-col>",
+    "    <ui-text :text='@shared.tx(\"A\")' />",
+    "    <ui-text v-if=\"wifi\" text=\"开\" />",
+    "    <ui-input v-model=\"nick\" placeholder=\"x\" />",
+    "  </ui-col>",
+    "</template>",
+  ].join("\n")
+  // 文案换字面量：@shared.tx 已注册 → HOT，IR 带 eval
+  let text = [
+    "<script setup lang=\"moonbit\">",
+    "let qty : @base.Store[Int] = @base.Store::new(1)",
+    "let wifi : @base.Store[Bool] = @base.Store::new(true)",
+    "let nick : @base.Store[String] = @base.Store::new(\"\")",
+    "</script>",
+    "<template>",
+    "  <ui-col class=\"card\">",
+    "    <ui-text :text='@shared.tx(\"B\")' />",
+    "    <ui-text v-if=\"wifi\" text=\"开\" />",
+    "    <ui-input v-model=\"nick\" placeholder=\"x\" />",
+    "  </ui-col>",
+    "</template>",
+  ].join("\n")
+  let ir = match hot_ir(text, base, "p.mng") {
+    Ok(j) => j
+    Err(e) => abort("文案热更应通过：\{e}")
   }
-  // 结构重排 + 增删静态节点：表达式集不变 → HOT
-  let hot = match contract_of(
-      "<script setup lang=\"moonbit\">\nlet a : @base.Store[Int] = @base.Store::new(1)\n</script>\n<template>\n  <ui-col>\n    新说明文字\n    值 {{ a }}\n    <ui-stepper v-model=\"a\" />\n  </ui-col>\n</template>",
-      "x.mng",
+  assert_true(contains_sub(ir, "\"class\":[\"card\"]"))
+  assert_true(contains_sub(ir, "\"eval\":{"))
+  assert_true(contains_sub(ir, "\"call\""))
+  // 条件换成 qty > 5：Store 已登记 → HOT
+  let cond = [
+    "<script setup lang=\"moonbit\">",
+    "let qty : @base.Store[Int] = @base.Store::new(1)",
+    "let wifi : @base.Store[Bool] = @base.Store::new(true)",
+    "let nick : @base.Store[String] = @base.Store::new(\"\")",
+    "</script>",
+    "<template>",
+    "  <ui-col>",
+    "    <ui-text :text='@shared.tx(\"A\")' />",
+    "    <ui-text v-if=\"qty > 5\" text=\"开\" />",
+    "    <ui-input v-model=\"nick\" placeholder=\"x\" />",
+    "  </ui-col>",
+    "</template>",
+  ].join("\n")
+  match hot_ir(cond, base, "p.mng") {
+    Ok(_) => ()
+    Err(e) => abort("条件热更应通过：\{e}")
+  }
+  // 文法外：新函数 / 新符号 / script 与 <style> 改动都转 COLD
+  let bad_call = text.replace(old="@shared.tx(\"B\")", new="@shared.nope(\"B\")")
+  assert_true(
+    match hot_ir(bad_call, base, "p.mng") {
+      Err(e) => contains_sub(e, "白名单")
+      _ => false
+    },
+  )
+  let bad_id = text.replace(old="@shared.tx(\"B\")", new="@shared.tx(missing)")
+  assert_true(
+    match hot_ir(bad_id, base, "p.mng") {
+      Err(e) => contains_sub(e, "未登记")
+      _ => false
+    },
+  )
+  let bad_script = base.replace(old="Store::new(1)", new="Store::new(2)")
+  assert_true(
+    match hot_ir(bad_script, base, "p.mng") {
+      Err(e) => contains_sub(e, "script")
+      _ => false
+    },
+  )
+  let styled = base.replace(
+    old="<template>",
+    new="<style>\n.card { color: var(--text_primary); }\n</style>\n<template>",
+  )
+  match hot_ir(styled, base, "p.mng") {
+    Ok(ir) => {
+      assert_true(contains_sub(ir, "\"classes\":[{\"n\":\"card\""))
+      assert_true(contains_sub(ir, "\"p\":\"color\""))
+    }
+    Err(e) => abort("<style> 改动应随类数据热更：\{e}")
+  }
+}
+
+///|
+test "样式数据：<style> 规则编成 p/e 对（应用侧按名字段）" {
+  let json = match style_classes_json(
+      ".a { font-size: 20px; color: var(--text_primary); justify-content: center; }\n.a:hover { color: var(--primary); }",
     ) {
-    Ok(c) => c
+    Ok(v) => v
     Err(e) => abort("\{e}")
   }
-  assert_true(hot.hot_ok(base))
-  // 插值表达式变了（a+1）：闭包集合变化 → COLD
-  let cold1 = match contract_of(
-      "<script setup lang=\"moonbit\">\nlet a : @base.Store[Int] = @base.Store::new(1)\n</script>\n<template>\n  <ui-col>\n    值 {{ a + 1 }}\n  </ui-col>\n</template>",
-      "x.mng",
-    ) {
-    Ok(c) => c
-    Err(e) => abort("\{e}")
+  assert_true(contains_sub(json, "\"n\":\"a\""))
+  assert_true(contains_sub(json, "\"p\":\"font_size\",\"e\":\"20.0\""))
+  assert_true(contains_sub(json, "\"p\":\"color\",\"e\":\"\\\"text_primary\\\"\""))
+  assert_true(contains_sub(json, "\"p\":\"justify_content\",\"e\":\"@yoga.JustifyContent::Center\""))
+  assert_true(contains_sub(json, "\"s\":\"hover\""))
+}
+
+///|
+test "受限表达式：文本插值改动也在文法内 HOT" {
+  let base = [
+    "<script setup lang=\"moonbit\">",
+    "let qty : @base.Store[Int] = @base.Store::new(1)",
+    "</script>",
+    "<template>",
+    "  <ui-text>数量：{{ qty }}</ui-text>",
+    "</template>",
+  ].join("\n")
+  let changed = [
+    "<script setup lang=\"moonbit\">",
+    "let qty : @base.Store[Int] = @base.Store::new(1)",
+    "</script>",
+    "<template>",
+    "  <ui-text>计数：{{ qty }}</ui-text>",
+    "</template>",
+  ].join("\n")
+  match hot_ir(changed, base, "p.mng") {
+    Ok(ir) => assert_true(contains_sub(ir, "\"tostr\""))
+    Err(e) => abort("插值热更应通过：\{e}")
   }
-  assert_true(!cold1.hot_ok(base))
-  // script 段变了（新增状态字段）→ COLD
-  let cold2 = match contract_of(
-      "<script setup lang=\"moonbit\">\nlet a : @base.Store[Int] = @base.Store::new(1)\nlet b : @base.Store[Int] = @base.Store::new(2)\n</script>\n<template>\n  <ui-col>\n    值 {{ a }}\n  </ui-col>\n</template>",
-      "x.mng",
-    ) {
-    Ok(c) => c
-    Err(e) => abort("\{e}")
-  }
-  assert_true(!cold2.hot_ok(base))
 }
 
 ///|
@@ -587,14 +682,23 @@ test "样式章：坏属性/坏令牌/非类选择器/主题字面量都编译�
 }
 
 ///|
-test "样式章：class 不在 IR v1 补丁边界（转 COLD）" {
+test "样式章：class 名进 IR（动态 class 转 COLD）" {
+  let ir = match ir_of(
+      "<template>\n  <ui-col class=\"card\">\n    <ui-text text=\"x\" class=\"t\" />\n  </ui-col>\n</template>",
+      "e.mng",
+    ) {
+    Ok(j) => j
+    Err(e) => abort("\{e}")
+  }
+  assert_true(contains_sub(ir, "\"class\":[\"card\"]"))
+  assert_true(contains_sub(ir, "\"class\":[\"t\"]"))
   let r = ir_of(
-    "<template>\n  <ui-col class=\"card\">\n    <ui-text text=\"x\" />\n  </ui-col>\n</template>",
-    "e.mng",
+    "<template>\n  <ui-col :class=\"cls\" />\n</template>",
+    "e2.mng",
   )
   assert_true(
     match r {
-      Err(e) => contains_sub(e, "class 不在 v1 补丁边界")
+      Err(e) => contains_sub(e, "动态 class")
       _ => false
     },
   )
@@ -636,6 +740,7 @@ test "dev 形态：登记语句逐字 + mng_dev_page 调用（状态保活骨架
     "pub fn page() -> @widget.Node {",
     "  let qty : @base.Store[Int] = @base.Store::new(3)",
     "  let reg = @shared.mng_reg_new()",
+    "  @shared.mng_reg_builtins(reg)",
     "  reg.expr(\"t:498fd9ec4581764e\", fn() { \"当前数量：\\{qty.get()}\" })",
     "  reg.int(\"qty\", qty)",
     "  @shared.mng_dev_page(\"page\", reg, fn() {",
@@ -660,6 +765,8 @@ test "dev 形态：expr/cond/handler/state 四类登记齐（键与 IR 同口径
   assert_true(contains_sub(code, "reg.cond(\"c:7ca01cd40e3676b6\", fn() { wifi.get() })"))
   assert_true(contains_sub(code, "reg.handler(\"on_reset\", on_reset)"))
   assert_true(contains_sub(code, "reg.bool(\"wifi\", wifi)"))
+  // 未走 v-model 的顶层 Store 也登记（受限表达式求值按名取状态）
+  assert_true(contains_sub(code, "reg.int(\"qty\", qty)"))
   assert_true(contains_sub(code, "@shared.mng_dev_page(\"card\", reg, fn() {"))
 }
 

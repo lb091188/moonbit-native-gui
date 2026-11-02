@@ -1,7 +1,8 @@
 // IR 输出：模板编译器第二产物（dev 档热更新供给端）。结构是数据、行为按
 // 键引用——结构补丁经单实例通道进应用，applier 查注册表原位重建。
 // v1 边界：参数值三态（lit 字面量 / expr 动态串槽 / state 值槽目标）；动态
-// 槽键用表达式内容哈希（t:<hash> / c:<hash>），结构增删挪不换键；生成器
+// 槽键用表达式内容哈希（t:<hash> / c:<hash>），结构增删挪不换键；节点可带
+// class 名，补丁另带 classes（类定义数据）与 eval（新表达式 AST）；生成器
 // 未覆盖的组件、applier v1 参数表外的参数与不支持槽型进 IR 即报（应用侧转 COLD）。
 
 ///|
@@ -68,12 +69,14 @@ fn ir_val_json(v : IrVal) -> String {
 
 ///|
 priv enum IrNode {
-  ICol(Double, Array[IrNode])
-  IRow(Double, Array[IrNode])
-  IText(String)
-  IDynText(String)
+  ICol(Double, Array[IrNode], Array[String])
+  IRow(Double, Array[IrNode], Array[String])
+  IText(String) // 纯文本子节点
+  IDynText(String) // 纯文本插值
+  ITextEl(String, Array[String]) // <ui-text> 静态
+  IDynTextEl(String, Array[String]) // <ui-text> 动态
   IIf(String, IrNode, IrNode)
-  IComp(String, Array[(String, IrVal)], String?) // tag, (参数名, 值), click handler
+  IComp(String, Array[(String, IrVal)], String?, Array[String]) // tag, 参数, click, class
 }
 
 ///|
@@ -128,16 +131,23 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
     Elem(tag, attrs, children, pos) => {
       let mut show : Attr? = None
       let mut cond : Attr? = None
+      let classes : Array[String] = []
       for a in attrs {
         match a.kind {
           Show => show = Some(a)
           If => cond = Some(a)
           For =>
             return Err("\{pos_str(pos)}：v-for 不在 v1 补丁边界（应用侧转 COLD）")
-          Plain | Dyn =>
+          Plain =>
+            if a.name == "class" {
+              for n in class_names_of(a.value) {
+                classes.push(n)
+              }
+            }
+          Dyn =>
             if a.name == "class" {
               return Err(
-                "\{pos_str(a.pos)}：class 不在 v1 补丁边界（应用侧转 COLD）",
+                "\{pos_str(a.pos)}：动态 class 不在 v1 补丁边界（应用侧转 COLD）",
               )
             }
           _ => ()
@@ -149,7 +159,11 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
         Ok(_) => ()
         Err(e) => return Err(e)
       }
-      let cond_key = match cond {
+      let cond_attr = match cond {
+        Some(a) => Some(a)
+        None => show
+      }
+      let cond_key = match cond_attr {
         Some(a) => bind_key("c", a.value.trim().to_owned())
         None => ""
       }
@@ -163,7 +177,7 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
                   ILitNum(x) => gap = parse_double(x)
                   _ => ()
                 }
-              } else {
+              } else if a.name != "class" {
                 return Err(
                   "\{pos_str(a.pos)}：<\{tag}> 的参数 \{a.name} 不在 v1 补丁表（应用侧转 COLD）",
                 )
@@ -182,16 +196,16 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
           }
         }
         if tag == "ui-col" {
-          ICol(gap, kids)
+          ICol(gap, kids, classes)
         } else {
-          IRow(gap, kids)
+          IRow(gap, kids, classes)
         }
       } else if tag == "ui-text" {
         // 文本内容：:text 动态 → expr 槽；静态 → 字面
         for a in attrs {
           match a.kind {
             Plain | Dyn =>
-              if a.name != "text" {
+              if a.name != "text" && a.name != "class" {
                 return Err(
                   "\{pos_str(a.pos)}：<ui-text> 的参数 \{a.name} 不在 v1 补丁表（应用侧转 COLD）",
                 )
@@ -216,8 +230,8 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
         match found {
           Some(a) =>
             match a.kind {
-              Dyn => IDynText(bind_key("t", a.value.trim().to_owned()))
-              _ => IText(text_of_lit(a))
+              Dyn => IDynTextEl(bind_key("t", a.value.trim().to_owned()), classes)
+              _ => ITextEl(text_of_lit(a), classes)
             }
           None =>
             if kids.length() == 1 {
@@ -312,7 +326,9 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
         for a in attrs {
           match a.kind {
             Plain | Dyn =>
-              if !hot_comp_arg(tag, a.name) {
+              if a.name == "class" {
+                ()
+              } else if !hot_comp_arg(tag, a.name) {
                 return Err(
                   "\{pos_str(a.pos)}：<\{tag}> 的参数 \{a.name} 不在 v1 补丁表（应用侧转 COLD）",
                 )
@@ -345,30 +361,12 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
             _ => ()
           }
         }
-        IComp(tag, args, click2)
+        IComp(tag, args, click2, classes)
       }
       // v-show / v-if 包裹
-      match show {
-        Some(_) =>
-          match built {
-            IText(s) =>
-              // 静态文本 + v-show → 直接丢给 if 包裹（条件动态）
-              match cond {
-                Some(_) => out.push(IIf(cond_key, IText(s), IText("")))
-                None => out.push(IText(s))
-              }
-            _ =>
-              match cond {
-                Some(_) =>
-                  out.push(IIf(cond_key, built, IText("")))
-                None => out.push(built)
-              }
-          }
-        None =>
-          match cond {
-            Some(_) => out.push(IIf(cond_key, built, IText("")))
-            None => out.push(built)
-          }
+      match cond_attr {
+        Some(_) => out.push(IIf(cond_key, built, IText("")))
+        None => out.push(built)
       }
       Ok(())
     }
@@ -541,7 +539,7 @@ fn ir_seq(nodes : Array[TNode], out : Array[IrNode]) -> Result[Unit, String] {
                   } else if alt.length() == 0 {
                     IText("")
                   } else {
-                    ICol(0.0, alt)
+                    ICol(0.0, alt, [])
                   }
                   out.push(IIf(c, t, f))
                   done = true
@@ -574,7 +572,12 @@ fn ir_seq(nodes : Array[TNode], out : Array[IrNode]) -> Result[Unit, String] {
 ///|
 /// JSON 组装（应用侧 vsc_json_parse 读回）。exprs 收集动态槽键，states 收集
 /// v-model 目标——应用侧注册表按清单登记，缺项由 applier 报错。
-pub fn ir_of(src : String, filename : String) -> Result[String, String] {
+pub fn ir_of_with(
+  src : String,
+  filename : String,
+  evals : Map[String, String],
+  classes : String,
+) -> Result[String, String] {
   let sfc = match parse_sfc(src) {
     Ok(v) => v
     Err(e) => return Err(e)
@@ -592,14 +595,14 @@ pub fn ir_of(src : String, filename : String) -> Result[String, String] {
   } else if seq.length() == 0 {
     IText("")
   } else {
-    ICol(0.0, seq)
+    ICol(0.0, seq, [])
   }
   let exprs : Array[String] = []
   let states : Array[String] = []
   let handlers : Array[String] = []
   fn walk(nd : IrNode) -> Unit {
     match nd {
-      IDynText(k) => exprs.push(k)
+      IDynText(k) | IDynTextEl(k, _) => exprs.push(k)
       IIf(c, t, f) => {
         if c.length() > 0 {
           exprs.push(c)
@@ -607,7 +610,7 @@ pub fn ir_of(src : String, filename : String) -> Result[String, String] {
         walk(t)
         walk(f)
       }
-      IComp(_, args, click) => {
+      IComp(_, args, click, _) => {
         for a in args {
           match a.1 {
             IExpr(k) => exprs.push(k)
@@ -623,7 +626,7 @@ pub fn ir_of(src : String, filename : String) -> Result[String, String] {
           None => ()
         }
       }
-      ICol(_, kids) | IRow(_, kids) =>
+      ICol(_, kids, _) | IRow(_, kids, _) =>
         for k in kids {
           walk(k)
         }
@@ -652,7 +655,18 @@ pub fn ir_of(src : String, filename : String) -> Result[String, String] {
     ha.push("\"" + jstr(h) + "\"")
   }
   parts.push("\"handlers\":[" + ha.join(",") + "]")
+  let ev : Array[String] = []
+  for (k, j) in evals {
+    ev.push("\"" + jstr(k) + "\":" + j)
+  }
+  parts.push("\"eval\":{" + ev.join(",") + "}")
+  parts.push("\"classes\":" + classes)
   Ok("{" + parts.join(",") + "}\n")
+}
+
+///|
+pub fn ir_of(src : String, filename : String) -> Result[String, String] {
+  ir_of_with(src, filename, Map([]), "[]")
 }
 
 ///|
@@ -677,16 +691,38 @@ fn collect_stem(filename : String) -> String {
 }
 
 ///|
+fn ir_class_json(names : Array[String]) -> String {
+  if names.length() == 0 {
+    return ""
+  }
+  let xs : Array[String] = []
+  for n in names {
+    xs.push("\"" + jstr(n) + "\"")
+  }
+  ",\"class\":[" + xs.join(",") + "]"
+}
+
+///|
 fn ir_node_json(nd : IrNode) -> String {
   match nd {
     IText(s) => "{\"k\":\"text\",\"v\":\"" + jstr(s) + "\"}"
+    ITextEl(s, cls) =>
+      "{\"k\":\"text\",\"v\":\"" + jstr(s) + "\"" + ir_class_json(cls) + "}"
     IDynText(k) => "{\"k\":\"dyn\",\"key\":\"" + jstr(k) + "\"}"
+    IDynTextEl(k, cls) =>
+      "{\"k\":\"dyn\",\"key\":\"" + jstr(k) + "\"" + ir_class_json(cls) + "}"
     IIf(c, t, f) =>
       "{\"k\":\"if\",\"c\":\"" + jstr(c) + "\",\"t\":" + ir_node_json(t) +
         ",\"f\":" + ir_node_json(f) + "}"
-    ICol(gap, kids) => "{\"k\":\"col\",\"gap\":\{gap},\"kids\":[" + ir_kids_json(kids) + "]}"
-    IRow(gap, kids) => "{\"k\":\"row\",\"gap\":\{gap},\"kids\":[" + ir_kids_json(kids) + "]}"
-    IComp(tag, args, click) => {
+    ICol(gap, kids, cls) =>
+      "{\"k\":\"col\",\"gap\":\{gap},\"kids\":[" + ir_kids_json(kids) + "]" +
+        ir_class_json(cls) +
+        "}"
+    IRow(gap, kids, cls) =>
+      "{\"k\":\"row\",\"gap\":\{gap},\"kids\":[" + ir_kids_json(kids) + "]" +
+        ir_class_json(cls) +
+        "}"
+    IComp(tag, args, click, cls) => {
       let parts : Array[String] = []
       let short = if tag.has_prefix("ui-") {
         tag[3:].to_owned()
@@ -702,6 +738,13 @@ fn ir_node_json(nd : IrNode) -> String {
       match click {
         Some(h) => parts.push("\"click\":\"" + jstr(h) + "\"")
         None => ()
+      }
+      if cls.length() > 0 {
+        let xs : Array[String] = []
+        for n in cls {
+          xs.push("\"" + jstr(n) + "\"")
+        }
+        parts.push("\"class\":[" + xs.join(",") + "]")
       }
       "{" + parts.join(",") + "}"
     }

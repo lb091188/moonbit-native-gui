@@ -685,3 +685,26 @@ fn class_names_of(raw : String) -> Array[String] {
   }
   out
 }
+
+///|
+/// `<style>` 规则 → 补丁用类定义数据：`[{n:类名, s:状态, props:[{p,e}]}]`。
+/// `e` 是编译期已算好的 MoonBit 值表达式，应用侧按属性名落到 Style 字段。
+fn style_classes_json(text : String) -> Result[String, String] {
+  let rules = match parse_style(text) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let xs : Array[String] = []
+  for r in rules {
+    let ps : Array[String] = []
+    for p in r.props {
+      ps.push("{\"p\":\"" + jstr(p.name) + "\",\"e\":\"" + jstr(p.expr) + "\"}")
+    }
+    xs.push(
+      "{\"n\":\"" + jstr(r.class) + "\",\"s\":\"" + jstr(r.state) + "\",\"props\":[" +
+      ps.join(",") +
+      "]}",
+    )
+  }
+  Ok("[" + xs.join(",") + "]")
+}

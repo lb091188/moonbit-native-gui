@@ -6,7 +6,7 @@
 fn demo_ir() -> String {
   [
   "{\"v\":1,\"page\":\"dev_demo\",",
-  "\"root\":{\"k\":\"col\",\"gap\":8.0,\"kids\":[",
+  "\"root\":{\"k\":\"col\",\"gap\":8.0,\"class\":[\"demo\"],\"kids\":[",
   "  {\"k\":\"checkbox\",\"args\":{\"label\":{\"expr\":\"t:8:18\"},\"value\":{\"state\":\"wifi\"}}},",
   "  {\"k\":\"if\",\"c\":\"c:9:5\",\"t\":{\"k\":\"dyn\",\"key\":\"t:9:5\"},\"f\":{\"k\":\"text\",\"v\":\"已关闭\"}},",
   "  {\"k\":\"stepper\",\"args\":{\"value\":{\"state\":\"qty\"}}},",
@@ -85,6 +85,136 @@ test "applier:旧代订阅整袋退订，迭代不累积" {
   let b = fires.val
   qty.set(9)
   assert_eq(fires.val - b, 1)
+}
+
+///|
+fn mj_of_test(s : String) -> MJ {
+  match jp_value({ cs: chars_of_m(s), i: 0 }) {
+    Ok(v) => v
+    Err(e) => abort("测试 IR JSON 解析失败：\{e}")
+  }
+}
+
+///|
+test "类定义数据：属性落 Style、状态桶、同名重注册" {
+  let rules = mj_of_test(
+    "[{\"n\":\"sd-test\",\"s\":\"\",\"props\":[{\"p\":\"font_size\",\"e\":\"20.0\"},{\"p\":\"color\",\"e\":\"\\\"text_primary\\\"\"},{\"p\":\"justify_content\",\"e\":\"@yoga.JustifyContent::Center\"}]}," +
+    "{\"n\":\"sd-test\",\"s\":\"hover\",\"props\":[{\"p\":\"color\",\"e\":\"\\\"primary\\\"\"}]}," +
+    "{\"n\":\"sd-test\",\"s\":\"dark\",\"props\":[{\"p\":\"background_color\",\"e\":\"\\\"#101014\\\"\"}]}]",
+  )
+  let arr = match mj_arr(Some(rules)) {
+    Some(a) => a
+    None => abort("类数据应为数组")
+  }
+  match mng_reg_classes(arr) {
+    Ok(_) => ()
+    Err(e) => abort("\{e}")
+  }
+  match @style.lookup_class("sd-test") {
+    Some(c) => {
+      match c.style.font_size {
+        Some(v) => assert_eq(v, 20.0)
+        None => assert_true(false)
+      }
+      assert_true(c.style.color is Some(_))
+      assert_true(c.style.justify_content is Some(_))
+      assert_true(c.style.hover is Some(_))
+    }
+    None => assert_true(false)
+  }
+  assert_true(@style.lookup_class("sd-test:dark") is Some(_))
+  // 同名重注册：后写赢
+  let rules2 = mj_of_test(
+    "[{\"n\":\"sd-test\",\"s\":\"\",\"props\":[{\"p\":\"font_size\",\"e\":\"30.0\"}]}]",
+  )
+  let arr2 = match mj_arr(Some(rules2)) {
+    Some(a) => a
+    None => abort("类数据应为数组")
+  }
+  match mng_reg_classes(arr2) {
+    Ok(_) => ()
+    Err(e) => abort("\{e}")
+  }
+  match @style.lookup_class("sd-test") {
+    Some(c) =>
+      match c.style.font_size {
+        Some(v) => assert_eq(v, 30.0)
+        None => assert_true(false)
+      }
+    None => assert_true(false)
+  }
+}
+
+///|
+test "受限表达式求值：Store/运算/条件/内置函数" {
+  let reg = mng_reg_new()
+  reg.int("qty", @base.Store::new(5))
+  reg.bool("wifi", @base.Store::new(true))
+  reg.str("nick", @base.Store::new("x"))
+  mng_reg_builtins(reg)
+  // @shared.tx("A")
+  let tx_ast = "{\"k\":\"call\",\"f\":\"@shared.tx\",\"a\":[{\"k\":\"str\",\"v\":\"A\"}]}"
+  match mng_reg_eval(reg, "t:tx", mj_of_test(tx_ast)) {
+    Ok(_) => ()
+    Err(e) => abort("\{e}")
+  }
+  let txv = match reg.exprs.get("t:tx") {
+    Some(f) => f()
+    None => "缺登记"
+  }
+  assert_eq(txv, tx("A"))
+  // qty > 5 → false
+  let cond_ast =
+    "{\"k\":\"bin\",\"op\":\">\",\"l\":{\"k\":\"get\",\"a\":{\"k\":\"id\",\"v\":\"qty\"}},\"r\":{\"k\":\"int\",\"v\":5}}"
+  match mng_reg_eval(reg, "c:gt", mj_of_test(cond_ast)) {
+    Ok(_) => ()
+    Err(e) => abort("\{e}")
+  }
+  let gt = match reg.conds.get("c:gt") {
+    Some(f) => f()
+    None => true
+  }
+  assert_true(!gt)
+  // qty.to_string()
+  let s_ast =
+    "{\"k\":\"tostr\",\"a\":{\"k\":\"get\",\"a\":{\"k\":\"id\",\"v\":\"qty\"}}}"
+  match mng_reg_eval(reg, "t:s", mj_of_test(s_ast)) {
+    Ok(_) => ()
+    Err(e) => abort("\{e}")
+  }
+  let sv = match reg.exprs.get("t:s") {
+    Some(f) => f()
+    None => ""
+  }
+  assert_eq(sv, "5")
+}
+
+///|
+test "applier：补丁里的 eval 表登记新表达式后再构树" {
+  let reg = mng_reg_new()
+  reg.int("qty", @base.Store::new(5))
+  mng_reg_builtins(reg)
+  mng_dev_set_reg("evalpage", reg)
+  let holder = @widget.Widget::new()
+  let _ = holder.set_column()
+  mng_dev_bind_holder("evalpage", holder)
+  let ir = [
+    "{\"v\":1,\"page\":\"evalpage\",",
+    "\"root\":{\"k\":\"dyn\",\"key\":\"t:abc\"},",
+    "\"exprs\":[\"t:abc\"],\"states\":[],\"handlers\":[],",
+    "\"eval\":{\"t:abc\":{\"k\":\"tostr\",\"a\":{\"k\":\"id\",\"v\":\"qty\"}}}}",
+  ].join("")
+  match mng_dev_apply(ir) {
+    Ok(_) => ()
+    Err(e) => abort("\{e}")
+  }
+  assert_true(reg.exprs.get("t:abc") is Some(_))
+  // 再应用一次：已登记键不覆盖，仍能重建
+  match mng_dev_apply(ir) {
+    Ok(_) => ()
+    Err(e) => abort("\{e}")
+  }
+  assert_eq(holder.children().length(), 1)
 }
 
 ///|

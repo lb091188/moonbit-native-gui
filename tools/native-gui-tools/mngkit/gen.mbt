@@ -1115,7 +1115,42 @@ fn compile_impl(
       Ok(r) => r
       Err(e) => return Err(e)
     }
+    // 受限表达式求值器要按名取状态：把 script 顶层 Store 全登记，
+    // 不只模板里 v-model 用到的那些。
+    for p in info.params {
+      match kind_of_ty(p.ty) {
+        KStore =>
+          match elem_ty_of(p.ty) {
+            Some(t) =>
+              match state_kind_of(t) {
+                Some(kd) => dev_push_state(regs.states, p.name, kd, hp)
+                None => ()
+              }
+            None => ()
+          }
+        _ => ()
+      }
+    }
+    for (n, line) in info.let_lines {
+      if line >= 0 && line < info.lines.length() &&
+        (info.lines[line].has_prefix("let ") ||
+          info.lines[line].has_prefix("pub let ")) {
+        match info.slots.get(n) {
+          Some(KStore) =>
+            match info.slot_tys.get(n) {
+              Some(t) =>
+                match state_kind_of(t) {
+                  Some(kd) => dev_push_state(regs.states, n, kd, hp)
+                  None => ()
+                }
+              None => ()
+            }
+          _ => ()
+        }
+      }
+    }
     g_emit(g, "  let reg = @shared.mng_reg_new()", hp)
+    g_emit(g, "  @shared.mng_reg_builtins(reg)", hp)
     for (k, e, p) in regs.exprs {
       g_emit(g, "  reg.expr(" + q(k) + ", fn() { " + e + " })", p)
     }
@@ -1144,6 +1179,180 @@ fn compile_impl(
     map_lines.push("\{m.gen_line}\t\{m.src_line}\t\{m.src_col}")
   }
   Ok({ code: g.lines.join("\n") + "\n", map: map_lines.join("\n") + "\n" })
+}
+
+///|
+/// 模板表达式/条件/事件/状态的键清单（dev 登记与热更检查共用）。
+priv struct DevBindings {
+  exprs : Array[(String, String)]
+  conds : Array[(String, String)]
+  handlers : Array[String]
+  states : Array[String]
+}
+
+///|
+fn dev_bindings(src : String, filename : String) -> Result[DevBindings, String] {
+  let sfc = match parse_sfc(src) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let info = analyze_script(sfc.script, sfc.script_line0)
+  let ctx : Ctx = {
+    slots: info.slots,
+    lets: info.lets,
+    let_paths: info.let_paths,
+    comps: info.comps,
+    resolve: fn(_path : String) -> String? { None },
+    cache: Map([]),
+    sigs: Map([]),
+    style_rules: [],
+    used_lets: [],
+  }
+  let regs = match dev_collect(sfc.roots, ctx, info.slot_tys) {
+    Ok(r) => r
+    Err(e) => return Err(e)
+  }
+  let exprs : Array[(String, String)] = []
+  for (k, e, _) in regs.exprs {
+    exprs.push((k, e))
+  }
+  let conds : Array[(String, String)] = []
+  for (k, e, _) in regs.conds {
+    conds.push((k, e))
+  }
+  let handlers : Array[String] = []
+  for (h, _) in regs.handlers {
+    handlers.push(h)
+  }
+  let states : Array[String] = []
+  for (n, _, _) in regs.states {
+    states.push(n)
+  }
+  let _ = filename
+  Ok({ exprs, conds, handlers, states })
+}
+
+///|
+fn etype_of_store(t : String) -> EType? {
+  match t {
+    "Int" => Some(TInt)
+    "Bool" => Some(TBool)
+    "String" => Some(TStr)
+    _ => None
+  }
+}
+
+///|
+/// script 顶层 Store 名 → 值类型（与 dev 生成码的 state 登记同口径）。
+fn script_store_types(script : String, line0 : Int) -> Map[String, EType] {
+  let out : Map[String, EType] = Map([])
+  let info = analyze_script(script, line0)
+  for p in info.params {
+    match kind_of_ty(p.ty) {
+      KStore =>
+        match elem_ty_of(p.ty) {
+          Some(t) =>
+            match etype_of_store(t) {
+              Some(et) => {
+                let _ = out.set(p.name, et)
+              }
+              None => ()
+            }
+          None => ()
+        }
+      _ => ()
+    }
+  }
+  for (n, line) in info.let_lines {
+    if line >= 0 && line < info.lines.length() &&
+      (info.lines[line].has_prefix("let ") ||
+        info.lines[line].has_prefix("pub let ")) {
+      match info.slots.get(n) {
+        Some(KStore) =>
+          match info.slot_tys.get(n) {
+            Some(t) =>
+              match etype_of_store(t) {
+                Some(et) => {
+                  let _ = out.set(n, et)
+                }
+                None => ()
+              }
+            None => ()
+          }
+        _ => ()
+      }
+    }
+  }
+  out
+}
+
+///|
+/// 热更检查：script / `<style>` 未变；新出现的表达式都在受限文法内且只引用
+/// 顶层 Store 与内置函数；新事件函数必须已在旧模板里。通过则返回带 eval 的 IR。
+pub fn hot_ir(new_src : String, base_src : String, filename : String) -> Result[String, String] {
+  let n = match parse_sfc(new_src) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let b = match parse_sfc(base_src) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  if n.script != b.script {
+    return Err("script 段改动")
+  }
+  let nb = match dev_bindings(new_src, filename) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let bb = match dev_bindings(base_src, filename) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  for h in nb.handlers {
+    if !arr_contains(bb.handlers, h) {
+      return Err("新事件函数「" + h + "」不在启动注册表")
+    }
+  }
+  let stores = script_store_types(n.script, n.script_line0)
+  for s in nb.states {
+    match stores.get(s) {
+      Some(_) => ()
+      None => return Err("状态「" + s + "」不是顶层 Store")
+    }
+  }
+  let base_keys : Map[String, Bool] = Map([])
+  for (k, _) in bb.exprs {
+    let _ = base_keys.set(k, true)
+  }
+  for (k, _) in bb.conds {
+    let _ = base_keys.set(k, true)
+  }
+  let evals : Map[String, String] = Map([])
+  for (k, e) in nb.exprs {
+    if !base_keys.get_or_default(k, false) {
+      let want = if k.has_prefix("c:") { "c" } else { "t" }
+      let ast = match parse_eval_expr(e, stores, want) {
+        Ok(v) => v
+        Err(err) => return Err("表达式热更不支持：" + err)
+      }
+      let _ = evals.set(k, ast)
+    }
+  }
+  for (k, e) in nb.conds {
+    if !base_keys.get_or_default(k, false) {
+      let ast = match parse_eval_expr(e, stores, "c") {
+        Ok(v) => v
+        Err(err) => return Err("条件热更不支持：" + err)
+      }
+      let _ = evals.set(k, ast)
+    }
+  }
+  let classes = match style_classes_json(n.style) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  ir_of_with(new_src, filename, evals, classes)
 }
 
 ///|
@@ -1202,5 +1411,47 @@ pub fn builtin_params(tag : String) -> Array[String]? {
   match builtin_decl(tag) {
     Some(d) => Some(d.positional)
     None => None
+  }
+}
+
+///|
+/// 模板里的动态表达式原文（script 引用面统计用）。
+fn collect_exprs(
+  nodes : Array[TNode],
+  out : Array[String],
+  seen : Map[String, Bool],
+) -> Unit {
+  fn push(e : String) -> Unit {
+    if e.length() > 0 && !seen.get_or_default(e, false) {
+      let _ = seen.set(e, true)
+      out.push(e)
+    }
+  }
+  for n in nodes {
+    match n {
+      Elem(_, attrs, kids, _) => {
+        for a in attrs {
+          match a.kind {
+            Dyn | Event | Model | If | ElseIf | Show =>
+              if a.has_value {
+                push(a.value)
+              }
+            _ => ()
+          }
+        }
+        collect_exprs(kids, out, seen)
+      }
+      Text(raw, pos) =>
+        match split_interp(raw, pos) {
+          Ok(pieces) =>
+            for p in pieces {
+              match p {
+                PExpr(e) => push(e)
+                _ => ()
+              }
+            }
+          Err(_) => ()
+        }
+    }
   }
 }

@@ -108,6 +108,7 @@ pub fn[A] bind_label(
   f : (A) -> String,
   font_size? : Double = 13.0,
   color? : String = "",
+  class? : Array[@style.Style] = [],
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   bind(
@@ -115,6 +116,7 @@ pub fn[A] bind_label(
     f,
     font_size=font_size,
     color=color,
+    class=class,
     handle=handle,
   )
 }
@@ -126,6 +128,7 @@ pub fn[A] bind(
   f : (A) -> String,
   font_size? : Double = 13.0,
   color? : String = "",
+  class? : Array[@style.Style] = [],
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let src = text_source(
@@ -137,6 +140,9 @@ pub fn[A] bind(
   )
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
+    if class.length() > 0 {
+      fold_style(w, @style.empty_style(), @style.empty_style(), class)
+    }
     // 单行档口径（同 text_dyn 的 wrap=false）：下限归 0，挤不过兄弟件时
     // 收缩、末端出省略号。
     w.node.set_min_width(@yoga.fixed(0.0))

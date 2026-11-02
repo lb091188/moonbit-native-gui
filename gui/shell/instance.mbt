@@ -115,6 +115,11 @@ let g_on_wake : Ref[((Array[String]) -> Unit)?] = Ref(None)
 /// 本进程派发过的唤起条数（诊断与测试用）。
 let g_wake_count : Ref[Int] = Ref(0)
 
+///|
+/// 非套接字臂额外补开的套接字旁路：dev 工具只带套接字客户端，
+/// D-Bus/Windows 臂声称后仍要能收到 `--mng-hot` / `--mng-page`。
+let g_sock_dev : Map[String, Bool] = Map([])
+
 // ---- 派生与编解码（纯函数）----
 
 ///|
@@ -334,6 +339,29 @@ pub fn instance_backend_name(be : InstanceBackend) -> String {
 // ---- 唤起收方 ----
 
 ///|
+/// 给非套接字臂补开一条套接字旁路（dev 工具只带套接字客户端）。
+/// 套接字臂已在主循环里抽，不重复登记；Windows 无套接字臂时返回后端错误。
+pub fn instance_enable_socket_channel(
+  app_id : String,
+) -> Result[Unit, InstanceError] {
+  match g_arms.val.get(app_id) {
+    Some(Socket) => Ok(())
+    Some(_) => {
+      let sock = instance_socket_path(app_id)
+      match yi_inst_listen(@utf8.encode(sock)) {
+        1 => {
+          let _ = g_sock_dev.set(app_id, true)
+          Ok(())
+        }
+        2 => Err(Backend("套接字已被另一实例占用：" + sock))
+        _ => Err(Backend("socket: errno=" + yi_inst_last_errno().to_string()))
+      }
+    }
+    None => Err(Backend("未声称的 app_id：" + app_id))
+  }
+}
+
+///|
 /// 一条唤起落地：计数 + 调回调（没挂回调也只计数，不报错）。
 fn fire_wake(args : Array[String]) -> Unit {
   g_wake_count.val = g_wake_count.val + 1
@@ -350,9 +378,16 @@ pub fn on_instance_wake(cb : (Array[String]) -> Unit) -> Unit {
   g_on_wake.val = Some(cb)
   // D-Bus 档的桥接由 dbus 侧持有，先 claim 后注册也要接得上
   let mut has_dbus = false
-  for _id, be in g_arms.val {
+  for id, be in g_arms.val {
     match be {
-      Dbus => has_dbus = true
+      Dbus => {
+        has_dbus = true
+        let _ = instance_enable_socket_channel(id)
+      }
+      Win32 => {
+        // Windows 无套接字臂（失败桩）；真机 dev wake 走 win32 客户端
+        let _ = instance_enable_socket_channel(id)
+      }
       _ => ()
     }
   }
@@ -430,6 +465,10 @@ pub fn dispatch_instance_wake() -> Bool {
       }
       Unavailable => ()
     }
+  }
+  // D-Bus/Windows 臂的 dev 套接字旁路
+  for _id, _ in g_sock_dev {
+    let _ = socket_drain()
   }
   g_wake_count.val > before
 }

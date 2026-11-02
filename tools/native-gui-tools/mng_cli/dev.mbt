@@ -1,7 +1,6 @@
-// dev 子命令：watch 模板 → 内存编译 → 契约分类 → HOT 打标 / COLD 回退编排
-// （moon build → 杀旧 → 带参重启）。分类判据与边界见
-// proposals/native-template.md「开发循环」二轮节；HOT 的进程内补丁推送
-// 等应用侧 dev 监听落地，本轮占位不打断应用。
+// dev 子命令：watch 模板 → 内存编译 → hot_ir 分类 → HOT 推 IR 补丁 /
+// COLD 回退编排（moon build → 杀旧 → 带参重启 → 唤醒回改动页）。
+// 分类判据与边界见 proposals/native-template.md「开发循环」二轮节。
 
 fn usage_dev() -> Unit {
   println("用法：moon run tools/native-gui-tools/mng_cli -- dev [<某个 .mng 或目录>] [--build-cmd …] [--run-cmd …] [--app-id …] [--poll-ms 300] [--out-dir <目录>]")
@@ -9,7 +8,7 @@ fn usage_dev() -> Unit {
   println("  位置参数：只盯这一个文件/目录（可选过滤）")
   println("  生成码落到模板自己所在的包目录（<stem>.gen.mbt，dev 形态）；--out-dir 仅供调试强行指定")
   println("  build-cmd / run-cmd / app-id / poll-ms：覆盖 mng.toml；run 留空 = 跑一次 build 后从 Artifacts 抓可执行")
-  println("  一拍内多个改动合并成一次 build/重启；HOT 的逐个推补丁")
+  println("  一拍内多个改动合并成一次 build/重启；HOT 的逐个推补丁；COLD 重启后回到改动页")
 }
 
 ///|
@@ -344,36 +343,20 @@ fn cmd_dev(args : Array[String]) -> Int {
             had_err = true
             continue
           }
-          let cur = match @mngkit.contract_of(src, f) {
-            Ok(c) => c
-            Err(_) => {
+          match @mngkit.hot_ir(src, baselines.get_or_default(f, ""), f) {
+            Err(reason) => {
+              eprintln("[HOT→COLD] " + f + "：" + reason)
               cold = true
-              let _ = baselines.set(f, src)
-              continue
             }
-          }
-          let is_hot = match @mngkit.contract_of(baselines.get_or_default(f, ""), f) {
-            Ok(base) => cur.hot_ok(base)
-            Err(_) => false
-          }
-          if is_hot {
-            match @mngkit.ir_of(src, f) {
-              Err(e) => {
-                eprintln("[HOT] " + f + "：IR 产出失败（" + e + "），转重启")
+            Ok(irjson) => {
+              let irpath = parent_dir_of(gp) + "/" + stem_of_file(f) + ".ir.json"
+              if !spit(irpath, irjson) {
+                eprintln("[HOT] 写不出 " + irpath)
                 cold = true
-              }
-              Ok(irjson) => {
-                let irpath = parent_dir_of(gp) + "/" + stem_of_file(f) + ".ir.json"
-                if !spit(irpath, irjson) {
-                  eprintln("[HOT] 写不出 " + irpath)
-                  cold = true
-                } else {
-                  patches.push(irpath)
-                }
+              } else {
+                patches.push(irpath)
               }
             }
-          } else {
-            cold = true
           }
           let _ = baselines.set(f, src)
         }
@@ -401,6 +384,7 @@ fn cmd_dev(args : Array[String]) -> Int {
                   Ok(pid) => {
                     app_pid = pid
                     eprintln("[COLD] 应用已重启 pid=" + pid.to_string())
+                    wake_page(conf.app_id, stem_of_file(changed[0]))
                   }
                   Err(e) => eprintln("[COLD] 重启失败：" + e)
                 }
@@ -424,6 +408,26 @@ fn cmd_dev(args : Array[String]) -> Int {
     }
   }
   0
+}
+
+///|
+/// COLD 重启后把新进程带回改动所在的模板页（新应用可能还没开始监听，重试）。
+fn wake_page(app_id : String, page : String) -> Unit {
+  let args = ["--mng-page", page]
+  let mut tries = 0
+  while tries < 40 {
+    match @inst.wake(app_id, args) {
+      Ok(_) => {
+        eprintln("[COLD] 已请求回到模板页 " + page)
+        return
+      }
+      Err(_) => {
+        @proc.sleep_ms(100)
+        tries += 1
+      }
+    }
+  }
+  eprintln("[COLD] 回页请求未送达（应用未就绪或单实例通道不可用）")
 }
 
 ///|

@@ -14,6 +14,7 @@ pub struct MngReg {
   ints : Map[String, @base.Store[Int]]
   bools : Map[String, @base.Store[Bool]]
   strs : Map[String, @base.Store[String]]
+  calls : Map[String, (Array[ExprValue]) -> ExprValue]
 }
 
 ///|
@@ -25,7 +26,17 @@ pub fn mng_reg_new() -> MngReg {
     ints: Map([]),
     bools: Map([]),
     strs: Map([]),
+    calls: Map([]),
   }
+}
+
+///|
+fn MngReg::call(
+  self : MngReg,
+  name : String,
+  f : (Array[ExprValue]) -> ExprValue,
+) -> Unit {
+  let _ = self.calls.set(name, f)
 }
 
 ///|
@@ -324,6 +335,43 @@ fn mj_arr(m : MJ?) -> Array[MJ]? {
   }
 }
 
+///|
+/// IR 节点的 class 名数组（无则空）。
+fn mj_class_names(j : MJ) -> Array[String] {
+  let out : Array[String] = []
+  match mj_arr(mj_get(j, "class")) {
+    Some(a) =>
+      for x in a {
+        match mj_str(Some(x)) {
+          Some(s) => out.push(s)
+          None => ()
+        }
+      }
+    None => ()
+  }
+  out
+}
+
+///|
+/// 类名 → 样式数组：与生成码同一口径，带 `:dark` 档的类按当前深浅再叠一枚。
+fn dev_class(names : Array[String]) -> Array[@style.Style] {
+  if names.length() == 0 {
+    return []
+  }
+  let dark = @win.sys_color_scheme() == "dark"
+  let picked : Array[String] = []
+  for n in names {
+    picked.push(n)
+    if dark {
+      match @style.lookup_class(n + ":dark") {
+        Some(_) => picked.push(n + ":dark")
+        None => ()
+      }
+    }
+  }
+  @style.class_of(picked)
+}
+
 // ---------------------------------------------------------------------------
 // applier：MJ 树 → @widget.Node（只调生产构造器；动态槽查注册表）
 // ---------------------------------------------------------------------------
@@ -358,6 +406,15 @@ pub fn mng_dev_page(page : String, reg : MngReg, build : () -> @widget.Node) -> 
 }
 
 ///|
+/// 模板 stem → 演示板路由标题（dev 冷重启回原页；新模板在这里登记）。
+pub fn mng_dev_page_title(page : String) -> String? {
+  match page {
+    "dev_demo" => Some("模板 Dev")
+    _ => None
+  }
+}
+
+///|
 /// dev 页登记内容容器（按页登记，补丁按 IR 的 `page` 取）。
 pub fn mng_dev_bind_holder(page : String, w : @widget.Widget) -> Unit {
   let _ = mng_holders.set(page, w)
@@ -374,10 +431,11 @@ fn mj_node(j : MJ, reg : MngReg) -> Result[@widget.Node, String] {
     Some(s) => s
     None => return Err("IR 节点缺 k")
   }
+  let cls = dev_class(mj_class_names(j))
   match kind {
     "text" =>
       match mj_str(mj_get(j, "v")) {
-        Some(v) => Ok(@ui.text(v))
+        Some(v) => Ok(@ui.text(v, class=cls))
         None => Err("text 节点缺 v")
       }
     "dyn" =>
@@ -385,7 +443,11 @@ fn mj_node(j : MJ, reg : MngReg) -> Result[@widget.Node, String] {
         Some(key) =>
           match reg.exprs.get(key) {
             Some(f) =>
-              Ok(@ui.bind(@base.Signal::computed(f), fn(s : String) { s }))
+              Ok(
+                @ui.bind(@base.Signal::computed(f), fn(s : String) {
+                  s
+                }, class=cls),
+              )
             None => Err(mreg_miss("动态文本", key))
           }
         None => Err("dyn 节点缺 key")
@@ -442,9 +504,9 @@ fn mj_node(j : MJ, reg : MngReg) -> Result[@widget.Node, String] {
         None => 0.0
       }
       if kind == "col" {
-        Ok(@ui.col(kids, row_gap=gap))
+        Ok(@ui.col(kids, row_gap=gap, class=cls))
       } else {
-        Ok(@ui.row(kids, column_gap=gap))
+        Ok(@ui.row(kids, column_gap=gap, class=cls))
       }
     }
     "button" => {
@@ -463,8 +525,8 @@ fn mj_node(j : MJ, reg : MngReg) -> Result[@widget.Node, String] {
       // text 参数：静态直出；动态包 bind；click 可选
       Ok(text.node(fn(s : String) {
         match click {
-          Some(f) => @ui.button(s, on_click=f)
-          None => @ui.button(s)
+          Some(f) => @ui.button(s, on_click=f, class=cls)
+          None => @ui.button(s, class=cls)
         }
       }))
     }
@@ -480,9 +542,9 @@ fn mj_node(j : MJ, reg : MngReg) -> Result[@widget.Node, String] {
               Ok(p) => p
               Err(e) => return Err(e)
             }
-            Ok(@ui.checkbox(label.now(), st))
+            Ok(@ui.checkbox(label.now(), st, class=cls))
           } else {
-            Ok(@ui.switch(st))
+            Ok(@ui.switch(st, class=cls))
           }
         }
         None => Err(mreg_miss("布尔状态", name))
@@ -503,7 +565,7 @@ fn mj_node(j : MJ, reg : MngReg) -> Result[@widget.Node, String] {
             Some(v) => v.to_int()
             None => 0
           }
-          Ok(@ui.stepper(st, min=mn, max=mx))
+          Ok(@ui.stepper(st, min=mn, max=mx, class=cls))
         }
         None => Err(mreg_miss("整数状态", name))
       }
@@ -523,7 +585,7 @@ fn mj_node(j : MJ, reg : MngReg) -> Result[@widget.Node, String] {
             MParamStatic(s) => s
             MParamDyn(sig) => sig.get()
           }
-          Ok(@ui.input(st, placeholder=phs))
+          Ok(@ui.input(st, placeholder=phs, class=cls))
         }
         None => Err(mreg_miss("字符串状态", name))
       }
@@ -620,6 +682,26 @@ pub fn mng_dev_apply(json : String) -> Result[Unit, String] {
   let reg = match mng_regs.get(page) {
     Some(r) => r
     None => return Err("页「\{page}」未登记注册表——该页挂载时用 mng_dev_set_reg 登记")
+  }
+  // 类定义先重注册（样式值改动也走这条），再登记新表达式、重建树
+  match mj_get(parsed, "classes") {
+    Some(MArr(rules)) =>
+      match mng_reg_classes(rules) {
+        Ok(_) => ()
+        Err(e) => return Err(e)
+      }
+    _ => ()
+  }
+  // 新表达式按 AST 登记（已编译的键保留闭包，不覆盖）
+  match mj_get(parsed, "eval") {
+    Some(MObj(m)) =>
+      for (k, v) in m {
+        match mng_reg_eval(reg, k, v) {
+          Ok(_) => ()
+          Err(e) => return Err(e)
+        }
+      }
+    _ => ()
   }
   // 摘旧：整袋退订（照路由 slot 的回收纪律）
   match mng_lives.get(page) {
