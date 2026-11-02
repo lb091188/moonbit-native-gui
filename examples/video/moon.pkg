@@ -6,8 +6,7 @@ import {
   "NoahLiu/native-gui/ui",
   "NoahLiu/native-gui/style" @style,
   "NoahLiu/native-gui/icons",
-  "NoahLiu/gui-sys/sys" @sys,
-  "NoahLiu/gui-window/win" @win,
+  "NoahLiu/native-gui/sys" @sys,
   "NoahLiu/gui-media/media" @media,
 }
 

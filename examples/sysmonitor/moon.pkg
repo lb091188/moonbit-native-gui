@@ -13,7 +13,7 @@ import {
   "NoahLiu/native-gui/theme" @theme,
   "NoahLiu/native-gui/render" @render,
   "NoahLiu/native-gui/text" @text,
-  "NoahLiu/gui-sys/sys" @sys,
+  "NoahLiu/native-gui/sys" @sys,
   "NoahLiu/native-gui/icons",
   "NoahLiu/native-gui/chart" @charts,
 }

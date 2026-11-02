@@ -298,7 +298,7 @@ fn main {
   fn pick_video_file() -> Unit {
     match host.val {
       Some(a) => {
-        let dlg = @win.FileDialog::new_open()
+        let dlg = @sys.FileDialog::new_open()
         dlg.set_filters("视频文件:mp4,mkv,mov,avi,webm,flv,ts,wmv,m4v,mpg,mpeg|所有文件:*")
         if dlg.run_for_window(a.wid().to_int64()) {
           let p = dlg.get_result()
@@ -316,8 +316,8 @@ fn main {
   fn pick_video_dir() -> Unit {
     match host.val {
       Some(a) => {
-        let dlg = @win.FileDialog::new_open()
-        dlg.set_options(@win.FILE_OPTION_PICK_FOLDERS)
+        let dlg = @sys.FileDialog::new_open()
+        dlg.set_options(@sys.FILE_OPTION_PICK_FOLDERS)
         if dlg.run_for_window(a.wid().to_int64()) {
           let dir = dlg.get_result()
           match @sys.fsx_list_dir(dir) {
@@ -349,7 +349,7 @@ fn main {
   fn pick_subtitle() -> Unit {
     match host.val {
       Some(a) => {
-        let dlg = @win.FileDialog::new_open()
+        let dlg = @sys.FileDialog::new_open()
         dlg.set_filters("字幕文件:srt,vtt|所有文件:*")
         if dlg.run_for_window(a.wid().to_int64()) {
           let p = dlg.get_result()

@@ -5,7 +5,7 @@ import {
   "NoahLiu/native-gui/render",
   "NoahLiu/native-gui/ui",
   "NoahLiu/native-gui/style" @style,
-  "NoahLiu/gui-window/win",
+  "NoahLiu/native-gui/win",
 }
 
 pkgtype(kind: "executable")

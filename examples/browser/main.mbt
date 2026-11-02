@@ -551,7 +551,7 @@ fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
                   match wv.val {
                     Some(v) => {
                       if pol_dl.val {
-                        let dlg = @win.FileDialog::new_save()
+                        let dlg = @sys.FileDialog::new_save()
                         if req.suggested != "" {
                           dlg.set_filename(req.suggested)
                         }

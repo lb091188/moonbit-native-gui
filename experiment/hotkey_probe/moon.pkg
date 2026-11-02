@@ -1,6 +1,6 @@
 import {
-  "NoahLiu/gui-shell/shell" @shell,
-  "NoahLiu/gui-window/win",
+  "NoahLiu/native-gui/shell" @shell,
+  "NoahLiu/native-gui/win",
 }
 
 pkgtype(kind: "executable")

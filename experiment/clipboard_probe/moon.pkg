@@ -1,6 +1,6 @@
 import {
-  "NoahLiu/gui-sys/sys",
-  "NoahLiu/gui-window/win",
+  "NoahLiu/native-gui/sys",
+  "NoahLiu/native-gui/win",
 }
 
 pkgtype(kind: "executable")

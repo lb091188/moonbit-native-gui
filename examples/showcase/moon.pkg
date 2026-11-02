@@ -6,14 +6,14 @@ import {
   "NoahLiu/native-gui/base",
   "NoahLiu/native-gui/widget" @widget,
 
-  "NoahLiu/gui-shell/shell" @shell,
+  "NoahLiu/native-gui/shell" @shell,
   "NoahLiu/native-gui/router" @router,
   "NoahLiu/native-gui/ui",
   "NoahLiu/native-gui/theme",
   "NoahLiu/native-gui/icons",
   "NoahLiu/native-gui/style" @style,
-  "NoahLiu/gui-window/win",
-  "NoahLiu/gui-dbus/dbus" @dbus,
+  "NoahLiu/native-gui/win",
+  "NoahLiu/native-gui/dbus" @dbus,
   "NoahLiu/native-gui-examples-showcase/shared",
   "NoahLiu/native-gui-examples-showcase/pages",
 }

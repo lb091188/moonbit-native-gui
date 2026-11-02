@@ -297,7 +297,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ### 模块化
 
-- 🚧 **能力模块拆分**：`sys` → `NoahLiu/gui-sys`（✅ 2026-11-02：`gui-sys` 纯读写单件与 `gui-window` 窗口层单件两批已落地——独立模块+自管 prebuild、facade 钉版 0.1.0、全仓消费方改写完成；**文件对话框 `FileDialog` 归 `@win`**；`gui-dbus`（✅ 2026-11-02：D-Bus/SNI Linux 半边，纯 MoonBit 线路实现随包迁移，依赖 gui-sys，零 prebuild）与 `gui-shell`（✅ 2026-11-02：六通道统一门面 + 事件泵 + 平台分派，i18n 随迁为同模块包，依赖前三个能力模块）也已落地——四个能力模块全部出完，facade 定位收窄待真机后定型；真机由 facade 既有清单覆盖，gui-window 链接三件事（Windows 无控制台、GTK 静态库、mac 框架）重验一次）、`win` → `NoahLiu/gui-window`（窗口层与 GUI 辅助族：窗口、事件循环、IME、托盘、通知、热键、单实例、对话框，模块内按包细分）、`dbus` → `NoahLiu/gui-dbus`（D-Bus/SNI，依赖 gui-sys）、`shell` + `i18n` → `NoahLiu/gui-shell`（集成层：六通道统一门面、事件泵、平台分派，依赖上述三模块）；`native-gui` 收窄为「组件工具包 + 聚合 facade」、开箱即用不变；顺序 sys → win → dbus → shell → 包级细化，每个模块独立发版，与 gui-webview / gui-media 同形态
+- ⏳ **能力模块拆分（2026-11-02 定案回退、留档待动机）**：`sys` → `NoahLiu/gui-sys`（纯读写系统工具，无事件循环依赖）、`win` → `NoahLiu/gui-window`（窗口层与 GUI 辅助族：窗口、事件循环、IME、托盘、通知、热键、单实例、对话框，模块内按包细分）、`dbus` → `NoahLiu/gui-dbus`（D-Bus/SNI，依赖 gui-sys）、`shell` + `i18n` → `NoahLiu/gui-shell`（集成层：六通道统一门面、事件泵、平台分派，依赖上述三模块）；`native-gui` 收窄为「组件工具包 + 聚合 facade」、开箱即用不变；顺序 sys → win → dbus → shell → 包级细化，每个模块独立发版，与 gui-webview / gui-media 同形态。2026-11-02 曾完整落地四模块后回退：不对外发行则单件检索面动机不成立，维护成本大于架构收益；方案与回退注记见 `proposals/module-split.md`，四个落地提交在历史里可 cherry-pick 复活
 
 ### 开发体验
 

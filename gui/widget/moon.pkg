@@ -6,13 +6,13 @@ supported_targets = "native"
 
 import {
   "NoahLiu/native-gui/base" @base,
-  "NoahLiu/gui-shell/shell" @shell,
+  "NoahLiu/native-gui/shell" @shell,
   "NoahLiu/yoga-mbt/src" @yoga,
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/env" @env,
   "NoahLiu/native-gui/render",
   "NoahLiu/native-gui/theme",
-  "NoahLiu/gui-window/win",
+  "NoahLiu/native-gui/win",
   "NoahLiu/native-gui/text",
-  "NoahLiu/gui-shell/i18n" @i18n,
+  "NoahLiu/native-gui/i18n" @i18n,
 }

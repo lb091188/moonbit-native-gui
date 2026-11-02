@@ -4579,6 +4579,16 @@ int wm_window_surface_count(int64_t id) {
 
 /* 剪贴板三符号：Windows 的真路径在 sys 桩自己的 CF_UNICODETEXT
  * （`sys/clipboard.mbt` 的 windows 分支不会调到这里），这里只保证符号不断。 */
+int wm_clipboard_available(void) { return 0; }
+void *wm_clipboard_get_text(int32_t *ok) {
+  *ok = 0;
+  return moonbit_make_bytes(0, 0);
+}
+int wm_clipboard_set_text(const char *text) {
+  (void)text;
+  return 0;
+}
+
 /* ---------------- 单实例臂（命名互斥体 + 隐藏顶层窗 + WM_COPYDATA） ----------------
  * 互斥体名 Local\moonbit_libyue_instance_<slug>（会话命名空间，免权限提升），
  * 窗口类名 moonbit_libyue_instance_<slug>。窗口必须是**顶层隐藏窗**而不是
@@ -4757,291 +4767,6 @@ void wm_inst_release(void) {
 
 /* 系统权限 / 屏幕色温的空桩住声明者 sys 的桩（sys/sys_stub.c）：sys 的
  * 白盒测试 exe 只链 sys 包，占位放这边时 Windows 链接 LNK2019。 */
-
-// ---------------------------------------------------------------------------
-// 文件对话框（wm_file_* 符号）
-//
-// Linux 端这些符号在 yue/win/stub.c 的 WM_STUB_GTK 分支（GtkFileChooserDialog
-// 槽表），本文件只在 Windows 上给同名实现——句柄槽制与 GTK 端同规（表容量 8、
-// 句柄 = 槽号 1 起、无效句柄各接口安全退化），dialog.mbt 的 extern 名不改。
-// 平台差异（记档）：三个选项位都有对应项（FOS_PICKFOLDERS /
-// FOS_ALLOWMULTISELECT / FOS_FORCESHOWHIDDEN）；差异在父窗口——HWND 属
-// yue/win 桩的私有表，跨桩拿不到，故 Show 传 NULL；IFileDialog::Show 自带
-// 模态消息泵，不挂父窗也能正常阻塞与响应。
-// ---------------------------------------------------------------------------
-#if defined(_WIN32)
-
-#define SYS_DLG_MAX 8
-static IFileDialog *sys_dialogs[SYS_DLG_MAX];
-static int sys_dlg_accepted[SYS_DLG_MAX];
-static int sys_dlg_com_ready = 0;
-
-static int sys_dlg_com_init(void) {
-  if (sys_dlg_com_ready) {
-    return 1;
-  }
-  HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
-  // S_FALSE = 本线程已初始化过（幂等）；RPC_E_CHANGED_MODE = 已被别种模型
-  // 初始化过，COM 照样可用——两种都不算失败
-  if (hr != S_OK && hr != S_FALSE && hr != RPC_E_CHANGED_MODE) {
-    return 0;
-  }
-  sys_dlg_com_ready = 1;
-  return 1;
-}
-
-static int64_t sys_dlg_put(IFileDialog *d) {
-  for (int i = 0; i < SYS_DLG_MAX; i++) {
-    if (sys_dialogs[i] == NULL) {
-      sys_dialogs[i] = d;
-      sys_dlg_accepted[i] = 0;
-      return (int64_t)(i + 1);
-    }
-  }
-  d->lpVtbl->Release(d);
-  return 0; // 槽满：句柄无效，调用方按「建不出」退化
-}
-
-static IFileDialog *sys_dlg_of(int64_t id) {
-  if (id <= 0 || id > SYS_DLG_MAX) {
-    return NULL;
-  }
-  return sys_dialogs[id - 1];
-}
-
-static void sys_dlg_free(int64_t id) {
-  if (id <= 0 || id > SYS_DLG_MAX) {
-    return;
-  }
-  sys_dlg_accepted[id - 1] = 0;
-  if (sys_dialogs[id - 1] != NULL) {
-    sys_dialogs[id - 1]->lpVtbl->Release(sys_dialogs[id - 1]);
-    sys_dialogs[id - 1] = NULL;
-  }
-}
-
-static int64_t sys_file_dialog_new(int save) {
-  if (!sys_dlg_com_init()) {
-    return 0;
-  }
-  // GUID 只能取头文件里的 extern 常量（__uuidof 是 C++ 专属，MSVC 在 C 模式
-  // 直接报 C4233），这些符号由 uuid.lib 提供——链接参数见 scripts/prebuild.py
-  IFileDialog *dlg = NULL;
-  HRESULT hr = CoCreateInstance(save ? &CLSID_FileSaveDialog
-                                     : &CLSID_FileOpenDialog,
-                                NULL, CLSCTX_INPROC_SERVER, &IID_IFileDialog,
-                                (void **)&dlg);
-  if (FAILED(hr) || dlg == NULL) {
-    return 0;
-  }
-  return sys_dlg_put(dlg);
-}
-
-int64_t wm_file_open_dialog_new(void) { return sys_file_dialog_new(0); }
-
-int64_t wm_file_save_dialog_new(void) { return sys_file_dialog_new(1); }
-
-/* 选项位：1<<0 选文件夹 1<<1 多选 1<<2 显示隐藏。 */
-void wm_file_dialog_set_options(int64_t id, int32_t options) {
-  IFileDialog *d = sys_dlg_of(id);
-  if (d == NULL) {
-    return;
-  }
-  FILEOPENDIALOGOPTIONS existing = 0;
-  if (FAILED(d->lpVtbl->GetOptions(d, &existing))) {
-    existing = 0;
-  }
-  // 只增不减：多次调用互不覆盖（与 GTK 端逐项 set 的行为对齐）
-  FILEOPENDIALOGOPTIONS add = 0;
-  if (options & 1) {
-    add |= FOS_PICKFOLDERS;
-  }
-  if (options & 2) {
-    add |= FOS_ALLOWMULTISELECT;
-  }
-  if (options & 4) {
-    add |= FOS_FORCESHOWHIDDEN;
-  }
-  if (add != 0 && FAILED(d->lpVtbl->SetOptions(d, existing | add))) {
-    return;
-  }
-}
-
-/* filters 打包："描述:扩展1,扩展2|描述2:扩展3"（'*' 匹配全部）。
- * 一个分组 = 一条 COMDLG_FILTERSPEC，多个扩展名并入同一条模式
- * （"*.png;*.jpg"），与文件资源管理器的下拉项一一对应。 */
-void wm_file_dialog_set_filters(int64_t id, const char *filters) {
-  IFileDialog *d = sys_dlg_of(id);
-  if (d == NULL || filters == NULL) {
-    return;
-  }
-  wchar_t *descs[SYS_DLG_MAX];
-  wchar_t *pats[SYS_DLG_MAX];
-  int n = 0;
-  const char *pos = filters;
-  while (*pos != '\0' && n < SYS_DLG_MAX) {
-    const char *bar = strchr(pos, '|');
-    size_t glen = bar != NULL ? (size_t)(bar - pos) : strlen(pos);
-    char group[256];
-    if (glen >= sizeof(group)) {
-      glen = sizeof(group) - 1;
-    }
-    memcpy(group, pos, glen);
-    group[glen] = '\0';
-    const char *colon = strchr(group, ':');
-    if (colon == NULL) {
-      pos = bar != NULL ? bar + 1 : pos + glen;
-      continue;
-    }
-    size_t dl = (size_t)(colon - group);
-    char desc[128];
-    if (dl >= sizeof(desc)) {
-      dl = sizeof(desc) - 1;
-    }
-    memcpy(desc, group, dl);
-    desc[dl] = '\0';
-    // 模式串：*.e1;*.e2（'*' 单条时保持 '*'）
-    char pat[256];
-    size_t at = 0;
-    const char *ep = colon + 1;
-    int first = 1;
-    while (*ep != '\0' && at + 8 < sizeof(pat)) {
-      const char *comma = strchr(ep, ',');
-      size_t el = comma != NULL ? (size_t)(comma - ep) : strlen(ep);
-      char one[64];
-      if (el >= sizeof(one)) {
-        el = sizeof(one) - 1;
-      }
-      memcpy(one, ep, el);
-      one[el] = '\0';
-      int used = snprintf(pat + at, sizeof(pat) - at, "%s%s%s", first ? "" : ";",
-                          strcmp(one, "*") == 0 ? "" : "*.", one);
-      if (used <= 0) {
-        break;
-      }
-      at += (size_t)used;
-      first = 0;
-      ep = comma != NULL ? comma + 1 : ep + el;
-    }
-    pat[at] = '\0';
-    descs[n] = win_utf8_wide(desc, 0);
-    pats[n] = win_utf8_wide(pat, 0);
-    if (descs[n] != NULL && pats[n] != NULL) {
-      n++;
-    } else {
-      if (descs[n] != NULL) {
-        free(descs[n]);
-      }
-      if (pats[n] != NULL) {
-        free(pats[n]);
-      }
-    }
-    pos = bar != NULL ? bar + 1 : pos + glen;
-  }
-  if (n > 0) {
-    COMDLG_FILTERSPEC specs[SYS_DLG_MAX];
-    for (int i = 0; i < n; i++) {
-      specs[i].pszName = descs[i];
-      specs[i].pszSpec = pats[i];
-    }
-    d->lpVtbl->SetFileTypes(d, (UINT)n, specs);
-    d->lpVtbl->SetFileTypeIndex(d, 1);
-  }
-  for (int i = 0; i < n; i++) {
-    free(descs[i]);
-    free(pats[i]);
-  }
-}
-
-/* 初始目录：本地路径直接用；file:// URI 剥前缀并把 '/' 换 '\'（URI 里的
- * 百分号编码不解，中文目录请传本地路径——记档）。 */
-void wm_file_dialog_set_folder(int64_t id, const char *folder) {
-  IFileDialog *d = sys_dlg_of(id);
-  if (d == NULL || folder == NULL || folder[0] == '\0') {
-    return;
-  }
-  const char *p = folder;
-  char path[4096];
-  size_t at = 0;
-  if (strncmp(p, "file:///", 8) == 0) {
-    p += 8; // 盘符前的第三个斜杠吃掉，剩下 C:/...
-  } else if (strncmp(p, "file://", 7) == 0) {
-    p += 7;
-  }
-  for (; *p != '\0' && at + 1 < sizeof(path); p++) {
-    path[at++] = *p == '/' ? '\\' : *p;
-  }
-  path[at] = '\0';
-  wchar_t *w = win_utf8_wide(path, 0);
-  if (w == NULL) {
-    return;
-  }
-  IShellItem *item = NULL;
-  if (SUCCEEDED(SHCreateItemFromParsingName(w, NULL, &IID_IShellItem,
-                                            (void **)&item)) &&
-      item != NULL) {
-    d->lpVtbl->SetFolder(d, item);
-    item->lpVtbl->Release(item);
-  }
-  free(w);
-}
-
-void wm_file_dialog_set_filename(int64_t id, const char *filename) {
-  IFileDialog *d = sys_dlg_of(id);
-  if (d == NULL || filename == NULL) {
-    return;
-  }
-  wchar_t *w = win_utf8_wide(filename, 0);
-  if (w == NULL) {
-    return;
-  }
-  d->lpVtbl->SetFileName(d, w);
-  free(w);
-}
-
-/* 模态运行（parent 在 Windows 侧忽略，见本节开头记档）。返回 1=确认。 */
-int32_t wm_file_dialog_run_for_window(int64_t id, int64_t parent) {
-  IFileDialog *d = sys_dlg_of(id);
-  (void)parent;
-  if (d == NULL) {
-    return 0;
-  }
-  HRESULT hr = d->lpVtbl->Show(d, NULL);
-  int accepted = SUCCEEDED(hr) ? 1 : 0;
-  sys_dlg_accepted[id - 1] = accepted;
-  return accepted;
-}
-
-/* 用户选中的绝对路径（SIGDN_FILESYSPATH）；未确认或取消返回空字节串。
- * 多选时取首项——GetResults 才是多选全集的入口，这里与 GTK 端同口径。 */
-void *wm_file_dialog_get_result(int64_t id) {
-  IFileDialog *d = sys_dlg_of(id);
-  if (d == NULL || id <= 0 || id > SYS_DLG_MAX || !sys_dlg_accepted[id - 1]) {
-    return moonbit_make_bytes(0, 0);
-  }
-  IShellItem *item = NULL;
-  if (FAILED(d->lpVtbl->GetResult(d, &item)) || item == NULL) {
-    return moonbit_make_bytes(0, 0);
-  }
-  wchar_t *path = NULL;
-  void *out;
-  if (SUCCEEDED(item->lpVtbl->GetDisplayName(item, SIGDN_FILESYSPATH, &path)) &&
-      path != NULL) {
-    out = win_wide_bytes(path);
-    CoTaskMemFree(path);
-  } else {
-    out = moonbit_make_bytes(0, 0);
-  }
-  item->lpVtbl->Release(item);
-  return out;
-}
-
-void wm_file_dialog_destroy(int64_t id) { sys_dlg_free(id); }
-
-#endif
-
-// （自 gui/sys/sys_stub.c 迁入：dialog.mbt 随拆包归 gui-window 域，Windows 臂的
-//  IFileDialog 实现跟着走；Linux/mac 臂本就在本文件的 GTK/MAC 分支。）
 
 #elif defined(WM_STUB_GTK)
 
@@ -8020,6 +7745,55 @@ void *wm_file_dialog_get_result(int64_t id) {
   return out;
 }
 
+/* ---------- 剪贴板（sys/clipboard.mbt 的 Linux 落点）----------
+ * GtkClipboard 直接用：本归档已链 GTK3，sys 的 extern 直链 win 桩与
+ * `wm_file_*` 是同一条先例。没跑过 gtk_init 的纯命令行消费者（无头测试）
+ * 探测给 0，MoonBit 侧退回命令线 xclip——不在这里替宿主 gdk_init。 */
+int wm_clipboard_available(void) {
+  return gdk_display_get_default() != NULL ? 1 : 0;
+}
+
+// 读剪贴板文本（UTF-8）：没有显示服务或没有文本时 *ok=0、给空 Bytes。
+void *wm_clipboard_get_text(int32_t *ok) {
+  *ok = 0;
+  if (!wm_clipboard_available()) {
+    return moonbit_make_bytes(0, 0);
+  }
+  GtkClipboard *cb = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+  gchar *t = gtk_clipboard_wait_for_text(cb);
+  if (t == NULL) {
+    // 首问常输给选区属主握手（Cinnamon 的剪贴板管理器接管后尤甚）：
+    // 把已就绪的事件跑一轮再问一次，第二次必中的真机症状由此收掉。
+    while (g_main_context_pending(NULL)) {
+      g_main_context_iteration(NULL, FALSE);
+    }
+    t = gtk_clipboard_wait_for_text(cb);
+  }
+  if (t == NULL) {
+    return moonbit_make_bytes(0, 0);
+  }
+  size_t len = strlen(t);
+  void *out = moonbit_make_bytes((int)len, 0);
+  if (len > 0) {
+    memcpy(out, t, len);
+  }
+  g_free(t);
+  *ok = 1;
+  return out;
+}
+
+// 写剪贴板。set_text 只登记本进程为选区主人，所以紧跟一次 store 把内容
+// 交给会话里的剪贴板管理器——少了它，应用退出后别处就再也读不到。
+int wm_clipboard_set_text(const char *text) {
+  if (text == NULL || !wm_clipboard_available()) {
+    return 0;
+  }
+  GtkClipboard *cb = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+  gtk_clipboard_set_text(cb, text, -1);
+  gtk_clipboard_store(cb);
+  return 1;
+}
+
 /* 关闭并释放对话框（run 之后调用；未 run 过也能安全释放）。 */
 void wm_file_dialog_destroy(int64_t id) { wm_dlg_free(id); }
 
@@ -10170,6 +9944,54 @@ int wm_sys_accent(char *out, int cap) {
     return wm_clamp_cap(out, cap, buf);
   }
 }
+
+// ---- 剪贴板（sys/clipboard.mbt 的 mac 分支走 pbpaste/pbcopy 命令线；
+// 这三条符号是 sys 链接 win 归档时必须存在的，这里给 NSPasteboard 真实现）----
+
+int wm_clipboard_available(void) {
+  @autoreleasepool {
+    return [NSPasteboard generalPasteboard] != nil ? 1 : 0;
+  }
+}
+
+void *wm_clipboard_get_text(int32_t *ok) {
+  @autoreleasepool {
+    if (ok != NULL) {
+      *ok = 0;
+    }
+    NSPasteboard *pb = [NSPasteboard generalPasteboard];
+    if (pb == nil) {
+      return wm_bytes(NULL);
+    }
+    NSString *t = [pb stringForType:NSPasteboardTypeString];
+    if (t == nil) {
+      return wm_bytes(NULL);
+    }
+    if (ok != NULL) {
+      *ok = 1;
+    }
+    return wm_bytes([t UTF8String]);
+  }
+}
+
+int wm_clipboard_set_text(const char *text) {
+  @autoreleasepool {
+    NSPasteboard *pb = [NSPasteboard generalPasteboard];
+    if (pb == nil || text == NULL) {
+      return 0;
+    }
+    NSString *t = wm_str(text);
+    if (t == nil) {
+      return 0;
+    }
+    [pb clearContents];
+    return [pb setString:t forType:NSPasteboardTypeString] ? 1 : 0;
+  }
+}
+
+// ---- 文件对话框（NSOpenPanel / NSSavePanel）----
+
+static NSSavePanel *wm_dialogs[WM_DLG_MAX];
 static int wm_dlg_accepted[WM_DLG_MAX];
 static int wm_dlg_is_open[WM_DLG_MAX];
 
@@ -11412,6 +11234,300 @@ int wm_notify_count(void) {
   }
   return n;
 }
+
+// ---- 系统权限（macOS TCC）------------------------------------------------
+//
+// 授权是系统面的躲不开场景，这里先落 mac 两档首批消费者要用的：
+//   kind 0 = 辅助功能（Accessibility）——窗口管理的激活/关闭要
+//   kind 1 = 屏幕录制（Screen Recording）——枚举窗口标题要
+// 探测走公开口（AXIsProcessTrusted / CGPreflightScreenCaptureAccess），请求
+// 走系统自带引导框（AXIsProcessTrustedWithOptions 的 prompt 版弹「打开系统
+// 设置」对话框、CGRequestScreenCaptureAccess 同理）——引导归系统，不替用户
+// 点任何东西。状态语义只有「当前已授/未授」两态：TCC 的未请求与拒绝在公开
+// API 层不可区分，应用侧语义统一按「未授→请求→引导→用户回来再探」走。
+
+int wm_permission_probe(int kind, int32_t *ok) {
+  @autoreleasepool {
+    if (ok != NULL) {
+      *ok = 1;
+    }
+    if (kind == 0) {
+      return AXIsProcessTrusted() ? 1 : 0;
+    }
+    if (kind == 1) {
+      if (@available(macOS 10.15, *)) {
+        return CGPreflightScreenCaptureAccess() ? 1 : 0;
+      }
+      return 1; // 10.15 前没有屏幕录制权限概念
+    }
+    if (ok != NULL) {
+      *ok = 0; // 未知 kind
+    }
+    return -1;
+  }
+}
+
+void wm_permission_request(int kind) {
+  @autoreleasepool {
+    if (kind == 0) {
+      NSDictionary *opts = @{
+        (__bridge NSString *)kAXTrustedCheckOptionPrompt : @YES
+      };
+      AXIsProcessTrustedWithOptions(
+          (__bridge CFDictionaryRef)opts); // 弹系统引导对话框
+    } else if (kind == 1) {
+      if (@available(macOS 10.15, *)) {
+        CGRequestScreenCaptureAccess(); // 弹系统引导对话框
+      }
+    }
+  }
+}
+
+// ---- 窗口管理（mac 档，sys/windowctl 的 mac 后端）--------------------------
+//
+// 列表走 CGWindowList（免权限；窗口标题 kCGWindowName 要屏幕录制权限，未授
+// 权时标题为空——行按 Windows 桩同口径跳过，列表会显著变短，权限引导在门面
+// 侧给）。行格式对齐 Windows 桩：「0x<winid>\t-1\t<title>\n」。
+// 激活按归属应用（NSRunningApplication.activate，免授权）——同应用多窗只置
+// 前应用，窗口级精确 Raise 要 AX，属后续增强。
+// 关闭走 AX（辅助功能权限，缺失时 ok=2 让门面报语义化权限错误）：遍历归属
+// 应用的 AXWindows，标题不区分大小写子串匹配，命中按 close button。
+//
+// ok 出参约定：1 = 成功；0 = 找不到/失败；2 = 权限缺失（辅助功能）。
+
+static pid_t wm_win_pid_for(const char *id_or_title) {
+  if (id_or_title == NULL || id_or_title[0] == '\0') {
+    return 0;
+  }
+  CFArrayRef wins = CGWindowListCopyWindowInfo(
+      kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements,
+      kCGNullWindowID);
+  if (wins == NULL) {
+    return 0;
+  }
+  pid_t found = 0;
+  int by_id = id_or_title[0] == '0' &&
+              (id_or_title[1] == 'x' || id_or_title[1] == 'X');
+  unsigned long long wid = by_id ? strtoull(id_or_title + 2, NULL, 16) : 0;
+  for (NSDictionary *w in (__bridge NSArray *)wins) {
+    NSNumber *num = w[(__bridge NSString *)kCGWindowNumber];
+    if (num == nil) {
+      continue;
+    }
+    if (by_id) {
+      if (num.unsignedLongLongValue == wid) {
+        NSNumber *pid = w[(__bridge NSString *)kCGWindowOwnerPID];
+        found = pid != nil ? pid.intValue : 0;
+        break;
+      }
+    } else {
+      NSString *name = w[(__bridge NSString *)kCGWindowName];
+      if (name == nil || [name length] == 0) {
+        continue;
+      }
+      NSString *needle = [NSString stringWithUTF8String:id_or_title];
+      NSRange r = [name rangeOfString:needle
+                              options:NSCaseInsensitiveSearch];
+      if (r.location != NSNotFound) {
+        NSNumber *pid = w[(__bridge NSString *)kCGWindowOwnerPID];
+        found = pid != nil ? pid.intValue : 0;
+        break;
+      }
+    }
+  }
+  CFRelease(wins);
+  return found;
+}
+
+void *wm_win_list_mac(int32_t *ok) {
+  @autoreleasepool {
+    *ok = 0;
+    CFArrayRef wins = CGWindowListCopyWindowInfo(
+        kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements,
+        kCGNullWindowID);
+    if (wins == NULL) {
+      return moonbit_make_bytes(0, 0);
+    }
+    NSMutableString *blob = [NSMutableString new];
+    for (NSDictionary *w in (__bridge NSArray *)wins) {
+      NSNumber *num = w[(__bridge NSString *)kCGWindowNumber];
+      NSString *name = w[(__bridge NSString *)kCGWindowName];
+      if (num == nil || name == nil || [name length] == 0) {
+        continue;
+      }
+      [blob appendFormat:@"0x%llx\t-1\t%@\n",
+                         num.unsignedLongLongValue, name];
+    }
+    CFRelease(wins);
+    const char *utf8 = [blob UTF8String];
+    int len = (int)strlen(utf8);
+    void *out = moonbit_make_bytes(len, 0);
+    if (out != NULL) {
+      memcpy(out, utf8, (size_t)len);
+      *ok = 1;
+    }
+    return out;
+  }
+}
+
+// ---- 夜间色温（mac 档）：全屏点击穿透暖色覆盖层 ----------------------------
+//
+// Night Shift 无公开控制口（CoreBrightness 私有，`com.apple.CoreBrightness`
+// 域随版本漂移）——覆盖层是 f.lux 同款替代机制：每屏一扇置顶窗，跨空间常驻
+// （含全屏空间）、点击穿透，暖色 alpha 按 percent 换算（0 = 最暖、100 = 中性
+// 不盖）。percent 语义与门面一致：覆盖暖度 = (100 - percent)。
+// level 取 CGShieldingWindowLevel：色温要盖一切（菜单/ dock / 全屏），与
+// Night Shift 的实际效果对位。
+
+static NSMutableArray *wm_tint_windows = nil;
+
+void wm_screen_tint_apply(int32_t percent, int32_t *ok) {
+  @autoreleasepool {
+    *ok = 0;
+    if (wm_tint_windows == nil) {
+      wm_tint_windows = [NSMutableArray new];
+    }
+    for (NSWindow *w in wm_tint_windows) {
+      [w orderOut:nil];
+    }
+    [wm_tint_windows removeAllObjects];
+    int32_t warmth =
+        100 - (percent < 0 ? 0 : percent > 100 ? 100 : percent);
+    if (warmth <= 0) {
+      *ok = 1; // 中性：不盖
+      return;
+    }
+    double alpha = warmth / 100.0 * 0.22;
+    for (NSScreen *screen in [NSScreen screens]) {
+      NSWindow *w = [[NSWindow alloc]
+          initWithContentRect:[screen frame]
+                    styleMask:NSWindowStyleMaskBorderless
+                      backing:NSBackingStoreBuffered
+                        defer:NO];
+      [w setLevel:CGShieldingWindowLevel()];
+      [w setOpaque:NO];
+      [w setHasShadow:NO];
+      [w setBackgroundColor:
+              [NSColor colorWithCalibratedRed:1.0
+                                        green:0.55
+                                         blue:0.0
+                                        alpha:alpha]];
+      [w setIgnoresMouseEvents:YES];
+      [w setCollectionBehavior:NSWindowCollectionBehaviorCanJoinAllSpaces |
+                               NSWindowCollectionBehaviorStationary |
+                               NSWindowCollectionBehaviorFullScreenAuxiliary];
+      [w orderFrontRegardless];
+      [wm_tint_windows addObject:w];
+    }
+    *ok = 1;
+  }
+}
+
+int32_t wm_win_activate_mac(const char *id_or_title, int32_t *ok) {
+  @autoreleasepool {
+    *ok = 0;
+    pid_t pid = wm_win_pid_for(id_or_title);
+    if (pid == 0) {
+      return 0;
+    }
+    NSRunningApplication *app =
+        [NSRunningApplication runningApplicationWithProcessIdentifier:pid];
+    if (app == nil) {
+      return 0;
+    }
+    if ([app activateWithOptions:NSApplicationActivateAllWindows]) {
+      *ok = 1;
+    }
+    return 0;
+  }
+}
+
+int32_t wm_win_close_mac(const char *title, int32_t *ok) {
+  @autoreleasepool {
+    *ok = 0;
+    // 关闭要按到别的应用的关闭按钮：辅助功能权限缺失时给语义化权限错误
+    NSDictionary *trustOpts = @{
+      (__bridge NSString *)kAXTrustedCheckOptionPrompt : @NO
+    };
+    if (!AXIsProcessTrustedWithOptions(
+            (__bridge CFDictionaryRef)trustOpts)) {
+      *ok = 2;
+      return 0;
+    }
+    pid_t pid = wm_win_pid_for(title);
+    if (pid == 0) {
+      return 0;
+    }
+    AXUIElementRef app = AXUIElementCreateApplication(pid);
+    if (app == nil) {
+      return 0;
+    }
+    CFArrayRef windows = NULL;
+    AXUIElementCopyAttributeValue(app, kAXWindowsAttribute,
+                                  (CFTypeRef *)&windows);
+    int32_t done = 0;
+    if (windows != NULL) {
+      NSString *needle = [NSString stringWithUTF8String:title];
+      for (id w in (__bridge NSArray *)windows) {
+        AXUIElementRef win = (__bridge AXUIElementRef)w;
+        CFTypeRef t = NULL;
+        if (AXUIElementCopyAttributeValue(win, kAXTitleAttribute,
+                                          &t) == kAXErrorSuccess &&
+            t != NULL) {
+          NSString *axTitle =
+              CFBridgingRelease(t); // t 为 CFStringRef
+          NSRange r = [axTitle rangeOfString:needle
+                                     options:NSCaseInsensitiveSearch];
+          if (r.location != NSNotFound) {
+            CFTypeRef closeBtn = NULL;
+            if (AXUIElementCopyAttributeValue(win, kAXCloseButtonAttribute,
+                                              &closeBtn) ==
+                    kAXErrorSuccess &&
+                closeBtn != NULL) {
+              AXError pr = AXUIElementPerformAction(
+                  (AXUIElementRef)closeBtn, kAXPressAction);
+              if (pr == kAXErrorSuccess) {
+                done = 1;
+              }
+              CFRelease(closeBtn);
+            }
+          }
+        }
+        if (done) {
+          break;
+        }
+      }
+      CFRelease(windows);
+    }
+    CFRelease(app);
+    if (done) {
+      *ok = 1;
+    }
+    return 0;
+  }
+}
+
+int wm_notify_title(int slot, char *out, int cap) {
+  @autoreleasepool {
+    slot = wm_notify_slot_of(slot);
+    NSString *t = slot == 0 ? nil : wm_un_titles[slot];
+    if (t == nil) {
+      return wm_clamp_cap(out, cap, "");
+    }
+    return wm_clamp_cap(out, cap, [t UTF8String]);
+  }
+}
+
+
+// ---- 任务栏进度 -----------------------------------------------------------
+//
+// macOS 没有任务栏按钮：dock 徽标只有一枚文本角标，画不出「进度条 + 状态色」
+// 那一档语义。按跨平台门面口径给 supported = 0，让门面走 unsupported 降级，
+// 不拿角标冒充进度。
+int wm_taskbar_supported(void) { return 0; }
+int wm_taskbar_set_progress(int64_t wid, int64_t value, int64_t total) {
+  (void)wid;
+  (void)value;
   (void)total;
   return 0;
 }
@@ -12156,6 +12272,16 @@ void wm_inst_release(void) {}
 #elif !defined(__linux__) && !defined(__APPLE__)
 
 /* 剪贴板三符号（占位）：macOS 走 sys 自己的 pbpaste/pbcopy 命令线。 */
+int wm_clipboard_available(void) { return 0; }
+void *wm_clipboard_get_text(int32_t *ok) {
+  *ok = 0;
+  return moonbit_make_bytes(0, 0);
+}
+int wm_clipboard_set_text(const char *text) {
+  (void)text;
+  return 0;
+}
+
 // ---------------- 其余平台（macOS 等）占位 ----------------
 // 保证 `moon build --target native` 的符号不断；真后端随各自窗口层落地补。
 
@@ -12536,6 +12662,21 @@ void wm_hotkey_unregister(int id) { (void)id; }
 int wm_hotkey_poll(void) { return 0; }
 
 /* 系统权限 / 屏幕色温占位（macOS 等）：真实现住 WM_STUB_MAC 分支。 */
+int wm_permission_probe(int kind, int32_t *ok) {
+  (void)kind;
+  if (ok != NULL) {
+    *ok = 1;
+  }
+  return 0;
+}
+void wm_permission_request(int kind) { (void)kind; }
+void wm_screen_tint_apply(int32_t percent, int32_t *ok) {
+  (void)percent;
+  if (ok != NULL) {
+    *ok = 1;
+  }
+}
+
 int64_t wm_now_ms(void) {
   return 0;
 }

@@ -4,13 +4,13 @@ import {
   "NoahLiu/native-gui/widget" @widget,
 
   "NoahLiu/native-gui/ui",
-  "NoahLiu/gui-sys/sys",
-  "NoahLiu/gui-shell/shell" @shell,
+  "NoahLiu/native-gui/sys",
+  "NoahLiu/native-gui/shell" @shell,
   "NoahLiu/native-gui/style" @style,
   "NoahLiu/native-gui/theme" @theme,
   "NoahLiu/native-gui/text" @text,
-  "NoahLiu/gui-window/win" @win,
-  "NoahLiu/gui-shell/i18n" @i18n,
+  "NoahLiu/native-gui/win" @win,
+  "NoahLiu/native-gui/i18n" @i18n,
   "NoahLiu/yoga-mbt/src" @yoga,
   "moonbitlang/x/fs" @fs,
 }

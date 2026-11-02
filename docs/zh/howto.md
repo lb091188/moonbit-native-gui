@@ -14,7 +14,7 @@ import {
   "NoahLiu/native-gui/widget" @widget,
   "NoahLiu/native-gui/ui",
   "NoahLiu/native-gui/style" @style,
-    "NoahLiu/gui-sys/sys" @sys,
+  "NoahLiu/native-gui/sys" @sys,
   "NoahLiu/native-gui/theme" @theme,
 }
 ```

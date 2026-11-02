@@ -1,5 +1,5 @@
 import {
-  "NoahLiu/gui-window/win",
+  "NoahLiu/native-gui/win",
 }
 
 pkgtype(kind: "executable")

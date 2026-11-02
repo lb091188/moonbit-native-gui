@@ -38,6 +38,8 @@ LINUX_PKG_CONFIG_LIBS = ["gtk+-3.0", "pangoft2", "pangocairo", "fontconfig", "x1
 # （experiment/scripts/prebuild.py）：experiment 拆独立模块后，moon 按模块
 # 校验 link_configs 包名归属，跨模块条目在此报
 # 「does not match any package in module」、堵死所有 moon test。
+SYS_PACKAGE = "NoahLiu/native-gui/sys"
+WIN_PACKAGE = "NoahLiu/native-gui/win"
 RENDER_PACKAGE = "NoahLiu/native-gui/render"
 TEXT_PACKAGE = "NoahLiu/native-gui/text"
 def pkg_config(args: list[str], flag: str) -> list[str] | None:
@@ -154,8 +156,24 @@ def compile_mac_stub(src: Path, lib_name: str, extra_cflags: list[str]) -> str:
     return lib.as_posix()
 
 
-# MAC_WIN_FRAMEWORKS 随 win 包迁往 modules/gui-window/prebuild.py。
-# MAC_SYS_FRAMEWORKS 随 sys 包迁往 modules/gui-sys/prebuild.py。
+# macOS 各包要的框架清单（Xcode Command Line Tools 自带，无需安装任何东西）。
+# 逐条按「哪一个能力要它」写清楚，加框架前先想这条是否真的需要——链进来的
+# 每个框架都会出现在最终用户的 dyld 依赖表里。
+MAC_WIN_FRAMEWORKS = [
+    "-framework", "Cocoa",           # NSApplication/NSWindow/NSMenu/NSAlert/NSPasteboard
+    "-framework", "CoreGraphics",    # CGContext 贴像素、CGImage 造图标
+    "-framework", "Carbon",          # RegisterEventHotKey 一族（全局快捷键）
+    "-framework", "IOKit",           # 电源/显示器相关的读数
+    "-framework", "UserNotifications",  # 通知中心（UNUserNotificationCenter，mac 通知正路）
+]
+MAC_SYS_FRAMEWORKS = [
+    "-framework", "Cocoa",           # NSWorkspace（打开/揭示、壁纸）、NSFileManager
+    "-framework", "CoreGraphics",    # CGEventSourceSecondsSinceLastEventType（空闲读数）
+    "-framework", "CoreServices",    # LSSharedFileList（自启动）、UTType
+    "-framework", "IOKit",           # IOHIDSystem 空闲时间
+    "-framework", "ApplicationServices",  # 打印机（CorePrint）
+    "-framework", "CoreAudio",       # 音量（AudioObject*）
+]
 MAC_RENDER_FRAMEWORKS = [
     "-framework", "ImageIO",         # CGImageSource：PNG/JPEG/GIF 解码
     "-framework", "CoreGraphics",
@@ -182,9 +200,26 @@ def link_configs() -> dict:
             libs.extend(got)
         # 系统库不会被自动带上，显式补。
         sys_libs = ["-lpthread", "-ldl", "-lm", "-lstdc++", "-latomic"]
-        # win 已拆独立模块 NoahLiu/gui-window（本仓 modules/gui-window/）：窗口
-        # 桩编译与链接参数由该模块自己的 prebuild 按包名
-        # `NoahLiu/gui-window/win` 下发，这里不再碰 win。
+        win_lib = compile_stub(
+            MODULE_ROOT / "win" / "stub.c",
+            "libyue_win_stub.a",
+            extra_cflags=["-DWM_STUB_GTK"],
+        )
+        if win_lib:
+            entries.append({
+                "package": WIN_PACKAGE,
+                "link_flags": f"-L{BUILD_DIR.as_posix()} -lyue_win_stub "
+                + " ".join([*libs, *sys_libs]),
+            })
+        # sys 包的文件对话框（sys/dialog.mbt）extern 直链 win 桩的
+        # wm_file_* 符号：MoonBit 层不引 win（parent 是纯句柄 id），
+        # 链接由此处单独下发（GTK 库同 win 一套）。
+        if win_lib:
+            entries.append({
+                "package": SYS_PACKAGE,
+                "link_flags": f"-L{BUILD_DIR.as_posix()} -lyue_win_stub "
+                + " ".join([*libs, *sys_libs]),
+            })
         # 媒体引擎已迁出主模块（本仓 `modules/gui-media/media`）：它要的
         # 系统库链接参数（miniaudio 的设备线程与 dlopen 后端）不再由这里下发，
         # 改由该模块自己的 prebuild 按包名 `NoahLiu/gui-media/media` 下发。
@@ -228,8 +263,11 @@ def link_configs() -> dict:
         # 任务栏进度（§6.3）要 CLSID_TaskbarList / IID_ITaskbarList3 两个 GUID
         # 常量：C 模式用不了 __uuidof，链接期从 uuid.lib 取符号（同 W20f 图标
         # 加载走 windowscodecs.lib 的坑；ole32 只导 COM 基础 GUID，这两个不在）
-        # win 已拆独立模块 NoahLiu/gui-window：其 Windows 链接参数由该模块
-        # 自己的 prebuild 下发，这里不再碰 win。
+        entries.append({
+          "package": WIN_PACKAGE,
+          "link_flags": "user32.lib gdi32.lib imm32.lib advapi32.lib "
+          "windowscodecs.lib ole32.lib shell32.lib uuid.lib",
+        })
         # render 桩（render/stub.c 的 _WIN32 分支）由 moon native-stub 自编，
         # 这里只下发系统库：图片解码（W9）走 WIC，GUID 常量（CLSID_WICImaging
         # Factory1 / IID_IWICImagingFactory / GUID_WICPixelFormat32bppBGRA）
@@ -239,9 +277,24 @@ def link_configs() -> dict:
             "package": RENDER_PACKAGE,
             "link_flags": "windowscodecs.lib ole32.lib user32.lib",
         })
-        # sys 已拆独立模块 NoahLiu/gui-sys（本仓 modules/gui-sys/）：其
-        # Windows 链接参数由该模块自己的 prebuild 按包名
-        # `NoahLiu/gui-sys/sys` 下发，这里不再碰 sys。
+        # sys 桩（sys/sys_stub.c 的 _WIN32 分支）要 COM：文件对话框走
+        # IFileDialog（ole32 的 CoCreateInstance + shell32 的
+        # SHCreateItemFromParsingName），GUID 常量 CLSID_FileOpenDialog /
+        # IID_IFileDialog / IID_IShellItem 全在 uuid.lib——C 模式用不了
+        # __uuidof，只能链库取 extern 符号（记档于 experience/adaptation.md）。
+        # ShellExecuteW 在 shell32，子进程与文件函数属 kernel32（默认已链）。
+        # W21d 自启动写 HKCU Run 键要 advapi32（Reg* 一组）。
+        # 平台批①电源方案直调要 powrprof（PowerGet/SetActiveScheme）。
+        # 平台批③显示器枚举（EnumDisplayDevices/EnumDisplaySettings）在 user32，
+        # 不需要额外库；机器 DMI 的 WMI 兜底要 oleaut32（SysAllocString /
+        # VariantClear）与 wbemuuid（CLSID_WbemLocator / IID_IWbemLocator 两个
+        # GUID 常量，同样只能链库取符号）。
+        # 夜间色温 Windows 档要 gdi32：SetDeviceGammaRamp 是 gdi32 导出（GetDC
+        # 在 user32，两个库都要才连得上；漏链报 LNK2019 __imp_SetDeviceGammaRamp）。
+        entries.append({
+            "package": SYS_PACKAGE,
+            "link_flags": "ole32.lib oleaut32.lib wbemuuid.lib shell32.lib uuid.lib user32.lib gdi32.lib advapi32.lib powrprof.lib winspool.lib",
+        })
         # 文本层（text/dwrite_text.cpp 的 Windows 分支）走系统 DirectWrite：
         # dwrite.lib 供 DWriteCreateFactory、d2d1.lib 供 D2D 的 DC 渲染目标
         # （文字画进 32bpp DIB 再合成），GUID 常量取头文件 extern 符号要
@@ -252,11 +305,25 @@ def link_configs() -> dict:
             "link_flags": "dwrite.lib d2d1.lib windowscodecs.lib ole32.lib uuid.lib gdi32.lib",
         })
     elif system == "Darwin":
-        # 窗口后端：win/stub.c 的 WM_STUB_MAC 分支（Objective-C/Cocoa）。
-        # （sys 与 webview 已出独立模块 NoahLiu/gui-sys / NoahLiu/gui-webview，
-        # 其 mac 链接参数由各自模块自己的 prebuild 下发。）
-        # win 已拆独立模块 NoahLiu/gui-window：其 mac 桩与框架链接由该模块
-        # 自己的 prebuild 下发。
+        # 窗口后端：win/stub.c 的 WM_STUB_MAC 分支（Objective-C/Cocoa）。同一份归档
+        # 还要给两个包——sys 的文件对话框 extern 直链 win 桩的 wm_file_*（MoonBit 层
+        # 不引 win，parent 是纯句柄 id）：与 Linux 分支完全同一口径。（webview 已出
+        # 独立模块 NoahLiu/gui-webview，其 mac 链接参数由该模块自己的 prebuild 下发。）
+        win_lib = compile_mac_stub(
+            MODULE_ROOT / "win" / "stub.c",
+            "libyue_win_stub_mac.a",
+            ["-DWM_STUB_MAC"],
+        )
+        if win_lib:
+            win_flags = (
+                f"-L{BUILD_DIR.as_posix()} -lyue_win_stub_mac "
+                + " ".join(MAC_WIN_FRAMEWORKS)
+            )
+            entries.append({"package": WIN_PACKAGE, "link_flags": win_flags})
+            entries.append({
+                "package": SYS_PACKAGE,
+                "link_flags": win_flags + " " + " ".join(MAC_SYS_FRAMEWORKS),
+            })
         # render：图片解码走 ImageIO（CGImageSource）+ 落盘。光栅部分仍是纯
         # MoonBit 光栅器，cr_* 一族在 mac 分支是「探测即不可用」的桩，与 Windows
         # 同口径。

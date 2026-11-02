@@ -210,7 +210,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
             @ui.button(@shared.tx("打开文件…"), on_click=fn() {
               match app.host.val {
                 Some(a) => {
-                  let dlg = @win.FileDialog::new_open()
+                  let dlg = @sys.FileDialog::new_open()
                   dlg.set_filters(@shared.tx("文本文件:txt,md|所有文件:*"))
                   if dlg.run_for_window(dialog_parent(a)) {
                     let p = dlg.get_result()
@@ -230,7 +230,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
             @ui.button(@shared.tx("保存文件…"), variant=@ui.Soft, on_click=fn() {
               match app.host.val {
                 Some(a) => {
-                  let dlg = @win.FileDialog::new_save()
+                  let dlg = @sys.FileDialog::new_save()
                   dlg.set_filters(@shared.tx("文本文件:txt|所有文件:*"))
                   dlg.set_filename("showcase.txt")
                   if dlg.run_for_window(dialog_parent(a)) {
@@ -256,7 +256,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
         @ui.bind_label(file_out, fn(s) { s }),
       ],
       code=[
-        "let dlg = @win.FileDialog::new_open()",
+        "let dlg = @sys.FileDialog::new_open()",
         "dlg.set_filters(\"文本文件:txt,md|所有文件:*\")",
         "let parent = a.wid().to_int64() // 宿主窗口 id",
         "if dlg.run_for_window(parent) {",

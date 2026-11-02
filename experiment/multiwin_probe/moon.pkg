@@ -1,7 +1,7 @@
 import {
   "NoahLiu/native-gui/widget" @widget,
 
-  "NoahLiu/gui-window/win",
+  "NoahLiu/native-gui/win",
 }
 
 pkgtype(kind: "executable")

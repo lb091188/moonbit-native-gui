@@ -8,11 +8,11 @@ import {
   "NoahLiu/yoga-mbt/src" @yoga,
   "moonbitlang/core/math",
   "NoahLiu/native-gui/base",
-  "NoahLiu/gui-shell/shell",
+  "NoahLiu/native-gui/shell",
   "NoahLiu/native-gui/widget" @widget,
   "NoahLiu/native-gui/render",
   "NoahLiu/native-gui/text",
   "NoahLiu/native-gui/theme",
-  "NoahLiu/gui-sys/sys",
+  "NoahLiu/native-gui/sys",
   "NoahLiu/native-gui/ui",
 }

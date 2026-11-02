@@ -17,10 +17,6 @@ repository = "https://github.com/lb091188/moonbit-native-gui"
 import {
   "NoahLiu/yoga-mbt@0.1.1",
   "NoahLiu/mdparse@0.1.0",
-  "NoahLiu/gui-sys@0.1.0",
-  "NoahLiu/gui-window@0.1.0",
-  "NoahLiu/gui-dbus@0.1.0",
-  "NoahLiu/gui-shell@0.1.0",
   "prowk/moonsqlitefile@0.8.0",
 }
 
