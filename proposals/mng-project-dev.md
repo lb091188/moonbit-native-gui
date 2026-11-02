@@ -19,7 +19,7 @@
 - 生成码落到**模板自己所在的包目录**（不再要 `--out-dir`）。
 - 一拍内多个改动合并成一次 build / 重启；HOT 的逐个推补丁。
 - 单页过滤是可选参数（`mng dev <某个 .mng>`），不是主形态。
-- `mng_cli init` 在模块根写一份带注释的 `mng.toml` 样板。
+- `mng init` 在模块根写一份带注释的 `mng.toml` 样板。
 
 ## 两种生成模式（同一个 `<stem>.gen.mbt`）
 
@@ -53,10 +53,10 @@ pub fn <stem>() -> @widget.Node {
 ## 落地状态
 
 - **A**：编译器 dev 档、`mng_dev_page`、showcase 演示页改调生成页（手写注册表删除）、`mng dev` 产 dev 形态。
-- **B**：`mng.toml` 与 `mng dev` 无参（向上找配置、递归扫模板、生成码落模板所在包、一拍改动合并重启、app-id 派生、`run` 留空时从 build 的 `Artifacts` 按模块名挑可执行、默认 `moon build .` 只建本包）、撞名按包聚合、`mng_cli init` 样板；模板文件与用它的页面同包（演示页模板已移进 `examples/showcase/pages/`）。
+- **B**：`mng.toml` 与 `mng dev` 无参（向上找配置、递归扫模板、生成码落模板所在包、一拍改动合并重启、app-id 派生、`run` 留空时从 build 的 `Artifacts` 按模块名挑可执行、默认 `moon build .` 只建本包）、撞名按包聚合、`mng init` 样板；模板文件与用它的页面同包（演示页模板已移进 `examples/showcase/pages/`）。
 
 ## 后续
 
-- 命令改名 `mng`（现为 `mng_cli`）。
+- 命令改名 `mng`（现为 `mng`）。
 - VS Code「MNG: dev」入口（拉起 `mng dev` 并复用现有 lsp 诊断/补全）。
 - 上游 native 热重载落地后，IR 通道升格真代码热换。

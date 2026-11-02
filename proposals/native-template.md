@@ -42,10 +42,10 @@
 ## 落地顺序
 
 1. **spike 先于编译器**：挑 showcase 一个页面，手写「目标模板版」+「它应该被编译成的 MoonBit 版」，两边对照钉死语法与产物契约。契约冻结前不写解析器。
-2. **`build` 子命令**（住 `tools/`，workspace 成员现成）：解析器 + 拼接器 + 源映射——DX 生死线是错误回映射。**已落地**（2026-11-02，`tools/native-gui-tools/mngkit` 内核 + `tools/native-gui-tools/mng_cli` 终端：build / map-errors，golden 6/6、错误回映射端到端验通；按冻结契约生成，`v-for` 按记档收口报错）。
+2. **`build` 子命令**（住 `tools/`，workspace 成员现成）：解析器 + 拼接器 + 源映射——DX 生死线是错误回映射。**已落地**（2026-11-02，`tools/native-gui-tools/mngkit` 内核 + `tools/native-gui-tools/mng` 终端：build / map-errors，golden 6/6、错误回映射端到端验通；按冻结契约生成，`v-for` 按记档收口报错）。
 3. **Phase 0 探针（先于 IR 协议）**：手工 IR 补丁打进 showcase 单页，验证「init 建状态 → 按 IR 构树 → 沿 holder 原位重挂」亚秒可见、订阅整代退订干净——探针不过，IR 通道整体不发生。旁路小探针：moonbit native 能否出共享库（relink 小 .so + 起进程或可把回退档压到 ~1s，进程每次是新的、不碰 GC 互通）；不成立归并上游增量链接诉求。
-4. **`dev` 子命令**：watch + 改动分类（`mngkit.hot_ir`：script 逐字同；结构 / class / `<style>` 值 / 受限表达式 → HOT，否则回退）+ 经单实例通道推 IR 补丁；回退时 `moon build` → 杀旧进程 → 带参重启并唤醒回改动页。**已落地**（2026-11-02，`tools/native-gui-tools/mng_cli` dev：watch 内容对比 + hot_ir 分类 + 回退编排；HOT 补丁经单实例通道推送，D-Bus 臂补套接字旁路；应用侧按 `classes` 重注册命名类、按 `eval` AST 登记新表达式；配套 `@sys` 增 pr_spawn / pr_alive（僵尸收尸）/ pr_kill / pr_sleep_ms）。
-5. **终态：独立工具二进制**（本路线的 Vite 位次）：一个自包含 native 可执行，`moon install` 分发；子命令 `dev` / `build`（纯生产产物，零 dev 痕迹）/ `new`（新 `.mng.html` 页样板脚手架）/ `preview`（独立预览窗：同一 applier + mock 状态）/ `lsp`。无侵入边界——只编排模板文件、token 文件、`moon build`、应用进程四样，应用侧 dev 面仅 theme/IR 两个监听，生产构建零痕迹；不做插件系统、不做 dev server（取 Vite 的一命令体验，不取其工程规模）。命名按路线门面标准起（开放问题 5）。**依赖边界**（2026-11-02 定）：工具二进制不依赖 GUI 库——`gui/sys` 在 Linux 上要链 GTK 剪贴板符号，命令行工具带上它就得装 GTK 开发包；进程原语（`tools/native-gui-tools/proc`）与单实例客户端（`tools/native-gui-tools/inst`，帧格式与 shell 通道逐字一致）在 tools 内自给，`mng_cli` 只链 libc/libgcc。工具模块仍留 `NoahLiu/native-gui` 依赖给 GUI 预览工具（i18n/icon 三态），但 `mng_cli` 的包闭包不含任何 GUI 包。**发布纪律**（2026-11-02 定）：工具独立于主包发布——MoonBit 发布单元是模块，住进 gui 会让所有应用白拉工具源码，而消费者只要提交在仓的生成码、只有作者 `moon install` 装；开发期 tools 留 workspace 同仓同 CI，终态齐活（dev/build/new/preview/lsp）再补 mooncakes 发布配置；`mngkit` 留 tools 内，待第三方单独消费编译器内核的场景出现再拆。版本协议：工具与 gui **同批配对发版**（内置组件表 ↔ `@ui.*` 签名、IR schema ↔ applier 是强耦合面；gui 破坏性改动同批重发工具），一致性由同仓 CI 钉住（组件签名变更即 showcase 生成码编不过）。
+4. **`dev` 子命令**：watch + 改动分类（`mngkit.hot_ir`：script 逐字同；结构 / class / `<style>` 值 / 受限表达式 → HOT，否则回退）+ 经单实例通道推 IR 补丁；回退时 `moon build` → 杀旧进程 → 带参重启并唤醒回改动页。**已落地**（2026-11-02，`tools/native-gui-tools/mng` dev：watch 内容对比 + hot_ir 分类 + 回退编排；HOT 补丁经单实例通道推送，D-Bus 臂补套接字旁路；应用侧按 `classes` 重注册命名类、按 `eval` AST 登记新表达式；配套 `@sys` 增 pr_spawn / pr_alive（僵尸收尸）/ pr_kill / pr_sleep_ms）。
+5. **终态：独立工具二进制**（本路线的 Vite 位次）：一个自包含 native 可执行，`moon install` 分发；子命令 `dev` / `build`（纯生产产物，零 dev 痕迹）/ `new`（新 `.mng.html` 页样板脚手架）/ `preview`（独立预览窗：同一 applier + mock 状态）/ `lsp`。无侵入边界——只编排模板文件、token 文件、`moon build`、应用进程四样，应用侧 dev 面仅 theme/IR 两个监听，生产构建零痕迹；不做插件系统、不做 dev server（取 Vite 的一命令体验，不取其工程规模）。命名按路线门面标准起（开放问题 5）。**依赖边界**（2026-11-02 定）：工具二进制不依赖 GUI 库——`gui/sys` 在 Linux 上要链 GTK 剪贴板符号，命令行工具带上它就得装 GTK 开发包；进程原语（`tools/native-gui-tools/proc`）与单实例客户端（`tools/native-gui-tools/inst`，帧格式与 shell 通道逐字一致）在 tools 内自给，`mng` 只链 libc/libgcc。工具模块仍留 `NoahLiu/native-gui` 依赖给 GUI 预览工具（i18n/icon 三态），但 `mng` 的包闭包不含任何 GUI 包。**发布纪律**（2026-11-02 定）：工具独立于主包发布——MoonBit 发布单元是模块，住进 gui 会让所有应用白拉工具源码，而消费者只要提交在仓的生成码、只有作者 `moon install` 装；开发期 tools 留 workspace 同仓同 CI，终态齐活（dev/build/new/preview/lsp）再补 mooncakes 发布配置；`mngkit` 留 tools 内，待第三方单独消费编译器内核的场景出现再拆。版本协议：工具与 gui **同批配对发版**（内置组件表 ↔ `@ui.*` 签名、IR schema ↔ applier 是强耦合面；gui 破坏性改动同批重发工具），一致性由同仓 CI 钉住（组件签名变更即 showcase 生成码编不过）。
 6. **灰度**：新页面用模板写，存量页面不迁移。
 
 ## Spike 契约（2026-11-01 冻结，showcase 表单页）
@@ -336,16 +336,16 @@ Web 主面壳形态不做（roadmap「明确不做」）。原生面是唯一主
 
 关键认知：LSP 最贵的数据源全部在已规划基建里——source map（错误回映射副产品）、dev 注册表、类注册表；插件不是独立工程，是工具二进制的子命令 + 薄壳（Slint 同构：`slint-lsp` 住主仓 `tools/lsp`）。
 
-**分工：语义计算全在 `mng_cli lsp`，VSIX 只做静态贡献包。**
+**分工：语义计算全在 `mng lsp`，VSIX 只做静态贡献包。**
 
 | 侧 | 内容 |
 | --- | --- |
-| VSIX（`tools/vscode-mng/`，零依赖 JS，不进 moon.work） | **已落地**：`.mng` 语言注册 + TextMate 着色（script 段 MoonBit / style 段样式子集 / 模板标签与 `{{ }}`）+ snippets + 手写 LSP 客户端（定位 `mng_cli`、握手 `mng-schema 1`、对不上补全降级为空）+ 语义着色 provider（转发 `semanticTokens/full`，legend 与服务端同序拷贝）+ 安装引导 |
-| `mng_cli lsp`（stdio JSON-RPC） | **v1 已落地**：`initialize` / `didOpen`·`didChange` / `completion` / `hover` / `definition` / `semanticTokens/full` / `publishDiagnostics` / `shutdown`·`exit`；诊断为编译错误的模板坐标（`行 L 列 C`），补全分四档（标签 = 内置表 + 页内符号、属性 = 内置参数 + v-*/@事件、表达式 = props/槽/函数名 + 常用模块前缀、类名 = 本文件 `<style>`）、hover = 组件参数表、跳转 = 组件源码文件（`Sigs::locate`）或页内声明行；语义着色 = mngkit 语义分词器按符号表分档（类型/let 变量/参数/函数/方法/属性/命名空间，只发标识符类，其余维持 TextMate）；语义计算复用 mngkit，LSP 只做编解码 |
+| VSIX（`tools/vscode-mng/`，零依赖 JS，不进 moon.work） | **已落地**：`.mng` 语言注册 + TextMate 着色（script 段 MoonBit / style 段样式子集 / 模板标签与 `{{ }}`）+ snippets + 手写 LSP 客户端（定位 `mng`、握手 `mng-schema 1`、对不上补全降级为空）+ 语义着色 provider（转发 `semanticTokens/full`，legend 与服务端同序拷贝）+ 安装引导 |
+| `mng lsp`（stdio JSON-RPC） | **v1 已落地**：`initialize` / `didOpen`·`didChange` / `completion` / `hover` / `definition` / `semanticTokens/full` / `publishDiagnostics` / `shutdown`·`exit`；诊断为编译错误的模板坐标（`行 L 列 C`），补全分四档（标签 = 内置表 + 页内符号、属性 = 内置参数 + v-*/@事件、表达式 = props/槽/函数名 + 常用模块前缀、类名 = 本文件 `<style>`）、hover = 组件参数表、跳转 = 组件源码文件（`Sigs::locate`）或页内声明行；语义着色 = mngkit 语义分词器按符号表分档（类型/let 变量/参数/函数/方法/属性/命名空间，只发标识符类，其余维持 TextMate）；语义计算复用 mngkit，LSP 只做编解码 |
 
 - **补全目录的来源**：表达式内补同文件 script 段的 Store/Signal/props/函数名；标签补内置组件表 + 项目内组件；组件参数与类型读 `pkg.generated.mbti`（`moon check` 产，位置参在前、labeled 带 `?`）；class 与 token 读样式章摊平产物。**不引入原生 HTML/CSS 的语义补全**——能力子集与原生差距大，原生只作高亮底子。
 - **真实类型 hover 不在 v1**：需桥 `moon ide` + source map 正向索引，另批。
-- **握手与降级**：插件启动对 `mng_cli --version` 报 schema 位，对不上则补全降级为空，高亮与 snippets 照用。
+- **握手与降级**：插件启动对 `mng --version` 报 schema 位，对不上则补全降级为空，高亮与 snippets 照用。
 - **发布分离**：工具随 `NoahLiu/native-gui-tools` 走 mooncakes（`moon install` / `moonx`）；插件走 VSIX。与 gui 同批配对发版的规则不变。
 
 ## 与既有规划的关系

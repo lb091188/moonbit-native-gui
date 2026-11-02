@@ -3,7 +3,7 @@
 // 分类判据与边界见 proposals/native-template.md「开发循环」二轮节。
 
 fn usage_dev() -> Unit {
-  println("用法：moon run tools/native-gui-tools/mng_cli -- dev [<某个 .mng 或目录>] [--build-cmd …] [--run-cmd …] [--app-id …] [--poll-ms 300] [--out-dir <目录>]")
+  println("用法：moon run tools/native-gui-tools/mng -- dev [<某个 .mng 或目录>] [--build-cmd …] [--run-cmd …] [--app-id …] [--poll-ms 300] [--out-dir <目录>]")
   println("  工程级：无参时向上找 mng.toml（没有就按 moon.mod / moon.work 推默认值），递归扫 templates 里的 *.mng")
   println("  位置参数：只盯这一个文件/目录（可选过滤）")
   println("  生成码落到模板自己所在的包目录（<stem>.gen.mbt，dev 形态）；--out-dir 仅供调试强行指定")

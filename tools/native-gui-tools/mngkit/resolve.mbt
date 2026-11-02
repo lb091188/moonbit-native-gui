@@ -1,5 +1,5 @@
 // 组件签名解析：`@别名.函数名` → 该函数的源码签名原文。内核零依赖，文件访问
-// 由工具侧注入（mng_cli build/dev/lsp 共用）。定位口径：当前包的 moon.pkg 取
+// 由工具侧注入（mng build/dev/lsp 共用）。定位口径：当前包的 moon.pkg 取
 // 别名 → 包标识，workspace 成员（moon.work + 各 moon.mod 的 name）与
 // .mooncakes 依赖目录把包标识换成目录，再扫 *.mbt（含生成的 *.gen.mbt）与 *.mng。
 

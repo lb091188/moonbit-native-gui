@@ -13,7 +13,6 @@
 ### 工具后续批次
 
 - [ ] **preview 子命令**：独立预览窗（同一 applier + mock 状态），工具终态 dev/build/new/preview/lsp 的缺角
-- [ ] **命令改名 `mng`**：`mng_cli` → `mng`（对外 DX 第一入口的命名，native-template 开放问题 5 + mng-project-dev 后续；改名同批核对 README/教程/编辑器插件 `mng.cliPath` 默认值与安装引导）
 - [ ] **Windows dev 唤醒**：工具侧 Win32 单实例客户端——现仅 D-Bus 臂有套接字旁路，Windows HOT 推送未验
 - [ ] **VS Code「MNG: dev」入口**：命令面板拉起 `mng dev` 并复用现有 lsp 诊断/补全（mng-project-dev 后续）
 - [ ] **真实类型 hover**：桥 `moon ide` + source map 正向索引（native-template 开放问题 6，另批）

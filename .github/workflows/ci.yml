@@ -151,7 +151,7 @@ jobs:
             dir=$(dirname "$f")
             stem=$(basename "${f%.mng}")
             out="/tmp/fresh_$(echo "$f" | tr '/' '_').gen.mbt"
-            if ! moon run tools/native-gui-tools/mng_cli -- gen "$abs" -o "$out" >/dev/null 2>&1; then
+            if ! moon run tools/native-gui-tools/mng -- gen "$abs" -o "$out" >/dev/null 2>&1; then
               echo "::error title=模板编译失败::$f"
               status=1
               continue
@@ -159,7 +159,7 @@ jobs:
             committed="$dir/$stem.gen.mbt"
             if [ -f "$committed" ]; then
               if ! diff -u "$committed" "$out" >/tmp/fresh.diff 2>&1; then
-                echo "::error title=生成物过期::$committed —— 重跑 dev 循环或 mng_cli gen 重新生成并提交"
+                echo "::error title=生成物过期::$committed —— 重跑 dev 循环或 mng gen 重新生成并提交"
                 head -20 /tmp/fresh.diff
                 status=1
               fi

@@ -273,7 +273,7 @@ fn load_dev_conf(
 ) -> Result[DevConf, String] {
   let (root, kind) = match find_project_root(cwd) {
     Some(x) => x
-    None => return Err("找不到 mng.toml / moon.mod / moon.work——在项目里跑，或先 `mng_cli init`")
+    None => return Err("找不到 mng.toml / moon.mod / moon.work——在项目里跑，或先 `mng init`")
   }
   let templates : Array[String] = []
   let mut build = "moon build ."
@@ -413,10 +413,10 @@ fn collision_msg(files : Array[String]) -> String? {
 }
 
 ///|
-/// `mng_cli init` 的配置样板。
+/// `mng init` 的配置样板。
 fn mng_toml_template() -> String {
   let lines = [
-    "# mng dev 的工程配置（mng_cli init 生成）",
+    "# mng dev 的工程配置（mng init 生成）",
     "# 命令与相对路径都以执行 mng dev 时的当前目录为准。",
     "",
     "[dev]",

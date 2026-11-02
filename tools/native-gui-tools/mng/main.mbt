@@ -3,11 +3,11 @@
 //   map-errors --map <out.mbt.map> <log>  把 moon check 日志里的生成码行列映射回模板
 //
 // DX 生死线（proposals/native-template.md）：错误回映射。用法——
-//   moon run tools/native-gui-tools/mng_cli -- build page.mng -o page.mbt
-//   moon check > check.log 2>&1; moon run tools/native-gui-tools/mng_cli -- map-errors --map page.mbt.map check.log
+//   moon run tools/native-gui-tools/mng -- build page.mng -o page.mbt
+//   moon check > check.log 2>&1; moon run tools/native-gui-tools/mng -- map-errors --map page.mbt.map check.log
 
 fn usage() -> Unit {
-  println("用法：moon run tools/native-gui-tools/mng_cli -- <子命令> ...")
+  println("用法：moon run tools/native-gui-tools/mng -- <子命令> ...")
   println("  build <input.mng> -o <out.mbt>    编译模板：产出 out.mbt 与 out.mbt.map")
   println("  gen <input.mng> -o <out.mbt>      dev 形态编译（CI 生成物对账用，无 map）")
   println("  map-errors --map <out.mbt.map> <log>   把日志中 <gen>.mbt:行:列 映射回模板行列")
@@ -50,7 +50,7 @@ fn basename(p : String) -> String {
 ///|
 /// --version：版本与 mng-schema 位（编辑器插件启动时握手，对不上则补全降级）。
 fn cmd_version() -> Int {
-  println("mng_cli 0.1.0")
+  println("mng 0.1.0")
   println("mng-schema 1")
   0
 }

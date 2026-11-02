@@ -166,7 +166,7 @@ test "Artifacts 段解析：按模块名挑，别家模块的行不认（裸 wor
     "Artifacts:",
     "  NoahLiu/other  native  /tmp/mng_proj_tool.bin",
     "  Acme/app  native  /tmp/mng_proj_artifact.bin",
-    "  NoahLiu/native-gui-tools/mng_cli  native  /tmp/mng_proj_tool.bin",
+    "  NoahLiu/native-gui-tools/mng  native  /tmp/mng_proj_tool.bin",
     "",
   ].join("\n")
   assert_eq(artifact_of_log(log, "Acme/app"), Some("/tmp/mng_proj_artifact.bin"))

@@ -1,6 +1,6 @@
 // MNG VS Code 扩展：静态贡献（语法/片段/语言注册）+ 手写 LSP 客户端。
-// 语义全部来自 mng_cli lsp（stdio JSON-RPC）；本文件只做编解码与注册。
-// 握手：启动时跑 `mng_cli --version`，读到 `mng-schema 1` 才接语义，否则降级为
+// 语义全部来自 mng lsp（stdio JSON-RPC）；本文件只做编解码与注册。
+// 握手：启动时跑 `mng --version`，读到 `mng-schema 1` 才接语义，否则降级为
 // 「只着色 + snippets」并在状态栏提示一次。
 
 const vscode = require('vscode');
@@ -13,7 +13,7 @@ let client = null;
 let status = null;
 let warned = false;
 
-// 语义令牌 legend（标准序，与 mng_cli lsp 服务端 sem_legend_types/mods 同序拷贝）。
+// 语义令牌 legend（标准序，与 mng lsp 服务端 sem_legend_types/mods 同序拷贝）。
 // 服务端只发标识符类（类型/变量/参数/函数/方法/属性/命名空间），其余区间维持 TextMate。
 const SEMANTIC_TYPES = [
   'namespace',
@@ -59,7 +59,7 @@ function outputChannel() {
   return outputChannel._ch;
 }
 
-// ---- 定位 mng_cli ----
+// ---- 定位 mng ----
 
 function findInPath(name) {
   const exts = process.platform === 'win32' ? ['.exe', '.cmd', ''] : [''];
@@ -80,16 +80,16 @@ function findInPath(name) {
 }
 
 function resolveCli() {
-  const cfg = vscode.workspace.getConfiguration('mng').get('cliPath', 'mng_cli');
+  const cfg = vscode.workspace.getConfiguration('mng').get('cliPath', 'mng');
   if (cfg && (cfg.includes('/') || cfg.includes('\\'))) {
     return fs.existsSync(cfg) ? cfg : null;
   }
-  const hit = findInPath(cfg || 'mng_cli');
+  const hit = findInPath(cfg || 'mng');
   if (hit) {
     return hit;
   }
   // GUI 启动的编辑器常拿不到 shell 的 PATH：补查 moon 默认安装位
-  const exe = process.platform === 'win32' ? 'mng_cli.exe' : 'mng_cli';
+  const exe = process.platform === 'win32' ? 'mng.exe' : 'mng';
   const home = process.env.HOME || process.env.USERPROFILE || '';
   if (home) {
     const p = path.join(home, '.moon', 'bin', exe);
@@ -143,7 +143,7 @@ class MngClient {
     this.proc.on('exit', (code) => {
       this.stopped = true;
       for (const [, p] of this.pending) {
-        p.reject(new Error('mng_cli lsp 退出 code=' + code));
+        p.reject(new Error('mng lsp 退出 code=' + code));
       }
       this.pending.clear();
       outputChannel().appendLine(`[lsp] 进程退出 code=${code}`);
@@ -230,7 +230,7 @@ class MngClient {
 
   request(meth, params) {
     if (!this.proc || this.stopped) {
-      return Promise.reject(new Error('mng_cli lsp 未就绪'));
+      return Promise.reject(new Error('mng lsp 未就绪'));
     }
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
@@ -488,7 +488,7 @@ function startClient(ctx, cli, diagnostics) {
   client.start(rootUri).then(() => {
     if (status) {
       status.text = '$(check) MNG';
-      status.tooltip = 'mng_cli lsp 已连接';
+      status.tooltip = 'mng lsp 已连接';
     }
     collectDocuments(client);
     outputChannel().appendLine('[lsp] 已连接');
@@ -552,12 +552,12 @@ function activate(ctx) {
   const cli = resolveCli();
   if (!cli) {
     status.text = '$(warning) MNG';
-    status.tooltip = '未找到 mng_cli';
+    status.tooltip = '未找到 mng';
     if (!warned) {
       warned = true;
       vscode.window
         .showWarningMessage(
-          'MNG：未找到 mng_cli（补全/诊断不可用，着色与 snippets 照用）。装法：在仓库根执行 moon install ./tools/native-gui-tools/mng_cli，或在设置 mng.cliPath 指向可执行文件。',
+          'MNG：未找到 mng（补全/诊断不可用，着色与 snippets 照用）。装法：在仓库根执行 moon install ./tools/native-gui-tools/mng，或在设置 mng.cliPath 指向可执行文件。',
           '打开设置'
         )
         .then((pick) => {
@@ -574,7 +574,7 @@ function activate(ctx) {
     status.text = '$(warning) MNG（补全降级）';
     status.tooltip = '握手失败：' + hs.why;
     vscode.window.showWarningMessage(
-      'MNG：mng_cli 握手失败（' + hs.why + '），补全降级为空，着色与 snippets 照用。'
+      'MNG：mng 握手失败（' + hs.why + '），补全降级为空，着色与 snippets 照用。'
     );
     return;
   }

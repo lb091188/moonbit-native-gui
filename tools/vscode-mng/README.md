@@ -1,10 +1,10 @@
 # MNG VS Code 扩展（`tools/vscode-mng`）
 
-`.mng` 模板的编辑器支持。**静态贡献包**（语言注册 / TextMate 着色 / snippets）住这里，语义（诊断、补全、hover、跳转）全部来自 `mng_cli lsp`——本扩展只做 LSP 编解码。
+`.mng` 模板的编辑器支持。**静态贡献包**（语言注册 / TextMate 着色 / snippets）住这里，语义（诊断、补全、hover、跳转）全部来自 `mng lsp`——本扩展只做 LSP 编解码。
 
 ## 装
 
-1. **mng_cli**：从仓库根执行 `moon install ./tools/native-gui-tools/mng_cli`（装到 `~/.moon/bin`；`moon install` 要「主包」路径，指模块根会报 `is-main: true required`）。验证：`mng_cli --version` 应打印 `mng_cli 0.1.0` 与 `mng-schema 1`。PATH 里找不到时，在设置 `mng.cliPath` 里填绝对路径。
+1. **mng**：从仓库根执行 `moon install ./tools/native-gui-tools/mng`（装到 `~/.moon/bin`；`moon install` 要「主包」路径，指模块根会报 `is-main: true required`）。验证：`mng --version` 应打印 `mng 0.1.0` 与 `mng-schema 1`。PATH 里找不到时，在设置 `mng.cliPath` 里填绝对路径。
 2. **扩展**：本目录执行
    ```sh
    npx @vscode/vsce package
@@ -26,7 +26,7 @@
 | 语义着色 | LSP semantic tokens：类型 / let 变量（含 readonly 档）/ props 与签名参数 / 函数 / 方法 / 属性 / `@包` 命名空间按符号表分档（`{{ }}`、`:attr`、`v-model`、`@事件` 表达式槽与 script 段同规则），开语义高亮的主题直接给出区分色；见下方「配色」 |
 | snippets | 页骨架、props 头、单根模板、`v-model`、条件链、样式类、组件调用、跨包绑定 |
 | 补全 | 标签 = 内置组件表 + 页内符号；属性 = 组件签名的全部参数（含可省参数，带类型 detail）+ `v-*` / `@事件`；表达式与 script 段 = 页内符号 + `moon.pkg` 的 `@别名` 表，`@别名.` 后给该包 `.mbti` 的公开成员（函数 / `类型::方法` / 类型 / 常量）；`class="…"` = 本文件 `<style>` 的类名；`<style>` 段 = 属性名（kebab）+ `var(--令牌)` 的主题色/尺度令牌 |
-| 诊断 | 编译错误的模板行列（与 `mng_cli build` 同源），显示在 Problems 面板 |
+| 诊断 | 编译错误的模板行列（与 `mng build` 同源），显示在 Problems 面板 |
 | hover | 组件参数表来自签名（`名? : 类型 = 默认值` 逐行）；属性悬浮指出该参数的类型、默认值与说明（说明取自组件源码的参数级 `///` 文档）；`v-*` 指令 / `@事件` / `:动态参数` 各给说明；`@别名.成员` 显示源码声明行；`@别名` 显示包目录。文案随编辑器语言（`vscode.env.language`）中英切换；诊断文本来自编译器，暂为中文 |
 | 跳转 | 组件标签 → 组件源码（内置 `ui-*` 走 `@ui.<名>`）；页内标识符 → 声明行；`@别名.成员` → 该包源码文件与行号；裸 `@别名` → 包入口（`.mbti` / `moon.pkg`） |
 
@@ -62,7 +62,7 @@
 
 ### 语义着色（类型 / 变量 / 参数在任何主题下按语义区分）
 
-TextMate 是正则文法，只能按词形近似（大写当类型、其余小写一律变量）。LSP 侧另有 semantic tokens 通道：`mng_cli lsp` 按符号表分档，编辑器按**语义档**取色——主题自带的语义规则（或其回退 scope 映射）让类型 / 变量 / 参数开箱即有区分色，不用逐主题补。
+TextMate 是正则文法，只能按词形近似（大写当类型、其余小写一律变量）。LSP 侧另有 semantic tokens 通道：`mng lsp` 按符号表分档，编辑器按**语义档**取色——主题自带的语义规则（或其回退 scope 映射）让类型 / 变量 / 参数开箱即有区分色，不用逐主题补。
 
 | 语义档 | 分给谁 |
 | --- | --- |
@@ -75,7 +75,7 @@ TextMate 是正则文法，只能按词形近似（大写当类型、其余小�
 
 规则：
 
-- 只对标识符类发语义令牌；关键字、字面量、标点、注释、CSS、class 值仍走 TextMate（上表），LSP 降级（`mng.enableLsp=false`、握手失败、旧 mng_cli）时整体退回纯 TextMate，无感。
+- 只对标识符类发语义令牌；关键字、字面量、标点、注释、CSS、class 值仍走 TextMate（上表），LSP 降级（`mng.enableLsp=false`、握手失败、旧 mng）时整体退回纯 TextMate，无感。
 - **主题开关**：`editor.semanticHighlighting.enabled` 默认 `configuredByTheme`——主题没标 `semanticHighlighting: true`（Solarized 类常见主题就没标）时语义着色不生效。要强制开：
   ```json
   "editor.semanticHighlighting.enabled": true
