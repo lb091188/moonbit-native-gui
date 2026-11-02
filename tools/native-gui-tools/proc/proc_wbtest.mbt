@@ -79,3 +79,18 @@ fn contains_sub_p(s : String, sub : String) -> Bool {
   }
   false
 }
+
+///|
+test "run_wait：裸命令名走 PATH（exec 失败 errno 经管道回传的回归）" {
+  if posix_only() {
+    // 裸命令名：只有 execvp 会去 PATH 找，预检已撤
+    assert_eq(run_wait("sh", ["-c", "exit 3"], 5000), Ok(3))
+    // 裸名 + PATH 里没有：走 exec 失败的管道回传，报「起不来」
+    assert_true(
+      match run_wait("mng_totally_missing_cmd", [], 2000) {
+        Err(e) => contains_sub_p(e, "起不来")
+        Ok(_) => false
+      },
+    )
+  }
+}

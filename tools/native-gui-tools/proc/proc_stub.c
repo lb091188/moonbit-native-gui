@@ -258,29 +258,52 @@ int32_t mngpr_run_wait(const char *file, const char *blob, int32_t len,
     mngpr_err = EINVAL;
     return -1;
   }
-  if (access(file, X_OK) != 0) {
-    mngpr_err = errno;
-    return -1;
-  }
   int32_t argc = 0;
   char **argv = mngpr_argv(file, blob, len, &argc);
   if (argv == NULL) {
     mngpr_err = ENOMEM;
     return -1;
   }
+  // exec 失败要回传 errno：写端设 CLOEXEC，exec 成功即被关掉（父进程读到 EOF）。
+  // 不能先 access() 预检——access 不查 PATH，裸命令名会被误判成不存在。
+  int epipe[2];
+  if (pipe(epipe) != 0) {
+    mngpr_err = errno;
+    free(argv);
+    return -1;
+  }
+  (void)fcntl(epipe[1], F_SETFD, FD_CLOEXEC);
   pid_t pid = fork();
   if (pid < 0) {
     mngpr_err = errno;
+    close(epipe[0]);
+    close(epipe[1]);
     free(argv);
     return -1;
   }
   if (pid == 0) {
     setpgid(0, 0);
+    close(epipe[0]);
     execvp(file, argv);
+    int e = errno;
+    ssize_t wr = write(epipe[1], &e, sizeof(e));
+    (void)wr;
     _exit(127);
   }
+  close(epipe[1]);
   free(argv);
   int status = 0;
+  int child_err = 0;
+  ssize_t got;
+  do {
+    got = read(epipe[0], &child_err, sizeof(child_err));
+  } while (got < 0 && errno == EINTR);
+  close(epipe[0]);
+  if (got == (ssize_t)sizeof(child_err)) {
+    mngpr_err = child_err;
+    waitpid(pid, &status, 0);
+    return -1;
+  }
   int waited = 0;
   while (1) {
     pid_t r = waitpid(pid, &status, WNOHANG);
