@@ -303,3 +303,64 @@ pub fn pr_run(
   let _ = sys_remove_file(err_path)
   ans
 }
+
+// ---------------------------------------------------------------------------
+// dev 编排原语（模板工具 dev 循环用）：spawn 不等待、探活、终止、节拍。
+// 语义与 pr_run 共享 proc_spawn 桩；独立成面是因为 dev 需要 pid 句柄。
+// ---------------------------------------------------------------------------
+
+///|
+extern "c" fn ffi_sys_sleep_ms(ms : Int) -> Unit = "yue_sys_sleep_ms"
+
+///|
+extern "c" fn ffi_sys_pr_signal(pid : Int, sig : Int) -> Int = "yue_sys_pr_signal"
+
+///|
+/// 毫秒节拍（watch 轮询间隔用；≤0 直接返回）。
+pub fn pr_sleep_ms(ms : Int) -> Unit {
+  ffi_sys_sleep_ms(ms)
+}
+
+///|
+/// 进程是否存活（sig=0 探活；不存在的 pid 返回 false）。
+pub fn pr_alive(pid : Int) -> Bool {
+  ffi_sys_pr_signal(pid, 0) == 0
+}
+
+///|
+/// 请求终止进程（SIGTERM / TerminateProcess）。spawn 桩已让子进程自成
+/// 进程组，POSIX 先组杀再单杀兜底。返回是否送达。
+pub fn pr_kill(pid : Int) -> Bool {
+  ffi_sys_pr_signal(pid, 15) == 0
+}
+
+///|
+/// 起后台进程并**立即返回 pid**（不等待、不回收）：stdout/stderr 重定向到
+/// 给定文件（空串 = 继承父进程终端）。dev 循环拿 pid 做探活与终止；回收
+/// 交给 waitpid 由内核在进程退出后完成，长期运行的 dev 工具无僵尸风险
+/// （exit 后不 wait 只占一个僵尸表项，dev 退出时随父进程收敛）。
+pub fn pr_spawn(
+  cmd : String,
+  args : Array[String],
+  out_path? : String = "",
+  err_path? : String = "",
+) -> Result[Int, ProcError] {
+  if !pr_available() {
+    return Err(Unsupported)
+  }
+  // Windows 用空 cwd 表示继承父进程工作目录；POSIX 显式给 "/"
+  let cwd = if sys_platform() == "windows" { "" } else { "/" }
+  let pid = ffi_proc_spawn(
+    @utf8.encode(cmd),
+    pr_args_blob(args),
+    @utf8.encode(cwd),
+    @utf8.encode(out_path),
+    @utf8.encode(err_path),
+    pr_env_blob(),
+  )
+  if pid < 0 {
+    Err(SpawnFailed("\{cmd}: spawn 失败（错误码 \{-pid}，Windows 下含命令不存在）"))
+  } else {
+    Ok(pid)
+  }
+}

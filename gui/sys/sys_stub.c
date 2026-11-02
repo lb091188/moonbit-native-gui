@@ -1244,6 +1244,68 @@ int32_t yue_sys_proc_wait(int32_t pid, int32_t timeout_ms, int32_t *status,
 
 int32_t yue_sys_proc_getpid(void) { return (int32_t)getpid(); }
 
+// sleep_ms：dev 工具 watch 轮询的节拍（毫秒；≤0 直接返回）。
+void yue_sys_sleep_ms(int32_t ms) {
+  if (ms <= 0) {
+    return;
+  }
+#if defined(_WIN32)
+  Sleep((DWORD)ms);
+#else
+  struct timespec ts;
+  ts.tv_sec = (time_t)(ms / 1000);
+  ts.tv_nsec = (long)(ms % 1000) * 1000000L;
+  nanosleep(&ts, NULL);
+#endif
+}
+
+// pr_signal：sig=0 探活（0=活）、sig=15 请求终止（0=已送达）。子进程由
+// proc_spawn 成组（pgid==pid），POSIX 先试组杀再补单杀。
+int32_t yue_sys_pr_signal(int32_t pid, int32_t sig) {
+  if (pid <= 0) {
+    return -1;
+  }
+#if defined(_WIN32)
+  DWORD rights = (sig == 0) ? PROCESS_QUERY_LIMITED_INFORMATION
+                            : PROCESS_TERMINATE;
+  HANDLE h = OpenProcess(rights, FALSE, (DWORD)pid);
+  if (h == NULL) {
+    return -1;
+  }
+  int32_t rc = 0;
+  if (sig == 0) {
+    DWORD code = 0;
+    if (!GetExitCodeProcess(h, &code) || code != STILL_ACTIVE) {
+      rc = -1;
+    }
+  } else {
+    if (!TerminateProcess(h, (UINT)1)) {
+      rc = -1;
+    }
+  }
+  CloseHandle(h);
+  return rc;
+#else
+  if (sig != 0) {
+    if (kill((pid_t)-pid, sig) != 0) {
+      kill((pid_t)pid, sig);
+    }
+    return 0;
+  }
+  // 探活先 WNOHANG 收尸：被杀后未 wait 的子进程是僵尸，kill(pid,0) 对僵尸
+  // 仍成功——不收尸会让 alive 永真（dev 重启编排等不到消亡）。
+  int w = 0;
+  pid_t r = waitpid((pid_t)pid, &w, WNOHANG);
+  if (r == (pid_t)pid) {
+    return -1;
+  }
+  if (r < 0) {
+    return -1;
+  }
+  return 0;
+#endif
+}
+
 #endif
 
 // ---------------------------------------------------------------------------

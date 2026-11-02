@@ -372,3 +372,52 @@ test "ProcError/ProcOutput Show 文本" {
   let o1 = { stdout: "hi", exit_code: 0, }
   assert_eq(o1.to_string(), "ProcOutput { stdout: hi, exit_code: 0 }")
 }
+
+///|
+test "pr_sleep_ms:至少睡到指定毫秒" {
+  if !pr_skip_guard() {
+    return
+  }
+  let t0 = @env.now()
+  pr_sleep_ms(120)
+  assert_true(@env.now() - t0 >= 120)
+}
+
+///|
+test "pr_spawn/pr_alive/pr_kill:起后台进程 → 探活 → 终止 → 消亡" {
+  if !pr_skip_guard() {
+    return
+  }
+  // 后台长跑进程：POSIX sleep 30，Windows 用 ping 自带的秒级等待（-n 30 约 29s）
+  let (cmd, args) = if sys_platform() == "windows" {
+    ("ping", ["-n", "30", "127.0.0.1"])
+  } else {
+    ("sleep", ["30"])
+  }
+  let pid = match pr_spawn(cmd, args) {
+    Ok(p) => p
+    Err(e) => {
+      println("pr_spawn failed: \{e}")
+      assert_true(false)
+      return
+    }
+  }
+  assert_true(pid > 0)
+  assert_true(pr_alive(pid))
+  assert_true(pr_kill(pid))
+  // 终止后轮询消亡（给内核 1s）
+  let mut gone = false
+  let mut i = 0
+  while i < 20 {
+    if !pr_alive(pid) {
+      gone = true
+      break
+    }
+    pr_sleep_ms(50)
+    i += 1
+  }
+  assert_true(gone)
+  // 对已死 pid 再探：不活；再杀：允许失败但不崩
+  assert_true(!pr_alive(pid))
+  let _ = pr_kill(pid)
+}

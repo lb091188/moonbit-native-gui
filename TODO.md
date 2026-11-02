@@ -7,7 +7,7 @@
 
 - Phase 0 探针已完成（2026-11-01：单次热替换 10.4 ms、泄漏 0、订阅跨代恒定，见 `experiment/ir_probe` 与方案回写）
 - 编译器 `build` 子命令已完成（2026-11-02：`tools/mngkit` 内核 + `tools/mng_cli`，golden 6/6、source map 错误回映射端到端验通）
-- [ ] **`dev` 子命令**：watch + 改动分类（表达式集合 ⊆ 注册表 → 推 IR 补丁；否则回退）+ 单实例通道推 token/类；回退时 `moon build` → 杀旧 → 带参重启
+- `dev` 子命令已完成（2026-11-02：watch 内容对比 + 契约分类 HOT/COLD + 回退编排 build→杀旧→带参重启，无头自测验通；HOT 的进程内补丁推送待应用侧 dev 监听落地，本版打标不打断；配套 gui/sys 进程原语补 pr_spawn/pr_alive/pr_kill/pr_sleep_ms，僵尸探活收尸已钉测试）
 - [ ] **VS Code 插件 1 档**：`.mng` 语言注册 + MoonBit 表达式着色 injection + snippets；落地即把模板文件切裸 `.mng`
 - [ ] **拆包**（[proposals/module-split.md](proposals/module-split.md)）：sys → win → dbus → shell 顺序，等工具二进制独立发布动机集中做
 

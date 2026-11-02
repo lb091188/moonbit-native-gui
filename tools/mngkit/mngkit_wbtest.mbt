@@ -179,3 +179,39 @@ test "静态属性字面量判定：裸串按字符串、单引号透传 MoonBit
   }
   assert_true(contains_sub(code, "@ui.text(\"你好\", font_size=13.0, color=\"#3584e4\")"))
 }
+
+///|
+test "契约分类：结构重排 HOT；表达式换目标 / script 变动 COLD" {
+  let base_src = "<script setup lang=\"moonbit\">\nlet a : @base.Store[Int] = @base.Store::new(1)\n</script>\n<template>\n  <ui-col>\n    <ui-stepper v-model=\"a\" />\n    值 {{ a }}\n  </ui-col>\n</template>"
+  let base = match contract_of(base_src, "x.mng.html") {
+    Ok(c) => c
+    Err(e) => abort("\{e}")
+  }
+  // 结构重排 + 增删静态节点：表达式集不变 → HOT
+  let hot = match contract_of(
+      "<script setup lang=\"moonbit\">\nlet a : @base.Store[Int] = @base.Store::new(1)\n</script>\n<template>\n  <ui-col>\n    新说明文字\n    值 {{ a }}\n    <ui-stepper v-model=\"a\" />\n  </ui-col>\n</template>",
+      "x.mng.html",
+    ) {
+    Ok(c) => c
+    Err(e) => abort("\{e}")
+  }
+  assert_true(hot.hot_ok(base))
+  // 插值表达式变了（a+1）：闭包集合变化 → COLD
+  let cold1 = match contract_of(
+      "<script setup lang=\"moonbit\">\nlet a : @base.Store[Int] = @base.Store::new(1)\n</script>\n<template>\n  <ui-col>\n    值 {{ a + 1 }}\n  </ui-col>\n</template>",
+      "x.mng.html",
+    ) {
+    Ok(c) => c
+    Err(e) => abort("\{e}")
+  }
+  assert_true(!cold1.hot_ok(base))
+  // script 段变了（新增状态字段）→ COLD
+  let cold2 = match contract_of(
+      "<script setup lang=\"moonbit\">\nlet a : @base.Store[Int] = @base.Store::new(1)\nlet b : @base.Store[Int] = @base.Store::new(2)\n</script>\n<template>\n  <ui-col>\n    值 {{ a }}\n  </ui-col>\n</template>",
+      "x.mng.html",
+    ) {
+    Ok(c) => c
+    Err(e) => abort("\{e}")
+  }
+  assert_true(!cold2.hot_ok(base))
+}

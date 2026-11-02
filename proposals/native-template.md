@@ -44,7 +44,7 @@
 1. **spike 先于编译器**：挑 showcase 一个页面，手写「目标模板版」+「它应该被编译成的 MoonBit 版」，两边对照钉死语法与产物契约。契约冻结前不写解析器。
 2. **`build` 子命令**（住 `tools/`，workspace 成员现成）：解析器 + 拼接器 + 源映射——DX 生死线是错误回映射。**已落地**（2026-11-02，`tools/mngkit` 内核 + `tools/mng_cli` 终端：build / map-errors，golden 6/6、错误回映射端到端验通；按冻结契约生成，`v-for` 按记档收口报错）。
 3. **Phase 0 探针（先于 IR 协议）**：手工 IR 补丁打进 showcase 单页，验证「init 建状态 → 按 IR 构树 → 沿 holder 原位重挂」亚秒可见、订阅整代退订干净——探针不过，IR 通道整体不发生。旁路小探针：moonbit native 能否出共享库（relink 小 .so + 起进程或可把回退档压到 ~1s，进程每次是新的、不碰 GC 互通）；不成立归并上游增量链接诉求。
-4. **`dev` 子命令**：watch + 改动分类（表达式集合 ⊆ 注册表 → 推 IR 补丁；否则回退）+ 经单实例通道推 token/类变更；回退时 `moon build` → 杀旧进程 → 带参重启。
+4. **`dev` 子命令**：watch + 改动分类（表达式集合 ⊆ 注册表 → 推 IR 补丁；否则回退）+ 经单实例通道推 token/类变更；回退时 `moon build` → 杀旧进程 → 带参重启。**v1 已落地**（2026-11-02，`tools/mng_cli` dev：watch 内容对比 + 契约分类（`mngkit.contract_of`，script 逐字同且表达式集合 ⊆ 基线 → HOT）+ 回退编排直起进程；HOT 补丁推送与应用侧 dev 监听同批落地，本版打标不打断；配套 `@sys` 增 pr_spawn / pr_alive（僵尸收尸）/ pr_kill / pr_sleep_ms）。
 5. **终态：独立工具二进制**（本路线的 Vite 位次）：一个自包含 native 可执行，`moon install` 分发；子命令 `dev` / `build`（纯生产产物，零 dev 痕迹）/ `new`（新 `.mng.html` 页样板脚手架）/ `preview`（独立预览窗：同一 applier + mock 状态）/ `lsp`。无侵入边界——只编排模板文件、token 文件、`moon build`、应用进程四样，应用侧 dev 面仅 theme/IR 两个监听，生产构建零痕迹；不做插件系统、不做 dev server（取 Vite 的一命令体验，不取其工程规模）。命名按路线门面标准起（开放问题 5）。
 6. **灰度**：新页面用模板写，存量页面不迁移。
 
