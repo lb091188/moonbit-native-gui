@@ -742,3 +742,12 @@ pub fn mng_dev_apply_from_file(path : String) -> Result[Unit, String] {
   }
   mng_dev_apply(text)
 }
+
+///|
+/// reload-theme 通道：读主题 JSON 文本（dev 循环经 --mng-theme 推来的路径）。
+pub fn mng_dev_theme_src(path : String) -> String? {
+  let text = @fs.read_file_to_string(path) catch {
+    _ => return None
+  }
+  Some(text)
+}

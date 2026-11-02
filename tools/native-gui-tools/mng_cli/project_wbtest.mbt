@@ -181,3 +181,26 @@ test "Artifacts 段解析：按模块名挑，别家模块的行不认（裸 wor
   assert_eq(artifact_of_log(log, "Acme/elsewhere"), None)
   assert_eq(artifact_of_log("no artifacts here", "Acme/app"), None)
 }
+
+///|
+test "mng.toml：theme 键解析并落项目根相对路径" {
+  let root = "/tmp/mng_proj_theme"
+  ensure_dir_p(root)
+  write_file_p(root + "/moon.mod", "name = \"Acme/theme-app\"\n")
+  write_file_p(
+    root + "/mng.toml",
+    "[dev]\ntheme = \"theme.json\"\n",
+  )
+  let conf = match load_dev_conf("", "", "", None, root) {
+    Ok(c) => c
+    Err(e) => abort(e)
+  }
+  assert_eq(conf.theme, root + "/theme.json")
+  // 未配置给空串（dev 循环跳过主题盯梢）
+  write_file_p(root + "/mng.toml", "[dev]\n")
+  let conf2 = match load_dev_conf("", "", "", None, root) {
+    Ok(c) => c
+    Err(e) => abort(e)
+  }
+  assert_eq(conf2.theme, "")
+}

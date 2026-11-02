@@ -10,6 +10,7 @@ fn usage_dev() -> Unit {
   println("  build-cmd / run-cmd / app-id / poll-ms：覆盖 mng.toml；run 留空 = 跑一次 build 后从 Artifacts 抓可执行")
   println("  一拍内多个改动合并成一次 build/重启；HOT 的逐个推补丁；COLD 重启后回到改动页")
   println("  dev 产物不进源码树：应用日志 / source map / IR 补丁统一落 <项目根>/.mng/（logs / map / ir）")
+  println("  mng.toml 配 theme = \"theme.json\" 即接 reload-theme 通道：主题文件一存即推 --mng-theme 重载")
 }
 
 ///|
@@ -386,8 +387,31 @@ fn cmd_dev(args : Array[String]) -> Int {
     "DEV 起应用 pid=\{app_pid}（输出 → \{app_log}）；工程级 watch \{files.length()} 个模板，\{conf.poll_ms}ms 一拍。Ctrl-C 退出。",
   )
   // 合并拍次的 watch 循环：一拍内的改动合并成一次 build/重启，HOT 的逐个推补丁
+  let mut theme_seen = match conf.theme {
+    t if t.length() > 0 => slurp(t)
+    _ => None
+  }
   while true {
     @proc.sleep_ms(conf.poll_ms)
+    // 主题文件变更（reload-theme 通道）：内容变了就推送重载——应用侧
+    // from_json + theme_apply，不走模板编译/重启
+    match conf.theme {
+      t if t.length() > 0 => {
+        let cur = slurp(t)
+        if cur != theme_seen {
+          theme_seen = cur
+          match cur {
+            Some(_) =>
+              match @inst.wake(conf.app_id, ["--mng-theme", t]) {
+                Ok(_) => eprintln("[THEME] 主题重载已推送（" + t + "）")
+                Err(e) => eprintln("[THEME] 主题推送失败（" + e + "）——应用未运行？")
+              }
+            None => ()
+          }
+        }
+      }
+      _ => ()
+    }
     let changed : Array[String] = []
     for f in files {
       match slurp(f) {

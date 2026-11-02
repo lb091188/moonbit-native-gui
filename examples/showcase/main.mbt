@@ -289,6 +289,19 @@ fn main {
             Some(title) => nav.goto(title)
             None => println("SHOWCASE-DEV: 未登记的模板页 " + args[1])
           }
+        } else if args.length() == 2 && args[0] == "--mng-theme" {
+          // reload-theme 通道：主题 JSON 数据文件重载（from_json + 整套应用）
+          match @shared.mng_dev_theme_src(args[1]) {
+            Some(src) =>
+              match @theme.from_json(src) {
+                Ok(t) => {
+                  @theme.theme_apply(t)
+                  app.toast_push(@shared.tx("主题已重载"), @ui.Info)
+                }
+                Err(e) => app.toast_push(@shared.tr_with("dyn.mng_err", [("a", e)], "主题重载失败：\{e}"), @ui.Warning)
+              }
+            None => println("SHOWCASE-DEV: 读不到主题文件 " + args[1])
+          }
         } else {
           app.inst_wakes.set(app.inst_wakes.get() + 1)
           nav.goto("基础组件")

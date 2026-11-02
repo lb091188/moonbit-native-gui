@@ -10,6 +10,7 @@ priv struct DevConf {
   run : String
   app_id : String
   poll_ms : Int
+  theme : String
 }
 
 ///|
@@ -72,11 +73,12 @@ priv struct TomlDev {
   mut run : String
   mut app_id : String
   mut poll_ms : Int?
+  mut theme : String
 }
 
 ///|
 fn parse_dev_toml(text : String) -> TomlDev {
-  let t : TomlDev = { templates: [], build: "", run: "", app_id: "", poll_ms: None }
+  let t : TomlDev = { templates: [], build: "", run: "", app_id: "", poll_ms: None, theme: "" }
   let mut in_dev = false
   for raw in text.split("\n") {
     let line = trim_spaces(strip_comment(raw.to_owned()))
@@ -101,6 +103,7 @@ fn parse_dev_toml(text : String) -> TomlDev {
       "build" => t.build = unquote(val)
       "run" => t.run = unquote(val)
       "app-id" | "app_id" => t.app_id = unquote(val)
+      "theme" => t.theme = unquote(val)
       "poll-ms" | "poll_ms" =>
         match parse_uint(trim_spaces(val)) {
           Some(n) => t.poll_ms = Some(n)
@@ -277,6 +280,7 @@ fn load_dev_conf(
   let mut run = ""
   let mut app_id = ""
   let mut poll_ms = 300
+  let mut theme = ""
   if kind == "mng.toml" {
     let text = match fs_read(root + "/mng.toml") {
       Some(t) => t
@@ -294,6 +298,9 @@ fn load_dev_conf(
     }
     if t.app_id.length() > 0 {
       app_id = t.app_id
+    }
+    if t.theme.length() > 0 {
+      theme = join_under(root, t.theme)
     }
     match t.poll_ms {
       Some(n) => poll_ms = n
@@ -323,7 +330,7 @@ fn load_dev_conf(
     }
     app_id = app_id_of_module(mn)
   }
-  Ok({ dir: root, templates, build, run, app_id, poll_ms })
+  Ok({ dir: root, templates, build, run, app_id, poll_ms, theme })
 }
 
 ///|
