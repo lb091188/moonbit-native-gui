@@ -14,7 +14,8 @@ priv struct StyleProp {
 ///|
 priv struct StyleRule {
   class : String
-  dark : Bool
+  // "" = 基档；dark = 深色档（独立类）；hover/active/focus = 状态桶
+  state : String
   props : Array[StyleProp]
 }
 
@@ -429,7 +430,7 @@ fn is_number_text(v : String) -> Bool {
 
 ///|
 /// 选择器原文 → (类名, 是否深色档)：只认 `.名` 与 `.名:dark`。
-fn parse_selector(sel : String, pos : Pos) -> Result[(String, Bool), String] {
+fn parse_selector(sel : String, pos : Pos) -> Result[(String, String), String] {
   let s = sel.trim().to_owned()
   if !s.has_prefix(".") {
     return Err("\{pos_str(pos)}：`<style>` v1 只支持类选择器 `.名`（元素/ID/属性/后代选择器不做）")
@@ -446,11 +447,15 @@ fn parse_selector(sel : String, pos : Pos) -> Result[(String, Bool), String] {
     return Err("\{pos_str(pos)}：类名缺失")
   }
   if rest.length() == 0 {
-    Ok((name, false))
+    Ok((name, ""))
   } else if rest == ":dark" {
-    Ok((name, true))
+    Ok((name, "dark"))
+  } else if rest == ":hover" || rest == ":active" || rest == ":focus" {
+    Ok((name, rest[1:].to_owned()))
   } else {
-    Err("\{pos_str(pos)}：选择器只允许 `.名` 或 `.名:dark`，见到 `\{s}`")
+    Err(
+      "\{pos_str(pos)}：选择器只允许 `.名` / `.名:dark` / `.名:hover` / `.名:active` / `.名:focus`，见到 `\{s}`",
+    )
   }
 }
 
@@ -473,7 +478,7 @@ fn parse_style(text : String) -> Result[Array[StyleRule], String] {
     if sel.trim().to_owned().length() == 0 {
       return Err(cur_err(c, "选择器缺失"))
     }
-    let (cls, dark) = match parse_selector(sel, sel_pos) {
+    let (cls, state) = match parse_selector(sel, sel_pos) {
       Ok(v) => v
       Err(e) => return Err(e)
     }
@@ -519,7 +524,7 @@ fn parse_style(text : String) -> Result[Array[StyleRule], String] {
         c.i += 1
       }
     }
-    rules.push({ class: cls, dark, props })
+    rules.push({ class: cls, state, props })
   }
   Ok(rules)
 }
@@ -549,17 +554,71 @@ fn skip_comment(c : Cur) -> Bool {
 
 ///|
 /// 规则表 → `define_class` 注册语句（深色档注册成 `名:dark` 独立条目）。
+fn props_expr(props : Array[StyleProp]) -> String {
+  let order : Array[String] = []
+  let vals : Map[String, String] = Map([])
+  for p in props {
+    if !arr_contains(order, p.name) {
+      order.push(p.name)
+    }
+    let _ = vals.set(p.name, p.expr)
+  }
+  let args : Array[String] = []
+  for n in order {
+    args.push(n + "=" + vals.get_or_default(n, ""))
+  }
+  args.join(", ")
+}
+
+///|
+/// 规则表 → `define_class` 注册语句。同名类收成一条：基档进 `style(...)`，
+/// `:hover` / `:active` / `:focus` 各挂成状态桶（`.hover(style(...))`…）；
+/// `:dark` 仍是独立的 `名:dark` 类（深浅两份值）。
 fn style_defs(rules : Array[StyleRule]) -> Array[String] {
   let out : Array[String] = []
+  let names : Array[String] = []
+  let darks : Array[String] = []
   for r in rules {
-    let args : Array[String] = []
-    for p in r.props {
-      args.push(p.name + "=" + p.expr)
+    let bucket = if r.state == "dark" { darks } else { names }
+    if !arr_contains(bucket, r.class) {
+      bucket.push(r.class)
     }
-    let key = if r.dark { r.class + ":dark" } else { r.class }
-    out.push(
-      "  @style.define_class(" + q(key) + ", @style.style(" + args.join(", ") + "))",
-    )
+  }
+  for n in names {
+    let base : Array[StyleProp] = []
+    for r in rules {
+      if r.class == n && r.state == "" {
+        for p in r.props {
+          base.push(p)
+        }
+      }
+    }
+    let mut expr = "@style.style(" + props_expr(base) + ")"
+    for st in ["hover", "active", "focus"] {
+      let ps : Array[StyleProp] = []
+      for r in rules {
+        if r.class == n && r.state == st {
+          for p in r.props {
+            ps.push(p)
+          }
+        }
+      }
+      if ps.length() > 0 {
+        expr = expr + "." + st + "(" + props_expr(ps) + ")"
+      }
+    }
+    out.push("  @style.define_class(" + q(n) + ", " + expr + ")")
+  }
+  for n in darks {
+    let ps : Array[StyleProp] = []
+    for r in rules {
+      if r.class == n && r.state == "dark" {
+        for p in r.props {
+          ps.push(p)
+        }
+      }
+    }
+    out.push("  @style.define_class(" + q(n + ":dark") + ", @style.style(" + props_expr(ps) + "))")
   }
   out
 }
@@ -568,7 +627,7 @@ fn style_defs(rules : Array[StyleRule]) -> Array[String] {
 /// 规则表里是否存在该类名的深色档。
 fn has_dark_variant(rules : Array[StyleRule], cls : String) -> Bool {
   for r in rules {
-    if r.dark && r.class == cls {
+    if r.state == "dark" && r.class == cls {
       return true
     }
   }

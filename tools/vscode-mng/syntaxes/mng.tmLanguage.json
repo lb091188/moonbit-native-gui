@@ -285,7 +285,7 @@
           ]
         },
         {
-          "match": "^\\s*\\.[A-Za-z_][A-Za-z0-9_-]*(:dark)?",
+          "match": "^\\s*\\.[A-Za-z_][A-Za-z0-9_-]*(:(dark|hover|active|focus))?",
           "name": "entity.name.type.class.mng"
         },
         {
