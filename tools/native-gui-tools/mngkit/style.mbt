@@ -63,6 +63,77 @@ fn scale_token_expr(tok : String) -> String? {
 }
 
 ///|
+/// `<style>` 可用的主题色令牌名（不带 `--`，编辑器补全用）。
+pub fn style_color_tokens() -> Array[String] {
+  color_tokens()
+}
+
+///|
+/// `<style>` 可用的数值尺度令牌名（不带 `--`）。
+pub fn style_scale_tokens() -> Array[String] {
+  [
+    "control_height",
+    "font_size_body",
+    "font_size_secondary",
+    "font_size_section",
+    "font_size_title",
+    "radius_ctrl",
+    "radius_card",
+    "radius_overlay",
+  ]
+}
+
+///|
+/// `<style>` 可写的属性名（kebab 写法，编辑器补全用）。
+pub fn style_props() -> Array[String] {
+  let snake_names : Array[String] = [
+    "color",
+    "background_color",
+    "border_color",
+    "font_family",
+    "z_index",
+    "cursor",
+    "font_weight",
+    "text_align",
+    "white_space",
+    "border_style",
+    "visibility",
+    "display",
+    "flex_direction",
+    "flex_wrap",
+    "justify_content",
+    "align_items",
+    "align_self",
+    "position",
+    "flex",
+  ]
+  let out : Array[String] = []
+  for n in snake_names {
+    out.push(kebab_name(n))
+  }
+  for n in number_props() {
+    let k = kebab_name(n)
+    if !arr_contains(out, k) {
+      out.push(k)
+    }
+  }
+  out
+}
+
+///|
+fn kebab_name(s : String) -> String {
+  let out = StringBuilder()
+  for c in s {
+    if c == '_' {
+      out.write_char('-')
+    } else {
+      out.write_char(c)
+    }
+  }
+  out.to_string()
+}
+
+///|
 /// 属性名 → 类别（决定允许的值形态与字面量强制范围）。
 priv enum PropKind {
   PKColor
@@ -460,8 +531,21 @@ fn parse_selector(sel : String, pos : Pos) -> Result[(String, String), String] {
 }
 
 ///|
+/// 段内位置 → 模板文件位置。`line0` 是内容首行的 1 基行号，段内 `pos.line` 也是
+/// 1 基，首行重叠一次故减 1。
+fn shift_pos(pos : Pos, line0 : Int) -> Pos {
+  { line: pos.line + line0 - 1, col: pos.col }
+}
+
+///|
+/// 段内打错的坐标补上 `<style>` 的行偏移。
+fn style_err(c : Cur, line0 : Int, msg : String) -> String {
+  "\{pos_str(shift_pos(pos_at(c, c.i), line0))}：\{msg}"
+}
+
+///|
 /// `<style>` 段原文 → 规则表。重复声明同类同名属性以最后一次为准（编译期摊平）。
-fn parse_style(text : String) -> Result[Array[StyleRule], String] {
+fn parse_style(text : String, line0 : Int) -> Result[Array[StyleRule], String] {
   let c = make_cur(text)
   let rules : Array[StyleRule] = []
   let n = text.length()
@@ -473,18 +557,19 @@ fn parse_style(text : String) -> Result[Array[StyleRule], String] {
     if skip_comment(c) {
       continue
     }
-    let sel_pos = pos_at(c, c.i)
+    let sel_pos = shift_pos(pos_at(c, c.i), line0)
     let sel = read_while(c, fn(ch) { ch != '{' })
     if sel.trim().to_owned().length() == 0 {
-      return Err(cur_err(c, "选择器缺失"))
+      return Err(style_err(c, line0, "选择器缺失"))
     }
     let (cls, state) = match parse_selector(sel, sel_pos) {
       Ok(v) => v
       Err(e) => return Err(e)
     }
-    match expect(c, '{', "规则块开始") {
-      Ok(_) => ()
-      Err(e) => return Err(e)
+    if c.i < n && cur_peek(c) == '{' {
+      c.i += 1
+    } else {
+      return Err(style_err(c, line0, "规则块开始要写 `{`"))
     }
     let props : Array[StyleProp] = []
     let mut loop_guard = 0
@@ -492,7 +577,7 @@ fn parse_style(text : String) -> Result[Array[StyleRule], String] {
       loop_guard += 1
       skip_ws(c)
       if c.i >= n {
-        return Err(cur_err(c, "规则块 `.\{cls}` 未闭合"))
+        return Err(style_err(c, line0, "规则块 `.\{cls}` 未闭合"))
       }
       if cur_peek(c) == '}' {
         c.i += 1
@@ -501,16 +586,16 @@ fn parse_style(text : String) -> Result[Array[StyleRule], String] {
       if skip_comment(c) {
         continue
       }
-      let ppos = pos_at(c, c.i)
+      let ppos = shift_pos(pos_at(c, c.i), line0)
       let pname = read_while(c, fn(ch) { ch != ':' && ch != '}' && ch != ';' })
       let key = snake(pname.trim().to_owned())
       if key.length() == 0 {
-        return Err(cur_err(c, "属性名缺失"))
+        return Err(style_err(c, line0, "属性名缺失"))
       }
       if c.i < n && cur_peek(c) == ':' {
         c.i += 1
       } else {
-        return Err(cur_err(c, "属性 `\{key}` 缺冒号"))
+        return Err(style_err(c, line0, "属性 `\{key}` 缺冒号"))
       }
       let raw = read_while(c, fn(ch) { ch != ';' && ch != '}' })
       let pairs = match style_expand(key, raw, ppos) {
@@ -689,8 +774,8 @@ fn class_names_of(raw : String) -> Array[String] {
 ///|
 /// `<style>` 规则 → 补丁用类定义数据：`[{n:类名, s:状态, props:[{p,e}]}]`。
 /// `e` 是编译期已算好的 MoonBit 值表达式，应用侧按属性名落到 Style 字段。
-fn style_classes_json(text : String) -> Result[String, String] {
-  let rules = match parse_style(text) {
+fn style_classes_json(text : String, line0 : Int) -> Result[String, String] {
+  let rules = match parse_style(text, line0) {
     Ok(v) => v
     Err(e) => return Err(e)
   }

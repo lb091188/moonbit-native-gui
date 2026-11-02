@@ -321,12 +321,61 @@ fn hex2_of(v : Int) -> String {
 }
 
 ///|
+/// 光标是否在 `<style>` 段内。
+fn in_style(a : Array[Char], stop : Int) -> Bool {
+  last_index_of(a, "<style", stop) > last_index_of(a, "</style", stop)
+}
+
+///|
+/// `<style>` 段内的补全上下文：
+///   `var(` 里 → ("css-token", 令牌前缀, "dashes"|"bare")
+///   属性名位 → ("css-prop", 前缀, "")
+///   选择器 / 值 / 注释 → ("none", "", "")
+fn style_context(a : Array[Char], stop : Int) -> (String, String, String) {
+  let mut ls = stop
+  while ls > 0 && a[ls - 1] != '\n' {
+    ls -= 1
+  }
+  let line = slice_cli(a, ls, stop)
+  let line_cs = chars_of_cli(line)
+  let trim = line.trim()
+  if trim.has_prefix("//") || trim.has_prefix("/*") || trim.has_prefix("*") {
+    return ("none", "", "")
+  }
+  let var_at = last_index_of(line_cs, "var(", line_cs.length())
+  if var_at >= 0 {
+    let after = slice_cli(line_cs, var_at + 4, line_cs.length())
+    if !contains_sub_cli(after, ")") {
+      let p = after.trim().to_owned()
+      if p.has_prefix("--") {
+        return ("css-token", p[2:].to_owned(), "dashes")
+      }
+      return ("css-token", p, "bare")
+    }
+  }
+  if contains_sub_cli(line, ":") {
+    return ("none", "", "")
+  }
+  if trim.has_prefix(".") || contains_sub_cli(line, "{") || contains_sub_cli(line, "}") {
+    return ("none", "", "")
+  }
+  let mut ts = stop
+  while ts > ls && (is_ident_char(a[ts - 1]) || a[ts - 1] == '-') {
+    ts -= 1
+  }
+  ("css-prop", slice_cli(a, ts, stop), "")
+}
+
+///|
 /// 补全上下文：("tag"|"attr"|"expr"|"class"|"script"|"none", 当前前缀, 所在标签名)。
 fn lsp_context(text : String, off : Int) -> (String, String, String) {
   let a = chars_of_cli(text)
   let stop = if off < a.length() { off } else { a.length() }
   if in_script(a, stop) {
     return ("script", token_before(a, stop), "")
+  }
+  if in_style(a, stop) {
+    return style_context(a, stop)
   }
   // 最近的 '<' 与 '>'
   let mut lt = -1
@@ -671,8 +720,55 @@ fn lsp_completion(uri : String, text : String, line : Int, ch : Int) -> String {
     }
     "expr" | "script" => lsp_expr_completion(uri, text, partial)
     "class" => completion_list(@mngkit.style_class_names(text), 7)
+    "css-token" => lsp_css_token_completion(partial, tag)
+    "css-prop" => lsp_css_prop_completion(text, line, ch)
     _ => completion_list([], 1)
   }
+}
+
+///|
+/// `<style>` 的 `var(--…)` 令牌补全；`mode` = dashes（已写 `--`）/ bare。
+fn lsp_css_token_completion(prefix : String, mode : String) -> String {
+  let all : Array[String] = []
+  for t in @mngkit.style_color_tokens() {
+    all.push(t)
+  }
+  for t in @mngkit.style_scale_tokens() {
+    if !arr_has_cli(all, t) {
+      all.push(t)
+    }
+  }
+  let items : Array[String] = []
+  for t in all {
+    if prefix.length() == 0 || t.has_prefix(prefix) {
+      let label = if mode == "dashes" { t } else { "--" + t }
+      items.push(completion_item_filtered(label, 21, t))
+    }
+  }
+  "{\"isIncomplete\":false,\"items\":[" + items.join(",") + "]}"
+}
+
+///|
+/// 行首属性名补全：整段替换当前 token（kebab 名里带 `-`，按整段 range 替换）。
+fn lsp_css_prop_completion(text : String, line : Int, ch : Int) -> String {
+  let start_ch = css_token_start(text, line, ch)
+  let items : Array[String] = []
+  for p in @mngkit.style_props() {
+    items.push(completion_item_replace(p, 10, line, start_ch, ch))
+  }
+  "{\"isIncomplete\":false,\"items\":[" + items.join(",") + "]}"
+}
+
+///|
+/// 当前行属性名 token 的起始列（回退到空白 / `{` / `;`）。
+fn css_token_start(text : String, line : Int, ch : Int) -> Int {
+  let a = chars_of_cli(text)
+  let off = offset_of(text, line, ch)
+  let mut s = off
+  while s > 0 && (is_ident_char(a[s - 1]) || a[s - 1] == '-') {
+    s -= 1
+  }
+  ch - (off - s)
 }
 
 ///|
@@ -710,6 +806,26 @@ fn lsp_expr_completion(uri : String, text : String, partial : String) -> String 
     }
   }
   "{\"isIncomplete\":false,\"items\":[" + items.join(",") + "]}"
+}
+
+///|
+fn completion_item_filtered(label : String, kind : Int, filter : String) -> String {
+  "{\"label\":" + jq(label) + ",\"kind\":" + kind.to_string() + ",\"filterText\":" + jq(filter) + "}"
+}
+
+///|
+/// 带整段替换范围（textEdit）的补全项：`-` 是编辑器词分隔符，kebab 属性名必须整段换。
+fn completion_item_replace(
+  label : String,
+  kind : Int,
+  line : Int,
+  start_ch : Int,
+  end_ch : Int,
+) -> String {
+  "{\"label\":" + jq(label) + ",\"kind\":" + kind.to_string() + ",\"filterText\":" + jq(label) +
+  ",\"textEdit\":{\"range\":{\"start\":{\"line\":" + line.to_string() + ",\"character\":" +
+  start_ch.to_string() + "},\"end\":{\"line\":" + line.to_string() + ",\"character\":" +
+  end_ch.to_string() + "}},\"newText\":" + jq(label) + "}}"
 }
 
 ///|
@@ -920,7 +1036,7 @@ fn lsp_handle(docs : Map[String, String], body : String) -> LspOut {
   }
   match meth {
     "initialize" => {
-      let caps = "{\"capabilities\":{\"textDocumentSync\":1," + "\"completionProvider\":{\"triggerCharacters\":[\"<\",\":\",\"@\",\"{\",\" \",\"\\\"\",\".\",\"-\"]},"
+      let caps = "{\"capabilities\":{\"textDocumentSync\":1," + "\"completionProvider\":{\"triggerCharacters\":[\"<\",\":\",\"@\",\"{\",\" \",\"\\\"\",\".\",\"-\",\"(\"]},"
       let caps2 = "\"hoverProvider\":true,\"definitionProvider\":true}," + "\"serverInfo\":{\"name\":\"mng_cli\",\"version\":\"0.1.0\"}}"
       lsp_ok(respond(caps + caps2))
     }

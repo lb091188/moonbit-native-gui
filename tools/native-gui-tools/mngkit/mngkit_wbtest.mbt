@@ -276,6 +276,7 @@ test "受限表达式热更：文案/条件在文法内 HOT，并带 eval AST" {
 test "样式数据：<style> 规则编成 p/e 对（应用侧按名字段）" {
   let json = match style_classes_json(
       ".a { font-size: 20px; color: var(--text_primary); justify-content: center; }\n.a:hover { color: var(--primary); }",
+      0,
     ) {
     Ok(v) => v
     Err(e) => abort("\{e}")
@@ -1049,4 +1050,22 @@ test "跳转：@别名.成员 → 文件+行号、包入口、别名表与成员
   assert_true(arr_contains(members, "Store"))
   assert_true(arr_contains(members, "Store::new"))
   assert_true(arr_contains(members, "KS_TAB"))
+}
+
+///|
+test "样式错误坐标：段内行号补上 <style> 偏移" {
+  let src = [
+    "<template>",
+    "  <ui-col class=\"a\" />",
+    "</template>",
+    "<style>",
+    ".a {",
+    "  color: var(--nope);",
+    "}",
+    "</style>",
+  ].join("\n")
+  match compile(src, "pos.mng") {
+    Err(e) => assert_true(contains_sub(e, "行 6"))
+    Ok(_) => assert_true(false)
+  }
 }

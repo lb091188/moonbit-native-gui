@@ -265,3 +265,44 @@ test "LSP：外部包跳转（@包.成员 / 包入口 / 内置标签）与成员
     None => assert_true(false)
   }
 }
+
+///|
+test "LSP：<style> 令牌与属性名补全、错误坐标回到模板行" {
+  let docs : Map[String, String] = Map([])
+  let uri = "file:///tmp/lsp_style_wbtest.mng"
+  let text = [
+    "<template>",
+    "  <ui-col class=\"card\" />",
+    "</template>",
+    "<style>",
+    ".card {",
+    "  color: var(--tex",
+    "  font-si",
+    "}",
+    "</style>",
+  ].join("\n") + "\n"
+  let _ = lsp_handle(docs, did_open(uri, text))
+  // `var(--tex` → 令牌补全（已写 `--`，标签不再带前缀）
+  match lsp_handle(docs, req(20, "textDocument/completion", pos_params(uri, 5, 18))).reply {
+    Some(r) =>
+      assert_true(
+        contains_sub_l(r, "\"label\":\"text_primary\"") &&
+        contains_sub_l(r, "\"kind\":21"),
+      )
+    None => assert_true(false)
+  }
+  // `var(` 裸写 → 标签带 `--`
+  match lsp_handle(docs, req(21, "textDocument/completion", pos_params(uri, 5, 13))).reply {
+    Some(r) => assert_true(contains_sub_l(r, "\"label\":\"--text_primary\""))
+    None => assert_true(false)
+  }
+  // 属性名位 → kebab 名 + 整段 textEdit
+  match lsp_handle(docs, req(22, "textDocument/completion", pos_params(uri, 6, 9))).reply {
+    Some(r) =>
+      assert_true(
+        contains_sub_l(r, "\"label\":\"font-size\"") &&
+        contains_sub_l(r, "\"newText\":\"font-size\""),
+      )
+    None => assert_true(false)
+  }
+}

@@ -1008,7 +1008,7 @@ fn compile_impl(
   }
   let info = analyze_script(sfc.script, sfc.script_line0)
   let style_rules = if sfc.style.trim().to_owned().length() > 0 {
-    match parse_style(sfc.style) {
+    match parse_style(sfc.style, sfc.style_line0) {
       Ok(r) => r
       Err(e) => return Err(e)
     }
@@ -1348,7 +1348,7 @@ pub fn hot_ir(new_src : String, base_src : String, filename : String) -> Result[
       let _ = evals.set(k, ast)
     }
   }
-  let classes = match style_classes_json(n.style) {
+  let classes = match style_classes_json(n.style, n.style_line0) {
     Ok(v) => v
     Err(e) => return Err(e)
   }

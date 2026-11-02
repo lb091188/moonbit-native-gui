@@ -47,9 +47,6 @@
       "contentName": "source.moonbit.mng",
       "patterns": [
         {
-          "include": "source.moonbit"
-        },
-        {
           "include": "#moonbit-expression"
         }
       ]
@@ -456,10 +453,14 @@
           "name": "constant.character.moonbit"
         },
         {
+          "match": "'(?:\\\\.|[^'\\\\]){2,}'",
+          "name": "string.quoted.single.moonbit"
+        },
+        {
           "match": "\\b([A-Za-z_][A-Za-z0-9_]*)::([A-Za-z_][A-Za-z0-9_]*)",
           "captures": {
             "1": {
-              "name": "entity.name.type.moonbit"
+              "name": "entity.name.type.class.moonbit"
             },
             "2": {
               "name": "entity.name.function.moonbit"
@@ -467,8 +468,15 @@
           }
         },
         {
-          "match": "@[A-Za-z_][A-Za-z0-9_]*",
-          "name": "variable.other.package.moonbit"
+          "match": "(@)([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.package.moonbit"
+            },
+            "2": {
+              "name": "variable.other.package.moonbit"
+            }
+          }
         },
         {
           "match": "\\b(true|false)\\b",
@@ -480,7 +488,11 @@
         },
         {
           "match": "\\b[A-Z][A-Za-z0-9_]*\\b",
-          "name": "entity.name.type.moonbit"
+          "name": "entity.name.type.class.moonbit"
+        },
+        {
+          "match": "(==|!=|<=|>=|&&|\\|\\||[=+\\-*/%<>!])",
+          "name": "keyword.operator.moonbit"
         },
         {
           "match": "\\b\\d+(\\.\\d+)?([eE][+-]?\\d+)?\\b",

@@ -352,7 +352,7 @@ pub fn style_class_names(src : String) -> Array[String] {
     Ok(v) => v
     Err(_) => return []
   }
-  let rules = match parse_style(sfc.style) {
+  let rules = match parse_style(sfc.style, sfc.style_line0) {
     Ok(r) => r
     Err(_) => return []
   }

@@ -306,7 +306,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - 🚧 **样式类热更新**：`<style>` 规则随补丁以数据重注册命名类（类名与样式值都可热）；主题 token 的定义改动仍走重启，编译器侧「样式进槽」强制已落——模板属性里的样式字面量一律编译报错，必须进 `<style>` 或 `class`
 - 🚧 **模板样式章**：`<style>` 段编译期摊平进命名类注册表（类选择器、`var(--令牌)`、`#rrggbb`、枚举关键字、`flex` 简写、`.名:dark` 深浅两档、`:hover/:active/:focus` 交互态、文字属性向下继承；运行时级联 / 元素与后代选择器不做（布局枚举经 `@yoga` 支持））；元素 `class="a b"` → `class_of`；布局属性样式化口径——构造参数为默认值、类槽为覆盖，children / 事件 / 键 / 行列选型留结构侧（Linux 真机待验）
 - 🚧 **dev 工具二进制**：本路线的 Vite 位次，`moon install` 分发；子命令 `dev`（watch + 改动分类 + IR 通道推送 + 回退编排）/ `build`（纯生产产物零 dev 痕迹）/ `new`（新 `.mng` 页样板脚手架）/ `lsp`（stdio JSON-RPC：诊断、补全、hover、跳转）/ `--version`（插件握手）就位，`preview` 未做；工具不依赖 GUI 库（只链 libc/libgcc）；Windows 侧 dev 唤醒尚缺 Win32 客户端（HOT 推送未验）
-- 🚧 **编辑器支持**：语义进工具 `lsp` 子命令（stdio JSON-RPC：诊断、补全、hover、跳转；补全目录取 script 段槽名与 props、源码签名解析的组件参数、样式章的类与令牌、`moon.pkg` 别名与包内 `.mbti` 成员；跳转覆盖页内声明、组件源码、`@别名.成员` 与包入口），VSIX（`tools/vscode-mng/`，零依赖 JS）只做语言注册 + TextMate 着色（属性值按表达式、`<script>` 委托 MoonBit 文法）+ snippets + LSP 客户端与工具定位引导；不引入原生 HTML/CSS 语义（Linux 待真机装 VSIX 验）
+- 🚧 **编辑器支持**：语义进工具 `lsp` 子命令（stdio JSON-RPC：诊断、补全、hover、跳转；补全目录取 script 段槽名与 props、源码签名解析的组件参数、样式章的类与令牌、`moon.pkg` 别名与包内 `.mbti` 成员；跳转覆盖页内声明、组件源码、`@别名.成员` 与包入口），VSIX（`tools/vscode-mng/`，零依赖 JS）只做语言注册 + TextMate 着色（属性值与脚本段共用表达式文法，类型/变量/函数/常量分色）+ snippets + LSP 客户端与工具定位引导；不引入原生 HTML/CSS 语义（Linux 待真机装 VSIX 验）
 - ⏳ **上游诉求**：moonbitlang native 目标 hot reload / 运行时多模块 + native 增量链接；落地当天 IR 通道升格真代码热换、状态迁移层（快照设计）复活、回退路径消失
 
 ### 工程与交付

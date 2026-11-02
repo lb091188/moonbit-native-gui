@@ -45,7 +45,20 @@ function resolveCli() {
   if (cfg && (cfg.includes('/') || cfg.includes('\\'))) {
     return fs.existsSync(cfg) ? cfg : null;
   }
-  return findInPath(cfg || 'mng_cli');
+  const hit = findInPath(cfg || 'mng_cli');
+  if (hit) {
+    return hit;
+  }
+  // GUI 启动的编辑器常拿不到 shell 的 PATH：补查 moon 默认安装位
+  const exe = process.platform === 'win32' ? 'mng_cli.exe' : 'mng_cli';
+  const home = process.env.HOME || process.env.USERPROFILE || '';
+  if (home) {
+    const p = path.join(home, '.moon', 'bin', exe);
+    if (fs.existsSync(p)) {
+      return p;
+    }
+  }
+  return null;
 }
 
 function handshake(cli) {
@@ -108,7 +121,7 @@ class MngClient {
           publishDiagnostics: {},
         },
       },
-      clientInfo: { name: 'mng-vscode', version: '0.2.0' },
+      clientInfo: { name: 'mng-vscode', version: '0.2.1' },
     }).then((res) => {
       this.notify('initialized', {});
       return res;
@@ -302,6 +315,21 @@ function registerProviders(ctx) {
               if (it.detail) {
                 ci.detail = it.detail;
               }
+              if (it.filterText) {
+                ci.filterText = it.filterText;
+              }
+              if (it.textEdit && it.textEdit.newText !== undefined) {
+                ci.insertText = it.textEdit.newText;
+                if (it.textEdit.range) {
+                  const r = it.textEdit.range;
+                  ci.range = new vscode.Range(
+                    r.start.line,
+                    r.start.character,
+                    r.end.line,
+                    r.end.character
+                  );
+                }
+              }
               return ci;
             });
           } catch (_) {
@@ -316,7 +344,8 @@ function registerProviders(ctx) {
       ' ',
       '"',
       '.',
-      '-'
+      '-',
+      '('
     )
   );
 
