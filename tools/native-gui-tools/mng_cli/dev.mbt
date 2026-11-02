@@ -4,11 +4,12 @@
 // 等应用侧 dev 监听落地，本轮占位不打断应用。
 
 fn usage_dev() -> Unit {
-  println("用法：moon run tools/native-gui-tools/mng_cli -- dev --watch <文件或目录[,...]> --out-dir <生成码目录> --build-cmd <可执行 [参数...]> --run-cmd <可执行 [参数...]> [--poll-ms 300]")
-  println("  watch：.mng 文件或目录（目录取其中 *.mng）")
-  println("  out-dir：生成码落点（<stem>.gen.mbt），应指向应用包内同包目录")
-  println("  build-cmd / run-cmd：按首个空格拆成可执行 + 参数直起，不穿 shell")
-  println("  分类：script 段未变且表达式集合 ⊆ 基线 → HOT（只更新生成码并打标，不打断应用）；否则 COLD（build 成功后杀旧起新）")
+  println("用法：moon run tools/native-gui-tools/mng_cli -- dev [<某个 .mng 或目录>] [--build-cmd …] [--run-cmd …] [--app-id …] [--poll-ms 300] [--out-dir <目录>]")
+  println("  工程级：无参时向上找 mng.toml（没有就按 moon.mod / moon.work 推默认值），递归扫 templates 里的 *.mng")
+  println("  位置参数：只盯这一个文件/目录（可选过滤）")
+  println("  生成码落到模板自己所在的包目录（<stem>.gen.mbt，dev 形态）；--out-dir 仅供调试强行指定")
+  println("  build-cmd / run-cmd / app-id / poll-ms：覆盖 mng.toml；run 留空 = 跑一次 build 后从 Artifacts 抓可执行")
+  println("  一拍内多个改动合并成一次 build/重启；HOT 的逐个推补丁")
 }
 
 ///|
@@ -36,54 +37,114 @@ fn split_cmd(cmd : String) -> (String, Array[String])? {
 }
 
 ///|
-/// 收集 watch 目标：目录取其中 *.mng，文件原样。
-fn collect_watch(p : String) -> Array[String] {
-  let isdir = @fs.is_dir(p) catch {
+/// 生成码落点：默认与模板同包；`--out-dir` 给了就强行指过去（调试用）。
+fn gen_path(out_dir : String, f : String) -> String {
+  let stem = stem_of_file(f)
+  if out_dir.length() > 0 {
+    out_dir + "/" + stem + ".gen.mbt"
+  } else {
+    parent_dir_of(f) + "/" + stem + ".gen.mbt"
+  }
+}
+
+///|
+/// 可选过滤：文件原样、目录递归扫。
+fn filter_files(spec : String) -> Array[String] {
+  let isdir = @fs.is_dir(spec) catch {
     _ => false
   }
   if isdir {
-    let out : Array[String] = []
-    let entries = @fs.read_dir(p) catch {
-      _ => return out
+    scan_templates([spec])
+  } else {
+    [spec]
+  }
+}
+
+///|
+/// 跑一次 build 并从输出里抓可执行路径（`Artifacts:` 段尾 token）。
+/// 只在 `run` 未配置时用；build 本身走 `sh -c` 以拿到输出。
+fn derive_run(build_cmd : String) -> Result[String, String] {
+  let tmp = match @env.get_env_var("TMPDIR") {
+    Some(d) if d != "" => d
+    _ => "/tmp"
+  }
+  let log = tmp + "/mng-dev-build.log"
+  let cmd = build_cmd + " > " + log + " 2>&1"
+  match @proc.run_wait("sh", ["-c", cmd], 600000) {
+    Err(e) => return Err("build 跑不起来（" + e + "）——Windows 请显式配置 run")
+    Ok(code) =>
+      if code != 0 {
+        // 构建失败：把日志尾巴打出来
+        match slurp(log) {
+          Some(t) => eprintln(t)
+          None => ()
+        }
+        return Err("build 失败（退出码 " + code.to_string() + "）")
+      }
+  }
+  let text = match slurp(log) {
+    Some(t) => t
+    None => return Err("读不到 build 日志 " + log)
+  }
+  match artifact_of_log(text) {
+    Some(p) => Ok(p)
+    None => Err("build 输出里没抓到可执行路径——在 mng.toml 补 run")
+  }
+}
+
+///|
+/// `moon build` 的 `Artifacts:` 段 → 最后一个存在的绝对路径。
+fn artifact_of_log(text : String) -> String? {
+  let mut artifacts = false
+  let mut found = ""
+  for raw in text.split("\n") {
+    let line = raw.to_owned()
+    let t = line.trim_end().to_owned()
+    if t.trim().to_owned() == "Artifacts:" {
+      artifacts = true
+      continue
     }
-    for f in entries {
-      if f.has_suffix(".mng") {
-        out.push(p + "/" + f)
+    if !artifacts {
+      continue
+    }
+    if t.length() == 0 || !line.has_prefix("  ") {
+      artifacts = false
+      continue
+    }
+    let xs = collect_array_dev(t.split(" ").filter(fn(x) { x.length() > 0 }).map(fn(x) { x.to_owned() }))
+    if xs.length() > 0 {
+      let cand = xs[xs.length() - 1]
+      if cand.has_prefix("/") {
+        let exists = @fs.is_file(cand) catch {
+          _ => false
+        }
+        if exists {
+          found = cand
+        }
       }
     }
-    out
+  }
+  if found.length() == 0 {
+    None
   } else {
-    [p]
+    Some(found)
   }
 }
 
 ///|
-/// 文件名首段（到首个点为止）。
-fn first_seg(name : String) -> String {
-  let a = chars_of(name)
-  let mut end = a.length()
-  for k, c in a {
-    if c == '.' {
-      end = k
-      break
-    }
-  }
-  a[0:end].map(fn(c) { c.to_string() }).join("")
-}
-
-///|
+/// dev 主流程：工程级扫描 → 首轮 dev 编译 → build/起应用 → 合并拍次的 watch 循环。
 fn cmd_dev(args : Array[String]) -> Int {
-  let mut watch_spec = ""
+  let mut filter = ""
   let mut out_dir = ""
   let mut build_cmd = ""
   let mut run_cmd = ""
-  let mut app_id = "com.moonbitlibyue.showcase"
-  let mut poll_ms = 300
+  let mut app_id = ""
+  let mut poll_override : Int? = None
   let mut k = 0
   while k < args.length() {
     let a = args[k]
-    if a == "--watch" && k + 1 < args.length() {
-      watch_spec = args[k + 1]
+    if (a == "--watch" || a == "-w") && k + 1 < args.length() {
+      filter = args[k + 1]
       k += 2
     } else if a == "--out-dir" && k + 1 < args.length() {
       out_dir = args[k + 1]
@@ -100,7 +161,7 @@ fn cmd_dev(args : Array[String]) -> Int {
     } else if a == "--poll-ms" && k + 1 < args.length() {
       match parse_int(args[k + 1]) {
         Some(n) => {
-          poll_ms = n
+          poll_override = Some(n)
           k += 2
         }
         None => {
@@ -108,58 +169,47 @@ fn cmd_dev(args : Array[String]) -> Int {
           return 2
         }
       }
-    } else {
+    } else if a.has_prefix("--") {
       eprintln("未知参数：" + a)
       usage_dev()
       return 2
+    } else {
+      filter = a
+      k += 1
     }
   }
-  if watch_spec.length() == 0 || out_dir.length() == 0 || build_cmd.length() == 0 || run_cmd.length() == 0 {
-    usage_dev()
-    return 2
+  let cwd = match @env.current_dir() {
+    Some(d) => d
+    None => "."
   }
-  let (bfile, bargs) = match split_cmd(build_cmd) {
-    Some(p) => p
-    None => {
-      eprintln("build-cmd 为空")
+  let conf = match load_dev_conf(build_cmd, run_cmd, app_id, poll_override, cwd) {
+    Ok(c) => c
+    Err(e) => {
+      eprintln(e)
       return 2
     }
   }
-  let (rfile, rargs) = match split_cmd(run_cmd) {
-    Some(p) => p
-    None => {
-      eprintln("run-cmd 为空")
-      return 2
-    }
-  }
-  // watch 文件清单
-  let files : Array[String] = []
-  for spec in watch_spec.split(",") {
-    let p = spec.trim().to_owned()
-    if p.length() > 0 {
-      for f in collect_watch(p) {
-        files.push(f)
-      }
-    }
+  let files = if filter.length() > 0 {
+    filter_files(filter)
+  } else {
+    scan_templates(conf.templates)
   }
   if files.length() == 0 {
-    eprintln("watch 目标里没有 .mng")
+    eprintln("没扫到 .mng（templates = " + conf.templates.join(", ") + "）")
     return 2
   }
-  // 应用输出日志
-  let app_log = out_dir + "/.mng-dev-app.log"
-  // 首轮：全部编译 + 写生成码 + 记基线
+  match collision_msg(files) {
+    Some(m) => {
+      eprintln(m)
+      return 2
+    }
+    None => ()
+  }
+  let app_log = conf.dir + "/.mng-dev-app.log"
+  // 首轮：全部 dev 编译 + 生成码落各自包目录 + 记基线
   let baselines : Map[String, String] = Map([])
   let mut ok = true
   for f in files {
-    match stem_conflict_msg(f) {
-      Some(m) => {
-        eprintln(m)
-        ok = false
-        continue
-      }
-      None => ()
-    }
     let src = match slurp(f) {
       Some(s) => s
       None => {
@@ -175,58 +225,111 @@ fn cmd_dev(args : Array[String]) -> Int {
         ok = false
       }
       Ok(r) => {
-        let stem = first_seg(basename(f))
-        let _ = spit(out_dir + "/" + stem + ".gen.mbt", r.code)
-        let _ = baselines.set(f, src)
+        if !spit(gen_path(out_dir, f), r.code) {
+          eprintln("写不出生成码：" + gen_path(out_dir, f))
+          ok = false
+        } else {
+          let _ = baselines.set(f, src)
+        }
       }
     }
   }
   if !ok {
     return 1
   }
-  // build + 起应用
-  match @proc.run_wait(bfile, bargs, 600000) {
-    Err(e) => {
-      eprintln("build 失败：" + e.to_string())
+  // build（run 留空时顺带从 Artifacts 推导启动命令）
+  let mut run_expr = conf.run
+  if run_expr.length() == 0 {
+    match derive_run(conf.build) {
+      Ok(cmd) => {
+        run_expr = cmd
+        eprintln("DEV 从 Artifacts 抓到可执行：" + cmd)
+      }
+      Err(e) => {
+        eprintln(e)
+        return 1
+      }
+    }
+  } else {
+    match split_cmd(conf.build) {
+      Some((bfile, bargs)) =>
+        match @proc.run_wait(bfile, bargs, 600000) {
+          Err(e) => {
+            eprintln("build 失败：" + e)
+            return 1
+          }
+          Ok(code) =>
+            if code != 0 {
+              eprintln("build 退出码 " + code.to_string())
+              return 1
+            }
+        }
+      None => {
+        eprintln("build 为空")
+        return 1
+      }
+    }
+  }
+  let (rfile, rargs) = match split_cmd(run_expr) {
+    Some(p) => p
+    None => {
+      eprintln("run 为空")
       return 1
     }
-    Ok(_) => ()
   }
   let mut app_pid = match @proc.spawn(rfile, rargs, app_log) {
     Ok(pid) => pid
     Err(e) => {
-      eprintln("应用起不来：" + e.to_string())
+      eprintln("应用起不来：" + e)
       return 1
     }
   }
   eprintln(
-    "DEV 起应用 pid=\{app_pid}（输出 → \{app_log}）；watch \{files.length()} 个模板，\{poll_ms}ms 一拍。Ctrl-C 退出。",
+    "DEV 起应用 pid=\{app_pid}（输出 → \{app_log}）；工程级 watch \{files.length()} 个模板，\{conf.poll_ms}ms 一拍。Ctrl-C 退出。",
   )
-  // watch 循环
+  // 合并拍次的 watch 循环：一拍内的改动合并成一次 build/重启，HOT 的逐个推补丁
   while true {
-    @proc.sleep_ms(poll_ms)
+    @proc.sleep_ms(conf.poll_ms)
+    let changed : Array[String] = []
     for f in files {
+      match slurp(f) {
+        Some(src) =>
+          if src != baselines.get_or_default(f, "") {
+            changed.push(f)
+          }
+        None => ()
+      }
+    }
+    if changed.length() == 0 {
+      continue
+    }
+    let mut cold = false
+    let mut had_err = false
+    let patches : Array[String] = []
+    for f in changed {
       let src = match slurp(f) {
         Some(s) => s
         None => continue
       }
-      if src == baselines.get_or_default(f, "") {
-        continue
-      }
-      let name = basename(f)
-      let stem = first_seg(name)
       match mng_compile_dev(src, f) {
         Err(e) => {
-          // 编译失败：错误已映射回模板行列，应用不动
           eprintln("[ERR] " + f + "：")
           eprintln(e)
+          had_err = true
           continue
         }
         Ok(r) => {
+          let gp = gen_path(out_dir, f)
+          if !spit(gp, r.code) {
+            eprintln("[ERR] 写不出生成码：" + gp)
+            had_err = true
+            continue
+          }
           let cur = match @mngkit.contract_of(src, f) {
             Ok(c) => c
-            Err(e) => {
-              eprintln("[ERR] " + f + "：" + e)
+            Err(_) => {
+              cold = true
+              let _ = baselines.set(f, src)
               continue
             }
           }
@@ -234,29 +337,39 @@ fn cmd_dev(args : Array[String]) -> Int {
             Ok(base) => cur.hot_ok(base)
             Err(_) => false
           }
-          let _ = spit(out_dir + "/" + stem + ".gen.mbt", r.code)
           if is_hot {
-            // 亚秒补丁通道：IR 补丁落盘 → 单实例通道唤起应用原位重挂
             match @mngkit.ir_of(src, f) {
-              Err(e) => eprintln("[HOT] \{name}：IR 产出失败（\{e}），应用不动")
+              Err(e) => {
+                eprintln("[HOT] " + f + "：IR 产出失败（" + e + "），转重启")
+                cold = true
+              }
               Ok(irjson) => {
-                let irpath = out_dir + "/" + stem + ".ir.json"
+                let irpath = parent_dir_of(gp) + "/" + stem_of_file(f) + ".ir.json"
                 if !spit(irpath, irjson) {
-                  eprintln("[HOT] \{name}：写不出 " + irpath)
+                  eprintln("[HOT] 写不出 " + irpath)
+                  cold = true
                 } else {
-                  match @inst.wake(app_id, ["--mng-hot", irpath]) {
-                    Ok(_) => eprintln("[HOT] \{name}：补丁已推送（\{irpath}）")
-                    Err(e) =>
-                      eprintln("[HOT] \{name}：补丁已备 \{irpath}，但唤起失败（\{e.to_string()}）——应用未运行？")
-                  }
+                  patches.push(irpath)
                 }
               }
             }
           } else {
-            eprintln("[COLD] \{name}：行为/表达式变更，重启编排…")
-            match @proc.run_wait(bfile, bargs, 600000) {
-              Err(e) => eprintln("[COLD] build 失败，应用不动：" + e.to_string())
-              Ok(_) => {
+            cold = true
+          }
+          let _ = baselines.set(f, src)
+        }
+      }
+    }
+    if cold && !had_err {
+      eprintln("[COLD] 本拍 \{changed.length()} 个改动，合并 build 一次…")
+      match split_cmd(conf.build) {
+        Some((bfile, bargs)) =>
+          match @proc.run_wait(bfile, bargs, 600000) {
+            Err(e) => eprintln("[COLD] build 失败，应用不动：" + e)
+            Ok(code) =>
+              if code != 0 {
+                eprintln("[COLD] build 退出码 " + code.to_string() + "，应用不动")
+              } else {
                 if @proc.alive(app_pid) {
                   let _ = @proc.kill(app_pid)
                   let mut waited = 0
@@ -268,18 +381,59 @@ fn cmd_dev(args : Array[String]) -> Int {
                 match @proc.spawn(rfile, rargs, app_log) {
                   Ok(pid) => {
                     app_pid = pid
-                    eprintln("[COLD] 应用已重启 pid=\{pid}")
+                    eprintln("[COLD] 应用已重启 pid=" + pid.to_string())
                   }
-                  Err(e) => eprintln("[COLD] 重启失败：" + e.to_string())
+                  Err(e) => eprintln("[COLD] 重启失败：" + e)
                 }
               }
-            }
           }
-          let _ = baselines.set(f, src)
+        None => eprintln("[COLD] build 为空")
+      }
+    } else if cold && had_err {
+      eprintln("[COLD] 有编译错误，本拍不重启（修好保存后自动重试）")
+    }
+    if !cold {
+      for p in patches {
+        match @inst.wake(conf.app_id, ["--mng-hot", p]) {
+          Ok(_) => eprintln("[HOT] 补丁已推送（" + p + "）")
+          Err(e) => eprintln("[HOT] 补丁已备 " + p + "，但唤起失败（" + e + "）——应用未运行？")
         }
       }
+    } else if patches.length() > 0 {
+      // COLD 重启后应用已按新生成码起，补丁不再需要
+      eprintln("[HOT] 本拍有 COLD 改动，\{patches.length()} 个热补丁并入重启")
     }
   }
+  0
+}
+
+///|
+/// init 子命令：在模块根写 mng.toml 样板（已有则不动）。
+fn cmd_init(_args : Array[String]) -> Int {
+  let cwd = match @env.current_dir() {
+    Some(d) => d
+    None => "."
+  }
+  let (root, _kind) = match find_project_root(cwd) {
+    Some(x) => x
+    None => {
+      println("找不到 moon.mod / moon.work——在模块里跑")
+      return 1
+    }
+  }
+  let path = root + "/mng.toml"
+  match fs_read(path) {
+    Some(_) => {
+      println("已存在：" + path + "（未覆盖）")
+      return 0
+    }
+    None => ()
+  }
+  if !spit(path, mng_toml_template()) {
+    println("写不出：" + path)
+    return 1
+  }
+  println("OK " + path)
   0
 }
 

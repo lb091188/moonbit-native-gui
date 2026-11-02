@@ -13,6 +13,7 @@ fn usage() -> Unit {
   println("  ir <input.mng>                    打印模板的 IR 补丁（调试与注册表校准）")
   println("  new <name>                             生成 .mng 页样板")
   println("  lsp                                    语言服务（stdio JSON-RPC：诊断/补全/hover/跳转）")
+  println("  init                                   在模块根写 mng.toml 样板（dev 的项目级配置）")
   println("  --version                              版本与 mng-schema 位（插件握手用）")
   println("  dev ...                                watch + 契约分类 + 回退编排（dev 无参看细目）")
 }
@@ -344,6 +345,8 @@ fn main {
     cmd_new(rest)
   } else if cmd == "lsp" {
     cmd_lsp(rest)
+  } else if cmd == "init" {
+    cmd_init(rest)
   } else {
     usage()
     2

@@ -50,10 +50,10 @@ pub fn <stem>() -> @widget.Node {
 
 `shared/mng_dev.mbt`（应用自己的 shared 包）提供 `mng_dev_page(page, reg, build)`：登记注册表与 holder、把 `build()` 的树挂进 holder 并记为现役代。applier（按 `page` 键控的注册表 + IR 构树 + 整袋退订）不变。
 
-## 落地批次
+## 落地状态
 
-1. **A（已落地）**：编译器 dev 档、`mng_dev_page`、showcase 演示页改调生成页（手写注册表删除）、`mng dev` 产 dev 形态。
-2. **B（待办）**：`mng.toml` 与 `mng dev` 无参（项目级）、撞名按包聚合、`init` 样板。
+- **A**：编译器 dev 档、`mng_dev_page`、showcase 演示页改调生成页（手写注册表删除）、`mng dev` 产 dev 形态。
+- **B**：`mng.toml` 与 `mng dev` 无参（向上找配置、递归扫模板、生成码落模板所在包、一拍改动合并重启、app-id 派生、`run` 留空时从 build 的 `Artifacts` 抓可执行）、撞名按包聚合、`mng_cli init` 样板；模板文件与用它的页面同包（演示页模板已移进 `examples/showcase/pages/`）。
 
 ## 后续
 
