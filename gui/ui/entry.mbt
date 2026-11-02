@@ -13,7 +13,7 @@
 
 ///|
 /// 密码遮罩显示串（按码点打点，宽度均匀，caret 折算照旧走测量）。
-pub fn mask_of(text : String) -> String {
+fn mask_of(text : String) -> String {
   let mut out = ""
   for _ in text.to_array() {
     out = out + "•"

@@ -53,6 +53,8 @@
 
 ### 1.4 `@ui` 公共面收窄
 
+> ✅ 已落地（2026-11-02）：`fold_color` / `paint_subset` / `button_skin_token` / `mask_of` 去 pub（0.x 破坏，均零外部引用）；`button_skin` 生产代码零调用连函数一起删（wbtest 断言改钉现役 token 表）。`fold_style` / `fold_style_variant` 保留——它们是组件 fold 链的公共收口（变体默认层即经它落）。
+
 **现状**：`button_skin` / `button_skin_token` / `paint_subset` / `fold_color` / `mask_of` 等实现性函数出现在 `gui/ui/pkg.generated.mbti` 公共 API 里。
 
 **为什么要加**：高层包的价值在面窄好用。实现细节一旦 pub，用户误用即成事实稳定面，0.x 之后想收就是破坏性改动；这与 roadmap 已规划的「稳定面清单与 1.0 时点」直接冲突——现在不收，将来划稳定面时收不动。

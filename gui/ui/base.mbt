@@ -299,7 +299,7 @@ pub fn parse_style_color(hex : String) -> @style.Color? {
 
 ///|
 /// 散参数折块（§1.5「散参数是糖，只有一条去向」）：把一条颜色属性折进匿名块。
-pub fn fold_color(
+fn fold_color(
   hex : String,
   set : (@style.Style, @style.Color) -> Unit,
 ) -> @style.Style? {
@@ -377,7 +377,7 @@ pub fn fold_style_variant(
 /// （`color` / `background_color` / `border_color` / `border_width` / `border_radius`
 /// 与三个状态桶）叠在组件内置基调之上。布局属性（宽度、内边距那批）不外溢给标记，
 /// 一个「组」的 class 于是同时管得住整行排版与标记配色。
-pub fn paint_subset(class : Array[@style.Style]) -> @style.Style {
+fn paint_subset(class : Array[@style.Style]) -> @style.Style {
   let s = @style.merge_all(class)
   let out = @style.empty_style()
   out.color = s.color

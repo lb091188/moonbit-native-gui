@@ -254,23 +254,19 @@ fn shot(w : @widget.Widget) -> (@render.Bitmap, Int, Int) {
 }
 
 ///|
-test "按钮配色求解：变体 + 悬停走预设，显式覆盖吃掉悬停" {
-  let s0 = button_skin(Solid, false, "", "")
+test "按钮配色 token 表：变体 + 点亮态走预设（样式槽现役通路）" {
+  let s0 = button_skin_token(Solid, false)
   assert_eq(s0.0, "#ffffff")
-  assert_eq(s0.1, @theme.theme_primary())
-  assert_eq((button_skin(Solid, true, "", "").1), @theme.theme_primary_hover())
-  // Soft：常态浅底主色字，悬停变实底白字
-  assert_eq(button_skin(Soft, false, "", ""), (@theme.theme_primary(), @theme.theme_primary_light()))
-  assert_eq(button_skin(Soft, true, "", ""), ("#ffffff", @theme.theme_primary()))
+  assert_eq(s0.1, "primary")
+  assert_eq(button_skin_token(Solid, true).1, "primary_hover")
+  // Soft：常态浅底主色字，点亮翻实底白字
+  assert_eq(button_skin_token(Soft, false), ("primary", "primary_light"))
+  assert_eq(button_skin_token(Soft, true), ("#ffffff", "primary"))
   // Text：常态无底（空串 = 不画底）
-  let t0 = button_skin(Text, false, "", "")
-  assert_eq(t0.1, "")
-  assert_eq(button_skin(Text, true, "", "").1, @theme.theme_fill_hover())
-  assert_eq(button_skin(Danger, false, "", "").1, @theme.theme_danger())
-  assert_eq(button_skin(Danger, true, "", "").1, @theme.theme_danger_hover())
-  // 显式覆盖：所有状态一致，hover 不再变色
-  assert_eq(button_skin(Solid, true, "#111111", "#222222"), ("#111111", "#222222"))
-  assert_eq(button_skin(Solid, false, "#111111", "#222222"), ("#111111", "#222222"))
+  assert_eq(button_skin_token(Text, false).1, "")
+  assert_eq(button_skin_token(Text, true).1, "fill_hover")
+  assert_eq(button_skin_token(Danger, false).1, "danger")
+  assert_eq(button_skin_token(Danger, true).1, "danger_hover")
 }
 
 ///|

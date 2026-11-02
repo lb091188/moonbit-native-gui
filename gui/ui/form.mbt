@@ -948,7 +948,7 @@ pub(all) enum ButtonVariant {
 /// 按钮内置皮肤的 **token 名**表（§1.4：token 名单就是 theme 的颜色字段）：
 /// `button` 折进样式槽用的是这份，所以换主题后绘制期现取；`lit` = 点亮态
 /// （悬停或按下）。`#ffffff` 是实底上的白字，不是主题字段，原样给。
-pub fn button_skin_token(variant : ButtonVariant, lit : Bool) -> (String, String) {
+fn button_skin_token(variant : ButtonVariant, lit : Bool) -> (String, String) {
   let fg = match variant {
     Solid | Danger => "#ffffff"
     Soft => if lit { "#ffffff" } else { "primary" }
@@ -961,30 +961,6 @@ pub fn button_skin_token(variant : ButtonVariant, lit : Bool) -> (String, String
     Text => if lit { "fill_hover" } else { "" }
     Danger => if lit { "danger_hover" } else { "danger" }
   }
-  (fg, bg)
-}
-
-///|
-/// 按钮配色求解（纯函数）：`color`/`background_color` 传非空即显式覆盖，
-/// 且**所有状态一致**（悬停不再变色）；未传按变体 + 悬停走预设。返回
-/// `(文字色, 底色)`，底色为空串表示不画底。预设取自 [button_skin_token]
-/// 再落色，所以与样式槽那条路吃同一张表。
-pub fn button_skin(
-  variant : ButtonVariant,
-  lit : Bool,
-  color : String,
-  background_color : String,
-) -> (String, String) {
-  let (tf, tb) = button_skin_token(variant, lit)
-  let fg = if color.length() > 0 { color } else { @style.resolve_color(@style.parse_color(tf)) }
-  let bg =
-    if background_color.length() > 0 {
-      background_color
-    } else if tb.length() > 0 {
-      @style.resolve_color(@style.parse_color(tb))
-    } else {
-      ""
-    }
   (fg, bg)
 }
 
