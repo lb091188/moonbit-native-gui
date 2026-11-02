@@ -68,6 +68,8 @@ pub(all) struct Style {
   // —— 其它（落宿主 Widget）
   mut visibility : Visibility?
   mut cursor : Int?
+  // 背景渐变（S2）：给了且可解析（≥2 个有效 stop）时优先于 `background_color`
+  mut background_gradient : GradientSpec?
   // —— 状态桶（构造端：工厂状态参数收整块 + 三个状态方法收属性参数，§1.3）
   mut hover : Style?
   mut active : Style?
@@ -131,6 +133,7 @@ pub fn empty_style() -> Style {
     transition_ms: None,
     visibility: None,
     cursor: None,
+    background_gradient: None,
     hover: None,
     active: None,
     focus: None,
@@ -223,6 +226,7 @@ pub fn merge(base : Style, over : Style) -> Style {
   s.transition_ms = pick(base.transition_ms, over.transition_ms)
   s.visibility = pick(base.visibility, over.visibility)
   s.cursor = pick(base.cursor, over.cursor)
+  s.background_gradient = pick(base.background_gradient, over.background_gradient)
   s.hover = pick_style(base.hover, over.hover)
   s.active = pick_style(base.active, over.active)
   s.focus = pick_style(base.focus, over.focus)
@@ -241,6 +245,12 @@ pub fn Style::set_color(self : Style, v : Color?) -> Style {
 ///|
 pub fn Style::set_background_color(self : Style, v : Color?) -> Style {
   self.background_color = v
+  self
+}
+
+///|
+pub fn Style::set_background_gradient(self : Style, v : GradientSpec?) -> Style {
+  self.background_gradient = v
   self
 }
 

@@ -112,10 +112,21 @@ pub fn view(
       }
       // 圆角裁切随槽现取（关圆角令牌给 0，这一帧起就不擦）；只在**本块自己铺底
       // 或描边**时擦角——纯排版容器（无底无框）不该把贴边的兄弟内容啃掉一角
-      self.clip_rounded = rad > 0.0 && (bg.length() > 0 || bd.length() > 0)
+      let has_grad = match s.background_gradient {
+        Some(_) => true
+        None => false
+      }
+      self.clip_rounded = rad > 0.0 && (bg.length() > 0 || has_grad || bd.length() > 0)
       self.style_clip_radius = rad
-      if bg.length() > 0 {
+      // 渐变优先：可解析（≥2 有效 stop）就铺渐变，否则回落纯色
+      let filled = match s.background_gradient {
+        Some(g) => @style.apply_gradient_bg(p, g, r.w, r.h)
+        None => false
+      }
+      if !filled && bg.length() > 0 {
         p.set_fill_color(bg)
+      }
+      if filled || bg.length() > 0 {
         if rad > 0.0 {
           fill_round_rect(p, 0.0, 0.0, r.w, r.h, rad)
         } else {

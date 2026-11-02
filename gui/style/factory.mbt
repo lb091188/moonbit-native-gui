@@ -78,6 +78,7 @@ pub fn style(
   // —— 其它
   visibility? : Visibility,
   cursor? : Int,
+  background_gradient? : GradientSpec,
   // —— 状态桶：收整块（具名块复用）
   hover? : Style,
   active? : Style,
@@ -92,6 +93,7 @@ pub fn style(
     Some(c) => s.background_color = Some(check_color(parse_color(c)))
     None => ()
   }
+  s.background_gradient = background_gradient
   s.font_size = font_size
   s.font_family = font_family
   s.font_weight = font_weight
