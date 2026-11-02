@@ -54,3 +54,12 @@
 - [ ] **dock 门面合流**：shell 层按平台分派（mac→@win、Linux→@dbus、Windows false）；窗级进度与 app 级徽标语义分档如实注释；Windows SetOverlayIcon（状态图标非计数）做不做同批定
 - [ ] **贡献入口**：.github ISSUE_TEMPLATE（bug/feature 两表+config，回报格式引用用例文档「编号+现象+截图+退出读数行」约定）+ CONTRIBUTING 骨架（指向 build.md 与门禁命令，不与 AGENTS.md 双源）+ PR 模板简版
 - [ ] **性能基线探针**：experiment/ 独立模块——帧耗时分段（扩 LAYOUT-FRAME 账本观测面）+ 每帧重绘范围 + 布局重算次数三组读数；有数据再定 yoga 布局缓存与图表增量重绘立不立项
+
+## Wayland 原生路径（2026-11-03 立项，能力出路总表、DE 支持矩阵与坑清单见 [proposals/wayland-native.md](proposals/wayland-native.md)；先 spike 后分期，做完一项删一项并同步路线图）
+
+- [ ] **Spike S1/S2（本体行为 + XWayland 假数据实测，用户执行）**：Ubuntu 24.04 GNOME Wayland + deepin 25 Treeland 跑 hello/showcase 相邻条目；xrandr 输出形态 / redshift 退出码与实际效果 / wmctrl 可见窗口集合——产出「返回成功但无效」清单，定 P0 探针写法（判据见方案 §五）
+- [ ] **P0 会话探测与口径收口**：XDG_SESSION_TYPE + WAYLAND_DISPLAY 探针；nightlight 在 Wayland 会话不得因 redshift 存在报 supported；monitor 的 XWayland 假名在 caps/文档声明；「Wayland 会话能力预期表」进测试文档
+- [ ] **Spike S3–S8（用户执行）**：GlobalShortcuts 全流程（KDE+GNOME 各一台）、空闲双档误差、Treeland 协议面探测矩阵、夜灯配置口生效与复位、显示器字段对照、弹层定位
+- [ ] **P1 portal 骨架 + 全局快捷键 + 空闲检测**：gui/dbus portal 客户端通用层（Request/Response 异步握手）；GlobalShortcuts「绑定+信号回调」门面形态；空闲 GNOME IdleMonitor 精确档 + ext-idle-notify 近似档
+- [ ] **P2 夜灯逐 DE + 显示器枚举**：KDE ColorCorrect/NightLight（S6 定版本分界）、GNOME gsettings 配置口、wlroots wlr-gamma-control 裸 gamma；显示器 mutter DisplayConfig（锁版本）+ wlr-output-management（KDE 通道 S7 定）；首个 Wayland 协议客户端地基（libwayland vs 自写 wire）单独评
+- [ ] **P3 剪贴板监视协议化 + wlroots 窗口管理**：wlr-data-control + ext-data-control-v1 双协议（Plasma 6.5 迁移坑）；窗口管理仅 wlroots 系（wlr-foreign-toplevel）；GNOME/KDE 窗口管理与层级族按「无通道」出文档；同批更新 roadmap 会话表与 DE 实测矩阵

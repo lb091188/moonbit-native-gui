@@ -292,7 +292,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ### 系统能力
 
-- ⏳ **Wayland 原生路径**：portal / 夜灯 / 全局热键在 Wayland 会话的原生通道
+- 🚧 **Wayland 原生路径**（2026-11-03 立项调研，能力出路总表、DE 支持矩阵与 spike 清单见 [proposals/wayland-native.md](proposals/wayland-native.md)）：GUI 本体 Wayland 会话已能跑，缺口在系统能力族与层级/弹层——P0 会话探针堵 XWayland 静默假数据（「返回成功但无效」清零红线）→ P1 portal 骨架 + 全局快捷键（GlobalShortcuts）+ 空闲检测（GNOME IdleMonitor 精确档 / ext-idle-notify 近似档）→ P2 夜灯逐 DE + 显示器枚举 → P3 剪贴板监视协议化 + wlroots 窗口管理；layer-shell 不进（KDE/GNOME 双双不支持）；GNOME 侧窗口管理无通道记平台边界；先 spike S1–S8 后动工
 - ⏳ **KDE / GNOME / DDE 实测**：托盘、通知、深浅色、壁纸、默认应用的桌面环境矩阵
 - ⏳ **显示器「首选档」**：`CGDisplayModeIsPreferred` 已不在 SDK，需找公开替代信号
 - ⏳ **dock 徽标与 LauncherEntry**：macOS `NSDockTile` badgeLabel、Linux `com.canonical.Unity.LauncherEntry` Update 信号（count/progress），与已实现的 Windows 任务栏进度拼跨平台门面（shell 层分派，与 notify 门面同构）；Windows `SetOverlayIcon` 是状态图标语义非计数徽标，做不做同批定
@@ -333,14 +333,14 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ### 会话
 
-只有下表四项随会话类型变；各桌面环境若有自己的实现，会放进起初规划的各系统包里发布。
+只有下表四项随会话类型变；各桌面环境若有自己的实现，会放进起初规划的各系统包里发布。Wayland 侧出路已按 2026-11-03 调研收口（proposals/wayland-native.md）。
 
 | 功能点        | X11 | Wayland | Wayland 侧出路               |
 | ---------- | --- | ------- | ------------------------- |
-| 全局快捷键      | ✅   | 无对应面    | 需走 portal / 桌面守护协议        |
-| 空闲检测       | ✅   | ❌       | 退「有焦点才计时」的近似档             |
-| 窗口控制、剪贴板监视 | ✅   | ❌       | 剪贴板读写仍可用                  |
-| 显示器与夜灯     | ✅   | ❌       | 可改走 D-Bus / portal 的夜灯服务 |
+| 全局快捷键      | ✅   | ❌       | GlobalShortcuts portal（KDE 5.27+ / GNOME 48+ 可落；portal-wlr 不做、DDE 未核） |
+| 空闲检测       | ✅   | ❌       | GNOME IdleMonitor D-Bus 有精确读数口；KDE / wlroots 走 ext-idle-notify 事件近似 |
+| 窗口控制、剪贴板监视 | ✅   | ❌       | 窗口管理仅 wlroots 系有协议（GNOME / KDE 无通道）；剪贴板监视 KDE/wlroots 走 data-control、GNOME 维持轮询；读写本体可用 |
+| 显示器与夜灯     | ✅   | ❌       | 显示器走 mutter DisplayConfig / kscreen-doctor / wlr-output-management；夜灯 GNOME/KDE 配置 DE 夜灯、wlroots 裸 gamma；deepin 未核 |
 
 ### 桌面环境
 
