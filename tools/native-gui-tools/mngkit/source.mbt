@@ -248,6 +248,20 @@ fn parse_fn_sig(text : String) -> FnSig? {
 }
 
 ///|
+/// 签名原文 → 参数表（名, 类型, 是否可省）：编辑器 hover / 补全用。
+pub fn sig_params(text : String) -> Array[(String, String, Bool)] {
+  let out : Array[(String, String, Bool)] = []
+  match parse_fn_sig(text) {
+    Some(sig) =>
+      for p in sig.params {
+        out.push((p.name, p.ty, p.labelled))
+      }
+    None => ()
+  }
+  out
+}
+
+///|
 /// 顶层 `->` 的位置（跳过括号内的箭头）；无则 None。
 fn arrow_index(s : String) -> Int? {
   let a = chars_of(s)

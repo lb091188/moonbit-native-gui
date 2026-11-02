@@ -193,7 +193,7 @@ fn nav_fixture() -> String {
       "  0",
       "}",
       "",
-      "pub fn text(t : String) -> Int {",
+      "pub fn text(value : String, max? : Int = 0) -> Int {",
       "  0",
       "}",
     ].join("\n"),
@@ -213,7 +213,7 @@ test "LSP：外部包跳转（@包.成员 / 包入口 / 内置标签）与成员
     "</script>",
     "<template>",
     "  <ui-col>",
-    "    <ui-text text=\"x\" />",
+    "    <ui-text value=\"x\" max=\"2\" />",
     "    <ui-stepper v-model=\"qty\" max=\"10\" />",
     "  </ui-col>",
     "</template>",
@@ -262,6 +262,22 @@ test "LSP：外部包跳转（@包.成员 / 包入口 / 内置标签）与成员
   // hover：成员签名原文
   match lsp_handle(docs, req(15, "textDocument/hover", pos_params(uri, 1, 37))).reply {
     Some(r) => assert_true(contains_sub_l(r, "Store::new(v : T)"))
+    None => assert_true(false)
+  }
+  // hover 属性：给出该参数的类型与所属组件（签名里的可省参数）
+  match lsp_handle(docs, req(16, "textDocument/hover", pos_params(uri, 6, 24))).reply {
+    Some(r) =>
+      assert_true(
+        contains_sub_l(r, "max? : Int") && contains_sub_l(r, "ui-text"),
+      )
+    None => assert_true(false)
+  }
+  // 属性补全：签名全参数（不只是位置参数）
+  match lsp_handle(docs, req(17, "textDocument/completion", pos_params(uri, 6, 23))).reply {
+    Some(r) =>
+      assert_true(
+        contains_sub_l(r, "\"label\":\"max\"") && contains_sub_l(r, "\"detail\":\"max? : Int\""),
+      )
     None => assert_true(false)
   }
 }

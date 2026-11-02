@@ -717,22 +717,7 @@ fn lsp_completion(uri : String, text : String, line : Int, ch : Int) -> String {
       }
       completion_list(items, 9)
     }
-    "attr" => {
-      let items : Array[String] = ["class", "v-model", "v-if", "v-else-if", "v-else", "v-show", "v-for"]
-      match @mngkit.builtin_params(tag) {
-        Some(ps) =>
-          for p in ps {
-            if p != "children" && p != "child" && p != "text" && !arr_has_cli(items, p) {
-              items.push(p)
-            }
-          }
-        None => ()
-      }
-      items.push("@click")
-      items.push("@change")
-      items.push("@enter")
-      completion_list(items, 5)
-    }
+    "attr" => lsp_attr_completion(uri, text, tag)
     "expr" | "script" => lsp_expr_completion(uri, text, partial)
     "class" => completion_list(@mngkit.style_class_names(text), 7)
     "css-token" => lsp_css_token_completion(partial, tag)
@@ -784,6 +769,61 @@ fn css_token_start(text : String, line : Int, ch : Int) -> Int {
     s -= 1
   }
   ch - (off - s)
+}
+
+///|
+/// 属性补全：结构指令 + 组件签名的全部参数（可省参数带类型 detail）。
+fn lsp_attr_completion(uri : String, text : String, tag : String) -> String {
+  let items : Array[String] = []
+  let given : Array[String] = []
+  let push = fn(name : String, item : String) -> Unit {
+    if !arr_has_cli(given, name) {
+      given.push(name)
+      items.push(item)
+    }
+  }
+  for a in [
+    "class",
+    "v-model",
+    "v-if",
+    "v-else-if",
+    "v-else",
+    "v-show",
+    "v-for",
+  ] {
+    push(a, completion_item(a, 14))
+  }
+  let (_, ps) = comp_sig(sigs_for(uri), text, tag)
+  if ps.length() > 0 {
+    for (n, ty, opt) in ps {
+      if n != "children" && n != "child" {
+        push(
+          n,
+          completion_item_detail(n, 5, n + (if opt { "?" } else { "" }) + " : " + ty),
+        )
+      }
+    }
+  } else {
+    match @mngkit.builtin_params(tag) {
+      Some(list) =>
+        for p in list {
+          if p != "children" && p != "child" {
+            push(p, completion_item(p, 5))
+          }
+        }
+      None => ()
+    }
+  }
+  for e in ["@click", "@change", "@enter"] {
+    push(e, completion_item(e, 17))
+  }
+  "{\"isIncomplete\":false,\"items\":[" + items.join(",") + "]}"
+}
+
+///|
+/// 带 detail（类型）的补全项。
+fn completion_item_detail(label : String, kind : Int, detail : String) -> String {
+  "{\"label\":" + jq(label) + ",\"kind\":" + kind.to_string() + ",\"detail\":" + jq(detail) + "}"
 }
 
 ///|
@@ -873,8 +913,8 @@ fn lsp_hover(uri : String, text : String, line : Int, ch : Int) -> String {
   let off = offset_of(text, line, ch)
   let (ctx, partial, tag) = lsp_context(text, off)
   let content = match ctx {
-    "tag" => component_hover(expand_token(text, off, tag))
-    "attr" => attr_hover(text, off, partial, tag)
+    "tag" => component_hover(sigs_for(uri), text, expand_token(text, off, tag))
+    "attr" => attr_hover(uri, text, off, partial, tag)
     "class" =>
       lmsg(
         "类 `" + partial + "`：由 `<style>` 摊平进命名类注册表",
@@ -891,16 +931,55 @@ fn lsp_hover(uri : String, text : String, line : Int, ch : Int) -> String {
 }
 
 ///|
-/// 标签悬浮：内置组件给参数表，自定义组件指路 props 头。
-fn component_hover(tag : String) -> String {
+/// 组件标签 → (签名原文, 参数表)：内置走 `@ui.<名>`，自定义走 let 绑定 / 同包裸名。
+fn comp_sig(
+  sigs : @mngkit.Sigs,
+  text : String,
+  tag : String,
+) -> (String, Array[(String, String, Bool)]) {
+  let snake_name = snake_cli(tag)
+  let path = match @mngkit.builtin_path(tag) {
+    Some(p) => p
+    None =>
+      match let_path_in(text, snake_name) {
+        Some(p) => p
+        None => snake_name
+      }
+  }
+  match sigs.resolve(path) {
+    Some(sig) => (sig, @mngkit.sig_params(sig))
+    None => ("", [])
+  }
+}
+
+///|
+/// 参数表 → markdown 代码块（`名? : 类型` 逐行）。
+fn params_block(ps : Array[(String, String, Bool)]) -> String {
+  let lines : Array[String] = []
+  for (n, ty, opt) in ps {
+    lines.push("  " + n + (if opt { "?" } else { "" }) + " : " + ty)
+  }
+  "```moonbit\n" + lines.join("\n") + "\n```"
+}
+
+///|
+/// 标签悬浮：优先给签名解析出的完整参数表（含可省参数），退内置参数表，再退 props 头指路。
+fn component_hover(sigs : @mngkit.Sigs, text : String, tag : String) -> String {
   if tag.length() == 0 {
     return ""
   }
+  let (_, ps) = comp_sig(sigs, text, tag)
+  if ps.length() > 0 {
+    return lmsg(
+      "`<" + tag + ">` 参数：\n" + params_block(ps),
+      "`<" + tag + ">` params:\n" + params_block(ps),
+    )
+  }
   match @mngkit.builtin_params(tag) {
-    Some(ps) =>
+    Some(list) =>
       lmsg(
-        "`<" + tag + ">` 参数：" + ps.join(", "),
-        "`<" + tag + ">` params: " + ps.join(", "),
+        "`<" + tag + ">` 参数：" + list.join(", "),
+        "`<" + tag + ">` params: " + list.join(", "),
       )
     None =>
       lmsg(
@@ -912,7 +991,7 @@ fn component_hover(tag : String) -> String {
 
 ///|
 /// 属性位悬浮：指令 / 事件 / 动态参数各给一句，普通属性回落到组件的参数表。
-fn attr_hover(text : String, off : Int, partial : String, tag : String) -> String {
+fn attr_hover(uri : String, text : String, off : Int, partial : String, tag : String) -> String {
   let tok = expand_token(text, off, partial)
   if tok.has_prefix("v-") {
     match tok {
@@ -956,7 +1035,22 @@ fn attr_hover(text : String, off : Int, partial : String, tag : String) -> Strin
       "`class`: references a class defined in <style>",
     )
   } else if tag.length() > 0 {
-    component_hover(tag)
+    let key = snake_cli(tok)
+    let (_, ps) = comp_sig(sigs_for(uri), text, tag)
+    let mut hit : (String, String, Bool)? = None
+    for p in ps {
+      if p.0 == key {
+        hit = Some(p)
+      }
+    }
+    match hit {
+      Some((n, ty, opt)) =>
+        lmsg(
+          "`" + n + (if opt { "?" } else { "" }) + " : " + ty + "` 是 `<" + tag + ">` 的参数",
+          "`" + n + (if opt { "?" } else { "" }) + " : " + ty + "` is a param of `<" + tag + ">",
+        )
+      None => component_hover(sigs_for(uri), text, tag)
+    }
   } else {
     ""
   }
