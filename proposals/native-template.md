@@ -346,6 +346,7 @@ Web 主面壳形态不做（roadmap「明确不做」）。原生面是唯一主
 
 ## 与既有规划的关系
 
+- dev 子命令的工程形态（项目级、`mng.toml`、两种生成模式）见 [mng-project-dev.md](mng-project-dev.md)。
 - 与模块拆分（[module-split.md](module-split.md)）**正交**：消费拆分后的声明层，互不阻塞。
 - 与 gui-webview 组件**互补**：原生面自编译模板是唯一主面；web 内容（含整窗 webview）是兼容嵌入，不构成第二渲染底座。
 - 遵循 roadmap「不为对齐而补」：本工程立项理由是原生路线自身的可读性诉求与双向绑定缺位，不是框架兼容。

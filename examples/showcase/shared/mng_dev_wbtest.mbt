@@ -1,5 +1,5 @@
 // mng_dev 白盒：补丁解析 → applier 构树 → holder 原位替换 → 旧代整袋退订。
-// 注册表键与 dev_demo.mng 坐标一致（真实补丁形态由 tools/native-gui-tools/mng_cli ir 产出）。
+// 夹具坐标按 IR 形态写死（t:行:列 / c:行:列 + 名字），不绑定具体模板行号。
 
 ///|
 fn demo_ir() -> String {
@@ -136,4 +136,31 @@ test "applier:补丁按 page 取页，未挂载页报错带页名" {
       _ => false
     },
   )
+}
+
+///|
+test "mng_dev_page：登记起页挂初代树，补丁原位替换保持单棵" {
+  let page = "io.moonbitlibyue.wbtest.devpage"
+  let reg = mng_reg_new()
+  reg.expr("t:1:1", fn() { "初代" })
+  let node = mng_dev_page(page, reg, fn() {
+    @widget.bind_node(@base.Signal::computed(fn() { true }), fn(_v) {
+      @ui.text("初代")
+    })
+  })
+  let root = @widget.Widget::new()
+  let _ = root.set_column()
+  let _ = node.mount_into(root)
+  assert_eq(root.children().length(), 1)
+  let holder = match mng_holders.get(page) {
+    Some(h) => h
+    None => abort("holder 未登记")
+  }
+  assert_eq(holder.children().length(), 1)
+  let ir = "{\"v\":1,\"page\":\"io.moonbitlibyue.wbtest.devpage\",\"root\":{\"k\":\"dyn\",\"key\":\"t:1:1\"},\"exprs\":[\"t:1:1\"],\"states\":[],\"handlers\":[]}"
+  match mng_dev_apply(ir) {
+    Ok(_) => ()
+    Err(e) => abort("apply: " + e)
+  }
+  assert_eq(holder.children().length(), 1)
 }

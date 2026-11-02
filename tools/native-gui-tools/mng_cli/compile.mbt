@@ -97,11 +97,19 @@ fn parent_of(p : String) -> String {
 }
 
 ///|
-/// 编译：模板源码 + 路径 → 生成码与 source map（跨包组件签名按源码解析）。
+/// 编译（生产形态）：模板源码 + 路径 → 生成码与 source map（跨包组件签名按源码解析）。
 fn mng_compile(src : String, path : String) -> Result[@mngkit.GenOut, String] {
   let dir = dir_of(path)
   let sigs = @mngkit.sigs_new(ws_root(dir), dir, @mngkit.io_new(fs_read, fs_ls))
   @mngkit.compile_with(src, path, fn(p : String) { sigs.resolve(p) })
+}
+
+///|
+/// 编译（dev 形态）：多出页面注册表与 holder 落点（状态保活骨架）。
+fn mng_compile_dev(src : String, path : String) -> Result[@mngkit.GenOut, String] {
+  let dir = dir_of(path)
+  let sigs = @mngkit.sigs_new(ws_root(dir), dir, @mngkit.io_new(fs_read, fs_ls))
+  @mngkit.compile_dev(src, path, fn(p : String) { sigs.resolve(p) })
 }
 
 ///|

@@ -15,6 +15,8 @@ priv struct ScriptInfo {
   head_line : Int
   head_ret : String
   params : Array[Param]
+  // 槽名 → 元素类型原文（`Store[Int]` → `Int`；dev 档按类型登记 state）
+  slot_tys : Map[String, String]
   line0 : Int
   lines : Array[String]
 }
@@ -115,6 +117,7 @@ fn analyze_script(script : String, line0 : Int) -> ScriptInfo {
   let let_paths : Map[String, String] = Map([])
   let let_lines : Map[String, Int] = Map([])
   let comps : Map[String, CompDecl] = Map([])
+  let slot_tys : Map[String, String] = Map([])
   let lines = split_arr(script, "\n")
   let (head0, head_line0) = find_head(lines)
   let params : Array[Param] = []
@@ -128,6 +131,12 @@ fn analyze_script(script : String, line0 : Int) -> ScriptInfo {
         for p in sig.params {
           params.push(p)
           let _ = slots.set(p.name, kind_of_ty(p.ty))
+          match elem_ty_of(p.ty) {
+            Some(t) => {
+              let _ = slot_tys.set(p.name, t)
+            }
+            None => ()
+          }
         }
       }
       None => {
@@ -181,6 +190,12 @@ fn analyze_script(script : String, line0 : Int) -> ScriptInfo {
           }
           let ty = a[j:e].map(fn(c) { c.to_string() }).join("")
           let _ = slots.set(name, kind_of_ty(ty))
+          match elem_ty_of(ty) {
+            Some(t) => {
+              let _ = slot_tys.set(name, t)
+            }
+            None => ()
+          }
           // 右值：`=` 之后到行尾（去注释），`@包.名` 形态即可作组件路径
           if e < a.length() && a[e] == '=' {
             let rv = a[e + 1:].map(fn(c) { c.to_string() }).join("")
@@ -210,7 +225,20 @@ fn analyze_script(script : String, line0 : Int) -> ScriptInfo {
       }
     }
   }
-  { slots, lets, let_paths, let_lines, comps, head, head_line, head_ret, params, line0, lines }
+  {
+    slots,
+    lets,
+    let_paths,
+    let_lines,
+    comps,
+    head,
+    head_line,
+    head_ret,
+    params,
+    slot_tys,
+    line0,
+    lines,
+  }
 }
 
 ///|
@@ -248,6 +276,37 @@ fn parse_mng_decl(l : String) -> Result[(String, CompDecl), String] {
     }
   }
   Ok((tag, { path, positional }))
+}
+
+///|
+/// `@base.Store[Int]` / `Signal[Bool]` → 方括号内的元素类型文本；非容器返回 None。
+fn elem_ty_of(ty : String) -> String? {
+  let a = chars_of(ty)
+  let mut lo = -1
+  let mut hi = -1
+  let mut depth = 0
+  let mut i = 0
+  while i < a.length() {
+    if a[i] == '[' {
+      if depth == 0 && lo < 0 {
+        lo = i + 1
+      }
+      depth += 1
+    } else if a[i] == ']' {
+      depth -= 1
+      if depth == 0 && lo >= 0 && hi < 0 {
+        hi = i
+      }
+    }
+    i += 1
+  }
+  if lo < 0 || hi <= lo {
+    return None
+  }
+  if !contains_sub(ty, "Store[") && !contains_sub(ty, "Signal[") {
+    return None
+  }
+  Some(slice_str(a, lo, hi).trim().to_owned())
 }
 
 ///|

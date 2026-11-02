@@ -341,6 +341,23 @@ let mng_lives : Map[String, (@widget.Widget, Array[() -> Unit])] = Map([])
 let mng_regs : Map[String, MngReg] = Map([])
 
 ///|
+/// dev 档页面壳：登记注册表与 holder，把 `build()` 的树挂进 holder 并记为现役代。
+/// script 段在 `build` 外执行（状态建一代），补丁只重建 `build()` 的树——状态保活。
+pub fn mng_dev_page(page : String, reg : MngReg, build : () -> @widget.Node) -> @widget.Node {
+  mng_dev_set_reg(page, reg)
+  @widget.node_of_new(fn(holder : @widget.Widget) {
+    mng_dev_bind_holder(page, holder)
+    // 构树 + 挂载同处一个订阅袋窗口（computed 的依赖订阅发生在构造时）
+    @base.sub_bag_begin()
+    let node = build()
+    let child = node.mount_into(holder)
+    let offs = @base.sub_bag_end()
+    let _ = mng_lives.set(page, (child, offs))
+    holder
+  })
+}
+
+///|
 /// dev 页登记内容容器（按页登记，补丁按 IR 的 `page` 取）。
 pub fn mng_dev_bind_holder(page : String, w : @widget.Widget) -> Unit {
   let _ = mng_holders.set(page, w)

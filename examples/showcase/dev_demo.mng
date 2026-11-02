@@ -2,6 +2,11 @@
 let qty : @base.Store[Int] = @base.Store::new(3)
 let wifi : @base.Store[Bool] = @base.Store::new(true)
 let nick : @base.Store[String] = @base.Store::new("")
+
+fn on_reset() {
+  qty.set(3)
+  nick.set("")
+}
 </script>
 <template>
   <ui-col row_gap="8.0">

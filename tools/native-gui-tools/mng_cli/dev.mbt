@@ -168,7 +168,7 @@ fn cmd_dev(args : Array[String]) -> Int {
         continue
       }
     }
-    match mng_compile(src, f) {
+    match mng_compile_dev(src, f) {
       Err(e) => {
         eprintln(f + " 编译失败：")
         eprintln(e)
@@ -215,7 +215,7 @@ fn cmd_dev(args : Array[String]) -> Int {
       }
       let name = basename(f)
       let stem = first_seg(name)
-      match mng_compile(src, f) {
+      match mng_compile_dev(src, f) {
         Err(e) => {
           // 编译失败：错误已映射回模板行列，应用不动
           eprintln("[ERR] " + f + "：")

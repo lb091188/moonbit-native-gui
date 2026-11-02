@@ -978,11 +978,12 @@ fn let_at(info : ScriptInfo, k : Int) -> String {
 }
 
 ///|
-/// 组件签名解析器：`@包.名` → 该函数的签名原文；None = 解析不到（该组件需 `// @mng`）。
-pub fn compile_with(
+/// 编译内核：`dev=false` 产生产形态；`dev=true` 追加页面注册表与 holder 落点。
+fn compile_impl(
   src : String,
   filename : String,
   resolve : (String) -> String?,
+  dev : Bool,
 ) -> Result[GenOut, String] {
   let sfc = match parse_sfc(src) {
     Ok(v) => v
@@ -1021,7 +1022,7 @@ pub fn compile_with(
     used_lets: [],
   }
   // ① 先生成模板树：其间登记被消费的组件 let 与解析到的签名
-  let block = match gen_blocks(ctx, [root], 1) {
+  let block = match gen_blocks(ctx, [root], if dev { 2 } else { 1 }) {
     Ok(bs) =>
       if bs.length() == 1 {
         bs[0]
@@ -1104,8 +1105,33 @@ pub fn compile_with(
       g_emit(g, "  " + l, { line: info.line0 + k, col: 1 })
     }
   }
-  for l in block {
-    g_emit(g, l.0, l.1)
+  if dev {
+    let regs = match dev_collect(sfc.roots, ctx, info.slot_tys) {
+      Ok(r) => r
+      Err(e) => return Err(e)
+    }
+    g_emit(g, "  let reg = @shared.mng_reg_new()", hp)
+    for (k, e, p) in regs.exprs {
+      g_emit(g, "  reg.expr(" + q(k) + ", fn() { " + e + " })", p)
+    }
+    for (k, e, p) in regs.conds {
+      g_emit(g, "  reg.cond(" + q(k) + ", fn() { " + e + " })", p)
+    }
+    for (h, p) in regs.handlers {
+      g_emit(g, "  reg.handler(" + q(h) + ", " + h + ")", p)
+    }
+    for (n, kd, p) in regs.states {
+      g_emit(g, "  reg." + kd + "(" + q(n) + ", " + n + ")", p)
+    }
+    g_emit(g, "  @shared.mng_dev_page(" + q(stem_of(filename)) + ", reg, fn() {", hp)
+    for l in block {
+      g_emit(g, l.0, l.1)
+    }
+    g_emit(g, "  })", root_pos)
+  } else {
+    for l in block {
+      g_emit(g, l.0, l.1)
+    }
   }
   g_emit(g, "}", root_pos)
   let map_lines : Array[String] = ["# mng source map v1", "source " + filename]
@@ -1113,6 +1139,26 @@ pub fn compile_with(
     map_lines.push("\{m.gen_line}\t\{m.src_line}\t\{m.src_col}")
   }
   Ok({ code: g.lines.join("\n") + "\n", map: map_lines.join("\n") + "\n" })
+}
+
+///|
+/// 生产形态编译（带签名解析器）。
+pub fn compile_with(
+  src : String,
+  filename : String,
+  resolve : (String) -> String?,
+) -> Result[GenOut, String] {
+  compile_impl(src, filename, resolve, false)
+}
+
+///|
+/// dev 形态编译：script 段外层建状态，树进 build 闭包，登记表随页生成。
+pub fn compile_dev(
+  src : String,
+  filename : String,
+  resolve : (String) -> String?,
+) -> Result[GenOut, String] {
+  compile_impl(src, filename, resolve, true)
 }
 
 ///|
