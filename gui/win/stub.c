@@ -4349,6 +4349,19 @@ void *wm_surface_container(int64_t surface_id) {
   return (void *)wm_surfaces[surface_id].hwnd;
 }
 
+// 平台原生窗口句柄（逃生口，见 Window::native_handle）：返回槽窗口的 HWND。
+// 槽无效或窗口已拆返回 0。
+int64_t wm_native_handle(int64_t id) {
+  if (id <= 0 || id >= WM_MAX_WINDOWS) {
+    return 0;
+  }
+  WmWindow *w = &wm_windows[id];
+  if (w->hwnd == NULL) {
+    return 0;
+  }
+  return (int64_t)(intptr_t)w->hwnd;
+}
+
 // 原生弹层窗（Win32 真实现）：无边框 + 不进任务栏/Alt+Tab + transient 到 owner
 // （owned 窗恒压在 owner 之上、随其移动、owner 关闭时一并收）。此前这里是空桩，
 // 弹层于是带着标题栏按初始 320x200 的普通窗上屏，就是一块白板（Windows 真机反馈）。
@@ -5729,6 +5742,20 @@ GtkWidget *wm_surface_container(int64_t surface_id) {
     return NULL;
   }
   return wm_surfaces[surface_id].container;
+}
+
+// 平台原生窗口句柄（逃生口，见 Window::native_handle）：返回 GtkWindow 的
+// GtkWidget 指针。取法与 wm_surface_container 同一口（槽表直查）；口径钉死
+// 在这里——要 XID 等别的形态另开函数，不在本口上扩。槽无效返回 0。
+int64_t wm_native_handle(int64_t id) {
+  if (id <= 0 || id >= WM_MAX_WINDOWS) {
+    return 0;
+  }
+  WmWindow *win = &wm_windows[id];
+  if (win->window == NULL) {
+    return 0;
+  }
+  return (int64_t)(intptr_t)win->window;
 }
 
 // ---- 原生弹层窗口 ----
@@ -9865,6 +9892,16 @@ void *wm_surface_container(int64_t surface_id) {
   return (__bridge void *)wm_surf_views[(int)surface_id];
 }
 
+// 平台原生窗口句柄（逃生口，见 Window::native_handle）：返回窗口的 NSWindow*。
+// 槽无效或窗口已拆返回 0。
+int64_t wm_native_handle(int64_t id) {
+  WMState *s = wm_state(id);
+  if (s == nil) {
+    return 0;
+  }
+  return (int64_t)(uintptr_t)(__bridge void *)s.win;
+}
+
 int wm_window_surface_count(int64_t id) {
   int n = 0;
   for (int i = 1; i < WM_MAX_SURFACES; i++) {
@@ -12736,6 +12773,12 @@ int wm_inst_take(char *out, int32_t cap) {
 }
 int wm_inst_last_errno(void) { return 0; }
 void wm_inst_release(void) {}
+
+// 平台原生窗口句柄（逃生口）：无窗口后端恒 0。
+int64_t wm_native_handle(int64_t id) {
+  (void)id;
+  return 0;
+}
 
 #endif
 // Linux 上 native-stub 的那次编译（无 _WIN32、无 WM_STUB_GTK）落不进任何

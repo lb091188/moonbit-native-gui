@@ -17,6 +17,8 @@
 
 ### 1.1 平台原生句柄透出 MoonBit
 
+> ✅ 已落地（2026-11-02）：`Window::native_handle() -> Int64`——Win=HWND / mac=`NSWindow*` / GTK=`GtkWidget*`（口径钉在桩注释），无效槽/无后端回 0；契约「裸句柄、平台语义、仅逃生用」写在方法文档。
+
 **现状**：`Window.id` 是内部槽号（1 起，`gui/win/stub.c` 的 `wm_windows[]` 槽表），不是 HWND/XID/NSWindow。唯一交出真句柄的 `wm_surface_container(surface_id) -> GtkWidget*`（stub.c GTK 分支）只在 C 链接层可见，仅供 gui-webview 的 C 桩取父容器；MoonBit 侧没有任何 extern 声明可拿真句柄。
 
 **为什么要加**：开发者面对平台特例（Win32 API 直调、GDK 特性、Cocoa 私有面之外的扩展点）时只能自己另写 C 桩、重复窗口槽表的内部知识。这是「不卡死任何定制可能」唯一的硬缺口：自绘、样式、事件都有逃生口，唯独「借原生窗口做平台特化」没有。

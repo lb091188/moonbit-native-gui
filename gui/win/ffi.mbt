@@ -17,6 +17,9 @@ extern "c" fn wm_window_new(
 extern "c" fn wm_show(id : Int64) -> Unit = "wm_show"
 
 ///|
+extern "c" fn wm_native_handle(id : Int64) -> Int64 = "wm_native_handle"
+
+///|
 extern "c" fn wm_hide(id : Int64) -> Unit = "wm_hide"
 
 ///|

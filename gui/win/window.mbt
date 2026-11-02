@@ -340,6 +340,17 @@ pub fn Window::close(self : Window) -> Unit {
   self.id = -1L
 }
 
+///|
+/// 平台原生窗口句柄（裸指针数值）：Windows = `HWND`、macOS = `NSWindow*`、
+/// Linux/GTK = `GtkWindow` 的 `GtkWidget*`（口径钉在桩注释，要 XID 等别的
+/// 形态另开函数）；无窗口后端、槽无效或窗口已拆返回 0。
+///
+/// **裸句柄、平台语义、仅逃生用**——只用于接平台私有 API（原生对话框挂父、
+/// 系统集成等），跨平台代码不得依赖；用前自行判 0。
+pub fn Window::native_handle(self : Window) -> Int64 {
+  wm_native_handle(self.id)
+}
+
 // ---------------------- 窗口增强（W20e）------------------------------------
 // 自绘栈下窗口外壳要能被应用改：运行中改标题、设窗口图标（走 W20f 的图标
 // 句柄）、最小尺寸、自绘标题栏拖拽区、无边框开关。非 Windows 后端是空实现，
