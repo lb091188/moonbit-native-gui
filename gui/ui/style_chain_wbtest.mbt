@@ -65,3 +65,45 @@ test "按钮：默认块给 13，属性/class 依次覆盖（绘制与测量同�
   // 高度由按钮样式定（control_height），字号变大不改盒高——与旧口径一致
   assert_true(kid1.rect.h == h0)
 }
+
+///|
+test "继承：容器字号下推给文字件，子声明优先，按钮默认 13 不吃继承" {
+  // 基线：无容器字号
+  let a : Ref[@widget.Widget?] = Ref(None)
+  let _ = chain_mount(col([text("abc", handle=fn(w) { a.val = Some(w) })], row_gap=0.0))
+  let ta = chain_widget(a)
+  assert_eq(@style.style_for(ta).font_size, None)
+  let h0 = ta.rect.h
+  // 容器 20 号 → 文字件继承
+  let b : Ref[@widget.Widget?] = Ref(None)
+  let _ = chain_mount(
+    col(
+      [text("abc", handle=fn(w) { b.val = Some(w) })],
+      class=[@style.style(font_size=20.0)],
+      row_gap=0.0,
+    ),
+  )
+  let tb = chain_widget(b)
+  assert_eq(@style.style_for(tb).font_size, Some(20.0))
+  assert_true(tb.rect.h > h0)
+  // 子自己的 class 覆盖继承
+  let c : Ref[@widget.Widget?] = Ref(None)
+  let _ = chain_mount(
+    col(
+      [text("abc", class=[@style.style(font_size=30.0)], handle=fn(w) { c.val = Some(w) })],
+      class=[@style.style(font_size=20.0)],
+      row_gap=0.0,
+    ),
+  )
+  assert_eq(@style.style_for(chain_widget(c)).font_size, Some(30.0))
+  // 按钮默认块显式 13：容器 20 号不改变按钮文字
+  let d : Ref[@widget.Widget?] = Ref(None)
+  let _ = chain_mount(
+    col(
+      [button("x", handle=fn(w) { d.val = Some(w) })],
+      class=[@style.style(font_size=20.0)],
+      row_gap=0.0,
+    ),
+  )
+  assert_eq(@style.style_for(chain_widget(d)).font_size, Some(13.0))
+}

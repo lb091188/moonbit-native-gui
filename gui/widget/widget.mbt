@@ -271,10 +271,30 @@ pub fn Widget::is_painted(self : Widget) -> Bool {
 }
 
 ///|
+/// 子控件挂载钩子（进程级，默认空操作）：`append_child` / `insert_child` 挂上
+/// 子控件后回调 (parent, child)。用途同丢弃钩子——按控件 id 持有的侧表（样式
+/// 继承基线）在挂载时往下推一层。widget 不认识装钩子的是谁。
+let widget_mount_hook : Ref[(Widget, Widget) -> Unit] = Ref(fn(
+  _p : Widget,
+  _c : Widget,
+) -> Unit { () })
+
+///|
+pub fn set_widget_mount_hook(f : (Widget, Widget) -> Unit) -> Unit {
+  widget_mount_hook.val = f
+}
+
+///|
+fn fire_mount_hook(parent : Widget, child : Widget) -> Unit {
+  (widget_mount_hook.val)(parent, child)
+}
+
+///|
 /// 追加子控件（同步进布局树）。
 pub fn Widget::append_child(self : Widget, child : Widget) -> Unit {
   self.kids.push(child)
   self.node.append_child(child.node)
+  fire_mount_hook(self, child)
 }
 
 ///|
@@ -328,6 +348,7 @@ pub fn Widget::insert_child(self : Widget, index : Int, child : Widget) -> Unit 
   let n = self.kids.length()
   let at = if index < 0 { 0 } else if index > n { n } else { index }
   self.kids.insert(at, child)
+  fire_mount_hook(self, child)
   self.node.insert_child(at, child.node)
 }
 

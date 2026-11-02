@@ -10,6 +10,10 @@
 /// 槽放不进 `Widget`）。**只增不减会漏**——动态换树每换一代多留一批残账，所以
 /// 首次 `apply` 时把 widget 的控件丢弃钩子装上，摘下的子树连带清掉它的条目。
 let resolved_table : Map[Int, Style] = Map([])
+// 继承层：从最近一次向下推得到的「祖先可继承文字属性」，以及合并后的生效样式。
+// 三张表分开是为了主题/类重算时能「先回退到继承基线、再叠自身声明」。
+let inherited_table : Map[Int, Style] = Map([])
+let effective_table : Map[Int, Style] = Map([])
 let drop_hook_installed : Ref[Bool] = Ref(false)
 
 ///|
@@ -18,8 +22,53 @@ fn install_drop_hook() -> Unit {
     drop_hook_installed.val = true
     @widget.set_widget_discard_hook(fn(id : Int) -> Unit {
       let _ = resolved_table.remove(id)
+      let _ = inherited_table.remove(id)
+      let _ = effective_table.remove(id)
       forget_anim(id)
     })
+    @widget.set_widget_mount_hook(fn(parent : @widget.Widget, child : @widget.Widget) -> Unit {
+      let peff = match effective_table.get(parent.id) {
+        Some(s) => s
+        None => empty_style()
+      }
+      push_inherit(child, inheritables_of(peff))
+    })
+  }
+}
+
+///|
+/// 可继承的文字属性（绘制期从 resolved 读的那批；布局/装饰类不下推——继承
+/// 只搬文字观感，不动盒子）。
+fn inheritables_of(s : Style) -> Style {
+  let out = empty_style()
+  out.color = s.color
+  out.font_size = s.font_size
+  out.font_family = s.font_family
+  out.font_weight = s.font_weight
+  out.text_align = s.text_align
+  out.line_height = s.line_height
+  out.letter_spacing = s.letter_spacing
+  out.text_decoration = s.text_decoration
+  out.white_space = s.white_space
+  out.hover = s.hover
+  out.active = s.active
+  out.focus = s.focus
+  out
+}
+
+///|
+/// 把继承基线写进控件（子覆盖继承），再往下推一层。挂载与样式重算共用这一口。
+fn push_inherit(w : @widget.Widget, inh : Style) -> Unit {
+  inherited_table.set(w.id, inh)
+  let own = match resolved_table.get(w.id) {
+    Some(s) => s
+    None => empty_style()
+  }
+  let eff = merge(inh, own)
+  effective_table.set(w.id, eff)
+  let next = inheritables_of(eff)
+  for kid in w.kids {
+    push_inherit(kid, next)
   }
 }
 
@@ -243,6 +292,16 @@ pub fn apply(w : @widget.Widget, s : Style) -> Unit {
   }
   let merged = merge(prev, s)
   resolved_table.set(w.id, merged)
+  let inh = match inherited_table.get(w.id) {
+    Some(x) => x
+    None => empty_style()
+  }
+  let eff = merge(inh, merged)
+  effective_table.set(w.id, eff)
+  let next = inheritables_of(eff)
+  for kid in w.kids {
+    push_inherit(kid, next)
+  }
   // 带状态桶 = 绘制随悬停/按下/焦点变 → 告诉宿主「悬停变化时我的矩形也要重画」
   let stateful = match (merged.hover, merged.active, merged.focus) {
     (Some(_), _, _) | (_, Some(_), _) | (_, _, Some(_)) => true
@@ -257,7 +316,7 @@ pub fn apply(w : @widget.Widget, s : Style) -> Unit {
 /// 控件上的基块（未应用过样式给空样式）。绘制期一般用 [style_for]——它按状态
 /// 选桶（`hovered` / `pressed` / `focused`，三桶可同时命中并按桶内逐属性层叠）。
 pub fn resolved(w : @widget.Widget) -> Style {
-  match resolved_table.get(w.id) {
+  match effective_table.get(w.id) {
     Some(s) => square_corners_applied(s)
     None => square_corners_applied(empty_style())
   }
@@ -268,7 +327,7 @@ pub fn resolved(w : @widget.Widget) -> Style {
 /// 抓住控件句柄就成了「控件 → 节点 → 回调 → 控件」的引用环（计数式回收断不掉）。
 /// 布局属性只存在于基块里（状态桶签名里没有它们，§1.3），所以测量期读基块是完整的。
 pub fn resolved_by_id(id : Int) -> Style {
-  match resolved_table.get(id) {
+  match effective_table.get(id) {
     Some(st) => st
     None => empty_style()
   }
