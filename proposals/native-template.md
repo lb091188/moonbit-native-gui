@@ -62,7 +62,7 @@
 | `v-model` 双向绑定 | ✓ 语法原味；编译落点 = 值槽直传 Store（受控组件本来就吃 Store，无 setter/getter 二线制——语法对齐、落点从简） |
 | `v-if` 条件 | ✓ 全家（`v-if` / `v-else-if` / `v-else`），表达式任意；`v-show` → `when` 显隐 |
 | `v-for` 列表 | 语法钉死，生成器 v1 收口 |
-| 组件标签 | ✓ `ui-*` 内置表 + script setup 的 `let` 绑定即暴露（对齐 setup 心智） |
+| 组件标签 | ✓ `ui-*` 内置表 + script setup 的 `let` 绑定即暴露（对齐 setup 心智）；组件带参见「语法落定」props 行 |
 | 默认 slot | ✓ 子元素 → children 数组（form / form_item / section） |
 
 **能力限制收窄记档**（语法不为此改形，超范围编译报错提示）：
@@ -85,7 +85,8 @@
 | 事件 | `@click="handler"`；事件名查映射表条目，未知 `@` 报错 |
 | 结构条件 | `v-if` / `v-else-if` / `v-else` 表达式任意：词法提取响应源 → 单槽名直用其 signal、否则包 `computed` → `bind_node` 按 match 链原位重建；`v-show` → `when` 显隐 |
 | keyed 列表 | `v-for="it in items" :key="it.id"` → ListStore keyed，`it` 即迭代元素 |
-| 组件暴露 | script setup 的 `let` 绑定（值为函数引用，如 `let sh_section = @shared.section`）即可用作模板标签（对齐 setup 暴露心智；生成码解析到绑定的值直接调用，不经函数值）；`ui-*` → `@ui.*`（`-`→`_`）内置表兜底 |
+| 组件暴露 | `ui-*` → `@ui.*`（`-`→`_`）内置表；同包组件按标签名直接找 `fn 组件名`（零声明）；跨包写 `let 组件名 = @包.函数`——路径取自右值、参数顺序与类型取自源码签名（`pkg.generated.mbti` 不含位置参数名，故扫包内 `*.mbt` 顶层声明与 `*.mng` 的 props 头）。只作组件绑定的 `let` 不进生成体（免未用变量警告）。不规则落点（子元素参数不是 `Array[@widget.Node]`）用一行 `// @mng 标签 = 路径 positional(…)` 覆盖——它是逃生口，不是日常 |
+| 组件参数（props） | script 段第一个 `fn` 声明若**只有签名、无函数体**（其后不带 `{`）即本组件的 props 头，编译器拿它当生成函数头并升 `pub`；不写则退回 `fn <stem>() -> @widget.Node`。必填走位置参数（MoonBit 位置参不能有默认值），可选走 `名? : 类型 = 默认值`（默认值可以是非常量表达式，体内绑定为裸类型）；模板里按参数名写属性（`title="…"` / `:qty="store"`），回调 prop 用 `@事件名`（按 `名` / `on_名` 在参数表里查）。未被模板或 script 引用的 prop 生成 `let _ = 名` 垫片，保住零警告门禁 |
 | script 段 | MoonBit 原文进生成函数体前段（`let` / `fn` 均可） |
 | 生成函数签名 | `fn <文件名去扩展>() -> @widget.Node`；app 注入挂开放问题 |
 | 动态文本响应源 | 词法提取：表达式内 script 声明的槽名（裸引用或 `.get()`）即源；单源 `bind_label(store, fn(v){…})`、源本身是 Signal 用 `bind`、多源包 `computed`、零源 `@ui.text(expr)` |
@@ -352,7 +353,7 @@ Web 主面壳形态不做（roadmap「明确不做」）。原生面是唯一主
 1. ~~语法细节~~：**已冻结**（2026-11-01）——语法对齐 Vue：`{{ }}`、`:attr`、`@event`、`v-model`（落点直传 Store）、`v-if` 全家 + `v-show`、`v-for`、`ui-*` 内置表 + script setup `let` 绑定暴露；收窄项见「Spike 契约」记档。
 2. ~~单文件格式与扩展名~~：**`.mng`**（裸，语言注册由自家扩展接管）；script 段原文进生成函数体前段、模板树进后段。
 3. 生成物提交 or 忽略（本方案倾向提交 + CI 校验新鲜度）。
-4. spike 已选 showcase 表单页；生成函数签名 v1 定 `fn <文件名去扩展>() -> @widget.Node`——app 注入需求与组件 props 类型化（带参组件）留 v2。
+4. ~~生成函数签名与带参组件~~：**已定**——默认 `fn <文件名去扩展>() -> @widget.Node`；组件要带参就在 script 段写 props 头（见「语法落定」props 行），「方法给外部」= 回调 prop + Store 槽直传，不做 expose。app 注入（页面拿到 App 上下文）仍挂开放项。
 5. 工具命名——按路线门面标准起：终态是本路线的 Vite 位次，对外 DX 的第一入口。
 6. LSP hover 能从 `moon check` 借到多少类型信息（决定 hover 档做不做）。
 7. 布局属性样式化口径收紧：优先级规则落点与存量构造参数的迁移策略（独立于模板先行时就要定）。

@@ -50,7 +50,106 @@ fn builtin_decl(tag : String) -> CompDecl? {
 priv struct Ctx {
   slots : Map[String, SlotKind]
   lets : Array[String]
+  // let 名 → 右值路径（消 `// @mng` 冗余用）
+  let_paths : Map[String, String]
   comps : Map[String, CompDecl]
+  // 外部签名解析器：`@包.名` → 该函数签名原文；None = 解析不到（走 @mng 逃生口）
+  resolve : (String) -> String?
+  cache : Map[String, CompDecl]
+  // 路径 → 该函数全部参数名（自定义组件的 @事件 回调落点查表用）
+  sigs : Map[String, Array[String]]
+  // 被当组件消费的 let 名（生成体里按需丢弃）
+  used_lets : Array[String]
+}
+
+///|
+/// 类型原文 → 归一（去空白，比对 children/child 落点用）。
+fn norm_ty(ty : String) -> String {
+  chars_of(ty).filter(fn(c) { c != ' ' && c != '\t' && c != '\n' && c != '\r' })
+    .map(fn(c) { c.to_string() })
+    .join("")
+}
+
+///|
+/// 签名 → 组件声明：未标 `?` 的参数按声明序进 positional；类型为子节点数组/单节点的
+/// 槽位记成 children / child（模板子元素落点）；`?` 参数由剩余属性按名填。
+fn decl_of_sig(path : String, sig : FnSig) -> CompDecl {
+  let positional : Array[String] = []
+  let mut got_children = false
+  let mut got_child = false
+  for p in sig.params {
+    if p.labelled {
+      continue
+    }
+    let t = norm_ty(p.ty)
+    if t == "Array[@widget.Node]" && !got_children {
+      got_children = true
+      positional.push("children")
+    } else if t == "@widget.Node" && !got_child {
+      got_child = true
+      positional.push("child")
+    } else {
+      positional.push(p.name)
+    }
+  }
+  { path, positional }
+}
+
+///|
+/// `@包.名` → 末段函数名。
+fn fn_of_path(path : String) -> String {
+  let a = chars_of(path)
+  let mut last = if a.length() > 0 && a[0] == '@' { 1 } else { 0 }
+  let mut i = last
+  while i < a.length() {
+    if a[i] == '.' {
+      last = i + 1
+    }
+    i += 1
+  }
+  let mut out = ""
+  while last < a.length() && is_ident_char(a[last]) {
+    out = out + a[last].to_string()
+    last += 1
+  }
+  out
+}
+
+///|
+/// 组件路径 → 声明：先查缓存，再问解析器。解析不到报错并指路 `// @mng`。
+fn decl_of_path(ctx : Ctx, tag : String, path : String, pos : Pos) -> Result[CompDecl, String] {
+  match ctx.cache.get(path) {
+    Some(d) => Ok(d)
+    None =>
+      match (ctx.resolve)(path) {
+        Some(text) =>
+          match parse_fn_sig(text) {
+            Some(sig) =>
+              if sig.name != fn_of_path(path) {
+                Err(
+                  "\{pos_str(pos)}：<\{tag}> 的 `\{path}` 解析到 `\{sig.name}` 的签名——解析器错位，用 // @mng \{tag} = \{path} positional(…) 覆盖",
+                )
+              } else {
+                let d = decl_of_sig(path, sig)
+                let names : Array[String] = []
+                for p in sig.params {
+                  names.push(p.name)
+                }
+                let _ = ctx.sigs.set(path, names)
+                let _ = ctx.cache.set(path, d)
+                Ok(d)
+              }
+            None =>
+              Err(
+                "\{pos_str(pos)}：<\{tag}> 的绑定路径 `\{path}` 签名解析失败——用 // @mng \{tag} = \{path} positional(…) 覆盖",
+              )
+          }
+        None =>
+          Err(
+            "\{pos_str(pos)}：<\{tag}> 绑定的 `\{path}` 找不到源码签名（依赖未装或跨发布单元）——用 // @mng \{tag} = \{path} positional(…) 声明参数顺序",
+          )
+      }
+  }
 }
 
 ///|
@@ -446,6 +545,45 @@ fn children_part(
 }
 
 ///|
+/// 裸标识符判定（@事件 / v-model 的值形态）。
+fn is_bare_ident(v : String) -> Bool {
+  let cs = chars_of(v)
+  if cs.length() == 0 || !is_ident_start(cs[0]) {
+    return false
+  }
+  let mut ok = true
+  for c in cs {
+    if !is_ident_char(c) {
+      ok = false
+    }
+  }
+  ok
+}
+
+///|
+/// 自定义组件的 @事件：回调 prop 名按 `<事件>` / `on_<事件>` 在目标参数里查；
+/// 都查不到按属性名直传（与静态属性同形）。
+fn event_on_comp(ctx : Ctx, decl : CompDecl, a : Attr) -> Result[String, String] {
+  let v = a.value.trim().to_owned()
+  if !is_bare_ident(v) {
+    return Err("\{pos_str(a.pos)}：@事件值需是 script 里的函数名")
+  }
+  let n = snake(a.name)
+  let names = match ctx.sigs.get(decl.path) {
+    Some(x) => x
+    None => []
+  }
+  let mut picked = n
+  for cand in [n, "on_" + n] {
+    if arr_contains(names, cand) {
+      picked = cand
+      break
+    }
+  }
+  Ok(picked + "=" + v)
+}
+
+///|
 /// 事件名 → 回调参数名；值必须是裸函数名。
 fn event_labeled(a : Attr) -> Result[String, String] {
   let pname = match a.name {
@@ -455,14 +593,7 @@ fn event_labeled(a : Attr) -> Result[String, String] {
     other => return Err("\{pos_str(a.pos)}：@事件不支持「\{other}」（v1：click / change / enter）")
   }
   let v = a.value.trim().to_owned()
-  let cs = chars_of(v)
-  let mut ok = cs.length() > 0 && is_ident_start(cs[0])
-  for c in cs {
-    if !is_ident_char(c) {
-      ok = false
-    }
-  }
-  if !ok {
+  if !is_bare_ident(v) {
     return Err("\{pos_str(a.pos)}：@事件值需是 script 里的函数名")
   }
   Ok(pname + "=" + v)
@@ -486,18 +617,34 @@ fn gen_elem_base(
     }
   } else {
     let name = snake(tag)
-    if !arr_contains(ctx.lets, name) {
-      return Err("\{pos_str(pos)}：<\{tag}> 既不是 ui-* 组件，也不是 script 里的 let 绑定")
-    }
     match ctx.comps.get(name) {
       Some(d) =>
         if d.path.has_prefix("@mng-error:") {
           return Err("\{pos_str(pos)}：\{d.path[11:].to_owned()}")
         } else {
+          if arr_contains(ctx.lets, name) {
+            ctx.used_lets.push(name)
+          }
           d
         }
       None =>
-        return Err("\{pos_str(pos)}：组件 <\{tag}> 需要声明参数顺序——script 里加一行：// @mng <\{tag}> = <路径> positional(参数…)")
+        match ctx.let_paths.get(name) {
+          Some(path) => {
+            ctx.used_lets.push(name)
+            match decl_of_path(ctx, tag, path, pos) {
+              Ok(d) => d
+              Err(e) => return Err(e)
+            }
+          }
+          None =>
+            match decl_of_path(ctx, tag, name, pos) {
+              Ok(d) => d
+              Err(_) =>
+                return Err(
+                  "\{pos_str(pos)}：<\{tag}> 不是 ui-* 组件，script 里没有 `let \{name} = @包.名`，同包也没有 `fn \{name}`——补其一，或写 // @mng \{tag} = <路径> positional(…)",
+                )
+            }
+        }
     }
   }
   let used2 : Array[Bool] = []
@@ -514,6 +661,13 @@ fn gen_elem_base(
           if a.name == spec {
             return Some(a)
           }
+        Event => {
+          // 回调型位置参数（如 `on_reset : () -> Unit`）用 `@reset` 填
+          let en = snake(a.name)
+          if en == spec || "on_" + en == spec {
+            return Some(a)
+          }
+        }
         _ => ()
       }
     }
@@ -661,19 +815,13 @@ fn gen_elem_base(
           match a.kind {
             Model => {
               let v = a.value.trim().to_owned()
-              let cs = chars_of(v)
-              let mut ok = cs.length() > 0 && is_ident_start(cs[0])
-              for c in cs {
-                if !is_ident_char(c) {
-                  ok = false
-                }
-              }
-              if !ok {
+              if !is_bare_ident(v) {
                 return Err("\{pos_str(a.pos)}：v-model 需指向 script 里的 Store 绑定名")
               }
               parts.push([(v, a.pos)])
             }
             Dyn => parts.push([(a.value, a.pos)])
+            Event => parts.push([(a.value.trim().to_owned(), a.pos)])
             _ => parts.push([(lit_of(a.value), a.pos)])
           }
         }
@@ -699,9 +847,16 @@ fn gen_elem_base(
       }
       Dyn => labeled.push((snake(a.name) + "=" + a.value, a.pos))
       Event => {
-        let ev = match event_labeled(a) {
-          Ok(v) => v
-          Err(e) => return Err(e)
+        let ev = if tag.has_prefix("ui-") {
+          match event_labeled(a) {
+            Ok(v) => v
+            Err(e) => return Err(e)
+          }
+        } else {
+          match event_on_comp(ctx, decl, a) {
+            Ok(v) => v
+            Err(e) => return Err(e)
+          }
         }
         labeled.push((ev, a.pos))
       }
@@ -789,8 +944,31 @@ fn stem_of(filename : String) -> String {
 }
 
 ///|
-/// 编译入口：.mng 源码 → 生成 MoonBit + source map。
-pub fn compile(src : String, filename : String) -> Result[GenOut, String] {
+fn map_has(m : Map[Int, Bool], k : Int) -> Bool {
+  match m.get(k) {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
+/// 行号 → 该行的 let 绑定名（无则空串）。
+fn let_at(info : ScriptInfo, k : Int) -> String {
+  for (name, line) in info.let_lines {
+    if line == k {
+      return name
+    }
+  }
+  ""
+}
+
+///|
+/// 组件签名解析器：`@包.名` → 该函数的签名原文；None = 解析不到（该组件需 `// @mng`）。
+pub fn compile_with(
+  src : String,
+  filename : String,
+  resolve : (String) -> String?,
+) -> Result[GenOut, String] {
   let sfc = match parse_sfc(src) {
     Ok(v) => v
     Err(e) => return Err(e)
@@ -808,17 +986,17 @@ pub fn compile(src : String, filename : String) -> Result[GenOut, String] {
     Elem(_, _, _, _) => ()
   }
   let info = analyze_script(sfc.script, sfc.script_line0)
-  let ctx : Ctx = { slots: info.slots, lets: info.lets, comps: info.comps }
-  let g : Gen = { lines: [], map: [], last: { line: 1, col: 1 } }
-  let hp = { line: 1, col: 1 }
-  g_emit(g, "// GENERATED by mngc（native-gui 模板编译器）。来源：" + filename + "。DO NOT EDIT。", hp)
-  g_emit(g, "///|", hp)
-  g_emit(g, "pub fn " + stem_of(filename) + "() -> @widget.Node {", hp)
-  for k, l in info.lines {
-    if l.length() > 0 {
-      g_emit(g, "  " + l, { line: info.line0 + k, col: 1 })
-    }
+  let ctx : Ctx = {
+    slots: info.slots,
+    lets: info.lets,
+    let_paths: info.let_paths,
+    comps: info.comps,
+    resolve,
+    cache: Map([]),
+    sigs: Map([]),
+    used_lets: [],
   }
+  // ① 先生成模板树：其间登记被消费的组件 let 与解析到的签名
   let block = match gen_blocks(ctx, [root], 1) {
     Ok(bs) =>
       if bs.length() == 1 {
@@ -827,6 +1005,76 @@ pub fn compile(src : String, filename : String) -> Result[GenOut, String] {
         return Err("\{filename}：模板内部生成出 \{bs.length()} 个表达式块（应为一个）")
       }
     Err(e) => return Err(e)
+  }
+  // ② 引用集：script 正文（去签名头、去纯组件绑定的 let 行）+ 模板表达式——
+  // 决定 props 的消警告垫片，以及只作声明用的 let 是否留在生成体里
+  let head_lines : Map[Int, Bool] = Map([])
+  if info.head_line >= 0 {
+    for k in 0..<info.head.length() {
+      let _ = head_lines.set(info.head_line + k, true)
+    }
+  }
+  let comp_lines : Map[Int, Bool] = Map([])
+  for name in ctx.used_lets {
+    match info.let_lines.get(name) {
+      Some(k) => {
+        let _ = comp_lines.set(k, true)
+      }
+      None => ()
+    }
+  }
+  let exprs : Array[String] = []
+  collect_exprs(sfc.roots, exprs, Map([]))
+  let mut body_text = ""
+  for k, l in info.lines {
+    if !map_has(head_lines, k) && !map_has(comp_lines, k) {
+      body_text = body_text + l + " "
+    }
+  }
+  let used = idents_in(body_text + " " + exprs.join(" "))
+  let g : Gen = { lines: [], map: [], last: { line: 1, col: 1 } }
+  let hp = { line: 1, col: 1 }
+  g_emit(g, "// GENERATED by mngc（native-gui 模板编译器）。来源：" + filename + "。DO NOT EDIT。", hp)
+  g_emit(g, "///|", hp)
+  if info.head.length() > 0 {
+    if info.head_ret.length() == 0 {
+      return Err(
+        "\{filename}：props 头需要返回类型（如 fn 名(…) -> @widget.Node）",
+      )
+    }
+    let hpos = { line: info.line0 + info.head_line, col: 1 }
+    let hs : Array[String] = []
+    for l in info.head {
+      let t = l.trim().to_owned()
+      let one = if t.has_prefix("pub ") {
+        t[4:].to_owned()
+      } else {
+        t
+      }
+      hs.push(one)
+    }
+    for k, l in hs {
+      let head_part = if k == 0 { "pub " } else { "" }
+      let tail = if k == hs.length() - 1 { " {" } else { "" }
+      g_emit(g, head_part + l + tail, hpos)
+    }
+  } else {
+    g_emit(g, "pub fn " + stem_of(filename) + "() -> @widget.Node {", hp)
+  }
+  for p in info.params {
+    if !arr_contains(used, p.name) {
+      g_emit(
+        g,
+        "  let _ = " + p.name,
+        { line: info.line0 + (if info.head_line >= 0 { info.head_line } else { 0 }), col: 1 },
+      )
+    }
+  }
+  for k, l in info.lines {
+    let drop = map_has(head_lines, k) || (map_has(comp_lines, k) && !arr_contains(used, let_at(info, k)))
+    if l.length() > 0 && !drop {
+      g_emit(g, "  " + l, { line: info.line0 + k, col: 1 })
+    }
   }
   for l in block {
     g_emit(g, l.0, l.1)
@@ -837,4 +1085,10 @@ pub fn compile(src : String, filename : String) -> Result[GenOut, String] {
     map_lines.push("\{m.gen_line}\t\{m.src_line}\t\{m.src_col}")
   }
   Ok({ code: g.lines.join("\n") + "\n", map: map_lines.join("\n") + "\n" })
+}
+
+///|
+/// 编译入口（无签名解析器）：非 ui-* 组件只认 `// @mng` 声明。
+pub fn compile(src : String, filename : String) -> Result[GenOut, String] {
+  compile_with(src, filename, fn(_path) { None })
 }

@@ -160,7 +160,7 @@ fn cmd_dev(args : Array[String]) -> Int {
         continue
       }
     }
-    match @mngkit.compile(src, f) {
+    match mng_compile(src, f) {
       Err(e) => {
         eprintln(f + " 编译失败：")
         eprintln(e)
@@ -207,7 +207,7 @@ fn cmd_dev(args : Array[String]) -> Int {
       }
       let name = basename(f)
       let stem = first_seg(name)
-      match @mngkit.compile(src, f) {
+      match mng_compile(src, f) {
         Err(e) => {
           // 编译失败：错误已映射回模板行列，应用不动
           eprintln("[ERR] " + f + "：")
@@ -317,7 +317,7 @@ fn cmd_ir(args : Array[String]) -> Int {
 }
 
 ///|
-/// new 子命令：生成 .mng 页样板（script setup + 最小模板 + @mng 提示）。
+/// new 子命令：生成 .mng 页样板（script setup + 最小模板 + props 头与组件调用提示）。
 fn cmd_new(args : Array[String]) -> Int {
   if args.length() != 1 {
     println("new 需要一个页名（生成 <名字>.mng）")
@@ -336,12 +336,17 @@ fn cmd_new(args : Array[String]) -> Int {
   let snake = snake_of(stem)
   let tpl = [
     "<script setup lang=\"moonbit\">",
+    "// props（可选）：script 段第一行只写签名、不写函数体的 fn 头就是本组件的参数表；",
+    "// 必填走位置参数，可选走 `名? : 类型 = 默认值`。不写即零参组件。",
+    "// fn " + snake + "(title : String, qty : @base.Store[Int], on_reset : () -> Unit, wide? : Bool = false) -> @widget.Node",
+    "",
     "// 页状态：Store/Signal 声明在此；被模板引用的 let 绑定即响应槽。",
     "let qty : @base.Store[Int] = @base.Store::new(0)",
     "",
-    "// 跨包组件：let 绑定 + @mng positional 声明（参数顺序 = 位置参数）",
-    "// let sh_section = @shared.section",
-    "// @mng sh-section = @shared.section positional(title, subtitle, desc, children)",
+    "// 组件调用零声明：ui-* 走内置表；同包 `fn 组件名` 直接当标签用；",
+    "// 跨包写 `let 组件名 = @包.函数`，路径取自右值、参数顺序取自源码签名。",
+    "// 只有不规则落点（子元素不是 Array[@widget.Node] 之类）才需要一行覆盖：",
+    "// @mng sh-page = @shared.page positional(children)",
     "</script>",
     "",
     "<template>",

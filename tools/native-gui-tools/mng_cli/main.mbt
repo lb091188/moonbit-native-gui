@@ -69,7 +69,7 @@ fn cmd_build(args : Array[String]) -> Int {
       return 1
     }
   }
-  match @mngkit.compile(src, input) {
+  match mng_compile(src, input) {
     Err(e) => {
       println(input + " 编译失败：")
       println(e)

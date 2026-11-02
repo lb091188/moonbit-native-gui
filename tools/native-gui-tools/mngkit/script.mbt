@@ -1,22 +1,143 @@
-// script 段分析：槽名与种类（Store/Signal/普通）、@mng 组件声明。纯词法，不解析 MoonBit。
+// script 段分析：组件签名头（props）、槽名与种类（Store/Signal/普通）、
+// let 绑定的组件路径、`// @mng` 覆盖声明。纯词法，不解析 MoonBit 语义。
 
 ///|
 priv struct ScriptInfo {
   slots : Map[String, SlotKind]
   lets : Array[String]
+  // let 名 → 右值组件路径（`let sh_section = @shared.section`）
+  let_paths : Map[String, String]
+  // let 名 → script 内 0 基行号（被当组件消费且无引用时，生成体里丢该行）
+  let_lines : Map[String, Int]
   comps : Map[String, CompDecl]
+  // props 头：原文行（空数组 = 未声明，退回 `fn <stem>() -> @widget.Node`）与参数表
+  head : Array[String]
+  head_line : Int
+  head_ret : String
+  params : Array[Param]
   line0 : Int
   lines : Array[String]
 }
 
 ///|
-/// 声明行识别：`let <名> : <类型>` 按类型前缀分档（Store[ / Signal[），无注解按普通值。
+/// 签名头识别：script 段第一个 `fn` 声明，括号配平后**不含**顶层 `{`（含即为页内辅助函数）。
+fn find_head(lines : Array[String]) -> (Array[String], Int) {
+  let n = lines.length()
+  let mut i = 0
+  while i < n {
+    let t = lines[i].trim().to_owned()
+    if t.has_prefix("fn ") || t.has_prefix("pub fn ") || t == "fn" {
+      let block : Array[String] = []
+      let mut depth = 0
+      let mut opened = false
+      let mut j = i
+      while j < n {
+        let l = lines[j].trim().to_owned()
+        block.push(lines[j])
+        let cs = chars_of(l)
+        for c in cs {
+          if c == '(' {
+            depth += 1
+            opened = true
+          } else if c == ')' {
+            depth -= 1
+          } else if c == '{' && opened && depth == 0 {
+            // 带函数体：页内辅助函数，不是组件签名头
+            return ([], -1)
+          }
+        }
+        if opened && depth <= 0 {
+          return (block, i)
+        }
+        j += 1
+      }
+      return ([], -1)
+    }
+    i += 1
+  }
+  ([], -1)
+}
+
+///|
+/// 右值 → 组件路径：`@包.名`（点分段全为标识符、无空格）或同包裸名 `名`；其余返回 None。
+fn path_of_rv(rv : String) -> String? {
+  let s = strip_line_comment(rv.trim().to_owned())
+  if s.length() == 0 {
+    return None
+  }
+  let a = chars_of(s)
+  let n = a.length()
+  let bare = is_ident_start(a[0])
+  let start = if a[0] == '@' { 1 } else if bare { 0 } else { return None }
+  let mut seg = 0
+  let mut i = start
+  while i < n {
+    let c = a[i]
+    if c == '.' {
+      if seg == 0 || bare {
+        return None
+      }
+      seg = 0
+    } else if is_ident_char(c) {
+      seg += 1
+    } else {
+      return None
+    }
+    i += 1
+  }
+  if seg == 0 {
+    None
+  } else {
+    Some(s)
+  }
+}
+
+///|
+/// 去掉行尾 `//` 注释（不处理串里的 //，声明行右值够用）。
+fn strip_line_comment(s : String) -> String {
+  let a = chars_of(s)
+  let n = a.length()
+  let mut i = 0
+  while i + 1 < n {
+    if a[i] == '/' && a[i + 1] == '/' {
+      return s[:i].trim_end().to_owned()
+    }
+    i += 1
+  }
+  s
+}
+
+///|
+/// 声明行识别：`let <名> [: <类型>] = <右值>` 按类型注解（Store[ / Signal[）与右值形态分档。
 fn analyze_script(script : String, line0 : Int) -> ScriptInfo {
   let slots : Map[String, SlotKind] = Map([])
   let lets : Array[String] = []
+  let let_paths : Map[String, String] = Map([])
+  let let_lines : Map[String, Int] = Map([])
   let comps : Map[String, CompDecl] = Map([])
   let lines = split_arr(script, "\n")
-  for raw in lines {
+  let (head0, head_line0) = find_head(lines)
+  let params : Array[Param] = []
+  let mut head = head0
+  let mut head_line = head_line0
+  let mut head_ret = ""
+  if head.length() > 0 {
+    match parse_fn_sig(head.join("\n")) {
+      Some(sig) => {
+        head_ret = sig.ret
+        for p in sig.params {
+          params.push(p)
+          let _ = slots.set(p.name, kind_of_ty(p.ty))
+        }
+      }
+      None => {
+        // 解析不了就不当头：原文留在函数体里，交 moon check 报错回映射
+        head = []
+        head_line = -1
+      }
+    }
+  }
+  for k, raw in lines {
     let l = raw.trim().to_owned()
     if l.has_prefix("// @mng ") {
       match parse_mng_decl(l) {
@@ -35,6 +156,9 @@ fn analyze_script(script : String, line0 : Int) -> ScriptInfo {
       }
       continue
     }
+    if k >= head_line && head_line >= 0 && k < head_line + head.length() {
+      continue
+    }
     if l.has_prefix("let ") {
       let rest = l[4:].to_owned()
       let a = chars_of(rest)
@@ -45,6 +169,7 @@ fn analyze_script(script : String, line0 : Int) -> ScriptInfo {
       if i > 0 {
         let name = a[0:i].map(fn(c) { c.to_string() }).join("")
         lets.push(name)
+        let _ = let_lines.set(name, k)
         let mut j = i
         while j < a.length() && (a[j] == ' ' || a[j] == '\t') {
           j += 1
@@ -55,25 +180,41 @@ fn analyze_script(script : String, line0 : Int) -> ScriptInfo {
             e += 1
           }
           let ty = a[j:e].map(fn(c) { c.to_string() }).join("")
-          let kind = if contains_sub(ty, "Store[") {
-            KStore
-          } else if contains_sub(ty, "Signal[") {
-            KSignal
-          } else {
-            KPlain
+          let _ = slots.set(name, kind_of_ty(ty))
+          // 右值：`=` 之后到行尾（去注释），`@包.名` 形态即可作组件路径
+          if e < a.length() && a[e] == '=' {
+            let rv = a[e + 1:].map(fn(c) { c.to_string() }).join("")
+            match path_of_rv(rv) {
+              Some(p) => {
+                let _ = let_paths.set(name, p)
+              }
+              None => ()
+            }
           }
-          let _ = slots.set(name, kind)
         } else {
           let _ = slots.set(name, KPlain)
+          let mut e = j
+          while e < a.length() && a[e] != '=' {
+            e += 1
+          }
+          if e < a.length() && a[e] == '=' {
+            let rv = a[e + 1:].map(fn(c) { c.to_string() }).join("")
+            match path_of_rv(rv) {
+              Some(p) => {
+                let _ = let_paths.set(name, p)
+              }
+              None => ()
+            }
+          }
         }
       }
     }
   }
-  { slots, lets, comps, line0, lines }
+  { slots, lets, let_paths, let_lines, comps, head, head_line, head_ret, params, line0, lines }
 }
 
 ///|
-/// `// @mng <tag> = <path> positional(a, b, children)` → CompDecl。
+/// `// @mng <tag> = <path> positional(a, b, children)` → CompDecl（覆盖参数顺序/落点）。
 fn parse_mng_decl(l : String) -> Result[(String, CompDecl), String] {
   let body = l[8:].to_owned()
   let parts = split_arr(body, " ")

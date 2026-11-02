@@ -3536,3 +3536,15 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **根因二**：blob 下载不引发导航，WebView2 的 `DownloadStarting` 对它不起步（引擎缺口，上游 WebView2Feedback #4562/#2180 同类）；WebKitGTK 上 ba26ab18 挂协议 base 后能走通，属引擎差异不是桩缺陷。
 - **修二**：browser 示例的下载探针从 blob 换成协议真实 URL（`yuedemo://local/ngui.txt` + `download` 属性强制落盘不渲染），三引擎同走常规下载管线进「上报-扣住-落判」闭环；blob 路径的引擎差异记档于此，库侧不做 blob 特判。
 - **验证**：gui-webview `moon check` 零警、`moon test` 1599 全绿（Linux/webkit 臂不受影响）；webview2 桩 MSVC 编译与真机行为由 CI Windows job + 用户真机复验（demoBinding 点按、下载探针弹保存框落盘）。
+
+## 模板 props 的语言层边界：位置参无默认值、具名可有非常量默认、未用参数与未用 let 都报警告（2026-11-02，MoonBit 0.1.20261016 探针）
+
+- **要定的事**：`.mng` 组件的参数表用「只有签名、无函数体」的 `fn` 头承接，参数能否带默认值决定 props 是否必填。
+- **实测**（临时模块，只依赖 `NoahLiu/native-gui/base`）：
+  1. 位置参数写默认值即报错 3010「Only labelled arguments can have default value」——`fn f(x : Int = 3)` 不成立。
+  2. 具名可选参数可以有默认值，且默认值允许是**非常量表达式**：`fn f(s? : @base.Store[Int] = @base.Store::new(9), cb? : () -> Unit = fn() {})` check + test 双绿。
+  3. 带默认值的具名参数在**函数体内绑定为裸类型**（`s` 直接是 `Store[Int]`，不是 `Store[Int]?`），`match s { Some(v) => … }` 反到报错。
+  4. 这类参数调用时**不能占位**：`f(1)` 对已升具名的参数报 4080「requires 1 positional arguments」，只能 `f(b=2)`。
+  5. 未用即警告：函数体内未引用的 `let`（0002 unused_value）与**函数参数**都进警告；消法两种——参数名前置 `_`（会改掉 API 名），或体内 `let _ = 名`（保留名字，`.mbti` 与调用点不变）。
+- **定案**：props 必填=位置参数、可选=`名? : 类型 = 默认值`（Store/回调都能带默认）；模板按参数名写属性，回调 prop 用 `@事件名`（按 `名` / `on_名` 查参数表）。生成器对未被模板/script 引用的 prop 出 `let _ = 名` 垫片，保住「生成码零警告」门禁；只作组件绑定的 `let 名 = @包.函数` 直接从生成体里丢掉（否则同样报未用）。
+- **判据**：给「生成码」定形态前，先把语言层的**警告面**当契约测一遍——门禁是零警告，生成器必须比作者更在意未用变量。

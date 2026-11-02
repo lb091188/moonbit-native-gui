@@ -55,6 +55,232 @@ priv struct CompDecl {
 }
 
 ///|
+/// 函数参数：`labelled` = 写了 `?`（可具名传、可省）；`ty` = 类型原文。
+priv struct Param {
+  name : String
+  labelled : Bool
+  ty : String
+}
+
+///|
+/// 函数签名：名字 + 参数表 + 返回类型原文（无返回类型为空串）。
+priv struct FnSig {
+  name : String
+  params : Array[Param]
+  ret : String
+}
+
+///|
+fn skip_ws_at(a : Array[Char], i : Int) -> Int {
+  let mut k = i
+  while k < a.length() && (a[k] == ' ' || a[k] == '\t' || a[k] == '\n' || a[k] == '\r') {
+    k += 1
+  }
+  k
+}
+
+///|
+fn slice_str(a : Array[Char], lo : Int, hi : Int) -> String {
+  if hi <= lo {
+    ""
+  } else {
+    a[lo:hi].map(fn(c) { c.to_string() }).join("")
+  }
+}
+
+///|
+/// 一个参数段 → Param：`名` / `名?` + `: 类型`（默认值原文丢弃，已由函数体承接）。
+/// 注释行、`self`、无名段返回 None（调用方跳过）。
+fn parse_param(seg : String) -> Param? {
+  let s = seg.trim().to_owned()
+  if s.length() == 0 || s.has_prefix("//") {
+    return None
+  }
+  let a = chars_of(s)
+  let n = a.length()
+  let mut i = 0
+  while i < n && is_ident_char(a[i]) {
+    i += 1
+  }
+  if i == 0 {
+    return None
+  }
+  let name = slice_str(a, 0, i)
+  if name == "self" {
+    return None
+  }
+  let mut j = skip_ws_at(a, i)
+  let labelled = j < n && a[j] == '?'
+  if labelled {
+    j = skip_ws_at(a, j + 1)
+  }
+  if j >= n || a[j] != ':' {
+    return None
+  }
+  j = skip_ws_at(a, j + 1)
+  // 类型：到深度 0 的 `=` 为止（`= 默认值` 不进签名表）
+  let mut depth = 0
+  let mut k = j
+  let mut eq = n
+  while k < n {
+    let c = a[k]
+    if c == '(' || c == '[' || c == '{' {
+      depth += 1
+    } else if c == ')' || c == ']' || c == '}' {
+      depth -= 1
+    } else if c == '=' && depth == 0 {
+      eq = k
+      break
+    }
+    k += 1
+  }
+  let ty = slice_str(a, j, eq).trim().to_owned()
+  if ty.length() == 0 {
+    return None
+  }
+  Some({ name, labelled, ty })
+}
+
+///|
+/// 参数区原文 → Param 数组（按深度 0 的逗号切分，括号/方括号/花括号一起计深）。
+fn parse_params(inner : String) -> Array[Param] {
+  let a = chars_of(inner)
+  let n = a.length()
+  let out : Array[Param] = []
+  let mut depth = 0
+  let mut start = 0
+  let mut i = 0
+  while i <= n {
+    if i < n {
+      let c = a[i]
+      if c == '(' || c == '[' || c == '{' {
+        depth += 1
+        i += 1
+        continue
+      }
+      if c == ')' || c == ']' || c == '}' {
+        depth -= 1
+        i += 1
+        continue
+      }
+      if c == ',' && depth == 0 {
+        match parse_param(slice_str(a, start, i)) {
+          Some(p) => out.push(p)
+          None => ()
+        }
+        start = i + 1
+        i += 1
+        continue
+      }
+    }
+    if i == n {
+      match parse_param(slice_str(a, start, n)) {
+        Some(p) => out.push(p)
+        None => ()
+      }
+    }
+    i += 1
+  }
+  out
+}
+
+///|
+/// 签名原文 → FnSig：接受 `pub fn 名(…)`、`fn 名(…) -> T {`、多行参数与尾逗号。
+/// 找不到 `fn`、无名或缺左括号即 None。
+fn parse_fn_sig(text : String) -> FnSig? {
+  let a = chars_of(text)
+  let n = a.length()
+  let mut i = 0
+  let mut kw = -1
+  while i + 2 < n {
+    if a[i] == 'f' && a[i + 1] == 'n' && (a[i + 2] == ' ' || a[i + 2] == '\t' || is_ident_start(a[i + 2])) {
+      kw = i
+      break
+    }
+    i += 1
+  }
+  if kw < 0 {
+    return None
+  }
+  let j = skip_ws_at(a, kw + 2)
+  let mut k = j
+  while k < n && is_ident_char(a[k]) {
+    k += 1
+  }
+  let name = slice_str(a, j, k).trim().to_owned()
+  if name.length() == 0 {
+    return None
+  }
+  k = skip_ws_at(a, k)
+  if k >= n || a[k] != '(' {
+    return None
+  }
+  let mut depth = 0
+  let mut p = k
+  let mut close = -1
+  while p < n {
+    if a[p] == '(' {
+      depth += 1
+    } else if a[p] == ')' {
+      depth -= 1
+      if depth == 0 {
+        close = p
+        break
+      }
+    }
+    p += 1
+  }
+  if close < 0 {
+    return None
+  }
+  let inner = slice_str(a, k + 1, close)
+  // 尾段：`)` 之后到函数体 `{` 前；返回类型取 `->` 右侧
+  let mut q = close + 1
+  while q < n && a[q] != '{' {
+    q += 1
+  }
+  let tail = slice_str(a, close + 1, q).trim().to_owned()
+  let ret = match arrow_index(tail) {
+    Some(x) => tail[x + 2:].trim().to_owned()
+    None => ""
+  }
+  Some({ name, params: parse_params(inner), ret })
+}
+
+///|
+/// 顶层 `->` 的位置（跳过括号内的箭头）；无则 None。
+fn arrow_index(s : String) -> Int? {
+  let a = chars_of(s)
+  let n = a.length()
+  let mut depth = 0
+  let mut i = 0
+  while i + 1 < n {
+    let c = a[i]
+    if c == '(' || c == '[' || c == '{' {
+      depth += 1
+    } else if c == ')' || c == ']' || c == '}' {
+      depth -= 1
+    } else if c == '-' && a[i + 1] == '>' && depth == 0 {
+      return Some(i)
+    }
+    i += 1
+  }
+  None
+}
+
+///|
+/// 类型原文 → 响应槽种类（与 script 段 `let` 注解同一判据）。
+fn kind_of_ty(ty : String) -> SlotKind {
+  if contains_sub(ty, "Store[") {
+    KStore
+  } else if contains_sub(ty, "Signal[") {
+    KSignal
+  } else {
+    KPlain
+  }
+}
+
+///|
 priv struct MapEntry {
   gen_line : Int
   src_line : Int
@@ -192,6 +418,15 @@ fn scan_idents(a : Array[Char], lo : Int, hi : Int, f : (String) -> Unit) -> Uni
       i += 1
     }
   }
+}
+
+///|
+/// 文本里出现过的全部标识符（含重复），供「名字是否被引用」判定。
+fn idents_in(hay : String) -> Array[String] {
+  let a = chars_of(hay)
+  let out : Array[String] = []
+  scan_idents(a, 0, a.length(), fn(name) { out.push(name) })
+  out
 }
 
 ///|
