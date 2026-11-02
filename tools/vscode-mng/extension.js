@@ -108,7 +108,7 @@ class MngClient {
           publishDiagnostics: {},
         },
       },
-      clientInfo: { name: 'mng-vscode', version: '0.1.0' },
+      clientInfo: { name: 'mng-vscode', version: '0.2.0' },
     }).then((res) => {
       this.notify('initialized', {});
       return res;
@@ -239,12 +239,20 @@ class MngClient {
 
 function toKind(k) {
   switch (k) {
+    case 2:
+      return vscode.CompletionItemKind.Method;
+    case 3:
+      return vscode.CompletionItemKind.Function;
+    case 4:
+      return vscode.CompletionItemKind.Constructor;
     case 5:
       return vscode.CompletionItemKind.Field;
     case 6:
       return vscode.CompletionItemKind.Variable;
     case 7:
       return vscode.CompletionItemKind.Class;
+    case 8:
+      return vscode.CompletionItemKind.Interface;
     case 9:
       return vscode.CompletionItemKind.Module;
     case 13:
@@ -253,6 +261,10 @@ function toKind(k) {
       return vscode.CompletionItemKind.Keyword;
     case 15:
       return vscode.CompletionItemKind.Snippet;
+    case 21:
+      return vscode.CompletionItemKind.Constant;
+    case 22:
+      return vscode.CompletionItemKind.Struct;
     default:
       return vscode.CompletionItemKind.Text;
   }

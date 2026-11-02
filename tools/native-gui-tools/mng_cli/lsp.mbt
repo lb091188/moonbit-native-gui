@@ -204,10 +204,130 @@ fn offset_of(text : String, line : Int, ch : Int) -> Int {
 }
 
 ///|
-/// 补全上下文：("tag"|"attr"|"expr"|"class"|"none", 当前前缀, 所在标签名)。
+/// `sub` 在 `a[0:stop]` 里最后一次出现的位置；没有返回 -1。
+fn last_index_of(a : Array[Char], sub : String, stop : Int) -> Int {
+  let b = chars_of_cli(sub)
+  let n = if stop < a.length() { stop } else { a.length() }
+  let mut last = -1
+  let mut i = 0
+  while i + b.length() <= n {
+    let mut ok = true
+    for k in 0..<b.length() {
+      if a[i + k] != b[k] {
+        ok = false
+      }
+    }
+    if ok {
+      last = i
+      i += b.length()
+    } else {
+      i += 1
+    }
+  }
+  last
+}
+
+///|
+/// 光标是否在 `<script>` 段内（最后一个开标签在最后闭标签之后）。
+fn in_script(a : Array[Char], stop : Int) -> Bool {
+  last_index_of(a, "<script", stop) > last_index_of(a, "</script", stop)
+}
+
+///|
+/// 光标前一个令牌（`@包.成员` / 标识符）。
+fn token_before(a : Array[Char], stop : Int) -> String {
+  let n = if stop < a.length() { stop } else { a.length() }
+  let mut start = n
+  while start > 0 &&
+    (is_ident_char(a[start - 1]) ||
+      a[start - 1] == '@' ||
+      a[start - 1] == '.' ||
+      a[start - 1] == ':') {
+    start -= 1
+  }
+  slice_cli(a, start, n)
+}
+
+///|
+/// 字符串里第一个 `.` 的位置。
+fn dot_index_cli(s : String) -> Int? {
+  let a = chars_of_cli(s)
+  let mut i = 0
+  while i < a.length() {
+    if a[i] == '.' {
+      return Some(i)
+    }
+    i += 1
+  }
+  None
+}
+
+///|
+/// 令牌首段（`qty.set` → `qty`）；无分隔符返回 None。
+fn first_seg(s : String) -> String? {
+  let a = chars_of_cli(s)
+  let mut i = 0
+  while i < a.length() {
+    if a[i] == '.' || a[i] == ':' {
+      return Some(slice_cli(a, 0, i))
+    }
+    i += 1
+  }
+  None
+}
+
+///|
+/// 以模板所在包为上下文的签名/跳转解析器。
+fn sigs_for(uri : String) -> @mngkit.Sigs {
+  let path = uri_to_path(uri)
+  let dir = dir_of(path)
+  @mngkit.sigs_new(ws_root(dir), dir, @mngkit.io_new(fs_read, fs_ls))
+}
+
+///|
+/// 本地路径 → `file://` URI（空格、非 ASCII 走百分号编码）。
+fn path_to_uri(p : String) -> String {
+  let bytes = @utf8.encode(p)
+  let out = StringBuilder()
+  out.write_string("file://")
+  for i in 0..<bytes.length() {
+    let v = bytes[i].to_int()
+    if (v >= 48 && v <= 57) ||
+      (v >= 65 && v <= 90) ||
+      (v >= 97 && v <= 122) ||
+      v == 45 ||
+      v == 46 ||
+      v == 95 ||
+      v == 126 ||
+      v == 47 ||
+      v == 58 {
+      match v.to_char() {
+        Some(c) => out.write_char(c)
+        None => ()
+      }
+    } else {
+      out.write_string("%" + hex2_of(v))
+    }
+  }
+  out.to_string()
+}
+
+///|
+fn hex2_of(v : Int) -> String {
+  let digits = "0123456789ABCDEF"
+  let hi = (v / 16) % 16
+  let lo = v % 16
+  digits[hi:hi + 1].to_owned() + digits[lo:lo + 1].to_owned()
+}
+
+///|
+/// 补全上下文：("tag"|"attr"|"expr"|"class"|"script"|"none", 当前前缀, 所在标签名)。
 fn lsp_context(text : String, off : Int) -> (String, String, String) {
   let a = chars_of_cli(text)
   let stop = if off < a.length() { off } else { a.length() }
+  if in_script(a, stop) {
+    return ("script", token_before(a, stop), "")
+  }
   // 最近的 '<' 与 '>'
   let mut lt = -1
   let mut gt = -1
@@ -380,10 +500,7 @@ fn let_path_in(src : String, name : String) -> String? {
 
 ///|
 /// 组件标签 → 定义文件（同包裸名或 let 绑定的 `@包.名`）。
-fn locate_tag(uri : String, text : String, tag : String) -> String? {
-  let path = uri_to_path(uri)
-  let dir = dir_of(path)
-  let sigs = @mngkit.sigs_new(ws_root(dir), dir, @mngkit.io_new(fs_read, fs_ls))
+fn locate_tag(sigs : @mngkit.Sigs, text : String, tag : String) -> String? {
   let snake_name = snake_cli(tag)
   let target = match let_path_in(text, snake_name) {
     Some(p) => p
@@ -406,14 +523,16 @@ fn snake_cli(s : String) -> String {
 }
 
 ///|
-/// 声明行查找：`let 名` / `fn 名` / props 头参数 → 0 基行号。
+/// 声明行查找：`let [mut] 名` / `fn 名` / props 头参数 → 0 基行号。
 fn decl_line_of(text : String, name : String) -> Int? {
   let lines = text.split("\n")
   let mut idx = 0
   for line in lines {
     let l = line.trim().to_owned()
-    if l.has_prefix("let " + name) || l.has_prefix("fn " + name) || l.has_prefix("pub fn " + name) {
-      return Some(idx)
+    for kw in ["let ", "let mut ", "fn ", "pub fn ", "pub(all) fn "] {
+      if l.has_prefix(kw) && ident_lead_cli(l[kw.length():].to_owned(), name) {
+        return Some(idx)
+      }
     }
     // props 头参数：fn 头里的 `名 :` / `名? :`
     if l.has_prefix("fn ") && (contains_sub_cli(l, name + " :") || contains_sub_cli(l, name + "? :")) {
@@ -422,6 +541,19 @@ fn decl_line_of(text : String, name : String) -> Int? {
     idx += 1
   }
   None
+}
+
+///|
+/// `s` 是否以 `name` 开头且名字后断词（`qty` 不匹配 `qty2`）。
+fn ident_lead_cli(s : String, name : String) -> Bool {
+  if !s.has_prefix(name) {
+    return false
+  }
+  if s.length() == name.length() {
+    return true
+  }
+  let c = chars_of_cli(s)[name.length()]
+  !(is_ident_char(c) || c == '-')
 }
 
 ///|
@@ -504,9 +636,9 @@ fn err_pos_of(e : String) -> (Int, Int) {
 }
 
 ///|
-fn lsp_completion(_uri : String, text : String, line : Int, ch : Int) -> String {
+fn lsp_completion(uri : String, text : String, line : Int, ch : Int) -> String {
   let off = offset_of(text, line, ch)
-  let (ctx, _partial, tag) = lsp_context(text, off)
+  let (ctx, partial, tag) = lsp_context(text, off)
   match ctx {
     "tag" => {
       let items : Array[String] = []
@@ -537,18 +669,61 @@ fn lsp_completion(_uri : String, text : String, line : Int, ch : Int) -> String 
       items.push("@enter")
       completion_list(items, 5)
     }
-    "expr" => {
-      let items : Array[String] = []
-      for s in @mngkit.script_symbols(text) {
-        items.push(s)
-      }
-      for m in ["@base", "@shared", "@ui", "@theme", "@style", "@text", "@widget"] {
-        items.push(m)
-      }
-      completion_list(items, 6)
-    }
+    "expr" | "script" => lsp_expr_completion(uri, text, partial)
     "class" => completion_list(@mngkit.style_class_names(text), 7)
     _ => completion_list([], 1)
+  }
+}
+
+///|
+/// 表达式补全：`@别名.` 后给包内公开成员；`@` 后给 moon.pkg 别名表；否则页内符号。
+fn lsp_expr_completion(uri : String, text : String, partial : String) -> String {
+  let p = partial.trim().to_owned()
+  let sigs = sigs_for(uri)
+  let items : Array[String] = []
+  if p.has_prefix("@") {
+    match dot_index_cli(p) {
+      Some(d) => {
+        let al = p[1:d].to_owned()
+        let prefix = p[d + 1:].to_owned()
+        for m in sigs.members(al) {
+          if prefix.length() == 0 || m.has_prefix(prefix) {
+            items.push(completion_item(m, member_kind(m)))
+          }
+        }
+      }
+      None => {
+        let lead = p[1:].to_owned()
+        for al in sigs.pkg_aliases() {
+          if lead.length() == 0 || al.has_prefix(lead) {
+            items.push(completion_item("@" + al, 9))
+          }
+        }
+      }
+    }
+  } else {
+    for s in @mngkit.script_symbols(text) {
+      items.push(completion_item(s, 6))
+    }
+    for al in sigs.pkg_aliases() {
+      items.push(completion_item("@" + al, 9))
+    }
+  }
+  "{\"isIncomplete\":false,\"items\":[" + items.join(",") + "]}"
+}
+
+///|
+/// 补全项类型：`Type::method` 方法、大写开头类型、其余函数。
+fn member_kind(name : String) -> Int {
+  if contains_sub_cli(name, "::") {
+    2
+  } else {
+    let a = chars_of_cli(name)
+    if a.length() > 0 && a[0].to_int() >= 'A'.to_int() && a[0].to_int() <= 'Z'.to_int() {
+      22
+    } else {
+      3
+    }
   }
 }
 
@@ -563,7 +738,7 @@ fn arr_has_cli(a : Array[String], s : String) -> Bool {
 }
 
 ///|
-fn lsp_hover(_uri : String, text : String, line : Int, ch : Int) -> String {
+fn lsp_hover(uri : String, text : String, line : Int, ch : Int) -> String {
   let off = offset_of(text, line, ch)
   let (ctx, partial, tag) = lsp_context(text, off)
   let content = match ctx {
@@ -579,6 +754,7 @@ fn lsp_hover(_uri : String, text : String, line : Int, ch : Int) -> String {
       }
     }
     "class" => "类 `" + partial + "`：由 `<style>` 摊平进命名类注册表"
+    "expr" | "script" => hover_pkg_member(uri, text, off, partial)
     _ => ""
   }
   if content.length() == 0 {
@@ -589,14 +765,33 @@ fn lsp_hover(_uri : String, text : String, line : Int, ch : Int) -> String {
 }
 
 ///|
+/// `@别名.成员` → 声明原文；`@别名` → 包目录。
+fn hover_pkg_member(uri : String, text : String, off : Int, partial : String) -> String {
+  let token = expand_token(text, off, partial)
+  if !token.has_prefix("@") {
+    return ""
+  }
+  let sigs = sigs_for(uri)
+  match dot_index_cli(token) {
+    Some(_) =>
+      match sigs.decl_text(token) {
+        Some(d) => "```moonbit\n" + d + "\n```"
+        None => ""
+      }
+    None =>
+      match sigs.alias_dir(token[1:].to_owned()) {
+        Some(d) => "`" + token + "` → `" + d + "`"
+        None => ""
+      }
+  }
+}
+
+///|
 /// 光标处令牌扩到完整标识符（`ui-co|` → `ui-col`）；扩不到就原文返回。
 fn expand_token(text : String, off : Int, tok : String) -> String {
-  if tok.length() == 0 {
-    return tok
-  }
   let a = chars_of_cli(text)
   let is_tok = fn(c : Char) -> Bool {
-    is_ident_char(c) || c == '-' || c == '@' || c == ':'
+    is_ident_char(c) || c == '-' || c == '@' || c == ':' || c == '.'
   }
   let mut start = if off < a.length() { off } else { a.length() }
   while start > 0 && is_tok(a[start - 1]) {
@@ -614,40 +809,91 @@ fn expand_token(text : String, off : Int, tok : String) -> String {
 fn lsp_definition(uri : String, text : String, line : Int, ch : Int) -> String {
   let off = offset_of(text, line, ch)
   let (ctx, partial, tag) = lsp_context(text, off)
-  let raw_target = if ctx == "tag" || ctx == "attr" {
-    tag
+  let sigs = sigs_for(uri)
+  let loc = if ctx == "tag" || ctx == "attr" {
+    component_loc(sigs, text, off, tag)
   } else {
-    partial
-  }
-  let target = expand_token(text, off, raw_target)
-  let mut loc : String? = None
-  if target.length() > 0 {
-    match locate_tag(uri, text, target) {
-      Some(p) => {
-        // 生成码/源码文件：行 0 足够作为入口
-        let head = "{\"uri\":" + jq("file://" + p) + ",\"range\":{\"start\":{\"line\":0,\"character\":0},"
-        loc = Some(head + "\"end\":{\"line\":0,\"character\":0}}}")
-      }
-      None => ()
-    }
-    match loc {
-      Some(_) => ()
-      None => {
-        match decl_line_of(text, target) {
-          Some(ln) => {
-            let head = "{\"uri\":" + jq(uri) + ",\"range\":{\"start\":{\"line\":" + ln.to_string()
-            let tail = ",\"character\":0},\"end\":{\"line\":" + ln.to_string() + ",\"character\":0}}}"
-            loc = Some(head + tail)
-          }
-          None => ()
-        }
-      }
-    }
+    symbol_loc(sigs, uri, text, off, partial)
   }
   match loc {
-    Some(l) => "[" + l + "]"
+    Some(l) => "[" + loc_json(l) + "]"
     None => "[]"
   }
+}
+
+///|
+/// 组件标签：内置表 → `@ui.<名>` 的源码；否则按 let 绑定 / 同包裸名找文件。
+fn component_loc(
+  sigs : @mngkit.Sigs,
+  text : String,
+  off : Int,
+  tag : String,
+) -> @mngkit.Loc? {
+  let name = expand_token(text, off, tag)
+  if name.length() == 0 {
+    return None
+  }
+  if !name.has_prefix("ui-") {
+    return match locate_tag(sigs, text, name) {
+      Some(p) => Some(@mngkit.loc_new(p, 0))
+      None => None
+    }
+  }
+  match @mngkit.builtin_path(name) {
+    Some(p) =>
+      match sigs.locate_decl(p) {
+        Some(l) => Some(l)
+        None =>
+          match locate_tag(sigs, text, name) {
+            Some(f) => Some(@mngkit.loc_new(f, 0))
+            None => None
+          }
+      }
+    None => None
+  }
+}
+
+///|
+/// 表达式/脚本站位：`@包.成员` 走包解析；否则页内声明，再退同包函数。
+fn symbol_loc(
+  sigs : @mngkit.Sigs,
+  uri : String,
+  text : String,
+  off : Int,
+  partial : String,
+) -> @mngkit.Loc? {
+  let token = expand_token(text, off, partial)
+  if token.length() == 0 {
+    return None
+  }
+  if token.has_prefix("@") {
+    return sigs.locate_decl(token)
+  }
+  let page = uri_to_path(uri)
+  match decl_line_of(text, token) {
+    Some(ln) => Some(@mngkit.loc_new(page, ln))
+    None => {
+      let page_decl = match first_seg(token) {
+        Some(head) =>
+          match decl_line_of(text, head) {
+            Some(ln) => Some(@mngkit.loc_new(page, ln))
+            None => None
+          }
+        None => None
+      }
+      match page_decl {
+        Some(l) => Some(l)
+        None => sigs.locate_decl(token)
+      }
+    }
+  }
+}
+
+///|
+fn loc_json(l : @mngkit.Loc) -> String {
+  "{\"uri\":" + jq(path_to_uri(l.path)) + ",\"range\":{\"start\":{\"line\":" +
+  l.line.to_string() + ",\"character\":0},\"end\":{\"line\":" + l.line.to_string() +
+  ",\"character\":0}}}"
 }
 
 ///|

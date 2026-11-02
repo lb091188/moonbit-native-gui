@@ -957,3 +957,96 @@ test "样式章：:hover / :active / :focus 编进状态桶；坏伪类报错" {
     },
   )
 }
+
+///|
+test "跳转：@别名.成员 → 文件+行号、包入口、别名表与成员表" {
+  let files : Map[String, String] = Map([])
+  let _ = files.set(
+    "/ws/moon.work",
+    "members = [\n  \"app\",\n  \"lib\",\n]\n",
+  )
+  let _ = files.set("/ws/app/moon.mod", "name = \"demo/app\"\n")
+  let _ = files.set("/ws/lib/moon.mod", "name = \"demo/lib\"\n")
+  let _ = files.set(
+    "/ws/app/page/moon.pkg",
+    "import {\n  \"demo/lib/base\",\n}\n",
+  )
+  let _ = files.set(
+    "/ws/lib/base/pkg.generated.mbti",
+    [
+      "package \"demo/lib/base\"",
+      "",
+      "pub fn[T] Store::get(Self[T]) -> T",
+      "pub fn[T] Store::new(T) -> Self[T]",
+      "pub const KS_TAB : Int32 = 65289",
+      "pub struct Store[T] {",
+      "  v : T",
+      "}",
+    ].join("\n"),
+  )
+  let _ = files.set(
+    "/ws/lib/base/store.mbt",
+    [
+      "pub struct Store[T] {",
+      "  v : T",
+      "}",
+      "",
+      "pub fn[T] Store::new(v : T) -> Store[T] {",
+      "  { v }",
+      "}",
+      "",
+      "pub fn[T] Store::get(self : Store[T]) -> T {",
+      "  self.v",
+      "}",
+    ].join("\n"),
+  )
+  let read = fn(p : String) -> String? { files.get(p) }
+  let ls = fn(p : String) -> Array[String] {
+    let out : Array[String] = []
+    let prefix = p + "/"
+    for (k, _) in files {
+      if k.has_prefix(prefix) {
+        let rest = k[prefix.length():].to_owned()
+        let cs = chars_of(rest)
+        let mut i = 0
+        while i < cs.length() && cs[i] != '/' {
+          i += 1
+        }
+        let seg = slice_str(cs, 0, i)
+        if !arr_contains(out, seg) {
+          out.push(seg)
+        }
+      }
+    }
+    out
+  }
+  let sigs = sigs_new("/ws", "/ws/app/page", io_new(read, ls))
+  assert_eq(sigs.pkg_aliases(), ["base"])
+  let ty = match sigs.locate_decl("@base.Store") {
+    Some(l) => l
+    None => abort("Store 未定位")
+  }
+  assert_eq(ty.path, "/ws/lib/base/store.mbt")
+  assert_eq(ty.line, 0)
+  let ctor = match sigs.locate_decl("@base.Store::new") {
+    Some(l) => l
+    None => abort("Store::new 未定位")
+  }
+  assert_eq(ctor.path, "/ws/lib/base/store.mbt")
+  assert_eq(ctor.line, 4)
+  let dot = match sigs.locate_decl("@base.Store.get") {
+    Some(l) => l
+    None => abort("Store.get 未定位")
+  }
+  assert_eq(dot.line, 8)
+  let entry = match sigs.locate_decl("@base") {
+    Some(l) => l
+    None => abort("包入口未定位")
+  }
+  assert_eq(entry.path, "/ws/lib/base/pkg.generated.mbti")
+  assert_eq(sigs.decl_text("@base.Store::new"), Some("pub fn[T] Store::new(v : T) -> Store[T] {"))
+  let members = sigs.members("base")
+  assert_true(arr_contains(members, "Store"))
+  assert_true(arr_contains(members, "Store::new"))
+  assert_true(arr_contains(members, "KS_TAB"))
+}

@@ -1415,6 +1415,15 @@ pub fn builtin_params(tag : String) -> Array[String]? {
 }
 
 ///|
+/// 内置组件标签 → 生成码里的构造函数路径（编辑器跳转用）。
+pub fn builtin_path(tag : String) -> String? {
+  match builtin_decl(tag) {
+    Some(d) => Some(d.path)
+    None => None
+  }
+}
+
+///|
 /// 模板里的动态表达式原文（script 引用面统计用）。
 fn collect_exprs(
   nodes : Array[TNode],

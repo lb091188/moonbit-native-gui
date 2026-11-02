@@ -406,19 +406,26 @@ fn scan_dir_for_fn(s : Sigs, dir : String, fname : String) -> String? {
 }
 
 ///|
+/// 首次使用时装载 `moon.pkg` 的别名表（别名 → 包目录）。
+fn sigs_ready(s : Sigs) -> Unit {
+  if s.ready {
+    return
+  }
+  let pkgs : Map[String, String] = Map([])
+  match io_read(s, s.pkg_dir + "/moon.pkg") {
+    Some(text) => parse_imports(text, pkgs)
+    None => ()
+  }
+  for (al, pkg) in pkgs {
+    let _ = s.aliases.set(al, dir_of_pkg(s, pkg))
+  }
+  s.ready = true
+}
+
+///|
 /// 解析入口：`@别名.名` 或同包裸名 `名` → 签名原文；解析不到返回 None（组件需 `// @mng` 覆盖）。
 pub fn Sigs::resolve(self : Sigs, path : String) -> String? {
-  if !self.ready {
-    let pkgs : Map[String, String] = Map([])
-    match io_read(self, self.pkg_dir + "/moon.pkg") {
-      Some(text) => parse_imports(text, pkgs)
-      None => ()
-    }
-    for (al, pkg) in pkgs {
-      let _ = self.aliases.set(al, dir_of_pkg(self, pkg))
-    }
-    self.ready = true
-  }
+  sigs_ready(self)
   if path.length() == 0 {
     return None
   }
@@ -515,17 +522,7 @@ fn scan_dir_for_file(s : Sigs, dir : String, fname : String) -> String? {
 ///|
 /// 组件路径 → 定义所在源码文件（`@别名.名` 或同包裸名）；找不到返回 None。
 pub fn Sigs::locate(self : Sigs, path : String) -> String? {
-  if !self.ready {
-    let pkgs : Map[String, String] = Map([])
-    match io_read(self, self.pkg_dir + "/moon.pkg") {
-      Some(text) => parse_imports(text, pkgs)
-      None => ()
-    }
-    for (al, pkg) in pkgs {
-      let _ = self.aliases.set(al, dir_of_pkg(self, pkg))
-    }
-    self.ready = true
-  }
+  sigs_ready(self)
   if path.length() == 0 {
     return None
   }

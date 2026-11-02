@@ -64,3 +64,6 @@
 # dev 会话产物（应用日志与 IR 补丁）
 .mng-dev-app.log
 *.ir.json
+
+# 插件打包产物（按需本地生成）
+*.vsix

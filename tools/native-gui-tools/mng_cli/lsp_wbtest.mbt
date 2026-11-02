@@ -140,3 +140,128 @@ fn contains_sub_l(s : String, sub : String) -> Bool {
   }
   false
 }
+
+///|
+/// 造一个最小 workspace：`app/page`（模板所在包）导入 `lib/base` 与 `lib/ui`。
+fn nav_fixture() -> String {
+  let root = "/tmp/mng_lsp_nav"
+  for d in [
+    root,
+    root + "/app",
+    root + "/app/page",
+    root + "/lib",
+    root + "/lib/base",
+    root + "/lib/ui",
+  ] {
+    ensure_dir_p(d)
+  }
+  write_file_p(root + "/moon.work", "members = [\n  \"app\",\n  \"lib\",\n]\n")
+  write_file_p(root + "/app/moon.mod", "name = \"demo/app\"\n")
+  write_file_p(root + "/lib/moon.mod", "name = \"demo/lib\"\n")
+  write_file_p(
+    root + "/app/page/moon.pkg",
+    "import {\n  \"demo/lib/base\",\n  \"demo/lib/ui\",\n}\n",
+  )
+  write_file_p(
+    root + "/lib/base/pkg.generated.mbti",
+    [
+      "package \"demo/lib/base\"",
+      "",
+      "pub fn[T] Store::get(Self[T]) -> T",
+      "pub fn[T] Store::new(T) -> Self[T]",
+      "pub struct Store[T] {",
+      "  v : T",
+      "}",
+    ].join("\n"),
+  )
+  write_file_p(
+    root + "/lib/base/store.mbt",
+    [
+      "pub struct Store[T] {",
+      "  v : T",
+      "}",
+      "",
+      "pub fn[T] Store::new(v : T) -> Store[T] {",
+      "  { v }",
+      "}",
+    ].join("\n"),
+  )
+  write_file_p(
+    root + "/lib/ui/ui.mbt",
+    [
+      "pub fn col(children : Array[Int]) -> Int {",
+      "  0",
+      "}",
+      "",
+      "pub fn text(t : String) -> Int {",
+      "  0",
+      "}",
+    ].join("\n"),
+  )
+  root
+}
+
+///|
+test "LSP：外部包跳转（@包.成员 / 包入口 / 内置标签）与成员补全" {
+  let root = nav_fixture()
+  let docs : Map[String, String] = Map([])
+  let uri = "file://" + root + "/app/page/page.mng"
+  let text = [
+    "<script setup lang=\"moonbit\">",
+    "let qty : @base.Store[Int] = @base.Store::new(0)",
+    "let z = @base.",
+    "</script>",
+    "<template>",
+    "  <ui-col>",
+    "    <ui-text text=\"x\" />",
+    "    <ui-stepper v-model=\"qty\" max=\"10\" />",
+    "  </ui-col>",
+    "</template>",
+  ].join("\n") + "\n"
+  let _ = lsp_handle(docs, did_open(uri, text))
+  // `@base.Store::new` → 外部包源码的声明行
+  match lsp_handle(docs, req(10, "textDocument/definition", pos_params(uri, 1, 37))).reply {
+    Some(r) =>
+      assert_true(
+        contains_sub_l(r, "/lib/base/store.mbt") && contains_sub_l(r, "\"line\":4"),
+      )
+    None => assert_true(false)
+  }
+  // 页内 `let qty` → 模板自身声明行
+  match lsp_handle(docs, req(11, "textDocument/definition", pos_params(uri, 1, 5))).reply {
+    Some(r) =>
+      assert_true(
+        contains_sub_l(r, "page.mng") && contains_sub_l(r, "\"line\":1"),
+      )
+    None => assert_true(false)
+  }
+  // 裸 `@base` → 包入口（生成的 mbti）
+  match lsp_handle(docs, req(12, "textDocument/definition", pos_params(uri, 2, 10))).reply {
+    Some(r) =>
+      assert_true(
+        contains_sub_l(r, "/lib/base/pkg.generated.mbti") && contains_sub_l(r, "\"line\":0"),
+      )
+    None => assert_true(false)
+  }
+  // 内置标签 `<ui-text>` → `@ui.text` 的源码
+  match lsp_handle(docs, req(13, "textDocument/definition", pos_params(uri, 6, 6))).reply {
+    Some(r) =>
+      assert_true(
+        contains_sub_l(r, "/lib/ui/ui.mbt") && contains_sub_l(r, "\"line\":4"),
+      )
+    None => assert_true(false)
+  }
+  // `@base.` → 包内公开成员（含 `::` 方法）
+  match lsp_handle(docs, req(14, "textDocument/completion", pos_params(uri, 2, 14))).reply {
+    Some(r) =>
+      assert_true(
+        contains_sub_l(r, "\"label\":\"Store\"") && contains_sub_l(r, "\"label\":\"Store::new\""),
+      )
+    None => assert_true(false)
+  }
+  // hover：成员签名原文
+  match lsp_handle(docs, req(15, "textDocument/hover", pos_params(uri, 1, 37))).reply {
+    Some(r) => assert_true(contains_sub_l(r, "Store::new(v : T)"))
+    None => assert_true(false)
+  }
+}
