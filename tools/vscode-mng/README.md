@@ -4,7 +4,7 @@
 
 ## 装
 
-1. **mng_cli**：`moon install tools/native-gui-tools`（或自建后把 `mng_cli` 放进 PATH）。验证：`mng_cli --version` 应打印 `mng_cli 0.1.0` 与 `mng-schema 1`。
+1. **mng_cli**：从仓库根执行 `moon install ./tools/native-gui-tools/mng_cli`（装到 `~/.moon/bin`；`moon install` 要「主包」路径，指模块根会报 `is-main: true required`）。验证：`mng_cli --version` 应打印 `mng_cli 0.1.0` 与 `mng-schema 1`。PATH 里找不到时，在设置 `mng.cliPath` 里填绝对路径。
 2. **扩展**：本目录执行
    ```sh
    npx @vscode/vsce package
