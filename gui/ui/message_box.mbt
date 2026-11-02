@@ -585,7 +585,7 @@ pub fn message_box(
         open()
       }
       parent.append_child(anchor)
-      fold_style(anchor, @style.empty_style(), class)
+      fold_style(anchor, @style.empty_style(), @style.empty_style(), class)
       anchor
     },
   }

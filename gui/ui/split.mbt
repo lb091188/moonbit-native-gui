@@ -167,7 +167,7 @@ fn splitter_impl(
     w.append_child(first_wrap)
     w.append_child(bar)
     w.append_child(second_wrap)
-    fold_style(w, @style.empty_style(), class)
+    fold_style(w, @style.empty_style(), @style.empty_style(), class)
     handle(w)
     w
   })

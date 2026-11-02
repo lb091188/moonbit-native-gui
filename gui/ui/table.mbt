@@ -858,7 +858,7 @@ pub fn table(
     })
     @base.sub_bag_register(fn() { rows.signal().remove(sid) })
     render_all()
-    fold_style(w, @style.empty_style(), class)
+    fold_style(w, @style.empty_style(), @style.empty_style(), class)
     handle(w)
     w
   })

@@ -128,7 +128,7 @@ pub fn checkbox(
         false
       }
     })
-    fold_style(row, @style.empty_style(), class)
+    fold_style(row, @style.empty_style(), @style.empty_style(), class)
     handle(row)
     row
   })
@@ -349,7 +349,7 @@ pub fn switch(
         false
       }
     })
-    fold_style(row, @style.empty_style(), class)
+    fold_style(row, @style.empty_style(), @style.empty_style(), class)
     row
   })
 }
@@ -501,7 +501,7 @@ pub fn slider(
         false
       }
     })
-    fold_style(w, @style.style(color="primary", border_color="border"), class)
+    fold_style(w, @style.empty_style(), @style.style(color="primary", border_color="border"), class)
     handle(w)
     w
   })
@@ -532,7 +532,7 @@ pub fn progress(
     watch_theme()
     w.node.set_width(@yoga.fixed(width))
     w.node.set_height(@yoga.fixed(height))
-    fold_style(w, anon, class)
+    fold_style(w, @style.empty_style(), anon, class)
     w.on_draw = Some(fn(
       self : @widget.Widget,
       p : @render.Painter,
@@ -572,6 +572,7 @@ fn step_cell(
     w.cursor_fn = Some(enabled_cursor(off, @widget.CURSOR_HAND))
     fold_style(
       w,
+      @style.empty_style(),
       @style.empty_style().hover(background_color="fill_hover").active(
         background_color="border",
       ),
@@ -969,7 +970,7 @@ pub fn button(
   background_color? : String = "",
   icon? : @icons.IconKind? = None,
   icon_size? : Double = 14.0,
-  font_size? : Double = 13.0,
+  font_size? : Double,
   min_width? : Double = 0.0,
   focus_id? : Int = 0,
   disabled? : Bool = false,
@@ -977,7 +978,14 @@ pub fn button(
   class? : Array[@style.Style] = [],
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  let src = text_source(text, font_size=font_size, align=@text.Center)
+  let src = text_source(
+    text,
+    font_size=match font_size {
+      Some(v) => v
+      None => 13.0
+    },
+    align=@text.Center,
+  )
   // 图标槽：内容区起点起 `icon_size` 宽 + 6 间距，测量与绘制两边同口径
   let icon_slot = match icon {
     Some(_) => icon_size + 6.0
@@ -1023,6 +1031,11 @@ pub fn button(
   let lit = @style.merge_all(lit_blocks)
   skin.hover = Some(lit)
   skin.active = Some(lit)
+  // 显式字号进属性层；未给则吃默认块（button_base 的 13）
+  match font_size {
+    Some(v) => skin.font_size = Some(v)
+    None => ()
+  }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
     let off = enabled_cell(enabled, disabled)
@@ -1036,7 +1049,7 @@ pub fn button(
     w.node.set_flex_shrink(0.0)
     w.cursor_fn = Some(enabled_cursor(off, @widget.CURSOR_HAND))
     attach_text_measure(w, src, lead_w=icon_slot)
-    fold_style(w, skin, class)
+    fold_style(w, @style.button_base, skin, class)
     w.on_draw = Some(fn(
       self : @widget.Widget,
       p : @render.Painter,
@@ -1075,6 +1088,8 @@ pub fn button(
         None => ()
       }
       let tx = 12.0 + icon_slot
+      // 字号/字重/字族走 resolved（class/属性/默认同一条链），与测量同源
+      let (font1, align1, _wrap1, _lh1, _u1) = text_eff(s, src)
       let _ = @text.draw_box_at(
         p,
         tx,
@@ -1082,9 +1097,9 @@ pub fn button(
         (r.w - tx - 12.0).max(1.0),
         r.h,
         src.text,
-        src.font,
+        font1,
         fg,
-        align=@text.Center,
+        align=align1,
         valign=@text.Center,
         wrap=false,
       )
@@ -1229,7 +1244,7 @@ pub fn link(
         false
       }
     })
-    fold_style(w, @style.empty_style(), class)
+    fold_style(w, @style.empty_style(), @style.empty_style(), class)
     handle(w)
     w
   })
@@ -1438,7 +1453,7 @@ pub fn rate(
         false
       }
     })
-    fold_style(w, @style.style(color="primary", border_color="border"), class)
+    fold_style(w, @style.empty_style(), @style.style(color="primary", border_color="border"), class)
     handle(w)
     w
   })
@@ -1677,7 +1692,7 @@ pub fn select(
         false
       }
     })
-    fold_style(w, @style.empty_style(), class)
+    fold_style(w, @style.empty_style(), @style.empty_style(), class)
     handle(w)
     w
   })
@@ -1834,7 +1849,7 @@ pub fn color_picker(
         false
       }
     })
-    fold_style(w, @style.empty_style(), class)
+    fold_style(w, @style.empty_style(), @style.empty_style(), class)
     handle(w)
     w
   })

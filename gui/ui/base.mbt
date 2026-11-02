@@ -334,12 +334,16 @@ pub fn border_block(hex : String) -> @style.Style? {
 /// 组件统一收口（§2「散参数是糖，只有一条去向」）：散参数折成的匿名块排最前，
 /// `class` 在后（数组尾赢 ⇒ `class` > 散参数，不需要第二条优先级规则），
 /// 一次 `merge_all` + `apply` 落到控件样式槽与 Yoga。
+/// 样式归一链：默认（组件内置观感）< 属性（构造参数匿名块）< class（命名类/内联，
+/// 按书写顺序后者覆盖）。继承层在 `@style.resolved` 里垫底（见 style/apply 的
+/// `resolved`）。三处入口都走这一条，效果处处一致。
 pub fn fold_style(
   w : @widget.Widget,
+  defaults : @style.Style,
   anon : @style.Style,
   class : Array[@style.Style],
 ) -> Unit {
-  @style.apply(w, @style.merge_all([anon] + class))
+  @style.apply(w, @style.merge_all([defaults, anon] + class))
 }
 
 ///|

@@ -534,7 +534,7 @@ pub fn date_picker(
       },
     )
     attach_field_toggle_key(w, open_id, open_pop, close_pop)
-    fold_style(w, @style.empty_style(), class)
+    fold_style(w, @style.empty_style(), @style.empty_style(), class)
     handle(w)
     w
   })

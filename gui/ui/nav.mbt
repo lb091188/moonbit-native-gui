@@ -1023,7 +1023,7 @@ pub fn tree(
     w.node.set_flex_direction(@yoga.Column)
     w.node.set_width(@yoga.percent(100.0))
     build_tree_rows(w, root, 0, skin=paint_subset(class))
-    fold_style(w, @style.empty_style(), class)
+    fold_style(w, @style.empty_style(), @style.empty_style(), class)
     handle(w)
     w
   })
@@ -1140,7 +1140,7 @@ pub fn tabs(
     }
     let sid = sel.signal().subscribe(fn(i : Int) -> Unit { show(i) })
     @base.sub_bag_register(fn() { sel.signal().remove(sid) })
-    fold_style(w, @style.empty_style(), class)
+    fold_style(w, @style.empty_style(), @style.empty_style(), class)
     handle(w)
     w
   })
@@ -1394,7 +1394,7 @@ pub fn transfer(
     w.append_child(mid_btn(false))
     w.append_child(right_box)
     render_all()
-    fold_style(w, @style.empty_style(), class)
+    fold_style(w, @style.empty_style(), @style.empty_style(), class)
     handle(w)
     w
   })

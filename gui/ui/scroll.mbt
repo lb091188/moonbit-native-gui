@@ -316,6 +316,7 @@ pub fn scroll_view(
     }
     fold_style(
       viewport,
+      @style.empty_style(),
       @style.merge_all([
         @style.style(border_color="border", border_width=1.0),
         lay,

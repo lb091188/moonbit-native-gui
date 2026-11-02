@@ -73,7 +73,7 @@ pub fn view(
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
     // 样式先落（class 覆盖散参数由数组顺序保证），再读 resolved 供绘制
-    fold_style(w, anon, class)
+    fold_style(w, @style.empty_style(), anon, class)
     w.on_draw = Some(fn(
       self : @widget.Widget,
       p : @render.Painter,
@@ -180,7 +180,7 @@ fn separator_impl(
       Some(b) => b
       None => @style.empty_style()
     }
-    fold_style(w, anon, class)
+    fold_style(w, @style.empty_style(), anon, class)
     w.on_draw = Some(fn(
       self : @widget.Widget,
       p : @render.Painter,
@@ -195,41 +195,71 @@ fn separator_impl(
 }
 
 ///|
-/// 随信号更新的文本：文本变化 → 改状态 → 重设测量回调（标脏节点）→
-/// 请求重绘，布局只重算这一条链。订阅退订随本代回收袋，重挂不留死订阅。
-/// 就地改文本、不重建子树，是展示类 `*_dyn` 信号版的原型。
-/// `wrap` 缺省 true（块级段落语义缺省），单行标签显式 `wrap=false`。
-/// 排版角色走 `class` 挂 @style 字阶预设（`text_heading`/`text_title`/…）。
-pub fn text_dyn(
+/// 文本节点内核：构造参数的显式值折进「属性」匿名块，默认层留空——字号/字族/
+/// 字重/对齐是可继承文字属性，初始值走文本源（13 / 系统字族 / Normal / Start）；
+/// 优先级 = 继承 < 初始值 < 属性 < class（见 style/apply 的 resolved 与 fold_style）。
+fn text_node_of(
   sig : @base.Signal[String],
-  font_size? : Double = 13.0,
-  color? : String = "",
-  weight? : @text.FontWeight = @text.Normal,
-  family? : String = "",
-  align? : @text.TextAlign = @text.Start,
-  max_width? : Double = 0.0,
-  wrap? : Bool = true,
-  ellipsis? : Bool = false,
-  max_lines? : Int = 0,
-  anon? : @style.Style = @style.empty_style(),
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  font_size : Double?,
+  color : String,
+  weight : @text.FontWeight?,
+  family : String,
+  align : @text.TextAlign?,
+  max_width : Double,
+  wrap : Bool,
+  ellipsis : Bool,
+  max_lines : Int,
+  anon : @style.Style,
+  class : Array[@style.Style],
+  handle : (@widget.Widget) -> Unit,
 ) -> @widget.Node {
+  let fs = match font_size {
+    Some(v) => v
+    None => 13.0
+  }
+  let wt = match weight {
+    Some(v) => v
+    None => @text.Normal
+  }
+  let al = match align {
+    Some(v) => v
+    None => @text.Start
+  }
   let src = text_source(
     sig.get(),
-    font_size=font_size,
+    font_size=fs,
     color=color,
-    weight=weight,
+    weight=wt,
     family=family,
-    align=align,
+    align=al,
     max_width=max_width,
     wrap=wrap,
     ellipsis=ellipsis || !wrap,
     max_lines=max_lines,
   )
+  let fg = match fg_block(color) {
+    Some(b) => b
+    None => @style.empty_style()
+  }
+  let attrs = @style.merge(fg, anon)
+  match font_size {
+    Some(v) => attrs.font_size = Some(v)
+    None => ()
+  }
+  match weight {
+    Some(v) => attrs.font_weight = Some(v)
+    None => ()
+  }
+  match align {
+    Some(v) => attrs.text_align = Some(v)
+    None => ()
+  }
+  if family.length() > 0 {
+    attrs.font_family = Some(family)
+  }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    fold_style(w, anon, class)
+    fold_style(w, @style.empty_style(), attrs, class)
     // flex 口径全线 0 1 auto（文本件口径定案）：不设宽、不设 grow/shrink——
     // 折行档按 measure 的可用宽折，内容基准可收缩，min:auto 内容下限由引擎
     // 兜底；单行档把下限归 0，挤不过兄弟件时收缩、末端出省略号。
@@ -252,6 +282,44 @@ pub fn text_dyn(
 }
 
 ///|
+/// 随信号更新的文本：文本变化 → 改状态 → 重设测量回调（标脏节点）→
+/// 请求重绘，布局只重算这一条链。订阅退订随本代回收袋，重挂不留死订阅。
+/// 就地改文本、不重建子树，是展示类 `*_dyn` 信号版的原型。
+/// `wrap` 缺省 true（块级段落语义缺省），单行标签显式 `wrap=false`。
+/// 排版角色走 `class` 挂 @style 字阶预设（`text_heading`/`text_title`/…）。
+pub fn text_dyn(
+  sig : @base.Signal[String],
+  font_size? : Double,
+  color? : String = "",
+  weight? : @text.FontWeight,
+  family? : String = "",
+  align? : @text.TextAlign,
+  max_width? : Double = 0.0,
+  wrap? : Bool = true,
+  ellipsis? : Bool = false,
+  max_lines? : Int = 0,
+  anon? : @style.Style = @style.empty_style(),
+  class? : Array[@style.Style] = [],
+  handle? : (@widget.Widget) -> Unit = default_handle,
+) -> @widget.Node {
+  text_node_of(
+    sig,
+    font_size,
+    color,
+    weight,
+    family,
+    align,
+    max_width,
+    wrap,
+    ellipsis,
+    max_lines,
+    anon,
+    class,
+    handle,
+  )
+}
+
+///|
 /// 文本（§2 合并入口：原 `label` + `label_t` 一台）。尺寸来自 Pango 测量
 /// （measure 与 baseline 都接进布局引擎，所以文本能参与基线对齐）。
 /// 排版口径（文本件口径定案）：`wrap` 缺省 true（块级段落语义缺省），
@@ -260,11 +328,11 @@ pub fn text_dyn(
 /// `text_secondary` / `text_accent`；正文 13 是缺省档，不必挂）。
 pub fn text(
   content : String,
-  font_size? : Double = 13.0,
+  font_size? : Double,
   color? : String = "",
-  weight? : @text.FontWeight = @text.Normal,
+  weight? : @text.FontWeight,
   family? : String = "",
-  align? : @text.TextAlign = @text.Start,
+  align? : @text.TextAlign,
   max_width? : Double = 0.0,
   wrap? : Bool = true,
   ellipsis? : Bool = false,
@@ -272,24 +340,20 @@ pub fn text(
   class? : Array[@style.Style] = [],
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  let anon = match fg_block(color) {
-    Some(b) => b
-    None => @style.empty_style()
-  }
-  text_dyn(
+  text_node_of(
     @base.Signal::new(content),
-    font_size=font_size,
-    color=color,
-    weight=weight,
-    family=family,
-    align=align,
-    max_width=max_width,
-    wrap=wrap,
-    ellipsis=ellipsis,
-    max_lines=max_lines,
-    anon=anon,
-    class=class,
-    handle=handle,
+    font_size,
+    color,
+    weight,
+    family,
+    align,
+    max_width,
+    wrap,
+    ellipsis,
+    max_lines,
+    @style.empty_style(),
+    class,
+    handle,
   )
 }
 
@@ -313,7 +377,7 @@ pub fn divider(
       watch_theme()
       w.node.set_height(@yoga.fixed(20.0))
       w.node.set_width(@yoga.percent(100.0))
-      fold_style(w, @style.empty_style(), class)
+      fold_style(w, @style.empty_style(), @style.empty_style(), class)
       w.on_draw = Some(fn(
         self : @widget.Widget,
         p : @render.Painter,
@@ -384,7 +448,7 @@ pub fn icon(
     watch_theme()
     w.node.set_width(@yoga.fixed(size))
     w.node.set_height(@yoga.fixed(size))
-    fold_style(w, anon, class)
+    fold_style(w, @style.empty_style(), anon, class)
     w.on_draw = Some(fn(
       self : @widget.Widget,
       p : @render.Painter,
@@ -419,7 +483,7 @@ pub fn iconfont(
     watch_theme()
     w.node.set_width(@yoga.fixed(size))
     w.node.set_height(@yoga.fixed(size))
-    fold_style(w, anon, class)
+    fold_style(w, @style.empty_style(), anon, class)
     w.on_draw = Some(fn(
       self : @widget.Widget,
       p : @render.Painter,
@@ -477,7 +541,7 @@ pub fn icon_button(
     w.node.set_height(@yoga.fixed(box_size))
     w.node.set_flex_shrink(0.0)
     w.cursor_fn = Some(enabled_cursor(off, @widget.CURSOR_HAND))
-    fold_style(w, anon, class)
+    fold_style(w, @style.empty_style(), anon, class)
     w.on_key = Some(fn(ev : @widget.KeyEvent) -> Bool {
       if !ev.press || off.off {
         return false

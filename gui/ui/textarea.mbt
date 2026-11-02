@@ -562,6 +562,7 @@ pub fn textarea(
     @base.sub_bag_register(fn() { store.remove(sid) })
     fold_style(
       w,
+      @style.empty_style(),
       @style.style(background_color="bg_panel", border_color="border", border_width=1.0, color="text_regular").focus(border_color="primary"),
       class,
     )

@@ -666,7 +666,7 @@ pub fn calendar(
       Some(s) => follow_store(s)
       None => ()
     }
-    fold_style(w, @style.empty_style(), class)
+    fold_style(w, @style.empty_style(), @style.empty_style(), class)
     handle(w)
     w
   })

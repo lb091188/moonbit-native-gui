@@ -231,7 +231,7 @@ pub fn hover_group(
       }
     })
     @widget.mount_children(w, children)
-    fold_style(w, @style.empty_style(), class)
+    fold_style(w, @style.empty_style(), @style.empty_style(), class)
     handle(w)
     w
   })

@@ -111,7 +111,7 @@ pub fn popover(
         _ => false
       }
     })
-    fold_style(w, @style.empty_style(), class)
+    fold_style(w, @style.empty_style(), @style.empty_style(), class)
     handle(w)
     w
   })
@@ -377,7 +377,7 @@ pub fn dropdown(
         false
       }
     })
-    fold_style(w, @style.empty_style(), class)
+    fold_style(w, @style.empty_style(), @style.empty_style(), class)
     handle(w)
     w
   })
@@ -478,7 +478,7 @@ pub fn tooltip(
         }
       }
     })
-    fold_style(w, @style.empty_style(), class)
+    fold_style(w, @style.empty_style(), @style.empty_style(), class)
     handle(w)
     w
   })
@@ -858,7 +858,7 @@ pub fn dialog(
       open()
     }
     parent.append_child(anchor)
-    fold_style(anchor, @style.empty_style(), class)
+    fold_style(anchor, @style.empty_style(), @style.empty_style(), class)
     anchor
     },
   }

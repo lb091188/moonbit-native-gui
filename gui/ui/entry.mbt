@@ -409,6 +409,7 @@ pub fn input(
     // 内置皮肤（底色/描边/文字色 + 焦点框色）先折槽，class 同名属性覆盖
     fold_style(
       w,
+      @style.empty_style(),
       @style.style(background_color="bg_panel", border_color="border", border_width=1.0, color="text_regular").focus(border_color="primary"),
       class,
     )

@@ -134,7 +134,7 @@ fn chip(
   }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    fold_style(w, anon, class)
+    fold_style(w, @style.empty_style(), anon, class)
     // 字号口径：class 给了 font_size 就以它为准（与文本件 text_eff 的取值序
     // 同源），散参 size 只是没有覆盖时的缺省——否则「class 改字号不跟着改宽」
     // 的边界永远在（P2-e 边界②）。测量与绘制共用这一份字体。
@@ -351,7 +351,7 @@ pub fn badge_dot(
       Some(b) => b
       None => @style.empty_style()
     }
-    fold_style(w, anon, class)
+    fold_style(w, @style.empty_style(), anon, class)
     w.on_draw = Some(fn(
       self : @widget.Widget,
       p : @render.Painter,
@@ -402,7 +402,7 @@ fn avatar_of(
     let ch : Ref[String] = Ref(one)
     w.node.set_width(@yoga.fixed(d))
     w.node.set_height(@yoga.fixed(d))
-    fold_style(w, anon, class)
+    fold_style(w, @style.empty_style(), anon, class)
     w.on_draw = Some(fn(
       self : @widget.Widget,
       p : @render.Painter,
@@ -491,7 +491,7 @@ fn statistic_of(
     }
     sync_width()
     w.node.set_height(@yoga.fixed(56.0))
-    fold_style(w, anon, class)
+    fold_style(w, @style.empty_style(), anon, class)
     w.on_draw = Some(fn(
       self : @widget.Widget,
       p : @render.Painter,
@@ -577,7 +577,7 @@ pub fn alert(
     watch_theme()
     w.node.set_height(@yoga.fixed(if description.length() > 0 { 56.0 } else { 36.0 }))
     w.node.set_width(@yoga.percent(100.0))
-    fold_style(w, anon, class)
+    fold_style(w, @style.empty_style(), anon, class)
     w.on_draw = Some(fn(
       self : @widget.Widget,
       p : @render.Painter,
@@ -846,7 +846,7 @@ fn timeline_row(
   let mark = @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     w.node.set_width(@yoga.fixed(20.0))
     w.node.set_height(@yoga.fixed(box_h))
-    fold_style(w, anon, [])
+    fold_style(w, @style.empty_style(), anon, [])
     w.on_draw = Some(fn(
       self : @widget.Widget,
       p : @render.Painter,
@@ -1171,7 +1171,7 @@ pub fn carousel(
         (tick.val)()
       }
     }
-    fold_style(w, @style.empty_style(), class)
+    fold_style(w, @style.empty_style(), @style.empty_style(), class)
     handle(w)
     w
   })
