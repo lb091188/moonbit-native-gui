@@ -225,7 +225,10 @@ fn cmd_dev(args : Array[String]) -> Int {
   }
   let app_log = conf.dir + "/.mng-dev-app.log"
   // 首轮：全部 dev 编译 + 生成码落各自包目录 + 记基线
+  // baselines = 最后一次编译成功的原文（hot_ir 分类用）；seen = 最后一次尝试过的原文
+  // （编译失败也记，避免同一个错误每拍重复刷屏）
   let baselines : Map[String, String] = Map([])
+  let seen : Map[String, String] = Map([])
   let mut ok = true
   for f in files {
     let src = match slurp(f) {
@@ -248,6 +251,7 @@ fn cmd_dev(args : Array[String]) -> Int {
           ok = false
         } else {
           let _ = baselines.set(f, src)
+          let _ = seen.set(f, src)
         }
       }
     }
@@ -312,7 +316,7 @@ fn cmd_dev(args : Array[String]) -> Int {
     for f in files {
       match slurp(f) {
         Some(src) =>
-          if src != baselines.get_or_default(f, "") {
+          if src != seen.get_or_default(f, "") {
             changed.push(f)
           }
         None => ()
@@ -333,6 +337,7 @@ fn cmd_dev(args : Array[String]) -> Int {
         Err(e) => {
           eprintln("[ERR] " + f + "：")
           eprintln(e)
+          let _ = seen.set(f, src)
           had_err = true
           continue
         }
@@ -340,6 +345,7 @@ fn cmd_dev(args : Array[String]) -> Int {
           let gp = gen_path(out_dir, f)
           if !spit(gp, r.code) {
             eprintln("[ERR] 写不出生成码：" + gp)
+            let _ = seen.set(f, src)
             had_err = true
             continue
           }
@@ -359,6 +365,7 @@ fn cmd_dev(args : Array[String]) -> Int {
             }
           }
           let _ = baselines.set(f, src)
+          let _ = seen.set(f, src)
         }
       }
     }
