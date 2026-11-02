@@ -9,6 +9,72 @@ fn usage_dev() -> Unit {
   println("  生成码落到模板自己所在的包目录（<stem>.gen.mbt，dev 形态）；--out-dir 仅供调试强行指定")
   println("  build-cmd / run-cmd / app-id / poll-ms：覆盖 mng.toml；run 留空 = 跑一次 build 后从 Artifacts 抓可执行")
   println("  一拍内多个改动合并成一次 build/重启；HOT 的逐个推补丁；COLD 重启后回到改动页")
+  println("  dev 产物不进源码树：应用日志 / source map / IR 补丁统一落 <项目根>/.mng/（logs / map / ir）")
+}
+
+///|
+/// 逐级建目录（已存在视为成功）。
+fn mkdir_p(dir : String) -> Bool {
+  let parts = collect_array_dev(dir.split("/").filter(fn(x) { x.length() > 0 }).map(fn(x) { x.to_owned() }))
+  let mut cur = if dir.has_prefix("/") { "/" } else { "" }
+  for p in parts {
+    if cur == "/" {
+      cur = "/" + p
+    } else if cur.length() == 0 {
+      cur = p
+    } else {
+      cur = cur + "/" + p
+    }
+    let isdir = @fs.is_dir(cur) catch {
+      _ => false
+    }
+    if !isdir {
+      @fs.create_dir(cur) catch {
+        _ => return false
+      }
+    }
+  }
+  true
+}
+
+///|
+/// 路径 → 相对项目根的包路径（不在根下则退回其目录名）。
+fn rel_under(root : String, p : String) -> String {
+  if p.has_prefix(root + "/") {
+    p[root.length() + 1:].to_owned()
+  } else {
+    basename(p)
+  }
+}
+
+///|
+/// app-id → 日志文件名安全段（非法字符转下划线）。
+fn safe_filename(s : String) -> String {
+  let out = StringBuilder()
+  for c in s {
+    if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '.' || c == '-' || c == '_' {
+      out.write_char(c)
+    } else {
+      out.write_char('_')
+    }
+  }
+  out.to_string()
+}
+
+///|
+/// dev 的 source map 落点：`.mng/map/<模板相对包路径>/<stem>.gen.mbt.map`。
+fn dev_map_path(mng_root : String, conf_dir : String, f : String) -> String {
+  let rel = rel_under(conf_dir, parent_dir_of(f))
+  mng_root + "/map/" + rel + "/" + stem_of_file(f) + ".gen.mbt.map"
+}
+
+///|
+/// 写 dev source map（父目录不存在先建；失败只提示，不影响编译主流程）。
+fn write_dev_map(mappath : String, map : String, gen_name : String) -> Bool {
+  if !mkdir_p(parent_dir_of(mappath)) {
+    return false
+  }
+  spit(mappath, map + "gen " + gen_name + "\n")
 }
 
 ///|
@@ -223,7 +289,12 @@ fn cmd_dev(args : Array[String]) -> Int {
     }
     None => ()
   }
-  let app_log = conf.dir + "/.mng-dev-app.log"
+  let mng_root = conf.dir + "/.mng"
+  let app_log = mng_root + "/logs/" + safe_filename(conf.app_id) + ".log"
+  if !mkdir_p(mng_root + "/logs") {
+    eprintln("建不出目录：" + mng_root + "/logs")
+    return 1
+  }
   // 首轮：全部 dev 编译 + 生成码落各自包目录 + 记基线
   // baselines = 最后一次编译成功的原文（hot_ir 分类用）；seen = 最后一次尝试过的原文
   // （编译失败也记，避免同一个错误每拍重复刷屏）
@@ -246,10 +317,15 @@ fn cmd_dev(args : Array[String]) -> Int {
         ok = false
       }
       Ok(r) => {
-        if !spit(gen_path(out_dir, f), r.code) {
-          eprintln("写不出生成码：" + gen_path(out_dir, f))
+        let gp = gen_path(out_dir, f)
+        if !spit(gp, r.code) {
+          eprintln("写不出生成码：" + gp)
           ok = false
         } else {
+          let mappath = dev_map_path(mng_root, conf.dir, f)
+          if !write_dev_map(mappath, r.map, basename(gp)) {
+            eprintln("写不出 source map：" + mappath)
+          }
           let _ = baselines.set(f, src)
           let _ = seen.set(f, src)
         }
@@ -349,14 +425,18 @@ fn cmd_dev(args : Array[String]) -> Int {
             had_err = true
             continue
           }
+          let mappath = dev_map_path(mng_root, conf.dir, f)
+          if !write_dev_map(mappath, r.map, basename(gp)) {
+            eprintln("[ERR] 写不出 source map：" + mappath)
+          }
           match @mngkit.hot_ir(src, baselines.get_or_default(f, ""), f) {
             Err(reason) => {
               eprintln("[HOT→COLD] " + f + "：" + reason)
               cold = true
             }
             Ok(irjson) => {
-              let irpath = parent_dir_of(gp) + "/" + stem_of_file(f) + ".ir.json"
-              if !spit(irpath, irjson) {
+              let irpath = mng_root + "/ir/" + rel_under(conf.dir, parent_dir_of(f)) + "/" + stem_of_file(f) + ".ir.json"
+              if !mkdir_p(parent_dir_of(irpath)) || !spit(irpath, irjson) {
                 eprintln("[HOT] 写不出 " + irpath)
                 cold = true
               } else {

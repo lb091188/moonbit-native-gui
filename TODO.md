@@ -12,7 +12,6 @@
 
 ### 工具后续批次
 
-- [ ] **dev 临时产物目录 `.mng/`**：现在 app 日志（`examples/showcase/.mng-dev-app.log`）、source map（`pages/dev_demo.gen.mbt.map`）、IR 补丁（`pages/dev_demo.ir.json`）全散在源码目录（已 gitignore 但文件浏览器里裸露，污染源码树）。改法——dev 循环的产物统一落 `<项目根>/.mng/`：`logs/<app-id>.log`、`map/<相对包路径>/<stem>.gen.mbt.map`、`ir/<相对包路径>/<stem>.ir.json`；`.gitignore` 加 `**/.mng/`；`map-errors --map` 显式传参不受影响（dev 循环内部自管路径、文档同步）；`build` 子命令的显式 `-o` 语义不变；顺手清掉现有散落文件。改动点：`mng_cli/dev.mbt`（app_log、irpath、dev 编译 map 路径三处）
 - [ ] **preview 子命令**：独立预览窗（同一 applier + mock 状态），工具终态 dev/build/new/preview/lsp 的缺角
 - [ ] **命令改名 `mng`**：`mng_cli` → `mng`（对外 DX 第一入口的命名，native-template 开放问题 5 + mng-project-dev 后续；改名同批核对 README/教程/编辑器插件 `mng.cliPath` 默认值与安装引导）
 - [ ] **Windows dev 唤醒**：工具侧 Win32 单实例客户端——现仅 D-Bus 臂有套接字旁路，Windows HOT 推送未验

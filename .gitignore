@@ -61,9 +61,8 @@
 # 模板编译器的 source map（与生成码同批产出，随生成码重建）
 *.gen.mbt.map
 
-# dev 会话产物（应用日志与 IR 补丁）
-.mng-dev-app.log
-*.ir.json
+# dev 会话产物（统一落项目根 .mng/：应用日志 / source map / IR 补丁）
+**/.mng/
 
 # 插件打包产物（按需本地生成）
 *.vsix
