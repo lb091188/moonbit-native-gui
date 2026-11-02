@@ -65,7 +65,7 @@
 23. 托盘/热键真机复验 → 提交 → `gui-window@0.2.0`。
 24. （可选）gui-sys 工具族按消费场景分包，有独立检索价值的才拆。
 25. facade 定型：定位收窄为「组件工具包 + 聚合 facade」，README/落地页「模块菜单」一节（每模块一行定位与单用场景，六个模块）；中英文档同步；facade 标记版本另行决定。
-26. webview 壳编排层按三段式推进（见「后续」）。
+26. webview 壳编排层按三段式推进（见「后续」；2026-11-02 定案不做，见该节标注）。
 
 ## 修订记录
 
@@ -81,6 +81,8 @@
 - 发版节奏：每模块 0.1.0 起发；facade 钉版清单全仓同步。
 
 ## 后续：webview 壳编排层（三段式）
+
+> **2026-11-02 定案：不做。** Web 主面与本仓「MoonBit 全栈原生自绘」定位相反，主战略改为「原生 DX 追平 web」（见 roadmap「明确不做」）；兼容方案 = gui-webview 组件填满窗口。shell 拆分的发行动机不受影响（单件检索与独立发版），gui-webview 保持嵌入组件站位。以下三段式文本留档。
 
 - **验证期**：experiment 探针/示例验证 IPC 契约——shell 六通道的 JSON 投影 + 应用自定义命令（MoonBit 端 CommandRegistry + 注入 `window.__*__.invoke` 运行时，跑在 gui-webview 的协议/JS 求值往返上）。不占任何发版线。
 - **发布期**：独立模块（名字届时定），依赖 gui-shell + gui-window + gui-sys + gui-dbus + gui-webview，独立货架位与发版节奏。

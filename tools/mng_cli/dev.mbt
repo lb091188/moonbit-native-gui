@@ -77,6 +77,7 @@ fn cmd_dev(args : Array[String]) -> Int {
   let mut out_dir = ""
   let mut build_cmd = ""
   let mut run_cmd = ""
+  let mut app_id = "com.moonbitlibyue.showcase"
   let mut poll_ms = 300
   let mut k = 0
   while k < args.length() {
@@ -92,6 +93,9 @@ fn cmd_dev(args : Array[String]) -> Int {
       k += 2
     } else if a == "--run-cmd" && k + 1 < args.length() {
       run_cmd = args[k + 1]
+      k += 2
+    } else if a == "--app-id" && k + 1 < args.length() {
+      app_id = args[k + 1]
       k += 2
     } else if a == "--poll-ms" && k + 1 < args.length() {
       match parse_int(args[k + 1]) {
@@ -224,7 +228,22 @@ fn cmd_dev(args : Array[String]) -> Int {
           }
           let _ = spit(out_dir + "/" + stem + ".gen.mbt", r.code)
           if is_hot {
-            eprintln("[HOT] \{name}：结构变更已生成（亚秒补丁通道待应用侧监听落地，本次不打断应用）")
+            // 亚秒补丁通道：IR 补丁落盘 → 单实例通道唤起应用原位重挂
+            match @mngkit.ir_of(src, f) {
+              Err(e) => eprintln("[HOT] \{name}：IR 产出失败（\{e}），应用不动")
+              Ok(irjson) => {
+                let irpath = out_dir + "/" + stem + ".ir.json"
+                if !spit(irpath, irjson) {
+                  eprintln("[HOT] \{name}：写不出 " + irpath)
+                } else {
+                  match @shell.instance_wake(app_id, ["--mng-hot", irpath]) {
+                    Ok(_) => eprintln("[HOT] \{name}：补丁已推送（\{irpath}）")
+                    Err(e) =>
+                      eprintln("[HOT] \{name}：补丁已备 \{irpath}，但唤起失败（\{e.to_string()}）——应用未运行？")
+                  }
+                }
+              }
+            }
           } else {
             eprintln("[COLD] \{name}：行为/表达式变更，重启编排…")
             match @sysx.pr_run(bfile, bargs, timeout_ms=600000) {

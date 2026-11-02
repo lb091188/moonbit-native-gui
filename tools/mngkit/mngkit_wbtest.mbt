@@ -215,3 +215,59 @@ test "契约分类：结构重排 HOT；表达式换目标 / script 变动 COLD"
   }
   assert_true(!cold2.hot_ok(base))
 }
+
+///|
+fn tir_src() -> String {
+  [
+    "<script setup lang=\"moonbit\">",
+    "let wifi : @base.Store[Bool] = @base.Store::new(true)",
+    "let nick : @base.Store[String] = @base.Store::new(\"\")",
+    "</script>",
+    "<template>",
+    "  <ui-col row_gap=\"8.0\">",
+    "    <ui-checkbox :label='@shared.tx(\"自动\")' v-model=\"wifi\" />",
+    "    <ui-text v-if=\"wifi\" :text='@shared.tx(\"开\")' />",
+    "    <ui-text v-else text=\"关\" />",
+    "    <ui-stepper v-model=\"nick\" max=\"9\" />",
+    "    <ui-button text=\"清空\" @click=\"on_clear\" />",
+    "  </ui-col>",
+    "</template>",
+  ].join("\n") + "\n"
+}
+
+///|
+test "IR 输出：结构树 + 坐标键动态槽 + states/handlers 清单" {
+  let ir = match ir_of(tir_src(), "tir.mng.html") {
+    Ok(j) => j
+    Err(e) => abort("\{e}")
+  }
+  assert_true(contains_sub(ir, "\"k\":\"col\""))
+  assert_true(contains_sub(ir, "\"k\":\"checkbox\""))
+  assert_true(contains_sub(ir, "\"k\":\"stepper\""))
+  assert_true(contains_sub(ir, "\"state\":\"wifi\""))
+  assert_true(contains_sub(ir, "\"k\":\"if\",\"c\":\"c:"))
+  assert_true(contains_sub(ir, "\"expr\":\"t:"))
+  assert_true(contains_sub(ir, "\"states\":[\"wifi\",\"nick\"]"))
+  assert_true(contains_sub(ir, "\"handlers\":[\"on_clear\"]"))
+}
+
+///|
+test "IR 边界：自定义组件与 v-else-if 链转 COLD（ir_of 报错）" {
+  let r1 = ir_of(t2_src(), "t2.mng.html")
+  assert_true(
+    match r1 {
+      Err(e) => contains_sub(e, "v1 补丁边界")
+      _ => false
+    },
+  )
+  let r2 = ir_of(
+    "<template>\n  <ui-col>\n    <ui-text v-if=\"a\" text=\"x\" />\n    <ui-text v-else-if=\"b\" text=\"y\" />\n  </ui-col>\n</template>",
+    "e2.mng.html",
+  )
+  assert_true(
+    match r2 {
+      Err(e) => contains_sub(e, "v-else-if")
+      _ => false
+    },
+  )
+}

@@ -298,7 +298,6 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 ### 模块化
 
 - ⏳ **能力模块拆分**：`sys` → `NoahLiu/gui-sys`（纯读写系统工具，无事件循环依赖）、`win` → `NoahLiu/gui-window`（窗口层与 GUI 辅助族：窗口、事件循环、IME、托盘、通知、热键、单实例、对话框，模块内按包细分）、`dbus` → `NoahLiu/gui-dbus`（D-Bus/SNI，依赖 gui-sys）、`shell` + `i18n` → `NoahLiu/gui-shell`（集成层：六通道统一门面、事件泵、平台分派，依赖上述三模块）；`native-gui` 收窄为「组件工具包 + 聚合 facade」、开箱即用不变；顺序 sys → win → dbus → shell → 包级细化，每个模块独立发版，与 gui-webview / gui-media 同形态
-- ⏳ **webview 壳编排层**：独立模块规划，三段式——experiment 探针验证 IPC 契约 → 成型后独立模块发布；建在 gui-shell + gui-webview 之上，能力一律经 shell 六通道消费不绕行；IPC 命令面 = shell 六通道的 JSON 投影 + 应用自定义命令；webview 从「嵌进原生界面的子件」转「WebView 主面」，原生退居能力层。**等触发信号**（2026-11-01 定）：出现真实用户「Web 技术栈做桌面 UI」诉求、或具体产品需要复用现成 Web 组件面才启动——与本仓 MoonBit 全栈原生自绘定位相反，不主动推进；gui-webview 底料与「双面架构收拢」思路保留
 
 ### 开发体验
 
@@ -347,6 +346,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ## 明确不做
 
+- **Web 主面壳形态（Tauri 位）**（2026-11-02 定）：不做 webview 壳编排层——「WebView 主面 + 原生退居能力层」与本仓「MoonBit 全栈原生自绘」定位相反；主战略是**让原生 DX 与 web 持平**（模板预编译、IR 热更、dev 工具、编辑器支持四件套落地中）。需要 web 技术栈内容时走兼容方案：**gui-webview 组件填满窗口**（单子件 grow 占满，组件面已实现，browser 示例为雏形），该场景下 web 侧开发循环归前端自己的 Vite、原生能力仍经 facade 通道消费；gui-webview 作为嵌入组件的能力原样保留
 - **mac 自启动换 `SMAppService` 登录项形态**：`SMAppService.mainApp` 只能注册主应用自身，而 `autostart_enable(app_id)` 是按 id 参数化的门面语义（任意 app_id、落点透明）——语义对不上，维持 LaunchAgents plist 路线（代价：系统「App 后台活动」里按可执行文件名显示、ad-hoc 签名标「身份不明」，均为本机自测可接受项）
 
 - **macOS 四族**（Linux / Windows 有实现，macOS 明确不做）：窗口管理（要 Accessibility 授权；Linux 走 `wmctrl`）、夜间色温（CoreBrightness 私有；Linux 走 `redshift` / `xrandr`）、电源方案（`pmset` 对不上三值语义；Linux / Windows 都有）、媒体播放器枚举（无 MPRIS 对等物）。
