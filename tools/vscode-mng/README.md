@@ -9,9 +9,9 @@
    ```sh
    npx @vscode/vsce package
    ```
-   得到 `mng-vscode-0.2.1.vsix`，VS Code → 扩展 → `…` → 从 VSIX 安装（覆盖旧版加 `--force`）：
+   得到 `mng-vscode-0.2.2.vsix`，VS Code → 扩展 → `…` → 从 VSIX 安装（覆盖旧版加 `--force`）：
    ```sh
-   code --install-extension mng-vscode-0.2.1.vsix --force
+   code --install-extension mng-vscode-0.2.2.vsix --force
    ```
    或开发期直接把本目录软链到 `~/.vscode/extensions/`。**升级后必须 Reload Window**，TextMate 文法随扩展加载，不重载仍是旧着色。
 3. 设置（可选）：`mng.cliPath` 指向可执行文件（默认先查 PATH，再查 `~/.moon/bin`）；`mng.enableLsp=false` 只要着色与 snippets。
@@ -30,6 +30,34 @@
 | 跳转 | 组件标签 → 组件源码（内置 `ui-*` 走 `@ui.<名>`）；页内标识符 → 声明行；`@别名.成员` → 该包源码文件与行号；裸 `@别名` → 包入口（`.mbti` / `moon.pkg`） |
 
 **刻意不做**：原生 HTML / CSS 的语义补全（能力子集与原生差距大，原生只作高亮底子）；v1 没有真实类型 hover（需桥 `moon ide` 与 source map 正向索引，另批）。
+
+## 配色
+
+着色全部走标准 TextMate scope，最终颜色由主题决定（同一个 scope 在不同主题下颜色不同）：
+
+| 片段 | scope |
+| --- | --- |
+| 内置组件 `ui-*` / 自定义标签 | `support.class.component` / `entity.name.tag` |
+| 属性名 / `class` 属性名 | `entity.other.attribute-name` / `.class` |
+| `v-*` 指令 / `@事件` | `keyword.control.directive` / `entity.name.function.event` |
+| `class="…"` 值 | `entity.name.class` |
+| 表达式：类型 / 变量 / 函数 | `entity.name.type.class` / `variable.other` / `entity.name.function` |
+| 表达式：数字·布尔 / 字符串 / 包名 | `constant.numeric`·`constant.language` / `string.quoted` / `entity.name.namespace` |
+| 表达式：声明类关键字 / 修饰符 / 控制流 | `storage.type` / `storage.modifier` / `keyword.control` |
+| `::`、括号、运算符 | `punctuation.accessor` / `punctuation.brackets` / `keyword.operator` |
+| CSS 选择器 / 伪类 | `entity.other.attribute-name.class.css` / `.pseudo-class.css` |
+| CSS 属性名 / 枚举值 / 数字与单位 | `support.type.property-name.css` / `support.constant.property-value.css` / `constant.numeric.css` + `keyword.other.unit.css` |
+| CSS `var(--令牌)` | `variable.other.custom-property.css` + `support.constant.custom-property-name.css` |
+
+如果主题把某类 token 留成正文色（最常见是变量），可以在设置里只对 `source.mng` 补规则，例如：
+
+```json
+"editor.tokenColorCustomizations": {
+  "textMateRules": [
+    { "scope": "source.mng variable.other.moonbit", "settings": { "foreground": "#268BD2" } }
+  ]
+}
+```
 
 ## 已知边界
 
