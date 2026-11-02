@@ -336,7 +336,7 @@ Web 主面壳形态不做（roadmap「明确不做」）。原生面是唯一主
 
 | 侧 | 内容 |
 | --- | --- |
-| VSIX（`tools/vscode-mng/`，纯 TS，不进 moon.work） | `.mng` 语言注册 + TextMate 高亮（HTML 底子 + MoonBit 表达式着色，只给颜色不给语义）+ snippets + 定位/安装 `mng_cli` 的引导 |
+| VSIX（`tools/vscode-mng/`，零依赖 JS，不进 moon.work） | **已落地**：`.mng` 语言注册 + TextMate 着色（script 段 MoonBit / style 段样式子集 / 模板标签与 `{{ }}`）+ snippets + 手写 LSP 客户端（定位 `mng_cli`、握手 `mng-schema 1`、对不上补全降级为空）+ 安装引导 |
 | `mng_cli lsp`（stdio JSON-RPC） | **v1 已落地**：`initialize` / `didOpen`·`didChange` / `completion` / `hover` / `definition` / `publishDiagnostics` / `shutdown`·`exit`；诊断为编译错误的模板坐标（`行 L 列 C`），补全分四档（标签 = 内置表 + 页内符号、属性 = 内置参数 + v-*/@事件、表达式 = props/槽/函数名 + 常用模块前缀、类名 = 本文件 `<style>`）、hover = 组件参数表、跳转 = 组件源码文件（`Sigs::locate`）或页内声明行；语义计算复用 mngkit，LSP 只做编解码 |
 
 - **补全目录的来源**：表达式内补同文件 script 段的 Store/Signal/props/函数名；标签补内置组件表 + 项目内组件；组件参数与类型读 `pkg.generated.mbti`（`moon check` 产，位置参在前、labeled 带 `?`）；class 与 token 读样式章摊平产物。**不引入原生 HTML/CSS 的语义补全**——能力子集与原生差距大，原生只作高亮底子。

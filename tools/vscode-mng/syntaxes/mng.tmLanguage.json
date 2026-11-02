@@ -1,0 +1,358 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "MNG",
+  "scopeName": "source.mng",
+  "fileTypes": [
+    "mng"
+  ],
+  "patterns": [
+    {
+      "include": "#html-comment"
+    },
+    {
+      "begin": "(<)(script)\\b[^>]*>",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.tag.begin.mng"
+        },
+        "2": {
+          "name": "entity.name.tag.script.mng"
+        }
+      },
+      "end": "(</)(script)(>)",
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.definition.tag.end.mng"
+        },
+        "2": {
+          "name": "entity.name.tag.script.mng"
+        }
+      },
+      "contentName": "source.moonbit.mng",
+      "patterns": [
+        {
+          "include": "#moonbit-expression"
+        }
+      ]
+    },
+    {
+      "begin": "(<)(style)\\b[^>]*>",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.tag.begin.mng"
+        },
+        "2": {
+          "name": "entity.name.tag.style.mng"
+        }
+      },
+      "end": "(</)(style)(>)",
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.definition.tag.end.mng"
+        },
+        "2": {
+          "name": "entity.name.tag.style.mng"
+        }
+      },
+      "contentName": "source.css.mng",
+      "patterns": [
+        {
+          "include": "#style-rule"
+        }
+      ]
+    },
+    {
+      "begin": "(<)(template)\\b[^>]*>",
+      "beginCaptures": {
+        "1": {
+          "name": "punctuation.definition.tag.begin.mng"
+        },
+        "2": {
+          "name": "entity.name.tag.template.mng"
+        }
+      },
+      "end": "(</)(template)(>)",
+      "endCaptures": {
+        "1": {
+          "name": "punctuation.definition.tag.end.mng"
+        },
+        "2": {
+          "name": "entity.name.tag.template.mng"
+        }
+      },
+      "contentName": "text.html.basic.mng",
+      "patterns": [
+        {
+          "include": "#html-comment"
+        },
+        {
+          "include": "#interpolation"
+        },
+        {
+          "begin": "(</?)([A-Za-z][A-Za-z0-9-]*)",
+          "beginCaptures": {
+            "1": {
+              "name": "punctuation.definition.tag.begin.mng"
+            },
+            "2": {
+              "name": "entity.name.tag.mng"
+            }
+          },
+          "end": "(/?>)",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.definition.tag.end.mng"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#interpolation"
+            },
+            {
+              "match": "\\b(v-if|v-else-if|v-else|v-show|v-for|v-model)\\b",
+              "name": "keyword.control.directive.mng"
+            },
+            {
+              "begin": "(@)([A-Za-z][A-Za-z0-9-]*)(=)",
+              "beginCaptures": {
+                "1": {
+                  "name": "punctuation.definition.event.mng"
+                },
+                "2": {
+                  "name": "entity.name.function.event.mng"
+                },
+                "3": {
+                  "name": "punctuation.separator.key-value.mng"
+                }
+              },
+              "end": "([\"'])",
+              "endCaptures": {
+                "1": {
+                  "name": "punctuation.definition.string.end.mng"
+                }
+              },
+              "contentName": "source.moonbit.expression.mng",
+              "patterns": [
+                {
+                  "include": "#moonbit-expression"
+                }
+              ]
+            },
+            {
+              "begin": "(:)([A-Za-z][A-Za-z0-9-]*)(=)",
+              "beginCaptures": {
+                "1": {
+                  "name": "punctuation.definition.directive.mng"
+                },
+                "2": {
+                  "name": "entity.other.attribute-name.mng"
+                },
+                "3": {
+                  "name": "punctuation.separator.key-value.mng"
+                }
+              },
+              "end": "([\"'])",
+              "endCaptures": {
+                "1": {
+                  "name": "punctuation.definition.string.end.mng"
+                }
+              },
+              "contentName": "source.moonbit.expression.mng",
+              "patterns": [
+                {
+                  "include": "#moonbit-expression"
+                }
+              ]
+            },
+            {
+              "begin": "\\b(class)(=)([\"'])",
+              "beginCaptures": {
+                "1": {
+                  "name": "entity.other.attribute-name.class.mng"
+                },
+                "2": {
+                  "name": "punctuation.separator.key-value.mng"
+                },
+                "3": {
+                  "name": "punctuation.definition.string.begin.mng"
+                }
+              },
+              "end": "([\"'])",
+              "endCaptures": {
+                "1": {
+                  "name": "punctuation.definition.string.end.mng"
+                }
+              },
+              "contentName": "entity.other.class-name.mng"
+            },
+            {
+              "begin": "([A-Za-z][A-Za-z0-9-]*)(=)([\"'])",
+              "beginCaptures": {
+                "1": {
+                  "name": "entity.other.attribute-name.mng"
+                },
+                "2": {
+                  "name": "punctuation.separator.key-value.mng"
+                },
+                "3": {
+                  "name": "punctuation.definition.string.begin.mng"
+                }
+              },
+              "end": "([\"'])",
+              "endCaptures": {
+                "1": {
+                  "name": "punctuation.definition.string.end.mng"
+                }
+              },
+              "contentName": "string.quoted.mng"
+            },
+            {
+              "match": "\\b([A-Za-z][A-Za-z0-9-]*)\\b",
+              "name": "entity.other.attribute-name.mng"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "repository": {
+    "html-comment": {
+      "begin": "<!--",
+      "end": "-->",
+      "name": "comment.block.html.mng"
+    },
+    "interpolation": {
+      "begin": "\\{\\{",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.section.interpolation.begin.mng"
+        }
+      },
+      "end": "\\}\\}",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.interpolation.end.mng"
+        }
+      },
+      "contentName": "source.moonbit.expression.mng",
+      "patterns": [
+        {
+          "include": "#moonbit-expression"
+        }
+      ]
+    },
+    "style-rule": {
+      "patterns": [
+        {
+          "begin": "\\b([A-Za-z][A-Za-z0-9-]*)(\\s*)(:)",
+          "beginCaptures": {
+            "1": {
+              "name": "support.type.property-name.mng"
+            },
+            "3": {
+              "name": "punctuation.separator.key-value.mng"
+            }
+          },
+          "end": "(;|(?=\\}))",
+          "endCaptures": {
+            "1": {
+              "name": "punctuation.terminator.rule.mng"
+            }
+          },
+          "contentName": "meta.property-value.mng",
+          "patterns": [
+            {
+              "match": "var\\(\\s*--([A-Za-z0-9_-]+)\\s*\\)",
+              "captures": {
+                "1": {
+                  "name": "support.constant.token.mng"
+                }
+              },
+              "name": "variable.other.token.mng"
+            },
+            {
+              "match": "#[0-9a-fA-F]{3,8}\\b",
+              "name": "constant.other.color.rgb-value.mng"
+            },
+            {
+              "match": "\\b-?\\d+(\\.\\d+)?\\b",
+              "name": "constant.numeric.mng"
+            },
+            {
+              "match": "\\b(solid|dashed|dotted|visible|hidden|normal|no_wrap|thin|extra_light|light|medium|semi_bold|bold|extra_bold|black|start|center|end|left|right)\\b",
+              "name": "support.constant.mng"
+            }
+          ]
+        },
+        {
+          "match": "^\\s*\\.[A-Za-z_][A-Za-z0-9_-]*(:dark)?",
+          "name": "entity.name.type.class.mng"
+        },
+        {
+          "include": "#style-comment"
+        }
+      ]
+    },
+    "style-comment": {
+      "patterns": [
+        {
+          "begin": "/\\*",
+          "end": "\\*/",
+          "name": "comment.block.css.mng"
+        },
+        {
+          "match": "//.*$",
+          "name": "comment.line.double-slash.mng"
+        }
+      ]
+    },
+    "moonbit-expression": {
+      "patterns": [
+        {
+          "match": "//.*$",
+          "name": "comment.line.double-slash.moonbit.mng"
+        },
+        {
+          "begin": "/\\*",
+          "end": "\\*/",
+          "name": "comment.block.moonbit.mng"
+        },
+        {
+          "begin": "\"",
+          "end": "\"",
+          "name": "string.quoted.double.moonbit.mng",
+          "patterns": [
+            {
+              "match": "\\\\.",
+              "name": "constant.character.escape.moonbit.mng"
+            }
+          ]
+        },
+        {
+          "match": "'(?:\\\\.|[^'\\\\])'",
+          "name": "constant.character.moonbit.mng"
+        },
+        {
+          "match": "@[A-Za-z_][A-Za-z0-9_]*",
+          "name": "variable.other.package.moonbit.mng"
+        },
+        {
+          "match": "\\b(let|fn|mut|if|else|match|while|for|in|return|break|continue|true|false|pub|priv|struct|enum|type|guard|async|try|catch|raise|extern|const|self)\\b",
+          "name": "keyword.control.moonbit.mng"
+        },
+        {
+          "match": "\\b[A-Z][A-Za-z0-9_]*\\b",
+          "name": "entity.name.type.moonbit.mng"
+        },
+        {
+          "match": "\\b\\d+(\\.\\d+)?([eE][+-]?\\d+)?\\b",
+          "name": "constant.numeric.moonbit.mng"
+        },
+        {
+          "match": "\\b([A-Za-z_][A-Za-z0-9_]*)(?=\\s*\\()",
+          "name": "entity.name.function.moonbit.mng"
+        }
+      ]
+    }
+  }
+}

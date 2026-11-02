@@ -1,0 +1,67 @@
+{
+  "name": "mng-vscode",
+  "displayName": "MNG (native-gui template)",
+  "description": ".mng 模板语言：语法着色、snippets，语义（诊断/补全/hover/跳转）经 mng_cli lsp 提供",
+  "version": "0.1.0",
+  "publisher": "lb091188",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lb091188/moonbit-native-gui"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:mng",
+    "workspaceContains:**/*.mng"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "mng",
+        "aliases": [
+          "MNG",
+          "mng"
+        ],
+        "extensions": [
+          ".mng"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "mng",
+        "scopeName": "source.mng",
+        "path": "./syntaxes/mng.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "mng",
+        "path": "./snippets/mng.json"
+      }
+    ],
+    "configuration": {
+      "title": "MNG",
+      "properties": {
+        "mng.cliPath": {
+          "type": "string",
+          "default": "mng_cli",
+          "description": "mng_cli 可执行文件路径（moon install tools/native-gui-tools 后可留默认，走 PATH）"
+        },
+        "mng.enableLsp": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用语义能力（诊断/补全/hover/跳转）。关闭后只保留着色与 snippets"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "MNG 页骨架": {
+    "prefix": "mngpage",
+    "body": [
+      "<script setup lang=\"moonbit\">",
+      "let ${1:qty} : @base.Store[Int] = @base.Store::new(0)",
+      "</script>",
+      "",
+      "<template>",
+      "  <ui-col row_gap=\"8.0\">",
+      "    ${0}",
+      "  </ui-col>",
+      "</template>",
+      ""
+    ],
+    "description": "最小 .mng 页（script + 单根模板）"
+  },
+  "script setup 段": {
+    "prefix": "mngscript",
+    "body": [
+      "<script setup lang=\"moonbit\">",
+      "${0}",
+      "</script>"
+    ],
+    "description": "script setup 段"
+  },
+  "组件 props 头": {
+    "prefix": "mngprops",
+    "body": [
+      "fn ${1:card}(${2:title} : String, ${3:qty} : @base.Store[Int], ${4:on_reset} : () -> Unit, ${5:wide}? : Bool = false) -> @widget.Node"
+    ],
+    "description": "只有签名无函数体的一行 fn 头 = 本组件 props（必填走位置参、可选 name? : T = 默认值）"
+  },
+  "模板单根": {
+    "prefix": "mngtpl",
+    "body": [
+      "<template>",
+      "  <ui-col row_gap=\"8.0\">",
+      "    ${0}",
+      "  </ui-col>",
+      "</template>"
+    ],
+    "description": "template 段（单根）"
+  },
+  "插值": {
+    "prefix": "mnginterp",
+    "body": [
+      "{{ ${1:qty} }}"
+    ],
+    "description": "文本插值（表达式原样拼进生成码）"
+  },
+  "双向绑定": {
+    "prefix": "mngmodel",
+    "body": [
+      "<ui-${1:stepper} v-model=\"${2:qty}\" ${3:max}=\"${4:10}\" />"
+    ],
+    "description": "v-model 直传 Store"
+  },
+  "条件块": {
+    "prefix": "mngif",
+    "body": [
+      "<ui-text v-if=\"${1:cond}\" :text='${2:@shared.tx(\"开\")}' />",
+      "<ui-text v-else :text='${3:@shared.tx(\"关\")}' />"
+    ],
+    "description": "v-if / v-else 链"
+  },
+  "样式类": {
+    "prefix": "mngstyle",
+    "body": [
+      "<style>",
+      ".${1:card} {",
+      "  color: var(--${2:text_primary});",
+      "  padding: ${3:8};",
+      "}",
+      ".${1:card}:dark {",
+      "  color: var(--${2:text_primary});",
+      "}",
+      "</style>"
+    ],
+    "description": "<style> 类（摊平成 define_class，颜色走主题令牌）"
+  },
+  "组件调用": {
+    "prefix": "mngcomp",
+    "body": [
+      "<${1:card} ${2:title}=\"${3:标题}\" :${4:qty}=\"${5:qty}\" @${6:reset}=\"${7:on_reset}\" />"
+    ],
+    "description": "调用带参组件（同包零声明 / 跨包先 let 绑定）"
+  },
+  "跨包组件绑定": {
+    "prefix": "mngimport",
+    "body": [
+      "let ${1:card} = @${2:pages}.${3:card}"
+    ],
+    "description": "跨包组件：路径取自右值，参数顺序从源码签名自动解析"
+  }
+}
