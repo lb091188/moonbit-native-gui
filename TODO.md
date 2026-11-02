@@ -23,10 +23,6 @@
 - [ ] **生成物新鲜度 CI 校验**：生成物提交已定（开放问题 3 前半），CI 校验 `.gen.mbt` 与 `.mng` 的新鲜度未做——防手改生成码或忘重新生成
 - [ ] **开放问题三项（待讨论）**：app 注入（页面拿 App 上下文的通路）；布局属性样式化口径收紧（优先级规则落点与存量构造参数迁移）；IR/注册表 rev 握手协议细节（键集上报格式、rev 对不上时的降级口径）
 
-### 定案记录
-
-- [x] **拆包已回退**（2026-11-02 定案）：四模块曾按 [proposals/module-split.md](proposals/module-split.md) 完整落地并全绿，随即回退——不对外发行则单件检索面动机不成立；方案留档、四个落地提交在历史可复活。重启条件：决定对外发版单件
-
 ## 设计原则补齐（2026-11-02 拍板，落差清单见 [proposals/principles-gap.md](proposals/principles-gap.md)；按其 §五 优先级排序，做完一项删一项并同步路线图）
 
 - [ ] **1.1 平台原生句柄透出**：三平台桩各加 `wm_native_handle(slot) -> int64_t`（Windows 取槽表 hwnd / GTK 复用 `wm_surface_container` 取法、口径在契约注释钉死 / mac 取桩内 NSWindow*，无窗口后端回 0），MoonBit 侧 `Window::native_handle() -> Int64`，文档标注「裸句柄、平台语义、仅逃生用，跨平台代码不得依赖」；白盒测试覆盖
