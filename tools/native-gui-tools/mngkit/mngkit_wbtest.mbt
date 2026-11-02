@@ -1140,3 +1140,22 @@ test "样式章：CSS 子集——只认规范属性名与值形态" {
   assert_true(contains_sub(ok("flex: 1;"), "flex=1.0"))
   assert_true(bad("flex: 1px;", "无单位数"))
 }
+
+///|
+test "sig_params：参数表带默认值与参数级文档" {
+  let sig = [
+    "pub fn f(",
+    "  a : Int,",
+    "  /// 占位文字，未输入时显示。",
+    "  b? : String = \"\",",
+    ") -> Int {",
+  ].join("\n")
+  let ps = sig_params(sig)
+  assert_eq(ps.length(), 2)
+  assert_eq(ps[0].0, "a")
+  assert_eq(ps[0].4, "")
+  assert_eq(ps[1].0, "b")
+  assert_eq(ps[1].2, true)
+  assert_eq(ps[1].3, "\"\"")
+  assert_eq(ps[1].4, "占位文字，未输入时显示。")
+}

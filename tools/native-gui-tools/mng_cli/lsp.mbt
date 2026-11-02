@@ -795,12 +795,9 @@ fn lsp_attr_completion(uri : String, text : String, tag : String) -> String {
   }
   let (_, ps) = comp_sig(sigs_for(uri), text, tag)
   if ps.length() > 0 {
-    for (n, ty, opt) in ps {
+    for (n, ty, opt, d, _doc) in ps {
       if n != "children" && n != "child" {
-        push(
-          n,
-          completion_item_detail(n, 5, n + (if opt { "?" } else { "" }) + " : " + ty),
-        )
+        push(n, completion_item_detail(n, 5, param_shape(n, ty, opt, d)))
       }
     }
   } else {
@@ -932,13 +929,9 @@ fn lsp_hover(uri : String, text : String, line : Int, ch : Int) -> String {
 
 ///|
 /// 组件标签 → (签名原文, 参数表)：内置走 `@ui.<名>`，自定义走 let 绑定 / 同包裸名。
-fn comp_sig(
-  sigs : @mngkit.Sigs,
-  text : String,
-  tag : String,
-) -> (String, Array[(String, String, Bool)]) {
+fn comp_path(text : String, tag : String) -> String {
   let snake_name = snake_cli(tag)
-  let path = match @mngkit.builtin_path(tag) {
+  match @mngkit.builtin_path(tag) {
     Some(p) => p
     None =>
       match let_path_in(text, snake_name) {
@@ -946,18 +939,107 @@ fn comp_sig(
         None => snake_name
       }
   }
-  match sigs.resolve(path) {
+}
+
+fn comp_sig(
+  sigs : @mngkit.Sigs,
+  text : String,
+  tag : String,
+) -> (String, Array[(String, String, Bool, String, String)]) {
+  match sigs.resolve(comp_path(text, tag)) {
     Some(sig) => (sig, @mngkit.sig_params(sig))
     None => ("", [])
   }
 }
 
 ///|
-/// 参数表 → markdown 代码块（`名? : 类型` 逐行）。
-fn params_block(ps : Array[(String, String, Bool)]) -> String {
+/// 组件声明上方的文档注释（没有给空串）。
+fn comp_doc(sigs : @mngkit.Sigs, text : String, tag : String) -> String {
+  match sigs.doc_of(comp_path(text, tag)) {
+    Some(d) => d
+    None => ""
+  }
+}
+
+///|
+/// 反引号片段是否以该参数名开头（`variant = solid / soft`、`icon_size` 不误判）。
+fn span_names(span : String, name : String) -> Bool {
+  if !span.has_prefix(name) {
+    return false
+  }
+  if span.length() == name.length() {
+    return true
+  }
+  let c = chars_of_cli(span)[name.length()]
+  c == ' ' || c == '\t' || c == '=' || c == ':' || c == '/' || c == '(' ||
+  c == '?' ||
+  c == '：' ||
+  c == '、' ||
+  c == '，'
+}
+
+///|
+/// 一句里是否用反引号提到了该参数。
+fn mentions_param(sent : String, name : String) -> Bool {
+  let a = chars_of_cli(sent)
+  let n = a.length()
+  let mut i = 0
+  while i < n {
+    if a[i] == '`' {
+      let mut j = i + 1
+      while j < n && a[j] != '`' {
+        j += 1
+      }
+      if j > i + 1 && span_names(slice_cli(a, i + 1, j), name) {
+        return true
+      }
+      i = j
+    }
+    i += 1
+  }
+  false
+}
+
+///|
+/// 文档注释里提到该参数的句子（按反引号标记取句）。
+fn doc_for_param(doc : String, name : String) -> String {
+  if doc.length() == 0 {
+    return ""
+  }
+  let flat = doc.replace(old="\n", new=" ").trim().to_owned()
+  let out : Array[String] = []
+  for piece in flat.split("。") {
+    let sent = piece.trim().to_owned()
+    if sent.length() > 0 && mentions_param(sent, name) {
+      out.push(sent + "。")
+    }
+  }
+  out.join("\n\n")
+}
+
+///|
+/// 原文压成一行（默认值里常带换行）。
+fn one_line(v : String) -> String {
+  v.replace(old="\n", new=" ").split("  ").filter(fn(x) { x.trim().length() > 0 }).map(fn(x) { x.trim().to_owned() }).join(" ")
+}
+
+///|
+/// 参数声明原文：`名? : 类型 = 默认值`。
+fn param_shape(n : String, ty : String, opt : Bool, d : String) -> String {
+  let head = n + (if opt { "?" } else { "" }) + " : " + ty
+  if d.length() > 0 {
+    head + " = " + one_line(d)
+  } else {
+    head
+  }
+}
+
+///|
+/// 参数表 → markdown 代码块（逐行 `名? : 类型 = 默认值`）。
+fn params_block(ps : Array[(String, String, Bool, String, String)]) -> String {
   let lines : Array[String] = []
-  for (n, ty, opt) in ps {
-    lines.push("  " + n + (if opt { "?" } else { "" }) + " : " + ty)
+  for (n, ty, opt, d, _doc) in ps {
+    lines.push("  " + param_shape(n, ty, opt, d))
   }
   "```moonbit\n" + lines.join("\n") + "\n```"
 }
@@ -970,10 +1052,17 @@ fn component_hover(sigs : @mngkit.Sigs, text : String, tag : String) -> String {
   }
   let (_, ps) = comp_sig(sigs, text, tag)
   if ps.length() > 0 {
-    return lmsg(
+    let doc = comp_doc(sigs, text, tag)
+    let head = if doc.length() > 0 {
+      doc + "\n\n"
+    } else {
+      ""
+    }
+    let body = lmsg(
       "`<" + tag + ">` 参数：\n" + params_block(ps),
       "`<" + tag + ">` params:\n" + params_block(ps),
     )
+    return head + body
   }
   match @mngkit.builtin_params(tag) {
     Some(list) =>
@@ -1037,18 +1126,26 @@ fn attr_hover(uri : String, text : String, off : Int, partial : String, tag : St
   } else if tag.length() > 0 {
     let key = snake_cli(tok)
     let (_, ps) = comp_sig(sigs_for(uri), text, tag)
-    let mut hit : (String, String, Bool)? = None
+    let mut hit : (String, String, Bool, String, String)? = None
     for p in ps {
       if p.0 == key {
         hit = Some(p)
       }
     }
     match hit {
-      Some((n, ty, opt)) =>
-        lmsg(
-          "`" + n + (if opt { "?" } else { "" }) + " : " + ty + "` 是 `<" + tag + ">` 的参数",
-          "`" + n + (if opt { "?" } else { "" }) + " : " + ty + "` is a param of `<" + tag + ">",
+      Some((n, ty, opt, d, pdoc)) => {
+        let shape = param_shape(n, ty, opt, d)
+        let doc = if pdoc.length() > 0 {
+          pdoc
+        } else {
+          doc_for_param(comp_doc(sigs_for(uri), text, tag), n)
+        }
+        let head = lmsg(
+          "`" + shape + "` 是 `<" + tag + ">` 的参数",
+          "`" + shape + "` is a param of `<" + tag + ">",
         )
+        if doc.length() > 0 { head + "\n\n" + doc } else { head }
+      }
       None => component_hover(sigs_for(uri), text, tag)
     }
   } else {

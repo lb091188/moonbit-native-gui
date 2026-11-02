@@ -189,11 +189,20 @@ fn nav_fixture() -> String {
   write_file_p(
     root + "/lib/ui/ui.mbt",
     [
+      "///|",
+      "/// 列容器：`children` 逐项排进去。",
       "pub fn col(children : Array[Int]) -> Int {",
       "  0",
       "}",
       "",
-      "pub fn text(value : String, max? : Int = 0) -> Int {",
+      "///|",
+      "/// 文本：`value` 是要显示的字，`max` 是最长字符数（超出截断）。",
+      "pub fn text(",
+      "  value : String,",
+      "  /// 占位文字，未输入时显示。",
+      "  placeholder? : String = \"\",",
+      "  max? : Int = 0",
+      ") -> Int {",
       "  0",
       "}",
     ].join("\n"),
@@ -213,7 +222,7 @@ test "LSP：外部包跳转（@包.成员 / 包入口 / 内置标签）与成员
     "</script>",
     "<template>",
     "  <ui-col>",
-    "    <ui-text value=\"x\" max=\"2\" />",
+    "    <ui-text value=\"x\" max=\"2\" placeholder=\"a\" />",
     "    <ui-stepper v-model=\"qty\" max=\"10\" />",
     "  </ui-col>",
     "</template>",
@@ -247,8 +256,22 @@ test "LSP：外部包跳转（@包.成员 / 包入口 / 内置标签）与成员
   match lsp_handle(docs, req(13, "textDocument/definition", pos_params(uri, 6, 6))).reply {
     Some(r) =>
       assert_true(
-        contains_sub_l(r, "/lib/ui/ui.mbt") && contains_sub_l(r, "\"line\":4"),
+        contains_sub_l(r, "/lib/ui/ui.mbt") && contains_sub_l(r, "\"line\":8"),
       )
+    None => assert_true(false)
+  }
+  // hover 标签带声明文档；hover 属性带该参数的说明句
+  match lsp_handle(docs, req(18, "textDocument/hover", pos_params(uri, 6, 6))).reply {
+    Some(r) => assert_true(contains_sub_l(r, "文本："))
+    None => assert_true(false)
+  }
+  match lsp_handle(docs, req(19, "textDocument/hover", pos_params(uri, 6, 24))).reply {
+    Some(r) => assert_true(contains_sub_l(r, "最长字符数"))
+    None => assert_true(false)
+  }
+  // 参数自带的 /// 文档优先于函数级文档
+  match lsp_handle(docs, req(23, "textDocument/hover", pos_params(uri, 6, 32))).reply {
+    Some(r) => assert_true(contains_sub_l(r, "占位文字"))
     None => assert_true(false)
   }
   // `@base.` → 包内公开成员（含 `::` 方法）
@@ -276,7 +299,8 @@ test "LSP：外部包跳转（@包.成员 / 包入口 / 内置标签）与成员
   match lsp_handle(docs, req(17, "textDocument/completion", pos_params(uri, 6, 23))).reply {
     Some(r) =>
       assert_true(
-        contains_sub_l(r, "\"label\":\"max\"") && contains_sub_l(r, "\"detail\":\"max? : Int\""),
+        contains_sub_l(r, "\"label\":\"max\"") &&
+        contains_sub_l(r, "\"detail\":\"max? : Int = 0\""),
       )
     None => assert_true(false)
   }

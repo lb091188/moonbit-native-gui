@@ -60,6 +60,10 @@ priv struct Param {
   name : String
   labelled : Bool
   ty : String
+  // `= 默认值` 原文（无默认给空串）
+  default : String
+  // 参数上方紧贴的 `///` 文档行（没有给空串）
+  doc : String
 }
 
 ///|
@@ -91,8 +95,31 @@ fn slice_str(a : Array[Char], lo : Int, hi : Int) -> String {
 ///|
 /// 一个参数段 → Param：`名` / `名?` + `: 类型`（默认值原文丢弃，已由函数体承接）。
 /// 注释行、`self`、无名段返回 None（调用方跳过）。
+///|
+/// 参数段拆出上方紧贴的 `///` 文档行与参数本体。
+fn split_param_doc(seg : String) -> (String, String) {
+  let doc : Array[String] = []
+  let body : Array[String] = []
+  let mut seen_body = false
+  for l in split_arr(seg, "\n") {
+    let t = l.trim().to_owned()
+    if !seen_body && t.length() == 0 {
+      continue
+    }
+    if !seen_body && t.has_prefix("///") {
+      let cs = chars_of(t)
+      doc.push(slice_str(cs, 3, cs.length()).trim().to_owned())
+    } else {
+      seen_body = true
+      body.push(l)
+    }
+  }
+  (doc.join("\n"), body.join("\n").trim().to_owned())
+}
+
 fn parse_param(seg : String) -> Param? {
-  let s = seg.trim().to_owned()
+  let (pdoc, pbody) = split_param_doc(seg)
+  let s = pbody.trim().to_owned()
   if s.length() == 0 || s.has_prefix("//") {
     return None
   }
@@ -118,7 +145,7 @@ fn parse_param(seg : String) -> Param? {
     return None
   }
   j = skip_ws_at(a, j + 1)
-  // 类型：到深度 0 的 `=` 为止（`= 默认值` 不进签名表）
+  // 类型：到深度 0 的 `=` 为止（`=` 之后是默认值）
   let mut depth = 0
   let mut k = j
   let mut eq = n
@@ -138,7 +165,12 @@ fn parse_param(seg : String) -> Param? {
   if ty.length() == 0 {
     return None
   }
-  Some({ name, labelled, ty })
+  let default = if eq < n {
+    slice_str(a, eq + 1, n).trim().to_owned()
+  } else {
+    ""
+  }
+  Some({ name, labelled, ty, default, doc: pdoc })
 }
 
 ///|
@@ -248,13 +280,13 @@ fn parse_fn_sig(text : String) -> FnSig? {
 }
 
 ///|
-/// 签名原文 → 参数表（名, 类型, 是否可省）：编辑器 hover / 补全用。
-pub fn sig_params(text : String) -> Array[(String, String, Bool)] {
-  let out : Array[(String, String, Bool)] = []
+/// 签名原文 → 参数表（名, 类型, 是否可省, 默认值, 参数文档）：编辑器 hover / 补全用。
+pub fn sig_params(text : String) -> Array[(String, String, Bool, String, String)] {
+  let out : Array[(String, String, Bool, String, String)] = []
   match parse_fn_sig(text) {
     Some(sig) =>
       for p in sig.params {
-        out.push((p.name, p.ty, p.labelled))
+        out.push((p.name, p.ty, p.labelled, p.default, p.doc))
       }
     None => ()
   }
