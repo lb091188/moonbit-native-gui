@@ -28,7 +28,6 @@
 - [ ] **1.4 `@ui` 公共面收窄**：`button_skin` / `button_skin_token` / `paint_subset` / `fold_color` / `mask_of` 逐个判断去向——纯实现细节去 pub（0.x 破坏记提交信息），确有外部价值的（如 `fold_style`）保留并写文档；同批核对 examples 与测试文档无引用
 - [ ] **2.3 `dark:`/`light:` 变体接入组件消费**：从 `gui/style/tokens.mbt` 挑 2–3 个确需深浅分档的内置样式（阴影深浅 / 边框强度 / 代码视图底色）改变体前缀写法；补「切深浅后变体生效 + 重绘」回归测试
 - [ ] **2.4 code_view 主题化**：One Dark 硬编码色板（gui/ui/codeview.mbt）抽成按 `Theme` 派生的代码配色（深浅基底各一套：背景/前景/关键字/字符串/注释映射 theme token 或派生），默认跟 `theme_current()`；保留显式 `code_theme` 参数给刻意场景
-- [ ] **1.2 原生子件登记流程成文**：gui/win/surface.mbt 头注写死登记清单——①三平台桩各实现挂载/移除/矩形同步 ②能力缺失平台的兜底行为（`None`）③探针 + 真机用例；第一个按流程演练的候选是 gui-media 视频直出（另批）
 - [ ] **2.5 主题定制示例恢复**：按落位判据建 `examples/theme-playground/` 独立模块注册 moon.work，四个最小页——`theme_from_accent` 换主色 / `theme_apply` 全量覆盖 / `follow_system_theme` 接线 / `class` 单组件覆盖；同批补 `测试文档/测试用例.md` 对应用例
 
 
