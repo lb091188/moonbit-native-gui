@@ -347,6 +347,30 @@ pub fn fold_style(
 }
 
 ///|
+/// 变体默认层收口：同 `fold_style`，默认层改为按**当前深浅档**解析内置变体类
+/// （`dark:`/`light:` 前缀选枚，类名见 `@style.install_builtin_classes`），并订阅
+/// 主题变更重折——切深浅后变体重选生效、既有重绘通路刷新；用户 `class` 仍压在
+/// 默认层之上（数组尾赢规则不变）。
+pub fn fold_style_variant(
+  w : @widget.Widget,
+  names : Array[String],
+  anon : @style.Style,
+  class : Array[@style.Style],
+) -> Unit {
+  @style.install_builtin_classes()
+  let reapply = fn() -> Unit {
+    fold_style(
+      w,
+      @style.resolve_with_variant(names, @theme.theme_is_dark()),
+      anon,
+      class,
+    )
+  }
+  reapply()
+  let _ = @theme.on_theme_change(reapply)
+}
+
+///|
 /// 标记控件的取色口径（§1.5「只有读 resolved Style 一条路径」的收尾）：勾选点、
 /// 单选环、开关滑珠、滑块拇指这类标记画在**子控件**上，而 `class` 落在外层宿主；
 /// 子控件的 `on_draw` 只读自己的样式槽，所以建树时从 `class` 里**只摘绘制期属性**

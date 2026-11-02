@@ -395,10 +395,16 @@ fn tooltip_pane(
     watch_theme()
     pane_w.node.set_height(@yoga.fixed(24.0))
     pane_w.node.set_width(@yoga.fixed(text_w + 16.0))
+    // 内置变体类：深底气泡字色取 bg_page（深浅两档自动反转，深档不再白字隐形），
+    // 深色档另加描边；瞬态浮层构造期解析一次即可，skin 仍压在其上
+    @style.install_builtin_classes()
     @style.apply(
       pane_w,
       @style.merge_all([
-        @style.style(background_color="text_primary", color="#ffffff", border_radius=@theme.radius_ctrl()),
+        @style.resolve_with_variant(
+          ["tooltip", "tooltip-dark:dark"],
+          @theme.theme_is_dark(),
+        ),
         skin,
       ]),
     )

@@ -195,12 +195,13 @@ fn separator_impl(
       w.node.set_height(@yoga.fixed(1.0))
       w.node.set_width(@yoga.percent(100.0))
     }
-    // 散参数折进样式槽（token 名因此在绘制期现取当前主题）
+    // 散参数折进样式槽（token 名因此在绘制期现取当前主题）；默认层走内置
+    // 变体类（深色档分隔线提亮，切深浅重折生效）
     let anon = match bg_block(color) {
       Some(b) => b
       None => @style.empty_style()
     }
-    fold_style(w, @style.empty_style(), anon, class)
+    fold_style_variant(w, ["divider-line", "divider-line-dark:dark"], anon, class)
     w.on_draw = Some(fn(
       self : @widget.Widget,
       p : @render.Painter,

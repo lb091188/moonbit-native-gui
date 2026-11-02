@@ -140,6 +140,8 @@ pub fn scroll_bar_hover(viewport : @widget.Widget, state : ScrollState) -> Unit 
 /// `scroll_view` 与 `virt_list` 共用。
 fn scroll_bar(state : ScrollState) -> @widget.Widget {
   let bar = @widget.Widget::new()
+  // 拇指色走内置变体类（深色档提亮为 text_secondary，切深浅重挂生效）
+  @style.apply_variant_named(bar, ["scroll-thumb", "scroll-thumb-dark:dark"])
   bar.node.set_position(@yoga.Absolute)
   bar.node.set_top(@yoga.fixed(0.0))
   bar.node.set_bottom(@yoga.fixed(0.0))
@@ -162,7 +164,8 @@ fn scroll_bar(state : ScrollState) -> @widget.Widget {
       let thumb = (r.h * vh / ch).max(16.0)
       let travel = (r.h - thumb).max(0.0)
       let ratio = state.offset / (ch - vh)
-      p.set_fill_color(@theme.theme_border())
+      let st = @style.style_for(_self)
+      p.set_fill_color(@style.color_of(st.background_color, @theme.theme_border()))
       // 拇指胶囊形（几何取圆，不随圆角开关变方）
       p.fill_round_rect(1.0, ratio * travel, r.w - 2.0, thumb, (r.w - 2.0) / 2.0)
       p.set_global_alpha(1.0)
@@ -212,6 +215,8 @@ fn scroll_bar(state : ScrollState) -> @widget.Widget {
 /// 全部按纵向条的横轴镜像。
 fn scroll_bar_h(state : ScrollState) -> @widget.Widget {
   let bar = @widget.Widget::new()
+  // 拇指色走内置变体类（深色档提亮为 text_secondary，切深浅重挂生效）
+  @style.apply_variant_named(bar, ["scroll-thumb", "scroll-thumb-dark:dark"])
   bar.node.set_position(@yoga.Absolute)
   bar.node.set_left(@yoga.fixed(0.0))
   bar.node.set_right(@yoga.fixed(0.0))
@@ -231,7 +236,8 @@ fn scroll_bar_h(state : ScrollState) -> @widget.Widget {
       let thumb = (r.w * vw / cw).max(16.0)
       let travel = (r.w - thumb).max(0.0)
       let ratio = state.offset_x / (cw - vw)
-      p.set_fill_color(@theme.theme_border())
+      let st = @style.style_for(_self)
+      p.set_fill_color(@style.color_of(st.background_color, @theme.theme_border()))
       p.fill_round_rect(ratio * travel, 1.0, thumb, r.h - 2.0, (r.h - 2.0) / 2.0)
       p.set_global_alpha(1.0)
     }

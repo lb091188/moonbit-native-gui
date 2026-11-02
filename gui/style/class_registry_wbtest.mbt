@@ -61,3 +61,38 @@ test "resolve_with_variant：按深浅色选枚" {
   assert_true(dark.cursor == Some(@widget.CURSOR_HAND))
   reset_class_registry()
 }
+
+///|
+/// 读控件背景色的槽值（token 名/hex/命名色归一成字符串，测试断言用）。
+fn bg_slot_of(w : @widget.Widget) -> String {
+  match style_for(w).background_color {
+    Some(Var(name)) => name
+    Some(Hex(s)) => "#" + s
+    Some(Named(s)) => s
+    None => ""
+  }
+}
+
+///|
+test "apply_variant_named：切深浅后变体生效（内置 scroll-thumb 档重挂）" {
+  @theme.theme_apply(@theme.default_theme())
+  let w = @widget.Widget::new()
+  apply_variant_named(w, ["scroll-thumb", "scroll-thumb-dark:dark"])
+  assert_eq(bg_slot_of(w), "border")
+  // 切深色：订阅重挂，变体档生效
+  @theme.theme_apply(@theme.dark_theme())
+  assert_eq(bg_slot_of(w), "text_secondary")
+  // 复原浅色基准，免得影响同进程其他用例
+  @theme.theme_apply(@theme.default_theme())
+  assert_eq(bg_slot_of(w), "border")
+}
+
+///|
+test "install_builtin_classes：幂等注册，变体基名可查" {
+  install_builtin_classes()
+  install_builtin_classes()
+  assert_true(lookup_class("tooltip") is Some(_))
+  assert_true(lookup_class("tooltip-dark") is Some(_))
+  assert_true(lookup_class("scroll-thumb") is Some(_))
+  assert_true(lookup_class("divider-line-dark") is Some(_))
+}

@@ -475,6 +475,18 @@ pub fn theme_fingerprint_of(t : Theme) -> String {
 }
 
 ///|
+/// 当前主题是否深色档：按页面底亮度判（与代码配色的深浅判定同口径）。
+/// `dark:`/`light:` 类变体（`@style.resolve_with_variant`）的运行时判据。
+pub fn theme_is_dark() -> Bool {
+  match parse_hex(theme_box.t.bg_page) {
+    Some((r, g, b)) =>
+      (0.299 * r.to_double() + 0.587 * g.to_double() + 0.114 * b.to_double()) /
+      255.0 < 0.5
+    None => false
+  }
+}
+
+///|
 /// 跟随系统的整套主题：深浅取 `sys_color_scheme`（"dark" 才算暗色，
 /// "light"/读不出都按亮色），主色取 `sys_accent`（系统没有主色概念时给空串，
 /// 回落预设的 primary）。

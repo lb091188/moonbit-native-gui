@@ -93,6 +93,8 @@
 
 ### 2.3 `dark:` / `light:` 类变体接入组件消费
 
+> ✅ 已落地（2026-11-02）：`@theme.theme_is_dark()`（页面底亮度判档）+ 内置变体类注册表（tooltip 深浅反转与深档描边 / scroll-thumb 与 divider-line 深档提亮）+ 两个消费口（`@style.apply_variant_named` 整槽拥有者、`@ui.fold_style_variant` 默认层重折）；回归钉「切深浅后变体生效 + class 仍压上」。候选取舍：阴影 Style 无此属性（Tier C）、代码视图底色已随 2.4 走 CodeTheme。
+
 **现状**：`resolve_with_variant`（`gui/style/class_registry.mbt`）已实现 `dark:`/`light:` 前缀解析，但组件内部零消费，仅测试引用。
 
 **为什么要加**：机制实现了没人用，就会成为第二个 `letter_spacing`（死字段，见 style-css-expansion.md 〇.3）。深浅切换时确有个别样式需要分档（阴影深浅、边框强度、代码视图底色），现在只能运行时 if。

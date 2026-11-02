@@ -304,3 +304,12 @@ test "from_json：顶层非对象与坏 JSON 报错、显式空色板合法" {
 fn contains_str_m(haystack : String, needle : String) -> Bool {
   haystack.contains(needle)
 }
+
+///|
+test "theme_is_dark：按页面底亮度分档" {
+  theme_apply(default_theme())
+  assert_false(theme_is_dark())
+  theme_apply(dark_theme())
+  assert_true(theme_is_dark())
+  theme_apply(default_theme())
+}
