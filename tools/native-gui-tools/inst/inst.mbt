@@ -20,6 +20,17 @@ const SLUG_KEEP : Int = 40
 extern "c" fn inst_wake_raw(path : Bytes, data : Bytes, len : Int) -> Int = "mnginst_wake"
 
 ///|
+#borrow(slug, data)
+extern "c" fn inst_wake_win_raw(
+  slug : Bytes,
+  data : Bytes,
+  len : Int,
+) -> Int = "mnginst_wake_win"
+
+///|
+extern "c" fn inst_is_windows() -> Int = "mnginst_is_windows"
+
+///|
 extern "c" fn inst_getuid() -> Int = "mnginst_getuid"
 
 ///|
@@ -126,16 +137,26 @@ pub fn encode_args(args : Array[String]) -> Bytes {
 }
 
 ///|
-/// 唤起已有实例并带上命令行参数；没有实例在听时返回 Err（带套接字路径）。
+/// 唤起已有实例并带上命令行参数；没有实例在听时返回 Err。
+/// Windows 走 WM_COPYDATA 直发首实例的隐藏消息窗口（与 GUI 第二实例同一条
+/// 通路，服务端零改动）；POSIX 走 AF_UNIX 套接字。
 pub fn wake(app_id : String, args : Array[String]) -> Result[Unit, String] {
   let frame = encode_args(args)
   if frame.length() > PAYLOAD_CAP {
     return Err("命令行帧超出 \{PAYLOAD_CAP} 字节上限")
   }
-  let sock = socket_path(app_id)
-  match inst_wake_raw(@utf8.encode(sock), frame, frame.length()) {
-    r if r > 0 => Ok(())
-    -1 => Err("连不上套接字 " + sock + "（应用未运行？）")
-    _ => Err("socket errno=\{inst_last_errno()}")
+  if inst_is_windows() == 1 {
+    match inst_wake_win_raw(@utf8.encode(instance_slug(app_id)), frame, frame.length()) {
+      r if r > 0 => Ok(())
+      -1 => Err("找不到首实例窗口（应用未运行？）")
+      _ => Err("win32 errno=\{inst_last_errno()}")
+    }
+  } else {
+    let sock = socket_path(app_id)
+    match inst_wake_raw(@utf8.encode(sock), frame, frame.length()) {
+      r if r > 0 => Ok(())
+      -1 => Err("连不上套接字 " + sock + "（应用未运行？）")
+      _ => Err("socket errno=\{inst_last_errno()}")
+    }
   }
 }
