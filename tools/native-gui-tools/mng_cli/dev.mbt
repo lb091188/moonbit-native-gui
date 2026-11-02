@@ -185,14 +185,14 @@ fn cmd_dev(args : Array[String]) -> Int {
     return 1
   }
   // build + 起应用
-  match @sysx.pr_run(bfile, bargs, timeout_ms=600000) {
+  match @proc.run_wait(bfile, bargs, 600000) {
     Err(e) => {
       eprintln("build 失败：" + e.to_string())
       return 1
     }
     Ok(_) => ()
   }
-  let mut app_pid = match @sysx.pr_spawn(rfile, rargs, out_path=app_log, err_path=app_log) {
+  let mut app_pid = match @proc.spawn(rfile, rargs, app_log) {
     Ok(pid) => pid
     Err(e) => {
       eprintln("应用起不来：" + e.to_string())
@@ -204,7 +204,7 @@ fn cmd_dev(args : Array[String]) -> Int {
   )
   // watch 循环
   while true {
-    @sysx.pr_sleep_ms(poll_ms)
+    @proc.sleep_ms(poll_ms)
     for f in files {
       let src = match slurp(f) {
         Some(s) => s
@@ -244,7 +244,7 @@ fn cmd_dev(args : Array[String]) -> Int {
                 if !spit(irpath, irjson) {
                   eprintln("[HOT] \{name}：写不出 " + irpath)
                 } else {
-                  match @shell.instance_wake(app_id, ["--mng-hot", irpath]) {
+                  match @inst.wake(app_id, ["--mng-hot", irpath]) {
                     Ok(_) => eprintln("[HOT] \{name}：补丁已推送（\{irpath}）")
                     Err(e) =>
                       eprintln("[HOT] \{name}：补丁已备 \{irpath}，但唤起失败（\{e.to_string()}）——应用未运行？")
@@ -254,18 +254,18 @@ fn cmd_dev(args : Array[String]) -> Int {
             }
           } else {
             eprintln("[COLD] \{name}：行为/表达式变更，重启编排…")
-            match @sysx.pr_run(bfile, bargs, timeout_ms=600000) {
+            match @proc.run_wait(bfile, bargs, 600000) {
               Err(e) => eprintln("[COLD] build 失败，应用不动：" + e.to_string())
               Ok(_) => {
-                if @sysx.pr_alive(app_pid) {
-                  let _ = @sysx.pr_kill(app_pid)
+                if @proc.alive(app_pid) {
+                  let _ = @proc.kill(app_pid)
                   let mut waited = 0
-                  while @sysx.pr_alive(app_pid) && waited < 3000 {
-                    @sysx.pr_sleep_ms(50)
+                  while @proc.alive(app_pid) && waited < 3000 {
+                    @proc.sleep_ms(50)
                     waited += 50
                   }
                 }
-                match @sysx.pr_spawn(rfile, rargs, out_path=app_log, err_path=app_log) {
+                match @proc.spawn(rfile, rargs, app_log) {
                   Ok(pid) => {
                     app_pid = pid
                     eprintln("[COLD] 应用已重启 pid=\{pid}")

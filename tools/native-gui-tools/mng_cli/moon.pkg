@@ -1,11 +1,12 @@
-// .mng.html 编译 CLI（终端形态）：build / map-errors。I/O 走 moonbitlang/x。
+// .mng 编译 CLI（终端形态）：build / map-errors / ir / new / dev。I/O 走 moonbitlang/x；
+// 进程与单实例客户端在 tools 内自给（proc / inst），不依赖 GUI 库。
 import {
   "moonbitlang/core/env" @env,
   "moonbitlang/x/fs" @fs,
   "moonbitlang/x/sys" @sys,
-  "NoahLiu/native-gui/shell" @shell,
-  "NoahLiu/native-gui/sys" @sysx,
   "NoahLiu/native-gui-tools/mngkit" @mngkit,
+  "NoahLiu/native-gui-tools/proc" @proc,
+  "NoahLiu/native-gui-tools/inst" @inst,
 }
 
 pkgtype(kind: "executable")

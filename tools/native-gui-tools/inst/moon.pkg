@@ -1,0 +1,12 @@
+// 单实例客户端（套接字臂，无 GUI 依赖）：把命令行帧送到已运行的应用。
+// 帧格式与 gui/shell 的单实例通道一致；应用侧在 D-Bus 档也会同时开套接字监听。
+import {
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/env" @env,
+}
+
+supported_targets = "native"
+
+options(
+  "native-stub": [ "inst_stub.c" ],
+)

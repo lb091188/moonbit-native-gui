@@ -1,0 +1,12 @@
+// 工具侧进程原语（无 GUI 依赖；dev 循环要的子集）。
+// 应用侧的完整版在 gui/sys（pr_run/pr_spawn…），那套会链 GTK 剪贴板符号，
+// 命令行工具不能依赖它。
+import {
+  "moonbitlang/core/encoding/utf8",
+}
+
+supported_targets = "native"
+
+options(
+  "native-stub": [ "proc_stub.c" ],
+)
