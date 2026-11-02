@@ -311,6 +311,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - 🚧 **模板样式章**：`<style>` 段编译期摊平进命名类注册表（类选择器、`var(--令牌)`、`#rrggbb`、枚举关键字、`flex` 简写、`width`/`height` 的 `%`、`.名:dark` 深浅两档、`:hover/:active/:focus` 交互态、文字属性向下继承；运行时级联 / 元素与后代选择器不做（布局枚举经 `@yoga` 支持））；元素 `class="a b"` → `class_of`；布局属性样式化口径——构造参数为默认值、类槽为覆盖，children / 事件 / 键 / 行列选型留结构侧（Linux 真机待验）
 - 🚧 **dev 工具二进制**：本路线的 Vite 位次，`moon install` 分发；子命令 `dev`（watch + 改动分类 + IR 通道推送 + 回退编排）/ `build`（纯生产产物零 dev 痕迹）/ `new`（新 `.mng` 页样板脚手架）/ `lsp`（stdio JSON-RPC：诊断、补全、hover、跳转）/ `--version`（插件握手）就位，`preview` 未做；工具不依赖 GUI 库（只链 libc/libgcc）；Windows 侧 dev 唤醒尚缺 Win32 客户端（HOT 推送未验）
 - 🚧 **编辑器支持**：语义进工具 `lsp` 子命令（stdio JSON-RPC：诊断、补全、hover、跳转；补全目录取 script 段槽名与 props、源码签名解析的组件参数、样式章的类与令牌、`moon.pkg` 别名与包内 `.mbti` 成员；hover 按令牌类型分档并随编辑器语言中英切换；跳转覆盖页内声明、组件源码、`@别名.成员` 与包入口），VSIX（`tools/vscode-mng/`，零依赖 JS）只做语言注册 + TextMate 着色（属性值与脚本段共用表达式文法，类型/变量/函数/常量分色）+ 语义着色（LSP `semanticTokens/full`：类型/变量/参数/函数/方法/命名空间按符号表分档，任何开语义高亮的主题都区分；LSP 降级退回纯 TextMate）+ snippets + LSP 客户端与工具定位引导；不引入原生 HTML/CSS 语义（Linux 待真机装 VSIX 验）
+- ⏳ **模板工具后续批次**（2026-11-02 拆分入待办，进度见 TODO「模板预编译·工具后续批次」）：dev 临时产物目录 `.mng/`（app 日志 / source map / IR 补丁迁出源码目录，文件浏览器不再裸露）、`preview` 子命令（独立预览窗 + mock 状态）、命令改名 `mng`、Windows dev 唤醒（Win32 单实例客户端，现 HOT 推送未验）、VS Code「MNG: dev」入口、`reload-theme` 通道（主题 token 定义热更）、真实类型 hover（桥 `moon ide` + source map 正向索引）、v2 热更（子树对账状态保活、列表行模板热编辑）、生成物新鲜度 CI 校验、开放问题三项（app 注入 / 布局属性样式化口径收紧 / IR rev 握手协议）
 - ⏳ **上游诉求**：moonbitlang native 目标 hot reload / 运行时多模块 + native 增量链接；落地当天 IR 通道升格真代码热换、状态迁移层（快照设计）复活、回退路径消失
 
 ### 工程与交付
