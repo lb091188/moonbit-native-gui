@@ -9,7 +9,7 @@ import {
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/math",
   "NoahLiu/native-gui/base",
-  "NoahLiu/native-gui/shell",
+  "NoahLiu/gui-shell/shell",
   "NoahLiu/native-gui/widget" @widget,
   "NoahLiu/native-gui/input",
   "NoahLiu/native-gui/icons",
@@ -18,5 +18,5 @@ import {
   "NoahLiu/native-gui/text",
   "NoahLiu/native-gui/theme",
   "NoahLiu/native-gui/style",
-  "NoahLiu/native-gui/i18n" @i18n,
+  "NoahLiu/gui-shell/i18n" @i18n,
 }

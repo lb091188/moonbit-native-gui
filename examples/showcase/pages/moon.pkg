@@ -6,7 +6,7 @@ import {
   "NoahLiu/native-gui/base",
 
   "NoahLiu/native-gui/widget" @widget,
-  "NoahLiu/native-gui/shell" @shell,
+  "NoahLiu/gui-shell/shell" @shell,
   "NoahLiu/native-gui/render" @render,
   "NoahLiu/native-gui/text" @text,
   "NoahLiu/native-gui/ui",

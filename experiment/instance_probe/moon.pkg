@@ -1,7 +1,7 @@
 // 单实例双进程探针：走 `@shell` 门面，不起窗口。
 import {
   "moonbitlang/core/env",
-  "NoahLiu/native-gui/shell" @shell,
+  "NoahLiu/gui-shell/shell" @shell,
   "NoahLiu/gui-sys/sys" @sys,
 }
 

@@ -11,6 +11,7 @@ A **cross-platform desktop GUI framework for MoonBit** — one codebase ships na
 - **🖥 Full system surfaces** — tray, notifications, global shortcuts, clipboard, native menus, file dialogs, drag & drop, autostart and other everyday desktop capabilities work out of the box, plus system queries for volume / power / wallpaper / monitors / printers.
 - **🎨 Consistent look, lightweight** — no heavyweight graphics engine; the same widget appearance on all three platforms, with small artifacts and fast startup. Follows the system light/dark mode and accent colour by default, theme fully customizable; built-in control text is localizable (English and Chinese ship with the package).
 - **📊 A complete widget set** — layout primitives, form controls, interactive charts and Markdown rendering; the separate `gui-media` adds audio/video playback and display, and `gui-webview` adds web rendering on the system webview.
+- **🧩 Capability modules** — the desktop surfaces are separate mooncakes modules you can also consume standalone: `gui-sys` (pure read/write system tools), `gui-window` (windows, tray/notify/hotkey, dialogs), `gui-dbus` (D-Bus/SNI for Linux), `gui-shell` (the six-channel integration facade + i18n).
 - **📝 Declarative UI with reactive state** — the interface is described as a tree, mounted in one `mount_window` call; state lives in `Store` / `Signal`, and bound spots refresh with the data.
 
 ## Usage

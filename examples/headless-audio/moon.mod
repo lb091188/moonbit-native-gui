@@ -14,5 +14,6 @@ import {
   "NoahLiu/native-gui@0.3.1",
   "NoahLiu/gui-sys@0.1.0",
   "NoahLiu/gui-window@0.1.0",
+  "NoahLiu/gui-shell@0.1.0",
   "NoahLiu/gui-media@0.2.0",
 }

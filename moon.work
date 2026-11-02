@@ -9,6 +9,7 @@ members = [
   "modules/gui-sys",
   "modules/gui-window",
   "modules/gui-dbus",
+  "modules/gui-shell",
   "examples/hello",
   "examples/showcase",
   "examples/browser",

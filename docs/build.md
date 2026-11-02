@@ -85,7 +85,7 @@ Link parameters are emitted by the library's prebuild to every main package that
 
 ### In this repository
 
-The repo is a `moon.work` workspace holding the library, the probes, eight sub-modules, seven examples and the tools. **Know which of the two modes you are in:**
+The repo is a `moon.work` workspace holding the library, the probes, nine sub-modules, seven examples and the tools. **Know which of the two modes you are in:**
 
 ```sh
 # Just want to see it run: skip the workspace, the example resolves the published library from the registry
