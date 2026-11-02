@@ -363,15 +363,27 @@ fn style_expand(prop : String, raw : String, pos : Pos) -> Result[Array[(String,
     }
   } else {
     match style_value_of(prop, raw, pos) {
-      Ok(e) => Ok([(prop, e)])
+      Ok(p) => Ok([p])
       Err(x) => Err(x)
     }
   }
 }
 
 ///|
-/// 属性值原文 → MoonBit 表达式。
-fn style_value_of(prop : String, raw : String, pos : Pos) -> Result[String, String] {
+/// 百分比属性 → Style 字段名（`width: 100%` → `width_percent`）。
+fn percent_prop(prop : String) -> String? {
+  match prop {
+    "width" => Some("width_percent")
+    "height" => Some("height_percent")
+    "width_percent" => Some("width_percent")
+    "height_percent" => Some("height_percent")
+    _ => None
+  }
+}
+
+///|
+/// 属性值原文 → (Style 字段名, MoonBit 表达式)。
+fn style_value_of(prop : String, raw : String, pos : Pos) -> Result[(String, String), String] {
   let v = raw.trim().to_owned()
   let kind = prop_kind_of(prop)
   if v.length() == 0 {
@@ -386,13 +398,13 @@ fn style_value_of(prop : String, raw : String, pos : Pos) -> Result[String, Stri
     match kind {
       PKColor =>
         if arr_contains(color_tokens(), tok) {
-          Ok(q(tok))
+          Ok((prop, q(tok)))
         } else {
           Err("\{pos_str(pos)}：`--\{tok}` 不是主题色令牌（20 枚：primary/text_primary/bg_panel…）")
         }
       PKNumber =>
         match scale_token_expr(tok) {
-          Some(e) => Ok(e)
+          Some(e) => Ok((prop, e))
           None => Err("\{pos_str(pos)}：`--\{tok}` 不是数值尺度令牌（control_height/font_size_*/radius_*）")
         }
       _ => Err("\{pos_str(pos)}：`var()` 只用于颜色属性与数值尺度属性")
@@ -401,24 +413,40 @@ fn style_value_of(prop : String, raw : String, pos : Pos) -> Result[String, Stri
     match kind {
       PKColor =>
         if is_hex_color(v) {
-          Ok(q(v))
+          Ok((prop, q(v)))
         } else {
           Err("\{pos_str(pos)}：颜色要写 `var(--令牌)` 或 `#rrggbb`，见到 `\{v}`")
         }
       PKNumber =>
-        match num_or_px(v) {
-          Some(e) => Ok(e)
-          None => Err("\{pos_str(pos)}：`\{prop}` 要数值（可带 `px`）或 `var(--令牌)`，见到 `\{v}`")
+        if v.has_suffix("%") {
+          let head = v[:v.length() - 1].to_owned().trim().to_owned()
+          let target = match percent_prop(prop) {
+            Some(t) => t
+            None =>
+              return Err(
+                "\{pos_str(pos)}：`\{prop}` 不吃百分比（`width` / `height` 可写 `100%`）",
+              )
+          }
+          if is_number_text(head) {
+            Ok((target, num_lit(head)))
+          } else {
+            Err("\{pos_str(pos)}：`\{prop}` 的百分比要数值，见到 `\{v}`")
+          }
+        } else {
+          match num_or_px(v) {
+            Some(e) => Ok((prop, e))
+            None => Err("\{pos_str(pos)}：`\{prop}` 要数值（可带 `px`）或 `var(--令牌)`，见到 `\{v}`")
+          }
         }
       PKInt =>
         if is_number_text(v) {
-          Ok(int_text(v))
+          Ok((prop, int_text(v)))
         } else {
           Err("\{pos_str(pos)}：`\{prop}` 要整数，见到 `\{v}`")
         }
       PKString =>
         if (v.has_prefix("\"") && v.has_suffix("\"")) || (v.has_prefix("'") && v.has_suffix("'")) {
-          Ok("\"" + v[1:v.length() - 1].to_owned() + "\"")
+          Ok((prop, "\"" + v[1:v.length() - 1].to_owned() + "\""))
         } else {
           Err("\{pos_str(pos)}：`\{prop}` 要引号包裹的串，见到 `\{v}`")
         }
@@ -434,7 +462,7 @@ fn style_value_of(prop : String, raw : String, pos : Pos) -> Result[String, Stri
           }
         }
         if found.length() > 0 {
-          Ok(found)
+          Ok((prop, found))
         } else {
           Err("\{pos_str(pos)}：`\{prop}` 不认关键字 `\{v}`")
         }

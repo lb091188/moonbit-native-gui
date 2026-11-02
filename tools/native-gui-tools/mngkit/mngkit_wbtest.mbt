@@ -1069,3 +1069,31 @@ test "样式错误坐标：段内行号补上 <style> 偏移" {
     Ok(_) => assert_true(false)
   }
 }
+
+///|
+test "样式章：width/height 的百分比落到 *_percent" {
+  let src = [
+    "<style>",
+    ".w { width: 100%; height: 50%; }",
+    "</style>",
+    "<template>",
+    "  <ui-col class=\"w\" />",
+    "</template>",
+  ].join("\n")
+  let code = match compile(src, "pct.mng") {
+    Ok(o) => o.code
+    Err(e) => abort("\{e}")
+  }
+  assert_true(contains_sub(code, "width_percent=100.0"))
+  assert_true(contains_sub(code, "height_percent=50.0"))
+  let bad = compile(
+    "<style>\n.w { padding: 10%; }\n</style>\n<template>\n  <ui-col class=\"w\" />\n</template>",
+    "pct2.mng",
+  )
+  assert_true(
+    match bad {
+      Err(e) => contains_sub(e, "不吃百分比")
+      _ => false
+    },
+  )
+}
