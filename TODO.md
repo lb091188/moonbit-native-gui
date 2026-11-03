@@ -46,8 +46,7 @@
 
 ## Wayland 原生路径（2026-11-03 立项，能力出路总表、DE 支持矩阵与坑清单见 [proposals/wayland-native.md](proposals/wayland-native.md)；先 spike 后分期，做完一项删一项并同步路线图）
 
-- [ ] **Spike S1/S2（本体行为 + XWayland 假数据实测，用户执行）**：Ubuntu 24.04 GNOME Wayland + deepin 25 Treeland 跑 hello/showcase 相邻条目；xrandr 输出形态 / redshift 退出码与实际效果 / wmctrl 可见窗口集合——产出「返回成功但无效」清单，定 P0 探针写法（判据见方案 §五）
-- [ ] **P0 会话探测与口径收口**：XDG_SESSION_TYPE + WAYLAND_DISPLAY 探针；nightlight 在 Wayland 会话不得因 redshift 存在报 supported；monitor 的 XWayland 假名在 caps/文档声明；「Wayland 会话能力预期表」进测试文档
+- [ ] **Spike S1/S2（本体行为 + XWayland 假数据实测，用户执行）**（P0 探针已先行落地：`@sys.session_type()`，夜灯/窗口管理按它降级，预期表进测试用例附录 E）：Ubuntu 24.04 GNOME Wayland + deepin 25 Treeland 跑 hello/showcase 相邻条目；xrandr 输出形态 / redshift 退出码与实际效果 / wmctrl 可见窗口集合——产出「返回成功但无效」清单，定 P0 探针写法（判据见方案 §五）
 - [ ] **Spike S3–S8（用户执行）**：GlobalShortcuts 全流程（KDE+GNOME 各一台）、空闲双档误差、Treeland 协议面探测矩阵、夜灯配置口生效与复位、显示器字段对照、弹层定位
 - [ ] **P1 portal 骨架 + 全局快捷键 + 空闲检测**：gui/dbus portal 客户端通用层（Request/Response 异步握手）；GlobalShortcuts「绑定+信号回调」门面形态；空闲 GNOME IdleMonitor 精确档 + ext-idle-notify 近似档
 - [ ] **P2 夜灯逐 DE + 显示器枚举**：KDE ColorCorrect/NightLight（S6 定版本分界）、GNOME gsettings 配置口、wlroots wlr-gamma-control 裸 gamma；显示器 mutter DisplayConfig（锁版本）+ wlr-output-management（KDE 通道 S7 定）；首个 Wayland 协议客户端地基（libwayland vs 自写 wire）单独评

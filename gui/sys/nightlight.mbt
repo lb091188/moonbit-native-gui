@@ -9,8 +9,8 @@
 
 ///|
 pub(all) enum NightlightError {
-  /// 当前平台/环境不支持（非 Linux，或 redshift 与 xrandr 均不可用、
-  /// xrandr 无已连接输出）
+  /// 当前平台/环境不支持（非 Linux、Wayland 会话（gamma 只落 XWayland），
+  /// 或 redshift 与 xrandr 均不可用、xrandr 无已连接输出）
   Unsupported
   /// 命令执行失败（启动失败 / 非零退出码 / 超时 / 被信号终止），带原因
   CommandFailed(String)
@@ -233,6 +233,11 @@ pub fn nl_supported() -> Bool {
   if sys_platform() == "macos" {
     return true
   }
+  // Wayland 会话：redshift / xrandr 只作用在 XWayland 兼容层上，gamma 改了
+  // 屏幕上没变化（进程照起、退出码照 0）——按「不支持」报，不给假生效。
+  if in_wayland_session() {
+    return false
+  }
   nl_backend() is Some(_)
 }
 
@@ -260,6 +265,9 @@ pub fn nl_set_temperature(percent : Int) -> Result[Unit, NightlightError] {
       return Err(CommandFailed("SetDeviceGammaRamp 失败"))
     }
     return Ok(())
+  }
+  if in_wayland_session() {
+    return Err(Unsupported) // XWayland 上设 gamma 不落地，见 nl_supported
   }
   match nl_backend() {
     None => Err(Unsupported)
@@ -291,6 +299,9 @@ pub fn nl_reset() -> Result[Unit, NightlightError] {
       return Err(CommandFailed("SetDeviceGammaRamp 复位失败"))
     }
     return Ok(())
+  }
+  if in_wayland_session() {
+    return Err(Unsupported) // 同上：复位也不经 XWayland 空跑一遍
   }
   match nl_backend() {
     None => Err(Unsupported)

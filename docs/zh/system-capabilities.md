@@ -14,11 +14,11 @@
 | 用户空闲检测 | ✅ 直调 | ✅ | ✅ 已回证（`CGEventSourceSecondsSinceLastEventType` 的 HID 系统态读数，不需辅助功能授权） |
 | 应用查找 | ✅ 直调 | ✅ | ✅ 已回证（`.app` 包扫描 + `Contents/Info.plist` 公开键；`categories` 与本地化名没有公开对等物，按空/回退给） |
 | 最近文件 | ✅ 直调 | ✅ | ❌ Unsupported（sharedfilelist 是私有格式，暂不提供） |
-| 窗口管理 / 电源计划 | ✅ 直调 | ✅ | ❌ Unsupported（Accessibility 要用户先授权 / `pmset` 对不上三值方案语义） |
+| 窗口管理 / 电源计划 | ✅ 直调 | ✅ X11 会话（**Wayland 会话 Unsupported**，XWayland 只列得到 X 兼容层的窗） | ❌ Unsupported（Accessibility 要用户先授权 / `pmset` 对不上三值方案语义） |
 | browser/vscode 数据 | ✅（LOCALAPPDATA 路径） | ✅ | ✅（`Library/Application Support/<厂商>/<产品>` 路径） |
 | sysmonitor 进程数据 | ✅（示例模块自带探针） | ✅ | ✅ 已回证（示例模块自带，mac 路径待验） |
-| 夜间色温（redshift/xrandr 命令线） | ❌ 无公开 API | ✅ | ❌ 无公开 API（CoreBrightness 私有） |
-| 显示器枚举（monitor） | ✅ 直调（`EnumDisplayDevicesW` / `EnumDisplaySettingsExW`；真机与 QEMU QXL 虚拟屏均回证，虚拟屏读到 `DISPLAY1: 1920x1080 @64Hz`） | ✅（xrandr） | ✅ 已回证（CoreGraphics 直调：`CGGetOnlineDisplayList` / `CGDisplayBounds` / `CGDisplayCopyAllDisplayModes`；只列「在线」屏，输出名给不了按 `Built-in` / `Display-<id>` 给；读数一律物理像素，故 `MonitorInfo` 不需要缩放比字段） |
+| 夜间色温 | ✅ 直调（`SetDeviceGammaRamp`） | ✅ X11 会话（**Wayland 会话 Unsupported**：gamma 只落 XWayland，进程照起、退出码照 0 而屏幕没变） | ❌ 无公开 API（CoreBrightness 私有，走 f.lux 同款覆盖层） |
+| 显示器枚举（monitor） | ✅ 直调（`EnumDisplayDevicesW` / `EnumDisplaySettingsExW`；真机与 QEMU QXL 虚拟屏均回证，虚拟屏读到 `DISPLAY1: 1920x1080 @64Hz`） | ✅（xrandr；**Wayland 会话读到的是 XWayland 虚拟屏**，名形如 `XWAYLAND0`） | ✅ 已回证（CoreGraphics 直调：`CGGetOnlineDisplayList` / `CGDisplayBounds` / `CGDisplayCopyAllDisplayModes`；只列「在线」屏，输出名给不了按 `Built-in` / `Display-<id>` 给；读数一律物理像素，故 `MonitorInfo` 不需要缩放比字段） |
 
 macOS 的公开口与底层：`open`/`open -R`、`sw_vers`、`ioreg -rd1 -c IOPlatformExpertDevice`、`sysctl hw.model/hw.memsize/kern.boottime`、`osascript`（System Events 的 `volume settings` 与桌面图片）、`launchctl load/unload` + `~/Library/LaunchAgents/*.plist`、`lpstat`/`lp`，以及进程内直调的 `host_statistics64`、`CGEventSourceSecondsSinceLastEventType`、`CGGetOnlineDisplayList`/`CGDisplayBounds`/`CGDisplayCopyDisplayMode`/`CGDisplayCopyAllDisplayModes`/`CGDisplayScreenSize`。
 
@@ -232,17 +232,29 @@ match @sys.permission_probe(@sys.PermAccessibility) {
 
 另一档「操作提权」（每次一弹：macOS 管理员密码框、将来 Windows UAC）不落本族，随各自能力批处理（如电源计划 macOS 档的写操作走 `osascript` 管理员授权）。
 
+## 桌面会话类型
+
+Linux 上「跑在 X11 还是 Wayland」决定一整个工具族能不能信。Wayland 会话里 X 工具照常起进程、照常退出码 0（XWayland 在底下接着），读数却是兼容层的假数——所以本库把它们在探测处显式降级，不拿假数冒充成功。
+
+| 函数 | 说明 |
+|---|---|
+| `session_type() -> SessionType` | 读本机环境给会话类型：`X11` / `Wayland` / `Unknown` |
+| `session_type_of(xdg_session_type, wayland_display) -> SessionType` | 纯解析，便于按自有的环境值判定：`XDG_SESSION_TYPE` 说话在先（认 `wayland` / `x11`，大小写与空白不敏感），没写时回落 `WAYLAND_DISPLAY` 非空即 Wayland |
+| `in_wayland_session() -> Bool` | 能力族用的门 |
+
+按此降级的能力：**夜间色温**（`nl_supported()` 恒 false，设/复位给 `Unsupported`）、**窗口管理**（`win_supported()` false，列表/激活/关闭给 `Unsupported`）、**空闲检测与全局快捷键**（Linux 走 X11 服务端与 X 抓键，Wayland 原生会话本就不支持——见[路线图](roadmap.md)「Linux 兼容说明」的会话表）。**显示器枚举**不降级：XWayland 那块虚拟屏确实存在，但按「不是真接的屏」这个口径读，字段别拿去做布局或采购判断；Wayland 侧的真通道在规划里（`proposals/wayland-native.md` P2）。
+
 ## 夜间色温
 
 以百分比 0-100 表示色温（0 = 最暖、100 = 6500K 中性即不改动）。两条后端自动探测：`redshift` 存在时优先（`-P -O <K>` 一次性设色温），否则 `xrandr --output <首选输出> --gamma R:G:B`（蓝通道衰减越多越暖；绿通道恒 1.00）。
 
 | 函数 | 说明 |
 |---|---|
-| `nl_supported() -> Bool` | redshift 或 xrandr 任一可用（探测均为只读调用，无副作用） |
+| `nl_supported() -> Bool` | redshift 或 xrandr 任一可用，且不在 Wayland 会话（探测均为只读调用，无副作用） |
 | `nl_set_temperature(percent) -> Result[Unit, NightlightError]` | 设色温（0-100，出界钳制；redshift 路径 0→2500K / 100→6500K） |
 | `nl_reset() -> Result[Unit, NightlightError]` | 复位（redshift `-x` / `xrandr --gamma 1.00:1.00:1.00`，不带 `--output` 作用于全部输出） |
 
-错误 `NightlightError`：`Unsupported`（非 Linux，或 redshift 与 xrandr 均不可用、xrandr 无已连接输出）/ `CommandFailed(String)`。xrandr 路径从当前主输出取，无主输出取首个已连接输出。
+错误 `NightlightError`：`Unsupported`（非 Linux、Wayland 会话，或 redshift 与 xrandr 均不可用、xrandr 无已连接输出）/ `CommandFailed(String)`。Wayland 会话下 `nl_supported()` 恒 false：redshift / xrandr 的 gamma 只作用在 XWayland 兼容层，进程起得来、退出码 0、屏幕上没变化——按不支持报，不给假生效。xrandr 路径从当前主输出取，无主输出取首个已连接输出。
 
 ```moonbit
 let _ = @sys.nl_set_temperature(30) // 偏暖
@@ -349,11 +361,11 @@ match @sys.mon_current() {
 
 ## 系统窗口管理
 
-窗口列表（id / 桌面 / 主机 / 标题）、按 id 或标题激活、按标题关闭。Windows 走 `EnumWindows` / `SetForegroundWindow` / `WM_CLOSE` 直调；Linux 解析 `wmctrl -l` 并走其激活 / 关闭动作。普通 MoonBit 进程即可调用，不需 GUI 宿主。
+窗口列表（id / 桌面 / 主机 / 标题）、按 id 或标题激活、按标题关闭。Windows 走 `EnumWindows` / `SetForegroundWindow` / `WM_CLOSE` 直调；Linux 解析 `wmctrl -l` 并走其激活 / 关闭动作。Wayland 会话下 Linux 这支给 `Unsupported`：`wmctrl` 只看得到 X 兼容层的窗口，动作退出码 0 也不动真窗口。普通 MoonBit 进程即可调用，不需 GUI 宿主。
 
 | 函数 | 说明 |
 |---|---|
-| `win_supported() -> Bool` | Windows 恒真；Linux 且 wmctrl 可用（wmctrl 缺失时 Unix 以退出码 127 呈现） |
+| `win_supported() -> Bool` | Windows 恒真；macOS 走 CGWindowList/AX；Linux 且 wmctrl 可用（wmctrl 缺失时 Unix 以退出码 127 呈现），Wayland 会话恒 false |
 | `win_list() -> Result[Array[WindowInfo], WinError]` | 窗口列表 |
 | `win_activate(id_or_title) -> Result[Unit, WinError]` | 按窗口 id（wmctrl 的 `0x...` 十六进制）或标题激活 |
 | `win_close(title) -> Result[Unit, WinError]` | 按标题关闭窗口 |

@@ -736,6 +736,11 @@ fn mon_current_from(infos : Array[MonitorInfo]) -> Array[CurrentOutput] {
 /// 枚举显示器：Linux 走 xrandr（含未连接的输出），macOS 走 CoreGraphics
 /// （只列在线的输出，名字是 Built-in / Display-<id>），Windows 走 GDI 的
 /// 显示设备口（只列贴合桌面的适配器，名字是 DISPLAY1 这种设备名）。
+///
+/// Wayland 会话下 Linux 这支走的是 XWayland：输出名形如 `XWAYLAND0`，模式列表
+/// 只反映兼容层给的那块虚拟屏，**不等于真接的显示器**（分辨率/物理尺寸/刷新率
+/// 都别拿去做布局或采购判断）。要真数得走 Wayland 侧协议通道，尚未实现——
+/// 这里不返回 `Unsupported`（确实拿到了 XWayland 的屏），但读数按此口径读。
 pub fn mon_list() -> Result[Array[MonitorInfo], MonitorError] {
   if sys_platform() == "windows" {
     return mon_list_win()

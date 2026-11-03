@@ -129,6 +129,13 @@ fn sp_sys_machine() -> String {
     Err(e) => buf.write_string("开机时长: 读不到：\{e}\n")
   }
   buf.write_string("桌面环境: \{@sys.desktop_name()}（\{@sys.sys_platform()}）\n")
+  // 会话类型是 X 工具族的降级门：Wayland 会话里夜灯与窗口管理只剩 XWayland 兼容层
+  let st = match @sys.session_type() {
+    @sys.SessionType::X11 => "X11"
+    @sys.SessionType::Wayland => "Wayland（X 工具族只到 XWayland）"
+    @sys.SessionType::Unknown => "未知（两个变量都没写）"
+  }
+  buf.write_string("会话类型: \{st}\n")
   buf.to_string()
 }
 

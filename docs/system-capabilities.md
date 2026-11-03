@@ -14,11 +14,11 @@ The system-capability API family: system volume, application lookup, night-light
 | user idle detection | ✅ direct call | ✅ | ✅ verified on device (`CGEventSourceSecondsSinceLastEventType`, HID system state — no accessibility permission needed) |
 | app lookup | ✅ direct call | ✅ | ✅ verified on device (`.app` bundle scan + public keys of `Contents/Info.plist`; `categories` and the localized name have no public equivalent, given as empty / fallback) |
 | recent files | ✅ direct call | ✅ | ❌ Unsupported (sharedfilelist is a private format; not offered) |
-| window management / power plans | ✅ direct call | ✅ | ❌ Unsupported (Accessibility needs prior user consent / `pmset` does not map to the three-value scheme semantics) |
+| window management / power plans | ✅ direct call | ✅ X11 sessions (**Unsupported on Wayland sessions** — XWayland only sees its own compatibility layer) | ❌ Unsupported (Accessibility needs prior user consent / `pmset` does not map to the three-value scheme semantics) |
 | browser/vscode data | ✅ (LOCALAPPDATA paths) | ✅ | ✅ (`Library/Application Support/<vendor>/<product>` paths) |
 | sysmonitor process data | ✅ (ships its own stub/sysmon.c) | ✅ | ✅ verified on device (the example module ships its own stub; the mac path is pending) |
-| night-light color temperature (redshift/xrandr command line) | ❌ no public API | ✅ | ❌ no public API (CoreBrightness is private) |
-| monitor enumeration (monitor) | ❌ | ✅ (xrandr) | ✅ verified on device (CoreGraphics direct calls: `CGGetOnlineDisplayList` / `CGDisplayBounds` / `CGDisplayCopyAllDisplayModes`; online displays only, names given as `Built-in` / `Display-<id>`; readings are always physical pixels, so `MonitorInfo` needs no scale field) |
+| night-light color temperature | ✅ direct call (`SetDeviceGammaRamp`) | ✅ X11 sessions (**Unsupported on Wayland sessions**: gamma lands on XWayland only — the process runs, exits 0, and nothing changes on screen) | ❌ no public API (CoreBrightness is private; a f.lux-style click-through overlay is used instead) |
+| monitor enumeration (monitor) | ✅ direct call (`EnumDisplayDevicesW` / `EnumDisplaySettingsExW`) | ✅ (xrandr; **on a Wayland session the reading is the XWayland virtual output**, named like `XWAYLAND0`) | ✅ verified on device (CoreGraphics direct calls: `CGGetOnlineDisplayList` / `CGDisplayBounds` / `CGDisplayCopyAllDisplayModes`; online displays only, names given as `Built-in` / `Display-<id>`; readings are always physical pixels, so `MonitorInfo` needs no scale field) |
 
 The public macOS entry points and underlying calls: `open`/`open -R`, `sw_vers`, `ioreg -rd1 -c IOPlatformExpertDevice`, `sysctl hw.model/hw.memsize/kern.boottime`, `osascript` (System Events `volume settings` and desktop picture), `launchctl load/unload` + `~/Library/LaunchAgents/*.plist`, `lpstat`/`lp`, plus in-stub `host_statistics64`, `CGEventSourceSecondsSinceLastEventType`, `CGGetOnlineDisplayList`/`CGDisplayBounds`/`CGDisplayCopyDisplayMode`/`CGDisplayCopyAllDisplayModes`/`CGDisplayScreenSize`.
 
@@ -207,17 +207,29 @@ n.set_progress("Exporting 3/8 files", 37.5, width=4)
 n.show()
 ```
 
+## Desktop Session Type
+
+On Linux, "X11 or Wayland" decides whether a whole family of tools can be trusted. In a Wayland session the X tools still start and still exit 0 (XWayland answers underneath), but the readings belong to the compatibility layer — so this library degrades them explicitly at the probe instead of passing off fake numbers as success.
+
+| Function | Description |
+|---|---|
+| `session_type() -> SessionType` | read the process environment: `X11` / `Wayland` / `Unknown` |
+| `session_type_of(xdg_session_type, wayland_display) -> SessionType` | pure parse helper: `XDG_SESSION_TYPE` speaks first (recognizes `wayland` / `x11`, case and blanks insensitive); when unset, a non-empty `WAYLAND_DISPLAY` means Wayland |
+| `in_wayland_session() -> Bool` | the gate the capability families use |
+
+Degraded by it: **night light** (`nl_supported()` is false; set/reset give `Unsupported`), **window management** (`win_supported()` false; list/activate/close give `Unsupported`), **idle detection and global shortcuts** (Linux reads the X server and X grabs, which a Wayland session does not have — see the session table in the [roadmap](roadmap.md)). **Monitor enumeration is not degraded**: the XWayland virtual output really exists, but read it as "not the physically connected display" — do not drive layout or hardware decisions from it; the Wayland-native channel is planned (`proposals/wayland-native.md` P2).
+
 ## Night Light Color Temperature
 
 Color temperature is expressed as a percentage 0-100: 0 = warmest, 100 = 6500K neutral, i.e. no change. Two backends are auto-detected: `redshift` is preferred when present (`-P -O <K>` sets the temperature once), otherwise `xrandr --output <preferred output> --gamma R:G:B` — the more the blue channel is attenuated, the warmer; the green channel stays 1.00.
 
 | Function | Description |
 |---|---|
-| `nl_supported() -> Bool` | either redshift or xrandr works; all probes are read-only calls with no side effects |
+| `nl_supported() -> Bool` | either redshift or xrandr works and the session is not Wayland; all probes are read-only calls with no side effects |
 | `nl_set_temperature(percent) -> Result[Unit, NightlightError]` | set color temperature (0-100, out-of-range clamped; the redshift path maps 0→2500K / 100→6500K) |
 | `nl_reset() -> Result[Unit, NightlightError]` | reset (redshift `-x` / `xrandr --gamma 1.00:1.00:1.00`; without `--output` it affects all outputs) |
 
-Error `NightlightError`: `Unsupported` (not Linux, or both redshift and xrandr unavailable, or xrandr has no connected output) / `CommandFailed(String)`. The xrandr path takes the current primary output; without a primary output it takes the first connected one.
+Error `NightlightError`: `Unsupported` (not Linux, a Wayland session, or both redshift and xrandr unavailable, or xrandr has no connected output) / `CommandFailed(String)`. On a Wayland session `nl_supported()` is always false: redshift / xrandr only touch the XWayland compatibility layer, so the process starts, exits 0, and the screen stays as it was — reported as unsupported rather than a false success. The xrandr path takes the current primary output; without a primary output it takes the first connected one.
 
 ```moonbit
 let _ = @sys.nl_set_temperature(30) // warmer
@@ -321,11 +333,11 @@ match @sys.mon_current() {
 
 ## System Window Management
 
-Window list (id / desktop / host / title), activate by id or title, close by title. Windows calls `EnumWindows` / `SetForegroundWindow` / `WM_CLOSE` directly; Linux parses `wmctrl -l` and uses its activate / close actions. An ordinary MoonBit process can call these — no GUI host needed.
+Window list (id / desktop / host / title), activate by id or title, close by title. Windows calls `EnumWindows` / `SetForegroundWindow` / `WM_CLOSE` directly; Linux parses `wmctrl -l` and uses its activate / close actions. On a Wayland session the Linux branch gives `Unsupported`: `wmctrl` only lists XWayland windows, and its actions exit 0 without touching a real window. An ordinary MoonBit process can call these — no GUI host needed.
 
 | Function | Description |
 |---|---|
-| `win_supported() -> Bool` | always true on Windows; on Linux requires wmctrl — a missing wmctrl surfaces on Unix via exit code 127 |
+| `win_supported() -> Bool` | always true on Windows; macOS goes through CGWindowList / AX; on Linux requires wmctrl (a missing wmctrl surfaces on Unix via exit code 127) and is false on a Wayland session |
 | `win_list() -> Result[Array[WindowInfo], WinError]` | window list |
 | `win_activate(id_or_title) -> Result[Unit, WinError]` | activate by window id (wmctrl's `0x...` hex) or title |
 | `win_close(title) -> Result[Unit, WinError]` | close a window by title |

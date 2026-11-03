@@ -44,8 +44,8 @@ pub extend WindowInfo with Show::{to_string, output}
 
 ///|
 pub(all) enum WinError {
-  /// 当前平台/环境不支持（非 Linux，或 wmctrl 不存在——Unix 以退出码
-  /// 127 呈现命令缺失）
+  /// 当前平台/环境不支持（非 Linux、Wayland 会话（只剩 XWayland 兼容层），
+  /// 或 wmctrl 不存在——Unix 以退出码 127 呈现命令缺失）
   Unsupported
   /// 命令执行失败（spawn 失败 / 非零退出 / 超时 / 被信号终止），带原因
   CommandFailed(String)
@@ -319,6 +319,10 @@ fn win_map_err(prog : String, e : ProcError) -> WinError {
 ///|
 /// 执行窗口动作（wmctrl -a / -c 等）。
 fn win_apply(args : Array[String]) -> Result[Unit, WinError] {
+  if in_wayland_session() {
+    // XWayland 里 wmctrl 只看得到 X 兼容层的窗口，动作退出码 0 也不动真窗口
+    return Err(Unsupported)
+  }
   match pr_run("wmctrl", args, timeout_ms=5000) {
     Ok(_) => Ok(())
     Err(e) => Err(win_map_err("wmctrl", e))
@@ -415,6 +419,9 @@ pub fn win_supported() -> Bool {
   if sys_platform() == "macos" {
     return true
   }
+  if in_wayland_session() {
+    return false // X 工具族在 Wayland 会话里没有对位能力，见 win_list
+  }
   if !pr_available() {
     return false
   }
@@ -441,6 +448,9 @@ pub fn win_list() -> Result[Array[WindowInfo], WinError] {
       return Err(CommandFailed("EnumWindows 失败"))
     }
     return Ok(win_win_parse_list(@utf8.decode_lossy(b)))
+  }
+  if in_wayland_session() {
+    return Err(Unsupported) // 列表同样只有 X 兼容层那部分，不给残缺集合冒充全量
   }
   match pr_run("wmctrl", ["-l"], timeout_ms=4000) {
     Ok(o) => win_parse_list(o.stdout)
