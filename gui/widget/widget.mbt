@@ -1130,8 +1130,16 @@ pub fn Widget::paint(self : Widget, p : @render.Painter) -> Unit {
 ///|
 /// 带「已平移原点」的绘制：`ox/oy` 是**父控件**的绝对原点，本控件只平移
 /// 自己那一段差值。直接按绝对矩形逐层 translate 会把祖先的偏移重复累加
-/// （嵌套一层就偏一层，第二行的文字会掉到窗口外）。
-pub fn Widget::paint_at(self : Widget, p : @render.Painter, ox : Double, oy : Double) -> Unit {
+/// （嵌套一层就偏一层，第二行的文字会掉到窗口外）。`clip` 是父链累乘的
+/// 有效裁剪（窗口坐标，None = 不裁）——CPU 档它住在 Painter 裁剪栈里，
+/// GPU 档要当数据随 draw 传（`RenderCtx::Gpu` 的 clip 位）。
+pub fn Widget::paint_at(
+  self : Widget,
+  p : @render.Painter,
+  ox : Double,
+  oy : Double,
+  clip? : @base.Rect? = None,
+) -> Unit {
   if !self.visible {
     return ()
   }
@@ -1173,8 +1181,27 @@ pub fn Widget::paint_at(self : Widget, p : @render.Painter, ox : Double, oy : Do
   if !(self.blend_paint is Normal) {
     p.set_blend_mode(self.blend_paint)
   }
+  // 本控件的有效裁剪：自身声明 clip_content 时收到自身矩形，否则继承父链
+  // （GPU 档 draw 的 clip 位；CPU 档等价信息在 Painter 裁剪栈里）
+  let eff_clip = if self.clip_content {
+    clip_isect(self.rect, clip)
+  } else {
+    clip
+  }
+  // GPU 档派发（L2 协议）：宿主设了 sink 且控件挂了 on_render 时走 Gpu
+  // （rect/clip/opacity 随合成传，调用序即合成序）；否则 Cpu 档原样。
+  // 只有 on_draw 的控件不受影响——子树与兄弟照旧画进 CPU 位图（混排）。
   match self.on_render {
-    Some(f) => f(self, @render.Cpu(p), self.rect)
+    Some(f) =>
+      match gpu_sink() {
+        Some(sink) =>
+          f(
+            self,
+            @render.Gpu({ sink, clip: eff_clip, opacity: p.global_alpha(), }),
+            self.rect,
+          )
+        None => f(self, @render.Cpu(p), self.rect)
+      }
     None =>
       match self.on_draw {
         Some(g) => g(self, p, self.rect)
@@ -1185,7 +1212,7 @@ pub fn Widget::paint_at(self : Widget, p : @render.Painter, ox : Double, oy : Do
   // design.md §1.2「层序按 kids 数组序」的过渡口径被 z_index 取代);未应用过
   // 样式的树全部 0.0,排序恒等,现有示例逐帧不变。
   for k in widget_paint_order(self.kids) {
-    k.paint_at(p, self.rect.x, self.rect.y)
+    k.paint_at(p, self.rect.x, self.rect.y, clip=eff_clip)
   }
   // 圆角裁切收尾：声明了 clip_rounded 的容器，把四角圆角弧外的像素补回**父层
   // 原值**（子件通铺方底不再啃圆角）。角盒里圆外部分 = 盒 - 四分之一圆，逐行

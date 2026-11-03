@@ -22,8 +22,8 @@ native-gui 从「全 CPU 光栅」走向「GPU 合成 + CPU 光栅并存」的�
 ### Layer 2：控件级 GPU 绘制（协议扩展）
 
 - `Widget.on_render(Widget, RenderCtx, Rect)` 走 GPU context 提交 shader/vertex buffer。
-- `RenderCtx` 是 `@render` 包里的枚举：当前只有 `Cpu(Painter)` 变体；WebGPU 落地时新增 `Gpu(GpuContext)` 变体，`paint_walk` 派发时探测分派。
-- **口子已留**：`Widget.on_render` 字段与 `RenderCtx` 枚举已在协议层就位；现有控件走 `on_draw` 不受影响。
+- `RenderCtx` 是 `@render` 包里的枚举：`Cpu(Painter)` / `Gpu(GpuCtx)` 两变体，`paint_walk` 派发时探测分派。
+- **L2 协议已落（2026-11-03）**：`pub(open) trait GpuSink`（`draw_texture_rgba` 视频 quad + `fill_rect` 简单图形，clip/opacity 随方法传）+ `GpuCtx{sink, clip, opacity}` + `RenderCtx::Gpu(GpuCtx)`；** trait 形态让主包只定协议不养猪**——实现住可选模块 `@guigpu`，主包依赖图里没有 GPU 任何东西（`pub(open)` 是外部包可实现的前提，sealed trait 默认不许跨包实现）。宿主经 `@widget.gpu_set_sink` 设 sink：设了且控件挂了 `on_render` 才派 Gpu 档，否则 Cpu 档原样——**现有控件一行不动**。混排合成次序 = 调用序 = 控件树序（`paint_at` 新增 `clip?` 可选参把父链累乘的有效裁剪当数据传下来；重叠混排的像素正确性归 L1 present 路径，首批消费者视频 quad 是叶子件）。假 sink 的无头回归钉住：sink 未设全 Cpu、设了拿 Gpu 且 clip/opacity 对、GPU 与 CPU  sibling 按树序交错。
 
 ### 三级 fallback
 

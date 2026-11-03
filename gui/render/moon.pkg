@@ -1,6 +1,7 @@
 import {
   "moonbitlang/core/encoding/utf8" @utf8,
   "moonbitlang/core/math",
+  "NoahLiu/native-gui/base",
 }
 
 // stub.c 一个文件三条分支：WM_STUB_CAIRO 真实现（cairo 光栅 + GdkPixbuf 解码）

@@ -48,6 +48,5 @@
 - [ ] **第一步·X11 wgpu 三角形验收**（真机肉眼，方案既定第一步；验收判据落本批提交）
 - [ ] **L1-Linux present 纹理合成**：wm_present GTK X11 臂走「Bitmap 上传纹理 → 全屏 quad → swapchain」；fallback 探测粒度与 Wayland 会话臂随后
 - [ ] **L1-Win / L1-mac**：D3D12 swapchain 挂 HWND / CAMetalLayer 挂 NSView，与现有 blit 的切换与回退（回退后逐像素一致）
-- [ ] **L2 协议**：RenderCtx::Gpu(GpuContext) 最小接口面（够视频 quad 与简单图形）+ paint_walk 混排合成次序（rect/clip/opacity 随合成传）
 - [ ] **首消费者**：视频直纹理接口位（仅接口不实现导入）；GPU 内容画布 demo 页（赛季验收面）
 - [ ] **硬解探针**（Linux 腿已跑通到「真解一帧」：`open_video_decoder(hw=true)` 走 VAAPI + transfer，首帧与软解逐字节一致，`hw_status=1`；`experiment/hwdecode_probe` 逐设备 open/frames/transfer 读数进方案 §四，设备建得起来≠能用、transfer 全空两条坑已记；Win/mac 两腿待跑）：三平台 hw_device_ctx 能建（VideoToolbox / D3D11VA / VAAPI）+ 归档实物核验（Linux 发行版 ffmpeg 的 `ffmpeg -hwaccels`、Windows BtbN lgpl 归档已命中 `av_d3d11va_alloc_context`、mac 归档脚本从初立就带 `--enable-videotoolbox`——旧判「重做评估」已过期，只剩 `otool -L` 验实物与 LICENSE.txt 口径修正）；未决见 proposals/media-hwdecode.md §六 spike
