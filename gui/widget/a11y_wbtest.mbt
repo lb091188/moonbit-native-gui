@@ -125,3 +125,17 @@ test "语义快照：帧尾对账产出角色/状态/文本，删控件不留幽
   btn.visible = false
   assert_eq(a11y_frame_sync(root), 1)
 }
+
+///|
+test "语义快照：帧尾对账同时推到平台通道，行数与快照一致" {
+  let root = Widget::new()
+  let btn = Widget::new()
+  btn.role = "button"
+  btn.label = "确定"
+  root.append_child(btn)
+  assert_eq(a11y_frame_sync(root), 2)
+  assert_eq(@win.a11y_published_count(), 2)
+  btn.visible = false
+  assert_eq(a11y_frame_sync(root), 1)
+  assert_eq(@win.a11y_published_count(), 1)
+}

@@ -220,7 +220,51 @@ pub fn a11y_frame_sync(root : Widget) -> Int {
   let out : Array[A11yNode] = []
   a11y_walk(root, 0, out)
   g_a11y_last.val = out
+  // 平台臂吃的是同一份快照：摊成 TSV 推过去（字段里的制表/换行换空格，
+  // 不然会把一行切成两行）
+  let sb = StringBuilder()
+  for n in out {
+    sb.write_string(n.id.to_string())
+    sb.write_string("\t")
+    sb.write_string(n.parent.to_string())
+    sb.write_string("\t")
+    sb.write_string(if n.enabled { "1" } else { "0" })
+    sb.write_string("\t")
+    sb.write_string(tsv_clean(n.role))
+    sb.write_string("\t")
+    sb.write_string(tsv_clean(n.name))
+    sb.write_string("\t")
+    sb.write_string(tsv_clean(n.state))
+    sb.write_string("\t")
+    sb.write_string(tsv_clean(n.value))
+    sb.write_string("\t")
+    sb.write_string(tsv_clean(n.text))
+    sb.write_string("\t")
+    sb.write_string(n.x.to_string())
+    sb.write_string("\t")
+    sb.write_string(n.y.to_string())
+    sb.write_string("\t")
+    sb.write_string(n.w.to_string())
+    sb.write_string("\t")
+    sb.write_string(n.h.to_string())
+    sb.write_string("\n")
+  }
+  @win.a11y_publish(@utf8.encode(sb.to_string()), out.length())
   out.length()
+}
+
+///|
+/// TSV 字段清洗：制表符与换行换成空格（保持「一行一控件」的对齐）。
+fn tsv_clean(s : String) -> String {
+  let b = StringBuilder()
+  for c in s.to_array() {
+    if c == '\t' || c == '\n' || c == '\r' {
+      b.write_char(' ')
+    } else {
+      b.write_char(c)
+    }
+  }
+  b.to_string()
 }
 
 ///|

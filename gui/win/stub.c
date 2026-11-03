@@ -30,6 +30,35 @@
 // 到的是垃圾地址（实测 SIGSEGV）。签名与 ~/.moon/include/moonbit.h 逐位对齐。
 extern void *moonbit_make_bytes(int size, int value);
 
+/* 快照通道用到的标准头在 Win32 分支里才被包含，这里独立带一份（重复包含无害） */
+#if !defined(_WIN32)
+#include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+#endif
+
+/* —— 语义快照通道（无障碍阶段 1/3 共用）——
+ * MoonBit 每帧推一段 TSV（一行一个控件：id\tparent\trole\tname\tstate\tvalue\t
+ * text\tx\ty\tw\th），这里只做存储；平台臂（macOS NSAccessibility / Windows
+ * UIA / Linux AT-SPI）从这份表读。整体替换、按值拷贝——删掉的控件下一帧就没了。
+ */
+#define WM_A11Y_MAX 4096
+typedef struct WmA11yRow {
+    int32_t id;
+    int32_t parent;
+    int32_t enabled;
+    char role[32];
+    char name[256];
+    char state[32];
+    char value[64];
+    char text[512];
+    double x, y, w, h;
+} WmA11yRow;
+
+void wm_a11y_publish(const uint8_t *blob, int32_t len, int32_t count);
+int32_t wm_a11y_count(void);
+const WmA11yRow *wm_a11y_row(int32_t i);
+
 #if defined(_WIN32)
 
 // ---------------- Win32 后端 ----------------
@@ -8476,6 +8505,87 @@ static uint32_t wm_keysym_of(NSEvent *ev) {
   return self;
 }
 
+/* ---- 无障碍（阶段 1）：把 MoonBit 每帧推来的语义快照摊成轻量 AX 元素 ----
+ * WMView 是整窗自绘的容器：自己不是元素，子元素就是快照里的那几十个控件。
+ * 快照坐标是**物理像素**、原点在客户区左上；这里换点、按非翻转视图翻 y，
+ * 再交给窗口换算到屏幕坐标。读屏查询频率低，每次现建数组即可（不做缓存
+ * 失效那一套，删掉的控件下一帧自然消失）。 */
+- (BOOL)isAccessibilityElement {
+  return NO;
+}
+
+- (NSString *)accessibilityRole {
+  return NSAccessibilityGroupRole;
+}
+
+static NSString *wm_a11y_ax_role(const char *role) {
+  if (!role || !role[0]) {
+    return NSAccessibilityGroupRole;
+  }
+  if (!strcmp(role, "button")) return NSAccessibilityButtonRole;
+  if (!strcmp(role, "checkbox")) return NSAccessibilityCheckBoxRole;
+  if (!strcmp(role, "radio")) return NSAccessibilityRadioButtonRole;
+  if (!strcmp(role, "switch")) return NSAccessibilityCheckBoxRole;
+  if (!strcmp(role, "slider")) return NSAccessibilitySliderRole;
+  if (!strcmp(role, "stepper")) return NSAccessibilityIncrementorRole;
+  if (!strcmp(role, "text_input")) return NSAccessibilityTextFieldRole;
+  if (!strcmp(role, "text_area")) return NSAccessibilityTextAreaRole;
+  if (!strcmp(role, "select")) return NSAccessibilityPopUpButtonRole;
+  if (!strcmp(role, "progress")) return NSAccessibilityProgressIndicatorRole;
+  if (!strcmp(role, "text")) return NSAccessibilityStaticTextRole;
+  if (!strcmp(role, "heading")) return NSAccessibilityHeadingRole;
+  if (!strcmp(role, "link")) return NSAccessibilityLinkRole;
+  if (!strcmp(role, "image")) return NSAccessibilityImageRole;
+  if (!strcmp(role, "tab")) return NSAccessibilityRadioButtonRole;
+  if (!strcmp(role, "menuitem")) return NSAccessibilityMenuItemRole;
+  return NSAccessibilityGroupRole;
+}
+
+- (NSArray *)accessibilityChildren {
+  NSMutableArray *arr = [NSMutableArray array];
+  int32_t n = wm_a11y_count();
+  if (n <= 0) {
+    return arr;
+  }
+  CGFloat scale = 1.0;
+  if (self.window != nil) {
+    CGFloat sc = self.window.backingScaleFactor;
+    if (sc > 0.0) {
+      scale = sc;
+    }
+  }
+  CGFloat box_h = self.bounds.size.height * scale;
+  for (int32_t i = 0; i < n; i++) {
+    const WmA11yRow *r = wm_a11y_row(i);
+    if (r == NULL) {
+      continue;
+    }
+    // 物理像素 → 点；非翻转视图：y 从顶边量，换到从底边量
+    NSRect rect = NSMakeRect(r->x / scale, (box_h - r->y - r->h) / scale,
+                             r->w / scale, r->h / scale);
+    NSRect screen = self.window != nil ? [self.window convertRectToScreen:rect] : rect;
+    NSString *label = r->name[0] ? [NSString stringWithUTF8String:r->name] : @"";
+    NSAccessibilityElement *el = [NSAccessibilityElement
+        accessibilityElementWithRole:wm_a11y_ax_role(r->role)
+                               frame:screen
+                               label:label
+                              parent:self];
+    if (el == nil) {
+      continue;
+    }
+    [el setAccessibilityIdentifier:[NSString stringWithFormat:@"w%d", (int)r->id]];
+    [el setAccessibilityEnabled:r->enabled ? YES : NO];
+    if (r->text[0]) {
+      [el setAccessibilityValue:[NSString stringWithUTF8String:r->text]];
+    }
+    if (r->state[0]) {
+      [el setAccessibilityRoleDescription:[NSString stringWithUTF8String:r->state]];
+    }
+    [arr addObject:el];
+  }
+  return arr;
+}
+
 - (void)setSlot:(int)sid {
   vsid = sid;
 }
@@ -12847,3 +12957,75 @@ int64_t wm_shell_caps(void) {
 // Linux 上 native-stub 的那次编译（无 _WIN32、无 WM_STUB_GTK）落不进任何
 // 分支，编出空翻译单元——GTK 实现由 prebuild 的 libyue_win_stub.a 提供，
 // 这里绝不能再定义一份（双定义）。
+
+/* 存储只编进「实现 TU」：Win32 原生 / GTK 的 .a / mac 的 .a。
+ * native-stub 在 Linux/mac 上编的是空 TU，若也定义就会与 .a 双定义（链接期
+ * multiple definition，已在 Linux 实测踩到）。 */
+#if defined(WM_STUB_MAC) || defined(WM_STUB_GTK) || \
+    (!defined(__linux__) && !defined(__APPLE__))
+
+/* ================= 语义快照存储（所有平台同一份，平台臂只读） ================= */
+
+static WmA11yRow g_a11y_rows[WM_A11Y_MAX];
+static int32_t g_a11y_n = 0;
+
+/* 取下一个制表符分隔的字段写进 dst（越界截断）；返回后 pp 指向分隔符 */
+static void wm_a11y_field(const char **pp, const char *end, char *dst, int cap) {
+    const char *p = *pp;
+    int k = 0;
+    while (p < end && *p != '\t' && *p != '\n') {
+        if (k < cap - 1) {
+            dst[k++] = *p;
+        }
+        p++;
+    }
+    dst[k] = 0;
+    if (p < end && (*p == '\t' || *p == '\n')) {
+        p++;
+    }
+    *pp = p;
+}
+
+void wm_a11y_publish(const uint8_t *blob, int32_t len, int32_t count) {
+    const char *p = (const char *)blob;
+    const char *end = p + (len > 0 ? len : 0);
+    int32_t n = 0;
+    while (p < end && n < count && n < WM_A11Y_MAX) {
+        WmA11yRow *r = &g_a11y_rows[n];
+        char buf[32];
+        wm_a11y_field(&p, end, buf, (int)sizeof buf);
+        r->id = (int32_t)strtol(buf, NULL, 10);
+        wm_a11y_field(&p, end, buf, (int)sizeof buf);
+        r->parent = (int32_t)strtol(buf, NULL, 10);
+        wm_a11y_field(&p, end, buf, (int)sizeof buf);
+        r->enabled = (int32_t)strtol(buf, NULL, 10);
+        wm_a11y_field(&p, end, r->role, (int)sizeof r->role);
+        wm_a11y_field(&p, end, r->name, (int)sizeof r->name);
+        wm_a11y_field(&p, end, r->state, (int)sizeof r->state);
+        wm_a11y_field(&p, end, r->value, (int)sizeof r->value);
+        wm_a11y_field(&p, end, r->text, (int)sizeof r->text);
+        wm_a11y_field(&p, end, buf, (int)sizeof buf);
+        r->x = strtod(buf, NULL);
+        wm_a11y_field(&p, end, buf, (int)sizeof buf);
+        r->y = strtod(buf, NULL);
+        wm_a11y_field(&p, end, buf, (int)sizeof buf);
+        r->w = strtod(buf, NULL);
+        wm_a11y_field(&p, end, buf, (int)sizeof buf);
+        r->h = strtod(buf, NULL);
+        n++;
+    }
+    g_a11y_n = n;
+}
+
+int32_t wm_a11y_count(void) {
+    return g_a11y_n;
+}
+
+const WmA11yRow *wm_a11y_row(int32_t i) {
+    if (i < 0 || i >= g_a11y_n) {
+        return NULL;
+    }
+    return &g_a11y_rows[i];
+}
+
+#endif /* 语义快照存储：仅实现 TU */
