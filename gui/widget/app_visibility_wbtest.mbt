@@ -4,7 +4,7 @@
 // 与 host_wbtest.mbt 同款；事件注不入队，drain 分派由真机清单验。
 
 ///|
-fn vis_app() -> App {
+fn vis_app() -> WindowHost {
   let root = Widget::new()
   {
     session: @shell.fake_session(910, @shell.host_new_wid(), false, 300, 200),

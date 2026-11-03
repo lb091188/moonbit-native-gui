@@ -106,7 +106,7 @@ pub fn message_box(
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   // 用显式 mount 而不是 `node_of_new`：后者的 finish 在构造期就跑，而「按 Store
-  // 立刻开层」要求浮层宿主已经就位（宿主是 App 建窗时装的）。同 `dialog`。
+  // 立刻开层」要求浮层宿主已经就位（宿主是 WindowHost 建窗时装的）。同 `dialog`。
   {
     mount: fn(parent : @widget.Widget) -> @widget.Widget {
       let anchor = @widget.Widget::new()
@@ -373,7 +373,7 @@ pub fn message_box(
           b.node.set_flex_shrink(0.0)
           b.cursor = @widget.CURSOR_HAND
           // 钮自己领焦点号：进树即在焦点链里（Tab 能在框里走、空格/回车能激活），
-          // 弹框开着时链只收这一层，见 `App::sync_focus`
+          // 弹框开着时链只收这一层，见 `WindowHost::sync_focus`
           b.focus_id = auto_focus_id(0)
           btn_ids.push(b.focus_id)
           // 主/次两档皮肤折进槽：基块=常态、hover 桶=点亮态（与对话框底钮同形）

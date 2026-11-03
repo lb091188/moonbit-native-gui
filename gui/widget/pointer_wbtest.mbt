@@ -1,5 +1,5 @@
 // 指针分发决策（悬停归属 / 按下捕获 / Leave 补发）的回归。全程无头：
-// route_pointer 是纯函数，App 只保存它返回的两个状态。
+// route_pointer 是纯函数，WindowHost 只保存它返回的两个状态。
 
 ///|
 fn pe(kind : PointerKind, x : Double, y : Double) -> PointerEvent {

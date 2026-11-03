@@ -34,8 +34,8 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **最大化 / 还原（接口）**：`set_maximized` / `is_maximized`（三平台真机通过）
 - ✅ **无边框**：切无边框窗口；标题栏与边框消失，内容区不变形
 - ✅ **显隐驻留**：`hide` / `show` 一对；`show` 唤回 hide 前的屏幕原点，不是居中重开。位置口径：`move_to` / `origin` **按客户区原点、物理像素互逆**（带边框的窗内部补偿标题栏与边框厚度，无边框时两者重合）——Win32 臂 2026-10-28 本机实测：`move(160,160)`→`origin=(160,160)` 且整窗矩形补偿到 (152,129)，带边框窗连做三轮 hide/show 客户区与整窗双零漂移（此前该臂是空桩，读数恒 (0,0) 且 `move_to` 静默不生效）
-- ✅ **透视窗默认底让位**：宿主给每个 App 根铺的 `bg_page` 默认底曾把透视窗铺满整窗（实测不透明）——新增 `App::set_transparent_bg`（转窗口层 + 默认底让位，关透视恢复），showcase 透明测试窗改走它
-- ✅ **显隐事件与组合串清理**：`Hidden` / `Shown` 事件（`hide` / `show` 真实转换时发，首次显示不发）；隐藏拍清在途输入法组合串、焦点栈不动；整窗失焦同一条交接链（macOS 补 `windowDidResignKey`、Windows 补 `WM_KILLFOCUS` 上报）；`App::on_hidden` / `App::on_shown` 暴露给应用
+- ✅ **透视窗默认底让位**：宿主给每个 App 根铺的 `bg_page` 默认底曾把透视窗铺满整窗（实测不透明）——新增 `WindowHost::set_transparent_bg`（转窗口层 + 默认底让位，关透视恢复），showcase 透明测试窗改走它
+- ✅ **显隐事件与组合串清理**：`Hidden` / `Shown` 事件（`hide` / `show` 真实转换时发，首次显示不发）；隐藏拍清在途输入法组合串、焦点栈不动；整窗失焦同一条交接链（macOS 补 `windowDidResignKey`、Windows 补 `WM_KILLFOCUS` 上报）；`WindowHost::on_hidden` / `WindowHost::on_shown` 暴露给应用
 - ✅ **多窗口**：`open_window` / `close_window` / `window_count` / `active_window` 四个门面
 - ✅ **窗口句柄与主窗判定**：`wid` 取句柄、`is_primary` 判主窗
 - ✅ **消息泵与每帧调度**：宿主事件循环：投递、命中、重排重绘都在这一拍里
@@ -177,7 +177,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **绑定与重建**：`bind_node` 原位重建子树、`bind_label` 与各 `*_dyn` 入口
 - ✅ **页面路由**：路由树、每层选中键、link 绑定、Eager / Prefetch / Lazy 三档预建
 - ✅ **样式与主题**：样式槽 + 状态桶 + 命名类；20 个颜色 token；跟随系统明暗与强调色
-- ✅ **声明式层**：`Node{mount:(Widget)->Widget}` 地基（`node_of`/`mount_children`/`App::mount`/`invalidate` 回路）+ **L1 构造器全集**（`ui/declarative.mbt`：`vbox`/`hbox`/`text_edit`/`picker`/`scroll`/`tab`/`date_picker`/`mount_window`/`bind`/`bind_label`/`hover_group`/`cursor_group`/`overlay_scroll`/`combo`/`gif`；与组件同名的 12 个直接复用组件、不包第二层）。旧链 24 构造器除 `mount`（即 `App::mount`）与同名件外全部到位**到此收口**。`cursor_group` 配套窗口层光标通道（`wm_set_cursor` + `Widget.cursor` 请求 + 宿主按悬停路径取「最深非零」下发）；`combo` 走按键沿祖先链冒泡（↑↓/回车/Esc）；`gif` 走 `@render.Animation` 逐帧迭代 + 进程级延时通道
+- ✅ **声明式层**：`Node{mount:(Widget)->Widget}` 地基（`node_of`/`mount_children`/`WindowHost::mount`/`invalidate` 回路）+ **L1 构造器全集**（`ui/declarative.mbt`：`vbox`/`hbox`/`text_edit`/`picker`/`scroll`/`tab`/`date_picker`/`mount_window`/`bind`/`bind_label`/`hover_group`/`cursor_group`/`overlay_scroll`/`combo`/`gif`；与组件同名的 12 个直接复用组件、不包第二层）。旧链 24 构造器除 `mount`（即 `WindowHost::mount`）与同名件外全部到位**到此收口**。`cursor_group` 配套窗口层光标通道（`wm_set_cursor` + `Widget.cursor` 请求 + 宿主按悬停路径取「最深非零」下发）；`combo` 走按键沿祖先链冒泡（↑↓/回车/Esc）；`gif` 走 `@render.Animation` 逐帧迭代 + 进程级延时通道
 
 ### 主题与样式
 
@@ -335,7 +335,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 ### 工程与交付
 
 - ⏳ **稳定面清单与 1.0 时点**：逐包划分承诺面 / 实验面，公告破坏性改动截止线
-- 🚧 **无头测试门面 uitest**（2026-11-02 立项；方案与坑清单见 [proposals/headless-tester.md](proposals/headless-tester.md)）：本仓不缺无头能力（wbtest 2.8 万行、合成指针事件与位图断言齐全），缺的是**对外门面**与**应用泵无头路径**——P1 公开包 `gui/uitest`（`test-import` 消费、name 定位不靠下标、显式 `frame()` 并行安全、`Capabilities` 显式守卫、form_wbtest 示范迁移）；✅P2 虚窗哨兵（`Window::virtual_` id<0 哨兵 + `App::test_headless` 假窗与无头泵 wait(0)，定时器经 step 驱动可断言，C 桩零改动）；真机人工验的分工不变。拆分待办见 TODO「无头测试门面」节
+- 🚧 **无头测试门面 uitest**（2026-11-02 立项；方案与坑清单见 [proposals/headless-tester.md](proposals/headless-tester.md)）：本仓不缺无头能力（wbtest 2.8 万行、合成指针事件与位图断言齐全），缺的是**对外门面**与**应用泵无头路径**——P1 公开包 `gui/uitest`（`test-import` 消费、name 定位不靠下标、显式 `frame()` 并行安全、`Capabilities` 显式守卫、form_wbtest 示范迁移）；✅P2 虚窗哨兵（`Window::virtual_` id<0 哨兵 + `WindowHost::test_headless` 假窗与无头泵 wait(0)，定时器经 step 驱动可断言，C 桩零改动）；真机人工验的分工不变。拆分待办见 TODO「无头测试门面」节
 
 ### 可访问性
 

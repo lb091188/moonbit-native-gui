@@ -133,7 +133,7 @@ fn main {
   let err_line : @base.Store[String] = @base.Store::new("")
   let list_holder : Ref[@widget.Widget?] = Ref(None)
   let player_holder : Ref[@widget.Widget?] = Ref(None)
-  let host : Ref[@widget.App?] = Ref(None)
+  let host : Ref[@widget.WindowHost?] = Ref(None)
   let loaded : Ref[Bool] = Ref(false)
   fn fail(msg : String) -> Unit {
     err_line.set(msg)
@@ -417,7 +417,7 @@ fn main {
     title="音频播放示例",
     width=1020,
     height=640,
-    handle=fn(a : @widget.App) {
+    handle=fn(a : @widget.WindowHost) {
       host.val = Some(a)
       // 首帧后载入默认资产（此时挂载已完成，播放器能直接挂进右侧区域）
       let _ = a.timer(0, fn() -> Unit {

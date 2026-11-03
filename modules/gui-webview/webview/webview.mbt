@@ -126,7 +126,7 @@ const WB_EVAL_CAP = 65536
 /// 一扇窗里的一个 webview 区（pane）。owner = 原生子件：它占一块由 yoga 算出的
 /// 矩形，矩形内是 WebKit 自己画的，我们的 Painter 不参与，也不被 `clip_rect` 裁。
 pub(all) struct Webview {
-  app : @widget.App
+  app : @widget.WindowHost
   mut surface : @win.ChildSurface?
   mut handle : Int64
   mut url : String
@@ -153,13 +153,13 @@ pub(all) struct Webview {
 ///|
 /// 建一个 webview pane 并给出起始 URL。引擎不可用返回 None（调用方降级）。
 /// 此刻还没有矩形（要等布局），页面在第一次绘制时随子件槽一起挂上。
-pub fn webview_new(app : @widget.App, url : String) -> Webview? {
+pub fn webview_new(app : @widget.WindowHost, url : String) -> Webview? {
   webview_open(app, webview_options(url))
 }
 
 ///|
 /// 带参数地建 pane（profile / UA 这类引擎原生开关走这里）。
-pub fn webview_open(app : @widget.App, opts : WebviewOptions) -> Webview? {
+pub fn webview_open(app : @widget.WindowHost, opts : WebviewOptions) -> Webview? {
   if !webview_supported() {
     return None
   }

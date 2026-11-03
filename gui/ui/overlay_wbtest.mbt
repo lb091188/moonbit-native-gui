@@ -2,7 +2,7 @@
 // 悬浮提示的延时与离开即收。浮层宿主是进程级单槽，用例开头先清干净。
 
 ///|
-/// 给测试根装浮层宿主（内容树里的图层由 App 装，无头用例手动装）。
+/// 给测试根装浮层宿主（内容树里的图层由 WindowHost 装，无头用例手动装）。
 fn with_overlay(root : @widget.Widget) -> Unit {
   @widget.set_overlay_host(@widget.make_overlay_host(root))
   @widget.overlay_clear()
@@ -10,7 +10,7 @@ fn with_overlay(root : @widget.Widget) -> Unit {
 
 ///|
 /// 先在根上装好浮层宿主，再把节点挂进去（对话框这类「挂载即按 Store 开层」的
-/// 组件要求宿主先就位；真窗口里 App::new 先建宿主、内容后挂）。
+/// 组件要求宿主先就位；真窗口里 WindowHost::new 先建宿主、内容后挂）。
 fn mounted_with_overlay(
   node : @widget.Node,
   w : Double,

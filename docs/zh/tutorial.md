@@ -84,7 +84,7 @@ moon add NoahLiu/native-gui
   supported_targets = "native"
   ```
 
-  `import` 让代码能访问库：`@ui.*` 提供控件、组件与声明式入口（`mount_window` 与各节点构造器），`@base.*` 提供响应式状态（`Store` / `Signal`），`@style.*` 提供字阶等样式类，`@widget.*` 提供应用宿主 `App`。`pkgtype(kind: "executable")` 与 `supported_targets = "native"` 声明本包是可执行入口、只出原生目标。
+  `import` 让代码能访问库：`@ui.*` 提供控件、组件与声明式入口（`mount_window` 与各节点构造器），`@base.*` 提供响应式状态（`Store` / `Signal`），`@style.*` 提供字阶等样式类，`@widget.*` 提供窗宿主 `WindowHost`。`pkgtype(kind: "executable")` 与 `supported_targets = "native"` 声明本包是可执行入口、只出原生目标。
 
   入口在 `cmd/main/main.mbt`——moon 只把名为 `main.mbt` 的文件识别为程序入口，自建入口文件时保持这个文件名。
 
@@ -150,7 +150,7 @@ moon run cmd/main
 **想做得好看**——起窗默认自动探测一次系统深浅与主色（显式 `theme_apply` 过则不覆盖）；要持续跟随（系统切换界面即时变色），`follow_system_theme` 一行接上：
 
 ```moonbit
-handle=fn(a : @widget.App) -> Unit {
+handle=fn(a : @widget.WindowHost) -> Unit {
   let _ = a.follow_system_theme(interval_ms=2000)
 }
 ```

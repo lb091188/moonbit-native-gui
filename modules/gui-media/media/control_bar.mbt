@@ -215,7 +215,7 @@ fn media_error_board(
 }
 
 ///|
-/// 切当前窗全屏。控件层拿不到窗口，走进程级宿主单槽（`App::set_fullscreen`
+/// 切当前窗全屏。控件层拿不到窗口，走进程级宿主单槽（`WindowHost::set_fullscreen`
 /// 的门面注释同条口径）；没有宿主（无头测试）返回 false，调用方据此不动
 /// 自己的档位状态。
 fn player_set_fullscreen(on : Bool) -> Bool {
@@ -357,7 +357,7 @@ fn player_volume(
 }
 
 ///|
-/// 把播放器快捷键挂到当前窗的**按键兜底通道**上（`App::add_key_fallthrough`）：
+/// 把播放器快捷键挂到当前窗的**按键兜底通道**上（`WindowHost::add_key_fallthrough`）：
 /// 空格播放/暂停、回车全屏、`←`/`→` 后退/前进、`↑`/`↓` 音量、`M` 静音、
 /// `L` 循环、`Esc` 退全屏。
 /// 三条口径：① 不点窗口也能用，但焦点在输入框里时按键被编辑器吃掉，播放器

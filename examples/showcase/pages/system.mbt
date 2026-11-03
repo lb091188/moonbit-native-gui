@@ -21,7 +21,7 @@ const AUTOSTART_APP_ID : String = "libyue.showcase"
 
 ///|
 /// 宿主窗口 id → 对话框 parent（0 = 无父窗口；这里恒有父）。
-fn dialog_parent(a : @widget.App) -> Int64 {
+fn dialog_parent(a : @widget.WindowHost) -> Int64 {
   a.wid().to_int64()
 }
 

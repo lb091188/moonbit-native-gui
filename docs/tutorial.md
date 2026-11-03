@@ -84,7 +84,7 @@ The current `moon new` template: the root package is a library (`my_app.mbt` and
   supported_targets = "native"
   ```
 
-  `import` gives the code access to the library: `@ui.*` provides widgets, components, and the declarative entries (`mount_window` and the node constructors), `@base.*` provides reactive state (`Store` / `Signal`), `@style.*` provides type-scale style classes, and `@widget.*` provides the app host `App`. `pkgtype(kind: "executable")` and `supported_targets = "native"` declare this package an executable entry that builds only for the native target.
+  `import` gives the code access to the library: `@ui.*` provides widgets, components, and the declarative entries (`mount_window` and the node constructors), `@base.*` provides reactive state (`Store` / `Signal`), `@style.*` provides type-scale style classes, and `@widget.*` provides the window host `WindowHost`. `pkgtype(kind: "executable")` and `supported_targets = "native"` declare this package an executable entry that builds only for the native target.
 
   The entry file is `cmd/main/main.mbt` — moon only recognizes a file named `main.mbt` as the program entry; keep that file name when creating your own entry files.
 
@@ -150,7 +150,7 @@ Once your first app runs, pick a path by goal:
 **Make it look good** — the first window probes the system light/dark mode and accent color once by default (skipped when you have applied a theme explicitly); for continuous following (live recolor when the system switches), connect it in one `follow_system_theme` line:
 
 ```moonbit
-handle=fn(a : @widget.App) -> Unit {
+handle=fn(a : @widget.WindowHost) -> Unit {
   let _ = a.follow_system_theme(interval_ms=2000)
 }
 ```

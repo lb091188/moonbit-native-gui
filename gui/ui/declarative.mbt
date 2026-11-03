@@ -269,24 +269,24 @@ pub fn hover_group(
 
 ///|
 /// 声明一棵 UI 树并装进窗口：建宿主（窗口 + 事件循环 + 浮层图层 + 输入法通道
-/// 都在 `App::new` 里就位）、挂载子节点、把宿主交给调用方 `run`。
-/// 无显示服务时返回 None（调用方打印提示即可，与 `App::new` 同口径）。
+/// 都在 `WindowHost::new` 里就位）、挂载子节点、把宿主交给调用方 `run`。
+/// 无显示服务时返回 None（调用方打印提示即可，与 `WindowHost::new` 同口径）。
 ///
 /// 窗口居中由 WM 决定、关闭只把宿主循环停下，故不提供 `center` / `on_close`，
 /// 退出后的收尾写在调用方 `run()` 之后。
 ///
 /// 主题默认接线：进程内首次挂窗自动探测一次系统深浅与主色并应用；此前
 /// 显式 `theme_apply` 过（含已接 `follow_system_theme`）则不覆盖。持续跟随
-/// 仍是 opt-in（`App::follow_system_theme`）。
+/// 仍是 opt-in（`WindowHost::follow_system_theme`）。
 pub fn mount_window(
   children : Array[@widget.Node],
   title? : String = "",
   width? : Int = 800,
   height? : Int = 600,
-  handle? : (@widget.App) -> Unit = fn(_a : @widget.App) -> Unit { () },
-) -> @widget.App? {
+  handle? : (@widget.WindowHost) -> Unit = fn(_a : @widget.WindowHost) -> Unit { () },
+) -> @widget.WindowHost? {
   let _ = @widget.theme_apply_system_once()
-  match @widget.App::new(width, height, title) {
+  match @widget.WindowHost::new(width, height, title) {
     None => None
     Some(app) => {
       app.mount(children)
@@ -306,8 +306,8 @@ pub fn mount_window_render(
   title? : String = "",
   width? : Int = 800,
   height? : Int = 600,
-  handle? : (@widget.App) -> Unit = fn(_a : @widget.App) -> Unit { () },
-) -> @widget.App? {
+  handle? : (@widget.WindowHost) -> Unit = fn(_a : @widget.WindowHost) -> Unit { () },
+) -> @widget.WindowHost? {
   mount_window(render(), title=title, width=width, height=height, handle=handle)
 }
 

@@ -2,7 +2,7 @@
 //
 // 三条口径：
 // ① 窗口段只放后端真写得通的按钮；改尺寸用 `set_size_pixels`；取窗口经宿主
-//    `App::window()`（控件层拿不到窗口，`set_fullscreen` 收在宿主上；标题/
+//    `WindowHost::window()`（控件层拿不到窗口，`set_fullscreen` 收在宿主上；标题/
 //    尺寸/无边框/最大化这类窗口级动作由上层直调 `@win.Window`）；
 // ② 全局快捷键走 `@shell.hotkey_*` 门面（W22）：注册收 `Result`，命中经
 //    `hotkey_poll` 抽（id→加速串回查表在门面里，页内只记注册返回的句柄用于
@@ -144,7 +144,7 @@ fn open_transparent_demo(app : @shared.App, out : @base.Store[String]) -> Unit {
 /// 小窗，五档全施加在它身上，主窗保持普通档。
 fn open_layer_probe(
   app : @shared.App,
-  slot : Ref[@widget.App?],
+  slot : Ref[@widget.WindowHost?],
   out : @base.Store[String],
 ) -> Unit {
   match slot.val {
@@ -185,7 +185,7 @@ fn open_layer_probe(
 /// 不动），到点本窗 hide，唤回后组合串应已清（隐藏清组合串的真机验法）。
 fn open_resident_probe(
   app : @shared.App,
-  slot : Ref[@widget.App?],
+  slot : Ref[@widget.WindowHost?],
   out : @base.Store[String],
 ) -> Unit {
   match slot.val {
@@ -294,8 +294,8 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
   let transparent_on : Ref[Bool] = Ref(false)
   let tw_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没开过透明测试窗）"))
   // 多开窗口的两个探针：层级与显隐都作用在独立小窗上，主窗不动
-  let layer_probe : Ref[@widget.App?] = Ref(None)
-  let resident_probe : Ref[@widget.App?] = Ref(None)
+  let layer_probe : Ref[@widget.WindowHost?] = Ref(None)
+  let resident_probe : Ref[@widget.WindowHost?] = Ref(None)
   let resident_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没开驻留探针窗）"))
   fn win_set_opacity(alpha : Int) -> Unit {
     match app.host.val {

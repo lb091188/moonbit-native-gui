@@ -138,7 +138,7 @@ fn main {
   let sub_off : Ref[Bool] = Ref(false)
   let list_holder : Ref[@widget.Widget?] = Ref(None)
   let player_holder : Ref[@widget.Widget?] = Ref(None)
-  let host : Ref[@widget.App?] = Ref(None)
+  let host : Ref[@widget.WindowHost?] = Ref(None)
   let loaded : Ref[Bool] = Ref(false)
   fn fail(msg : String) -> Unit {
     err_line.set(msg)
@@ -481,7 +481,7 @@ fn main {
     title="视频播放示例",
     width=1180,
     height=720,
-    handle=fn(a : @widget.App) {
+    handle=fn(a : @widget.WindowHost) {
       host.val = Some(a)
       // 首帧后载入默认资产（此时挂载已完成，播放器能直接挂进视频区）
       let _ = a.timer(0, fn() -> Unit {

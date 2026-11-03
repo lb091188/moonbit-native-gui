@@ -4,7 +4,7 @@
 ///|
 test "test_headless：定时器经 step 驱动到期（wait(0) 不真睡）" {
   let fired : Ref[Int] = Ref(0)
-  let a = App::test_headless(200, 120)
+  let a = WindowHost::test_headless(200, 120)
   assert_true(a.is_primary())
   assert_true(@shell.session_is_headless())
   let _ = a.timer(20, fn() { fired.val += 1 })
@@ -20,7 +20,7 @@ test "test_headless：定时器经 step 驱动到期（wait(0) 不真睡）" {
 
 ///|
 test "test_headless：挂内容、置脏、step 一拍结算不崩" {
-  let a = App::test_headless(240, 160)
+  let a = WindowHost::test_headless(240, 160)
   a.mount([
     node_of_new(fn(_p : Widget) -> Widget {
       let w = Widget::new()

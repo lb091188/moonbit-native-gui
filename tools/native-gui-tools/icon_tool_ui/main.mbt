@@ -66,7 +66,7 @@ fn main {
     title="iconfont 预览",
     width=720,
     height=560,
-    handle=fn(_a : @widget.App) { () },
+    handle=fn(_a : @widget.WindowHost) { () },
   )
   match mounted {
     None => println("本平台无窗口后端或无显示服务")

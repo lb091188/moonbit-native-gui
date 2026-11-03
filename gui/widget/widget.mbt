@@ -810,7 +810,7 @@ pub fn Widget::set_press(self : Widget, id : Int) -> Unit {
 
 ///|
 /// 指针事件在控件树上的分发决策：悬停归属、按下捕获、事件投递。
-/// 独立成纯函数是为了无头可测——`App` 只保存 `hover_id`/`capture` 两个状态
+/// 独立成纯函数是为了无头可测——`WindowHost` 只保存 `hover_id`/`capture` 两个状态
 /// 并把返回值写回，另在 `Down` 时做焦点接管（那要碰窗口与焦点栈）。
 /// 规则：
 /// - `Down`：命中者标 pressed 并成为捕获者；此后 `Move`/`Up` 都投给它

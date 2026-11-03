@@ -2,7 +2,7 @@
 // 「弹层真能盖住网页」由 modules/gui-examples/native-web 的桥接窗回证。
 
 ///|
-fn fake_host_app() -> App {
+fn fake_host_app() -> WindowHost {
   let root = Widget::new()
   {
     session: @shell.fake_session(900, 1, true, 400, 300),

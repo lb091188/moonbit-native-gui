@@ -187,7 +187,7 @@ let timer_schedule : Ref[(Int, () -> Unit) -> Int] = Ref(fn(_ms, _f) { 0 })
 let timer_cancel : Ref[(Int) -> Unit] = Ref(fn(_id) { () })
 
 // 宿主就绪前排的定时器先排队：默认选中段/页面构造期就会跑 on_mount 一类
-// 回调，那时 App 还没装钩子；不排队的话首拍进空通道、循环再也起不来。
+// 回调，那时 WindowHost 还没装钩子；不排队的话首拍进空通道、循环再也起不来。
 // 句柄用负数（挂载后真实句柄从 1 起，0 仍保留「空操作」语义），可取消。
 let timer_hooks_ready : Ref[Bool] = Ref(false)
 
@@ -196,7 +196,7 @@ let pending_timers : Array[(Int, Int, () -> Unit)] = []
 let next_pending_id : Ref[Int] = Ref(-1)
 
 ///|
-/// 安装延时任务的派发通道（`App::new` 把这两个转派到自己的 `Loop`）。
+/// 安装延时任务的派发通道（`WindowHost::new` 把这两个转派到自己的 `Loop`）。
 /// 组件层要的是「过一会儿跑一次」，不该知道自己属于哪个宿主，所以与
 /// `set_repaint_hook` 同款进程级单槽（当前形态一进程一宿主）。
 /// 安装时把排队中的早鸟定时器一并补发。

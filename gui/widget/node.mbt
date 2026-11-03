@@ -8,7 +8,7 @@
 //    位置，兄弟项的顺序与坐标不受被换掉的这项影响（布局引擎为此加了
 //    `insert_child` / `remove_child_at`）；
 // ② 不需要「推迟一拍」或「重挂后整窗重算」这类规避：命中矩形每帧从布局结果
-//    重取（`App::paint_frame` → `relayout` → `collect_abs`），remove+add 之后不会
+//    重取（`WindowHost::paint_frame` → `relayout` → `collect_abs`），remove+add 之后不会
 //    留下旧矩形；
 // ③ 每一代子树的订阅进**回收袋**，重建前整袋退订——死订阅不随重建次数累积。
 

@@ -38,7 +38,7 @@ pub(all) struct OverlayHost {
 /// 一层已开浮层：句柄、包裹控件、「点浮层外」的策略——`dismiss=true` 收起并消费
 /// 这一击（菜单/对话框的模态语义），`false` 放行给底下的页面控件（轻提示）。
 /// `full` 另表「铺满整窗的遮罩档」（对话框/消息框走 `overlay_show_full`）：这一层
-/// 开着时**焦点链只收它子树**，见 `App::sync_focus`。
+/// 开着时**焦点链只收它子树**，见 `WindowHost::sync_focus`。
 pub(all) struct OverlayItem {
   id : Int
   w : Widget
@@ -49,7 +49,7 @@ pub(all) struct OverlayItem {
 ///|
 /// 焦点链归属：有「铺满遮罩档」浮层（对话框/消息框）开着时是**那一层的子树**，
 /// 否则整棵树。其上再叠的轻提示/气泡不改变归属——弹框还开着，焦点就不该回到
-/// 被遮住的页面。宿主每次对齐焦点栈都问它（见 `App::sync_focus`）。
+/// 被遮住的页面。宿主每次对齐焦点栈都问它（见 `WindowHost::sync_focus`）。
 pub fn OverlayHost::focus_root(self : OverlayHost) -> Widget? {
   let mut i = self.items.length() - 1
   while i >= 0 {
@@ -118,7 +118,7 @@ pub fn make_overlay_host(root : Widget) -> OverlayHost {
 let overlay_slot : Ref[() -> OverlayHost?] = Ref(fn() { None })
 
 ///|
-/// 安装浮层宿主（`App::new` 调用；无宿主时所有浮层 API 都是空操作）。
+/// 安装浮层宿主（`WindowHost::new` 调用；无宿主时所有浮层 API 都是空操作）。
 pub fn set_overlay_host(h : OverlayHost) -> Unit {
   overlay_slot.val = fn() -> OverlayHost? { Some(h) }
 }
@@ -472,7 +472,7 @@ pub fn OverlayHost::raise_layer(self : OverlayHost) -> Unit {
 }
 
 ///|
-/// 把**当前窗**的图层挪回最后（`App::mount` 之后调用）。
+/// 把**当前窗**的图层挪回最后（`WindowHost::mount` 之后调用）。
 pub fn overlay_raise() -> Unit {
   match overlay_host() {
     Some(h) => h.raise_layer()

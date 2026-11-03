@@ -1,5 +1,5 @@
 // 原生弹层窗口的宿主侧：把「一扇无边框、贴着锚点、恒在自己之上的窗」
-// 收成一句 `App::open_popup`。它是宿主注册表里的**附窗**——关掉它不影响宿主
+// 收成一句 `WindowHost::open_popup`。它是宿主注册表里的**附窗**——关掉它不影响宿主
 // （关窗裁决），所以菜单/下拉/对话框这类弹层可以随开随关。
 //
 // 为什么非要真窗口而不是自绘图层：自绘像素永远画在原生子件（webview 区）之下，
@@ -34,15 +34,15 @@ pub fn popup_place(
 /// 开一扇弹层窗：位置按「本窗屏幕原点 + (x, y)」算，`screen_w`/`screen_h` 传
 /// 工作区尺寸才会做越界翻转（给 0 就是不翻转）。建好即登记为附窗，
 /// `mount` 内容、`close_window` 收起；本窗与它共用同一个循环与泵。
-pub fn App::open_popup(
-  self : App,
+pub fn WindowHost::open_popup(
+  self : WindowHost,
   x : Int,
   y : Int,
   width : Int,
   height : Int,
   screen_w? : Int = 0,
   screen_h? : Int = 0,
-) -> App? {
+) -> WindowHost? {
   let o = self.session.window.origin()
   let pos = popup_place(
     o.0,

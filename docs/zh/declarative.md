@@ -25,9 +25,9 @@ fn main {
 }
 ```
 
-- `mount_window(children, title?, width?=800, height?=600, handle?)`：建宿主、挂载子节点、把宿主交回给你 `run`。窗口、事件循环、浮层图层、输入法通道都在 `App::new` 里就位；无显示服务返回 `None`。主题默认接线：进程内首次挂窗自动探测一次系统深浅与主色，显式 `theme_apply` 过则不覆盖。
+- `mount_window(children, title?, width?=800, height?=600, handle?)`：建宿主、挂载子节点、把宿主交回给你 `run`。窗口、事件循环、浮层图层、输入法通道都在 `WindowHost::new` 里就位；无显示服务返回 `None`。主题默认接线：进程内首次挂窗自动探测一次系统深浅与主色，显式 `theme_apply` 过则不覆盖。
 - `mount_window_render(render : () -> Array[Node], …)`：**render 槽**形态，与静态数组二选一。`render` 在挂载时调**一次**建首帧，此后框架不再重跑它，响应全靠树里的 `for_list` / `when` / `*_dyn` / `bind*` 自订阅、自差分。要整棵换内容才走 `bind_node`。
-- `handle=fn(app : @widget.App) { … }`：拿宿主句柄做框架没暴露的操作，例如 `app.follow_system_theme(...)`。
+- `handle=fn(app : @widget.WindowHost) { … }`：拿宿主句柄做框架没暴露的操作，例如 `app.follow_system_theme(...)`。
 
 ## 2. 命令式逃生舱
 
@@ -117,7 +117,7 @@ let rows : @base.ListStore[String] = @base.ListStore::new(["a", "b"])
 
 ## 7. 重绘回路
 
-框架重绘经进程级 `@widget.set_repaint_hook` 回到宿主 App，控件改状态时用 `@widget.invalidate()` 请求重画当前帧。脏区增量重排保证只重算变了的那条链：`bind_label` 与 `*_dyn` 改文本只重测自身，不重建子树。
+框架重绘经进程级 `@widget.set_repaint_hook` 回到宿主 WindowHost，控件改状态时用 `@widget.invalidate()` 请求重画当前帧。脏区增量重排保证只重算变了的那条链：`bind_label` 与 `*_dyn` 改文本只重测自身，不重建子树。
 
 ## 8. 相关文档
 

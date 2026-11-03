@@ -512,7 +512,7 @@ pub fn dialog(
 ) -> @widget.Node {
   // 用显式 mount 而不是 `node_of_new`：后者的 finish 在**构造期**就跑
   // （`node_of_new` = `node_of(finish(Widget::new()))`），而「按 Store 立刻开层」
-  // 需要浮层宿主已经就位——宿主是 App 建窗时装的，挂载期调用才稳。
+  // 需要浮层宿主已经就位——宿主是 WindowHost 建窗时装的，挂载期调用才稳。
   {
     mount: fn(parent : @widget.Widget) -> @widget.Widget {
     let anchor = @widget.Widget::new()
@@ -692,7 +692,7 @@ pub fn dialog(
         b.node.set_width(@yoga.fixed(text_width(text, btn_font) + 28.0))
         b.node.set_height(@yoga.fixed(28.0))
         b.cursor = @widget.CURSOR_HAND
-        // 底钮进焦点链：弹框开着时链只收这一层（`App::sync_focus`），Tab 在钮间走
+        // 底钮进焦点链：弹框开着时链只收这一层（`WindowHost::sync_focus`），Tab 在钮间走
         b.focus_id = auto_focus_id(0)
         btn_ids.push(b.focus_id)
         // 两档皮肤都折进槽：主档 常态 primary / 悬停 primary_hover，

@@ -1,11 +1,11 @@
 // 窗口注册表的无头回归：一宿主管 N 窗的那几条口径——主窗裁决、当前窗切换、
 // 浮层跟当前窗、重绘广播、拆窗范围。
-// 这里的 App 是**手搓的假窗**（句柄 id 取 900 这类越界值：桩里所有 wm_* 对
+// 这里的 WindowHost 是**手搓的假窗**（句柄 id 取 900 这类越界值：桩里所有 wm_* 对
 // 越界句柄早退，于是注册表与浮层逻辑可以完全不碰平台）。真窗的事件逐窗排空
 // 与上屏仍由 examples/native-app 冒烟与用户目视负责。
 
 ///|
-fn fake_app() -> App {
+fn fake_app() -> WindowHost {
   let root = Widget::new()
   {
     session: @shell.fake_session(900, @shell.host_new_wid(), false, 10, 10),
@@ -26,7 +26,7 @@ fn fake_app() -> App {
 
 ///|
 /// 按生产口径登记一扇窗：注册表还空即主窗。
-fn fake_open() -> App {
+fn fake_open() -> WindowHost {
   let a = fake_app()
   host_add_app(a)
   a
@@ -43,7 +43,7 @@ fn empty_node() -> Node {
 }
 
 ///|
-/// 当前窗的窗号（无窗给 -1）；测试里反复要读，且 `App` 没有 Eq 可比。
+/// 当前窗的窗号（无窗给 -1）；测试里反复要读，且 `WindowHost` 没有 Eq 可比。
 fn active_wid() -> Int {
   match host_active() {
     Some(x) => x.wid()

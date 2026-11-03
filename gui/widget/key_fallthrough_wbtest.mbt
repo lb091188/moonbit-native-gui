@@ -1,4 +1,4 @@
-// 窗口级按键兜底通道（`App::add_key_fallthrough`）的无头回归，三条判据：没有
+// 窗口级按键兜底通道（`WindowHost::add_key_fallthrough`）的无头回归，三条判据：没有
 // 焦点也吃到键、抬起事件不进通道、焦点链消费时不抢且多处理器按注册序截断。
 // 假窗与投递 helper 复用 `focus_route_wbtest.mbt` 的 `fake_win_app` / `two_fields`
 // / `down_at` / `key_down`。

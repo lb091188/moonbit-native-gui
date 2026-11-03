@@ -6,7 +6,7 @@
 |---|---|
 | `@base` | Platform-free primitives: the `Store` / `Signal` / `ListStore` reactive core, the focus stack, key-code constants, end-of-frame batching and the frame ledger |
 | `@shell` | System-capability shell: menu bars / context menus, the global-hotkey facade, tray, notifications, open-externally, plus the loop scheduler and read-only platform probes |
-| `@widget` | Self-drawn widget host: layout-tree mapping, hit-testing and event routing, paint walk, declarative `Node`, overlays (layer and native tiers), drag & drop, input mapping, the `App` pump |
+| `@widget` | Self-drawn widget host: layout-tree mapping, hit-testing and event routing, paint walk, declarative `Node`, overlays (layer and native tiers), drag & drop, input mapping, the `WindowHost` pump |
 | `@ui` | Self-drawn controls and the component library: window mounting, labels / buttons, forms, display, navigation, date, tables and virtual lists, entries, scrolling, overlays, code view, declarative layer |
 | `@render` | Rasterizer: pure-MoonBit software raster plus a Cairo backend; bitmaps, canvas, images, PNG |
 | `@text` | Text layer: font families, fonts, rich text and range attributes (Pango / DirectWrite) |

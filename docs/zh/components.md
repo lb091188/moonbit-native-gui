@@ -446,10 +446,10 @@
 
 ## 声明式挂载
 
-### `mount_window(children : Array[Node], title?="", width?=800, height?=600, handle? : (App) -> Unit)`
+### `mount_window(children : Array[Node], title?="", width?=800, height?=600, handle? : (WindowHost) -> Unit)`
 
 - 声明一棵树并装入窗口：创建宿主（窗口 + 事件循环 + 浮层图层 + 输入法通道）→ 挂载 → 交回调用方 `run`
-- `handle`：挂载后收到 `App` 句柄，用于 `follow_system_theme` 等宿主操作
+- `handle`：挂载后收到 `WindowHost` 句柄，用于 `follow_system_theme` 等宿主操作
 - 无显示服务时返回 `None`
 - 不提供 `center` / `on_close` 参数：居中交系统窗口管理器，关闭即停宿主循环，收尾代码写在 `run()` 之后
 
@@ -459,12 +459,12 @@
 
 ## 窗口显隐事件
 
-### `App::on_hidden(f : () -> Unit)`
+### `WindowHost::on_hidden(f : () -> Unit)`
 
 - 本窗被隐藏驻留（`window().hide()` 的真实转换）时回调；可注册多个，按注册顺序触发
 - 回调在下一拍事件批内执行，此刻窗口已撤出屏幕
 
-### `App::on_shown(f : () -> Unit)`
+### `WindowHost::on_shown(f : () -> Unit)`
 
 - 本窗从隐藏驻留唤回（`show()` 的真实转换）时回调；首次显示不触发，只有隐藏过的窗口才有「唤回」
 

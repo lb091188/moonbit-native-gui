@@ -271,7 +271,7 @@ pub fn mac_button_to_index(number : Int) -> Int {
 ///    这时宿主吃走就会把输入法的编辑动作打断；
 /// ② 光标与选区类键（方向、Home/End、PageUp/Down、退格、删除）直进编辑内核——
 ///    带 Ctrl 也算（按词跳、到首尾），带 Alt 不算（那是宿主的「后退」）；
-/// ③ 未组合时 Tab / Shift+Tab 归宿主（焦点环绕，见 `App::move_focus`）；
+/// ③ 未组合时 Tab / Shift+Tab 归宿主（焦点环绕，见 `WindowHost::move_focus`）；
 /// ④ 带 Ctrl/Meta/Alt 的组合不喂输入法（快捷键语义在宿主侧）；
 /// ⑤ 可打印键先给输入法过一遍（未被消费才进内核）——G5a 实测「未被消费键才进
 ///    内核」就是这一条；

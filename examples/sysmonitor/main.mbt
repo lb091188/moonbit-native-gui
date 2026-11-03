@@ -319,7 +319,7 @@ fn main {
     title=MON_TITLE,
     width=1240,
     height=840,
-    handle=fn(a : @widget.App) {
+    handle=fn(a : @widget.WindowHost) {
       println("SYSMON-READY cores=\{info.cores}")
       // 深浅与主色启动跟随系统并实时联动（1s 轮询，指纹变了才 apply）
       ignore(a.follow_system_theme())

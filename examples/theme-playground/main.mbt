@@ -18,7 +18,7 @@ let accent_presets : Array[String] = [
 ///|
 fn main {
   let primary_label : @base.Signal[String] = @base.Signal::new("当前主色：#2D68C4")
-  let app_box : Ref[@widget.App?] = Ref(None)
+  let app_box : Ref[@widget.WindowHost?] = Ref(None)
   let stop_follow : Ref[(() -> Unit)?] = Ref(None)
   let following : @base.Store[Bool] = @base.Store::new(false)
   let apply_accent = fn(hex : String) -> Unit {
@@ -113,7 +113,7 @@ fn main {
     title="主题定制工作台",
     width=640,
     height=600,
-    handle=fn(a : @widget.App) -> Unit {
+    handle=fn(a : @widget.WindowHost) -> Unit {
       app_box.val = Some(a)
     },
   ) {

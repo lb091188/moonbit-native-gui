@@ -1,6 +1,6 @@
 // 窗口注册表（壳层的一层薄账）：壳层那本「有哪些窗」的账（`Session`
 // 列表、当前窗号、共用泵）住在 `shell/session.mbt`；本文件只补 widget 侧的
-// 另一半——窗号 → 挂了内容的 `App`，于是 `host_active()`/`host_windows()`
+// 另一半——窗号 → 挂了内容的 `WindowHost`，于是 `host_active()`/`host_windows()`
 // 这两张脸对外不变（ui/浮层/拖放/媒体都靠它们问「当前是哪扇窗」）。
 //
 // 三条口径照旧：
@@ -11,12 +11,12 @@
 //    哪扇，当前窗被关掉则退回注册表里最后一扇。
 
 ///|
-// 窗号 → 挂了内容的 App。表归 widget 侧：壳层泵每拍要按在窗逐个排空事件、
+// 窗号 → 挂了内容的 WindowHost。表归 widget 侧：壳层泵每拍要按在窗逐个排空事件、
 // 喂输入法、画脏窗，拿的都是这半本账。
-let g_apps : Map[Int, App] = Map([])
+let g_apps : Map[Int, WindowHost] = Map([])
 
 ///|
-pub fn host_add_app(app : App) -> Unit {
+pub fn host_add_app(app : WindowHost) -> Unit {
   // 壳层账本里还没有这扇窗（手搓假窗的测试路径）就补登记；生产路径由
   // `@shell.session_open` 建好即入册，这里不重复推。
   let mut seen = false
@@ -37,13 +37,13 @@ pub fn host_remove_app(wid : Int) -> Unit {
 }
 
 ///|
-fn host_app_of(wid : Int) -> App? {
+fn host_app_of(wid : Int) -> WindowHost? {
   g_apps.get(wid)
 }
 
 ///|
 /// 当前窗（挂了内容的那半）；没有窗给 None。
-pub fn host_active() -> App? {
+pub fn host_active() -> WindowHost? {
   match @shell.session_active() {
     Some(s) => host_app_of(s.wid)
     None => None
@@ -51,9 +51,9 @@ pub fn host_active() -> App? {
 }
 
 ///|
-/// 在窗 App 的快照（遍历中可能增删，调用方一律走快照而不是活表）。
-pub fn host_windows() -> Array[App] {
-  let out : Array[App] = []
+/// 在窗 WindowHost 的快照（遍历中可能增删，调用方一律走快照而不是活表）。
+pub fn host_windows() -> Array[WindowHost] {
+  let out : Array[WindowHost] = []
   for s in @shell.host_windows() {
     match host_app_of(s.wid) {
       Some(a) => out.push(a)
@@ -99,7 +99,7 @@ pub fn invalidate_id(id : Int) -> Unit {
 }
 
 ///|
-/// 清空两半本账（`App::shutdown` 拆完窗之后调用，于是同进程再开一窗又会
+/// 清空两半本账（`WindowHost::shutdown` 拆完窗之后调用，于是同进程再开一窗又会
 /// 成为主窗）。
 pub fn host_reset() -> Unit {
   g_apps.clear()

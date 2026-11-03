@@ -379,7 +379,7 @@ fn main {
     [@ui.bind_label(ticks, fn(n : Int) { "已运行 \{n} 拍" })],
     title="定时刷新",
     width=320, height=140,
-    handle=fn(_app : @widget.App) {
+    handle=fn(_app : @widget.WindowHost) {
       fn pump() {
         ticks.update(fn(n) { n + 1 })
         let _ = @shell.set_timeout(500, pump)
@@ -461,11 +461,11 @@ let email_err : @base.Store[String] = @base.Store::new("")
 
 ### 2.8 打开第二个窗口
 
-`App::open_window(宽, 高, 标题)` 返回子窗 `App`，用它的 `mount` 挂内容；`app` 在 `mount_window` 返回后才有，经 `Ref` 递进回调。
+`WindowHost::open_window(宽, 高, 标题)` 返回子窗 `WindowHost`，用它的 `mount` 挂内容；`app` 在 `mount_window` 返回后才有，经 `Ref` 递进回调。
 
 ```moonbit
 fn main {
-  let host : Ref[@widget.App?] = Ref(None)
+  let host : Ref[@widget.WindowHost?] = Ref(None)
   let app = match @ui.mount_window(
     [
       @ui.button("打开副窗", on_click=fn() {
@@ -526,7 +526,7 @@ fn main {
 @ui.mount_window(
   [/* … */],
   title="主题",
-  handle=fn(a : @widget.App) {
+  handle=fn(a : @widget.WindowHost) {
     let _ = a.follow_system_theme(interval_ms=2000)  // 返回退订函数
   },
 )
@@ -646,7 +646,7 @@ fn main {
 | 定时刷新 | `@shell.set_timeout` 回调尾自排 | §2.5 |
 | 按条件显隐 | `when_store_bool` / `when_else_store` | §2.6 |
 | 表单校验 | `form` + `form_item(error=)` | §2.7 |
-| 开第二个窗口 | `App::open_window` + `mount` | §2.8 |
+| 开第二个窗口 | `WindowHost::open_window` + `mount` | §2.8 |
 | 换主色 / 跟随深浅 | `theme_apply` / `follow_system_theme` | §3.1 |
 | 控件 hover 定制 | `class` + `hover=` + `transition_ms` | §3.2 |
 | 打开链接 / 定位文件 | `@sys.open_url` / `@shell.reveal_in_file_manager` | §4.1 |

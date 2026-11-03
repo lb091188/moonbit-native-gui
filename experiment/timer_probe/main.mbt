@@ -17,7 +17,7 @@ fn dump(s : String) -> Unit {
 
 ///|
 fn main {
-  let app_ref : Ref[@widget.App?] = Ref(None)
+  let app_ref : Ref[@widget.WindowHost?] = Ref(None)
   let tick : Ref[() -> Unit] = Ref(fn() { () })
   let n : Ref[Int] = Ref(0)
   tick.val = fn() -> Unit {

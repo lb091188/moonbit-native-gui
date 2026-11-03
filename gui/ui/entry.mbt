@@ -5,7 +5,7 @@
 // ① 文本状态的唯一权威是 `@input.Editor`，组件不另存一份文本；Store 只是它的
 //    对外投影（编辑后回写，外部 `set` 时同步进内核）；
 // ② 与宿主的接缝是声明式地基那五个回调（`on_key`/`on_commit`/`on_preedit`/
-//    `im_context`/`im_cursor`），输入法四条件由 `App::pump_ime` 统一满足；
+//    `im_context`/`im_cursor`），输入法四条件由 `WindowHost::pump_ime` 统一满足；
 // ③ 剪贴板走内核的**内部缓冲**（Ctrl+X/C/V 在框内自洽），系统剪贴板随系统
 //    集成批次接进 `sys`——这是记档的降级，不是漏实现。
 //

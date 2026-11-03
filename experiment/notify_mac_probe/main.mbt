@@ -12,7 +12,7 @@
 // 期望：窗口在前台时点 open 起来 → 两条都弹横幅（探针 J 档已证 UN 路径本身
 // 是通的）；不弹则 MoonBit 栈与纯 ObjC 探针存在真实差异，读数即证据。
 fn main {
-  let host = match @widget.App::new(280, 120, "通知栈探针") {
+  let host = match @widget.WindowHost::new(280, 120, "通知栈探针") {
     Some(a) => a
     None => {
       println("NOTIFY-MAC-PROBE FAIL (窗建不出)")

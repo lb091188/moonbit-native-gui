@@ -95,7 +95,7 @@ fn main {
 /// 首窗（owner=None）经 mount_window 建宿主并驱动整组窗口的循环；新窗
 /// （新窗策略放行档）经 `App::open_window` 挂进同一循环，退出裁决仍归
 /// 主窗/最后一扇。
-fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
+fn open_browser(title : String, home : String, owner : @widget.WindowHost?) -> Unit {
   // 输入框的 Ctrl+C/X/V 接系统剪贴板；要在建 UI 前开（开关只影响此后新建的
   // 输入框，见 gui/ui/clipboard.mbt），首窗与放行档新窗都打这过
   @ui.use_system_clipboard(true)
@@ -489,7 +489,7 @@ fn open_browser(title : String, home : String, owner : @widget.App?) -> Unit {
     ],
     grow=1.0,
   )
-  let setup = fn(a : @widget.App) -> Unit {
+  let setup = fn(a : @widget.WindowHost) -> Unit {
       // webview 建在首帧之后（宿主循环已跑、窗口已上屏，与 showcase 旧页
       // 「选中页才建」的时机同口径）
       let _ = a.timer(0, fn() -> Unit {

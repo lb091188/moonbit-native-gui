@@ -25,9 +25,9 @@ fn main {
 }
 ```
 
-- `mount_window(children, title?, width?=800, height?=600, handle?)`: builds the host, mounts the children, and hands the host back for you to `run`. The window, event loop, overlay layer, and IME channel are all set up in `App::new`; returns `None` when there is no display service. Theme wiring by default: the first window in a process probes the system light/dark mode and accent color once; skipped when a theme has been applied explicitly.
+- `mount_window(children, title?, width?=800, height?=600, handle?)`: builds the host, mounts the children, and hands the host back for you to `run`. The window, event loop, overlay layer, and IME channel are all set up in `WindowHost::new`; returns `None` when there is no display service. Theme wiring by default: the first window in a process probes the system light/dark mode and accent color once; skipped when a theme has been applied explicitly.
 - `mount_window_render(render : () -> Array[Node], …)`: the **render slot** form, an alternative to a static array. `render` runs **once** at mount to build the first frame; the framework never re-runs it. Reactivity comes entirely from `for_list` / `when` / `*_dyn` / `bind*` in the tree, which self-subscribe and self-diff. To replace the whole tree's content, go through `bind_node`.
-- `handle=fn(app : @widget.App) { … }`: take the host handle for operations the framework doesn't expose, e.g. `app.follow_system_theme(...)`.
+- `handle=fn(app : @widget.WindowHost) { … }`: take the host handle for operations the framework doesn't expose, e.g. `app.follow_system_theme(...)`.
 
 ## 2. Imperative escape hatch
 
@@ -117,7 +117,7 @@ When the content structure changes — not a text edit, not a visibility toggle:
 
 ## 7. The repaint loop
 
-Framework repaints route back to the host App through the process-level `@widget.set_repaint_hook`; a control requests a redraw of the current frame with `@widget.invalidate()`. Incremental dirty-region relayout recomputes only the changed chain: `bind_label` and `*_dyn` re-measure only themselves on a text change, without rebuilding the subtree.
+Framework repaints route back to the host WindowHost through the process-level `@widget.set_repaint_hook`; a control requests a redraw of the current frame with `@widget.invalidate()`. Incremental dirty-region relayout recomputes only the changed chain: `bind_label` and `*_dyn` re-measure only themselves on a text change, without rebuilding the subtree.
 
 ## 8. Related docs
 

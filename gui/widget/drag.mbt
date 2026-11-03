@@ -423,7 +423,7 @@ pub fn drag_external_supported() -> Bool {
 }
 
 ///|
-/// 给一扇窗挂上系统投放目标（`App` 建窗时自动调；重复调幂等）。true = 已挂上。
+/// 给一扇窗挂上系统投放目标（`WindowHost` 建窗时自动调；重复调幂等）。true = 已挂上。
 pub fn drag_external_enable(id : Int64) -> Bool {
   @win.dragdnd_enable(id)
 }
@@ -541,7 +541,7 @@ fn drag_external_feed(
 }
 
 ///|
-/// 每拍抽干外部拖入队列并喂给会话（宿主 `App::step` 每拍调）。返回本轮是否抽到
+/// 每拍抽干外部拖入队列并喂给会话（宿主 `WindowHost::step` 每拍调）。返回本轮是否抽到
 /// 事件。
 pub fn drag_external_pump() -> Bool {
   if !@win.dragdnd_supported() {

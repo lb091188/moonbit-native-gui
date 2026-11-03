@@ -5,7 +5,7 @@
 // 假窗照 `host_wbtest.mbt`：句柄取越界值，桩里所有 wm_* 对越界句柄早退。
 
 ///|
-fn fake_win_app() -> App {
+fn fake_win_app() -> WindowHost {
   let root = Widget::new()
   {
     session: @shell.fake_session(900, @shell.host_new_wid(), false, 10, 10),
@@ -26,7 +26,7 @@ fn fake_win_app() -> App {
 
 ///|
 /// root 里竖排两只输入框（焦点号 7、9），各 200x30。
-fn two_fields(a : App) -> (Widget, Widget) {
+fn two_fields(a : WindowHost) -> (Widget, Widget) {
   let one = Widget::new()
   let two = Widget::new()
   one.focus_id = 7
@@ -41,12 +41,12 @@ fn two_fields(a : App) -> (Widget, Widget) {
 }
 
 ///|
-fn down_at(a : App, x : Int, y : Int) -> Unit {
+fn down_at(a : WindowHost, x : Int, y : Int) -> Unit {
   a.route({ code: 2, keysym: 0, mods: 0, x, y, button: 1, axis: 0, })
 }
 
 ///|
-fn key_down(a : App, keysym : Int) -> Unit {
+fn key_down(a : WindowHost, keysym : Int) -> Unit {
   a.route({ code: 0, keysym, mods: 0, x: 0, y: 0, button: 0, axis: 0, })
 }
 

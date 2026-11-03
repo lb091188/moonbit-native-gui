@@ -1,6 +1,6 @@
 // 壳层窗：一扇「没有内容」的窗——平台窗口句柄、
 // 共用的 `Loop`、注册表键位、泵推进、定时器、退出与输入法通道原语。
-// 控件树/脏区/画布归 widget 层（`App = { session, root, … }`），webview / 3D
+// 控件树/脏区/画布归 widget 层（`WindowHost = { session, root, … }`），webview / 3D
 // 路线只吃本层 + `win`，不必拖进整套自绘控件。
 //
 // 三条口径：
@@ -125,7 +125,7 @@ pub fn session_open(
 }
 
 ///|
-/// 登记一扇已建好的窗（`App::open_window` 这类「先建壳再挂内容」的入口用）。
+/// 登记一扇已建好的窗（`WindowHost::open_window` 这类「先建壳再挂内容」的入口用）。
 pub fn host_add(s : Session) -> Unit {
   s.primary = g_windows.val.length() == 0
   g_windows.val.push(s)
@@ -188,7 +188,7 @@ pub fn host_mark_active(s : Session) -> Unit {
 }
 
 ///|
-/// 清空注册表并退回未起动态（`App::shutdown` 拆完窗之后调用，
+/// 清空注册表并退回未起动态（`WindowHost::shutdown` 拆完窗之后调用，
 /// 于是同进程再开一窗又会成为主窗）。
 pub fn host_reset() -> Unit {
   g_windows.val = []
@@ -229,7 +229,7 @@ pub fn session_pump_advance() -> Unit {
 }
 
 ///|
-/// 无头泵模式标志（headless-tester P2）：`App::test_headless` 置位后
+/// 无头泵模式标志（headless-tester P2）：`WindowHost::test_headless` 置位后
 /// 泵推进 `wait(0)`，不真睡。
 let headless_pump : Ref[Bool] = Ref(false)
 

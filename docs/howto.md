@@ -379,7 +379,7 @@ fn main {
     [@ui.bind_label(ticks, fn(n : Int) { "\{n} ticks" })],
     title="Timer",
     width=320, height=140,
-    handle=fn(_app : @widget.App) {
+    handle=fn(_app : @widget.WindowHost) {
       fn pump() {
         ticks.update(fn(n) { n + 1 })
         let _ = @shell.set_timeout(500, pump)
@@ -461,11 +461,11 @@ Note: you choose when to validate — the submit callback or `input`'s `on_chang
 
 ### 2.8 Opening a second window
 
-`App::open_window(width, height, title)` returns the child window's `App`; mount content with its `mount`. The `app` value only exists after `mount_window` returns — hand it in through a `Ref`.
+`WindowHost::open_window(width, height, title)` returns the child window's `App`; mount content with its `mount`. The `app` value only exists after `mount_window` returns — hand it in through a `Ref`.
 
 ```moonbit
 fn main {
-  let host : Ref[@widget.App?] = Ref(None)
+  let host : Ref[@widget.WindowHost?] = Ref(None)
   let app = match @ui.mount_window(
     [
       @ui.button("Open child window", on_click=fn() {
@@ -526,7 +526,7 @@ Controls read theme tokens, so a theme change takes effect immediately. Set an a
 @ui.mount_window(
   [/* … */],
   title="Theme",
-  handle=fn(a : @widget.App) {
+  handle=fn(a : @widget.WindowHost) {
     let _ = a.follow_system_theme(interval_ms=2000)  // returns an unsubscribe function
   },
 )
@@ -646,7 +646,7 @@ Notes: send from event callbacks. On macOS the desktop banner requires running a
 | Refresh on a timer | `@shell.set_timeout` with tail self-rearm | §2.5 |
 | Show/hide on a condition | `when_store_bool` / `when_else_store` | §2.6 |
 | Form validation | `form` + `form_item(error=)` | §2.7 |
-| Open a second window | `App::open_window` + `mount` | §2.8 |
+| Open a second window | `WindowHost::open_window` + `mount` | §2.8 |
 | Change accent / follow system | `theme_apply` / `follow_system_theme` | §3.1 |
 | Per-widget hover styling | `class` + `hover=` + `transition_ms` | §3.2 |
 | Open links / reveal files | `@sys.open_url` / `@shell.reveal_in_file_manager` | §4.1 |

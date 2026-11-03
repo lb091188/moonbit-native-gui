@@ -7,7 +7,7 @@
 // Store/Signal 直连，展示端不写手动 subscribe。
 //
 // 形态要点：
-//   - 起窗走 `@ui.mount_window` + `App::run`；窗口居中交给 WM（本栈不提供 `center`）。
+//   - 起窗走 `@ui.mount_window` + `WindowHost::run`；窗口居中交给 WM（本栈不提供 `center`）。
 //   - 主题跟随是「跟随开关 + 每 2 秒读一次系统偏好」：手动选色/切深浅先把开关关掉，
 //     否则下一拍就被盖回去。系统偏好读数用 `@win.sys_color_scheme/sys_accent`
 //     （与 `App::follow_system_theme` 内部同一来源，示例要能手动覆盖故自己开表）。
@@ -318,7 +318,7 @@ fn main {
   }
   // 启动期就要生效的页（标了 Eager 的）在建窗之前建完，其余交给空闲预建
   nav.build_eager()
-  let slot : Ref[@widget.App?] = Ref(None)
+  let slot : Ref[@widget.WindowHost?] = Ref(None)
   let mounted = @ui.mount_window(
     [
       @ui.row(
@@ -449,7 +449,7 @@ fn main {
     title=SHOWCASE_TITLE,
     width=1280,
     height=720,
-    handle=fn(a : @widget.App) {
+    handle=fn(a : @widget.WindowHost) {
       slot.val = Some(a)
       // 窗口页/快捷键页经 `app.host` 取宿主（页函数体跑完时还没挂载，这里填）
       app.host.val = Some(a)

@@ -17,8 +17,8 @@
 
 ///|
 /// 已开的原生档浮层：句柄 → 弹层宿主窗。表在进程级，不进 `OverlayHost`
-/// （宿主归 App，宿主再持 App 就是引用环）。
-let g_native : Ref[Map[Int, App]] = Ref(Map([]))
+/// （宿主归 WindowHost，宿主再持它就是引用环）。
+let g_native : Ref[Map[Int, WindowHost]] = Ref(Map([]))
 let g_native_passes : Ref[Map[Int, Int]] = Ref(Map([]))
 /// 最近一次向窗口申请的尺寸（收框放大分支的地板）。窗口实读在 WM 慢拍时
 /// 还停在初框值，拿它当地板会把已经收窄的申请反向钉回初框宽（KDE X11 真机
@@ -153,7 +153,7 @@ pub fn overlay_native_opened(id : Int) -> Bool {
 
 ///|
 /// 量内容实际尺寸：弹层根控件的可见子项矩形并集（隐藏项矩形已被清零，天然排除）。
-fn overlay_content_size(app : App) -> (Int, Int) {
+fn overlay_content_size(app : WindowHost) -> (Int, Int) {
   let mut w = 0.0
   let mut h = 0.0
   for k in app.root.children() {
@@ -173,7 +173,7 @@ fn overlay_content_size(app : App) -> (Int, Int) {
 /// 框子不跟着长就会把多出来的内容切掉；放大的地板是**最近一次申请的尺寸**
 /// `g_native_req`，不是窗口实读（WM 慢拍时实读停在初框，会把窄申请反向顶回
 /// 初框宽）；收缩仍受三帧限制，避免宽度回环里来回改尺寸。
-pub fn overlay_fit_pass(app : App) -> Unit {
+pub fn overlay_fit_pass(app : WindowHost) -> Unit {
   let hits : Array[Int] = []
   for cid, pop in g_native.val {
     if pop.session.wid == app.session.wid {
@@ -259,7 +259,7 @@ pub fn overlay_dismiss_on_blur() -> Bool {
 ///|
 /// 弹层窗失去键盘焦点 = 用户点了别处 → 收起最上面那层（图层档的「点外收起」
 /// 靠命中，原生档只能靠这条）。开关见上。
-pub fn overlay_on_lost_focus(app : App) -> Unit {
+pub fn overlay_on_lost_focus(app : WindowHost) -> Unit {
   if !g_dismiss_on_blur.val {
     return
   }
