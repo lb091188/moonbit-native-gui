@@ -40,7 +40,7 @@
 - [ ] **Spike S3–S8（用户执行）**：GlobalShortcuts 全流程（KDE+GNOME 各一台）、空闲双档误差、Treeland 协议面探测矩阵、夜灯配置口生效与复位、显示器字段对照、弹层定位
 - [ ] **P1 portal 骨架 + 全局快捷键 + 空闲检测**：实现已落（2026-11-04：`gui/dbus/portal.mbt` Request/Response 通用层（token 生成 / request 路径派生 / Response 一次性订阅）、`gui/shell/global_shortcuts.mbt` 绑定 + Activated 信号回调门面、`gui/shell/idle.mbt` GNOME IdleMonitor 精确读数 + 集成门面；`dbus` 包补退订与 a11y 之外的第三条总线之外本条用到的会话总线一次性订阅）；剩 GlobalShortcuts 授权框真机清单（KDE 5.27+/GNOME 48+ 各一台）与 ext-idle-notify 近似档（KDE/wlroots，待 Wayland 协议客户端地基）归用户/后续批
 - [ ] **P2 夜灯逐 DE + 显示器枚举**：实现已落（2026-11-04：`gui/shell/nightlight.mbt`——GNOME 写 gsd-color 配置键（gsettings CLI，本机 schema 实证）、KDE 走 ColorCorrect 读侧（Plasma 5.27 实物属性全 read-only，写侧 Unsupported；Plasma 6 NightLight 写入口径未核）、wlroots 裸 gamma 待协议客户端；`gui/shell/monitor_dbus.mbt`——KScreen getConfig 解析（本机实证 9 输出/2 已连/30 模式、refreshRate 是 int64 赫兹）、mutter DisplayConfig 只探存在（字段序未核不产读数）、wlroots 待协议客户端）。剩 S6/S7 真机（KDE/GNOME 各一台）与 wlroots 档归后续（含首个 Wayland 协议客户端地基 libwayland vs 自写 wire 的评估）
-- [ ] **P3 剪贴板监视协议化 + wlroots 窗口管理**：wlr-data-control + ext-data-control-v1 双协议（Plasma 6.5 迁移坑）；窗口管理仅 wlroots 系（wlr-foreign-toplevel）；GNOME/KDE 窗口管理与层级族按「无通道」出文档；同批更新 roadmap 会话表与 DE 实测矩阵
+- [ ] **P3 剪贴板监视协议化 + wlroots 窗口管理**：协议客户端地基已落（2026-11-04：`gui/wayland` 包自写 wire——connect/registry/enumerate/bind/sync 往返，headless weston 实测 19 global 与 wayland-info 吻合；选型定案「自写不链 libwayland」记进方案）。剩各协议客户（wlr-data-control + ext-data-control 剪贴板监视、wlr-foreign-toplevel 窗口管理、P2 deferred 的 wlr-output-management / wlr-gamma-control、ext-idle-notify 空闲近似档）与 fd 传递（SCM_RIGHTS，data-control 的 receive 要）随各自落地批；GNOME/KDE 窗口管理与层级族按「无通道」出文档
 
 ## GPU 与媒体硬解（2026-11-03 定案，模块形态/融合模型/分批见 [proposals/gpu-architecture.md](proposals/gpu-architecture.md)；硬解独立先行与 GPU 线并行、互不绑定，做完一项删一项并同步路线图）
 

@@ -3653,3 +3653,11 @@ at-spi2-core 2.52 装在开发机上（`at-spi2-core`/`gir1.2-atspi-2.0`/`libatk
 - **GNOME 夜灯**：`org.gnome.settings-daemon.plugins.color` 的 `night-light-enabled`/`night-light-temperature` 键本机 schema 在（KDE 会话也装了）——写键驱动 gsd-color 自己的夜灯，不是裸 gamma；gsettings 走 `@sys.pr_run` CLI（与壁纸通道同路数，不引新依赖）。gsd-color 服务不在时写键也落得下去，不拿「服务在不在」当门槛。
 - **mutter DisplayConfig**：字段序以接口 XML 为准且本机拉不到源码核（GNOME 下载源被挡、GitLab raw 404）——按「不许假数据」只做存在性探测，读一率 Unsupported，S7 真机定字段序后再接。
 - **wlroots 两件**（wlr-gamma-control / wlr-output-management）都要 Wayland 协议客户端地基，与 ext-idle-notify 一拨归 P3 之后。
+
+## Wayland 自写 wire 客户端（P3 地基）：两个 empirisch 坑与 headless weston 实证（2026-11-04）
+
+- **选型定案**：自写 wire 不链 libwayland-client——与 dbus/wire.mbt 同构、零新增链接期依赖、按包可选（`gui/wayland` 独立包，Windows 桩函数恒 -2）。协议面（8 字节固定头 + 对象 id + new_id）确实够简单。
+- **坑①（opcode 序）**：`wl_display` 的请求序是 **sync=0 / get_registry=1**（wayland.xml）。搞反时的现象很误导：服务端把 get_registry 当 sync 建出一个 callback（对象 2 上收到 12 字节 done、随后 delete_id(2)），registry 永远收不到 global——而 sync 的 done 照样回来，往返屏障看着是通的。
+- **坑②（string 长度）**：wayland 的 string 长度字段**含结尾 NUL**（实物核过：`wl_subcompositor` 16 字符 → 长度 17）。按「不含 NUL」解接口名会带个尾 NUL；下一个字段偏移两种算法在这批数据上巧合一致（pad 吸收），但名字是脏的。
+- **实证**：本机 weston 13 headless（`XDG_RUNTIME_DIR` 指到临时目录 + `--backend=headless-backend.so --socket=…`）起合成器，`wl_globals` 枚举出 19 个 global，与 `wayland-info` 输出逐一吻合。无 Wayland 会话的机器（X11/Windows/macOS/CI）探测即不可用，用例走跳过支。
+- **未落地**：fd 传递（SCM_RIGHTS，data-control 的 receive 要用，需 C 助手）；wlr-data-control / ext-data-control、wlr-foreign-toplevel、wlr-output-management / wlr-gamma-control、ext-idle-notify 的协议客户。

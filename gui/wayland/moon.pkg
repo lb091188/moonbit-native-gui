@@ -1,0 +1,24 @@
+// Wayland 协议客户端（自写线路，P3 地基）：只做「连上显示服务器、过 registry
+// 握手、枚举/绑定全局对象」这一层——wlr-data-control（剪贴板监视）、
+// wlr-foreign-toplevel（窗口管理）、wlr-output-management /
+// wlr-gamma-control（显示器/夜灯）、ext-idle-notify（空闲近似档）都踩它。
+//
+// 为什么自写 wire 不链 libwayland：评估结论见 proposals/wayland-native.md
+// 「协议客户端地基」节——本仓 dbus 线就是自写先例；协议面（固定头消息 +
+// 对象 id + registry）够简单；不新增链接期依赖（libwayland-client 会加一条，
+// 而 X11 会话的机器也装着它但用不上）。fd 传递（SCM_RIGHTS，data-control 的
+// receive 要用）留到协议客户真落地时随 C 助手补——本批不含。
+//
+// 平台：Wayland 只存在于 Linux/BSD。Windows 上桩函数恒返 -2（不可用），
+// MoonBit 侧照常编译。
+
+supported_targets = "native"
+
+import {
+  "moonbitlang/core/encoding/utf8" @utf8,
+  "moonbitlang/core/env" @env,
+}
+
+options(
+  "native-stub": [ "wayland_stub.c" ],
+)
