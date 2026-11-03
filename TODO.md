@@ -12,7 +12,6 @@
 
 ### 工具后续批次
 
-- [ ] **真实类型 hover**：桥 `moon ide` + source map 正向索引（native-template 开放问题 6，另批）
 - [ ] **Windows LSP 跳转落点收口**：`mng` 的 LSP 定义跳转在 Windows 上的路径分隔符与行号口径未验，用例 `lsp_wbtest` 现按盘符分流跳过（POSIX 形态断言照跑）——真机验一遍后把 Windows 支也钉上
 - [ ] **握手与折层真机复验**（用户执行）：①`mng dev` 跑起来后进「模板 Dev」，改 script 加一个新 Store 并保存 → 该改本应 COLD，若工具侧先推了 HOT 补丁，日志应出现 `[HOT→COLD] 握手不符：注册表键集落后…` 随后 `[COLD] … 应用已重启`、应用回到改动页（**不再出现「补丁失败」toast 后界面停在旧树**）；②正常 HOT（只改结构/字面量）日志 `[HOT] 补丁已应用`，应用内 toast 同步；③样式全序：给 `hover_group` 挂 `class=[style(padding=14.0)]` 的条目看内缩真的按 class 走（散参数 `<` class）
 

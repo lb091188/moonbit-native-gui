@@ -906,6 +906,91 @@ fn arr_has_cli(a : Array[String], s : String) -> Bool {
 }
 
 ///|
+/// 真实类型 hover：把模板源位置经 source map **正投**到生成码位置，再跑
+/// `moon ide hover --loc <gen>:<行>:<列> --json` 取回编译器的类型/文档。
+/// 任何一步不成就返回 None，调用方回落「组件参数表 / 注册名」那套静态 hover
+/// ——桥不在时编辑器体验不退化。
+fn real_type_hover(uri : String, text : String, line : Int, ch : Int) -> String? {
+  let path = uri_to_path(uri)
+  let dir = dir_of(path)
+  let gen_path = dir + "/" + stem_of_file(path) + ".gen.mbt"
+  // 生成码不在（纯模板页没跑过 codegen）就没得问
+  if fs_read(gen_path) is None {
+    return None
+  }
+  let map_text = match @mngkit.compile_dev(text, path, fn(_p : String) -> String? { None }) {
+    Ok(o) => o.map
+    Err(_) => return None
+  }
+  // LSP 行列是 0 基，map 是 1 基
+  let (gl, gc) = match @mngkit.src_to_gen(map_text, line + 1, ch + 1) {
+    Some(v) => v
+    None => return None
+  }
+  moon_ide_hover(dir, gen_path, gl, gc)
+}
+
+///|
+/// 起一次 `moon ide hover`：经 `@proc.spawn` 把 stdout/stderr 落到
+/// `.mng/hover.json`（不捕获就解析不了；proc 层本就不做管道），轮询退出后读回。
+/// 超时 8s 直接杀——LSP hover 卡住比没有 hover 更糟。
+fn moon_ide_hover(dir : String, gen_path : String, line : Int, col : Int) -> String? {
+  let tmp_dir = dir + "/.mng"
+  let _ = mkdir_p(tmp_dir)
+  let out = tmp_dir + "/hover.json"
+  let _ = @fs.remove_file(out) catch {
+    _ => ()
+  }
+  let loc = gen_path + ":" + line.to_string() + ":" + col.to_string()
+  let args = ["-C", dir, "ide", "hover", "--loc", loc, "--json"]
+  let pid = match @proc.spawn("moon", args, out) {
+    Ok(p) => p
+    Err(_) => return None
+  }
+  let mut waited = 0
+  while @proc.alive(pid) && waited < 8000 {
+    @proc.sleep_ms(40)
+    waited += 40
+  }
+  if @proc.alive(pid) {
+    let _ = @proc.kill(pid)
+    return None
+  }
+  let raw = fs_read(out)
+  let _ = @fs.remove_file(out) catch {
+    _ => ()
+  }
+  let text = match raw {
+    Some(t) => t
+    None => return None
+  }
+  let parsed = match json_parse(text) {
+    Ok(j) => j
+    Err(_) => return None
+  }
+  let cont = match jget(parsed, "contents") {
+    Some(c) => c
+    None => return None
+  }
+  let arr = match json_arr(cont) {
+    Some(a) => a
+    None => return None
+  }
+  let parts : Array[String] = []
+  for it in arr {
+    match json_str(it) {
+      Some(s) => parts.push(s)
+      None => ()
+    }
+  }
+  if parts.length() == 0 {
+    None
+  } else {
+    Some(parts.join("\n\n"))
+  }
+}
+
+///|
 fn lsp_hover(uri : String, text : String, line : Int, ch : Int) -> String {
   let off = offset_of(text, line, ch)
   let (ctx, partial, tag) = lsp_context(text, off)
@@ -917,7 +1002,11 @@ fn lsp_hover(uri : String, text : String, line : Int, ch : Int) -> String {
         "类 `" + partial + "`：由 `<style>` 摊平进命名类注册表",
         "Class `" + partial + "`: flattened from `<style>` into the named-class registry",
       )
-    "expr" | "script" => hover_pkg_member(uri, text, off, partial)
+    "expr" | "script" =>
+      match real_type_hover(uri, text, line, ch) {
+        Some(md) => md
+        None => hover_pkg_member(uri, text, off, partial)
+      }
     _ => ""
   }
   if content.length() == 0 {

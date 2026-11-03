@@ -1354,3 +1354,31 @@ test "semantic：插值后的标签不再被吞（}} 停止界回归）" {
     3,
   )
 }
+
+///|
+test "source map 正向索引：源位置→生成行，反查也能回投" {
+  let map = [
+    "# mng source map v1",
+    "source demo.mng",
+    "6\t12\t1",
+    "7\t12\t9",
+    "8\t14\t3",
+    "12\t20\t5",
+  ].join("\n")
+  // 12 行有两段：col 1 与 col 9 各一条，取「≤ 目标」里最靠后的一条
+  assert_eq(src_to_gen(map, 12, 1), Some((6, 1)))
+  assert_eq(src_to_gen(map, 12, 9), Some((7, 1)))
+  assert_eq(src_to_gen(map, 12, 15), Some((7, 7)))
+  assert_eq(src_to_gen(map, 13, 1), Some((7, 1)))
+  assert_eq(src_to_gen(map, 14, 3), Some((8, 1)))
+  assert_eq(src_to_gen(map, 20, 6), Some((12, 2)))
+  // 早于第一条记录：没有可投的位置
+  assert_eq(src_to_gen(map, 1, 1), None)
+  // 反查：同一生成行以最后一条为准
+  assert_eq(gen_to_src(map, 7), Some((12, 9)))
+  assert_eq(gen_to_src(map, 8), Some((14, 3)))
+  assert_eq(gen_to_src(map, 99), None)
+  // 坏行/表头不算数
+  let dirty = ["# x", "abc", "1\t2", "3\t4\t5"].join("\n")
+  assert_eq(src_to_gen(dirty, 4, 5), Some((3, 1)))
+}
