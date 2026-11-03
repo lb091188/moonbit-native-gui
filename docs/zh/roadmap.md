@@ -278,8 +278,15 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - 🚧 **GPU 合成（可选后端）**（2026-11-03 定案排期，模块形态与融合模型见 [proposals/gpu-architecture.md](proposals/gpu-architecture.md)）：`modules/gui-gpu` 独立模块（主包不依赖——包级不引不背、构建级 prebuild 下载失败降级、运行级 dlopen + adapter 探测回退 Cairo/Pure），present 走纹理上传 + 全屏 quad；三级 fallback
 - 🚧 **控件级 GPU 绘制**（同一方案定案）：`RenderCtx::Gpu(GpuContext)` 变体（口子已留），GPU 控件渲到各自纹理、与 CPU 控件纹理按控件树叠合成（融合模型见方案）；首批消费者=视频直纹理接口位 + GPU 内容画布
 - ⏳ **性能治理（先量化再立项，2026-11-03 核查改写）**：已落地零散件——局部置脏（按窗标脏区）、分段帧账本（LAYOUT-FRAME 读数）、组件级布局缓存（textarea 折行 / 图表布局 / 文字 C 侧）；缺的是系统性——先做性能基线探针（experiment/ 独立模块：帧耗时分段 + 每帧重绘范围 + 布局重算次数三组读数），有数据再定 yoga 布局缓存与图表增量重绘立不立项
-- ⏳ **终端模拟**：等宽网格 + ANSI 颜色 + 光标，做成可嵌入的终端控件
 - ⏳ **GPU 内容画布**（2026-11-03 由「WebGL 画布」改写归并——桌面原生语境无 WebGL，不按 Web 语境平移）：GPU 上下文嵌进界面，走 gpu-architecture 的 `RenderCtx::Gpu`（Layer 2 第三步），3D/场景图归未来 gui-3d 独立模块
+
+### 代码栈（编辑器与终端）
+
+三件合一份总纲（2026-11-03 立项，依赖链、选型定案与社区备选留档见 [proposals/code-stack.md](proposals/code-stack.md)）：公共地基 = 等宽文本栈 + 着色流 + TextLayout 偏移映射 + Editor 编辑内核；排期 ②扫描器升级 → ③code_editor → ④terminal，前置 text-selection-a11y 一期。
+
+- ⏳ **分词层升级：带跨行状态的行级增量扫描器**：`tokenize_lang` 补每行行首状态机（块注释/多行字符串/heredoc）与按行增量失效（编辑只重扫受影响段，状态收敛提前停），token 带 UTF-8 字节偏移（与 Editor/TextLayout 同口径）；不引注册表依赖（pygments/tree-sitter 留档不进 gui）；code_view 静态路径零回归
+- ⏳ **代码编辑器控件 `code_editor`**：等宽 + 高亮 + 行号 + 编辑合体——扫描器增量着色 + Editor 内核（caret/选区/撤销重做）+ TextLayout 命中映射；与 textarea 分工（纯文本 vs 高亮编辑），共用 TextLayout/Editor；P1 编辑/光标/选区/高亮/行号/撤销重做，P2 查找/缩进/括号匹配
+- ⏳ **终端控件 `terminal`（控件先行，PTY 另立项）**（原「终端模拟」并入本提案）：等宽网格 cell（字符+前背景+属性）+ ANSI CSI/SGR 子集（着色/光标/清屏）+ 滚动，喂文本即可用（日志面板/REPL 输出）；ANSI 直接色值不走 CodeTheme 语义角色，缺省前景/背景跟主题；PTY（forkpty/openpty/ConPTY）独立立项不绑定
 
 ### 输入与浮层
 
