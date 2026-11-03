@@ -326,9 +326,14 @@ test "S3 ProcMonitor：真实 /proc 全量采样 + 二次差值(Linux)" {
       // 之后凡前样本没有的 pid，本拍必须是 0——旧逻辑按 prev=0 取差值会
       // 拿开机累计 tick 当增量钉满格一拍。窗口内没有新进程时这组断言空转，
       // 不构成 flaky。
+      // 前样本按**上一拍**（second）算，不是第一拍：监视器自己的 prev 就是它，
+      // 拿第一拍的 pid 集当基线会把「第二拍才出现、第三拍已有差值」的进程误判成新进程
       let seen : Array[Int] = []
-      for p in procs {
-        seen.push(p.pid)
+      match second {
+        Some(rows2) => for p in rows2 {
+            seen.push(p.pid)
+          }
+        None => ()
       }
       let ts = mono_start()
       while mono_end(ts) < 200_000.0 {
