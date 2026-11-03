@@ -13136,6 +13136,12 @@ void wm_uia_action_push(int32_t idx, int act) {
     g_uia_act_tail = next;
 }
 
+/* MoonBit 侧压队列的入口（AT-SPI 的 DoAction 用；与 UIA/AX 的 C 侧压入
+ * 同一份队列，只是调用方在 MoonBit 这一侧） */
+void wm_a11y_action_push(int32_t idx, int act) {
+    wm_uia_action_push(idx, act);
+}
+
 int64_t wm_uia_action_poll(void) {
     if (g_uia_act_head == g_uia_act_tail) {
         return 0;
@@ -13143,6 +13149,42 @@ int64_t wm_uia_action_poll(void) {
     int64_t v = g_uia_act_q[g_uia_act_head];
     g_uia_act_head = (g_uia_act_head + 1) % WM_UIA_ACT_Q;
     return v;
+}
+
+/* 行 TSV 读出：AT-SPI 桥（纯 MoonBit，住 shell 层）与诊断用——把快照行 i
+ * 摊成与发布时同一格式的 TSV 写进 out，返回字节数（行不存在/缓冲不够 -1）。
+ * 字段序与发布侧一致（widget/a11y.mbt 的 a11y_frame_sync）。 */
+int32_t wm_a11y_row_tsv(int32_t i, uint8_t *out, int32_t cap) {
+    if (i < 0 || i >= g_a11y_n || out == NULL || cap <= 0) {
+        return -1;
+    }
+    const WmA11yRow *r = &g_a11y_rows[i];
+    int n = snprintf((char *)out, (size_t)cap,
+                     "%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%.10g\t%.10g\t%.10g\t%.10g",
+                     (int)r->id, (int)r->parent, (int)r->enabled, r->role, r->name,
+                     r->state, r->value, r->text, r->x, r->y, r->w, r->h);
+    if (n < 0 || n >= cap) {
+        return -1;
+    }
+    return (int32_t)n;
+}
+
+/* 窗口原点槽（AT-SPI Component 的屏幕坐标用）：MoonBit 每帧报当前窗客户区
+ * 原点的物理像素坐标；快照矩形是窗口坐标，屏幕坐标 = 原点 + 矩形。 */
+static double g_a11y_win_x = 0.0;
+static double g_a11y_win_y = 0.0;
+
+void wm_a11y_set_window_origin(double x, double y) {
+    g_a11y_win_x = x;
+    g_a11y_win_y = y;
+}
+
+double wm_a11y_window_origin_x(void) {
+    return g_a11y_win_x;
+}
+
+double wm_a11y_window_origin_y(void) {
+    return g_a11y_win_y;
 }
 
 /* ================= 读屏焦点通道 + 事件上行（AX 通知） =================

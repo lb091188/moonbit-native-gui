@@ -1104,10 +1104,17 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   p.end()
   // 帧尾语义对账：重扫整树快照，排在上屏前（读屏拿到的矩形必须是这一帧的）
   let _ = a11y_frame_sync(self.root)
-  // 读屏动作通道（UIA Invoke/Toggle/Expand）：抽干并合成点击，会话状态接回去
+  // 读屏动作通道（UIA Invoke/Toggle/Expand / AT-SPI DoAction / AX press）：
+  // 抽干并合成点击，会话状态接回去
   let act = a11y_pump_actions(self.root, self.session.hover_id, self.session.capture)
   self.session.hover_id = act.0
   self.session.capture = act.1
+  // AT-SPI 桥（Linux）：窗口原点报给平台侧（Component 的屏幕坐标 = 原点 +
+  // 快照矩形），再抽干读屏查询、比对新旧快照发事件。无 a11y 总线时
+  // atspi_tick 内部按背间隔重试，不开读屏的会话零开销（一次状态判断）。
+  let (wox, woy) = self.session.window.origin()
+  @win.a11y_set_window_origin(wox.to_double(), woy.to_double())
+  @shell.atspi_tick()
   let t2 = @win.now_ms()
   self.session.window.present(bm.data, bm.width, bm.height)
   let t3 = @win.now_ms()

@@ -189,7 +189,7 @@ pub fn Widget::a11y_caret(self) -> Int?                                      // 
 2. **语义槽与控件树对账**：挂摘已有钩子（widget.mbt:277/307），登记/注销接同一对；**不清账 = C 侧幽灵控件**（读屏读到已删控件），与样式 resolved 侧表泄漏坑同型（widget.mbt:301-306）。
 3. **绘制态 ≠ 语义态的时差**：组件 draw 时读 Store，帧尾对账在 paint_frame 后，理论窗口内查询可能读到上一帧值——读屏查询频率下可接受，不加锁；对账必须排 present 前，否则推的是旧 rect。
 4. **UIA 的 COM 面新坑**（2026-11-03 定案）：CLSID/IID 取法=SDK 头声明 + 链接期取 `uiautomationcore.lib` 符号，确为 WIC 套路（C 模式用不了 `__uuidof`）；**pattern 对象的 COM 布局坑**——vtable 指针必须是结构体首成员、QI 对 IUnknown 与主接口同回主接口指针，否则方法收到的 `self` 偏移错位直接读崩（本批实测踩到，写法钉在 uia_provider.c 头注）；另：BSTR 是 UTF-16，快照 UTF-8 字段必须 `MultiByteToWideChar` 转换（首批的 `SysAllocStringByteLen` 直拷会让中文名乱码）。provider 的 `Navigate` 方向逻辑易错，Accessibility Insights 树形视图当回归镜。
-5. **AT-SPI 未定项**：`Socket.Embed` 与旧 `RegisterApplication` 的版本兼容、Text 偏移单位（字符 vs 字节）、XFCE/deepin 的 a11y bus 启用状态——三条都进阶段 2 的 spike 清单，不许跳过。
+5. **AT-SPI 未定项**（2026-11-04 全部实证回填，见 experience/adaptation.md）：`Socket.Embed` 在 2.52 是 `(so)→(so)`、**旧 `RegisterApplication` 已废**（Registry 只剩 RegisterEvent 族）；Text 偏移单位是**字符**（码点）；XFCE/deepin 的 a11y bus 启用状态仍待桌面矩阵实测（S 系列 spike）。
 6. **mac 弹层窗的 AX 树**：无边框弹层默认不能成为 key window（stub.c:8146），菜单/下拉候选是独立窗各挂各的；VoiceOver 对多窗 app 的焦点切换行为待真机验。
 7. **焦点语义差**：本栈焦点是控件级，平台焦点是窗级——窗内控件焦点变化平台无感知，三平台 focus 事件全靠手工上行，漏发 = 读屏停在旧控件。
 8. **密码框**：value 不外泄明文，报保护态（UIA `IsPassword`、AT-SPI 状态位、mac 走 value 置空 + role 不变）；读屏读圆点由读屏侧自理。
@@ -201,7 +201,7 @@ pub fn Widget::a11y_caret(self) -> Int?                                      // 
 
 - **macOS / VoiceOver**（Cmd+F5 开关）：①Tab 遍历 showcase 表单页，每控件朗读「名字， 角色」；②Space 切 checkbox/switch，朗读「已勾选/未勾选」翻转；③输入框聚焦后逐字输入，VoiceOver 逐字符朗读；④对按钮/勾选用 VoiceOver 默认 press，动作真实触发且不双触发。
 - **Windows / NVDA**：①Tab + 方向键遍历同一页，朗读 role/name/状态；②Accessibility Insights for Windows 打开，树里可见完整控件层级，选中滑杆看 RangeValue 随拖动更新；③对按钮/勾选/下拉调用读屏的 Invoke/Toggle/Expand，动作应真实触发且不与应用自己的点击双触发；④中文名不乱码。
-- **Linux / Orca**：①Tab 遍历朗读按钮/勾选/开关；②Orca flat-review 逐行读窗口内容，静态文本全部可读。
+- **Linux / Orca**：①Tab 遍历朗读按钮/勾选/开关；②Orca flat-review 逐行读窗口内容，静态文本全部可读；③对按钮用 Orca 默认 press，动作真实触发且不双触发；④中文名与逐字偏移按字符不走字节。
 - **通用回归**：未开读屏时启动、帧账本读数与既有 examples 行为零变化；三平台 `moon check` / `moon test` 零错误零警告照常门禁。
 
 ## 不做

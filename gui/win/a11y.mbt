@@ -42,6 +42,76 @@ pub fn a11y_published_count() -> Int {
 }
 
 ///|
+/// 快照行数（平台臂与纯 MoonBit 桥的读出面）。
+extern "c" fn wm_a11y_row_count() -> Int = "wm_a11y_count"
+
+///|
+/// 把快照行 `i` 摊成发布时同一格式的 TSV（字段序见文件头）；行不存在给
+/// None。AT-SPI 桥（住 shell 层，不依赖 widget 包）与诊断共用这一读出口。
+///|
+#borrow(out)
+extern "c" fn wm_a11y_row_tsv(
+  i : Int,
+  out : Bytes,
+  cap : Int,
+) -> Int = "wm_a11y_row_tsv"
+
+///|
+/// 窗口客户区原点（物理像素）：MoonBit 每帧报，AT-SPI 的 Component 屏幕
+/// 坐标 = 原点 + 快照矩形（窗口坐标）。
+extern "c" fn wm_a11y_set_window_origin(x : Double, y : Double) -> Unit = "wm_a11y_set_window_origin"
+
+///|
+/// 平台侧记录的窗口原点 x（诊断观察面）。
+extern "c" fn wm_a11y_window_origin_x() -> Double = "wm_a11y_window_origin_x"
+
+///|
+/// 平台侧记录的窗口原点 y（诊断观察面）。
+extern "c" fn wm_a11y_window_origin_y() -> Double = "wm_a11y_window_origin_y"
+
+///|
+/// 快照行数。
+pub fn a11y_row_count() -> Int {
+  wm_a11y_row_count()
+}
+
+///|
+/// 读一行快照的 TSV（行不存在 None）。
+pub fn a11y_row_tsv(i : Int) -> String? {
+  let cap = 1024
+  let buf = Bytes::from_array(FixedArray::make(cap, b'\x00'))
+  let n = wm_a11y_row_tsv(i, buf, cap)
+  if n <= 0 {
+    None
+  } else {
+    Some(@utf8.decode_lossy(buf[:n]))
+  }
+}
+
+///|
+/// 报窗口客户区原点（宿主每帧调；AT-SPI 屏幕坐标用）。
+pub fn a11y_set_window_origin(x : Double, y : Double) -> Unit {
+  wm_a11y_set_window_origin(x, y)
+}
+
+///|
+/// 平台侧记录的窗口原点。
+pub fn a11y_window_origin() -> (Double, Double) {
+  (wm_a11y_window_origin_x(), wm_a11y_window_origin_y())
+}
+
+///|
+/// 压一个读屏动作进跨平台队列（MoonBit 侧入口：AT-SPI 的 DoAction 等；
+/// Windows UIA 与 macOS AX 的动作由各自 C 侧压同一份队列）。
+extern "c" fn wm_a11y_action_push(id : Int, act : Int) -> Unit = "wm_a11y_action_push"
+
+///|
+/// MoonBit 侧压「点一下这个控件」进读屏动作队列（宿主每帧抽走派发）。
+pub fn a11y_action_push(id : Int, act : Int) -> Unit {
+  wm_a11y_action_push(id, act)
+}
+
+///|
 /// 抽一个待办的读屏动作：None = 队列空。
 pub fn a11y_action_poll() -> (Int, Int)? {
   let v = wm_uia_action_poll()

@@ -6,6 +6,7 @@ supported_targets = "native"
 
 import {
   "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/env" @env,
   "NoahLiu/native-gui/win",
   "NoahLiu/native-gui/sys" @sys,
   "NoahLiu/native-gui/dbus" @dbus,

@@ -303,6 +303,48 @@ pub fn gdbus_call_session(
 }
 
 ///|
+/// a11y 总线（AT-SPI）连接（bus.mbt 的进程级连接，没有则现连；地址须先经
+/// [dbus_connect_a11y] 记住）。
+fn gdbus_conn_a11y() -> Result[Conn, String] {
+  match g_a11y_conn.val {
+    Some(c) =>
+      if c.alive {
+        Ok(c)
+      } else {
+        Err("a11y 总线连接已断开")
+      }
+    None =>
+      match g_a11y_path.val {
+        Some(p) =>
+          match dbus_connect_a11y(p) {
+            Ok(_) =>
+              match g_a11y_conn.val {
+                Some(c) => Ok(c)
+                None => Err("a11y 总线连接建立失败")
+              }
+            Err(e) => Err(e)
+          }
+        None => Err("a11y 总线地址未知（先 dbus_connect_a11y）")
+      }
+  }
+}
+
+///|
+/// a11y 总线（AT-SPI）上的同步方法调用。
+pub fn gdbus_call_a11y(
+  dest : String,
+  path : String,
+  iface : String,
+  action : String,
+  args : Array[GDBusValue],
+) -> Result[GDBusValue, GDBusError] {
+  match gdbus_conn_a11y() {
+    Ok(c) => gdbus_call(c, dest, path, iface, action, args)
+    Err(e) => Err(gdbus_err("gdbus.io", e))
+  }
+}
+
+///|
 /// 系统总线上的同步方法调用。
 pub fn gdbus_call_system(
   dest : String,

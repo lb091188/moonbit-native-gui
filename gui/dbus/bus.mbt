@@ -30,6 +30,14 @@ let g_conn : Ref[Conn?] = Ref(None)
 let g_sys_conn : Ref[Conn?] = Ref(None)
 
 ///|
+/// 第三条连接：无障碍 a11y 总线（AT-SPI）。地址不是环境变量约定而是从会话
+/// 总线的 `org.a11y.Bus.GetAddress` 现取，故额外记住路径供断线自愈重连。
+let g_a11y_conn : Ref[Conn?] = Ref(None)
+
+///|
+let g_a11y_path : Ref[String?] = Ref(None)
+
+///|
 /// fd → 连接注册表（[dbus_pump] 按 fd 路由到所属连接）。
 let g_conns : Ref[Map[Int, Conn]] = Ref((Map([]) : Map[Int, Conn]))
 
@@ -194,6 +202,49 @@ pub fn dbus_system_alive() -> Bool {
 }
 
 ///|
+/// a11y 总线是否已连着（不主动建连）。
+pub fn dbus_a11y_alive() -> Bool {
+  match g_a11y_conn.val {
+    Some(c) => c.alive
+    None => false
+  }
+}
+
+///|
+/// 连 a11y 总线（AT-SPI 用；`path` 是 unix socket 路径）。已连且活着时幂等；
+/// 断线重连路径由自愈机制按记住的地址重建。
+pub fn dbus_connect_a11y(path : String) -> Result[Unit, String] {
+  match g_a11y_conn.val {
+    Some(c) =>
+      if c.alive {
+        Ok(())
+      } else {
+        Err("a11y 总线连接已断开")
+      }
+    None => {
+      g_a11y_path.val = Some(path)
+      match connect_unix(path, 2) {
+        Ok(c) => {
+          g_a11y_conn.val = Some(c)
+          c.adopt_saved(2)
+          Ok(())
+        }
+        Err(e) => Err(e)
+      }
+    }
+  }
+}
+
+///|
+/// 本端在 a11y 总线上的唯一名（AT-SPI 的 Embed 入参要用；未连接为空串）。
+pub fn dbus_a11y_unique_name() -> String {
+  match g_a11y_conn.val {
+    Some(c) => c.name
+    None => ""
+  }
+}
+
+///|
 /// 本端唯一名（诊断用；未连接为空串）。
 pub fn dbus_unique_name() -> String {
   match g_conn.val {
@@ -280,6 +331,9 @@ fn schedule_reconnect(bus : Int) -> Unit {
   if bus == 1 {
     g_sys_conn.val = None
   }
+  if bus == 2 {
+    g_a11y_conn.val = None
+  }
   post_delayed(500, fn() { try_reconnect(bus, 1) })
 }
 
@@ -294,7 +348,8 @@ fn try_reconnect(bus : Int, attempt : Int) -> Unit {
   }
   let existing = match bus {
     0 => g_conn.val
-    _ => g_sys_conn.val
+    1 => g_sys_conn.val
+    _ => g_a11y_conn.val
   }
   match existing {
     Some(c) if c.alive => c.adopt_saved(bus)
@@ -308,12 +363,23 @@ fn try_reconnect(bus : Int, attempt : Int) -> Unit {
               try_reconnect(bus, attempt + 1)
             })
           }
-        _ =>
+        1 =>
           match connect_system() {
             Ok(_) => ()
             Err(_) => post_delayed(1000, fn() {
               try_reconnect(bus, attempt + 1)
             })
+          }
+        _ =>
+          match g_a11y_path.val {
+            Some(p) =>
+              match dbus_connect_a11y(p) {
+                Ok(_) => ()
+                Err(_) => post_delayed(1000, fn() {
+                  try_reconnect(bus, attempt + 1)
+                })
+              }
+            None => ()
           }
       }
   }
@@ -979,6 +1045,28 @@ pub fn dbus_emit_signal_session(
   args : Array[GDBusValue],
 ) -> Result[Unit, String] {
   match bus_conn() {
+    Err(e) => Err(e)
+    Ok(c) =>
+      match gdbus_args_wire(args) {
+        Err(m) => Err(m)
+        Ok(pair) => {
+          c.emit_signal(path, iface, action, pair.0, pair.1)
+          Ok(())
+        }
+      }
+  }
+}
+
+///|
+/// 在 a11y 总线（AT-SPI）上发广播信号（无 destination——事件监听方按 match
+/// 规则收，与 libatspi/GTK 桥的发射形态一致）。
+pub fn dbus_emit_signal_a11y(
+  path : String,
+  iface : String,
+  action : String,
+  args : Array[GDBusValue],
+) -> Result[Unit, String] {
+  match gdbus_conn_a11y() {
     Err(e) => Err(e)
     Ok(c) =>
       match gdbus_args_wire(args) {
