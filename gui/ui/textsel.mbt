@@ -13,7 +13,9 @@
 
 ///|
 /// 一件可选中文本的状态：只读 Editor（选区/插入点权威）+ 拖选旗标。
-priv struct SelState {
+/// 混排件（markdown 富文本）复用同一份状态与交互链，几何自己给——见本文件尾
+/// `text_sel_new` / `TextSel::pointer` 公开面。
+pub(all) struct TextSel {
   ed : @input.Editor
   dragging : Ref[Bool]
   anchor : Ref[Int]
@@ -29,7 +31,7 @@ let sel_hooks : Ref[Map[Int, () -> Unit]] = Ref(Map([]))
 
 ///|
 /// 控件 id → 这一件的状态（本包内的读回口：白盒用例断言选区/ caret 用）。
-let sel_states : Ref[Map[Int, SelState]] = Ref(Map([]))
+let sel_states : Ref[Map[Int, TextSel]] = Ref(Map([]))
 
 ///|
 /// 本档实际可见的文本：`max_lines` 钳制与单行省略都复用 @text 那一把刀。
@@ -149,7 +151,7 @@ fn attach_sel_measure(node : @yoga.Node, id : Int, src : TextSource) -> Unit {
 
 ///|
 /// 文本变了就把 Editor 换成可见文本（内核换文即清选区，与本档口径一致）。
-fn sel_sync(st : SelState, lay : @input.TextLayout) -> Unit {
+fn sel_sync(st : TextSel, lay : @input.TextLayout) -> Unit {
   if lay.text != st.ed.get_text() {
     st.ed.set_text(lay.text)
   }
@@ -157,7 +159,7 @@ fn sel_sync(st : SelState, lay : @input.TextLayout) -> Unit {
 
 ///|
 /// 认领选区：复制走内核（装了系统槽就落系统剪贴板），让位时清自己的选区。
-fn sel_claim(id : Int, st : SelState) -> Unit {
+fn sel_claim(id : Int, st : TextSel) -> Unit {
   @widget.text_sel_claim(
     id,
     fn() {
@@ -176,7 +178,7 @@ fn draw_sel_text(
   w : @widget.Widget,
   p : @render.Painter,
   src : TextSource,
-  st : SelState,
+  st : TextSel,
 ) -> Unit {
   let lay = sel_layout(w, src)
   sel_sync(st, lay)
@@ -219,7 +221,7 @@ fn draw_sel_text(
 
 ///|
 /// 建一份选中态（只读 Editor 为唯一权威；`ed` 由调用方备好文本）。
-fn sel_new_state(ed : @input.Editor) -> SelState {
+fn sel_new_state(ed : @input.Editor) -> TextSel {
   attach_system_clipboard(ed)
   {
     ed,
@@ -239,7 +241,7 @@ fn sel_new_state(ed : @input.Editor) -> SelState {
 fn sel_pointer(
   w : @widget.Widget,
   ev : @widget.PointerEvent,
-  st : SelState,
+  st : TextSel,
   hit : (Double, Double) -> Int,
 ) -> Bool {
   match ev.kind {
@@ -299,7 +301,7 @@ fn sel_pointer(
 
 ///|
 /// 装配一件可选中文本：只读 Editor + 测量面 + 指针 + 变化收尾口 + 摘除清理。
-fn sel_setup(w : @widget.Widget, src : TextSource) -> SelState {
+fn sel_setup(w : @widget.Widget, src : TextSource) -> TextSel {
   let st = sel_new_state(@input.Editor::new())
   let node = w.node
   let id = w.id
@@ -330,4 +332,45 @@ fn sel_setup(w : @widget.Widget, src : TextSource) -> SelState {
     @widget.text_sel_release(self.id)
   })
   st
+}
+
+// ---- 混排件复用面（markdown 富文本等自带几何的绘制件）----
+
+///|
+/// 建一份复用状态：调用方备好只读 Editor（全文即选中范围），复制走系统槽。
+pub fn text_sel_new(ed : @input.Editor) -> TextSel {
+  sel_new_state(ed)
+}
+
+///|
+/// 全文变了就同步（换文即清选区，与 selectable 档同一口径，不做偏移迁移）。
+pub fn TextSel::sync(self : TextSel, text : String) -> Unit {
+  if text != self.ed.get_text() {
+    self.ed.set_text(text)
+  }
+}
+
+///|
+/// 指针四交互（单击折叠定位 / 双击选词 / 按下拖选 / Shift 扩选 / 右键复制菜单）。
+/// `hit` 把控件内坐标换成字节偏移——混排件的逐字几何在这里接进来。
+pub fn TextSel::pointer(
+  self : TextSel,
+  w : @widget.Widget,
+  ev : @widget.PointerEvent,
+  hit : (Double, Double) -> Int,
+) -> Bool {
+  sel_pointer(w, ev, self, hit)
+}
+
+///|
+/// 当前选区（字节区间）；没有选区给 None。绘制方据此铺底色。
+pub fn TextSel::range(self : TextSel) -> (Int, Int)? {
+  self.ed.selection()
+}
+
+///|
+/// 让出选区持有者（控件摘除时调用；同一条注册表保证跨件互斥）。
+pub fn TextSel::give_up(self : TextSel, id : Int) -> Unit {
+  let _ = self
+  @widget.text_sel_release(id)
 }

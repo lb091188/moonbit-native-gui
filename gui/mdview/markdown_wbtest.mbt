@@ -10,6 +10,7 @@ fn md_test_ctx() -> MDCtx {
     defs: (Map([]) : Map[String, String]),
     width: 560.0,
     on_link: fn(_u : String) -> Unit { () },
+    sel: false,
   }
 }
 
@@ -118,7 +119,7 @@ test {
   for d in res.definitions {
     defs.set(d.label.trim(chars=" \t\n\r").to_owned(), d.url)
   }
-  let ctx : MDCtx = { foot: md_test_ctx().foot, defs, width: 560.0, on_link: fn(_u : String) -> Unit { () } }
+  let ctx : MDCtx = { foot: md_test_ctx().foot, defs, width: 560.0, on_link: fn(_u : String) -> Unit { () }, sel: false }
   let spans : Array[MDSpan] = []
   for b in res.document.children {
     match b {
@@ -189,7 +190,7 @@ test {
   assert_eq(foot.order, ["a", "b"])
   assert_eq(foot.no.get("a"), Some(1))
   assert_eq(foot.no.get("b"), Some(2))
-  let ctx : MDCtx = { foot, defs: (Map([]) : Map[String, String]), width: 560.0, on_link: fn(_u : String) -> Unit { () } }
+  let ctx : MDCtx = { foot, defs: (Map([]) : Map[String, String]), width: 560.0, on_link: fn(_u : String) -> Unit { () }, sel: false }
   let spans : Array[MDSpan] = []
   for b in res.document.children {
     match b {
@@ -861,5 +862,140 @@ test "行内块内容吃掉行内剩余宽：单行项不折第二行、不被�
       "",
       msg="宽 \{w} 下有叶子被行盒裁掉：\{readout}",
     )
+  }
+}
+
+///|
+/// 选中档夹具：其余量沿用 md_test_ctx，只把 `sel` 打开。
+fn md_sel_ctx() -> MDCtx {
+  let c = md_test_ctx()
+  { ..c, sel: true }
+}
+
+///|
+fn md_sel_click(root : @widget.Widget, x : Double, y : Double) -> Unit {
+  let _ = root.dispatch_pointer({
+    kind: @widget.PointerKind::Down,
+    x: x,
+    y: y,
+    button: 1,
+    mods: 0,
+  })
+}
+
+///|
+fn md_sel_move(root : @widget.Widget, x : Double, y : Double) -> Unit {
+  let _ = root.dispatch_pointer({
+    kind: @widget.PointerKind::Move,
+    x: x,
+    y: y,
+    button: 0,
+    mods: 0,
+  })
+}
+
+///|
+fn md_sel_up(root : @widget.Widget, x : Double, y : Double) -> Unit {
+  let _ = root.dispatch_pointer({
+    kind: @widget.PointerKind::Up,
+    x: x,
+    y: y,
+    button: 1,
+    mods: 0,
+  })
+}
+
+///|
+test "选中档：逐字命中落字节、拖选区间就是原文子串" {
+  let src = "甲乙丙丁戊己庚辛壬癸"
+  let root = mount_doc(
+    md_rich_label(md_flat_par(src), 13.0, md_sel_ctx()),
+    400.0,
+    40.0,
+  )
+  let label = root.children()[0]
+  let state = match md_sel_states.get(label.id) {
+    Some(s) => s
+    None => abort("选中档没装起来")
+  }
+  assert_eq(state.ed.get_text(), src)
+  // 单行 10 个等宽汉字：一个字宽 = 整行宽/10，第 k 字中心 = (k+0.5)*cw
+  let cw = match @text.measure_font("甲", @text.Font::new("", 13.0), wrap=false) {
+    Some(m) => m.width.to_double()
+    None => abort("本平台没有文本测量")
+  }
+  let y = label.rect.y + 1.0
+  md_sel_click(root, label.rect.x + 3.5 * cw, y)
+  // 单击 = 折叠定位到第 3 个字（3 字 × 3 字节 = 9）
+  assert_eq(state.ed.caret_pos(), md_byte_len("甲乙丙"))
+  assert_true(state.ed.selection() is None)
+  // 从第 3 字左缘拖到第 6 字左缘：选区就是「甲乙丙丁戊己」的前 3 字那一段
+  md_sel_up(root, label.rect.x + 3.5 * cw, y)
+  md_sel_click(root, label.rect.x + 3.0 * cw + 1.0, y)
+  md_sel_move(root, label.rect.x + 6.0 * cw - 1.0, y)
+  md_sel_up(root, label.rect.x + 6.0 * cw - 1.0, y)
+  match state.ed.selection() {
+    Some((a, b)) => {
+      assert_eq(a, md_byte_len("甲乙丙"))
+      assert_eq(b, md_byte_len("甲乙丙丁戊己"))
+    }
+    None => abort("拖选没成选区")
+  }
+  // 缺省档（sel=false）不该装选中态
+  let root2 = mount_doc(
+    md_rich_label(md_flat_par(src), 13.0, md_test_ctx()),
+    400.0,
+    40.0,
+  )
+  assert_true(md_sel_states.get(root2.children()[0].id) is None)
+}
+
+///|
+test "选中档：混排行里段界仍取联合几何，跨行拖选把两行都算进选区" {
+  let src = "支持 **粗体**、*斜体*、`行内代码` 与一段足够长的中文用来把它折成两行显示"
+  let spans = md_flat_par(src)
+  // 渲染文本 = 各段文本拼接（markdown 的 ** ` 标记不进文本）
+  let buf = StringBuilder()
+  for sp in spans {
+    buf.write_string(sp.text)
+  }
+  let want = buf.to_string()
+  // 定宽 240 才折得开（md_test_ctx 的 560 会让这段只排一行）
+  let cx : MDCtx = { ..md_test_ctx(), sel: true, width: 240.0 }
+  let root = mount_doc(
+    md_rich_label(spans, 13.0, cx),
+    240.0,
+    120.0,
+  )
+  let label = root.children()[0]
+  let state = match md_sel_states.get(label.id) {
+    Some(s) => s
+    None => abort("选中档没装起来")
+  }
+  assert_eq(state.ed.get_text(), want)
+  assert_true(
+    label.rect.h > 40.0,
+    msg="240 定宽没把这段折成多行（h=\{label.rect.h}）",
+  )
+  // 注意别连着在同一点按两次：400ms + 4px 内算双击，会变成「选词」而不是拖选锚点
+  md_sel_click(root, label.rect.x + 1.0, label.rect.y + 1.0)
+  // 拖到本段最后一行底部：末端必然越过前 20 字
+  md_sel_move(root, label.rect.x + 60.0, label.rect.y + label.rect.h - 1.0)
+  md_sel_up(root, label.rect.x + 60.0, label.rect.y + label.rect.h - 1.0)
+  match state.ed.selection() {
+    Some((a, b)) => {
+      assert_eq(a, 0)
+      // 末端至少越过前 20 个字（第一行放不下这么多，必然已经跨进行）
+      let probe = String::from_array(want.to_array()[0:20])
+      assert_true(
+        b > md_byte_len(probe),
+        msg="跨行拖选的末端没有越过前 20 字（b=\{b}）",
+      )
+      assert_true(
+        b > state.ed.byte_len() / 2,
+        msg="拖到最后一行只选了半段以下（b=\{b} / 全文 \{state.ed.byte_len()}）",
+      )
+    }
+    None => abort("跨行拖选没成选区")
   }
 }

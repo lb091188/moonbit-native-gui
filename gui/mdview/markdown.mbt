@@ -85,6 +85,8 @@ priv struct MDCtx {
   defs : Map[String, String]
   width : Double
   on_link : (String) -> Unit
+  // 段落可选中（markdown_view 的 selectable 透传，混排逐字几何见 md_rich_label）
+  sel : Bool
 }
 
 ///|
@@ -745,6 +747,10 @@ fn md_same_style(a : MDSpan, b : MDSpan) -> Bool {
 /// 与宽度(删除线横线与链接命中按它换算)。三者全部**惰性**建:一次 min-content
 /// 探询能折出上百条行,全量建对象是这一页卡顿的主因,而其中绝大多数行永远不会
 /// 被画。`sum` 是折行期逐单元宽的累加(免费拿到的估算宽,只在探询档用)。
+///|
+/// 控件 id → 选中态（本包用例的读回口：断言选区/插入点用，不对外）。
+let md_sel_states : Map[Int, @ui.TextSel] = Map([])
+
 priv struct MDLine {
   spans : Array[MDSpan]
   sum : Double
@@ -754,6 +760,12 @@ priv struct MDLine {
   mut at : @text.AttributedText
   mut at_ready : Bool
   mut geo_ready : Bool
+  // 选中档（首次用到才建）：lstart = 每个渲染段在原文里的字符起点；
+  // cx / cidx 一一对应，长度 = 本行字符数 + 1（末尾那格是最后一个字的右缘）
+  lstart : Array[Int]
+  cx : Array[Double]
+  cidx : Array[Int]
+  mut cx_ready : Bool
 }
 
 ///|
@@ -762,6 +774,9 @@ priv struct MDLine {
 /// 删除线段按该行像素区间补画横线;带地址的链接段
 /// 可点击(按行号 + 行内像素区间命中,经 ctx.on_link 交调用方),悬浮手型光标;
 /// sup 段用小一号字体;链接/代码段主题色,主题指纹变化时只重建绘制对象。
+/// `ctx.sel` 开选中档：本段是一份可选中的连续文本——逐字 x 表按「段界取联合
+/// 几何、段内按逐字宽线性分摊」建，选中交互链与 @ui 的 selectable 文本同一条
+/// （`@ui.TextSel`），复制得到的是本段原文（软折行不插换行）。
 /// 区间端点由 [md_span_ranges] 按 UTF-8 字节计量。
 fn md_rich_label(
   spans : Array[MDSpan],
@@ -919,7 +934,7 @@ fn md_rich_label(
     }
   }
 
-  fn mk_line(line : Array[MDSpan], sum : Double) -> MDLine {
+  fn mk_line(line : Array[MDSpan], sum : Double, starts : Array[Int]) -> MDLine {
     {
       spans: line,
       sum,
@@ -929,6 +944,10 @@ fn md_rich_label(
       at: @text.AttributedText::new("", valign=@text.Center, wrap=false),
       at_ready: false,
       geo_ready: false,
+      lstart: starts,
+      cx: [],
+      cidx: [],
+      cx_ready: false,
     }
   }
 
@@ -986,16 +1005,19 @@ fn md_rich_label(
   fn fold_at(limit : Double) -> Array[MDLine] {
     let rows : Array[MDLine] = []
     let cur : Array[MDSpan] = []
+    let cur_starts : Array[Int] = []
     let cur_w = Ref(0.0)
     fn end_line() -> Unit {
       if cur.length() > 0 {
-        rows.push(mk_line(cur.copy(), cur_w.val))
+        rows.push(mk_line(cur.copy(), cur_w.val, cur_starts.copy()))
         cur.clear()
+        cur_starts.clear()
         cur_w.val = 0.0
       }
     }
 
-    fn put(unit : String, span : MDSpan) -> Unit {
+    // at = 本单元第一个字符在原文里的字符下标（选中档的逐字命中要它定位）
+    fn put(unit : String, span : MDSpan, at : Int) -> Unit {
       let uw = unit_w(unit, span)
       if cur_w.val + uw > limit && cur.length() > 0 {
         end_line()
@@ -1005,26 +1027,35 @@ fn md_rich_label(
         cur[n - 1].text = cur[n - 1].text + unit
       } else {
         cur.push({ ..span, text: unit })
+        cur_starts.push(at)
       }
       cur_w.val += uw
     }
 
+    let mut log_i = 0
     for span in spans {
+      let span_at = log_i
+      let mut seen = 0
       for unit in md_units(span.text) {
+        let ulen = unit.to_array().length()
         if unit == "\n" {
           end_line()
+          seen += 1
         } else if unit_w(unit, span) > limit {
           // 单个单元就比整行宽(长 URL / 长单词):按字符硬切,不然必然撑破容器
           for ch in unit {
-            put(ch.to_string(), span)
+            put(ch.to_string(), span, span_at + seen)
+            seen += 1
           }
         } else {
-          put(unit, span)
+          put(unit, span, span_at + seen)
+          seen += ulen
         }
+        log_i += ulen
       }
     }
     if cur.length() > 0 || rows.length() == 0 {
-      rows.push(mk_line(cur.copy(), cur_w.val))
+      rows.push(mk_line(cur.copy(), cur_w.val, cur_starts.copy()))
     }
     rows
   }
@@ -1040,6 +1071,146 @@ fn md_rich_label(
   // 正文行距给足：字体天然行高只保证字形不相撞（13 号约 17），排出来每行贴脸。
   // 统一按字号 1.6 倍起排，标题这类大字号同样留得住呼吸。
   let line_h = line_h_nat.max(size * 1.6)
+
+  // ---- 选中档（`ctx.sel`）：本段是一份连续文本 ----
+  // 原文按 spans 拼接（软折行不插换行，复制出来就是这段的原话）；字符下标→
+  // 字节偏移表一次建好，Editor / AttributedText / 样式区间都按字节计量。
+  let sel_buf = StringBuilder()
+  for sp in spans {
+    sel_buf.write_string(sp.text)
+  }
+  let ltext = sel_buf.to_string()
+  let char2byte : Array[Int] = []
+  {
+    let mut b = 0
+    for ch in ltext.to_array() {
+      char2byte.push(b)
+      b += md_byte_len(ch.to_string())
+    }
+    char2byte.push(b)
+  }
+  let sel_ed = @input.Editor::new()
+  sel_ed.set_text(ltext)
+  let st = if ctx.sel && ltext.length() > 0 {
+    Some(@ui.text_sel_new(sel_ed))
+  } else {
+    None
+  }
+
+  /// 本行逐字几何：段界取联合排版（`line_geo` 的 xs/ws），段内按逐字宽线性
+  /// 分摊到该段联合宽——既不退回「逐段单独量」（mac 实测累加比联合窄 11px），
+  /// 也不逐字建绘制对象（一行几十次 C 排版会话）。`cx`/`cidx` 平行，长度
+  /// = 本行字符数 + 1，末格是最后一个字的右缘。
+  fn line_cx(g : MDLine) -> Unit {
+    if g.cx_ready {
+      return
+    }
+    line_geo(g)
+    for i, sp in g.spans {
+      let cs = sp.text.to_array()
+      let k = cs.length()
+      if k == 0 {
+        continue
+      }
+      let per : Array[Double] = []
+      let mut sum = 0.0
+      for ch in cs {
+        let wc = unit_w(ch.to_string(), sp)
+        per.push(wc)
+        sum += wc
+      }
+      let scale = if sum > 0.0 { g.ws[i] / sum } else { 0.0 }
+      let mut acc = 0.0
+      for j = 0; j < k; j = j + 1 {
+        g.cx.push(g.xs[i] + acc * scale)
+        g.cidx.push(g.lstart[i] + j)
+        acc += per[j]
+      }
+    }
+    let last = g.spans.length() - 1
+    if last >= 0 {
+      g.cx.push(g.xs[last] + g.ws[last])
+      g.cidx.push(g.lstart[last] + g.spans[last].text.to_array().length())
+    }
+    g.cx_ready = true
+  }
+
+  fn char_at(x : Double, y : Double) -> Int {
+    let total = char2byte.length() - 1
+    let rows = rows_ref.val
+    let li = (y / line_h).floor().to_int()
+    match rows.get(li) {
+      Some(g) => {
+        line_cx(g)
+        let n = g.cx.length()
+        if n == 0 {
+          total
+        } else if x <= g.cx[0] {
+          g.cidx[0]
+        } else if x >= g.cx[n - 1] {
+          g.cidx[n - 1]
+        } else {
+          // 找到 x 所在的那一格，再按中线定边界：过半算这字之后、未过半算这字之前
+          // （与 TextLayout::hit 同口径——给的是插入点，不是字符序号，
+          // 不然永远选不到一行的最后一个字）
+          let mut i = 0
+          while i + 1 < n && g.cx[i + 1] <= x {
+            i += 1
+          }
+          let mid = g.cx[i] + (g.cx[i + 1] - g.cx[i]) / 2.0
+          if x > mid { g.cidx[i] + 1 } else { g.cidx[i] }
+        }
+      }
+      None => total
+    }
+  }
+
+  fn byte_at(x : Double, y : Double) -> Int {
+    let c = char_at(x, y).max(0)
+    match char2byte.get(c) {
+      Some(b) => b
+      None => char2byte[char2byte.length() - 1]
+    }
+  }
+
+  /// 字节偏移换字符下标（画选区要把选区切到各行）。
+  fn char_of_byte(b : Int) -> Int {
+    let mut lo = 0
+    let mut hi = char2byte.length() - 1
+    while lo < hi {
+      let mid = (lo + hi + 1) / 2
+      if char2byte[mid] <= b {
+        lo = mid
+      } else {
+        hi = mid - 1
+      }
+    }
+    lo
+  }
+
+  /// 选区在本行的像素区间：没有交集给 None。
+  fn line_sel_rect(g : MDLine, a : Int, b : Int) -> (Double, Double, Double)? {
+    line_cx(g)
+    if g.cidx.length() < 2 {
+      return None
+    }
+    let lo = g.cidx[0]
+    let hi = g.cidx[g.cidx.length() - 1]
+    let ca = char_of_byte(a).max(lo)
+    let cb = char_of_byte(b).min(hi)
+    if cb <= ca {
+      None
+    } else {
+      match
+        (
+          g.cx.get(ca - lo), g.cx.get(cb - lo),
+        ) {
+          (Some(x0), Some(x1)) => Some((x0, x1, x1 - x0))
+          _ => None
+        }
+    }
+  }
+
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     @ui.watch_theme()
     let fps = Ref("")
@@ -1111,6 +1282,22 @@ fn md_rich_label(
       p.set_stroke_color(@theme.theme_text_regular())
       let mut y = 0.0
       for g in rows_ref.val {
+        // 选中档：先铺本行选区底色，再画字（高亮在字下，与 selectable 文本同层序）
+        match st {
+          Some(state) =>
+            match state.range() {
+              Some((a, b)) =>
+                match line_sel_rect(g, a, b) {
+                  Some((x0, _x1, w0)) => {
+                    p.set_fill_color(@theme.theme_primary_light())
+                    p.fill_rect(x0, y, w0.max(1.0), line_h)
+                  }
+                  None => ()
+                }
+              None => ()
+            }
+          None => ()
+        }
         let _ = line_at(g).draw_at(p, 0.0, y, line_w(g), line_h)
         for i, sp in g.spans {
           if sp.strike {
@@ -1129,6 +1316,18 @@ fn md_rich_label(
     for s in spans {
       if s.url != "" {
         has_link = true
+      }
+    }
+    // 选中档的指针链：与 @ui 的 selectable 文本同一条（单击/双击选词/拖选/
+    // Shift 扩选/右键复制），几何由本段的逐字表给
+    fn sel_via(self : @widget.Widget, ev : @widget.PointerEvent) -> Bool {
+      match st {
+        Some(state) => state.pointer(
+          self,
+          ev,
+          fn(x : Double, y : Double) -> Int { byte_at(x, y) },
+        )
+        None => false
       }
     }
     if has_link {
@@ -1162,14 +1361,21 @@ fn md_rich_label(
               (ctx.on_link)(u)
               true
             } else {
-              false
+              sel_via(_self, ev)
             }
           }
           @widget.PointerKind::Move => {
             let h = hit_url(ev.x, ev.y) != ""
             if h != hover.val {
               hover.val = h
-              w.cursor = if h { @widget.CURSOR_HAND } else { 0 }
+              w.cursor = if h {
+                @widget.CURSOR_HAND
+              } else {
+                @widget.CURSOR_TEXT
+              }
+            }
+            if !h {
+              let _ = sel_via(_self, ev)
             }
             true
           }
@@ -1183,6 +1389,24 @@ fn md_rich_label(
           @widget.PointerKind::Up => false
         }
       })
+    } else if st is Some(_) {
+      w.cursor = @widget.CURSOR_TEXT
+      w.on_pointer = Some(fn(
+        self : @widget.Widget,
+        ev : @widget.PointerEvent,
+      ) -> Bool { sel_via(self, ev) })
+    }
+    match st {
+      Some(state) => {
+        let _ = md_sel_states.set(w.id, state)
+        w.cursor = @widget.CURSOR_TEXT
+        let give = state
+        w.on_discard = Some(fn(self : @widget.Widget) -> Unit {
+          let _ = md_sel_states.remove(self.id)
+          give.give_up(self.id)
+        })
+      }
+      None => ()
     }
     w
   })
@@ -1200,6 +1424,7 @@ pub fn markdown_view(
   source : String,
   width? : Double = 0.0,
   on_link? : (String) -> Unit = fn(_u : String) -> Unit { () },
+  selectable? : Bool = false,
   handle? : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   let res = @mdast.parse(source)
@@ -1210,7 +1435,7 @@ pub fn markdown_view(
   for d in res.definitions {
     defs.set(d.label.trim(chars=" \t\n\r").to_owned(), d.url)
   }
-  let ctx : MDCtx = { foot, defs, width, on_link }
+  let ctx : MDCtx = { foot, defs, width, on_link, sel: selectable }
   let nodes = md_render_blocks(doc.children, ctx)
   if foot.order.length() > 0 {
     let fd : Map[String, Array[@mdast.Block]] = (Map([]) : Map[String, Array[@mdast.Block]])

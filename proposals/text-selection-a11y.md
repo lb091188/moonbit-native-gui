@@ -86,6 +86,15 @@ TextLayout {
 ### 范围
 
 - **首批（本条主体）**：① `gui/input` 抽 `TextLayout`，textarea/entry 改用（等价重构，既有 wbtest 钉住）；② `text`/`text_dyn` 加 `selectable? : Bool = false` 档（可选参数纯增量；文本件单一入口已定案，gui/ui/basic.mbt:343-350，不开并列入口）——只读 Editor + 高亮 + 单击/双击/拖选/Shift+点击 + Ctrl+C 宿主支 + 右键菜单；**测量面与绘制面同步切 TextLayout**（见坑 1）；③ code_view 选中：预排版表加字节偏移列（逐 token x/宽已有，codeview.mbt:429-454），行号列排除在选区外（`num_off` 已隔离，codeview.mbt:424-428），复制按行拼 `\n`，横滚坐标经控件矩形平移天然正确。
+**落地注记（2026-11-03·markdown 段落选中已合入）**
+
+- 复用面开在 @ui：`text_sel_new` / `TextSel::pointer(hit)` / `range` / `sync` / `give_up`——混排件自带几何，只把「坐标→字节偏移」的 `hit` 交给它，交互链（单击/双击选词/拖选/Shift 扩选/右键复制/系统槽）与 selectable 文本同一条，不再复制第二份。
+- mdview 侧的逐字几何口径：**段界取联合排版**（`line_geo` 的 xs/ws，即真正绘制用的 AttributedText 量的那份），**段内按逐字宽线性分摊到该段联合宽**——既不退回顾忌逐段单独量宽（mac 真机累加比联合窄 11px 的老坑），也不逐字建绘制对象（一行几十次 C 排版会话）。`cx`/`cidx` 首次用到才建、按行备忘。
+- 字节计量：`ltext` = spans 文本拼接（软折行不插换行，所以复制出来是这段原话）；`char2byte` 一次建表，Editor / AttributedText / 命中都按字节。折行时给每个渲染段记 `lstart`（该段首字在原文里的字符下标），命中结果就是原文下标，不受「同风格单元被合并」影响。
+- 与链接的分工没变：Down 先问 `hit_url`，命中就是打开链接；落空才进选中链。悬浮光标在链接上是手型、其余是 I 梁。
+- 用例判据（无头）：单击落点=第 3 字左半 → caret 9 字节；拖到第 6 字右半 → 选区 `[9,18]`；混排段 240 定宽折多行后拖到末行 → 末端越过前 20 字且过半。同点 400ms 内连击算双击（选中词），夹具里别连按同一点。
+- 缺省档（`selectable=false`）没装选中态、不建逐字表——用例断言 `md_sel_states` 里没有它。
+
 - **次批（同条延续，不混批）**：markdown 段落。`md_rich_label` 已有独立行模型与链接交互面，逐字命中要按字节前缀做混排联合量宽（`joint_w` 成本模式，markdown.mbt:910-920）并处理混排字体边界（markdown.mbt:830-848 的坑）；等首批的注册表/菜单/复制在纯文本上闭环再接。
 - **缓批（单独立项）**：`AttributedText` 逐字选中。`@text` 层无逐字几何 API（attributed.mbt 公开面核对过），要先在三平台 C 桩开逐字几何接口——违背第一期「不碰平台桥」约束。
 
