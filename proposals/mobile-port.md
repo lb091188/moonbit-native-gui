@@ -5,8 +5,8 @@
 ## 定位
 
 - **形态**：原生薄壳（几百行 Kotlin / Swift / ArkTS）+ `libapp.so`（现有一套代码编成）。薄壳只干三件事——交一块画布、转发输入事件、通报生命周期。
-- **优先级**：iOS > 鸿蒙 > Android（平台复用度递减：iOS 直接复用 CoreText/ImageIO/Cocoa 分支大半，鸿蒙 NDK 兼容性好且 OH_Drawing 可接加速口，Android 要自带文字栈）。
-- **状态**：方向性提案，未立项。三个生死门探针（见下）出结果前不进 roadmap「已规划」。
+- **优先级**：按复用度 iOS > 鸿蒙 > Android（iOS 直接复用 CoreText/ImageIO/Cocoa 分支大半，Android 要自带文字栈）；按趟通程度鸿蒙证据最全（见「社区参照」），第一站选鸿蒙还是 iOS 待定。
+- **状态**：方向性提案，未立项。探针清单（见下）出结果前不进 roadmap「已规划」。2026-11-03 完成 MoUI / MoonOHOS / ajni 社区调研，探针一、二据此降级。
 
 ## 平台缝替换清单
 
@@ -39,15 +39,25 @@
 - 最坏情况（全屏滚动/大动画，DPR 3x 像素量）约需 150 Mpix/s 软光栅，旗舰可行、中端机掉帧——**唯一要实测探底的场景**；
 - 退路：`Painter` 双后端探针口子接 GPU 后端（鸿蒙 OH_Drawing / iOS Metal），与 `gpu-architecture.md` 的 RenderCtx Gpu 变体是同一个方向；`prof.mbt` 分段账本原样带过去，真机每帧布局/光栅/present 毫秒直接可读。
 
-## 生死门探针（第一步，落 `experiment/`）
+## 体积与性能的社区对照
 
-1. **moonbit 运行时在移动 libc 上活不活**：`moon 出的 C + moonbit.h` 经 NDK clang（bionic）编 hello world 跑真机/模拟器——GC 内存策略、线程局部、信号处理。**全局唯一可能一票否决的点**；iOS（Darwin）与鸿蒙（musl）同法各探一次。
-2. **moon 末次链接能否交叉编译**：moon 默认宿主编译器链接 exe；探「只收 C 工件不发 exe」或「链接参数指向交叉工具链」。退路：moon 只当 C 生成器，外面 CMake 收工件——`.so` 形态本来就不要 exe。
-3. **present + 触摸全链路**：`ANativeWindow` 连续 blit + JNI 事件回灌，顺带带上 Android 15 的 16 KB 页对齐（NDK r28+ 默认，一行参数）。
+MoUI 主线自带 Skia（依赖几十 MB 级），与本仓的对照前提要说清：典型 GUI 负载（自家 prof：1080p 每帧不到 2 ms）我们脏区 + 保留树不落下风；极限负载（全屏复杂路径 + 大文字量 + 3x DPR）Skia 的解析式抗锯齿与字形 atlas 缓存占优，本仓是 4×4 超采样（16 倍采样成本）；双方进 GPU 后趋同（同一层硬件 API），本仓 GPU 走 Layer 1 合成先行、Layer 2 绘制跟上（见 `gpu-architecture.md`）。
+
+## 探针清单（第一步，落 `experiment/`）
+
+1. **Android bionic 运行时**：`moon 出的 C + moonbit.h` 经 NDK clang 编 hello world 跑真机/模拟器——GC 内存策略、线程局部、信号处理。这是三平台仅剩的真未知数：鸿蒙已被 MoUI 真机（runtimeL3 通过）与 MoonOHOS（x86_64 模拟器）双重旁证，iOS 有 MoUI 的 Xcode/模拟器流程，均不再需要本仓自探。
+2. **照社区形态搭 moon-出-C 外挂管线**：moon native 出 C → 平台 CMake/工具链收工件 → 平台 IDE/CLI 打包，MoUI（三平台）与 MoonOHOS（OHOS/HAR）已趟通，可行性已证，本仓照走一遍并记版本锚点：NDK 28.2 / minSdk 23；OHOS API 26+ / moonc ≥ 0.10.16；Xcode 15.4+ / iOS 15+。
+3. **present + 触摸全链路（Android）**：`ANativeWindow` 连续 blit + JNI 事件回灌 + Android 15 的 16 KB 页对齐。鸿蒙侧不用探，照抄 MoUI 已验路径（XComponent surface 唯一来源、滚轮走 UIInputEvent、剪贴板读走 ArkTS PasteButton）。
+
+## 社区参照（2026-11-03 调研）
+
+- **MoUI（wzzc-dev/MoUI）**：多平台 MoonBit 声明式 GUI（Skia 主线 + Web WebGPU）。鸿蒙 committed 且真机验证（egl-direct 上屏、指针/键盘/IME、剪贴板、ArkUI 无障碍、surface detach/recreate）；Android/iOS experimental（编译过、无真机证据）。对本仓是**路书不是零件**——路线不同（Skia + 声明式管线 vs 本仓 CPU 光栅 + 保留树），但其编译管线形态、版本锚点、真机验证纪律（readiness declaration + `checks/platforms/<平台>.json`，无真机证据不升档，与本仓「真机归用户」规则同构）与鸿蒙实测坑直接可抄。
+- **MoonOHOS（shop1111/MoonOHOS）**：MoonBit → 鸿蒙 Native 模块工具链（HAR 形态，ArkTS 管界面、MoonBit 管业务）。可借：`moonohos.native.json` 受控 C 代码携带机制（本仓 stub.c 分支进鸿蒙的现成通道）、`moonohos_ohos` 平台包（hilog / rawfile / task，sys 层鸿蒙对应的起点）、init/build/har/verify/doctor 打包件（鸿蒙批次不自己造 hvigor 集成）。成熟度注记：x86_64 模拟器已验、ARM64 真机未验、0.x 快速迭代，引入需 pin 版本。
+- **ajni（Nanaloveyuki/ajni）**：MoonBit 原生 JNI（类型化双向调用、句柄生命周期、Android host adapter、可选 webview 包）。本仓薄壳跨边界面小（事件进、像素出），第一批手写 C 桥不用它；能力面（IME / 剪贴板 / 权限 / Intent）铺开与 `gui-webview` Android 子件批次再评估引入。同为单人 0.x，引入需 pin 版本。
 
 ## 里程碑
 
-探针 1→2→3 → FreeType/HarfBuzz vendor → `win/text/render` 三包各加 `WM_STUB_ANDROID` 分支 → `examples/hello` 跑上真机 → 触摸/IME/生命周期模型批 → 按同一清单铺 iOS、鸿蒙。每步按流程走 roadmap / TODO 流转。
+探针 3 → FreeType/HarfBuzz vendor → `win/text/render` 三包各加 `WM_STUB_ANDROID` 分支 → `examples/hello` 跑上真机 → 触摸/IME/生命周期模型批 → 按同一清单铺下一平台。鸿蒙批次的构建打包借 MoonOHOS 的 HAR 工具链，不自己造 hvigor 集成。每步按流程走 roadmap / TODO 流转。
 
 ## 不做什么
 
