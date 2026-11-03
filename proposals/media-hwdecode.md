@@ -45,6 +45,22 @@ Demuxer::decode_rgba（modules/ffmpeg-mbt/src/ffmpeg.mbt:223）
 | Windows | BtbN lgpl-shared 归档（`prebuild.py:57`）**已含 d3d11va** | `strings vendor/avcodec.lib` 命中 `av_d3d11va_alloc_context`；版本 `n9.0.2-27-g7e93014c5b`；`hwcontext_*.h` 14 个齐全 |
 | macOS | CI 自编脚本（`modules/ffmpeg-mbt/scripts/*.yml` 的 configure 段 `:43-48`）**从创建起就带 `--enable-videotoolbox --enable-audiotoolbox`** | `git log -S --enable-videotoolbox` 唯一命中 `bebce1c8`（脚本初立那次） |
 
+**H0 探针首跑（2026-11-03，Linux 开发容器，`experiment/hwdecode_probe/hwdecode_probe.c`）**：逐设备 `av_hwdevice_ctx_create` + `av_hwframe_ctx_alloc/init` + `av_hwframe_transfer_get_formats(FROM)` 读数——
+
+```
+ffmpeg 60.31.102；/dev/dri/renderD128 存在
+HWPROBE platform=linux type=vdpau open=ok frames=ok pix=vdpau transfer=none
+HWPROBE platform=linux type=cuda  open=ok frames=ok pix=cuda  transfer=none
+HWPROBE platform=linux type=vaapi open=ok frames=ok pix=vaapi transfer=none
+HWPROBE platform=linux type=qsv   open=fail:Generic error in an external library
+HWPROBE platform=linux type=drm   open=fail:Bad address
+HWPROBE platform=linux type=opencl open=ok frames=ok pix=opencl transfer=none
+HWPROBE platform=linux type=vulkan open=ok frames=ok pix=vulkan transfer=none
+```
+
+两条实测口径，实现（H1）按此写：①**设备句柄建得起来 ≠ 能用**——容器里连无 NVIDIA 卡的 `cuda` 都报 `open=ok frames=ok`，光看这两档会被骗；②**transfer 列表全空**（本容器无真实 GPU 上下文，或该发行版 build 的 hwframe 传输未编进）——所以 H1 的可用判据必须落在**真实解一帧 + `av_hwframe_transfer_data` 成功**上，不能只看 device/frames 两档；探针后续加「解一帧」档（需样本文件，随 H1 一起进 `experiment/`）。
+③ `qsv`/`drm` 建不起来属正常（无对应驱动），如实打 fail 原因，不静默跳过。
+
 **推翻一条旧判**：roadmap「已规划·媒体」写「mac 归档 `--enable-videotoolbox` 重做评估」——前提过期（归档一直带着这一档），本线只需**验实物**：`otool -L libavutil.dylib | grep VideoToolbox`，vendor-v1（sha `9fdff76c`）与 brew 路各验一次。
 **顺带缺陷**：归档里的 `LICENSE.txt` 由脚本 `:92` 写成「--enable-lgpl 配置构建」，与脚本 `:49` 的自述矛盾——随本线一并改口径，别让人对着不存在的配置串核许可。
 

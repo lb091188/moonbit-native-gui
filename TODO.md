@@ -51,6 +51,6 @@
 - [ ] **L1-Win / L1-mac**：D3D12 swapchain 挂 HWND / CAMetalLayer 挂 NSView，与现有 blit 的切换与回退（回退后逐像素一致）
 - [ ] **L2 协议**：RenderCtx::Gpu(GpuContext) 最小接口面（够视频 quad 与简单图形）+ paint_walk 混排合成次序（rect/clip/opacity 随合成传）
 - [ ] **首消费者**：视频直纹理接口位（仅接口不实现导入）；GPU 内容画布 demo 页（赛季验收面）
-- [ ] **硬解探针**：三平台 hw_device_ctx 能建（VideoToolbox / D3D11VA / VAAPI）+ 归档实物核验（Linux 发行版 ffmpeg 的 `ffmpeg -hwaccels`、Windows BtbN lgpl 归档已命中 `av_d3d11va_alloc_context`、mac 归档脚本从初立就带 `--enable-videotoolbox`——旧判「重做评估」已过期，只剩 `otool -L` 验实物与 LICENSE.txt 口径修正）；未决见 proposals/media-hwdecode.md §六 spike
+- [ ] **硬解探针**（Linux 腿已跑：`experiment/hwdecode_probe` 逐设备 open/frames/transfer 读数进方案 §四，设备建得起来≠能用、transfer 全空两条坑已记；Win/mac 两腿待跑）：三平台 hw_device_ctx 能建（VideoToolbox / D3D11VA / VAAPI）+ 归档实物核验（Linux 发行版 ffmpeg 的 `ffmpeg -hwaccels`、Windows BtbN lgpl 归档已命中 `av_d3d11va_alloc_context`、mac 归档脚本从初立就带 `--enable-videotoolbox`——旧判「重做评估」已过期，只剩 `otool -L` 验实物与 LICENSE.txt 口径修正）；未决见 proposals/media-hwdecode.md §六 spike
 - [ ] **硬解实现**：ffmpeg_stub.c 挂 hw_device_ctx + hw frame 经 transfer_data 下传现有 CPU 帧链路 + 驱动缺/格式不支持回落软解；无头 wbtest 钉解码正确性与像素格式。三条定案照做（§八）：默认关显式请求、本进程 codec+分辨率一次失败即永久回落、10bit 首版不做
 - [ ] **帧输出抽象**：transfer 收敛为策略位——将来 GPU 落地切直纹理只动输出端一行，解码端零改动
