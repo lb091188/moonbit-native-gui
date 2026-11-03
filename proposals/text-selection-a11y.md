@@ -199,7 +199,7 @@ pub fn Widget::a11y_caret(self) -> Int?                                      // 
 
 真机由用户执行，助手给操作步骤：
 
-- **macOS / VoiceOver**（Cmd+F5 开关）：①Tab 遍历 showcase 表单页，每控件朗读「名字， 角色」；②Space 切 checkbox/switch，朗读「已勾选/未勾选」翻转；③输入框聚焦后逐字输入，VoiceOver 逐字符朗读。
+- **macOS / VoiceOver**（Cmd+F5 开关）：①Tab 遍历 showcase 表单页，每控件朗读「名字， 角色」；②Space 切 checkbox/switch，朗读「已勾选/未勾选」翻转；③输入框聚焦后逐字输入，VoiceOver 逐字符朗读；④对按钮/勾选用 VoiceOver 默认 press，动作真实触发且不双触发。
 - **Windows / NVDA**：①Tab + 方向键遍历同一页，朗读 role/name/状态；②Accessibility Insights for Windows 打开，树里可见完整控件层级，选中滑杆看 RangeValue 随拖动更新；③对按钮/勾选/下拉调用读屏的 Invoke/Toggle/Expand，动作应真实触发且不与应用自己的点击双触发；④中文名不乱码。
 - **Linux / Orca**：①Tab 遍历朗读按钮/勾选/开关；②Orca flat-review 逐行读窗口内容，静态文本全部可读。
 - **通用回归**：未开读屏时启动、帧账本读数与既有 examples 行为零变化；三平台 `moon check` / `moon test` 零错误零警告照常门禁。

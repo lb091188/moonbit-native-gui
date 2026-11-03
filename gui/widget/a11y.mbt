@@ -249,9 +249,36 @@ pub fn a11y_frame_sync(root : Widget) -> Int {
     sb.write_string(n.h.to_string())
     sb.write_string("\n")
   }
-  @win.a11y_publish(@utf8.encode(sb.to_string()), out.length())
+  let blob = sb.to_string()
+  let changed = blob != g_a11y_last_pub.val
+  g_a11y_last_pub.val = blob
+  @win.a11y_publish(@utf8.encode(blob), out.length())
+  if changed {
+    @win.a11y_notify_layout_changed()
+  }
   out.length()
 }
+
+///|
+/// 上一帧发布给平台臂的快照原文（事件上行的「变了没有」判据；进程级一份，
+/// 多窗应用按最后发布那扇窗判——单窗完全正确，多窗最多多通知几次）。
+let g_a11y_last_pub : Ref[String] = Ref("")
+
+///|
+/// 报焦点控件 id并维护「换焦点才通知」：焦点与上次相同不通知读屏。
+/// 宿主每帧调（0 = 无焦点）。
+pub fn a11y_set_focus(id : Int) -> Unit {
+  let changed = id != g_a11y_focus.val
+  g_a11y_focus.val = id
+  @win.a11y_set_focus(id)
+  if changed {
+    @win.a11y_notify_focus_changed()
+  }
+}
+
+///|
+/// 上一次报给平台臂的焦点 id（测试与诊断观察面）。
+let g_a11y_focus : Ref[Int] = Ref(0)
 
 ///|
 /// TSV 字段清洗：制表符与换行换成空格（保持「一行一控件」的对齐）。

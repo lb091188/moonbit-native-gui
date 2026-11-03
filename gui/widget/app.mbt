@@ -1059,6 +1059,11 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
     Some(id) => self.root.set_focused_by_focus(id)
     None => self.root.set_focused_by_focus(0)
   }
+  // 读屏焦点通道：焦点换了通知平台臂（mac AX FocusedUIElementChanged）
+  a11y_set_focus(match self.focus.current() {
+    Some(id) => id
+    None => 0
+  })
   // 分段账本从帧起算：位图分配（仅变尺寸时发生）计入 total 不计入单段，
   // 避免把「分配」混进「布局」
   let t0 = @win.now_ms()

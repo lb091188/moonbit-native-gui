@@ -208,6 +208,45 @@ test "读屏动作：id 不在树里或动作码不认识时原样返回、不�
 }
 
 ///|
+test "事件上行：快照内容不变不重复通知，变了才通知读屏重读" {
+  let root = Widget::new()
+  let btn = Widget::new()
+  btn.role = "button"
+  btn.label = "确定"
+  root.append_child(btn)
+  let before = @win.a11y_layout_notify_count()
+  // 第一帧：内容相对初始空串是「变了」→ 通知一次
+  let _ = a11y_frame_sync(root)
+  assert_eq(@win.a11y_layout_notify_count(), before + 1)
+  // 原样再对账一帧：不扰民
+  let _ = a11y_frame_sync(root)
+  assert_eq(@win.a11y_layout_notify_count(), before + 1)
+  // 改标签：内容变 → 再通知
+  btn.label = "取消"
+  let _ = a11y_frame_sync(root)
+  assert_eq(@win.a11y_layout_notify_count(), before + 2)
+}
+
+///|
+test "事件上行：焦点相同不通知，换了才通知；平台侧读回焦点 id" {
+  let root = Widget::new()
+  let btn = Widget::new()
+  btn.role = "button"
+  root.append_child(btn)
+  let before = @win.a11y_focus_notify_count()
+  a11y_set_focus(btn.id)
+  assert_eq(@win.a11y_focus(), btn.id)
+  assert_eq(@win.a11y_focus_notify_count(), before + 1)
+  // 同一焦点不重复通知
+  a11y_set_focus(btn.id)
+  assert_eq(@win.a11y_focus_notify_count(), before + 1)
+  // 换焦点（含落到「无焦点」的 0）各通知一次
+  a11y_set_focus(0)
+  assert_eq(@win.a11y_focus_notify_count(), before + 2)
+  assert_eq(@win.a11y_focus(), 0)
+}
+
+///|
 test "读屏动作：泵抽空即停，队列空时状态原样" {
   let root = Widget::new()
   root.rect = { x: 0.0, y: 0.0, w: 100.0, h: 50.0, }

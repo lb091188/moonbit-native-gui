@@ -24,7 +24,7 @@
 ## 文本选择与屏读语义（2026-11-03 拍板，方案与坑清单见 [proposals/text-selection-a11y.md](proposals/text-selection-a11y.md)；两个消费者一块地基，做完一项删一项并同步路线图）
 
 - [ ] **一期缓批·AttributedText 逐字选中**：单独立项——需在 @text 开逐字几何接口动三平台 C 桩，违背一期「不碰平台桥」约束
-- [ ] **二期阶段1·macOS NSAccessibility 桥**：WMView 挂协议 + accessibilityChildren 轻量元素（2026-11-03 首批已落：角色映射 / 物理像素→点 / 非翻转 y / 屏幕坐标 / 启用态值状态）；VoiceOver 真机清单（朗读 / 状态翻转 / 逐字输入）待用户执行
+- [ ] **二期阶段1·macOS NSAccessibility 桥**：实现已收口（2026-11-03 二批：WMA11yElement 子类带 press 动作压跨平台动作队列、accessibilityFocusedUIElement 按焦点 id 还元素、accessibilityHitTest 按屏幕点还最深元素、快照内容变/焦点换发 AX LayoutChanged/FocusedUIElementChanged 通知、MoonBit 每帧报焦点 id）；剩 VoiceOver 真机清单（朗读 / 状态翻转 / 逐字输入 / press 触发不双触）待用户执行，见测试用例附录 F
 - [ ] **二期阶段2·Linux AT-SPI 桩**：第三总线连接 + Socket.Embed 握手 + 对象树四接口；spike 三未核项（注册握手版本兼容 / Text 偏移单位字符 vs 字节 / XFCE·deepin a11y bus 启用态）；Orca 真机清单
 
 ## 核查收口批（2026-11-03 核查：浮层原生档与 mac GIF 代码已在树——两件文档追平、三件真机复验；dock/任务栏进度这类单平台条目不做，已从待办与路线图撤下）

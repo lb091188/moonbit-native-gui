@@ -56,6 +56,13 @@ typedef struct WmA11yRow {
 void wm_a11y_publish(const uint8_t *blob, int32_t len, int32_t count);
 int32_t wm_a11y_count(void);
 const WmA11yRow *wm_a11y_row(int32_t i);
+/* 读屏动作队列与焦点通道定义在文件末「实现 TU」段，平台臂在文件前部就要用
+ * （mac 的 press 动作、accessibilityFocusedUIElement），这里前置声明。 */
+void wm_uia_action_push(int32_t idx, int act);
+int32_t wm_a11y_focus(void);
+/* 动作码：在控件中心合成一次点击（Windows UIA 的 Invoke/Toggle/Expand 与
+ * macOS AX 的 press 同压这一档，MoonBit 侧 a11y_action_poll 解码派发）。 */
+#define WM_UIA_ACT_CLICK 1
 
 #if defined(_WIN32)
 
@@ -8170,6 +8177,16 @@ typedef struct {
 @class WMState;
 @class WMView;
 
+// 读屏元素（阶段 1 收口）：快照行的轻量 AX 元素。press 动作（VoiceOver 默认
+// 交互）压「点一下」进跨平台动作队列——与 Windows UIA 的 Invoke 同一条通道，
+// 由 MoonBit 每帧抽走合成指针点击。increment/decrement 等不做（值在组件闭包
+// 的 Store 里，桥够不着；如实回 NO，读屏回落键盘交互）。
+@interface WMA11yElement : NSAccessibilityElement {
+@public
+  int wm_idx; // 快照行号
+}
+@end
+
 // 绘制区视图：收键鼠、实现 NSTextInputClient（输入法通道）、贴像素。
 @interface WMView : NSView <NSTextInputClient> {
 @public
@@ -8550,11 +8567,11 @@ static NSString *wm_a11y_ax_role(const char *role) {
   return NSAccessibilityGroupRole;
 }
 
-- (NSArray *)accessibilityChildren {
-  NSMutableArray *arr = [NSMutableArray array];
-  int32_t n = wm_a11y_count();
-  if (n <= 0) {
-    return arr;
+/* 建一行快照的 AX 元素（children / 焦点元素 / hitTest 共用一条构建路径） */
+- (WMA11yElement *)wm_a11y_element_at:(int32_t)i {
+  const WmA11yRow *r = wm_a11y_row(i);
+  if (r == NULL) {
+    return nil;
   }
   CGFloat scale = 1.0;
   if (self.window != nil) {
@@ -8564,35 +8581,86 @@ static NSString *wm_a11y_ax_role(const char *role) {
     }
   }
   CGFloat box_h = self.bounds.size.height * scale;
+  // 物理像素 → 点；非翻转视图：y 从顶边量，换到从底边量
+  NSRect rect =
+      NSMakeRect(r->x / scale, (box_h - r->y - r->h) / scale, r->w / scale, r->h / scale);
+  NSRect screen = self.window != nil ? [self.window convertRectToScreen:rect] : rect;
+  NSString *label = r->name[0] ? [NSString stringWithUTF8String:r->name] : @"";
+  WMA11yElement *el = [WMA11yElement accessibilityElementWithRole:wm_a11y_ax_role(r->role)
+                                                             frame:screen
+                                                             label:label
+                                                           parent:self];
+  if (el == nil) {
+    return nil;
+  }
+  el->wm_idx = (int)i;
+  [el setAccessibilityIdentifier:[NSString stringWithFormat:@"w%d", (int)r->id]];
+  [el setAccessibilityEnabled:r->enabled ? YES : NO];
+  if (r->text[0]) {
+    [el setAccessibilityValue:[NSString stringWithUTF8String:r->text]];
+  }
+  if (r->state[0]) {
+    [el setAccessibilityRoleDescription:[NSString stringWithUTF8String:r->state]];
+  }
+  return el;
+}
+
+- (NSArray *)accessibilityChildren {
+  NSMutableArray *arr = [NSMutableArray array];
+  int32_t n = wm_a11y_count();
   for (int32_t i = 0; i < n; i++) {
-    const WmA11yRow *r = wm_a11y_row(i);
-    if (r == NULL) {
-      continue;
+    WMA11yElement *el = [self wm_a11y_element_at:i];
+    if (el != nil) {
+      [arr addObject:el];
     }
-    // 物理像素 → 点；非翻转视图：y 从顶边量，换到从底边量
-    NSRect rect = NSMakeRect(r->x / scale, (box_h - r->y - r->h) / scale,
-                             r->w / scale, r->h / scale);
-    NSRect screen = self.window != nil ? [self.window convertRectToScreen:rect] : rect;
-    NSString *label = r->name[0] ? [NSString stringWithUTF8String:r->name] : @"";
-    NSAccessibilityElement *el = [NSAccessibilityElement
-        accessibilityElementWithRole:wm_a11y_ax_role(r->role)
-                               frame:screen
-                               label:label
-                              parent:self];
-    if (el == nil) {
-      continue;
-    }
-    [el setAccessibilityIdentifier:[NSString stringWithFormat:@"w%d", (int)r->id]];
-    [el setAccessibilityEnabled:r->enabled ? YES : NO];
-    if (r->text[0]) {
-      [el setAccessibilityValue:[NSString stringWithUTF8String:r->text]];
-    }
-    if (r->state[0]) {
-      [el setAccessibilityRoleDescription:[NSString stringWithUTF8String:r->state]];
-    }
-    [arr addObject:el];
   }
   return arr;
+}
+
+/* 焦点元素：MoonBit 每帧经 wm_a11y_set_focus 报当前焦点控件 id，这里按 id
+ * 找快照行还一个元素；无焦点（0）或已删控件回 nil（窗口级焦点）。 */
+- (id)accessibilityFocusedUIElement {
+  int32_t f = wm_a11y_focus();
+  if (f <= 0) {
+    return nil;
+  }
+  int32_t n = wm_a11y_count();
+  for (int32_t i = 0; i < n; i++) {
+    const WmA11yRow *r = wm_a11y_row(i);
+    if (r != NULL && r->id == f) {
+      return [self wm_a11y_element_at:i];
+    }
+  }
+  return nil;
+}
+
+/* 屏幕上这个点上最深的那个元素（读屏鼠标跟踪/点击查询） */
+- (id)accessibilityHitTest:(NSPoint)point {
+  int32_t n = wm_a11y_count();
+  int32_t best = -1;
+  for (int32_t i = 0; i < n; i++) {
+    const WmA11yRow *r = wm_a11y_row(i);
+    if (r == NULL || self.window == nil) {
+      continue;
+    }
+    CGFloat scale = self.window.backingScaleFactor;
+    if (scale <= 0.0) {
+      scale = 1.0;
+    }
+    CGFloat box_h = self.bounds.size.height * scale;
+    NSRect rect =
+        NSMakeRect(r->x / scale, (box_h - r->y - r->h) / scale, r->w / scale, r->h / scale);
+    NSRect screen = [self.window convertRectToScreen:rect];
+    if (point.x >= screen.origin.x && point.x <= screen.origin.x + screen.size.width &&
+        point.y >= screen.origin.y && point.y <= screen.origin.y + screen.size.height) {
+      best = i; // 快照前序展开，后行更深
+    }
+  }
+  if (best < 0) {
+    return self;
+  }
+  WMA11yElement *el = [self wm_a11y_element_at:best];
+  return el != nil ? el : self;
 }
 
 - (void)setSlot:(int)sid {
@@ -9075,6 +9143,16 @@ static NSString *wm_a11y_ax_role(const char *role) {
   if (cs != NULL) {
     CGColorSpaceRelease(cs);
   }
+}
+@end
+
+// 读屏元素的动作：press = 点一下（压跨平台动作队列，MoonBit 侧合成指针
+// 点击）。increment/decrement/showMenu 不实现（值在组件闭包里，桥够不着），
+// 如实落 NO——读屏回落键盘交互，不装能动。
+@implementation WMA11yElement
+- (BOOL)accessibilityPerformPress {
+  wm_uia_action_push(self->wm_idx, WM_UIA_ACT_CLICK);
+  return YES;
 }
 @end
 
@@ -13043,8 +13121,7 @@ const WmA11yRow *wm_a11y_row(int32_t i) {
  * （与快照存储同一个实现 TU 条件）：GTK/mac 没有 provider、无人压，poll 恒 0，
  * 但符号必须全平台有——MoonBit 的 extern 在哪个后端都链。 */
 
-#define WM_UIA_ACT_Q 32
-#define WM_UIA_ACT_CLICK 1
+#define WM_UIA_ACT_Q 32 /* 动作码 WM_UIA_ACT_CLICK 在文件头（平台臂也要用） */
 
 static int64_t g_uia_act_q[WM_UIA_ACT_Q];
 static int g_uia_act_head = 0; // 消费头（MoonBit 泵）
@@ -13066,6 +13143,63 @@ int64_t wm_uia_action_poll(void) {
     int64_t v = g_uia_act_q[g_uia_act_head];
     g_uia_act_head = (g_uia_act_head + 1) % WM_UIA_ACT_Q;
     return v;
+}
+
+/* ================= 读屏焦点通道 + 事件上行（AX 通知） =================
+ * 焦点：MoonBit 每帧报当前焦点控件 id（0 = 无），读屏据此答
+ * 「焦点元素是谁」（mac accessibilityFocusedUIElement 等）。
+ * 事件上行：快照内容变了 / 焦点换了，由 MoonBit 调 notify，平台臂把
+ * 「该重新读了」发给读屏（mac 发 NSAccessibilityLayoutChanged /
+ * FocusedUIElementChanged；Win/GTK 无对位物，计数照记供用例观察）。
+ * 快照表是进程级单表，通知按「发布内容与上次不同」判，不过窗细分——
+ * 单窗应用（绝对多数）完全正确，多窗最多重读几次，无害。 */
+
+static int32_t g_a11y_focus = 0;
+static int32_t g_a11y_layout_notifies = 0;
+static int32_t g_a11y_focus_notifies = 0;
+
+void wm_a11y_set_focus(int32_t id) {
+    g_a11y_focus = id;
+}
+
+int32_t wm_a11y_focus(void) {
+    return g_a11y_focus;
+}
+
+void wm_a11y_notify_layout_changed(void) {
+    g_a11y_layout_notifies++;
+#if defined(WM_STUB_MAC)
+    for (int i = 1; i < WM_MAX_WINDOWS; i++) {
+        WMState *s = wm_windows[i];
+        if (s == nil || s.view == nil) {
+            continue;
+        }
+        NSAccessibilityPostNotification(s.view,
+                                        NSAccessibilityLayoutChangedNotification);
+    }
+#endif
+}
+
+void wm_a11y_notify_focus_changed(void) {
+    g_a11y_focus_notifies++;
+#if defined(WM_STUB_MAC)
+    for (int i = 1; i < WM_MAX_WINDOWS; i++) {
+        WMState *s = wm_windows[i];
+        if (s == nil || s.view == nil) {
+            continue;
+        }
+        NSAccessibilityPostNotification(s.view,
+                                        NSAccessibilityFocusedUIElementChangedNotification);
+    }
+#endif
+}
+
+int32_t wm_a11y_layout_notify_count(void) {
+    return g_a11y_layout_notifies;
+}
+
+int32_t wm_a11y_focus_notify_count(void) {
+    return g_a11y_focus_notifies;
 }
 
 #endif /* 语义快照存储：仅实现 TU */
