@@ -218,3 +218,58 @@ test "ffmpeg FFI 内嵌字幕：整条读出、剥前缀、不搅动主时间轴
     Ok(c) => fail("不存在的文件不该成功，实际 \{c.length()} 条")
   }
 }
+
+///|
+test "ffmpeg 硬解：显式请求下的三档状态与回落等价" {
+  // 软解基准：同素材、同输出尺寸的第一帧
+  let soft = match Demuxer::open("src/testdata/testsrc_1s.avi") {
+    Ok(d) => d
+    Err(e) => fail("软解打开失败：\{e}")
+  }
+  match soft.open_video_decoder(width=96, height=64) {
+    Ok(_) => ()
+    Err(e) => fail("软解开解码器失败：\{e}")
+  }
+  let base = match soft.decode_rgba() {
+    Some(b) => b
+    None => fail("软解没出帧")
+  }
+  soft.close()
+  // 硬解请求：可能真走硬件（1），也可能回落（2）——两档都要如实报
+  let hw = match Demuxer::open("src/testdata/testsrc_1s.avi") {
+    Ok(d) => d
+    Err(e) => fail("硬解打开失败：\{e}")
+  }
+  match hw.open_video_decoder(width=96, height=64, hw=true) {
+    Ok(_) => ()
+    Err(e) => fail("硬解请求下开解码器失败：\{e}")
+  }
+  let st = hw.hw_status()
+  assert_true(st == 1 || st == 2, msg="状态只许 1(硬解) 或 2(已回落)，实际 \{st}")
+  if st == 2 {
+    assert_true(hw.hw_reason().length() > 0, msg="回落必须带原因")
+  }
+  let label = if st == 1 { "硬解" } else if st == 2 { "已回落" } else { "软解" }
+  println("ffmpeg 硬解冒烟 status=\{st}（\{label}）\{hw.hw_reason()}")
+  let got = match hw.decode_rgba() {
+    Some(b) => b
+    None => fail("硬解请求路径没出帧（状态 \{st}）")
+  }
+  assert_eq(got.length(), base.length())
+  // 硬解与回落两档都要求与软解逐字节一致（§七 正确性判据：同一素材、同一
+  // sws 参数，硬件下行后像素不该有偏差）
+  {
+    let mut same = true
+    let n = base.length()
+    let mut i = 0
+    while i < n {
+      if got[i] != base[i] {
+        same = false
+        break
+      }
+      i += 1
+    }
+    assert_true(same, msg="回落帧与软解帧不一致")
+  }
+  hw.close()
+}

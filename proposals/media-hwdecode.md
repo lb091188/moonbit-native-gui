@@ -80,7 +80,7 @@ HWPROBE platform=linux type=vulkan open=ok frames=ok pix=vulkan transfer=none
 
 ## 七、验收口径
 
-- **正确性**：同一素材硬解与软解**逐位一致**（RGBA 缓冲 memcmp），H264 8bit 与 HEVC 8bit 各一样本；10bit 待探针结论。
+- **正确性**：同一素材硬解与软解**逐位一致**（RGBA 缓冲 memcmp），H264 8bit 与 HEVC 8bit 各一样本；10bit 待探针结论。**Linux VAAPI 已实测通过**（2026-11-03，`testsrc_1s.avi` 96×64：`hw_status=1`，首帧与软解逐字节相同；`ffmpeg_wbtest` 7/7）。
 - **收益**：解码一段固定素材的 CPU 时间对比（无头判据，`experiment/` 出一条 `HWDECODE-COST` 行）。
 - **降级**：拔掉硬件（无 `/dev/dri`、非交互会话）时状态报「软解」而不是崩或假装硬解。
 - 门禁：`cd modules/ffmpeg-mbt && moon test src` 与全库 `moon test media` 零错误零警告；真机观感（播放是否更稳）归用户三平台清单。

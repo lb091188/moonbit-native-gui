@@ -12,6 +12,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include "moonbit.h"
 
@@ -23,6 +24,7 @@
 #include <libavutil/imgutils.h>
 #include <libavutil/log.h>
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include "moonbit.h"
 
@@ -43,6 +45,12 @@ typedef struct VfDec {
     int width;
     int height;
     double last_pts; // 最近一次 vf_decode_next 成功帧的 pts（秒）；-1=未知
+    // —— 硬解（定案见 proposals/media-hwdecode.md §八）——
+    AVBufferRef *hwdev; // hw_device_ctx；软解为 NULL
+    AVFrame *swf;       // 硬件帧的下行宿主（transfer_data 落这里再 sws）
+    int hw_status;      // 0=软解 1=硬解 2=已回落
+    enum AVCodecID codec_id;
+    char hw_reason[160]; // 回落原因（状态行原样打印）
 } VfDec;
 
 /* 音频解码器：swr 统一重采样输出 s16 交错 */
@@ -157,10 +165,83 @@ double vf_duration_s(VfFmt *f) {
     return 0.0;
 }
 
+/* —— 硬解：设备类型与「本进程内 codec+分辨率 一次失败即永久回落」表 —— */
+static enum AVHWDeviceType vf_hw_type(void) {
+#if defined(__APPLE__)
+    return AV_HWDEVICE_TYPE_VIDEOTOOLBOX;
+#elif defined(_WIN32)
+    return AV_HWDEVICE_TYPE_D3D11VA;
+#else
+    return AV_HWDEVICE_TYPE_VAAPI;
+#endif
+}
+
+#define VF_HW_FAIL_MAX 32
+static struct {
+    enum AVCodecID id;
+    int w, h;
+} g_hw_fail[VF_HW_FAIL_MAX];
+static int g_hw_fail_n = 0;
+
+static int hw_fail_find(enum AVCodecID id, int w, int h) {
+    for (int i = 0; i < g_hw_fail_n; i++) {
+        if (g_hw_fail[i].id == id && g_hw_fail[i].w == w && g_hw_fail[i].h == h) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static void hw_fail_add(enum AVCodecID id, int w, int h) {
+    if (g_hw_fail_n < VF_HW_FAIL_MAX && !hw_fail_find(id, w, h)) {
+        g_hw_fail[g_hw_fail_n].id = id;
+        g_hw_fail[g_hw_fail_n].w = w;
+        g_hw_fail[g_hw_fail_n].h = h;
+        g_hw_fail_n++;
+    }
+}
+
+/* 换回软解：丢弃 hw 上下文与 sws，按源流参数重开一个纯软件解码器 */
+static void vf_drop_to_soft(VfDec *d) {
+    if (d->sws) {
+        sws_freeContext(d->sws);
+        d->sws = NULL;
+    }
+    if (d->codec) {
+        avcodec_free_context(&d->codec);
+    }
+    if (d->hwdev) {
+        av_buffer_unref(&d->hwdev);
+    }
+    if (d->swf) {
+        av_frame_free(&d->swf);
+    }
+    AVStream *st = d->fmt->streams[d->vstream];
+    const AVCodec *codec = avcodec_find_decoder(st->codecpar->codec_id);
+    d->codec = avcodec_alloc_context3(codec);
+    if (!d->codec) {
+        return;
+    }
+    if (avcodec_parameters_to_context(d->codec, st->codecpar) < 0 ||
+        avcodec_open2(d->codec, codec, NULL) < 0) {
+        avcodec_free_context(&d->codec);
+        d->codec = NULL;
+    }
+}
+
 /* 打开视频解码器（含 RGBA 输出的 sws 上下文）；失败 NULL */
 void vf_close_decoder(VfDec *d);
 
+VfDec *vf_open_video_decoder_hw(VfFmt *f, int32_t out_w, int32_t out_h, int32_t hw);
+
+/* 软解入口（旧行为原样）：hw=0 */
 VfDec *vf_open_video_decoder(VfFmt *f, int32_t out_w, int32_t out_h) {
+    return vf_open_video_decoder_hw(f, out_w, out_h, 0);
+}
+
+/* 硬解入口：hw=1 时先建 hw_device_ctx 再开解码器；建不出来就按软解继续并
+ * 记一次回落（hw_status=2 + 原因 + 永久回落表），不改变上层调用形态。 */
+VfDec *vf_open_video_decoder_hw(VfFmt *f, int32_t out_w, int32_t out_h, int32_t hw) {
     if (!f || f->vstream < 0) {
         return NULL;
     }
@@ -179,13 +260,43 @@ VfDec *vf_open_video_decoder(VfFmt *f, int32_t out_w, int32_t out_h) {
     d->width = 0;
     d->height = 0;
     d->last_pts = -1.0;
+    d->hwdev = NULL;
+    d->swf = NULL;
+    d->hw_status = 0;
+    d->codec_id = st->codecpar->codec_id;
+    d->hw_reason[0] = 0;
     d->codec = avcodec_alloc_context3(codec);
     if (avcodec_parameters_to_context(d->codec, st->codecpar) < 0) {
         avcodec_free_context(&d->codec);
         d->codec = NULL;
         return d;
     }
+    // 硬解：请求了、且这一组 codec+分辨率没被打进永久回落表，才建 hw_device_ctx
+    if (hw) {
+        if (hw_fail_find(d->codec_id, st->codecpar->width, st->codecpar->height)) {
+            d->hw_status = 2;
+            snprintf(d->hw_reason, sizeof d->hw_reason,
+                     "本进程内该 codec+分辨率已回落（不重试）");
+        } else {
+            const char *dev = getenv("VF_HW_DEVICE"); // Linux 可指定 renderD128；其余平台忽略
+            int hrc = av_hwdevice_ctx_create(&d->hwdev, vf_hw_type(), dev, NULL, 0);
+            if (hrc < 0) {
+                char err[96] = {0};
+                av_strerror(hrc, err, sizeof err - 1);
+                d->hw_status = 2;
+                snprintf(d->hw_reason, sizeof d->hw_reason, "建 hw 设备失败：%s", err);
+                hw_fail_add(d->codec_id, st->codecpar->width, st->codecpar->height);
+                av_buffer_unref(&d->hwdev);
+            } else {
+                d->codec->hw_device_ctx = av_buffer_ref(d->hwdev);
+                d->hw_status = 1;
+            }
+        }
+    }
     if (avcodec_open2(d->codec, codec, NULL) < 0) {
+        if (d->hwdev) {
+            av_buffer_unref(&d->hwdev);
+        }
         avcodec_free_context(&d->codec);
         d->codec = NULL;
         return d;
@@ -207,11 +318,9 @@ VfDec *vf_open_video_decoder(VfFmt *f, int32_t out_w, int32_t out_h) {
     }
     d->frame = av_frame_alloc();
     d->pkt = av_packet_alloc();
-    d->sws = sws_getContext(
-        d->codec->width, d->codec->height, d->codec->pix_fmt,
-        d->width, d->height, AV_PIX_FMT_RGBA,
-        SWS_BILINEAR, NULL, NULL, NULL);
-    if (!d->frame || !d->pkt || !d->sws) {
+    // sws 懒建：硬解帧的软件格式（NV12 居多）要 transfer 之后才知道；
+    // 软解也统一走这条，避免 open 期猜 codec->pix_fmt
+    if (!d->frame || !d->pkt) {
         vf_close_decoder(d);
         d = (VfDec *)malloc(sizeof(VfDec));
         d->fmt = f->fmt;
@@ -223,6 +332,11 @@ VfDec *vf_open_video_decoder(VfFmt *f, int32_t out_w, int32_t out_h) {
         d->width = 0;
         d->height = 0;
         d->last_pts = -1.0;
+        d->hwdev = NULL;
+        d->swf = NULL;
+        d->hw_status = 0;
+        d->codec_id = st->codecpar->codec_id;
+        d->hw_reason[0] = 0;
         return d;
     }
     return d;
@@ -242,8 +356,33 @@ void vf_close_decoder(VfDec *d) {
         if (d->codec) {
             avcodec_free_context(&d->codec);
         }
+        if (d->hwdev) {
+            av_buffer_unref(&d->hwdev);
+        }
+        if (d->swf) {
+            av_frame_free(&d->swf);
+        }
         free(d);
     }
+}
+
+/* 硬解状态：0=软解 1=硬解 2=已回落（三档如实报，不许把回落报成硬解） */
+int32_t vf_hw_status(VfDec *d) {
+    return d ? d->hw_status : 0;
+}
+
+/* 回落原因写进 out（NUL 结尾，返回写入长度；没有原因给 0） */
+int32_t vf_hw_reason(VfDec *d, uint8_t *out, int32_t cap) {
+    if (!d || cap <= 1 || d->hw_reason[0] == 0) {
+        return 0;
+    }
+    int n = (int)strlen(d->hw_reason);
+    if (n > cap - 1) {
+        n = cap - 1;
+    }
+    memcpy(out, d->hw_reason, (size_t)n);
+    out[n] = 0;
+    return n;
 }
 
 int32_t vf_dec_width(VfDec *d) {
@@ -287,10 +426,52 @@ int32_t vf_decode_next(VfDec *d, uint8_t *out, int32_t out_len) {
         if (ret < 0) {
             return -1;
         }
+        // 硬解帧先下行到软件帧：失败即永久回落（记表 + 换软解码器），本帧丢弃
+        AVFrame *srcf = d->frame;
+        if (d->hw_status == 1 && d->frame->format != AV_PIX_FMT_NONE) {
+            const AVPixFmtDescriptor *fd = av_pix_fmt_desc_get(d->frame->format);
+            if (!fd || !(fd->flags & AV_PIX_FMT_FLAG_HWACCEL)) {
+                // 设备建起来了、实际出的却是软件帧（驱动/容器不真加速）——如实回落，
+                // 绝不把这种情况报成硬解
+                d->hw_status = 2;
+                snprintf(d->hw_reason, sizeof d->hw_reason,
+                         "解码器输出软件帧（硬件未生效）");
+                hw_fail_add(d->codec_id, d->codec->width, d->codec->height);
+            }
+        }
+        if (d->hw_status == 1 && d->codec->hw_device_ctx &&
+            d->frame->format != AV_PIX_FMT_NONE) {
+            const AVPixFmtDescriptor *fd = av_pix_fmt_desc_get(d->frame->format);
+            if (fd && (fd->flags & AV_PIX_FMT_FLAG_HWACCEL)) {
+                if (!d->swf) {
+                    d->swf = av_frame_alloc();
+                }
+                if (!d->swf || av_hwframe_transfer_data(d->swf, d->frame, 0) < 0) {
+                    d->hw_status = 2;
+                    snprintf(d->hw_reason, sizeof d->hw_reason,
+                             "硬件帧下行失败（transfer_data）");
+                    hw_fail_add(d->codec_id, d->codec->width, d->codec->height);
+                    av_frame_unref(d->frame);
+                    vf_drop_to_soft(d);
+                    return -1; // 本帧作废；下一帧起按软解走
+                }
+                srcf = d->swf;
+            }
+        }
+        if (!d->sws) {
+            d->sws = sws_getContext(
+                srcf->width, srcf->height, srcf->format,
+                d->width, d->height, AV_PIX_FMT_RGBA,
+                SWS_BILINEAR, NULL, NULL, NULL);
+            if (!d->sws) {
+                av_frame_unref(d->frame);
+                return -1;
+            }
+        }
         uint8_t *dst[4] = { out, NULL, NULL, NULL };
         int dst_linesize[4] = { d->width * 4, 0, 0, 0 };
-        sws_scale(d->sws, (const uint8_t *const *)d->frame->data, d->frame->linesize,
-                  0, d->frame->height, dst, dst_linesize);
+        sws_scale(d->sws, (const uint8_t *const *)srcf->data, srcf->linesize,
+                  0, srcf->height, dst, dst_linesize);
         // 帧时间戳（秒）：best_effort 优先（容错丢 pts 的包），流时间基换算
         int64_t ts = d->frame->best_effort_timestamp;
         if (ts == AV_NOPTS_VALUE) {

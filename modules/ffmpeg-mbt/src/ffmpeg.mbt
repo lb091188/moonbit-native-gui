@@ -158,6 +158,7 @@ pub fn Demuxer::open_video_decoder(
   self : Demuxer,
   width? : Int = 0,
   height? : Int = 0,
+  hw? : Bool = false,
 ) -> Result[Unit, VfError] {
   if vf_dec_width(self.dec) > 0 {
     return Ok(())
@@ -166,7 +167,14 @@ pub fn Demuxer::open_video_decoder(
     return Err(DecodeFailed("无视频流"))
   }
   // FFI 裸指针立即装 struct 字段（同 open 的 GC 隔离约定）
-  let dec : VfDecBox = { h: vf_open_video_decoder(self.fmt, width, height), }
+  // 硬解是显式请求（定案：默认关）；建不出来由桩内部回落并记状态
+  let dec : VfDecBox = {
+    h: if hw {
+      vf_open_video_decoder_hw(self.fmt, width, height, 1)
+    } else {
+      vf_open_video_decoder(self.fmt, width, height)
+    },
+  }
   if vf_dec_width(dec.h) <= 0 {
     vf_close_decoder(dec.h)
     return Err(DecodeFailed("视频解码器初始化失败"))
@@ -215,6 +223,26 @@ pub fn Demuxer::out_width(self : Demuxer) -> Int {
 /// 视频解码输出高（未开视频解码器 0）。
 pub fn Demuxer::out_height(self : Demuxer) -> Int {
   vf_dec_height(self.dec)
+}
+
+///|
+/// 视频硬解状态：0=软解 1=硬解 2=已回落（回落原因见 `hw_reason`）。
+/// 三档如实报——回落不许报成硬解。
+pub fn Demuxer::hw_status(self : Demuxer) -> Int {
+  vf_hw_status(self.dec)
+}
+
+///|
+/// 回落原因（没回落给空串）。
+pub fn Demuxer::hw_reason(self : Demuxer) -> String {
+  let cap = 160
+  let buf = FixedArray::make(cap, b'\x00')
+  let n = vf_hw_reason(self.dec, Bytes::from_array(buf), cap)
+  if n <= 0 {
+    ""
+  } else {
+    @utf8.decode_lossy(Bytes::from_array(buf)[:n])
+  }
 }
 
 ///|
@@ -462,6 +490,21 @@ extern "c" fn vf_open_video_decoder(
   out_w : Int,
   out_h : Int,
 ) -> VfDec = "vf_open_video_decoder"
+
+///|
+extern "c" fn vf_open_video_decoder_hw(
+  f : VfFmt,
+  out_w : Int,
+  out_h : Int,
+  hw : Int,
+) -> VfDec = "vf_open_video_decoder_hw"
+
+///|
+extern "c" fn vf_hw_status(d : VfDec) -> Int = "vf_hw_status"
+
+///|
+#borrow(out)
+extern "c" fn vf_hw_reason(d : VfDec, out : Bytes, cap : Int) -> Int = "vf_hw_reason"
 
 ///|
 #borrow(d)
