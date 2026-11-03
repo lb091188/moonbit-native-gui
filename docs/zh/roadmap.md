@@ -200,7 +200,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **打开与定位**：URL 交浏览器、文件交默认程序、路径交文件管理器；不存在给 NotFound 不崩
 - ✅ **剪贴板**：读写系统剪贴板文本
 - ✅ **音量与静音**：读音量、设百分比、切静音
-- 🚧 **任务栏进度（Windows）**：`Window::set_taskbar_progress` / `set_taskbar_state` / `clear_taskbar_progress`，ITaskbarList3 进程级单例、五态写入口；只写不读（Win32 无 getter，非 Windows `taskbar_supported` 恒 false 语义化降级）（W20g 合入；真机观感复验待，测试用例尚无专条，复验时补）
+- 🚧 **任务栏进度（Windows）**：`Window::set_taskbar_progress` / `set_taskbar_state` / `clear_taskbar_progress`，ITaskbarList3 进程级单例、五态写入口；只写不读（Win32 无 getter，非 Windows `taskbar_supported` 恒 false 语义化降级）（W20g 合入；真机观感未复验。dock 徽标（macOS）与 LauncherEntry（Linux）这类单平台专属条目已撤出规划，本条不再拼跨平台门面）
 - ✅ **显示器枚举**：在线屏、分辨率、刷新率、物理尺寸、模式列表（三平台各一条官方通道：Linux 解析 `xrandr`、macOS 直调 CoreGraphics、Windows 走 GDI 的 `EnumDisplayDevicesW` + `EnumDisplaySettingsExW`，2026-10-28 接上并真机验通——此前 Windows 掉进 mac 臂恒 `Unsupported`。读数边界：`connected` 恒真（三平台都没有「接了但断电」的公开清单）、`name` Windows 取 `DISPLAY1` 这种设备名去前缀、`mm_width`/`mm_height` 仅 Linux 有（Windows 的 GDI 不报物理尺寸）、`preferred` 三平台恒 false（没有公开信号，不拿「当前档」冒充））
 - ✅ **系统托盘**：通知区图标 + 右键/左键菜单（Linux 走 SNI，Windows 走 `Shell_NotifyIcon`）。**退出前必须逐个 `NIM_DELETE`**——Win32 的通知区项不随进程回收，宿主窗口没了会留僵尸图标（右键它既不出菜单也不出 tooltip，得等 Shell 下次鼠标扫过才清）；2026-10-28 修：`remove_all_trays()` 原先只有 SNI 兜底，改为取槽位快照逐个摘除再兜底。**仍是边界**：`taskkill` / 崩溃 / 断电这类非正常退出拦不住，Win32 通病
 - ✅ **空闲检测**：读系统空闲秒数（Linux X11、Windows；macOS 走 HID 系统态）
@@ -312,7 +312,6 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - 🚧 **Wayland 原生路径**（2026-11-03 立项调研，能力出路总表、DE 支持矩阵与 spike 清单见 [proposals/wayland-native.md](proposals/wayland-native.md)）：GUI 本体 Wayland 会话已能跑，缺口在系统能力族与层级/弹层——P0 会话探针堵 XWayland 静默假数据（「返回成功但无效」清零红线）→ P1 portal 骨架 + 全局快捷键（GlobalShortcuts）+ 空闲检测（GNOME IdleMonitor 精确档 / ext-idle-notify 近似档）→ P2 夜灯逐 DE + 显示器枚举 → P3 剪贴板监视协议化 + wlroots 窗口管理；layer-shell 不进（KDE/GNOME 双双不支持）；GNOME 侧窗口管理无通道记平台边界；先 spike S1–S8 后动工
 - ⏳ **KDE / GNOME / DDE 实测**：托盘、通知、深浅色、壁纸、默认应用的桌面环境矩阵
 - ⏳ **显示器「首选档」**：`CGDisplayModeIsPreferred` 已不在 SDK，需找公开替代信号
-- ⏳ **dock 徽标与 LauncherEntry**：macOS `NSDockTile` badgeLabel、Linux `com.canonical.Unity.LauncherEntry` Update 信号（count/progress），与已实现的 Windows 任务栏进度拼跨平台门面（shell 层分派，与 notify 门面同构）；Windows `SetOverlayIcon` 是状态图标语义非计数徽标，做不做同批定
 
 ### 媒体
 

@@ -1,18 +1,19 @@
-// 任务栏进度（TODO §6.3 接缝项「任务栏进度 / dock 徽标」的 Windows 半边）。
+// 任务栏进度：Windows 一档（ITaskbarList3）。
 //
 // 口径：
 // - **只写不读**：Win32 无 getter，`TBPF_*` 状态不可反读（与 notify 的
 //   kind→`NIIF_*` 映射同款「映射不可反读，由代码评审兜底」）；
 // - **unsupported 语义化降级**：非 Windows 平台 `supported` 恒 false，
 //   调用方据此藏 UI，不把失败当 0% 进度；
-// - Linux 的任务栏进度另有 Unity LauncherEntry（DBus）路径、macOS 是
-//   dock 徽标（NSDockTile），都归后续跨平台门面批——本文件只做 Windows。
+// - Linux（Unity LauncherEntry 的进度信号）与 macOS（NSDockTile 角标）各自
+//   只有单平台形态、语义不对等（角标是计数不是进度条），不做跨平台门面合流，
+//   本文件只做 Windows。
 //
 // 与既有形态的关系：值走 `Int64`（下载字节数一类的进度值会超 32 位），
 // C 侧透传 ULONGLONG；窗口句柄从窗口槽拿（越界由 C 侧挡，返回 false）。
 
 ///|
-/// 任务栏按钮状态（Win32 `TBPF_*` 的语义编号，跨平台门面的共同词汇）。
+/// 任务栏按钮状态（Win32 `TBPF_*` 的语义编号）。
 pub(all) enum TaskbarState {
   /// 不显示进度条（清空）
   NoProgress

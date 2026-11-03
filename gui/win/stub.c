@@ -3417,7 +3417,8 @@ int wm_dragdnd_send(int64_t id, const char *payload, int len, int allowed,
  * 映射同款），所以只给写入口；探测只报「COM 起没起来」。② GUID 常量
  * （CLSID_TaskbarList / IID_ITaskbarList3）走 uuid.lib 链接期取符号——C 模式
  * 用不了 __uuidof（同 W14 文件对话框、W20f 图标加载两条坑）。
- * Linux 的任务栏进度另有 Unity LauncherEntry（DBus）路径，归跨平台门面批；
+ * Linux / macOS 没有对位的进度语义（LauncherEntry 进度、NSDockTile 计数角标
+ * 各属单平台形态），不做跨平台门面合流；本函数只在 Windows 有实体。
  * 本段只管 Windows，其余平台走同族占位（supported 恒 0）。 */
 static ITaskbarList3 *wm_taskbar = NULL; // 进程级单例
 static int wm_taskbar_tried = 0;         // 探测过一次就不再重试
@@ -7392,9 +7393,9 @@ int wm_notify_send(int icon_slot, const char *title, const char *text,
 }
 /* 系统权限 / 屏幕色温的空桩住声明者 sys 的桩（sys/sys_stub.c）：sys 的
  * 白盒测试 exe 只链 sys 包，占位放这边时 Windows 链接 LNK2019。 */
-/* 任务栏进度（§6.3）占位：Linux 的任务栏进度另有 Unity LauncherEntry（DBus）
- * 路径、macOS 是 dock 徽标（NSDockTile），都归跨平台门面批；这里的失败桩让
- * 门面走 unsupported 降级，不断链接符号。 */
+/* 任务栏进度（§6.3）占位：Linux（Unity LauncherEntry）与 macOS（NSDockTile
+ * 角标）不做跨平台门面合流，这里的失败桩让调用方走 unsupported 降级，
+ * 不断链接符号。 */
 int wm_taskbar_supported(void) { return 0; }
 int wm_taskbar_set_progress(int64_t id, int64_t value, int64_t total) {
   (void)id;
@@ -12700,9 +12701,9 @@ int wm_notify_send(int icon_slot, const char *title, const char *text,
   (void)urgent;
   return 0;
 }
-/* 任务栏进度（§6.3）占位：Linux 的任务栏进度另有 Unity LauncherEntry（DBus）
- * 路径、macOS 是 dock 徽标（NSDockTile），都归跨平台门面批；这里的失败桩让
- * 门面走 unsupported 降级，不断链接符号。 */
+/* 任务栏进度（§6.3）占位：Linux（Unity LauncherEntry）与 macOS（NSDockTile
+ * 角标）不做跨平台门面合流，这里的失败桩让调用方走 unsupported 降级，
+ * 不断链接符号。 */
 int wm_taskbar_supported(void) { return 0; }
 int wm_taskbar_set_progress(int64_t id, int64_t value, int64_t total) {
   (void)id;

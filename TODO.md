@@ -37,15 +37,11 @@
 - [ ] **二期阶段2·Linux AT-SPI 桩**：第三总线连接 + Socket.Embed 握手 + 对象树四接口；spike 三未核项（注册握手版本兼容 / Text 偏移单位字符 vs 字节 / XFCE·deepin a11y bus 启用态）；Orca 真机清单
 - [ ] **二期阶段3·Windows UIA provider**：WM_GETOBJECT + IRawElementProviderSimple/Fragment + 五 pattern；GUID 取法探针先行（大概率复刻 WIC 套路待证）；NVDA + Accessibility Insights 真机清单
 
-## 核查收口批（2026-11-03 核查：浮层原生档与 mac GIF 代码已在树、任务栏进度缺登记——三件文档追平、两件小代码、三件真机复验）
+## 核查收口批（2026-11-03 核查：浮层原生档与 mac GIF 代码已在树——两件文档追平、三件真机复验；dock/任务栏进度这类单平台条目不做，已从待办与路线图撤下）
 
 - [ ] **浮层原生档真机复验**（用户执行）：browser 示例按 BR-1.4 过 Windows 与 mac——弹层无边框贴按钮、条目完整不裁、点外/失焦/Esc 都收、反复开关不叠窗；过了把 roadmap「浮层原生档」翻 ✅
 - [ ] **mac GIF 真机复验**（用户执行）：showcase「GIF 动图」段（SC-14.4）自转/暂停/继续/缩放档，透明底 GIF 看有没有底色块（有=透明索引缺口另立）；过了 roadmap 翻 ✅、测试用例.md 附录 B「GIF 在 macOS 只显示首帧」行删，顺带修正 stub.c/adaptation「DisposalMethod 不在 Apple 公开清单」旧注（该键实为公开常量，ImageRectangle 才不在）
-- [ ] **任务栏进度真机复验**（用户执行）：native-app「任务栏进度」区块七写入口的真观感（绿/红/黄条、不确定滚动）；过了 roadmap 翻 ✅、测试用例.md 补专条
 - [ ] **通知 urgent 二档真机复验**（用户执行，mac）：同一应用分别发 `urgent=true`（缺省）与 `urgent=false`，应用正在前台跑事件循环时前者出横幅、后者只进通知中心不出条；系统设置里关掉「时间敏感」授权后再发 `urgent=true` 应回落到静默。状态行 `backend=` 应报 `un-user-notification`（Linux 报 `dbus`、Windows 报 `win-balloon`）
-- [ ] **dock 徽标 mac 臂**：stub.c mac 段 wm_dock_badge_set（[NSApp dockTile] setBadgeLabel，nil 清）+ win 包 set_dock_badge(count)->Bool（count<=0 清，app 级非窗级）；裸二进制 Dock 通用图标徽标是否渲染待实测，打包 .app 路径为准
-- [ ] **LauncherEntry Linux 臂**：gui/dbus 新 launcher.mbt，dbus_emit_signal_session 发 com.canonical.Unity.LauncherEntry Update（app_uri=application://<desktop-id>.desktop + count/count-visible/progress/progress-visible）；真机前提=装 .desktop；吃口=Ubuntu Dock / KDE 任务栏 / XFCE docklike（Cinnamon/deepin 未核）
-- [ ] **dock 门面合流**：shell 层按平台分派（mac→@win、Linux→@dbus、Windows false）；窗级进度与 app 级徽标语义分档如实注释；Windows SetOverlayIcon（状态图标非计数）做不做同批定
 - [ ] **性能基线探针**：experiment/ 独立模块——帧耗时分段（扩 LAYOUT-FRAME 账本观测面）+ 每帧重绘范围 + 布局重算次数三组读数；有数据再定 yoga 布局缓存与图表增量重绘立不立项
 
 ## Wayland 原生路径（2026-11-03 立项，能力出路总表、DE 支持矩阵与坑清单见 [proposals/wayland-native.md](proposals/wayland-native.md)；先 spike 后分期，做完一项删一项并同步路线图）
