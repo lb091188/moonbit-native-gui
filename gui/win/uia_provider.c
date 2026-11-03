@@ -119,7 +119,9 @@ static ULONG STDMETHODCALLTYPE wm_prov_release(IUnknown *self) {
  * pattern 的动作侧只压「(快照行号, 动作)」，MoonBit 侧每帧抽走并合成指针
  * 点击。UIA 调用经 UseComThreading 串行到主线程（进 wndproc），泵也在主
  * 线程，单读者单写者同线程，用普通计数器即可（同 wm_hotkey_fired 口径）。
- * 队列本体在 stub.c 的实现 TU 段（全平台要有符号，GTK/mac 无人压恒空）。 */
+ * 队列本体在 stub.c 的实现 TU 段（全平台要有符号，GTK/mac 无人压恒空；mac 的
+ * NSAccessibility press 动作同压这一份）。动作码宏不跨 TU——两边各写一份
+ * （同 WmA11yRow 结构体在两个文件各声明一份的路数）。 */
 
 #define WM_UIA_ACT_CLICK 1
 
