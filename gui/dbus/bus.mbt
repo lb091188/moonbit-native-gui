@@ -18,7 +18,7 @@ priv struct Conn {
   mut acc_len : Int
   pending : Map[Int, (Msg) -> Unit] // 串号 → 应答处理
   subs : Map[String, Array[(Msg) -> Unit]] // "接口.成员" → 信号回调
-  match_rules : Array[String] // AddMatch 规则（断线重连后重放）
+  mut match_rules : Array[String] // AddMatch 规则（断线重连后重放；退订会摘）
   items : Map[String, Item] // 对象路径 → 托盘项
   menus : Map[String, Item] // 菜单对象路径 → 托盘项（DBusMenu）
 }
@@ -743,6 +743,31 @@ fn Conn::add_match(self : Conn, rule : String) -> Unit {
 }
 
 ///|
+/// 撤 match 规则（一次性订阅的收尾；总线不在场时静默）。
+fn Conn::remove_match(self : Conn, rule : String) -> Unit {
+  self.match_rules = self.match_rules.filter(fn(r : String) -> Bool { r != rule })
+  let _ = self.call(
+    "org.freedesktop.DBus",
+    "/org/freedesktop/DBus",
+    "org.freedesktop.DBus",
+    "RemoveMatch",
+    "s",
+    [VString(rule)],
+    fn(_m) { () },
+  )
+}
+
+///|
+/// 退订：按 key 整键摘除回调并撤 match 规则（一次性监听专用——portal 的
+/// Request/Response 每次调用都建一条，收到即撤，不攒）。
+fn Conn::unsubscribe(self : Conn, rule : String, key : String) -> Unit {
+  if self.subs.contains(key) {
+    let _ = self.subs.remove(key)
+    self.remove_match(rule)
+  }
+}
+
+///|
 /// 订阅信号：rule 为完整 match 规则串，key 为分发键 "接口.成员"
 /// （sender/argN 过滤由回调自查）。同一 key 可多次订阅。
 fn Conn::subscribe(
@@ -1034,6 +1059,19 @@ pub fn dbus_subscribe_system(
   cb : (Array[GDBusValue]) -> Unit,
 ) -> Result[Unit, String] {
   dbus_subscribe_on(1, rule, key, cb)
+}
+
+///|
+/// 退订会话总线信号（按 key 整键摘除并撤 match 规则；与
+/// [dbus_subscribe_session] 成对，供一次性监听收尾）。
+pub fn dbus_unsubscribe_session(rule : String, key : String) -> Result[Unit, String] {
+  match bus_conn() {
+    Err(e) => Err(e)
+    Ok(c) => {
+      c.unsubscribe(rule, key)
+      Ok(())
+    }
+  }
 }
 
 ///|

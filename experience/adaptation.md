@@ -3636,3 +3636,12 @@ at-spi2-core 2.52 装在开发机上（`at-spi2-core`/`gir1.2-atspi-2.0`/`libatk
 ## markdown 逐字选中改前缀实测量：「必须动三平台 C 桩」的前提被证伪（2026-11-04）
 
 一期把「AttributedText 逐字选中」挂为缓批，理由写的是「需在 @text 开逐字几何接口动三平台 C 桩，违背一期不碰平台桥约束」。真做时发现**前提不成立**：逐字边缘的真值不需要新平台接口——`measure_font(前缀)` 就是该前缀在给定字体下的精确 shaping 宽（Pango/DWrite/CoreText 三平台各自的 measure 路径早就通了，entry/textarea 的光标定位 `TextLayout::caret_x` 一直用的就是这个口径）。markdown 选中旧口径是「逐字单独量 → 按比例分摊到段联合宽」，shaping 误差全落在分摊比例上（本机 Pango 实测 "AV"×20 累加 180 vs 联合 161，差 19px；mac 上混排差 11px 的旧注同源），点击落点整体漂移、选不中字。新口径：**段界仍取联合排版**（`joint_w` 把整条前缀建成多字体 AttributedText 实量，跨段 kerning 在这一层），**段内逐字边缘取前缀实测量**（段内 uniform 字体下是精确值），两头都真且零新 C 代码。用例自带「牙齿」断言：扫全边界算旧口径与真值的最大差，>0.4px 才认（否则判据抓不回退）；逐边界点击落点断言到字节精确，不再用旧的「±1 个字」容差。若要更真（多字体逐字、AT-SPI Text 的 GetCharacterExtents），那才需要 rt_* 的逐字游标接口——留到有消费者时再说。
+
+## xdg-desktop-portal 客户端（Wayland P1）：request 路径派生与后端路由本机实证（2026-11-04）
+
+- **Request 路径**：调用方自造 `handle_token` 塞进 options 末位；portal frontend 建 Request 对象于 `/org/freedesktop/portal/desktop/request/<sender>/<token>`，**sender 段 = 本端唯一名去掉冒号、点换下杠**（`:1.850` → `1_850`，frontend 1.18.4 AddMatch 规则抓包定案，不是文档猜的），结果走 `org.freedesktop.portal.Request.Response(u code, a{sv} results)` 信号（0=成功 1=用户取消 2=失败）。同步调用仍走普通 method call（拿 handle 那种），异步握手才建 Request。
+- **后端按桌面路由、按需激活**：frontend 读 `XDG_CURRENT_DESKTOP` 选 impl 后端。本机（KDE 会话）`org.freedesktop.portal.GlobalShortcuts.CreateSession` 一发过去，frontend 就给 `org.freedesktop.impl.portal.desktop.kde` 加了 match 规则并 **D-Bus 按需激活了 KDE 后端**（`xdg-desktop-portal-kde` 5.27.11）；它的 `kde.portal` Interfaces 清单里确实有 GlobalShortcuts。**GTK 后端 1.15.1 没实现**（`gtk.portal` 清单无此项，且 `UseIn=gnome`）——本机会话当时实际跑着 GTK 后端，故调用报错。结论：GlobalShortcuts 能不能用取决于当前会话跑的 impl 后端，不取决于 frontend 接口在不在。
+- **门面形态差（方案 §五 定的）**：X11/Win/mac 是「注册 + 每帧 poll」；Wayland portal 是「绑定 + 信号回调」（授权每次绑定一弹）。壳层按会话类型分派，应用侧一个入口。
+- **退订是新增能力**：portal 的 Response 是一次性信号，`bus.mbt` 原有订阅只增不删（回调会攒）；本批补 `Conn::unsubscribe` + `dbus_unsubscribe_session`（按 key 整键摘除 + RemoveMatch），`match_rules` 字段随之改 `mut`。
+- **空闲双通道**：`@sys.idle_seconds`（C 平台：Win GetLastInputInfo / mac HID / Linux X11 XSS）不动；GNOME 档新增 `org.gnome.Mutter.IdleMonitor.GetIdletime`（D-Bus，Wayland 原生与 GNOME X11 都准），探测结果进程级缓存。KDE/wlroots 的 ext-idle-notify 只有事件没有「当前空闲秒」读数口，要 Wayland 协议客户端地基——归 P3 之后。
+- **顺带发现的既有环境 flake（非本批引入，A/B 实证）**：本机跑 `moon test dbus shell`（或多包）时 notify 用例约三成概率失败——`notify_caps()` 第一次成功、紧接着的 `notify_supported()` 二次调用 1500ms 超时（KDE 通知 daemon 单体直查 40/40 稳定 2ms）。单独跑 dbus 包或 shell 包都 5/5 过，基线（本批改动全 stash）同样复现——**多包合跑时才有**，疑似桌面侧并发干扰；CI 的测试清单不含 dbus/sys 且 runner 无通知 daemon（用例走跳过支）故不受影响。留待专项批，本批不拿通知代码垫刀。

@@ -38,7 +38,7 @@
 
 - [ ] **Spike S1/S2（本体行为 + XWayland 假数据实测，用户执行）**（P0 探针已先行落地：`@sys.session_type()`，夜灯/窗口管理按它降级，预期表进测试用例附录 E）：Ubuntu 24.04 GNOME Wayland + deepin 25 Treeland 跑 hello/showcase 相邻条目；xrandr 输出形态 / redshift 退出码与实际效果 / wmctrl 可见窗口集合——产出「返回成功但无效」清单，定 P0 探针写法（判据见方案 §五）
 - [ ] **Spike S3–S8（用户执行）**：GlobalShortcuts 全流程（KDE+GNOME 各一台）、空闲双档误差、Treeland 协议面探测矩阵、夜灯配置口生效与复位、显示器字段对照、弹层定位
-- [ ] **P1 portal 骨架 + 全局快捷键 + 空闲检测**：gui/dbus portal 客户端通用层（Request/Response 异步握手）；GlobalShortcuts「绑定+信号回调」门面形态；空闲 GNOME IdleMonitor 精确档 + ext-idle-notify 近似档
+- [ ] **P1 portal 骨架 + 全局快捷键 + 空闲检测**：实现已落（2026-11-04：`gui/dbus/portal.mbt` Request/Response 通用层（token 生成 / request 路径派生 / Response 一次性订阅）、`gui/shell/global_shortcuts.mbt` 绑定 + Activated 信号回调门面、`gui/shell/idle.mbt` GNOME IdleMonitor 精确读数 + 集成门面；`dbus` 包补退订与 a11y 之外的第三条总线之外本条用到的会话总线一次性订阅）；剩 GlobalShortcuts 授权框真机清单（KDE 5.27+/GNOME 48+ 各一台）与 ext-idle-notify 近似档（KDE/wlroots，待 Wayland 协议客户端地基）归用户/后续批
 - [ ] **P2 夜灯逐 DE + 显示器枚举**：KDE ColorCorrect/NightLight（S6 定版本分界）、GNOME gsettings 配置口、wlroots wlr-gamma-control 裸 gamma；显示器 mutter DisplayConfig（锁版本）+ wlr-output-management（KDE 通道 S7 定）；首个 Wayland 协议客户端地基（libwayland vs 自写 wire）单独评
 - [ ] **P3 剪贴板监视协议化 + wlroots 窗口管理**：wlr-data-control + ext-data-control-v1 双协议（Plasma 6.5 迁移坑）；窗口管理仅 wlroots 系（wlr-foreign-toplevel）；GNOME/KDE 窗口管理与层级族按「无通道」出文档；同批更新 roadmap 会话表与 DE 实测矩阵
 

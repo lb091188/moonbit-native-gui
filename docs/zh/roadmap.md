@@ -311,7 +311,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ### 系统能力
 
-- 🚧 **Wayland 原生路径**（2026-11-03 立项调研，能力出路总表、DE 支持矩阵与 spike 清单见 [proposals/wayland-native.md](proposals/wayland-native.md)）：GUI 本体 Wayland 会话已能跑，缺口在系统能力族与层级/弹层——✅P0 会话探针堵 XWayland 静默假数据（`@sys.session_type()`；夜灯与窗口管理在 Wayland 会话显式 `Unsupported`，显示器枚举按 XWayland 虚拟屏口径声明，预期表进测试文档附录 E）→ P1 portal 骨架 + 全局快捷键（GlobalShortcuts）+ 空闲检测（GNOME IdleMonitor 精确档 / ext-idle-notify 近似档）→ P2 夜灯逐 DE + 显示器枚举 → P3 剪贴板监视协议化 + wlroots 窗口管理；layer-shell 不进（KDE/GNOME 双双不支持）；GNOME 侧窗口管理无通道记平台边界；先 spike S1–S8 后动工
+- 🚧 **Wayland 原生路径**（2026-11-03 立项调研，能力出路总表、DE 支持矩阵与 spike 清单见 [proposals/wayland-native.md](proposals/wayland-native.md)）：GUI 本体 Wayland 会话已能跑，缺口在系统能力族与层级/弹层——✅P0 会话探针堵 XWayland 静默假数据（`@sys.session_type()`；夜灯与窗口管理在 Wayland 会话显式 `Unsupported`，显示器枚举按 XWayland 虚拟屏口径声明，预期表进测试文档附录 E）→ ✅ **P1 已落**（2026-11-04）：`gui/dbus/portal.mbt` Request/Response 异步握手通用层（handle_token → request 路径 `/org/freedesktop/portal/desktop/request/<sender 去冒号点换杠>/<token>` → Response 信号一次性订阅，路径派生规则本机 frontend 1.18.4 抓包定案）；`gui/shell/global_shortcuts.mbt` GlobalShortcuts「绑定 + Activated 信号回调」门面（CreateSession→BindShortcuts 两段握手，用户取消/后端不支持如实报错不假成功）；`gui/shell/idle.mbt` GNOME IdleMonitor 精确读数（GetIdletime）+ 集成门面（D-Bus 优先、回落 @sys C 平台读数）；本机实测：frontend 接受请求并按桌面路由到 KDE 后端（5.27.11 实现了 GlobalShortcuts，GTK 后端 1.15.1 没实现——当前会话跑的是 GTK 后端故握手报错，KDE 48+/GNOME 48+ 真机归用户）→ P2 夜灯逐 DE + 显示器枚举 → P3 剪贴板监视协议化 + wlroots 窗口管理；layer-shell 不进（KDE/GNOME 双双不支持）；GNOME 侧窗口管理无通道记平台边界；先 spike S1–S8 后动工
 - ⏳ **KDE / GNOME / DDE 实测**：托盘、通知、深浅色、壁纸、默认应用的桌面环境矩阵
 - ⏳ **显示器「首选档」**：`CGDisplayModeIsPreferred` 已不在 SDK，需找公开替代信号
 
