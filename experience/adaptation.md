@@ -3571,4 +3571,6 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 
 **现象二（Windows `shell_caps：真窗探测…透视按能力走`）**：`inspect(w.set_transparent_bg(true) is Ok(_))` 在 Windows runner 上给 Failed。**根因**：用例按「能力位在 → 就开得成」写断言，而本仓对 Windows 透明底定的是**另有前置**（带边框的窗不支持透视，要先 `set_borderless(true)`，前置不满足进 `Failed` 档）——契约写在 `set_transparent_bg` 的文档里，用例没读自己包的契约。**修复**：`caps.transparent_bg` 支内先切无边框、两条断言后复位。**判据**：`caps` 的位是**平台级能力**，不等于「这个窗此刻能开」——凡有前置条件的档，用例要按契约把前置摆上，否则 runner 与真机（用户已验通过）长期分歧。
 
+**现象三（Windows 链 `sys` 白盒测试 exe）**：`LNK2019 unresolved yue_sys_pr_signal / yue_sys_sleep_ms`。**根因**：这两个函数**内部**各自有 `#if defined(_WIN32)` 分支，却被整块放在文件里那个更大的「`#if _WIN32` / `#else` POSIX」分块的 **POSIX 侧**——Windows 编译时外层先把它们挡掉，内层的 Win32 分支成了永远到不了的死码，符号根本不存在。与「借别的子系统当门」同款：外层平台块是**子系统归属**，内层是**实现分流**，两者不是一回事，写的时候看着都带 `_WIN32` 就以为安全。**修复**：把两函数整体挪到外层分块之外（`#endif` 之后），并在那里写一句「住平台分块之外」的理由。**判据**：内部自带平台分流的函数不许嵌进任何单平台大块；新增这类函数后，在另一平台的链接产物里确认符号存在（`moon test sys` 只在 Linux 过不代表 Windows 能链上）。
+
 **验证**：`cd tools/native-gui-tools && moon test ./mngkit ./mng` 55/55；本地按 CI 同法跑一遍全量模板对账（逐 `examples/**/*.mng` 重生成到 /tmp 再 diff）零差异；`moon test win` 36/36（Linux 有合成器支同走一遍）；两条推上去后看 CI 三平台腿。

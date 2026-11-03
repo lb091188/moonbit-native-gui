@@ -1244,6 +1244,10 @@ int32_t yue_sys_proc_wait(int32_t pid, int32_t timeout_ms, int32_t *status,
 
 int32_t yue_sys_proc_getpid(void) { return (int32_t)getpid(); }
 
+#endif
+
+// sleep_ms 与 pr_signal 住平台分块之外：两者内部各自再分 _WIN32 / POSIX，
+// 放进 POSIX 侧会让 Windows 链接断符号（LNK2019）。
 // sleep_ms：dev 工具 watch 轮询的节拍（毫秒；≤0 直接返回）。
 void yue_sys_sleep_ms(int32_t ms) {
   if (ms <= 0) {
@@ -1305,8 +1309,6 @@ int32_t yue_sys_pr_signal(int32_t pid, int32_t sig) {
   return 0;
 #endif
 }
-
-#endif
 
 // ---------------------------------------------------------------------------
 // 系统剪贴板（W16）：Windows 走 Win32 的 CF_UNICODETEXT（读回 UTF-8 文本）；
