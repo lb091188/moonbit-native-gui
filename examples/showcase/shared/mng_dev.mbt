@@ -7,6 +7,8 @@
 
 ///|
 /// 类型化注册表：dev 档构建时登记，applier 按键取用；缺项报错并提示。
+/// `keys` 按登记顺序记全键集，握手摘要就照这一份算（eval 追加的键也进这里，
+/// 握手用的基线在挂载期快照一次）。
 pub struct MngReg {
   exprs : Map[String, () -> String]
   conds : Map[String, () -> Bool]
@@ -15,6 +17,7 @@ pub struct MngReg {
   bools : Map[String, @base.Store[Bool]]
   strs : Map[String, @base.Store[String]]
   calls : Map[String, (Array[ExprValue]) -> ExprValue]
+  keys : Array[String]
 }
 
 ///|
@@ -27,6 +30,14 @@ pub fn mng_reg_new() -> MngReg {
     bools: Map([]),
     strs: Map([]),
     calls: Map([]),
+    keys: [],
+  }
+}
+
+///|
+fn MngReg::note_key(self : MngReg, key : String) -> Unit {
+  if !self.keys.contains(key) {
+    self.keys.push(key)
   }
 }
 
@@ -41,31 +52,37 @@ fn MngReg::call(
 
 ///|
 pub fn MngReg::expr(self : MngReg, key : String, f : () -> String) -> Unit {
+  self.note_key(key)
   let _ = self.exprs.set(key, f)
 }
 
 ///|
 pub fn MngReg::cond(self : MngReg, key : String, f : () -> Bool) -> Unit {
+  self.note_key(key)
   let _ = self.conds.set(key, f)
 }
 
 ///|
 pub fn MngReg::handler(self : MngReg, name : String, f : () -> Unit) -> Unit {
+  self.note_key(name)
   let _ = self.handlers.set(name, f)
 }
 
 ///|
 pub fn MngReg::int(self : MngReg, name : String, s : @base.Store[Int]) -> Unit {
+  self.note_key(name)
   let _ = self.ints.set(name, s)
 }
 
 ///|
 pub fn MngReg::bool(self : MngReg, name : String, s : @base.Store[Bool]) -> Unit {
+  self.note_key(name)
   let _ = self.bools.set(name, s)
 }
 
 ///|
 pub fn MngReg::str(self : MngReg, name : String, s : @base.Store[String]) -> Unit {
+  self.note_key(name)
   let _ = self.strs.set(name, s)
 }
 
@@ -389,6 +406,109 @@ let mng_lives : Map[String, (@widget.Widget, Array[() -> Unit])] = Map([])
 let mng_regs : Map[String, MngReg] = Map([])
 
 ///|
+/// IR 协议代次：与工具侧 `mngkit.IR_REV` 同串，两边同批改。
+pub const MNG_IR_REV : String = "mng-ir-1"
+
+///|
+fn mng_hex8(h : Int) -> String {
+  let digits : Array[String] = [
+    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e",
+    "f",
+  ]
+  let out = StringBuilder()
+  let mut i = 7
+  while i >= 0 {
+    out.write_string(digits[(h >> (i * 4)) & 15])
+    i = i - 1
+  }
+  out.to_string()
+}
+
+///|
+/// 键集摘要：排序 + 换行连接 + 双种子哈希，与工具侧 `mngkit.ir_keys_digest`
+/// 逐字同算法（两侧不一致就永远判 stale）。
+pub fn mng_keys_digest(keys : Array[String]) -> String {
+  let ks = keys.copy()
+  ks.sort()
+  let mut h1 = 5381
+  let mut h2 = 52711
+  for s in ks {
+    h1 = ((h1 << 5) + h1 + 10) & 0x7FFF_FFFF
+    h2 = ((h2 << 5) + h2 + 10) & 0x7FFF_FFFF
+    for c in s.to_array() {
+      h1 = ((h1 << 5) + h1 + c.to_int()) & 0x7FFF_FFFF
+      h2 = ((h2 << 5) + h2 + c.to_int()) & 0x7FFF_FFFF
+    }
+  }
+  mng_hex8(h1) + mng_hex8(h2)
+}
+
+///|
+fn mng_reg_has(reg : MngReg, key : String) -> Bool {
+  reg.exprs.get(key) is Some(_) ||
+  reg.conds.get(key) is Some(_) ||
+  reg.handlers.get(key) is Some(_) ||
+  reg.ints.get(key) is Some(_) ||
+  reg.bools.get(key) is Some(_) ||
+  reg.strs.get(key) is Some(_)
+}
+
+///|
+/// 握手判据：`rev` 同代，且 requires（exprs/states/handlers 三张清单）里每个键
+/// 要么在注册表、要么由补丁自带 `eval` 提供。返回 None=可应用，Some(原因)=stale。
+fn mng_handshake(parsed : MJ, reg : MngReg) -> String? {
+  let rev = match mj_str(mj_get(parsed, "rev")) {
+    Some(r) => r
+    None => ""
+  }
+  if rev != MNG_IR_REV {
+    return Some("协议代次不符（补丁 \{rev}，本档 \{MNG_IR_REV}）")
+  }
+  let eval_obj = mj_get(parsed, "eval")
+  let missing : Array[String] = []
+  for field in ["exprs", "states", "handlers"] {
+    match mj_arr(mj_get(parsed, field)) {
+      Some(arr) =>
+        for item in arr {
+          match mj_str(Some(item)) {
+            Some(key) => {
+              let by_eval = match eval_obj {
+                Some(e) => mj_get(e, key) is Some(_)
+                None => false
+              }
+              if !by_eval && !mng_reg_has(reg, key) {
+                missing.push(key)
+              }
+            }
+            None => ()
+          }
+        }
+      None => ()
+    }
+  }
+  if missing.length() > 0 {
+    let patch_digest = match mj_str(mj_get(parsed, "keys_digest")) {
+      Some(d) => d
+      None => "-"
+    }
+    let own_digest = mng_keys_digest(reg.keys)
+    return Some(
+      "注册表键集落后（补丁缺 \{missing.length()} 键：\{missing.join(", ")}；补丁 keys_digest=\{patch_digest}，本档 rev=\{MNG_IR_REV} digest=\{own_digest}）",
+    )
+  }
+  None
+}
+
+///|
+/// 回执落盘（dev 工具读 `<补丁>.ack` 决定 HOT 还是转 COLD）：`ok` / `stale<TAB>原因`。
+fn mng_write_ack(irpath : String, status : String) -> Unit {
+  let _ =
+    @fs.write_string_to_file(irpath + ".ack", status) catch {
+      _ => ()
+    }
+}
+
+///|
 /// dev 档页面壳：登记注册表与 holder，把 `build()` 的树挂进 holder 并记为现役代。
 /// script 段在 `build` 外执行（状态建一代），补丁只重建 `build()` 的树——状态保活。
 pub fn mng_dev_page(page : String, reg : MngReg, build : () -> @widget.Node) -> @widget.Node {
@@ -683,6 +803,11 @@ pub fn mng_dev_apply(json : String) -> Result[Unit, String] {
     Some(r) => r
     None => return Err("页「\{page}」未登记注册表——该页挂载时用 mng_dev_set_reg 登记")
   }
+  // 握手先行：对不上不建树、不留在旧树里「改了没反应」，回执交工具转 COLD 重启回原页
+  match mng_handshake(parsed, reg) {
+    Some(why) => return Err("stale：" + why)
+    None => ()
+  }
   // 类定义先重注册（样式值改动也走这条），再登记新表达式、重建树
   match mj_get(parsed, "classes") {
     Some(MArr(rules)) =>
@@ -735,12 +860,24 @@ pub fn mng_dev_set_reg(page : String, reg : MngReg) -> Unit {
 }
 
 ///|
-/// 从补丁文件应用（wake 回调入口）：读文件 → apply。
+/// 从补丁文件应用（wake 回调入口）：读文件 → apply → 落回执（`<补丁>.ack`）。
+/// 回执是给 dev 工具的握手答复：`ok` / `stale<TAB>原因` / `err<TAB>原因`——
+/// 工具读到 stale 就把本拍转 COLD（重启并回改动页），不再让应用停在旧树。
 pub fn mng_dev_apply_from_file(path : String) -> Result[Unit, String] {
   let text = @fs.read_file_to_string(path) catch {
     _ => return Err("读不到补丁文件：" + path)
   }
-  mng_dev_apply(text)
+  match mng_dev_apply(text) {
+    Ok(_) => {
+      mng_write_ack(path, "ok")
+      Ok(())
+    }
+    Err(e) => {
+      let head = if e.has_prefix("stale：") { "stale" } else { "err" }
+      mng_write_ack(path, head + "\t" + e)
+      Err(e)
+    }
+  }
 }
 
 ///|

@@ -492,7 +492,8 @@ fn cmd_dev(args : Array[String]) -> Int {
         }
       }
     }
-    if cold && !had_err {
+    // COLD 编排抽成一拍内可复用：本拍分类要重启、或 HOT 回执判 stale 后补重启
+    let do_cold = fn() -> Unit {
       eprintln("[COLD] 本拍 \{changed.length()} 个改动，合并 build 一次…")
       match split_cmd(conf.build) {
         Some((bfile, bargs)) =>
@@ -522,14 +523,26 @@ fn cmd_dev(args : Array[String]) -> Int {
           }
         None => eprintln("[COLD] build 为空")
       }
+    }
+    if cold && !had_err {
+      do_cold()
     } else if cold && had_err {
       eprintln("[COLD] 有编译错误，本拍不重启（修好保存后自动重试）")
     }
     if !cold {
+      let mut stale = false
       for p in patches {
-        match @inst.wake(conf.app_id, ["--mng-hot", p]) {
-          Ok(_) => eprintln("[HOT] 补丁已推送（" + p + "）")
-          Err(e) => eprintln("[HOT] 补丁已备 " + p + "，但唤起失败（" + e + "）——应用未运行？")
+        if push_hot(conf.app_id, p) {
+          stale = true
+        }
+      }
+      if stale {
+        // 应用侧握手不符（注册表键集落后）：不留在旧树，补一次重启回改动页
+        if had_err {
+          eprintln("[COLD] 握手不符但有编译错误，本拍不重启")
+        } else {
+          eprintln("[COLD] 握手不符，补一次重启")
+          do_cold()
         }
       }
     } else if patches.length() > 0 {
@@ -538,6 +551,54 @@ fn cmd_dev(args : Array[String]) -> Int {
     }
   }
   0
+}
+
+///|
+/// 读回执文件，读不到当空串（应用侧握手后写 `<补丁>.ack`）。
+fn read_or_empty(path : String) -> String {
+  let s = @fs.read_file_to_string(path) catch {
+    _ => return ""
+  }
+  s
+}
+
+///|
+/// 推一条 HOT 补丁并等握手回执：`ok`=已应用；`stale`=协议/键集对不上，返回 true
+/// 让本拍转 COLD；`err`=应用侧建树失败（如实报，不重启）；等不到回执只报「已推送」，
+/// 不虚报已应用。
+fn push_hot(app_id : String, p : String) -> Bool {
+  let ack = p + ".ack"
+  let _ = @fs.remove_file(ack) catch {
+    _ => ()
+  }
+  match @inst.wake(app_id, ["--mng-hot", p]) {
+    Err(e) => {
+      eprintln("[HOT] 补丁已备 " + p + "，但唤起失败（" + e + "）——应用未运行？")
+      false
+    }
+    Ok(_) => {
+      let mut tries = 0
+      while tries < 40 {
+        let line = read_or_empty(ack)
+        if line.length() > 0 {
+          if line.has_prefix("stale") {
+            eprintln("[HOT→COLD] 握手不符：" + line[6:].to_owned())
+            return true
+          } else if line.has_prefix("ok") {
+            eprintln("[HOT] 补丁已应用（" + p + "）")
+            return false
+          } else {
+            eprintln("[HOT] 补丁应用失败：" + line[4:].to_owned())
+            return false
+          }
+        }
+        @proc.sleep_ms(50)
+        tries += 1
+      }
+      eprintln("[HOT] 补丁已推送（" + p + "），未收到应用回执")
+      false
+    }
+  }
 }
 
 ///|

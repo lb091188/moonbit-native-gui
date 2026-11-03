@@ -570,6 +570,30 @@ fn ir_seq(nodes : Array[TNode], out : Array[IrNode]) -> Result[Unit, String] {
 }
 
 ///|
+/// IR 协议代次（工具 ↔ applier 握手）：补丁带 `rev`，应用侧对不上即回 `stale`，
+/// 工具据此走 COLD 重启回原页。加字段 / 换键语义时与 applier 同批 +1。
+pub const IR_REV : String = "mng-ir-1"
+
+///|
+/// 键集摘要：排序后逐键喂双种子哈希（键间喂一个换行码），与 applier 侧
+/// `mng_keys_digest` 逐字同算法——两侧不一致就永远判 stale。
+fn ir_keys_digest(keys : Array[String]) -> String {
+  let ks = keys.copy()
+  ks.sort()
+  let mut h1 = 5381
+  let mut h2 = 52711
+  for s in ks {
+    h1 = ((h1 << 5) + h1 + 10) & 0x7FFF_FFFF
+    h2 = ((h2 << 5) + h2 + 10) & 0x7FFF_FFFF
+    for c in s.to_array() {
+      h1 = ((h1 << 5) + h1 + c.to_int()) & 0x7FFF_FFFF
+      h2 = ((h2 << 5) + h2 + c.to_int()) & 0x7FFF_FFFF
+    }
+  }
+  hotkey_hex8(h1) + hotkey_hex8(h2)
+}
+
+///|
 /// JSON 组装（应用侧 vsc_json_parse 读回）。exprs 收集动态槽键，states 收集
 /// v-model 目标——应用侧注册表按清单登记，缺项由 applier 报错。
 pub fn ir_of_with(
@@ -636,8 +660,21 @@ pub fn ir_of_with(
 
   walk(root)
   let stem = collect_stem(filename)
+  // 握手用键集：requires（exprs ∪ states ∪ handlers）减去补丁自带 eval 键
+  let need_keys : Array[String] = []
+  for e in exprs {
+    need_keys.push(e)
+  }
+  for st in states {
+    need_keys.push(st)
+  }
+  for h in handlers {
+    need_keys.push(h)
+  }
   let parts : Array[String] = []
   parts.push("\"v\":1")
+  parts.push("\"rev\":\"" + jstr(IR_REV) + "\"")
+  parts.push("\"keys_digest\":\"" + ir_keys_digest(need_keys) + "\"")
   parts.push("\"page\":\"" + jstr(stem) + "\"")
   parts.push("\"root\":" + ir_node_json(root))
   let ea : Array[String] = []

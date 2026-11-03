@@ -221,6 +221,13 @@ fn template_spike() -> @widget.Node {
 }
 ```
 
+### 页面上下文：应用状态与窗口句柄（2026-11-03 定案）
+
+库不注入上下文（不加 `current_app()` / `with_app()`），沿用 showcase 现成形态，两条约定：
+
+- **应用级**：应用自持一份上下文单例（`examples/showcase/shared/app.mbt` 的 `App`），经 `@shared.app()` 读。**模板页 build 期只读这一层**——`{{ }}`、`v-if`、`:attr` 的表达式都在挂载期求值，那一刻窗口句柄还没填。
+- **窗口级**：要枚举/切换窗口走 `@widget.host_windows()` / `active_window()`；要调窗口级 API（标题、尺寸、无边框…）在**回调里**读上下文里那枚 `host : Ref[@widget.WindowHost?]`，挂载回调之后才有值。深浅判据同源：应用自管深浅就读应用自己的开关。
+
 ## 支持程度
 
 - 上限 = MoonBit 表达式能写什么；类型安全由 `moon check` 全量保住。
@@ -302,6 +309,8 @@ fn template_spike() -> @widget.Node {
 
 **HOT 补丁通道落地（2026-11-02）**：编译器第二产物 IR（`mngkit.ir_of`，JSON：结构树 + 参数三态 lit/expr/state + 动态槽内容键 `t:<hash>` / `c:<hash>` + `classes` 类定义数据 + `eval` 新表达式 AST + requires 清单）；dev 子命令 HOT 分支产 IR 经单实例通道 `instance_wake(app_id, ["--mng-hot", 路径])` 推送（D-Bus 臂另补套接字旁路供 dev 工具送达；Windows 仍缺工具侧 Win32 客户端）；应用侧 applier（showcase「模板 Dev」页 `shared/mng_dev.mbt`：类型化注册表 + JSON 构树 + sub_bag 原位替换；注册表与 holder 按 IR 的 `page` 键控）——无头 wbtest 钉死「构树必须在订阅袋窗口内」；每次补丁先按 `classes` 重注册命名类（样式值热更），再登记 `eval` 里缺失的表达式键（受限 VM 求值，已编译闭包优先）。v1 补丁边界：col/row/text/dyn/if/button/checkbox/switch/stepper/input，参数表内才进补丁（col/row 只收 gap；button text/click；checkbox label/value；switch value；stepper value/min/max；input value/placeholder）；v-for / v-else-if / 自定义组件 / children 形组件 / 表外参数 / 文法外表达式转 COLD，COLD 重启后按改动页 stem 唤醒回页。**待真机**：dev 循环端到端 GUI 验证（TODO 有步骤清单）。
 
+**握手落地（2026-11-03）**：applier 建树前先校验 `rev` + requires 键集（`mng_handshake`），落 `stale` 就整批不重挂；工具侧 `push_hot` 读 `<补丁>.ack` 决定本拍是否补一次 COLD 重启。原「注册表缺项 → 报错 → toast 失败、界面停在旧树」的形态取消——用户看到「改了没反应」比重启更迷惑。
+
 **Phase 0 探针结果（2026-11-01，`experiment/ir_probe`，无头）**：手工 IR + 注册表 + applier v0（落点全为生产 API），200 轮 v1↔v2 结构交替热替换——单次「摘+建+挂」**10.4 ms**（验收线 1000 ms 的 1/75）；旧代订阅整袋退订干净（渲染不叠加、订阅数跨代恒定）；受控组件（stepper/slider）自身订阅计入现役代属正确口径。**探针通过，IR 通道主假设成立。**
 
 ### 探测结论（2026-11-01，Windows 开发机、showcase、native）
@@ -320,7 +329,7 @@ Web 主面壳形态不做（roadmap「明确不做」）。原生面是唯一主
 - **值形态（CSS 子集，不超出规范）**：长度要 `px`（`font-size: 16px`；零可省略单位）、`width`/`height` 另收 `%`（落到 `width_percent`/`height_percent`，模板面不出现这两个名字）、`var(--令牌)`、颜色字面量（`#rrggbb`）、绘制枚举关键字（font-weight 收 CSS 数值 100–900 与 `normal`/`bold`；text-align / white-space / border-style / visibility）、布局枚举关键字（display / flex-direction / flex-wrap / justify-content / align-items / align-self / position，CSS 原味写法：`space-between`、`flex-end`、`row-reverse`、`nowrap`…，生成 `@yoga.*` 枚举表达式——模板所在包需 `import "NoahLiu/yoga-mbt/src" @yoga`，showcase pages 已具备）；`cursor` 收 `default`/`pointer`/`text`；`transition-duration` 收毫秒（`120ms`），`opacity`/`flex-shrink` 是无单位数。**`flex` 按 CSS 简写展开**：`flex: g` → grow g / shrink 1 / basis 0，`flex: g s` → grow+shrink（grow/shrink 是无单位数），`flex: g s b` → basis 收像素或百分比（`flex_basis` / `flex_basis_percent` 字段）；`flex_basis: auto` 不收，用 width/height 表达。`var(--令牌)` 分两种：颜色属性查 20 枚主题色令牌（primary / text_primary / border / bg_panel …，绘制期按当前主题落色），数值属性查尺度令牌（control_height / font_size_* / radius_*）。
 - **文字属性继承**：可继承文字属性（font_size / font_family / font_weight / color / text_align / line_height / letter_spacing / text_decoration / white_space 与三个状态桶）随控件树向下推，**子声明优先**；初始值在文本源兜底（13 / 系统字族）。实现不引父指针：挂载与样式重算时由 `@style.apply` 往下推一份「继承基线」，`resolved` / `resolved_for_measure` 读合并后的生效样式（绘制与测量同源）。组件默认块显式声明字号（按钮/输入等），因此容器字号不会改控件度量；文本件不留默认层，所以能被容器接管。布局字段不下推。
 - **交互态**：`.名:hover { … }` / `.名:active` / `.名:focus` 编译进 Style 的三个状态桶（`.hover(…)` / `.active(…)` / `.focus(…)` 链），与组件参数写法等价；桶里只收绘制期属性，布局属性进桶会在生成码处编译报错。`:dark` 仍是独立的两枚类。
-- **深浅两份值**：颜色走 `var(--令牌)` 即自带两份值（主题表就是深色变体的落点）；需要字面量分化时写 `.名:dark { … }`，编译成第二枚 `名:dark` 类，生成码里按 `@win.sys_color_scheme() == "dark"` 选（应用自管深浅时走令牌；App 注入落地后判定源换成应用自己的开关）。
+- **深浅两份值**：颜色走 `var(--令牌)` 即自带两份值（主题表就是深色变体的落点）；需要字面量分化时写 `.名:dark { … }`，编译成第二枚 `名:dark` 类，生成码里按 `@win.sys_color_scheme() == "dark"` 选（应用自管深浅时走令牌，判定源就是应用自己的开关——上下文由应用自持，见「页面上下文」）。
 - **不做**：运行时级联 / 特异性 / 元素与后代选择器——类只作用于挂它的那个控件，不做选择器匹配；可继承文字属性按 CSS 语义随树下推（见上「文字属性继承」），伪类只收 `:hover/:active/:focus` 三档状态桶（见上「交互态」）。其余选择器与 `@media`/`@supports` 在 `<style>` 内遇到即编译报错，不静默仲裁（vanilla-extract / CSS Modules 套路：能算的在 build 期算完，运行时零新机制）。行/列容器的**选型**仍属结构侧（`<ui-col>`/`<ui-row>`），`flex-direction` 只做覆盖微调。
 - **归一链（一处合并）**：样式四个入口——组件内置默认（`gui/style/tokens.mbt`）、组件构造参数（属性）、`class`（命名类/内联 `Style`）、组件收的显式规则块（`style(...)`，即 `fold_style` 的 `style` 位、`text_dyn` 的 `anon`）——都汇到 `fold_style`，固定优先级 **默认 < 属性 < class（数组书写顺序，后者覆盖前者）< `style(...)`**；可继承文字属性再垫最底一层「继承」，初始值在文本源（13 / 系统字族）兜底。文本件**不挂**默认层（声明才写属性层），按钮/输入等把默认观感显式落成 token 块，因此容器字号不会顶掉控件度量。
 - **硬约定是编译规则**：模板属性里的样式字面量（color / background_color / border_color / border_width / border_radius / font_size / font_family / font_weight / opacity）一律编译报错，必须进 `<style>` 或 `class`；动态 `:属性="表达式"` 不受限。
@@ -360,8 +369,8 @@ Web 主面壳形态不做（roadmap「明确不做」）。原生面是唯一主
 1. ~~语法细节~~：**已冻结**（2026-11-01）——语法对齐 Vue：`{{ }}`、`:attr`、`@event`、`v-model`（落点直传 Store）、`v-if` 全家 + `v-show`、`v-for`、`ui-*` 内置表 + script setup `let` 绑定暴露；收窄项见「Spike 契约」记档。
 2. ~~单文件格式与扩展名~~：**`.mng`**（裸，语言注册由自家扩展接管）；script 段原文进生成函数体前段、模板树进后段。
 3. 生成物提交 or 忽略（本方案倾向提交 + CI 校验新鲜度）。
-4. ~~生成函数签名与带参组件~~：**已定**——默认 `fn <文件名去扩展>() -> @widget.Node`；组件要带参就在 script 段写 props 头（见「语法落定」props 行），「方法给外部」= 回调 prop + Store 槽直传，不做 expose。app 注入（页面拿到 App 上下文）仍挂开放项。
+4. ~~生成函数签名与带参组件~~：**已定**——默认 `fn <文件名去扩展>() -> @widget.Node`；组件要带参就在 script 段写 props 头（见「语法落定」props 行），「方法给外部」= 回调 prop + Store 槽直传，不做 expose。~~app 注入~~ **已定**（2026-11-03）：库不注入，应用自持上下文单例经 `@shared.app()` 读、窗口级走上下文里的 `host` 句柄与 `@widget.host_windows()` / `active_window()`，见「页面上下文」。
 5. 工具命名——按路线门面标准起：终态是本路线的 Vite 位次，对外 DX 的第一入口。
 6. LSP hover 能从 `moon check` 借到多少类型信息（决定 hover 档做不做）。
 7. ~~布局属性样式化口径收紧~~：**已定**（2026-11-03）——一条全序 **继承 < 默认 < 属性 < class < `style(...)`**，`style(...)` 的载体是组件的显式规则块参数（`text_dyn` 的 `anon`、`fold_style` 的 `style` 位），模板内联 `style=` 暂不开（样式字面量仍编译期报错，要开另立项）；优先级规则落点与首批迁移见「样式与主题」的「归一链」「布局属性样式化」。
-8. IR / 注册表 rev 握手协议细节（键集上报格式、rev 对不上时的降级口径）。
+8. ~~IR / 注册表 rev 握手协议细节~~：**已定并落地**（2026-11-03）——补丁 JSON 多带两字段：`rev`（协议代次，工具侧 `mngkit.IR_REV` 与 applier 侧 `MNG_IR_REV` 同串，加字段/换键语义两边同批改）与 `keys_digest`（requires = exprs ∪ states ∪ handlers 排序后逐键喂双种子哈希，两侧同算法）。应用侧判据在握手期一次算完、不建树：`rev` 不同代，或 requires 里有键既不在注册表也不在补丁自带 `eval` → 回 `stale`。回执走文件：applier 在 `<补丁路径>.ack` 写 `ok` / `stale<TAB>原因（含补丁与自身两侧 digest）` / `err<TAB>原因`；工具推送前先清旧回执，再轮询 2s 读——读到 stale 即本拍转 COLD（build→杀旧→重启→回改动页），读到 err 如实报不重启，等不到回执只报「已推送」不虚报已应用。**不再有「拒补丁、应用留在旧树」**。

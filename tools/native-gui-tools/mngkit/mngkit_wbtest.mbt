@@ -397,6 +397,72 @@ test "HOT 键稳定：动态槽上方插静态行，IR 与登记表键都不漂"
 }
 
 ///|
+///|
+/// 取 IR 里的字符串字段值（一行 JSON：扫字符找 `"key":"` 后到下一个引号）。
+fn ir_str_field(j : String, key : String) -> String {
+  let cs = j.to_array()
+  let pc = ("\"" + key + "\":\"").to_array()
+  let mut i = 0
+  while i + pc.length() <= cs.length() {
+    let mut hit = true
+    for k in 0..<pc.length() {
+      if cs[i + k] != pc[k] {
+        hit = false
+      }
+    }
+    if hit {
+      let out = StringBuilder()
+      let mut q = i + pc.length()
+      while q < cs.length() && cs[q] != '"' {
+        out.write_char(cs[q])
+        q += 1
+      }
+      return out.to_string()
+    }
+    i += 1
+  }
+  ""
+}
+
+///|
+test "IR 握手字段：带 rev 与键集摘要，同 script 稳定、符号集变即变" {
+  let ir = match ir_of(tir_src(), "tir.mng") {
+    Ok(j) => j
+    Err(e) => abort("\{e}")
+  }
+  assert_eq(ir_str_field(ir, "rev"), IR_REV)
+  let base = ir_str_field(ir, "keys_digest")
+  assert_eq(base.length(), 16)
+  // 同一份源码两遍生成：摘要一致（工具与 applier 比的就是这一串）
+  let ir2 = match ir_of(tir_src(), "tir.mng") {
+    Ok(j) => j
+    Err(e) => abort("\{e}")
+  }
+  assert_eq(ir_str_field(ir2, "keys_digest"), base)
+  // 符号集少一个 handler（requires 键集变）：摘要跟着变
+  let more = [
+    "<script setup lang=\"moonbit\">",
+    "let wifi : @base.Store[Bool] = @base.Store::new(true)",
+    "let nick : @base.Store[String] = @base.Store::new(\"\")",
+    "</script>",
+    "<template>",
+    "  <ui-col row_gap=\"8.0\">",
+    "    <ui-checkbox :label='@shared.tx(\"\u81ea\u52a8\")' v-model=\"wifi\" />",
+    "    <ui-stepper v-model=\"extra\" max=\"9\" />",
+    "  </ui-col>",
+    "</template>",
+  ].join("\n")
+  let j2 = match ir_of(more, "more.mng") {
+    Ok(j) => j
+    Err(e) => abort("\{e}")
+  }
+  assert_true(ir_str_field(j2, "keys_digest") != base)
+  // 摘要与键序无关，与键集有关
+  assert_eq(ir_keys_digest(["b", "a", "c"]), ir_keys_digest(["c", "b", "a"]))
+  assert_true(ir_keys_digest(["b", "a", "c"]) != ir_keys_digest(["b", "a", "c", "d"]))
+}
+
+///|
 test "IR 边界：自定义组件与 v-else-if 链转 COLD（ir_of 报错）" {
   // 参数表外（:error）与自定义组件都要转 COLD；先钉自定义标签本身
   let r1 = ir_of(

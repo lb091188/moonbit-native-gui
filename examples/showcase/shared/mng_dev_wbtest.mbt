@@ -5,7 +5,7 @@
 ///|
 fn demo_ir() -> String {
   [
-  "{\"v\":1,\"page\":\"dev_demo\",",
+  "{\"v\":1,\"rev\":\"mng-ir-1\",\"page\":\"dev_demo\",",
   "\"root\":{\"k\":\"col\",\"gap\":8.0,\"class\":[\"demo\"],\"kids\":[",
   "  {\"k\":\"checkbox\",\"args\":{\"label\":{\"expr\":\"t:8:18\"},\"value\":{\"state\":\"wifi\"}}},",
   "  {\"k\":\"if\",\"c\":\"c:9:5\",\"t\":{\"k\":\"dyn\",\"key\":\"t:9:5\"},\"f\":{\"k\":\"text\",\"v\":\"已关闭\"}},",
@@ -199,7 +199,7 @@ test "applier：补丁里的 eval 表登记新表达式后再构树" {
   let _ = holder.set_column()
   mng_dev_bind_holder("evalpage", holder)
   let ir = [
-    "{\"v\":1,\"page\":\"evalpage\",",
+    "{\"v\":1,\"rev\":\"mng-ir-1\",\"page\":\"evalpage\",",
     "\"root\":{\"k\":\"dyn\",\"key\":\"t:abc\"},",
     "\"exprs\":[\"t:abc\"],\"states\":[],\"handlers\":[],",
     "\"eval\":{\"t:abc\":{\"k\":\"tostr\",\"a\":{\"k\":\"id\",\"v\":\"qty\"}}}}",
@@ -218,7 +218,7 @@ test "applier：补丁里的 eval 表登记新表达式后再构树" {
 }
 
 ///|
-test "applier:缺注册项报错并带键名" {
+test "applier:握手不符（注册表缺键）判 stale，原因带缺的键" {
   mng_dev_set_reg("dev_demo", mng_reg_new())
   let holder = @widget.Widget::new()
   let _ = holder.set_column()
@@ -226,10 +226,35 @@ test "applier:缺注册项报错并带键名" {
   let r = mng_dev_apply(demo_ir())
   assert_true(
     match r {
-      Err(e) => contains_sub_m(e, "注册表缺")
+      Err(e) =>
+        contains_sub_m(e, "stale：") &&
+        contains_sub_m(e, "注册表键集落后") &&
+        contains_sub_m(e, "t:12:5") &&
+        contains_sub_m(e, "digest=")
       _ => false
     },
   )
+}
+
+///|
+test "applier:协议代次不符判 stale（旧补丁没有 rev）" {
+  let ir = "{\"v\":1,\"page\":\"dev_demo\",\"root\":{\"k\":\"text\",\"v\":\"x\"}}"
+  let r = mng_dev_apply(ir)
+  assert_true(
+    match r {
+      Err(e) => contains_sub_m(e, "stale：") && contains_sub_m(e, "协议代次不符")
+      _ => false
+    },
+  )
+}
+
+///|
+test "键集摘要：同键集同摘要（顺序无关），增键即变" {
+  let a = mng_keys_digest(["t:1", "qty", "on_reset"])
+  let b = mng_keys_digest(["on_reset", "qty", "t:1"])
+  assert_eq(a, b)
+  assert_true(a != mng_keys_digest(["t:1", "qty", "on_reset", "t:2"]))
+  assert_eq(mng_keys_digest([]), mng_keys_digest([]))
 }
 
 ///|
@@ -259,7 +284,7 @@ fn contains_sub_m(s : String, sub : String) -> Bool {
 
 ///|
 test "applier:补丁按 page 取页，未挂载页报错带页名" {
-  let ir = "{\"v\":1,\"page\":\"ghost\",\"root\":{\"k\":\"text\",\"v\":\"x\"}}"
+  let ir = "{\"v\":1,\"rev\":\"mng-ir-1\",\"page\":\"ghost\",\"root\":{\"k\":\"text\",\"v\":\"x\"}}"
   let r = mng_dev_apply(ir)
   assert_true(
     match r {
@@ -288,7 +313,7 @@ test "mng_dev_page：登记起页挂初代树，补丁原位替换保持单棵" 
     None => abort("holder 未登记")
   }
   assert_eq(holder.children().length(), 1)
-  let ir = "{\"v\":1,\"page\":\"io.moonbitlibyue.wbtest.devpage\",\"root\":{\"k\":\"dyn\",\"key\":\"t:1:1\"},\"exprs\":[\"t:1:1\"],\"states\":[],\"handlers\":[]}"
+  let ir = "{\"v\":1,\"rev\":\"mng-ir-1\",\"page\":\"io.moonbitlibyue.wbtest.devpage\",\"root\":{\"k\":\"dyn\",\"key\":\"t:1:1\"},\"exprs\":[\"t:1:1\"],\"states\":[],\"handlers\":[]}"
   match mng_dev_apply(ir) {
     Ok(_) => ()
     Err(e) => abort("apply: " + e)

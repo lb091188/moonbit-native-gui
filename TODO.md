@@ -14,7 +14,7 @@
 
 - [ ] **真实类型 hover**：桥 `moon ide` + source map 正向索引（native-template 开放问题 6，另批）
 - [ ] **Windows LSP 跳转落点收口**：`mng` 的 LSP 定义跳转在 Windows 上的路径分隔符与行号口径未验，用例 `lsp_wbtest` 现按盘符分流跳过（POSIX 形态断言照跑）——真机验一遍后把 Windows 支也钉上
-- [ ] **开放问题两项（已定案，待落地）**：app 注入（走「应用自持上下文单例 + `@shared.app()` + 窗口级 `host` 句柄」，库零改动，约定进文档）；IR/注册表 rev 握手（补丁带 `{page, base_rev, keys_digest}`，应用侧不符回 `stale`，工具收到 stale 直接 COLD 重启回原页）
+- [ ] **握手与折层真机复验**（用户执行）：①`mng dev` 跑起来后进「模板 Dev」，改 script 加一个新 Store 并保存 → 该改本应 COLD，若工具侧先推了 HOT 补丁，日志应出现 `[HOT→COLD] 握手不符：注册表键集落后…` 随后 `[COLD] … 应用已重启`、应用回到改动页（**不再出现「补丁失败」toast 后界面停在旧树**）；②正常 HOT（只改结构/字面量）日志 `[HOT] 补丁已应用`，应用内 toast 同步；③样式全序：给 `hover_group` 挂 `class=[style(padding=14.0)]` 的条目看内缩真的按 class 走（散参数 `<` class）
 
 ## 主题与样式批次真机复验（用户执行；落地项已在 roadmap「已实现·主题与样式」标 🚧，过了逐条翻 ✅）
 
