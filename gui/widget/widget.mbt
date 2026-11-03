@@ -208,6 +208,15 @@ pub(all) struct Widget {
   /// 本控件的绘制是否随 `hovered` / `pressed` / `focused` 变化（样式带状态桶即为真，
   /// 由 `@style.apply` 写入）。宿主据此决定悬停变化的标脏范围。
   mut paints_state : Bool
+  /// 语义启用态（三平台读屏都要报）：禁用判定在组件闭包里、桥拿不到，所以进字段，
+  /// 由组件在构造与禁用开关变化处写。缺省可用。
+  mut enabled : Bool
+  /// 语义状态与值：回调首参是控件本身（不把控件捕进闭包），返回
+  /// (状态串, 值串)（如 ("checked", "") / ("已选", "50%")），None = 没有语义值。
+  mut a11y_state : Option[(Widget) -> (String, String)?]
+  /// 语义文本内容（读屏朗读的正文）：与 `label` 的区别是它可以现算
+  /// （富文本段、代码块这类不在 `label` 里的文本）。None = 回落 `label`。
+  mut a11y_text : Option[(Widget) -> String?]
 }
 
 ///|
@@ -262,6 +271,9 @@ pub fn Widget::new() -> Widget {
     blend_paint: Normal,
     clip_content: true,
     paints_state: false,
+    enabled: true,
+    a11y_state: None,
+    a11y_text: None,
   }
 }
 
