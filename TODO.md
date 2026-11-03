@@ -45,7 +45,6 @@
 
 ## GPU 与媒体硬解（2026-11-03 定案，模块形态/融合模型/分批见 [proposals/gpu-architecture.md](proposals/gpu-architecture.md)；硬解独立先行与 GPU 线并行、互不绑定，做完一项删一项并同步路线图）
 
-- [ ] **gui-gpu 模块骨架**：modules/gui-gpu 照 gui-media 模子（prebuild 下载 wgpu-native 归档 sha256+双镜像、dlopen 探测、下载失败空 link_configs 降级）；wgpu-mbt pin 版本与许可归档核验
 - [ ] **第一步·X11 wgpu 三角形验收**（真机肉眼，方案既定第一步；验收判据落本批提交）
 - [ ] **L1-Linux present 纹理合成**：wm_present GTK X11 臂走「Bitmap 上传纹理 → 全屏 quad → swapchain」；fallback 探测粒度与 Wayland 会话臂随后
 - [ ] **L1-Win / L1-mac**：D3D12 swapchain 挂 HWND / CAMetalLayer 挂 NSView，与现有 blit 的切换与回退（回退后逐像素一致）

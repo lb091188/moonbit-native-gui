@@ -117,6 +117,8 @@ WebGPU 可用 → GPU 合成（Layer 1+2 都开）
 
 架构决策与实测依据见 [roadmap.md](../docs/zh/roadmap.md)「GPU 合成与 3D 路径」小节。跟踪项见同一份 roadmap 的「已规划 · 渲染」节（⏳ GPU 合成、控件级 GPU 绘制、GPU 内容画布三条——最后一条 2026-11-03 由「WebGL 画布」改写归并：桌面原生语境无 WebGL）。
 
+**模块骨架落地（2026-11-03）**：`modules/gui-gpu`（模块根 `moon.mod` + `gpu/` 包）——`prebuild.py` 按 (系统, 机器) 取归档：Linux x86_64 / Windows x86_64-msvc / macOS x86_64·aarch64，pin `v29.0.1.1`，sha256 逐条写死，双镜像串行、单镜像 180s 总预算（挂住不收数据的镜像不能拖住构建），校验通过才解到 `vendor/lib|include`；`gpu/probe.c` 运行期 dlopen（Win=LoadLibraryA）取 `wgpuCreateInstance`，`gpu.mbt` 的 `probe()` 返回 `loaded + detail`；link_configs 恒空——**故意不占链接面**，下载失败/离线就是「没装 GPU 扩展」。许可读数：归档内 `wgpu-native-meta/webgpu.yml` 标 `BSD-3-Clause`；库本体许可与 `wgpu-mbt` 生成代码许可在 L1 批次随依赖引入一并归档核验。
+
 ## 落地细节（2026-11-03 调研补全；证据级别标注：实测 / 官方文档 / 推断）
 
 ### 逐平台 surface 挂载

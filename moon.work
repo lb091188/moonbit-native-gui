@@ -4,6 +4,7 @@ members = [
   "modules/ffmpeg-mbt",
   "modules/mdparse",
   "modules/yoga-mbt",
+  "modules/gui-gpu",
   "modules/gui-media",
   "modules/gui-webview",
   "examples/hello",

@@ -1,0 +1,12 @@
+// GPU 地基（wgpu-native 运行期装载）：本包只做 dlopen + 符号探测，不向链接面
+// 注入任何库；归档由模块根 prebuild.py 按平台下载并校验 sha256，下载不成就
+// 是「没装 GPU 扩展」——probe 报 not-found，上层照常跑纯光栅/软件路径。
+import {
+  "moonbitlang/core/encoding/utf8" @utf8,
+}
+
+supported_targets = "native"
+
+options(
+  "native-stub": ["probe.c"],
+)
