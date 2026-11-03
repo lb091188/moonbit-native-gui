@@ -50,10 +50,6 @@
 | **text-decoration line-through/overline** | ✅ 文本层无需求，ui 自绘同法 | 扩 `base.mbt:250` 自绘线，零 C |
 | **spacing/radius/duration 设计令牌** | ✅ 纯 Style 层 | 见 §三，最大统一收益 |
 
-### Tier B — 需新文本层 API（3 引擎各改一次 stub）
-- **letter_spacing**：Pango `pango_attr_letter_spacing_new`、CoreText `kCTKernAttributeName`；**DirectWrite 无一等字距**，要做逐字形偏移。且必须同时穿透 `measure_font`/`line_ascent_font`/`draw_box_at`，否则量画不一致。**最贵**，design.md「Pango/DWrite 都有该能力」对 DWrite 偏乐观。
-- **多行 line-height（真 leading）**：Pango line attr / `DWRITE_LINE_METRICS` / `kCTLineSpacingAttributeName`；中等，且与框增大触发的整窗重算（`transition.mbt:127`）相互作用。
-
 ### Tier C — 需新渲染能力（勿排便宜工期）
 - **box-shadow**：要真 Gaussian blur，两后端皆无 → 已试过两次并撤回，重做须先建 blur 基建。
 - **backdrop-blur**：目标读回+分组+模糊，比 box-shadow 更大。

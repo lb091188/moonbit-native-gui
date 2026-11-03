@@ -267,7 +267,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ### 样式系统
 
-- 🚧 **样式系统 CSS 补全**（2026-11-02 拍板；方案、后端就绪度与风险注记见 [proposals/style-css-expansion.md](proposals/style-css-expansion.md)）：图形后端实为 Cairo + Pure Raster 两条（Win/mac 共用 Raster）；S0 文档矛盾与 S5 letter_spacing（三平台真机通过）已完成；余项——✅S1 设计令牌（四阶进 Theme + tokens 消费）、✅S2 background-gradient（Style 渐变字段 + view 盒子接线，token stop 绘制期落色；半透明 stop 双后端口径差见 adaptation.md，golden 待 Windows/mac 批）、✅S3 每角 radius + 每边 border（4R 路径 + 全等走解析快路的 guard；per-side 无圆角逐边条、带圆角诚实回落统一描边）、✅S4 mix-blend-mode / overflow / 删除线（BlendMode 25 式进 Style 落 Widget 绘制期、overflow Visible 档跳过控件裁切、text-decoration 三线自绘）、Tier B 多行 line-height（真 leading，量画一致是硬约束）；box-shadow / backdrop-blur / dashed 不排便宜工期（需先建 blur/dash 基建，见方案 Tier C）。拆分待办见 TODO「样式系统补全」节
+- 🚧 **样式系统 CSS 补全**（2026-11-02 拍板；方案、后端就绪度与风险注记见 [proposals/style-css-expansion.md](proposals/style-css-expansion.md)）：图形后端实为 Cairo + Pure Raster 两条（Win/mac 共用 Raster）；S0 文档矛盾与 S5 letter_spacing（三平台真机通过）已完成；余项——✅S1 设计令牌（四阶进 Theme + tokens 消费）、✅S2 background-gradient（Style 渐变字段 + view 盒子接线，token stop 绘制期落色；半透明 stop 双后端口径差见 adaptation.md，golden 待 Windows/mac 批）、✅S3 每角 radius + 每边 border（4R 路径 + 全等走解析快路的 guard；per-side 无圆角逐边条、带圆角诚实回落统一描边）、✅S4 mix-blend-mode / overflow / 删除线（BlendMode 25 式进 Style 落 Widget 绘制期、overflow Visible 档跳过控件裁切、text-decoration 三线自绘）；box-shadow / backdrop-blur / dashed 不排便宜工期（需先建 blur/dash 基建，见方案 Tier C）。拆分待办见 TODO「样式系统补全」节
 
 ### 窗口
 
@@ -309,12 +309,12 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 ### 开发体验
 
 - 🚧 **模板预编译编译器**：单文件组件（Vue 风模板 + MoonBit script）经工具预编译生成 `.mbt` 再走 `moon build`；表达式原样拼接、`moon check` 唯一类型门禁；v1 指令集：插值、动态属性、事件、双向绑定、条件、keyed 列表、默认 slot；组件带参（props 走签名头：必填位置参、可选具名默认值），跨包组件路径与参数顺序从源码签名自动解析、同包组件零声明；spike 先于编译器（showcase 选页对照钉死语法与产物契约）；CLI 错误回映射模板行列（source map）为 DX 生死线
-- 🚧 **模板热更新（IR 热应用）**：编译器旁路产出模板 IR（结构数据 + 类定义数据 + 新表达式 AST）；dev 档注册表由 codegen 生成（状态保活：script 外层建状态、模板树进 build 闭包）+ 应用内 applier 经单实例通道原位重挂；**项目级 dev**（`mng.toml` + 一条命令盯整个工作区）已落地；结构 / class / 样式值 / 受限表达式（字面量、Store、运算、if、`@shared.tx`·`tr`、插值）亚秒；script / v-for / 自定义组件 / children 形 / 文法外表达式回退重启并自动回到改动页；v2 剩余方向：子树对账状态保活、列表行模板热编辑
+- 🚧 **模板热更新（IR 热应用）**：编译器旁路产出模板 IR（结构数据 + 类定义数据 + 新表达式 AST）；dev 档注册表由 codegen 生成（状态保活：script 外层建状态、模板树进 build 闭包）+ 应用内 applier 经单实例通道原位重挂；**项目级 dev**（`mng.toml` + 一条命令盯整个工作区）已落地；结构 / class / 样式值 / 受限表达式（字面量、Store、运算、if、`@shared.tx`·`tr`、插值）亚秒；script / v-for / 自定义组件 / children 形 / 文法外表达式回退重启并自动回到改动页
 - 🚧 **样式类热更新**：`<style>` 规则随补丁以数据重注册命名类（类名与样式值都可热）；主题 token 的定义改动仍走重启，编译器侧「样式进槽」强制已落——模板属性里的样式字面量一律编译报错，必须进 `<style>` 或 `class`
 - 🚧 **模板样式章**：`<style>` 段编译期摊平进命名类注册表（类选择器、`var(--令牌)`、`#rrggbb`、枚举关键字、`flex` 简写、`width`/`height` 的 `%`、`.名:dark` 深浅两档、`:hover/:active/:focus` 交互态、文字属性向下继承；运行时级联 / 元素与后代选择器不做（布局枚举经 `@yoga` 支持））；元素 `class="a b"` → `class_of`；布局属性样式化口径——构造参数为默认值、类槽为覆盖，children / 事件 / 键 / 行列选型留结构侧（Linux 真机待验）
 - 🚧 **dev 工具二进制**：本路线的 Vite 位次，`moon install` 分发；子命令 `dev`（watch + 改动分类 + IR 通道推送 + 回退编排）/ `build`（纯生产产物零 dev 痕迹）/ `new`（新 `.mng` 页样板脚手架）/ `lsp`（stdio JSON-RPC：诊断、补全、hover、跳转）/ `--version`（插件握手）就位；工具不依赖 GUI 库（只链 libc/libgcc）；Windows 侧 dev 唤醒尚缺 Win32 客户端（HOT 推送未验）
 - 🚧 **编辑器支持**：语义进工具 `lsp` 子命令（stdio JSON-RPC：诊断、补全、hover、跳转；补全目录取 script 段槽名与 props、源码签名解析的组件参数、样式章的类与令牌、`moon.pkg` 别名与包内 `.mbti` 成员；hover 按令牌类型分档并随编辑器语言中英切换；跳转覆盖页内声明、组件源码、`@别名.成员` 与包入口），VSIX（`tools/vscode-mng/`，零依赖 JS）只做语言注册 + TextMate 着色（属性值与脚本段共用表达式文法，类型/变量/函数/常量分色）+ 语义着色（LSP `semanticTokens/full`：类型/变量/参数/函数/方法/命名空间按符号表分档，任何开语义高亮的主题都区分；LSP 降级退回纯 TextMate）+ snippets + LSP 客户端与工具定位引导；不引入原生 HTML/CSS 语义（Linux 待真机装 VSIX 验）
-- ⏳ **模板工具后续批次**（2026-11-02 拆分入待办，进度见 TODO「模板预编译·工具后续批次」）：🚧 dev 临时产物目录 `.mng/`（app 日志 / source map / IR 补丁迁出源码目录，文件浏览器不再裸露）、✅命令改名 `mng`（目录/包路径/文档/VSIX 默认 cliPath 同批），🚧Windows dev 唤醒（Win32 单实例客户端 WM_COPYDATA 通路已合入待真机：服务端本就吃 GUI 第二实例同款消息，工具侧补 FindWindowW+SendMessageTimeout 客户端）、✅VS Code「MNG: dev」入口（命令面板拉起 `mng dev` 到集成终端）、✅reload-theme 通道（mng.toml `theme` 键 + `--mng-theme` 推送：主题 JSON 存盘即 from_json 重载，不走重启）、真实类型 hover（桥 `moon ide` + source map 正向索引）、v2 热更（子树对账状态保活、列表行模板热编辑）、✅生成物新鲜度 CI 校验（mng gen dev 形态重编译与提交版 diff）、开放问题三项（app 注入 / 布局属性样式化口径收紧 / IR rev 握手协议）
+- ⏳ **模板工具后续批次**（2026-11-02 拆分入待办，进度见 TODO「模板预编译·工具后续批次」）：🚧 dev 临时产物目录 `.mng/`（app 日志 / source map / IR 补丁迁出源码目录，文件浏览器不再裸露）、✅命令改名 `mng`（目录/包路径/文档/VSIX 默认 cliPath 同批），🚧Windows dev 唤醒（Win32 单实例客户端 WM_COPYDATA 通路已合入待真机：服务端本就吃 GUI 第二实例同款消息，工具侧补 FindWindowW+SendMessageTimeout 客户端）、✅VS Code「MNG: dev」入口（命令面板拉起 `mng dev` 到集成终端）、✅reload-theme 通道（mng.toml `theme` 键 + `--mng-theme` 推送：主题 JSON 存盘即 from_json 重载，不走重启）、真实类型 hover（桥 `moon ide` + source map 正向索引）、✅生成物新鲜度 CI 校验（mng gen dev 形态重编译与提交版 diff）、开放问题三项（app 注入 / 布局属性样式化口径收紧 / IR rev 握手协议）
 - ⏳ **上游诉求**：moonbitlang native 目标 hot reload / 运行时多模块 + native 增量链接；落地当天 IR 通道升格真代码热换、状态迁移层（快照设计）复活、回退路径消失
 
 ### 工程与交付

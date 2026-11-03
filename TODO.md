@@ -13,7 +13,6 @@
 ### 工具后续批次
 
 - [ ] **真实类型 hover**：桥 `moon ide` + source map 正向索引（native-template 开放问题 6，另批）
-- [ ] **v2 热更方向**：子树对账状态保活（控件内部态焦点/滚动/IME 随重建重置的收窄）、列表行模板热编辑（v1 行内结构编辑回退）
 - [ ] **开放问题三项（待讨论）**：app 注入（页面拿 App 上下文的通路）；布局属性样式化口径收紧（优先级规则落点与存量构造参数迁移）；IR/注册表 rev 握手协议细节（键集上报格式、rev 对不上时的降级口径）
 
 ## 设计原则补齐（2026-11-02 拍板，落差清单见 [proposals/principles-gap.md](proposals/principles-gap.md)；按其 §五 优先级排序，做完一项删一项并同步路线图）
@@ -22,7 +21,6 @@
 
 ## 样式系统补全（2026-11-02 拍板，方案与风险注记见 [proposals/style-css-expansion.md](proposals/style-css-expansion.md)；S0 文档矛盾与 S5 letter_spacing 已完成，余项按 Tier 顺序）
 
-- [ ] **Tier B 多行 line-height（真 leading，贵）**：三引擎各改一次 stub（Pango line attr / DWRITE_LINE_METRICS / kCTLineSpacingAttributeName），必须同时穿透 measure/paint（`resolved_for_measure` 同步，否则量画不一致）；注意与框增大触发的整窗重算（transition.mbt）相互作用
 
 
 ## 无头测试门面（2026-11-02 立项，方案与坑清单见 [proposals/headless-tester.md](proposals/headless-tester.md)；判据：没有显示服务的机器上，用使用者写代码的方式断言「点了按钮，界面变成那样」）
