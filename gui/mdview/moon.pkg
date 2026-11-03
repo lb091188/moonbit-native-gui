@@ -1,6 +1,7 @@
 supported_targets = "native"
 
 import {
+  "moonbitlang/core/encoding/utf8" @utf8,
   "NoahLiu/mdparse" @mdast,
   "NoahLiu/yoga-mbt/src" @yoga,
   "NoahLiu/native-gui/base",

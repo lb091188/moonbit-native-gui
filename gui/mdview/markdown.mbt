@@ -848,6 +848,19 @@ fn md_rich_label(
   // 会超宽、删除线横线与链接命中会整体左偏。做法：段尾补一个中性汉字再减掉它
   // 自己的宽，把这一段还原成「后面还有字」的行中形态。
   let sent_cache : Map[String, Double] = Map([])
+  /// 段内前缀实测量：`bytes` 前 `bj` 字节在字体 `f` 下的 shaping 宽
+  /// （逐字边缘的真值；与 entry/textarea 光标同口径的前缀量）。
+  fn md_prefix_w(bytes : Bytes, bj : Int, f : @text.Font) -> Double {
+    if bj <= 0 {
+      0.0
+    } else {
+      match @text.measure_font(@utf8.decode_lossy(bytes[:bj]), f) {
+        Some(m) => m.width.to_double()
+        None => 0.0
+      }
+    }
+  }
+
   fn sent_w(font : @text.Font, tag : String) -> Double {
     match sent_cache.get(tag) {
       Some(v) => v
@@ -1097,40 +1110,41 @@ fn md_rich_label(
     None
   }
 
-  /// 本行逐字几何：段界取联合排版（`line_geo` 的 xs/ws），段内按逐字宽线性
-  /// 分摊到该段联合宽——既不退回「逐段单独量」（mac 实测累加比联合窄 11px），
-  /// 也不逐字建绘制对象（一行几十次 C 排版会话）。`cx`/`cidx` 平行，长度
-  /// = 本行字符数 + 1，末格是最后一个字的右缘。
+  /// 本行逐字几何：段界取**联合排版**（`line_geo` 的 xs/ws——整条前缀建成
+  /// 一份多字体 AttributedText 实量，跨段 kerning 在这一层算对），段内按
+  /// **前缀实测量**取逐字边缘：第 j 个字的左缘 = 该字之前在**本段字体**下
+  /// 的 shaping 宽（与 entry/textarea 光标同一条口径——`measure_font` 前缀
+  /// 量）。旧口径是「逐字单独量再按比例分摊到段宽」， shaping 误差全落在
+  /// 分摊比例上（mac 实测累加比联合窄 11px，点击落点整体偏右、选不中字）；
+  /// 前缀量在段内是精确值，段界仍归联合排版，两头都真。`cx`/`cidx` 平行，
+  /// 长度 = 本行字符数 + 1，末格收到行右缘（下一段起点/行尾）。
   fn line_cx(g : MDLine) -> Unit {
     if g.cx_ready {
       return
     }
     line_geo(g)
-    for i, sp in g.spans {
+    let n = g.spans.length()
+    for i in 0..<n {
+      let sp = g.spans[i]
       let cs = sp.text.to_array()
       let k = cs.length()
       if k == 0 {
         continue
       }
-      let per : Array[Double] = []
-      let mut sum = 0.0
-      for ch in cs {
-        let wc = unit_w(ch.to_string(), sp)
-        per.push(wc)
-        sum += wc
-      }
-      let scale = if sum > 0.0 { g.ws[i] / sum } else { 0.0 }
-      let mut acc = 0.0
-      for j = 0; j < k; j = j + 1 {
-        g.cx.push(g.xs[i] + acc * scale)
+      let f = font_of(sp)
+      // 逐字节边界的前缀实测量（段内第 j 个字的左缘）
+      let bytes = @utf8.encode(sp.text)
+      let mut bj = 0
+      for j in 0..<k {
+        g.cx.push(g.xs[i] + md_prefix_w(bytes, bj, f))
         g.cidx.push(g.lstart[i] + j)
-        acc += per[j]
+        bj += md_byte_len(cs[j].to_string())
       }
-    }
-    let last = g.spans.length() - 1
-    if last >= 0 {
-      g.cx.push(g.xs[last] + g.ws[last])
-      g.cidx.push(g.lstart[last] + g.spans[last].text.to_array().length())
+      // 段末格：联合排版给的段界（与下一段起点严格连续；夹住下限防段宽为 0
+      // 时末格回退）
+      let end = g.xs[i] + g.ws[i].max(md_prefix_w(bytes, bj, f))
+      g.cx.push(end)
+      g.cidx.push(g.lstart[i] + k)
     }
     g.cx_ready = true
   }

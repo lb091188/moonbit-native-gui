@@ -3632,3 +3632,7 @@ at-spi2-core 2.52 装在开发机上（`at-spi2-core`/`gir1.2-atspi-2.0`/`libatk
 - **Text 偏移单位是字符**（方案坑清单那条）：本桥按码点切片（`String::to_array()` 是 UTF-16 码元，BMP 汉字一元一字符；代理对暂不特殊处理——等 @text 逐字几何批一起收口）。
 - **不实现的与为什么**：GetMDIZOrder 返回 'n'（int16），本仓 GDBusValue 无 int16 变体，如实回 UnknownMethod 不硬编；Introspectable 不服务（libatspi/pyatspi 直调方法不 introspect，python-dbus 的懒代理会报 Introspect error 属噪音）；逐字几何（GetCharacterExtents/GetOffsetAtPoint）等 @text 逐字几何接口；GrabFocus 回 false（焦点栈在 widget 层，桥不直改）。
 - **落位**：协议实现住 `gui/shell/atspi.mbt`（shell 同时看得见 dbus 与 win——快照读 `@win.a11y_row_tsv`、动作压 `@win.a11y_action_push`，不依赖 widget 包）；dbus 包只加第三条任意地址连接（bus=2 + 记住路径供自愈）。端到端在本机真总线验过：注册→树遍历→属性/几何/文本/值/动作查询→事件三连（ChildrenChanged/Focus/StateChanged）全通；无 a11y 总线的环境（CI/Windows/macOS）启动即失败并按背间隔重试，不崩不假成功。
+
+## markdown 逐字选中改前缀实测量：「必须动三平台 C 桩」的前提被证伪（2026-11-04）
+
+一期把「AttributedText 逐字选中」挂为缓批，理由写的是「需在 @text 开逐字几何接口动三平台 C 桩，违背一期不碰平台桥约束」。真做时发现**前提不成立**：逐字边缘的真值不需要新平台接口——`measure_font(前缀)` 就是该前缀在给定字体下的精确 shaping 宽（Pango/DWrite/CoreText 三平台各自的 measure 路径早就通了，entry/textarea 的光标定位 `TextLayout::caret_x` 一直用的就是这个口径）。markdown 选中旧口径是「逐字单独量 → 按比例分摊到段联合宽」，shaping 误差全落在分摊比例上（本机 Pango 实测 "AV"×20 累加 180 vs 联合 161，差 19px；mac 上混排差 11px 的旧注同源），点击落点整体漂移、选不中字。新口径：**段界仍取联合排版**（`joint_w` 把整条前缀建成多字体 AttributedText 实量，跨段 kerning 在这一层），**段内逐字边缘取前缀实测量**（段内 uniform 字体下是精确值），两头都真且零新 C 代码。用例自带「牙齿」断言：扫全边界算旧口径与真值的最大差，>0.4px 才认（否则判据抓不回退）；逐边界点击落点断言到字节精确，不再用旧的「±1 个字」容差。若要更真（多字体逐字、AT-SPI Text 的 GetCharacterExtents），那才需要 rt_* 的逐字游标接口——留到有消费者时再说。

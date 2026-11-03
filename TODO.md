@@ -23,7 +23,6 @@
 
 ## 文本选择与屏读语义（2026-11-03 拍板，方案与坑清单见 [proposals/text-selection-a11y.md](proposals/text-selection-a11y.md)；两个消费者一块地基，做完一项删一项并同步路线图）
 
-- [ ] **一期缓批·AttributedText 逐字选中**：单独立项——需在 @text 开逐字几何接口动三平台 C 桩，违背一期「不碰平台桥」约束
 - [ ] **二期阶段1·macOS NSAccessibility 桥**：实现已收口（2026-11-03 二批：WMA11yElement 子类带 press 动作压跨平台动作队列、accessibilityFocusedUIElement 按焦点 id 还元素、accessibilityHitTest 按屏幕点还最深元素、快照内容变/焦点换发 AX LayoutChanged/FocusedUIElementChanged 通知、MoonBit 每帧报焦点 id）；剩 VoiceOver 真机清单（朗读 / 状态翻转 / 逐字输入 / press 触发不双触）待用户执行，见测试用例附录 F
 - [ ] **二期阶段2·Linux AT-SPI 桥**：实现已落（2026-11-04，`gui/shell/atspi.mbt`：第三总线连接 + Socket.Embed 注册 + 对象树四接口 Accessible/Component/Text/Value + Action 动作 + 事件上行；协议面按 at-spi2-core 2.52 本机实证，详见 adaptation.md）。剩 Orca 真机清单（Tab 遍历朗读 / flat-review 逐行读 / 对按钮按读屏 press 触发不双触 / 中文名与逐字偏移）待用户执行，见测试用例附录 F
 

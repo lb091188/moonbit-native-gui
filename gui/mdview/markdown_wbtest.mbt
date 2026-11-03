@@ -1017,3 +1017,85 @@ test "选中档：混排行里段界仍取联合几何，跨行拖选把两行�
 fn caret_ceil(b : Int) -> Int {
   b + 3
 }
+
+///|
+/// 字节前缀切片（测试与实现同口径的前缀量用）。
+fn byte_prefix(s : String, bj : Int) -> String {
+  @utf8.decode_lossy(@utf8.encode(s)[:bj])
+}
+
+///|
+test "选中档：逐字边缘是前缀实测量（kerning 混排也精确落边界，不再 ±1 字）" {
+  // "AV" 反复： kerning 让「逐字单独量之和」与「联合排版宽」差出几十像素
+  // （本机 Pango 实测每对约 -3px），旧口径把这点差按比例分摊到每个字上，
+  // 边缘整体漂移；前缀实测量在段内是精确值，点击落点不再飘
+  let src = "AVAVAVAVAVAVAVAVAVAV"
+  let root = mount_doc(
+    md_rich_label(md_flat_par(src), 13.0, md_sel_ctx()),
+    400.0,
+    40.0,
+  )
+  let label = root.children()[0]
+  let state = match md_sel_states.get(label.id) {
+    Some(s) => s
+    None => abort("选中档没装起来")
+  }
+  let f = @text.Font::new("", 13.0)
+  // 自证牙齿：旧口径（逐字量 × 联合/累加 比）与真值的差必须 >2px，
+  // 否则本用例的精确判据抓不回退
+  let cs = src.to_array()
+  let mut sum_per = 0.0
+  for ch in cs {
+    match @text.measure_font(ch.to_string(), f, wrap=false) {
+      Some(m) => sum_per += m.width.to_double()
+      None => ()
+    }
+  }
+  let joint = match @text.measure_font(src, f, wrap=false) {
+    Some(m) => m.width.to_double()
+    None => 0.0
+  }
+  // 扫全部边界取「旧口径 vs 真值」的最大差（均匀 kerning 在成对边界上会被
+  // 缩放吃掉，差值集中在中途位置）
+  let mut max_gap = 0.0
+  let mut acc = 0.0
+  let mut bj2 = 0
+  for ch in cs {
+    acc += match @text.measure_font(ch.to_string(), f, wrap=false) {
+      Some(m) => m.width.to_double()
+      None => 0.0
+    }
+    bj2 += md_byte_len(ch.to_string())
+    let old_e = acc * (joint / sum_per)
+    let true_e = match @text.measure_font(byte_prefix(src, bj2), f, wrap=false) {
+      Some(m) => m.width.to_double()
+      None => 0.0
+    }
+    let gap = (old_e - true_e).abs()
+    if gap > max_gap {
+      max_gap = gap
+    }
+  }
+  assert_true(
+    max_gap > 0.4,
+    msg="本用例对旧口径无分辨力（最大差 \{max_gap}px）",
+  )
+  // 逐边界精确落点：第 j 个字左缘 +0.5px 处点击，落点必须精确是该边界
+  let y = label.rect.y + 1.0
+  let mut bj = 0
+  for j, ch in src.to_array() {
+    let edge = match @text.measure_font(byte_prefix(src, bj), f, wrap=false) {
+      Some(m) => m.width.to_double()
+      None => abort("本平台没有文本测量")
+    }
+    let _ = j
+    md_sel_click(root, label.rect.x + edge + 0.5, y)
+    md_sel_up(root, label.rect.x + edge + 0.5, y)
+    assert_eq(
+      state.ed.caret_pos(),
+      bj,
+      msg="第 \{j} 个字左缘 \{edge} 处点击未精确落边界（caret=\{state.ed.caret_pos()} want \{bj}）",
+    )
+    bj += md_byte_len(ch.to_string())
+  }
+}
