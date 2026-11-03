@@ -3564,3 +3564,11 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **签名同步的面**：`wm_notify_send` / `wm_notify_update` **四臂**（Win32 / GTK / mac / 兜底）一律加 `int urgent` 尾参，非 mac 臂 `(void)urgent`；`win.notify_send` / `win.notify_update` 开 `urgent? : Bool = true` 具名可选参，C 侧收 0/1。`shell.notify_send` 的 `replaces_id>0` 覆盖路径也带档——只给首发带档而覆盖走默认档会让「urgent=false 的进度型通知」在 mac 上被替换回时间敏感，契约不成立。**extern 声明与四臂签名逐参数对照**是本批唯一的编译期风险（漏改一臂只在链接期炸，`moon check` 不编 C）。
 **后端名读数一并收口**：mac 档 `notify_backend_name()` 从 `ns-user-notification` 改 `un-user-notification`（UN 迁移后名实对齐；`NotifyBackend::WinBalloon` 枚举名不动，mac 的实现住在 `wm_notify_*` 同一支桩是既定架构，注释与 wbtest 按平台分档期望）。名字是纯 MoonBit 硬编码，C 桩不返回名字。
 **验证**：`moon check --deny-warn` 干净；`moon test base shell win dbus` 192/192（本机无通知服务，生命周期用例自动跳过；后端名用例在三平台各自分支判定）。Windows 纯 C 探针 `experiment/notify_probe/notify_backend_probe.c` 的 12 处调用点同批补第 5 参，待 Windows 侧复跑（末行 `NOTIFY-BACKEND-OK`）。mac 臂由 CI 的 `clang -fsyntax-only WM_STUB_MAC` 门禁编一遍，二档真机观感归用户复验。
+
+## CI 两条长期红灯的根因：生成码里嵌了绝对路径、透视用例漏了自己写下的前置（2026-11-03，master 自 11-02 起 CI 全红）
+
+**现象一（Linux「生成物新鲜度(模板对账)」）**：`mng gen` 重生成后与提交的 `<stem>.gen.mbt` diff 永不为空，差异只有一行——头注「来源：」后面那串路径。**根因**：codegen 把调用方传入的 `filename` 原样写进生成码头注与 source map 的 `source` 行；本机传 `/home/<user>/…`，runner 传 `/home/runner/work/…`，对账按字面 diff 必然判过期。source map 的消费端（`cmd_map`）本来就只取末段 basename，全路径没有任何消费者。**修复**：`mngkit/gen.mbt` 加 `base_of`，头注与 map 都记 basename；重新生成 `dev_demo.gen.mbt`。**判据**：新鲜度对账的可比性要求生成码里**不出现任何机器相关量**（绝对路径、用户名、时间戳）——重生成 diff 是内容判据，机器量把它变成恒红。
+
+**现象二（Windows `shell_caps：真窗探测…透视按能力走`）**：`inspect(w.set_transparent_bg(true) is Ok(_))` 在 Windows runner 上给 Failed。**根因**：用例按「能力位在 → 就开得成」写断言，而本仓对 Windows 透明底定的是**另有前置**（带边框的窗不支持透视，要先 `set_borderless(true)`，前置不满足进 `Failed` 档）——契约写在 `set_transparent_bg` 的文档里，用例没读自己包的契约。**修复**：`caps.transparent_bg` 支内先切无边框、两条断言后复位。**判据**：`caps` 的位是**平台级能力**，不等于「这个窗此刻能开」——凡有前置条件的档，用例要按契约把前置摆上，否则 runner 与真机（用户已验通过）长期分歧。
+
+**验证**：`cd tools/native-gui-tools && moon test ./mngkit ./mng` 55/55；本地按 CI 同法跑一遍全量模板对账（逐 `examples/**/*.mng` 重生成到 /tmp 再 diff）零差异；`moon test win` 36/36（Linux 有合成器支同走一遍）；两条推上去后看 CI 三平台腿。
