@@ -71,6 +71,8 @@ HWPROBE platform=linux type=vulkan open=ok frames=ok pix=vulkan transfer=none
 - GPU 线落地时新增 `DirectTexture` 一档，**只动输出端一行**，解码端（hwdevice 建立、回落、计数）零改动；
 - 直纹理的接口位在 `GpuContext` 侧留（gpu-architecture.md L2 首消费者那条），本线不实现导入。
 
+**H2 已落地（2026-11-03）**：输出端从 `vf_decode_next` 里内联的 sws 段抽成单一点 `vf_frame_output`（策略位收敛点），`VfDec` 加 `transfer` 字段（0=SwScale，唯一已落地档），`Demuxer::transfer_mode()` 作读数面；`DirectTexture` 档在 `vf_frame_output` 里留位（当前入值即 -1 如实报未落地）。**没加 setter**——按「接口由真实用例驱动，不为对齐而补」，setter 随 GPU 线首消费者（视频直纹理接口位）同批落，届时 decoder 端零改动。
+
 ## 六、分期与 spike
 
 - **H0 探针**（先跑，不动业务码）：三平台各建一次 hwdevice 并解一帧，打印 `HWPROBE platform=… type=… open=… decode=… transfer=…`；顺带核 §四 的归档实物。

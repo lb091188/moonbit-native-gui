@@ -246,6 +246,10 @@ test "ffmpeg 硬解：显式请求下的三档状态与回落等价" {
   }
   let st = hw.hw_status()
   assert_true(st == 1 || st == 2, msg="状态只许 1(硬解) 或 2(已回落)，实际 \{st}")
+  // 帧输出策略位：软解与硬解两路都只有 SwScale 一档（H2 收敛点；直纹理档
+  // 随 GPU 线首消费者落地，见 proposals/gpu-architecture.md）
+  assert_eq(hw.transfer_mode(), 0)
+  assert_eq(soft.transfer_mode(), 0)
   if st == 2 {
     assert_true(hw.hw_reason().length() > 0, msg="回落必须带原因")
   }

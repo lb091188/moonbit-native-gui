@@ -51,6 +51,8 @@ typedef struct VfDec {
     int hw_status;      // 0=软解 1=硬解 2=已回落
     enum AVCodecID codec_id;
     char hw_reason[160]; // 回落原因（状态行原样打印）
+    // —— 帧输出策略位（H2，方案 §五）——
+    int transfer; // 0=SwScale（唯一已落地档）1=DirectTexture（GPU 线落地才收）
 } VfDec;
 
 /* 音频解码器：swr 统一重采样输出 s16 交错 */
@@ -265,6 +267,7 @@ VfDec *vf_open_video_decoder_hw(VfFmt *f, int32_t out_w, int32_t out_h, int32_t 
     d->hw_status = 0;
     d->codec_id = st->codecpar->codec_id;
     d->hw_reason[0] = 0;
+    d->transfer = 0; // SwScale：解码帧怎么变成 RGBA 当前只有这一档
     d->codec = avcodec_alloc_context3(codec);
     if (avcodec_parameters_to_context(d->codec, st->codecpar) < 0) {
         avcodec_free_context(&d->codec);
@@ -393,6 +396,38 @@ int32_t vf_dec_height(VfDec *d) {
     return d ? d->height : 0;
 }
 
+/* 帧输出策略位（H2，方案 §五）：解码帧怎么变成 RGBA 收敛到这一个函数。
+ * 现在只有 SwScale 一档（srcf 可能是硬件帧经 transfer_data 下行的宿主）；
+ * GPU 线落地时加 DirectTexture 一档——只动这里一行，解码端（hwdevice 建立、
+ * 回落、计数）零改动。 */
+#define VF_TRANSFER_SWSCALE 0
+#define VF_TRANSFER_DIRECT_TEXTURE 1
+
+static int vf_frame_output(VfDec *d, AVFrame *srcf, uint8_t *out) {
+    if (d->transfer == VF_TRANSFER_DIRECT_TEXTURE) {
+        return -1; // 直纹理档未落地（GPU 线的首消费者，见 gpu-architecture.md）
+    }
+    if (!d->sws) {
+        d->sws = sws_getContext(
+            srcf->width, srcf->height, srcf->format,
+            d->width, d->height, AV_PIX_FMT_RGBA,
+            SWS_BILINEAR, NULL, NULL, NULL);
+        if (!d->sws) {
+            return -1;
+        }
+    }
+    uint8_t *dst[4] = { out, NULL, NULL, NULL };
+    int dst_linesize[4] = { d->width * 4, 0, 0, 0 };
+    sws_scale(d->sws, (const uint8_t *const *)srcf->data, srcf->linesize,
+              0, srcf->height, dst, dst_linesize);
+    return 0;
+}
+
+/* 帧输出策略位读数：0=SwScale（当前唯一档）。 */
+int32_t vf_transfer_mode(VfDec *d) {
+    return d ? d->transfer : -1;
+}
+
 /* 解码下一帧为 RGBA 写进 out（容量须 >= w*h*4）。
  * 返回：1=拿到一帧；0=流结束；-1=错误 */
 int32_t vf_decode_next(VfDec *d, uint8_t *out, int32_t out_len) {
@@ -458,20 +493,10 @@ int32_t vf_decode_next(VfDec *d, uint8_t *out, int32_t out_len) {
                 srcf = d->swf;
             }
         }
-        if (!d->sws) {
-            d->sws = sws_getContext(
-                srcf->width, srcf->height, srcf->format,
-                d->width, d->height, AV_PIX_FMT_RGBA,
-                SWS_BILINEAR, NULL, NULL, NULL);
-            if (!d->sws) {
-                av_frame_unref(d->frame);
-                return -1;
-            }
+        if (vf_frame_output(d, srcf, out) < 0) {
+            av_frame_unref(d->frame);
+            return -1;
         }
-        uint8_t *dst[4] = { out, NULL, NULL, NULL };
-        int dst_linesize[4] = { d->width * 4, 0, 0, 0 };
-        sws_scale(d->sws, (const uint8_t *const *)srcf->data, srcf->linesize,
-                  0, srcf->height, dst, dst_linesize);
         // 帧时间戳（秒）：best_effort 优先（容错丢 pts 的包），流时间基换算
         int64_t ts = d->frame->best_effort_timestamp;
         if (ts == AV_NOPTS_VALUE) {

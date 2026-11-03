@@ -246,6 +246,14 @@ pub fn Demuxer::hw_reason(self : Demuxer) -> String {
 }
 
 ///|
+/// 帧输出策略位（H2，方案 §五）：0=SwScale（当前唯一已落地档，硬件帧经
+/// transfer_data 下行后走 sws 出 RGBA）。GPU 线落地时加 1=DirectTexture——
+/// 只动 C 侧输出端一行，解码端（hwdevice 建立、回落、计数）零改动。
+pub fn Demuxer::transfer_mode(self : Demuxer) -> Int {
+  vf_transfer_mode(self.dec)
+}
+
+///|
 /// 解码下一帧为 RGBA 字节（恰好 out_w*out_h*4 长度；流结束/未开
 /// 视频解码器给 None）。
 pub fn Demuxer::decode_rgba(self : Demuxer) -> Bytes? {
@@ -505,6 +513,9 @@ extern "c" fn vf_hw_status(d : VfDec) -> Int = "vf_hw_status"
 ///|
 #borrow(out)
 extern "c" fn vf_hw_reason(d : VfDec, out : Bytes, cap : Int) -> Int = "vf_hw_reason"
+
+///|
+extern "c" fn vf_transfer_mode(d : VfDec) -> Int = "vf_transfer_mode"
 
 ///|
 #borrow(d)
