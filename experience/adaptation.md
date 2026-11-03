@@ -3573,4 +3573,14 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 
 **现象三（Windows 链 `sys` 白盒测试 exe）**：`LNK2019 unresolved yue_sys_pr_signal / yue_sys_sleep_ms`。**根因**：这两个函数**内部**各自有 `#if defined(_WIN32)` 分支，却被整块放在文件里那个更大的「`#if _WIN32` / `#else` POSIX」分块的 **POSIX 侧**——Windows 编译时外层先把它们挡掉，内层的 Win32 分支成了永远到不了的死码，符号根本不存在。与「借别的子系统当门」同款：外层平台块是**子系统归属**，内层是**实现分流**，两者不是一回事，写的时候看着都带 `_WIN32` 就以为安全。**修复**：把两函数整体挪到外层分块之外（`#endif` 之后），并在那里写一句「住平台分块之外」的理由。**判据**：内部自带平台分流的函数不许嵌进任何单平台大块；新增这类函数后，在另一平台的链接产物里确认符号存在（`moon test sys` 只在 Linux 过不代表 Windows 能链上）。
 
-**验证**：`cd tools/native-gui-tools && moon test ./mngkit ./mng` 55/55；本地按 CI 同法跑一遍全量模板对账（逐 `examples/**/*.mng` 重生成到 /tmp 再 diff）零差异；`moon test win` 36/36（Linux 有合成器支同走一遍）；两条推上去后看 CI 三平台腿。
+**现象四（Windows 跑 tools 用例）**：`写不出 /tmp/mng_proj_conf/moon.mod` → `PanicError`，整个 mng 白盒测试 exe 挂掉。**根因**：项目级 dev 配置的回归用例把临时目录硬写 `/tmp`，Windows 上写不进就 `abort`（`write_file_p` 的既定行为）——用例把 POSIX 路径当成跨平台前提，与库能力无关。**修复**：`tmp_dir(sub)` 依次取 `TMPDIR` / `TEMP` / `TMP`，都没有才回落 `/tmp`；`project_wbtest` / `dev_wbtest` / `lsp_wbtest` 的用例根目录与 `Artifacts` 解析用例的落盘路径同批改过去（解析断言按变量比对，不再钉死字面路径）。**判据**：用例里出现的每一条绝对路径都要问一句「另一台机器上它存在吗」；临时文件走环境给的临时目录，`proc` 那族用 `posix_only()` 明确分流。
+
+**验证**：`cd tools/native-gui-tools && moon test ./mngkit ./mng` 55/55（改后 `moon test ./mng ./mngkit ./proc ./inst` 62/62）；本地按 CI 同法跑一遍全量模板对账（逐 `examples/**/*.mng` 重生成到 /tmp 再 diff）零差异；`moon test win` 36/36（Linux 有合成器支同走一遍）；两条推上去后看 CI 三平台腿。
+
+## Wayland 会话的「返回成功但无效」：X 工具族按会话探针降级（2026-11-03，P0）
+
+**判据**：`XDG_SESSION_TYPE`（loginctl/DE 都写）认 `wayland` / `x11`，没写时回落 `WAYLAND_DISPLAY` 非空即 Wayland；其余值（`tty` / `display-manager`）归 Unknown——**不猜 X11**，否则又拿假数据当真实会话。实现在 `gui/sys/session.mbt`（纯解析 `session_type_of` + 读环境 `session_type`），Windows/macOS 走各自平台支，不经过这道门。
+**降级的三条**：夜间色温（`nl_supported()` false，设/复位给 `Unsupported`）、窗口管理（`win_supported()` false，`win_list`/`win_activate`/`win_close` 给 `Unsupported`——`wmctrl -l` 在 Wayland 下只列 X 兼容层那部分，给残缺集合比给错误更坏，因为它看着像真列表）。**不降级的**：显示器枚举——XWayland 那块虚拟屏确实存在，返回 `Unsupported` 等于撒谎；改为在文档与函数注释钉死「名形如 `XWAYLAND0`、不代表真接的屏」的读数口径。
+**为什么不能靠工具探测**：`pr_run` 保留 `DISPLAY`/`XAUTHORITY`（`procrun.mbt:198-214`），Wayland 会话里 redshift / xrandr / wmctrl 都起得来、退出码都是 0——「命令存在 + 退出码 0」这条探测线在 Wayland 下**系统性失真**，能力探测必须先问会话再问工具。空闲与全局快捷键早就按同一形态降级（sys 桩 `DISPLAY` 空即 unsupported，win 桩热键支 `WAYLAND_DISPLAY` 非空即 unsupported），本批把剩下的族补齐同一口径。
+**测试口径**：`session_type_of` 纯函数钉九档；`session_type()` 用 `envx_set` 在进程内改环境再断言（跑完还原本机值，原本没有的删掉），因此 Linux/Windows/macOS 同一份用例都能跑；夜灯与窗口管理的降级支只在 `sys_platform()=="linux"` 断言，非 Linux 打印 skip（它们各自的真通道在前）。
+**待复验**：Wayland 真机（Ubuntu GNOME Wayland / deepin Treeland）的会话读数与「夜灯不再空转」归用户，判据见 `测试文档/测试用例.md` 附录 E 与 spike S1/S2。

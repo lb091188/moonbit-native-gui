@@ -23,9 +23,9 @@ test "dev_map_path：map 落 .mng/map/<相对包路径>/<stem>.gen.mbt.map" {
 
 ///|
 test "mkdir_p：逐级建目录，已存在视为成功" {
-  let root = "/tmp/mng_dev_mkdir_p/a/b/c"
+  let root = tmp_dir("mng_dev_mkdir_p") + "/a/b/c"
   assert_true(mkdir_p(root))
   assert_true(@fs.is_dir(root) catch { _ => false })
   assert_true(mkdir_p(root))
-  assert_true(mkdir_p("/tmp/mng_dev_mkdir_p"))
+  assert_true(mkdir_p(tmp_dir("mng_dev_mkdir_p")))
 }

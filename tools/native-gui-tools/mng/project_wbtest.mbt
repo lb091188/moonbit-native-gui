@@ -1,4 +1,23 @@
 // 项目级 dev 配置回归（无头）：mng.toml 解析、默认推导、多目录扫描、撞名聚合。
+///|
+/// 可写临时目录（跨平台）：Windows 没有 `/tmp`，硬写会让用例在 `abort` 上假红。
+/// 依次取 `TMPDIR` / `TEMP` / `TMP`，都没有再回落 `/tmp`。
+fn tmp_dir(sub : String) -> String {
+  let mut base = ""
+  for k in ["TMPDIR", "TEMP", "TMP"] {
+    if base == "" {
+      match @env.get_env_var(k) {
+        Some(v) if v != "" => base = v
+        _ => ()
+      }
+    }
+  }
+  if base == "" {
+    base = "/tmp"
+  }
+  base + "/" + sub
+}
+
 
 ///|
 fn write_file_p(path : String, text : String) -> Unit {
@@ -48,7 +67,7 @@ test "模块名 → app_id：小写、斜杠转点、非法字符转下划线" {
 
 ///|
 test "默认推导：moon.mod 目录当模板根，app-id 由 name 派生" {
-  let root = "/tmp/mng_proj_conf"
+  let root = tmp_dir("mng_proj_conf")
   ensure_dir_p(root)
   write_file_p(root + "/moon.mod", "name = \"Acme/demo-app\"\n")
   let conf = match load_dev_conf("", "", "", None, root) {
@@ -65,7 +84,7 @@ test "默认推导：moon.mod 目录当模板根，app-id 由 name 派生" {
 
 ///|
 test "mng.toml 优先：相对模板目录解析成配置根下的路径" {
-  let root = "/tmp/mng_proj_toml"
+  let root = tmp_dir("mng_proj_toml")
   ensure_dir_p(root)
   write_file_p(root + "/moon.mod", "name = \"Acme/toml-app\"\n")
   write_file_p(
@@ -92,7 +111,7 @@ test "mng.toml 优先：相对模板目录解析成配置根下的路径" {
 
 ///|
 test "多目录递归扫描：跳过 _build/.mooncakes/点目录，结果去重排序" {
-  let root = "/tmp/mng_proj_scan"
+  let root = tmp_dir("mng_proj_scan")
   ensure_dir_p(root)
   ensure_dir_p(root + "/a")
   ensure_dir_p(root + "/a/_build")
@@ -159,24 +178,26 @@ fn contains_sub_p(s : String, sub : String) -> Bool {
 
 ///|
 test "Artifacts 段解析：按模块名挑，别家模块的行不认（裸 workspace 构建的回归）" {
-  write_file_p("/tmp/mng_proj_artifact.bin", "x")
-  write_file_p("/tmp/mng_proj_tool.bin", "x")
+  let bin = tmp_dir("mng_proj_artifact.bin")
+  let tool = tmp_dir("mng_proj_tool.bin")
+  write_file_p(bin, "x")
+  write_file_p(tool, "x")
   // 裸 `moon build` 会列整个 workspace；本模块的行在中间，最后一条是别的模块
   let log = [
     "Artifacts:",
-    "  NoahLiu/other  native  /tmp/mng_proj_tool.bin",
-    "  Acme/app  native  /tmp/mng_proj_artifact.bin",
-    "  NoahLiu/native-gui-tools/mng  native  /tmp/mng_proj_tool.bin",
+    "  NoahLiu/other  native  " + tool,
+    "  Acme/app  native  " + bin,
+    "  NoahLiu/native-gui-tools/mng  native  " + tool,
     "",
   ].join("\n")
-  assert_eq(artifact_of_log(log, "Acme/app"), Some("/tmp/mng_proj_artifact.bin"))
+  assert_eq(artifact_of_log(log, "Acme/app"), Some(bin))
   // 只有子包（cmd/main）也认
   let log2 = [
     "Artifacts:",
-    "  Acme/app/cmd/main  native  /tmp/mng_proj_artifact.bin",
-    "  NoahLiu/other  native  /tmp/mng_proj_tool.bin",
+    "  Acme/app/cmd/main  native  " + bin,
+    "  NoahLiu/other  native  " + tool,
   ].join("\n")
-  assert_eq(artifact_of_log(log2, "Acme/app"), Some("/tmp/mng_proj_artifact.bin"))
+  assert_eq(artifact_of_log(log2, "Acme/app"), Some(bin))
   // 全不是本模块 → None（让调用方提示补 run，而不是乱起别的程序）
   assert_eq(artifact_of_log(log, "Acme/elsewhere"), None)
   assert_eq(artifact_of_log("no artifacts here", "Acme/app"), None)
@@ -184,7 +205,7 @@ test "Artifacts 段解析：按模块名挑，别家模块的行不认（裸 wor
 
 ///|
 test "mng.toml：theme 键解析并落项目根相对路径" {
-  let root = "/tmp/mng_proj_theme"
+  let root = tmp_dir("mng_proj_theme")
   ensure_dir_p(root)
   write_file_p(root + "/moon.mod", "name = \"Acme/theme-app\"\n")
   write_file_p(

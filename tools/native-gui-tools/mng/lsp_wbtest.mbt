@@ -144,7 +144,7 @@ fn contains_sub_l(s : String, sub : String) -> Bool {
 ///|
 /// 造一个最小 workspace：`app/page`（模板所在包）导入 `lib/base` 与 `lib/ui`。
 fn nav_fixture() -> String {
-  let root = "/tmp/mng_lsp_nav"
+  let root = tmp_dir("mng_lsp_nav")
   for d in [
     root,
     root + "/app",
