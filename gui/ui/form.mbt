@@ -63,6 +63,13 @@ pub fn checkbox(
   @widget.node_of_new(fn(row : @widget.Widget) -> @widget.Widget {
     let off = enabled_cell(enabled, disabled)
     row.focus_id = auto_focus_id(focus_id)
+    // 语义面：读屏要的是「角色 + 勾选态 + 这段文字」，状态回调现读 Store
+    row.role = "checkbox"
+    row.enabled = !off.off
+    row.a11y_state = Some(fn(_self : @widget.Widget) -> (String, String)? {
+      Some((if state.get() { "checked" } else { "unchecked" }, ""))
+    })
+    row.a11y_text = Some(fn(_self : @widget.Widget) -> String? { Some(content) })
     let box = @widget.Widget::new()
     box.node.set_width(@yoga.fixed(14.0))
     box.node.set_height(@yoga.fixed(14.0))
@@ -289,6 +296,11 @@ pub fn switch(
   follow_store(state)
   @widget.node_of_new(fn(row : @widget.Widget) -> @widget.Widget {
     let off = enabled_cell(None, disabled)
+    row.role = "switch"
+    row.enabled = !off.off
+    row.a11y_state = Some(fn(_self : @widget.Widget) -> (String, String)? {
+      Some((if state.get() { "checked" } else { "unchecked" }, ""))
+    })
     let toggle = fn() {
       let v = !state.get()
       state.set(v)
@@ -404,6 +416,12 @@ pub fn slider(
     watch_theme()
     let off = enabled_cell(None, disabled)
     // 拖动状态自己持有：宿主维护的 `pressed` 只在真实事件流里置位，组件要在
+    w.role = "slider"
+    w.enabled = !off.off
+    w.a11y_state = Some(fn(_self : @widget.Widget) -> (String, String)? {
+      let pct = (state.get() / hi * 100.0).round().to_int()
+      Some(("", pct.to_string() + "%"))
+    })
     // 任何投递路径下都能把拖动做完（也才测得到）
     let dragging = Ref(false)
     w.focus_id = auto_focus_id(focus_id)
@@ -560,6 +578,11 @@ pub fn progress(
     w.node.set_width(@yoga.fixed(width))
     w.node.set_height(@yoga.fixed(height))
     fold_style(w, @style.empty_style(), anon, class)
+    w.role = "progress"
+    w.a11y_state = Some(fn(_self : @widget.Widget) -> (String, String)? {
+      let pct = (state.get() / hi * 100.0).round().to_int()
+      Some(("", pct.to_string() + "%"))
+    })
     w.on_draw = Some(fn(
       self : @widget.Widget,
       p : @render.Painter,
@@ -1061,6 +1084,9 @@ pub fn button(
     let off = enabled_cell(enabled, disabled)
     w.focus_id = auto_focus_id(focus_id)
     w.node.set_height(@yoga.fixed(@theme.control_height))
+    w.role = "button"
+    w.enabled = !off.off
+    w.a11y_text = Some(fn(_self : @widget.Widget) -> String? { Some(text) })
     if min_width > 0.0 {
       w.node.set_min_width(@yoga.fixed(min_width))
     }
