@@ -100,6 +100,15 @@ pub fn textarea(
 
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
+    w.role = "text_area"
+    w.a11y_text = Some(fn(_self : @widget.Widget) -> String? { Some(ed.get_text()) })
+    w.a11y_state = Some(fn(_self : @widget.Widget) -> (String, String)? {
+      if ro {
+        Some(("read_only", ""))
+      } else {
+        None
+      }
+    })
     let off = enabled_cell(None, false)
     let last_down = Ref(-1000000L)
     let last_xy = Ref((-1000.0, -1000.0))

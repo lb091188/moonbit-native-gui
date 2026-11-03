@@ -1650,6 +1650,10 @@ pub fn select(
   let ph = placeholder
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
+    w.role = "select"
+    w.a11y_state = Some(fn(_self : @widget.Widget) -> (String, String)? {
+      Some(("", value.get()))
+    })
     let open_id : Ref[Int] = Ref(0)
     let hi : Ref[Int] = Ref(0)
     let shown : Ref[Array[String]] = Ref([])

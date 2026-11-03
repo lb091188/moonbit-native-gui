@@ -25,7 +25,6 @@
 ## 文本选择与屏读语义（2026-11-03 拍板，方案与坑清单见 [proposals/text-selection-a11y.md](proposals/text-selection-a11y.md)；两个消费者一块地基，做完一项删一项并同步路线图）
 
 - [ ] **一期缓批·AttributedText 逐字选中**：单独立项——需在 @text 开逐字几何接口动三平台 C 桩，违背一期「不碰平台桥」约束
-- [ ] **二期阶段0·语义地基**（与 uitest P1 同批落 Widget 字段，破坏性变更一次做掉）：name/role/enabled + a11y_state/a11y_text 值回调 + ARole 枚举解析视图；C 侧语义槽表 + 帧尾对账；gui/README.md non-goals 口径修正随批
 - [ ] **二期阶段1·macOS NSAccessibility 桥**：WMView 挂协议 + accessibilityChildren 轻量元素；VoiceOver 真机清单（朗读 / 状态翻转 / 逐字输入）
 - [ ] **二期阶段2·Linux AT-SPI 桩**：第三总线连接 + Socket.Embed 握手 + 对象树四接口；spike 三未核项（注册握手版本兼容 / Text 偏移单位字符 vs 字节 / XFCE·deepin a11y bus 启用态）；Orca 真机清单
 - [ ] **二期阶段3·Windows UIA provider**：WM_GETOBJECT + IRawElementProviderSimple/Fragment + 五 pattern；GUID 取法探针先行（大概率复刻 WIC 套路待证）；NVDA + Accessibility Insights 真机清单

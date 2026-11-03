@@ -73,3 +73,39 @@ test "语义面：滑杆与进度报百分比值" {
     None => abort("进度条没报值")
   }
 }
+
+///|
+test "语义面：输入框读文本、密码框只报保护态、只读框报只读" {
+  let s = @base.Store::new("你好")
+  let (_r1, w1) = mounted(input(s), 220.0, 32.0)
+  assert_eq(w1.role, "text_input")
+  assert_eq(w1.a11y_text_now(), Some("你好"))
+  assert_eq(w1.a11y_state_now(), None)
+  // 密码框：明文不出语义面
+  let (_r2, w2) = mounted(input(@base.Store::new("secret"), password=true), 220.0, 32.0)
+  assert_eq(w2.a11y_text_now(), None)
+  match w2.a11y_state_now() {
+    Some((st, _)) => assert_eq(st, "password")
+    None => abort("密码框没报保护态")
+  }
+  let (_r3, w3) = mounted(input(@base.Store::new("固定"), read_only=true), 220.0, 32.0)
+  match w3.a11y_state_now() {
+    Some((st, _)) => assert_eq(st, "read_only")
+    None => abort("只读框没报只读")
+  }
+}
+
+///|
+test "语义面：多行框读文本、下拉报当前值" {
+  let s = @base.Store::new("第一行\n第二行")
+  let (_r1, w1) = mounted(textarea(s), 260.0, 80.0)
+  assert_eq(w1.role, "text_area")
+  assert_eq(w1.a11y_text_now(), Some("第一行\n第二行"))
+  let v = @base.Store::new("b")
+  let (_r2, w2) = mounted(select(["a", "b", "c"], v), 200.0, 32.0)
+  assert_eq(w2.role, "select")
+  match w2.a11y_state_now() {
+    Some((_, val)) => assert_eq(val, "b")
+    None => abort("下拉没报当前值")
+  }
+}

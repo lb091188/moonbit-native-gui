@@ -194,6 +194,24 @@ pub fn input(
     shown_origin(self) + prefix_width(ed, ed.caret_pos(), font, mask=mask)
   }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    // 语义面：读屏读当前文本；密码框只报保护态，绝不外泄明文
+    w.role = "text_input"
+    w.a11y_text = Some(fn(_self : @widget.Widget) -> String? {
+      if mask {
+        None
+      } else {
+        Some(ed.get_text())
+      }
+    })
+    w.a11y_state = Some(fn(_self : @widget.Widget) -> (String, String)? {
+      if mask {
+        Some(("password", ""))
+      } else if ro {
+        Some(("read_only", ""))
+      } else {
+        None
+      }
+    })
     watch_theme()
     editor(ed)
     let off = enabled_cell(None, false)

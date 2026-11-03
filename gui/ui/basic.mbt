@@ -324,6 +324,8 @@ fn text_node_of(
   }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
+    // 语义面：静态/动态文本一律报 text；正文走 `label`（`relabel` 每次写回）
+    w.role = "text"
     fold_style(w, @style.empty_style(), attrs, class, style=anon)
     // flex 口径全线 0 1 auto（文本件口径定案）：不设宽、不设 grow/shrink——
     // 折行档按 measure 的可用宽折，内容基准可收缩，min:auto 内容下限由引擎
