@@ -46,6 +46,8 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **层级：图标上**：`DesktopWidget`，桌面小部件位，本窗照收键鼠（三平台真机通过）
 - ✅ **层级：始终置顶**：`AlwaysOnTop`（三平台真机通过）
 - ✅ **层级：面板档**：不进任务栏、不进窗口循环、所有工作区显示、普通窗口上全屏窗口下（即 dock 位，三平台真机通过）
+- 🚧 **平台原生句柄透出**：`Window::native_handle() -> Int64`——Windows 给 `HWND`、macOS 给 `NSWindow*`、Linux/GTK 给 `GtkWidget*`（口径钉在桩注释），无效槽或无后端回 0；契约「裸句柄、平台语义、仅逃生用，跨平台代码不得依赖」写在方法文档，第三方原生内容挂窗与平台 API 直调不必再复制库的窗口槽表（接口已落地，三平台真机句柄有效性待复验）
+- 🚧 **窗口族能力可探测**：`Window::shell_caps()` 八位探测（`opacity` / `transparent_bg` 在 GTK 臂实时探合成器）+ `set_transparent_bg` 返回 `Result`（`Unsupported` / `Failed` 带原因，前置不满足如 Windows 需先无边框进 `Failed` 档）；窗口方法族契约注释逐平台钉死读回值含义（同签名悄悄无效清零，与系统能力族同一套诚实降级口径）
 
 ### 渲染与绘制
 
@@ -177,6 +179,20 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **样式与主题**：样式槽 + 状态桶 + 命名类；20 个颜色 token；跟随系统明暗与强调色
 - ✅ **声明式层**：`Node{mount:(Widget)->Widget}` 地基（`node_of`/`mount_children`/`App::mount`/`invalidate` 回路）+ **L1 构造器全集**（`ui/declarative.mbt`：`vbox`/`hbox`/`text_edit`/`picker`/`scroll`/`tab`/`date_picker`/`mount_window`/`bind`/`bind_label`/`hover_group`/`cursor_group`/`overlay_scroll`/`combo`/`gif`；与组件同名的 12 个直接复用组件、不包第二层）。旧链 24 构造器除 `mount`（即 `App::mount`）与同名件外全部到位**到此收口**。`cursor_group` 配套窗口层光标通道（`wm_set_cursor` + `Widget.cursor` 请求 + 宿主按悬停路径取「最深非零」下发）；`combo` 走按键沿祖先链冒泡（↑↓/回车/Esc）；`gif` 走 `@render.Animation` 逐帧迭代 + 进程级延时通道
 
+### 主题与样式
+
+方案与就绪度档案见 [proposals/style-css-expansion.md](proposals/style-css-expansion.md)（CSS 属性补全）与 [proposals/principles-gap.md](proposals/principles-gap.md)（三条产品原则落差）；本节只列落地项与平台状态。图形后端实为两条：Linux=Cairo，Windows / macOS 共用 Pure Raster，故 Tier A 各件零 C 桩。
+
+- 🚧 **设计令牌四阶**：间距阶 / 半径阶 / 字阶 / 时长阶进 `Theme`（`space_scale` / `radius_scale` / `type_scale` / `duration_scale`）+ 基准常量与静态间距令牌 + 运行时 getter（越界按首末夹取）；`tokens.mbt` 刻度间距字面量换令牌单源（2026-11-02 落地）
+- 🚧 **背景渐变**：`background_gradient` 线性 / 径向 + stops（stop 颜色可用主题 token，绘制期现取）；view 盒子（`view` / `col` / `row` / `panel` / `card`）渐变优先、不足两 stop 回落纯色；半透明 stop 的 Cairo / 纯光栅插值口径差记 [adaptation.md](experience/adaptation.md)，不透明主链像素钉死，半透明 golden 待 Windows / mac 批
+- 🚧 **每角圆角 + 每边边框**：四角独立半径（CSS over-constraint 归一：相邻角和超边长时全体等比缩小）、四边独立宽与色；不等半径走 4R 路径，纯光栅解析快路加「四值全等」guard；per-side 在四角全 0 时逐边内缘条，带圆角回落统一描边（角部接缝诚实降级）
+- 🚧 **混合模式 / overflow / 文本装饰三线**：`mix_blend_mode` 25 式接 `Painter::set_blend_mode`，对 on_draw 与子树同帧生效；`overflow` 的 Visible 档是「跳过控件矩形裁切」的逃生口（Hidden 即现状默认）；`text-decoration` 补 line-through 与 overline，与下划线同一条测量自绘线法（零 C）
+- 🚧 **主题 JSON 加载**：`@theme.from_json(src, base?)`——字段白名单 = `Theme` 字段（20 颜色 + 图表色板 + 四阶令牌），未知字段 / 类型不符 / 颜色非法报错，缺省项回落基底；主题随应用分发为数据文件，换肤不碰编译；dev 档 `mng.toml` 的 `theme` 键支持存盘即重载
+- 🚧 **跟随系统默认接线**：`@widget.theme_apply_system_once`——进程内首个窗口挂载前探测一次并应用，显式 `theme_apply` 过的应用跳过，持续轮询仍 opt-in；深色系统首次启动不再白闪
+- 🚧 **深浅变体接入消费**：`theme_is_dark()`（按页面底亮度判档）+ 内置变体类注册表（tooltip 深浅反转与深档描边、scroll-thumb 与 divider-line 深档提亮）+ 两个消费口（`apply_variant_named` 整槽拥有者、`fold_style_variant` 默认层重折）；`dark:` / `light:` 前缀从「实现了没人用」变有真实消费者
+- 🚧 **代码视图主题化**：`Token.color` 角色化为 `Token.role`（0.x 破坏），新增 `CodeTheme` 与 `code_theme_of(Theme)`（按面板底色亮度分深浅两套映射，色值全走语义 token）；缺省绘制期跟 `theme_current()`，显式传 `code_theme` 可钉死
+- 🚧 **主题定制示例**：`examples/theme-playground/` 独立模块（换主色 / 全量覆盖 / 持续跟随 / 类槽单组件覆盖四张卡），用例 TP-1.1..5.1 已进测试文档，真机清单待跑
+
 ### 系统能力
 
 - ✅ **全局快捷键键名随平台**：门面回查/回显给平台规范名（mac `Cmd+…`、其余 `Ctrl+…`，`CmdOrCtrl` 等别名不外泄）；showcase 演示注册 `CmdOrCtrl+Alt+C`
@@ -260,14 +276,6 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 ## 已规划
 
 规划内容，开发之后会移到上一栏。
-
-### 设计原则补齐
-
-- 🚧 **三条产品原则落差补齐**（2026-11-02 拍板；清单与验收口径见 [proposals/principles-gap.md](proposals/principles-gap.md)）：分层求透（✅1.1 原生句柄透出 MoonBit、✅1.2 原生子件登记流程成文、✅1.4 `@ui` 公共面收窄）、视觉掌控下放（✅2.1 主题 JSON 加载、✅2.2 跟随系统默认接线、✅2.3 `dark:`/`light:` 变体接入消费、✅2.4 code_view 主题化、✅2.5 主题定制示例恢复（examples/theme-playground））、平台抹平（✅3.1 窗口族同签名未实现端可探测，文档步 + 签名步两步走）；既有提案已覆盖的差距不在此重复（见方案 §四对照表）。拆分待办与进度见 TODO「设计原则补齐」节
-
-### 样式系统
-
-- 🚧 **样式系统 CSS 补全**（2026-11-02 拍板；方案、后端就绪度与风险注记见 [proposals/style-css-expansion.md](proposals/style-css-expansion.md)）：图形后端实为 Cairo + Pure Raster 两条（Win/mac 共用 Raster）；S0 文档矛盾与 S5 letter_spacing（三平台真机通过）已完成；余项——✅S1 设计令牌（四阶进 Theme + tokens 消费）、✅S2 background-gradient（Style 渐变字段 + view 盒子接线，token stop 绘制期落色；半透明 stop 双后端口径差见 adaptation.md，golden 待 Windows/mac 批）、✅S3 每角 radius + 每边 border（4R 路径 + 全等走解析快路的 guard；per-side 无圆角逐边条、带圆角诚实回落统一描边）、✅S4 mix-blend-mode / overflow / 删除线（BlendMode 25 式进 Style 落 Widget 绘制期、overflow Visible 档跳过控件裁切、text-decoration 三线自绘）；box-shadow / backdrop-blur / dashed 不排便宜工期（需先建 blur/dash 基建，见方案 Tier C）。拆分待办见 TODO「样式系统补全」节
 
 ### 窗口
 

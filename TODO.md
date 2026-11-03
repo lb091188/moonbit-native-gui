@@ -15,13 +15,11 @@
 - [ ] **真实类型 hover**：桥 `moon ide` + source map 正向索引（native-template 开放问题 6，另批）
 - [ ] **开放问题三项（待讨论）**：app 注入（页面拿 App 上下文的通路）；布局属性样式化口径收紧（优先级规则落点与存量构造参数迁移）；IR/注册表 rev 握手协议细节（键集上报格式、rev 对不上时的降级口径）
 
-## 设计原则补齐（2026-11-02 拍板，落差清单见 [proposals/principles-gap.md](proposals/principles-gap.md)；按其 §五 优先级排序，做完一项删一项并同步路线图）
+## 主题与样式批次真机复验（用户执行；落地项已在 roadmap「已实现·主题与样式」标 🚧，过了逐条翻 ✅）
 
-
-
-## 样式系统补全（2026-11-02 拍板，方案与风险注记见 [proposals/style-css-expansion.md](proposals/style-css-expansion.md)；S0 文档矛盾与 S5 letter_spacing 已完成，余项按 Tier 顺序）
-
-
+- [ ] **样式补全观感**：showcase「过渡与效果」页与「画布与富文本」页看四件——渐变背景（线性/径向、stop 用主题 token 时随主色变；半透明 stop 在 Windows/mac 的插值口径与 Linux 是否一致）、每角圆角与每边边框（不等半径四角、四边独立宽色；带圆角时 per-side 回落统一描边是否诚实）、`mix_blend_mode` 混排（改档看有没有漏到同帧兄弟）、删除线与上划线（折行段落落在最后一行）；令牌间距看整板留白是否仍与改前一致
+- [ ] **主题批次观感**：`examples/theme-playground` 按 TP-1.1..5.1 走完（深色系统起窗即深色=默认一次性探测生效）；主题 JSON 落盘改色（dev 档 `mng.toml` `theme` 键存盘即重载）；深浅变体看 tooltip 反色与滚动条/分隔线深档提亮；code_view 在浅色与深色主题下底色跟不跟 `theme_current()`，显式 `code_theme` 是否钉死
+- [ ] **窗口族探测口径**：`shell_caps()` 八位在无合成器的 Linux 会话上 `opacity`/`transparent_bg` 位应为 false，`set_transparent_bg` 应回 `Unsupported` 而非静默无效；`native_handle()` 三平台返回值非 0 且能喂给平台 API
 
 ## 无头测试门面（2026-11-02 立项，方案与坑清单见 [proposals/headless-tester.md](proposals/headless-tester.md)；判据：没有显示服务的机器上，用使用者写代码的方式断言「点了按钮，界面变成那样」）
 
