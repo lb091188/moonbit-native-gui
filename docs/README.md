@@ -10,6 +10,7 @@ For what native-gui is, see the [home page](/). Find docs by goal:
 | [tutorial.md](tutorial.md) | Five-minute start: install the toolchain, create a project, and build your first window with a click counter |
 | [howto.md](howto.md) | How-to guides: 19 "I want to…" recipes (layout / interaction / styling & theme / system capabilities), each with description, code and notes |
 | [components.md](components.md) | Component quick-reference (`@ui`): constructor signatures and purposes for every widget, grouped by family |
+| [canvas.md](canvas.md) | Canvas & custom drawing: mounting a draw area, common `Painter` techniques, requesting redraws, keyboard & mouse interaction, offscreen PNG export |
 | [declarative.md](declarative.md) | Declarative layer and reactivity: the node tree and `mount_window`, `Store` / `Signal`, `for_list` / `when`, in-place replacement |
 | [layout.md](layout.md) | Layout: the Flexbox layout semantics, the `Style` field set of `@style`, and the `class` channel |
 | [build.md](build.md) | Build and run: installing the dependencies from scratch (per-platform lists + a self-check), build commands and artefact paths, the state of prebuilt binaries, failure → fix; library-development mechanics in the second half |

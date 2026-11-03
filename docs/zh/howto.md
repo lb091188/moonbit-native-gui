@@ -27,7 +27,7 @@ import {
 
 ## 一、布局
 
-### 1.1 内容居中（横向 / 纵向 / 双向）
+### 1.1 内容对齐
 
 | 容器 | 主轴 | 横向居中 | 纵向居中 |
 |---|---|---|---|
@@ -110,7 +110,7 @@ let body = @ui.ScrollState::new()
 - 中段不写 `grow=1.0`，三段全按内容高排，底栏不贴窗底。
 - 中段不写 `min_height=0.0`，内容一长被 min:auto 顶回自然高，滚动视口拿不到固定视口。滚动视口自身已补这条，外面自包的层要手写；见[布局样式](layout.md)「必须知道的几个口径」。
 
-### 1.3 左侧栏 + 弹性主区（分栏）
+### 1.3 左侧栏 + 弹性主区
 
 固定宽 `width=`、弹性 `grow=1.0`、等分 `width_percent=50.0`、可拖 `split`。
 
@@ -343,7 +343,7 @@ fn main {
 
 注意：`on_confirm` 里不必再 `ask_clear.set(false)`；「点遮罩关闭」由 `close_on_mask` 控制（缺省 false）。
 
-### 2.4 轻提示（toast）
+### 2.4 轻提示
 
 `toast_layer` 建界面时调用一次，得推送函数；之后任意回调里推一条，2.6 秒自动消失，多条堆叠。
 
@@ -534,7 +534,7 @@ fn main {
 
 注意：写死的十六进制色不随主题；优先语义档（`SemanticType`、`text_secondary` 等预设），确需固定色再写死。
 
-### 3.2 给控件定制样式（hover / active / focus）
+### 3.2 给控件交互样式
 
 `class` 通道叠 `@style.style(...)`；`hover` / `active` / `focus` 三个槽各收一个嵌套 `Style`，状态进入时合并生效；`transition_ms` 过渡颜色、边框宽、圆角、字号、行高。
 
@@ -652,6 +652,7 @@ fn main {
 | 打开链接 / 定位文件 | `@sys.open_url` / `@shell.reveal_in_file_manager` | §4.1 |
 | 复制到剪贴板 | `@sys.clipboard_set_text` | §4.2 |
 | 桌面通知 | `@shell.notify_send` | §4.3 |
+| 画控件拼不出的内容 / 自绘区接键鼠（画板、节点编辑器） | `node_of_new` + `on_draw` / `on_pointer` / `on_key` | [画布与自绘](canvas.md) |
 
 ## 下一步
 

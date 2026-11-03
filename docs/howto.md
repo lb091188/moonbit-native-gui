@@ -652,6 +652,7 @@ Notes: send from event callbacks. On macOS the desktop banner requires running a
 | Open links / reveal files | `@sys.open_url` / `@shell.reveal_in_file_manager` | §4.1 |
 | Copy to clipboard | `@sys.clipboard_set_text` | §4.2 |
 | Desktop notification | `@shell.notify_send` | §4.3 |
+| Draw what no widget gives you / wire a custom block to keyboard & mouse | `node_of_new` + `on_draw` / `on_pointer` / `on_key` | [Canvas & custom drawing](canvas.md) |
 
 ## Next steps
 
