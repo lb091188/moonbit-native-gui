@@ -86,8 +86,9 @@ fn nl_gamma_text(percent : Int) -> String {
 
 ///|
 /// redshift -O 的色温（K）：percent 0 → 2500K（最暖），100 → 6500K
-/// （中性）。
-fn nl_kelvin(percent : Int) -> Int {
+/// （中性）。**跨包单源**——shell 的 Wayland 夜灯通道（gsettings /
+/// ColorCorrect）也按这个口径换算，不另推公式。
+pub fn nl_kelvin(percent : Int) -> Int {
   2500 + nl_clamp_percent(percent) * 40
 }
 

@@ -3645,3 +3645,11 @@ at-spi2-core 2.52 装在开发机上（`at-spi2-core`/`gir1.2-atspi-2.0`/`libatk
 - **退订是新增能力**：portal 的 Response 是一次性信号，`bus.mbt` 原有订阅只增不删（回调会攒）；本批补 `Conn::unsubscribe` + `dbus_unsubscribe_session`（按 key 整键摘除 + RemoveMatch），`match_rules` 字段随之改 `mut`。
 - **空闲双通道**：`@sys.idle_seconds`（C 平台：Win GetLastInputInfo / mac HID / Linux X11 XSS）不动；GNOME 档新增 `org.gnome.Mutter.IdleMonitor.GetIdletime`（D-Bus，Wayland 原生与 GNOME X11 都准），探测结果进程级缓存。KDE/wlroots 的 ext-idle-notify 只有事件没有「当前空闲秒」读数口，要 Wayland 协议客户端地基——归 P3 之后。
 - **顺带发现的既有环境 flake（非本批引入，A/B 实证）**：本机跑 `moon test dbus shell`（或多包）时 notify 用例约三成概率失败——`notify_caps()` 第一次成功、紧接着的 `notify_supported()` 二次调用 1500ms 超时（KDE 通知 daemon 单体直查 40/40 稳定 2ms）。单独跑 dbus 包或 shell 包都 5/5 过，基线（本批改动全 stash）同样复现——**多包合跑时才有**，疑似桌面侧并发干扰；CI 的测试清单不含 dbus/sys 且 runner 无通知 daemon（用例走跳过支）故不受影响。留待专项批，本批不拿通知代码垫刀。
+
+## Wayland P2 夜灯/显示器：KDE 两口的本机实证（2026-11-04）
+
+- **KDE 夜灯（Plasma 5.27 实物）**：接口在 `org.kde.NightColor`（不是 `org.kde.kwin.ColorCorrect` 那个名——后者无主）、对象 `/ColorCorrect`、接口 `org.kde.kwin.ColorCorrect`；属性 `available/currentTemperature/enabled/inhibited/mode/running/targetTemperature/…` **全是 access="read"**（逐个核过 XML），方法只有 `nightColorAutoLocationUpdate/inhibit/uninhibit/preview/stopPreview`——**5.x 没有公开写入口**（KCM 写 kwinrc，不走 D-Bus）。Plasma 6 的 `org.kde.KWin.NightLight` 本机不存在，写入口径未核（S6 真机定）。故 KDE 档读侧全量、写侧一律 Unsupported——读得到不装扮写得进。
+- **KDE 显示器（KScreen 实物）**：`org.kde.KScreen` 的 `/backend` 上 `org.kde.kscreen.Backend.getConfig` 返回顶层 `a{sv}`；`outputs` 是 `av`（每个 v 是 a{sv}）；mode 也是 `av`，每个 mode 的 `size` 与 output 的 `pos` 都是 **variant(a{sv})**（不是数组——按数组解析会全落空）。**`refreshRate` 是 int64 赫兹**（本机 25/50/60/75；dbus-send dump 里看到的 double 59.9506 是别家/别版字段，两种形态都吃）。mode 无 preferred 标志位（XML 核过），`current` 由 output 的 `currentModeId` 对回。KScreen 不报物理尺寸 mm。本机实测：9 个输出、2 个已连（HDMI-0/HDMI-2 均 1920x1080@60、pos 左右排布、各 30 模式），与 xrandr 一致。
+- **GNOME 夜灯**：`org.gnome.settings-daemon.plugins.color` 的 `night-light-enabled`/`night-light-temperature` 键本机 schema 在（KDE 会话也装了）——写键驱动 gsd-color 自己的夜灯，不是裸 gamma；gsettings 走 `@sys.pr_run` CLI（与壁纸通道同路数，不引新依赖）。gsd-color 服务不在时写键也落得下去，不拿「服务在不在」当门槛。
+- **mutter DisplayConfig**：字段序以接口 XML 为准且本机拉不到源码核（GNOME 下载源被挡、GitLab raw 404）——按「不许假数据」只做存在性探测，读一率 Unsupported，S7 真机定字段序后再接。
+- **wlroots 两件**（wlr-gamma-control / wlr-output-management）都要 Wayland 协议客户端地基，与 ext-idle-notify 一拨归 P3 之后。
