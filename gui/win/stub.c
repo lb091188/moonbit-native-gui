@@ -75,6 +75,7 @@ const WmA11yRow *wm_a11y_row(int32_t i);
 // Shell_NotifyIconW / NOTIFYICONDATAW / NIM_* / NIF_* 全在它里面，必须显式引。
 #include <shellapi.h>
 #include <imm.h> // IME 纯通道（W6）：ImmGetContext/ImmSet*Window/ImmNotifyIME
+#include <uiautomationcore.h> // UIA provider（无障碍阶段 3）：WM_GETOBJECT/UiaReturnRawElementProvider
 #include <stdint.h>
 #include <string.h>
 // 本分支用 snprintf 格式化注册表读出的主色（缺了它 MSVC 报 C4013 隐式声明，
@@ -577,6 +578,15 @@ static LRESULT CALLBACK wm_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       CREATESTRUCTW *cs = (CREATESTRUCTW *)lp;
       SetWindowLongPtrW(hwnd, GWLP_USERDATA, (LONG_PTR)(intptr_t)cs->lpCreateParams);
       return 0;
+    }
+    case WM_GETOBJECT: {
+      // UIA 发现入口（阶段 3 首批）：读屏问「这个窗口的无障碍根对象是谁」。
+      // 目前先建立入口、回 NULL provider（= 有 UIA 入口但暂无内容），
+      // provider 与快照映射在下一批接 wm_a11y_row。
+      if ((LONG)(intptr_t)lp == UiaRootObjectId) {
+        return UiaReturnRawElementProvider(hwnd, wp, lp, NULL);
+      }
+      return DefWindowProcW(hwnd, msg, wp, lp);
     }
     case WM_SETFOCUS: {
       // 拿到键盘焦点：给浮层「失焦即收起」武装（见 WmWindow.focus_gained）
