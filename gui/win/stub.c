@@ -30,12 +30,10 @@
 // 到的是垃圾地址（实测 SIGSEGV）。签名与 ~/.moon/include/moonbit.h 逐位对齐。
 extern void *moonbit_make_bytes(int size, int value);
 
-/* 快照通道用到的标准头在 Win32 分支里才被包含，这里独立带一份（重复包含无害） */
-#if !defined(_WIN32)
+/* 快照通道用到的标准头在各分支里先后才包含，这里统一提前带一份（重复包含无害） */
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#endif
 
 /* —— 语义快照通道（无障碍阶段 1/3 共用）——
  * MoonBit 每帧推一段 TSV（一行一个控件：id\tparent\trole\tname\tstate\tvalue\t
