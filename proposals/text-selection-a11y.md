@@ -96,7 +96,7 @@ TextLayout {
 - 缺省档（`selectable=false`）没装选中态、不建逐字表——用例断言 `md_sel_states` 里没有它。
 
 - **次批（同条延续，不混批）**：markdown 段落。`md_rich_label` 已有独立行模型与链接交互面，逐字命中要按字节前缀做混排联合量宽（`joint_w` 成本模式，markdown.mbt:910-920）并处理混排字体边界（markdown.mbt:830-848 的坑）；等首批的注册表/菜单/复制在纯文本上闭环再接。
-- **缓批（单独立项）**：`AttributedText` 逐字选中。`@text` 层无逐字几何 API（attributed.mbt 公开面核对过），要先在三平台 C 桩开逐字几何接口——违背第一期「不碰平台桥」约束。
+- ~~**缓批（单独立项）**：`AttributedText` 逐字选中~~ **已解决（2026-11-04）**：缓批前提「`@text` 无逐字几何 API 要先动三平台 C 桩」被证伪——`measure_font(前缀)` 就是该前缀在给定字体下的精确 shaping 宽（三平台 measure 路径早就通了，entry 光标 `TextLayout::caret_x` 一直用这个口径）。markdown 选中改为「段界取联合排版（跨段 kerning）+ 段内逐字边缘取前缀实测量」，旧口径按比例分摊的 shaping 误差（本机实测 19px）消除。多字体逐字（AT-SPI Text 的 GetCharacterExtents 等）仍待消费者出现时开 `rt_*` 逐字游标。
 
 ### 风险与坑
 
