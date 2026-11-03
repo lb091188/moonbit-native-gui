@@ -25,25 +25,41 @@ pub const NOTIFY_ERROR : Int = 2
 
 ///|
 /// 弹一张气泡通知：`icon_slot` 是 W20f 图标句柄（0 = 用状态图标），返回通知
-/// id（>=1）或 0（表满 / 失败）。
+/// id（>=1）或 0（表满 / 失败）。`urgent` 只有 macOS 臂吃（映
+/// `interruptionLevel` 二档），其余臂收下忽略。
 pub fn notify_send(
   icon_slot : Int,
   title : String,
   text : String,
   kind : Int,
+  urgent? : Bool = true,
 ) -> Int {
-  wm_notify_send(icon_slot, @utf8.encode(title), @utf8.encode(text), kind)
+  wm_notify_send(
+    icon_slot,
+    @utf8.encode(title),
+    @utf8.encode(text),
+    kind,
+    if urgent { 1 } else { 0 },
+  )
 }
 
 ///|
 /// 更新（替换）一张气泡通知（同 id 重发 `NIF_INFO`，系统即替换原气泡）。
+/// `urgent` 口径同 `notify_send`。
 pub fn notify_update(
   id : Int,
   title : String,
   text : String,
   kind : Int,
+  urgent? : Bool = true,
 ) -> Bool {
-  wm_notify_update(id, @utf8.encode(title), @utf8.encode(text), kind) != 0
+  wm_notify_update(
+    id,
+    @utf8.encode(title),
+    @utf8.encode(text),
+    kind,
+    if urgent { 1 } else { 0 },
+  ) != 0
 }
 
 ///|

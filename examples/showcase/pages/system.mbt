@@ -309,7 +309,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
     @shared.section(
       "通知",
       "系统通知",
-      "系统通知中心：普通通知与带进度条通知。后端不可用（无 dbus 会话等）时明说失败，不假装成功。macOS 只认从 .app bundle 里跑的进程——裸 `moon run` 下会报不可用，打包口 `scripts/make_app.sh showcase`。",
+      "系统通知中心：普通通知、带进度条通知与「非紧急」通知。后端不可用（无 dbus 会话等）时明说失败，不假装成功。`urgent=false` 是打扰档，只有 macOS 吃——前台忙时静默、只进通知中心，Linux / Windows 收下忽略。macOS 只认从 .app bundle 里跑的进程——裸 `moon run` 下会报不可用，打包口 `scripts/make_app.sh showcase`。",
       [
         @ui.row(
           [
@@ -332,6 +332,22 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
                 Err(e) => nt_out.set("发送失败：\{e}")
               }
             }),
+            @ui.button(
+              @shared.tx("非紧急通知"),
+              variant=@ui.Text,
+              on_click=fn() {
+                match
+                  @shell.notify_send(
+                    @shared.tx("libyue 演示板"),
+                    @shared.tx("后台同步完成"),
+                    @shared.tx("urgent=false：macOS 前台忙时静默，只进通知中心"),
+                    urgent=false,
+                  ) {
+                  Ok(id) => nt_out.set(@shared.tr_with("dyn.notif_sent", [("i", id.to_string())], "已发送 #\{id}"))
+                  Err(e) => nt_out.set(@shared.tr_with("dyn.notif_failed", [("e", "\{e}")], "发送失败：\{e}"))
+                }
+              },
+            ),
           ],
           column_gap=8.0,
         ),
@@ -352,6 +368,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
         "  Err(e) => println(\"失败: \\{e}\")",
         "}",
         "// 带进度：progress=60, kind=1",
+        "// 打扰档（仅 macOS 吃）：urgent=false",
       ],
     ),
     @shared.section(

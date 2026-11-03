@@ -606,12 +606,14 @@ Read with `clipboard_get_text() -> String?`. Input fields already talk to the sy
 
 ### 4.3 Desktop notifications
 
-`@shell.notify_send(title, body, app_name)`; probe with `notify_supported()` first. Linux goes over D-Bus, Windows uses the tray balloon, macOS uses the UN center.
+`@shell.notify_send(app_name, title, body, ...)`; probe with `notify_supported()` first. Linux goes over D-Bus, Windows uses the tray balloon, macOS uses the UN center (`notify_backend_name()` reports the real backend per platform).
+
+Common optional arguments: `icon?` (theme icon name on Linux), `timeout_ms?` (Linux only — Vista and later ignore it for balloons), `replaces_id?` (non-zero replaces that notification), `progress?` (0..100 — a bar on Linux, appended to the body on Windows), `kind?` (0 info / 1 warning / 2 error), `urgent?` (defaults to `true`, see below).
 
 ```moonbit
 @ui.button("Send notification", on_click=fn() {
   if @shell.notify_supported() {
-    match @shell.notify_send("Build finished", "3 targets produced", "My App") {
+    match @shell.notify_send("My App", "Build finished", "3 targets produced") {
       Ok(_id) => toast("Sent", @ui.Info)
       Err(e) => println("notify failed: \{e}")
     }
@@ -620,6 +622,8 @@ Read with `clipboard_get_text() -> String?`. Input fields already talk to the sy
   }
 })
 ```
+
+`urgent?` is the **interruption level**, honoured on macOS only: `true` posts at the time-sensitive level, so the banner appears even while the app is in the foreground; `false` posts at the default level, which stays silent while the app is busy and only lands in Notification Center. If the user turns off time-sensitive authorization in System Settings, `true` degrades to the same silence. Linux and Windows accept and ignore it — the freedesktop urgency hint is deliberately not mapped (`critical` means "never disappears", a different thing).
 
 Notes: send from event callbacks. On macOS the desktop banner requires running as an `.app` bundle, and first use asks for system authorization; see the [experience guide](experience.md).
 

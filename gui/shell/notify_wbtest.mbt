@@ -56,7 +56,13 @@ test "notify_backend_name 与 notify_backend 一致且非空" {
   // 名字与枚举一一对应，不许出现「有名字没后端」或反之
   match notify_backend() {
     Some(Dbus) => assert_eq(name, "dbus")
-    Some(WinBalloon) => assert_eq(name, "win-balloon")
+    // macOS 的后端住在 win 桩同一支 `wm_notify_*`，实为 UNUserNotificationCenter
+    Some(WinBalloon) =>
+      if platform_is_macos() {
+        assert_eq(name, "un-user-notification")
+      } else {
+        assert_eq(name, "win-balloon")
+      }
     None => assert_eq(name, "none")
   }
   assert_eq(notify_supported(), notify_backend() is Some(_))
@@ -99,6 +105,17 @@ test "notify 生命周期（无通知后端的机器自动跳过）" {
         // 关闭成功；重复关闭后端应幂等（Win32 上第二关是 slot 已空的无操作）
         assert_true(notify_close(id) is Ok(_))
         let _ = notify_close(id)
+        // urgent 的打扰档只有 macOS 吃，其余平台收下忽略：三平台都要发得出去
+        match
+          notify_send("libyue-wbtest", "wbtest 非紧急", "urgent=false",
+            urgent=false,
+          ) {
+          Err(e) => fail("urgent=false 发送失败：\{e}")
+          Ok(nid) => {
+            assert_true(nid > 0)
+            let _ = notify_close(nid)
+          }
+        }
       }
     }
   }

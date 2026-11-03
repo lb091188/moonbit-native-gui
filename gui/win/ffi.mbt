@@ -436,6 +436,7 @@ extern "c" fn wm_notify_send(
   title : Bytes,
   text : Bytes,
   kind : Int,
+  urgent : Int,
 ) -> Int = "wm_notify_send"
 
 ///|
@@ -445,6 +446,7 @@ extern "c" fn wm_notify_update(
   title : Bytes,
   text : Bytes,
   kind : Int,
+  urgent : Int,
 ) -> Int = "wm_notify_update"
 
 ///|

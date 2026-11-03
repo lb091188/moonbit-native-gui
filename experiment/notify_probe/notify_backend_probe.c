@@ -61,7 +61,7 @@ int main(void) {
   check("初始托盘数 0", wm_tray_count(), 0);
 
   /* ② 发一张气泡：拿到 id（>=1），count 加一，标题 UTF-8 往返读回一致。 */
-  int n1 = wm_notify_send(0, "构建完成", "3 个目标已产出", 0);
+  int n1 = wm_notify_send(0, "构建完成", "3 个目标已产出", 0, 1);
   check_true("wm_notify_send 拿到 id", n1 >= 1 && n1 < WM_MAX_TRAYS);
   check("发一张后通知数 1", wm_notify_count(), 1);
   check("发通知不影响托盘计数", wm_tray_count(), 0);
@@ -80,7 +80,7 @@ int main(void) {
   }
 
   /* ④ 更新（替换）同槽气泡：标题读回变新值，id 不变、count 不变。 */
-  check("wm_notify_update 成功", wm_notify_update(n1, "构建失败", "详见日志", 2), 1);
+  check("wm_notify_update 成功", wm_notify_update(n1, "构建失败", "详见日志", 2, 1), 1);
   check("更新后通知数仍 1", wm_notify_count(), 1);
   {
     char out[256];
@@ -89,27 +89,27 @@ int main(void) {
   }
 
   /* ⑤ 三个 kind 下发都返回成功（映射本身不可反读，代码评审兜底）。 */
-  check("kind 0（信息）发得出", wm_notify_update(n1, "信息", "body0", 0), 1);
-  check("kind 1（警告）发得出", wm_notify_update(n1, "警告", "body1", 1), 1);
-  check("kind 2（错误）发得出", wm_notify_update(n1, "错误", "body2", 2), 1);
+  check("kind 0（信息）发得出", wm_notify_update(n1, "信息", "body0", 0, 1), 1);
+  check("kind 1（警告）发得出", wm_notify_update(n1, "警告", "body1", 1, 1), 1);
+  check("kind 2（错误）发得出", wm_notify_update(n1, "错误", "body2", 2, 1), 1);
 
   /* ⑥ 标题超 63 字截断（szInfoTitle 64 宽字符），不越界。 */
   {
     char big[400];
     memset(big, 'x', sizeof(big) - 1);
     big[sizeof(big) - 1] = '\0';
-    check("超长标题仍发得出", wm_notify_update(n1, big, "b", 0), 1);
+    check("超长标题仍发得出", wm_notify_update(n1, big, "b", 0, 1), 1);
     char out[512];
     int n = wm_notify_title(n1, out, 512);
     check_true("超长标题截断在 63 以内", n > 0 && n <= 63);
   }
-  wm_notify_update(n1, "构建完成", "3 个目标已产出", 0);
+  wm_notify_update(n1, "构建完成", "3 个目标已产出", 0, 1);
 
   /* ⑦ 多张气泡并存 + 与托盘图标共表：托盘 1 + 通知 3 = 占用 4 槽。 */
   int tray1 = wm_tray_new(0, "托盘图标");
   check_true("建一个托盘图标", tray1 >= 1);
-  int n2 = wm_notify_send(0, "第二张", "t2", 1);
-  int n3 = wm_notify_send(0, "第三张", "t3", 2);
+  int n2 = wm_notify_send(0, "第二张", "t2", 1, 1);
+  int n3 = wm_notify_send(0, "第三张", "t3", 2, 1);
   check_true("再发两张气泡", n2 >= 1 && n3 >= 1 && n2 != n1 && n3 != n2);
   check("通知数 3", wm_notify_count(), 3);
   check("托盘数 1", wm_tray_count(), 1);
@@ -120,7 +120,7 @@ int main(void) {
     int extra[4];
     int ok = 0;
     for (int i = 0; i < 4; i++) {
-      extra[i] = wm_notify_send(0, "填满", "x", 0);
+      extra[i] = wm_notify_send(0, "填满", "x", 0, 1);
       if (extra[i] > 0) {
         ok++;
       }
@@ -142,8 +142,8 @@ int main(void) {
   check("重复关闭幂等（仍 2）", wm_notify_count(), 2);
 
   /* ⑩ 守卫：非法槽 / 普通托盘槽 对通知 API 无效。 */
-  check("update 非法槽给 0", wm_notify_update(9999, "x", "y", 0), 0);
-  check("update 托盘槽给 0", wm_notify_update(tray1, "x", "y", 0), 0);
+  check("update 非法槽给 0", wm_notify_update(9999, "x", "y", 0, 1), 0);
+  check("update 托盘槽给 0", wm_notify_update(tray1, "x", "y", 0, 1), 0);
   check("title 非法槽给 0", wm_notify_title(9999, NULL, 0), 0);
   check("title 托盘槽给 0", wm_notify_title(tray1, (char[8]){0}, 8), 0);
   wm_notify_close(9999);

@@ -2011,17 +2011,19 @@ int wm_tray_tooltip(int slot, char *out, int cap) {
 int wm_notify_supported(void) { return wm_tray_ensure(); }
 
 /* 前置声明：wm_notify_send 在建项后要立刻用更新去填气泡（定义在其后）。 */
-int wm_notify_update(int slot, const char *title, const char *text, int kind);
+int wm_notify_update(int slot, const char *title, const char *text, int kind,
+                     int urgent);
 
 /* 弹一张气泡通知：icon_slot 是 W20f 图标句柄（0 = 用状态图标），kind 0/1/2
  * = 信息/警告/错误。返回通知 id（>=1，即所属托盘槽号）或 0（表满/失败）。 */
 int wm_notify_send(int icon_slot, const char *title, const char *text,
-                   int kind) {
+                   int kind, int urgent) {
+  (void)urgent; /* 气泡没有打扰级别可设，参数只为与 mac 臂同形 */
   int slot = wm_tray_alloc(1, icon_slot, "");
   if (slot <= 0) {
     return 0;
   }
-  if (!wm_notify_update(slot, title, text, kind)) {
+  if (!wm_notify_update(slot, title, text, kind, urgent)) {
     wm_tray_remove(slot); // 弹不出就还槽，别占着
     return 0;
   }
@@ -2029,7 +2031,9 @@ int wm_notify_send(int icon_slot, const char *title, const char *text,
 }
 
 /* 更新（或替换）一张气泡通知：同一槽再发 NIF_INFO，系统即替换原气泡。 */
-int wm_notify_update(int slot, const char *title, const char *text, int kind) {
+int wm_notify_update(int slot, const char *title, const char *text, int kind,
+                     int urgent) {
+  (void)urgent;
   if (slot <= 0 || slot >= WM_MAX_TRAYS || !wm_trays[slot].used ||
       wm_trays[slot].kind != 1 || wm_tray_hwnd == NULL) {
     return 0;
@@ -7374,15 +7378,16 @@ int wm_tray_tooltip(int slot, char *out, int cap) {
 int wm_menu_popup_new(void) { return 0; }
 
 /* ---- 桌面通知（W21a）GTK 分支占位：Linux 的通知走纯 MoonBit 的
- * org.freedesktop.Notifications（yue/dbus/notify.mbt），不经 GTK；
+ * org.freedesktop.Notifications（gui/dbus/notify.mbt），不经 GTK；
  * 可编译的失败桩让门面走 DBus 分支（supported 恒 0）。 */
 int wm_notify_supported(void) { return 0; }
 int wm_notify_send(int icon_slot, const char *title, const char *text,
-                   int kind) {
+                   int kind, int urgent) {
   (void)icon_slot;
   (void)title;
   (void)text;
   (void)kind;
+  (void)urgent;
   return 0;
 }
 /* 系统权限 / 屏幕色温的空桩住声明者 sys 的桩（sys/sys_stub.c）：sys 的
@@ -7402,11 +7407,13 @@ int wm_taskbar_set_state(int64_t id, int state) {
   (void)state;
   return 0;
 }
-int wm_notify_update(int slot, const char *title, const char *text, int kind) {
+int wm_notify_update(int slot, const char *title, const char *text, int kind,
+                     int urgent) {
   (void)slot;
   (void)title;
   (void)text;
   (void)kind;
+  (void)urgent;
   return 0;
 }
 void wm_notify_close(int slot) { (void)slot; }
@@ -11187,8 +11194,9 @@ static void wm_un_ensure(void) {
 // slot>0 = 按同 identifier 覆盖（update 语义）；slot<=0 = 领新槽。返回槽号。
 // 授权没落定（授权框还在屏幕上/还没问到）时先排队：未授权状态下 add 的请求
 // 被系统静默收下却不投（err 也是 nil），落定后也不会补投。kind 在 mac 上不
-// 分级（声音一律默认，见上），参数保留与门面/Win32 同形。
-static int wm_un_post(int slot, const char *title, const char *text, int kind) {
+// 分级（声音一律默认，见上），参数保留与门面/Win32 同形；urgent 定打扰档。
+static int wm_un_post(int slot, const char *title, const char *text, int kind,
+                      int urgent) {
   (void)kind;
   UNMutableNotificationContent *c = [UNMutableNotificationContent new];
   NSString *t = wm_str(title);
@@ -11202,9 +11210,12 @@ static int wm_un_post(int slot, const char *title, const char *text, int kind) {
   // 声音口径对齐 Win32（NIIF 默认有声）：门面暂无静音入口，三平台默认都响
   c.sound = [UNNotificationSound defaultSound];
   if (@available(macOS 12.0, *)) {
-    // 实验口径：时间敏感级别看系统是否前台直接呈现（绕开 delegate 问询——
-    // 手工循环主循环下 delegate 派发不可靠，见下方边界注释）
-    c.interruptionLevel = UNNotificationInterruptionLevelTimeSensitive;
+    // 时间敏感档决定系统是否前台直接呈现（绕开 delegate 问询——手工循环主循环下
+    // delegate 派发不可靠，见下方边界注释）。urgent=0 退 Active：应用在前台忙时
+    // 静默，只进通知中心；用户在系统设置关掉时间敏感授权同样是这个结果。
+    c.interruptionLevel =
+        urgent ? UNNotificationInterruptionLevelTimeSensitive
+               : UNNotificationInterruptionLevelActive;
   }
   if (slot <= 0) {
     slot = 1;
@@ -11266,24 +11277,25 @@ int wm_notify_supported(void) {
 }
 
 int wm_notify_send(int icon_slot, const char *title, const char *text,
-                   int kind) {
+                   int kind, int urgent) {
   @autoreleasepool {
     (void)icon_slot; // mac 的通知不带自定义图标（content 无此入口）
     if (!wm_un_bundled()) {
       return 0;
     }
     wm_un_ensure();
-    return wm_un_post(0, title, text, kind);
+    return wm_un_post(0, title, text, kind, urgent);
   }
 }
 
-int wm_notify_update(int slot, const char *title, const char *text, int kind) {
+int wm_notify_update(int slot, const char *title, const char *text, int kind,
+                     int urgent) {
   @autoreleasepool {
     if (!wm_un_bundled()) {
       return 0;
     }
     wm_un_ensure();
-    return wm_un_post(wm_notify_slot_of(slot), title, text, kind);
+    return wm_un_post(wm_notify_slot_of(slot), title, text, kind, urgent);
   }
 }
 
@@ -12677,14 +12689,15 @@ int wm_tray_tooltip(int slot, char *out, int cap) {
 int wm_menu_popup_new(void) { return 0; }
 
 /* W21a 通知占位（macOS 等）：supported 恒 0、发/更新恒 0 = 不可用，MoonBit 层
- * 走语义化降级（macOS 原生档是 UNUserNotificationCenter，将来自随 mac 批补齐）。 */
+ * 走语义化降级（macOS 的原生档 UNUserNotificationCenter 住 mac 臂）。 */
 int wm_notify_supported(void) { return 0; }
 int wm_notify_send(int icon_slot, const char *title, const char *text,
-                   int kind) {
+                   int kind, int urgent) {
   (void)icon_slot;
   (void)title;
   (void)text;
   (void)kind;
+  (void)urgent;
   return 0;
 }
 /* 任务栏进度（§6.3）占位：Linux 的任务栏进度另有 Unity LauncherEntry（DBus）
@@ -12702,11 +12715,13 @@ int wm_taskbar_set_state(int64_t id, int state) {
   (void)state;
   return 0;
 }
-int wm_notify_update(int slot, const char *title, const char *text, int kind) {
+int wm_notify_update(int slot, const char *title, const char *text, int kind,
+                     int urgent) {
   (void)slot;
   (void)title;
   (void)text;
   (void)kind;
+  (void)urgent;
   return 0;
 }
 void wm_notify_close(int slot) { (void)slot; }

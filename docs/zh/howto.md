@@ -606,12 +606,14 @@ fn main {
 
 ### 4.3 桌面通知
 
-`@shell.notify_send(标题, 正文, 应用名)`，先 `notify_supported()` 探测。Linux 走 D-Bus、Windows 走托盘气泡、macOS 走 UN 中心。
+`@shell.notify_send(应用名, 标题, 正文, ...)`，先 `notify_supported()` 探测。Linux 走 D-Bus、Windows 走托盘气泡、macOS 走 UN 中心（`notify_backend_name()` 按平台报真名）。
+
+常用可选参：`icon?`（Linux 的主题图标名）、`timeout_ms?`（Linux 时长，Win32 自 Vista 起由系统定）、`replaces_id?`（非 0 覆盖同 id 那张）、`progress?`（0..100，Linux 画进度条、Win32 拼进正文）、`kind?`（0 信息 / 1 警告 / 2 错误）、`urgent?`（缺省 `true`，见下）。
 
 ```moonbit
 @ui.button("发通知", on_click=fn() {
   if @shell.notify_supported() {
-    match @shell.notify_send("构建完成", "3 个目标已产出", "我的应用") {
+    match @shell.notify_send("我的应用", "构建完成", "3 个目标已产出") {
       Ok(_id) => toast("已发送", @ui.Info)
       Err(e) => println("通知失败：\{e}")
     }
@@ -620,6 +622,8 @@ fn main {
   }
 })
 ```
+
+`urgent?` 是**打扰档**，只有 macOS 吃：`true` 走时间敏感档，应用在前台忙时也直接出横幅；`false` 退普通档，前台忙时静默、只进通知中心。用户在系统设置里关掉「时间敏感」授权后，即便传 `true` 同样回到静默。Linux / Windows 收下忽略——Linux 的 freedesktop urgency hint 不做映射（`critical` 是常驻不消失的语义，与这一档不是一回事）。
 
 注意：在事件回调里发。macOS 桌面横幅要求 `.app` bundle 形态运行，首次使用请求系统授权；见[体验文档](experience.md)。
 

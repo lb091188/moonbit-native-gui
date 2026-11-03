@@ -4,15 +4,19 @@
 // 后端选择（按优先级）：
 // 1. Linux：freedesktop 通知服务（`dbus/notify.mbt`，`org.freedesktop.
 //    Notifications`）。可用性以 `GetCapabilities` 能否查到为准。
-// 2. Windows：Shell 托盘气泡（`NIF_INFO`，`win/notify.mbt`）——通知挂在
-//    托盘图标上，故与 W20c 同源共槽。
+// 2. Windows 与 macOS：Win32 托盘气泡（`NIF_INFO`，`win/notify.mbt`）——通知挂在
+//    托盘图标上，故与 W20c 同源共槽；macOS 的实现也住同一批 `wm_notify_*` 桩，
+//    后端是 `UNUserNotificationCenter`（枚举名沿用 `WinBalloon`，读数按平台报真名）。
 // 3. 皆无 → `Err(NotifyError::Unsupported)`（结构化报错，绝不静默失效）。
 //
-// 两处平台差异**显式降级、不假装对齐**：
+// 三处平台差异**显式降级、不假装对齐**：
 // - `progress`：Linux 走标准 hint `value`（桌面端画进度条）；Win32 气泡没有
 //   对应物，把百分比拼进正文（可见降级）。
 // - `kind`（信息/警告/错误）：Win32 映射 `NIIF_*`（气泡左侧系统状态图标）；
-//   Linux 无此概念，由 `icon` 传主题图标名区分。
+//   Linux 无此概念，由 `icon` 传主题图标名区分；macOS 不分级（声音一律默认）。
+// - `urgent`（时间敏感档）：只有 macOS 吃，映射 `interruptionLevel` 二档
+//   （true=TimeSensitive / false=Active）；Linux 不映射 freedesktop 的 urgency
+//   hint（`critical` 是常驻语义，与「绕过前台静默」不是一回事）；Win32 无对应物。
 // 另：`timeout_ms` 在 Win32 自 Vista 起被系统忽略（气泡时长由系统定）。
 //
 // 通知 id 是**后端内不透明**的：Linux 是服务端给的 u32，Win32 是托盘槽号。
@@ -23,7 +27,8 @@
 pub(all) enum NotifyBackend {
   /// Linux freedesktop 通知服务（`dbus/notify.mbt`）
   Dbus
-  /// Win32 托盘气泡（`NIF_INFO`，`win/notify.mbt`）
+  /// Win32 托盘气泡（`NIF_INFO`，`win/notify.mbt`）；macOS 的后端也走这一支，
+  /// 实为 `UNUserNotificationCenter`，读数见 `notify_backend_name()`
   WinBalloon
 }
 
@@ -83,15 +88,16 @@ pub fn notify_backend() -> NotifyBackend? {
 }
 
 ///|
-/// 后端名（"dbus" / "win-balloon" / "none"，状态行与诊断用）。
+/// 后端名（"dbus" / "win-balloon" / "un-user-notification" / "none"，状态行与诊断用）。
 pub fn notify_backend_name() -> String {
   match notify_backend() {
     Some(Dbus) => "dbus"
-    // macOS 的实现也住 win 桩的 `wm_notify_*`（NSUserNotification），照枚举名
-    // 报「win-balloon」是误导——按平台读数报真名，状态行与诊断都吃这个。
+    // macOS 的实现也住 win 桩的 `wm_notify_*`，后端是 UNUserNotificationCenter
+    // （老 NSUserNotification 已废弃迁走），照枚举名报「win-balloon」是误导——
+    // 按平台读数报真名，状态行与诊断都吃这个。
     Some(WinBalloon) =>
       if platform_is_macos() {
-        "ns-user-notification"
+        "un-user-notification"
       } else {
         "win-balloon"
       }
@@ -186,6 +192,11 @@ pub fn notify_caps() -> Result[NotifyCaps, NotifyError] {
 /// - `replaces_id`：非 0 时替换同 id 的那张（Win32 上是重发同一托盘槽的气泡）。
 /// - `progress`：0..100 时带进度（Linux 走 hint `value`；Win32 拼进正文）。
 /// - `kind`：0 信息 / 1 警告 / 2 错误（Win32 映射 `NIIF_*`；Linux 无此概念）。
+/// - `urgent`：缺省 `true`，**只有 macOS 吃**——`true` 落 `interruptionLevel =
+///   TimeSensitive`（前台忙时也直接出横幅），`false` 落 `Active`（应用在前台忙时
+///   静默，只进通知中心；用户在系统设置里关掉「时间敏感」授权同样回到静默）。
+///   Linux / Windows 收下忽略：freedesktop 的 urgency hint 不做映射（`critical`
+///   是常驻不消失的语义，与「绕过前台静默」不是一回事）。
 pub fn notify_send(
   app_name : String,
   summary : String,
@@ -196,6 +207,7 @@ pub fn notify_send(
   progress? : Int = -1,
   kind? : Int = 0,
   icon_handle? : Int = 0,
+  urgent? : Bool = true,
 ) -> Result[Int, NotifyError] {
   match notify_backend() {
     Some(Dbus) =>
@@ -209,16 +221,23 @@ pub fn notify_send(
           replaces_id=replaces_id,
           progress=progress,
         ) {
+        // `urgent` 在 Linux 无对位：freedesktop 的 urgency hint 不映射，见函数文档
         Ok(id) => Ok(id)
         Err(e) => Err(nf_err(e))
       }
     Some(WinBalloon) => {
       let text = notify_body_with_progress(body, progress)
       let k = notify_clamp_kind(kind)
-      if replaces_id > 0 && @win.notify_update(replaces_id, summary, text, k) {
+      let replaced =
+        if replaces_id > 0 {
+          @win.notify_update(replaces_id, summary, text, k, urgent=urgent)
+        } else {
+          false
+        }
+      if replaced {
         return Ok(replaces_id)
       }
-      let id = @win.notify_send(icon_handle, summary, text, k)
+      let id = @win.notify_send(icon_handle, summary, text, k, urgent=urgent)
       if id > 0 {
         Ok(id)
       } else {

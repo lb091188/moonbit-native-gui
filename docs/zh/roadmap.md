@@ -206,6 +206,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **空闲检测**：读系统空闲秒数（Linux X11、Windows；macOS 走 HID 系统态）
 - ✅ **开机自启**：写 autostart / Run 键 / LaunchAgents；开关即真实状态
 - ✅ **mac 通知迁移 UNUserNotificationCenter**：老 NSUserNotification 在新 macOS（26.x 实测）被降级成「只进中心不弹条」——通知后端整体迁到 UN：bundle 探测、首次使用请求 alert/sound/timeSensitive 授权（老授权自动补齐）、同 identifier 覆盖即更新、按标识摘除、授权异步裁决前投递排队、声音默认有声（对齐 Win32）、delegate 答复带 Banner|List|Sound、`NATIVEGUI_NOTIFY_LOG` 门控诊断。**前台横幅的钥匙是时间敏感档**：缺档时前台 delegate 询问派发不可靠（忙时静默），标记+授权后忙循环也正常（真机日志 + 探针定案，见 `experience/adaptation.md`）；mac 真机已验（横幅+声音），Linux 走 D-Bus、Windows 走托盘气泡不受影响
+- 🚧 **通知打扰档开放给应用**：`notify_send` 加 `urgent?`（缺省 `true`，mac 臂映射 `interruptionLevel` 二档：`true`=TimeSensitive 前台忙时也直接出横幅、`false`=Active 前台忙时静默只进通知中心；用户在系统设置里关掉时间敏感授权后传 `true` 同样回到静默）；Linux 不映射 freedesktop 的 urgency hint（`critical` 是「常驻不消失」语义，与这一档不是一回事）、Win32 无对应物，两臂收下忽略；`wm_notify_send` / `wm_notify_update` 四臂签名同步加 `urgent`；后端名读数 mac 档改报 `un-user-notification`（UN 迁移后名实对齐，枚举 `WinBalloon` 名不动），注释清单补第三档、wbtest 按平台分期望（mac 真机二档观感待复验）
 - ✅ **浏览器与编辑器历史**：Chromium 系历史与书签、Firefox 历史、VS Code 最近工作区
 - ✅ **窗口管理**：枚举窗口、按 id 或标题激活与关闭（仅 Linux，走 `wmctrl`）
 - ✅ **电源计划**：读可用计划集、读当前、切计划（Linux 走 `powerprofilesctl`；Windows 走 PowerGet / SetActiveScheme）
@@ -312,7 +313,6 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ⏳ **KDE / GNOME / DDE 实测**：托盘、通知、深浅色、壁纸、默认应用的桌面环境矩阵
 - ⏳ **显示器「首选档」**：`CGDisplayModeIsPreferred` 已不在 SDK，需找公开替代信号
 - ⏳ **dock 徽标与 LauncherEntry**：macOS `NSDockTile` badgeLabel、Linux `com.canonical.Unity.LauncherEntry` Update 信号（count/progress），与已实现的 Windows 任务栏进度拼跨平台门面（shell 层分派，与 notify 门面同构）；Windows `SetOverlayIcon` 是状态图标语义非计数徽标，做不做同批定
-- ⏳ **通知时间敏感档的粒度**：缺省维持 timeSensitive（mac 前台横幅钥匙，实测定案见 adaptation.md）；`notify_send` 开 `urgent?` 可选参（缺省 true，仅 mac 臂映射 `interruptionLevel`），关掉档位=接受前台忙时静默；用户在系统设置关掉时间敏感授权后同样回到前台静默（现存风险）；Linux/Windows 无对位忽略
 
 ### 媒体
 

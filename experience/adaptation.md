@@ -3245,7 +3245,7 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **上条结论被推翻**：加了 `content.interruptionLevel = TimeSensitive` + 授权带 `UNAuthorizationOptionTimeSensitive` 之后，忙循环探针与 showcase（前台高频重绘）的 `willPresent` 全部正常派发、横幅声音齐全——**「手工循环架构边界」的结论作废**，真正缺的是时间敏感档：没有这一档，UN 对前台通知的 delegate 呈现询问派发不可靠（空闲偶发可用、忙时一律静默），三种等待原语都救不回来；加上这一档，同样的忙循环立刻正常。机理推测：时间敏感通知走 UN 更积极的呈现询问通道，不依赖那条不可靠的派发路径。
 **落地三件**：① `content.sound` 一律默认（对齐 Win32）；② `interruptionLevel = TimeSensitive` + 授权/补授权带 TimeSensitive 选项——老授权（alert|sound 时代给的）用 `getNotificationSettings` 的 `timeSensitiveSetting` 判缺后 `requestAuthorization` 补齐，已决定的选项不重弹框（真机日志 `auth re-grant=1`）；③ delegate 答复的呈现选项必须**带 Sound**（`Banner|List|Sound`）——给什么呈现什么，缺 Sound 前台无声。
 **过程教训（对自己上一条的修正）**：① 「架构边界」的结论下早了——存在未试过的单一开关（时间敏感档）时，别把「多轮原语都救不回」升格成架构定论；② 「从 IDE 终端跑 → 责任进程身份挂终端」的推断也被真机日志推翻（终端跑补授权与 willPresent 一切正常），探索期的机制推测一律标注「待验证」，别写进结论段；③ 诊断日志的时间戳（`post at +0.001s` / `settle exit at +3.0s`）把「回执快、回调不来」拆成了两个可分别定位的事实，是这几轮排查里最值钱的读数。
-**代价与待办**：时间敏感档用户可在系统设置里关，关了回到前台静默；按 kind 分档（警告/错误才 timeSensitive）或开放给应用自选挂 roadmap ⏳。
+**代价与待办**：时间敏感档用户可在系统设置里关，关了回到前台静默；档位已开放给应用自选（`notify_send` 的 `urgent?`，见文末 2026-11-03 节），按 kind 分档（警告/错误才 timeSensitive）不做。
 **验证**：showcase 真机日志——`auth status=authorized, 补请求时间敏感档` → `auth re-grant=1` → `post ×2 err=nil` → `willPresent ×2`；忙循环探针同样 `willPresent ×2`。门禁 1143/1143、`--deny-warn` 干净。
 
 ## mac 单平台族昇格为跨平台实现：授权作为基础设施立项（2026-10-24,「能抽象的都应该做」决策）
@@ -3556,3 +3556,11 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **判定方法**：`ldd <exe>` 看有没有 `libgtk-3`；`link_configs` 是按包下发的，包名在哪、flags 就跟到哪。
 - **处置**：工具侧不复用 GUI 库——`tools/native-gui-tools/proc`（fork/execvp 成组 + 超时 + 探活/杀/节拍，标准头）与 `inst`（套接字唤起客户端，帧格式与 shell 通道逐字一致）在 tools 内自给。成组 kill、`argv[0]` 必须是程序名、exec 失败要在父进程用 `access()` 先判（子进程退出码 127 与真实退出码不可区分）三条坑已在实现里钉住。
 - **判据**：任何「要装才能用」的命令行工具，先 `ldd` 检查闭包链接物；库的包边界不等于依赖边界——C 桩里的跨包符号引用会把整条依赖链带进来。
+
+## 通知的「打扰档」开放给应用：`urgent?` 只有 macOS 有对位物，freedesktop 的 urgency hint 故意不映射（2026-11-03）
+
+**契约**：`@shell.notify_send(..., urgent? : Bool = true)` → 仅 mac 臂落 `UNNotificationContent.interruptionLevel` 二档：`true`=`TimeSensitive`（应用在前台忙时也直接出横幅，这是本仓真机定案的前台横幅钥匙）、`false`=`Active`（前台忙时静默，只进通知中心）。缺省 `true` 保持既有行为不变。用户在系统设置里关掉「时间敏感」授权后，传 `true` 同样回落静默——这一档不是「必定弹出」，是「不主动降级」，文档与函数注释都写死这半句。
+**不映射的口径**：Linux 的 freedesktop `urgency` hint（low/normal/critical）**不接**这一参数——`critical` 的标准语义是「常驻不自动消失」，与「绕过前台静默」不是一回事，接上会把调用方的意图翻译成另一个含义；Win32 气泡压根没有打扰级别概念。两臂收下参数并忽略，门面无需按平台拆调用。
+**签名同步的面**：`wm_notify_send` / `wm_notify_update` **四臂**（Win32 / GTK / mac / 兜底）一律加 `int urgent` 尾参，非 mac 臂 `(void)urgent`；`win.notify_send` / `win.notify_update` 开 `urgent? : Bool = true` 具名可选参，C 侧收 0/1。`shell.notify_send` 的 `replaces_id>0` 覆盖路径也带档——只给首发带档而覆盖走默认档会让「urgent=false 的进度型通知」在 mac 上被替换回时间敏感，契约不成立。**extern 声明与四臂签名逐参数对照**是本批唯一的编译期风险（漏改一臂只在链接期炸，`moon check` 不编 C）。
+**后端名读数一并收口**：mac 档 `notify_backend_name()` 从 `ns-user-notification` 改 `un-user-notification`（UN 迁移后名实对齐；`NotifyBackend::WinBalloon` 枚举名不动，mac 的实现住在 `wm_notify_*` 同一支桩是既定架构，注释与 wbtest 按平台分档期望）。名字是纯 MoonBit 硬编码，C 桩不返回名字。
+**验证**：`moon check --deny-warn` 干净；`moon test base shell win dbus` 192/192（本机无通知服务，生命周期用例自动跳过；后端名用例在三平台各自分支判定）。Windows 纯 C 探针 `experiment/notify_probe/notify_backend_probe.c` 的 12 处调用点同批补第 5 参，待 Windows 侧复跑（末行 `NOTIFY-BACKEND-OK`）。mac 臂由 CI 的 `clang -fsyntax-only WM_STUB_MAC` 门禁编一遍，二档真机观感归用户复验。
