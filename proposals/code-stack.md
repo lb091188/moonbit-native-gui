@@ -12,13 +12,13 @@
 | 层 | 内容 | 状态 |
 |---|---|---|
 | ① 等宽文本栈 | `@text.Font` 度量（`text_width` / `line_height_font`）、`draw_box_at` 逐段绘制 | ✅ 已建成 |
-| ② 着色流 | `tokenize_lang`（文本→Token 流）+ `CodeTheme`（主题派生配色） | ✅ 已建成，本批升级（跨行状态 + 增量 + 字节偏移） |
+| ② 着色流 | `tokenize_lang`（文本→Token 流）+ `CodeTheme`（主题派生配色） | 跨行状态 + 字节偏移已落（2026-11-03，`scan_line`）；行级增量等 `code_editor` 同批 |
 | ③ 偏移映射 | `TextLayout`（字符偏移↔屏幕几何） | 🚧 [text-selection-a11y.md](text-selection-a11y.md) 一期抽取中 |
 | ④ 编辑内核 | `Editor`（caret/选区/撤销/剪贴板，UTF-8 字节下标） | ✅ 已建成（gui/input/editor.mbt） |
 
 | 消费者 | 吃的地基 | 缺口 |
 |---|---|---|
-| `code_view`（代码块/高亮，已成） | ①+② | 无跨行状态、无增量、token 无字节偏移 |
+| `code_view`（代码块/高亮，已成） | ①+② | 跨行状态与字节偏移已接（预排版吃 `scan_line`）；仍无编辑态增量 |
 | `code_editor`（代码编辑器） | ②升级版+③+④ | 未开工 |
 | `terminal`（终端控件） | ①+网格模型（新）+ANSI 状态机（新）+④ 行编辑 | 未开工 |
 
@@ -71,7 +71,7 @@
 ## 排期与依赖链
 
 1. **前置（已在走，不在本提案排期）**：text-selection-a11y 一期——`TextLayout` 抽取 + code_view 选中。
-2. **扫描器升级**：跨行状态 + 行级增量 + 字节偏移；code_view 静态路径 wbtest 钉零回归。
+2. ~~扫描器升级~~：**跨行状态 + 字节偏移已落**（`scan_line` / `ScanState`，code_view 预排版同批改吃它，289 项 ui+mdview 全绿）；**行级增量**随 `code_editor` 开工再做（缓存层先行即无消费者）。
 3. **code_editor 控件**（P1）。
 4. **terminal 控件**。
 - 每步走流转：动工进 TODO → 实现 → roadmap 移「已实现」按平台标状态 → `测试文档/测试用例.md` 补条。

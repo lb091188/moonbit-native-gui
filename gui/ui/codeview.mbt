@@ -17,10 +17,51 @@ pub(all) enum TokenRole {
 }
 
 ///|
-/// 代码高亮的着色单元。
+/// 代码高亮的着色单元。`byte_start` / `byte_len` 是它在**本行原文**里的 UTF-8
+/// 字节区间（与 `@input.Editor` / `@input.TextLayout` 同口径）：token 连续覆盖
+/// 整行（空格、标点各自成词），所以出口按累加回填一次，分词内部不各自计数。
 pub(all) struct Token {
   text : String
   role : TokenRole
+  mut byte_start : Int
+  mut byte_len : Int
+}
+
+///|
+fn tok(text : String, role : TokenRole) -> Token {
+  { text, role, byte_start: 0, byte_len: 0 }
+}
+
+///|
+/// 一行扫描的**行首状态**（跨行构造）：块注释带嵌套深度（rust 允许嵌套，C 系恒 1）、
+/// 三引号串带定界符原文（三个双引号或三个单引号）、heredoc 带结束标记。
+/// `scan_line` 逐行传播它；未闭合就一路挂到行尾，下一行接着吃——code_editor 的
+/// 增量重扫按「行首状态是否与缓存一致」决定收敛停。
+pub(all) enum ScanState {
+  SNormal
+  SBlockComment(Int)
+  STriple(String)
+  SHeredoc(String)
+}
+
+///|
+/// 逐行扫描一行：吃进行首状态，吐出这一行的 token（字节区间已回填）与
+/// **下一行的行首状态**。
+pub fn scan_line(
+  line : String,
+  lang : String,
+  state : ScanState,
+) -> (Array[Token], ScanState) {
+  let out : Array[Token] = []
+  let next = scan_into(line, lang, state, out)
+  let mut b = 0
+  for t in out {
+    let bl = @utf8.encode(t.text).length()
+    t.byte_start = b
+    t.byte_len = bl
+    b += bl
+  }
+  (out, next)
 }
 
 ///|
@@ -195,8 +236,20 @@ fn lang_keywords(lang : String) -> (Array[String], String) {
 /// 运算符连续成词,其余连续非空白为一个词;词再经 classify_word 分为
 /// 关键字/类型/函数调用/数字/普通文本。tokenize_moonbit 即 moonbit 特化。
 pub fn tokenize_lang(line : String, lang : String) -> Array[Token] {
+  let (ts, _st) = scan_line(line, lang, SNormal)
+  ts
+}
+
+///|
+/// 扫描主体：从 `state` 起吃这一行，token 追加进 `out`，返回下一行的行首状态。
+fn scan_into(
+  line : String,
+  lang : String,
+  state : ScanState,
+  out : Array[Token],
+) -> ScanState {
   let (keywords, comment_prefix) = lang_keywords(lang)
-  let out : Array[Token] = []
+  let shape = lang_shape(lang)
   let cs : Array[Char] = []
   for ch in line {
     cs.push(ch)
@@ -216,11 +269,75 @@ pub fn tokenize_lang(line : String, lang : String) -> Array[Token] {
     }
   }
 
+  // —— 行首还挂在跨行构造里：先把这一段的正文吃掉，闭合了才接着正常扫
   let mut i = 0
+  let mut heredoc_open : String? = None
+  match state {
+    SBlockComment(depth) =>
+      if depth > 0 {
+        let (closed, ni, d2) = eat_block_body(
+          cs,
+          shape.open,
+          shape.close,
+          shape.nested,
+          0,
+          depth,
+        )
+        out.push(tok(chars_str(cs, 0, ni), Comment))
+        if !closed {
+          return SBlockComment(d2)
+        }
+        i = ni
+      } else {
+        ()
+      }
+    STriple(delim) => {
+      let (closed, ni, _d) = eat_block_body(cs, delim, delim, false, 0, 1)
+      out.push(tok(chars_str(cs, 0, ni), StrLit))
+      if !closed {
+        return STriple(delim)
+      }
+      i = ni
+    }
+    SHeredoc(tag) => {
+      // heredoc 正文整段按字符串着色；本行内容等于结束标记则吃完回正常
+      if n > 0 {
+        out.push(tok(line, StrLit))
+      }
+      return if line.trim() == tag { SNormal } else { SHeredoc(tag) }
+    }
+    SNormal => ()
+  }
   while i < n {
     let ch = cs[i]
     let c = ch.to_int()
-    if ch == '"' || ch == '\'' {
+    if shape.block && starts_at(cs, i, shape.open) {
+      // 块注释：吃到闭记号；没闭就挂着走完这一行
+      flush('/')
+      let (closed, ni, d2) = eat_block_open(
+        cs,
+        shape.open,
+        shape.close,
+        shape.nested,
+        i,
+      )
+      out.push(tok(chars_str(cs, i, ni), Comment))
+      if !closed {
+        return SBlockComment(d2)
+      }
+      i = ni
+      continue
+    } else if triple_at(shape, cs, i) is Some(delim) {
+      // 三引号串（python）：闭合在本行内就是一段字符串，否则挂着跨行
+      flush('"')
+      let (closed, ni) = eat_triple_open(cs, delim, i)
+      out.push(tok(chars_str(cs, i, ni), StrLit))
+      if !closed {
+        return STriple(delim)
+      }
+      i = ni
+      continue
+    } else if ch == '"' || ch == '\'' {
       // 字符串字面量:开引号起到闭引号整段
       flush(ch)
       let s = StringBuilder()
@@ -233,7 +350,7 @@ pub fn tokenize_lang(line : String, lang : String) -> Array[Token] {
         }
         i = i + 1
       }
-      out.push({ text: s.to_string(), role: StrLit })
+      out.push(tok(s.to_string(), StrLit))
     } else if ch == '/' &&
       i + 1 < n &&
       cs[i + 1] == '/' &&
@@ -244,7 +361,7 @@ pub fn tokenize_lang(line : String, lang : String) -> Array[Token] {
         comment.write_char(cs[i])
         i = i + 1
       }
-      out.push({ text: comment.to_string(), role: Comment })
+      out.push(tok(comment.to_string(), Comment))
       break
     } else if ch == '#' && comment_prefix == "#" {
       flush('#')
@@ -253,7 +370,7 @@ pub fn tokenize_lang(line : String, lang : String) -> Array[Token] {
         comment.write_char(cs[i])
         i = i + 1
       }
-      out.push({ text: comment.to_string(), role: Comment })
+      out.push(tok(comment.to_string(), Comment))
       break
     } else if ch == '-' &&
       i + 1 < n &&
@@ -265,12 +382,20 @@ pub fn tokenize_lang(line : String, lang : String) -> Array[Token] {
         comment.write_char(cs[i])
         i = i + 1
       }
-      out.push({ text: comment.to_string(), role: Comment })
+      out.push(tok(comment.to_string(), Comment))
       break
     } else if c == 32 {
       flush(ch)
-      out.push({ text: " ", role: Fg })
+      out.push(tok(" ", Fg))
     } else {
+      // bash heredoc：`<<TAG` 记下结束标记（字符照旧着色，本行扫完才挂状态，
+      // 正文从下一行起）
+      if shape.heredoc && ch == '<' && i + 1 < n && cs[i + 1] == '<' {
+        match heredoc_tag(cs, i) {
+          Some(tag) => heredoc_open = Some(tag)
+          None => ()
+        }
+      }
       let ident = (c >= 65 && c <= 90) ||
         (c >= 97 && c <= 122) ||
         (c >= 48 && c <= 57) ||
@@ -293,7 +418,7 @@ pub fn tokenize_lang(line : String, lang : String) -> Array[Token] {
         // 词与运算符串互切:先冲刷再按新词性开串;()[]{},;: 标点单字符
         flush(ch)
         if !ident && !dot_in_word && !is_op_char(ch) {
-          out.push({ text: char_to_string(ch), role: Fg })
+          out.push(tok(char_to_string(ch), Fg))
         } else if ident || dot_in_word {
           buf.val.write_char(ch)
           kind.val = 1
@@ -306,9 +431,199 @@ pub fn tokenize_lang(line : String, lang : String) -> Array[Token] {
     i = i + 1
   }
   flush(' ')
-  out
+  match heredoc_open {
+    Some(tag) => SHeredoc(tag)
+    None => SNormal
+  }
 }
 
+///|
+/// 扫描用的语言形态：块注释开/闭记号与是否嵌套、heredoc 是否可用、三引号定界符。
+priv struct ScanShape {
+  block : Bool
+  open : String
+  close : String
+  nested : Bool
+  heredoc : Bool
+  triples : Array[String]
+}
+
+///|
+/// 三引号的两种定界符（三个双引号 / 三个单引号）。
+fn quote_runs() -> Array[String] {
+  let d = "\""
+  let q = "'"
+  [d + d + d, q + q + q]
+}
+
+///|
+fn lang_shape(lang : String) -> ScanShape {
+  match lang {
+    // C 系块注释：开 /* 闭 */，不嵌套
+    "moonbit" | "js" | "ts" | "c" | "go" | "java" | "sql" =>
+      { block: true, open: "/*", close: "*/", nested: false, heredoc: false, triples: [] }
+    // rust 的块注释允许嵌套（/* /* */ */），闭合要跟着深度走
+    "rust" =>
+      { block: true, open: "/*", close: "*/", nested: true, heredoc: false, triples: [] }
+    // python 没有块注释，跨行靠三引号串
+    "python" =>
+      {
+        block: false,
+        open: "",
+        close: "",
+        nested: false,
+        heredoc: false,
+        triples: quote_runs(),
+      }
+    // shell：heredoc（结束标记在行首，允许 `<<-` 缩进档）
+    "bash" =>
+      { block: false, open: "", close: "", nested: false, heredoc: true, triples: [] }
+    _ =>
+      { block: true, open: "/*", close: "*/", nested: false, heredoc: false, triples: [] }
+  }
+}
+
+///|
+/// cs[at..] 是否以 `pat` 开头（越界即 false）。
+fn starts_at(cs : Array[Char], at : Int, pat : String) -> Bool {
+  let pc = pat.to_array()
+  let m = pc.length()
+  if m == 0 || at + m > cs.length() {
+    return false
+  }
+  let mut ok = true
+  for k in 0..<m {
+    if cs[at + k] != pc[k] {
+      ok = false
+    }
+  }
+  ok
+}
+
+///|
+/// [from, to) 区间的字符拼回字符串（越界夹到行尾）。
+fn chars_str(cs : Array[Char], from : Int, to : Int) -> String {
+  let b = StringBuilder()
+  let hi = to.min(cs.length())
+  let mut i = from
+  while i < hi {
+    b.write_char(cs[i])
+    i += 1
+  }
+  b.to_string()
+}
+
+///|
+/// 开记号**已吃掉**的块注释正文：从 `start` 找闭记号（嵌套语言遇开记号加深），
+/// 返回 (是否闭合, 走到哪——闭记号之后或行尾)。
+fn eat_block_body(
+  cs : Array[Char],
+  op : String,
+  cl : String,
+  nested : Bool,
+  start : Int,
+  depth : Int,
+) -> (Bool, Int, Int) {
+  let n = cs.length()
+  let mut i = start
+  let mut d = depth
+  while i < n {
+    if starts_at(cs, i, cl) {
+      i += cl.to_array().length()
+      d -= 1
+      if d <= 0 {
+        return (true, i, 0)
+      }
+    } else if nested && starts_at(cs, i, op) {
+      i += op.to_array().length()
+      d += 1
+    } else {
+      i += 1
+    }
+  }
+  (false, n, d)
+}
+
+///|
+/// 行内新开的块注释：`at` 指向开记号首字符。返回 (是否闭合, 新下标, 剩余深度)。
+fn eat_block_open(
+  cs : Array[Char],
+  op : String,
+  cl : String,
+  nested : Bool,
+  at : Int,
+) -> (Bool, Int, Int) {
+  let (closed, ni, d) = eat_block_body(
+    cs,
+    op,
+    cl,
+    nested,
+    at + op.to_array().length(),
+    1,
+  )
+  (closed, ni, d)
+}
+
+///|
+/// 行内命中的三引号定界符：`at` 指向首字符，没有匹配给 None。
+fn triple_at(sh : ScanShape, cs : Array[Char], at : Int) -> String? {
+  for d in sh.triples {
+    if starts_at(cs, at, d) {
+      return Some(d)
+    }
+  }
+  None
+}
+
+///|
+/// 三引号串：`at` 指向定界符首字符，吃到同名定界符为止；没闭就走到行尾。
+fn eat_triple_open(cs : Array[Char], delim : String, at : Int) -> (Bool, Int) {
+  let (closed, ni, _d) = eat_block_body(
+    cs,
+    delim,
+    delim,
+    false,
+    at + delim.to_array().length(),
+    1,
+  )
+  (closed, ni)
+}
+
+///|
+/// bash heredoc 的结束标记：`at` 指向 `<<`，跳过可选 `-` 与可选引号，取后面的
+/// 标识符串；取不到给 None。
+fn heredoc_tag(cs : Array[Char], at : Int) -> String? {
+  let n = cs.length()
+  let mut i = at + 2
+  if i < n && cs[i] == '-' {
+    i += 1
+  }
+  if i < n {
+    let q = cs[i].to_int()
+    if q == 34 || q == 39 || q == 96 {
+      i += 1
+    }
+  }
+  let b = StringBuilder()
+  while i < n {
+    let c = cs[i].to_int()
+    let word = (c >= 65 && c <= 90) ||
+      (c >= 97 && c <= 122) ||
+      (c >= 48 && c <= 57) ||
+      cs[i] == '_'
+    if !word {
+      break
+    }
+    b.write_char(cs[i])
+    i += 1
+  }
+  let tag = b.to_string()
+  if tag.length() == 0 {
+    None
+  } else {
+    Some(tag)
+  }
+}
 ///|
 /// 运算符字符(连续出现时并成一个词,如 ->、<=、..<、&&、@ 无关的 '.')。
 fn is_op_char(ch : Char) -> Bool {
@@ -359,7 +674,7 @@ fn classify_word(
   let lowered = ascii_lower(word)
   for k in keywords {
     if ascii_lower(k) == lowered {
-      return { text: word, role: Keyword }
+      return tok(word, Keyword)
     }
   }
   // 着色主体:@ 限定名取最后 '.' 段,裸词取整词
@@ -373,22 +688,22 @@ fn classify_word(
   }
   let c0 = head.unsafe_get(0).to_int()
   if c0 >= 65 && c0 <= 90 {
-    return { text: word, role: Ty }
+    return tok(word, Ty)
   }
   let is_num = word.length() > 0
   for i in 0..<word.length() {
     let c = word.unsafe_get(i).to_int()
     if !((c >= 48 && c <= 57) || c == 46) {
       if is_call && !(c0 >= 48 && c0 <= 57) {
-        return { text: word, role: Call }
+        return tok(word, Call)
       }
-      return { text: word, role: Fg }
+      return tok(word, Fg)
     }
   }
   if is_num {
-    return { text: word, role: NumLit }
+    return tok(word, NumLit)
   }
-  { text: word, role: Fg }
+  tok(word, Fg)
 }
 
 // ---------------------------------------------------------------------------
@@ -432,6 +747,8 @@ pub fn code_view(
   // 每行 (文本, 角色, x, 宽) 的预排版表
   let laid : Array[Array[(String, TokenRole, Double, Double)]] = []
   let mut max_line_w = 0.0
+  // 行首状态顺着行走：块注释 / 三引号串 / heredoc 从此不再按行各扫各的
+  let scan_state : Ref[ScanState] = Ref(SNormal)
   for idx, line in lines {
     let segs : Array[(String, TokenRole, Double, Double)] = []
     let mut x = num_off
@@ -445,7 +762,9 @@ pub fn code_view(
       let nw = text_width(num_str, font)
       segs.push((num_str, LineNo, 16.0, nw))
     }
-    for tok in tokenize_lang(line, lang) {
+    let (toks, next_state) = scan_line(line, lang, scan_state.val)
+    scan_state.val = next_state
+    for tok in toks {
       let w = text_width(tok.text, font)
       segs.push((tok.text, tok.role, x, w))
       x = x + w

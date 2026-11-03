@@ -324,3 +324,93 @@ test "code_view 缺省档零变化：没开 selectable 不挂指针、没有选�
   assert_true(w.on_pointer is None)
   assert_true(sel_states.val.get(w.id) is None)
 }
+
+///|
+test "scan_line：跨行块注释按行传播状态（rust 嵌套各自算）" {
+  let (t1, s1) = scan_line("let a = 1 /* 起", "moonbit", SNormal)
+  assert_true(s1 is SBlockComment(1))
+  assert_true(
+    t1.any(fn(t : Token) -> Bool { t.role is Comment && t.text == "/* 起" }),
+    msg="块注释没从开记号起成段",
+  )
+  let (t2, s2) = scan_line("还在注释里", "moonbit", s1)
+  assert_true(s2 is SBlockComment(1))
+  assert_eq(t2.length(), 1)
+  assert_eq(t2[0].text, "还在注释里")
+  assert_true(t2[0].role is Comment)
+  let (t3, s3) = scan_line("*/ let b = 2", "moonbit", s2)
+  assert_true(s3 is SNormal)
+  assert_eq(t3[0].text, "*/")
+  assert_true(t3[0].role is Comment)
+  // rust 允许嵌套：内层闭合后仍挂一层；C 系同文则已闭合
+  let (r1, rs) = scan_line("/* /* */ 还差一层", "rust", SNormal)
+  assert_true(rs is SBlockComment(1))
+  assert_eq(r1.length(), 1)
+  let (_r2, rs2) = scan_line("*/ done", "rust", rs)
+  assert_true(rs2 is SNormal)
+  // C 系不嵌套：第一个 */ 就闭合，行内余下的字回正常着色
+  let (c1, cs1) = scan_line("/* /* */ 到这儿已闭", "c", SNormal)
+  assert_true(cs1 is SNormal)
+  assert_eq(c1.length(), 3)
+  assert_true(c1[0].role is Comment)
+  assert_eq(c1[0].text, "/* /* */")
+  assert_true(c1[2].role is Fg)
+}
+
+///|
+test "scan_line：python 三引号串与 bash heredoc 跨行" {
+  let (p1, st1) = scan_line("x = \"\"\"开始", "python", SNormal)
+  match st1 {
+    STriple(d) => assert_eq(d, "\"\"\"")
+    _ => abort("三引号没挂上跨行状态")
+  }
+  assert_true(
+    p1.any(fn(t : Token) -> Bool { t.role is StrLit && t.text == "\"\"\"开始" }),
+    msg="三引号串没从定界符起成段",
+  )
+  let (p2, st2) = scan_line("结束\"\"\" y = 1", "python", st1)
+  assert_true(st2 is SNormal)
+  assert_true(p2[0].role is StrLit)
+  assert_eq(p2[0].text, "结束\"\"\"")
+  // bash：<<TAG 记下结束标记，正文整段按字符串着色，标记行吃完回正常
+  let (h1, hs1) = scan_line("cat <<EOF", "bash", SNormal)
+  match hs1 {
+    SHeredoc(tag) => assert_eq(tag, "EOF")
+    _ => abort("heredoc 没挂上跨行状态")
+  }
+  assert_false(h1.any(fn(t : Token) -> Bool { t.role is Comment }))
+  let (h2, hs2) = scan_line("正文 任意 内容", "bash", hs1)
+  match hs2 {
+    SHeredoc(tag) => assert_eq(tag, "EOF")
+    _ => abort("heredoc 正文没继续挂着")
+  }
+  assert_eq(h2.length(), 1)
+  assert_true(h2[0].role is StrLit)
+  let (_h3, hs3) = scan_line("EOF", "bash", hs2)
+  assert_true(hs3 is SNormal)
+}
+
+///|
+test "scan_line：token 连续覆盖整行的 UTF-8 字节区间" {
+  let line = "让 a = 1 // 中文注释"
+  let (ts, _st) = scan_line(line, "moonbit", SNormal)
+  let mut acc = 0
+  for t in ts {
+    assert_eq(t.byte_start, acc)
+    let bl = @utf8.encode(t.text).length()
+    assert_eq(t.byte_len, bl)
+    acc += bl
+  }
+  assert_eq(acc, @utf8.encode(line).length())
+  // 注释段的字节区间就是它自己那几个字
+  let mut ctext = ""
+  let mut clen = 0
+  for t in ts {
+    if t.role is Comment {
+      ctext = t.text
+      clen = t.byte_len
+    }
+  }
+  assert_eq(ctext, "// 中文注释")
+  assert_eq(clen, @utf8.encode("// 中文注释").length())
+}

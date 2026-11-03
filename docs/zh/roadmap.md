@@ -295,7 +295,8 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 三件合一份总纲（2026-11-03 立项，依赖链、选型定案与社区备选留档见 [proposals/code-stack.md](proposals/code-stack.md)）：公共地基 = 等宽文本栈 + 着色流 + TextLayout 偏移映射 + Editor 编辑内核；排期 ②扫描器升级 → ③code_editor → ④terminal，前置 text-selection-a11y 一期。
 
-- ⏳ **分词层升级：带跨行状态的行级增量扫描器**：`tokenize_lang` 补每行行首状态机（块注释/多行字符串/heredoc）与按行增量失效（编辑只重扫受影响段，状态收敛提前停），token 带 UTF-8 字节偏移（与 Editor/TextLayout 同口径）；不引注册表依赖（pygments/tree-sitter 留档不进 gui）；code_view 静态路径零回归
+- 🚧 **分词层升级·跨行状态与字节偏移**：`scan_line(line, lang, state)` 逐行吃「行首状态」并吐出下一行状态——块注释（C 系不嵌套、rust 按深度嵌套）、python 三引号串（定界符原文随状态带）、bash heredoc（`<<-?引号?TAG`，正文整段按字符串着色、标记行吃完回正常）从此劈得准；token 带 `byte_start`/`byte_len`（UTF-8 字节，与 Editor/TextLayout 同口径，出口按「token 连续覆盖整行」一次回填）；`tokenize_lang` 降为无状态门面，`code_view` 预排版改吃 `scan_line` 并把状态顺行走（静态路径其余零回归，mdview 围栏代码块同享）。用例钉：三段跨行注释的状态传播与着色分段、rust 与 C 的嵌套差、三引号闭合回正常、heredoc 标记与正文、字节区间累加等于行长。
+- ⏳ **分词层升级·行级增量重扫**：每行缓存 `(行首状态, tokens)`，编辑后从变更行向上复用最近未变行的行首状态、向下重扫，某行行首状态与缓存一致即收敛停；未闭合构造下退化为「脏段一路重扫到文末」（用例钉死不许死循环）。等首个编辑态消费者 `code_editor` 开工同批落，避免先行留无消费者的缓存层。
 - ⏳ **代码编辑器控件 `code_editor`**：等宽 + 高亮 + 行号 + 编辑合体——扫描器增量着色 + Editor 内核（caret/选区/撤销重做）+ TextLayout 命中映射；与 textarea 分工（纯文本 vs 高亮编辑），共用 TextLayout/Editor；P1 编辑/光标/选区/高亮/行号/撤销重做，P2 查找/缩进/括号匹配
 - ⏳ **终端控件 `terminal`（控件先行，PTY 另立项）**（原「终端模拟」并入本提案）：等宽网格 cell（字符+前背景+属性）+ ANSI CSI/SGR 子集（着色/光标/清屏）+ 滚动，喂文本即可用（日志面板/REPL 输出）；ANSI 直接色值不走 CodeTheme 语义角色，缺省前景/背景跟主题；PTY（forkpty/openpty/ConPTY）独立立项不绑定
 
