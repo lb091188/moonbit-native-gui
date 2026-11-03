@@ -80,3 +80,31 @@ test "wrap_units：非 ASCII 码点各自一段，ASCII 按类成段" {
   let u = wrap_units("ab 中c", 0, 7)
   assert_eq(u, [(0, 2), (2, 3), (3, 6), (6, 7)])
 }
+
+///|
+test "rects：选区按显示行切开，坐标含 pad 并扣滚动偏移" {
+  let lay = TextLayout::build("ab cd", 45.0, fake_width, 20.0, pad=5.0)
+  let all = lay.rects(0, 5)
+  assert_eq(all.length(), 2)
+  assert_eq((all[0].x, all[0].y, all[0].w, all[0].h), (5.0, 5.0, 30.0, 20.0))
+  assert_eq((all[1].x, all[1].y, all[1].w), (5.0, 25.0, 20.0))
+  // 单行内一段：起算 x 按行首到 start 的宽度推
+  let one = lay.rects(1, 2)
+  assert_eq((one.length(), one[0].x, one[0].w), (1, 15.0, 10.0))
+  // 跨行区间各出一段
+  let cross = lay.rects(2, 4)
+  assert_eq((cross.length(), cross[0].x, cross[1].x), (2, 25.0, 5.0))
+  // 空区间与反向区间都给空数组（调用方不画）
+  assert_eq(lay.rects(3, 3).length(), 0)
+  assert_eq(lay.rects(4, 1).length(), 0)
+  // 滚出去 20 像素：每段上移一行
+  let scrolled = TextLayout::build(
+    "ab cd",
+    45.0,
+    fake_width,
+    20.0,
+    pad=5.0,
+    offset_y=20.0,
+  )
+  assert_eq(scrolled.rects(0, 5)[1].y, 5.0)
+}

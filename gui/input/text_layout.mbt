@@ -192,6 +192,39 @@ pub fn TextLayout::caret_y(self : TextLayout, at : Int) -> Double {
 }
 
 ///|
+/// 选区 `[start,end)` 的绘制矩形：按显示行切开，每段给「行内起算 x / 行顶 y / 宽 / 行高」
+/// （控件内坐标，已扣滚动偏移）。调用方只管照矩形填色——**量与画同一份行模型**，
+/// 不再各算各的（选区高亮与命中错位就是这么来的）。空区间给空数组。
+pub fn TextLayout::rects(self : TextLayout, start : Int, end : Int) -> Array[@base.Rect] {
+  let out : Array[@base.Rect] = []
+  if end <= start {
+    return out
+  }
+  for i = 0; i < self.lines.length(); i = i + 1 {
+    let ln = self.lines[i]
+    let a = if start > ln.start {
+      start
+    } else {
+      ln.start
+    }
+    let b = if end < ln.end {
+      end
+    } else {
+      ln.end
+    }
+    if b > a {
+      out.push({
+        x: self.pad + (self.measure)(self.text, ln.start, a),
+        y: self.pad + i.to_double() * self.line_h - self.offset_y,
+        w: (self.measure)(self.text, a, b),
+        h: self.line_h,
+      })
+    }
+  }
+  out
+}
+
+///|
 /// 像素 → 字节：先按 y 定行，再在行内逐段量到不超过 x 的最右边界；返回值一定落在
 /// 码点起点（不会停在多字节序列中间）。
 pub fn TextLayout::hit(self : TextLayout, x : Double, y : Double) -> Int {
