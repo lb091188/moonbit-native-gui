@@ -8,6 +8,13 @@ fn area_font() -> @text.Font {
 }
 
 ///|
+/// 注入给 `@input.TextLayout` 的测宽器：按本包的字体量字节区间的自然宽
+/// （`@input` 那层不带平台桥，宽由调用方给）。
+fn area_measure(t : String, from : Int, to : Int) -> Double {
+  seg_width(t, from, to, area_font())
+}
+
+///|
 /// 建一个已挂载并布局好的多行框，返回 (根, 控件, Store)。
 ///|
 /// 在控件内部坐标点一下（按下 + 抬起）。
@@ -47,13 +54,13 @@ fn mounted_area(
 ///|
 test "折行断点单位：空格成段、拉丁词成段、中日韩逐字成段" {
   // "ab 中c d"：a0 b1 空格2 中(3..5) c6 空格7 d8
-  let u = wrap_units("ab 中c d", 0, 9)
+  let u = @input.wrap_units("ab 中c d", 0, 9)
   assert_eq(
     u,
     [(0, 2), (2, 3), (3, 6), (6, 7), (7, 8), (8, 9)],
   )
   // 区间可截在中间：只取 [0,6) 时不含末尾的空格与 d
-  assert_eq(wrap_units("ab 中c d", 0, 6).length(), 3)
+  assert_eq(@input.wrap_units("ab 中c d", 0, 6).length(), 3)
 }
 
 ///|
@@ -63,19 +70,19 @@ test "显示行布局：按换行符断行、按盒宽贪心折行、空文本�
   }
   let f = area_font()
   // 逻辑行
-  let ls = layout_lines("a\nbb\nccc", 200.0, f)
+  let ls = @input.layout_lines("a\nbb\nccc", 200.0, area_measure)
   assert_eq(ls.length(), 3)
   assert_eq((ls[0].start, ls[0].end), (0, 1))
   assert_eq((ls[1].start, ls[1].end), (2, 4))
   assert_eq((ls[2].start, ls[2].end), (5, 8))
   // 空文本也要有一行放插入点
-  let e = layout_lines("", 100.0, f)
+  let e = @input.layout_lines("", 100.0, area_measure)
   assert_eq((e.length(), e[0].start, e[0].end), (1, 0, 0))
   // 贪心折行：给一行的宽放不下两个词就断，且断行处不留行首空格
   let text = "alpha beta gamma"
-  let wide = layout_lines(text, 4000.0, f)
+  let wide = @input.layout_lines(text, 4000.0, area_measure)
   assert_eq(wide.length(), 1)
-  let narrow = layout_lines(text, 60.0, f)
+  let narrow = @input.layout_lines(text, 60.0, area_measure)
   assert_true(narrow.length() > 1)
   let bs = @utf8.encode(text)
   assert_true(bs[narrow[1].start].to_int() != 0x20)
@@ -86,11 +93,15 @@ test "显示行布局：按换行符断行、按盒宽贪心折行、空文本�
     i = i + 1
   }
   // 中文可逐字断：三行两字
-  let cjk = layout_lines("中中中中中中", seg_width("中中", 0, 6, f) + 1.0, f)
+  let cjk = @input.layout_lines(
+    "中中中中中中",
+    seg_width("中中", 0, 6, f) + 1.0,
+    area_measure,
+  )
   assert_eq(cjk.length(), 3)
   assert_eq((cjk[0].start, cjk[0].end), (0, 6))
   // 单词比一行还宽时不拆词（宁可溢出）
-  let one = layout_lines("supercalifragilistic", 20.0, f)
+  let one = @input.layout_lines("supercalifragilistic", 20.0, area_measure)
   assert_eq(one.length(), 1)
 }
 
@@ -109,7 +120,7 @@ test "多行框：回车插入换行、上下键按显示行移动并记住 x、
   assert_eq(store.get(), "ab\nab")
   assert_eq(caret_of(w), 5)
   // 行布局：第 0 行 [0,2)，第 1 行 [3,5)
-  let lines = layout_lines(store.get(), 200.0 - 8.0, area_font())
+  let lines = @input.layout_lines(store.get(), 200.0 - 8.0, area_measure)
   assert_eq((lines.length(), lines[0].end, lines[1].start), (2, 2, 3))
   // 上键：回到第 0 行的同一 x（两行等长 → 落在行尾 2）
   key(root, w, @base.KS_UP, 0)

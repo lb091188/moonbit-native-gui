@@ -107,6 +107,12 @@ TextLayout {
 - **真机人工（视觉与系统交互，助手不下结论）**：高亮色深浅主题可辨；I-beam 出没时机；双击/拖选手感；右键菜单浮层收框；系统剪贴板互通（xclip / clip.exe / pbcopy）；bind_label 变化后选区消失不残留；resize 后高亮跟新折行；code_view 横滚下选中不串行。条目按平台补进 `测试文档/测试用例.md`。
 - **流转**：动工前进 TODO；完成后 roadmap 条目移「已实现」按平台标状态；showcase 补 selectable 档与 code_view 选中的演示段落。
 
+**落地注记（2026-11-03·TextLayout 地基已合入）**
+- 形态：`gui/input/text_layout.mbt` —— `TextLine` / `wrap_units` / `layout_lines` / `line_of_caret` 从 `@ui` 迁来（0.x 破坏，外部使用者全仓 grep 只有 textarea 与其 wbtest），新增 `TextLayout{text, lines, pad, line_h, offset_y, measure}` 与 `build` / `line_of` / `caret_x` / `caret_y` / `hit`；测宽器 `(String, Int, Int) -> Double` 是**必填参**（不给缺省，`gui/input` 因此仍只依赖 utf8 + base，零平台桥）。
+- `rects(start,end)` **本批不做**：没有消费者即死字段（`letter_spacing` 的教训），随 selectable 档一起落，届时绘制面从「画出来」切「算出来」。
+- textarea 改用后行为零变化：`moon test base shell widget ui render text theme icons sys input win dbus chart mdview style router` 1227/1227，其中 input 包新增 8 条假测宽器用例（折行、pad 扣宽、单段超宽不拆词、命中不劈半字、滚动平移、空文本也给一行）。
+- entry **未切**：单行档的量宽走「按前缀整段量 + 遮罩串渲染」与居中 origin（entry.mbt:28-66、180-193），索引参照系是原文、渲染是点串——TextLayout 的「偏移即 `text` 下标」要吃它得把遮罩塞进测宽器，等价性靠 entry_wbtest 钉得住但收益在本批为零（首批消费者是 textarea 形态的折行件）。等静态文本 selectable 批按同一判据复查一次再定。
+
 ## 第二期：屏读语义
 
 ### 桥的既有模子（新桥照哪个模子挂）

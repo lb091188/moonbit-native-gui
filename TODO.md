@@ -27,7 +27,7 @@
 
 ## 文本选择与屏读语义（2026-11-03 拍板，方案与坑清单见 [proposals/text-selection-a11y.md](proposals/text-selection-a11y.md)；两个消费者一块地基，做完一项删一项并同步路线图）
 
-- [ ] **一期首批·TextLayout 地基抽取**：`layout_lines`/`byte_at`/`caret_x_y` 从 textarea 闭包升格 gui/input 纯函数集（测宽函数注入，维持零平台依赖）；textarea/entry 等价改用，既有 wbtest 钉住零行为变化
+- [ ] **一期首批·entry 单行档切 TextLayout**（2026-11-03 定：本批不切，理由见 proposals/text-selection-a11y.md 落地注记）：遮罩串渲染 + 居中 origin 与「偏移即 `text` 下标」的参照系不同，等 selectable 批按同判据复查
 - [ ] **一期首批·静态文本 selectable 档**：`text`/`text_dyn` 加 selectable（只读 Editor + 选区持有者注册表 + 单击/双击选词/拖选/Shift+点击 + Ctrl+C 宿主内建支 + 右键菜单 can_edit=false）；测量面与绘制面同源切 TextLayout（最大坑，缺省档一行不动）
 - [ ] **一期首批·code_view 选中**：预排版表加字节偏移列；行号列排除在选区外，复制按行拼 \n，横滚坐标经控件矩形平移
 - [ ] **一期次批·markdown 段落选中**：md_rich_label 混排联合量宽逐字命中（joint_w 模式 + wcache 防 O(n²)），首批注册表/菜单/复制在纯文本闭环后再接

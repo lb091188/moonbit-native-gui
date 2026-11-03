@@ -300,7 +300,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ### 输入与浮层
 
-- 🚧 **静态文本选中与复制**（2026-11-03 拍板立项，方案与坑清单见 [proposals/text-selection-a11y.md](proposals/text-selection-a11y.md)；与屏读语义共用地基——TextLayout 偏移映射 / name·role 字段 / 焦点链）：标签/文本段挂只读 Editor（命中测试、选区高亮、Ctrl+C / 右键复制）——折行布局与命中从 textarea 抽 TextLayout 复用（textarea/entry 等价改用）；input/textarea 的编辑链路已齐，此条只补纯展示文本；首批 label/text + code_view，markdown 段落次批，AttributedText 缓批单独立项
+- 🚧 **静态文本选中与复制**（2026-11-03 拍板立项，方案与坑清单见 [proposals/text-selection-a11y.md](proposals/text-selection-a11y.md)；与屏读语义共用地基——TextLayout 偏移映射 / name·role 字段 / 焦点链）：标签/文本段挂只读 Editor（命中测试、选区高亮、Ctrl+C / 右键复制）——折行布局与命中从 textarea 抽成 `@input.TextLayout`（✅2026-11-03 地基落地：`TextLine`/`wrap_units`/`layout_lines`/`line_of_caret` 迁进 `gui/input`，新增 `build`/`hit`/`caret_x`/`caret_y`/`line_of`，测宽器作必填参注入、input 层零平台依赖；textarea 等价改用，1227/1227 全绿。entry 单行档与 `rects` 随 selectable 批一起落，理由见方案落地注记）；input/textarea 的编辑链路已齐，此条只补纯展示文本；首批 label/text + code_view，markdown 段落次批，AttributedText 缓批单独立项
 - ⏳ **浮层「点外收起」判据**：统一点外收起判定并补回归
 
 ### 状态与路由
