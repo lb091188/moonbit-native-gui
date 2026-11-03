@@ -139,3 +139,79 @@ test "语义快照：帧尾对账同时推到平台通道，行数与快照一�
   assert_eq(a11y_frame_sync(root), 1)
   assert_eq(@win.a11y_published_count(), 1)
 }
+
+///|
+test "读屏动作：点击合成 Down+Up 打到控件中心，按钮回调照常触发" {
+  let root = Widget::new()
+  root.rect = { x: 0.0, y: 0.0, w: 200.0, h: 100.0, }
+  let btn = Widget::new()
+  btn.rect = { x: 20.0, y: 30.0, w: 80.0, h: 30.0, }
+  let seen : Array[(Int, Double, Double)] = []
+  btn.on_pointer = Some(fn(_w : Widget, ev : PointerEvent) -> Bool {
+    seen.push((
+      match ev.kind {
+        Down => 0
+        Up => 1
+        _ => 2
+      },
+      ev.x,
+      ev.y,
+    ))
+    true
+  })
+  root.append_child(btn)
+  let (h, c, ch, consumed) = a11y_action_dispatch(
+    root,
+    btn.id,
+    @win.A11Y_ACT_CLICK,
+    -1,
+    -1,
+  )
+  // 中心点 = (20+40, 30+15)；本地坐标即相对控件原点
+  assert_eq(seen, [(0, 40.0, 15.0), (1, 40.0, 15.0)])
+  // Down 置捕获、Up 归还并把悬停落到命中控件：会话状态接得住（与真实点击同链）
+  assert_eq(c, -1)
+  assert_eq(h, btn.id)
+  assert_true(ch)
+  assert_true(consumed)
+}
+
+///|
+test "读屏动作：id 不在树里或动作码不认识时原样返回、不误触" {
+  let root = Widget::new()
+  root.rect = { x: 0.0, y: 0.0, w: 200.0, h: 100.0, }
+  let btn = Widget::new()
+  btn.rect = { x: 20.0, y: 30.0, w: 80.0, h: 30.0, }
+  let seen : Array[Int] = []
+  btn.on_pointer = Some(fn(_w : Widget, ev : PointerEvent) -> Bool {
+    seen.push(match ev.kind {
+      Down => 0
+      Up => 1
+      _ => 2
+    })
+    true
+  })
+  root.append_child(btn)
+  // 陌生 id
+  let r1 = a11y_action_dispatch(root, btn.id + 999, @win.A11Y_ACT_CLICK, -1, -1)
+  assert_eq(r1, (-1, -1, false, false))
+  // 陌生动作码
+  let r2 = a11y_action_dispatch(root, btn.id, 99, -1, -1)
+  assert_eq(r2, (-1, -1, false, false))
+  // 零尺寸控件（未布局）不点
+  let bare = Widget::new()
+  root.append_child(bare)
+  let r3 = a11y_action_dispatch(root, bare.id, @win.A11Y_ACT_CLICK, -1, -1)
+  assert_eq(r3, (-1, -1, false, false))
+  // 三种情形都没把事件送进控件
+  assert_eq(seen.length(), 0)
+}
+
+///|
+test "读屏动作：泵抽空即停，队列空时状态原样" {
+  let root = Widget::new()
+  root.rect = { x: 0.0, y: 0.0, w: 100.0, h: 50.0, }
+  // 非 Windows 后端没有 provider 压队列，泵应当立即抽空
+  let r = a11y_pump_actions(root, 3, 4)
+  assert_eq(r, (3, 4, false, false))
+}

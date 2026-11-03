@@ -13037,4 +13037,35 @@ const WmA11yRow *wm_a11y_row(int32_t i) {
     return &g_a11y_rows[i];
 }
 
+/* ================= 读屏动作队列（UIA pattern 的动作侧 → MoonBit 泵） =================
+ * Windows UIA provider（uia_provider.c）把 Invoke/Toggle/Expand 压成
+ * 「(快照行号, 动作)」，MoonBit 侧每帧抽走并合成指针点击。队列放在这里
+ * （与快照存储同一个实现 TU 条件）：GTK/mac 没有 provider、无人压，poll 恒 0，
+ * 但符号必须全平台有——MoonBit 的 extern 在哪个后端都链。 */
+
+#define WM_UIA_ACT_Q 32
+#define WM_UIA_ACT_CLICK 1
+
+static int64_t g_uia_act_q[WM_UIA_ACT_Q];
+static int g_uia_act_head = 0; // 消费头（MoonBit 泵）
+static int g_uia_act_tail = 0; // 生产尾（UIA 调用）
+
+void wm_uia_action_push(int32_t idx, int act) {
+    int next = (g_uia_act_tail + 1) % WM_UIA_ACT_Q;
+    if (next == g_uia_act_head) {
+        return; // 满：丢新动作（读屏连点比丢一次点击后果小）
+    }
+    g_uia_act_q[g_uia_act_tail] = ((int64_t)idx << 3) | (int64_t)act;
+    g_uia_act_tail = next;
+}
+
+int64_t wm_uia_action_poll(void) {
+    if (g_uia_act_head == g_uia_act_tail) {
+        return 0;
+    }
+    int64_t v = g_uia_act_q[g_uia_act_head];
+    g_uia_act_head = (g_uia_act_head + 1) % WM_UIA_ACT_Q;
+    return v;
+}
+
 #endif /* 语义快照存储：仅实现 TU */

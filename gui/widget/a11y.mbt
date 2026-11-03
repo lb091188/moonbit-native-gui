@@ -272,3 +272,71 @@ fn tsv_clean(s : String) -> String {
 pub fn a11y_last_frame() -> Array[A11yNode] {
   g_a11y_last.val
 }
+
+// ---- 读屏动作派发 ----
+//
+// 平台臂（Windows UIA 的 Invoke/Toggle/Expand）只递「点一下这个控件」——
+// 组件闭包里的 Store / Editor 桥够不着也不该够着。这里把动作合成成指针
+// Down+Up，走与真实点击同一条 `route_pointer`：按钮的点闭包、勾选的翻转、
+// 下拉的弹收都由组件自己的点击链路驱动，桥不碰业务。
+
+///|
+/// 抽干待办的读屏动作并逐个派发；返回更新后的 `(hover, capture, changed,
+/// consumed)` 会话状态（合成点击与真实点击同链，状态要接回宿主）。
+pub fn a11y_pump_actions(
+  root : Widget,
+  hover : Int,
+  capture : Int,
+) -> (Int, Int, Bool, Bool) {
+  let mut h = hover
+  let mut c = capture
+  let mut ch = false
+  let mut consumed = false
+  for ;; {
+    match @win.a11y_action_poll() {
+      None => break
+      Some((id, act)) => {
+        let r = a11y_action_dispatch(root, id, act, h, c)
+        h = r.0
+        c = r.1
+        ch = ch || r.2
+        consumed = consumed || r.3
+      }
+    }
+  }
+  (h, c, ch, consumed)
+}
+
+///|
+/// 把一个读屏动作派发到控件：目前只有「点击」一档（`A11Y_ACT_CLICK`），
+/// 按控件中心合成 Down+Up。控件不在树里（已删/跨窗 id）时原样返回状态。
+pub fn a11y_action_dispatch(
+  root : Widget,
+  id : Int,
+  act : Int,
+  hover : Int,
+  capture : Int,
+) -> (Int, Int, Bool, Bool) {
+  match root.by_id(id) {
+    None => (hover, capture, false, false)
+    Some(w) =>
+      if act != @win.A11Y_ACT_CLICK || w.rect.w <= 0.0 || w.rect.h <= 0.0 {
+        (hover, capture, false, false)
+      } else {
+        let cx = w.rect.x + w.rect.w / 2.0
+        let cy = w.rect.y + w.rect.h / 2.0
+        let down = route_pointer(
+          root,
+          { kind: Down, x: cx, y: cy, button: 0, mods: 0, },
+          hover,
+          capture,
+        )
+        route_pointer(
+          root,
+          { kind: Up, x: cx, y: cy, button: 0, mods: 0, },
+          down.0,
+          down.1,
+        )
+      }
+  }
+}

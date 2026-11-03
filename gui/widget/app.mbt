@@ -1099,6 +1099,10 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   p.end()
   // 帧尾语义对账：重扫整树快照，排在上屏前（读屏拿到的矩形必须是这一帧的）
   let _ = a11y_frame_sync(self.root)
+  // 读屏动作通道（UIA Invoke/Toggle/Expand）：抽干并合成点击，会话状态接回去
+  let act = a11y_pump_actions(self.root, self.session.hover_id, self.session.capture)
+  self.session.hover_id = act.0
+  self.session.capture = act.1
   let t2 = @win.now_ms()
   self.session.window.present(bm.data, bm.width, bm.height)
   let t3 = @win.now_ms()

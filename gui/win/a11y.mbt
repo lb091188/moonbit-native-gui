@@ -14,6 +14,17 @@ extern "c" fn wm_a11y_publish(blob : Bytes, len : Int, count : Int) -> Unit = "w
 extern "c" fn wm_a11y_count() -> Int = "wm_a11y_count"
 
 ///|
+/// 抽一个读屏动作（Windows UIA 的 Invoke/Toggle/Expand 等压进的动作队列）：
+/// 编码 `(widget_id << 3) | action`，0 = 无待办。非 Windows 后端没有
+/// provider，恒 0（队列符号在 stub.c 的实现 TU 段，全平台都要能链）。
+extern "c" fn wm_uia_action_poll() -> Int64 = "wm_uia_action_poll"
+
+///|
+/// 读屏动作码：在控件中心合成一次点击（Down+Up 走与真实点击同一条
+/// `route_pointer`，组件闭包里的 Store/Editor 由点击链路自己驱动）。
+pub const A11Y_ACT_CLICK : Int = 1
+
+///|
 /// 推一帧语义快照（`blob` 为 TSV，`count` 为行数）。
 pub fn a11y_publish(blob : Bytes, count : Int) -> Unit {
   wm_a11y_publish(blob, blob.length(), count)
@@ -23,4 +34,15 @@ pub fn a11y_publish(blob : Bytes, count : Int) -> Unit {
 /// 平台侧当前持有的快照行数（用例/诊断观察面；也证明发布链路真的落地了）。
 pub fn a11y_published_count() -> Int {
   wm_a11y_count()
+}
+
+///|
+/// 抽一个待办的读屏动作：None = 队列空。
+pub fn a11y_action_poll() -> (Int, Int)? {
+  let v = wm_uia_action_poll()
+  if v <= 0 {
+    None
+  } else {
+    Some(((v >> 3).to_int(), (v & 7).to_int()))
+  }
 }
