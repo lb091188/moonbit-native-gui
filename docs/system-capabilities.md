@@ -217,7 +217,7 @@ On Linux, "X11 or Wayland" decides whether a whole family of tools can be truste
 | `session_type_of(xdg_session_type, wayland_display) -> SessionType` | pure parse helper: `XDG_SESSION_TYPE` speaks first (recognizes `wayland` / `x11`, case and blanks insensitive); when unset, a non-empty `WAYLAND_DISPLAY` means Wayland |
 | `in_wayland_session() -> Bool` | the gate the capability families use |
 
-Degraded by it: **night light** (`nl_supported()` is false; set/reset give `Unsupported`), **window management** (`win_supported()` false; list/activate/close give `Unsupported`), **idle detection and global shortcuts** (Linux reads the X server and X grabs, which a Wayland session does not have — see the session table in the [roadmap](roadmap.md)). **Monitor enumeration is not degraded**: the XWayland virtual output really exists, but read it as "not the physically connected display" — do not drive layout or hardware decisions from it; the Wayland-native channel is planned (`proposals/wayland-native.md` P2).
+Degraded by it: **night light** (`nl_supported()` is false; set/reset give `Unsupported`), **window management** (`win_supported()` false; list/activate/close give `Unsupported`), **idle detection and global shortcuts** (Linux reads the X server and X grabs, which a Wayland session does not have — see the session table in the [roadmap](zh/roadmap.md)). **Monitor enumeration is not degraded**: the XWayland virtual output really exists, but read it as "not the physically connected display" — do not drive layout or hardware decisions from it; the Wayland-native channel is planned (`proposals/wayland-native.md` P2).
 
 ## Night Light Color Temperature
 

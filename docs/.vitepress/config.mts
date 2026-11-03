@@ -66,6 +66,15 @@ export default defineConfig({
   title: 'native-gui',
   description: 'MoonBit 原生跨平台桌面 GUI 库：统一观感 + 自定义主题',
   cleanUrls: true,
+  // 路线图等页面会链进仓库内部目录（proposals/、experience/、测试文档/）。
+  // 这些目录刻意不上文档站（README「对内工程记录」），链接只在仓库上下文
+  // 可解析——豁免这些路径的死链检查，站内正常页面链接仍受保护。
+  ignoreDeadLinks: [
+    /proposals\//,
+    /experience\/adaptation/,
+    /测试文档/,
+    /%E6%B5%8B%E8%AF%95%E6%96%87%E6%A1%A3/,
+  ],
   lastUpdated: true,
   head: [
     ['script', {}, langDetect],
