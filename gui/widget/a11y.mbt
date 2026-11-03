@@ -148,3 +148,83 @@ pub fn Node::a11y(
     },
   }
 }
+
+// ---- 帧尾对账：语义快照 ----
+//
+// 每帧画完（present 前）把整棵树的语义面重扫一遍，产出一份**快照**，平台臂
+// （NSAccessibility / AT-SPI / UIA）从这份快照推给读屏。快照重扫而不是增量
+// 打补丁：一屏几十个控件量级，重建成本远低于维护「谁删了」；「幽灵控件」
+// （已删控件还被读到）在这条路上根本不会出现。
+//
+// 平台臂的钩子：`a11y_last_frame()` 读快照即可，不需要回调进 MoonBit。
+
+///|
+/// 一个控件的语义快照（矩形是窗口坐标，读屏拿去做屏上高亮框）。
+pub(all) struct A11yNode {
+  id : Int
+  parent : Int
+  role : String
+  name : String
+  /// 状态串（如 "checked" / "password" / "read_only"），空串 = 无
+  state : String
+  /// 值串（如 "50%"，复选框为空）
+  value : String
+  /// 朗读正文（`a11y_text` 现算，回落 `label`）
+  text : String
+  enabled : Bool
+  x : Double
+  y : Double
+  w : Double
+  h : Double
+}
+
+///|
+/// 最近一帧的语义快照（平台臂 / 用例读；未跑过对账时为空数组）。
+let g_a11y_last : Ref[Array[A11yNode]] = Ref([])
+
+///|
+fn a11y_walk(w : Widget, parent : Int, out : Array[A11yNode]) -> Unit {
+  if !w.visible {
+    return
+  }
+  let (state, value) = match w.a11y_state_now() {
+    Some(p) => p
+    None => ("", "")
+  }
+  out.push({
+    id: w.id,
+    parent,
+    role: w.role,
+    name: w.name,
+    state,
+    value,
+    text: match w.a11y_text_now() {
+      Some(s) => s
+      None => ""
+    },
+    enabled: w.enabled,
+    x: w.rect.x,
+    y: w.rect.y,
+    w: w.rect.w,
+    h: w.rect.h,
+  })
+  for k in w.kids {
+    a11y_walk(k, w.id, out)
+  }
+}
+
+///|
+/// 帧尾对账：重扫整棵树的语义面，替换上一帧快照并返回控件数。
+/// 排在上屏（present）之前——推给读屏的矩形必须是这一帧的。
+pub fn a11y_frame_sync(root : Widget) -> Int {
+  let out : Array[A11yNode] = []
+  a11y_walk(root, 0, out)
+  g_a11y_last.val = out
+  out.length()
+}
+
+///|
+/// 读最近一帧快照（平台臂与用例的观察面；返回的是同一份引用，别改它）。
+pub fn a11y_last_frame() -> Array[A11yNode] {
+  g_a11y_last.val
+}

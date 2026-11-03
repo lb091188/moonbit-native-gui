@@ -1097,6 +1097,8 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   // 并集读回混合），present 读到的才是完整帧
   @text.flush_pending()
   p.end()
+  // 帧尾语义对账：重扫整树快照，排在上屏前（读屏拿到的矩形必须是这一帧的）
+  let _ = a11y_frame_sync(self.root)
   let t2 = @win.now_ms()
   self.session.window.present(bm.data, bm.width, bm.height)
   let t3 = @win.now_ms()

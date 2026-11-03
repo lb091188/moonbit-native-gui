@@ -83,3 +83,45 @@ test "a11y：Node::a11y 包装器挂上两个回调" {
   let w2 = (n2.mount)(root)
   assert_eq(w2.a11y_text_now(), Some("兜底"))
 }
+
+///|
+test "语义快照：帧尾对账产出角色/状态/文本，删控件不留幽灵" {
+  let root = Widget::new()
+  let btn = Widget::new()
+  btn.role = "button"
+  btn.label = "确定"
+  let box = Widget::new()
+  box.role = "checkbox"
+  box.enabled = false
+  box.a11y_state = Some(fn(_w : Widget) -> (String, String)? { Some(("checked", "")) })
+  box.a11y_text = Some(fn(_w : Widget) -> String? { Some("记住我") })
+  root.append_child(btn)
+  root.append_child(box)
+  assert_eq(a11y_frame_sync(root), 3)
+  let snap = a11y_last_frame()
+  assert_eq(snap.length(), 3)
+  // 根在最前、父子关系对得上
+  assert_eq(snap[0].id, root.id)
+  assert_eq(snap[0].parent, 0)
+  assert_eq(snap[1].role, "button")
+  assert_eq(snap[1].parent, root.id)
+  assert_eq(snap[1].text, "确定")
+  assert_true(snap[1].enabled)
+  assert_eq(snap[2].state, "checked")
+  assert_true(!snap[2].enabled)
+  // 删掉一个控件再对账：快照里不留幽灵
+  let _ = root.remove_child(box)
+  assert_eq(a11y_frame_sync(root), 2)
+  let snap2 = a11y_last_frame()
+  assert_eq(snap2.length(), 2)
+  let mut ghost = false
+  for n in snap2 {
+    if n.id == box.id {
+      ghost = true
+    }
+  }
+  assert_true(!ghost, msg="已删控件仍留在语义快照里")
+  // 不可见整棵子树都不进快照
+  btn.visible = false
+  assert_eq(a11y_frame_sync(root), 1)
+}
