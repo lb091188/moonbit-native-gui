@@ -304,11 +304,11 @@ pub fn measure_font(
 }
 
 ///|
-/// 行数钳制：整段放不进 max_lines 行时，二分「第 max_lines 行内连省略号
+/// 行数钳制（对外可复用的同一把刀）：整段放不进 max_lines 行时，二分「第 max_lines 行内连省略号
 /// 一起放得下的最长码点前缀」，补 … 返回；放得下原样返回。行高取后端
 /// 对单字布局的实际行盒高（不取 K 地板行高——C 侧折行布局用的是自然行高，
 /// 两个口径混着比会把 N 行限成 N+1 行）。
-fn clamp_lines(
+pub fn clamp_lines(
   text : String,
   font : Font,
   max_width : Int,

@@ -149,13 +149,18 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
     @shared.section(
       "文字链接",
       "Label 与 Link",
-      "五级字阶预设（class=@style.text_*），字号字重颜色走主题字阶令牌，正文为缺省档不挂；Link 主题色文字悬停下划线，最近点击信号回显。",
+      "五级字阶预设（class=@style.text_*），字号字重颜色走主题字阶令牌，正文为缺省档不挂；Link 主题色文字悬停下划线，最近点击信号回显；`selectable=true` 的文本可用鼠标选中复制（只读、不进 Tab 链）。",
       [
         @ui.text(@shared.tx("标题文字（Title）"), class=[@style.text_heading]),
         @ui.text(@shared.tx("小节标题（Section）"), class=[@style.text_title]),
         @ui.text(@shared.tx("正文文字（Body）")),
         @ui.text(@shared.tx("辅助文字（Secondary）"), class=[@style.text_secondary]),
         @ui.text(@shared.tx("强调文字（Accent）"), class=[@style.text_accent]),
+        @ui.text(
+          @shared.tx("选中试试：拖选这一行、双击选词、Shift+点击扩选，然后按 Ctrl/Cmd+C。"),
+          selectable=true,
+          class=[@style.text_secondary],
+        ),
         @ui.row(
           [
             @ui.link(@shared.tx("打开文档"), fn() { app.picked_lang.set("docs") }),
@@ -173,6 +178,8 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
         "@ui.text(\"辅助文字\", class=[@style.text_secondary])",
         "@ui.text(\"强调文字\", class=[@style.text_accent])",
         "@ui.link(\"打开文档\", fn() { app.picked_lang.set(\"docs\") })",
+        "// 可选中复制的静态文本（只读）",
+        "@ui.text(\"……\", selectable=true)",
       ],
     ),
     @shared.section(

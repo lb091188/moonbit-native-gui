@@ -895,6 +895,9 @@ fn App::route(self : App, ev : @win.InputEvent) -> Unit {
             None => self.schedule_paint()
           }
         }
+      } else if self.fire_selection_copy(kev) {
+        // 静态文本的选区复制：受影响的是那件自己（它自己置脏）
+        self.schedule_paint()
       } else if self.fire_key_fallthrough(kev) {
         // 兜底通道吃掉了这条键：受影响的是处理器自己的子树（组件自己置脏），
         // 宿主不知道范围，整窗兜一帧
@@ -902,6 +905,23 @@ fn App::route(self : App, ev : @win.InputEvent) -> Unit {
       }
     }
   }
+}
+
+///|
+/// 静态文本选区的复制支：展示件不可聚焦（`focus_id=0`，不进 Tab 链），按键到不了
+/// 它们，所以宿主在兜底通道之前问一句「这一刻有没有谁正持有选区」，有且是按下的
+/// primary+C 就让它执行复制。焦点在输入框且它自己有选区时，上一条 `consumed`
+/// 已经吃掉这条键（既定口径：那时行为=复制焦点件）。
+fn App::fire_selection_copy(_self : App, kev : KeyEvent) -> Bool {
+  let primary = if @shell.platform_is_macos() {
+    (kev.mods & MOD_META) != 0
+  } else {
+    (kev.mods & MOD_CTRL) != 0
+  }
+  if !primary || kev.keysym != 'c'.to_int() {
+    return false
+  }
+  text_sel_copy()
 }
 
 ///|

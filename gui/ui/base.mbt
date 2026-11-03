@@ -217,26 +217,41 @@ fn draw_text_in(w : @widget.Widget, p : @render.Painter, src : TextSource) -> Bo
     wrap=wrap1,
     max_lines=src.max_lines,
   )
+  draw_text_deco(p, w, src, font1, box_w, fg1, align1, deco)
+  drew
+}
+
+///|
+/// 装饰线（下划线 / 删除线 / 上划线）绘制：按测量宽自绘——文本层的 range 属性
+/// 只有 font+color，没有装饰线接口，与 `link` 的悬停下划线同一手法；单行档精确，
+/// 折行档只落最后一行。缺省档与 selectable 档共用这一份（两档不能画出不一样）。
+fn draw_text_deco(
+  p : @render.Painter,
+  w : @widget.Widget,
+  src : TextSource,
+  font : @text.Font,
+  box_w : Double,
+  color : String,
+  align : @text.TextAlign,
+  deco : @style.TextDecoration,
+) -> Unit {
   let has_line = match deco {
     @style.Underline | @style.LineThrough | @style.Overline => true
     _ => false
   }
-  let need_line = has_line && src.text.length() > 0
-  if need_line {
-    // 装饰线按测量宽自绘（文本层的 range 属性只有 font+color，没有装饰线接口，
-    // 与 `link` 的悬停下划线同一手法）：单行档精确，折行档只落最后一行
-    let y_of = fn(_top : Double, baseline : Double, th : Double) -> Double {
-      match deco {
-        @style.TextDecoration::Underline => baseline + 1.5
-        // 删除线穿 x-height 中部（CSS 口径约为基线上方 0.3×行盒高）
-        @style.TextDecoration::LineThrough => baseline - 0.30 * th
-        @style.TextDecoration::Overline => 0.5
-        @style.TextDecoration::DecoNone => 0.0
-      }
-    }
-    draw_deco_line(p, w, src, font1, box_w, fg1, align1, y_of)
+  if !(has_line && src.text.length() > 0) {
+    return ()
   }
-  drew
+  let y_of = fn(_top : Double, baseline : Double, th : Double) -> Double {
+    match deco {
+      @style.TextDecoration::Underline => baseline + 1.5
+      // 删除线穿 x-height 中部（CSS 口径约为基线上方 0.3×行盒高）
+      @style.TextDecoration::LineThrough => baseline - 0.30 * th
+      @style.TextDecoration::Overline => 0.5
+      @style.TextDecoration::DecoNone => 0.0
+    }
+  }
+  draw_deco_line(p, w, src, font, box_w, color, align, y_of)
 }
 
 ///|
@@ -298,7 +313,11 @@ pub fn watch_theme() -> Unit {
 pub fn relabel(w : @widget.Widget, src : TextSource, text : String) -> Unit {
   src.text = text
   w.label = text
-  attach_text_measure(w, src)
+  match sel_hooks.val.get(w.id) {
+    // selectable 档：本档自己按行模型标脏，并让出选区持有（见 textsel.mbt）
+    Some(f) => f()
+    None => attach_text_measure(w, src)
+  }
   @widget.invalidate()
 }
 

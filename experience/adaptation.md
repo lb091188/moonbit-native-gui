@@ -3591,3 +3591,13 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **Linux（cairo 腿）读数**：① 树不变的连续 20 帧 relayout = **0ms、`measure=0`**——yoga 的 `measure_content` 只在内容真变时才被问，**「再加一层布局缓存」没有可省的开销**，不立项；② 每帧改一段动态文本：15/60/240 行的 `measure` ≈ 1460/5060/19460（命中率 90%+），单帧仍 0.1–0.45ms——失效重测本身很便宜；③ 整页绘制成本随规模线性（0.5/1.2/3.5 ms/帧，每行约 81 个控件）；④ **脏矩形裁剪在 cairo 腿几乎不省**（clip 到 60px 高的窄条：240 行 3.45→3.3ms，`skip` 恒 0）——视口剔除只在纯光栅后端判交（`widget_cull_skip` 的既定口径），所以这不是「局部重绘没用」，而是**这条腿量不到**。
 **判读纪律**：跨后端的能力不能用一条腿的读数立项——`paint_clip` 的收益要 Windows/macOS 跑同一支探针看 `skip` 是否真把控件挡在遍历外；那两条腿的差值才是「图表/整页增量重绘」立不立项的依据。探针里 `ledger=frames=0 layout=0ms` 是常态（无头不走 `App::paint_frame`，分段 ms 归真机 `SHOWCASE-PROF` 那本账），别当故障。
 **验证**：`moon build frame_cost_probe` 绿；`moon test src`（yoga）108/108；库门禁 `moon test base shell widget ui render text theme icons sys input win dbus chart mdview style router` 与 `--deny-warn` 同批跑过（计数常开不进断言，读数随平台而变，钉死会假红）。
+
+## 静态文本 selectable 档：缺省档「一行不动」怎么做到，以及选中几何同源的两处取舍（2026-11-03）
+
+**做法**：`text`/`text_dyn` 各加一个 `selectable? : Bool = false`，内核 `text_node_of` 多一个参数，在挂载闭包里**二选一**——`if selectable { sel_setup(w, src) + 本档 on_draw } else { attach_text_measure + draw_text_in }`。并列新函数（`attach_sel_measure` / `draw_sel_text` 在 `gui/ui/textsel.mbt`），不改原函数体、不包一层：缺省档在物理上没有新路径可走样。装饰线两边共用抽出的 `draw_text_deco`（否则两档画不出同一条线）。
+**选中几何同源**：`sel_layout` 一份 TextLayout 同时供测量（内容宽=最宽行、高=行数×行高、min-content 探询按 1px 箱折）、绘制（逐行 `draw_at` + `rects` 填色）与命中（`hit`）。居中偏移折算进 `offset_y = pad - top`——TextLayout 只有一个 `pad`（textarea 的四周内边距语义），横向块偏移占它，纵向就靠 offset 补偿，别再往结构里加第二个 pad。
+**两处定案外的取舍**：① 折行块内不逐行对齐（整块随 `text_align` 偏移、各行贴块左缘）——`hit`/`caret_x` 的换算是「行首 + 段宽」，逐行不同起点要动结构，本批不值；② `max_lines`/省略调 `@text.clamp_lines`（从包内升 pub）——与缺省档同一把刀，代价是**选中范围=可见范围**（被截掉的行选不到），这正好也是想要的语义。
+**动态文本的钩子点**：`relabel` 是 `text_dyn`/`bind`/`bind_label` 唯一的变化口，按控件 id 查 `sel_hooks`：注册过就走本档收尾（重设测量标脏 + `Editor::set_text` 清选区 + 让出持有），没注册走原路 `attach_text_measure`。收尾闭包只捕 `@yoga.Node` 与 id，**不捕 Widget**（回调禁捕铁律；`mark_changed` 不对外，重设 measure 就是标脏的既定手法）。摘除经 `on_discard` 把 id 从两份表里删掉，不留死登记。
+**宿主复制支的位置**：`App::fire_selection_copy` 插在「焦点链吃掉」之后、`fire_key_fallthrough` 之前——于是「焦点在输入框且它有选区时 Ctrl+C 复制焦点件」这条已知限制自动成立，不用额外判定。primary 按平台取 Cmd/Ctrl（`@shell.platform_is_macos()`），与编辑内核同一式。
+**用例的位置**：无头投递 `dispatch_pointer` 按矩形命中派发，**落点必须留在件内**（拖到框外的 Move 在测试里不会送到这件——真机靠按下捕获才不丢）；行中点取 `w.rect.y + w.rect.h / 2.0`，写死 +10/+20 会打到单行标签之外，整条用例静默空转后在后面的断言上炸。
+**验证**：`moon check --deny-warn` 干净；`moon test base shell widget ui render text theme icons sys input win dbus chart mdview style router` 1236/1236（新增 ui 4 条：四种指针交互与复制、跨件互斥、文本变化清选区、缺省档零变化）。真机清单进 `测试文档/测试用例.md` SC-1.7（剪贴板互通、I 梁出没、手感和高亮可辨归用户）。

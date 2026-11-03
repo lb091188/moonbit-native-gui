@@ -275,6 +275,7 @@ fn text_node_of(
   anon : @style.Style,
   class : Array[@style.Style],
   handle : (@widget.Widget) -> Unit,
+  selectable : Bool,
 ) -> @widget.Node {
   let fs = match font_size {
     Some(v) => v
@@ -329,14 +330,26 @@ fn text_node_of(
     if !wrap {
       w.node.set_min_width(@yoga.fixed(0.0))
     }
-    attach_text_measure(w, src)
-    w.on_draw = Some(fn(
-      self : @widget.Widget,
-      p : @render.Painter,
-      _r : @base.Rect,
-    ) -> Unit {
-      let _ = draw_text_in(self, p, src)
-    })
+    if selectable {
+      // 可选中档：几何与绘制同源切 TextLayout（缺省档一行不走这里）
+      let st = sel_setup(w, src)
+      w.on_draw = Some(fn(
+        self : @widget.Widget,
+        p : @render.Painter,
+        _r : @base.Rect,
+      ) -> Unit {
+        draw_sel_text(self, p, src, st)
+      })
+    } else {
+      attach_text_measure(w, src)
+      w.on_draw = Some(fn(
+        self : @widget.Widget,
+        p : @render.Painter,
+        _r : @base.Rect,
+      ) -> Unit {
+        let _ = draw_text_in(self, p, src)
+      })
+    }
     let sid = sig.subscribe(fn(v : String) -> Unit { relabel(w, src, v) })
     @base.sub_bag_register(fn() { sig.remove(sid) })
     handle(w)
@@ -361,6 +374,9 @@ pub fn text_dyn(
   wrap? : Bool = true,
   ellipsis? : Bool = false,
   max_lines? : Int = 0,
+  /// 让这段文本可选中复制（只读：单击定位、双击选词、拖选、Shift+点击、
+  /// Ctrl/Cmd+C 与右键复制；不可聚焦、不进 Tab 链）。
+  selectable? : Bool = false,
   anon? : @style.Style = @style.empty_style(),
   class? : Array[@style.Style] = [],
   handle? : (@widget.Widget) -> Unit = default_handle,
@@ -379,6 +395,7 @@ pub fn text_dyn(
     anon,
     class,
     handle,
+    selectable,
   )
 }
 
@@ -410,6 +427,9 @@ pub fn text(
   ellipsis? : Bool = false,
   /// 限制最多显示行数，0 = 不限。
   max_lines? : Int = 0,
+  /// 让这段文本可选中复制（只读：单击定位、双击选词、拖选、Shift+点击、
+  /// Ctrl/Cmd+C 与右键复制；不可聚焦、不进 Tab 链）。
+  selectable? : Bool = false,
   /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
   class? : Array[@style.Style] = [],
   /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
@@ -429,6 +449,7 @@ pub fn text(
     @style.empty_style(),
     class,
     handle,
+    selectable,
   )
 }
 

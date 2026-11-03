@@ -57,7 +57,7 @@
 
 ## 文本与基础
 
-### `text(content, font_size?=13.0, color?, weight?, family?, align?, max_width?, wrap?=true, ellipsis?, max_lines?=0, class?, handle?)`
+### `text(content, font_size?=13.0, color?, weight?, family?, align?, max_width?, wrap?=true, ellipsis?, max_lines?=0, selectable?=false, class?, handle?)`
 
 - 文本，`label` 与 `label_t` 合并：尺寸来自 Pango 测量并进布局引擎，可参与基线对齐
 - `wrap`：缺省 `true`（块级段落）；单行标签显式 `wrap=false`——行内挤不过兄弟件时收缩、末端出 …
@@ -65,8 +65,9 @@
 - `ellipsis`：溢出补省略号
 - `max_lines`：`wrap` 时限制行数，超过第 N 行截断、行末补 …（`0` = 不限）
 - 排版档走 `class`（`@style.text_heading` 等字阶预设）
+- `selectable`：打开后这段静态文本**可用鼠标选中并复制**——单击定位、双击选词、拖选、Shift+点击扩选，`Ctrl/Cmd+C` 或右键菜单复制。它是只读的：不可聚焦、不进 Tab 链（可选中文本海量，全进 Tab 环绕键盘就废了），所以按键由宿主在「当前谁持有选区」上兜住。已知边界：折行块内不逐行对齐（整块随 `align` 偏移）；选中期间文本或盒宽变了就清选区；行数钳制与省略与缺省档同源，选中范围=可见范围
 
-### `text_dyn(sig : Signal[String], font_size?, color?, …, wrap?=true, class?, handle?)`
+### `text_dyn(sig : Signal[String], font_size?, color?, …, wrap?=true, selectable?=false, class?, handle?)`
 
 - 随信号更新的文本：值变化就地改字、只重算该条链路
 - `sig`：字符串信号源；其余参数同 `text`
