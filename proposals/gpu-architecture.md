@@ -153,3 +153,8 @@ mac arm64 runner 有 Apple GPU 但 MPS 虚拟化受限、wgpu-Metal 能否出帧
 pin v29.0.1.1【实测：wgpu-mbt 版本口】；许可归档核对随骨架批做（下载源、sha256、双镜像与 `LICENSE.md` 落 `docs/THIRD-PARTY-NOTICES.md`）。
 
 架构决策与实测依据见 [roadmap.md](../docs/zh/roadmap.md)「GPU 合成与 3D 路径」小节。
+## L1/L2 实现批的本机预实证（2026-11-04，为下一批 de-risk）
+
+- **wgpu-native v29.0.1.1 运行期装载在本机（lavapipe/Vulkan）完全可用**：C 原型 dlopen `libwgpu_native.so` → `wgpuCreateInstance` → `wgpuInstanceRequestAdapter`（`WGPUBackendType_Vulkan`）拿到 adapter（status=1 Success）；`wgpuDeviceCreateTexture` + `wgpuQueueWriteTexture` + `wgpuCommandEncoderCopyTextureToBuffer` 一条离屏管线走得通（设备/纹理/上传/拷贝四步实测）。**离屏渲染 + 回读可作无头判据**（不需要显示服务器）——CI 二档（xvfb）之外，本机无头即可验「设备+纹理+绘制+回读」。
+- **v29 是 future 风格 API**：`wgpuAdapterRequestDevice` 返回 `WGPUFuture`，设备经回调给出（`WGPURequestAdapterCallbackInfo` + `WGPUCallbackMode_AllowSpontaneous`）——C 侧要按「回调 + 自发模式」写，不能当同步函数用；surface 的 `wgpuSurfaceGetCurrentTexture` / present 同代。L1 的 wm_present 臂要按这个形态取 current texture。
+- **落地边界复述**：L1 的 wgpu 代码住 `gui/win` 桩（wm_present 是内部改造、对外 API 零变化；主包不依赖 gui-gpu 的家规不变），gui-gpu 模块仍是「探测 + 应用侧 GpuContext」的位次；surface 走 `WGPUSurfaceSourceXlibWindow{display, window}`（XID 取点 `gdk_x11_window_get_xid` 已在桩内），present 与 cairo 贴像素二选一（挂上 GPU 就停 cairo 臂，否则两路互相覆盖——adaptation.md 已记的坑）。

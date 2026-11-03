@@ -45,7 +45,7 @@
 ## GPU 与媒体硬解（2026-11-03 定案，模块形态/融合模型/分批见 [proposals/gpu-architecture.md](proposals/gpu-architecture.md)；硬解独立先行与 GPU 线并行、互不绑定，做完一项删一项并同步路线图）
 
 - [ ] **第一步·X11 wgpu 三角形验收**（真机肉眼，方案既定第一步；验收判据落本批提交）
-- [ ] **L1-Linux present 纹理合成**：wm_present GTK X11 臂走「Bitmap 上传纹理 → 全屏 quad → swapchain」；fallback 探测粒度与 Wayland 会话臂随后
+- [ ] **L1-Linux present 纹理合成**：wm_present GTK X11 臂走「Bitmap 上传纹理 → 全屏 quad → swapchain」（本机预实证已做：wgpu v29 dlopen + adapter + 离屏纹理/上传/拷贝管线在 lavapipe 下全通、可无头回读；v29 是 future 风格 API，设备经回调取——实现细节见 proposals/gpu-architecture.md「L1/L2 实现批的本机预实证」）；surface/present 与 fallback 探测粒度待实现，真机肉眼验收归用户
 - [ ] **L1-Win / L1-mac**：D3D12 swapchain 挂 HWND / CAMetalLayer 挂 NSView，与现有 blit 的切换与回退（回退后逐像素一致）
-- [ ] **首消费者**：视频直纹理接口位（仅接口不实现导入）；GPU 内容画布 demo 页（赛季验收面）
+- [ ] **首消费者**：视频直纹理接口位（仅接口不实现导入；@ffmpeg-mbt 侧 transfer 策略位已留）；GPU 内容画布 demo 页（赛季验收面）——依赖 L1 present 路径落地，当前无 GpuSink 实现（gui-gpu 只有 probe），demo 留到 L1 之后不建空心示例
 - [ ] **硬解探针**（Linux 腿已跑通到「真解一帧」：`open_video_decoder(hw=true)` 走 VAAPI + transfer，首帧与软解逐字节一致，`hw_status=1`；`experiment/hwdecode_probe` 逐设备 open/frames/transfer 读数进方案 §四，设备建得起来≠能用、transfer 全空两条坑已记；Win/mac 两腿待跑）：三平台 hw_device_ctx 能建（VideoToolbox / D3D11VA / VAAPI）+ 归档实物核验（Linux 发行版 ffmpeg 的 `ffmpeg -hwaccels`、Windows BtbN lgpl 归档已命中 `av_d3d11va_alloc_context`、mac 归档脚本从初立就带 `--enable-videotoolbox`——旧判「重做评估」已过期，只剩 `otool -L` 验实物与 LICENSE.txt 口径修正）；未决见 proposals/media-hwdecode.md §六 spike
