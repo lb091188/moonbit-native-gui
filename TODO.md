@@ -60,3 +60,16 @@
 - [ ] **P1 portal 骨架 + 全局快捷键 + 空闲检测**：gui/dbus portal 客户端通用层（Request/Response 异步握手）；GlobalShortcuts「绑定+信号回调」门面形态；空闲 GNOME IdleMonitor 精确档 + ext-idle-notify 近似档
 - [ ] **P2 夜灯逐 DE + 显示器枚举**：KDE ColorCorrect/NightLight（S6 定版本分界）、GNOME gsettings 配置口、wlroots wlr-gamma-control 裸 gamma；显示器 mutter DisplayConfig（锁版本）+ wlr-output-management（KDE 通道 S7 定）；首个 Wayland 协议客户端地基（libwayland vs 自写 wire）单独评
 - [ ] **P3 剪贴板监视协议化 + wlroots 窗口管理**：wlr-data-control + ext-data-control-v1 双协议（Plasma 6.5 迁移坑）；窗口管理仅 wlroots 系（wlr-foreign-toplevel）；GNOME/KDE 窗口管理与层级族按「无通道」出文档；同批更新 roadmap 会话表与 DE 实测矩阵
+
+## GPU 与媒体硬解（2026-11-03 定案，模块形态/融合模型/分批见 [proposals/gpu-architecture.md](proposals/gpu-architecture.md)；硬解独立先行与 GPU 线并行、互不绑定，做完一项删一项并同步路线图）
+
+- [ ] **gui-gpu 模块骨架**：modules/gui-gpu 照 gui-media 模子（prebuild 下载 wgpu-native 归档 sha256+双镜像、dlopen 探测、下载失败空 link_configs 降级）；wgpu-mbt pin 版本与许可归档核验
+- [ ] **第一步·X11 wgpu 三角形验收**（真机肉眼，方案既定第一步；验收判据落本批提交）
+- [ ] **L1-Linux present 纹理合成**：wm_present GTK X11 臂走「Bitmap 上传纹理 → 全屏 quad → swapchain」；fallback 探测粒度与 Wayland 会话臂随后
+- [ ] **L1-Win / L1-mac**：D3D12 swapchain 挂 HWND / CAMetalLayer 挂 NSView，与现有 blit 的切换与回退（回退后逐像素一致）
+- [ ] **L2 协议**：RenderCtx::Gpu(GpuContext) 最小接口面（够视频 quad 与简单图形）+ paint_walk 混排合成次序（rect/clip/opacity 随合成传）
+- [ ] **首消费者**：视频直纹理接口位（仅接口不实现导入）；GPU 内容画布 demo 页（赛季验收面）
+- [ ] **硬解探针**：三平台 hw_device_ctx 能建（VideoToolbox / D3D11VA / VAAPI）+ vendor 归档 hwaccel flags 核验（mac `--enable-videotoolbox` 重做评估，系统框架无闭包 LGPL 干净；VAAPI 依赖发行版 ffmpeg，NVIDIA 专有驱动边界如实记档）
+- [ ] **硬解实现**：ffmpeg_stub.c 挂 hw_device_ctx + hw frame 经 transfer_data 下传现有 CPU 帧链路 + 驱动缺/格式不支持回落软解；无头 wbtest 钉解码正确性与像素格式
+- [ ] **帧输出抽象**：transfer 收敛为策略位——将来 GPU 落地切直纹理只动输出端一行，解码端零改动
+- [ ] **待补（子智能体调研配额未跑，恢复后补进方案）**：GPU 侧——逐平台 surface/present 改造点、探测粒度、GTK 窗与 wgpu surface 生命周期、CI 无 GPU runner 档位；硬解侧——三平台 hwaccel 接口面细节、回落层落点、media-hwdecode.md 成文

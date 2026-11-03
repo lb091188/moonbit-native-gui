@@ -275,8 +275,8 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ### 渲染
 
-- ⏳ **GPU 合成（可选后端）**：WebGPU 独立模块，present 走纹理上传 + quad；三级 fallback
-- ⏳ **控件级 GPU 绘制**：shader / vertex buffer 画控件路径，省掉 CPU 回读
+- 🚧 **GPU 合成（可选后端）**（2026-11-03 定案排期，模块形态与融合模型见 [proposals/gpu-architecture.md](proposals/gpu-architecture.md)）：`modules/gui-gpu` 独立模块（主包不依赖——包级不引不背、构建级 prebuild 下载失败降级、运行级 dlopen + adapter 探测回退 Cairo/Pure），present 走纹理上传 + 全屏 quad；三级 fallback
+- 🚧 **控件级 GPU 绘制**（同一方案定案）：`RenderCtx::Gpu(GpuContext)` 变体（口子已留），GPU 控件渲到各自纹理、与 CPU 控件纹理按控件树叠合成（融合模型见方案）；首批消费者=视频直纹理接口位 + GPU 内容画布
 - ⏳ **性能治理（先量化再立项，2026-11-03 核查改写）**：已落地零散件——局部置脏（按窗标脏区）、分段帧账本（LAYOUT-FRAME 读数）、组件级布局缓存（textarea 折行 / 图表布局 / 文字 C 侧）；缺的是系统性——先做性能基线探针（experiment/ 独立模块：帧耗时分段 + 每帧重绘范围 + 布局重算次数三组读数），有数据再定 yoga 布局缓存与图表增量重绘立不立项
 - ⏳ **终端模拟**：等宽网格 + ANSI 颜色 + 光标，做成可嵌入的终端控件
 - ⏳ **GPU 内容画布**（2026-11-03 由「WebGL 画布」改写归并——桌面原生语境无 WebGL，不按 Web 语境平移）：GPU 上下文嵌进界面，走 gpu-architecture 的 `RenderCtx::Gpu`（Layer 2 第三步），3D/场景图归未来 gui-3d 独立模块
@@ -300,7 +300,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ### 媒体
 
-- ⏳ **硬解与 GPU 合成**：解码输出直达纹理，省掉 CPU 回读
+- 🚧 **硬解与 GPU 合成**（2026-11-03 定案拆两线，互不绑定）：**硬解独立先行**——ffmpeg hwaccel 三平台（mac VideoToolbox / Windows D3D11VA / Linux VAAPI），输出仍走现有 CPU 帧链路（解码端大头先兑现），驱动缺/格式不支持回落软解，探针先核 vendor 归档 hwaccel flags（mac 归档 `--enable-videotoolbox` 评估重做）；**直纹理零拷贝**归 GPU 线 GpuContext 接口位（只留口不排期）。方案细节立项调研后落 proposals/media-hwdecode.md
 
 ### 模块化
 
