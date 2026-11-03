@@ -222,3 +222,105 @@ test "code_view 宽跟随容器，代码比容器宽时才溢出横滚" {
     msg="长行没撑出视口，canvas=\{canvas_l.rect.w} vp=\{vp_l.rect.w}",
   )
 }
+
+///|
+/// 挂一件 code_view 并用 handle 抓住画布控件（它住在自带横滚视口里面）。
+fn mount_code(
+  lines : Array[String],
+  selectable~ : Bool,
+  line_numbers~ : Bool = true,
+) -> (@widget.Widget, @widget.Widget) {
+  let held = Ref(None)
+  let n = code_view(
+    lines,
+    lang="moonbit",
+    line_numbers=line_numbers,
+    selectable=selectable,
+    handle=fn(w : @widget.Widget) -> Unit { held.val = Some(w) },
+  )
+  let root = mount_root([n], 360.0, 160.0)
+  (root, held.val.unwrap_or(@widget.Widget::new()))
+}
+
+///|
+/// 第 row 行的中线（画布纵排：内容高 = 行数 × 行高 + 14 上下内缩）。
+fn row_y(w : @widget.Widget, rows : Int, row : Int) -> Double {
+  let line_h = (w.rect.h - 28.0) / rows.to_double()
+  w.rect.y + 14.0 + (row.to_double() + 0.5) * line_h
+}
+
+///|
+test "code_view selectable：单击定位、双击选词、行号列不进选区" {
+  if !ui_text_guard() {
+    return
+  }
+  use_system_clipboard(false)
+  let (root, w) = mount_code(["fn main() {", "  let x = 1", "}"], selectable=true)
+  let st = match sel_states.val.get(w.id) {
+    Some(s) => s
+    None => abort("code_view 没装起来")
+  }
+  assert_eq(st.ed.get_text(), "fn main() {\n  let x = 1\n}")
+  // 点在文本左缘之外（行号列那一侧）：列归 0——行号列压根不在选区参照系里
+  sel_click(root, w.rect.x + 1.0, row_y(w, 3, 0))
+  assert_eq(st.ed.caret_pos(), 0)
+  assert_true(st.ed.selection() is None)
+  // 换到别处单击（离上次 >4px，不算双击）：caret 落进第一行行内
+  sel_click(root, w.rect.x + 60.0, row_y(w, 3, 0))
+  assert_true(st.ed.caret_pos() > 0)
+  assert_true(st.ed.selection() is None)
+  // 原地再来一次（400ms + 4px 内）= 双击：整词选中，边界落码点起点
+  sel_click(root, w.rect.x + 60.0, row_y(w, 3, 0))
+  match st.ed.selection() {
+    Some((a, b)) => {
+      assert_true(b > a)
+      assert_eq(a, st.ed.floor_boundary(a))
+      assert_eq(st.ed.get_text_in_range(a, b), "fn")
+    }
+    None => abort("双击没选成词")
+  }
+  assert_eq(@widget.text_sel_owner(), w.id)
+  use_system_clipboard(true)
+}
+
+///|
+test "code_view selectable：拖选跨行、复制按行拼换行" {
+  if !ui_text_guard() {
+    return
+  }
+  use_system_clipboard(false)
+  let (root, w) = mount_code(["fn main() {", "  let x = 1", "}"], selectable=true)
+  let st = match sel_states.val.get(w.id) {
+    Some(s) => s
+    None => abort("code_view 没装起来")
+  }
+  // 第一行行首起拖 → 第二行 → 第三行行尾
+  sel_down(root, w.rect.x + 1.0, row_y(w, 3, 0))
+  sel_move(root, w.rect.x + 60.0, row_y(w, 3, 1))
+  match st.ed.selection() {
+    Some((a, b)) => {
+      assert_eq(a, 0)
+      assert_true(b > 12 && b < 24)
+    }
+    None => abort("跨行拖选第一段没成选区")
+  }
+  sel_move(root, w.rect.x + 240.0, row_y(w, 3, 2))
+  sel_up(root, w.rect.x + 240.0, row_y(w, 3, 2))
+  match st.ed.selection() {
+    Some((a, b)) => {
+      assert_eq(a, 0)
+      assert_eq(b, st.ed.byte_len())
+      assert_true(@widget.text_sel_copy())
+      assert_eq(st.ed.clip_text(), "fn main() {\n  let x = 1\n}")
+    }
+    None => abort("拖到末行没成整段选区")
+  }
+  use_system_clipboard(true)
+}
+
+///|
+test "code_view 缺省档零变化：没开 selectable 不挂指针、没有选中态" {
+  let (_root, w) = mount_code(["let a = 1"], selectable=false)
+  assert_true(w.on_pointer is None)
+  assert_true(sel_states.val.get(w.id) is None)
+}

@@ -218,91 +218,103 @@ fn draw_sel_text(
 }
 
 ///|
-/// 指针四交互：单击折叠定位、双击选词、按下拖选（出件不丢，靠宿主捕获）、
-/// Shift+点击扩展；右键开内置编辑菜单（can_edit=false·can_copy=true）。
-/// 双击按 textarea 同款手算（400ms + 4px），不挂 `on_double_click`。
-fn attach_sel_pointer(w : @widget.Widget, src : TextSource, st : SelState) -> Unit {
-  w.cursor = @widget.CURSOR_TEXT
-  w.on_pointer = Some(fn(
-    self : @widget.Widget,
-    ev : @widget.PointerEvent,
-  ) -> Bool {
-    match ev.kind {
-      @widget.PointerKind::Down => {
-        if ev.button == 3 {
-          return show_edit_menu(
-            self,
-            ev.x,
-            ev.y,
-            st.ed,
-            can_edit=false,
-            can_copy=true,
-            changed=fn() -> Unit { @widget.invalidate() },
-          )
-        }
-        let lay = sel_layout(self, src)
-        sel_sync(st, lay)
-        let at = lay.hit(ev.x, ev.y)
-        let now = @shell.now_ms()
-        let dbl = (now - st.last_down.val) < 400L && (ev.x - st.last_xy.val.0).abs() < 4.0 && (
-          ev.y - st.last_xy.val.1
-        ).abs() < 4.0
-        st.last_down.val = now
-        st.last_xy.val = (ev.x, ev.y)
-        let shift = (ev.mods & @base.MOD_SHIFT) != 0
-        if shift {
-          let a = st.anchor.val
-          st.ed.select_range(a.min(at), a.max(at))
-          sel_claim(self.id, st)
-        } else if dbl {
-          let (s, e) = word_range(lay.text, at)
-          st.ed.select_range(s, e)
-          st.anchor.val = s
-          sel_claim(self.id, st)
-        } else {
-          st.ed.select_range(at, at)
-          st.anchor.val = at
-          st.dragging.val = true
-          @widget.text_sel_release(self.id)
-        }
-        @widget.invalidate()
-        true
-      }
-      @widget.PointerKind::Move => {
-        if st.dragging.val {
-          let lay = sel_layout(self, src)
-          sel_sync(st, lay)
-          st.ed.select_range(st.anchor.val, lay.hit(ev.x, ev.y))
-          sel_claim(self.id, st)
-          @widget.invalidate()
-        }
-        st.dragging.val
-      }
-      @widget.PointerKind::Up => {
-        st.dragging.val = false
-        false
-      }
-      @widget.PointerKind::Leave => false
-    }
-  })
-}
-
-///|
-/// 装配一件可选中文本：只读 Editor + 测量面 + 指针 + 变化收尾口 + 摘除清理。
-fn sel_setup(w : @widget.Widget, src : TextSource) -> SelState {
-  let ed = @input.Editor::new()
+/// 建一份选中态（只读 Editor 为唯一权威；`ed` 由调用方备好文本）。
+fn sel_new_state(ed : @input.Editor) -> SelState {
   attach_system_clipboard(ed)
-  let st : SelState = {
+  {
     ed,
     dragging: Ref(false),
     anchor: Ref(0),
     last_down: Ref(-1000000L),
     last_xy: Ref((-1000.0, -1000.0)),
   }
+}
+
+///|
+/// 指针四交互的共用链（静态文本与代码视图同一条）：单击折叠定位、双击选词、
+/// 按下拖选（出件不丢靠宿主按下捕获）、Shift+点击扩选；右键开内置编辑菜单
+/// （can_edit=false·can_copy=true）。`hit` 把控件内坐标换成字节偏移，选词参照
+/// 用 Editor 自己的全文。双击按 textarea 同款手算（400ms + 4px），不挂
+/// `on_double_click`。
+fn sel_pointer(
+  w : @widget.Widget,
+  ev : @widget.PointerEvent,
+  st : SelState,
+  hit : (Double, Double) -> Int,
+) -> Bool {
+  match ev.kind {
+    @widget.PointerKind::Down => {
+      if ev.button == 3 {
+        return show_edit_menu(
+          w,
+          ev.x,
+          ev.y,
+          st.ed,
+          can_edit=false,
+          can_copy=true,
+          changed=fn() -> Unit { @widget.invalidate() },
+        )
+      }
+      let at = hit(ev.x, ev.y)
+      let now = @shell.now_ms()
+      let dbl = (now - st.last_down.val) < 400L && (ev.x - st.last_xy.val.0).abs() < 4.0 && (
+        ev.y - st.last_xy.val.1
+      ).abs() < 4.0
+      st.last_down.val = now
+      st.last_xy.val = (ev.x, ev.y)
+      let shift = (ev.mods & @base.MOD_SHIFT) != 0
+      if shift {
+        let a = st.anchor.val
+        st.ed.select_range(a.min(at), a.max(at))
+        sel_claim(w.id, st)
+      } else if dbl {
+        let (s, e) = word_range(st.ed.get_text(), at)
+        st.ed.select_range(s, e)
+        st.anchor.val = s
+        sel_claim(w.id, st)
+      } else {
+        st.ed.select_range(at, at)
+        st.anchor.val = at
+        st.dragging.val = true
+        @widget.text_sel_release(w.id)
+      }
+      @widget.invalidate()
+      true
+    }
+    @widget.PointerKind::Move => {
+      if st.dragging.val {
+        st.ed.select_range(st.anchor.val, hit(ev.x, ev.y))
+        sel_claim(w.id, st)
+        @widget.invalidate()
+      }
+      st.dragging.val
+    }
+    @widget.PointerKind::Up => {
+      st.dragging.val = false
+      false
+    }
+    @widget.PointerKind::Leave => false
+  }
+}
+
+///|
+/// 装配一件可选中文本：只读 Editor + 测量面 + 指针 + 变化收尾口 + 摘除清理。
+fn sel_setup(w : @widget.Widget, src : TextSource) -> SelState {
+  let st = sel_new_state(@input.Editor::new())
   let node = w.node
   let id = w.id
   attach_sel_measure(node, id, src)
-  attach_sel_pointer(w, src, st)
+  w.cursor = @widget.CURSOR_TEXT
+  w.on_pointer = Some(fn(
+    self : @widget.Widget,
+    ev : @widget.PointerEvent,
+  ) -> Bool {
+    sel_pointer(self, ev, st, fn(x : Double, y : Double) -> Int {
+      let lay = sel_layout(self, src)
+      sel_sync(st, lay)
+      lay.hit(x, y)
+    })
+  })
   // 收尾口只捕节点句柄与 id，不捕 Widget（回调禁捕铁律）：重设测量即标脏，
   // 与本档的行模型同一口径
   sel_hooks.val.set(id, fn() -> Unit {

@@ -3601,3 +3601,10 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **宿主复制支的位置**：`App::fire_selection_copy` 插在「焦点链吃掉」之后、`fire_key_fallthrough` 之前——于是「焦点在输入框且它有选区时 Ctrl+C 复制焦点件」这条已知限制自动成立，不用额外判定。primary 按平台取 Cmd/Ctrl（`@shell.platform_is_macos()`），与编辑内核同一式。
 **用例的位置**：无头投递 `dispatch_pointer` 按矩形命中派发，**落点必须留在件内**（拖到框外的 Move 在测试里不会送到这件——真机靠按下捕获才不丢）；行中点取 `w.rect.y + w.rect.h / 2.0`，写死 +10/+20 会打到单行标签之外，整条用例静默空转后在后面的断言上炸。
 **验证**：`moon check --deny-warn` 干净；`moon test base shell widget ui render text theme icons sys input win dbus chart mdview style router` 1236/1236（新增 ui 4 条：四种指针交互与复制、跨件互斥、文本变化清选区、缺省档零变化）。真机清单进 `测试文档/测试用例.md` SC-1.7（剪贴板互通、I 梁出没、手感和高亮可辨归用户）。
+
+## code_view 选中：行几何复用单行 TextLayout，与「无头投递按矩形命中」的两条测试口径（2026-11-03）
+
+**做法**：选区参照系是「各行按 `\n` 拼接的全文」+ `line_off[i]`（第 i 行行首的全局字节号），Editor 就装这份全文——于是复制天然带换行、`Editor::floor_boundary` 天然不劈半字（代码里有中文注释）。每行的命中与高亮用一个**单行 TextLayout**：`build(line, 1000000.0, measure, line_h, pad=text_l, offset_y=text_l)`——`pad` 与 `offset_y` 都取文本左缘（行号列宽 + 16px 内缩），于是 `rects` 的 y 落回 0（行原点由绘制循环加）、`hit` 的定行恒定 0 行、x 直接是「左缘 + 行内前缀宽」。不加第二个 pad 字段，几何半边零改动。
+**行号列结构性不进选区**：它压根不在参照系文本里（`lines` 只装代码行），点在行号那一侧 `x < 左缘` → 列夹到 0 → caret 落该行行首。不需要「排除」逻辑，也就没有「排除漏了一处」的坑。
+**测试口径两条**：① 无头 `dispatch_pointer` 是**按坐标命中路径**投递（`Widget::dispatch_pointer` = `hit_path` + 传播），**视口裁掉的坐标收不到事件**——code_view 的画布住在自带横滚视口里，探针落点必须留在视口内（拖到 `rect.x + rect.w - 2` 会静默不投递，看起来像「拖选坏了」）；真机靠按下捕获不受此限。② 同一位置 400ms 内连点两次就是**双击**（组件手算，与 textarea 同式），所以「先单击再单击别处再单击原处」的用例里，第二次与第三次同点必然触发选词——单击断言要换位置或换实例，否则 `caret` 断言会被选区断言抢先。
+**验证**：`moon test ui` 246/246（新增 3 条：单击定位 + 行号侧落 0、双击选词整词一致、跨行拖选到末行整段复制、缺省档不挂指针）；`moon check --deny-warn` 干净；showcase 第一块代码开 `selectable=true` 供真机复验（SC-6.1 已扩判据）。

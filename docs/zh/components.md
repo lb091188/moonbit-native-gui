@@ -95,12 +95,13 @@
 - 矢量图标：`kind` 为图标枚举；`size` 是盒子边长
 - `color` 空 = 主题正文色，随主题取值
 
-### `code_view(lines : Array[String], lang?="moonbit", font_size?=13.0, line_numbers?=false, handle?)`
+### `code_view(lines : Array[String], lang?="moonbit", font_size?=13.0, line_numbers?=false, selectable?=false, handle?)`
 
-- 代码高亮视图：One Dark 深底、不随主题；词分类着色
+- 代码高亮视图：配色跟主题（深浅各一套角色映射，切深浅/换主色后重绘即随；`code_theme` 显式传参可钉死一套，供截图比对一类刻意场景）；词分类着色
 - `lang`：语言选择，支持 `js` / `ts` / `python` / `rust` / `c` / `go` / `bash` / `sql`，缺省 `moonbit`
 - `line_numbers`：显示行号列
 - 宽度跟随容器（flex 1）：窄代码深底条铺满整行，代码比容器宽时自带横向滚动（调用方不必再包 `scroll_view`），高按行数
+- `selectable`：打开后这段代码可鼠标选中复制——拖选跨行、双击选词、Shift+点击扩选、`Ctrl/Cmd+C` 或右键菜单复制；行号列不进选区，跨行复制按 `\n` 拼；只读、不进 Tab 链
 
 ### `gif(path, width?, height?, looping?=true, running?=true, state?, handle?)`
 

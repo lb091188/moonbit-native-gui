@@ -409,6 +409,9 @@ pub fn code_view(
   lang? : String = "moonbit",
   font_size? : Double = 13.0,
   line_numbers? : Bool = false,
+  /// 让代码可用鼠标选中复制（只读：拖选、双击选词、Shift+点击扩选、
+  /// Ctrl/Cmd+C 与右键复制）；行号列不进选区，跨行复制按 \n 拼。
+  selectable? : Bool = false,
   code_theme? : CodeTheme,
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
@@ -454,6 +457,44 @@ pub fn code_view(
   }
   let content_w = max_line_w + 32.0
   let view_h = line_h * laid.length().to_double() + 28.0
+  // 选区参照系：全文 = 各行按 `\n` 拼接，`line_off[i]` 是第 i 行行首的全局字节号。
+  // 行与行之间的换行字节算在「行外」——高亮不铺它，但跨行复制天然带 \n。
+  let line_off : Array[Int] = []
+  let joined = StringBuilder()
+  let mut acc = 0
+  for i, l in lines {
+    line_off.push(acc)
+    let _ = joined.write_string(l)
+    acc = acc + @utf8.encode(l).length()
+    if i < lines.length() - 1 {
+      let _ = joined.write_string("\n")
+      acc = acc + 1
+    }
+  }
+  // 文本左缘：行号列宽 + 绘制期的 16px 内缩（与 `seg.2 + 16.0` 同一式）
+  let text_l = num_off + 16.0
+  let line_measure = fn(t : String, from : Int, to : Int) -> Double {
+    text_width(byte_slice(t, from, to), font)
+  }
+  // 单行几何：pad 与 offset_y 都取文本左缘，于是 rects 的 y 落回 0（行原点自己加）、
+  // hit 的定行不受纵向影响
+  let one_line_layout = fn(line : String) -> @input.TextLayout {
+    @input.TextLayout::build(
+      line,
+      1000000.0,
+      line_measure,
+      line_h,
+      pad=text_l,
+      offset_y=text_l,
+    )
+  }
+  let st = if selectable {
+    let ed = @input.Editor::new()
+    ed.set_text(joined.to_string())
+    Some(sel_new_state(ed))
+  } else {
+    None
+  }
   let canvas = @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
     // 宽 = max(容器宽, 最长行)：代码行不可折，比容器窄时**铺满容器**（底色条
@@ -461,6 +502,34 @@ pub fn code_view(
     w.node.set_width(@yoga.percent(100.0))
     w.node.set_min_width(@yoga.fixed(content_w))
     w.node.set_height(@yoga.fixed(view_h))
+    match st {
+      Some(state) => {
+        let cid = w.id
+        w.cursor = @widget.CURSOR_TEXT
+        w.on_pointer = Some(fn(
+          self : @widget.Widget,
+          ev : @widget.PointerEvent,
+        ) -> Bool {
+          sel_pointer(self, ev, state, fn(x : Double, y : Double) -> Int {
+            let n = lines.length()
+            if n == 0 {
+              return 0
+            }
+            let row = (
+              (y - 14.0) / line_h
+            ).floor().to_int().clamp(min=0, max=n - 1)
+            let col = one_line_layout(lines[row]).hit(x, line_h * 0.5)
+            state.ed.floor_boundary(line_off[row] + col)
+          })
+        })
+        sel_states.val.set(cid, state)
+        w.on_discard = Some(fn(self : @widget.Widget) -> Unit {
+          let _ = sel_states.val.remove(self.id)
+          @widget.text_sel_release(self.id)
+        })
+      }
+      None => ()
+    }
     w.on_draw = Some(fn(
       _self : @widget.Widget,
       p : @render.Painter,
@@ -477,6 +546,30 @@ pub fn code_view(
         p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
       } else {
         p.fill_rect(0.0, 0.0, r.w, r.h)
+      }
+      match st {
+        Some(state) => {
+          match state.ed.selection() {
+            Some((a, b)) => {
+              let mut yy = 14.0
+              for ri, l in lines {
+                let g = line_off[ri]
+                let gl = g + @utf8.encode(l).length()
+                let lo = a.max(g)
+                let hi = b.min(gl)
+                if hi > lo {
+                  p.set_fill_color(@theme.theme_primary_light())
+                  for rc in one_line_layout(l).rects(lo - g, hi - g) {
+                    p.fill_rect(rc.x, yy + rc.y, rc.w.max(1.0), line_h)
+                  }
+                }
+                yy = yy + line_h
+              }
+            }
+            None => ()
+          }
+        }
+        None => ()
       }
       let mut y = 14.0
       for segs in laid {

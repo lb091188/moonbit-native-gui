@@ -97,7 +97,7 @@ pub fn page_code(_app : @shared.App) -> @widget.Node {
     @shared.section(
       "代码高亮",
       "CodeView 代码高亮",
-      "逐 token 测宽自绘，全平台一致；lang 关键字集（moonbit/js/ts/python/rust/c/go/bash/sql）+ 行号。",
+      "逐 token 测宽自绘，全平台一致；lang 关键字集（moonbit/js/ts/python/rust/c/go/bash/sql）+ 行号；第一块开了 `selectable=true`，可拖选/双击选词后 Ctrl/Cmd+C 复制（行号列不进选区）。",
       [
         @ui.col(
           [
@@ -111,6 +111,7 @@ pub fn page_code(_app : @shared.App) -> @widget.Node {
               ],
               lang="moonbit",
               line_numbers=true,
+              selectable=true,
             ),
             @ui.code_view(
               [
