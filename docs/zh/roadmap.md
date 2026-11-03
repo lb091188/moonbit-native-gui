@@ -287,7 +287,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 - 🚧 **GPU 合成（可选后端）**（2026-11-03 定案排期，模块形态与融合模型见 [proposals/gpu-architecture.md](proposals/gpu-architecture.md)）：`modules/gui-gpu` 独立模块（主包不依赖——包级不引不背、构建级 prebuild 下载失败降级、运行级 dlopen + adapter 探测回退 Cairo/Pure），present 走纹理上传 + 全屏 quad；三级 fallback
 - 🚧 **控件级 GPU 绘制**（同一方案定案）：`RenderCtx::Gpu(GpuContext)` 变体（口子已留），GPU 控件渲到各自纹理、与 CPU 控件纹理按控件树叠合成（融合模型见方案）；首批消费者=视频直纹理接口位 + GPU 内容画布
-- ⏳ **性能治理（先量化再立项，2026-11-03 核查改写）**：已落地零散件——局部置脏（按窗标脏区）、分段帧账本（LAYOUT-FRAME 读数）、组件级布局缓存（textarea 折行 / 图表布局 / 文字 C 侧）；缺的是系统性——先做性能基线探针（experiment/ 独立模块：帧耗时分段 + 每帧重绘范围 + 布局重算次数三组读数），有数据再定 yoga 布局缓存与图表增量重绘立不立项
+- 🚧 **性能治理（量化已落地，按数据定后续）**：已落地零散件——局部置脏（按窗标脏区）、分段帧账本（LAYOUT-FRAME 读数 + `paint_profile_summary` 的 layout/paint/present 三段）、组件级布局缓存（textarea 折行 / 图表布局 / 文字 C 侧）；系统性观测面 `experiment/frame_cost_probe`（无头，一个场景一行 `FRAME-COST`）三组读数——帧耗时分段、每帧重绘范围（画到/剔除的控件数）、布局重算次数（yoga 被问测量与缓存命中）。**首批 Linux 读数给的判据**：树不变的连续 20 帧 relayout `ms=0`、`measure=0`（yoga 只在内容真变时才测）——**「再加一层 yoga 布局缓存」不立项**；单段动态文本每帧改一次，240 行树仍 ≤0.5ms/帧；整页绘制成本随规模线性（15/60/240 行 ≈ 0.5/1.2/3.5 ms/帧），而脏矩形裁剪在 cairo 腿几乎不省（不判交），**增量重绘的收益要等 Windows/macOS 两条腿的同款读数**（纯光栅腿才走视口剔除）
 - ⏳ **GPU 内容画布**（2026-11-03 由「WebGL 画布」改写归并——桌面原生语境无 WebGL，不按 Web 语境平移）：GPU 上下文嵌进界面，走 gpu-architecture 的 `RenderCtx::Gpu`（Layer 2 第三步），3D/场景图归未来 gui-3d 独立模块
 
 ### 代码栈（编辑器与终端）

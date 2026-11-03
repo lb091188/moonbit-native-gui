@@ -3584,3 +3584,10 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 **为什么不能靠工具探测**：`pr_run` 保留 `DISPLAY`/`XAUTHORITY`（`procrun.mbt:198-214`），Wayland 会话里 redshift / xrandr / wmctrl 都起得来、退出码都是 0——「命令存在 + 退出码 0」这条探测线在 Wayland 下**系统性失真**，能力探测必须先问会话再问工具。空闲与全局快捷键早就按同一形态降级（sys 桩 `DISPLAY` 空即 unsupported，win 桩热键支 `WAYLAND_DISPLAY` 非空即 unsupported），本批把剩下的族补齐同一口径。
 **测试口径**：`session_type_of` 纯函数钉九档；`session_type()` 用 `envx_set` 在进程内改环境再断言（跑完还原本机值，原本没有的删掉），因此 Linux/Windows/macOS 同一份用例都能跑；夜灯与窗口管理的降级支只在 `sys_platform()=="linux"` 断言，非 Linux 打印 skip（它们各自的真通道在前）。
 **待复验**：Wayland 真机（Ubuntu GNOME Wayland / deepin Treeland）的会话读数与「夜灯不再空转」归用户，判据见 `测试文档/测试用例.md` 附录 E 与 spike S1/S2。
+
+## 性能基线探针首批读数：yoga 布局缓存不立项，增量重绘要等纯光栅腿的对照（2026-11-03，`experiment/frame_cost_probe` Linux 无头）
+
+**观测面三件**（都常开、只加整数）：`gui/base/prof.mbt` 的进程级账本新增 `relayout` / `visit` / `skip` 三条计数（打点 `Widget::relayout_at` 与 `Widget::paint_at` 的视口剔除分支）；`modules/yoga-mbt/src/stats.mbt` 新增 `measure` / `hit`（打点 `measure_content` 入口与缓存命中返回）；探针模块按场景打印 `FRAME-COST` 行，判据进 `测试文档/测试用例.md` 附录 D。
+**Linux（cairo 腿）读数**：① 树不变的连续 20 帧 relayout = **0ms、`measure=0`**——yoga 的 `measure_content` 只在内容真变时才被问，**「再加一层布局缓存」没有可省的开销**，不立项；② 每帧改一段动态文本：15/60/240 行的 `measure` ≈ 1460/5060/19460（命中率 90%+），单帧仍 0.1–0.45ms——失效重测本身很便宜；③ 整页绘制成本随规模线性（0.5/1.2/3.5 ms/帧，每行约 81 个控件）；④ **脏矩形裁剪在 cairo 腿几乎不省**（clip 到 60px 高的窄条：240 行 3.45→3.3ms，`skip` 恒 0）——视口剔除只在纯光栅后端判交（`widget_cull_skip` 的既定口径），所以这不是「局部重绘没用」，而是**这条腿量不到**。
+**判读纪律**：跨后端的能力不能用一条腿的读数立项——`paint_clip` 的收益要 Windows/macOS 跑同一支探针看 `skip` 是否真把控件挡在遍历外；那两条腿的差值才是「图表/整页增量重绘」立不立项的依据。探针里 `ledger=frames=0 layout=0ms` 是常态（无头不走 `App::paint_frame`，分段 ms 归真机 `SHOWCASE-PROF` 那本账），别当故障。
+**验证**：`moon build frame_cost_probe` 绿；`moon test src`（yoga）108/108；库门禁 `moon test base shell widget ui render text theme icons sys input win dbus chart mdview style router` 与 `--deny-warn` 同批跑过（计数常开不进断言，读数随平台而变，钉死会假红）。

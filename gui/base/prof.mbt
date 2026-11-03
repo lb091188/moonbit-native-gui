@@ -11,6 +11,11 @@ priv struct FrameProf {
   mut present_ms : Int64
   mut total_ms : Int64
   mut max_total_ms : Int64
+  // 每帧重绘范围的两条计数：整帧与按脏矩形裁剪后画到的控件数、被视口剔除
+  // 跳过的控件数（性能基线探针 `experiment/frame_cost_probe` 吃这三个数）。
+  mut relayout_calls : Int
+  mut paint_visit : Int
+  mut paint_skip : Int
 }
 
 ///|
@@ -21,6 +26,9 @@ let g_frame_prof : FrameProf = {
   present_ms: 0L,
   total_ms: 0L,
   max_total_ms: 0L,
+  relayout_calls: 0,
+  paint_visit: 0,
+  paint_skip: 0,
 }
 
 ///|
@@ -42,6 +50,23 @@ pub fn prof_record(
 }
 
 ///|
+/// 记一次布局重算（`Widget::relayout_at` 走到 yoga 计算即一次）。
+pub fn prof_note_relayout() -> Unit {
+  g_frame_prof.relayout_calls += 1
+}
+
+///|
+/// 记一个控件被画到 / 被视口剔除跳过（每帧重绘范围的读数）。
+pub fn prof_note_paint_visit() -> Unit {
+  g_frame_prof.paint_visit += 1
+}
+
+///|
+pub fn prof_note_paint_skip() -> Unit {
+  g_frame_prof.paint_skip += 1
+}
+
+///|
 /// 清零账本（多窗共用一份进程级账本，新一轮观测前先清）。
 pub fn paint_profile_reset() -> Unit {
   let p = g_frame_prof
@@ -51,6 +76,9 @@ pub fn paint_profile_reset() -> Unit {
   p.present_ms = 0L
   p.total_ms = 0L
   p.max_total_ms = 0L
+  p.relayout_calls = 0
+  p.paint_visit = 0
+  p.paint_skip = 0
 }
 
 ///|
@@ -58,5 +86,5 @@ pub fn paint_profile_reset() -> Unit {
 /// "frames=120 layout=2100ms paint=9800ms present=340ms total=12400ms max_frame=310ms"
 pub fn paint_profile_summary() -> String {
   let p = g_frame_prof
-  "frames=" + p.frames.to_string() + " layout=" + p.layout_ms.to_string() + "ms paint=" + p.paint_ms.to_string() + "ms present=" + p.present_ms.to_string() + "ms total=" + p.total_ms.to_string() + "ms max_frame=" + p.max_total_ms.to_string() + "ms"
+  "frames=" + p.frames.to_string() + " layout=" + p.layout_ms.to_string() + "ms paint=" + p.paint_ms.to_string() + "ms present=" + p.present_ms.to_string() + "ms total=" + p.total_ms.to_string() + "ms max_frame=" + p.max_total_ms.to_string() + "ms relayout=" + p.relayout_calls.to_string() + " visit=" + p.paint_visit.to_string() + " skip=" + p.paint_skip.to_string()
 }

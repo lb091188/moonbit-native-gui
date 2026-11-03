@@ -361,11 +361,13 @@ fn measure_content(
   avail_h : Option[Double],
   pinned_w? : Option[Double] = None,
 ) -> (Double, Double) {
+  note_measure_call()
   cache_fresh(c)
   // 命中比较逐项做，避免每次调用都为构造键而分配
   for e in c.measure_cache {
     let (kw, kh, kp) = e.0
     if opt_eq(kw, avail_w) && opt_eq(kh, avail_h) && opt_eq(kp, pinned_w) {
+      note_measure_hit()
       c.baseline = e.1.2
       return (e.1.0, e.1.1)
     }

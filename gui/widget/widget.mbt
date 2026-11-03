@@ -463,6 +463,7 @@ pub fn Widget::relayout_at(
   avail_w : Double,
   avail_h : Double,
 ) -> Unit {
+  @base.prof_note_relayout()
   @yoga.calculate_layout(self.node, Some(avail_w), Some(avail_h))
   self.collect_abs(ox, oy)
 }
@@ -1137,8 +1138,11 @@ pub fn Widget::paint_at(self : Widget, p : @render.Painter, ox : Double, oy : Do
     self.rect.w,
     self.rect.h,
   ) {
-    true => return ()
-    false => ()
+    true => {
+      @base.prof_note_paint_skip()
+      return ()
+    }
+    false => @base.prof_note_paint_visit()
   }
   self.paint_epoch = paint_epoch_ref.val
   p.save()

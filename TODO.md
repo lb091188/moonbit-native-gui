@@ -27,7 +27,7 @@
 
 ## 文本选择与屏读语义（2026-11-03 拍板，方案与坑清单见 [proposals/text-selection-a11y.md](proposals/text-selection-a11y.md)；两个消费者一块地基，做完一项删一项并同步路线图）
 
-- [ ] **一期首批·entry 单行档切 TextLayout**（2026-11-03 定：本批不切，理由见 proposals/text-selection-a11y.md 落地注记）：遮罩串渲染 + 居中 origin 与「偏移即 `text` 下标」的参照系不同，等 selectable 批按同判据复查
+- [ ] **一期首批·entry 单行档切 TextLayout**：遮罩串渲染 + 居中 origin 与「偏移即 `text` 下标」的参照系不同，切法与判据见 proposals/text-selection-a11y.md 落地注记，随 selectable 批一起复查
 - [ ] **一期首批·静态文本 selectable 档**：`text`/`text_dyn` 加 selectable（只读 Editor + 选区持有者注册表 + 单击/双击选词/拖选/Shift+点击 + Ctrl+C 宿主内建支 + 右键菜单 can_edit=false）；测量面与绘制面同源切 TextLayout（最大坑，缺省档一行不动）
 - [ ] **一期首批·code_view 选中**：预排版表加字节偏移列；行号列排除在选区外，复制按行拼 \n，横滚坐标经控件矩形平移
 - [ ] **一期次批·markdown 段落选中**：md_rich_label 混排联合量宽逐字命中（joint_w 模式 + wcache 防 O(n²)），首批注册表/菜单/复制在纯文本闭环后再接
@@ -42,7 +42,7 @@
 - [ ] **浮层原生档真机复验**（用户执行）：browser 示例按 BR-1.4 过 Windows 与 mac——弹层无边框贴按钮、条目完整不裁、点外/失焦/Esc 都收、反复开关不叠窗；过了把 roadmap「浮层原生档」翻 ✅
 - [ ] **mac GIF 真机复验**（用户执行）：showcase「GIF 动图」段（SC-14.4）自转/暂停/继续/缩放档，透明底 GIF 看有没有底色块（有=透明索引缺口另立）；过了 roadmap 翻 ✅、测试用例.md 附录 B「GIF 在 macOS 只显示首帧」行删，顺带修正 stub.c/adaptation「DisposalMethod 不在 Apple 公开清单」旧注（该键实为公开常量，ImageRectangle 才不在）
 - [ ] **通知 urgent 二档真机复验**（用户执行，mac）：同一应用分别发 `urgent=true`（缺省）与 `urgent=false`，应用正在前台跑事件循环时前者出横幅、后者只进通知中心不出条；系统设置里关掉「时间敏感」授权后再发 `urgent=true` 应回落到静默。状态行 `backend=` 应报 `un-user-notification`（Linux 报 `dbus`、Windows 报 `win-balloon`）
-- [ ] **性能基线探针**：experiment/ 独立模块——帧耗时分段（扩 LAYOUT-FRAME 账本观测面）+ 每帧重绘范围 + 布局重算次数三组读数；有数据再定 yoga 布局缓存与图表增量重绘立不立项
+- [ ] **frame_cost_probe 三平台读数**（用户执行，Windows / macOS 各一遍）：`moon run experiment/frame_cost_probe`，贴全部 `FRAME-COST` 行——重点看 `paint_full` vs `paint_clip` 的 `skip`（纯光栅腿才判交，那条腿的差值才是「图表/整页增量重绘」的立项依据）。Linux 腿已跑：树不变 relayout 20 帧 `ms=0`、`measure=0`（yoga 布局缓存不立项），整页 240 行 ≈3.5ms/帧（判据进测试用例附录 D）
 
 ## Wayland 原生路径（2026-11-03 立项，能力出路总表、DE 支持矩阵与坑清单见 [proposals/wayland-native.md](proposals/wayland-native.md)；先 spike 后分期，做完一项删一项并同步路线图）
 
