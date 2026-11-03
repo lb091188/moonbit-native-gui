@@ -113,6 +113,41 @@ WebGPU 可用 → GPU 合成（Layer 1+2 都开）
   4. L2 协议：`RenderCtx::Gpu(GpuContext)` 最小接口面（够视频 quad 与简单图形）+ 混排合成次序
   5. 首消费者：视频直纹理接口位（仅接口）+ GPU 内容画布 demo 页（赛季验收面）
 - **媒体硬解独立线并行**（不依赖上面 1–5）：探针（三平台 hw_device 能建 + vendor 归档 hwaccel flags 核验）→ 实现（hwaccel + hw frame 下传现有 CPU 帧链路 + 回落软解）→ 帧输出抽象（transfer 策略位）。方案细节立项调研后落 `proposals/media-hwdecode.md`。
-- **待细化（调研补全后进本方案）**：逐平台 surface/present 改造点与回退点、fallback 探测粒度（进程/窗口级）、GTK 窗与 wgpu surface 的生命周期（resize/最小化/多窗）、CI 无 GPU runner 档位、wgpu-mbt pin 版本与许可归档核对。
+
 
 架构决策与实测依据见 [roadmap.md](../docs/zh/roadmap.md)「GPU 合成与 3D 路径」小节。跟踪项见同一份 roadmap 的「已规划 · 渲染」节（⏳ GPU 合成、控件级 GPU 绘制、GPU 内容画布三条——最后一条 2026-11-03 由「WebGL 画布」改写归并：桌面原生语境无 WebGL）。
+
+## 落地细节（2026-11-03 调研补全；证据级别标注：实测 / 官方文档 / 推断）
+
+### 逐平台 surface 挂载
+
+入口 `wgpuInstanceCreateSurface(instance, &WGPUSurfaceDescriptor{ label, nextInChain })`，链上按平台给 `WGPUSurfaceSourceXlibWindow{display, window}` / `WGPUSurfaceSourceWindowsHWND{hwnd, hinstance}` / `WGPUSurfaceSourceMetalLayer{layer}` / `WGPUSurfaceSourceWaylandSurface{display, surface}`（旧的 `…DescriptorFromXlibWindow` 等命名已废）【官方文档：webgpu-headers `webgpu.h`、Chrome 130 改名表、wgpu-native `ffi/wgpu.h`】。X11/Wayland 还要在 instance 侧经 `WGPUInstanceExtras` 传 `WGPUXlibDisplayHandle` / `WGPUWaylandDisplayHandle`。
+- **Linux**：XID 已拿得到——`gdk_x11_window_get_xid`（`gui/win/stub.c:5371`/`:5417`），前提是窗口已 realize。【实测：本仓既有取用点】
+- **Windows**：桩内槽表的 `w->hwnd`（`gui/win/stub.c:1368` 臂）。【实测：本仓代码】
+- **macOS**：现 `WMView` 是 `drawRect:` 非 layer-backing（`gui/win/stub.c:9407`），要走 Metal 须补 `wantsLayer = YES` + `layerClass = CAMetalLayer`。【实测（读码）+ 推断（改动量）】
+- **未决**：本仓拿 Xlib XID，而 pin 住的 wgpu-mbt（v29.0.1.1）目前出的是 `create_surface_xcb` 口【实测：wgpu-mbt 已出 `create_surface_xcb` / `_windows_hwnd` / `_macos_ns_view`】——Xlib 与 xcb 两条连接不能混用，要么补 Xlib 口、要么改拿 xcb 连接，第一批三角形验收前定死。
+
+### fallback 探测粒度
+
+**进程级一次**：建 instance + `request_adapter`，成功即常驻缓存（探一次几十毫秒，按窗重复探是白烧）。失败分两档：`.so` 缺 / 驱动无后端 = 永久缓存不再试；surface 配置失败（未 realize、0×0）= **不入缓存**，按窗重算。Wayland 会话臂单列（不同 descriptor 与 extras；本仓 X11 直调全在 `GDK_IS_X11_DISPLAY` 守卫后，Wayland 下「不崩但静默」的口径见 wayland-native.md §2.1）。落点：`gpu_backend_available()`（`gui/render/render_ctx.mbt:47`）换真探，`Painter::new`（`gui/render/painter.mbt:126`）的探测序前置 GPU 档。
+
+### 生命周期（GTK 窗 ↔ wgpu surface）
+
+- 尺寸变化（`wm_on_size_allocate` `gui/win/stub.c:5082` / `WM_SIZE` / `drawableSizeWillChange`）→ 合并成「下一次 present 前重配 swapchain 一次」；0×0（最小化）跳过重配且不 present。
+- 关窗（`wm_close` 三臂 `:1368`/`:5631`/`:9407`）顺序固定：先释放 swapchain → 再 surface → 再销毁原生对象，反序在 D3D12/Metal 上是use-after-free 级坑。
+- DPI：**本仓没有窗级 logical/physical 换算**（全仓只有 `Image::get_scale_factor`，`gui/render/image.mbt:113`）【实测：全仓检索】——GPU 档要么先补换算，要么首版限 `scale = 1` 并在能力位上如实声明。
+- present 与 `wm_present` **并存**（桩内分派）：GPU 挂上后该 area 的 cairo 贴像素必须停手，否则两路互相覆盖。已知坑：wgpu present 到自绘容器的 `GdkWindow` 会吞掉该容器的鼠标事件（`experience/adaptation.md:1564`）【实测】——规避口径：**GPU 内容一律宿主顶层窗，交互挂 Window 级信号**，不往 GtkDrawingArea 里塞。
+
+### CI 三档（无 GPU runner 的判据分层）
+
+hosted runner 规格表只列 CPU/RAM/SSD/架构，GPU 属付费 larger runners【官方文档：GitHub-hosted runners reference、GPU runners GA】。据此定三档：
+1. **只编不跑**（三平台门禁）：符号面与类型面——`moon check`/`moon build` + mac 腿的 `clang -fsyntax-only`。
+2. **无头判据**：Linux xvfb 腿（`ci.yml:196` 已有）跑 adapter/surface 创建探针，只断言「API 通路走得通」，**不断言像素**。runner 内 lavapipe 是否可用属未核，判据现场取：`ls /usr/share/vulkan/icd.d && vulkaninfo --summary`；本机实测 `lvp_icd.json` + `libvulkan_lvp.so` 在位，可当自托管二档宿主【实测：本机】。
+3. **真机肉眼**：出图正确性、切换与回退的观感，归用户三平台清单。
+mac arm64 runner 有 Apple GPU 但 MPS 虚拟化受限、wgpu-Metal 能否出帧未验【推断】，不入门禁。
+
+### wgpu-mbt 与许可
+
+pin v29.0.1.1【实测：wgpu-mbt 版本口】；许可归档核对随骨架批做（下载源、sha256、双镜像与 `LICENSE.md` 落 `docs/THIRD-PARTY-NOTICES.md`）。
+
+架构决策与实测依据见 [roadmap.md](../docs/zh/roadmap.md)「GPU 合成与 3D 路径」小节。
