@@ -47,7 +47,6 @@
 - [ ] **dock 徽标 mac 臂**：stub.c mac 段 wm_dock_badge_set（[NSApp dockTile] setBadgeLabel，nil 清）+ win 包 set_dock_badge(count)->Bool（count<=0 清，app 级非窗级）；裸二进制 Dock 通用图标徽标是否渲染待实测，打包 .app 路径为准
 - [ ] **LauncherEntry Linux 臂**：gui/dbus 新 launcher.mbt，dbus_emit_signal_session 发 com.canonical.Unity.LauncherEntry Update（app_uri=application://<desktop-id>.desktop + count/count-visible/progress/progress-visible）；真机前提=装 .desktop；吃口=Ubuntu Dock / KDE 任务栏 / XFCE docklike（Cinnamon/deepin 未核）
 - [ ] **dock 门面合流**：shell 层按平台分派（mac→@win、Linux→@dbus、Windows false）；窗级进度与 app 级徽标语义分档如实注释；Windows SetOverlayIcon（状态图标非计数）做不做同批定
-- [ ] **贡献入口**：.github ISSUE_TEMPLATE（bug/feature 两表+config，回报格式引用用例文档「编号+现象+截图+退出读数行」约定）+ CONTRIBUTING 骨架（指向 build.md 与门禁命令，不与 AGENTS.md 双源）+ PR 模板简版
 - [ ] **性能基线探针**：experiment/ 独立模块——帧耗时分段（扩 LAYOUT-FRAME 账本观测面）+ 每帧重绘范围 + 布局重算次数三组读数；有数据再定 yoga 布局缓存与图表增量重绘立不立项
 
 ## Wayland 原生路径（2026-11-03 立项，能力出路总表、DE 支持矩阵与坑清单见 [proposals/wayland-native.md](proposals/wayland-native.md)；先 spike 后分期，做完一项删一项并同步路线图）

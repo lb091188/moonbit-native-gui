@@ -76,6 +76,7 @@ Platform compatibility reports, widgets and documentation are all welcome. The b
 - **Write down what you learn**: field-tested pitfalls and fixes are recorded with the code, not only in commit messages
 - **Small batches**: one coherent change per commit, short commit messages
 - **Roadmap**: what is done and what comes next is on the [roadmap](https://moonbit-native-gui.pages.dev/zh/roadmap) (Chinese)
+- **Full guide**: [CONTRIBUTING.md](CONTRIBUTING.md) — layout rules, design stance, test split, commit and PR conventions
 
 [Build & run](https://moonbit-native-gui.pages.dev/build): environment from scratch, build commands and artefact paths, prebuilt binaries, failure → fix, plus the linking mechanism and how to add an example module.
 

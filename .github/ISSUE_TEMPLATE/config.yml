@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 先跑起来看效果 · Try the prebuilt demos
+    url: https://moonbit-native-gui.pages.dev/experience
+    about: 五个示例应用的预构建包，不写代码就能体验 / Prebuilt demo apps, no code required
+  - name: 使用文档 · Documentation
+    url: https://moonbit-native-gui.pages.dev/
+    about: 教程、组件、布局、系统能力、开发体验（中英双语）/ Tutorials, components, layout, system capabilities, DX (zh/en)
+  - name: 构建与运行 · Build & run
+    url: https://moonbit-native-gui.pages.dev/build
+    about: 装工具链、装依赖、环境自检、常见失败处置 / Toolchain, dependencies, self-check, failure fixes
+  - name: 贡献指南 · Contributing
+    url: https://github.com/lb091188/moonbit-native-gui/blob/master/CONTRIBUTING.md
+    about: 门禁命令、目录落位、提交与 PR 约定 / Gate commands, layout, commit and PR conventions

@@ -76,6 +76,7 @@ MoonBit 生态的 GUI 能力各有分工：[MoUI](https://github.com/wzzc-dev/Mo
 - **经验留档**：实测坑与修复随代码记录，不要只留在提交信息里
 - **小批次**：一个提交一个内聚改动，提交信息简短
 - **进度与计划**：功能面全景与后续待做见[路线图](https://moonbit-native-gui.pages.dev/zh/roadmap)
+- **完整指南**：[CONTRIBUTING_ZH.md](CONTRIBUTING_ZH.md)——目录落位、设计口径、测试分工、提交与 PR 约定
 
 [构建与运行](https://moonbit-native-gui.pages.dev/zh/build)：从零装环境、构建与产物落点、预构建二进制、常见失败处置，以及链接参数托管与新增示例模块的机制。
 

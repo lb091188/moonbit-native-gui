@@ -1,0 +1,58 @@
+name: 功能请求 · Feature Request
+description: 想要新组件、新样式属性、新系统能力 / A component, style property, or system capability you need
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        本库的接口由真实用例驱动，不为对齐某个参考实现而补——请先写清你要解决的场景。
+        APIs here are driven by real use cases, not by parity with another toolkit. Lead with the scenario.
+  - type: textarea
+    id: usecase
+    attributes:
+      label: 真实用例 / The use case
+      description: 你在做什么应用、卡在哪一步、现在只能用哪条绕路（贴现有代码片段也行）
+      placeholder: |
+        我在做一个日志面板：需要一段不可编辑但可选中复制的等宽文本，现在只能自己接 textarea 再关编辑……
+    validations:
+      required: true
+  - type: textarea
+    id: api
+    attributes:
+      label: 期望的接口形态 / The API you want
+      description: 方法名、参数、返回值大致长什么样；越具体越容易拍板
+      render: moonbit
+  - type: textarea
+    id: platforms
+    attributes:
+      label: 三平台各自的通道 / Per-platform channel
+      description: 系统能力类请求请填写该平台是否有公开 API（有就贴文档名或 API 名；没有也请写明，本库按「诚实降级」处理，不假装支持）
+      value: |
+        - Linux:
+        - Windows:
+        - macOS:
+  - type: dropdown
+    id: area
+    attributes:
+      label: 归属 / Area
+      options:
+        - 组件 / Components
+        - 样式与主题 / Style & theme
+        - 布局 / Layout
+        - 文字排印 / Text
+        - 渲染 / Rendering
+        - 系统能力 / System capabilities
+        - WebView
+        - 媒体 / Media
+        - 图表 / Charts
+        - 开发体验（模板、CLI、编辑器）/ DX
+        - 可访问性 / Accessibility
+  - type: checkboxes
+    id: existing
+    attributes:
+      label: 已核对过的出处 / Already checked
+      options:
+        - label: "已看过 路线图 `docs/zh/roadmap.md` 的「已实现 / 已规划 / 明确不做」"
+        - label: "已搜过同类 issue / Searched similar issues"
+        - label: "该能力属「明确不做」清单（若勾选，请说明为何要重开讨论）"

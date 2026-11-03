@@ -1,0 +1,87 @@
+name: 问题反馈 · Bug Report
+description: 界面画错、行为不对、崩溃或退出码异常 / Something renders, behaves, or exits wrong
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        先跑一遍门禁再看是否已有同类 issue。
+        Before filing: run the gate commands and search existing issues.
+
+        ```sh
+        cd gui && moon check --deny-warn    # 期望零错误零警告
+        ```
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 平台 / Platform
+      description: 同一现象在多平台都出现就各开一条，平台差异要分开取证
+      options:
+        - Linux (X11)
+        - Linux (Wayland)
+        - Windows 10/11
+        - macOS (Apple Silicon)
+        - 三平台皆现 / All platforms
+    validations:
+      required: true
+  - type: input
+    id: desktop
+    attributes:
+      label: Linux 桌面环境与会话 / Desktop environment
+      description: 仅 Linux 需要；发行版 + DE + 会话类型（X11 / Wayland），例如 Ubuntu 24.04 + Cinnamon + X11
+      placeholder: Ubuntu 24.04, Cinnamon 6.0, X11
+  - type: input
+    id: versions
+    attributes:
+      label: 版本 / Versions
+      description: "`moon --version` 与所依赖的 native-gui 版本（`moon.mod.json` 里的 `NoahLiu/native-gui`）"
+      placeholder: moon 0.1.xxx / native-gui 0.3.1
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: 现象一句话 / What you see
+      description: 按 `测试文档/测试用例.md` 的回报口径写：`编号 + 现象`（没有编号就写页面与段落名）
+      placeholder: |
+        SC-4.5 拖列边界不跟手
+        The column resize handle doesn't follow the pointer
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现步骤 / Steps to reproduce
+      description: 从哪个示例、进哪一页、点了什么；能贴最小代码最好
+      value: |
+        1. `cd examples/<name> && moon run .`
+        2. 进入页面 / Go to page …
+        3. 操作 / Action …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望结果 / Expected
+    validations:
+      required: true
+  - type: textarea
+    id: readout
+    attributes:
+      label: 退出时读数行 / Readout on exit
+      description: 应用退出时打印的读数行、stderr、崩溃栈或 `moon test` 失败输出；示例应用大多带诊断输出，请整段贴上来
+      render: text
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 截图 / Screenshots
+      description: 拖图片进框即可上传；视觉类问题请尽量带上，并说明另一平台长什么样（若可比）
+  - type: checkboxes
+    id: gates
+    attributes:
+      label: 已跑过的门禁 / Gates you ran
+      options:
+        - label: "`cd gui && moon check --deny-warn` 通过（零错误零警告）"
+        - label: "`cd gui && moon test <受影响的包>` 通过"
+        - label: "在最新 master 上仍能复现 / Still reproduces on latest master"

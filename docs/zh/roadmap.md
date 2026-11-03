@@ -272,6 +272,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **真机用例与记录台**：按「应用 → 页面 → 段落」组织（现 159 条）；记录台与用例文档同住 `测试文档/`，记录台加载 md 现算清单与计数，用例唯一事实源是 `测试用例.md`（经本地 HTTP 服务打开，Live Server 等）
 - 🚧 **组件文档与教程**：每个组件一页配图；教程给可运行最小工程
 - ✅ **上手门槛**：首页最短路径；缺依赖时构建报错自带修复提示
+- ✅ **贡献入口**：`.github/ISSUE_TEMPLATE` 两份 issue form（bug 带平台 / 会话 / 版本 / 复现步骤 / 退出读数行 / 门禁自查；feature 带真实用例 / 期望接口形态 / 三平台通道情况）+ `config.yml`（关空白 issue，导向体验包、文档站、构建指南与贡献指南）、`PULL_REQUEST_TEMPLATE.md`（门禁读数 + 三平台验证表 + 文档同步清单 + 破坏性改动声明）、`CONTRIBUTING_ZH.md` / `CONTRIBUTING.md` 双语指南（目录落位、设计口径、无头与真机分工、提交与 PR 约定；环境与失败处置指回 build.md，不双源）
 
 ## 已规划
 
@@ -336,7 +337,6 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 - ⏳ **稳定面清单与 1.0 时点**：逐包划分承诺面 / 实验面，公告破坏性改动截止线
 - 🚧 **无头测试门面 uitest**（2026-11-02 立项；方案与坑清单见 [proposals/headless-tester.md](proposals/headless-tester.md)）：本仓不缺无头能力（wbtest 2.8 万行、合成指针事件与位图断言齐全），缺的是**对外门面**与**应用泵无头路径**——P1 公开包 `gui/uitest`（`test-import` 消费、name 定位不靠下标、显式 `frame()` 并行安全、`Capabilities` 显式守卫、form_wbtest 示范迁移）；✅P2 虚窗哨兵（`Window::virtual_` id<0 哨兵 + `App::test_headless` 假窗与无头泵 wait(0)，定时器经 step 驱动可断言，C 桩零改动）；真机人工验的分工不变。拆分待办见 TODO「无头测试门面」节
-- ⏳ **贡献入口**：ISSUE 模板（bug/feature 两表 + config）、CONTRIBUTING 骨架（指向 build.md 与门禁命令，不与 AGENTS.md 双源）、PR 模板简版
 
 ### 可访问性
 
