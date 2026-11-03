@@ -203,19 +203,25 @@ pub fn hover_group(
 ) -> @widget.Node {
   let base_bg = background_color
   let lit_bg = hover_bg
+  // 对外的布局散参数折进属性层（class / style 能盖过它们）；0 视为没给
+  let attrs = @style.empty_style()
+  if row_gap > 0.0 {
+    attrs.row_gap = Some(row_gap)
+  }
+  if padding > 0.0 {
+    attrs.padding_left = Some(padding)
+    attrs.padding_right = Some(padding)
+    attrs.padding_top = Some(padding)
+    attrs.padding_bottom = Some(padding)
+  }
+  if width > 0.0 {
+    attrs.width = Some(width)
+  }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
+    // 内部布局，不对外样式化：列方向与「子件按内容起排」是组件形态本身
     w.node.set_flex_direction(@yoga.Column)
     w.node.set_align_items(@yoga.AlignItems::FlexStart)
-    if row_gap > 0.0 {
-      w.node.set_gap(row_gap, 0.0)
-    }
-    if padding > 0.0 {
-      w.set_padding_all(padding)
-    }
-    if width > 0.0 {
-      w.node.set_width(@yoga.fixed(width))
-    }
     w.cursor = @widget.CURSOR_HAND
     w.on_draw = Some(fn(
       self : @widget.Widget,
@@ -261,7 +267,7 @@ pub fn hover_group(
       }
     })
     @widget.mount_children(w, children)
-    fold_style(w, @style.empty_style(), @style.empty_style(), class)
+    fold_style(w, @style.empty_style(), attrs, class)
     handle(w)
     w
   })

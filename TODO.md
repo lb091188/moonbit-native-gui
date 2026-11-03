@@ -14,7 +14,7 @@
 
 - [ ] **真实类型 hover**：桥 `moon ide` + source map 正向索引（native-template 开放问题 6，另批）
 - [ ] **Windows LSP 跳转落点收口**：`mng` 的 LSP 定义跳转在 Windows 上的路径分隔符与行号口径未验，用例 `lsp_wbtest` 现按盘符分流跳过（POSIX 形态断言照跑）——真机验一遍后把 Windows 支也钉上
-- [ ] **开放问题三项（待讨论）**：app 注入（页面拿 App 上下文的通路）；布局属性样式化口径收紧（优先级规则落点与存量构造参数迁移）；IR/注册表 rev 握手协议细节（键集上报格式、rev 对不上时的降级口径）
+- [ ] **开放问题两项（已定案，待落地）**：app 注入（走「应用自持上下文单例 + `@shared.app()` + 窗口级 `host` 句柄」，库零改动，约定进文档）；IR/注册表 rev 握手（补丁带 `{page, base_rev, keys_digest}`，应用侧不符回 `stale`，工具收到 stale 直接 COLD 重启回原页）
 
 ## 主题与样式批次真机复验（用户执行；落地项已在 roadmap「已实现·主题与样式」标 🚧，过了逐条翻 ✅）
 

@@ -7,7 +7,7 @@
 - **命名参数**：`@ui.col` / `@ui.row` / `@ui.view` 直接接受 `padding` / `row_gap` / `column_gap` / `width` / `height` / `grow` / `align_items` / `background_color` / `border_color` 等常用字段。它们是 `Style` 对应字段的简便写法，最终折入匿名样式块。
 - **`class` 通道**：接受一个或多个由 `@style.style(...)` 构造的 `Style` 块；同名属性以数组中靠后者为准。所有组件都接受 `class?`。
 
-两种方式合并为一份 `Style`，作用于控件与布局节点。
+两种方式合并为一份 `Style`，作用于控件与布局节点。合并走一条固定全序：**继承 < 默认（组件内置观感）< 属性（构造散参数）< `class`（数组靠后者覆盖前者）< `style(...)`（组件收的显式规则块，如 `text_dyn` 的 `anon`）**，越靠后越赢。组件函数体里的内部布局（弹层轨道宽、固定行高这类）不进这条链，不对外样式化。
 
 ## 布局字段速查（`Style`）
 

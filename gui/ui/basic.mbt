@@ -305,7 +305,8 @@ fn text_node_of(
     Some(b) => b
     None => @style.empty_style()
   }
-  let attrs = @style.merge(fg, anon)
+  // 属性层只收散参数；调用方给的规则块 `anon` 是显式 `style` 层，压在 class 之上
+  let attrs = @style.merge(@style.empty_style(), fg)
   match font_size {
     Some(v) => attrs.font_size = Some(v)
     None => ()
@@ -323,7 +324,7 @@ fn text_node_of(
   }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    fold_style(w, @style.empty_style(), attrs, class)
+    fold_style(w, @style.empty_style(), attrs, class, style=anon)
     // flex 口径全线 0 1 auto（文本件口径定案）：不设宽、不设 grow/shrink——
     // 折行档按 measure 的可用宽折，内容基准可收缩，min:auto 内容下限由引擎
     // 兜底；单行档把下限归 0，挤不过兄弟件时收缩、末端出省略号。

@@ -322,12 +322,13 @@ Web 主面壳形态不做（roadmap「明确不做」）。原生面是唯一主
 - **交互态**：`.名:hover { … }` / `.名:active` / `.名:focus` 编译进 Style 的三个状态桶（`.hover(…)` / `.active(…)` / `.focus(…)` 链），与组件参数写法等价；桶里只收绘制期属性，布局属性进桶会在生成码处编译报错。`:dark` 仍是独立的两枚类。
 - **深浅两份值**：颜色走 `var(--令牌)` 即自带两份值（主题表就是深色变体的落点）；需要字面量分化时写 `.名:dark { … }`，编译成第二枚 `名:dark` 类，生成码里按 `@win.sys_color_scheme() == "dark"` 选（应用自管深浅时走令牌；App 注入落地后判定源换成应用自己的开关）。
 - **不做**：运行时级联 / 特异性 / 元素与后代选择器——类只作用于挂它的那个控件，不做选择器匹配；可继承文字属性按 CSS 语义随树下推（见上「文字属性继承」），伪类只收 `:hover/:active/:focus` 三档状态桶（见上「交互态」）。其余选择器与 `@media`/`@supports` 在 `<style>` 内遇到即编译报错，不静默仲裁（vanilla-extract / CSS Modules 套路：能算的在 build 期算完，运行时零新机制）。行/列容器的**选型**仍属结构侧（`<ui-col>`/`<ui-row>`），`flex-direction` 只做覆盖微调。
-- **归一链（一处合并）**：样式三个入口——组件构造参数（属性）、`class`（命名类/内联 `Style`）、组件内置默认（`gui/style/tokens.mbt`）——都汇到 `fold_style`，固定优先级 **默认 < 属性 < class（数组书写顺序，内联放末位最高）**；可继承文字属性再垫一层「继承」，初始值在文本源（13 / 系统字族）兜底。文本件**不挂**默认层（声明才写属性层），按钮/输入等把默认观感显式落成 token 块，因此容器字号不会顶掉控件度量。
+- **归一链（一处合并）**：样式四个入口——组件内置默认（`gui/style/tokens.mbt`）、组件构造参数（属性）、`class`（命名类/内联 `Style`）、组件收的显式规则块（`style(...)`，即 `fold_style` 的 `style` 位、`text_dyn` 的 `anon`）——都汇到 `fold_style`，固定优先级 **默认 < 属性 < class（数组书写顺序，后者覆盖前者）< `style(...)`**；可继承文字属性再垫最底一层「继承」，初始值在文本源（13 / 系统字族）兜底。文本件**不挂**默认层（声明才写属性层），按钮/输入等把默认观感显式落成 token 块，因此容器字号不会顶掉控件度量。
 - **硬约定是编译规则**：模板属性里的样式字面量（color / background_color / border_color / border_width / border_radius / font_size / font_family / font_weight / opacity）一律编译报错，必须进 `<style>` 或 `class`；动态 `:属性="表达式"` 不受限。
-- **布局属性样式化（现状）**：`@style` 的 `Style` 已含布局全量（flex_direction / justify_content / align_items / align_self / flex / 双向 gap / padding×4 / margin×4 / 宽高 min/max / border / display），`apply` 分流口径是「布局走 Yoga、外观进槽」。口径三条：
-  1. 构造参数 = 默认值，类槽 = 覆盖（合并序沿 registry「散写匿名块优先级高、排尾」）；
-  2. 结构性例外留结构侧：children、事件、键、row/col 选型（`flex_direction` 虽在 Style，行列构造选择仍是结构决定，样式只做覆盖微调）；
+- **布局属性样式化（定案 2026-11-03）**：`@style` 的 `Style` 已含布局全量（flex_direction / justify_content / align_items / align_self / flex / 双向 gap / padding×4 / margin×4 / 宽高 min/max / border / display），`apply` 分流口径是「布局走 Yoga、外观进槽」。口径三条：
+  1. **判据**：只有 `pub fn` 参数里的布局值算「用户可配」，一律折进属性块参与全序（class、`style(...)` 能盖过它）；组件函数体里的固定/动态布局值算「内部布局」，保持直写 Yoga 并就地注释「内部布局，不对外样式化」。
+  2. 结构性例外留结构侧：children、事件、键、row/col 选型（`flex_direction` 虽在 Style，行列构造选择仍是结构决定，样式只做覆盖微调）。
   3. gap / 对齐这类高频布局微调走类槽即进亚秒档（类是 Style 数据，指纹重建 + 类重 apply 现成路径）。
+  首批落地：`hover_group`（`padding`/`row_gap`/`width` 从直写折进属性层）、`message_box`（面板 `width`）、`date_picker` 系列字段（`width`）；`form` 的 12px 内缩、`scroll`/`table` 轨道宽度属内部布局，不折。
 - **IR 与 class**：class 名随节点进 IR；`<style>` 规则编成 `classes` 数据（属性名 + 编译期值表达式），补丁先重注册命名类再重建树——类名与样式值都可热更。
 
 ## 工具与编辑器支持（2026-11-02 定形）
@@ -362,5 +363,5 @@ Web 主面壳形态不做（roadmap「明确不做」）。原生面是唯一主
 4. ~~生成函数签名与带参组件~~：**已定**——默认 `fn <文件名去扩展>() -> @widget.Node`；组件要带参就在 script 段写 props 头（见「语法落定」props 行），「方法给外部」= 回调 prop + Store 槽直传，不做 expose。app 注入（页面拿到 App 上下文）仍挂开放项。
 5. 工具命名——按路线门面标准起：终态是本路线的 Vite 位次，对外 DX 的第一入口。
 6. LSP hover 能从 `moon check` 借到多少类型信息（决定 hover 档做不做）。
-7. 布局属性样式化口径收紧：优先级规则落点与存量构造参数的迁移策略（独立于模板先行时就要定）。
+7. ~~布局属性样式化口径收紧~~：**已定**（2026-11-03）——一条全序 **继承 < 默认 < 属性 < class < `style(...)`**，`style(...)` 的载体是组件的显式规则块参数（`text_dyn` 的 `anon`、`fold_style` 的 `style` 位），模板内联 `style=` 暂不开（样式字面量仍编译期报错，要开另立项）；优先级规则落点与首批迁移见「样式与主题」的「归一链」「布局属性样式化」。
 8. IR / 注册表 rev 握手协议细节（键集上报格式、rev 对不上时的降级口径）。

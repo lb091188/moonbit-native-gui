@@ -481,13 +481,14 @@ pub fn message_box(
           })
           footer.append_child(b)
         }
-        // 面板：主题面板底 + 描边 + 圆角，固定宽、按内容高
+        // 面板：主题面板底 + 描边 + 圆角，宽走属性层散参数、高按内容
+        // 内部布局，不对外样式化：列方向是面板形态本身
         panel.node.set_flex_direction(@yoga.Column)
-        panel.node.set_width(@yoga.fixed(width))
         @style.apply(
           panel,
           @style.merge_all([
             @style.style(
+              width=width,
               background_color="bg_panel",
               border_color="border",
               border_width=1.0,

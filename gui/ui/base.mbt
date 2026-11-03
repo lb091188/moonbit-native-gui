@@ -368,19 +368,22 @@ pub fn border_block(hex : String) -> @style.Style? {
 }
 
 ///|
-/// 组件统一收口（§2「散参数是糖，只有一条去向」）：散参数折成的匿名块排最前，
-/// `class` 在后（数组尾赢 ⇒ `class` > 散参数，不需要第二条优先级规则），
-/// 一次 `merge_all` + `apply` 落到控件样式槽与 Yoga。
-/// 样式归一链：默认（组件内置观感）< 属性（构造参数匿名块）< class（命名类/内联，
-/// 按书写顺序后者覆盖）。继承层在 `@style.resolved` 里垫底（见 style/apply 的
-/// `resolved`）。三处入口都走这一条，效果处处一致。
+/// 组件统一收口（§2「散参数是糖，只有一条去向」）：一次 `merge_all` + `apply`
+/// 落到控件样式槽与 Yoga，四层排定一条全序：
+/// 继承 < 默认（组件内置观感）< 属性（构造参数折成的匿名块）< class（命名类/
+/// 内联，按书写顺序后者覆盖）< `style`（组件收的显式规则块，`text` 的 `anon`、
+/// 模板的 `style` 属性都落这一层）。
+/// 继承层在 `@style.resolved` 里垫底（见 style/apply 的 `resolved`）。
+/// 三处入口都走这一条，效果处处一致。
+/// 组件函数体里的固定/动态布局值属「内部布局」，直写 Yoga、不进这条链。
 pub fn fold_style(
   w : @widget.Widget,
   defaults : @style.Style,
   anon : @style.Style,
   class : Array[@style.Style],
+  style? : @style.Style = @style.empty_style(),
 ) -> Unit {
-  @style.apply(w, @style.merge_all([defaults, anon] + class))
+  @style.apply(w, @style.merge_all([defaults, anon] + class + [style]))
 }
 
 ///|
@@ -393,6 +396,7 @@ pub fn fold_style_variant(
   names : Array[String],
   anon : @style.Style,
   class : Array[@style.Style],
+  style? : @style.Style = @style.empty_style(),
 ) -> Unit {
   @style.install_builtin_classes()
   let reapply = fn() -> Unit {
@@ -401,6 +405,7 @@ pub fn fold_style_variant(
       @style.resolve_with_variant(names, @theme.theme_is_dark()),
       anon,
       class,
+      style=style,
     )
   }
   reapply()

@@ -22,7 +22,7 @@ fn setup_picker_field(
 ) -> Unit {
   let font = @text.Font::new("", 13.0)
   watch_theme()
-  w.node.set_width(@yoga.fixed(width))
+  // 内部布局，不对外样式化：字段行高是控件形态；对外给的 `width` 走属性层
   w.node.set_height(@yoga.fixed(32.0))
   w.cursor = @widget.CURSOR_HAND
   // 字段底色/描边/文字色先折内置再读槽；「有没有填值」是数据态，留在 filled() 分支当回落
@@ -35,6 +35,7 @@ fn setup_picker_field(
         border_width=1.0,
         color="text_primary",
       ).hover(background_color="fill_hover"),
+      @style.style(width=width),
       skin,
     ]),
   )

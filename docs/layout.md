@@ -7,7 +7,7 @@ The layout engine is this repository's own **yoga-mbt**, a pure-MoonBit implemen
 - **Loose parameters**: `@ui.col/row/view` take `padding` / `row_gap` / `column_gap` / `width` / `height` / `grow` / `align_items` / `background_color` / `border_color` directly. They are sugar for the matching `Style` fields and have exactly one destination: folded into an anonymous block.
 - **`class` channel**: pass one or more `Style` blocks built with `@style.style(...)`; the last array element wins — its same-named properties override earlier ones. Every component accepts `class?`.
 
-The two merge into a single `Style`, which lands on the widget's style slot and the Yoga node.
+The two merge into a single `Style`, which lands on the widget's style slot and the Yoga node. Merging follows one fixed total order: **inherited < defaults (the component's built-in look) < properties (loose constructor parameters) < `class` (later array entries override earlier ones) < `style(...)` (an explicit rule block the component takes, e.g. `text_dyn`'s `anon`)** — later wins. Internal layout written inside a component's body (overlay track widths, fixed row heights) stays out of this chain and is not stylable.
 
 ## Layout field quick reference (`Style`)
 
