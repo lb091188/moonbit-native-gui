@@ -69,7 +69,8 @@ fn md_demo_escape(s : String) -> String {
 }
 
 ///|
-/// 复制串：由演示源文逐行派生的 markdown_view 调用源码（含 on_link 接线）。
+/// 复制串：由演示源文逐行派生的 markdown_view 调用源码（含 on_link 接线与
+/// selectable，和页面上那块的实际调用一致）。
 fn demo_md_code(_width : Double) -> Array[String] {
   let lines = demo_md_lines()
   let code : Array[String] = ["@mdview.markdown_view("]
@@ -82,6 +83,7 @@ fn demo_md_code(_width : Double) -> Array[String] {
   code.push("    Ok(_) => println(\"已交给默认程序\")")
   code.push("    Err(e) => println(\"打开失败: \\{e}\")")
   code.push("  } },")
+  code.push("  selectable=true,")
   code.push(")")
   code
 }
@@ -155,9 +157,11 @@ pub fn page_code(_app : @shared.App) -> @widget.Node {
     @shared.section(
       "Markdown",
       "Markdown 渲染",
-      "mdast 解析 + 富文本行自绘：标题/段落/粗斜体/删除线/行内代码/链接（悬浮手型，点击经 on_link 回调，示例接 `@sys.open_url` 交默认程序）/自动链接/引用式链接/嵌套列表/任务列表（真复选框）/引用/分隔线/围栏代码块/表格（列对齐）/脚注（正文上标 + 文末定义）；emoji 区间按 UTF-16 计量不错位，演示文本与复制串同源。",
+      "mdast 解析 + 富文本行自绘：标题/段落/粗斜体/删除线/行内代码/链接（悬浮手型，点击经 on_link 回调，示例接 `@sys.open_url` 交默认程序）/自动链接/引用式链接/嵌套列表/任务列表（真复选框）/引用/分隔线/围栏代码块/表格（列对齐）/脚注（正文上标 + 文末定义）；emoji 区间按 UTF-16 计量不错位，演示文本与复制串同源；下面这块开了 `selectable=true`——**段落级拖选**：混排行里高亮边界跟着真正绘制的那份排版走，跨行能连着选，Ctrl/Cmd+C 复制出来是这段原话（软折行不插换行）；点在链接字上仍是打开链接，落空才开始选。",
       [
-        @mdview.markdown_view(demo, on_link=fn(u : String) -> Unit {
+        @mdview.markdown_view(
+          demo,
+          on_link=fn(u : String) -> Unit {
           match @sys.open_url(u) {
             Ok(_) =>
               link_out.set(
@@ -175,8 +179,10 @@ pub fn page_code(_app : @shared.App) -> @widget.Node {
                   "打开失败：\{e}（\{u}）",
                 ),
               )
-          }
-        }),
+            }
+          },
+          selectable=true,
+        ),
         @ui.bind_label(link_out, fn(s) { s }),
       ],
       code=demo_md_code(md_w),
