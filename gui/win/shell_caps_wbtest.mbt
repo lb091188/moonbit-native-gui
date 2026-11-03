@@ -27,10 +27,14 @@ test "shell_caps：真窗探测，三平台共档全真、透视按能力走" {
         inspect(caps.title, content="true")
         inspect(caps.borderless, content="true")
         inspect(caps.layer, content="true")
-        // 透视：能力在就开得成、关得掉；不在（无合成器）不在此支
+        // 透视：能力在就开得成、关得掉；不在（无合成器）不在此支。
+        // Windows 另有一道前置——带边框的窗不支持透视，按契约先切无边框再开
+        // （前置不满足时 setter 给 Failed，不是 Unsupported，见 set_transparent_bg）。
         if caps.transparent_bg {
+          w.set_borderless(true)
           inspect(w.set_transparent_bg(true) is Ok(_), content="true")
           inspect(w.set_transparent_bg(false) is Ok(_), content="true")
+          w.set_borderless(false)
         }
         w.close()
       }
