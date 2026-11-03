@@ -25,27 +25,27 @@
 ///|
 /// 垂直布局容器（`container` 的 Column 形态）。
 pub fn col(
-  /// 子节点数组，按容器方向排。
+  /// 装进容器的子节点，按主轴方向依次排。
   children : Array[@widget.Node],
-  /// 行间距（纵向相邻子节点的间隙）。
+  /// 拉开纵向相邻子节点的间隙。
   row_gap? : Double = 0.0,
-  /// 四边同宽的内边距。
+  /// 内缩四边同宽的内边距。
   padding? : Double = 0.0,
-  /// 固定宽度，0 = 按内容测量。
+  /// 定死宽度，0 = 按内容测量。
   width? : Double = 0.0,
-  /// 固定高度，0 = 按内容测量。
+  /// 定死高度，0 = 按内容测量。
   height? : Double = 0.0,
-  /// 父容器主轴余量的分配比例，0 = 不参与。
+  /// 按父容器主轴余量占位，0 = 不参与分配。
   grow? : Double = 0.0,
-  /// 底色（主题色名或 `#rrggbb`），空串 = 不画。
+  /// 画底色（主题色名或 `#rrggbb`），空串不画。
   background_color? : String = "",
-  /// 描边色，空串 = 不描边。
+  /// 描一圈边色，空串不描边。
   border_color? : String = "",
-  /// 交叉轴对齐。
+  /// 让子节点在交叉轴上按此对齐。
   align_items? : @yoga.AlignItems = @yoga.AlignItems::Stretch,
-  /// 命名样式类（`class_of([...])`），排在散参数之后 ⇒ 类覆盖散参数。
+  /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
   class? : Array[@style.Style] = [],
-  /// 挂载后交出宿主 Widget 句柄的逃生舱。
+  /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   view(
@@ -67,27 +67,27 @@ pub fn col(
 ///|
 /// 水平布局容器（`container` 的 Row 形态）。
 pub fn row(
-  /// 子节点数组，按容器方向排。
+  /// 装进容器的子节点，按主轴方向依次排。
   children : Array[@widget.Node],
-  /// 列间距（横向相邻子节点的间隙）。
+  /// 拉开横向相邻子节点的间隙。
   column_gap? : Double = 0.0,
-  /// 四边同宽的内边距。
+  /// 内缩四边同宽的内边距。
   padding? : Double = 0.0,
-  /// 固定宽度，0 = 按内容测量。
+  /// 定死宽度，0 = 按内容测量。
   width? : Double = 0.0,
-  /// 固定高度，0 = 按内容测量。
+  /// 定死高度，0 = 按内容测量。
   height? : Double = 0.0,
-  /// 父容器主轴余量的分配比例，0 = 不参与。
+  /// 按父容器主轴余量占位，0 = 不参与分配。
   grow? : Double = 0.0,
-  /// 底色（主题色名或 `#rrggbb`），空串 = 不画。
+  /// 画底色（主题色名或 `#rrggbb`），空串不画。
   background_color? : String = "",
-  /// 描边色，空串 = 不描边。
+  /// 描一圈边色，空串不描边。
   border_color? : String = "",
-  /// 交叉轴对齐。
+  /// 让子节点在交叉轴上按此对齐。
   align_items? : @yoga.AlignItems = @yoga.AlignItems::Center,
-  /// 命名样式类（`class_of([...])`），排在散参数之后 ⇒ 类覆盖散参数。
+  /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
   class? : Array[@style.Style] = [],
-  /// 挂载后交出宿主 Widget 句柄的逃生舱。
+  /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   view(

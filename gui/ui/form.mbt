@@ -42,21 +42,21 @@ fn attach_toggle(
 /// 复选框 + 文本标签（点标签同样生效，整行是点击区）。
 /// 键盘口径：空格/回车切换；未给 `focus_id` 时自动领号进 Tab 链，聚焦时框线转主题色。
 pub fn checkbox(
-  /// 勾选框右侧的文本。
+  /// 在勾选框右侧显示这段文本。
   content : String,
-  /// 绑定的布尔 Store。
+  /// 双向绑定勾选状态（布尔 Store）。
   state : @base.Store[Bool],
-  /// 禁用态：灰显且不响应交互。
+  /// 置灰且不响应交互。
   disabled? : Bool = false,
-  /// 细粒度启用谓词/能力，与 `disabled` 二选一。
+  /// 按谓词/能力细粒度控制启用，与 `disabled` 二选一。
   enabled? : Enabled? = None,
-  /// Tab 焦点序号：传正数才可 Tab 到，0 = 自动领号。
+  /// 进 Tab 焦点链的序号；传正数才可 Tab 到，0 = 自动领号。
   focus_id? : Int = 0,
-  /// 字号（逻辑像素）。
+  /// 设字号（逻辑像素）。
   font_size? : Double = 13.0,
-  /// 命名样式类（`class_of([...])`），排在散参数之后 ⇒ 类覆盖散参数。
+  /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
   class? : Array[@style.Style] = [],
-  /// 挂载后交出宿主 Widget 句柄的逃生舱。
+  /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   follow_store(state)
@@ -149,13 +149,13 @@ pub fn checkbox(
 pub fn radio_group(
   options : Array[String],
   state : @base.Store[Int],
-  /// 禁用态：灰显且不响应交互。
+  /// 置灰且不响应交互。
   disabled? : Bool = false,
-  /// 排列方向。
+  /// 按此方向排选项。
   direction? : @yoga.FlexDirection = @yoga.Row,
-  /// 选项间距。
+  /// 拉开选项之间的间距。
   gap? : Double = 12.0,
-  /// 命名样式类（`class_of([...])`），排在散参数之后 ⇒ 类覆盖散参数。
+  /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
   class? : Array[@style.Style] = [],
 ) -> @widget.Node {
   follow_store(state)
@@ -271,19 +271,19 @@ pub fn radio_group(
 /// 开关：40×20 胶囊（圆角半径=半高）+ 16 圆滑珠，可带开/关文案。
 /// 键盘口径：空格/回车切换，自动进 Tab 链，聚焦时胶囊描边转主题色。
 pub fn switch(
-  /// 绑定的开关状态 Store。
+  /// 双向绑定开关状态。
   state : @base.Store[Bool],
-  /// 开启态文案。
+  /// 显示开启态文案。
   on_text? : String = "",
-  /// 关闭态文案。
+  /// 显示关闭态文案。
   off_text? : String = "",
-  /// 禁用态：灰显且不响应交互。
+  /// 置灰且不响应交互。
   disabled? : Bool = false,
-  /// Tab 焦点序号：传正数才可 Tab 到，0 = 自动领号。
+  /// 进 Tab 焦点链的序号；传正数才可 Tab 到，0 = 自动领号。
   focus_id? : Int = 0,
-  /// 值变化回调。
+  /// 值变化时回调。
   on_change? : (Bool) -> Unit = fn(_v : Bool) -> Unit { () },
-  /// 命名样式类（`class_of([...])`），排在散参数之后 ⇒ 类覆盖散参数。
+  /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
   class? : Array[@style.Style] = [],
 ) -> @widget.Node {
   follow_store(state)
@@ -378,22 +378,22 @@ pub fn switch(
 /// 键盘口径：←/↓ 减、→/↑ 加（无 step 时按百分之一量程）、Home/End 到两端；
 /// 自动进 Tab 链，聚焦时拇指外围一圈主题色。
 pub fn slider(
-  /// 绑定的数值 Store。
+  /// 双向绑定这个数值。
   state : @base.Store[Double],
-  /// 下界。
+  /// 限制数值下限。
   min? : Double = 0.0,
-  /// 上界。
+  /// 限制数值上限。
   max? : Double = 100.0,
   step? : Double = 0.0,
-  /// 固定宽度，0 = 按内容测量。
+  /// 定死宽度，0 = 按内容测量。
   width? : Double = 160.0,
-  /// 禁用态：灰显且不响应交互。
+  /// 置灰且不响应交互。
   disabled? : Bool = false,
-  /// Tab 焦点序号：传正数才可 Tab 到，0 = 自动领号。
+  /// 进 Tab 焦点链的序号；传正数才可 Tab 到，0 = 自动领号。
   focus_id? : Int = 0,
-  /// 命名样式类（`class_of([...])`），排在散参数之后 ⇒ 类覆盖散参数。
+  /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
   class? : Array[@style.Style] = [],
-  /// 挂载后交出宿主 Widget 句柄的逃生舱。
+  /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   follow_store(state)
@@ -703,17 +703,17 @@ fn int_of_digits(s : String) -> Int? {
 /// 键盘口径：↑ 加、↓ 减（←/→ 归输入框移光标），整支控件占一个 Tab 位、落在中间格；
 /// 聚焦时外框描边转主题色。
 pub fn stepper(
-  /// 绑定的数值 Store。
+  /// 双向绑定这个数值。
   state : @base.Store[Int],
-  /// 下界。
+  /// 限制数值下限。
   min? : Int = 0,
-  /// 上界。
+  /// 限制数值上限。
   max? : Int = 999,
-  /// 步长。
+  /// 每次增减的步长。
   step? : Int = 1,
-  /// Tab 焦点序号：传正数才可 Tab 到，0 = 自动领号。
+  /// 进 Tab 焦点链的序号；传正数才可 Tab 到，0 = 自动领号。
   focus_id? : Int = 0,
-  /// 命名样式类（`class_of([...])`），排在散参数之后 ⇒ 类覆盖散参数。
+  /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
   class? : Array[@style.Style] = [],
 ) -> @widget.Node {
   let lo = min
@@ -972,30 +972,30 @@ fn button_skin_token(variant : ButtonVariant, lit : Bool) -> (String, String) {
 /// `icon` 给了就在文字左侧画图标：图标槽计入测量宽、文字盒右移，
 /// `icon_size` 是字形盒边长，图标色随文字色（含禁用态）。
 pub fn button(
-  /// 按钮文字。
+  /// 显示按钮上的文字。
   text : String,
-  /// 点击回调（空格/回车同样触发）。
+  /// 点击时回调（空格/回车同样触发）。
   on_click? : () -> Unit = fn() -> Unit { () },
   variant? : ButtonVariant = Soft,
-  /// 文字色覆盖，空串随变体。
+  /// 覆盖文字色，空串随变体配色。
   color? : String = "",
-  /// 底色覆盖，空串随变体。
+  /// 覆盖底色，空串随变体配色。
   background_color? : String = "",
   icon? : @icons.IconKind? = None,
   icon_size? : Double = 14.0,
-  /// 字号（逻辑像素）。
+  /// 设字号（逻辑像素）。
   font_size? : Double,
-  /// 最小宽度。
+  /// 限制最小宽度。
   min_width? : Double = 0.0,
-  /// Tab 焦点序号：传正数才可 Tab 到，0 = 自动领号。
+  /// 进 Tab 焦点链的序号；传正数才可 Tab 到，0 = 自动领号。
   focus_id? : Int = 0,
-  /// 禁用态：灰显且不响应交互。
+  /// 置灰且不响应交互。
   disabled? : Bool = false,
-  /// 细粒度启用谓词/能力，与 `disabled` 二选一。
+  /// 按谓词/能力细粒度控制启用，与 `disabled` 二选一。
   enabled? : Enabled? = None,
-  /// 命名样式类（`class_of([...])`），排在散参数之后 ⇒ 类覆盖散参数。
+  /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
   class? : Array[@style.Style] = [],
-  /// 挂载后交出宿主 Widget 句柄的逃生舱。
+  /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let src = text_source(
@@ -1274,14 +1274,14 @@ pub fn link(
 /// 表单项：左侧定宽右对齐标签 + 右侧控件；控件下方是错误文案行（`error` 非空
 /// 时显示 danger 红字）。行高固定预留，错误出现/消失不引起布局跳动。
 pub fn form_item(
-  /// 左侧标签文字。
+  /// 在左侧显示标签文字。
   label_text : String,
-  /// 右侧控件。
+  /// 在右侧放这个控件。
   control : @widget.Node,
-  /// 标签列宽。
+  /// 限制左侧标签列的宽度。
   label_width? : Double = 90.0,
   error? : @base.Store[String] = @base.Store::new(""),
-  /// 挂载后交出宿主 Widget 句柄的逃生舱。
+  /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let err_store = error
@@ -1326,13 +1326,13 @@ pub fn form_item(
 ///|
 /// 表单：分组标题 + 一组表单项（纵向排布）。
 pub fn form(
-  /// 表单标题。
+  /// 显示表单标题。
   title : String,
-  /// 表单项列表。
+  /// 按顺序装进表单的表单项。
   items : Array[@widget.Node],
-  /// 行间距（纵向相邻子节点的间隙）。
+  /// 拉开纵向相邻子节点的间隙。
   row_gap? : Double = 8.0,
-  /// 挂载后交出宿主 Widget 句柄的逃生舱。
+  /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let nodes : Array[@widget.Node] = [
@@ -1381,17 +1381,17 @@ fn star_path(p : @render.Painter, cx : Double, cy : Double, r_out : Double) -> U
 pub fn rate(
   value : @base.Store[Int],
   max? : Int = 5,
-  /// 值变化回调。
+  /// 值变化时回调。
   on_change? : (Int) -> Unit = fn(_v : Int) -> Unit { () },
-  /// 单颗星字形盒边长。
+  /// 设单颗星的字形盒边长。
   size? : Double = 22.0,
-  /// 星间距。
+  /// 拉开星与星的间距。
   gap? : Double = 4.0,
-  /// Tab 焦点序号：传正数才可 Tab 到，0 = 自动领号。
+  /// 进 Tab 焦点链的序号；传正数才可 Tab 到，0 = 自动领号。
   focus_id? : Int = 0,
-  /// 命名样式类（`class_of([...])`），排在散参数之后 ⇒ 类覆盖散参数。
+  /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
   class? : Array[@style.Style] = [],
-  /// 挂载后交出宿主 Widget 句柄的逃生舱。
+  /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   follow_store(value)
@@ -1587,23 +1587,23 @@ fn list_popup(rows : Array[@widget.Node], n : Int, width : Double) -> @widget.No
 /// ↑/↓ 移高亮、回车/空格取高亮、Esc 收层（字段自动进 Tab 链，聚焦时描边转
 /// 主题色，见 `setup_picker_field`）。
 pub fn select(
-  /// 候选项列表。
+  /// 给出候选项列表。
   options : Array[String],
   value : @base.Store[String],
-  /// 值变化回调。
+  /// 值变化时回调。
   on_change? : (String) -> Unit = fn(_s : String) -> Unit { () },
   clearable? : Bool = false,
-  /// 占位文字，空或未输入时显示。
+  /// 没输入时显示占位文字。
   placeholder? : String = "",
-  /// 固定宽度，0 = 按内容测量。
+  /// 定死宽度，0 = 按内容测量。
   width? : Double = 200.0,
-  /// Tab 焦点序号：传正数才可 Tab 到，0 = 自动领号。
+  /// 进 Tab 焦点链的序号；传正数才可 Tab 到，0 = 自动领号。
   focus_id? : Int = 0,
-  /// 可输入（下拉同时当输入框）。
+  /// 允许直接输入（下拉同时当输入框）。
   editable? : Bool = false,
-  /// 命名样式类（`class_of([...])`），排在散参数之后 ⇒ 类覆盖散参数。
+  /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
   class? : Array[@style.Style] = [],
-  /// 挂载后交出宿主 Widget 句柄的逃生舱。
+  /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   if editable {

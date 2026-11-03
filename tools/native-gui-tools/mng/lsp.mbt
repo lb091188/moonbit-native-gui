@@ -1140,11 +1140,11 @@ fn attr_hover(uri : String, text : String, off : Int, partial : String, tag : St
         } else {
           doc_for_param(comp_doc(sigs_for(uri), text, tag), n)
         }
-        let head = lmsg(
-          "`" + shape + "` 是 `<" + tag + ">` 的参数",
-          "`" + shape + "` is a param of `<" + tag + ">",
+        let tail = lmsg(
+          "`" + shape + "` · `<" + tag + ">` 的参数",
+          "`" + shape + "` · param of `<" + tag + ">",
         )
-        if doc.length() > 0 { head + "\n\n" + doc } else { head }
+        if doc.length() > 0 { doc + "\n\n" + tail } else { tail }
       }
       None => component_hover(sigs_for(uri), text, tag)
     }
