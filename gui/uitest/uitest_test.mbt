@@ -17,6 +17,7 @@ test "计数器：点一下加一（方案 §4.2 原例）" {
   t.click(t.by_name("inc"))
   t.frame()
   assert_eq(t.text(t.by_text("count")), Some("3"))
+  t.finish()
 }
 
 ///|
@@ -46,6 +47,7 @@ test "定位：by_name 未命中、nth 子件、hit 命中最深件、role 读�
     }
     None => abort("按钮没有矩形")
   }
+  t.finish()
 }
 
 ///|
@@ -60,6 +62,7 @@ test "type_text：焦点输入框收字符（IME commit 同一入口）" {
   // 键盘注入：Backspace 删一格（keysym 0xFF08）
   let _ = t.key(7, 0xFF08)
   assert_eq(s.get(), "你")
+  t.finish()
 }
 
 ///|
@@ -80,6 +83,7 @@ test "scroll 与 drag：不崩、坐标通路在" {
   }
   t.frame()
   assert_eq(hits.get(), 1)
+  t.finish()
 }
 
 ///|
@@ -115,4 +119,17 @@ test "frame 后像素可读：点主色按钮中心有非透明墨" {
     }
     None => abort("按钮没有矩形")
   }
+  t.finish()
+}
+
+///|
+test "断言账本：观察点计数（找/动/看各算一次），零观察即红由 finish() 判" {
+  let t = @uitest.mount_all([@ui.text("甲").named("a")], 120.0, 40.0)
+  assert_eq(t.assertions(), 0)
+  let _ = t.text(t.by_name("a"))
+  let _ = t.rect(t.by_name("a"))
+  // by_name 两次 + text + rect = 4（定位本身也是观察点：没定位就没断言的对象）
+  assert_eq(t.assertions(), 4)
+  // 有读数：finish() 不响（零读数时它 abort，红在测试输出里直接可见）
+  t.finish()
 }

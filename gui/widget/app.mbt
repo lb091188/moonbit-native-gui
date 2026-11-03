@@ -269,6 +269,8 @@ pub fn test_app(s : @shell.Session) -> WindowHost {
 /// 定时器到期、脏区合并、`follow_system_theme` 轮询、`overlay_fit_pass`
 /// 三帧收框。用例驱动形态：改状态 → `step()` 若干拍 → 断言。
 /// **虚窗 ≠ 真窗**：平台窗口映射 / FFI / 输入法 / Retina 观感仍归真机人工验。
+/// 对外契约是 `@uitest.test_headless`（「虚窗 ≠ 真窗」全清单在 uitest 包首），
+/// 本方法作为它的底座，签名不承诺 1.0 稳定。
 pub fn WindowHost::test_headless(width : Int, height : Int) -> WindowHost {
   @shell.session_set_headless(true)
   let a = test_app(@shell.fake_session(-1, @shell.host_new_wid(), true, width, height))

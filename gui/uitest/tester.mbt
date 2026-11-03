@@ -5,7 +5,20 @@
 //   多 Tester 并行安全；
 // - click 恒 Down+Up 成对，坐标取矩形中心（窗口口径经 dispatch 换算本地）；
 // - 能力缺失用 `guard_text` / `guard_decode` 显式计数（打印 skip 行），
-//   依赖缺失的用例名约定带 `[需文本]` / `[需解码]` 前缀。
+//   依赖缺失的用例名约定带 `[需文本]` / `[需解码]` 前缀；跳过率不设门禁阈值
+//   （runner 机器的字体/后端与本机构成不同，阈值只会间歇红），只有一条硬判据
+//   `Tester::finish()`：一次观察点都没跑即红。
+//
+// **虚窗 ≠ 真窗**（`test_headless` 建的宿主语义边界，写进契约）：
+// - 窗口句柄是 `< 0` 的哨兵，平台桩对越界 id 全部早退——没有真实的窗口映射、
+//   不会出现在任务栏/活动窗口列表，`native_handle()` / 标题 / 尺寸 / 无边框
+//   这类窗口级 API 在此只走内存态；
+// - 没有真实输入设备：键盘/指针由 `key` / `click` / `drag` 注入，**输入法组合串
+//   （IME）、系统级快捷键、焦点跟随真实鼠标**都不在这条路上；
+// - 没有平台弹窗：文件选择、通知、托盘、剪贴板监视在本档只能断言「调用发生了」，
+//   落不落得到系统由真机验；
+// - 时间靠 `step` / `frame` 手动推进（无头泵不真睡），墙上时钟类行为不可见；
+// - Retina/HiDPI 缩放、合成器透明、字体回退观感属真机人工清单。
 
 ///|
 /// 一次无头会话：一棵挂好的树 + 画帧缓冲。
@@ -15,6 +28,8 @@ pub(all) struct Tester {
   hpx : Int
   mut bm : @render.Bitmap?
   mut frames : Int
+  // 观察点计数：找/动/看三类门面每调一次 +1，finish() 据此判「这条用例什么都没跑」
+  mut ops : Int
 }
 
 ///|
@@ -61,7 +76,14 @@ pub fn mount_all(
   root.node.set_align_items(@yoga.AlignItems::FlexStart)
   @widget.mount_children(root, children)
   root.relayout(width, height)
-  { root, wpx: width.round().to_int(), hpx: height.round().to_int(), bm: None, frames: 0 }
+  {
+    root,
+    wpx: width.round().to_int(),
+    hpx: height.round().to_int(),
+    bm: None,
+    frames: 0,
+    ops: 0,
+  }
 }
 
 // ---- 找 ----
@@ -69,18 +91,21 @@ pub fn mount_all(
 ///|
 /// 深度优先找第一个 `name == n` 的控件（`Node::named` / 动态文本写回的那份）。
 pub fn Tester::by_name(self : Tester, n : String) -> Target {
+  self.ops += 1
   { root: self.root, w: find_named(self.root, n) }
 }
 
 ///|
 /// 语义糖：可见文本默认进 name，按文本找等价按名找。
 pub fn Tester::by_text(self : Tester, s : String) -> Target {
+  self.ops += 1
   self.by_name(s)
 }
 
 ///|
 /// `base` 的第 i 个直接子控件（base 未命中给未命中）。
 pub fn Tester::nth(self : Tester, base : Target, i : Int) -> Target {
+  self.ops += 1
   let _ = self
   match base.w {
     Some(w) =>
@@ -96,6 +121,7 @@ pub fn Tester::nth(self : Tester, base : Target, i : Int) -> Target {
 ///|
 /// 坐标命中（窗口口径，相对根原点）：这个点最深的那个控件。
 pub fn Tester::hit(self : Tester, x : Double, y : Double) -> Target {
+  self.ops += 1
   let path = self.root.hit_path(x, y)
   if path.length() == 0 {
     { root: self.root, w: None }
@@ -123,6 +149,7 @@ fn find_named(w : @widget.Widget, n : String) -> @widget.Widget? {
 ///|
 /// 点一下：Down + Up 成对封死，坐标取矩形中心。
 pub fn Tester::click(self : Tester, t : Target) -> Unit {
+  self.ops += 1
   ignore(self)
   match t.w {
     Some(w) => {
@@ -158,6 +185,7 @@ pub fn Tester::pointer(
   button? : Int = 1,
   mods? : Int = 0,
 ) -> Bool {
+  self.ops += 1
   self.root.dispatch_pointer({ kind, x, y, button, mods })
 }
 
@@ -165,6 +193,7 @@ pub fn Tester::pointer(
 /// 打字：焦点定位 + IME commit 通道逐段注入（与真实输入法同一入口）。
 /// 目标未命中时空操作。要求目标可聚焦（focus_id > 0）。
 pub fn Tester::type_text(self : Tester, t : Target, s : String) -> Unit {
+  self.ops += 1
   ignore(self)
   match t.w {
     Some(w) =>
@@ -184,12 +213,14 @@ pub fn Tester::key(
   mods? : Int = 0,
   press? : Bool = true,
 ) -> Bool {
+  self.ops += 1
   self.root.dispatch_key(focus_id, { press, keysym, mods })
 }
 
 ///|
 /// 滚轮注入（dy 正 = 向下滚）。
 pub fn Tester::scroll(self : Tester, t : Target, dy : Double) -> Unit {
+  self.ops += 1
   ignore(self)
   match t.w {
     Some(w) => {
@@ -209,6 +240,7 @@ pub fn Tester::drag(
   to : (Double, Double),
   steps? : Int = 10,
 ) -> Unit {
+  self.ops += 1
   let n = if steps < 1 { 1 } else { steps }
   let _ = self.root.dispatch_pointer({
     kind: @widget.PointerKind::Down,
@@ -256,7 +288,7 @@ pub fn Tester::frame(self : Tester) -> Unit {
 ///|
 /// 控件矩形（窗口口径，相对根原点）。
 pub fn Tester::rect(self : Tester, t : Target) -> @base.Rect? {
-  let _ = self
+  self.ops += 1
   match t.w {
     Some(w) => Some(w.rect)
     None => None
@@ -266,7 +298,7 @@ pub fn Tester::rect(self : Tester, t : Target) -> @base.Rect? {
 ///|
 /// 控件文本（动态文本绑定与静态文本写回的 `label` 面；未命中或空给 None）。
 pub fn Tester::text(self : Tester, t : Target) -> String? {
-  let _ = self
+  self.ops += 1
   match t.w {
     Some(w) => if w.label.length() > 0 { Some(w.label) } else { None }
     None => None
@@ -276,7 +308,7 @@ pub fn Tester::text(self : Tester, t : Target) -> String? {
 ///|
 /// 控件类名（组件构造/包装器写回的 `role`）。
 pub fn Tester::role(self : Tester, t : Target) -> String? {
-  let _ = self
+  self.ops += 1
   match t.w {
     Some(w) => Some(w.role)
     None => None
@@ -286,6 +318,7 @@ pub fn Tester::role(self : Tester, t : Target) -> String? {
 ///|
 /// 像素读数（RGBA；frame() 之后才有内容）。越界给全 0。
 pub fn Tester::pixel(self : Tester, x : Int, y : Int) -> (Int, Int, Int, Int) {
+  self.ops += 1
   match self.bm {
     Some(bm) =>
       if x >= 0 && x < bm.width && y >= 0 && y < bm.height {
@@ -301,6 +334,7 @@ pub fn Tester::pixel(self : Tester, x : Int, y : Int) -> (Int, Int, Int, Int) {
 ///|
 /// 整帧位图（frame() 之后才有内容，否则 None）。
 pub fn Tester::bitmap(self : Tester) -> @render.Bitmap? {
+  self.ops += 1
   self.bm
 }
 
@@ -360,6 +394,36 @@ pub fn guard_decode(t : Tester) -> Bool {
     println("uitest: skip [需解码]（本平台无图片解码后端）")
     false
   }
+}
+
+///|
+/// 本会话跑过的观察点数：找（`by_name` / `by_text` / `nth` / `hit`）、动
+/// （`click` / `pointer` / `type_text` / `key` / `scroll` / `drag`）、看
+/// （`rect` / `text` / `role` / `pixel` / `bitmap`）三类门面各算一次。
+pub fn Tester::assertions(self : Tester) -> Int {
+  self.ops
+}
+
+///|
+/// 用例尾硬判据：**一条断言都没跑即红**。
+/// 只加这一条，不设跳过率阈值——runner 机器的字体/后端与本机构成不同，阈值会
+/// 间歇红；而「一次门面调用都没发生」只会是接线断（树没挂上、动也没动、看也
+/// 没看就 return），那种红是真红。
+pub fn Tester::finish(self : Tester) -> Unit {
+  if self.ops == 0 {
+    abort(
+      "uitest: 本用例一次观察点都没跑（树没挂上 / 没定位 / 没动 / 没看就 return？）",
+    )
+  }
+}
+
+///|
+/// 建一扇无头虚窗宿主（对外门面；底座 `@widget.WindowHost::test_headless` 不当
+/// 1.0 契约，签名可能随宿主内部改）。用法：`let win = @uitest.test_headless(800, 600)`
+/// 后照常 `win.mount([...])`，再改状态 → `win.step()` 若干拍 → 断言泵行为
+/// （定时器到期、脏区合并、深浅轮询）。语义边界见本包顶部「虚窗 ≠ 真窗」。
+pub fn test_headless(width : Int, height : Int) -> @widget.WindowHost {
+  @widget.WindowHost::test_headless(width, height)
 }
 
 ///|

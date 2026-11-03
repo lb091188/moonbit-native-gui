@@ -336,7 +336,9 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 ### 工程与交付
 
 - ⏳ **稳定面清单与 1.0 时点**：逐包划分承诺面 / 实验面，公告破坏性改动截止线
-- 🚧 **无头测试门面 uitest**（2026-11-02 立项；方案与坑清单见 [proposals/headless-tester.md](proposals/headless-tester.md)）：本仓不缺无头能力（wbtest 2.8 万行、合成指针事件与位图断言齐全），缺的是**对外门面**与**应用泵无头路径**——P1 公开包 `gui/uitest`（`test-import` 消费、name 定位不靠下标、显式 `frame()` 并行安全、`Capabilities` 显式守卫、form_wbtest 示范迁移）；✅P2 虚窗哨兵（`Window::virtual_` id<0 哨兵 + `WindowHost::test_headless` 假窗与无头泵 wait(0)，定时器经 step 驱动可断言，C 桩零改动）；真机人工验的分工不变。拆分待办见 TODO「无头测试门面」节
+- 🚧 **无头测试门面 uitest**（2026-11-02 立项；方案与坑清单见 [proposals/headless-tester.md](proposals/headless-tester.md)）：本仓不缺无头能力（wbtest 2.8 万行、合成指针事件与位图断言齐全），缺的是**对外门面**与**应用泵无头路径**——P1 公开包 `gui/uitest`（`test-import` 消费、name 定位不靠下标、显式 `frame()` 并行安全、`Capabilities` 显式守卫、form_wbtest 示范迁移）；✅P2 虚窗哨兵（`Window::virtual_` id<0 哨兵 + `WindowHost::test_headless` 假窗与无头泵 wait(0)，定时器经 step 驱动可断言，C 桩零改动）；✅P1 判据收口（2026-11-03）：跳过计数**不进 CI 门禁**，只留一条硬判据 `Tester::finish()`——找/动/看三类观察点一次都没跑即红；`test_headless` 升为对外门面 `@uitest.test_headless`，`WindowHost::test_headless` 降为底座（签名不承诺 1.0），「虚窗 ≠ 真窗」的语义边界写进 uitest 包首（哨兵句柄 id<0、无 IME/真实输入设备、无平台弹窗、时间靠 step/frame 推进、HiDPI 与合成器观感归真机）。真机人工验的分工不变
+
+- ⏳ **无头像素快照基线**（PNG + 容差）：自带基线目录与比对器、三平台各一份基线，`moon test` 无快照机制故全部自建；判据（容差怎么定、基线漂了谁批）待立项时定，工作量大于门面本体，故从 P1 拆出（2026-11-03 定案：单独立项，不进 P1）
 
 ### 可访问性
 
