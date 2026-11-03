@@ -25,18 +25,31 @@ fn mask_of(text : String) -> String {
 /// 前缀像素宽（`upto` 字节下标，由调用方保证落在码点边界）。
 /// `mask` 为真时按遮罩串测宽——密码框屏幕上画的是等宽圆点，用原文字宽
 /// 定位光标/命中会落进点串中间（圆点与数字/汉字的字宽并不相等）。
+fn entry_layout(
+  ed : @input.Editor,
+  font : @text.Font,
+  mask : Bool,
+  pad~ : Double = 0.0,
+) -> @input.TextLayout {
+  let measure = fn(t : String, from : Int, to : Int) -> Double {
+    let raw = byte_slice(t, from, to)
+    let shown = if mask { mask_of(raw) } else { raw }
+    match @text.measure_font(shown, font) {
+      Some(m) => m.width.to_double()
+      None => 0.0
+    }
+  }
+  // 行不可折：给一个量不到的宽，整段就是一行（单行档的 y 不参与定行）
+  @input.TextLayout::build(ed.get_text(), 1000000.0, measure, 1.0, pad=pad)
+}
+
 fn prefix_width(
   ed : @input.Editor,
   upto : Int,
   font : @text.Font,
   mask? : Bool = false,
 ) -> Double {
-  let raw = ed.get_text_in_range(0, upto)
-  let shown = if mask { mask_of(raw) } else { raw }
-  match @text.measure_font(shown, font) {
-    Some(m) => m.width.to_double()
-    None => 0.0
-  }
+  entry_layout(ed, font, mask).caret_x(upto)
 }
 
 ///|
@@ -48,21 +61,7 @@ fn byte_at_x(
   font : @text.Font,
   mask? : Bool = false,
 ) -> Int {
-  let n = ed.byte_len()
-  let mut best = 0
-  let mut k = 0
-  while k < n {
-    let next = ed.boundary_after(k + 1)
-    if prefix_width(ed, next, font, mask=mask) + pad <= x {
-      best = next
-    }
-    if next <= k {
-      k = n
-    } else {
-      k = next
-    }
-  }
-  best
+  entry_layout(ed, font, mask, pad=pad).hit(x, 0.5)
 }
 
 ///|

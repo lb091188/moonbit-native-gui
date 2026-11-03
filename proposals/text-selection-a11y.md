@@ -112,7 +112,7 @@ TextLayout {
 - `rects(start,end)` **本批不做**：没有消费者即死字段（`letter_spacing` 的教训），随 selectable 档一起落，届时绘制面从「画出来」切「算出来」。
 - textarea 改用后行为零变化：`moon test base shell widget ui render text theme icons sys input win dbus chart mdview style router` 1227/1227，其中 input 包新增 8 条假测宽器用例（折行、pad 扣宽、单段超宽不拆词、命中不劈半字、滚动平移、空文本也给一行）。
 - selectable 档已落（2026-11-03 同批）：`rects` 随首个消费者落地（`gui/ui/textsel.mbt` 的选区高亮），没有先塞孤儿 API。落地面收在三处——`text`/`text_dyn` 各加一个 `selectable? : Bool = false`、内核 `text_node_of` 多一个参数并在挂载闭包里二选一（`if selectable { sel_setup + 本档 on_draw } else { 原两行 }`），缺省档因此物理上不可能被碰到；测量面 `attach_sel_measure` 与绘制面 `draw_sel_text` 共用 `sel_layout`（同一份行模型），装饰线抽成 `draw_text_deco` 两档共用。三条定案外的取舍：① 折行块内不逐行对齐（整块按 `align` 偏移，块内各行贴块左缘）；② `max_lines`/省略复用 `@text.clamp_lines`（升为 pub）→ 选中范围=可见范围；③ `relabel` 按控件 id 查「变化收尾口」（`sel_hooks`），有则走本档（重设测量标脏 + Editor 换文清选区 + 让出持有），无则原路 `attach_text_measure`——动态文本、`bind`/`bind_label` 与注册表共用同一个钩子点，一次改两处。宿主复制支插在焦点链吃掉之后、`fire_key_fallthrough` 之前（`App::fire_selection_copy`），于是「焦点输入框自己有选区时复制焦点件」这条已知限制自动成立。
-- entry **未切**：单行档的量宽走「按前缀整段量 + 遮罩串渲染」与居中 origin（entry.mbt:28-66、180-193），索引参照系是原文、渲染是点串——TextLayout 的「偏移即 `text` 下标」要吃它得把遮罩塞进测宽器，等价性靠 entry_wbtest 钉得住但收益在本批为零（首批消费者是 textarea 形态的折行件）。等静态文本 selectable 批按同一判据复查一次再定。
+- entry **已切**（同批收尾）：单行档前缀宽与像素→字节改成走 `@input.TextLayout`（`entry_layout` 一个量不到的宽 = 一行；测宽器按遮罩档量「原文前缀的显示宽」，`prefix_width = caret_x`、`byte_at_x = hit`，`pad=文本起点` 复原「前缀 + 起点 ≤ x」的旧式），滚动/居中的 origin 计算与 y 方向一律不动——单行档的 y 不参与定行。既有 entry_wbtest 断言条数不减、246/246 全绿（点击定位、遮罩定位、拖选、只读各条同批复跑）。
 
 ## 第二期：屏读语义
 
