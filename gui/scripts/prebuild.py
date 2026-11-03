@@ -267,7 +267,7 @@ def link_configs() -> dict:
           "package": WIN_PACKAGE,
           "link_flags": "user32.lib gdi32.lib imm32.lib advapi32.lib "
           "windowscodecs.lib ole32.lib shell32.lib uuid.lib "
-          "uiautomationcore.lib",
+          "uiautomationcore.lib oleaut32.lib",
         })
         # render 桩（render/stub.c 的 _WIN32 分支）由 moon native-stub 自编，
         # 这里只下发系统库：图片解码（W9）走 WIC，GUID 常量（CLSID_WICImaging

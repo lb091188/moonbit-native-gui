@@ -584,7 +584,8 @@ static LRESULT CALLBACK wm_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       // 目前先建立入口、回 NULL provider（= 有 UIA 入口但暂无内容），
       // provider 与快照映射在下一批接 wm_a11y_row。
       if ((LONG)(intptr_t)lp == UiaRootObjectId) {
-        return UiaReturnRawElementProvider(hwnd, wp, lp, NULL);
+        extern LRESULT wm_uia_get_object(HWND hwnd, WPARAM wp, LPARAM lp);
+        return wm_uia_get_object(hwnd, wp, lp);
       }
       return DefWindowProcW(hwnd, msg, wp, lp);
     }

@@ -21,5 +21,5 @@ supported_targets = "native"
 // 符号，无平台实现；与 stub.c 同编进包归档 libwin.lib，被 window.mbt 的
 // init_backend 引用后其 .drectve 才会被链接器读到（细则见文件头）。
 options(
-  "native-stub": [ "stub.c", "win_gui.c" ],
+  "native-stub": [ "stub.c", "win_gui.c", "uia_provider.c" ],
 )
