@@ -180,6 +180,13 @@ fn contains_sub_p(s : String, sub : String) -> Bool {
 test "Artifacts 段解析：按模块名挑，别家模块的行不认（裸 workspace 构建的回归）" {
   let bin = tmp_dir("mng_proj_artifact.bin")
   let tool = tmp_dir("mng_proj_tool.bin")
+  assert_true(is_abs_path("/a/b.exe"))
+  assert_true(is_abs_path("C:\\Users\\a\\b.exe"))
+  assert_true(is_abs_path("D:/build/app.exe"))
+  assert_true(is_abs_path("\\\\server\\share\\app.exe"))
+  assert_false(is_abs_path("build/app.exe"))
+  assert_false(is_abs_path(""))
+  assert_false(is_abs_path("C:app.exe"))
   write_file_p(bin, "x")
   write_file_p(tool, "x")
   // 裸 `moon build` 会列整个 workspace；本模块的行在中间，最后一条是别的模块

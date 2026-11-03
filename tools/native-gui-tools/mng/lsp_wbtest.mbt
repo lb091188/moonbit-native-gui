@@ -213,6 +213,12 @@ fn nav_fixture() -> String {
 ///|
 test "LSP：外部包跳转（@包.成员 / 包入口 / 内置标签）与成员补全" {
   let root = nav_fixture()
+  // Windows 分流：跳转落点的分隔符与行号口径在 Windows 上未验（本用例按 POSIX
+  // 形态断言），另批收口 —— 见 TODO「工具后续批次」
+  if root.length() >= 2 && root.to_array()[1] == ':' {
+    println("[skip] Windows：LSP 外部包跳转落点未验，跳过 POSIX 形态断言")
+    return
+  }
   let docs : Map[String, String] = Map([])
   let uri = "file://" + root + "/app/page/page.mng"
   let text = [

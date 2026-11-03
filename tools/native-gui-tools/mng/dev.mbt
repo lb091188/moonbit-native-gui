@@ -159,6 +159,25 @@ fn derive_run(build_cmd : String, module_name : String) -> Result[String, String
 }
 
 ///|
+/// 绝对路径判据：POSIX 以 `/` 起头，Windows 认 `C:\…` / `C:/…` 与 UNC `\\…`
+/// （moon 的 Artifacts 行在 Windows 上给盘符路径，只认 `/` 会把整段抓空）。
+fn is_abs_path(p : String) -> Bool {
+  let cs = p.to_array()
+  let n = cs.length()
+  if n == 0 {
+    return false
+  }
+  if cs[0] == '/' {
+    return true
+  }
+  let is_letter = (cs[0] >= 'a' && cs[0] <= 'z') || (cs[0] >= 'A' && cs[0] <= 'Z')
+  if n >= 3 && is_letter && cs[1] == ':' && (cs[2] == '\\' || cs[2] == '/') {
+    return true
+  }
+  n >= 2 && cs[0] == '\\' && cs[1] == '\\'
+}
+
+///|
 /// `moon build` 的 `Artifacts:` 段 → **属于本模块**的可执行绝对路径。
 /// 行形如 `  <包路径>  native  /abs/path`：包路径等于模块名（模块根包）优先，
 /// 其次取模块下的子包（如 `cmd/main`）；别家模块的行一律不认（裸 `moon build`
@@ -190,7 +209,7 @@ fn artifact_of_log(text : String, module_name : String) -> String? {
     }
     let pkg = xs[0]
     let cand = xs[xs.length() - 1]
-    if !cand.has_prefix("/") {
+    if !is_abs_path(cand) {
       continue
     }
     let exists = @fs.is_file(cand) catch {
