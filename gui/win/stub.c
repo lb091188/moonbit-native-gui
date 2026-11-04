@@ -8308,6 +8308,8 @@ typedef struct {
 @public
   int wm_idx;       // 快照行号
   uint32_t wm_hash; // 建元时的行内容指纹（复用判据，见 wm_a11y_row_hash）
+  NSString *wm_label; // 自持正文：协议 setter 的辅助存储在轻量元素上对外
+  NSString *wm_value; // 序列化会读空（真机实测），getter 走自己的 ivar
 }
 @end
 
@@ -8765,7 +8767,11 @@ static NSString *wm_a11y_ax_role(const char *role) {
   int textish = !strcmp(r->role, "text") || !strcmp(r->role, "heading");
   int valued = !strcmp(r->role, "slider") || !strcmp(r->role, "progress") ||
                !strcmp(r->role, "stepper") || !strcmp(r->role, "select");
-  const char *nm = (textish || valued || r->name[0]) ? r->name : r->text;
+  // text/heading：label 与 value 都给正文（读屏念静态文本走 value、兜底
+  // description；实测轻量元素上 value 通道对长文本偶发读空，双通道封死静默）。
+  // 其余控件：name 空（按钮等「正文即名字」）时 label 拿 text 顶上。
+  const char *nm = textish ? (r->name[0] ? r->name : r->text)
+                           : ((valued || r->name[0]) ? r->name : r->text);
   NSString *label = nm[0] ? [NSString stringWithUTF8String:nm] : @"";
   WMA11yElement *el = [WMA11yElement accessibilityElementWithRole:wm_a11y_ax_role(r->role)
                                                              frame:screen
@@ -8776,12 +8782,14 @@ static NSString *wm_a11y_ax_role(const char *role) {
   }
   el->wm_idx = (int)i;
   el->wm_hash = h;
+  el->wm_label = label;
+  el->wm_value = nil;
   [el setAccessibilityIdentifier:[NSString stringWithFormat:@"w%d", (int)r->id]];
   [el setAccessibilityEnabled:r->enabled ? YES : NO];
   if (r->text[0] && (textish || r->name[0])) {
-    [el setAccessibilityValue:[NSString stringWithUTF8String:r->text]];
+    el->wm_value = [NSString stringWithUTF8String:r->text];
   } else if (valued && r->value[0]) {
-    [el setAccessibilityValue:[NSString stringWithUTF8String:r->value]];
+    el->wm_value = [NSString stringWithUTF8String:r->value];
   }
   if (r->state[0]) {
     [el setAccessibilityRoleDescription:[NSString stringWithUTF8String:r->state]];
@@ -9366,6 +9374,12 @@ static NSString *wm_a11y_ax_role(const char *role) {
 // 点击）。increment/decrement/showMenu 不实现（值在组件闭包里，桥够不着），
 // 如实落 NO——读屏回落键盘交互，不装能动。
 @implementation WMA11yElement
+- (NSString *)accessibilityLabel {
+  return self->wm_label ?: @"";
+}
+- (NSString *)accessibilityValue {
+  return self->wm_value ?: @"";
+}
 - (BOOL)accessibilityPerformPress {
   wm_uia_action_push(self->wm_idx, WM_UIA_ACT_CLICK);
   return YES;
