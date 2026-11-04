@@ -21,3 +21,15 @@ Overlays — dialog / popover / menu / tooltip — all open on the window-wide *
 ### `context_menu_for(content : Node, items : Array[(String, () -> Unit)], width?=150.0, handle?)`
 
 - Right-click context menu: in `items` the label `"-"` draws a separator; right-click dispatch is "ancestor-first"
+
+### `dropdown(trigger, items : Array[String], on_select? : (Int) -> Unit, width?=150.0, focus_id?, class?)`
+
+- Menu button: trigger text + item list; the selection callback receives the index (`-1` when nothing is selected). `on_select` is an `(Int) -> Unit`, unlike `select`'s Store-based contract
+
+### `toast_layer(duration_ms? = 2600) -> (String, SemanticType) -> Unit`
+
+- Call once while building the UI to get a push function; then from any callback `toast("Saved", @ui.Success)` — auto-dismisses and stacks
+
+### `msgbox_icon_of(kind)` / `msgbox_icon_color_of(kind)` / `msgbox_default_code(buttons)`
+
+- Message-box companions: the icon and icon colour for a `MsgBoxKind`, and the primary button's code in a `buttons` list — for self-drawn title bars or message-box clones

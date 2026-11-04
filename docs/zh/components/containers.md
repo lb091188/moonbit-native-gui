@@ -36,4 +36,4 @@
 - `hscroll`：开启横向滚动
 - `min_content_width`：内容宽两档——缺省 `0.0` 为自然宽档 `max(子项自然宽, 视口宽)`（长代码行 / 表格适用）；给定正值 `N` 为下限档 `max(N, 视口宽)`，不读子项自然宽，更宽的内容由它自己的视口滚动
 
-> 滚动偏移在绘制期平移、不进布局；`ScrollState` 由 `ui/scroll.mbt` 提供。
+> 滚动偏移在绘制期平移、不进布局；`ScrollState` 由 `ui/scroll.mbt` 提供。自绘里画 4px 圆角矩形可直接用门面 `@render.Painter::fill_round_rect`（组件层惯用名 `fill_round_rect` 是同一实现的上收入口）。

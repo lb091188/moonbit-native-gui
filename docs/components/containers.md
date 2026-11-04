@@ -26,4 +26,4 @@ General conventions (typed parameters, the `class` override order, `Store`-held 
 
 - Scroll container; `height` is the viewport height, 0 means the parent supplies it; overflow is clipped, and the scrollbar is a thumb floating on the right edge (no track, no reserved width — opaque on hover, faded otherwise). `hscroll=true` enables horizontal scrolling with two content-width modes: the default natural mode `max(children's natural width, viewport)` (for code lines / tables that cannot wrap), or — when `min_content_width` is given — the floor mode `max(that value, viewport)`, which **ignores the children's natural width**: wider content scrolls inside its own viewport, so this min-width is the only number that binds
 
-> Scroll offset shifts at paint time and stays out of layout; `ScrollState` is provided by `ui/scroll.mbt`.
+> Scroll offset shifts at paint time and stays out of layout; `ScrollState` is provided by `ui/scroll.mbt`. For a 4px rounded rect in custom drawing use the facade `@render.Painter::fill_round_rect` directly (the component-layer name `fill_round_rect` is the same implementation, folded up).

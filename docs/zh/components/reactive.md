@@ -14,7 +14,11 @@
 
 ### `when_store` / `when_store_bool` / `when_else_store` / `when_else_store_bool`
 
-- 以上各条的 `Store[T]` 形态
+- 以上各条的 `Store[T]` 形态；`_bool` 结尾是布尔源的常用档（`Signal`/`Store` 各一组）
+
+### `follow_store(s)`
+
+- 订阅一个 `Store` 只为请求重绘（值变即 `invalidate`）；退订随本代回收袋——自绘块接外部状态用
 
 ### `for_list(ls : ListStore[T], build : (T, Int) -> Node, key~ : (T) -> K, eq? : (T, T) -> Bool)`
 

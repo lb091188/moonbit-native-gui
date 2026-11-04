@@ -81,3 +81,22 @@
 ### `link(text, on_click : () -> Unit, font_size?, class?, handle?)`
 
 - 链接文字：主题色、悬停下划线、抬起触发；`on_click` 点击回调
+
+## 校验与禁用
+
+### `validate(store, rule : (T) -> String?) -> Store[String]`
+
+- 把值流接进规则：立即按现值跑一次，之后值一变就重跑；`rule` 返回 `Some(消息)` 即写红字、`None` 清空。返回的错误 Store 接 `form_item(error=)` 显示同一条错误；订阅进回收袋，控件卸载自动退订
+
+### `required()` / `min_len(n)` / `email()` / `int_range(lo, hi)`
+
+- 四条现成规则（返回值就是上面的 `rule`）：必填（去首尾空白）、字符数下限、邮箱粗规则（`x@y.z` 形态）、整数区间。默认消息随语言取译，`msg~` 传自己的串
+
+### `set_disabled(cell, v)` / `is_disabled(cell)`
+
+- 禁用态单元的读写：控件构造器收 `enabled?` 拿到的单元可随时改；`is_disabled` 读当前态
+
+### `use_system_clipboard(enable)`
+
+- 打开/关闭「输入框的 Ctrl+C/X/V 接系统剪贴板」；只影响**此后新建**的输入框
+

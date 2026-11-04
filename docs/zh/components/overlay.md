@@ -27,3 +27,16 @@
 ### `context_menu_for(content : Node, items : Array[(String, () -> Unit)], width?=150.0, handle?)`
 
 - 右键上下文菜单：`items` 文案为 `"-"` 时绘制分隔线；右键按「祖先优先」派发
+
+### `dropdown(trigger, items : Array[String], on_select? : (Int) -> Unit, width?=150.0, focus_id?, class?)`
+
+- 菜单按钮：trigger 文字 + 项清单；选中回调收下标（`-1` 为未选）。`on_select` 是 `(Int) -> Unit`，与 `select` 的 Store 口径不同
+
+### `toast_layer(duration_ms? = 2600) -> (String, SemanticType) -> Unit`
+
+- 建界面时调一次得推送函数；之后任意回调里 `toast("文案", @ui.Success)`，到时自动消失、多条堆叠
+
+### `msgbox_icon_of(kind)` / `msgbox_icon_color_of(kind)` / `msgbox_default_code(buttons)`
+
+- 消息框配套查询：`MsgBoxKind` 对应的图标、图标色，`buttons` 清单里主色默认按钮的编号——自绘标题栏或复刻消息框时取
+

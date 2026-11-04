@@ -26,6 +26,10 @@ General conventions: see [Components overview](index.md#conventions-read-this-fi
 
 Built-in composite controls follow the same semantics: clickable blocks such as radio rows, calendar cells and month arrows, table rows and nav items all request the hand cursor at the block root; disabled or unpickable parts (a disabled radio group, out-of-month calendar cells) make no request and fall back to the default arrow.
 
+### `text_sel_new(ed)` / `TextSel::sync(sel, text)`
+
+- The low-level selection state for read-only text: prepare a read-only Editor (the full text is the selection range), copies go through the system slot; `sync` on text change (clears the selection, no offset migration). The ready-made `selectable` tiers already embed this chain — reach for it directly only when self-drawn text needs selection
+
 ## Window show/hide events
 
 ### `WindowHost::on_hidden(f : () -> Unit)`

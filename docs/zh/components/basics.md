@@ -54,3 +54,16 @@
 - `looping`：`false` 播完一轮即停
 - `running`：初始播放状态
 - `state`：`GifHandle` 外部句柄，程序化控制播放
+
+### `icon_button(kind, on_click?, icon_size?=16.0, box_size?=28.0, color?, disabled?)`
+
+- 图标按钮：矢量图标盒 + 点击回调；`box_size` 是点击盒边长，`disabled` 禁用态
+
+### `bg_block(hex)` / `fg_block(hex)` / `border_block(hex)`
+
+- 三个颜色快捷 `Style`：`class` 里直接 `@style.bg_block("#2A303C")` 即设底色（另两个设文字色 / 描边色），等价于写全 `@style.style(...)`
+
+### `watch_theme()`
+
+- 主题变化即请求重绘（进程级只订一次）；自绘块跟随主题切换用
+

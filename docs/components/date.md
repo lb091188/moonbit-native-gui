@@ -1,6 +1,6 @@
 # Date & time
 
-Value model (`ui/datetime.mbt`): `DateYMD{y,m,d}`, `TimeHMS{h,m,s}` (seconds default 0; `format(show_seconds=true)` yields `HH:MM:SS`), `DateRange`, `TimeRange`, `DateTimeRange`, with the pure functions `month_grid`/`month_shift`/`days_in_month`/`date_weekday`/`range_state_of`.
+Value model (`ui/datetime.mbt`): `DateYMD{y,m,d}`, `TimeHMS{h,m,s}` (seconds default 0; `format(show_seconds=true)` yields `HH:MM:SS`), `DateRange`, `TimeRange`, `DateTimeRange`, with the pure functions `month_grid` (calendar cells), `month_shift` (month paging), `days_in_month`, `date_leap` (leap year), `date_weekday`, `range_state_of` (range membership), `today_date` (system today), `time_clamp` (time clamping).
 
 ### `calendar(on_pick? : (DateYMD) -> Unit, …)`
 

@@ -12,7 +12,11 @@
 
 ### `when_store` / `when_store_bool` / `when_else_store` / `when_else_store_bool`
 
-- The `Store[T]` forms of the above
+- The `Store[T]` forms of the above; the `_bool` suffix marks the common boolean-source tier (one set each for `Signal` / `Store`)
+
+### `follow_store(s)`
+
+- Subscribes to a `Store` purely to request a repaint (value change → `invalidate`); unsubscribes with the current recycle bundle — for custom blocks wired to external state
 
 ### `for_list(ls : @base.ListStore[T], build : (T, Int) -> Node, key~, eq?)`
 

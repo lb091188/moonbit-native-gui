@@ -56,4 +56,20 @@ The display family also has `*_dyn` signal forms: `text` becomes a `Signal`, the
 
 ### `carousel(pages : Array[Node], width?=360.0, height?=180.0, interval_ms?=3000, rotation?=CarouselHandle::make(), class?, handle?)`
 
-- Carousel: panel sequence + arrows + indicator dots; auto-advances when `interval_ms>0` and pages > 1, pauses on hover
+- Carousel: panel sequence + arrows + indicator dots; auto-advances when `interval_ms>0` and pages > 1, pauses on hover; `rotation` holds an external `CarouselHandle` driven by `carousel_goto` / `carousel_pause` / `carousel_stop` (must call `carousel_stop` before unmounting)
+
+### `carousel_goto(handle, i)` / `carousel_pause(handle, v)` / `carousel_stop(handle)`
+
+- Programmatic carousel control: jump to page i, pause/resume auto-advance, stop (not recoverable; required before unmounting — the self-arming delay chain does not know the view is gone)
+
+### `alert(title, description?, t?=Info, closable?=false, on_close?, class?)`
+
+- In-page banner (stays on the page, does not auto-dismiss): semantic icon + title + description; `closable` shows a ✕ and closes via `on_close`. For self-dismissing strips use `toast_layer`
+
+### `type_color(t)` / `type_light_color(t)`
+
+- Theme colour values for a `SemanticType`: the solid tier and the light tier — read them instead of hard-coding hex in custom drawing or pinned colours
+
+### `*_dyn` signal entries
+
+- `tag_dyn` / `tag_of_type_dyn` / `badge_count_dyn` / `avatar_dyn` / `statistic_dyn`: the static forms take a value, the `_dyn` forms take a `Signal` and update in place

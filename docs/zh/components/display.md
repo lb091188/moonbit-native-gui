@@ -58,3 +58,20 @@
 
 - 轮播：面板序列 + 箭头 + 指示点；`interval_ms>0` 且页数 >1 时自动轮播、悬停暂停
 - `rotation`：外部持有的 `CarouselHandle`，配 `carousel_goto` / `carousel_pause` / `carousel_stop` 程序化控制（卸载轮播前必须调 `carousel_stop`）
+
+### `carousel_goto(handle, i)` / `carousel_pause(handle, v)` / `carousel_stop(handle)`
+
+- 轮播程序化控制：跳到第 i 页、暂停/恢复自动轮播、停止（不可恢复；卸载前必须调，自排延时链不认识视图已移除）
+
+### `alert(title, description?, t?=Info, closable?=false, on_close?, class?)`
+
+- 页内提示条（常驻页面，不自动消失）：语义色图标 + 标题 + 描述；`closable` 出 ✕、关闭走 `on_close`。要自动消失的轻提示用 `toast_layer`
+
+### `type_color(t)` / `type_light_color(t)`
+
+- 语义色 `SemanticType` 对应的主题色值：实底档与浅底档；自绘或钉色时取，不写死十六进制
+
+### `*_dyn` 信号版入口
+
+- `tag_dyn` / `tag_of_type_dyn` / `badge_count_dyn` / `avatar_dyn` / `statistic_dyn`：静态版收值，`_dyn` 版收 `Signal`，值变就地改
+

@@ -1,6 +1,6 @@
 # 日期与时间
 
-值模型（`ui/datetime.mbt`）：`DateYMD{y,m,d}`、`TimeHMS{h,m,s}`（秒默认 0，`format(show_seconds=true)` 输出 `HH:MM:SS`）、`DateRange`、`TimeRange`、`DateTimeRange`，配纯函数 `month_grid` / `month_shift` / `days_in_month` / `date_weekday` / `range_state_of`。
+值模型（`ui/datetime.mbt`）：`DateYMD{y,m,d}`、`TimeHMS{h,m,s}`（秒默认 0，`format(show_seconds=true)` 输出 `HH:MM:SS`）、`DateRange`、`TimeRange`、`DateTimeRange`，配纯函数 `month_grid`（月历格子）/ `month_shift`（翻月）/ `days_in_month` / `date_leap`（闰年）/ `date_weekday` / `range_state_of`（区间判定）/ `today_date`（系统今天）/ `time_clamp`（时刻夹取）。
 
 ### `calendar(on_pick? : (DateYMD) -> Unit, value? : Store[DateYMD?], today? : DateYMD, class?, handle?)`
 

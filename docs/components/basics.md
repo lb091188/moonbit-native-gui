@@ -37,3 +37,15 @@ General conventions (typed parameters, the `class` override order, `Store`-held 
 ### `gif(path, width?, height?, looping?=true, running?=true, state?, handle?)`
 
 - Animated image: `looping=false` stops after one pass; a non-GIF still image draws a single frame
+
+### `icon_button(kind, on_click?, icon_size?=16.0, box_size?=28.0, color?, disabled?)`
+
+- Icon button: vector icon box + click callback; `box_size` is the click-box edge, `disabled` is the disabled state
+
+### `bg_block(hex)` / `fg_block(hex)` / `border_block(hex)`
+
+- Three colour shortcut `Style`s: in `class`, `@style.bg_block("#2A303C")` sets the background colour (the other two set text colour / border colour) — equivalent to a full `@style.style(...)`
+
+### `watch_theme()`
+
+- Requests a repaint when the theme changes (a single process-level subscription); custom blocks that follow the theme use it

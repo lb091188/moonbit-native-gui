@@ -57,3 +57,21 @@ Value controls hold their current value in a `Store[T]`: an external change refr
 ### `link(text, on_click : () -> Unit, font_size?, class?, handle?)`
 
 - Link text: theme colour, underline on hover, fires on release
+
+## Validation & disabled state
+
+### `validate(store, rule : (T) -> String?) -> Store[String]`
+
+- Wires a value stream into a rule: runs once immediately, then again on every change; the rule returning `Some(message)` writes the red text, `None` clears it. The returned error `Store` feeds `form_item(error=)`; the subscription rides the unsubscribe bundle, so unmounting unsubscribes automatically
+
+### `required()` / `min_len(n)` / `email()` / `int_range(lo, hi)`
+
+- Four ready-made rules (each returns a `rule` as above): required (trimmed non-empty), character-count floor, coarse email rule (`x@y.z` shape), integer range. Default messages are localized; pass `msg~` for your own text
+
+### `set_disabled(cell, v)` / `is_disabled(cell)`
+
+- Read and write the disabled-state cell: the cell a constructor takes via `enabled?` can be changed at any time; `is_disabled` reads the current state
+
+### `use_system_clipboard(enable)`
+
+- Turns on/off "input fields' Ctrl+C/X/V talk to the system clipboard"; affects only inputs created **afterwards**
