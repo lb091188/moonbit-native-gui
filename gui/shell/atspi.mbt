@@ -22,7 +22,9 @@
 // 一条队列），由 widget 层每帧抽走合成指针点击。
 //
 // 无 a11y 总线（Windows/macOS/无 at-spi 的会话）时启动即失败并按背间隔
-// 重试——不崩、不假成功；读屏查询走宿主每帧的 atspi_tick 泵。
+// 重试——不崩、不假成功；读屏查询走宿主每帧的 atspi_tick 泵。总线断线
+// 自愈重建后唯一名会变，tick 核对不符即重新 Embed（registry 挂旧名=读屏
+// 静默丢失）。
 
 ///|
 /// AT-SPI 桥的一行快照（从 @win 的 TSV 通道解析；字段序与发布侧一致）。
@@ -363,10 +365,20 @@ priv enum AtspiState {
 
 let g_atspi_state : Ref[AtspiState] = Ref(AtspiIdle)
 let g_atspi_retry : Ref[Int] = Ref(0)
+let g_atspi_name : Ref[String] = Ref("")
 let g_atspi_last_rows : Ref[Array[AtspiNode]] = Ref([])
 let g_atspi_last_digest : Ref[String] = Ref("")
 let g_atspi_last_focus : Ref[Int] = Ref(0)
 let g_atspi_handler_on : Ref[Bool] = Ref(false)
+
+///|
+/// 连接活性判据（纯函数）：Embed 时记下的唯一名与当前不一致、或连接不在，
+/// 就该重新走注册。dbus 包对 bus=2 断线自愈重建后本端唯一名会变，而
+/// registry 里挂的还是旧名——不重Embed 读屏静默丢失，atspi_alive() 还报
+/// true（状态说谎比重启更糟）。
+fn atspi_needs_reembed(stored : String, now : String, alive : Bool) -> Bool {
+  !alive || now == "" || now != stored
+}
 
 ///|
 /// 解析 a11y 总线地址（DBUS_SESSION_BUS_ADDRESS 同款 unix:path= 形态）；
@@ -455,6 +467,10 @@ pub fn atspi_start() -> Result[Unit, String] {
     Err(e) => return Err("Socket.Embed 失败: \{e.name} \{e.message}")
   }
   atspi_install_handler()
+  g_atspi_name.val = mine
+  // 重新 Embed 后让下一拍重发一次 ChildrenChanged：registry 虽会因 Embed
+  // 广播，本端也补发保证客户端刷新（digest 置空即触发）。
+  g_atspi_last_digest.val = ""
   g_atspi_state.val = AtspiLive
   g_atspi_retry.val = 0
   Ok(())
@@ -1334,7 +1350,20 @@ fn atspi_emit_focus(path : String) -> Unit {
 /// 调（排在 a11y_frame_sync 之后——快照必须是这一帧的）。
 pub fn atspi_tick() -> Unit {
   match g_atspi_state.val {
-    AtspiLive => ()
+    AtspiLive => {
+      // 自愈重连会换唯一名：核对不齐就回 Idle 重走 Embed（背间隔见下），
+      // 不带着旧注册名假装活着。
+      let broken = atspi_needs_reembed(
+        g_atspi_name.val,
+        @dbus.dbus_a11y_unique_name(),
+        @dbus.dbus_a11y_alive(),
+      )
+      if broken {
+        g_atspi_state.val = AtspiIdle
+        g_atspi_retry.val = 60
+        return
+      }
+    }
     AtspiIdle | AtspiDown =>
       // 背间隔：60 帧一轮（约 1s @60fps），不每帧重连
       if g_atspi_retry.val <= 0 {

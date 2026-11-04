@@ -252,6 +252,19 @@ test "atspi：入站派发（假 CallReq 驱动，不碰真总线）" {
 }
 
 ///|
+test "atspi：连接活性判据（自愈重连换名即该重Embed）" {
+  // 名一致且活着：不用动
+  assert_true(!atspi_needs_reembed(":1.7", ":1.7", true))
+  // 自愈重建后唯一名变了（registry 挂旧名）：必须重Embed
+  assert_true(atspi_needs_reembed(":1.7", ":1.9", true))
+  // 连接没了（自愈尚未重建）：重Embed
+  assert_true(atspi_needs_reembed(":1.7", ":1.7", false))
+  assert_true(atspi_needs_reembed(":1.7", "", false))
+  // 未连接时空名也算不符（Conn::name 空串口径）
+  assert_true(atspi_needs_reembed(":1.7", "", true))
+}
+
+///|
 test "atspi：真总线集成（无 a11y 总线的环境跳过）" {
   match atspi_start() {
     Err(e) => {
