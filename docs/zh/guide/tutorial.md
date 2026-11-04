@@ -4,7 +4,7 @@
 
 ## 1. 准备工具
 
-**MoonBit 工具链**：
+**MoonBit 工具链**（一行装好）：
 
 ```sh
 # Linux / macOS
@@ -13,49 +13,7 @@ curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
 irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
 ```
 
-<details>
-<summary>Linux（Ubuntu 24.04）环境准备</summary>
-
-库走原生 FFI，构建只需要 C 工具链、pkg-config、Python 3 与 GTK3 / Pango / FontConfig / X11 的开发包：
-
-```sh
-sudo apt install build-essential pkg-config python3 \
-  libgtk-3-dev libpango1.0-dev libfontconfig1-dev libx11-dev
-```
-
-只有用到对应能力时才需要再装：内嵌 WebView（`gui-webview` 模块）加 `libwebkit2gtk-4.1-dev`；媒体模块（`NoahLiu/gui-media`）加 `libavformat-dev libavcodec-dev libswscale-dev libswresample-dev libavutil-dev`。运行时若报 GTK 库缺失，多半是上面这份 apt 清单没装全。
-
-⚠️ 装完再敲一句 `python -V`：deepin 20、CentOS 7 这类机器上 `python` 仍是 2.7，而构建脚本优先用它，起手就报 `pep-0263` 的 SyntaxError——修法见 [build.md](build.md) §6。
-
-</details>
-
-<details>
-<summary>macOS（Apple Silicon）环境准备</summary>
-
-只需要 Xcode 命令行工具：
-
-```sh
-xcode-select --install
-```
-
-窗口、文本、图片解码都走系统框架（Cocoa / CoreText / ImageIO）——**不需要 GTK，也不需要 brew**。只有媒体模块（`NoahLiu/gui-media`）另需 ffmpeg：`brew install ffmpeg`。
-
-</details>
-
-<details>
-<summary>Windows（10/11，x64）环境准备</summary>
-
-需要 Python 3 与 MSVC C++ 工具链，工具链选 VS 2022 Build Tools 的「使用 C++ 的桌面开发」工作负载：
-
-```powershell
-irm https://cli.moonbitlang.com/install/powershell.ps1 | iex            # MoonBit
-winget install Python.Python.3.12
-winget install Microsoft.VisualStudio.2022.BuildTools -e --override "--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
-```
-
-moon 在 Windows 上编译原生代码**开箱即用，会自行定位 MSVC 工具链**，普通 shell（PowerShell / Git Bash）直接 `moon run` 即可，不必先进「x64 Native Tools Command Prompt」或手动 `call vcvars64.bat`。「必须在 Native Tools 命令行里跑」「还要装 CMake 与 ATL」是旧 CMake 构建链的口径，本栈不适用。
-
-</details>
+本库走原生 FFI，构建还需要 C 工具链与若干开发包（Linux 另需 GTK3 一族）——**三平台完整安装清单与环境自检见[构建与运行](build.md) §2**；只想先看效果不装任何东西，走[先跑起来看看](experience.md)。
 
 ## 2. 建工程
 
@@ -65,7 +23,7 @@ cd my_app
 moon add NoahLiu/native-gui
 ```
 
-当前 `moon new` 模板的结构：根目录是库包（`my_app.mbt`、空的 `moon.pkg`），可执行入口在 `cmd/main/` 子包（`main.mbt` + `moon.pkg`）。工程需要两处手工调整（从零路径与常见卡点另见[应用开发者体验](dev-experience.md)）：
+当前 `moon new` 模板的结构：根目录是库包（`my_app.mbt`、空的 `moon.pkg`），可执行入口在 `cmd/main/` 子包（`main.mbt` + `moon.pkg`）。工程需要两处手工调整：
 
 - **`moon.mod`：把 `preferred_target = "wasm"` 改为 `"native"`**——本库走原生 FFI，只支持 native 后端；模板默认已是 native 时跳过。
 
@@ -84,9 +42,9 @@ moon add NoahLiu/native-gui
   supported_targets = "native"
   ```
 
-  `import` 让代码能访问库：`@ui.*` 提供控件、组件与声明式入口（`mount_window` 与各节点构造器），`@base.*` 提供响应式状态（`Store` / `Signal`），`@style.*` 提供字阶等样式类，`@widget.*` 提供窗宿主 `WindowHost`。`pkgtype(kind: "executable")` 与 `supported_targets = "native"` 声明本包是可执行入口、只出原生目标。
-
   入口在 `cmd/main/main.mbt`——moon 只把名为 `main.mbt` 的文件识别为程序入口，自建入口文件时保持这个文件名。
+
+  两处调整各自的原因、`moon add` 的模块级 / 包级 import 之分，见[应用开发者体验](dev-experience.md)。
 
 ## 3. 第一个窗口
 
@@ -155,26 +113,19 @@ handle=fn(a : @widget.WindowHost) -> Unit {
 }
 ```
 
-把 `@ui.text` / `@ui.button` 换成主题化形态（`button` 的 `variant` 四档、`tag` / `alert` / `card` 等）见 [组件总览](../components/index.md)；样式表（`Style` 值 + `hover` / `active` / `focus` 状态、过渡）见 [layout.md](layout.md)。
+把 `@ui.text` / `@ui.button` 换成主题化形态（`button` 的 `variant` 四档、`tag` / `alert` / `card` 等）见 [组件总览](../components/index.md)；样式表（`Style` 值 + `hover` / `active` / `focus` 状态、过渡）见 [布局样式](layout.md)。
 
-**想照着抄**——演示板就是素材库：
-
-```sh
-git clone https://github.com/lb091188/moonbit-native-gui && cd moonbit-native-gui
-cd examples/showcase && moon run .   # 基础/表单/导航/数据展示/反馈/事件与布局/系统集成…
-```
-
-左边菜单选页、右边对着写，每页源码独立成文件（`examples/showcase/pages/*.mbt`），复制改写即可。想从小例子入手，`cd` 进 `examples/hello`（最小窗口）再 `moon run .`——`examples/` 下每个目录都是独立模块。
+**想照着抄**——演示板就是素材库：左侧栏选页、右侧对着写，每页源码独立成文件（`examples/showcase/pages/*.mbt`），复制改写即可；下载与跑法见[先跑起来看看](experience.md)。
 
 **想系统学**——几本文档，对应几个面：
 
 - [场景总览](../cookbook/index.md)：场景教程——「我想让内容居中」「我要列表增删」「我要定时刷新」这类具体目标，每篇给可抄代码与注意事项
-- [declarative.md](declarative.md)：节点树（`Node` / `mount_window`）描述界面、`Store` / `Signal` 绑定状态——本教程第 3 节的计数点击就是它的最小形态
-- [layout.md](layout.md)：布局样式（`Style` 的 flex / padding / margin 字段，`@ui.col` / `@ui.row` 的散参数与 `class` 通道）
+- [声明式与响应式](declarative.md)：节点树（`Node` / `mount_window`）描述界面、`Store` / `Signal` 绑定状态——本教程第 3 节的计数点击就是它的最小形态
+- [布局样式](layout.md)：布局样式（`Style` 的 flex / padding / margin 字段，`@ui.col` / `@ui.row` 的散参数与 `class` 通道）
 - [组件总览](../components/index.md)：全部控件与组件的入参与事件速查
 - [系统能力总览](../capability/sys.md)：系统能力（`@sys`）——音量 / 应用查找 / 壁纸 / 显示器 / 剪贴板 / 电源 / 打印机…，统一 `Result` 语义
 
-**遇到问题**——常见构建失败与处置见[构建与运行](build.md) §6。
+**遇到问题**——工程类卡点（找不到包、目标不可用、入口文件名…）见[应用开发者体验](dev-experience.md)；构建期失败（prebuild、链接、依赖包）见[构建与运行](build.md) §6。
 
 ## 6. 给库贡献者的留言
 
@@ -184,4 +135,4 @@ cd examples/showcase && moon run .   # 基础/表单/导航/数据展示/反馈/
 - **控件与能力**：还没封装的条目、各平台的适配坑，都欢迎从 issue 开始讨论。
 - **文档与示例**：教程、组件文档、演示板每一页的例子，都欢迎改进。
 
-参与没有门槛：提 issue 描述问题或想法、直接提 PR 都行。开始前只需记住三条——`moon check` 零错误零警告、`moon test` 全绿再提交，实测踩坑连同修复写进 [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md)，一个内聚改动一批提交。完整流程（新增示例模块、prebuild 链接托管）见 [build.md](build.md)；FFI 规范见仓库 `.agents/skills/moonbit-c-binding/`。
+参与没有门槛：提 issue 描述问题或想法、直接提 PR 都行。开始前只需记住三条——`moon check` 零错误零警告、`moon test` 全绿再提交，实测踩坑连同修复写进 [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md)，一个内聚改动一批提交。完整流程（新增示例模块、prebuild 链接托管）见[构建与运行](build.md)；FFI 规范见仓库 `.agents/skills/moonbit-c-binding/`。

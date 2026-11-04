@@ -8,7 +8,7 @@ For what native-gui is, see the [home page](/). The site structure mirrors the t
 |---|---|
 | [Five-minute start](guide/tutorial.md) | Install the toolchain, create a project, and build your first window with a click counter |
 | [Try the demos](guide/experience.md) | Run the prebuilt packages or the repository examples |
-| [App developer experience](guide/dev-experience.md) | From zero to your first window: the two adjustments the `moon new` template needs, running, and common blockers |
+| [App developer experience](guide/dev-experience.md) | Project mechanics and first-time blockers: the template layout, the two levels of `moon add` vs `import`, why the two adjustments are needed, and a blockers table |
 | [Build & run](guide/build.md) | Three-platform dependency lists, build commands and artefact paths, prebuilt-binary status, common failures |
 | [Layout & styling](guide/layout.md) | Flexbox semantics and the `Style` field set of `@style`, plus the `class` channel |
 | [Declarative & reactivity](guide/declarative.md) | The node tree and `mount_window`, `Store` / `Signal`, `for_list` / `when`, in-place replacement |

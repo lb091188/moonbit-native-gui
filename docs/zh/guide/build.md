@@ -259,5 +259,6 @@ python scripts/win_ffmpeg_dll.py --dry-run       # 只打印计划，不动文�
 ## 12. 相关
 
 - 平台适配坑与验证：[adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md)
-- 环境准备与第一个工程：[tutorial.md](tutorial.md)
+- 从零起步（最短可跑路径）：[五分钟上手教程](tutorial.md)；工程机制与新手卡点：[应用开发者体验](dev-experience.md)
+- 不写代码先看效果：[体验文档](experience.md)
 - 组件与 API：[组件总览](../components/index.md)

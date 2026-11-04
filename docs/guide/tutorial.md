@@ -4,7 +4,7 @@ No MoonBit knowledge needed — programming experience in any language is enough
 
 ## 1. Prepare the tools
 
-**MoonBit toolchain**:
+**MoonBit toolchain** (one line):
 
 ```sh
 # Linux / macOS
@@ -13,49 +13,7 @@ curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
 irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
 ```
 
-<details>
-<summary>Linux (Ubuntu 24.04) environment setup</summary>
-
-The library is self-drawn and uses native FFI. Building needs only a C toolchain, pkg-config, Python 3, and the dev packages for GTK3 / Pango / FontConfig / X11; Python 3 runs the library's prebuild script:
-
-```sh
-sudo apt install build-essential pkg-config python3 \
-  libgtk-3-dev libpango1.0-dev libfontconfig1-dev libx11-dev
-```
-
-Install more only when you use the matching feature: embedded WebView (`@web`) needs `libwebkit2gtk-4.1-dev`; the media module (`NoahLiu/gui-media`) needs `libavformat-dev libavcodec-dev libswscale-dev libswresample-dev libavutil-dev`. If the runtime reports missing GTK libraries, the apt list above is most likely incomplete.
-
-⚠️ Then run `python -V` as well: on deepin 20, CentOS 7 and similar machines `python` is still 2.7, and moon prefers it when running prebuild — the build then fails immediately with a `pep-0263` SyntaxError. Fixes are in §6 of [build.md](build.md).
-
-</details>
-
-<details>
-<summary>macOS (Apple Silicon) environment setup</summary>
-
-Xcode's command line tools are all you need:
-
-```sh
-xcode-select --install
-```
-
-Windows, text and image decoding go through the system frameworks (Cocoa / CoreText / ImageIO): prebuild compiles the Objective-C stubs itself and emits the `-framework` flags, so **neither GTK nor brew is required**. Only the media module (`NoahLiu/gui-media`) needs ffmpeg — `brew install ffmpeg`, or let prebuild fetch our own arm64 archive from Releases.
-
-</details>
-
-<details>
-<summary>Windows (10/11, x64) environment setup</summary>
-
-You need Python 3 and the MSVC C++ toolchain — Python 3 runs prebuild; for the toolchain, pick the "Desktop development with C++" workload of VS 2022 Build Tools:
-
-```powershell
-irm https://cli.moonbitlang.com/install/powershell.ps1 | iex            # MoonBit
-winget install Python.Python.3.12
-winget install Microsoft.VisualStudio.2022.BuildTools -e --override "--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
-```
-
-On Windows, moon compiles native code **out of the box and locates the MSVC toolchain itself**. A plain shell (PowerShell / Git Bash) runs `moon run` directly — no need for the "x64 Native Tools Command Prompt" or a manual `call vcvars64.bat`. "Must run from the Native Tools prompt" and "also install CMake and ATL" belong to the old CMake build chain and do not apply here.
-
-</details>
+This library uses native FFI, so building also needs a C toolchain and some dev packages (Linux additionally needs the GTK3 family) — **the full three-platform install list and environment self-check are in [Build & run](build.md) §2**. If you would rather see results first without installing anything, take [Try the demos](experience.md).
 
 ## 2. Create the project
 
@@ -65,7 +23,7 @@ cd my_app
 moon add NoahLiu/native-gui
 ```
 
-The current `moon new` template: the root package is a library (`my_app.mbt` and an empty `moon.pkg`), and the executable entry lives in the `cmd/main/` sub-package (`main.mbt` + `moon.pkg`). The project needs two manual adjustments (the from-zero path and common blockers are in the [App developer experience](dev-experience.md)):
+The current `moon new` template: the root package is a library (`my_app.mbt` and an empty `moon.pkg`), and the executable entry lives in the `cmd/main/` sub-package (`main.mbt` + `moon.pkg`). The project needs two manual adjustments:
 
 - **`moon.mod`: change `preferred_target = "wasm"` to `"native"`** — this library uses native FFI and supports only the native backend; skip if the template already defaults to native.
 
@@ -84,9 +42,9 @@ The current `moon new` template: the root package is a library (`my_app.mbt` and
   supported_targets = "native"
   ```
 
-  `import` gives the code access to the library: `@ui.*` provides widgets, components, and the declarative entries (`mount_window` and the node constructors), `@base.*` provides reactive state (`Store` / `Signal`), `@style.*` provides type-scale style classes, and `@widget.*` provides the window host `WindowHost`. `pkgtype(kind: "executable")` and `supported_targets = "native"` declare this package an executable entry that builds only for the native target.
-
   The entry file is `cmd/main/main.mbt` — moon only recognizes a file named `main.mbt` as the program entry; keep that file name when creating your own entry files.
+
+  Why each adjustment, and the module-level / package-level `import` split of `moon add`, are in the [App developer experience](dev-experience.md).
 
 ## 3. Your first window
 
@@ -155,26 +113,19 @@ handle=fn(a : @widget.WindowHost) -> Unit {
 }
 ```
 
-Themed forms for `@ui.text` / `@ui.button` (the four `button` `variant`s, `tag` / `alert` / `card`, …) are in [Components overview](../components/index.md); stylesheets (`Style` values plus `hover` / `active` / `focus` states and transitions) in [design.md (Chinese)](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/design.md).
+Themed forms for `@ui.text` / `@ui.button` (the four `button` `variant`s, `tag` / `alert` / `card`, …) are in [Components overview](../components/index.md); stylesheets (`Style` values plus `hover` / `active` / `focus` states and transitions) in [Layout & styling](layout.md).
 
-**Copy from a working app** — the demo board is the material library:
-
-```sh
-git clone https://github.com/lb091188/moonbit-native-gui && cd moonbit-native-gui
-cd examples/showcase && moon run .   # basics / forms / navigation / data display / feedback / events & layout / system integration…
-```
-
-Pick a page in the left menu and write against it on the right; each page's source is its own file (`examples/showcase/pages/*.mbt`), ready to copy and adapt. For smaller starting points, `cd` into `examples/hello` (minimal window) and `moon run .` — every directory under `examples/` is a standalone module.
+**Copy from a working app** — the demo board is the material library: pick a page in the left menu and write against it on the right; each page's source is its own file (`examples/showcase/pages/*.mbt`), ready to copy and adapt. Downloads and how to run: [Try the demos](experience.md).
 
 **Learn the layers** — a few documents, each covering one face:
 
-- [How-to overview](../cookbook/index.md): how-to guides — for concrete goals like "center my content", "add and remove list items" or "refresh on a timer", 19 recipes with paste-ready code and notes
-- [declarative.md](declarative.md): describe the UI as a node tree (`Node` / `mount_window`) and bind state with `Store` / `Signal` — the click counter in section 3 is its minimal form
-- [layout.md](layout.md): layout styling (the flex / padding / margin fields of `Style`, and the loose parameters plus the `class` channel of `@ui.col` / `@ui.row`)
+- [How-to overview](../cookbook/index.md): how-to guides — for concrete goals like "center my content", "add and remove list items" or "refresh on a timer", each with paste-ready code and notes
+- [Declarative & reactivity](declarative.md): describe the UI as a node tree (`Node` / `mount_window`) and bind state with `Store` / `Signal` — the click counter in section 3 is its minimal form
+- [Layout & styling](layout.md): layout styling (the flex / padding / margin fields of `Style`, and the loose parameters plus the `class` channel of `@ui.col` / `@ui.row`)
 - [Components overview](../components/index.md): a quick reference to every widget and component's parameters and events
 - [System capabilities overview](../capability/sys.md): OS capabilities (`@sys`) — volume / app lookup / wallpaper / monitors / clipboard / power / printers…, with unified `Result` semantics
 
-**Hit a problem** — [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md) records field-tested pitfalls and root causes per platform, including the tray backends.
+**Hit a problem** — project-level blockers (package not found, target unavailable, entry file name…) are in the [App developer experience](dev-experience.md); build-time failures (prebuild, linking, dependency packages) are in [Build & run](build.md) §6.
 
 ## 6. A note to contributors
 
@@ -184,4 +135,4 @@ This library aims at writing native desktop apps in MoonBit. It now covers self-
 - **Widgets and capabilities**: un-wrapped items and per-platform adaptation pitfalls are all welcome as issues first.
 - **Docs and examples**: the tutorial, component docs, and every showcase page are open for improvement.
 
-No barrier to taking part: file an issue describing a problem or idea, or send a PR directly. Before you start, remember three things — `moon check` passes with zero errors and zero warnings and `moon test` is all green before committing; field-tested pitfalls go into [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md) together with their fixes; one cohesive change per batch. The full process (adding example modules, prebuild-hosted linking) is in [build.md](build.md); the FFI rules are in the repo's `.agents/skills/moonbit-c-binding/`.
+No barrier to taking part: file an issue describing a problem or idea, or send a PR directly. Before you start, remember three things — `moon check` passes with zero errors and zero warnings and `moon test` is all green before committing; field-tested pitfalls go into [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md) together with their fixes; one cohesive change per batch. The full process (adding example modules, prebuild-hosted linking) is in [Build & run](build.md); the FFI rules are in the repo's `.agents/skills/moonbit-c-binding/`.
