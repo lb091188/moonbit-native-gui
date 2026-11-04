@@ -3,10 +3,13 @@
 // 是「没装 GPU 扩展」——probe 报 not-found，上层照常跑纯光栅/软件路径。
 import {
   "moonbitlang/core/encoding/utf8" @utf8,
+  "NoahLiu/native-gui/base" @base,
+  "NoahLiu/native-gui/render" @render,
+  "NoahLiu/native-gui/widget" @widget,
 }
 
 supported_targets = "native"
 
 options(
-  "native-stub": ["probe.c", "triangle.c"],
+  "native-stub": ["probe.c", "wgpu_core.c", "triangle.c", "canvas.c"],
 )

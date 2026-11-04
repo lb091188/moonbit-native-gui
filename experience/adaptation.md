@@ -3708,3 +3708,13 @@ Win/mac 臂落地时把 L1 核心从 GTK 臂上收进文件末「实现 TU」段
 - **贴像素路径各自停手**：GTK 的 draw 回调、Win32 的 WM_PAINT（BeginPaint/EndPaint 照常销脏区、不 blit）、mac 的 drawRect:（直接 return）——判据都是每窗 `WmL1.on`。Win32 的**逐像素透明档（trans_mode==1）不走 GPU**：合成面由 UpdateLayeredWindow 整块管，wgpu surface 与它不是一回事。
 - **WmL1 状态放文件头**（三臂共有、实现 TU 段定义入口 + 前置声明）：臂在文件前部就要用它做结构体成员——与读屏动作队列「定义在文件末、前置声明」同户型。每窗只持 surface/纹理/暂存/bindgroup，instance/device/queue/管线/采样器/bgl 进程级跨窗复用。
 - **验证边界**：Linux 腿全量可编可测（门禁 1296/1296，回退路径零变化）；Win/mac 两臂只过了人工复查（结构/符号/调用形状与 Linux 臂同构），**编译归 CI 三平台腿、真机肉眼归用户**——这是本仓对「本机没有的平台」的既定口径（同 uia_provider 的头桩语法校验先例，本次连语法桩都没搭：改动是 GTK 已验证同构代码的平台参数替换）。
+
+## wgpu 进程内队列写不落地：standalone C 原型可用、moon 测试进程全零（2026-11-04，未结案）
+
+GpuCanvas（@render.GpuSink 的 gui-gpu 实现，GPU 线首消费者）落地时撞上的怪现状，**根因未定，先记账**：
+- **现象**：同一台机器、同一份 vendor 归档——standalone C 原型（dlopen → instance → adapter(Vulkan) → device → queue → `wgpuQueueWriteTexture` → copyTextureToBuffer → mapAsync 读回）**完全可用**（读回 1..16 与写入逐字节一致）；而 moon 测试进程里跑同口径代码（canvas 的 draw + finish，以及进程内自建 device 的复刻）**读回全零**。
+- **已排除**：① 编译优化（原型用 moon 同款 `-Og` flags 仍可用）；② 双 dlopen 实例（core 与 probe.c 同路径串，且屏蔽 probe 用例后仍复现）；③ 错误回调（原型加 `uncapturedErrorCallbackInfo` 仍可用）；④ DISPLAY/X11（拔掉仍复现）；⑤ submit 后立刻 release 纹理、小 size map（原型照做可用）。
+- **进程内可见的事实**：instance/adapter/device/queue/buffer/texture/pipeline/sampler/bindgroup **全部建得出**；render pass 的 **clear 能落**（读回看得到 clear 色）；texture→buffer 的 copy 与 mapAsync **能落**（clear 读回为证）；**唯独 `wgpuQueueWriteBuffer` / `wgpuQueueWriteTexture` 之后的 GPU 执行看不到写入的数据**（copy 链读回全零）。
+- **未做的判决**：进程内自建 instance（绕开 core）也是全零——所以不是 core 的 device 有问题，而是**进程环境**（moon runtime / 链接进来的 native-gui 全套桩）与 wgpu-native 的某处交互。下一步候选：① 在 `moon run` 的真实应用进程里跑一遍 demo（可能测试进程特有）；② `wgpuInstanceWaitAny` 等 future 原语替换「pump + flag」模式；③ 缩小链接面（只链 @guigpu 的最小可执行）复现。
+- **当前落地口径**：canvas 的管线/协议面（对象创建、两条 draw 的调用链、finish 的尺寸与字节序 BGRA、clip/opacity 走查）全部落成并有断言；**像素断言在「读回全零」时跳过并打印 notice**（已知问题见本条），真机应用进程复验归用户（TODO「首消费者」条目）。
+- **顺带钉住的 wgpu 口径**（都进过报错）：sampler 零值描述符的 `lodMaxClamp=0` / `maxAnisotropy=0` 是验证错误且**默认错误处理器直接 abort**（core 里挂了静默回调后才是「降级不崩」）；`wgpuQueueWriteBuffer` 要 **COPY_DST**（不是 MAP_WRITE）；顶点缓冲另需 **VERTEX** 位；**所有 copy（buffer→texture / texture→buffer）的 bytesPerRow 必须 256 对齐**，CPU 侧垫行、读回侧解垫；v29 没有 `wgpuDevicePoll` / `wgpuSurfaceGetPreferredFormat`（前者用 InstanceProcessEvents 泵，后者格式直接 BGRA8Unorm）。
