@@ -13853,9 +13853,10 @@ static int l1_bind_frame(WmL1 *st, int sw, int sh, int bw, int bh) {
   size_t need = (size_t)bpr * (size_t)bh;
   WGPUBufferDescriptor bd;
   memset(&bd, 0, sizeof bd);
-  // CopyDst 必带：present 走 QueueWriteBuffer 灌数，wgpu 校验该操作要 COPY_DST
-  bd.usage = WGPUBufferUsage_MapWrite | WGPUBufferUsage_CopySrc |
-             WGPUBufferUsage_CopyDst;
+  // 灌数走 QueueWriteBuffer（要 CopyDst）、出数走 CopyBufferToTexture（要
+  // CopySrc），不 map——v29 校验 MAP_WRITE 只能与 COPY_SRC 组合，与
+  // gui-gpu canvas.c 上传缓冲同一形态
+  bd.usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_CopySrc;
   bd.size = need;
   st->buf = p_wgpuDeviceCreateBuffer(g_l1_device, &bd);
   if (st->buf == NULL) {
