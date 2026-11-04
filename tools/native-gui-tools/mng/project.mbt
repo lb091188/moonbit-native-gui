@@ -141,7 +141,14 @@ fn parent_dir_of(p : String) -> String {
     i += 1
   }
   if last <= 0 {
-    "."
+    // 绝对路径的根要给 "/"（"/tmp" → "/"）：给 "." 会让向上走防线在
+    // 文件系统根之后踩进 cwd 相对地带——find_project_root 记住的 mod_dir
+    // 会被 cwd 里的 moon.mod 顶掉（绝对路径模板在项目外时踩过）。
+    if a.length() > 0 && a[0] == '/' {
+      "/"
+    } else {
+      "."
+    }
   } else {
     slice_path(a, 0, last)
   }

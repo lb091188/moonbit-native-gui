@@ -11,9 +11,8 @@
 
 ### 二、代码/终端（mng 工具链）
 
-- [ ] **LSP hover 临时文件迁位**：`moon_ide_hover` 的 `.mng/hover.json` 现落模板所在包目录（源码树内，读完即删但存在裸露）——改落项目根 `.mng/`（用 `project.mbt` 既有 `find_project_root` 推导；`moon ide hover -C <dir>` 不变，module 解析仍按模板包目录）；`lsp_wbtest` 补一条落点断言
 - [ ] **Windows LSP 跳转落点收口（代码侧）**：`uri_to_path`/`path_to_uri` 归一盘符与反斜杠（VS Code 送 `file:///c%3A/…` 现得 `/c:/…`）；`lsp_wbtest.mbt` 的「盘符分流跳过」改纯函数直测（Windows 形态输入任何平台可跑）+ 集成用例保留 POSIX 断言；真机复验仍归用户（见「模板预编译·工具后续批次」条目）
-- [ ] **工具收口批**：`tools/vscode-mng` 版本三方对齐（`package.json` 0.2.5 / README 0.2.4 / `extension.js` clientInfo 0.2.3 → 一致，TODO 编辑器复验条目同步）；roadmap「.mng/ 临时产物目录」翻 ✅（commit `2e513d29` 已落漏翻）、「Windows dev 唤醒」措辞追平（Win32 客户端已合入待真机，:333 旧措辞与代码矛盾）
+- [ ] **工具收口批**：`tools/vscode-mng` 版本三方对齐（`package.json` 0.2.5 / README 0.2.4 / `extension.js` clientInfo 0.2.3 → 一致，TODO 编辑器复验条目同步）；roadmap「Windows dev 唤醒」措辞追平（Win32 客户端已合入待真机，:333 旧措辞与代码矛盾）
 
 ### 三、GPU（按 [proposals/gpu-architecture.md](proposals/gpu-architecture.md) 分批）
 

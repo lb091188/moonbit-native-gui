@@ -931,11 +931,23 @@ fn real_type_hover(uri : String, text : String, line : Int, ch : Int) -> String?
 }
 
 ///|
+/// `moon ide hover` 临时输出的落点：**项目根** `.mng/`（与 dev 的应用
+/// 日志 / source map / IR 补丁同一处，模板包目录不外露临时文件——文件
+/// 浏览器不再裸露）。从模板目录向上找 mng.toml → moon.mod → moon.work，
+/// 都找不到时退回模板所在目录（旧行为，裸文件场景）。
+fn hover_tmp_dir(dir : String) -> String {
+  match find_project_root(dir) {
+    Some((root, _)) => root + "/.mng"
+    None => dir + "/.mng"
+  }
+}
+
+///|
 /// 起一次 `moon ide hover`：经 `@proc.spawn` 把 stdout/stderr 落到
 /// `.mng/hover.json`（不捕获就解析不了；proc 层本就不做管道），轮询退出后读回。
 /// 超时 8s 直接杀——LSP hover 卡住比没有 hover 更糟。
 fn moon_ide_hover(dir : String, gen_path : String, line : Int, col : Int) -> String? {
-  let tmp_dir = dir + "/.mng"
+  let tmp_dir = hover_tmp_dir(dir)
   let _ = mkdir_p(tmp_dir)
   let out = tmp_dir + "/hover.json"
   let _ = @fs.remove_file(out) catch {

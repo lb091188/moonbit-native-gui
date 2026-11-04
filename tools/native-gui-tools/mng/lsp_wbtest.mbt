@@ -516,3 +516,19 @@ test "LSP：semanticTokens/full 能力声明、分档与 delta 编码" {
     None => assert_true(false)
   }
 }
+
+///|
+test "LSP：hover 临时文件落项目根 .mng/（模板包目录不外露）" {
+  let root = nav_fixture()
+  // 项目根 = 向上最近的 moon.mod/mng.toml（这里是 app 模块）——模板所在
+  // 的 page/ 包目录不再外露 .mng/hover.json
+  assert_eq(hover_tmp_dir(root + "/app/page"), root + "/app/.mng")
+  // 模块根本身也归一（moon.mod 就在这一层）
+  assert_eq(hover_tmp_dir(root + "/app"), root + "/app/.mng")
+  // 工作区根（只有 moon.work）也拿得到
+  assert_eq(hover_tmp_dir(root), root + "/.mng")
+  // 全然没有项目配置（裸文件）：退回模板所在目录（旧行为）
+  let orphan = tmp_dir("mng_lsp_hover_orphan")
+  ensure_dir_p(orphan + "/tpl")
+  assert_eq(hover_tmp_dir(orphan + "/tpl"), orphan + "/tpl/.mng")
+}
