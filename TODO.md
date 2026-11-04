@@ -7,7 +7,7 @@
 
 ### 一、无障碍收尾
 
-- [ ] **a11y_row_tsv 缓冲放大**：`gui/win/a11y.mbt` 读快照行的 1024 字节缓冲，对 C 侧最坏行（name[256]+text[512]+其余字段 ≈1019B）余量极小，超长 name/text 组合会被 AT-SPI 树静默跳过——放大到 4096；顺带把「`dbus_set_call_handler` 单槽是已知边界（SNI/单实例在 `Conn::handle` 先接走，当前无冲突，不修）」记进 adaptation.md
+（无障碍三平台桥已全部落地，收尾两项——断线重连重新 Embed、TSV 解析缺陷修复+缓冲放大——已完成，见 adaptation.md「AT-SPI」两节；剩 Orca/VoiceOver/NVDA 真机清单归用户）
 
 ### 二、代码/终端（mng 工具链）
 

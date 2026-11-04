@@ -82,7 +82,9 @@ fn atspi_parse_int(s : String) -> Int? {
 }
 
 ///|
-/// 十进制小数（"-1.5" → -1.5；解析不了 None）。够坐标与百分比口径用。
+/// 十进制小数（"-1.5" → -1.5；解析不了 None）。认科学计数法——C 侧
+/// `%.10g` 对大/小值就产出 `1e+300` / `1e-05` 形态，不认整行会被读屏树
+/// 静默丢弃。
 fn atspi_parse_double(s : String) -> Double? {
   if s == "" {
     return None
@@ -93,6 +95,7 @@ fn atspi_parse_double(s : String) -> Double? {
   let mut k = 0
   let mut neg = false
   let mut seen_digit = false
+  let mut in_frac = false
   match s.get_char(0) {
     Some('-') => {
       neg = true
@@ -100,18 +103,22 @@ fn atspi_parse_double(s : String) -> Double? {
     }
     _ => ()
   }
+  // 尾数（整数位 + 小数位）；遇 e/E Break 进指数段
   while k < s.length() {
     match s.get_char(k) {
       Some(c) =>
         if c >= '0' && c <= '9' {
           seen_digit = true
-          v = v * 10.0 + (c.to_int() - 48).to_double()
-          if frac > 0.0 {
-            scale = scale * 10.0
+          if in_frac {
             frac = frac * 10.0 + (c.to_int() - 48).to_double()
+            scale = scale * 10.0
+          } else {
+            v = v * 10.0 + (c.to_int() - 48).to_double()
           }
-        } else if c == '.' && frac == 0.0 {
-          frac = 0.1
+        } else if c == '.' && !in_frac {
+          in_frac = true
+        } else if (c == 'e' || c == 'E') && seen_digit {
+          break
         } else {
           return None
         }
@@ -122,10 +129,53 @@ fn atspi_parse_double(s : String) -> Double? {
   if !seen_digit {
     return None
   }
-  let out = if frac > 0.0 {
+  let mut out = if frac > 0.0 {
     v + frac / scale
   } else {
     v
+  }
+  // 指数段（k 停在 e/E 上）：带符号十进制，按位乘除 10（%.10g 的指数范围
+  // 内够用，且不引数学依赖）
+  if k < s.length() {
+    let mut e = 0
+    let mut eneg = false
+    k = k + 1
+    match s.get_char(k) {
+      Some('-') => {
+        eneg = true
+        k = k + 1
+      }
+      Some('+') => {
+        k = k + 1
+      }
+      _ => ()
+    }
+    let mut eseen = false
+    while k < s.length() {
+      match s.get_char(k) {
+        Some(c) =>
+          if c >= '0' && c <= '9' {
+            eseen = true
+            e = e * 10 + (c.to_int() - 48)
+          } else {
+            return None
+          }
+        None => return None
+      }
+      k = k + 1
+    }
+    if !eseen {
+      return None
+    }
+    let mut i = 0
+    while i < e {
+      if eneg {
+        out = out / 10.0
+      } else {
+        out = out * 10.0
+      }
+      i = i + 1
+    }
   }
   if neg {
     Some(-out)

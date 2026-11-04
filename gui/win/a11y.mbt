@@ -78,7 +78,10 @@ pub fn a11y_row_count() -> Int {
 ///|
 /// 读一行快照的 TSV（行不存在 None）。
 pub fn a11y_row_tsv(i : Int) -> String? {
-  let cap = 1024
+  // 最坏行 ≈1000B（C 侧 name[256]+text[512]+role/state/value+4 个 double），
+  // 取 4096 留 4 倍余量：C 侧字段加宽时这里不用跟着猜，放不下 C 侧回 -1
+  // （本函数当 None，该行从读屏树里静默消失——余量就是防这个）。
+  let cap = 4096
   let buf = Bytes::from_array(FixedArray::make(cap, b'\x00'))
   let n = wm_a11y_row_tsv(i, buf, cap)
   if n <= 0 {

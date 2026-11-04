@@ -265,6 +265,66 @@ test "atspi：连接活性判据（自愈重连换名即该重Embed）" {
 }
 
 ///|
+/// 测试用重复串（最坏行 canary 造字段用）。
+fn atspi_fill(ch : Char, n : Int) -> String {
+  let mut s = ""
+  let mut i = 0
+  while i < n {
+    s = s + ch.to_string()
+    i = i + 1
+  }
+  s
+}
+
+///|
+test "atspi：double 解析认科学计数法（C 侧 %.10g 产物形态）" {
+  // 普通形态照旧
+  assert_eq(atspi_parse_double("10").unwrap(), 10.0)
+  assert_eq(atspi_parse_double("-1.5").unwrap(), -1.5)
+  assert_eq(atspi_parse_double(".5").unwrap(), 0.5)
+  // 指数形态（大/小值 %.10g 就长这样；不认整行会被读屏树丢弃）
+  assert_eq(atspi_parse_double("3e2").unwrap() * 1.0, 300.0)
+  assert_eq(atspi_parse_double("3e-2").unwrap() * 100.0, 3.0)
+  assert_eq(atspi_parse_double("1.5e+3").unwrap() / 100.0, 15.0)
+  assert_eq(atspi_parse_double("-2.5E2").unwrap() / 10.0, -25.0)
+  // 中档指数（10 的幂在 double 里精确）查相等；极值查区间（重复乘除有
+  // 浮点累积，坐标口径用不到那么极端）
+  assert_eq(atspi_parse_double("1e+15").unwrap() / 1.0e15, 1.0)
+  let tiny = atspi_parse_double("2e-10").unwrap()
+  assert_true(tiny * 1.0e10 > 1.99 && tiny * 1.0e10 < 2.01)
+  let big = atspi_parse_double("1e+300").unwrap()
+  assert_true(big > 1.0e299 && big < 1.0e301)
+  // 坏形态照样 None
+  assert_true(atspi_parse_double("1e") is None)
+  assert_true(atspi_parse_double("e5") is None)
+  assert_true(atspi_parse_double("1e+") is None)
+  assert_true(atspi_parse_double("1eX") is None)
+  assert_true(atspi_parse_double("") is None)
+}
+
+///|
+test "atspi：最坏行经发布通道往返不丢（缓冲余量 canary）" {
+  // 各字段顶格：name 255 / text 511 / role 31 / state 31 / value 63 + 长
+  // double——整行 ≈1000B。a11y_row_tsv 的缓冲必须装得下（放不下 C 回 -1、
+  // 行从读屏树里静默消失）。字段以后加宽，这条会红。
+  let name = atspi_fill('A', 255)
+  let text = atspi_fill('B', 511)
+  let tsv = "2147483647\t-2147483648\t1\t" + atspi_fill('r', 31) + "\t" + name +
+    "\t" + atspi_fill('s', 31) + "\t" + atspi_fill('v', 63) + "\t" + text +
+    "\t-1.234567890e+300\t9.876543210e-300\t1.234567890e+300\t-9.876543210e-300"
+  @win.a11y_publish(@utf8.encode(tsv), 1)
+  let rows = atspi_rows_now()
+  assert_eq(rows.length(), 1)
+  assert_eq(rows[0].name.length(), 255)
+  assert_eq(rows[0].text.length(), 511)
+  assert_eq(rows[0].role.length(), 31)
+  assert_eq(rows[0].state.length(), 31)
+  assert_eq(rows[0].value.length(), 63)
+  assert_eq(rows[0].name, name)
+  assert_eq(rows[0].text, text)
+}
+
+///|
 test "atspi：真总线集成（无 a11y 总线的环境跳过）" {
   match atspi_start() {
     Err(e) => {
