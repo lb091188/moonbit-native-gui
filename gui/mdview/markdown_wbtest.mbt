@@ -1099,3 +1099,31 @@ test "选中档：逐字边缘是前缀实测量（kerning 混排也精确落边
     bj += md_byte_len(ch.to_string())
   }
 }
+
+///|
+test "选中档：拖选松手后再移动不改选区（带链接的段落也必须成立）" {
+  // 带链接的段落走的是「链接命中优先」的指针分支——Up 若不转发进选中链，
+  // sel_pointer 清不掉 dragging，松手后移动会一直从旧锚点改选区（真机实测）。
+  let src = "前半句足够长用来把这一段折成两行，看 [链接](https://example.com) 与后续文字。"
+  let spans = md_flat_par(src)
+  let cx : MDCtx = { ..md_test_ctx(), sel: true, width: 240.0 }
+  let root = mount_doc(md_rich_label(spans, 13.0, cx), 240.0, 120.0)
+  let label = root.children()[0]
+  let state = match md_sel_states.get(label.id) {
+    Some(s) => s
+    None => abort("选中档没装起来")
+  }
+  let y = label.rect.y + 1.0
+  // 按下拖选出一段，松手
+  md_sel_click(root, label.rect.x + 1.0, y)
+  md_sel_move(root, label.rect.x + 100.0, y)
+  md_sel_up(root, label.rect.x + 100.0, y)
+  let after_up = state.ed.selection()
+  assert_true(after_up is Some(_), msg="拖选没成选区")
+  // 松手后再移动（无按键）：选区必须纹丝不动
+  md_sel_move(root, label.rect.x + 30.0, y)
+  assert_eq(state.ed.selection(), after_up, msg="松手后移动仍改选区")
+  // 换一行位置再扫一遍，同样不许动
+  md_sel_move(root, label.rect.x + 200.0, label.rect.y + label.rect.h - 1.0)
+  assert_eq(state.ed.selection(), after_up, msg="松手后跨行移动仍改选区")
+}

@@ -1,7 +1,8 @@
 // Markdown 展示视图（新栈）：@mdparse（NoahLiu/mdparse）解析 + 富文本行自绘
 // 渲染，渲染层复用 `@ui` 组件面。
 // 块级:标题 1-6(ATX/Setext)、围栏(```/~~~)与缩进代码块(复用
-// @ui.code_view,语言取 info 串首词)、引用(子块递归)、GFM 提示块、
+// @ui.code_view,语言取 info 串首词,selectable 随 markdown_view 的
+// selectable 透传)、引用(子块递归)、GFM 提示块、
 // 无序/有序(带 start)/任务列表(checkbox 复选框)、表格(等分列宽
 // 网格,单元格富文本,列对齐随源标注)、定义列表、分隔线、脚注(正文
 // 上标引用 + 文末定义)、块级图片(本地路径加载显示,失败降级 alt);
@@ -585,12 +586,22 @@ fn md_render_blocks(blocks : Array[@mdast.Block], ctx : MDCtx) -> Array[@widget.
       }
       FencedCode(info~, code~, ..) =>
         nodes.push(
-          @ui.code_view(md_split_code_lines(code), lang=md_info_lang(info)),
+          @ui.code_view(
+            md_split_code_lines(code),
+            lang=md_info_lang(info),
+            selectable=ctx.sel,
+          ),
         )
       IndentedCode(code~, ..) =>
-        nodes.push(@ui.code_view(md_split_code_lines(code)))
+        nodes.push(@ui.code_view(md_split_code_lines(code), selectable=ctx.sel))
       MathBlock(value~, ..) =>
-        nodes.push(@ui.code_view(md_split_code_lines(value), lang="math"))
+        nodes.push(
+          @ui.code_view(
+            md_split_code_lines(value),
+            lang="math",
+            selectable=ctx.sel,
+          ),
+        )
       Blockquote(children~, ..) =>
         // 引用收块:子块(段落/列表/嵌套引用)整体递归进竖条内容区
         nodes.push(md_quoted(md_render_blocks(children, ctx)))
@@ -1400,7 +1411,9 @@ fn md_rich_label(
             }
             false
           }
-          @widget.PointerKind::Up => false
+          // Up 必须转发进选中链：sel_pointer 靠 Up 清 dragging——不转发的话
+          // 拖选过一次后 dragging 永远为真，之后鼠标移动会一直从旧锚点改选区
+          @widget.PointerKind::Up => sel_via(_self, ev)
         }
       })
     } else if st is Some(_) {
