@@ -13763,6 +13763,12 @@ static void l1_probe(void) {
   sd.addressModeW = WGPUAddressMode_ClampToEdge;
   sd.magFilter = WGPUFilterMode_Nearest;
   sd.minFilter = WGPUFilterMode_Nearest;
+  // wgpu v29 校验：lodMaxClamp 与 maxAnisotropy 零值直接 abort（C 桩 memset
+  // 清零吃不到头文件默认值 lodMaxClamp=32 / maxAnisotropy=1），与 gui-gpu
+  // canvas.c 钉过的同一口径
+  sd.lodMinClamp = 0.0;
+  sd.lodMaxClamp = 32.0;
+  sd.maxAnisotropy = 1;
   g_l1_sampler = p_wgpuDeviceCreateSampler(g_l1_device, &sd);
   if (g_l1_sampler == NULL) {
     return;
@@ -13847,7 +13853,9 @@ static int l1_bind_frame(WmL1 *st, int sw, int sh, int bw, int bh) {
   size_t need = (size_t)bpr * (size_t)bh;
   WGPUBufferDescriptor bd;
   memset(&bd, 0, sizeof bd);
-  bd.usage = WGPUBufferUsage_MapWrite | WGPUBufferUsage_CopySrc;
+  // CopyDst 必带：present 走 QueueWriteBuffer 灌数，wgpu 校验该操作要 COPY_DST
+  bd.usage = WGPUBufferUsage_MapWrite | WGPUBufferUsage_CopySrc |
+             WGPUBufferUsage_CopyDst;
   bd.size = need;
   st->buf = p_wgpuDeviceCreateBuffer(g_l1_device, &bd);
   if (st->buf == NULL) {
