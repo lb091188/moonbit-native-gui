@@ -201,6 +201,25 @@ jobs:
             exit 1
           fi
 
+  # 文档站门禁：死链/构建错误推送即红（CF Pages 只在后台建，失败不可见），
+  # 外加索引守卫——docs/ 新页面漏挂侧边栏或索引时非零退出，杜绝「写完文档
+  # 站上没入口」（CF 构建根目录是 docs/，本 job 与其口径一致）。
+  docs:
+    name: Docs(文档站构建 + 索引守卫)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: 构建文档站(死链即失败)
+        working-directory: docs
+        run: |
+          npm install
+          npm run build
+      - name: 索引守卫(新增页面必须挂侧边栏或索引)
+        run: node tools/check-docs-index.mjs
+
   windows:
     name: Windows(静态检查 + 测试 + 链接)
     runs-on: windows-latest
