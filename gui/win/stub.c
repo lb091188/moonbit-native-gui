@@ -8306,7 +8306,8 @@ typedef struct {
 // 的 Store 里，桥够不着；如实回 NO，读屏回落键盘交互）。
 @interface WMA11yElement : NSAccessibilityElement {
 @public
-  int wm_idx; // 快照行号
+  int wm_idx;       // 快照行号
+  uint32_t wm_hash; // 建元时的行内容指纹（复用判据，见 wm_a11y_row_hash）
 }
 @end
 
@@ -8668,6 +8669,44 @@ static uint32_t wm_keysym_of(NSEvent *ev) {
   return NSAccessibilityGroupRole;
 }
 
+// 元素身份缓存（widget id -> 元素）：读屏拿 token 回来查属性时按**对象身份**
+// 解析，每次现建会让旧 token 永远落空——属性查询全回 -25202 CannotComplete，
+// 真机实证 VoiceOver 只剩窗标题可念。同 id 且行指纹未变复用同一对象，真变
+// 了才重建这一个；快照里消失的 id 由 accessibilityChildren 收尾裁掉。
+static NSMutableDictionary *g_a11y_el_cache;
+
+// 行内容指纹：role/name/state/value/text + enabled + 矩形（窗口系），窗
+// 原点/尺寸（点）也混进来——元素的屏幕矩形建元时定死，窗动了必须换血。
+static uint32_t wm_a11y_row_hash(const WmA11yRow *r, CGFloat ox, CGFloat oy,
+                                 CGFloat ow, CGFloat oh) {
+  uint32_t h = 2166136261u;
+  const char *strs[5] = {r->role, r->name, r->state, r->value, r->text};
+  for (int k = 0; k < 5; k++) {
+    for (const char *p = strs[k]; *p; p++) {
+      h ^= (unsigned char)*p;
+      h *= 16777619u;
+    }
+    h ^= 0xffu;
+    h *= 16777619u;
+  }
+  const int32_t nums[5] = {r->enabled, (int32_t)r->x, (int32_t)r->y,
+                           (int32_t)r->w, (int32_t)r->h};
+  for (int k = 0; k < 5; k++) {
+    h ^= (uint32_t)nums[k];
+    h *= 16777619u;
+  }
+  const CGFloat gs[4] = {ox, oy, ow, oh};
+  for (int k = 0; k < 4; k++) {
+    uint64_t bits;
+    memcpy(&bits, &gs[k], sizeof bits);
+    h ^= (uint32_t)bits;
+    h *= 16777619u;
+    h ^= (uint32_t)(bits >> 32);
+    h *= 16777619u;
+  }
+  return h;
+}
+
 static NSString *wm_a11y_ax_role(const char *role) {
   if (!role || !role[0]) {
     return NSAccessibilityGroupRole;
@@ -8691,7 +8730,9 @@ static NSString *wm_a11y_ax_role(const char *role) {
   return NSAccessibilityGroupRole;
 }
 
-/* 建一行快照的 AX 元素（children / 焦点元素 / hitTest 共用一条构建路径） */
+/* 建一行快照的 AX 元素（children / 焦点元素 / hitTest 共用一条构建路径）：
+ * 先查身份缓存，同 id 且指纹未变直接还缓存对象（identity 稳定读屏才能查
+ * 属性），变了才重建并回填缓存。 */
 - (WMA11yElement *)wm_a11y_element_at:(int32_t)i {
   const WmA11yRow *r = wm_a11y_row(i);
   if (r == NULL) {
@@ -8709,7 +8750,20 @@ static NSString *wm_a11y_ax_role(const char *role) {
   NSRect rect =
       NSMakeRect(r->x / scale, (box_h - r->y - r->h) / scale, r->w / scale, r->h / scale);
   NSRect screen = self.window != nil ? [self.window convertRectToScreen:rect] : rect;
-  NSString *label = r->name[0] ? [NSString stringWithUTF8String:r->name] : @"";
+  NSRect wframe = self.window != nil ? self.window.frame : NSZeroRect;
+  uint32_t h = wm_a11y_row_hash(r, wframe.origin.x, wframe.origin.y,
+                                wframe.size.width, wframe.size.height);
+  NSNumber *key = [NSNumber numberWithInt:(int)r->id];
+  WMA11yElement *cached = [g_a11y_el_cache objectForKey:key];
+  if (cached != nil && cached->wm_hash == h) {
+    cached->wm_idx = (int)i; // 行号随快照序漂移，身份不变
+    return cached;
+  }
+  // label 回落：VoiceOver 主要念 AXDescription（label）。name 空（按钮等
+  // 「正文即名字」的控件文字落在 text 槽）时拿 text 顶上，value 只在
+  // name 在场时另设——同一个串不念两遍。
+  const char *nm = r->name[0] ? r->name : r->text;
+  NSString *label = nm[0] ? [NSString stringWithUTF8String:nm] : @"";
   WMA11yElement *el = [WMA11yElement accessibilityElementWithRole:wm_a11y_ax_role(r->role)
                                                              frame:screen
                                                              label:label
@@ -8718,18 +8772,26 @@ static NSString *wm_a11y_ax_role(const char *role) {
     return nil;
   }
   el->wm_idx = (int)i;
+  el->wm_hash = h;
   [el setAccessibilityIdentifier:[NSString stringWithFormat:@"w%d", (int)r->id]];
   [el setAccessibilityEnabled:r->enabled ? YES : NO];
-  if (r->text[0]) {
+  if (r->text[0] && r->name[0]) {
     [el setAccessibilityValue:[NSString stringWithUTF8String:r->text]];
   }
   if (r->state[0]) {
     [el setAccessibilityRoleDescription:[NSString stringWithUTF8String:r->state]];
   }
+  if (g_a11y_el_cache == nil) {
+    g_a11y_el_cache = [NSMutableDictionary dictionary];
+  }
+  [g_a11y_el_cache setObject:el forKey:key];
   return el;
 }
 
 - (NSArray *)accessibilityChildren {
+  if (g_a11y_el_cache == nil) {
+    g_a11y_el_cache = [NSMutableDictionary dictionary];
+  }
   NSMutableArray *arr = [NSMutableArray array];
   int32_t n = wm_a11y_count();
   for (int32_t i = 0; i < n; i++) {
@@ -8737,6 +8799,28 @@ static NSString *wm_a11y_ax_role(const char *role) {
     if (el != nil) {
       [arr addObject:el];
     }
+  }
+  // 裁掉快照里已不存在的 id：删掉的控件元素不能留缓存（token 悬垂 + 只增不减）
+  NSMutableArray *dead = nil;
+  for (NSNumber *k in g_a11y_el_cache) {
+    int32_t kid = k.intValue;
+    int32_t found = 0;
+    for (int32_t i = 0; i < n; i++) {
+      const WmA11yRow *r = wm_a11y_row(i);
+      if (r != NULL && r->id == kid) {
+        found = 1;
+        break;
+      }
+    }
+    if (!found) {
+      if (dead == nil) {
+        dead = [NSMutableArray array];
+      }
+      [dead addObject:k];
+    }
+  }
+  for (NSNumber *k in dead) {
+    [g_a11y_el_cache removeObjectForKey:k];
   }
   return arr;
 }
