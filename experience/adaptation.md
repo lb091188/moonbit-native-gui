@@ -3700,3 +3700,11 @@ dbus 包对 bus=2 断线自愈重建连接后，本端唯一名会变（新连�
 - **GTK 盖内容的对偶**：GPU 挂上后 draw 回调 cairo 停手不够——GTK 还会用主题底色/双缓后备盖掉已上屏内容，必须同批设 `app_paintable=TRUE` + `double_buffered=FALSE`（后者自 GTK 3.14 deprecated、GTK3 无替代品，`#pragma GCC diagnostic` 局部静默；这是 GTK+GPU 集成的既定套路）。
 - **探测两档口径**（方案「fallback 探测粒度」）：进程级一次——.so 缺/驱动无后端/非 X11 会话（Wayland 原生没有 XID 可挂）= 永久缓存不再试；未 realize、0×0 = 不标记死、下帧重试；对象真建不出或 present 回非 Success = 该窗永久回退。instance/device/队列/管线/采样器进程级跨窗复用，每窗只持 surface/纹理/暂存/bindgroup，关窗按「bindgroup→buffer→view→texture→surface」释放。
 - **验证边界**：门禁全绿（回退路径零变化，wbtest 1296/1296）；GPU 档本身要真机肉眼——showcase/hello 跑起来界面与改造前一致、无闪烁、resize 不花，归用户（TODO 复验条目）。
+
+## L1 三臂共享核心：surface 源分平台、贴像素路径各自停手（2026-11-04）
+
+Win/mac 臂落地时把 L1 核心从 GTK 臂上收进文件末「实现 TU」段（`#if WM_STUB_MAC || WM_STUB_GTK || (!linux && !apple)`——恰好是三平台真臂的编译条件，moon 的 native-stub 空占位编译落不进去），三臂各留 ~50 行薄适配：
+- **surface 源三形态**（都在 vendor 头的 `WGPUSurfaceSource*`，无需 D3D12/Metal 头）：GTK 用 `XlibWindow{display, window}`（XID = area 的 GdkWindow）；Win32 用 `WindowsHWND{hinstance, hwnd}`（hinstance 取 `GetModuleHandle(NULL)`，hwnd 是桩内槽表里的窗句柄）；mac 用 `MetalLayer{layer}`——**视图要改 layer-backing**：首次绑定时 `[view setWantsLayer:YES]` + `[view setLayer:[CAMetalLayer layer]]`（原 WMView 是 drawRect 的 CG 直贴、且设过 `setWantsLayer:NO`，见 mac 臂视图创建处）。
+- **贴像素路径各自停手**：GTK 的 draw 回调、Win32 的 WM_PAINT（BeginPaint/EndPaint 照常销脏区、不 blit）、mac 的 drawRect:（直接 return）——判据都是每窗 `WmL1.on`。Win32 的**逐像素透明档（trans_mode==1）不走 GPU**：合成面由 UpdateLayeredWindow 整块管，wgpu surface 与它不是一回事。
+- **WmL1 状态放文件头**（三臂共有、实现 TU 段定义入口 + 前置声明）：臂在文件前部就要用它做结构体成员——与读屏动作队列「定义在文件末、前置声明」同户型。每窗只持 surface/纹理/暂存/bindgroup，instance/device/queue/管线/采样器/bgl 进程级跨窗复用。
+- **验证边界**：Linux 腿全量可编可测（门禁 1296/1296，回退路径零变化）；Win/mac 两臂只过了人工复查（结构/符号/调用形状与 Linux 臂同构），**编译归 CI 三平台腿、真机肉眼归用户**——这是本仓对「本机没有的平台」的既定口径（同 uia_provider 的头桩语法校验先例，本次连语法桩都没搭：改动是 GTK 已验证同构代码的平台参数替换）。
