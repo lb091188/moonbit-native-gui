@@ -1,6 +1,6 @@
 # 构建与运行
 
-装什么、敲什么命令、产物落在哪、报错怎么处置（§1–§6）；链接参数托管、改桩不重链、vendor 来源（§7–§12）。原理与逐平台实测记录在 [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md)「构建与链接」。
+原理与逐平台实测记录在 [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md)「构建与链接」。
 
 ## 1. 装 MoonBit 工具链
 

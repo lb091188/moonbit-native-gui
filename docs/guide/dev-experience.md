@@ -1,6 +1,6 @@
 # App Developer Experience
 
-What a project looks like, the two levels of `moon add` vs `import`, why the two manual adjustments are needed, and the most common first-time blockers. Shortest runnable path: the [five-minute tutorial](tutorial.md). See it run without writing code: [Try the demos](experience.md).
+Shortest runnable path: the [five-minute tutorial](tutorial.md). See it run without writing code: [Try the demos](experience.md).
 
 ## 1. What a project looks like
 

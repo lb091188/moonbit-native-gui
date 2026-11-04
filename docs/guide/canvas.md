@@ -1,6 +1,6 @@
 # Canvas
 
-Mount a draw area, common drawing, redrawing on change, offscreen export. Keyboard & mouse interaction for custom blocks: [Custom draw & input](custom-draw.md).
+Keyboard & mouse interaction for custom blocks: [Custom draw & input](custom-draw.md).
 
 **Live demo**: `cd examples/showcase && moon run .` and open the "Canvas" page — every technique has a matching demo block; the source is `examples/showcase/pages/canvas.mbt`.
 

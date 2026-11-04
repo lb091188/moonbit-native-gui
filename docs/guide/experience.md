@@ -1,6 +1,6 @@
 # Experience Guide
 
-Two ways to try native-gui without writing code: download the prebuilt packages (§1) or clone the repository and run the examples (§2). For building your own app, the from-zero path is in the [App developer experience](dev-experience.md); for working on the library itself, head straight to [Build & run](build.md).
+Prebuilt packages (§1); clone the repository and run the examples (§2). For building your own app, the from-zero path is in the [App developer experience](dev-experience.md); for working on the library itself, head straight to [Build & run](build.md).
 
 ## 1. Try it for real: prebuilt packages
 

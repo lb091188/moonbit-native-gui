@@ -1,6 +1,6 @@
 # Reactive controls
 
-`Store` / `Signal` / `ListStore` semantics are in [Declarative & reactivity](../guide/declarative.md); this page is the signature quick-reference for in-tree reactive controls.
+`Store` / `Signal` / `ListStore` semantics are in [Declarative & reactivity](../guide/declarative.md); below are the signatures of the in-tree reactive controls.
 
 ### `when(cond : Signal[T], then : Node, pred?)`
 
