@@ -165,6 +165,7 @@ MAC_WIN_FRAMEWORKS = [
     "-framework", "Carbon",          # RegisterEventHotKey 一族（全局快捷键）
     "-framework", "IOKit",           # 电源/显示器相关的读数
     "-framework", "UserNotifications",  # 通知中心（UNUserNotificationCenter，mac 通知正路）
+    "-framework", "QuartzCore",      # GPU present 档（L1）：CAMetalLayer 类符号链接期要解析
 ]
 MAC_SYS_FRAMEWORKS = [
     "-framework", "Cocoa",           # NSWorkspace（打开/揭示、壁纸）、NSFileManager

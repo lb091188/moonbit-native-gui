@@ -8258,6 +8258,7 @@ void wm_inst_release(void) {}
 #import <UserNotifications/UserNotifications.h>
 #import <CoreGraphics/CoreGraphics.h>
 #import <CoreText/CoreText.h>
+#import <QuartzCore/CAMetalLayer.h> // GPU present 档（L1）：窗口挂 CAMetalLayer
 
 // 这个 setter 在新 SDK（macOS 26 的构建机）上不再公开声明，clang 直接报
 // 「no visible @interface / no known instance method」，而旧 SDK 上它是真实
@@ -9739,7 +9740,7 @@ static int wm_l1_try(WMState *s, const unsigned char *rgba, int bw, int bh) {
     // l1.on 时停手，见 drawRect:）
     [s.view setWantsLayer:YES];
     [s.view setLayer:[CAMetalLayer layer]];
-    void *surf = wm_l1_surface_metal((void *)s.view.layer);
+    void *surf = wm_l1_surface_metal((__bridge void *)s.view.layer);
     if (surf == NULL) {
       s->l1.dead = 1;
       return 0;
