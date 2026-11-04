@@ -8759,10 +8759,12 @@ static NSString *wm_a11y_ax_role(const char *role) {
     cached->wm_idx = (int)i; // 行号随快照序漂移，身份不变
     return cached;
   }
-  // label 回落：VoiceOver 主要念 AXDescription（label）。name 空（按钮等
-  // 「正文即名字」的控件文字落在 text 槽）时拿 text 顶上，value 只在
-  // name 在场时另设——同一个串不念两遍。
-  const char *nm = r->name[0] ? r->name : r->text;
+  // label/value 分通道：VoiceOver 念控件主要读 AXDescription（label）、念
+  // 静态文本/标题读 AXValue。text/heading 走 value 通道（label 只收 name），
+  // 其余控件 name 空（按钮等「正文即名字」）时 label 拿 text 顶上，value 只
+  // 在 name 在场时另设——同一个串不念两遍。
+  int textish = !strcmp(r->role, "text") || !strcmp(r->role, "heading");
+  const char *nm = (textish || r->name[0]) ? r->name : r->text;
   NSString *label = nm[0] ? [NSString stringWithUTF8String:nm] : @"";
   WMA11yElement *el = [WMA11yElement accessibilityElementWithRole:wm_a11y_ax_role(r->role)
                                                              frame:screen
@@ -8775,7 +8777,7 @@ static NSString *wm_a11y_ax_role(const char *role) {
   el->wm_hash = h;
   [el setAccessibilityIdentifier:[NSString stringWithFormat:@"w%d", (int)r->id]];
   [el setAccessibilityEnabled:r->enabled ? YES : NO];
-  if (r->text[0] && r->name[0]) {
+  if (r->text[0] && (textish || r->name[0])) {
     [el setAccessibilityValue:[NSString stringWithUTF8String:r->text]];
   }
   if (r->state[0]) {

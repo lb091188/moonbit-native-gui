@@ -324,8 +324,11 @@ fn text_node_of(
   }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    // 语义面：静态/动态文本一律报 text；正文走 `label`（`relabel` 每次写回）
+    // 语义面：静态/动态文本一律报 text；正文走 `label`——初始就要写上
+    // （此前只靠 `relabel` 信号变化时写回，静态文本的 label 恒空、读屏整段
+    // 哑火，真机 VoiceOver 抓到），后续变化由 relabel 写回
     w.role = "text"
+    w.label = sig.get()
     fold_style(w, @style.empty_style(), attrs, class, style=anon)
     // flex 口径全线 0 1 auto（文本件口径定案）：不设宽、不设 grow/shrink——
     // 折行档按 measure 的可用宽折，内容基准可收缩，min:auto 内容下限由引擎
