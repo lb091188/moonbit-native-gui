@@ -74,7 +74,7 @@ w.on_scroll = Some(fn(ev : @widget.ScrollEvent) -> Bool {
 
 ## 组起来：迷你画板
 
-拖拽画线、点击聚焦、Backspace 撤销一笔、Delete 清空——画板/白板/节点编辑器这类软件的骨架就这几段（状态放回调外，事件改完 `invalidate`，绘制全量重画）。窗口骨架用[画布](canvas.md#一挂一块自绘区域)的最小程序：
+拖拽画线、点击聚焦、Backspace 撤销一笔、Delete 清空——画板/白板/节点编辑器这类软件的骨架就这几段（状态放回调外，事件改完 `invalidate`，绘制全量重画）。窗口骨架用[画布](canvas.md#一、挂一块自绘区域)的最小程序：
 
 ```moonbit
 let strokes : Ref[Array[Array[(Double, Double)]]] = Ref([])

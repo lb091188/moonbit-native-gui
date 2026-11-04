@@ -74,7 +74,7 @@ w.on_scroll = Some(fn(ev : @widget.ScrollEvent) -> Bool {
 
 ## Putting it together: a mini sketchpad
 
-Drag to draw lines, click to focus, Backspace undoes a stroke, Delete clears — the skeleton of paint programs / whiteboards / node editors is just these pieces (state outside the callbacks, events mutate state then `invalidate`, drawing repaints everything). Use the minimal window skeleton from [Canvas](canvas.md#1-mount-a-custom-draw-area):
+Drag to draw lines, click to focus, Backspace undoes a stroke, Delete clears — the skeleton of paint programs / whiteboards / node editors is just these pieces (state outside the callbacks, events mutate state then `invalidate`, drawing repaints everything). Use the minimal window skeleton from [Canvas](canvas.md#_1-mount-a-custom-draw-area):
 
 ```moonbit
 let strokes : Ref[Array[Array[(Double, Double)]]] = Ref([])

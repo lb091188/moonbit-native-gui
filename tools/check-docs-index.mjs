@@ -19,13 +19,13 @@ const ALLOWLIST = new Set([
   '/THIRD-PARTY-NOTICES', // 授权页：两份 README 索引表链它，不进侧边栏
 ])
 
-function walk(dir, out = []) {
+function walk(dir, out = [], ext = '.md') {
   for (const name of readdirSync(dir)) {
     if (name === 'node_modules' || name === '.vitepress' || name === 'dist') continue
     const p = join(dir, name)
     const st = statSync(p)
-    if (st.isDirectory()) walk(p, out)
-    else if (name.endsWith('.md')) out.push(p)
+    if (st.isDirectory()) walk(p, out, ext)
+    else if (name.endsWith(ext)) out.push(p)
   }
   return out
 }
@@ -77,4 +77,42 @@ if (problems.length > 0) {
   for (const p of problems) console.error('  - ' + p)
   process.exit(1)
 }
-console.log(`文档索引守卫通过：${walk(docsDir).length} 个页面全部有入口，${links.size} 个侧边栏链接全部有文件。`)
+
+// ---- 锚点校验：源码里 page.md#anchor 形式的链接，锚点必须真的存在于构建产物 ----
+// （CI 的 docs job 先 npm run build 再跑本脚本，dist 必在；本地无 dist 时跳过）
+const distDir = join(docsDir, '.vitepress', 'dist')
+if (!existsSync(distDir)) {
+  console.log(`文档索引守卫通过：${walk(docsDir).length} 个页面全部有入口，${links.size} 个侧边栏链接全部有文件。（无 dist，跳过锚点校验）`)
+  process.exit(0)
+}
+
+const idsByUrl = new Map()
+for (const file of walk(distDir, [], '.html')) {
+  const rel = relative(distDir, file).replace(/\\/g, '/').replace(/\.html$/, '').replace(/\/index$/, '')
+  const url = '/' + rel
+  const html = readFileSync(file, 'utf8')
+  const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]))
+  idsByUrl.set(url, ids)
+}
+
+const anchorProblems = []
+for (const file of walk(docsDir)) {
+  const md = readFileSync(file, 'utf8')
+  const dir = dirname(file)
+  for (const m of md.matchAll(/\]\(([^)#]+\.md)#([^)]+)\)/g)) {
+    const target = join(dir, m[1])
+    if (!existsSync(target)) continue // 死链由 vitepress 构建层报
+    const url = fileToUrl(target)
+    const ids = idsByUrl.get(url)
+    if (!ids || !ids.has(m[2])) {
+      anchorProblems.push(`锚点失效: ${relative(root, file)} → ${m[1]}#${m[2]}`)
+    }
+  }
+}
+
+if (anchorProblems.length > 0) {
+  console.error('文档索引守卫失败（锚点）：')
+  for (const p of anchorProblems) console.error('  - ' + p)
+  process.exit(1)
+}
+console.log(`文档索引守卫通过：${walk(docsDir).length} 个页面全部有入口，${links.size} 个侧边栏链接全部有文件，全部页内/跨页锚点有效。`)

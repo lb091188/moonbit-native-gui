@@ -28,8 +28,8 @@ import {
 | 我想… | 关键 API | 场景 |
 |---|---|---|
 | 内容居中（横/纵/双向） | `align_items` / `justify_content` | [布局 · 内容对齐](layout.md#内容对齐) |
-| 顶栏 + 内容 + 底栏 | `col` + `grow` + `scroll_view` | [布局 · 三段式](layout.md#顶栏--自适应内容--底栏三段式) |
-| 侧栏 + 主区 / 等分 / 可拖分栏 | `grow` / `width_percent` / `split` | [布局 · 侧栏与分栏](layout.md#侧栏与分栏固定宽--弹性--等分--可拖) |
+| 顶栏 + 内容 + 底栏 | `col` + `grow` + `scroll_view` | [布局 · 三段式](layout.md#顶栏-自适应内容-底栏-三段式) |
+| 侧栏 + 主区 / 等分 / 可拖分栏 | `grow` / `width_percent` / `split` | [布局 · 侧栏与分栏](layout.md#侧栏与分栏-固定宽-弹性-等分-可拖) |
 | 内容滚动（纵/横） | `scroll_view` + `ScrollState` | [布局 · 内容超高滚动](layout.md#内容超高滚动) |
 | 标签超宽换行 | `flex_wrap=@yoga.FlexWrap::Wrap` | [布局 · 标签换行](layout.md#一排标签超宽自动换行) |
 | 按钮靠右 | `justify_content=FlexEnd`（class） | [布局 · 按钮右对齐](layout.md#底部按钮右对齐) |
