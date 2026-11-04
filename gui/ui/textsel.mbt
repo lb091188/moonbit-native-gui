@@ -15,12 +15,26 @@
 /// 一件可选中文本的状态：只读 Editor（选区/插入点权威）+ 拖选旗标。
 /// 混排件（markdown 富文本）复用同一份状态与交互链，几何自己给——见本文件尾
 /// `text_sel_new` / `TextSel::pointer` 公开面。
+/// `claim`：选区持有者登记用的 id。0 = 按按下控件自己的 id（独立档，缺省）；
+/// 非 0 = 固定 id——多个控件共享同一份 Editor（markdown 文档级跨段选中）
+/// 时必须同号认领，否则块间换手会把「前任」clear 掉，而前任与现任共用
+/// 同一份 Editor，等于把自己刚画好的选区折掉。
 pub(all) struct TextSel {
   ed : @input.Editor
   dragging : Ref[Bool]
   anchor : Ref[Int]
   last_down : Ref[Int64]
   last_xy : Ref[(Double, Double)]
+  claim : Ref[Int]
+}
+
+///|
+/// 认领 id：状态自带固定号（共享档）就用它，否则按按下控件自己的 id。
+fn sel_claim_id(w : @widget.Widget, st : TextSel) -> Int {
+  match st.claim.val {
+    0 => w.id
+    v => v
+  }
 }
 
 ///|
@@ -229,6 +243,7 @@ fn sel_new_state(ed : @input.Editor) -> TextSel {
     anchor: Ref(0),
     last_down: Ref(-1000000L),
     last_xy: Ref((-1000.0, -1000.0)),
+    claim: Ref(0),
   }
 }
 
@@ -259,26 +274,30 @@ fn sel_pointer(
       }
       let at = hit(ev.x, ev.y)
       let now = @shell.now_ms()
-      let dbl = (now - st.last_down.val) < 400L && (ev.x - st.last_xy.val.0).abs() < 4.0 && (
-        ev.y - st.last_xy.val.1
+      // 双击判据用绝对坐标：共享一份状态的多块（markdown 文档级）各自局部
+      // 系不同，局部坐标一比就会把「不同块里的相同相对位置」误判成双击
+      let ax = w.rect.x + ev.x
+      let ay = w.rect.y + ev.y
+      let dbl = (now - st.last_down.val) < 400L && (ax - st.last_xy.val.0).abs() < 4.0 && (
+        ay - st.last_xy.val.1
       ).abs() < 4.0
       st.last_down.val = now
-      st.last_xy.val = (ev.x, ev.y)
+      st.last_xy.val = (ax, ay)
       let shift = (ev.mods & @base.MOD_SHIFT) != 0
       if shift {
         let a = st.anchor.val
         st.ed.select_range(a.min(at), a.max(at))
-        sel_claim(w.id, st)
+        sel_claim(sel_claim_id(w, st), st)
       } else if dbl {
         let (s, e) = word_range(st.ed.get_text(), at)
         st.ed.select_range(s, e)
         st.anchor.val = s
-        sel_claim(w.id, st)
+        sel_claim(sel_claim_id(w, st), st)
       } else {
         st.ed.select_range(at, at)
         st.anchor.val = at
         st.dragging.val = true
-        @widget.text_sel_release(w.id)
+        @widget.text_sel_release(sel_claim_id(w, st))
       }
       @widget.invalidate()
       true
@@ -286,7 +305,7 @@ fn sel_pointer(
     @widget.PointerKind::Move => {
       if st.dragging.val {
         st.ed.select_range(st.anchor.val, hit(ev.x, ev.y))
-        sel_claim(w.id, st)
+        sel_claim(sel_claim_id(w, st), st)
         @widget.invalidate()
       }
       st.dragging.val

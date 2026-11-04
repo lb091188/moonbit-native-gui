@@ -88,6 +88,87 @@ priv struct MDCtx {
   on_link : (String) -> Unit
   // 段落可选中（markdown_view 的 selectable 透传，混排逐字几何见 md_rich_label）
   sel : Bool
+  // 文档级跨段选中（sel 为真时可挂）：一份 Editor 拼全文档，块间补换行；
+  // None = 独立档（每块各一份选区，直接挂 md_rich_label 的旧口径）
+  doc : MDDocSel?
+}
+
+///|
+/// 文档级跨段选中的块登记：矩形由本块 on_draw 每帧回填（闭包禁捕 Widget，
+/// 命中要的落点几何走这份纯数据）；off/len 是本块在全文里的字节区间；
+/// hit 是「本块局部坐标 → 块内字节偏移」（捕获行模型，纯数据）。
+priv struct MDBlockEntry {
+  uid : Int
+  mut x : Double
+  mut y : Double
+  mut h : Double
+  off : Int
+  len : Int
+  hit : (Double, Double) -> Int
+}
+
+///|
+let md_block_uid : Ref[Int] = Ref(0)
+
+///|
+/// 一篇 markdown 的文档级选中态：全文 = 各可选块按**构造序（即视觉序）**
+/// 拼接，块间补一个 \n（复制出来块与块换行分隔）。一份 Editor / TextSel
+/// 共享：拖选跨块连续、Shift 扩选跨块、复制得跨块原文；块矩形挂载绘制后
+/// 陆续回填，命中按绝对坐标找落点块。
+priv struct MDDocSel {
+  ed : @input.Editor
+  st : @ui.TextSel
+  // 构造期顺序拼全文（\n 分隔），拼完一次性装进 ed
+  buf : Ref[StringBuilder]
+  // 下一块的全文字节偏移（构造期顺序分配）
+  mut acc : Int
+  // 块登记（视觉序），矩形挂载绘制后回填
+  list : Ref[Array[MDBlockEntry]]
+  // 选区持有者登记的固定 id（全块同号）
+  claim_id : Int
+}
+
+///|
+/// 文档级选中态的认领号计数。
+let md_doc_uid : Ref[Int] = Ref(0)
+
+///|
+/// 绝对坐标 → 全文字节：先找矩形罩住落点的块（用它的逐字行模型精确定位），
+/// 落在块间空隙按中点归前/后块端点，压不进任何块时收两端。
+fn MDDocSel::byte_at(
+  self : MDDocSel,
+  e : MDBlockEntry,
+  lx : Double,
+  ly : Double,
+) -> Int {
+  let ax = e.x + lx
+  let ay = e.y + ly
+  let bs = self.list.val
+  for b in bs {
+    if ay >= b.y - 0.5 && ay <= b.y + b.h + 0.5 {
+      return (b.hit)(ax - b.x, ay - b.y) + b.off
+    }
+  }
+  let n = bs.length()
+  if n == 0 {
+    return 0
+  }
+  if ay < bs[0].y {
+    return bs[0].off
+  }
+  let last = bs[n - 1]
+  if ay > last.y + last.h {
+    return last.off + last.len
+  }
+  let mut prev = bs[0]
+  for b in bs {
+    if b.y > ay {
+      let mid = (prev.y + prev.h + b.y) / 2.0
+      return if ay < mid { prev.off + prev.len } else { b.off }
+    }
+    prev = b
+  }
+  last.off + last.len
 }
 
 ///|
@@ -1099,11 +1180,15 @@ fn md_rich_label(
   // ---- 选中档（`ctx.sel`）：本段是一份连续文本 ----
   // 原文按 spans 拼接（软折行不插换行，复制出来就是这段的原话）；字符下标→
   // 字节偏移表一次建好，Editor / AttributedText / 样式区间都按字节计量。
+  // 独立档（ctx.doc None）：本块一份 Editor / TextSel，选区按块内字节；
+  // 文档档（ctx.doc Some）：共享文档级 Editor / TextSel，本块登记全文偏移，
+  // 命中/高亮在块内字节与全文字节之间换算（sel_off/sel_len）。
   let sel_buf = StringBuilder()
   for sp in spans {
     sel_buf.write_string(sp.text)
   }
   let ltext = sel_buf.to_string()
+  let sel_len = @utf8.encode(ltext).length()
   let char2byte : Array[Int] = []
   {
     let mut b = 0
@@ -1113,10 +1198,26 @@ fn md_rich_label(
     }
     char2byte.push(b)
   }
-  let sel_ed = @input.Editor::new()
-  sel_ed.set_text(ltext)
-  let st = if ctx.sel && ltext.length() > 0 {
-    Some(@ui.text_sel_new(sel_ed))
+  let sel_off : Int = match ctx.doc {
+    Some(doc) => {
+      // 构造序即视觉序：顺序分配全文偏移并拼全文
+      let off = doc.acc
+      doc.buf.val.write_string(ltext)
+      doc.buf.val.write_string("\n")
+      doc.acc = off + sel_len + 1
+      off
+    }
+    None => 0
+  }
+  let st : @ui.TextSel? = if ctx.sel && ltext.length() > 0 {
+    match ctx.doc {
+      Some(doc) => Some(doc.st)
+      None => {
+        let sel_ed = @input.Editor::new()
+        sel_ed.set_text(ltext)
+        Some(@ui.text_sel_new(sel_ed))
+      }
+    }
   } else {
     None
   }
@@ -1195,6 +1296,39 @@ fn md_rich_label(
     match char2byte.get(c) {
       Some(b) => b
       None => char2byte[char2byte.length() - 1]
+    }
+  }
+
+  // 文档档的块登记（id 在挂载期才知道，先建条目、挂载时补登记与矩形回填）
+  let entry : MDBlockEntry? = if st is Some(_) {
+    match ctx.doc {
+      Some(_) => {
+        md_block_uid.val += 1
+        Some(
+          {
+            uid: md_block_uid.val,
+            x: 0.0,
+            y: 0.0,
+            h: 0.0,
+            off: sel_off,
+            len: sel_len,
+            hit: byte_at,
+          },
+        )
+      }
+      None => None
+    }
+  } else {
+    None
+  }
+  // 本块的命中换算：独立档按块内字节，文档档换算成全文字节
+  fn sel_hit(x : Double, y : Double) -> Int {
+    match entry {
+      Some(e) => match ctx.doc {
+        Some(doc) => doc.byte_at(e, x, y)
+        None => byte_at(x, y)
+      }
+      None => byte_at(x, y)
     }
   }
 
@@ -1295,8 +1429,17 @@ fn md_rich_label(
     w.on_draw = Some(fn(
       _self : @widget.Widget,
       p : @render.Painter,
-      _r : @base.Rect,
+      r : @base.Rect,
     ) -> Unit {
+      // 文档档：回填本块矩形（跨块命中按绝对坐标找落点块，纯数据登记表）
+      match entry {
+        Some(e) => {
+          e.x = r.x
+          e.y = r.y
+          e.h = r.h
+        }
+        None => ()
+      }
       let cur_fp = @theme.theme_fingerprint_of(@theme.theme_current())
       if cur_fp != fps.val {
         fps.val = cur_fp
@@ -1304,21 +1447,35 @@ fn md_rich_label(
           g.at_ready = false
         }
       }
+      // 本块可见的选区切片：独立档即全文（off=0）；文档档把全文选区裁到
+      // [sel_off, sel_off+sel_len) 再换回块内字节
+      let sel_slice : (Int, Int)? = match st {
+        Some(state) =>
+          match state.range() {
+            Some((a, b)) => {
+              let a2 = (a - sel_off).max(0).min(sel_len)
+              let b2 = (b - sel_off).max(0).min(sel_len)
+              if b2 > a2 {
+                Some((a2, b2))
+              } else {
+                None
+              }
+            }
+            None => None
+          }
+        None => None
+      }
       p.set_stroke_color(@theme.theme_text_regular())
       let mut y = 0.0
       for g in rows_ref.val {
         // 选中档：先铺本行选区底色，再画字（高亮在字下，与 selectable 文本同层序）
-        match st {
-          Some(state) =>
-            match state.range() {
-              Some((a, b)) =>
-                match line_sel_rect(g, a, b) {
-                  Some((x0, _x1, w0)) => {
-                    p.set_fill_color(@theme.theme_primary_light())
-                    p.fill_rect(x0, y, w0.max(1.0), line_h)
-                  }
-                  None => ()
-                }
+        match sel_slice {
+          Some((a2, b2)) =>
+            match line_sel_rect(g, a2, b2) {
+              Some((x0, _x1, w0)) => {
+                p.set_fill_color(@theme.theme_primary_light())
+                p.fill_rect(x0, y, w0.max(1.0), line_h)
+              }
               None => ()
             }
           None => ()
@@ -1344,14 +1501,14 @@ fn md_rich_label(
       }
     }
     // 选中档的指针链：与 @ui 的 selectable 文本同一条（单击/双击选词/拖选/
-    // Shift 扩选/右键复制），几何由本段的逐字表给
+    // Shift 扩选/右键复制），几何由本段的逐字表给——文档档下超出本块的落点
+    // 换算成全文字节，拖选跨块连续
     fn sel_via(self : @widget.Widget, ev : @widget.PointerEvent) -> Bool {
       match st {
-        Some(state) => state.pointer(
-          self,
-          ev,
-          fn(x : Double, y : Double) -> Int { byte_at(x, y) },
-        )
+        Some(state) =>
+          state.pointer(self, ev, fn(x : Double, y : Double) -> Int {
+            sel_hit(x, y)
+          })
         None => false
       }
     }
@@ -1427,11 +1584,43 @@ fn md_rich_label(
       Some(state) => {
         let _ = md_sel_states.set(w.id, state)
         w.cursor = @widget.CURSOR_TEXT
-        let give = state
-        w.on_discard = Some(fn(self : @widget.Widget) -> Unit {
-          let _ = md_sel_states.remove(self.id)
-          give.give_up(self.id)
-        })
+        // 文档档：按 id 挂进块登记（矩形由 on_draw 回填）；摘除时同步移除，
+        // 不在登记表里留死块
+        match entry {
+          Some(e) => match ctx.doc {
+            Some(d) => {
+              d.list.val.push(e)
+              let dead_uid = e.uid
+              let give = state
+              w.on_discard = Some(fn(self : @widget.Widget) -> Unit {
+                let _ = md_sel_states.remove(self.id)
+                let keep : Array[MDBlockEntry] = []
+                for b in d.list.val {
+                  if b.uid != dead_uid {
+                    keep.push(b)
+                  }
+                }
+                d.list.val = keep
+                give.give_up(self.id)
+                @widget.text_sel_release(d.claim_id)
+              })
+            }
+            None => {
+              let give = state
+              w.on_discard = Some(fn(self : @widget.Widget) -> Unit {
+                let _ = md_sel_states.remove(self.id)
+                give.give_up(self.id)
+              })
+            }
+          }
+          None => {
+            let give = state
+            w.on_discard = Some(fn(self : @widget.Widget) -> Unit {
+              let _ = md_sel_states.remove(self.id)
+              give.give_up(self.id)
+            })
+          }
+        }
       }
       None => ()
     }
@@ -1462,7 +1651,29 @@ pub fn markdown_view(
   for d in res.definitions {
     defs.set(d.label.trim(chars=" \t\n\r").to_owned(), d.url)
   }
-  let ctx : MDCtx = { foot, defs, width, on_link, sel: selectable }
+  // 文档级跨段选中（selectable 时启用）：一份 Editor 装全文档，可选块按
+  // 构造序（= 视觉序）拼接、块间补 \n；块条目在各自挂载时登记、矩形绘制期
+  // 回填（见 MDBlockEntry / MDDocSel::byte_at）。代码围栏/表格不进全文，
+  // 是文档流里的独立选中岛。
+  let doc_sel : MDDocSel? = if selectable {
+    let ed = @input.Editor::new()
+    let st = @ui.text_sel_new(ed)
+    // 全块同号认领：块间换手不会把「前任」clear 掉（共享同一份 Editor，
+    // 清前任等于清自己刚画的选区）
+    md_doc_uid.val += 1
+    st.claim.val = md_doc_uid.val
+    Some({
+      ed,
+      st,
+      buf: Ref(StringBuilder()),
+      acc: 0,
+      list: Ref([]),
+      claim_id: md_doc_uid.val,
+    })
+  } else {
+    None
+  }
+  let ctx : MDCtx = { foot, defs, width, on_link, sel: selectable, doc: doc_sel }
   let nodes = md_render_blocks(doc.children, ctx)
   if foot.order.length() > 0 {
     let fd : Map[String, Array[@mdast.Block]] = (Map([]) : Map[String, Array[@mdast.Block]])
@@ -1493,6 +1704,22 @@ pub fn markdown_view(
       }
     }
   }
-  // 块间留 6：段与段、标题与正文之间不贴脸（行内行距见 md_rich_label）
-  @ui.col(nodes, width=width, row_gap=6.0, handle~)
+  // 全文档块拼装完毕（正文 + 文末脚注），一次性装进共享 Editor
+  match doc_sel {
+    Some(d) => d.ed.set_text(d.buf.val.to_string())
+    None => ()
+  }
+  // 块间留 6：段与段、标题与正文之间不贴脸（行内行距见 md_rich_label）。
+  // 跟随容器档（width=0）必须 percent(100)（块级铺满）：shrink-to-fit 的列
+  // 会被父级按「未约束内在高」钉死高度，折行子项落地更高时容器矩形盖不住
+  // 子项，命中链在容器底缘断掉（真机：折行段以下的块整块点不中，跨段选中
+  // 用例钉住）；percent 让交叉轴确定，测量/落地两趟同走定宽档，两趟同答。
+  let col_w = if width > 0.0 { width } else { 0.0 }
+  @ui.col(
+    nodes,
+    width=col_w,
+    row_gap=6.0,
+    class=(if width > 0.0 { [] } else { [@style.style(width_percent=100.0)] }),
+    handle~,
+  )
 }

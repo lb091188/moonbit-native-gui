@@ -881,6 +881,49 @@ fn layout_into_impl(
   let main_gap = if main_is_row { s.column_gap } else { s.row_gap }
   let cross_gap = if main_is_row { s.row_gap } else { s.column_gap }
   let wrap_limit = first_some(inner_main, inner_main_avail)
+  // ③′ 前置（NoWrap 列、自身交叉宽不定）：行宽 = 各项 content 宽（含交叉
+  // margin）的最大值，再被本容器可用宽夹住——stretch 项最终就占这个宽，
+  // 折行增量只有按它量才进得了容器高（测量趟 pin=None 按 ③ 量出「单行不折」
+  // 的矮基准、落地趟按定宽 ② 折成多行，容器高盖不住子项，命中链在容器矩形
+  // 处断掉）。折行列不估（行宽随分行走），维持 ③。
+  let can_wrap_early = match s.flex_wrap {
+    NoWrap => false
+    _ => wrap_limit is Some(_)
+  }
+  let line_cross_est : Double? = if !main_is_row &&
+    (own_cross_def is None) &&
+    (ratio_cross is None) &&
+    !can_wrap_early {
+    let mut mx = 0.0
+    let mut any = false
+    for c in node.children {
+      match c.style.display {
+        None => continue
+        Flex => ()
+      }
+      match c.style.position {
+        Absolute => continue
+        Relative => ()
+      }
+      let mcross = resolve_edges(c.style.margin, avail_w)
+      let cc = intrinsic_size(c, true, Max, child_pct_w, child_pct_h) +
+        mcross.left + mcross.right
+      if cc > mx {
+        mx = cc
+      }
+      any = true
+    }
+    if any {
+      match avail_w.map(fn(v) { (v - pad_border_w).max(0.0) }) {
+        Some(av) => Some(mx.min(av))
+        None => Some(mx)
+      }
+    } else {
+      None
+    }
+  } else {
+    None
+  }
   // ---- 构建 flex 项 ----
   let items : Array[Item] = []
   let abs_children : Array[Node] = []
@@ -990,18 +1033,39 @@ fn layout_into_impl(
     } else {
       stretch_pinned
     }
-    // 基准取法分三档：① 显式尺寸/比例钦定 → 用它；② **本项交叉轴定住**
+    // 基准取法分四档：① 显式尺寸/比例钦定 → 用它；② **本项交叉轴定住**
     // → 用「按该定宽量得的主轴尺寸」（上面 content 那一趟已经量过），定宽下的
     // 内容尺寸就是它的真实主轴尺寸，与可用空间无关、不随窗口漂移；③ 否则 →
     // max-content 内在值（定案见 adaptation YG3d：拿「当前可用空间下的测量值」
-    // 当基准会让折行项的基准随可用空间漂移，弹性收缩算不到溢出量）。
-    // 缺 ② 时定宽折行文本的主轴高会按「单行不折」算（真机：容器 661、measure
-    // 已答 28，落地仍是单行 14）。
+    // 当基准会让折行项的基准随可用空间漂移，弹性收缩算不到溢出量）；
+    // ③′（NoWrap 列特化，交叉宽不定时替代 ③）：基准按「本项实际占用的行宽」
+    // 现量——stretch 项占行宽（line_cross_est，内容宽最大值被可用宽夹住），
+    // 非 stretch 项占自己 content 宽。行宽是内容推导的（被可用宽夹之前），
+    // 不随父级反复漂移；漏了这条，折行子项按 ③ 量出「单行不折」的矮基准，
+    // 容器高盖不住落地后的子项（真机 showcase：折行段以下的块整块点不中，
+    // mdview 跨块选中用例钉住）。非 stretch 项占自己的 max-content 宽，
+    // 与 ③ 同答（YG3d 专项用例保持绿）。
     let base = match (basis_style, cross_pinned) {
       (Some(v), _) => v
       (None, true) => content.0
       (None, false) =>
-        intrinsic_size(c, main_is_row, Max, child_pct_w, child_pct_h)
+        if main_is_row {
+          intrinsic_size(c, main_is_row, Max, child_pct_w, child_pct_h)
+        } else {
+          match line_cross_est {
+            Some(lw) => {
+              let used = if is_stretch { lw } else { content.1 }
+              let (_, h_at) = measure_content(
+                c,
+                Some(used),
+                c_avail_main,
+                pinned_w=Some(used),
+              )
+              h_at
+            }
+            None => intrinsic_size(c, main_is_row, Max, child_pct_w, child_pct_h)
+          }
+        }
     }
     let min_v = if main_is_row { c.style.min_width } else { c.style.min_height }
     let min_style = axis_size(c, min_v, main_is_row, child_pct_w, child_pct_h)

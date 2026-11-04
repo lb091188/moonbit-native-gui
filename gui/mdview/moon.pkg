@@ -11,4 +11,5 @@ import {
   "NoahLiu/native-gui/text",
   "NoahLiu/native-gui/theme",
   "NoahLiu/native-gui/ui",
+  "NoahLiu/native-gui/style" @style,
 }

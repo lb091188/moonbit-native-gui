@@ -11,6 +11,7 @@ fn md_test_ctx() -> MDCtx {
     width: 560.0,
     on_link: fn(_u : String) -> Unit { () },
     sel: false,
+    doc: None,
   }
 }
 
@@ -119,7 +120,7 @@ test {
   for d in res.definitions {
     defs.set(d.label.trim(chars=" \t\n\r").to_owned(), d.url)
   }
-  let ctx : MDCtx = { foot: md_test_ctx().foot, defs, width: 560.0, on_link: fn(_u : String) -> Unit { () }, sel: false }
+  let ctx : MDCtx = { foot: md_test_ctx().foot, defs, width: 560.0, on_link: fn(_u : String) -> Unit { () }, sel: false, doc: None }
   let spans : Array[MDSpan] = []
   for b in res.document.children {
     match b {
@@ -190,7 +191,7 @@ test {
   assert_eq(foot.order, ["a", "b"])
   assert_eq(foot.no.get("a"), Some(1))
   assert_eq(foot.no.get("b"), Some(2))
-  let ctx : MDCtx = { foot, defs: (Map([]) : Map[String, String]), width: 560.0, on_link: fn(_u : String) -> Unit { () }, sel: false }
+  let ctx : MDCtx = { foot, defs: (Map([]) : Map[String, String]), width: 560.0, on_link: fn(_u : String) -> Unit { () }, sel: false, doc: None }
   let spans : Array[MDSpan] = []
   for b in res.document.children {
     match b {
@@ -1098,6 +1099,67 @@ test "选中档：逐字边缘是前缀实测量（kerning 混排也精确落边
     )
     bj += md_byte_len(ch.to_string())
   }
+}
+
+///|
+test "跨段选中：markdown_view 文档级拖选跨块连续、复制得跨块原文" {
+  let src = "# 标题甲\n\n段落乙有足够长的文本用来折成两行显示，跨块拖选要能一路延伸。\n\n段落丙结尾。"
+  let root = mount_doc(markdown_view(src, selectable=true), 400.0, 600.0)
+  // 收集可选块（md_sel_states 里共享同一份文档级 TextSel）
+  let labels : Array[@widget.Widget] = []
+  fn collect(w : @widget.Widget) -> Unit {
+    if md_sel_states.get(w.id) is Some(_) {
+      labels.push(w)
+    }
+    for k in w.kids {
+      collect(k)
+    }
+  }
+
+  collect(root)
+  assert_true(labels.length() >= 3, msg="可选块少于 3")
+  // 块矩形由 on_draw 回填——先画一帧再拖，登记表里的落点几何才是真的
+  let bm = @render.Bitmap::new(400, 600)
+  let pt = @render.Painter::new(bm)
+  root.paint(pt)
+  pt.end()
+  let state = match md_sel_states.get(labels[0].id) {
+    Some(s) => s
+    None => abort("选中档没装起来")
+  }
+  // 全文 = 各块拼换行分隔：第一个块是标题甲
+  assert_eq(state.ed.get_text_in_range(0, md_byte_len("标题甲")), "标题甲")
+  // 从标题甲内按下，拖到最后的段落丙里松开：选区跨块连续
+  let first = labels[0]
+  let last = labels[labels.length() - 1]
+  md_sel_click(root, first.rect.x + 2.0, first.rect.y + 1.0)
+  md_sel_move(root, first.rect.x + 30.0, first.rect.y + 1.0)
+  md_sel_move(root, last.rect.x + 100.0, last.rect.y + 1.0)
+  md_sel_up(root, last.rect.x + 100.0, last.rect.y + 1.0)
+  match state.ed.selection() {
+    Some((a, b)) => {
+      assert_eq(a, 0, msg="锚点没落在文档首")
+      let picked = state.ed.get_text_in_range(a, b)
+      assert_true(
+        picked.contains("标题甲") && picked.contains("段落乙") &&
+        picked.contains("段落丙"),
+        msg="跨块选区没盖住三块：\{picked}",
+      )
+      // 块间补的换行进复制串
+      assert_true(picked.contains("\n"), msg="块间没有换行分隔")
+      // 中间块（段落乙）的首字节必须在选区内（连续而非只点亮两端）
+      assert_true(
+        b > md_byte_len("标题甲") + 1 + md_byte_len("段落乙"),
+        msg="选区末端没越过中间块（b=\{b}）",
+      )
+    }
+    None => abort("跨块拖选没成选区")
+  }
+  // 松手后在另一块内单击：选区折叠，跨块高亮清空
+  let mid = labels[1]
+  md_sel_click(root, mid.rect.x + 5.0, mid.rect.y + 1.0)
+  md_sel_up(root, mid.rect.x + 5.0, mid.rect.y + 1.0)
+  assert_true(state.ed.selection() is None, msg="单击没折叠跨块选区")
 }
 
 ///|

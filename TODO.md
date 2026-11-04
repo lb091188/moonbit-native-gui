@@ -7,7 +7,7 @@
 
 ### 一、无障碍收尾
 
-（无障碍三平台桥已全部落地，收尾两项——断线重连重新 Embed、TSV 解析缺陷修复+缓冲放大——已完成，见 adaptation.md「AT-SPI」两节；剩 Orca/VoiceOver/NVDA 真机清单归用户）
+（无障碍三平台桥已全部落地，收尾两项——断线重连重新 Embed、TSV 解析缺陷修复+缓冲放大——已完成，见 adaptation.md「AT-SPI」两节；mac VoiceOver 真机首轮已过（2026-11-05，控件朗读/焦点跟随），剩 Orca/NVDA 真机清单归用户）
 
 ### 二、代码/终端（mng 工具链）
 
@@ -17,7 +17,7 @@
 
 - [ ] **X11 wgpu 三角形真机复验**（用户执行）：实现已落（2026-11-04，`gpu/triangle.c` + `run_triangle` 门面 + `experiment/gpu_triangle`；无显示实跑验过加载链，详见 adaptation.md）——`moon run experiment/gpu_triangle` 跑一遍：窗口里见三色三角形、关窗或按 Esc 正常退出算过；不过把现象贴回来
 - [ ] **L1-Linux present 真机复验**（用户执行）：实现已落（2026-11-04，stub.c GTK 臂 GPU 档 + 进程级探测，详见 adaptation.md）——showcase/hello 跑起来：界面与改造前一致（回退逐像素一致）、无闪烁、resize 不花、最小化恢复不花；`MNG_WGPU_LIB` 指到坏路径应自动回退 cairo 不崩。过了本条删除；不过把现象贴回来
-- [ ] **L1-Win / L1-mac 真机复验**（用户执行）：实现已落（2026-11-04，核心三臂共享 + Win32/macOS 薄适配，详见 adaptation.md）——Windows/macOS 各跑一遍 hello/showcase：界面与改造前一致、无闪烁、resize 不花；mac 注意视图转 layer-backing 后输入法/拖放若异常要报。Linux 腿复验见上一条
+- [ ] **L1-Win 真机复验**（用户执行）：实现已落（2026-11-04，核心三臂共享 + Win32 薄适配，详见 adaptation.md）——Windows 跑一遍 hello/showcase：界面与改造前一致、无闪烁、resize 不花。mac 腿已过（2026-11-05 真机：界面与纯光栅一致、视图转 layer-backing 后输入/交互正常）；Linux 腿复验见上一条
 - [ ] **首消费者·真机复验 + demo 页 + transfer setter**：实现已落（2026-11-04：`wgpu_core` 骨架上收 + `GpuCanvas` 实现 `@render.GpuSink` + `install` 便捷接线 + 无头用例；详见 adaptation.md）——①**真机复验**（用户执行）：在 `moon run` 的应用进程里跑 GpuCanvas（进程内 queue 写链在 moon 测试进程不落地、standalone 原型可用，根因待查），读回有像素才算过；②showcase「GPU 画布」demo 页（挂 `on_render` + `gpu_set_sink` + finish 读回上屏，赛季验收面）；③`@ffmpeg-mbt` 的 `Demuxer::set_transfer_mode` setter（0=SwScale Ok，1=DirectTexture 如实报未落地，H2 策略位接线）
 
 ## 模板预编译（2026-11-01 启动，方案见 [proposals/native-template.md](proposals/native-template.md) 与 [proposals/mng-project-dev.md](proposals/mng-project-dev.md)；已完成叙事归 roadmap「开发体验」，此处只留未完成项）
@@ -40,9 +40,8 @@
 
 ## 文本选择与屏读语义（2026-11-03 拍板，方案与坑清单见 [proposals/text-selection-a11y.md](proposals/text-selection-a11y.md)；两个消费者一块地基，做完一项删一项并同步路线图）
 
-- [ ] **一期缓批·AttributedText 逐字选中**：单独立项——需在 @text 开逐字几何接口动三平台 C 桩，违背一期「不碰平台桥」约束
-- [ ] **二期阶段1·macOS NSAccessibility 桥**：实现已收口（2026-11-03 二批：WMA11yElement 子类带 press 动作压跨平台动作队列、accessibilityFocusedUIElement 按焦点 id 还元素、accessibilityHitTest 按屏幕点还最深元素、快照内容变/焦点换发 AX LayoutChanged/FocusedUIElementChanged 通知、MoonBit 每帧报焦点 id）；剩 VoiceOver 真机清单（朗读 / 状态翻转 / 逐字输入 / press 触发不双触）待用户执行，见测试用例附录 F
-- [ ] **二期阶段2·Linux AT-SPI 桩**：实现已落（2026-11-04，`gui/shell/atspi.mbt`：第三总线连接 + Socket.Embed 注册 + 对象树四接口 Accessible/Component/Text/Value + Action 动作 + 事件上行；协议面按 at-spi2-core 2.52 本机实证，详见 adaptation.md；断线自愈重连后按唯一名核对重新 Embed 同批收口）。剩 Orca 真机清单（Tab 遍历朗读 / flat-review 逐行读 / 对按钮按读屏 press 触发不双触 / 中文名与逐字偏移）待用户执行，见测试用例附录 F
+- [ ] **AttributedText 富文本逐字选中**（2026-11-05 缓批转正，用户批准动三平台 C 桩）：@text 补逐字几何（点命中、逐字游标 x、行区间/行 y），三平台 rt 桩各接；新可选富文本组件 + showcase 富文本演示接 selectable；mac 本机全验，Win/Linux 桩过语法门、真机清单归用户
+- [ ] **二期阶段2·Linux AT-SPI 桩**：实现已落（2026-11-04，`gui/shell/atspi.mbt`：第三总线连接 + Socket.Embed 注册 + 对象树四接口 Accessible/Component/Text/Value + Action 动作 + 事件上行；协议面按 at-spi2-core 2.52 本机实证，详见 adaptation.md；断线自愈重连后按唯一名核对重新 Embed 同批收口）。剩 Orca 真机清单（Tab 遍历朗读 / flat-review 逐行读 / 对按钮按读屏 press 触发不双触 / 中文名与逐字偏移）待用户执行，见测试用例附录 F（阶段1·macOS NSAccessibility 桥已过 VoiceOver 真机首轮，2026-11-05 删项；长描述段 VO 复确认遗留见 roadmap）
 
 ## 核查收口批（2026-11-03 核查：浮层原生档与 mac GIF 代码已在树——两件文档追平、三件真机复验；dock/任务栏进度这类单平台条目不做，已从待办与路线图撤下）
 
