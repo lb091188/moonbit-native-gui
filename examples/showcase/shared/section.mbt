@@ -120,7 +120,8 @@ fn section_body(s : Section, selected : @base.Store[String]) -> @widget.Node {
     inner.push(code_copy_row(s.code))
     inner.push(@ui.code_view(s.code, lang="moonbit", line_numbers=true))
   }
-  // 本容器是显隐切换对象；滚动视口在 handle 里撑满剩余高度
+  // 本容器是显隐切换对象；滚动视口在 handle 里撑满剩余高度。
+  // 段名进读屏：VO 进段念「<标题>, group」而不是无名 group
   @ui.col(
     [
       @ui.scroll_view(
@@ -137,6 +138,7 @@ fn section_body(s : Section, selected : @base.Store[String]) -> @widget.Node {
 
       apply(selected.get())
       selected.subscribe(apply)
+      c.name = s.title
     },
   )
 }

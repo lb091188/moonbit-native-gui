@@ -648,6 +648,13 @@ fn menu_item(
   let font = @text.Font::new("", 13.0)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
+    // 语义面：菜单项=按钮角色，正文现算（label_of 绘制期取译，换语言下一帧
+    // 快照即刷）——此前裸 widget，读屏只会念「group」（真机 VoiceOver 抓到）
+    w.role = "button"
+    w.a11y_text = Some(fn(_w : @widget.Widget) -> String? {
+      let l = label_of()
+      Some(if l.length() > 0 { l } else { text })
+    })
     w.node.set_width(@yoga.fixed(width))
     w.node.set_height(@yoga.fixed(40.0))
     if focusable {
@@ -858,6 +865,10 @@ pub fn menu_sections(
     @widget.mount_children(body, nodes)
     let head = @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
       watch_theme()
+      // 组名进读屏（现算译文）：此前组标题行是裸 widget，念「group」无名
+      w.a11y_text = Some(fn(_w : @widget.Widget) -> String? {
+        Some(@i18n.t_or("nav.g." + title, title))
+      })
       w.node.set_width(@yoga.fixed(width - 12.0))
       w.node.set_height(@yoga.fixed(24.0))
       @style.apply(w, @style.style(color="text_secondary"))

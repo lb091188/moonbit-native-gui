@@ -1430,6 +1430,28 @@ pub fn rate(
     w.node.set_height(@yoga.fixed(size))
     w.node.set_flex_shrink(0.0)
     w.cursor = @widget.CURSOR_HAND
+    // 语义面：评分=离散值输入，按滑杆语义报值——此前裸 widget 读屏不念
+    // （真机抓到）；方向键增减一格
+    w.role = "slider"
+    w.a11y_state = Some(fn(_self : @widget.Widget) -> (String, String)? {
+      Some(("", value.get().to_string() + "/" + n.to_string() + " 星"))
+    })
+    w.on_key = Some(fn(ev : @widget.KeyEvent) -> Bool {
+      if !ev.press {
+        return false
+      }
+      let nv = if ev.keysym == @base.KS_RIGHT || ev.keysym == @base.KS_UP {
+        value.get() + 1
+      } else if ev.keysym == @base.KS_LEFT || ev.keysym == @base.KS_DOWN {
+        value.get() - 1
+      } else {
+        return false
+      }
+      let fixed = nv.clamp(min=1, max=n)
+      value.set(fixed)
+      on_change(fixed)
+      true
+    })
     // 第几颗星（1 起，越界夹住）：星星间距的一半算在星内，边缘不空
     w.on_pointer = Some(fn(_self : @widget.Widget, ev : @widget.PointerEvent) -> Bool {
       let star_at = fn(x : Double) -> Int {
