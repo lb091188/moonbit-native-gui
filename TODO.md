@@ -15,7 +15,7 @@
 
 ### 三、GPU（按 [proposals/gpu-architecture.md](proposals/gpu-architecture.md) 分批）
 
-- [ ] **第一步·X11 wgpu 三角形**（实现 + 用户真机肉眼验收）：`modules/gui-gpu` 加 `gpu/triangle.c`（dlopen `libwgpu_native` + dlopen `libX11`，零链接面原则不变；v29 future 风格 API——设备经回调取；非 Linux 平台 `#ifdef` 桩返回 Unsupported）+ `gpu.mbt` 门面 `run_triangle` + `experiment/gpu_triangle` 可执行包；wbtest 钉 probe 幂等与门面错误口径
+- [ ] **X11 wgpu 三角形真机复验**（用户执行）：实现已落（2026-11-04，`gpu/triangle.c` + `run_triangle` 门面 + `experiment/gpu_triangle`；无显示实跑验过加载链，详见 adaptation.md）——`moon run experiment/gpu_triangle` 跑一遍：窗口里见三色三角形、关窗或按 Esc 正常退出算过；不过把现象贴回来
 - [ ] **L1-Linux present 纹理合成**：`wm_present`（stub.c GTK X11 臂）分派「Bitmap 上传纹理 → 全屏 quad → swapchain」；GPU 挂上后 `wm_on_draw` 的 cairo 贴像素停手；surface 挂 GTK area 的 XID；fallback 探测落 `gpu_backend_available()` + `Painter::new` 探测序（进程级一次缓存，方案两档失败语义）；尺寸变化合并重配、0×0 跳过、关窗释放序；真机肉眼验收归用户
 - [ ] **L1-Win / L1-mac**：stub.c Win32 臂 D3D12 swapchain 挂 HWND、macOS 臂 CAMetalLayer 挂 NSView（`wantsLayer=YES`）；与现有 blit 的切换/回退同 Linux 口径；本机桩语法校验（同 uia_provider 先例），真机归用户
 - [ ] **首消费者**：`@guigpu` 实现 `@render.GpuSink`（`draw_texture_rgba` 上传纹理 / `fill_rect`，setter 随本批落，H2 的 transfer 策略位接线）+ GPU 内容画布 demo 页（挂 `on_render` + `gpu_set_sink`，赛季验收面）——依赖 L1 落地，不建空心示例

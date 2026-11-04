@@ -3679,3 +3679,12 @@ dbus 包对 bus=2 断线自愈重建连接后，本端唯一名会变（新连�
 - **坑②（string 长度）**：wayland 的 string 长度字段**含结尾 NUL**（实物核过：`wl_subcompositor` 16 字符 → 长度 17）。按「不含 NUL」解接口名会带个尾 NUL；下一个字段偏移两种算法在这批数据上巧合一致（pad 吸收），但名字是脏的。
 - **实证**：本机 weston 13 headless（`XDG_RUNTIME_DIR` 指到临时目录 + `--backend=headless-backend.so --socket=…`）起合成器，`wl_globals` 枚举出 19 个 global，与 `wayland-info` 输出逐一吻合。无 Wayland 会话的机器（X11/Windows/macOS/CI）探测即不可用，用例走跳过支。
 - **未落地**：fd 传递（SCM_RIGHTS，data-control 的 receive 要用，需 C 助手）；wlr-data-control / ext-data-control、wlr-foreign-toplevel、wlr-output-management / wlr-gamma-control、ext-idle-notify 的协议客户。
+
+## GPU 第一步 X11 wgpu 三角形：moon native-stub 的 C 编译面相与 v29 future API（2026-11-04）
+
+`modules/gui-gpu/gpu/triangle.c`（dlopen wgpu + libX11，自开 Xlib 窗上屏三色三角形）落地时踩平的编译/装载面：
+- **moon native-stub 支持包目录相对的 quoted include**（webview 的 `#include "include/WebView2.h"` 是先例），但**相对层级要数对**：vendor 是 `gpu/` 包的兄弟（`modules/gui-gpu/vendor`），路径是 `../vendor/include/webgpu/webgpu.h`——按仓库根的直觉写 `../../vendor/…` 会静默走空（`__has_include` 假 + 编译期桩分支，构建照旧绿，现象是「运行期报 unsupported」而不是编译错）。
+- **`__has_include` 守卫让缺 vendor/缺 Xlib 头的平台退化成编译期桩**（prebuild 没下载/非 Linux 都不破构建）；PFN typedef 全部取自 vendor 头的 `WGPUProc*`（204 个），不手抄签名；函数指针表用宏声明时**声明名与调用名要一套**（`p_wgpu##name` vs 写歪的 `p_##name` 的教训：moon 的 C 编译对未声明标识符竟走到链接期才报，别指望编译期拦）。
+- **dlopen 候选原是相对 cwd 的**（probe.c 的 `vendor/lib/…` 只在模块根 cwd 下中）——experiment 从仓库根跑会误报 not-found。triangle.c 的加载器加**仓库布局候选**：从 cwd 逐级向上，每级试 `<anc>/vendor/lib/…`（模块根形态）与 `<anc>/modules/gui-gpu/vendor/lib/…`（仓库根形态），dlopen 试错不需要 stat；发行的应用走不到这两级，落环境变量/系统名。`probe()` 的候选不动（库契约保持简单），experiment 的失败诊断会附带打印 probe 详情，别被它的 not-found 误导。
+- **v29 future 风格 API 实跑口径**：adapter/device 都经回调拿（`WGPUCallbackMode_AllowSpontaneous` + `wgpuInstanceProcessEvents` 轮询泵，1ms 步进带超时），不能当同步函数；surface 走 `WGPUSurfaceSourceXlibWindow{display, window}`；v29 没有 `wgpuSurfaceGetPreferredFormat`，格式直接 BGRA8Unorm（Linux/Vulkan 地表形态）；`WGPURequestAdapterOptions.backendType` 还在（留 Undefined 让 wgpu 自选 primary）。
+- **无显示实跑验证**（不开窗、只走加载链）：仓库根 `env -u DISPLAY ./gpu_triangle.exe`，错误停在 `XOpenDisplay 失败`——证明仓库布局候选找到库、19 个 wgpu 符号 + 12 个 Xlib 符号加载、MoonBit↔C ABI 与缓冲读回全链通。三色三角形的肉眼验收归用户（`moon run experiment/gpu_triangle`，关窗/Esc 退出）。

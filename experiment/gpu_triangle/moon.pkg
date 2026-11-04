@@ -1,0 +1,7 @@
+import {
+  "NoahLiu/gui-gpu/gpu" @guigpu,
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"

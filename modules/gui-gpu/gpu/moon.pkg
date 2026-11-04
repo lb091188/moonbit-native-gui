@@ -8,5 +8,5 @@ import {
 supported_targets = "native"
 
 options(
-  "native-stub": ["probe.c"],
+  "native-stub": ["probe.c", "triangle.c"],
 )
