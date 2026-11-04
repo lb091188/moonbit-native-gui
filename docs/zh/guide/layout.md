@@ -1,6 +1,6 @@
 # 布局样式（@style + @yoga）
 
-布局采用 CSS Flexbox（Level 1）规范，由 MoonBit 实现的布局引擎 yoga-mbt 驱动。样式是 `@style` 包中的 MoonBit 值，`Style` 结构体字段与 CSS 属性同名（连字符写作下划线）。组件既接受命名参数（`padding=` / `row_gap=` 等），也接受 `class? : Array[@style.Style]` 叠加样式块。本文是布局面速查。
+布局采用 CSS Flexbox（Level 1）规范，由 MoonBit 实现的布局引擎 yoga-mbt 驱动。样式是 `@style` 包中的 MoonBit 值，`Style` 结构体字段与 CSS 属性同名（连字符写作下划线）。组件既接受命名参数（`padding=` / `row_gap=` 等），也接受 `class? : Array[@style.Style]` 叠加样式块。
 
 ## 两种设置方式
 

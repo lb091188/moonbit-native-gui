@@ -1,6 +1,6 @@
 # 五分钟上手教程
 
-不需要会 MoonBit——有任意一门语言的编程基础即可。本教程从零建一个桌面应用：一个窗口、一个按钮、一个随点击自动刷新的计数。
+从零建一个桌面应用：一个窗口、一个按钮、一个随点击自动刷新的计数。
 
 ## 1. 准备工具
 
@@ -117,10 +117,10 @@ handle=fn(a : @widget.WindowHost) -> Unit {
 
 **想照着抄**——演示板就是素材库：左侧栏选页、右侧对着写，每页源码独立成文件（`examples/showcase/pages/*.mbt`），复制改写即可；下载与跑法见[先跑起来看看](experience.md)。
 
-**想系统学**——几本文档，对应几个面：
+**想系统学**——按面选文档：
 
 - [场景总览](../cookbook/index.md)：场景教程——「我想让内容居中」「我要列表增删」「我要定时刷新」这类具体目标，每篇给可抄代码与注意事项
-- [声明式与响应式](declarative.md)：节点树（`Node` / `mount_window`）描述界面、`Store` / `Signal` 绑定状态——本教程第 3 节的计数点击就是它的最小形态
+- [声明式与响应式](declarative.md)：节点树（`Node` / `mount_window`）描述界面、`Store` / `Signal` 绑定状态
 - [布局样式](layout.md)：布局样式（`Style` 的 flex / padding / margin 字段，`@ui.col` / `@ui.row` 的散参数与 `class` 通道）
 - [组件总览](../components/index.md)：全部控件与组件的入参与事件速查
 - [系统能力总览](../capability/sys.md)：系统能力（`@sys`）——音量 / 应用查找 / 壁纸 / 显示器 / 剪贴板 / 电源 / 打印机…，统一 `Result` 语义

@@ -1,6 +1,6 @@
 # 构建与运行
 
-从零到跑起来的完整流程：装什么、敲什么命令、产物落在哪、不想编的时候拿什么、报错怎么处置（§1–§6）。后半段讲这套构建的机制——链接参数怎么托管、改桩不重链的坑、vendor 文件从哪来（§7–§12）。原理与逐平台实测记录在 [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md)「构建与链接」。
+装什么、敲什么命令、产物落在哪、报错怎么处置（§1–§6）；链接参数托管、改桩不重链、vendor 来源（§7–§12）。原理与逐平台实测记录在 [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md)「构建与链接」。
 
 ## 1. 装 MoonBit 工具链
 

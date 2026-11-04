@@ -1,6 +1,6 @@
 # Five-minute tutorial
 
-No MoonBit knowledge needed — programming experience in any language is enough. This tutorial builds a desktop app from scratch: one window, one button, and a counter that refreshes on every click.
+Build a desktop app from scratch: one window, one button, and a counter that refreshes on every click.
 
 ## 1. Prepare the tools
 
@@ -117,10 +117,10 @@ Themed forms for `@ui.text` / `@ui.button` (the four `button` `variant`s, `tag` 
 
 **Copy from a working app** — the demo board is the material library: pick a page in the left menu and write against it on the right; each page's source is its own file (`examples/showcase/pages/*.mbt`), ready to copy and adapt. Downloads and how to run: [Try the demos](experience.md).
 
-**Learn the layers** — a few documents, each covering one face:
+**Learn the layers** — pick by face:
 
 - [How-to overview](../cookbook/index.md): how-to guides — for concrete goals like "center my content", "add and remove list items" or "refresh on a timer", each with paste-ready code and notes
-- [Declarative & reactivity](declarative.md): describe the UI as a node tree (`Node` / `mount_window`) and bind state with `Store` / `Signal` — the click counter in section 3 is its minimal form
+- [Declarative & reactivity](declarative.md): describe the UI as a node tree (`Node` / `mount_window`) and bind state with `Store` / `Signal`
 - [Layout & styling](layout.md): layout styling (the flex / padding / margin fields of `Style`, and the loose parameters plus the `class` channel of `@ui.col` / `@ui.row`)
 - [Components overview](../components/index.md): a quick reference to every widget and component's parameters and events
 - [System capabilities overview](../capability/sys.md): OS capabilities (`@sys`) — volume / app lookup / wallpaper / monitors / clipboard / power / printers…, with unified `Result` semantics

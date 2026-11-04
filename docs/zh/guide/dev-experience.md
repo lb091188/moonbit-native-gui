@@ -1,6 +1,6 @@
 # 应用开发者体验
 
-本页讲「为什么」：工程长什么样、`moon add` 与 import 的两级、两处手工调整各自的原因，以及新手最常见的卡点。最短可跑路径（照着敲即可）见[五分钟上手教程](tutorial.md)；只想先看效果不写代码，见[先跑起来看看](experience.md)。
+工程长什么样、`moon add` 与 import 的两级、两处手工调整各自的原因、新手最常见的卡点。最短可跑路径见[五分钟上手教程](tutorial.md)；只想先看效果不写代码，见[先跑起来看看](experience.md)。
 
 ## 1. 工程长什么样
 
@@ -33,7 +33,7 @@ supported_targets = "native"
 
 ## 4. 第一个窗口
 
-照[五分钟上手教程](tutorial.md) §3 把 `cmd/main/main.mbt` 替换为计数器程序、`moon run cmd/main` 跑出窗口，路径即打通。`mount_window` 在没有窗口后端或没有显示服务时返回 `None`，示例据此结构化退出——这是预期行为，不是故障。
+照[五分钟上手教程](tutorial.md) §3 替换 `cmd/main/main.mbt` 并 `moon run cmd/main`。`mount_window` 在没有窗口后端或没有显示服务时返回 `None`，示例据此结构化退出——这是预期行为，不是故障。
 
 ## 常见卡点
 

@@ -1,6 +1,6 @@
 # 自绘与键鼠
 
-画法本身（形状、路径、渐变、位图、文字）见[画布](canvas.md)；本篇讲让自绘块响应键鼠。配合 `invalidate` 形成「事件改状态 → 重绘」的循环。指针、悬停、光标、焦点的状态维护全由宿主接管，不写 enter/leave、不写捕获逻辑。
+画法本身（形状、路径、渐变、位图、文字）见[画布](canvas.md)。自绘块响应键鼠：挂回调字段，配合 `invalidate` 形成「事件改状态 → 重绘」的循环；指针、悬停、光标、焦点的状态维护全由宿主接管，不写 enter/leave、不写捕获逻辑。
 
 ## 指针：一个 `on_pointer` 走完按下/移动/抬起/离开
 
@@ -74,7 +74,7 @@ w.on_scroll = Some(fn(ev : @widget.ScrollEvent) -> Bool {
 
 ## 组起来：迷你画板
 
-拖拽画线、点击聚焦、Backspace 撤销一笔、Delete 清空——画板/白板/节点编辑器这类软件的骨架就这几段（状态放回调外，事件改完 `invalidate`，绘制全量重画）。窗口骨架用[画布](canvas.md#一、挂一块自绘区域)的最小程序：
+拖拽画线、点击聚焦、Backspace 撤销一笔、Delete 清空。状态放回调外，事件改完 `invalidate`，绘制全量重画；窗口骨架用[画布](canvas.md#一、挂一块自绘区域)的最小程序：
 
 ```moonbit
 let strokes : Ref[Array[Array[(Double, Double)]]] = Ref([])

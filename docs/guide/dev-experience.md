@@ -1,6 +1,6 @@
 # App Developer Experience
 
-This page covers the "why": what a project looks like, the two levels of `moon add` and `import`, why the two manual adjustments are needed, and the most common first-time blockers. For the shortest runnable path (type along as you read), see the [five-minute tutorial](tutorial.md); to see it run without writing any code, see [Try the demos](experience.md).
+What a project looks like, the two levels of `moon add` vs `import`, why the two manual adjustments are needed, and the most common first-time blockers. Shortest runnable path: the [five-minute tutorial](tutorial.md). See it run without writing code: [Try the demos](experience.md).
 
 ## 1. What a project looks like
 
@@ -33,7 +33,7 @@ supported_targets = "native"
 
 ## 4. Your first window
 
-Follow the [five-minute tutorial](tutorial.md) §3: replace `cmd/main/main.mbt` with the click-counter program and `moon run cmd/main` — the path is open. `mount_window` returns `None` when there is no window backend or no display service, and the example exits accordingly — expected behaviour, not a fault.
+Follow the [five-minute tutorial](tutorial.md) §3: replace `cmd/main/main.mbt` and run `moon run cmd/main`. `mount_window` returns `None` when there is no window backend or no display service, and the example exits accordingly — expected behaviour, not a fault.
 
 ## Common blockers
 

@@ -1,6 +1,6 @@
 # 场景总览
 
-按「我想做 X」检索的场景手册，分四页：[布局](layout.md)、[交互](interaction.md)、[样式与主题](theme.md)、[系统能力](system.md)，每场景给说明、可抄代码与注意事项。工程从零起步见[五分钟上手](../guide/tutorial.md)。
+按「我想做 X」检索，分四页：[布局](layout.md)、[交互](interaction.md)、[样式与主题](theme.md)、[系统能力](system.md)。工程从零起步见[五分钟上手](../guide/tutorial.md)。
 
 ## 公共前提
 

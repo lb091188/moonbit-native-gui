@@ -1,6 +1,6 @@
 # Custom draw & input
 
-Drawing itself (shapes, paths, gradients, bitmaps, text) is covered in [Canvas](canvas.md); this page is about making a custom block respond to keyboard & mouse. Combined with `invalidate` it forms the "event mutates state → repaint" loop. State maintenance for pointer, hover, cursor and focus is entirely handled by the host — no enter/leave handlers, no capture logic.
+Drawing itself (shapes, paths, gradients, bitmaps, text): [Canvas](canvas.md). A custom block responds to keyboard & mouse through its callback fields, which with `invalidate` form the "event mutates state → repaint" loop. State maintenance for pointer, hover, cursor and focus is entirely handled by the host — no enter/leave handlers, no capture logic.
 
 ## Pointer: one `on_pointer` covers press/move/release/leave
 
@@ -74,7 +74,7 @@ w.on_scroll = Some(fn(ev : @widget.ScrollEvent) -> Bool {
 
 ## Putting it together: a mini sketchpad
 
-Drag to draw lines, click to focus, Backspace undoes a stroke, Delete clears — the skeleton of paint programs / whiteboards / node editors is just these pieces (state outside the callbacks, events mutate state then `invalidate`, drawing repaints everything). Use the minimal window skeleton from [Canvas](canvas.md#_1-mount-a-custom-draw-area):
+Drag to draw lines, click to focus, Backspace undoes a stroke, Delete clears. State lives outside the callbacks; events mutate state then `invalidate`, and drawing repaints everything. Use the minimal window skeleton from [Canvas](canvas.md#_1-mount-a-custom-draw-area):
 
 ```moonbit
 let strokes : Ref[Array[Array[(Double, Double)]]] = Ref([])

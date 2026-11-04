@@ -1,6 +1,6 @@
 # Build & run
 
-The full path from an empty machine to a running window: what to install, what to type, where the artefacts land, what to grab if you would rather not build, and how to fix the errors (§1–§6). The second half covers the mechanism behind all of it — how link flags are hosted, the stub-edited-but-not-relinked pitfall, and where vendored files come from (§7–§12). The rationale and the per-platform field records live in the "Build & linking" section of [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md).
+What to install, what to type, where the artefacts land, and how to fix the errors (§1–§6); link-flag hosting, the stub-edited-but-not-relinked pitfall, and where vendored files come from (§7–§12). The rationale and the per-platform field records live in the "Build & linking" section of [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md).
 
 ## 1. Install the MoonBit toolchain
 

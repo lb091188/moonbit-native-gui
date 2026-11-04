@@ -1,6 +1,6 @@
 # How-to overview
 
-A scenario manual indexed by "I want to do X", split across four pages: [Layout recipes](layout.md), [Interaction recipes](interaction.md), [Theme recipes](theme.md), [System capability recipes](system.md). Each recipe gives a description, paste-ready code, and notes. Starting from zero: the [five-minute start](../guide/tutorial.md).
+Indexed by "I want to do X", split across four pages: [Layout recipes](layout.md), [Interaction recipes](interaction.md), [Theme recipes](theme.md), [System capability recipes](system.md). Starting from zero: the [five-minute start](../guide/tutorial.md).
 
 ## Prerequisites
 

@@ -1,8 +1,8 @@
 # 组件总览（@ui）
 
-控件与组件库全部住在 `NoahLiu/native-gui/ui`（别名 `@ui`）。每个组件是一个**返回 `@widget.Node` 的构造器**——把界面描述成一棵节点树，交给 `@ui.mount_window([...])` 一次挂载。速查按家族分页：参数一律以代码为准（`gui/ui/*.mbt`）。
+控件与组件库住在 `NoahLiu/native-gui/ui`（别名 `@ui`），每个组件是返回 `@widget.Node` 的构造器，参数以代码为准（`gui/ui/*.mbt`）。
 
-> 各组件的可运行示例集中在 `examples/showcase`（每页一个源文件），是最快的上手参照。
+> 各组件的可运行示例集中在 `examples/showcase`（每页一个源文件）。
 
 ## 家族一览
 

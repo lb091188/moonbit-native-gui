@@ -1,6 +1,6 @@
 # 声明式层与响应式（@base + @widget + @ui）
 
-界面用一棵**节点树**描述，状态用 `Store` / `Signal` 持有，框架负责「数据变了 UI 跟着变」。本文讲这套接线怎么写；样式见[布局样式](layout.md)，组件见[组件总览](../components/index.md)。
+界面用一棵**节点树**描述，状态用 `Store` / `Signal` 持有。样式见[布局样式](layout.md)，组件见[组件总览](../components/index.md)。
 
 ## 1. 节点树与挂载
 

@@ -95,7 +95,7 @@ let _ = @sys.bh_search("moonbit", limit=10)
 
 | 函数 | 说明 |
 |---|---|
-| `bm_supported() -> Bool` | Linux（本文件仅实现 Linux 路径探测） |
+| `bm_supported() -> Bool` | Linux（仅实现 Linux 路径探测） |
 | `bm_browsers() -> Result[Array[BookmarkProfile], BookmarkError]` | 列出有可读 Bookmarks 文件的 profile |
 | `bm_bookmarks(browser) -> Result[BookmarkNode, BookmarkError]` | 指定浏览器的首个可读书签树（浏览器标识取 "google-chrome"/"chromium"/"microsoft-edge"/"brave"，profile 取 Default 优先、其次 Profile 1..24） |
 

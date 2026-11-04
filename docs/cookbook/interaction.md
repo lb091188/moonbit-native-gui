@@ -1,6 +1,6 @@
 # Interaction recipes
 
-Import list and ground rules: see [How-to overview](index.md#prerequisites); this page's recipes are complete programs.
+Import list and ground rules: see [How-to overview](index.md#prerequisites); the recipes here are complete programs.
 
 ## Reading input and submitting on Enter
 

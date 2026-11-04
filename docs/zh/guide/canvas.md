@@ -1,9 +1,9 @@
 # 画布
 
-本篇讲怎么用：挂区域、常用画法、内容变了重绘、离屏导出。让自绘块响应键鼠见[自绘与键鼠](custom-draw.md)。
+挂区域、常用画法、内容变了重绘、离屏导出。让自绘块响应键鼠见[自绘与键鼠](custom-draw.md)。
 
 
-**现场演示**：`cd examples/showcase && moon run .` 打开「画布」页——本篇每段画法都有对应演示块，源码在 `examples/showcase/pages/canvas.mbt`。
+**现场演示**：`cd examples/showcase && moon run .` 打开「画布」页——每段画法都有对应演示块，源码在 `examples/showcase/pages/canvas.mbt`。
 
 ## 公共前提
 

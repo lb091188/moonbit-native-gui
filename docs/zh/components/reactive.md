@@ -1,6 +1,6 @@
 # 响应式控制
 
-`Store` / `Signal` / `ListStore` 的语义见[声明式与响应式](../guide/declarative.md)；本页是树内响应式控件的签名速查。
+`Store` / `Signal` / `ListStore` 的语义见[声明式与响应式](../guide/declarative.md)；以下是树内响应式控件的签名。
 
 ### `when(cond : Signal[T], then : Node, pred?)`
 
