@@ -402,10 +402,23 @@ fn sp_clip_power() -> String {
 }
 
 ///|
+/// GPU 呈现档（L1）：「on」= 窗口呈现走 GPU（位图上传纹理 → present）；
+/// 其余文本是 C 侧探测的回退原因。
+fn sp_gpu() -> String {
+  let s = @win.gpu_present_status()
+  if s == "on" {
+    "呈现档: on（位图上传纹理 → GPU present）\n逐帧回退与像素一致性由库自理"
+  } else {
+    "呈现档: 回退 CPU 路径\n原因: \{s}"
+  }
+}
+
+///|
 /// 系统能力探测页。五段各带「重新探测」；每组两块面板并排。
 pub fn page_sysprobe(_app : @shared.App) -> @widget.Node {
   let sys_a : @base.Store[String] = @base.Store::new("")
   let sys_b : @base.Store[String] = @base.Store::new("")
+  let sys_c : @base.Store[String] = @base.Store::new("")
   let mon_a : @base.Store[String] = @base.Store::new("")
   let app_a : @base.Store[String] = @base.Store::new("")
   let app_b : @base.Store[String] = @base.Store::new("")
@@ -426,6 +439,7 @@ pub fn page_sysprobe(_app : @shared.App) -> @widget.Node {
         [
           (sys_a, @shared.tx("系统与机器"), sp_sys_machine),
           (sys_b, @shared.tx("桌面与外设"), sp_sys_desktop),
+          (sys_c, @shared.tx("GPU 呈现档"), sp_gpu),
         ],
       ),
     ),

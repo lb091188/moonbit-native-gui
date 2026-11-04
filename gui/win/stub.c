@@ -88,6 +88,7 @@ int wm_l1_window_bind(WmL1 *st, void *surface, int sw, int sh, int bw, int bh);
 int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
                          int sw, int sh);
 void wm_l1_window_drop(WmL1 *st);
+void *wm_l1_gpu_status(void);
 
 #if defined(_WIN32)
 
@@ -13439,6 +13440,25 @@ int32_t wm_a11y_focus_notify_count(void) {
 
 #if defined(MNG_L1_WGPU_REAL)
 
+// ---- 诊断口：NATIVEGUI_GPU_LOG=1 时往 stderr 打 L1 关键拍 ----
+// （探测结论、首窗挂上；门控同 NATIVEGUI_LAYOUT_LOG 一族）
+static int l1_log_on(void) {
+  const char *env = getenv("NATIVEGUI_GPU_LOG");
+  return env != NULL && env[0] != 0 && strcmp(env, "0") != 0;
+}
+
+static void l1_log(const char *fmt, ...) {
+  if (!l1_log_on()) {
+    return;
+  }
+  va_list ap;
+  va_start(ap, fmt);
+  fputs("NATIVEGUI_GPU_LOG: ", stderr);
+  vfprintf(stderr, fmt, ap);
+  fputc('\n', stderr);
+  va_end(ap);
+}
+
 // ---- wgpu 函数指针表（PFN typedef 取 vendor 头，不手抄签名） ----
 #define MNG_L1_FN(name) static WGPUProc##name p_wgpu##name = NULL;
 MNG_L1_FN(CreateInstance)
@@ -13507,6 +13527,13 @@ static void *l1_dlsym(void *h, const char *n) {
 }
 #endif
 
+// 库名按平台取 vendor 归档的实际产物：Linux .so / mac .dylib。
+#if defined(__APPLE__)
+#define L1_LIB_BASE "libwgpu_native.dylib"
+#else
+#define L1_LIB_BASE "libwgpu_native.so"
+#endif
+
 // 候选序与 gui-gpu/triangle.c 逐字一致：环境变量 → 仓库布局逐级向上 →
 // 系统名（dlopen 试错，不需要 stat；发行的应用走不到仓库布局那两级）。
 static int l1_load_lib(void) {
@@ -13523,11 +13550,11 @@ static int l1_load_lib(void) {
     if (getcwd(anc, sizeof anc)) {
       for (int hop = 0; hop < 16 && !g_l1_lib; hop++) {
         char cand[1200];
-        snprintf(cand, sizeof cand, "%s/vendor/lib/libwgpu_native.so", anc);
+        snprintf(cand, sizeof cand, "%s/vendor/lib/" L1_LIB_BASE, anc);
         g_l1_lib = l1_dlopen(cand);
         if (!g_l1_lib) {
           snprintf(cand, sizeof cand,
-                   "%s/modules/gui-gpu/vendor/lib/libwgpu_native.so", anc);
+                   "%s/modules/gui-gpu/vendor/lib/" L1_LIB_BASE, anc);
           g_l1_lib = l1_dlopen(cand);
         }
         char *slash = strrchr(anc, '/');
@@ -13539,7 +13566,7 @@ static int l1_load_lib(void) {
     }
   }
   if (!g_l1_lib) {
-    g_l1_lib = l1_dlopen("libwgpu_native.so");
+    g_l1_lib = l1_dlopen(L1_LIB_BASE);
   }
 #else
   if (!g_l1_lib) {
@@ -13673,12 +13700,25 @@ static const char L1_WGSL[] =
     "}\n";
 
 // ---- 进程级探测（一次；instance/device/queue/管线/采样器/bgl 跨窗复用） ----
+static void l1_probe_body(void);
+
 static void l1_probe(void) {
   if (g_l1_probed) {
     return;
   }
   g_l1_probed = 1;
   g_l1_ok = 0;
+  g_l1_missing[0] = 0;
+  l1_probe_body();
+  if (g_l1_ok) {
+    l1_log("L1 探测通过：窗口呈现可挂 GPU 档");
+  } else {
+    l1_log("L1 探测未过，回退各臂原路径：%s",
+           g_l1_missing[0] ? g_l1_missing : "原因未记");
+  }
+}
+
+static void l1_probe_body(void) {
   if (!l1_load_lib() || !l1_load_syms()) {
     return;
   }
@@ -13686,6 +13726,7 @@ static void l1_probe(void) {
   memset(&idesc, 0, sizeof idesc);
   g_l1_inst = p_wgpuCreateInstance(&idesc);
   if (g_l1_inst == NULL) {
+    snprintf(g_l1_missing, sizeof g_l1_missing, "wgpuCreateInstance 失败");
     return;
   }
   // adapter（future：回调 + 泵）
@@ -13699,6 +13740,8 @@ static void l1_probe(void) {
   (void)p_wgpuInstanceRequestAdapter(g_l1_inst, &aopt, acb);
   if (!l1_pump(g_l1_inst, &l1_ad_got, 5000) ||
       l1_ad_status != WGPURequestAdapterStatus_Success || l1_adapter == NULL) {
+    snprintf(g_l1_missing, sizeof g_l1_missing,
+             "RequestAdapter 未成功（驱动无可用后端？）");
     return;
   }
   // device（future 同款）
@@ -13712,10 +13755,12 @@ static void l1_probe(void) {
   (void)p_wgpuAdapterRequestDevice(l1_adapter, &ddesc, dcb);
   if (!l1_pump(g_l1_inst, &l1_dev_got, 5000) ||
       l1_dev_status != WGPURequestDeviceStatus_Success || g_l1_device == NULL) {
+    snprintf(g_l1_missing, sizeof g_l1_missing, "RequestDevice 未成功");
     return;
   }
   g_l1_queue = p_wgpuDeviceGetQueue(g_l1_device);
   if (g_l1_queue == NULL) {
+    snprintf(g_l1_missing, sizeof g_l1_missing, "DeviceGetQueue 失败");
     return;
   }
   // shader + 管线（nearest 采样 + ClampToEdge）
@@ -13728,6 +13773,7 @@ static void l1_probe(void) {
   smd.nextInChain = &wsrc.chain;
   WGPUShaderModule mod = p_wgpuDeviceCreateShaderModule(g_l1_device, &smd);
   if (mod == NULL) {
+    snprintf(g_l1_missing, sizeof g_l1_missing, "WGSL 着色器创建失败");
     return;
   }
   WGPUColorTargetState ct;
@@ -13754,6 +13800,7 @@ static void l1_probe(void) {
   pd.fragment = &frag;
   g_l1_pipeline = p_wgpuDeviceCreateRenderPipeline(g_l1_device, &pd);
   if (g_l1_pipeline == NULL) {
+    snprintf(g_l1_missing, sizeof g_l1_missing, "渲染管线创建失败");
     return;
   }
   WGPUSamplerDescriptor sd;
@@ -13771,10 +13818,12 @@ static void l1_probe(void) {
   sd.maxAnisotropy = 1;
   g_l1_sampler = p_wgpuDeviceCreateSampler(g_l1_device, &sd);
   if (g_l1_sampler == NULL) {
+    snprintf(g_l1_missing, sizeof g_l1_missing, "采样器创建失败");
     return;
   }
   g_l1_bgl = p_wgpuRenderPipelineGetBindGroupLayout(g_l1_pipeline, 0);
   if (g_l1_bgl == NULL) {
+    snprintf(g_l1_missing, sizeof g_l1_missing, "取管线 bind group layout 失败");
     return;
   }
   g_l1_ok = 1;
@@ -13919,7 +13968,11 @@ void *wm_l1_surface_metal(void *layer) {
 
 int wm_l1_window_bind(WmL1 *st, void *surface, int sw, int sh, int bw, int bh) {
   st->surface = surface;
-  return l1_bind_frame(st, sw, sh, bw, bh);
+  int r = l1_bind_frame(st, sw, sh, bw, bh);
+  if (r == 1) {
+    l1_log("窗口呈现挂上 GPU 档（surface %dx%d，位图 %dx%d）", sw, sh, bw, bh);
+  }
+  return r;
 }
 
 // GPU 上屏一帧。1 = 已上屏（或无事可上）；0 = 本帧回退原路径。
@@ -14061,6 +14114,20 @@ void wm_l1_window_drop(WmL1 *st) {
   st->on = 0;
 }
 
+// 状态读数（诊断/演示用，MoonBit 侧 @win.gpu_present_status 消费）：
+// 回文 Bytes 按 moonbit_make_bytes 契约（本文件头部声明，签名对齐
+// ~/.moon/include/moonbit.h）。
+void *wm_l1_gpu_status(void) {
+  l1_probe();
+  const char *s = g_l1_ok ? "on" : (g_l1_missing[0] ? g_l1_missing : "探测未过");
+  int n = (int)strlen(s);
+  unsigned char *b = (unsigned char *)moonbit_make_bytes(n, 0);
+  if (b != NULL) {
+    memcpy(b, s, (size_t)n);
+  }
+  return b;
+}
+
 #else /* 没有 wgpu vendor 头（归档没下载）：整节编译不进，行为恒等于改造前 */
 
 int wm_l1_available(void) {
@@ -14079,6 +14146,17 @@ void *wm_l1_surface_hwnd(void *hinstance, void *hwnd) {
 void *wm_l1_surface_metal(void *layer) {
   (void)layer;
   return NULL;
+}
+void *wm_l1_gpu_status(void) {
+  static const char msg[] = "wgpu vendor 归档缺（gui-gpu 未装），L1 未编译";
+  int n = (int)(sizeof msg - 1);
+  unsigned char *b = (unsigned char *)moonbit_make_bytes(n, 0);
+  if (b != NULL) {
+    for (int i = 0; i < n; i++) {
+      b[i] = (unsigned char)msg[i];
+    }
+  }
+  return b;
 }
 int wm_l1_window_bind(WmL1 *st, void *surface, int sw, int sh, int bw, int bh) {
   (void)st;
