@@ -213,14 +213,10 @@ fn nav_fixture() -> String {
 ///|
 test "LSP：外部包跳转（@包.成员 / 包入口 / 内置标签）与成员补全" {
   let root = nav_fixture()
-  // Windows 分流：跳转落点的分隔符与行号口径在 Windows 上未验（本用例按 POSIX
-  // 形态断言），另批收口 —— 见 TODO「工具后续批次」
-  if root.length() >= 2 && root.to_array()[1] == ':' {
-    println("[skip] Windows：LSP 外部包跳转落点未验，跳过 POSIX 形态断言")
-    return
-  }
   let docs : Map[String, String] = Map([])
-  let uri = "file://" + root + "/app/page/page.mng"
+  // URI 经 path_to_uri 归一（Windows 的 TMPDIR 是反斜杠盘符形态；归一后
+  // 与 VS Code 送的 file:///c%3A/… 同一条链路，三平台同一份断言）
+  let uri = path_to_uri(root + "/app/page/page.mng")
   let text = [
     "<script setup lang=\"moonbit\">",
     "let qty : @base.Store[Int] = @base.Store::new(0)",
@@ -234,11 +230,12 @@ test "LSP：外部包跳转（@包.成员 / 包入口 / 内置标签）与成员
     "</template>",
   ].join("\n") + "\n"
   let _ = lsp_handle(docs, did_open(uri, text))
-  // `@base.Store::new` → 外部包源码的声明行
+  // `@base.Store::new` → 外部包源码的声明行（落点断言不依赖分隔符：
+  // 归一后三平台都是正斜杠，盘符/ POSIX 只差前缀）
   match lsp_handle(docs, req(10, "textDocument/definition", pos_params(uri, 1, 37))).reply {
     Some(r) =>
       assert_true(
-        contains_sub_l(r, "/lib/base/store.mbt") && contains_sub_l(r, "\"line\":4"),
+        contains_sub_l(r, "lib/base/store.mbt") && contains_sub_l(r, "\"line\":4"),
       )
     None => assert_true(false)
   }
@@ -254,7 +251,7 @@ test "LSP：外部包跳转（@包.成员 / 包入口 / 内置标签）与成员
   match lsp_handle(docs, req(12, "textDocument/definition", pos_params(uri, 2, 10))).reply {
     Some(r) =>
       assert_true(
-        contains_sub_l(r, "/lib/base/pkg.generated.mbti") && contains_sub_l(r, "\"line\":0"),
+        contains_sub_l(r, "lib/base/pkg.generated.mbti") && contains_sub_l(r, "\"line\":0"),
       )
     None => assert_true(false)
   }
@@ -262,7 +259,7 @@ test "LSP：外部包跳转（@包.成员 / 包入口 / 内置标签）与成员
   match lsp_handle(docs, req(13, "textDocument/definition", pos_params(uri, 6, 6))).reply {
     Some(r) =>
       assert_true(
-        contains_sub_l(r, "/lib/ui/ui.mbt") && contains_sub_l(r, "\"line\":8"),
+        contains_sub_l(r, "lib/ui/ui.mbt") && contains_sub_l(r, "\"line\":8"),
       )
     None => assert_true(false)
   }
@@ -531,4 +528,31 @@ test "LSP：hover 临时文件落项目根 .mng/（模板包目录不外露）" 
   let orphan = tmp_dir("mng_lsp_hover_orphan")
   ensure_dir_p(orphan + "/tpl")
   assert_eq(hover_tmp_dir(orphan + "/tpl"), orphan + "/tpl/.mng")
+}
+
+///|
+test "LSP：URI 归一（盘符/反斜杠/百分号，Windows 形态任何平台可跑）" {
+  // VS Code 送 file:///c%3A/…：解百分号得 /c:/…，去前导岔斜得 c:/…
+  assert_eq(uri_to_path("file:///c%3A/Users/me/p.mng"), "c:/Users/me/p.mng")
+  assert_eq(uri_to_path("file:///C:/x/p.mng"), "C:/x/p.mng")
+  assert_eq(uri_to_path("file:///c:/x/p.mng"), "c:/x/p.mng")
+  // 反斜杠（%5C 解出或裸送）一律归一成正斜杠——后面按 / 切的逻辑才成立
+  assert_eq(uri_to_path("file:///c%3A/x%5Cp.mng"), "c:/x/p.mng")
+  assert_eq(uri_to_path("C:\\x\\p.mng"), "C:/x/p.mng")
+  // POSIX 绝对路径不动（第三位不是冒号）
+  assert_eq(uri_to_path("file:///home/me/p.mng"), "/home/me/p.mng")
+  assert_eq(uri_to_path("/home/me/p.mng"), "/home/me/p.mng")
+  // 非 file:// 前缀原样吃（相对路径等）
+  assert_eq(uri_to_path("p.mng"), "p.mng")
+  // 反向：盘符形态补第三根斜杠成规范 file:///c:/…；POSIX 行为不变
+  assert_eq(path_to_uri("c:/x/p.mng"), "file:///c:/x/p.mng")
+  assert_eq(path_to_uri("C:\\x\\p.mng"), "file:///C:/x/p.mng")
+  assert_eq(path_to_uri("/x/p.mng"), "file:///x/p.mng")
+  // 空格与非 ASCII 仍走百分号
+  assert_eq(path_to_uri("/x/a b.mng"), "file:///x/a%20b.mng")
+  assert_eq(path_to_uri("/x/页.mng"), "file:///x/%E9%A1%B5.mng")
+  // 往返稳定：path→uri→path 与 uri→path→uri 都回到自身
+  assert_eq(uri_to_path(path_to_uri("c:/x/p.mng")), "c:/x/p.mng")
+  assert_eq(path_to_uri(uri_to_path("file:///c%3A/x/p.mng")), "file:///c:/x/p.mng")
+  assert_eq(uri_to_path(path_to_uri("/home/me/p.mng")), "/home/me/p.mng")
 }

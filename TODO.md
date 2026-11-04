@@ -11,7 +11,6 @@
 
 ### 二、代码/终端（mng 工具链）
 
-- [ ] **Windows LSP 跳转落点收口（代码侧）**：`uri_to_path`/`path_to_uri` 归一盘符与反斜杠（VS Code 送 `file:///c%3A/…` 现得 `/c:/…`）；`lsp_wbtest.mbt` 的「盘符分流跳过」改纯函数直测（Windows 形态输入任何平台可跑）+ 集成用例保留 POSIX 断言；真机复验仍归用户（见「模板预编译·工具后续批次」条目）
 - [ ] **工具收口批**：`tools/vscode-mng` 版本三方对齐（`package.json` 0.2.5 / README 0.2.4 / `extension.js` clientInfo 0.2.3 → 一致，TODO 编辑器复验条目同步）；roadmap「Windows dev 唤醒」措辞追平（Win32 客户端已合入待真机，:333 旧措辞与代码矛盾）
 
 ### 三、GPU（按 [proposals/gpu-architecture.md](proposals/gpu-architecture.md) 分批）
@@ -30,7 +29,7 @@
 
 ### 工具后续批次
 
-- [ ] **Windows LSP 跳转落点收口**：`mng` 的 LSP 定义跳转在 Windows 上的路径分隔符与行号口径未验（代码侧归实施队列，真机验一遍后把 Windows 支也钉上）
+- [ ] **Windows LSP 跳转真机复验**（用户执行）：代码侧已收口（2026-11-04：`uri_to_path`/`path_to_uri` 归一——盘符前导岔斜、反斜杠、`file:///c%3A/…` 解岔斜，纯函数用例三平台同跑、集成用例去分流）——Windows 真机在 VS Code 里验一遍跳转落点与行号口径（含 hover 的 `moon ide` 桥），过了本条删除
 - [ ] **握手与折层真机复验**（用户执行）：①`mng dev` 跑起来后进「模板 Dev」，改 script 加一个新 Store 并保存 → 该改本应 COLD，若工具侧先推了 HOT 补丁，日志应出现 `[HOT→COLD] 握手不符：注册表键集落后…` 随后 `[COLD] … 应用已重启`、应用回到改动页（**不再出现「补丁失败」toast 后界面停在旧树**）；②正常 HOT（只改结构/字面量）日志 `[HOT] 补丁已应用`，应用内 toast 同步；③样式全序：给 `hover_group` 挂 `class=[style(padding=14.0)]` 的条目看内缩真的按 class 走（散参数 `<` class）
 
 ## 主题与样式批次真机复验（用户执行；落地项已在 roadmap「已实现·主题与样式」标 🚧，过了逐条翻 ✅）

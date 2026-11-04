@@ -145,7 +145,36 @@ fn slice_cli(a : Array[Char], lo : Int, hi : Int) -> String {
 }
 
 ///|
-/// `file:///…` → 本地路径（只解 %20，够覆盖常见路径）。
+/// 路径归一：反斜杠 → 正斜杠；盘符形态去前导岔斜（`/c:/x` → `c:/x`——
+/// VS Code 的 `file:///c%3A/…` 解出来的正是带岔斜的形态，Windows 上
+/// TMPDIR 也给反斜杠）。POSIX 绝对路径不动（`/home/…` 第三位不是 `:`）。
+fn normalize_path(p : String) -> String {
+  let s = StringBuilder()
+  for c in p {
+    if c == '\\' {
+      s.write_char('/')
+    } else {
+      s.write_char(c)
+    }
+  }
+  let t = s.to_string()
+  if t.length() >= 3 && t.get_char(0) == Some('/') && t.get_char(2) == Some(':') {
+    match t.get_char(1) {
+      Some(d) =>
+        if (d >= 'a' && d <= 'z') || (d >= 'A' && d <= 'Z') {
+          t[1:].to_owned()
+        } else {
+          t
+        }
+      None => t
+    }
+  } else {
+    t
+  }
+}
+
+///|
+/// `file:///…` → 本地路径（解百分号编码 + 归一化：反斜杠、盘符前导岔斜）。
 fn uri_to_path(uri : String) -> String {
   let s = if uri.has_prefix("file://") {
     uri[7:].to_owned()
@@ -175,7 +204,7 @@ fn uri_to_path(uri : String) -> String {
       i += 1
     }
   }
-  out.to_string()
+  normalize_path(out.to_string())
 }
 
 ///|
@@ -300,11 +329,17 @@ fn sigs_for(uri : String) -> @mngkit.Sigs {
 }
 
 ///|
-/// 本地路径 → `file://` URI（空格、非 ASCII 走百分号编码）。
+/// 本地路径 → `file://` URI（空格、非 ASCII 走百分号编码）。路径先归一
+/// （反斜杠/盘符岔斜），盘符形态补第三根斜杠成规范 `file:///c:/…`
+/// （POSIX 路径自带前导斜杠，行为不变）。
 fn path_to_uri(p : String) -> String {
-  let bytes = @utf8.encode(p)
+  let n = normalize_path(p)
+  let bytes = @utf8.encode(n)
   let out = StringBuilder()
   out.write_string("file://")
+  if !(n.length() > 0 && n.get_char(0) == Some('/')) {
+    out.write_char('/')
+  }
   for i in 0..<bytes.length() {
     let v = bytes[i].to_int()
     if (v >= 48 && v <= 57) ||
