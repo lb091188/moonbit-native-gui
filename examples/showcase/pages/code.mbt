@@ -99,7 +99,7 @@ pub fn page_code(_app : @shared.App) -> @widget.Node {
     @shared.section(
       "代码高亮",
       "CodeView 代码高亮",
-      "逐 token 测宽自绘，全平台一致；lang 关键字集（moonbit/js/ts/python/rust/c/go/bash/sql）+ 行号；第一块开了 `selectable=true`，可拖选/双击选词后 Ctrl/Cmd+C 复制（行号列不进选区）。",
+      "逐 token 测宽自绘，全平台一致；lang 关键字集（moonbit/js/ts/python/rust/c/go/bash/sql）+ 行号；三块都开了 `selectable=true`，可拖选/双击选词后 Ctrl/Cmd+C 复制（行号列不进选区）。",
       [
         @ui.col(
           [
@@ -128,6 +128,7 @@ pub fn page_code(_app : @shared.App) -> @widget.Node {
               ],
               lang="rust",
               line_numbers=true,
+              selectable=true,
             ),
             @ui.code_view(
               [
@@ -139,6 +140,7 @@ pub fn page_code(_app : @shared.App) -> @widget.Node {
               ],
               lang="python",
               line_numbers=true,
+              selectable=true,
             ),
           ],
           row_gap=8.0,
@@ -157,7 +159,7 @@ pub fn page_code(_app : @shared.App) -> @widget.Node {
     @shared.section(
       "Markdown",
       "Markdown 渲染",
-      "mdast 解析 + 富文本行自绘：标题/段落/粗斜体/删除线/行内代码/链接（悬浮手型，点击经 on_link 回调，示例接 `@sys.open_url` 交默认程序）/自动链接/引用式链接/嵌套列表/任务列表（真复选框）/引用/分隔线/围栏代码块/表格（列对齐）/脚注（正文上标 + 文末定义）；emoji 区间按 UTF-16 计量不错位，演示文本与复制串同源；下面这块开了 `selectable=true`——**段落级拖选**：混排行里高亮边界跟着真正绘制的那份排版走，跨行能连着选，Ctrl/Cmd+C 复制出来是这段原话（软折行不插换行）；点在链接字上仍是打开链接，落空才开始选。",
+      "mdast 解析 + 富文本行自绘：标题/段落/粗斜体/删除线/行内代码/链接（悬浮手型，点击经 on_link 回调，示例接 `@sys.open_url` 交默认程序）/自动链接/引用式链接/嵌套列表/任务列表（真复选框）/引用/分隔线/围栏代码块（随 selectable 同样可选中复制）/表格（列对齐）/脚注（正文上标 + 文末定义）；emoji 区间按 UTF-16 计量不错位，演示文本与复制串同源；下面这块开了 `selectable=true`——**段落级拖选**：混排行里高亮边界跟着真正绘制的那份排版走，跨行能连着选，Ctrl/Cmd+C 复制出来是这段原话（软折行不插换行）；点在链接字上仍是打开链接，落空才开始选。",
       [
         @mdview.markdown_view(
           demo,

@@ -3721,3 +3721,11 @@ GpuCanvas（@render.GpuSink 的 gui-gpu 实现，GPU 线首消费者）落地时
 - **未做的判决**：进程内自建 instance（绕开 core）也是全零——所以不是 core 的 device 有问题，而是**进程环境**（moon runtime / 链接进来的 native-gui 全套桩）与 wgpu-native 的某处交互。下一步候选：① 在 `moon run` 的真实应用进程里跑一遍 demo（可能测试进程特有）；② `wgpuInstanceWaitAny` 等 future 原语替换「pump + flag」模式；③ 缩小链接面（只链 @guigpu 的最小可执行）复现。
 - **当前落地口径**：canvas 的管线/协议面（对象创建、两条 draw 的调用链、finish 的尺寸与字节序 BGRA、clip/opacity 走查）全部落成并有断言；**像素断言在「读回全零」时跳过并打印 notice**（已知问题见本条），真机应用进程复验归用户（TODO「首消费者」条目）。
 - **顺带钉住的 wgpu 口径**（都进过报错）：sampler 零值描述符的 `lodMaxClamp=0` / `maxAnisotropy=0` 是验证错误且**默认错误处理器直接 abort**（core 里挂了静默回调后才是「降级不崩」）；`wgpuQueueWriteBuffer` 要 **COPY_DST**（不是 MAP_WRITE）；顶点缓冲另需 **VERTEX** 位；**所有 copy（buffer→texture / texture→buffer）的 bytesPerRow 必须 256 对齐**，CPU 侧垫行、读回侧解垫；v29 没有 `wgpuDevicePoll` / `wgpuSurfaceGetPreferredFormat`（前者用 InstanceProcessEvents 泵，后者格式直接 BGRA8Unorm）。
+
+## 选中档指针链的分支遗漏：带链接段落的 Up 没进选中链（2026-11-04，真机抓到）
+
+`md_rich_label` 带链接的段落装的是「链接命中优先」的指针分支——Down 落在链接字上打开链接、落空才转 `sel_via`，Move 只在非链接区转发。**Up 分支当时直接 `return false`，没转发进选中链**：`sel_pointer` 靠 Up 清 `dragging`，这一漏，带链接段落里拖选过一次后 `dragging` 永远为真，之后鼠标在这段里移动就一直 `select_range(旧锚点, 当前)`——真机表现即「起点钉死在一个位置、松手后移动还改选区」。修法一行：Up 也走 `sel_via`（sel_pointer 的 Up 本就返回 false，外层语义不变）。教训：**复合分支的指针处理要四态对账**——Down/Move/Up/Leave 每一态要么转发进公共链、要么明确说明为什么不转；「只加分支不改公共链」的补丁最容易漏 Up。回归用例（`markdown_wbtest`「拖选松手后再移动不改选区（带链接的段落也必须成立）」）自带牙齿：撤修复即红「松手后移动仍改选区」。
+
+## 列容器套折行内容的命中死区：探到根因、暂不动布局引擎（2026-11-04）
+
+真机报「markdown 只有第一行前面三分之一可以选中」，无头复现出一族**容器矩形盖不住子项**的布局缺陷：auto 高的列容器，子项主轴基准取**未约束宽的内在高**（YG3d ③ 档），而子项最终按钦定/stretch 宽折行落地（更高）——容器 rect 矮一截，`hit_path` 要求每个祖先矩形都包含点位，于是容器底缘以下的子项整块收不到指针（探针：四块文档的最后一块 `hit_test` 全落到父列；双层 auto 列 + 宽度相关测量叶最小复现 outer=20 / inner=40）。三处候选修法都试过并**全部撤销**：①叶子高度内在探询传宽基准、②列容器求高先收 max-content 行宽、③③′基准按占用行宽现量——①②破坏 min-content 语义（探询档被顶高，mdview/ui 五处用例红），③与 YG3d 定案「交叉轴不定 → 基准取 max-content（不随可用空间漂移，收缩算得到溢出量）」直接冲突（专项用例钉着）。判别要点：**对「测量契约干净」的测量函数（f(None) 的高 == f(Some(自身 max-content 宽)) 的高），③ 与 ③′ 同答**，YG3d 并无漏洞；踩坑的是「正式档答案宽度取 `.max(v)`（claims 可用宽）」这类**答案与内容宽脱钩**的测量——子项声称的宽 ≠ 内容宽时，行宽与折行高互相矛盾。后续若真要收这族：方向是给 mdview 这类测量「正式档答案宽度改答内容宽 + 块级铺满交给 stretch」，或布局层加「容器高按子项落地高回灌」的收尾校验（涉及全部容器的尾段重算，动 flex 核心，单独立项）。最小复现与探针手法记档待用：双层 auto 列 + 测量叶 `f(None)=(100,20) / f(Some(w))=(w,40)`，`calculate_layout` 后断言三层同高。
