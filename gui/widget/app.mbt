@@ -1059,9 +1059,10 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
     Some(id) => self.root.set_focused_by_focus(id)
     None => self.root.set_focused_by_focus(0)
   }
-  // 读屏焦点通道：焦点换了通知平台臂（mac AX FocusedUIElementChanged）
+  // 读屏焦点通道：焦点换了通知平台臂（mac AX FocusedUIElementChanged）。
+  // 焦点栈的 id 是控件声明的 focus_id，快照行存的是 widget id——报之前换算。
   a11y_set_focus(match self.focus.current() {
-    Some(id) => id
+    Some(fid) => a11y_focus_widget_id(self.root, fid)
     None => 0
   })
   // 分段账本从帧起算：位图分配（仅变尺寸时发生）计入 total 不计入单段，

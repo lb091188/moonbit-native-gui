@@ -265,6 +265,26 @@ pub fn a11y_frame_sync(root : Widget) -> Int {
 let g_a11y_last_pub : Ref[String] = Ref("")
 
 ///|
+/// focus_id → widget id（读屏焦点通道的对齐层）：焦点栈记的是控件声明的
+/// `focus_id`，快照行存的是 `w.id`——两套编号，平台臂按行 id 找「焦点元素」，
+/// 这里负责换算。找不到（焦点在别窗/浮层）回 0。
+fn a11y_focus_widget_id(w : Widget, focus_id : Int) -> Int {
+  if focus_id <= 0 {
+    return 0
+  }
+  if w.focus_id == focus_id {
+    return w.id
+  }
+  for k in w.kids {
+    let hit = a11y_focus_widget_id(k, focus_id)
+    if hit > 0 {
+      return hit
+    }
+  }
+  0
+}
+
+///|
 /// 报焦点控件 id并维护「换焦点才通知」：焦点与上次相同不通知读屏。
 /// 宿主每帧调（0 = 无焦点）。
 pub fn a11y_set_focus(id : Int) -> Unit {

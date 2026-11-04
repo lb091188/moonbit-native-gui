@@ -10,6 +10,19 @@ test "a11y：Widget 缺省可用、无状态无文本" {
 }
 
 ///|
+test "a11y：focus_id 换算成 widget id（快照行键，读屏焦点通道用）" {
+  let root = Widget::new()
+  let inner = Widget::new()
+  let leaf = Widget::new()
+  inner.kids.push(leaf)
+  root.kids.push(inner)
+  leaf.focus_id = 77
+  assert_eq(a11y_focus_widget_id(root, 77), leaf.id)
+  assert_eq(a11y_focus_widget_id(root, 78), 0) // 树里没有这个 focus_id
+  assert_eq(a11y_focus_widget_id(root, 0), 0) // 0 = 无焦点，直通
+}
+
+///|
 test "a11y：role 字符串与 ARole 往返（未知给 Unknown）" {
   for r in [
     Button, Checkbox, RadioButton, Switch, Slider, Stepper, TextInput, TextArea,
