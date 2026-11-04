@@ -11,8 +11,8 @@
 pub(all) enum GDBusValue {
   GVNone
   GVBool(Bool)
-  GVInt32(Int)
-  GVUInt32(Int)
+  GVInt32(Int32)
+  GVUInt32(Int32)
   GVInt64(Int64)
   GVU64(Int64) // 't':udisks Size/Time 等无符号 64 位
   GVDouble(Double)
@@ -239,7 +239,7 @@ fn gdbus_call_timeout(
   iface : String,
   action : String,
   args : Array[GDBusValue],
-  timeout_ms : Int,
+  timeout_ms : Int32,
 ) -> Result[GDBusValue, GDBusError] {
   let sig = match gdbus_args_wire(args) {
     Ok(sig) => sig
@@ -298,7 +298,12 @@ pub fn gdbus_call_session(
 ) -> Result[GDBusValue, GDBusError] {
   match gdbus_conn_session() {
     Ok(c) => gdbus_call(c, dest, path, iface, action, args)
-    Err(e) => Err(gdbus_err("gdbus.io", e))
+    Err(e) => {
+      if @env.get_env_var("NATIVEGUI_DBUS_DEBUG") is Some(_) {
+        println("DBG conn_session err=\{e}")
+      }
+      Err(gdbus_err("gdbus.io", e))
+    }
   }
 }
 
@@ -307,12 +312,7 @@ pub fn gdbus_call_session(
 /// [dbus_connect_a11y] 记住）。
 fn gdbus_conn_a11y() -> Result[Conn, String] {
   match g_a11y_conn.val {
-    Some(c) =>
-      if c.alive {
-        Ok(c)
-      } else {
-        Err("a11y 总线连接已断开")
-      }
+    Some(c) => if c.alive { Ok(c) } else { Err("a11y 总线连接已断开") }
     None =>
       match g_a11y_path.val {
         Some(p) =>

@@ -9,14 +9,14 @@
 
 ///|
 priv struct Conn {
-  fd : Int
-  bus : Int // 0 = 会话总线 1 = 系统总线（断线自愈按此重连）
-  mut serial : Int
+  fd : Int32
+  bus : Int32 // 0 = 会话总线 1 = 系统总线（断线自愈按此重连）
+  mut serial : Int32
   mut name : String // 本端唯一名 :1.x
   mut alive : Bool
   mut acc : FixedArray[Byte] // 收包累积缓冲
-  mut acc_len : Int
-  pending : Map[Int, (Msg) -> Unit] // 串号 → 应答处理
+  mut acc_len : Int32
+  pending : Map[Int32, (Msg) -> Unit] // 串号 → 应答处理
   subs : Map[String, Array[(Msg) -> Unit]] // "接口.成员" → 信号回调
   mut match_rules : Array[String] // AddMatch 规则（断线重连后重放；退订会摘）
   items : Map[String, Item] // 对象路径 → 托盘项
@@ -39,15 +39,15 @@ let g_a11y_path : Ref[String?] = Ref(None)
 
 ///|
 /// fd → 连接注册表（[dbus_pump] 按 fd 路由到所属连接）。
-let g_conns : Ref[Map[Int, Conn]] = Ref((Map([]) : Map[Int, Conn]))
+let g_conns : Ref[Map[Int32, Conn]] = Ref((Map([]) : Map[Int32, Conn]))
 
 ///|
 /// 断线时暂存的旧连接（重连成功后迁移订阅与 match 规则）。
-let g_saved : Map[Int, Conn] = (Map([]) : Map[Int, Conn])
+let g_saved : Map[Int32, Conn] = (Map([]) : Map[Int32, Conn])
 
 ///|
 /// 宿主注入的延迟任务通道（断线自愈的重连要避开当前调用现场）。
-let g_post : Ref[((Int, () -> Unit) -> Unit)?] = Ref(None)
+let g_post : Ref[((Int32, () -> Unit) -> Unit)?] = Ref(None)
 
 ///|
 /// 入站方法调用的分发口（同包的能力模块注册；未注册时兜底回错误）。
@@ -56,12 +56,12 @@ let g_on_call : Ref[((Conn, Msg) -> Unit)?] = Ref(None)
 ///|
 /// 注入延迟任务通道：GUI 层给 `fn(ms, f) { let _ = app.timer(ms, f) }`。
 /// 不注入时断线后不做后台重连，下一次显式调用会按需重建连接。
-pub fn dbus_set_post_delayed(f : (Int, () -> Unit) -> Unit) -> Unit {
+pub fn dbus_set_post_delayed(f : (Int32, () -> Unit) -> Unit) -> Unit {
   g_post.val = Some(f)
 }
 
 ///|
-fn post_delayed(ms : Int, task : () -> Unit) -> Unit {
+fn post_delayed(ms : Int32, task : () -> Unit) -> Unit {
   match g_post.val {
     Some(f) => f(ms, task)
     None => ()
@@ -73,7 +73,7 @@ fn post_delayed(ms : Int, task : () -> Unit) -> Unit {
 /// （线协议值类型不外泄，能力模块与外部调用方看到的是同一份）。
 pub(all) struct CallReq {
   /// 0 = 会话总线 1 = 系统总线
-  bus : Int
+  bus : Int32
   /// 调用方名字（回信地址）
   sender : String
   /// 被调对象路径
@@ -157,14 +157,16 @@ fn system_bus_path() -> Result[String, String] {
           return Ok(t[10:].to_owned())
         }
       }
-      Err("DBUS_SYSTEM_BUS_ADDRESS 不是受支持的 unix:path 地址: \{addr}")
+      Err(
+        "DBUS_SYSTEM_BUS_ADDRESS 不是受支持的 unix:path 地址: \{addr}",
+      )
     }
     None => Ok("/run/dbus/system_bus_socket")
   }
 }
 
 ///|
-fn hex_char(v : Int) -> Char {
+fn hex_char(v : Int32) -> Char {
   if v < 10 {
     (48 + v).unsafe_to_char() // '0'
   } else {
@@ -215,12 +217,7 @@ pub fn dbus_a11y_alive() -> Bool {
 /// 断线重连路径由自愈机制按记住的地址重建。
 pub fn dbus_connect_a11y(path : String) -> Result[Unit, String] {
   match g_a11y_conn.val {
-    Some(c) =>
-      if c.alive {
-        Ok(())
-      } else {
-        Err("a11y 总线连接已断开")
-      }
+    Some(c) => if c.alive { Ok(()) } else { Err("a11y 总线连接已断开") }
     None => {
       g_a11y_path.val = Some(path)
       match connect_unix(path, 2) {
@@ -282,8 +279,8 @@ pub fn dbus_quit_requested() -> Bool {
 /// 取走入站数据：对每条活连接 poll 一次，可读就排空并分发。
 /// `timeout_ms` 缺省 0（非阻塞，看一眼就走），适合挂在宿主的每帧或每拍
 /// 定时器上；给正数时会阻塞到多这么久，只应在没有别的泵可依赖时用。
-pub fn dbus_pump(timeout_ms? : Int = 0) -> Unit {
-  let fds : Array[Int] = []
+pub fn dbus_pump(timeout_ms~ : Int32 = 0) -> Unit {
+  let fds : Array[Int32] = []
   for fd, _ in g_conns.val {
     fds.push(fd)
   }
@@ -313,6 +310,9 @@ pub fn dbus_pump(timeout_ms? : Int = 0) -> Unit {
 /// 标记连接死亡。已入注册表的连接顺带关 fd、暂存状态并调度自愈（幂等）；
 /// 握手阶段（未入注册表）只置死——fd 清理是 [connect_unix] 错误分支的职责。
 fn Conn::mark_dead(self : Conn) -> Unit {
+  if @env.get_env_var("NATIVEGUI_DBUS_DEBUG") is Some(_) {
+    println("DBG mark_dead bus=\{self.bus} fd=\{self.fd} name=\{self.name}")
+  }
   self.alive = false
   if g_conns.val.contains(self.fd) {
     let _ = g_conns.val.remove(self.fd)
@@ -324,7 +324,7 @@ fn Conn::mark_dead(self : Conn) -> Unit {
 
 ///|
 /// 延迟重连：避开当前调用现场，投回宿主通道执行。
-fn schedule_reconnect(bus : Int) -> Unit {
+fn schedule_reconnect(bus : Int32) -> Unit {
   if bus == 0 {
     g_conn.val = None
   }
@@ -342,7 +342,7 @@ fn schedule_reconnect(bus : Int) -> Unit {
 /// 沿用，不再新建——否则新连接覆盖 g_conn/g_sys_conn，按需重建的那条连同
 /// fd 一起泄漏（注册表按 fd 路由，没有引用能再关掉它），订阅也会分裂在
 /// 两条连接上。状态迁移在连接建立时经 [Conn::adopt_saved] 完成。
-fn try_reconnect(bus : Int, attempt : Int) -> Unit {
+fn try_reconnect(bus : Int32, attempt : Int32) -> Unit {
   if attempt > 3 {
     return
   }
@@ -359,25 +359,22 @@ fn try_reconnect(bus : Int, attempt : Int) -> Unit {
           match connect_session() {
             Ok(_) => ()
             // 没注入排期通道时就到此为止（纯 CLI 场景由下一次显式调用重建）
-            Err(_) => post_delayed(1000, fn() {
-              try_reconnect(bus, attempt + 1)
-            })
+            Err(_) =>
+              post_delayed(1000, fn() { try_reconnect(bus, attempt + 1) })
           }
         1 =>
           match connect_system() {
             Ok(_) => ()
-            Err(_) => post_delayed(1000, fn() {
-              try_reconnect(bus, attempt + 1)
-            })
+            Err(_) =>
+              post_delayed(1000, fn() { try_reconnect(bus, attempt + 1) })
           }
         _ =>
           match g_a11y_path.val {
             Some(p) =>
               match dbus_connect_a11y(p) {
                 Ok(_) => ()
-                Err(_) => post_delayed(1000, fn() {
-                  try_reconnect(bus, attempt + 1)
-                })
+                Err(_) =>
+                  post_delayed(1000, fn() { try_reconnect(bus, attempt + 1) })
               }
             None => ()
           }
@@ -388,7 +385,7 @@ fn try_reconnect(bus : Int, attempt : Int) -> Unit {
 ///|
 /// 迁移断线旧连接的订阅与 match 规则到本连接（任一新建连接建立时调用，
 /// 自愈重连与按需重建同路）。
-fn Conn::adopt_saved(self : Conn, bus : Int) -> Unit {
+fn Conn::adopt_saved(self : Conn, bus : Int32) -> Unit {
   match g_saved.get(bus) {
     Some(old) => {
       for k, arr in old.subs {
@@ -538,7 +535,7 @@ fn system_conn() -> Result[Conn, String] {
 
 ///|
 /// 连接一条总线（SASL EXTERNAL 握手 + Hello + 入 fd 注册表）。
-fn connect_unix(path : String, bus : Int) -> Result[Conn, String] {
+fn connect_unix(path : String, bus : Int32) -> Result[Conn, String] {
   let fd = ffi_unix_connect(utf8(path))
   if fd < 0 {
     return Err("无法连接总线 socket: \{path}")
@@ -551,7 +548,7 @@ fn connect_unix(path : String, bus : Int) -> Result[Conn, String] {
     alive: true,
     acc: FixedArray::make(4096, b'\x00'),
     acc_len: 0,
-    pending: (Map([]) : Map[Int, (Msg) -> Unit]),
+    pending: (Map([]) : Map[Int32, (Msg) -> Unit]),
     subs: (Map([]) : Map[String, Array[(Msg) -> Unit]]),
     match_rules: [],
     items: (Map([]) : Map[String, Item]),
@@ -664,7 +661,7 @@ fn Conn::read_sasl_line(self : Conn) -> String? {
 
 ///|
 /// 取下一个发送串号。
-fn Conn::next_serial(self : Conn) -> Int {
+fn Conn::next_serial(self : Conn) -> Int32 {
   self.serial += 1
   self.serial
 }
@@ -680,7 +677,7 @@ fn Conn::call(
   sig : String,
   args : Array[DVal],
   cb : (Msg) -> Unit,
-) -> Int {
+) -> Int32 {
   let s = self.next_serial()
   self.pending[s] = cb
   match build_call(s, dest, path, iface, action, sig, args) {
@@ -745,7 +742,9 @@ fn Conn::add_match(self : Conn, rule : String) -> Unit {
 ///|
 /// 撤 match 规则（一次性订阅的收尾；总线不在场时静默）。
 fn Conn::remove_match(self : Conn, rule : String) -> Unit {
-  self.match_rules = self.match_rules.filter(fn(r : String) -> Bool { r != rule })
+  self.match_rules = self.match_rules.filter(fn(r : String) -> Bool {
+    r != rule
+  })
   let _ = self.call(
     "org.freedesktop.DBus",
     "/org/freedesktop/DBus",
@@ -835,7 +834,7 @@ fn Conn::reply_error(
 ///|
 /// 同步泵：在 fd 上等待并处理消息，直到条件满足或超时。用于连接握手、
 /// 注册等「必须拿到结果才能继续」的时点；主循环起来之后由 [dbus_pump] 驱动。
-fn Conn::pump_until(self : Conn, done : Ref[Bool], timeout_ms : Int) -> Bool {
+fn Conn::pump_until(self : Conn, done : Ref[Bool], timeout_ms : Int32) -> Bool {
   let mut left = timeout_ms
   while !done.val && left > 0 && self.alive {
     let slice = if left < 15 { left } else { 15 }
@@ -920,7 +919,7 @@ fn Conn::pop_message(self : Conn) -> Msg? {
 }
 
 ///|
-fn rd_u32_fixedarray(data : FixedArray[Byte], pos : Int) -> Int {
+fn rd_u32_fixedarray(data : FixedArray[Byte], pos : Int32) -> Int32 {
   data[pos].to_int() |
   (data[pos + 1].to_int() << 8) |
   (data[pos + 2].to_int() << 16) |
@@ -999,9 +998,7 @@ fn Conn::handle(self : Conn, msg : Msg) -> Unit {
         Some(f) => f(self, msg)
         None =>
           self.reply_error(
-            msg,
-            "org.freedesktop.DBus.Error.UnknownMethod",
-            "本进程未注册入站调用处理者",
+            msg, "org.freedesktop.DBus.Error.UnknownMethod", "本进程未注册入站调用处理者",
           )
       }
     }
@@ -1017,7 +1014,7 @@ fn Conn::handle(self : Conn, msg : Msg) -> Unit {
 /// "接口.成员"（sender/argN 的进一步过滤由回调自查）；回调拿到已解码的
 /// 载荷。同一 key 可多次订阅。规则登记在案，断线重连后自动重放。
 fn dbus_subscribe_on(
-  bus : Int,
+  bus : Int32,
   rule : String,
   key : String,
   cb : (Array[GDBusValue]) -> Unit,
@@ -1064,7 +1061,10 @@ pub fn dbus_subscribe_system(
 ///|
 /// 退订会话总线信号（按 key 整键摘除并撤 match 规则；与
 /// [dbus_subscribe_session] 成对，供一次性监听收尾）。
-pub fn dbus_unsubscribe_session(rule : String, key : String) -> Result[Unit, String] {
+pub fn dbus_unsubscribe_session(
+  rule : String,
+  key : String,
+) -> Result[Unit, String] {
   match bus_conn() {
     Err(e) => Err(e)
     Ok(c) => {

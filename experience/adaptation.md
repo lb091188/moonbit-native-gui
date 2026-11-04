@@ -3644,7 +3644,7 @@ at-spi2-core 2.52 装在开发机上（`at-spi2-core`/`gir1.2-atspi-2.0`/`libatk
 - **门面形态差（方案 §五 定的）**：X11/Win/mac 是「注册 + 每帧 poll」；Wayland portal 是「绑定 + 信号回调」（授权每次绑定一弹）。壳层按会话类型分派，应用侧一个入口。
 - **退订是新增能力**：portal 的 Response 是一次性信号，`bus.mbt` 原有订阅只增不删（回调会攒）；本批补 `Conn::unsubscribe` + `dbus_unsubscribe_session`（按 key 整键摘除 + RemoveMatch），`match_rules` 字段随之改 `mut`。
 - **空闲双通道**：`@sys.idle_seconds`（C 平台：Win GetLastInputInfo / mac HID / Linux X11 XSS）不动；GNOME 档新增 `org.gnome.Mutter.IdleMonitor.GetIdletime`（D-Bus，Wayland 原生与 GNOME X11 都准），探测结果进程级缓存。KDE/wlroots 的 ext-idle-notify 只有事件没有「当前空闲秒」读数口，要 Wayland 协议客户端地基——归 P3 之后。
-- **顺带发现的既有环境 flake（非本批引入，A/B 实证）**：本机跑 `moon test dbus shell`（或多包）时 notify 用例约三成概率失败——`notify_caps()` 第一次成功、紧接着的 `notify_supported()` 二次调用 1500ms 超时（KDE 通知 daemon 单体直查 40/40 稳定 2ms）。单独跑 dbus 包或 shell 包都 5/5 过，基线（本批改动全 stash）同样复现——**多包合跑时才有**，疑似桌面侧并发干扰；CI 的测试清单不含 dbus/sys 且 runner 无通知 daemon（用例走跳过支）故不受影响。留待专项批，本批不拿通知代码垫刀。
+- **顺带发现并已破案的既有环境 flake（2026-11-04 排查定案，A/B 实证非本批引入）**：多包 `moon test` 时 notify 用例三成概率失败。`dbus-monitor --profile` 抓线配对定案两条根因：① **plasmashell 通知服务的应答长尾**——服务跑在 GUI 进程里，桌面忙时（气泡渲染/历史面板）应答 2~3s（235 次往返 16 次 >1.5s、最慢 3.1s；空闲时 2ms），单次 1.5s 超时必撞；② **KDE 的发送方限流**（`ExcessNotificationGeneration: Created too many similar notifications in quick succession`）——同内容快速连发触发，触发后连累同发送者的后续调用（探测翻转的来源）。修复：通知族调用 `nf_call` 对 `gdbus.timeout` **重试 3 次**（4.5s 覆盖实测长尾；「服务不在线」是 `ServiceUnknown` 立即回、不吃重试，探测口径反而更诚实）+ 测试内容全部带时间戳可区分 + 用例对限流/超时按环境跳过、断言改「单次探测自洽」（跨探测一致性属环境性，不作断言）。验证：满载全量门禁 16 连绿（此前 3/10 失败率）。诊断通道 `NATIVEGUI_DBUS_DEBUG=1`（mark_dead / 连接级失败 / notify_caps 错误名打点）参照 `NATIVEGUI_LAYOUT_LOG` 先例保留。
 
 ## Wayland P2 夜灯/显示器：KDE 两口的本机实证（2026-11-04）
 

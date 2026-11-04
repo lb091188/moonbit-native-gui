@@ -44,13 +44,19 @@ pub(all) struct NotifyCaps {
 }
 
 ///|
-fn nf_dest() -> String { "org.freedesktop.Notifications" }
+fn nf_dest() -> String {
+  "org.freedesktop.Notifications"
+}
 
 ///|
-fn nf_path() -> String { "/org/freedesktop/Notifications" }
+fn nf_path() -> String {
+  "/org/freedesktop/Notifications"
+}
 
 ///|
-fn nf_iface() -> String { "org.freedesktop.Notifications" }
+fn nf_iface() -> String {
+  "org.freedesktop.Notifications"
+}
 
 ///|
 /// 能力清单里是否含某条（原样比对）。
@@ -59,22 +65,56 @@ fn nf_has(caps : Array[String], item : String) -> Bool {
 }
 
 ///|
+/// 通知服务的 D-Bus 调用（超时重试一次）：
+/// plasmashell 的通知服务跑在 GUI 进程里，桌面忙时（气泡渲染/历史面板插入）
+/// 应答有 **2~3s 的长尾延迟**（dbus-monitor --profile 实测，见
+/// experience/adaptation.md），而「服务不在线」是 `ServiceUnknown` 错误、
+/// 立即返回不吃超时——所以只对 `gdbus.timeout` 重试一次：桌面卡一下 ≠
+/// 没有后端，重试让「探测即口径」在真桌面上站得住。
+fn nf_call(
+  action : String,
+  args : Array[GDBusValue],
+) -> Result[GDBusValue, NotifyError] {
+  // 3 次尝试（覆盖实测 3.1s 的最长尾）：满载编译把 plasmashell 一起饿到
+  // 秒级停顿，单次重试不够。非超时错误不重试（ServiceUnknown 立即回）。
+  let mut last : NotifyError? = None
+  for _ in 0..<3 {
+    match gdbus_call_session(nf_dest(), nf_path(), nf_iface(), action, args) {
+      Err(e) =>
+        if e.name == "gdbus.timeout" {
+          // 超时：直接再试——每次尝试本身吃满 1.5s 预算，3 次共 4.5s
+          // 墙钟覆盖，已越过实测 3.1s 的最长尾
+          last = Some(nf_err_of(e))
+        } else {
+          return Err(nf_err_of(e))
+        }
+      Ok(v) => return Ok(v)
+    }
+  }
+  match last {
+    Some(e) => Err(e)
+    None => Err(NfFailed("通知调用未执行"))
+  }
+}
+
+///|
+/// D-Bus 错误 → 通知错误：连接层失败与服务不在线 = 无后端；其余（含超时
+/// 重试后仍失败）带原名给 Failed。
+fn nf_err_of(e : GDBusError) -> NotifyError {
+  if e.name.has_prefix("gdbus.io") {
+    NfUnsupported
+  } else if e.name == "org.freedesktop.DBus.Error.ServiceUnknown" {
+    NfUnsupported
+  } else {
+    NfFailed("\{e.name}: \{e.message}")
+  }
+}
+
+///|
 /// 查通知服务能力（无副作用）。服务不在线给 [NfUnsupported]。
 pub fn notify_caps() -> Result[NotifyCaps, NotifyError] {
-  match
-    gdbus_call_session(
-      nf_dest(),
-      nf_path(),
-      nf_iface(),
-      "GetCapabilities",
-      [],
-    ) {
-    Err(e) =>
-      if e.name.has_prefix("gdbus.io") {
-        Err(NfUnsupported)
-      } else {
-        Err(NfFailed("\{e.name}: \{e.message}"))
-      }
+  match nf_call("GetCapabilities", []) {
+    Err(e) => Err(e)
     Ok(GVArray(_, items)) => {
       let raw : Array[String] = []
       for v in items {
@@ -113,9 +153,9 @@ fn nf_notify_args(
   summary : String,
   body : String,
   icon : String,
-  timeout_ms : Int,
-  replaces_id : Int,
-  progress : Int,
+  timeout_ms : Int32,
+  replaces_id : Int32,
+  progress : Int32,
 ) -> Array[GDBusValue] {
   let hints : Map[String, GDBusValue] = Map([])
   if progress >= 0 {
@@ -142,27 +182,16 @@ pub fn notify_send(
   app_name : String,
   summary : String,
   body : String,
-  icon? : String = "",
-  timeout_ms? : Int = -1,
-  replaces_id? : Int = 0,
-  progress? : Int = -1,
-) -> Result[Int, NotifyError] {
+  icon~ : String = "",
+  timeout_ms~ : Int32 = -1,
+  replaces_id~ : Int32 = 0,
+  progress~ : Int32 = -1,
+) -> Result[Int32, NotifyError] {
   let args = nf_notify_args(
-    app_name,
-    summary,
-    body,
-    icon,
-    timeout_ms,
-    replaces_id,
-    progress,
+    app_name, summary, body, icon, timeout_ms, replaces_id, progress,
   )
-  match gdbus_call_session(nf_dest(), nf_path(), nf_iface(), "Notify", args) {
-    Err(e) =>
-      if e.name.has_prefix("gdbus.io") {
-        Err(NfUnsupported)
-      } else {
-        Err(NfFailed("\{e.name}: \{e.message}"))
-      }
+  match nf_call("Notify", args) {
+    Err(e) => Err(e)
     Ok(GVUInt32(id)) => Ok(id)
     Ok(_) => Err(NfFailed("Notify 返回了非 u32 值"))
   }
@@ -170,21 +199,9 @@ pub fn notify_send(
 
 ///|
 /// 按 id 关掉一张通知（id 0 = 全部）。关闭没有返回值，成功即 Ok。
-pub fn notify_close(id : Int) -> Result[Unit, NotifyError] {
-  match
-    gdbus_call_session(
-      nf_dest(),
-      nf_path(),
-      nf_iface(),
-      "CloseNotification",
-      [GVUInt32(id)],
-    ) {
-    Err(e) =>
-      if e.name.has_prefix("gdbus.io") {
-        Err(NfUnsupported)
-      } else {
-        Err(NfFailed("\{e.name}: \{e.message}"))
-      }
+pub fn notify_close(id : Int32) -> Result[Unit, NotifyError] {
+  match nf_call("CloseNotification", [GVUInt32(id)]) {
+    Err(e) => Err(e)
     Ok(_) => Ok(())
   }
 }
@@ -193,18 +210,18 @@ pub fn notify_close(id : Int) -> Result[Unit, NotifyError] {
 /// 更新一张通知的进度：`replaces_id` 重发同一张 + hint `value`，返回新 id
 /// （服务端通常复用原 id；换 id 时用返回值继续更新）。
 pub fn notify_progress(
-  id : Int,
+  id : Int32,
   app_name : String,
   summary : String,
   body : String,
-  pct : Int,
-  icon? : String = "",
-) -> Result[Int, NotifyError] {
+  pct : Int32,
+  icon~ : String = "",
+) -> Result[Int32, NotifyError] {
   notify_send(
     app_name,
     summary,
     body,
-    icon=icon,
+    icon~,
     timeout_ms=-1,
     replaces_id=id,
     progress=pct,

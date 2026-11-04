@@ -10,11 +10,13 @@ supported_targets = "native"
 
 import {
   "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/env",
   "NoahLiu/native-gui/sys",
 }
 
 // 桩只用标准头，直接走 native-stub；链接参数由
 // scripts/prebuild.py 托管（本包无新增）。
+
 options(
   "native-stub": [ "dbus_stub.c" ],
 )

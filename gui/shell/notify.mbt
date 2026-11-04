@@ -90,7 +90,14 @@ pub fn notify_backend() -> NotifyBackend? {
 ///|
 /// 后端名（"dbus" / "win-balloon" / "un-user-notification" / "none"，状态行与诊断用）。
 pub fn notify_backend_name() -> String {
-  match notify_backend() {
+  notify_backend_name_of(notify_backend())
+}
+
+///|
+/// 后端枚举 → 名字（纯函数，单测直接钉映射；live 探测无法原子地同时拿到
+/// 枚举与名字——两次探测之间桌面可能翻转，见 notify_wbtest）。
+pub fn notify_backend_name_of(backend : NotifyBackend?) -> String {
+  match backend {
     Some(Dbus) => "dbus"
     // macOS 的实现也住 win 桩的 `wm_notify_*`，后端是 UNUserNotificationCenter
     // （老 NSUserNotification 已废弃迁走），照枚举名报「win-balloon」是误导——
@@ -113,7 +120,7 @@ pub fn notify_supported() -> Bool {
 
 ///|
 /// 把后端无关的 `kind`（0 信息 / 1 警告 / 2 错误）夹到合法范围。
-pub fn notify_clamp_kind(kind : Int) -> Int {
+pub fn notify_clamp_kind(kind : Int32) -> Int32 {
   if kind < 0 {
     0
   } else if kind > 2 {
@@ -125,7 +132,7 @@ pub fn notify_clamp_kind(kind : Int) -> Int {
 
 ///|
 /// 进度百分比夹到 0..100（Linux hint 与 Win32 正文都用它）。
-pub fn notify_clamp_pct(pct : Int) -> Int {
+pub fn notify_clamp_pct(pct : Int32) -> Int32 {
   if pct < 0 {
     0
   } else if pct > 100 {
@@ -137,7 +144,7 @@ pub fn notify_clamp_pct(pct : Int) -> Int {
 
 ///|
 /// Win32 气泡没有进度 hint，把百分比拼进正文（可见降级）；pct 为负表示不带进度。
-pub fn notify_body_with_progress(body : String, pct : Int) -> String {
+pub fn notify_body_with_progress(body : String, pct : Int32) -> String {
   if pct < 0 {
     body
   } else if body == "" {
@@ -201,14 +208,14 @@ pub fn notify_send(
   app_name : String,
   summary : String,
   body : String,
-  icon? : String = "",
-  timeout_ms? : Int = -1,
-  replaces_id? : Int = 0,
-  progress? : Int = -1,
-  kind? : Int = 0,
-  icon_handle? : Int = 0,
-  urgent? : Bool = true,
-) -> Result[Int, NotifyError] {
+  icon~ : String = "",
+  timeout_ms~ : Int32 = -1,
+  replaces_id~ : Int32 = 0,
+  progress~ : Int32 = -1,
+  kind~ : Int32 = 0,
+  icon_handle~ : Int32 = 0,
+  urgent~ : Bool = true,
+) -> Result[Int32, NotifyError] {
   match notify_backend() {
     Some(Dbus) =>
       match
@@ -216,10 +223,10 @@ pub fn notify_send(
           app_name,
           summary,
           body,
-          icon=icon,
-          timeout_ms=timeout_ms,
-          replaces_id=replaces_id,
-          progress=progress,
+          icon~,
+          timeout_ms~,
+          replaces_id~,
+          progress~,
         ) {
         // `urgent` 在 Linux 无对位：freedesktop 的 urgency hint 不映射，见函数文档
         Ok(id) => Ok(id)
@@ -228,16 +235,15 @@ pub fn notify_send(
     Some(WinBalloon) => {
       let text = notify_body_with_progress(body, progress)
       let k = notify_clamp_kind(kind)
-      let replaced =
-        if replaces_id > 0 {
-          @win.notify_update(replaces_id, summary, text, k, urgent=urgent)
-        } else {
-          false
-        }
+      let replaced = if replaces_id > 0 {
+        @win.notify_update(replaces_id, summary, text, k, urgent~)
+      } else {
+        false
+      }
       if replaced {
         return Ok(replaces_id)
       }
-      let id = @win.notify_send(icon_handle, summary, text, k, urgent=urgent)
+      let id = @win.notify_send(icon_handle, summary, text, k, urgent~)
       if id > 0 {
         Ok(id)
       } else {
@@ -251,15 +257,18 @@ pub fn notify_send(
 ///|
 /// 按 id 关掉一张通知（Win32 上 id 0 无「全部」语义，会走无操作）。关闭成功即
 /// `Ok(())`；id 无对应后端/无效给 `Err`。
-pub fn notify_close(id : Int) -> Result[Unit, NotifyError] {
+pub fn notify_close(id : Int32) -> Result[Unit, NotifyError] {
   match notify_backend() {
-    Some(Dbus) => match @dbus.notify_close(id) {
-      Ok(_) => Ok(())
-      Err(e) => Err(nf_err(e))
-    }
+    Some(Dbus) =>
+      match @dbus.notify_close(id) {
+        Ok(_) => Ok(())
+        Err(e) => Err(nf_err(e))
+      }
     Some(WinBalloon) => {
       if id <= 0 {
-        return Err(Failed("Win32 通知 id 必须 > 0（无「关闭全部」语义）"))
+        return Err(
+          Failed("Win32 通知 id 必须 > 0（无「关闭全部」语义）"),
+        )
       }
       @win.notify_close(id)
       Ok(())
@@ -272,16 +281,16 @@ pub fn notify_close(id : Int) -> Result[Unit, NotifyError] {
 /// 更新一张通知的进度：重发同一张 + 进度，返回新的 id（后端可能复用原 id；
 /// 换了就用返回值继续更新）。
 pub fn notify_progress(
-  id : Int,
+  id : Int32,
   app_name : String,
   summary : String,
   body : String,
-  pct : Int,
-  icon? : String = "",
-) -> Result[Int, NotifyError] {
+  pct : Int32,
+  icon~ : String = "",
+) -> Result[Int32, NotifyError] {
   match notify_backend() {
     Some(Dbus) =>
-      match @dbus.notify_progress(id, app_name, summary, body, pct, icon=icon) {
+      match @dbus.notify_progress(id, app_name, summary, body, pct, icon~) {
         Ok(nid) => Ok(nid)
         Err(e) => Err(nf_err(e))
       }
