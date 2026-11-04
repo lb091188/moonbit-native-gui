@@ -11,7 +11,7 @@
 
 ### 二、代码/终端（mng 工具链）
 
-- [ ] **工具收口批**：`tools/vscode-mng` 版本三方对齐（`package.json` 0.2.5 / README 0.2.4 / `extension.js` clientInfo 0.2.3 → 一致，TODO 编辑器复验条目同步）；roadmap「Windows dev 唤醒」措辞追平（Win32 客户端已合入待真机，:333 旧措辞与代码矛盾）
+（三项已完成：LSP hover 临时输出归位项目根 `.mng/`、跳转/hover URI 归一收口 Windows 支、版本对齐与 roadmap 追平——见 git log 2026-11-04；剩 Windows 真机复验归用户）
 
 ### 三、GPU（按 [proposals/gpu-architecture.md](proposals/gpu-architecture.md) 分批）
 
