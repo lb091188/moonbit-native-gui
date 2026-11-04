@@ -1452,6 +1452,162 @@ extern "C" int rt_draw_cr(int64_t cr_id, int64_t h, double x, double y,
   return 0; // Windows 无 cairo 会话（同 pt_draw_box_cr）
 }
 
+// —— 选中几何（富文本 selectable）：与 rt_draw 同一排版与对齐口径（同一个
+// ptw_session_layout + ptw_box_offsets），坐标都是盒空间。DWrite 的文本位置
+// 是 UTF-16 码元下标，进出都走 ptw_widx / 逆查 ——
+
+/* 宽下标 → 字节下标（ptw_widx 的逆）：二分，O(log n) 次 MultiByteToWideChar */
+static int ptw_bidx(const char *text, int tlen, int widx) {
+  if (text == nullptr || widx <= 0) {
+    return 0;
+  }
+  int lo = 0;
+  int hi = tlen;
+  while (lo < hi) {
+    int mid = lo + (hi - lo + 1) / 2;
+    if (ptw_widx(text, mid) <= widx) {
+      lo = mid;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return lo;
+}
+
+extern "C" int rt_line_count(int64_t h, double box_w, double box_h) {
+  PtwSession *s = ptw_session_of(h);
+  if (s == nullptr) {
+    return 0;
+  }
+  IDWriteTextLayout *layout =
+      ptw_session_layout(s, static_cast<int>(box_w), false);
+  if (layout == nullptr) {
+    return 0;
+  }
+  UINT32 count = 0;
+  layout->GetLineMetrics(nullptr, 0, &count);
+  layout->Release();
+  return static_cast<int>(count);
+}
+
+extern "C" int rt_line_box(int64_t h, int line, double box_w, double box_h,
+                           int32_t *out_b0, int32_t *out_b1, double *out_x,
+                           double *out_y, double *out_h) {
+  PtwSession *s = ptw_session_of(h);
+  if (s == nullptr || !out_b0 || !out_b1 || !out_x || !out_y || !out_h) {
+    return 0;
+  }
+  IDWriteTextLayout *layout =
+      ptw_session_layout(s, static_cast<int>(box_w), false);
+  if (layout == nullptr) {
+    return 0;
+  }
+  UINT32 count = 0;
+  if (FAILED(layout->GetLineMetrics(nullptr, 0, &count)) || count == 0 ||
+      line < 0 || static_cast<UINT32>(line) >= count) {
+    layout->Release();
+    return 0;
+  }
+  DWRITE_LINE_METRICS *lms =
+      static_cast<DWRITE_LINE_METRICS *>(malloc(sizeof(DWRITE_LINE_METRICS) *
+                                                count));
+  if (lms == nullptr) {
+    layout->Release();
+    return 0;
+  }
+  if (FAILED(layout->GetLineMetrics(lms, count, &count))) {
+    free(lms);
+    layout->Release();
+    return 0;
+  }
+  double dx = 0.0;
+  double dy = 0.0;
+  const int wrapped_axis = box_w > 0.0 && (s->wrap != 0 || s->ellipsize != 0);
+  ptw_box_offsets(layout, s->align, s->valign, box_w, box_h, wrapped_axis, &dx,
+                  &dy);
+  /* 行首的盒空间 x/y：HitTestTextPosition 自带对齐后的坐标 */
+  float px = 0.0f;
+  float py = 0.0f;
+  layout->HitTestTextPosition(lms[line].textPosition, FALSE, &px, &py, nullptr);
+  int b0 = ptw_bidx(s->text, s->tlen, static_cast<int>(lms[line].textPosition));
+  int b1 = s->tlen;
+  if (static_cast<UINT32>(line) + 1 < count) {
+    b1 = ptw_bidx(s->text, s->tlen,
+                  static_cast<int>(lms[line].textPosition +
+                                   lms[line].length));
+  }
+  free(lms);
+  layout->Release();
+  *out_b0 = b0;
+  *out_b1 = b1;
+  *out_x = static_cast<double>(px) + dx;
+  *out_y = static_cast<double>(py) + dy;
+  *out_h = static_cast<double>(lms[line].height);
+  return 1;
+}
+
+extern "C" int rt_hit(int64_t h, double x, double y, double box_w,
+                      double box_h, int32_t *out_byte) {
+  PtwSession *s = ptw_session_of(h);
+  if (s == nullptr || !out_byte) {
+    return 0;
+  }
+  IDWriteTextLayout *layout =
+      ptw_session_layout(s, static_cast<int>(box_w), false);
+  if (layout == nullptr) {
+    return 0;
+  }
+  double dx = 0.0;
+  double dy = 0.0;
+  const int wrapped_axis = box_w > 0.0 && (s->wrap != 0 || s->ellipsize != 0);
+  ptw_box_offsets(layout, s->align, s->valign, box_w, box_h, wrapped_axis, &dx,
+                  &dy);
+  BOOL trailing = FALSE;
+  BOOL inside = FALSE;
+  UINT32 pos = 0;
+  layout->HitTestPoint(static_cast<float>(x - dx), static_cast<float>(y - dy),
+                       &trailing, &inside, &pos);
+  layout->Release();
+  /* trailing：命中的是字符的哪一半——后半从下一字符起算 */
+  if (trailing) {
+    pos += 1;
+  }
+  int b = ptw_bidx(s->text, s->tlen, static_cast<int>(pos));
+  *out_byte = b;
+  return 1;
+}
+
+extern "C" int rt_caret_x(int64_t h, int byte, double box_w, double box_h,
+                          double *out_x) {
+  PtwSession *s = ptw_session_of(h);
+  if (s == nullptr || !out_x) {
+    return 0;
+  }
+  if (byte < 0) {
+    byte = 0;
+  }
+  if (byte > s->tlen) {
+    byte = s->tlen;
+  }
+  IDWriteTextLayout *layout =
+      ptw_session_layout(s, static_cast<int>(box_w), false);
+  if (layout == nullptr) {
+    return 0;
+  }
+  double dx = 0.0;
+  double dy = 0.0;
+  const int wrapped_axis = box_w > 0.0 && (s->wrap != 0 || s->ellipsize != 0);
+  ptw_box_offsets(layout, s->align, s->valign, box_w, box_h, wrapped_axis, &dx,
+                  &dy);
+  UINT32 widx = static_cast<UINT32>(ptw_widx(s->text, byte));
+  float px = 0.0f;
+  float py = 0.0f;
+  layout->HitTestTextPosition(widx, FALSE, &px, &py, nullptr);
+  layout->Release();
+  *out_x = static_cast<double>(px) + dx;
+  return 1;
+}
+
 extern "C" int pt_render_stats(int64_t *calls, int64_t *prep_us,
                                int64_t *d2d_us, int64_t *read_us) {
   if (calls != nullptr) {

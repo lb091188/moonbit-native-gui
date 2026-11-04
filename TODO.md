@@ -40,7 +40,6 @@
 
 ## 文本选择与屏读语义（2026-11-03 拍板，方案与坑清单见 [proposals/text-selection-a11y.md](proposals/text-selection-a11y.md)；两个消费者一块地基，做完一项删一项并同步路线图）
 
-- [ ] **AttributedText 富文本逐字选中**（2026-11-05 缓批转正，用户批准动三平台 C 桩）：@text 补逐字几何（点命中、逐字游标 x、行区间/行 y），三平台 rt 桩各接；新可选富文本组件 + showcase 富文本演示接 selectable；mac 本机全验，Win/Linux 桩过语法门、真机清单归用户
 - [ ] **二期阶段2·Linux AT-SPI 桩**：实现已落（2026-11-04，`gui/shell/atspi.mbt`：第三总线连接 + Socket.Embed 注册 + 对象树四接口 Accessible/Component/Text/Value + Action 动作 + 事件上行；协议面按 at-spi2-core 2.52 本机实证，详见 adaptation.md；断线自愈重连后按唯一名核对重新 Embed 同批收口）。剩 Orca 真机清单（Tab 遍历朗读 / flat-review 逐行读 / 对按钮按读屏 press 触发不双触 / 中文名与逐字偏移）待用户执行，见测试用例附录 F（阶段1·macOS NSAccessibility 桥已过 VoiceOver 真机首轮，2026-11-05 删项；长描述段 VO 复确认遗留见 roadmap）
 
 ## 核查收口批（2026-11-03 核查：浮层原生档与 mac GIF 代码已在树——两件文档追平、三件真机复验；dock/任务栏进度这类单平台条目不做，已从待办与路线图撤下）

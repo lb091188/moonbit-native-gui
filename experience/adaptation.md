@@ -3740,3 +3740,13 @@ GpuCanvas（@render.GpuSink 的 gui-gpu 实现，GPU 线首消费者）落地时
 3. **markdown_view 跟随容器档必须 percent(100)（块级铺满）**：shrink-to-fit 的列会被父级按「未约束内在高」钉死高度（测量趟 ③ 档答「单行不折」的矮基准、落地趟按定宽 ② 折成多行），容器矩形盖不住折行子项，命中链在容器底缘断掉——真机「只有第一行能选中」即此。percent 让交叉轴确定，两趟同走定宽档同答。这正是 `proposals/layout-fold-hit-gap.md` 活案例的 mdview 侧收口；yoga 侧同批补 ③′（NoWrap 列且交叉宽不定时，测量趟基准按「内容宽最大值被可用宽夹住」的行宽现量，非 stretch 项仍占自己 content 宽——与 YG3d 专项用例同答，全量布局用例零回归）。
 
 **用例**：mdview「跨段选中：markdown_view 文档级拖选跨块连续、复制得跨块原文」——三块文档从标题拖到末段，断言选区跨三块、复制串带块间换行、点另一块折叠；无头测试**必须先 paint 一帧**（块矩形靠 on_draw 回填）。白盒共享登记表/全局认领槽，回归验证建议 `-j 1` 或保证用例内自洽。
+
+## AttributedText 选中几何：三平台同一组 C 符号、盒空间口径与返回值语义（2026-11-05）
+
+**四个 C 符号**（`rt_line_count` / `rt_line_box` / `rt_hit` / `rt_caret_x`）：坐标一律是**盒空间**——调用方 draw 给的 x/y 偏移之外、box_w/box_h 之内的那套，对齐偏移（dx/dy）查询内部自己算，与各平台 rt_draw 同式。三平台实现：Pango 走 `xy_to_index`/`index_to_pos`（trailing 逐字符 `g_utf8_next_char` 前进折成字节）、CoreText 复用既有 PtPara（行盒 c0/c1 + `pt_range_width` 前缀量，行堆叠 = ascent+descent+leading，与 pt_draw_para 同式）、DWrite 走 `HitTestPoint`/`HitTestTextPosition`（宽下标↔字节下标用 `ptw_widx` + 二分逆查，trailing 即 pos+1）。占位臂（非 Linux/mac 的 stub 分支）同步补四个空桩，防符号缺失。
+
+**两处坑**：①返回值语义要钉死 1/0——mac 臂第一版把命中字节当返回值 `return result`，MoonBit 侧 `ok == 1` 判断直接吞掉全部命中（测试抓回）；②字节位只在**字符边界**有意义（CJK 续字节不是合法插入位），往返断言要按字符边界走，与 Editor 内核同口径。
+
+**预编译链**：stub.c 加新 C 符号后必须重跑 `gui/scripts/prebuild.py`——mac 的 `libyue_text_mac.a` 是脚本现编的归档，moon test 不会自动重编（链接 undefined symbols 即此因）。MacRT 的字节长度字段叫 `len`（Rt/Pango 叫 `tlen`、PtwSession 也叫 `tlen`），跨分支抄代码时易踩。
+
+**组件**：`@ui.rich_text(at, selectable)`——AttributedText 直绘（draw_at 已有的 Painter 会话）+ TextSel 复用链；高亮按 `line_boxes` 铺行矩形、行内区间 = `caret_x` 前缘差；测量三档同 mdview 口径（min/max 探询答单行自然宽）。用例在 ui/richsel_wbtest（字符边界往返 + 拖选子串 + 非可选档不进登记）。

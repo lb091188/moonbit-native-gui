@@ -506,3 +506,137 @@ pub fn AttributedText::draw_at(
     }
   }
 }
+
+// —— 选中几何（富文本 selectable）：盒空间口径与 draw 一致（调用方 draw 给的
+// x/y 偏移之外、box_w/box_h 之内的那套），对齐/换行/省略三平台各自与绘制同式 ——
+
+///|
+/// 一行的选中几何：行覆盖的 UTF-8 字节区间 + 盒空间里行的左缘/顶/盒高。
+pub(all) struct RTLineBox {
+  byte_start : Int
+  byte_end : Int
+  x : Double
+  y : Double
+  h : Double
+}
+
+///|
+extern "c" fn rt_line_count(
+  h : Int64,
+  box_w : Double,
+  box_h : Double,
+) -> Int = "rt_line_count"
+
+///|
+#borrow(out_b0, out_b1, out_x, out_y, out_h)
+extern "c" fn rt_line_box(
+  h : Int64,
+  line : Int,
+  box_w : Double,
+  box_h : Double,
+  out_b0 : Ref[Int],
+  out_b1 : Ref[Int],
+  out_x : Ref[Double],
+  out_y : Ref[Double],
+  out_h : Ref[Double],
+) -> Int = "rt_line_box"
+
+///|
+#borrow(out_byte)
+extern "c" fn rt_hit(
+  h : Int64,
+  x : Double,
+  y : Double,
+  box_w : Double,
+  box_h : Double,
+  out_byte : Ref[Int],
+) -> Int = "rt_hit"
+
+///|
+#borrow(out_x)
+extern "c" fn rt_caret_x(
+  h : Int64,
+  byte : Int,
+  box_w : Double,
+  box_h : Double,
+  out_x : Ref[Double],
+) -> Int = "rt_caret_x"
+
+///|
+/// 逐行几何：选中高亮按它铺矩形（行内 [max(a,b0), min(b,b1)) 的字前缘差）。
+/// 每次查询现建 C 端会话（与 measure/draw 同形态），指针事件频率下开销可接受。
+pub fn AttributedText::line_boxes(
+  self : AttributedText,
+  box_w : Double,
+  box_h : Double,
+) -> Array[RTLineBox] {
+  let h = self.rt()
+  if h == 0L {
+    return []
+  }
+  let n = rt_line_count(h, box_w, box_h)
+  let out : Array[RTLineBox] = []
+  for i in 0..<n {
+    let b0 = Ref(0)
+    let b1 = Ref(0)
+    let x = Ref(0.0)
+    let y = Ref(0.0)
+    let hh = Ref(0.0)
+    if rt_line_box(h, i, box_w, box_h, b0, b1, x, y, hh) == 1 {
+      out.push({
+        byte_start: b0.val,
+        byte_end: b1.val,
+        x: x.val,
+        y: y.val,
+        h: hh.val,
+      })
+    }
+  }
+  rt_free(h)
+  out
+}
+
+///|
+/// 盒内坐标 → 插入字节位（UTF-8 字节；越界钳首末）。后端不可用给 None。
+pub fn AttributedText::hit(
+  self : AttributedText,
+  x : Double,
+  y : Double,
+  box_w : Double,
+  box_h : Double,
+) -> Int? {
+  let h = self.rt()
+  if h == 0L {
+    return None
+  }
+  let ob = Ref(0)
+  let ok = rt_hit(h, x, y, box_w, box_h, ob)
+  rt_free(h)
+  if ok == 1 {
+    Some(ob.val)
+  } else {
+    None
+  }
+}
+
+///|
+/// 字节位 → 它所在行的字前缘 x（盒空间，含对齐偏移）。后端不可用给 None。
+pub fn AttributedText::caret_x(
+  self : AttributedText,
+  byte : Int,
+  box_w : Double,
+  box_h : Double,
+) -> Double? {
+  let h = self.rt()
+  if h == 0L {
+    return None
+  }
+  let ox = Ref(0.0)
+  let ok = rt_caret_x(h, byte, box_w, box_h, ox)
+  rt_free(h)
+  if ok == 1 {
+    Some(ox.val)
+  } else {
+    None
+  }
+}

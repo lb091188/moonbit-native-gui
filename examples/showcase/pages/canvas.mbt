@@ -127,6 +127,15 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
   rt.set_font_for(@text.Font::new("", 24.0, weight=@text.Black), 0, 6)
   rt.set_color("#356AA0")
   rt.set_color_for("#E5534B", 8, 11)
+  // 可选档演示对象：同样式区间，折行跟随容器宽
+  let rt_sel = @text.AttributedText::new(
+    "MoonBit 富文本 selectable：这段混排文本可以按住拖选、双击选词，然后 Ctrl/Cmd+C 复制，范围颜色与字体随选中高亮一起保留。",
+    wrap=true,
+  )
+  rt_sel.set_font(@text.Font::new("", 16.0, weight=@text.Bold))
+  rt_sel.set_font_for(@text.Font::new("", 20.0, weight=@text.Black), 0, 6)
+  rt_sel.set_color("#356AA0")
+  rt_sel.set_color_for("#E5534B", 8, 11)
   @shared.page([
     @shared.section(
       "自绘",
@@ -183,7 +192,7 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
     @shared.section(
       "富文本",
       "富文本 AttributedText",
-      "范围字体/颜色（0-6 号 24px Black、8-11 号红色）+ 换行/省略号开关 + 文本改写（属性保留）。",
+      "范围字体/颜色（0-6 号 24px Black、8-11 号红色）+ 换行/省略号开关 + 文本改写（属性保留）；下面那块是可选档 `@ui.rich_text`——混排文本可拖选/双击选词，Ctrl/Cmd+C 复制，选中高亮跟着范围样式走。",
       [
         @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
           w.node.set_width(@yoga.fixed(640.0))
@@ -203,6 +212,7 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
           })
           w
         }),
+        @ui.rich_text(rt_sel, selectable=true),
         @ui.row(
           [
             @ui.button(@shared.tx("换行开关"), on_click=fn() {

@@ -912,6 +912,189 @@ int rt_draw_cr(int64_t cr_id, int64_t h, double x, double y, double box_w,
   return ok;
 }
 
+// —— 选中几何（富文本 selectable）：与 rt_render 同一排版与对齐口径，坐标
+// 都是**盒空间**（调用方 draw 给的 x/y 偏移之外、box_w/box_h 之内的那套）——
+// 与 rt_render 同式准备布局（宽度/折行/省略/对齐），并算外层 dx/dy
+static PangoLayout *rt_query_build(Rt *r, double box_w, double box_h,
+                                   double *dx, double *dy) {
+  PangoLayout *layout = rt_build(r);
+  if (layout == NULL) {
+    return NULL;
+  }
+  int wrapped_axis = 0;
+  if (box_w > 0.0 && (r->wrap != 0 || r->ellipsize != 0)) {
+    wrapped_axis = 1;
+    pango_layout_set_width(layout, (int)(box_w * PANGO_SCALE + 0.5));
+    if (r->wrap != 0) {
+      pango_layout_set_wrap(layout, PANGO_WRAP_WORD_CHAR);
+    }
+    PangoAlignment pa = PANGO_ALIGN_LEFT;
+    if (r->align == 1) {
+      pa = PANGO_ALIGN_CENTER;
+    } else if (r->align == 2) {
+      pa = PANGO_ALIGN_RIGHT;
+    }
+    pango_layout_set_alignment(layout, pa);
+  }
+  if (r->ellipsize != 0) {
+    pango_layout_set_ellipsize(layout, PANGO_ELLIPSIZE_END);
+  }
+  int lw = 0, lh = 0;
+  pango_layout_get_pixel_size(layout, &lw, &lh);
+  *dx = 0.0;
+  *dy = 0.0;
+  if (box_w > 0.0 && wrapped_axis == 0) {
+    double slack = box_w - (double)lw;
+    if (slack > 0.0) {
+      *dx = r->align == 1 ? slack / 2.0 : (r->align == 2 ? slack : 0.0);
+    }
+  }
+  if (box_h > 0.0 && r->valign != 0) {
+    double slack = box_h - (double)lh;
+    if (slack > 0.0) {
+      *dy = r->valign == 1 ? slack / 2.0 : slack;
+    }
+  }
+  return layout;
+}
+
+int rt_line_count(int64_t h, double box_w, double box_h);
+int rt_line_count(int64_t h, double box_w, double box_h) {
+  Rt *r = rt_of(h);
+  if (!r) {
+    return 0;
+  }
+  double dx, dy;
+  PangoLayout *layout = rt_query_build(r, box_w, box_h, &dx, &dy);
+  if (layout == NULL) {
+    return 0;
+  }
+  int n = pango_layout_get_line_count(layout);
+  g_object_unref(layout);
+  return n;
+}
+
+int rt_line_box(int64_t h, int line, double box_w, double box_h,
+                int32_t *out_b0, int32_t *out_b1, double *out_x, double *out_y,
+                double *out_h);
+int rt_line_box(int64_t h, int line, double box_w, double box_h,
+                int32_t *out_b0, int32_t *out_b1, double *out_x, double *out_y,
+                double *out_h) {
+  Rt *r = rt_of(h);
+  if (!r || !out_b0 || !out_b1 || !out_x || !out_y || !out_h) {
+    return 0;
+  }
+  double dx, dy;
+  PangoLayout *layout = rt_query_build(r, box_w, box_h, &dx, &dy);
+  if (layout == NULL) {
+    return 0;
+  }
+  int n = pango_layout_get_line_count(layout);
+  if (line < 0 || line >= n) {
+    g_object_unref(layout);
+    return 0;
+  }
+  PangoLayoutLine *ln = pango_layout_get_line_readonly(layout, line);
+  if (ln == NULL) {
+    g_object_unref(layout);
+    return 0;
+  }
+  int b0 = (int)ln->start_index;
+  /* 行末 = 下一行起点；末行到全文末尾（省略号档行尾会被钳在省略号处，
+   * 这里按字节口径给全文末，高亮多铺的部分在空字节上不可见，可接受） */
+  int b1 = r->tlen;
+  if (line + 1 < n) {
+    PangoLayoutLine *nxt = pango_layout_get_line_readonly(layout, line + 1);
+    if (nxt != NULL) {
+      b1 = (int)nxt->start_index;
+    }
+  }
+  /* 行左缘与行顶：index_to_pos 的 x 已含 pango 内部对齐；y 用 iter 的 yrange */
+  PangoRectangle pos = {0, 0, 0, 0};
+  pango_layout_index_to_pos(layout, b0, &pos);
+  PangoLayoutIter *it = pango_layout_get_iter(layout);
+  double lx = 0.0, ly = 0.0, lh = 0.0;
+  if (it != NULL) {
+    int y0 = 0, y1 = 0;
+    for (int i = 0; i <= line; i++) {
+      pango_layout_iter_get_line_yrange(it, &y0, &y1);
+      if (i < line) {
+        pango_layout_iter_next_line(it);
+      }
+    }
+    lx = (double)pos.x / PANGO_SCALE + dx;
+    ly = (double)y0 / PANGO_SCALE + dy;
+    lh = (double)(y1 - y0) / PANGO_SCALE;
+    pango_layout_iter_free(it);
+  }
+  g_object_unref(layout);
+  if (lh <= 0.0) {
+    return 0;
+  }
+  *out_b0 = b0;
+  *out_b1 = b1;
+  *out_x = lx;
+  *out_y = ly;
+  *out_h = lh;
+  return 1;
+}
+
+int rt_hit(int64_t h, double x, double y, double box_w, double box_h,
+           int32_t *out_byte);
+int rt_hit(int64_t h, double x, double y, double box_w, double box_h,
+           int32_t *out_byte) {
+  Rt *r = rt_of(h);
+  if (!r || !out_byte) {
+    return 0;
+  }
+  double dx, dy;
+  PangoLayout *layout = rt_query_build(r, box_w, box_h, &dx, &dy);
+  if (layout == NULL) {
+    return 0;
+  }
+  int index = 0, trailing = 0;
+  pango_layout_xy_to_index(layout, (int)((x - dx) * PANGO_SCALE),
+                           (int)((y - dy) * PANGO_SCALE), &index, &trailing);
+  /* trailing 是「再往右走几个字符」：逐字符前进换算成字节 */
+  const char *text = pango_layout_get_text(layout);
+  for (int k = 0; k < trailing && text != NULL && text[index] != '\0'; k++) {
+    index = (int)(g_utf8_next_char(text + index) - text);
+  }
+  g_object_unref(layout);
+  if (index < 0) {
+    index = 0;
+  }
+  if (index > r->tlen) {
+    index = r->tlen;
+  }
+  *out_byte = index;
+  return 1;
+}
+
+int rt_caret_x(int64_t h, int byte, double box_w, double box_h, double *out_x);
+int rt_caret_x(int64_t h, int byte, double box_w, double box_h, double *out_x) {
+  Rt *r = rt_of(h);
+  if (!r || !out_x) {
+    return 0;
+  }
+  double dx, dy;
+  PangoLayout *layout = rt_query_build(r, box_w, box_h, &dx, &dy);
+  if (layout == NULL) {
+    return 0;
+  }
+  if (byte < 0) {
+    byte = 0;
+  }
+  if (byte > r->tlen) {
+    byte = r->tlen;
+  }
+  PangoRectangle pos = {0, 0, 0, 0};
+  pango_layout_index_to_pos(layout, byte, &pos);
+  g_object_unref(layout);
+  *out_x = (double)pos.x / PANGO_SCALE + dx;
+  return 1;
+}
+
 // ---- 字体族枚举与可用性 ----
 // 整表构建一次，族名按 '\n' 拼进这份进程内缓存；MoonBit 只能逐字节读
 // （本工具链不能把可写缓冲交给 C，见 adaptation「G3b」条那条 SIGSEGV）。
@@ -2468,6 +2651,238 @@ int rt_draw_cr(int64_t cr_id, int64_t h, double x, double y, double box_w,
   (void)g0; (void)b0; (void)a0;
   return 0; // 同 pt_draw_box_cr：macOS 无 Cairo 会话
 }
+
+// —— 选中几何（富文本 selectable）：与 rt_draw 同一排版与对齐口径，坐标
+// 都是**盒空间**。行盒堆叠 = ascent+descent+leading（min 1px，pt_draw_para
+// 同式）；行内 x = pt_range_width 前缀量（折行用的同一把刀）——
+
+/* 行 k 的几何：字节区间 [b0,b1)、行左缘 x、行顶 y、行盒高。pp 非空时把
+ * 排版好的 PtPara 交还给调用方（rt_caret_x 的行内逐字量复用），否则就地释放 */
+static int rt_mac_line_geo(MacRT *s, int line, double box_w, double box_h,
+                           int *b0, int *b1, double *lx, double *ly,
+                           double *lh, PtPara **pp) {
+  PtPara *p = rt_para(s, 0, 0, 0, 255);
+  if (p == NULL) {
+    return 0;
+  }
+  int wrapped_axis = box_w > 0.0 && (s->wrap != 0 || s->ellipsize != 0);
+  pt_layout(p, wrapped_axis ? (int)box_w : 0, s->ellipsize, s->wrap);
+  if (line < 0 || line >= p->nline) {
+    pt_para_free(p);
+    return 0;
+  }
+  double ddx = 0.0;
+  double ddy = 0.0;
+  if (!wrapped_axis && box_w > 0.0) {
+    double slack = box_w - p->total_w;
+    if (slack < 0.0) {
+      slack = 0.0;
+    }
+    ddx = s->align == 1 ? slack / 2.0 : (s->align == 2 ? slack : 0.0);
+  }
+  if (s->valign != 0 && box_h > 0.0) {
+    double slack = box_h - p->total_h;
+    if (slack < 0.0) {
+      slack = 0.0;
+    }
+    ddy = s->valign == 1 ? slack / 2.0 : slack;
+  }
+  /* 行内对齐（pt_draw_para 同式：wrapped 传 box_w 逐行对齐；unwrapped 传 0
+   * 即行内 dx=0，外层 ddx 已算） */
+  double inner_bw = wrapped_axis ? box_w : 0.0;
+  double ldx = 0.0;
+  if (inner_bw > 0.0) {
+    double slack = inner_bw - p->lines[line].width;
+    if (slack < 0.0) {
+      slack = 0.0;
+    }
+    ldx = s->align == 1 ? slack / 2.0 : (s->align == 2 ? slack : 0.0);
+  }
+  double y = ddy;
+  double box_h_line = 0.0;
+  for (int k = 0; k <= line; k++) {
+    double x = p->lines[k].ascent + p->lines[k].descent + p->lines[k].leading;
+    if (x < 1.0) {
+      x = 1.0;
+    }
+    if (k == line) {
+      box_h_line = x;
+      break;
+    }
+    y += x;
+  }
+  int c0 = p->lines[line].c0;
+  int c1 = p->lines[line].c1;
+  *b0 = p->chars[c0].b0;
+  *b1 = c1 > c0 ? p->chars[c1 - 1].b1 : p->chars[c0].b0;
+  if (c1 >= p->nchar) {
+    *b1 = s->len;
+  }
+  *lx = ddx + ldx;
+  *ly = y;
+  *lh = box_h_line;
+  if (pp != NULL) {
+    *pp = p;
+  } else {
+    pt_para_free(p);
+  }
+  return 1;
+}
+
+int rt_line_count(int64_t h, double box_w, double box_h);
+int rt_line_count(int64_t h, double box_w, double box_h) {
+  MacRT *s = rt_of(h);
+  if (s == NULL) {
+    return 0;
+  }
+  PtPara *p = rt_para(s, 0, 0, 0, 255);
+  if (p == NULL) {
+    return 0;
+  }
+  int wrapped_axis = box_w > 0.0 && (s->wrap != 0 || s->ellipsize != 0);
+  pt_layout(p, wrapped_axis ? (int)box_w : 0, s->ellipsize, s->wrap);
+  int n = p->nline;
+  pt_para_free(p);
+  return n;
+}
+
+int rt_line_box(int64_t h, int line, double box_w, double box_h,
+                int32_t *out_b0, int32_t *out_b1, double *out_x, double *out_y,
+                double *out_h);
+int rt_line_box(int64_t h, int line, double box_w, double box_h,
+                int32_t *out_b0, int32_t *out_b1, double *out_x, double *out_y,
+                double *out_h) {
+  MacRT *s = rt_of(h);
+  if (s == NULL || !out_b0 || !out_b1 || !out_x || !out_y || !out_h) {
+    return 0;
+  }
+  int b0 = 0, b1 = 0;
+  double lx = 0.0, ly = 0.0, lh = 0.0;
+  if (!rt_mac_line_geo(s, line, box_w, box_h, &b0, &b1, &lx, &ly, &lh, NULL)) {
+    return 0;
+  }
+  *out_b0 = b0;
+  *out_b1 = b1;
+  *out_x = lx;
+  *out_y = ly;
+  *out_h = lh;
+  return 1;
+}
+
+int rt_hit(int64_t h, double x, double y, double box_w, double box_h,
+           int32_t *out_byte);
+int rt_hit(int64_t h, double x, double y, double box_w, double box_h,
+           int32_t *out_byte) {
+  MacRT *s = rt_of(h);
+  if (s == NULL || !out_byte) {
+    return 0;
+  }
+  int n = rt_line_count(h, box_w, box_h);
+  if (n <= 0) {
+    return 0;
+  }
+  int prev_b0 = 0, prev_b1 = 0;
+  double prev_lx = 0.0, prev_ly = 0.0, prev_lh = 0.0;
+  for (int k = 0; k < n; k++) {
+    int b0 = 0, b1 = 0;
+    double lx = 0.0, ly = 0.0, lh = 0.0;
+    if (!rt_mac_line_geo(s, k, box_w, box_h, &b0, &b1, &lx, &ly, &lh, NULL)) {
+      return 0;
+    }
+    if (y >= ly + lh && k < n - 1) {
+      prev_b0 = b0; prev_b1 = b1; prev_lx = lx; prev_ly = ly; prev_lh = lh;
+      continue;
+    }
+    /* y 落在本行（或已到最后一行）：行间空隙按中点归前/后行端点 */
+    if (k > 0 && y < ly) {
+      double mid = prev_ly + prev_lh + (ly - prev_ly - prev_lh) / 2.0;
+      if (y < mid) {
+        *out_byte = x <= prev_lx ? prev_b0 : prev_b1;
+        return 1;
+      }
+    }
+    /* 行内：x → 字节（中线定界，与 TextLayout::hit 同口径） */
+    if (x <= lx) {
+      *out_byte = b0;
+      return 1;
+    }
+    PtPara *p = rt_para(s, 0, 0, 0, 255);
+    if (p == NULL) {
+      return 0;
+    }
+    int wrapped_axis = box_w > 0.0 && (s->wrap != 0 || s->ellipsize != 0);
+    pt_layout(p, wrapped_axis ? (int)box_w : 0, s->ellipsize, s->wrap);
+    if (p->nline <= k) {
+      pt_para_free(p);
+      return 0;
+    }
+    int c0 = p->lines[k].c0;
+    int c1 = p->lines[k].c1;
+    /* 行右缘钳制 */
+    if (x >= lx + p->lines[k].width) {
+      pt_para_free(p);
+      *out_byte = b1;
+      return 1;
+    }
+    int result = b1;
+    for (int i = c0; i < c1; i++) {
+      double cur = lx + pt_range_width(p, c0, i, 0);
+      double nxt = lx + pt_range_width(p, c0, i + 1, 0);
+      if (x < nxt) {
+        double mid = (cur + nxt) / 2.0;
+        result = x > mid ? p->chars[i].b1 : p->chars[i].b0;
+        break;
+      }
+    }
+    pt_para_free(p);
+    *out_byte = result;
+    return 1;
+  }
+  return 0;
+}
+
+int rt_caret_x(int64_t h, int byte, double box_w, double box_h, double *out_x);
+int rt_caret_x(int64_t h, int byte, double box_w, double box_h, double *out_x) {
+  MacRT *s = rt_of(h);
+  if (s == NULL || !out_x) {
+    return 0;
+  }
+  if (byte < 0) {
+    byte = 0;
+  }
+  if (byte > s->len) {
+    byte = s->len;
+  }
+  int n = rt_line_count(h, box_w, box_h);
+  for (int k = 0; k < n; k++) {
+    int b0 = 0, b1 = 0;
+    double lx = 0.0, ly = 0.0, lh = 0.0;
+    PtPara *p = NULL;
+    if (!rt_mac_line_geo(s, k, box_w, box_h, &b0, &b1, &lx, &ly, &lh, &p)) {
+      return 0;
+    }
+    /* byte 不在本行（且不是最后一行）→ 下一行；最后一行兜底 */
+    if (byte >= b1 && k < n - 1) {
+      pt_para_free(p);
+      continue;
+    }
+    int c0 = p->lines[k].c0;
+    int c1 = p->lines[k].c1;
+    double edge = (double)p->lines[k].width;
+    if (byte < b1) {
+      /* 字节 → 码点下标（该字节所在字的右缘/前缘） */
+      int ci = c0;
+      while (ci < c1 && p->chars[ci].b0 < byte) {
+        ci++;
+      }
+      edge = pt_range_width(p, c0, ci, 0);
+    }
+    pt_para_free(p);
+    *out_x = lx + edge;
+    return 1;
+  }
+  return 0;
+}
 #elif !defined(__linux__) && !defined(__APPLE__)
 
 // 非 Linux 的文本层：macOS 的 CoreText 待真机，现在是占位 no-op（探到占位
@@ -2588,6 +3003,31 @@ int rt_draw_cr(int64_t cr_id, int64_t h, double x, double y, double box_w,
                double box_h, int r0, int g0, int b0, int a0) {
   (void)cr_id; (void)h; (void)x; (void)y; (void)box_w; (void)box_h;
   (void)r0; (void)g0; (void)b0; (void)a0;
+  return 0;
+}
+
+/* 选中几何占位（非 Linux/mac 平台；Windows 真身在 dwrite_text.cpp） */
+int rt_line_count(int64_t h, double box_w, double box_h) {
+  (void)h; (void)box_w; (void)box_h;
+  return 0;
+}
+
+int rt_line_box(int64_t h, int line, double box_w, double box_h,
+                int32_t *out_b0, int32_t *out_b1, double *out_x, double *out_y,
+                double *out_h) {
+  (void)h; (void)line; (void)box_w; (void)box_h; (void)out_b0; (void)out_b1;
+  (void)out_x; (void)out_y; (void)out_h;
+  return 0;
+}
+
+int rt_hit(int64_t h, double x, double y, double box_w, double box_h,
+           int32_t *out_byte) {
+  (void)h; (void)x; (void)y; (void)box_w; (void)box_h; (void)out_byte;
+  return 0;
+}
+
+int rt_caret_x(int64_t h, int byte, double box_w, double box_h, double *out_x) {
+  (void)h; (void)byte; (void)box_w; (void)box_h; (void)out_x;
   return 0;
 }
 
