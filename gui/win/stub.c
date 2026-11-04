@@ -4897,6 +4897,20 @@ typedef struct {
   int pending_h;
   unsigned char *backing; // 后端自己拥有的帧缓冲（跨到下一次 draw 回调仍有效）
   size_t backing_cap;
+  // GPU present 档（L1，本节末「GPU present 档」）：每窗 wgpu 对象与标志。
+  // 没有 wgpu vendor 头时整节编译不进、这些字段恒 0，行为等于改造前。
+  void *gpu_surface;
+  void *gpu_tex;
+  void *gpu_tex_view;
+  void *gpu_buf;
+  void *gpu_bind;
+  unsigned char *gpu_stage; // CPU 侧带行距垫（256 对齐）的上传暂存
+  size_t gpu_stage_cap;
+  int gpu_bpr;        // 暂存行距
+  int gpu_sw, gpu_sh; // surface 已配尺寸（面积）
+  int gpu_tw, gpu_th; // 上传纹理已配尺寸（位图）
+  int gpu_on;         // GPU 档挂上：wm_on_draw 的 cairo 停手
+  int gpu_dead;       // 该窗永久回退 cairo（对象建不出 / present 失败）
   GtkIMContext *im;
   int cursor_kind;   // 当前光标形状（0 默认/1 手/2 文本/3 横向/4 纵向），-1 未设过
   char commit[256]; // 已提交文本（UTF-8），MoonBit 逐字节读走后清零
@@ -5104,6 +5118,12 @@ static void wm_mark_draw(WmWindow *w) {
 static gboolean wm_on_draw(GtkWidget *area, cairo_t *cr, gpointer data) {
   (void)area;
   WmWindow *w = (WmWindow *)data;
+  // GPU 档挂上时 cairo **停手**：像素经 swapchain 直接上屏，两路互相
+  // 覆盖（adaptation.md 已记的坑）；GTK 的主题底色也已用 app_paintable
+  // + 关双缓挡掉（见 wm_l1_try）。
+  if (w->gpu_on) {
+    return FALSE;
+  }
   // 只在这里贴像素：GdkWindow 的生命周期由 GTK/WM 管，在 draw 之外拿它的
   // cairo 画会在窗口被销毁后打到死窗口上（实测 X 错误 RenderBadPicture）
   if (w->pending != NULL && w->pending_w > 0 && w->pending_h > 0) {
@@ -5649,6 +5669,665 @@ int wm_event(int64_t id) {
   return 0;
 }
 
+// ---------------- GPU present 档（L1，方案 gpu-architecture.md「Layer 1」） ----------------
+// 语义：wm_present 从「Bitmap 拷进 backend 缓冲 → queue_draw → draw 回调里
+// cairo 贴」升级成「Bitmap 上传纹理 → 全屏 textured quad → swapchain
+// present」；GPU 不可用（没 vendor 归档 / 非 X11 会话 / 驱动起不来）逐字
+// 回退原路径——回退后贴的还是同一份 Bitmap，**逐像素一致**。
+//
+// 三条纪律：
+// ① wgpu 走 dlopen（gui 主模块不占链接面；vendor 头经 __has_include 相对
+//    取——缺归档整节编译不进，行为恒等于改造前）。符号表与 gui-gpu 的
+//    triangle.c 同户型（跨模块不复用 C，按本仓「宏/小段各 TU 一份」纪律
+//    各写一份、注释互引）；
+// ② 探测进程级一次：.so 缺 / 驱动无后端 / 非 X11 会话 = 永久缓存不再试；
+//    未 realize、0×0 = 不标记死、下帧重试；对象真建不出 = 该窗永久回退
+//    （方案「fallback 探测粒度」两档口径）；
+// ③ GPU 挂上后 wm_on_draw 的 cairo 贴像素**停手**（两路互相覆盖，
+//    adaptation.md 已记的坑），并把 area 设成 app_paintable + 关双缓，
+//    免得 GTK 拿主题底色把已上屏的内容涂掉。
+//
+// v29 future 风格 API（2026-11-04 本机预实证口径）：adapter/device 经回调
+// 拿（AllowSpontaneous + wgpuInstanceProcessEvents 泵）；surface 走
+// WGPUSurfaceSourceXlibWindow{display, window}（XID = area 的 GdkWindow）；
+// 上传纹理用 BGRA8Unorm——MoonBit 位图是 ARGB32（内存字节 B,G,R,A），与
+// X11/Vulkan 地表格式同字节序，**零转换**；nearest 采样 1:1 保像素一致。
+
+#include <dlfcn.h>
+#include <unistd.h> // getcwd（仓库布局候选）
+
+#if defined(__has_include)
+#if __has_include("../../modules/gui-gpu/vendor/include/webgpu/webgpu.h")
+#define MNG_L1_WGPU_REAL 1
+#include "../../modules/gui-gpu/vendor/include/webgpu/webgpu.h"
+#endif
+#endif
+
+#if defined(MNG_L1_WGPU_REAL)
+
+// ---- wgpu 函数指针表（PFN typedef 取 vendor 头，不手抄签名） ----
+#define MNG_L1_FN(name) static WGPUProc##name p_wgpu##name = NULL;
+MNG_L1_FN(CreateInstance)
+MNG_L1_FN(InstanceCreateSurface)
+MNG_L1_FN(InstanceRequestAdapter)
+MNG_L1_FN(InstanceProcessEvents)
+MNG_L1_FN(AdapterRequestDevice)
+MNG_L1_FN(DeviceGetQueue)
+MNG_L1_FN(DeviceCreateBuffer)
+MNG_L1_FN(DeviceCreateTexture)
+MNG_L1_FN(DeviceCreateShaderModule)
+MNG_L1_FN(DeviceCreateRenderPipeline)
+MNG_L1_FN(DeviceCreateSampler)
+MNG_L1_FN(DeviceCreateBindGroup)
+MNG_L1_FN(DeviceCreateCommandEncoder)
+MNG_L1_FN(CommandEncoderCopyBufferToTexture)
+MNG_L1_FN(CommandEncoderBeginRenderPass)
+MNG_L1_FN(CommandEncoderFinish)
+MNG_L1_FN(RenderPassEncoderSetPipeline)
+MNG_L1_FN(RenderPassEncoderSetBindGroup)
+MNG_L1_FN(RenderPassEncoderDraw)
+MNG_L1_FN(RenderPassEncoderEnd)
+MNG_L1_FN(QueueWriteBuffer)
+MNG_L1_FN(QueueSubmit)
+MNG_L1_FN(TextureCreateView)
+MNG_L1_FN(RenderPipelineGetBindGroupLayout)
+MNG_L1_FN(SurfaceConfigure)
+MNG_L1_FN(SurfaceGetCurrentTexture)
+MNG_L1_FN(SurfacePresent)
+MNG_L1_FN(BindGroupRelease)
+MNG_L1_FN(BufferRelease)
+MNG_L1_FN(TextureViewRelease)
+MNG_L1_FN(TextureRelease)
+MNG_L1_FN(SurfaceRelease)
+MNG_L1_FN(CommandBufferRelease)
+
+static char g_l1_missing[160];
+
+// 进程级状态：库句柄 + 探测结果 + 跨窗复用对象（instance/device/queue/
+// 管线/采样器/bgl）。探测一次，永久缓存（方案「fallback 探测粒度」）。
+static void *g_l1_lib;
+static int g_l1_probed;
+static int g_l1_ok;
+static WGPUInstance g_l1_inst;
+static WGPUDevice g_l1_device;
+static WGPUQueue g_l1_queue;
+static WGPURenderPipeline g_l1_pipeline;
+static WGPUSampler g_l1_sampler;
+static WGPUBindGroupLayout g_l1_bgl;
+
+static void *l1_lib(void) {
+  return g_l1_lib;
+}
+
+static void *l1_dlopen(const char *p) {
+  return dlopen(p, RTLD_NOW | RTLD_LOCAL);
+}
+
+// 候选序与 gui-gpu/triangle.c 逐字一致：环境变量 → 仓库布局逐级向上 →
+// 系统名（dlopen 试错，不需要 stat；发行的应用走不到仓库布局那两级）。
+static int l1_load_lib(void) {
+  if (g_l1_lib) {
+    return 1;
+  }
+  const char *env = getenv("MNG_WGPU_LIB");
+  if (env && env[0]) {
+    g_l1_lib = l1_dlopen(env);
+  }
+  if (!g_l1_lib) {
+    char anc[1024];
+    if (getcwd(anc, sizeof anc)) {
+      for (int hop = 0; hop < 16 && !g_l1_lib; hop++) {
+        char cand[1200];
+        snprintf(cand, sizeof cand, "%s/vendor/lib/libwgpu_native.so", anc);
+        g_l1_lib = l1_dlopen(cand);
+        if (!g_l1_lib) {
+          snprintf(cand, sizeof cand, "%s/modules/gui-gpu/vendor/lib/libwgpu_native.so", anc);
+          g_l1_lib = l1_dlopen(cand);
+        }
+        char *slash = strrchr(anc, '/');
+        if (!slash || slash == anc) {
+          break;
+        }
+        *slash = 0;
+      }
+    }
+  }
+  if (!g_l1_lib) {
+    g_l1_lib = l1_dlopen("libwgpu_native.so");
+  }
+  if (!g_l1_lib) {
+    snprintf(g_l1_missing, sizeof g_l1_missing, "wgpu 库装载失败（L1 回退 cairo）");
+    return 0;
+  }
+  return 1;
+}
+
+static int l1_load_syms(void) {
+#define MNG_L1_LOAD(name)                                          \
+  do {                                                             \
+    p_wgpu##name = (WGPUProc##name)dlsym(l1_lib(), "wgpu" #name);  \
+    if (!p_wgpu##name) {                                           \
+      snprintf(g_l1_missing, sizeof g_l1_missing,                  \
+               "wgpu 库缺符号 wgpu" #name "（L1 回退 cairo）");    \
+      return 0;                                                    \
+    }                                                              \
+  } while (0)
+  MNG_L1_LOAD(CreateInstance);
+  MNG_L1_LOAD(InstanceCreateSurface);
+  MNG_L1_LOAD(InstanceRequestAdapter);
+  MNG_L1_LOAD(InstanceProcessEvents);
+  MNG_L1_LOAD(AdapterRequestDevice);
+  MNG_L1_LOAD(DeviceGetQueue);
+  MNG_L1_LOAD(DeviceCreateBuffer);
+  MNG_L1_LOAD(DeviceCreateTexture);
+  MNG_L1_LOAD(DeviceCreateShaderModule);
+  MNG_L1_LOAD(DeviceCreateRenderPipeline);
+  MNG_L1_LOAD(DeviceCreateSampler);
+  MNG_L1_LOAD(DeviceCreateBindGroup);
+  MNG_L1_LOAD(DeviceCreateCommandEncoder);
+  MNG_L1_LOAD(CommandEncoderCopyBufferToTexture);
+  MNG_L1_LOAD(CommandEncoderBeginRenderPass);
+  MNG_L1_LOAD(CommandEncoderFinish);
+  MNG_L1_LOAD(RenderPassEncoderSetPipeline);
+  MNG_L1_LOAD(RenderPassEncoderSetBindGroup);
+  MNG_L1_LOAD(RenderPassEncoderDraw);
+  MNG_L1_LOAD(RenderPassEncoderEnd);
+  MNG_L1_LOAD(QueueWriteBuffer);
+  MNG_L1_LOAD(QueueSubmit);
+  MNG_L1_LOAD(TextureCreateView);
+  MNG_L1_LOAD(RenderPipelineGetBindGroupLayout);
+  MNG_L1_LOAD(SurfaceConfigure);
+  MNG_L1_LOAD(SurfaceGetCurrentTexture);
+  MNG_L1_LOAD(SurfacePresent);
+  MNG_L1_LOAD(BindGroupRelease);
+  MNG_L1_LOAD(BufferRelease);
+  MNG_L1_LOAD(TextureViewRelease);
+  MNG_L1_LOAD(TextureRelease);
+  MNG_L1_LOAD(SurfaceRelease);
+  MNG_L1_LOAD(CommandBufferRelease);
+#undef MNG_L1_LOAD
+  return 1;
+}
+
+// ---- future 风格回调（AllowSpontaneous：ProcessEvents 里触发） ----
+static volatile int l1_ad_got;
+static WGPURequestAdapterStatus l1_ad_status;
+static WGPUAdapter l1_adapter;
+static void l1_on_adapter(WGPURequestAdapterStatus status, WGPUAdapter adapter,
+                          WGPUStringView message, void *u1, void *u2) {
+  (void)message;
+  (void)u1;
+  (void)u2;
+  l1_ad_status = status;
+  l1_adapter = adapter;
+  l1_ad_got = 1;
+}
+
+static volatile int l1_dev_got;
+static WGPURequestDeviceStatus l1_dev_status;
+static void l1_on_device(WGPURequestDeviceStatus status, WGPUDevice device,
+                         WGPUStringView message, void *u1, void *u2) {
+  (void)message;
+  (void)u1;
+  (void)u2;
+  l1_dev_status = status;
+  g_l1_device = device;
+  l1_dev_got = 1;
+}
+
+// 轮询泵：自发回调只在 ProcessEvents 里触发，1ms 步进等到置位或超时。
+static int l1_pump(WGPUInstance inst, volatile int *flag, int max_ms) {
+  int waited = 0;
+  while (!*flag && waited < max_ms) {
+    p_wgpuInstanceProcessEvents(inst);
+    if (*flag) {
+      return 1;
+    }
+    usleep(1000);
+    waited += 1;
+  }
+  return *flag ? 1 : 0;
+}
+
+static WGPUStringView l1_sv(const char *s) {
+  WGPUStringView v;
+  v.data = s;
+  v.length = strlen(s);
+  return v;
+}
+
+// 全屏 textured quad：无顶点缓冲，三个顶点覆盖 NDC（大三角形技巧），
+// UV 越界靠 ClampToEdge；采样上传纹理（位图 BGRA8Unorm）。
+static const char L1_WGSL[] =
+    "struct VOut {\n"
+    "  @builtin(position) pos : vec4f,\n"
+    "  @location(0) uv : vec2f,\n"
+    "}\n"
+    "@group(0) @binding(1) var tx : texture_2d<f32>;\n"
+    "@group(0) @binding(0) var samp : sampler;\n"
+    "@vertex fn vs_main(@builtin(vertex_index) i : u32) -> VOut {\n"
+    "  var p = array<vec2f, 3>(vec2f(-1.0, -3.0), vec2f(-1.0, 1.0), vec2f(3.0, 1.0));\n"
+    "  var t = array<vec2f, 3>(vec2f(0.0, 2.0), vec2f(0.0, 0.0), vec2f(2.0, 0.0));\n"
+    "  var out : VOut;\n"
+    "  out.pos = vec4f(p[i], 0.0, 1.0);\n"
+    "  out.uv = t[i];\n"
+    "  return out;\n"
+    "}\n"
+    "@fragment fn fs_main(in : VOut) -> @location(0) vec4f {\n"
+    "  return textureSampleLevel(tx, samp, in.uv, 0.0);\n"
+    "}\n";
+
+// ---- 进程级探测（一次；instance/device/queue/管线/采样器跨窗复用） ----
+static void l1_probe(void) {
+  if (g_l1_probed) {
+    return;
+  }
+  g_l1_probed = 1;
+  g_l1_ok = 0;
+  // 非 X11 会话（Wayland 原生）：没有 XID 可挂 surface——永久回退，
+  // Wayland 会话臂是后续批（方案「fallback 探测粒度」）
+  if (!GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
+    return;
+  }
+  if (!l1_load_lib() || !l1_load_syms()) {
+    return;
+  }
+  WGPUInstanceDescriptor idesc;
+  memset(&idesc, 0, sizeof idesc);
+  g_l1_inst = p_wgpuCreateInstance(&idesc);
+  if (g_l1_inst == NULL) {
+    return;
+  }
+  // adapter（future：回调 + 泵）
+  WGPURequestAdapterCallbackInfo acb;
+  memset(&acb, 0, sizeof acb);
+  acb.mode = WGPUCallbackMode_AllowSpontaneous;
+  acb.callback = l1_on_adapter;
+  WGPURequestAdapterOptions aopt;
+  memset(&aopt, 0, sizeof aopt);
+  l1_ad_got = 0;
+  (void)p_wgpuInstanceRequestAdapter(g_l1_inst, &aopt, acb);
+  if (!l1_pump(g_l1_inst, &l1_ad_got, 5000) ||
+      l1_ad_status != WGPURequestAdapterStatus_Success || l1_adapter == NULL) {
+    return;
+  }
+  // device（future 同款）
+  WGPURequestDeviceCallbackInfo dcb;
+  memset(&dcb, 0, sizeof dcb);
+  dcb.mode = WGPUCallbackMode_AllowSpontaneous;
+  dcb.callback = l1_on_device;
+  WGPUDeviceDescriptor ddesc;
+  memset(&ddesc, 0, sizeof ddesc);
+  l1_dev_got = 0;
+  (void)p_wgpuAdapterRequestDevice(l1_adapter, &ddesc, dcb);
+  if (!l1_pump(g_l1_inst, &l1_dev_got, 5000) ||
+      l1_dev_status != WGPURequestDeviceStatus_Success ||
+      g_l1_device == NULL) {
+    return;
+  }
+  g_l1_queue = p_wgpuDeviceGetQueue(g_l1_device);
+  if (g_l1_queue == NULL) {
+    return;
+  }
+  // shader + 管线（nearest 采样 + ClampToEdge）
+  WGPUShaderSourceWGSL wsrc;
+  memset(&wsrc, 0, sizeof wsrc);
+  wsrc.chain.sType = WGPUSType_ShaderSourceWGSL;
+  wsrc.code = l1_sv(L1_WGSL);
+  WGPUShaderModuleDescriptor smd;
+  memset(&smd, 0, sizeof smd);
+  smd.nextInChain = &wsrc.chain;
+  WGPUShaderModule mod = p_wgpuDeviceCreateShaderModule(g_l1_device, &smd);
+  if (mod == NULL) {
+    return;
+  }
+  WGPUColorTargetState ct;
+  memset(&ct, 0, sizeof ct);
+  ct.format = WGPUTextureFormat_BGRA8Unorm;
+  ct.writeMask = WGPUColorWriteMask_All;
+  WGPUFragmentState frag;
+  memset(&frag, 0, sizeof frag);
+  frag.module = mod;
+  frag.entryPoint = l1_sv("fs_main");
+  frag.targetCount = 1;
+  frag.targets = &ct;
+  WGPUVertexState vert;
+  memset(&vert, 0, sizeof vert);
+  vert.module = mod;
+  vert.entryPoint = l1_sv("vs_main");
+  WGPURenderPipelineDescriptor pd;
+  memset(&pd, 0, sizeof pd);
+  pd.vertex = vert;
+  pd.primitive.topology = WGPUPrimitiveTopology_TriangleList;
+  pd.primitive.frontFace = WGPUFrontFace_CCW;
+  pd.primitive.cullMode = WGPUCullMode_None;
+  pd.multisample.count = 1;
+  pd.fragment = &frag;
+  g_l1_pipeline = p_wgpuDeviceCreateRenderPipeline(g_l1_device, &pd);
+  if (g_l1_pipeline == NULL) {
+    return;
+  }
+  WGPUSamplerDescriptor sd;
+  memset(&sd, 0, sizeof sd);
+  sd.addressModeU = WGPUAddressMode_ClampToEdge;
+  sd.addressModeV = WGPUAddressMode_ClampToEdge;
+  sd.addressModeW = WGPUAddressMode_ClampToEdge;
+  sd.magFilter = WGPUFilterMode_Nearest;
+  sd.minFilter = WGPUFilterMode_Nearest;
+  g_l1_sampler = p_wgpuDeviceCreateSampler(g_l1_device, &sd);
+  if (g_l1_sampler == NULL) {
+    return;
+  }
+  g_l1_bgl = p_wgpuRenderPipelineGetBindGroupLayout(g_l1_pipeline, 0);
+  if (g_l1_bgl == NULL) {
+    return;
+  }
+  g_l1_ok = 1;
+}
+
+// ---- 每窗 GPU 对象：释放（不动 gpu_on/gpu_dead 标志） ----
+static void l1_release_objs(WmWindow *w) {
+  if (w->gpu_bind != NULL) {
+    p_wgpuBindGroupRelease(w->gpu_bind);
+    w->gpu_bind = NULL;
+  }
+  if (w->gpu_buf != NULL) {
+    p_wgpuBufferRelease(w->gpu_buf);
+    w->gpu_buf = NULL;
+  }
+  if (w->gpu_tex_view != NULL) {
+    p_wgpuTextureViewRelease(w->gpu_tex_view);
+    w->gpu_tex_view = NULL;
+  }
+  if (w->gpu_tex != NULL) {
+    p_wgpuTextureRelease(w->gpu_tex);
+    w->gpu_tex = NULL;
+  }
+  if (w->gpu_surface != NULL) {
+    p_wgpuSurfaceRelease(w->gpu_surface);
+    w->gpu_surface = NULL;
+  }
+  free(w->gpu_stage);
+  w->gpu_stage = NULL;
+  w->gpu_stage_cap = 0;
+  w->gpu_sw = 0;
+  w->gpu_sh = 0;
+  w->gpu_tw = 0;
+  w->gpu_th = 0;
+}
+
+// 关窗用：释放 + 摘档（管线/采样器/instance/device 是进程级，不随窗释放）
+static void l1_drop_window(WmWindow *w) {
+  l1_release_objs(w);
+  w->gpu_on = 0;
+}
+
+// 建/配一窗的 GPU 对象。1 = 挂上；0 = 未 ready（未 realize/0×0，可重试）；
+// -1 = 真失败（调用方标记该窗永久回退）。
+static int l1_setup_window(WmWindow *w, int bw, int bh) {
+  GdkWindow *gw = gtk_widget_get_window(w->area);
+  if (gw == NULL || !GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
+    return 0;
+  }
+  if (w->width < 1 || w->height < 1 || bw < 1 || bh < 1) {
+    return 0;
+  }
+  // surface：XID 取 area 的 GdkWindow（display 是默认 X 显示）
+  WGPUSurfaceSourceXlibWindow xsrc;
+  memset(&xsrc, 0, sizeof xsrc);
+  xsrc.chain.sType = WGPUSType_SurfaceSourceXlibWindow;
+  xsrc.display = (void *)gdk_x11_get_default_xdisplay();
+  xsrc.window = (uint64_t)gdk_x11_window_get_xid(gw);
+  WGPUSurfaceDescriptor sdesc;
+  memset(&sdesc, 0, sizeof sdesc);
+  sdesc.nextInChain = &xsrc.chain;
+  w->gpu_surface = p_wgpuInstanceCreateSurface(g_l1_inst, &sdesc);
+  if (w->gpu_surface == NULL) {
+    return -1;
+  }
+  // surface 按**面积**配（X 窗口尺寸）；纹理按**位图**建——稳态两者相等，
+  //  resize 过渡期差几帧由 sampler 拉伸兜着（回退后逐像素一致不受影响）
+  WGPUSurfaceConfiguration cfg;
+  memset(&cfg, 0, sizeof cfg);
+  cfg.device = g_l1_device;
+  cfg.format = WGPUTextureFormat_BGRA8Unorm;
+  cfg.usage = WGPUTextureUsage_RenderAttachment;
+  cfg.width = (uint32_t)w->width;
+  cfg.height = (uint32_t)w->height;
+  cfg.alphaMode = WGPUCompositeAlphaMode_Opaque;
+  cfg.presentMode = WGPUPresentMode_Fifo;
+  p_wgpuSurfaceConfigure(w->gpu_surface, &cfg);
+  w->gpu_sw = w->width;
+  w->gpu_sh = w->height;
+  // 上传纹理（BGRA8Unorm 与位图字节序一致，零转换）
+  WGPUTextureDescriptor td;
+  memset(&td, 0, sizeof td);
+  td.usage = WGPUTextureUsage_TextureBinding | WGPUTextureUsage_CopyDst;
+  td.dimension = WGPUTextureDimension_2D;
+  td.size.width = (uint32_t)bw;
+  td.size.height = (uint32_t)bh;
+  td.size.depthOrArrayLayers = 1;
+  td.format = WGPUTextureFormat_BGRA8Unorm;
+  td.mipLevelCount = 1;
+  td.sampleCount = 1;
+  w->gpu_tex = p_wgpuDeviceCreateTexture(g_l1_device, &td);
+  if (w->gpu_tex == NULL) {
+    return -1;
+  }
+  w->gpu_tw = bw;
+  w->gpu_th = bh;
+  w->gpu_tex_view = p_wgpuTextureCreateView(w->gpu_tex, NULL);
+  if (w->gpu_tex_view == NULL) {
+    return -1;
+  }
+  // 暂存 buffer：copyBufferToTexture 要求行距 256 对齐，CPU 侧按行垫
+  int bpr = ((bw * 4 + 255) / 256) * 256;
+  size_t need = (size_t)bpr * (size_t)bh;
+  WGPUBufferDescriptor bd;
+  memset(&bd, 0, sizeof bd);
+  bd.usage = WGPUBufferUsage_MapWrite | WGPUBufferUsage_CopySrc;
+  bd.size = need;
+  w->gpu_buf = p_wgpuDeviceCreateBuffer(g_l1_device, &bd);
+  if (w->gpu_buf == NULL) {
+    return -1;
+  }
+  w->gpu_bpr = bpr;
+  // bind group：binding 0 = 采样器，binding 1 = 上传纹理视图（与 shader 对齐）
+  WGPUBindGroupEntry entries[2];
+  memset(entries, 0, sizeof entries);
+  entries[0].binding = 0;
+  entries[0].sampler = g_l1_sampler;
+  entries[1].binding = 1;
+  entries[1].textureView = w->gpu_tex_view;
+  WGPUBindGroupDescriptor bgd;
+  memset(&bgd, 0, sizeof bgd);
+  bgd.layout = g_l1_bgl;
+  bgd.entryCount = 2;
+  bgd.entries = entries;
+  w->gpu_bind = p_wgpuDeviceCreateBindGroup(g_l1_device, &bgd);
+  if (w->gpu_bind == NULL) {
+    return -1;
+  }
+  return 1;
+}
+
+// GPU 上屏一帧。1 = 已上屏（或无事可上）；0 = 本帧回退 cairo。
+static int l1_present(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
+  // 面积 0×0（最小化）：没东西可上，当已处理
+  if (w->width < 1 || w->height < 1) {
+    return 1;
+  }
+  // CPU 侧暂存（带行距垫）按需增长
+  int bpr = ((bw * 4 + 255) / 256) * 256;
+  size_t need = (size_t)bpr * (size_t)bh;
+  if (w->gpu_stage_cap < need) {
+    unsigned char *ns = (unsigned char *)realloc(w->gpu_stage, need);
+    if (ns == NULL) {
+      w->gpu_on = 0;
+      l1_release_objs(w);
+      return 0;
+    }
+    w->gpu_stage = ns;
+    w->gpu_stage_cap = need;
+  }
+  for (int y = 0; y < bh; y++) {
+    memcpy(w->gpu_stage + (size_t)y * (size_t)bpr,
+           rgba + (size_t)y * (size_t)bw * 4, (size_t)bw * 4);
+  }
+  p_wgpuQueueWriteBuffer(g_l1_queue, w->gpu_buf, 0, w->gpu_stage, need);
+  WGPUTexelCopyBufferInfo src;
+  memset(&src, 0, sizeof src);
+  src.buffer = w->gpu_buf;
+  src.layout.bytesPerRow = (uint32_t)bpr;
+  src.layout.rowsPerImage = (uint32_t)bh;
+  WGPUTexelCopyTextureInfo dst;
+  memset(&dst, 0, sizeof dst);
+  dst.texture = w->gpu_tex;
+  dst.aspect = WGPUTextureAspect_All;
+  WGPUExtent3D ext;
+  ext.width = (uint32_t)bw;
+  ext.height = (uint32_t)bh;
+  ext.depthOrArrayLayers = 1;
+  WGPUCommandEncoder enc = p_wgpuDeviceCreateCommandEncoder(g_l1_device, NULL);
+  if (enc == NULL) {
+    w->gpu_on = 0;
+    l1_release_objs(w);
+    return 0;
+  }
+  p_wgpuCommandEncoderCopyBufferToTexture(enc, &src, &dst, &ext);
+  // 取这一帧的 swapchain 纹理
+  WGPUSurfaceTexture st;
+  memset(&st, 0, sizeof st);
+  p_wgpuSurfaceGetCurrentTexture(w->gpu_surface, &st);
+  if (st.status != WGPUSurfaceGetCurrentTextureStatus_SuccessOptimal ||
+      st.texture == NULL) {
+    if (st.status == WGPUSurfaceGetCurrentTextureStatus_Outdated) {
+      // 窗口尺寸变了 surface 还没跟上：重配，本帧丢（下一帧补）
+      WGPUSurfaceConfiguration cfg;
+      memset(&cfg, 0, sizeof cfg);
+      cfg.device = g_l1_device;
+      cfg.format = WGPUTextureFormat_BGRA8Unorm;
+      cfg.usage = WGPUTextureUsage_RenderAttachment;
+      cfg.width = (uint32_t)w->width;
+      cfg.height = (uint32_t)w->height;
+      cfg.alphaMode = WGPUCompositeAlphaMode_Opaque;
+      cfg.presentMode = WGPUPresentMode_Fifo;
+      p_wgpuSurfaceConfigure(w->gpu_surface, &cfg);
+      w->gpu_sw = w->width;
+      w->gpu_sh = w->height;
+    }
+    // 上传命令已编码：提交掉（无害）再丢这一帧
+    WGPUCommandBuffer cb0 = p_wgpuCommandEncoderFinish(enc, NULL);
+    if (cb0 != NULL) {
+      p_wgpuQueueSubmit(g_l1_queue, 1, &cb0);
+      p_wgpuCommandBufferRelease(cb0);
+    }
+    return 1;
+  }
+  WGPUTextureView view = p_wgpuTextureCreateView(st.texture, NULL);
+  if (view == NULL) {
+    WGPUCommandBuffer cb0 = p_wgpuCommandEncoderFinish(enc, NULL);
+    if (cb0 != NULL) {
+      p_wgpuQueueSubmit(g_l1_queue, 1, &cb0);
+      p_wgpuCommandBufferRelease(cb0);
+    }
+    return 1;
+  }
+  WGPURenderPassColorAttachment att;
+  memset(&att, 0, sizeof att);
+  att.view = view;
+  att.loadOp = WGPULoadOp_Clear;
+  att.storeOp = WGPUStoreOp_Store;
+  att.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
+  att.clearValue.r = 0.0;
+  att.clearValue.g = 0.0;
+  att.clearValue.b = 0.0;
+  att.clearValue.a = 1.0;
+  WGPURenderPassDescriptor rp;
+  memset(&rp, 0, sizeof rp);
+  rp.colorAttachmentCount = 1;
+  rp.colorAttachments = &att;
+  WGPURenderPassEncoder pass = p_wgpuCommandEncoderBeginRenderPass(enc, &rp);
+  p_wgpuRenderPassEncoderSetPipeline(pass, g_l1_pipeline);
+  p_wgpuRenderPassEncoderSetBindGroup(pass, 0, w->gpu_bind, 0, NULL);
+  p_wgpuRenderPassEncoderDraw(pass, 3, 1, 0, 0);
+  p_wgpuRenderPassEncoderEnd(pass);
+  WGPUCommandBuffer cb = p_wgpuCommandEncoderFinish(enc, NULL);
+  if (cb == NULL) {
+    p_wgpuTextureViewRelease(view);
+    return 1;
+  }
+  p_wgpuQueueSubmit(g_l1_queue, 1, &cb);
+  p_wgpuTextureViewRelease(view);
+  p_wgpuCommandBufferRelease(cb);
+  WGPUStatus ps = p_wgpuSurfacePresent(w->gpu_surface);
+  p_wgpuInstanceProcessEvents(g_l1_inst);
+  if (ps != WGPUStatus_Success) {
+    // 设备/表面丢了：该窗永久回退 cairo（本帧也当没上屏）
+    w->gpu_on = 0;
+    l1_release_objs(w);
+    return 0;
+  }
+  return 1;
+}
+
+// wm_present 的 GPU 档入口：探测一次 → 按窗建/重配 → 上屏。
+// 1 = 已上屏；0 = 回退 cairo（原路径）。
+static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
+  l1_probe();
+  if (!g_l1_ok || w->gpu_dead) {
+    return 0;
+  }
+  if (!w->gpu_on) {
+    int r = l1_setup_window(w, bw, bh);
+    if (r == 0) {
+      return 0; // 未 ready：下帧再试
+    }
+    if (r < 0) {
+      w->gpu_dead = 1; // 真失败：该窗永久回退
+      return 0;
+    }
+    w->gpu_on = 1;
+    // GTK 别拿主题底色/双缓后备盖掉已上屏的内容（两路互覆坑的对偶）。
+    // set_double_buffered 自 GTK 3.14 标 deprecated、GTK3 无替代品（GTK4
+    // 才移除它），本地静默告警——行为是 GTK+GPU 集成的既定套路。
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+    gtk_widget_set_double_buffered(w->area, FALSE);
+#pragma GCC diagnostic pop
+    gtk_widget_set_app_paintable(w->area, TRUE);
+  } else if (w->gpu_sw != w->width || w->gpu_sh != w->height ||
+             w->gpu_tw != bw || w->gpu_th != bh) {
+    // 面积或位图尺寸变了：整组重配（surface 按面积、纹理按位图）
+    l1_release_objs(w);
+    int r = l1_setup_window(w, bw, bh);
+    if (r != 1) {
+      w->gpu_on = 0;
+      if (r < 0) {
+        w->gpu_dead = 1;
+      }
+      return 0;
+    }
+  }
+  return l1_present(w, rgba, bw, bh);
+}
+
+#else /* 没有 wgpu vendor 头（归档没下载/非 Linux）：整节编译不进，行为恒等于改造前 */
+
+static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
+  (void)w;
+  (void)rgba;
+  (void)bw;
+  (void)bh;
+  return 0;
+}
+
+static void l1_drop_window(WmWindow *w) {
+  (void)w;
+}
+
+#endif /* MNG_L1_WGPU_REAL */
+
 // 把这一帧拷进后端自己的缓冲。原先 pending 直接指 MoonBit 的 Bitmap，
 // 而贴像素发生在**下一次** draw 回调里——那之间 Bitmap 已经没人引用，
 // GC 一收就是读已释放内存（症状正是使用者报的：多开一扇大窗/动起来的窗
@@ -5679,6 +6358,12 @@ void wm_present(int64_t id, const unsigned char *rgba, int width, int height) {
   }
   WmWindow *w = &wm_windows[id];
   if (w->area == NULL || rgba == NULL || width < 1 || height < 1) {
+    return;
+  }
+  // GPU 档（L1）：Bitmap 上传纹理 → 全屏 quad → swapchain present。返回 0
+  // （没挂上/本帧失败）时逐字回退下面的 cairo 路径——贴的还是同一份
+  // Bitmap，逐像素一致。
+  if (wm_l1_try(w, rgba, width, height)) {
     return;
   }
   // 拷进后端缓冲后再请重画：真正的贴像素在下一次 draw 回调里，
@@ -5717,6 +6402,9 @@ void wm_close(int64_t id) {
     w->area = NULL;
   }
   w->pending = NULL;
+  // GPU present 档的每窗对象跟着释放（进程级 instance/device/管线不随窗
+  // 释放，进程退出时由 OS/驱动收拾）
+  l1_drop_window(w);
   // 帧缓冲是后端 malloc 的，槽位复用前必须还掉（memset 只会把指针清没、
   // 留下泄漏，下一扇窗复用同一槽时 cap 也一起归零）
   free(w->backing);

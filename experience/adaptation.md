@@ -3688,3 +3688,15 @@ dbus 包对 bus=2 断线自愈重建连接后，本端唯一名会变（新连�
 - **dlopen 候选原是相对 cwd 的**（probe.c 的 `vendor/lib/…` 只在模块根 cwd 下中）——experiment 从仓库根跑会误报 not-found。triangle.c 的加载器加**仓库布局候选**：从 cwd 逐级向上，每级试 `<anc>/vendor/lib/…`（模块根形态）与 `<anc>/modules/gui-gpu/vendor/lib/…`（仓库根形态），dlopen 试错不需要 stat；发行的应用走不到这两级，落环境变量/系统名。`probe()` 的候选不动（库契约保持简单），experiment 的失败诊断会附带打印 probe 详情，别被它的 not-found 误导。
 - **v29 future 风格 API 实跑口径**：adapter/device 都经回调拿（`WGPUCallbackMode_AllowSpontaneous` + `wgpuInstanceProcessEvents` 轮询泵，1ms 步进带超时），不能当同步函数；surface 走 `WGPUSurfaceSourceXlibWindow{display, window}`；v29 没有 `wgpuSurfaceGetPreferredFormat`，格式直接 BGRA8Unorm（Linux/Vulkan 地表形态）；`WGPURequestAdapterOptions.backendType` 还在（留 Undefined 让 wgpu 自选 primary）。
 - **无显示实跑验证**（不开窗、只走加载链）：仓库根 `env -u DISPLAY ./gpu_triangle.exe`，错误停在 `XOpenDisplay 失败`——证明仓库布局候选找到库、19 个 wgpu 符号 + 12 个 Xlib 符号加载、MoonBit↔C ABI 与缓冲读回全链通。三色三角形的肉眼验收归用户（`moon run experiment/gpu_triangle`，关窗/Esc 退出）。
+
+## L1-Linux present 纹理合成：stub.c GTK 臂的 GPU 档与双编译形态（2026-11-04）
+
+`gui/win/stub.c` GTK 臂落 L1（Bitmap 上传纹理 → 全屏 textured quad → swapchain present，GPU 不可用逐字回退 cairo）。落地形态与坑：
+- **双编译形态自动继承**：Linux 上 stub.c 的真臂由 prebuild 以 `-DWM_STUB_GTK` 编进 `libyue_win_stub.a`（moon 的 native-stub 那次编译没有该宏、落不进任何臂，产出空占位对象）——L1 代码放 GTK 臂内即获得这个形态，**不与 native-stub 编译重复符号**；pkg-config 头路径也由 prebuild 给全。
+- **vendor 头跨模块相对取**：`__has_include("../../modules/gui-gpu/vendor/include/webgpu/webgpu.h")`（gui/win 上跳两级到仓库根）+ 守卫——缺归档整节编译不进，行为恒等于改造前。**首次构建顺序坑**：gui 的 prebuild 若先于 gui-gpu 的 prebuild 跑，头不在 → L1 静默关（不报错，重建即好）；本机 vendor 已在，无感。
+- **回退逐像素一致的根据**：上传纹理用 BGRA8Unorm——MoonBit 位图是 ARGB32（内存字节 B,G,R,A），与 X11/Vulkan 地表格式同字节序，零转换；采样 nearest + ClampToEdge，1:1 不糊。surface 按**面积**配、纹理按**位图**建，稳态相等，resize 过渡期差几帧由拉伸兜着。
+- **v29 API 三个反直觉点**：`WGPUStatus_Success = 1`（不是 0）；`WGPUTextureAspect_All = 1`（不是 0）；**没有 `wgpuSurfaceGetPreferredFormat`**（v29 移除），格式直接 BGRA8Unorm。枚举混写坑：头文件里是 `WGPUTextureUsage_TextureBinding`（驼峰），不是全大写下划线形态，写错是编译错误、好在报错信息直接给正确名。
+- **行距 256 对齐**：`copyBufferToTexture` 的 `bytesPerRow` 必须被 256 整除——CPU 侧暂存按行垫（`bpr = align(bw*4, 256)`），每帧先垫行再 `QueueWriteBuffer`，多一次 CPU 拷贝（与 wm_store_frame 同量级）。
+- **GTK 盖内容的对偶**：GPU 挂上后 draw 回调 cairo 停手不够——GTK 还会用主题底色/双缓后备盖掉已上屏内容，必须同批设 `app_paintable=TRUE` + `double_buffered=FALSE`（后者自 GTK 3.14 deprecated、GTK3 无替代品，`#pragma GCC diagnostic` 局部静默；这是 GTK+GPU 集成的既定套路）。
+- **探测两档口径**（方案「fallback 探测粒度」）：进程级一次——.so 缺/驱动无后端/非 X11 会话（Wayland 原生没有 XID 可挂）= 永久缓存不再试；未 realize、0×0 = 不标记死、下帧重试；对象真建不出或 present 回非 Success = 该窗永久回退。instance/device/队列/管线/采样器进程级跨窗复用，每窗只持 surface/纹理/暂存/bindgroup，关窗按「bindgroup→buffer→view→texture→surface」释放。
+- **验证边界**：门禁全绿（回退路径零变化，wbtest 1296/1296）；GPU 档本身要真机肉眼——showcase/hello 跑起来界面与改造前一致、无闪烁、resize 不花，归用户（TODO 复验条目）。
