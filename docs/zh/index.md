@@ -7,13 +7,13 @@ hero:
   actions:
     - theme: brand
       text: 写第一个应用
-      link: /zh/dev-experience
+      link: /zh/guide/dev-experience
     - theme: alt
       text: 先跑预构建包
-      link: /zh/experience
+      link: /zh/guide/experience
     - theme: alt
       text: 构建与环境
-      link: /zh/build
+      link: /zh/guide/build
     - theme: alt
       text: GitHub
       link: https://github.com/lb091188/moonbit-native-gui

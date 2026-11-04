@@ -7,13 +7,13 @@ hero:
   actions:
     - theme: brand
       text: Build your first app
-      link: /dev-experience
+      link: /guide/dev-experience
     - theme: alt
       text: Try the prebuilt demos
-      link: /experience
+      link: /guide/experience
     - theme: alt
       text: Build & environment
-      link: /build
+      link: /guide/build
     - theme: alt
       text: GitHub
       link: https://github.com/lb091188/moonbit-native-gui
