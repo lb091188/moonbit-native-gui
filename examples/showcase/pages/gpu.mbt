@@ -272,7 +272,9 @@ pub fn page_gpu(_app : @shared.App) -> @widget.Node {
                           nz = nz + 1
                         }
                       }
-                      let corners = "左上 \{gpu_sample(bytes, canvas.w, 2, 2)}  右上 \{gpu_sample(bytes, canvas.w, canvas.w - 3, 2)}  左下 \{gpu_sample(bytes, canvas.w, 2, canvas.h - 3)}  右下 \{gpu_sample(bytes, canvas.w, canvas.w - 3, canvas.h - 3)}"
+                      // 四角是底色基准（全零 vs 画了底色），图案/色块中心分辨
+                      // 「clear 落了但原语没执行」（Linux 未结案现象的细分）
+                      let corners = "四角 \{gpu_sample(bytes, canvas.w, 2, 2)} \{gpu_sample(bytes, canvas.w, canvas.w - 3, 2)} \{gpu_sample(bytes, canvas.w, 2, canvas.h - 3)} \{gpu_sample(bytes, canvas.w, canvas.w - 3, canvas.h - 3)}\n图案中心 \{gpu_sample(bytes, canvas.w, 100, 100)}  色块中心 \{gpu_sample(bytes, canvas.w, canvas.w - 100, 100)}"
                       let head = if nz == 0 {
                         @shared.tx("非零 0%（\{nz}/\{n} 字节）")
                       } else {
