@@ -12,19 +12,19 @@
 | 层 | 内容 | 状态 |
 |---|---|---|
 | ① 等宽文本栈 | `@text.Font` 度量（`text_width` / `line_height_font`）、`draw_box_at` 逐段绘制 | ✅ 已建成 |
-| ② 着色流 | `tokenize_lang`（文本→Token 流）+ `CodeTheme`（主题派生配色） | 跨行状态 + 字节偏移已落（2026-11-03，`scan_line`）；行级增量等 `code_editor` 同批 |
+| ② 着色流 | `tokenize_lang`（文本→Token 流）+ `CodeTheme`（主题派生配色） | ✅ 已全部落地：跨行状态 + 字节偏移（2026-11-03，`scan_line`）+ 行级增量（2026-11-05，随 `code_editor`） |
 | ③ 偏移映射 | `TextLayout`（字符偏移↔屏幕几何） | ✅ 已建成（gui/input/text_layout.mbt，2026-11-03） |
 | ④ 编辑内核 | `Editor`（caret/选区/撤销/剪贴板，UTF-8 字节下标） | ✅ 已建成（gui/input/editor.mbt） |
 
 | 消费者 | 吃的地基 | 缺口 |
 |---|---|---|
 | `code_view`（代码块/高亮，已成） | ①+② | 跨行状态与字节偏移已接（预排版吃 `scan_line`）；仍无编辑态增量 |
-| `code_editor`（代码编辑器） | ②升级版+③+④ | 未开工 |
+| `code_editor`（代码编辑器） | ②升级版+③+④ | ✅ P1+P2 已落（2026-11-05，🚧 真机待验；演示 SC-6.4） |
 | `terminal`（终端控件） | ①+网格模型（新）+ANSI 状态机（新）+④ 行编辑 | 未开工 |
 
 ## 现状盘点
 
-- **分词**：`tokenize_lang` / `tokenize_moonbit`（gui/ui/codeview.mbt）——手写逐行扫描器，词级分类（9 语言关键字表大小写不敏感、大写开头=类型、`@` 限定名取尾段、后随 `(` =调用、字符串/数字/行注释）。跨行状态已由 `scan_line` 补齐（块注释 / 三引号串 / heredoc），静态预排版已接入；行级增量仍待 `code_editor` 同批。
+- **分词**：`tokenize_lang` / `tokenize_moonbit`（gui/ui/codeview.mbt）——手写逐行扫描器，词级分类（9 语言关键字表大小写不敏感、大写开头=类型、`@` 限定名取尾段、后随 `(` =调用、字符串/数字/行注释）。跨行状态已由 `scan_line` 补齐（块注释 / 三引号串 / heredoc），静态预排版与行级增量均已接入（增量在 `gui/ui/code_editor_scan.mbt`，随 `code_editor` 消费）。
 - **组件**：`code_view`（gui/ui/codeview.mbt:407）——构造期一次分词+测宽成预排版表（codeview.mbt:429-454），on_draw 按 `CodeTheme` 现取色；静态内容重绘零分词开销，但**编辑态每敲一键都要整体重建**，无「只重排受影响行」的增量模型；自带横向滚动视口。mdview 围栏/缩进/数学代码块全部复用（gui/mdview/markdown.mbt:586-591）。
 - **编辑内核**：`@input.Editor`（gui/input/editor.mbt）——caret/选区/撤销重做/剪贴板，坐标一律 UTF-8 字节下标、caret 落码点边界；只挂在 entry/textarea，没有高亮消费方。
 - **偏移映射**：`TextLayout` 已落 `gui/input/text_layout.mbt`（`build`/`hit`/`caret_x`/`caret_y`/`line_of`/`rects`），textarea / code_view / markdown / rich_text 共用。
@@ -71,8 +71,8 @@
 ## 排期与依赖链
 
 1. **前置（已在走，不在本提案排期）**：text-selection-a11y 一期——`TextLayout` 抽取 + code_view 选中。
-2. ~~扫描器升级~~：**跨行状态 + 字节偏移已落**（`scan_line` / `ScanState`，code_view 预排版同批改吃它，289 项 ui+mdview 全绿）；**行级增量**随 `code_editor` 开工再做（缓存层先行即无消费者）。
-3. **code_editor 控件**（P1）。
+2. ~~扫描器升级~~：**已全部落地**——跨行状态 + 字节偏移（`scan_line` / `ScanState`，code_view 预排版同批改吃它，289 项 ui+mdview 全绿）；**行级增量**随 `code_editor` 同批落（2026-11-05：前缀/后缀行对齐 + 渐进扫描，见「已实现」）。
+3. ~~code_editor 控件~~：**P1+P2 已落**（2026-11-05，🚧 真机待验）。
 4. **terminal 控件**。
 - 每步走流转：动工进 TODO → 实现 → roadmap 移「已实现」按平台标状态 → `测试文档/测试用例.md` 补条。
 - 门禁：`cd gui && moon check --deny-warn` 零错误零警告；`moon test ui input widget text` 全绿；真机视觉项（高亮可辨性、光标闪烁、ANSI 色）交用户验。

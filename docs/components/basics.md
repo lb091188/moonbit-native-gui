@@ -34,6 +34,14 @@ General conventions (typed parameters, the `class` override order, `Store`-held 
 
 - Code highlight view, colours derived from the theme (a light and a dark role mapping, redrawn on theme/accent change; passing `code_theme` pins one palette on purpose): 8-language keyword tables + token coloring, optional line-number column; **width follows the container (flex 1)** — the dark panel fills the row, and when a line is wider than the container the component **ships its own horizontal scrollbar** (callers do not wrap it in `scroll_view`); height follows the line count; `selectable=true` makes the block mouse-selectable and copyable (drag across lines, double-click for a word, Shift+click to extend, `Ctrl/Cmd+C` or the right-click menu) — the line-number column never enters the selection, and a multi-line copy joins lines with `\n`; read-only and off the Tab chain
 
+### `code_editor(store : @base.Store[String], lang?="moonbit", font_size?=13.0, line_numbers?=true, read_only?=false, rows?=12, height?=0.0, focus_id?=0, caret_on?, on_change?, class?, handle?)`
+
+- Code editor: monospace + highlighting + line numbers + editing in one control — two-way bound via `store` (external `set` feeds the kernel back), `on_change` reports the full text on every edit
+- Editing semantics shared with the input fields: click / drag / double-click word select, Shift extend, arrow keys / Home / End / PageUp-Down (pages by visible rows), Tab inserts two spaces, `Ctrl/Cmd+Z` undo-redo, `Ctrl/Cmd+A/C/X/V` interoperates with the system clipboard, IME preedit inline; `read_only` allows selection but no edits
+- Highlighting is **line-incremental** (`scan_line` state machine + prefix/suffix row-aligned rescan): editing rescans only the affected lines, and a 10k-line file lays out just the visible rows on first paint (progressive scanning — jumping to an unscanned region scans on that jump)
+- P2 extras: `Ctrl/Cmd+F` find (overlay bar + full-text match highlight + ▲▼ jump + Esc to close, ASCII case-insensitive); Enter **auto-indent** (inherits leading whitespace, one more level after an open bracket); **bracket matching** highlight (brackets inside strings/comments are skipped); **current-line highlight** while focused
+- Width follows the container (percent 100); `height` pins the height (0 = by `rows`); long lines scroll horizontally, many lines scroll vertically with the line-number column in sync, and the caret auto-scrolls into view
+
 ### `gif(path, width?, height?, looping?=true, running?=true, state?, handle?)`
 
 - Animated image: `looping=false` stops after one pass; a non-GIF still image draws a single frame

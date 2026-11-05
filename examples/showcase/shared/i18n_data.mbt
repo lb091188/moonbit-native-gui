@@ -876,6 +876,7 @@ pub const EN_CATALOG : String =
   "\"dyn.open_failed\" = \"Open failed: {e}\"\n" +
   "\"dyn.md_link_opened\" = \"Handed to the default program: {u}\"\n" +
   "\"dyn.md_link_failed\" = \"Open failed: {e} ({u})\"\n" +
+  "\"dyn.code_editor_stat\" = \"Current {bytes} bytes / {lines} lines\"\n" +
   "\"dyn.reveal_failed\" = \"Reveal failed: {e}\"\n" +
   "\"dyn.default_open_failed\" = \"Default app failed to open: {e}\"\n" +
   "\"dyn.opened_with\" = \"Handed to {a}\"\n" +

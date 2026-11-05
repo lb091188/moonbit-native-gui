@@ -48,6 +48,14 @@
 - 宽度跟随容器（flex 1）：窄代码深底条铺满整行，代码比容器宽时自带横向滚动（调用方不必再包 `scroll_view`），高按行数
 - `selectable`：打开后这段代码可鼠标选中复制——拖选跨行、双击选词、Shift+点击扩选、`Ctrl/Cmd+C` 或右键菜单复制；行号列不进选区，跨行复制按 `\n` 拼；只读、不进 Tab 链
 
+### `code_editor(store : @base.Store[String], lang?="moonbit", font_size?=13.0, line_numbers?=true, read_only?=false, rows?=12, height?=0.0, focus_id?=0, caret_on?, on_change?, class?, handle?)`
+
+- 代码编辑器：等宽 + 高亮 + 行号 + 编辑合体——`store` 双向投影（外部 `set` 回灌内核）、`on_change` 每次编辑回全文
+- 编辑语义与输入框同源：点击/拖选/双击选词、Shift 扩选、方向键/Home/End/PageUp-Down（按可视行翻页）、Tab 两格缩进、`Ctrl/Cmd+Z` 撤销重做、`Ctrl/Cmd+A/C/X/V` 与系统剪贴板互通、输入法组合串内联；`read_only` 只读可选中
+- 高亮走**行级增量**（`scan_line` 状态机 + 前缀/后缀行对齐重扫）：编辑只重扫受影响行，万行级文件首屏也只扫可视行（渐进扫描，跳转到未扫区域的首帧补扫）
+- P2 增强：`Ctrl/Cmd+F` 查找（浮层条 + 全文匹配高亮 + ▲▼ 跳转 + Esc 收起，ASCII 大小写不敏感）；回车**自动缩进**（继承行首空白、开括号行进一格）；**括号匹配**高亮（字符串/注释内不参与）；聚焦时**当前行高亮**
+- 宽度跟随容器（percent 100），`height` 定高（0 = 按 `rows`）；长行横向滚动、行数多纵向滚动，行号列与内容同步，光标自动滚进可视区
+
 ### `gif(path, width?, height?, looping?=true, running?=true, state?, handle?)`
 
 - 动图：非 GIF 静图只绘制第一帧

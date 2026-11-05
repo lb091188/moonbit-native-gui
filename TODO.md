@@ -20,17 +20,9 @@
 - [ ] **L1-Win 真机复验**（用户执行）：实现已落（2026-11-04，核心三臂共享 + Win32 薄适配，详见 adaptation.md）——Windows 跑一遍 hello/showcase：界面与改造前一致、无闪烁、resize 不花。mac 腿已过（2026-11-05 真机：界面与纯光栅一致、视图转 layer-backing 后输入/交互正常）；Linux 腿复验见上一条
 - [ ] **GPU 画布 Linux 腿取数**（用户执行）：mac 腿已过（2026-11-05 真机：图案上屏、检查读回非零；showcase 页 16 + `Demuxer::set_transfer_mode` 接线同批落，见 git log）——Linux 跑 showcase「GPU 画布」页，把「检查读回」状态行原文贴回：非零 = 未结案「wgpu 进程内队列写不落地」在应用进程不复现；全零/仅底色 = 复现，按档位归因（adaptation.md 同节）。与下面两条 Linux 真机一起做
 
-## 代码编辑器 code_editor（2026-11-05 立项，方案见 [proposals/code-stack.md](proposals/code-stack.md)；P1 先行，行级增量同批）
+## 代码编辑器 code_editor（2026-11-05 已全部落地并推送，方案见 [proposals/code-stack.md](proposals/code-stack.md)；此处只留真机复验）
 
-- [ ] **前置回证**：确认 `@text.line_height_font` 等宽口径；万行 × 80 列构造期预排版微基准（无头，优先 `.mbtx`），定首屏走预排版还是只排可视行；结论回写 `proposals/code-stack.md` 未核项
-- [ ] **行级增量重扫**：每行缓存 `(行首状态, tokens)`，编辑后从首个变化行向上复用、向下重扫到状态收敛即停；行数变化按偏移调整缓存；未闭合构造退化到文末且不死循环，用例钉死收敛与字节偏移
-- [ ] **P1 控件骨架**：新 `gui/ui/code_editor.mbt`——等宽字体、行号列、`CodeTheme` 高亮、背景/选区/光标，宽跟随容器、长行横滚；公开 API 进 `pkg.generated.mbti`
-- [ ] **P1 编辑链**：`@input.Editor` 唯一状态源，`TextLayout::hit/rects/caret_*` 做命中、选区、光标；点击/拖选/双击选词/Shift 扩选、方向键/Home/End/PageUp-Down、Backspace/Delete/Enter/Tab、Ctrl/Cmd+A/C/X/V、撤销重做、IME 五接缝、Tab 焦点链、`on_change` 回全文
-- [ ] **P1 滚动视口**：复用 `ScrollState` + 滚动条（参照 textarea 纵向档）、长行横滚参照 code_view；行号与内容同步，光标移动/输入自动滚进可视区
-- [ ] **P1 无头用例与门禁**：`@uitest` 覆盖构造/行号/点击定位/拖选/双击选词/键盘编辑/撤销重做/Tab 缩进/IME/横纵滚动/光标跟随/`on_change`/增量收敛；`cd gui && moon check` 零警告，AGENTS 规定的库测试全绿
-- [ ] **P2 编辑增强**（P1 全绿后）：查找、自动缩进、括号匹配、当前行高亮，每件配 wbtest
-- [ ] **文档与示例**：`docs/zh/components/basics.md` + 英文镜像补 `code_editor`；showcase 加演示段；`测试文档/测试用例.md` 按现有编号补条；roadmap 两条移「已实现」并标平台状态
-- [ ] **提交与真机清单**：每件单独提交推送（【功能】/【修复】），最后给逐条真机操作步骤，视觉与交互交用户验收
+- [ ] **code_editor 真机复验**（用户执行）：showcase「代码文档」页第一段按 SC-6.4 清单走一遍——编辑链（打字/点击定位/拖选/双击选词/Shift 扩选/撤销重做/Tab 缩进/剪贴板互通/中文输入法组合串）、回车自动缩进、括号匹配双向高亮（字符串内不高亮）、当前行带、纵横滚动与光标滚进可视区、Ctrl/Cmd+F 查找条（匹配高亮/▲▼ 跳转/Esc 收起）、段尾字节-行数计数随动；过了 roadmap 两条 🚧 翻 ✅ 并删本条
 
 ## 模板预编译（2026-11-01 启动，方案见 [proposals/native-template.md](proposals/native-template.md) 与 [proposals/mng-project-dev.md](proposals/mng-project-dev.md)；已完成叙事归 roadmap「开发体验」，此处只留未完成项）
 

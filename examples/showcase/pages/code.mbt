@@ -95,7 +95,41 @@ pub fn page_code(_app : @shared.App) -> @widget.Node {
   let link_out : @base.Store[String] = @base.Store::new(
     @shared.tx("（还没点过链接）"),
   )
+  // 代码编辑器演示源文（可编辑；统计行随 on_change 现算）
+  let edit_source = "// 可编辑：改代码、Ctrl/Cmd+F 查找、敲回车看自动缩进、括号匹配高亮\nfn greet(name : String) -> String {\n  let msg = \"hello \\{name}\"\n  msg\n}\n"
+  let edit_store : @base.Store[String] = @base.Store::new(edit_source)
+  let edit_stat : @base.Store[String] = @base.Store::new(
+    @shared.tx("（还没改过）"),
+  )
   @shared.page([
+    @shared.section(
+      "代码编辑器",
+      "CodeEditor 代码编辑器",
+      "等宽 + 高亮 + 行号 + 编辑合体：Store 双向投影；点击/拖选/双击选词、Shift 扩选、方向键/Home/End/PageUp-Down、Tab 两格缩进、Ctrl/Cmd+Z 撤销重做、A/C/X/V 与系统剪贴板互通、IME 组合串内联；高亮走行级增量（编辑只重扫受影响行）；P2 增强：Ctrl/Cmd+F 查找（浮层条 + 全文匹配高亮 + ▲▼ 跳转 + Esc 收起）、回车自动缩进、括号匹配高亮、当前行高亮。下面这块可直接编辑，改动计数随 on_change 现算。",
+      [
+        @ui.col(
+          [
+            @ui.code_editor(edit_store, height=190.0, on_change=fn(t : String) -> Unit {
+              let nb = @utf8.encode(t).length()
+              let nl = t.split("\n").count()
+              edit_stat.set(
+                @shared.tr_with(
+                  "dyn.code_editor_stat",
+                  [("bytes", nb.to_string()), ("lines", nl.to_string())],
+                  "现值 \{nb} 字节 / \{nl} 行",
+                ),
+              )
+            }),
+            @ui.bind_label(edit_stat, fn(s) { s }),
+          ],
+          row_gap=8.0,
+        ),
+      ],
+      code=[
+        "@ui.code_editor(store, lang=\"moonbit\", line_numbers=true, height=190.0,",
+        "  on_change=fn(t) { … })",
+      ],
+    ),
     @shared.section(
       "代码高亮",
       "CodeView 代码高亮",

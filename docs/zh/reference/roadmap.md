@@ -175,6 +175,8 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 ### 代码栈（编辑器与终端）
 
 - ✅ **分词层跨行状态与字节偏移**：`scan_line(line, lang, state)` 逐行吃行首状态并吐出下一行状态——块注释（C 系不嵌套、rust 按深度嵌套）、python 三引号串、bash heredoc（正文整段按字符串着色、标记行吃完回正常）从此劈得准；Token 带 `byte_start`/`byte_len`（UTF-8 字节，与 Editor/TextLayout 同口径），`tokenize_lang` 降为无状态门面，`code_view` 预排版改吃 `scan_line` 顺行走状态（mdview 围栏代码块同享；静态路径零回归）
+- 🚧 **分词层·行级增量重扫**（随 `code_editor` 同批落地，真机待验）：每行缓存「行首状态 + tokens + 逐 token 宽」；编辑后**前缀/后缀行对齐**找变更区间，只重扫中段——后缀行按行数差 delta 映射旧缓存，行首状态与缓存一致即收敛停；未闭合块注释/三引号/heredoc 退化为「脏段扫到已扫末尾」（正确退化，用例钉死不死循环）；扫描**渐进推进**（构造期整篇预排版被探针否决——万行 scan+measure 169ms，见 `experiment/code_editor_bench`），首屏只扫可视行，未扫区域跳转补扫；单行编辑重扫 1 行、插入/删除行重扫个位数（wbtest 钉）
+- 🚧 **代码编辑器控件 `code_editor`**（P1+P2 已合入，真机待验）：等宽 + 高亮 + 行号 + 编辑合体——`@input.Editor` 唯一状态源（点击/拖选/双击选词、Shift 扩选、方向键/Home/End/PageUp-Down 按可视行翻页、Tab 两格缩进、undo/redo、A/C/X/V 系统剪贴板互通、IME 组合串内联），`Store` 双向投影 + `on_change` 回全文；纵横双 `ScrollState` + 滚动条，行号列与内容同步、光标自动滚进可视区；P2：`Ctrl/Cmd+F` 查找（浮层条 + 全文匹配高亮 + ▲▼ 跳转 + Esc 收起，ASCII 大小写不敏感）、回车自动缩进（继承行首空白、开括号行进一格）、括号匹配高亮（前后各限 400 行、字符串/注释 token 内不参与、紧贴开括号右侧配对）、聚焦当前行高亮。无头 wbtest 30 项全绿（增量收敛/字节口径/编辑链/绘制冒烟），showcase「代码文档」页有演示（SC-6.4）；真机视觉与交互清单归用户
 
 ### 状态与路由
 
@@ -301,10 +303,8 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ### 代码栈（编辑器与终端）
 
-三件合一份总纲（2026-11-03 立项，依赖链、选型定案与社区备选留档见 [proposals/code-stack.md](proposals/code-stack.md)）：公共地基 = 等宽文本栈 + 着色流 + TextLayout 偏移映射 + Editor 编辑内核；排期 ②扫描器升级（跨行状态/字节偏移已落，剩行级增量随 `code_editor`） → ③`code_editor` → ④`terminal`；前置 text-selection-a11y 一期已落。
+三件合一份总纲（2026-11-03 立项，依赖链、选型定案与社区备选留档见 [proposals/code-stack.md](proposals/code-stack.md)）：公共地基 = 等宽文本栈 + 着色流 + TextLayout 偏移映射 + Editor 编辑内核；排期 ②扫描器升级（✅ 已全部落地，见「已实现」）→ ③`code_editor`（✅ 已落，真机待验）→ ④`terminal`；前置 text-selection-a11y 一期已落。
 
-- ⏳ **分词层升级·行级增量重扫**：每行缓存 `(行首状态, tokens)`，编辑后从变更行向上复用最近未变行的行首状态、向下重扫，某行行首状态与缓存一致即收敛停；未闭合构造下退化为「脏段一路重扫到文末」（用例钉死不许死循环）。等首个编辑态消费者 `code_editor` 开工同批落，避免先行留无消费者的缓存层。
-- ⏳ **代码编辑器控件 `code_editor`**：等宽 + 高亮 + 行号 + 编辑合体——扫描器增量着色 + Editor 内核（caret/选区/撤销重做）+ TextLayout 命中映射；与 textarea 分工（纯文本 vs 高亮编辑），共用 TextLayout/Editor；P1 编辑/光标/选区/高亮/行号/撤销重做，P2 查找/缩进/括号匹配
 - ⏳ **终端控件 `terminal`（控件先行，PTY 另立项）**（原「终端模拟」并入本提案）：等宽网格 cell（字符+前背景+属性）+ ANSI CSI/SGR 子集（着色/光标/清屏）+ 滚动，喂文本即可用（日志面板/REPL 输出）；ANSI 直接色值不走 CodeTheme 语义角色，缺省前景/背景跟主题；PTY（forkpty/openpty/ConPTY）独立立项不绑定
 
 ### 输入与浮层
