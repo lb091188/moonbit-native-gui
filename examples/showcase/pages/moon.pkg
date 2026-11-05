@@ -17,6 +17,7 @@ import {
   "NoahLiu/native-gui/theme",
   "NoahLiu/native-gui/style",
   "NoahLiu/native-gui/mdview",
+  "NoahLiu/gui-gpu/gpu" @guigpu,
   "NoahLiu/native-gui-examples-showcase/shared",
 }
 

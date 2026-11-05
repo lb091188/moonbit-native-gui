@@ -18,6 +18,8 @@ pub const EN_CATALOG : String =
   "\"Divider 与 Tooltip\" = \"Divider & Tooltip\"\n" +
   "\"HoverGroup 悬停组与 CursorGroup 光标组\" = \"HoverGroup & CursorGroup\"\n" +
   "\"Painter 自绘\" = \"Painter drawing\"\n" +
+  "\"GPU 探测\" = \"GPU probe\"\n" +
+  "\"GPU 画布\" = \"GPU Canvas\"\n" +
   "\"富文本 AttributedText\" = \"AttributedText\"\n" +
   "\"字体回退与混排行高\" = \"Font fallback & mixed line height\"\n" +
   "\"端点/拐角与 Path 对象直通\" = \"Line cap/join & Path object\"\n" +
@@ -123,6 +125,8 @@ pub const EN_CATALOG : String =
   "\"desc§Divider 与 Tooltip\" = \"Horizontal/vertical 1px themed dividers; tooltip wraps any node with a native hint.\"\n" +
   "\"desc§HoverGroup 悬停组与 CursorGroup 光标组\" = \"Hover anywhere in a group (incl. children) highlights the whole card; cursor group keeps the hand cursor across its children.\"\n" +
   "\"desc§Painter 自绘\" = \"fill_rect/arc/fill/stroke_rect/draw_text plus linear gradients, drawn at the widget's real size.\"\n" +
+  "\"desc§GPU 探测\" = \"gui-gpu extension load detail and the L1 present tier (GPU composition vs CPU fallback reason).\"\n" +
+  "\"desc§GPU 画布\" = \"A container with on_render dispatches through RenderCtx::Gpu: fill_rect / draw_texture_rgba paint into an offscreen GpuCanvas, and in the same frame finish() reads the BGRA bytes back and blits them on screen. The check button reports the non-zero ratio and corner samples; an all-zero readback is the known issue tracked in experience/adaptation.md.\"\n" +
   "\"desc§富文本 AttributedText\" = \"Range fonts/colors, wrap & ellipsis toggles, and text rewriting that keeps attributes.\"\n" +
   "\"desc§字体回退与混排行高\" = \"The right box swaps a suffix to 28px; both boxes take mixed line-height. Missing families fall back via resolve_family.\"\n" +
   "\"desc§端点/拐角与 Path 对象直通\" = \"set_line_cap/join map straight to Cairo; draw_path replays a recorded path in one go.\"\n" +
@@ -923,6 +927,8 @@ pub const EN_CATALOG : String =
   // —— 段条短名（key = `seg.` + 段名；`page()` 的 label_of 出口取译）——
   "[seg]\n" +
   "\"主题\" = \"Theme\"\n" +
+  "\"探测\" = \"Probe\"\n" +
+  "\"画布\" = \"Canvas\"\n" +
   "\"云与运维\" = \"Cloud & Ops\"\n" +
   "\"交互\" = \"Interaction\"\n" +
   "\"代码高亮\" = \"Code\"\n" +
@@ -1042,6 +1048,7 @@ pub const EN_CATALOG : String =
   "\"画布与富文本\" = \"Canvas & Rich Text\"\n" +
   "\"过渡与效果\" = \"Motion & Effects\"\n" +
   "\"系统能力探测\" = \"Sys Probe\"\n" +
+  "\"GPU 画布\" = \"GPU Canvas\"\n" +
   "\"RTL 排版\" = \"RTL Type\"\n" +
   // —— 原生菜单栏 ——
   "[menu]\n" +
