@@ -99,6 +99,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **编辑内核**：选区、双击选词、Shift+箭头、undo/redo、只读、密码遮罩；UTF-8 码点边界对齐
 - ✅ **输入法通道**：组合串内联、候选窗贴光标、切框清空；Linux ibus/fcitx、Windows TSF、macOS NSTextInputClient
 - ✅ **输入法焦点门**：焦点控件绑定 + filter 门 + focus_in/out 同步（三平台真机通过）
+- ✅ **静态文本选中与复制**：`text`/`text_dyn` 的 `selectable` 档（单击定位、双击选词、拖选、Shift+点击扩选、`Ctrl/Cmd+C` 走宿主「谁持有选区」支、右键菜单 `can_edit=false`·`can_copy=true`、I 梁光标、窗口级单 owner 互斥、文本变化清选区；只读、不进 Tab 链）；`code_view` 跨行拖选、双击选词、Shift+点击、复制按 `\n` 拼、行号列不进选区；`markdown_view(selectable=true)` 逐字前缀实测量（`measure_font(前缀)` 与 entry/textarea 光标同口径，消除按比例分摊的 shaping 误差），文档级跨段选中按视觉序拼块、拖选/复制跨块连续，围栏/缩进/数学代码块随 `selectable` 透传；`rich_text(at, selectable)` 接 `AttributedText` 行盒与 `TextSel` 选中链，高亮按行盒铺、复制得全文。段内选中真机验收通过（2026-11-05）
 - 🚧 **浮层原生档**：所在窗挂有原生子件（网页区）时，六件浮层组件（气泡/下拉/提示/对话框/Toast/右键菜单）自动改开真窗口——无边框、不进任务栏、transient 到 owner、恒在 owner 之上，档位只看 `has_child_surfaces()`；无网页区维持同窗图层档。三平台接口全真，经 2026-10-28/29 多轮真机迭代收口（白板/窄条/收框量尺/KDE 死边/点外不收，见 adaptation.md）（Linux 真机多轮已过；Windows/mac 末轮清单待复验）
 
 ### 组件
@@ -171,11 +172,16 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **Markdown 渲染**：表格列对齐、脚注、任务列表、围栏代码，行距 1.6 倍
 - ✅ **代码高亮**：九种语言关键字集 + 行号 + 一键复制
 
+### 代码栈（编辑器与终端）
+
+- ✅ **分词层跨行状态与字节偏移**：`scan_line(line, lang, state)` 逐行吃行首状态并吐出下一行状态——块注释（C 系不嵌套、rust 按深度嵌套）、python 三引号串、bash heredoc（正文整段按字符串着色、标记行吃完回正常）从此劈得准；Token 带 `byte_start`/`byte_len`（UTF-8 字节，与 Editor/TextLayout 同口径），`tokenize_lang` 降为无状态门面，`code_view` 预排版改吃 `scan_line` 顺行走状态（mdview 围栏代码块同享；静态路径零回归）
+
 ### 状态与路由
 
 - ✅ **响应式数据**：`Store` / `Signal` / `computed`；多源合成与条件派生同一写法
 - ✅ **绑定与重建**：`bind_node` 原位重建子树、`bind_label` 与各 `*_dyn` 入口
 - ✅ **页面路由**：路由树、每层选中键、link 绑定、Eager / Prefetch / Lazy 三档预建
+- ✅ **路由每层淘汰**：`Lru(n)` 摘树 + 整代退订，重进按 thunk 重建；只数已挂载子树，`Keep` 不参与淘汰——长会话缓存不无限长
 - ✅ **样式与主题**：样式槽 + 状态桶 + 命名类；20 个颜色 token；跟随系统明暗与强调色
 - ✅ **声明式层**：`Node{mount:(Widget)->Widget}` 地基（`node_of`/`mount_children`/`WindowHost::mount`/`invalidate` 回路）+ **L1 构造器全集**（`ui/declarative.mbt`：`vbox`/`hbox`/`text_edit`/`picker`/`scroll`/`tab`/`date_picker`/`mount_window`/`bind`/`bind_label`/`hover_group`/`cursor_group`/`overlay_scroll`/`combo`/`gif`；与组件同名的 12 个直接复用组件、不包第二层）。旧链 24 构造器除 `mount`（即 `WindowHost::mount`）与同名件外全部到位**到此收口**。`cursor_group` 配套窗口层光标通道（`wm_set_cursor` + `Widget.cursor` 请求 + 宿主按悬停路径取「最深非零」下发）；`combo` 走按键沿祖先链冒泡（↑↓/回车/Esc）；`gif` 走 `@render.Animation` 逐帧迭代 + 进程级延时通道
 
@@ -276,6 +282,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - 🚧 **组件文档与教程**：每个组件一页配图；教程给可运行最小工程
 - ✅ **上手门槛**：首页最短路径；缺依赖时构建报错自带修复提示
 - ✅ **贡献入口**：`.github/ISSUE_TEMPLATE` 两份 issue form（bug 带平台 / 会话 / 版本 / 复现步骤 / 退出读数行 / 门禁自查；feature 带真实用例 / 期望接口形态 / 三平台通道情况）+ `config.yml`（关空白 issue，导向体验包、文档站、构建指南与贡献指南）、`PULL_REQUEST_TEMPLATE.md`（门禁读数 + 三平台验证表 + 文档同步清单 + 破坏性改动声明）、`CONTRIBUTING_ZH.md` / `CONTRIBUTING.md` 双语指南（目录落位、设计口径、无头与真机分工、提交与 PR 约定；环境与失败处置指回 build.md，不双源）
+- ✅ **无头测试门面 uitest**：公开包 `gui/uitest`（`test-import` 消费、name 定位不靠下标、显式 `frame()` 并行安全、`Capabilities` 显式守卫）；`Window::virtual_` id<0 哨兵 + `WindowHost::test_headless` 假窗与无头泵 wait(0)，定时器经 step 驱动可断言，C 桩零改动；`test_headless` 升为对外门面、`WindowHost::test_headless` 降为底座（签名不承诺 1.0），「虚窗 ≠ 真窗」语义边界写进包首；硬判据 `Tester::finish()`——找/动/看三类观察点一次都没跑即红（跳过计数不进 CI 门禁），form_wbtest 示范迁移完成
 
 ## 已规划
 
@@ -294,21 +301,15 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ### 代码栈（编辑器与终端）
 
-三件合一份总纲（2026-11-03 立项，依赖链、选型定案与社区备选留档见 [proposals/code-stack.md](proposals/code-stack.md)）：公共地基 = 等宽文本栈 + 着色流 + TextLayout 偏移映射 + Editor 编辑内核；排期 ②扫描器升级 → ③code_editor → ④terminal，前置 text-selection-a11y 一期。
+三件合一份总纲（2026-11-03 立项，依赖链、选型定案与社区备选留档见 [proposals/code-stack.md](proposals/code-stack.md)）：公共地基 = 等宽文本栈 + 着色流 + TextLayout 偏移映射 + Editor 编辑内核；排期 ②扫描器升级（跨行状态/字节偏移已落，剩行级增量随 `code_editor`） → ③`code_editor` → ④`terminal`；前置 text-selection-a11y 一期已落。
 
-- 🚧 **分词层升级·跨行状态与字节偏移**：`scan_line(line, lang, state)` 逐行吃「行首状态」并吐出下一行状态——块注释（C 系不嵌套、rust 按深度嵌套）、python 三引号串（定界符原文随状态带）、bash heredoc（`<<-?引号?TAG`，正文整段按字符串着色、标记行吃完回正常）从此劈得准；token 带 `byte_start`/`byte_len`（UTF-8 字节，与 Editor/TextLayout 同口径，出口按「token 连续覆盖整行」一次回填）；`tokenize_lang` 降为无状态门面，`code_view` 预排版改吃 `scan_line` 并把状态顺行走（静态路径其余零回归，mdview 围栏代码块同享）。用例钉：三段跨行注释的状态传播与着色分段、rust 与 C 的嵌套差、三引号闭合回正常、heredoc 标记与正文、字节区间累加等于行长。
 - ⏳ **分词层升级·行级增量重扫**：每行缓存 `(行首状态, tokens)`，编辑后从变更行向上复用最近未变行的行首状态、向下重扫，某行行首状态与缓存一致即收敛停；未闭合构造下退化为「脏段一路重扫到文末」（用例钉死不许死循环）。等首个编辑态消费者 `code_editor` 开工同批落，避免先行留无消费者的缓存层。
 - ⏳ **代码编辑器控件 `code_editor`**：等宽 + 高亮 + 行号 + 编辑合体——扫描器增量着色 + Editor 内核（caret/选区/撤销重做）+ TextLayout 命中映射；与 textarea 分工（纯文本 vs 高亮编辑），共用 TextLayout/Editor；P1 编辑/光标/选区/高亮/行号/撤销重做，P2 查找/缩进/括号匹配
 - ⏳ **终端控件 `terminal`（控件先行，PTY 另立项）**（原「终端模拟」并入本提案）：等宽网格 cell（字符+前背景+属性）+ ANSI CSI/SGR 子集（着色/光标/清屏）+ 滚动，喂文本即可用（日志面板/REPL 输出）；ANSI 直接色值不走 CodeTheme 语义角色，缺省前景/背景跟主题；PTY（forkpty/openpty/ConPTY）独立立项不绑定
 
 ### 输入与浮层
 
-- 🚧 **静态文本选中与复制**（2026-11-03 拍板立项，方案与坑清单见 [proposals/text-selection-a11y.md](proposals/text-selection-a11y.md)；与屏读语义共用地基——TextLayout 偏移映射 / name·role 字段 / 焦点链）：标签/文本段挂只读 Editor（命中测试、选区高亮、Ctrl+C / 右键复制）——折行布局与命中从 textarea 抽成 `@input.TextLayout`（✅2026-11-03 地基落地：`TextLine`/`wrap_units`/`layout_lines`/`line_of_caret` 迁进 `gui/input`，新增 `build`/`hit`/`caret_x`/`caret_y`/`line_of`，测宽器作必填参注入、input 层零平台依赖；textarea 等价改用，1227/1227 全绿。✅ entry 单行档同源改用同一原语（前缀宽=`caret_x`、像素→字节=`hit`，滚动与居中的 origin 一律不动））；input/textarea 的编辑链路已齐，此条只补纯展示文本；✅ `text`/`text_dyn` 的 `selectable` 档已落（单击定位、双击选词、拖选、Shift+点击扩选、`Ctrl/Cmd+C` 走宿主「谁持有选区」支、右键菜单 can_edit=false·can_copy=true、I 梁光标、窗口级单 owner 互斥、文本变化清选区；只读、不进 Tab 链；`rects` 随首个消费者落地，缺省档测量与绘制一行未动）；✅ code_view 选中已接（拖选跨行、双击选词、Shift+点击、复制按 `\n` 拼、行号列不进选区，几何仍复用单行 TextLayout）；✅ markdown 段落选中已接（`markdown_view(selectable=true)`：`MDCtx` 透传到每个富文本段，逐字 x 表按「段界取联合几何 `line_geo`、段内按逐字宽线性分摊到该段联合宽」建，首次用到才建并按行备忘；选中交互链复用 @ui 新开的 `TextSel` 公开面（`text_sel_new` / `pointer` / `range` / `sync` / `give_up`），复制得到本段原文、软折行不插换行；点在链接段上仍是打开链接，落空才起选区；✅ markdown 逐字选中改前缀实测量（2026-11-04）：段界仍取联合排版、段内逐字边缘取 `measure_font(前缀)` 真值（与 entry/textarea 光标同口径），shaping 误差不再按比例分摊——旧口径本机实测差 19px、点击落点漂移选不中字；「需动三平台 C 桩」的缓批前提被证伪（前缀量就是精确 shaping 宽），逐字落点断言到字节精确；✅ 带链接段落的指针 Up 转发修复（2026-11-04，真机抓到）：链接命中优先的分支 Up 不进选中链，`dragging` 清不掉——拖选松手后移动鼠标会一直从旧锚点改选区；✅ markdown 围栏/缩进/数学代码块随 `selectable` 透传 code_view（2026-11-04），showcase 三个代码块全开 selectable；✅ **段内选中真机验收通过**（2026-11-05：text selectable / code_view / markdown 段内拖选复制，SC-6.1、SC-6.3 段内判据）；✅ **markdown 文档级跨段选中**（2026-11-05 落地）：一份文档级 Editor 按视觉序拼各块文本（块间补换行），块注册表 + 偏移换算，拖选/复制跨块连续，交互链复用 TextSel；同批收口「跟随容器档 percent(100)」（shrink-to-fit 列被内在高钉死致命中死区）与共享选区的同号认领、绝对坐标双击判据，yoga 补 ③′（NoWrap 列测量趟按行宽量基准）；✅ **AttributedText 富文本逐字选中**（2026-11-05 落地）：@text 加 `line_boxes`/`hit`/`caret_x` 三个盒空间查询（`rt_line_count`/`rt_line_box`/`rt_hit`/`rt_caret_x` 四个 C 符号——Pango 用 xy_to_index/index_to_pos、CoreText 用既有 PtPara 行盒+前缀量、DWrite 用 HitTestPoint/HitTestTextPosition，占位臂同步补齐）；新组件 `@ui.rich_text(at, selectable)`（AttributedText 直绘 + TextSel 选中链，高亮按行盒铺、复制得全文）；showcase 富文本演示接 selectable；mac 无头用例验证（行盒连续覆盖/字符边界往返/拖选子串），Win/Linux 走桩语法门、真机清单归用户
 - ⏳ **浮层「点外收起」判据**：统一点外收起判定并补回归
-
-### 状态与路由
-
-- ⏳ **路由每层淘汰**：`Lru(n)` 摘树 + 整代退订，长会话缓存不无限长
 
 ### 系统能力
 
@@ -339,8 +340,6 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 ### 工程与交付
 
 - ⏳ **稳定面清单与 1.0 时点**：逐包划分承诺面 / 实验面，公告破坏性改动截止线
-- 🚧 **无头测试门面 uitest**（2026-11-02 立项；方案与坑清单见 [proposals/headless-tester.md](proposals/headless-tester.md)）：本仓不缺无头能力（wbtest 2.8 万行、合成指针事件与位图断言齐全），缺的是**对外门面**与**应用泵无头路径**——P1 公开包 `gui/uitest`（`test-import` 消费、name 定位不靠下标、显式 `frame()` 并行安全、`Capabilities` 显式守卫、form_wbtest 示范迁移）；✅P2 虚窗哨兵（`Window::virtual_` id<0 哨兵 + `WindowHost::test_headless` 假窗与无头泵 wait(0)，定时器经 step 驱动可断言，C 桩零改动）；✅P1 判据收口（2026-11-03）：跳过计数**不进 CI 门禁**，只留一条硬判据 `Tester::finish()`——找/动/看三类观察点一次都没跑即红；`test_headless` 升为对外门面 `@uitest.test_headless`，`WindowHost::test_headless` 降为底座（签名不承诺 1.0），「虚窗 ≠ 真窗」的语义边界写进 uitest 包首（哨兵句柄 id<0、无 IME/真实输入设备、无平台弹窗、时间靠 step/frame 推进、HiDPI 与合成器观感归真机）。真机人工验的分工不变
-
 - ⏳ **无头像素快照基线**（PNG + 容差）：自带基线目录与比对器、三平台各一份基线，`moon test` 无快照机制故全部自建；判据（容差怎么定、基线漂了谁批）待立项时定，工作量大于门面本体，故从 P1 拆出（2026-11-03 定案：单独立项，不进 P1）
 
 ### 可访问性
