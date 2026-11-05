@@ -3766,3 +3766,7 @@ mac 跑 showcase「GPU 画布」页报「GPU 画布建不出（400x240；驱动�
 **预编译链**：stub.c 加新 C 符号后必须重跑 `gui/scripts/prebuild.py`——mac 的 `libyue_text_mac.a` 是脚本现编的归档，moon test 不会自动重编（链接 undefined symbols 即此因）。MacRT 的字节长度字段叫 `len`（Rt/Pango 叫 `tlen`、PtwSession 也叫 `tlen`），跨分支抄代码时易踩。
 
 **组件**：`@ui.rich_text(at, selectable)`——AttributedText 直绘（draw_at 已有的 Painter 会话）+ TextSel 复用链；高亮按 `line_boxes` 铺行矩形、行内区间 = `caret_x` 前缘差；测量三档同 mdview 口径（min/max 探询答单行自然宽）。用例在 ui/richsel_wbtest（字符边界往返 + 拖选子串 + 非可选档不进登记）。
+
+## mac 键盘的命令组合被 TSM 吞掉：keyDown 输入法门要放行 Cmd/Ctrl（2026-11-06，真机日志抓到）
+
+`WMView keyDown:` 的输入法门原判据是「组合中（`preedit_active`）或 vk 表外的文字键（`mapped == 0`）才进 `handleEvent:`」——但 **Cmd/Ctrl 组合的字母键 keyCode 同样不在 vk 表里**（字母/数字由事件文本给，vk 表只有功能键），于是 `Cmd+A` 这类组合被 TSM 的 `handleEvent:` 整个消化：返回 YES，keyDown 不入队，**只有 keyUp 没有门、漏上来了**。真机症状是「编辑器复制/粘贴/全选/撤销/重做/查找（Cmd 族）全部失效」，`NATIVEGUI_ROUTE_LOG` 日志的指纹是「命令键只出现 `mods=8` 的修饰键按下 + `press=false` 的字母 keyUp，永无字母 keyDown」。修法：keyDown 进门判据补「命令修饰不进门」——`NSCommandKeyMask | NSControlKeyMask` 任一在即直接透传入队（命令组合语义归应用层）；**Option 保留进门**（Option+字母出特殊字符是文字键语义，走系统布局与 IME）。回车/翻页/方向键不受影响（vk 表内，本就直通）。教训：输入法门的「文字键」判据必须把「带命令修饰的文字键」摘出去，TSM 对带修饰键的 `handleEvent:` 返回值不可信。

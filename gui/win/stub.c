@@ -9061,7 +9061,15 @@ static NSString *wm_a11y_ax_role(const char *role) {
   // 在飞（候选区还要用方向/回车/空格选词）」或「kVK 映射表外的键（=文字键，
   // 要交给输入法起组合）」才进 handleEvent；功能键直接透传入队。
   uint32_t mapped = wm_mac_vk_keysym([ev keyCode]);
-  NSTextInputContext *ic = s0 != nil && s0->im_active &&
+  // 带命令修饰（Cmd/Ctrl）的 keyDown 不进输入法门：TSM 的 handleEvent 会把
+  // 这类组合整个消化掉（真机实测：编辑器 Cmd+A/C/V/Z/F 全灭，事件只剩
+  // press=false 的 keyUp——keyUp 没有这门所以漏上来了）。命令组合语义归
+  // 应用层；Option 保留进门（Option+字母出特殊字符是文字键语义，走布局）。
+  NSEventModifierFlags mf = [ev modifierFlags] &
+      NSEventModifierFlagDeviceIndependentFlagsMask;
+  BOOL command_like =
+      (mf & (NSCommandKeyMask | NSControlKeyMask)) != 0;
+  NSTextInputContext *ic = s0 != nil && s0->im_active && !command_like &&
       (s0->preedit_active || mapped == 0u) ? [self inputContext] : nil;
   if (ic != nil && [ic handleEvent:ev]) {
     // 输入法吃掉了：不推按键，改由 insertText:/setMarkedText: 通道回报
