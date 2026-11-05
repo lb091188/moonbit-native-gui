@@ -17,9 +17,36 @@
 // 槽（class 可覆盖）。Tab 插入两格缩进（编辑区吃掉 Tab，不做焦点跳转）。
 
 ///|
-/// 行首到行内字节列 `col` 的宽（逐码点真值量，CJK 不按等宽踩坑）。
+/// on_key 关键拍落 stdout：`LIBYUE_CODEEDIT_LOG` / `NATIVEGUI_CODEEDIT_LOG`
+/// 任一设了就打印（真机取证「按键进没进控件、焦点在不在、修饰码是什么」）。
+fn codeedit_diag(msg : String) -> Unit {
+  let on = match @sys.sys_getenv("LIBYUE_CODEEDIT_LOG") {
+    Some(_) => true
+    None => @sys.sys_getenv("NATIVEGUI_CODEEDIT_LOG") is Some(_)
+  }
+  if on {
+    println("[codeedit] \{msg}")
+  }
+}
+
+///|
+/// 行首到行内字节列 `col` 的宽：**逐码点累积**（与 `code_col_at` 同一条链，
+/// 点击定位与光标/选区绘制才不会因「整串一次量 vs 逐码点累加」的分叉错位）。
 fn code_prefix_w(doc : CodeScan, row : Int, col : Int, font : @text.Font) -> Double {
-  text_width(byte_slice(doc.line_at(row), 0, col), font)
+  let line = doc.line_at(row)
+  let b = @utf8.encode(line)
+  let n = b.length()
+  let mut at = 0
+  let mut w = 0.0
+  while at < col && at < n {
+    let mut next = at + 1
+    while next < n && (b[next].to_int() & 0xc0) == 0x80 {
+      next = next + 1
+    }
+    w = w + text_width(byte_slice(line, at, next), font)
+    at = next
+  }
+  w
 }
 
 ///|
@@ -462,6 +489,8 @@ pub fn code_editor(
     })
     @base.sub_bag_register(fn() { find_store.remove(fsid) })
     w.focus_id = auto_focus_id(focus_id)
+    // Tab 是输入（两格缩进）：向宿主声明，别让焦点栈把 Tab 抢走
+    w.wants_tab = true
     w.cursor = @widget.CURSOR_TEXT
     w.node.set_width(@yoga.percent(100.0))
     w.node.set_height(@yoga.fixed(box_h))
@@ -573,7 +602,31 @@ pub fn code_editor(
           }
         None => ()
       }
-      // 行号 + token（裁剪到文本区，横向滚动时不压行号列）
+      // 行号列（不进 clip：坐标在文本区左侧，裁剪区从 gl 起会把它们整列裁没）
+      if want_numbers {
+        for row = first; row <= last; row = row + 1 {
+          let y = pad_top + row.to_double() * line_h - st.offset
+          if y + line_h < 0.0 || y > r.h {
+            continue
+          }
+          let num = (row + 1).to_string()
+          let nw = text_width(num, font)
+          let _ = @text.draw_box_at(
+            p,
+            gl - 8.0 - nw,
+            y,
+            nw + 2.0,
+            line_h,
+            num,
+            font,
+            ct.line_no,
+            align=@text.Start,
+            valign=@text.Center,
+            wrap=false,
+          )
+        }
+      }
+      // token（裁剪到文本区，横向滚动时不压行号列）
       p.save()
       p.clip_rect(gl, 0.0, (r.w - gl).max(0.0), r.h)
       // 查找匹配高亮（P2；token 之下，当前匹配更浓）
@@ -609,23 +662,6 @@ pub fn code_editor(
         let y = pad_top + row.to_double() * line_h - st.offset
         if y + line_h < 0.0 || y > r.h {
           continue
-        }
-        if want_numbers {
-          let num = (row + 1).to_string()
-          let nw = text_width(num, font)
-          let _ = @text.draw_box_at(
-            p,
-            gl - 8.0 - nw,
-            y,
-            nw + 2.0,
-            line_h,
-            num,
-            font,
-            ct.line_no,
-            align=@text.Start,
-            valign=@text.Center,
-            wrap=false,
-          )
         }
         let toks = doc.tokens_of(row)
         let laid = doc.measure_row(row, font)
@@ -694,6 +730,9 @@ pub fn code_editor(
       }
     })
     w.on_key = Some(fn(ev : @widget.KeyEvent) -> Bool {
+      codeedit_diag(
+        "key keysym=\{ev.keysym} mods=\{ev.mods} press=\{ev.press} focused=\{w.focused} ro=\{ro}",
+      )
       if !ev.press || off.off {
         return false
       }
@@ -775,6 +814,7 @@ pub fn code_editor(
       }
       let before = ed.get_text()
       let handled = ed.handle_key(ev.keysym, ev.mods, mac=is_mac)
+      codeedit_diag("key handled=\{handled} via=kernel")
       if handled {
         pref_x.val = -1.0
         if ed.get_text() != before {

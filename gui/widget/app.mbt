@@ -47,6 +47,21 @@ pub(all) struct WindowHost {
 }
 
 ///|
+/// 宿主要不要把这枚无修饰 Tab 吃掉驱动焦点栈：焦点控件声明 `wants_tab`
+/// （Tab 是输入的控件，如代码编辑器）时不吃、放行给焦点链派发；无焦点或
+/// 焦点控件不在树上时照旧吃（纯 Tab 语义）。Shift+Tab 走不到这里。
+fn tab_consumed_by_host(root : Widget, current : Int?) -> Bool {
+  match current {
+    Some(id) =>
+      match root.find_by_focus_id(id) {
+        Some(w) => !w.wants_tab
+        None => true
+      }
+    None => true
+  }
+}
+
+///|
 /// 注册一个**窗口级**按键兜底处理器：焦点链（焦点控件及其带 `on_key` 的祖先）
 /// 没消费、或压根没有焦点控件时，按注册序逐个问过去，第一个返回 `true` 的截断。
 /// 给「不点也能用键盘」的组件（播放器快捷键一类）用。三条口径：
@@ -872,12 +887,18 @@ fn WindowHost::route(self : WindowHost, ev : @win.InputEvent) -> Unit {
       if self.fire_system_keys(kev) {
         return ()
       }
-      // Tab / Shift+Tab 由宿主消费并驱动焦点栈（GTK 可能给 ISO_Left_Tab）
+      // Tab / Shift+Tab 由宿主消费并驱动焦点栈（GTK 可能给 ISO_Left_Tab）；
+      // 焦点控件声明 `wants_tab`（Tab 是输入的控件，如代码编辑器）时，无修饰
+      // Tab 放行给焦点链——Shift+Tab 仍归宿主（编辑器的反缩进日后再接）。
       if kev.keysym == KS_TAB || kev.keysym == KS_ISO_LEFT_TAB {
-        self.move_focus(
-          kev.keysym == KS_ISO_LEFT_TAB || (kev.mods & MOD_SHIFT) != 0,
-        )
-        return ()
+        if kev.keysym == KS_ISO_LEFT_TAB ||
+          (kev.mods & MOD_SHIFT) != 0 ||
+          tab_consumed_by_host(self.root, self.focus.current()) {
+          self.move_focus(
+            kev.keysym == KS_ISO_LEFT_TAB || (kev.mods & MOD_SHIFT) != 0,
+          )
+          return ()
+        }
       }
       let consumed = match self.focus.current() {
         Some(id) => self.root.dispatch_key(id, kev)

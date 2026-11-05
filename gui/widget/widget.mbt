@@ -153,6 +153,10 @@ pub(all) struct Widget {
   /// 「点它不让位」：宿主点击让位（blur）语义会跳过命中链上带这个标记的区域。
   /// 给复合控件的附属小件用（步进器的 +/- 格）：点它只是操作，不抢输入格的焦点。
   mut keep_focus_on_click : Bool
+  /// 「Tab 是我的输入」：宿主默认把 Tab/Shift+Tab 吃掉驱动焦点栈；焦点控件
+  /// 声明这个标记后，**无修饰 Tab** 放行给焦点链（代码编辑器的缩进就是输入）。
+  /// Shift+Tab 仍由宿主消费（焦点环），编辑器的反缩进日后再接。
+  mut wants_tab : Bool
   /// 子树圆角裁切：绘制完自己与子件后，把本控件矩形四角、`style_clip_radius`
   /// 半径圆角外的像素补回父层原值（绘制收尾的补角 pass，逐角读回外侧紧邻像素作
   /// 底色）。子件会通铺方底时用这道，免得方角内容啃掉容器圆角。
@@ -255,6 +259,7 @@ pub fn Widget::new() -> Widget {
     im_cursor: None,
     focus_id: 0,
     keep_focus_on_click: false,
+    wants_tab: false,
     clip_rounded: false,
     style_clip_radius: 0.0,
     cursor: 0,

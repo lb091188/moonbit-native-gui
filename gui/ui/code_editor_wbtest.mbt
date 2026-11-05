@@ -352,6 +352,42 @@ fn paint_editor(root : @widget.Widget) -> @render.Bitmap {
 }
 
 ///|
+test "行号列真实出墨（clip 修复后）与 wants_tab 声明" {
+  use_system_clipboard(false)
+  let (root, w, store, _) = mounted_editor("aaaa\nbbbb\n", 300.0, 120.0)
+  let bm = @render.Bitmap::new(320, 140)
+  let p = @render.Painter::new(bm)
+  root.paint(p)
+  p.end()
+  let bg = bm.pixel(2, 2)
+  let gl = (editor_text_left(2) - 4.0).to_int()
+  let mut ink = 0
+  for y = 8; y < 50; y = y + 1 {
+    for x = (gl - 20).max(0); x < gl - 6; x = x + 1 {
+      let c = bm.pixel(x, y)
+      if (c.r, c.g, c.b, c.a) != (bg.r, bg.g, bg.b, bg.a) {
+        ink = ink + 1
+      }
+    }
+  }
+  assert_true(ink > 8, msg="行号列没有出墨（仍被裁或没画）")
+  // wants_tab：向宿主声明「Tab 是我的输入」
+  let got : Ref[Int] = Ref(0)
+  let store2 = @base.Store::new("")
+  let node = code_editor(store2, height=80.0, handle=fn(w : @widget.Widget) -> Unit {
+    got.val = if w.wants_tab { 1 } else { 0 }
+  })
+  let root2 = @widget.Widget::new()
+  root2.set_size(200.0, 100.0)
+  root2.set_column()
+  let _ = node.mount_into(root2)
+  root2.relayout(200.0, 100.0)
+  assert_eq(got.val, 1)
+  let _ = w
+  let _ = store
+}
+
+///|
 test "查找条冒烟：主修饰键+F 与 Esc 不崩、文本不动" {
   use_system_clipboard(false)
   let (root, w, store, _) = mounted_editor("let a = 1\n", 300.0, 120.0)

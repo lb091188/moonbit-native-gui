@@ -192,3 +192,22 @@ test "focus_by_id / request_host_focus：在册号接管，不在册与无宿主
   assert_eq(a.focus.current(), Some(9))
   host_reset()
 }
+
+///|
+test "wants_tab：焦点控件声明后宿主放行无修饰 Tab，其余照吃" {
+  let root = Widget::new()
+  let editor = Widget::new()
+  editor.focus_id = 7
+  editor.wants_tab = true
+  root.append_child(editor)
+  let plain = Widget::new()
+  plain.focus_id = 8
+  root.append_child(plain)
+  // 焦点在编辑器：无修饰 Tab 放行（返回 false = 宿主不消费）
+  assert_false(tab_consumed_by_host(root, Some(7)))
+  // 焦点在普通输入框：Tab 归宿主焦点栈
+  assert_true(tab_consumed_by_host(root, Some(8)))
+  // 无焦点 / 焦点号不在树上：照吃
+  assert_true(tab_consumed_by_host(root, None))
+  assert_true(tab_consumed_by_host(root, Some(99)))
+}
