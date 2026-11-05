@@ -18,7 +18,7 @@
 - [ ] **X11 wgpu 三角形真机复验**（用户执行）：实现已落（2026-11-04，`gpu/triangle.c` + `run_triangle` 门面 + `experiment/gpu_triangle`；无显示实跑验过加载链，详见 adaptation.md）——`moon run experiment/gpu_triangle` 跑一遍：窗口里见三色三角形、关窗或按 Esc 正常退出算过；不过把现象贴回来
 - [ ] **L1-Linux present 真机复验**（用户执行）：实现已落（2026-11-04，stub.c GTK 臂 GPU 档 + 进程级探测，详见 adaptation.md）——showcase/hello 跑起来：界面与改造前一致（回退逐像素一致）、无闪烁、resize 不花、最小化恢复不花；`MNG_WGPU_LIB` 指到坏路径应自动回退 cairo 不崩。过了本条删除；不过把现象贴回来
 - [ ] **L1-Win 真机复验**（用户执行）：实现已落（2026-11-04，核心三臂共享 + Win32 薄适配，详见 adaptation.md）——Windows 跑一遍 hello/showcase：界面与改造前一致、无闪烁、resize 不花。mac 腿已过（2026-11-05 真机：界面与纯光栅一致、视图转 layer-backing 后输入/交互正常）；Linux 腿复验见上一条
-- [ ] **首消费者·真机复验 + demo 页 + transfer setter**：实现已落（2026-11-04：`wgpu_core` 骨架上收 + `GpuCanvas` 实现 `@render.GpuSink` + `install` 便捷接线 + 无头用例；详见 adaptation.md）——①**真机复验**（用户执行）：在 `moon run` 的应用进程里跑 GpuCanvas（进程内 queue 写链在 moon 测试进程不落地、standalone 原型可用，根因待查），读回有像素才算过；②showcase「GPU 画布」demo 页（挂 `on_render` + `gpu_set_sink` + finish 读回上屏，赛季验收面）；③`@ffmpeg-mbt` 的 `Demuxer::set_transfer_mode` setter（0=SwScale Ok，1=DirectTexture 如实报未落地，H2 策略位接线）
+- [ ] **首消费者·真机复验**（用户执行）：demo 页与 transfer setter 已落（2026-11-05：showcase「GPU 画布」页 16——`on_render` 派发 + finish 读回上屏 + 检查读回按钮；`Demuxer::set_transfer_mode` 接线，0/1 可设可读、未知档 Err、直纹理档如实不出帧；测试用例 2.17）——在 `moon run` 的应用进程里跑 GpuCanvas（进程内 queue 写链在 moon 测试进程不落地、standalone 原型可用，根因待查；mac 的 gui-gpu canvas wbtest 还是「画布建不出」一档，见 adaptation.md），读回有像素才算过；「建不出/全零」都是有效观察，贴回来。过了本条删除
 
 ## 模板预编译（2026-11-01 启动，方案见 [proposals/native-template.md](proposals/native-template.md) 与 [proposals/mng-project-dev.md](proposals/mng-project-dev.md)；已完成叙事归 roadmap「开发体验」，此处只留未完成项）
 

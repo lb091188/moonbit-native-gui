@@ -428,6 +428,14 @@ int32_t vf_transfer_mode(VfDec *d) {
     return d ? d->transfer : -1;
 }
 
+/* 帧输出策略位设置（H2 接线，方案 §五）：MoonBit 侧已限 0/1；直纹理档
+ * 未落地时输出端 vf_frame_output 如实报 -1（不出帧），解码端零改动。 */
+void vf_set_transfer_mode(VfDec *d, int32_t mode) {
+    if (d) {
+        d->transfer = (int)mode;
+    }
+}
+
 /* 解码下一帧为 RGBA 写进 out（容量须 >= w*h*4）。
  * 返回：1=拿到一帧；0=流结束；-1=错误 */
 int32_t vf_decode_next(VfDec *d, uint8_t *out, int32_t out_len) {

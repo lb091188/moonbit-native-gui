@@ -277,3 +277,40 @@ test "ffmpeg 硬解：显式请求下的三档状态与回落等价" {
   }
   hw.close()
 }
+
+///|
+test "transfer_mode setter：0/1 可设可读、未知档回 Err；直纹理档如实不出帧" {
+  let d = match Demuxer::open("src/testdata/testsrc_1s.avi") {
+    Ok(d) => d
+    Err(e) => fail("打开失败：\{e}")
+  }
+  match d.open_video_decoder(width=96, height=64) {
+    Ok(_) => ()
+    Err(e) => fail("开解码器失败：\{e}")
+  }
+  // 缺省档 SwScale 出帧
+  assert_eq(d.transfer_mode(), 0)
+  assert_true(d.decode_rgba() is Some(_), msg="SwScale 档应出帧")
+  // 接线：1=DirectTexture 可设可读；未落地由输出端如实体现（不出帧，
+  // 与流结束同形——错误通道归 GPU 线直纹理落地批）
+  match d.set_transfer_mode(1) {
+    Ok(_) => ()
+    Err(e) => fail("设 1 不该报错：\{e}")
+  }
+  assert_eq(d.transfer_mode(), 1)
+  assert_true(d.decode_rgba() is None, msg="直纹理档未落地，应如实不出帧")
+  // 未知档回 Err，位保持原值
+  match d.set_transfer_mode(5) {
+    Err(msg) =>
+      assert_eq(msg, "未知档位：5（0=SwScale、1=DirectTexture）")
+    Ok(_) => fail("未知档位不该成功")
+  }
+  assert_eq(d.transfer_mode(), 1)
+  // 切回 SwScale 恢复出帧（失败帧不污染解码器状态）
+  match d.set_transfer_mode(0) {
+    Ok(_) => ()
+    Err(e) => fail("设 0 不该报错：\{e}")
+  }
+  assert_true(d.decode_rgba() is Some(_), msg="切回 SwScale 应恢复出帧")
+  d.close()
+}

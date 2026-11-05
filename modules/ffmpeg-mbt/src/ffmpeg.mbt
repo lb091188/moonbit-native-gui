@@ -254,6 +254,23 @@ pub fn Demuxer::transfer_mode(self : Demuxer) -> Int {
 }
 
 ///|
+/// 帧输出策略位设置（H2 接线，方案 §五）：0=SwScale、1=DirectTexture，
+/// 位可设可读（`transfer_mode()`）。直纹理档未落地——设 1 后输出端如实
+/// 不出帧（`decode_rgba()` 给 None），GPU 线落地时解码端零改动；未知档位
+/// 回 Err 且位保持原值。
+pub fn Demuxer::set_transfer_mode(
+  self : Demuxer,
+  mode : Int,
+) -> Result[Unit, String] {
+  if mode == 0 || mode == 1 {
+    vf_set_transfer_mode(self.dec, mode)
+    Ok(())
+  } else {
+    Err("未知档位：\{mode}（0=SwScale、1=DirectTexture）")
+  }
+}
+
+///|
 /// 解码下一帧为 RGBA 字节（恰好 out_w*out_h*4 长度；流结束/未开
 /// 视频解码器给 None）。
 pub fn Demuxer::decode_rgba(self : Demuxer) -> Bytes? {
@@ -516,6 +533,11 @@ extern "c" fn vf_hw_reason(d : VfDec, out : Bytes, cap : Int) -> Int = "vf_hw_re
 
 ///|
 extern "c" fn vf_transfer_mode(d : VfDec) -> Int = "vf_transfer_mode"
+
+///|
+#borrow(d)
+extern "c" fn vf_set_transfer_mode(d : VfDec, mode : Int) -> Unit =
+  "vf_set_transfer_mode"
 
 ///|
 #borrow(d)
