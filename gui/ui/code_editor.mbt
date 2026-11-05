@@ -48,6 +48,207 @@ fn code_col_at(doc : CodeScan, row : Int, content_x : Double, font : @text.Font)
 }
 
 ///|
+/// 自动缩进：Enter 后新行的行首空白——继承上一行行首空白；上一行去掉尾随
+/// 空白后以 `(`/`[`/`{` 结尾再进一格（两空格）。
+fn code_auto_indent(line : String) -> String {
+  let b = @utf8.encode(line)
+  let n = b.length()
+  let mut i = 0
+  while i < n && (b[i].to_int() == 0x20 || b[i].to_int() == 0x09) {
+    i = i + 1
+  }
+  let indent = @utf8.decode_lossy(b[0:i])
+  let mut j = n - 1
+  while j >= 0 && b[j].to_int() == 0x20 {
+    j = j - 1
+  }
+  let last = if j >= 0 { b[j].to_int() } else { -1 }
+  if last == 40 || last == 91 || last == 123 {
+    indent + "  "
+  } else {
+    indent
+  }
+}
+
+///|
+/// 查找全部匹配：ASCII 大小写不敏感逐字节比对（多字节序列不会误配——
+/// UTF-8 各字节 ≥ 0x80 原样比较）；空 query 给空表。
+fn find_all_matches(text : String, query : String) -> Array[(Int, Int)] {
+  let out : Array[(Int, Int)] = []
+  let q = @utf8.encode(query)
+  let m = q.length()
+  if m == 0 {
+    return out
+  }
+  let t = @utf8.encode(text)
+  let n = t.length()
+  let lower = fn(v : Int) -> Int {
+    if v >= 65 && v <= 90 {
+      v + 32
+    } else {
+      v
+    }
+  }
+  let ql : Array[Int] = []
+  for i in 0..<m {
+    ql.push(lower(q[i].to_int()))
+  }
+  for i = 0; i + m <= n; i = i + 1 {
+    let mut ok = true
+    let mut j = 0
+    while ok && j < m {
+      if lower(t[i + j].to_int()) != ql[j] {
+        ok = false
+      }
+      j = j + 1
+    }
+    if ok {
+      out.push((i, i + m))
+    }
+  }
+  out
+}
+
+///|
+/// 括号匹配：caret 处字符是开括号 → 向后找配对闭括号；caret 前一字符是
+/// 闭括号 → 向前找配对开括号。字符串/注释 token 内的括号不参与；两侧各限
+/// 400 行，找不到给 None。返回 (开括号字节号, 闭括号字节号)。
+fn code_bracket_pair(doc : CodeScan, caret : Int) -> (Int, Int)? {
+  let n = doc.line_count()
+  let anchor_row = doc.row_of(caret)
+  doc.ensure((anchor_row + 400).min(n - 1))
+  let col0 = caret - doc.start_of(anchor_row)
+  let is_open = fn(v : Int) -> Bool { v == 40 || v == 91 || v == 123 }
+  let is_close = fn(v : Int) -> Bool { v == 41 || v == 93 || v == 125 }
+  let close_of = fn(v : Int) -> Int {
+    match v {
+      40 => 41
+      91 => 93
+      _ => 125
+    }
+  }
+  let open_of = fn(v : Int) -> Int {
+    match v {
+      41 => 40
+      93 => 91
+      _ => 123
+    }
+  }
+  let line_bytes = fn(row : Int) -> Bytes {
+    @utf8.encode(doc.line_at(row))
+  }
+  let skipped = fn(byte : Int) -> Bool {
+    match doc.role_at(byte) {
+      Some(StrLit) | Some(Comment) => true
+      _ => false
+    }
+  }
+  let g = fn(row : Int, col : Int) -> Int {
+    doc.start_of(row) + col
+  }
+  // 锚点口径：caret 处是开括号 → 向后找闭；caret 前一字符是闭括号 → 向前
+  // 找开；caret 前一字符是开括号 → 也向后找闭（紧贴开括号右侧高亮配对，
+  // 编辑器通例）。
+  let b0 = line_bytes(anchor_row)
+  let c0 = if col0 < b0.length() { b0[col0].to_int() } else { -1 }
+  let mut frow = anchor_row
+  let mut fcol = col0
+  let mut fbyte = caret
+  let mut fopen = c0
+  let mut backward : (Int, Int, Int)? = None
+  if caret > 0 {
+    let prow = doc.row_of(caret - 1)
+    let pcol = caret - 1 - doc.start_of(prow)
+    let bp = line_bytes(prow)
+    let cp = if pcol < bp.length() { bp[pcol].to_int() } else { -1 }
+    if !is_open(c0) && is_open(cp) {
+      frow = prow
+      fcol = pcol
+      fbyte = caret - 1
+      fopen = cp
+    } else if is_close(cp) {
+      backward = Some((prow, pcol, cp))
+    }
+  }
+  if is_open(fopen) {
+    // 锚点自身在字符串/注释里：不参与匹配
+    if skipped(fbyte) {
+      return None
+    }
+    let want = close_of(fopen)
+    let mut depth = 0
+    let hi = (frow + 400).min(n - 1)
+    for r = frow; r <= hi; r = r + 1 {
+      let b = line_bytes(r)
+      let mut c = if r == frow { fcol } else { 0 }
+      while c < b.length() {
+        let v = b[c].to_int()
+        if !skipped(g(r, c)) {
+          if v == fopen {
+            depth = depth + 1
+          } else if v == want {
+            depth = depth - 1
+            if depth == 0 {
+              return Some((fbyte, g(r, c)))
+            }
+          }
+        }
+        c = c + 1
+        while c < b.length() && (b[c].to_int() & 0xc0) == 0x80 {
+          c = c + 1
+        }
+      }
+    }
+    return None
+  }
+  // caret 前一字符是闭括号 → 向前找开
+  match backward {
+    Some((prow, pcol, cp)) => {
+      // 锚点自身在字符串/注释里：不参与匹配
+      if skipped(caret - 1) {
+        return None
+      }
+      let want = open_of(cp)
+      let mut depth = 0
+      let lo = (prow - 400).max(0)
+      let mut r = prow
+      while r >= lo {
+        let b = line_bytes(r)
+        let mut c = if r == prow { pcol } else { b.length() - 1 }
+        if c >= b.length() {
+          c = b.length() - 1
+        }
+        // 对齐到码点首（从行尾起或锚点可能落中间）
+        while c > 0 && (b[c].to_int() & 0xc0) == 0x80 {
+          c = c - 1
+        }
+        while c >= 0 {
+          let v = b[c].to_int()
+          if !skipped(g(r, c)) {
+            if v == cp {
+              depth = depth + 1
+            } else if v == want {
+              depth = depth - 1
+              if depth == 0 {
+                return Some((g(r, c), caret - 1))
+              }
+            }
+          }
+          // 退到前一码点首
+          c = c - 1
+          while c > 0 && (b[c].to_int() & 0xc0) == 0x80 {
+            c = c - 1
+          }
+        }
+        r = r - 1
+      }
+    }
+    None => ()
+  }
+  None
+}
+
+///|
 /// 代码编辑器。文本经 `store` 双向投影；`lang` 走 code_view 的语言表
 /// （"moonbit" 缺省，另支持 js/ts/python/rust/c/go/bash/sql）。
 pub fn code_editor(
@@ -153,6 +354,13 @@ pub fn code_editor(
   } else {
     line_h * rows.to_double() + pad_top * 2.0
   }
+  // —— P2：查找与括号匹配的状态 ——
+  let find_store = @base.Store::new("")
+  let find_open = Ref(false)
+  let find_matches : Ref[Array[(Int, Int)]] = Ref([])
+  let find_cur = Ref(-1)
+  let pair_key = Ref(-1)
+  let pair_val : Ref[(Int, Int)?] = Ref(None)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
     w.role = "code_editor"
@@ -170,6 +378,89 @@ pub fn code_editor(
     let dragging = Ref(false)
     let anchor = Ref(0)
     let pref_x : Ref[Double] = Ref(-1.0)
+    // —— 查找（P2）：浮层条 + 全文匹配高亮 + 上/下一个 ——
+    let recompute_find = fn() -> Unit {
+      find_matches.val = find_all_matches(ed.get_text(), find_store.get())
+      find_cur.val = if find_matches.val.length() > 0 { 0 } else { -1 }
+    }
+    let jump_find = fn(dir : Int) -> Unit {
+      let ms = find_matches.val
+      if ms.length() == 0 {
+        return
+      }
+      let cur = if find_cur.val < 0 {
+        0
+      } else {
+        (find_cur.val + dir + ms.length()) % ms.length()
+      }
+      find_cur.val = cur
+      let (a, b) = ms[cur]
+      ed.select_range(a, b)
+      ensure_caret()
+      @widget.invalidate()
+    }
+    let close_find = fn() -> Unit {
+      find_open.val = false
+      find_matches.val = []
+      find_cur.val = -1
+      @widget.overlay_hide_top()
+      @widget.invalidate()
+    }
+    let open_find = fn() -> Unit {
+      find_open.val = true
+      recompute_find()
+      let pane = overlay_pane(
+        [
+          view(
+            [
+              input(
+                find_store,
+                width=150.0,
+                placeholder="查找…",
+                on_enter=fn() -> Unit { jump_find(1) },
+              ),
+              button(
+                "▲",
+                on_click=fn() -> Unit { jump_find(0 - 1) },
+                font_size=12.0,
+                min_width=30.0,
+              ),
+              button(
+                "▼",
+                on_click=fn() -> Unit { jump_find(1) },
+                font_size=12.0,
+                min_width=30.0,
+              ),
+              button(
+                "✕",
+                on_click=close_find,
+                font_size=12.0,
+                min_width=30.0,
+              ),
+            ],
+            direction=@yoga.Row,
+            column_gap=6.0,
+            padding=8.0,
+            align_items=@yoga.AlignItems::Center,
+          ),
+        ],
+        268.0,
+        0.0,
+      )
+      let _ = @widget.overlay_show_at(
+        pane,
+        w.rect.x + w.rect.w - 288.0,
+        w.rect.y + 6.0,
+      )
+      @widget.invalidate()
+    }
+    let fsid = find_store.subscribe_id(fn(_q : String) -> Unit {
+      if find_open.val {
+        recompute_find()
+        @widget.invalidate()
+      }
+    })
+    @base.sub_bag_register(fn() { find_store.remove(fsid) })
     w.focus_id = auto_focus_id(focus_id)
     w.cursor = @widget.CURSOR_TEXT
     w.node.set_width(@yoga.percent(100.0))
@@ -247,6 +538,18 @@ pub fn code_editor(
         max=n - 1,
       )
       doc.ensure(last)
+      // 当前行高亮（聚焦时；画在选区与 token 之下）
+      if self.focused && !off.off {
+        let crow = doc.row_of(caret)
+        let y = pad_top + crow.to_double() * line_h - st.offset
+        p.set_fill_color(@theme.theme_fill_hover())
+        p.fill_rect(gl, y, (r.w - gl).max(0.0), line_h)
+      }
+      // 括号匹配（P2）：caret 动了才重算
+      if caret != pair_key.val {
+        pair_key.val = caret
+        pair_val.val = code_bracket_pair(doc, caret)
+      }
       // 选区高亮（铺在 token 之下）
       match sel {
         Some((s, e)) =>
@@ -273,6 +576,35 @@ pub fn code_editor(
       // 行号 + token（裁剪到文本区，横向滚动时不压行号列）
       p.save()
       p.clip_rect(gl, 0.0, (r.w - gl).max(0.0), r.h)
+      // 查找匹配高亮（P2；token 之下，当前匹配更浓）
+      if find_open.val {
+        let ms = find_matches.val
+        if ms.length() > 0 {
+          let top_b = doc.start_of(first)
+          let bot_b = doc.start_of(last) + doc.len_of(last)
+          for i, m in ms {
+            let (a, b) = m
+            if b <= top_b || a > bot_b {
+              continue
+            }
+            p.set_global_alpha(if i == find_cur.val { 0.55 } else { 0.26 })
+            p.set_fill_color(@theme.theme_warning())
+            for row = doc.row_of(a); row <= doc.row_of(b - 1); row = row + 1 {
+              let rs = doc.start_of(row)
+              let re_ = rs + doc.len_of(row)
+              let lo = (a - rs).max(0)
+              let hi2 = (b - rs).min(re_ - rs)
+              if hi2 > lo {
+                let y = pad_top + row.to_double() * line_h - st.offset
+                let x0 = code_prefix_w(doc, row, lo, font)
+                let x1 = code_prefix_w(doc, row, hi2, font)
+                p.fill_rect(tl - st.offset_x + x0, y, (x1 - x0).max(1.0), line_h)
+              }
+            }
+          }
+          p.set_global_alpha(1.0)
+        }
+      }
       for row = first; row <= last; row = row + 1 {
         let y = pad_top + row.to_double() * line_h - st.offset
         if y + line_h < 0.0 || y > r.h {
@@ -318,6 +650,25 @@ pub fn code_editor(
           x = x + tw
         }
       }
+      // 括号匹配标记（token 之上淡档块）
+      match pair_val.val {
+        Some((oa, ob)) =>
+          for byte in [oa, ob] {
+            let brow = doc.row_of(byte)
+            if brow < first || brow > last {
+              continue
+            }
+            let bcol = byte - doc.start_of(brow)
+            let x0 = code_prefix_w(doc, brow, bcol, font)
+            let x1 = code_prefix_w(doc, brow, bcol + 1, font)
+            let y = pad_top + brow.to_double() * line_h - st.offset
+            p.set_global_alpha(0.4)
+            p.set_fill_color(@theme.theme_warning())
+            p.fill_rect(tl - st.offset_x + x0, y, (x1 - x0).max(1.0), line_h)
+            p.set_global_alpha(1.0)
+          }
+        None => ()
+      }
       p.restore()
       // 光标与组合串
       let (cx, cy) = caret_xy(caret)
@@ -354,7 +705,10 @@ pub fn code_editor(
         if ro {
           return false
         }
-        let _ = ed.insert_text("\n")
+        // 自动缩进：继承 caret 所在行的行首空白，开括号行再进一格
+        let caret = ed.caret_pos()
+        let indent = code_auto_indent(doc.line_at(doc.row_of(caret)))
+        let _ = ed.insert_text("\n" + indent)
         pref_x.val = -1.0
         push()
         ensure_caret()
@@ -397,6 +751,17 @@ pub fn code_editor(
         push()
         ensure_caret()
         @widget.invalidate()
+        return true
+      }
+      // 主修饰键+F 开查找（只读也可用）；Esc 关
+      let alt_on = (ev.mods & @base.MOD_ALT) != 0
+      let other = if is_mac { ctrl || alt_on } else { meta || alt_on }
+      if primary && !other && ev.keysym == 'f'.to_int() {
+        open_find()
+        return true
+      }
+      if ev.keysym == @base.KS_ESCAPE && find_open.val {
+        close_find()
         return true
       }
       let editing = ev.keysym == @base.KS_BACKSPACE || ev.keysym == @base.KS_DELETE

@@ -139,6 +139,23 @@ fn CodeScan::tokens_of(self : CodeScan, row : Int) -> Array[Token] {
 }
 
 ///|
+/// 全文字节号处的 token 角色（该行已扫才有意义；未扫/无覆盖给 None）。
+/// 括号匹配用它跳过字符串/注释里的括号。
+fn CodeScan::role_at(self : CodeScan, byte : Int) -> TokenRole? {
+  let row = self.row_of(byte)
+  if row > self.scanned {
+    return None
+  }
+  let col = byte - self.starts[row]
+  for t in self.toks[row] {
+    if col >= t.byte_start && col < t.byte_start + t.byte_len {
+      return Some(t.role)
+    }
+  }
+  None
+}
+
+///|
 /// 渐进扫描：把 0..=row 扫齐（从 scanned+1 顺序推进，不跳行）。
 fn CodeScan::ensure(self : CodeScan, row : Int) -> Unit {
   let target = row.min(self.lines.length() - 1)

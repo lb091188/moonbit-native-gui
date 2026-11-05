@@ -271,3 +271,92 @@ test "bash heredoc 高亮逐行走状态：正文整段字符串着色" {
   assert_eq(caret_of(w), @utf8.encode(store.get()).length())
 }
 
+
+///|
+test "自动缩进：换行继承行首空白，开括号行再进一格" {
+  use_system_clipboard(false)
+  let (root, w, store, _) = mounted_editor("fn f() {\n", 300.0, 120.0)
+  let lh = editor_line_h()
+  let tx = editor_text_left(2)
+  // 点到第一行行尾（x 给足余量钳到行尾），回车 → 新行继承空白并进一格
+  press_xy(root, w, w.rect.x + tx + 200.0, w.rect.y + 4.0 + lh * 0.5)
+  release_xy(root, w, w.rect.x + tx + 200.0, w.rect.y + 4.0 + lh * 0.5)
+  key(root, w, @base.KS_RETURN, 0)
+  assert_eq(store.get(), "fn f() {\n  \n")
+  // 普通行只继承不进格
+  press_xy(root, w, w.rect.x + tx + 200.0, w.rect.y + 4.0 + lh * 1.5)
+  release_xy(root, w, w.rect.x + tx + 200.0, w.rect.y + 4.0 + lh * 1.5)
+  key(root, w, @base.KS_RETURN, 0)
+  assert_eq(store.get(), "fn f() {\n  \n  \n")
+}
+
+///|
+test "查找纯函数：大小写不敏感、空 query、多字节不误配" {
+  assert_eq(find_all_matches("", "ab"), [])
+  assert_eq(find_all_matches("abc ABC ab", "ab"), [(0, 2), (4, 6), (8, 10)])
+  assert_eq(find_all_matches("aaa", "aa"), [(0, 2), (1, 3)])
+  assert_eq(find_all_matches("x中文y中文", "中文"), [(1, 7), (8, 14)])
+  assert_eq(find_all_matches("abc", "abcd"), [])
+}
+
+///|
+test "括号匹配纯函数：向后/向前/字符串内不参与" {
+  let doc = CodeScan::new("fn f() {\n  let x = [1, 2]\n}\n", "moonbit")
+  // caret 紧贴行 0 '{'（byte 7）右侧 → 配对到行 2 '}'（byte 26）
+  assert_eq(code_bracket_pair(doc, 8), Some((7, 26)))
+  // caret 在 '}'（byte 26）之后 → 向前配回 '{'
+  assert_eq(code_bracket_pair(doc, 27), Some((7, 26)))
+  // caret 在行 1 ']'（byte 24）之后 → 配回 '['
+  assert_eq(code_bracket_pair(doc, 25), Some((19, 24)))
+  // 无括号
+  assert_eq(code_bracket_pair(doc, 0), None)
+  // 字符串里的括号不参与：'(' 在字符串字面量内
+  let s = CodeScan::new("let a = \"(\"\nlet b = (1)\n", "moonbit")
+  assert_eq(code_bracket_pair(s, 10), None) // caret 在字符串内 '(' 之后
+  assert_eq(code_bracket_pair(s, 21), Some((20, 22))) // 行 1 的 (1)
+}
+
+///|
+test "当前行高亮：聚焦时 caret 行像素变化" {
+  use_system_clipboard(false)
+  let (root, w, store, _) = mounted_editor("aaaa\nbbbb\n", 300.0, 140.0)
+  // caret 初始在文末（尾随空行，行 2）
+  let lh = editor_line_h()
+  let band_y = 4.0 + lh * 2.0
+  let idle = paint_editor(root)
+  root.set_focused_by_focus(1)
+  let lit = paint_editor(root)
+  let mut diff = 0
+  for y = band_y.to_int(); y < (band_y + lh - 2.0).to_int(); y = y + 1 {
+    for x = 10; x < 200; x = x + 1 {
+      let a = idle.pixel(x, y)
+      let b = lit.pixel(x, y)
+      if (a.r, a.g, a.b, a.a) != (b.r, b.g, b.b, b.a) {
+        diff = diff + 1
+      }
+    }
+  }
+  assert_true(diff > 4, msg="聚焦后当前行没有高亮带")
+  let _ = store
+  let _ = w
+}
+
+///|
+/// 编辑器尺寸的绘制快照。
+fn paint_editor(root : @widget.Widget) -> @render.Bitmap {
+  let bm = @render.Bitmap::new(320, 140)
+  let p = @render.Painter::new(bm)
+  root.paint(p)
+  p.end()
+  bm
+}
+
+///|
+test "查找条冒烟：主修饰键+F 与 Esc 不崩、文本不动" {
+  use_system_clipboard(false)
+  let (root, w, store, _) = mounted_editor("let a = 1\n", 300.0, 120.0)
+  key(root, w, 'f'.to_int(), mod_edit())
+  assert_eq(store.get(), "let a = 1\n")
+  key(root, w, @base.KS_ESCAPE, 0)
+  assert_eq(store.get(), "let a = 1\n")
+}
