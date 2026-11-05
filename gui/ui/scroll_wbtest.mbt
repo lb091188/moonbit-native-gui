@@ -22,6 +22,18 @@ fn paint(root : @widget.Widget, w : Int, h : Int) -> @render.Bitmap {
 }
 
 ///|
+/// 在视口内滚一格（dy 正 = 上滚）。
+fn wheel(root : @widget.Widget, vp : @widget.Widget, dy : Double) -> Bool {
+  root.dispatch_scroll({
+    x: vp.rect.x + 40.0,
+    y: vp.rect.y + 40.0,
+    dx: 0.0,
+    dy: dy,
+    mods: 0,
+  })
+}
+
+///|
 test "滚动容器：视口/内容几何来自布局，滚轮改偏移并两端夹取" {
   let st = ScrollState::new()
   let (root, vp) = mounted(
@@ -357,4 +369,103 @@ test "横滚下限档：视口窄于下限时内容钉在下限并可滚" {
   let content = vp.children()[0]
   assert_eq(content.rect.w, 400.0)
   assert_eq(st.max_x(), 100.0)
+}
+
+///|
+test "跟随底部：首帧布局完即贴底，内容变高继续跟随" {
+  let st = ScrollState::new()
+  st.set_follow_bottom(true)
+  let (root, vp) = mounted(
+    scroll_view(scroll_rows(20, 20.0, @theme.theme_bg_panel()), st, width=200.0, height=100.0),
+    240.0,
+    140.0,
+  )
+  // 挂载后第一帧绘制才拿到几何：这一帧就把偏移拉到 max
+  let _ = paint(root, 240, 140)
+  assert_eq(st.max(), 300.0)
+  assert_eq(st.offset_y(), 300.0)
+  assert_true(st.is_following_bottom())
+  // 追加一行：内容变高后下一帧继续贴底，宿主不需要手动 scroll_to_bottom
+  let content = vp.children()[0]
+  let _ = view([text("追加行", font_size=12.0)], height=20.0, background_color=@theme.theme_bg_panel()).mount_into(content)
+  root.relayout(240.0, 140.0)
+  let _ = paint(root, 240, 140)
+  assert_eq(st.max(), 320.0)
+  assert_eq(st.offset_y(), 320.0)
+  // 偏移已落到内容节点的 top：再排一次版即见内容整体上移
+  root.relayout(240.0, 140.0)
+  assert_eq(content.rect.y, vp.rect.y - 320.0)
+}
+
+///|
+test "跟随底部：用户上滚暂停、回到底部恢复；未开启者不受影响" {
+  let bg = @theme.theme_bg_panel()
+  let st = ScrollState::new()
+  st.set_follow_bottom(true)
+  let (root, vp) = mounted(
+    scroll_view(scroll_rows(20, 20.0, bg), st, width=200.0, height=100.0),
+    240.0,
+    140.0,
+  )
+  let _ = paint(root, 240, 140)
+  assert_eq(st.offset_y(), 300.0)
+  // 上滚一格：离开底部即暂停，但开关还开着
+  let _ = wheel(root, vp, 1.0)
+  assert_eq(st.offset_y(), 270.0)
+  assert_true(st.follow_bottom)
+  assert_false(st.is_following_bottom())
+  // 暂停期间内容变高不贴底
+  let content = vp.children()[0]
+  let _ = view([text("追加行", font_size=12.0)], height=20.0, background_color=bg).mount_into(content)
+  root.relayout(240.0, 140.0)
+  let _ = paint(root, 240, 140)
+  assert_eq(st.max(), 320.0)
+  assert_eq(st.offset_y(), 270.0)
+  // 下滚回到底部：恢复跟随，随后内容再变高又贴底
+  for _i = 0; _i < 2; _i = _i + 1 {
+    let _ = wheel(root, vp, -1.0)
+  }
+  assert_eq(st.offset_y(), 320.0)
+  assert_true(st.is_following_bottom())
+  let _ = view([text("再追加", font_size=12.0)], height=20.0, background_color=bg).mount_into(content)
+  root.relayout(240.0, 140.0)
+  let _ = paint(root, 240, 140)
+  assert_eq(st.offset_y(), 340.0)
+
+  // 拖条同样接线：点条中段离开底部 → 暂停；点条底端回到底部 → 恢复
+  let bar = vp.children()[1]
+  let click_bar = fn(y : Double) -> Bool {
+    root.dispatch_pointer({
+      kind: @widget.PointerKind::Down,
+      x: bar.rect.x + 4.0,
+      y: bar.rect.y + y,
+      button: 1,
+      mods: 0,
+    })
+  }
+  let _ = click_bar(bar.rect.h / 2.0)
+  assert_false(st.is_following_bottom())
+  let _ = click_bar(bar.rect.h - 1.0)
+  assert_true(st.offset_y() > 330.0)
+  assert_true(st.is_following_bottom())
+
+  // 未开启跟随：即使手动滚到底，内容变高也不贴底（行为与旧版一致）
+  let st2 = ScrollState::new()
+  let (root2, vp2) = mounted(
+    scroll_view(scroll_rows(20, 20.0, bg), st2, width=200.0, height=100.0),
+    240.0,
+    140.0,
+  )
+  let _ = paint(root2, 240, 140)
+  for _i = 0; _i < 20; _i = _i + 1 {
+    let _ = wheel(root2, vp2, -1.0)
+  }
+  assert_eq(st2.offset_y(), 300.0)
+  assert_false(st2.is_following_bottom())
+  let content2 = vp2.children()[0]
+  let _ = view([text("追加行", font_size=12.0)], height=20.0, background_color=bg).mount_into(content2)
+  root2.relayout(240.0, 140.0)
+  let _ = paint(root2, 240, 140)
+  assert_eq(st2.max(), 320.0)
+  assert_eq(st2.offset_y(), 300.0)
 }

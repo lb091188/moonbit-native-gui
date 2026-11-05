@@ -26,6 +26,10 @@ pub(all) struct ScrollState {
   mut view_w : Double
   /// 横向版的「应用偏移」：把 `offset_x` 落到内容节点 `left` 并请求重绘。
   apply_x : Ref[() -> Unit]
+  /// 跟随底部：开时内容变高会自动贴底（`set_follow_bottom` 写）。
+  mut follow_bottom : Bool
+  /// 用户手动滚离底部期间的暂停位：回到底部即恢复；未开跟随时无意义。
+  mut follow_paused : Bool
 }
 
 ///|
@@ -40,6 +44,8 @@ pub fn ScrollState::new() -> ScrollState {
     content_w: 0.0,
     view_w: 0.0,
     apply_x: Ref(fn() { () }),
+    follow_bottom: false,
+    follow_paused: false,
   }
 }
 
@@ -111,6 +117,33 @@ pub fn ScrollState::scroll_to_bottom(self : ScrollState) -> Unit {
 /// 是否已滚到底部（容差 1px，避免浮点抖动）。
 pub fn ScrollState::at_bottom(self : ScrollState) -> Bool {
   self.offset >= self.max() - 1.0
+}
+
+///|
+/// 设「跟随底部」：开启后内容变高时自动贴底（视口每帧在布局完成后检查），
+/// 首帧即生效；用户手动滚离底部暂停跟随，手动回到底部恢复。关闭时不动当前偏移。
+/// 宿主内容更新只需 push，不必每次追加后调 `scroll_to_bottom`。
+pub fn ScrollState::set_follow_bottom(self : ScrollState, on : Bool) -> Unit {
+  self.follow_bottom = on
+  self.follow_paused = false
+  if on {
+    self.set_offset(self.max())
+  }
+}
+
+///|
+/// 当前是否正在跟随底部（开了跟随且未被用户手动滚离）。
+pub fn ScrollState::is_following_bottom(self : ScrollState) -> Bool {
+  self.follow_bottom && !self.follow_paused
+}
+
+///|
+/// 用户手动滚动后同步暂停位：停在底部继续跟随，离开底部暂停。
+/// 只在开了跟随时改位，未开启的滚动容器行为不变。
+fn ScrollState::note_user_scroll(self : ScrollState) -> Unit {
+  if self.follow_bottom {
+    self.follow_paused = !self.at_bottom()
+  }
 }
 
 ///|
@@ -192,11 +225,13 @@ fn scroll_bar(state : ScrollState) -> @widget.Widget {
       @widget.PointerKind::Down => {
         dragging.val = true
         state.set_offset(y_to_offset(ev.y))
+        state.note_user_scroll()
         true
       }
       @widget.PointerKind::Move => {
         if dragging.val {
           state.set_offset(y_to_offset(ev.y))
+          state.note_user_scroll()
         }
         true
       }
@@ -384,6 +419,14 @@ pub fn scroll_view(
       state.content_h = content.rect.h
       state.view_w = r.w
       state.content_w = content.rect.w
+      // 跟随底部只能在几何抄完之后判：内容变高的这一帧就把偏移拉到新的 max，
+      // 下一帧绘制即贴底（首帧同理，不用等宿主再调一次 scroll_to_bottom）。
+      if state.is_following_bottom() {
+        let m = state.max()
+        if state.offset != m {
+          state.set_offset(m)
+        }
+      }
       if state.content_h > state.view_h {
         let st = @style.style_for(self)
         p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
@@ -404,6 +447,7 @@ pub fn scroll_view(
       let before = state.offset
       // 一格滚 3 行（与常见桌面滚动量同量级），dy 正=向上滚
       state.scroll_by(0.0 - ev.dy * 30.0)
+      state.note_user_scroll()
       state.offset != before
     })
     handle(viewport)

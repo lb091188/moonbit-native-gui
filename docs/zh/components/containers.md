@@ -31,7 +31,7 @@
 ### `scroll_view(children, state : ScrollState, width?, height?, hscroll?=false, min_content_width?=0.0, class?, handle?)`
 
 - 滚动容器；滚动条为浮在右缘的拇指：不绘制轨道、不占宽度，悬停满色、平时淡色
-- `state`：`ScrollState` 持有滚动偏移，外部可读写
+- `state`：`ScrollState` 持有滚动偏移，外部可读写；`set_follow_bottom(true)` 开启「跟随底部」——内容变高时自动贴底（首帧布局完成后即生效），用户手动滚离底部暂停、回到底部恢复，宿主追加内容后不必重复调 `scroll_to_bottom`（首帧前几何未知，直接调它是空操作）
 - `height`：视口高度，`0` 表示由父级决定
 - `hscroll`：开启横向滚动
 - `min_content_width`：内容宽两档——缺省 `0.0` 为自然宽档 `max(子项自然宽, 视口宽)`（长代码行 / 表格适用）；给定正值 `N` 为下限档 `max(N, 视口宽)`，不读子项自然宽，更宽的内容由它自己的视口滚动
