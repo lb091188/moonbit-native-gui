@@ -22,6 +22,9 @@ pub struct Editor {
   mut clip_ext_set : ((String) -> Unit)?
   undo : Array[(Array[Byte], Int, Int?)]
   redo : Array[(Array[Byte], Int, Int?)]
+  // 撤销栈深度上限（None = 不限）。大文件编辑器用它防长会话内存无界
+  // （快照是全文拷贝，万行文件一次快照近 1MB）。
+  mut undo_limit : Int?
 }
 
 fn is_cont(b : Byte) -> Bool {
@@ -46,7 +49,15 @@ pub fn Editor::new() -> Editor {
     clip_ext_set: None,
     undo: [],
     redo: [],
+    undo_limit: None,
   }
+}
+
+///|
+/// 限制撤销栈深度：每次快照后超限丢栈底最旧。缺省不限；code_editor 这类
+/// 全文快照的大文本编辑件用它防长会话内存无界。
+pub fn Editor::set_undo_limit(self : Editor, limit : Int) -> Unit {
+  self.undo_limit = Some(limit)
 }
 
 ///|
@@ -137,10 +148,11 @@ pub fn Editor::selection(self : Editor) -> (Int, Int)? {
   }
 }
 
-// Array[Byte] → String：手写 UTF-8 解码，逐码点拼接（不依赖具体 builder API，
-// 只有测试与输入框尺度，成本可忽略）。
+// Array[Byte] → String：手写 UTF-8 解码，逐码点写进 builder（O(n)。编辑内核
+// 是万行级代码编辑器的文本权威，字符串拼接式的逐码点累加是 O(n²)，每次
+// get_text 都会撞上）。
 fn bytes_to_string(bs : Array[Byte]) -> String {
-  let mut out = ""
+  let b = StringBuilder()
   let n = bs.length()
   let mut i = 0
   while i < n {
@@ -156,13 +168,13 @@ fn bytes_to_string(bs : Array[Byte]) -> String {
         j = j + 1
       }
       match cp.to_char() {
-        Some(c) => out = "\{out}\{c}"
+        Some(c) => b.write_char(c)
         None => ()
       }
       i = i + len
     }
   }
-  out
+  b.to_string()
 }
 
 ///|
@@ -192,6 +204,16 @@ fn Editor::snapshot(self : Editor) -> Unit {
     copy.push(b)
   }
   self.undo.push((copy, self.caret, self.anchor))
+  // 深度上限：超限丢栈底最旧
+  match self.undo_limit {
+    Some(l) =>
+      if l >= 0 {
+        while self.undo.length() > l {
+          let _ = self.undo.remove(0)
+        }
+      }
+    None => ()
+  }
   // 新的用户动作作废 redo 栈
   while self.redo.length() > 0 {
     let _ = self.redo.pop()

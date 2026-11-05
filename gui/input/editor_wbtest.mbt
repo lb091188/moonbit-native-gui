@@ -139,3 +139,37 @@ test "区间取值不切碎多字节且越界钳制" {
   assert_eq(ed.get_text_in_range(-5, 999), "αβγ")
   assert_eq(ed.get_text_in_range(4, 2), "")
 }
+
+///|
+test "撤销栈限深：超限丢最旧，最近的可撤" {
+  let ed = Editor::new()
+  ed.set_undo_limit(2)
+  ed.set_text("1")
+  let _ = ed.insert_text("2")
+  let _ = ed.insert_text("3")
+  let _ = ed.insert_text("4")
+  // 快照 4 份只留 2：撤两次到顶，第三次撤不动
+  assert_eq(ed.undo(), true)
+  assert_eq(ed.get_text(), "123")
+  assert_eq(ed.undo(), true)
+  assert_eq(ed.get_text(), "12")
+  assert_eq(ed.undo(), false)
+  assert_eq(ed.get_text(), "12")
+  assert_eq(ed.redo(), true)
+  assert_eq(ed.get_text(), "123")
+}
+
+///|
+test "大文本 get_text 往返：三千行一次取出不截断" {
+  let ed = Editor::new()
+  let line = "pub fn handle(self : Editor, ev : KeyEvent) -> Bool { // 中文注释也占字节 }"
+  let sb = StringBuilder()
+  for _ in 0..<3000 {
+    sb.write_string(line)
+    sb.write_char('\n')
+  }
+  let src = sb.to_string()
+  ed.set_text(src)
+  assert_eq(ed.byte_len(), @utf8.encode(src).length())
+  assert_eq(ed.get_text(), src)
+}
