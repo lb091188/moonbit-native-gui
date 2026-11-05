@@ -1,0 +1,9 @@
+import {
+  "moonbitlang/core/env",
+  "NoahLiu/native-gui/text",
+  "NoahLiu/native-gui/ui",
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"

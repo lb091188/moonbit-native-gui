@@ -13,7 +13,7 @@
 |---|---|---|
 | ① 等宽文本栈 | `@text.Font` 度量（`text_width` / `line_height_font`）、`draw_box_at` 逐段绘制 | ✅ 已建成 |
 | ② 着色流 | `tokenize_lang`（文本→Token 流）+ `CodeTheme`（主题派生配色） | 跨行状态 + 字节偏移已落（2026-11-03，`scan_line`）；行级增量等 `code_editor` 同批 |
-| ③ 偏移映射 | `TextLayout`（字符偏移↔屏幕几何） | 🚧 [text-selection-a11y.md](text-selection-a11y.md) 一期抽取中 |
+| ③ 偏移映射 | `TextLayout`（字符偏移↔屏幕几何） | ✅ 已建成（gui/input/text_layout.mbt，2026-11-03） |
 | ④ 编辑内核 | `Editor`（caret/选区/撤销/剪贴板，UTF-8 字节下标） | ✅ 已建成（gui/input/editor.mbt） |
 
 | 消费者 | 吃的地基 | 缺口 |
@@ -24,10 +24,10 @@
 
 ## 现状盘点
 
-- **分词**：`tokenize_lang` / `tokenize_moonbit`（gui/ui/codeview.mbt:197-392）——手写逐行扫描器，词级分类（9 语言关键字表大小写不敏感、大写开头=类型、`@` 限定名取尾段、后随 `(` =调用、字符串/数字/行注释）。**逐行独立分词、无跨行状态**：块注释 `/* */`、多行字符串、heredoc 劈不准。
+- **分词**：`tokenize_lang` / `tokenize_moonbit`（gui/ui/codeview.mbt）——手写逐行扫描器，词级分类（9 语言关键字表大小写不敏感、大写开头=类型、`@` 限定名取尾段、后随 `(` =调用、字符串/数字/行注释）。跨行状态已由 `scan_line` 补齐（块注释 / 三引号串 / heredoc），静态预排版已接入；行级增量仍待 `code_editor` 同批。
 - **组件**：`code_view`（gui/ui/codeview.mbt:407）——构造期一次分词+测宽成预排版表（codeview.mbt:429-454），on_draw 按 `CodeTheme` 现取色；静态内容重绘零分词开销，但**编辑态每敲一键都要整体重建**，无「只重排受影响行」的增量模型；自带横向滚动视口。mdview 围栏/缩进/数学代码块全部复用（gui/mdview/markdown.mbt:586-591）。
 - **编辑内核**：`@input.Editor`（gui/input/editor.mbt）——caret/选区/撤销重做/剪贴板，坐标一律 UTF-8 字节下标、caret 落码点边界；只挂在 entry/textarea，没有高亮消费方。
-- **偏移映射**：`TextLayout` 待 [text-selection-a11y.md](text-selection-a11y.md) 一期从 textarea 抽出（落 gui/input，与 Editor 同包）。
+- **偏移映射**：`TextLayout` 已落 `gui/input/text_layout.mbt`（`build`/`hit`/`caret_x`/`caret_y`/`line_of`/`rects`），textarea / code_view / markdown / rich_text 共用。
 - **终端**：未开工（roadmap 原「终端模拟」⏳）。`sys/procrun` 只有管道进程 spawn/wait/signal/kill，**没有 PTY**。
 
 ## 定案一：分词层——自研带跨行状态的行级增量扫描器
@@ -87,7 +87,7 @@
 
 ## 未核项清单（开工前先回证）
 
+- ~~万行级文件构造期预排版时长探针~~ **已回证（2026-11-05，mac release，`experiment/code_editor_bench`）**：万行 × ~80 列 scan+measure = **169ms（纯扫描 113ms）**，debug 档 326/267ms——构造期整篇预排版不可接受（首屏冻 0.2–0.3s，Windows 纯光栅腿更慢）。**定案：code_editor 走纯增量路径**——前缀/后缀行对齐（delta 映射）+ 渐进扫描（扫到哪缓存哪，首屏只扫可视行附近）+ 逐行测宽按需惰性缓存；跳到未扫区域的首屏一次扫描成本顺延到跳转时刻（万行 ≈ 0.1s 一跳一次，记边界）。同批读数：单行编辑重扫 **1 行**（收敛判据成立）；未闭合块注释退化到文末 **5000 行**（正确退化）。`line_height_font` Monospace 13 实测 = **18**（mac）。
 - 行级增量的收敛停条件在「未闭合多行字符串 / 未闭合块注释」下的行为——用例钉死（脏段一路重扫到文末是正确退化，不许死循环）。
-- `line_height_font` 各平台等宽行高实测（code_view 现用，增量路径沿用同一来源）。
-- ANSI 256 色与 truecolor 取色档；主题深浅两基底可辨性——真机人工项。
-- 万行级文件构造期预排版时长探针（experiment/ 微基准）——决定 code_editor 首屏走预排版还是纯增量。
+- `line_height_font` 其余平台（Windows/Linux）等宽行高实测——P1 无头用例不钉具体像素（按 `line_height_font` 现算），真机走查行距即可。
+- ANSI 256 色与 truecolor 取色档；主题深浅两基底可辨性——真机人工项（终端控件批）。
