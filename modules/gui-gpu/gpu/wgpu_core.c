@@ -54,6 +54,14 @@ static void *core_dlsym(void *h, const char *n) {
 }
 #endif
 
+// 库名按平台取 vendor 归档的实际产物：Linux .so / mac .dylib（与 probe.c、
+// gui/win/stub.c 的 L1 核心同口径；漏了这条 mac 上全部候选落空）
+#if defined(__APPLE__)
+#define MNG_WGPU_LIB_BASE "libwgpu_native.dylib"
+#else
+#define MNG_WGPU_LIB_BASE "libwgpu_native.so"
+#endif
+
 static int core_load_lib(void) {
   if (g_core_lib) {
     return 1;
@@ -65,21 +73,22 @@ static int core_load_lib(void) {
 #if !defined(_WIN32)
   // DBG：相对候选放最前——与 probe.c 同串，避免 glibc 按路径串加载两份实例
   if (!g_core_lib) {
-    g_core_lib = core_dlopen("vendor/lib/libwgpu_native.so");
+    g_core_lib = core_dlopen("vendor/lib/" MNG_WGPU_LIB_BASE);
   }
   if (!g_core_lib) {
-    g_core_lib = core_dlopen("vendor/libwgpu_native.so");
+    g_core_lib = core_dlopen("vendor/" MNG_WGPU_LIB_BASE);
   }
   if (!g_core_lib) {
     char anc[1024];
     if (getcwd(anc, sizeof anc)) {
       for (int hop = 0; hop < 16 && !g_core_lib; hop++) {
         char cand[1200];
-        snprintf(cand, sizeof cand, "%s/vendor/lib/libwgpu_native.so", anc);
+        snprintf(cand, sizeof cand, "%s/vendor/lib/%s", anc,
+                 MNG_WGPU_LIB_BASE);
         g_core_lib = core_dlopen(cand);
         if (!g_core_lib) {
-          snprintf(cand, sizeof cand,
-                   "%s/modules/gui-gpu/vendor/lib/libwgpu_native.so", anc);
+          snprintf(cand, sizeof cand, "%s/modules/gui-gpu/vendor/lib/%s", anc,
+                   MNG_WGPU_LIB_BASE);
           g_core_lib = core_dlopen(cand);
         }
         char *slash = strrchr(anc, '/');
@@ -91,7 +100,7 @@ static int core_load_lib(void) {
     }
   }
   if (!g_core_lib) {
-    g_core_lib = core_dlopen("libwgpu_native.so");
+    g_core_lib = core_dlopen(MNG_WGPU_LIB_BASE);
   }
 #else
   if (!g_core_lib) {
@@ -204,9 +213,10 @@ static void core_probe(void) {
   acb.callback = core_on_adapter;
   WGPURequestAdapterOptions aopt;
   memset(&aopt, 0, sizeof aopt);
-  // 显式要 Vulkan：2026-11-04 本机预实证原型的口径（auto 档在本机
-  // lavapipe 下 queue 写路径不落地——换显式 Vulkan 后复测）
-  aopt.backendType = WGPUBackendType_Vulkan;
+  // 后端交给 wgpu 自选 primary（Linux=Vulkan / mac=Metal / Win=D3D12）：
+  // 显式 Vulkan 是 2026-11-04 预实证原型的遗留，在 mac/Windows 上没有
+  // Vulkan 后端会直接拿不到 adapter（真机「画布建不出」的根因）
+  aopt.backendType = WGPUBackendType_Undefined;
   core_ad_got = 0;
   (void)p_wgpuInstanceRequestAdapter(g_core_inst, &aopt, acb);
   if (!core_pump(g_core_inst, &core_ad_got, 5000) ||

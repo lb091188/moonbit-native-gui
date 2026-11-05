@@ -71,18 +71,25 @@ MNG_CV_FN(RenderPipelineRelease)
 MNG_CV_FN(CommandBufferRelease)
 
 static int cv_syms_ready;
+// 最近一次建画布失败的原因（mng_gpu_canvas_new 回 Err 时带出，诊断用）
+static char g_cv_detail[256];
+static void cv_set_detail(const char *s) {
+  snprintf(g_cv_detail, sizeof g_cv_detail, "%s", s);
+}
 static int cv_load_syms(void) {
   if (cv_syms_ready) {
     return 1;
   }
   void *lib = mng_wgpu_lib();
   if (lib == NULL) {
+    cv_set_detail("wgpu 库句柄为空（核心未就绪）");
     return 0;
   }
 #define MNG_CV_LOAD(name)                                    \
   do {                                                       \
     p_wgpu##name = (WGPUProc##name)dlsym(lib, "wgpu" #name); \
     if (!p_wgpu##name) {                                     \
+      cv_set_detail("缺符号 wgpu" #name);                     \
       return 0;                                              \
     }                                                        \
   } while (0)
@@ -174,7 +181,9 @@ static const char CV_WGSL_TEX[] =
     "}\n"
     "@fragment fn fs(in : VOut) -> @location(0) vec4f {\n"
     "  let c = textureSampleLevel(tx, samp, in.uv, 0.0);\n"
-    "  return vec4f(c.rgb * in.op, c.a * in.op);\n"
+    // 直通 alpha 口径：rgb 不预乘、opacity 只乘 alpha（混合因子 SrcAlpha/
+    // OneMinusSrcAlpha；rgb 再乘一次会把 opacity<1 的颜色二次压暗）
+    "  return vec4f(c.rgb, c.a * in.op);\n"
     "}\n";
 
 // solid quad：顶点属性 pos/rgba（opacity 折进顶点色 alpha）。
@@ -186,7 +195,7 @@ static const char CV_WGSL_FILL[] =
     "@vertex fn vs(@location(0) p : vec2f, @location(1) col : vec4f) -> VOut {\n"
     "  var o : VOut;\n"
     "  o.pos = vec4f(p, 0.0, 1.0);\n"
-    "  o.col = vec4f(1.0, 1.0, 1.0, 1.0);\n" // DBG：颜色写死
+    "  o.col = col;\n"
     "  return o;\n"
     "}\n"
     "@fragment fn fs(in : VOut) -> @location(0) vec4f {\n"
@@ -300,6 +309,7 @@ static int cv_build_target(GpuCanvas *c) {
   td.sampleCount = 1;
   c->target = p_wgpuDeviceCreateTexture(mng_wgpu_device(), &td);
   if (c->target == NULL) {
+    cv_set_detail("离屏目标建不出");
     return 0;
   }
   WGPUBufferDescriptor bd;
@@ -309,7 +319,11 @@ static int cv_build_target(GpuCanvas *c) {
   int rbpr = ((c->w * 4 + 255) / 256) * 256;
   bd.size = (uint64_t)rbpr * (uint64_t)c->h;
   c->readback = p_wgpuDeviceCreateBuffer(mng_wgpu_device(), &bd);
-  return c->readback != NULL;
+  if (c->readback == NULL) {
+    cv_set_detail("读回 buffer 建不出");
+    return 0;
+  }
+  return 1;
 }
 
 // 上传纹理（draw_texture_rgba 的源；尺寸随输入变，变了才重建视图/bindgroup）
@@ -336,7 +350,9 @@ static int cv_build_upload(GpuCanvas *c, int w, int h) {
   td.size.width = (uint32_t)w;
   td.size.height = (uint32_t)h;
   td.size.depthOrArrayLayers = 1;
-  td.format = WGPUTextureFormat_BGRA8Unorm;
+  // 上传源按 RGBA8Unorm：draw_texture_rgba 的入参是 RGBA 字节（trait 名与
+  // @render.Bitmap::to_rgba_bytes 同口径）——存成 BGRA 会红蓝互换
+  td.format = WGPUTextureFormat_RGBA8Unorm;
   td.mipLevelCount = 1;
   td.sampleCount = 1;
   c->upload = p_wgpuDeviceCreateTexture(mng_wgpu_device(), &td);
@@ -458,10 +474,18 @@ static void cv_on_map(WGPUMapAsyncStatus status, WGPUStringView message,
 // 建一块 w×h 的画布。失败回 0（没装 GPU 扩展/驱动起不来/尺寸非法）。
 int64_t mng_gpu_canvas_new(int w, int h) {
   if (w < 1 || h < 1 || w > 8192 || h > 8192) {
+    snprintf(g_cv_detail, sizeof g_cv_detail, "尺寸非法（%dx%d，上限 8192）", w,
+             h);
     return 0;
   }
-  if (!mng_wgpu_ready() || !cv_load_syms()) {
+  if (!mng_wgpu_ready()) {
+    char core[256];
+    mng_wgpu_detail(core, (int)sizeof core);
+    snprintf(g_cv_detail, sizeof g_cv_detail, "核心探测未就绪：%s", core);
     return 0;
+  }
+  if (!cv_load_syms()) {
+    return 0; // cv_load_syms 已写 detail
   }
   int slot = -1;
   for (int i = 0; i < MNG_CV_MAX; i++) {
@@ -471,6 +495,7 @@ int64_t mng_gpu_canvas_new(int w, int h) {
     }
   }
   if (slot < 0) {
+    cv_set_detail("画布槽位满");
     return 0;
   }
   GpuCanvas *c = &g_cv[slot];
@@ -500,14 +525,30 @@ int64_t mng_gpu_canvas_new(int w, int h) {
   c->vbuf = p_wgpuDeviceCreateBuffer(mng_wgpu_device(), &bd);
   c->pipe_tex = cv_make_pipeline(CV_WGSL_TEX, 1);
   c->pipe_fill = cv_make_pipeline(CV_WGSL_FILL, 0);
-  if (c->sampler == NULL || c->vbuf == NULL || c->pipe_tex == NULL ||
-      c->pipe_fill == NULL || !cv_build_target(c)) {
+  int built = 1;
+  if (c->sampler == NULL) {
+    cv_set_detail("sampler 建不出");
+    built = 0;
+  } else if (c->vbuf == NULL) {
+    cv_set_detail("顶点缓冲建不出");
+    built = 0;
+  } else if (c->pipe_tex == NULL) {
+    cv_set_detail("纹理管线建不出（shader/pipeline）");
+    built = 0;
+  } else if (c->pipe_fill == NULL) {
+    cv_set_detail("纯色管线建不出（shader/pipeline）");
+    built = 0;
+  } else if (!cv_build_target(c)) {
+    built = 0; // cv_build_target 已写 detail
+  }
+  if (!built) {
     mng_gpu_canvas_free((int64_t)slot + 1);
     return 0;
   }
   c->bgl_tex = p_wgpuRenderPipelineGetBindGroupLayout(c->pipe_tex, 0);
   c->bgl_fill = p_wgpuRenderPipelineGetBindGroupLayout(c->pipe_fill, 0);
   if (c->bgl_tex == NULL || c->bgl_fill == NULL) {
+    cv_set_detail("bind group layout 拿不到");
     mng_gpu_canvas_free((int64_t)slot + 1);
     return 0;
   }
@@ -635,8 +676,8 @@ int mng_gpu_canvas_fill(int64_t h, double x, double y, double w, double hh,
   return 1;
 }
 
-// finish：把离屏目标读回成 RGBA 字节（w*h*4，行优先，与 Bitmap 同口径）写进
-// out（容量须 ≥ w*h*4）。1 = 成；0 = 失败（设备丢/map 超时等）。
+// finish：把离屏目标（BGRA8Unorm）读回成 BGRA 字节（w*h*4，行优先，与
+// Bitmap 内存序同口径）写进 out（容量须 ≥ w*h*4）。1 = 成；0 = 失败。
 int mng_gpu_canvas_finish(int64_t h, uint8_t *out, int cap) {
   if (h < 1 || h > MNG_CV_MAX || out == NULL) {
     return 0;
@@ -738,6 +779,19 @@ void mng_gpu_canvas_free(int64_t h) {
   memset(c, 0, sizeof *c);
 }
 
+// 最近一次 mng_gpu_canvas_new 失败的原因（成功路径不动它；零终止串）
+void mng_gpu_canvas_detail(char *out, int cap) {
+  if (out == NULL || cap <= 0) {
+    return;
+  }
+  int n = (int)strlen(g_cv_detail);
+  if (n > cap - 1) {
+    n = cap - 1;
+  }
+  memcpy(out, g_cv_detail, (size_t)n);
+  out[n] = 0;
+}
+
 #else /* 没有 wgpu vendor 头：整文件退化成「不可用」桩 */
 
 int64_t mng_gpu_canvas_new(int w, int h) {
@@ -777,6 +831,18 @@ int mng_gpu_canvas_finish(int64_t h, uint8_t *out, int cap) {
 }
 void mng_gpu_canvas_free(int64_t h) {
   (void)h;
+}
+void mng_gpu_canvas_detail(char *out, int cap) {
+  if (out == NULL || cap <= 0) {
+    return;
+  }
+  const char *s = "unsupported: 没编进 wgpu vendor 头";
+  int n = (int)strlen(s);
+  if (n > cap - 1) {
+    n = cap - 1;
+  }
+  memcpy(out, s, (size_t)n);
+  out[n] = 0;
 }
 
 #endif /* MNG_CANVAS_REAL */

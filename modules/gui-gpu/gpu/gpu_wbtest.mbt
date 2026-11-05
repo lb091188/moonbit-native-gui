@@ -96,6 +96,14 @@ test "canvas：无头 draw + 读回（有 GPU 扩展才跑）" {
               "canvas: 读回全零——queue 写链在测试进程不落地（已知，见 adaptation.md），像素断言跳过",
             )
           } else {
+            // 样点读数先落一行：首轮真像素（mac）就是靠它判方向/通道序
+            let sample = fn(x : Int, y : Int) -> String {
+              let i = (y * 64 + x) * 4
+              "(\{b[i]},\{b[i + 1]},\{b[i + 2]},\{b[i + 3]})"
+            }
+            println(
+              "canvas 读回样点 B,G,R,A：左上 \{sample(0, 0)} 右上 \{sample(63, 0)} 左下 \{sample(0, 47)} 右下 \{sample(63, 47)} 中心 \{sample(32, 24)}",
+            )
             // 读回字节序 BGRA：左上图案红 → 第 3 字节（R 槽）255
             assert_eq(b[2], 255, msg="左上应是图案红（R 槽）")
             assert_eq(b[0], 0, msg="左上 B 槽应为 0")

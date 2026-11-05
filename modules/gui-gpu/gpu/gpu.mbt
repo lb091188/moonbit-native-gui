@@ -97,6 +97,28 @@ pub(all) struct GpuCanvas {
 extern "c" fn mng_gpu_canvas_new(w : Int, h : Int) -> Int = "mng_gpu_canvas_new"
 
 ///|
+#borrow(out)
+extern "c" fn mng_gpu_canvas_detail(out : Bytes, cap : Int) -> Unit = "mng_gpu_canvas_detail"
+
+///|
+/// 最近一次 `GpuCanvas::new` 失败的原因（C 侧逐档记录：核心未就绪/缺符号/
+/// 尺寸要求逐个对象建不出的口；成功路径不动它）。
+fn canvas_detail() -> String {
+  let cap = 256
+  let bytes = Bytes::from_array(FixedArray::make(cap, b'\x00'))
+  mng_gpu_canvas_detail(bytes, cap)
+  let mut n = 0
+  while n < cap && bytes[n] != b'\x00' {
+    n += 1
+  }
+  if n == 0 {
+    ""
+  } else {
+    @utf8.decode_lossy(bytes[:n])
+  }
+}
+
+///|
 extern "c" fn mng_gpu_canvas_resize(h : Int, w : Int, hh : Int) -> Int = "mng_gpu_canvas_resize"
 
 ///|
@@ -154,7 +176,7 @@ pub fn GpuCanvas::new(w : Int, h : Int) -> Result[GpuCanvas, String] {
   }
   let hd = mng_gpu_canvas_new(w, h)
   if hd <= 0 {
-    Err("GPU 画布建不出（\{w}x\{h}；驱动起不来？）")
+    Err("GPU 画布建不出（\{w}x\{h}）：\{canvas_detail()}")
   } else {
     Ok({ handle: hd, w, h })
   }

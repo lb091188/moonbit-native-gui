@@ -3720,7 +3720,21 @@ GpuCanvas（@render.GpuSink 的 gui-gpu 实现，GPU 线首消费者）落地时
 - **已排除**：① 编译优化（原型用 moon 同款 `-Og` flags 仍可用）；② 双 dlopen 实例（core 与 probe.c 同路径串，且屏蔽 probe 用例后仍复现）；③ 错误回调（原型加 `uncapturedErrorCallbackInfo` 仍可用）；④ DISPLAY/X11（拔掉仍复现）；⑤ submit 后立刻 release 纹理、小 size map（原型照做可用）。
 - **进程内可见的事实**：instance/adapter/device/queue/buffer/texture/pipeline/sampler/bindgroup **全部建得出**；render pass 的 **clear 能落**（读回看得到 clear 色）；texture→buffer 的 copy 与 mapAsync **能落**（clear 读回为证）；**唯独 `wgpuQueueWriteBuffer` / `wgpuQueueWriteTexture` 之后的 GPU 执行看不到写入的数据**（copy 链读回全零）。
 - **未做的判决**：进程内自建 instance（绕开 core）也是全零——所以不是 core 的 device 有问题，而是**进程环境**（moon runtime / 链接进来的 native-gui 全套桩）与 wgpu-native 的某处交互。下一步候选：① 在 `moon run` 的真实应用进程里跑一遍 demo（可能测试进程特有）；② `wgpuInstanceWaitAny` 等 future 原语替换「pump + flag」模式；③ 缩小链接面（只链 @guigpu 的最小可执行）复现。
-- **mac 测试进程补充（2026-11-05）**：mac 腿跑 gui-gpu 的 canvas wbtest，`GpuCanvas::new` 直接失败（probe `loaded` 但画布建不出，fail「画布建不出（64x48；驱动起不来？）」）——比 Linux 的「全零」更早一档（创建级：instance/adapter/device 回调链或管线创建在测试进程没走通；L1 的 stub.c 核心同设计在 mac 真机应用进程是通的，差异待取数）。应用进程是否同款归 showcase「GPU 画布」页真机复验——候选①的取数载体已落（页 16 的探测段/画布段/检查读回按钮就是现场读数面）。
+- **mac 腿已结案、不是本条的成员（2026-11-05）**：mac 上「画布建不出」的根因是 gui-gpu 自己的五处平台硬伤（库名写死 `.so`、后端写死 Vulkan、上传纹理通道序、fill shader 调试遗留写死白、tex 与混合因子的 alpha 口径不一致——详见下一节「gui-gpu mac 腿五处硬伤」），与进程环境无关。修复后 mac 测试进程里 canvas wbtest **像素断言首次真正执行并全过**（读回 BGRA 样点与图案逐点对上）。本条「queue 写不落地」因此收窄为 **Linux/lavapipe 腿专有**（或 Linux 测试进程专有）；mac 腿不再是取数对象，候选②「future 原语替换泵」的验证面只剩 Linux。
+
+## gui-gpu mac 腿五处平台硬伤：库名/后端/通道序/调试遗留/alpha 口径（2026-11-05，真机反馈驱动）
+
+mac 跑 showcase「GPU 画布」页报「GPU 画布建不出（400x240；驱动起不来？）」。逐档加诊断（`mng_gpu_canvas_detail` 把失败原因原样交给 MoonBit 侧进 Err 串）后依次拔出五处，都与平台或「首次见到真像素」有关：
+
+1. **库名写死 `.so`**：`wgpu_core.c` 的 dlopen 候选整链是 Linux 命名，而 mac 的 vendor 产物是 `libwgpu_native.dylib`——候选全落空，核心报 `not-found`。**两个「装载」不同源**：probe.c 一直按平台取库名（所以上层 `probe()` 报 loaded），core 另一份漏了。修法：`MNG_WGPU_LIB_BASE` 平台宏，与 probe.c / stub.c 的 L1 核心同口径。
+2. **adapter 后端写死 Vulkan**：`wgpu_core.c` 里 2026-11-04 Linux 预实证原型的遗留（`aopt.backendType = WGPUBackendType_Vulkan`）；mac 没有 Vulkan 后端，直接拿不到 adapter。改 `WGPUBackendType_Undefined` 交给 wgpu 自选 primary（Linux=Vulkan / mac=Metal / Win=D3D12），与 stub.c / triangle.c 一致。
+3. **上传纹理存成 BGRA8Unorm 而数据是 RGBA**：`draw_texture_rgba` 的入参语义按 trait 名与 `@render.Bitmap::to_rgba_bytes` 同口径（R,G,B,A），存进 BGRA 纹理红蓝互换。改 `RGBA8Unorm`（渲染目标仍 BGRA8Unorm，读回与位图内存同序的前提不变）。
+4. **fill shader 调试遗留**：`o.col = vec4f(1.0, 1.0, 1.0, 1.0); // DBG：颜色写死`——所有 `fill_rect` 出白块。改回 `o.col = col`。Linux 读回全零时这条被盖住，真像素一出来就露。
+5. **tex shader 的预乘与混合因子口径不一致**：fragment 输出 `c.rgb * op` 再用 SrcAlpha/OneMinusSrcAlpha 混合，opacity<1 时 rgb 被二次压暗。统一**直通 alpha**（`vec4f(c.rgb, c.a * in.op)`）；fill 顶点色本就是直通，两条管线同口径。
+
+- **验证**：mac 测试进程 canvas wbtest 3/3（像素断言首次真正跑：左上红/右下蓝/中心绿混合都对上）；把 `probe.o` 抽出来从 `examples/showcase` cwd 实跑，祖先扫描报 `loaded(<repo>/modules/gui-gpu/vendor/lib/libwgpu_native.dylib)`。
+- **顺带**：probe.c 补仓库布局祖先扫描（triangle.c / wgpu_core.c 同口径）——应用从 `examples/<name>` / 仓库根跑都能找到模块 vendor，不再依赖 `MNG_WGPU_LIB`。
+- **边界**：Linux 腿行为等价（自选 primary 仍是 Vulkan）、未复跑；「读回全零」问题与本批无关，仍挂在上一节。
 - **当前落地口径**：canvas 的管线/协议面（对象创建、两条 draw 的调用链、finish 的尺寸与字节序 BGRA、clip/opacity 走查）全部落成并有断言；**像素断言在「读回全零」时跳过并打印 notice**（已知问题见本条），真机应用进程复验归用户（TODO「首消费者」条目）。
 - **顺带钉住的 wgpu 口径**（都进过报错）：sampler 零值描述符的 `lodMaxClamp=0` / `maxAnisotropy=0` 是验证错误且**默认错误处理器直接 abort**（core 里挂了静默回调后才是「降级不崩」）；`wgpuQueueWriteBuffer` 要 **COPY_DST**（不是 MAP_WRITE）；顶点缓冲另需 **VERTEX** 位；**所有 copy（buffer→texture / texture→buffer）的 bytesPerRow 必须 256 对齐**，CPU 侧垫行、读回侧解垫；v29 没有 `wgpuDevicePoll` / `wgpuSurfaceGetPreferredFormat`（前者用 InstanceProcessEvents 泵，后者格式直接 BGRA8Unorm）。
 

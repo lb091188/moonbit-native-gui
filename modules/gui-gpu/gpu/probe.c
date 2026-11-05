@@ -19,6 +19,7 @@ static void *dl_sym(const char *n) {
 }
 #else
 #include <dlfcn.h>
+#include <unistd.h>
 static void *g_lib = NULL;
 static const char *dl_open(const char *p) {
     g_lib = dlopen(p, RTLD_NOW | RTLD_LOCAL);
@@ -90,6 +91,54 @@ int32_t mng_gpu_probe(uint8_t *out, int32_t cap) {
             return 0;
         }
     }
+#if !defined(_WIN32)
+    // 仓库布局候选：从 cwd 逐级向上找 <anc>/vendor/lib/<lib> 与
+    // <anc>/modules/gui-gpu/vendor/lib/<lib>（triangle.c / wgpu_core.c 同
+    // 口径）——应用从 examples/<name> 或仓库根跑都能找到模块 vendor；
+    // 发行包走不到这两级，落环境变量/系统名
+#if defined(__APPLE__)
+#define PROBE_LIB_BASE "libwgpu_native.dylib"
+#else
+#define PROBE_LIB_BASE "libwgpu_native.so"
+#endif
+    char anc[1024];
+    if (getcwd(anc, sizeof anc)) {
+        for (int hop = 0; hop < 16; hop++) {
+            char cand[1200];
+            snprintf(cand, sizeof cand, "%s/vendor/lib/%s", anc,
+                     PROBE_LIB_BASE);
+            err = dl_open(cand);
+            if (!err) {
+                if (dl_sym("wgpuCreateInstance")) {
+                    char buf[1200];
+                    snprintf(buf, sizeof buf, "loaded(%s)", cand);
+                    put(out, cap, buf);
+                    return 1;
+                }
+                put(out, cap, "库在但缺 wgpuCreateInstance");
+                return 0;
+            }
+            snprintf(cand, sizeof cand, "%s/modules/gui-gpu/vendor/lib/%s", anc,
+                     PROBE_LIB_BASE);
+            err = dl_open(cand);
+            if (!err) {
+                if (dl_sym("wgpuCreateInstance")) {
+                    char buf[1200];
+                    snprintf(buf, sizeof buf, "loaded(%s)", cand);
+                    put(out, cap, buf);
+                    return 1;
+                }
+                put(out, cap, "库在但缺 wgpuCreateInstance");
+                return 0;
+            }
+            char *slash = strrchr(anc, '/');
+            if (!slash || slash == anc) {
+                break;
+            }
+            *slash = 0;
+        }
+    }
+#endif
     char buf[256];
     snprintf(buf, sizeof buf, "not-found: %s", err ? err : "?");
     put(out, cap, buf);
