@@ -753,6 +753,54 @@ pub fn raw_to_event(
 }
 
 ///|
+///|
+/// 宿主路由诊断门：`LIBYUE_ROUTE_LOG` / `NATIVEGUI_ROUTE_LOG` 任一设了就往
+/// stdout 打按键与点击聚焦的关键拍（焦点栈当前值、命中可聚焦结果）——真机
+/// 取证「按键没反应」时先看这条：焦点对不对，一眼定层。
+fn route_diag(msg : String) -> Unit {
+  let on = match @env.get_env_var("LIBYUE_ROUTE_LOG") {
+    Some(_) => true
+    None => @env.get_env_var("NATIVEGUI_ROUTE_LOG") is Some(_)
+  }
+  if on {
+    println("[route] \{msg}")
+  }
+}
+
+///|
+/// 测试泵（无头用例专用）：把一条**原始事件**灌进真宿主管线——与真机同一
+/// 条 route（命中、点击聚焦、捕获、系统键、Tab 分支、焦点链派发、兜底通道
+/// 全在里面）。uitest 的 `dispatch_*` 直达控件绕过这些宿主分支，测不出
+/// 「真机上按键没反应」这类问题；无头复现一律走这两个口。
+pub fn WindowHost::test_pump_pointer(
+  self : WindowHost,
+  code : Int,
+  x : Int,
+  y : Int,
+  button : Int,
+) -> Unit {
+  self.route({ code, keysym: 0, mods: 0, x, y, button, axis: 0 })
+}
+
+///|
+/// 测试泵（无头用例专用）：灌一条按键（`press=false` 走抬起声明制通道）。
+pub fn WindowHost::test_pump_key(
+  self : WindowHost,
+  keysym : Int,
+  mods : Int,
+  press? : Bool = true,
+) -> Unit {
+  self.route({
+    code: if press { 0 } else { 1 },
+    keysym,
+    mods,
+    x: 0,
+    y: 0,
+    button: 0,
+    axis: 0,
+  })
+}
+
 fn WindowHost::route(self : WindowHost, ev : @win.InputEvent) -> Unit {
   // 谁被操作谁就是当前窗（浮层与工具提示跟着它，见 host.mbt）
   host_mark_active(self.session)
@@ -800,7 +848,9 @@ fn WindowHost::route(self : WindowHost, ev : @win.InputEvent) -> Unit {
           // 连 Ctrl+Z 这类快捷键也进网页）。无条件要一次，代价只是重复 grab 同一个控件。
           self.session.window.request_focus()
           // 命中可聚焦控件时切焦点栈（栈里没有该 id 时不改焦点栈）
-          match self.root.focusable_at(pev.x, pev.y) {
+          let hit_focus = self.root.focusable_at(pev.x, pev.y)
+          route_diag("pointer-down focusable_at(\{pev.x},\{pev.y})=\{Repr(hit_focus)} current=\{Repr(self.focus.current())}")
+          match hit_focus {
             Some(id) =>
               if !self.focus.is_focused(id) {
                 let prev = self.focus.current()
@@ -858,6 +908,9 @@ fn WindowHost::route(self : WindowHost, ev : @win.InputEvent) -> Unit {
       }
     }
     Key(kev) => {
+      route_diag(
+        "key keysym=\{kev.keysym} mods=\{kev.mods} press=\{kev.press} focus=\{Repr(self.focus.current())}",
+      )
       // 抬起事件走**声明制**通道：只投给挂了 on_key_release 的控件（焦点链
       // 最深优先）。on_key 与兜底通道都不收抬起——编辑内核的 handle_key 只吃
       // keysym、不区分按下/抬起，放行抬起等于「松手再插一个字符」（实测：Tab

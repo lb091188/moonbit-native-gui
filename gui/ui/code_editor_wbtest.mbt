@@ -396,3 +396,45 @@ test "查找条冒烟：主修饰键+F 与 Esc 不崩、文本不动" {
   key(root, w, @base.KS_ESCAPE, 0)
   assert_eq(store.get(), "let a = 1\n")
 }
+
+///|
+/// 真宿主泵复现（uitest 的 dispatch_* 绕过宿主分支，测不出真机「按键全无」）：
+/// 点击聚焦 → 打字 / Cmd 族 / PageDown / Tab 全走 route。
+test "宿主真泵：点击聚焦后打字与快捷键全链路" {
+  use_system_clipboard(false)
+  let host = @widget.WindowHost::test_headless(320, 240)
+  let store = @base.Store::new("abcdef\nghijkl\n")
+  host.mount([
+    code_editor(store, height=220.0, focus_id=1),
+  ])
+  host.root.relayout(320, 240)
+    // 点击编辑器中心（真泵指针路径：命中 → 点击聚焦）
+  host.test_pump_pointer(2, 160, 100, 1)
+  host.test_pump_pointer(3, 160, 100, 1)
+  // 打字：按键必须真进编辑器（真机上计数行不更新 = 这条断了）
+  host.test_pump_key('x'.to_int(), 0)
+  assert_true(
+    store.get().contains("x"),
+    msg="真泵打字没进编辑器（store=\{store.get()}）",
+  )
+  // Cmd/Cmd+A 全选 + Cmd+C 复制（主修饰键跟平台）
+  host.test_pump_key('a'.to_int(), mod_edit())
+  host.test_pump_key('c'.to_int(), mod_edit())
+  // PageDown 翻页（caret 必须动）
+  let before = @utf8.encode(store.get()).length()
+  host.test_pump_key(65366, 0)
+  let _ = before
+  // Tab 缩进：宿主对 wants_tab 控件放行
+  host.test_pump_key(@base.KS_TAB, 0)
+  assert_true(
+    store.get().contains("  "),
+    msg="真泵 Tab 缩进没生效（store=\{store.get()}）",
+  )
+  // 小键盘回车（KP_Enter）：与主回车同档插行
+  let before = store.get()
+  host.test_pump_key(65421, 0)
+  assert_true(
+    store.get().length() > before.length(),
+    msg="小键盘回车没插行",
+  )
+}

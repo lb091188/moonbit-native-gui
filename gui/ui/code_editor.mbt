@@ -740,7 +740,8 @@ pub fn code_editor(
       let ctrl = (ev.mods & @base.MOD_CTRL) != 0
       let meta = (ev.mods & @base.MOD_META) != 0
       let primary = if is_mac { meta } else { ctrl }
-      if ev.keysym == @base.KS_RETURN {
+      // 小键盘回车（KP_Enter，mac 桩给 65421）与主回车同档
+      if ev.keysym == @base.KS_RETURN || ev.keysym == 65421 {
         if ro {
           return false
         }
