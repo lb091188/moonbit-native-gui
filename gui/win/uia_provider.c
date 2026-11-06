@@ -38,6 +38,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <windows.h>
+#include <stddef.h> // offsetof（多接口 COM 的容器换算）
 #include <ole2.h> // VARIANT/BSTR/SysAlloc* 全链（oleauto/oaidl 正序）：裸含 oleauto.h 时 VARIANT 视图不完整
 #include <objbase.h> // COM 基础（interface 宏）：uiautomationcore.h 裸用会语法错
 // 不含聚合头 uiautomation.h：它会抢占具体头的 include guard，排在前面时
@@ -140,6 +141,15 @@ typedef struct WmProv {
 
 static WmProv *g_root_prov = NULL;
 
+// 多接口 COM：fragment/root 入口的 this 是内嵌结构地址，回容器要减偏移
+// （simple 是首成员偏移 0，直接转即可）
+static WmProv *wm_prov_of_frag(void *self) {
+    return (WmProv *)((char *)self - offsetof(WmProv, fragment));
+}
+static WmProv *wm_prov_of_root(void *self) {
+    return (WmProv *)((char *)self - offsetof(WmProv, root));
+}
+
 static WmProv *wm_prov_new(HWND hwnd, int32_t idx);
 static IUnknown *wm_inv_new(HWND hwnd, int32_t idx);
 static IUnknown *wm_tog_new(HWND hwnd, int32_t idx);
@@ -184,6 +194,26 @@ static ULONG STDMETHODCALLTYPE wm_prov_release(IUnknown *self) {
         free(p);
     }
     return (ULONG)n;
+}
+
+// fragment/root 接口的 IUnknown 三件套：this 先回容器再走 simple 版逻辑
+static HRESULT STDMETHODCALLTYPE wm_frag_qi(IUnknown *self, REFIID iid, void **out) {
+    return wm_prov_qi((IUnknown *)wm_prov_of_frag(self), iid, out);
+}
+static ULONG STDMETHODCALLTYPE wm_frag_addref(IUnknown *self) {
+    return wm_prov_addref((IUnknown *)wm_prov_of_frag(self));
+}
+static ULONG STDMETHODCALLTYPE wm_frag_release(IUnknown *self) {
+    return wm_prov_release((IUnknown *)wm_prov_of_frag(self));
+}
+static HRESULT STDMETHODCALLTYPE wm_root_qi(IUnknown *self, REFIID iid, void **out) {
+    return wm_prov_qi((IUnknown *)wm_prov_of_root(self), iid, out);
+}
+static ULONG STDMETHODCALLTYPE wm_root_addref(IUnknown *self) {
+    return wm_prov_addref((IUnknown *)wm_prov_of_root(self));
+}
+static ULONG STDMETHODCALLTYPE wm_root_release(IUnknown *self) {
+    return wm_prov_release((IUnknown *)wm_prov_of_root(self));
 }
 
 /* ---------------- 读屏动作通道 ----------------
@@ -762,7 +792,7 @@ static int32_t wm_uia_deepest_at(double wx, double wy) {
 static HRESULT STDMETHODCALLTYPE wm_prov_navigate(IRawElementProviderFragment *self,
                                                   WmNavigateDirection dir,
                                                   IRawElementProviderSimple **ret) {
-    WmProv *p = (WmProv *)self;
+    WmProv *p = wm_prov_of_frag(self);
     if (ret == NULL) return E_POINTER;
     *ret = NULL;
     if (p->idx < 0) {
@@ -816,7 +846,7 @@ static HRESULT STDMETHODCALLTYPE wm_prov_navigate(IRawElementProviderFragment *s
 
 static HRESULT STDMETHODCALLTYPE wm_prov_runtime_id(IRawElementProviderFragment *self,
                                                     SAFEARRAY **ret) {
-    WmProv *p = (WmProv *)self;
+    WmProv *p = wm_prov_of_frag(self);
     if (ret == NULL) return E_POINTER;
     int v[2];
     v[0] = (int)(intptr_t)p->hwnd;
@@ -826,7 +856,7 @@ static HRESULT STDMETHODCALLTYPE wm_prov_runtime_id(IRawElementProviderFragment 
 
 static HRESULT STDMETHODCALLTYPE wm_prov_rect(IRawElementProviderFragment *self,
                                               WmUiaRect *ret) {
-    WmProv *p = (WmProv *)self;
+    WmProv *p = wm_prov_of_frag(self);
     if (ret == NULL) return E_POINTER;
     memset(ret, 0, sizeof *ret);
     RECT rc;
@@ -861,7 +891,7 @@ static HRESULT STDMETHODCALLTYPE wm_prov_embedded(IRawElementProviderFragment *s
 }
 
 static HRESULT STDMETHODCALLTYPE wm_prov_focus(IRawElementProviderFragment *self) {
-    WmProv *p = (WmProv *)self;
+    WmProv *p = wm_prov_of_frag(self);
     SetForegroundWindow(p->hwnd);
     SetFocus(p->hwnd);
     return S_OK;
@@ -870,7 +900,7 @@ static HRESULT STDMETHODCALLTYPE wm_prov_focus(IRawElementProviderFragment *self
 // 根自己就是 FragmentRoot；子元素回窗根（问错对象的客户端拿 NULL）
 static HRESULT STDMETHODCALLTYPE wm_prov_fragment_root(IRawElementProviderFragment *self,
                                                        IRawElementProviderFragmentRoot **ret) {
-    WmProv *p = (WmProv *)self;
+    WmProv *p = wm_prov_of_frag(self);
     if (ret == NULL) return E_POINTER;
     if (p->idx < 0) {
         *ret = &p->root;
@@ -890,7 +920,7 @@ static HRESULT STDMETHODCALLTYPE wm_prov_fragment_root(IRawElementProviderFragme
 static HRESULT STDMETHODCALLTYPE wm_prov_from_point(IRawElementProviderFragmentRoot *self,
                                                     double x, double y,
                                                     IRawElementProviderSimple **ret) {
-    WmProv *p = (WmProv *)self;
+    WmProv *p = wm_prov_of_root(self);
     if (ret == NULL) return E_POINTER;
     *ret = NULL;
     RECT rc;
@@ -904,7 +934,7 @@ static HRESULT STDMETHODCALLTYPE wm_prov_from_point(IRawElementProviderFragmentR
 // 焦点）；不报「无焦点」是怕客户端据此判定整窗不可交互
 static HRESULT STDMETHODCALLTYPE wm_prov_get_focus(IRawElementProviderFragmentRoot *self,
                                                    IRawElementProviderSimple **ret) {
-    WmProv *p = (WmProv *)self;
+    WmProv *p = wm_prov_of_root(self);
     if (ret == NULL) return E_POINTER;
     if (g_root_prov != NULL && g_root_prov->hwnd == p->hwnd) {
         *ret = &g_root_prov->simple;
@@ -922,21 +952,18 @@ static IRawElementProviderSimpleVtbl g_simple_vtbl = {
     (void *)wm_prov_host,
 };
 
+// Fragment 是独立接口（9 槽 = IUnknown 3 + Navigate/GetRuntimeId/
+// get_BoundingRectangle/GetEmbeddedFragmentRoots/SetFocus/get_FragmentRoot），
+// 不铺 Simple 的 4 槽
 static IRawElementProviderFragmentVtbl g_frag_vtbl = {
-    (void *)wm_prov_qi, (void *)wm_prov_addref, (void *)wm_prov_release,
-    (void *)wm_prov_options, (void *)wm_prov_pattern, (void *)wm_prov_prop,
-    (void *)wm_prov_host,
+    (void *)wm_frag_qi, (void *)wm_frag_addref, (void *)wm_frag_release,
     (void *)wm_prov_navigate, (void *)wm_prov_runtime_id, (void *)wm_prov_rect,
     (void *)wm_prov_embedded, (void *)wm_prov_focus, (void *)wm_prov_fragment_root,
 };
 
-// FragmentRoot = fragment 的 13 项 + ElementProviderFromPoint + GetFocus
+// FragmentRoot 也是独立接口（5 槽 = IUnknown 3 + ElementProviderFromPoint/GetFocus）
 static IRawElementProviderFragmentRootVtbl g_root_vtbl = {
-    (void *)wm_prov_qi, (void *)wm_prov_addref, (void *)wm_prov_release,
-    (void *)wm_prov_options, (void *)wm_prov_pattern, (void *)wm_prov_prop,
-    (void *)wm_prov_host,
-    (void *)wm_prov_navigate, (void *)wm_prov_runtime_id, (void *)wm_prov_rect,
-    (void *)wm_prov_embedded, (void *)wm_prov_focus, (void *)wm_prov_fragment_root,
+    (void *)wm_root_qi, (void *)wm_root_addref, (void *)wm_root_release,
     (void *)wm_prov_from_point, (void *)wm_prov_get_focus,
 };
 
