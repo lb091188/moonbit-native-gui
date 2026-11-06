@@ -48,7 +48,7 @@
 - 宽度跟随容器（flex 1）：窄代码深底条铺满整行，代码比容器宽时自带横向滚动（调用方不必再包 `scroll_view`），高按行数
 - `selectable`：打开后这段代码可鼠标选中复制——拖选跨行、双击选词、Shift+点击扩选、`Ctrl/Cmd+C` 或右键菜单复制；行号列不进选区，跨行复制按 `\n` 拼；只读、不进 Tab 链
 - `copyable`：顶部留一条头部区，指针悬浮代码块时右上显「复制」小按钮，点击把全文（按 `\n` 拼）写系统剪贴板；`on_copied(ok)` 回调复制结果（toast 回显走它接）。缺省关，头部区不占高
-- 分工口径：**只读展示用 `code_view`**（无状态、轻量、高度跟内容），**要编辑用 `code_editor`**——两者观感同一套几何（顶 14、行号左缘 16、代码左缘=行号位宽+40）
+- 分工口径：**只读展示用 `code_view`**（无状态、轻量、高度跟内容），**要编辑用 `code_editor`**——两者观感同一套几何（顶 14、行号左缘 16、代码左缘=16+行号位宽+8、右留白 8）
 
 ### `code_editor(store : @base.Store[String], lang?="moonbit", font_size?=13.0, line_numbers?=true, read_only?=false, rows?=12, height?=0.0, focus_id?=0, caret_on?, on_change?, class?, handle?)`
 

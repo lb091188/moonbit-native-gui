@@ -312,7 +312,7 @@ pub fn code_editor(
   let font = @text.Font::new("Monospace", font_size)
   let line_h = (@text.line_height_font(font).unwrap_or(18).to_double() + 5.0).max(14.0)
   // 几何口径与 code_view 同一套（观感统一，两个文件注释互指）：
-  // 顶部 14；行号左缘 16；代码文字左缘 = 行号位宽 + 40（无行号 16）；内容右留白 16。
+  // 顶部 14；行号左缘 16；代码文字左缘 = 16 + 行号位宽 + 8（无行号 16）；内容右留白 8。
   let pad_top = 14.0
   let ro = read_only
   let is_mac = @shell.platform_is_macos()
@@ -324,7 +324,7 @@ pub fn code_editor(
   let gutter_of = fn() -> Double {
     if want_numbers {
       let digits = doc.line_count().to_string().length().max(2)
-      digit_w * digits.to_double() + 40.0
+      digit_w * digits.to_double() + 24.0
     } else {
       16.0
     }
@@ -550,7 +550,7 @@ pub fn code_editor(
       st.view_h = r.h
       st.content_h = doc.line_count().to_double() * line_h + pad_top * 2.0
       st.view_w = r.w
-      st.content_w = (doc.max_width() + text_left() + 16.0).max(r.w)
+      st.content_w = (doc.max_width() + text_left() + 8.0).max(r.w)
       let gl = gutter_of()
       let tl = text_left()
       let sty = @style.style_for(self)
@@ -615,7 +615,7 @@ pub fn code_editor(
           if y + line_h < 0.0 || y > r.h {
             continue
           }
-          // 与 code_view 同款：行号画在 32（预排版 x=16 + 绘制偏移 16 的同一落点），
+          // 与 code_view 同款：行号画在 16（code_view 预排版 x=0 + 绘制偏移 16 的同一落点），
           // 前补空格右对齐到位数宽
           let num = (row + 1).to_string()
           let digits = doc.line_count().to_string().length().max(2)
@@ -627,7 +627,7 @@ pub fn code_editor(
           let nw = text_width(num_str, font)
           let _ = @text.draw_box_at(
             p,
-            32.0,
+            16.0,
             y,
             nw + 2.0,
             line_h,

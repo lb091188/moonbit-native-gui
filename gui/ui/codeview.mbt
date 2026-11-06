@@ -746,7 +746,7 @@ pub fn code_view(
   // 行号位数下限 2：与 code_editor 同一口径，位数不同时左右边距才对得齐
   let digits = lines.length().to_string().length().max(2)
   let num_off = if line_numbers {
-    digit_w * digits.to_double() + 24.0
+    digit_w * digits.to_double() + 8.0
   } else {
     0.0
   }
@@ -766,7 +766,8 @@ pub fn code_view(
       }
       let num_str = pad.to_string() + num_txt
       let nw = text_width(num_str, font)
-      segs.push((num_str, LineNo, 16.0, nw))
+      // 预排版 x=0：绘制期统一 +16，行号落点与 code_editor 同在 16
+      segs.push((num_str, LineNo, 0.0, nw))
     }
     let (toks, next_state) = scan_line(line, lang, scan_state.val)
     scan_state.val = next_state
@@ -780,12 +781,12 @@ pub fn code_view(
     }
     laid.push(segs)
   }
-  let content_w = max_line_w + 32.0
+  let content_w = max_line_w + 24.0
   // copyable 时顶部多留一条 20px 头部区（悬浮出复制按钮的悬浮区），布局其余不变
   let top_pad = if copyable { 34.0 } else { 14.0 }
   // 几何口径与 code_editor 同一套（观感统一，两个文件注释互指）：
-  // 顶部 14（copyable 时 34 头部区）；行号左缘 16；代码文字左缘 = 行号位宽 + 40
-  // （无行号 16）；内容右留白 16。
+  // 顶部 14（copyable 时 34 头部区）；行号左缘 16（预排版 0 + 绘制偏移 16）；
+  // 代码文字左缘 = 16 + 行号位宽 + 8（无行号 16）；内容右留白 8。
   let view_h = line_h * laid.length().to_double() + top_pad + 14.0
   // 选区参照系：全文 = 各行按 `\n` 拼接，`line_off[i]` 是第 i 行行首的全局字节号。
   // 行与行之间的换行字节算在「行外」——高亮不铺它，但跨行复制天然带 \n。

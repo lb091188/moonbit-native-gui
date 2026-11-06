@@ -265,12 +265,15 @@ test "code_view selectable：单击定位、双击选词、行号列不进选区
   sel_click(root, w.rect.x + 1.0, row_y(w, 3, 0))
   assert_eq(st.ed.caret_pos(), 0)
   assert_true(st.ed.selection() is None)
-  // 换到别处单击（离上次 >4px，不算双击）：caret 落进第一行行内
-  sel_click(root, w.rect.x + 60.0, row_y(w, 3, 0))
+  // 换到别处单击（离上次 >4px，不算双击）：caret 落进第一行首词「fn」
+  // 文本左缘 = 16 + 行号两位宽 + 8（与组件同一式），点第二个字符中央
+  let mono = @text.Font::new("Monospace", 13.0)
+  let in_word = 24.0 + text_width("88", mono) + text_width("f", mono) * 1.5
+  sel_click(root, w.rect.x + in_word, row_y(w, 3, 0))
   assert_true(st.ed.caret_pos() > 0)
   assert_true(st.ed.selection() is None)
   // 原地再来一次（400ms + 4px 内）= 双击：整词选中，边界落码点起点
-  sel_click(root, w.rect.x + 60.0, row_y(w, 3, 0))
+  sel_click(root, w.rect.x + in_word, row_y(w, 3, 0))
   match st.ed.selection() {
     Some((a, b)) => {
       assert_true(b > a)

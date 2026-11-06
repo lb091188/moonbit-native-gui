@@ -73,11 +73,11 @@ fn editor_line_h() -> Double {
 }
 
 ///|
-/// 文本区左缘 x（与组件同一式：digit_w × digits + 40；点击坐标用它算，
+/// 文本区左缘 x（与组件同一式：16 + digit_w × digits + 8；点击坐标用它算，
 /// 不依赖具体字宽）。
 fn editor_text_left(digits : Int) -> Double {
   let font = @text.Font::new("Monospace", 13.0)
-  text_width("8", font) * digits.to_double() + 40.0
+  text_width("8", font) * digits.to_double() + 24.0
 }
 
 ///|
@@ -360,9 +360,9 @@ test "行号列真实出墨（clip 修复后）与 wants_tab 声明" {
   root.paint(p)
   p.end()
   let bg = bm.pixel(2, 2)
-  // 行号画在 32、前补空格右对齐到位数宽（与组件同一式）
-  let num_l = 32
-  let num_r = (32.0 + text_width("88", @text.Font::new("Monospace", 13.0))).to_int()
+  // 行号画在 16、前补空格右对齐到位数宽（与组件同一式）
+  let num_l = 16
+  let num_r = (16.0 + text_width("88", @text.Font::new("Monospace", 13.0))).to_int()
   let mut ink = 0
   for y = 8; y < 50; y = y + 1 {
     for x = num_l - 2; x < num_r + 2; x = x + 1 {
