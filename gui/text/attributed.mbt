@@ -61,7 +61,7 @@ extern "c" fn rt_add_font(
 extern "c" fn rt_measure(
   h : Int64,
   box_w : Double,
-  out_w : Ref[Int],
+  out_w : Ref[Double],
   out_h : Ref[Int],
   out_baseline : Ref[Int],
 ) -> Int = "rt_measure"
@@ -359,7 +359,7 @@ pub fn AttributedText::get_bounds_for(
   if h == 0L {
     return { width: 0.0, height: 0.0 }
   }
-  let ow = Ref(0)
+  let ow = Ref(0.0)
   let oh = Ref(0)
   let ob = Ref(0)
   let ok = rt_measure(h, w, ow, oh, ob)
@@ -367,7 +367,7 @@ pub fn AttributedText::get_bounds_for(
   if ok != 1 {
     { width: 0.0, height: 0.0 }
   } else {
-    { width: ow.val.to_double(), height: oh.val.to_double() }
+    { width: ow.val, height: oh.val.to_double() }
   }
 }
 

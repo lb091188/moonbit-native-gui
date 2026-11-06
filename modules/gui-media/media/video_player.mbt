@@ -272,8 +272,8 @@ pub fn video(
       let txt = sub.replace(old="\n", new=" ")
       let x = match @text.measure(txt, 15.0) {
         Some(m) =>
-          if m.width.to_double() < r.w - 16.0 {
-            (r.w - m.width.to_double()) / 2.0
+          if m.width < r.w - 16.0 {
+            (r.w - m.width) / 2.0
           } else {
             8.0
           }

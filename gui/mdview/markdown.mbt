@@ -494,7 +494,7 @@ fn md_marker(text : String, w : Double) -> @widget.Node {
     // 压在基线上）。测一次自己的文本，拿到与正文同源的行盒高。
     mk.node.set_measure(fn(_aw : Double?, _ah : Double?) -> (Double, Double) {
       match @text.measure(text, 13.0) {
-        Some(m) => (m.width.to_double(), m.height.to_double())
+        Some(m) => (m.width, m.height.to_double())
         None => (w, 18.0)
       }
     })
@@ -951,7 +951,7 @@ fn md_rich_label(
       0.0
     } else {
       match @text.measure_font(@utf8.decode_lossy(bytes[:bj]), f) {
-        Some(m) => m.width.to_double()
+        Some(m) => m.width
         None => 0.0
       }
     }
@@ -962,7 +962,7 @@ fn md_rich_label(
       Some(v) => v
       None => {
         let v = match @text.measure_font("中", font, wrap=false) {
-          Some(m) => m.width.to_double()
+          Some(m) => m.width
           None => 0.0
         }
         sent_cache.set(tag, v)
@@ -985,7 +985,7 @@ fn md_rich_label(
           ellipsize=false,
           wrap=false,
         ) {
-          Some(m) => m.width.to_double()
+          Some(m) => m.width
           None => 0.0
         }
         let v = (full - sent_w(f, tag)).max(0.0)

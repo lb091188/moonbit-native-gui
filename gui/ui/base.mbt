@@ -156,8 +156,9 @@ fn attach_text_measure(
     }
     // 探询按 1px 箱折：measure_font 给的宽 = 最宽不可断单元（min-content 的
     // 文本口径），高给单行（min 宽才是撑宽元凶，节点高由正式 measure 按真实
-    // 可用宽算）
-    let box_w = if probing { 1 } else { cap.floor().to_int() }
+    // 可用宽算）。限宽向上取整：盒宽浮点化后，地板到 int 会比真实内容窄——
+    // 「选中：」32.37px 在 32 的限宽里凭空折两行（绘制侧同用 ceil，口径一致）
+    let box_w = if probing { 1 } else { cap.ceil().to_int() }
     let do_wrap = wrap && box_w > 0
     match @text.measure_font(
       src.text,
@@ -177,7 +178,7 @@ fn attach_text_measure(
         } else {
           m.height.to_double()
         }
-        (m.width.to_double() + lead_w, h)
+        (m.width + lead_w, h)
       }
       None => (lead_w, 0.0)
     }
@@ -272,7 +273,7 @@ fn draw_deco_line(
     Some(m) => m
     None => return ()
   }
-  let tw = m.width.to_double()
+  let tw = m.width
   let th = m.height.to_double()
   let r = w.rect
   if r.h <= 0.0 {

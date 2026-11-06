@@ -16,7 +16,7 @@ extern "c" fn pt_measure(
   max_width : Int,
   ellipsize : Int,
   wrap : Int,
-  out_w : Ref[Int],
+  out_w : Ref[Double],
   out_h : Ref[Int],
   out_baseline : Ref[Int],
 ) -> Int = "pt_measure"
@@ -67,7 +67,7 @@ extern "c" fn pt_measure_font(
   max_width : Int,
   ellipsize : Int,
   wrap : Int,
-  out_w : Ref[Int],
+  out_w : Ref[Double],
   out_h : Ref[Int],
   out_baseline : Ref[Int],
 ) -> Int = "pt_measure_font"
@@ -128,7 +128,10 @@ pub fn set_base_dir(dir : TextDirection) -> Unit {
 
 ///|
 pub(all) struct TextMetrics {
-  width : Int
+  /// 宽度保持浮点：win/mac 绘制侧 advance 是亚像素（Menlo 13px ≈ 7.8px/字），
+  /// 取整测量 × 逐字符累加会漂移（code_editor 光标错位半格的根因）；
+  /// Pango 侧绘制 advance 本在整数网格，浮点无损。
+  width : Double
   height : Int
   baseline : Int
 }
@@ -160,7 +163,7 @@ fn measure_uncached(
 ) -> TextMetrics? {
   let tb = @utf8.encode(text)
   let fb = @utf8.encode(family)
-  let ow = Ref(0)
+  let ow = Ref(0.0)
   let oh = Ref(0)
   let ob = Ref(0)
   let ok = pt_measure(
@@ -381,7 +384,7 @@ fn measure_font_uncached(
 ) -> TextMetrics? {
   let tb = @utf8.encode(text)
   let fb = @utf8.encode(font.name)
-  let ow = Ref(0)
+  let ow = Ref(0.0)
   let oh = Ref(0)
   let ob = Ref(0)
   let ok = pt_measure_font(
@@ -572,7 +575,8 @@ fn draw_box_raster(
     box_w.ceil().to_int()
   } else {
     match measured {
-      Some(m) => m.width
+      // 下发的盒宽 ≥ 真实浮点宽（ceil），否则同一份文本在盒里再断一次行
+      Some(m) => m.width.ceil().to_int()
       None => 0
     }
   }
@@ -723,7 +727,8 @@ pub fn draw_box_at(
   max_lines? : Int = 0,
 ) -> Bool {
   let text = if max_lines > 0 && wrap {
-    clamp_lines(text, font, box_w.floor().to_int(), max_lines)
+    // 限宽向上取整：盒宽浮点化后地板会比内容窄，按测量宽下发的盒自己折行
+    clamp_lines(text, font, box_w.ceil().to_int(), max_lines)
   } else {
     text
   }

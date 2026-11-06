@@ -22,22 +22,22 @@ test "字距：量宽差 = 字符数 × spacing" {
     let n = pair.1
     let w0 = match measure_font(text, base) {
       Some(m) => m.width
-      None => -1
+      None => -1.0
     }
-    if w0 < 0 {
+    if w0 < 0.0 {
       println("字距: skip (文本后端不可用)")
       continue
     }
     for s in [1.0, 2.0, 4.0] {
       let w = match measure_font(text, Font::new("", 14.0, spacing=s)) {
         Some(m) => m.width
-        None => -1
+        None => -1.0
       }
-      // 宽是整像素（上取整），差值允许 1px 的累计取整误差
-      let want = (n.to_double() * s).to_int()
+      // 宽是浮点，差值允许 1px 的取整误差
+      let want = n.to_double() * s
       let d = w - w0
       assert_eq(
-        (d - want).abs() <= 1,
+        (d - want).abs() <= 1.0,
         true,
         msg="字距宽度差不符：\{text} spacing=\{s} 实测差=\{d} 期望=\{want}",
       )

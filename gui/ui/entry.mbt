@@ -35,7 +35,7 @@ fn entry_layout(
     let raw = byte_slice(t, from, to)
     let shown = if mask { mask_of(raw) } else { raw }
     match @text.measure_font(shown, font) {
-      Some(m) => m.width.to_double()
+      Some(m) => m.width
       None => 0.0
     }
   }
@@ -180,7 +180,7 @@ pub fn input(
     match @style.style_for(self).text_align {
       Some(@text.TextAlign::Center) =>
         match @text.measure_font(txt, font) {
-          Some(m) => ((self.rect.w - m.width.to_double()) / 2.0).max(pad)
+          Some(m) => ((self.rect.w - m.width) / 2.0).max(pad)
           None => pad
         }
       _ => pad
@@ -280,7 +280,7 @@ pub fn input(
           let px = ox + prefix_width(ed, ed.caret_pos(), font, mask=mask)
           let _ = @text.draw_at(p, px, ty, pe, font, @theme.theme_warning())
           let pw = match @text.measure_font(pe, font) {
-            Some(m) => m.width.to_double()
+            Some(m) => m.width
             None => 0.0
           }
           p.set_fill_color(@theme.theme_warning())

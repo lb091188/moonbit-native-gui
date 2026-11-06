@@ -88,7 +88,7 @@ test "折行测宽不超限：CJK 标点联排字距不得让行宽越过限宽"
   for w in [400, 600, 842, 900] {
     match measure(s, 12.0, max_width=w, wrap=true) {
       Some(m) => assert_eq(
-        m.width <= w,
+        m.width <= w.to_double(),
         true,
         msg="限宽 \{w} 折行测得 \{m.width}，越限",
       )
@@ -113,7 +113,7 @@ test "超长不可断单元按字符硬断：行数按宽度摊算，不是一�
           assert_eq(w.width <= 200, true, msg="硬断后仍超出盒宽")
           // 容一行取整差；旧写法给的是「字符数」量级的行
           assert_eq(
-            w.height <= (expect + 1) * h,
+            w.height.to_double() <= (expect + 1.0) * h.to_double(),
             true,
             msg="长 URL 折到 \{w.height}px，按 \{one.width}px 摊算只需 \{expect} 行（每行一个字就穿帮）",
           )
@@ -138,7 +138,7 @@ test "测量宽自洽：按测量宽下发的盒不再折行" {
     match measure(s, 13.0) {
       Some(free) => {
         assert_eq(free.width > 0, true, msg="'\{s}' 量出零宽")
-        match measure(s, 13.0, max_width=free.width, wrap=true) {
+        match measure(s, 13.0, max_width=free.width.ceil().to_int(), wrap=true) {
           Some(at_box) => assert_eq(
             at_box.height,
             free.height,

@@ -922,7 +922,7 @@ test "选中档：逐字命中落字节、拖选区间就是原文子串" {
   assert_eq(state.ed.get_text(), src)
   // 单行 10 个等宽汉字：一个字宽 = 整行宽/10，第 k 字中心 = (k+0.5)*cw
   let cw = match @text.measure_font("甲", @text.Font::new("", 13.0), wrap=false) {
-    Some(m) => m.width.to_double()
+    Some(m) => m.width
     None => abort("本平台没有文本测量")
   }
   let y = label.rect.y + 1.0
@@ -1048,12 +1048,12 @@ test "选中档：逐字边缘是前缀实测量（kerning 混排也精确落边
   let mut sum_per = 0.0
   for ch in cs {
     match @text.measure_font(ch.to_string(), f, wrap=false) {
-      Some(m) => sum_per += m.width.to_double()
+      Some(m) => sum_per += m.width
       None => ()
     }
   }
   let joint = match @text.measure_font(src, f, wrap=false) {
-    Some(m) => m.width.to_double()
+    Some(m) => m.width
     None => 0.0
   }
   // 扫全部边界取「旧口径 vs 真值」的最大差（均匀 kerning 在成对边界上会被
@@ -1063,13 +1063,13 @@ test "选中档：逐字边缘是前缀实测量（kerning 混排也精确落边
   let mut bj2 = 0
   for ch in cs {
     acc += match @text.measure_font(ch.to_string(), f, wrap=false) {
-      Some(m) => m.width.to_double()
+      Some(m) => m.width
       None => 0.0
     }
     bj2 += md_byte_len(ch.to_string())
     let old_e = acc * (joint / sum_per)
     let true_e = match @text.measure_font(byte_prefix(src, bj2), f, wrap=false) {
-      Some(m) => m.width.to_double()
+      Some(m) => m.width
       None => 0.0
     }
     let gap = (old_e - true_e).abs()
@@ -1086,7 +1086,7 @@ test "选中档：逐字边缘是前缀实测量（kerning 混排也精确落边
   let mut bj = 0
   for j, ch in src.to_array() {
     let edge = match @text.measure_font(byte_prefix(src, bj), f, wrap=false) {
-      Some(m) => m.width.to_double()
+      Some(m) => m.width
       None => abort("本平台没有文本测量")
     }
     let _ = j

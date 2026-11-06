@@ -57,7 +57,8 @@ fn sel_visible_text(
   let need = src.max_lines > 0 || (!src.wrap && src.ellipsis)
   if need && box_w > 1.0 {
     let n = if src.max_lines > 0 { src.max_lines } else { 1 }
-    @text.clamp_lines(src.text, font, box_w.floor().to_int(), n)
+    // 限宽向上取整（同 draw 侧口径）：地板会比内容窄，钳出的文本多折一行
+    @text.clamp_lines(src.text, font, box_w.ceil().to_int(), n)
   } else {
     src.text
   }

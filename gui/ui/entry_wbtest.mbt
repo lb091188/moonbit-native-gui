@@ -414,11 +414,11 @@ test "密码遮罩：光标按遮罩串宽度定位（不是原文字宽）" {
   }
   let pad = 4.0
   let mask_w = match @text.measure_font(mask_of("123"), @text.Font::new("", 13.0)) {
-    Some(m) => m.width.to_double()
+    Some(m) => m.width
     None => 0.0
   }
   let raw_w = match @text.measure_font("123", @text.Font::new("", 13.0)) {
-    Some(m) => m.width.to_double()
+    Some(m) => m.width
     None => 0.0
   }
   // 判据只咬一条与字体集无关的：光标贴的是**遮罩串**宽度。
@@ -461,7 +461,7 @@ test "居中档：光标跟着文本起点，不钉在左内边距" {
     None => -1.0
   }
   let tw = match @text.measure_font("123", @text.Font::new("", 13.0)) {
-    Some(m) => m.width.to_double()
+    Some(m) => m.width
     None => 0.0
   }
   // 光标在整串末尾：起点(盒中线) + 整串宽 = (盒宽 + 串宽) / 2

@@ -20,6 +20,7 @@
 #include <pango/pangocairo.h>
 #include <cairo.h>
 #include <stdint.h>
+#include <math.h>
 
 /* 文本渲染统计（性能诊断）：Pango 把文本直接画进 cairo 表面，没有 DWrite
  * 路径的「D2D 提交 / WIC 读回混合」两段，恒 0。 */
@@ -268,9 +269,10 @@ static int pt_width_with_trailing_ws(PangoLayout *layout, const char *text,
 
 // 测量：out = [width, height, baseline]（像素）。max_width <= 0 不约束；
 // ellipsize != 0 尾端省略；wrap != 0 按词断行；spacing 是字距（逻辑像素）。
+// 宽度出 double 不取整：调用方逐字符累加测量定位光标，取整会与绘制漂移。
 int pt_measure(const char *text, int len, double size, const char *family,
                double spacing, int max_width, int ellipsize, int wrap,
-               int32_t *out_w, int32_t *out_h, int32_t *out_baseline) {
+               double *out_w, int32_t *out_h, int32_t *out_baseline) {
   if (text == NULL || out_w == NULL || out_h == NULL || out_baseline == NULL) {
     return 0;
   }
@@ -291,7 +293,7 @@ int pt_measure(const char *text, int len, double size, const char *family,
     w += (int)(spacing + (spacing > 0.0 ? 0.5 : -0.5));
   }
   int baseline = pango_layout_get_baseline(layout);
-  *out_w = w;
+  *out_w = (double)w;
   *out_h = h;
   // Pango 基线是 Pango units，四舍五入到整像素
   int bl = baseline / PANGO_SCALE;
@@ -380,7 +382,7 @@ int pt_draw(unsigned char *data, int buf_w, int buf_h, double x, double y,
 // 只在字体描述上，布局与换行/省略语义完全一致。
 int pt_measure_font(const char *text, int len, double size, const char *family,
                     int weight, int italic, double spacing, int max_width,
-                    int ellipsize, int wrap, int32_t *out_w, int32_t *out_h,
+                    int ellipsize, int wrap, double *out_w, int32_t *out_h,
                     int32_t *out_baseline) {
   if (text == NULL || out_w == NULL || out_h == NULL || out_baseline == NULL) {
     return 0;
@@ -402,7 +404,7 @@ int pt_measure_font(const char *text, int len, double size, const char *family,
     w += (int)(spacing + (spacing > 0.0 ? 0.5 : -0.5));
   }
   int baseline = pango_layout_get_baseline(layout);
-  *out_w = w;
+  *out_w = (double)w;
   *out_h = h;
   int bl = baseline / PANGO_SCALE;
   if (baseline % PANGO_SCALE >= PANGO_SCALE / 2) {
@@ -428,7 +430,7 @@ static int pt_render_box(cairo_t *cr, double x, double y, double box_w,
   // 宽约束/对齐是否交给布局由 wrapped_axis 决定，键里用同一归一化——同键的
   // 缓存布局配置必然与本次要设的一致
   int wrapped_axis = box_w > 0.0 && (wrap != 0 || ellipsize != 0);
-  int width_int = wrapped_axis ? (int)(box_w + 0.5) : 0;
+  int width_int = wrapped_axis ? (int)ceil(box_w) : 0;
   int align_eff = wrapped_axis ? align : 0;
   char *key = pt_cache_key("b", text, len, size, family, weight, italic,
                            width_int, wrap, ellipsize, align_eff, spacing);
@@ -786,10 +788,10 @@ static PangoLayout *rt_build(Rt *r) {
 }
 
 // 量尺寸：box_w > 0 时作为宽度约束（换行/省略的判定同 pt_apply_width）
-int rt_measure(int64_t h, double box_w, int32_t *out_w, int32_t *out_h,
+int rt_measure(int64_t h, double box_w, double *out_w, int32_t *out_h,
                int32_t *out_baseline);
 
-int rt_measure(int64_t h, double box_w, int32_t *out_w, int32_t *out_h,
+int rt_measure(int64_t h, double box_w, double *out_w, int32_t *out_h,
                int32_t *out_baseline) {
   Rt *r = rt_of(h);
   if (!r || out_w == NULL || out_h == NULL || out_baseline == NULL) {
@@ -805,7 +807,7 @@ int rt_measure(int64_t h, double box_w, int32_t *out_w, int32_t *out_h,
   pango_layout_get_pixel_size(layout, &w, &bh);
   int baseline = pango_layout_get_baseline(layout);
   g_object_unref(layout);
-  *out_w = w;
+  *out_w = (double)w;
   *out_h = bh;
   int bl = baseline / PANGO_SCALE;
   if (baseline % PANGO_SCALE >= PANGO_SCALE / 2) {
@@ -1958,14 +1960,13 @@ static PtPara *pt_para_simple(const char *text, int len, double size,
   return p;
 }
 
-static int pt_write_metrics(int32_t *out_w, int32_t *out_h,
+static int pt_write_metrics(double *out_w, int32_t *out_h,
                             int32_t *out_baseline, PtPara *p) {
   if (out_w != NULL) {
-    // 宽上取整，不四舍五入：CoreText 的 advance 带小数，报成最近整数就可能比
-    // 真实窄，按这个宽下发的盒再走一遍贪心断行会放不下，单行标签凭空折成
-    // 两行（真机：showcase「选中：」「最近确认：」错位重叠）。断行判定用的
-    // 是同一个 total_w，取整到天才是测量与断行的不动点。
-    *out_w = (int32_t)ceil(p->total_w);
+    // 宽度保持浮点：CoreText 的 advance 带小数，出参取整后调用方逐字符累加
+    // 定位光标会与亚像素绘制漂移（真机：code_editor 光标错位半格）。断行判定
+    // 用的同一个 total_w，浮点出参才是测量与断行的不动点。
+    *out_w = p->total_w;
   }
   if (out_h != NULL) {
     *out_h = (int32_t)(p->total_h + 0.5);
@@ -1980,7 +1981,7 @@ static int pt_write_metrics(int32_t *out_w, int32_t *out_h,
 
 int pt_measure_font(const char *text, int len, double size,
                     const char *family, int weight, int italic, double spacing,
-                    int max_width, int ellipsize, int wrap, int32_t *out_w,
+                    int max_width, int ellipsize, int wrap, double *out_w,
                     int32_t *out_h, int32_t *out_baseline) {
   if (text == NULL || out_w == NULL || out_h == NULL || out_baseline == NULL) {
     return 0;
@@ -1998,7 +1999,7 @@ int pt_measure_font(const char *text, int len, double size,
 
 int pt_measure(const char *text, int len, double size, const char *family,
                double spacing, int max_width, int ellipsize, int wrap,
-               int32_t *out_w, int32_t *out_h, int32_t *out_baseline) {
+               double *out_w, int32_t *out_h, int32_t *out_baseline) {
   return pt_measure_font(text, len, size, family, 400, 0, spacing, max_width,
                          ellipsize, wrap, out_w, out_h, out_baseline);
 }
@@ -2062,7 +2063,7 @@ int pt_draw_box(unsigned char *data, int buf_w, int buf_h, double x, double y,
     return 0;
   }
   int wrapped_axis = box_w > 0.0 && (wrap != 0 || ellipsize != 0);
-  int mw = wrapped_axis ? (int)box_w : 0;
+  int mw = wrapped_axis ? (int)ceil(box_w) : 0;
   pt_layout(p, mw, ellipsize, wrap);
   double dx = 0.0;
   double dy = 0.0;
@@ -2594,7 +2595,7 @@ static PtPara *rt_para(MacRT *s, int r, int g, int b, int a) {
   return p;
 }
 
-int rt_measure(int64_t h, double box_w, int32_t *out_w, int32_t *out_h,
+int rt_measure(int64_t h, double box_w, double *out_w, int32_t *out_h,
                int32_t *out_baseline) {
   MacRT *s = rt_of(h);
   if (s == NULL || out_w == NULL || out_h == NULL || out_baseline == NULL) {
@@ -2605,7 +2606,7 @@ int rt_measure(int64_t h, double box_w, int32_t *out_w, int32_t *out_h,
     return 0;
   }
   int wrapped = box_w > 0.0 && (s->wrap != 0 || s->ellipsize != 0);
-  pt_layout(p, wrapped ? (int)box_w : 0, s->ellipsize, s->wrap);
+  pt_layout(p, wrapped ? (int)ceil(box_w) : 0, s->ellipsize, s->wrap);
   int ok = pt_write_metrics(out_w, out_h, out_baseline, p);
   pt_para_free(p);
   return ok;
@@ -2622,7 +2623,7 @@ int rt_draw(int64_t h, unsigned char *data, int buf_w, int buf_h, double x,
     return 0;
   }
   int wrapped_axis = box_w > 0.0 && (s->wrap != 0 || s->ellipsize != 0);
-  pt_layout(p, wrapped_axis ? (int)box_w : 0, s->ellipsize, s->wrap);
+  pt_layout(p, wrapped_axis ? (int)ceil(box_w) : 0, s->ellipsize, s->wrap);
   double dx = 0.0;
   double dy = 0.0;
   if (!wrapped_axis && box_w > 0.0) {
@@ -2666,7 +2667,7 @@ static int rt_mac_line_geo(MacRT *s, int line, double box_w, double box_h,
     return 0;
   }
   int wrapped_axis = box_w > 0.0 && (s->wrap != 0 || s->ellipsize != 0);
-  pt_layout(p, wrapped_axis ? (int)box_w : 0, s->ellipsize, s->wrap);
+  pt_layout(p, wrapped_axis ? (int)ceil(box_w) : 0, s->ellipsize, s->wrap);
   if (line < 0 || line >= p->nline) {
     pt_para_free(p);
     return 0;
@@ -2740,7 +2741,7 @@ int rt_line_count(int64_t h, double box_w, double box_h) {
     return 0;
   }
   int wrapped_axis = box_w > 0.0 && (s->wrap != 0 || s->ellipsize != 0);
-  pt_layout(p, wrapped_axis ? (int)box_w : 0, s->ellipsize, s->wrap);
+  pt_layout(p, wrapped_axis ? (int)ceil(box_w) : 0, s->ellipsize, s->wrap);
   int n = p->nline;
   pt_para_free(p);
   return n;
@@ -2811,7 +2812,7 @@ int rt_hit(int64_t h, double x, double y, double box_w, double box_h,
       return 0;
     }
     int wrapped_axis = box_w > 0.0 && (s->wrap != 0 || s->ellipsize != 0);
-    pt_layout(p, wrapped_axis ? (int)box_w : 0, s->ellipsize, s->wrap);
+    pt_layout(p, wrapped_axis ? (int)ceil(box_w) : 0, s->ellipsize, s->wrap);
     if (p->nline <= k) {
       pt_para_free(p);
       return 0;
@@ -2891,7 +2892,7 @@ int rt_caret_x(int64_t h, int byte, double box_w, double box_h, double *out_x) {
 
 int pt_measure(const char *text, int len, double size, const char *family,
                double spacing, int max_width, int ellipsize, int wrap,
-               int32_t *out_w, int32_t *out_h, int32_t *out_baseline) {
+               double *out_w, int32_t *out_h, int32_t *out_baseline) {
   (void)text; (void)len; (void)size; (void)family; (void)spacing;
   (void)max_width; (void)ellipsize; (void)wrap; (void)out_w; (void)out_h;
   (void)out_baseline;
@@ -2922,7 +2923,7 @@ int pt_draw(unsigned char *data, int buf_w, int buf_h, double x, double y,
 
 int pt_measure_font(const char *text, int len, double size, const char *family,
                     int weight, int italic, double spacing, int max_width,
-                    int ellipsize, int wrap, int32_t *out_w, int32_t *out_h,
+                    int ellipsize, int wrap, double *out_w, int32_t *out_h,
                     int32_t *out_baseline) {
   (void)text; (void)len; (void)size; (void)family; (void)weight; (void)italic;
   (void)spacing; (void)max_width; (void)ellipsize; (void)wrap; (void)out_w;
@@ -2966,7 +2967,7 @@ void rt_add_font(int64_t h, int start, int end, const char *family, int flen,
   (void)h; (void)start; (void)end; (void)family; (void)flen; (void)size;
   (void)weight; (void)italic;
 }
-int rt_measure(int64_t h, double box_w, int32_t *out_w, int32_t *out_h,
+int rt_measure(int64_t h, double box_w, double *out_w, int32_t *out_h,
                int32_t *out_baseline) {
   (void)h; (void)box_w; (void)out_w; (void)out_h; (void)out_baseline;
   return 0;

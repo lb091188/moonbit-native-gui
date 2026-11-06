@@ -207,8 +207,8 @@ pub fn audio(
       let font = @text.Font::new("", 15.0, weight=@text.Bold)
       let x = match @text.measure_font(txt, font) {
         Some(m) =>
-          if m.width.to_double() < r.w - 16.0 {
-            (r.w - m.width.to_double()) / 2.0
+          if m.width < r.w - 16.0 {
+            (r.w - m.width) / 2.0
           } else {
             8.0
           }

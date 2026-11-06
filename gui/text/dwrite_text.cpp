@@ -297,7 +297,7 @@ extern "C" void pt_set_base_dir(int rtl) {
 extern "C" int pt_measure_font(const char *text, int len, double size,
                                const char *family, int weight, int italic,
                                double spacing, int max_width, int ellipsize,
-                               int wrap, int32_t *out_w, int32_t *out_h,
+                               int wrap, double *out_w, int32_t *out_h,
                                int32_t *out_baseline);
 
 extern "C" int pt_font_line_height(double size, const char *family, int weight,
@@ -306,7 +306,7 @@ extern "C" int pt_font_line_height(double size, const char *family, int weight,
 
 extern "C" int pt_measure(const char *text, int len, double size,
                           const char *family, double spacing, int max_width,
-                          int ellipsize, int wrap, int32_t *out_w,
+                          int ellipsize, int wrap, double *out_w,
                           int32_t *out_h, int32_t *out_baseline) {
   return pt_measure_font(text, len, size, family, 400, 0, spacing, max_width,
                          ellipsize, wrap, out_w, out_h, out_baseline);
@@ -315,7 +315,7 @@ extern "C" int pt_measure(const char *text, int len, double size,
 extern "C" int pt_measure_font(const char *text, int len, double size,
                                const char *family, int weight, int italic,
                                double spacing, int max_width, int ellipsize,
-                               int wrap, int32_t *out_w, int32_t *out_h,
+                               int wrap, double *out_w, int32_t *out_h,
                                int32_t *out_baseline) {
   if (text == nullptr || out_w == nullptr || out_h == nullptr ||
       out_baseline == nullptr) {
@@ -354,9 +354,10 @@ extern "C" int pt_measure_font(const char *text, int len, double size,
   if (SUCCEEDED(layout->GetLineMetrics(&lm, 1, &got)) && got >= 1) {
     baseline = lm.baseline;
   }
-  // 宽上取整，与下面的口径说明配对：盒宽必须 ≥ 真实浮点宽，否则同一份文本
-  // 在盒里再断一次行会多出一行（mac 真机踩过，Windows 同式）。
-  *out_w = static_cast<int32_t>(ceilf(tm.widthIncludingTrailingWhitespace));
+  // 宽度保持浮点：DWrite 排版 advance 带小数，出参取整后调用方逐字符累加
+  // 定位光标会与亚像素绘制漂移（win/mac 真机：code_editor 光标错位半格）。
+  // 断行判定用同一浮点宽，浮点出参才是测量/断行的不动点。
+  *out_w = static_cast<double>(tm.widthIncludingTrailingWhitespace);
   *out_h = static_cast<int32_t>(tm.height + 0.5f);
   *out_baseline = static_cast<int32_t>(baseline + 0.5f);
   return 1;
@@ -1125,7 +1126,7 @@ extern "C" int pt_draw_box(unsigned char *data, int buf_w, int buf_h, double x,
   const int wrapped_axis = box_w > 0.0 && (wrap != 0 || ellipsize != 0);
   IDWriteTextLayout *layout = ptw_cached_layout(
       "b", text, len, size, family, weight, italic,
-      wrapped_axis ? static_cast<int>(box_w) : 0, wrap, ellipsize,
+      wrapped_axis ? static_cast<int>(ceil(box_w)) : 0, wrap, ellipsize,
       wrapped_axis ? align : 0, spacing);
   if (layout == nullptr) {
     return 0;
@@ -1136,12 +1137,12 @@ extern "C" int pt_draw_box(unsigned char *data, int buf_w, int buf_h, double x,
   if (g_batching) {
     return ptw_batch_queue(layout, static_cast<float>(x + dx),
                            static_cast<float>(y + dy), data, buf_w, buf_h, r,
-                           g, b, a, wrapped_axis ? static_cast<int>(box_w) : 0);
+                           g, b, a, wrapped_axis ? static_cast<int>(ceil(box_w)) : 0);
   }
   return ptw_render(layout, static_cast<float>(x + dx),
                     static_cast<float>(y + dy), data, buf_w, buf_h, r, g, b, a,
                     nullptr, 0, nullptr, 0,
-                    wrapped_axis ? static_cast<int>(box_w) : 0);
+                    wrapped_axis ? static_cast<int>(ceil(box_w)) : 0);
 }
 
 extern "C" int pt_draw_box_cr(int64_t cr_id, double x, double y, double box_w,
@@ -1396,7 +1397,7 @@ extern "C" void rt_add_font(int64_t h, int start, int end, const char *family,
   s->nf++;
 }
 
-extern "C" int rt_measure(int64_t h, double box_w, int32_t *out_w,
+extern "C" int rt_measure(int64_t h, double box_w, double *out_w,
                           int32_t *out_h, int32_t *out_baseline) {
   PtwSession *s = ptw_session_of(h);
   if (s == nullptr || out_w == nullptr || out_h == nullptr ||
@@ -1404,7 +1405,7 @@ extern "C" int rt_measure(int64_t h, double box_w, int32_t *out_w,
     return 0;
   }
   IDWriteTextLayout *layout =
-      ptw_session_layout(s, static_cast<int>(box_w), false);
+      ptw_session_layout(s, static_cast<int>(ceil(box_w)), false);
   if (layout == nullptr) {
     return 0;
   }
@@ -1420,9 +1421,8 @@ extern "C" int rt_measure(int64_t h, double box_w, int32_t *out_w,
     baseline = lm.baseline;
   }
   layout->Release();
-  // 宽上取整：断行判定用的是同一个浮点宽，四舍五入报窄会让「按测量宽下发
-  // 的盒」再折一次行（单行标签凭空两行），取整到天才是测量/断行的不动点。
-  *out_w = static_cast<int32_t>(ceilf(tm.widthIncludingTrailingWhitespace));
+  // 宽度保持浮点（同 pt_measure_font：取整测量 × 逐字符累加与亚像素绘制漂移）。
+  *out_w = static_cast<double>(tm.widthIncludingTrailingWhitespace);
   *out_h = static_cast<int32_t>(tm.height + 0.5f);
   *out_baseline = static_cast<int32_t>(baseline + 0.5f);
   return 1;
@@ -1436,7 +1436,7 @@ extern "C" int rt_draw(int64_t h, unsigned char *data, int buf_w, int buf_h,
     return 0;
   }
   IDWriteTextLayout *layout =
-      ptw_session_layout(s, static_cast<int>(box_w), true);
+      ptw_session_layout(s, static_cast<int>(ceil(box_w)), true);
   if (layout == nullptr) {
     return 0;
   }
@@ -1497,7 +1497,7 @@ extern "C" int rt_line_count(int64_t h, double box_w, double box_h) {
     return 0;
   }
   IDWriteTextLayout *layout =
-      ptw_session_layout(s, static_cast<int>(box_w), false);
+      ptw_session_layout(s, static_cast<int>(ceil(box_w)), false);
   if (layout == nullptr) {
     return 0;
   }
@@ -1515,7 +1515,7 @@ extern "C" int rt_line_box(int64_t h, int line, double box_w, double box_h,
     return 0;
   }
   IDWriteTextLayout *layout =
-      ptw_session_layout(s, static_cast<int>(box_w), false);
+      ptw_session_layout(s, static_cast<int>(ceil(box_w)), false);
   if (layout == nullptr) {
     return 0;
   }
@@ -1575,7 +1575,7 @@ extern "C" int rt_hit(int64_t h, double x, double y, double box_w,
     return 0;
   }
   IDWriteTextLayout *layout =
-      ptw_session_layout(s, static_cast<int>(box_w), false);
+      ptw_session_layout(s, static_cast<int>(ceil(box_w)), false);
   if (layout == nullptr) {
     return 0;
   }
@@ -1613,7 +1613,7 @@ extern "C" int rt_caret_x(int64_t h, int byte, double box_w, double box_h,
     byte = s->tlen;
   }
   IDWriteTextLayout *layout =
-      ptw_session_layout(s, static_cast<int>(box_w), false);
+      ptw_session_layout(s, static_cast<int>(ceil(box_w)), false);
   if (layout == nullptr) {
     return 0;
   }

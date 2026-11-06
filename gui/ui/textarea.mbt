@@ -29,7 +29,7 @@ fn seg_width(text : String, from : Int, to : Int, font : @text.Font) -> Double {
     0.0
   } else {
     match @text.measure_font(byte_slice(text, from, to), font) {
-      Some(m) => m.width.to_double()
+      Some(m) => m.width
       None => 0.0
     }
   }

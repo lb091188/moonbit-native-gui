@@ -278,7 +278,7 @@ test "主题化按钮：宽度随文本、抬起落在框内才算点击、焦�
   // 「宽度随文本」需要文字层给测量值；本平台还没接上时（Windows 的
   // DirectWrite 在 TODO 的 W5）跳过这一条，点击与焦点环的断言照跑
   match @text.measure("提交", 13.0) {
-    Some(m) => assert_eq(w.rect.w, m.width.to_double() + 24.0)
+    Some(m) => assert_eq(w.rect.w, m.width + 24.0)
     None => println("form: skip (宽度随文本——无测量后端)")
   }
   assert_eq(w.rect.h, @theme.control_height)

@@ -14,7 +14,9 @@ pub fn measure_text_height(
   ),
   width? : Double = 0.0,
 ) -> Double {
-  let box_w = if width > 0.0 { width.floor().to_int() } else { 0 }
+  // 限宽向上取整：盒宽是浮点（测量链已浮点），地板到 int 会比内容窄，
+  // 标签在自己的盒里凭空折行（「选中：」32.37 → 32 折两行）
+  let box_w = if width > 0.0 { width.ceil().to_int() } else { 0 }
   match @text.measure_font(text, font, max_width=box_w, wrap=box_w > 0) {
     Some(m) => m.height.to_double()
     None => 0.0
