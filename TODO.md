@@ -19,10 +19,12 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 - [ ] **L1-Win 真机复验**（用户执行）：实现已落（2026-11-04，核心三臂共享 + Win32 薄适配，详见 adaptation.md）——Windows 跑一遍 hello/showcase：界面与改造前一致、无闪烁、resize 不花。mac 腿已过（2026-11-05 真机：界面与纯光栅一致、视图转 layer-backing 后输入/交互正常）；Linux 腿已过（2026-11-06 真机：独立 X 子窗口承载，界面/交互/rainbow/webview 层级/挪库回退全过，门已删默认尝试）
 - [ ] **GPU 画布 Linux 腿取数**（用户执行）：2026-11-06 本机无头用例已过（根因 `multisample.mask` 零值，像素断言首次在 Linux 真正执行：3/3，左上红 / 右下蓝 / 中心绿混合全对）；win 腿已过（2026-11-06 真机 showcase「GPU 画布」页）；剩真机应用进程——Linux 跑 showcase「GPU 画布」页，把「检查读回」状态行原文贴回：非零 = 应用进程同样正常；全零 / 仅底色 = 按档位归因（adaptation.md 同节）
 
-## 终端与单文件 DX 批（2026-11-06 排定，方案与切分见 [proposals/terminal-sfc-dx.md](proposals/terminal-sfc-dx.md)；一项一提交，做完一项删一项并同步路线图。终端五件已落（roadmap 🚧 真机待验 SC-6.5），剩 SFC 四件与收口）
+## 终端与单文件 DX 批（2026-11-06 排定，方案见 [proposals/terminal-sfc-dx.md](proposals/terminal-sfc-dx.md)——代码侧九件全部落地并逐项提交推送，本批只剩真机复验，均由用户执行）
 
-- [ ] **SFC·文档**：guide 中英文单文件章节 + 最小示例 + VSIX/README/design.md/roadmap 口径同步（方案 §2.4）
-- [ ] **收口**：全门禁 + roadmap/TODO/测试文档计数 + 真机清单
+- [ ] **终端控件真机复验**（用户执行）：showcase「代码文档」→「终端」段按 SC-6.5 走（ANSI 16/256/truecolor、CJK 对齐、折行、滚轮回看 + Shift+PageUp + 滚动条、四按钮、打字/退格/方向键回显、回车喂回、拖选 Ctrl/Cmd+C 复制、裸 Ctrl+C 进输入、深浅主题）
+- [ ] **模板 v-for 真机复验**（用户执行）：showcase「代码文档」→「模板列表」段按 SC-6.6 走（加/删首/清空、行序一致、无残影）；`mng dev` 下改 vfor_demo 行模板应 `[HOT→COLD]` 带原因重启
+- [ ] **项目级 build 与 dev watch 真机复验**（用户执行）：①`cd examples/showcase && moon run ../../tools/native-gui-tools/mng -- build` 应列出全部模板 OK 且 `moon check` 过（注意会把 dev 形态生成码覆盖成生产形态，复验完 `git checkout` 生成码或跑一轮 dev 恢复）；②`mng dev` 跑着时新建一个 `.mng` → 日志 `[NEW]` 并自动重启；删除它 → `[GONE]` 清生成码；改 `main.mbt` → `[SRC]` 并重启
+- [ ] **template-hello 冒烟**（用户执行）：`moon run examples/template-hello` 起窗、输入名字/步进计数/重置
 
 ## 模板预编译（2026-11-01 启动，方案见 [proposals/native-template.md](proposals/native-template.md) 与 [proposals/mng-project-dev.md](proposals/mng-project-dev.md)；已完成叙事归 roadmap「开发体验」，此处只留未完成项）
 
