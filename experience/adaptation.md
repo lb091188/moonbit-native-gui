@@ -3831,3 +3831,12 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 **判据**：从仓库根实跑探针得 `probe loaded=true detail=loaded(D:/code/moonbit-native-gui/modules/gui-gpu/vendor/lib/wgpu_native.dll)` → `canvas: Ok 64x48` → `finish: sample B,G,R,A=0,0,255,255, nonzero=1536`（32×24 红矩形，R+A 两槽非零）；`cd modules/gui-gpu && moon test gpu` 3/3 且像素断言真执行；全仓 `moon check`、库 `moon check`、全仓 `moon build --target native` 零错误零警告。
 
 **边界**：`gui/win/stub.c` 的 L1 呈现核心**刻意未动**——它的 Windows 分支同样只试裸名 dll，但一旦装载成功 `WmL1.on` 会让 Win32 `WM_PAINT` 停手、整窗改走 wgpu present，这条路径在 Windows 上从未真机验收；当前探测面板如实显示「回退 CPU 路径」，与 L2 的 `GpuCanvas` 能否出图是两回事（画布读回后仍由 CPU 位图 `draw_canvas` 上屏）。发行形态（cwd 在仓库外）走 `MNG_WGPU_LIB`，或把 `wgpu_native.dll` 放 exe 同目录由裸名的 DLL 搜索序命中。
+## 原生弹层窗三件：不激活、禁 GPU present 档、延迟上屏（2026-11-06，win/mac/linux 真机迭代）
+
+菜单/下拉类弹层在原生档下是独立窗口，三端各自的坑都出在「这是个窗」上：
+
+- **弹层窗不能抢键盘焦点**：菜单/下拉/提示类弹层开了以后，键盘（↑↓/回车/Esc）必须留在 owner 的触发件上——弹层窗的控件树里没有导航逻辑，抢走焦点就是键盘全灭（win 真机：方向/回车/搜索全无；GTK 真机：方向/回车无、Esc 靠弹层窗兜底通道碰巧能用）。三端不激活口径：win `WS_EX_NOACTIVATE` + `ShowWindow(SW_SHOWNA)`、mac `canBecomeKeyWindow` 按标志返回 NO + `orderFrontRegardless`、GTK `gtk_window_set_accept_focus(FALSE)` + `gtk_window_set_focus_on_map(FALSE)` 且不 `gtk_window_present`。另有一条隐蔽入口：`session_open` 建窗后无条件 `window.request_focus()`（win SetFocus / mac makeKeyWindow / GTK grab_focus），菜单类必须跳过。对话框相反——`want_focus=true` 保持激活，输入框才能打字。
+- **点外收起不能靠失焦**：弹层不激活后永远收不到「失焦」，改由 owner 窗的按下事件判定：本 owner 的收起型弹层开着时，owner 上任何按下都是点外（弹层是独立窗，弹层内的点不会到 owner），收起最上层并**吞掉整段手势**（Down/Up 都不再派发）。不吞的话，点触发按钮会先点外收起、紧接的 click 又把它打开——「关了再开闪一下」（win 真机成因）。
+- **弹层窗不能走 GPU present 档（L1）**：mac 真机症状「菜单空白、动鼠标才出来」的根因——弹层窗也挂了 Metal layer，而首帧是在窗口上屏**之前** present 的，CAMetalLayer 会丢弃；同时 `drawRect` 在 `l1.on` 时直接 return（像素交给 Metal 了），于是窗口显示后既无 Metal 帧也无 CG 帧，直到鼠标事件触发重绘再 present 一次。修法：`set_popup` 时 `l1.dead = 1`，弹层走纯光栅贴帧缓冲（内容小，完全够用）。win 的同款隐患（swapchain 首帧早于显示）一并禁。
+- **显示必须晚于首帧内容**：`show` 时内容还没 mount，立刻上屏会露出空框（win 真机：菜单出现瞬间一道黑影；GTK：闪现）。三端统一「延迟显示」：`wm_show` 对弹层只记 `pending_show`，`wm_present` 填好首帧后 materialize（win ShowWindow+`need_draw=1`、mac orderFront+`setNeedsDisplay`+`need_draw=1`、GTK show_all+`wm_mark_draw`）——上屏时序不依赖任何平台回调。
+- 关联的既有口径不变：`show` 前 `set_popup`（类型提示/transient 在映射期定）、Esc 兜底通道保留给对话框、点外收判定按 owner wid 隔离（多窗应用互不干扰）。
