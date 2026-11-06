@@ -40,6 +40,7 @@
 #include <mmdeviceapi.h>
 #include <endpointvolume.h>
 #include <winspool.h>
+#include <powersetting.h> // PowerGetActiveScheme/PowerSetActiveScheme（不在 powrprof.h）
 // 机器 DMI 的 WMI 兜底（QEMU/SeaBIOS 这类固件不给用户态 SMBIOS 表，注册表
 // 镜像也是空的，只能问 WMI）。oleauto.h 供 SysAllocString/VariantClear，
 // wbemuuid.lib 供 CLSID_WbemLocator / IID_IWbemLocator 两个 GUID 常量

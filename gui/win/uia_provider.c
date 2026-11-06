@@ -41,11 +41,9 @@
 #include <stddef.h> // offsetof（多接口 COM 的容器换算）
 #include <ole2.h> // VARIANT/BSTR/SysAlloc* 全链（oleauto/oaidl 正序）：裸含 oleauto.h 时 VARIANT 视图不完整
 #include <objbase.h> // COM 基础（interface 宏）：uiautomationcore.h 裸用会语法错
-// 不含聚合头 uiautomation.h：它会抢占具体头的 include guard，排在前面时
-// 后续 core/client 头全部空转（符号一个都供不上）。
 #include <uiautomationcore.h> // provider 接口本体（IRawElementProvider*/IToggleProvider 等 vtable 结构）
 #include <uiautomationclient.h> // UIA_* 常量与 provider 枚举（见下：C 模式下要自给）
-#include <uiautomationcoreapi.h> // UiaReturnRawElementProvider / UiaHostProviderFromHwnd / UiaCreateRuntimeId
+#include <uiautomationcoreapi.h> // UiaReturnRawElementProvider / UiaHostProviderFromHwnd
 
 /* ---- C 模式自给层（实测坑，2026-11-06 Windows SDK 10.0.26100 首编）----
  * SDK 头把 UIA_* 常量生成为 `const long` 变量——纯 C 下不是编译期常量，
@@ -53,37 +51,99 @@
  * 类型也走 const 形态，当不了形参类型名（C2081）。这里按 ABI 数值统一定
  * 义为编译期常量、枚举给自有形态（vtable 初始化全部 (void*) 强转，签名
  * 类型与 SDK 声明二进制同形即可）。数值取自 SDK 头实物，跨版本恒定。 */
+#ifndef UIA_NamePropertyId
 #define UIA_NamePropertyId 30005
+#endif
+#ifndef UIA_AutomationIdPropertyId
 #define UIA_AutomationIdPropertyId 30011
+#endif
+#ifndef UIA_ControlTypePropertyId
 #define UIA_ControlTypePropertyId 30003
+#endif
+#ifndef UIA_IsEnabledPropertyId
 #define UIA_IsEnabledPropertyId 30010
+#endif
+#ifndef UIA_IsControlElementPropertyId
 #define UIA_IsControlElementPropertyId 30016
+#endif
+#ifndef UIA_IsContentElementPropertyId
 #define UIA_IsContentElementPropertyId 30017
+#endif
+#ifndef UIA_IsKeyboardFocusablePropertyId
 #define UIA_IsKeyboardFocusablePropertyId 30009
+#endif
+#ifndef UIA_IsPasswordPropertyId
 #define UIA_IsPasswordPropertyId 30019
+#endif
+#ifndef UIA_ValueIsReadOnlyPropertyId
 #define UIA_ValueIsReadOnlyPropertyId 30046
+#endif
+#ifndef UIA_HelpTextPropertyId
 #define UIA_HelpTextPropertyId 30013
+#endif
+#ifndef UIA_ButtonControlTypeId
 #define UIA_ButtonControlTypeId 50000
+#endif
+#ifndef UIA_CheckBoxControlTypeId
 #define UIA_CheckBoxControlTypeId 50002
+#endif
+#ifndef UIA_RadioButtonControlTypeId
 #define UIA_RadioButtonControlTypeId 50013
+#endif
+#ifndef UIA_SliderControlTypeId
 #define UIA_SliderControlTypeId 50015
+#endif
+#ifndef UIA_SpinnerControlTypeId
 #define UIA_SpinnerControlTypeId 50016
+#endif
+#ifndef UIA_EditControlTypeId
 #define UIA_EditControlTypeId 50004
+#endif
+#ifndef UIA_DocumentControlTypeId
 #define UIA_DocumentControlTypeId 50030
+#endif
+#ifndef UIA_ComboBoxControlTypeId
 #define UIA_ComboBoxControlTypeId 50003
+#endif
+#ifndef UIA_ProgressBarControlTypeId
 #define UIA_ProgressBarControlTypeId 50012
+#endif
+#ifndef UIA_TextControlTypeId
 #define UIA_TextControlTypeId 50020
+#endif
+#ifndef UIA_HyperlinkControlTypeId
 #define UIA_HyperlinkControlTypeId 50005
+#endif
+#ifndef UIA_ImageControlTypeId
 #define UIA_ImageControlTypeId 50006
+#endif
+#ifndef UIA_TabItemControlTypeId
 #define UIA_TabItemControlTypeId 50019
+#endif
+#ifndef UIA_MenuItemControlTypeId
 #define UIA_MenuItemControlTypeId 50011
+#endif
+#ifndef UIA_GroupControlTypeId
 #define UIA_GroupControlTypeId 50026
+#endif
+#ifndef UIA_WindowControlTypeId
 #define UIA_WindowControlTypeId 50032
+#endif
+#ifndef UIA_InvokePatternId
 #define UIA_InvokePatternId 10000
+#endif
+#ifndef UIA_TogglePatternId
 #define UIA_TogglePatternId 10015
+#endif
+#ifndef UIA_ValuePatternId
 #define UIA_ValuePatternId 10002
+#endif
+#ifndef UIA_RangeValuePatternId
 #define UIA_RangeValuePatternId 10003
+#endif
+#ifndef UIA_ExpandCollapsePatternId
 #define UIA_ExpandCollapsePatternId 10005
+#endif
 
 typedef enum {
     WmToggleState_Off = 0,
@@ -848,10 +908,18 @@ static HRESULT STDMETHODCALLTYPE wm_prov_runtime_id(IRawElementProviderFragment 
                                                     SAFEARRAY **ret) {
     WmProv *p = wm_prov_of_frag(self);
     if (ret == NULL) return E_POINTER;
-    int v[2];
-    v[0] = (int)(intptr_t)p->hwnd;
-    v[1] = p->idx + 1;
-    return UiaCreateRuntimeId(v, 2, ret);
+    // RuntimeId 是 VT_I4 SAFEARRAY（SDK 没有 UiaCreateRuntimeId 这个函数——
+    // 凭记忆写过，链接期会 LNK2019）
+    SAFEARRAY *sa = SafeArrayCreateVector(VT_I4, 0, 2);
+    if (sa == NULL) return E_OUTOFMEMORY;
+    LONG i0 = 0;
+    LONG i1 = 1;
+    int v0 = (int)(intptr_t)p->hwnd;
+    int v1 = p->idx + 1;
+    SafeArrayPutElement(sa, &i0, &v0);
+    SafeArrayPutElement(sa, &i1, &v1);
+    *ret = sa;
+    return S_OK;
 }
 
 static HRESULT STDMETHODCALLTYPE wm_prov_rect(IRawElementProviderFragment *self,
