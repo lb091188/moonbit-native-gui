@@ -21,7 +21,6 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 
 ## 终端与单文件 DX 批（2026-11-06 排定，方案与切分见 [proposals/terminal-sfc-dx.md](proposals/terminal-sfc-dx.md)；一项一提交，做完一项删一项并同步路线图。终端五件已落（roadmap 🚧 真机待验 SC-6.5），剩 SFC 四件与收口）
 
-- [ ] **SFC·watch**：`mng dev` 感知新/删 .mng 与 .mbt/moon.pkg/moon.mod 变更 + 纯函数用例（方案 §2.3）
 - [ ] **SFC·文档**：guide 中英文单文件章节 + 最小示例 + VSIX/README/design.md/roadmap 口径同步（方案 §2.4）
 - [ ] **收口**：全门禁 + roadmap/TODO/测试文档计数 + 真机清单
 

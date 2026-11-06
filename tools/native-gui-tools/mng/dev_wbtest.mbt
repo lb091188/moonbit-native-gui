@@ -103,3 +103,35 @@ test "build_project_at：模板编译失败非零退出" {
   )
   assert_eq(build_project_at(root), 1)
 }
+
+///|
+test "scan_source_files：收 .mbt（排 .gen.mbt）与工程清单，跳产物目录" {
+  let root = tmp_dir("mng_scan_src")
+  ensure_dir_p(root)
+  ensure_dir_p(root + "/sub")
+  ensure_dir_p(root + "/_build")
+  ensure_dir_p(root + "/.mng")
+  write_file_p(root + "/a.mbt", "fn a {}")
+  write_file_p(root + "/a.gen.mbt", "// GENERATED")
+  write_file_p(root + "/moon.pkg", "{}")
+  write_file_p(root + "/sub/b.mbt", "fn b {}")
+  write_file_p(root + "/_build/c.mbt", "fn c {}")
+  write_file_p(root + "/.mng/d.mbt", "fn d {}")
+  let got = scan_source_files(root)
+  assert_true(arr_has_cli(got, root + "/a.mbt"))
+  assert_true(arr_has_cli(got, root + "/moon.pkg"))
+  assert_true(arr_has_cli(got, root + "/sub/b.mbt"))
+  assert_false(arr_has_cli(got, root + "/a.gen.mbt"))
+  assert_false(arr_has_cli(got, root + "/_build/c.mbt"))
+  assert_false(arr_has_cli(got, root + "/.mng/d.mbt"))
+}
+
+///|
+test "diff_file_sets：新增/删除各自成列，共有的不动" {
+  let (added, removed) = diff_file_sets(["/a.mng", "/b.mng"], ["/b.mng", "/c.mng"])
+  assert_eq(added, ["/c.mng"])
+  assert_eq(removed, ["/a.mng"])
+  let (added2, removed2) = diff_file_sets([], [])
+  assert_eq(added2, [])
+  assert_eq(removed2, [])
+}
