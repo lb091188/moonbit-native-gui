@@ -9,6 +9,7 @@
 fn usage() -> Unit {
   println("用法：moon run tools/native-gui-tools/mng -- <子命令> ...")
   println("  build <input.mng> -o <out.mbt>    编译模板：产出 out.mbt 与 out.mbt.map")
+  println("  build（无参）                           按 mng.toml 生成全工程生产形态（会覆盖 dev 形态生成码）")
   println("  gen <input.mng> -o <out.mbt>      dev 形态编译（CI 生成物对账用，无 map）")
   println("  map-errors --map <out.mbt.map> <log>   把日志中 <gen>.mbt:行:列 映射回模板行列")
   println("  ir <input.mng>                    打印模板的 IR 补丁（调试与注册表校准）")
@@ -70,8 +71,12 @@ fn cmd_build(args : Array[String]) -> Int {
       k += 1
     }
   }
+  if input.length() == 0 && out.length() == 0 {
+    // 无参：项目模式——按 mng.toml 生成全工程生产形态
+    return cmd_build_project()
+  }
   if input.length() == 0 || out.length() == 0 {
-    println("build 需要输入文件与 -o 输出路径")
+    println("build 需要输入文件与 -o 输出路径（或无参跑项目级生成）")
     return 2
   }
   match stem_conflict_msg(input) {

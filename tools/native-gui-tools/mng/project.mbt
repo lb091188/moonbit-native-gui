@@ -357,16 +357,17 @@ fn scan_dir_mng(dir : String, out : Array[String]) -> Unit {
   entries.sort()
   for name in entries {
     let p = if dir == "." { name } else { dir + "/" + name }
+    if name == "_build" || name == ".mooncakes" || name == "node_modules" || name == "target" {
+      continue
+    }
+    // 点目录先跳过——dev 产物目录 `.mng/` 名字恰以 .mng 结尾，后缀判断不能抢在它前面
+    if name.has_prefix(".") {
+      continue
+    }
     if name.has_suffix(".mng") {
       if !arr_has_str(out, p) {
         out.push(p)
       }
-      continue
-    }
-    if name == "_build" || name == ".mooncakes" || name == "node_modules" || name == "target" {
-      continue
-    }
-    if name.has_prefix(".") {
       continue
     }
     let isdir = @fs.is_dir(p) catch {

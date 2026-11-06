@@ -622,6 +622,82 @@ fn wake_page(app_id : String, page : String) -> Unit {
 }
 
 ///|
+/// 项目级生产构建：按 mng.toml（或默认推导）扫全工程 .mng，逐个产生产形态
+/// 生成码写回模板同包 `<stem>.gen.mbt`，source map 落 `.mng/map/`。
+/// 与 dev 形态共用同一条生成码路径，会互相覆盖——提交前选一种并保持一致。
+fn build_project_at(root : String) -> Int {
+  let conf = match load_dev_conf("", "", "", None, root) {
+    Ok(c) => c
+    Err(e) => {
+      eprintln(e)
+      return 2
+    }
+  }
+  let files = scan_templates(conf.templates)
+  if files.length() == 0 {
+    eprintln("没扫到 .mng（templates = " + conf.templates.join(", ") + "）")
+    return 2
+  }
+  match collision_msg(files) {
+    Some(m) => {
+      eprintln(m)
+      return 2
+    }
+    None => ()
+  }
+  let mng_root = conf.dir + "/.mng"
+  if !mkdir_p(mng_root + "/map") {
+    eprintln("建不出目录：" + mng_root + "/map")
+    return 1
+  }
+  let mut ok = true
+  for f in files {
+    let src = match slurp(f) {
+      Some(s) => s
+      None => {
+        eprintln("读不到：" + f)
+        ok = false
+        continue
+      }
+    }
+    match mng_compile(src, f) {
+      Err(e) => {
+        eprintln(f + " 编译失败：")
+        eprintln(e)
+        ok = false
+      }
+      Ok(r) => {
+        let gp = gen_path("", f)
+        if !spit(gp, r.code) {
+          eprintln("写不出生成码：" + gp)
+          ok = false
+          continue
+        }
+        let mappath = dev_map_path(mng_root, conf.dir, f)
+        if !write_dev_map(mappath, r.map, basename(gp)) {
+          eprintln("写不出 source map：" + mappath)
+        }
+        println("OK " + gp)
+      }
+    }
+  }
+  if !ok {
+    return 1
+  }
+  println("BUILD " + files.length().to_string() + " 个模板 → 生产形态生成码")
+  0
+}
+
+///|
+fn cmd_build_project() -> Int {
+  let cwd = match @env.current_dir() {
+    Some(d) => d
+    None => "."
+  }
+  build_project_at(cwd)
+}
+
+///|
 /// init 子命令：在模块根写 mng.toml 样板（已有则不动）。
 fn cmd_init(_args : Array[String]) -> Int {
   let cwd = match @env.current_dir() {

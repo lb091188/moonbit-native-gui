@@ -139,8 +139,9 @@ jobs:
           fi
           grep -aE "Total tests" /tmp/mt.out | tail -1
 
-      # 模板生成物新鲜度对账：对每个提交的 .mng 用 dev 形态重新编译，与提交的
-      # <stem>.gen.mbt diff——不一致即「手改生成码」或「改了模板忘重新生成」。
+      # 模板生成物新鲜度对账：对每个提交的 .mng 用 dev / 生产两种形态重新编译，
+      # 与提交的 <stem>.gen.mbt 比对——匹配任一形态即过（mng dev 写 dev 形态、
+      # mng build 写生产形态，两者共用同一条 <stem>.gen.mbt，提交前选一种保持一致）。
       # 生成码头注释带来源绝对路径，故这里必须传绝对路径（与 dev 循环同形）。
       - name: 生成物新鲜度(模板对账)
         run: |
@@ -150,21 +151,28 @@ jobs:
             abs="$PWD/$f"
             dir=$(dirname "$f")
             stem=$(basename "${f%.mng}")
-            out="/tmp/fresh_$(echo "$f" | tr '/' '_').gen.mbt"
-            if ! moon run tools/native-gui-tools/mng -- gen "$abs" -o "$out" >/dev/null 2>&1; then
+            devout="/tmp/fresh_dev_$(echo "$f" | tr '/' '_').gen.mbt"
+            prodout="/tmp/fresh_prod_$(echo "$f" | tr '/' '_').gen.mbt"
+            if ! moon run tools/native-gui-tools/mng -- gen "$abs" -o "$devout" >/dev/null 2>&1; then
+              echo "::error title=模板编译失败::$f"
+              status=1
+              continue
+            fi
+            if ! moon run tools/native-gui-tools/mng -- build "$abs" -o "$prodout" >/dev/null 2>&1; then
               echo "::error title=模板编译失败::$f"
               status=1
               continue
             fi
             committed="$dir/$stem.gen.mbt"
             if [ -f "$committed" ]; then
-              if ! diff -u "$committed" "$out" >/tmp/fresh.diff 2>&1; then
-                echo "::error title=生成物过期::$committed —— 重跑 dev 循环或 mng gen 重新生成并提交"
+              if ! diff -q "$committed" "$devout" >/dev/null 2>&1 && ! diff -q "$committed" "$prodout" >/dev/null 2>&1; then
+                echo "::error title=生成物过期::$committed —— dev 与生产两形态都对不上；重跑 dev 循环或 mng build 重新生成并提交"
+                diff -u "$committed" "$devout" >/tmp/fresh.diff 2>&1 || true
                 head -20 /tmp/fresh.diff
                 status=1
               fi
             else
-              echo "提示：$f 有模板无生成码（$committed 不存在；dev 形态生成码由 dev 循环首跑产出，可不入库）"
+              echo "提示：$f 有模板无生成码（$committed 不存在；生成码由 dev 循环首跑或 mng build 产出，可不入库）"
             fi
           done < <(find examples -name "*.mng" -not -path "*/.mooncakes/*" -not -path "*/_build/*" -not -path "*/target/*")
           exit $status

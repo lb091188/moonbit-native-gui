@@ -153,6 +153,13 @@ fn stem_conflicts(path : String) -> Array[String] {
   let stem = stem_of_file(self)
   let out : Array[String] = []
   for f in fs_ls(dir) {
+    // `.mng/` 是 dev 产物目录，名字恰以 .mng 结尾——目录不算撞名
+    let isdir = @fs.is_dir(dir + "/" + f) catch {
+      _ => false
+    }
+    if isdir {
+      continue
+    }
     if f.has_suffix(".mng") && f != self && stem_of_file(f) == stem {
       out.push(dir + "/" + f)
     }
