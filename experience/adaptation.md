@@ -3787,3 +3787,14 @@ showcase 在 Linux 上「有 GPU 就白屏 / 黑屏 / 点击不更新」的现�
 - **处置**：GTK 臂的窗口 present **默认回退 cairo**（`NATIVEGUI_GPU_L1=1` 才显式开启）；离屏 GPU 画布不受影响。零拷贝 present 改为「自管 X 子窗口承载」：子窗口是 GTK 顶层窗口的 X 子窗口，设空输入形状让事件穿透，GTK 的整窗合成碰不到它。方案与步骤见 `proposals/linux-l1-x11-child-window.md`。
 
 **判据**：`NATIVEGUI_GPU_DEBUG=rainbow`（present clear 每帧变色）下窗口颜色必须持续变化；颜色固定即「后续 present 不可见」。
+
+## Linux L1 子窗口承载落地：XShape 在 libXext、事件穿透必须靠空输入形状（2026-11-06）
+
+上一节方案（`proposals/linux-l1-x11-child-window.md`）同日实现，实测口径：
+
+- **`XShape*` 符号在 libXext、不在 libX11**（`nm -D` 实证：libX11 里只有 Xkb 的几何 Shape 函数）。头是 x11proto 的 `<X11/extensions/shape.h>`；GTK 传递依赖可达，但显式加进 prebuild 链接表（`LINUX_PKG_CONFIG_LIBS` 加 `xext`）明确归属。
+- **`event_mask=0` 不等于事件穿透**：X 的指针事件发给「指针所在窗口」，子窗口不选 mask 只会让事件**丢弃**（ButtonPress 不冒泡），父窗口收不到——子窗口成了输入黑洞。穿透必须 `XShapeCombineRectangles(…, ShapeInput, …, NULL, 0, ShapeSet, …)` 设空输入形状；Shape 扩展不可用则本档整体回退 cairo，不能只建窗口不设形状。
+- **销毁次序**：`wm_close` 趁 XID 有效先 `XDestroyWindow` 子窗再销毁 GTK 窗；`wm_on_destroy`（窗口已被 WM 销毁的路径）只清 XID、绝不再 `XDestroyWindow`——父窗已没，打无效 XID 是 BadWindow。
+- **透明档判据**：`gtk_widget_get_app_paintable(w->window)`（透明档对 window 设过它）为真走 cairo，与 Win32 臂 `trans_mode` 同口径；旧「area 设 app_paintable/关双缓」补丁随子窗口方案删除——子窗口盖住父窗像素，GTK 画什么都不可见，不需要再挡。
+- **诊断档常驻**：`NATIVEGUI_GPU_DEBUG=green/rainbow` 从「临时改代码」变成共享核心里的环境变量档（默认关），真机验收直接跑，不用再动代码。
+- 顺手清 GTK 臂既有死变量 `wm_surface_next_id`（`-Wall -Wextra` 唯一警告；prebuild 自身不带 `-Wall`，C 桩的门禁要手动带警告档编一遍才看得见）。

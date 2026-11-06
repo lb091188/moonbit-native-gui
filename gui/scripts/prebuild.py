@@ -31,8 +31,9 @@ MODULE_ROOT = Path(__file__).resolve().parent.parent  # gui/（库模块根）
 BUILD_DIR = MODULE_ROOT / "build"
 
 # Linux 系统库清单：GTK3 是新栈锁定的后端（零新增运行期依赖，本仓此前已在用），
-# 探针与后续 win 都从这里拿 cflags/libs。
-LINUX_PKG_CONFIG_LIBS = ["gtk+-3.0", "pangoft2", "pangocairo", "fontconfig", "x11"]
+# 探针与后续 win 都从这里拿 cflags/libs。xext：L1 承载子窗口的 XShape 输入
+# 形状（XShape* 符号在 libXext，经 GTK 亦传递可达，显式列出以明确归属）。
+LINUX_PKG_CONFIG_LIBS = ["gtk+-3.0", "pangoft2", "pangocairo", "fontconfig", "x11", "xext"]
 
 # ime_probe 的链接条目已随包搬回 experiment 模块自己的 prebuild
 # （experiment/scripts/prebuild.py）：experiment 拆独立模块后，moon 按模块

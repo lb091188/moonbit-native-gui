@@ -1,6 +1,7 @@
 # Linux L1 窗口呈现：独立 X 子窗口方案
 
-> 2026-11-06 定稿。给接手的实现者用；背景与实测证据在
+> 2026-11-06 定稿；同日实现落地（`stub.c` GTK 臂 + 共享核心诊断档），
+> 与本方案的差异和真机验收操作见文末「实现状态」节。背景与实测证据在
 > `experience/adaptation.md`「Linux GTK 窗口 present 被合成覆盖」节。
 
 ## 目标
@@ -193,3 +194,27 @@ if (w->l1_child != 0 &&
 - 现有开关：`NATIVEGUI_GPU_L1=1` 显式开启窗口 present（默认关）。
 - 经验记录：`experience/adaptation.md` 同批新增的「Linux GTK 窗口
   present 被合成覆盖」节。
+
+## 实现状态（2026-11-06 落地）
+
+按本方案实现完毕（`gui/win/stub.c` GTK 臂 + 共享核心），门禁全绿
+（`moon check` 零警告、`moon test win` 36/36、gui-gpu 1849/1849）。
+与方案的差异与补充：
+
+- **`NATIVEGUI_GPU_L1=1` 门保留**（方案 §6 的「验收通过后删门」尚未执行）：
+  真机验收过了再删门改默认尝试，一次提交；
+- **诊断档常驻共享核心**：验收清单第 2 条不用改代码——`NATIVEGUI_GPU_DEBUG=green`
+  只清绿不画 quad、`=rainbow` 每帧换清屏色，环境变量默认关（三平台 L1 共用）；
+- **Shape 头条件包含**：`__has_include(<X11/extensions/shape.h>)` 缺头时
+  `wm_l1_try` 退化桩回退 cairo；`XShape*` 符号在 **libXext**（不在 libX11），
+  prebuild 链接表已加 `xext`；
+- **透明档判据**：方案风险节「透明窗口仍走 cairo」用
+  `gtk_widget_get_app_paintable(w->window)` 落地（透明档对 window 设过它；
+  旧的 area 级 app_paintable/关双缓临时补丁已随本实现删除）；
+- **子窗口建不出 / Shape 不可用 → 标 `l1.dead`**（每帧不再重试）；未
+  realize / 0×0 仍可重试档；
+- **销毁**：`wm_close` 趁 XID 有效先 `XDestroyWindow`；`wm_on_destroy`
+  只清 XID 不销毁（父窗已没，XDestroyWindow 会 BadWindow）；
+- 顺手清了 GTK 臂既有死变量 `wm_surface_next_id`（-Wextra 唯一警告）。
+
+真机验收操作见 `TODO.md`「Linux L1 子窗口真机复验」条。

@@ -4920,6 +4920,12 @@ void wm_inst_release(void) {
 #include <X11/Xlib.h> // 全局热键 XGrabKey（W22 Linux 档）+ XWithdrawWindow（W23 hide）；x11 的 cflags/libs 已在 prebuild
 #include <X11/Xatom.h> // XA_ATOM（W34 运行时改窗口类型）
 #include <gdk/gdkx.h> // GDK <-> X11 桥（hide 撤管用）
+#if defined(__has_include)
+#if __has_include(<X11/extensions/shape.h>)
+#include <X11/extensions/shape.h> // XShape*：L1 子窗口的空输入形状（符号在 libXext）
+#define WM_L1_XSHAPE 1
+#endif
+#endif
 
 #define WM_MAX_WINDOWS 32
 #define WM_MAX_FDS 64
@@ -4990,6 +4996,11 @@ typedef struct {
   int hidden;
   int hidden_x;
   int hidden_y;
+  // L1 窗口呈现的承载子窗口（proposals/linux-l1-x11-child-window.md）：全
+  // 客户区大小、空输入形状（点击穿透回 GTK）、压在兄弟子件最底层。0 = 未建。
+  Window l1_child;
+  int l1_child_w; // 已同步到子窗口的尺寸
+  int l1_child_h;
 } WmWindow;
 
 static WmWindow wm_windows[WM_MAX_WINDOWS];
@@ -5011,7 +5022,6 @@ typedef struct {
 } WmSurface;
 
 static WmSurface wm_surfaces[WM_MAX_SURFACES];
-static int wm_surface_next_id = 1;
 
 // 修饰位必须与 MoonBit 侧 base/keys.mbt 的 MOD_* 一致：
 // 1=shift 2=ctrl 4=alt 8=meta（GTK 自身位值是 1/4/8/16，故显式重映射）。
@@ -5169,9 +5179,8 @@ static void wm_mark_draw(WmWindow *w) {
 static gboolean wm_on_draw(GtkWidget *area, cairo_t *cr, gpointer data) {
   (void)area;
   WmWindow *w = (WmWindow *)data;
-  // GPU 档挂上时 cairo **停手**：像素经 swapchain 直接上屏，两路互相
-  // 覆盖（adaptation.md 已记的坑）；GTK 的主题底色也已用 app_paintable
-  // + 关双缓挡掉（见 wm_l1_try）。
+  // GPU 档挂上时 cairo **停手**：像素经 L1 子窗口的 swapchain 直接上屏，
+  // 这里的绘制被子窗口盖住反正不可见（两路互覆坑见 adaptation.md）。
   if (w->l1.on) {
     return FALSE;
   }
@@ -5311,6 +5320,9 @@ static void wm_on_destroy(GtkWidget *widget, gpointer data) {
   w->pending = NULL;
   w->need_draw = 0;
   w->closing = 1; // 窗口没了也等于该退出了
+  // L1 子窗口随父窗口在 X 侧一起没了：这里只清 XID 防悬垂，绝不能再
+  // XDestroyWindow（BadWindow）
+  w->l1_child = 0;
 }
 
 static gboolean wm_on_delete(GtkWidget *window, GdkEvent *event, gpointer data) {
@@ -5720,14 +5732,70 @@ int wm_event(int64_t id) {
   return 0;
 }
 
-// ---- GPU present 档（L1）GTK 适配：surface 源 = area 的 XID；贴像素路径
-// （wm_on_draw 的 cairo）在 l1.on 时停手。共享核心在文件末「实现 TU」段。 ----
+// ---- GPU present 档（L1）GTK 适配：surface 源 = 自管 X 子窗口（方案
+// linux-l1-x11-child-window.md）；贴像素路径（wm_on_draw 的 cairo）在
+// l1.on 时停手。共享核心在文件末「实现 TU」段。 ----
+
+#if defined(WM_L1_XSHAPE)
+
+// L1 承载子窗口：present 到 GTK 顶层 GdkWindow 会被 GTK 每帧的整窗合成
+// 贴图覆盖（窗口停在首帧，实测记录见 adaptation.md）。给 GPU 一扇 GTK
+// 不绘制的子窗口——X 对父窗口的绘制被子窗口裁掉，present 内容得以留屏。
+static void wm_l1_child_destroy(WmWindow *w) {
+  if (w->l1_child != 0) {
+    XDestroyWindow((Display *)gdk_x11_get_default_xdisplay(), w->l1_child);
+    w->l1_child = 0;
+  }
+}
+
+static int wm_l1_child_ensure(WmWindow *w) {
+  if (w->l1_child != 0) {
+    return 1;
+  }
+  GdkWindow *parent = gtk_widget_get_window(w->window);
+  if (parent == NULL || w->width < 1 || w->height < 1) {
+    return 0; // 未 realize / 0×0：不标记死，下帧再试
+  }
+  Display *dpy = (Display *)gdk_x11_get_default_xdisplay();
+  Window pxid = gdk_x11_window_get_xid(parent);
+  XWindowAttributes pa;
+  if (XGetWindowAttributes(dpy, pxid, &pa) == 0) {
+    return 0;
+  }
+  XSetWindowAttributes swa;
+  memset(&swa, 0, sizeof swa);
+  swa.override_redirect = True; // 不参与 WM
+  swa.event_mask = 0;           // 不收事件（输入穿透由空 shape 保证）
+  Window child =
+      XCreateWindow(dpy, pxid, 0, 0, (unsigned)w->width, (unsigned)w->height,
+                    0, pa.depth, InputOutput, pa.visual,
+                    CWOverrideRedirect | CWEventMask, &swa);
+  if (child == 0) {
+    w->l1.dead = 1;
+    return 0;
+  }
+  // 空输入形状：点击/键盘全落到父窗口，事件链一行不改；Shape 不可用则
+  // 子窗口会变输入黑洞，本档整体不可用
+  int ev_base = 0, err_base = 0;
+  if (XShapeQueryExtension(dpy, &ev_base, &err_base) == 0) {
+    XDestroyWindow(dpy, child);
+    w->l1.dead = 1;
+    return 0;
+  }
+  XShapeCombineRectangles(dpy, child, ShapeInput, 0, 0, NULL, 0, ShapeSet,
+                          Unsorted);
+  XMapWindow(dpy, child);
+  XLowerWindow(dpy, child); // 原生子件（webview 等）保持在其上
+  XFlush(dpy);
+  w->l1_child = child;
+  w->l1_child_w = w->width;
+  w->l1_child_h = w->height;
+  return 1;
+}
+
 static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
-  // Linux/GTK 的窗口呈现档实测不可用：GTK 每一帧的整窗合成贴图会覆盖
-  // Vulkan present 的内容，窗口永远停在首帧（2026-11-06 真机：rainbow
-  // 诊断下每帧 present 成功但窗口颜色固定）。默认回退 cairo；要复现/
-  // 继续攻关时用 NATIVEGUI_GPU_L1=1 显式开启。离屏 GPU 画布（gui-gpu）
-  // 不受影响。
+  // 子窗口承载方案真机验收通过前默认关：NATIVEGUI_GPU_L1=1 显式开启
+  // （回退 cairo 逐像素一致，showcase 默认路径不受影响）
   {
     const char *on = getenv("NATIVEGUI_GPU_L1");
     if (on == NULL || on[0] == 0 || strcmp(on, "0") == 0) {
@@ -5740,37 +5808,57 @@ static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
       !GDK_IS_X11_DISPLAY(gdk_display_get_default())) {
     return 0;
   }
+  // 逐像素透明档仍走 cairo（Win32 臂同口径）：透明档对 window 设
+  // app_paintable，L1 子窗口是 opaque 的
+  if (gtk_widget_get_app_paintable(w->window)) {
+    return 0;
+  }
+  if (!wm_l1_child_ensure(w)) {
+    return 0;
+  }
+  // 子窗口几何跟住客户区（surface 的释放/重配由共享核心按尺寸自查）
+  if (w->l1_child_w != w->width || w->l1_child_h != w->height) {
+    XMoveResizeWindow((Display *)gdk_x11_get_default_xdisplay(), w->l1_child,
+                      0, 0, (unsigned)w->width, (unsigned)w->height);
+    w->l1_child_w = w->width;
+    w->l1_child_h = w->height;
+    XFlush((Display *)gdk_x11_get_default_xdisplay());
+  }
   if (!w->l1.on) {
-    // 未 realize / 0×0：不标记死，下帧再试（两档口径的「可重试」档）
-    GdkWindow *gw = gtk_widget_get_window(w->area);
-    if (gw == NULL || w->width < 1 || w->height < 1) {
-      return 0;
-    }
     void *surf = wm_l1_surface_xlib((void *)gdk_x11_get_default_xdisplay(),
-                                    (uint64_t)gdk_x11_window_get_xid(gw));
+                                    (uint64_t)w->l1_child);
     if (surf == NULL) {
+      wm_l1_child_destroy(w);
       w->l1.dead = 1;
       return 0;
     }
     int r = wm_l1_window_bind(&w->l1, surf, w->width, w->height, bw, bh);
     if (r != 1) {
       wm_l1_window_drop(&w->l1);
+      wm_l1_child_destroy(w);
       w->l1.dead = 1;
       return 0;
     }
     w->l1.on = 1;
-    // GTK 别拿主题底色/双缓后备盖掉已上屏的内容（两路互覆坑的对偶）。
-    // set_double_buffered 自 GTK 3.14 标 deprecated、GTK3 无替代品，本地
-    // 静默告警——行为是 GTK+GPU 集成的既定套路。
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-    gtk_widget_set_double_buffered(w->area, FALSE);
-#pragma GCC diagnostic pop
-    gtk_widget_set_app_paintable(w->area, TRUE);
   }
-  // 尺寸变化的释放/重配在共享核心里按 (sw,sh,bw,bh) 自查
   return wm_l1_window_present(&w->l1, rgba, bw, bh, w->width, w->height);
 }
+
+#else /* !WM_L1_XSHAPE：没编进 shape 头，本档不可用 */
+
+static void wm_l1_child_destroy(WmWindow *w) {
+  (void)w;
+}
+
+static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
+  (void)w;
+  (void)rgba;
+  (void)bw;
+  (void)bh;
+  return 0;
+}
+
+#endif
 
 
 // 把这一帧拷进后端自己的缓冲。原先 pending 直接指 MoonBit 的 Bitmap，
@@ -5842,6 +5930,7 @@ void wm_close(int64_t id) {
   }
   // 已被 WM 销毁过则 window 为 NULL，只清记录即可
   if (w->window != NULL) {
+    wm_l1_child_destroy(w); // 趁 XID 有效先拆 L1 承载子窗口
     gtk_widget_destroy(w->window);
     w->window = NULL;
     w->area = NULL;
@@ -14100,6 +14189,25 @@ int wm_l1_window_bind(WmL1 *st, void *surface, int sw, int sh, int bw, int bh) {
   return r;
 }
 
+// 诊断档（NATIVEGUI_GPU_DEBUG，窗口呈现验收判据）：green=只清绿不画 quad
+// （present 可见性）；rainbow=每帧换清屏色（后续 present 不被覆盖）。
+// 默认关。
+static int l1_debug_mode(void) {
+  static int mode = -1;
+  if (mode < 0) {
+    mode = 0;
+    const char *v = getenv("NATIVEGUI_GPU_DEBUG");
+    if (v != NULL) {
+      if (strcmp(v, "green") == 0) {
+        mode = 1;
+      } else if (strcmp(v, "rainbow") == 0) {
+        mode = 2;
+      }
+    }
+  }
+  return mode;
+}
+
 // GPU 上屏一帧。1 = 已上屏（或无事可上）；0 = 本帧回退原路径。
 int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
                          int sw, int sh) {
@@ -14198,18 +14306,35 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
   att.loadOp = WGPULoadOp_Clear;
   att.storeOp = WGPUStoreOp_Store;
   att.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
-  att.clearValue.r = 0.0;
-  att.clearValue.g = 0.0;
-  att.clearValue.b = 0.0;
-  att.clearValue.a = 1.0;
+  int dbg = l1_debug_mode();
+  if (dbg == 1) { // green：纯绿清屏
+    att.clearValue.r = 0.0;
+    att.clearValue.g = 1.0;
+    att.clearValue.b = 0.0;
+    att.clearValue.a = 1.0;
+  } else if (dbg == 2) { // rainbow：清屏色随帧循环
+    static unsigned dbg_frame = 0;
+    double t = (double)(dbg_frame++ % 120u) / 120.0;
+    att.clearValue.r = t;
+    att.clearValue.g = 1.0 - t;
+    att.clearValue.b = t < 0.5 ? t * 2.0 : (1.0 - t) * 2.0;
+    att.clearValue.a = 1.0;
+  } else {
+    att.clearValue.r = 0.0;
+    att.clearValue.g = 0.0;
+    att.clearValue.b = 0.0;
+    att.clearValue.a = 1.0;
+  }
   WGPURenderPassDescriptor rp;
   memset(&rp, 0, sizeof rp);
   rp.colorAttachmentCount = 1;
   rp.colorAttachments = &att;
   WGPURenderPassEncoder pass = p_wgpuCommandEncoderBeginRenderPass(enc, &rp);
-  p_wgpuRenderPassEncoderSetPipeline(pass, g_l1_pipeline);
-  p_wgpuRenderPassEncoderSetBindGroup(pass, 0, st->bind, 0, NULL);
-  p_wgpuRenderPassEncoderDraw(pass, 3, 1, 0, 0);
+  if (dbg == 0) { // 诊断档只看 clear 色，不画 quad
+    p_wgpuRenderPassEncoderSetPipeline(pass, g_l1_pipeline);
+    p_wgpuRenderPassEncoderSetBindGroup(pass, 0, st->bind, 0, NULL);
+    p_wgpuRenderPassEncoderDraw(pass, 3, 1, 0, 0);
+  }
   p_wgpuRenderPassEncoderEnd(pass);
   WGPUCommandBuffer cb = p_wgpuCommandEncoderFinish(enc, NULL);
   if (cb == NULL) {
