@@ -3849,3 +3849,10 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **弹层窗不能走 GPU present 档（L1）**：mac 真机症状「菜单空白、动鼠标才出来」的根因——弹层窗也挂了 Metal layer，而首帧是在窗口上屏**之前** present 的，CAMetalLayer 会丢弃；同时 `drawRect` 在 `l1.on` 时直接 return（像素交给 Metal 了），于是窗口显示后既无 Metal 帧也无 CG 帧，直到鼠标事件触发重绘再 present 一次。修法：`set_popup` 时 `l1.dead = 1`，弹层走纯光栅贴帧缓冲（内容小，完全够用）。win 的同款隐患（swapchain 首帧早于显示）一并禁。
 - **显示必须晚于首帧内容**：`show` 时内容还没 mount，立刻上屏会露出空框（win 真机：菜单出现瞬间一道黑影；GTK：闪现）。三端统一「延迟显示」：`wm_show` 对弹层只记 `pending_show`，`wm_present` 填好首帧后 materialize（win ShowWindow+`need_draw=1`、mac orderFront+`setNeedsDisplay`+`need_draw=1`、GTK show_all+`wm_mark_draw`）——上屏时序不依赖任何平台回调。
 - 关联的既有口径不变：`show` 前 `set_popup`（类型提示/transient 在映射期定）、Esc 兜底通道保留给对话框、点外收判定按 owner wid 隔离（多窗应用互不干扰）。
+
+## 终端控件批实测坑：fmt 全仓重排、match 臂解析怪癖、终端 \n 口径（2026-11-07，terminal 五件 + 模板 v-for 落地批）
+
+- **不要在仓库里跑 `moon fmt`**：它按自己的规范重排**整个 workspace**（一次实测改了 564 个文件，含大量与改动无关的示例/文档包），而本仓门禁只有 `moon check`、CI 也没有 fmt-check——重排会以「无关格式化」污染所有在途 diff。误跑后的自救：`git stash` 目标文件 → `git checkout -- .` → 取回。工具链对单文件的格式化结果与本仓手写风格也不一致（如 `pub fn` 签名折行、尾逗号），新增文件保持手写风格即可。
+- **MoonBit 解析器怪癖（moonc 0.10.x，现象级记录）**：`match` 臂的花括号块里出现「`out.push((` 多行嵌套元组 + 后随 `for` 循环 + 再一个 push」的组合时，报 `[3002] Parse error: unexpected token }`（提示 expect `,` or `)`），且报错行指向块闭合括号、位置随前面代码增删整体漂移；把字符串拼接先 `let` 再 `push`、或 `match` 臂退化为表达式（无花括号）即过。同一函数「先 let 后 push」与「臂内直接 push」混用时的判据不稳定，没法给更精确的触发条件——遇到就把拼串提出来 `let`，别跟解析器较劲。同批附带：`derive(Eq, Debug)` 要配 `pub extend T with Eq::{equal, not_equal}` 与 `Debug::{to_repr}` 才不报 implicit_impl_as_method（icons 先例）；`Char::from_int` 已 deprecated，用 `Int::to_char()`（返回 `Char?`）。
+- **终端 `\n` 口径偏离 VT**：`Terminal::feed` 的 `\n` = 回行首 + 下移（日志源都是裸 `\n`，按 VT 的「只下移留列」会让纯文本喂入呈楼梯）；进度条类原地重画走 `\r` 不受影响，真 PTY 批若需严格 VT 再按需分化（POSIX tty 的 ONLCR 本就把 `\n` 转成 `\r\n` 下行）。
+- **`scan_dir_mng` 的 `.mng` 目录**：dev 产物目录 `.mng/` 名字恰以 `.mng` 结尾，模板扫描的点目录跳过必须放在 `.mng` 后缀判断**之前**，否则第二轮 `mng dev`/项目级 `mng build` 会把产物目录当模板撞名报错（同包撞名文本极具迷惑性，报的是「.mng 与 page.mng 都生成 page」）。同目录单文件撞名检查 `stem_conflicts` 同样要跳过目录。
