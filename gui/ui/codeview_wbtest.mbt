@@ -437,3 +437,50 @@ test "code_view 描边：边缘出 border 墨，与底色分层" {
     msg="code_view 边缘没有描边（与底色同色）",
   )
 }
+
+///|
+test "copyable：头部区加高、悬浮出复制按钮墨" {
+  let plain = code_view(["let a = 1"], lang="moonbit")
+  let root = @widget.Widget::new()
+  root.set_size(220.0, 90.0)
+  root.set_column()
+  let wp = plain.mount_into(root)
+  root.relayout(220.0, 90.0)
+  // copyable=true：内容高 + 20（顶部头部区），现有布局缺省关不受影响
+  let copied : Ref[Bool] = Ref(false)
+  let rich = code_view(["let a = 1"], lang="moonbit", copyable=true, on_copied=fn(_ok : Bool) -> Unit {
+    copied.val = true
+  })
+  let root2 = @widget.Widget::new()
+  root2.set_size(220.0, 110.0)
+  root2.set_column()
+  let wc = rich.mount_into(root2)
+  root2.relayout(220.0, 110.0)
+  assert_eq(wc.rect.h - wp.rect.h, 20.0)
+  // 指针悬浮视口：右上头部区出按钮墨（与底色异色像素）
+  let bm = @render.Bitmap::new(220, 110)
+  let p = @render.Painter::new(bm)
+  root2.paint(p)
+  p.end()
+  let idle_ink = 0
+  let _ = idle_ink
+  // hovered 由宿主 route 维护，无头直注只能手动置（entry 的 clearable 用例同款）
+  wc.hovered = true
+  let bm2 = @render.Bitmap::new(220, 110)
+  let p2 = @render.Painter::new(bm2)
+  root2.paint(p2)
+  p2.end()
+  let bg = bm2.pixel(60, 40)
+  let mut ink = 0
+  // 头部区右上（按钮位）：视口宽约 220，按钮贴右缘 8
+  for x = 150; x < 214; x = x + 1 {
+    for y = 6; y < 24; y = y + 1 {
+      let c = bm2.pixel(x, y)
+      if (c.r, c.g, c.b, c.a) != (bg.r, bg.g, bg.b, bg.a) {
+        ink = ink + 1
+      }
+    }
+  }
+  assert_true(ink > 6, msg="悬浮后复制按钮没有显形")
+  let _ = copied
+}

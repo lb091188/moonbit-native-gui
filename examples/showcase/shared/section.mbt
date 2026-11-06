@@ -117,8 +117,20 @@ fn section_body(s : Section, selected : @base.Store[String]) -> @widget.Node {
   }
   inner.push(holder)
   if s.code.length() > 0 {
-    inner.push(code_copy_row(s.code))
-    inner.push(@ui.code_view(s.code, lang="moonbit", line_numbers=true))
+    // 复制按钮内建在 code_view 头部（悬浮右上显形），toast 回显经 on_copied 接
+    inner.push(
+      @ui.code_view(s.code, lang="moonbit", line_numbers=true, copyable=true, on_copied=fn(ok : Bool) -> Unit {
+        match code_toast.val {
+          Some(push) =>
+            if ok {
+              push(tx("代码已复制 ✓"), @ui.Success)
+            } else {
+              push(tx("复制失败：剪贴板不可用"), @ui.Danger)
+            }
+          None => ()
+        }
+      }),
+    )
   }
   // 本容器是显隐切换对象；滚动视口在 handle 里撑满剩余高度。
   // 段名进读屏：VO 进段念「<标题>, group」而不是无名 group
@@ -143,30 +155,3 @@ fn section_body(s : Section, selected : @base.Store[String]) -> @widget.Node {
   )
 }
 
-///|
-/// 代码区顶行：左「代码」小标，右「复制」按钮（toast 回显）。
-fn code_copy_row(lines : Array[String]) -> @widget.Node {
-  @ui.row(
-    [
-      @ui.text(tx("代码"), class=[@style.text_secondary]),
-      @ui.text("", class=[@style.text_secondary], handle=fn(w) {
-        w.node.set_flex_grow(1.0)
-      }),
-      @ui.button(tx("复制"), variant=@ui.Text, on_click=fn() {
-        // 提示必须跟真实结果：`clipboard_set_text` 的 Bool 就是「有没有写进去」，
-        // 原先 `let _ =` 把它丢了，失败也照样弹「已复制」
-        let ok = @sys.clipboard_set_text(lines.join("\n"))
-        match code_toast.val {
-          Some(push) =>
-            if ok {
-              push(tx("代码已复制 ✓"), @ui.Success)
-            } else {
-              push(tx("复制失败：剪贴板不可用"), @ui.Danger)
-            }
-          None => ()
-        }
-      }),
-    ],
-    column_gap=8.0,
-  )
-}

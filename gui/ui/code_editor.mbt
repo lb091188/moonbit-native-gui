@@ -311,25 +311,26 @@ pub fn code_editor(
   let doc = CodeScan::new(store.get(), lang)
   let font = @text.Font::new("Monospace", font_size)
   let line_h = (@text.line_height_font(font).unwrap_or(18).to_double() + 5.0).max(14.0)
-  let pad_top = 4.0
+  // 几何口径与 code_view 同一套（观感统一，两个文件注释互指）：
+  // 顶部 14；行号左缘 16；代码文字左缘 = 行号位宽 + 40（无行号 16）；内容右留白 16。
+  let pad_top = 14.0
   let ro = read_only
   let is_mac = @shell.platform_is_macos()
   let change_cb = on_change
   let want_numbers = line_numbers
   let st = ScrollState::new()
-  // 行号列宽随行数档位走（每次绘制现算，命中/光标同一来源）
+  // 文字左缘随行数档位走（每次绘制现算，命中/光标同一来源）
   let digit_w = text_width("8", font)
-  let text_pad = 4.0
   let gutter_of = fn() -> Double {
     if want_numbers {
       let digits = doc.line_count().to_string().length().max(2)
-      digit_w * digits.to_double() + 16.0
+      digit_w * digits.to_double() + 40.0
     } else {
-      0.0
+      16.0
     }
   }
   let text_left = fn() -> Double {
-    gutter_of() + text_pad
+    gutter_of()
   }
   // 全文字节号 → 控件内坐标（已扣滚动偏移）
   let caret_xy = fn(caret : Int) -> (Double, Double) {
@@ -549,7 +550,7 @@ pub fn code_editor(
       st.view_h = r.h
       st.content_h = doc.line_count().to_double() * line_h + pad_top * 2.0
       st.view_w = r.w
-      st.content_w = (doc.max_width() + text_left() + 24.0).max(r.w)
+      st.content_w = (doc.max_width() + text_left() + 16.0).max(r.w)
       let gl = gutter_of()
       let tl = text_left()
       let sty = @style.style_for(self)
@@ -614,15 +615,22 @@ pub fn code_editor(
           if y + line_h < 0.0 || y > r.h {
             continue
           }
+          // 与 code_view 同款：行号左缘 16，前补空格右对齐到位数宽
           let num = (row + 1).to_string()
-          let nw = text_width(num, font)
+          let digits = doc.line_count().to_string().length().max(2)
+          let pad = StringBuilder()
+          for _i in 0..<(digits - num.length()) {
+            pad.write_char(' ')
+          }
+          let num_str = pad.to_string() + num
+          let nw = text_width(num_str, font)
           let _ = @text.draw_box_at(
             p,
-            gl - 8.0 - nw,
+            16.0,
             y,
             nw + 2.0,
             line_h,
-            num,
+            num_str,
             font,
             ct.line_no,
             align=@text.Start,

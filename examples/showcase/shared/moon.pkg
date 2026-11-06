@@ -4,7 +4,6 @@ import {
   "NoahLiu/native-gui/widget" @widget,
 
   "NoahLiu/native-gui/ui",
-  "NoahLiu/native-gui/sys",
   "NoahLiu/native-gui/shell" @shell,
   "NoahLiu/native-gui/style" @style,
   "NoahLiu/native-gui/theme" @theme,

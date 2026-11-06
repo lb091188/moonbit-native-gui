@@ -671,16 +671,20 @@ fn md_render_blocks(blocks : Array[@mdast.Block], ctx : MDCtx) -> Array[@widget.
             md_split_code_lines(code),
             lang=md_info_lang(info),
             selectable=ctx.sel,
+            copyable=true,
           ),
         )
       IndentedCode(code~, ..) =>
-        nodes.push(@ui.code_view(md_split_code_lines(code), selectable=ctx.sel))
+        nodes.push(
+          @ui.code_view(md_split_code_lines(code), selectable=ctx.sel, copyable=true),
+        )
       MathBlock(value~, ..) =>
         nodes.push(
           @ui.code_view(
             md_split_code_lines(value),
             lang="math",
             selectable=ctx.sel,
+            copyable=true,
           ),
         )
       Blockquote(children~, ..) =>

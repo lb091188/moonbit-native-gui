@@ -727,6 +727,11 @@ pub fn code_view(
   /// 让代码可用鼠标选中复制（只读：拖选、双击选词、Shift+点击扩选、
   /// Ctrl/Cmd+C 与右键复制）；行号列不进选区，跨行复制按 \n 拼。
   selectable? : Bool = false,
+  /// 代码块顶部留一条头部区，指针悬浮时右上显示「复制」小按钮：点击把全文
+  ///（按 \n 拼）写系统剪贴板。缺省关（头部区不占高，现有布局零变化）。
+  copyable? : Bool = false,
+  /// 复制按钮点击后回调（参数=剪贴板是否写成功）；toast 回显走它接。
+  on_copied? : (Bool) -> Unit = fn(_ok : Bool) -> Unit { () },
   code_theme? : CodeTheme,
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
@@ -775,7 +780,12 @@ pub fn code_view(
     laid.push(segs)
   }
   let content_w = max_line_w + 32.0
-  let view_h = line_h * laid.length().to_double() + 28.0
+  // copyable 时顶部多留一条 20px 头部区（悬浮出复制按钮的悬浮区），布局其余不变
+  let top_pad = if copyable { 34.0 } else { 14.0 }
+  // 几何口径与 code_editor 同一套（观感统一，两个文件注释互指）：
+  // 顶部 14（copyable 时 34 头部区）；行号左缘 16；代码文字左缘 = 行号位宽 + 40
+  // （无行号 16）；内容右留白 16。
+  let view_h = line_h * laid.length().to_double() + top_pad + 14.0
   // 选区参照系：全文 = 各行按 `\n` 拼接，`line_off[i]` 是第 i 行行首的全局字节号。
   // 行与行之间的换行字节算在「行外」——高亮不铺它，但跨行复制天然带 \n。
   let line_off : Array[Int] = []
@@ -835,7 +845,7 @@ pub fn code_view(
               return 0
             }
             let row = (
-              (y - 14.0) / line_h
+              (y - top_pad) / line_h
             ).floor().to_int().clamp(min=0, max=n - 1)
             let col = one_line_layout(lines[row]).hit(x, line_h * 0.5)
             state.ed.floor_boundary(line_off[row] + col)
@@ -880,7 +890,7 @@ pub fn code_view(
         Some(state) => {
           match state.ed.selection() {
             Some((a, b)) => {
-              let mut yy = 14.0
+              let mut yy = top_pad
               for ri, l in lines {
                 let g = line_off[ri]
                 let gl = g + @utf8.encode(l).length()
@@ -900,7 +910,7 @@ pub fn code_view(
         }
         None => ()
       }
-      let mut y = 14.0
+      let mut y = top_pad
       for segs in laid {
         for seg in segs {
           let _ = @text.draw_box_at(
@@ -932,6 +942,66 @@ pub fn code_view(
     hscroll=true,
     handle=fn(v : @widget.Widget) -> Unit {
       v.node.set_width(@yoga.percent(100.0))
+      // 复制按钮：绝对定位钉在视口右上（头部区内），悬浮显形——与滚动条
+      // 同一套「视口的浮层子件」形态。self-draw 不用 button 组件：显隐是
+      // 「视口悬停」驱动的绘制态，不是布局态。
+      if copyable {
+        let label = @i18n.t_or("gui.ui.edit.copy", "复制")
+        let btn_font = @text.Font::new("", 12.0)
+        let full = joined.to_string()
+        let bw = text_width(label, btn_font) + 16.0
+        let btn = @widget.Widget::new()
+        btn.node.set_position(@yoga.Absolute)
+        btn.node.set_top(@yoga.fixed(5.0))
+        btn.node.set_right(@yoga.fixed(8.0))
+        btn.node.set_width(@yoga.fixed(bw))
+        btn.node.set_height(@yoga.fixed(20.0))
+        btn.cursor = @widget.CURSOR_HAND
+        btn.on_draw = Some(fn(
+          self : @widget.Widget,
+          p : @render.Painter,
+          r : @base.Rect,
+        ) -> Unit {
+          // 指针在视口内（或就在按钮上）才显形；平时头部区留白
+          if !(v.hovered || self.hovered) {
+            return
+          }
+          let hot = self.hovered
+          if hot {
+            p.set_fill_color(@theme.theme_fill_hover())
+            let rad = (r.h / 2.0).min(4.0)
+            p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
+          }
+          let _ = @text.draw_box_at(
+            p,
+            0.0,
+            0.0,
+            r.w,
+            r.h,
+            label,
+            btn_font,
+            @theme.theme_text_secondary(),
+            align=@text.Center,
+            valign=@text.Center,
+            wrap=false,
+          )
+        })
+        btn.on_pointer = Some(fn(
+          _self : @widget.Widget,
+          ev : @widget.PointerEvent,
+        ) -> Bool {
+          match ev.kind {
+            @widget.PointerKind::Down => {
+              let ok = @sys.clipboard_set_text(full)
+              on_copied(ok)
+              @widget.invalidate()
+              true
+            }
+            _ => false
+          }
+        })
+        v.append_child(btn)
+      }
     },
   )
 }
