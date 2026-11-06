@@ -5,9 +5,12 @@
 
 ## 实施队列（2026-11-04 排定，用户指定顺序：无障碍 → 代码/终端 → GPU；Wayland 暂缓排尾。做完一项删一项并同步路线图，一项一提交）
 
-### 一、无障碍收尾
+（无障碍线已于 2026-11-06 容后：三平台桥全部落地、mac VoiceOver 首轮已过，剩 Orca/NVDA 真机清单；
+进度与剩余项归档 [proposals/text-selection-a11y.md](proposals/text-selection-a11y.md) §九，恢复时按那里接）
 
-（无障碍三平台桥已全部落地，收尾两项——断线重连重新 Embed、TSV 解析缺陷修复+缓冲放大——已完成，见 adaptation.md「AT-SPI」两节；mac VoiceOver 真机首轮已过（2026-11-05，控件朗读/焦点跟随），剩 Orca/NVDA 真机清单归用户）
+### 一、代码/终端（mng 工具链）
+
+（三项已完成：LSP hover 临时输出归位项目根 `.mng/`、跳转/hover URI 归一收口 Windows 支、版本对齐与 roadmap 追平——见 git log 2026-11-04；剩 Windows 真机复验归用户）
 
 ### 二、代码/终端（mng 工具链）
 
@@ -37,13 +40,8 @@
 - [ ] **主题批次观感**：`examples/theme-playground` 按 TP-1.1..5.1 走完（深色系统起窗即深色=默认一次性探测生效）；主题 JSON 落盘改色（dev 档 `mng.toml` `theme` 键存盘即重载）；深浅变体看 tooltip 反色与滚动条/分隔线深档提亮；code_view 在浅色与深色主题下底色跟不跟 `theme_current()`，显式 `code_theme` 是否钉死
 - [ ] **窗口族探测口径**：`shell_caps()` 八位在无合成器的 Linux 会话上 `opacity`/`transparent_bg` 位应为 false，`set_transparent_bg` 应回 `Unsupported` 而非静默无效；`native_handle()` 三平台返回值非 0 且能喂给平台 API
 
-## 文本选择与屏读语义（2026-11-03 拍板，方案与坑清单见 [proposals/text-selection-a11y.md](proposals/text-selection-a11y.md)；两个消费者一块地基，做完一项删一项并同步路线图）
-
-- [ ] **二期阶段2·Linux AT-SPI 桩**：实现已落（2026-11-04，`gui/shell/atspi.mbt`：第三总线连接 + Socket.Embed 注册 + 对象树四接口 Accessible/Component/Text/Value + Action 动作 + 事件上行；协议面按 at-spi2-core 2.52 本机实证，详见 adaptation.md；断线自愈重连后按唯一名核对重新 Embed 同批收口）。剩 Orca 真机清单（Tab 遍历朗读 / flat-review 逐行读 / 对按钮按读屏 press 触发不双触 / 中文名与逐字偏移）待用户执行，见测试用例附录 F（阶段1·macOS NSAccessibility 桥已过 VoiceOver 真机首轮，2026-11-05 删项；长描述段 VO 复确认遗留见 roadmap）
-
 ## 核查收口批（2026-11-03 核查：浮层原生档与 mac GIF 代码已在树——两件文档追平、三件真机复验；dock/任务栏进度这类单平台条目不做，已从待办与路线图撤下）
 
-- [ ] **Windows UIA 真机复验**（用户执行）：NVDA + Accessibility Insights for Windows 过一遍——①Tab + 方向键遍历同一页，朗读 role/name/状态（勾选态/百分比值/只读/密码保护态）；②Accessibility Insights 树里可见完整控件层级，选中滑杆看 RangeValue 随拖动更新；③对按钮/勾选/下拉用读屏的 Invoke/Toggle/Expand，动作应真的触发（桥合成点击，不与应用自己的点击双触发）；④中文名不乱码（BSTR 走 UTF-8→UTF-16 转换）；⑤快照表是进程级单表，只验单窗应用（多窗边界见 uia_provider.c 头注）
 - [ ] **浮层原生档真机复验**（用户执行）：browser 示例按 BR-1.4 过 Windows 与 mac——弹层无边框贴按钮、条目完整不裁、点外/失焦/Esc 都收、反复开关不叠窗；过了把 roadmap「浮层原生档」翻 ✅
 - [ ] **通知 urgent 二档真机复验**（用户执行，mac）：同一应用分别发 `urgent=true`（缺省）与 `urgent=false`，应用正在前台跑事件循环时前者出横幅、后者只进通知中心不出条；系统设置里关掉「时间敏感」授权后再发 `urgent=true` 应回落到静默。状态行 `backend=` 应报 `un-user-notification`（Linux 报 `dbus`、Windows 报 `win-balloon`）
 - [ ] **frame_cost_probe 三平台读数**（用户执行，Windows / macOS 各一遍）：`moon run experiment/frame_cost_probe`，贴全部 `FRAME-COST` 行——重点看 `paint_full` vs `paint_clip` 的 `skip`（纯光栅腿才判交，那条腿的差值才是「图表/整页增量重绘」的立项依据）。Linux 腿已跑：树不变 relayout 20 帧 `ms=0`、`measure=0`（yoga 布局缓存不立项），整页 240 行 ≈3.5ms/帧（判据进测试用例附录 D）

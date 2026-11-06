@@ -224,3 +224,22 @@ pub fn Widget::a11y_caret(self) -> Int?                                      // 
 7. VoiceOver 对多窗 app（含浮层窗）的焦点切换行为——阶段 1 真机。
 8. 帧尾对账与整树快照成本——阶段 0 落地用分段账本实测。
 9. 宿主内建复制支与 mac `fire_system_keys` 的先后无冲突——代码阅读判断（Cmd+C 不在系统加速键表 app.mbt:855），未真机验证。
+
+## 九、进度快照（2026-11-06 归档；容后，恢复时按本节继续）
+
+**状态**：容后——三平台桥与静态文本选中均已落地，剩余项全部是真机读屏清单与两处语义挂载缺口；2026-11-06 用户决定暂停（当前优先基建与 DX），TODO 同名条目已撤回，本节为唯一进度台账，与 roadmap「屏读语义」条目互指。**暂停不影响其他功能**：无障碍是只读旁路（每帧快照对账 + 查询应答），不开读屏时 AT-SPI tick 只是一次状态判断、UIA 只在系统查询时响应，键盘/鼠标/绘制链路无依赖。
+
+**已落**：
+
+- **公共地基**：静态文本选中与复制（`text`/`text_dyn` 的 `selectable`、`code_view`/`markdown_view` 跨行选中、`rich_text` 行盒选中）——真机验收通过（2026-11-05）
+- **阶段 0**：`Widget` 语义字段面（`role`/`name`/`enabled`/`a11y_state`/`a11y_text`）+ 帧尾整树语义快照（`a11y_last_frame()`，删控件不产幽灵、不可见子树不进树）+ 首批组件语义挂载（button/checkbox/switch/slider/progress/input/textarea/select/text）
+- **阶段 1（mac）**：NSAccessibility 桥（AX 元素按 widget id 稳定缓存、press 动作走合成点击、焦点 id 通道、hitTest、事件上行）；VO 真机首轮通过（2026-11-05：控件朗读/焦点跟随）
+- **阶段 2（Linux）**：AT-SPI 桥（第三总线 Socket.Embed 注册、四接口 + Action + 事件上行、断线自愈重连、TSV 解析两处缺陷修复）；本机真总线端到端验过
+- **阶段 2（Windows）**：UIA provider（窗根 provider、快照行惰性摊成 COM 树、五 pattern 按角色挂、动作压队列合成点击、GUID/头的链接期口径收口）——实现与门禁全绿，真机读屏未验
+
+**剩余**（恢复时从这里接）：
+
+- **Orca 真机清单**（Linux，AT-SPI）：Tab 遍历朗读 / flat-review 逐行读 / 读屏 press 不双触 / 中文名与逐字偏移（测试用例附录 F）
+- **NVDA + Accessibility Insights 清单**（Windows，UIA）：role/name/状态朗读、树层级与 RangeValue 实时性、Invoke/Toggle/Expand 触发不双触、中文名、单窗边界（多窗快照表是进程级单表，已知边界）
+- **语义挂载缺口**：mdview 富文本段与 `code_view` 代码行的语义面未挂（另批）
+- **VO 复确认遗留**：长描述段语义树携带全文（roadmap「屏读语义」条已记）
