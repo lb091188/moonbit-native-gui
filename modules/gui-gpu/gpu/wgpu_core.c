@@ -37,6 +37,7 @@ static char g_core_detail[256];
 
 // ---- dlopen 层（POSIX dlopen / Win32 LoadLibrary） ----
 #if defined(_WIN32)
+#include <windows.h> // HMODULE / LoadLibraryA / GetProcAddress
 static void *core_dlopen(const char *p) {
   return (void *)LoadLibraryA(p);
 }
@@ -54,9 +55,11 @@ static void *core_dlsym(void *h, const char *n) {
 }
 #endif
 
-// 库名按平台取 vendor 归档的实际产物：Linux .so / mac .dylib（与 probe.c、
-// gui/win/stub.c 的 L1 核心同口径；漏了这条 mac 上全部候选落空）
-#if defined(__APPLE__)
+// 库名按平台取 vendor 归档的实际产物：Windows dll / Linux .so / mac .dylib
+// （与 probe.c、gui/win/stub.c 的 L1 核心同口径；漏了这条 mac 上全部候选落空）
+#if defined(_WIN32)
+#define MNG_WGPU_LIB_BASE "wgpu_native.dll"
+#elif defined(__APPLE__)
 #define MNG_WGPU_LIB_BASE "libwgpu_native.dylib"
 #else
 #define MNG_WGPU_LIB_BASE "libwgpu_native.so"
@@ -103,8 +106,15 @@ static int core_load_lib(void) {
     g_core_lib = core_dlopen(MNG_WGPU_LIB_BASE);
   }
 #else
+  // Win32：vendor 相对候选在前（与 probe.c 同串），裸名兜底走 DLL 搜索序
   if (!g_core_lib) {
-    g_core_lib = core_dlopen("wgpu_native.dll");
+    g_core_lib = core_dlopen("vendor/lib/" MNG_WGPU_LIB_BASE);
+  }
+  if (!g_core_lib) {
+    g_core_lib = core_dlopen("vendor/" MNG_WGPU_LIB_BASE);
+  }
+  if (!g_core_lib) {
+    g_core_lib = core_dlopen(MNG_WGPU_LIB_BASE);
   }
 #endif
   if (!g_core_lib) {

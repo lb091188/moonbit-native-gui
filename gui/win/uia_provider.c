@@ -39,8 +39,9 @@
 #include <string.h>
 #include <windows.h>
 #include <oleauto.h>
-#include <uiautomationcore.h>
-#include <uiautomationcoreapi.h>
+#include <objbase.h> // COM 基础（interface 宏）：uiautomationcore.h 裸用会语法错
+#include <uiautomation.h> // UIA 接口本体 + UIA_* 常量（ControlType/Pattern/Property）
+#include <uiautomationcoreapi.h> // UiaReturnRawElementProvider / UiaDisconnectProvider
 
 // stub.c 的快照访问面（同 TU 链接）
 typedef struct WmA11yRow {

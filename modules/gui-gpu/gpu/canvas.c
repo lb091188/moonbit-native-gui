@@ -31,8 +31,17 @@
 
 #if defined(MNG_CANVAS_REAL)
 
+// POSIX 装载/等待的跨平台 shim（Win32 用 LoadLibrary 族 / Sleep）
+#if defined(_WIN32)
+#include <windows.h>
+#define MNG_CV_DLSYM(h, n) ((void *)GetProcAddress((HMODULE)(h), (n)))
+#define MNG_CV_SLEEP_1MS() Sleep(1)
+#else
 #include <unistd.h> // usleep（mapAsync 泵）
-#include <dlfcn.h>  // dlsym（DBG 自建 device 用）
+#include <dlfcn.h>  // dlsym（符号表装载与 DBG 自建 device）
+#define MNG_CV_DLSYM(h, n) dlsym((h), (n))
+#define MNG_CV_SLEEP_1MS() usleep(1000)
+#endif
 
 // ---- 函数指针表（PFN typedef 取 vendor 头；装载/探测在 wgpu_core） ----
 #define MNG_CV_FN(name) static WGPUProc##name p_wgpu##name = NULL;
@@ -85,13 +94,13 @@ static int cv_load_syms(void) {
     cv_set_detail("wgpu 库句柄为空（核心未就绪）");
     return 0;
   }
-#define MNG_CV_LOAD(name)                                    \
-  do {                                                       \
-    p_wgpu##name = (WGPUProc##name)dlsym(lib, "wgpu" #name); \
-    if (!p_wgpu##name) {                                     \
-      cv_set_detail("缺符号 wgpu" #name);                     \
-      return 0;                                              \
-    }                                                        \
+#define MNG_CV_LOAD(name)                                            \
+  do {                                                               \
+    p_wgpu##name = (WGPUProc##name)MNG_CV_DLSYM(lib, "wgpu" #name);  \
+    if (!p_wgpu##name) {                                             \
+      cv_set_detail("缺符号 wgpu" #name);                            \
+      return 0;                                                      \
+    }                                                                \
   } while (0)
   MNG_CV_LOAD(DeviceCreateTexture);
   MNG_CV_LOAD(DeviceCreateBuffer);
@@ -728,16 +737,15 @@ int mng_gpu_canvas_finish(int64_t h, uint8_t *out, int cap) {
   (void)p_wgpuBufferMapAsync(c->readback, WGPUMapMode_Read, 0, map_bytes, mcbi);
   int waited = 0;
   while (!cv_map_got && waited < 5000) {
-    WGPUProcInstanceProcessEvents pe =
-        (WGPUProcInstanceProcessEvents)dlsym(mng_wgpu_lib(),
-                                             "wgpuInstanceProcessEvents");
+    WGPUProcInstanceProcessEvents pe = (WGPUProcInstanceProcessEvents)MNG_CV_DLSYM(
+        mng_wgpu_lib(), "wgpuInstanceProcessEvents");
     if (pe != NULL) {
       pe((WGPUInstance)mng_wgpu_instance());
     }
     if (cv_map_got) {
       break;
     }
-    usleep(1000);
+    MNG_CV_SLEEP_1MS();
     waited += 1;
   }
   if (!cv_map_got || cv_map_status != WGPUMapAsyncStatus_Success) {

@@ -108,7 +108,9 @@ void *wm_l1_gpu_status(void);
 // Shell_NotifyIconW / NOTIFYICONDATAW / NIM_* / NIF_* 全在它里面，必须显式引。
 #include <shellapi.h>
 #include <imm.h> // IME 纯通道（W6）：ImmGetContext/ImmSet*Window/ImmNotifyIME
-#include <uiautomationcore.h> // UIA provider（无障碍阶段 3）：WM_GETOBJECT/UiaReturnRawElementProvider
+#include <objbase.h> // COM 基础（interface 宏）：uiautomationcore.h 裸用会语法错
+#include <uiautomation.h> // UIA provider（无障碍阶段 3）：接口本体 + UIA_* 常量
+#include <uiautomationcoreapi.h> // UiaRootObjectId（WM_GETOBJECT 入口判据）
 #include <stdint.h>
 #include <string.h>
 // 本分支用 snprintf 格式化注册表读出的主色（缺了它 MSVC 报 C4013 隐式声明，

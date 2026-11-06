@@ -3798,3 +3798,14 @@ showcase 在 Linux 上「有 GPU 就白屏 / 黑屏 / 点击不更新」的现�
 - **透明档判据**：`gtk_widget_get_app_paintable(w->window)`（透明档对 window 设过它）为真走 cairo，与 Win32 臂 `trans_mode` 同口径；旧「area 设 app_paintable/关双缓」补丁随子窗口方案删除——子窗口盖住父窗像素，GTK 画什么都不可见，不需要再挡。
 - **诊断档常驻**：`NATIVEGUI_GPU_DEBUG=green/rainbow` 从「临时改代码」变成共享核心里的环境变量档（默认关），真机验收直接跑，不用再动代码。
 - 顺手清 GTK 臂既有死变量 `wm_surface_next_id`（`-Wall -Wextra` 唯一警告；prebuild 自身不带 `-Wall`，C 桩的门禁要手动带警告档编一遍才看得见）。
+
+## Windows 全链首编五处缺口：UIA 头、POSIX 头、DWrite 结构档（2026-11-06，SDK 10.0.26100 真机日志）
+
+Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only 编译路径，Linux 门禁（prebuild 只编 GTK 臂 + gui-gpu）覆盖不到**：
+
+- **`uiautomationcore.h` 不能裸 include**：它假设调用者已含 COM 基础头；`WIN32_LEAN_AND_MEAN` 下 `windows.h` 不带 ole 系，`interface` 宏（C 模式下 combaseapi.h 的 `#define interface struct`）未定义 → 头内全部 `interface IXxx;` 前向声明语法错（一屏 C2061/C2059 连锁）。接口本体、`UIA_*ControlTypeId/PatternId/PropertyId` 常量、`ToggleState`/`ProviderOptions`/`NavigateDirection`/`UiaRect` 类型都在 **`uiautomation.h`**（它自带 core 头）；`UiaRootObjectId`/`UiaReturnRawElementProvider` 在 `uiautomationcoreapi.h`。定案三连：`objbase.h` + `uiautomation.h` + `uiautomationcoreapi.h`（stub.c 与 uia_provider.c 同口径）。
+- **`wgpu_core.c` Win 分支缺 `windows.h`**：`HMODULE`/`LoadLibraryA` 落隐式声明（int 返回 → C4312 int→void* 警告只是表象）。
+- **`canvas.c` 无条件含 `unistd.h`/`dlfcn.h`**：MSVC 无 POSIX 头（C1083）。shim 宏 `MNG_CV_DLSYM`/`MNG_CV_SLEEP_1MS`（Win32 = GetProcAddress/Sleep）。
+- **wgpu 库 Windows 产物名/候选**：`wgpu_native.dll`（无 lib 前缀）——`MNG_WGPU_LIB_BASE` 加 `_WIN32` 档；候选补 `vendor/lib/`、`vendor/` 相对路径在前（裸名走 DLL 搜索序，从仓库跑的应用找不到 vendor 下的库 → L1 永远回退 cairo，复验会白跑）。
+- **`DWRITE_LINE_METRICS`（v1）没有 `textPosition`**（那是 `LINE_METRICS1`/`IDWriteTextLayout1` 的字段）；行首 UTF-16 位用**前行长度累加**得到（DWrite 保证行区间连续），不必为这一个字段 QI Layout1。`HitTestPoint` 第 5 参是 `DWRITE_HIT_TEST_METRICS*`，不能传 `UINT32*`（结构体首字段恰好是 textPosition 也不能靠布局侥幸）。
+- 关联环境态：`shell/monitor_dbus_wbtest` 的「KScreen 真总线集成」对会话状态敏感（KScreen 服务在但 `/backend` 对象不在 → 枚举失败报 FAIL 而非跳过），与代码无关时按环境波动处理（stash 对照复跑同败可证）。

@@ -1525,16 +1525,21 @@ extern "C" int rt_line_box(int64_t h, int line, double box_w, double box_h,
   const int wrapped_axis = box_w > 0.0 && (s->wrap != 0 || s->ellipsize != 0);
   ptw_box_offsets(layout, s->align, s->valign, box_w, box_h, wrapped_axis, &dx,
                   &dy);
+  /* 行首 UTF-16 位：DWRITE_LINE_METRICS（v1）没有 textPosition，用前行长度
+   * 累加（DWrite 保证行区间连续）；结尾位 = 本行起点 + 本行长度 */
+  UINT32 tpos = 0;
+  for (int i = 0; i < line; i++) {
+    tpos += lms[i].length;
+  }
   /* 行首的盒空间 x/y：HitTestTextPosition 自带对齐后的坐标 */
   float px = 0.0f;
   float py = 0.0f;
-  layout->HitTestTextPosition(lms[line].textPosition, FALSE, &px, &py, nullptr);
-  int b0 = ptw_bidx(s->text, s->tlen, static_cast<int>(lms[line].textPosition));
+  layout->HitTestTextPosition(tpos, FALSE, &px, &py, nullptr);
+  int b0 = ptw_bidx(s->text, s->tlen, static_cast<int>(tpos));
   int b1 = s->tlen;
   if (static_cast<UINT32>(line) + 1 < count) {
     b1 = ptw_bidx(s->text, s->tlen,
-                  static_cast<int>(lms[line].textPosition +
-                                   lms[line].length));
+                  static_cast<int>(tpos + lms[line].length));
   }
   free(lms);
   layout->Release();
@@ -1564,10 +1569,11 @@ extern "C" int rt_hit(int64_t h, double x, double y, double box_w,
                   &dy);
   BOOL trailing = FALSE;
   BOOL inside = FALSE;
-  UINT32 pos = 0;
+  DWRITE_HIT_TEST_METRICS hitm;
   layout->HitTestPoint(static_cast<float>(x - dx), static_cast<float>(y - dy),
-                       &trailing, &inside, &pos);
+                       &trailing, &inside, &hitm);
   layout->Release();
+  UINT32 pos = hitm.textPosition;
   /* trailing：命中的是字符的哪一半——后半从下一字符起算 */
   if (trailing) {
     pos += 1;
