@@ -4996,8 +4996,9 @@ typedef struct {
   int hidden;
   int hidden_x;
   int hidden_y;
-  // L1 窗口呈现的承载子窗口（proposals/linux-l1-x11-child-window.md）：全
-  // 客户区大小、空输入形状（点击穿透回 GTK）、压在兄弟子件最底层。0 = 未建。
+  // L1 窗口呈现的承载子窗口（口径见 adaptation.md「Linux L1 子窗口承载
+  // 落地」节）：全客户区大小、空输入形状（点击穿透回 GTK）、压在兄弟子件
+  // 最底层。0 = 未建。
   Window l1_child;
   int l1_child_w; // 已同步到子窗口的尺寸
   int l1_child_h;
@@ -5732,9 +5733,9 @@ int wm_event(int64_t id) {
   return 0;
 }
 
-// ---- GPU present 档（L1）GTK 适配：surface 源 = 自管 X 子窗口（方案
-// linux-l1-x11-child-window.md）；贴像素路径（wm_on_draw 的 cairo）在
-// l1.on 时停手。共享核心在文件末「实现 TU」段。 ----
+// ---- GPU present 档（L1）GTK 适配：surface 源 = 自管 X 子窗口；贴像素
+// 路径（wm_on_draw 的 cairo）在 l1.on 时停手。共享核心在文件末「实现
+// TU」段。 ----
 
 #if defined(WM_L1_XSHAPE)
 

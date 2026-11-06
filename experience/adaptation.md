@@ -3784,13 +3784,13 @@ showcase 在 Linux 上「有 GPU 就白屏 / 黑屏 / 点击不更新」的现�
   - 已试无效：draw 回调内重放、`GdkFrameClock::after-paint`、`g_idle_add`、`gtk_widget_queue_draw` + 迭代、拦截窗口 `draw` 返回 TRUE、给 area `has_window(TRUE)` + `double_buffered(FALSE)`、接受 `SuccessSuboptimal`。
   - 结论：**GTK 的整窗合成贴图总在 present 之后**，把 GPU 内容盖回旧帧。
 - **为什么 mac 成立**：`CAMetalLayer` 是视图的合成层，系统合成器持续保留 / 合成其内容；GTK/X11 没有等价物，DrawingArea 的像素归 GTK 绘制周期管。
-- **处置**：GTK 臂的窗口 present **默认回退 cairo**（`NATIVEGUI_GPU_L1=1` 才显式开启）；离屏 GPU 画布不受影响。零拷贝 present 改为「自管 X 子窗口承载」：子窗口是 GTK 顶层窗口的 X 子窗口，设空输入形状让事件穿透，GTK 的整窗合成碰不到它。方案与步骤见 `proposals/linux-l1-x11-child-window.md`。
+- **处置**：GTK 臂的窗口 present **默认回退 cairo**（`NATIVEGUI_GPU_L1=1` 才显式开启）；离屏 GPU 画布不受影响。零拷贝 present 改为「自管 X 子窗口承载」：子窗口是 GTK 顶层窗口的 X 子窗口，设空输入形状让事件穿透，GTK 的整窗合成碰不到它（方案文档已随实现落地删除，口径见下一节）。
 
 **判据**：`NATIVEGUI_GPU_DEBUG=rainbow`（present clear 每帧变色）下窗口颜色必须持续变化；颜色固定即「后续 present 不可见」。
 
 ## Linux L1 子窗口承载落地：XShape 在 libXext、事件穿透必须靠空输入形状（2026-11-06）
 
-上一节方案（`proposals/linux-l1-x11-child-window.md`）同日实现，实测口径：
+上一节定的「自管 X 子窗口」方案同日实现，实测口径：
 
 - **`XShape*` 符号在 libXext、不在 libX11**（`nm -D` 实证：libX11 里只有 Xkb 的几何 Shape 函数）。头是 x11proto 的 `<X11/extensions/shape.h>`；GTK 传递依赖可达，但显式加进 prebuild 链接表（`LINUX_PKG_CONFIG_LIBS` 加 `xext`）明确归属。
 - **`event_mask=0` 不等于事件穿透**：X 的指针事件发给「指针所在窗口」，子窗口不选 mask 只会让事件**丢弃**（ButtonPress 不冒泡），父窗口收不到——子窗口成了输入黑洞。穿透必须 `XShapeCombineRectangles(…, ShapeInput, …, NULL, 0, ShapeSet, …)` 设空输入形状；Shape 扩展不可用则本档整体回退 cairo，不能只建窗口不设形状。
