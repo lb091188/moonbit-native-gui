@@ -19,6 +19,13 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 - [ ] **L1-Win 真机复验**（用户执行）：实现已落（2026-11-04，核心三臂共享 + Win32 薄适配，详见 adaptation.md）——Windows 跑一遍 hello/showcase：界面与改造前一致、无闪烁、resize 不花。mac 腿已过（2026-11-05 真机：界面与纯光栅一致、视图转 layer-backing 后输入/交互正常）；Linux 腿已过（2026-11-06 真机：独立 X 子窗口承载，界面/交互/rainbow/webview 层级/挪库回退全过，门已删默认尝试）
 - [ ] **GPU 画布 Linux 腿取数**（用户执行）：2026-11-06 本机无头用例已过（根因 `multisample.mask` 零值，像素断言首次在 Linux 真正执行：3/3，左上红 / 右下蓝 / 中心绿混合全对）；win 腿已过（2026-11-06 真机 showcase「GPU 画布」页）；剩真机应用进程——Linux 跑 showcase「GPU 画布」页，把「检查读回」状态行原文贴回：非零 = 应用进程同样正常；全零 / 仅底色 = 按档位归因（adaptation.md 同节）
 
+## mngdev 库包与工具链联动（2026-11-07 立项，方案见 [proposals/mngdev-library.md](proposals/mngdev-library.md)；一项一提交，做完删一项）
+
+- [ ] **dev 面进库**：gui/mngdev 包（showcase shared 三件挪入 + wbtest 跟迁）+ 生成码前缀 @shared→@mngdev + showcase/template-hello 接入 + dev 生成码重生成
+- [ ] **lsp 诊断联动**：didSave 跑 moon check，`<stem>.gen.mbt:L:C` 经 .mng/map 反查回投 Problems（节流/8s 超时/解析不了跳过）+ 纯函数用例
+- [ ] **脚手架**：`mng new --app` 生成可跑最小工程（moon.mod 版本现读 gui/moon.mod、moon.pkg 全套 import、mng.toml、main.mbt、pages/home.mng + dev 生成码）+ wbtest
+- [ ] **文档收口**：VSIX README「委托官方文法」口径修正（实现是内置子集，scope 同族不 include）+ guide/mng-project-dev/native-template 同步 + 真机清单
+
 ## 终端与单文件 DX 批（2026-11-06 排定，方案见 [proposals/terminal-sfc-dx.md](proposals/terminal-sfc-dx.md)——代码侧九件全部落地并逐项提交推送，本批只剩真机复验，均由用户执行）
 
 - [ ] **终端控件真机复验**（用户执行）：showcase「代码文档」→「终端」段按 SC-6.5 走（ANSI 16/256/truecolor、CJK 对齐、折行、滚轮回看 + Shift+PageUp + 滚动条、四按钮、打字/退格/方向键回显、回车喂回、拖选 Ctrl/Cmd+C 复制、裸 Ctrl+C 进输入、深浅主题）
