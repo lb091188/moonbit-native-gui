@@ -5007,6 +5007,8 @@ typedef struct {
   // 拿到过键盘焦点（focus-in）：浮层「失焦即收起」的武装判据，与 Win/mac 分支同口径
   int focus_gained;
   int popup;       // 这扇窗是弹层窗（wm_window_set_popup 标过；wm_show 据此要 WM 焦点）
+  int want_focus;  // 弹层要不要键盘焦点：0 = 不激活（菜单/下拉，键盘归 owner）
+  int pending_show; // 弹层延迟显示：等首帧内容 present 后再 map（防空框/闪现）
   // 显隐事件（W23b）：hide/show 真实转换各置一位，wm_event 弹出一次。
   // 隐藏不产生平台失焦事件，宿主靠 Hidden 清在途输入法组合串。
   int hidden_ev;
@@ -5503,17 +5505,24 @@ void wm_show(int64_t id) {
       w->hidden = 0;
       w->shown_ev = 1; // 首次显示不发，只有隐藏过的窗才有「唤回」
     }
-    gtk_widget_show_all(w->window);
-    gtk_widget_grab_focus(w->area);
-    if (w->popup) {
-      // 弹层向 WM 要输入焦点：grab_focus 只管应用内焦点，WM 不给焦点则
-      // focus-in 永不到来——「失焦即收起」不触发、旧弹层越叠越多（真机读数：
-      // 菜单右侧灰柱正是没关掉的上一扇宽窗）。present 走 _NET_ACTIVE_WINDOW
-      // 请求，X11 下再补一条 gdk_window_focus 兜底。
-      gtk_window_present(GTK_WINDOW(w->window));
-      GdkWindow *gw = gtk_widget_get_window(w->window);
-      if (gw != NULL) {
-        gdk_window_focus(gw, GDK_CURRENT_TIME);
+    if (w->popup && !w->want_focus) {
+      // 菜单/下拉类弹层延迟显示：show 时内容还没 mount，立刻 map 会先露出
+      // 空窗（真机症状：菜单出现瞬间闪现/空白），且不向 WM 要焦点——键盘
+      // （↑↓/回车/Esc）全程归 owner 触发件。等首帧内容 present 后再 map。
+      w->pending_show = 1;
+    } else {
+      gtk_widget_show_all(w->window);
+      gtk_widget_grab_focus(w->area);
+      if (w->popup) {
+        // 弹层向 WM 要输入焦点：grab_focus 只管应用内焦点，WM 不给焦点则
+        // focus-in 永不到来——「失焦即收起」不触发、旧弹层越叠越多（真机读数：
+        // 菜单右侧灰柱正是没关掉的上一扇宽窗）。present 走 _NET_ACTIVE_WINDOW
+        // 请求，X11 下再补一条 gdk_window_focus 兜底。
+        gtk_window_present(GTK_WINDOW(w->window));
+        GdkWindow *gw = gtk_widget_get_window(w->window);
+        if (gw != NULL) {
+          gdk_window_focus(gw, GDK_CURRENT_TIME);
+        }
       }
     }
     // 必须把 map 请求推出去并跑一轮就绪事件：GDK 输出缓冲不 flush 的话，
@@ -5523,6 +5532,28 @@ void wm_show(int64_t id) {
       gtk_main_iteration_do(FALSE);
     }
     wm_mark_draw(w);
+  }
+}
+
+/* 弹层首帧内容就绪后真正 map：菜单类只 show_all（不激活，键盘归 owner），
+ * 对话框类照常抢焦点（输入框要打字）。 */
+static void wm_popup_materialize(WmWindow *w) {
+  if (!w->pending_show || w->window == NULL) {
+    return;
+  }
+  w->pending_show = 0;
+  gtk_widget_show_all(w->window);
+  if (w->want_focus) {
+    gtk_widget_grab_focus(w->area);
+    gtk_window_present(GTK_WINDOW(w->window));
+    GdkWindow *gw = gtk_widget_get_window(w->window);
+    if (gw != NULL) {
+      gdk_window_focus(gw, GDK_CURRENT_TIME);
+    }
+  }
+  gdk_display_flush(gdk_display_get_default());
+  while (gtk_events_pending()) {
+    gtk_main_iteration_do(FALSE);
   }
 }
 
@@ -5954,6 +5985,7 @@ void wm_present(int64_t id, const unsigned char *rgba, int width, int height) {
   // （没挂上/本帧失败）时逐字回退下面的 cairo 路径——贴的还是同一份
   // Bitmap，逐像素一致。
   if (wm_l1_try(w, rgba, width, height)) {
+    wm_popup_materialize(w);
     return;
   }
   // 拷进后端缓冲后再请重画：真正的贴像素在下一次 draw 回调里，
@@ -5968,6 +6000,7 @@ void wm_present(int64_t id, const unsigned char *rgba, int width, int height) {
   for (int i = 0; i < 8 && gtk_events_pending(); i++) {
     gtk_main_iteration_do(FALSE);
   }
+  wm_popup_materialize(w);
 }
 
 static void wm_dnd_session_clear(void); // 定义见「系统级拖放」节
@@ -6124,16 +6157,19 @@ int64_t wm_shell_caps(void) {
 // 浮层（下拉/右键菜单/tooltip/toast/对话框）要能盖住 webview 区，就只能是真的
 // 顶层窗口——自绘像素永远在原生子件之下（方案 §4.5 的浮层纪律）。
 // 必须在 show 之前调：类型提示与 transient 关系在映射时才生效。
-// want_focus 在 GTK 段不参与行为（Linux 原生档键盘未报问题，保持既有焦点口径），
-// 只为三端 FFI 签名一致。
+// want_focus：菜单/下拉/提示类传 0——窗不接受焦点、map 时也不聚焦，键盘
+// （↑↓/回车/Esc）全程归 owner 触发件；对话框类传 1 保持既有焦点行为。
 void wm_window_set_popup(int64_t id, int64_t owner_id, int want_focus) {
-  (void)want_focus;
   if (id <= 0 || id >= WM_MAX_WINDOWS) {
     return;
   }
   WmWindow *w = &wm_windows[id];
   if (w->window == NULL) {
     return;
+  }
+  if (!want_focus) {
+    gtk_window_set_accept_focus(GTK_WINDOW(w->window), FALSE);
+    gtk_window_set_focus_on_map(GTK_WINDOW(w->window), FALSE);
   }
   gtk_window_set_decorated(GTK_WINDOW(w->window), FALSE);
   gtk_window_set_type_hint(
@@ -6150,6 +6186,7 @@ void wm_window_set_popup(int64_t id, int64_t owner_id, int want_focus) {
                                  GTK_WINDOW(wm_windows[owner_id].window));
   }
   w->popup = 1;
+  w->want_focus = want_focus;
 }
 
 // 这扇窗拿到过键盘焦点没有：浮层「失焦即收起」的武装判据（见 WmWindow.focus_gained）
