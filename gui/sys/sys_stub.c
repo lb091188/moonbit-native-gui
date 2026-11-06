@@ -2880,7 +2880,7 @@ void yue_sys_nl_set_ramp(const void *ramp, int32_t *ok) {
   if (dc == NULL) {
     return;
   }
-  BOOL r = SetDeviceGammaRamp(dc, (const WORD *)ramp);
+  BOOL r = SetDeviceGammaRamp(dc, (void *)(uintptr_t)ramp);
   ReleaseDC(NULL, dc);
   if (r) {
     *ok = 1;

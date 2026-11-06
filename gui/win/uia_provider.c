@@ -42,9 +42,76 @@
 #include <objbase.h> // COM 基础（interface 宏）：uiautomationcore.h 裸用会语法错
 // 不含聚合头 uiautomation.h：它会抢占具体头的 include guard，排在前面时
 // 后续 core/client 头全部空转（符号一个都供不上）。
-#include <uiautomationcore.h> // provider 接口本体（ToggleState/NavigateDirection/ProviderOptions/UiaRect 的 vtable 签名）
-#include <uiautomationclient.h> // UIA_* 常量（PropertyId/ControlTypeId/PatternId，微软文档归属头）
+#include <uiautomationcore.h> // provider 接口本体（IRawElementProvider*/IToggleProvider 等 vtable 结构）
+#include <uiautomationclient.h> // UIA_* 常量与 provider 枚举（见下：C 模式下要自给）
 #include <uiautomationcoreapi.h> // UiaReturnRawElementProvider / UiaHostProviderFromHwnd / UiaCreateRuntimeId
+
+/* ---- C 模式自给层（实测坑，2026-11-06 Windows SDK 10.0.26100 首编）----
+ * SDK 头把 UIA_* 常量生成为 `const long` 变量——纯 C 下不是编译期常量，
+ * switch-case 直接 C2051（C++ 的 const 才是常量）；26100 连 provider 枚举
+ * 类型也走 const 形态，当不了形参类型名（C2081）。这里按 ABI 数值统一定
+ * 义为编译期常量、枚举给自有形态（vtable 初始化全部 (void*) 强转，签名
+ * 类型与 SDK 声明二进制同形即可）。数值取自 SDK 头实物，跨版本恒定。 */
+#define UIA_NamePropertyId 30005
+#define UIA_AutomationIdPropertyId 30011
+#define UIA_ControlTypePropertyId 30003
+#define UIA_IsEnabledPropertyId 30010
+#define UIA_IsControlElementPropertyId 30016
+#define UIA_IsContentElementPropertyId 30017
+#define UIA_IsKeyboardFocusablePropertyId 30009
+#define UIA_IsPasswordPropertyId 30019
+#define UIA_ValueIsReadOnlyPropertyId 30046
+#define UIA_HelpTextPropertyId 30013
+#define UIA_ButtonControlTypeId 50000
+#define UIA_CheckBoxControlTypeId 50002
+#define UIA_RadioButtonControlTypeId 50013
+#define UIA_SliderControlTypeId 50015
+#define UIA_SpinnerControlTypeId 50016
+#define UIA_EditControlTypeId 50004
+#define UIA_DocumentControlTypeId 50030
+#define UIA_ComboBoxControlTypeId 50003
+#define UIA_ProgressBarControlTypeId 50012
+#define UIA_TextControlTypeId 50020
+#define UIA_HyperlinkControlTypeId 50005
+#define UIA_ImageControlTypeId 50006
+#define UIA_TabItemControlTypeId 50019
+#define UIA_MenuItemControlTypeId 50011
+#define UIA_GroupControlTypeId 50026
+#define UIA_WindowControlTypeId 50032
+#define UIA_InvokePatternId 10000
+#define UIA_TogglePatternId 10015
+#define UIA_ValuePatternId 10002
+#define UIA_RangeValuePatternId 10003
+#define UIA_ExpandCollapsePatternId 10005
+
+typedef enum {
+    WmToggleState_Off = 0,
+    WmToggleState_On = 1,
+    WmToggleState_Indeterminate = 2,
+} WmToggleState;
+typedef enum {
+    WmExpandCollapseState_Collapsed = 0,
+    WmExpandCollapseState_Expanded = 1,
+    WmExpandCollapseState_PartiallyExpanded = 2,
+    WmExpandCollapseState_LeafNode = 3,
+} WmExpandCollapseState;
+typedef enum {
+    WmNavigateDirection_Parent = 0,
+    WmNavigateDirection_NextSibling = 1,
+    WmNavigateDirection_PreviousSibling = 2,
+    WmNavigateDirection_FirstChild = 3,
+    WmNavigateDirection_LastChild = 4,
+} WmNavigateDirection;
+typedef enum {
+    WmProviderOptions_ServerSideProvider = 0x2,
+    WmProviderOptions_UseComThreading = 0x20,
+} WmProviderOptions;
+typedef struct {
+    double left;
+    double top;
+    double width;
+    double height;
+} WmUiaRect;
 
 // stub.c 的快照访问面（同 TU 链接）
 typedef struct WmA11yRow {
@@ -299,12 +366,12 @@ static HRESULT STDMETHODCALLTYPE wm_tog_toggle(IToggleProvider *self) {
     return S_OK;
 }
 
-static HRESULT STDMETHODCALLTYPE wm_tog_state(IToggleProvider *self, ToggleState *ret) {
+static HRESULT STDMETHODCALLTYPE wm_tog_state(IToggleProvider *self, WmToggleState *ret) {
     WmTog *p = (WmTog *)self;
     if (ret == NULL) return E_POINTER;
     const WmA11yRow *r = wm_a11y_row(p->idx);
     // 快照 state 串：checked / unchecked（其余按未勾选）
-    *ret = (r != NULL && !strcmp(r->state, "checked")) ? ToggleState_On : ToggleState_Off;
+    *ret = (r != NULL && !strcmp(r->state, "checked")) ? WmToggleState_On : WmToggleState_Off;
     return S_OK;
 }
 
@@ -543,10 +610,10 @@ static HRESULT STDMETHODCALLTYPE wm_exp_collapse(IExpandCollapseProvider *self) 
 }
 
 static HRESULT STDMETHODCALLTYPE wm_exp_state(IExpandCollapseProvider *self,
-                                              ExpandCollapseState *ret) {
+                                              WmExpandCollapseState *ret) {
     (void)self;
     if (ret == NULL) return E_POINTER;
-    *ret = ExpandCollapseState_Collapsed;
+    *ret = WmExpandCollapseState_Collapsed;
     return S_OK;
 }
 
@@ -568,10 +635,10 @@ static IUnknown *wm_exp_new(HWND hwnd, int32_t idx) {
 /* ---------------- IRawElementProviderSimple ---------------- */
 
 static HRESULT STDMETHODCALLTYPE wm_prov_options(IRawElementProviderSimple *self,
-                                                 ProviderOptions *ret) {
+                                                 WmProviderOptions *ret) {
     (void)self;
     if (ret == NULL) return E_POINTER;
-    *ret = ProviderOptions_ServerSideProvider | ProviderOptions_UseComThreading;
+    *ret = WmProviderOptions_ServerSideProvider | WmProviderOptions_UseComThreading;
     return S_OK;
 }
 
@@ -642,7 +709,7 @@ static HRESULT STDMETHODCALLTYPE wm_prov_prop(IRawElementProviderSimple *self,
             ret->boolVal = (r != NULL && !strcmp(r->state, "password")) ? VARIANT_TRUE
                                                                         : VARIANT_FALSE;
             return S_OK;
-        case UIA_IsReadOnlyPropertyId:
+        case UIA_ValueIsReadOnlyPropertyId:
             ret->vt = VT_BOOL;
             ret->boolVal = (r != NULL && !strcmp(r->state, "read_only")) ? VARIANT_TRUE
                                                                          : VARIANT_FALSE;
@@ -693,13 +760,13 @@ static int32_t wm_uia_deepest_at(double wx, double wy) {
 }
 
 static HRESULT STDMETHODCALLTYPE wm_prov_navigate(IRawElementProviderFragment *self,
-                                                  NavigateDirection dir,
+                                                  WmNavigateDirection dir,
                                                   IRawElementProviderSimple **ret) {
     WmProv *p = (WmProv *)self;
     if (ret == NULL) return E_POINTER;
     *ret = NULL;
     if (p->idx < 0) {
-        if (dir == NavigateDirection_FirstChild) {
+        if (dir == WmNavigateDirection_FirstChild) {
             int32_t c = wm_uia_child_of(0, 0);
             if (c >= 0) *ret = &wm_prov_new(p->hwnd, c)->simple;
         }
@@ -708,7 +775,7 @@ static HRESULT STDMETHODCALLTYPE wm_prov_navigate(IRawElementProviderFragment *s
     const WmA11yRow *r = wm_a11y_row(p->idx);
     if (r == NULL) return S_OK;
     switch (dir) {
-        case NavigateDirection_Parent: {
+        case WmNavigateDirection_Parent: {
             if (r->parent == 0) {
                 if (g_root_prov != NULL) *ret = &g_root_prov->simple;
             } else {
@@ -723,15 +790,15 @@ static HRESULT STDMETHODCALLTYPE wm_prov_navigate(IRawElementProviderFragment *s
             }
             break;
         }
-        case NavigateDirection_FirstChild: {
+        case WmNavigateDirection_FirstChild: {
             int32_t c = wm_uia_child_of(r->id, 0);
             if (c >= 0) *ret = &wm_prov_new(p->hwnd, c)->simple;
             break;
         }
-        case NavigateDirection_NextSibling:
-        case NavigateDirection_PreviousSibling: {
+        case WmNavigateDirection_NextSibling:
+        case WmNavigateDirection_PreviousSibling: {
             int32_t n = wm_a11y_count();
-            int32_t step = dir == NavigateDirection_NextSibling ? 1 : -1;
+            int32_t step = dir == WmNavigateDirection_NextSibling ? 1 : -1;
             for (int32_t i = p->idx + step; i >= 0 && i < n; i += step) {
                 const WmA11yRow *q = wm_a11y_row(i);
                 if (q != NULL && q->parent == r->parent) {
@@ -758,7 +825,7 @@ static HRESULT STDMETHODCALLTYPE wm_prov_runtime_id(IRawElementProviderFragment 
 }
 
 static HRESULT STDMETHODCALLTYPE wm_prov_rect(IRawElementProviderFragment *self,
-                                              UiaRect *ret) {
+                                              WmUiaRect *ret) {
     WmProv *p = (WmProv *)self;
     if (ret == NULL) return E_POINTER;
     memset(ret, 0, sizeof *ret);
