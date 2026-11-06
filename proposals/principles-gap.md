@@ -144,8 +144,8 @@
 | GPU 渲染口占位（`RenderCtx::Gpu` 恒 false） | `gpu-architecture.md` |
 | mac 通知跑在 `WinBalloon` 枚举名下的后端命名 | roadmap「已规划」：通知后端命名 |
 | 任务栏进度跨平台（dock 徽标 / LauncherEntry） | 单平台语义不对等、不做门面合流：Windows 半边归 `windows-mbt.md`，dock 徽标 / LauncherEntry 归 mac-mbt / *DE-mbt |
-| Wayland 原生路径（热键/idle/portal） | roadmap「已规划」 |
-| KDE / GNOME / DDE 桌面环境实测矩阵 | roadmap「已规划」 |
+| Wayland 原生路径（热键/idle/portal） | 单平台系统特性，归 `linux-mbt.md` 规划 |
+| KDE / GNOME / DDE 桌面环境实测矩阵 | 单平台系统特性，归 `linux-mbt.md` 规划 |
 | 可访问性（屏读语义 / 键盘可达） | roadmap「已规划」：可访问性节 |
 
 ## 五、优先级建议

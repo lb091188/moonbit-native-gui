@@ -3,20 +3,17 @@
 > 只记「已实现、待复验 / 待收尾」的现行事项；规划与未来批次见 [docs/zh/roadmap.md](docs/zh/roadmap.md)「已规划」，实测坑与口径见 [experience/adaptation.md](experience/adaptation.md)。完成一项删一项，并同步路线图状态。
 
 
-## 实施队列（2026-11-04 排定，用户指定顺序：无障碍 → 代码/终端 → GPU；Wayland 暂缓排尾。做完一项删一项并同步路线图，一项一提交）
+## 实施队列（2026-11-04 排定，用户指定顺序：无障碍 → 代码/终端 → GPU。做完一项删一项并同步路线图，一项一提交）
 
 （无障碍线已于 2026-11-06 容后：三平台桥全部落地、mac VoiceOver 首轮已过，剩 Orca/NVDA 真机清单；
-进度与剩余项归档 [proposals/text-selection-a11y.md](proposals/text-selection-a11y.md) §九，恢复时按那里接）
+进度与剩余项归档 [proposals/text-selection-a11y.md](proposals/text-selection-a11y.md) §九，恢复时按那里接。
+Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [proposals/linux-mbt.md](proposals/linux-mbt.md) 规划，不在本库任务队列）
 
 ### 一、代码/终端（mng 工具链）
 
 （三项已完成：LSP hover 临时输出归位项目根 `.mng/`、跳转/hover URI 归一收口 Windows 支、版本对齐与 roadmap 追平——见 git log 2026-11-04；剩 Windows 真机复验归用户）
 
-### 二、代码/终端（mng 工具链）
-
-（三项已完成：LSP hover 临时输出归位项目根 `.mng/`、跳转/hover URI 归一收口 Windows 支、版本对齐与 roadmap 追平——见 git log 2026-11-04；剩 Windows 真机复验归用户）
-
-### 三、GPU（按 [proposals/gpu-architecture.md](proposals/gpu-architecture.md) 分批）
+### 二、GPU（按 [proposals/gpu-architecture.md](proposals/gpu-architecture.md) 分批）
 
 - [ ] **X11 wgpu 三角形真机复验**（用户执行）：实现已落（2026-11-04，`gpu/triangle.c` + `run_triangle` 门面 + `experiment/gpu_triangle`；无显示实跑验过加载链，详见 adaptation.md）——`moon run experiment/gpu_triangle` 跑一遍：窗口里见三色三角形、关窗或按 Esc 正常退出算过；不过把现象贴回来
 - [ ] **L1-Win 真机复验**（用户执行）：实现已落（2026-11-04，核心三臂共享 + Win32 薄适配，详见 adaptation.md）——Windows 跑一遍 hello/showcase：界面与改造前一致、无闪烁、resize 不花。mac 腿已过（2026-11-05 真机：界面与纯光栅一致、视图转 layer-backing 后输入/交互正常）；Linux 腿已过（2026-11-06 真机：独立 X 子窗口承载，界面/交互/rainbow/webview 层级/挪库回退全过，门已删默认尝试）

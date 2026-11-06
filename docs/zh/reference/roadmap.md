@@ -314,8 +314,6 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ### 系统能力
 
-- 🚧 **Wayland 原生路径**（2026-11-03 立项调研，能力出路总表、DE 支持矩阵与 spike 清单见 [proposals/wayland-native.md](proposals/wayland-native.md)）：GUI 本体 Wayland 会话已能跑，缺口在系统能力族与层级/弹层——✅P0 会话探针堵 XWayland 静默假数据（`@sys.session_type()`；夜灯与窗口管理在 Wayland 会话显式 `Unsupported`，显示器枚举按 XWayland 虚拟屏口径声明，预期表进测试文档附录 E）→ ✅ **P1 已落**（2026-11-04）：`gui/dbus/portal.mbt` Request/Response 异步握手通用层（handle_token → request 路径 `/org/freedesktop/portal/desktop/request/<sender 去冒号点换杠>/<token>` → Response 信号一次性订阅，路径派生规则本机 frontend 1.18.4 抓包定案）；`gui/shell/global_shortcuts.mbt` GlobalShortcuts「绑定 + Activated 信号回调」门面（CreateSession→BindShortcuts 两段握手，用户取消/后端不支持如实报错不假成功）；`gui/shell/idle.mbt` GNOME IdleMonitor 精确读数（GetIdletime）+ 集成门面（D-Bus 优先、回落 @sys C 平台读数）；本机实测：frontend 接受请求并按桌面路由到 KDE 后端（5.27.11 实现了 GlobalShortcuts，GTK 后端 1.15.1 没实现——当前会话跑的是 GTK 后端故握手报错，KDE 48+/GNOME 48+ 真机归用户）→ ✅ **P2 已落**（2026-11-04）：夜灯三档——GNOME 写 `org.gnome.settings-daemon.plugins.color` 配置键（gsettings CLI，驱动 DE 自带夜灯）、KDE 读侧全量（Plasma 5.27 ColorCorrect 实物属性全 read-only，写侧 Unsupported；Plasma 6 NightLight 写入口径未核）、wlroots 裸 gamma 待 Wayland 协议客户端；显示器两档——KDE 接 KScreen `getConfig`（本机实证 9 输出/2 已连/30 模式，refreshRate 实测 int64 赫兹、size/pos 是 variant(a{sv})）、GNOME mutter DisplayConfig 字段序未核只探存在（S7 真机定，不许猜字段序产假读数）、wlroots 待协议客户端 → 🚧 P3 进行中（2026-11-04）：协议客户端地基已落——`gui/wayland` 自写 wire（connect/registry/enumerate/bind，headless weston 实测 19 global 与 wayland-info 吻合，选型「自写不链 libwayland」），剪贴板监视/窗口管理/wlroots 各协议客户与 fd 传递待落；layer-shell 不进（KDE/GNOME 双双不支持）；GNOME 侧窗口管理无通道记平台边界；先 spike S1–S8 后动工
-- ⏳ **KDE / GNOME / DDE 实测**：托盘、通知、深浅色、壁纸、默认应用的桌面环境矩阵
 - ⏳ **显示器「首选档」**：`CGDisplayModeIsPreferred` 已不在 SDK，需找公开替代信号
 
 ### 媒体

@@ -1,6 +1,7 @@
 # Wayland 原生路径：系统能力族在 Wayland 会话的通道收口
 
 > **状态**：立项稿（2026-11-03 调研定稿）。外部事实均标注来源，没查到/没核实的点显式标「未核」，不编造。
+> **归口**：2026-11-06 起本方案归属 [linux-mbt](linux-mbt.md) 规划（Linux 桌面系统特性不进跨平台库）；跨平台路线图与 TODO 已撤出同名条目，技术细节与 spike 判据留档于此。
 > **范围**：roadmap「系统能力 → Wayland 原生路径」条目与「Linux 兼容说明 · 会话」表四行（全局快捷键、空闲检测、窗口控制+剪贴板监视、显示器与夜灯）的全量调研、原生出路评估与分期。GUI 本体（窗口/渲染/输入/输入法）已确认在 Wayland 会话可跑，不在本方案新增范围，只盘点其既有行为。当前进度与剩余事项见 §九 进度快照（TODO 同名节已于 2026-11-06 撤回）。
 
 ## 一、定位
@@ -89,8 +90,8 @@
 
 ### 4.3 与既有规划的咬合
 
-- **托盘/通知（SNI/Notifications）本就走会话总线**，Wayland 会话不受影响（§2.3 证据）。SNI 在 Wayland 的 host 侧要求 = 面板实现 StatusNotifierWatcher：KDE/XFCE/Cinnamon 面板与 deepin dde-shell 均有；**GNOME Shell 裸版没有**，要 AppIndicator 扩展（Ubuntu 预装、Fedora 裸版不带）——这条边界属于 roadmap「KDE / GNOME / DDE 实测」条目的托盘行，与本方案共用真机会话但不重复立项。
-- **「KDE / GNOME / DDE 实测」条目验的是 D-Bus 族 host 可用性**（托盘、通知、深浅色、壁纸、默认应用），本方案验的是会话相关四项 + 层级/浮层行为；两者可在同一批真机 spike 里搭车执行（spike S1 的会话环境即它的执行环境），结论各自回填 roadmap 两张表。
+- **托盘/通知（SNI/Notifications）本就走会话总线**，Wayland 会话不受影响（§2.3 证据）。SNI 在 Wayland 的 host 侧要求 = 面板实现 StatusNotifierWatcher：KDE/XFCE/Cinnamon 面板与 deepin dde-shell 均有；**GNOME Shell 裸版没有**，要 AppIndicator 扩展（Ubuntu 预装、Fedora 裸版不带）——这条边界属于 [linux-mbt](linux-mbt.md)「DE 实测矩阵」的托盘行，与本方案共用真机会话但不重复立项。
+- **「DE 实测矩阵」验的是 D-Bus 族 host 可用性**（托盘、通知、深浅色、壁纸、默认应用），本方案验的是会话相关四项 + 层级/浮层行为；两者可在同一批真机 spike 里搭车执行（spike S1 的会话环境即它的执行环境），结论分别回填。条目已随本方案一并移交 [linux-mbt](linux-mbt.md)。
 - roadmap「Linux 兼容说明 · 会话」表的「Wayland 侧出路」列按本方案更新：全局快捷键 → portal（双端可落）；空闲检测 → GNOME 有精确读数口、KDE/wlroots 走事件近似（比「退有焦点才计时」的现行说法好）；窗口控制 → 仅 wlroots 系有协议通道，GNOME/KDE 记边界；剪贴板监视 → KDE/wlroots 协议化，GNOME 维持轮询；显示器与夜灯 → mutter/KWin/wlr 各有口（夜灯在 GNOME/KDE 是配置 DE 夜灯档）。
 
 ## 五、分期与 spike 清单
@@ -132,8 +133,8 @@
 1. `moon check` / `moon test`（指定包清单）零错误零警告，与家规一致；Wayland 协议客户端（C 桩）过 ASan 套（若走 libwayland/自写 wire，按 moonbit-c-binding 技能的验收形态）。
 2. 会话矩阵：`测试文档/测试用例.md` 补 Wayland 会话条目（SC 系，记录台现算），至少覆盖 deepin 25 Treeland 与 Ubuntu GNOME Wayland 两台；X11 全量用例不退（含 SC-10.2 的 Wayland 预期更新为实际能力）。
 3. **「返回成功但无效」清零**：P0 后在任一 Wayland 会话，五个会话相关能力的探针输出与文档口径一一对应——不可用的必须 `Unsupported`，可用的必须真有效（以 S2 的实测清单为红线）。
-4. 每条 P1/P2 能力的真机验收由用户执行（助手给操作步骤清单），结论回 `experience/adaptation.md` 与 roadmap 表；roadmap「Wayland 原生路径」条目按平台标 ✅/🚧/❌/⏳。
-5. roadmap「Linux 兼容说明 · 会话」表、「KDE / GNOME / DDE 实测」矩阵与 `TODO.md` 同批更新，三者不得互相矛盾。
+4. 每条 P1/P2 能力的真机验收由用户执行（助手给操作步骤清单），结论回 `experience/adaptation.md`；进度按平台标 ✅/🚧/❌/⏳ 记在 [linux-mbt](linux-mbt.md)。
+5. roadmap「Linux 兼容说明 · 会话」表、[linux-mbt](linux-mbt.md)「DE 实测矩阵」与 `TODO.md` 同批更新，三者不得互相矛盾。
 
 ## 八、证据清单
 
