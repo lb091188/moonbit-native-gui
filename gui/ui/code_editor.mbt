@@ -436,6 +436,8 @@ pub fn code_editor(
     let open_find = fn() -> Unit {
       find_open.val = true
       recompute_find()
+      // 浮层底跟代码区主题色（CodeTheme 深浅两套随主题走），border 描边点缀区分
+      let ct = code_theme_current()
       let pane = overlay_pane(
         [
           view(
@@ -475,6 +477,7 @@ pub fn code_editor(
         ],
         268.0,
         0.0,
+        skin=@style.style(background_color=ct.bg, border_color="border"),
       )
       let _ = @widget.overlay_show_at(
         pane,
