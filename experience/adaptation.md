@@ -3813,3 +3813,10 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **幻影函数**：`UiaCreateRuntimeId` 在 SDK 里不存在（16299 头实物核过，只有 `UiaGetRuntimeId`）——凭记忆写过，MSVC 只报隐式声明警告、链接期才 LNK2019。RuntimeId 用 `SafeArrayCreateVector(VT_I4, …)` 自建。电源 API 的归属头同理：`PowerGetActiveScheme`/`PowerSetActiveScheme` 在 **powersetting.h**（不在 powrprof.h），C 模式漏了它也是隐式声明带过。
 - **空串测量三平台不等价（2026-11-06 Windows 门禁）**：Pango 量空布局给「0 宽 + 单行行高/基线」，DWrite 侧 `ptw_wide(s, 0)` 经 `MultiByteToWideChar` 回 0、`ptw_layout` 建不出 0 长布局，`pt_measure_font` 于是返回 0 → `measure_font("")` 为 `None`。逐字边缘用例对 0 位前缀量宽直接 `abort("本平台没有文本测量")`。修法：`dwrite_text.cpp` 的 `pt_measure_font` 对 `len <= 0` 取 `pt_font_line_height` 的行度量、宽直接给 0；Pango/mac 分支不动。判据：`moon test mdview` 41/41。
 - **本地验证闭环（Linux 上验 Windows 编译）**：`apt-get download mingw-w64-x86-64-dev mingw-w64-common`（免 root）+ `dpkg -x` 解到临时 root，`clang --target=x86_64-w64-mingw32 -fsyntax-only -std=c11 -I <root>/usr/x86_64-w64-mingw32/include [-I ~/.moon/include]` 即可把 Windows-only 的 C 文件全部语法验过（uia_provider.c/stub.c/sys_stub.c/wgpu_core.c/canvas.c 实测零错零警告）。注意事项：mingw 头把 UIA 常量复刻成**宏**（微软 SDK 是 `const long` 变量）——两边形态都要覆盖（自给层带 `#ifndef` 守卫即通吃）；mingw 缺 `_mingw.h` 生成头类文件时补 `mingw-w64-common`；`<string>`/`<unordered_map>` 走 libstdc++ 的 C++ 文件（如 dwrite_text.cpp）本机验不了（glibc 头与 mingw 目标不兼容），那类文件以真机 MSVC 日志为准。
+
+## 测量宽取整 × 亚像素绘制：光标错位半格、标签在自己盒里折行（2026-11-06，win/mac 真机反馈）
+
+- **现象**：win/mac 上光标/选区与字符错位（约半格，行越长越歪），Linux 正常；观感「符号比字母占位宽」。同批还暴露：单行标签按自己的测量宽下盒，却折成两行（datepicker「选中：」32.37px 的盒）。
+- **根因**：caret x / 命中列 = **逐字符测量宽累加**，而绘制 advance 是亚像素浮点。win/mac 的测量出参在 C 层被 `ceil` 成整数像素（Menlo 13px ≈7.8px/字 → 量成 8，一行 30 字符漂 6-7px）；不同字符取整误差不同，观感即「符号处跳」。Linux 无感纯属 Pango 的绘制 advance 被 hinting 钉在整数网格，测量与绘制恰好同口径——**不是 Linux 链路更对，是两边误差抵消**。
+- **定案（文本层口径）**：测量**宽**全链浮点——`TextMetrics.width` 与 `pt_measure`/`pt_measure_font`/`rt_measure` 出参 `double`，C 桩不再取整；**高/基线保持整数**（行高取整反而稳定，行盒不随内容小数抖）。凡「盒宽(float) → 限宽(int)」一律 **ceil**：限宽比盒宽窄，按测量宽下发的盒就会自己折行——四处收口：绘制 `draw_box`、布局测高（`attach_text_measure`/`measure_text_height`）、`clamp_lines` 两处调用。`floor` 只许用于坐标采样与像素取整，不许用于限宽。
+- **判据**：datepicker「测量宽与断行口径一致」守门用例（本轮真抓住）；text/ui 331 项全绿；真机 win/mac 光标逐字符贴字、点击落点即所指字符。
