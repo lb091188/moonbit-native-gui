@@ -73,17 +73,27 @@ static int core_load_lib(void) {
   if (env && env[0]) {
     g_core_lib = core_dlopen(env);
   }
-#if !defined(_WIN32)
-  // DBG：相对候选放最前——与 probe.c 同串，避免 glibc 按路径串加载两份实例
+  // 相对候选放最前——与 probe.c 同串，避免 glibc 按路径串加载两份实例
   if (!g_core_lib) {
     g_core_lib = core_dlopen("vendor/lib/" MNG_WGPU_LIB_BASE);
   }
   if (!g_core_lib) {
     g_core_lib = core_dlopen("vendor/" MNG_WGPU_LIB_BASE);
   }
+  // 仓库布局候选：从 cwd 逐级向上找 <anc>/vendor/lib/<lib> 与
+  // <anc>/modules/gui-gpu/vendor/lib/<lib>——应用从 examples/<name> 或
+  // 仓库根跑都能找到模块 vendor。三平台同形：Windows 取 cwd 用
+  // GetCurrentDirectoryA，LoadLibraryA 接受 '/' 作分隔符。
   if (!g_core_lib) {
     char anc[1024];
-    if (getcwd(anc, sizeof anc)) {
+    int have_cwd = 0;
+#if defined(_WIN32)
+    DWORD wn = GetCurrentDirectoryA((DWORD)sizeof anc, anc);
+    have_cwd = (wn > 0 && wn < (DWORD)sizeof anc);
+#else
+    have_cwd = (getcwd(anc, sizeof anc) != NULL);
+#endif
+    if (have_cwd) {
       for (int hop = 0; hop < 16 && !g_core_lib; hop++) {
         char cand[1200];
         snprintf(cand, sizeof cand, "%s/vendor/lib/%s", anc,
@@ -95,28 +105,23 @@ static int core_load_lib(void) {
           g_core_lib = core_dlopen(cand);
         }
         char *slash = strrchr(anc, '/');
-        if (!slash || slash == anc) {
+#if defined(_WIN32)
+        char *bslash = strrchr(anc, '\\');
+        if (!slash || (bslash && bslash > slash)) {
+          slash = bslash;
+        }
+#endif
+        if (!slash || slash == anc || (size_t)(slash - anc) <= 2) {
           break;
         }
         *slash = 0;
       }
     }
   }
+  // 裸名兜底：Windows 走 DLL 搜索序（发行形态把 dll 放 exe 旁即可）
   if (!g_core_lib) {
     g_core_lib = core_dlopen(MNG_WGPU_LIB_BASE);
   }
-#else
-  // Win32：vendor 相对候选在前（与 probe.c 同串），裸名兜底走 DLL 搜索序
-  if (!g_core_lib) {
-    g_core_lib = core_dlopen("vendor/lib/" MNG_WGPU_LIB_BASE);
-  }
-  if (!g_core_lib) {
-    g_core_lib = core_dlopen("vendor/" MNG_WGPU_LIB_BASE);
-  }
-  if (!g_core_lib) {
-    g_core_lib = core_dlopen(MNG_WGPU_LIB_BASE);
-  }
-#endif
   if (!g_core_lib) {
     snprintf(g_core_detail, sizeof g_core_detail, "not-found: wgpu 库装载失败");
     return 0;

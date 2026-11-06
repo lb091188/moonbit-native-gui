@@ -170,10 +170,10 @@ extern "c" fn mng_gpu_canvas_free(h : Int) -> Unit = "mng_gpu_canvas_free"
 /// 建一块 w×h 的 GPU 画布（上限 8192）。没装 GPU 扩展/驱动起不来/尺寸
 /// 非法回 Err，调用方照走 CPU 路径。
 pub fn GpuCanvas::new(w : Int, h : Int) -> Result[GpuCanvas, String] {
-  let p = probe()
-  if !p.loaded {
-    return Err("GPU 扩展不可用：\{p.detail}")
-  }
+  // 不拿 probe() 当前置门槛：probe 与 core 是两套装载器，候选表一旦分叉，
+  // 「core 能建设备、probe 却报 not-found」会把可用画布误判成降级。画布只
+  // 信自己实际用的那条链——mng_gpu_canvas_new 内 mng_wgpu_ready() 判定，
+  // 失败原因由 C 侧写进 canvas_detail()。
   let hd = mng_gpu_canvas_new(w, h)
   if hd <= 0 {
     Err("GPU 画布建不出（\{w}x\{h}）：\{canvas_detail()}")

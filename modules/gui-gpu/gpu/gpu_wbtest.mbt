@@ -85,15 +85,14 @@ test "canvas：无头 draw + 读回（有 GPU 扩展才跑）" {
         None => fail("读回失败")
         Some(b) => {
           assert_eq(b.length(), 64 * 48 * 4)
-          // 读回全零 = queue 写→GPU 执行链在本机 moon 测试进程里不落地
-          // （同口径 standalone C 原型可用，根因待查，见 adaptation.md
-          // 「wgpu 进程内队列写不落地」条）——这时跳过像素断言，管线/协议
-          // 面的断言照跑；真机应用进程复验归用户
+          // 全零留作异常判据：曾因管线 multisample.mask 被 memset 清成 0
+          // 导致所有 draw 不出像素（adaptation.md 2026-11-06 更正），现已修。
+          // 这里保留全零分支只作诊断，管线/协议面的断言照跑。
           let all_zero = b[0] == 0 && b[1] == 0 && b[2] == 0 && b[3] == 0 &&
             b[4] == 0 && b[5] == 0
           if all_zero {
             println(
-              "canvas: 读回全零——queue 写链在测试进程不落地（已知，见 adaptation.md），像素断言跳过",
+              "canvas: 读回全零——离屏渲染或读回链异常（见 adaptation.md），像素断言跳过",
             )
           } else {
             // 样点读数先落一行：首轮真像素（mac）就是靠它判方向/通道序

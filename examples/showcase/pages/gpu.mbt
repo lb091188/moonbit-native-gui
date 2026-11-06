@@ -2,9 +2,8 @@
 // `RenderCtx::Gpu` 派发，把 `fill_rect` / `draw_texture_rgba` 两条原语画进
 // `@guigpu.GpuCanvas`（离屏 BGRA 目标）；GPU 派发的控件不往 CPU 位图涂写，
 // 所以同帧由子控件 `finish()` 读回字节直拷上屏（读回 BGRA 与位图 ARGB32
-// 内存序在 a=255 时零转换）。读回全零 = adaptation.md「wgpu 进程内队列写
-// 不落地」的现场数据（真机复验就是验这条）；没装 GPU 扩展整段降级 notice，
-// 探测读数如实显示。
+// 内存序在 a=255 时零转换）。「检查读回」给非零率与四角采样，全零是渲染
+// 或读回链异常的判据；没装 GPU 扩展整段降级 notice，探测读数如实显示。
 
 ///|
 /// 32×32 不透明图案字节（draw_texture_rgba 语义：R,G,B,A，全 a=255）：
@@ -251,7 +250,7 @@ pub fn page_gpu(_app : @shared.App) -> @widget.Node {
         @shared.section(
           "画布",
           "GPU 画布",
-          "容器挂 on_render 走 RenderCtx::Gpu 派发：fill_rect / draw_texture_rgba 两条原语画进离屏 GpuCanvas，同帧 finish() 读回 BGRA 字节直拷上屏。「检查读回」给非零率与四角采样；读回全零即已知问题（见 experience/adaptation.md），真机应用进程复验归用户。",
+          "容器挂 on_render 走 RenderCtx::Gpu 派发：fill_rect / draw_texture_rgba 两条原语画进离屏 GpuCanvas，同帧 finish() 读回 BGRA 字节直拷上屏。「检查读回」给非零率与四角采样；全零表示离屏渲染或读回链异常，见 experience/adaptation.md。",
           [
             scene,
             @ui.row(
@@ -282,7 +281,7 @@ pub fn page_gpu(_app : @shared.App) -> @widget.Node {
                       }
                       let verdict = if nz == 0 {
                         @shared.tx(
-                          "读回全零——queue 写→GPU 执行链不落地（已知问题，把现象贴回）",
+                          "读回全零——离屏渲染或读回链异常（见 experience/adaptation.md）",
                         )
                       } else {
                         @shared.tx("读回有像素 ✓")

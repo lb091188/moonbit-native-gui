@@ -91,18 +91,28 @@ int32_t mng_gpu_probe(uint8_t *out, int32_t cap) {
             return 0;
         }
     }
-#if !defined(_WIN32)
     // 仓库布局候选：从 cwd 逐级向上找 <anc>/vendor/lib/<lib> 与
     // <anc>/modules/gui-gpu/vendor/lib/<lib>（triangle.c / wgpu_core.c 同
     // 口径）——应用从 examples/<name> 或仓库根跑都能找到模块 vendor；
-    // 发行包走不到这两级，落环境变量/系统名
-#if defined(__APPLE__)
+    // 发行包走不到这两级，落环境变量/系统名。Windows 取 cwd 用
+    // GetCurrentDirectoryA（POSIX 用 getcwd），LoadLibraryA 接受 '/' 作
+    // 分隔符，故候选串两平台同形。
+#if defined(_WIN32)
+#define PROBE_LIB_BASE "wgpu_native.dll"
+#elif defined(__APPLE__)
 #define PROBE_LIB_BASE "libwgpu_native.dylib"
 #else
 #define PROBE_LIB_BASE "libwgpu_native.so"
 #endif
     char anc[1024];
-    if (getcwd(anc, sizeof anc)) {
+    int have_cwd = 0;
+#if defined(_WIN32)
+    DWORD wn = GetCurrentDirectoryA((DWORD)sizeof anc, anc);
+    have_cwd = (wn > 0 && wn < (DWORD)sizeof anc);
+#else
+    have_cwd = (getcwd(anc, sizeof anc) != NULL);
+#endif
+    if (have_cwd) {
         for (int hop = 0; hop < 16; hop++) {
             char cand[1200];
             snprintf(cand, sizeof cand, "%s/vendor/lib/%s", anc,
@@ -132,13 +142,20 @@ int32_t mng_gpu_probe(uint8_t *out, int32_t cap) {
                 return 0;
             }
             char *slash = strrchr(anc, '/');
-            if (!slash || slash == anc) {
+#if defined(_WIN32)
+            // Windows cwd 用反斜杠：取两种分隔符里更靠右的那个；截到盘符根
+            // （如 "D:"）就停，别把盘符再截成空串
+            char *bslash = strrchr(anc, '\\');
+            if (!slash || (bslash && bslash > slash)) {
+                slash = bslash;
+            }
+#endif
+            if (!slash || slash == anc || (size_t)(slash - anc) <= 2) {
                 break;
             }
             *slash = 0;
         }
     }
-#endif
     char buf[256];
     snprintf(buf, sizeof buf, "not-found: %s", err ? err : "?");
     put(out, cap, buf);

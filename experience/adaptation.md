@@ -3820,3 +3820,14 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **根因**：caret x / 命中列 = **逐字符测量宽累加**，而绘制 advance 是亚像素浮点。win/mac 的测量出参在 C 层被 `ceil` 成整数像素（Menlo 13px ≈7.8px/字 → 量成 8，一行 30 字符漂 6-7px）；不同字符取整误差不同，观感即「符号处跳」。Linux 无感纯属 Pango 的绘制 advance 被 hinting 钉在整数网格，测量与绘制恰好同口径——**不是 Linux 链路更对，是两边误差抵消**。
 - **定案（文本层口径）**：测量**宽**全链浮点——`TextMetrics.width` 与 `pt_measure`/`pt_measure_font`/`rt_measure` 出参 `double`，C 桩不再取整；**高/基线保持整数**（行高取整反而稳定，行盒不随内容小数抖）。凡「盒宽(float) → 限宽(int)」一律 **ceil**：限宽比盒宽窄，按测量宽下发的盒就会自己折行——四处收口：绘制 `draw_box`、布局测高（`attach_text_measure`/`measure_text_height`）、`clamp_lines` 两处调用。`floor` 只许用于坐标采样与像素取整，不许用于限宽。
 - **判据**：datepicker「测量宽与断行口径一致」守门用例（本轮真抓住）；text/ui 331 项全绿；真机 win/mac 光标逐字符贴字、点击落点即所指字符。
+## Windows wgpu 装载器缺仓库布局扫描：showcase GPU 页从仓库根启动降级（2026-11-06）
+
+**现象**：showcase 第 16 页 GPU 画布区域没有内容，页面落进「GPU 画布建不出」降级文案。同一个 `gpu_triangle.exe` 从仓库根跑是 `probe loaded=false detail=not-found: LoadLibrary failed`，从 `modules/gui-gpu` 跑是 `loaded=true loaded(vendor/lib/wgpu_native.dll)`。vendor 归档不是没下载（`modules/gui-gpu/vendor/lib/wgpu_native.dll` 在），缺的是**找它的路径**。
+
+**根因**：`probe.c` 与 `wgpu_core.c` 把「从 cwd 逐级上溯 `<anc>/vendor/lib/<lib>` 与 `<anc>/modules/gui-gpu/vendor/lib/<lib>`」整段圈在 `#if !defined(_WIN32)` 里，Windows 分支只剩 cwd 相对的 `vendor/lib/`、`vendor/` 与裸名 `wgpu_native.dll`；归档实际在 `modules/gui-gpu/vendor/lib/`，故从仓库根 / `examples/<name>` / `_build` 产物目录起的应用一律装载失败。`GpuCanvas::new` 又以**另一套独立的** `probe()` 作前置门槛（`probe()` 只查 `wgpuCreateInstance`，core 才真正建 instance/adapter/device），候选表一分叉就把「core 明明建得出设备」误判成降级。
+
+**修法**：三平台统一祖先扫描——Windows 用 `GetCurrentDirectoryA` 取 cwd，`LoadLibraryA` 接受正斜杠作分隔符，故候选串与 POSIX 同形；上溯时取正斜杠与反斜杠里更靠右者截断，`(slash - anc) <= 2` 停在盘符根（`D:`），不把盘符截成空串。`GpuCanvas::new` 去掉 `probe()` 前置，只由 `mng_gpu_canvas_new` 内的 `mng_wgpu_ready()` 判定，失败原因走 C 侧 `canvas_detail()`（带 core detail）——画布只信自己实际用的那条装载链。
+
+**判据**：从仓库根实跑探针得 `probe loaded=true detail=loaded(D:/code/moonbit-native-gui/modules/gui-gpu/vendor/lib/wgpu_native.dll)` → `canvas: Ok 64x48` → `finish: sample B,G,R,A=0,0,255,255, nonzero=1536`（32×24 红矩形，R+A 两槽非零）；`cd modules/gui-gpu && moon test gpu` 3/3 且像素断言真执行；全仓 `moon check`、库 `moon check`、全仓 `moon build --target native` 零错误零警告。
+
+**边界**：`gui/win/stub.c` 的 L1 呈现核心**刻意未动**——它的 Windows 分支同样只试裸名 dll，但一旦装载成功 `WmL1.on` 会让 Win32 `WM_PAINT` 停手、整窗改走 wgpu present，这条路径在 Windows 上从未真机验收；当前探测面板如实显示「回退 CPU 路径」，与 L2 的 `GpuCanvas` 能否出图是两回事（画布读回后仍由 CPU 位图 `draw_canvas` 上屏）。发行形态（cwd 在仓库外）走 `MNG_WGPU_LIB`，或把 `wgpu_native.dll` 放 exe 同目录由裸名的 DLL 搜索序命中。
