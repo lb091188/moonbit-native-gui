@@ -866,6 +866,16 @@ pub fn code_view(
       } else {
         p.fill_rect(0.0, 0.0, r.w, r.h)
       }
+      // 1px 描边与页面底分层（层次走「底色 + border」，见设计规则四）
+      let sty = @style.style_for(_self)
+      p.set_stroke_color(@style.color_of(sty.border_color, @theme.theme_border()))
+      p.set_line_width(@style.number_of(sty.border_width, 1.0))
+      if rad > 0.0 {
+        p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
+        p.stroke()
+      } else {
+        p.stroke_rect(0.0, 0.0, r.w, r.h)
+      }
       match st {
         Some(state) => {
           match state.ed.selection() {

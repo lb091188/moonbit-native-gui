@@ -414,3 +414,26 @@ test "scan_line：token 连续覆盖整行的 UTF-8 字节区间" {
   assert_eq(ctext, "// 中文注释")
   assert_eq(clen, @utf8.encode("// 中文注释").length())
 }
+
+///|
+test "code_view 描边：边缘出 border 墨，与底色分层" {
+  let store = @base.Store::new("")
+  let _ = store
+  let v = code_view(["let a = 1", "let b = 2"], lang="moonbit")
+  let root = @widget.Widget::new()
+  root.set_size(220.0, 90.0)
+  root.set_column()
+  let w = v.mount_into(root)
+  root.relayout(220.0, 90.0)
+  let bm = @render.Bitmap::new(220, 90)
+  let p = @render.Painter::new(bm)
+  root.paint(p)
+  p.end()
+  // 左缘中点应是描边色，内部应是代码底色——两者必须不同（没描边时同色）
+  let edge = bm.pixel(0, (w.rect.h / 2.0).to_int())
+  let inner = bm.pixel((w.rect.w / 2.0).to_int(), (w.rect.h / 2.0).to_int())
+  assert_true(
+    (edge.r, edge.g, edge.b, edge.a) != (inner.r, inner.g, inner.b, inner.a),
+    msg="code_view 边缘没有描边（与底色同色）",
+  )
+}
