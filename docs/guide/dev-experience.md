@@ -35,6 +35,82 @@ supported_targets = "native"
 
 Follow the [five-minute tutorial](tutorial.md) §3: replace `cmd/main/main.mbt` and run `moon run cmd/main`. `mount_window` returns `None` when there is no window backend or no display service, and the example exits accordingly — expected behaviour, not a fault.
 
+## 5. Single-file components (.mng)
+
+Write the UI as a declarative template and the state/logic in MoonBit — both in one `.mng` file; the `mng` tool pre-compiles it to `.mbt` and the normal `moon build` takes over. `moon check` remains the only type gate. Full semantics live in `proposals/native-template.md`; a runnable minimal example is `examples/template-hello`.
+
+### Install
+
+From the repository root:
+
+```sh
+moon install ./tools/native-gui-tools/mng
+mng --version   # prints mng 0.1.0 and mng-schema 1
+```
+
+For editor support install the VS Code extension from `tools/vscode-mng` (coloring / completion / hover / jump / diagnostics — see its README).
+
+### What a page looks like
+
+```html
+<script setup lang="moonbit">
+let count : @base.Store[Int] = @base.Store::new(0)
+let name : @base.Store[String] = @base.Store::new("")
+
+fn reset() {
+  count.set(0)
+  name.set("")
+}
+</script>
+<template>
+  <ui-col class="page">
+    <ui-input v-model="name" placeholder="Your name" width="220.0" />
+    Hello, {{ name }}!
+    <ui-stepper v-model="count" max="10" />
+    Count: {{ count }}
+    <ui-button text="Reset" @click="reset" />
+  </ui-col>
+</template>
+<style>
+  .page { padding: 24px; row-gap: 8px; align-items: center; }
+</style>
+```
+
+Key points:
+
+- Directives: interpolation `{{ }}`, `:attr` dynamic attributes, `@event` handlers, `v-model` (binds a Store directly), `v-if`/`v-else-if`/`v-else`, `v-show`, `v-for` (source must be a keyed `@base.ListStore`, `:key="it.id"` recommended); single-root template.
+- Component tags: the built-in `ui-*` table; same-package components are plain `fn name`; cross-package `let name = @pkg.fn`.
+- Parameterized components: the first `fn` in the script with a signature but no body is the props header (required as positional, optional as `name? : Type = default`).
+- Styles go into the `<style>` block (class selectors + `var(--token)` + states/dark variants); style literals on template attributes are compile errors — put them in `<style>` or `class`.
+- Expressions are pasted into MoonBit verbatim: concatenate with `{{ }}` or `"\{x}"` interpolation — MoonBit's `+` does not concatenate non-strings.
+
+### dev / build
+
+- `mng init` writes `mng.toml` at the module root (templates / build / run / app-id / theme); `mng dev` and `mng build` look it up upwards when run without arguments, falling back to `moon.mod`/`moon.work` defaults.
+- `mng dev`: watches all project templates + project sources (`.mbt`/`moon.pkg`/`moon.mod`/`moon.work`) + theme files; the first run generates the dev-form `<stem>.gen.mbt` next to each template and starts the app. Change classes: structure/class/style values/restricted expressions apply hot in under a second; script, v-for row templates and new symbols fall back to a COLD restart which reopens the edited page; `.mng` files created while dev runs are generated and built automatically, deletions clean up (or warn about) generated code. Note: hot reload requires the app to carry the dev facade (`shared/mng_dev.mbt`; showcase is the reference implementation).
+- `mng build`: with no arguments generates **production-form** generated code for the whole project (zero dev traces); `mng build <input> -o <out>` compiles a single file. dev and production forms share the same `<stem>.gen.mbt` and overwrite each other — pick one before committing (CI compares both and accepts either).
+
+### Wiring the generated code
+
+Generated code lands next to the template: `<stem>.gen.mbt` provides `pub fn <stem>() -> @widget.Node`, wired like any function:
+
+```moonbit
+@ui.mount_window([hello()], title="Template Hello", width=420, height=360)
+```
+
+Commit the generated code (consumers need no toolchain); it carries a `// GENERATED … DO NOT EDIT` header — regenerate after editing the template instead of hand-editing.
+
+### Common pitfalls
+
+| Symptom | Cause and fix |
+|---|---|
+| `v-for 源须是 @base.ListStore` | Source was a Store/Signal or plain variable — declare `let rows : @base.ListStore[T] = @base.ListStore::new()` |
+| `v-for 与 v-if 不写在同一元素` | Separate them with a container (outer v-if around v-for, or v-if inside the row) |
+| `String + Int` type errors | Expressions are pasted verbatim — use `{{ }}` or `"\{x}"` interpolation; MoonBit's `+` does not concatenate non-strings |
+| `moon check` says generated code is stale | Regenerate with `mng dev` (dev form) or `mng build` (production form) and commit |
+| Conflicting generated functions in one package | Two `.mng` files share a stem — rename one |
+| HOT fell back to COLD | v-for row templates / script / new symbols are COLD by design; the `[HOT→COLD]` log line says why |
+
 ## Common blockers
 
 | Symptom | Cause and fix |

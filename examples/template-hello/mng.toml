@@ -1,0 +1,10 @@
+# mng 工程配置（mng dev / mng build 无参时向上找到本文件）。
+[dev]
+
+# 递归扫 *.mng（跳过 _build / .mooncakes / 点目录）
+templates = ["."]
+
+build = "moon build ."
+
+# 留空 = 跑一次 build 后从 Artifacts 抓可执行路径
+run = ""

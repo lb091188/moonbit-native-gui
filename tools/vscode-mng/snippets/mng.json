@@ -92,5 +92,14 @@
       "let ${1:card} = @${2:pages}.${3:card}"
     ],
     "description": "跨包组件：路径取自右值，参数顺序从源码签名自动解析"
+  },
+  "v-for keyed 行": {
+    "prefix": "mngfor",
+    "body": [
+      "<ui-row v-for=\"${1:r} in ${2:rows}\" :key=\"${1:r}.${3:id}\">",
+      "  <ui-text :text=\"${1:r}.${4:name}\" />",
+      "</ui-row>"
+    ],
+    "description": "v-for keyed 行（源须 @base.ListStore，:key 建议）"
   }
 }

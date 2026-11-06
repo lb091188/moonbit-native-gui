@@ -37,12 +37,12 @@
 
 1. **错误回映射**：CLI 解析 `moon check` 报错并映射回模板文件的行列坐标。做不到这条，工具就是玩具。
 2. **生成码可读且确定**：确定性排序、`// GENERATED, DO NOT EDIT` 头、按组件一个 `.mbt`。生成物建议提交仓库——消费者 `moon add` 后零工具链依赖；配 CI 新鲜度门禁（`moon fmt --check` 同款套路：重生成后 diff 非空即失败）。
-3. **v1 指令集克制**：插值、动态属性、事件、双向绑定、条件、keyed 列表、默认 slot。具名 slot / 动态组件留白，别一上来铺满。
+3. **v1 指令集克制**：插值、动态属性、事件、双向绑定、条件、keyed 列表（v-for 已落，见「Spike 契约」keyed 行）、默认 slot。具名 slot / 动态组件留白，别一上来铺满。
 
 ## 落地顺序
 
 1. **spike 先于编译器**：挑 showcase 一个页面，手写「目标模板版」+「它应该被编译成的 MoonBit 版」，两边对照钉死语法与产物契约。契约冻结前不写解析器。
-2. **`build` 子命令**（住 `tools/`，workspace 成员现成）：解析器 + 拼接器 + 源映射——DX 生死线是错误回映射。**已落地**（2026-11-02，`tools/native-gui-tools/mngkit` 内核 + `tools/native-gui-tools/mng` 终端：build / map-errors，golden 6/6、错误回映射端到端验通；按冻结契约生成，`v-for` 按记档收口报错）。
+2. **`build` 子命令**（住 `tools/`，workspace 成员现成）：解析器 + 拼接器 + 源映射——DX 生死线是错误回映射。**已落地**（2026-11-02，`tools/native-gui-tools/mngkit` 内核 + `tools/native-gui-tools/mng` 终端：build / map-errors，golden 6/6、错误回映射端到端验通；按冻结契约生成。`v-for` 生成器 2026-11-06 补齐——源限 `@base.ListStore` keyed，`:key` 走 `key=`、缺省 `for_list_indexed`，dev 档行模板走 COLD）。
 3. **Phase 0 探针（先于 IR 协议）**：手工 IR 补丁打进 showcase 单页，验证「init 建状态 → 按 IR 构树 → 沿 holder 原位重挂」亚秒可见、订阅整代退订干净——探针不过，IR 通道整体不发生。旁路小探针：moonbit native 能否出共享库（relink 小 .so + 起进程或可把回退档压到 ~1s，进程每次是新的、不碰 GC 互通）；不成立归并上游增量链接诉求。
 4. **`dev` 子命令**：watch + 改动分类（`mngkit.hot_ir`：script 逐字同；结构 / class / `<style>` 值 / 受限表达式 → HOT，否则回退）+ 经单实例通道推 IR 补丁；回退时 `moon build` → 杀旧进程 → 带参重启并唤醒回改动页。**已落地**（2026-11-02，`tools/native-gui-tools/mng` dev：watch 内容对比 + hot_ir 分类 + 回退编排；HOT 补丁经单实例通道推送，D-Bus 臂补套接字旁路；应用侧按 `classes` 重注册命名类、按 `eval` AST 登记新表达式；配套 `@sys` 增 pr_spawn / pr_alive（僵尸收尸）/ pr_kill / pr_sleep_ms）。
 5. **终态：独立工具二进制**（本路线的 Vite 位次）：一个自包含 native 可执行，`moon install` 分发；子命令 `dev` / `build`（纯生产产物，零 dev 痕迹）/ `new`（新 `.mng.html` 页样板脚手架）/ `lsp`。无侵入边界——只编排模板文件、token 文件、`moon build`、应用进程四样，应用侧 dev 面仅 theme/IR 两个监听，生产构建零痕迹；不做插件系统、不做 dev server（取 Vite 的一命令体验，不取其工程规模）。命名按路线门面标准起（开放问题 5）。**依赖边界**（2026-11-02 定）：工具二进制不依赖 GUI 库——`gui/sys` 在 Linux 上要链 GTK 剪贴板符号，命令行工具带上它就得装 GTK 开发包；进程原语（`tools/native-gui-tools/proc`）与单实例客户端（`tools/native-gui-tools/inst`，帧格式与 shell 通道逐字一致）在 tools 内自给，`mng` 只链 libc/libgcc。工具模块仍留 `NoahLiu/native-gui` 依赖给 GUI 预览工具（i18n/icon 三态），但 `mng` 的包闭包不含任何 GUI 包。**发布纪律**（2026-11-02 定）：工具独立于主包发布——MoonBit 发布单元是模块，住进 gui 会让所有应用白拉工具源码，而消费者只要提交在仓的生成码、只有作者 `moon install` 装；开发期 tools 留 workspace 同仓同 CI，终态齐活（dev/build/new/lsp）再补 mooncakes 发布配置；`mngkit` 留 tools 内，待第三方单独消费编译器内核的场景出现再拆。版本协议：工具与 gui **同批配对发版**（内置组件表 ↔ `@ui.*` 签名、IR schema ↔ applier 是强耦合面；gui 破坏性改动同批重发工具），一致性由同仓 CI 钉住（组件签名变更即 showcase 生成码编不过）。
@@ -84,7 +84,7 @@
 | 双向绑定 | `v-model="store"`；落点 = 直传 Store 对象到映射表条目声明的值槽参数 |
 | 事件 | `@click="handler"`；事件名查映射表条目，未知 `@` 报错 |
 | 结构条件 | `v-if` / `v-else-if` / `v-else` 表达式任意：词法提取响应源 → 单槽名直用其 signal、否则包 `computed` → `bind_node` 按 match 链原位重建；`v-show` → `when` 显隐 |
-| keyed 列表 | `v-for="it in items" :key="it.id"` → ListStore keyed，`it` 即迭代元素 |
+| keyed 列表 | `v-for="it in items" :key="it.id"` → `@ui.for_list` keyed，`it` 即迭代元素（2026-11-06 落地；嵌套 v-for / 与 v-if 同元素报错，行模板热更走 COLD） |
 | 组件暴露 | `ui-*` → `@ui.*`（`-`→`_`）内置表；同包组件按标签名直接找 `fn 组件名`（零声明）；跨包写 `let 组件名 = @包.函数`——路径取自右值、参数顺序与类型取自源码签名（`pkg.generated.mbti` 不含位置参数名，故扫包内 `*.mbt` 顶层声明与 `*.mng` 的 props 头）。只作组件绑定的 `let` 不进生成体（免未用变量警告）。不规则落点（子元素参数不是 `Array[@widget.Node]`）用一行 `// @mng 标签 = 路径 positional(…)` 覆盖——它是逃生口，不是日常 |
 | 组件参数（props） | script 段第一个 `fn` 声明若**只有签名、无函数体**（其后不带 `{`）即本组件的 props 头，编译器拿它当生成函数头并升 `pub`；不写则退回 `fn <stem>() -> @widget.Node`。必填走位置参数（MoonBit 位置参不能有默认值），可选走 `名? : 类型 = 默认值`（默认值可以是非常量表达式，体内绑定为裸类型）；模板里按参数名写属性（`title="…"` / `:qty="store"`），回调 prop 用 `@事件名`（按 `名` / `on_名` 在参数表里查）。未被模板或 script 引用的 prop 生成 `let _ = 名` 垫片，保住零警告门禁 |
 | script 段 | MoonBit 原文进生成函数体前段（`let` / `fn` 均可） |

@@ -1,0 +1,30 @@
+<script setup lang="moonbit">
+let count : @base.Store[Int] = @base.Store::new(0)
+let name : @base.Store[String] = @base.Store::new("")
+
+fn reset() {
+  count.set(0)
+  name.set("")
+}
+</script>
+<template>
+  <ui-col class="page">
+    <ui-text class="title" text="单文件页面（.mng）" />
+    <ui-input v-model="name" placeholder="你的名字" width="220.0" />
+    你好, {{ name }}！
+    <ui-stepper v-model="count" max="10" />
+    计数: {{ count }}
+    <ui-button text="重置" @click="reset" />
+  </ui-col>
+</template>
+<style>
+  .page {
+    padding: 24px;
+    row-gap: 8px;
+    align-items: center;
+  }
+  .title {
+    font-size: 18px;
+    font-weight: bold;
+  }
+</style>

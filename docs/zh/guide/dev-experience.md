@@ -35,6 +35,82 @@ supported_targets = "native"
 
 照[五分钟上手教程](tutorial.md) §3 替换 `cmd/main/main.mbt` 并 `moon run cmd/main`。`mount_window` 在没有窗口后端或没有显示服务时返回 `None`，示例据此结构化退出——这是预期行为，不是故障。
 
+## 5. 单文件组件（.mng）
+
+界面用声明式模板写、状态与逻辑用 MoonBit 写，两段合在一个 `.mng` 文件里，由 `mng` 工具预编译成 `.mbt` 再走 `moon build`——`moon check` 仍是唯一类型门禁。完整语义见 `proposals/native-template.md`；可跑的最小示例在 `examples/template-hello`。
+
+### 装
+
+仓库根执行（工具随本仓分发）：
+
+```sh
+moon install ./tools/native-gui-tools/mng
+mng --version   # 应打印 mng 0.1.0 与 mng-schema 1
+```
+
+编辑器体验装 VS Code 扩展 `tools/vscode-mng`（着色/补全/hover/跳转/诊断，见其 README）。
+
+### 页面长什么样
+
+```html
+<script setup lang="moonbit">
+let count : @base.Store[Int] = @base.Store::new(0)
+let name : @base.Store[String] = @base.Store::new("")
+
+fn reset() {
+  count.set(0)
+  name.set("")
+}
+</script>
+<template>
+  <ui-col class="page">
+    <ui-input v-model="name" placeholder="你的名字" width="220.0" />
+    你好, {{ name }}！
+    <ui-stepper v-model="count" max="10" />
+    计数: {{ count }}
+    <ui-button text="重置" @click="reset" />
+  </ui-col>
+</template>
+<style>
+  .page { padding: 24px; row-gap: 8px; align-items: center; }
+</style>
+```
+
+要点：
+
+- 指令集：插值 `{{ }}`、`:attr` 动态属性、`@event` 事件、`v-model`（直传 Store）、`v-if`/`v-else-if`/`v-else`、`v-show`、`v-for`（源须 `@base.ListStore` keyed，建议 `:key="it.id"`）；单根模板。
+- 组件标签：`ui-*` 内置表；同包组件写 `fn 组件名` 直接用；跨包 `let 组件名 = @包.函数`。
+- 带参组件：script 首个只有签名没有函数体的 `fn` 头就是 props（必填走位置参、可选 `名? : 类型 = 默认值`）。
+- 样式进 `<style>` 段（类选择器 + `var(--令牌)` + 交互态/深浅档）；模板属性里写样式字面量会编译报错——必须进 `<style>` 或 `class`。
+- 表达式是 MoonBit 原样拼接：字符串拼接用插值 `"\{x}"` 或 `{{ }}`，不要写 `"a" + 1`。
+
+### dev / build
+
+- `mng init` 在模块根写 `mng.toml`（templates / build / run / app-id / theme）；`mng dev` / `mng build` 无参时向上找它，找不到按 `moon.mod`/`moon.work` 推默认。
+- `mng dev`：watch 全工程模板 + 工程源文件（`.mbt`/`moon.pkg`/`moon.mod`/`moon.work`）+ 主题文件；首轮生成 dev 形态 `<stem>.gen.mbt` 到模板同包并起应用。改动分类：结构/类/样式值/受限表达式亚秒 HOT；script、v-for 行模板、新符号回 COLD 重启并自动回到改动页；运行中新增 `.mng` 自动生成并入构建，删除会清（或提示）生成码。注意：dev 热更需要应用自带 dev 面（`shared/mng_dev.mbt` 一套，showcase 是参考实现）。
+- `mng build`：无参按 `mng.toml` 生成全工程**生产形态**生成码（零 dev 痕迹）；`mng build <input> -o <out>` 编译单文件。dev 与生产形态共用同一条 `<stem>.gen.mbt`，会互相覆盖——提交前选一种并保持一致（CI 对两形态各比一遍，匹配任一即过）。
+
+### 生成码怎么接
+
+生成码落模板同包：`<stem>.gen.mbt` 提供 `pub fn <stem>() -> @widget.Node`，像普通函数一样接进路由或窗口：
+
+```moonbit
+@ui.mount_window([hello()], title="Template Hello", width=420, height=360)
+```
+
+生成码建议提交仓库（消费者零工具链依赖）；它带 `// GENERATED … DO NOT EDIT` 头，别手改——改了模板重新生成即可。
+
+### 常见错误
+
+| 现象 | 原因与处置 |
+|---|---|
+| `v-for 源须是 @base.ListStore` | 源给了 Store/Signal 或普通变量——列表用 `let rows : @base.ListStore[T] = @base.ListStore::new()` |
+| `v-for 与 v-if 不写在同一元素` | 用容器隔开（外层 v-if 包 v-for，或行内 v-if） |
+| `String + Int` 之类的类型错 | 表达式原样拼接——拼接用 `{{ }}` 插值或 `"\{x}"`，MoonBit 的 `+` 不拼非串 |
+| `moon check` 报生成码与重生成不一致 | 生成码与模板不同步——重跑 `mng dev`（dev 形态）或 `mng build`（生产形态）再提交 |
+| 同包生成函数冲突 | 两个 `.mng` 撞名（生成函数名取文件 stem）——改文件名 |
+| HOT 没生效走了 COLD | v-for 行模板 / script / 新符号本来就走 COLD；日志 `[HOT→COLD]` 带原因 |
+
 ## 常见卡点
 
 | 现象 | 原因与处置 |
@@ -54,4 +130,5 @@ supported_targets = "native"
 
 - [五分钟上手教程](tutorial.md)： MoonBit 语法速览 + 点击计数器（`Store` 响应式的最小形态）
 - [组件总览](../components/index.md) · [声明式与响应式](declarative.md) · [布局样式](layout.md) · [系统能力总览](../capability/sys.md)
+- 想用模板写界面：[单文件组件（.mng）](dev-experience.md#_5-单文件组件-mng)（§5）与 `examples/template-hello`
 - 克隆仓库跑示例：`showcase` 每页源码独立成文件、可直接抄改，入口见[先跑起来看看](experience.md) §二
