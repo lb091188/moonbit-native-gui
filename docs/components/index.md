@@ -9,7 +9,7 @@ Every self-drawn widget and the component library live in `NoahLiu/native-gui/ui
 | Page | Contents |
 |---|---|
 | [Layout & containers](containers.md) | `view` / `col` / `row` / `panel` / `split` / `scroll_view` |
-| [Text & basic controls](basics.md) | `text` / `image` / `icon` / `code_view` / `code_editor` / `gif` / divider |
+| [Text & basic controls](basics.md) | `text` / `image` / `icon` / `code_view` / `code_editor` / `terminal` / `gif` / divider |
 | [Form controls](form.md) | `button` / `input` / `checkbox` / `select` / `slider` / `form` etc. |
 | [Date & time](date.md) | `calendar` / `date_picker` / range pickers |
 | [Data display](display.md) | Tags / badges / cards / progress / timeline / carousel |

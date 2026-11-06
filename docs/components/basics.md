@@ -44,6 +44,16 @@ General conventions (typed parameters, the `class` override order, `Store`-held 
 - P2 extras: `Ctrl/Cmd+F` find (overlay bar + full-text match highlight + ▲▼ jump + Esc to close, ASCII case-insensitive); Enter **auto-indent** (inherits leading whitespace, one more level after an open bracket); **bracket matching** highlight (brackets inside strings/comments are skipped); **current-line highlight** while focused
 - Width follows the container (percent 100); `height` pins the height (0 = by `rows`); long lines scroll horizontally, many lines scroll vertically with the line-number column in sync, and the caret auto-scrolls into view
 
+### `terminal(term : Terminal, font_size?=13.0, height?=0.0, focus_id?=0, blink?=true, cursor_on?, selectable?=true, on_input?, theme?, class?, handle?)`
+
+- Terminal widget: monospace cell grid + an ANSI CSI/SGR subset — feed text and it works (log panels / REPL output / colored build output); versus `code_view`: code_view is static highlighted typesetting, terminal is **grid + cursor + scrollback** terminal semantics
+- `term : Terminal` is the model (`Terminal::new(cols?=80, rows?=24, scrollback?=1000)`): `feed(text)` feeds text (C0 + ANSI escapes; partial sequences survive across feeds), `clear()` / `reset()` / `resize()`; the widget sizes to layout and recomputes columns/rows from its rect back into the model at draw time
+- ANSI: 16/256/truecolor, bold/italic/underline/strikethrough/reverse/dim; OSC/DCS stripped wholesale (titles, clipboard, hyperlinks never consumed); ANSI colors are direct device colors, not CodeTheme roles — default fg/bg follow the theme (`theme?` pins a `TermTheme`)
+- Scrolling: wheel / `Shift+PageUp/Down` pages / right-edge scrollbar drag; new output never yanks the view back once scrolled up; `scroll_to_bottom()` returns
+- Input: every key leaves through `on_input(s)` (printable, control keys incl. bare `Ctrl+C`=`\x03`, arrow CSI sequences, IME commit, pasted text); copy = `Cmd+C` (mac) / `Ctrl+Shift+C`, paste = `Cmd+V` / `Ctrl+Shift+V`; selection text is extracted by absolute row
+- `blink` cursor blinking (on by default), `cursor_on` predicate to take over visibility; tests isolate the clipboard via `use_system_clipboard(false)` (terminal copy/paste follows into a memory slot)
+- Boundary: no PTY (process sessions are a separate project), no mouse reporting / image protocols / hyperlinks
+
 ### `gif(path, width?, height?, looping?=true, running?=true, state?, handle?)`
 
 - Animated image: `looping=false` stops after one pass; a non-GIF still image draws a single frame

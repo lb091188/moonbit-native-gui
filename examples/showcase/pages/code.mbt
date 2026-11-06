@@ -226,5 +226,6 @@ pub fn page_code(_app : @shared.App) -> @widget.Node {
       ],
       code=demo_md_code(md_w),
     ),
+    code_terminal_section(),
   ])
 }

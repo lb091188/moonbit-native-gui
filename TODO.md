@@ -19,13 +19,8 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 - [ ] **L1-Win 真机复验**（用户执行）：实现已落（2026-11-04，核心三臂共享 + Win32 薄适配，详见 adaptation.md）——Windows 跑一遍 hello/showcase：界面与改造前一致、无闪烁、resize 不花。mac 腿已过（2026-11-05 真机：界面与纯光栅一致、视图转 layer-backing 后输入/交互正常）；Linux 腿已过（2026-11-06 真机：独立 X 子窗口承载，界面/交互/rainbow/webview 层级/挪库回退全过，门已删默认尝试）
 - [ ] **GPU 画布 Linux 腿取数**（用户执行）：2026-11-06 本机无头用例已过（根因 `multisample.mask` 零值，像素断言首次在 Linux 真正执行：3/3，左上红 / 右下蓝 / 中心绿混合全对）；win 腿已过（2026-11-06 真机 showcase「GPU 画布」页）；剩真机应用进程——Linux 跑 showcase「GPU 画布」页，把「检查读回」状态行原文贴回：非零 = 应用进程同样正常；全零 / 仅底色 = 按档位归因（adaptation.md 同节）
 
-## 终端与单文件 DX 批（2026-11-06 排定，方案与切分见 [proposals/terminal-sfc-dx.md](proposals/terminal-sfc-dx.md)；一项一提交，做完一项删一项并同步路线图）
+## 终端与单文件 DX 批（2026-11-06 排定，方案与切分见 [proposals/terminal-sfc-dx.md](proposals/terminal-sfc-dx.md)；一项一提交，做完一项删一项并同步路线图。终端五件已落（roadmap 🚧 真机待验 SC-6.5），剩 SFC 四件与收口）
 
-- [ ] **终端·模型**：`gui/ui/terminal.mbt` 网格/宽字符/回看/resize + wbtest（方案 §1.4）
-- [ ] **终端·ANSI**：`gui/ui/terminal_ansi.mbt` CSI/SGR/OSC 清洗/跨 feed 状态 + wbtest（方案 §1.5）
-- [ ] **终端·绘制**：`gui/ui/terminal_draw.mbt` TermTheme/ANSI 色/光标/滚动条/选区绘制 + 绘制冒烟（方案 §1.6）
-- [ ] **终端·输入**：键映射/IME/on_input/选区复制粘贴 + wbtest（方案 §1.7）
-- [ ] **终端·演示**：showcase 代码文档页终端段 + 中英文档 + SC-6.5 + 真机清单（方案 §1.9）
 - [ ] **SFC·v-for**：mngkit v-for 生成 + ListStore 槽 + dev COLD 边界 + vfor_demo + SC-6.6（方案 §2.1）
 - [ ] **SFC·build**：项目级 `mng build`（按 mng.toml 生成全工程生产形态）+ CI 双形态对账 + 用例（方案 §2.2）
 - [ ] **SFC·watch**：`mng dev` 感知新/删 .mng 与 .mbt/moon.pkg/moon.mod 变更 + 纯函数用例（方案 §2.3）

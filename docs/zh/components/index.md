@@ -9,7 +9,7 @@
 | 分页 | 内容 |
 |---|---|
 | [布局与容器](containers.md) | `view` / `col` / `row` / `panel` / `split` / `scroll_view` |
-| [文本与基础控件](basics.md) | `text` / `image` / `icon` / `code_view` / `code_editor` / `gif` / 分隔线 |
+| [文本与基础控件](basics.md) | `text` / `image` / `icon` / `code_view` / `code_editor` / `terminal` / `gif` / 分隔线 |
 | [表单控件](form.md) | `button` / `input` / `checkbox` / `select` / `slider` / `form` 等 |
 | [日期与时间](date.md) | `calendar` / `date_picker` / 区间选择器 |
 | [数据展示](display.md) | 标签 / 徽标 / 卡片 / 进度 / 时间线 / 轮播 |

@@ -58,6 +58,16 @@
 - P2 增强：`Ctrl/Cmd+F` 查找（浮层条 + 全文匹配高亮 + ▲▼ 跳转 + Esc 收起，ASCII 大小写不敏感）；回车**自动缩进**（继承行首空白、开括号行进一格）；**括号匹配**高亮（字符串/注释内不参与）；聚焦时**当前行高亮**
 - 宽度跟随容器（percent 100），`height` 定高（0 = 按 `rows`）；长行横向滚动、行数多纵向滚动，行号列与内容同步，光标自动滚进可视区
 
+### `terminal(term : Terminal, font_size?=13.0, height?=0.0, focus_id?=0, blink?=true, cursor_on?, selectable?=true, on_input?, theme?, class?, handle?)`
+
+- 终端控件：等宽网格 + ANSI CSI/SGR 子集——喂文本即可用（日志面板 / REPL 输出 / 构建输出着色）；与 `code_view` 的分工：code_view 是静态高亮排版，terminal 是**逐格网格 + 光标 + 回看**的终端语义
+- `term : Terminal` 是模型（`Terminal::new(cols?=80, rows?=24, scrollback?=1000)`）：`feed(text)` 喂文本（C0 + ANSI 转义，半截序列跨 feed 续上）、`clear()` / `reset()` / `resize()`；控件尺寸跟随布局，列行数绘制期按矩形现算回写模型
+- ANSI 口径：16/256/truecolor、粗体/斜体/下划线/删除线/反显/暗；OSC/DCS 整段清洗（标题、剪贴板、超链不消费）；ANSI 是直接色值，不走 CodeTheme 语义角色，缺省前景/背景跟主题（`theme?` 传 `TermTheme` 钉死）
+- 滚动：滚轮 / `Shift+PageUp/Down` 翻页 / 右缘滚动条拖拽；滚上去后新输出不拽回底部，`scroll_to_bottom()` 回底
+- 输入：按键全部经 `on_input(s)` 出口交给应用（可打印、控制键含裸 `Ctrl+C`=`\x03`、方向键 CSI 序列、IME commit、粘贴内容）；复制 = `Cmd+C`（mac）/ `Ctrl+Shift+C`，粘贴 = `Cmd+V` / `Ctrl+Shift+V`，选区文本按绝对行号提取
+- `blink` 光标闪烁（默认开）、`cursor_on` 谓词可接管可见性；测试隔离走 `use_system_clipboard(false)`（终端复制/粘贴同步切内存槽）
+- 边界：无 PTY（进程会话另立项）、不做鼠标上报/图像协议/超链接
+
 ### `gif(path, width?, height?, looping?=true, running?=true, state?, handle?)`
 
 - 动图：非 GIF 静图只绘制第一帧
