@@ -211,7 +211,6 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **打开与定位**：URL 交浏览器、文件交默认程序、路径交文件管理器；不存在给 NotFound 不崩
 - ✅ **剪贴板**：读写系统剪贴板文本
 - ✅ **音量与静音**：读音量、设百分比、切静音
-- 🚧 **任务栏进度（Windows）**：`Window::set_taskbar_progress` / `set_taskbar_state` / `clear_taskbar_progress`，ITaskbarList3 进程级单例、五态写入口；只写不读（Win32 无 getter，非 Windows `taskbar_supported` 恒 false 语义化降级）（W20g 合入；真机观感未复验。dock 徽标（macOS）与 LauncherEntry（Linux）这类单平台专属条目已撤出规划，本条不再拼跨平台门面）
 - ✅ **显示器枚举**：在线屏、分辨率、刷新率、物理尺寸、模式列表（三平台各一条官方通道：Linux 解析 `xrandr`、macOS 直调 CoreGraphics、Windows 走 GDI 的 `EnumDisplayDevicesW` + `EnumDisplaySettingsExW`，2026-10-28 接上并真机验通——此前 Windows 掉进 mac 臂恒 `Unsupported`。读数边界：`connected` 恒真（三平台都没有「接了但断电」的公开清单）、`name` Windows 取 `DISPLAY1` 这种设备名去前缀、`mm_width`/`mm_height` 仅 Linux 有（Windows 的 GDI 不报物理尺寸）、`preferred` 三平台恒 false（没有公开信号，不拿「当前档」冒充））
 - ✅ **系统托盘**：通知区图标 + 右键/左键菜单（Linux 走 SNI，Windows 走 `Shell_NotifyIcon`）。**退出前必须逐个 `NIM_DELETE`**——Win32 的通知区项不随进程回收，宿主窗口没了会留僵尸图标（右键它既不出菜单也不出 tooltip，得等 Shell 下次鼠标扫过才清）；2026-10-28 修：`remove_all_trays()` 原先只有 SNI 兜底，改为取槽位快照逐个摘除再兜底。**仍是边界**：`taskkill` / 崩溃 / 断电这类非正常退出拦不住，Win32 通病
 - ✅ **空闲检测**：读系统空闲秒数（Linux X11、Windows；macOS 走 HID 系统态）
