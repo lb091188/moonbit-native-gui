@@ -207,6 +207,7 @@ typedef struct {
   int focus_gained;
   int popup;    // 这扇窗是弹层窗（wm_window_set_popup 标过；wm_show 据此补 z 序）
   int want_focus; // 弹层要不要键盘焦点：0 = 不激活（菜单/下拉，键盘归 owner）
+  int pending_show; // 弹层延迟显示：等首帧内容 present 后再 ShowWindow（防空框黑影）
   HWND owner;   // 弹层的 owner（GWLP_HWNDPARENT 同步设的句柄，看它的 TOPMOST 带）
   // 透明（W33）：trans_want 是上层意图，trans_mode 是当前实际档位。
   //   0 = 普通档：GDI 贴图 + SetLayeredWindowAttributes(LWA_ALPHA) 做整窗 alpha
@@ -1020,24 +1021,40 @@ void wm_show(int64_t id) {
       w->hidden = 0;
       w->shown_ev = 1; // 首次显示不发，只有隐藏过的窗才有「唤回」
     }
-    ShowWindow(w->hwnd, w->popup && !w->want_focus ? SW_SHOWNA : SW_SHOW);
-    if (!(w->popup && !w->want_focus)) {
-      SetFocus(w->hwnd);
-    }
     if (w->popup) {
-      // z 序保险：owned 关系若没把弹层抬到 owner 客户区的子件（webview）之上
-      // （Windows 真机反馈弹层被网页区压住），显式置顶一次；owner 在 TOPMOST
-      // 带时弹层同带，才不会沉到 owner 之下。
-      int owner_top =
-          w->owner != NULL &&
-          (GetWindowLongW(w->owner, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0;
-      SetWindowPos(w->hwnd, owner_top ? HWND_TOPMOST : HWND_TOP, 0, 0, 0, 0,
-                   SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+      // 弹层延迟显示：show 时内容还没 mount，立刻 ShowWindow 会先画出空框
+      // （真机症状：菜单出现瞬间一道黑影/空白）。等首帧内容 present 后由
+      // wm_popup_materialize 显示。
+      w->pending_show = 1;
+    } else {
+      ShowWindow(w->hwnd, SW_SHOW);
+      SetFocus(w->hwnd);
     }
     // 与 GTK 桩同口径：把 map 后已就绪的消息跑掉，再标首帧
     wm_pump();
     w->need_draw = 1;
   }
+}
+
+/* 弹层首帧内容就绪后真正上屏：z 序保险随显示一起做（owned 关系若没把弹层
+ * 抬到 owner 客户区的子件（webview）之上，显式置顶一次；owner 在 TOPMOST
+ * 带时弹层同带）。 */
+static void wm_popup_materialize(WmWindow *w) {
+  if (!w->pending_show || w->hwnd == NULL) {
+    return;
+  }
+  w->pending_show = 0;
+  if (w->want_focus) {
+    ShowWindow(w->hwnd, SW_SHOW);
+    SetFocus(w->hwnd);
+  } else {
+    ShowWindow(w->hwnd, SW_SHOWNA);
+  }
+  int owner_top =
+      w->owner != NULL &&
+      (GetWindowLongW(w->owner, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0;
+  SetWindowPos(w->hwnd, owner_top ? HWND_TOPMOST : HWND_TOP, 0, 0, 0, 0,
+               SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 }
 
 /* 请求该窗下一帧重画：原生弹层 mount 内容后调（show 时内容还没挂上，
@@ -1502,6 +1519,7 @@ void wm_present(int64_t id, const unsigned char *rgba, int width, int height) {
   // GPU 档（L1）：Bitmap 上传纹理 → 全屏 quad → swapchain present；返回 0
   // （没挂上/本帧失败）时逐字回退下面的帧拷贝 + InvalidateRect 路径
   if (wm_l1_try(w, rgba, width, height)) {
+    wm_popup_materialize(w);
     return;
   }
   // 复制进桩持有的帧缓冲（理由见 WmWindow.frame 的注释），再请一次重画；
@@ -1522,9 +1540,11 @@ void wm_present(int64_t id, const unsigned char *rgba, int width, int height) {
     // 逐像素档不走 WM_PAINT：那一刻窗口的合成面由 UpdateLayeredWindow 整块替换，
     // 再请 GDI 重画反而会在提交之后把不透明像素糊上去
     wm_layered_submit(w);
+    wm_popup_materialize(w);
     return;
   }
   InvalidateRect(w->hwnd, NULL, FALSE);
+  wm_popup_materialize(w);
 }
 
 void wm_close(int64_t id) {
@@ -8518,6 +8538,7 @@ typedef struct {
   int borderless;
   int popup;      // 弹层窗（wm_window_set_popup 标过）
   int want_focus; // 弹层要不要键盘焦点：0 = 不激活（菜单/下拉，键盘归 owner）
+  int pending_show; // 弹层延迟显示：等首帧内容 present 后再上屏（防空框/空白帧）
   unsigned char *backing; // 本层拥有的帧缓冲（present 拷进来，drawRect 贴它）
   WmL1 l1; // GPU present 档（L1）每窗状态（核心在文件末实现 TU 段）
   int backing_w;
@@ -9683,12 +9704,11 @@ void wm_show(int64_t id) {
       return;
     }
     int was_hidden = s->hidden;
-    if (s->popup && !s->want_focus) {
-      // 菜单/下拉类弹层不抢 key 窗：键盘（↑↓/回车/Esc）全程留 owner 的
-      // 触发件（真机症状：弹层 makeKey 后菜单键盘全灭、Esc 收不到），
-      // 点外收起由宿主侧手势判定（overlay_pointer_prelude）。
-      [s.win orderFrontRegardless];
-      [s.view setNeedsDisplay:YES];
+    if (s->popup) {
+      // 弹层延迟显示：show 时内容还没 mount，立刻上屏会先露出空窗（真机症状：
+      // 重开菜单要动鼠标才出内容、首现有空白/黑影）。等首帧内容 present 后由
+      // wm_popup_materialize 上屏。
+      s->pending_show = 1;
     } else {
       [s.win makeKeyAndOrderFront:nil];
       [NSApp activateIgnoringOtherApps:YES];
@@ -9702,6 +9722,21 @@ void wm_show(int64_t id) {
     s->need_draw = 1;
     wm_pump(); // 把映射请求推出去，别让首帧等到下一次 wait
   }
+}
+
+/* 弹层首帧内容就绪后真正上屏：菜单类 orderFront 不抢 key，对话框 makeKey。 */
+static void wm_popup_materialize(WMState *s) {
+  if (!s->pending_show || s.win == nil) {
+    return;
+  }
+  s->pending_show = 0;
+  if (s->want_focus) {
+    [s.win makeKeyAndOrderFront:nil];
+    [NSApp activateIgnoringOtherApps:YES];
+  } else {
+    [s.win orderFrontRegardless];
+  }
+  [s.view setNeedsDisplay:YES];
 }
 
 /* 请求该窗下一帧重画：原生弹层 mount 内容后调（show 时内容还没挂上，
@@ -10044,6 +10079,7 @@ void wm_present(int64_t id, const unsigned char *rgba, int width, int height) {
     // GPU 档（L1）：Bitmap 上传纹理 → 全屏 quad → swapchain present；返回 0
     // （没挂上/本帧失败）时逐字回退下面的帧拷贝 + setNeedsDisplay 路径
     if (wm_l1_try(s, rgba, width, height)) {
+      wm_popup_materialize(s);
       return;
     }
     size_t need = (size_t)width * (size_t)height * (size_t)4;
@@ -10059,6 +10095,7 @@ void wm_present(int64_t id, const unsigned char *rgba, int width, int height) {
     s->backing_w = width;
     s->backing_h = height;
     [s.view setNeedsDisplay:YES];
+    wm_popup_materialize(s);
   }
 }
 

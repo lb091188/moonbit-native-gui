@@ -115,7 +115,15 @@ pub fn session_open(
       s.primary = g_windows.val.length() == 1
       g_active.val = s.wid
       window.show()
-      window.request_focus()
+      // 菜单/下拉类弹层不抢键盘焦点：键盘（↑↓/回车/Esc）归 owner 的触发件。
+      // 对话框（popup_focus）照常要焦点，输入框才能打字。
+      let want_focus = match popup_of {
+        None => true
+        Some(_) => popup_focus
+      }
+      if want_focus {
+        window.request_focus()
+      }
       // 建窗即挂系统投放目标（W23a）：后端不可用（非 Windows / OLE 起不来）时
       // 这一步静默失败，应用内拖放照常
       if @win.dragdnd_supported() {
