@@ -1,7 +1,7 @@
 # Wayland 原生路径：系统能力族在 Wayland 会话的通道收口
 
 > **状态**：立项稿（2026-11-03 调研定稿）。外部事实均标注来源，没查到/没核实的点显式标「未核」，不编造。
-> **范围**：roadmap「系统能力 → Wayland 原生路径」条目与「Linux 兼容说明 · 会话」表四行（全局快捷键、空闲检测、窗口控制+剪贴板监视、显示器与夜灯）的全量调研、原生出路评估与分期。GUI 本体（窗口/渲染/输入/输入法）已确认在 Wayland 会话可跑，不在本方案新增范围，只盘点其既有行为。拆分待办见 TODO「Wayland 原生路径」节。
+> **范围**：roadmap「系统能力 → Wayland 原生路径」条目与「Linux 兼容说明 · 会话」表四行（全局快捷键、空闲检测、窗口控制+剪贴板监视、显示器与夜灯）的全量调研、原生出路评估与分期。GUI 本体（窗口/渲染/输入/输入法）已确认在 Wayland 会话可跑，不在本方案新增范围，只盘点其既有行为。当前进度与剩余事项见 §九 进度快照（TODO 同名节已于 2026-11-06 撤回）。
 
 ## 一、定位
 
@@ -100,7 +100,7 @@
 - **P0 会话探测与口径收口**（改动小，全 MoonBit + 少量 C 探针）：加会话类型探针（`XDG_SESSION_TYPE` + `WAYLAND_DISPLAY`），把 idle/hotkey/nightlight/monitor/windowctl 五个能力在 Wayland 会话的行为统一钉住——本就诚实的（idle/hotkey）保持；静默假数据的（§六）在探测处显式降级：nightlight 在 Wayland 会话 `nl_supported()` 不得因 redshift 可执行而报 true，monitor 的 XWayland 假名输出在 caps/文档声明。产出一张「Wayland 会话能力预期表」进测试文档。
 - **P1 portal 骨架 + 全局快捷键 + 空闲检测**（2026-11-04 已落）：`gui/dbus/portal.mbt` 通用层——`portal_call(iface, action, args, token, on_response)`：调用方自造 `handle_token` 塞 options，层负责派生 request 路径（**sender 段 = 唯一名去冒号、点换下杠**，本机 frontend 1.18.4 抓包定案）、订阅 `org.freedesktop.portal.Request.Response(u, a{sv})` 一次性信号（收到即退订——为此 `bus.mbt` 补了 `dbus_unsubscribe_session`）；`bus.mbt` 另补第三条任意地址连接（a11y 总线用的 bus=2 机制，portal 走会话总线）。GlobalShortcuts 门面住 `gui/shell/global_shortcuts.mbt`：`global_shortcuts_bind(spec, cb)` 两段握手（CreateSession → BindShortcuts），激活动作经 session 上的 `Activated(o, s, t, a{sv})` 信号回调；**与 X11 臂的形态差写进接口文档**（注册+poll → 绑定+信号回调；授权每次绑定一弹，用户拒给空集）。空闲住 `gui/shell/idle.mbt`：GNOME 档 `org.gnome.Mutter.IdleMonitor.GetIdletime`（`/org/gnome/Mutter/IdleMonitor/Core`，返回 `x` ms）精确读数，进程级缓存探测结果；KDE/wlroots 的 ext-idle-notify 近似档待 Wayland 协议客户端地基（P3 之后），当前如实报不支持。**本机实证两条**：frontend 按 `XDG_CURRENT_DESKTOP` 把 GlobalShortcuts 路由给 KDE 后端（`xdg-desktop-portal-kde` 5.27.11 的 Interfaces 清单里有 GlobalShortcuts，会被 D-Bus 按需激活）；GTK 后端 1.15.1 没实现它（`gtk.portal` 的 Interfaces 无此项）——本机会话当前跑 GTK 后端，故 CreateSession 报错，KDE/GNOME 真机复验归用户。
 - **P2 夜灯 + 显示器枚举逐 DE**（2026-11-04 已落 D-Bus/gsettings 两档；wlroots 协议档随 P3 地基）：夜灯三档——KDE 配置口（**Plasma 5.27 实物：`org.kde.NightColor` 的 `/ColorCorrect` 属性全 read-only，5.x 无公开写入口**；Plasma 6 `org.kde.KWin.NightLight` 写入口径未核，S6 定）、GNOME gsettings 配置口（写 `org.gnome.settings-daemon.plugins.color` 的 night-light-enabled/temperature，CLI 通道）、wlroots wlr-gamma-control 裸 gamma（待协议客户端）；显示器两档——KDE 接 KScreen `getConfig`（**本机实证**：顶层 a{sv}、outputs/modes 都是 av、size/pos 是 variant(a{sv})、refreshRate 是 int64 赫兹、mode 无 preferred 位、不报物理尺寸）、GNOME 接 mutter DisplayConfig（**字段序以接口 XML 为准且未核，S7 真机定前只探存在不产读数**）、wlroots wlr-output-management（待协议客户端）。**「直连 Wayland 协议」的组件**（wlr-gamma-control / wlr-output-management / ext-idle-notify / wlr-data-control / wlr-foreign-toplevel）全部压到协议客户端地基之后，libwayland vs 自写 wire 的评估随 P3 一拨做。
-- **P3 剪贴板监视协议化 + wlroots 窗口管理 + 收尾**：wlr-data-control（+ext-data-control-v1 双协议）替换 KDE/wlroots 下的轮询档，GNOME 维持轮询并记边界；窗口管理 Wayland 档只做 wlroots 系（wlr-foreign-toplevel）；GNOME/KDE 侧的窗口管理与层级族按「无通道」出文档。
+- **P3 剪贴板监视协议化 + wlroots 窗口管理 + 收尾**（协议客户端 wire 地基已落 2026-11-04，见 §九）：wlr-data-control（+ext-data-control-v1 双协议）替换 KDE/wlroots 下的轮询档，GNOME 维持轮询并记边界；窗口管理 Wayland 档只做 wlroots 系（wlr-foreign-toplevel）；GNOME/KDE 侧的窗口管理与层级族按「无通道」出文档。
 
 ### spike 清单
 
@@ -168,3 +168,22 @@
 - GNOME SNI 需 AppIndicator 扩展：[扩展页](https://extensions.gnome.org/extension/615/appindicator-support/)、[Fedora 预装诉求 bug](https://bugzilla.redhat.com/show_bug.cgi?id=1709401)
 
 **未核/不确定点汇总**（均已在正文标注）：Treeland 协议面（S5）；deepin portal 是否接 GlobalShortcuts；mutter DisplayConfig 元组逐字段序；KWin ColorCorrect/NightLight 版本分界（S6）；KDE 输出通道物理尺寸（S7）；mutter 对 ext-idle-notify 的落地版本；Kubuntu/Xubuntu/Ubuntu Cinnamon 各味的 Plasma/XFCE/Cinnamon 版本与默认会话；`gtk_window_present` 在 Wayland 是否走 xdg-activation；XWayland 下 xrandr 输出的确切形态（S2）。
+
+## 九、进度快照（2026-11-06 归档；TODO 同名节撤回，重启时按本节继续）
+
+**状态**：暂缓——2026-11-04 用户指定排在无障碍/工具/GPU 三线之后；2026-11-06 从 `TODO.md` 整节撤回，本节是唯一进度台账，与 roadmap「Wayland 原生路径」条目互指（该条已含各期实现细节与 file:line）。
+
+**已落**（细节见 §五分期与 roadmap，不在此重复）：
+
+- **P0**：`@sys.session_type()` 会话探针 + Wayland 会话显式降级（夜灯/窗口管理报 `Unsupported`、显示器枚举按 XWayland 虚拟屏口径声明）；会话能力预期表进测试用例附录 E
+- **P1**：portal Request/Response 异步握手通用层（`gui/dbus/portal.mbt`）+ GlobalShortcuts「绑定 + 信号回调」门面（`gui/shell/global_shortcuts.mbt`）+ GNOME IdleMonitor 精确读数与集成门面（`gui/shell/idle.mbt`）
+- **P2**：夜灯 GNOME gsettings 写档 + KDE 读侧（Plasma 5.27 写侧 Unsupported；Plasma 6 未核）+ 显示器 KDE KScreen / GNOME mutter（只探存在）两档
+- **P3 地基**：`gui/wayland` 自写 wire——connect/registry/enumerate/bind/sync 往返，headless weston 实测 19 global 与 wayland-info 吻合；选型定案「自写不链 libwayland」
+
+**剩余**（重启时从这里接）：
+
+- **Spike S1–S8 全部**（§五清单）：S1/S2 在 Ubuntu 24.04 GNOME Wayland + deepin 25 Treeland 跑本体行为与 XWayland 假数据实测（S2 产出「返回成功但无效」清单，定 P0 探针写法）；S3–S8 随各期真机走
+- **P1 剩**：GlobalShortcuts 授权框真机（KDE 5.27+ / GNOME 48+ 各一台）；ext-idle-notify 近似档（KDE/wlroots，依赖 P3 客户层）
+- **P2 剩**：S6/S7 真机定 KWin 接口版本分界与 mutter DisplayConfig 字段序；wlroots 夜灯裸 gamma 与 wlr-output-management 两档（依赖 P3 客户层）
+- **P3 剩**：各协议客户——wlr-data-control + ext-data-control-v1 **双协议**（Plasma 6.5 迁移，CopyQ 事故在先）、wlr-foreign-toplevel、ext-idle-notify、wlr-output-management、wlr-gamma-control；fd 传递（SCM_RIGHTS，data-control 的 receive 要）
+- **文档**：GNOME/KDE 窗口管理与层级族按「无通道」出平台边界说明（与「最近文件 macOS 无公开面」同口径）
