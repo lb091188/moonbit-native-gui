@@ -743,7 +743,8 @@ pub fn code_view(
     None => font_size * 1.7
   }
   let digit_w = text_width("8", font)
-  let digits = lines.length().to_string().length()
+  // 行号位数下限 2：与 code_editor 同一口径，位数不同时左右边距才对得齐
+  let digits = lines.length().to_string().length().max(2)
   let num_off = if line_numbers {
     digit_w * digits.to_double() + 24.0
   } else {
