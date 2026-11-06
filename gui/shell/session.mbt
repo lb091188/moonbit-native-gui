@@ -73,13 +73,15 @@ pub fn host_new_wid() -> Int {
 
 ///|
 /// 建一扇壳层窗：后端/平台窗建不起来给 None。`popup_of` 与 `place` 要在
-/// show 之前定（弹层类型提示与 transient 关系在映射时生效）。
+/// show 之前定（弹层类型提示与 transient 关系在映射时生效）。`popup_focus`
+/// 是弹层是否要键盘焦点（菜单/下拉 false，对话框 true，见 `Window::set_popup`）。
 pub fn session_open(
   width : Int,
   height : Int,
   title : String,
   popup_of : @win.Window?,
   place : (Int, Int)?,
+  popup_focus? : Bool = false,
 ) -> Session? {
   if !@win.init_backend() {
     return None
@@ -103,7 +105,7 @@ pub fn session_open(
       }
       match popup_of {
         None => ()
-        Some(o) => window.set_popup(Some(o))
+        Some(o) => window.set_popup(Some(o), want_focus=popup_focus)
       }
       match place {
         None => ()

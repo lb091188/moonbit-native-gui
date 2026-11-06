@@ -221,8 +221,9 @@ fn app_window(
   title : String,
   popup_of : @win.Window?,
   place : (Int, Int)?,
+  popup_focus? : Bool = false,
 ) -> WindowHost? {
-  match @shell.session_open(width, height, title, popup_of, place) {
+  match @shell.session_open(width, height, title, popup_of, place, popup_focus~) {
     None => None
     Some(session) => {
       let root = Widget::new()
@@ -815,6 +816,11 @@ fn WindowHost::route(self : WindowHost, ev : @win.InputEvent) -> Unit {
   ) {
     Ignored => ()
     Pointer(pev) => {
+      // 原生档浮层的点外收起：owner 上任何按下都是点外（弹层是独立窗），
+      // 收起最上层并把整段手势吞掉，不再派发给内容
+      if overlay_pointer_prelude(self, pev) {
+        return
+      }
       let old_hover = self.session.hover_id
       let old_cap = self.session.capture
       let r = route_pointer(self.root, pev, self.session.hover_id, self.session.capture)

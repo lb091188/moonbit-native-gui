@@ -191,7 +191,12 @@ extern "c" fn wm_surface_close(id : Int64) -> Unit = "wm_surface_close"
 extern "c" fn wm_window_set_popup(
   id : Int64,
   owner : Int64,
+  want_focus : Int,
 ) -> Unit = "wm_window_set_popup"
+
+///|
+extern "c" fn wm_window_request_redraw(id : Int64) -> Unit =
+  "wm_window_request_redraw"
 
 ///|
 extern "c" fn wm_window_had_focus(id : Int64) -> Int = "wm_window_had_focus"

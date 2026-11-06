@@ -206,6 +206,7 @@ typedef struct {
   // 焦点来回只发 focus-out，没拿到过焦点的失焦不算「用户点了别处」。
   int focus_gained;
   int popup;    // 这扇窗是弹层窗（wm_window_set_popup 标过；wm_show 据此补 z 序）
+  int want_focus; // 弹层要不要键盘焦点：0 = 不激活（菜单/下拉，键盘归 owner）
   HWND owner;   // 弹层的 owner（GWLP_HWNDPARENT 同步设的句柄，看它的 TOPMOST 带）
   // 透明（W33）：trans_want 是上层意图，trans_mode 是当前实际档位。
   //   0 = 普通档：GDI 贴图 + SetLayeredWindowAttributes(LWA_ALPHA) 做整窗 alpha
@@ -1019,8 +1020,10 @@ void wm_show(int64_t id) {
       w->hidden = 0;
       w->shown_ev = 1; // 首次显示不发，只有隐藏过的窗才有「唤回」
     }
-    ShowWindow(w->hwnd, SW_SHOW);
-    SetFocus(w->hwnd);
+    ShowWindow(w->hwnd, w->popup && !w->want_focus ? SW_SHOWNA : SW_SHOW);
+    if (!(w->popup && !w->want_focus)) {
+      SetFocus(w->hwnd);
+    }
     if (w->popup) {
       // z 序保险：owned 关系若没把弹层抬到 owner 客户区的子件（webview）之上
       // （Windows 真机反馈弹层被网页区压住），显式置顶一次；owner 在 TOPMOST
@@ -1035,6 +1038,20 @@ void wm_show(int64_t id) {
     wm_pump();
     w->need_draw = 1;
   }
+}
+
+/* 请求该窗下一帧重画：原生弹层 mount 内容后调（show 时内容还没挂上，
+ * 首帧画的是空框；不进这条通道，弹层重开要等鼠标事件才出内容）。 */
+void wm_window_request_redraw(int64_t id) {
+  if (id <= 0 || id >= WM_MAX_WINDOWS) {
+    return;
+  }
+  WmWindow *w = &wm_windows[id];
+  if (w->hwnd == NULL) {
+    return;
+  }
+  w->need_draw = 1;
+  InvalidateRect(w->hwnd, NULL, FALSE);
 }
 
 /* 隐藏驻留（W23）：SW_HIDE + 记客户区左上角的屏幕坐标供 show 复位。
@@ -4496,7 +4513,13 @@ int64_t wm_shell_caps(void) {
 // 原生弹层窗（Win32 真实现）：无边框 + 不进任务栏/Alt+Tab + transient 到 owner
 // （owned 窗恒压在 owner 之上、随其移动、owner 关闭时一并收）。此前这里是空桩，
 // 弹层于是带着标题栏按初始 320x200 的普通窗上屏，就是一块白板（Windows 真机反馈）。
-void wm_window_set_popup(int64_t id, int64_t owner_id) {
+//
+// want_focus：菜单/下拉/提示这类「键盘属于触发件」的浮层传 0——窗不激活
+// （WS_EX_NOACTIVATE + SW_SHOWNA），键盘焦点全程留在 owner 窗，↑↓/回车/Esc
+// 走触发件的按键处理；点外收起由宿主侧手势判定（见 overlay_pointer_prelude）。
+// 对话框这类要键盘输入的浮层传 1，保持激活行为。真机症状：弹层窗抢焦点后
+// 菜单键盘全灭、点触发按钮「关了再开闪一下」、Esc 无论哪端都收不到。
+void wm_window_set_popup(int64_t id, int64_t owner_id, int want_focus) {
   if (id <= 0 || id >= WM_MAX_WINDOWS) {
     return;
   }
@@ -4505,9 +4528,11 @@ void wm_window_set_popup(int64_t id, int64_t owner_id) {
     return;
   }
   SetWindowLongPtrW(w->hwnd, GWL_STYLE, (LONG_PTR)WS_POPUP);
-  SetWindowLongPtrW(w->hwnd, GWL_EXSTYLE,
-                    (LONG_PTR)(GetWindowLongW(w->hwnd, GWL_EXSTYLE) |
-                               WS_EX_TOOLWINDOW));
+  LONG_PTR ex = GetWindowLongW(w->hwnd, GWL_EXSTYLE) | WS_EX_TOOLWINDOW;
+  if (!want_focus) {
+    ex |= WS_EX_NOACTIVATE;
+  }
+  SetWindowLongPtrW(w->hwnd, GWL_EXSTYLE, ex);
   if (owner_id > 0 && owner_id < WM_MAX_WINDOWS &&
       wm_windows[owner_id].hwnd != NULL) {
     SetWindowLongPtrW(w->hwnd, GWLP_HWNDPARENT,
@@ -4521,6 +4546,7 @@ void wm_window_set_popup(int64_t id, int64_t owner_id) {
                SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE |
                    SWP_FRAMECHANGED);
   w->popup = 1;
+  w->want_focus = want_focus;
 }
 
 // 这扇窗拿到过键盘焦点没有：浮层「失焦即收起」的武装判据（见 WmWindow.focus_gained）
@@ -5480,6 +5506,18 @@ void wm_show(int64_t id) {
   }
 }
 
+/* 请求该窗下一帧重画：原生弹层 mount 内容后调（show 时内容还没挂上，
+ * 首帧画的是空框；不进这条通道，弹层重开要等鼠标事件才出内容）。 */
+void wm_window_request_redraw(int64_t id) {
+  if (id <= 0 || id >= WM_MAX_WINDOWS) {
+    return;
+  }
+  WmWindow *w = &wm_windows[id];
+  if (w->area != NULL) {
+    gtk_widget_queue_draw(w->area);
+  }
+}
+
 /* 隐藏驻留（W23）：gtk_widget_hide 撤 map + XWithdrawWindow 向 WM 撤管。
  * 语义区别于 XIconifyWindow（最小化进任务栏），这里是完全消失、进程照活。
  * 只在 X11 会话生效（本主链路口径）；幂等：已隐藏再调直接返回。 */
@@ -6066,7 +6104,10 @@ int64_t wm_shell_caps(void) {
 // 浮层（下拉/右键菜单/tooltip/toast/对话框）要能盖住 webview 区，就只能是真的
 // 顶层窗口——自绘像素永远在原生子件之下（方案 §4.5 的浮层纪律）。
 // 必须在 show 之前调：类型提示与 transient 关系在映射时才生效。
-void wm_window_set_popup(int64_t id, int64_t owner_id) {
+// want_focus 在 GTK 段不参与行为（Linux 原生档键盘未报问题，保持既有焦点口径），
+// 只为三端 FFI 签名一致。
+void wm_window_set_popup(int64_t id, int64_t owner_id, int want_focus) {
+  (void)want_focus;
   if (id <= 0 || id >= WM_MAX_WINDOWS) {
     return;
   }
@@ -8475,6 +8516,8 @@ typedef struct {
   int drag_w;
   int drag_h;
   int borderless;
+  int popup;      // 弹层窗（wm_window_set_popup 标过）
+  int want_focus; // 弹层要不要键盘焦点：0 = 不激活（菜单/下拉，键盘归 owner）
   unsigned char *backing; // 本层拥有的帧缓冲（present 拷进来，drawRect 贴它）
   WmL1 l1; // GPU present 档（L1）每窗状态（核心在文件末实现 TU 段）
   int backing_w;
@@ -9640,8 +9683,16 @@ void wm_show(int64_t id) {
       return;
     }
     int was_hidden = s->hidden;
-    [s.win makeKeyAndOrderFront:nil];
-    [NSApp activateIgnoringOtherApps:YES];
+    if (s->popup && !s->want_focus) {
+      // 菜单/下拉类弹层不抢 key 窗：键盘（↑↓/回车/Esc）全程留 owner 的
+      // 触发件（真机症状：弹层 makeKey 后菜单键盘全灭、Esc 收不到），
+      // 点外收起由宿主侧手势判定（overlay_pointer_prelude）。
+      [s.win orderFrontRegardless];
+      [s.view setNeedsDisplay:YES];
+    } else {
+      [s.win makeKeyAndOrderFront:nil];
+      [NSApp activateIgnoringOtherApps:YES];
+    }
     [s.view updateTrackingAreas];
     [s.win invalidateCursorRectsForView:s.view];
     s->hidden = 0; // W23 唤回：Cocoa 的 frame 不随 orderOut 丢，无需复位
@@ -9650,6 +9701,21 @@ void wm_show(int64_t id) {
     }
     s->need_draw = 1;
     wm_pump(); // 把映射请求推出去，别让首帧等到下一次 wait
+  }
+}
+
+/* 请求该窗下一帧重画：原生弹层 mount 内容后调（show 时内容还没挂上，
+ * 首帧画的是空框；不进这条通道，弹层重开要等鼠标移动才出内容）。 */
+void wm_window_request_redraw(int64_t id) {
+  @autoreleasepool {
+    WMState *s = wm_state(id);
+    if (s == nil) {
+      return;
+    }
+    s->need_draw = 1;
+    if (s.view != nil) {
+      [s.view setNeedsDisplay:YES];
+    }
   }
 }
 
@@ -10378,10 +10444,11 @@ int wm_window_is_maximized(int64_t id) {
   }
 }
 
-// 浮层窗：无边框 + 挂在 owner 之上随其移动 + 自己拿键盘焦点。
+// 浮层窗：无边框 + 挂在 owner 之上随其移动。键盘焦点按 want_focus 分档：
+// 菜单/下拉类不成为 key 窗（键盘归 owner 触发件），对话框类保持可成 key。
 // 拿焦点靠 WMWindow 子类的 wm_allow_key 标志（类与「为什么不能对活窗
 // object_setClass」的教训记在文件前部 WMWindow 处）。
-void wm_window_set_popup(int64_t id, int64_t owner_id) {
+void wm_window_set_popup(int64_t id, int64_t owner_id, int want_focus) {
   @autoreleasepool {
     WMState *s = wm_state(id);
     if (s == nil) {
@@ -10389,8 +10456,12 @@ void wm_window_set_popup(int64_t id, int64_t owner_id) {
     }
     [s.win setStyleMask:NSWindowStyleMaskBorderless];
     if ([s.win isKindOfClass:[WMWindow class]]) {
-      ((WMWindow *)s.win)->wm_allow_key = 1;
+      // 菜单/下拉类弹层不成为 key 窗：键盘留给 owner 的触发件。对话框
+      // （want_focus）保持可成 key，输入框才能打字。
+      ((WMWindow *)s.win)->wm_allow_key = want_focus ? 1 : 0;
     }
+    s->popup = 1;
+    s->want_focus = want_focus;
     [s.win setLevel:NSFloatingWindowLevel];
     [s.win setHasShadow:NO];
     [s.win setHidesOnDeactivate:NO];
@@ -13361,7 +13432,10 @@ void wm_surface_set_rect(int64_t surface_id, int x, int y, int w, int h) {
   (void)surface_id; (void)x; (void)y; (void)w; (void)h;
 }
 void wm_surface_close(int64_t surface_id) { (void)surface_id; }
-void wm_window_set_popup(int64_t id, int64_t owner_id) { (void)id; (void)owner_id; }
+void wm_window_set_popup(int64_t id, int64_t owner_id, int want_focus) {
+  (void)id; (void)owner_id; (void)want_focus;
+}
+void wm_window_request_redraw(int64_t id) { (void)id; }
 int wm_window_had_focus(int64_t id) { (void)id; return 0; }
 void wm_window_move(int64_t id, int x, int y) { (void)id; (void)x; (void)y; }
 void wm_window_origin(int64_t id, int32_t *out_x, int32_t *out_y) {

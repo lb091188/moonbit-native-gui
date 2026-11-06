@@ -262,7 +262,17 @@ pub fn overlay_show_at(
           "POPUP-REQ cid=\{cid} tier=\{if native { 1 } else { 0 }} req=(\{x.round().to_int()},\{y.round().to_int()})"
         )
       }
-      if native && overlay_native_open(cid, content, x, y, 0.0, 0.0) {
+      if native &&
+        overlay_native_open(
+          cid,
+          content,
+          x,
+          y,
+          0.0,
+          0.0,
+          false,
+          dismiss_on_outside,
+        ) {
         // 原生档：所在窗有网页区，图层盖不住，改开真窗口（见 overlay_native.mbt）
         invalidate()
         return cid
@@ -341,6 +351,8 @@ pub fn overlay_show_full(content : Node) -> Int {
               0.0,
               sw.to_double(),
               sh.to_double(),
+              true,
+              false,
             ) {
               invalidate()
               return cid

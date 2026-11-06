@@ -7,19 +7,26 @@
 // ② **先开框、量完再收**：弹层大小要的是内容的实际尺寸，而尺寸要挂载并布局一次
 //    才知道，所以开一个临时框、挂内容、首帧后按实测矩形 `set_size_pixels` 收到
 //    贴合大小（最多三次，避免布局回环）；
-// ③ **点外收起靠失焦**：点在网页区时按钮事件被 webview 子窗吃掉，只有焦点转移
-//    会告诉我们「用户点了别处」，所以弹层窗收到 `LostFocus` 就收起自己。武装
-//    判据是「拿到过焦点才算」（`Window::had_focus`）：映射期的焦点来回只发送焦，
-//    没当过 key 的窗失焦不算用户点击（真机实测：不设判据时弹层约两秒自关）。
-// ④ **Esc 收起**：挂在弹层自己窗的按键兜底通道上（焦点在内容里时先过焦点链，
-//    Esc 一般没人吃），收到按下态 Esc 就收起本层——收起经 0ms 延时挪出按键
-//    派发现场再关窗，不在派发中途拆自己的窗。
+// ③ **点外收起靠 owner 侧手势**：菜单/下拉类弹层不激活（键盘归 owner 触发件），
+//    弹层窗从来收不到失焦，所以「用户点了别处」由 owner 窗的按下事件判定——
+//    本 owner 的收起型弹层开着时，owner 上任何按下都视为点外：收起最上层，且
+//    **本次手势整段吞掉**（Down/Up 都不再派发给 owner 内容）——不吞的话，点触发
+//    按钮会「收起又重开闪一下」（真机症状）。对话框（want_focus）仍走失焦收起。
+// ④ **Esc 收起**：菜单类弹层不抢焦点后，Esc 走 owner 触发件的按键处理（dropdown
+//    等组件自己的 on_key）；这里保留弹层窗的按键兜底通道给拿焦点的对话框用，
+//    收起经 0ms 延时挪出按键派发现场再关窗。
 
 ///|
 /// 已开的原生档浮层：句柄 → 弹层宿主窗。表在进程级，不进 `OverlayHost`
 /// （宿主归 WindowHost，宿主再持它就是引用环）。
 let g_native : Ref[Map[Int, WindowHost]] = Ref(Map([]))
 let g_native_passes : Ref[Map[Int, Int]] = Ref(Map([]))
+/// 收起型（点外收起）标志：cid → 是否点外收起。对话框类 false。
+let g_native_dismiss : Ref[Map[Int, Bool]] = Ref(Map([]))
+/// 弹层所属 owner 宿主的 wid：cid → owner_wid（点外收判定按窗隔离）。
+let g_native_owner : Ref[Map[Int, Int]] = Ref(Map([]))
+/// 本次指针手势已因「点外收起」被吞：Down 起、Up 终（Move 一并吞）。
+let g_swallow_pointer : Ref[Bool] = Ref(false)
 /// 最近一次向窗口申请的尺寸（收框放大分支的地板）。窗口实读在 WM 慢拍时
 /// 还停在初框值，拿它当地板会把已经收窄的申请反向钉回初框宽（KDE X11 真机
 /// 弹层右侧恒留一条 320−内容宽的死边，即此成因）。
@@ -60,6 +67,8 @@ pub fn overlay_native_probe_to(sink : (String) -> Unit) -> Unit {
 
 ///|
 /// 开一扇弹层窗装 `content`。返回 false = 开不出来（调用方退回图层档）。
+/// `want_focus`：菜单/下拉类 false（不激活，键盘归 owner 触发件；点外收起走
+/// `overlay_pointer_prelude`）；对话框类 true。`dismiss` 记点外收起标志。
 fn overlay_native_open(
   cid : Int,
   content : Node,
@@ -67,6 +76,8 @@ fn overlay_native_open(
   y : Double,
   w : Double,
   h : Double,
+  want_focus : Bool,
+  dismiss : Bool,
 ) -> Bool {
   match host_active() {
     None => false
@@ -79,13 +90,18 @@ fn overlay_native_open(
           "POPUP-OPEN cid=\{cid} req=(\{x.round().to_int()},\{y.round().to_int()}) init=(\{iw},\{ih}) owner=(\{o.0},\{o.1}) pos=(\{o.0 + x.round().to_int()},\{o.1 + y.round().to_int()})"
         )
       }
-      match a.open_popup(x.round().to_int(), y.round().to_int(), iw, ih) {
+      match a.open_popup(x.round().to_int(), y.round().to_int(), iw, ih, want_focus~) {
         None => false
         Some(pop) => {
           pop.mount([content])
+          // mount 完显式请一帧：开窗时内容还没挂上，首帧画的是空框；不补这
+          // 一下，弹层重开要等鼠标移动才出内容（mac 真机症状）
+          pop.session.window.request_redraw()
           g_native.val.set(cid, pop)
           g_native_passes.val.set(cid, 0)
           g_native_req.val.set(cid, (iw, ih))
+          g_native_dismiss.val.set(cid, dismiss)
+          g_native_owner.val.set(cid, a.session.wid)
           // Esc 收起：挂在弹层自己窗的按键兜底通道上，焦点链先问
           // 完才轮到它，菜单项等不吃 Esc 就落到这里。关窗挪到 0ms 延时里做，
           // 不在按键派发中途拆派发所在的窗。
@@ -116,6 +132,8 @@ fn overlay_native_close(cid : Int) -> Bool {
       let _ = g_native.val.remove(cid)
       let _ = g_native_passes.val.remove(cid)
       let _ = g_native_req.val.remove(cid)
+      let _ = g_native_dismiss.val.remove(cid)
+      let _ = g_native_owner.val.remove(cid)
       if !pop.closed {
         pop.close_window()
       }
@@ -257,8 +275,58 @@ pub fn overlay_dismiss_on_blur() -> Bool {
 }
 
 ///|
+/// owner 窗指针事件的「原生弹层」前置判定。返回 true = 本次事件已被吞掉
+/// （点外收起手势的一部分），宿主不要再派发给内容。
+///
+/// 语义：收起型（`g_native_dismiss`）原生浮层开着时，owner 上的任何按下都是
+/// 「点外」——弹层是独立窗，落在弹层内的点不会到 owner。收起最上层并吞掉
+/// 整段手势（Down/Up 都不再派发）：不吞的话，点触发按钮会先失焦/点外收起、
+/// 紧接的 click 又把它打开（「关了再开闪一下」的真机成因）。
+pub fn overlay_pointer_prelude(app : WindowHost, ev : PointerEvent) -> Bool {
+  match ev.kind {
+    Down => {
+      g_swallow_pointer.val = false
+      if g_native.val.length() == 0 {
+        return false
+      }
+      // 只收本 owner 的开层：多窗口应用里点 A 窗不该收 B 窗的弹层
+      let mut top = 0
+      for cid, _ in g_native.val {
+        let dismiss = match g_native_dismiss.val.get(cid) {
+          Some(d) => d
+          None => false
+        }
+        let owner = match g_native_owner.val.get(cid) {
+          Some(w) => w
+          None => -1
+        }
+        if dismiss && owner == app.session.wid && cid > top {
+          top = cid
+        }
+      }
+      if top == 0 {
+        return false
+      }
+      let _ = overlay_native_close(top)
+      g_swallow_pointer.val = true
+      invalidate()
+      true
+    }
+    Up =>
+      if g_swallow_pointer.val {
+        g_swallow_pointer.val = false
+        true
+      } else {
+        false
+      }
+    Move => g_swallow_pointer.val
+    Leave => false
+  }
+}
+
+///|
 /// 弹层窗失去键盘焦点 = 用户点了别处 → 收起最上面那层（图层档的「点外收起」
-/// 靠命中，原生档只能靠这条）。开关见上。
+/// 靠命中，原生档的对话框靠这条）。开关见上。
 pub fn overlay_on_lost_focus(app : WindowHost) -> Unit {
   if !g_dismiss_on_blur.val {
     return

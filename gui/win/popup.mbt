@@ -5,12 +5,27 @@
 ///|
 /// 在 `show` 之前调用才生效（类型提示与 transient 关系在映射时定）。
 /// owner 给 None 时只去装饰与置顶（例如独立的全屏遮罩）。
-pub fn Window::set_popup(self : Window, owner : Window?) -> Unit {
+///
+/// `want_focus`：菜单/下拉/提示类传 false——弹层窗不激活、不抢键盘焦点，
+/// ↑↓/回车/Esc 走 owner 触发件的按键处理，点外收起由宿主侧手势判定；
+/// 对话框这类要键盘输入的传 true。
+pub fn Window::set_popup(
+  self : Window,
+  owner : Window?,
+  want_focus? : Bool = false,
+) -> Unit {
   let oid = match owner {
     None => 0L
     Some(o) => o.id
   }
-  wm_window_set_popup(self.id, oid)
+  wm_window_set_popup(self.id, oid, if want_focus { 1 } else { 0 })
+}
+
+///|
+/// 请该窗下一帧重画：原生弹层 mount 内容后调（show 时内容还没挂上，
+/// 首帧画的是空框；不补这一下，弹层重开要等鼠标移动才出内容）。
+pub fn Window::request_redraw(self : Window) -> Unit {
+  wm_window_request_redraw(self.id)
 }
 
 ///|
