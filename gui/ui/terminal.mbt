@@ -105,6 +105,8 @@ pub struct Terminal {
   mut pen_fg : TermColor
   mut pen_bg : TermColor
   mut pen_attrs : Int
+  /// ANSI 解析器状态（跨 feed 保留半截序列）
+  ansi : AnsiState
   rev : @base.Store[Int]
 }
 
@@ -139,6 +141,7 @@ pub fn Terminal::new(
     pen_fg: Default,
     pen_bg: Default,
     pen_attrs: 0,
+    ansi: AnsiState::new(),
     rev: @base.Store::new(0),
   }
 }
@@ -167,6 +170,14 @@ pub fn Terminal::feed(self : Terminal, text : String) -> Unit {
     return
   }
   for ch in text {
+    if self.ansi.mode != ANSI_GROUND {
+      self.ansi_char(ch)
+      continue
+    }
+    if ch == '\u{1b}' {
+      self.ansi.mode = ANSI_ESC
+      continue
+    }
     match ch {
       '\n' => {
         self.cx = 0
@@ -370,6 +381,7 @@ pub fn Terminal::reset(self : Terminal) -> Unit {
   self.pen_fg = Default
   self.pen_bg = Default
   self.pen_attrs = 0
+  self.ansi.clear()
   self.clear()
 }
 
