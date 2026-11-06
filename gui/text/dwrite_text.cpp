@@ -300,6 +300,10 @@ extern "C" int pt_measure_font(const char *text, int len, double size,
                                int wrap, int32_t *out_w, int32_t *out_h,
                                int32_t *out_baseline);
 
+extern "C" int pt_font_line_height(double size, const char *family, int weight,
+                                   int italic, int32_t *out_h,
+                                   int32_t *out_ascent);
+
 extern "C" int pt_measure(const char *text, int len, double size,
                           const char *family, double spacing, int max_width,
                           int ellipsize, int wrap, int32_t *out_w,
@@ -316,6 +320,19 @@ extern "C" int pt_measure_font(const char *text, int len, double size,
   if (text == nullptr || out_w == nullptr || out_h == nullptr ||
       out_baseline == nullptr) {
     return 0;
+  }
+  // 空串读数：宽 0 + 单字行盒（高/基线），与 Pango / CoreText 同口径。
+  // 口径见 experience/adaptation.md「Windows 全链首编」。
+  if (len <= 0) {
+    int32_t line_h = 0;
+    int32_t ascent = 0;
+    if (!pt_font_line_height(size, family, weight, italic, &line_h, &ascent)) {
+      return 0;
+    }
+    *out_w = 0;
+    *out_h = line_h;
+    *out_baseline = ascent;
+    return 1;
   }
   IDWriteTextLayout *layout = ptw_cached_layout("m", text, len, size, family,
                                                 weight, italic, max_width,
