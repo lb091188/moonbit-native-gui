@@ -615,7 +615,8 @@ pub fn code_editor(
           if y + line_h < 0.0 || y > r.h {
             continue
           }
-          // 与 code_view 同款：行号左缘 16，前补空格右对齐到位数宽
+          // 与 code_view 同款：行号画在 32（预排版 x=16 + 绘制偏移 16 的同一落点），
+          // 前补空格右对齐到位数宽
           let num = (row + 1).to_string()
           let digits = doc.line_count().to_string().length().max(2)
           let pad = StringBuilder()
@@ -626,7 +627,7 @@ pub fn code_editor(
           let nw = text_width(num_str, font)
           let _ = @text.draw_box_at(
             p,
-            16.0,
+            32.0,
             y,
             nw + 2.0,
             line_h,
