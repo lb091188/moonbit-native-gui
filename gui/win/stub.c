@@ -13856,6 +13856,8 @@ MNG_L1_FN(TextureCreateView)
 MNG_L1_FN(RenderPipelineGetBindGroupLayout)
 MNG_L1_FN(SurfaceConfigure)
 MNG_L1_FN(SurfaceGetCurrentTexture)
+MNG_L1_FN(SurfaceGetCapabilities)
+MNG_L1_FN(SurfaceCapabilitiesFreeMembers)
 MNG_L1_FN(SurfacePresent)
 MNG_L1_FN(BindGroupRelease)
 MNG_L1_FN(BufferRelease)
@@ -13986,6 +13988,13 @@ static int l1_load_syms(void) {
   MNG_L1_LOAD(SurfaceConfigure);
   MNG_L1_LOAD(SurfaceGetCurrentTexture);
   MNG_L1_LOAD(SurfacePresent);
+  // 能力查询/结构释放按可选符号加载：老库没有时按平台保守选档，不整体回退 L1
+  p_wgpuSurfaceGetCapabilities =
+      (WGPUProcSurfaceGetCapabilities)l1_dlsym(g_l1_lib,
+                                               "wgpuSurfaceGetCapabilities");
+  p_wgpuSurfaceCapabilitiesFreeMembers =
+      (WGPUProcSurfaceCapabilitiesFreeMembers)l1_dlsym(
+          g_l1_lib, "wgpuSurfaceCapabilitiesFreeMembers");
   MNG_L1_LOAD(BindGroupRelease);
   MNG_L1_LOAD(BufferRelease);
   MNG_L1_LOAD(TextureViewRelease);
@@ -14233,6 +14242,41 @@ static void l1_release_frame(WmL1 *st) {
   st->th = 0;
 }
 
+// 配 surface 前选合成 alpha 档：优先 Opaque（不透明窗），surface 不支持时取
+// 列表首个——X11 surface 常见 [PreMultiplied, Inherit]，硬给 Opaque 会让
+// wgpu 校验直接 panic（Linux 真机崩溃：wgpuSurfaceConfigure Validation Error
+// "Requested alpha mode Opaque is not in the list of supported alpha modes"）。
+// 能力查询符号不可用（老库）时按平台保守选：X11 用 Inherit，win/mac 用 Opaque。
+static WGPUCompositeAlphaMode l1_pick_alpha_mode(WGPUSurface surface) {
+  if (p_wgpuSurfaceGetCapabilities != NULL) {
+    WGPUSurfaceCapabilities caps;
+    memset(&caps, 0, sizeof caps);
+    if (p_wgpuSurfaceGetCapabilities(surface, l1_adapter, &caps) ==
+        WGPUStatus_Success) {
+      WGPUCompositeAlphaMode pick = WGPUCompositeAlphaMode_Opaque;
+      int found = 0;
+      for (size_t i = 0; i < caps.alphaModeCount; i++) {
+        if (caps.alphaModes[i] == WGPUCompositeAlphaMode_Opaque) {
+          found = 1;
+          break;
+        }
+      }
+      if (!found && caps.alphaModeCount > 0) {
+        pick = caps.alphaModes[0];
+      }
+      if (p_wgpuSurfaceCapabilitiesFreeMembers != NULL) {
+        p_wgpuSurfaceCapabilitiesFreeMembers(caps);
+      }
+      return pick;
+    }
+  }
+#if defined(WM_STUB_GTK)
+  return WGPUCompositeAlphaMode_Inherit;
+#else
+  return WGPUCompositeAlphaMode_Opaque;
+#endif
+}
+
 // 配 surface（sw/sh = 客户区尺寸）+ 建帧对象（bw/bh = 位图尺寸）。
 // 1 = 成；-1 = 真失败（调用方标记该窗永久回退）。
 static int l1_bind_frame(WmL1 *st, int sw, int sh, int bw, int bh) {
@@ -14243,7 +14287,7 @@ static int l1_bind_frame(WmL1 *st, int sw, int sh, int bw, int bh) {
   cfg.usage = WGPUTextureUsage_RenderAttachment;
   cfg.width = (uint32_t)sw;
   cfg.height = (uint32_t)sh;
-  cfg.alphaMode = WGPUCompositeAlphaMode_Opaque;
+  cfg.alphaMode = l1_pick_alpha_mode(st->surface);
   cfg.presentMode = WGPUPresentMode_Fifo;
   p_wgpuSurfaceConfigure(st->surface, &cfg);
   st->sw = sw;
@@ -14435,7 +14479,7 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
       cfg.usage = WGPUTextureUsage_RenderAttachment;
       cfg.width = (uint32_t)sw;
       cfg.height = (uint32_t)sh;
-      cfg.alphaMode = WGPUCompositeAlphaMode_Opaque;
+      cfg.alphaMode = l1_pick_alpha_mode(st->surface);
       cfg.presentMode = WGPUPresentMode_Fifo;
       p_wgpuSurfaceConfigure(st->surface, &cfg);
       st->sw = sw;
