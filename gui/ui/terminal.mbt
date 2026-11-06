@@ -90,6 +90,8 @@ pub struct Terminal {
   ring : ScrollRing
   /// 距底部行数（0 = 贴底）
   mut view_offset : Int
+  /// 累计进回看的行数（屏幕行的绝对行号 = total_rows + 屏内行号；选区坐标）
+  mut total_rows : Int
   mut cx : Int
   mut cy : Int
   mut saved_cx : Int
@@ -129,6 +131,7 @@ pub fn Terminal::new(
     screen,
     ring: ScrollRing::new(scrollback),
     view_offset: 0,
+    total_rows: 0,
     cx: 0,
     cy: 0,
     saved_cx: 0,
@@ -149,6 +152,12 @@ pub fn Terminal::new(
 ///|
 fn Terminal::bump(self : Terminal) -> Unit {
   self.rev.update_always(fn(v) { v + 1 })
+}
+
+///|
+/// 变更信号：控件订阅它触发重绘（同一模型可被多个控件观察）。
+fn Terminal::revision(self : Terminal) -> @base.Signal[Int] {
+  self.rev.signal()
 }
 
 ///|
@@ -223,6 +232,7 @@ fn Terminal::scroll_up(self : Terminal, n : Int) -> Unit {
     let top_row = self.screen[self.scroll_top]
     if full {
       self.ring.push(top_row)
+      self.total_rows += 1
       if self.view_offset > 0 {
         // 回看变长时不拽走视口：贴底偏移保持（内容整体变旧一格）
         self.view_offset += 1
@@ -372,6 +382,7 @@ pub fn Terminal::clear(self : Terminal) -> Unit {
 pub fn Terminal::reset(self : Terminal) -> Unit {
   self.ring.clear()
   self.view_offset = 0
+  self.total_rows = 0
   self.scroll_top = 0
   self.scroll_bottom = self.rows - 1
   self.autowrap = true
@@ -477,6 +488,50 @@ fn Terminal::cell_at(self : Terminal, col : Int, row : Int) -> TermCell {
     return empty
   }
   self.screen[row][col]
+}
+
+///|
+/// 屏幕行的绝对行号（进回看次数 + 屏内行号）：选区跨滚动的稳定坐标。
+fn Terminal::abs_of_screen(self : Terminal, r : Int) -> Int {
+  self.total_rows + r
+}
+
+///|
+/// 绝对行号 → 行内容（回看或屏幕；已滚出回看的行回 None）。
+fn Terminal::row_by_abs(self : Terminal, abs : Int) -> Array[TermCell]? {
+  let base = self.total_rows - self.ring.len()
+  if abs < base {
+    return None
+  }
+  if abs < self.total_rows {
+    self.ring.get(abs - base)
+  } else {
+    let r = abs - self.total_rows
+    if r >= 0 && r < self.rows {
+      Some(self.screen[r])
+    } else {
+      None
+    }
+  }
+}
+
+///|
+/// 视口第 v 行（0 基，已含回看偏移）→ 绝对行号；越界 None。
+fn Terminal::view_abs(self : Terminal, v : Int) -> Int? {
+  let total = self.ring.len() + self.rows
+  let last = total - 1 - self.view_offset
+  let abs = last - (self.rows - 1 - v)
+  if abs < 0 {
+    None
+  } else {
+    Some(abs)
+  }
+}
+
+///|
+/// 视口最顶行的绝对行号。
+fn Terminal::view_top_abs(self : Terminal) -> Int {
+  self.ring.len() + self.rows - 1 - self.view_offset - (self.rows - 1)
 }
 
 ///|
