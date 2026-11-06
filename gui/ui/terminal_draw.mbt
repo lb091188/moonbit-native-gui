@@ -139,6 +139,9 @@ pub fn terminal(
   cursor_on? : (() -> Bool)? = None,
   /// 开关鼠标选区（拖选高亮）。
   selectable? : Bool = true,
+  /// 键盘输入出口：可打印字符、控制键（裸 Ctrl+C = \x03）、方向键、IME commit
+  /// 与粘贴内容都从这里出去；回显/接线由应用决定（本控件不本地回显）。
+  on_input? : (String) -> Unit = fn(_s : String) -> Unit { () },
   /// 终端配色；缺省跟当前主题。
   theme? : TermTheme = term_theme_current(),
   /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
@@ -432,6 +435,70 @@ pub fn terminal(
         return true
       }
       false
+    })
+    let input_cb = on_input
+    let is_mac = @shell.platform_is_macos()
+    w.on_key = Some(fn(ev : @widget.KeyEvent) -> Bool {
+      if !ev.press {
+        return false
+      }
+      // 回看翻页：Shift+PageUp/Down（不进输入）
+      if ev.mods.land(@base.MOD_SHIFT) != 0 && ev.mods.land(@base.MOD_CTRL) == 0 {
+        if ev.keysym == KS_PAGE_UP {
+          term.scroll_lines(term.rows() - 1)
+          return true
+        }
+        if ev.keysym == KS_PAGE_DOWN {
+          term.scroll_lines(-(term.rows() - 1))
+          return true
+        }
+      }
+      // 复制/粘贴组合：mac Cmd+C/V；其他平台 Ctrl+Shift+C/V。
+      // 裸 Ctrl+C 不在这里——它必须作为 \x03 交给 on_input（SIGINT 语义）。
+      let is_c = ev.keysym == 99 || ev.keysym == 67
+      let is_v = ev.keysym == 118 || ev.keysym == 86
+      let combo_hit = if is_mac {
+        ev.mods.land(@base.MOD_META) != 0 &&
+        ev.mods.land(@base.MOD_CTRL.lor(@base.MOD_SHIFT).lor(@base.MOD_ALT)) == 0
+      } else {
+        ev.mods.land(@base.MOD_CTRL) != 0 &&
+        ev.mods.land(@base.MOD_SHIFT) != 0 &&
+        ev.mods.land(@base.MOD_META.lor(@base.MOD_ALT)) == 0
+      }
+      if combo_hit && is_c {
+        match sel_range() {
+          Some((a, b)) => {
+            let text = term.selection_text(a.0, a.1, b.0, b.1)
+            if text.length() > 0 {
+              let _ = terminal_clip_set(text)
+              return true
+            }
+          }
+          None => ()
+        }
+        return false
+      }
+      if combo_hit && is_v {
+        match terminal_clip_get() {
+          Some(t) =>
+            if t.length() > 0 {
+              input_cb(t)
+            }
+          None => ()
+        }
+        return true
+      }
+      match terminal_input_of(ev, is_mac) {
+        Some(s) => {
+          input_cb(s)
+          true
+        }
+        None => false
+      }
+    })
+    w.on_commit = Some(fn(t : String) -> Bool {
+      input_cb(t)
+      true
     })
     w.on_pointer = Some(fn(self_w : @widget.Widget, ev : @widget.PointerEvent) -> Bool {
       match ev.kind {

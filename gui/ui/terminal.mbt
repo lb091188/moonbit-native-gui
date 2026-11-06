@@ -535,6 +535,48 @@ fn Terminal::view_top_abs(self : Terminal) -> Int {
 }
 
 ///|
+/// 选区文本：按绝对行号区间取（含两端格），行尾去尾随空白，行间 \n。
+fn Terminal::selection_text(
+  self : Terminal,
+  x1 : Int,
+  a1 : Int,
+  x2 : Int,
+  a2 : Int,
+) -> String {
+  let lo_c = x1.min(x2)
+  let hi_c = x1.max(x2)
+  let lo_a = a1.min(a2)
+  let hi_a = a1.max(a2)
+  let lines : Array[String] = []
+  let mut a = lo_a
+  while a <= hi_a {
+    match self.row_by_abs(a) {
+      Some(row) => {
+        let start = if a == lo_a { lo_c.min(row.length() - 1) } else { 0 }
+        let end = if a == hi_a { hi_c.min(row.length() - 1) } else { row.length() - 1 }
+        let sb = StringBuilder()
+        let mut ci = start
+        while ci <= end {
+          let cell = row[ci]
+          if !cell.cont {
+            if cell.text.length() == 0 {
+              sb.write_char(' ')
+            } else {
+              sb.write_string(cell.text)
+            }
+          }
+          ci += 1
+        }
+        lines.push(trim_end_spaces(sb.to_string()))
+      }
+      None => ()
+    }
+    a += 1
+  }
+  lines.join("\n")
+}
+
+///|
 fn row_text(row : Array[TermCell]) -> String {
   let sb = StringBuilder()
   for cell in row {
