@@ -1055,6 +1055,7 @@ static void wm_popup_materialize(WmWindow *w) {
       (GetWindowLongW(w->owner, GWL_EXSTYLE) & WS_EX_TOPMOST) != 0;
   SetWindowPos(w->hwnd, owner_top ? HWND_TOPMOST : HWND_TOP, 0, 0, 0, 0,
                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+  w->need_draw = 1; // 显示后再补一帧：上屏时序不依赖任何平台回调
 }
 
 /* 请求该窗下一帧重画：原生弹层 mount 内容后调（show 时内容还没挂上，
@@ -4567,6 +4568,9 @@ void wm_window_set_popup(int64_t id, int64_t owner_id, int want_focus) {
                    SWP_FRAMECHANGED);
   w->popup = 1;
   w->want_focus = want_focus;
+  // 弹层窗不走 GPU present 档：内容小、随开随关，纯光栅贴帧缓冲更稳——
+  // swapchain 首帧在窗上屏前提交会丢（mac 真机同款症状：菜单空白、动鼠标才出内容）
+  w->l1.dead = 1;
 }
 
 // 这扇窗拿到过键盘焦点没有：浮层「失焦即收起」的武装判据（见 WmWindow.focus_gained）
@@ -5555,6 +5559,7 @@ static void wm_popup_materialize(WmWindow *w) {
   while (gtk_events_pending()) {
     gtk_main_iteration_do(FALSE);
   }
+  wm_mark_draw(w); // 显示后再补一帧：上屏时序不依赖任何平台回调
 }
 
 /* 请求该窗下一帧重画：原生弹层 mount 内容后调（show 时内容还没挂上，
@@ -6187,6 +6192,8 @@ void wm_window_set_popup(int64_t id, int64_t owner_id, int want_focus) {
   }
   w->popup = 1;
   w->want_focus = want_focus;
+  // 弹层窗不走 GPU present 档：内容小、随开随关，cairo 贴帧缓冲更稳
+  w->l1.dead = 1;
 }
 
 // 这扇窗拿到过键盘焦点没有：浮层「失焦即收起」的武装判据（见 WmWindow.focus_gained）
@@ -9774,6 +9781,7 @@ static void wm_popup_materialize(WMState *s) {
     [s.win orderFrontRegardless];
   }
   [s.view setNeedsDisplay:YES];
+  s->need_draw = 1; // 显示后再补一帧：上屏时序不依赖任何平台回调
 }
 
 /* 请求该窗下一帧重画：原生弹层 mount 内容后调（show 时内容还没挂上，
@@ -10540,6 +10548,9 @@ void wm_window_set_popup(int64_t id, int64_t owner_id, int want_focus) {
     [s.win setHasShadow:NO];
     [s.win setHidesOnDeactivate:NO];
     s->borderless = 1;
+    // 弹层窗不走 GPU present 档：Metal 首帧在窗口上屏前提交会丢（真机症状：
+    // 菜单空白、动鼠标才出内容——动鼠标触发重绘补帧）。纯 CG 贴帧缓冲更稳。
+    s->l1.dead = 1;
     // 换风格连带换主题框架，那一拍量到的尺寸不可信（见 syncSize 的零读数纪律）：
     // 按当前真实内容边界把账本重算一次，并请重绘，别把首帧留给一个 0 尺寸。
     [s syncSize];
