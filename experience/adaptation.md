@@ -3790,7 +3790,7 @@ showcase 在 Linux 上「有 GPU 就白屏 / 黑屏 / 点击不更新」的现�
 
 ## Linux L1 子窗口承载落地：XShape 在 libXext、事件穿透必须靠空输入形状（2026-11-06）
 
-上一节定的「自管 X 子窗口」方案同日实现，实测口径：
+上一节定的「自管 X 子窗口」方案同日实现（2026-11-06 Linux 真机验收通过：界面/交互/rainbow 逐帧变色/webview 层级/挪库回退全过；`NATIVEGUI_GPU_L1` 门已删，GPU 档默认尝试、建不出自动回退 cairo），实测口径：
 
 - **`XShape*` 符号在 libXext、不在 libX11**（`nm -D` 实证：libX11 里只有 Xkb 的几何 Shape 函数）。头是 x11proto 的 `<X11/extensions/shape.h>`；GTK 传递依赖可达，但显式加进 prebuild 链接表（`LINUX_PKG_CONFIG_LIBS` 加 `xext`）明确归属。
 - **`event_mask=0` 不等于事件穿透**：X 的指针事件发给「指针所在窗口」，子窗口不选 mask 只会让事件**丢弃**（ButtonPress 不冒泡），父窗口收不到——子窗口成了输入黑洞。穿透必须 `XShapeCombineRectangles(…, ShapeInput, …, NULL, 0, ShapeSet, …)` 设空输入形状；Shape 扩展不可用则本档整体回退 cairo，不能只建窗口不设形状。

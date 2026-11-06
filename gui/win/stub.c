@@ -5795,14 +5795,6 @@ static int wm_l1_child_ensure(WmWindow *w) {
 }
 
 static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
-  // 子窗口承载方案真机验收通过前默认关：NATIVEGUI_GPU_L1=1 显式开启
-  // （回退 cairo 逐像素一致，showcase 默认路径不受影响）
-  {
-    const char *on = getenv("NATIVEGUI_GPU_L1");
-    if (on == NULL || on[0] == 0 || strcmp(on, "0") == 0) {
-      return 0;
-    }
-  }
   // 非 X11 会话（Wayland 原生）没有 XID 可挂 surface——永久走 cairo
   // （Wayland 会话臂是后续批，方案「fallback 探测粒度」）
   if (!wm_l1_available() || w->l1.dead ||
