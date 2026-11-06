@@ -227,5 +227,17 @@ pub fn page_code(_app : @shared.App) -> @widget.Node {
       code=demo_md_code(md_w),
     ),
     code_terminal_section(),
+    @shared.section(
+      "模板列表",
+      "模板 v-for（.mng）",
+      "单文件组件演示：本段由 pages/vfor_demo.mng 经 mng 编译产出（生成码入库、CI 对账新鲜度）。列表走 @base.ListStore keyed——加/删只重挂该动的行；行模板 v-for=\"r in rows\" :key=\"r.id\"，键相同的行复用不重建。本段是纯生成码展示；热更演示在「模板 Dev」页（v-for 行模板改动会回 COLD 重启）。",
+      [vfor_demo()],
+      code=[
+        "<!-- pages/vfor_demo.mng -->",
+        "<ui-row v-for=\"r in rows\" :key=\"r.id\">",
+        "  <ui-text :text=\"r.name\" />",
+        "</ui-row>",
+      ],
+    ),
   ])
 }

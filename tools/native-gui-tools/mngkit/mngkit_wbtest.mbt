@@ -1382,3 +1382,157 @@ test "source map 正向索引：源位置→生成行，反查也能回投" {
   let dirty = ["# x", "abc", "1\t2", "3\t4\t5"].join("\n")
   assert_eq(src_to_gen(dirty, 4, 5), Some((3, 1)))
 }
+
+///|
+fn tfor_src() -> String {
+  [
+    "<script setup lang=\"moonbit\">",
+    "let rows : @base.ListStore[@base.Item] = @base.ListStore::new()",
+    "</script>",
+    "<template>",
+    "  <ui-col>",
+    "    <ui-row v-for=\"r in rows\" :key=\"r.id\">",
+    "      <ui-text :text=\"r.name\" />",
+    "    </ui-row>",
+    "  </ui-col>",
+    "</template>",
+  ].join("\n") + "\n"
+}
+
+///|
+test "v-for：ListStore 源 + :key → for_list keyed，行内表达式不当槽" {
+  let code = match compile(tfor_src(), "tfor.mng") {
+    Ok(o) => o.code
+    Err(e) => abort("\{e}")
+  }
+  assert_true(contains_sub(code, "@ui.for_list(rows, fn(r, _i) {"))
+  assert_true(contains_sub(code, "@ui.text(r.name)"))
+  assert_true(contains_sub(code, "}, key=fn(r) { r.id })"))
+  // 行内没有响应源，不出 bind 行
+  assert_false(contains_sub(code, "bind_label"))
+}
+
+///|
+test "v-for：无 :key 走 for_list_indexed；(别名, 下标) 且下标被引用保原名" {
+  let src = [
+    "<script setup lang=\"moonbit\">",
+    "let rows : @base.ListStore[@base.Item] = @base.ListStore::new()",
+    "</script>",
+    "<template>",
+    "  <ui-col>",
+    "    <ui-row v-for=\"(r, i) in rows\">",
+    "      <ui-text :text=\"i.to_string() + r.name\" />",
+    "    </ui-row>",
+    "  </ui-col>",
+    "</template>",
+  ].join("\n") + "\n"
+  let code = match compile(src, "tfor2.mng") {
+    Ok(o) => o.code
+    Err(e) => abort("\{e}")
+  }
+  assert_true(contains_sub(code, "@ui.for_list_indexed(rows, fn(r, i) {"))
+  assert_true(contains_sub(code, "@ui.text(i.to_string() + r.name)"))
+  // 下标别名给了但没被引用：垫 _ 前缀保零警告
+  let src2 = [
+    "<script setup lang=\"moonbit\">",
+    "let rows : @base.ListStore[@base.Item] = @base.ListStore::new()",
+    "</script>",
+    "<template>",
+    "  <ui-col>",
+    "    <ui-row v-for=\"(r, i) in rows\">",
+    "      <ui-text :text=\"r.name\" />",
+    "    </ui-row>",
+    "  </ui-col>",
+    "</template>",
+  ].join("\n") + "\n"
+  let code2 = match compile(src2, "tfor3.mng") {
+    Ok(o) => o.code
+    Err(e) => abort("\{e}")
+  }
+  assert_true(contains_sub(code2, "fn(r, _i) {"))
+}
+
+///|
+test "v-for 错误面：Store 源 / 非 Slot / :key 孤儿 / v-for+v-if / 嵌套" {
+  let store_src = [
+    "<script setup lang=\"moonbit\">",
+    "let rows : @base.Store[Int] = @base.Store::new(0)",
+    "</script>",
+    "<template>",
+    "  <ui-col>",
+    "    <ui-row v-for=\"x in rows\" />",
+    "  </ui-col>",
+    "</template>",
+  ].join("\n") + "\n"
+  assert_true(match compile(store_src, "e1.mng") {
+    Err(e) => contains_sub(e, "ListStore")
+    _ => false
+  })
+  let plain_src = [
+    "<script setup lang=\"moonbit\">",
+    "let name : String = \"x\"",
+    "</script>",
+    "<template>",
+    "  <ui-col>",
+    "    <ui-row v-for=\"x in name\" />",
+    "  </ui-col>",
+    "</template>",
+  ].join("\n") + "\n"
+  assert_true(match compile(plain_src, "e2.mng") {
+    Err(e) => contains_sub(e, "不是响应槽")
+    _ => false
+  })
+  let orphan_key = "<template>\n  <ui-col>\n    <ui-text :key=\"a.id\" text=\"x\" />\n  </ui-col>\n</template>"
+  assert_true(match compile(orphan_key, "e3.mng") {
+    Err(e) => contains_sub(e, ":key")
+    _ => false
+  })
+  let with_if = [
+    "<script setup lang=\"moonbit\">",
+    "let rows : @base.ListStore[@base.Item] = @base.ListStore::new()",
+    "let on : @base.Store[Bool] = @base.Store::new(true)",
+    "</script>",
+    "<template>",
+    "  <ui-col>",
+    "    <ui-row v-for=\"r in rows\" v-if=\"on\" />",
+    "  </ui-col>",
+    "</template>",
+  ].join("\n") + "\n"
+  assert_true(match compile(with_if, "e4.mng") {
+    Err(e) => contains_sub(e, "v-if")
+    _ => false
+  })
+  let nested = [
+    "<script setup lang=\"moonbit\">",
+    "let rows : @base.ListStore[@base.Item] = @base.ListStore::new()",
+    "</script>",
+    "<template>",
+    "  <ui-col>",
+    "    <ui-col v-for=\"r in rows\">",
+    "      <ui-text v-for=\"t in r.name\" />",
+    "    </ui-col>",
+    "  </ui-col>",
+    "</template>",
+  ].join("\n") + "\n"
+  assert_true(match compile(nested, "e5.mng") {
+    Err(e) => contains_sub(e, "裸标识符")
+    _ => false
+  })
+}
+
+///|
+test "v-for dev 档：行子树不进注册表；hot_ir 直接回 Err 转 COLD" {
+  let code = match compile_dev(tfor_src(), "tfor.mng", fn(_p : String) -> String? {
+    None
+  }) {
+    Ok(o) => o.code
+    Err(e) => abort("\{e}")
+  }
+  assert_true(contains_sub(code, "@ui.for_list(rows, fn(r, _i) {"))
+  // 行内表达式（引用行作用域别名）不进注册表
+  assert_false(contains_sub(code, "fn() { r.name }"))
+  match hot_ir(tfor_src(), tfor_src(), "tfor.mng") {
+    Err(e) => assert_true(contains_sub(e, "v-for"))
+    Ok(_) => assert_true(false, msg="含 v-for 的模板应当回 COLD")
+  }
+}

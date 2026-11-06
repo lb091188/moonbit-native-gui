@@ -1,0 +1,32 @@
+<script setup lang="moonbit">
+let rows : @base.ListStore[@base.Item] = @base.ListStore::new()
+let next_id : @base.Store[Int] = @base.Store::new(0)
+
+fn add_row() {
+  let id = next_id.get() + 1
+  next_id.set(id)
+  rows.push({ id: id, name: "条目 \{id}" })
+}
+
+fn remove_first() {
+  let _ = rows.remove(fn(_it) { true })
+}
+
+fn clear_rows() {
+  rows.splice(0, rows.length(), [])
+}
+</script>
+<template>
+  <ui-col>
+    <ui-text text="列表数据走 ListStore（keyed 差分只重挂该动的行）；本页由 .mng 模板编译产出。" />
+    <ui-row>
+      <ui-button text="加一条" @click="add_row" />
+      <ui-button text="删第一条" @click="remove_first" />
+      <ui-button text="清空" @click="clear_rows" />
+    </ui-row>
+    <ui-row v-for="r in rows" :key="r.id" column_gap="8.0">
+      <ui-text :text="r.name" />
+      <ui-text text="#" :color="'#8A93A6'" />
+    </ui-row>
+  </ui-col>
+</template>

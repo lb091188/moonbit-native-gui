@@ -99,6 +99,13 @@ fn dev_walk(
         }
       }
       Elem(tag, attrs, children, pos) => {
+        // v-for 行子树整棵跳过：行模板不在热更范围（别名是行内作用域，
+        // 登记成 fn() 闭包在作用域外编不过）；hot_ir 对含 v-for 的模板直接回 Err
+        for a in attrs {
+          if a.kind is For {
+            return Ok(())
+          }
+        }
         // 条件槽（v-if / v-show：键取条件表达式内容）
         for a in attrs {
           match a.kind {

@@ -17,7 +17,7 @@ fn g_emit(g : Gen, line : String, pos : Pos) -> Unit {
     pos
   }
   g.lines.push(line)
-  g.map.push({ gen_line: g.lines.length(), src_line: p.line, src_col: p.col })
+  g.map.push({ gen_line: g.lines.length(), src_line: p.line, src_col: p.col, })
 }
 
 ///|
@@ -25,23 +25,28 @@ fn g_emit(g : Gen, line : String, pos : Pos) -> Unit {
 /// child=单子元素、text=文本内容（:text 属性或元素文本）。
 fn builtin_decl(tag : String) -> CompDecl? {
   match tag {
-    "ui-text" => Some({ path: "@ui.text", positional: ["text"] })
-    "ui-button" => Some({ path: "@ui.button", positional: ["text"] })
-    "ui-input" => Some({ path: "@ui.input", positional: ["value"] })
-    "ui-textarea" => Some({ path: "@ui.textarea", positional: ["value"] })
-    "ui-stepper" => Some({ path: "@ui.stepper", positional: ["value"] })
-    "ui-slider" => Some({ path: "@ui.slider", positional: ["value"] })
-    "ui-rate" => Some({ path: "@ui.rate", positional: ["value"] })
-    "ui-switch" => Some({ path: "@ui.switch", positional: ["value"] })
-    "ui-checkbox" => Some({ path: "@ui.checkbox", positional: ["label", "value"] })
-    "ui-radio-group" => Some({ path: "@ui.radio_group", positional: ["options", "value"] })
-    "ui-select" => Some({ path: "@ui.select", positional: ["options", "value"] })
-    "ui-form" => Some({ path: "@ui.form", positional: ["title", "children"] })
-    "ui-form-item" => Some({ path: "@ui.form_item", positional: ["label", "child"] })
-    "ui-col" => Some({ path: "@ui.col", positional: ["children"] })
-    "ui-row" => Some({ path: "@ui.row", positional: ["children"] })
-    "ui-view" => Some({ path: "@ui.view", positional: ["children"] })
-    "ui-panel" => Some({ path: "@ui.panel", positional: ["title", "children"] })
+    "ui-text" => Some({ path: "@ui.text", positional: ["text"], })
+    "ui-button" => Some({ path: "@ui.button", positional: ["text"], })
+    "ui-input" => Some({ path: "@ui.input", positional: ["value"], })
+    "ui-textarea" => Some({ path: "@ui.textarea", positional: ["value"], })
+    "ui-stepper" => Some({ path: "@ui.stepper", positional: ["value"], })
+    "ui-slider" => Some({ path: "@ui.slider", positional: ["value"], })
+    "ui-rate" => Some({ path: "@ui.rate", positional: ["value"], })
+    "ui-switch" => Some({ path: "@ui.switch", positional: ["value"], })
+    "ui-checkbox" =>
+      Some({ path: "@ui.checkbox", positional: ["label", "value"], })
+    "ui-radio-group" =>
+      Some({ path: "@ui.radio_group", positional: ["options", "value"], })
+    "ui-select" =>
+      Some({ path: "@ui.select", positional: ["options", "value"], })
+    "ui-form" => Some({ path: "@ui.form", positional: ["title", "children"], })
+    "ui-form-item" =>
+      Some({ path: "@ui.form_item", positional: ["label", "child"], })
+    "ui-col" => Some({ path: "@ui.col", positional: ["children"], })
+    "ui-row" => Some({ path: "@ui.row", positional: ["children"], })
+    "ui-view" => Some({ path: "@ui.view", positional: ["children"], })
+    "ui-panel" =>
+      Some({ path: "@ui.panel", positional: ["title", "children"], })
     _ => None
   }
 }
@@ -67,9 +72,10 @@ priv struct Ctx {
 ///|
 /// 类型原文 → 归一（去空白，比对 children/child 落点用）。
 fn norm_ty(ty : String) -> String {
-  chars_of(ty).filter(fn(c) { c != ' ' && c != '\t' && c != '\n' && c != '\r' })
-    .map(fn(c) { c.to_string() })
-    .join("")
+  chars_of(ty)
+  .filter(fn(c) { c != ' ' && c != '\t' && c != '\n' && c != '\r' })
+  .map(fn(c) { c.to_string() })
+  .join("")
 }
 
 ///|
@@ -94,7 +100,7 @@ fn decl_of_sig(path : String, sig : FnSig) -> CompDecl {
       positional.push(p.name)
     }
   }
-  { path, positional }
+  { path, positional, }
 }
 
 ///|
@@ -119,7 +125,12 @@ fn fn_of_path(path : String) -> String {
 
 ///|
 /// 组件路径 → 声明：先查缓存，再问解析器。解析不到报错并指路 `// @mng`。
-fn decl_of_path(ctx : Ctx, tag : String, path : String, pos : Pos) -> Result[CompDecl, String] {
+fn decl_of_path(
+  ctx : Ctx,
+  tag : String,
+  path : String,
+  pos : Pos,
+) -> Result[CompDecl, String] {
   match ctx.cache.get(path) {
     Some(d) => Ok(d)
     None =>
@@ -197,7 +208,11 @@ fn split_interp(raw : String, pos : Pos) -> Result[Array[Piece], String] {
       if !closed {
         return Err("\{pos_str(pos)}：插值 {{ 未闭合")
       }
-      let expr = a[start:j].map(fn(c) { c.to_string() }).join("").trim().to_owned()
+      let expr = a[start:j]
+        .map(fn(c) { c.to_string() })
+        .join("")
+        .trim()
+        .to_owned()
       out.push(PExpr(requote_expr(expr)))
       i = j + 2
     } else {
@@ -236,7 +251,7 @@ fn finish_text(
   ctx : Ctx,
   e : String,
   srcs : Array[String],
-  ind : Int,
+  ind : Int32,
   pos : Pos,
 ) -> Array[(String, Pos)] {
   let body = if srcs.length() == 0 {
@@ -256,7 +271,12 @@ fn finish_text(
 
 ///|
 /// 文本节点（含 {{ }}）→ 生成行。归一化先行：空白折叠、去首尾。
-fn gen_text(ctx : Ctx, raw : String, pos : Pos, ind : Int) -> Result[Array[(String, Pos)], String] {
+fn gen_text(
+  ctx : Ctx,
+  raw : String,
+  pos : Pos,
+  ind : Int32,
+) -> Result[Array[(String, Pos)], String] {
   let norm = normalize_text(raw)
   if norm.length() == 0 {
     return Ok([])
@@ -280,19 +300,18 @@ fn gen_text(ctx : Ctx, raw : String, pos : Pos, ind : Int) -> Result[Array[(Stri
       _ => ()
     }
   }
-  let e = q(
-    if has_expr {
-      pieces_to_e(ctx, pieces)
-    } else {
-      escape_mbt(norm)
-    },
-  )
+  let e = q(if has_expr { pieces_to_e(ctx, pieces) } else { escape_mbt(norm) })
   Ok(finish_text(ctx, e, srcs, ind, pos))
 }
 
 ///|
 /// :text 属性表达式（值语义）→ 生成行。
-fn gen_text_expr(ctx : Ctx, expr : String, pos : Pos, ind : Int) -> Array[(String, Pos)] {
+fn gen_text_expr(
+  ctx : Ctx,
+  expr : String,
+  pos : Pos,
+  ind : Int32,
+) -> Array[(String, Pos)] {
   let e = rewrite_value(expr, ctx.slots)
   finish_text(ctx, e, sources_of(expr, ctx.slots), ind, pos)
 }
@@ -309,7 +328,7 @@ fn cond_signal(ctx : Ctx, expr : String) -> String {
 fn gen_chain(
   ctx : Ctx,
   branches : Array[(String?, TNode, Pos)],
-  ind : Int,
+  ind : Int32,
 ) -> Result[Array[(String, Pos)], String] {
   let conds : Array[String] = []
   for b in branches {
@@ -330,12 +349,16 @@ fn gen_chain(
   }
   let sig = "@base.Signal::computed(fn() { " + union.join(" || ") + " })"
   let out : Array[(String, Pos)] = []
-  out.push((ind_str(ind) + "@widget.bind_node(" + sig + ", fn(_v) {", branches[0].2))
+  out.push(
+    (ind_str(ind) + "@widget.bind_node(" + sig + ", fn(_v) {", branches[0].2),
+  )
   for bi, b in branches {
     let (cond, node, pos) = b
     let head = match cond {
       Some(c) =>
-        (if bi == 0 { "if " } else { "} else if " }) + rewrite_value(c, ctx.slots) + " {"
+        (if bi == 0 { "if " } else { "} else if " }) +
+        rewrite_value(c, ctx.slots) +
+        " {"
       None => "} else {"
     }
     out.push((ind_str(ind + 1) + head, pos))
@@ -365,11 +388,190 @@ fn gen_chain(
 }
 
 ///|
+/// v-for 值解析：`别名 in 源` / `(别名, 下标) in 源` → (别名, 下标别名或空, 源)。
+fn parse_for_value(v : String) -> Result[(String, String, String), String] {
+  let s = v.trim().to_owned()
+  // 找词间的 " in "（不在括号内）
+  let a = chars_of(s)
+  let n = a.length()
+  let mut depth = 0
+  let mut hit : Int32? = None
+  let mut i = 0
+  while i < n {
+    let c = a[i]
+    if c == '(' {
+      depth += 1
+    } else if c == ')' {
+      depth -= 1
+    } else if depth == 0 && c == ' ' && i + 4 <= n {
+      if slice_str(a, i, i + 4) == " in " {
+        hit = Some(i)
+        break
+      }
+    }
+    i += 1
+  }
+  let at = match hit {
+    Some(x) => x
+    None => return Err("v-for 值须是「别名 in 源」，拿到「\{s}」")
+  }
+  let head = slice_str(a, 0, at).trim().to_owned()
+  let src = slice_str(a, at + 4, n).trim().to_owned()
+  if src.length() == 0 || !is_bare_ident(src) {
+    return Err(
+      "v-for 源须是裸标识符（@base.ListStore 变量名），拿到「\{src}」",
+    )
+  }
+  let head2 = head.trim().to_owned()
+  if head2.has_prefix("(") && head2.has_suffix(")") {
+    let inner = head2[1:head2.length() - 1].to_owned().trim().to_owned()
+    let parts = split_arr(inner, ",")
+    if parts.length() != 2 {
+      return Err(
+        "v-for 括号形式是「(别名, 下标)」，拿到「\{head2}」",
+      )
+    }
+    let alias2 = parts[0].trim().to_owned()
+    let idx = parts[1].trim().to_owned()
+    if !is_bare_ident(alias2) || !is_bare_ident(idx) {
+      return Err("v-for 别名须是裸标识符，拿到「\{head2}」")
+    }
+    Ok((alias2, idx, src))
+  } else {
+    if !is_bare_ident(head2) {
+      return Err("v-for 别名须是裸标识符，拿到「\{head2}」")
+    }
+    Ok((head2, "", src))
+  }
+}
+
+///|
+/// 剥掉 v-for/:key 指令（行模板内部不再消费它们）。
+fn strip_for_key(attrs : Array[Attr]) -> Array[Attr] {
+  let out : Array[Attr] = []
+  for a in attrs {
+    match a.kind {
+      For | Key => ()
+      _ => out.push(a)
+    }
+  }
+  out
+}
+
+///|
+/// v-for → keyed 列表：源须 script 里的 `@base.ListStore[T]` 裸标识符；
+/// `:key="表达式"` 有则 `for_list(…, key=fn(别名){ … })`，无则 `for_list_indexed`。
+/// 行模板复用 gen_node 整条生成链（别名是作用域内局部名，rewrite/sources 不当槽）。
+fn gen_for_elem(
+  ctx : Ctx,
+  fa : Attr,
+  node : TNode,
+  ind : Int,
+) -> Result[Array[(String, Pos)], String] {
+  let (item_name, idx_alias, src) = match parse_for_value(fa.value) {
+    Ok(v) => v
+    Err(e) => return Err("\{pos_str(fa.pos)}：" + e)
+  }
+  match ctx.slots.get(src) {
+    Some(KList) => ()
+    Some(KStore) | Some(KSignal) =>
+      return Err(
+        "\{pos_str(fa.pos)}：v-for 源「\{src}」是 Store/Signal——v-for 的源要 @base.ListStore（keyed 列表），例如 let items : @base.ListStore[@base.Item] = @base.ListStore::new()",
+      )
+    _ =>
+      return Err(
+        "\{pos_str(fa.pos)}：v-for 源「\{src}」不是响应槽——在 script 里声明 let \{src} : @base.ListStore[元素] = @base.ListStore::new()",
+      )
+  }
+  let (tag, attrs, children, pos) = match node {
+    Elem(tag, attrs, children, p) => (tag, attrs, children, p)
+    Text(_, p) =>
+      return Err("\{pos_str(p)}：v-for 只能写在元素上")
+  }
+  // :key 表达式（值语义改写；别名引用保持原样）
+  let mut key_expr : (String, Pos)? = None
+  for a in attrs {
+    match a.kind {
+      Key =>
+        if a.has_value {
+          key_expr = Some((a.value, a.pos))
+        } else {
+          return Err("\{pos_str(a.pos)}：:key 需要表达式（如 :key=\"it.id\"）")
+        }
+      _ => ()
+    }
+  }
+  // 行体（内层缩进 +1；For/Key 已剥）
+  let body = match gen_elem_base(ctx, tag, strip_for_key(attrs), children, pos, ind + 1) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  // 下标别名：给了且真被引用才用原名，否则垫 _ 前缀保零警告
+  let body_text = join_body_text(body)
+  let idx_param : String = if idx_alias.length() > 0 {
+    if arr_contains(idents_in(body_text), idx_alias) {
+      idx_alias
+    } else {
+      "_" + idx_alias
+    }
+  } else {
+    "_i"
+  }
+  let out : Array[(String, Pos)] = []
+  let head = ind_str(ind) + "@ui.for_list" + (match key_expr {
+      Some(_) => "("
+      None => "_indexed("
+    }) + src + ", fn(" + item_name + ", " + idx_param + ") {"
+  out.push((head, fa.pos))
+  for ln in body {
+    out.push(ln)
+  }
+  let tail = match key_expr {
+    Some(kv) =>
+      ind_str(ind) + "}, key=fn(" + item_name + ") { " + rewrite_value(kv.0, ctx.slots) + " })"
+    None => ind_str(ind) + "}"
+  }
+  out.push((tail, fa.pos))
+  Ok(out)
+}
+
+///|
+/// 模板树里是否有 v-for（hot_ir 的 COLD 判据）。
+fn template_has_for(nodes : Array[TNode]) -> Bool {
+  for node in nodes {
+    match node {
+      Text(_, _) => ()
+      Elem(_, attrs, children, _) => {
+        for a in attrs {
+          if a.kind is For {
+            return true
+          }
+        }
+        if template_has_for(children) {
+          return true
+        }
+      }
+    }
+  }
+  false
+}
+
+///|
+/// 行体各行拼一串（下标别名「是否被引用」判定用）。
+fn join_body_text(lines : Array[(String, Pos)]) -> String {
+  let parts : Array[String] = []
+  for ln in lines {
+    parts.push(ln.0)
+  }
+  parts.join(" ")
+}
+
+///|
 /// 兄弟序列 → 表达式块列表（v-if 链合并为一个块；孤儿 v-else 报错）。
 fn gen_blocks(
   ctx : Ctx,
   nodes : Array[TNode],
-  ind : Int,
+  ind : Int32,
 ) -> Result[Array[Array[(String, Pos)]], String] {
   let out : Array[Array[(String, Pos)]] = []
   let mut i = 0
@@ -380,14 +582,37 @@ fn gen_blocks(
       Elem(tag, attrs, _, pos) => {
         let mut has_if = false
         let mut has_else = false
+        let mut for_attr : Attr? = None
+        let mut has_key = false
         for a in attrs {
           match a.kind {
             If => has_if = true
             ElseIf | Else => has_else = true
-            For =>
-              return Err("\{pos_str(a.pos)}：v-for 生成器 v1 收口未开放——列表先手写 ListStore keyed（gui/base/list_store.mbt）")
+            For => for_attr = Some(a)
+            Key => has_key = true
             _ => ()
           }
+        }
+        if has_key && for_attr is None {
+          return Err(
+            "\{pos_str(pos)}：:key 只配 v-for 用——单独的 :key 不生效",
+          )
+        }
+        match for_attr {
+          Some(fa) => {
+            if has_if {
+              return Err(
+                "\{pos_str(fa.pos)}：v-for 与 v-if 不写在同一元素——用容器隔开（外层 v-if 包 v-for，或行内 v-if）",
+              )
+            }
+            match gen_for_elem(ctx, fa, node, ind) {
+              Ok(v) => out.push(v)
+              Err(e) => return Err(e)
+            }
+            i += 1
+            continue
+          }
+          None => ()
         }
         if has_if {
           let branches : Array[(String?, TNode, Pos)] = []
@@ -425,7 +650,9 @@ fn gen_blocks(
                     break
                   }
                   If =>
-                    return Err("\{pos_str(p2)}：v-if 链中间不允许再起 v-if（应接 v-else-if）")
+                    return Err(
+                      "\{pos_str(p2)}：v-if 链中间不允许再起 v-if（应接 v-else-if）",
+                    )
                   _ => break
                 }
               }
@@ -439,7 +666,9 @@ fn gen_blocks(
           i = j
         } else {
           if has_else {
-            return Err("\{pos_str(pos)}：v-else / v-else-if 需紧跟 v-if 链：<\{tag}>")
+            return Err(
+              "\{pos_str(pos)}：v-else / v-else-if 需紧跟 v-if 链：<\{tag}>",
+            )
           }
           match gen_node(ctx, node, ind) {
             Ok(v) => out.push(v)
@@ -465,7 +694,7 @@ fn gen_blocks(
 fn gen_node(
   ctx : Ctx,
   node : TNode,
-  ind : Int,
+  ind : Int32,
 ) -> Result[Array[(String, Pos)], String] {
   match node {
     Text(raw, p) => gen_text(ctx, raw, p, ind)
@@ -476,15 +705,14 @@ fn gen_node(
           Show => show = Some(a)
           // v-if / v-else-if / v-else 已被 gen_blocks 的链收集消化，到这里是正常残留
           If | ElseIf | Else => ()
-          For =>
-            return Err("\{pos_str(a.pos)}：v-for 生成器 v1 收口未开放——列表先手写 ListStore keyed（gui/base/list_store.mbt）")
+          For => () // v-for 已被 gen_blocks 拦截消化；到达即被忽略
           _ => ()
         }
       }
       let mut lines = match gen_elem_base(ctx, tag, attrs, children, p, ind) {
-      Ok(v) => v
-      Err(e) => return Err(e)
-    }
+        Ok(v) => v
+        Err(e) => return Err(e)
+      }
       match show {
         Some(sa) => {
           if !sa.has_value {
@@ -507,7 +735,7 @@ fn wrap_call(
   lines : Array[(String, Pos)],
   suffix : String,
   pos : Pos,
-  ind : Int,
+  ind : Int32,
 ) -> Array[(String, Pos)] {
   let out : Array[(String, Pos)] = []
   for k, l in lines {
@@ -528,9 +756,9 @@ fn wrap_call(
 fn children_part(
   ctx : Ctx,
   children : Array[TNode],
-  ind : Int,
+  ind : Int32,
 ) -> Result[Array[(String, Pos)], String] {
-  let zero = { line: 0, col: 0 }
+  let zero = { line: 0, col: 0, }
   let out : Array[(String, Pos)] = [("[", zero)]
   let blocks = match gen_blocks(ctx, children, ind + 1) {
     Ok(v) => v
@@ -566,7 +794,11 @@ fn is_bare_ident(v : String) -> Bool {
 ///|
 /// 自定义组件的 @事件：回调 prop 名按 `<事件>` / `on_<事件>` 在目标参数里查；
 /// 都查不到按属性名直传（与静态属性同形）。
-fn event_on_comp(ctx : Ctx, decl : CompDecl, a : Attr) -> Result[String, String] {
+fn event_on_comp(
+  ctx : Ctx,
+  decl : CompDecl,
+  a : Attr,
+) -> Result[String, String] {
   let v = a.value.trim().to_owned()
   if !is_bare_ident(v) {
     return Err("\{pos_str(a.pos)}：@事件值需是 script 里的函数名")
@@ -593,7 +825,10 @@ fn event_labeled(a : Attr) -> Result[String, String] {
     "click" => "on_click"
     "change" => "on_change"
     "enter" => "on_enter"
-    other => return Err("\{pos_str(a.pos)}：@事件不支持「\{other}」（v1：click / change / enter）")
+    other =>
+      return Err(
+        "\{pos_str(a.pos)}：@事件不支持「\{other}」（v1：click / change / enter）",
+      )
   }
   let v = a.value.trim().to_owned()
   if !is_bare_ident(v) {
@@ -610,13 +845,15 @@ fn gen_elem_base(
   attrs : Array[Attr],
   children : Array[TNode],
   pos : Pos,
-  ind : Int,
+  ind : Int32,
 ) -> Result[Array[(String, Pos)], String] {
   let decl : CompDecl = if tag.has_prefix("ui-") {
     match builtin_decl(tag) {
       Some(d) => d
       None =>
-        return Err("\{pos_str(pos)}：组件 <\{tag}> 未登记内置表——用 script let 绑定 + // @mng 声明，或在 mngkit 登记新组件")
+        return Err(
+          "\{pos_str(pos)}：组件 <\{tag}> 未登记内置表——用 script let 绑定 + // @mng 声明，或在 mngkit 登记新组件",
+        )
     }
   } else {
     let name = snake(tag)
@@ -660,10 +897,7 @@ fn gen_elem_base(
         continue
       }
       match a.kind {
-        Dyn | Plain =>
-          if a.name == spec {
-            return Some(a)
-          }
+        Dyn | Plain => if a.name == spec { return Some(a) }
         Event => {
           // 回调型位置参数（如 `on_reset : () -> Unit`）用 `@reset` 填
           let en = snake(a.name)
@@ -698,10 +932,14 @@ fn gen_elem_base(
   // 动态 :text 整体替换：ui-text 的 :text 带响应源 → 直接出 bind 行
   if decl.path == "@ui.text" {
     for k, a in attrs {
-      if a.kind is Dyn && a.name == "text" && sources_of(a.value, ctx.slots).length() > 0 {
+      if a.kind is Dyn &&
+        a.name == "text" &&
+        sources_of(a.value, ctx.slots).length() > 0 {
         used2[k] = true
         if !structural_only() {
-          return Err("\{pos_str(pos)}：动态 :text 暂不支持与其他属性同用（静态文本属性另写）")
+          return Err(
+            "\{pos_str(pos)}：动态 :text 暂不支持与其他属性同用（静态文本属性另写）",
+          )
         }
         return Ok(gen_text_expr(ctx, a.value, a.pos, ind))
       }
@@ -716,7 +954,9 @@ fn gen_elem_base(
       }
     } else if spec == "child" {
       if children.length() != 1 {
-        return Err("\{pos_str(pos)}：<\{tag}> 的 child 参数需要恰好一个子元素（现 \{children.length()}）")
+        return Err(
+          "\{pos_str(pos)}：<\{tag}> 的 child 参数需要恰好一个子元素（现 \{children.length()}）",
+        )
       }
       match gen_node(ctx, children[0], ind + 1) {
         Ok(v) => {
@@ -734,10 +974,7 @@ fn gen_elem_base(
           continue
         }
         match a.kind {
-          Dyn | Plain =>
-            if a.name == "text" {
-              found = Some(a)
-            }
+          Dyn | Plain => if a.name == "text" { found = Some(a) }
           _ => ()
         }
       }
@@ -763,11 +1000,15 @@ fn gen_elem_base(
             }
           }
           if bad {
-            return Err("\{pos_str(pos)}：<\{tag}> 的 text 参数混入了子元素（文本内容或 :text 二选一）")
+            return Err(
+              "\{pos_str(pos)}：<\{tag}> 的 text 参数混入了子元素（文本内容或 :text 二选一）",
+            )
           }
           let raw = normalize_text(raw)
           if raw.length() == 0 {
-            return Err("\{pos_str(pos)}：<\{tag}> 缺文本内容（给 :text 或元素文本）")
+            return Err(
+              "\{pos_str(pos)}：<\{tag}> 缺文本内容（给 :text 或元素文本）",
+            )
           }
           let pieces = match split_interp(raw, tpos) {
             Ok(v) => v
@@ -819,7 +1060,9 @@ fn gen_elem_base(
             Model => {
               let v = a.value.trim().to_owned()
               if !is_bare_ident(v) {
-                return Err("\{pos_str(a.pos)}：v-model 需指向 script 里的 Store 绑定名")
+                return Err(
+                  "\{pos_str(a.pos)}：v-model 需指向 script 里的 Store 绑定名",
+                )
               }
               parts.push([(v, a.pos)])
             }
@@ -829,7 +1072,9 @@ fn gen_elem_base(
           }
         }
         None =>
-          return Err("\{pos_str(pos)}：<\{tag}> 缺少参数「\{spec}」——给 :\{spec}（值参数给 v-model）")
+          return Err(
+            "\{pos_str(pos)}：<\{tag}> 缺少参数「\{spec}」——给 :\{spec}（值参数给 v-model）",
+          )
       }
     }
   }
@@ -844,7 +1089,9 @@ fn gen_elem_base(
         let key = snake(a.name)
         if key == "class" {
           if !a.has_value {
-            return Err("\{pos_str(a.pos)}：class 需要类名（class=\"a b\"）")
+            return Err(
+              "\{pos_str(a.pos)}：class 需要类名（class=\"a b\"）",
+            )
           }
           let ce = class_expr(ctx.style_rules, class_names_of(a.value))
           labeled.push(("class=" + ce, a.pos))
@@ -853,11 +1100,7 @@ fn gen_elem_base(
             "\{pos_str(a.pos)}：样式字面量 `\{key}` 不写在模板上——进 <style> 的类，用 class=\"名\" 引用（值随主题热）",
           )
         } else {
-          let v = if a.has_value {
-            lit_of(a.value)
-          } else {
-            "true"
-          }
+          let v = if a.has_value { lit_of(a.value) } else { "true" }
           labeled.push((key + "=" + v, a.pos))
         }
       }
@@ -877,7 +1120,9 @@ fn gen_elem_base(
         labeled.push((ev, a.pos))
       }
       Model =>
-        return Err("\{pos_str(a.pos)}：v-model 无对应值参数——<\{tag}> 的 positional 里要有 value")
+        return Err(
+          "\{pos_str(a.pos)}：v-model 无对应值参数——<\{tag}> 的 positional 里要有 value",
+        )
       Key => ()
       If | ElseIf | Else | Show | For => ()
     }
@@ -892,7 +1137,7 @@ fn join_call(
   path : String,
   parts : Array[Array[(String, Pos)]],
   labeled : Array[(String, Pos)],
-  ind : Int,
+  ind : Int32,
   pos : Pos,
 ) -> Array[(String, Pos)] {
   let all : Array[Array[(String, Pos)]] = []
@@ -975,7 +1220,7 @@ fn stem_of(filename : String) -> String {
 }
 
 ///|
-fn map_has(m : Map[Int, Bool], k : Int) -> Bool {
+fn map_has(m : Map[Int32, Bool], k : Int32) -> Bool {
   match m.get(k) {
     Some(_) => true
     None => false
@@ -984,7 +1229,7 @@ fn map_has(m : Map[Int, Bool], k : Int) -> Bool {
 
 ///|
 /// 行号 → 该行的 let 绑定名（无则空串）。
-fn let_at(info : ScriptInfo, k : Int) -> String {
+fn let_at(info : ScriptInfo, k : Int32) -> String {
   for (name, line) in info.let_lines {
     if line == k {
       return name
@@ -1006,7 +1251,9 @@ fn compile_impl(
     Err(e) => return Err(e)
   }
   if sfc.roots.length() != 1 {
-    return Err("\{filename}：模板必须单根（v1），现 \{sfc.roots.length()} 个顶层节点")
+    return Err(
+      "\{filename}：模板必须单根（v1），现 \{sfc.roots.length()} 个顶层节点",
+    )
   }
   let root = sfc.roots[0]
   let root_pos = match root {
@@ -1014,7 +1261,8 @@ fn compile_impl(
     Text(_, p) => p
   }
   match root {
-    Text(_, _) => return Err("\{filename}：模板根需是元素，不是文本")
+    Text(_, _) =>
+      return Err("\{filename}：模板根需是元素，不是文本")
     Elem(_, _, _, _) => ()
   }
   match check_expr_quotes(sfc.roots, filename) {
@@ -1047,19 +1295,21 @@ fn compile_impl(
       if bs.length() == 1 {
         bs[0]
       } else {
-        return Err("\{filename}：模板内部生成出 \{bs.length()} 个表达式块（应为一个）")
+        return Err(
+          "\{filename}：模板内部生成出 \{bs.length()} 个表达式块（应为一个）",
+        )
       }
     Err(e) => return Err(e)
   }
   // ② 引用集：script 正文（去签名头、去纯组件绑定的 let 行）+ 模板表达式——
   // 决定 props 的消警告垫片，以及只作声明用的 let 是否留在生成体里
-  let head_lines : Map[Int, Bool] = Map([])
+  let head_lines : Map[Int32, Bool] = Map([])
   if info.head_line >= 0 {
     for k in 0..<info.head.length() {
       let _ = head_lines.set(info.head_line + k, true)
     }
   }
-  let comp_lines : Map[Int, Bool] = Map([])
+  let comp_lines : Map[Int32, Bool] = Map([])
   for name in ctx.used_lets {
     match info.let_lines.get(name) {
       Some(k) => {
@@ -1077,9 +1327,15 @@ fn compile_impl(
     }
   }
   let used = idents_in(body_text + " " + exprs.join(" "))
-  let g : Gen = { lines: [], map: [], last: { line: 1, col: 1 } }
-  let hp = { line: 1, col: 1 }
-  g_emit(g, "// GENERATED by mngc（native-gui 模板编译器）。来源：" + base_of(filename) + "。DO NOT EDIT。", hp)
+  let g : Gen = { lines: [], map: [], last: { line: 1, col: 1, }, }
+  let hp = { line: 1, col: 1, }
+  g_emit(
+    g,
+    "// GENERATED by mngc（native-gui 模板编译器）。来源：" +
+    base_of(filename) +
+    "。DO NOT EDIT。",
+    hp,
+  )
   g_emit(g, "///|", hp)
   if info.head.length() > 0 {
     if info.head_ret.length() == 0 {
@@ -1087,15 +1343,11 @@ fn compile_impl(
         "\{filename}：props 头需要返回类型（如 fn 名(…) -> @widget.Node）",
       )
     }
-    let hpos = { line: info.line0 + info.head_line, col: 1 }
+    let hpos = { line: info.line0 + info.head_line, col: 1, }
     let hs : Array[String] = []
     for l in info.head {
       let t = l.trim().to_owned()
-      let one = if t.has_prefix("pub ") {
-        t[4:].to_owned()
-      } else {
-        t
-      }
+      let one = if t.has_prefix("pub ") { t[4:].to_owned() } else { t }
       hs.push(one)
     }
     for k, l in hs {
@@ -1108,21 +1360,22 @@ fn compile_impl(
   }
   for p in info.params {
     if !arr_contains(used, p.name) {
-      g_emit(
-        g,
-        "  let _ = " + p.name,
-        { line: info.line0 + (if info.head_line >= 0 { info.head_line } else { 0 }), col: 1 },
-      )
+      g_emit(g, "  let _ = " + p.name, {
+        line: info.line0 +
+        (if info.head_line >= 0 { info.head_line } else { 0 }),
+        col: 1,
+      })
     }
   }
   // `<style>` 摊平：注册命名类（先于任何 class_of 引用执行）
   for stmt in style_defs(ctx.style_rules) {
-    g_emit(g, stmt, { line: sfc.style_line0, col: 1 })
+    g_emit(g, stmt, { line: sfc.style_line0, col: 1, })
   }
   for k, l in info.lines {
-    let drop = map_has(head_lines, k) || (map_has(comp_lines, k) && !arr_contains(used, let_at(info, k)))
+    let drop = map_has(head_lines, k) ||
+      (map_has(comp_lines, k) && !arr_contains(used, let_at(info, k)))
     if l.length() > 0 && !drop {
-      g_emit(g, "  " + l, { line: info.line0 + k, col: 1 })
+      g_emit(g, "  " + l, { line: info.line0 + k, col: 1, })
     }
   }
   if dev {
@@ -1147,9 +1400,12 @@ fn compile_impl(
       }
     }
     for (n, line) in info.let_lines {
-      if line >= 0 && line < info.lines.length() &&
-        (info.lines[line].has_prefix("let ") ||
-          info.lines[line].has_prefix("pub let ")) {
+      if line >= 0 &&
+        line < info.lines.length() &&
+        (
+          info.lines[line].has_prefix("let ") ||
+          info.lines[line].has_prefix("pub let ")
+        ) {
         match info.slots.get(n) {
           Some(KStore) =>
             match info.slot_tys.get(n) {
@@ -1178,7 +1434,11 @@ fn compile_impl(
     for (n, kd, p) in regs.states {
       g_emit(g, "  reg." + kd + "(" + q(n) + ", " + n + ")", p)
     }
-    g_emit(g, "  @shared.mng_dev_page(" + q(stem_of(filename)) + ", reg, fn() {", hp)
+    g_emit(
+      g,
+      "  @shared.mng_dev_page(" + q(stem_of(filename)) + ", reg, fn() {",
+      hp,
+    )
     for l in block {
       g_emit(g, l.0, l.1)
     }
@@ -1189,11 +1449,14 @@ fn compile_impl(
     }
   }
   g_emit(g, "}", root_pos)
-  let map_lines : Array[String] = ["# mng source map v1", "source " + base_of(filename)]
+  let map_lines : Array[String] = [
+    "# mng source map v1",
+    "source " + base_of(filename),
+  ]
   for m in g.map {
     map_lines.push("\{m.gen_line}\t\{m.src_line}\t\{m.src_col}")
   }
-  Ok({ code: g.lines.join("\n") + "\n", map: map_lines.join("\n") + "\n" })
+  Ok({ code: g.lines.join("\n") + "\n", map: map_lines.join("\n") + "\n", })
 }
 
 ///|
@@ -1244,7 +1507,7 @@ fn dev_bindings(src : String, filename : String) -> Result[DevBindings, String] 
     states.push(n)
   }
   let _ = filename
-  Ok({ exprs, conds, handlers, states })
+  Ok({ exprs, conds, handlers, states, })
 }
 
 ///|
@@ -1259,7 +1522,7 @@ fn etype_of_store(t : String) -> EType? {
 
 ///|
 /// script 顶层 Store 名 → 值类型（与 dev 生成码的 state 登记同口径）。
-fn script_store_types(script : String, line0 : Int) -> Map[String, EType] {
+fn script_store_types(script : String, line0 : Int32) -> Map[String, EType] {
   let out : Map[String, EType] = Map([])
   let info = analyze_script(script, line0)
   for p in info.params {
@@ -1279,9 +1542,12 @@ fn script_store_types(script : String, line0 : Int) -> Map[String, EType] {
     }
   }
   for (n, line) in info.let_lines {
-    if line >= 0 && line < info.lines.length() &&
-      (info.lines[line].has_prefix("let ") ||
-        info.lines[line].has_prefix("pub let ")) {
+    if line >= 0 &&
+      line < info.lines.length() &&
+      (
+        info.lines[line].has_prefix("let ") ||
+        info.lines[line].has_prefix("pub let ")
+      ) {
       match info.slots.get(n) {
         Some(KStore) =>
           match info.slot_tys.get(n) {
@@ -1304,10 +1570,18 @@ fn script_store_types(script : String, line0 : Int) -> Map[String, EType] {
 ///|
 /// 热更检查：script / `<style>` 未变；新出现的表达式都在受限文法内且只引用
 /// 顶层 Store 与内置函数；新事件函数必须已在旧模板里。通过则返回带 eval 的 IR。
-pub fn hot_ir(new_src : String, base_src : String, filename : String) -> Result[String, String] {
+pub fn hot_ir(
+  new_src : String,
+  base_src : String,
+  filename : String,
+) -> Result[String, String] {
   let n = match parse_sfc(new_src) {
     Ok(v) => v
     Err(e) => return Err(e)
+  }
+  // v-for 行模板不在热更范围（行内表达式引用行作用域别名，注册表闭包编不过）
+  if template_has_for(n.roots) {
+    return Err("v-for 行模板不在热更范围——回 COLD 重启")
   }
   let b = match parse_sfc(base_src) {
     Ok(v) => v
@@ -1400,23 +1674,9 @@ pub fn compile(src : String, filename : String) -> Result[GenOut, String] {
 /// 内置组件标签表（编辑器补全用）：`ui-*` 标签名。
 pub fn builtin_tags() -> Array[String] {
   [
-    "ui-text",
-    "ui-button",
-    "ui-input",
-    "ui-textarea",
-    "ui-stepper",
-    "ui-slider",
-    "ui-rate",
-    "ui-switch",
-    "ui-checkbox",
-    "ui-radio-group",
-    "ui-select",
-    "ui-form",
-    "ui-form-item",
-    "ui-col",
-    "ui-row",
-    "ui-view",
-    "ui-panel",
+    "ui-text", "ui-button", "ui-input", "ui-textarea", "ui-stepper", "ui-slider",
+    "ui-rate", "ui-switch", "ui-checkbox", "ui-radio-group", "ui-select", "ui-form",
+    "ui-form-item", "ui-col", "ui-row", "ui-view", "ui-panel",
   ]
 }
 

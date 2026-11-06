@@ -2,8 +2,8 @@
 
 ///|
 priv struct Pos {
-  line : Int
-  col : Int
+  line : Int32
+  col : Int32
 }
 
 ///|
@@ -44,6 +44,7 @@ priv enum TNode {
 priv enum SlotKind {
   KStore
   KSignal
+  KList // @base.ListStore[T]：keyed 列表源（v-for）；方法调用保持原样，不补 .get()
   KPlain
 }
 
@@ -75,16 +76,17 @@ priv struct FnSig {
 }
 
 ///|
-fn skip_ws_at(a : Array[Char], i : Int) -> Int {
+fn skip_ws_at(a : Array[Char], i : Int32) -> Int32 {
   let mut k = i
-  while k < a.length() && (a[k] == ' ' || a[k] == '\t' || a[k] == '\n' || a[k] == '\r') {
+  while k < a.length() &&
+        (a[k] == ' ' || a[k] == '\t' || a[k] == '\n' || a[k] == '\r') {
     k += 1
   }
   k
 }
 
 ///|
-fn slice_str(a : Array[Char], lo : Int, hi : Int) -> String {
+fn slice_str(a : Array[Char], lo : Int32, hi : Int32) -> String {
   if hi <= lo {
     ""
   } else {
@@ -95,6 +97,7 @@ fn slice_str(a : Array[Char], lo : Int, hi : Int) -> String {
 ///|
 /// 一个参数段 → Param：`名` / `名?` + `: 类型`（默认值原文丢弃，已由函数体承接）。
 /// 注释行、`self`、无名段返回 None（调用方跳过）。
+
 ///|
 /// 参数段拆出上方紧贴的 `///` 文档行与参数本体。
 fn split_param_doc(seg : String) -> (String, String) {
@@ -117,6 +120,7 @@ fn split_param_doc(seg : String) -> (String, String) {
   (doc.join("\n"), body.join("\n").trim().to_owned())
 }
 
+///|
 fn parse_param(seg : String) -> Param? {
   let (pdoc, pbody) = split_param_doc(seg)
   let s = pbody.trim().to_owned()
@@ -170,7 +174,7 @@ fn parse_param(seg : String) -> Param? {
   } else {
     ""
   }
-  Some({ name, labelled, ty, default, doc: pdoc })
+  Some({ name, labelled, ty, default, doc: pdoc, })
 }
 
 ///|
@@ -225,7 +229,9 @@ fn parse_fn_sig(text : String) -> FnSig? {
   let mut i = 0
   let mut kw = -1
   while i + 2 < n {
-    if a[i] == 'f' && a[i + 1] == 'n' && (a[i + 2] == ' ' || a[i + 2] == '\t' || is_ident_start(a[i + 2])) {
+    if a[i] == 'f' &&
+      a[i + 1] == 'n' &&
+      (a[i + 2] == ' ' || a[i + 2] == '\t' || is_ident_start(a[i + 2])) {
       kw = i
       break
     }
@@ -276,12 +282,14 @@ fn parse_fn_sig(text : String) -> FnSig? {
     Some(x) => tail[x + 2:].trim().to_owned()
     None => ""
   }
-  Some({ name, params: parse_params(inner), ret })
+  Some({ name, params: parse_params(inner), ret, })
 }
 
 ///|
 /// 签名原文 → 参数表（名, 类型, 是否可省, 默认值, 参数文档）：编辑器 hover / 补全用。
-pub fn sig_params(text : String) -> Array[(String, String, Bool, String, String)] {
+pub fn sig_params(
+  text : String,
+) -> Array[(String, String, Bool, String, String)] {
   let out : Array[(String, String, Bool, String, String)] = []
   match parse_fn_sig(text) {
     Some(sig) =>
@@ -295,7 +303,7 @@ pub fn sig_params(text : String) -> Array[(String, String, Bool, String, String)
 
 ///|
 /// 顶层 `->` 的位置（跳过括号内的箭头）；无则 None。
-fn arrow_index(s : String) -> Int? {
+fn arrow_index(s : String) -> Int32? {
   let a = chars_of(s)
   let n = a.length()
   let mut depth = 0
@@ -317,7 +325,10 @@ fn arrow_index(s : String) -> Int? {
 ///|
 /// 类型原文 → 响应槽种类（与 script 段 `let` 注解同一判据）。
 fn kind_of_ty(ty : String) -> SlotKind {
-  if contains_sub(ty, "Store[") {
+  // ListStore 必须先判（它包含 "Store[" 子串，会被误判成 KStore 然后 .get() 出数组）
+  if contains_sub(ty, "ListStore[") {
+    KList
+  } else if contains_sub(ty, "Store[") {
     KStore
   } else if contains_sub(ty, "Signal[") {
     KSignal
@@ -328,9 +339,9 @@ fn kind_of_ty(ty : String) -> SlotKind {
 
 ///|
 priv struct MapEntry {
-  gen_line : Int
-  src_line : Int
-  src_col : Int
+  gen_line : Int32
+  src_line : Int32
+  src_col : Int32
 }
 
 ///|
@@ -349,7 +360,7 @@ fn chars_of(s : String) -> Array[Char] {
 }
 
 ///|
-fn ind_str(n : Int) -> String {
+fn ind_str(n : Int32) -> String {
   let b : Array[String] = Array::make(n, "  ")
   b.join("")
 }
@@ -371,13 +382,10 @@ fn is_digit(c : Char) -> Bool {
 
 ///|
 fn snake(s : String) -> String {
-  chars_of(s).map(fn(c) {
-    if c == '-' {
-      '_'
-    } else {
-      c
-    }
-  }).map(fn(c) { c.to_string() }).join("")
+  chars_of(s)
+  .map(fn(c) { if c == '-' { '_' } else { c } })
+  .map(fn(c) { c.to_string() })
+  .join("")
 }
 
 ///|
@@ -449,7 +457,12 @@ fn lit_of(value : String) -> String {
 
 ///|
 /// 标识符扫描：对 [lo,hi) 内每个最大标识符 run 调 f(名字)。
-fn scan_idents(a : Array[Char], lo : Int, hi : Int, f : (String) -> Unit) -> Unit {
+fn scan_idents(
+  a : Array[Char],
+  lo : Int32,
+  hi : Int32,
+  f : (String) -> Unit,
+) -> Unit {
   let mut i = lo
   while i < hi {
     let c = a[i]
@@ -716,13 +729,16 @@ fn char_literal_hint(e : String) -> String? {
 ///|
 /// 模板里所有表达式位置的单引号串误用检查（属性表达式 / 事件 / v-model / 条件 / 插值）。
 /// 命中即编译报错并给两种可行写法，别丢给 moon check 的字符字面量报错。
-fn check_expr_quotes(nodes : Array[TNode], filename : String) -> Result[Unit, String] {
+fn check_expr_quotes(
+  nodes : Array[TNode],
+  filename : String,
+) -> Result[Unit, String] {
   for n in nodes {
     match n {
       Elem(_, attrs, kids, _) => {
         for a in attrs {
           match a.kind {
-            Dyn | Event | Model | If | ElseIf | Show => {
+            Dyn | Event | Model | If | ElseIf | Show =>
               if a.has_value {
                 match char_literal_hint(a.value) {
                   Some(body) =>
@@ -732,7 +748,6 @@ fn check_expr_quotes(nodes : Array[TNode], filename : String) -> Result[Unit, St
                   None => ()
                 }
               }
-            }
             _ => ()
           }
         }
@@ -741,7 +756,7 @@ fn check_expr_quotes(nodes : Array[TNode], filename : String) -> Result[Unit, St
           Err(e) => return Err(e)
         }
       }
-      Text(raw, pos) => {
+      Text(raw, pos) =>
         match split_interp(raw, pos) {
           Ok(pieces) =>
             for p in pieces {
@@ -759,7 +774,6 @@ fn check_expr_quotes(nodes : Array[TNode], filename : String) -> Result[Unit, St
             }
           Err(_) => ()
         }
-      }
     }
   }
   Ok(())
