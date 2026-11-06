@@ -5723,6 +5723,17 @@ int wm_event(int64_t id) {
 // ---- GPU present 档（L1）GTK 适配：surface 源 = area 的 XID；贴像素路径
 // （wm_on_draw 的 cairo）在 l1.on 时停手。共享核心在文件末「实现 TU」段。 ----
 static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
+  // Linux/GTK 的窗口呈现档实测不可用：GTK 每一帧的整窗合成贴图会覆盖
+  // Vulkan present 的内容，窗口永远停在首帧（2026-11-06 真机：rainbow
+  // 诊断下每帧 present 成功但窗口颜色固定）。默认回退 cairo；要复现/
+  // 继续攻关时用 NATIVEGUI_GPU_L1=1 显式开启。离屏 GPU 画布（gui-gpu）
+  // 不受影响。
+  {
+    const char *on = getenv("NATIVEGUI_GPU_L1");
+    if (on == NULL || on[0] == 0 || strcmp(on, "0") == 0) {
+      return 0;
+    }
+  }
   // 非 X11 会话（Wayland 原生）没有 XID 可挂 surface——永久走 cairo
   // （Wayland 会话臂是后续批，方案「fallback 探测粒度」）
   if (!wm_l1_available() || w->l1.dead ||
@@ -13908,6 +13919,9 @@ static void l1_probe_body(void) {
   pd.primitive.frontFace = WGPUFrontFace_CCW;
   pd.primitive.cullMode = WGPUCullMode_None;
   pd.multisample.count = 1;
+  // C 桩 memset 吃不到头文件默认值：mask 默认应为 0xFFFFFFFF，清零后所有
+  // 样本被遮掉，quad 一条像素都不出（clear 仍落 → 整窗黑）
+  pd.multisample.mask = 0xFFFFFFFFu;
   pd.fragment = &frag;
   g_l1_pipeline = p_wgpuDeviceCreateRenderPipeline(g_l1_device, &pd);
   if (g_l1_pipeline == NULL) {

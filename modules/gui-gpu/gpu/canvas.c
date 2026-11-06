@@ -291,6 +291,9 @@ static WGPURenderPipeline cv_make_pipeline(const char *wgsl, int textured) {
   pd.primitive.frontFace = WGPUFrontFace_CCW;
   pd.primitive.cullMode = WGPUCullMode_None;
   pd.multisample.count = 1;
+  // C 桩 memset 吃不到头文件默认值：mask 默认应为 0xFFFFFFFF，清零后所有
+  // 样本被遮掉，draw 一条像素都不出（clear 不受影响，读回只剩底色）
+  pd.multisample.mask = 0xFFFFFFFFu;
   pd.fragment = &frag;
   return p_wgpuDeviceCreateRenderPipeline(mng_wgpu_device(), &pd);
 }

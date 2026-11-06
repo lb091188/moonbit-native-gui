@@ -3721,6 +3721,7 @@ GpuCanvas（@render.GpuSink 的 gui-gpu 实现，GPU 线首消费者）落地时
 - **进程内可见的事实**：instance/adapter/device/queue/buffer/texture/pipeline/sampler/bindgroup **全部建得出**；render pass 的 **clear 能落**（读回看得到 clear 色）；texture→buffer 的 copy 与 mapAsync **能落**（clear 读回为证）；**唯独 `wgpuQueueWriteBuffer` / `wgpuQueueWriteTexture` 之后的 GPU 执行看不到写入的数据**（copy 链读回全零）。
 - **未做的判决**：进程内自建 instance（绕开 core）也是全零——所以不是 core 的 device 有问题，而是**进程环境**（moon runtime / 链接进来的 native-gui 全套桩）与 wgpu-native 的某处交互。下一步候选：① 在 `moon run` 的真实应用进程里跑一遍 demo（可能测试进程特有）；② `wgpuInstanceWaitAny` 等 future 原语替换「pump + flag」模式；③ 缩小链接面（只链 @guigpu 的最小可执行）复现。
 - **mac 腿已结案、不是本条的成员（2026-11-05）**：mac 上「画布建不出」的根因是 gui-gpu 自己的五处平台硬伤（库名写死 `.so`、后端写死 Vulkan、上传纹理通道序、fill shader 调试遗留写死白、tex 与混合因子的 alpha 口径不一致——详见下一节「gui-gpu mac 腿五处硬伤」），与进程环境无关。修复后 mac 测试进程里 canvas wbtest **像素断言首次真正执行并全过**（读回 BGRA 样点与图案逐点对上）。本条「queue 写不落地」因此收窄为 **Linux/lavapipe 腿专有**（或 Linux 测试进程专有）；mac 腿不再是取数对象，候选②「future 原语替换泵」的验证面只剩 Linux。
+- **2026-11-06 更正：本条结论不成立。** 在 canvas.c 里补了两路独立探针（纯 buffer→texture→buffer，不经渲染与顶点）：`QueueWriteBuffer` 写 16×16 图案后 copyBufferToTexture→copyTextureToBuffer→map 读回 **1024/1024 非零字节**；mapAsync 写一路同样 1024/1024；render pass clear 也全落。真正让「读回全零」的是 **pipeline 的 `WGPUMultisampleState.mask`**：C 桩 `memset` 把 mask 清成 0（头文件默认值 `0xFFFFFFFF`），mask=0 把全部样本遮掉——clear 照落、所有 draw 一条像素不出。补 `pd.multisample.mask = 0xFFFFFFFFu` 后 canvas wbtest 3/3，像素断言首次在 Linux 真正执行并全过（左上红 / 右下蓝 / 中心绿混合）。queue 写链路一直是好的；本条降级为诊断记录，不再按「进程环境」追。
 
 ## gui-gpu mac 腿五处平台硬伤：库名/后端/通道序/调试遗留/alpha 口径（2026-11-05，真机反馈驱动）
 
@@ -3770,3 +3771,19 @@ mac 跑 showcase「GPU 画布」页报「GPU 画布建不出（400x240；驱动�
 ## mac 键盘的命令组合被 TSM 吞掉：keyDown 输入法门要放行 Cmd/Ctrl（2026-11-06，真机日志抓到）
 
 `WMView keyDown:` 的输入法门原判据是「组合中（`preedit_active`）或 vk 表外的文字键（`mapped == 0`）才进 `handleEvent:`」——但 **Cmd/Ctrl 组合的字母键 keyCode 同样不在 vk 表里**（字母/数字由事件文本给，vk 表只有功能键），于是 `Cmd+A` 这类组合被 TSM 的 `handleEvent:` 整个消化：返回 YES，keyDown 不入队，**只有 keyUp 没有门、漏上来了**。真机症状是「编辑器复制/粘贴/全选/撤销/重做/查找（Cmd 族）全部失效」，`NATIVEGUI_ROUTE_LOG` 日志的指纹是「命令键只出现 `mods=8` 的修饰键按下 + `press=false` 的字母 keyUp，永无字母 keyDown」。修法：keyDown 进门判据补「命令修饰不进门」——`NSCommandKeyMask | NSControlKeyMask` 任一在即直接透传入队（命令组合语义归应用层）；**Option 保留进门**（Option+字母出特殊字符是文字键语义，走系统布局与 IME）。回车/翻页/方向键不受影响（vk 表内，本就直通）。教训：输入法门的「文字键」判据必须把「带命令修饰的文字键」摘出去，TSM 对带修饰键的 `handleEvent:` 返回值不可信。
+## Linux GTK 窗口 present 被合成覆盖：L1 窗口档回退、改建独立 X 子窗口（2026-11-06）
+
+showcase 在 Linux 上「有 GPU 就白屏 / 黑屏 / 点击不更新」的现场排查与结论，按发生顺序：
+
+- **白屏**：L1 挂上后窗口整片白。GTK 顶层窗口每帧先画主题底色 / 双缓后备；只在自绘区设 `app_paintable` 挡不住——DrawingArea 是 no-window，真正上屏的 GdkWindow 属于顶层 GtkWindow。补窗口层 `app_paintable` / 关双缓 / 清 GdkWindow 背景 pattern 后白屏消失。
+- **黑屏**：present 的 clear 落了、quad 不出像素。根因是 **`WGPUMultisampleState.mask` 被 memset 清 0**（见上一节更正），补 `0xFFFFFFFF` 后 GPU 画布与 L1 的 draw 都能出像素。
+- **界面正常但点击 / 悬停不更新**：`wm_present` 每帧都在 present（`NATIVEGUI_GPU_LOG` 的内容 hash 持续变化），屏幕却停在首帧。逐项排除：
+  - `NATIVEGUI_GPU_DEBUG=green`（只清绿不画内容）→ 窗口纯绿，**present 本身可见**；
+  - `NATIVEGUI_GPU_DEBUG=rainbow`（每帧换清屏色）→ 窗口颜色**固定**，后续 present 不可见；
+  - resize 重建 surface 后仍固定；
+  - 已试无效：draw 回调内重放、`GdkFrameClock::after-paint`、`g_idle_add`、`gtk_widget_queue_draw` + 迭代、拦截窗口 `draw` 返回 TRUE、给 area `has_window(TRUE)` + `double_buffered(FALSE)`、接受 `SuccessSuboptimal`。
+  - 结论：**GTK 的整窗合成贴图总在 present 之后**，把 GPU 内容盖回旧帧。
+- **为什么 mac 成立**：`CAMetalLayer` 是视图的合成层，系统合成器持续保留 / 合成其内容；GTK/X11 没有等价物，DrawingArea 的像素归 GTK 绘制周期管。
+- **处置**：GTK 臂的窗口 present **默认回退 cairo**（`NATIVEGUI_GPU_L1=1` 才显式开启）；离屏 GPU 画布不受影响。零拷贝 present 改为「自管 X 子窗口承载」：子窗口是 GTK 顶层窗口的 X 子窗口，设空输入形状让事件穿透，GTK 的整窗合成碰不到它。方案与步骤见 `proposals/linux-l1-x11-child-window.md`。
+
+**判据**：`NATIVEGUI_GPU_DEBUG=rainbow`（present clear 每帧变色）下窗口颜色必须持续变化；颜色固定即「后续 present 不可见」。

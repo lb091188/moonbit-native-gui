@@ -271,6 +271,8 @@ int32_t mng_gpu_triangle(uint8_t *out, int32_t cap, int32_t frames) {
   pd.primitive.frontFace = WGPUFrontFace_CCW;
   pd.primitive.cullMode = WGPUCullMode_None;
   pd.multisample.count = 1;
+  // mask 默认 0xFFFFFFFF；memset 清零会让 draw 一条像素都不出（clear 照落）
+  pd.multisample.mask = 0xFFFFFFFFu;
   pd.fragment = &frag;
   WGPURenderPipeline pipeline = p_wgpuDeviceCreateRenderPipeline(device, &pd);
   if (!pipeline) {

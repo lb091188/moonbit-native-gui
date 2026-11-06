@@ -16,9 +16,9 @@
 ### 三、GPU（按 [proposals/gpu-architecture.md](proposals/gpu-architecture.md) 分批）
 
 - [ ] **X11 wgpu 三角形真机复验**（用户执行）：实现已落（2026-11-04，`gpu/triangle.c` + `run_triangle` 门面 + `experiment/gpu_triangle`；无显示实跑验过加载链，详见 adaptation.md）——`moon run experiment/gpu_triangle` 跑一遍：窗口里见三色三角形、关窗或按 Esc 正常退出算过；不过把现象贴回来
-- [ ] **L1-Linux present 真机复验**（用户执行）：实现已落（2026-11-04，stub.c GTK 臂 GPU 档 + 进程级探测，详见 adaptation.md）——showcase/hello 跑起来：界面与改造前一致（回退逐像素一致）、无闪烁、resize 不花、最小化恢复不花；`MNG_WGPU_LIB` 指到坏路径应自动回退 cairo 不崩。过了本条删除；不过把现象贴回来
-- [ ] **L1-Win 真机复验**（用户执行）：实现已落（2026-11-04，核心三臂共享 + Win32 薄适配，详见 adaptation.md）——Windows 跑一遍 hello/showcase：界面与改造前一致、无闪烁、resize 不花。mac 腿已过（2026-11-05 真机：界面与纯光栅一致、视图转 layer-backing 后输入/交互正常）；Linux 腿复验见上一条
-- [ ] **GPU 画布 Linux 腿取数**（用户执行）：mac 腿已过（2026-11-05 真机：图案上屏、检查读回非零；showcase 页 16 + `Demuxer::set_transfer_mode` 接线同批落，见 git log）——Linux 跑 showcase「GPU 画布」页，把「检查读回」状态行原文贴回：非零 = 未结案「wgpu 进程内队列写不落地」在应用进程不复现；全零/仅底色 = 复现，按档位归因（adaptation.md 同节）。与下面两条 Linux 真机一起做
+- [ ] **Linux L1 独立 X 子窗口**（待实现，方案见 [proposals/linux-l1-x11-child-window.md](proposals/linux-l1-x11-child-window.md)）：2026-11-06 Linux 真机实测「直接 present 到 GTK 窗口」不可用——GTK 每帧整窗合成贴图覆盖 present（rainbow 诊断：每帧 present 成功、窗口颜色固定；拦截窗口绘制 / after-paint / idle / 接受 Suboptimal 均无效）。当前 GTK 臂默认回退 cairo（`NATIVEGUI_GPU_L1=1` 才开启）。按方案改成自管 X 子窗口承载后，本条替换为真机复验条目
+- [ ] **L1-Win 真机复验**（用户执行）：实现已落（2026-11-04，核心三臂共享 + Win32 薄适配，详见 adaptation.md）——Windows 跑一遍 hello/showcase：界面与改造前一致、无闪烁、resize 不花。mac 腿已过（2026-11-05 真机：界面与纯光栅一致、视图转 layer-backing 后输入/交互正常）；Linux 腿见上一条
+- [ ] **GPU 画布 Linux 腿取数**（用户执行）：2026-11-06 本机无头用例已过（根因 `multisample.mask` 零值，像素断言首次在 Linux 真正执行：3/3，左上红 / 右下蓝 / 中心绿混合全对）；剩真机应用进程——Linux 跑 showcase「GPU 画布」页，把「检查读回」状态行原文贴回：非零 = 应用进程同样正常；全零 / 仅底色 = 按档位归因（adaptation.md 同节）
 
 ## 代码编辑器 code_editor（2026-11-05 已全部落地并推送，方案见 [proposals/code-stack.md](proposals/code-stack.md)；此处只留真机复验）
 
