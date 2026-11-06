@@ -446,23 +446,25 @@ pub fn code_editor(
                 placeholder="查找…",
                 on_enter=fn() -> Unit { jump_find(1) },
               ),
-              button(
-                "▲",
+              // 图标按钮（无默认底色、悬停浅底）：查找条要紧凑，普通按钮
+              // 的底色与左右衬垫会把浮层撑出搜索框范围
+              icon_button(
+                @icons.ArrowUp,
                 on_click=fn() -> Unit { jump_find(0 - 1) },
-                font_size=12.0,
-                min_width=30.0,
+                icon_size=14.0,
+                box_size=24.0,
               ),
-              button(
-                "▼",
+              icon_button(
+                @icons.ArrowDown,
                 on_click=fn() -> Unit { jump_find(1) },
-                font_size=12.0,
-                min_width=30.0,
+                icon_size=14.0,
+                box_size=24.0,
               ),
-              button(
-                "✕",
+              icon_button(
+                @icons.Close2,
                 on_click=close_find,
-                font_size=12.0,
-                min_width=30.0,
+                icon_size=14.0,
+                box_size=24.0,
               ),
             ],
             direction=@yoga.Row,
