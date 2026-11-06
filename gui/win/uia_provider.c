@@ -42,7 +42,9 @@
 #include <ole2.h> // VARIANT/BSTR/SysAlloc* 全链（oleauto/oaidl 正序）：裸含 oleauto.h 时 VARIANT 视图不完整
 #include <objbase.h> // COM 基础（interface 宏）：uiautomationcore.h 裸用会语法错
 #include <uiautomationcore.h> // provider 接口本体（IRawElementProvider*/IToggleProvider 等 vtable 结构）
-#include <uiautomationclient.h> // UIA_* 常量与 provider 枚举（见下：C 模式下要自给）
+// 不引 <uiautomationclient.h>：SDK 把 UIA_* 常量定义成文件域 `const long`
+// 变量（C 下外部链接），多个 TU 各含一次就在链接期 LNK2005 重复定义。
+// 本文件用到的常量与枚举全部由下面的自给层提供。
 #include <uiautomationcoreapi.h> // UiaReturnRawElementProvider / UiaHostProviderFromHwnd
 
 /* ---- C 模式自给层（实测坑，2026-11-06 Windows SDK 10.0.26100 首编）----

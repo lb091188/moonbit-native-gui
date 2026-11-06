@@ -109,7 +109,10 @@ void *wm_l1_gpu_status(void);
 #include <shellapi.h>
 #include <imm.h> // IME 纯通道（W6）：ImmGetContext/ImmSet*Window/ImmNotifyIME
 #include <objbase.h> // COM 基础（interface 宏）：uiautomationcore.h 裸用会语法错
-#include <uiautomation.h> // UIA provider（无障碍阶段 3）：接口本体 + UIA_* 常量
+// 不引聚合头 <uiautomation.h>：它会把 client 头拖进来，而 SDK 的 UIA_* 常量
+// 是文件域 `const long` 定义——C 下带外部链接，与 uia_provider.obj 同名定义
+// 撞 LNK2005。本文件只用到 UiaRootObjectId，coreapi 足够。
+#include <uiautomationcore.h> // IRawElementProviderSimple（coreapi 原型依赖的类型）
 #include <uiautomationcoreapi.h> // UiaRootObjectId（WM_GETOBJECT 入口判据）
 #include <stdint.h>
 #include <string.h>
