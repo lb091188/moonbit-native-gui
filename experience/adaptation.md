@@ -3799,6 +3799,15 @@ showcase 在 Linux 上「有 GPU 就白屏 / 黑屏 / 点击不更新」的现�
 - **诊断档常驻**：`NATIVEGUI_GPU_DEBUG=green/rainbow` 从「临时改代码」变成共享核心里的环境变量档（默认关），真机验收直接跑，不用再动代码。
 - 顺手清 GTK 臂既有死变量 `wm_surface_next_id`（`-Wall -Wextra` 唯一警告；prebuild 自身不带 `-Wall`，C 桩的门禁要手动带警告档编一遍才看得见）。
 
+## L1 承载子窗口 × webview：挂原生子件的窗必须回 cairo（2026-11-06，browser 示例实测）
+
+- **现象**：browser 示例网页区整块空白，工具栏/状态栏与其他交互全正常；`@win.gpu_present_status()` 为 `on`（L1 已挂）。
+- **定性**：L1 承载子窗口（自管 X 子窗口，`wm_l1_child_ensure`）与 WebKitGTK 的原生窗口共存时网页不出像素。结构探针（窗口→GtkOverlay→绘制区+GtkFixed→L1 子窗口→webview）：L1 子窗在 → 根窗同一像素取到 L1 底色（`#00ff00`）；`XUnmapWindow` / `XDestroyWindow` 掉 L1 子窗后立即恢复网页色（`#ff0000`）。`XQueryTree` 显示 webview 窗口在 L1 子窗之上，**叠放序不是判据**——按窗口级实测行为收口。
+- **顺序是那个洞**：只有「webview 先建、L1 子窗后建」成立；browser 示例是**首帧之后**才建 webview（L1 子窗已在），于是必现。此前「webview 层级全过」的验收走的是前一种顺序，漏了这一格。
+- **修法**：GTK 臂 `wm_surface_new` 挂上子件时拆 L1 承载子窗口 + `wm_l1_window_drop` + `l1.dead=1` + `queue_draw`——挂原生子件的窗**永久**回 cairo 呈现（子件在的窗不存在回 GPU 的场景）。下一帧 `wm_on_draw` 见 pending 为空置 `need_draw` 请 MoonBit 重画，不必另补帧。
+- **代价**：这类窗的窗口级零拷贝 present 停用（自绘 UI 走 cairo），网页内容仍由 WebKit 自己合成（其 GPU 加速不受影响）；离屏 GPU 画布（L2 `GpuCanvas`）不受影响。
+- **验收（像素级 A/B，探针留仓 `experiment/l1_webview_probe`）**：探针走真实库路径（`mount_window` + 首帧后 `webview_new` + 铺满 pane，页面底色 `#ff00ff`），窗口外 `XGetImage` 取根窗中心像素——修复前 `#f5f6f7`（应用底色，网页被盖），修复后 `#ff00ff`（网页出像素）；browser 示例同一读数从应用底色变 `#ffffff`（本地协议页底色）。
+
 ## Windows 全链首编五处缺口：UIA 头、POSIX 头、DWrite 结构档（2026-11-06，SDK 10.0.26100 真机日志）
 
 Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only 编译路径，Linux 门禁（prebuild 只编 GTK 臂 + gui-gpu）覆盖不到**：

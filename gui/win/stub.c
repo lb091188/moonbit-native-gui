@@ -6076,6 +6076,18 @@ int64_t wm_surface_new(int64_t window_id, int kind, int x, int y, int w,
   gtk_fixed_put(GTK_FIXED(win->fixed), c, x, y);
   gtk_widget_set_size_request(c, w > 1 ? w : 1, h > 1 ? h : 1);
   gtk_widget_show_all(c);
+  // 挂原生子件的窗退回 cairo 呈现：L1 承载子窗口是自管 X 子窗口，与 webview
+  // 的原生窗口共存时网页不出像素（2026-11-06 探针：L1 子窗口在 → 网页区显 L1
+  // 底色，unmap/destroy 后立即恢复；顺序是「webview 先建、L1 后建」才正常，
+  // 而示例是首帧后才建 webview）。子件在的窗不存在回 GPU 的场景，直接永久
+  // 回退：拆掉已建的子窗口，下一帧 cairo 补画（wm_on_draw 见 pending 为空会
+  // 置 need_draw 请 MoonBit 重画）。
+  wm_l1_child_destroy(win);
+  wm_l1_window_drop(&win->l1);
+  win->l1.dead = 1;
+  if (win->area != NULL) {
+    gtk_widget_queue_draw(win->area);
+  }
   wm_surfaces[sid].container = c;
   wm_surfaces[sid].window_id = window_id;
   wm_surfaces[sid].kind = kind;

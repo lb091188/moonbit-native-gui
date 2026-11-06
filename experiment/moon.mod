@@ -14,6 +14,7 @@ import {
   "NoahLiu/native-gui@0.3.1",
   "NoahLiu/yoga-mbt@0.1.1",
   "NoahLiu/gui-gpu@0.1.0",
+  "NoahLiu/gui-webview@0.2.0",
 }
 
 options(
