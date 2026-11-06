@@ -1153,8 +1153,9 @@ void img_free(int64_t h) {
 //     读不到退回 100；
 //   - 帧号单调递增不回绕（与 Linux/Windows 同口径）；`img_anim_copy` 出口把
 //     直通 BGRA 预乘（本栈 Bitmap 是预乘口径，静态图那条也如此）。
-// 注：disposal/image-rectangle 两键不在 Apple 的公开 GIF 属性清单上但实测可读
-// （键值即字符串 "ImageRectangle"/"DisposalMethod"（在 GIF 子字典内））；真机验证由使用方回证。
+// 注：`DisposalMethod` 是 Apple 公开常量（kCGImagePropertyGIFDisposalMethod，键值即
+// 字符串 "DisposalMethod"，在 GIF 子字典内）；`ImageRectangle` 才不在公开清单上，实测可读
+// （CGRect 字典表示）。真机 showcase 复验已过（2026-11-06：自转/暂停继续/缩放档/透明底）。
 
 #define IMG_MAX_FRAMES 256
 

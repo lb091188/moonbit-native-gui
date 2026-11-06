@@ -64,7 +64,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **全局 alpha**：`opacity` 整层透明度，绘制期生效
 - ✅ **矢量图标**：19 类图标包，不依赖字体文件
 - ✅ **过渡动画**：状态桶插值：三条颜色 + 边框宽 + 圆角 + 字号 + 行高，按真实时间推进
-- 🚧 **macOS GIF 分帧合成**：ImageIO 自建画布逐帧合成，disposal 全档（0/1 保留、2 清帧矩形、3 还原快照）+ ImageRectangle 子矩形 + 索引色调色板兜底，帧号/时长/换帧口径与 Linux / Windows 一致（mac 本机 moon test gui/render 61/61；真机 showcase 复验待，透明底 GIF 出底色块=透明索引缺口另补）
+- ✅ **macOS GIF 分帧合成**：ImageIO 自建画布逐帧合成，disposal 全档（0/1 保留、2 清帧矩形、3 还原快照）+ ImageRectangle 子矩形 + 索引色调色板兜底，帧号/时长/换帧口径与 Linux / Windows 一致（mac 本机 moon test gui/render 61/61；2026-11-06 mac 真机 showcase 复验过：自转/暂停继续/帧数读数/缩放档/透明底无底色块）
 
 ### 文字排印
 

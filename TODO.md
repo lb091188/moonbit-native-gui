@@ -45,7 +45,6 @@
 
 - [ ] **Windows UIA 真机复验**（用户执行）：NVDA + Accessibility Insights for Windows 过一遍——①Tab + 方向键遍历同一页，朗读 role/name/状态（勾选态/百分比值/只读/密码保护态）；②Accessibility Insights 树里可见完整控件层级，选中滑杆看 RangeValue 随拖动更新；③对按钮/勾选/下拉用读屏的 Invoke/Toggle/Expand，动作应真的触发（桥合成点击，不与应用自己的点击双触发）；④中文名不乱码（BSTR 走 UTF-8→UTF-16 转换）；⑤快照表是进程级单表，只验单窗应用（多窗边界见 uia_provider.c 头注）
 - [ ] **浮层原生档真机复验**（用户执行）：browser 示例按 BR-1.4 过 Windows 与 mac——弹层无边框贴按钮、条目完整不裁、点外/失焦/Esc 都收、反复开关不叠窗；过了把 roadmap「浮层原生档」翻 ✅
-- [ ] **mac GIF 真机复验**（用户执行）：showcase「GIF 动图」段（SC-14.4）自转/暂停/继续/缩放档，透明底 GIF 看有没有底色块（有=透明索引缺口另立）；过了 roadmap 翻 ✅、测试用例.md 附录 B「GIF 在 macOS 只显示首帧」行删，顺带修正 stub.c/adaptation「DisposalMethod 不在 Apple 公开清单」旧注（该键实为公开常量，ImageRectangle 才不在）
 - [ ] **通知 urgent 二档真机复验**（用户执行，mac）：同一应用分别发 `urgent=true`（缺省）与 `urgent=false`，应用正在前台跑事件循环时前者出横幅、后者只进通知中心不出条；系统设置里关掉「时间敏感」授权后再发 `urgent=true` 应回落到静默。状态行 `backend=` 应报 `un-user-notification`（Linux 报 `dbus`、Windows 报 `win-balloon`）
 - [ ] **frame_cost_probe 三平台读数**（用户执行，Windows / macOS 各一遍）：`moon run experiment/frame_cost_probe`，贴全部 `FRAME-COST` 行——重点看 `paint_full` vs `paint_clip` 的 `skip`（纯光栅腿才判交，那条腿的差值才是「图表/整页增量重绘」的立项依据）。Linux 腿已跑：树不变 relayout 20 帧 `ms=0`、`measure=0`（yoga 布局缓存不立项），整页 240 行 ≈3.5ms/帧（判据进测试用例附录 D）
 

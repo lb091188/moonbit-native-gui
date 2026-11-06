@@ -2887,9 +2887,9 @@ W9 与表格排序批落库后,Windows 本机库测试长期 3 条红(`moon test
 - **旧口径「mac 动图族探测即不可用、退回首帧静图」已解除**：`gui/render/stub.c` 的 `WM_STUB_MAC` 臂此前把 `img_anim_*` 全写成返回 0 的桩。补了与 Windows(WIC) 同构的自建画布合成器（逐帧 `CGImageSourceCreateImageAtIndex` + `ImageRectangle`/`DisposalMethod`/`DelayTime` 属性 + disposal 2/3 语义 + 直通 alpha 合成），帧号/时长/换帧回报口径与 Linux/Windows 一致。三个实测坑：
   - **`CFRetain(NULL)` 当场 abort**（症状：render 测试整进程 SIGTRAP，崩栈停在 `img_anim_copy → anim_gif_prop → CFRetain`）：`CFDictionaryGetValue` 缺键返回 NULL，`CFRetain` 不接受 NULL，先判再 retain。
   - **GIF 帧是索引色位图，`CGBitmapContextCreate` 拒绝画它**（RGB 目标只认 8bpp 组件图；`CGContextDrawImage` 静默失败，症状=合成全透明、动图一片空白、`ink==0` 断言抓红）：常规路径失败后退回「取 data provider 原始索引 + `CGColorSpaceGetColorTable` 调色板手工展开」；`CGColorSpaceGetColorTableCount(space)` 是单参返回 size_t（不是出参式），字节序判定别用不存在的 `CGImageGetByteOrder`。
-  - **`DisposalMethod`/`ImageRectangle` 不在 Apple 公开 GIF 属性清单上**：键值就是这两个裸字符串（位于 GIF 子字典内），`ImageRectangle` 是 CGRect 字典表示（`CGRectMakeWithDictionaryRepresentation` 解）；读不到按默认（整幅/保留），不报错。
+  - **公开属性清单口径修正（2026-11-06 复验时核对）**：`DisposalMethod` 其实在 Apple 公开清单上（公开常量 `kCGImagePropertyGIFDisposalMethod`，键值即裸字符串 "DisposalMethod"，在 GIF 子字典内）；**只有 `ImageRectangle` 不在公开清单**，实测可读，是 CGRect 字典表示（`CGRectMakeWithDictionaryRepresentation` 解）；读不到按默认（整幅/保留），不报错。
 - **配套测试口径翻新（圆角擦角的既有断言）**：控件 `clip_rounded` 擦角 pass 落地后，`display_wbtest` 的 `mark_in` 拿 (6,6) 当基准色、且把预乘位图里「已擦掉的角」（RGB=0）当墨——改为带内取基准、`a==0` 不当墨；`basic_wbtest` 的「12 拍换 1 帧」平台差异口径不变（mac 与 WIC 同为一拍一帧）。
-- **验证方式**：mac 本机 `moon test gui/render`（动图解码 61/61 过，含 `dot.gif` 逐帧前进与 `current()` 落墨断言——此前该测试在 mac 走「不可用」早退分支，等于从没验过合成器）、`moon test ui widget style theme render` 全绿（除 HEAD 既有 3 红）。真机判据=showcase「GIF 动图」段自转、暂停/继续、48×48 缩放档都画得出；透明底 GIF 若出现底色块属 disposal/透明索引缺口，真机反馈后再补透明索引映射。
+- **验证方式**：mac 本机 `moon test gui/render`（动图解码 61/61 过，含 `dot.gif` 逐帧前进与 `current()` 落墨断言——此前该测试在 mac 走「不可用」早退分支，等于从没验过合成器）、`moon test ui widget style theme render` 全绿（除 HEAD 既有 3 红）。**真机复验已过（2026-11-06）**：showcase「GIF 动图」段自转、暂停/继续、帧数读数、48×48 缩放档、透明底无底色块。
 
 ### 拖出跨平台对齐复查（2026-10-19，由 mac 那条报障回查 Linux/Windows）
 
