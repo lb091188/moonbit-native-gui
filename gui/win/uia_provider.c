@@ -40,10 +40,11 @@
 #include <windows.h>
 #include <ole2.h> // VARIANT/BSTR/SysAlloc* 全链（oleauto/oaidl 正序）：裸含 oleauto.h 时 VARIANT 视图不完整
 #include <objbase.h> // COM 基础（interface 宏）：uiautomationcore.h 裸用会语法错
-#include <uiautomation.h> // 聚合头（UIA_*ControlTypeId / PatternId 常量）
-#include <uiautomationclient.h> // UIA_*PropertyId 属性常量（微软文档归属头）
+// 不含聚合头 uiautomation.h：它会抢占具体头的 include guard，排在前面时
+// 后续 core/client 头全部空转（符号一个都供不上）。
 #include <uiautomationcore.h> // provider 接口本体（ToggleState/NavigateDirection/ProviderOptions/UiaRect 的 vtable 签名）
-#include <uiautomationcoreapi.h> // UiaReturnRawElementProvider / UiaHostProviderFromHwnd
+#include <uiautomationclient.h> // UIA_* 常量（PropertyId/ControlTypeId/PatternId，微软文档归属头）
+#include <uiautomationcoreapi.h> // UiaReturnRawElementProvider / UiaHostProviderFromHwnd / UiaCreateRuntimeId
 
 // stub.c 的快照访问面（同 TU 链接）
 typedef struct WmA11yRow {
@@ -174,7 +175,7 @@ static void wm_uia_set_bstr(VARIANT *v, const char *s) {
             return;
         }
     }
-    v->bstrVal = SysAllocStringW(L"");
+    v->bstrVal = SysAllocString(L""); // 注意没有 SysAllocStringW（BSTR 本身就是宽字符）
 }
 
 // 角色是否落在给定集合里（pattern 挂载判据）
