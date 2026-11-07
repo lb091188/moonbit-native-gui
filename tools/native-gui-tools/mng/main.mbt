@@ -14,6 +14,7 @@ fn usage() -> Unit {
   println("  map-errors --map <out.mbt.map> <log>   把日志中 <gen>.mbt:行:列 映射回模板行列")
   println("  ir <input.mng>                    打印模板的 IR 补丁（调试与注册表校准）")
   println("  new <name>                             生成 .mng 页样板")
+  println("  new --app <name>                       生成可跑最小模板工程（moon.mod/moon.pkg/mng.toml/main/首页+dev 生成码）")
   println("  lsp                                    语言服务（stdio JSON-RPC：诊断/补全/hover/跳转）")
   println("  init                                   在模块根写 mng.toml 样板（dev 的项目级配置）")
   println("  --version                              版本与 mng-schema 位（插件握手用）")

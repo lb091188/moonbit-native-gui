@@ -861,8 +861,16 @@ fn cmd_ir(args : Array[String]) -> Int {
 ///|
 /// new 子命令：生成 .mng 页样板（script setup + 最小模板 + props 头与组件调用提示）。
 fn cmd_new(args : Array[String]) -> Int {
+  if args.length() == 2 && args[0] == "--app" {
+    // 工程脚手架：生成可跑最小模板工程（moon.mod/moon.pkg/mng.toml/main/首页+dev 生成码）
+    let cwd = match @env.current_dir() {
+      Some(d) => d
+      None => "."
+    }
+    return scaffold_app_at(cwd, args[1])
+  }
   if args.length() != 1 {
-    println("new 需要一个页名（生成 <名字>.mng）")
+    println("new 需要一个页名（生成 <名字>.mng），或 `new --app <工程名>` 生成整个工程")
     return 2
   }
   let name = args[0]

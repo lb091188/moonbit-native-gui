@@ -135,3 +135,37 @@ test "diff_file_sets：新增/删除各自成列，共有的不动" {
   assert_eq(added2, [])
   assert_eq(removed2, [])
 }
+
+///|
+test "scaffold_app_at：workspace 内现读版本，文件齐全，dev 生成码带 @mngdev" {
+  let root = tmp_dir("mng_scaffold_ws")
+  ensure_dir_p(root)
+  ensure_dir_p(root + "/gui")
+  write_file_p(root + "/moon.work", "members = [\n  \"gui\",\n]\n")
+  write_file_p(
+    root + "/gui/moon.mod",
+    "name = \"NoahLiu/native-gui\"\n\nversion = \"0.9.9\"\n\nimport {\n  \"NoahLiu/yoga-mbt@0.7.7\",\n}\n",
+  )
+  assert_eq(scaffold_app_at(root, "my_app"), 0)
+  let gmod = @fs.read_file_to_string(root + "/my_app/moon.mod") catch { _ => abort("moon.mod 缺") }
+  assert_true(contains_sub_cli(gmod, "NoahLiu/native-gui@0.9.9"))
+  assert_true(contains_sub_cli(gmod, "NoahLiu/yoga-mbt@0.7.7"))
+  let pkg = @fs.read_file_to_string(root + "/my_app/moon.pkg") catch { _ => abort("moon.pkg 缺") }
+  assert_true(contains_sub_cli(pkg, "mngdev\" @mngdev"))
+  assert_true(contains_sub_cli(pkg, "noahliu.my_app/pages\" @pages"))
+  let gen = @fs.read_file_to_string(root + "/my_app/pages/home.gen.mbt") catch { _ => abort("生成码缺") }
+  assert_true(contains_sub_cli(gen, "@mngdev.mng_dev_page(\"home\""))
+  assert_true(contains_sub_cli(gen, "pub fn home() -> @widget.Node"))
+  // 目录已存在拒绝
+  assert_eq(scaffold_app_at(root, "my_app"), 1)
+}
+
+///|
+test "scaffold_app_at：非法名净化与 workspace 外兜底版本注释" {
+  let root = tmp_dir("mng_scaffold_raw")
+  ensure_dir_p(root)
+  assert_eq(scaffold_app_at(root, "9app"), 0)
+  let gmod = @fs.read_file_to_string(root + "/_9app/moon.mod") catch { _ => abort("moon.mod 缺") }
+  assert_true(contains_sub_cli(gmod, "name = \"noahliu._9app\""))
+  assert_true(contains_sub_cli(gmod, "版本是兜底值"))
+}
