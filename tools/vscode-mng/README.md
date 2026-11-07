@@ -9,9 +9,9 @@
    ```sh
    npx @vscode/vsce package
    ```
-   得到 `mng-vscode-0.2.5.vsix`，VS Code → 扩展 → `…` → 从 VSIX 安装（覆盖旧版加 `--force`）：
+   得到 `mng-vscode-0.2.6.vsix`，VS Code → 扩展 → `…` → 从 VSIX 安装（覆盖旧版加 `--force`）：
    ```sh
-   code --install-extension mng-vscode-0.2.5.vsix --force
+   code --install-extension mng-vscode-0.2.6.vsix --force
    ```
    或开发期直接把本目录软链到 `~/.vscode/extensions/`。**升级后必须 Reload Window**，TextMate 文法随扩展加载，不重载仍是旧着色。
 3. 设置（可选）：`mng.cliPath` 指向可执行文件（默认先查 PATH，再查 `~/.moon/bin`）；`mng.enableLsp=false` 只要着色与 snippets。
@@ -87,11 +87,12 @@ TextMate 是正则文法，只能按词形近似（大写当类型、其余小�
   }
   ```
 
-真机验证清单（装 0.2.5 后）：打开 `examples/showcase/pages/dev_demo.mng`——①`qty`/`nick` 是变量档（不可变，亮于正文）；②`Store`/`String`/`Int` 是类型档；③`on_reset` 函数档、`qty.set()`/`@shared.tx()` 方法档；④`@shared` 命名空间档；⑤`{{ qty }}`、`v-model="nick"`、`:text="@shared.tx(…)"`、`@click="on_reset"` 与 script 段同档；⑥带 props 签名头的页里，签名参数是 parameter 档（与变量不同色）；⑦关 LSP 后着色退回纯 TextMate 不报错。
+真机验证清单（装 0.2.6 后）：打开 `examples/showcase/pages/dev_demo.mng`——①`qty`/`nick` 是变量档（不可变，亮于正文）；②`Store`/`String`/`Int` 是类型档；③`on_reset` 函数档、`qty.set()`/`@shared.tx()` 方法档；④`@shared` 命名空间档；⑤`{{ qty }}`、`v-model="nick"`、`:text="@shared.tx(…)"`、`@click="on_reset"` 与 script 段同档；⑥带 props 签名头的页里，签名参数是 parameter 档（与变量不同色）；⑦关 LSP 后着色退回纯 TextMate 不报错；⑧命令面板「MNG: 新建页面」输入 `pages/t1` 回车——生成 `pages/t1.mng` 并打开（验完删）。
 
 ## 命令面板
 
 - **MNG: dev — 模板开发循环**：在集成终端里对工作区根执行 `mng dev`（读 `mng.toml` 盯整个工程的 `.mng` 与主题文件）。可执行文件取 `mng.cliPath` 设置（默认 `mng`，装法见「装」）；停 Ctrl-C。
+- **MNG: 新建页面**：输入页路径后执行 `mng new page <路径>` 生成单页 `.mng` 样板并打开（父目录不存在会现建）。
 
 ## 已知边界
 

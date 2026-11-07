@@ -161,7 +161,7 @@ class MngClient {
           publishDiagnostics: {},
         },
       },
-      clientInfo: { name: 'mng-vscode', version: '0.2.5' },
+      clientInfo: { name: 'mng-vscode', version: '0.2.6' },
     }).then((res) => {
       this.notify('initialized', {});
       return res;
@@ -569,11 +569,60 @@ function registerDevCommand(ctx) {
   );
 }
 
+function registerNewPageCommand(ctx) {
+  ctx.subscriptions.push(
+    vscode.commands.registerCommand('mng.newPage', async function () {
+      const ws = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0];
+      if (!ws) {
+        vscode.window.showWarningMessage('MNG: 新建页面需要先打开工程目录');
+        return;
+      }
+      const target = await vscode.window.showInputBox({
+        prompt: '页面路径（生成 <路径>.mng，可带目录如 pages/about）',
+        placeHolder: 'pages/about',
+        validateInput: (v) => (v && v.trim() ? null : '需要页路径'),
+      });
+      if (!target) {
+        return;
+      }
+      const name = target.trim().replace(/\.mng$/, '');
+      const cli = resolveCli();
+      if (!cli) {
+        vscode.window.showErrorMessage(
+          'MNG：未找到 mng，新建页面不可用。装法：在仓库根执行 moon install ./tools/native-gui-tools/mng，或设置 mng.cliPath。'
+        );
+        return;
+      }
+      try {
+        const out = cp.execFileSync(cli, ['new', 'page', name], {
+          cwd: ws.uri.fsPath,
+          encoding: 'utf8',
+          timeout: 15000,
+        });
+        outputChannel().appendLine('[new page] ' + out.trim());
+        const doc = await vscode.workspace.openTextDocument(
+          vscode.Uri.file(path.join(ws.uri.fsPath, name + '.mng'))
+        );
+        await vscode.window.showTextDocument(doc);
+      } catch (e) {
+        if (e.stdout) {
+          outputChannel().appendLine(e.stdout);
+        }
+        if (e.stderr) {
+          outputChannel().appendLine(e.stderr);
+        }
+        vscode.window.showErrorMessage('MNG: 新建页面失败——' + (e.message || e));
+      }
+    })
+  );
+}
+
 function activate(ctx) {
   status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   status.show();
   ctx.subscriptions.push(status);
   registerDevCommand(ctx);
+  registerNewPageCommand(ctx);
 
   const diagnostics = vscode.languages.createDiagnosticCollection('mng');
   ctx.subscriptions.push(diagnostics);
