@@ -259,5 +259,5 @@ fn scaffold_main_mbt(mod_name : String) -> String {
 
 ///|
 fn scaffold_home_mng() -> String {
-  "<script setup lang=\"moonbit\">\nlet count : @base.Store[Int] = @base.Store::new(0)\n</script>\n<template>\n  <ui-col class=\"page\">\n    <ui-text class=\"title\" text=\"Hello, .mng!\" />\n    <ui-text text=\"改本页保存：受限改动亚秒 HOT，script/行模板走 COLD 重启回本页。\" />\n    <ui-stepper v-model=\"count\" max=\"10\" />\n    计数: {{ count }}\n  </ui-col>\n</template>\n<style>\n  .page {\n    padding: 24px;\n    row-gap: 8px;\n    align-items: center;\n  }\n  .title {\n    font-size: 18px;\n    font-weight: bold;\n  }\n</style>\n"
+  "<script>\nlet count : @base.Store[Int] = @base.Store::new(0)\n</script>\n<template>\n  <ui-col class=\"page\">\n    <ui-text class=\"title\" text=\"Hello, .mng!\" />\n    <ui-text text=\"改本页保存：受限改动亚秒 HOT，script/行模板走 COLD 重启回本页。\" />\n    <ui-stepper v-model=\"count\" max=\"10\" />\n    计数: {{ count }}\n  </ui-col>\n</template>\n<style>\n  .page {\n    padding: 24px;\n    row-gap: 8px;\n    align-items: center;\n  }\n  .title {\n    font-size: 18px;\n    font-weight: bold;\n  }\n</style>\n"
 }

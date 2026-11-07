@@ -892,7 +892,7 @@ fn scaffold_new_app(raw_name : String) -> Int {
 }
 
 ///|
-/// 单页样板：写 `<路径>.mng`（script setup + 最小模板 + props 头与组件调用提示）。
+/// 单页样板：写 `<路径>.mng`（script 段 + 最小模板 + props 头与组件调用提示）。
 /// 路径带目录时父目录不存在则现建（如 pages/about.mng 的 pages/）。
 fn new_page(raw : String) -> Int {
   let name = if raw.has_suffix(".mng") {
@@ -923,7 +923,7 @@ fn new_page(raw : String) -> Int {
   }
   let snake = snake_of(stem)
   let tpl = [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "// props（可选）：script 段第一行只写签名、不写函数体的 fn 头就是本组件的参数表；",
     "// 必填走位置参数，可选走 `名? : 类型 = 默认值`。不写即零参组件。",
     "// fn " + snake + "(title : String, qty : @base.Store[Int], on_reset : () -> Unit, wide? : Bool = false) -> @widget.Node",

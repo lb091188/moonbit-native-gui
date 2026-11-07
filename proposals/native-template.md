@@ -62,7 +62,7 @@
 | `v-model` 双向绑定 | ✓ 语法原味；编译落点 = 值槽直传 Store（受控组件本来就吃 Store，无 setter/getter 二线制——语法对齐、落点从简） |
 | `v-if` 条件 | ✓ 全家（`v-if` / `v-else-if` / `v-else`），表达式任意；`v-show` → `when` 显隐 |
 | `v-for` 列表 | 语法钉死，生成器 v1 收口 |
-| 组件标签 | ✓ `ui-*` 内置表 + script setup 的 `let` 绑定即暴露（对齐 setup 心智）；组件带参见「语法落定」props 行 |
+| 组件标签 | ✓ `ui-*` 内置表 + script 段的 `let` 绑定即暴露（对齐 setup 心智）；组件带参见「语法落定」props 行 |
 | 默认 slot | ✓ 子元素 → children 数组（form / form_item / section） |
 
 **能力限制收窄记档**（语法不为此改形，超范围编译报错提示）：
@@ -77,7 +77,7 @@
 | 项 | 定 |
 | --- | --- |
 | 扩展名 | **裸 `.mng`**——语言注册由自家 VS Code 扩展接管；编辑器生态无占用（MNG 图像格式已被 APNG/WebP 取代、浏览器早弃支持，仅剩文件管理器图片关联的残余噪音，接受）。先例：`.ts`（TypeScript）与 MPEG-TS 视频流重名共存，媒体重名在开发语境无害。`.mui` 排除：Windows MUI 本地化资源文件（`*.exe.mui`）系统级占用 + React 组件库 MUI（原 Material-UI）心智撞车 |
-| 文件结构 | `<script setup lang="moonbit">`（页状态与逻辑，MoonBit 原文）+ `<template>`（单根树），Vue SFC 形态 |
+| 文件结构 | `<script>`（页状态与逻辑，MoonBit 原文；开标签属性区解析即弃——2026-11-07 正字法定为裸标签，`setup`/`lang` 旧写法仍兼容）+ `<template>`（单根树），Vue SFC 形态 |
 | 插值 | 文本节点 `{{ expr }}` |
 | 表达式属性 | `:attr="expr"`。引号三式都认：① 外层单引号包 MoonBit 双引号串（`:text='@shared.tx("开")'`）；② 外层双引号内用 `\"` 转义；③ 外层双引号里按 JS 习惯写 `'多字符'`——编译期自动换成双引号串。单字符 `'a'` 仍是 Char 字面量不动；含转义或内嵌双引号的单引号串不自动换，编译报错并给可行写法 |
 | 静态属性 | 字面量按 MoonBit 字面量规则解析透传（`0` / `0.0` / `true` / 串） |
@@ -96,7 +96,7 @@
 **对照片段**（模板源 → 生成码；生成码全文落盘 `examples/showcase/template_spike_wbtest.mbt`，`moon check` 门禁验证「可读可编译可无头构造」）：
 
 ```html
-<script setup lang="moonbit">
+<script>
 let sh_page = @shared.page
 let sh_section = @shared.section
 

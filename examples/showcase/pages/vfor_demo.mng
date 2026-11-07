@@ -1,4 +1,4 @@
-<script setup lang="moonbit">
+<script>
 let rows : @base.ListStore[@base.Item] = @base.ListStore::new()
 let next_id : @base.Store[Int] = @base.Store::new(0)
 

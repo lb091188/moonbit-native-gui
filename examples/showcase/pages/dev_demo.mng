@@ -1,4 +1,4 @@
-<script setup lang="moonbit">
+<script>
 let qty : @base.Store[Int] = @base.Store::new(3)
 let wifi : @base.Store[Bool] = @base.Store::new(true)
 let nick : @base.Store[String] = @base.Store::new("")

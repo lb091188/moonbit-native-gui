@@ -59,7 +59,7 @@ mng --version   # 应打印 mng 0.1.0 与 mng-schema 1
 ### 页面长什么样
 
 ```html
-<script setup lang="moonbit">
+<script>
 let count : @base.Store[Int] = @base.Store::new(0)
 let name : @base.Store[String] = @base.Store::new("")
 

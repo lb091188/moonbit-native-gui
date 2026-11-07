@@ -59,7 +59,7 @@ For editor support install the VS Code extension from `tools/vscode-mng` (colori
 ### What a page looks like
 
 ```html
-<script setup lang="moonbit">
+<script>
 let count : @base.Store[Int] = @base.Store::new(0)
 let name : @base.Store[String] = @base.Store::new("")
 

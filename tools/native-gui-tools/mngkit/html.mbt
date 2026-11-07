@@ -1,4 +1,4 @@
-// .mng 解析器：顶层 <script setup lang="moonbit"> + <template> 单根树。
+// .mng 解析器：顶层 <script> + <template> 单根树（开标签属性区一律跳过，只认标签名）。
 // 手写递归下降，全程带行列坐标；不支持实体与 CDATA（v1 记档）。
 
 ///|
@@ -360,7 +360,7 @@ fn parse_sfc(src : String) -> Result[Sfc, String] {
         Err(e) => return Err(e)
       }
     } else {
-      return Err(cur_err(c, "顶层只允许 <script setup>、<template> 与 <style>，见到 <\{name}>"))
+      return Err(cur_err(c, "顶层只允许 <script>、<template> 与 <style>，见到 <\{name}>"))
     }
   }
   if !got_template {

@@ -3,7 +3,7 @@
 ///|
 fn t1_src() -> String {
   [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let qty : @base.Store[Int] = @base.Store::new(3)",
     "</script>",
     "<template>",
@@ -40,6 +40,21 @@ test "golden：插值/值槽/静态属性逐字对照（生成码确定性的契
 }
 
 ///|
+test "开标签属性区解析即弃：旧写法 setup/lang 与任意属性同码" {
+  let with_attr = match compile(
+      t1_src().replace(
+        old="<script>",
+        new="<script setup lang=\"moonbit\" data-x=\"1\">",
+      ),
+      "page.mng",
+    ) {
+    Ok(o) => o.code
+    Err(e) => abort("\{e}")
+  }
+  assert_eq(with_attr, t1_expect())
+}
+
+///|
 test "source map：生成行 → 模板行列（步进器行、插值行）" {
   let r = match compile(t1_src(), "page.mng") {
     Ok(o) => o
@@ -53,7 +68,7 @@ test "source map：生成行 → 模板行列（步进器行、插值行）" {
 ///|
 fn t2_src() -> String {
   [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let wifi : @base.Store[Bool] = @base.Store::new(true)",
     "let nick : @base.Store[String] = @base.Store::new(\"\")",
     "let err_nick = @ui.validate(nick, @ui.required())",
@@ -124,7 +139,7 @@ test "错误与坐标：未登记组件 / 孤儿 v-else / 缺 @mng 声明 / 多�
     _ => false
   })
   let r3 = compile(
-    "<script setup lang=\"moonbit\">\nlet card = @ui.panel\n</script>\n<template>\n  <card>\n    <ui-text text=\"x\" />\n  </card>\n</template>",
+    "<script>\nlet card = @ui.panel\n</script>\n<template>\n  <card>\n    <ui-text text=\"x\" />\n  </card>\n</template>",
     "c.mng",
   )
   assert_true(match r3 {
@@ -145,7 +160,7 @@ test "错误与坐标：未登记组件 / 孤儿 v-else / 缺 @mng 声明 / 多�
     _ => false
   })
   let r6 = compile(
-    "<script setup lang=\"moonbit\">\nfn h() { () }\n</script>\n<template>\n  <ui-button text=\"x\" @scroll=\"h\" />\n</template>",
+    "<script>\nfn h() { () }\n</script>\n<template>\n  <ui-button text=\"x\" @scroll=\"h\" />\n</template>",
     "f.mng",
   )
   assert_true(match r6 {
@@ -157,7 +172,7 @@ test "错误与坐标：未登记组件 / 孤儿 v-else / 缺 @mng 声明 / 多�
 ///|
 test "文本归一化：模板缩进不进生成串；多源插值走 computed" {
   let code = match compile(
-      "<script setup lang=\"moonbit\">\nlet a : @base.Store[Int] = @base.Store::new(1)\nlet b : @base.Store[Int] = @base.Store::new(2)\n</script>\n<template>\n  <ui-col>\n    合计 {{ a }} + {{ b }}\n  </ui-col>\n</template>",
+      "<script>\nlet a : @base.Store[Int] = @base.Store::new(1)\nlet b : @base.Store[Int] = @base.Store::new(2)\n</script>\n<template>\n  <ui-col>\n    合计 {{ a }} + {{ b }}\n  </ui-col>\n</template>",
       "g.mng",
     ) {
     Ok(o) => o.code
@@ -183,7 +198,7 @@ test "静态属性字面量判定：裸串按字符串、单引号透传 MoonBit
 ///|
 test "受限表达式热更：文案/条件在文法内 HOT，并带 eval AST" {
   let base = [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let qty : @base.Store[Int] = @base.Store::new(1)",
     "let wifi : @base.Store[Bool] = @base.Store::new(true)",
     "let nick : @base.Store[String] = @base.Store::new(\"\")",
@@ -198,7 +213,7 @@ test "受限表达式热更：文案/条件在文法内 HOT，并带 eval AST" {
   ].join("\n")
   // 文案换字面量：@shared.tx 已注册 → HOT，IR 带 eval
   let text = [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let qty : @base.Store[Int] = @base.Store::new(1)",
     "let wifi : @base.Store[Bool] = @base.Store::new(true)",
     "let nick : @base.Store[String] = @base.Store::new(\"\")",
@@ -220,7 +235,7 @@ test "受限表达式热更：文案/条件在文法内 HOT，并带 eval AST" {
   assert_true(contains_sub(ir, "\"call\""))
   // 条件换成 qty > 5：Store 已登记 → HOT
   let cond = [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let qty : @base.Store[Int] = @base.Store::new(1)",
     "let wifi : @base.Store[Bool] = @base.Store::new(true)",
     "let nick : @base.Store[String] = @base.Store::new(\"\")",
@@ -291,7 +306,7 @@ test "样式数据：<style> 规则编成 p/e 对（应用侧按名字段）" {
 ///|
 test "受限表达式：文本插值改动也在文法内 HOT" {
   let base = [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let qty : @base.Store[Int] = @base.Store::new(1)",
     "</script>",
     "<template>",
@@ -299,7 +314,7 @@ test "受限表达式：文本插值改动也在文法内 HOT" {
     "</template>",
   ].join("\n")
   let changed = [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let qty : @base.Store[Int] = @base.Store::new(1)",
     "</script>",
     "<template>",
@@ -315,7 +330,7 @@ test "受限表达式：文本插值改动也在文法内 HOT" {
 ///|
 fn tir_src() -> String {
   [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let wifi : @base.Store[Bool] = @base.Store::new(true)",
     "let nick : @base.Store[String] = @base.Store::new(\"\")",
     "</script>",
@@ -350,7 +365,7 @@ test "IR 输出：结构树 + 内容键动态槽 + states/handlers 清单" {
 ///|
 test "HOT 键稳定：动态槽上方插静态行，IR 与登记表键都不漂" {
   let a = [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let qty : @base.Store[Int] = @base.Store::new(0)",
     "</script>",
     "<template>",
@@ -361,7 +376,7 @@ test "HOT 键稳定：动态槽上方插静态行，IR 与登记表键都不漂"
     "</template>",
   ].join("\n")
   let b = [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let qty : @base.Store[Int] = @base.Store::new(0)",
     "</script>",
     "<template>",
@@ -441,7 +456,7 @@ test "IR 握手字段：带 rev 与键集摘要，同 script 稳定、符号集�
   assert_eq(ir_str_field(ir2, "keys_digest"), base)
   // 符号集少一个 handler（requires 键集变）：摘要跟着变
   let more = [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let wifi : @base.Store[Bool] = @base.Store::new(true)",
     "let nick : @base.Store[String] = @base.Store::new(\"\")",
     "</script>",
@@ -504,7 +519,7 @@ fn card_sig() -> String {
 ///|
 test "props 头：升 pub、未用 props 消警告垫片、槽类型进响应判定" {
   let src = [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "fn card(title : String, qty : @base.Store[Int], on_reset : () -> Unit, wide? : Bool = false) -> @widget.Node",
     "let extra : @base.Store[Int] = @base.Store::new(1)",
     "</script>",
@@ -539,7 +554,7 @@ test "props 头：升 pub、未用 props 消警告垫片、槽类型进响应判
 ///|
 test "props 头缺返回类型报错；页内辅助函数不当头" {
   let r = compile(
-    "<script setup lang=\"moonbit\">\nfn card(title : String)\n</script>\n<template>\n  <ui-col />\n</template>",
+    "<script>\nfn card(title : String)\n</script>\n<template>\n  <ui-col />\n</template>",
     "x.mng",
   )
   assert_true(
@@ -549,7 +564,7 @@ test "props 头缺返回类型报错；页内辅助函数不当头" {
     },
   )
   let ok = compile(
-    "<script setup lang=\"moonbit\">\nfn on_reset(q : @base.Store[Int]) { q.set(0) }\nlet qty : @base.Store[Int] = @base.Store::new(1)\n</script>\n<template>\n  <ui-col>\n    数量：{{ qty }}\n    <ui-button text=\"重置\" @click=\"on_reset\" />\n  </ui-col>\n</template>",
+    "<script>\nfn on_reset(q : @base.Store[Int]) { q.set(0) }\nlet qty : @base.Store[Int] = @base.Store::new(1)\n</script>\n<template>\n  <ui-col>\n    数量：{{ qty }}\n    <ui-button text=\"重置\" @click=\"on_reset\" />\n  </ui-col>\n</template>",
     "y.mng",
   )
   match ok {
@@ -564,7 +579,7 @@ test "props 头缺返回类型报错；页内辅助函数不当头" {
 ///|
 test "跨包组件：路径从 let 右值推、顺序取签名、只作绑定的 let 不进生成体" {
   let src = [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let card = @pages.card",
     "let qty : @base.Store[Int] = @base.Store::new(2)",
     "fn on_reset() { qty.set(0) }",
@@ -621,7 +636,7 @@ test "同包组件零声明：裸名解析签名；解析失败指路 @mng" {
 ///|
 test "@mng 覆盖优先于自动解析（不规则落点逃生口）" {
   let src = [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let page = @shared.page",
     "// @mng page = @shared.page positional(children)",
     "</script>",
@@ -645,7 +660,7 @@ test "@mng 覆盖优先于自动解析（不规则落点逃生口）" {
 ///|
 test "样式章：<style> 摊平成 define_class、class 引用出 class_of、令牌与关键字落点" {
   let src = [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let qty : @base.Store[Int] = @base.Store::new(1)",
     "</script>",
     "<style>",
@@ -777,7 +792,7 @@ test "样式章：class 名进 IR（动态 class 转 COLD）" {
 ///|
 fn rich_src() -> String {
   [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let qty : @base.Store[Int] = @base.Store::new(3)",
     "let wifi : @base.Store[Bool] = @base.Store::new(true)",
     "fn on_reset() { qty.set(3) }",
@@ -923,7 +938,7 @@ test "样式章：flex 简写展开 grow/shrink/basis；坏值报错" {
 ///|
 test "引号：外层双引号里的单引号串自动换成双引号（单字符 Char 不动）" {
   let src = [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let flag : @base.Store[Bool] = @base.Store::new(true)",
     "</script>",
     "<template>",
@@ -946,7 +961,7 @@ test "引号：外层双引号里的单引号串自动换成双引号（单字�
 ///|
 test "引号：真正的 Char 字面量保持不动；含转义的单引号串报错指路" {
   let src = [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let c : @base.Store[String] = @base.Store::new(\"a\")",
     "</script>",
     "<template>",
@@ -1262,7 +1277,7 @@ fn sem_all_ty(src : String, toks : Array[SemTok], text : String, ty : Int) -> Bo
 ///|
 fn sem_fixture() -> String {
   [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "fn page(limit : Int) -> @widget.Node",
     "let qty : @base.Store[Int] = @base.Store::new(3)",
     "fn bump(x : Int) -> Int { qty.set(x) }",
@@ -1313,7 +1328,7 @@ test "semantic：类型/变量/参数/函数/方法/命名空间分档与修饰�
 ///|
 test "semantic：let mut 无 readonly、成员访问 property、残缺文档不炸" {
   let src = [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "fn page(n : Int) -> @widget.Node",
     "let mut count = 0",
     "let label = \"x\"",
@@ -1339,7 +1354,7 @@ test "semantic：let mut 无 readonly、成员访问 property、残缺文档不�
 ///|
 test "semantic：插值后的标签不再被吞（}} 停止界回归）" {
   let src = [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let qty : @base.Store[Int] = @base.Store::new(3)",
     "</script>",
     "<template>",
@@ -1386,7 +1401,7 @@ test "source map 正向索引：源位置→生成行，反查也能回投" {
 ///|
 fn tfor_src() -> String {
   [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let rows : @base.ListStore[@base.Item] = @base.ListStore::new()",
     "</script>",
     "<template>",
@@ -1415,7 +1430,7 @@ test "v-for：ListStore 源 + :key → for_list keyed，行内表达式不当槽
 ///|
 test "v-for：无 :key 走 for_list_indexed；(别名, 下标) 且下标被引用保原名" {
   let src = [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let rows : @base.ListStore[@base.Item] = @base.ListStore::new()",
     "</script>",
     "<template>",
@@ -1434,7 +1449,7 @@ test "v-for：无 :key 走 for_list_indexed；(别名, 下标) 且下标被引�
   assert_true(contains_sub(code, "@ui.text(i.to_string() + r.name)"))
   // 下标别名给了但没被引用：垫 _ 前缀保零警告
   let src2 = [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let rows : @base.ListStore[@base.Item] = @base.ListStore::new()",
     "</script>",
     "<template>",
@@ -1455,7 +1470,7 @@ test "v-for：无 :key 走 for_list_indexed；(别名, 下标) 且下标被引�
 ///|
 test "v-for 错误面：Store 源 / 非 Slot / :key 孤儿 / v-for+v-if / 嵌套" {
   let store_src = [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let rows : @base.Store[Int] = @base.Store::new(0)",
     "</script>",
     "<template>",
@@ -1469,7 +1484,7 @@ test "v-for 错误面：Store 源 / 非 Slot / :key 孤儿 / v-for+v-if / 嵌套
     _ => false
   })
   let plain_src = [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let name : String = \"x\"",
     "</script>",
     "<template>",
@@ -1488,7 +1503,7 @@ test "v-for 错误面：Store 源 / 非 Slot / :key 孤儿 / v-for+v-if / 嵌套
     _ => false
   })
   let with_if = [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let rows : @base.ListStore[@base.Item] = @base.ListStore::new()",
     "let on : @base.Store[Bool] = @base.Store::new(true)",
     "</script>",
@@ -1503,7 +1518,7 @@ test "v-for 错误面：Store 源 / 非 Slot / :key 孤儿 / v-for+v-if / 嵌套
     _ => false
   })
   let nested = [
-    "<script setup lang=\"moonbit\">",
+    "<script>",
     "let rows : @base.ListStore[@base.Item] = @base.ListStore::new()",
     "</script>",
     "<template>",

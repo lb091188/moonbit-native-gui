@@ -2,7 +2,7 @@
   "MNG 页骨架": {
     "prefix": "mngpage",
     "body": [
-      "<script setup lang=\"moonbit\">",
+      "<script>",
       "let ${1:qty} : @base.Store[Int] = @base.Store::new(0)",
       "</script>",
       "",
@@ -15,14 +15,14 @@
     ],
     "description": "最小 .mng 页（script + 单根模板）"
   },
-  "script setup 段": {
+  "script 段": {
     "prefix": "mngscript",
     "body": [
-      "<script setup lang=\"moonbit\">",
+      "<script>",
       "${0}",
       "</script>"
     ],
-    "description": "script setup 段"
+    "description": "script 段"
   },
   "组件 props 头": {
     "prefix": "mngprops",
