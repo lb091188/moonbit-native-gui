@@ -137,8 +137,45 @@ test "diff_file_sets：新增/删除各自成列，共有的不动" {
 }
 
 ///|
+///|
+/// 测试残留清理：递归删目录（tmp root 同名重跑时 scaffold 会撞「已存在」）。
+fn rm_rf_wb(root : String) -> Unit {
+  if !(@fs.path_exists(root)) {
+    return
+  }
+  let dirs = Ref([root])
+  let victims : Array[String] = []
+  while dirs.val.length() > 0 {
+    let d = dirs.val[dirs.val.length() - 1]
+    let _ = dirs.val.remove(dirs.val.length() - 1)
+    let entries = @fs.read_dir(d) catch { _ => [] }
+    for e in entries {
+      let p = d + "/" + e.to_string()
+      let isdir = @fs.is_dir(p) catch { _ => false }
+      if isdir {
+        dirs.val.push(p)
+      } else {
+        victims.push(p)
+      }
+    }
+    if d != root {
+      victims.push(d)
+    }
+  }
+  // 自底向上：深层目录排在数组后段，先删文件再删目录（同一项两个 try 兜底）
+  let mut k = victims.length() - 1
+  while k >= 0 {
+    let _ = @fs.remove_file(victims[k]) catch { _ => () }
+    let _ = @fs.remove_dir(victims[k]) catch { _ => () }
+    k -= 1
+  }
+  let _ = @fs.remove_dir(root) catch { _ => () }
+}
+
+///|
 test "scaffold_app_at：workspace 内现读版本，文件齐全，dev 生成码带 @mngdev" {
   let root = tmp_dir("mng_scaffold_ws")
+  rm_rf_wb(root)
   ensure_dir_p(root)
   ensure_dir_p(root + "/gui")
   write_file_p(root + "/moon.work", "members = [\n  \"gui\",\n]\n")
@@ -163,6 +200,7 @@ test "scaffold_app_at：workspace 内现读版本，文件齐全，dev 生成码
 ///|
 test "scaffold_app_at：非法名净化与 workspace 外兜底版本注释" {
   let root = tmp_dir("mng_scaffold_raw")
+  rm_rf_wb(root)
   ensure_dir_p(root)
   assert_eq(scaffold_app_at(root, "9app"), 0)
   let gmod = @fs.read_file_to_string(root + "/_9app/moon.mod") catch { _ => abort("moon.mod 缺") }
