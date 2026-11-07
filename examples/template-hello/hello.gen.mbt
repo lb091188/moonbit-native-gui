@@ -9,12 +9,21 @@ pub fn hello() -> @widget.Node {
     count.set(0)
     name.set("")
   }
-  @ui.col([
-    @ui.text("单文件页面（.mng）", class=@style.class_of(["title"])),
-    @ui.input(name, placeholder="你的名字", width=220.0),
-    @ui.bind_label(name, fn(_v) { "你好, \{name.get()}！" }),
-    @ui.stepper(count, max=10),
-    @ui.bind_label(count, fn(_v) { "计数: \{count.get()}" }),
-    @ui.button("重置", on_click=reset),
-  ], class=@style.class_of(["page"]))
+  let reg = @mngdev.mng_reg_new()
+  @mngdev.mng_reg_builtins(reg)
+  reg.expr("t:2cb56a2026da92c2", fn() { "你好, \{name.get()}！" })
+  reg.expr("t:59877c2953aca4cb", fn() { "计数: \{count.get()}" })
+  reg.handler("reset", reset)
+  reg.str("name", name)
+  reg.int("count", count)
+  @mngdev.mng_dev_page("hello", reg, fn() {
+    @ui.col([
+      @ui.text("单文件页面（.mng）", class=@style.class_of(["title"])),
+      @ui.input(name, placeholder="你的名字", width=220.0),
+      @ui.bind_label(name, fn(_v) { "你好, \{name.get()}！" }),
+      @ui.stepper(count, max=10),
+      @ui.bind_label(count, fn(_v) { "计数: \{count.get()}" }),
+      @ui.button("重置", on_click=reset),
+    ], class=@style.class_of(["page"]))
+  })
 }

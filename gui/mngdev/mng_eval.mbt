@@ -315,10 +315,13 @@ fn mng_reg_eval(reg : MngReg, key : String, j : MJ) -> Result[Unit, String] {
 ///|
 /// dev 档内置可调用函数（表达式求值用）：与 mngkit 的类型表同口径。
 pub fn mng_reg_builtins(reg : MngReg) -> Unit {
+  // `@shared.tx/@shared.tr` 是受限文法的约定名（模板作者在表达式里写的
+  // 取译调用），与具体应用的包别名无关：库侧直接走 @i18n 取译（中文态
+  // 回落原文，英文态命中目录），语义与 showcase 的 tx/tr 同款。
   reg.call("@shared.tx", fn(a) {
     if a.length() == 1 {
       match a[0] {
-        VString(s) => VString(tx(s))
+        VString(s) => VString(@i18n.t_or(s, s))
         _ => VString("")
       }
     } else {
@@ -328,7 +331,7 @@ pub fn mng_reg_builtins(reg : MngReg) -> Unit {
   reg.call("@shared.tr", fn(a) {
     if a.length() == 2 {
       match (a[0], a[1]) {
-        (VString(k), VString(z)) => VString(tr(k, z))
+        (VString(k), VString(z)) => VString(@i18n.t_or(k, z))
         _ => VString("")
       }
     } else {

@@ -11,8 +11,8 @@ pub fn dev_demo() -> @widget.Node {
     qty.set(3)
     nick.set("")
   }
-  let reg = @shared.mng_reg_new()
-  @shared.mng_reg_builtins(reg)
+  let reg = @mngdev.mng_reg_new()
+  @mngdev.mng_reg_builtins(reg)
   reg.expr("t:70658bcd67f2366f", fn() { @shared.tx("字号示例 16px") })
   reg.expr("t:23b5ac2c3e02a98e", fn() { @shared.tx("自动开启") })
   reg.expr("t:23894c4c3b9b256e", fn() { @shared.tx("已开启") })
@@ -22,7 +22,7 @@ pub fn dev_demo() -> @widget.Node {
   reg.bool("wifi", wifi)
   reg.int("qty", qty)
   reg.str("nick", nick)
-  @shared.mng_dev_page("dev_demo", reg, fn() {
+  @mngdev.mng_dev_page("dev_demo", reg, fn() {
     @ui.col([
       @ui.text(@shared.tx("字号示例 16px"), class=@style.class_of(["demo-title"])),
       @ui.checkbox(@shared.tx("自动开启"), wifi),

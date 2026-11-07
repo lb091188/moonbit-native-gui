@@ -1420,8 +1420,8 @@ fn compile_impl(
         }
       }
     }
-    g_emit(g, "  let reg = @shared.mng_reg_new()", hp)
-    g_emit(g, "  @shared.mng_reg_builtins(reg)", hp)
+    g_emit(g, "  let reg = @mngdev.mng_reg_new()", hp)
+    g_emit(g, "  @mngdev.mng_reg_builtins(reg)", hp)
     for (k, e, p) in regs.exprs {
       g_emit(g, "  reg.expr(" + q(k) + ", fn() { " + e + " })", p)
     }
@@ -1436,7 +1436,7 @@ fn compile_impl(
     }
     g_emit(
       g,
-      "  @shared.mng_dev_page(" + q(stem_of(filename)) + ", reg, fn() {",
+      "  @mngdev.mng_dev_page(" + q(stem_of(filename)) + ", reg, fn() {",
       hp,
     )
     for l in block {

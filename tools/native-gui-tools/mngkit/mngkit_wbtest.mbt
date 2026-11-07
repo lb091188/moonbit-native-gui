@@ -806,11 +806,11 @@ test "dev 形态：登记语句逐字 + mng_dev_page 调用（状态保活骨架
     "///|",
     "pub fn page() -> @widget.Node {",
     "  let qty : @base.Store[Int] = @base.Store::new(3)",
-    "  let reg = @shared.mng_reg_new()",
-    "  @shared.mng_reg_builtins(reg)",
+    "  let reg = @mngdev.mng_reg_new()",
+    "  @mngdev.mng_reg_builtins(reg)",
     "  reg.expr(\"t:498fd9ec4581764e\", fn() { \"当前数量：\\{qty.get()}\" })",
     "  reg.int(\"qty\", qty)",
-    "  @shared.mng_dev_page(\"page\", reg, fn() {",
+    "  @mngdev.mng_dev_page(\"page\", reg, fn() {",
     "    @ui.col([",
     "      @ui.stepper(qty, max=10),",
     "      @ui.bind_label(qty, fn(_v) { \"当前数量：\\{qty.get()}\" }),",
@@ -834,7 +834,7 @@ test "dev 形态：expr/cond/handler/state 四类登记齐（键与 IR 同口径
   assert_true(contains_sub(code, "reg.bool(\"wifi\", wifi)"))
   // 未走 v-model 的顶层 Store 也登记（受限表达式求值按名取状态）
   assert_true(contains_sub(code, "reg.int(\"qty\", qty)"))
-  assert_true(contains_sub(code, "@shared.mng_dev_page(\"card\", reg, fn() {"))
+  assert_true(contains_sub(code, "@mngdev.mng_dev_page(\"card\", reg, fn() {"))
 }
 
 ///|

@@ -1,0 +1,19 @@
+// 模板热更的应用侧 dev 面（IR 注册表 + applier + holder 原位替换 + 受限表达式
+// 求值器 + 类数据），与工具侧 mngkit 的 dev 档生成码配对（生成码引用
+// `@mngdev.mng_*` 家族，协议代次 MNG_IR_REV 两端同批）。
+// 方案与边界见 proposals/mngdev-library.md、proposals/native-template.md。
+supported_targets = "native"
+
+import {
+  "moonbitlang/x/fs" @fs,
+  "NoahLiu/native-gui/base",
+  "NoahLiu/native-gui/widget" @widget,
+  "NoahLiu/native-gui/ui",
+  "NoahLiu/native-gui/style" @style,
+  "NoahLiu/native-gui/text" @text,
+  "NoahLiu/native-gui/theme" @theme,
+  "NoahLiu/native-gui/win" @win,
+  "NoahLiu/native-gui/i18n" @i18n,
+  "NoahLiu/yoga-mbt/src" @yoga,
+}
+

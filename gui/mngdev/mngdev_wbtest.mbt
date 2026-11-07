@@ -162,7 +162,8 @@ test "受限表达式求值：Store/运算/条件/内置函数" {
     Some(f) => f()
     None => "缺登记"
   }
-  assert_eq(txv, tx("A"))
+  // 库侧语义：@shared.tx 求值 = @i18n.t_or（测试未装载英文目录 → 回落原文）
+  assert_eq(txv, "A")
   // qty > 5 → false
   let cond_ast =
     "{\"k\":\"bin\",\"op\":\">\",\"l\":{\"k\":\"get\",\"a\":{\"k\":\"id\",\"v\":\"qty\"}},\"r\":{\"k\":\"int\",\"v\":5}}"

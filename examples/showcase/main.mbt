@@ -279,7 +279,7 @@ fn main {
       // 首实例：注册唤起回调——模板补丁走 --mng-hot 原位重挂；其余切回首页冒提示
       @shell.on_instance_wake(fn(args : Array[String]) -> Unit {
         if args.length() == 2 && args[0] == "--mng-hot" {
-          match @shared.mng_dev_apply_from_file(args[1]) {
+          match @mngdev.mng_dev_apply_from_file(args[1]) {
             Ok(_) => {
               nav.goto("模板 Dev")
               app.toast_push(@shared.tx("模板补丁已应用"), @ui.Info)
@@ -287,13 +287,13 @@ fn main {
             Err(e) => app.toast_push(@shared.tr_with("dyn.mng_err", [("a", e)], "补丁失败：\{e}"), @ui.Warning)
           }
         } else if args.length() == 2 && args[0] == "--mng-page" {
-          match @shared.mng_dev_page_title(args[1]) {
+          match @mngdev.mng_dev_page_title(args[1]) {
             Some(title) => nav.goto(title)
             None => println("SHOWCASE-DEV: 未登记的模板页 " + args[1])
           }
         } else if args.length() == 2 && args[0] == "--mng-theme" {
           // reload-theme 通道：主题 JSON 数据文件重载（from_json + 整套应用）
-          match @shared.mng_dev_theme_src(args[1]) {
+          match @mngdev.mng_dev_theme_src(args[1]) {
             Some(src) =>
               match @theme.from_json(src) {
                 Ok(t) => {

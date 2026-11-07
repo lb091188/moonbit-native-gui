@@ -14,13 +14,13 @@ pub fn vfor_demo() -> @widget.Node {
   fn clear_rows() {
     rows.splice(0, rows.length(), [])
   }
-  let reg = @shared.mng_reg_new()
-  @shared.mng_reg_builtins(reg)
+  let reg = @mngdev.mng_reg_new()
+  @mngdev.mng_reg_builtins(reg)
   reg.handler("add_row", add_row)
   reg.handler("remove_first", remove_first)
   reg.handler("clear_rows", clear_rows)
   reg.int("next_id", next_id)
-  @shared.mng_dev_page("vfor_demo", reg, fn() {
+  @mngdev.mng_dev_page("vfor_demo", reg, fn() {
     @ui.col([
       @ui.text("列表数据走 ListStore（keyed 差分只重挂该动的行）；本页由 .mng 模板编译产出。"),
       @ui.row([

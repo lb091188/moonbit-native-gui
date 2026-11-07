@@ -15,6 +15,7 @@ import {
   "NoahLiu/native-gui/win",
   "NoahLiu/native-gui/dbus" @dbus,
   "NoahLiu/native-gui-examples-showcase/shared",
+  "NoahLiu/native-gui/mngdev" @mngdev,
   "NoahLiu/native-gui-examples-showcase/pages",
 }
 
