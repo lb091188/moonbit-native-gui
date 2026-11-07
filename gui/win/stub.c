@@ -13910,15 +13910,19 @@ static void *l1_dlsym(void *h, const char *n) {
 }
 #endif
 
-// 库名按平台取 vendor 归档的实际产物：Linux .so / mac .dylib。
-#if defined(__APPLE__)
+// 库名按平台取 vendor 归档的实际产物：Windows dll / Linux .so / mac .dylib
+// （Windows 产物无 lib 前缀；漏了这条 Windows 上候选整链落空）。
+#if defined(_WIN32)
+#define L1_LIB_BASE "wgpu_native.dll"
+#elif defined(__APPLE__)
 #define L1_LIB_BASE "libwgpu_native.dylib"
 #else
 #define L1_LIB_BASE "libwgpu_native.so"
 #endif
 
-// 候选序与 gui-gpu/triangle.c 逐字一致：环境变量 → 仓库布局逐级向上 →
-// 系统名（dlopen 试错，不需要 stat；发行的应用走不到仓库布局那两级）。
+// 候选序与 gui-gpu 的 probe.c / wgpu_core.c 一致：环境变量 → vendor 相对路径
+// → 仓库布局逐级向上 → 系统名（dlopen/LoadLibrary 试错，不需要 stat；发行的
+// 应用走不到仓库布局那两级，裸名走平台搜索序——Windows 把 dll 放 exe 旁即可）。
 static int l1_load_lib(void) {
   if (g_l1_lib) {
     return 1;
@@ -13927,21 +13931,45 @@ static int l1_load_lib(void) {
   if (env && env[0]) {
     g_l1_lib = l1_dlopen(env);
   }
-#if !defined(_WIN32)
+  if (!g_l1_lib) {
+    g_l1_lib = l1_dlopen("vendor/lib/" L1_LIB_BASE);
+  }
+  if (!g_l1_lib) {
+    g_l1_lib = l1_dlopen("vendor/" L1_LIB_BASE);
+  }
+  // 仓库布局候选：从 cwd 逐级向上找 <anc>/vendor/lib/<lib> 与
+  // <anc>/modules/gui-gpu/vendor/lib/<lib>——应用从 examples/<name> 或仓库根
+  // 跑都能找到模块 vendor。三平台同形：Windows 取 cwd 用 GetCurrentDirectoryA
+  // （POSIX 用 getcwd），LoadLibraryA 接受 '/' 作分隔符。
   if (!g_l1_lib) {
     char anc[1024];
-    if (getcwd(anc, sizeof anc)) {
+    int have_cwd = 0;
+#if defined(_WIN32)
+    DWORD wn = GetCurrentDirectoryA((DWORD)sizeof anc, anc);
+    have_cwd = (wn > 0 && wn < (DWORD)sizeof anc);
+#else
+    have_cwd = (getcwd(anc, sizeof anc) != NULL);
+#endif
+    if (have_cwd) {
       for (int hop = 0; hop < 16 && !g_l1_lib; hop++) {
         char cand[1200];
-        snprintf(cand, sizeof cand, "%s/vendor/lib/" L1_LIB_BASE, anc);
+        snprintf(cand, sizeof cand, "%s/vendor/lib/%s", anc, L1_LIB_BASE);
         g_l1_lib = l1_dlopen(cand);
         if (!g_l1_lib) {
-          snprintf(cand, sizeof cand,
-                   "%s/modules/gui-gpu/vendor/lib/" L1_LIB_BASE, anc);
+          snprintf(cand, sizeof cand, "%s/modules/gui-gpu/vendor/lib/%s", anc,
+                   L1_LIB_BASE);
           g_l1_lib = l1_dlopen(cand);
         }
         char *slash = strrchr(anc, '/');
-        if (!slash || slash == anc) {
+#if defined(_WIN32)
+        // Windows cwd 用反斜杠：取两种分隔符里更靠右的那个；截到盘符根
+        // （如 "D:"）就停，别把盘符再截成空串
+        char *bslash = strrchr(anc, '\\');
+        if (!slash || (bslash && bslash > slash)) {
+          slash = bslash;
+        }
+#endif
+        if (!slash || slash == anc || (size_t)(slash - anc) <= 2) {
           break;
         }
         *slash = 0;
@@ -13951,11 +13979,6 @@ static int l1_load_lib(void) {
   if (!g_l1_lib) {
     g_l1_lib = l1_dlopen(L1_LIB_BASE);
   }
-#else
-  if (!g_l1_lib) {
-    g_l1_lib = l1_dlopen("wgpu_native.dll");
-  }
-#endif
   if (!g_l1_lib) {
     snprintf(g_l1_missing, sizeof g_l1_missing, "wgpu 库装载失败（L1 回退原路径）");
     return 0;

@@ -3839,7 +3839,7 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 
 **判据**：从仓库根实跑探针得 `probe loaded=true detail=loaded(D:/code/moonbit-native-gui/modules/gui-gpu/vendor/lib/wgpu_native.dll)` → `canvas: Ok 64x48` → `finish: sample B,G,R,A=0,0,255,255, nonzero=1536`（32×24 红矩形，R+A 两槽非零）；`cd modules/gui-gpu && moon test gpu` 3/3 且像素断言真执行；全仓 `moon check`、库 `moon check`、全仓 `moon build --target native` 零错误零警告。
 
-**边界**：`gui/win/stub.c` 的 L1 呈现核心**刻意未动**——它的 Windows 分支同样只试裸名 dll，但一旦装载成功 `WmL1.on` 会让 Win32 `WM_PAINT` 停手、整窗改走 wgpu present，这条路径在 Windows 上从未真机验收；当前探测面板如实显示「回退 CPU 路径」，与 L2 的 `GpuCanvas` 能否出图是两回事（画布读回后仍由 CPU 位图 `draw_canvas` 上屏）。发行形态（cwd 在仓库外）走 `MNG_WGPU_LIB`，或把 `wgpu_native.dll` 放 exe 同目录由裸名的 DLL 搜索序命中。
+**边界（2026-11-07 已收）**：`gui/win/stub.c` 的 L1 呈现核心原先**刻意未动**——Windows 分支只试裸名 `wgpu_native.dll`，且 `L1_LIB_BASE` 仍是 `.so`，从仓库布局跑一律装载失败（Win 腿首验只能「dll 放 exe 旁 / 设 `MNG_WGPU_LIB`」）。现补齐同一套口径：库名加 `_WIN32` 档，候选序与 `probe.c`、`wgpu_core.c` 一字不差（`MNG_WGPU_LIB` → `vendor/lib/`、`vendor/` 相对路径 → cwd 逐级上溯 `<anc>/vendor/lib` 与 `<anc>/modules/gui-gpu/vendor/lib` → 裸名走平台搜索序），`GetCurrentDirectoryA` 取 cwd、正反斜杠取更靠右者截断、`<= 2` 停在盘符根（`D:`）。发行形态（cwd 在仓库外）仍走 `MNG_WGPU_LIB` 或把 dll 放 exe 同目录。Win 呈现档本身已于 2026-11-06 真机通过（界面与纯光栅一致、无闪烁、resize 不花），回归口径见 `测试文档/测试用例.md` SC-16.6。
 ## 原生弹层窗三件：不激活、禁 GPU present 档、延迟上屏（2026-11-06，win/mac/linux 真机迭代）
 
 菜单/下拉类弹层在原生档下是独立窗口，三端各自的坑都出在「这是个窗」上：
