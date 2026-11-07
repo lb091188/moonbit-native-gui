@@ -523,6 +523,25 @@ function startClient(ctx, cli, diagnostics) {
       if (doc.languageId === 'mng' && client) {
         client.didClose(doc);
       }
+    }),
+    vscode.workspace.onDidSaveTextDocument((doc) => {
+      if (doc.languageId === 'mng' && client) {
+        const uri = doc.uri.toString();
+        // didSave 触发 moon check 联动：server 无时钟，client 连发 25 个
+        // tick（约 10s 上限）供其轮询进程退出；诊断基于磁盘生成码，dev
+        // 循环负责新鲜度。
+        client.notify('textDocument/didSave', { textDocument: { uri } });
+        let ticks = 0;
+        const timer = setInterval(() => {
+          ticks += 1;
+          if (client && ticks <= 25) {
+            client.notify('$/mng/checkTick', {});
+          } else {
+            clearInterval(timer);
+          }
+        }, 400);
+        ctx.subscriptions.push({ dispose: () => clearInterval(timer) });
+      }
     })
   );
 }

@@ -556,3 +556,54 @@ test "LSP：URI 归一（盘符/反斜杠/百分号，Windows 形态任何平台
   assert_eq(path_to_uri(uri_to_path("file:///c%3A/x/p.mng")), "file:///c:/x/p.mng")
   assert_eq(uri_to_path(path_to_uri("/home/me/p.mng")), "/home/me/p.mng")
 }
+
+///|
+test "parse_mooncheck_errors：框式日志提生成码位置，message 收 ╰── 行，其他文件跳过" {
+  let log = [
+    "Error: [4014]",
+    "    ╭─[ /w/app/pages/hello.gen.mbt:17:45 ]",
+    "    │",
+    " 17 │     @ui.bind_label(count, fn(_v) { \"计数: \" + count.get() }),",
+    "    │                                               ──┬──  ",
+    "    │                                                 ╰──── Expr Type Mismatch",
+    "    │                                                 ╰──── wanted: String",
+    "",
+    "Error: [4014]",
+    "    ╭─[ /w/app/other.gen.mbt:3:1 ]",
+    "    │ 3 │ whatever",
+    "    │   ╰──── 不相关的错误",
+  ].join("\n")
+  let hits = parse_mooncheck_errors(log, "hello.gen.mbt")
+  assert_eq(hits.length(), 1)
+  assert_eq(hits[0].0, 17)
+  assert_eq(hits[0].1, 45)
+  assert_true(contains_sub_cli(hits[0].2, "Expr Type Mismatch"))
+}
+
+///|
+test "lsp_map_lookup：gen_line ≤ 目标的最靠后条目，头行跳过" {
+  let map = "# mng source map v1\nsource hello.mng\ngen hello.gen.mbt\n10\t3\t5\n14\t6\t7\n20\t9\t1\n"
+  assert_eq(lsp_map_lookup(map, 10), Some((3, 5)))
+  assert_eq(lsp_map_lookup(map, 14), Some((6, 7)))
+  assert_eq(lsp_map_lookup(map, 19), Some((6, 7)))
+  assert_eq(lsp_map_lookup(map, 20), Some((9, 1)))
+  assert_eq(lsp_map_lookup(map, 5), None)
+}
+
+///|
+test "check_map_path：模板在子包与根包两种落点" {
+  assert_eq(
+    check_map_path("/w/app", "/w/app/pages/hello.mng"),
+    "/w/app/.mng/map/pages/hello.gen.mbt.map",
+  )
+  assert_eq(
+    check_map_path("/w/app", "/w/app/hello.mng"),
+    "/w/app/.mng/map/hello.gen.mbt.map",
+  )
+}
+
+///|
+test "stem_of_path / dir_name_of_lsp：basename 去 stem、目录部分" {
+  assert_eq(stem_of_path("/w/app/pages/dev_demo.mng"), "dev_demo")
+  assert_eq(dir_name_of_lsp("/w/app/pages/hello.mng"), "/w/app/pages")
+}

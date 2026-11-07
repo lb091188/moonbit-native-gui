@@ -684,6 +684,13 @@ fn contains_sub_cli(s : String, sub : String) -> Bool {
 /// 诊断通知：编译错误 → publishDiagnostics（行列取自错误文本的「行 L 列 C」）。
 fn lsp_diagnostics(uri : String, text : String) -> String {
   let diags : Array[String] = []
+  // moon check 回投项（didSave 轮询产出的缓存，与模板结构诊断同通道合并）
+  for d in check_diags.val.get_or_default(uri, []) {
+    let (l, c, msg) = d
+    let start = "{\"range\":{\"start\":{\"line\":" + l.to_string() + ",\"character\":" + c.to_string() + "}"
+    let tail = ",\"end\":{\"line\":" + (l + 1).to_string() + ",\"character\":0}}"
+    diags.push(start + tail + ",\"severity\":1,\"source\":\"moon check\",\"message\":" + jq(msg) + "}")
+  }
   match mng_compile(text, uri_to_path(uri)) {
     Ok(_) => ()
     Err(e) => {
@@ -1481,6 +1488,18 @@ fn lsp_handle(docs : Map[String, String], body : String) -> LspOut {
         }
         _ => { reply: None, notify: None, stop: false }
       }
+    }
+    "textDocument/didSave" => {
+      let uri = doc_uri(parsed)
+      match uri {
+        Some(u) => check_kickoff(u)
+        None => ()
+      }
+      { reply: None, notify: None, stop: false }
+    }
+    "$/mng/checkTick" => {
+      check_tick(docs)
+      { reply: None, notify: None, stop: false }
     }
     "textDocument/completion" => {
       let uri = doc_uri(parsed)
