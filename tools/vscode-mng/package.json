@@ -32,6 +32,12 @@
         "title": "MNG: 新建页面"
       }
     ],
+    "configurationDefaults": {
+      "explorer.fileNesting.enabled": true,
+      "explorer.fileNesting.patterns": {
+        "*.mng": "*.gen.mbt"
+      }
+    },
     "languages": [
       {
         "id": "mng",
