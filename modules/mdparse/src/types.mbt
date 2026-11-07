@@ -11,10 +11,11 @@
 ///|
 /// Using #valtype to avoid heap allocation for this frequently-used small struct
 #valtype
+#derive(Eq, Debug)
 pub(all) struct Span {
   from : Int
   to : Int
-} derive(Eq, Debug)
+}
 
 ///|
 /// Create a span
@@ -34,47 +35,53 @@ pub fn Span::empty() -> Span {
 
 ///|
 /// Emphasis marker: * or _
+#derive(Eq, Debug)
 pub(all) enum EmphasisMarker {
   Asterisk // *
   Underscore // _
-} derive(Eq, Debug)
+}
 
 ///|
 /// Fence marker for code blocks: ``` or ~~~
+#derive(Eq, Debug)
 pub(all) enum FenceMarker {
   Backtick // ```
   Tilde // ~~~
-} derive(Eq, Debug)
+}
 
 ///|
 /// List marker for unordered lists: -, *, +
+#derive(Eq, Debug)
 pub(all) enum BulletMarker {
   Dash // -
   Asterisk // *
   Plus // +
-} derive(Eq, Debug)
+}
 
 ///|
 /// Ordered list delimiter: . or )
+#derive(Eq, Debug)
 pub(all) enum OrderedDelimiter {
   Dot // 1.
   Paren // 1)
-} derive(Eq, Debug)
+}
 
 ///|
 /// Heading style
+#derive(Eq, Debug)
 pub(all) enum HeadingStyle {
   Atx // # Heading
   Setext // Heading\n======
-} derive(Eq, Debug)
+}
 
 ///|
 /// Syntax used by a link or image reference.
+#derive(Eq, Debug)
 pub(all) enum ReferenceStyle {
   Full // [text][label]
   Collapsed // [text][]
   Shortcut // [text]
-} derive(Eq, Debug)
+}
 
 // =============================================================================
 // Trivia (preserved whitespace/formatting)
@@ -82,9 +89,10 @@ pub(all) enum ReferenceStyle {
 
 ///|
 /// Trivia represents non-semantic characters that should be preserved
+#derive(Eq, Debug)
 pub(all) struct Trivia {
   content : String
-} derive(Eq, Debug)
+}
 
 ///|
 pub fn Trivia::new(content : String) -> Trivia {
@@ -171,20 +179,22 @@ pub(all) struct Frontmatter {
 
 ///|
 /// One normalized block attribute from `{#id .class key=value}`.
+#derive(Eq, Debug)
 pub(all) struct MarkdownAttribute {
   name : String
   value : String
-} derive(Eq, Debug)
+}
 
 ///|
 /// GitHub alert kind (`> [!NOTE]`, etc.).
+#derive(Eq, Debug)
 pub(all) enum AlertKind {
   Note
   Tip
   Important
   Warning
   Caution
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for AlertKind with fn output(self : AlertKind, logger : &Logger) -> Unit {
@@ -368,12 +378,13 @@ pub(all) struct DefinitionItem {
 
 ///|
 /// Table alignment
+#derive(Eq, Debug)
 pub(all) enum TableAlign {
   Left
   Center
   Right
   None
-} derive(Eq, Debug)
+}
 
 // =============================================================================
 // Inline-level CST Nodes
@@ -440,10 +451,11 @@ pub(all) enum Inline {
 
 ///|
 /// Hard break style
+#derive(Eq, Debug)
 pub(all) enum HardBreakStyle {
   TwoSpaces // "  \n"
   Backslash // "\\\n"
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for TableAlign with fn output(self : TableAlign, logger : &Logger) -> Unit {

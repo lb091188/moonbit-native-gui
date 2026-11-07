@@ -5,11 +5,12 @@
 
 ///|
 /// 终端色：默认前景/背景、ANSI 索引（0..255，16..231 走 6×6×6 立方）、真彩色。
+#derive(Eq, Debug)
 pub(all) enum TermColor {
   Default
   Indexed(Int)
   Rgb(Int, Int, Int)
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend TermColor with Eq::{equal, not_equal}

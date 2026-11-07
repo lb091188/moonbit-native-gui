@@ -41,6 +41,7 @@ pub fn parse(
 
 ///|
 /// The kind of an open block.
+#derive(Eq)
 priv enum NodeKind {
   DocNode
   BlockQuoteNode
@@ -57,10 +58,11 @@ priv enum NodeKind {
   TableNode
   FootnoteDefNode
   BlankLinesNode
-} derive(Eq)
+}
 
 ///|
 /// CommonMark's seven HTML block start conditions.
+#derive(Eq)
 priv enum HtmlBlockKind {
   None
   RawText
@@ -70,7 +72,7 @@ priv enum HtmlBlockKind {
   Cdata
   BlockTag
   CompleteTag
-} derive(Eq)
+}
 
 ///|
 fn HtmlBlockKind::ends_on_blank_line(self : HtmlBlockKind) -> Bool {

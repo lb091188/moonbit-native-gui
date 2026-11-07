@@ -7,6 +7,7 @@
 ///|
 /// 图标种类(线条风格为主,个别实心)。绘制语义:中心 (cx,cy)、
 /// s 为内容半径(半边长),坐标系同 Painter。
+#derive(Eq, Debug)
 pub(all) enum IconKind {
 
   // ---- icons-gen:variants
@@ -814,7 +815,7 @@ pub(all) enum IconKind {
   UserTalk // user-talk
   More // more
   // ---- icons-gen:end ----
-} derive(Eq, Debug)
+}
 
 ///|
 pub extend IconKind with Eq::{equal, not_equal}

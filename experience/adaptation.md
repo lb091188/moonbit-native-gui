@@ -3885,3 +3885,8 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 ## shell 平台感知映射的用例写死非 mac 预期：mac 本地门禁即红（2026-11-07）
 
 `gs_trigger_of` 的 `CmdOrCtrl` 落平台主修饰（mac→Super，余→Control）、`notify_backend_name_of(WinBalloon)` 按平台报真名（mac→"un-user-notification"），两条 wbtest 却写死 Linux/Windows 预期值——真机 Windows 全绿，mac 本地跑门禁必红。修法：用例内按 `platform_is_macos()` 分支给预期（与实现同一判据），三端各自钉死全强度断言。写平台感知函数的单测时，预期值要么按平台分支、要么把用例挪进平台门禁清单，不能只在自己真机上验证。
+## 工具链 2026-11 升级批：moonc 0.10.20 两条弃用 + async 并入 core（2026-11-07）
+
+- `derive(...)` 后置语法弃用：`} derive(Eq, Debug)` 改为类型声明前的 `#derive(Eq, Debug)`（`///|` 与 doc 注释之后、`pub` 之前）。本仓 16 处已迁。
+- `String.view(start_offset~, end_offset~)` 弃用，拆成 `clamped_view(start~, end~)`（越界钳制）与 `exact_view(start~, end~)`（须精确对齐）。本仓仅 mdparse 三处测试用例，按旧 view 的钳制语义迁 `clamped_view`，断言全过。
+- `moonbitlang/async` 独立库并入 core：全仓排查（moon.mod / moon.pkg / .mbt / .mbtx / .mooncakes 传递闭包）零使用，无需迁移；`experience/adaptation.md` 旧条目中的 async 提及均为历史记录。`.agents/skills/moonbit-agent-guide/` 里指名 async 库的段落系上游指南文档，随上游更新，不在本仓代码面。
