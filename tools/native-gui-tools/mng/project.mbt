@@ -249,7 +249,10 @@ fn module_name_at(dir : String) -> String {
 }
 
 ///|
-/// 模块名 → 单实例 app_id：小写、`/` → `.`、其余非法字符 → `_`。
+/// 模块名 → 单实例 app_id：小写、`/` → `.`、其余非法字符 → `_`；
+/// 派生结果无点分（裸名工程，无作者段）时垫 `local.` 命名空间——
+/// 字法规格要 ≥2 个点分元素，裸名会让 instance_claim 给 InvalidAppId、
+/// 单实例通道整个降级（mng dev 的 HOT 唤起与 COLD 回页全失效）。
 fn app_id_of_module(name : String) -> String {
   let out = StringBuilder()
   for c in name {
@@ -266,7 +269,19 @@ fn app_id_of_module(name : String) -> String {
       out.write_char('_')
     }
   }
-  out.to_string()
+  let s = out.to_string()
+  let mut has_dot = false
+  for c in s {
+    if c == '.' {
+      has_dot = true
+      break
+    }
+  }
+  if has_dot {
+    s
+  } else {
+    "local." + s
+  }
 }
 
 ///|

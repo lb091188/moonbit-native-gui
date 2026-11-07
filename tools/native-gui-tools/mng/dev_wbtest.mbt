@@ -199,7 +199,7 @@ test "scaffold_app_at：workspace 内现读版本，文件齐全，dev 生成码
   assert_true(contains_sub_cli(gen, "@mngdev.mng_dev_page(\"home\""))
   assert_true(contains_sub_cli(gen, "pub fn home() -> @widget.Node"))
   let main_mbt = @fs.read_file_to_string(root + "/my_app/main.mbt") catch { _ => abort("main.mbt 缺") }
-  assert_true(contains_sub_cli(main_mbt, "@shell.instance_claim(\"my_app\")"))
+  assert_true(contains_sub_cli(main_mbt, "@shell.instance_claim(\"local.my_app\")"))
   assert_true(contains_sub_cli(main_mbt, "@mngdev.mng_dev_apply_from_file"))
   // 目录已存在拒绝
   assert_eq(scaffold_app_at(root, "my_app"), 1)
