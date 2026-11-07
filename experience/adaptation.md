@@ -3882,3 +3882,6 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 ## macOS 测试/示例链接失败：win 桩归档只编了 stub.c，缺 wm_crash_* 定义方（2026-11-07）
 
 **症状**：`moon test`（gui 下任一含 sys/web 的包）链接期报 `_wm_crash_mark` / `_wm_crash_note` symbol(s) not found，arm64。**根因**：`crash_log.c` 与 `stub.c` 是「同编」关系（调用点不落平台宏），Windows 下两者都在 native-stub 归档里所以没事；mac 的 WM_STUB_MAC 实现分支由 `gui/scripts/prebuild.py` 单独编 `stub.c` 成 `libyue_win_stub_mac.a`，crash_log.c 没跟上，分支内 5 处调用即成悬空引用（dbus/sys 等不引 win 包的测试目标不会链进 win 归档，符号无处可取）。**修法**：`compile_mac_stub` 支持多源文件（对齐 `compile_stub` 的多源口径），win 桩改传 `[stub.c, crash_log.c]`；同符号两处定义（native-stub 空分支 + 桩归档空实现）不冲突——ar 成员惰性拉取，先到先得，另一份无其他符号永不被拉。改 prebuild 后旧 `.a` 因 mtime 判新不会被重编，须手动删 `gui/build/libyue_win_stub_mac.a` 一次。GTK 分支零调用，Linux 不受影响。
+## shell 平台感知映射的用例写死非 mac 预期：mac 本地门禁即红（2026-11-07）
+
+`gs_trigger_of` 的 `CmdOrCtrl` 落平台主修饰（mac→Super，余→Control）、`notify_backend_name_of(WinBalloon)` 按平台报真名（mac→"un-user-notification"），两条 wbtest 却写死 Linux/Windows 预期值——真机 Windows 全绿，mac 本地跑门禁必红。修法：用例内按 `platform_is_macos()` 分支给预期（与实现同一判据），三端各自钉死全强度断言。写平台感知函数的单测时，预期值要么按平台分支、要么把用例挪进平台门禁清单，不能只在自己真机上验证。

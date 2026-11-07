@@ -57,10 +57,16 @@ test "NotifyError 的 Show 两种变体" {
 }
 
 ///|
-test "notify_backend 名字映射（纯函数，确定性）" {
+test "notify_backend 名字映射（确定性，mac 按读数报真名）" {
   assert_eq(notify_backend_name_of(Some(Dbus)), "dbus")
-  // macOS 的后端住在 win 桩同一支 `wm_notify_*`，实为 UNUserNotificationCenter
-  assert_eq(notify_backend_name_of(Some(WinBalloon)), "win-balloon")
+  // macOS 的后端住在 win 桩同一支 `wm_notify_*`，实为 UNUserNotificationCenter——
+  // mac 报 "un-user-notification"，其余平台报 "win-balloon"
+  let balloon = if platform_is_macos() {
+    "un-user-notification"
+  } else {
+    "win-balloon"
+  }
+  assert_eq(notify_backend_name_of(Some(WinBalloon)), balloon)
   assert_eq(notify_backend_name_of(None), "none")
 }
 
