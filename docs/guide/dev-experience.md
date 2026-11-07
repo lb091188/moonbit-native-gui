@@ -39,11 +39,6 @@ Follow the [five-minute tutorial](tutorial.md) §3: replace `cmd/main/main.mbt` 
 
 Write the UI as a declarative template and the state/logic in MoonBit — both in one `.mng` file; the `mng` tool pre-compiles it to `.mbt` and the normal `moon build` takes over. `moon check` remains the only type gate. Full semantics live in `proposals/native-template.md`; a runnable minimal example is `examples/template-hello`.
 
-### Start
-
-- **New project**: `mng new --app my_app` generates a runnable minimal project (dependency versions are read live when generated inside the native-gui workspace) — `cd my_app && moon run .`.
-- **Existing project**: `mng init` writes `mng.toml`.
-
 ### Install
 
 From the repository root:
@@ -54,6 +49,11 @@ mng --version   # prints mng 0.1.0 and mng-schema 1
 ```
 
 For editor support install the VS Code extension from `tools/vscode-mng` (coloring / completion / hover / jump / diagnostics; **saving runs `moon check` and feeds type errors back into Problems** — see its README).
+
+### Start
+
+- **New project**: `mng new --app my_app` generates a runnable minimal project (dependency versions are read live when generated inside the native-gui workspace) — `cd my_app && moon run .`.
+- **Existing project**: `mng init` writes `mng.toml`.
 
 ### What a page looks like
 

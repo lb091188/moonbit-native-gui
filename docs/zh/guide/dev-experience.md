@@ -39,11 +39,6 @@ supported_targets = "native"
 
 界面用声明式模板写、状态与逻辑用 MoonBit 写，两段合在一个 `.mng` 文件里，由 `mng` 工具预编译成 `.mbt` 再走 `moon build`——`moon check` 仍是唯一类型门禁。完整语义见 `proposals/native-template.md`；可跑的最小示例在 `examples/template-hello`。
 
-### 起
-
-- **从零起工程**：`mng new --app my_app`（在 native-gui workspace 内生成时依赖版本现读）生成可跑最小工程——`cd my_app && moon run .`。
-- **既有工程接模板**：`mng init` 写 `mng.toml`。
-
 ### 装
 
 仓库根执行（工具随本仓分发）：
@@ -54,6 +49,11 @@ mng --version   # 应打印 mng 0.1.0 与 mng-schema 1
 ```
 
 编辑器体验装 VS Code 扩展 `tools/vscode-mng`（着色/补全/hover/跳转/诊断，见其 README）。
+
+### 起
+
+- **从零起工程**：`mng new --app my_app`（在 native-gui workspace 内生成时依赖版本现读）生成可跑最小工程——`cd my_app && moon run .`。
+- **既有工程接模板**：`mng init` 写 `mng.toml`。
 
 ### 页面长什么样
 

@@ -62,7 +62,7 @@ fn scaffold_app_at(parent : String, raw_name : String) -> Int {
       }
   }
   println("OK " + dir)
-  println("下一步：cd \{name} && moon run .   （热更：moon install 本仓 tools/native-gui-tools 后 `mng dev`）")
+  println("下一步：cd \{name} && moon run .   （热更：mng dev）")
   0
 }
 
