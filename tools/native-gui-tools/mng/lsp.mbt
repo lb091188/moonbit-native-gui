@@ -1462,7 +1462,7 @@ fn lsp_handle(docs : Map[String, String], body : String) -> LspOut {
         None => ()
       }
       let caps = "{\"capabilities\":{\"textDocumentSync\":1," + "\"completionProvider\":{\"triggerCharacters\":[\"<\",\":\",\"@\",\"{\",\" \",\"\\\"\",\".\",\"-\",\"(\"]},"
-      let caps2 = "\"hoverProvider\":true,\"definitionProvider\":true,\"semanticTokensProvider\":{\"legend\":" + sem_legend_json() + ",\"full\":true}}," + "\"serverInfo\":{\"name\":\"mng\",\"version\":\"0.1.0\"}}"
+      let caps2 = "\"hoverProvider\":true,\"definitionProvider\":true,\"semanticTokensProvider\":{\"legend\":" + sem_legend_json() + ",\"full\":true}}," + "\"serverInfo\":{\"name\":\"mng\",\"version\":\"" + MNG_VERSION + "\"}}"
       lsp_ok(respond(caps + caps2))
     }
     "shutdown" => lsp_ok(respond("null"))

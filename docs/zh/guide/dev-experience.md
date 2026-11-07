@@ -45,7 +45,7 @@ supported_targets = "native"
 
 ```sh
 moon install ./tools/native-gui-tools/mng
-mng --version   # 应打印 mng 0.1.0 与 mng-schema 1
+mng --version   # 应打印 mng 0.2.0 与 mng-schema 1
 ```
 
 编辑器体验装 VS Code 扩展 `tools/vscode-mng`（着色/补全/hover/跳转/诊断，见其 README）。

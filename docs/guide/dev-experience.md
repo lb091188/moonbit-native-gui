@@ -45,7 +45,7 @@ From the repository root:
 
 ```sh
 moon install ./tools/native-gui-tools/mng
-mng --version   # prints mng 0.1.0 and mng-schema 1
+mng --version   # prints mng 0.2.0 and mng-schema 1
 ```
 
 For editor support install the VS Code extension from `tools/vscode-mng` (coloring / completion / hover / jump / diagnostics; **saving runs `moon check` and feeds type errors back into Problems** — see its README).
