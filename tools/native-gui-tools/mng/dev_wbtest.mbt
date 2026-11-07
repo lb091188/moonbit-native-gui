@@ -148,6 +148,10 @@ fn rm_rf_wb(root : String) -> Unit {
   while dirs.val.length() > 0 {
     let d = dirs.val[dirs.val.length() - 1]
     let _ = dirs.val.remove(dirs.val.length() - 1)
+    // 目录名先入列（root 除外）：从数组尾部删时子项先于父目录出
+    if d != root {
+      victims.push(d)
+    }
     let entries = @fs.read_dir(d) catch { _ => [] }
     for e in entries {
       let p = d + "/" + e.to_string()
@@ -158,11 +162,8 @@ fn rm_rf_wb(root : String) -> Unit {
         victims.push(p)
       }
     }
-    if d != root {
-      victims.push(d)
-    }
   }
-  // 自底向上：深层目录排在数组后段，先删文件再删目录（同一项两个 try 兜底）
+  // 从尾删：子项先于其父目录出（同一项两个 try 兜底）
   let mut k = victims.length() - 1
   while k >= 0 {
     let _ = @fs.remove_file(victims[k]) catch { _ => () }
