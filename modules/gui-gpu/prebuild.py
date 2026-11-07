@@ -66,6 +66,12 @@ def key():
     return (sysname, "amd64" if machine in ("amd64", "x86_64") else machine)
 
 
+def rm_quiet(path: Path) -> None:
+    # Python 3.7 的 unlink 没有 missing_ok，先判存在再删
+    if path.exists():
+        path.unlink()
+
+
 def sha256_of(path: Path) -> str:
     h = hashlib.sha256()
     with path.open("rb") as f:
@@ -92,7 +98,7 @@ def fetch(url: str, dest: Path, budget_s: int = 180) -> bool:
         return dest.stat().st_size > 0
     except Exception as e:  # noqa: BLE001 —— 任何网络问题都当「这条镜像不行」
         print(f"[gui-gpu] mirror failed {url}: {e}", file=sys.stderr)
-        dest.unlink(missing_ok=True)
+        rm_quiet(dest)
         return False
 
 
@@ -123,13 +129,13 @@ def main() -> None:
         except Exception as e:  # noqa: BLE001
             print(f"[gui-gpu] unzip failed: {e}", file=sys.stderr)
             continue
-        tmp.unlink(missing_ok=True)
+        rm_quiet(tmp)
         MARKER.write_text(f"{TAG}\n{name}\n{sha}\n", encoding="utf-8")
         print(f"[gui-gpu] wgpu-native {TAG} ready ({name})", file=sys.stderr)
         out_json()
         return
     print("[gui-gpu] wgpu-native unavailable —— degrade to software path", file=sys.stderr)
-    tmp.unlink(missing_ok=True)
+    rm_quiet(tmp)
     out_json()
 
 
