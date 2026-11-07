@@ -9,9 +9,9 @@
    ```sh
    npx @vscode/vsce package
    ```
-   得到 `mng-vscode-0.2.8.vsix`，VS Code → 扩展 → `…` → 从 VSIX 安装（覆盖旧版加 `--force`）：
+   得到 `mng-vscode-0.2.9.vsix`，VS Code → 扩展 → `…` → 从 VSIX 安装（覆盖旧版加 `--force`）：
    ```sh
-   code --install-extension mng-vscode-0.2.8.vsix --force
+   code --install-extension mng-vscode-0.2.9.vsix --force
    ```
    或开发期直接把本目录软链到 `~/.vscode/extensions/`。**升级后必须 Reload Window**，TextMate 文法随扩展加载，不重载仍是旧着色。
 3. 设置（可选）：`mng.cliPath` 指向可执行文件（默认先查 PATH，再查 `~/.moon/bin`）；`mng.enableLsp=false` 只要着色与 snippets。
@@ -29,7 +29,7 @@
 | 诊断 | 模板结构错误实时回投；**保存时跑 `moon check`**，生成码位置的类型错误经 dev source map 反查回模板行列合并进 Problems（server 无时钟：保存后插件连发 25 个 tick 约 10s 轮询上限；诊断基于磁盘生成码，dev 循环负责新鲜度） |
 | hover | 组件参数表来自签名（`名? : 类型 = 默认值` 逐行）；属性悬浮首行说用途（取自组件源码的参数级 `///` 文档），第二行给 `名? : 类型 = 默认值` 与所属组件；`v-*` 指令 / `@事件` / `:动态参数` 各给说明；`@别名.成员` 显示源码声明行；`@别名` 显示包目录。文案随编辑器语言（`vscode.env.language`）中英切换；诊断文本来自编译器，暂为中文 |
 | 跳转 | 组件标签 → 组件源码（内置 `ui-*` 走 `@ui.<名>`）；页内标识符 → 声明行；`@别名.成员` → 该包源码文件与行号；裸 `@别名` → 包入口（`.mbti` / `moon.pkg`） |
-| 着色修正 | 静态属性字符串整串按字符串染色（不再把串内英文词二次喂给表达式文法染成变量/类型色）；样式段类选择器行补 `{` 的属性列表标点 scope |\n| 生成码折叠 | 贡献文件嵌套默认 `*.mng → *.gen.mbt`：资源树里生成码缩进在模板条目下并默认收起（`expand=false`，母条目带数量徽标，点开仍可看），不占顶层版面。只改视图，磁盘文件与 `moon check` 照旧；用户设置可覆盖 |
+| 着色修正 | 静态属性字符串整串按字符串染色（不再把串内英文词二次喂给表达式文法染成变量/类型色）；样式段类选择器行补 `{` 的属性列表标点 scope；块级标签开/闭尖括号统一标点 scope；`@` 与包名同 scope；mng 语言内默认关括号多色化（`{{ }}` 不再被当嵌套对染两色） |\n| 生成码折叠 | 贡献文件嵌套默认 `*.mng → *.gen.mbt`：资源树里生成码缩进在模板条目下并默认收起（`expand=false`，母条目带数量徽标，点开仍可看），不占顶层版面。只改视图，磁盘文件与 `moon check` 照旧；用户设置可覆盖 |
 
 **刻意不做**：原生 HTML / CSS 的语义补全（能力子集与原生差距大，原生只作高亮底子）。真实类型 hover 已落（桥 `moon ide` + source map 正投，任何一步失败回落组件参数表 hover）。
 
@@ -88,7 +88,7 @@ TextMate 是正则文法，只能按词形近似（大写当类型、其余小�
   }
   ```
 
-真机验证清单（装 0.2.8 后）：打开 `examples/showcase/pages/dev_demo.mng`——①`qty`/`nick` 是变量档（不可变，亮于正文）；②`Store`/`String`/`Int` 是类型档；③`on_reset` 函数档、`qty.set()`/`@shared.tx()` 方法档；④`@shared` 命名空间档；⑤`{{ qty }}`、`v-model="nick"`、`:text="@shared.tx(…)"`、`@click="on_reset"` 与 script 段同档；⑥带 props 签名头的页里，签名参数是 parameter 档（与变量不同色）；⑦关 LSP 后着色退回纯 TextMate 不报错；⑧命令面板「MNG: 新建页面」输入 `pages/t1` 回车——生成 `pages/t1.mng` 并打开（验完删）；⑨资源树里 `t1.gen.mbt` 嵌套在 `t1.mng` 条目下（默认收起、`t1.mng` 带数量徽标，点击展开）而非顶层平铺；⑩静态属性字符串整串一色——`text="…script…COLD…"` 里夹的英文词不再被误染成标识符/类型色。
+真机验证清单（装 0.2.9 后）：打开 `examples/showcase/pages/dev_demo.mng`——①`qty`/`nick` 是变量档（不可变，亮于正文）；②`Store`/`String`/`Int` 是类型档；③`on_reset` 函数档、`qty.set()`/`@shared.tx()` 方法档；④`@shared` 命名空间档；⑤`{{ qty }}`、`v-model="nick"`、`:text="@shared.tx(…)"`、`@click="on_reset"` 与 script 段同档；⑥带 props 签名头的页里，签名参数是 parameter 档（与变量不同色）；⑦关 LSP 后着色退回纯 TextMate 不报错；⑧命令面板「MNG: 新建页面」输入 `pages/t1` 回车——生成 `pages/t1.mng` 并打开（验完删）；⑨资源树里 `t1.gen.mbt` 嵌套在 `t1.mng` 条目下（默认收起、`t1.mng` 带数量徽标，点击展开）而非顶层平铺；⑩静态属性字符串整串一色——`text="…script…COLD…"` 里夹的英文词不再被误染成标识符/类型色；⑪括号观感统一——块级标签四角尖括号全部标点色、`@` 与包名同色、`{{ }}` 两组花括号同色（mng 语言内默认关括号多色化，可在设置覆盖）。
 
 ## 命令面板
 

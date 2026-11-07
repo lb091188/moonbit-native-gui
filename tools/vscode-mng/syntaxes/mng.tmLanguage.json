@@ -26,13 +26,17 @@
       "name": "comment.block.html.mng"
     },
     "script-block": {
-      "begin": "(<)(script)\\b[^>]*>",
+      "begin": "(<)(script)\\b([^>]*)(>)",
       "beginCaptures": {
         "1": {
           "name": "punctuation.definition.tag.begin.html"
         },
         "2": {
           "name": "entity.name.tag.script.html"
+        },
+        "3": {},
+        "4": {
+          "name": "punctuation.definition.tag.end.html"
         }
       },
       "end": "(</)(script)(>)",
@@ -42,6 +46,9 @@
         },
         "2": {
           "name": "entity.name.tag.script.html"
+        },
+        "3": {
+          "name": "punctuation.definition.tag.end.html"
         }
       },
       "contentName": "source.moonbit.mng",
@@ -52,13 +59,17 @@
       ]
     },
     "style-block": {
-      "begin": "(<)(style)\\b[^>]*>",
+      "begin": "(<)(style)\\b([^>]*)(>)",
       "beginCaptures": {
         "1": {
           "name": "punctuation.definition.tag.begin.html"
         },
         "2": {
           "name": "entity.name.tag.style.html"
+        },
+        "3": {},
+        "4": {
+          "name": "punctuation.definition.tag.end.html"
         }
       },
       "end": "(</)(style)(>)",
@@ -68,6 +79,9 @@
         },
         "2": {
           "name": "entity.name.tag.style.html"
+        },
+        "3": {
+          "name": "punctuation.definition.tag.end.html"
         }
       },
       "contentName": "source.css.mng",
@@ -78,13 +92,17 @@
       ]
     },
     "template-block": {
-      "begin": "(<)(template)\\b[^>]*>",
+      "begin": "(<)(template)\\b([^>]*)(>)",
       "beginCaptures": {
         "1": {
           "name": "punctuation.definition.tag.begin.html"
         },
         "2": {
           "name": "entity.name.tag.template.html"
+        },
+        "3": {},
+        "4": {
+          "name": "punctuation.definition.tag.end.html"
         }
       },
       "end": "(</)(template)(>)",
@@ -94,6 +112,9 @@
         },
         "2": {
           "name": "entity.name.tag.template.html"
+        },
+        "3": {
+          "name": "punctuation.definition.tag.end.html"
         }
       },
       "contentName": "text.html.mng",
@@ -482,7 +503,7 @@
           "match": "(@)([A-Za-z_][A-Za-z0-9_]*)",
           "captures": {
             "1": {
-              "name": "punctuation.definition.package.moonbit"
+              "name": "entity.name.namespace.moonbit"
             },
             "2": {
               "name": "entity.name.namespace.moonbit"
