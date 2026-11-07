@@ -87,6 +87,8 @@ void *wm_l1_surface_metal(void *layer);
 int wm_l1_window_bind(WmL1 *st, void *surface, int sw, int sh, int bw, int bh);
 int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
                          int sw, int sh);
+int wm_l1_window_repaint(WmL1 *st, const unsigned char *rgba, int bw, int bh,
+                         int sw, int sh);
 void wm_l1_window_drop(WmL1 *st);
 void *wm_l1_gpu_status(void);
 
@@ -5401,6 +5403,8 @@ int wm_init(void) {
   return 1;
 }
 
+static gboolean wm_on_map(GtkWidget *widget, GdkEvent *ev, gpointer data);
+
 int64_t wm_window_new(int width, int height, const char *title) {
   // 槽位复用：窗口多开多关（附窗反复开合）不能把 32 个槽吃光。判据是 area 为空
   // ——建窗时必设、wm_close 里 memset 清零，于是拆过的槽与从没用过的槽同样可取。
@@ -5469,6 +5473,8 @@ int64_t wm_window_new(int width, int height, const char *title) {
                    G_CALLBACK(wm_on_area_focus_out), w);
   g_signal_connect(w->area, "draw", G_CALLBACK(wm_on_draw), w);
   g_signal_connect(w->area, "size-allocate", G_CALLBACK(wm_on_size_allocate), w);
+  // map / 从最小化恢复：重配交换链并重放最近一帧（见 wm_on_map）
+  g_signal_connect(w->window, "map-event", G_CALLBACK(wm_on_map), w);
   w->im = gtk_im_multicontext_new();
   // use_preedit 语义是「用 preedit 串做内联反馈」：TRUE（默认）才是自绘内联那一档，
   // 填 FALSE 会让输入法改用自带子窗且本环境一条 preedit 信号都不推（G0 实测读反过）
@@ -5894,6 +5900,21 @@ static int wm_l1_child_ensure(WmWindow *w) {
   return 1;
 }
 
+// 子窗口几何跟住客户区（surface 的释放/重配由共享核心按尺寸自查）
+static void wm_l1_child_sync(WmWindow *w) {
+  if (w->l1_child == 0) {
+    return;
+  }
+  if (w->l1_child_w == w->width && w->l1_child_h == w->height) {
+    return;
+  }
+  XMoveResizeWindow((Display *)gdk_x11_get_default_xdisplay(), w->l1_child, 0,
+                    0, (unsigned)w->width, (unsigned)w->height);
+  w->l1_child_w = w->width;
+  w->l1_child_h = w->height;
+  XFlush((Display *)gdk_x11_get_default_xdisplay());
+}
+
 static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
   // 非 X11 会话（Wayland 原生）没有 XID 可挂 surface——永久走 cairo
   // （Wayland 会话臂是后续批，方案「fallback 探测粒度」）
@@ -5906,17 +5927,15 @@ static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
   if (gtk_widget_get_app_paintable(w->window)) {
     return 0;
   }
+  // 未 map（最小化/隐藏）：present 打在不可见的 surface 上会失败并把该窗标死；
+  // 本帧交给 cairo 路径留帧，恢复由 map 事件重配 + 重放。
+  if (!gtk_widget_get_mapped(w->window)) {
+    return 0;
+  }
   if (!wm_l1_child_ensure(w)) {
     return 0;
   }
-  // 子窗口几何跟住客户区（surface 的释放/重配由共享核心按尺寸自查）
-  if (w->l1_child_w != w->width || w->l1_child_h != w->height) {
-    XMoveResizeWindow((Display *)gdk_x11_get_default_xdisplay(), w->l1_child,
-                      0, 0, (unsigned)w->width, (unsigned)w->height);
-    w->l1_child_w = w->width;
-    w->l1_child_h = w->height;
-    XFlush((Display *)gdk_x11_get_default_xdisplay());
-  }
+  wm_l1_child_sync(w);
   if (!w->l1.on) {
     void *surf = wm_l1_surface_xlib((void *)gdk_x11_get_default_xdisplay(),
                                     (uint64_t)w->l1_child);
@@ -5951,7 +5970,31 @@ static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
   return 0;
 }
 
+static void wm_l1_child_sync(WmWindow *w) {
+  (void)w;
+}
+
 #endif
+
+// map / 从最小化恢复：0×0 期间按规则跳过重配，这一拍补一次重配并把最近一帧
+// 重放一次——静止内容（hello）不必等下一次应用绘制；随后标脏，内容已变的
+// 窗照常补新帧。
+static gboolean wm_on_map(GtkWidget *widget, GdkEvent *ev, gpointer data) {
+  (void)widget;
+  (void)ev;
+  WmWindow *w = (WmWindow *)data;
+  if (w->l1.on && w->pending != NULL && w->pending_w > 0 && w->pending_h > 0 &&
+      w->width > 0 && w->height > 0) {
+    wm_l1_child_sync(w);
+    if (!wm_l1_window_repaint(&w->l1, w->pending, w->pending_w, w->pending_h,
+                              w->width, w->height)) {
+      // 重配失败由共享核心标 dead：交 cairo 贴最近一帧
+      gtk_widget_queue_draw(w->area);
+    }
+  }
+  w->need_draw = 1;
+  return FALSE;
+}
 
 
 // 把这一帧拷进后端自己的缓冲。原先 pending 直接指 MoonBit 的 Bitmap，
@@ -5986,6 +6029,10 @@ void wm_present(int64_t id, const unsigned char *rgba, int width, int height) {
   if (w->area == NULL || rgba == NULL || width < 1 || height < 1) {
     return;
   }
+  // 帧先落进后端缓冲：L1 路径也要留最近一帧（map/恢复时重放），cairo 路径
+  // 本就要它来贴像素——真正的贴像素在下一次 draw 回调里，那时窗口一定活着、
+  // 数据也一定还活着。
+  wm_store_frame(w, rgba, width, height);
   // GPU 档（L1）：Bitmap 上传纹理 → 全屏 quad → swapchain present。返回 0
   // （没挂上/本帧失败）时逐字回退下面的 cairo 路径——贴的还是同一份
   // Bitmap，逐像素一致。
@@ -5993,9 +6040,6 @@ void wm_present(int64_t id, const unsigned char *rgba, int width, int height) {
     wm_popup_materialize(w);
     return;
   }
-  // 拷进后端缓冲后再请重画：真正的贴像素在下一次 draw 回调里，
-  // 那时窗口一定活着、数据也一定还活着。
-  wm_store_frame(w, rgba, width, height);
   gtk_widget_queue_draw(w->area);
   // draw 信号要主循环迭代才派发，而本栈的泵只在**下一拍 wait** 里 pump、且
   // 仅 fd 就绪才跑迭代——timer 到期/poll 超时那拍 ready=0 不 pump，帧就一直
@@ -14592,6 +14636,19 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
   return 1;
 }
 
+// 重配后立即重放最近一帧（GTK 臂 map / 窗口恢复路径）：尺寸账本清零强制
+// 走 surface 重配，再把同一张位图 present 一次——静止内容（hello）恢复后
+// 不必等下一次应用绘制；0×0 最小化期间照旧跳过重配，恢复这一拍由这里补上。
+int wm_l1_window_repaint(WmL1 *st, const unsigned char *rgba, int bw, int bh,
+                         int sw, int sh) {
+  if (st->surface == NULL || rgba == NULL || bw < 1 || bh < 1 || sw < 1 ||
+      sh < 1) {
+    return 0;
+  }
+  l1_release_frame(st);
+  return wm_l1_window_present(st, rgba, bw, bh, sw, sh);
+}
+
 void wm_l1_window_drop(WmL1 *st) {
   l1_release_frame(st);
   if (st->surface != NULL) {
@@ -14655,6 +14712,16 @@ int wm_l1_window_bind(WmL1 *st, void *surface, int sw, int sh, int bw, int bh) {
   return -1;
 }
 int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
+                         int sw, int sh) {
+  (void)st;
+  (void)rgba;
+  (void)bw;
+  (void)bh;
+  (void)sw;
+  (void)sh;
+  return 0;
+}
+int wm_l1_window_repaint(WmL1 *st, const unsigned char *rgba, int bw, int bh,
                          int sw, int sh) {
   (void)st;
   (void)rgba;

@@ -3808,6 +3808,13 @@ showcase 在 Linux 上「有 GPU 就白屏 / 黑屏 / 点击不更新」的现�
 - **代价**：这类窗的窗口级零拷贝 present 停用（自绘 UI 走 cairo），网页内容仍由 WebKit 自己合成（其 GPU 加速不受影响）；离屏 GPU 画布（L2 `GpuCanvas`）不受影响。
 - **验收（像素级 A/B，探针留仓 `experiment/l1_webview_probe`）**：探针走真实库路径（`mount_window` + 首帧后 `webview_new` + 铺满 pane，页面底色 `#ff00ff`），窗口外 `XGetImage` 取根窗中心像素——修复前 `#f5f6f7`（应用底色，网页被盖），修复后 `#ff00ff`（网页出像素）；browser 示例同一读数从应用底色变 `#ffffff`（本地协议页底色）。
 
+## L1 窗口最小化恢复：map 时重配并重放最近一帧（2026-11-07，hello 实测）
+
+- **现象**：L1 窗口最小化再恢复后内容空白/花屏，要等下一次应用绘制才回来；静止内容（hello）一直不回来。
+- **机理**：最小化 = toplevel unmap；原位重 map 后交换链已失效，而共享核心的「0×0 跳过重配」让尺寸账本停在旧值——恢复后第一帧撞 `Outdated` → 重配 + 丢帧，应用不重画就停在空白。
+- **修法**：GTK 臂挂 `map-event`：`l1.on` 且最近帧在位时先 `wm_l1_child_sync` 对齐子窗口，再 `wm_l1_window_repaint`（清尺寸账本强制重配 + 同一张位图 present 一次），随后 `need_draw=1` 请 MoonBit 补新帧。`wm_present` 改为**先落帧再试 L1**，L1 路径也持有最近一帧（重放用；代价每帧多一次 memcpy，与 Win32 臂同口径）。`wm_l1_try` 加「未 map 不 present」守卫，避免最小化期间打在不可见 surface 上被标死。
+- **验收（像素级 A/B）**：`xdotool windowminimize` → `wmctrl -i -a` 还原，窗口区域 `XGetImage` 哈希——hello 修复前恢复后哈希变化（中心色 `#f8f8f8`，空白），修复后与最小化前逐位一致（`062c4c686c8c03ed`）；showcase 对照同样哈希一致（`27832eb2db1ff256`）。
+
 ## Windows 全链首编五处缺口：UIA 头、POSIX 头、DWrite 结构档（2026-11-06，SDK 10.0.26100 真机日志）
 
 Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only 编译路径，Linux 门禁（prebuild 只编 GTK 臂 + gui-gpu）覆盖不到**：
