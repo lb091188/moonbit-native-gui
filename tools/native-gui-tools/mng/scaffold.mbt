@@ -37,6 +37,9 @@ fn scaffold_app_at(parent : String, raw_name : String) -> Int {
     "moon.mod",
     scaffold_moon_mod(mod_name, gui_ver, yoga_ver),
   ) && spit_ok("moon.pkg", scaffold_moon_pkg(mod_name)) && spit_ok(
+      "pages/moon.pkg",
+      scaffold_pages_pkg(),
+    ) && spit_ok(
       "mng.toml",
       scaffold_mng_toml(),
     ) && spit_ok("main.mbt", scaffold_main_mbt(mod_name)) && spit_ok(
@@ -179,8 +182,17 @@ fn scaffold_moon_mod(mod_name : String, gui_ver : String, yoga_ver : String) -> 
 }
 
 ///|
+/// 主包配置：只 import main.mbt 用到的（moon 对未用 import 报 warning，
+/// 门禁零警告）；页面生成码的别名集在 pages 包自己的 moon.pkg。
 fn scaffold_moon_pkg(mod_name : String) -> String {
-  "import {\n  \"NoahLiu/yoga-mbt/src\" @yoga,\n  \"NoahLiu/native-gui/ui\",\n  \"NoahLiu/native-gui/base\" @base,\n  \"NoahLiu/native-gui/style\" @style,\n  \"NoahLiu/native-gui/widget\" @widget,\n  \"NoahLiu/native-gui/text\" @text,\n  \"NoahLiu/native-gui/mngdev\" @mngdev,\n  \"NoahLiu/native-gui/shell\" @shell,\n  \"NoahLiu/native-gui/theme\" @theme,\n  \"" + mod_name + "/pages\" @pages,\n}\n\npkgtype(kind: \"executable\")\n\nsupported_targets = \"native\"\n"
+  "import {\n  \"NoahLiu/native-gui/ui\",\n  \"NoahLiu/native-gui/mngdev\" @mngdev,\n  \"NoahLiu/native-gui/shell\" @shell,\n  \"NoahLiu/native-gui/theme\" @theme,\n  \"" + mod_name + "/pages\" @pages,\n}\n\npkgtype(kind: \"executable\")\n\nsupported_targets = \"native\"\n"
+}
+
+///|
+/// pages 包配置：生成码引用的别名（@yoga/@ui/@base/@style/@widget/@text/@mngdev）。
+/// 没有 moon.pkg 的目录不成其为包，主包 import `<模块>/pages` 会解不出。
+fn scaffold_pages_pkg() -> String {
+  "import {\n  \"NoahLiu/yoga-mbt/src\" @yoga,\n  \"NoahLiu/native-gui/ui\",\n  \"NoahLiu/native-gui/base\" @base,\n  \"NoahLiu/native-gui/style\" @style,\n  \"NoahLiu/native-gui/widget\" @widget,\n  \"NoahLiu/native-gui/text\" @text,\n  \"NoahLiu/native-gui/mngdev\" @mngdev,\n}\n\nsupported_targets = \"native\"\n"
 }
 
 ///|
@@ -203,7 +215,7 @@ fn scaffold_main_mbt(mod_name : String) -> String {
   let head = head + "      println(\"APP-INST: 已有实例，已唤起并退出\")\n"
   let head = head + "      return\n"
   let head = head + "    }\n"
-  let head = head + "    Err(e) => println(\"APP-INST: 单实例降级：\" + e)\n"
+  let head = head + "    Err(e) => println(\"APP-INST: 单实例降级：\" + e.to_string())\n"
   let head = head + "    Ok(@shell.Primary) => ()\n"
   let head = head + "  }\n"
   let head = head + "  let app = match @ui.mount_window(\n"

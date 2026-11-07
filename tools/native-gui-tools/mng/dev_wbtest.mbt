@@ -192,6 +192,9 @@ test "scaffold_app_at：workspace 内现读版本，文件齐全，dev 生成码
   assert_true(contains_sub_cli(pkg, "mngdev\" @mngdev"))
   assert_true(contains_sub_cli(pkg, "my_app/pages\" @pages"))
   assert_true(contains_sub_cli(pkg, "shell\" @shell"))
+  let pages_pkg = @fs.read_file_to_string(root + "/my_app/pages/moon.pkg") catch { _ => abort("pages/moon.pkg 缺") }
+  assert_true(contains_sub_cli(pages_pkg, "mngdev\" @mngdev"))
+  assert_true(contains_sub_cli(pages_pkg, "style\" @style"))
   let gen = @fs.read_file_to_string(root + "/my_app/pages/home.gen.mbt") catch { _ => abort("生成码缺") }
   assert_true(contains_sub_cli(gen, "@mngdev.mng_dev_page(\"home\""))
   assert_true(contains_sub_cli(gen, "pub fn home() -> @widget.Node"))
