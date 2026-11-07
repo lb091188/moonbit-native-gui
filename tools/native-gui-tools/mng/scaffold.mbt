@@ -38,7 +38,7 @@ fn scaffold_app_at(parent : String, raw_name : String) -> Int {
   ) && spit_ok("moon.pkg", scaffold_moon_pkg(mod_name)) && spit_ok(
       "mng.toml",
       scaffold_mng_toml(),
-    ) && spit_ok("main.mbt", scaffold_main_mbt()) && spit_ok(
+    ) && spit_ok("main.mbt", scaffold_main_mbt(mod_name)) && spit_ok(
       "pages/home.mng",
       scaffold_home_mng(),
     )
@@ -169,7 +169,7 @@ fn dir_of_m(p : String) -> String {
 
 ///|
 fn scaffold_moon_mod(mod_name : String, gui_ver : String, yoga_ver : String) -> String {
-  let head = "name = \"noahliu." + mod_name + "\"\n\nversion = \"0.1.0\"\n\npreferred_target = \"native\"\n\ndescription = \"native-gui 模板应用（.mng 单文件组件 + mng dev/build）\"\n\nlicense = \"MIT\"\n\nimport {\n  \"NoahLiu/native-gui@" + gui_ver + "\",\n  \"NoahLiu/yoga-mbt@" + yoga_ver + "\",\n}\n"
+  let head = "name = \"" + mod_name + "\"\n\nversion = \"0.1.0\"\n\npreferred_target = \"native\"\n\ndescription = \"native-gui 模板应用（.mng 单文件组件 + mng dev/build）\"\n\nlicense = \"MIT\"\n\nimport {\n  \"NoahLiu/native-gui@" + gui_ver + "\",\n  \"NoahLiu/yoga-mbt@" + yoga_ver + "\",\n}\n"
   if gui_ver == SCAFFOLD_GUI_FALLBACK {
     head + "\n// 版本是兜底值：不在 native-gui workspace 内生成时读不到现读版本，\n// 按你锁定的发布版改这两行。\n"
   } else {
@@ -179,7 +179,7 @@ fn scaffold_moon_mod(mod_name : String, gui_ver : String, yoga_ver : String) -> 
 
 ///|
 fn scaffold_moon_pkg(mod_name : String) -> String {
-  "import {\n  \"NoahLiu/yoga-mbt/src\" @yoga,\n  \"NoahLiu/native-gui/ui\",\n  \"NoahLiu/native-gui/base\" @base,\n  \"NoahLiu/native-gui/style\" @style,\n  \"NoahLiu/native-gui/widget\" @widget,\n  \"NoahLiu/native-gui/text\" @text,\n  \"NoahLiu/native-gui/mngdev\" @mngdev,\n  \"noahliu." + mod_name + "/pages\" @pages,\n}\n\npkgtype(kind: \"executable\")\n\nsupported_targets = \"native\"\n"
+  "import {\n  \"NoahLiu/yoga-mbt/src\" @yoga,\n  \"NoahLiu/native-gui/ui\",\n  \"NoahLiu/native-gui/base\" @base,\n  \"NoahLiu/native-gui/style\" @style,\n  \"NoahLiu/native-gui/widget\" @widget,\n  \"NoahLiu/native-gui/text\" @text,\n  \"NoahLiu/native-gui/mngdev\" @mngdev,\n  \"NoahLiu/native-gui/shell\" @shell,\n  \"NoahLiu/native-gui/theme\" @theme,\n  \"" + mod_name + "/pages\" @pages,\n}\n\npkgtype(kind: \"executable\")\n\nsupported_targets = \"native\"\n"
 }
 
 ///|
@@ -188,8 +188,60 @@ fn scaffold_mng_toml() -> String {
 }
 
 ///|
-fn scaffold_main_mbt() -> String {
-  "// 模板应用入口：页面在 pages/home.mng（单文件组件），生成码 pages/home.gen.mbt\n// 像普通函数一样接进窗口；`mng dev` 可热更模板（HOT 亚秒 / COLD 重启回改动页）。\n\n///|\nfn main {\n  let app = match @ui.mount_window(\n    [@pages.home()],\n    title=\"Template App\",\n    width=420,\n    height=360,\n  ) {\n    None => {\n      println(\"APP-SKIP: 本平台没有窗口后端或没有显示服务\")\n      return\n    }\n    Some(a) => a\n  }\n  app.run()\n}\n"
+fn scaffold_main_mbt(mod_name : String) -> String {
+  let app_id = app_id_of_module(mod_name)
+  let head = "// 模板应用入口：页面在 pages/home.mng（单文件组件），生成码 pages/home.gen.mbt\n"
+  let head = head + "// 像普通函数一样接进窗口。单实例接线与 showcase 同款（dev 工具的三条通道）：\n"
+  let head = head + "//   --mng-hot   模板 IR 补丁原位重挂（HOT 亚秒）\n"
+  let head = head + "//   --mng-page  COLD 重启后回改动页（单页应用重启即回，仅打印）\n"
+  let head = head + "//   --mng-theme 主题 JSON 重载\n\n///|\n"
+  let head = head + "fn main {\n"
+  let head = head + "  match @shell.instance_claim(\"" + app_id + "\") {\n"
+  let head = head + "    Ok(@shell.Existing) => {\n"
+  let head = head + "      let _ = @shell.instance_wake(\"" + app_id + "\", [])\n"
+  let head = head + "      println(\"APP-INST: 已有实例，已唤起并退出\")\n"
+  let head = head + "      return\n"
+  let head = head + "    }\n"
+  let head = head + "    Err(e) => println(\"APP-INST: 单实例降级：\" + e)\n"
+  let head = head + "    Ok(@shell.Primary) => ()\n"
+  let head = head + "  }\n"
+  let head = head + "  let app = match @ui.mount_window(\n"
+  let head = head + "    [@pages.home()],\n"
+  let head = head + "    title=\"Template App\",\n"
+  let head = head + "    width=420,\n"
+  let head = head + "    height=360,\n"
+  let head = head + "  ) {\n"
+  let head = head + "    None => {\n"
+  let head = head + "      println(\"APP-SKIP: 本平台没有窗口后端或没有显示服务\")\n"
+  let head = head + "      return\n"
+  let head = head + "    }\n"
+  let head = head + "    Some(a) => a\n"
+  let head = head + "  }\n"
+  let head = head + "  @shell.on_instance_wake(fn(args : Array[String]) -> Unit {\n"
+  let head = head + "    if args.length() == 2 && args[0] == \"--mng-hot\" {\n"
+  let head = head + "      match @mngdev.mng_dev_apply_from_file(args[1]) {\n"
+  let head = head + "        Ok(_) => println(\"APP-DEV: 模板补丁已应用\")\n"
+  let head = head + "        Err(e) => println(\"APP-DEV: 补丁失败：\" + e)\n"
+  let head = head + "      }\n"
+  let head = head + "    } else if args.length() == 2 && args[0] == \"--mng-theme\" {\n"
+  let head = head + "      match @mngdev.mng_dev_theme_src(args[1]) {\n"
+  let head = head + "        Some(src) =>\n"
+  let head = head + "          match @theme.from_json(src) {\n"
+  let head = head + "            Ok(t) => @theme.theme_apply(t)\n"
+  let head = head + "            Err(e) => println(\"APP-DEV: 主题重载失败：\" + e)\n"
+  let head = head + "          }\n"
+  let head = head + "        None => println(\"APP-DEV: 读不到主题文件\")\n"
+  let head = head + "      }\n"
+  let head = head + "    } else if args.length() == 2 && args[0] == \"--mng-page\" {\n"
+  let head = head + "      // 单页应用重启即回改动页；多页应用在此按 title 切路由\n"
+  let head = head + "      println(\"APP-DEV: 回改动页\")\n"
+  let head = head + "    } else {\n"
+  let head = head + "      println(\"APP-INST: 已被第二实例唤起\")\n"
+  let head = head + "    }\n"
+  let head = head + "  })\n"
+  let head = head + "  app.run()\n"
+  let head = head + "}\n"
+  head
 }
 
 ///|

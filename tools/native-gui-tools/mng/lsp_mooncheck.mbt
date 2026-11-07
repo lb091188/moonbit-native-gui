@@ -18,6 +18,15 @@ let check_ticks : Ref[Int] = Ref(0)
 let check_diags : Ref[Map[String, Array[(Int, Int, String)]]] = Ref(Map([]))
 
 ///|
+/// didOpen/didChange：内容变了，上一次 moon check 的诊断作废（位置与
+/// 消息都基于旧生成码），清掉再发实时模板诊断，不残留过期项。
+fn check_reset(uri : String) -> Unit {
+  if check_diags.val.contains(uri) {
+    let _ = check_diags.val.remove(uri)
+  }
+}
+
+///|
 /// didSave 入口：起一次 moon check（进行中不重入）。
 fn check_kickoff(uri : String) -> Unit {
   if check_running.val {

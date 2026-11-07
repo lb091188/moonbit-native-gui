@@ -1473,6 +1473,7 @@ fn lsp_handle(docs : Map[String, String], body : String) -> LspOut {
       match (uri, text) {
         (Some(u), Some(t)) => {
           let _ = docs.set(u, t)
+          check_reset(u)
           { reply: None, notify: Some(lsp_diagnostics(u, t)), stop: false }
         }
         _ => { reply: None, notify: None, stop: false }
@@ -1484,6 +1485,7 @@ fn lsp_handle(docs : Map[String, String], body : String) -> LspOut {
       match (uri, text) {
         (Some(u), Some(t)) => {
           let _ = docs.set(u, t)
+          check_reset(u)
           { reply: None, notify: Some(lsp_diagnostics(u, t)), stop: false }
         }
         _ => { reply: None, notify: None, stop: false }

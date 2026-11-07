@@ -531,6 +531,7 @@ function startClient(ctx, cli, diagnostics) {
         // tick（约 10s 上限）供其轮询进程退出；诊断基于磁盘生成码，dev
         // 循环负责新鲜度。
         client.notify('textDocument/didSave', { textDocument: { uri } });
+        // 自限 25 拍自动停，不进 subscriptions（每次保存 push 一个会累积）
         let ticks = 0;
         const timer = setInterval(() => {
           ticks += 1;
@@ -540,7 +541,6 @@ function startClient(ctx, cli, diagnostics) {
             clearInterval(timer);
           }
         }, 400);
-        ctx.subscriptions.push({ dispose: () => clearInterval(timer) });
       }
     })
   );

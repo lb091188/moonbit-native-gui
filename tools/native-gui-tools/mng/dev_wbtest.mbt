@@ -190,10 +190,14 @@ test "scaffold_app_at：workspace 内现读版本，文件齐全，dev 生成码
   assert_true(contains_sub_cli(gmod, "NoahLiu/yoga-mbt@0.7.7"))
   let pkg = @fs.read_file_to_string(root + "/my_app/moon.pkg") catch { _ => abort("moon.pkg 缺") }
   assert_true(contains_sub_cli(pkg, "mngdev\" @mngdev"))
-  assert_true(contains_sub_cli(pkg, "noahliu.my_app/pages\" @pages"))
+  assert_true(contains_sub_cli(pkg, "my_app/pages\" @pages"))
+  assert_true(contains_sub_cli(pkg, "shell\" @shell"))
   let gen = @fs.read_file_to_string(root + "/my_app/pages/home.gen.mbt") catch { _ => abort("生成码缺") }
   assert_true(contains_sub_cli(gen, "@mngdev.mng_dev_page(\"home\""))
   assert_true(contains_sub_cli(gen, "pub fn home() -> @widget.Node"))
+  let main_mbt = @fs.read_file_to_string(root + "/my_app/main.mbt") catch { _ => abort("main.mbt 缺") }
+  assert_true(contains_sub_cli(main_mbt, "@shell.instance_claim(\"my_app\")"))
+  assert_true(contains_sub_cli(main_mbt, "@mngdev.mng_dev_apply_from_file"))
   // 目录已存在拒绝
   assert_eq(scaffold_app_at(root, "my_app"), 1)
 }
@@ -205,6 +209,6 @@ test "scaffold_app_at：非法名净化与 workspace 外兜底版本注释" {
   ensure_dir_p(root)
   assert_eq(scaffold_app_at(root, "9app"), 0)
   let gmod = @fs.read_file_to_string(root + "/_9app/moon.mod") catch { _ => abort("moon.mod 缺") }
-  assert_true(contains_sub_cli(gmod, "name = \"noahliu._9app\""))
+  assert_true(contains_sub_cli(gmod, "name = \"_9app\""))
   assert_true(contains_sub_cli(gmod, "版本是兜底值"))
 }
