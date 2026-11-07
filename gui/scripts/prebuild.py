@@ -54,13 +54,34 @@ def pkg_config(args: list[str], flag: str) -> list[str] | None:
     return run.stdout.split()
 
 
+def archive_members(lib: Path) -> set[str]:
+    """归档成员名清单（`ar t`）；读不到给空集，调用方按「不全」处理。"""
+    run = subprocess.run(["ar", "t", lib.as_posix()], capture_output=True, text=True)
+    if run.returncode != 0:
+        return set()
+    return {line.strip() for line in run.stdout.splitlines() if line.strip()}
+
+
+def stub_current(lib: Path, srcs: list[Path], obj_of) -> bool:
+    """归档能否跳过重编：源 mtime 都不新于归档，且成员清单齐全。
+
+    只看 mtime 会漏掉「源清单变了」：新增源的 mtime 比旧归档还旧时直接跳过，
+    归档里缺成员，链接期缺符号（2026-11-07 Linux win 桩漏编 crash_log.c 实证）。"""
+    if not lib.exists():
+        return False
+    if lib.stat().st_mtime < max(s.stat().st_mtime for s in srcs):
+        return False
+    members = archive_members(lib)
+    return all(obj_of(s) in members for s in srcs)
+
+
 def compile_stub(
     src: Path | list[Path], lib_name: str, extra_cflags: list[str] = []
 ) -> str:
     """把需要系统头文件的 C 端编成静态库（moon 的 link_configs 只有链接期字段、
     c_flags 会被静默忽略，实测），返回库路径；缺依赖或编译失败返回空串。
-    可传多个源文件，编进同一个 .a（任一源更新即整体重编）。extra_cflags
-    用于给「多平台合一的桩」开对应分支（如 stub.c 的 -DWM_STUB_GTK）。"""
+    可传多个源文件，编进同一个 .a（任一源更新或成员清单变化即整体重编）。
+    extra_cflags 用于给「多平台合一的桩」开对应分支（如 stub.c 的 -DWM_STUB_GTK）。"""
     srcs = [src] if isinstance(src, Path) else list(src)
     missing = [s for s in srcs if not s.exists()]
     for s in missing:
@@ -79,8 +100,7 @@ def compile_stub(
         cflags.extend(got)
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
     lib = BUILD_DIR / lib_name  # ld 的 -l 命名约定：lib<name>.a
-    newest = max(s.stat().st_mtime for s in srcs)
-    if lib.exists() and lib.stat().st_mtime >= newest:
+    if stub_current(lib, srcs, lambda s: s.stem + ".o"):
         return lib.as_posix()
     cc = shutil.which("cc") or shutil.which("gcc") or "cc"
     objs: list[str] = []
@@ -134,8 +154,7 @@ def compile_mac_stub(src: Path | list[Path], lib_name: str, extra_cflags: list[s
         return ""
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
     lib = BUILD_DIR / lib_name
-    newest = max(s.stat().st_mtime for s in srcs)
-    if lib.exists() and lib.stat().st_mtime >= newest:
+    if stub_current(lib, srcs, lambda s: f"{s.parent.name}_{s.stem}_mac.o"):
         return lib.as_posix()
     cc = shutil.which("cc") or shutil.which("clang") or "cc"
     objs: list[str] = []
@@ -213,7 +232,9 @@ def link_configs() -> dict:
         # 系统库不会被自动带上，显式补。
         sys_libs = ["-lpthread", "-ldl", "-lm", "-lstdc++", "-latomic"]
         win_lib = compile_stub(
-            MODULE_ROOT / "win" / "stub.c",
+            # stub.c 的崩溃取证调用点（wm_crash_mark/note）实现住 crash_log.c：
+            # 非 Windows 平台是空实现，必须同编进归档，否则链接期缺符号。
+            [MODULE_ROOT / "win" / "stub.c", MODULE_ROOT / "win" / "crash_log.c"],
             "libyue_win_stub.a",
             extra_cflags=["-DWM_STUB_GTK"],
         )
