@@ -117,39 +117,49 @@ def compile_stub(
 MAC_OBJC_CFLAGS = ["-x", "objective-c", "-fobjc-arc"]
 
 
-def compile_mac_stub(src: Path, lib_name: str, extra_cflags: list[str]) -> str:
+def compile_mac_stub(src: Path | list[Path], lib_name: str, extra_cflags: list[str]) -> str:
     """把 macOS 的 Objective-C 桩编成静态库，返回库路径；源文件缺失或编译失败
-    返回空串（该包的链接条目随之不下发，错误在 stderr 出声）。
+    返回空串（该包的链接条目随之不下发，错误在 stderr 出声）。可传多个源文件，
+    编进同一个 .a（如 win 桩的 stub.c 带 crash_log.c——WM_STUB_MAC 分支调用
+    wm_crash_*，定义方必须同档）。
 
     目标文件名带包名：win/render/text 三个包各有一份同名 stub.c，撞在同一个 .o
     上会互相覆盖（ar 归档里就只剩最后编的那份）。"""
-    if not src.exists():
-        print(f"stub: 源文件不存在，跳过该库：{src}", file=sys.stderr)
+    srcs = [src] if isinstance(src, Path) else list(src)
+    missing = [s for s in srcs if not s.exists()]
+    for s in missing:
+        print(f"stub: 源文件不存在，跳过该库：{s}", file=sys.stderr)
+    srcs = [s for s in srcs if s.exists()]
+    if not srcs:
         return ""
     BUILD_DIR.mkdir(parents=True, exist_ok=True)
     lib = BUILD_DIR / lib_name
-    if lib.exists() and lib.stat().st_mtime >= src.stat().st_mtime:
+    newest = max(s.stat().st_mtime for s in srcs)
+    if lib.exists() and lib.stat().st_mtime >= newest:
         return lib.as_posix()
     cc = shutil.which("cc") or shutil.which("clang") or "cc"
-    obj = BUILD_DIR / f"{src.parent.name}_{src.stem}_mac.o"
-    cmd = [
-        cc,
-        "-c",
-        "-O2",
-        *MAC_OBJC_CFLAGS,
-        *extra_cflags,
-        "-o",
-        obj.as_posix(),
-        src.as_posix(),
-    ]
-    run = subprocess.run(cmd, capture_output=True, text=True)
-    if run.returncode != 0:
-        print(f"stub: {' '.join(cmd)} 失败\n{run.stderr}", file=sys.stderr)
-        return ""
+    objs: list[str] = []
+    for s in srcs:
+        obj = BUILD_DIR / f"{s.parent.name}_{s.stem}_mac.o"
+        cmd = [
+            cc,
+            "-c",
+            "-O2",
+            *MAC_OBJC_CFLAGS,
+            *extra_cflags,
+            "-o",
+            obj.as_posix(),
+            s.as_posix(),
+        ]
+        run = subprocess.run(cmd, capture_output=True, text=True)
+        if run.returncode != 0:
+            print(f"stub: {' '.join(cmd)} 失败\n{run.stderr}", file=sys.stderr)
+            return ""
+        objs.append(obj.as_posix())
     if lib.exists():
         lib.unlink()
     run = subprocess.run(
-        ["ar", "rcs", lib.as_posix(), obj.as_posix()], capture_output=True, text=True
+        ["ar", "rcs", lib.as_posix(), *objs], capture_output=True, text=True
     )
     if run.returncode != 0:
         print(f"stub: ar 打包 {lib_name} 失败\n{run.stderr}", file=sys.stderr)
@@ -313,7 +323,7 @@ def link_configs() -> dict:
         # 不引 win，parent 是纯句柄 id）：与 Linux 分支完全同一口径。（webview 已出
         # 独立模块 NoahLiu/gui-webview，其 mac 链接参数由该模块自己的 prebuild 下发。）
         win_lib = compile_mac_stub(
-            MODULE_ROOT / "win" / "stub.c",
+            [MODULE_ROOT / "win" / "stub.c", MODULE_ROOT / "win" / "crash_log.c"],
             "libyue_win_stub_mac.a",
             ["-DWM_STUB_MAC"],
         )
