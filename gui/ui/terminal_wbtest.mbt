@@ -96,7 +96,7 @@ test "resize：保留左上交集、光标与滚动区钳制、尺寸不变是 n
 }
 
 ///|
-test "clear 清屏留回看；reset 连回看一起清" {
+test "clear 清屏留回看、视口回贴底；reset 连回看一起清" {
   let t = Terminal::new(cols=10, rows=3, scrollback=10)
   t.feed("a\nb\nc")
   t.clear()
@@ -105,6 +105,12 @@ test "clear 清屏留回看；reset 连回看一起清" {
   t.feed("1\n2\n3\n4\n5")
   t.clear()
   // 清屏不进回看，原来滚出去的 1、2 还在
+  assert_eq(t.text(), "1\n2")
+  // 滚上去看回看再清屏：视口必须回贴底，清空效果才可见（回看内容保留）
+  t.scroll_lines(2)
+  assert_false(t.is_bottom())
+  t.clear()
+  assert_true(t.is_bottom())
   assert_eq(t.text(), "1\n2")
   t.reset()
   assert_eq(t.text(), "")

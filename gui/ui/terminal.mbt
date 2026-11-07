@@ -367,7 +367,8 @@ pub fn Terminal::resize(self : Terminal, cols : Int, rows : Int) -> Unit {
 }
 
 ///|
-/// 清当前屏：网格重铺空白、光标回左上；回看与滚动区保留。
+/// 清当前屏：网格重铺空白、光标回左上、视口回贴底；回看内容保留
+/// （视口不回底的话，停在回看区时点清屏看不到任何变化）。
 pub fn Terminal::clear(self : Terminal) -> Unit {
   for ri in 0..<self.rows {
     self.screen[ri] = new_row(self.cols, self.pen_bg)
@@ -375,6 +376,7 @@ pub fn Terminal::clear(self : Terminal) -> Unit {
   self.cx = 0
   self.cy = 0
   self.pending_wrap = false
+  self.view_offset = 0
   self.bump()
 }
 

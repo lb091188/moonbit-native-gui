@@ -394,10 +394,11 @@ pub fn terminal(
           }
         }
       }
-      // 滚动条：有回看内容才画
+      // 滚动条：有回看内容才画。视口语义 offset=0 是贴底（最新在下），
+      // thumb 按内容坐标映射：贴底 thumb 在轨道底，拉满 offset 才到顶。
       if ring_len > 0 {
         let (sx2, sy2, _sw2, sh2, thumb) = sb_geom(r.w, r.h)
-        let ratio = term.view_offset.to_double() / ring_len.to_double()
+        let ratio = 1.0 - term.view_offset.to_double() / ring_len.to_double()
         let ty2 = sy2 + ratio * (sh2 - thumb)
         p.set_fill_color(term_blend_hex(tt.fg, bg_hex, 0.85))
         p.fill_rect(sx2, sy2, 5.0, sh2)
@@ -504,11 +505,11 @@ pub fn terminal(
       match ev.kind {
         @widget.PointerKind::Down => {
           if ev.x >= self_w.rect.w - 12.0 && term.ring.len() > 0 {
-            // 滚动条：点按/拖动跳位
+            // 滚动条：点按/拖动跳位（鼠标向下 ratio 大 = 看更新，offset 反向）
             dragging_sb.val = true
             let (_, sy2, _sw2, sh2, thumb) = sb_geom(self_w.rect.w, self_w.rect.h)
             let ratio = ((ev.y - sy2 - thumb / 2.0) / (sh2 - thumb).max(1.0)).clamp(min=0.0, max=1.0)
-            let target = (ratio * term.ring.len().to_double()).round().to_int()
+            let target = ((1.0 - ratio) * term.ring.len().to_double()).round().to_int()
             term.scroll_lines(target - term.view_offset)
             return true
           }
@@ -526,7 +527,7 @@ pub fn terminal(
           if dragging_sb.val {
             let (_, sy2, _sw2, sh2, thumb) = sb_geom(self_w.rect.w, self_w.rect.h)
             let ratio = ((ev.y - sy2 - thumb / 2.0) / (sh2 - thumb).max(1.0)).clamp(min=0.0, max=1.0)
-            let target = (ratio * term.ring.len().to_double()).round().to_int()
+            let target = ((1.0 - ratio) * term.ring.len().to_double()).round().to_int()
             term.scroll_lines(target - term.view_offset)
             return true
           }
