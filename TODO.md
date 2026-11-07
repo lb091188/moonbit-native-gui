@@ -16,7 +16,6 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 ### 二、GPU（按 [proposals/gpu-architecture.md](proposals/gpu-architecture.md) 分批）
 
 - [ ] **X11 wgpu 三角形真机复验**（用户执行）：实现已落（2026-11-04，`gpu/triangle.c` + `run_triangle` 门面 + `experiment/gpu_triangle`；无显示实跑验过加载链，详见 adaptation.md）——`moon run experiment/gpu_triangle` 跑一遍：窗口里见三色三角形、关窗或按 Esc 正常退出算过；不过把现象贴回来
-- [ ] **L1-Win 真机复验**（用户执行）：实现已落（2026-11-04，核心三臂共享 + Win32 薄适配，详见 adaptation.md）——Windows 跑一遍 hello/showcase：界面与改造前一致、无闪烁、resize 不花。mac 腿已过（2026-11-05 真机：界面与纯光栅一致、视图转 layer-backing 后输入/交互正常）；Linux 腿已过（2026-11-06 真机：独立 X 子窗口承载，界面/交互/rainbow/webview 层级/挪库回退全过，门已删默认尝试）
 - [ ] **GPU 画布 Linux 腿取数**（用户执行）：2026-11-06 本机无头用例已过（根因 `multisample.mask` 零值，像素断言首次在 Linux 真正执行：3/3，左上红 / 右下蓝 / 中心绿混合全对）；win 腿已过（2026-11-06 真机 showcase「GPU 画布」页）；剩真机应用进程——Linux 跑 showcase「GPU 画布」页，把「检查读回」状态行原文贴回：非零 = 应用进程同样正常；全零 / 仅底色 = 按档位归因（adaptation.md 同节）
 
 ## mngdev 库包与工具链联动（2026-11-07 立项，方案见 [proposals/mngdev-library.md](proposals/mngdev-library.md)；一项一提交，做完删一项）
