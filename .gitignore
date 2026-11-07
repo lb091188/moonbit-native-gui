@@ -68,3 +68,6 @@
 
 # 插件打包产物（按需本地生成）
 *.vsix
+
+# 崩溃取证档（NATIVEGUI_CRASH_LOG=1）现场文件
+mng_crash.log

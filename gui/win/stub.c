@@ -79,6 +79,7 @@ typedef struct WmL1 {
   int tw, th; // 上传纹理已配尺寸（位图）
   int on;     // GPU 档挂上：各臂贴像素路径据此停手
   int dead;   // 该窗永久回退（对象建不出 / present 失败）
+  int stale;  // 离开过最小化：下次呈现前强制重配 swapchain
 } WmL1;
 int wm_l1_available(void);
 void *wm_l1_surface_xlib(void *display, uint64_t window);
@@ -91,6 +92,14 @@ int wm_l1_window_repaint(WmL1 *st, const unsigned char *rgba, int bw, int bh,
                          int sw, int sh);
 void wm_l1_window_drop(WmL1 *st);
 void *wm_l1_gpu_status(void);
+
+/* 崩溃取证（Windows 诊断档，实现在 crash_log.c）：
+ * NATIVEGUI_CRASH_LOG=1 时记录面包屑并在异常时落 mng_crash.log；
+ * 默认关，未开启时 wm_crash_mark 只花一次 load+branch。其余平台是空实现，
+ * 调用点不必加平台宏。 */
+void wm_crash_install(void);
+void wm_crash_mark(const char *label, long a, long b);
+void wm_crash_note(const char *s);
 
 #if defined(_WIN32)
 
@@ -603,6 +612,7 @@ static void wm_blit(HDC dc, WmWindow *w) {
   if (w->frame == NULL || w->pending_w < 1 || w->pending_h < 1) {
     return;
   }
+  wm_crash_mark("blit", w->pending_w, w->pending_h);
   BITMAPINFO bi;
   memset(&bi, 0, sizeof(bi));
   bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
@@ -652,6 +662,15 @@ static LRESULT CALLBACK wm_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
     case WM_SIZE: {
       WmWindow *w = wm_of(hwnd);
+      if (w != NULL && wp == SIZE_MINIMIZED) {
+        // 最小化：客户区变 0×0，但 width/height 刻意不跟着归零（GUI 逻辑尺寸
+        // 应当保持），于是呈现路径会拿着旧尺寸去 acquire 一个真实为 0 的
+        // surface——wgpu 那里直接 panic（本机实测：任务栏点一下必崩，
+        // 0xE06D7363 出自 wgpu_native.dll 的 SurfaceGetCurrentTexture）。
+        // 标记一下：还原后先重配 swapchain 再呈现。
+        w->l1.stale = 1;
+        return 0;
+      }
       if (w != NULL && wp != SIZE_MINIMIZED) {
         int cw = (int)(int16_t)LOWORD(lp);
         int ch = (int)(int16_t)HIWORD(lp);
@@ -659,6 +678,11 @@ static LRESULT CALLBACK wm_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
           w->width = cw;
           w->height = ch;
           w->resized = 1;
+          w->need_draw = 1;
+          wm_crash_mark("wm_size", cw, ch);
+        } else if (cw > 0 && ch > 0 && w->l1.stale) {
+          // 从最小化还原、且尺寸没变：WM_SIZE 不会置脏，但遮挡期间屏幕内容
+          // 已不保证有效；GPU 档下 WM_PAINT 又不画东西，必须主动要一帧
           w->need_draw = 1;
         }
       }
@@ -676,6 +700,7 @@ static LRESULT CALLBACK wm_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       PAINTSTRUCT ps;
       HDC dc = BeginPaint(hwnd, &ps);
       if (w != NULL) {
+        wm_crash_mark("wm_paint", w->l1.on, w->pending_w);
         if (w->l1.on) {
           // GPU 档：像素经 swapchain 直接上屏，GDI 这一趟什么都不画
           //（BeginPaint/EndPaint 只为把脏区销掉）
@@ -907,6 +932,9 @@ static LRESULT CALLBACK wm_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 }
 
 int wm_init(void) {
+  // 崩溃取证档（NATIVEGUI_CRASH_LOG=1）：装在窗口类注册之前，后面任何
+  // 一步炸掉都能落一份现场
+  wm_crash_install();
   // 幂等：多窗宿主每开一扇都调一次后端初始化，而 Win32 的窗口类**同名
   // 重复注册会失败**（ERROR_CLASS_ALREADY_EXISTS）——第一次成功之后就整段复用。
   // 不这么做的话第二扇窗永远开不出（本机实测 App::open_window 返回 None，
@@ -1015,6 +1043,7 @@ void wm_show(int64_t id) {
   }
   WmWindow *w = &wm_windows[id];
   if (w->hwnd != NULL) {
+    wm_crash_mark("wm_show", (long)id, w->hidden);
     if (w->hidden) {
       // 唤回原位（W23）：SW_HIDE 本身保留矩形，仍按 hide 前读数摆一次，
       // 与 GTK 分支「重 map 后复位」同口径
@@ -1045,6 +1074,7 @@ static void wm_popup_materialize(WmWindow *w) {
   if (!w->pending_show || w->hwnd == NULL) {
     return;
   }
+  wm_crash_mark("popup_show", w->want_focus, 0);
   w->pending_show = 0;
   if (w->want_focus) {
     ShowWindow(w->hwnd, SW_SHOW);
@@ -1084,6 +1114,7 @@ void wm_hide(int64_t id) {
   if (w->hwnd == NULL || w->hidden) {
     return;
   }
+  wm_crash_mark("wm_hide", (long)id, 0);
   // 记的是**整窗**原点：show 的复位走 SetWindowPos，那条 API 收的正是整窗
   // 原点。此前记客户区原点（ClientToScreen）再当整窗原点写回，带边框的窗每
   // 走一轮 hide/show 就往下左偏一个标题栏与边框的厚度。
@@ -1443,6 +1474,7 @@ int wm_event(int64_t id) {
     return 0;
   }
   WmWindow *w = &wm_windows[id];
+  wm_crash_mark("event", (long)id, 0);
   if (w->ev_count > 0) {
     return 4;
   }
@@ -1488,10 +1520,30 @@ static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
   if (!wm_l1_available() || w->l1.dead || w->trans_mode == 1) {
     return 0;
   }
+  wm_crash_mark("l1.try", bw, bh);
+  // 最小化 / 客户区 0×0：绝不能再碰 swapchain。wgpu 的 surface 背后是真实的
+  // DXGI swapchain，客户区归零时 acquire 会在 wgpu 内部直接 panic
+  // （0xE06D7363，本机实测：任务栏点一下必崩）。这里当作「本帧已处理」返回，
+  // 既不 acquire 也不回退 CPU 路径；还原时由 stale 标记触发重配。
+  if (IsIconic(w->hwnd)) {
+    static int noted;
+    if (!noted) {
+      noted = 1;
+      wm_crash_note("l1: 最小化，跳过 present（还原后再重配 swapchain）");
+    }
+    w->l1.stale = 1;
+    return 1;
+  }
+  RECT cr;
+  if (GetClientRect(w->hwnd, &cr) && (cr.right <= 0 || cr.bottom <= 0)) {
+    w->l1.stale = 1;
+    return 1;
+  }
   if (!w->l1.on) {
     if (w->width < 1 || w->height < 1) {
       return 0; // 0×0（最小化）：不标记死，下帧再试
     }
+    wm_crash_mark("l1.bind", w->width, w->height);
     void *surf = wm_l1_surface_hwnd((void *)GetModuleHandle(NULL),
                                     (void *)w->hwnd);
     if (surf == NULL) {
@@ -1506,6 +1558,7 @@ static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
     }
     w->l1.on = 1;
   }
+  wm_crash_mark("l1.present", w->width, w->height);
   return wm_l1_window_present(&w->l1, rgba, bw, bh, w->width, w->height);
 }
 
@@ -1519,16 +1572,19 @@ void wm_present(int64_t id, const unsigned char *rgba, int width, int height) {
   if (w->hwnd == NULL || rgba == NULL || width < 1 || height < 1) {
     return;
   }
+  wm_crash_mark("present", width, height);
   // GPU 档（L1）：Bitmap 上传纹理 → 全屏 quad → swapchain present；返回 0
   // （没挂上/本帧失败）时逐字回退下面的帧拷贝 + InvalidateRect 路径
   if (wm_l1_try(w, rgba, width, height)) {
     wm_popup_materialize(w);
     return;
   }
+  wm_crash_mark("present.cpu", width, height);
   // 复制进桩持有的帧缓冲（理由见 WmWindow.frame 的注释），再请一次重画；
   // 真正的贴像素发生在下一次 WM_PAINT 里，那时窗口一定活着
   size_t need = (size_t)width * (size_t)height * 4;
   if (w->frame == NULL || (size_t)w->frame_cap < need) {
+    wm_crash_mark("present.realloc", width, height);
     unsigned char *nb = (unsigned char *)realloc(w->frame, need);
     if (nb == NULL) {
       return; // 分配失败就当这次没贴，下一帧再来
@@ -13873,15 +13929,19 @@ static int l1_log_on(void) {
 }
 
 static void l1_log(const char *fmt, ...) {
-  if (!l1_log_on()) {
-    return;
-  }
+  char buf[512];
   va_list ap;
   va_start(ap, fmt);
-  fputs("NATIVEGUI_GPU_LOG: ", stderr);
-  vfprintf(stderr, fmt, ap);
-  fputc('\n', stderr);
+  vsnprintf(buf, sizeof buf, fmt, ap);
   va_end(ap);
+  if (l1_log_on()) {
+    fputs("NATIVEGUI_GPU_LOG: ", stderr);
+    fputs(buf, stderr);
+    fputc('\n', stderr);
+  }
+  // 取证档（NATIVEGUI_CRASH_LOG=1）也落一份：GUI 子系统进程没有终端，
+  // stderr 在 PowerShell 里还会因环境变量大小写重名而无法重定向
+  wm_crash_note(buf);
 }
 
 // ---- wgpu 函数指针表（PFN typedef 取 vendor 头，不手抄签名） ----
@@ -14496,8 +14556,18 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
   if (sw < 1 || sh < 1) {
     return 1;
   }
+  wm_crash_mark("l1.frame", sw, sh);
+  // 最小化回来过：swapchain 在遮挡期间可能已被丢弃/改了尺寸，先把已配尺寸
+  // 打回 0 逼下面走重配（重配是幂等的，代价只有重建帧对象一次）
+  if (st->stale) {
+    st->stale = 0;
+    st->sw = 0;
+    st->sh = 0;
+    wm_crash_note("l1: 最小化还原，重配 swapchain");
+  }
   // 尺寸变了（客户区或位图）：释放帧对象重配（surface 不变——同一 native 窗）
   if (st->sw != sw || st->sh != sh || st->tw != bw || st->th != bh) {
+    wm_crash_mark("l1.rebind", sw, sh);
     l1_release_frame(st);
     if (l1_bind_frame(st, sw, sh, bw, bh) != 1) {
       st->on = 0;
@@ -14547,6 +14617,7 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
   WGPUSurfaceTexture stx;
   memset(&stx, 0, sizeof stx);
   p_wgpuSurfaceGetCurrentTexture(st->surface, &stx);
+  wm_crash_mark("l1.tex", (long)stx.status, 0);
   if (stx.status != WGPUSurfaceGetCurrentTextureStatus_SuccessOptimal ||
       stx.texture == NULL) {
     if (stx.status == WGPUSurfaceGetCurrentTextureStatus_Outdated) {

@@ -3847,6 +3847,7 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 **判据**：从仓库根实跑探针得 `probe loaded=true detail=loaded(D:/code/moonbit-native-gui/modules/gui-gpu/vendor/lib/wgpu_native.dll)` → `canvas: Ok 64x48` → `finish: sample B,G,R,A=0,0,255,255, nonzero=1536`（32×24 红矩形，R+A 两槽非零）；`cd modules/gui-gpu && moon test gpu` 3/3 且像素断言真执行；全仓 `moon check`、库 `moon check`、全仓 `moon build --target native` 零错误零警告。
 
 **边界（2026-11-07 已收）**：`gui/win/stub.c` 的 L1 呈现核心原先**刻意未动**——Windows 分支只试裸名 `wgpu_native.dll`，且 `L1_LIB_BASE` 仍是 `.so`，从仓库布局跑一律装载失败（Win 腿首验只能「dll 放 exe 旁 / 设 `MNG_WGPU_LIB`」）。现补齐同一套口径：库名加 `_WIN32` 档，候选序与 `probe.c`、`wgpu_core.c` 一字不差（`MNG_WGPU_LIB` → `vendor/lib/`、`vendor/` 相对路径 → cwd 逐级上溯 `<anc>/vendor/lib` 与 `<anc>/modules/gui-gpu/vendor/lib` → 裸名走平台搜索序），`GetCurrentDirectoryA` 取 cwd、正反斜杠取更靠右者截断、`<= 2` 停在盘符根（`D:`）。发行形态（cwd 在仓库外）仍走 `MNG_WGPU_LIB` 或把 dll 放 exe 同目录。Win 呈现档本身已于 2026-11-06 真机通过（界面与纯光栅一致、无闪烁、resize 不花），回归口径见 `测试文档/测试用例.md` SC-16.6。
+
 ## 原生弹层窗三件：不激活、禁 GPU present 档、延迟上屏（2026-11-06，win/mac/linux 真机迭代）
 
 菜单/下拉类弹层在原生档下是独立窗口，三端各自的坑都出在「这是个窗」上：
@@ -3863,3 +3864,17 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **MoonBit 解析器怪癖（moonc 0.10.x，现象级记录）**：`match` 臂的花括号块里出现「`out.push((` 多行嵌套元组 + 后随 `for` 循环 + 再一个 push」的组合时，报 `[3002] Parse error: unexpected token }`（提示 expect `,` or `)`），且报错行指向块闭合括号、位置随前面代码增删整体漂移；把字符串拼接先 `let` 再 `push`、或 `match` 臂退化为表达式（无花括号）即过。同一函数「先 let 后 push」与「臂内直接 push」混用时的判据不稳定，没法给更精确的触发条件——遇到就把拼串提出来 `let`，别跟解析器较劲。同批附带：`derive(Eq, Debug)` 要配 `pub extend T with Eq::{equal, not_equal}` 与 `Debug::{to_repr}` 才不报 implicit_impl_as_method（icons 先例）；`Char::from_int` 已 deprecated，用 `Int::to_char()`（返回 `Char?`）。
 - **终端 `\n` 口径偏离 VT**：`Terminal::feed` 的 `\n` = 回行首 + 下移（日志源都是裸 `\n`，按 VT 的「只下移留列」会让纯文本喂入呈楼梯）；进度条类原地重画走 `\r` 不受影响，真 PTY 批若需严格 VT 再按需分化（POSIX tty 的 ONLCR 本就把 `\n` 转成 `\r\n` 下行）。
 - **`scan_dir_mng` 的 `.mng` 目录**：dev 产物目录 `.mng/` 名字恰以 `.mng` 结尾，模板扫描的点目录跳过必须放在 `.mng` 后缀判断**之前**，否则第二轮 `mng dev`/项目级 `mng build` 会把产物目录当模板撞名报错（同包撞名文本极具迷惑性，报的是「.mng 与 page.mng 都生成 page」）。同目录单文件撞名检查 `stem_conflicts` 同样要跳过目录。
+
+## Windows 任务栏最小化必崩：swapchain 在 0×0 客户区上 acquire，wgpu 直接 panic（2026-11-07，真机复现并修复）
+
+**现象**：Windows 上 showcase 窗口在任务栏点一下（收起）就**静默消失**——没有错误框、`Application Error` 事件日志里没有记录、终端只有 prebuild 行；而且每次必崩。时间点很关键：这是 `gui-gpu` 装载链补齐之后 Windows 第一次真正挂上 L1 present 档，所以是新暴露的路径，不是老 bug。
+
+**定位（三条独立证据）**：① 进程退出码 `0xE06D7363`——MSVC 的 C++ 异常码，而 Rust 的 panic 在 MSVC 目标上正是用它抛出（wgpu-native 是 Rust）；② 栈帧除 `RaiseException` 外全落在 `wgpu_native.dll` 里；③ 取证档的面包屑末尾是 `present → l1.try → l1.present → l1.frame`，**偏偏没有 `l1.tex`**——而 `l1.tex` 是 `wgpuSurfaceGetCurrentTexture` **返回之后**才记的，说明就死在那次调用内部。
+
+**根因**：`WM_SIZE` 对 `SIZE_MINIMIZED` 是刻意跳过的（客户区 0×0 不该把 GUI 逻辑尺寸归零），于是 `w->width/height` 仍是 1280×700；present 照旧带着这个旧尺寸去 acquire 一个真实尺寸已归零的 swapchain，wgpu-core 在 DX12 后端上直接 panic。**它不是走 uncaptured error 通道**：给 `WGPUDeviceDescriptor.uncapturedErrorCallbackInfo` 装上自己的回调后（A/B 实测）**照样 panic**，属内部断言型 `panic!`，用户侧没有钩子可拦——只能在进 wgpu 之前就不调用。
+
+**修法**：`wm_l1_try` 在碰任何 wgpu 对象之前判 `IsIconic(hwnd)` 或 `GetClientRect` 归零 → 当「本帧已处理」直接返回（既不 acquire 也不回退 CPU 路径：最小化时确实没有可上屏的像素），同时置 `w->l1.stale`；`WM_SIZE` 的 `SIZE_MINIMIZED` 分支同样置 `stale` 且不动尺寸。还原时即便尺寸没变也主动 `need_draw = 1` 要一帧（遮挡期间内容不保证有效，而 GPU 档下 `WM_PAINT` 是不画东西的）；present 侧见到 `stale` 先把已配尺寸打回 0 逼一次重配（`l1_release_frame` + `l1_bind_frame`）再上屏。`stale` 放进共享核心的 `WmL1`，三臂同位，Linux/mac 需要时直接置位即可。
+
+**验证（脚本化，不靠手点）**：本机写了 `toggle.exe`（`ShowWindow(SW_MINIMIZE)` → `SW_RESTORE` 循环，每轮用 `PrintWindow(PW_RENDERFULLCONTENT)` 抓客户区算 FNV 与非黑像素数）跑 6 轮——进程 6/6 存活；还原后 `nonblack=890748/896000`、hash 与最小化前**逐位相同**（既不是黑屏，也不是残留旧帧）；配合取证档能读到「窗口呈现挂上 GPU 档（surface 1280x700…）」，证明这一轮确实走 GPU 档而非悄悄回退 CPU。反向 A/B：把守卫关掉，第 1 轮最小化就 `0xE06D7363` 死——确认修的就是这条路径。
+
+**顺带落地的崩溃取证档（默认关）**：`gui/win/crash_log.c`，`NATIVEGUI_CRASH_LOG=1` 打开。内容是 64 项环形面包屑（present / WM_PAINT / 尺寸变化 / show·hide / 弹层上屏 / L1 各阶段）加一个向量化异常处理器（VEH）：异常时把「异常码 + 各栈帧的模块与 RVA + 面包屑」写进 `NATIVEGUI_CRASH_FILE`（默认 `mng_crash.log`，已进 `.gitignore`）。踩过的四个坑：① **过滤清单里绝不能有 `0xE06D7363`**（Rust panic 走它，滤掉等于把 GPU 侧现场全漏光——本轮就栽在这，第一次抓到的其实是启动期噪声）；② 要滤的是 `0x40010006` / `0x4001000A`（OutputDebugString A/W）、`0x40010005`、`0x80000003`、`0x406D1388`；③ 落盘要允许多次覆盖（文件是 `CREATE_ALWAYS`），只许一次的话首发噪声会把致命现场挤掉；④ GUI 子系统进程没有终端，PowerShell 的 `-RedirectStandardError` 还会因环境里 `HTTPS_PROXY`/`https_proxy` 大小写重名直接抛异常，所以 `l1_log` 每条也镜像写入同一文件（`note t=<tick> …`）。另外 Intel 显卡驱动 `igvk64.dll` 在启动期会抛被它自己接住的 C++ 异常，按噪声看待，不必追。
