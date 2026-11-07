@@ -1,7 +1,8 @@
-// `mng new --app <name>`：生成可跑最小模板工程——moon.mod（gui/yoga 版本从
-// workspace 现读）、全套 import 的 moon.pkg、mng.toml、main.mbt、首页 .mng +
-// dev 形态生成码（热更面在库包 @mngdev，应用零复制）。与 `mng new <名>`（单页
-// 样板）、`mng init`（只写 mng.toml）互补。
+// `mng new <name>`（或显式 `mng new app <name>`）：生成可跑最小模板工程——
+// moon.mod（gui/yoga 版本从 workspace 现读）、全套 import 的 moon.pkg、
+// mng.toml、main.mbt、首页 .mng + dev 形态生成码（热更面在库包 @mngdev，
+// 应用零复制）。与 `mng new page <路径>`（单页样板）、`mng init`（只写
+// mng.toml）互补。
 
 ///|
 /// 版本缺省：不在 native-gui workspace 内时用的兜底值（注释提醒用户改成

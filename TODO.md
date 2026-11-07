@@ -23,7 +23,7 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 
 - [ ] **dev 面进库复验**（用户执行）：`mng dev` 在 showcase/template-hello 跑热更循环（HOT 亚秒、COLD 回改动页）——生成码已切 @mngdev 前缀，应用侧零 dev 面复制
 - [ ] **lsp 诊断联动复验**（用户执行，装新版 VSIX）：`.mng` 里写坏 script 段类型（如 `+` 拼非串）→ Ctrl+S → Problems 出「moon check」来源的模板行列错误；恢复保存后错误消失
-- [ ] **脚手架冒烟**（用户执行）：仓库内 `mng new --app demo1`（版本现读）与任意目录（兜底版本）各一次 → `cd demo1 && moon run .` 起窗 → 改 pages/home.mng 保存看 `mng dev` 热更
+- [ ] **脚手架冒烟**（用户执行，含 `mng new` 改面复验）：仓库内 `mng new demo1`（裸名即建工程，版本现读；旧 `--app` 已删、给改版指引）与任意目录（兜底版本）各一次 → `cd demo1 && moon run .` 起窗 → 改 pages/home.mng 保存看 `mng dev` 热更；另验 `mng new page pages/about`（父目录现建）与命令面板「MNG: 新建页面」
 
 ## 终端与单文件 DX 批（2026-11-06 排定，方案见 [proposals/terminal-sfc-dx.md](proposals/terminal-sfc-dx.md)——代码侧九件全部落地并逐项提交推送，本批只剩真机复验，均由用户执行）
 

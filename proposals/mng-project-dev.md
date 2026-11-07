@@ -57,6 +57,6 @@ pub fn <stem>() -> @widget.Node {
 
 ## 后续
 
-- `mng new --app` 工程脚手架已落（2026-11-07）：moon.mod 版本现读 workspace、全套 import 的 moon.pkg、mng.toml、main.mbt、首页 dev 生成码。
+- `mng new --app` 工程脚手架已落（2026-11-07）：moon.mod 版本现读 workspace、全套 import 的 moon.pkg、mng.toml、main.mbt、首页 dev 生成码。（同日改面：裸 `new` 即建工程、`--app` 删除、单页样板挪 `new page <路径>`——高频动作零参数）
 - VS Code「MNG: dev」入口（拉起 `mng dev` 并复用现有 lsp 诊断/补全）。
 - 上游 native 热重载落地后，IR 通道升格真代码热换。

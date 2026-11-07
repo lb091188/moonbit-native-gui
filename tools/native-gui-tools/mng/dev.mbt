@@ -859,23 +859,61 @@ fn cmd_ir(args : Array[String]) -> Int {
 }
 
 ///|
-/// new 子命令：生成 .mng 页样板（script setup + 最小模板 + props 头与组件调用提示）。
+/// new 子命令：`new <工程名>` / `new app <工程名>` 生成可跑工程脚手架；
+/// `new page <路径>` 生成单页 .mng 样板（可带包内路径，如 pages/about）。
 fn cmd_new(args : Array[String]) -> Int {
-  if args.length() == 2 && args[0] == "--app" {
-    // 工程脚手架：生成可跑最小模板工程（moon.mod/moon.pkg/mng.toml/main/首页+dev 生成码）
-    let cwd = match @env.current_dir() {
-      Some(d) => d
-      None => "."
+  if args.length() == 1 {
+    return scaffold_new_app(args[0])
+  }
+  if args.length() == 2 {
+    if args[0] == "app" {
+      return scaffold_new_app(args[1])
     }
-    return scaffold_app_at(cwd, args[1])
+    if args[0] == "page" {
+      return new_page(args[1])
+    }
+    if args[0] == "--app" {
+      println("new 的 --app 已改版：`mng new <工程名>` 即建工程（或显式 `mng new app <工程名>`）")
+      return 2
+    }
   }
-  if args.length() != 1 {
-    println("new 需要一个页名（生成 <名字>.mng），或 `new --app <工程名>` 生成整个工程")
-    return 2
+  println("new 用法：`mng new <工程名>` 建工程；`mng new page <页路径>` 出单页样板")
+  2
+}
+
+///|
+/// 工程脚手架入口：在当前目录下建 `<名字>/` 工程。
+fn scaffold_new_app(raw_name : String) -> Int {
+  let cwd = match @env.current_dir() {
+    Some(d) => d
+    None => "."
   }
-  let name = args[0]
-  if !name.has_suffix(".mng") {
-    return cmd_new([name + ".mng"])
+  scaffold_app_at(cwd, raw_name)
+}
+
+///|
+/// 单页样板：写 `<路径>.mng`（script setup + 最小模板 + props 头与组件调用提示）。
+/// 路径带目录时父目录不存在则现建（如 pages/about.mng 的 pages/）。
+fn new_page(raw : String) -> Int {
+  let name = if raw.has_suffix(".mng") {
+    raw
+  } else {
+    raw + ".mng"
+  }
+  // 父目录补齐：取最后一个 / 之前的部分，非空且不存在时 mkdir_p
+  let chars = chars_of(name)
+  let mut last = -1
+  for i, c in chars {
+    if c == '/' {
+      last = i
+    }
+  }
+  if last > 0 {
+    let dir = slice_path(chars, 0, last)
+    if !@fs.path_exists(dir) && !mkdir_p(dir) {
+      println("建不出目录：" + dir)
+      return 1
+    }
   }
   let stem = basename(name)
   let stem = if stem.has_suffix(".mng") {

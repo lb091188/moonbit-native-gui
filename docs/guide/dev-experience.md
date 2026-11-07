@@ -52,8 +52,9 @@ For editor support install the VS Code extension from `tools/vscode-mng` (colori
 
 ### Start
 
-- **New project**: `mng new --app my_app` generates a runnable minimal project (dependency versions are read live when generated inside the native-gui workspace) — `cd my_app && moon run .`.
-- **Existing project**: `mng init` writes `mng.toml`.
+- **New project**: `mng new my_app` generates a runnable minimal project (dependency versions are read live when generated inside the native-gui workspace; explicit form `mng new app my_app`) — `cd my_app && moon run .`.
+- **Add a page to an existing project**: `mng new page pages/about` generates a single-page `.mng` sample (the parent directory is created if missing).
+- **Wire templates into an existing project**: `mng init` writes `mng.toml`.
 
 ### What a page looks like
 
@@ -92,7 +93,7 @@ Key points:
 ### dev / build
 
 - `mng init` writes `mng.toml` at the module root (templates / build / run / app-id / theme); `mng dev` and `mng build` look it up upwards when run without arguments, falling back to `moon.mod`/`moon.work` defaults.
-- `mng dev`: watches all project templates + project sources (`.mbt`/`moon.pkg`/`moon.mod`/`moon.work`) + theme files; the first run generates the dev-form `<stem>.gen.mbt` next to each template and starts the app. Change classes: structure/class/style values/restricted expressions apply hot in under a second; script, v-for row templates and new symbols fall back to a COLD restart which reopens the edited page; `.mng` files created while dev runs are generated and built automatically, deletions clean up (or warn about) generated code. The hot-reload facade lives in the library package `@mngdev` — one `import "NoahLiu/native-gui/mngdev" @mngdev` line in the template package's `moon.pkg` (already written by `mng new --app`); the app no longer copies any dev-facade `.mbt`.
+- `mng dev`: watches all project templates + project sources (`.mbt`/`moon.pkg`/`moon.mod`/`moon.work`) + theme files; the first run generates the dev-form `<stem>.gen.mbt` next to each template and starts the app. Change classes: structure/class/style values/restricted expressions apply hot in under a second; script, v-for row templates and new symbols fall back to a COLD restart which reopens the edited page; `.mng` files created while dev runs are generated and built automatically, deletions clean up (or warn about) generated code. The hot-reload facade lives in the library package `@mngdev` — one `import "NoahLiu/native-gui/mngdev" @mngdev` line in the template package's `moon.pkg` (already written by `mng new`); the app no longer copies any dev-facade `.mbt`.
 - `mng build`: with no arguments generates **production-form** generated code for the whole project (zero dev traces); `mng build <input> -o <out>` compiles a single file. dev and production forms share the same `<stem>.gen.mbt` and overwrite each other — pick one before committing (CI compares both and accepts either).
 
 ### Wiring the generated code

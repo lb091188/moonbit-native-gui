@@ -212,3 +212,21 @@ test "scaffold_app_at：非法名净化与 workspace 外兜底版本注释" {
   assert_true(contains_sub_cli(gmod, "name = \"_9app\""))
   assert_true(contains_sub_cli(gmod, "版本是兜底值"))
 }
+
+///|
+test "cmd_new 分发：旧 --app 给改版指引、乱参给用法（均不落盘）" {
+  assert_eq(cmd_new(["--app", "x"]), 2)
+  assert_eq(cmd_new(["a", "b"]), 2)
+  assert_eq(cmd_new([]), 2)
+}
+
+///|
+test "new_page：父目录现建、.mng 后缀可省" {
+  let root = tmp_dir("mng_new_page")
+  rm_rf_wb(root)
+  ensure_dir_p(root)
+  assert_eq(new_page(root + "/pages/about"), 0)
+  assert_true(@fs.path_exists(root + "/pages/about.mng"))
+  assert_eq(new_page(root + "/solo.mng"), 0)
+  assert_true(@fs.path_exists(root + "/solo.mng"))
+}
