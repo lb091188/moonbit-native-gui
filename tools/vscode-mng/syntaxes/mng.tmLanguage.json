@@ -295,7 +295,8 @@
           "contentName": "string.quoted.mng",
           "patterns": [
             {
-              "include": "#moonbit-expression"
+              "match": "\\\\.",
+              "name": "constant.character.escape.mng"
             }
           ]
         },
@@ -331,7 +332,7 @@
           "include": "#style-comment"
         },
         {
-          "match": "(^\\s*)(\\.)([A-Za-z_][A-Za-z0-9_-]*)(:(?:dark|hover|active|focus))?",
+          "match": "(^\\s*)(\\.)([A-Za-z_][A-Za-z0-9_-]*)(:(?:dark|hover|active|focus))?\\s*(\\{)?",
           "captures": {
             "2": {
               "name": "punctuation.definition.entity.css"
@@ -341,6 +342,9 @@
             },
             "4": {
               "name": "entity.other.attribute-name.pseudo-class.css"
+            },
+            "5": {
+              "name": "punctuation.section.property-list.begin.css"
             }
           }
         },
