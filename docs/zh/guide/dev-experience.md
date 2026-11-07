@@ -39,6 +39,11 @@ supported_targets = "native"
 
 界面用声明式模板写、状态与逻辑用 MoonBit 写，两段合在一个 `.mng` 文件里，由 `mng` 工具预编译成 `.mbt` 再走 `moon build`——`moon check` 仍是唯一类型门禁。完整语义见 `proposals/native-template.md`；可跑的最小示例在 `examples/template-hello`。
 
+### 起
+
+- **从零起工程**：`mng new --app my_app`（在 native-gui workspace 内生成时依赖版本现读）生成可跑最小工程——`cd my_app && moon run .`。
+- **既有工程接模板**：`mng init` 写 `mng.toml`。
+
 ### 装
 
 仓库根执行（工具随本仓分发）：
@@ -87,7 +92,7 @@ fn reset() {
 ### dev / build
 
 - `mng init` 在模块根写 `mng.toml`（templates / build / run / app-id / theme）；`mng dev` / `mng build` 无参时向上找它，找不到按 `moon.mod`/`moon.work` 推默认。
-- `mng dev`：watch 全工程模板 + 工程源文件（`.mbt`/`moon.pkg`/`moon.mod`/`moon.work`）+ 主题文件；首轮生成 dev 形态 `<stem>.gen.mbt` 到模板同包并起应用。改动分类：结构/类/样式值/受限表达式亚秒 HOT；script、v-for 行模板、新符号回 COLD 重启并自动回到改动页；运行中新增 `.mng` 自动生成并入构建，删除会清（或提示）生成码。注意：dev 热更需要应用自带 dev 面（`shared/mng_dev.mbt` 一套，showcase 是参考实现）。
+- `mng dev`：watch 全工程模板 + 工程源文件（`.mbt`/`moon.pkg`/`moon.mod`/`moon.work`）+ 主题文件；首轮生成 dev 形态 `<stem>.gen.mbt` 到模板同包并起应用。改动分类：结构/类/样式值/受限表达式亚秒 HOT；script、v-for 行模板、新符号回 COLD 重启并自动回到改动页；运行中新增 `.mng` 自动生成并入构建，删除会清（或提示）生成码。热更面在库包 `@mngdev`——模板所在包 `moon.pkg` 加一行 `import "NoahLiu/native-gui/mngdev" @mngdev` 即可（`mng new --app` 生成时已写好），应用不再复制任何 dev 面 `.mbt`。
 - `mng build`：无参按 `mng.toml` 生成全工程**生产形态**生成码（零 dev 痕迹）；`mng build <input> -o <out>` 编译单文件。dev 与生产形态共用同一条 `<stem>.gen.mbt`，会互相覆盖——提交前选一种并保持一致（CI 对两形态各比一遍，匹配任一即过）。
 
 ### 生成码怎么接

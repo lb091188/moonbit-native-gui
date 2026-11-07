@@ -48,7 +48,7 @@ pub fn <stem>() -> @widget.Node {
 
 ## 应用侧通用件
 
-`shared/mng_dev.mbt`（应用自己的 shared 包）提供 `mng_dev_page(page, reg, build)`：登记注册表与 holder、把 `build()` 的树挂进 holder 并记为现役代。applier（按 `page` 键控的注册表 + IR 构树 + 整袋退订）不变。
+**2026-11-07 收口：dev 面进库**——`NoahLiu/native-gui/mngdev` 包（原 showcase `shared/` 三件挪入，`tx/tr` 求值改 `@i18n` 直调）提供 `mng_dev_page` / 注册表 / applier / 受限表达式求值器；应用在模板所在包 `moon.pkg` 加一行 `import "NoahLiu/native-gui/mngdev" @mngdev` 即可（编译器 dev 档生成码引用 `@mngdev.mng_*` 家族），不再复制任何 `.mbt`。
 
 ## 落地状态
 
@@ -57,6 +57,6 @@ pub fn <stem>() -> @widget.Node {
 
 ## 后续
 
-- 命令改名 `mng`（现为 `mng`）。
+- `mng new --app` 工程脚手架已落（2026-11-07）：moon.mod 版本现读 workspace、全套 import 的 moon.pkg、mng.toml、main.mbt、首页 dev 生成码。
 - VS Code「MNG: dev」入口（拉起 `mng dev` 并复用现有 lsp 诊断/补全）。
 - 上游 native 热重载落地后，IR 通道升格真代码热换。

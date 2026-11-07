@@ -21,10 +21,11 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 
 ## mngdev 库包与工具链联动（2026-11-07 立项，方案见 [proposals/mngdev-library.md](proposals/mngdev-library.md)；一项一提交，做完删一项）
 
-- [ ] **dev 面进库**：gui/mngdev 包（showcase shared 三件挪入 + wbtest 跟迁）+ 生成码前缀 @shared→@mngdev + showcase/template-hello 接入 + dev 生成码重生成
-- [ ] **lsp 诊断联动**：didSave 跑 moon check，`<stem>.gen.mbt:L:C` 经 .mng/map 反查回投 Problems（节流/8s 超时/解析不了跳过）+ 纯函数用例
-- [ ] **脚手架**：`mng new --app` 生成可跑最小工程（moon.mod 版本现读 gui/moon.mod、moon.pkg 全套 import、mng.toml、main.mbt、pages/home.mng + dev 生成码）+ wbtest
-- [ ] **文档收口**：VSIX README「委托官方文法」口径修正（实现是内置子集，scope 同族不 include）+ guide/mng-project-dev/native-template 同步 + 真机清单
+（代码侧四件全部落地并逐项提交推送：dev 面进库 c8051433、lsp 诊断联动 411cbc2e、脚手架 7acf24e3、文档收口本笔；本批只剩真机/编辑器复验，均由用户执行）
+
+- [ ] **dev 面进库复验**（用户执行）：`mng dev` 在 showcase/template-hello 跑热更循环（HOT 亚秒、COLD 回改动页）——生成码已切 @mngdev 前缀，应用侧零 dev 面复制
+- [ ] **lsp 诊断联动复验**（用户执行，装新版 VSIX）：`.mng` 里写坏 script 段类型（如 `+` 拼非串）→ Ctrl+S → Problems 出「moon check」来源的模板行列错误；恢复保存后错误消失
+- [ ] **脚手架冒烟**（用户执行）：仓库内 `mng new --app demo1`（版本现读）与任意目录（兜底版本）各一次 → `cd demo1 && moon run .` 起窗 → 改 pages/home.mng 保存看 `mng dev` 热更
 
 ## 终端与单文件 DX 批（2026-11-06 排定，方案见 [proposals/terminal-sfc-dx.md](proposals/terminal-sfc-dx.md)——代码侧九件全部落地并逐项提交推送，本批只剩真机复验，均由用户执行）
 
