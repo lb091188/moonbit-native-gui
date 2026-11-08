@@ -444,6 +444,12 @@ pub fn instance_arm(app_id : String) -> InstanceBackend? {
 }
 
 ///|
+/// 本进程是否声称过任一单实例（ui 库据此决定排不排唤起泵；没声称的应用零开销）。
+pub fn instance_armed() -> Bool {
+  g_arms.val.length() > 0 || g_sock_dev.length() > 0
+}
+
+///|
 /// 宿主每拍调一次：抽走本拍到达的唤起并派发，命中给 true。
 /// D-Bus 档的入站调用在 `@dbus.dbus_pump` 里直达回调，本函数在该档下就是
 /// 顺带泵一次总线（托盘/通知已在泵它，多调无害）。

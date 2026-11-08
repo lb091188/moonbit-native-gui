@@ -888,3 +888,34 @@ pub fn mng_dev_theme_src(path : String) -> String? {
   }
   Some(text)
 }
+
+
+///|
+/// dev 三通道默认接线（脚手架与应用一行接入）：--mng-hot 补丁原位重挂、
+/// --mng-theme 主题 JSON 重载、--mng-page 回改动页（单页应用重启即回，
+/// 多页应用自行覆盖 on_instance_wake 做路由）。抽件泵由 ui 库的
+/// mount_window 自排，应用侧不再需要任何定时器。
+pub fn mng_dev_wake_default() -> Unit {
+  @shell.on_instance_wake(fn(args : Array[String]) -> Unit {
+    if args.length() == 2 && args[0] == "--mng-hot" {
+      match mng_dev_apply_from_file(args[1]) {
+        Ok(_) => println("APP-DEV: 模板补丁已应用")
+        Err(e) => println("APP-DEV: 补丁失败：" + e)
+      }
+    } else if args.length() == 2 && args[0] == "--mng-theme" {
+      match mng_dev_theme_src(args[1]) {
+        Some(src) =>
+          match @theme.from_json(src) {
+            Ok(t) => @theme.theme_apply(t)
+            Err(e) => println("APP-DEV: 主题重载失败：" + e)
+          }
+        None => println("APP-DEV: 读不到主题文件")
+      }
+    } else if args.length() == 2 && args[0] == "--mng-page" {
+      // 单页应用重启即回改动页；多页应用自行覆盖 on_instance_wake 做路由
+      println("APP-DEV: 回改动页")
+    } else {
+      println("APP-INST: 已被第二实例唤起")
+    }
+  })
+}

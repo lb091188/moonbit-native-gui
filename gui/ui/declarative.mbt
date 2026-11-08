@@ -297,6 +297,20 @@ pub fn mount_window(
     Some(app) => {
       app.mount(children)
       handle(app)
+      // 单实例唤起泵（库级）：应用 claim 过实例就自动抽件——mac 套接字臂 /
+      // Win32 臂的唤醒参数靠它落地，第二实例唤首实例（生产特性）与 dev 的
+      // --mng-hot/page/theme 通道共用。没 claim 的应用不排此泵，零开销；
+      // claim 需在挂载前完成（入口惯例）。
+      if @shell.instance_armed() {
+        let wake_pump : Ref[() -> Unit] = Ref(fn() { () })
+        wake_pump.val = fn() -> Unit {
+          if @shell.instance_armed() {
+            let _ = @shell.dispatch_instance_wake()
+            let _ = app.timer(200, wake_pump.val)
+          }
+        }
+        (wake_pump.val)()
+      }
       Some(app)
     }
   }
