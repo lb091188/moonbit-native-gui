@@ -14,3 +14,12 @@ run = ""
 app-id = "com.moonbitlibyue.showcase"
 
 poll-ms = 300
+
+# mng package 的打包声明（在项目根执行；本平台打本平台包）
+[package]
+# 与 app-id 同源；产物短名 = showcase
+id = "com.moonbitlibyue.showcase"
+name = "Native GUI Showcase"
+version = "0.1.0"
+icon = "assets/icon.png"
+resources = ["assets"]

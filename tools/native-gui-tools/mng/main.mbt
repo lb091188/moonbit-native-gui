@@ -143,12 +143,27 @@ fn usage() -> Unit {
     "watch + 契约分类 + 回退编排；-h 看细目",
     "Watch + contract classification + rebuild orchestration; -h for details",
   )
+  usage_line(
+    "  package",
+    "打包本平台应用产物（mac：.app + DMG + 更新 zip）；-h 看细目",
+    "Package platform-native app artifacts (mac: .app + DMG + update zip); -h for details",
+  )
   println(
     tmsg(
       "子命令加 -h 看详细说明。",
       "Add -h to a subcommand for details.",
     ),
   )
+}
+
+///|
+/// `mng package -h`：打包说明。
+fn help_package() -> Unit {
+  println(tmsg("用法：\{inv_prefix[0]} package", "Usage: \{inv_prefix[0]} package"))
+  println(tmsg("  在项目根执行（与 dev 同口径）；读 mng.toml [package] 节", "  Run at project root (same convention as dev); reads the [package] section of mng.toml"))
+  println(tmsg("  本平台打本平台包——mac 出 .app + DMG + 更新载体 zip；win/linux 腿在后批", "  Builds for the host platform only — mac emits .app + DMG + update zip; win/linux come in later batches"))
+  println(tmsg("  产物落 <项目根>/.mng/dist/，不进源码树", "  Artifacts land in <project root>/.mng/dist/, out of the source tree"))
+  println(tmsg("  签名：[package.sign] mac_identity 空 = adhoc；配 notarize_profile 则公证 + staple", "  Signing: empty [package.sign] mac_identity = adhoc; set notarize_profile to notarize + staple"))
 }
 
 ///|
@@ -633,6 +648,8 @@ fn main {
       help_init()
     } else if cmd == "dev" {
       usage_dev()
+    } else if cmd == "package" {
+      help_package()
     } else if cmd == "--version" || cmd == "-v" || cmd == "-V" || cmd == "version" {
       help_version()
     } else {
@@ -649,6 +666,8 @@ fn main {
     cmd_map_errors(rest)
   } else if cmd == "dev" {
     cmd_dev(rest)
+  } else if cmd == "package" {
+    cmd_package(rest)
   } else if cmd == "ir" {
     cmd_ir(rest)
   } else if cmd == "new" {
