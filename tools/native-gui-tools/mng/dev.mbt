@@ -5,8 +5,8 @@
 fn usage_dev() -> Unit {
   println(
     tmsg(
-      "用法：moon run tools/native-gui-tools/mng -- dev [<某个 .mng 或目录>] [--build-cmd …] [--run-cmd …] [--app-id …] [--poll-ms 300] [--out-dir <目录>]",
-      "Usage: moon run tools/native-gui-tools/mng -- dev [<one .mng or dir>] [--build-cmd …] [--run-cmd …] [--app-id …] [--poll-ms 300] [--out-dir <dir>]",
+      "用法：\{inv_prefix[0]} dev [<某个 .mng 或目录>] [--build-cmd …] [--run-cmd …] [--app-id …] [--poll-ms 300] [--out-dir <目录>]",
+      "Usage: \{inv_prefix[0]} dev [<one .mng or dir>] [--build-cmd …] [--run-cmd …] [--app-id …] [--poll-ms 300] [--out-dir <dir>]",
     ),
   )
   println(

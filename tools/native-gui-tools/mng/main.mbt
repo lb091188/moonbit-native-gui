@@ -29,6 +29,19 @@ fn cli_lang_init() -> Unit {
 }
 
 ///|
+/// 调用形态前缀：argv[0] 在 _build 里 = `moon run`（开发环境），否则是安装好的 mng。
+/// usage 与各 help 首行按此给出可复制的调用形式；moon 产物在 mac 上也叫 *.exe，
+/// 只能看路径不能看文件名。
+let inv_prefix : Array[String] = ["moon run tools/native-gui-tools/mng --"]
+
+///|
+fn inv_prefix_init(argv0 : String) -> Unit {
+  if !argv0.contains("_build") {
+    inv_prefix[0] = "mng"
+  }
+}
+
+///|
 fn tmsg(zh : String, en : String) -> String {
   if cli_zh[0] {
     zh
@@ -61,8 +74,8 @@ fn usage_line(cmd : String, zh : String, en : String) -> Unit {
 fn usage() -> Unit {
   println(
     tmsg(
-      "用法：moon run tools/native-gui-tools/mng -- <子命令> ...",
-      "Usage: moon run tools/native-gui-tools/mng -- <subcommand> ...",
+      "用法：\{inv_prefix[0]} <子命令> ...",
+      "Usage: \{inv_prefix[0]} <subcommand> ...",
     ),
   )
   usage_line(
@@ -141,7 +154,7 @@ fn usage() -> Unit {
 ///|
 /// 各子命令详细帮助（`mng <cmd> -h`）。
 fn help_build() -> Unit {
-  println(tmsg("用法：mng build [<input.mng> -o <out.mbt>]", "Usage: mng build [<input.mng> -o <out.mbt>]"))
+  println(tmsg("用法：\{inv_prefix[0]} build [<input.mng> -o <out.mbt>]", "Usage: \{inv_prefix[0]} build [<input.mng> -o <out.mbt>]"))
   println(tmsg("  单文件：读模板 → 编译 → 写出生成码 out.mbt 与 source map out.mbt.map", "  Single file: read template -> compile -> write generated code out.mbt and source map out.mbt.map"))
   println(tmsg("  无参：按 mng.toml 生成全工程生产形态，生成码落模板同包——会覆盖 dev 形态生成码", "  No args: whole-project production generation per mng.toml, code lands next to each template — overwrites dev-form generated code"))
   println(tmsg("  错误里的 <gen>.mbt:行:列 用 `mng map-errors` 映射回模板行列", "  Map <gen>.mbt:line:col in errors back to template line:col with `mng map-errors`"))
@@ -149,27 +162,27 @@ fn help_build() -> Unit {
 
 ///|
 fn help_gen() -> Unit {
-  println(tmsg("用法：mng gen <input.mng> -o <out.mbt>", "Usage: mng gen <input.mng> -o <out.mbt>"))
+  println(tmsg("用法：\{inv_prefix[0]} gen <input.mng> -o <out.mbt>", "Usage: \{inv_prefix[0]} gen <input.mng> -o <out.mbt>"))
   println(tmsg("  dev 形态编译单个模板，生成码写 -o，不产 source map", "  Dev-form compile of one template; generated code goes to -o, no source map"))
   println(tmsg("  与 `mng dev` 首轮编译同一形态：CI 重生成后与提交的 <stem>.gen.mbt diff 对账", "  Same form as `mng dev` first pass: regenerate in CI and diff against the committed <stem>.gen.mbt"))
 }
 
 ///|
 fn help_map_errors() -> Unit {
-  println(tmsg("用法：mng map-errors --map <out.mbt.map> <log>", "Usage: mng map-errors --map <out.mbt.map> <log>"))
+  println(tmsg("用法：\{inv_prefix[0]} map-errors --map <out.mbt.map> <log>", "Usage: \{inv_prefix[0]} map-errors --map <out.mbt.map> <log>"))
   println(tmsg("  把日志里 <gen>.mbt:行:列 经 source map 映射回 <source>:行:列，结果打到 stdout", "  Rewrite <gen>.mbt:line:col positions in the log via the source map to <source>:line:col, result on stdout"))
   println(tmsg("  map 由 `mng build` 生成", "  The map is written by `mng build`"))
 }
 
 ///|
 fn help_ir() -> Unit {
-  println(tmsg("用法：mng ir <input.mng>", "Usage: mng ir <input.mng>"))
+  println(tmsg("用法：\{inv_prefix[0]} ir <input.mng>", "Usage: \{inv_prefix[0]} ir <input.mng>"))
   println(tmsg("  打印模板的 IR 补丁 JSON——调试与注册表键校准用", "  Print the template's IR patch JSON — for debugging and registry-key calibration"))
 }
 
 ///|
 fn help_new() -> Unit {
-  println(tmsg("用法：mng new <工程名> | mng new app <工程名> | mng new page <页路径>", "Usage: mng new <name> | mng new app <name> | mng new page <path>"))
+  println(tmsg("用法：\{inv_prefix[0]} new <工程名> | \{inv_prefix[0]} new app <工程名> | \{inv_prefix[0]} new page <页路径>", "Usage: \{inv_prefix[0]} new <name> | \{inv_prefix[0]} new app <name> | \{inv_prefix[0]} new page <path>"))
   println(tmsg("  new <名>：在 ./<名>/ 生成可跑最小模板工程——moon.mod（gui/yoga 版本仓内现读、仓外兜底值）、", "  new <name>: generate a runnable minimal project in ./<name>/ — moon.mod (gui/yoga versions read live inside this workspace, fallback outside),"))
   println(tmsg("    全套 import 的 moon.pkg、mng.toml、main.mbt（单实例 + 三条 dev 通道 + 唤起泵）、pages/home.mng 与 dev 形态生成码", "    a moon.pkg with the full import set, mng.toml, main.mbt (single instance + three dev channels + wake pump), pages/home.mng and dev-form generated code"))
   println(tmsg("  new app <名>：同 new <名>，显式写法", "  new app <name>: same as new <name>, explicit form"))
@@ -179,21 +192,21 @@ fn help_new() -> Unit {
 
 ///|
 fn help_lsp() -> Unit {
-  println(tmsg("用法：mng lsp", "Usage: mng lsp"))
+  println(tmsg("用法：\{inv_prefix[0]} lsp", "Usage: \{inv_prefix[0]} lsp"))
   println(tmsg("  stdio JSON-RPC 语言服务：模板结构实时诊断、保存时 moon check 回投、补全/hover/跳转、语义令牌", "  stdio JSON-RPC language server: live template-structure diagnostics, moon check feedback on save, completion/hover/goto, semantic tokens"))
   println(tmsg("  握手：编辑器先读 `mng --version` 的 mng-schema 位，不一致则补全降级", "  Handshake: the editor reads the mng-schema bit from `mng --version`; on mismatch completion degrades"))
 }
 
 ///|
 fn help_init() -> Unit {
-  println(tmsg("用法：mng init", "Usage: mng init"))
+  println(tmsg("用法：\{inv_prefix[0]} init", "Usage: \{inv_prefix[0]} init"))
   println(tmsg("  向上找模块根（moon.mod / moon.work），写一份带注释的 mng.toml 样板（dev 的项目级配置）", "  Walk up to the module root (moon.mod / moon.work) and write a commented mng.toml sample (project-level dev config)"))
   println(tmsg("  已有 mng.toml 时不覆盖", "  An existing mng.toml is left untouched"))
 }
 
 ///|
 fn help_version() -> Unit {
-  println(tmsg("用法：mng -v | -V | --version", "Usage: mng -v | -V | --version"))
+  println(tmsg("用法：\{inv_prefix[0]} -v | -V | --version", "Usage: \{inv_prefix[0]} -v | -V | --version"))
   println(tmsg("  打印 mng 版本与 mng-schema 位；编辑器插件启动握手用", "  Print the mng version and the mng-schema bit; used for the editor plugin handshake"))
 }
 
@@ -229,7 +242,7 @@ fn basename(p : String) -> String {
 ///|
 /// 工具版本：每落地一批改动 +1（用户重装后凭 --version 区分新旧二进制）。
 /// lsp serverInfo 同源取此常量。
-const MNG_VERSION : String = "0.2.7"
+const MNG_VERSION : String = "0.2.8"
 
 ///|
 /// --version：版本与 mng-schema 位（编辑器插件启动时握手，对不上则补全降级）。
@@ -576,6 +589,9 @@ fn cmd_map_errors(args : Array[String]) -> Int {
 fn main {
   cli_lang_init()
   let raw = @env.args()
+  if raw.length() > 0 {
+    inv_prefix_init(raw[0])
+  }
   let args : Array[String] = []
   let mut k = 1
   while k < raw.length() {
