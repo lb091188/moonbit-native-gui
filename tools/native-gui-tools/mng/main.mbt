@@ -18,7 +18,7 @@ fn usage() -> Unit {
   println("  new page <路径>                        生成单页 .mng 样板（可带路径，如 pages/about）")
   println("  lsp                                    语言服务（stdio JSON-RPC：诊断/补全/hover/跳转）")
   println("  init                                   在模块根写 mng.toml 样板（dev 的项目级配置）")
-  println("  --version                              版本与 mng-schema 位（插件握手用）")
+  println("  -v / -V / --version                    版本与 mng-schema 位（插件握手用）")
   println("  dev ...                                watch + 契约分类 + 回退编排（dev 无参看细目）")
 }
 
@@ -53,7 +53,7 @@ fn basename(p : String) -> String {
 ///|
 /// 工具版本：每落地一批改动 +1（用户重装后凭 --version 区分新旧二进制）。
 /// lsp serverInfo 同源取此常量。
-const MNG_VERSION : String = "0.2.2"
+const MNG_VERSION : String = "0.2.3"
 
 ///|
 /// --version：版本与 mng-schema 位（编辑器插件启动时握手，对不上则补全降级）。
@@ -396,7 +396,7 @@ fn main {
     rest.push(args[j])
     j += 1
   }
-  let code = if cmd == "--version" || cmd == "-V" || cmd == "version" {
+  let code = if cmd == "--version" || cmd == "-v" || cmd == "-V" || cmd == "version" {
     cmd_version()
   } else if cmd == "build" {
     cmd_build(rest)
