@@ -167,6 +167,22 @@ fn filter_files(spec : String) -> Array[String] {
 }
 
 ///|
+/// 塞进 `sh -c` 的路径：反斜杠换正斜杠（sh 会把 `\` 当转义吃掉，Windows 的
+/// `C:\Users\…` 会变成 `C:Users…`），含空白就加单引号。
+fn sh_arg(p : String) -> String {
+  let out = StringBuilder()
+  for c in chars_of(p) {
+    out.write_char(if c == '\\' { '/' } else { c })
+  }
+  let s = out.to_string()
+  if s.contains(" ") {
+    "'" + s + "'"
+  } else {
+    s
+  }
+}
+
+///|
 /// 跑一次 build 并从输出里抓可执行路径（`Artifacts:` 段里属于本模块的那一行）。
 /// 只在 `run` 未配置时用；build 本身走 `sh -c` 以拿到输出。
 fn derive_run(build_cmd : String, module_name : String) -> Result[String, String] {
@@ -175,7 +191,7 @@ fn derive_run(build_cmd : String, module_name : String) -> Result[String, String
     _ => "/tmp"
   }
   let log = tmp + "/mng-dev-build.log"
-  let cmd = build_cmd + " > " + log + " 2>&1"
+  let cmd = build_cmd + " > " + sh_arg(log) + " 2>&1"
   match @proc.run_wait("sh", ["-c", cmd], 600000) {
     Err(e) => return Err("build 跑不起来（" + e + "）——Windows 请显式配置 run")
     Ok(code) =>
@@ -624,22 +640,42 @@ fn cmd_dev(args : Array[String]) -> Int {
     // COLD 编排抽成一拍内可复用：本拍分类要重启、或 HOT 回执判 stale 后补重启
     let do_cold = fn() -> Unit {
       eprintln("[COLD] 本拍 \{changed.length()} 个改动，合并 build 一次…")
+      // 先停旧应用再 build：Windows 上运行中的 exe 被锁，链接期覆盖同名产物会
+      // 直接 LNK1104。构建失败时把旧产物拉回来——「应用还在但没生效」比
+      // 「应用没了」好排查，与 POSIX 上 build 失败不重启的观感一致。
+      let was_running = @proc.alive(app_pid)
+      if was_running {
+        let _ = @proc.kill(app_pid)
+        let mut waited = 0
+        while @proc.alive(app_pid) && waited < 3000 {
+          @proc.sleep_ms(50)
+          waited += 50
+        }
+      }
+      let respawn_old = fn() -> Unit {
+        if was_running {
+          match @proc.spawn(rfile, rargs, app_log) {
+            Ok(pid) => {
+              app_pid = pid
+              @proc.watch(app_pid)
+              eprintln("[COLD] 旧产物已拉起 pid=" + pid.to_string())
+            }
+            Err(e) => eprintln("[COLD] 旧产物拉不起来：" + e)
+          }
+        }
+      }
       match split_cmd(conf.build) {
         Some((bfile, bargs)) =>
           match @proc.run_wait(bfile, bargs, 600000) {
-            Err(e) => eprintln("[COLD] build 失败，应用不动：" + e)
+            Err(e) => {
+              eprintln("[COLD] build 失败，应用不动：" + e)
+              respawn_old()
+            }
             Ok(code) =>
               if code != 0 {
                 eprintln("[COLD] build 退出码 " + code.to_string() + "，应用不动")
+                respawn_old()
               } else {
-                if @proc.alive(app_pid) {
-                  let _ = @proc.kill(app_pid)
-                  let mut waited = 0
-                  while @proc.alive(app_pid) && waited < 3000 {
-                    @proc.sleep_ms(50)
-                    waited += 50
-                  }
-                }
                 match @proc.spawn(rfile, rargs, app_log) {
                   Ok(pid) => {
                     app_pid = pid

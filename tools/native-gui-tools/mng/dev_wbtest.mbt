@@ -235,3 +235,16 @@ test "new_page：父目录现建、.mng 后缀可省" {
   assert_eq(new_page(root + "/solo.mng"), 0)
   assert_true(@fs.path_exists(root + "/solo.mng"))
 }
+
+///|
+test "sh_arg：反斜杠换正斜杠、含空白加引号（sh -c 的重定向目标）" {
+  // Windows 的 TMP 是反斜杠：直接拼进 `> C:\Users\…` 会被 sh 当转义吃掉
+  // （实测报 `C:UsersNoahLiuAppDataLocalTemp/mng-dev-build.log: No such file`）
+  let bs = "\\"
+  let win = "C:" + bs + "Users" + bs + "n" + bs + "Temp/x.log"
+  let out = sh_arg(win)
+  assert_false(out.contains(bs))
+  assert_true(out.has_prefix("C:"))
+  assert_eq(sh_arg("/tmp/mng-dev-build.log"), "/tmp/mng-dev-build.log")
+  assert_eq(sh_arg("/tmp/a b.log"), "'/tmp/a b.log'")
+}
