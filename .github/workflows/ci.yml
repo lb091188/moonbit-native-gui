@@ -119,9 +119,9 @@ jobs:
         working-directory: gui
         run: moon check
 
-      # 15 个包全量(web 已出成独立模块 gui-webview,见下一节;base/shell/widget 是 G9 Batch 2
-      # 从原 core 提出的三层,core 已于 import 迁移后整包退场);dbus 包走真实
-      # 会话总线,CI 里由 dbus-run-session 提供(runner 默认只有系统总线)。
+      # 结果 15 个包里含 uitest(无头测试门面)与 mngdev(模板 dev 面应用侧):
+      # 这两包的用例此前不在名单里,而 `moon test <包>` 只跑点名的包,等于
+      # 「写好了没人跑」——mng 的补丁应用与无头断言全靠它们。
       # 失败时把关键行塞进 error 注解(匿名 API 可读),并回显输出尾部。
       - name: 单元测试(库模块)
         working-directory: gui
@@ -129,6 +129,7 @@ jobs:
           set +e
           dbus-run-session -- moon test \
             base shell widget ui render text theme icons sys input win dbus chart mdview style router \
+            uitest mngdev \
             >/tmp/mt.out 2>&1
           code=$?
           set -e
@@ -138,6 +139,24 @@ jobs:
             exit 1
           fi
           grep -aE "Total tests" /tmp/mt.out | tail -1
+
+      # mng 工具链(编译器 / dev 循环 / LSP / 脚手架 / package)的用例一直是
+      # 「本机手跑」——仓库文档里写着门禁命令,CI 却从没执行过。工具模块的测试
+      # 要真进程(proc / inst 的 C 桩),与库模块分开跑,别并进上面那个 gui 包名列表。
+      - name: 单元测试(mng 工具链)
+        working-directory: tools/native-gui-tools
+        run: |
+          set +e
+          moon test mng mngkit proc inst >/tmp/mt_tools.out 2>&1
+          code=$?
+          set -e
+          if [ $code -ne 0 ]; then
+            echo "::error title=mng 工具链测试失败(退出码 $code)::关键行见日志"
+            grep -aiE 'failed|FAILED|error|panicked|expect' /tmp/mt_tools.out | tail -c 1800 | sed ':a;N;$!ba;s/\n/%0A/g'
+            tail -c 4000 /tmp/mt_tools.out
+            exit 1
+          fi
+          grep -aE "Total tests" /tmp/mt_tools.out | tail -1
 
       # 模板生成物新鲜度对账：对每个提交的 .mng 用 dev / 生产两种形态重新编译，
       # 与提交的 <stem>.gen.mbt 比对——匹配任一形态即过（mng dev 写 dev 形态、
@@ -335,7 +354,7 @@ jobs:
           do call "%%i\VC\Auxiliary\Build\vcvars64.bat"
           && cd gui
           && moon check
-          && moon test base shell widget ui render text theme icons input win chart mdview style router
+          && moon test base shell widget ui render text theme icons input win chart mdview style router uitest mngdev
           && moon build --target native
           && cd ..\modules\ffmpeg-mbt
           && moon test src
@@ -347,6 +366,7 @@ jobs:
           && moon build examples/hello --target native
           && cd tools\native-gui-tools
           && moon check
+          && moon test mng mngkit proc inst
 
   macos:
     name: macOS(静态检查 + 测试 + 链接)
@@ -457,6 +477,7 @@ jobs:
           set +e
           moon test \
             base shell widget ui render text theme icons sys input win chart mdview style router \
+            uitest mngdev \
             >/tmp/mt.out 2>&1
           code=$?
           set -e
@@ -469,6 +490,23 @@ jobs:
             exit 1
           fi
           grep -aE "Total tests" /tmp/mt.out | tail -1
+
+      # mng 工具链用例(同 Linux job)。mac 上这条腿同时回证 proc/inst 的 POSIX 分支:
+      # dev 循环与单实例唤起在 mac 走 AF_UNIX,和 Linux 同一份代码。
+      - name: 单元测试(mng 工具链)
+        working-directory: tools/native-gui-tools
+        run: |
+          set +e
+          moon test mng mngkit proc inst >/tmp/mt_tools.out 2>&1
+          code=$?
+          set -e
+          if [ $code -ne 0 ]; then
+            echo "::error title=mng 工具链测试失败(退出码 $code)::关键行见日志"
+            grep -aiE 'failed|FAILED|error|panicked|expect' /tmp/mt_tools.out | tail -40
+            tail -c 4000 /tmp/mt_tools.out
+            exit 1
+          fi
+          grep -aE "Total tests" /tmp/mt_tools.out | tail -1
 
       # webview 扩展模块与 Linux job 同一步:回证模块 prebuild 的 Darwin 分支
       # (WB_HAVE_WKWEBVIEW 归档 + 主仓 libyue_win_stub_mac.a)在真 macOS 上链得上。
