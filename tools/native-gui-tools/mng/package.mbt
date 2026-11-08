@@ -1037,13 +1037,25 @@ fn cmd_package(_args : Array[String]) -> Int {
   }
   let exe = match artifact_of_log(build_text, module_name) {
     Some(p) => p
-    None =>
+    None => {
+      // 日志为空 = 子进程输出根本没落盘（Windows 上 spawn 重定向句柄不可继承的典型症状，
+      // 只回 pid 的 spawn 无从发现）；有日志但没有 Artifacts 段才是 mng.toml/bin 的问题。
+      // 两种分开报，免得照着「检查 mng.toml」白查一轮。
+      if build_text.length() == 0 {
+        return fail_pkg(
+          tmsg(
+            "构建日志为空(\{build_log})——子进程输出没落盘，多半是 mng 自身过旧，先重装 `moon install ./tools/native-gui-tools/mng`",
+            "build log is empty (\{build_log}) — child output was not captured, likely an outdated mng; reinstall: moon install ./tools/native-gui-tools/mng",
+          ),
+        )
+      }
       return fail_pkg(
         tmsg(
           "Artifacts 里没抓到本模块(\{module_name})的可执行——检查 mng.toml 或显式配 bin",
           "no executable for module \{module_name} in Artifacts — check mng.toml or set bin explicitly",
         ),
       )
+    }
   }
   let bin_name = if conf.bin.length() > 0 {
       conf.bin
