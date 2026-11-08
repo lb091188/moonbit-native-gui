@@ -79,3 +79,65 @@ test "insp_detail_lines:九项读数,空语义字段标 (无)/(空)" {
   let m = nd(6, 0, "window", "")
   assert_eq(insp_detail_lines(m)[2], "name=(空)")
 }
+
+test "insp_parse_double:整数/小数/负号;空与非数字给 None" {
+  assert_true(match insp_parse_double("12") { Some(d) => d == 12.0; None => false })
+  assert_true(match insp_parse_double("1.5") { Some(d) => d == 1.5; None => false })
+  assert_true(match insp_parse_double("-0.75") { Some(d) => d == -0.75; None => false })
+  assert_true(match insp_parse_double(".5") { Some(d) => d == 0.5; None => false })
+  match insp_parse_double("") {
+    Some(_) => abort("empty accepted")
+    None => ()
+  }
+  match insp_parse_double("12px") {
+    Some(_) => abort("unit accepted")
+    None => ()
+  }
+  match insp_parse_double("-") {
+    Some(_) => abort("bare minus accepted")
+    None => ()
+  }
+}
+
+test "insp_color_input:# → Hex、token → Named、空给 None" {
+  assert_true(match insp_color_input("#ff8800") { Some(@style.Hex(s)) => s == "#ff8800"; _ => false })
+  assert_true(match insp_color_input("primary") { Some(@style.Named(s)) => s == "primary"; _ => false })
+  match insp_color_input("") {
+    Some(_) => abort("empty accepted")
+    None => ()
+  }
+}
+
+test "insp_field_get/set:五字段读改 roundtrip;空输入保持原样" {
+  let st = @style.style(background_color="primary", color="#ffffff", border_width=1.0, border_radius=6.0)
+  // get:token 色按 resolve 出 hex(编辑器预填实际色值,便于照抄微调)、
+  // Hex 直出、数值直出
+  assert_true(insp_field_get(st, 0).has_prefix("#"))
+  assert_eq(insp_field_get(st, 1), "#ffffff")
+  assert_eq(insp_field_get(st, 3), "1")
+  assert_eq(insp_field_get(st, 4), "6")
+  // 未设的字段给空串
+  assert_eq(insp_field_get(st, 2), "")
+  // set:空输入原样返回(同一份样式值)
+  let kept = insp_field_set(st, 0, "")
+  assert_true(insp_field_get(kept, 0).has_prefix("#"))
+  // set:颜色换 token、数值换小数
+  let st2 = insp_field_set(st, 0, "danger")
+  assert_true(match st2.background_color { Some(@style.Named(s)) => s == "danger"; _ => false })
+  let st3 = insp_field_set(st, 4, "12.5")
+  assert_true(match st3.border_radius { Some(d) => d == 12.5; _ => false })
+  // set:解析失败保持原值(颜色字段喂非色、数值字段喂 12px)
+  let st4 = insp_field_set(st, 3, "abc")
+  assert_true(match st4.border_width { Some(d) => d == 1.0; _ => false })
+}
+
+test "insp_field_set + define_class:回灌注册表并查回(与 mngdev 同口)" {
+  @style.reset_class_registry()
+  @style.define_class("insp-demo", @style.style(background_color="primary"))
+  let c0 = match @style.lookup_class("insp-demo") { Some(c) => c; None => abort("missing") }
+  let nb = insp_field_set(c0.style, 0, "#336699")
+  @style.define_class("insp-demo", nb)
+  let c1 = match @style.lookup_class("insp-demo") { Some(c) => c; None => abort("missing after") }
+  assert_true(match c1.style.background_color { Some(@style.Hex(s)) => s == "#336699"; _ => false })
+  @style.reset_class_registry()
+}

@@ -171,7 +171,8 @@ pub fn inspector_panel(
     @ui.TableColumn::make("id", 52.0, sortable=false),
     @ui.TableColumn::make(@i18n.t_or("gui.inspector.col_rect", "矩形"), 132.0, sortable=false),
   ]
-  @ui.view(
+  // 「控件树」页签:v1 只读三件套(工具行/树表/选中读数)
+  let tree_section = @ui.view(
     [
       @ui.row(
         [
@@ -227,6 +228,26 @@ pub fn inspector_panel(
             )
         }
       }),
+    ],
+    direction=@yoga.Column,
+    row_gap=10.0,
+  )
+  // 页签装配:两块都常驻(@ui.when_else 切显隐,零重建;树表的行缓存与
+  // 类列表的快照各自独立),默认落在控件树。
+  let tab_tree = @i18n.t_or("gui.inspector.tab_tree", "控件树")
+  let tab_classes = @i18n.t_or("gui.inspector.tab_classes", "样式类")
+  let tab : @base.Store[String] = @base.Store::new(tab_tree)
+  let snap : Ref[Map[String, @style.Style]] = Ref(Map([]))
+  let classes_section = insp_classes_section(width, (table_h * 0.7).max(140.0), snap)
+  @ui.view(
+    [
+      @ui.segmented([tab_tree, tab_classes], tab),
+      @ui.when_else(
+        tab.signal(),
+        tree_section,
+        classes_section,
+        pred=fn(t : String) -> Bool { t == tab_tree },
+      ),
     ],
     direction=@yoga.Column,
     row_gap=10.0,

@@ -149,7 +149,9 @@ Three blocks:
 - **Selected readouts**: id / parent / role / name / state / value / text / enabled / window rect
 - **Frame cost**: `@base.paint_profile_summary()` (layout/paint/present totals and max frame); "Reset" zeroes the ledger
 
-Refresh reads the "previous frame" snapshot — interact first, then refresh, or turn on auto refresh (500ms self-rearming timer). Edit write-back (styling fed back into the UI) arrives with v2 over the mngdev channel.
+Refresh reads the "previous frame" snapshot — interact first, then refresh, or turn on auto refresh (500ms self-rearming timer).
+
+**v2 write-back** (the "Style classes" tab): lists named classes from the `@style` registry (the same port mngdev style hot-reload writes); pick one and edit background/text/border colour/border width/radius (base and `:hover` each); "Apply" runs `@style.define_class` and widgets using the class pick up the new style next frame; "Restore" puts back the snapshot captured when the class list was first refreshed this session. Empty input = leave the field; both token names and `#hex` are accepted. The editor covers five common fields; everything else goes through template source or `mng dev` patches.
 
 ## Next steps
 
