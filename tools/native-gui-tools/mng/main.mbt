@@ -34,6 +34,26 @@ fn tmsg(zh : String, en : String) -> String {
 }
 
 ///|
+/// usage 行：命令列统一补齐到 42 显示列再接解释，保住间距。
+/// 宽度按终端显示列算：非 ASCII 字符一律计 2（如 <路径> 的 CJK）。
+fn usage_line(cmd : String, zh : String, en : String) -> Unit {
+  let mut w = 0
+  for c in cmd {
+    w += if c.to_int() > 0x7f { 2 } else { 1 }
+  }
+  let gap = if w + 2 > 42 { 2 } else { 42 - w }
+  let s = StringBuilder()
+  s.write_string(cmd)
+  let mut k = 0
+  while k < gap {
+    s.write_char(' ')
+    k += 1
+  }
+  s.write_string(tmsg(zh, en))
+  println(s.to_string())
+}
+
+///|
 fn usage() -> Unit {
   println(
     tmsg(
@@ -41,77 +61,70 @@ fn usage() -> Unit {
       "Usage: moon run tools/native-gui-tools/mng -- <subcommand> ...",
     ),
   )
-  println(
-    tmsg(
-      "  build <input.mng> -o <out.mbt>    编译模板：产出 out.mbt 与 out.mbt.map",
-      "  build <input.mng> -o <out.mbt>    Compile template: writes out.mbt and out.mbt.map",
-    ),
+  usage_line(
+    "  build <input.mng> -o <out.mbt>",
+    "编译模板：产出 out.mbt 与 out.mbt.map；无参按 mng.toml 生成全工程生产形态（会覆盖 dev 形态生成码）",
+    "Compile template: writes out.mbt and out.mbt.map; with no args, whole-project production generation per mng.toml (overwrites dev-form generated code)",
   )
-  println(
-    tmsg(
-      "  build（无参）                           按 mng.toml 生成全工程生产形态（会覆盖 dev 形态生成码）",
-      "  build (no args)                        Whole-project production generation per mng.toml (overwrites dev-form generated code)",
-    ),
+  usage_line(
+    "  gen <input.mng> -o <out.mbt>",
+    "dev 形态编译（CI 生成物对账用，无 map）",
+    "Dev-form compile (for CI artifact reconciliation, no map)",
   )
-  println(
-    tmsg(
-      "  gen <input.mng> -o <out.mbt>      dev 形态编译（CI 生成物对账用，无 map）",
-      "  gen <input.mng> -o <out.mbt>      Dev-form compile (for CI artifact reconciliation, no map)",
-    ),
+  usage_line(
+    "  map-errors --map <out.mbt.map> <log>",
+    "把日志中 <gen>.mbt:行:列 映射回模板行列",
+    "Map <gen>.mbt:line:col in the log back to template line:col",
   )
-  println(
-    tmsg(
-      "  map-errors --map <out.mbt.map> <log>   把日志中 <gen>.mbt:行:列 映射回模板行列",
-      "  map-errors --map <out.mbt.map> <log>   Map <gen>.mbt:line:col in the log back to template line:col",
-    ),
+  usage_line(
+    "  ir <input.mng>",
+    "打印模板的 IR 补丁（调试与注册表校准）",
+    "Print the template IR patch (debug / registry calibration)",
   )
-  println(
-    tmsg(
-      "  ir <input.mng>                    打印模板的 IR 补丁（调试与注册表校准）",
-      "  ir <input.mng>                    Print the template IR patch (debug / registry calibration)",
-    ),
+  usage_line(
+    "  new <name>",
+    "生成可跑最小模板工程（moon.mod/moon.pkg/mng.toml/main/首页+dev 生成码）",
+    "Generate a runnable minimal template project (moon.mod/moon.pkg/mng.toml/main/home + dev generated code)",
   )
-  println(
-    tmsg(
-      "  new <name>                             生成可跑最小模板工程（moon.mod/moon.pkg/mng.toml/main/首页+dev 生成码）",
-      "  new <name>                             Generate a runnable minimal template project (moon.mod/moon.pkg/mng.toml/main/home + dev generated code)",
-    ),
+  usage_line(
+    "  new app <name>",
+    "同 new <name>，显式写法",
+    "Same as new <name>, explicit form",
   )
-  println(
-    tmsg(
-      "  new app <name>                         同 new <name>，显式写法",
-      "  new app <name>                         Same as new <name>, explicit form",
-    ),
+  usage_line(
+    "  new page <路径>",
+    "生成单页 .mng 样板（可带路径，如 pages/about）",
+    "Generate a single-page .mng sample (path allowed, e.g. pages/about)",
   )
-  println(
-    tmsg(
-      "  new page <路径>                        生成单页 .mng 样板（可带路径，如 pages/about）",
-      "  new page <path>                        Generate a single-page .mng sample (path allowed, e.g. pages/about)",
-    ),
+  usage_line(
+    "  lsp",
+    "语言服务（stdio JSON-RPC：诊断/补全/hover/跳转）",
+    "Language server (stdio JSON-RPC: diagnostics/completion/hover/goto)",
   )
-  println(
-    tmsg(
-      "  lsp                                    语言服务（stdio JSON-RPC：诊断/补全/hover/跳转）",
-      "  lsp                                    Language server (stdio JSON-RPC: diagnostics/completion/hover/goto)",
-    ),
+  usage_line(
+    "  init",
+    "在模块根写 mng.toml 样板（dev 的项目级配置）",
+    "Write an mng.toml sample at module root (project-level dev config)",
   )
-  println(
-    tmsg(
-      "  init                                   在模块根写 mng.toml 样板（dev 的项目级配置）",
-      "  init                                   Write an mng.toml sample at module root (project-level dev config)",
-    ),
+  usage_line(
+    "  --version",
+    "版本与 mng-schema 位（插件握手用）",
+    "Version and mng-schema bit (plugin handshake)",
   )
-  println(
-    tmsg(
-      "  -v / -V / --version                    版本与 mng-schema 位（插件握手用）",
-      "  -v / -V / --version                    Version and mng-schema bit (plugin handshake)",
-    ),
+  usage_line(
+    "  -v",
+    "版本与 mng-schema 位（插件握手用）",
+    "Version and mng-schema bit (plugin handshake)",
   )
-  println(
-    tmsg(
-      "  dev ...                                watch + 契约分类 + 回退编排（dev 无参看细目）",
-      "  dev ...                                Watch + contract classification + rebuild orchestration (run `dev` with no args for details)",
-    ),
+  usage_line(
+    "  -V",
+    "版本与 mng-schema 位（插件握手用）",
+    "Version and mng-schema bit (plugin handshake)",
+  )
+  usage_line(
+    "  dev ...",
+    "watch + 契约分类 + 回退编排（dev 无参看细目）",
+    "Watch + contract classification + rebuild orchestration (run `dev` with no args for details)",
   )
 }
 
@@ -146,7 +159,7 @@ fn basename(p : String) -> String {
 ///|
 /// 工具版本：每落地一批改动 +1（用户重装后凭 --version 区分新旧二进制）。
 /// lsp serverInfo 同源取此常量。
-const MNG_VERSION : String = "0.2.4"
+const MNG_VERSION : String = "0.2.5"
 
 ///|
 /// --version：版本与 mng-schema 位（编辑器插件启动时握手，对不上则补全降级）。
