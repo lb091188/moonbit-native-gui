@@ -186,6 +186,11 @@ int32_t mngpr_kill(int32_t pid) {
   return ok ? 1 : 0;
 }
 
+void mngpr_watch(int32_t pid) {
+  // Windows：控制台 Ctrl-C 广播给同控制台全部进程，子进程随 dev 一起收，无需看守
+  (void)pid;
+}
+
 void mngpr_sleep_ms(int32_t ms) {
   if (ms > 0) {
     Sleep((DWORD)ms);
@@ -401,6 +406,27 @@ int32_t mngpr_kill(int32_t pid) {
     return 0;
   }
   return 1;
+}
+
+// 看守：dev 收到 SIGINT/SIGTERM 时把被看守的应用进程组一并带走，再按原信号退出。
+// 应用 spawn 时 setpgid(0,0) 自立进程组，终端 Ctrl-C 只达 dev 的前台组，
+// 没有这道看守应用会成孤儿。
+static volatile int32_t mngpr_watch_pid = 0;
+
+static void mngpr_watch_handler(int sig) {
+  int32_t pid = mngpr_watch_pid;
+  if (pid > 0) {
+    kill(-(pid_t)pid, SIGTERM);
+    kill((pid_t)pid, SIGTERM);
+  }
+  signal(sig, SIG_DFL);
+  raise(sig);
+}
+
+void mngpr_watch(int32_t pid) {
+  mngpr_watch_pid = pid;
+  signal(SIGINT, mngpr_watch_handler);
+  signal(SIGTERM, mngpr_watch_handler);
 }
 
 void mngpr_sleep_ms(int32_t ms) {

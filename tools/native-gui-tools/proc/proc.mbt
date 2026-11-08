@@ -88,6 +88,16 @@ pub fn kill(pid : Int) -> Bool {
 }
 
 ///|
+extern "c" fn ffi_watch(pid : Int) -> Unit = "mngpr_watch"
+
+///|
+/// 看守一个子进程：本进程收到 SIGINT/SIGTERM 时把它（整组）带走再退出。
+/// 重复调用换目标（COLD 重启后对新 pid 再调）。Windows 上是空实现。
+pub fn watch(pid : Int) -> Unit {
+  ffi_watch(pid)
+}
+
+///|
 /// 毫秒节拍。
 pub fn sleep_ms(ms : Int) -> Unit {
   ffi_sleep_ms(ms)

@@ -402,6 +402,7 @@ fn cmd_dev(args : Array[String]) -> Int {
       return 1
     }
   }
+  @proc.watch(app_pid)
   eprintln(
     "DEV 起应用 pid=\{app_pid}（输出 → \{app_log}）；工程级 watch \{files.length()} 个模板，\{conf.poll_ms}ms 一拍。Ctrl-C 退出。",
   )
@@ -602,6 +603,7 @@ fn cmd_dev(args : Array[String]) -> Int {
                 match @proc.spawn(rfile, rargs, app_log) {
                   Ok(pid) => {
                     app_pid = pid
+                    @proc.watch(app_pid)
                     eprintln("[COLD] 应用已重启 pid=" + pid.to_string())
                     if changed.length() > 0 {
                       wake_page(conf.app_id, stem_of_file(changed[0]))
