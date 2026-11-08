@@ -161,7 +161,7 @@ class MngClient {
           publishDiagnostics: {},
         },
       },
-      clientInfo: { name: 'mng-vscode', version: '0.2.9' },
+      clientInfo: { name: 'mng-vscode', version: '0.2.10' },
     }).then((res) => {
       this.notify('initialized', {});
       return res;
