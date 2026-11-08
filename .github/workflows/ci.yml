@@ -158,8 +158,36 @@ jobs:
           fi
           grep -aE "Total tests" /tmp/mt_tools.out | tail -1
 
-      # 模板生成物新鲜度对账：对每个提交的 .mng 用 dev / 生产两种形态重新编译，
-      # 与提交的 <stem>.gen.mbt 比对——匹配任一形态即过（mng dev 写 dev 形态、
+      # 编辑器侧场景：扩展的静态贡献（TextMate 着色）与真 mng lsp 的 stdio 会话。
+      # 两条腿都不启 VS Code——着色用仓库自己的文法离线分词，LSP 用真可执行文件
+      # 走 Content-Length 帧。`tsc --checkJs` 抓「API 名不存在」那类事故
+      # （registerDocumentSemanticTokensProvider 写错名导致 activate 中途夭折）。
+      - name: 编辑器场景(类型门禁 + 着色分词 + 真 mng lsp 会话)
+        run: |
+          moon build tools/native-gui-tools/mng --target native
+          cd tools/vscode-mng
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm test
+
+      # 真 VS Code 里跑一遍：激活、诊断进 Problems、hover、命令面新建页面。
+      # 首次要拉 350MB 宿主（缓存到 runner），xvfb 提供显示服务；
+      # mac / Windows 腿不跑这条（下载代价大），本机用 `npm run test:vscode` 验。
+      - name: 缓存 VS Code 测试宿主
+        id: cache-vscode
+        uses: actions/cache@v4
+        with:
+          path: tools/vscode-mng/.vscode-test
+          key: vscode-test-linux-stable
+
+      - name: 编辑器场景(真 VS Code，xvfb)
+        run: |
+          sudo apt-get install -y --no-install-recommends \
+            libnss3 libgbm1 libasound2t64 libxshmfence1 libxdamage1 libxrandr2
+          cd tools/vscode-mng
+          xvfb-run -a npm run test:vscode
+
+      # 模板生成物新鲜度对账：对每个提交的 .mng 用 dev / 生产两种形态重新编译，      # 与提交的 <stem>.gen.mbt 比对——匹配任一形态即过（mng dev 写 dev 形态、
       # mng build 写生产形态，两者共用同一条 <stem>.gen.mbt，提交前选一种保持一致）。
       # 生成码头注释带来源绝对路径，故这里必须传绝对路径（与 dev 循环同形）。
       - name: 生成物新鲜度(模板对账)
@@ -507,6 +535,16 @@ jobs:
             exit 1
           fi
           grep -aE "Total tests" /tmp/mt_tools.out | tail -1
+
+      # 编辑器侧场景（同 Linux job）。mac 是实际手测的那条腿，这条一并覆盖：
+      # 着色分词、真 mng lsp 会话、扩展的类型门禁，全部几秒内跑完。
+      - name: 编辑器场景(类型门禁 + 着色分词 + 真 mng lsp 会话)
+        run: |
+          moon build tools/native-gui-tools/mng --target native
+          cd tools/vscode-mng
+          npm ci --no-audit --no-fund
+          npm run typecheck
+          npm test
 
       # webview 扩展模块与 Linux job 同一步:回证模块 prebuild 的 Darwin 分支
       # (WB_HAVE_WKWEBVIEW 归档 + 主仓 libyue_win_stub_mac.a)在真 macOS 上链得上。

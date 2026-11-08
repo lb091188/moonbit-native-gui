@@ -52,11 +52,13 @@ const SEMANTIC_MODIFIERS = [
   'defaultLibrary',
 ];
 
+let ch = null;
+
 function outputChannel() {
-  if (!outputChannel._ch) {
-    outputChannel._ch = vscode.window.createOutputChannel('MNG');
+  if (!ch) {
+    ch = vscode.window.createOutputChannel('MNG');
   }
-  return outputChannel._ch;
+  return ch;
 }
 
 // ---- 定位 mng ----
@@ -587,6 +589,24 @@ function registerDevCommand(ctx) {
   );
 }
 
+// 新建页面的实体动作（供命令与自动化用例共用）：跑 `mng new page <rel>`，
+// 回生成的 .mng 绝对路径。命令只负责弹输入框与打开文档——输入框没法程序化
+// 注入，集成用例走这个函数。
+async function newPageAt(root, rel) {
+  const name = String(rel).trim().replace(/\.mng$/, '');
+  const cli = resolveCli();
+  if (!cli) {
+    throw new Error('未找到 mng，新建页面不可用。装法：在仓库根执行 moon install ./tools/native-gui-tools/mng，或设置 mng.cliPath。');
+  }
+  const out = cp.execFileSync(cli, ['new', 'page', name], {
+    cwd: root,
+    encoding: 'utf8',
+    timeout: 15000,
+  });
+  outputChannel().appendLine('[new page] ' + out.trim());
+  return path.join(root, name + '.mng');
+}
+
 function registerNewPageCommand(ctx) {
   ctx.subscriptions.push(
     vscode.commands.registerCommand('mng.newPage', async function () {
@@ -603,24 +623,9 @@ function registerNewPageCommand(ctx) {
       if (!target) {
         return;
       }
-      const name = target.trim().replace(/\.mng$/, '');
-      const cli = resolveCli();
-      if (!cli) {
-        vscode.window.showErrorMessage(
-          'MNG：未找到 mng，新建页面不可用。装法：在仓库根执行 moon install ./tools/native-gui-tools/mng，或设置 mng.cliPath。'
-        );
-        return;
-      }
       try {
-        const out = cp.execFileSync(cli, ['new', 'page', name], {
-          cwd: ws.uri.fsPath,
-          encoding: 'utf8',
-          timeout: 15000,
-        });
-        outputChannel().appendLine('[new page] ' + out.trim());
-        const doc = await vscode.workspace.openTextDocument(
-          vscode.Uri.file(path.join(ws.uri.fsPath, name + '.mng'))
-        );
+        const file = await newPageAt(ws.uri.fsPath, target);
+        const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(file));
         await vscode.window.showTextDocument(doc);
       } catch (e) {
         if (e.stdout) {
@@ -635,7 +640,18 @@ function registerNewPageCommand(ctx) {
   );
 }
 
+// activate 的返回值就是 extension.exports（VS Code 取它，不取 module.exports）。
+// 集成用例靠这份 API 调 newPageAt——输入框没法程序化注入。
+function api() {
+  return { newPageAt };
+}
+
 function activate(ctx) {
+  activateInner(ctx);
+  return api();
+}
+
+function activateInner(ctx) {
   status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   status.show();
   ctx.subscriptions.push(status);
@@ -726,4 +742,5 @@ function deactivate() {
   stopClient();
 }
 
-module.exports = { activate, deactivate };
+// newPageAt 也在导出面上：集成用例（test/suite）用它绕开无法程序化注入的输入框。
+module.exports = { activate, deactivate, newPageAt };

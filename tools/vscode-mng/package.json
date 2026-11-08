@@ -17,6 +17,13 @@
     "Snippets"
   ],
   "main": "./extension.js",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --test test/tokenize.test.js test/lsp_session.test.js",
+    "test:color": "node --test test/tokenize.test.js",
+    "test:lsp": "node --test test/lsp_session.test.js",
+    "test:vscode": "node test/run_vscode.js"
+  },
   "activationEvents": [
     "onLanguage:mng",
     "workspaceContains:**/*.mng"
@@ -83,5 +90,13 @@
         }
       }
     }
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/vscode": "1.75",
+    "@vscode/test-electron": "^3.1.0",
+    "typescript": "^7.0.2",
+    "vscode-oniguruma": "^2.0.1",
+    "vscode-textmate": "^9.3.2"
   }
 }
