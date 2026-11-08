@@ -4,7 +4,15 @@
 
 ///|
 /// 单调时钟（毫秒）。声明式组件的双击判定等要它；无后端时返回 0。
-pub fn now_ms() -> Int64 { @win.now_ms() }
+/// 无头泵档吃虚拟时钟（uitest 的 advance 推偏移，过渡动画/双击判定随虚拟
+/// 时基走）；真实运行档就是墙上时钟。
+pub fn now_ms() -> Int64 {
+  if session_is_headless() {
+    session_vtime_now()
+  } else {
+    @win.now_ms()
+  }
+}
 
 ///|
 /// 系统深浅偏好（"dark" / "light" / ""）。

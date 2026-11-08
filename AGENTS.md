@@ -17,7 +17,7 @@
 
 ```sh
 cd gui && moon check          # 门禁:零错误零警告
-cd gui && moon test ui render text theme icons sys input win dbus wayland chart mdview style base shell widget router inspector
+cd gui && moon test ui render text theme icons sys input win dbus wayland chart mdview style base shell widget router inspector uitest
 moon run examples/hello       # 最小窗口(另有 showcase 等)
 ```
 

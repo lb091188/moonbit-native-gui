@@ -435,3 +435,47 @@ pub fn guard_report() -> Unit {
     )
   }
 }
+
+// ---- 确定性时钟（A7）：虚拟时间整体推进 ----
+//
+// `test_headless` 宿主泵在无头档吃虚拟时基（墙钟 + 偏移）：`advance` 把时基
+// 整体前移并按 ~16ms 补帧（定时器到期、过渡动画、宿主周期表同一时基，推多少
+// ms 就是多少 ms，与机器速度无关——慢机器不会让动画「少走一段」）；`settle`
+// 跑到无到期定时器且无脏窗（有界，防回调自排死循环）。两者都只动无头档，
+// 真实运行档零影响。
+
+///|
+/// 虚拟时间整体前移 `ms` 毫秒，期间按 ~16ms 一拍补帧（每拍 step 一次：到期
+/// 任务结算 + 逐窗绘制）。返回实际走的拍数。宿主取 `test_headless` 的那扇
+/// （真实宿主不受影响——虚拟偏移只在无头泵档被消费）。
+pub fn advance(win : @widget.WindowHost, ms : Int) -> Int {
+  let mut left = if ms < 0 { 0 } else { ms }
+  let mut steps = 0
+  while left > 0 {
+    let d = if left > 16 { 16 } else { left }
+    @shell.session_vtime_advance(d)
+    let _ = win.step()
+    steps += 1
+    left -= d
+  }
+  steps
+}
+
+///|
+/// 收敛：跑到「无到期定时器且无脏窗」为止（每拍 step 一次）；`max_steps`
+/// 封顶防回调自排死循环（到顶就停，不是错——调用方按需断言后续状态）。
+/// 返回实际走的拍数。
+pub fn settle(win : @widget.WindowHost, max_steps? : Int = 120) -> Int {
+  let l = @shell.host_loop()
+  let mut n = 0
+  while n < max_steps {
+    let due = l.due_pending(@shell.session_vtime_now())
+    let dirty = win.dirty_full || win.dirty_rect is Some(_)
+    if due == 0 && !dirty {
+      break
+    }
+    let _ = win.step()
+    n += 1
+  }
+  n
+}

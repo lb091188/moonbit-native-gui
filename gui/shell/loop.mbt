@@ -122,6 +122,18 @@ pub fn Loop::pending(self : Loop) -> Int {
 }
 
 ///|
+/// 时刻 `now_ms` 已到期、还没跑掉的项数(0 = 无到期任务;settle 的收敛判据)。
+pub fn Loop::due_pending(self : Loop, now_ms : Int64) -> Int {
+  let mut n = 0
+  for j in self.jobs {
+    if j.due_ms <= now_ms {
+      n += 1
+    }
+  }
+  n
+}
+
+///|
 /// 跑完所有到期项，返回执行个数。`quit` 之后不做任何回调。
 pub fn Loop::advance(self : Loop, now_ms : Int64) -> Int {
   self.last_now = now_ms

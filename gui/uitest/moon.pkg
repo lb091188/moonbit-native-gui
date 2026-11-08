@@ -7,6 +7,7 @@ import {
   "NoahLiu/native-gui/widget" @widget,
   "NoahLiu/native-gui/render" @render,
   "NoahLiu/native-gui/text" @text,
+  "NoahLiu/native-gui/shell" @shell,
 }
 
 // 黑盒回归（uitest_test.mbt）以使用者视角引本包与组件库（文本格式：

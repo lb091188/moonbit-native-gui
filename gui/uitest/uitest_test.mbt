@@ -133,3 +133,77 @@ test "断言账本：观察点计数（找/动/看各算一次），零观察即
   // 有读数：finish() 不响（零读数时它 abort，红在测试输出里直接可见）
   t.finish()
 }
+
+///|
+test "确定性时钟:advance 整体推进定时器(与机器速度无关)" {
+  let win = @uitest.test_headless(300, 200)
+  let fired = @base.Store::new(0)
+  let _ = win.timer(50, fn() { fired.update(fn(n) { n + 1 }) })
+  let _ = win.timer(150, fn() { fired.update(fn(n) { n + 1 }) })
+  // 推 100ms:50ms 的响、150ms 的没响——推多少走多少,不等真实时间
+  let n1 = @uitest.advance(win, 100)
+  assert_eq(fired.get(), 1)
+  assert_true(n1 > 0)
+  // 再推 100ms:第二个也响
+  let _ = @uitest.advance(win, 100)
+  assert_eq(fired.get(), 2)
+  // 没有新定时器:再推不再多跑
+  let _ = @uitest.advance(win, 200)
+  assert_eq(fired.get(), 2)
+  @shell.session_vtime_reset()
+}
+
+///|
+test "确定性时钟:settle 跑到无到期定时器且无脏窗" {
+  let win = @uitest.test_headless(300, 200)
+  let fired = @base.Store::new(0)
+  // settle 只收敛**已到期**的活(未来定时器归 advance 推);0ms 即期任务立刻到期
+  let _ = win.timer(0, fn() { fired.update(fn(n) { n + 1 }) })
+  let steps = @uitest.settle(win)
+  assert_eq(fired.get(), 1)
+  assert_true(steps > 0)
+  // 已收敛:再 settle 走 0 拍(无到期任务、无脏窗)
+  assert_eq(@uitest.settle(win), 0)
+  // 定时器回调里自排下一拍(仍 0ms 即期):settle 追到链尾(有界封顶防死循环)
+  let chain = @base.Store::new(0)
+  let tick : Ref[() -> Unit] = Ref(fn() { () })
+  tick.val = fn() -> Unit {
+    chain.update(fn(n) { n + 1 })
+    if chain.get() < 5 {
+      let _ = win.timer(0, tick.val)
+    }
+  }
+  let _ = win.timer(0, tick.val)
+  let _ = @uitest.settle(win)
+  assert_eq(chain.get(), 5)
+  @shell.session_vtime_reset()
+}
+
+///|
+test "确定性时钟:同一推程结果可复现(两次会话同一读数)" {
+  // 会话 A:推 200ms 计数周期表(每 40ms 一拍)
+  let a = @uitest.test_headless(300, 200)
+  let ca = @base.Store::new(0)
+  let tick_a : Ref[() -> Unit] = Ref(fn() { () })
+  tick_a.val = fn() -> Unit {
+    ca.update(fn(n) { n + 1 })
+    let _ = a.timer(40, tick_a.val)
+  }
+  let _ = a.timer(40, tick_a.val)
+  let _ = @uitest.advance(a, 200)
+  @shell.session_vtime_reset()
+  // 会话 B:同参数同推程
+  let b = @uitest.test_headless(300, 200)
+  let cb = @base.Store::new(0)
+  let tick_b : Ref[() -> Unit] = Ref(fn() { () })
+  tick_b.val = fn() -> Unit {
+    cb.update(fn(n) { n + 1 })
+    let _ = b.timer(40, tick_b.val)
+  }
+  let _ = b.timer(40, tick_b.val)
+  let _ = @uitest.advance(b, 200)
+  @shell.session_vtime_reset()
+  // 两会话拍数一致(首拍同刻,此后每 40ms 一拍;推程内拍数确定)
+  assert_true(ca.get() >= 4)
+  assert_eq(ca.get(), cb.get())
+}

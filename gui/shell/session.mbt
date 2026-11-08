@@ -235,7 +235,14 @@ pub fn session_pump_advance() -> Unit {
       None => -1
     },
   )
-  let _ = l.advance(@win.now_ms())
+  // 无头档吃虚拟时钟（real + 偏移；uitest 的 advance 推偏移），真实运行档
+  // 恒走墙上时钟——同一条泵，两种时基
+  let now = if headless_pump.val {
+    session_vtime_now()
+  } else {
+    @win.now_ms()
+  }
+  let _ = l.advance(now)
 }
 
 ///|
@@ -251,6 +258,38 @@ pub fn session_set_headless(on : Bool) -> Unit {
 ///|
 pub fn session_is_headless() -> Bool {
   headless_pump.val
+}
+
+// ---- 虚拟时钟（确定性测试 A7）----
+//
+// 只在无头泵档生效：偏移量加在单调时钟读数上，「整体推进」——定时器
+// （Loop::advance 的 now）、过渡动画（`@shell.now_ms` 喂 @style.step）与
+// 宿主周期表同一时基，推多少ms就是多少ms，与机器速度无关。真实运行档
+// 偏移恒 0、零影响。
+
+///|
+let vtime_offset : Ref[Int64] = Ref(0L)
+
+///|
+/// 虚拟时钟整体前移 ms（仅无头档被消费；重复调用累加）。
+pub fn session_vtime_advance(ms : Int) -> Unit {
+  vtime_offset.val = vtime_offset.val + ms.to_int64()
+}
+
+///|
+/// 回零（用例之间互不携带偏移；uitest 的 advance/settle 不隐式清，测试
+/// 想要干净时基就自己调）。除偏移归零外，把循环时基拉回真实墙钟——否则
+/// 上一会话推出去的虚拟时刻还挂在 `last_now` 上，新会话按它排的定时器
+/// 落在「未来」，推不到也不响（跨会话残留）。
+pub fn session_vtime_reset() -> Unit {
+  vtime_offset.val = 0L
+  let _ = host_loop().advance(@win.now_ms())
+}
+
+///|
+/// 当前时基读数：无头档 = 墙钟 + 偏移；真实档 = 墙钟。
+pub fn session_vtime_now() -> Int64 {
+  @win.now_ms() + vtime_offset.val
 }
 
 ///|
