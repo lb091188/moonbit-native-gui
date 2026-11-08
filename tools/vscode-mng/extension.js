@@ -138,6 +138,16 @@ class MngClient {
 
   start(rootUri) {
     this.proc = cp.spawn(this.cli, ['lsp'], { stdio: ['pipe', 'pipe', 'pipe'] });
+    // spawn 异步失败（EACCES/EPERM/EMFILE…）没人听会变成 uncaught：宿主吞掉、
+    // 这里全无痕迹——必须显式接住并清掉所有等待中的请求
+    this.proc.on('error', (e) => {
+      outputChannel().appendLine('[lsp] spawn 失败：' + (e && e.message ? e.message : e));
+      this.stopped = true;
+      for (const [, p] of this.pending) {
+        p.reject(new Error('spawn 失败：' + (e && e.message ? e.message : e)));
+      }
+      this.pending.clear();
+    });
     this.proc.stdout.on('data', (d) => this._feed(d));
     this.proc.stderr.on('data', (d) => outputChannel().append(d.toString()));
     this.proc.on('exit', (code) => {
@@ -161,7 +171,7 @@ class MngClient {
           publishDiagnostics: {},
         },
       },
-      clientInfo: { name: 'mng-vscode', version: '0.2.11' },
+      clientInfo: { name: 'mng-vscode', version: '0.2.12' },
     }).then((res) => {
       this.notify('initialized', {});
       return res;
@@ -239,6 +249,7 @@ class MngClient {
       setTimeout(() => {
         if (this.pending.has(id)) {
           this.pending.delete(id);
+          outputChannel().appendLine('[lsp] 请求超时（5s 无应答）：' + meth);
           reject(new Error('lsp 超时：' + meth));
         }
       }, 5000);
@@ -684,17 +695,31 @@ function activate(ctx) {
       outputChannel().appendLine('[lsp] initialize 超时未应答（watchdog 接管）');
     }
   }, 8000);
-  registerProviders(ctx);
-  startClient(ctx, cli, diagnostics);
+  // activate 后半段整体兜底：register/start 的同步异常在扩展宿主里只进
+  // DevTools console，channel 与状态栏全无痕迹，用户看到的就是永恒旋转
+  try {
+    registerProviders(ctx);
+    startClient(ctx, cli, diagnostics);
 
-  ctx.subscriptions.push(
-    vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('mng')) {
-        stopClient();
-        vscode.window.showInformationMessage('MNG：配置已改，重载窗口后生效。');
-      }
-    })
-  );
+    ctx.subscriptions.push(
+      vscode.workspace.onDidChangeConfiguration((e) => {
+        if (e.affectsConfiguration('mng')) {
+          stopClient();
+          vscode.window.showInformationMessage('MNG：配置已改，重载窗口后生效。');
+        }
+      })
+    );
+  } catch (e) {
+    const msg = e && e.message ? e.message : String(e);
+    outputChannel().appendLine('[lsp] activate 异常：' + msg);
+    if (e && e.stack) {
+      outputChannel().appendLine(e.stack);
+    }
+    if (status) {
+      status.text = '$(warning) MNG（启动异常）';
+      status.tooltip = msg;
+    }
+  }
 }
 
 function deactivate() {
