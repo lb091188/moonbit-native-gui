@@ -295,6 +295,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 ### 窗口
 
 - ⏳ **窗口内按键路由补齐**：跨页切换后的按键兜底路由，避免失焦后按键进不了页
+- ⏳ **窗口状态记忆**：重启恢复上次位置/尺寸/最大化档（每窗状态文件，`WindowHost` 收口）；会话恢复归 `mng new` 脚手架模板可选能力（2026-11-08 立项，方向见 [proposals/方向.md](proposals/方向.md) A9）
 
 ### 渲染
 
@@ -348,6 +349,10 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ⏳ **自动更新**：检查(pr_run curl 拉清单)→ 全量下载 + SHA256 校验 → 原子替换(posix rename / Windows rename swap)→ relaunch;Linux 更新档=AppImage 单文件自替换、deb 档报新版本引导下载;更新窗口用本库 widget;清单格式预留 `sig`/`sig_alg`/`delta` 字段(v1 空档,v1.5 启 Ed25519、v2 启增量,免破坏性变更);发布侧 `mng publish` 生成清单并发 GitHub Releases(2026-11-08 立项,方向见 [proposals/方向.md](proposals/方向.md) A2)
 - ⏳ **桌面登记面**：深链 scheme、文件关联、最近文档写侧——登记声明进 `mng.toml`、打包器落各平台清单、唤起事件经单实例通道回投(随打包批落地,方向见 [proposals/方向.md](proposals/方向.md) A3)
 - ⏳ **稳定面清单与 1.0 时点**：逐包划分承诺面 / 实验面，公告破坏性改动截止线
+- ⏳ **示例体积门禁**：CI 每次构建记 hello + showcase 二进制体积并出 diff，超阈值红线——功能不得让不使用它的应用变胖（2026-11-08 立项，方向见 [proposals/方向.md](proposals/方向.md) A5）
+- ⏳ **确定性测试时钟**：uitest 补 `Advance(ms)`（虚拟时间整体推进，期间按刷新率补帧）+ `settle()`（跑到无帧需求）——过渡动画与定时行为进无头断言（2026-11-08 立项，方向见 [proposals/方向.md](proposals/方向.md) A7）
+- ⏳ **CPU/GPU 像素对拍**：同一套比对器两用——无头像素快照基线管「跨版本不漂」，对拍管「GPU 路径与纯光栅逐像素一致」，随控件级 GPU 批扩用例（2026-11-08 立项，方向见 [proposals/方向.md](proposals/方向.md) A6；与既有「无头像素快照基线」条目合并考虑）
+- ⏳ **文档 llms.txt**：VitePress build 后处理聚合 docs/zh 与 docs 成两份纯 Markdown 全集供 LLM 消费（2026-11-08 立项，方向见 [proposals/方向.md](proposals/方向.md) A8）
 - ⏳ **无头像素快照基线**（PNG + 容差）：自带基线目录与比对器、三平台各一份基线，`moon test` 无快照机制故全部自建；判据（容差怎么定、基线漂了谁批）待立项时定，工作量大于门面本体，故从 P1 拆出（2026-11-03 定案：单独立项，不进 P1）
 
 ### 可访问性

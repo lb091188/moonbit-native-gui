@@ -23,7 +23,7 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 
 - [ ] **A1 mac 腿**：`mng package` 子命令骨架（TOML `[package]` / `[package.sign]` 解析、Artifacts 抓路径、release-bin 的 .app 组装上收）+ icns 派生 + DMG + 更新载体 zip + 签名入口（adhoc / identity / 公证档）
 - [ ] **A1 mac 腿真机复验**（用户执行）：`cd examples/showcase && moon run ../../tools/native-gui-tools/mng -- package`——`.mng/dist/` 应出 `Native GUI Showcase.app` + `showcase-0.1.0-darwin-aarch64.dmg/.zip` 三件；挂 DMG 拖装运行（adhoc 首启 Gatekeeper 右键放行属已知），看 Dock 图标（assets/icon.png 派生）与资源
-- [ ] **A1 win 腿**：NSIS（探测 makensis，缺失自动下载）、per-user 装法、`.ico` 多尺寸
+- [ ] **A1 win 腿真机复验**（用户执行，Windows + NSIS）：`winget install NSIS.NSIS` 后 `cd examples\showcase && moon run ..\..\tools\native-gui-tools\mng -- package`——`.mng\dist\` 应出 `showcase-0.1.0-windows-x86_64.exe`（setup）与 `.zip`；双击 setup 装 per-user（开始菜单快捷方式、「应用与功能」可卸载）、SmartScreen 提示属无签已知；exe/ico/资源落位
 - [ ] **A1 linux 腿**：deb（control+md5+desktop entry 纯脚本）+ AppImage（appimagetool/AppRun，探测缺失自动下载，同 makensis 模式）
 - [ ] **A2 更新器 v1**：清单检查（pr_run curl）→ 全量下载 + SHA256 → 原子替换（win rename swap）→ relaunch + 本库 widget 更新窗口；Linux 更新档=AppImage 单文件自替换，deb 档报新版本引导下载
 - [ ] **A2 mng publish**：`update-<target>.json` 清单生成 + GitHub Releases 上传（draft 起步）——CI 侧已落（release-app.yml 汇总腿现算清单发 draft），剩本地版
@@ -34,6 +34,14 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 
 - [ ] **v1 只读面板**：独立窗或 dev 档入口——控件树浏览（数据源 `a11y_last_frame` 帧尾快照）+ 选中高亮 + 样式/布局读数 + `paint_profile_summary` 帧耗时
 - [ ] **v2 编辑回灌**：选中控件样式经 mngdev 热更通道改 class/样式值回灌（通道能力已存在，接 inspector 面板）
+
+## 方向 A 类其余项（2026-11-08 用户定全部入待办，方向见 [proposals/方向.md](proposals/方向.md)；顺序在打包/更新/inspector 之后，一项一提交）
+
+- [ ] **A7 确定性测试时钟**：uitest `Advance(ms)` + `settle()`，过渡动画进无头断言（最便宜，排最前）
+- [ ] **A5 示例体积门禁**：CI 记 hello + showcase 二进制体积出 diff、超阈值红线
+- [ ] **A9 窗口状态记忆**：每窗状态文件（位置/尺寸/最大化），`WindowHost` 收口；脚手架带可选会话恢复
+- [ ] **A6 CPU/GPU 像素对拍**：与「无头像素快照基线」合并比对器，随控件级 GPU 批扩用例
+- [ ] **A8 文档 llms.txt**：VitePress build 后处理聚合双语文档为纯 Markdown 全集
 
 ## mngdev 库包与工具链联动（2026-11-07 立项，方案见 [proposals/mngdev-library.md](proposals/mngdev-library.md)；一项一提交，做完删一项）
 
