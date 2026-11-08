@@ -1,0 +1,22 @@
+<script>
+let count : @base.Store[Int] = @base.Store::new(0)
+</script>
+<template>
+  <ui-col class="page">
+    <ui-text class="title" text="Hello, .mng!" />
+    <ui-text text="改本页保存：受限改动亚秒 HOT，script/行模板走 COLD 重启回本页。" />
+    <ui-stepper v-model="count" max="10" />
+    计数: {{ count }}
+  </ui-col>
+</template>
+<style>
+  .page {
+    padding: 24px;
+    row-gap: 8px;
+    align-items: center;
+  }
+  .title {
+    font-size: 18px;
+    font-weight: bold;
+  }
+</style>
