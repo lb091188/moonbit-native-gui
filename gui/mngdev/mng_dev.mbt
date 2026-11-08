@@ -511,7 +511,16 @@ fn mng_write_ack(irpath : String, status : String) -> Unit {
 ///|
 /// dev 档页面壳：登记注册表与 holder，把 `build()` 的树挂进 holder 并记为现役代。
 /// script 段在 `build` 外执行（状态建一代），补丁只重建 `build()` 的树——状态保活。
+/// 首次建页自装 dev 三通道接线——dev 面只存在于 dev 形态生成码的调用链里，
+/// 应用入口零 dev 词；生产构建换生产形态生成码后本包调用链整体消失。
+let wake_installed : Ref[Bool] = Ref(false)
+
+///|
 pub fn mng_dev_page(page : String, reg : MngReg, build : () -> @widget.Node) -> @widget.Node {
+  if !wake_installed.val {
+    wake_installed.val = true
+    mng_dev_wake_default()
+  }
   mng_dev_set_reg(page, reg)
   @widget.node_of_new(fn(holder : @widget.Widget) {
     mng_dev_bind_holder(page, holder)

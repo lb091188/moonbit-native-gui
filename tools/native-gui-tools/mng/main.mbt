@@ -242,7 +242,7 @@ fn basename(p : String) -> String {
 ///|
 /// 工具版本：每落地一批改动 +1（用户重装后凭 --version 区分新旧二进制）。
 /// lsp serverInfo 同源取此常量。
-const MNG_VERSION : String = "0.2.9"
+const MNG_VERSION : String = "0.2.10"
 
 ///|
 /// --version：版本与 mng-schema 位（编辑器插件启动时握手，对不上则补全降级）。

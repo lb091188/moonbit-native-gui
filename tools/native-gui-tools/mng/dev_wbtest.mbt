@@ -189,7 +189,8 @@ test "scaffold_app_at：workspace 内现读版本，文件齐全，dev 生成码
   assert_true(contains_sub_cli(gmod, "NoahLiu/native-gui@0.9.9"))
   assert_true(contains_sub_cli(gmod, "NoahLiu/yoga-mbt@0.7.7"))
   let pkg = @fs.read_file_to_string(root + "/my_app/moon.pkg") catch { _ => abort("moon.pkg 缺") }
-  assert_true(contains_sub_cli(pkg, "mngdev\" @mngdev"))
+  // 主包零 dev 词：接线自装在 dev 生成码链里，@mngdev 只该出现在 pages 包
+  assert_false(contains_sub_cli(pkg, "mngdev"))
   assert_true(contains_sub_cli(pkg, "my_app/pages\" @pages"))
   assert_true(contains_sub_cli(pkg, "shell\" @shell"))
   let pages_pkg = @fs.read_file_to_string(root + "/my_app/pages/moon.pkg") catch { _ => abort("pages/moon.pkg 缺") }
@@ -200,7 +201,8 @@ test "scaffold_app_at：workspace 内现读版本，文件齐全，dev 生成码
   assert_true(contains_sub_cli(gen, "pub fn home() -> @widget.Node"))
   let main_mbt = @fs.read_file_to_string(root + "/my_app/main.mbt") catch { _ => abort("main.mbt 缺") }
   assert_true(contains_sub_cli(main_mbt, "@shell.instance_claim(\"local.my_app\")"))
-  assert_true(contains_sub_cli(main_mbt, "@mngdev.mng_dev_apply_from_file"))
+  // 入口零 dev 词：三通道接线自装在 dev 生成码链里
+  assert_false(contains_sub_cli(main_mbt, "@mngdev"))
   // 目录已存在拒绝
   assert_eq(scaffold_app_at(root, "my_app"), 1)
 }
