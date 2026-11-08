@@ -3890,3 +3890,15 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - `derive(...)` 后置语法弃用：`} derive(Eq, Debug)` 改为类型声明前的 `#derive(Eq, Debug)`（`///|` 与 doc 注释之后、`pub` 之前）。本仓 16 处已迁。
 - `String.view(start_offset~, end_offset~)` 弃用，拆成 `clamped_view(start~, end~)`（越界钳制）与 `exact_view(start~, end~)`（须精确对齐）。本仓仅 mdparse 三处测试用例，按旧 view 的钳制语义迁 `clamped_view`，断言全过。
 - `moonbitlang/async` 独立库并入 core：全仓排查（moon.mod / moon.pkg / .mbt / .mbtx / .mooncakes 传递闭包）零使用，无需迁移；`experience/adaptation.md` 旧条目中的 async 提及均为历史记录。`.agents/skills/moonbit-agent-guide/` 里指名 async 库的段落系上游指南文档，随上游更新，不在本仓代码面。
+
+## tools 模块 release 链接断 Win32 符号：debug 的链接行多一串系统库把缺口盖住了（2026-11-08）
+
+**现象**：`moon install ./tools/native-gui-tools/mng` 报 `libinst.lib(inst_stub.obj) : error LNK2019: 无法解析的外部符号 __imp_SendMessageTimeoutW / __imp_FindWindowW` + `LNK1120: 2 个无法解析的外部命令`；而 `moon build tools/native-gui-tools/mng --target native`（debug 画像）是绿的——「本机能构建」因此不成立。
+
+**根因（`moon build … --dry-run` 抓到两份链接行，这是本轮唯一的定位手段）**：debug 画像 moon 在 `/link` 后追加 `libcmt.lib oldnames.lib kernel32.lib shell32.lib user32.lib dbghelp.lib uuid.lib`；release 画像只有 `/link /LIBPATH:$MOON_HOME/lib`，系统库全靠各对象自带的 `/DEFAULTLIB`。`tools/native-gui-tools` 没挂 `--moonbit-unstable-prebuild`（独立模块、要 `moon install` 发给用户，不该在用户机器上拉 Python 依赖），因此没有 `link_configs` 可下发，`inst_stub.c` 里 `FindWindowW`/`SendMessageTimeoutW` 的 user32 无人补——release 断链、debug 被 moon 那串系统库顺手救下。
+
+**修法**：`inst_stub.c` 的 `_WIN32` 分支加 `#pragma comment(lib, "user32.lib")`，与 `gui/win/win_gui.c` 的 `#pragma comment(linker, "/SUBSYSTEM:WINDOWS")`、`modules/ffmpeg-mbt/src/ffmpeg_win_dll.c` 的 `#pragma comment(lib, "delayimp.lib")` 同机制：MSVC 把 `/DEFAULTLIB` 写进该 TU 的 `.drectve` 段，链接器抽到这份 `.obj`（符号被引用即抽）时自动带库，`mng` 与任何依赖方零配置，也不用在 tools 里造一份只为一行 flag 的 prebuild。
+
+**验证**：`moon build … --release` 与 `moon install ./tools/native-gui-tools/mng` 均成功（`Success: Installed mng to C:/Users/…/.moon/bin/mng.exe`）；`dumpbin -dependents mng.exe` 的导入表出现 `USER32.dll`；`mng --help` 正常；`moon test ./tools/native-gui-tools/inst ./tools/native-gui-tools/proc` 7/7。
+
+**判据**：① `LNK2019 __imp_*` 先看「谁的链接行」——挂了 prebuild 的库模块补 `gui/scripts/prebuild.py` 对应包的 Windows 链接串；没挂 prebuild 的独立模块（tools）用 `#pragma comment(lib, …)`，别为了一个 flag 引入构建期 Python 依赖；② **「debug 能过」不能当通**：两画像的链接行不同，而 `moon install` 走的是 release，CI 的 tools 门禁原来只有 `moon test`（debug），已在 Windows job 补 `moon build mng --target native --release`——这道缺口原本在 CI 上全绿。

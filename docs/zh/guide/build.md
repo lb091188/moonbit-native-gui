@@ -148,6 +148,7 @@ GitHub Releases 现有两条：**Binaries**（tag `bin`，由 `release-bin.yml` 
 | 仓库里已经修好的 prebuild 报错，在 `MOON_WORK=off` 下又原样出现（行号都一样） | 那条路径跑的是**注册表归档里那份脚本**（落在 `examples/<示例>/.mooncakes/NoahLiu/native-gui/scripts/prebuild.py`），注册表侧改不动 | 验证修复就回 workspace 跑（去掉 `MOON_WORK=off`）；要让消费方吃到只能**重新发包**——脚本随包发布，属对外 API 面的一部分 |
 | `~/.moon/lib/runtime/process.c: error: 'SYS_pidfd_open' undeclared` | 地板在 **MoonBit 工具链自带的 runtime C 源**：它无条件用 `SYS_pidfd_open`，而这个宏来自 glibc 构建时冻结的 syscall 表（老 glibc 就算配新内核头也没有它，升 `linux-libc-dev` 补不上）。与本库无关，此时本库的 prebuild 与桩都已编过 | 换 glibc 较新的机器 / 发行版；这一档**不承诺支持**，自救口径见 §2「低版本发行版」 |
 | prebuild 在 stderr 打「缺少 gtk+-3.0 开发包」一类提示后继续走，最后链接期爆 `undefined reference to gtk_*` / `pango_*` | 开发包没装全。prebuild 探不到包时只警告、**不下发链接条目**，错误推迟到链接期才露头 | 补 §2 的 apt 清单，重跑 `moon build`；仍链旧结果就 `moon clean` 一次 |
+| Windows 上 `moon install <工具包>`（或 `moon build --release`）爆 `LNK2019: 无法解析的外部符号 __imp_FindWindowW` 一类，**同一条 `moon build` 不加 `--release` 却是绿的** | 两种构建画像的链接行不同：debug 由 moon 追加显式系统库（`libcmt kernel32 shell32 user32 dbghelp …`），release 只有 `/link /LIBPATH:` 一行，系统库全靠对象自带的 `/DEFAULTLIB`。`tools/native-gui-tools` 这类**不挂 prebuild**的模块拿不到 `link_configs`，Win32 符号就成悬空引用 | 在用到该 API 的 `.c` 里写 `#pragma comment(lib, "user32.lib")`——MSVC 把 `/DEFAULTLIB` 写进该 TU 的 `.drectve`，链接器抽到这份 `.obj` 时自动带库，依赖方零配置。挂了 prebuild 的库模块仍按 §8 补链接串 |
 | Windows 链接期爆 `error LNK2019: 无法解析的外部符号 __imp_SetDeviceGammaRamp`（或任意 `__imp_*`），紧跟着 `fatal error LNK1120` | `__imp_` 打头的是 Win32 **导入函数**：桩编得过，但它所在的 `.lib` 没链上。`SetDeviceGammaRamp` 在 `gdi32.lib`，`gui/scripts/prebuild.py` 的 sys 包 Windows 分支当时缺它；`sys_stub.obj` 整个进不了链接，所以每个用到 sys 的 exe 都断在同一条 | 更新到当前 master（sys 包已补 `gdi32.lib`）。自己加 Windows 直调时按归属补库：取 DC 与消息循环→`user32`、DC 绘图与 gamma 斜坡→`gdi32`、注册表→`advapi32`、`ShellExecuteW`/`SH*`→`shell32`、COM 基础→`ole32`、`SysAllocString`→`oleaut32`、WMI 的 GUID 常量→`wbemuuid` |
 | 构建不中断，但 MSVC 刷一片 `warning C4090: 不同的"const"限定符` / `C4113: 参数列表不同` / `C4133: 类型不兼容` | 桩里的 COM 写法与 SDK 头对不上三类：`const` 的 Vtbl 赋给非 `const` 的 `lpVtbl`、一个实现函数塞进多个接口的 vtable（`self` 形参类型必须逐接口各写一份）、`LPWSTR*` 与 `LPCWSTR*` 之差 | 不挡构建，但每一行都指着「这个槽运行期按 SDK 那份签名被调用」——照 `include/WebView2.h` 的声明逐条改桩；`modules/gui-webview/webview/webview2_stub.c` 三类已清 |
 | `Package 'webkit2gtk-4.1' not found`，且只有 `@web` 用不了 | 不是故障，是设计：探不到 webkit 时 `@web` 退成占位实现、能力报 `Unsupported`，不让整包链接失败 | 要内嵌浏览器就装 `libwebkit2gtk-4.1-dev` |
@@ -171,6 +172,7 @@ GitHub Releases 现有两条：**Binaries**（tag `bin`，由 `release-bin.yml` 
 - 不手写 `cc-link-flags`——链接一律由 prebuild 下发，手改会与它冲突。
 - 新增平台 C 能力按「单一 `stub.c` 多分支 + prebuild 宏」组织，先例见 `gui/win/stub.c`；链接参数仍归 prebuild。
 - Windows 分支每用一个新的 Win32 API，先查它属于哪个 `.lib`，同批把库补进 `gui/scripts/prebuild.py` 对应包的 Windows 链接串——桩编译期不查库，缺库只在链接期以 `LNK2019 __imp_*` 露头（见 §6）。
+- 不挂 prebuild 的模块（`tools/native-gui-tools` 这类独立模块）没有 `link_configs` 可下发，改为在该 `.c` 里 `#pragma comment(lib, ...)`，让 `/DEFAULTLIB` 随 `.obj` 的 `.drectve` 段走；先例 `tools/native-gui-tools/inst/inst_stub.c`（user32）、`modules/ffmpeg-mbt/src/ffmpeg_win_dll.c`（delayimp）。
 
 FFI 声明与蹦床对齐的规范见 `.agents/skills/moonbit-c-binding/`。
 

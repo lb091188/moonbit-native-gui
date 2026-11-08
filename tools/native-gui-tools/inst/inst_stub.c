@@ -22,6 +22,14 @@ int32_t mnginst_last_errno(void) { return mnginst_err; }
 #endif
 #include <windows.h>
 
+/* FindWindowW / SendMessageTimeoutW 在 user32，而本模块没有 prebuild 下发链接参数
+ * （tools 是独立模块，不挂 --moonbit-unstable-prebuild）。用 MSVC 的
+ * `#pragma comment(lib, ...)` 把 /DEFAULTLIB 写进本 TU 的 `.drectve` 段：
+ * 链接器抽到 inst_stub.obj 时自动带上 user32.lib，依赖方零配置、无需改链接行。
+ * 与 win_gui.c 的 `#pragma comment(linker, ...)`、ffmpeg_win_dll.c 的
+ * `#pragma comment(lib, "delayimp.lib")` 同一机制。 */
+#pragma comment(lib, "user32.lib")
+
 /* 与 gui/win/stub.c 的 WM_INST_MAGIC / WM_INST_CLASS_PREFIX 同值（见文件头）。 */
 #define MNGINST_MAGIC 0x59756549
 #define MNGINST_CLASS_PREFIX "moonbit_libyue_instance_"
