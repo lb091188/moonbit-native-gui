@@ -152,6 +152,19 @@ test "basename_of:末段非空" {
   assert_eq(basename_of("x"), "x")
 }
 
+test "basename_of:Windows 反斜杠与盘符（moon Artifacts 的原样形态）" {
+  // `moon build` 在 Windows 打印的是反斜杠路径；只按 `/` 切会原样返回整条
+  // 路径，拿去拼 `winroot/<整条路径>` 写文件必失败。
+  let bs = "\\"
+  assert_eq(
+    basename_of("D:" + bs + "code" + bs + "app" + bs + "showcase.exe"),
+    "showcase.exe",
+  )
+  assert_eq(basename_of("D:" + bs + "code" + bs + "assets" + bs), "assets")
+  // 混用两种分隔符（拼出来的路径常见）
+  assert_eq(basename_of("D:" + bs + "code/app" + bs + "x.exe"), "x.exe")
+}
+
 test "u16/u32 小端写读 roundtrip" {
   let b : FixedArray[Byte] = FixedArray::make(16, b'\x00')
   put_u16le(b, 0, 0x1234)

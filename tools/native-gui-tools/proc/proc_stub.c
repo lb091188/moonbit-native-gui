@@ -127,8 +127,16 @@ int32_t mngpr_spawn(const char *file, const char *blob, int32_t len,
   if (out_path != NULL && out_path[0] != '\0') {
     wchar_t *w = mngpr_wide(out_path);
     if (w != NULL) {
+      // 句柄必须可继承：STARTF_USESTDHANDLES 交给子进程的句柄若不可继承，
+      // CreateProcess 照旧成功，子进程却拿着无效 stdout/stderr 静默丢输出
+      // （spawn 只回 pid，调用方无从发现）。NULL 的 lpSecurityAttributes 默认
+      // bInheritHandle=FALSE —— 这里必须显式给一份。
+      SECURITY_ATTRIBUTES sa;
+      sa.nLength = sizeof(sa);
+      sa.lpSecurityDescriptor = NULL;
+      sa.bInheritHandle = TRUE;
       hout = CreateFileW(w, FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE,
-                         NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+                         &sa, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
       free(w);
       if (hout != INVALID_HANDLE_VALUE) {
         si.dwFlags |= STARTF_USESTDHANDLES;

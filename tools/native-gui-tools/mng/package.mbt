@@ -1066,13 +1066,27 @@ fn fail_pkg(msg : String) -> Int {
 
 ///|
 /// 路径末段(exe 名 / 资源目录名)。
+///
+/// **两个分隔符都要认**:`moon build` 打印的 Artifacts 路径在 Windows 上是
+/// `D:\…\app.exe` 形态,只按 `/` 切会原样返回整条路径——拿它拼产物目录名
+/// （`winroot/<整条路径>`）写文件必然失败,而报错只说得清「拷可执行失败」。
 fn basename_of(p : String) -> String {
-  let mut last = p
-  for raw in p.split("/") {
-    let s = raw.to_owned()
-    if s.length() > 0 {
-      last = s
-    }
+  let a = chars_of(p)
+  // 先剥尾部分隔符（`assets/` 的末段是 assets，不是空串）
+  let mut end = a.length()
+  while end > 0 && (a[end - 1] == '/' || a[end - 1] == '\\') {
+    end -= 1
   }
-  last
+  if end == 0 {
+    return p
+  }
+  let mut start = 0
+  let mut i = 0
+  while i < end {
+    if a[i] == '/' || a[i] == '\\' {
+      start = i + 1
+    }
+    i += 1
+  }
+  slice_path(a, start, end)
 }
