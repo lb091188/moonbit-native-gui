@@ -227,3 +227,17 @@ test "自重排周期表：只有记回新句柄才停得住" {
   }
   assert_eq(hits.val, m)
 }
+
+test "Loop::due_pending:只数已到期、未跑掉的项" {
+  let l = Loop::new()
+  l.start(1000L)
+  let _ = l.timer(50, fn() { () }) // due 1050
+  let _ = l.timer(120, fn() { () }) // due 1120
+  assert_eq(l.due_pending(1000L), 0)
+  assert_eq(l.due_pending(1050L), 1)
+  assert_eq(l.due_pending(1200L), 2)
+  // advance 跑掉到期项后归零;未来项不受影响
+  let _ = l.advance(1050L)
+  assert_eq(l.due_pending(1050L), 0)
+  assert_eq(l.due_pending(1200L), 1)
+}
