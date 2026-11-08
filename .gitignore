@@ -72,5 +72,9 @@
 # 真 VS Code 场景测试下载的编辑器宿主（首次运行时按需拉取，约 350MB）
 tools/vscode-mng/.vscode-test/
 
+# mng 应用侧场景脚本的临时工程与日志
+.mng-scenario/
+mng_scenario_demo/
+
 # 崩溃取证档（NATIVEGUI_CRASH_LOG=1）现场文件
 mng_crash.log

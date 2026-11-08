@@ -39,6 +39,8 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 
 （代码侧四件全部落地并逐项提交推送：dev 面进库 c8051433、lsp 诊断联动 411cbc2e、脚手架 7acf24e3、文档收口本笔；本批只剩真机/编辑器复验，均由用户执行）
 
+> 机械部分已自动化（2026-11-08）：`scripts/mng_scenario.sh`（脚手架→dev 首轮→HOT→COLD 重启回页→[NEW]/[GONE]/[SRC]→生产构建，14 条）与 `cd tools/vscode-mng && npm test` / `npm run test:vscode`（着色分词、真 mng lsp 会话、真编辑器里的诊断/hover/新建页面）已进 CI。下面留着的是**观感与主观项**，仍由人工过。
+
 - [ ] **dev 面进库复验**（用户执行）：`mng dev` 在 showcase/template-hello 跑热更循环（HOT 亚秒、COLD 回改动页）——生成码已切 @mngdev 前缀，应用侧零 dev 面复制
 - [ ] **lsp 诊断联动复验**（用户执行，装新版 VSIX）：`.mng` 里写坏 script 段类型（如 `+` 拼非串）→ Ctrl+S → Problems 出「moon check」来源的模板行列错误；恢复保存后错误消失
 - [ ] **脚手架冒烟**（用户执行，含 `mng new` 改面复验）：仓库内 `mng new demo1`（裸名即建工程；**需把 demo1 加进 `moon.work` members**，否则按注册表解析、线上 0.3.1 无 mngdev 必挂——发版缺口见下）→ `cd demo1 && moon run .` 起窗 → 改 pages/home.mng 保存看 `mng dev` 热更；另验 `mng new page pages/about`（父目录现建）与命令面板「MNG: 新建页面」。**仓外腿挂起**：等 gui 发布含 mngdev 的版本（脚手架线上/兜底版本随之可用），2026-11-07 记
@@ -53,6 +55,8 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 ## 模板预编译（2026-11-01 启动，方案见 [proposals/native-template.md](proposals/native-template.md) 与 [proposals/mng-project-dev.md](proposals/mng-project-dev.md)；已完成叙事归 roadmap「开发体验」，此处只留未完成项）
 
 ### 真机复验（用户执行）
+
+> 日志口径与重启编排这类机械项已由 `scripts/mng_scenario.sh` 覆盖（CI 三腿里 Linux/mac 跑）；下面几条要判的是**看得见的东西**：toast、亚秒手感、状态保活后的数值、样式章观感。
 
 - [ ] **热更真机复验**：①`cd examples/showcase`（`mng.toml` 已提交：templates=「.」、build=`moon build .`、app-id 对齐应用；`run` 留空由 build 的 Artifacts 推导）②`moon run ../../tools/native-gui-tools/mng_cli -- dev` 起应用；③应用进「模板 Dev」页 ④改结构/字面量/`class`/`<style>` 值保存 → HOT（日志 `[HOT] 补丁已推送`、应用内 toast「模板补丁已应用」；样式章视觉——类槽覆盖/令牌/枚举值/交互态——随本步一并看）⑤改表达式文本（`@shared.tx("…")`、`{{ qty + 1 }}`、`v-if="qty > 5"`）→ 受限文法内 HOT；新函数/新符号 → `[HOT→COLD]` 带原因 ⑥改 script / v-for / 自定义组件 / 表外参数 → COLD，重启后自动回到改动页（`[COLD] 已请求回到模板页`）⑦把 stepper 调到 7 再走 HOT，值仍为 7（状态保活）；COLD 后回 3
 - [ ] **编辑器真机复验**：`cd tools/vscode-mng && npx @vscode/vsce package` 打 0.2.9 vsix 安装（覆盖加 `--force`）→ Reload Window，按 `tools/vscode-mng/README.md` 清单一走——语义着色（类型/变量/参数/函数/方法/命名空间分档；主题未开语义高亮需设 `editor.semanticHighlighting.enabled: true`）、TextMate 着色、snippets、补全、Problems 诊断、hover、跳转、命令面板「MNG: 新建页面」

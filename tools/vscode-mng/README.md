@@ -91,6 +91,26 @@ TextMate 是正则文法，只能按词形近似（大写当类型、其余小�
 
 真机验证清单（装 0.2.13 后）：打开 `examples/showcase/pages/dev_demo.mng`——①`qty`/`nick` 是变量档（不可变，亮于正文）；②`Store`/`String`/`Int` 是类型档；③`on_reset` 函数档、`qty.set()`/`@shared.tx()` 方法档；④`@shared` 命名空间档；⑤`{{ qty }}`、`v-model="nick"`、`:text="@shared.tx(…)"`、`@click="on_reset"` 与 script 段同档；⑥带 props 签名头的页里，签名参数是 parameter 档（与变量不同色）；⑦关 LSP 后着色退回纯 TextMate 不报错；⑧命令面板「MNG: 新建页面」输入 `pages/t1` 回车——生成 `pages/t1.mng` 并打开（验完删）；⑨资源树里 `t1.gen.mbt` 嵌套在 `t1.mng` 条目下（默认收起、`t1.mng` 带数量徽标，点击展开）而非顶层平铺；⑩静态属性字符串整串一色——`text="…script…COLD…"` 里夹的英文词不再被误染成标识符/类型色；⑪括号观感统一——块级标签四角尖括号全部标点色、`@` 与包名同色、`{{ }}` 两组花括号同色（语言配置 `colorizedBracketPairs` 空表，设置强开括号对着色也无括号可染）。
 
+## 自动化验收（改扩展或改文法后先跑这个）
+
+```sh
+cd tools/vscode-mng
+npm ci
+npm run typecheck     # tsc --checkJs + @types/vscode 1.75
+npm test              # 着色分词 + 真 mng lsp 会话（需先构建 mng，见下）
+npm run test:vscode   # 真编辑器里跑一遍（首次拉 ~350MB 宿主）
+```
+
+| 命令 | 覆盖什么 |
+| --- | --- |
+| `npm run typecheck` | 扩展 JS 的类型门禁：`vscode.languages.registerDocumentSemanticTokensProvider` 这类**不存在的 API 名**、参数错型、命令 id 拼错——0.2.13 之前「activate 中途夭折、看着没颜色」就是这一档 |
+| `npm test` | ① 着色分词 8 条：用仓库自己的 `mng.tmLanguage.json` 离线分词，断 script / `<style>` / 模板 / 插值的 scope 分档，含「静态属性字符串整串一色」「`@` 与包名同色」「`{{ }}` 同档」这些改过多次的点；② 协议级 6 条：拉起真 `mng lsp`，走 Content-Length 帧演 initialize → didOpen → didSave → `$/mng/checkTick`，断诊断行列与语义令牌分档 |
+| `npm run test:vscode` | 真编辑器 5 条 + 视构建情况 1 条跳过：扩展 activate 走完、`.mng` 语言注册、坏模板进 Problems 且行列回投、组件 hover、命令面新建页面落地并打开 |
+
+`npm test` 需要 mng 可执行文件：`moon build tools/native-gui-tools/mng --target native`（或用 `MNG_BIN` 指过去）。CI 三平台都跑前两条，`test:vscode` 只在 Linux 腿（xvfb）跑，mac / Windows 本机直接跑。
+
+**留给人眼的**：同一 scope 在不同主题下的对比度、`editor.semanticHighlighting.enabled` 主题开关的实际观感、生成码在资源树里的折叠形态（`explorer.fileNesting` 只断配置值）。
+
 ## 命令面板
 
 - **MNG: dev — 模板开发循环**：在集成终端里对工作区根执行 `mng dev`（读 `mng.toml` 盯整个工程的 `.mng` 与主题文件）。可执行文件取 `mng.cliPath` 设置（默认 `mng`，装法见「装」）；停 Ctrl-C。
