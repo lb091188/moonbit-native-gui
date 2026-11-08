@@ -3,14 +3,54 @@
 // 分类判据与边界见 proposals/native-template.md「开发循环」二轮节。
 
 fn usage_dev() -> Unit {
-  println("用法：moon run tools/native-gui-tools/mng -- dev [<某个 .mng 或目录>] [--build-cmd …] [--run-cmd …] [--app-id …] [--poll-ms 300] [--out-dir <目录>]")
-  println("  工程级：无参时向上找 mng.toml（没有就按 moon.mod / moon.work 推默认值），递归扫 templates 里的 *.mng")
-  println("  位置参数：只盯这一个文件/目录（可选过滤）")
-  println("  生成码落到模板自己所在的包目录（<stem>.gen.mbt，dev 形态）；--out-dir 仅供调试强行指定")
-  println("  build-cmd / run-cmd / app-id / poll-ms：覆盖 mng.toml；run 留空 = 跑一次 build 后从 Artifacts 抓可执行")
-  println("  一拍内多个改动合并成一次 build/重启；HOT 的逐个推补丁；COLD 重启后回到改动页")
-  println("  dev 产物不进源码树：应用日志 / source map / IR 补丁统一落 <项目根>/.mng/（logs / map / ir）")
-  println("  mng.toml 配 theme = \"theme.json\" 即接 reload-theme 通道：主题文件一存即推 --mng-theme 重载")
+  println(
+    tmsg(
+      "用法：moon run tools/native-gui-tools/mng -- dev [<某个 .mng 或目录>] [--build-cmd …] [--run-cmd …] [--app-id …] [--poll-ms 300] [--out-dir <目录>]",
+      "Usage: moon run tools/native-gui-tools/mng -- dev [<one .mng or dir>] [--build-cmd …] [--run-cmd …] [--app-id …] [--poll-ms 300] [--out-dir <dir>]",
+    ),
+  )
+  println(
+    tmsg(
+      "  工程级：无参时向上找 mng.toml（没有就按 moon.mod / moon.work 推默认值），递归扫 templates 里的 *.mng",
+      "  Project mode: with no args, walks up to mng.toml (falls back to moon.mod / moon.work defaults) and scans templates for *.mng recursively",
+    ),
+  )
+  println(
+    tmsg(
+      "  位置参数：只盯这一个文件/目录（可选过滤）",
+      "  Positional: watch only this file/dir (optional filter)",
+    ),
+  )
+  println(
+    tmsg(
+      "  生成码落到模板自己所在的包目录（<stem>.gen.mbt，dev 形态）；--out-dir 仅供调试强行指定",
+      "  Generated code lands in the template's own package dir (<stem>.gen.mbt, dev form); --out-dir is a debug-only override",
+    ),
+  )
+  println(
+    tmsg(
+      "  build-cmd / run-cmd / app-id / poll-ms：覆盖 mng.toml；run 留空 = 跑一次 build 后从 Artifacts 抓可执行",
+      "  build-cmd / run-cmd / app-id / poll-ms: override mng.toml; empty run = build once and pick the executable from Artifacts",
+    ),
+  )
+  println(
+    tmsg(
+      "  一拍内多个改动合并成一次 build/重启；HOT 的逐个推补丁；COLD 重启后回到改动页",
+      "  Multiple changes in one tick merge into a single build/restart; HOT patches go one by one; after a COLD restart the app returns to the changed page",
+    ),
+  )
+  println(
+    tmsg(
+      "  dev 产物不进源码树：应用日志 / source map / IR 补丁统一落 <项目根>/.mng/（logs / map / ir）",
+      "  Dev artifacts stay out of the source tree: app logs / source maps / IR patches live under <project root>/.mng/ (logs / map / ir)",
+    ),
+  )
+  println(
+    tmsg(
+      "  mng.toml 配 theme = \"theme.json\" 即接 reload-theme 通道：主题文件一存即推 --mng-theme 重载",
+      "  Set theme = \"theme.json\" in mng.toml to wire the reload-theme channel: saving the theme file pushes --mng-theme reload",
+    ),
+  )
 }
 
 ///|
@@ -269,12 +309,12 @@ fn cmd_dev(args : Array[String]) -> Int {
           k += 2
         }
         None => {
-          eprintln("--poll-ms 需要整数")
+          eprintln(tmsg("--poll-ms 需要整数", "--poll-ms needs an integer"))
           return 2
         }
       }
     } else if a.has_prefix("--") {
-      eprintln("未知参数：" + a)
+      eprintln(tmsg("未知参数：" + a, "Unknown argument: " + a))
       usage_dev()
       return 2
     } else {
@@ -727,7 +767,12 @@ fn build_project_at(root : String) -> Int {
   }
   let files = scan_templates(conf.templates)
   if files.length() == 0 {
-    eprintln("没扫到 .mng（templates = " + conf.templates.join(", ") + "）")
+    eprintln(
+      tmsg(
+        "没扫到 .mng（templates = " + conf.templates.join(", ") + "）",
+        "No .mng found (templates = " + conf.templates.join(", ") + ")",
+      ),
+    )
     return 2
   }
   match collision_msg(files) {
@@ -739,7 +784,7 @@ fn build_project_at(root : String) -> Int {
   }
   let mng_root = conf.dir + "/.mng"
   if !mkdir_p(mng_root + "/map") {
-    eprintln("建不出目录：" + mng_root + "/map")
+    eprintln(tmsg("建不出目录：" + mng_root + "/map", "Cannot create directory: " + mng_root + "/map"))
     return 1
   }
   let mut ok = true
@@ -747,27 +792,27 @@ fn build_project_at(root : String) -> Int {
     let src = match slurp(f) {
       Some(s) => s
       None => {
-        eprintln("读不到：" + f)
+        eprintln(tmsg("读不到：" + f, "Cannot read: " + f))
         ok = false
         continue
       }
     }
     match mng_compile(src, f) {
       Err(e) => {
-        eprintln(f + " 编译失败：")
+        eprintln(tmsg(f + " 编译失败：", f + " compile failed:"))
         eprintln(e)
         ok = false
       }
       Ok(r) => {
         let gp = gen_path("", f)
         if !spit(gp, r.code) {
-          eprintln("写不出生成码：" + gp)
+          eprintln(tmsg("写不出生成码：" + gp, "Cannot write generated code: " + gp))
           ok = false
           continue
         }
         let mappath = dev_map_path(mng_root, conf.dir, f)
         if !write_dev_map(mappath, r.map, basename(gp)) {
-          eprintln("写不出 source map：" + mappath)
+          eprintln(tmsg("写不出 source map：" + mappath, "Cannot write source map: " + mappath))
         }
         println("OK " + gp)
       }
@@ -776,7 +821,12 @@ fn build_project_at(root : String) -> Int {
   if !ok {
     return 1
   }
-  println("BUILD " + files.length().to_string() + " 个模板 → 生产形态生成码")
+  println(
+    tmsg(
+      "BUILD " + files.length().to_string() + " 个模板 → 生产形态生成码",
+      "BUILD " + files.length().to_string() + " templates -> production generated code",
+    ),
+  )
   0
 }
 
@@ -799,20 +849,25 @@ fn cmd_init(_args : Array[String]) -> Int {
   let (root, _kind) = match find_project_root(cwd) {
     Some(x) => x
     None => {
-      println("找不到 moon.mod / moon.work——在模块里跑")
+      println(
+      tmsg(
+        "找不到 moon.mod / moon.work——在模块里跑",
+        "moon.mod / moon.work not found — run inside a module",
+      ),
+    )
       return 1
     }
   }
   let path = root + "/mng.toml"
   match fs_read(path) {
     Some(_) => {
-      println("已存在：" + path + "（未覆盖）")
+      println(tmsg("已存在：" + path + "（未覆盖）", "Already exists: " + path + " (left untouched)"))
       return 0
     }
     None => ()
   }
   if !spit(path, mng_toml_template()) {
-    println("写不出：" + path)
+    println(tmsg("写不出：" + path, "Cannot write: " + path))
     return 1
   }
   println("OK " + path)
@@ -837,13 +892,13 @@ fn snake_of(s : String) -> String {
 /// ir 子命令：打印模板的 IR 补丁（调试 + 应用侧注册表键校准）。
 fn cmd_ir(args : Array[String]) -> Int {
   if args.length() != 1 {
-    println("ir 需要一个 .mng 路径")
+    println(tmsg("ir 需要一个 .mng 路径", "ir needs a .mng path"))
     return 2
   }
   let src = match slurp(args[0]) {
     Some(s) => s
     None => {
-      println("读不到文件：" + args[0])
+      println(tmsg("读不到文件：" + args[0], "Cannot read file: " + args[0]))
       return 1
     }
   }
@@ -853,7 +908,7 @@ fn cmd_ir(args : Array[String]) -> Int {
       0
     }
     Err(e) => {
-      println(args[0] + " IR 产出失败：")
+      println(tmsg(args[0] + " IR 产出失败：", args[0] + " IR generation failed:"))
       println(e)
       1
     }
@@ -875,11 +930,21 @@ fn cmd_new(args : Array[String]) -> Int {
       return new_page(args[1])
     }
     if args[0] == "--app" {
-      println("new 的 --app 已改版：`mng new <工程名>` 即建工程（或显式 `mng new app <工程名>`）")
+      println(
+        tmsg(
+          "new 的 --app 已改版：`mng new <工程名>` 即建工程（或显式 `mng new app <工程名>`）",
+          "new --app has been renamed: `mng new <name>` creates a project (or explicit `mng new app <name>`)",
+        ),
+      )
       return 2
     }
   }
-  println("new 用法：`mng new <工程名>` 建工程；`mng new page <页路径>` 出单页样板")
+  println(
+    tmsg(
+      "new 用法：`mng new <工程名>` 建工程；`mng new page <页路径>` 出单页样板",
+      "new usage: `mng new <name>` creates a project; `mng new page <path>` creates a single-page sample",
+    ),
+  )
   2
 }
 
@@ -913,7 +978,7 @@ fn new_page(raw : String) -> Int {
   if last > 0 {
     let dir = slice_path(chars, 0, last)
     if !@fs.path_exists(dir) && !mkdir_p(dir) {
-      println("建不出目录：" + dir)
+      println(tmsg("建不出目录：" + dir, "Cannot create directory: " + dir))
       return 1
     }
   }
@@ -948,10 +1013,15 @@ fn new_page(raw : String) -> Int {
     "",
   ].join("\n")
   if !spit(name, tpl) {
-    println("写不出文件：" + name)
+    println(tmsg("写不出文件：" + name, "Cannot write file: " + name))
     return 1
   }
-  println("OK " + name + "（生成函数名 " + snake + "；把生成码接进包内即可编译）")
+  println(
+    tmsg(
+      "OK " + name + "（生成函数名 " + snake + "；把生成码接进包内即可编译）",
+      "OK " + name + " (generated function name " + snake + "; wire it into the package to compile)",
+    ),
+  )
   0
 }
 

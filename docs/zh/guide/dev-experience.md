@@ -45,8 +45,10 @@ supported_targets = "native"
 
 ```sh
 moon install ./tools/native-gui-tools/mng
-mng --version   # 应打印 mng 0.2.0 与 mng-schema 1
+mng --version   # 应打印 mng 0.2.4 与 mng-schema 1
 ```
+
+命令面提示与错误随 `LC_ALL` / `LC_MESSAGES` / `LANG` 中英切换（`zh` 前缀走中文，缺省中文）；`dev` 运行期 watch 日志与编译器诊断恒为中文。
 
 编辑器体验装 VS Code 扩展 `tools/vscode-mng`（着色/补全/hover/跳转/诊断，见其 README）。
 

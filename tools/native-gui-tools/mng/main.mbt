@@ -6,20 +6,113 @@
 //   moon run tools/native-gui-tools/mng -- build page.mng -o page.mbt
 //   moon check > check.log 2>&1; moon run tools/native-gui-tools/mng -- map-errors --map page.mbt.map check.log
 
+///|
+/// CLI 文案语言：LC_ALL / LC_MESSAGES / LANG 依次取，zh 前缀或全缺省走中文。
+/// 只覆盖命令面提示与错误；dev 运行期 watch 日志与编译器诊断不在其列。
+let cli_zh : Array[Bool] = [true]
+
+///|
+fn cli_lang_init() -> Unit {
+  for k in ["LC_ALL", "LC_MESSAGES", "LANG"] {
+    match @env.get_env_var(k) {
+      Some(v) if v.length() > 0 => {
+        cli_zh[0] = v.has_prefix("zh")
+        return
+      }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn tmsg(zh : String, en : String) -> String {
+  if cli_zh[0] {
+    zh
+  } else {
+    en
+  }
+}
+
+///|
 fn usage() -> Unit {
-  println("用法：moon run tools/native-gui-tools/mng -- <子命令> ...")
-  println("  build <input.mng> -o <out.mbt>    编译模板：产出 out.mbt 与 out.mbt.map")
-  println("  build（无参）                           按 mng.toml 生成全工程生产形态（会覆盖 dev 形态生成码）")
-  println("  gen <input.mng> -o <out.mbt>      dev 形态编译（CI 生成物对账用，无 map）")
-  println("  map-errors --map <out.mbt.map> <log>   把日志中 <gen>.mbt:行:列 映射回模板行列")
-  println("  ir <input.mng>                    打印模板的 IR 补丁（调试与注册表校准）")
-  println("  new <name>                             生成可跑最小模板工程（moon.mod/moon.pkg/mng.toml/main/首页+dev 生成码）")
-  println("  new app <name>                         同 new <name>，显式写法")
-  println("  new page <路径>                        生成单页 .mng 样板（可带路径，如 pages/about）")
-  println("  lsp                                    语言服务（stdio JSON-RPC：诊断/补全/hover/跳转）")
-  println("  init                                   在模块根写 mng.toml 样板（dev 的项目级配置）")
-  println("  -v / -V / --version                    版本与 mng-schema 位（插件握手用）")
-  println("  dev ...                                watch + 契约分类 + 回退编排（dev 无参看细目）")
+  println(
+    tmsg(
+      "用法：moon run tools/native-gui-tools/mng -- <子命令> ...",
+      "Usage: moon run tools/native-gui-tools/mng -- <subcommand> ...",
+    ),
+  )
+  println(
+    tmsg(
+      "  build <input.mng> -o <out.mbt>    编译模板：产出 out.mbt 与 out.mbt.map",
+      "  build <input.mng> -o <out.mbt>    Compile template: writes out.mbt and out.mbt.map",
+    ),
+  )
+  println(
+    tmsg(
+      "  build（无参）                           按 mng.toml 生成全工程生产形态（会覆盖 dev 形态生成码）",
+      "  build (no args)                        Whole-project production generation per mng.toml (overwrites dev-form generated code)",
+    ),
+  )
+  println(
+    tmsg(
+      "  gen <input.mng> -o <out.mbt>      dev 形态编译（CI 生成物对账用，无 map）",
+      "  gen <input.mng> -o <out.mbt>      Dev-form compile (for CI artifact reconciliation, no map)",
+    ),
+  )
+  println(
+    tmsg(
+      "  map-errors --map <out.mbt.map> <log>   把日志中 <gen>.mbt:行:列 映射回模板行列",
+      "  map-errors --map <out.mbt.map> <log>   Map <gen>.mbt:line:col in the log back to template line:col",
+    ),
+  )
+  println(
+    tmsg(
+      "  ir <input.mng>                    打印模板的 IR 补丁（调试与注册表校准）",
+      "  ir <input.mng>                    Print the template IR patch (debug / registry calibration)",
+    ),
+  )
+  println(
+    tmsg(
+      "  new <name>                             生成可跑最小模板工程（moon.mod/moon.pkg/mng.toml/main/首页+dev 生成码）",
+      "  new <name>                             Generate a runnable minimal template project (moon.mod/moon.pkg/mng.toml/main/home + dev generated code)",
+    ),
+  )
+  println(
+    tmsg(
+      "  new app <name>                         同 new <name>，显式写法",
+      "  new app <name>                         Same as new <name>, explicit form",
+    ),
+  )
+  println(
+    tmsg(
+      "  new page <路径>                        生成单页 .mng 样板（可带路径，如 pages/about）",
+      "  new page <path>                        Generate a single-page .mng sample (path allowed, e.g. pages/about)",
+    ),
+  )
+  println(
+    tmsg(
+      "  lsp                                    语言服务（stdio JSON-RPC：诊断/补全/hover/跳转）",
+      "  lsp                                    Language server (stdio JSON-RPC: diagnostics/completion/hover/goto)",
+    ),
+  )
+  println(
+    tmsg(
+      "  init                                   在模块根写 mng.toml 样板（dev 的项目级配置）",
+      "  init                                   Write an mng.toml sample at module root (project-level dev config)",
+    ),
+  )
+  println(
+    tmsg(
+      "  -v / -V / --version                    版本与 mng-schema 位（插件握手用）",
+      "  -v / -V / --version                    Version and mng-schema bit (plugin handshake)",
+    ),
+  )
+  println(
+    tmsg(
+      "  dev ...                                watch + 契约分类 + 回退编排（dev 无参看细目）",
+      "  dev ...                                Watch + contract classification + rebuild orchestration (run `dev` with no args for details)",
+    ),
+  )
 }
 
 ///|
@@ -53,7 +146,7 @@ fn basename(p : String) -> String {
 ///|
 /// 工具版本：每落地一批改动 +1（用户重装后凭 --version 区分新旧二进制）。
 /// lsp serverInfo 同源取此常量。
-const MNG_VERSION : String = "0.2.3"
+const MNG_VERSION : String = "0.2.4"
 
 ///|
 /// --version：版本与 mng-schema 位（编辑器插件启动时握手，对不上则补全降级）。
@@ -83,7 +176,12 @@ fn cmd_build(args : Array[String]) -> Int {
     return cmd_build_project()
   }
   if input.length() == 0 || out.length() == 0 {
-    println("build 需要输入文件与 -o 输出路径（或无参跑项目级生成）")
+    println(
+      tmsg(
+        "build 需要输入文件与 -o 输出路径（或无参跑项目级生成）",
+        "build needs an input file and an -o output path (or run with no args for project-level generation)",
+      ),
+    )
     return 2
   }
   match stem_conflict_msg(input) {
@@ -96,26 +194,26 @@ fn cmd_build(args : Array[String]) -> Int {
   let src = match slurp(input) {
     Some(s) => s
     None => {
-      println("读不到文件：" + input)
+      println(tmsg("读不到文件：" + input, "Cannot read file: " + input))
       return 1
     }
   }
   match mng_compile(src, input) {
     Err(e) => {
-      println(input + " 编译失败：")
+      println(tmsg(input + " 编译失败：", input + " compile failed:"))
       println(e)
       return 1
     }
     Ok(r) => {
       if !spit(out, r.code) {
-        println("写不出文件：" + out)
+        println(tmsg("写不出文件：" + out, "Cannot write file: " + out))
         return 1
       }
       if !spit(out + ".map", r.map + "gen " + basename(out) + "\n") {
-        println("写不出文件：" + out + ".map")
+        println(tmsg("写不出文件：" + out + ".map", "Cannot write file: " + out + ".map"))
         return 1
       }
-      println("OK " + out + "（+ .map）")
+      println("OK " + out + tmsg("（+ .map）", " (+ .map)"))
       return 0
     }
   }
@@ -139,7 +237,12 @@ fn cmd_gen(args : Array[String]) -> Int {
     }
   }
   if input.length() == 0 || out.length() == 0 {
-    println("gen 需要输入文件与 -o 输出路径")
+    println(
+      tmsg(
+        "gen 需要输入文件与 -o 输出路径",
+        "gen needs an input file and an -o output path",
+      ),
+    )
     return 2
   }
   match stem_conflict_msg(input) {
@@ -152,19 +255,19 @@ fn cmd_gen(args : Array[String]) -> Int {
   let src = match slurp(input) {
     Some(s) => s
     None => {
-      println("读不到文件：" + input)
+      println(tmsg("读不到文件：" + input, "Cannot read file: " + input))
       return 1
     }
   }
   match mng_compile_dev(src, input) {
     Err(e) => {
-      println(input + " 编译失败：")
+      println(tmsg(input + " 编译失败：", input + " compile failed:"))
       println(e)
       return 1
     }
     Ok(r) => {
       if !spit(out, r.code) {
-        println("写不出文件：" + out)
+        println(tmsg("写不出文件：" + out, "Cannot write file: " + out))
         return 1
       }
       println("OK " + out)
@@ -293,26 +396,36 @@ fn cmd_map_errors(args : Array[String]) -> Int {
     }
   }
   if map_path.length() == 0 || log_path.length() == 0 {
-    println("map-errors 需要 --map <out.mbt.map> 与日志文件")
+    println(
+      tmsg(
+        "map-errors 需要 --map <out.mbt.map> 与日志文件",
+        "map-errors needs --map <out.mbt.map> and a log file",
+      ),
+    )
     return 2
   }
   let m = match load_map(map_path) {
     Some(mm) => mm
     None => {
-      println("读不到 map：" + map_path)
+      println(tmsg("读不到 map：" + map_path, "Cannot read map: " + map_path))
       return 1
     }
   }
   let log = match slurp(log_path) {
     Some(l) => l
     None => {
-      println("读不到日志：" + log_path)
+      println(tmsg("读不到日志：" + log_path, "Cannot read log: " + log_path))
       return 1
     }
   }
   // 生成码文件名（basename），匹配 `name:L:C` 且 name 前不是标识符字符
   if m.gen.length() == 0 {
-    println("map 缺 gen 行（build 时生成）")
+    println(
+      tmsg(
+        "map 缺 gen 行（build 时生成）",
+        "map lacks the gen line (written by build)",
+      ),
+    )
     return 1
   }
   let gen_a = chars_of(m.gen)
@@ -378,6 +491,7 @@ fn cmd_map_errors(args : Array[String]) -> Int {
 
 ///|
 fn main {
+  cli_lang_init()
   let raw = @env.args()
   let args : Array[String] = []
   let mut k = 1

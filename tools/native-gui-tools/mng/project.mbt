@@ -295,7 +295,13 @@ fn load_dev_conf(
 ) -> Result[DevConf, String] {
   let (root, kind) = match find_project_root(cwd) {
     Some(x) => x
-    None => return Err("找不到 mng.toml / moon.mod / moon.work——在项目里跑，或先 `mng init`")
+    None =>
+      return Err(
+        tmsg(
+          "找不到 mng.toml / moon.mod / moon.work——在项目里跑，或先 `mng init`",
+          "mng.toml / moon.mod / moon.work not found — run inside a project, or `mng init` first",
+        ),
+      )
   }
   let templates : Array[String] = []
   let mut build = "moon build ."
@@ -306,7 +312,7 @@ fn load_dev_conf(
   if kind == "mng.toml" {
     let text = match fs_read(root + "/mng.toml") {
       Some(t) => t
-      None => return Err("读不到 " + root + "/mng.toml")
+      None => return Err(tmsg("读不到 " + root + "/mng.toml", "Cannot read " + root + "/mng.toml"))
     }
     let t = parse_dev_toml(text)
     for p in t.templates {
@@ -348,7 +354,12 @@ fn load_dev_conf(
   if app_id.length() == 0 {
     let mn = module_name_at(root)
     if mn.length() == 0 {
-      return Err("配置里没有 app-id，且 " + root + "/moon.mod 没有 name——补 app-id")
+      return Err(
+        tmsg(
+          "配置里没有 app-id，且 " + root + "/moon.mod 没有 name——补 app-id",
+          "no app-id in the config and " + root + "/moon.mod has no name — add app-id",
+        ),
+      )
     }
     app_id = app_id_of_module(mn)
   }

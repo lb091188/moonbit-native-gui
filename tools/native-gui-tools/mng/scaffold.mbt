@@ -16,16 +16,26 @@ const SCAFFOLD_YOGA_FALLBACK : String = "0.1.1"
 fn scaffold_app_at(parent : String, raw_name : String) -> Int {
   let name = scaffold_mod_name(raw_name)
   if name.length() == 0 {
-    println("工程名非法（字母/数字/下划线/连字符）：\{raw_name}")
+    println(
+      tmsg(
+        "工程名非法（字母/数字/下划线/连字符）：\{raw_name}",
+        "Invalid project name (letters/digits/underscore/hyphen): \{raw_name}",
+      ),
+    )
     return 2
   }
   let dir = parent + "/" + name
   if @fs.path_exists(dir) {
-    println("目录已存在，不覆盖：" + dir)
+    println(
+      tmsg(
+        "目录已存在，不覆盖：" + dir,
+        "Directory already exists, not overwriting: " + dir,
+      ),
+    )
     return 1
   }
   if !mkdir_p(dir + "/pages") {
-    println("建不出目录：" + dir + "/pages")
+    println(tmsg("建不出目录：" + dir + "/pages", "Cannot create directory: " + dir + "/pages"))
     return 1
   }
   let (gui_ver, yoga_ver) = scaffold_versions(parent)
@@ -47,7 +57,12 @@ fn scaffold_app_at(parent : String, raw_name : String) -> Int {
       scaffold_home_mng(),
     )
   if !ok {
-    println("工程文件写失败（目录已删除）：" + dir)
+    println(
+      tmsg(
+        "工程文件写失败（目录已删除）：" + dir,
+        "Failed writing project files (directory removed): " + dir,
+      ),
+    )
     let _ = @fs.remove_dir(dir) catch {
       _ => ()
     }
@@ -56,17 +71,32 @@ fn scaffold_app_at(parent : String, raw_name : String) -> Int {
   // 首页生成码：dev 形态（热更面在 @mngdev，CI 对账与 mng dev 同形）
   match mng_compile_dev(scaffold_home_mng(), dir + "/pages/home.mng") {
     Err(e) => {
-      println("首页模板编译失败（脚手架缺陷，请回报）：\{e}")
+      println(
+        tmsg(
+          "首页模板编译失败（脚手架缺陷，请回报）：\{e}",
+          "Home template compile failed (scaffold bug, please report): \{e}",
+        ),
+      )
       return 1
     }
     Ok(r) =>
       if !spit_ok("pages/home.gen.mbt", r.code) {
-        println("生成码写失败：" + dir + "/pages/home.gen.mbt")
+        println(
+          tmsg(
+            "生成码写失败：" + dir + "/pages/home.gen.mbt",
+            "Failed writing generated code: " + dir + "/pages/home.gen.mbt",
+          ),
+        )
         return 1
       }
   }
   println("OK " + dir)
-  println("下一步：cd \{name} && moon run .   （热更：mng dev）")
+  println(
+    tmsg(
+      "下一步：cd \{name} && moon run .   （热更：mng dev）",
+      "Next: cd \{name} && moon run .   (hot reload: mng dev)",
+    ),
+  )
   0
 }
 

@@ -174,8 +174,14 @@ fn stem_conflict_msg(path : String) -> String? {
   if c.length() == 0 {
     None
   } else {
-    let head = path + " 与同包的 " + c.join("、")
-    let tail = "生成同名函数 `" + stem_of_file(path) + "`（生成函数名取文件 stem）——改一个文件名"
+    let head = tmsg(
+      path + " 与同包的 " + c.join("、"),
+      path + " collides with " + c.join(", "),
+    )
+    let tail = tmsg(
+      "生成同名函数 `" + stem_of_file(path) + "`（生成函数名取文件 stem）——改一个文件名",
+      "they would generate the same function `" + stem_of_file(path) + "` (the name comes from the file stem) — rename one of them",
+    )
     Some(head + " " + tail)
   }
 }
