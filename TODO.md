@@ -11,7 +11,7 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 
 ### 一、代码/终端（mng 工具链）
 
-（三项已完成：LSP hover 临时输出归位项目根 `.mng/`、跳转/hover URI 归一收口 Windows 支、版本对齐与 roadmap 追平——见 git log 2026-11-04；剩 Windows 真机复验归用户）
+（已全部收口：三项完成见 git log 2026-11-04；Windows 真机复验 2026-11-08 过——复验中揪出非 ASCII 路径定义跳转空白一处，修复见 50f1f748，坑回写 experience/adaptation.md）
 
 ### 二、GPU（按 [proposals/gpu-architecture.md](proposals/gpu-architecture.md) 分批）
 

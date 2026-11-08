@@ -3902,3 +3902,12 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 **验证**：`moon build … --release` 与 `moon install ./tools/native-gui-tools/mng` 均成功（`Success: Installed mng to C:/Users/…/.moon/bin/mng.exe`）；`dumpbin -dependents mng.exe` 的导入表出现 `USER32.dll`；`mng --help` 正常；`moon test ./tools/native-gui-tools/inst ./tools/native-gui-tools/proc` 7/7。
 
 **判据**：① `LNK2019 __imp_*` 先看「谁的链接行」——挂了 prebuild 的库模块补 `gui/scripts/prebuild.py` 对应包的 Windows 链接串；没挂 prebuild 的独立模块（tools）用 `#pragma comment(lib, …)`，别为了一个 flag 引入构建期 Python 依赖；② **「debug 能过」不能当通**：两画像的链接行不同，而 `moon install` 走的是 release，CI 的 tools 门禁原来只有 `moon test`（debug），已在 Windows job 补 `moon build mng --target native --release`——这道缺口原本在 CI 上全绿。
+## mng lsp 定义跳转在非 ASCII 路径下空白：URI 百分号解码逐字节落 Latin-1（2026-11-08，Windows 远程会话真机反馈）
+
+**现象**：win 远程会话里模板内 `{{ 引用 }}` 转到定义，peek 打开本文件但内容空白、头部路径中盘名段变乱码，行号是对的；mac/Linux 真机均正常。
+
+**根因**：客户端把非 ASCII 路径按 UTF-8 百分号编码送来，`uri_to_path` 把 `%XX` 逐字节解成 Latin-1 字符（`%E7%AC%AC`「第」→`ç¬¬`），同文件定义的目标路径经 `path_to_uri` 再编码成双重编码 URI，VS Code 解一次码得到的乱码路径不存在 → peek 空白；行号来自文本解析所以正常。mac/Linux 仓库路径纯 ASCII，同一段代码不触发。
+
+**修法**：`uri_to_path` 按 UTF-8 组装多字节序列解码（`utf8_seq_at`：首字节 + 1~3 个续字节，均须 %XX 形态且取值合法），不完整/非法序列原样保留；wbtest 补非 ASCII 解码、双向往返稳定、非法序列保留三条。`path_to_uri` 本就按 UTF-8 编码，无需动。
+
+**判据**：LSP 报文里的 URI 解码/编码必须成对按 UTF-8 处理，往返稳定要有非 ASCII 用例钉住；Windows 会话常带中文盘名/用户名路径，纯 ASCII 仓库路径测不出这类坑。
