@@ -8,7 +8,6 @@ members = [
   "modules/gui-media",
   "modules/gui-webview",
   "examples/hello",
-  "examples/demo1",
   "examples/showcase",
   "examples/browser",
   "examples/sysmonitor",

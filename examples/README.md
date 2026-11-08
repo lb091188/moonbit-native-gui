@@ -2,17 +2,6 @@
 
 `examples/` 下**每个示例目录就是一个独立模块**（各自一份 `moon.mod`，模块名 `NoahLiu/native-gui-examples-<目录名>`），全部注册在仓库根 `moon.work`。依赖只在自己的 `moon.mod` 里声明，示例之间互不相干：`hello` 一类基础示例不会牵出 ffmpeg 链路，媒体示例自己带 `gui-media`。
 
-## demo1（`mng new` 脚手架样板）
-
-`mng new demo1` 原样生成的工程：`pages/home.mng` 一页（标题、说明、步进计数、`{{ count }}` 插值、`<style>` 命名类），`main.mbt` 只有单实例声称与挂窗，`mng.toml` 供 `mng dev` / `mng build` 使用。自己开工程：空目录下 `mng new <名字>`。
-
-```sh
-cd examples/demo1 && moon run .
-cd examples/demo1 && mng dev      # 改 pages/home.mng 保存即热更
-```
-
-依赖：[native-gui](https://mooncakes.io/docs/NoahLiu/native-gui)。
-
 ## audio / video（音视频播放示例）
 
 依赖 `gui-media` 的两个播放器组件 `audio` / `video`（ffmpeg 解码 + miniaudio 设备直出，名字对齐 HTML 的 `<audio>` / `<video>`）。
