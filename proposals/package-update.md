@@ -138,7 +138,7 @@ target 三元组:`darwin-aarch64` / `windows-x86_64` / `linux-x86_64`(mac 只 Ap
 ## 八、真机验收清单(归用户,不远程驱动)
 
 - mac:DMG 打开拖装 → 运行(首次 Gatekeeper 右键放行,ad-hoc 已知)→ 卸载;更新流程:装 1.0 → 发 1.1 draft → 应用内检查 → 下载/替换/relaunch → 版本读数变 1.1、`.old` 清理
-- win:setup 安装(per-user,应用与功能可卸载)→ SmartScreen 提示(无签已知)→ 更新:exe rename swap + relaunch + `.old` 清理
+- win:setup 安装(per-user,应用与功能可卸载)→ SmartScreen 提示(无签已知;注意本机 `mng package` 现产的 exe **没有 MOTW**(无 `Zone.Identifier` 备用数据流),本机双击不弹——要复现真实下载路径,从 Release 下载或自己给文件打 `ZoneId=3`;与 mac 的 quarantine 同理)→ 更新:exe rename swap + relaunch + `.old` 清理
 - linux:deb 装/卸(dpkg)、desktop entry 出菜单;AppImage 双击可跑(FUSE 缺环境提示 extract-and-run)、自更新替换
 - 通用:断网/清单 404/校验不符三种失败路径的 UI 诚实报错
 
