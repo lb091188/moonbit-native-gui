@@ -489,6 +489,8 @@ fn mng_toml_template() -> String {
     "icon = \"\"",
     "# 随包资源（递归拷进 Contents/Resources / 安装目录）",
     "resources = []",
+    "# deb control 的 Maintainer（\"名 <邮箱>\"）；留空 = unknown <>",
+    "maintainer = \"\"",
     "",
     "# 签名证书入口（全留空 = mac adhoc、win 不签）",
     "[package.sign]",

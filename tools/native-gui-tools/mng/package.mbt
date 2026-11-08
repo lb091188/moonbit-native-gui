@@ -22,6 +22,7 @@ priv struct PkgConf {
   mut win_cert_pw_env : String
   mut linux_categories : Array[String] // desktop entry Categories;缺省 Utility
   mut linux_comment : String // desktop entry Comment;可空
+  mut maintainer : String // 「名 <邮箱>」形态;deb control Maintainer 用,缺省 unknown <>
 }
 
 ///|
@@ -40,6 +41,7 @@ fn pkg_conf_default() -> PkgConf {
     win_cert_pw_env: "",
     linux_categories: [],
     linux_comment: "",
+    maintainer: "",
   }
 }
 
@@ -72,6 +74,7 @@ fn parse_package_toml(text : String) -> PkgConf {
         "icon" => t.icon = unquote(val)
         "resources" => t.resources = parse_str_array(val)
         "targets" => t.targets = parse_str_array(val)
+        "maintainer" => t.maintainer = unquote(val)
         _ => ()
       }
     } else if section == "package.sign" {
@@ -185,7 +188,7 @@ fn info_plist_xml(id : String, name : String, bin : String, version : String, ic
     } else {
       ""
     }
-  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n  <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>\n  <key>CFBundlePackageType</key><string>APPL</string>\n  <key>CFBundleName</key><string>\{esc_xml(name)}</string>\n  <key>CFBundleExecutable</key><string>\{esc_xml(bin)}</string>\n  <key>CFBundleIdentifier</key><string>\{esc_xml(id)}</string>\n  <key>CFBundleShortVersionString</key><string>\{esc_xml(version)}</string>\n  <key>CFBundleVersion</key><string>\{esc_xml(version)}</string>\n\{icon_key}  <key>NSHighResolutionCapable</key><true/>\n  <key>LSMinimumSystemVersion</key><string>11.0</string>\n</dict>\n</plist>\n"
+  "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n  <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>\n  <key>CFBundlePackageType</key><string>APPL</string>\n  <key>CFBundleName</key><string>\{esc_xml(name)}</string>\n  <key>CFBundleDisplayName</key><string>\{esc_xml(name)}</string>\n  <key>CFBundleExecutable</key><string>\{esc_xml(bin)}</string>\n  <key>CFBundleIdentifier</key><string>\{esc_xml(id)}</string>\n  <key>CFBundleShortVersionString</key><string>\{esc_xml(version)}</string>\n  <key>CFBundleVersion</key><string>\{esc_xml(version)}</string>\n\{icon_key}  <key>NSHighResolutionCapable</key><true/>\n  <key>LSMinimumSystemVersion</key><string>11.0</string>\n</dict>\n</plist>\n"
 }
 
 ///|
@@ -451,13 +454,17 @@ fn desktop_entry(name : String, slug : String, bin : String, categories : Array[
     } else {
       ""
     }
-  "[Desktop Entry]\nType=Application\nName=" + name + "\nExec=" + bin + "\nIcon=" + slug + "\nTerminal=false\n" + cmt + "Categories=" + cats + "\n"
+  // StartupWMClass 让 dock/任务栏把窗口归到本菜单项(值=可执行名,与 GTK 窗口
+  // class 的缺省来源一致);不写时部分桌面按 WM_NAME 猜,图标对不上号
+  "[Desktop Entry]\nType=Application\nName=" + name + "\nExec=" + bin + "\nIcon=" + slug + "\nTerminal=false\n" + cmt + "Categories=" + cats + "\nStartupWMClass=" + bin + "\n"
 }
 
 ///|
-/// deb 的 DEBIAN/control(架构钉 amd64 = linux-x86_64 支持面)。
-fn deb_control(slug : String, name : String, version : String) -> String {
-  "Package: " + slug + "\nVersion: " + version + "\nSection: utils\nPriority: optional\nArchitecture: amd64\nMaintainer: unknown <>\nDescription: " + name + " (packaged by mng)\n"
+/// deb 的 DEBIAN/control(架构钉 amd64 = linux-x86_64 支持面);Maintainer 可由
+/// [package] maintainer 配,缺省 unknown <>。
+fn deb_control(slug : String, name : String, version : String, maintainer : String) -> String {
+  let who = if maintainer.length() > 0 { maintainer } else { "unknown <>" }
+  "Package: " + slug + "\nVersion: " + version + "\nSection: utils\nPriority: optional\nArchitecture: amd64\nMaintainer: " + who + "\nDescription: " + name + " (packaged by mng)\n"
 }
 
 ///|
@@ -912,7 +919,10 @@ fn package_linux(conf : PkgConf, exe : String, bin_name : String, slug : String,
   if !(mkdir_p(deb_bin) && mkdir_p(deb_share) && mkdir_p(deb_apps) && mkdir_p(deb_icons) && mkdir_p(debroot + "/DEBIAN")) {
     return Err("mkdir debroot failed")
   }
-  if !spit(debroot + "/DEBIAN/control", deb_control(slug, conf.name, conf.version)) {
+  if !spit(
+      debroot + "/DEBIAN/control",
+      deb_control(slug, conf.name, conf.version, conf.maintainer),
+    ) {
     return Err("write control failed")
   }
   if !copy_file(exe, deb_bin + "/" + bin_name) {

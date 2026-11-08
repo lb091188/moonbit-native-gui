@@ -348,7 +348,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 - ⏳ **应用打包管线·剩余面**：v1 三平台腿与 CI 已合入（见上「应用打包与自动更新 v1」）；剩安装卸载观感真机清单、签名公证真机复验（自定义证书入口已留 `[package.sign]`）
 - ⏳ **自动更新·剩余面**：v1 检查/下载/替换/relaunch、`update_dialog` 组件与 `mng publish` 本地发布器已合入（见上）；剩异步下载执行器（进度/取消，随平台线程批）、Ed25519 清单签名（v1.5）、增量更新（v2，`deltas` 预留位已留）
-- ⏳ **桌面登记面**：深链 scheme、文件关联、最近文档写侧——登记声明进 `mng.toml`、打包器落各平台清单、唤起事件经单实例通道回投(随打包批落地,方向见 [proposals/方向.md](proposals/方向.md) A3)
+- ⏳ **桌面登记面·剩余面**：基础键已随打包落——desktop entry 补 `StartupWMClass`(dock/任务栏归组)与既有 Categories/Comment、Info.plist 补 `CFBundleDisplayName`、deb control 的 Maintainer 可配(`[package] maintainer`);剩深链 scheme、文件关联、最近文档写侧——登记声明进 `mng.toml`、打包器落各平台清单、唤起事件经单实例通道回投(方向见 [proposals/方向.md](proposals/方向.md) A3)
 - ⏳ **稳定面清单与 1.0 时点**：逐包划分承诺面 / 实验面，公告破坏性改动截止线
 - ⏳ **示例体积门禁**：CI 每次构建记 hello + showcase 二进制体积并出 diff，超阈值红线——功能不得让不使用它的应用变胖（2026-11-08 立项，方向见 [proposals/方向.md](proposals/方向.md) A5）
 - ⏳ **确定性测试时钟**：uitest 补 `Advance(ms)`（虚拟时间整体推进，期间按刷新率补帧）+ `settle()`（跑到无帧需求）——过渡动画与定时行为进无头断言（2026-11-08 立项，方向见 [proposals/方向.md](proposals/方向.md) A7）

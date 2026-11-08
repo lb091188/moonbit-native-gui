@@ -117,6 +117,7 @@ test "info_plist_xml:键齐全;icon 空则无 IconFile" {
   assert_true(with_icon.contains("CFBundleExecutable</key><string>mybin</string>"))
   assert_true(with_icon.contains("CFBundleShortVersionString</key><string>1.2.0</string>"))
   assert_true(with_icon.contains("CFBundleIconFile</key><string>app.icns</string>"))
+  assert_true(with_icon.contains("CFBundleDisplayName</key><string>My App</string>"))
   assert_true(with_icon.contains("NSHighResolutionCapable"))
   let no_icon = info_plist_xml("com.ex.app", "N", "b", "0.1.0", "")
   assert_false(no_icon.contains("CFBundleIconFile"))
@@ -284,17 +285,22 @@ test "desktop_entry:字段齐全;categories 缺省 Utility、末尾补分号;com
   assert_true(d.contains("Terminal=false"))
   assert_true(d.contains("Categories=Utility;"))
   assert_false(d.contains("Comment="))
+  assert_true(d.contains("StartupWMClass=mybin"))
   let d2 = desktop_entry("N", "n", "b", ["Development", "Graphics"], "hello")
   assert_true(d2.contains("Categories=Development;Graphics;"))
   assert_true(d2.contains("Comment=hello"))
+  assert_true(d2.contains("StartupWMClass=b"))
 }
 
-test "deb_control:Package/Version/Architecture 齐全" {
-  let c = deb_control("myapp", "My App", "1.2.0")
+test "deb_control:Package/Version/Architecture 齐全;maintainer 缺省 unknown" {
+  let c = deb_control("myapp", "My App", "1.2.0", "")
   assert_true(c.contains("Package: myapp"))
   assert_true(c.contains("Version: 1.2.0"))
   assert_true(c.contains("Architecture: amd64"))
   assert_true(c.contains("Description: My App"))
+  assert_true(c.contains("Maintainer: unknown <>"))
+  let c2 = deb_control("myapp", "My App", "1.2.0", "Noah <noah@example.com>")
+  assert_true(c2.contains("Maintainer: Noah <noah@example.com>"))
 }
 
 test "apprun_script:exec 同树 usr/bin 的可执行" {
