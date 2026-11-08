@@ -2,11 +2,12 @@
 
 ///|
 /// 平台跳板：POSIX 用例依赖 /bin/*，Windows 上首跑即报 Err。
+/// 探针用 /bin/sh（POSIX 腿本就依赖它；新 macOS 的 /bin 里没有 true）。
 fn posix_only() -> Bool {
-  match run_wait("/bin/true", [], 5000) {
+  match run_wait("/bin/sh", ["-c", "exit 0"], 5000) {
     Ok(_) => true
     Err(_) => {
-      println("[skip] 无 /bin/true（Windows），跳过 POSIX 用例")
+      println("[skip] 无 /bin/sh（Windows），跳过 POSIX 用例")
       false
     }
   }
@@ -15,10 +16,31 @@ fn posix_only() -> Bool {
 ///|
 test "run_wait：退出码与超时" {
   if posix_only() {
-    assert_eq(run_wait("/bin/true", [], 5000), Ok(0))
-    assert_eq(run_wait("/bin/false", [], 5000), Ok(1))
+    assert_eq(run_wait("/bin/sh", ["-c", "exit 0"], 5000), Ok(0))
+    assert_eq(run_wait("/bin/sh", ["-c", "exit 1"], 5000), Ok(1))
     assert_true(
-      match run_wait("/bin/sleep", ["2"], 100) {
+      match run_wait("/bin/sh", ["-c", "sleep 2"], 100) {
+        Err(e) => contains_sub_p(e, "超时")
+        Ok(_) => false
+      },
+    )
+  }
+}
+
+///|
+test "spawn_wait：退出码与超时（stdout/stderr 落文件）" {
+  if posix_only() {
+    assert_eq(
+      spawn_wait("/bin/sh", ["-c", "exit 0"], "/tmp/mng_proc_sw0.log", 5000),
+      Ok(0),
+    )
+    assert_eq(
+      spawn_wait("/bin/sh", ["-c", "exit 3"], "/tmp/mng_proc_sw3.log", 5000),
+      Ok(3),
+    )
+    assert_true(
+      match
+        spawn_wait("/bin/sh", ["-c", "sleep 2"], "/tmp/mng_proc_swt.log", 100) {
         Err(e) => contains_sub_p(e, "超时")
         Ok(_) => false
       },

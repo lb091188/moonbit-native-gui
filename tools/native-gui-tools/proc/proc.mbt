@@ -8,30 +8,40 @@
 extern "c" fn ffi_run_wait(
   file : Bytes,
   blob : Bytes,
-  blob_len : Int,
-  timeout_ms : Int,
-) -> Int = "mngpr_run_wait"
+  blob_len : Int32,
+  timeout_ms : Int32,
+) -> Int32 = "mngpr_run_wait"
 
 ///|
 #borrow(file, blob, out_path)
 extern "c" fn ffi_spawn(
   file : Bytes,
   blob : Bytes,
-  blob_len : Int,
+  blob_len : Int32,
   out_path : Bytes,
-) -> Int = "mngpr_spawn"
+) -> Int32 = "mngpr_spawn"
 
 ///|
-extern "c" fn ffi_alive(pid : Int) -> Int = "mngpr_alive"
+#borrow(file, blob, out_path)
+extern "c" fn ffi_spawn_wait(
+  file : Bytes,
+  blob : Bytes,
+  blob_len : Int32,
+  out_path : Bytes,
+  timeout_ms : Int32,
+) -> Int32 = "mngpr_spawn_wait"
 
 ///|
-extern "c" fn ffi_kill(pid : Int) -> Int = "mngpr_kill"
+extern "c" fn ffi_alive(pid : Int32) -> Int32 = "mngpr_alive"
 
 ///|
-extern "c" fn ffi_sleep_ms(ms : Int) -> Unit = "mngpr_sleep_ms"
+extern "c" fn ffi_kill(pid : Int32) -> Int32 = "mngpr_kill"
 
 ///|
-extern "c" fn ffi_last_errno() -> Int = "mngpr_last_errno"
+extern "c" fn ffi_sleep_ms(ms : Int32) -> Unit = "mngpr_sleep_ms"
+
+///|
+extern "c" fn ffi_last_errno() -> Int32 = "mngpr_last_errno"
 
 ///|
 fn args_blob(args : Array[String]) -> Bytes {
@@ -51,7 +61,11 @@ fn errno_msg() -> String {
 ///|
 /// 运行命令并等它结束（stdio 继承调用方）；返回退出码。
 /// 超时先 SIGTERM 再 SIGKILL（子进程成组），返回 Err。
-pub fn run_wait(file : String, args : Array[String], timeout_ms : Int) -> Result[Int, String] {
+pub fn run_wait(
+  file : String,
+  args : Array[String],
+  timeout_ms : Int32,
+) -> Result[Int32, String] {
   let blob = args_blob(args)
   let rc = ffi_run_wait(@utf8.encode(file), blob, blob.length(), timeout_ms)
   if rc == -2 {
@@ -65,9 +79,18 @@ pub fn run_wait(file : String, args : Array[String], timeout_ms : Int) -> Result
 
 ///|
 /// 起一个后台进程，stdout/stderr 追加到 `out_path`；返回 pid。
-pub fn spawn(file : String, args : Array[String], out_path : String) -> Result[Int, String] {
+pub fn spawn(
+  file : String,
+  args : Array[String],
+  out_path : String,
+) -> Result[Int32, String] {
   let blob = args_blob(args)
-  let pid = ffi_spawn(@utf8.encode(file), blob, blob.length(), @utf8.encode(out_path))
+  let pid = ffi_spawn(
+    @utf8.encode(file),
+    blob,
+    blob.length(),
+    @utf8.encode(out_path),
+  )
   if pid <= 0 {
     Err(file + " 起不来（" + errno_msg() + "）")
   } else {
@@ -76,59 +99,85 @@ pub fn spawn(file : String, args : Array[String], out_path : String) -> Result[I
 }
 
 ///|
+/// 起一个子进程（stdout/stderr 追加到 `out_path`）并等它结束，返回退出码
+/// （信号终止为 128+信号号）。超时先 TERM 后 KILL 整组，返回 Err。
+pub fn spawn_wait(
+  file : String,
+  args : Array[String],
+  out_path : String,
+  timeout_ms : Int32,
+) -> Result[Int32, String] {
+  let blob = args_blob(args)
+  let rc = ffi_spawn_wait(
+    @utf8.encode(file),
+    blob,
+    blob.length(),
+    @utf8.encode(out_path),
+    timeout_ms,
+  )
+  if rc == -2 {
+    Err(file + " 超时（\{timeout_ms}ms）")
+  } else if rc < 0 {
+    Err(file + " 起不来（" + errno_msg() + "）")
+  } else {
+    Ok(rc)
+  }
+}
+
+///|
 /// 进程是否还活着（僵尸按已死算，顺带收尸）。
-pub fn alive(pid : Int) -> Bool {
+pub fn alive(pid : Int32) -> Bool {
   ffi_alive(pid) == 1
 }
 
 ///|
 /// 请求终止（先整组再单进程的 SIGTERM）。
-pub fn kill(pid : Int) -> Bool {
+pub fn kill(pid : Int32) -> Bool {
   ffi_kill(pid) == 1
 }
 
 ///|
-extern "c" fn ffi_watch(pid : Int) -> Unit = "mngpr_watch"
+extern "c" fn ffi_watch(pid : Int32) -> Unit = "mngpr_watch"
 
 ///|
 /// 看守一个子进程：本进程收到 SIGINT/SIGTERM 时把它（整组）带走再退出。
 /// 重复调用换目标（COLD 重启后对新 pid 再调）。Windows 上是空实现。
-pub fn watch(pid : Int) -> Unit {
+pub fn watch(pid : Int32) -> Unit {
   ffi_watch(pid)
 }
 
 ///|
-extern "c" fn ffi_ui_lang() -> Int = "mngpr_ui_lang"
+extern "c" fn ffi_ui_lang() -> Int32 = "mngpr_ui_lang"
 
 ///|
 /// 系统 UI 语言主 ID（Windows：GetUserDefaultUILanguage 的 PRIMARYLANGID，
 /// 0x04 = 中文）；POSIX 无此口恒返回 0（未知），调用方走缺省。
-pub fn ui_lang() -> Int {
+pub fn ui_lang() -> Int32 {
   ffi_ui_lang()
 }
 
 ///|
 /// 毫秒节拍。
-pub fn sleep_ms(ms : Int) -> Unit {
+pub fn sleep_ms(ms : Int32) -> Unit {
   ffi_sleep_ms(ms)
 }
 
 ///|
 #borrow(out)
-extern "c" fn ffi_read_stdin(out : Bytes, cap : Int) -> Int = "mngpr_read_stdin"
+extern "c" fn ffi_read_stdin(out : Bytes, cap : Int32) -> Int32 = "mngpr_read_stdin"
 
 ///|
 #borrow(data)
-extern "c" fn ffi_write_stdout(data : Bytes, len : Int) -> Int = "mngpr_write_stdout"
+extern "c" fn ffi_write_stdout(data : Bytes, len : Int32) -> Int32 = "mngpr_write_stdout"
 
 ///|
 /// 从 stdin 读一段（阻塞）；0 = EOF，<0 = 出错。LSP 报文循环用。
-pub fn read_stdin(out : Bytes, cap : Int) -> Int {
+pub fn read_stdin(out : Bytes, cap : Int32) -> Int32 {
   ffi_read_stdin(out, cap)
 }
 
 ///|
 /// 写一段到 stdout（全量写出返回 len，否则返回实际字节数）。
-pub fn write_stdout(data : Bytes, len : Int) -> Int {
+pub fn write_stdout(data : Bytes, len : Int32) -> Int32 {
   ffi_write_stdout(data, len)
 }

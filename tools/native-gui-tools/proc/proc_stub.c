@@ -112,25 +112,26 @@ int32_t mngpr_run_wait(const char *file, const char *blob, int32_t len,
   return (int32_t)code;
 }
 
-int32_t mngpr_spawn(const char *file, const char *blob, int32_t len,
-                    const char *out_path) {
+// spawn 共用：建进程（out_path 非空时 stdout/stderr 追加到该文件）。成功回 0
+// 并填 *pi；失败回 -1 并置 mngpr_err。
+// 句柄必须可继承：STARTF_USESTDHANDLES 交给子进程的句柄若不可继承，
+// CreateProcess 照旧成功，子进程却拿着无效 stdout/stderr 静默丢输出
+// （spawn 只回 pid，调用方无从发现）。NULL 的 lpSecurityAttributes 默认
+// bInheritHandle=FALSE —— 这里必须显式给一份。
+static int32_t mngpr_start(const char *file, const char *blob, int32_t len,
+                           const char *out_path, PROCESS_INFORMATION *pi) {
   wchar_t *cmd = mngpr_cmdline(file, blob, len);
   if (cmd == NULL) {
     mngpr_err = (int32_t)GetLastError();
     return -1;
   }
   STARTUPINFOW si;
-  PROCESS_INFORMATION pi;
   memset(&si, 0, sizeof(si));
   si.cb = sizeof(si);
   HANDLE hout = INVALID_HANDLE_VALUE;
   if (out_path != NULL && out_path[0] != '\0') {
     wchar_t *w = mngpr_wide(out_path);
     if (w != NULL) {
-      // 句柄必须可继承：STARTF_USESTDHANDLES 交给子进程的句柄若不可继承，
-      // CreateProcess 照旧成功，子进程却拿着无效 stdout/stderr 静默丢输出
-      // （spawn 只回 pid，调用方无从发现）。NULL 的 lpSecurityAttributes 默认
-      // bInheritHandle=FALSE —— 这里必须显式给一份。
       SECURITY_ATTRIBUTES sa;
       sa.nLength = sizeof(sa);
       sa.lpSecurityDescriptor = NULL;
@@ -146,20 +147,47 @@ int32_t mngpr_spawn(const char *file, const char *blob, int32_t len,
       }
     }
   }
-  memset(&pi, 0, sizeof(pi));
-  BOOL ok = CreateProcessW(NULL, cmd, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi);
+  memset(pi, 0, sizeof(*pi));
+  BOOL ok = CreateProcessW(NULL, cmd, NULL, NULL, TRUE, 0, NULL, NULL, &si, pi);
   mngpr_err = ok ? 0 : (int32_t)GetLastError();
   free(cmd);
   if (hout != INVALID_HANDLE_VALUE) {
     CloseHandle(hout);
   }
-  if (!ok) {
+  return ok ? 0 : -1;
+}
+
+int32_t mngpr_spawn(const char *file, const char *blob, int32_t len,
+                    const char *out_path) {
+  PROCESS_INFORMATION pi;
+  if (mngpr_start(file, blob, len, out_path, &pi) != 0) {
     return -1;
   }
   int32_t pid = (int32_t)pi.dwProcessId;
   CloseHandle(pi.hThread);
   CloseHandle(pi.hProcess);
   return pid;
+}
+
+int32_t mngpr_spawn_wait(const char *file, const char *blob, int32_t len,
+                         const char *out_path, int32_t timeout_ms) {
+  PROCESS_INFORMATION pi;
+  if (mngpr_start(file, blob, len, out_path, &pi) != 0) {
+    return -1;
+  }
+  DWORD w = WaitForSingleObject(pi.hProcess, (DWORD)timeout_ms);
+  if (w == WAIT_TIMEOUT) {
+    TerminateProcess(pi.hProcess, 1);
+    WaitForSingleObject(pi.hProcess, 5000);
+    CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+    return -2;
+  }
+  DWORD code = 0;
+  GetExitCodeProcess(pi.hProcess, &code);
+  CloseHandle(pi.hThread);
+  CloseHandle(pi.hProcess);
+  return (int32_t)code;
 }
 
 int32_t mngpr_alive(int32_t pid) {
@@ -390,6 +418,48 @@ int32_t mngpr_spawn(const char *file, const char *blob, int32_t len,
   }
   free(argv);
   return (int32_t)pid;
+}
+
+int32_t mngpr_spawn_wait(const char *file, const char *blob, int32_t len,
+                         const char *out_path, int32_t timeout_ms) {
+  int32_t pid = mngpr_spawn(file, blob, len, out_path);
+  if (pid <= 0) {
+    return -1; // mngpr_spawn 已置 mngpr_err
+  }
+  int status = 0;
+  int waited = 0;
+  while (1) {
+    pid_t r = waitpid((pid_t)pid, &status, WNOHANG);
+    if (r == (pid_t)pid) {
+      break;
+    }
+    if (timeout_ms > 0 && waited >= timeout_ms) {
+      kill(-(pid_t)pid, SIGTERM);
+      kill((pid_t)pid, SIGTERM);
+      int soft = 0;
+      while (soft < 1000) {
+        pid_t r2 = waitpid((pid_t)pid, &status, WNOHANG);
+        if (r2 == (pid_t)pid) {
+          return -2;
+        }
+        usleep(20000);
+        soft += 20;
+      }
+      kill(-(pid_t)pid, SIGKILL);
+      kill((pid_t)pid, SIGKILL);
+      waitpid((pid_t)pid, &status, 0);
+      return -2;
+    }
+    usleep(20000);
+    waited += 20;
+  }
+  if (WIFEXITED(status)) {
+    return WEXITSTATUS(status);
+  }
+  if (WIFSIGNALED(status)) {
+    return 128 + WTERMSIG(status);
+  }
+  return -1;
 }
 
 int32_t mngpr_alive(int32_t pid) {
