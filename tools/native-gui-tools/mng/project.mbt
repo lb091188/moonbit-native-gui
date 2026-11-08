@@ -129,13 +129,15 @@ fn index_of_char(s : String, c : Char) -> Int? {
 }
 
 ///|
-/// 目录部分（`a/b/c` → `a/b`；无斜杠 → `.`；绝对路径同规则）。
+/// 目录部分（`a/b/c` → `a/b`；无分隔符 → `.`；绝对路径同规则）。
+/// 分隔符认 `/` 与 `\` 两种：Windows 的 `TEMP` 天然是反斜杠，混进 `/`
+/// 拼出的路径只认一种会让向上走在中途断掉。
 fn parent_dir_of(p : String) -> String {
   let a = chars_of(p)
   let mut last = -1
   let mut i = 0
   while i < a.length() {
-    if a[i] == '/' {
+    if a[i] == '/' || a[i] == '\\' {
       last = i
     }
     i += 1
@@ -144,8 +146,12 @@ fn parent_dir_of(p : String) -> String {
     // 绝对路径的根要给 "/"（"/tmp" → "/"）：给 "." 会让向上走防线在
     // 文件系统根之后踩进 cwd 相对地带——find_project_root 记住的 mod_dir
     // 会被 cwd 里的 moon.mod 顶掉（绝对路径模板在项目外时踩过）。
-    if a.length() > 0 && a[0] == '/' {
+    if a.length() > 0 && (a[0] == '/' || a[0] == '\\') {
       "/"
+    } else if a.length() >= 2 && a[1] == ':' {
+      // Windows 盘根（`c:` / `c:\`）：原样返回，向上走到此收口。
+      // 这里给 "." 会同样踩进 cwd（`moon test` 的 cwd 里恰好有 moon.mod）。
+      slice_path(a, 0, 2)
     } else {
       "."
     }

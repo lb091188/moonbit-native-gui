@@ -235,3 +235,19 @@ test "mng.toml：theme 键解析并落项目根相对路径" {
   }
   assert_eq(conf2.theme, "")
 }
+
+///|
+test "parent_dir_of：反斜杠与盘根（Windows 形态任何平台可跑）" {
+  // 混合分隔符照常向上走。只认 '/' 时第二跳就塌成 "."，向上走随后踩进
+  // cwd 的相对地带（moon test 的 cwd 里恰好有 moon.mod）——hover 临时
+  // 文件会落成 ./.mng，项目外模板被 cwd 的模块顶掉。
+  assert_eq(parent_dir_of("C:\\Users\\n\\Temp/mng_a"), "C:\\Users\\n\\Temp")
+  assert_eq(parent_dir_of("C:\\Users\\n\\Temp"), "C:\\Users\\n")
+  assert_eq(parent_dir_of("C:\\Users"), "C:")
+  // 根：盘根原样返回（向上走到此收口），POSIX 根给 "/"
+  assert_eq(parent_dir_of("C:"), "C:")
+  assert_eq(parent_dir_of("c:/x"), "c:")
+  assert_eq(parent_dir_of("/tmp"), "/")
+  // 没有分隔符的相对路径仍是 "."
+  assert_eq(parent_dir_of("plain"), ".")
+}
