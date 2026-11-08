@@ -904,5 +904,51 @@ pub fn page_window(app : @shared.App) -> @widget.Node {
         "let hidden = child.window().is_hidden()",
       ],
     ),
+
+    @shared.section(
+      "状态记忆",
+      "窗口状态记忆",
+      "`remember_geometry(app_id)` 一行接上:开窗后先恢复上次的位置/尺寸/最大化档(文件在才恢复,首次运行不动窗口),关窗或退出时自动写回。演示对主窗做——点「开始记住本窗」后挪一挪、缩一缩甚至最大化,关掉演示板再 `moon run .`:窗口应当回到上次的样子(再点一次按钮取消记忆,回到默认居中开)。落盘位置按平台:macOS `~/Library/Application Support/libyue.showcase/`、Linux `$XDG_STATE_HOME`(或 `~/.local/state`)/libyue.showcase/、Windows `%APPDATA%\\libyue.showcase\\`,文件都是 window-state.json——怪位置(比如拔了外接显示器后落在屏外)删掉它就回默认。v1 边界:恢复不做屏幕钳位;多窗应用对同一 id 只记一份,各窗分开记就换不同的 id 后缀。",
+      [
+        @ui.row(
+          [
+            @ui.button(@shared.tx("开始记住本窗"), on_click=fn() {
+              match app.host.val {
+                Some(a) => {
+                  a.remember_geometry("libyue.showcase")
+                  last_op.set(@shared.tx("已开始记忆:挪窗/缩放/最大化后退出,下次启动回到该样子(文件 window-state.json)"))
+                }
+                None => ()
+              }
+            }),
+            @ui.button(@shared.tx("取消记忆"), variant=@ui.Text, on_click=fn() {
+              match app.host.val {
+                Some(a) => {
+                  a.remember_id = ""
+                  last_op.set(@shared.tx("已取消:下次启动按默认开(旧状态文件留在原地,不主动删)"))
+                }
+                None => ()
+              }
+            }),
+            @ui.text(
+              @shared.tx("对主窗生效;关窗与退出都会自动写回"),
+              class=[@style.text_secondary],
+            ),
+          ],
+          column_gap=8.0,
+          align_items=@yoga.AlignItems::Center,
+        ),
+        @ui.bind_label(last_op, fn(s) { s }),
+      ],
+      code=[
+        "// 开窗后一行接上(与打包 id 同源;关窗/退出自动写回)",
+        "let win = @ui.WindowHost::new(1280, 800, \"MyApp\")",
+        "win.remember_geometry(\"com.example.myapp\")",
+        "win.mount(page())",
+        "win.run()",
+        "// 手动落盘时机也有:",
+        "win.save_geometry()",
+      ],
+    ),
   ])
 }

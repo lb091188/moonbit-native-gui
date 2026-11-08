@@ -298,7 +298,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 ### 窗口
 
 - ⏳ **窗口内按键路由补齐**：跨页切换后的按键兜底路由，避免失焦后按键进不了页
-- ⏳ **窗口状态记忆**：重启恢复上次位置/尺寸/最大化档（每窗状态文件，`WindowHost` 收口）；会话恢复归 `mng new` 脚手架模板可选能力（2026-11-08 立项，方向见 [proposals/方向.md](proposals/方向.md) A9）
+- ⏳ **窗口状态记忆·剩余面**：✅ 库侧已落（2026-11-08，方向见 [proposals/方向.md](proposals/方向.md) A9）——`WindowHost::remember_geometry(app_id)` 一行接上：开窗恢复上次位置/尺寸/最大化档（文件不在不动窗口）、关窗与 `shutdown` 自动写回、`save_geometry()` 手动落盘；状态文件按平台落应用自有目录（macOS `~/Library/Application Support/<id>/`、Linux `$XDG_STATE_HOME` 或 `~/.local/state`/`<id>/`、Windows `%APPDATA%\<id>\`，统一 window-state.json；JSON 手拼手解、坏文件拒收不崩、恢复不做屏幕钳位——多窗对同一 id 只记一份，分窗记换 id 后缀）；showcase「窗口 → 状态记忆」段演示，场景文档进 cookbook（中英）；剩 `mng new` 脚手架把可选会话恢复接进模板
 
 ### 渲染
 

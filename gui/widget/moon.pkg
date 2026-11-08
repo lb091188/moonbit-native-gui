@@ -15,4 +15,5 @@ import {
   "NoahLiu/native-gui/win",
   "NoahLiu/native-gui/text",
   "NoahLiu/native-gui/i18n" @i18n,
+  "NoahLiu/native-gui/sys",
 }

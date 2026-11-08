@@ -44,6 +44,9 @@ pub(all) struct WindowHost {
   shown_cbs : Array[() -> Unit]
   /// 宿主默认页面底是否在画（`WindowHost::set_transparent_bg` 按透视开关）
   mut page_fill : Bool
+  /// 窗口状态记忆的应用 id（`WindowHost::remember_geometry` 置位；空 = 不记）。
+  /// 记着的窗在关闭/宿主退出时把位置/尺寸/最大化档写回状态文件
+  mut remember_id : String
 }
 
 ///|
@@ -241,6 +244,7 @@ fn app_window(
         hidden_cbs: [],
         shown_cbs: [],
         page_fill: true,
+        remember_id: "",
       }
       // 缺省底色：宿主先铺一层主题页面色，最小示例不必自己写 on_draw 才有背景
       // （要别的底色/图案照常覆盖 root.on_draw 即可）；背景透视开着时本底让位——
@@ -275,6 +279,7 @@ pub fn test_app(s : @shell.Session) -> WindowHost {
     system_keys: true,
     hidden_cbs: [],
     shown_cbs: [],
+    remember_id: "",
     page_fill: true,
   }
 }
@@ -1296,6 +1301,8 @@ pub fn WindowHost::close_window(self : WindowHost) -> Unit {
   if self.closed {
     return
   }
+  // 记窗的先落盘再拆窗（拆完 origin/size 就读不到了）
+  self.save_geometry()
   self.closed = true
   self.session.running = false
   let session = self.session
@@ -1322,6 +1329,7 @@ pub fn WindowHost::run(self : WindowHost) -> Unit {
 pub fn WindowHost::shutdown(self : WindowHost) -> Unit {
   @shell.remove_all_trays()
   for a in host_windows() {
+    a.save_geometry()
     a.session.running = false
     a.closed = true
     a.session.window.close()

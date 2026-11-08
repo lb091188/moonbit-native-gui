@@ -283,3 +283,19 @@ fn main {
 ```
 
 注意：`open_window` 宽高是 `Int32`；无窗口后端返回 `None`。多窗口门面见[组件总览](../components/index.md#声明式挂载)。
+
+## 记住窗口位置尺寸
+
+`WindowHost::remember_geometry(app_id)` 一行接上：开窗后先恢复上次的位置/尺寸/最大化档（文件不存在就什么都不动——首次运行保持默认），关窗或退出时自动写回。手动落盘时机用 `save_geometry()`；不想记了把 `remember_id` 清空即可。
+
+```moonbit
+let app = match @ui.mount_window(page(), title="MyApp", width=1280, height=800) {
+  None => return
+  Some(a) => a
+}
+app.remember_geometry("com.example.myapp")   // 与打包 id 同源
+app.mount(page())
+app.run()
+```
+
+状态文件按平台落在应用自有目录（macOS `~/Library/Application Support/<id>/`、Linux `$XDG_STATE_HOME` 或 `~/.local/state`/`<id>/`、Windows `%APPDATA%\<id>\`），文件名都是 `window-state.json`；窗口落在屏幕外这类怪状态删掉文件即可复位。边界：恢复不做屏幕钳位；多窗应用对同一 id 只记一份，各窗分开记就换不同的 id 后缀。

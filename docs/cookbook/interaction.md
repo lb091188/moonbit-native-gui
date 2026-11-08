@@ -204,6 +204,7 @@ let show : @base.Store[Bool] = @base.Store::new(false)
 
 Note: toggling does not reinitialize the node, so input content survives; clear the store yourself or switch to `bind_node` for a fresh state. `Signal` and generic forms: [Reactive controls](../components/reactive.md).
 
+
 ## Form items with error messages
 
 `form_item` bundles "label + control + always-present error row"; the error row's height is reserved up front. The message lives in a `Store[String]`; empty string means no error.
@@ -283,3 +284,20 @@ fn main {
 ```
 
 Notes: `open_window` takes `Int32` sizes; without a window backend it returns `None`. The multi-window facade: [Components overview](../components/index.md#declarative-mounting).
+
+## Remember window geometry
+
+`WindowHost::remember_geometry(app_id)` is a one-liner: after opening, the window first restores its previous position/size/maximized state (if the file does not exist nothing happens — a first run keeps defaults), and close or quit writes the current geometry back automatically. Call `save_geometry()` to flush at another moment; clear `remember_id` to stop remembering.
+
+```moonbit
+let app = match @ui.mount_window(page(), title="MyApp", width=1280, height=800) {
+  None => return
+  Some(a) => a
+}
+app.remember_geometry("com.example.myapp")   // same source as the package id
+app.mount(page())
+app.run()
+```
+
+The state file lives in the app-owned directory per platform (macOS `~/Library/Application Support/<id>/`, Linux `$XDG_STATE_HOME` or `~/.local/state`/`<id>/`, Windows `%APPDATA%\<id>\`), always named `window-state.json`; a window stuck offscreen is fixed by deleting the file. Boundaries: no screen clamping on restore; one geometry per app id — suffix the id per window to split them.
+
