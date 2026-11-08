@@ -6,9 +6,9 @@
 # 方案见 proposals/package-update.md)。交叉编译不可行(native 后端调本机
 # C 工具链),全平台产物的唯一通道就是本矩阵——单平台开发者本机只出本平台包。
 #
-# 平台就绪:macOS ✅(mng package mac 腿已合入);Windows / Linux 的 job
-# 骨架已预置、暂注释禁用,对应腿合入后取消注释即启用,汇总腿按「下载到的
-# 产物」现算清单,无需随腿改动。
+# 平台就绪:macOS ✅ / Windows ✅(mng package win 腿已合入;NSIS 由本工作流
+# choco 安装);Linux 的 job 骨架已预置、暂注释禁用,腿合入后取消注释即启用,
+# 汇总腿按「下载到的产物」现算清单,无需随腿改动。
 #
 # 更新载体规则(汇总腿只把它们写进 update.json 的 platforms):
 #   darwin-aarch64 → *.zip;windows-x86_64 → *.zip;linux-x86_64 → *.AppImage
@@ -32,8 +32,7 @@ jobs:
       matrix:
         include:
           - { plat: darwin-aarch64, os: macos-latest }
-          # 待 mng package win 腿合入(TODO A1 win 腿)后启用:
-          # - { plat: windows-x86_64, os: windows-latest }
+          - { plat: windows-x86_64, os: windows-latest }
           # 待 mng package linux 腿合入(TODO A1 linux 腿)后启用:
           # - { plat: linux-x86_64, os: ubuntu-latest }
 
@@ -42,8 +41,20 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Windows/Linux 腿启用时按 release-bin 同款补:apt 依赖(GTK3/Pango/X11/
-      # WebKit/FFmpeg 开发包)、pwsh 装 moon、python3 别名、MSVC vcvars。
+      - name: 安装 Linux 依赖(GTK3/Pango/X11/WebKit/FFmpeg 开发包)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config \
+            libgtk-3-dev libpango1.0-dev libfontconfig1-dev libx11-dev \
+            libwebkit2gtk-4.1-dev \
+            libavformat-dev libavcodec-dev libswscale-dev \
+            libswresample-dev libavutil-dev
+
+      - name: 安装 NSIS(win 腿打包需要)
+        if: runner.os == 'Windows'
+        run: choco install nsis -y
 
       - name: 安装 moon 工具链
         if: runner.os != 'Windows'
@@ -51,16 +62,42 @@ jobs:
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
+      - name: 安装 moon 工具链
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          iwr https://cli.moonbitlang.com/install/powershell.ps1 -useb | iex
+          echo "$env:USERPROFILE\.moon\bin" >> $env:GITHUB_PATH
+
       - name: 刷新注册表索引
         run: moon update
 
+      # gui prebuild 钩子要 python3;Windows runner 只有 python.exe
+      - name: 提供 python3 命令别名
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $py = (Get-Command python).Source
+          Copy-Item $py "$env:USERPROFILE\.moon\bin\python3.exe"
+
       # mng package 内部自跑 `moon build . --target native --release --strip`
       # 并从 Artifacts 抓本模块可执行;链接参数由 gui prebuild 按平台下发。
+      # Windows 链接要 MSVC 环境:vcvars 后在同一 cmd 会话里跑 mng package。
       # 打包声明在 examples/showcase/mng.toml [package](验收载体,方案 D8)。
       - name: 打包(mng package)
+        if: runner.os != 'Windows'
         run: |
           cd examples/showcase
           moon run ../../tools/native-gui-tools/mng -- package
+
+      - name: 打包(mng package,MSVC 环境)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: >-
+          for /f "tokens=*" %%i in ('"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath')
+          do call "%%i\VC\Auxiliary\Build\vcvars64.bat"
+          && cd examples\showcase
+          && moon run ..\..\tools\native-gui-tools\mng -- package
 
       - name: 收集产物
         uses: actions/upload-artifact@v4

@@ -151,3 +151,113 @@ test "basename_of:末段非空" {
   assert_eq(basename_of("assets/"), "assets")
   assert_eq(basename_of("x"), "x")
 }
+
+test "u16/u32 小端写读 roundtrip" {
+  let b : FixedArray[Byte] = FixedArray::make(16, b'\x00')
+  put_u16le(b, 0, 0x1234)
+  put_u32le(b, 4, 0xdeadbeef)
+  assert_eq(b[0].to_int(), 0x34)
+  assert_eq(b[1].to_int(), 0x12)
+  assert_eq(b[4].to_int(), 0xef)
+  assert_eq(b[7].to_int(), 0xde)
+}
+
+test "get_be32:大端读" {
+  let b : FixedArray[Byte] = FixedArray::make(8, b'\x00')
+  b[0] = (0x01).to_byte()
+  b[1] = (0x02).to_byte()
+  b[2] = (0x03).to_byte()
+  b[3] = (0x04).to_byte()
+  assert_eq(get_be32(Bytes::from_array(b), 0), 0x01020304)
+}
+
+test "ico_of_png:头/目录项/载荷;宽高 ≥256 记 0;坏签名 None" {
+  // 最小假 PNG:8B 签名 + 8B 长度/类型占位 + IHDR 宽高(16/20)+ 尾巴
+  let raw : FixedArray[Byte] = FixedArray::make(40, b'\x41')
+  let sig = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+  let mut i = 0
+  while i < 8 {
+    raw[i] = (sig[i]).to_byte()
+    i += 1
+  }
+  // 宽 256、高 128(大端)
+  raw[16] = (0x00).to_byte()
+  raw[17] = (0x00).to_byte()
+  raw[18] = (0x01).to_byte()
+  raw[19] = (0x00).to_byte()
+  raw[20] = (0x00).to_byte()
+  raw[21] = (0x00).to_byte()
+  raw[22] = (0x00).to_byte()
+  raw[23] = (0x80).to_byte()
+  let png = Bytes::from_array(raw)
+  match ico_of_png(png) {
+    Some(ico) => {
+      assert_eq(ico.length(), 22 + png.length())
+      // ICONDIR:reserved 0 / type 1 / count 1
+      assert_eq(ico[2].to_int(), 1)
+      assert_eq(ico[4].to_int(), 1)
+      assert_eq(ico[5].to_int(), 0)
+      // 目录项:宽 256→0、高 128、bpp 32
+      assert_eq(ico[6].to_int(), 0)
+      assert_eq(ico[7].to_int(), 128)
+      assert_eq(ico[12].to_int(), 32)
+      assert_eq(ico[13].to_int(), 0)
+      // size LE(40)与 offset 22
+      assert_eq(ico[14].to_int(), 40)
+      assert_eq(ico[18].to_int(), 22)
+      // 载荷原样
+      assert_eq(ico[22].to_int(), png[0].to_int())
+      assert_eq(ico[22 + 39].to_int(), png[39].to_int())
+    }
+    None => abort("valid png rejected")
+  }
+  // 坏签名
+  let bad = Bytes::from_array(FixedArray::make(40, b'\x00'))
+  match ico_of_png(bad) {
+    Some(_) => abort("bad signature accepted")
+    None => ()
+  }
+  // 太短
+  match ico_of_png(Bytes::from_array(FixedArray::make(10, b'\x00'))) {
+    Some(_) => abort("short input accepted")
+    None => ()
+  }
+}
+
+test "esc_nsi:$ 转义为 $$" {
+  assert_eq(esc_nsi("a$b"), "a$$b")
+  assert_eq(esc_nsi("plain"), "plain")
+}
+
+test "to_win_path:正斜杠转反斜杠" {
+  assert_eq(to_win_path(".mng/dist/winroot"), ".mng\\dist\\winroot")
+  assert_eq(to_win_path("a/b\\c"), "a\\b\\c")
+}
+
+test "nsi_script:OutFile/InstallDir/快捷方式/卸载注册键齐全;File 排除自身" {
+  let s = nsi_script(
+      "com.ex.app",
+      "My App",
+      "mybin.exe",
+      "1.2.0",
+      "C:\\proj\\.mng\\dist\\winroot",
+      "app",
+      "C:\\proj\\.mng\\dist\\app-1.2.0-windows-x86_64.exe",
+    )
+  assert_true(s.contains("Unicode true"))
+  assert_true(s.contains("OutFile \"C:\\proj\\.mng\\dist\\app-1.2.0-windows-x86_64.exe\""))
+  assert_true(s.contains("InstallDir \"$LOCALAPPDATA\\Programs\\com.ex.app\""))
+  assert_true(s.contains("RequestExecutionLevel user"))
+  assert_true(s.contains("File /r /x installer.nsi \"C:\\proj\\.mng\\dist\\winroot\\*.*\""))
+  assert_true(s.contains("CreateShortcut \"$SMPROGRAMS\\My App\\My App.lnk\" \"$INSTDIR\\mybin.exe\""))
+  assert_true(s.contains("WriteUninstaller \"$INSTDIR\\uninstall.exe\""))
+  assert_true(s.contains("Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\com.ex.app"))
+  assert_true(s.contains("\"DisplayVersion\" \"1.2.0\""))
+  assert_true(s.contains("DeleteRegKey"))
+}
+
+test "nsi_script:名字里的 $ 被转义" {
+  let s = nsi_script("com.a.b", "A$B", "b.exe", "0.1.0", "C:\\s", "b", "C:\\o.exe")
+  assert_true(s.contains("A$$B"))
+  assert_false(s.contains("A$B"))
+}

@@ -145,8 +145,8 @@ fn usage() -> Unit {
   )
   usage_line(
     "  package",
-    "打包本平台应用产物（mac：.app + DMG + 更新 zip）；-h 看细目",
-    "Package platform-native app artifacts (mac: .app + DMG + update zip); -h for details",
+    "打包本平台应用产物（mac：.app+DMG+zip；win：NSIS setup+zip）；-h 看细目",
+    "Package platform-native app artifacts (mac: .app+DMG+zip; win: NSIS setup+zip); -h for details",
   )
   println(
     tmsg(
@@ -161,9 +161,9 @@ fn usage() -> Unit {
 fn help_package() -> Unit {
   println(tmsg("用法：\{inv_prefix[0]} package", "Usage: \{inv_prefix[0]} package"))
   println(tmsg("  在项目根执行（与 dev 同口径）；读 mng.toml [package] 节", "  Run at project root (same convention as dev); reads the [package] section of mng.toml"))
-  println(tmsg("  本平台打本平台包——mac 出 .app + DMG + 更新载体 zip；win/linux 腿在后批", "  Builds for the host platform only — mac emits .app + DMG + update zip; win/linux come in later batches"))
-  println(tmsg("  产物落 <项目根>/.mng/dist/，不进源码树", "  Artifacts land in <project root>/.mng/dist/, out of the source tree"))
-  println(tmsg("  签名：[package.sign] mac_identity 空 = adhoc；配 notarize_profile 则公证 + staple", "  Signing: empty [package.sign] mac_identity = adhoc; set notarize_profile to notarize + staple"))
+  println(tmsg("  本平台打本平台包——mac 出 .app + DMG + 更新载体 zip；win 出 NSIS setup + 更新 zip；linux 腿在后批", "  Builds for the host platform only — mac emits .app + DMG + update zip; win emits NSIS setup + update zip; linux comes in a later batch"))
+  println(tmsg("  win 需 NSIS（winget install NSIS.NSIS）；产物落 <项目根>/.mng/dist/，不进源码树", "  win needs NSIS (winget install NSIS.NSIS); artifacts land in <project root>/.mng/dist/, out of the source tree"))
+  println(tmsg("  签名：[package.sign] mac_identity 空 = adhoc；notarize_profile 非空则公证 + staple；win_cert 走 signtool", "  Signing: empty [package.sign] mac_identity = adhoc; set notarize_profile to notarize + staple; win_cert goes through signtool"))
 }
 
 ///|
