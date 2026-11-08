@@ -1,22 +1,12 @@
 // package.mbt 纯函数用例:[package] 解析、前置校验、plist、iconset 表。
 
+///|
 test "parse_package_toml:两节字段与缺省" {
   let toml = [
-    "[dev]",
-    "build = \"moon build .\"",
-    "",
-    "[package]",
-    "id = \"com.example.myapp\"",
-    "name = \"My App\"",
-    "version = \"1.2.0\"",
-    "icon = \"assets/icon.png\"",
-    "resources = [\"assets/\", \"data\"]",
-    "",
-    "[package.sign]",
-    "mac_identity = \"Developer ID Application: NAME (TEAMID)\"",
-    "notarize_profile = \"prof\"",
-    "win_cert = \"cert.pfx\"",
-    "win_cert_pw_env = \"SIGN_PW\"",
+    "[dev]", "build = \"moon build .\"", "", "[package]", "id = \"com.example.myapp\"",
+    "name = \"My App\"", "version = \"1.2.0\"", "icon = \"assets/icon.png\"", "resources = [\"assets/\", \"data\"]",
+    "", "[package.sign]", "mac_identity = \"Developer ID Application: NAME (TEAMID)\"",
+    "notarize_profile = \"prof\"", "win_cert = \"cert.pfx\"", "win_cert_pw_env = \"SIGN_PW\"",
   ].join("\n")
   let p = parse_package_toml(toml)
   assert_eq(p.id, "com.example.myapp")
@@ -33,6 +23,7 @@ test "parse_package_toml:两节字段与缺省" {
   assert_eq(p.bin, "")
 }
 
+///|
 test "parse_package_toml:无 [package] 节全空" {
   let p = parse_package_toml("[dev]\nbuild = \"moon build .\"\n")
   assert_eq(p.id, "")
@@ -40,6 +31,7 @@ test "parse_package_toml:无 [package] 节全空" {
   assert_eq(p.resources.length(), 0)
 }
 
+///|
 test "pkg_validate:id 无点 / version 非三段 / name 空 / targets 拼写 / win 证书配套 / 通过" {
   let bad_id = pkg_conf_default()
   bad_id.id = "myapp"
@@ -93,6 +85,7 @@ test "pkg_validate:id 无点 / version 非三段 / name 空 / targets 拼写 / w
   }
 }
 
+///|
 test "semver_ok:三段数字才过" {
   assert_true(semver_ok("0.1.0"))
   assert_true(semver_ok("10.20.30"))
@@ -102,32 +95,49 @@ test "semver_ok:三段数字才过" {
   assert_false(semver_ok(""))
 }
 
+///|
 test "slug_of:id 末段" {
   assert_eq(slug_of("com.example.myapp"), "myapp")
   assert_eq(slug_of("a.b"), "b")
 }
 
+///|
 test "esc_xml:三个敏感字符" {
   assert_eq(esc_xml("a<b&c>d"), "a&lt;b&amp;c&gt;d")
 }
 
+///|
 test "info_plist_xml:键齐全;icon 空则无 IconFile" {
-  let with_icon = info_plist_xml("com.ex.app", "My App", "mybin", "1.2.0", "app.icns")
-  assert_true(with_icon.contains("CFBundleIdentifier</key><string>com.ex.app</string>"))
-  assert_true(with_icon.contains("CFBundleExecutable</key><string>mybin</string>"))
-  assert_true(with_icon.contains("CFBundleShortVersionString</key><string>1.2.0</string>"))
-  assert_true(with_icon.contains("CFBundleIconFile</key><string>app.icns</string>"))
-  assert_true(with_icon.contains("CFBundleDisplayName</key><string>My App</string>"))
+  let with_icon = info_plist_xml(
+    "com.ex.app", "My App", "mybin", "1.2.0", "app.icns",
+  )
+  assert_true(
+    with_icon.contains("CFBundleIdentifier</key><string>com.ex.app</string>"),
+  )
+  assert_true(
+    with_icon.contains("CFBundleExecutable</key><string>mybin</string>"),
+  )
+  assert_true(
+    with_icon.contains("CFBundleShortVersionString</key><string>1.2.0</string>"),
+  )
+  assert_true(
+    with_icon.contains("CFBundleIconFile</key><string>app.icns</string>"),
+  )
+  assert_true(
+    with_icon.contains("CFBundleDisplayName</key><string>My App</string>"),
+  )
   assert_true(with_icon.contains("NSHighResolutionCapable"))
   let no_icon = info_plist_xml("com.ex.app", "N", "b", "0.1.0", "")
   assert_false(no_icon.contains("CFBundleIconFile"))
 }
 
+///|
 test "info_plist_xml:显示名转义" {
   let x = info_plist_xml("com.ex.app", "A&B", "b", "0.1.0", "")
   assert_true(x.contains("A&amp;B"))
 }
 
+///|
 test "iconset_sizes:Apple 标准十档、含 @2x 五档、上限 1024" {
   assert_eq(iconset_sizes.length(), 10)
   let mut has_1024 = false
@@ -147,12 +157,14 @@ test "iconset_sizes:Apple 标准十档、含 @2x 五档、上限 1024" {
   assert_eq(at2x, 5)
 }
 
+///|
 test "basename_of:末段非空" {
   assert_eq(basename_of("/a/b/showcase.exe"), "showcase.exe")
   assert_eq(basename_of("assets/"), "assets")
   assert_eq(basename_of("x"), "x")
 }
 
+///|
 test "basename_of:Windows 反斜杠与盘符（moon Artifacts 的原样形态）" {
   // `moon build` 在 Windows 打印的是反斜杠路径；只按 `/` 切会原样返回整条
   // 路径，拿去拼 `winroot/<整条路径>` 写文件必失败。
@@ -166,6 +178,7 @@ test "basename_of:Windows 反斜杠与盘符（moon Artifacts 的原样形态）
   assert_eq(basename_of("D:" + bs + "code/app" + bs + "x.exe"), "x.exe")
 }
 
+///|
 test "u16/u32 小端写读 roundtrip" {
   let b : FixedArray[Byte] = FixedArray::make(16, b'\x00')
   put_u16le(b, 0, 0x1234)
@@ -176,6 +189,7 @@ test "u16/u32 小端写读 roundtrip" {
   assert_eq(b[7].to_int(), 0xde)
 }
 
+///|
 test "get_be32:大端读" {
   let b : FixedArray[Byte] = FixedArray::make(8, b'\x00')
   b[0] = (0x01).to_byte()
@@ -185,13 +199,14 @@ test "get_be32:大端读" {
   assert_eq(get_be32(Bytes::from_array(b), 0), 0x01020304)
 }
 
+///|
 test "ico_of_png:头/目录项/载荷;宽高 ≥256 记 0;坏签名 None" {
   // 最小假 PNG:8B 签名 + 8B 长度/类型占位 + IHDR 宽高(16/20)+ 尾巴
   let raw : FixedArray[Byte] = FixedArray::make(40, b'\x41')
   let sig = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
   let mut i = 0
   while i < 8 {
-    raw[i] = (sig[i]).to_byte()
+    raw[i] = sig[i].to_byte()
     i += 1
   }
   // 宽 256、高 128(大端)
@@ -238,44 +253,60 @@ test "ico_of_png:头/目录项/载荷;宽高 ≥256 记 0;坏签名 None" {
   }
 }
 
+///|
 test "esc_nsi:$ 转义为 $$" {
   assert_eq(esc_nsi("a$b"), "a$$b")
   assert_eq(esc_nsi("plain"), "plain")
 }
 
+///|
 test "to_win_path:正斜杠转反斜杠" {
   assert_eq(to_win_path(".mng/dist/winroot"), ".mng\\dist\\winroot")
   assert_eq(to_win_path("a/b\\c"), "a\\b\\c")
 }
 
+///|
 test "nsi_script:OutFile/InstallDir/快捷方式/卸载注册键齐全;File 排除自身" {
   let s = nsi_script(
-      "com.ex.app",
-      "My App",
-      "mybin.exe",
-      "1.2.0",
-      "C:\\proj\\.mng\\dist\\winroot",
-      "app",
-      "C:\\proj\\.mng\\dist\\app-1.2.0-windows-x86_64.exe",
-    )
+    "com.ex.app", "My App", "mybin.exe", "1.2.0", "C:\\proj\\.mng\\dist\\winroot",
+    "app", "C:\\proj\\.mng\\dist\\app-1.2.0-windows-x86_64.exe",
+  )
   assert_true(s.contains("Unicode true"))
-  assert_true(s.contains("OutFile \"C:\\proj\\.mng\\dist\\app-1.2.0-windows-x86_64.exe\""))
+  assert_true(
+    s.contains("OutFile \"C:\\proj\\.mng\\dist\\app-1.2.0-windows-x86_64.exe\""),
+  )
   assert_true(s.contains("InstallDir \"$LOCALAPPDATA\\Programs\\com.ex.app\""))
   assert_true(s.contains("RequestExecutionLevel user"))
-  assert_true(s.contains("File /r /x installer.nsi \"C:\\proj\\.mng\\dist\\winroot\\*.*\""))
-  assert_true(s.contains("CreateShortcut \"$SMPROGRAMS\\My App\\My App.lnk\" \"$INSTDIR\\mybin.exe\""))
+  assert_true(
+    s.contains(
+      "File /r /x installer.nsi \"C:\\proj\\.mng\\dist\\winroot\\*.*\"",
+    ),
+  )
+  assert_true(
+    s.contains(
+      "CreateShortcut \"$SMPROGRAMS\\My App\\My App.lnk\" \"$INSTDIR\\mybin.exe\"",
+    ),
+  )
   assert_true(s.contains("WriteUninstaller \"$INSTDIR\\uninstall.exe\""))
-  assert_true(s.contains("Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\com.ex.app"))
+  assert_true(
+    s.contains(
+      "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\com.ex.app",
+    ),
+  )
   assert_true(s.contains("\"DisplayVersion\" \"1.2.0\""))
   assert_true(s.contains("DeleteRegKey"))
 }
 
+///|
 test "nsi_script:名字里的 $ 被转义" {
-  let s = nsi_script("com.a.b", "A$B", "b.exe", "0.1.0", "C:\\s", "b", "C:\\o.exe")
+  let s = nsi_script(
+    "com.a.b", "A$B", "b.exe", "0.1.0", "C:\\s", "b", "C:\\o.exe",
+  )
   assert_true(s.contains("A$$B"))
   assert_false(s.contains("A$B"))
 }
 
+///|
 test "desktop_entry:字段齐全;categories 缺省 Utility、末尾补分号;comment 可空" {
   let d = desktop_entry("My App", "myapp", "mybin", [], "")
   assert_true(d.contains("[Desktop Entry]"))
@@ -292,6 +323,7 @@ test "desktop_entry:字段齐全;categories 缺省 Utility、末尾补分号;com
   assert_true(d2.contains("StartupWMClass=b"))
 }
 
+///|
 test "deb_control:Package/Version/Architecture 齐全;maintainer 缺省 unknown" {
   let c = deb_control("myapp", "My App", "1.2.0", "")
   assert_true(c.contains("Package: myapp"))
@@ -303,25 +335,42 @@ test "deb_control:Package/Version/Architecture 齐全;maintainer 缺省 unknown"
   assert_true(c2.contains("Maintainer: Noah <noah@example.com>"))
 }
 
+///|
 test "apprun_script:exec 同树 usr/bin 的可执行" {
   let s = apprun_script("mybin")
   assert_true(s.contains("#!/bin/sh"))
   assert_true(s.contains("exec \"$HERE/usr/bin/mybin\" \"$@\""))
 }
 
+///|
 test "parse_package_toml:[package.linux] 节" {
   let toml = [
-    "[package]",
-    "id = \"com.a.b\"",
-    "name = \"B\"",
-    "version = \"1.0.0\"",
-    "",
-    "[package.linux]",
-    "categories = [\"Development\", \"Utility\"]",
-    "comment = \"工具\"",
+    "[package]", "id = \"com.a.b\"", "name = \"B\"", "version = \"1.0.0\"", "", "[package.linux]",
+    "categories = [\"Development\", \"Utility\"]", "comment = \"工具\"",
   ].join("\n")
   let p = parse_package_toml(toml)
   assert_eq(p.linux_categories.length(), 2)
   assert_eq(p.linux_categories[0], "Development")
   assert_eq(p.linux_comment, "工具")
+}
+
+///|
+test "rm_rf：递归清目录、符号链接只摘链不进目标" {
+  let root = tmp_dir("mng_pkg_rmrf")
+  let keep = tmp_dir("mng_pkg_rmrf_keep")
+  ensure_dir_p(root)
+  ensure_dir_p(root + "/sub")
+  write_file_p(root + "/f.txt", "x")
+  write_file_p(root + "/sub/g.txt", "y")
+  ensure_dir_p(keep)
+  write_file_p(keep + "/k.txt", "k")
+  // 链接指向 root 之外的 keep；Windows 无 ln 则本用例退化为纯递归删
+  let ln = @proc.run_wait("ln", ["-s", keep, root + "/link"], 10000)
+  rm_rf(root)
+  assert_false(@fs.path_exists(root))
+  // 链接目标必须完好
+  assert_true(@fs.is_file(keep + "/k.txt"))
+  if ln is Ok(_) {
+    assert_false(@fs.path_exists(keep + "/link"))
+  }
 }

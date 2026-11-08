@@ -580,6 +580,34 @@ fn ensure_exec(path : String, dist : String) -> Bool {
 }
 
 ///|
+/// 递归删目录（remove_dir 只删得动空目录；dist 清场、DMG 卷目录残骸用）。
+/// 先按文件删、失败才当目录递归：is_dir 会跟随符号链接（DMG 卷里的
+/// Applications → /Applications），按文件删对链接只摘链接本身，不会进目标。
+fn rm_rf(root : String) -> Unit {
+  if !@fs.path_exists(root) {
+    return
+  }
+  if !(@fs.is_dir(root) catch { _ => false }) {
+    ignore(@fs.remove_file(root) catch { _ => () })
+    return
+  }
+  let entries = @fs.read_dir(root) catch { _ => return }
+  for name in entries {
+    let p = root + "/" + name
+    let gone = try {
+      @fs.remove_file(p)
+      true
+    } catch {
+      _ => false
+    }
+    if !gone {
+      rm_rf(p)
+    }
+  }
+  ignore(@fs.remove_dir(root) catch { _ => () })
+}
+
+///|
 /// appimagetool 探测与自取:PATH → ~/.mng/tools/appimagetool.AppImage;
 /// 缺失从 AppImageKit continuous 下载(curl -L)并 chmod +x。continuous
 /// 无可钉 sha,校验靠功能探测(--version 落 log);跑法恒带
@@ -705,11 +733,18 @@ fn package_mac(
   if !(mkdir_p(macdir) && mkdir_p(resdir)) {
     return Err(tmsg("建不了 .app 目录", "cannot create .app dirs"))
   }
-  if !copy_file(exe, macdir + "/" + bin_name) {
+  // mac bundle 内可执行名不带 .exe（moon 原生产物全平台带后缀；Finder/
+  // LaunchServices 对 .exe 名不可靠），CFBundleExecutable 与拷入名同源
+  let mac_bin = if bin_name.has_suffix(".exe") {
+    bin_name[:bin_name.length() - 4].to_owned()
+  } else {
+    bin_name
+  }
+  if !copy_file(exe, macdir + "/" + mac_bin) {
     return Err(tmsg("拷可执行失败:", "copy executable failed: ") + exe)
   }
-  if !ensure_exec(macdir + "/" + bin_name, dist) {
-    return Err("chmod +x failed: " + bin_name)
+  if !ensure_exec(macdir + "/" + mac_bin, dist) {
+    return Err("chmod +x failed: " + mac_bin)
   }
   for r in conf.resources {
     if !copy_tree(r, resdir + "/" + basename_of(r)) {
@@ -769,7 +804,7 @@ fn package_mac(
       info_plist_xml(
         conf.id,
         conf.name,
-        bin_name,
+        mac_bin,
         conf.version,
         if conf.icon.length() > 0 {
           icns_name
@@ -812,7 +847,7 @@ fn package_mac(
       sq(conf.name) +
       " -srcfolder " +
       sq(dmgroot) +
-      " -format UDZO -o " +
+      " -format UDZO " +
       sq(dmg),
       dist + "/hdiutil.log",
       300000,
@@ -820,7 +855,7 @@ fn package_mac(
     Ok(_) => ()
     Err(e) => return Err(tmsg("DMG 生成失败:", "DMG creation failed: ") + e)
   }
-  ignore(@fs.remove_dir(dmgroot) catch { _ => () })
+  rm_rf(dmgroot)
   // 更新载体 zip(ditto 保元数据;D2:更新不走安装器)
   let zip = dist + "/\{slug}-\{conf.version}-darwin-aarch64.zip"
   match
@@ -1267,7 +1302,7 @@ fn cmd_package(_args : Array[String]) -> Int32 {
   }
   let slug = slug_of(conf.id)
   let dist = root + "/.mng/dist"
-  ignore(@fs.remove_dir(dist) catch { _ => () })
+  rm_rf(dist)
   if !mkdir_p(dist) {
     return fail_pkg(
       tmsg("建不了产物目录 ", "cannot create dist dir ") + dist,
