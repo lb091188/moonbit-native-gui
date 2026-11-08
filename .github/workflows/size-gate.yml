@@ -1,0 +1,123 @@
+# 示例体积门禁(A5,方案见 proposals/方向.md):三平台矩阵量 hello + showcase
+# 的 release+strip 可执行字节数,汇总腿对 tools/size-baseline.json 出 diff。
+# 红线 = 增量超过 max(基线 5%, 128KB)——「功能不得让不使用它的应用变胖」,
+# 超了就查是不是把重东西链进了公共路径;确实该长的由本机跑
+# `python3 scripts/size_baseline.py --update` 刷新基线并随批提交(人工把关,
+# CI 不自动改基线)。基线缺某平台条目时只警告不红——首次跑出读数后由人工
+# 用脚本补进基线。
+#
+# 测量口径与 mng package 一致:moon build --target native --release --strip,
+# 从 Artifacts 段按模块名 NoahLiu/native-gui-examples-<name> 抓可执行。
+name: size-gate
+
+on:
+  push:
+    branches: [master, mac]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { plat: darwin-aarch64, os: macos-latest }
+          - { plat: windows-x86_64, os: windows-latest }
+          - { plat: linux-x86_64, os: ubuntu-latest }
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 安装 Linux 依赖(GTK3/Pango/X11/WebKit/FFmpeg 开发包)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential pkg-config \
+            libgtk-3-dev libpango1.0-dev libfontconfig1-dev libx11-dev \
+            libwebkit2gtk-4.1-dev \
+            libavformat-dev libavcodec-dev libswscale-dev \
+            libswresample-dev libavutil-dev
+
+      - name: 安装 moon 工具链
+        if: runner.os != 'Windows'
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: 安装 moon 工具链
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          iwr https://cli.moonbitlang.com/install/powershell.ps1 -useb | iex
+          echo "$env:USERPROFILE\.moon\bin" >> $env:GITHUB_PATH
+
+      - name: 刷新注册表索引
+        run: moon update
+
+      - name: 量 hello + showcase 体积(release+strip)
+        shell: python
+        run: scripts/size_baseline.py --update
+        env:
+          # --update 只写 tools/size-baseline.json;工作流里不希望改仓库文件,
+          # 所以 CI 侧改写到一个临时副本再上传(读数逻辑同一份脚本)
+          SIZE_BASELINE_OUT: ${{ runner.temp }}/size-${{ matrix.plat }}.json
+
+      - name: 收集本平台读数
+        uses: actions/upload-artifact@v4
+        with:
+          name: size-${{ matrix.plat }}
+          path: ${{ runner.temp }}/size-${{ matrix.plat }}.json
+          if-no-files-found: error
+
+  gate:
+    needs: measure
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 下载三平台读数
+        uses: actions/download-artifact@v4
+        with:
+          path: sizes
+          merge-multiple: true
+
+      - name: 对基线出 diff(超 max(5%, 128KB) 红线)
+        run: |
+          python3 - "$GITHUB_STEP_SUMMARY" <<'EOF'
+          import glob, json, os, sys
+          summary_path = sys.argv[1]
+          baseline = json.load(open("tools/size-baseline.json", encoding="utf-8"))
+          rows = []
+          red = False
+          for p in sorted(glob.glob("sizes/size-*.json")):
+              m = json.load(open(p, encoding="utf-8"))
+              for plat, sizes in m.items():
+                  for name, now in sorted(sizes.items()):
+                      old = baseline.get(plat, {}).get(name)
+                      if old is None:
+                          rows.append((plat, name, "-", now, "-", "⚠ 基线缺条目,人工补"))
+                          continue
+                      delta = now - old
+                      limit = max(int(old * 0.05), 128 * 1024)
+                      mark = "🔴 超" if delta > limit else "✅"
+                      if delta > limit:
+                          red = True
+                      rows.append((plat, name, old, now, f"{delta:+d}", mark))
+          with open(summary_path, "w", encoding="utf-8") as fh:
+              fh.write("## 示例体积门禁(release+strip 字节数)\n\n")
+              fh.write("| 平台 | 示例 | 基线 | 本次 | 增量 | 判定 |\n|---|---|---|---|---|---|\n")
+              for r in rows:
+                  fh.write("| %s | %s | %s | %s | %s | %s |\n" % r)
+          print(json.dumps({"red": red}, indent=0))
+          for r in rows:
+              print(r)
+          if red:
+              raise SystemExit("体积超红线:增量超过 max(基线 5%, 128KB)——查公共路径;确属该长就跑 scripts/size_baseline.py --update 刷基线")
+          EOF

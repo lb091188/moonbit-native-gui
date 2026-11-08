@@ -34,7 +34,6 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 
 ## 方向 A 类其余项（2026-11-08 用户定全部入待办，方向见 [proposals/方向.md](proposals/方向.md)；顺序在打包/更新/inspector 之后，一项一提交）
 
-- [ ] **A5 示例体积门禁**：CI 记 hello + showcase 二进制体积出 diff、超阈值红线
 - [ ] **A9 窗口状态记忆**：每窗状态文件（位置/尺寸/最大化），`WindowHost` 收口；脚手架带可选会话恢复
 - [ ] **A6 CPU/GPU 像素对拍**：与「无头像素快照基线」合并比对器，随控件级 GPU 批扩用例
 - [ ] **A8 文档 llms.txt**：VitePress build 后处理聚合双语文档为纯 Markdown 全集
