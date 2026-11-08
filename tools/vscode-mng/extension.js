@@ -161,7 +161,7 @@ class MngClient {
           publishDiagnostics: {},
         },
       },
-      clientInfo: { name: 'mng-vscode', version: '0.2.10' },
+      clientInfo: { name: 'mng-vscode', version: '0.2.11' },
     }).then((res) => {
       this.notify('initialized', {});
       return res;
@@ -469,6 +469,21 @@ function collectDocuments(client) {
 function startClient(ctx, cli, diagnostics) {
   const folder = vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0];
   const rootUri = folder ? folder.uri.toString() : null;
+  const onUp = () => {
+    if (status) {
+      status.text = '$(check) MNG';
+      status.tooltip = 'mng lsp 已连接';
+    }
+    collectDocuments(client);
+    outputChannel().appendLine('[lsp] 已连接');
+  };
+  const onDown = (e) => {
+    outputChannel().appendLine('[lsp] 启动失败：' + (e && e.message ? e.message : e));
+    if (status) {
+      status.text = '$(warning) MNG（补全降级）';
+      status.tooltip = 'mng lsp 未连上：' + (e && e.message ? e.message : e);
+    }
+  };
   client = new MngClient(cli, (uri, diags) => {
     const vd = diags.map((d) => {
       const item = new vscode.Diagnostic(
@@ -485,19 +500,11 @@ function startClient(ctx, cli, diagnostics) {
     });
     diagnostics.set(vscode.Uri.parse(uri), vd);
   });
-  client.start(rootUri).then(() => {
-    if (status) {
-      status.text = '$(check) MNG';
-      status.tooltip = 'mng lsp 已连接';
-    }
-    collectDocuments(client);
-    outputChannel().appendLine('[lsp] 已连接');
-  }).catch((e) => {
-    outputChannel().appendLine('[lsp] 启动失败：' + e.message);
-    if (status) {
-      status.text = '$(warning) MNG（补全降级）';
-    }
-  });
+  try {
+    client.start(rootUri).then(onUp, onDown);
+  } catch (e) {
+    onDown(e);
+  }
 
   // 文档同步（全量）
   ctx.subscriptions.push(
@@ -637,6 +644,7 @@ function activate(ctx) {
   const cli = resolveCli();
   if (!cli) {
     status.text = '$(warning) MNG';
+    outputChannel().appendLine('[lsp] 未找到 mng 可执行文件');
     status.tooltip = '未找到 mng';
     if (!warned) {
       warned = true;
@@ -657,6 +665,7 @@ function activate(ctx) {
   const hs = handshake(cli);
   if (!hs.ok) {
     status.text = '$(warning) MNG（补全降级）';
+    outputChannel().appendLine('[lsp] 握手失败：' + hs.why);
     status.tooltip = '握手失败：' + hs.why;
     vscode.window.showWarningMessage(
       'MNG：mng 握手失败（' + hs.why + '），补全降级为空，着色与 snippets 照用。'
@@ -666,6 +675,15 @@ function activate(ctx) {
 
   status.text = '$(sync~spin) MNG';
   status.tooltip = hs.version;
+  outputChannel().appendLine('[lsp] 启动 ' + cli + '（' + hs.version + '），initialize 已发出');
+  // 看门狗：旋转态最多留 8s，超时翻成可读的降级态——卡死不可见即无法回报
+  setTimeout(() => {
+    if (status && status.text.indexOf('sync~spin') >= 0) {
+      status.text = '$(warning) MNG（lsp 无响应）';
+      status.tooltip = 'initialize 8s 未应答，详见 MNG 输出通道';
+      outputChannel().appendLine('[lsp] initialize 超时未应答（watchdog 接管）');
+    }
+  }, 8000);
   registerProviders(ctx);
   startClient(ctx, cli, diagnostics);
 

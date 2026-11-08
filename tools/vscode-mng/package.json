@@ -2,7 +2,7 @@
   "name": "mng-vscode",
   "displayName": "MNG (native-gui template)",
   "description": ".mng 模板语言：语法着色、snippets，语义（诊断/补全/hover/跳转）经 mng lsp 提供",
-  "version": "0.2.10",
+  "version": "0.2.11",
   "publisher": "lb091188",
   "license": "MIT",
   "repository": {

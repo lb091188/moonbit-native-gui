@@ -9,9 +9,9 @@
    ```sh
    npx @vscode/vsce package
    ```
-   得到 `mng-vscode-0.2.10.vsix`，VS Code → 扩展 → `…` → 从 VSIX 安装（覆盖旧版加 `--force`）：
+   得到 `mng-vscode-0.2.11.vsix`，VS Code → 扩展 → `…` → 从 VSIX 安装（覆盖旧版加 `--force`）：
    ```sh
-   code --install-extension mng-vscode-0.2.10.vsix --force
+   code --install-extension mng-vscode-0.2.11.vsix --force
    ```
    或开发期直接把本目录软链到 `~/.vscode/extensions/`。**升级后必须 Reload Window**，TextMate 文法随扩展加载，不重载仍是旧着色。
 3. 设置（可选）：`mng.cliPath` 指向可执行文件（默认先查 PATH，再查 `~/.moon/bin`）；`mng.enableLsp=false` 只要着色与 snippets。
@@ -89,7 +89,7 @@ TextMate 是正则文法，只能按词形近似（大写当类型、其余小�
   }
   ```
 
-真机验证清单（装 0.2.10 后）：打开 `examples/showcase/pages/dev_demo.mng`——①`qty`/`nick` 是变量档（不可变，亮于正文）；②`Store`/`String`/`Int` 是类型档；③`on_reset` 函数档、`qty.set()`/`@shared.tx()` 方法档；④`@shared` 命名空间档；⑤`{{ qty }}`、`v-model="nick"`、`:text="@shared.tx(…)"`、`@click="on_reset"` 与 script 段同档；⑥带 props 签名头的页里，签名参数是 parameter 档（与变量不同色）；⑦关 LSP 后着色退回纯 TextMate 不报错；⑧命令面板「MNG: 新建页面」输入 `pages/t1` 回车——生成 `pages/t1.mng` 并打开（验完删）；⑨资源树里 `t1.gen.mbt` 嵌套在 `t1.mng` 条目下（默认收起、`t1.mng` 带数量徽标，点击展开）而非顶层平铺；⑩静态属性字符串整串一色——`text="…script…COLD…"` 里夹的英文词不再被误染成标识符/类型色；⑪括号观感统一——块级标签四角尖括号全部标点色、`@` 与包名同色、`{{ }}` 两组花括号同色（语言配置 `colorizedBracketPairs` 空表，设置强开括号对着色也无括号可染）。
+真机验证清单（装 0.2.11 后）：打开 `examples/showcase/pages/dev_demo.mng`——①`qty`/`nick` 是变量档（不可变，亮于正文）；②`Store`/`String`/`Int` 是类型档；③`on_reset` 函数档、`qty.set()`/`@shared.tx()` 方法档；④`@shared` 命名空间档；⑤`{{ qty }}`、`v-model="nick"`、`:text="@shared.tx(…)"`、`@click="on_reset"` 与 script 段同档；⑥带 props 签名头的页里，签名参数是 parameter 档（与变量不同色）；⑦关 LSP 后着色退回纯 TextMate 不报错；⑧命令面板「MNG: 新建页面」输入 `pages/t1` 回车——生成 `pages/t1.mng` 并打开（验完删）；⑨资源树里 `t1.gen.mbt` 嵌套在 `t1.mng` 条目下（默认收起、`t1.mng` 带数量徽标，点击展开）而非顶层平铺；⑩静态属性字符串整串一色——`text="…script…COLD…"` 里夹的英文词不再被误染成标识符/类型色；⑪括号观感统一——块级标签四角尖括号全部标点色、`@` 与包名同色、`{{ }}` 两组花括号同色（语言配置 `colorizedBracketPairs` 空表，设置强开括号对着色也无括号可染）。
 
 ## 命令面板
 
