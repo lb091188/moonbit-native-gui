@@ -148,6 +148,11 @@ fn usage() -> Unit {
     "打包本平台应用产物（mac：.app+DMG+zip；win：setup+zip；linux：deb+AppImage）；-h 看细目",
     "Package platform-native app artifacts (mac: .app+DMG+zip; win: setup+zip; linux: deb+AppImage); -h for details",
   )
+  usage_line(
+    "  publish",
+    "扫 .mng/dist/ 生成 update.json 并经 gh 上传 draft Release；-h 看细目",
+    "Generate update.json from .mng/dist/ and upload a draft Release via gh; -h for details",
+  )
   println(
     tmsg(
       "子命令加 -h 看详细说明。",
@@ -165,6 +170,15 @@ fn help_package() -> Unit {
   println(tmsg("  win 需 NSIS（winget install NSIS.NSIS）；linux 的 deb 需 dpkg-deb（deb 系自带）、appimagetool 缺失自动下载", "  win needs NSIS (winget install NSIS.NSIS); linux deb needs dpkg-deb (present on deb distros), appimagetool auto-downloads when missing"))
   println(tmsg("  产物落 <项目根>/.mng/dist/，不进源码树", "  Artifacts land in <project root>/.mng/dist/, out of the source tree"))
   println(tmsg("  签名：[package.sign] mac_identity 空 = adhoc；notarize_profile 非空则公证 + staple；win_cert 走 signtool", "  Signing: empty [package.sign] mac_identity = adhoc; set notarize_profile to notarize + staple; win_cert goes through signtool"))
+}
+
+///|
+/// `mng publish -h`：发布说明。
+fn help_publish() -> Unit {
+  println(tmsg("用法：\{inv_prefix[0]} publish [--tag <tag>] [--repo <owner/name>] [--notes <文本>] [--no-upload]", "Usage: \{inv_prefix[0]} publish [--tag <tag>] [--repo <owner/name>] [--notes <text>] [--no-upload]"))
+  println(tmsg("  在项目根执行（package 之后）；扫 .mng/dist/ 产物算 SHA256/体积，生成 update.json（更新载体进 platforms，安装包只随 Release 分发）", "  Run at project root (after package); hashes artifacts in .mng/dist/, writes update.json (carriers go into platforms, installers ship with the Release only)"))
+  println(tmsg("  经 gh 上传到 draft Release（存在则补传 --clobber）；--tag 默认 app-v<版本>，--repo 默认 gh 探测", "  Uploads via gh to a draft Release (appends with --clobber when it exists); --tag defaults to app-v<version>, --repo is resolved by gh"))
+  println(tmsg("  跨平台拼清单：把别处出的产物拷进 .mng/dist/ 一起发（按文件名解析全收）；--no-upload 只生成清单", "  To compose a cross-platform manifest, drop other platforms' artifacts into .mng/dist/ before publishing (all parsed by name); --no-upload writes the manifest only"))
 }
 
 ///|
@@ -651,6 +665,8 @@ fn main {
       usage_dev()
     } else if cmd == "package" {
       help_package()
+    } else if cmd == "publish" {
+      help_publish()
     } else if cmd == "--version" || cmd == "-v" || cmd == "-V" || cmd == "version" {
       help_version()
     } else {
@@ -669,6 +685,8 @@ fn main {
     cmd_dev(rest)
   } else if cmd == "package" {
     cmd_package(rest)
+  } else if cmd == "publish" {
+    cmd_publish(rest)
   } else if cmd == "ir" {
     cmd_ir(rest)
   } else if cmd == "new" {

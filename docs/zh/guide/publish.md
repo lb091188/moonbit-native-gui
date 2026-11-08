@@ -53,6 +53,19 @@ moon run path/to/mng -- package
 
 版本一致性：标签里的版本必须与 `mng.toml` 的 `version` 一致，不符产物会被清单生成器跳过并打日志。
 
+## 本地发布：`mng publish`
+
+CI 不可用或只要本平台时，`mng package` 之后在工程根跑：
+
+```sh
+moon run path/to/mng -- publish            # --tag 默认 app-v<版本>，--repo 默认 gh 探测
+moon run path/to/mng -- publish --no-upload --repo owner/name   # 只生成 update.json 不上传
+```
+
+行为：扫 `.mng/dist/` 里版本一致的产物 → 算 SHA256/体积 → 生成 `update.json`（更新载体进 `platforms`，安装包只随 Release 分发）→ 经 `gh` 建 draft Release 并上传（已存在则补传 `--clobber`）。需要本机装好 [gh](https://cli.github.com/) 并 `gh auth login`。
+
+跨平台拼清单：把别处出的产物（比如从 CI artifact 下载的另两平台包）拷进 `.mng/dist/` 一起发——解析器按文件名全收。发布时间戳不填（`pub_date` 空串），以 Release 页显示为准。
+
 ## 应用内更新
 
 最短接法三件套（showcase「系统集成 → 应用更新」有可玩演示）：

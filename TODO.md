@@ -25,7 +25,7 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 - [ ] **A1 win 腿真机复验**（用户执行，Windows + NSIS）：`winget install NSIS.NSIS` 后 `cd examples\showcase && moon run ..\..\tools\native-gui-tools\mng -- package`——`.mng\dist\` 应出 `showcase-0.1.0-windows-x86_64.exe`（setup）与 `.zip`；双击 setup 装 per-user（开始菜单快捷方式、「应用与功能」可卸载）、SmartScreen 提示属无签已知；exe/ico/资源落位
 - [ ] **A1 linux 腿真机复验**（用户执行，Linux x86_64）：`cd examples/showcase && moon run ../../tools/native-gui-tools/mng -- package`——首跑自动下载 appimagetool（落 ~/.mng/tools/），`.mng/dist/` 应出 `showcase-0.1.0-linux-x86_64.AppImage` 与 `.deb`；AppImage 双击/终端跑（FUSE 缺环境可 `--appimage-extract-and-run`）、`sudo dpkg -i` 装（应用菜单出现 desktop entry、`dpkg -r` 卸干净）
 - [ ] **A2 更新器 v1·真机复验**（用户执行）：`update_check/update_download/update_apply_carrier/update_relaunch` 链路——mac 装 0.1.0 → CI 发 0.2.0 draft → 应用内检查下载替换重启后版本变 0.2.0、`.mng-old` 清理；Linux 腿 AppImage 自替换同流程；showcase「系统集成 → 应用自更新」演示后端走全态（检查中旋转弧→0.9.9→下载→就绪→安装提示）、真实清单在 CI 首跑前报拉取失败也属验证
-- [ ] **A2 mng publish**：`update-<target>.json` 清单生成 + GitHub Releases 上传（draft 起步）——CI 侧已落（release-app.yml 汇总腿现算清单发 draft），剩本地版
+- [ ] **A2 mng publish 真机复验**（用户执行，装 gh 并 `gh auth login`）：`cd examples/showcase && moon run ../../tools/native-gui-tools/mng -- package && moon run ../../tools/native-gui-tools/mng -- publish --no-upload --repo <owner>/<repo>`——`.mng/dist/update.json` 应含 darwin-aarch64 的 zip 条目（url 指向 releases/download、sha256 与 `shasum -a 256` 一致）；真上传档核 draft Release 产物清单后删
 - [ ] **A3 最小登记面**：desktop entry / Info.plist 基础键随打包落；深链与文件关联后置
 - [ ] **release-app CI 首跑**（用户执行）：推 tag `app-v0.1.0` 触发——打包腿出 DMG/zip、汇总腿出 `update.json`（只含 darwin-aarch64 的 zip 条目）并发 draft Release；win/linux job 骨架已注释预置，对应腿合入后取消注释启用
 

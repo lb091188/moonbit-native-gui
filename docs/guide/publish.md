@@ -53,6 +53,19 @@ Per-platform dependencies (system tools or automatic):
 
 Version consistency: the tag version must equal `mng.toml`'s `version`; mismatches are skipped by the manifest generator with a log line.
 
+## Local release: `mng publish`
+
+When CI is unavailable or you only need your own platform, run this at the project root after `mng package`:
+
+```sh
+moon run path/to/mng -- publish            # --tag defaults to app-v<version>, --repo is resolved by gh
+moon run path/to/mng -- publish --no-upload --repo owner/name   # generate update.json only, no upload
+```
+
+Behavior: scan `.mng/dist/` for version-matching artifacts → compute SHA256/sizes → write `update.json` (carriers into `platforms`, installers ship with the Release only) → create a draft Release via `gh` and upload (appends with `--clobber` if it exists). [gh](https://cli.github.com/) must be installed and authenticated (`gh auth login`).
+
+Cross-platform manifests: drop artifacts produced elsewhere (e.g. the other two platforms downloaded from a CI artifact) into `.mng/dist/` before publishing — the parser takes everything by file name. The publish timestamp stays empty (`pub_date` is an empty string); the Release page shows the real time.
+
 ## In-app updates
 
 Shortest wiring (a playable demo lives in showcase → System → App self-update):
