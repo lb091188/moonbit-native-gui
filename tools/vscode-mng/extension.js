@@ -171,7 +171,7 @@ class MngClient {
           publishDiagnostics: {},
         },
       },
-      clientInfo: { name: 'mng-vscode', version: '0.2.12' },
+      clientInfo: { name: 'mng-vscode', version: '0.2.13' },
     }).then((res) => {
       this.notify('initialized', {});
       return res;
@@ -447,7 +447,7 @@ function registerProviders(ctx) {
   );
 
   ctx.subscriptions.push(
-    vscode.languages.registerSemanticTokensProvider(
+    vscode.languages.registerDocumentSemanticTokensProvider(
       'mng',
       {
         provideDocumentSemanticTokens: async (doc) => {
