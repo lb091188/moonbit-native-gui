@@ -35,7 +35,6 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 ## 方向 A 类其余项（2026-11-08 用户定全部入待办，方向见 [proposals/方向.md](proposals/方向.md)；顺序在打包/更新/inspector 之后，一项一提交）
 
 - [ ] **A6 CPU/GPU 像素对拍**：与「无头像素快照基线」合并比对器，随控件级 GPU 批扩用例
-- [ ] **A8 文档 llms.txt**：VitePress build 后处理聚合双语文档为纯 Markdown 全集
 
 ## mngdev 库包与工具链联动（2026-11-07 立项，方案见 [proposals/mngdev-library.md](proposals/mngdev-library.md)；一项一提交，做完删一项）
 

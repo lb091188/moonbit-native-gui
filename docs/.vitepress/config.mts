@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress'
+import { emitLlms } from './llms.mjs'
 
 const gh = 'https://github.com/lb091188/moonbit-native-gui'
 const apiRef = 'https://mooncakes.io/docs/NoahLiu/native-gui'
@@ -347,5 +348,11 @@ export default defineConfig({
         outline: { label: '页面目录' },
       },
     },
+  },
+  // A8 llms.txt:构建收尾把 docs/zh 与 docs 的 Markdown 源各聚成一份纯文本
+  // 全集写进输出目录(llms.txt 中文 / llms-en.txt 英文),给 LLM 离线消费
+  async buildEnd(siteConfig) {
+    const r = emitLlms(siteConfig)
+    console.log(`llms.txt: zh ${r.zhPages} 页 / en ${r.enPages} 页已聚合`)
   },
 })

@@ -353,7 +353,8 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ⏳ **桌面登记面·剩余面**：基础键已随打包落——desktop entry 补 `StartupWMClass`(dock/任务栏归组)与既有 Categories/Comment、Info.plist 补 `CFBundleDisplayName`、deb control 的 Maintainer 可配(`[package] maintainer`);剩深链 scheme、文件关联、最近文档写侧——登记声明进 `mng.toml`、打包器落各平台清单、唤起事件经单实例通道回投(方向见 [proposals/方向.md](proposals/方向.md) A3)
 - ⏳ **稳定面清单与 1.0 时点**：逐包划分承诺面 / 实验面，公告破坏性改动截止线
 - ⏳ **CPU/GPU 像素对拍**：同一套比对器两用——无头像素快照基线管「跨版本不漂」，对拍管「GPU 路径与纯光栅逐像素一致」，随控件级 GPU 批扩用例（2026-11-08 立项，方向见 [proposals/方向.md](proposals/方向.md) A6；与既有「无头像素快照基线」条目合并考虑）
-- ⏳ **文档 llms.txt**：VitePress build 后处理聚合 docs/zh 与 docs 成两份纯 Markdown 全集供 LLM 消费（2026-11-08 立项，方向见 [proposals/方向.md](proposals/方向.md) A8）
+- ✅ **文档 llms.txt**（2026-11-08 立项并落地，方向见 [proposals/方向.md](proposals/方向.md) A8）：VitePress `buildEnd` 钩子（`docs/.vitepress/llms.mjs`）把 docs/zh 与 docs 的 Markdown 源各聚成一份纯文本全集写进构建输出——`llms.txt`（中文 40 页 ≈300KB）/ `llms-en.txt`（英文 177 页 ≈1.3MB），页间以「=== 源路径 ===」分隔、剥 frontmatter、index/README 排前；给 LLM 离线消费，不跑 JS 不解析侧边栏；本机构建验证过落盘
+
 - ✅ **示例体积门禁**（2026-11-08 立项并落地，方向见 [proposals/方向.md](proposals/方向.md) A5）：`size-gate` 工作流三平台矩阵量 hello + showcase 的 release+strip 可执行字节数（`scripts/size_baseline.py`，Artifacts 按模块名过滤——workspace 段全成员都列，不过滤会抓错），汇总腿对 `tools/size-baseline.json` 出 diff 进 step summary；红线 = 增量超 max(基线 5%, 128KB)，基线缺平台条目只警告不红；基线更新走人工——本机 `python3 scripts/size_baseline.py --update` 刷本平台条目随批提交（CI 档 `SIZE_BASELINE_OUT` 只写临时读数不动仓库基线），darwin-aarch64 首轮基线 hello 1.24MB / showcase 5.82MB
 
 - ⏳ **无头像素快照基线**（PNG + 容差）：自带基线目录与比对器、三平台各一份基线，`moon test` 无快照机制故全部自建；判据（容差怎么定、基线漂了谁批）待立项时定，工作量大于门面本体，故从 P1 拆出（2026-11-03 定案：单独立项，不进 P1）
