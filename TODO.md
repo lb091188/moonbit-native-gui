@@ -22,11 +22,13 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 > 产物钉死四件：macOS DMG、Windows setup（NSIS）、Linux deb + AppImage；tar.gz 与 PKGBUILD 不做。Linux 自动更新走 AppImage 单文件替换，deb 档报新版本引导下载。
 
 - [ ] **A1 mac 腿**：`mng package` 子命令骨架（TOML `[package]` / `[package.sign]` 解析、Artifacts 抓路径、release-bin 的 .app 组装上收）+ icns 派生 + DMG + 更新载体 zip + 签名入口（adhoc / identity / 公证档）
+- [ ] **A1 mac 腿真机复验**（用户执行）：`cd examples/showcase && moon run ../../tools/native-gui-tools/mng -- package`——`.mng/dist/` 应出 `Native GUI Showcase.app` + `showcase-0.1.0-darwin-aarch64.dmg/.zip` 三件；挂 DMG 拖装运行（adhoc 首启 Gatekeeper 右键放行属已知），看 Dock 图标（assets/icon.png 派生）与资源
 - [ ] **A1 win 腿**：NSIS（探测 makensis，缺失自动下载）、per-user 装法、`.ico` 多尺寸
 - [ ] **A1 linux 腿**：deb（control+md5+desktop entry 纯脚本）+ AppImage（appimagetool/AppRun，探测缺失自动下载，同 makensis 模式）
 - [ ] **A2 更新器 v1**：清单检查（pr_run curl）→ 全量下载 + SHA256 → 原子替换（win rename swap）→ relaunch + 本库 widget 更新窗口；Linux 更新档=AppImage 单文件自替换，deb 档报新版本引导下载
-- [ ] **A2 mng publish**：`update-<target>.json` 清单生成 + GitHub Releases 上传（draft 起步）
+- [ ] **A2 mng publish**：`update-<target>.json` 清单生成 + GitHub Releases 上传（draft 起步）——CI 侧已落（release-app.yml 汇总腿现算清单发 draft），剩本地版
 - [ ] **A3 最小登记面**：desktop entry / Info.plist 基础键随打包落；深链与文件关联后置
+- [ ] **release-app CI 首跑**（用户执行）：推 tag `app-v0.1.0` 触发——打包腿出 DMG/zip、汇总腿出 `update.json`（只含 darwin-aarch64 的 zip 条目）并发 draft Release；win/linux job 骨架已注释预置，对应腿合入后取消注释启用
 
 ## 内建 inspector（2026-11-08 立项，方向见 [proposals/方向.md](proposals/方向.md) A4；一项一提交，做完删一项）
 

@@ -1,0 +1,144 @@
+# 应用发布:workflow_dispatch 或推 app-v* 标签触发,三平台矩阵各自跑
+# `mng package` 出安装包与更新载体,汇总腿生成 update.json 并发 draft release。
+#
+# 与 release-bin 的分工:那条线发「示例体验包」(五件套 zip,tag bin 覆盖更新);
+# 本线发「打包应用产物」(DMG / NSIS setup / deb + AppImage + 更新载体,
+# 方案见 proposals/package-update.md)。交叉编译不可行(native 后端调本机
+# C 工具链),全平台产物的唯一通道就是本矩阵——单平台开发者本机只出本平台包。
+#
+# 平台就绪:macOS ✅(mng package mac 腿已合入);Windows / Linux 的 job
+# 骨架已预置、暂注释禁用,对应腿合入后取消注释即启用,汇总腿按「下载到的
+# 产物」现算清单,无需随腿改动。
+#
+# 更新载体规则(汇总腿只把它们写进 update.json 的 platforms):
+#   darwin-aarch64 → *.zip;windows-x86_64 → *.zip;linux-x86_64 → *.AppImage
+# 安装包(dmg/setup/deb)只随 Release 分发,不是自替换载体(D2)。
+# 清单的 signature/sig_alg/deltas 字段为 v1.5/v2 预留位,当前恒 null(D3)。
+name: release-app
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'app-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { plat: darwin-aarch64, os: macos-latest }
+          # 待 mng package win 腿合入(TODO A1 win 腿)后启用:
+          # - { plat: windows-x86_64, os: windows-latest }
+          # 待 mng package linux 腿合入(TODO A1 linux 腿)后启用:
+          # - { plat: linux-x86_64, os: ubuntu-latest }
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # Windows/Linux 腿启用时按 release-bin 同款补:apt 依赖(GTK3/Pango/X11/
+      # WebKit/FFmpeg 开发包)、pwsh 装 moon、python3 别名、MSVC vcvars。
+
+      - name: 安装 moon 工具链
+        if: runner.os != 'Windows'
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: 刷新注册表索引
+        run: moon update
+
+      # mng package 内部自跑 `moon build . --target native --release --strip`
+      # 并从 Artifacts 抓本模块可执行;链接参数由 gui prebuild 按平台下发。
+      # 打包声明在 examples/showcase/mng.toml [package](验收载体,方案 D8)。
+      - name: 打包(mng package)
+        run: |
+          cd examples/showcase
+          moon run ../../tools/native-gui-tools/mng -- package
+
+      - name: 收集产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-${{ matrix.plat }}
+          path: |
+            examples/showcase/.mng/dist/*.dmg
+            examples/showcase/.mng/dist/*.zip
+            examples/showcase/.mng/dist/*.exe
+            examples/showcase/.mng/dist/*.deb
+            examples/showcase/.mng/dist/*.AppImage
+          if-no-files-found: error
+
+  # 汇总:下载全部平台产物 → 现算 sha256/size 生成 update.json → draft release。
+  # 清单生成器按「下载到的产物」现算(D6 的 CI 版),腿合入后自动进清单。
+  release:
+    needs: package
+    runs-on: ubuntu-latest
+    # 仅 app-v* 标签发布;workflow_dispatch 只验证打包矩阵,不发 Release
+    if: startsWith(github.ref, 'refs/tags/app-v')
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 下载产物
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: 生成 update.json
+        run: |
+          VER="${GITHUB_REF_NAME#app-v}"
+          python3 - "$VER" "$GITHUB_REPOSITORY" "${GITHUB_REF_NAME}" dist <<'EOF'
+          import datetime, hashlib, json, os, re, sys
+          ver, repo, tag, dist = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+          # 更新载体:zip(mac/win)与 AppImage(linux);安装包不进清单
+          carries = {("darwin-aarch64", "zip"), ("windows-x86_64", "zip"), ("linux-x86_64", "AppImage")}
+          pat = re.compile(r"^(.+)-(\d+\.\d+\.\d+)-(darwin-aarch64|windows-x86_64|linux-x86_64)\.(dmg|zip|exe|deb|AppImage)$")
+          platforms = {}
+          for root, _, files in os.walk(dist):
+              for f in sorted(files):
+                  m = pat.match(f)
+                  if not m:
+                      continue
+                  slug, pver, target, ext = m.groups()
+                  if pver != ver:
+                      print(f"跳过版本不符: {f}")
+                      continue
+                  p = os.path.join(root, f)
+                  data = open(p, "rb").read()
+                  entry = {
+                      "url": f"https://github.com/{repo}/releases/download/{tag}/{f}",
+                      "size": len(data),
+                      "sha256": hashlib.sha256(data).hexdigest(),
+                  }
+                  if (target, ext) in carries:
+                      platforms[target] = entry
+          manifest = {
+              "version": ver,
+              "notes": f"Release {ver}",
+              "pub_date": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "platforms": platforms,
+              "signature": None,  # v1.5: Ed25519(D7)
+              "sig_alg": None,
+              "deltas": None,     # v2: 增量
+          }
+          with open("update.json", "w") as fh:
+              json.dump(manifest, fh, indent=2, ensure_ascii=False)
+          print(json.dumps(manifest, indent=2, ensure_ascii=False))
+          EOF
+
+      - name: 发 draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VER="${TAG#app-v}"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$TAG" --draft --title "App $VER" --notes "Release $VER" --repo "$GITHUB_REPOSITORY"
+          gh release upload "$TAG" dist/* update.json --clobber --repo "$GITHUB_REPOSITORY"
