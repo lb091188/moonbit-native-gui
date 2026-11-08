@@ -1,0 +1,16 @@
+// 内建 inspector(v1 只读):控件树浏览吃 `a11y_last_frame` 帧尾快照、
+// 选中看布局/语义读数、`paint_profile_summary` 帧耗时账本。独立包的理由与
+// ui 同口径——分包零警告门禁只对干净的包成立;应用按需 import,不进核心链。
+// v2 编辑回灌(mngdev 样式通道)随批扩本包。
+supported_targets = "native"
+
+import {
+  "NoahLiu/yoga-mbt/src" @yoga,
+  "NoahLiu/native-gui/base",
+  "NoahLiu/native-gui/shell",
+  "NoahLiu/native-gui/widget" @widget,
+  "NoahLiu/native-gui/ui",
+  "NoahLiu/native-gui/style",
+  "NoahLiu/native-gui/text",
+  "NoahLiu/native-gui/i18n" @i18n,
+}

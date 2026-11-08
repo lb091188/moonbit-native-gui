@@ -218,6 +218,8 @@ fn main {
     route_of_page(box, "系统能力探测", @pages.page_sysprobe, @router.Lazy),
     // GPU 画布构造期探 GPU 扩展 + 建离屏画布，同探针页口径只给点开时才做
     route_of_page(box, "GPU 画布", @pages.page_gpu, @router.Lazy),
+    // 检查器只读面板：快照账常开，挂上即读，不需要构造期成本
+    route_of_page(box, "检查器", @pages.page_inspector, @router.Lazy),
   ]
   let nav = @router.new_router(routes)
   // 页面随语言原地重挂（i18n 广播驱动，与原生菜单栏同一条注册链）
@@ -333,7 +335,7 @@ fn main {
                   nav.sidebar(
                     [
                       ("组件", ["基础组件", "表单组件", "导航组件", "数据展示", "图表", "代码文档", "Store", "模板 Dev", "反馈组件", "事件与布局", "窗口", "系统集成", "图标库", "画布与富文本", "过渡与效果"]),
-                      ("系统", ["系统能力探测", "GPU 画布"]),
+                      ("系统", ["系统能力探测", "GPU 画布", "检查器"]),
                     ],
                     label_of=fn(k) { @shared.nav_label(k) },
                     icons=[
@@ -354,6 +356,7 @@ fn main {
                       ("过渡与效果", @icons.MagicStick),
                       ("系统能力探测", @icons.Monitor1),
                       ("GPU 画布", @icons.Picture),
+                      ("检查器", @icons.DataAnalysis),
                     ],
                     width=180.0,
                   ),

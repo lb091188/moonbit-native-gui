@@ -20,6 +20,7 @@ import {
   "NoahLiu/gui-gpu/gpu" @guigpu,
   "NoahLiu/native-gui-examples-showcase/shared",
   "NoahLiu/native-gui/mngdev" @mngdev,
+  "NoahLiu/native-gui/inspector",
 }
 
 supported_targets = "native"

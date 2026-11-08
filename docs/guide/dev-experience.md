@@ -134,6 +134,23 @@ Commit the generated code (consumers need no toolchain); it carries a `// GENERA
 
 Deeper build-time failures (prebuild interpreters, workspace contamination, Windows link libraries, vendor downloads) are in [Build & run](build.md) §6, each with root cause and fix.
 
+## 6. Built-in Inspector (debugging your UI)
+
+Library package `NoahLiu/native-gui/inspector` (import on demand); mount a read-only panel into any container:
+
+```moonbit
+// moon.pkg: "NoahLiu/native-gui/inspector"
+@inspector.inspector_panel(refresh_ms=500, auto=false, table_h=240.0, width=640.0)
+```
+
+Three blocks:
+
+- **Widget tree**: sourced from the `@widget.a11y_last_frame()` end-of-frame semantic snapshot — the same one screen readers see; invisible subtrees are entirely absent, and the panel itself appears in the tree (expected); indented by parent chain, click a row to select
+- **Selected readouts**: id / parent / role / name / state / value / text / enabled / window rect
+- **Frame cost**: `@base.paint_profile_summary()` (layout/paint/present totals and max frame); "Reset" zeroes the ledger
+
+Refresh reads the "previous frame" snapshot — interact first, then refresh, or turn on auto refresh (500ms self-rearming timer). Edit write-back (styling fed back into the UI) arrives with v2 over the mngdev channel.
+
 ## Next steps
 
 - [Five-minute tutorial](tutorial.md): MoonBit syntax at a glance + the click counter (the minimal form of `Store` reactivity)

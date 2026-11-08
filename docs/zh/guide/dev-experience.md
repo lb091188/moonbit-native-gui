@@ -134,6 +134,23 @@ fn reset() {
 
 构建期更深一层的失败（prebuild 解释器、workspace 传染、Windows 链接库、vendor 下载）见[构建与运行](build.md) §6，那里按现象给根因与处置。
 
+## 6. 内建 Inspector（调试界面）
+
+库包 `NoahLiu/native-gui/inspector`（应用按需 import），挂一块只读面板进任意容器：
+
+```moonbit
+// moon.pkg: "NoahLiu/native-gui/inspector"
+@inspector.inspector_panel(refresh_ms=500, auto=false, table_h=240.0, width=640.0)
+```
+
+三块读数：
+
+- **控件树**：数据源 `@widget.a11y_last_frame()` 帧尾语义快照——与屏读同源，不可见子树整棵不在快照里，面板自己也出现在树里（预期）；按父链缩进，点行选中
+- **选中读数**：id / parent / role / name / state / value / text / enabled / 窗口矩形
+- **帧耗时**：`@base.paint_profile_summary()`（布局/绘制/上屏分段累计与最大帧），「重置统计」清零重算
+
+刷新读的是「上一帧」快照——先动一动界面再点刷新，或开自动刷新（500ms 自重排延时表）。编辑回灌（改样式回灌界面）随 v2 走 mngdev 通道。
+
 ## 下一步
 
 - [五分钟上手教程](tutorial.md)： MoonBit 语法速览 + 点击计数器（`Store` 响应式的最小形态）
