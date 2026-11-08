@@ -853,6 +853,23 @@ test "步进器悬停底不吃焦点环：环压在盒子最外一圈像素" {
 }
 
 ///|
+test "步进器契约收敛：初始越界与外部越界赋值都夹回区间并写回 Store" {
+  let st = @base.Store::new(11)
+  let root = mount_root([stepper(st, min=0, max=10)], 260.0, 60.0)
+  // 初始值越界：构造期夹到 max
+  assert_eq(st.get(), 10)
+  // 第三方推越界值：订阅回调里同样收敛（写回 Store，旁路绑定一致）
+  st.set(-3)
+  assert_eq(st.get(), 0)
+  st.set(99)
+  assert_eq(st.get(), 10)
+  // 界内值不受影响
+  st.set(7)
+  assert_eq(st.get(), 7)
+  let _ = root
+}
+
+///|
 test "步进器中间格可打字：只收数字，回车与失焦才回写并夹取" {
   let st = @base.Store::new(7)
   let root = mount_root([stepper(st, min=0, max=10)], 260.0, 60.0)

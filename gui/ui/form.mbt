@@ -723,6 +723,7 @@ fn int_of_digits(s : String) -> Int? {
 /// 中间格是输入框：只收数字（区间含负数时连负号一起收），回车、失焦、点 +/- 或按
 /// ↑/↓ 都先把它回写并夹取（点钮不会让出焦点，不先成交就会按旧值走），
 /// 中途的半成品（空串、越界、`-`）不动值。
+/// 契约收敛：初始值与外部赋值的越界值同样夹回区间并写回 Store（旁路绑定一致）。
 /// 键盘口径：↑ 加、↓ 减（←/→ 归输入框移光标），整支控件占一个 Tab 位、落在中间格；
 /// 聚焦时外框描边转主题色。
 pub fn stepper(
@@ -742,6 +743,18 @@ pub fn stepper(
   let lo = min
   let hi = if max > min { max } else { min }
   let inc = if step > 0 { step } else { 1 }
+  // 契约收敛：任何来源的越界值（script 初始值、第三方 set）都夹回区间并写回
+  // Store——stepper 是这一字段 min/max 的契约所有者，只夹点钮与打字两处，
+  // `计数: {{ count }}` 这类旁路绑定就会读到越界值。
+  let enforce = fn() -> Unit {
+    let v = state.get()
+    if v < lo {
+      state.set(lo)
+    } else if v > hi {
+      state.set(hi)
+    }
+  }
+  enforce()
   let minus_off = Enabled::new(state.get() <= lo)
   let plus_off = Enabled::new(state.get() >= hi)
   let text = @base.Store::new(state.get().to_string())
@@ -796,8 +809,13 @@ pub fn stepper(
       None => ()
     }
   }
-  // 值变 → 中间格跟随；串已经表示同一个数就不动（`007` 这类在打的串不被顶回）
+  // 值变 → 中间格跟随；串已经表示同一个数就不动（`007` 这类在打的串不被顶回）。
+  // 越界值先夹回（set 同步再进本订阅，c 已在界内走常规分支）再照常跟随。
   let sid = state.subscribe_id(fn(v : Int) -> Unit {
+    if v < lo || v > hi {
+      state.set(v.clamp(min=lo, max=hi))
+      return
+    }
     if int_of_digits(text.get()) != Some(v) {
       write(v)
     }
