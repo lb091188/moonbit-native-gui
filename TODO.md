@@ -17,6 +17,22 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 
 （2026-11-07 全部收口：X11 三角形真机过（三色三角形、关窗/Esc 正常退出）；GPU 画布 mac/win/Linux 三腿真机全过——Linux 应用进程「检查读回」非零、与无头用例一致；Linux L1 独立 X 子窗口承载真机复验含最小化恢复场景。GPU 验证队列清空，后续实现批（视频直纹理、GPU 控件纹理进合成器等）见 roadmap「已规划 · 渲染」与 proposals）
 
+## 打包与自动更新（2026-11-08 立项，方向见 [proposals/方向.md](proposals/方向.md) A1/A2/A3；一项一提交，做完删一项；先 CPU 光栅最小闭环，不绑 GPU 线）
+
+> 产物钉死四件：macOS DMG、Windows setup（NSIS）、Linux deb + AppImage；tar.gz 与 PKGBUILD 不做。Linux 自动更新走 AppImage 单文件替换，deb 档报新版本引导下载。
+
+- [ ] **A1 mac 腿**：`mng package` 子命令骨架（TOML `[package]` / `[package.sign]` 解析、Artifacts 抓路径、release-bin 的 .app 组装上收）+ icns 派生 + DMG + 更新载体 zip + 签名入口（adhoc / identity / 公证档）
+- [ ] **A1 win 腿**：NSIS（探测 makensis，缺失自动下载）、per-user 装法、`.ico` 多尺寸
+- [ ] **A1 linux 腿**：deb（control+md5+desktop entry 纯脚本）+ AppImage（appimagetool/AppRun，探测缺失自动下载，同 makensis 模式）
+- [ ] **A2 更新器 v1**：清单检查（pr_run curl）→ 全量下载 + SHA256 → 原子替换（win rename swap）→ relaunch + 本库 widget 更新窗口；Linux 更新档=AppImage 单文件自替换，deb 档报新版本引导下载
+- [ ] **A2 mng publish**：`update-<target>.json` 清单生成 + GitHub Releases 上传（draft 起步）
+- [ ] **A3 最小登记面**：desktop entry / Info.plist 基础键随打包落；深链与文件关联后置
+
+## 内建 inspector（2026-11-08 立项，方向见 [proposals/方向.md](proposals/方向.md) A4；一项一提交，做完删一项）
+
+- [ ] **v1 只读面板**：独立窗或 dev 档入口——控件树浏览（数据源 `a11y_last_frame` 帧尾快照）+ 选中高亮 + 样式/布局读数 + `paint_profile_summary` 帧耗时
+- [ ] **v2 编辑回灌**：选中控件样式经 mngdev 热更通道改 class/样式值回灌（通道能力已存在，接 inspector 面板）
+
 ## mngdev 库包与工具链联动（2026-11-07 立项，方案见 [proposals/mngdev-library.md](proposals/mngdev-library.md)；一项一提交，做完删一项）
 
 （代码侧四件全部落地并逐项提交推送：dev 面进库 c8051433、lsp 诊断联动 411cbc2e、脚手架 7acf24e3、文档收口本笔；本批只剩真机/编辑器复验，均由用户执行）

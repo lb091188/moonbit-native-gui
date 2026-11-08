@@ -339,8 +339,13 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **模板 DX 补全批**（2026-11-06 排定；🚧 真机待验：v-for 行复用 SC-6.6、`mng dev` 新增/删模板与源文件重启、项目级 `mng build` 双形态提交，方案与测试切分见 [proposals/terminal-sfc-dx.md](proposals/terminal-sfc-dx.md) §2）：✅ `v-for` 生成器已落（源限 `@base.ListStore` keyed，`:key` 走 `key=`、缺省 `for_list_indexed` 下标对齐；`(别名, 下标)` 支持且下标未引用自动垫 `_` 保零警告；嵌套 v-for / 与 v-if 同元素 / 孤儿 `:key` 报错；dev 档行子树不进注册表、含 v-for 的模板热更一律转 COLD；showcase「模板列表」段演示，SC-6.6）；✅ 项目级 `mng build` 已落（无参按 `mng.toml` 一次生成全工程生产形态写回模板同包、map 落 `.mng/map/`；生成物对账改 dev/prod 双形态任一匹配；顺带修 `scan_dir_mng` 把 dev 产物目录 `.mng/` 当模板的撞名误报）；✅ `mng dev` watch 覆盖面已落（每拍重扫模板：新增并入本拍构建/重启、删除清登记与生成码——生成头匹配才安全删否则只报路径；工程源文件 `.mbt`（排 `.gen.mbt`）/`moon.pkg`/`moon.mod`/`moon.work` 变更并入本拍 COLD；生成码自身不监听防自激；`scan_source_files`/`diff_file_sets` 纯函数用例钉住）
 - ⏳ **上游诉求**：moonbitlang native 目标 hot reload / 运行时多模块 + native 增量链接；落地当天 IR 通道升格真代码热换、状态迁移层（快照设计）复活、回退路径消失
 
+- ⏳ **内建 inspector**:v1 只读面板(控件树浏览吃 `a11y_last_frame` 帧尾快照 + 选中高亮 + 样式/布局读数 + `paint_profile_summary` 帧耗时,挂 dev 档或独立窗);v2 编辑回灌走 mngdev 样式类热更通道(2026-11-08 立项,方向见 [proposals/方向.md](proposals/方向.md) A4)
+
 ### 工程与交付
 
+- ⏳ **应用打包管线**：`mng build --release` / `mng package`——产物钉死四件:macOS `.app` 装进 DMG(hdiutil,布局自生成)、Windows NSIS setup 安装器(探测 makensis 缺失自动下载、per-user 装法为更新铺路)、Linux deb + AppImage(desktop entry 随包;tar.gz 与 PKGBUILD 不做);图标与资源随包(video 示例 ffmpeg 随包为先例);CI 保构建、安装卸载观感走真机清单(2026-11-08 立项,方向见 [proposals/方向.md](proposals/方向.md) A1)
+- ⏳ **自动更新**：检查(pr_run curl 拉清单)→ 全量下载 + SHA256 校验 → 原子替换(posix rename / Windows rename swap)→ relaunch;Linux 更新档=AppImage 单文件自替换、deb 档报新版本引导下载;更新窗口用本库 widget;清单格式预留 `sig`/`sig_alg`/`delta` 字段(v1 空档,v1.5 启 Ed25519、v2 启增量,免破坏性变更);发布侧 `mng publish` 生成清单并发 GitHub Releases(2026-11-08 立项,方向见 [proposals/方向.md](proposals/方向.md) A2)
+- ⏳ **桌面登记面**：深链 scheme、文件关联、最近文档写侧——登记声明进 `mng.toml`、打包器落各平台清单、唤起事件经单实例通道回投(随打包批落地,方向见 [proposals/方向.md](proposals/方向.md) A3)
 - ⏳ **稳定面清单与 1.0 时点**：逐包划分承诺面 / 实验面，公告破坏性改动截止线
 - ⏳ **无头像素快照基线**（PNG + 容差）：自带基线目录与比对器、三平台各一份基线，`moon test` 无快照机制故全部自建；判据（容差怎么定、基线漂了谁批）待立项时定，工作量大于门面本体，故从 P1 拆出（2026-11-03 定案：单独立项，不进 P1）
 
