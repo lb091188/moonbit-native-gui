@@ -1,11 +1,13 @@
 // mng package:应用打包。本平台打本平台包(D1);平台分腿——
 // mac 腿:.app 组装 + icns 派生 + DMG + 更新载体 zip + 签名/公证档;
-// win 腿:NSIS setup 安装器 + ICO 派生 + 更新载体 zip + signtool 档。
-// 配置在 mng.toml [package] / [package.sign];方案见 proposals/package-update.md。
-// 产物落 <项目根>/.mng/dist/,不进源码树。约定在项目根执行(与 mng dev 同口径)。
+// win 腿:NSIS setup 安装器 + ICO 派生 + 更新载体 zip + signtool 档;
+// linux 腿:deb + AppImage(AppImage 兼作更新载体)。
+// 配置在 mng.toml [package] / [package.sign] / [package.linux];方案见
+// proposals/package-update.md。产物落 <项目根>/.mng/dist/,不进源码树。
+// 约定在项目根执行(与 mng dev 同口径)。
 
 ///|
-/// mng.toml [package] / [package.sign] 原文 → 打包配置(缺省为空)。
+/// mng.toml [package] / [package.sign] / [package.linux] 原文 → 打包配置(缺省为空)。
 priv struct PkgConf {
   mut id : String
   mut name : String
@@ -18,6 +20,8 @@ priv struct PkgConf {
   mut notarize_profile : String // notarytool keychain profile;空 = 不公证
   mut win_cert : String // win 腿消费
   mut win_cert_pw_env : String
+  mut linux_categories : Array[String] // desktop entry Categories;缺省 Utility
+  mut linux_comment : String // desktop entry Comment;可空
 }
 
 ///|
@@ -34,6 +38,8 @@ fn pkg_conf_default() -> PkgConf {
     notarize_profile: "",
     win_cert: "",
     win_cert_pw_env: "",
+    linux_categories: [],
+    linux_comment: "",
   }
 }
 
@@ -74,6 +80,12 @@ fn parse_package_toml(text : String) -> PkgConf {
         "notarize_profile" => t.notarize_profile = unquote(val)
         "win_cert" => t.win_cert = unquote(val)
         "win_cert_pw_env" => t.win_cert_pw_env = unquote(val)
+        _ => ()
+      }
+    } else if section == "package.linux" {
+      match key {
+        "categories" => t.linux_categories = parse_str_array(val)
+        "comment" => t.linux_comment = unquote(val)
         _ => ()
       }
     }
@@ -266,7 +278,7 @@ fn run_tool(file : String, args : Array[String], log : String, timeout_ms : Int)
 
 ///|
 /// 宿主平台判定:Windows 环境变量 OS=Windows_NT;mac 认工具链存在;
-/// 其余(other)= win/linux 腿之外的平台,统一报后批。
+/// 其余(POSIX 且非 mac)按 linux 腿走。
 fn host_pkg() -> String {
   match @env.get_env_var("OS") {
     Some("Windows_NT") => return "win"
@@ -275,7 +287,7 @@ fn host_pkg() -> String {
   if @fs.path_exists("/usr/bin/iconutil") && @fs.path_exists("/usr/bin/hdiutil") {
     return "mac"
   }
-  "other"
+  "linux"
 }
 
 ///|
@@ -426,6 +438,108 @@ fn find_makensis() -> String? {
 }
 
 ///|
+/// desktop entry(AppImage 的放 AppDir 根、deb 的放 usr/share/applications)。
+/// Categories 缺省 Utility;分号分隔、末尾补分号(freedesktop 口径)。
+fn desktop_entry(name : String, slug : String, bin : String, categories : Array[String], comment : String) -> String {
+  let cats = if categories.length() > 0 {
+      categories.join(";") + ";"
+    } else {
+      "Utility;"
+    }
+  let cmt = if comment.length() > 0 {
+      "Comment=" + comment + "\n"
+    } else {
+      ""
+    }
+  "[Desktop Entry]\nType=Application\nName=" + name + "\nExec=" + bin + "\nIcon=" + slug + "\nTerminal=false\n" + cmt + "Categories=" + cats + "\n"
+}
+
+///|
+/// deb 的 DEBIAN/control(架构钉 amd64 = linux-x86_64 支持面)。
+fn deb_control(slug : String, name : String, version : String) -> String {
+  "Package: " + slug + "\nVersion: " + version + "\nSection: utils\nPriority: optional\nArchitecture: amd64\nMaintainer: unknown <>\nDescription: " + name + " (packaged by mng)\n"
+}
+
+///|
+/// AppImage 的 AppRun:解析真实路径后 exec 同树 usr/bin 下的可执行。
+fn apprun_script(bin : String) -> String {
+  "#!/bin/sh\nHERE=\"$(dirname \"$(readlink -f \"$0\")\")\"\nexec \"$HERE/usr/bin/" + bin + "\" \"$@\"\n"
+}
+
+///|
+/// 拷完可执行补可执行位(copy_file 走字节读写不保权限位);win 无 chmod 不调。
+fn ensure_exec(path : String, dist : String) -> Bool {
+  if host_pkg() == "win" {
+    return true
+  }
+  match run_logged("chmod +x " + sq(path), dist + "/chmod.log", 10000) {
+    Ok(_) => true
+    Err(_) => false
+  }
+}
+
+///|
+/// appimagetool 探测与自取:PATH → ~/.mng/tools/appimagetool.AppImage;
+/// 缺失从 AppImageKit continuous 下载(curl -L)并 chmod +x。continuous
+/// 无可钉 sha,校验靠功能探测(--version 落 log);跑法恒带
+/// --appimage-extract-and-run(FUSE 缺失环境也能出包,CI 容器必需)。
+fn find_or_fetch_appimagetool(dist : String) -> String? {
+  let ver_args = ["--appimage-extract-and-run", "--version"]
+  // 1) PATH
+  let probe = "/tmp/mng-appimagetool-probe.log"
+  match run_tool("appimagetool", ver_args, probe, 60000) {
+    Ok(_) =>
+      match slurp(probe) {
+        Some(t) if t.trim().to_owned().length() > 0 => return Some("appimagetool")
+        _ => ()
+      }
+    Err(_) => ()
+  }
+  // 2) 用户级缓存 ~/.mng/tools/
+  let home = match @env.get_env_var("HOME") {
+    Some(h) if h != "" => h
+    _ => return None
+  }
+  let tool = home + "/.mng/tools/appimagetool.AppImage"
+  let tool_ok = @fs.is_file(tool) catch {
+    _ => false
+  }
+  if !tool_ok {
+    println(tmsg("下载 appimagetool(首次)…", "downloading appimagetool (first run)…"))
+    if !mkdir_p(home + "/.mng/tools") {
+      return None
+    }
+    match run_tool(
+        "curl",
+        [
+          "-L", "--retry", "3", "-o", tool,
+          "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage",
+        ],
+        dist + "/appimagetool-dl.log",
+        300000,
+      ) {
+      Ok(_) => ()
+      Err(_) => {
+        print_log_tail(dist + "/appimagetool-dl.log")
+        return None
+      }
+    }
+    if !ensure_exec(tool, dist) {
+      return None
+    }
+  }
+  // 功能探测(缓存过旧损坏时重新下载交下次,先如实报错)
+  match run_tool(tool, ver_args, dist + "/appimagetool-probe.log", 60000) {
+    Ok(_) =>
+      match slurp(dist + "/appimagetool-probe.log") {
+        Some(t) if t.trim().to_owned().length() > 0 => return Some(tool)
+        _ => None
+      }
+    Err(_) => None
+  }
+}
+
+///|
 fn copy_file(src : String, dst : String) -> Bool {
   try {
     let b = @fs.read_file_to_bytes(src)
@@ -487,6 +601,9 @@ fn package_mac(conf : PkgConf, exe : String, bin_name : String, slug : String, d
   }
   if !copy_file(exe, macdir + "/" + bin_name) {
     return Err(tmsg("拷可执行失败:", "copy executable failed: ") + exe)
+  }
+  if !ensure_exec(macdir + "/" + bin_name, dist) {
+    return Err("chmod +x failed: " + bin_name)
   }
   for r in conf.resources {
     if !copy_tree(r, resdir + "/" + basename_of(r)) {
@@ -703,6 +820,154 @@ fn package_win(conf : PkgConf, exe : String, bin_name : String, slug : String, d
 }
 
 ///|
+/// linux 腿:AppImage(AppDir + appimagetool,兼作更新载体)+ deb。
+/// 架构钉 x86_64(与产物名/CI 矩阵一致);deb 腿需 dpkg-deb(deb 系自带)。
+fn package_linux(conf : PkgConf, exe : String, bin_name : String, slug : String, dist : String) -> Result[Array[String], String] {
+  // 宿主架构判定(arm64 宿主打 x86_64 包是名不符实,如实报)
+  match run_tool("uname", ["-m"], dist + "/uname.log", 10000) {
+    Ok(_) =>
+      match slurp(dist + "/uname.log") {
+        Some(m) if m.trim().to_owned() != "x86_64" =>
+          return Err(tmsg(
+            "linux 腿当前只出 x86_64(宿主是 \{m.trim().to_owned()})",
+            "linux packaging targets x86_64 only (host is \{m.trim().to_owned()})",
+          ))
+        _ => ()
+      }
+    Err(e) => return Err("uname failed: " + e)
+  }
+  // ---- AppImage:AppDir 组装 ----
+  let appdir = dist + "/" + slug + ".AppDir"
+  let bindir = appdir + "/usr/bin"
+  if !mkdir_p(bindir) {
+    return Err("mkdir AppDir failed")
+  }
+  if !copy_file(exe, bindir + "/" + bin_name) {
+    return Err(tmsg("拷可执行失败:", "copy executable failed: ") + exe)
+  }
+  if !ensure_exec(bindir + "/" + bin_name, dist) {
+    return Err("chmod +x failed: " + bin_name)
+  }
+  if !spit(appdir + "/" + slug + ".desktop", desktop_entry(conf.name, slug, bin_name, conf.linux_categories, conf.linux_comment)) {
+    return Err("write desktop entry failed")
+  }
+  if !spit(appdir + "/AppRun", apprun_script(bin_name)) {
+    return Err("write AppRun failed")
+  }
+  if !ensure_exec(appdir + "/AppRun", dist) {
+    return Err("chmod +x AppRun failed")
+  }
+  let icon_ok = if conf.icon.length() > 0 {
+      copy_file(conf.icon, appdir + "/" + slug + ".png")
+    } else {
+      true
+    }
+  if !icon_ok {
+    return Err(tmsg("icon 拷贝失败:", "icon copy failed: ") + conf.icon)
+  }
+  let sharedir = appdir + "/usr/share/" + slug
+  if !mkdir_p(sharedir) {
+    return Err("mkdir AppDir usr/share failed")
+  }
+  for r in conf.resources {
+    if !copy_tree(r, sharedir + "/" + basename_of(r)) {
+      return Err(tmsg("拷资源失败:", "copy resource failed: ") + r)
+    }
+  }
+  // appimagetool(探测/自取;恒 extract-and-run 免 FUSE 依赖)
+  println(tmsg("出 AppImage…", "creating AppImage…"))
+  let tool = match find_or_fetch_appimagetool(dist) {
+    Some(t) => t
+    None =>
+      return Err(tmsg(
+        "appimagetool 不可用(PATH/下载均失败)——手动装或检查网络后重试",
+        "appimagetool unavailable (PATH/download both failed) — install manually or check network",
+      ))
+  }
+  let appimage = dist + "/\{slug}-\{conf.version}-linux-x86_64.AppImage"
+  match run_tool(tool, ["--appimage-extract-and-run", appdir, appimage], dist + "/appimagetool.log", 300000) {
+    Ok(_) => ()
+    Err(e) => {
+      print_log_tail(dist + "/appimagetool.log")
+      return Err(tmsg("AppImage 打包失败:", "AppImage build failed: ") + e)
+    }
+  }
+  let appimage_ok = @fs.is_file(appimage) catch {
+    _ => false
+  }
+  if !appimage_ok {
+    print_log_tail(dist + "/appimagetool.log")
+    return Err(tmsg("AppImage 没落地:", "AppImage missing: ") + appimage)
+  }
+  if !ensure_exec(appimage, dist) {
+    return Err("chmod +x AppImage failed")
+  }
+  // ---- deb:目录树 + control/md5sums + dpkg-deb ----
+  println(tmsg("出 deb…", "creating deb…"))
+  let debroot = dist + "/debroot"
+  let deb_bin = debroot + "/usr/bin"
+  let deb_share = debroot + "/usr/share/" + slug
+  let deb_apps = debroot + "/usr/share/applications"
+  let deb_icons = debroot + "/usr/share/icons/hicolor/512x512/apps"
+  if !(mkdir_p(deb_bin) && mkdir_p(deb_share) && mkdir_p(deb_apps) && mkdir_p(deb_icons) && mkdir_p(debroot + "/DEBIAN")) {
+    return Err("mkdir debroot failed")
+  }
+  if !spit(debroot + "/DEBIAN/control", deb_control(slug, conf.name, conf.version)) {
+    return Err("write control failed")
+  }
+  if !copy_file(exe, deb_bin + "/" + bin_name) {
+    return Err("copy exe for deb failed")
+  }
+  if !ensure_exec(deb_bin + "/" + bin_name, dist) {
+    return Err("chmod +x failed (deb): " + bin_name)
+  }
+  if !spit(deb_apps + "/" + slug + ".desktop", desktop_entry(conf.name, slug, bin_name, conf.linux_categories, conf.linux_comment)) {
+    return Err("write desktop entry (deb) failed")
+  }
+  let deb_icon_ok = if conf.icon.length() > 0 {
+      copy_file(conf.icon, deb_icons + "/" + slug + ".png")
+    } else {
+      true
+    }
+  if !deb_icon_ok {
+    return Err("icon copy failed (deb)")
+  }
+  for r in conf.resources {
+    if !copy_tree(r, deb_share + "/" + basename_of(r)) {
+      return Err(tmsg("拷资源失败(deb):", "copy resource failed (deb): ") + r)
+    }
+  }
+  // md5sums:数据区全量文件(DEBIAN 自身除外),相对 debroot 根的路径
+  match run_logged(
+      "cd " + sq(debroot) + " && find . -type f -not -path './DEBIAN/*' -exec md5sum {} + > DEBIAN/md5sums",
+      dist + "/md5sums.log",
+      60000,
+    ) {
+    Ok(_) => ()
+    Err(e) => return Err("md5sums failed: " + e)
+  }
+  let deb = dist + "/\{slug}-\{conf.version}-linux-x86_64.deb"
+  match run_logged("dpkg-deb --root-owner-group --build " + sq(debroot) + " " + sq(deb), dist + "/dpkg-deb.log", 300000) {
+    Ok(_) => ()
+    Err(e) => {
+      print_log_tail(dist + "/dpkg-deb.log")
+      return Err(tmsg(
+        "deb 打包失败(需 dpkg-deb,deb 系自带;Arch/Fedora 宿主没它):",
+        "deb build failed (needs dpkg-deb, present on deb distros; not on Arch/Fedora): ",
+      ) + e)
+    }
+  }
+  let deb_ok = @fs.is_file(deb) catch {
+    _ => false
+  }
+  if !deb_ok {
+    print_log_tail(dist + "/dpkg-deb.log")
+    return Err(tmsg("deb 没落地:", "deb missing: ") + deb)
+  }
+  Ok([appimage, deb])
+}
+
+///|
 /// `mng package` 入口:公共前置(配置校验/构建/抓可执行)后按宿主平台分腿。
 fn cmd_package(_args : Array[String]) -> Int {
   let cwd = match @env.current_dir() {
@@ -728,13 +993,12 @@ fn cmd_package(_args : Array[String]) -> Int {
   }
   // 平台分派(D1:本平台打本平台包)
   let host = host_pkg()
-  if host == "other" {
-    return fail_pkg(tmsg("此平台暂不支持——mac/win 各在各自平台打包,linux 腿在后批", "unsupported host — build mac/win on their own platforms; linux comes in a later batch"))
-  }
   let target_name = if host == "mac" {
       "darwin-aarch64"
-    } else {
+    } else if host == "win" {
       "windows-x86_64"
+    } else {
+      "linux-x86_64"
     }
   let slug = slug_of(conf.id)
   let dist = root + "/.mng/dist"
@@ -778,7 +1042,8 @@ fn cmd_package(_args : Array[String]) -> Int {
     }
   let artifacts = match host {
       "mac" => package_mac(conf, exe, bin_name, slug, dist)
-      _ => package_win(conf, exe, bin_name, slug, dist)
+      "win" => package_win(conf, exe, bin_name, slug, dist)
+      _ => package_linux(conf, exe, bin_name, slug, dist)
     }
   match artifacts {
     Err(e) => return fail_pkg(e)

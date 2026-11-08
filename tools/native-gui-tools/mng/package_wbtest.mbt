@@ -261,3 +261,48 @@ test "nsi_script:名字里的 $ 被转义" {
   assert_true(s.contains("A$$B"))
   assert_false(s.contains("A$B"))
 }
+
+test "desktop_entry:字段齐全;categories 缺省 Utility、末尾补分号;comment 可空" {
+  let d = desktop_entry("My App", "myapp", "mybin", [], "")
+  assert_true(d.contains("[Desktop Entry]"))
+  assert_true(d.contains("Name=My App"))
+  assert_true(d.contains("Exec=mybin"))
+  assert_true(d.contains("Icon=myapp"))
+  assert_true(d.contains("Terminal=false"))
+  assert_true(d.contains("Categories=Utility;"))
+  assert_false(d.contains("Comment="))
+  let d2 = desktop_entry("N", "n", "b", ["Development", "Graphics"], "hello")
+  assert_true(d2.contains("Categories=Development;Graphics;"))
+  assert_true(d2.contains("Comment=hello"))
+}
+
+test "deb_control:Package/Version/Architecture 齐全" {
+  let c = deb_control("myapp", "My App", "1.2.0")
+  assert_true(c.contains("Package: myapp"))
+  assert_true(c.contains("Version: 1.2.0"))
+  assert_true(c.contains("Architecture: amd64"))
+  assert_true(c.contains("Description: My App"))
+}
+
+test "apprun_script:exec 同树 usr/bin 的可执行" {
+  let s = apprun_script("mybin")
+  assert_true(s.contains("#!/bin/sh"))
+  assert_true(s.contains("exec \"$HERE/usr/bin/mybin\" \"$@\""))
+}
+
+test "parse_package_toml:[package.linux] 节" {
+  let toml = [
+    "[package]",
+    "id = \"com.a.b\"",
+    "name = \"B\"",
+    "version = \"1.0.0\"",
+    "",
+    "[package.linux]",
+    "categories = [\"Development\", \"Utility\"]",
+    "comment = \"工具\"",
+  ].join("\n")
+  let p = parse_package_toml(toml)
+  assert_eq(p.linux_categories.length(), 2)
+  assert_eq(p.linux_categories[0], "Development")
+  assert_eq(p.linux_comment, "工具")
+}

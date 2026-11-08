@@ -6,9 +6,9 @@
 # 方案见 proposals/package-update.md)。交叉编译不可行(native 后端调本机
 # C 工具链),全平台产物的唯一通道就是本矩阵——单平台开发者本机只出本平台包。
 #
-# 平台就绪:macOS ✅ / Windows ✅(mng package win 腿已合入;NSIS 由本工作流
-# choco 安装);Linux 的 job 骨架已预置、暂注释禁用,腿合入后取消注释即启用,
-# 汇总腿按「下载到的产物」现算清单,无需随腿改动。
+# 平台就绪:macOS ✅ / Windows ✅(NSIS 由本工作流 choco 安装)/
+# Linux ✅(appimagetool 缺失自动下载;deb 用系统 dpkg-deb)。汇总腿按
+# 「下载到的产物」现算清单,无需随腿改动。
 #
 # 更新载体规则(汇总腿只把它们写进 update.json 的 platforms):
 #   darwin-aarch64 → *.zip;windows-x86_64 → *.zip;linux-x86_64 → *.AppImage
@@ -33,8 +33,7 @@ jobs:
         include:
           - { plat: darwin-aarch64, os: macos-latest }
           - { plat: windows-x86_64, os: windows-latest }
-          # 待 mng package linux 腿合入(TODO A1 linux 腿)后启用:
-          # - { plat: linux-x86_64, os: ubuntu-latest }
+          - { plat: linux-x86_64, os: ubuntu-latest }
 
     runs-on: ${{ matrix.os }}
 

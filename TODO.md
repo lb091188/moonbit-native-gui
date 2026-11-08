@@ -24,7 +24,7 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 - [ ] **A1 mac 腿**：`mng package` 子命令骨架（TOML `[package]` / `[package.sign]` 解析、Artifacts 抓路径、release-bin 的 .app 组装上收）+ icns 派生 + DMG + 更新载体 zip + 签名入口（adhoc / identity / 公证档）
 - [ ] **A1 mac 腿真机复验**（用户执行）：`cd examples/showcase && moon run ../../tools/native-gui-tools/mng -- package`——`.mng/dist/` 应出 `Native GUI Showcase.app` + `showcase-0.1.0-darwin-aarch64.dmg/.zip` 三件；挂 DMG 拖装运行（adhoc 首启 Gatekeeper 右键放行属已知），看 Dock 图标（assets/icon.png 派生）与资源
 - [ ] **A1 win 腿真机复验**（用户执行，Windows + NSIS）：`winget install NSIS.NSIS` 后 `cd examples\showcase && moon run ..\..\tools\native-gui-tools\mng -- package`——`.mng\dist\` 应出 `showcase-0.1.0-windows-x86_64.exe`（setup）与 `.zip`；双击 setup 装 per-user（开始菜单快捷方式、「应用与功能」可卸载）、SmartScreen 提示属无签已知；exe/ico/资源落位
-- [ ] **A1 linux 腿**：deb（control+md5+desktop entry 纯脚本）+ AppImage（appimagetool/AppRun，探测缺失自动下载，同 makensis 模式）
+- [ ] **A1 linux 腿真机复验**（用户执行，Linux x86_64）：`cd examples/showcase && moon run ../../tools/native-gui-tools/mng -- package`——首跑自动下载 appimagetool（落 ~/.mng/tools/），`.mng/dist/` 应出 `showcase-0.1.0-linux-x86_64.AppImage` 与 `.deb`；AppImage 双击/终端跑（FUSE 缺环境可 `--appimage-extract-and-run`）、`sudo dpkg -i` 装（应用菜单出现 desktop entry、`dpkg -r` 卸干净）
 - [ ] **A2 更新器 v1**：清单检查（pr_run curl）→ 全量下载 + SHA256 → 原子替换（win rename swap）→ relaunch + 本库 widget 更新窗口；Linux 更新档=AppImage 单文件自替换，deb 档报新版本引导下载
 - [ ] **A2 mng publish**：`update-<target>.json` 清单生成 + GitHub Releases 上传（draft 起步）——CI 侧已落（release-app.yml 汇总腿现算清单发 draft），剩本地版
 - [ ] **A3 最小登记面**：desktop entry / Info.plist 基础键随打包落；深链与文件关联后置
