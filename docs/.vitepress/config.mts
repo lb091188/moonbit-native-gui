@@ -72,6 +72,7 @@ const zhGuideSidebar = [
       { text: '先跑起来看看', link: '/zh/guide/experience' },
       { text: '应用开发者体验', link: '/zh/guide/dev-experience' },
       { text: '构建与运行', link: '/zh/guide/build' },
+      { text: '打包与自动更新', link: '/zh/guide/publish' },
     ],
   },
   {
@@ -178,6 +179,7 @@ const enGuideSidebar = [
       { text: 'Try the demos', link: '/guide/experience' },
       { text: 'App developer experience', link: '/guide/dev-experience' },
       { text: 'Build & run', link: '/guide/build' },
+      { text: 'Packaging & auto-update', link: '/guide/publish' },
     ],
   },
   {

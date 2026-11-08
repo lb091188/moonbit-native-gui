@@ -40,3 +40,11 @@
 
 - 消息框配套查询：`MsgBoxKind` 对应的图标、图标色，`buttons` 清单里主色默认按钮的编号——自绘标题栏或复刻消息框时取
 
+### `update_dialog(visible : Store[Bool], flow : UpdateFlow, actions : UpdateActions, current_version?, title?="软件更新", width?=400, …)`
+
+- 应用更新对话框：按 `flow.state` 走「检查中 → 有新版 → 下载中 → 就绪 → 安装重启」状态机视图；`visible` 驱动弹 / 收
+- 组件只管状态机与视图：按钮先标状态再触发 `actions` 里注入的闭包，动作结果经 `flow.report_check / report_download / report_install` 喂回（网络与磁盘怎么跑由装配方决定，组件不硬塞）
+- `make_update_flow()` 建账本（状态 Store + 检查命中清单 + 下载载体路径）；`sys_update_actions(flow, manifest_url, current_version, quit)` 是直连 `@sys.update_*` 的最短装配（动作错一拍再跑，Loading 至少先画出来；sys 子进程同步执行，大文件下载期间界面停摆是 v1 已知取舍）
+- 失败态按可重试步给「重试」钮（重检查 / 重下载），安装失败不给重试钮；Installing 无出口（成功路径是 relaunch + 退出）
+- 清单格式与发布链路见[发布与更新](/guide/publish.md)
+

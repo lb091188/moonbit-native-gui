@@ -151,6 +151,23 @@ fn msgbox_result_label(r : @win.MessageBoxResult) -> String {
 ///|
 /// 系统集成页。页内私有状态（回显/托盘句柄/周期表句柄）不进共享 App。
 pub fn page_system(app : @shared.App) -> @widget.Node {
+  // 应用更新:演示后端(延时假结果)与真实后端(直连 @sys.update_*)各一棵
+  let demo_open : @base.Store[Bool] = @base.Store::new(false)
+  let demo_flow = @ui.make_update_flow()
+  let demo_actions = demo_update_actions(demo_flow, demo_open, app)
+  let real_open : @base.Store[Bool] = @base.Store::new(false)
+  let real_flow = @ui.make_update_flow()
+  let real_actions = @ui.sys_update_actions(
+    real_flow,
+    REAL_UPDATE_URL,
+    PKG_VERSION,
+    fn() {
+      match app.host.val {
+        Some(a) => a.quit()
+        None => ()
+      }
+    },
+  )
   let file_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没选过文件）"))
   let mb_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没弹过框）"))
   let nt_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没发过通知）"))
@@ -939,7 +956,89 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
         "@sys.cbw_stop(w)",
       ],
     ),
+
+    @shared.section(
+      "更新",
+      "应用自更新",
+      "「检查 → 有新版 → 下载 → 安装重启」的现成对话框(update_dialog):组件只管状态机与视图,网络/磁盘动作由调用方注入闭包。演示后端延时喂假结果走完全部状态(不碰网络与磁盘);真实后端用库侧 sys_update_actions 直连 @sys.update_*(拉本仓库 Release 的 update.json——CI 首跑 tag app-v0.1.0 之前是 404,失败提示也是链路的一部分;真实安装会替换文件并重启,别在没发布过的版本上点「重启并安装」)。已知取舍:sys 走子进程同步执行,大文件下载期间界面停摆(异步执行器随平台线程批)。",
+      [
+        @ui.row(
+          [
+            @ui.button(@shared.tx("检查更新(演示)"), on_click=fn() {
+              demo_open.set(true)
+            }),
+            @ui.button(@shared.tx("检查更新(真实清单)"), variant=@ui.Soft, on_click=fn() {
+              real_open.set(true)
+            }),
+            @ui.text(
+              @shared.tx("当前版本:演示版 0.3.1 / 打包口径 0.1.0"),
+              class=[@style.text_secondary],
+            ),
+          ],
+          column_gap=8.0,
+          align_items=@yoga.AlignItems::Center,
+        ),
+        // 两棵对话框锚点(0 高占位,开时进浮层图层)
+        // 演示框的「当前版本」取库版本号(与侧栏同源,见 main.mbt)
+        @ui.update_dialog(demo_open, demo_flow, demo_actions, current_version="0.3.1"),
+        @ui.update_dialog(real_open, real_flow, real_actions, current_version=PKG_VERSION),
+      ],
+      code=[
+        "// 组件:状态机账本 + 动作注入,按钮触发动作、report 口收结果",
+        "let flow = @ui.make_update_flow()",
+        "let actions = @ui.sys_update_actions(",
+        "  flow, \"https://…/releases/latest/download/update.json\", \"0.1.0\",",
+        "  quit=fn() { a.quit() },  // 安装成功:relaunch 已发起,立刻退",
+        ")",
+        "@ui.update_dialog(open_store, flow, actions, current_version=\"0.1.0\")",
+        "// 自定义调度(后台线程/子进程)就换掉 actions 里的三个闭包,",
+        "// 组件面不动:flow.report_check / report_download / report_install",
+      ],
+    ),
   ])
+}
+
+///|
+/// 打包口径的版本号(mng.toml [package].version):真实更新链路拿它比对
+/// 清单(CI 按 app-v* 标签版本发 update.json),与侧栏的库版本号不是一个。
+const PKG_VERSION : String = "0.1.0"
+
+///|
+/// 真实清单地址:本仓库 Release 的 latest update.json(release-app 工作流出)。
+const REAL_UPDATE_URL : String = "https://github.com/NoahLiu/moonbit-native-gui/releases/latest/download/update.json"
+
+///|
+/// 演示后端:延时喂假结果,不碰网络与磁盘——检查 0.6s 出「0.9.9」,
+/// 下载 1.2s 出假载体,安装 0.9s 关框并冒提示(不真替换文件)。
+fn demo_update_actions(
+  flow : @ui.UpdateFlow,
+  open : @base.Store[Bool],
+  app : @shared.App,
+) -> @ui.UpdateActions {
+  {
+    check: fn() {
+      let _ = @shell.set_timeout(600, fn() {
+        let m : @sys.UpdateManifest = {
+          version: "0.9.9",
+          notes: "演示后端编的新版本:走完全部状态,不会真下载。",
+          pub_date: "2026-11-08T00:00:00Z",
+          assets: [],
+        }
+        flow.report_check(Ok(Some(m)))
+      })
+    },
+    download: fn() {
+      let _ = @shell.set_timeout(1200, fn() {
+        flow.report_download(Ok("/tmp/(演示)showcase-0.9.9.carrier"))
+      })
+    },
+    install: fn() {
+      let _ = @shell.set_timeout(900, fn() {
+        open.set(false)
+        app.toast_push(@shared.tx("演示安装完成:真实链路会替换文件并重启"), @ui.Success)
+      })
+    },
+  }
 }
 
 ///|

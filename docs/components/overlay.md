@@ -33,3 +33,11 @@ Overlays — dialog / popover / menu / tooltip — all open on the window-wide *
 ### `msgbox_icon_of(kind)` / `msgbox_icon_color_of(kind)` / `msgbox_default_code(buttons)`
 
 - Message-box companions: the icon and icon colour for a `MsgBoxKind`, and the primary button's code in a `buttons` list — for self-drawn title bars or message-box clones
+
+### `update_dialog(visible : Store[Bool], flow : UpdateFlow, actions : UpdateActions, current_version?, title?, width?=400, …)`
+
+- App self-update dialog: walks the "checking → available → downloading → ready → install & restart" state machine from `flow.state`; `visible` drives open / close
+- The component owns only the state machine and the view: buttons mark state first, then fire the closures injected in `actions`; results feed back through `flow.report_check / report_download / report_install` (how network and disk actually run is the wiring's business, the component does not hardcode it)
+- `make_update_flow()` builds the ledger (state Store + found manifest + carrier path); `sys_update_actions(flow, manifest_url, current_version, quit)` is the shortest wiring straight into `@sys.update_*` (each action is deferred one tick so the loading state paints first; sys runs subprocesses synchronously, so the UI stalls during large downloads — a known v1 trade-off)
+- The failure state offers Retry per retryable step (re-check / re-download); install failures offer no retry; Installing has no exit (the success path is relaunch + quit)
+- Manifest format and the release pipeline: see [Packaging & auto-update](/guide/publish.md)
