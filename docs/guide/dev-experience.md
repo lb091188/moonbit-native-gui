@@ -45,7 +45,7 @@ From the repository root:
 
 ```sh
 moon install ./tools/native-gui-tools/mng
-mng --version   # prints mng 0.2.5 and mng-schema 1
+mng --version   # prints mng 0.2.6 and mng-schema 1
 ```
 
 CLI prompts and errors switch between Chinese and English via `LC_ALL` / `LC_MESSAGES` / `LANG` (a `zh` prefix selects Chinese, which is also the default); the `dev` watch log and compiler diagnostics stay in Chinese.

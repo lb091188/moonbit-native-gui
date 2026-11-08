@@ -63,13 +63,13 @@ fn usage() -> Unit {
   )
   usage_line(
     "  build <input.mng> -o <out.mbt>",
-    "编译模板：产出 out.mbt 与 out.mbt.map；无参按 mng.toml 生成全工程生产形态（会覆盖 dev 形态生成码）",
-    "Compile template: writes out.mbt and out.mbt.map; with no args, whole-project production generation per mng.toml (overwrites dev-form generated code)",
+    "编译模板：产出 out.mbt 与 out.mbt.map；无参跑全工程生产形态",
+    "Compile template: writes out.mbt and out.mbt.map; no args runs whole-project production generation",
   )
   usage_line(
     "  gen <input.mng> -o <out.mbt>",
-    "dev 形态编译（CI 生成物对账用，无 map）",
-    "Dev-form compile (for CI artifact reconciliation, no map)",
+    "dev 形态编译单个模板",
+    "Dev-form compile of a single template",
   )
   usage_line(
     "  map-errors --map <out.mbt.map> <log>",
@@ -78,13 +78,13 @@ fn usage() -> Unit {
   )
   usage_line(
     "  ir <input.mng>",
-    "打印模板的 IR 补丁（调试与注册表校准）",
-    "Print the template IR patch (debug / registry calibration)",
+    "打印模板的 IR 补丁",
+    "Print the template IR patch",
   )
   usage_line(
     "  new <name>",
-    "生成可跑最小模板工程（moon.mod/moon.pkg/mng.toml/main/首页+dev 生成码）",
-    "Generate a runnable minimal template project (moon.mod/moon.pkg/mng.toml/main/home + dev generated code)",
+    "生成可跑最小模板工程",
+    "Generate a runnable minimal template project",
   )
   usage_line(
     "  new app <name>",
@@ -93,41 +93,107 @@ fn usage() -> Unit {
   )
   usage_line(
     "  new page <路径>",
-    "生成单页 .mng 样板（可带路径，如 pages/about）",
-    "Generate a single-page .mng sample (path allowed, e.g. pages/about)",
+    "生成单页 .mng 样板",
+    "Generate a single-page .mng sample",
   )
   usage_line(
     "  lsp",
-    "语言服务（stdio JSON-RPC：诊断/补全/hover/跳转）",
-    "Language server (stdio JSON-RPC: diagnostics/completion/hover/goto)",
+    "语言服务",
+    "Language server",
   )
   usage_line(
     "  init",
-    "在模块根写 mng.toml 样板（dev 的项目级配置）",
-    "Write an mng.toml sample at module root (project-level dev config)",
+    "在模块根写 mng.toml 样板",
+    "Write an mng.toml sample at module root",
   )
   usage_line(
     "  --version",
-    "版本与 mng-schema 位（插件握手用）",
-    "Version and mng-schema bit (plugin handshake)",
+    "版本与 mng-schema 位",
+    "Version and mng-schema bit",
   )
   usage_line(
     "  -v",
-    "版本与 mng-schema 位（插件握手用）",
-    "Version and mng-schema bit (plugin handshake)",
+    "版本与 mng-schema 位",
+    "Version and mng-schema bit",
   )
   usage_line(
     "  -V",
-    "版本与 mng-schema 位（插件握手用）",
-    "Version and mng-schema bit (plugin handshake)",
+    "版本与 mng-schema 位",
+    "Version and mng-schema bit",
   )
   usage_line(
     "  dev ...",
-    "watch + 契约分类 + 回退编排（dev 无参看细目）",
-    "Watch + contract classification + rebuild orchestration (run `dev` with no args for details)",
+    "watch + 契约分类 + 回退编排；-h 看细目",
+    "Watch + contract classification + rebuild orchestration; -h for details",
+  )
+  println(
+    tmsg(
+      "子命令加 -h 看详细说明。",
+      "Add -h to a subcommand for details.",
+    ),
   )
 }
 
+///|
+/// 各子命令详细帮助（`mng <cmd> -h`）。
+fn help_build() -> Unit {
+  println(tmsg("用法：mng build [<input.mng> -o <out.mbt>]", "Usage: mng build [<input.mng> -o <out.mbt>]"))
+  println(tmsg("  单文件：读模板 → 编译 → 写出生成码 out.mbt 与 source map out.mbt.map", "  Single file: read template -> compile -> write generated code out.mbt and source map out.mbt.map"))
+  println(tmsg("  无参：按 mng.toml 生成全工程生产形态，生成码落模板同包——会覆盖 dev 形态生成码", "  No args: whole-project production generation per mng.toml, code lands next to each template — overwrites dev-form generated code"))
+  println(tmsg("  错误里的 <gen>.mbt:行:列 用 `mng map-errors` 映射回模板行列", "  Map <gen>.mbt:line:col in errors back to template line:col with `mng map-errors`"))
+}
+
+///|
+fn help_gen() -> Unit {
+  println(tmsg("用法：mng gen <input.mng> -o <out.mbt>", "Usage: mng gen <input.mng> -o <out.mbt>"))
+  println(tmsg("  dev 形态编译单个模板，生成码写 -o，不产 source map", "  Dev-form compile of one template; generated code goes to -o, no source map"))
+  println(tmsg("  与 `mng dev` 首轮编译同一形态：CI 重生成后与提交的 <stem>.gen.mbt diff 对账", "  Same form as `mng dev` first pass: regenerate in CI and diff against the committed <stem>.gen.mbt"))
+}
+
+///|
+fn help_map_errors() -> Unit {
+  println(tmsg("用法：mng map-errors --map <out.mbt.map> <log>", "Usage: mng map-errors --map <out.mbt.map> <log>"))
+  println(tmsg("  把日志里 <gen>.mbt:行:列 经 source map 映射回 <source>:行:列，结果打到 stdout", "  Rewrite <gen>.mbt:line:col positions in the log via the source map to <source>:line:col, result on stdout"))
+  println(tmsg("  map 由 `mng build` 生成", "  The map is written by `mng build`"))
+}
+
+///|
+fn help_ir() -> Unit {
+  println(tmsg("用法：mng ir <input.mng>", "Usage: mng ir <input.mng>"))
+  println(tmsg("  打印模板的 IR 补丁 JSON——调试与注册表键校准用", "  Print the template's IR patch JSON — for debugging and registry-key calibration"))
+}
+
+///|
+fn help_new() -> Unit {
+  println(tmsg("用法：mng new <工程名> | mng new app <工程名> | mng new page <页路径>", "Usage: mng new <name> | mng new app <name> | mng new page <path>"))
+  println(tmsg("  new <名>：在 ./<名>/ 生成可跑最小模板工程——moon.mod（gui/yoga 版本仓内现读、仓外兜底值）、", "  new <name>: generate a runnable minimal project in ./<name>/ — moon.mod (gui/yoga versions read live inside this workspace, fallback outside),"))
+  println(tmsg("    全套 import 的 moon.pkg、mng.toml、main.mbt（单实例 + 三条 dev 通道 + 唤起泵）、pages/home.mng 与 dev 形态生成码", "    a moon.pkg with the full import set, mng.toml, main.mbt (single instance + three dev channels + wake pump), pages/home.mng and dev-form generated code"))
+  println(tmsg("  new app <名>：同 new <名>，显式写法", "  new app <name>: same as new <name>, explicit form"))
+  println(tmsg("  new page <路径>：生成单页 .mng 样板；路径可带目录（如 pages/about），父目录现建，.mng 后缀可省", "  new page <path>: generate a single-page .mng sample; path may include dirs (e.g. pages/about), parent dirs are created, the .mng suffix is optional"))
+  println(tmsg("  工程名合法化：字母/数字/下划线/连字符，数字开头垫 _；目录已存在拒绝，不覆盖", "  Name normalization: letters/digits/underscore/hyphen, leading digit gets a _ prefix; an existing directory is refused, never overwritten"))
+}
+
+///|
+fn help_lsp() -> Unit {
+  println(tmsg("用法：mng lsp", "Usage: mng lsp"))
+  println(tmsg("  stdio JSON-RPC 语言服务：模板结构实时诊断、保存时 moon check 回投、补全/hover/跳转、语义令牌", "  stdio JSON-RPC language server: live template-structure diagnostics, moon check feedback on save, completion/hover/goto, semantic tokens"))
+  println(tmsg("  握手：编辑器先读 `mng --version` 的 mng-schema 位，不一致则补全降级", "  Handshake: the editor reads the mng-schema bit from `mng --version`; on mismatch completion degrades"))
+}
+
+///|
+fn help_init() -> Unit {
+  println(tmsg("用法：mng init", "Usage: mng init"))
+  println(tmsg("  向上找模块根（moon.mod / moon.work），写一份带注释的 mng.toml 样板（dev 的项目级配置）", "  Walk up to the module root (moon.mod / moon.work) and write a commented mng.toml sample (project-level dev config)"))
+  println(tmsg("  已有 mng.toml 时不覆盖", "  An existing mng.toml is left untouched"))
+}
+
+///|
+fn help_version() -> Unit {
+  println(tmsg("用法：mng -v | -V | --version", "Usage: mng -v | -V | --version"))
+  println(tmsg("  打印 mng 版本与 mng-schema 位；编辑器插件启动握手用", "  Print the mng version and the mng-schema bit; used for the editor plugin handshake"))
+}
+
+///|
 ///|
 fn slurp(p : String) -> String? {
   let s = @fs.read_file_to_string(p) catch {
@@ -159,7 +225,7 @@ fn basename(p : String) -> String {
 ///|
 /// 工具版本：每落地一批改动 +1（用户重装后凭 --version 区分新旧二进制）。
 /// lsp serverInfo 同源取此常量。
-const MNG_VERSION : String = "0.2.5"
+const MNG_VERSION : String = "0.2.6"
 
 ///|
 /// --version：版本与 mng-schema 位（编辑器插件启动时握手，对不上则补全降级）。
@@ -519,11 +585,41 @@ fn main {
   let cmd = args[0]
   let rest : Array[String] = []
   let mut j = 1
+  let mut wants_help = false
   while j < args.length() {
+    if args[j] == "-h" || args[j] == "--help" {
+      wants_help = true
+    }
     rest.push(args[j])
     j += 1
   }
-  let code = if cmd == "--version" || cmd == "-v" || cmd == "-V" || cmd == "version" {
+  let code = if cmd == "-h" || cmd == "--help" {
+    usage()
+    0
+  } else if wants_help {
+    if cmd == "build" {
+      help_build()
+    } else if cmd == "gen" {
+      help_gen()
+    } else if cmd == "map-errors" {
+      help_map_errors()
+    } else if cmd == "ir" {
+      help_ir()
+    } else if cmd == "new" {
+      help_new()
+    } else if cmd == "lsp" {
+      help_lsp()
+    } else if cmd == "init" {
+      help_init()
+    } else if cmd == "dev" {
+      usage_dev()
+    } else if cmd == "--version" || cmd == "-v" || cmd == "-V" || cmd == "version" {
+      help_version()
+    } else {
+      usage()
+    }
+    0
+  } else if cmd == "--version" || cmd == "-v" || cmd == "-V" || cmd == "version" {
     cmd_version()
   } else if cmd == "build" {
     cmd_build(rest)
