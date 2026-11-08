@@ -29,7 +29,7 @@ priv struct LspOut {
 
 ///|
 fn lsp_ok(reply : String) -> LspOut {
-  { reply: Some(reply), notify: None, stop: false }
+  { reply: Some(reply), notify: None, stop: false, }
 }
 
 ///|
@@ -111,7 +111,7 @@ fn lsp_read_message() -> String? {
 }
 
 ///|
-fn parse_uint(s : String) -> Int? {
+fn parse_uint(s : String) -> Int32? {
   let a = chars_of_cli(s)
   if a.length() == 0 {
     return None
@@ -136,7 +136,7 @@ fn chars_of_cli(s : String) -> Array[Char] {
 }
 
 ///|
-fn slice_cli(a : Array[Char], lo : Int, hi : Int) -> String {
+fn slice_cli(a : Array[Char], lo : Int32, hi : Int32) -> String {
   if hi <= lo {
     ""
   } else {
@@ -175,25 +175,35 @@ fn normalize_path(p : String) -> String {
 
 ///|
 /// `file:///…` → 本地路径（解百分号编码 + 归一化：反斜杠、盘符前导岔斜）。
+/// 非 ASCII 按 UTF-8 组装解码（客户端百分号编码的是 UTF-8 字节序列），
+/// 序列不完整或非法时原样保留。
 fn uri_to_path(uri : String) -> String {
-  let s = if uri.has_prefix("file://") {
-    uri[7:].to_owned()
-  } else {
-    uri
-  }
+  let s = if uri.has_prefix("file://") { uri[7:].to_owned() } else { uri }
   let out = StringBuilder()
   let a = chars_of_cli(s)
   let mut i = 0
   while i < a.length() {
     if a[i] == '%' && i + 2 < a.length() {
       match parse_hex2(a[i + 1], a[i + 2]) {
-        Some(v) => {
-          match v.to_char() {
-            Some(ch) => out.write_char(ch)
-            None => ()
+        Some(v) =>
+          if v < 0x80 {
+            match v.to_char() {
+              Some(ch) => out.write_char(ch)
+              None => ()
+            }
+            i += 3
+          } else {
+            match utf8_seq_at(a, i) {
+              Some((ch, next)) => {
+                out.write_char(ch)
+                i = next
+              }
+              None => {
+                out.write_char(a[i])
+                i += 1
+              }
+            }
           }
-          i += 3
-        }
         None => {
           out.write_char(a[i])
           i += 1
@@ -208,8 +218,55 @@ fn uri_to_path(uri : String) -> String {
 }
 
 ///|
-fn parse_hex2(a : Char, b : Char) -> Int? {
-  let h = fn(c : Char) -> Int? {
+/// 从 `a[i] == '%'` 起尝试组装一个 UTF-8 序列（首字节 + 1~3 个续字节，
+/// 均须 %XX 形态且取值合法）。成功返回（字符，下一个下标）。
+fn utf8_seq_at(a : Array[Char], i : Int32) -> (Char, Int32)? {
+  if i + 2 >= a.length() {
+    return None
+  }
+  let v1 = match parse_hex2(a[i + 1], a[i + 2]) {
+    Some(v) => v
+    None => return None
+  }
+  let n = if v1 >= 0xF0 && v1 <= 0xF4 {
+    3
+  } else if v1 >= 0xE0 && v1 <= 0xEF {
+    2
+  } else if v1 >= 0xC2 && v1 <= 0xDF {
+    1
+  } else {
+    return None
+  }
+  let mut cp = if n == 1 {
+    v1 - 0xC0
+  } else if n == 2 {
+    v1 - 0xE0
+  } else {
+    v1 - 0xF0
+  }
+  let mut cur = i + 3
+  let mut k = 0
+  while k < n {
+    if cur + 2 >= a.length() || a[cur] != '%' {
+      return None
+    }
+    let v = match parse_hex2(a[cur + 1], a[cur + 2]) {
+      Some(v) => v
+      None => return None
+    }
+    if v < 0x80 || v > 0xBF {
+      return None
+    }
+    cp = (cp << 6) | (v - 0x80)
+    cur += 3
+    k += 1
+  }
+  cp.to_char().map(ch => (ch, cur))
+}
+
+///|
+fn parse_hex2(a : Char, b : Char) -> Int32? {
+  let h = fn(c : Char) -> Int32? {
     if c >= '0' && c <= '9' {
       Some(c.to_int() - '0'.to_int())
     } else if c >= 'a' && c <= 'f' {
@@ -228,7 +285,7 @@ fn parse_hex2(a : Char, b : Char) -> Int? {
 
 ///|
 /// 行/字符（0 基，字符按 UTF-16 单元）→ 文本内偏移。
-fn offset_of(text : String, line : Int, ch : Int) -> Int {
+fn offset_of(text : String, line : Int32, ch : Int32) -> Int32 {
   let a = chars_of_cli(text)
   let mut cur_line = 0
   let mut i = 0
@@ -249,7 +306,7 @@ fn offset_of(text : String, line : Int, ch : Int) -> Int {
 
 ///|
 /// `sub` 在 `a[0:stop]` 里最后一次出现的位置；没有返回 -1。
-fn last_index_of(a : Array[Char], sub : String, stop : Int) -> Int {
+fn last_index_of(a : Array[Char], sub : String, stop : Int32) -> Int32 {
   let b = chars_of_cli(sub)
   let n = if stop < a.length() { stop } else { a.length() }
   let mut last = -1
@@ -273,20 +330,22 @@ fn last_index_of(a : Array[Char], sub : String, stop : Int) -> Int {
 
 ///|
 /// 光标是否在 `<script>` 段内（最后一个开标签在最后闭标签之后）。
-fn in_script(a : Array[Char], stop : Int) -> Bool {
+fn in_script(a : Array[Char], stop : Int32) -> Bool {
   last_index_of(a, "<script", stop) > last_index_of(a, "</script", stop)
 }
 
 ///|
 /// 光标前一个令牌（`@包.成员` / 标识符）。
-fn token_before(a : Array[Char], stop : Int) -> String {
+fn token_before(a : Array[Char], stop : Int32) -> String {
   let n = if stop < a.length() { stop } else { a.length() }
   let mut start = n
   while start > 0 &&
-    (is_ident_char(a[start - 1]) ||
-      a[start - 1] == '@' ||
-      a[start - 1] == '.' ||
-      a[start - 1] == ':') {
+        (
+          is_ident_char(a[start - 1]) ||
+          a[start - 1] == '@' ||
+          a[start - 1] == '.' ||
+          a[start - 1] == ':'
+        ) {
     start -= 1
   }
   slice_cli(a, start, n)
@@ -294,7 +353,7 @@ fn token_before(a : Array[Char], stop : Int) -> String {
 
 ///|
 /// 字符串里第一个 `.` 的位置。
-fn dot_index_cli(s : String) -> Int? {
+fn dot_index_cli(s : String) -> Int32? {
   let a = chars_of_cli(s)
   let mut i = 0
   while i < a.length() {
@@ -363,16 +422,16 @@ fn path_to_uri(p : String) -> String {
 }
 
 ///|
-fn hex2_of(v : Int) -> String {
+fn hex2_of(v : Int32) -> String {
   let digits = "0123456789ABCDEF"
-  let hi = (v / 16) % 16
+  let hi = v / 16 % 16
   let lo = v % 16
   digits[hi:hi + 1].to_owned() + digits[lo:lo + 1].to_owned()
 }
 
 ///|
 /// 光标是否在 `<style>` 段内。
-fn in_style(a : Array[Char], stop : Int) -> Bool {
+fn in_style(a : Array[Char], stop : Int32) -> Bool {
   last_index_of(a, "<style", stop) > last_index_of(a, "</style", stop)
 }
 
@@ -381,7 +440,7 @@ fn in_style(a : Array[Char], stop : Int) -> Bool {
 ///   `var(` 里 → ("css-token", 令牌前缀, "dashes"|"bare")
 ///   属性名位 → ("css-prop", 前缀, "")
 ///   选择器 / 值 / 注释 → ("none", "", "")
-fn style_context(a : Array[Char], stop : Int) -> (String, String, String) {
+fn style_context(a : Array[Char], stop : Int32) -> (String, String, String) {
   let mut ls = stop
   while ls > 0 && a[ls - 1] != '\n' {
     ls -= 1
@@ -406,7 +465,9 @@ fn style_context(a : Array[Char], stop : Int) -> (String, String, String) {
   if contains_sub_cli(line, ":") {
     return ("none", "", "")
   }
-  if trim.has_prefix(".") || contains_sub_cli(line, "{") || contains_sub_cli(line, "}") {
+  if trim.has_prefix(".") ||
+    contains_sub_cli(line, "{") ||
+    contains_sub_cli(line, "}") {
     return ("none", "", "")
   }
   let mut ts = stop
@@ -418,7 +479,7 @@ fn style_context(a : Array[Char], stop : Int) -> (String, String, String) {
 
 ///|
 /// 补全上下文：("tag"|"attr"|"expr"|"class"|"script"|"none", 当前前缀, 所在标签名)。
-fn lsp_context(text : String, off : Int) -> (String, String, String) {
+fn lsp_context(text : String, off : Int32) -> (String, String, String) {
   let a = chars_of_cli(text)
   let stop = if off < a.length() { off } else { a.length() }
   if in_script(a, stop) {
@@ -474,7 +535,7 @@ fn lsp_context(text : String, off : Int) -> (String, String, String) {
         eq -= 1
       }
       let mut ns = eq - 1
-      while ns >= 0 && (sa[ns] != ' ' && sa[ns] != '\t' && sa[ns] != '\n') {
+      while ns >= 0 && sa[ns] != ' ' && sa[ns] != '\t' && sa[ns] != '\n' {
         ns -= 1
       }
       let attr = if eq > 0 { slice_cli(sa, ns + 1, eq) } else { "" }
@@ -530,7 +591,12 @@ fn lsp_context(text : String, off : Int) -> (String, String, String) {
       let mut b = open_i + 2
       while b < stop {
         let c = a[b]
-        if c == ' ' || c == '\t' || c == '\n' || c == '(' || c == ',' || c == '=' {
+        if c == ' ' ||
+          c == '\t' ||
+          c == '\n' ||
+          c == '(' ||
+          c == ',' ||
+          c == '=' {
           vs = b + 1
         }
         b += 1
@@ -543,12 +609,12 @@ fn lsp_context(text : String, off : Int) -> (String, String, String) {
 
 ///|
 /// 补全项 JSON。
-fn completion_item(label : String, kind : Int) -> String {
+fn completion_item(label : String, kind : Int32) -> String {
   "{\"label\":" + jq(label) + ",\"kind\":" + kind.to_string() + "}"
 }
 
 ///|
-fn completion_list(items : Array[String], kind : Int) -> String {
+fn completion_list(items : Array[String], kind : Int32) -> String {
   let parts : Array[String] = []
   for it in items {
     parts.push(completion_item(it, kind))
@@ -570,7 +636,8 @@ fn let_path_in(src : String, name : String) -> String? {
       i += 1
     }
     let mut j = i
-    while j < a.length() && (is_ident_char(a[j]) || (a[j] >= '0' && a[j] <= '9')) {
+    while j < a.length() &&
+          (is_ident_char(a[j]) || (a[j] >= '0' && a[j] <= '9')) {
       j += 1
     }
     let nm = slice_cli(a, i, j)
@@ -585,7 +652,8 @@ fn let_path_in(src : String, name : String) -> String? {
       continue
     }
     let rv = slice_cli(a, e + 1, a.length()).trim().to_owned()
-    if rv.has_prefix("@") || (rv.length() > 0 && is_ident_char(chars_of_cli(rv)[0])) {
+    if rv.has_prefix("@") ||
+      (rv.length() > 0 && is_ident_char(chars_of_cli(rv)[0])) {
       let rc = chars_of_cli(rv)
       let mut k = if rc[0] == '@' { 1 } else { 0 }
       while k < rc.length() && (is_ident_char(rc[k]) || rc[k] == '.') {
@@ -623,7 +691,7 @@ fn snake_cli(s : String) -> String {
 
 ///|
 /// 声明行查找：`let [mut] 名` / `fn 名` / props 头参数 → 0 基行号。
-fn decl_line_of(text : String, name : String) -> Int? {
+fn decl_line_of(text : String, name : String) -> Int32? {
   let lines = text.split("\n")
   let mut idx = 0
   for line in lines {
@@ -634,7 +702,8 @@ fn decl_line_of(text : String, name : String) -> Int? {
       }
     }
     // props 头参数：fn 头里的 `名 :` / `名? :`
-    if l.has_prefix("fn ") && (contains_sub_cli(l, name + " :") || contains_sub_cli(l, name + "? :")) {
+    if l.has_prefix("fn ") &&
+      (contains_sub_cli(l, name + " :") || contains_sub_cli(l, name + "? :")) {
       return Some(idx)
     }
     idx += 1
@@ -687,18 +756,42 @@ fn lsp_diagnostics(uri : String, text : String) -> String {
   // moon check 回投项（didSave 轮询产出的缓存，与模板结构诊断同通道合并）
   for d in check_diags.val.get_or_default(uri, []) {
     let (l, c, msg) = d
-    let start = "{\"range\":{\"start\":{\"line\":" + l.to_string() + ",\"character\":" + c.to_string() + "}"
-    let tail = ",\"end\":{\"line\":" + (l + 1).to_string() + ",\"character\":0}}"
-    diags.push(start + tail + ",\"severity\":1,\"source\":\"moon check\",\"message\":" + jq(msg) + "}")
+    let start = "{\"range\":{\"start\":{\"line\":" +
+      l.to_string() +
+      ",\"character\":" +
+      c.to_string() +
+      "}"
+    let tail = ",\"end\":{\"line\":" +
+      (l + 1).to_string() +
+      ",\"character\":0}}"
+    diags.push(
+      start +
+      tail +
+      ",\"severity\":1,\"source\":\"moon check\",\"message\":" +
+      jq(msg) +
+      "}",
+    )
   }
   match mng_compile(text, uri_to_path(uri)) {
     Ok(_) => ()
     Err(e) => {
       let (line, col) = err_pos_of(e)
       let msg = jq(e)
-      let start = "{\"range\":{\"start\":{\"line\":" + line.to_string() + ",\"character\":" + col.to_string() + "}"
-      let tail = ",\"end\":{\"line\":" + (line + 1).to_string() + ",\"character\":0}}"
-      diags.push(start + tail + ",\"severity\":1,\"source\":\"mng\",\"message\":" + msg + "}")
+      let start = "{\"range\":{\"start\":{\"line\":" +
+        line.to_string() +
+        ",\"character\":" +
+        col.to_string() +
+        "}"
+      let tail = ",\"end\":{\"line\":" +
+        (line + 1).to_string() +
+        ",\"character\":0}}"
+      diags.push(
+        start +
+        tail +
+        ",\"severity\":1,\"source\":\"mng\",\"message\":" +
+        msg +
+        "}",
+      )
     }
   }
   let head = "{\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{"
@@ -707,7 +800,7 @@ fn lsp_diagnostics(uri : String, text : String) -> String {
 
 ///|
 /// 错误文本 → (0 基行, 0 基列)；无坐标给 (0,0)。
-fn err_pos_of(e : String) -> (Int, Int) {
+fn err_pos_of(e : String) -> (Int32, Int32) {
   let a = chars_of_cli(e)
   let mut line = 0
   let mut col = 0
@@ -742,7 +835,12 @@ fn err_pos_of(e : String) -> (Int, Int) {
 }
 
 ///|
-fn lsp_completion(uri : String, text : String, line : Int, ch : Int) -> String {
+fn lsp_completion(
+  uri : String,
+  text : String,
+  line : Int32,
+  ch : Int32,
+) -> String {
   let off = offset_of(text, line, ch)
   let (ctx, partial, tag) = lsp_context(text, off)
   match ctx {
@@ -792,7 +890,7 @@ fn lsp_css_token_completion(prefix : String, mode : String) -> String {
 
 ///|
 /// 行首属性名补全：整段替换当前 token（kebab 名里带 `-`，按整段 range 替换）。
-fn lsp_css_prop_completion(text : String, line : Int, ch : Int) -> String {
+fn lsp_css_prop_completion(text : String, line : Int32, ch : Int32) -> String {
   let start_ch = css_token_start(text, line, ch)
   let items : Array[String] = []
   for p in @mngkit.style_props() {
@@ -803,7 +901,7 @@ fn lsp_css_prop_completion(text : String, line : Int, ch : Int) -> String {
 
 ///|
 /// 当前行属性名 token 的起始列（回退到空白 / `{` / `;`）。
-fn css_token_start(text : String, line : Int, ch : Int) -> Int {
+fn css_token_start(text : String, line : Int32, ch : Int32) -> Int32 {
   let a = chars_of_cli(text)
   let off = offset_of(text, line, ch)
   let mut s = off
@@ -824,15 +922,8 @@ fn lsp_attr_completion(uri : String, text : String, tag : String) -> String {
       items.push(item)
     }
   }
-  for a in [
-    "class",
-    "v-model",
-    "v-if",
-    "v-else-if",
-    "v-else",
-    "v-show",
-    "v-for",
-  ] {
+  for
+    a in ["class", "v-model", "v-if", "v-else-if", "v-else", "v-show", "v-for"] {
     push(a, completion_item(a, 14))
   }
   let (_, ps) = comp_sig(sigs_for(uri), text, tag)
@@ -861,8 +952,18 @@ fn lsp_attr_completion(uri : String, text : String, tag : String) -> String {
 
 ///|
 /// 带 detail（类型）的补全项。
-fn completion_item_detail(label : String, kind : Int, detail : String) -> String {
-  "{\"label\":" + jq(label) + ",\"kind\":" + kind.to_string() + ",\"detail\":" + jq(detail) + "}"
+fn completion_item_detail(
+  label : String,
+  kind : Int32,
+  detail : String,
+) -> String {
+  "{\"label\":" +
+  jq(label) +
+  ",\"kind\":" +
+  kind.to_string() +
+  ",\"detail\":" +
+  jq(detail) +
+  "}"
 }
 
 ///|
@@ -903,33 +1004,58 @@ fn lsp_expr_completion(uri : String, text : String, partial : String) -> String 
 }
 
 ///|
-fn completion_item_filtered(label : String, kind : Int, filter : String) -> String {
-  "{\"label\":" + jq(label) + ",\"kind\":" + kind.to_string() + ",\"filterText\":" + jq(filter) + "}"
+fn completion_item_filtered(
+  label : String,
+  kind : Int32,
+  filter : String,
+) -> String {
+  "{\"label\":" +
+  jq(label) +
+  ",\"kind\":" +
+  kind.to_string() +
+  ",\"filterText\":" +
+  jq(filter) +
+  "}"
 }
 
 ///|
 /// 带整段替换范围（textEdit）的补全项：`-` 是编辑器词分隔符，kebab 属性名必须整段换。
 fn completion_item_replace(
   label : String,
-  kind : Int,
-  line : Int,
-  start_ch : Int,
-  end_ch : Int,
+  kind : Int32,
+  line : Int32,
+  start_ch : Int32,
+  end_ch : Int32,
 ) -> String {
-  "{\"label\":" + jq(label) + ",\"kind\":" + kind.to_string() + ",\"filterText\":" + jq(label) +
-  ",\"textEdit\":{\"range\":{\"start\":{\"line\":" + line.to_string() + ",\"character\":" +
-  start_ch.to_string() + "},\"end\":{\"line\":" + line.to_string() + ",\"character\":" +
-  end_ch.to_string() + "}},\"newText\":" + jq(label) + "}}"
+  "{\"label\":" +
+  jq(label) +
+  ",\"kind\":" +
+  kind.to_string() +
+  ",\"filterText\":" +
+  jq(label) +
+  ",\"textEdit\":{\"range\":{\"start\":{\"line\":" +
+  line.to_string() +
+  ",\"character\":" +
+  start_ch.to_string() +
+  "},\"end\":{\"line\":" +
+  line.to_string() +
+  ",\"character\":" +
+  end_ch.to_string() +
+  "}},\"newText\":" +
+  jq(label) +
+  "}}"
 }
 
 ///|
 /// 补全项类型：`Type::method` 方法、大写开头类型、其余函数。
-fn member_kind(name : String) -> Int {
+fn member_kind(name : String) -> Int32 {
   if contains_sub_cli(name, "::") {
     2
   } else {
     let a = chars_of_cli(name)
-    if a.length() > 0 && a[0].to_int() >= 'A'.to_int() && a[0].to_int() <= 'Z'.to_int() {
+    if a.length() > 0 &&
+      a[0].to_int() >= 'A'.to_int() &&
+      a[0].to_int() <= 'Z'.to_int() {
       22
     } else {
       3
@@ -952,7 +1078,12 @@ fn arr_has_cli(a : Array[String], s : String) -> Bool {
 /// `moon ide hover --loc <gen>:<行>:<列> --json` 取回编译器的类型/文档。
 /// 任何一步不成就返回 None，调用方回落「组件参数表 / 注册名」那套静态 hover
 /// ——桥不在时编辑器体验不退化。
-fn real_type_hover(uri : String, text : String, line : Int, ch : Int) -> String? {
+fn real_type_hover(
+  uri : String,
+  text : String,
+  line : Int32,
+  ch : Int32,
+) -> String? {
   let path = uri_to_path(uri)
   let dir = dir_of(path)
   let gen_path = dir + "/" + stem_of_file(path) + ".gen.mbt"
@@ -960,7 +1091,8 @@ fn real_type_hover(uri : String, text : String, line : Int, ch : Int) -> String?
   if fs_read(gen_path) is None {
     return None
   }
-  let map_text = match @mngkit.compile_dev(text, path, fn(_p : String) -> String? { None }) {
+  let map_text = match
+    @mngkit.compile_dev(text, path, fn(_p : String) -> String? { None }) {
     Ok(o) => o.map
     Err(_) => return None
   }
@@ -988,13 +1120,16 @@ fn hover_tmp_dir(dir : String) -> String {
 /// 起一次 `moon ide hover`：经 `@proc.spawn` 把 stdout/stderr 落到
 /// `.mng/hover.json`（不捕获就解析不了；proc 层本就不做管道），轮询退出后读回。
 /// 超时 8s 直接杀——LSP hover 卡住比没有 hover 更糟。
-fn moon_ide_hover(dir : String, gen_path : String, line : Int, col : Int) -> String? {
+fn moon_ide_hover(
+  dir : String,
+  gen_path : String,
+  line : Int32,
+  col : Int32,
+) -> String? {
   let tmp_dir = hover_tmp_dir(dir)
   let _ = mkdir_p(tmp_dir)
   let out = tmp_dir + "/hover.json"
-  let _ = @fs.remove_file(out) catch {
-    _ => ()
-  }
+  let _ = @fs.remove_file(out) catch { _ => () }
   let loc = gen_path + ":" + line.to_string() + ":" + col.to_string()
   let args = ["-C", dir, "ide", "hover", "--loc", loc, "--json"]
   let pid = match @proc.spawn("moon", args, out) {
@@ -1011,9 +1146,7 @@ fn moon_ide_hover(dir : String, gen_path : String, line : Int, col : Int) -> Str
     return None
   }
   let raw = fs_read(out)
-  let _ = @fs.remove_file(out) catch {
-    _ => ()
-  }
+  let _ = @fs.remove_file(out) catch { _ => () }
   let text = match raw {
     Some(t) => t
     None => return None
@@ -1045,7 +1178,7 @@ fn moon_ide_hover(dir : String, gen_path : String, line : Int, col : Int) -> Str
 }
 
 ///|
-fn lsp_hover(uri : String, text : String, line : Int, ch : Int) -> String {
+fn lsp_hover(uri : String, text : String, line : Int32, ch : Int32) -> String {
   let off = offset_of(text, line, ch)
   let (ctx, partial, tag) = lsp_context(text, off)
   let content = match ctx {
@@ -1054,7 +1187,9 @@ fn lsp_hover(uri : String, text : String, line : Int, ch : Int) -> String {
     "class" =>
       lmsg(
         "类 `" + partial + "`：由 `<style>` 摊平进命名类注册表",
-        "Class `" + partial + "`: flattened from `<style>` into the named-class registry",
+        "Class `" +
+        partial +
+        "`: flattened from `<style>` into the named-class registry",
       )
     "expr" | "script" =>
       match real_type_hover(uri, text, line, ch) {
@@ -1084,6 +1219,7 @@ fn comp_path(text : String, tag : String) -> String {
   }
 }
 
+///|
 fn comp_sig(
   sigs : @mngkit.Sigs,
   text : String,
@@ -1114,7 +1250,12 @@ fn span_names(span : String, name : String) -> Bool {
     return true
   }
   let c = chars_of_cli(span)[name.length()]
-  c == ' ' || c == '\t' || c == '=' || c == ':' || c == '/' || c == '(' ||
+  c == ' ' ||
+  c == '\t' ||
+  c == '=' ||
+  c == ':' ||
+  c == '/' ||
+  c == '(' ||
   c == '?' ||
   c == '：' ||
   c == '、' ||
@@ -1163,7 +1304,12 @@ fn doc_for_param(doc : String, name : String) -> String {
 ///|
 /// 原文压成一行（默认值里常带换行）。
 fn one_line(v : String) -> String {
-  v.replace(old="\n", new=" ").split("  ").filter(fn(x) { x.trim().length() > 0 }).map(fn(x) { x.trim().to_owned() }).join(" ")
+  v
+  .replace(old="\n", new=" ")
+  .split("  ")
+  .filter(fn(x) { x.trim().length() > 0 })
+  .map(fn(x) { x.trim().to_owned() })
+  .join(" ")
 }
 
 ///|
@@ -1196,11 +1342,7 @@ fn component_hover(sigs : @mngkit.Sigs, text : String, tag : String) -> String {
   let (_, ps) = comp_sig(sigs, text, tag)
   if ps.length() > 0 {
     let doc = comp_doc(sigs, text, tag)
-    let head = if doc.length() > 0 {
-      doc + "\n\n"
-    } else {
-      ""
-    }
+    let head = if doc.length() > 0 { doc + "\n\n" } else { "" }
     let body = lmsg(
       "`<" + tag + ">` 参数：\n" + params_block(ps),
       "`<" + tag + ">` params:\n" + params_block(ps),
@@ -1223,14 +1365,19 @@ fn component_hover(sigs : @mngkit.Sigs, text : String, tag : String) -> String {
 
 ///|
 /// 属性位悬浮：指令 / 事件 / 动态参数各给一句，普通属性回落到组件的参数表。
-fn attr_hover(uri : String, text : String, off : Int, partial : String, tag : String) -> String {
+fn attr_hover(
+  uri : String,
+  text : String,
+  off : Int32,
+  partial : String,
+  tag : String,
+) -> String {
   let tok = expand_token(text, off, partial)
   if tok.has_prefix("v-") {
     match tok {
       "v-model" =>
         lmsg(
-          "`v-model`：双向绑定，值写 script 里的 Store 名",
-          "`v-model`: two-way binding; name a Store declared in <script>",
+          "`v-model`：双向绑定，值写 script 里的 Store 名", "`v-model`: two-way binding; name a Store declared in <script>",
         )
       "v-if" | "v-else-if" =>
         lmsg(
@@ -1239,15 +1386,15 @@ fn attr_hover(uri : String, text : String, off : Int, partial : String, tag : St
         )
       "v-show" =>
         lmsg(
-          "`v-show`：显隐切换，值为 Bool 表达式（保留布局）",
-          "`v-show`: toggle visibility; Bool expression (keeps layout)",
+          "`v-show`：显隐切换，值为 Bool 表达式（保留布局）", "`v-show`: toggle visibility; Bool expression (keeps layout)",
         )
       "v-else" =>
-        lmsg("`v-else`：与最近的 `v-if` 配对", "`v-else`: pairs with the nearest `v-if`")
+        lmsg(
+          "`v-else`：与最近的 `v-if` 配对", "`v-else`: pairs with the nearest `v-if`",
+        )
       "v-for" =>
         lmsg(
-          "`v-for`：v1 不支持，列表请用 ListStore 组件",
-          "`v-for`: not supported in v1; use ListStore components for lists",
+          "`v-for`：v1 不支持，列表请用 ListStore 组件", "`v-for`: not supported in v1; use ListStore components for lists",
         )
       _ => lmsg("模板指令", "Template directive")
     }
@@ -1263,8 +1410,7 @@ fn attr_hover(uri : String, text : String, off : Int, partial : String, tag : St
     )
   } else if tok == "class" {
     lmsg(
-      "`class`：引用 `<style>` 里定义的类名",
-      "`class`: references a class defined in <style>",
+      "`class`：引用 `<style>` 里定义的类名", "`class`: references a class defined in <style>",
     )
   } else if tag.length() > 0 {
     let key = snake_cli(tok)
@@ -1287,7 +1433,11 @@ fn attr_hover(uri : String, text : String, off : Int, partial : String, tag : St
           "`" + shape + "` · `<" + tag + ">` 的参数",
           "`" + shape + "` · param of `<" + tag + ">",
         )
-        if doc.length() > 0 { doc + "\n\n" + tail } else { tail }
+        if doc.length() > 0 {
+          doc + "\n\n" + tail
+        } else {
+          tail
+        }
       }
       None => component_hover(sigs_for(uri), text, tag)
     }
@@ -1298,7 +1448,12 @@ fn attr_hover(uri : String, text : String, off : Int, partial : String, tag : St
 
 ///|
 /// `@别名.成员` → 声明原文；`@别名` → 包目录。
-fn hover_pkg_member(uri : String, text : String, off : Int, partial : String) -> String {
+fn hover_pkg_member(
+  uri : String,
+  text : String,
+  off : Int32,
+  partial : String,
+) -> String {
   let token = expand_token(text, off, partial)
   if !token.has_prefix("@") {
     return ""
@@ -1320,7 +1475,7 @@ fn hover_pkg_member(uri : String, text : String, off : Int, partial : String) ->
 
 ///|
 /// 光标处令牌扩到完整标识符（`ui-co|` → `ui-col`）；扩不到就原文返回。
-fn expand_token(text : String, off : Int, tok : String) -> String {
+fn expand_token(text : String, off : Int32, tok : String) -> String {
   let a = chars_of_cli(text)
   let is_tok = fn(c : Char) -> Bool {
     is_ident_char(c) || c == '-' || c == '@' || c == ':' || c == '.'
@@ -1334,11 +1489,20 @@ fn expand_token(text : String, off : Int, tok : String) -> String {
     end += 1
   }
   let t = slice_cli(a, start, end)
-  if t.length() > 0 { t } else { tok }
+  if t.length() > 0 {
+    t
+  } else {
+    tok
+  }
 }
 
 ///|
-fn lsp_definition(uri : String, text : String, line : Int, ch : Int) -> String {
+fn lsp_definition(
+  uri : String,
+  text : String,
+  line : Int32,
+  ch : Int32,
+) -> String {
   let off = offset_of(text, line, ch)
   let (ctx, partial, tag) = lsp_context(text, off)
   let sigs = sigs_for(uri)
@@ -1392,7 +1556,7 @@ fn symbol_loc(
   sigs : @mngkit.Sigs,
   uri : String,
   text : String,
-  off : Int,
+  off : Int32,
   partial : String,
 ) -> @mngkit.Loc? {
   let token = expand_token(text, off, partial)
@@ -1424,8 +1588,12 @@ fn symbol_loc(
 
 ///|
 fn loc_json(l : @mngkit.Loc) -> String {
-  "{\"uri\":" + jq(path_to_uri(l.path)) + ",\"range\":{\"start\":{\"line\":" +
-  l.line.to_string() + ",\"character\":0},\"end\":{\"line\":" + l.line.to_string() +
+  "{\"uri\":" +
+  jq(path_to_uri(l.path)) +
+  ",\"range\":{\"start\":{\"line\":" +
+  l.line.to_string() +
+  ",\"character\":0},\"end\":{\"line\":" +
+  l.line.to_string() +
   ",\"character\":0}}}"
 }
 
@@ -1434,13 +1602,14 @@ fn loc_json(l : @mngkit.Loc) -> String {
 fn lsp_handle(docs : Map[String, String], body : String) -> LspOut {
   let parsed = match json_parse(body) {
     Ok(v) => v
-    Err(_) => return { reply: None, notify: None, stop: false }
+    Err(_) => return { reply: None, notify: None, stop: false, }
   }
   let meth = match jget(parsed, "method") {
-    Some(x) => match json_str(x) {
-      Some(m) => m
-      None => ""
-    }
+    Some(x) =>
+      match json_str(x) {
+        Some(m) => m
+        None => ""
+      }
     None => ""
   }
   let id_json = jget(parsed, "id")
@@ -1461,12 +1630,18 @@ fn lsp_handle(docs : Map[String, String], body : String) -> LspOut {
           }
         None => ()
       }
-      let caps = "{\"capabilities\":{\"textDocumentSync\":1," + "\"completionProvider\":{\"triggerCharacters\":[\"<\",\":\",\"@\",\"{\",\" \",\"\\\"\",\".\",\"-\",\"(\"]},"
-      let caps2 = "\"hoverProvider\":true,\"definitionProvider\":true,\"semanticTokensProvider\":{\"legend\":" + sem_legend_json() + ",\"full\":true}}," + "\"serverInfo\":{\"name\":\"mng\",\"version\":\"" + MNG_VERSION + "\"}}"
+      let caps = "{\"capabilities\":{\"textDocumentSync\":1," +
+        "\"completionProvider\":{\"triggerCharacters\":[\"<\",\":\",\"@\",\"{\",\" \",\"\\\"\",\".\",\"-\",\"(\"]},"
+      let caps2 = "\"hoverProvider\":true,\"definitionProvider\":true,\"semanticTokensProvider\":{\"legend\":" +
+        sem_legend_json() +
+        ",\"full\":true}}," +
+        "\"serverInfo\":{\"name\":\"mng\",\"version\":\"" +
+        MNG_VERSION +
+        "\"}}"
       lsp_ok(respond(caps + caps2))
     }
     "shutdown" => lsp_ok(respond("null"))
-    "exit" => { reply: None, notify: None, stop: true }
+    "exit" => { reply: None, notify: None, stop: true, }
     "textDocument/didOpen" => {
       let uri = doc_uri(parsed)
       let text = doc_text_at(parsed, "params/textDocument/text")
@@ -1474,9 +1649,9 @@ fn lsp_handle(docs : Map[String, String], body : String) -> LspOut {
         (Some(u), Some(t)) => {
           let _ = docs.set(u, t)
           check_reset(u)
-          { reply: None, notify: Some(lsp_diagnostics(u, t)), stop: false }
+          { reply: None, notify: Some(lsp_diagnostics(u, t)), stop: false, }
         }
-        _ => { reply: None, notify: None, stop: false }
+        _ => { reply: None, notify: None, stop: false, }
       }
     }
     "textDocument/didChange" => {
@@ -1486,9 +1661,9 @@ fn lsp_handle(docs : Map[String, String], body : String) -> LspOut {
         (Some(u), Some(t)) => {
           let _ = docs.set(u, t)
           check_reset(u)
-          { reply: None, notify: Some(lsp_diagnostics(u, t)), stop: false }
+          { reply: None, notify: Some(lsp_diagnostics(u, t)), stop: false, }
         }
-        _ => { reply: None, notify: None, stop: false }
+        _ => { reply: None, notify: None, stop: false, }
       }
     }
     "textDocument/didSave" => {
@@ -1497,11 +1672,11 @@ fn lsp_handle(docs : Map[String, String], body : String) -> LspOut {
         Some(u) => check_kickoff(u)
         None => ()
       }
-      { reply: None, notify: None, stop: false }
+      { reply: None, notify: None, stop: false, }
     }
     "$/mng/checkTick" => {
       check_tick(docs)
-      { reply: None, notify: None, stop: false }
+      { reply: None, notify: None, stop: false, }
     }
     "textDocument/completion" => {
       let uri = doc_uri(parsed)
@@ -1553,7 +1728,7 @@ fn lsp_handle(docs : Map[String, String], body : String) -> LspOut {
     _ =>
       match id_json {
         Some(_) => lsp_ok(respond("null"))
-        None => { reply: None, notify: None, stop: false }
+        None => { reply: None, notify: None, stop: false, }
       }
   }
 }
@@ -1620,7 +1795,7 @@ fn doc_change_text(parsed : LJson) -> String? {
 }
 
 ///|
-fn num_path(parsed : LJson, path : String) -> Int? {
+fn num_path(parsed : LJson, path : String) -> Int32? {
   match jpath(parsed, path) {
     Some(x) => json_num(x)
     None => None
@@ -1629,7 +1804,7 @@ fn num_path(parsed : LJson, path : String) -> Int? {
 
 ///|
 /// lsp 子命令：stdio 循环，直到 exit 或 stdin 关闭。
-fn cmd_lsp(_args : Array[String]) -> Int {
+fn cmd_lsp(_args : Array[String]) -> Int32 {
   let docs : Map[String, String] = Map([])
   while true {
     let msg = match lsp_read_message() {
