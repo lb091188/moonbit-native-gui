@@ -45,10 +45,10 @@ From the repository root:
 
 ```sh
 moon install ./tools/native-gui-tools/mng
-mng --version   # prints mng 0.2.6 and mng-schema 1
+mng --version   # prints mng 0.2.7 and mng-schema 1
 ```
 
-CLI prompts and errors switch between Chinese and English via `LC_ALL` / `LC_MESSAGES` / `LANG` (a `zh` prefix selects Chinese, which is also the default); the `dev` watch log and compiler diagnostics stay in Chinese.
+CLI prompts and errors switch between Chinese and English via `LC_ALL` / `LC_MESSAGES` / `LANG` (a `zh` prefix selects Chinese); when these are absent the system UI language is consulted (Windows), defaulting to Chinese if still unknown; the `dev` watch log and compiler diagnostics stay in Chinese.
 
 For editor support install the VS Code extension from `tools/vscode-mng` (coloring / completion / hover / jump / diagnostics; **saving runs `moon check` and feeds type errors back into Problems** — see its README).
 

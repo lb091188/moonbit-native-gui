@@ -98,6 +98,16 @@ pub fn watch(pid : Int) -> Unit {
 }
 
 ///|
+extern "c" fn ffi_ui_lang() -> Int = "mngpr_ui_lang"
+
+///|
+/// 系统 UI 语言主 ID（Windows：GetUserDefaultUILanguage 的 PRIMARYLANGID，
+/// 0x04 = 中文）；POSIX 无此口恒返回 0（未知），调用方走缺省。
+pub fn ui_lang() -> Int {
+  ffi_ui_lang()
+}
+
+///|
 /// 毫秒节拍。
 pub fn sleep_ms(ms : Int) -> Unit {
   ffi_sleep_ms(ms)

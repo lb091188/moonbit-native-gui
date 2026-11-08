@@ -191,6 +191,11 @@ void mngpr_watch(int32_t pid) {
   (void)pid;
 }
 
+int32_t mngpr_ui_lang(void) {
+  // 系统 UI 语言的主语言 ID（PRIMARYLANGID）；0x04 = 中文
+  return (int32_t)PRIMARYLANGID(GetUserDefaultUILanguage());
+}
+
 void mngpr_sleep_ms(int32_t ms) {
   if (ms > 0) {
     Sleep((DWORD)ms);
@@ -427,6 +432,11 @@ void mngpr_watch(int32_t pid) {
   mngpr_watch_pid = pid;
   signal(SIGINT, mngpr_watch_handler);
   signal(SIGTERM, mngpr_watch_handler);
+}
+
+int32_t mngpr_ui_lang(void) {
+  // POSIX 无系统级 UI 语言口（语言信号走 env），0 = 未知，调用方走缺省
+  return 0;
 }
 
 void mngpr_sleep_ms(int32_t ms) {

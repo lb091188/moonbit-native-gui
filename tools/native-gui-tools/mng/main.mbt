@@ -22,6 +22,10 @@ fn cli_lang_init() -> Unit {
       _ => ()
     }
   }
+  // 环境变量缺席（Windows 原生 shell 常态）：读系统 UI 语言主 ID，
+  // 0x04 = 中文；仍未知（POSIX 恒 0）则缺省中文
+  let l = @proc.ui_lang()
+  cli_zh[0] = l == 0 || l == 0x04
 }
 
 ///|
@@ -225,7 +229,7 @@ fn basename(p : String) -> String {
 ///|
 /// 工具版本：每落地一批改动 +1（用户重装后凭 --version 区分新旧二进制）。
 /// lsp serverInfo 同源取此常量。
-const MNG_VERSION : String = "0.2.6"
+const MNG_VERSION : String = "0.2.7"
 
 ///|
 /// --version：版本与 mng-schema 位（编辑器插件启动时握手，对不上则补全降级）。
