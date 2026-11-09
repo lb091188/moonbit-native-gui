@@ -85,3 +85,11 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 
 - [ ] **硬解探针**：Linux 腿已跑通到「真解一帧」——`open_video_decoder(hw=true)` 走 VAAPI + transfer，首帧与软解逐字节一致，`hw_status=1`；`experiment/hwdecode_probe` 逐设备 open/frames/transfer 读数进方案 §四，设备建得起来≠能用、transfer 全空两条坑已记。剩 Win/mac 两腿（`cc -O2 hwdecode_probe.c $(pkg-config --cflags --libs libavcodec libavutil)`，判据：设备建得起来且 transfer 非空）+ 归档实物核验（Windows BtbN lgpl 归档已命中 `av_d3d11va_alloc_context`、mac 归档脚本从初立就带 `--enable-videotoolbox`——只剩 `otool -L` 验实物与 LICENSE.txt 口径修正）；未决见 proposals/media-hwdecode.md §六 spike
 
+## 品牌与应用图标 v1（2026-11-09 立项，定案见 [experience/brand.md](experience/brand.md)；一项一提交，做完删一项）
+
+- [ ] **品牌定案 + 资产落位**：`experience/brand.md`、`assets/brand/`（master SVG + 单色变体 + LICENSE + README）、`experience/placement.md` 登记 `assets/`
+- [ ] **导出矩阵 + showcase 替换**：`scripts/gen_brand_icons.py`（SVG → macOS iconset 十档 / Windows ICO 源 / Linux PNG / favicon）→ 替换 `examples/showcase/assets/icon.png`；用户真机复验打包看 Dock/任务栏图标
+- [ ] **文档站与 README 品牌区**（中英先行中文）：logo、favicon、品牌色说明与「配色致敬 MoonBit 月兔」注记
+- [ ] **库内置图标替换**（`gui/win` 内置月牙 + `gui/dbus` 托盘）：随批过 `moon check`/`moon test` 门禁；发 0.4.0 与否用户定
+- [ ] **情景插画**（第二批）：README 头图 / 文档站首页「兔子坐在电脑前」叙事版
+

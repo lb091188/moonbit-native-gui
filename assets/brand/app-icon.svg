@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- master 应用图标：月兔从应用窗口探头；定案见 experience/brand.md -->
+  <rect width="1024" height="1024" rx="224" fill="#F5F7FA"/>
+  <ellipse cx="398" cy="200" rx="64" ry="172" transform="rotate(-13 398 200)" fill="#C73E94"/>
+  <ellipse cx="398" cy="196" rx="28" ry="120" transform="rotate(-13 398 196)" fill="#F1D3E6"/>
+  <ellipse cx="626" cy="200" rx="64" ry="172" transform="rotate(13 626 200)" fill="#C73E94"/>
+  <ellipse cx="626" cy="196" rx="28" ry="120" transform="rotate(13 626 196)" fill="#F1D3E6"/>
+  <ellipse cx="512" cy="400" rx="178" ry="160" fill="#C73E94"/>
+  <circle cx="454" cy="364" r="23" fill="#14213D"/>
+  <circle cx="570" cy="364" r="23" fill="#14213D"/>
+  <circle cx="512" cy="414" r="15" fill="#14213D"/>
+  <path d="M486 436 q26 22 52 0" fill="none" stroke="#14213D" stroke-width="14" stroke-linecap="round"/>
+  <path d="M264 460 H760 A88 88 0 0 1 848 548 V744 A88 88 0 0 1 760 832 H264 A88 88 0 0 1 176 744 V548 A88 88 0 0 1 264 460 Z" fill="#2E33C9"/>
+  <path d="M264 460 H760 A88 88 0 0 1 848 548 V580 H176 V548 A88 88 0 0 1 264 460 Z" fill="#2428A5"/>
+  <circle cx="272" cy="520" r="13" fill="#E8F0FB" opacity="0.8"/>
+  <circle cx="320" cy="520" r="13" fill="#E8F0FB" opacity="0.8"/>
+  <circle cx="368" cy="520" r="13" fill="#E8F0FB" opacity="0.8"/>
+</svg>

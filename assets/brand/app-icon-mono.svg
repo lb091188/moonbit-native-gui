@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- 单色剪影：托盘 / Android themed icon 预留；整体替换 fill 即可染色 -->
+  <g fill="#14213D">
+    <ellipse cx="398" cy="200" rx="64" ry="172" transform="rotate(-13 398 200)"/>
+    <ellipse cx="626" cy="200" rx="64" ry="172" transform="rotate(13 626 200)"/>
+    <ellipse cx="512" cy="400" rx="178" ry="160"/>
+    <path d="M264 460 H760 A88 88 0 0 1 848 548 V744 A88 88 0 0 1 760 832 H264 A88 88 0 0 1 176 744 V548 A88 88 0 0 1 264 460 Z"/>
+  </g>
+</svg>
