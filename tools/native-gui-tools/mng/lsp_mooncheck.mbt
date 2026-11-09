@@ -22,6 +22,12 @@ let check_root : Ref[String] = Ref("")
 let check_ticks : Ref[Int32] = Ref(0)
 
 ///|
+/// 进行中有新保存进来：当前 check 收尾后对最新磁盘状态续跑一轮
+/// （check 十几秒的窗口里连续保存若直接丢弃，回投的就是迟一拍的旧状态
+/// ——「改好了有错、改坏了没错」的错位）。
+let check_pending : Ref[Bool] = Ref(false)
+
+///|
 /// moon check 命中的诊断缓存：uri → [(模板行 0 基, 列 0 基, message)]。
 let check_diags : Ref[Map[String, Array[(Int32, Int32, String)]]] = Ref(Map([]))
 
@@ -35,10 +41,16 @@ fn check_reset(uri : String) -> Unit {
 }
 
 ///|
-/// didSave 入口：起一次 moon check（进行中不重入）。
+/// didSave 入口：起一次 moon check（进行中记 pending 续跑，不丢请求）。
 fn check_kickoff(uri : String) -> Unit {
   if check_running.val {
-    return
+    if @proc.alive(check_pid.val) {
+      check_pending.val = true
+      return
+    }
+    // 孤儿 check：进程已退出但 client 停拍无人收尾（running 永挂会吞掉
+    // 后续所有保存）——就地复位，直接重跑
+    check_running.val = false
   }
   let path = uri_to_path(uri)
   let dir = dir_name_of_lsp(path)
@@ -76,12 +88,23 @@ fn check_tick(docs : Map[String, String]) -> Unit {
       // 强杀前把已有日志 best-effort 解析回投，不静默丢
       check_publish(docs)
       let _ = @proc.kill(check_pid.val)
-      check_running.val = false
+      check_settle(docs)
     }
     return
   }
+  check_settle(docs)
+}
+
+///|
+/// check 收尾：回投本轮结果；有 pending（进行中的新保存）就对最新磁盘
+/// 状态续跑一轮，保证最终收敛到最后一次保存。
+fn check_settle(docs : Map[String, String]) -> Unit {
   check_running.val = false
   check_publish(docs)
+  if check_pending.val {
+    check_pending.val = false
+    check_kickoff(check_uri.val)
+  }
 }
 
 ///|
