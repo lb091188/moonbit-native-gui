@@ -2,7 +2,7 @@
   "name": "mng-vscode",
   "displayName": "MNG (native-gui template)",
   "description": ".mng 模板语言：语法着色、snippets，语义（诊断/补全/hover/跳转）经 mng lsp 提供",
-  "version": "0.2.14",
+  "version": "0.2.15",
   "publisher": "lb091188",
   "license": "MIT",
   "repository": {
@@ -45,6 +45,9 @@
       "explorer.fileNesting.patterns": {
         "*.mng": "*.gen.mbt"
       },
+      "files.associations": {
+        "*.gen.mbt": "mng-gen"
+      },
       "[mng]": {
         "editor.bracketPairColorization.enabled": false
       }
@@ -60,6 +63,12 @@
           ".mng"
         ],
         "configuration": "./language-configuration.json"
+      },
+      {
+        "id": "mng-gen",
+        "aliases": [
+          "MNG Gen"
+        ]
       }
     ],
     "grammars": [
@@ -67,6 +76,11 @@
         "language": "mng",
         "scopeName": "source.mng",
         "path": "./syntaxes/mng.tmLanguage.json"
+      },
+      {
+        "language": "mng-gen",
+        "scopeName": "source.moonbit.gen",
+        "path": "./syntaxes/mng-gen.tmLanguage.json"
       }
     ],
     "snippets": [
