@@ -78,3 +78,9 @@ mng_scenario_demo/
 
 # 崩溃取证档（NATIVEGUI_CRASH_LOG=1）现场文件
 mng_crash.log
+
+# 脚手架真机验收的临时工程（仓外形态样本，依赖本地 workspace 解析；测完移出仓库并还原本文件）
+/demo2/
+
+# 品牌图标导出产物（scripts/gen_brand_icons.py 落点，落位消费点后即弃）
+/.brand-dist/

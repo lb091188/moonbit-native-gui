@@ -348,7 +348,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 ### 工程与交付
 
-- ⏳ **品牌与应用图标 v1**（2026-11-09 立项，定案见 [experience/brand.md](../../../experience/brand.md)）：master 图标「月兔从应用窗口探头」（扁平几何、空窗口）+ 品牌四色（主色启光蓝 `#2E33C9`、强调月兔玫红 `#C73E94`、夜蓝 `#14213D`、浅底 `#F5F7FA`）落 `assets/brand/`；导出矩阵脚本化（macOS icns / Windows ico / Linux png / favicon / 文档站 logo；Android·鸿蒙·iOS 分层随移动端批次再加）；showcase 应用图标替换（真机复验归用户）；库内置窗口/托盘图标与情景插画第二批；版权口径：造型原创、配色致敬 MoonBit 月兔，开源不商用
+- ⏳ **品牌与应用图标 v1**（2026-11-09 立项，定案见 [experience/brand.md](../../../experience/brand.md)）：master 图标「月兔从应用窗口探头」（扁平几何、空窗口）+ 品牌四色（主色启光蓝 `#2E33C9`、强调月兔玫红 `#C73E94`、夜蓝 `#14213D`、浅底 `#F5F7FA`）落 `assets/brand/`；导出矩阵脚本化（macOS icns / Windows ico / Linux png / favicon / 文档站 logo；Android·鸿蒙·iOS 分层随移动端批次再加）；showcase 应用图标替换（真机复验归用户）；库内置窗口/托盘图标与情景插画第二批；版权口径：造型原创、开源不商用
 - ⏳ **应用打包管线·剩余面**：v1 三平台腿与 CI 已合入（见上「应用打包与自动更新 v1」）；剩安装卸载观感真机清单、签名公证真机复验（自定义证书入口已留 `[package.sign]`）
 - ⏳ **自动更新·剩余面**：v1 检查/下载/替换/relaunch、`update_dialog` 组件与 `mng publish` 本地发布器已合入（见上）；剩异步下载执行器（进度/取消，随平台线程批）、Ed25519 清单签名（v1.5）、增量更新（v2，`deltas` 预留位已留）
 - ⏳ **桌面登记面·剩余面**：基础键已随打包落——desktop entry 补 `StartupWMClass`(dock/任务栏归组)与既有 Categories/Comment、Info.plist 补 `CFBundleDisplayName`、deb control 的 Maintainer 可配(`[package] maintainer`);剩深链 scheme、文件关联、最近文档写侧——登记声明进 `mng.toml`、打包器落各平台清单、唤起事件经单实例通道回投(方向见 [proposals/方向.md](proposals/方向.md) A3)
