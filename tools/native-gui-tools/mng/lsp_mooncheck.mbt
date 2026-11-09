@@ -60,6 +60,10 @@ fn check_kickoff(uri : String) -> Unit {
   }
   let mng_dir = root + "/.mng"
   let _ = mkdir_p(mng_dir)
+  // 与 dev 循环抢跑的根治：保存的就地 regen（毫秒级、幂等）。否则 check 的
+  // moon 启动后立刻扫文件，几乎必然读到 dev 300ms 轮询写盘前的旧生成码，
+  // 诊断系统性迟一拍（改好报错/改坏无错的反相幽灵）。
+  check_regen(uri, root)
   let log = mng_dir + "/mooncheck.log"
   let _ = @fs.remove_file(log) catch { _ => () }
   match @proc.spawn("moon", ["-C", root, "check"], log) {
@@ -71,6 +75,34 @@ fn check_kickoff(uri : String) -> Unit {
       check_ticks.val = 0
     }
     Err(_) => ()
+  }
+}
+
+///|
+
+///|
+/// 保存的就地 regen：当前模板 → dev 形态生成码 + source map（与 dev 循环
+/// 同式落点，内容幂等）。模板本身编不出时保留旧生成码（结构诊断实时层
+/// 已在报），check 照旧跑。
+fn check_regen(uri : String, root : String) -> Unit {
+  let path = uri_to_path(uri)
+  let src = match slurp(path) {
+    Some(s) => s
+    None => return
+  }
+  match mng_compile_dev(src, path) {
+    Err(_) => ()
+    Ok(r) => {
+      let stem = stem_of_path(path)
+      let gp = parent_dir_of(path) + "/" + stem + ".gen.mbt"
+      if spit(gp, r.code) {
+        let _ = write_dev_map(
+          check_map_path(root, path),
+          r.map,
+          stem + ".gen.mbt",
+        )
+      }
+    }
   }
 }
 
