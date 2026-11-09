@@ -43,9 +43,8 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 
 > 机械部分已自动化（2026-11-08）：`scripts/mng_scenario.sh`（脚手架→dev 首轮→HOT→COLD 重启回页→[NEW]/[GONE]/[SRC]→生产构建，14 条）与 `cd tools/vscode-mng && npm test` / `npm run test:vscode`（着色分词、真 mng lsp 会话、真编辑器里的诊断/hover/新建页面）已进 CI。下面留着的是**观感与主观项**，仍由人工过。
 
-（dev 面进库复验 2026-11-09 过：showcase `mng dev` 热更循环 HOT 亚秒、COLD 回改动页，生成码 `@mngdev` 前缀应用侧零复制）
+（dev 面进库复验 2026-11-09 过、lsp 诊断联动复验 2026-11-10 过：热更循环 HOT/COLD；`moon check` 错误回投模板行列、修复后清零。复验修出三缺陷：check 超预算静默丢 258f3612、重入吞保存迟一拍 6041f1c9、与 dev regen 抢跑读旧生成码致反相幽灵 aad9256b——check 前就地 regen 根治，`mng dev` 不跑诊断也成立。已知观感：gen.mbt 的 MLS 标注与 .mng 回投双报（压制归后续批）、修复型保存后闪一次旧状态自纠）
 
-- [ ] **lsp 诊断联动复验**（用户执行，装新版 VSIX）：`.mng` 里写坏 script 段类型（如 `+` 拼非串）→ Ctrl+S → Problems 出「moon check」来源的模板行列错误；恢复保存后错误消失
 - [ ] **脚手架冒烟**（用户执行，含 `mng new` 改面复验）：仓库内 `mng new demo1`（裸名即建工程；**需把 demo1 加进 `moon.work` members**，否则按注册表解析、线上 0.3.1 无 mngdev 必挂——发版缺口见下）→ `cd demo1 && moon run .` 起窗 → 改 pages/home.mng 保存看 `mng dev` 热更；另验 `mng new page pages/about`（父目录现建）与命令面板「MNG: 新建页面」。**仓外腿挂起**：等 gui 发布含 mngdev 的版本（脚手架线上/兜底版本随之可用），2026-11-07 记
 
 ## 终端与单文件 DX 批（2026-11-06 排定，方案见 [proposals/terminal-sfc-dx.md](proposals/terminal-sfc-dx.md)——代码侧九件全部落地并逐项提交推送，本批只剩真机复验，均由用户执行）
