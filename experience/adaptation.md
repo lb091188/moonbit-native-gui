@@ -3911,3 +3911,12 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 **修法**：`uri_to_path` 按 UTF-8 组装多字节序列解码（`utf8_seq_at`：首字节 + 1~3 个续字节，均须 %XX 形态且取值合法），不完整/非法序列原样保留；wbtest 补非 ASCII 解码、双向往返稳定、非法序列保留三条。`path_to_uri` 本就按 UTF-8 编码，无需动。
 
 **判据**：LSP 报文里的 URI 解码/编码必须成对按 UTF-8 处理，往返稳定要有非 ASCII 用例钉住；Windows 会话常带中文盘名/用户名路径，纯 ASCII 仓库路径测不出这类坑。
+## DMG 拖装副本双击「无法打开」：copy_tree 字节拷贝丢执行位(2026-11-08,真机反馈)
+
+**现象**：mac DMG 拖进 Applications 后双击/聚焦「无法打开」，但跑 dist 目录里的二进制正常——一正一反。
+
+**根因**：`copy_file` 走字节读写，权限位恒 0644。dist 内 `.app` 拷完有 `ensure_exec`(chmod +x)所以能跑；组 DMG 卷目录 `copy_tree` 又走一遍 `copy_file`，主二进制执行位丢了，`hdiutil` 按原样封卷——拖装副本不可执行，LaunchServices 直接拒启。Linux 腿无此病(AppDir 的二进制与 AppRun 都有 ensure_exec)。
+
+**修法**：dmgroot 组装后对卷内主二进制补 `ensure_exec`；挂载 DMG `stat` 钉卷内 `rwxr-xr-x` 作验收。
+
+**判据**：①字节拷贝(copy_file/copy_tree)不保权限位，凡拷可执行处后脚必须 chmod；②包产物验收不能只看 dist 内副本——要挂载 DMG 查卷内文件的_mode 与签名；③「A 能跑 B 不能跑」先 diff 两者生成路径上差了哪道工序。
