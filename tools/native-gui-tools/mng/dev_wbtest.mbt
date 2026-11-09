@@ -2,7 +2,10 @@
 
 ///|
 test "safe_filename：app-id 里的非法字符转下划线" {
-  assert_eq(safe_filename("noahliu.native-gui-examples-showcase"), "noahliu.native-gui-examples-showcase")
+  assert_eq(
+    safe_filename("noahliu.native-gui-examples-showcase"),
+    "noahliu.native-gui-examples-showcase",
+  )
   assert_eq(safe_filename("comExample.App (dev)"), "comExample.App__dev_")
 }
 
@@ -40,7 +43,10 @@ test "build_project_at：按 mng.toml 扫全工程产生产形态生成码 + map
     root
   }
   ensure_dir_p(root)
-  write_file_p(root + "/moon.mod", "name = \"noahliu.build_proj\"\nversion = \"0.0.1\"\n")
+  write_file_p(
+    root + "/moon.mod",
+    "name = \"noahliu.build_proj\"\nversion = \"0.0.1\"\n",
+  )
   write_file_p(
     root + "/mng.toml",
     "[dev]\ntemplates = [\".\"]\nbuild = \"true\"\n",
@@ -82,7 +88,9 @@ test "build_project_at：按 mng.toml 扫全工程产生产形态生成码 + map
   }
   assert_eq(build_project_at(root), 0)
   assert_eq(
-    @fs.read_file_to_string(root + "/page.gen.mbt") catch { _ => "" },
+    @fs.read_file_to_string(root + "/page.gen.mbt") catch {
+      _ => ""
+    },
     again,
   )
 }
@@ -96,7 +104,10 @@ test "build_project_at：模板编译失败非零退出" {
     root
   }
   ensure_dir_p(root)
-  write_file_p(root + "/moon.mod", "name = \"noahliu.build_proj_bad\"\nversion = \"0.0.1\"\n")
+  write_file_p(
+    root + "/moon.mod",
+    "name = \"noahliu.build_proj_bad\"\nversion = \"0.0.1\"\n",
+  )
   write_file_p(
     root + "/bad.mng",
     "<template>\n  <ui-col>\n    <ui-text v-else text=\"x\" />\n  </ui-col>\n</template>",
@@ -128,7 +139,9 @@ test "scan_source_files：收 .mbt（排 .gen.mbt）与工程清单，跳产物�
 
 ///|
 test "diff_file_sets：新增/删除各自成列，共有的不动" {
-  let (added, removed) = diff_file_sets(["/a.mng", "/b.mng"], ["/b.mng", "/c.mng"])
+  let (added, removed) = diff_file_sets(["/a.mng", "/b.mng"], [
+    "/b.mng", "/c.mng",
+  ])
   assert_eq(added, ["/c.mng"])
   assert_eq(removed, ["/a.mng"])
   let (added2, removed2) = diff_file_sets([], [])
@@ -137,10 +150,11 @@ test "diff_file_sets：新增/删除各自成列，共有的不动" {
 }
 
 ///|
+
 ///|
 /// 测试残留清理：递归删目录（tmp root 同名重跑时 scaffold 会撞「已存在」）。
 fn rm_rf_wb(root : String) -> Unit {
-  if !(@fs.path_exists(root)) {
+  if !@fs.path_exists(root) {
     return
   }
   let dirs = Ref([root])
@@ -185,24 +199,44 @@ test "scaffold_app_at：workspace 内现读版本，文件齐全，dev 生成码
     "name = \"NoahLiu/native-gui\"\n\nversion = \"0.9.9\"\n\nimport {\n  \"NoahLiu/yoga-mbt@0.7.7\",\n}\n",
   )
   assert_eq(scaffold_app_at(root, "my_app"), 0)
-  let gmod = @fs.read_file_to_string(root + "/my_app/moon.mod") catch { _ => abort("moon.mod 缺") }
+  let gmod = @fs.read_file_to_string(root + "/my_app/moon.mod") catch {
+    _ => abort("moon.mod 缺")
+  }
   assert_true(contains_sub_cli(gmod, "NoahLiu/native-gui@0.9.9"))
   assert_true(contains_sub_cli(gmod, "NoahLiu/yoga-mbt@0.7.7"))
-  let pkg = @fs.read_file_to_string(root + "/my_app/moon.pkg") catch { _ => abort("moon.pkg 缺") }
+  let pkg = @fs.read_file_to_string(root + "/my_app/moon.pkg") catch {
+    _ => abort("moon.pkg 缺")
+  }
   // 主包零 dev 词：接线自装在 dev 生成码链里，@mngdev 只该出现在 pages 包
   assert_false(contains_sub_cli(pkg, "mngdev"))
   assert_true(contains_sub_cli(pkg, "my_app/pages\" @pages"))
   assert_true(contains_sub_cli(pkg, "shell\" @shell"))
-  let pages_pkg = @fs.read_file_to_string(root + "/my_app/pages/moon.pkg") catch { _ => abort("pages/moon.pkg 缺") }
+  let pages_pkg = @fs.read_file_to_string(root + "/my_app/pages/moon.pkg") catch {
+    _ => abort("pages/moon.pkg 缺")
+  }
   assert_true(contains_sub_cli(pages_pkg, "mngdev\" @mngdev"))
   assert_true(contains_sub_cli(pages_pkg, "style\" @style"))
-  let gen = @fs.read_file_to_string(root + "/my_app/pages/home.gen.mbt") catch { _ => abort("生成码缺") }
+  let gen = @fs.read_file_to_string(root + "/my_app/pages/home.gen.mbt") catch {
+    _ => abort("生成码缺")
+  }
   assert_true(contains_sub_cli(gen, "@mngdev.mng_dev_page(\"home\""))
   assert_true(contains_sub_cli(gen, "pub fn home() -> @widget.Node"))
-  let main_mbt = @fs.read_file_to_string(root + "/my_app/main.mbt") catch { _ => abort("main.mbt 缺") }
-  assert_true(contains_sub_cli(main_mbt, "@shell.instance_claim(\"local.my_app\")"))
+  let main_mbt = @fs.read_file_to_string(root + "/my_app/main.mbt") catch {
+    _ => abort("main.mbt 缺")
+  }
+  assert_true(
+    contains_sub_cli(main_mbt, "@shell.instance_claim(\"local.my_app\")"),
+  )
   // 入口零 dev 词：三通道接线自装在 dev 生成码链里
   assert_false(contains_sub_cli(main_mbt, "@mngdev"))
+  // mng.toml 带 [package] 节（脚手架与 init 模板同源——缺它打首个包必撞
+  // 「id 未配置」）
+  let toml = @fs.read_file_to_string(root + "/my_app/mng.toml") catch {
+    _ => abort("mng.toml 缺")
+  }
+  assert_true(contains_sub_cli(toml, "[package]"))
+  assert_true(contains_sub_cli(toml, "id = \"\""))
+  assert_true(contains_sub_cli(toml, "[package.sign]"))
   // 目录已存在拒绝
   assert_eq(scaffold_app_at(root, "my_app"), 1)
 }
@@ -213,7 +247,9 @@ test "scaffold_app_at：非法名净化与 workspace 外兜底版本注释" {
   rm_rf_wb(root)
   ensure_dir_p(root)
   assert_eq(scaffold_app_at(root, "9app"), 0)
-  let gmod = @fs.read_file_to_string(root + "/_9app/moon.mod") catch { _ => abort("moon.mod 缺") }
+  let gmod = @fs.read_file_to_string(root + "/_9app/moon.mod") catch {
+    _ => abort("moon.mod 缺")
+  }
   assert_true(contains_sub_cli(gmod, "name = \"_9app\""))
   assert_true(contains_sub_cli(gmod, "版本是兜底值"))
 }

@@ -8,12 +8,14 @@
 /// 版本缺省：不在 native-gui workspace 内时用的兜底值（注释提醒用户改成
 /// 自己锁定的版本）。
 const SCAFFOLD_GUI_FALLBACK : String = "0.3.1"
+
+///|
 const SCAFFOLD_YOGA_FALLBACK : String = "0.1.1"
 
 ///|
 /// 脚手架入口：在 `parent/<name>/` 生成工程。目录已存在拒绝（不覆盖）。
 /// 返回 0 成功；非 0 失败并已打印原因。
-fn scaffold_app_at(parent : String, raw_name : String) -> Int {
+fn scaffold_app_at(parent : String, raw_name : String) -> Int32 {
   let name = scaffold_mod_name(raw_name)
   if name.length() == 0 {
     println(
@@ -35,7 +37,12 @@ fn scaffold_app_at(parent : String, raw_name : String) -> Int {
     return 1
   }
   if !mkdir_p(dir + "/pages") {
-    println(tmsg("建不出目录：" + dir + "/pages", "Cannot create directory: " + dir + "/pages"))
+    println(
+      tmsg(
+        "建不出目录：" + dir + "/pages",
+        "Cannot create directory: " + dir + "/pages",
+      ),
+    )
     return 1
   }
   let (gui_ver, yoga_ver) = scaffold_versions(parent)
@@ -43,19 +50,12 @@ fn scaffold_app_at(parent : String, raw_name : String) -> Int {
   let spit_ok = fn(p : String, body : String) -> Bool {
     spit(dir + "/" + p, body)
   }
-  let ok = spit_ok(
-    "moon.mod",
-    scaffold_moon_mod(mod_name, gui_ver, yoga_ver),
-  ) && spit_ok("moon.pkg", scaffold_moon_pkg(mod_name)) && spit_ok(
-      "pages/moon.pkg",
-      scaffold_pages_pkg(),
-    ) && spit_ok(
-      "mng.toml",
-      scaffold_mng_toml(),
-    ) && spit_ok("main.mbt", scaffold_main_mbt(mod_name)) && spit_ok(
-      "pages/home.mng",
-      scaffold_home_mng(),
-    )
+  let ok = spit_ok("moon.mod", scaffold_moon_mod(mod_name, gui_ver, yoga_ver)) &&
+    spit_ok("moon.pkg", scaffold_moon_pkg(mod_name)) &&
+    spit_ok("pages/moon.pkg", scaffold_pages_pkg()) &&
+    spit_ok("mng.toml", scaffold_mng_toml()) &&
+    spit_ok("main.mbt", scaffold_main_mbt(mod_name)) &&
+    spit_ok("pages/home.mng", scaffold_home_mng())
   if !ok {
     println(
       tmsg(
@@ -63,9 +63,7 @@ fn scaffold_app_at(parent : String, raw_name : String) -> Int {
         "Failed writing project files (directory removed): " + dir,
       ),
     )
-    let _ = @fs.remove_dir(dir) catch {
-      _ => ()
-    }
+    let _ = @fs.remove_dir(dir) catch { _ => () }
     return 1
   }
   // 首页生成码：dev 形态（热更面在 @mngdev，CI 对账与 mng dev 同形）
@@ -106,7 +104,11 @@ fn scaffold_mod_name(raw : String) -> String {
   let a = chars_of(raw)
   let out = StringBuilder()
   for c in a {
-    if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' {
+    if (c >= 'a' && c <= 'z') ||
+      (c >= 'A' && c <= 'Z') ||
+      (c >= '0' && c <= '9') ||
+      c == '_' ||
+      c == '-' {
       out.write_char(c)
     }
   }
@@ -126,9 +128,9 @@ fn scaffold_versions(from : String) -> (String, String) {
   let mut hops = 0
   while hops < 24 {
     if (match fs_read(cur + "/moon.work") {
-      Some(_) => true
-      None => false
-    }) {
+        Some(_) => true
+        None => false
+      }) {
       let gmod = match fs_read(cur + "/gui/moon.mod") {
         Some(t) => t
         None => return (SCAFFOLD_GUI_FALLBACK, SCAFFOLD_YOGA_FALLBACK)
@@ -202,10 +204,21 @@ fn dir_of_m(p : String) -> String {
 }
 
 ///|
-fn scaffold_moon_mod(mod_name : String, gui_ver : String, yoga_ver : String) -> String {
-  let head = "name = \"" + mod_name + "\"\n\nversion = \"0.1.0\"\n\npreferred_target = \"native\"\n\ndescription = \"native-gui 模板应用（.mng 单文件组件 + mng dev/build）\"\n\nlicense = \"MIT\"\n\nimport {\n  \"NoahLiu/native-gui@" + gui_ver + "\",\n  \"NoahLiu/yoga-mbt@" + yoga_ver + "\",\n}\n"
+fn scaffold_moon_mod(
+  mod_name : String,
+  gui_ver : String,
+  yoga_ver : String,
+) -> String {
+  let head = "name = \"" +
+    mod_name +
+    "\"\n\nversion = \"0.1.0\"\n\npreferred_target = \"native\"\n\ndescription = \"native-gui 模板应用（.mng 单文件组件 + mng dev/build）\"\n\nlicense = \"MIT\"\n\nimport {\n  \"NoahLiu/native-gui@" +
+    gui_ver +
+    "\",\n  \"NoahLiu/yoga-mbt@" +
+    yoga_ver +
+    "\",\n}\n"
   if gui_ver == SCAFFOLD_GUI_FALLBACK {
-    head + "\n// 版本是兜底值：不在 native-gui workspace 内生成时读不到现读版本，\n// 按你锁定的发布版改这两行。\n"
+    head +
+    "\n// 版本是兜底值：不在 native-gui workspace 内生成时读不到现读版本，\n// 按你锁定的发布版改这两行。\n"
   } else {
     head
   }
@@ -215,7 +228,9 @@ fn scaffold_moon_mod(mod_name : String, gui_ver : String, yoga_ver : String) -> 
 /// 主包配置：只 import main.mbt 用到的（moon 对未用 import 报 warning，
 /// 门禁零警告）；页面生成码的别名集在 pages 包自己的 moon.pkg。
 fn scaffold_moon_pkg(mod_name : String) -> String {
-  "import {\n  \"NoahLiu/native-gui/ui\",\n  \"NoahLiu/native-gui/shell\" @shell,\n  \"" + mod_name + "/pages\" @pages,\n}\n\npkgtype(kind: \"executable\")\n\nsupported_targets = \"native\"\n"
+  "import {\n  \"NoahLiu/native-gui/ui\",\n  \"NoahLiu/native-gui/shell\" @shell,\n  \"" +
+  mod_name +
+  "/pages\" @pages,\n}\n\npkgtype(kind: \"executable\")\n\nsupported_targets = \"native\"\n"
 }
 
 ///|
@@ -227,23 +242,31 @@ fn scaffold_pages_pkg() -> String {
 
 ///|
 fn scaffold_mng_toml() -> String {
-  "# mng 工程配置（mng dev / mng build 无参时向上找到本文件）。\n[dev]\n\n# 递归扫 *.mng（跳过 _build / .mooncakes / 点目录）\ntemplates = [\".\"]\n\nbuild = \"moon build .\"\n\n# 留空 = 跑一次 build 后从 Artifacts 抓可执行路径\nrun = \"\"\n"
+  let dev = "# mng 工程配置（mng dev / mng build 无参时向上找到本文件）。\n[dev]\n\n# 递归扫 *.mng（跳过 _build / .mooncakes / 点目录）\ntemplates = [\".\"]\n\nbuild = \"moon build .\"\n\n# 留空 = 跑一次 build 后从 Artifacts 抓可执行路径\nrun = \"\"\n\n"
+  dev + mng_toml_package_section() + "\n"
 }
 
 ///|
 fn scaffold_main_mbt(mod_name : String) -> String {
   let app_id = app_id_of_module(mod_name)
   let head = "// 模板应用入口：页面在 pages/home.mng（单文件组件），生成码 pages/home.gen.mbt\n"
-  let head = head + "// 入口只有生产语义：单实例声称 + 挂窗。dev 三通道由 dev 形态生成码自装\n"
-  let head = head + "// （生产构建换生产形态生成码后 dev 面整体不在包里），唤起泵在 ui 库内自排。\n\n///|\n"
+  let head = head +
+    "// 入口只有生产语义：单实例声称 + 挂窗。dev 三通道由 dev 形态生成码自装\n"
+  let head = head +
+    "// （生产构建换生产形态生成码后 dev 面整体不在包里），唤起泵在 ui 库内自排。\n\n///|\n"
   let head = head + "fn main {\n"
   let head = head + "  match @shell.instance_claim(\"" + app_id + "\") {\n"
   let head = head + "    Ok(@shell.Existing) => {\n"
-  let head = head + "      let _ = @shell.instance_wake(\"" + app_id + "\", [])\n"
-  let head = head + "      println(\"APP-INST: 已有实例，已唤起并退出\")\n"
+  let head = head +
+    "      let _ = @shell.instance_wake(\"" +
+    app_id +
+    "\", [])\n"
+  let head = head +
+    "      println(\"APP-INST: 已有实例，已唤起并退出\")\n"
   let head = head + "      return\n"
   let head = head + "    }\n"
-  let head = head + "    Err(e) => println(\"APP-INST: 单实例降级：\" + e.to_string())\n"
+  let head = head +
+    "    Err(e) => println(\"APP-INST: 单实例降级：\" + e.to_string())\n"
   let head = head + "    Ok(@shell.Primary) => ()\n"
   let head = head + "  }\n"
   let head = head + "  let app = match @ui.mount_window(\n"
@@ -253,7 +276,8 @@ fn scaffold_main_mbt(mod_name : String) -> String {
   let head = head + "    height=360,\n"
   let head = head + "  ) {\n"
   let head = head + "    None => {\n"
-  let head = head + "      println(\"APP-SKIP: 本平台没有窗口后端或没有显示服务\")\n"
+  let head = head +
+    "      println(\"APP-SKIP: 本平台没有窗口后端或没有显示服务\")\n"
   let head = head + "      return\n"
   let head = head + "    }\n"
   let head = head + "    Some(a) => a\n"

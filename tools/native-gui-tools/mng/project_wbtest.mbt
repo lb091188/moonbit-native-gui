@@ -1,4 +1,5 @@
 // 项目级 dev 配置回归（无头）：mng.toml 解析、默认推导、多目录扫描、撞名聚合。
+
 ///|
 /// 可写临时目录（跨平台）：Windows 没有 `/tmp`，硬写会让用例在 `abort` 上假红。
 /// 依次取 `TMPDIR` / `TEMP` / `TMP`，都没有再回落 `/tmp`。
@@ -18,7 +19,6 @@ fn tmp_dir(sub : String) -> String {
   base + "/" + sub
 }
 
-
 ///|
 fn write_file_p(path : String, text : String) -> Unit {
   @fs.write_string_to_file(path, text) catch {
@@ -36,15 +36,8 @@ fn ensure_dir_p(path : String) -> Unit {
 ///|
 test "mng.toml 解析：[dev] 段的模板目录/命令/app-id/轮询" {
   let text = [
-    "# 注释",
-    "[dev]",
-    "templates = [\"src\", \"examples/app\"]",
-    "build = \"moon build ./app\"",
-    "run = \"\"",
-    "app-id = \"com.example.demo\"",
-    "poll-ms = 500",
-    "",
-    "[other]",
+    "# 注释", "[dev]", "templates = [\"src\", \"examples/app\"]", "build = \"moon build ./app\"",
+    "run = \"\"", "app-id = \"com.example.demo\"", "poll-ms = 500", "", "[other]",
     "templates = [\"nope\"]",
   ].join("\n")
   let t = parse_dev_toml(text)
@@ -132,7 +125,10 @@ test "多目录递归扫描：跳过 _build/.mooncakes/点目录，结果去重�
 test "撞名聚合：同包同 stem 报，跨包同 stem 不报" {
   let same_pkg = ["/p/a/card.mng", "/p/a/card.old.mng"]
   match collision_msg(same_pkg) {
-    Some(m) => assert_true(contains_sub_p(m, "同包撞名") && contains_sub_p(m, "card"))
+    Some(m) =>
+      assert_true(
+        contains_sub_p(m, "同包撞名") && contains_sub_p(m, "card"),
+      )
     None => assert_true(false)
   }
   let cross_pkg = ["/p/a/card.mng", "/p/b/card.mng"]
@@ -152,6 +148,12 @@ test "init 样板含 [dev] 段与关键字段" {
   assert_true(contains_sub_p(t, "build ="))
   assert_true(contains_sub_p(t, "app-id ="))
   assert_true(contains_sub_p(t, "poll-ms ="))
+  // [package] 节与关键字段（脚手架同源共用）
+  assert_true(contains_sub_p(t, "[package]"))
+  assert_true(contains_sub_p(t, "id = \"\""))
+  assert_true(contains_sub_p(t, "version = \"0.1.0\""))
+  assert_true(contains_sub_p(t, "[package.sign]"))
+  assert_true(contains_sub_p(t, "mac_identity = \"\""))
 }
 
 ///|
@@ -218,10 +220,7 @@ test "mng.toml：theme 键解析并落项目根相对路径" {
   let root = tmp_dir("mng_proj_theme")
   ensure_dir_p(root)
   write_file_p(root + "/moon.mod", "name = \"Acme/theme-app\"\n")
-  write_file_p(
-    root + "/mng.toml",
-    "[dev]\ntheme = \"theme.json\"\n",
-  )
+  write_file_p(root + "/mng.toml", "[dev]\ntheme = \"theme.json\"\n")
   let conf = match load_dev_conf("", "", "", None, root) {
     Ok(c) => c
     Err(e) => abort(e)

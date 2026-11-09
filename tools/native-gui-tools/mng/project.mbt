@@ -9,7 +9,7 @@ priv struct DevConf {
   build : String
   run : String
   app_id : String
-  poll_ms : Int
+  poll_ms : Int32
   theme : String
 }
 
@@ -72,13 +72,20 @@ priv struct TomlDev {
   mut build : String
   mut run : String
   mut app_id : String
-  mut poll_ms : Int?
+  mut poll_ms : Int32?
   mut theme : String
 }
 
 ///|
 fn parse_dev_toml(text : String) -> TomlDev {
-  let t : TomlDev = { templates: [], build: "", run: "", app_id: "", poll_ms: None, theme: "" }
+  let t : TomlDev = {
+    templates: [],
+    build: "",
+    run: "",
+    app_id: "",
+    poll_ms: None,
+    theme: "",
+  }
   let mut in_dev = false
   for raw in text.split("\n") {
     let line = trim_spaces(strip_comment(raw.to_owned()))
@@ -116,7 +123,7 @@ fn parse_dev_toml(text : String) -> TomlDev {
 }
 
 ///|
-fn index_of_char(s : String, c : Char) -> Int? {
+fn index_of_char(s : String, c : Char) -> Int32? {
   let a = chars_of(s)
   let mut i = 0
   while i < a.length() {
@@ -296,7 +303,7 @@ fn load_dev_conf(
   build_override : String,
   run_override : String,
   app_id_override : String,
-  poll_override : Int?,
+  poll_override : Int32?,
   cwd : String,
 ) -> Result[DevConf, String] {
   let (root, kind) = match find_project_root(cwd) {
@@ -318,7 +325,13 @@ fn load_dev_conf(
   if kind == "mng.toml" {
     let text = match fs_read(root + "/mng.toml") {
       Some(t) => t
-      None => return Err(tmsg("读不到 " + root + "/mng.toml", "Cannot read " + root + "/mng.toml"))
+      None =>
+        return Err(
+          tmsg(
+            "读不到 " + root + "/mng.toml",
+            "Cannot read " + root + "/mng.toml",
+          ),
+        )
     }
     let t = parse_dev_toml(text)
     for p in t.templates {
@@ -362,14 +375,18 @@ fn load_dev_conf(
     if mn.length() == 0 {
       return Err(
         tmsg(
-          "配置里没有 app-id，且 " + root + "/moon.mod 没有 name——补 app-id",
-          "no app-id in the config and " + root + "/moon.mod has no name — add app-id",
+          "配置里没有 app-id，且 " +
+          root +
+          "/moon.mod 没有 name——补 app-id",
+          "no app-id in the config and " +
+          root +
+          "/moon.mod has no name — add app-id",
         ),
       )
     }
     app_id = app_id_of_module(mn)
   }
-  Ok({ dir: root, templates, build, run, app_id, poll_ms, theme })
+  Ok({ dir: root, templates, build, run, app_id, poll_ms, theme, })
 }
 
 ///|
@@ -389,7 +406,10 @@ fn scan_dir_mng(dir : String, out : Array[String]) -> Unit {
   entries.sort()
   for name in entries {
     let p = if dir == "." { name } else { dir + "/" + name }
-    if name == "_build" || name == ".mooncakes" || name == "node_modules" || name == "target" {
+    if name == "_build" ||
+      name == ".mooncakes" ||
+      name == "node_modules" ||
+      name == "target" {
       continue
     }
     // 点目录先跳过——dev 产物目录 `.mng/` 名字恰以 .mng 结尾，后缀判断不能抢在它前面
@@ -402,9 +422,7 @@ fn scan_dir_mng(dir : String, out : Array[String]) -> Unit {
       }
       continue
     }
-    let isdir = @fs.is_dir(p) catch {
-      _ => false
-    }
+    let isdir = @fs.is_dir(p) catch { _ => false }
     if isdir {
       scan_dir_mng(p, out)
     }
@@ -439,7 +457,17 @@ fn collision_msg(files : Array[String]) -> String? {
     }
     match m.get(stem) {
       Some(prev) =>
-        msgs.push("同包撞名：" + prev + " 与 " + f + " 都生成 `" + stem + "`（" + dir + "）——改一个文件名")
+        msgs.push(
+          "同包撞名：" +
+          prev +
+          " 与 " +
+          f +
+          " 都生成 `" +
+          stem +
+          "`（" +
+          dir +
+          "）——改一个文件名",
+        )
       None => {
         let _ = m.set(stem, f)
       }
@@ -456,49 +484,31 @@ fn collision_msg(files : Array[String]) -> String? {
 /// `mng init` 的配置样板。
 fn mng_toml_template() -> String {
   let lines = [
-    "# mng dev 的工程配置（mng init 生成）",
-    "# 命令与相对路径都以执行 mng dev 时的当前目录为准。",
-    "",
-    "[dev]",
-    "# 递归扫 *.mng 的目录（相对本文件）；改任意模板都自动处理",
-    "templates = [\".\"]",
-    "",
-    "# 构建命令",
-    "build = \"moon build .\"",
-    "",
+    "# mng dev 的工程配置（mng init 生成）", "# 命令与相对路径都以执行 mng dev 时的当前目录为准。",
+    "", "[dev]", "# 递归扫 *.mng 的目录（相对本文件）；改任意模板都自动处理",
+    "templates = [\".\"]", "", "# 构建命令", "build = \"moon build .\"", "",
     "# 启动命令；留空 = 跑一次 build 后从 Artifacts 输出抓可执行路径",
-    "run = \"\"",
-    "",
-    "# 单实例唤起用；留空 = 由 moon.mod 的 name 派生（作者.工程名）",
-    "app-id = \"\"",
-    "",
-    "# 文件轮询间隔（毫秒）",
-    "poll-ms = 300",
-    "",
+    "run = \"\"", "", "# 单实例唤起用；留空 = 由 moon.mod 的 name 派生（作者.工程名）",
+    "app-id = \"\"", "", "# 文件轮询间隔（毫秒）", "poll-ms = 300", "",
+  ]
+  lines.join("\n") + "\n" + mng_toml_package_section() + "\n"
+}
+
+///|
+/// mng.toml 的 [package] / [package.sign] 样板段（init 与 `mng new` 脚手架
+/// 共用——脚手架此前只写 [dev]，新工程打首个包必撞「id 未配置」）。
+fn mng_toml_package_section() -> String {
+  let lines = [
     "# mng package 的打包声明（在项目根执行；本平台打本平台包）",
-    "[package]",
-    "# 反域名 id：mac bundle id / 产物短名同源",
-    "id = \"\"",
-    "# 显示名（.app / DMG 卷名 / 安装器标题）",
-    "name = \"\"",
-    "# 应用版本，三段数字；与 moon.mod 的模块版本无关",
-    "version = \"0.1.0\"",
-    "# 可执行名；留空 = 从构建产物抓",
-    "bin = \"\"",
-    "# 源图标：1024x1024 PNG，派生 icns/ico",
-    "icon = \"\"",
-    "# 随包资源（递归拷进 Contents/Resources / 安装目录）",
-    "resources = []",
-    "# deb control 的 Maintainer（\"名 <邮箱>\"）；留空 = unknown <>",
-    "maintainer = \"\"",
-    "",
-    "# 签名证书入口（全留空 = mac adhoc、win 不签）",
-    "[package.sign]",
-    "# codesign identity；如 \"Developer ID Application: NAME (TEAMID)\"",
-    "mac_identity = \"\"",
-    "# notarytool keychain profile；非空则公证 + staple",
+    "[package]", "# 反域名 id：mac bundle id / 产物短名同源", "id = \"\"",
+    "# 显示名（.app / DMG 卷名 / 安装器标题）", "name = \"\"", "# 应用版本，三段数字；与 moon.mod 的模块版本无关",
+    "version = \"0.1.0\"", "# 可执行名；留空 = 从构建产物抓", "bin = \"\"",
+    "# 源图标：1024x1024 PNG，派生 icns/ico", "icon = \"\"", "# 随包资源（递归拷进 Contents/Resources / 安装目录）",
+    "resources = []", "# deb control 的 Maintainer（\"名 <邮箱>\"）；留空 = unknown <>",
+    "maintainer = \"\"", "", "# 签名证书入口（全留空 = mac adhoc、win 不签）",
+    "[package.sign]", "# codesign identity；如 \"Developer ID Application: NAME (TEAMID)\"",
+    "mac_identity = \"\"", "# notarytool keychain profile；非空则公证 + staple",
     "notarize_profile = \"\"",
-    "",
   ]
   lines.join("\n")
 }
