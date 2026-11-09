@@ -8,14 +8,22 @@
 
 ///|
 let check_running : Ref[Bool] = Ref(false)
-let check_pid : Ref[Int] = Ref(0)
+
+///|
+let check_pid : Ref[Int32] = Ref(0)
+
+///|
 let check_uri : Ref[String] = Ref("")
+
+///|
 let check_root : Ref[String] = Ref("")
-let check_ticks : Ref[Int] = Ref(0)
+
+///|
+let check_ticks : Ref[Int32] = Ref(0)
 
 ///|
 /// moon check 命中的诊断缓存：uri → [(模板行 0 基, 列 0 基, message)]。
-let check_diags : Ref[Map[String, Array[(Int, Int, String)]]] = Ref(Map([]))
+let check_diags : Ref[Map[String, Array[(Int32, Int32, String)]]] = Ref(Map([]))
 
 ///|
 /// didOpen/didChange：内容变了，上一次 moon check 的诊断作废（位置与
@@ -41,9 +49,7 @@ fn check_kickoff(uri : String) -> Unit {
   let mng_dir = root + "/.mng"
   let _ = mkdir_p(mng_dir)
   let log = mng_dir + "/mooncheck.log"
-  let _ = @fs.remove_file(log) catch {
-    _ => ()
-  }
+  let _ = @fs.remove_file(log) catch { _ => () }
   match @proc.spawn("moon", ["-C", root, "check"], log) {
     Ok(pid) => {
       check_running.val = true
@@ -64,13 +70,23 @@ fn check_tick(docs : Map[String, String]) -> Unit {
   }
   if @proc.alive(check_pid.val) {
     check_ticks.val += 1
-    if check_ticks.val > 25 {
+    // 上限按大仓 check 计（showcase 全仓 260 任务十几秒起；客户端 150 拍
+    // 60s 是常态口，这里是客户端停拍后的服务端兜底）
+    if check_ticks.val > 900 {
+      // 强杀前把已有日志 best-effort 解析回投，不静默丢
+      check_publish(docs)
       let _ = @proc.kill(check_pid.val)
       check_running.val = false
     }
     return
   }
   check_running.val = false
+  check_publish(docs)
+}
+
+///|
+/// 读日志解析反查并回投诊断（进程正常退出与超限强杀共用的收尾）。
+fn check_publish(docs : Map[String, String]) -> Unit {
   let uri = check_uri.val
   let root = check_root.val
   let log = match fs_read(root + "/.mng/mooncheck.log") {
@@ -91,7 +107,7 @@ fn check_items_from_log(
   log : String,
   root : String,
   uri : String,
-) -> Array[(Int, Int, String)] {
+) -> Array[(Int32, Int32, String)] {
   let path = uri_to_path(uri)
   let stem = stem_of_path(path)
   let hits = parse_mooncheck_errors(log, stem + ".gen.mbt")
@@ -102,7 +118,7 @@ fn check_items_from_log(
     Some(t) => t
     None => return []
   }
-  let out : Array[(Int, Int, String)] = []
+  let out : Array[(Int32, Int32, String)] = []
   for h in hits {
     match lsp_map_lookup(map_text, h.0) {
       Some((sl, sc)) => out.push((sl - 1, sc - 1, h.2))
@@ -180,8 +196,8 @@ fn stem_of_path(p : String) -> String {
 fn parse_mooncheck_errors(
   log : String,
   gen_file : String,
-) -> Array[(Int, Int, String)] {
-  let out : Array[(Int, Int, String)] = []
+) -> Array[(Int32, Int32, String)] {
+  let out : Array[(Int32, Int32, String)] = []
   let lines : Array[String] = []
   for line0 in log.split("\n") {
     lines.push(line0.to_owned())
@@ -197,7 +213,9 @@ fn parse_mooncheck_errors(
         let mut j = i + 1
         while j < n && j <= i + 8 {
           let t = lines[j]
-          if line_ref_of(t, gen_file) is Some(_) || contains_sub_cli(t, "Error") || contains_sub_cli(t, "Warning") {
+          if line_ref_of(t, gen_file) is Some(_) ||
+            contains_sub_cli(t, "Error") ||
+            contains_sub_cli(t, "Warning") {
             break
           }
           if contains_sub_cli(t, "╰──") {
@@ -216,7 +234,7 @@ fn parse_mooncheck_errors(
 
 ///|
 /// 一行里提取 `<gen_file>:L:C`（前缘不是标识符字符，避免吃更长的文件名）。
-fn line_ref_of(line : String, gen_file : String) -> (Int, Int)? {
+fn line_ref_of(line : String, gen_file : String) -> (Int32, Int32)? {
   let a = line.to_array()
   let g = gen_file.to_array()
   let n = a.length()
@@ -267,17 +285,21 @@ fn is_ident_char_lsp(c : Char) -> Bool {
   (c >= 'a' && c <= 'z') ||
   (c >= 'A' && c <= 'Z') ||
   (c >= '0' && c <= '9') ||
-  c == '_' || c == '.'
+  c == '_' ||
+  c == '.'
 }
 
 ///|
 /// dev source map 反查：gen_line ≤ 目标的最靠后条目（map 文件三列
 /// `gen\tsrc_line\tsrc_col`，头行 `source`/`gen`/`#` 跳过）。
-fn lsp_map_lookup(map_text : String, gen_line : Int) -> (Int, Int)? {
-  let mut best : (Int, Int)? = None
+fn lsp_map_lookup(map_text : String, gen_line : Int32) -> (Int32, Int32)? {
+  let mut best : (Int32, Int32)? = None
   for line0 in map_text.split("\n") {
     let line = line0.trim(chars=" \t\r").to_owned()
-    if line.length() == 0 || line.has_prefix("#") || line.has_prefix("source") || line.has_prefix("gen ") {
+    if line.length() == 0 ||
+      line.has_prefix("#") ||
+      line.has_prefix("source") ||
+      line.has_prefix("gen ") {
       continue
     }
     let parts = line.split("\t").to_array()
@@ -299,7 +321,7 @@ fn lsp_map_lookup(map_text : String, gen_line : Int) -> (Int, Int)? {
 }
 
 ///|
-fn atoi_lsp(s : String) -> Int? {
+fn atoi_lsp(s : String) -> Int32? {
   let a = s.to_array()
   if a.length() == 0 {
     return None
@@ -319,10 +341,17 @@ fn trim_cli(t : String) -> String {
   let a = t.to_array()
   let mut lo = 0
   let mut hi = a.length()
-  while lo < hi && (a[lo] == ' ' || a[lo] == '\t' || a[lo] == '\r' || a[lo] == '│') {
+  while lo < hi &&
+        (a[lo] == ' ' || a[lo] == '\t' || a[lo] == '\r' || a[lo] == '│') {
     lo += 1
   }
-  while hi > lo && (a[hi - 1] == ' ' || a[hi - 1] == '\t' || a[hi - 1] == '\r' || a[hi - 1] == '│') {
+  while hi > lo &&
+        (
+          a[hi - 1] == ' ' ||
+          a[hi - 1] == '\t' ||
+          a[hi - 1] == '\r' ||
+          a[hi - 1] == '│'
+        ) {
     hi -= 1
   }
   slice_cli(a, lo, hi)

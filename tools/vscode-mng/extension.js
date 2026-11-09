@@ -547,15 +547,17 @@ function startClient(ctx, cli, diagnostics) {
     vscode.workspace.onDidSaveTextDocument((doc) => {
       if (doc.languageId === 'mng' && client) {
         const uri = doc.uri.toString();
-        // didSave 触发 moon check 联动：server 无时钟，client 连发 25 个
-        // tick（约 10s 上限）供其轮询进程退出；诊断基于磁盘生成码，dev
-        // 循环负责新鲜度。
+        // didSave 触发 moon check 联动：server 无时钟，client 连发 tick 供其
+        // 轮询进程退出；诊断基于磁盘生成码，dev 循环负责新鲜度。
         client.notify('textDocument/didSave', { textDocument: { uri } });
-        // 自限 25 拍自动停，不进 subscriptions（每次保存 push 一个会累积）
+        // 自限 150 拍（约 60s）自动停，不进 subscriptions（每次保存 push 一个
+        // 会累积）。预算按大仓 check 计：showcase 全仓 check（260 任务，gen
+        // 变更后要重编译两包）十几秒起，旧 25 拍 10s 在 check 退出前停拍，
+        // 服务端结果无人解析、诊断静默丢弃。
         let ticks = 0;
         const timer = setInterval(() => {
           ticks += 1;
-          if (client && ticks <= 25) {
+          if (client && ticks <= 150) {
             client.notify('$/mng/checkTick', {});
           } else {
             clearInterval(timer);
