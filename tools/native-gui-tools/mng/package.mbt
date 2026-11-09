@@ -831,6 +831,15 @@ fn package_mac(
   if !(mkdir_p(dmgroot) && copy_tree(app, dmgroot + "/" + conf.name + ".app")) {
     return Err(tmsg("组 DMG 卷目录失败", "cannot stage DMG root"))
   }
+  // copy_tree 走字节读写不保执行位：卷内主二进制补 chmod +x（拖装副本
+  // 没有它 LaunchServices 双击/聚焦即「无法打开」，dist 内副本因有上道
+  // ensure_exec 而能跑，现场表象正好一正一反）
+  if !ensure_exec(
+      dmgroot + "/" + conf.name + ".app/Contents/MacOS/" + mac_bin,
+      dist,
+    ) {
+    return Err("chmod +x failed (dmgroot): " + mac_bin)
+  }
   match
     run_logged(
       "ln -s /Applications " + sq(dmgroot + "/Applications"),
