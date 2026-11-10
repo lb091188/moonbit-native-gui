@@ -4,10 +4,9 @@
 ///|
 fn sem_legend_types() -> Array[String] {
   [
-    "namespace", "type", "class", "enum", "interface", "struct",
-    "typeParameter", "parameter", "variable", "property", "enumMember", "event",
-    "function", "method", "macro", "label", "comment", "string", "number",
-    "regexp", "operator", "keyword",
+    "namespace", "type", "class", "enum", "interface", "struct", "typeParameter",
+    "parameter", "variable", "property", "enumMember", "event", "function", "method",
+    "macro", "label", "comment", "string", "number", "regexp", "operator", "keyword",
   ]
 }
 
@@ -39,8 +38,8 @@ fn sem_legend_json() -> String {
 
 ///|
 /// 每行行首的码元偏移（0 基行）。
-fn sem_line_starts(text : String) -> Array[Int] {
-  let starts : Array[Int] = [0]
+fn sem_line_starts(text : String) -> Array[Int32] {
+  let starts : Array[Int32] = [0]
   let mut u = 0
   for c in text {
     let w = if c.to_int() >= 0x10000 { 2 } else { 1 }

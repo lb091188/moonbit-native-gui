@@ -3,24 +3,18 @@
 
 ///|
 fn fs_read(p : String) -> String? {
-  let s = @fs.read_file_to_string(p) catch {
-    _ => return None
-  }
+  let s = @fs.read_file_to_string(p) catch { _ => return None }
   Some(s)
 }
 
 ///|
 fn fs_ls(p : String) -> Array[String] {
   let out : Array[String] = []
-  let dir_ok = @fs.is_dir(p) catch {
-    _ => false
-  }
+  let dir_ok = @fs.is_dir(p) catch { _ => false }
   if !dir_ok {
     return out
   }
-  let entries = @fs.read_dir(p) catch {
-    _ => return out
-  }
+  let entries = @fs.read_dir(p) catch { _ => return out }
   for f in entries {
     out.push(f.to_string())
   }
@@ -49,7 +43,7 @@ fn dir_of(p : String) -> String {
 }
 
 ///|
-fn slice_path(a : Array[Char], lo : Int, hi : Int) -> String {
+fn slice_path(a : Array[Char], lo : Int32, hi : Int32) -> String {
   if hi <= lo {
     ""
   } else {
@@ -106,7 +100,10 @@ fn mng_compile(src : String, path : String) -> Result[@mngkit.GenOut, String] {
 
 ///|
 /// 编译（dev 形态）：多出页面注册表与 holder 落点（状态保活骨架）。
-fn mng_compile_dev(src : String, path : String) -> Result[@mngkit.GenOut, String] {
+fn mng_compile_dev(
+  src : String,
+  path : String,
+) -> Result[@mngkit.GenOut, String] {
   let dir = dir_of(path)
   let sigs = @mngkit.sigs_new(ws_root(dir), dir, @mngkit.io_new(fs_read, fs_ls))
   @mngkit.compile_dev(src, path, fn(p : String) { sigs.resolve(p) })
@@ -154,9 +151,7 @@ fn stem_conflicts(path : String) -> Array[String] {
   let out : Array[String] = []
   for f in fs_ls(dir) {
     // `.mng/` 是 dev 产物目录，名字恰以 .mng 结尾——目录不算撞名
-    let isdir = @fs.is_dir(dir + "/" + f) catch {
-      _ => false
-    }
+    let isdir = @fs.is_dir(dir + "/" + f) catch { _ => false }
     if isdir {
       continue
     }
@@ -179,8 +174,12 @@ fn stem_conflict_msg(path : String) -> String? {
       path + " collides with " + c.join(", "),
     )
     let tail = tmsg(
-      "生成同名函数 `" + stem_of_file(path) + "`（生成函数名取文件 stem）——改一个文件名",
-      "they would generate the same function `" + stem_of_file(path) + "` (the name comes from the file stem) — rename one of them",
+      "生成同名函数 `" +
+      stem_of_file(path) +
+      "`（生成函数名取文件 stem）——改一个文件名",
+      "they would generate the same function `" +
+      stem_of_file(path) +
+      "` (the name comes from the file stem) — rename one of them",
     )
     Some(head + " " + tail)
   }

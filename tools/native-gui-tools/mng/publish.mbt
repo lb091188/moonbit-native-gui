@@ -23,7 +23,7 @@ pub(all) struct PubArt {
 
 ///|
 /// 字符串里某字符最后出现的下标(没有给 -1):解析产物名用,标准库没有现成的。
-fn pub_last_ch(s : String, c : Char) -> Int {
+fn pub_last_ch(s : String, c : Char) -> Int32 {
   let a = chars_of(s)
   let mut at = -1
   let mut i = 0
@@ -72,7 +72,7 @@ fn pub_parse_artifact(name : String) -> PubArt? {
       if slug.length() == 0 {
         return None
       }
-      return Some({ file: name, slug, version: ver, target: t, ext })
+      return Some({ file: name, slug, version: ver, target: t, ext, })
     }
   }
   None
@@ -181,12 +181,12 @@ fn pub_extract_sha(text : String) -> String? {
 fn pub_sha256_file(path : String, log : String) -> Result[String, String] {
   let host = host_pkg()
   let (file, args) = if host == "mac" {
-      ("shasum", ["-a", "256", path])
-    } else if host == "win" {
-      ("certutil", ["-hashfile", path, "SHA256"])
-    } else {
-      ("sha256sum", [path])
-    }
+    ("shasum", ["-a", "256", path])
+  } else if host == "win" {
+    ("certutil", ["-hashfile", path, "SHA256"])
+  } else {
+    ("sha256sum", [path])
+  }
   let _ = @fs.remove_file(log) catch { _ => () }
   match @proc.spawn(file, args, log) {
     Err(e) => return Err("\{file} 起不来:\{e}")
@@ -205,7 +205,13 @@ fn pub_sha256_file(path : String, log : String) -> Result[String, String] {
     Some(t) =>
       match pub_extract_sha(t) {
         Some(h) => Ok(h)
-        None => Err(tmsg("SHA256 输出里找不到 64 位十六进制段:", "no 64-hex segment in sha output: ") + t)
+        None =>
+          Err(
+            tmsg(
+              "SHA256 输出里找不到 64 位十六进制段:", "no 64-hex segment in sha output: ",
+            ) +
+            t,
+          )
       }
     None => Err("sha log unreadable: " + log)
   }
@@ -255,7 +261,11 @@ fn pub_gh_repo(log : String) -> String? {
 
 ///|
 /// gh 跑一条命令(spawn 落 log + 等退出;成败由调用方按 log/后续探测判定)。
-fn pub_gh_run(args : Array[String], log : String, timeout_ms : Int) -> Result[Unit, String] {
+fn pub_gh_run(
+  args : Array[String],
+  log : String,
+  timeout_ms : Int32,
+) -> Result[Unit, String] {
   let _ = @fs.remove_file(log) catch { _ => () }
   match @proc.spawn("gh", args, log) {
     Err(e) => Err("gh 起不来:\{e}")
@@ -298,7 +308,7 @@ fn pub_release_exists(tag : String, repo : String, log : String) -> Bool {
 /// `mng publish` 入口。参数:--tag <tag>(默认 app-v<版本>)、--repo <owner/name>
 /// (默认 gh 探测)、--notes <文本>(默认 "Release <版本>")、--no-upload(只生成
 /// update.json 落 dist,不碰 gh)。
-fn cmd_publish(args : Array[String]) -> Int {
+fn cmd_publish(args : Array[String]) -> Int32 {
   let cwd = match @env.current_dir() {
     Some(d) => d
     None => "."
@@ -306,10 +316,18 @@ fn cmd_publish(args : Array[String]) -> Int {
   let (root, kind) = match find_project_root(cwd) {
     Some(x) => x
     None =>
-      return fail_pkg(tmsg("没找到 mng.toml(向上找过了)——先 mng init", "mng.toml not found (walked up) — run mng init first"))
+      return fail_pkg(
+        tmsg(
+          "没找到 mng.toml(向上找过了)——先 mng init", "mng.toml not found (walked up) — run mng init first",
+        ),
+      )
   }
   if kind != "mng.toml" {
-    return fail_pkg(tmsg("项目根是按 moon.mod 定位的,没有 mng.toml", "project root is a moon.mod without mng.toml"))
+    return fail_pkg(
+      tmsg(
+        "项目根是按 moon.mod 定位的,没有 mng.toml", "project root is a moon.mod without mng.toml",
+      ),
+    )
   }
   let text = match fs_read(root + "/mng.toml") {
     Some(t) => t
@@ -351,7 +369,12 @@ fn cmd_publish(args : Array[String]) -> Int {
   let dist = root + "/.mng/dist"
   let names : Array[String] = []
   let entries = @fs.read_dir(dist) catch {
-    _ => return fail_pkg(tmsg(".mng/dist 不在——先跑 package", ".mng/dist missing — run package first"))
+    _ =>
+      return fail_pkg(
+        tmsg(
+          ".mng/dist 不在——先跑 package", ".mng/dist missing — run package first",
+        ),
+      )
   }
   for e in entries {
     names.push(e.to_string())
@@ -371,7 +394,12 @@ fn cmd_publish(args : Array[String]) -> Int {
         if a.version == conf.version {
           arts.push(a)
         } else {
-          println(tmsg("跳过版本不符的产物:", "skip artifact with wrong version: ") + n)
+          println(
+            tmsg(
+              "跳过版本不符的产物:", "skip artifact with wrong version: ",
+            ) +
+            n,
+          )
         }
       None => ()
     }
@@ -388,7 +416,12 @@ fn cmd_publish(args : Array[String]) -> Int {
   let gh_log = dist + "/gh-probe.log"
   if repo.length() == 0 {
     if !upload {
-      return fail_pkg(tmsg("--no-upload 也要 --repo(update.json 里的下载 URL 要仓库名)", "--no-upload still needs --repo (download URLs embed the repo)"))
+      return fail_pkg(
+        tmsg(
+          "--no-upload 也要 --repo(update.json 里的下载 URL 要仓库名)",
+          "--no-upload still needs --repo (download URLs embed the repo)",
+        ),
+      )
     }
     match pub_gh_repo(gh_log) {
       Some(r) => repo = r
@@ -419,7 +452,15 @@ fn cmd_publish(args : Array[String]) -> Int {
     }
     sizes.push(pub_file_size(full))
   }
-  let manifest = pub_manifest_text(conf.version, notes, repo, tag, carriers, shas, sizes)
+  let manifest = pub_manifest_text(
+    conf.version,
+    notes,
+    repo,
+    tag,
+    carriers,
+    shas,
+    sizes,
+  )
   let manifest_path = dist + "/update.json"
   let wrote = try {
     @fs.write_string_to_file(manifest_path, manifest)
@@ -432,10 +473,19 @@ fn cmd_publish(args : Array[String]) -> Int {
   }
   println(tmsg("清单已生成:", "manifest written: ") + manifest_path)
   if carriers.length() == 0 {
-    println(tmsg("(dist 里没有更新载体——清单 platforms 为空,安装包仍随 Release 分发)", "(no update carriers in dist — platforms is empty; installers still ship with the Release)"))
+    println(
+      tmsg(
+        "(dist 里没有更新载体——清单 platforms 为空,安装包仍随 Release 分发)",
+        "(no update carriers in dist — platforms is empty; installers still ship with the Release)",
+      ),
+    )
   }
   if !upload {
-    println(tmsg("按 --no-upload 只生成清单,未上传", "--no-upload: manifest only, nothing uploaded"))
+    println(
+      tmsg(
+        "按 --no-upload 只生成清单,未上传", "--no-upload: manifest only, nothing uploaded",
+      ),
+    )
     return 0
   }
   // 上传:Release 不存在就建 draft;产物 + update.json 一起 --clobber
@@ -447,7 +497,12 @@ fn cmd_publish(args : Array[String]) -> Int {
   files.push(manifest_path)
   let mut up_args : Array[String] = []
   if pub_release_exists(tag, repo, gh_log) {
-    println(tmsg("Release \{tag} 已在,补传产物(--clobber):", "Release \{tag} exists, uploading artifacts (--clobber):"))
+    println(
+      tmsg(
+        "Release \{tag} 已在,补传产物(--clobber):",
+        "Release \{tag} exists, uploading artifacts (--clobber):",
+      ),
+    )
     up_args = ["release", "upload", tag]
     for f in files {
       up_args.push(f)
@@ -456,8 +511,22 @@ fn cmd_publish(args : Array[String]) -> Int {
     up_args.push("-R")
     up_args.push(repo)
   } else {
-    println(tmsg("建 draft Release \{tag} 并上传:", "creating draft Release \{tag} and uploading:"))
-    up_args = ["release", "create", tag, "--draft", "--title", "App " + conf.version, "--notes", notes]
+    println(
+      tmsg(
+        "建 draft Release \{tag} 并上传:",
+        "creating draft Release \{tag} and uploading:",
+      ),
+    )
+    up_args = [
+      "release",
+      "create",
+      tag,
+      "--draft",
+      "--title",
+      "App " + conf.version,
+      "--notes",
+      notes,
+    ]
     for f in files {
       up_args.push(f)
     }
@@ -471,12 +540,22 @@ fn cmd_publish(args : Array[String]) -> Int {
   // 验:release view 拿得到才算成(gh 对部分失败也退 0 的场景兜住)
   if !pub_release_exists(tag, repo, gh_log) {
     print_log_tail(up_log)
-    return fail_pkg(tmsg("上传后探不到 Release \{tag}——看上面日志", "Release \{tag} not visible after upload — see log above"))
+    return fail_pkg(
+      tmsg(
+        "上传后探不到 Release \{tag}——看上面日志",
+        "Release \{tag} not visible after upload — see log above",
+      ),
+    )
   }
   for a in arts {
     println("  " + a.file)
   }
   println("  update.json")
-  println(tmsg("完成:\{repo} 的 draft \{tag}(发前人工核一遍再 publish)", "done: draft \{tag} on \{repo} (review, then publish)"))
+  println(
+    tmsg(
+      "完成:\{repo} 的 draft \{tag}(发前人工核一遍再 publish)",
+      "done: draft \{tag} on \{repo} (review, then publish)",
+    ),
+  )
   0
 }

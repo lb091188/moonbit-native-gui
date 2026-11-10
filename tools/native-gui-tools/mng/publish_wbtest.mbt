@@ -1,5 +1,6 @@
 // publish.mbt 纯函数用例:产物名解析、载体判定、清单文本、SHA 提取、转义。
 
+///|
 test "pub_parse_artifact:五件产物与坏名字" {
   // mac 三件
   let a = match pub_parse_artifact("showcase-0.1.0-darwin-aarch64.dmg") {
@@ -49,6 +50,7 @@ test "pub_parse_artifact:五件产物与坏名字" {
   }
 }
 
+///|
 test "pub_is_carrier:zip/zip/AppImage;安装包不是载体" {
   assert_true(pub_is_carrier("darwin-aarch64", "zip"))
   assert_true(pub_is_carrier("windows-x86_64", "zip"))
@@ -59,6 +61,7 @@ test "pub_is_carrier:zip/zip/AppImage;安装包不是载体" {
   assert_false(pub_is_carrier("linux-x86_64", "zip"))
 }
 
+///|
 test "pub_manifest_text:载体条目与预留位" {
   let carriers : Array[PubArt] = [
     {
@@ -99,11 +102,13 @@ test "pub_manifest_text:载体条目与预留位" {
   // 库侧解析器口径:gui/sys/update_parse_manifest 吃得下(结构由文本形态保证)
 }
 
+///|
 test "pub_manifest_text:无载体时 platforms 空" {
   let t = pub_manifest_text("0.1.0", "n", "o/r", "app-v0.1.0", [], [], [])
   assert_true(t.contains("\"platforms\": {}"))
 }
 
+///|
 test "pub_extract_sha:posix 行与 certutil 块" {
   let hex64 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
   assert_eq(pub_extract_sha("\{hex64}  /x.zip\n"), Some(hex64))
@@ -119,6 +124,7 @@ test "pub_extract_sha:posix 行与 certutil 块" {
   }
 }
 
+///|
 test "pub_json_escape:引号反斜杠控制字符" {
   assert_eq(pub_json_escape("a\"b\\c\nd"), "a\\\"b\\\\c\\nd")
   assert_eq(pub_json_escape("平文"), "平文")

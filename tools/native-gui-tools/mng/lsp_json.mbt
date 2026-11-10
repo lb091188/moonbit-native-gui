@@ -14,7 +14,7 @@ priv enum LJson {
 ///|
 priv struct JParse {
   cs : Array[Char]
-  mut i : Int
+  mut i : Int32
 }
 
 ///|
@@ -164,7 +164,12 @@ fn jp_value(p : JParse) -> Result[LJson, String] {
     let start = p.i
     while p.i < p.cs.length() {
       let d = p.cs[p.i]
-      if (d >= '0' && d <= '9') || d == '-' || d == '+' || d == '.' || d == 'e' || d == 'E' {
+      if (d >= '0' && d <= '9') ||
+        d == '-' ||
+        d == '+' ||
+        d == '.' ||
+        d == 'e' ||
+        d == 'E' {
         p.i += 1
       } else {
         break
@@ -194,7 +199,7 @@ fn jp_lit(p : JParse, lit : String) -> Bool {
 }
 
 ///|
-fn parse_hex4(s : String) -> Int? {
+fn parse_hex4(s : String) -> Int32? {
   let a = chars_of_js(s)
   if a.length() != 4 {
     return None
@@ -262,7 +267,7 @@ fn chars_of_js(s : String) -> Array[Char] {
 }
 
 ///|
-fn slice_str_js(a : Array[Char], lo : Int, hi : Int) -> String {
+fn slice_str_js(a : Array[Char], lo : Int32, hi : Int32) -> String {
   if hi <= lo {
     ""
   } else {
@@ -273,7 +278,7 @@ fn slice_str_js(a : Array[Char], lo : Int, hi : Int) -> String {
 ///|
 /// 报文串 → JSON。
 fn json_parse(s : String) -> Result[LJson, String] {
-  let p = { cs: chars_of_js(s), i: 0 }
+  let p = { cs: chars_of_js(s), i: 0, }
   let v = match jp_value(p) {
     Ok(v) => v
     Err(e) => return Err(e)
@@ -291,7 +296,7 @@ fn json_str(j : LJson) -> String? {
 }
 
 ///|
-fn json_num(j : LJson) -> Int? {
+fn json_num(j : LJson) -> Int32? {
   match j {
     LNum(v) => Some(v.to_int())
     _ => None

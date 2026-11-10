@@ -2,6 +2,7 @@
 // COLD 回退编排（moon build → 杀旧 → 带参重启 → 唤醒回改动页）。
 // 分类判据与边界见 proposals/native-template.md「开发循环」二轮节。
 
+///|
 fn usage_dev() -> Unit {
   println(
     tmsg(
@@ -17,8 +18,7 @@ fn usage_dev() -> Unit {
   )
   println(
     tmsg(
-      "  位置参数：只盯这一个文件/目录（可选过滤）",
-      "  Positional: watch only this file/dir (optional filter)",
+      "  位置参数：只盯这一个文件/目录（可选过滤）", "  Positional: watch only this file/dir (optional filter)",
     ),
   )
   println(
@@ -56,7 +56,9 @@ fn usage_dev() -> Unit {
 ///|
 /// 逐级建目录（已存在视为成功）。
 fn mkdir_p(dir : String) -> Bool {
-  let parts = collect_array_dev(dir.split("/").filter(fn(x) { x.length() > 0 }).map(fn(x) { x.to_owned() }))
+  let parts = collect_array_dev(
+    dir.split("/").filter(fn(x) { x.length() > 0 }).map(fn(x) { x.to_owned() }),
+  )
   let mut cur = if dir.has_prefix("/") { "/" } else { "" }
   for p in parts {
     if cur == "/" {
@@ -66,9 +68,7 @@ fn mkdir_p(dir : String) -> Bool {
     } else {
       cur = cur + "/" + p
     }
-    let isdir = @fs.is_dir(cur) catch {
-      _ => false
-    }
+    let isdir = @fs.is_dir(cur) catch { _ => false }
     if !isdir {
       @fs.create_dir(cur) catch {
         _ => return false
@@ -93,7 +93,12 @@ fn rel_under(root : String, p : String) -> String {
 fn safe_filename(s : String) -> String {
   let out = StringBuilder()
   for c in s {
-    if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '.' || c == '-' || c == '_' {
+    if (c >= 'a' && c <= 'z') ||
+      (c >= 'A' && c <= 'Z') ||
+      (c >= '0' && c <= '9') ||
+      c == '.' ||
+      c == '-' ||
+      c == '_' {
       out.write_char(c)
     } else {
       out.write_char('_')
@@ -156,9 +161,7 @@ fn gen_path(out_dir : String, f : String) -> String {
 ///|
 /// 可选过滤：文件原样、目录递归扫。
 fn filter_files(spec : String) -> Array[String] {
-  let isdir = @fs.is_dir(spec) catch {
-    _ => false
-  }
+  let isdir = @fs.is_dir(spec) catch { _ => false }
   if isdir {
     scan_templates([spec])
   } else {
@@ -185,7 +188,10 @@ fn sh_arg(p : String) -> String {
 ///|
 /// 跑一次 build 并从输出里抓可执行路径（`Artifacts:` 段里属于本模块的那一行）。
 /// 只在 `run` 未配置时用；build 本身走 `sh -c` 以拿到输出。
-fn derive_run(build_cmd : String, module_name : String) -> Result[String, String] {
+fn derive_run(
+  build_cmd : String,
+  module_name : String,
+) -> Result[String, String] {
   let tmp = match @env.get_env_var("TMPDIR") {
     Some(d) if d != "" => d
     _ => "/tmp"
@@ -193,7 +199,10 @@ fn derive_run(build_cmd : String, module_name : String) -> Result[String, String
   let log = tmp + "/mng-dev-build.log"
   let cmd = build_cmd + " > " + sh_arg(log) + " 2>&1"
   match @proc.run_wait("sh", ["-c", cmd], 600000) {
-    Err(e) => return Err("build 跑不起来（" + e + "）——Windows 请显式配置 run")
+    Err(e) =>
+      return Err(
+        "build 跑不起来（" + e + "）——Windows 请显式配置 run",
+      )
     Ok(code) =>
       if code != 0 {
         // 构建失败：把日志尾巴打出来
@@ -210,7 +219,10 @@ fn derive_run(build_cmd : String, module_name : String) -> Result[String, String
   }
   match artifact_of_log(text, module_name) {
     Some(p) => Ok(p)
-    None => Err("build 输出里没抓到本模块的可执行路径——在 mng.toml 补 run")
+    None =>
+      Err(
+        "build 输出里没抓到本模块的可执行路径——在 mng.toml 补 run",
+      )
   }
 }
 
@@ -226,7 +238,8 @@ fn is_abs_path(p : String) -> Bool {
   if cs[0] == '/' {
     return true
   }
-  let is_letter = (cs[0] >= 'a' && cs[0] <= 'z') || (cs[0] >= 'A' && cs[0] <= 'Z')
+  let is_letter = (cs[0] >= 'a' && cs[0] <= 'z') ||
+    (cs[0] >= 'A' && cs[0] <= 'Z')
   if n >= 3 && is_letter && cs[1] == ':' && (cs[2] == '\\' || cs[2] == '/') {
     return true
   }
@@ -259,7 +272,9 @@ fn artifact_of_log(text : String, module_name : String) -> String? {
       artifacts = false
       continue
     }
-    let xs = collect_array_dev(t.split(" ").filter(fn(x) { x.length() > 0 }).map(fn(x) { x.to_owned() }))
+    let xs = collect_array_dev(
+      t.split(" ").filter(fn(x) { x.length() > 0 }).map(fn(x) { x.to_owned() }),
+    )
     if xs.length() < 2 {
       continue
     }
@@ -268,9 +283,7 @@ fn artifact_of_log(text : String, module_name : String) -> String? {
     if !is_abs_path(cand) {
       continue
     }
-    let exists = @fs.is_file(cand) catch {
-      _ => false
-    }
+    let exists = @fs.is_file(cand) catch { _ => false }
     if !exists {
       continue
     }
@@ -293,13 +306,13 @@ fn artifact_of_log(text : String, module_name : String) -> String? {
 
 ///|
 /// dev 主流程：工程级扫描 → 首轮 dev 编译 → build/起应用 → 合并拍次的 watch 循环。
-fn cmd_dev(args : Array[String]) -> Int {
+fn cmd_dev(args : Array[String]) -> Int32 {
   let mut filter = ""
   let mut out_dir = ""
   let mut build_cmd = ""
   let mut run_cmd = ""
   let mut app_id = ""
-  let mut poll_override : Int? = None
+  let mut poll_override : Int32? = None
   let mut k = 0
   while k < args.length() {
     let a = args[k]
@@ -342,7 +355,8 @@ fn cmd_dev(args : Array[String]) -> Int {
     Some(d) => d
     None => "."
   }
-  let conf = match load_dev_conf(build_cmd, run_cmd, app_id, poll_override, cwd) {
+  let conf = match
+    load_dev_conf(build_cmd, run_cmd, app_id, poll_override, cwd) {
     Ok(c) => c
     Err(e) => {
       eprintln(e)
@@ -355,7 +369,9 @@ fn cmd_dev(args : Array[String]) -> Int {
     scan_templates(conf.templates)
   }
   if files.length() == 0 {
-    eprintln("没扫到 .mng（templates = " + conf.templates.join(", ") + "）")
+    eprintln(
+      "没扫到 .mng（templates = " + conf.templates.join(", ") + "）",
+    )
     return 2
   }
   match collision_msg(files) {
@@ -491,8 +507,14 @@ fn cmd_dev(args : Array[String]) -> Int {
           match cur {
             Some(_) =>
               match @inst.wake(conf.app_id, ["--mng-theme", t]) {
-                Ok(_) => eprintln("[THEME] 主题重载已推送（" + t + "）")
-                Err(e) => eprintln("[THEME] 主题推送失败（" + e + "）——应用未运行？")
+                Ok(_) =>
+                  eprintln("[THEME] 主题重载已推送（" + t + "）")
+                Err(e) =>
+                  eprintln(
+                    "[THEME] 主题推送失败（" +
+                    e +
+                    "）——应用未运行？",
+                  )
               }
             None => ()
           }
@@ -503,10 +525,7 @@ fn cmd_dev(args : Array[String]) -> Int {
     let changed : Array[String] = []
     for f in files {
       match slurp(f) {
-        Some(src) =>
-          if src != seen.get_or_default(f, "") {
-            changed.push(f)
-          }
+        Some(src) => if src != seen.get_or_default(f, "") { changed.push(f) }
         None => ()
       }
     }
@@ -556,7 +575,9 @@ fn cmd_dev(args : Array[String]) -> Int {
         let _ = @fs.remove_file(gp) catch { _ => () }
         eprintln("[GONE] " + f + "，已清生成码 " + gp)
       } else if old_gen.length() > 0 {
-        eprintln("[GONE] " + f + "；生成码 " + gp + " 非生成头，未自动删")
+        eprintln(
+          "[GONE] " + f + "；生成码 " + gp + " 非生成头，未自动删",
+        )
       }
     }
     files = rescanned
@@ -623,7 +644,12 @@ fn cmd_dev(args : Array[String]) -> Int {
               cold = true
             }
             Ok(irjson) => {
-              let irpath = mng_root + "/ir/" + rel_under(conf.dir, parent_dir_of(f)) + "/" + stem_of_file(f) + ".ir.json"
+              let irpath = mng_root +
+                "/ir/" +
+                rel_under(conf.dir, parent_dir_of(f)) +
+                "/" +
+                stem_of_file(f) +
+                ".ir.json"
               if !mkdir_p(parent_dir_of(irpath)) || !spit(irpath, irjson) {
                 eprintln("[HOT] 写不出 " + irpath)
                 cold = true
@@ -639,7 +665,9 @@ fn cmd_dev(args : Array[String]) -> Int {
     }
     // COLD 编排抽成一拍内可复用：本拍分类要重启、或 HOT 回执判 stale 后补重启
     let do_cold = fn() -> Unit {
-      eprintln("[COLD] 本拍 \{changed.length()} 个改动，合并 build 一次…")
+      eprintln(
+        "[COLD] 本拍 \{changed.length()} 个改动，合并 build 一次…",
+      )
       // 先停旧应用再 build：Windows 上运行中的 exe 被锁，链接期覆盖同名产物会
       // 直接 LNK1104。构建失败时把旧产物拉回来——「应用还在但没生效」比
       // 「应用没了」好排查，与 POSIX 上 build 失败不重启的观感一致。
@@ -673,7 +701,11 @@ fn cmd_dev(args : Array[String]) -> Int {
             }
             Ok(code) =>
               if code != 0 {
-                eprintln("[COLD] build 退出码 " + code.to_string() + "，应用不动")
+                eprintln(
+                  "[COLD] build 退出码 " +
+                  code.to_string() +
+                  "，应用不动",
+                )
                 respawn_old()
               } else {
                 match @proc.spawn(rfile, rargs, app_log) {
@@ -695,7 +727,9 @@ fn cmd_dev(args : Array[String]) -> Int {
     if cold && !had_err {
       do_cold()
     } else if cold && had_err {
-      eprintln("[COLD] 有编译错误，本拍不重启（修好保存后自动重试）")
+      eprintln(
+        "[COLD] 有编译错误，本拍不重启（修好保存后自动重试）",
+      )
     }
     if !cold {
       let mut stale = false
@@ -715,7 +749,9 @@ fn cmd_dev(args : Array[String]) -> Int {
       }
     } else if patches.length() > 0 {
       // COLD 重启后应用已按新生成码起，补丁不再需要
-      eprintln("[HOT] 本拍有 COLD 改动，\{patches.length()} 个热补丁并入重启")
+      eprintln(
+        "[HOT] 本拍有 COLD 改动，\{patches.length()} 个热补丁并入重启",
+      )
     }
   }
   0
@@ -724,9 +760,7 @@ fn cmd_dev(args : Array[String]) -> Int {
 ///|
 /// 读回执文件，读不到当空串（应用侧握手后写 `<补丁>.ack`）。
 fn read_or_empty(path : String) -> String {
-  let s = @fs.read_file_to_string(path) catch {
-    _ => return ""
-  }
+  let s = @fs.read_file_to_string(path) catch { _ => return "" }
   s
 }
 
@@ -736,12 +770,16 @@ fn read_or_empty(path : String) -> String {
 /// 不虚报已应用。
 fn push_hot(app_id : String, p : String) -> Bool {
   let ack = p + ".ack"
-  let _ = @fs.remove_file(ack) catch {
-    _ => ()
-  }
+  let _ = @fs.remove_file(ack) catch { _ => () }
   match @inst.wake(app_id, ["--mng-hot", p]) {
     Err(e) => {
-      eprintln("[HOT] 补丁已备 " + p + "，但唤起失败（" + e + "）——应用未运行？")
+      eprintln(
+        "[HOT] 补丁已备 " +
+        p +
+        "，但唤起失败（" +
+        e +
+        "）——应用未运行？",
+      )
       false
     }
     Ok(_) => {
@@ -786,14 +824,16 @@ fn wake_page(app_id : String, page : String) -> Unit {
       }
     }
   }
-  eprintln("[COLD] 回页请求未送达（应用未就绪或单实例通道不可用）")
+  eprintln(
+    "[COLD] 回页请求未送达（应用未就绪或单实例通道不可用）",
+  )
 }
 
 ///|
 /// 项目级生产构建：按 mng.toml（或默认推导）扫全工程 .mng，逐个产生产形态
 /// 生成码写回模板同包 `<stem>.gen.mbt`，source map 落 `.mng/map/`。
 /// 与 dev 形态共用同一条生成码路径，会互相覆盖——提交前选一种并保持一致。
-fn build_project_at(root : String) -> Int {
+fn build_project_at(root : String) -> Int32 {
   let conf = match load_dev_conf("", "", "", None, root) {
     Ok(c) => c
     Err(e) => {
@@ -820,7 +860,12 @@ fn build_project_at(root : String) -> Int {
   }
   let mng_root = conf.dir + "/.mng"
   if !mkdir_p(mng_root + "/map") {
-    eprintln(tmsg("建不出目录：" + mng_root + "/map", "Cannot create directory: " + mng_root + "/map"))
+    eprintln(
+      tmsg(
+        "建不出目录：" + mng_root + "/map",
+        "Cannot create directory: " + mng_root + "/map",
+      ),
+    )
     return 1
   }
   let mut ok = true
@@ -842,13 +887,23 @@ fn build_project_at(root : String) -> Int {
       Ok(r) => {
         let gp = gen_path("", f)
         if !spit(gp, r.code) {
-          eprintln(tmsg("写不出生成码：" + gp, "Cannot write generated code: " + gp))
+          eprintln(
+            tmsg(
+              "写不出生成码：" + gp,
+              "Cannot write generated code: " + gp,
+            ),
+          )
           ok = false
           continue
         }
         let mappath = dev_map_path(mng_root, conf.dir, f)
         if !write_dev_map(mappath, r.map, basename(gp)) {
-          eprintln(tmsg("写不出 source map：" + mappath, "Cannot write source map: " + mappath))
+          eprintln(
+            tmsg(
+              "写不出 source map：" + mappath,
+              "Cannot write source map: " + mappath,
+            ),
+          )
         }
         println("OK " + gp)
       }
@@ -859,15 +914,19 @@ fn build_project_at(root : String) -> Int {
   }
   println(
     tmsg(
-      "BUILD " + files.length().to_string() + " 个模板 → 生产形态生成码",
-      "BUILD " + files.length().to_string() + " templates -> production generated code",
+      "BUILD " +
+      files.length().to_string() +
+      " 个模板 → 生产形态生成码",
+      "BUILD " +
+      files.length().to_string() +
+      " templates -> production generated code",
     ),
   )
   0
 }
 
 ///|
-fn cmd_build_project() -> Int {
+fn cmd_build_project() -> Int32 {
   let cwd = match @env.current_dir() {
     Some(d) => d
     None => "."
@@ -877,7 +936,7 @@ fn cmd_build_project() -> Int {
 
 ///|
 /// init 子命令：在模块根写 mng.toml 样板（已有则不动）。
-fn cmd_init(_args : Array[String]) -> Int {
+fn cmd_init(_args : Array[String]) -> Int32 {
   let cwd = match @env.current_dir() {
     Some(d) => d
     None => "."
@@ -886,18 +945,22 @@ fn cmd_init(_args : Array[String]) -> Int {
     Some(x) => x
     None => {
       println(
-      tmsg(
-        "找不到 moon.mod / moon.work——在模块里跑",
-        "moon.mod / moon.work not found — run inside a module",
-      ),
-    )
+        tmsg(
+          "找不到 moon.mod / moon.work——在模块里跑", "moon.mod / moon.work not found — run inside a module",
+        ),
+      )
       return 1
     }
   }
   let path = root + "/mng.toml"
   match fs_read(path) {
     Some(_) => {
-      println(tmsg("已存在：" + path + "（未覆盖）", "Already exists: " + path + " (left untouched)"))
+      println(
+        tmsg(
+          "已存在：" + path + "（未覆盖）",
+          "Already exists: " + path + " (left untouched)",
+        ),
+      )
       return 0
     }
     None => ()
@@ -926,7 +989,7 @@ fn snake_of(s : String) -> String {
 
 ///|
 /// ir 子命令：打印模板的 IR 补丁（调试 + 应用侧注册表键校准）。
-fn cmd_ir(args : Array[String]) -> Int {
+fn cmd_ir(args : Array[String]) -> Int32 {
   if args.length() != 1 {
     println(tmsg("ir 需要一个 .mng 路径", "ir needs a .mng path"))
     return 2
@@ -934,7 +997,9 @@ fn cmd_ir(args : Array[String]) -> Int {
   let src = match slurp(args[0]) {
     Some(s) => s
     None => {
-      println(tmsg("读不到文件：" + args[0], "Cannot read file: " + args[0]))
+      println(
+        tmsg("读不到文件：" + args[0], "Cannot read file: " + args[0]),
+      )
       return 1
     }
   }
@@ -944,7 +1009,12 @@ fn cmd_ir(args : Array[String]) -> Int {
       0
     }
     Err(e) => {
-      println(tmsg(args[0] + " IR 产出失败：", args[0] + " IR generation failed:"))
+      println(
+        tmsg(
+          args[0] + " IR 产出失败：",
+          args[0] + " IR generation failed:",
+        ),
+      )
       println(e)
       1
     }
@@ -954,7 +1024,7 @@ fn cmd_ir(args : Array[String]) -> Int {
 ///|
 /// new 子命令：`new <工程名>` / `new app <工程名>` 生成可跑工程脚手架；
 /// `new page <路径>` 生成单页 .mng 样板（可带包内路径，如 pages/about）。
-fn cmd_new(args : Array[String]) -> Int {
+fn cmd_new(args : Array[String]) -> Int32 {
   if args.length() == 1 {
     return scaffold_new_app(args[0])
   }
@@ -986,7 +1056,7 @@ fn cmd_new(args : Array[String]) -> Int {
 
 ///|
 /// 工程脚手架入口：在当前目录下建 `<名字>/` 工程。
-fn scaffold_new_app(raw_name : String) -> Int {
+fn scaffold_new_app(raw_name : String) -> Int32 {
   let cwd = match @env.current_dir() {
     Some(d) => d
     None => "."
@@ -997,12 +1067,8 @@ fn scaffold_new_app(raw_name : String) -> Int {
 ///|
 /// 单页样板：写 `<路径>.mng`（script 段 + 最小模板 + props 头与组件调用提示）。
 /// 路径带目录时父目录不存在则现建（如 pages/about.mng 的 pages/）。
-fn new_page(raw : String) -> Int {
-  let name = if raw.has_suffix(".mng") {
-    raw
-  } else {
-    raw + ".mng"
-  }
+fn new_page(raw : String) -> Int32 {
+  let name = if raw.has_suffix(".mng") { raw } else { raw + ".mng" }
   // 父目录补齐：取最后一个 / 之前的部分，非空且不存在时 mkdir_p
   let chars = chars_of(name)
   let mut last = -1
@@ -1014,7 +1080,9 @@ fn new_page(raw : String) -> Int {
   if last > 0 {
     let dir = slice_path(chars, 0, last)
     if !@fs.path_exists(dir) && !mkdir_p(dir) {
-      println(tmsg("建不出目录：" + dir, "Cannot create directory: " + dir))
+      println(
+        tmsg("建不出目录：" + dir, "Cannot create directory: " + dir),
+      )
       return 1
     }
   }
@@ -1029,7 +1097,9 @@ fn new_page(raw : String) -> Int {
     "<script>",
     "// props（可选）：script 段第一行只写签名、不写函数体的 fn 头就是本组件的参数表；",
     "// 必填走位置参数，可选走 `名? : 类型 = 默认值`。不写即零参组件。",
-    "// fn " + snake + "(title : String, qty : @base.Store[Int], on_reset : () -> Unit, wide? : Bool = false) -> @widget.Node",
+    "// fn " +
+    snake +
+    "(title : String, qty : @base.Store[Int], on_reset : () -> Unit, wide? : Bool = false) -> @widget.Node",
     "",
     "// 页状态：Store/Signal 声明在此；被模板引用的 let 绑定即响应槽。",
     "let qty : @base.Store[Int] = @base.Store::new(0)",
@@ -1054,8 +1124,16 @@ fn new_page(raw : String) -> Int {
   }
   println(
     tmsg(
-      "OK " + name + "（生成函数名 " + snake + "；把生成码接进包内即可编译）",
-      "OK " + name + " (generated function name " + snake + "; wire it into the package to compile)",
+      "OK " +
+      name +
+      "（生成函数名 " +
+      snake +
+      "；把生成码接进包内即可编译）",
+      "OK " +
+      name +
+      " (generated function name " +
+      snake +
+      "; wire it into the package to compile)",
     ),
   )
   0
@@ -1077,7 +1155,11 @@ fn scan_source_dir(dir : String, out : Array[String]) -> Unit {
   let entries = fs_ls(dir)
   entries.sort()
   for name in entries {
-    if name == "_build" || name == ".mooncakes" || name == "node_modules" || name == "target" || name == ".git" {
+    if name == "_build" ||
+      name == ".mooncakes" ||
+      name == "node_modules" ||
+      name == "target" ||
+      name == ".git" {
       continue
     }
     // 点目录先跳过（含 dev 产物目录 `.mng/`）
@@ -1085,14 +1167,16 @@ fn scan_source_dir(dir : String, out : Array[String]) -> Unit {
       continue
     }
     let p = dir + "/" + name
-    let isdir = @fs.is_dir(p) catch {
-      _ => false
-    }
+    let isdir = @fs.is_dir(p) catch { _ => false }
     if isdir {
       scan_source_dir(p, out)
       continue
     }
-    if (name.has_suffix(".mbt") && !name.has_suffix(".gen.mbt")) || name == "moon.pkg" || name == "moon.pkg.json" || name == "moon.mod" || name == "moon.work" {
+    if (name.has_suffix(".mbt") && !name.has_suffix(".gen.mbt")) ||
+      name == "moon.pkg" ||
+      name == "moon.pkg.json" ||
+      name == "moon.mod" ||
+      name == "moon.work" {
       if !arr_has_cli(out, p) {
         out.push(p)
       }
