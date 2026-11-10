@@ -17,6 +17,7 @@
     "Snippets"
   ],
   "main": "./extension.js",
+  "icon": "media/icon.png",
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "test": "node --test test/tokenize.test.js test/lsp_session.test.js",
