@@ -128,3 +128,10 @@ test "update_check:http 默认拒;allow_http 越过前缀检查(本地服务口)
     Ok(_) => ()
   }
 }
+
+test "upd_linux_target:无 $APPIMAGE 环境(测试环境即此)落回自身路径" {
+  assert_eq(
+    upd_linux_target("/tmp/.mount_x/usr/bin/a.exe"),
+    "/tmp/.mount_x/usr/bin/a.exe",
+  )
+}

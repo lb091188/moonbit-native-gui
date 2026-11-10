@@ -3930,3 +3930,13 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 **修法**：mac 替换臂解压前先探父目录可写(建 `.mng-probe` 目录试),不可写报可读指引「把 .app 拖进应用程序」;替换从「unzip -o 就地覆盖运行中二进制」改成「旧 .app 整树挪 `.mng-old` 再解压新的」,解压失败撤半截树并把旧树搬回来(回滚),`.mng-old` 由新进程启动时 `update_cleanup` 清——顺带对齐了代码注释本来就声称的挪旧装新设计。
 
 **判据**：①自更新复验先问「你跑的是哪一份」——挂载卷、/Applications、`moon run` 的 _build 三处同名应用并存时,更新链路操作的是自身旁边那份;②只读位置(挂载 DMG / 无权限目录)要在替换动作前探出来给可读报错,不能等 unzip 退出码;③替换成功的验收物是 `/Applications` 里的版本+时间戳,不是用户「打开看到的那份」。
+
+## Linux AppImage 自替换拿 /proc/self/exe 当落点必败:真身在 $APPIMAGE(2026-11-10,真机反馈)
+
+**现象**:Linux 本地服务链路走到安装步,报「挪走旧 AppImage 失败:/tmp/.mount_showcaXXXX/usr/bin/…exe → …exe.mng-old」——落点路径在 `/tmp/.mount_*` 里。
+
+**根因**:AppImage 类型 2 运行时把 squashfs 挂到 `/tmp/.mount_XXXX`(只读),`/proc/self/exe` 解析进挂载点内部;`autostart_exe_path()` 拿它当替换落点,对只读挂载点 mv 必败。同因还有第二处:`update_relaunch` 也用 exe 路径,就算替换成功重启起的也是挂载点里的旧二进制。AppImage 规范的口子是 runtime 预设的 `$APPIMAGE` 环境变量——指向 `.AppImage` 文件真身(挂载点外)。
+
+**修法**:linux 替换与重启的落点统一走 `upd_linux_target`:「$APPIMAGE 非空且文件存在 → 真身;否则(裸 exe/dev 跑/解包跑)落回自身路径」。挪不动时的报错补一句可读指引(装在系统位置如 /usr/bin 时 v1 更新只支持 AppImage 载体)。
+
+**判据**:①Linux 上凡「对自身文件做替换/重启」类功能,落点先问 `$APPIMAGE`,不能信 `/proc/self/exe`——它在 AppImage 里永远是挂载点内路径;②同一坑的两个面(替换落点、重启目标)要一次修齐,只修替换会出现「替换成功、重启回旧版」;③判别现场:报错路径含 `/tmp/.mount_` 即 AppImage 挂载点,真身看 `$APPIMAGE`。

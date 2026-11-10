@@ -307,6 +307,22 @@ pub fn update_download(
 }
 
 ///|
+/// linux 替换/重启的落点:AppImage 跑起来时 exe 在运行时挂的只读 squashfs 里
+/// (/tmp/.mount_*),真身是 $APPIMAGE 指的 .AppImage 文件;没有该环境变量或
+/// 指向的文件不在(解包跑等)落回自身路径。
+fn upd_linux_target(exe : String) -> String {
+  match sys_getenv("APPIMAGE") {
+    Some(a) =>
+      if a.length() > 0 && sys_path_exists(a) {
+        a
+      } else {
+        exe
+      }
+    None => exe
+  }
+}
+
+///|
 /// 文件搬移:POSIX 走 mv;Windows 走 cmd move(跨目录时 move 带复制语义,同盘足够)。
 fn upd_move(src : String, dst : String) -> Result[Unit, String] {
   let r = match sys_platform() {
@@ -356,7 +372,8 @@ fn upd_dirname(p : String) -> String {
 
 ///|
 /// 应用更新载体(v1 全量替换;失败尽量回滚):
-/// - linux:载体即新 AppImage——旧文件挪 .mng-old、载体落原名、补可执行位;
+/// - linux:载体即新 AppImage——落点取 $APPIMAGE 真身(AppImage 运行时 exe 在
+///   只读挂载点里,挪不动),旧文件挪 .mng-old、载体落原名、补可执行位;
 /// - mac:zip 内含 <Name>.app——旧 .app 挪 .mng-old、unzip 到 .app 所在目录;
 /// - win:zip 内含裸 exe 与同目录文件——解到临时目录,非 exe 文件逐个覆盖,
 ///   旧 exe 挪 .exe.mng-old、新 exe 落原名(运行中 exe 只能换名不能覆盖)。
@@ -368,23 +385,28 @@ pub fn update_apply_carrier(carrier_path : String) -> Result[Unit, String] {
   }
   match sys_platform() {
     "linux" => {
-      let old = exe + ".mng-old"
+      // 落点是 $APPIMAGE 真身(挂载点里的 exe 只读,挪不动),见 upd_linux_target
+      let target = upd_linux_target(exe)
+      let old = target + ".mng-old"
       ignore(sys_remove_file(old))
-      match upd_move(exe, old) {
+      match upd_move(target, old) {
         Ok(_) =>
-          match upd_move(carrier_path, exe) {
+          match upd_move(carrier_path, target) {
             Ok(_) => {
-              match pr_run("chmod", ["+x", exe], timeout_ms=10000) {
+              match pr_run("chmod", ["+x", target], timeout_ms=10000) {
                 _ => ()
               }
               Ok(())
             }
             Err(e) => {
-              ignore(upd_move(old, exe))
+              ignore(upd_move(old, target))
               Err("落位新 AppImage 失败(已回滚):\{e}")
             }
           }
-        Err(e) => Err("挪走旧 AppImage 失败:\{e}")
+        Err(e) =>
+          Err(
+            "挪走旧 AppImage 失败:\{e}(位置不可写?若装在系统位置如 /usr/bin,v1 更新只支持 AppImage 载体)",
+          )
       }
     }
     "macos" => {
@@ -494,13 +516,19 @@ pub fn update_apply_carrier(carrier_path : String) -> Result[Unit, String] {
 
 ///|
 /// 分离重启自身(起得来给 true;退出应用由调用方决定时机)。
+/// linux AppImage:exe 在运行时只读挂载点里,重启起 $APPIMAGE 真身(即新载体)。
 pub fn update_relaunch() -> Bool {
   match autostart_exe_path() {
-    Some(exe) =>
-      match spawn_detached(exe, "") {
+    Some(exe) => {
+      let target = match sys_platform() {
+        "linux" => upd_linux_target(exe)
+        _ => exe
+      }
+      match spawn_detached(target, "") {
         Ok(_) => true
         Err(_) => false
       }
+    }
     None => false
   }
 }
