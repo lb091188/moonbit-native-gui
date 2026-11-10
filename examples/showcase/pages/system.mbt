@@ -1005,7 +1005,7 @@ const PKG_VERSION : String = "0.1.0"
 
 ///|
 /// 真实清单地址:本仓库 Release 的 latest update.json(release-app 工作流出)。
-const REAL_UPDATE_URL : String = "https://github.com/NoahLiu/moonbit-native-gui/releases/latest/download/update.json"
+const REAL_UPDATE_URL : String = "https://github.com/lb091188/moonbit-native-gui/releases/latest/download/update.json"
 
 ///|
 /// 演示后端:延时喂假结果,不碰网络与磁盘——检查 0.6s 出「0.9.9」,

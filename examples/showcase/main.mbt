@@ -188,6 +188,8 @@ fn route_of_page(
 ///|
 fn main {
   let t_start = @win.now_ms()
+  // 启动早期清上次自更新留下的 *.mng-old 残留（自身路径旁，无残留时空转）
+  @sys.update_cleanup()
   // 输入框的 Ctrl+C/X/V 接系统剪贴板（演示板按真实使用形态开；探测不可用
   // 时内核自动保持内部剪贴板，见 gui/ui/clipboard.mbt）。要在建 UI 前开——
   // 开关只影响此后新建的输入框，预取页随路由建在挂载期，放 main 头上才罩得住
