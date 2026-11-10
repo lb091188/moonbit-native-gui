@@ -391,17 +391,37 @@ pub fn update_apply_carrier(carrier_path : String) -> Result[Unit, String] {
       // exe = <App>.app/Contents/MacOS/<bin>;app 根 = dirname 三级
       let app_root = upd_dirname(upd_dirname(upd_dirname(exe)))
       let parent = upd_dirname(app_root)
+      // 位置先探可写:直接从 DMG 卷里跑的应用替换必败,给可读指引而不是 unzip 退出码
+      let probe = parent + "/.mng-probe"
+      if !sys_make_dirs(probe) {
+        return Err(
+          "应用所在位置不可写(只读卷或无权限;直接从 DMG 里运行就是这种)——把 .app 拖进「应用程序」后再检查更新",
+        )
+      }
+      ignore(upd_remove_tree(probe))
+      // 挪旧装新:旧 .app 整树挪 .mng-old(运行中可改名),再解压新的;解压失败回滚
       let old = app_root + ".mng-old"
       ignore(upd_remove_tree(old))
+      match upd_move(app_root, old) {
+        Err(e) => return Err("挪走旧 .app 失败:\{e}")
+        Ok(_) => ()
+      }
       let unzip = pr_run("unzip", ["-q", "-o", carrier_path, "-d", parent], timeout_ms=300000)
       match unzip {
-        Ok(o) if o.exit_code != 0 =>
-          return Err("解压载体失败(退出码 \{o.exit_code})")
-        Err(e) => return Err("解压载体失败:\{e}")
+        Ok(o) if o.exit_code != 0 => {
+          // 解压不成:撤半截新树,旧 .app 搬回来,应用保持可用
+          ignore(upd_remove_tree(app_root))
+          ignore(upd_move(old, app_root))
+          return Err("解压载体失败(退出码 \{o.exit_code},已回滚)")
+        }
+        Err(e) => {
+          ignore(upd_remove_tree(app_root))
+          ignore(upd_move(old, app_root))
+          return Err("解压载体失败:\{e}(已回滚)")
+        }
         _ => ()
       }
-      // ditto -k --keepParent 打的 zip 根即 <Name>.app,同名直接覆盖;
-      // 覆盖后再无回滚,失败语义止于解压阶段
+      // 残留 .mng-old(旧整树)由新进程启动时 update_cleanup 清
       Ok(())
     }
     _ => {

@@ -130,4 +130,4 @@ HTTPS enforced (`http://` manifests are rejected outright; local test chains may
 
 - **Synchronous download**: `@sys` runs subprocesses synchronously, so the UI stalls during large downloads (`sys_update_actions` defers each action by one tick so the loading state paints first); an async executor comes with the platform thread batch
 - **No download percentage / cancel**: no file-size primitive in sys yet; both arrive with the async executor
-- **No rollback on mac**: once the zip overwrites the `.app` the old version is gone; failure semantics stop at the unzip stage
+- **Replacement lands next to the running app**: running straight from a mounted DMG means a read-only location — you get a readable error telling you to drag the `.app` into Applications; on mac a failed unzip rolls back (the old `.app` is moved to `.mng-old` first and moved back if extraction fails)
