@@ -168,6 +168,22 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
       }
     },
   )
+  // 本地服务后端:scripts/update_local_server.py 起的明文清单(allow_http 放行),
+  // 不推 CI 就能走「检查 → 下载 → 安装重启」全链路
+  let local_open : @base.Store[Bool] = @base.Store::new(false)
+  let local_flow = @ui.make_update_flow()
+  let local_actions = @ui.sys_update_actions(
+    local_flow,
+    LOCAL_UPDATE_URL,
+    PKG_VERSION,
+    fn() {
+      match app.host.val {
+        Some(a) => a.quit()
+        None => ()
+      }
+    },
+    allow_http=true,
+  )
   let file_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没选过文件）"))
   let mb_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没弹过框）"))
   let nt_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没发过通知）"))
@@ -960,7 +976,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
     @shared.section(
       "更新",
       "应用自更新",
-      "「检查 → 有新版 → 下载 → 安装重启」的现成对话框(update_dialog):组件只管状态机与视图,网络/磁盘动作由调用方注入闭包。演示后端延时喂假结果走完全部状态(不碰网络与磁盘);真实后端用库侧 sys_update_actions 直连 @sys.update_*(拉本仓库 Release 的 update.json——CI 首跑 tag app-v0.1.0 之前是 404,失败提示也是链路的一部分;真实安装会替换文件并重启,别在没发布过的版本上点「重启并安装」)。已知取舍:sys 走子进程同步执行,大文件下载期间界面停摆(异步执行器随平台线程批)。",
+      "「检查 → 有新版 → 下载 → 安装重启」的现成对话框(update_dialog):组件只管状态机与视图,网络/磁盘动作由调用方注入闭包。演示后端延时喂假结果走完全部状态(不碰网络与磁盘);真实后端用库侧 sys_update_actions 直连 @sys.update_*(拉本仓库 Release 的 update.json——CI 首跑 tag app-v0.1.0 之前是 404,失败提示也是链路的一部分;真实安装会替换文件并重启,别在没发布过的版本上点「重启并安装」);本地服务后端拉 scripts/update_local_server.py 起的本机清单(allow_http=true 放行明文,免 CI 免发布走全链路——先 mng package,再起脚本,装好旧版本应用后点它)。已知取舍:sys 走子进程同步执行,大文件下载期间界面停摆(异步执行器随平台线程批)。",
       [
         @ui.row(
           [
@@ -970,6 +986,9 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
             @ui.button(@shared.tx("检查更新(真实清单)"), variant=@ui.Soft, on_click=fn() {
               real_open.set(true)
             }),
+            @ui.button(@shared.tx("检查更新(本地服务)"), variant=@ui.Soft, on_click=fn() {
+              local_open.set(true)
+            }),
             @ui.text(
               @shared.tx("当前版本:演示版 0.3.1 / 打包口径 0.1.0"),
               class=[@style.text_secondary],
@@ -978,10 +997,11 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
           column_gap=8.0,
           align_items=@yoga.AlignItems::Center,
         ),
-        // 两棵对话框锚点(0 高占位,开时进浮层图层)
+        // 三棵对话框锚点(0 高占位,开时进浮层图层)
         // 演示框的「当前版本」取库版本号(与侧栏同源,见 main.mbt)
         @ui.update_dialog(demo_open, demo_flow, demo_actions, current_version="0.3.1"),
         @ui.update_dialog(real_open, real_flow, real_actions, current_version=PKG_VERSION),
+        @ui.update_dialog(local_open, local_flow, local_actions, current_version=PKG_VERSION),
       ],
       code=[
         "// 组件:状态机账本 + 动作注入,按钮触发动作、report 口收结果",
@@ -991,6 +1011,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
         "  quit=fn() { a.quit() },  // 安装成功:relaunch 已发起,立刻退",
         ")",
         "@ui.update_dialog(open_store, flow, actions, current_version=\"0.1.0\")",
+        "// 本地更新服务(测试):URL 换 http://127.0.0.1:8765/update.json,加 allow_http=true",
         "// 自定义调度(后台线程/子进程)就换掉 actions 里的三个闭包,",
         "// 组件面不动:flow.report_check / report_download / report_install",
       ],
@@ -1006,6 +1027,10 @@ const PKG_VERSION : String = "0.1.0"
 ///|
 /// 真实清单地址:本仓库 Release 的 latest update.json(release-app 工作流出)。
 const REAL_UPDATE_URL : String = "https://github.com/lb091188/moonbit-native-gui/releases/latest/download/update.json"
+
+///|
+/// 本地服务清单地址:scripts/update_local_server.py 默认端口起的本机明文清单。
+const LOCAL_UPDATE_URL : String = "http://127.0.0.1:8765/update.json"
 
 ///|
 /// 演示后端:延时喂假结果,不碰网络与磁盘——检查 0.6s 出「0.9.9」,

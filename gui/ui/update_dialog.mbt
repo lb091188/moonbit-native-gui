@@ -583,16 +583,20 @@ fn update_tmp_dir() -> String {
 /// ——点击回调先返回,「检查中/下载中」至少画得出来;但大文件下载期间界面停摆
 /// 是 v1 已知代价(异步执行器随平台线程批,届时只换本函数,组件面不动)。
 /// `quit` 在安装成功时调(relaunch 已发起,应用该立刻退,把现场让给新进程)。
+/// `allow_http` 透传 `@sys.update_check`(本地更新服务测试链路用)。
 pub fn sys_update_actions(
   flow : UpdateFlow,
   manifest_url : String,
   current_version : String,
   quit : () -> Unit,
+  allow_http? : Bool = false,
 ) -> UpdateActions {
   {
     check: fn() {
       let _ = @shell.set_timeout(0, fn() {
-        flow.report_check(@sys.update_check(manifest_url, current_version))
+        flow.report_check(
+          @sys.update_check(manifest_url, current_version, allow_http~),
+        )
       })
     },
     download: fn() {

@@ -66,9 +66,24 @@ Behavior: scan `.mng/dist/` for version-matching artifacts → compute SHA256/si
 
 Cross-platform manifests: drop artifacts produced elsewhere (e.g. the other two platforms downloaded from a CI artifact) into `.mng/dist/` before publishing — the parser takes everything by file name. The publish timestamp stays empty (`pub_date` is an empty string); the Release page shows the real time.
 
+## Local update server (testing)
+
+Run the full "check → download → verify → install & relaunch" chain locally, with no CI and no GitHub release:
+
+```sh
+cd examples/showcase && moon run ../../tools/native-gui-tools/mng -- package
+python3 scripts/update_local_server.py --version 0.2.0
+```
+
+The server listens on `http://127.0.0.1:8765`; `/update.json` rescans the dist directory and recomputes SHA256 on every request — no restart needed after re-running `mng package`. Install an older build of the app (e.g. the 0.1.0 DMG), open "System → App self-update" and hit "Check for updates (local server)" to run the whole chain against the 0.2.0 carrier (download → install & relaunch → version becomes 0.2.0; the `.mng-old` leftover next to the old `.app` is cleaned on the next launch).
+
+- Plain `http://` is an explicit opt-out: `update_check` / `sys_update_actions` take `allow_http=true` (HTTPS stays mandatory by default) — local test chains only
+- Carrier policy matches CI: zip (mac/win) and AppImage (linux) go into the manifest; installers are served statically but never listed
+- `--version` defaults to the highest version found among carriers; change the port with `--port` (the showcase's local URL is hardcoded to 8765 — keep `LOCAL_UPDATE_URL` in sync if you change it)
+
 ## In-app updates
 
-Shortest wiring (a playable demo lives in showcase → System → App self-update):
+Shortest wiring (three dialogs live in showcase → System → App self-update: demo / real manifest / local server):
 
 ```moonbit
 let open : @base.Store[Bool] = @base.Store::new(false)
@@ -109,7 +124,7 @@ Call `@sys.update_cleanup()` early at startup to remove leftover `*.mng-old` fil
 
 ## Trust model (v1)
 
-HTTPS enforced (`http://` manifests are rejected outright) + SHA256 verification (protects against corruption, not a compromised source). Ed25519 manifest signing arrives with v1.5.
+HTTPS enforced (`http://` manifests are rejected outright; local test chains may opt out with `allow_http=true`, see "Local update server") + SHA256 verification (protects against corruption, not a compromised source). Ed25519 manifest signing arrives with v1.5.
 
 ## Known trade-offs (v1)
 

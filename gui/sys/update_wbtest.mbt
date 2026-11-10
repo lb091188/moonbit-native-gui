@@ -108,3 +108,23 @@ test "upd_dirname:posix / windows / 无分隔" {
   assert_eq(upd_dirname("x.exe"), ".")
   assert_eq(upd_dirname("/x"), "/")
 }
+
+test "update_check:http 默认拒;allow_http 越过前缀检查(本地服务口)" {
+  // 默认:明文清单直接拒,不触网(前缀检查在任何 IO 之前)
+  let r = update_check("http://127.0.0.1:8765/update.json", "0.1.0")
+  match r {
+    Err(e) => assert_true(e.contains("HTTPS"))
+    Ok(_) => fail("http:// 清单默认应被拒")
+  }
+  // 显式放行:越过前缀检查走进拉取(本地无服务时落「拉取失败」,非 HTTPS 拒绝)
+  let r2 = update_check(
+    "http://127.0.0.1:1/update.json",
+    "0.1.0",
+    timeout_ms=2000,
+    allow_http=true,
+  )
+  match r2 {
+    Err(e) => assert_false(e.contains("HTTPS"))
+    Ok(_) => ()
+  }
+}

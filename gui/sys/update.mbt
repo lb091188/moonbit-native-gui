@@ -1,6 +1,7 @@
 // 应用自更新 v1(全量):清单检查 → 下载 → SHA256 校验 → 原子替换 → relaunch。
 // 信任模型 v1 = HTTPS + SHA256(防损坏不防源沦陷;Ed25519 进 v1.5,清单
-// signature/sig_alg 字段由发布侧预留,本端暂不校验);方案见
+// signature/sig_alg 字段由发布侧预留,本端暂不校验);本地测试链路可在
+// update_check 显式 allow_http 放行明文;方案见
 // proposals/package-update.md §四。产物口径与 mng package 对齐:
 // mac/win 下载 zip、linux 下载 AppImage,安装包(dmg/setup/deb)不是载体。
 // 组合既有件:pr_run(curl/校验命令/解压)、autostart_exe_path(自身路径)、
@@ -192,13 +193,15 @@ fn upd_extract_sha256(text : String) -> String? {
 
 ///|
 /// 拉清单并判断有无新版:Ok(None) = 已是最新;Err 带可读原因
-/// (网络失败/清单不合法/本平台无载体)。HTTPS 强制——http:// 明文直接拒。
+/// (网络失败/清单不合法/本平台无载体)。HTTPS 强制——http:// 明文直接拒;
+/// 本地更新服务(测试链路用)可显式 allow_http=true 放行明文。
 pub fn update_check(
   manifest_url : String,
   current_version : String,
   timeout_ms? : Int = 15000,
+  allow_http? : Bool = false,
 ) -> Result[UpdateManifest?, String] {
-  if manifest_url.has_prefix("http://") {
+  if !allow_http && manifest_url.has_prefix("http://") {
     return Err("更新清单必须走 HTTPS:\{manifest_url}")
   }
   let out = match pr_run("curl", ["-fsSL", manifest_url], timeout_ms~) {
