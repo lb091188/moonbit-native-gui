@@ -1310,6 +1310,12 @@ fn cmd_package(_args : Array[String]) -> Int32 {
     Some(e) => return fail_pkg(e)
     None => ()
   }
+  // appmeta 强制同步:版本常量由生成码进二进制,打包前不同步会出现
+  // 「载体文件名是新版本、应用自报旧版本」的错位(更新完成版本不变)
+  match sync_appmeta(root) {
+    Err(e) => return fail_pkg(tmsg("appmeta：", "appmeta: ") + e)
+    Ok(_) => ()
+  }
   // 平台分派(D1:本平台打本平台包)
   let host = host_pkg()
   let target_name = if host == "mac" {
