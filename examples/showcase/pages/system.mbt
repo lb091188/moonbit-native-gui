@@ -160,7 +160,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
   let real_actions = @ui.sys_update_actions(
     real_flow,
     REAL_UPDATE_URL,
-    PKG_VERSION,
+    pkg_version,
     fn() {
       match app.host.val {
         Some(a) => a.quit()
@@ -175,7 +175,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
   let local_actions = @ui.sys_update_actions(
     local_flow,
     LOCAL_UPDATE_URL,
-    PKG_VERSION,
+    pkg_version,
     fn() {
       match app.host.val {
         Some(a) => a.quit()
@@ -713,7 +713,7 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
         @ui.row(
           [
             @ui.button(@shared.tx("读本机档"), on_click=fn() {
-              let arm = match @shell.instance_arm(@shared.SHOWCASE_APP_ID) {
+              let arm = match @shell.instance_arm(@shared.showcase_app_id) {
                 Some(b) => @shell.instance_backend_name(b)
                 None => "-"
               }
@@ -722,13 +722,13 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
                 [
                   ("a", arm),
                   ("n", app.inst_wakes.get().to_string()),
-                  ("i", @shared.SHOWCASE_APP_ID),
+                  ("i", @shared.showcase_app_id),
                 ],
-                "app_id \{@shared.SHOWCASE_APP_ID} · 后端 \{arm} · 已收到唤起 \{app.inst_wakes.get()} 次",
+                "app_id \{@shared.showcase_app_id} · 后端 \{arm} · 已收到唤起 \{app.inst_wakes.get()} 次",
               ))
             }),
             @ui.button(@shared.tx("自环唤起"), variant=@ui.Soft, on_click=fn() {
-              match @shell.instance_wake(@shared.SHOWCASE_APP_ID, ["系统集成页"]) {
+              match @shell.instance_wake(@shared.showcase_app_id, ["系统集成页"]) {
                 Ok(_) => app.inst_note.set(@shared.tx("已发出唤起：下一拍切回首页并冒提示"))
                 Err(e) => app.inst_note.set(
                   @shared.tr_with(
@@ -1000,8 +1000,8 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
         // 三棵对话框锚点(0 高占位,开时进浮层图层)
         // 演示框的「当前版本」取库版本号(与侧栏同源,见 main.mbt)
         @ui.update_dialog(demo_open, demo_flow, demo_actions, current_version="0.3.1"),
-        @ui.update_dialog(real_open, real_flow, real_actions, current_version=PKG_VERSION),
-        @ui.update_dialog(local_open, local_flow, local_actions, current_version=PKG_VERSION),
+        @ui.update_dialog(real_open, real_flow, real_actions, current_version=pkg_version),
+        @ui.update_dialog(local_open, local_flow, local_actions, current_version=pkg_version),
       ],
       code=[
         "// 组件:状态机账本 + 动作注入,按钮触发动作、report 口收结果",
@@ -1020,9 +1020,10 @@ pub fn page_system(app : @shared.App) -> @widget.Node {
 }
 
 ///|
-/// 打包口径的版本号(mng.toml [package].version):真实更新链路拿它比对
-/// 清单(CI 按 app-v* 标签版本发 update.json),与侧栏的库版本号不是一个。
-const PKG_VERSION : String = "0.1.0"
+/// 打包口径的版本号:单源 @appmeta(mng.toml [package].version 经 mng 生成),
+/// 真实更新链路拿它比对清单(CI 按 app-v* 标签版本发 update.json),与侧栏的
+/// 库版本号不是一个。
+let pkg_version : String = @appmeta.app_version
 
 ///|
 /// 真实清单地址:本仓库 Release 的 latest update.json(release-app 工作流出)。

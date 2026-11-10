@@ -363,6 +363,11 @@ fn cmd_dev(args : Array[String]) -> Int32 {
       return 2
     }
   }
+  // appmeta 单源(mng.toml [package]):没配打包跳过,失败只提示不挡 dev
+  match sync_appmeta(conf.dir) {
+    Err(e) => eprintln("appmeta：" + e)
+    Ok(_) => ()
+  }
   let files = if filter.length() > 0 {
     filter_files(filter)
   } else {
@@ -840,6 +845,11 @@ fn build_project_at(root : String) -> Int32 {
       eprintln(e)
       return 2
     }
+  }
+  // appmeta 单源(mng.toml [package]):没配打包跳过,失败只提示不挡 build
+  match sync_appmeta(conf.dir) {
+    Err(e) => eprintln(tmsg("appmeta：" + e, "appmeta: " + e))
+    Ok(_) => ()
   }
   let files = scan_templates(conf.templates)
   if files.length() == 0 {

@@ -100,6 +100,8 @@ let actions = @ui.sys_update_actions(
 
 组件与执行的分工：`update_dialog` 只管状态机与视图，「检查 / 下载 / 安装」三个动作由 `UpdateActions` 闭包注入——按钮先标状态（Loading 立刻可见）再触发闭包，闭包完成后把结果喂回 `flow.report_check / report_download / report_install`。`sys_update_actions` 是直连 `@sys.update_*` 的默认装配；要自己的调度（后台线程、进度回调、取消）就换掉三个闭包，组件面不动。
 
+**版本别手抄**：`mng dev` / `mng build` 会从 `mng.toml` `[package]` 生成叶子包 `appmeta/`（`app_version` / `app_id` / `app_name` 三常量，内容没变不写盘）——`current_version` 传 `@appmeta.app_version`，单实例 id、托盘/通知名同理取 `@appmeta.*`。改版本只改 `mng.toml`，重跑生成即同步；没配 `[package]` 的工程不生成。
+
 应用启动早期建议调一次 `@sys.update_cleanup()`（清上次更新留下的 `*.mng-old` 残留）。
 
 ## update.json 格式

@@ -100,6 +100,8 @@ let actions = @ui.sys_update_actions(
 
 Division of labor: `update_dialog` owns the state machine and the view; the check/download/install actions are injected `UpdateActions` closures — buttons mark state first (the loading indicator shows immediately), then fire the closure, which feeds results back through `flow.report_check / report_download / report_install`. `sys_update_actions` is the default wiring straight into `@sys.update_*`; bring your own scheduling (background thread, progress, cancel) by swapping the three closures — the component surface stays the same.
 
+**Don't hand-copy the version**: `mng dev` / `mng build` generate a leaf package `appmeta/` from `mng.toml` `[package]` (the `app_version` / `app_id` / `app_name` constants; nothing is written when content is unchanged) — pass `@appmeta.app_version` as `current_version`, and take `@appmeta.*` for the single-instance id and tray/notification names the same way. Changing the version means editing `mng.toml` only and re-running the generator; projects without a `[package]` section get no appmeta.
+
 Call `@sys.update_cleanup()` early at startup to remove leftover `*.mng-old` files from a previous update.
 
 ## update.json format

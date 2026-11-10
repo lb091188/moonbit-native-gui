@@ -61,7 +61,8 @@ pub(all) struct App {
 ///|
 /// 演示板的单实例应用 id（反向域名形态，`@shell.instance_claim` 三平台共用）：
 /// main 声称用，系统集成页读后端与自环唤起也用，两边必须同一个串。
-pub const SHOWCASE_APP_ID : String = "com.moonbitlibyue.showcase"
+/// 单源 @appmeta（mng.toml [package].id 经 mng 生成）。
+pub let showcase_app_id : String = @appmeta.app_id
 
 ///|
 /// 推送一条轻提示（转发 toast 函数字段；函数值字段不能直接点调用）。
