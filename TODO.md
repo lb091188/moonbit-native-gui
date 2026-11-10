@@ -86,10 +86,9 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 
 ## 品牌与应用图标 v1（2026-11-09 立项，定案见 [experience/brand.md](experience/brand.md)；一项一提交，做完删一项）
 
-（品牌定案与资产落位已收口：`experience/brand.md` + `assets/brand/` + placement 登记；导出矩阵已落 `scripts/gen_brand_icons.py` 并替换 showcase 图标，2026-11-09）
+（品牌定案与资产落位已收口：`experience/brand.md` + `assets/brand/` + placement 登记；导出矩阵已落 `scripts/gen_brand_icons.py` 并替换 showcase 图标；文档站 logo/favicon 与中英 README 头图已接，2026-11-10）
 
 - [ ] **showcase 新图标真机复验**（用户执行）：`cd examples/showcase && moon run ../../tools/native-gui-tools/mng -- package`——DMG 拖装后看 Dock 图标应为新版（玫红月兔 + 靛蓝空窗口）；旧 64px 月牙已换 1024 master 派生图（全档再生成 `python3 scripts/gen_brand_icons.py`，icns 仍由 mng 的 sips+iconutil 合成）
-- [ ] **文档站与 README 品牌区**（中英先行中文）：logo、favicon、品牌色说明
-- [ ] **库内置图标替换**（`gui/win` 内置月牙 + `gui/dbus` 托盘）：随批过 `moon check`/`moon test` 门禁；发 0.4.0 与否用户定
+- [ ] **库内置托盘图标真机复验**（用户执行）：showcase「系统集成」托盘演示点「回库内置」——托盘图标应为新版（玫红双耳 + 靛蓝窗口），三平台各看一眼；代码侧已收口（`gui/dbus/icon.mbt` 程序绘制品牌造型，`moon check --deny-warn` 零警告、`moon test dbus shell` 143/143，2026-11-10）；发 0.4.0 与否用户定
 - [ ] **情景插画**（第二批）：README 头图 / 文档站首页「兔子坐在电脑前」叙事版
 

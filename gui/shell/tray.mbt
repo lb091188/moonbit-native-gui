@@ -101,7 +101,7 @@ pub fn Tray::is_supported() -> Bool {
 /// Linux SNI 后端的图标走面板的主题图标名 / 程序内置位图，`icon_path` 只用于
 /// 推导托盘 Id；PNG 任意像素解码未内置，需要时用
 /// `set_icon_name` 指定主题图标名。
-/// Win/mac 两档都没给图标（`icon` 为空且 `icon_path` 读不出文件）时用库内置月牙
+/// Win/mac 两档都没给图标（`icon` 为空且 `icon_path` 读不出文件）时用库内置品牌图标
 /// 位图，与 Linux SNI 显示的是同一张脸。
 pub fn Tray::new(
   icon_path : String,
@@ -124,7 +124,7 @@ pub fn Tray::new(
       Some(ic) => ic.handle
       None =>
         match icon_handle_of(icon_path) {
-          0 => builtin_tray_handle() // 没给图标就用库内置月牙
+          0 => builtin_tray_handle() // 没给图标就用库内置品牌图标
           h => h
         }
     }
@@ -159,7 +159,7 @@ fn icon_handle_of(icon_path : String) -> Int {
 }
 
 ///|
-/// 库内置月牙的 native 句柄（Win/mac 托盘缺省图标，与 Linux SNI 同一张脸）：
+/// 库内置品牌图标的 native 句柄（Win/mac 托盘缺省图标，与 Linux SNI 同一张脸）：
 /// `@dbus.default_icon_pixmap()` 出的是 SNI 口径的大端 ARGB（不预乘），这里换成
 /// `icon_from_bgra` 要的 BGRA 小端预乘。句柄只建一次，随进程常驻。
 fn builtin_tray_handle() -> Int {
@@ -223,7 +223,7 @@ pub fn Tray::set_icon_pixmap(self : Tray, w : Int, h : Int, argb : Bytes) -> Uni
 }
 
 ///|
-/// 回到库内置月牙（与 `Tray::new` 不给图标时同一张脸，三平台同形）。
+/// 回到库内置品牌图标（与 `Tray::new` 不给图标时同一张脸，三平台同形）。
 pub fn Tray::set_icon_builtin(self : Tray) -> Unit {
   match self.backend {
     Native(slot) => {

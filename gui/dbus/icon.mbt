@@ -1,42 +1,131 @@
 // 程序生成的托盘图标：不依赖任何图片资源与解码器。
-// 月牙造型（本仓库是 MoonBit 封装），2x2 超采样抗锯齿，
-// 输出 SNI 规范要求的 ARGB 大端序位图。
+// 品牌图标造型——玫红月兔双耳探出靛蓝应用窗口（几何常数按
+// assets/brand/app-icon.svg 的 1024 master 等比缩到 32 视口），
+// 2x2 超采样抗锯齿，输出 SNI 规范要求的 ARGB 大端序位图。
 
 ///|
-/// 默认托盘图标：32×32 月牙，返回 (宽, 高, ARGB 字节)。
+/// 托盘图标几何：点是否落在旋转椭圆内（dx/dy 为点相对椭圆中心的偏移）。
+fn tray_ellipse_hit(
+  rx : Double,
+  ry : Double,
+  ca : Double,
+  sa : Double,
+  dx : Double,
+  dy : Double,
+) -> Bool {
+  let u = ca * dx + sa * dy
+  let v = -sa * dx + ca * dy
+  u * u / (rx * rx) + v * v / (ry * ry) <= 1.0
+}
+
+///|
+/// 托盘图标几何：圆角矩形（扩展矩形 ∩ 圆角盘）。
+fn tray_round_rect_hit(
+  cx : Double,
+  cy : Double,
+  hw : Double,
+  hh : Double,
+  r : Double,
+  qx : Double,
+  qy : Double,
+) -> Bool {
+  let dx = if qx < cx { cx - qx } else { qx - cx }
+  let dy = if qy < cy { cy - qy } else { qy - cy }
+  if dx > hw || dy > hh {
+    return false
+  }
+  let ex = if dx > hw - r { dx - (hw - r) } else { 0.0 }
+  let ey = if dy > hh - r { dy - (hh - r) } else { 0.0 }
+  ex * ex + ey * ey <= r * r
+}
+
+///|
+/// 默认托盘图标：32×32 品牌图标，返回 (宽, 高, ARGB 字节)。
 pub fn default_icon_pixmap() -> (Int, Int, Bytes) {
   let w = 32
   let h = 32
   let px : FixedArray[Byte] = FixedArray::make(w * h * 4, b'\x00')
-  // 外圆与偏移的挖空圆构成月牙
-  let cx = 16.0
-  let cy = 16.0
-  let r_out = 13.0
-  let ix = 22.0
-  let iy = 12.0
-  let r_in = 12.0
+  // 造型常数（32 视口）：双耳玫红含浅耳窝，从窗口上沿探出；
+  // 不画面部——32px 下五官糊成污点（几何预览定稿时验证过）
+  let ear_cy = 6.3
+  let ear_rx = 2.0
+  let ear_ry = 5.4
+  let bowl_rx = 0.75
+  let bowl_ry = 3.75
+  let cos_a = 0.9743700647852352 // cos(13°)；左耳取 -sin、右耳取 +sin
+  let sin_a = 0.2249510543438650
+  let head_cx = 16.0
+  let head_cy = 12.5
+  let head_rx = 5.6
+  let head_ry = 5.0
+  let win_cx = 16.0
+  let win_cy = 20.2
+  let win_hw = 10.5
+  let win_hh = 5.8
+  let win_r = 2.5
+  let win_title_y = 18.0
   for y in 0..<h {
     for x in 0..<w {
-      let mut hit = 0.0
+      let mut n = 0.0
+      let mut sr = 0.0
+      let mut sg = 0.0
+      let mut sb = 0.0
       for sy in 0..<2 {
         for sx in 0..<2 {
-          let px = x.to_double() + 0.25 + sx.to_double() * 0.5
-          let py = y.to_double() + 0.25 + sy.to_double() * 0.5
-          let d_out = (px - cx) * (px - cx) + (py - cy) * (py - cy)
-          let d_in = (px - ix) * (px - ix) + (py - iy) * (py - iy)
-          if d_out <= r_out * r_out && d_in > r_in * r_in {
-            hit += 1.0
+          let sxp = x.to_double() + 0.25 + sx.to_double() * 0.5
+          let syp = y.to_double() + 0.25 + sy.to_double() * 0.5
+          // 层优先级（高层覆盖低层，与 master 绘制顺序一致）：窗口 > 头 > 耳窝 > 耳
+          let in_ear_l = tray_ellipse_hit(ear_rx, ear_ry, cos_a, -sin_a, sxp - 12.4, syp - ear_cy)
+          let in_ear_r = tray_ellipse_hit(ear_rx, ear_ry, cos_a, sin_a, sxp - 19.6, syp - ear_cy)
+          let in_bowl_l = tray_ellipse_hit(bowl_rx, bowl_ry, cos_a, -sin_a, sxp - 12.4, syp - ear_cy)
+          let in_bowl_r = tray_ellipse_hit(bowl_rx, bowl_ry, cos_a, sin_a, sxp - 19.6, syp - ear_cy)
+          let mut cr = 0.0
+          let mut cg = 0.0
+          let mut cb = 0.0
+          let mut hit = false
+          if tray_round_rect_hit(win_cx, win_cy, win_hw, win_hh, win_r, sxp, syp) {
+            if syp < win_title_y {
+              cr = 36.0 // #2428A5 标题栏
+              cg = 40.0
+              cb = 165.0
+            } else {
+              cr = 46.0 // #2E33C9 内容区
+              cg = 51.0
+              cb = 201.0
+            }
+            hit = true
+          } else if tray_ellipse_hit(head_rx, head_ry, 1.0, 0.0, sxp - head_cx, syp - head_cy) {
+            cr = 199.0 // #C73E94
+            cg = 62.0
+            cb = 148.0
+            hit = true
+          } else if in_bowl_l || in_bowl_r {
+            cr = 241.0 // #F1D3E6 耳窝
+            cg = 211.0
+            cb = 230.0
+            hit = true
+          } else if in_ear_l || in_ear_r {
+            cr = 199.0 // #C73E94
+            cg = 62.0
+            cb = 148.0
+            hit = true
+          }
+          if hit {
+            n += 1.0
+            sr += cr
+            sg += cg
+            sb += cb
           }
         }
       }
-      if hit > 0.0 {
-        let a = (hit / 4.0 * 255.0).to_int()
+      if n > 0.0 {
+        let a = (n / 4.0 * 255.0).to_int()
         let off = (y * w + x) * 4
-        // 大端序 AARRGGBB，金色月牙
+        // 大端序 AARRGGBB；命中层颜色取平均（跨层边缘 1px 混色，32px 下不可辨）
         px[off] = a.to_byte()
-        px[off + 1] = (0xE8).to_byte() // R
-        px[off + 2] = (0xB3).to_byte() // G
-        px[off + 3] = (0x4B).to_byte() // B
+        px[off + 1] = (sr / n).to_int().to_byte()
+        px[off + 2] = (sg / n).to_int().to_byte()
+        px[off + 3] = (sb / n).to_int().to_byte()
       }
     }
   }
