@@ -645,29 +645,39 @@ fn find_or_fetch_appimagetool(dist : String) -> String? {
       run_tool(
         "curl",
         [
-          "-L", "--retry", "3", "-o", tool, "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage",
+          // -f:HTTP 错误码当失败,不把错误页写进目标文件留半截缓存
+          "-fL", "--retry", "3", "-o", tool, "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage",
         ],
         dist + "/appimagetool-dl.log",
         300000,
       ) {
       Ok(_) => ()
       Err(_) => {
+        let _ = @fs.remove_file(tool) catch { _ => () }
         print_log_tail(dist + "/appimagetool-dl.log")
         return None
       }
     }
     if !ensure_exec(tool, dist) {
+      let _ = @fs.remove_file(tool) catch { _ => () }
       return None
     }
   }
-  // 功能探测(缓存过旧损坏时重新下载交下次,先如实报错)
+  // 功能探测:缓存的文件跑不起来(断网期留下的半截文件等)就删掉,
+  // 下次运行重新下载——否则坏缓存会永远占位
   match run_tool(tool, ver_args, dist + "/appimagetool-probe.log", 60000) {
     Ok(_) =>
       match slurp(dist + "/appimagetool-probe.log") {
         Some(t) if t.trim().to_owned().length() > 0 => return Some(tool)
-        _ => None
+        _ => {
+          let _ = @fs.remove_file(tool) catch { _ => () }
+          None
+        }
       }
-    Err(_) => None
+    Err(_) => {
+      let _ = @fs.remove_file(tool) catch { _ => () }
+      None
+    }
   }
 }
 
