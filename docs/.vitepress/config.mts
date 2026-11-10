@@ -294,12 +294,17 @@ export default defineConfig({
   lastUpdated: true,
   head: [
     ['script', {}, langDetect],
+    ['link', { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32.png' }],
+    ['link', { rel: 'icon', type: 'image/png', sizes: '16x16', href: '/favicon-16.png' }],
+    ['link', { rel: 'icon', type: 'image/png', sizes: '48x48', href: '/favicon-48.png' }],
+    ['link', { rel: 'apple-touch-icon', sizes: '180x180', href: '/apple-touch-icon.png' }],
   ],
   markdown: {
     languages: [moonbitGrammar],
   },
   themeConfig: {
     search: { provider: 'local' },
+    logo: '/brand-logo.svg',
   },
   locales: {
     root: {
