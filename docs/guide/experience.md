@@ -1,6 +1,6 @@
 # Experience Guide
 
-Prebuilt packages (§1); clone the repository and run the examples (§2). For building your own app, the from-zero path is in the [App developer experience](dev-experience.md); for working on the library itself, head straight to [Build & run](build.md).
+Prebuilt packages (§1); clone the repository and run the examples (§2). For building your own app, the from-zero path is in [Getting started](tutorial.md); for working on the library itself, head straight to [Build & run](build.md).
 
 ## 1. Try it for real: prebuilt packages
 
@@ -79,7 +79,7 @@ Playback / progress / speed control, external and embedded subtitle tracks, A/V 
 
 ## 2. Run the repository examples
 
-Beyond the prebuilt packages, you can also clone the repository and run the examples directly (the MoonBit toolchain is needed first — see the [five-minute tutorial](tutorial.md) §1) — every directory under `examples/` is a standalone module, so **`cd` in and `moon run .`**:
+Beyond the prebuilt packages, you can also clone the repository and run the examples directly (the MoonBit toolchain is needed first — see [Build & run](build.md) §1) — every directory under `examples/` is a standalone module, so **`cd` in and `moon run .`**:
 
 ```sh
 git clone https://github.com/lb091188/moonbit-native-gui.git

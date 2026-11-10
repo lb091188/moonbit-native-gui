@@ -45,7 +45,7 @@ Every self-drawn widget and the component library live in `NoahLiu/native-gui/ui
 
 ## Related docs
 
-- Tutorial and first window: [Five-minute start](../guide/tutorial.md)
+- Tutorial and first window: [Getting started](../guide/tutorial.md)
 - Declarative tree / `Store` / `Signal`: [Declarative & reactivity](../guide/declarative.md)
 - Layout styling (`Style` fields and the `class` channel): [Layout & styling](../guide/layout.md)
 - System capabilities (`@sys`): [System capabilities overview](../capability/sys.md)

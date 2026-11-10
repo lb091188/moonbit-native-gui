@@ -69,11 +69,10 @@ const zhGuideSidebar = [
   {
     text: '开始',
     items: [
-      { text: '五分钟上手', link: '/zh/guide/tutorial' },
-      { text: '先跑起来看看', link: '/zh/guide/experience' },
-      { text: '应用开发者体验', link: '/zh/guide/dev-experience' },
-      { text: '构建与运行', link: '/zh/guide/build' },
-      { text: '打包与自动更新', link: '/zh/guide/publish' },
+      { text: '运行预构建', link: '/zh/guide/experience' },
+      { text: '安装开发依赖', link: '/zh/guide/build' },
+      { text: '五分钟上手体验', link: '/zh/guide/tutorial' },
+      { text: '打包与更新', link: '/zh/guide/publish' },
     ],
   },
   {
@@ -84,14 +83,7 @@ const zhGuideSidebar = [
     ],
   },
   {
-    text: '画布与自绘',
-    items: [
-      { text: '画布', link: '/zh/guide/canvas' },
-      { text: '自绘与键鼠', link: '/zh/guide/custom-draw' },
-    ],
-  },
-  {
-    text: '场景速查',
+    text: '应用场景',
     items: [
       { text: '场景总览', link: '/zh/cookbook/' },
       { text: '布局场景', link: '/zh/cookbook/layout' },
@@ -139,6 +131,13 @@ const zhComponentsSidebar = [
       { text: '响应式控制', link: '/zh/components/reactive' },
     ],
   },
+  {
+    text: '画布与自绘',
+    items: [
+      { text: '画布', link: '/zh/components/canvas' },
+      { text: '自绘与键鼠', link: '/zh/components/custom-draw' },
+    ],
+  },
 ]
 
 const zhCapabilitySidebar = [
@@ -176,10 +175,9 @@ const enGuideSidebar = [
   {
     text: 'Start',
     items: [
-      { text: 'Five-minute start', link: '/guide/tutorial' },
-      { text: 'Try the demos', link: '/guide/experience' },
-      { text: 'App developer experience', link: '/guide/dev-experience' },
+      { text: 'Run the prebuilt packages', link: '/guide/experience' },
       { text: 'Build & run', link: '/guide/build' },
+      { text: 'Getting started', link: '/guide/tutorial' },
       { text: 'Packaging & auto-update', link: '/guide/publish' },
     ],
   },
@@ -188,13 +186,6 @@ const enGuideSidebar = [
     items: [
       { text: 'Layout & styling', link: '/guide/layout' },
       { text: 'Declarative & reactivity', link: '/guide/declarative' },
-    ],
-  },
-  {
-    text: 'Canvas & custom drawing',
-    items: [
-      { text: 'Canvas drawing', link: '/guide/canvas' },
-      { text: 'Custom draw & input', link: '/guide/custom-draw' },
     ],
   },
   {
@@ -246,6 +237,13 @@ const enComponentsSidebar = [
       { text: 'Reactive controls', link: '/components/reactive' },
     ],
   },
+  {
+    text: 'Canvas & custom drawing',
+    items: [
+      { text: 'Canvas drawing', link: '/components/canvas' },
+      { text: 'Custom draw & input', link: '/components/custom-draw' },
+    ],
+  },
 ]
 
 const enCapabilitySidebar = [
@@ -287,7 +285,7 @@ export default defineConfig({
   // 可解析——豁免这些路径的死链检查，站内正常页面链接仍受保护。
   ignoreDeadLinks: [
     /proposals\//,
-    /experience\/adaptation/,
+    /experience\//,
     /测试文档/,
     /%E6%B5%8B%E8%AF%95%E6%96%87%E6%A1%A3/,
   ],
@@ -312,7 +310,7 @@ export default defineConfig({
       lang: 'en',
       themeConfig: {
         nav: [
-          { text: 'Guide', link: '/guide/tutorial' },
+          { text: 'Guide', link: '/guide/experience' },
           { text: 'Components', link: '/components/' },
           { text: 'Capabilities', link: '/capability/sys' },
           { text: 'API ↗', link: apiRef },
@@ -335,7 +333,7 @@ export default defineConfig({
       link: '/zh/',
       themeConfig: {
         nav: [
-          { text: '指南', link: '/zh/guide/tutorial' },
+          { text: '指南', link: '/zh/guide/experience' },
           { text: '组件', link: '/zh/components/' },
           { text: '能力', link: '/zh/capability/sys' },
           { text: 'API ↗', link: apiRef },

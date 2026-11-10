@@ -1,6 +1,6 @@
 # How-to overview
 
-Indexed by "I want to do X", split across four pages: [Layout recipes](layout.md), [Interaction recipes](interaction.md), [Theme recipes](theme.md), [System capability recipes](system.md). Starting from zero: the [five-minute start](../guide/tutorial.md).
+Indexed by "I want to do X", split across four pages: [Layout recipes](layout.md), [Interaction recipes](interaction.md), [Theme recipes](theme.md), [System capability recipes](system.md). Starting from zero: [Getting started](../guide/tutorial.md).
 
 ## Prerequisites
 
@@ -46,7 +46,7 @@ import {
 | Open links / reveal files | `@sys.open_url` / `@shell.reveal_in_file_manager` | [System · Open](system.md#opening-links-revealing-files) |
 | Copy to clipboard | `@sys.clipboard_set_text` | [System · Clipboard](system.md#copying-to-the-clipboard) |
 | Desktop notification | `@shell.notify_send` | [System · Notifications](system.md#desktop-notifications) |
-| Draw what no widget gives you / wire a custom block to keyboard & mouse | `node_of_new` + `on_draw` / `on_pointer` / `on_key` | [Custom draw & input](../guide/custom-draw.md) |
+| Draw what no widget gives you / wire a custom block to keyboard & mouse | `node_of_new` + `on_draw` / `on_pointer` / `on_key` | [Custom draw & input](../components/custom-draw.md) |
 
 ## Next steps
 

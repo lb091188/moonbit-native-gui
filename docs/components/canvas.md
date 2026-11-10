@@ -57,7 +57,7 @@ fn main {
 
 Notes:
 
-- **The node must resolve to a size**: set `set_width` / `set_height` explicitly, or let the parent layout assign it (`grow` etc., see [Layout & styling](layout.md)). No size = no area = nothing gets drawn.
+- **The node must resolve to a size**: set `set_width` / `set_height` explicitly, or let the parent layout assign it (`grow` etc., see [Layout & styling](../guide/layout.md)). No size = no area = nothing gets drawn.
 - `on_draw` runs on every repaint — **don't do heavy work inside** (reading files, decoding large images, building big objects); prepare assets outside the callback and only put pixels down inside.
 - Colors take `#RRGGBB` strings directly; to follow the system light/dark theme, use the semantic colors from `@theme`.
 
@@ -194,5 +194,5 @@ let _ = cv.write_to_file("out.png")      // only "png" for now; returns false on
 ## Next steps
 
 - Live results for every technique: `cd examples/showcase && moon run .`, the "Canvas" page, source `examples/showcase/pages/canvas.mbt`; live keyboard & mouse interaction on the "Events & layout" page, source `examples/showcase/pages/events.mbt`.
-- Widget assembly and state binding: [Components overview](../components/index.md), [Declarative & reactivity](declarative.md); sizing and layout assignment: [Layout & styling](layout.md).
-- Starting from zero: the [five-minute start](tutorial.md).
+- Widget assembly and state binding: [Components overview](index.md), [Declarative & reactivity](../guide/declarative.md); sizing and layout assignment: [Layout & styling](../guide/layout.md).
+- Starting from zero: [Getting started](../guide/tutorial.md).

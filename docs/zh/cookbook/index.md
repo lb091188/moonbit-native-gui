@@ -1,6 +1,6 @@
 # 场景总览
 
-按「我想做 X」检索，分四页：[布局](layout.md)、[交互](interaction.md)、[样式与主题](theme.md)、[系统能力](system.md)。工程从零起步见[五分钟上手](../guide/tutorial.md)。
+按「我想做 X」检索，分四页：[布局](layout.md)、[交互](interaction.md)、[样式与主题](theme.md)、[系统能力](system.md)。工程从零起步见[上手体验](../guide/tutorial.md)。
 
 ## 公共前提
 
@@ -46,7 +46,7 @@ import {
 | 打开链接 / 定位文件 | `@sys.open_url` / `@shell.reveal_in_file_manager` | [系统能力 · 打开与定位](system.md#打开链接与定位文件) |
 | 复制到剪贴板 | `@sys.clipboard_set_text` | [系统能力 · 剪贴板](system.md#复制到剪贴板) |
 | 桌面通知 | `@shell.notify_send` | [系统能力 · 桌面通知](system.md#桌面通知) |
-| 画控件拼不出的内容 / 自绘区接键鼠（画板、节点编辑器） | `node_of_new` + `on_draw` / `on_pointer` / `on_key` | [自绘与键鼠](../guide/custom-draw.md) |
+| 画控件拼不出的内容 / 自绘区接键鼠（画板、节点编辑器） | `node_of_new` + `on_draw` / `on_pointer` / `on_key` | [自绘与键鼠](../components/custom-draw.md) |
 
 ## 下一步
 

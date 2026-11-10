@@ -57,4 +57,4 @@ Notes:
 
 - `class` arrays are last-wins: to override a widget's built-in style, put your block later in the array.
 - Global corner and font changes use the theme layer's switches (`@theme.corners_round_set` etc.).
-- Custom blocks don't consume style slots; they read the host-maintained `hovered` / `focused` flags directly: see [Custom draw & input](../guide/custom-draw.md).
+- Custom blocks don't consume style slots; they read the host-maintained `hovered` / `focused` flags directly: see [Custom draw & input](../components/custom-draw.md).

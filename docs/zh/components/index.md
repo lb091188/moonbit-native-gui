@@ -47,7 +47,7 @@
 
 ## 相关文档
 
-- 教程与第一扇窗：[五分钟上手](../guide/tutorial.md)
+- 教程与第一扇窗：[上手体验](../guide/tutorial.md)
 - 声明式树 / `Store` / `Signal`：[声明式与响应式](../guide/declarative.md)
 - 布局样式（`Style` 字段与 `class` 通道）：[布局样式](../guide/layout.md)
 - 系统能力（`@sys`）：[系统能力总览](../capability/sys.md)

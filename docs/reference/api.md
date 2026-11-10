@@ -12,7 +12,7 @@ Per-package shortcuts:
 | [shell](https://mooncakes.io/docs/NoahLiu/native-gui/shell) | Menus, hotkeys, tray, notifications, open-with, timers |
 | [widget](https://mooncakes.io/docs/NoahLiu/native-gui/widget) | Widget host: layout tree, hit-testing & event routing, draw traversal |
 | [ui](https://mooncakes.io/docs/NoahLiu/native-gui/ui) | Full widget constructor set (see [Components overview](../components/index.md)) |
-| [render](https://mooncakes.io/docs/NoahLiu/native-gui/render) | Canvas, bitmaps, images & PNG (see [Canvas](../guide/canvas.md)) |
+| [render](https://mooncakes.io/docs/NoahLiu/native-gui/render) | Canvas, bitmaps, images & PNG (see [Canvas](../components/canvas.md)) |
 | [text](https://mooncakes.io/docs/NoahLiu/native-gui/text) | Font families, fonts, rich text & span attributes |
 | [theme](https://mooncakes.io/docs/NoahLiu/native-gui/theme) | Palette derivation & change subscription |
 | [icons](https://mooncakes.io/docs/NoahLiu/native-gui/icons) | Vector icons |

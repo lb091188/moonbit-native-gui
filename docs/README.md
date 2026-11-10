@@ -6,14 +6,11 @@ For what native-gui is, see the [home page](/). The site structure mirrors the t
 
 | Document | Content |
 |---|---|
-| [Five-minute start](guide/tutorial.md) | Install the toolchain, create a project, and build your first window with a click counter |
-| [Try the demos](guide/experience.md) | Run the prebuilt packages or the repository examples |
-| [App developer experience](guide/dev-experience.md) | Project mechanics and first-time blockers: the template layout, the two levels of `moon add` vs `import`, why the two adjustments are needed, and a blockers table |
-| [Build & run](guide/build.md) | Three-platform dependency lists, build commands and artefact paths, prebuilt-binary status, common failures |
+| [Run the prebuilt packages](guide/experience.md) | See it for real — run the prebuilt packages directly, or clone the repo for the examples |
+| [Build & run](guide/build.md) | The MoonBit toolchain and three-platform dependency lists, build commands and artefact paths, prebuilt-binary status, common failures |
+| [Getting started](guide/tutorial.md) | Create a project and build your first window with a click counter; project mechanics, single-file components (.mng), the Inspector, and a blockers table |
 | [Layout & styling](guide/layout.md) | Flexbox semantics and the `Style` field set of `@style`, plus the `class` channel |
 | [Declarative & reactivity](guide/declarative.md) | The node tree and `mount_window`, `Store` / `Signal`, `for_list` / `when`, in-place replacement |
-| [Canvas](guide/canvas.md) | Mounting a draw area, common `Painter` techniques, requesting redraws, offscreen PNG export |
-| [Custom draw & input](guide/custom-draw.md) | Wiring a custom block to pointer / hover / focus / scroll, with a mini sketchpad skeleton |
 
 ## How-to cookbook
 
@@ -31,6 +28,8 @@ For what native-gui is, see the [home page](/). The site structure mirrors the t
 |---|---|
 | [Components overview](components/index.md) | Conventions, `mount_window`, and the family pages at a glance |
 | Family pages | [Layout & containers](components/containers.md) / [Text & basics](components/basics.md) / [Forms](components/form.md) / [Date & time](components/date.md) / [Data display](components/display.md) / [Tables & virtual lists](components/table.md) / [Navigation](components/navigation.md) / [Overlays & messages](components/overlay.md) / [Drag, hover & window events](components/interaction.md) / [Reactive controls](components/reactive.md) |
+| [Canvas](components/canvas.md) | Mounting a draw area, common `Painter` techniques, requesting redraws, offscreen PNG export |
+| [Custom draw & input](components/custom-draw.md) | Wiring a custom block to pointer / hover / focus / scroll, with a mini sketchpad skeleton |
 
 ## Capabilities
 

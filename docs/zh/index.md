@@ -7,7 +7,7 @@ hero:
   actions:
     - theme: brand
       text: 写第一个应用
-      link: /zh/guide/dev-experience
+      link: /zh/guide/tutorial
     - theme: alt
       text: 先跑预构建包
       link: /zh/guide/experience

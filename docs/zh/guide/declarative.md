@@ -123,4 +123,4 @@ let rows : @base.ListStore[String] = @base.ListStore::new(["a", "b"])
 
 - 组件与参数：[组件总览](../components/index.md)
 - 布局样式：`Style` 值与 `class` 通道见 [layout.md](layout.md)
-- 五分钟上手：[tutorial.md](tutorial.md)
+- 上手体验：[tutorial.md](tutorial.md)

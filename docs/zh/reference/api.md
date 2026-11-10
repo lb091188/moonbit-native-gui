@@ -12,7 +12,7 @@
 | [shell](https://mooncakes.io/docs/NoahLiu/native-gui/shell) | 菜单、热键、托盘、通知、外部打开、定时器 |
 | [widget](https://mooncakes.io/docs/NoahLiu/native-gui/widget) | 控件宿主：布局树、命中与事件路由、绘制遍历 |
 | [ui](https://mooncakes.io/docs/NoahLiu/native-gui/ui) | 控件构造器全集（见[组件总览](../components/index.md)） |
-| [render](https://mooncakes.io/docs/NoahLiu/native-gui/render) | 画布、位图、图像与 PNG（见[画布](../guide/canvas.md)） |
+| [render](https://mooncakes.io/docs/NoahLiu/native-gui/render) | 画布、位图、图像与 PNG（见[画布](../components/canvas.md)） |
 | [text](https://mooncakes.io/docs/NoahLiu/native-gui/text) | 字体族、字体、富文本与区间属性 |
 | [theme](https://mooncakes.io/docs/NoahLiu/native-gui/theme) | 色板派生与变更订阅 |
 | [icons](https://mooncakes.io/docs/NoahLiu/native-gui/icons) | 矢量图标 |

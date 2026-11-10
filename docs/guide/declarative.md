@@ -124,4 +124,4 @@ Framework repaints route back to the host WindowHost through the process-level `
 - Components and parameters: [Components overview](../components/index.md)
 - Layout styling: `Style` values and the `class` channel in [layout.md](layout.md)
 - View-layer and reactivity design: [design.md (Chinese)](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/design.md) §3 reactivity, §4 view layer
-- Five-minute tutorial: [tutorial.md](tutorial.md)
+- Getting started: [tutorial.md](tutorial.md)

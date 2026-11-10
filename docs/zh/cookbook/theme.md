@@ -57,4 +57,4 @@ import 清单见[场景总览](index.md#公共前提)。
 
 - `class` 数组尾赢：覆盖组件内置样式把自己的块放数组后部。
 - 全局圆角、字体走 theme 层开关（`@theme.corners_round_set` 等）。
-- 自绘块不消费样式槽，直接读宿主维护的 `hovered` / `focused` 标志：见[自绘与键鼠](../guide/custom-draw.md)。
+- 自绘块不消费样式槽，直接读宿主维护的 `hovered` / `focused` 标志：见[自绘与键鼠](../components/custom-draw.md)。

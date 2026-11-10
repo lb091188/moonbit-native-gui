@@ -1,6 +1,6 @@
 # 体验文档
 
-预构建包（§一）；克隆仓库跑示例（§二）。自己写应用，从零路径见[应用开发者体验](dev-experience.md)；改库与参与开发直接看[构建与运行](build.md)。
+预构建包（§一）；克隆仓库跑示例（§二）。自己写应用，从零路径见[上手体验](tutorial.md)；改库与参与开发直接看[构建与运行](build.md)。
 
 ## 一、真体验：预构建包
 
@@ -79,7 +79,7 @@ sudo apt install libgtk-3-0 libpango-1.0-0 libx11-6 \
 
 ## 二、跑仓库示例
 
-预构建包之外，还可以克隆仓库直接跑示例（需先装 MoonBit 工具链，见[五分钟上手教程](tutorial.md) §1）——`examples/` 下每个目录都是独立模块，进目录 `moon run .` 即可：
+预构建包之外，还可以克隆仓库直接跑示例（需先装 MoonBit 工具链，见[构建与运行](build.md) §1）——`examples/` 下每个目录都是独立模块，进目录 `moon run .` 即可：
 
 ```sh
 git clone https://github.com/lb091188/moonbit-native-gui.git

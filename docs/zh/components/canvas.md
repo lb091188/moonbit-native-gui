@@ -58,7 +58,7 @@ fn main {
 
 注意：
 
-- **节点必须能算出尺寸**：显式 `set_width` / `set_height`，或交给父级布局分配（`grow` 等，见[布局样式](layout.md)）。没尺寸 = 没面积 = 什么都画不出来。
+- **节点必须能算出尺寸**：显式 `set_width` / `set_height`，或交给父级布局分配（`grow` 等，见[布局样式](../guide/layout.md)）。没尺寸 = 没面积 = 什么都画不出来。
 - `on_draw` 每次重绘都会调，**别在里面做重活**（读文件、解码大图、建大对象）；素材在回调外建好，回调里只落笔。
 - 颜色直接给 `#RRGGBB` 字符串；要跟系统深浅走就用 `@theme` 的语义色。
 
@@ -197,5 +197,5 @@ let _ = cv.write_to_file("out.png")      // 目前只支持 "png"，失败返回
 ## 下一步
 
 - 每段画法的现场效果：`cd examples/showcase && moon run .`「画布」页，源码 `examples/showcase/pages/canvas.mbt`。
-- 控件拼装与状态绑定：[组件总览](../components/index.md)、[声明式与响应式](declarative.md)；尺寸与布局分配：[布局样式](layout.md)。
-- 从零起步：[五分钟上手](tutorial.md)。
+- 控件拼装与状态绑定：[组件总览](index.md)、[声明式与响应式](../guide/declarative.md)；尺寸与布局分配：[布局样式](../guide/layout.md)。
+- 从零起步：[上手体验](../guide/tutorial.md)。

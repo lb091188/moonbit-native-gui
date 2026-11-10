@@ -247,6 +247,6 @@ Demo assets live in each example's own `examples/<name>/assets/` (not a module â
 ## 12. Related
 
 - Platform adaptation pitfalls and verification: [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md)
-- From zero (shortest runnable path): [Five-minute tutorial](tutorial.md); project mechanics and first-time blockers: [App developer experience](dev-experience.md)
-- See results without writing code: [Try the demos](experience.md)
+- Write code from zero: [Getting started](tutorial.md)
+- See results without writing code: [Run the prebuilt packages](experience.md)
 - Components and API: [Components overview](../components/index.md)

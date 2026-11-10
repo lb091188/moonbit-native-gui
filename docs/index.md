@@ -7,9 +7,9 @@ hero:
   actions:
     - theme: brand
       text: Build your first app
-      link: /guide/dev-experience
+      link: /guide/tutorial
     - theme: alt
-      text: Try the prebuilt demos
+      text: Run the prebuilt packages
       link: /guide/experience
     - theme: alt
       text: Build & environment
