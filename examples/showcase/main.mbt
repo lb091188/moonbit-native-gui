@@ -269,9 +269,9 @@ fn main {
   app.accent.subscribe(fn(_a) { apply_theme(app) })
   apply_theme(app)
   // 单实例（@shell 门面，三平台各自的臂）：先声称；已有实例就唤起它并退出。
-  match @shell.instance_claim(@shared.SHOWCASE_APP_ID) {
+  match @shell.instance_claim(@shared.showcase_app_id) {
     Ok(@shell.Primary) => {
-      let arm = match @shell.instance_arm(@shared.SHOWCASE_APP_ID) {
+      let arm = match @shell.instance_arm(@shared.showcase_app_id) {
         Some(b) => @shell.instance_backend_name(b)
         None => "?"
       }
@@ -316,7 +316,7 @@ fn main {
       })
     }
     Ok(@shell.Existing) => {
-      let _ = @shell.instance_wake(@shared.SHOWCASE_APP_ID, [])
+      let _ = @shell.instance_wake(@shared.showcase_app_id, [])
       println("SHOWCASE-INST: 已有实例，已唤起并退出")
       return
     }
