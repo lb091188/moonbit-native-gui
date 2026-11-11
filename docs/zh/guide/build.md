@@ -15,7 +15,7 @@ irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
 
 ## 2. 装开发依赖
 
-库走原生 FFI，构建期要三样：**C 工具链、pkg-config、Linux 上的 GTK3 / Pango / FontConfig / X11 开发包**。2026-11-11 起链接预构建已移植为 MoonBit 脚本（`gui/scripts/prebuild.mbtx`），构建**不再需要 Python**（旧 prebuild.py 时代它是必需依赖）。注意：可选模块 `gui-media` / `gui-gpu` 的 prebuild 仍是 Python（含归档下载），要构建它们暂还需 python3——移植后同步解除。
+库走原生 FFI，构建期要三样：**C 工具链、pkg-config、Linux 上的 GTK3 / Pango / FontConfig / X11 开发包**。2026-11-11 起链接预构建已移植为 MoonBit 脚本（`gui/scripts/prebuild.mbtx`），构建**不再需要 Python**（旧 prebuild.py 时代它是必需依赖）。`gui-media` 的 prebuild 同日移植完毕；`gui-gpu` / `gui-webview` / `ffmpeg-mbt` 三个可选模块的 prebuild 仍是 Python（含归档下载），要构建它们暂还需 python3——移植后同步解除。
 
 ### Linux（Debian / Ubuntu 系）
 
@@ -209,7 +209,7 @@ nm modules/gui-webview/build/libgui_webview-*.a | grep -c gtk_file_chooser_nativ
 | 文件 | 下载方 | 何时下载 |
 |---|---|---|
 | `WebView2LoaderStatic.lib`（11 MB）、`WebView2.h`（2.8 MB） | `modules/gui-webview/prebuild.py` | **仅 Windows**；Linux / macOS 直接跳过，省下 14 MB |
-| `miniaudio.h`（4 MB） | `modules/gui-media/prebuild.py` | 缺失即下（各平台都要编） |
+| `miniaudio.h`（4 MB） | `modules/gui-media/scripts/prebuild.mbtx` | 缺失即下（各平台都要编）；已就位也会校验 sha256，损坏自动重取 |
 | `ffmpeg-windows-x64-9.0-lgpl-shared.zip`（约 64 MB，7 支 dll） | `modules/ffmpeg-mbt/prebuild.py` | **仅 Windows** 且本地缺运行期 dll；取不到再退 BtbN 上游 |
 | `ffmpeg-macos-arm64-9.0.2-lgpl-shared.tar.gz`（约 10 MB，5 支 dylib + 头） | 同上 | **仅 macOS arm64** 且缺 `vendor/mac`；装了 brew ffmpeg 的机器走 pkg-config，不下载 |
 
@@ -217,8 +217,8 @@ FFmpeg 这两个归档**由我们制作**（macOS 自编 LGPLv3、@rpath 化，W
 
 - **校验优先**：sha256 与 prebuild 里的常量一致才落盘，任何镜像都可验证。
 - **镜像**：GitHub Release → Gitee，都**不做延迟探测**。模块间策略不同——webview 与 ffmpeg 默认**并行竞速**（谁先交出校验通过的文件用谁，总耗时等于最快镜像）；gui-media 串行按序。
-- **超时**：单源 socket 超时 20 秒，另加**总预算**兜底（`urlopen` 的 timeout 是 socket 级，DNS 挂起与慢速滴流不受它约束，只靠它会把一次构建吊死）。预算按体积分档：mac 归档、`miniaudio.h`、WebView2 两件套 **60 秒**，Windows 的 64 MB dll 归档 **360 秒**——否则「数据还在流、预算先到」会把那一路误判成失败。
-- **换源与加源**：`modules/gui-webview/prebuild.py` 的 `VENDOR_BASES`、`modules/gui-media/prebuild.py` 的 `_VENDOR_BASES` 各改一行（另有 `modules/ffmpeg-mbt/prebuild.py` 管 dll 归档，镜像与超时口径同源）。三处**刻意各留一份**，每个模块都要能独立发布——别按「两处」去找，`grep -rn "releases/download/vendor-v1" --include=prebuild.py .` 点一遍份数。**Gitee 的用户名与 GitHub 不同**（同一个仓在 gitee 归 `noahliu0911`，GitHub 是 `lb091188`），照抄会 404，而且只在 GitHub 不通时才暴露。
+- **超时**：单源 socket 超时 20 秒，另加**总预算**兜底（socket 级超时挡不住 DNS 挂起与慢速滴流，只靠它会把一次构建吊死）。预算按体积分档：mac 归档、`miniaudio.h`、WebView2 两件套 **60 秒**，Windows 的 64 MB dll 归档 **360 秒**——否则「数据还在流、预算先到」会把那一路误判成失败。
+- **换源与加源**：`modules/gui-webview/prebuild.py` 的 `VENDOR_BASES`、`modules/gui-media/scripts/prebuild.mbtx` 的 `vendor_bases` 各改一行（另有 `modules/ffmpeg-mbt/prebuild.py` 管 dll 归档，镜像与超时口径同源）。三处**刻意各留一份**，每个模块都要能独立发布。**Gitee 的用户名与 GitHub 不同**（同一个仓在 gitee 归 `noahliu0911`，GitHub 是 `lb091188`），照抄会 404，而且只在 GitHub 不通时才暴露。
 - **内网与离线**：环境变量 `NATIVE_GUI_VENDOR_BASE` 接受单个 base 或逗号分隔列表，排在最前；设了它就不再并行竞速（webview 转串行按序）。也可手工把文件放到对应路径。
 - 全部失败时 prebuild 不中断，只打印手工放置提示，把缺文件错误留给链接期。
 

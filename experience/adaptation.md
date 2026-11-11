@@ -3976,3 +3976,12 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **async 无 await**:MoonBit 没有 await 关键字,async fn 里裸调即可(skill 有载,从 py 翻译时容易顺手写出)。
 - **stdout 纪律**:prebuild 协议要求 stdout 恰好一个 JSON,任何 println 调试输出都会变成「failed to deserialize prebuild script / expected value at line 1 column 1」——报错指向脚本 stdout 而非文件,极易误判;诊断一律 `@stdio.stderr.write`。
 - 对拍口径:同机跑 py 与 mbtx,归一化 -L 路径后逐字段 diff(包名/flags/库文件/框架清单);mac 四条目 ALL-MATCH,hello 端到端链接过,二次构建 0.3s(stamp 命中)。
+
+## gui-media prebuild 去 py 批坑(2026-11-12,mac 实测)
+
+- **`moonbitlang/async/http` 不跟随 302**:GitHub/Gitee 的 release 下载链接一律 302 → CDN,`@http.get` 把 302 原样返回(带 location 头但不跟),py 的 urllib 默认跟随——直接移植会「全部镜像都没取到」。两条路:手动跟 location(限跳数),或换 `q2316367743/moonhttp`(axios 风格、基于 async、内置自动重定向/超时/取消);gui-media 用了后者,frontmatter import `"q2316367743/moonhttp/client" @mhttp`,`default_client().get(url)` + `resp.bytes()` 一趟到位。wasm(moonrun)后端可用。
+- **mbtx 编译警告即失败**:prebuild 脚本编译有 warning(如 `package` 是保留字,做具名参数报 reserved_keyword)整个 prebuild 就挂,不像普通工程 warning 放行——参数名用 `pkg` 这类避开保留字,零警告才算过。
+- **UInt 算术**:`UInt` 没有 `wrapping_add`/`not` 方法——`+`/`-` 本就是 wrap 语义直接用,取反写 `x ^ 0xFFFFFFFF`;`Int::to_uint`/`Byte::reinterpret_as_int` 等转换有的弃用有的不存在,可靠链是 `byte.to_int().reinterpret_as_uint()`。sha256 纯 MoonBit 实现 ~100 行,k256 表用 `Array[UInt]` 小写 `let`。
+- **缓存口径顺带升级**:py 版 miniaudio.h 是纯存在性检查(损坏文件永不重下),mbtx 版落盘前 sha256 校验、已存在也校验,坏文件自动重取。
+- **总预算实现**:`@async.with_timeout_opt(毫秒, () => …)` 现成,不必像 py 那样开线程 join;超时返回 None 换下一个镜像。
+- 端到端实测:删 miniaudio.h 重建,GitHub 镜像 60s 预算内无产出自动换 gitee,下载 sha256 ✓ 落盘,moon check 零警告 + 42 测试全过。

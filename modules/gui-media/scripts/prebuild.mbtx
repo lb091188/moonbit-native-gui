@@ -1,0 +1,377 @@
+----
+import {
+  "moonbitlang/core/env",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/async",
+  "moonbitlang/async/fs" @fs,
+  "moonbitlang/async/stdio" @stdio,
+  "q2316367743/moonhttp/client" @mhttp,
+}
+----
+
+// NoahLiu/gui-media 的链接预构建（--moonbit-unstable-prebuild）。语义与上一版
+// prebuild.py 一致（git 历史可对照），2026-11-11 起 MoonBit 化。
+//
+// 职责两件：
+// 1. 给媒体包 NoahLiu/gui-media/media 下发系统库链接参数（miniaudio 的设备
+//    线程与运行期 dlopen 后端要 pthread/dl/m/lstdc++/atomic；macOS 走
+//    CoreAudio 后端要三个框架，刻意没有 -ldl/-latomic——mac 的 dlopen 在
+//    libSystem 里、-latomic 这个库压根不存在）。
+// 2. 保证 media/miniaudio.h 就位：自 2026-10-14 起不入库，改挂 Release 资产，
+//    缺失即下载并校验 sha256；已存在则校验哈希（比上一版的纯存在性检查严，
+//    损坏文件会重下）。离线环境可提前手工放置。
+//
+// 媒体解码链（libav* 一组）的 flags 由 ffmpeg-mbt 自己的 prebuild 按包名
+// NoahLiu/ffmpeg-mbt/src 下发，本脚本不重复。
+//
+// 协议（moon prebuild）：stdout 恰好一个 JSON 值；诊断一律走 stderr。目录与
+// 平台信息从环境变量取：MOON_MOD（moon.mod 绝对路径）/ MOON_HOST_OS。
+
+///|
+let media_package : String = "NoahLiu/gui-media/media"
+
+///|
+/// miniaudio.h 的 vendor 资产：文件名 / 期望 sha256。
+/// 双镜像口径与 gui-webview 同源（2026-10-14 定案）：串行按序、不做延迟
+/// 探测、sha256 过了才落盘（先测快慢会让两台机器从不同源取，丢可复现性）。
+/// gitee 上的用户名与 GitHub 不同：同一个仓在 gitee 归 noahliu0911，
+/// 照抄 lb091188 会 404（只坏国内镜像，GitHub 通时看不出来）。
+/// 外部源用环境变量 NATIVE_GUI_VENDOR_BASE 覆盖（单个 base 或逗号分隔列表）。
+let vendor_bases : Array[String] = [
+  "https://github.com/lb091188/moonbit-native-gui/releases/download/vendor-v1",
+  "https://gitee.com/noahliu0911/moonbit-native-gui/releases/download/vendor-v1",
+]
+
+///|
+let vendor_name : String = "miniaudio.h"
+
+///|
+let vendor_sha : String =
+  "e9e742f8c4d7cdd0fc81ba7f1c47b719d98d45e0138849aa0ec1e574d554a1ee"
+
+///|
+/// 单源 socket 超时之外再给 60 秒总预算——HTTP 客户端的 socket 级超时挡不住
+/// DNS 挂起与慢速滴流（与 prebuild.py 的线程 join 同口径）。
+let vendor_budget_ms : Int32 = 60_000
+
+///|
+async fn err(msg : String) -> Unit {
+  @stdio.stderr.write(msg + "\n")
+}
+
+///|
+fn env_or(name : String, fallback : String) -> String {
+  match @env.get_env_var(name) {
+    Some(v) if v.length() > 0 => v
+    _ => fallback
+  }
+}
+
+///|
+/// SHA-256（FIPS 180-4），十六进制小写。UInt 的移位都是逻辑移位，正好匹配
+/// SHA-256 的循环右移语义。
+let k256 : Array[UInt] = [
+  0x428a2f98U, 0x71374491U, 0xb5c0fbcfU, 0xe9b5dba5U, 0x3956c25bU,
+  0x59f111f1U, 0x923f82a4U, 0xab1c5ed5U, 0xd807aa98U, 0x12835b01U,
+  0x243185beU, 0x550c7dc3U, 0x72be5d74U, 0x80deb1feU, 0x9bdc06a7U,
+  0xc19bf174U, 0xe49b69c1U, 0xefbe4786U, 0x0fc19dc6U, 0x240ca1ccU,
+  0x2de92c6fU, 0x4a7484aaU, 0x5cb0a9dcU, 0x76f988daU, 0x983e5152U,
+  0xa831c66dU, 0xb00327c8U, 0xbf597fc7U, 0xc6e00bf3U, 0xd5a79147U,
+  0x06ca6351U, 0x14292967U, 0x27b70a85U, 0x2e1b2138U, 0x4d2c6dfcU,
+  0x53380d13U, 0x650a7354U, 0x766a0abbU, 0x81c2c92eU, 0x92722c85U,
+  0xa2bfe8a1U, 0xa81a664bU, 0xc24b8b70U, 0xc76c51a3U, 0xd192e819U,
+  0xd6990624U, 0xf40e3585U, 0x106aa070U, 0x19a4c116U, 0x1e376c08U,
+  0x2748774cU, 0x34b0bcb5U, 0x391c0cb3U, 0x4ed8aa4aU, 0x5b9cca4fU,
+  0x682e6ff3U, 0x748f82eeU, 0x78a5636fU, 0x84c87814U, 0x8cc70208U,
+  0x90befffaU, 0xa4506cebU, 0xbef9a3f7U, 0xc67178f2U,
+]
+
+///|
+fn rotr32(x : UInt, n : Int) -> UInt {
+  (x >> n) | (x << (32 - n))
+}
+
+///|
+/// 第 i 字节的虚拟视图（含 0x80 padding 与 8 字节大端位长的拼接视图，
+/// 不物理拼接 4MB 缓冲）。
+fn padded_byte(data : Bytes, n : Int, total : Int, i : Int) -> UInt {
+  if i < n {
+    data[i].to_int().reinterpret_as_uint()
+  } else if i == n {
+    0x80U
+  } else if i >= total - 8 {
+    let bit_len = n.to_int64() * 8L
+    let shift = (total - 1 - i) * 8
+    ((bit_len >> shift) & 0xFFL).to_int().reinterpret_as_uint()
+  } else {
+    0U
+  }
+}
+
+///|
+fn sha256_hex(data : Bytes) -> String {
+  let mut h0 = 0x6a09e667U
+  let mut h1 = 0xbb67ae85U
+  let mut h2 = 0x3c6ef372U
+  let mut h3 = 0xa54ff53aU
+  let mut h4 = 0x510e527fU
+  let mut h5 = 0x9b05688cU
+  let mut h6 = 0x1f83d9abU
+  let mut h7 = 0x5be0cd19U
+  let n = data.length()
+  let rem = n % 64
+  let total = if rem < 56 {
+    n - rem + 64
+  } else {
+    n - rem + 128
+  }
+  let w : Array[UInt] = []
+  let mut wi = 0
+  while wi < 64 {
+    w.push(0U)
+    wi += 1
+  }
+  let mut base = 0
+  while base < total {
+    let mut j = 0
+    while j < 16 {
+      let o = base + j * 4
+      w[j] = (padded_byte(data, n, total, o) << 24) |
+        (padded_byte(data, n, total, o + 1) << 16) |
+        (padded_byte(data, n, total, o + 2) << 8) |
+        padded_byte(data, n, total, o + 3)
+      j += 1
+    }
+    let mut j = 16
+    while j < 64 {
+      let s0 = rotr32(w[j - 15], 7) ^ rotr32(w[j - 15], 18) ^ (w[j - 15] >> 3)
+      let s1 = rotr32(w[j - 2], 17) ^ rotr32(w[j - 2], 19) ^ (w[j - 2] >> 10)
+      w[j] = w[j - 16] + s1 + w[j - 7] + s0
+      j += 1
+    }
+    let mut a = h0
+    let mut b = h1
+    let mut c = h2
+    let mut d = h3
+    let mut e = h4
+    let mut f = h5
+    let mut g = h6
+    let mut hh = h7
+    let mut j = 0
+    while j < 64 {
+      let s1 = rotr32(e, 6) ^ rotr32(e, 11) ^ rotr32(e, 25)
+      let ch = (e & f) ^ ((e ^ 0xFFFFFFFFU) & g)
+      let t1 = hh + s1 + ch + k256[j] + w[j]
+      let s0 = rotr32(a, 2) ^ rotr32(a, 13) ^ rotr32(a, 22)
+      let maj = (a & b) ^ (a & c) ^ (b & c)
+      let t2 = s0 + maj
+      hh = g
+      g = f
+      f = e
+      e = d + t1
+      d = c
+      c = b
+      b = a
+      a = t1 + t2
+      j += 1
+    }
+    h0 = h0 + a
+    h1 = h1 + b
+    h2 = h2 + c
+    h3 = h3 + d
+    h4 = h4 + e
+    h5 = h5 + f
+    h6 = h6 + g
+    h7 = h7 + hh
+    base += 64
+  }
+  let out = StringBuilder()
+  for x in [h0, h1, h2, h3, h4, h5, h6, h7] {
+    let mut sh = 28
+    while sh >= 0 {
+      let nib = ((x >> sh) & 0xFU).reinterpret_as_int()
+      let code = if nib < 10 { 48 + nib } else { 87 + nib }
+      out.write_char(code.unsafe_to_char())
+      sh -= 4
+    }
+  }
+  out.to_string()
+}
+
+///|
+/// 单镜像下载：HTTP GET 拿全量（miniaudio.h 量级 4MB，内存直取），外套
+/// 总预算——DNS 挂起与慢速滴流不受 socket 超时约束。失败给 None（诊断已出声）。
+async fn fetch_one(url : String) -> Bytes? {
+  match @async.with_timeout_opt(vendor_budget_ms, () => fetch_url(url)) {
+    Some(got) => got
+    None => {
+      err("gui-media(prebuild): " + url + " 在 " + vendor_budget_ms.to_string() +
+        " 毫秒总预算内无产出")
+      None
+    }
+  }
+}
+
+///|
+/// GET 全量。走 moonhttp（q2316367743/moonhttp，axios 风格、基于 async）：
+/// GitHub/Gitee 的 release 下载链接都是 302 → CDN，它内置自动重定向
+/// （moonbitlang/async/http 不跟随，别退回去）。
+async fn fetch_url(url : String) -> Bytes? {
+  let client = @mhttp.default_client()
+  let resp = client.get(url) catch {
+    e => {
+      err("gui-media(prebuild): " + url + " 请求失败：" + e.to_string())
+      return None
+    }
+  }
+  if !resp.is_success() {
+    err("gui-media(prebuild): " + url + " 返回 " + resp.status.to_string())
+    return None
+  }
+  Some(resp.bytes())
+}
+
+///|
+/// 保证 miniaudio.h 就位：已存在则校验 sha256（损坏重下），缺失走镜像序
+/// 下载；全部失败只出声不拦链接（与上一版语义一致，应用可自行手工放置）。
+async fn ensure_miniaudio(module_root~ : String) -> Unit {
+  let dest = module_root + "/media/" + vendor_name
+  if @fs.exists(dest) {
+    let data = @fs.read_file(dest)
+    let got = sha256_hex(data.binary())
+    if got == vendor_sha {
+      return
+    }
+    err("gui-media(prebuild): " + dest + " sha256 不符（期望 " + vendor_sha +
+      "，实际 " + got + "），重取")
+  }
+  let bases : Array[String] = []
+  match @env.get_env_var("NATIVE_GUI_VENDOR_BASE") {
+    Some(v) =>
+      for b in v.split(",") {
+        let b = strip_spaces(rstrip_slash(b.to_owned()))
+        if b.length() > 0 {
+          bases.push(b)
+        }
+      }
+    None => ()
+  }
+  for b in vendor_bases {
+    bases.push(b)
+  }
+  for base in bases {
+    let url = base + "/" + vendor_name
+    err("gui-media(prebuild): 取 vendor " + url + " ...")
+    match fetch_one(url) {
+      Some(data) => {
+        let got = sha256_hex(data)
+        if got != vendor_sha {
+          err("gui-media(prebuild): " + vendor_name +
+            " 在该镜像上 sha256 不符，换下一个")
+          continue
+        }
+        @fs.write_file(dest, data)
+        err("gui-media(prebuild): 已就位 " + vendor_name + "（sha256 ✓）")
+        return
+      }
+      None => continue
+    }
+  }
+  err("gui-media(prebuild): 全部镜像都没取到 " + vendor_name +
+    "\n  离线环境可手工放置到 " + dest +
+    "，或用 NATIVE_GUI_VENDOR_BASE 指到自己的源")
+}
+
+///|
+fn strip_spaces(s : String) -> String {
+  let mut lo = 0
+  let n = s.length()
+  let mut hi = n
+  while lo < hi && (s[lo] == ' ' || s[lo] == '\t') {
+    lo += 1
+  }
+  while hi > lo && (s[hi - 1] == ' ' || s[hi - 1] == '\t') {
+    hi -= 1
+  }
+  s[lo:hi].to_owned()
+}
+
+///|
+fn rstrip_slash(s : String) -> String {
+  let mut end = s.length()
+  while end > 0 && s[end - 1] == '/' {
+    end -= 1
+  }
+  s[0:end].to_owned()
+}
+
+///|
+fn join_flags(parts : Array[String]) -> String {
+  parts.join(" ")
+}
+
+///|
+fn entry(pkg~ : String, link_flags~ : String) -> String {
+  "{ \"package\": \"" +
+  pkg +
+  "\", \"link_flags\": \"" +
+  link_flags +
+  "\" }"
+}
+
+///|
+async fn link_configs() -> String {
+  let module_root = dir_of(env_or("MOON_MOD", "."))
+  ensure_miniaudio(module_root~)
+  let host = env_or("MOON_HOST_OS", "")
+  if host == "linux" {
+    // miniaudio 的设备线程与运行期 dlopen 后端
+    "{ \"link_configs\": [" +
+    entry(pkg=media_package, link_flags=join_flags([
+        "-lpthread", "-ldl", "-lm", "-lstdc++", "-latomic",
+      ])) +
+    "] }"
+  } else if host == "macos" {
+    // CoreAudio 后端：AudioToolbox 供 AudioUnit 一族、CoreAudio 供
+    // AudioObject*、Foundation 供 CF/NSObject 桥。刻意没有 -ldl 与
+    // -latomic——mac 的 dlopen 在 libSystem 里、-latomic 压根不存在
+    err("gui-media(prebuild): macOS 走 CoreAudio 后端")
+    "{ \"link_configs\": [" +
+    entry(pkg=media_package, link_flags=join_flags([
+        "-lpthread", "-lm", "-framework", "CoreAudio", "-framework",
+        "AudioToolbox", "-framework", "Foundation",
+      ])) +
+    "] }"
+  } else {
+    // Windows（及未知宿主）：miniaudio 的 WASAPI/COM 全走运行期加载
+    // （LoadLibrary ole32 等），零额外链接库——空 link_configs 即正确形态，
+    // 不是降级
+    err("gui-media(prebuild): Windows 走运行期加载（LoadLibrary），零额外库")
+    "{ \"link_configs\": [] }"
+  }
+}
+
+///|
+/// 绝对路径的目录部分（取最后一个 / 之前）。
+fn dir_of(p : String) -> String {
+  let mut last = -1
+  let n = p.length()
+  let mut i = 0
+  while i < n {
+    if p[i] == '/' {
+      last = i
+    }
+    i += 1
+  }
+  if last <= 0 {
+    p
+  } else {
+    p[0:last].to_owned()
+  }
+}
+
+///|
+async fn main {
+  // stdout 恰好一个 JSON；其余诊断都在 stderr
+  println(link_configs())
+}

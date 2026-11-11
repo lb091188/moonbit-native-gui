@@ -15,7 +15,7 @@ Then check `moon version --all`: moon / moonc / core must come from the same ins
 
 ## 2. Install the development dependencies
 
-The library draws its own pixels over native FFI, so a build needs three things: **a C toolchain, pkg-config and — on Linux — the GTK3 / Pango / FontConfig / X11 development packages**. Since 2026-11-11 the link prebuild is a MoonBit script (`gui/scripts/prebuild.mbtx`) and builds **no longer need Python** (it was a hard dependency in the prebuild.py era). Note: the optional `gui-media` / `gui-gpu` modules still carry Python prebuilds (with archive downloads) — building those two still needs python3 until their port lands.
+The library draws its own pixels over native FFI, so a build needs three things: **a C toolchain, pkg-config and — on Linux — the GTK3 / Pango / FontConfig / X11 development packages**. Since 2026-11-11 the link prebuild is a MoonBit script (`gui/scripts/prebuild.mbtx`) and builds **no longer need Python** (it was a hard dependency in the prebuild.py era). The `gui-media` prebuild was ported the same day; the `gui-gpu` / `gui-webview` / `ffmpeg-mbt` optional modules still carry Python prebuilds (with archive downloads) — building those still needs python3 until their ports land.
 
 ### Linux (Debian / Ubuntu family)
 
@@ -195,7 +195,7 @@ Three third-party files — plus both FFmpeg runtime archives (the Windows dll z
 | File | Downloaded by | When |
 |---|---|---|
 | `WebView2LoaderStatic.lib` (11 MB), `WebView2.h` (2.8 MB) | `modules/gui-webview/prebuild.py` | **Windows only**; Linux / macOS skip them and save 14 MB |
-| `miniaudio.h` (4 MB) | `modules/gui-media/prebuild.py` | Whenever missing (every platform compiles it) |
+| `miniaudio.h` (4 MB) | `modules/gui-media/scripts/prebuild.mbtx` | Whenever missing (every platform compiles it); an already-present file is sha-verified too, and re-fetched if corrupted |
 | `ffmpeg-windows-x64-9.0-lgpl-shared.zip` (~64 MB, 7 dlls) | `modules/ffmpeg-mbt/prebuild.py` | **Windows only**, when the runtime dlls are missing; falls back to BtbN upstream |
 | `ffmpeg-macos-arm64-9.0.2-lgpl-shared.tar.gz` (~10 MB, 5 dylibs + headers) | same script | **macOS arm64 only**, when `vendor/mac` is missing; machines with brew ffmpeg go through pkg-config and skip it |
 
@@ -203,8 +203,8 @@ Those two FFmpeg archives are **built by us**, not upstream artefacts (macOS is 
 
 - **Verification first**: a file is written only if its sha256 matches the constant in that prebuild script, so any mirror is verifiable.
 - **Mirrors**: GitHub Release → Gitee, with no latency probing — but the modules differ. Webview and ffmpeg **race the mirrors in parallel** (whichever returns a sha-verified file first wins, so the total cost is the fastest mirror); gui-media tries them serially in order.
-- **Timeouts**: 20 s per source, plus an overall **budget** (`urlopen`'s timeout is socket-level — it does not cover DNS stalls or a slow trickle, and relying on it alone can hang a build). The budget scales with size: 60 s for the mac archive, `miniaudio.h` and the WebView2 pair; **360 s** for the 64 MB Windows dll archive — otherwise "data still flowing, budget already spent" kills that path.
-- **Swapping or adding a source**: edit one line of `VENDOR_BASES` in `modules/gui-webview/prebuild.py` and of `_VENDOR_BASES` in `modules/gui-media/prebuild.py` (a third copy, `modules/ffmpeg-mbt/prebuild.py`, handles the dll archive with the same mirror and timeout rules). The three copies are deliberate — every module must be able to publish standalone. Don't go looking for "two copies": run `grep -rn "releases/download/vendor-v1" --include=prebuild.py .` and count them. **The Gitee user differs from GitHub** (the repo lives under `noahliu0911` on Gitee vs `lb091188` on GitHub); copying the wrong one returns 404, and it only shows up when GitHub is unreachable.
+- **Timeouts**: 20 s per source, plus an overall **budget** (socket-level timeouts do not cover DNS stalls or a slow trickle, and relying on them alone can hang a build). The budget scales with size: 60 s for the mac archive, `miniaudio.h` and the WebView2 pair; **360 s** for the 64 MB Windows dll archive — otherwise "data still flowing, budget already spent" kills that path.
+- **Swapping or adding a source**: edit one line of `VENDOR_BASES` in `modules/gui-webview/prebuild.py` and of `vendor_bases` in `modules/gui-media/scripts/prebuild.mbtx` (a third copy, `modules/ffmpeg-mbt/prebuild.py`, handles the dll archive with the same mirror and timeout rules). The three copies are deliberate — every module must be able to publish standalone. **The Gitee user differs from GitHub** (the repo lives under `noahliu0911` on Gitee vs `lb091188` on GitHub); copying the wrong one returns 404, and it only shows up when GitHub is unreachable.
 - **Intranet and offline**: the `NATIVE_GUI_VENDOR_BASE` environment variable takes a single base or a comma-separated list, tried first; setting it also disables the parallel race (webview goes serial). You can also place the files at their target paths by hand.
 - If every source fails, prebuild does not abort; it prints the manual-placement hint and leaves the missing-file error to the link step.
 
