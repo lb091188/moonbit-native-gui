@@ -93,6 +93,11 @@ wait_for() { # <固定串> <秒> <说明>
   bad "${what} 超时（等 ${pat}，${secs}s）"
   echo "  ---- dev 日志尾部 ----"
   tail -25 "$DEV_LOG" 2>/dev/null | sed 's/^/    /'
+  echo "  ---- 应用日志尾部 ----"
+  tail -25 "$APP_DIR/.mng/logs/local.$APP_NAME.log" 2>/dev/null | sed 's/^/    /'
+  echo "  ---- 应用进程与回执现场 ----"
+  pgrep -af "$APP_NAME" 2>/dev/null | sed 's/^/    /' || echo "    （应用进程已退出）"
+  ls -la "$APP_DIR/.mng/ir/pages/" 2>/dev/null | sed 's/^/    /'
   return 1
 }
 
