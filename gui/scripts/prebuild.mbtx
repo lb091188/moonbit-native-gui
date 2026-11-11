@@ -534,8 +534,6 @@ fn dir_of(p : String) -> String {
     if p[i] == '/' || p[i] == '\\' {
       last = i
     }
-      last = i
-    }
     i += 1
   }
   if last <= 0 {

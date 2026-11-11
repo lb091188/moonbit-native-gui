@@ -3997,3 +3997,8 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 
 - **`*_test.mbt` 结尾的文件是黑盒测试**:`mng/run_check_test.mbt` 被收进测试编译单元,包内符号(顶层私有 fn)全部 unbound,且语法错误探针都不报——check 输出完全看不出这个文件存在。普通源文件命名避开 `_test.mbt` 结尾。
 - **moon 嵌套会卡构建锁**:`moon run …/mng -- run` 里 mng 再 spawn `moon build`(同一 workspace)会等外层 moon 的构建目录锁,看起来像「日志停在 prebuild 不动」。本地冒烟要先把 mng 构建成二进制再直跑(CI 的 mng_scenario 同款);`mng dev` 真机用法(装的二进制)天然无此问题。
+
+## prebuild.mbtx 本地门禁不覆盖(2026-11-12,CI 三平台全红复盘)
+
+- **改 prebuild.mbtx 后本地 check/test 不抓语法错**:`moon check`/`moon test` 不编译 prebuild 脚本,target 缓存命中时连旧编译产物都不重建——坏文件本地全绿、CI 全新 checkout 才现形(2026-11-11 dir_of 改坏,gui/gui-gpu 两份同坏,三平台 CI 同时红,本地门禁零感知)。
+- **验证手段**:改完 `moon run <模块>/scripts/prebuild.mbtx` 编译运行一遍(脱离 prebuild 环境运行期报错属预期,编译过即解析过);或清 target 重建再跑门禁。
