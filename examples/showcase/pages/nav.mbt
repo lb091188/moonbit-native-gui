@@ -145,7 +145,7 @@ pub fn page_nav(app : @shared.App) -> @widget.Node {
     @shared.section(
       "步骤条",
       "Steps 步骤条",
-      "完成/当前/待办三态：浅蓝、实底白字、灰；点按钮推进或回退。",
+      "完成/当前/待办三态：浅蓝、实底白字、灰；点数字方块直达该步（每格进 Tab 链，方向键换步），按钮推进或回退。",
       [
         @ui.steps(["填写", "确认", "完成"].map(x => @shared.tx(x)), step),
         @ui.row(
@@ -177,7 +177,7 @@ pub fn page_nav(app : @shared.App) -> @widget.Node {
       ],
       code=[
         "let step : @base.Store[Int] = @base.Store::new(1)",
-        "@ui.steps([\"填写\", \"确认\", \"完成\"], step)",
+        "@ui.steps([\"填写\", \"确认\", \"完成\"], step)  // 点数字直达；传 on_select 可接管点击（如只读预览）",
         "@ui.button(\"下一步\", variant=@ui.Solid, on_click=fn() { step.update(fn(n) { if n + 1 > 2 { 2 } else { n + 1 } }) })",
       ],
     ),

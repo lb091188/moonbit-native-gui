@@ -22,9 +22,10 @@ General conventions: see [Components overview](index.md#conventions-read-this-fi
 
 - Pagination `‹ 1 2 … ›`: `current` starts at 1; out-of-range arrows clamp to the first/last page
 
-### `steps(items : Array[String], current : Store[Int], class?, handle?)`
+### `steps(items : Array[String], current : Store[Int], on_select? : (Int) -> Unit, class?, handle?)`
 
 - Steps: number squares (done/current/todo) + text + connector; `current` is a 0-based index
+- The number squares are clickable and focusable: without `on_select`, click / Space / Enter jumps to that step and ← / → moves between steps (out-of-range clamps); with `on_select(i)`, clicks and arrow keys go to the caller instead (e.g. a read-only preview in a wizard — the highlight still follows `current` only)
 
 ### `collapse(panels : Array[(String, Array[Node])], class?, handle?)`
 

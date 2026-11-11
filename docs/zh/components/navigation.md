@@ -25,9 +25,10 @@
 
 - 分页 `‹ 1 2 … ›`：`current` 从 1 起，箭头越界夹到首 / 末页
 
-### `steps(items : Array[String], current : Store[Int], class?, handle?)`
+### `steps(items : Array[String], current : Store[Int], on_select? : (Int) -> Unit, class?, handle?)`
 
 - 步骤条：数字方块（已完成 / 当前 / 待办）+ 文字 + 连线；`current` 为 0 起始下标
+- 数字方块可点可聚焦：不传 `on_select` 时点击 / 空格 / 回车切到该步、← / → 换步（越界夹回）；传 `on_select(i)` 则点击与方向键交给调用方（如向导里做只读预览，高亮仍只跟 `current`）
 
 ### `collapse(panels : Array[(String, Array[Node])], class?, handle?)`
 

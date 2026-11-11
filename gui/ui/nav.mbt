@@ -393,13 +393,23 @@ pub fn pagination(
 ///|
 /// 步骤条（EP Steps）：数字方块（已完成浅底 / 当前实底白字 / 待办灰底）+ 文字 +
 /// 连线；`current` 是 0 起始的当前步下标。
+/// 数字方块可点可聚焦：缺省点击/空格/回车切到该步、←/→ 换步（同分段控制器
+/// 口径）；传 `on_select` 则点击与方向键交给调用方（如向导里做只读预览，
+/// 高亮仍只跟 `current`）。
 pub fn steps(
   items : Array[String],
   current : @base.Store[Int],
+  on_select? : (Int) -> Unit,
   class? : Array[@style.Style] = [],
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   follow_store(current)
+  let n = items.length()
+  // 缺省回调 = 内置切换（点谁高亮谁）；传了就整只交给调用方。都夹回步数域。
+  let pick : (Int) -> Unit = match on_select {
+    Some(f) => fn(i : Int) -> Unit { f(((i % n) + n) % n) }
+    None => fn(i : Int) -> Unit { current.set(((i % n) + n) % n) }
+  }
   let nodes : Array[@widget.Node] = []
   let n = items.length()
   for i = 0; i < n; i = i + 1 {
@@ -459,7 +469,9 @@ pub fn steps(
             @theme.theme_primary()
           }
         },
-        on_click=fn() -> Unit { () },
+        on_click=fn() -> Unit { pick(i) },
+        focusable=true,
+        on_step=fn(d : Int) -> Unit { pick(i + d) },
         skin=paint_subset(class),
       ),
     )
