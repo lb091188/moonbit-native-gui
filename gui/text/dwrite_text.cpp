@@ -1548,10 +1548,14 @@ extern "C" int rt_line_box(int64_t h, int line, double box_w, double box_h,
   for (int i = 0; i < line; i++) {
     tpos += lms[i].length;
   }
-  /* 行首的盒空间 x/y：HitTestTextPosition 自带对齐后的坐标 */
+  /* 行首的盒空间 x/y：HitTestTextPosition 自带对齐后的坐标。
+   * 第 5 参不能给 nullptr：Win11 26100 的 DWrite 无条件写这份 metrics
+   * （空指针 → movups [0] 访问违例 0xc0000005），与旧版「可不传」的宽松
+   * 行为不同（Windows 白盒测试实测，见 experience/adaptation.md）。 */
   float px = 0.0f;
   float py = 0.0f;
-  layout->HitTestTextPosition(tpos, FALSE, &px, &py, nullptr);
+  DWRITE_HIT_TEST_METRICS hitm = {};
+  layout->HitTestTextPosition(tpos, FALSE, &px, &py, &hitm);
   int b0 = ptw_bidx(s->text, s->tlen, static_cast<int>(tpos));
   int b1 = s->tlen;
   if (static_cast<UINT32>(line) + 1 < count) {
@@ -1625,7 +1629,9 @@ extern "C" int rt_caret_x(int64_t h, int byte, double box_w, double box_h,
   UINT32 widx = static_cast<UINT32>(ptw_widx(s->text, byte));
   float px = 0.0f;
   float py = 0.0f;
-  layout->HitTestTextPosition(widx, FALSE, &px, &py, nullptr);
+  /* 同 rt_line_box：metrics 出参必须给真指针（DWrite 26100 无条件写）。 */
+  DWRITE_HIT_TEST_METRICS hitm = {};
+  layout->HitTestTextPosition(widx, FALSE, &px, &py, &hitm);
   layout->Release();
   *out_x = static_cast<double>(px) + dx;
   return 1;
