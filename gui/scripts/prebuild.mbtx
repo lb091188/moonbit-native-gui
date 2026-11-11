@@ -214,7 +214,7 @@ async fn compile_stub(
     }
   }
   if srcs.is_empty() {
-    return ""
+    abort("stub: " + lib_file + " 的源文件全部缺失——包搬家后忘了改路径？")
   }
   // 编译参数：ObjC 桩按 ObjC 编 + ARC；Linux 桩要 GTK 系头文件 cflags
   let cflags : Array[String] = []
@@ -230,8 +230,7 @@ async fn compile_stub(
     for name in linux_pkg_config_libs {
       match pkg_config([name], "--cflags") {
         None => {
-          err("stub: 缺少 " + name + " 开发包")
-          return ""
+          abort("stub: 缺少 " + name + " 开发包（pkg-config 探不到，装开发包后重跑）")
         }
         Some(got) =>
           for g in got {
@@ -263,7 +262,7 @@ async fn compile_stub(
     args.push(objs[k])
     args.push(s)
     if !run_tool("cc", args) {
-      return ""
+      abort("stub: cc 编译 " + s + " 失败（上面 stderr 有命令与报错）")
     }
     k += 1
   }
@@ -276,7 +275,7 @@ async fn compile_stub(
     ar_args.push(o)
   }
   if !run_tool("ar", ar_args) {
-    return ""
+    abort("stub: ar 打包 " + lib_file + " 失败（上面 stderr 有命令与报错）")
   }
   let mut h : Int64 = 0xcbf29ce484222325L
   h = fnv1a_str(h, lib)
@@ -546,6 +545,8 @@ fn dir_of(p : String) -> String {
 
 ///|
 async fn main {
-  // stdout 恰好一个 JSON；其余诊断都在 stderr
-  println(link_configs())
+  let json = link_configs()
+  // stdout 恰好一个 JSON；诊断走 stderr（moon 未必转发，但本地调试可见）
+  err("prebuild 输出: " + json)
+  println(json)
 }
