@@ -10,12 +10,17 @@ function resolveBin() {
   if (process.env.MNG_BIN) {
     return fs.existsSync(process.env.MNG_BIN) ? process.env.MNG_BIN : null;
   }
-  const name = process.platform === 'win32' ? 'mng.exe' : 'mng';
-  const p = path.join(
+  // moon 的 native 产物在三个平台都带 .exe 后缀（Linux/mac 也一样），
+  // 早期只按 win32 判后缀，Linux CI 上永远找不到 mng。
+  const dir = path.join(
     __dirname, '..', '..', '..',
-    '_build', 'native', 'debug', 'build', 'NoahLiu', 'native-gui-tools', 'mng', name,
+    '_build', 'native', 'debug', 'build', 'NoahLiu', 'native-gui-tools', 'mng',
   );
-  return fs.existsSync(p) ? p : null;
+  for (const name of ['mng.exe', 'mng']) {
+    const p = path.join(dir, name);
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
 }
 
 class Session {
