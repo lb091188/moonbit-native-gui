@@ -33,6 +33,8 @@ mng --version   # 应打印 mng 版本与 mng-schema 位
 | `mng run [子目录]` | 构建当前工程并前台运行：`mng.toml` 的 `run` 优先，缺省从 `moon build` 的 Artifacts 推导可执行；stdio 直连终端，退出码透传 |
 | `mng check [参数]` | 透传 `moon check`（参数原样转交，退出码透传） |
 | `mng test [参数]` | 透传 `moon test`（参数原样转交，退出码透传） |
+| `mng icons <png> [-o <dir>]` | 从源 PNG 派生应用图标：ico（全平台，纯 MoonBit 合成）+ icns 与 iconset 十档（mac，sips/iconutil）；缺省输出到源图同目录 |
+| `mng ffmpeg-dll [名] [--dll-dir <目录>] [--run] [--dry-run]` | （仅 Windows）把 ffmpeg 运行期 dll 搬到媒体示例 exe 旁做 app-local 部署（发布形态）；七路查找序见 `scripts/win_ffmpeg_dll.py` 同款，exe 择新改 release 优先 |
 | `mng doctor [-f]` | 环境体检；全绿写 `~/.mng/ready`，`-f` 强制重检 |
 | `mng lsp` | 语言服务（stdio JSON-RPC，VS Code 扩展的引擎） |
 | `mng ir <in.mng>` | 打印模板 IR 补丁（调试热更通道用） |

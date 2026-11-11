@@ -118,6 +118,14 @@ fn usage() -> Unit {
     "Pass through to moon test (args forwarded, exit code preserved)",
   )
   usage_line(
+    "  icons <png> [-o <dir>]", "从源 PNG 派生应用图标：ico 全平台 + icns/iconset（mac）",
+    "Derive app icons from a PNG: ico everywhere + icns/iconset (mac)",
+  )
+  usage_line(
+    "  ffmpeg-dll [名] [--dll-dir <dir>] [--run] [--dry-run]", "（仅 Windows）ffmpeg 运行期 dll 搬到媒体示例 exe 旁（app-local 发布形态）",
+    "(Windows only) Copy ffmpeg runtime dlls next to the media examples' exe (app-local release form)",
+  )
+  usage_line(
     "  doctor [-f]", "环境体检（moon/编译器/GTK；Python 为可选提示）；全绿写 ~/.mng/ready，-f 强制重检",
     "Environment health check (moon/compilers/GTK; Python is an optional hint); writes ~/.mng/ready when green, -f forces re-check",
   )
@@ -911,6 +919,10 @@ fn main {
     cmd_check(rest)
   } else if cmd == "test" {
     cmd_test(rest)
+  } else if cmd == "icons" {
+    cmd_icons(rest)
+  } else if cmd == "ffmpeg-dll" {
+    cmd_ffmpeg_dll(rest)
   } else if cmd == "doctor" {
     cmd_doctor(force=rest.contains("-f") || rest.contains("--force"))
   } else {

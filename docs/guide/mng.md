@@ -33,6 +33,8 @@ The bare-`mng` state machine:
 | `mng run [dir]` | Build the current project and run it in the foreground: `mng.toml`'s `run` wins, else the executable is derived from `moon build` Artifacts; stdio goes straight to the terminal, exit code preserved |
 | `mng check [args]` | Pass through to `moon check` (args forwarded verbatim, exit code preserved) |
 | `mng test [args]` | Pass through to `moon test` (args forwarded verbatim, exit code preserved) |
+| `mng icons <png> [-o <dir>]` | Derive app icons from a source PNG: ico (all platforms, pure-MoonBit synthesis) + icns and the 10-step iconset (mac, sips/iconutil); defaults to the source directory |
+| `mng ffmpeg-dll [name] [--dll-dir <dir>] [--run] [--dry-run]` | (Windows only) Copy the ffmpeg runtime dlls next to the media examples' exe for app-local deployment (release form); same 7-step search as `scripts/win_ffmpeg_dll.py`, with a deterministic release-first exe pick |
 | `mng doctor [-f]` | Environment health check; all green writes `~/.mng/ready`, `-f` forces a re-check |
 | `mng lsp` | Language server (stdio JSON-RPC, the engine behind the VS Code extension) |
 | `mng ir <in.mng>` | Print the template IR patch (for debugging the hot-reload channel) |
