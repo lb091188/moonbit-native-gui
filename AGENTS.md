@@ -40,6 +40,7 @@ moon run examples/hello       # 最小窗口(另有 showcase 等)
 - DBus / SNI 实现与真总线读数:`gui/dbus/`、`experience/adaptation.md`(搜 D-Bus / SNI)
 - 平台适配经验:`experience/adaptation.md`
 - 写或改界面之前(间距刻度、字阶、圆角层级、token 都在里面):`.agents/skills/native-gui-design/`
+- 无障碍通道现状(已端到端,非占位):控件语义挂 `name/label/role/a11y_state/a11y_text`(`gui/widget/a11y.mbt`)→ 帧尾 TSV 快照→ mac NSAccessibility / win UIA / linux AT-SPI 桥;焦点序是树序一等遍历(`gui/base/focus.mbt`,控件声明 `focus_id` 即入 Tab 链,无 tabIndex/focus_scope)。新控件照 `gui/ui/form.mbt` 首批样板接线;覆盖面缺口与真机清单见 `proposals/text-selection-a11y.md`
 - MoonBit 语言与工具链:`.agents/skills/moonbit-agent-guide/`
 - 模块拆分方案:`proposals/module-split.md`
 - 使用文档索引:`docs/README.md`
