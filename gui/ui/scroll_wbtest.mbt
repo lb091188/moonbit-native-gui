@@ -309,16 +309,20 @@ test "横滚下限档：内容宽只看 min_content_width，不被子项自然�
   // 自然宽档会让子项（自带横滚的宽代码块）的自然宽一路上浮，把外层容器的
   // min-width 顶掉（设 400 实得 573）。下限档下外层只认那个数，
   // 更宽的内容由它自己的视口滚。
+  eprintln("[dbg] 1 test entry")
   let long_line =
     "let x = \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\""
   let st = ScrollState::new()
   let inner_code : Ref[@widget.Widget] = Ref(@widget.Widget::new())
+  let code = code_view([long_line])
+  eprintln("[dbg] 2 code_view built")
   let page = col([
     view(
-      [code_view([long_line])],
+      [code],
       handle=fn(w : @widget.Widget) -> Unit { inner_code.val = w },
     ),
   ])
+  eprintln("[dbg] 3 page built")
   let (root, vp) = mounted(
     scroll_view(
       [page],
@@ -331,17 +335,25 @@ test "横滚下限档：内容宽只看 min_content_width，不被子项自然�
     500.0,
     220.0,
   )
+  eprintln("[dbg] 4 mounted w=\{vp.rect.w} h=\{vp.rect.h}")
   let _ = paint(root, 500, 220)
+  eprintln("[dbg] 5 painted")
   // 外层内容宽 = 视口宽（500 > 400 下限），不被代码的 573+ 顶宽
+  eprintln("[dbg] 6 vp children=\{vp.children().length()}")
   let outer_content = vp.children()[0]
+  eprintln("[dbg] 7 outer w=\{outer_content.rect.w}")
   assert_true(
     outer_content.rect.w < 520.0,
     msg="外层被子项自然宽顶到 \{outer_content.rect.w}，min_content_width 没生效",
   )
   assert_eq(st.max_x(), 0.0)
+  eprintln("[dbg] 8 max_x ok")
   // 代码块自己仍然滚得动：它的视口 500，内容比它宽
+  eprintln("[dbg] 9 inner children=\{inner_code.val.children().length()}")
   let code_vp = inner_code.val.children()[0]
+  eprintln("[dbg] 10 code_vp children=\{code_vp.children().length()}")
   let code_content = code_vp.children()[0]
+  eprintln("[dbg] 11 done")
   assert_true(
     code_content.rect.w > code_vp.rect.w,
     msg="代码块没溢出自己的视口，content=\{code_content.rect.w}",

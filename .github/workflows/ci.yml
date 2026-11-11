@@ -409,6 +409,30 @@ jobs:
           && moon test mng mngkit proc inst
           && moon build mng --target native --release
 
+      # 只在失败时跑：Windows 白盒测试 exe 以 0xc0000005 退出时拿到崩溃栈。
+      # 用 cdb（Windows SDK 自带；镜像里没有就跳过，不让诊断本身弄红 CI），
+      # 直接按 `文件:序号-序号` 只跑崩溃的那条用例，避免又被并行测试刷屏。
+      - name: "诊断(仅失败时): Windows 白盒测试崩溃栈"
+        if: failure()
+        shell: pwsh
+        run: |
+          $path = $null
+          $cmd = Get-Command cdb.exe -ErrorAction SilentlyContinue
+          if ($cmd) { $path = $cmd.Path }
+          if (-not $path) {
+            $hit = Get-ChildItem "C:\Program Files*\Windows Kits\*\Debuggers\x64\cdb.exe" -ErrorAction SilentlyContinue |
+              Select-Object -First 1
+            if ($hit) { $path = $hit.FullName }
+          }
+          if (-not $path) {
+            Write-Host "::warning::镜像里没有 cdb.exe，跳过崩溃取证"
+            exit 0
+          }
+          Write-Host "cdb: $path"
+          & $path -g -G -c ".ecxr; kb; q" `
+            "_build\native\debug\test\NoahLiu\native-gui\ui\ui.whitebox_test.exe" `
+            "scroll_wbtest.mbt:8-9"
+
   macos:
     name: macOS(静态检查 + 测试 + 链接)
     runs-on: macos-latest
