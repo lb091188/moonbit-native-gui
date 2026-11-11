@@ -43,7 +43,7 @@ for d in sys.argv[1:]:
     shutil.rmtree(d, ignore_errors=True)' "$APP_DIR" "$WORK"
     fi
   else
-    echo "  保留现场：$APP_DIR（moon.work 未还原）"
+    echo "  保留现场：${APP_DIR}（moon.work 未还原）"
   fi
 }
 trap cleanup EXIT
@@ -84,13 +84,13 @@ wait_for() { # <固定串> <秒> <说明>
   local n=$((secs * 4))
   while [ "$i" -lt "$n" ]; do
     if since | grep -qF -- "$pat"; then
-      ok "$what（$pat）"
+      ok "${what}（${pat}）"
       return 0
     fi
     sleep 0.25
     i=$((i + 1))
   done
-  bad "$what 超时（等 $pat，${secs}s）"
+  bad "${what} 超时（等 ${pat}，${secs}s）"
   echo "  ---- dev 日志尾部 ----"
   tail -25 "$DEV_LOG" 2>/dev/null | sed 's/^/    /'
   return 1
