@@ -426,7 +426,7 @@ jobs:
           Get-Content "$env:RUNNER_TEMP\mt_ui_plain.log" -Tail 8
           Pop-Location
           # 2) 页堆：若是堆损坏，页堆把现场提前到出错的那次访问
-          $gflags = Get-ChildItem "C:\Program Files*\Windows Kits*\*\gflags.exe" -ErrorAction SilentlyContinue |
+          $gflags = Get-ChildItem "C:\Program Files*\Windows Kits*\*\Debuggers\x64\gflags.exe" -ErrorAction SilentlyContinue |
             Select-Object -First 1
           if ($gflags) {
             & $gflags.FullName /p /enable $exe /full | Out-Null
@@ -459,9 +459,9 @@ jobs:
           Wait-Process -Id $watcher.Id -Timeout 120 -ErrorAction SilentlyContinue
           Get-Content "$env:RUNNER_TEMP\procdump.log" -Tail 10 -ErrorAction SilentlyContinue
           # 4) 离线分析
-          $cdb = Get-ChildItem "C:\Program Files*\Windows Kits\*\cdb.exe" -ErrorAction SilentlyContinue |
+          $cdb = Get-ChildItem "C:\Program Files*\Windows Kits\*\Debuggers\x64\cdb.exe" -ErrorAction SilentlyContinue |
             Select-Object -First 1
-          $dumps = Get-ChildItem $dumpDir -Filter *.dmp -ErrorAction SilentlyContinue |
+          $dumps = Get-ChildItem $dumpDir -Filter *.dmp -Recurse -ErrorAction SilentlyContinue |
             Sort-Object LastWriteTime | Select-Object -Last 2
           if ($cdb -and $dumps) {
             foreach ($dump in $dumps) {
