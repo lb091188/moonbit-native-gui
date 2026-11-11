@@ -1519,23 +1519,33 @@ extern "C" int rt_line_box(int64_t h, int line, double box_w, double box_h,
   if (layout == nullptr) {
     return 0;
   }
+  // 行度量：一次给足容量取（不再走「nullptr+0 先取行数、再按该行数复取」
+  // 的两段式——Win11 26100 上第二段会失败：行数能查到 3，按 3 复取却拿不到
+  // 数组，行盒全空；栈缓冲一次给 64 行，超了再按实际条数扩容）。
+  const UINT32 cap = 64;
+  DWRITE_LINE_METRICS stack_lms[cap];
   UINT32 count = 0;
-  if (FAILED(layout->GetLineMetrics(nullptr, 0, &count)) || count == 0 ||
-      line < 0 || static_cast<UINT32>(line) >= count) {
+  HRESULT hr = layout->GetLineMetrics(stack_lms, cap, &count);
+  if (FAILED(hr) || count == 0 || line < 0 ||
+      static_cast<UINT32>(line) >= count) {
+    fprintf(stderr, "[rt_line_box] GetLineMetrics hr=0x%08lx count=%u line=%d\n",
+            static_cast<unsigned long>(hr), count, line);
     layout->Release();
     return 0;
   }
-  DWRITE_LINE_METRICS *lms =
-      static_cast<DWRITE_LINE_METRICS *>(malloc(sizeof(DWRITE_LINE_METRICS) *
-                                                count));
-  if (lms == nullptr) {
-    layout->Release();
-    return 0;
-  }
-  if (FAILED(layout->GetLineMetrics(lms, count, &count))) {
-    free(lms);
-    layout->Release();
-    return 0;
+  DWRITE_LINE_METRICS *lms = stack_lms;
+  if (count > cap) {
+    lms = static_cast<DWRITE_LINE_METRICS *>(
+        malloc(sizeof(DWRITE_LINE_METRICS) * count));
+    if (lms == nullptr) {
+      layout->Release();
+      return 0;
+    }
+    if (FAILED(layout->GetLineMetrics(lms, count, &count))) {
+      free(lms);
+      layout->Release();
+      return 0;
+    }
   }
   double dx = 0.0;
   double dy = 0.0;
@@ -1562,13 +1572,18 @@ extern "C" int rt_line_box(int64_t h, int line, double box_w, double box_h,
     b1 = ptw_bidx(s->text, s->tlen,
                   static_cast<int>(tpos + lms[line].length));
   }
-  free(lms);
+  // 行高要在 free 之前取（原先先 free 再读 lms[line].height 是 use-after-free，
+  // 页堆/不同分配器下会读到垃圾或直接崩）
+  const double line_h = static_cast<double>(lms[line].height);
+  if (lms != stack_lms) {
+    free(lms);
+  }
   layout->Release();
   *out_b0 = b0;
   *out_b1 = b1;
   *out_x = static_cast<double>(px) + dx;
   *out_y = static_cast<double>(py) + dy;
-  *out_h = static_cast<double>(lms[line].height);
+  *out_h = line_h;
   return 1;
 }
 
