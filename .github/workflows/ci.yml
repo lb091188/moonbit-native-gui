@@ -416,48 +416,47 @@ jobs:
         if: failure()
         shell: pwsh
         run: |
-          $exe = "_build\native\debug\test\NoahLiu\native-gui\ui\ui.whitebox_test.exe"
-          $arg = "scroll_wbtest.mbt:8-9"
+          # 用完整的 `moon test ui` 复现（单条用例在调试器/单独进程里不复现——
+          # 崩溃依赖同进程里前面用例留下的状态/堆布局，且要保留 moon 的管道输出）。
+          $exe = Join-Path $PWD "_build\native\debug\test\NoahLiu\native-gui\ui\ui.whitebox_test.exe"
           if (-not (Test-Path $exe)) { Write-Host "没有测试 exe，跳过"; exit 0 }
-          # 1) 直跑三次确认可复现（不经过 moon 的调度）
-          for ($i = 0; $i -lt 3; $i++) {
-            & $exe $arg *> $null
-            $code = if ($LASTEXITCODE -lt 0) { $LASTEXITCODE + 4294967296 } else { $LASTEXITCODE }
-            Write-Host ("plain run {0} exit=0x{1:x}" -f $i, $code)
-          }
-          # 2) 重编带调试信息的一版（-g）：有符号的转储才看得出是哪一段
-          #    （这一遍会照常崩，输出去掉；失败不影响后续取证）
-          Push-Location gui
-          moon test -g ui *> $null
-          Pop-Location
-          # 3) WER LocalDumps 抓 dump（不带调试器，时序与原运行一致）
+          # 1) WER LocalDumps 抓 dump（不带调试器，时序与主门禁一致）
           $dumpDir = "$env:RUNNER_TEMP\crashdumps"
           New-Item -ItemType Directory -Force $dumpDir | Out-Null
           $key = "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\ui.whitebox_test.exe"
           New-Item -Path $key -Force | Out-Null
           New-ItemProperty -Path $key -Name DumpFolder -PropertyType ExpandString -Value $dumpDir -Force | Out-Null
           New-ItemProperty -Path $key -Name DumpType -PropertyType DWord -Value 2 -Force | Out-Null
-          & $exe $arg *> $null
-          Start-Sleep -Seconds 2
+          Push-Location gui
+          moon test ui *> "$env:RUNNER_TEMP\mt_ui_plain.log"
+          Write-Host "moon test ui exit=$LASTEXITCODE（日志见 mt_ui_plain.log）"
+          Get-Content "$env:RUNNER_TEMP\mt_ui_plain.log" -Tail 6
+          Pop-Location
+          Start-Sleep -Seconds 3
           Get-ChildItem $dumpDir -ErrorAction SilentlyContinue | Format-Table Name, Length
-          # 4) 页堆：若退出即崩是堆损坏，页堆会把现场提前到出错的那次访问
+          # 2) 页堆：若退出即崩是堆损坏，页堆会把现场提前到出错的那次访问
           $gflags = Get-ChildItem "C:\Program Files*\Windows Kits\*\Debuggers\x64\gflags.exe" -ErrorAction SilentlyContinue |
             Select-Object -First 1
           if ($gflags) {
             & $gflags.FullName /p /enable $exe /full | Out-Null
-            & $exe $arg *> $null
-            $code = if ($LASTEXITCODE -lt 0) { $LASTEXITCODE + 4294967296 } else { $LASTEXITCODE }
-            Write-Host ("pageheap run exit=0x{0:x}" -f $code)
+            Push-Location gui
+            moon test ui *> "$env:RUNNER_TEMP\mt_ui_pageheap.log"
+            Write-Host "pageheap moon test ui exit=$LASTEXITCODE"
+            Pop-Location
             & $gflags.FullName /p /disable $exe | Out-Null
+            Start-Sleep -Seconds 3
+            Get-ChildItem $dumpDir -ErrorAction SilentlyContinue | Format-Table Name, Length
           }
-          # 5) 离线分析 dump
+          # 3) 离线分析最近两个 dump
           $cdb = Get-ChildItem "C:\Program Files*\Windows Kits\*\Debuggers\x64\cdb.exe" -ErrorAction SilentlyContinue |
             Select-Object -First 1
-          $dump = Get-ChildItem $dumpDir -Filter *.dmp -ErrorAction SilentlyContinue |
-            Sort-Object LastWriteTime | Select-Object -Last 1
-          if ($cdb -and $dump) {
-            Write-Host "== dump: $($dump.FullName) =="
-            & $cdb.FullName -z $dump.FullName -c ".ecxr; kb; q" 2>&1 | Out-String
+          $dumps = Get-ChildItem $dumpDir -Filter *.dmp -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime | Select-Object -Last 2
+          if ($cdb -and $dumps) {
+            foreach ($dump in $dumps) {
+              Write-Host "== dump: $($dump.Name) =="
+              & $cdb.FullName -z $dump.FullName -c ".ecxr; kb; q" 2>&1 | Out-String
+            }
           } else {
             Write-Host "::warning::没有 cdb 或 dump，跳过离线栈"
           }
