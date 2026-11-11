@@ -122,6 +122,14 @@ pub fn Loop::pending(self : Loop) -> Int {
 }
 
 ///|
+/// 把时基对齐到给定读数（不动已排队任务）。延时定时器以 `last_now` 为基准，
+/// 无头档按虚拟时钟排表前先对齐一次，避免拿上一拍（或跨用例）的旧读数当
+/// 「现在」——落后几十毫秒就会把未来定时器判成已到期。
+pub fn Loop::rebase(self : Loop, now_ms : Int64) -> Unit {
+  self.last_now = now_ms
+}
+
+///|
 /// 时刻 `now_ms` 已到期、还没跑掉的项数(0 = 无到期任务;settle 的收敛判据)。
 pub fn Loop::due_pending(self : Loop, now_ms : Int64) -> Int {
   let mut n = 0

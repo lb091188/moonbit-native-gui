@@ -270,10 +270,40 @@ pub fn session_is_headless() -> Bool {
 ///|
 let vtime_offset : Ref[Int64] = Ref(0L)
 
+/// 钉住的虚拟时刻（-1 = 未钉）。`advance` 每拍置位：一拍之内的读数恒等于
+/// 推进目标，不掺墙钟在绘制/派发期间走过的毫秒。
+let vtime_pinned : Ref[Int64] = Ref(-1L)
+
 ///|
 /// 虚拟时钟整体前移 ms（仅无头档被消费；重复调用累加）。
 pub fn session_vtime_advance(ms : Int) -> Unit {
   vtime_offset.val = vtime_offset.val + ms.to_int64()
+}
+
+///|
+/// 把虚拟时钟校准到给定读数（只对无头档生效；真实档零影响）。
+pub fn session_vtime_set(now_ms : Int64) -> Unit {
+  if headless_pump.val {
+    vtime_offset.val = now_ms - @win.now_ms()
+  }
+}
+
+///|
+/// 钉住虚拟时基：钉期内 `session_vtime_now` 恒返回该值，解钉后从该值继续
+/// 按墙钟走。`advance` 用它保证「推 100ms 就是 100ms」。
+pub fn session_vtime_pin(now_ms : Int64) -> Unit {
+  session_vtime_set(now_ms)
+  vtime_pinned.val = now_ms
+}
+
+///|
+/// 解钉：先把偏移校准到钉住值（钉期内墙钟走过的时间不重复计入）。
+pub fn session_vtime_unpin() -> Unit {
+  let p = vtime_pinned.val
+  if p >= 0L {
+    session_vtime_set(p)
+  }
+  vtime_pinned.val = -1L
 }
 
 ///|
@@ -282,14 +312,24 @@ pub fn session_vtime_advance(ms : Int) -> Unit {
 /// 上一会话推出去的虚拟时刻还挂在 `last_now` 上，新会话按它排的定时器
 /// 落在「未来」，推不到也不响（跨会话残留）。
 pub fn session_vtime_reset() -> Unit {
+  vtime_pinned.val = -1L
   vtime_offset.val = 0L
   let _ = host_loop().advance(@win.now_ms())
 }
 
 ///|
-/// 当前时基读数：无头档 = 墙钟 + 偏移；真实档 = 墙钟。
+/// 当前时基读数：无头档 = 墙钟 + 偏移（钉住时直接取钉住值）；真实档 = 墙钟。
 pub fn session_vtime_now() -> Int64 {
-  @win.now_ms() + vtime_offset.val
+  if headless_pump.val {
+    let p = vtime_pinned.val
+    if p >= 0L {
+      p
+    } else {
+      @win.now_ms() + vtime_offset.val
+    }
+  } else {
+    @win.now_ms()
+  }
 }
 
 ///|
@@ -318,6 +358,12 @@ pub fn Session::is_running(self : Session) -> Bool {
 ///|
 /// 相对延时定时器（转派共用的 `Loop`）。
 pub fn Session::timer(self : Session, delay_ms : Int, work : () -> Unit) -> Int {
+  // 无头档先对齐时基：`Loop::timer` 的基准是 last_now（上一拍时刻），跨用例/
+  // 首拍前会落后于虚拟「现在」——CI 慢机上 150ms 定时器因此被第一段 100ms
+  // 推进误判为到期（`2 != 1`）。真实档保持原样（墙钟基准不重排）。
+  if headless_pump.val {
+    self.sched.rebase(session_vtime_now())
+  }
   self.sched.timer(delay_ms, work)
 }
 

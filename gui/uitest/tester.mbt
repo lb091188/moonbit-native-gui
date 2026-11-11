@@ -450,14 +450,22 @@ pub fn guard_report() -> Unit {
 /// （真实宿主不受影响——虚拟偏移只在无头泵档被消费）。
 pub fn advance(win : @widget.WindowHost, ms : Int) -> Int {
   let mut left = if ms < 0 { 0 } else { ms }
+  // 每拍把时基钉到「起点 + 累计」，不按偏移量叠加：step 内绘制/派发走过的
+  // 墙钟毫秒不计入，慢机器上「推 100ms」也不会多吃出几十毫秒（定时器误到期
+  // 的根因）。起点取当前虚拟读数，与 session_vtime_reset 之后的墙钟基线一致。
+  @shell.session_vtime_unpin() // 上一用例中途失败可能遗留钉位
+  let start = @shell.session_vtime_now()
+  let mut acc = 0
   let mut steps = 0
   while left > 0 {
     let d = if left > 16 { 16 } else { left }
-    @shell.session_vtime_advance(d)
+    acc += d
+    @shell.session_vtime_pin(start + acc.to_int64())
     let _ = win.step()
     steps += 1
     left -= d
   }
+  @shell.session_vtime_unpin()
   steps
 }
 
@@ -466,6 +474,7 @@ pub fn advance(win : @widget.WindowHost, ms : Int) -> Int {
 /// 封顶防回调自排死循环（到顶就停，不是错——调用方按需断言后续状态）。
 /// 返回实际走的拍数。
 pub fn settle(win : @widget.WindowHost, max_steps? : Int = 120) -> Int {
+  @shell.session_vtime_unpin() // 同 advance：先解掉上一用例可能遗留的钉位
   let l = @shell.host_loop()
   let mut n = 0
   while n < max_steps {
