@@ -3,7 +3,10 @@
 
 ///|
 struct Wizard {
+  // page = 真实进度（步骤条高亮跟它走）；view = 当前展示的页（点步骤条数字
+  // 只动 view 做预览，进度不动）
   page : @base.Store[Int32]
+  view : @base.Store[Int32]
   items : Array[@doctor.DItem]
   name : @base.Store[String]
   parent : @base.Store[String]
@@ -22,6 +25,13 @@ fn steps_labels() -> Array[String] {
 }
 
 ///|
+/// 前进跳页：进度与展示一起走（点步骤条数字才只动 view 做预览）。
+fn goto(w : Wizard, p : Int32) -> Unit {
+  w.page.set(p)
+  w.view.set(p)
+}
+
+///|
 fn main {
   let raw = @env.args()
   let argv0 = if raw.length() > 0 { raw[0] } else { "" }
@@ -31,6 +41,7 @@ fn main {
   }
   let w = Wizard::{
     page: @base.Store::new(0),
+    view: @base.Store::new(0),
     // 体检在开窗前同步跑完；结果只读展示
     items: @doctor.run_all(),
     name: @base.Store::new(""),
@@ -45,12 +56,17 @@ fn main {
   }
   let root = @ui.col(
     [
-      @ui.steps(steps_labels(), w.page),
+      // 点数字方块只换展示页做预览；高亮仍跟进度
+      @ui.steps(steps_labels(), w.page, on_select=fn(i : Int) -> Unit {
+        w.view.set(i)
+      }),
       @ui.divider(),
-      @widget.bind_node(w.page.signal(), fn(_p : Int32) { wizard_body(w) }),
+      @widget.bind_node(w.view.signal(), fn(_p : Int32) { wizard_body(w) }),
     ],
     padding=24.0,
     row_gap=16.0,
+    // 根容器撑满窗宽：窗口根是 Row 方向，不设 grow 会按内容收宽
+    grow=1.0,
   )
   let mounted = @ui.mount_window(
     [root],
@@ -72,12 +88,34 @@ fn main {
 ///|
 /// 当前页的完整页面体（步骤条常驻，内容区随 bind_node 重建）。
 fn wizard_body(w : Wizard) -> @widget.Node {
-  let body : Array[@widget.Node] = match w.page.get() {
+  let body : Array[@widget.Node] = match w.view.get() {
     0 => page_welcome(w)
     1 => page_health(w)
     2 => page_new_app(w)
     3 => page_dev(w)
     _ => page_done(w)
   }
-  @ui.col(body, row_gap=16.0, class=[@style.style(width_percent=100.0)])
+  // 预览态（点数字方块进来的）：内容区顶部插提示条，进度页不受影响
+  let all = if w.view.get() != w.page.get() {
+    let labels = steps_labels()
+    let v = w.view.get()
+    [
+      @ui.row(
+        [
+          @ui.text(
+            "正在预览「\{labels[v]}」——进度仍停在第 \{w.page.get() + 1} 步",
+            color="info",
+          ),
+          @ui.button("返回当前步", variant=@ui.Border, on_click=fn() -> Unit {
+            goto(w, w.page.get())
+          }),
+        ],
+        column_gap=12.0,
+      ),
+      @ui.divider(),
+    ] + body
+  } else {
+    body
+  }
+  @ui.col(all, row_gap=16.0, class=[@style.style(width_percent=100.0)])
 }

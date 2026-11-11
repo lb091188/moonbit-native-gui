@@ -9,7 +9,7 @@ fn page_welcome(w : Wizard) -> Array[@widget.Node] {
       color="text_secondary",
     ),
     @ui.row(
-      [@ui.button("开始", on_click=fn() { w.page.set(1) })],
+      [@ui.button("开始", on_click=fn() { goto(w, 1) })],
       column_gap=8.0,
     ),
   ]
@@ -26,7 +26,7 @@ fn page_health(w : Wizard) -> Array[@widget.Node] {
     [
       @ui.alert("环境就绪，可以开始建应用。", t=@ui.Success),
       @ui.row(
-        [@ui.button("继续：新建应用", on_click=fn() { w.page.set(2) })],
+        [@ui.button("继续：新建应用", on_click=fn() { goto(w, 2) })],
         column_gap=8.0,
       ),
     ]
@@ -156,7 +156,7 @@ fn create_app(w : Wizard) -> Int32 {
           }
         }
         w.proj.set(dir)
-        w.page.set(3)
+        goto(w, 3)
       }
       other => w.msg.set(scaf_msg(other))
     }
@@ -193,7 +193,7 @@ fn page_dev(w : Wizard) -> Array[@widget.Node] {
       [
         @ui.button("启动 mng dev", on_click=fn() { start_dev(w) }),
         @ui.button("下一步", variant=@ui.Border, on_click=fn() {
-          w.page.set(4)
+          goto(w, 4)
         }),
       ],
       column_gap=8.0,

@@ -32,7 +32,8 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 
 - [x] **scaffold 内核化**：`@scaffold` 事件回调（f689452c），mng 留渲染层
 - [x] **mngui 五步壳 + 裸 mng 下一跳**（本批）：欢迎→体检→新建（@scaffold）→起 dev（shell 包装 cwd 工程目录；dev 形态经 `moon -C <仓库> run … mng -- dev`）→完成；体检开窗前同步跑完；无显示 exit 3，裸 mng 据此回 usage；dev 形态（_build 路径）不跳向导；mngui 查找按进程真实路径自解析（argv[0] 是 shell 敲的名字——真坑，proc 加 self_path 三平台自报路径，兜底 ~/.moon/bin；未装给安装提示，0a128ef9 + 本批）
-- [ ] **mngui 真机复验**（用户执行）：`moon install ./tools/native-gui-tools` 后裸 `mng` 应开向导窗；五步走通——体检四项 ✓、建 demo 工程（可试给一个 1024 PNG：应落 `assets/icon.png` 且 mng.toml `icon` 键接上；给错路径应红字提示且工程不回滚）、启动 mng dev 后应用窗弹出、关向导 dev 仍在、完成页命令可选中复制；无显示机（SSH）裸 mng 应回 usage
+- [ ] **mngui 真机复验**（用户执行）：`moon install ./tools/native-gui-tools` 后裸 `mng` 应开向导窗；五步走通——体检四项 ✓、建 demo 工程（可试给一个 1024 PNG：应落 `assets/icon.png` 且 mng.toml `icon` 键接上；给错路径应红字提示且工程不回滚）、启动 mng dev 后应用窗弹出、关向导 dev 仍在、完成页命令可选中复制；无显示机（SSH）裸 mng 应回 usage；另验本批两修复——任意页步骤条整体撑满窗宽（连线随窗拉伸不缩成点）、点数字方块换内容但高亮不动且顶部出预览提示条、「返回当前步」回进度页
+- [x] **步骤条点击预览 + 满宽修复**（本批）：`@ui.steps` 数字方块可点（缺省切换 current/on_select 接管 + 每格进 Tab 链方向键换步）；mngui 点数字只动 view 做预览、进度高亮不动，顶部出「正在预览」提示条 + 返回按钮；根 col 补 `grow=1.0` 修「体检页整块收窄」——窗口根是 Row 方向，根容器不设 grow 会按内容收宽
 - [x] **图标步**（本批）：`@scaffold.icon_step`——PNG 收进工程 `assets/icon.png` + 改写 mng.toml `icon` 键（wbtest 钉行替换口径）；icns/ico 各档派生归 `mng package` 打包时做，向导不重复
 
 ## 打包与自动更新（2026-11-08 立项，方向见 [proposals/方向.md](proposals/方向.md) A1/A2/A3；一项一提交，做完删一项；先 CPU 光栅最小闭环，不绑 GPU 线）
