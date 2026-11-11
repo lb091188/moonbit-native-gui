@@ -35,11 +35,15 @@ def build_exe(module_dir):
     `NoahLiu/native-gui-examples-<目录>` 过滤(与 mng 的 artifact_of_log 同口径)。
     """
     module = f"NoahLiu/native-gui-examples-{module_dir}"
+    # 显式 UTF-8：moon 输出中文进度/Artifacts，Windows 默认按 cp1252 解码会
+    # 在读取线程里抛 UnicodeDecodeError（stdout 变 None，后续拼接再炸一次）。
     r = subprocess.run(
         ["moon", "build", "--target", "native", "--release", "--strip"],
         cwd=os.path.join(ROOT, "examples", module_dir),
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     out = r.stdout + r.stderr
     if r.returncode != 0:
