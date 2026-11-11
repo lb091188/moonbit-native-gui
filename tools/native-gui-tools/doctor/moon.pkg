@@ -1,0 +1,9 @@
+// mng doctor 内核：环境体检探针（moon / Python / 编译器 / GTK）与 ~/.mng/ready 读写。
+// 命令输出经临时日志文件读回（proc 不捕获 stdout）；不依赖 GUI 库。
+import {
+  "moonbitlang/core/env",
+  "moonbitlang/x/fs",
+  "NoahLiu/native-gui-tools/proc",
+}
+
+supported_targets = "native"

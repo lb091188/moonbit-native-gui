@@ -106,6 +106,10 @@ fn usage() -> Unit {
     "  init", "在模块根写 mng.toml 样板", "Write an mng.toml sample at module root",
   )
   usage_line(
+    "  doctor [-f]", "环境体检（moon/Python/编译器/GTK）；全绿写 ~/.mng/ready，-f 强制重检",
+    "Environment health check (moon/Python/compilers/GTK); writes ~/.mng/ready when green, -f forces re-check",
+  )
+  usage_line(
     "  --version", "版本与 mng-schema 位", "Version and mng-schema bit",
   )
   usage_line("  -v", "版本与 mng-schema 位", "Version and mng-schema bit")
@@ -124,6 +128,29 @@ fn usage() -> Unit {
   println(
     tmsg(
       "子命令加 -h 看详细说明。", "Add -h to a subcommand for details.",
+    ),
+  )
+}
+
+///|
+/// `mng doctor -h`：环境体检说明。
+fn help_doctor() -> Unit {
+  println(
+    tmsg(
+      "用法：\{inv_prefix[0]} doctor [-f]",
+      "Usage: \{inv_prefix[0]} doctor [-f]",
+    ),
+  )
+  println(
+    tmsg(
+      "  探测 moon / Python 3 / C·C++ 编译器 /（Linux）GTK 开发包，可选项（WebView、媒体库）只提示",
+      "  Probes moon / Python 3 / C & C++ compilers / (Linux) GTK dev packages; optional items (WebView, media libs) only warn",
+    ),
+  )
+  println(
+    tmsg(
+      "  必选项全过即写 ~/.mng/ready（内容为 mng 版本行，mng 升级后自动重检）；裸 mng 首跑会自动走一轮",
+      "  All required checks green writes ~/.mng/ready (an mng version line, re-checked after mng upgrades); bare mng runs it on first use",
     ),
   )
 }
@@ -763,6 +790,16 @@ fn main {
     k += 1
   }
   if args.length() == 0 {
+    // 裸 mng 状态机：ready 缺失先跑一轮体检（全绿写 ready），之后照旧 usage；
+    // 体检有红项直接以退出码 1 结束。ready 只门这条交互入口，子命令与 CI 不受影响。
+    let home = @doctor.home_dir()
+    let path = @doctor.ready_path(home~)
+    if !@doctor.ready_valid(path~, version=MNG_VERSION) {
+      let code = cmd_doctor(force=true)
+      if code != 0 {
+        @sys.exit(code)
+      }
+    }
     usage()
     @sys.exit(2)
   }
@@ -795,6 +832,8 @@ fn main {
       help_lsp()
     } else if cmd == "init" {
       help_init()
+    } else if cmd == "doctor" {
+      help_doctor()
     } else if cmd == "dev" {
       usage_dev()
     } else if cmd == "package" {
@@ -832,6 +871,8 @@ fn main {
     cmd_lsp(rest)
   } else if cmd == "init" {
     cmd_init(rest)
+  } else if cmd == "doctor" {
+    cmd_doctor(force=rest.contains("-f") || rest.contains("--force"))
   } else {
     usage()
     2

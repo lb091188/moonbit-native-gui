@@ -8,6 +8,7 @@ import {
   "NoahLiu/native-gui-tools/mngkit",
   "NoahLiu/native-gui-tools/proc",
   "NoahLiu/native-gui-tools/inst",
+  "NoahLiu/native-gui-tools/doctor",
 }
 
 pkgtype(kind: "executable")
