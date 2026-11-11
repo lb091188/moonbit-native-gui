@@ -44,6 +44,7 @@ test "required_ok：可选项失败不拦、必选项失败拦" {
     title: { zh: "", en: "", },
     detail: { zh: "", en: "", },
     fix: None,
+    fix_url: None,
   }
   let fail_opt = {
     id: "ffmpeg",
@@ -52,6 +53,7 @@ test "required_ok：可选项失败不拦、必选项失败拦" {
     title: { zh: "", en: "", },
     detail: { zh: "", en: "", },
     fix: None,
+    fix_url: None,
   }
   let warn_req = { ..ok_req, status: Warn, }
   let fail_req = { ..ok_req, id: "gtk", status: Fail, }

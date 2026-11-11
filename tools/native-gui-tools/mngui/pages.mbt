@@ -70,6 +70,21 @@ fn health_row(it : @doctor.DItem) -> @widget.Node {
       )
     None => ()
   }
+  // 修复项带官方下载页时给按钮——win 用户 GUI 居多，点了开浏览器，不替用户装
+  match it.fix_url {
+    Some(url) =>
+      lines.push(
+        @ui.row(
+          [
+            @ui.button("打开下载页", variant=@ui.Border, on_click=fn() {
+              let _ = @gsys.open_url(url)
+            }),
+          ],
+          column_gap=8.0,
+        ),
+      )
+    None => ()
+  }
   @ui.col(lines, row_gap=4.0)
 }
 
@@ -134,7 +149,7 @@ fn create_app(w : Wizard) -> Int32 {
         // 图标步可选：失败不回滚工程，错误就地显示
         let png = w.icon.get()
         if png.length() > 0 {
-          match @scaffold.icon_step(dir=dir, png~) {
+          match @scaffold.icon_step(dir~, png~) {
             Ok(_) => w.msg.set("")
             Err(err) =>
               w.msg.set("图标步跳过（工程已建好）：" + err)

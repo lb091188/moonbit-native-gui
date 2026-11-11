@@ -8,6 +8,7 @@ import {
   "NoahLiu/native-gui/style",
   "NoahLiu/native-gui/ui",
   "NoahLiu/native-gui/widget",
+  "NoahLiu/native-gui/sys" @gsys,
   "NoahLiu/native-gui-tools/doctor",
   "NoahLiu/native-gui-tools/scaffold",
   "NoahLiu/native-gui-tools/proc",

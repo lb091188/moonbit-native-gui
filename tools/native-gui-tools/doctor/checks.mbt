@@ -13,33 +13,47 @@ fn ditem(
   detail~ : DBi,
   fix~ : DBi? = None,
   optional~ : Bool = false,
+  fix_url~ : String? = None,
 ) -> DItem {
-  { id, title, status, detail, fix, optional, }
+  { id, title, status, detail, fix, optional, fix_url, }
 }
 
 ///|
-/// moon 安装命令（与 build.md §1 同源）。
-fn fix_moon_install(platform : String) -> DBi {
-  let cmd = if platform == "win" {
-    "irm https://cli.moonbitlang.com/install/powershell.ps1 | iex"
-  } else {
-    "curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash"
+/// moon 安装命令（与 build.md §1 同源）。win 用户 GUI 居多——下载页在前、
+/// PowerShell 一行在后；下载页随 fix_url 给向导的「打开下载页」按钮。
+fn fix_moon_install(platform : String) -> (DBi, String?) {
+  if platform == "win" {
+    return (
+      bi(
+        "从 moonbitlang.com/download 下载安装（或在 PowerShell 粘贴：irm https://cli.moonbitlang.com/install/powershell.ps1 | iex）",
+        "Install from moonbitlang.com/download (or paste in PowerShell: irm https://cli.moonbitlang.com/install/powershell.ps1 | iex)",
+      ),
+      Some("https://www.moonbitlang.com/download"),
+    )
   }
-  bi(cmd, cmd)
+  (
+    bi(
+      "curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash", "curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash",
+    ),
+    None,
+  )
 }
 
 ///|
 fn check_moon(platform : String, log_dir : String) -> DItem {
   let title = bi("MoonBit 工具链", "MoonBit toolchain")
   match capture(log_dir, "moon", "moon", ["version", "--all"]) {
-    Err(_) =>
+    Err(_) => {
+      let (fix, url) = fix_moon_install(platform)
       ditem(
         id="moon",
         title~,
         status=Fail,
         detail=bi("未找到 moon 命令", "moon command not found"),
-        fix=Some(fix_moon_install(platform)),
+        fix=Some(fix),
+        fix_url=url,
       )
+    }
     Ok((0, out)) =>
       ditem(
         id="moon",
@@ -92,10 +106,11 @@ fn probe_python(log_dir : String, id : String, cmd : String) -> DItem? {
                 detail=bi("\{line}，低于 3.7", "\{line}, below 3.7"),
                 fix=Some(
                   bi(
-                    "升级 Python 3（winget install Python.Python.3.12 或包管理器）",
-                    "Upgrade Python 3 (winget install Python.Python.3.12 or your package manager)",
+                    "从 python.org/downloads 装新安装器升级（或包管理器：winget install Python.Python.3.12）",
+                    "Upgrade via the installer at python.org/downloads (or your package manager: winget install Python.Python.3.12)",
                   ),
                 ),
+                fix_url=Some("https://www.python.org/downloads/"),
               ),
             )
           }
@@ -138,6 +153,7 @@ fn python_item(
   status : DStatus,
   detail : DBi,
   fix? : DBi,
+  fix_url~ : String? = None,
 ) -> DItem {
   ditem(
     id~,
@@ -145,6 +161,7 @@ fn python_item(
     status~,
     detail~,
     fix~,
+    fix_url~,
   )
 }
 
@@ -160,9 +177,10 @@ fn check_python(platform : String, log_dir : String) -> DItem {
           Fail,
           bi("未找到 python 命令", "python command not found"),
           fix=bi(
-            "winget install Python.Python.3.12（无 winget 时从 python.org/downloads 装安装器）",
-            "winget install Python.Python.3.12 (or install from python.org/downloads when winget is absent)",
+            "从 python.org/downloads 装安装器（或 winget install Python.Python.3.12）",
+            "Install from python.org/downloads (or winget install Python.Python.3.12)",
           ),
+          fix_url=Some("https://www.python.org/downloads/"),
         )
     }
   }
@@ -410,11 +428,15 @@ fn probe_write(p : String, body : String) -> Bool {
 }
 
 ///|
-/// VS BuildTools 安装指引（winget 缺席的机器走官方安装器直链）。
-fn fix_msvc_install() -> DBi {
-  bi(
-    "winget install Microsoft.VisualStudio.2022.BuildTools -e --override \"--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended\"（无 winget 时从 https://visualstudio.microsoft.com/visual-cpp-build-tools/ 下安装器，勾选「使用 C++ 的桌面开发」）",
-    "winget install Microsoft.VisualStudio.2022.BuildTools -e --override \"--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended\" (or grab the installer at https://visualstudio.microsoft.com/visual-cpp-build-tools/ and select the C++ desktop workload when winget is absent)",
+/// VS BuildTools 安装指引：win 用户 GUI 居多——官方安装器下载页在前、
+/// winget 在后；下载页随 fix_url 给向导的「打开下载页」按钮。
+fn fix_msvc_install() -> (DBi, String?) {
+  (
+    bi(
+      "从 visualstudio.microsoft.com/visual-cpp-build-tools/ 下安装器，勾选「使用 C++ 的桌面开发」（或 winget install Microsoft.VisualStudio.2022.BuildTools -e --override \"--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended\"）",
+      "Grab the installer at visualstudio.microsoft.com/visual-cpp-build-tools/ and select the C++ desktop workload (or winget install Microsoft.VisualStudio.2022.BuildTools -e --override \"--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended\")",
+    ),
+    Some("https://visualstudio.microsoft.com/visual-cpp-build-tools/"),
   )
 }
 
@@ -470,7 +492,8 @@ fn native_probe(log_dir : String, home : String) -> DItem {
           "hello 工程编译链接通过", "hello project compiled and linked",
         ),
       )
-    Ok(code) =>
+    Ok(code) => {
+      let (fix, url) = fix_msvc_install()
       ditem(
         id="probe",
         title~,
@@ -479,8 +502,10 @@ fn native_probe(log_dir : String, home : String) -> DItem {
           "探针构建退出码 \{code}，日志：\{log}",
           "probe build exited with \{code}, log: \{log}",
         ),
-        fix=Some(fix_msvc_install()),
+        fix=Some(fix),
+        fix_url=url,
       )
+    }
   }
 }
 
