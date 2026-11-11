@@ -24,7 +24,7 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 ## mng 全入口 P1：mngui 向导壳（2026-11-11 动手，分期见 roadmap「已规划 · 开发体验」；一项一提交，做完删一项）
 
 - [x] **scaffold 内核化**：`@scaffold` 事件回调（f689452c），mng 留渲染层
-- [x] **mngui 五步壳 + 裸 mng 下一跳**（本批）：欢迎→体检→新建（@scaffold）→起 dev（shell 包装 cwd 工程目录；dev 形态经 `moon -C <仓库> run … mng -- dev`）→完成；体检开窗前同步跑完；无显示 exit 3，裸 mng 据此回 usage；dev 形态（_build 路径）不跳向导
+- [x] **mngui 五步壳 + 裸 mng 下一跳**（本批）：欢迎→体检→新建（@scaffold）→起 dev（shell 包装 cwd 工程目录；dev 形态经 `moon -C <仓库> run … mng -- dev`）→完成；体检开窗前同步跑完；无显示 exit 3，裸 mng 据此回 usage；dev 形态（_build 路径）不跳向导；mngui 查找按进程真实路径自解析（argv[0] 是 shell 敲的名字——真坑，proc 加 self_path 三平台自报路径，兜底 ~/.moon/bin；未装给安装提示，0a128ef9 + 本批）
 - [ ] **mngui 真机复验**（用户执行）：`moon install ./tools/native-gui-tools` 后裸 `mng` 应开向导窗；五步走通——体检四项 ✓、建 demo 工程（可试给一个 1024 PNG：应落 `assets/icon.png` 且 mng.toml `icon` 键接上；给错路径应红字提示且工程不回滚）、启动 mng dev 后应用窗弹出、关向导 dev 仍在、完成页命令可选中复制；无显示机（SSH）裸 mng 应回 usage
 - [x] **图标步**（本批）：`@scaffold.icon_step`——PNG 收进工程 `assets/icon.png` + 改写 mng.toml `icon` 键（wbtest 钉行替换口径）；icns/ico 各档派生归 `mng package` 打包时做，向导不重复
 
