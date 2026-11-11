@@ -531,7 +531,9 @@ fn dir_of(p : String) -> String {
   let n = p.length()
   let mut i = 0
   while i < n {
-    if p[i] == '/' {
+    if p[i] == '/' || p[i] == '\\' {
+      last = i
+    }
       last = i
     }
     i += 1
