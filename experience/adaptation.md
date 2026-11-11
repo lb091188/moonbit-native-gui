@@ -3985,3 +3985,10 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **缓存口径顺带升级**:py 版 miniaudio.h 是纯存在性检查(损坏文件永不重下),mbtx 版落盘前 sha256 校验、已存在也校验,坏文件自动重取。
 - **总预算实现**:`@async.with_timeout_opt(毫秒, () => …)` 现成,不必像 py 那样开线程 join;超时返回 None 换下一个镜像。
 - 端到端实测:删 miniaudio.h 重建,GitHub 镜像 60s 预算内无产出自动换 gitee,下载 sha256 ✓ 落盘,moon check 零警告 + 42 测试全过。
+
+## gui-gpu prebuild 去 py 批坑(2026-11-12,mac 实测)
+
+- **MOON_HOST_ARCH 的值是 x86_64/aarch64**,py 版 platform.machine() 产出 x86_64/arm64——归一要两个都处理(x86_64→amd64、aarch64→arm64),只抄一边会在 mac arm 上「no wgpu-native asset」静默降级。
+- **mbtx 无 zip 解包库**,上游 wgpu-native 资产又全是 zip 无 tar.gz——解压 spawn 平台工具(mac/linux `unzip -o`、Windows PowerShell `Expand-Archive`);unzip 缺失时给发行版安装提示。这是平台工具依赖的最小残留(unzip 比 python3 普遍得多,mac 自带)。
+- **具名参数混用有解析坑**:`f(label=value~)`(label= 简写混合)与多具名 `f(a~, b~)` 报 parse error——调用处全写显式 `f(a=a, b=b)`。
+- 端到端实测:删 vendor 重建,GitHub 直连 180s 预算超时自动换 ghfast 镜像,下载 sha256 ✓ → 解压出 libwgpu_native.dylib + include → marker 三行写入;1983 测试全过。

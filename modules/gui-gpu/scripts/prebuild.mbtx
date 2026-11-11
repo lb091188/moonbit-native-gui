@@ -1,0 +1,438 @@
+----
+import {
+  "moonbitlang/core/env",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/async",
+  "moonbitlang/async/fs" @fs,
+  "moonbitlang/async/shell" @shell,
+  "moonbitlang/async/stdio" @stdio,
+  "q2316367743/moonhttp/client" @mhttp,
+}
+----
+
+// NoahLiu/gui-gpu 的预构建（--moonbit-unstable-prebuild）。语义与上一版
+// prebuild.py 一致（git 历史可对照），2026-11-12 起 MoonBit 化。
+//
+// 做一件事：按平台把 wgpu-native 的 release 归档拉到 `vendor/` 并校验
+// sha256，解出 `lib/`（动态库）与 `include/`（wgpu.h）。**不向链接面注入
+// 任何库**——本模块只做运行期 dlopen 探测（见 gpu/probe.c），所以
+// link_configs 恒为空；下载失败/离线同样是空 link_configs（= 没装 GPU
+// 扩展的降级形态，不是错误）。
+//
+// 口径与 gui-media 同源：串行按序、sha256 过了才落盘、多个镜像对同一 sha
+// 验证；stdout 只打 JSON，进度走 stderr。
+// 归档是 zip，mbtx 侧无解包库——解压 spawn 平台工具（mac/linux `unzip -o`、
+// Windows PowerShell `Expand-Archive`），unzip 缺失时报明确错与安装提示。
+//
+// 协议（moon prebuild）：stdout 恰好一个 JSON 值；诊断一律走 stderr。
+
+///|
+let tag : String = "v29.0.1.1"
+
+///|
+/// (宿主 os, 机器) → (归档名, sha256)。键与 py 版的 platform 键同源：
+/// os 用 moon 的 MOON_HOST_OS（linux/windows/macos），机器用 MOON_HOST_ARCH。
+let assets : Array[((String, String), (String, String))] = [
+  (
+    ("linux", "amd64"),
+    (
+      "wgpu-linux-x86_64-release.zip",
+      "95a4d90c071005a98d03eab348beaa6b07e16eb00d1dcdb9f8348f75eb97ec5a",
+    ),
+  ),
+  (
+    ("windows", "amd64"),
+    (
+      "wgpu-windows-x86_64-msvc-release.zip",
+      "7e67d7445c42aeb85e30f88930fd8d7d83ee769e3390aeb1ada75ebf3cf78132",
+    ),
+  ),
+  (
+    ("macos", "x86_64"),
+    (
+      "wgpu-macos-x86_64-release.zip",
+      "8e2f7378548ddd0e2cf21e7d864dda46e953f0af724855a33778b85ead206d41",
+    ),
+  ),
+  (
+    ("macos", "arm64"),
+    (
+      "wgpu-macos-aarch64-release.zip",
+      "a5797a37b1adf720bcd5dcffb291edbbd5b7b14be0a3874c28e6393a655a7a3e",
+    ),
+  ),
+]
+
+///|
+/// 双镜像模板：官方 Release 优先，ghfast 加速镜像同 sha（任一通过都算数）。
+/// {tag}/{name} 占位在 ensure_wgpu 里替换。
+let mirrors : Array[String] = [
+  "https://github.com/gfx-rs/wgpu-native/releases/download/{tag}/{name}",
+  "https://ghfast.top/https://github.com/gfx-rs/wgpu-native/releases/download/{tag}/{name}",
+]
+
+///|
+/// 流式大归档（macos x86_64 档 30MB+）的总预算——socket 级超时挡不住
+/// 「挂住不收数据」的镜像，超预算放弃这条（构建不能被人肉等网络卡死）。
+let budget_ms : Int32 = 180_000
+
+///|
+async fn err(msg : String) -> Unit {
+  @stdio.stderr.write(msg + "\n")
+}
+
+///|
+fn env_or(name : String, fallback : String) -> String {
+  match @env.get_env_var(name) {
+    Some(v) if v.length() > 0 => v
+    _ => fallback
+  }
+}
+
+///|
+/// SHA-256（FIPS 180-4），十六进制小写。UInt 的移位都是逻辑移位，正好匹配
+/// SHA-256 的循环右移语义。（与 gui-media 的 prebuild 各留一份：模块要能
+/// 独立发布，不反向依赖别处。）
+let k256 : Array[UInt] = [
+  0x428a2f98U, 0x71374491U, 0xb5c0fbcfU, 0xe9b5dba5U, 0x3956c25bU,
+  0x59f111f1U, 0x923f82a4U, 0xab1c5ed5U, 0xd807aa98U, 0x12835b01U,
+  0x243185beU, 0x550c7dc3U, 0x72be5d74U, 0x80deb1feU, 0x9bdc06a7U,
+  0xc19bf174U, 0xe49b69c1U, 0xefbe4786U, 0x0fc19dc6U, 0x240ca1ccU,
+  0x2de92c6fU, 0x4a7484aaU, 0x5cb0a9dcU, 0x76f988daU, 0x983e5152U,
+  0xa831c66dU, 0xb00327c8U, 0xbf597fc7U, 0xc6e00bf3U, 0xd5a79147U,
+  0x06ca6351U, 0x14292967U, 0x27b70a85U, 0x2e1b2138U, 0x4d2c6dfcU,
+  0x53380d13U, 0x650a7354U, 0x766a0abbU, 0x81c2c92eU, 0x92722c85U,
+  0xa2bfe8a1U, 0xa81a664bU, 0xc24b8b70U, 0xc76c51a3U, 0xd192e819U,
+  0xd6990624U, 0xf40e3585U, 0x106aa070U, 0x19a4c116U, 0x1e376c08U,
+  0x2748774cU, 0x34b0bcb5U, 0x391c0cb3U, 0x4ed8aa4aU, 0x5b9cca4fU,
+  0x682e6ff3U, 0x748f82eeU, 0x78a5636fU, 0x84c87814U, 0x8cc70208U,
+  0x90befffaU, 0xa4506cebU, 0xbef9a3f7U, 0xc67178f2U,
+]
+
+///|
+fn rotr32(x : UInt, n : Int) -> UInt {
+  (x >> n) | (x << (32 - n))
+}
+
+///|
+/// 第 i 字节的虚拟视图（含 0x80 padding 与 8 字节大端位长的拼接视图，
+/// 不物理拼接几十 MB 缓冲）。
+fn padded_byte(data : Bytes, n : Int, total : Int, i : Int) -> UInt {
+  if i < n {
+    data[i].to_int().reinterpret_as_uint()
+  } else if i == n {
+    0x80U
+  } else if i >= total - 8 {
+    let bit_len = n.to_int64() * 8L
+    let shift = (total - 1 - i) * 8
+    ((bit_len >> shift) & 0xFFL).to_int().reinterpret_as_uint()
+  } else {
+    0U
+  }
+}
+
+///|
+fn sha256_hex(data : Bytes) -> String {
+  let mut h0 = 0x6a09e667U
+  let mut h1 = 0xbb67ae85U
+  let mut h2 = 0x3c6ef372U
+  let mut h3 = 0xa54ff53aU
+  let mut h4 = 0x510e527fU
+  let mut h5 = 0x9b05688cU
+  let mut h6 = 0x1f83d9abU
+  let mut h7 = 0x5be0cd19U
+  let n = data.length()
+  let rem = n % 64
+  let total = if rem < 56 {
+    n - rem + 64
+  } else {
+    n - rem + 128
+  }
+  let w : Array[UInt] = []
+  let mut wi = 0
+  while wi < 64 {
+    w.push(0U)
+    wi += 1
+  }
+  let mut base = 0
+  while base < total {
+    let mut j = 0
+    while j < 16 {
+      let o = base + j * 4
+      w[j] = (padded_byte(data, n, total, o) << 24) |
+        (padded_byte(data, n, total, o + 1) << 16) |
+        (padded_byte(data, n, total, o + 2) << 8) |
+        padded_byte(data, n, total, o + 3)
+      j += 1
+    }
+    let mut j = 16
+    while j < 64 {
+      let s0 = rotr32(w[j - 15], 7) ^ rotr32(w[j - 15], 18) ^ (w[j - 15] >> 3)
+      let s1 = rotr32(w[j - 2], 17) ^ rotr32(w[j - 2], 19) ^ (w[j - 2] >> 10)
+      w[j] = w[j - 16] + s1 + w[j - 7] + s0
+      j += 1
+    }
+    let mut a = h0
+    let mut b = h1
+    let mut c = h2
+    let mut d = h3
+    let mut e = h4
+    let mut f = h5
+    let mut g = h6
+    let mut hh = h7
+    let mut j = 0
+    while j < 64 {
+      let s1 = rotr32(e, 6) ^ rotr32(e, 11) ^ rotr32(e, 25)
+      let ch = (e & f) ^ ((e ^ 0xFFFFFFFFU) & g)
+      let t1 = hh + s1 + ch + k256[j] + w[j]
+      let s0 = rotr32(a, 2) ^ rotr32(a, 13) ^ rotr32(a, 22)
+      let maj = (a & b) ^ (a & c) ^ (b & c)
+      let t2 = s0 + maj
+      hh = g
+      g = f
+      f = e
+      e = d + t1
+      d = c
+      c = b
+      b = a
+      a = t1 + t2
+      j += 1
+    }
+    h0 = h0 + a
+    h1 = h1 + b
+    h2 = h2 + c
+    h3 = h3 + d
+    h4 = h4 + e
+    h5 = h5 + f
+    h6 = h6 + g
+    h7 = h7 + hh
+    base += 64
+  }
+  let out = StringBuilder()
+  for x in [h0, h1, h2, h3, h4, h5, h6, h7] {
+    let mut sh = 28
+    while sh >= 0 {
+      let nib = ((x >> sh) & 0xFU).reinterpret_as_int()
+      let code = if nib < 10 { 48 + nib } else { 87 + nib }
+      out.write_char(code.unsafe_to_char())
+      sh -= 4
+    }
+  }
+  out.to_string()
+}
+
+///|
+/// 单镜像下载全量（wgpu 归档 30-60MB，内存直取；py 版是流式写盘，mbtx 侧
+/// moonhttp 的 stream 读全量语义等价），外套总预算。失败给 None。
+async fn fetch(url : String) -> Bytes? {
+  match @async.with_timeout_opt(budget_ms, () => fetch_via_moonhttp(url)) {
+    Some(got) => got
+    None => {
+      err("[gui-gpu] mirror failed " + url + ": 超过 " +
+        budget_ms.to_string() + " 毫秒总预算")
+      None
+    }
+  }
+}
+
+///|
+async fn fetch_via_moonhttp(url : String) -> Bytes? {
+  let client = @mhttp.default_client()
+  let resp = client.get(url) catch {
+    e => {
+      err("[gui-gpu] mirror failed " + url + ": " + e.to_string())
+      return None
+    }
+  }
+  if !resp.is_success() {
+    err("[gui-gpu] mirror failed " + url + ": HTTP " + resp.status.to_string())
+    return None
+  }
+  Some(resp.bytes())
+}
+
+///|
+/// 解 zip 到 vendor：spawn 平台工具（mbtx 侧无 zip 解包库；上游 wgpu-native
+/// 资产全 zip 且无 tar.gz 形态）。失败出声并给安装提示。
+async fn unzip_into(archive~ : String, vendor~ : String, host~ : String) -> Bool {
+  if host == "windows" {
+    // PowerShell 5+ 自带；-Force 覆盖旧文件
+    let out = @shell.Cmd(
+      "powershell",
+      [
+        "-NoProfile", "-Command",
+        "Expand-Archive -LiteralPath '\{archive}' -DestinationPath '\{vendor}' -Force",
+      ],
+    ).output()
+    if out.exit_code() != 0 {
+      err("[gui-gpu] unzip failed (Expand-Archive): " + out.stderr())
+      return false
+    }
+    true
+  } else {
+    let out = @shell.Cmd("unzip", ["-o", archive, "-d", vendor]).output()
+    if out.exit_code() != 0 {
+      err("[gui-gpu] unzip failed: " + out.stderr() +
+        "\n  需要系统 unzip（macOS 自带；debian/ubuntu: apt install unzip；" +
+        "fedora: dnf install unzip；arch: pacman -S unzip）")
+      return false
+    }
+    true
+  }
+}
+
+///|
+async fn ensure_wgpu(module_root~ : String, host~ : String, arch~ : String) -> Unit {
+  let vendor = module_root + "/vendor"
+  let marker = vendor + "/.ok"
+  if @fs.exists(marker) {
+    return
+  }
+  // (os, arch) → (归档名, sha)；arch 归一到资产表口径（MOON_HOST_ARCH 是
+  // x86_64/aarch64，表键用 amd64/arm64——与 py 版 platform.machine 的产出对齐）
+  let machine = if arch == "x86_64" {
+    "amd64"
+  } else if arch == "aarch64" {
+    "arm64"
+  } else {
+    arch
+  }
+  let mut name = ""
+  let mut sha = ""
+  let mut found = false
+  for kv in assets {
+    let (ko, ka) = kv.0
+    if ko == host && ka == machine {
+      let (n, s) = kv.1
+      name = n
+      sha = s
+      found = true
+    }
+  }
+  if !found {
+    err("[gui-gpu] no wgpu-native asset for (\{host}, \{machine}) —— degrade")
+    return
+  }
+  @fs.mkdir(vendor) catch {
+    _ => ()
+  }
+  let tmp = vendor + "/" + name
+  for mirror in mirrors {
+    let url = replace_placeholders(mirror, tag~, name~)
+    err("[gui-gpu] fetch \{url}")
+    let data = match fetch(url) {
+      Some(d) => d
+      None => continue
+    }
+    let got = sha256_hex(data)
+    if got != sha {
+      err("[gui-gpu] sha256 mismatch from \{url}（期望 \{sha}，实际 \{got}）")
+      continue
+    }
+    @fs.write_file(tmp, data)
+    if !unzip_into(archive=tmp, vendor=vendor, host=host) {
+      continue
+    }
+    @fs.remove(tmp) catch {
+      _ => ()
+    }
+    @fs.write_file(marker, "\{tag}\n\{name}\n\{sha}\n")
+    err("[gui-gpu] wgpu-native \{tag} ready (\{name})")
+    return
+  }
+  err("[gui-gpu] wgpu-native unavailable —— degrade to software path")
+  @fs.remove(tmp) catch {
+    _ => ()
+  }
+}
+
+///|
+/// 镜像模板里的 {tag}/{name} 占位替换（只认这两个固定键，子串定位逐段拼）。
+fn replace_placeholders(tpl : String, tag~ : String, name~ : String) -> String {
+  let out = StringBuilder()
+  let mut rest = tpl
+  while true {
+    let brace = index_of(rest, "{")
+    match brace {
+      None => {
+        out.write_string(rest)
+        break
+      }
+      Some(b) => {
+        let close = index_of_from(rest, "}", b + 1)
+        match close {
+          None => {
+            out.write_string(rest)
+            break
+          }
+          Some(c) => {
+            let key = rest[b + 1:c].to_owned()
+            out.write_string(rest[0:b].to_owned())
+            out.write_string(if key == "tag" {
+              tag
+            } else if key == "name" {
+              name
+            } else {
+              rest[b:c + 1].to_owned()
+            })
+            rest = rest[c + 1:].to_owned()
+          }
+        }
+      }
+    }
+  }
+  out.to_string()
+}
+
+///|
+fn index_of(s : String, needle : String) -> Int? {
+  index_of_from(s, needle, 0)
+}
+
+///|
+fn index_of_from(s : String, needle : String, from : Int) -> Int? {
+  let n = s.length()
+  let m = needle.length()
+  if m == 0 {
+    return Some(from)
+  }
+  let mut i = from
+  while i + m <= n {
+    if s[i:i + m].to_owned() == needle {
+      return Some(i)
+    }
+    i += 1
+  }
+  None
+}
+
+///|
+async fn main {
+  let host = env_or("MOON_HOST_OS", "")
+  let arch = env_or("MOON_HOST_ARCH", "")
+  let module_root = env_or("MOON_MOD", ".")
+  // MOON_MOD 是 moon.mod 文件路径，取其目录
+  let root = dir_of(module_root)
+  ensure_wgpu(module_root=root, host=host, arch=arch)
+  // 永远空 link_configs：本模块只做运行期 dlopen，不占用链接面
+  println("{ \"link_configs\": [] }")
+}
+
+///|
+/// 绝对路径的目录部分（取最后一个 / 之前）。
+fn dir_of(p : String) -> String {
+  let mut last = -1
+  let n = p.length()
+  let mut i = 0
+  while i < n {
+    if p[i] == '/' {
+      last = i
+    }
+    i += 1
+  }
+  if last <= 0 {
+    p
+  } else {
+    p[0:last].to_owned()
+  }
+}

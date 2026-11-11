@@ -15,7 +15,7 @@ irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
 
 ## 2. 装开发依赖
 
-库走原生 FFI，构建期要三样：**C 工具链、pkg-config、Linux 上的 GTK3 / Pango / FontConfig / X11 开发包**。2026-11-11 起链接预构建已移植为 MoonBit 脚本（`gui/scripts/prebuild.mbtx`），构建**不再需要 Python**（旧 prebuild.py 时代它是必需依赖）。`gui-media` 的 prebuild 同日移植完毕；`gui-gpu` / `gui-webview` / `ffmpeg-mbt` 三个可选模块的 prebuild 仍是 Python（含归档下载），要构建它们暂还需 python3——移植后同步解除。
+库走原生 FFI，构建期要三样：**C 工具链、pkg-config、Linux 上的 GTK3 / Pango / FontConfig / X11 开发包**。2026-11-11 起链接预构建已移植为 MoonBit 脚本（`gui/scripts/prebuild.mbtx`），构建**不再需要 Python**（旧 prebuild.py 时代它是必需依赖）。`gui-media` / `gui-gpu` 两个可选模块的 prebuild 也已移植完毕；`gui-webview` / `ffmpeg-mbt` 的 prebuild 仍是 Python（含归档下载），要构建它们暂还需 python3——移植后同步解除。
 
 ### Linux（Debian / Ubuntu 系）
 
@@ -52,7 +52,7 @@ xcode-select --install
 
 ### Windows（10 / 11，x64）
 
-需要 Python 3 与 MSVC C++ 工具链——Python 3 跑 prebuild，工具链选 VS 2022 Build Tools 的「使用 C++ 的桌面开发」工作负载：
+需要 MSVC C++ 工具链（主模块与 gui-media / gui-gpu 构建已不需要 Python；仅 `gui-webview` / `ffmpeg-mbt` 两个可选模块的 prebuild 还要 python3）。工具链选 VS 2022 Build Tools 的「使用 C++ 的桌面开发」工作负载：
 
 ```powershell
 winget install Python.Python.3.12
@@ -210,6 +210,7 @@ nm modules/gui-webview/build/libgui_webview-*.a | grep -c gtk_file_chooser_nativ
 |---|---|---|
 | `WebView2LoaderStatic.lib`（11 MB）、`WebView2.h`（2.8 MB） | `modules/gui-webview/prebuild.py` | **仅 Windows**；Linux / macOS 直接跳过，省下 14 MB |
 | `miniaudio.h`（4 MB） | `modules/gui-media/scripts/prebuild.mbtx` | 缺失即下（各平台都要编）；已就位也会校验 sha256，损坏自动重取 |
+| `wgpu-*-release.zip`（30–64 MB，wgpu-native 动态库 + 头） | `modules/gui-gpu/scripts/prebuild.mbtx` | `vendor/` 缺 `.ok` 标记即下（按平台取对应资产）；解压 spawn 系统 unzip（Windows 走 PowerShell `Expand-Archive`） |
 | `ffmpeg-windows-x64-9.0-lgpl-shared.zip`（约 64 MB，7 支 dll） | `modules/ffmpeg-mbt/prebuild.py` | **仅 Windows** 且本地缺运行期 dll；取不到再退 BtbN 上游 |
 | `ffmpeg-macos-arm64-9.0.2-lgpl-shared.tar.gz`（约 10 MB，5 支 dylib + 头） | 同上 | **仅 macOS arm64** 且缺 `vendor/mac`；装了 brew ffmpeg 的机器走 pkg-config，不下载 |
 

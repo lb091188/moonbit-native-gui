@@ -15,7 +15,7 @@ Then check `moon version --all`: moon / moonc / core must come from the same ins
 
 ## 2. Install the development dependencies
 
-The library draws its own pixels over native FFI, so a build needs three things: **a C toolchain, pkg-config and — on Linux — the GTK3 / Pango / FontConfig / X11 development packages**. Since 2026-11-11 the link prebuild is a MoonBit script (`gui/scripts/prebuild.mbtx`) and builds **no longer need Python** (it was a hard dependency in the prebuild.py era). The `gui-media` prebuild was ported the same day; the `gui-gpu` / `gui-webview` / `ffmpeg-mbt` optional modules still carry Python prebuilds (with archive downloads) — building those still needs python3 until their ports land.
+The library draws its own pixels over native FFI, so a build needs three things: **a C toolchain, pkg-config and — on Linux — the GTK3 / Pango / FontConfig / X11 development packages**. Since 2026-11-11 the link prebuild is a MoonBit script (`gui/scripts/prebuild.mbtx`) and builds **no longer need Python** (it was a hard dependency in the prebuild.py era). The `gui-media` / `gui-gpu` optional modules have been ported as well; the `gui-webview` / `ffmpeg-mbt` prebuilds are still Python (with archive downloads) — building those still needs python3 until their ports land.
 
 ### Linux (Debian / Ubuntu family)
 
@@ -52,7 +52,7 @@ The media module additionally needs ffmpeg: `brew install ffmpeg`, or let prebui
 
 ### Windows (10 / 11, x64)
 
-The MSVC C++ toolchain — the "Desktop development with C++" workload of VS 2022 Build Tools (Python is no longer needed for the core build; only the optional gui-media / gui-gpu modules still want it):
+The MSVC C++ toolchain — the "Desktop development with C++" workload of VS 2022 Build Tools (the core build and gui-media / gui-gpu no longer need Python; only the `gui-webview` / `ffmpeg-mbt` optional modules still want python3 for their prebuilds):
 
 ```powershell
 winget install Microsoft.VisualStudio.2022.BuildTools -e --override "--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
@@ -196,6 +196,7 @@ Three third-party files — plus both FFmpeg runtime archives (the Windows dll z
 |---|---|---|
 | `WebView2LoaderStatic.lib` (11 MB), `WebView2.h` (2.8 MB) | `modules/gui-webview/prebuild.py` | **Windows only**; Linux / macOS skip them and save 14 MB |
 | `miniaudio.h` (4 MB) | `modules/gui-media/scripts/prebuild.mbtx` | Whenever missing (every platform compiles it); an already-present file is sha-verified too, and re-fetched if corrupted |
+| `wgpu-*-release.zip` (30–64 MB, wgpu-native shared library + headers) | `modules/gui-gpu/scripts/prebuild.mbtx` | Whenever the `vendor/` `.ok` marker is missing (per-platform asset); extraction shells out to system unzip (PowerShell `Expand-Archive` on Windows) |
 | `ffmpeg-windows-x64-9.0-lgpl-shared.zip` (~64 MB, 7 dlls) | `modules/ffmpeg-mbt/prebuild.py` | **Windows only**, when the runtime dlls are missing; falls back to BtbN upstream |
 | `ffmpeg-macos-arm64-9.0.2-lgpl-shared.tar.gz` (~10 MB, 5 dylibs + headers) | same script | **macOS arm64 only**, when `vendor/mac` is missing; machines with brew ffmpeg go through pkg-config and skip it |
 
