@@ -60,12 +60,32 @@ jobs:
       - name: 刷新注册表索引
         run: moon update
 
+      # mac/Windows runner 没有 python3 别名，mac 甚至只有 python3 没有 python；
+      # setup-python 三平台统一提供 `python`。注意别用 `shell: python`——那是
+      # 「用 python 执行一段 run 脚本」，会把 `scripts/size_baseline.py` 这一行
+      # 当源码喂给解释器（实测 NameError: name 'scripts' is not defined）。
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: 量 hello + showcase 体积(release+strip)
-        shell: python
-        run: scripts/size_baseline.py --update
+        if: runner.os != 'Windows'
+        run: python scripts/size_baseline.py --update
         env:
           # --update 只写 tools/size-baseline.json;工作流里不希望改仓库文件,
           # 所以 CI 侧改写到一个临时副本再上传(读数逻辑同一份脚本)
+          SIZE_BASELINE_OUT: ${{ runner.temp }}/size-${{ matrix.plat }}.json
+
+      # Windows 腿要先有 cl.exe：moon 的 native-stub 与 --target native 都走
+      # MSVC。vcvars 只在同一 cmd 进程里生效，故与测量合并成一步。
+      - name: 量 hello + showcase 体积(release+strip, MSVC)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: >-
+          for /f "tokens=*" %%i in ('"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath')
+          do call "%%i\VC\Auxiliary\Build\vcvars64.bat"
+          && python scripts/size_baseline.py --update
+        env:
           SIZE_BASELINE_OUT: ${{ runner.temp }}/size-${{ matrix.plat }}.json
 
       - name: 收集本平台读数
