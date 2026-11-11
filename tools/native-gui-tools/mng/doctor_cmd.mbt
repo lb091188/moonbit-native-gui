@@ -83,9 +83,9 @@ fn cmd_doctor(force~ : Bool = false) -> Int32 {
 
 ///|
 /// 裸 mng 在 ready 有效后的下一跳：让位给同目录的 mngui 向导。
-/// 返回 mngui 退出码；起不来（没装上/路径异常）返回 3，调用方回 usage。
-/// 退出码 3 同时是 mngui「无显示服务」的信号——两种都回落 usage。
-fn mngui_hop(argv0 : String) -> Int32 {
+/// 返回 (mngui 是否在位, 退出码)；「没装上」与「无显示服务」都回落 usage，
+/// 但前者要给安装提示——调用方按首位区分。
+fn mngui_hop(argv0 : String) -> (Bool, Int32) {
   let mut last = -1
   for i, c in argv0 {
     if c == '/' || c == '\\' {
@@ -93,7 +93,7 @@ fn mngui_hop(argv0 : String) -> Int32 {
     }
   }
   if last <= 0 {
-    return 3
+    return (false, 3)
   }
   let dir = argv0[0:last].to_owned()
   let exe = dir + "/mngui"
@@ -102,10 +102,10 @@ fn mngui_hop(argv0 : String) -> Int32 {
   } else if @fs.path_exists(exe + ".exe") {
     exe + ".exe"
   } else {
-    return 3
+    return (false, 3)
   }
   match @proc.spawn_wait(exe, [], "", 0x7fffffff) {
-    Ok(code) => code
-    Err(_) => 3
+    Ok(code) => (true, code)
+    Err(_) => (true, 3)
   }
 }

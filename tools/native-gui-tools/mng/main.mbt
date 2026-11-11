@@ -809,9 +809,17 @@ fn main {
       }
     }
     if !raw[0].contains("_build") {
-      let hop = mngui_hop(raw[0])
+      let (installed, hop) = mngui_hop(raw[0])
       if hop != 3 {
         @sys.exit(hop)
+      }
+      if !installed {
+        println(
+          tmsg(
+            "提示：GUI 向导 mngui 未安装——moon install ./tools/native-gui-tools/mngui",
+            "hint: GUI wizard mngui not installed — moon install ./tools/native-gui-tools/mngui",
+          ),
+        )
       }
     }
     usage()
