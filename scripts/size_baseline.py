@@ -15,6 +15,14 @@ import re
 import subprocess
 import sys
 
+# Windows 控制台默认 cp1252：读数/错误行是中文，直接 print 会抛
+# UnicodeEncodeError（与读 moon 输出同一类问题，读写两头都显式 UTF-8）。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, OSError):
+        pass
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BASELINE = os.path.join(ROOT, "tools", "size-baseline.json")
 EXAMPLES = ["hello", "showcase"]
