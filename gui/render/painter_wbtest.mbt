@@ -622,3 +622,24 @@ fn ref_circle_cover(
   }
   (hit.to_double() * 256.0) / 1024.0
 }
+
+///|
+test "文本批边界：end/flush 按整张位图过光栅前置闸" {
+  // 宿主打开文本帧级批后，批里存的是目标位图像素缓冲的裸指针。直绘临时
+  // 位图（测试/离屏导出）时必须在本会话结束前把批落到这张位图上，否则
+  // 位图释放后下一次冲刷会写进已释放的堆块（Windows 实测 0xc0000005）。
+  let calls : Array[(Int, Int, Int, Int)] = []
+  set_raster_gate(fn(x0 : Int, y0 : Int, x1 : Int, y1 : Int) -> Unit {
+    calls.push((x0, y0, x1, y1))
+  })
+  let p = Painter::new(Bitmap::new(5, 4))
+  p.flush()
+  p.end()
+  assert_eq(calls.length(), 2)
+  assert_eq(calls[0], (0, 0, 5, 4))
+  assert_eq(calls[1], (0, 0, 5, 4))
+  // 进程级单槽：还原成空动作，别影响同进程其它用例
+  set_raster_gate(fn(_x0 : Int, _y0 : Int, _x1 : Int, _y1 : Int) -> Unit {
+    ()
+  })
+}

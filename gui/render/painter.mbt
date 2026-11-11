@@ -168,6 +168,7 @@ pub fn Painter::new(bitmap : Bitmap) -> Painter {
 ///|
 /// 释放后端会话；之后所有绘制静默无效（可安全重复调用）。
 pub fn Painter::end(self : Painter) -> Unit {
+  self.flush_text_batch()
   match self.backend {
     Some(CairoBackend(c)) => {
       c.end()
@@ -185,9 +186,23 @@ pub fn Painter::end(self : Painter) -> Unit {
 /// 把后端数据刷回缓冲；与其它会话交替绘制同一块位图前调用
 /// （如直接对位图调 `text` 的绘制入口）。
 pub fn Painter::flush(self : Painter) -> Unit {
+  self.flush_text_batch()
   match self.backend {
     Some(CairoBackend(c)) => c.flush()
     _ => ()
+  }
+}
+
+///|
+/// 文本帧级批的落地边界：待批段落存的是目标位图像素缓冲的裸指针，会话
+/// 结束/显式 flush 后这张位图就可能释放。用整张位图矩形过一遍光栅前置闸
+/// （相交即冲，非 Windows 后端空操作），保证批不留在已释放的缓冲上——
+/// 宿主打开批之后，同一进程里再直绘临时位图（测试/离屏导出）时，少了
+/// 这一步下一次冲刷会写进已释放的堆块（Windows 实测 0xc0000005）。
+fn Painter::flush_text_batch(self : Painter) -> Unit {
+  match g_raster_gate.val {
+    Some(f) => f(0, 0, self.bitmap.width, self.bitmap.height)
+    None => ()
   }
 }
 
