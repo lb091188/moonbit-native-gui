@@ -24,9 +24,12 @@ test "AttributedText 选中几何：行盒连续覆盖、命中与游标往返" 
     Some(m) => "测量宽 \{m.width} 高 \{m.height}"
     None => "本平台无文本测量"
   }
+  let h = at.rt()
+  let n = rt_line_count(h, box_w, box_h)
+  rt_free(h)
   assert_true(
     boxes.length() >= 2,
-    msg="盒宽 200 没折出多行（行盒 \{boxes.length()} 行；\{probe_msg}）",
+    msg="盒宽 200 没折出多行（行盒 \{boxes.length()} 行；rt h=\{h} count=\{n}；\{probe_msg}）",
   )
   let mut acc = 0
   for b in boxes {
