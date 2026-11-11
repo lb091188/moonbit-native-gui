@@ -3951,3 +3951,10 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - 根因:把「信息查询」(vswhere 组件表)当成了「能力判定」。build.md §3 的口径本来就是「能过链接即通过」,gui/scripts/prebuild.py 同判据。
 - 修正:vswhere 只做快路(查到 VCTools 免探针直接过);查不到/无 vswhere 一律落构建探针——`~/.mng/doctor/probe/` 最小 hello 工程真跑 `moon -C … build --target native`,以成败为判据,失败指日志 `~/.mng/doctor/native-probe.log`。POSIX 同款探针作收尾必选项(cc/pkg-config 便宜且准,保留;探针管端到端)。mac 实测探针全链 ~1.6s(warm)。
 - 附带:winget 不普适(部分 Win10/LTSC 无),win 修复文案一律双路——winget 命令 + 官方安装器直链(VS BuildTools / python.org)。
+
+## mng doctor 落盘路径的 Windows 形态坑:Git Bash 的 HOME 与盘符 ensure_dir(2026-11-11,win 真机反馈第二轮)
+
+- 现象:win 真机 doctor 的 MSVC 项报 [!]「探针工程写盘失败」——探针工程根本没落下去,且该 [!] 当时仍放行了 ready(Warn 不拦),语义双错。
+- 两处根因:①Git Bash 会设 `HOME=/c/Users/…`(MSYS 形态),原生 fs 与子进程都不认;②doctor 的递归 ensure_dir 只认 `/` 开头,`USERPROFILE` 的 `C:\Users\…`(拼成 `C:/…`)被当相对路径拼成 `./C:/…` 建目录失败。
+- 修正:`home_dir` 按 win 优先 `USERPROFILE`;`ensure_dir` 认盘符(第二码元 `:` + 首码元 ASCII 字母,盘符段钉盘根);探针写盘失败从 Warn 改 Fail——「无法验证」不能放行 ready。
+- 教训:第一轮 win 复验把 [!] 误读成 ✓ 并记了「win 腿过」,下一轮截图复读才发现。真机结论必须逐字核对状态符号,不能凭「应该会过」的预期带过去。

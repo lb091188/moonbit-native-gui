@@ -21,7 +21,7 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 
 （2026-11-11 代码全合入：doctor 内核包（探针/结构化结果/递归建目录落日志）、`~/.mng/ready` 版本行读写、`mng doctor [-f]` 子命令与裸 mng 首跑分流、解析纯函数 wbtest。mac 本机已过 fresh 体检/ready 复跑一跳而过/裸 mng 二跑直 usage/中文档全链；**三平台真机复验未做**）
 
-- [ ] **真机复验**（用户执行）：三平台裸 mng 首跑 / 复跑 doctor 读数、`~/.mng/ready` 落盘与版本变更重检、`-f` 强制重检；linux 腿看 GTK 全缺时的修复行（**mac 腿 2026-11-11 过**：裸 mng 先体检后 usage、二跑一跳而过、`doctor -f` 重检全绿重盖 ready、中文档正常、含构建探针项；**win 腿 2026-11-11 过**：MSVC 构建探针判 ✓ 与实际可编译一致——vswhere 组件判定误报红已修（29116521），坑记 adaptation.md）
+- [ ] **真机复验**（用户执行）：三平台裸 mng 首跑 / 复跑 doctor 读数、`~/.mng/ready` 落盘与版本变更重检、`-f` 强制重检；linux 腿看 GTK 全缺时的修复行（**mac 腿 2026-11-11 过**：裸 mng 先体检后 usage、二跑一跳而过、`doctor -f` 重检全绿重盖 ready、中文档正常、含构建探针项）。**win 腿 2026-11-11 两轮未过、待第三轮**：第一轮 vswhere 组件判定误报红（29116521 改构建探针判）；第二轮 MSVC 项 [!] 探针工程写盘失败——落盘路径两坑（Git Bash HOME=/c/… 形态、ensure_dir 不认盘符）已修且探针写失败改拦 ready（本批），曾误记「win 腿过」已纠正；坑记 adaptation.md
 
 ## 打包与自动更新（2026-11-08 立项，方向见 [proposals/方向.md](proposals/方向.md) A1/A2/A3；一项一提交，做完删一项；先 CPU 光栅最小闭环，不绑 GPU 线）
 

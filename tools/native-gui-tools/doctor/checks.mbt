@@ -439,9 +439,10 @@ fn native_probe(log_dir : String, home : String) -> DItem {
     return ditem(
       id="probe",
       title~,
-      status=Warn,
+      status=Fail,
       detail=bi(
-        "探针工程写盘失败（~/.mng 目录权限？）", "failed writing probe project (~/.mng permissions?)",
+        "探针工程写盘失败（\{pdir} 建不出来：目录权限或路径形态问题）",
+        "failed writing probe project (cannot create \{pdir}: permissions or path form)",
       ),
     )
   }

@@ -15,15 +15,28 @@ pub fn host() -> String {
 }
 
 ///|
-/// 用户主目录：HOME → USERPROFILE → 空串（ready 与日志落到相对 .mng/ 下）。
+/// 用户主目录：win 优先 USERPROFILE（原生路径；Git Bash 的 HOME 是 `/c/…`
+/// 形态，原生 fs 与子进程都不认）；POSIX 走 HOME → USERPROFILE → 空串
+/// （ready 与日志落到相对 .mng/ 下）。
 pub fn home_dir() -> String {
-  match @env.get_env_var("HOME") {
-    Some(h) if h.length() > 0 => h
-    _ =>
-      match @env.get_env_var("USERPROFILE") {
-        Some(h) if h.length() > 0 => h
-        _ => ""
-      }
+  if host() == "win" {
+    match @env.get_env_var("USERPROFILE") {
+      Some(h) if h.length() > 0 => h
+      _ =>
+        match @env.get_env_var("HOME") {
+          Some(h) if h.length() > 0 => h
+          _ => ""
+        }
+    }
+  } else {
+    match @env.get_env_var("HOME") {
+      Some(h) if h.length() > 0 => h
+      _ =>
+        match @env.get_env_var("USERPROFILE") {
+          Some(h) if h.length() > 0 => h
+          _ => ""
+        }
+    }
   }
 }
 
@@ -40,16 +53,29 @@ fn mkdir_if_absent(dir : String) -> Unit {
 
 ///|
 /// 递归建目录：`@fs.create_dir` 不递归，父目录缺席会失败——探针日志与 ready
-/// 都要落到可能尚不存在的 `~/.mng/` 下。
+/// 都要落到可能尚不存在的 `~/.mng/` 下。绝对路径认两种形态：`/` 开头与
+/// Windows 盘符（`C:/Users/…`——盘符段钉在盘根，拼成 `./C:/…` 会建不出来）。
 fn ensure_dir(path : String) -> Unit {
   let ok = @fs.is_dir(path) catch { _ => false }
   if ok {
     return
   }
-  let mut acc = if path.has_prefix("/") { "" } else { "." }
+  // Windows 盘符判定：第二码元是 ':' 且首码元是 ASCII 字母
+  let is_drive = path.length() >= 2 &&
+    path[1] == ':' &&
+    ((path[0] >= 'a' && path[0] <= 'z') || (path[0] >= 'A' && path[0] <= 'Z'))
+  let mut acc = ""
   let mut start = 0
+  if path.has_prefix("/") {
+    acc = ""
+  } else if is_drive {
+    acc = path[0:2].to_owned()
+    start = 2
+  } else {
+    acc = "."
+  }
   let n = path.length()
-  let mut i = 0
+  let mut i = start
   while i < n {
     if path[i] == '/' {
       if i > start {
