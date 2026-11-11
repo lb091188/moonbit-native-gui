@@ -410,45 +410,56 @@ jobs:
           && moon build mng --target native --release
 
       # 只在失败时跑：Windows 白盒测试 exe 以 0xc0000005 退出时拿到崩溃现场。
-      # 不能在调试器里跑（实测 cdb 下复现不出来），所以走 WER LocalDumps：
-      # 不带调试器跑一遍留下转储，再用 cdb 离线看栈。
+      # 不能在调试器里跑（实测 cdb 下复现不出来），也不能只跑单条用例（同进程
+      # 前面用例留下的状态才是触发条件）。用 procdump 守株待兔：先挂上等待
+      # `ui.whitebox_test.exe` 启动，再让 moon 起整套用例，崩溃瞬间落全转储。
       - name: "诊断(仅失败时): Windows 白盒测试崩溃转储"
         if: failure()
         shell: pwsh
         run: |
-          # 用完整的 `moon test ui` 复现（单条用例在调试器/单独进程里不复现——
-          # 崩溃依赖同进程里前面用例留下的状态/堆布局，且要保留 moon 的管道输出）。
           $exe = Join-Path $PWD "_build\native\debug\test\NoahLiu\native-gui\ui\ui.whitebox_test.exe"
           if (-not (Test-Path $exe)) { Write-Host "没有测试 exe，跳过"; exit 0 }
-          # 1) WER LocalDumps 抓 dump（不带调试器，时序与主门禁一致）
-          $dumpDir = "$env:RUNNER_TEMP\crashdumps"
-          New-Item -ItemType Directory -Force $dumpDir | Out-Null
-          $key = "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\ui.whitebox_test.exe"
-          New-Item -Path $key -Force | Out-Null
-          New-ItemProperty -Path $key -Name DumpFolder -PropertyType ExpandString -Value $dumpDir -Force | Out-Null
-          New-ItemProperty -Path $key -Name DumpType -PropertyType DWord -Value 2 -Force | Out-Null
+          # 1) 先看整包跑一遍的日志尾部（与主门禁同形）
           Push-Location gui
           moon test ui *> "$env:RUNNER_TEMP\mt_ui_plain.log"
-          Write-Host "moon test ui exit=$LASTEXITCODE（日志见 mt_ui_plain.log）"
-          Get-Content "$env:RUNNER_TEMP\mt_ui_plain.log" -Tail 6
+          Write-Host "moon test ui exit=$LASTEXITCODE"
+          Get-Content "$env:RUNNER_TEMP\mt_ui_plain.log" -Tail 8
           Pop-Location
-          Start-Sleep -Seconds 3
-          Get-ChildItem $dumpDir -ErrorAction SilentlyContinue | Format-Table Name, Length
-          # 2) 页堆：若退出即崩是堆损坏，页堆会把现场提前到出错的那次访问
-          $gflags = Get-ChildItem "C:\Program Files*\Windows Kits\*\Debuggers\x64\gflags.exe" -ErrorAction SilentlyContinue |
+          # 2) 页堆：若是堆损坏，页堆把现场提前到出错的那次访问
+          $gflags = Get-ChildItem "C:\Program Files*\Windows Kits*\*\gflags.exe" -ErrorAction SilentlyContinue |
             Select-Object -First 1
           if ($gflags) {
             & $gflags.FullName /p /enable $exe /full | Out-Null
             Push-Location gui
             moon test ui *> "$env:RUNNER_TEMP\mt_ui_pageheap.log"
             Write-Host "pageheap moon test ui exit=$LASTEXITCODE"
+            Get-Content "$env:RUNNER_TEMP\mt_ui_pageheap.log" -Tail 8
             Pop-Location
             & $gflags.FullName /p /disable $exe | Out-Null
-            Start-Sleep -Seconds 3
-            Get-ChildItem $dumpDir -ErrorAction SilentlyContinue | Format-Table Name, Length
           }
-          # 3) 离线分析最近两个 dump
-          $cdb = Get-ChildItem "C:\Program Files*\Windows Kits\*\Debuggers\x64\cdb.exe" -ErrorAction SilentlyContinue |
+          # 3) procdump 守候：等 exe 启动并在未处理异常时写全转储
+          $pdDir = "$env:RUNNER_TEMP\procdump"
+          New-Item -ItemType Directory -Force $pdDir | Out-Null
+          $zip = "$env:RUNNER_TEMP\procdump.zip"
+          Invoke-WebRequest -Uri "https://download.sysinternals.com/files/Procdump.zip" -OutFile $zip
+          Expand-Archive $zip $pdDir -Force
+          $pd = Join-Path $pdDir "procdump64.exe"
+          if (-not (Test-Path $pd)) { $pd = (Get-ChildItem $pdDir -Filter "procdump*.exe" | Select-Object -First 1).FullName }
+          $dumpDir = "$env:RUNNER_TEMP\crashdumps"
+          New-Item -ItemType Directory -Force $dumpDir | Out-Null
+          $watcher = Start-Process -FilePath $pd `
+            -ArgumentList @("-accepteula", "-ma", "-e", "-w", "ui.whitebox_test.exe") `
+            -WorkingDirectory $dumpDir `
+            -PassThru -NoNewWindow -RedirectStandardOutput "$env:RUNNER_TEMP\procdump.log"
+          Start-Sleep -Seconds 2
+          Push-Location "$env:GITHUB_WORKSPACE\gui"
+          moon test ui *> "$env:RUNNER_TEMP\mt_ui_dump.log"
+          Write-Host "dump-run moon test ui exit=$LASTEXITCODE"
+          Pop-Location
+          Wait-Process -Id $watcher.Id -Timeout 120 -ErrorAction SilentlyContinue
+          Get-Content "$env:RUNNER_TEMP\procdump.log" -Tail 10 -ErrorAction SilentlyContinue
+          # 4) 离线分析
+          $cdb = Get-ChildItem "C:\Program Files*\Windows Kits\*\cdb.exe" -ErrorAction SilentlyContinue |
             Select-Object -First 1
           $dumps = Get-ChildItem $dumpDir -Filter *.dmp -ErrorAction SilentlyContinue |
             Sort-Object LastWriteTime | Select-Object -Last 2
