@@ -1077,10 +1077,16 @@ test "选中档：逐字边缘是前缀实测量（kerning 混排也精确落边
       max_gap = gap
     }
   }
-  assert_true(
-    max_gap > 0.4,
-    msg="本用例对旧口径无分辨力（最大差 \{max_gap}px）",
-  )
+  // 牙齿有平台前提：旧口径与真值的差来自联合排版与逐字累加的不同（kerning /
+  // shaping）。平台字体没有这层差时（CI 的 Linux runner 实测联合宽 == 逐字
+  // 和，差 0px），两种口径本就同值，无法也无需要求可分辨；此时下面的
+  // 字节精确落点仍然照测。存在 shaping 差却抓不出回退才是真问题。
+  if (joint - sum_per).abs() > 0.4 {
+    assert_true(
+      max_gap > 0.4,
+      msg="本用例对旧口径无分辨力（最大差 \{max_gap}px）",
+    )
+  }
   // 逐边界精确落点：第 j 个字左缘 +0.5px 处点击，落点必须精确是该边界
   let y = label.rect.y + 1.0
   let mut bj = 0
