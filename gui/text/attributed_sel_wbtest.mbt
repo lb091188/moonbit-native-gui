@@ -18,18 +18,9 @@ test "AttributedText 选中几何：行盒连续覆盖、命中与游标往返" 
   let total = rt_byte_len("Hello 富文本 World，再来一段足够长的中文用来把这一段在盒宽里折成多行显示。")
   // 行盒：折成多行，字节区间连续覆盖 [0, total)
   let boxes = at.line_boxes(box_w, box_h)
-  // 失败信息带上同平台的测量口径，区分「引擎没折行」与「行盒查询没取到」
-  let probe = measure_font(at.text, Font::new("", 14.0), max_width=200, wrap=true)
-  let probe_msg = match probe {
-    Some(m) => "测量宽 \{m.width} 高 \{m.height}"
-    None => "本平台无文本测量"
-  }
-  let h = at.rt()
-  let n = rt_line_count(h, box_w, box_h)
-  rt_free(h)
   assert_true(
     boxes.length() >= 2,
-    msg="盒宽 200 没折出多行（行盒 \{boxes.length()} 行；rt h=\{h} count=\{n}；\{probe_msg}）",
+    msg="盒宽 200 没折出多行（行盒 \{boxes.length()} 行）",
   )
   let mut acc = 0
   for b in boxes {
