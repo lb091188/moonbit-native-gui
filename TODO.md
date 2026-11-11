@@ -21,6 +21,13 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 
 （2026-11-11 代码全合入 + 三平台真机全过，本段收口归档——**mac 腿**：裸 mng 先体检后 usage、二跑一跳而过、`doctor -f` 重检全绿重盖 ready、中文档正常、含构建探针项；**win 腿三轮**：①vswhere 组件判定误报红→改构建探针判（29116521）②探针写盘失败 [!]→落盘路径两坑修 + 探针写失败改拦 ready（014a29a5）③用户确认全绿；**linux 腿**：2026-11-11 用户确认过（GTK/修复行读数正常）。坑记 adaptation.md）
 
+## prebuild 去 py：移植 prebuild.mbtx（2026-11-11 探针定案可做，见 adaptation.md「moon prebuild 钩子去 py 探针」；一项一提交，做完删一项）
+
+- [ ] **gui/scripts/prebuild.mbtx**：prebuild.py（407 行，pkg-config 探测 + 编 stub 静态库 + link_configs JSON）移植为 MoonBit——`----` 围栏 frontmatter、stdout 单 JSON 协议（调试走 stderr）、async/shell spawn cc/pkg-config、缓存语义对齐（MOON_BUILD_DIR 持久跨构建）
+- [ ] **gui/moon.mod 切换 + py 脚本退役**：`--moonbit-unstable-prebuild` 指 mbtx，`python3` 从 docs/zh/guide/build.md 依赖清单与 doctor 的 Python 必选项中退役（doctor 改可选提示）
+- [ ] **gui-media / gui-gpu 的 prebuild 探**：确认是否含归档下载（HTTP）；含则评估 mbtx 网络能力或下载前移 mng
+- [ ] **真机复验**（用户执行）：三平台无 python 环境（PATH 摘除）`moon build` 各示例过链接；CI 三腿绿
+
 ## mng 全入口 P1：mngui 向导壳（2026-11-11 动手，分期见 roadmap「已规划 · 开发体验」；一项一提交，做完删一项）
 
 - [x] **scaffold 内核化**：`@scaffold` 事件回调（f689452c），mng 留渲染层

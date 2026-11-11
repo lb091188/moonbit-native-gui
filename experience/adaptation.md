@@ -3958,3 +3958,13 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - 两处根因:①Git Bash 会设 `HOME=/c/Users/…`(MSYS 形态),原生 fs 与子进程都不认;②doctor 的递归 ensure_dir 只认 `/` 开头,`USERPROFILE` 的 `C:\Users\…`(拼成 `C:/…`)被当相对路径拼成 `./C:/…` 建目录失败。
 - 修正:`home_dir` 按 win 优先 `USERPROFILE`;`ensure_dir` 认盘符(第二码元 `:` + 首码元 ASCII 字母,盘符段钉盘根);探针写盘失败从 Warn 改 Fail——「无法验证」不能放行 ready。
 - 教训:第一轮 win 复验把 [!] 误读成 ✓ 并记了「win 腿过」,下一轮截图复读才发现。真机结论必须逐字核对状态符号,不能凭「应该会过」的预期带过去。
+
+## moon prebuild 钩子去 py 探针:mbtx 路线成立(2026-11-11,mac 本机探针)
+
+- 背景:`--moonbit-unstable-prebuild`(gui/gui-media/gui-gpu 三处 py 脚本)是应用开发者被强绑 Python 3 的根因。钩子按扩展名锁运行器——`.js/.cjs/.mjs`→node、`.py`→python、`.mbtx`→编译 wasm 用 moonrun,没有任意可执行的口子;**mbtx 是去 py 的正门**。
+- 探针定案(官方参考 moonbitlang/moon docs/dev/reference/prebuild.md + /tmp 微模块实测):
+  1. `.mbtx` frontmatter 必须用 `----`(三连字符及以上)围栏,内含 `import {}` 与可选 `permission(...)`(moon.pkg 文法);裸 import 块在 prebuild 语境不行(脚本模式可以)。
+  2. **stdout 协议**:必须恰好输出一个构建配置 JSON(`vars`/`link_configs`/`rerun_if` 可选字段);诊断一律走 stderr——println 调试输出会让 moon 报「failed to deserialize prebuild script / expected value at line 1 column 1」,这个报错指脚本的 stdout 而非文件本身,极易误判为格式问题。
+  3. 环境变量齐备:MOON_MOD / MOON_BUILD_DIR(输出目录,moon 预建,持久跨构建) / MOON_HOST_OS / MOON_HOST_ARCH / MOON_BACKEND / MOON_PROFILE / MOON_JOBS。
+  4. 能力实测:进程 spawn(async/shell 跑 /usr/bin/touch)✓、写 MOON_BUILD_DIR ✓——prebuild.py 的全部动作(pkg-config 探测、编 stub 静态库、拼 link_flags)都在能力面内;gui/scripts/prebuild.py 407 行纯 spawn+文件+JSON,无网络依赖。
+- 结论:gui 三处 prebuild 可整体移植为 prebuild.mbtx,应用开发者不再需要 Python 3;归档下载类 prebuild(gui-media/gui-gpu 的 ffmpeg/wgpu)是否含 HTTP 待移植时探,必要时下载逻辑前移 mng。win/linux 腿随移植批验证(mbtx 是 wasm+moonrun,平台差异面小)。
