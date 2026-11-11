@@ -103,6 +103,7 @@ moon run cmd/main
 
 ```sh
 moon install ./tools/native-gui-tools/mng
+moon install ./tools/native-gui-tools/mngui   # GUI 向导（裸 mng 自动拉起）
 mng --version   # 应打印 mng 0.2.11 与 mng-schema 1
 ```
 
