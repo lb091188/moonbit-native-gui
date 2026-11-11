@@ -3968,3 +3968,11 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
   3. 环境变量齐备:MOON_MOD / MOON_BUILD_DIR(输出目录,moon 预建,持久跨构建) / MOON_HOST_OS / MOON_HOST_ARCH / MOON_BACKEND / MOON_PROFILE / MOON_JOBS。
   4. 能力实测:进程 spawn(async/shell 跑 /usr/bin/touch)✓、写 MOON_BUILD_DIR ✓——prebuild.py 的全部动作(pkg-config 探测、编 stub 静态库、拼 link_flags)都在能力面内;gui/scripts/prebuild.py 407 行纯 spawn+文件+JSON,无网络依赖。
 - 结论:gui 三处 prebuild 可整体移植为 prebuild.mbtx,应用开发者不再需要 Python 3;归档下载类 prebuild(gui-media/gui-gpu 的 ffmpeg/wgpu)是否含 HTTP 待移植时探,必要时下载逻辑前移 mng。win/linux 腿随移植批验证(mbtx 是 wasm+moonrun,平台差异面小)。
+
+## prebuild.py → prebuild.mbtx 移植坑(2026-11-11,mac 对拍实证)
+
+- **编译参数必须在源文件之前**:`cc -c … src.c -x objective-c …` 里 `-x` 只作用于其后的输入,落在源后面等于没给,ObjC 桩按 C 编报 `@protocol` 语法错——py 版参数序是 flags 在前,移植时要保持。症状有迷惑性:错误是「ObjC 语法错」而不是「flag 无效」。
+- **全局常量**:mbtx 里 `let` 不收全大写名(编译器提示用 `const`),`const` 又只收不可变原始类型不收数组——数组全局用小写 `let` + 类型标注。
+- **async 无 await**:MoonBit 没有 await 关键字,async fn 里裸调即可(skill 有载,从 py 翻译时容易顺手写出)。
+- **stdout 纪律**:prebuild 协议要求 stdout 恰好一个 JSON,任何 println 调试输出都会变成「failed to deserialize prebuild script / expected value at line 1 column 1」——报错指向脚本 stdout 而非文件,极易误判;诊断一律 `@stdio.stderr.write`。
+- 对拍口径:同机跑 py 与 mbtx,归一化 -L 路径后逐字段 diff(包名/flags/库文件/框架清单);mac 四条目 ALL-MATCH,hello 端到端链接过,二次构建 0.3s(stamp 命中)。
