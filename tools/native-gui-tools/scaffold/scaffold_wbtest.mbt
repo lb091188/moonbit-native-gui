@@ -54,7 +54,19 @@ test "icon_step：源缺失给 Err、全链过写 assets 并接线 mng.toml" {
 ///|
 /// 测试残留清理：递归删目录。
 fn tmp_dir(tag : String) -> String {
-  ".scaf-wbtest-" + tag
+  let mut base = ""
+  for k in ["TMPDIR", "TEMP", "TMP"] {
+    if base == "" {
+      match @env.get_env_var(k) {
+        Some(v) if v != "" => base = v
+        _ => ()
+      }
+    }
+  }
+  if base == "" {
+    base = "/tmp"
+  }
+  base + "/scaf_wbtest_" + tag
 }
 
 ///|

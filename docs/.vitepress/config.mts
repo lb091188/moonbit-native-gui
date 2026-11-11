@@ -80,6 +80,14 @@ const zhGuideSidebar = [
     items: [
       { text: '布局样式', link: '/zh/guide/layout' },
       { text: '声明式与响应式', link: '/zh/guide/declarative' },
+      { text: '单文件组件（.mng）', link: '/zh/guide/sfc' },
+    ],
+  },
+  {
+    text: '工具链',
+    items: [
+      { text: 'mng 命令与配置', link: '/zh/guide/mng' },
+      { text: '热更与编辑器', link: '/zh/guide/mng-dev' },
     ],
   },
   {
@@ -186,6 +194,14 @@ const enGuideSidebar = [
     items: [
       { text: 'Layout & styling', link: '/guide/layout' },
       { text: 'Declarative & reactivity', link: '/guide/declarative' },
+      { text: 'Single-file components (.mng)', link: '/guide/sfc' },
+    ],
+  },
+  {
+    text: 'Toolchain',
+    items: [
+      { text: 'mng commands & config', link: '/guide/mng' },
+      { text: 'Hot reload & editor', link: '/guide/mng-dev' },
     ],
   },
   {

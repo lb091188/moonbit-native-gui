@@ -95,88 +95,47 @@ moon run cmd/main
 
 ## 4. 单文件组件（.mng）
 
-界面用声明式模板写、状态与逻辑用 MoonBit 写，两段合在一个 `.mng` 文件里，由 `mng` 工具预编译成 `.mbt` 再走 `moon build`——`moon check` 仍是唯一类型门禁。完整语义见 `proposals/native-template.md`；可跑的最小示例在 `examples/template-hello`。
+界面用声明式模板写、状态与逻辑用 MoonBit 写，两段合在一个 `.mng` 文件里，由 `mng` 工具预编译成 `.mbt` 再走 `moon build`——`moon check` 仍是唯一类型门禁。可跑的最小示例在 `examples/template-hello`。
 
 ### 装
 
-仓库根执行（工具随本仓分发）：
+仓库根执行（`moon install` 按**可执行包**逐个装）：
 
 ```sh
 moon install ./tools/native-gui-tools/mng
 moon install ./tools/native-gui-tools/mngui   # GUI 向导（裸 mng 自动拉起）
-mng --version   # 应打印 mng 0.2.11 与 mng-schema 1
+mng --version   # 应打印 mng 版本与 mng-schema 位
 ```
 
-命令面提示与错误随 `LC_ALL` / `LC_MESSAGES` / `LANG` 中英切换（`zh` 前缀走中文）；环境变量缺席时读系统 UI 语言（Windows），仍未知则缺省中文；`dev` 运行期 watch 日志与编译器诊断恒为中文。
+裸敲 `mng`：首跑自动做一轮环境体检（moon / Python / 编译器 / GTK，末尾真编译一个 hello 工程探针），全绿写 `~/.mng/ready` 并拉起 GUI 向导；之后裸 mng 直达向导。命令面提示中英随 locale。
 
-编辑器体验装 VS Code 扩展 `tools/vscode-mng`（着色/补全/hover/跳转/诊断，保存即跑 `moon check`、类型错误回投 Problems，见其 README）。
+### 起与改
 
-### 起
+- **从零起工程**：`mng new my_app`（或向导里点出来）——`cd my_app && moon run .` 或 `mng dev`。
+- **既有工程加一页**：`mng new page pages/about`；**接模板**：`mng init` 写 `mng.toml`。
+- **热更循环**：`mng dev` 起应用后改 `.mng` 保存——结构/样式/受限表达式亚秒 HOT，script / v-for 行模板 / 新符号 COLD 重启并自动回到改动页。
 
-- **从零起工程**：`mng new my_app`（在 native-gui workspace 内生成时依赖版本现读；显式写法 `mng new app my_app`）生成可跑最小工程——`cd my_app && moon run .`。
-- **既有工程加一页**：`mng new page pages/about` 生成单页 `.mng` 样板（父目录不存在会现建）。
-- **既有工程接模板**：`mng init` 写 `mng.toml`。
-
-### 页面长什么样
+页面长这样：
 
 ```html
 <script>
 let count : @base.Store[Int] = @base.Store::new(0)
-let name : @base.Store[String] = @base.Store::new("")
-
-fn reset() {
-  count.set(0)
-  name.set("")
-}
+fn reset() { count.set(0) }
 </script>
 <template>
   <ui-col class="page">
-    <ui-input v-model="name" placeholder="你的名字" width="220.0" />
-    你好, {{ name }}！
     <ui-stepper v-model="count" max="10" />
     计数: {{ count }}
     <ui-button text="重置" @click="reset" />
   </ui-col>
 </template>
 <style>
-  .page { padding: 24px; row-gap: 8px; align-items: center; }
+.page { padding: 24px; row-gap: 8px; align-items: center; }
 </style>
 ```
 
-要点：
+**深入**：完整文法（指令集 / 组件 props / `<style>` 章 / 生成码纪律）见[单文件组件（.mng）](./sfc)；命令参考与 `mng.toml` 全键表见 [mng 命令与配置](./mng)；热更分类与 VS Code 扩展见[热更与编辑器](./mng-dev)。编辑器体验装 VS Code 扩展 `tools/vscode-mng`（着色/补全/hover/跳转/诊断回投模板行列，见其 README）。
 
-- 指令集：插值 `{{ }}`、`:attr` 动态属性、`@event` 事件、`v-model`（直传 Store）、`v-if`/`v-else-if`/`v-else`、`v-show`、`v-for`（源须 `@base.ListStore` keyed，建议 `:key="it.id"`）；单根模板。
-- 组件标签：`ui-*` 内置表；同包组件写 `fn 组件名` 直接用；跨包 `let 组件名 = @包.函数`。
-- 带参组件：script 首个只有签名没有函数体的 `fn` 头就是 props（必填走位置参、可选 `名? : 类型 = 默认值`）。
-- 样式进 `<style>` 段（类选择器 + `var(--令牌)` + 交互态/深浅档）；模板属性里写样式字面量会编译报错——必须进 `<style>` 或 `class`。
-- 表达式是 MoonBit 原样拼接：字符串拼接用插值 `"\{x}"` 或 `{{ }}`，不要写 `"a" + 1`。
-
-### dev / build
-
-- `mng init` 在模块根写 `mng.toml`（templates / build / run / app-id / theme）；`mng dev` / `mng build` 无参时向上找它，找不到按 `moon.mod`/`moon.work` 推默认。
-- `mng dev`：watch 全工程模板 + 工程源文件（`.mbt`/`moon.pkg`/`moon.mod`/`moon.work`）+ 主题文件；首轮生成 dev 形态 `<stem>.gen.mbt` 到模板同包并起应用。改动分类：结构/类/样式值/受限表达式亚秒 HOT；script、v-for 行模板、新符号回 COLD 重启并自动回到改动页；运行中新增 `.mng` 自动生成并入构建，删除会清（或提示）生成码。热更面在库包 `@mngdev`——模板所在包 `moon.pkg` 加一行 `import "NoahLiu/native-gui/mngdev" @mngdev` 即可（`mng new` 生成时已写好），应用不再复制任何 dev 面 `.mbt`。
-- `mng build`：无参按 `mng.toml` 生成全工程**生产形态**生成码（零 dev 痕迹）；`mng build <input> -o <out>` 编译单文件。dev 与生产形态共用同一条 `<stem>.gen.mbt`，会互相覆盖——提交前选一种并保持一致（CI 对两形态各比一遍，匹配任一即过）。
-
-### 生成码怎么接
-
-生成码落模板同包：`<stem>.gen.mbt` 提供 `pub fn <stem>() -> @widget.Node`，像普通函数一样接进路由或窗口：
-
-```moonbit
-@ui.mount_window([hello()], title="Template Hello", width=420, height=360)
-```
-
-生成码建议提交仓库（消费者零工具链依赖）；它带 `// GENERATED … DO NOT EDIT` 头，别手改——改了模板重新生成即可。
-
-### 常见错误
-
-| 现象 | 原因与处置 |
-|---|---|
-| `v-for 源须是 @base.ListStore` | 源给了 Store/Signal 或普通变量——列表用 `let rows : @base.ListStore[T] = @base.ListStore::new()` |
-| `v-for 与 v-if 不写在同一元素` | 用容器隔开（外层 v-if 包 v-for，或行内 v-if） |
-| `String + Int` 之类的类型错 | 表达式原样拼接——拼接用 `{{ }}` 插值或 `"\{x}"`，MoonBit 的 `+` 不拼非串 |
-| `moon check` 报生成码与重生成不一致 | 生成码与模板不同步——重跑 `mng dev`（dev 形态）或 `mng build`（生产形态）再提交 |
-| 同包生成函数冲突 | 两个 `.mng` 撞名（生成函数名取文件 stem）——改文件名 |
-| HOT 没生效走了 COLD | v-for 行模板 / script / 新符号本来就走 COLD；日志 `[HOT→COLD]` 带原因 |
 
 ## 5. 内建 Inspector（调试界面）
 

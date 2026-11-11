@@ -11,6 +11,9 @@ native-gui 是什么见[首页](/zh/)。站内结构与顶部导航一致，按�
 | [上手体验](guide/tutorial.md) | 建工程、做出第一扇带点击计数的窗口；工程机制、单文件组件（.mng）、调试面板与常见卡点 |
 | [布局样式](guide/layout.md) | Flexbox 布局口径与 `@style` 的 `Style` 字段集、`class` 通道 |
 | [声明式与响应式](guide/declarative.md) | 节点树与 `mount_window`、`Store` / `Signal`、`for_list` / `when`、原位替换 |
+| [单文件组件（.mng）](guide/sfc.md) | `.mng` 文法全解：指令集、组件 props、`<style>` 章、生成码纪律、常见错误 |
+| [mng 命令与配置](guide/mng.md) | 安装、裸 mng 状态机、命令参考、`mng.toml` 全键表、doctor 体检 |
+| [热更与编辑器](guide/mng-dev.md) | `mng dev` 循环与 HOT/COLD 分类、状态保活、@mngdev 接入、VS Code 扩展 |
 
 ## 场景速查
 

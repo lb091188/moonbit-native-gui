@@ -11,6 +11,9 @@ For what native-gui is, see the [home page](/). The site structure mirrors the t
 | [Getting started](guide/tutorial.md) | Create a project and build your first window with a click counter; project mechanics, single-file components (.mng), the Inspector, and a blockers table |
 | [Layout & styling](guide/layout.md) | Flexbox semantics and the `Style` field set of `@style`, plus the `class` channel |
 | [Declarative & reactivity](guide/declarative.md) | The node tree and `mount_window`, `Store` / `Signal`, `for_list` / `when`, in-place replacement |
+| [Single-file components (.mng)](guide/sfc.md) | The full `.mng` grammar: directives, component props, the `<style>` section, generated-code discipline, common errors |
+| [mng commands & config](guide/mng.md) | Installation, the bare-`mng` state machine, command reference, the full `mng.toml` key tables, doctor health check |
+| [Hot reload & editor](guide/mng-dev.md) | The `mng dev` loop and HOT/COLD classification, state preservation, @mngdev wiring, the VS Code extension |
 
 ## How-to cookbook
 
