@@ -23,5 +23,5 @@ import {
 
 options(
   homepage: "https://github.com/lb091188/moonbit-native-gui",
-  "--moonbit-unstable-prebuild": "scripts/prebuild.py",
+  "--moonbit-unstable-prebuild": "scripts/prebuild.mbtx",
 )

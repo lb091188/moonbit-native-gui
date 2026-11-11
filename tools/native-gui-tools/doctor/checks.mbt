@@ -89,7 +89,7 @@ fn probe_python(log_dir : String, id : String, cmd : String) -> DItem? {
               ditem(
                 id~,
                 title=bi(
-                  "Python 3（prebuild 必需）", "Python 3 (required by prebuild)",
+                  "Python（可选，构建已不再依赖）", "Python (optional, no longer a build dependency)",
                 ),
                 status=Ok,
                 detail=bi(line, line),
@@ -100,7 +100,7 @@ fn probe_python(log_dir : String, id : String, cmd : String) -> DItem? {
               ditem(
                 id~,
                 title=bi(
-                  "Python 3（prebuild 必需）", "Python 3 (required by prebuild)",
+                  "Python（可选，构建已不再依赖）", "Python (optional, no longer a build dependency)",
                 ),
                 status=Fail,
                 detail=bi("\{line}，低于 3.7", "\{line}, below 3.7"),
@@ -119,7 +119,7 @@ fn probe_python(log_dir : String, id : String, cmd : String) -> DItem? {
             ditem(
               id~,
               title=bi(
-                "Python 3（prebuild 必需）", "Python 3 (required by prebuild)",
+                "Python（可选，构建已不再依赖）", "Python (optional, no longer a build dependency)",
               ),
               status=Warn,
               detail=bi(
@@ -135,7 +135,7 @@ fn probe_python(log_dir : String, id : String, cmd : String) -> DItem? {
         ditem(
           id~,
           title=bi(
-            "Python 3（prebuild 必需）", "Python 3 (required by prebuild)",
+            "Python（可选，构建已不再依赖）", "Python (optional, no longer a build dependency)",
           ),
           status=Warn,
           detail=bi(
@@ -157,7 +157,7 @@ fn python_item(
 ) -> DItem {
   ditem(
     id~,
-    title=bi("Python 3（prebuild 必需）", "Python 3 (required by prebuild)"),
+    title=bi("Python（可选，构建已不再依赖）", "Python (optional, no longer a build dependency)"),
     status~,
     detail~,
     fix~,
@@ -242,12 +242,12 @@ fn check_python(platform : String, log_dir : String) -> DItem {
                         "python3",
                         Fail,
                         bi(
-                          "python 别名是 \{amaj}.\{amin}——moon 优先拿它跑 prebuild，2.x 会整次构建起手就红",
-                          "python alias is \{amaj}.\{amin}; moon prefers it for prebuild and 2.x breaks the build",
+                          "python 别名是 \{amaj}.\{amin}（历史遗留：旧版 prebuild 依赖它，现已无影响）",
+                          "python alias is \{amaj}.\{amin} (legacy: old prebuild depended on it, no longer matters)",
                         ),
                         fix=bi(
-                          "把 python 指向 python3（docs/zh/guide/build.md §6 第一行）",
-                          "Point python to python3 (build guide, section 6 first row)",
+                          "无需处理；要清爽可把 python 别名指向 python3",
+                          "No action needed; optionally point python to python3",
                         ),
                       )
                     }

@@ -15,7 +15,7 @@ irm https://cli.moonbitlang.com/install/powershell.ps1 | iex
 
 ## 2. 装开发依赖
 
-库走原生 FFI，构建期要四样：**C 工具链、pkg-config、Python 3（≥3.7）、Linux 上的 GTK3 / Pango / FontConfig / X11 开发包**。Python 3 不是可选依赖——链接参数由 `gui/scripts/prebuild.py` 产出，moon 构建 native 目标时执行它（谁去执行它见 §6 第一条）。
+库走原生 FFI，构建期要三样：**C 工具链、pkg-config、Linux 上的 GTK3 / Pango / FontConfig / X11 开发包**。2026-11-11 起链接预构建已移植为 MoonBit 脚本（`gui/scripts/prebuild.mbtx`），构建**不再需要 Python**（旧 prebuild.py 时代它是必需依赖）。注意：可选模块 `gui-media` / `gui-gpu` 的 prebuild 仍是 Python（含归档下载），要构建它们暂还需 python3——移植后同步解除。
 
 ### Linux（Debian / Ubuntu 系）
 
@@ -28,13 +28,13 @@ sudo apt install build-essential pkg-config python3 \
 
 **C++ 编译器也在必需之列**：`gui/text/dwrite_text.cpp` 在**每个平台**都要过一遍编译（非 Windows 平台编成空翻译单元，防与归档双定义），所以 `build-essential` 得真把 g++ 装上——机器上只有 gcc 时报的是 `cc: error trying to exec 'cc1plus'`，补 `sudo apt install g++` 即可。
 
-⚠️ **`python` 这个命令本身必须是 Python 3**。deepin 20、CentOS 7 一类机器上 `/usr/bin/python` 还是 2.7，moon 会优先拿它跑 prebuild，脚本开头的中文注释直接触发 `SyntaxError: Non-ASCII character ... pep-0263`，整次 native 构建起手就红。两条修法见 §6 第一行。
+（历史坑，已解除）旧 prebuild 是 Python 脚本时，`python` 指向 2.7 的机器会让构建起手就红；prebuild 已 mbtx 化，本条仅存档。
 
 ### 低版本发行版（deepin 20 / Debian 10 基线）——不承诺支持
 
 这一档我们**不测也不保**（墙在最后一条），但踩坑记录留在这里给自救用：
 
-- **解释器**：`python` 指向 2.7 时按 §6 第一行换成 3；本库的 prebuild 脚本按 **Python 3.7 口径**写（f-string、`subprocess.run(capture_output=)`、`Path` 为止，不用 `missing_ok` / `dirs_exist_ok` / 海象这类更新的面），3.7.3 上实测五个脚本全过。
+- **解释器**：~~`python` 指向 2.7 时按 §6 第一行换成 3~~ 已随 prebuild mbtx 化解除，构建不再调 Python。
 - **C++ 编译器是硬前置**：`gui/text/dwrite_text.cpp` 三平台都要编，缺 g++ 报 `cc1plus`。
 - **开发包**：Debian 10 基线的 apt 包名与上面那份清单同名可装（GTK 3.24 / Pango 1.42）。
 - **两处能力会降级**：内嵌 WebView 探 `webkit2gtk-4.1`，Debian 10 只有 4.0 → 退占位实现；媒体模块要的系统 ffmpeg 版本偏旧，未实测。
@@ -65,7 +65,6 @@ moon 在 Windows 上定位 MSVC **开箱即用**，普通 PowerShell / Git Bash 
 
 ```sh
 moon version --all                 # 三件套配套
-python -V && python3 -V            # 两条都必须是 3.x（≥3.7），第一条尤其
 pkg-config --modversion gtk+-3.0   # Linux：打出版本号 = 开发包齐
 cc --version                       # Linux / macOS：C 工具链在位
 ```

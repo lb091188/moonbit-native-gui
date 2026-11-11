@@ -106,8 +106,8 @@ fn usage() -> Unit {
     "  init", "在模块根写 mng.toml 样板", "Write an mng.toml sample at module root",
   )
   usage_line(
-    "  doctor [-f]", "环境体检（moon/Python/编译器/GTK）；全绿写 ~/.mng/ready，-f 强制重检",
-    "Environment health check (moon/Python/compilers/GTK); writes ~/.mng/ready when green, -f forces re-check",
+    "  doctor [-f]", "环境体检（moon/编译器/GTK；Python 为可选提示）；全绿写 ~/.mng/ready，-f 强制重检",
+    "Environment health check (moon/compilers/GTK; Python is an optional hint); writes ~/.mng/ready when green, -f forces re-check",
   )
   usage_line(
     "  --version", "版本与 mng-schema 位", "Version and mng-schema bit",
@@ -143,8 +143,8 @@ fn help_doctor() -> Unit {
   )
   println(
     tmsg(
-      "  探测 moon / Python 3 / C·C++ 编译器 /（Linux）GTK 开发包，末尾跑一次 moon native 构建探针（约几十秒，ready 门保证一台机器只跑一次量级）；可选项（WebView、媒体库）只提示",
-      "  Probes moon / Python 3 / C & C++ compilers / (Linux) GTK dev packages, then runs a moon native build probe (~tens of seconds; the ready gate keeps it once per machine); optional items (WebView, media libs) only warn",
+      "  探测 moon / C·C++ 编译器 /（Linux）GTK 开发包，末尾跑一次 moon native 构建探针（约几十秒，ready 门保证一台机器只跑一次量级）；Python 已随 prebuild.mbtx 化降为可选提示，可选项（WebView、媒体库）只提示",
+      "  Probes moon / C & C++ compilers / (Linux) GTK dev packages, then runs a moon native build probe (~tens of seconds; the ready gate keeps it once per machine); Python is an optional hint since the prebuild moved to MoonBit; optional items (WebView, media libs) only warn",
     ),
   )
   println(

@@ -83,7 +83,7 @@ Packaging declaration (read by `mng package` at project root; builds for the hos
 
 ## mng doctor
 
-Probes moon / Python 3 / C & C++ compilers / (Linux) GTK dev packages, then runs a **moon native build probe** (writes a minimal hello project under `~/.mng/doctor/probe/` and really builds it — the verdict is success/failure); on Windows the MSVC verdict is the probe itself (a vswhere hit only skips it). Optional items (WebView, media libs) warn without blocking.
+Probes moon / C & C++ compilers / (Linux) GTK dev packages (Python is an optional hint — the build now uses the MoonBit prebuild), then runs a **moon native build probe** (writes a minimal hello project under `~/.mng/doctor/probe/` and really builds it — the verdict is success/failure); on Windows the MSVC verdict is the probe itself (a vswhere hit only skips it). Optional items (WebView, media libs) warn without blocking.
 
 - All green writes `~/.mng/ready` (an mng version line, re-checked on upgrade); `-f` forces a re-check.
 - Fix hints lead with GUI links (official download pages first, package managers second); probe logs live in `~/.mng/doctor/`.

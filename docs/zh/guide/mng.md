@@ -83,7 +83,7 @@ mng --version   # 应打印 mng 版本与 mng-schema 位
 
 ## mng doctor
 
-探测 moon / Python 3 / C·C++ 编译器 /（Linux）GTK 开发包，末尾跑一次 **moon native 构建探针**（`~/.mng/doctor/probe/` 落最小 hello 工程真编译一遍，以成败为判据）；Windows 的 MSVC 判据即探针成败（vswhere 查到只做免跑快路）。可选项（WebView、媒体库）缺失只提示不拦。
+探测 moon / C·C++ 编译器 /（Linux）GTK 开发包（Python 降为可选提示——构建已改用 MoonBit prebuild），末尾跑一次 **moon native 构建探针**（`~/.mng/doctor/probe/` 落最小 hello 工程真编译一遍，以成败为判据）；Windows 的 MSVC 判据即探针成败（vswhere 查到只做免跑快路）。可选项（WebView、媒体库）缺失只提示不拦。
 
 - 全绿写 `~/.mng/ready`（内容为 mng 版本行，mng 升级自动重检）；`-f` 强制重检。
 - 修复行 GUI 链接优先（官方下载页在前、包管理器在后）；探针日志在 `~/.mng/doctor/`。

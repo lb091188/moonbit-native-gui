@@ -15,12 +15,12 @@ Then check `moon version --all`: moon / moonc / core must come from the same ins
 
 ## 2. Install the development dependencies
 
-The library draws its own pixels over native FFI, so a build needs four things: **a C toolchain, pkg-config, Python 3 (≥ 3.7) and — on Linux — the GTK3 / Pango / FontConfig / X11 development packages**. Python 3 is not optional: the link parameters are produced by `gui/scripts/prebuild.py`, which moon executes when building a native target (which interpreter actually runs it is the first row of §6).
+The library draws its own pixels over native FFI, so a build needs three things: **a C toolchain, pkg-config and — on Linux — the GTK3 / Pango / FontConfig / X11 development packages**. Since 2026-11-11 the link prebuild is a MoonBit script (`gui/scripts/prebuild.mbtx`) and builds **no longer need Python** (it was a hard dependency in the prebuild.py era). Note: the optional `gui-media` / `gui-gpu` modules still carry Python prebuilds (with archive downloads) — building those two still needs python3 until their port lands.
 
 ### Linux (Debian / Ubuntu family)
 
 ```sh
-sudo apt install build-essential pkg-config python3 \
+sudo apt install build-essential pkg-config \
   libgtk-3-dev libpango1.0-dev libfontconfig1-dev libx11-dev
 ```
 
@@ -28,13 +28,13 @@ Add only what you use: `libwebkit2gtk-4.1-dev` for the embedded WebView (`@web`)
 
 **A C++ compiler is mandatory too**: `gui/text/dwrite_text.cpp` is compiled on **every** platform (off Windows it becomes an empty translation unit, which keeps the archive from defining things twice), so `build-essential` really has to bring g++ — a machine with only gcc fails with `cc: error trying to exec 'cc1plus'`, fixed by `sudo apt install g++`.
 
-⚠️ **The `python` command itself must be Python 3.** On deepin 20, CentOS 7 and similar machines `/usr/bin/python` is still 2.7, moon picks it first, and the Chinese comments at the top of the script trip `SyntaxError: Non-ASCII character ... pep-0263` — every native build fails before it starts. Both fixes are in the first row of §6.
+(Historical, resolved.) While the prebuild was a Python script, machines whose `python` pointed at 2.7 failed every native build before it started; the prebuild is now MoonBit and this is kept for the record.
 
 ### Older distributions (deepin 20 / Debian 10 base) — not a supported target
 
 We neither test nor guarantee this tier (the wall is the last bullet), but the field notes are here for anyone who lands on it:
 
-- **Interpreter**: if `python` points at 2.7, apply the first row of §6; the library's prebuild scripts hold to the **Python 3.7 baseline** (f-strings, `subprocess.run(capture_output=)`, `Path` and nothing newer — no `missing_ok`, no `dirs_exist_ok`, no walrus), measured to run all five scripts on 3.7.3.
+- **Interpreter**: ~~if `python` points at 2.7, apply the first row of §6~~ resolved by the MoonBit prebuild; builds no longer invoke Python.
 - **A C++ compiler is mandatory**: `gui/text/dwrite_text.cpp` is compiled on all platforms; without g++ you get `cc1plus`.
 - **Development packages**: the apt list above uses the same package names on a Debian 10 base (GTK 3.24 / Pango 1.42).
 - **Two capabilities degrade**: the WebView probes for `webkit2gtk-4.1`, and Debian 10 only ships 4.0 → placeholder implementation; the system FFmpeg on old distributions is quite old and untested.
@@ -52,10 +52,9 @@ The media module additionally needs ffmpeg: `brew install ffmpeg`, or let prebui
 
 ### Windows (10 / 11, x64)
 
-Python 3 plus the MSVC C++ toolchain — Python 3 runs prebuild, and the toolchain is the "Desktop development with C++" workload of VS 2022 Build Tools:
+The MSVC C++ toolchain — the "Desktop development with C++" workload of VS 2022 Build Tools (Python is no longer needed for the core build; only the optional gui-media / gui-gpu modules still want it):
 
 ```powershell
-winget install Python.Python.3.12
 winget install Microsoft.VisualStudio.2022.BuildTools -e --override "--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
 ```
 

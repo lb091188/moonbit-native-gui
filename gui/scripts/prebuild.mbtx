@@ -1,0 +1,551 @@
+----
+import {
+  "moonbitlang/core/env",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/async",
+  "moonbitlang/async/fs" @fs,
+  "moonbitlang/async/shell" @shell,
+  "moonbitlang/async/stdio" @stdio,
+}
+----
+
+// gui 模块的链接预构建（--moonbit-unstable-prebuild）。语义与上一版
+// prebuild.py 一致（git 历史可对照），2026-11-11 起 MoonBit 化——应用开发者
+// 与库开发者都不再需要 Python。
+//
+// 职责两件：
+// 1. 把需要系统头文件/ObjC 的 C 端编成静态库（moon 的 link_configs 只有
+//    链接期字段，c_flags 会被静默忽略，必须在脚本里编译——实测记录见
+//    experience/adaptation.md「跨平台通用」节）。
+// 2. 输出 link_configs JSON：按 MOON_HOST_OS 给 pkg-config 探到的 GTK3/Pango/X11
+//    参数（linux）、静态 .lib 清单（windows）或 ObjC 桩库 + 框架（macos）。
+//
+// 协议（moon prebuild，见 moonbitlang/moon docs/dev/reference/prebuild.md）：
+// stdout 恰好一个 JSON 值；诊断一律走 stderr。目录与平台信息从环境变量取：
+// MOON_MOD（moon.mod 绝对路径）/ MOON_BUILD_DIR（本模块输出目录，持久跨构建）。
+
+///|
+let linux_pkg_config_libs : Array[String] = [
+  "gtk+-3.0", "pangoft2", "pangocairo", "fontconfig", "x11", "xext",
+]
+
+///|
+let sys_package : String = "NoahLiu/native-gui/sys"
+
+///|
+let win_package : String = "NoahLiu/native-gui/win"
+
+///|
+let render_package : String = "NoahLiu/native-gui/render"
+
+///|
+let text_package : String = "NoahLiu/native-gui/text"
+
+///|
+/// macOS 各包框架清单（Xcode CLT 自带）。逐条按「哪一个能力要它」给：
+/// 链进来的每个框架都会出现在最终用户的 dyld 依赖表里。
+let mac_win_frameworks : Array[String] = [
+  "-framework", "Cocoa", "-framework", "CoreGraphics", "-framework", "Carbon",
+  "-framework", "IOKit", "-framework", "UserNotifications", "-framework",
+  "QuartzCore",
+]
+
+///|
+let mac_sys_frameworks : Array[String] = [
+  "-framework", "Cocoa", "-framework", "CoreGraphics", "-framework",
+  "CoreServices", "-framework", "IOKit", "-framework", "ApplicationServices",
+  "-framework", "CoreAudio",
+]
+
+///|
+let mac_render_frameworks : Array[String] = [
+  "-framework", "ImageIO", "-framework", "CoreGraphics", "-framework",
+  "CoreFoundation",
+]
+
+///|
+let mac_text_frameworks : Array[String] = [
+  "-framework", "CoreText", "-framework", "CoreGraphics", "-framework",
+  "CoreFoundation", "-framework", "AppKit",
+]
+
+///|
+async fn err(msg : String) -> Unit {
+  @stdio.stderr.write(msg + "\n")
+}
+
+///|
+fn env_or(name : String, fallback : String) -> String {
+  match @env.get_env_var(name) {
+    Some(v) if v.length() > 0 => v
+    _ => fallback
+  }
+}
+
+///|
+fn json_escape(s : String) -> String {
+  let out = StringBuilder()
+  for c in s {
+    if c == '"' {
+      out.write_string("\\\"")
+    } else if c == '\\' {
+      out.write_string("\\\\")
+    } else {
+      out.write_char(c)
+    }
+  }
+  out.to_string()
+}
+
+///|
+/// FNV-1a 64：桩库新鲜度戳用（源路径 + 内容 + 编译参数一起进哈希；
+/// 比 mtime 稳——新增源比旧归档旧时会漏编，哈希口径无此问题）。
+fn fnv1a(acc : Int64, data : Bytes) -> Int64 {
+  let mut h = acc
+  for b in data {
+    h = h ^ b.to_int().to_int64()
+    h = h * 0x100000001b3L
+  }
+  h
+}
+
+///|
+fn fnv1a_str(acc : Int64, s : String) -> Int64 {
+  fnv1a(acc, @utf8.encode(s))
+}
+
+///|
+/// 探包配置：None = 包不存在；空数组 = 存在但该 flag 无输出（--cflags x11
+/// 就是合法空输出，当成缺失会让所有主包退避）。
+async fn pkg_config(args : Array[String], flag : String) -> Array[String]? {
+  let full : Array[String] = [flag]
+  for a in args {
+    full.push(a)
+  }
+  let out = @shell.Cmd("pkg-config", full).output()
+  if out.exit_code() != 0 {
+    return None
+  }
+  let parts : Array[String] = []
+  for p in out.stdout().split(" ") {
+    if p.length() > 0 {
+      parts.push(p.to_owned())
+    }
+  }
+  Some(parts)
+}
+
+///|
+/// 读整个文件为 Bytes；失败给 None（调用方出声）。
+async fn read_bytes(path : String) -> Bytes? {
+  if !@fs.exists(path) {
+    return None
+  }
+  let data = @fs.read_file(path)
+  Some(data.binary())
+}
+
+///|
+/// 归档能否跳过重编：lib 与 stamp 都在，且 stamp 内容等于当前
+/// 「库名 + 编译参数 + 源路径与内容」的哈希。
+async fn stub_current(
+  lib : String,
+  stamp : String,
+  srcs : Array[String],
+  cflags : Array[String],
+) -> Bool {
+  if !@fs.exists(lib) || !@fs.exists(stamp) {
+    return false
+  }
+  let mut h : Int64 = 0xcbf29ce484222325L
+  h = fnv1a_str(h, lib)
+  for c in cflags {
+    h = fnv1a_str(h, c)
+  }
+  for s in srcs {
+    h = fnv1a_str(h, s)
+    match read_bytes(s) {
+      Some(bytes) => h = fnv1a(h, bytes)
+      None => return false
+    }
+  }
+  let want = h.to_string()
+  match read_bytes(stamp) {
+    Some(bytes) => @utf8.decode(bytes) == want
+    None => false
+  }
+}
+
+///|
+/// 跑编译/打包命令，失败把命令与 stderr 出声到 stderr 诊断。
+async fn run_tool(file : String, args : Array[String]) -> Bool {
+  let out = @shell.Cmd(file, args).output()
+  if out.exit_code() != 0 {
+    let parts : Array[String] = [file]
+    for a in args {
+      parts.push(a)
+    }
+    err("stub: " + parts.join(" ") + " 失败\n" + out.stderr())
+    return false
+  }
+  true
+}
+
+///|
+/// 把需要系统头文件的 C 端编成静态库，返回库绝对路径；源缺失或编译失败
+/// 返回空串（该包的链接条目随之不下发，原因已在 stderr 出声——静默等于
+/// 「链接参数整条没有」，症状离根因很远）。
+/// 可传多个源文件编进同一个 .a；obj 名带 pkg_dir 前缀防同名 stub.c 互相覆盖。
+async fn compile_stub(
+  module_root~ : String,
+  build_dir~ : String,
+  srcs_rel~ : Array[String],
+  lib_file~ : String,
+  objc~ : Bool,
+  extra_cflags~ : Array[String],
+) -> String {
+  let srcs : Array[String] = []
+  for rel in srcs_rel {
+    let p = module_root + "/" + rel
+    if @fs.exists(p) {
+      srcs.push(p)
+    } else {
+      err("stub: 源文件不存在，跳过该库：" + p)
+    }
+  }
+  if srcs.is_empty() {
+    return ""
+  }
+  // 编译参数：ObjC 桩按 ObjC 编 + ARC；Linux 桩要 GTK 系头文件 cflags
+  let cflags : Array[String] = []
+  if objc {
+    cflags.push("-x")
+    cflags.push("objective-c")
+    cflags.push("-fobjc-arc")
+  }
+  for c in extra_cflags {
+    cflags.push(c)
+  }
+  if !objc {
+    for name in linux_pkg_config_libs {
+      match pkg_config([name], "--cflags") {
+        None => {
+          err("stub: 缺少 " + name + " 开发包")
+          return ""
+        }
+        Some(got) =>
+          for g in got {
+            cflags.push(g)
+          }
+      }
+    }
+  }
+  let lib = build_dir + "/" + lib_file
+  // obj 名：取 src 路径里包目录名做前缀（win/render/text 三包各有一份
+  // stub.c，裸 stem 会互相覆盖成「归档里只剩最后编的那份」）
+  let objs : Array[String] = []
+  for s in srcs {
+    let stem = obj_stem(s, objc~)
+    objs.push(build_dir + "/" + stem + ".o")
+  }
+  if stub_current(lib, lib + ".stamp", srcs, cflags) {
+    return lib
+  }
+  let mut k = 0
+  for s in srcs {
+    // 参数序：flags 必须在源文件之前——`-x objective-c` 只作用于其后的
+    // 输入，落在源后面等于没给（编成 C 报 ObjC 语法错）
+    let args : Array[String] = ["-c", "-O2", "-fPIC"]
+    for c in cflags {
+      args.push(c)
+    }
+    args.push("-o")
+    args.push(objs[k])
+    args.push(s)
+    if !run_tool("cc", args) {
+      return ""
+    }
+    k += 1
+  }
+  // 先删旧归档再建：ar rcs 对改名成员是追加不是替换，会留重名符号
+  @fs.remove(lib) catch {
+    _ => ()
+  }
+  let ar_args : Array[String] = ["rcs", lib]
+  for o in objs {
+    ar_args.push(o)
+  }
+  if !run_tool("ar", ar_args) {
+    return ""
+  }
+  let mut h : Int64 = 0xcbf29ce484222325L
+  h = fnv1a_str(h, lib)
+  for c in cflags {
+    h = fnv1a_str(h, c)
+  }
+  for s in srcs {
+    h = fnv1a_str(h, s)
+    match read_bytes(s) {
+      Some(bytes) => h = fnv1a(h, bytes)
+      None => ()
+    }
+  }
+  @fs.write_file(lib + ".stamp", h.to_string())
+  lib
+}
+
+///|
+/// obj 基名：mac 桩「包目录_stem_mac」、posix 桩「包目录_stem」——同目录
+/// 共存不撞名（stamp 口径里也用同一个名字，无需区分）。
+fn obj_stem(src : String, objc~ : Bool) -> String {
+  // src 是绝对路径；取父目录名与文件 stem
+  let mut dir_end = -1
+  let mut name_start = 0
+  let n = src.length()
+  let mut i = 0
+  while i < n {
+    if src[i] == '/' {
+      dir_end = name_start
+      name_start = i + 1
+    }
+    i += 1
+  }
+  let dir_name = slice_str(src, dir_end, name_start - 1)
+  let mut stem_end = src.length()
+  let mut j = name_start
+  while j < n {
+    if src[j] == '.' {
+      stem_end = j
+      break
+    }
+    j += 1
+  }
+  let stem = slice_str(src, name_start, stem_end)
+  if objc {
+    dir_name + "_" + stem + "_mac"
+  } else {
+    dir_name + "_" + stem
+  }
+}
+
+///|
+fn slice_str(s : String, lo : Int, hi : Int) -> String {
+  if hi <= lo || lo < 0 {
+    ""
+  } else {
+    s[lo:hi].to_owned()
+  }
+}
+
+///|
+fn entry(package~ : String, link_flags~ : String) -> String {
+  "{ \"package\": \"" +
+  json_escape(package) +
+  "\", \"link_flags\": \"" +
+  json_escape(link_flags) +
+  "\" }"
+}
+
+///|
+fn join_flags(parts : Array[String]) -> String {
+  parts.join(" ")
+}
+
+///|
+async fn link_configs() -> String {
+  let module_root = dir_of(env_or("MOON_MOD", "."))
+  let build_dir = env_or("MOON_BUILD_DIR", module_root + "/build")
+  let host = env_or("MOON_HOST_OS", "")
+  let entries : Array[String] = []
+  if host == "linux" {
+    let libs : Array[String] = []
+    let mut missing = false
+    for name in linux_pkg_config_libs {
+      match pkg_config([name], "--libs") {
+        None => {
+          err("prebuild: 缺少 " + name + " 开发包")
+          missing = true
+        }
+        Some(got) =>
+          for g in got {
+            libs.push(g)
+          }
+      }
+    }
+    if missing {
+      return "{ \"link_configs\": [] }"
+    }
+    // 系统库不会被自动带上，显式补
+    let sys_libs = join_flags([
+      "-lpthread", "-ldl", "-lm", "-lstdc++", "-latomic",
+    ])
+    // stub.c 的崩溃取证调用点（wm_crash_mark/note）实现住 crash_log.c：
+    // 非 Windows 平台是空实现，必须同编进归档，否则链接期缺符号
+    let win_lib = compile_stub(
+      module_root~,
+      build_dir~,
+      srcs_rel=["win/stub.c", "win/crash_log.c"],
+      lib_file="libyue_win_stub.a",
+      objc=false,
+      extra_cflags=["-DWM_STUB_GTK"],
+    )
+    if win_lib.length() > 0 {
+      let flags = "-L" +
+      build_dir +
+      " -lyue_win_stub " +
+      join_flags(libs) +
+      " " +
+      sys_libs
+      entries.push(entry(package=win_package, link_flags=flags))
+      // sys 包的文件对话框 extern 直链 win 桩的 wm_file_*（MoonBit 层不引
+      // win）：链接由此处单独下发（GTK 库同 win 一套）
+      entries.push(entry(package=sys_package, link_flags=flags))
+    }
+    let cairo_lib = compile_stub(
+      module_root~,
+      build_dir~,
+      srcs_rel=["render/stub.c"],
+      lib_file="librender_cairo_stub.a",
+      objc=false,
+      extra_cflags=["-DWM_STUB_CAIRO"],
+    )
+    if cairo_lib.length() > 0 {
+      entries.push(
+        entry(package=render_package, link_flags="-L" +
+          build_dir +
+          " -lrender_cairo_stub " +
+          join_flags(libs) +
+          " " +
+          sys_libs,
+        ),
+      )
+    }
+    let text_lib = compile_stub(
+      module_root~,
+      build_dir~,
+      srcs_rel=["text/stub.c"],
+      lib_file="libyue_text_pango.a",
+      objc=false,
+      extra_cflags=["-DWM_STUB_PANGO"],
+    )
+    if text_lib.length() > 0 {
+      // 文本层要复用 Painter 的 Cairo 会话（cr_session_context 定义在
+      // render 的桩库里），所以 text 的链接行也要带上 render 的归档
+      entries.push(
+        entry(package=text_package, link_flags="-L" +
+          build_dir +
+          " -lyue_text_pango -lrender_cairo_stub " +
+          join_flags(libs) +
+          " " +
+          sys_libs,
+        ),
+      )
+    }
+  } else if host == "windows" {
+    // Win32 桩由 moon native-stub 自编（windows.h 走 MSVC SDK 路径），
+    // 这里只下发系统库；MSVC 口径用位置参数直拼 .lib 名——GNU 的 -L/-l
+    // 会报 D9002（experience/adaptation.md「链接参数」节）
+    entries.push(
+      entry(package=win_package, link_flags="user32.lib gdi32.lib imm32.lib advapi32.lib windowscodecs.lib ole32.lib shell32.lib uuid.lib uiautomationcore.lib oleaut32.lib",
+      ),
+    )
+    // render：图片解码（W9）走 WIC + COM 初始化；光栅部分是纯 MoonBit
+    // 光栅器，不需要 gdi32/d2d
+    entries.push(
+      entry(package=render_package, link_flags="windowscodecs.lib ole32.lib user32.lib"),
+    )
+    // sys：IFileDialog（ole32+shell32）、GUID 常量链 uuid.lib、自启动
+    // advapi32、电源 powrprof、WMI 兜底 oleaut32+wbemuuid、夜间色温 gdi32
+    entries.push(
+      entry(package=sys_package, link_flags="ole32.lib oleaut32.lib wbemuuid.lib shell32.lib uuid.lib user32.lib gdi32.lib advapi32.lib powrprof.lib winspool.lib",
+      ),
+    )
+    // text：DirectWrite + D2D 的 DC 渲染目标；GUID 常量 uuid.lib、COM ole32
+    entries.push(
+      entry(package=text_package, link_flags="dwrite.lib d2d1.lib windowscodecs.lib ole32.lib uuid.lib gdi32.lib",
+      ),
+    )
+  } else {
+    // macOS（Darwin）。Cocoa/CoreText/ImageIO 几族是 ObjC，桩文件本身是 .c，
+    // 靠 clang 的 -x objective-c 按 ObjC 编；moon 的 native-stub 那趟按 C 编、
+    // 不带平台宏，落不进任何分支编出空翻译单元（防双定义）。ARC 开着：
+    // 对象生命周期跟 NSWindow/NSView 走，手写 retain/release 几乎必错
+    let win_lib = compile_stub(
+      module_root~,
+      build_dir~,
+      srcs_rel=["win/stub.c", "win/crash_log.c"],
+      lib_file="libyue_win_stub_mac.a",
+      objc=true,
+      extra_cflags=["-DWM_STUB_MAC"],
+    )
+    if win_lib.length() > 0 {
+      let win_flags = "-L" +
+        build_dir +
+        " -lyue_win_stub_mac " +
+        join_flags(mac_win_frameworks)
+      entries.push(entry(package=win_package, link_flags=win_flags))
+      // sys 的文件对话框 extern 直链 win 桩的 wm_file_*，与 linux 同口径
+      entries.push(entry(package=sys_package, link_flags=win_flags + " " + join_flags(mac_sys_frameworks)))
+    }
+    // render：图片解码走 ImageIO（CGImageSource）+ 落盘；光栅仍是纯
+    // MoonBit 光栅器
+    let render_lib = compile_stub(
+      module_root~,
+      build_dir~,
+      srcs_rel=["render/stub.c"],
+      lib_file="librender_mac_stub.a",
+      objc=true,
+      extra_cflags=["-DWM_STUB_MAC"],
+    )
+    if render_lib.length() > 0 {
+      entries.push(
+        entry(package=render_package, link_flags="-L" +
+          build_dir +
+          " -lrender_mac_stub " +
+          join_flags(mac_render_frameworks),
+        ),
+      )
+    }
+    // text：CoreText。mac 走纯光栅路径，不必再链 render 的归档
+    let text_lib = compile_stub(
+      module_root~,
+      build_dir~,
+      srcs_rel=["text/stub.c"],
+      lib_file="libyue_text_mac.a",
+      objc=true,
+      extra_cflags=["-DWM_STUB_MAC"],
+    )
+    if text_lib.length() > 0 {
+      entries.push(
+        entry(package=text_package, link_flags="-L" + build_dir + " -lyue_text_mac " + join_flags(mac_text_frameworks),
+        ),
+      )
+    }
+  }
+  "{ \"link_configs\": [" + entries.join(", ") + "] }"
+}
+
+///|
+/// 绝对路径的目录部分（取最后一个 / 之前）。
+fn dir_of(p : String) -> String {
+  let mut last = -1
+  let n = p.length()
+  let mut i = 0
+  while i < n {
+    if p[i] == '/' {
+      last = i
+    }
+    i += 1
+  }
+  if last <= 0 {
+    p
+  } else {
+    slice_str(p, 0, last)
+  }
+}
+
+///|
+async fn main {
+  // stdout 恰好一个 JSON；其余诊断都在 stderr
+  println(link_configs())
+}

@@ -9,7 +9,14 @@ pub fn run_all(
   let log_dir = home + "/.mng/doctor"
   let items : Array[DItem] = []
   items.push(check_moon(platform, log_dir))
-  items.push(check_python(platform, log_dir))
+  // prebuild 已移植 MoonBit（gui/scripts/prebuild.mbtx，2026-11-11）：Python
+  // 不再是构建依赖——检查降为可选提示，缺席 / 2.x 别名只 [!] 不拦 ready
+  let py = check_python(platform, log_dir)
+  items.push({
+    ..py,
+    optional: true,
+    status: if py.status is Fail { Warn } else { py.status },
+  })
   if platform == "linux" {
     items.push(check_cc(platform, log_dir))
     items.push(check_gtk(log_dir))
