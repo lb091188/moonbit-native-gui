@@ -52,13 +52,13 @@ test "mng.toml 解析：[dev] 段的模板目录/命令/app-id/轮询" {
 ///|
 test "模块名 → app_id：小写、斜杠转点、非法字符转下划线" {
   assert_eq(
-    app_id_of_module("NoahLiu/native-gui-examples-showcase"),
+    @scaffold.app_id_of_module("NoahLiu/native-gui-examples-showcase"),
     "noahliu.native-gui-examples-showcase",
   )
-  assert_eq(app_id_of_module("a b/c_d"), "a_b.c_d")
+  assert_eq(@scaffold.app_id_of_module("a b/c_d"), "a_b.c_d")
   // 裸名（无作者段）垫 local. 命名空间，否则 InvalidAppId 降级
-  assert_eq(app_id_of_module("demo2"), "local.demo2")
-  assert_eq(app_id_of_module("_9app"), "local._9app")
+  assert_eq(@scaffold.app_id_of_module("demo2"), "local.demo2")
+  assert_eq(@scaffold.app_id_of_module("_9app"), "local._9app")
 }
 
 ///|

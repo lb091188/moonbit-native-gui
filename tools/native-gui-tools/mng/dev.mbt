@@ -984,20 +984,6 @@ fn cmd_init(_args : Array[String]) -> Int32 {
 }
 
 ///|
-fn snake_of(s : String) -> String {
-  let cs = chars_of(s)
-  let out : Array[String] = []
-  for c in cs {
-    if c == '-' {
-      out.push("_")
-    } else {
-      out.push(c.to_string())
-    }
-  }
-  out.join("")
-}
-
-///|
 /// ir 子命令：打印模板的 IR 补丁（调试 + 应用侧注册表键校准）。
 fn cmd_ir(args : Array[String]) -> Int32 {
   if args.length() != 1 {
@@ -1072,81 +1058,6 @@ fn scaffold_new_app(raw_name : String) -> Int32 {
     None => "."
   }
   scaffold_app_at(cwd, raw_name)
-}
-
-///|
-/// 单页样板：写 `<路径>.mng`（script 段 + 最小模板 + props 头与组件调用提示）。
-/// 路径带目录时父目录不存在则现建（如 pages/about.mng 的 pages/）。
-fn new_page(raw : String) -> Int32 {
-  let name = if raw.has_suffix(".mng") { raw } else { raw + ".mng" }
-  // 父目录补齐：取最后一个 / 之前的部分，非空且不存在时 mkdir_p
-  let chars = chars_of(name)
-  let mut last = -1
-  for i, c in chars {
-    if c == '/' {
-      last = i
-    }
-  }
-  if last > 0 {
-    let dir = slice_path(chars, 0, last)
-    if !@fs.path_exists(dir) && !mkdir_p(dir) {
-      println(
-        tmsg("建不出目录：" + dir, "Cannot create directory: " + dir),
-      )
-      return 1
-    }
-  }
-  let stem = basename(name)
-  let stem = if stem.has_suffix(".mng") {
-    stem[:stem.length() - 4].to_owned()
-  } else {
-    stem
-  }
-  let snake = snake_of(stem)
-  let tpl = [
-    "<script>",
-    "// props（可选）：script 段第一行只写签名、不写函数体的 fn 头就是本组件的参数表；",
-    "// 必填走位置参数，可选走 `名? : 类型 = 默认值`。不写即零参组件。",
-    "// fn " +
-    snake +
-    "(title : String, qty : @base.Store[Int], on_reset : () -> Unit, wide? : Bool = false) -> @widget.Node",
-    "",
-    "// 页状态：Store/Signal 声明在此；被模板引用的 let 绑定即响应槽。",
-    "let qty : @base.Store[Int] = @base.Store::new(0)",
-    "",
-    "// 组件调用零声明：ui-* 走内置表；同包 `fn 组件名` 直接当标签用；",
-    "// 跨包写 `let 组件名 = @包.函数`，路径取自右值、参数顺序取自源码签名。",
-    "// 只有不规则落点（子元素不是 Array[@widget.Node] 之类）才需要一行覆盖：",
-    "// @mng sh-page = @shared.page positional(children)",
-    "</script>",
-    "",
-    "<template>",
-    "  <ui-col row_gap=\"8.0\">",
-    "    <ui-stepper v-model=\"qty\" max=\"10\" />",
-    "    当前数量：{{ qty }}",
-    "  </ui-col>",
-    "</template>",
-    "",
-  ].join("\n")
-  if !spit(name, tpl) {
-    println(tmsg("写不出文件：" + name, "Cannot write file: " + name))
-    return 1
-  }
-  println(
-    tmsg(
-      "OK " +
-      name +
-      "（生成函数名 " +
-      snake +
-      "；把生成码接进包内即可编译）",
-      "OK " +
-      name +
-      " (generated function name " +
-      snake +
-      "; wire it into the package to compile)",
-    ),
-  )
-  0
 }
 
 ///|

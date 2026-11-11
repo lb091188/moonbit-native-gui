@@ -1,0 +1,9 @@
+// mng 脚手架内核：`new app` / `new page` 的模板构造与落盘，进度走事件回调
+// （mng CLI 渲染终端文案、mngui 向导复用同一内核）。不依赖 GUI 库；
+// 首页 dev 生成码经 mngkit 编译。
+import {
+  "moonbitlang/x/fs",
+  "NoahLiu/native-gui-tools/mngkit",
+}
+
+supported_targets = "native"

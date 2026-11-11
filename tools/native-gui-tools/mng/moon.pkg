@@ -9,6 +9,7 @@ import {
   "NoahLiu/native-gui-tools/proc",
   "NoahLiu/native-gui-tools/inst",
   "NoahLiu/native-gui-tools/doctor",
+  "NoahLiu/native-gui-tools/scaffold",
 }
 
 pkgtype(kind: "executable")

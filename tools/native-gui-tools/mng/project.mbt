@@ -262,42 +262,6 @@ fn module_name_at(dir : String) -> String {
 }
 
 ///|
-/// 模块名 → 单实例 app_id：小写、`/` → `.`、其余非法字符 → `_`；
-/// 派生结果无点分（裸名工程，无作者段）时垫 `local.` 命名空间——
-/// 字法规格要 ≥2 个点分元素，裸名会让 instance_claim 给 InvalidAppId、
-/// 单实例通道整个降级（mng dev 的 HOT 唤起与 COLD 回页全失效）。
-fn app_id_of_module(name : String) -> String {
-  let out = StringBuilder()
-  for c in name {
-    if (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_' {
-      out.write_char(c)
-    } else if c >= 'A' && c <= 'Z' {
-      match (c.to_int() + 32).to_char() {
-        Some(x) => out.write_char(x)
-        None => ()
-      }
-    } else if c == '/' {
-      out.write_char('.')
-    } else {
-      out.write_char('_')
-    }
-  }
-  let s = out.to_string()
-  let mut has_dot = false
-  for c in s {
-    if c == '.' {
-      has_dot = true
-      break
-    }
-  }
-  if has_dot {
-    s
-  } else {
-    "local." + s
-  }
-}
-
-///|
 /// 加载工程配置：CLI 覆盖项优先于 mng.toml，mng.toml 优先于默认推导。
 fn load_dev_conf(
   build_override : String,
@@ -384,7 +348,7 @@ fn load_dev_conf(
         ),
       )
     }
-    app_id = app_id_of_module(mn)
+    app_id = @scaffold.app_id_of_module(mn)
   }
   Ok({ dir: root, templates, build, run, app_id, poll_ms, theme, })
 }
@@ -491,24 +455,5 @@ fn mng_toml_template() -> String {
     "run = \"\"", "", "# 单实例唤起用；留空 = 由 moon.mod 的 name 派生（作者.工程名）",
     "app-id = \"\"", "", "# 文件轮询间隔（毫秒）", "poll-ms = 300", "",
   ]
-  lines.join("\n") + "\n" + mng_toml_package_section() + "\n"
-}
-
-///|
-/// mng.toml 的 [package] / [package.sign] 样板段（init 与 `mng new` 脚手架
-/// 共用——脚手架此前只写 [dev]，新工程打首个包必撞「id 未配置」）。
-fn mng_toml_package_section() -> String {
-  let lines = [
-    "# mng package 的打包声明（在项目根执行；本平台打本平台包）",
-    "[package]", "# 反域名 id：mac bundle id / 产物短名同源", "id = \"\"",
-    "# 显示名（.app / DMG 卷名 / 安装器标题）", "name = \"\"", "# 应用版本，三段数字；与 moon.mod 的模块版本无关",
-    "version = \"0.1.0\"", "# 可执行名；留空 = 从构建产物抓", "bin = \"\"",
-    "# 源图标：1024x1024 PNG，派生 icns/ico", "icon = \"\"", "# 随包资源（递归拷进 Contents/Resources / 安装目录）",
-    "resources = []", "# deb control 的 Maintainer（\"名 <邮箱>\"）；留空 = unknown <>",
-    "maintainer = \"\"", "", "# 签名证书入口（全留空 = mac adhoc、win 不签）",
-    "[package.sign]", "# codesign identity；如 \"Developer ID Application: NAME (TEAMID)\"",
-    "mac_identity = \"\"", "# notarytool keychain profile；非空则公证 + staple",
-    "notarize_profile = \"\"",
-  ]
-  lines.join("\n")
+  lines.join("\n") + "\n" + @scaffold.package_section() + "\n"
 }
