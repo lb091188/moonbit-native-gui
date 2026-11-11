@@ -803,6 +803,15 @@ fn cmd_map_errors(args : Array[String]) -> Int32 {
 }
 
 ///|
+/// 裸 mng 分流用的当前目录（取不到给 "."，find_project_root 会报找不到）。
+fn cwd_for_hop() -> String {
+  match @env.current_dir() {
+    Some(d) => d
+    None => "."
+  }
+}
+
+///|
 fn main {
   cli_lang_init()
   let raw = @env.args()
@@ -829,7 +838,13 @@ fn main {
       }
     }
     if !raw[0].contains("_build") {
-      let (installed, hop) = mngui_hop(raw[0])
+      // 已有工程（cwd 向上有 mng.toml / moon.mod / moon.work）→ 工程面板；
+      // 否则进新建向导。find_project_root 与子命令同源。
+      let proj = match find_project_root(cwd_for_hop()) {
+        Some((root, _kind)) => root
+        None => ""
+      }
+      let (installed, hop) = mngui_hop(raw[0], proj)
       if hop != 3 {
         @sys.exit(hop)
       }

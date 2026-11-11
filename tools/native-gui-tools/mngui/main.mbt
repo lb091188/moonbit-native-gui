@@ -17,6 +17,9 @@ struct Wizard {
   repo_cwd : String
   argv0_dir : String
   dev_form : Bool
+  // 工程面板模式（--project <路径>）：跳过五步向导，直接工程操作按钮组
+  panel : Bool
+  log_view : @base.Store[String]
 }
 
 ///|
@@ -39,6 +42,22 @@ fn main {
     Some(d) => d
     None => "."
   }
+  // --project [路径]：工程面板模式。路径缺省当前目录。
+  let mut panel_proj = ""
+  let mut k = 1
+  while k < raw.length() {
+    if raw[k] == "--project" {
+      if k + 1 < raw.length() && !raw[k + 1].has_prefix("--") {
+        panel_proj = raw[k + 1]
+        k += 2
+      } else {
+        panel_proj = cwd
+        k += 1
+      }
+    } else {
+      k += 1
+    }
+  }
   let w = Wizard::{
     page: @base.Store::new(0),
     view: @base.Store::new(0),
@@ -48,13 +67,19 @@ fn main {
     parent: @base.Store::new(cwd),
     icon: @base.Store::new(""),
     msg: @base.Store::new(""),
-    proj: @base.Store::new(""),
+    proj: @base.Store::new(panel_proj),
     dev_hint: @base.Store::new(""),
     repo_cwd: cwd,
     argv0_dir: argv0_dir(argv0),
     dev_form: argv0.contains("_build"),
+    panel: panel_proj.length() > 0,
+    log_view: @base.Store::new("（还没有日志——点上面的按钮跑命令）"),
   }
-  let root = @ui.col(
+  let top : Array[@widget.Node] = if w.panel {
+    // 面板模式无步骤条：标题 + 操作按钮组 + 日志区（hint 与日志走
+    // text_dyn 随 Store 自动刷新，整树静态）
+    [panel_body(w)]
+  } else {
     [
       // 点数字方块只换展示页做预览；高亮仍跟进度
       @ui.steps(steps_labels(), w.page, on_select=fn(i : Int) -> Unit {
@@ -62,7 +87,10 @@ fn main {
       }),
       @ui.divider(),
       @widget.bind_node(w.view.signal(), fn(_p : Int32) { wizard_body(w) }),
-    ],
+    ]
+  }
+  let root = @ui.col(
+    top,
     padding=24.0,
     row_gap=16.0,
     // 根容器撑满窗宽：窗口根是 Row 方向，不设 grow 会按内容收宽
@@ -70,7 +98,7 @@ fn main {
   )
   let mounted = @ui.mount_window(
     [root],
-    title="mng 向导",
+    title=(if w.panel { "mng 工程面板" } else { "mng 向导" }),
     width=720,
     height=560,
     handle=fn(_h : @widget.WindowHost) { () },

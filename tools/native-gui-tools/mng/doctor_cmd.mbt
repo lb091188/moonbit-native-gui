@@ -101,7 +101,8 @@ fn sibling_exe(dir : String, name : String) -> String? {
 /// → argv0 带 目录时用它的目录 → 兜底 ~/.moon/bin（标准安装位）。
 /// 返回 (mngui 是否在位, 退出码)；「没装上」与「无显示服务」都回落 usage，
 /// 但前者要给安装提示——调用方按首位区分。
-fn mngui_hop(argv0 : String) -> (Bool, Int32) {
+/// proj 非空 = 工程面板模式（裸 mng 在已有工程里跑）；空 = 新建向导。
+fn mngui_hop(argv0 : String, proj : String) -> (Bool, Int32) {
   let mut last = -1
   for i, c in argv0 {
     if c == '/' || c == '\\' {
@@ -130,10 +131,15 @@ fn mngui_hop(argv0 : String) -> (Bool, Int32) {
     h if h.length() > 0 => candidates.push(h + "/.moon/bin")
     _ => ()
   }
+  let args : Array[String] = if proj.length() > 0 {
+    ["--project", proj]
+  } else {
+    []
+  }
   for dir in candidates {
     match sibling_exe(dir, "mngui") {
       Some(exe) =>
-        match @proc.spawn_wait(exe, [], "", 0x7fffffff) {
+        match @proc.spawn_wait(exe, args, "", 0x7fffffff) {
           Ok(code) => return (true, code)
           Err(_) => return (true, 3)
         }

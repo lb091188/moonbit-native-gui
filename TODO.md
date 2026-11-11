@@ -36,7 +36,14 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 - [x] **步骤条点击预览 + 满宽修复**（本批）：`@ui.steps` 数字方块可点（缺省切换 current/on_select 接管 + 每格进 Tab 链方向键换步）；mngui 点数字只动 view 做预览、进度高亮不动，顶部出「正在预览」提示条 + 返回按钮；根 col 补 `grow=1.0` 修「体检页整块收窄」——窗口根是 Row 方向，根容器不设 grow 会按内容收宽
 - [x] **图标步**（本批）：`@scaffold.icon_step`——PNG 收进工程 `assets/icon.png` + 改写 mng.toml `icon` 键（wbtest 钉行替换口径）；icns/ico 各档派生归 `mng package` 打包时做，向导不重复
 
-## 打包与自动更新（2026-11-08 立项，方向见 [proposals/方向.md](proposals/方向.md) A1/A2/A3；一项一提交，做完删一项；先 CPU 光栅最小闭环，不绑 GPU 线）
+## mng 全入口 P2：工程中心化真机复验（2026-11-12 代码合入，用户执行）
+
+- [ ] **mng run/check/test 冒烟**（用户执行）：任一工程里 `mng run`（应 build 后前台起应用，Ctrl-C 退出码透传）、`mng check -p <包>`（参数透传）、`mng test`（退出码透传——故意改挂一个测试看非零）
+- [ ] **mng icons 真机复验**（用户执行）：`mng icons <任一 1024 PNG> -o /tmp/ic`——mac 应出 `.ico`（`file` 验 MS Windows icon resource）+ `.icns` + `.iconset` 十档；linux/win 应只出 ico 并提示 icns 跳过
+- [ ] **mng ffmpeg-dll win 腿**（用户执行）：`mng ffmpeg-dll --dry-run` 打印计划不落盘；去 `--dry-run` 后 audio/video exe 旁应齐 5 支 dll；`--run` 起示例
+- [ ] **工程面板真机复验**（用户执行）：已有工程里裸 `mng`（ready 有效）应开「mng 工程面板」窗（非五步向导）——标题下工程路径可选中复制、四按钮（打包/发布/启动热更/刷新日志）、点打包后提示 pid、跑完刷新日志出 tail（等宽字体末 60 行）；无 mng.toml/moon.mod 目录裸 mng 仍进新建向导；dev 形态（_build 起的）不跳向导
+
+
 
 > 产物钉死四件：macOS DMG、Windows setup（NSIS）、Linux deb + AppImage；tar.gz 与 PKGBUILD 不做。Linux 自动更新走 AppImage 单文件替换，deb 档报新版本引导下载。
 
