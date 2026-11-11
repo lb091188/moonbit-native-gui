@@ -143,8 +143,14 @@ fn help_doctor() -> Unit {
   )
   println(
     tmsg(
-      "  探测 moon / Python 3 / C·C++ 编译器 /（Linux）GTK 开发包，可选项（WebView、媒体库）只提示",
-      "  Probes moon / Python 3 / C & C++ compilers / (Linux) GTK dev packages; optional items (WebView, media libs) only warn",
+      "  探测 moon / Python 3 / C·C++ 编译器 /（Linux）GTK 开发包，末尾跑一次 moon native 构建探针（约几十秒，ready 门保证一台机器只跑一次量级）；可选项（WebView、媒体库）只提示",
+      "  Probes moon / Python 3 / C & C++ compilers / (Linux) GTK dev packages, then runs a moon native build probe (~tens of seconds; the ready gate keeps it once per machine); optional items (WebView, media libs) only warn",
+    ),
+  )
+  println(
+    tmsg(
+      "  Windows 的 MSVC 判据即探针成败（vswhere 查到 VCTools 只做免跑快路）；修复行给 winget 与官方安装器双路",
+      "  On Windows the MSVC verdict is the probe itself (a vswhere VCTools hit only skips it); fix hints offer both winget and the official installer",
     ),
   )
   println(

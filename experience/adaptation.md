@@ -3944,3 +3944,10 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 **修法**:linux 替换与重启的落点统一走 `upd_linux_target`:「$APPIMAGE 非空且文件存在 → 真身;否则(裸 exe/dev 跑/解包跑)落回自身路径」。挪不动时的报错补一句可读指引(装在系统位置如 /usr/bin 时 v1 更新只支持 AppImage 载体)。
 
 **判据**:①Linux 上凡「对自身文件做替换/重启」类功能,落点先问 `$APPIMAGE`,不能信 `/proc/self/exe`——它在 AppImage 里永远是挂载点内路径;②同一坑的两个面(替换落点、重启目标)要一次修齐,只修替换会出现「替换成功、重启回旧版」;③判别现场:报错路径含 `/tmp/.mount_` 即 AppImage 挂载点,真身看 `$APPIMAGE`。
+
+## mng doctor 的 Windows MSVC 判据:vswhere 组件判定对能编译的机器误报红(2026-11-11,win 真机反馈)
+
+- 现象:win 真机 `moon build --target native` 能过,doctor 却按 vswhere `-requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64` 判缺——组件 id 对不上的安装形态(全量 VS/异版 BuildTools/免安装器形态)会误报。
+- 根因:把「信息查询」(vswhere 组件表)当成了「能力判定」。build.md §3 的口径本来就是「能过链接即通过」,gui/scripts/prebuild.py 同判据。
+- 修正:vswhere 只做快路(查到 VCTools 免探针直接过);查不到/无 vswhere 一律落构建探针——`~/.mng/doctor/probe/` 最小 hello 工程真跑 `moon -C … build --target native`,以成败为判据,失败指日志 `~/.mng/doctor/native-probe.log`。POSIX 同款探针作收尾必选项(cc/pkg-config 便宜且准,保留;探针管端到端)。mac 实测探针全链 ~1.6s(warm)。
+- 附带:winget 不普适(部分 Win10/LTSC 无),win 修复文案一律双路——winget 命令 + 官方安装器直链(VS BuildTools / python.org)。

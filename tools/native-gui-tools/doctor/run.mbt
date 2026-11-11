@@ -13,6 +13,7 @@ pub fn run_all(
   if platform == "linux" {
     items.push(check_cc(platform, log_dir))
     items.push(check_gtk(log_dir))
+    items.push(native_probe(log_dir, home))
     items.push(
       check_pkg_lib(
         log_dir,
@@ -42,9 +43,10 @@ pub fn run_all(
     )
   } else if platform == "mac" {
     items.push(check_cc(platform, log_dir))
+    items.push(native_probe(log_dir, home))
     items.push(check_ffmpeg_mac(log_dir))
   } else {
-    items.push(check_msvc(log_dir))
+    items.push(check_msvc(log_dir, home))
   }
   items
 }

@@ -160,7 +160,8 @@ fn check_python(platform : String, log_dir : String) -> DItem {
           Fail,
           bi("未找到 python 命令", "python command not found"),
           fix=bi(
-            "winget install Python.Python.3.12", "winget install Python.Python.3.12",
+            "winget install Python.Python.3.12（无 winget 时从 python.org/downloads 装安装器）",
+            "winget install Python.Python.3.12 (or install from python.org/downloads when winget is absent)",
           ),
         )
     }
@@ -401,65 +402,120 @@ fn check_ffmpeg_mac(log_dir : String) -> DItem {
 }
 
 ///|
-fn check_msvc(log_dir : String) -> DItem {
-  let title = bi("MSVC C++ 工具链", "MSVC C++ toolchain")
+fn probe_write(p : String, body : String) -> Bool {
+  @fs.write_string_to_file(p, body) catch {
+    _ => return false
+  }
+  true
+}
+
+///|
+/// VS BuildTools 安装指引（winget 缺席的机器走官方安装器直链）。
+fn fix_msvc_install() -> DBi {
+  bi(
+    "winget install Microsoft.VisualStudio.2022.BuildTools -e --override \"--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended\"（无 winget 时从 https://visualstudio.microsoft.com/visual-cpp-build-tools/ 下安装器，勾选「使用 C++ 的桌面开发」）",
+    "winget install Microsoft.VisualStudio.2022.BuildTools -e --override \"--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended\" (or grab the installer at https://visualstudio.microsoft.com/visual-cpp-build-tools/ and select the C++ desktop workload when winget is absent)",
+  )
+}
+
+///|
+/// moon native 构建探针：`~/.mng/doctor/probe/` 落最小 hello 工程，真跑一次
+/// `moon build --target native`，以成败为判据（build.md §3 的 Windows 口径，
+/// 与 prebuild「以链接成败为判据」同源）。失败时日志留在同目录供排查。
+fn native_probe(log_dir : String, home : String) -> DItem {
+  let title = bi("moon native 构建探针", "moon native build probe")
+  let pdir = home + "/.mng/doctor/probe"
+  ensure_dir(pdir)
+  let ok = probe_write(
+      pdir + "/moon.mod",
+      "name = \"mng/doctor-probe\"\n\nversion = \"0.1.0\"\n\npreferred_target = \"native\"\n",
+    ) &&
+    probe_write(pdir + "/moon.pkg", "pkgtype(kind: \"executable\")\n") &&
+    probe_write(
+      pdir + "/main.mbt",
+      "fn main {\n  println(\"doctor probe\")\n}\n",
+    )
+  if !ok {
+    return ditem(
+      id="probe",
+      title~,
+      status=Warn,
+      detail=bi(
+        "探针工程写盘失败（~/.mng 目录权限？）", "failed writing probe project (~/.mng permissions?)",
+      ),
+    )
+  }
+  let log = log_dir + "/native-probe.log"
+  if @fs.path_exists(log) {
+    @fs.remove_file(log) catch {
+      _ => ()
+    }
+  }
+  // 冷构建含 runtime 编译，给足余量；ready 门保证一台机器只跑一次量级
+  match
+    @proc.spawn_wait(
+      "moon",
+      ["-C", pdir, "build", "--target", "native"],
+      log,
+      240000,
+    ) {
+    Err(e) => ditem(id="probe", title~, status=Fail, detail=bi(e, e))
+    Ok(0) =>
+      ditem(
+        id="probe",
+        title~,
+        status=Ok,
+        detail=bi(
+          "hello 工程编译链接通过", "hello project compiled and linked",
+        ),
+      )
+    Ok(code) =>
+      ditem(
+        id="probe",
+        title~,
+        status=Fail,
+        detail=bi(
+          "探针构建退出码 \{code}，日志：\{log}",
+          "probe build exited with \{code}, log: \{log}",
+        ),
+        fix=Some(fix_msvc_install()),
+      )
+  }
+}
+
+///|
+/// Windows 的 MSVC 判定：vswhere 查到 VCTools 只是快路（免探针直接过）；
+/// 查不到/没有 vswhere 一律落构建探针以成败为准——组件 id 对不上的安装
+/// 形态（全量 VS / 异版 BuildTools / 免安装器）不该误报红（2026-11-11
+/// win 真机反馈：能编译的机器被 vswhere 判缺）。
+fn check_msvc(log_dir : String, home : String) -> DItem {
+  let title = bi(
+    "MSVC C++ 工具链（构建探针判定）", "MSVC C++ toolchain (build-probe verdict)",
+  )
   let vswhere = match @env.get_env_var("ProgramFiles(x86)") {
     Some(p) if p.length() > 0 =>
       p + "/Microsoft Visual Studio/Installer/vswhere.exe"
     _ => "C:/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe"
   }
-  if !@fs.path_exists(vswhere) {
-    return ditem(
-      id="msvc",
-      title~,
-      status=Fail,
-      detail=bi(
-        "未找到 Visual Studio 安装器（vswhere）", "Visual Studio Installer (vswhere) not found",
-      ),
-      fix=Some(
-        bi(
-          "winget install Microsoft.VisualStudio.2022.BuildTools -e --override \"--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended\"",
-          "winget install Microsoft.VisualStudio.2022.BuildTools -e --override \"--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended\"",
-        ),
-      ),
-    )
+  if @fs.path_exists(vswhere) {
+    match
+      capture(log_dir, "vswhere", vswhere, [
+        "-products", "*", "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+        "-property", "installationPath",
+      ]) {
+      Ok((0, out)) =>
+        if out.length() > 0 {
+          return ditem(
+            id="msvc",
+            title~,
+            status=Ok,
+            detail=bi(first_line(out), first_line(out)),
+          )
+        }
+      _ => ()
+    }
   }
-  match
-    capture(log_dir, "vswhere", vswhere, [
-      "-products", "*", "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
-      "-property", "installationPath",
-    ]) {
-    Ok((0, out)) =>
-      if out.length() == 0 {
-        ditem(
-          id="msvc",
-          title~,
-          status=Fail,
-          detail=bi(
-            "装了 VS 但没有「使用 C++ 的桌面开发」工作负载", "VS installed without the C++ desktop workload",
-          ),
-          fix=Some(
-            bi(
-              "winget install Microsoft.VisualStudio.2022.BuildTools -e --override \"--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended\"",
-              "winget install Microsoft.VisualStudio.2022.BuildTools -e --override \"--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended\"",
-            ),
-          ),
-        )
-      } else {
-        ditem(
-          id="msvc",
-          title~,
-          status=Ok,
-          detail=bi(first_line(out), first_line(out)),
-        )
-      }
-    Ok((code, _)) =>
-      ditem(
-        id="msvc",
-        title~,
-        status=Fail,
-        detail=bi("vswhere 退出码 \{code}", "vswhere exited with \{code}"),
-      )
-    Err(e) => ditem(id="msvc", title~, status=Fail, detail=bi(e, e))
-  }
+  // vswhere 快路未命中：探针说了算
+  let p = native_probe(log_dir, home)
+  { ..p, id: "msvc", title, }
 }
