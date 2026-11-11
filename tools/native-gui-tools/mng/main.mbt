@@ -796,14 +796,22 @@ fn main {
     k += 1
   }
   if args.length() == 0 {
-    // 裸 mng 状态机：ready 缺失先跑一轮体检（全绿写 ready），之后照旧 usage；
-    // 体检有红项直接以退出码 1 结束。ready 只门这条交互入口，子命令与 CI 不受影响。
+    // 裸 mng 状态机：ready 缺失先跑一轮体检（全绿写 ready）；ready 有效后
+    // 让位给 mngui 向导（无显示服务 / 没装上 → 回 usage）。
+    // ready 只门这条交互入口，子命令与 CI 不受影响。开发形态（_build 路径
+    // 起的）不跳向导，向导直接 moon run tools/native-gui-tools/mngui。
     let home = @doctor.home_dir()
     let path = @doctor.ready_path(home~)
     if !@doctor.ready_valid(path~, version=MNG_VERSION) {
       let code = cmd_doctor(force=true)
       if code != 0 {
         @sys.exit(code)
+      }
+    }
+    if !raw[0].contains("_build") {
+      let hop = mngui_hop(raw[0])
+      if hop != 3 {
+        @sys.exit(hop)
       }
     }
     usage()

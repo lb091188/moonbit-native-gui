@@ -1,0 +1,18 @@
+// mng 向导壳（GUI）：欢迎 → 环境体检 → 新建应用 → 启动热更 → 完成。
+// 体检吃 @doctor 内核，脚手架走 @scaffold 内核；本包只做界面与编排。
+import {
+  "moonbitlang/core/env",
+  "moonbitlang/x/fs",
+  "moonbitlang/x/sys",
+  "NoahLiu/native-gui/base",
+  "NoahLiu/native-gui/style",
+  "NoahLiu/native-gui/ui",
+  "NoahLiu/native-gui/widget",
+  "NoahLiu/native-gui-tools/doctor",
+  "NoahLiu/native-gui-tools/scaffold",
+  "NoahLiu/native-gui-tools/proc",
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"

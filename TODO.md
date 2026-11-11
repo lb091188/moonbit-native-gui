@@ -23,6 +23,13 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 
 - [ ] **真机复验**（用户执行）：linux 腿看 GTK 全缺时的修复行（**mac 腿 2026-11-11 过**：裸 mng 先体检后 usage、二跑一跳而过、`doctor -f` 重检全绿重盖 ready、中文档正常、含构建探针项；**win 腿 2026-11-11 三轮过**：①vswhere 组件判定误报红→改构建探针判（29116521）②探针写盘失败 [!]→落盘路径两坑修 + 探针写失败改拦 ready（014a29a5）③用户确认全绿收口；坑记 adaptation.md）
 
+## mng 全入口 P1：mngui 向导壳（2026-11-11 动手，分期见 roadmap「已规划 · 开发体验」；一项一提交，做完删一项）
+
+- [x] **scaffold 内核化**：`@scaffold` 事件回调（f689452c），mng 留渲染层
+- [x] **mngui 五步壳 + 裸 mng 下一跳**（本批）：欢迎→体检→新建（@scaffold）→起 dev（shell 包装 cwd 工程目录；dev 形态经 `moon -C <仓库> run … mng -- dev`）→完成；体检开窗前同步跑完；无显示 exit 3，裸 mng 据此回 usage；dev 形态（_build 路径）不跳向导
+- [ ] **mngui 真机复验**（用户执行）：`moon install ./tools/native-gui-tools` 后裸 `mng` 应开向导窗；五步走通——体检四项 ✓、建 demo 工程、启动 mng dev 后应用窗弹出、关向导 dev 仍在、完成页命令可选中复制；无显示机（SSH）裸 mng 应回 usage
+- [ ] **图标步**（P1 剩余）：新建应用可选 PNG → iconkit 出全档图标写 mng.toml `[package].icon`
+
 ## 打包与自动更新（2026-11-08 立项，方向见 [proposals/方向.md](proposals/方向.md) A1/A2/A3；一项一提交，做完删一项；先 CPU 光栅最小闭环，不绑 GPU 线）
 
 > 产物钉死四件：macOS DMG、Windows setup（NSIS）、Linux deb + AppImage；tar.gz 与 PKGBUILD 不做。Linux 自动更新走 AppImage 单文件替换，deb 档报新版本引导下载。
