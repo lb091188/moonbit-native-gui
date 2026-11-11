@@ -127,9 +127,11 @@ async fn pkg_config(args : Array[String], flag : String) -> Array[String]? {
     return None
   }
   let parts : Array[String] = []
-  for p in out.stdout().split(" ") {
-    if p.length() > 0 {
-      parts.push(p.to_owned())
+  for seg in out.stdout().split("\n") {
+    for p in seg.split(" ") {
+      if p.length() > 0 {
+        parts.push(p.to_owned())
+      }
     }
   }
   Some(parts)
@@ -337,9 +339,9 @@ fn slice_str(s : String, lo : Int, hi : Int) -> String {
 }
 
 ///|
-fn entry(package~ : String, link_flags~ : String) -> String {
+fn entry(pkg~ : String, link_flags~ : String) -> String {
   "{ \"package\": \"" +
-  json_escape(package) +
+  json_escape(pkg) +
   "\", \"link_flags\": \"" +
   json_escape(link_flags) +
   "\" }"
@@ -395,10 +397,10 @@ async fn link_configs() -> String {
       join_flags(libs) +
       " " +
       sys_libs
-      entries.push(entry(package=win_package, link_flags=flags))
+      entries.push(entry(pkg=win_package, link_flags=flags))
       // sys 包的文件对话框 extern 直链 win 桩的 wm_file_*（MoonBit 层不引
       // win）：链接由此处单独下发（GTK 库同 win 一套）
-      entries.push(entry(package=sys_package, link_flags=flags))
+      entries.push(entry(pkg=sys_package, link_flags=flags))
     }
     let cairo_lib = compile_stub(
       module_root~,
@@ -410,7 +412,7 @@ async fn link_configs() -> String {
     )
     if cairo_lib.length() > 0 {
       entries.push(
-        entry(package=render_package, link_flags="-L" +
+        entry(pkg=render_package, link_flags="-L" +
           build_dir +
           " -lrender_cairo_stub " +
           join_flags(libs) +
@@ -431,7 +433,7 @@ async fn link_configs() -> String {
       // 文本层要复用 Painter 的 Cairo 会话（cr_session_context 定义在
       // render 的桩库里），所以 text 的链接行也要带上 render 的归档
       entries.push(
-        entry(package=text_package, link_flags="-L" +
+        entry(pkg=text_package, link_flags="-L" +
           build_dir +
           " -lyue_text_pango -lrender_cairo_stub " +
           join_flags(libs) +
@@ -445,23 +447,23 @@ async fn link_configs() -> String {
     // 这里只下发系统库；MSVC 口径用位置参数直拼 .lib 名——GNU 的 -L/-l
     // 会报 D9002（experience/adaptation.md「链接参数」节）
     entries.push(
-      entry(package=win_package, link_flags="user32.lib gdi32.lib imm32.lib advapi32.lib windowscodecs.lib ole32.lib shell32.lib uuid.lib uiautomationcore.lib oleaut32.lib",
+      entry(pkg=win_package, link_flags="user32.lib gdi32.lib imm32.lib advapi32.lib windowscodecs.lib ole32.lib shell32.lib uuid.lib uiautomationcore.lib oleaut32.lib",
       ),
     )
     // render：图片解码（W9）走 WIC + COM 初始化；光栅部分是纯 MoonBit
     // 光栅器，不需要 gdi32/d2d
     entries.push(
-      entry(package=render_package, link_flags="windowscodecs.lib ole32.lib user32.lib"),
+      entry(pkg=render_package, link_flags="windowscodecs.lib ole32.lib user32.lib"),
     )
     // sys：IFileDialog（ole32+shell32）、GUID 常量链 uuid.lib、自启动
     // advapi32、电源 powrprof、WMI 兜底 oleaut32+wbemuuid、夜间色温 gdi32
     entries.push(
-      entry(package=sys_package, link_flags="ole32.lib oleaut32.lib wbemuuid.lib shell32.lib uuid.lib user32.lib gdi32.lib advapi32.lib powrprof.lib winspool.lib",
+      entry(pkg=sys_package, link_flags="ole32.lib oleaut32.lib wbemuuid.lib shell32.lib uuid.lib user32.lib gdi32.lib advapi32.lib powrprof.lib winspool.lib",
       ),
     )
     // text：DirectWrite + D2D 的 DC 渲染目标；GUID 常量 uuid.lib、COM ole32
     entries.push(
-      entry(package=text_package, link_flags="dwrite.lib d2d1.lib windowscodecs.lib ole32.lib uuid.lib gdi32.lib",
+      entry(pkg=text_package, link_flags="dwrite.lib d2d1.lib windowscodecs.lib ole32.lib uuid.lib gdi32.lib",
       ),
     )
   } else {
@@ -482,9 +484,9 @@ async fn link_configs() -> String {
         build_dir +
         " -lyue_win_stub_mac " +
         join_flags(mac_win_frameworks)
-      entries.push(entry(package=win_package, link_flags=win_flags))
+      entries.push(entry(pkg=win_package, link_flags=win_flags))
       // sys 的文件对话框 extern 直链 win 桩的 wm_file_*，与 linux 同口径
-      entries.push(entry(package=sys_package, link_flags=win_flags + " " + join_flags(mac_sys_frameworks)))
+      entries.push(entry(pkg=sys_package, link_flags=win_flags + " " + join_flags(mac_sys_frameworks)))
     }
     // render：图片解码走 ImageIO（CGImageSource）+ 落盘；光栅仍是纯
     // MoonBit 光栅器
@@ -498,7 +500,7 @@ async fn link_configs() -> String {
     )
     if render_lib.length() > 0 {
       entries.push(
-        entry(package=render_package, link_flags="-L" +
+        entry(pkg=render_package, link_flags="-L" +
           build_dir +
           " -lrender_mac_stub " +
           join_flags(mac_render_frameworks),
@@ -516,7 +518,7 @@ async fn link_configs() -> String {
     )
     if text_lib.length() > 0 {
       entries.push(
-        entry(package=text_package, link_flags="-L" + build_dir + " -lyue_text_mac " + join_flags(mac_text_frameworks),
+        entry(pkg=text_package, link_flags="-L" + build_dir + " -lyue_text_mac " + join_flags(mac_text_frameworks),
         ),
       )
     }

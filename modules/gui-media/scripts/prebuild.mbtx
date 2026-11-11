@@ -352,13 +352,13 @@ async fn link_configs() -> String {
 }
 
 ///|
-/// 绝对路径的目录部分（取最后一个 / 之前）。
+/// 绝对路径的目录部分（取最后一个 / 或 \ 之前）。
 fn dir_of(p : String) -> String {
   let mut last = -1
   let n = p.length()
   let mut i = 0
   while i < n {
-    if p[i] == '/' {
+    if p[i] == '/' || p[i] == '\\' {
       last = i
     }
     i += 1

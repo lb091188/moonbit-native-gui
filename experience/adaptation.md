@@ -4002,3 +4002,5 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 
 - **改 prebuild.mbtx 后本地 check/test 不抓语法错**:`moon check`/`moon test` 不编译 prebuild 脚本,target 缓存命中时连旧编译产物都不重建——坏文件本地全绿、CI 全新 checkout 才现形(2026-11-11 dir_of 改坏,gui/gui-gpu 两份同坏,三平台 CI 同时红,本地门禁零感知)。
 - **验证手段**:改完 `moon run <模块>/scripts/prebuild.mbtx` 编译运行一遍(脱离 prebuild 环境运行期报错属预期,编译过即解析过);或清 target 重建再跑门禁。
+- **mac 对拍不覆盖 linux/win 腿**:mbtx 移植只对拍过 mac,linux/win 分支首次在 CI 跑出两坑——① pkg-config 输出带结尾换行,`split(" ")` 切完末尾 token 是 `"\n"`,cc 报「linker input file not found」且文件名空(打印像空参),要按换行+空格双切分;② dir_of 认反斜杠的修复只改了 gui/gui-gpu,gui-media 漏改,win 的 `MOON_MOD` 是反斜杠路径原样返回,拼出 `moon.mod/media/...` 致 `@fs.open` 炸——三份脚本的公共函数改完要对账。
+- **保留字参数名**:gui 的 `entry(package~, …)` 触发 `[0035] reserved_keyword` 警告(与 gui-media 移植批同款),具名参数一律避开保留字,用 `pkg` 这类名字。
