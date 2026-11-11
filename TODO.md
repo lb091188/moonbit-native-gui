@@ -17,11 +17,9 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 
 （2026-11-07 全部收口：X11 三角形真机过（三色三角形、关窗/Esc 正常退出）；GPU 画布 mac/win/Linux 三腿真机全过——Linux 应用进程「检查读回」非零、与无头用例一致；Linux L1 独立 X 子窗口承载真机复验含最小化恢复场景。GPU 验证队列清空，后续实现批（视频直纹理、GPU 控件纹理进合成器等）见 roadmap「已规划 · 渲染」与 proposals）
 
-## mng 全入口 P0：doctor 体检 + ready（2026-11-11 立项，分期与入口状态机见 [docs/zh/reference/roadmap.md](docs/zh/reference/roadmap.md)「已规划 · 开发体验」；一项一提交，做完删一项）
+## mng 全入口 P0：doctor 体检 + ready（2026-11-11 立项并全收口，分期与入口状态机见 [docs/zh/reference/roadmap.md](docs/zh/reference/roadmap.md)「已规划 · 开发体验」）
 
-（2026-11-11 代码全合入：doctor 内核包（探针/结构化结果/递归建目录落日志）、`~/.mng/ready` 版本行读写、`mng doctor [-f]` 子命令与裸 mng 首跑分流、解析纯函数 wbtest。mac 本机已过 fresh 体检/ready 复跑一跳而过/裸 mng 二跑直 usage/中文档全链；**三平台真机复验未做**）
-
-- [ ] **真机复验**（用户执行）：linux 腿看 GTK 全缺时的修复行（**mac 腿 2026-11-11 过**：裸 mng 先体检后 usage、二跑一跳而过、`doctor -f` 重检全绿重盖 ready、中文档正常、含构建探针项；**win 腿 2026-11-11 三轮过**：①vswhere 组件判定误报红→改构建探针判（29116521）②探针写盘失败 [!]→落盘路径两坑修 + 探针写失败改拦 ready（014a29a5）③用户确认全绿收口；坑记 adaptation.md）
+（2026-11-11 代码全合入 + 三平台真机全过，本段收口归档——**mac 腿**：裸 mng 先体检后 usage、二跑一跳而过、`doctor -f` 重检全绿重盖 ready、中文档正常、含构建探针项；**win 腿三轮**：①vswhere 组件判定误报红→改构建探针判（29116521）②探针写盘失败 [!]→落盘路径两坑修 + 探针写失败改拦 ready（014a29a5）③用户确认全绿；**linux 腿**：2026-11-11 用户确认过（GTK/修复行读数正常）。坑记 adaptation.md）
 
 ## mng 全入口 P1：mngui 向导壳（2026-11-11 动手，分期见 roadmap「已规划 · 开发体验」；一项一提交，做完删一项）
 
