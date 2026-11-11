@@ -3,8 +3,10 @@
 // 首页 dev 生成码经 mngkit 编译。
 import {
   "moonbitlang/x/fs",
-  "moonbitlang/core/env",
   "NoahLiu/native-gui-tools/mngkit",
 }
+import {
+  "moonbitlang/core/env",
+} for "wbtest"
 
 supported_targets = "native"
