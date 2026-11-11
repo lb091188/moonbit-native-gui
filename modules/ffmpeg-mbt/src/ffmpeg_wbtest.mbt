@@ -234,6 +234,9 @@ test "ffmpeg 硬解：显式请求下的三档状态与回落等价" {
     Some(b) => b
     None => fail("软解没出帧")
   }
+  // 策略位要在 close 前取：close 会释放 dec/adec/fmt，之后调 transfer_mode()
+  // 是读已释放句柄（Windows 实测读到垃圾值 1460169804）
+  let soft_transfer = soft.transfer_mode()
   soft.close()
   // 硬解请求：可能真走硬件（1），也可能回落（2）——两档都要如实报
   let hw = match Demuxer::open("src/testdata/testsrc_1s.avi") {
@@ -249,7 +252,7 @@ test "ffmpeg 硬解：显式请求下的三档状态与回落等价" {
   // 帧输出策略位：软解与硬解两路都只有 SwScale 一档（H2 收敛点；直纹理档
   // 随 GPU 线首消费者落地，见 proposals/gpu-architecture.md）
   assert_eq(hw.transfer_mode(), 0)
-  assert_eq(soft.transfer_mode(), 0)
+  assert_eq(soft_transfer, 0)
   if st == 2 {
     assert_true(hw.hw_reason().length() > 0, msg="回落必须带原因")
   }

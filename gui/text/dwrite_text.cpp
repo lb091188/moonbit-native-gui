@@ -1528,8 +1528,6 @@ extern "C" int rt_line_box(int64_t h, int line, double box_w, double box_h,
   HRESULT hr = layout->GetLineMetrics(stack_lms, cap, &count);
   if (FAILED(hr) || count == 0 || line < 0 ||
       static_cast<UINT32>(line) >= count) {
-    fprintf(stderr, "[rt_line_box] GetLineMetrics hr=0x%08lx count=%u line=%d\n",
-            static_cast<unsigned long>(hr), count, line);
     layout->Release();
     return 0;
   }
