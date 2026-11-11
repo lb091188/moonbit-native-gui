@@ -17,6 +17,13 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 
 （2026-11-07 全部收口：X11 三角形真机过（三色三角形、关窗/Esc 正常退出）；GPU 画布 mac/win/Linux 三腿真机全过——Linux 应用进程「检查读回」非零、与无头用例一致；Linux L1 独立 X 子窗口承载真机复验含最小化恢复场景。GPU 验证队列清空，后续实现批（视频直纹理、GPU 控件纹理进合成器等）见 roadmap「已规划 · 渲染」与 proposals）
 
+## mng 全入口 P0：doctor 体检 + ready（2026-11-11 立项，分期与入口状态机见 [docs/zh/reference/roadmap.md](docs/zh/reference/roadmap.md)「已规划 · 开发体验」；一项一提交，做完删一项）
+
+- [ ] **doctor 内核包**：`tools/native-gui-tools/doctor` 新包——探测 moon 版本 / Python3≥3.7 / cc·g++·MSVC / pkg-config·GTK（`@proc.run_wait` + 输出解析，Windows 沿用 prebuild「以链接成败为判据」口径），结构化结果（项 / 状态 Ok·Warn·Fail / 修复命令；必选项 Fail 拦 ready、可选项只 Warn）；解析纯函数 wbtest 钉住
+- [ ] **ready 读写**：`~/.mng/ready` 内容为 mng 版本行；版本不符视为不存在（触发重检）
+- [ ] **`mng doctor` 子命令 + 裸 mng 分流**：`mng doctor [-f]`（-f 强制重检重盖）；无参且 ready 缺失 → 跑体检，全绿写 ready 后回 usage()（P1 起换 mngui），红项清单 + 修复命令 exit 1；ready 只门无参入口，子命令 / CI 不拦
+- [ ] **真机复验**（用户执行）：三平台裸 mng 首跑 / 复跑 doctor 读数、`~/.mng/ready` 落盘与版本变更重检、`-f` 强制重检
+
 ## 打包与自动更新（2026-11-08 立项，方向见 [proposals/方向.md](proposals/方向.md) A1/A2/A3；一项一提交，做完删一项；先 CPU 光栅最小闭环，不绑 GPU 线）
 
 > 产物钉死四件：macOS DMG、Windows setup（NSIS）、Linux deb + AppImage；tar.gz 与 PKGBUILD 不做。Linux 自动更新走 AppImage 单文件替换，deb 档报新版本引导下载。
