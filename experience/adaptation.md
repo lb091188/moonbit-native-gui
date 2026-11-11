@@ -3992,3 +3992,8 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **mbtx 无 zip 解包库**,上游 wgpu-native 资产又全是 zip 无 tar.gz——解压 spawn 平台工具(mac/linux `unzip -o`、Windows PowerShell `Expand-Archive`);unzip 缺失时给发行版安装提示。这是平台工具依赖的最小残留(unzip 比 python3 普遍得多,mac 自带)。
 - **具名参数混用有解析坑**:`f(label=value~)`(label= 简写混合)与多具名 `f(a~, b~)` 报 parse error——调用处全写显式 `f(a=a, b=b)`。
 - 端到端实测:删 vendor 重建,GitHub 直连 180s 预算超时自动换 ghfast 镜像,下载 sha256 ✓ → 解压出 libwgpu_native.dylib + include → marker 三行写入;1983 测试全过。
+
+## mng 工具批坑(2026-11-12)
+
+- **`*_test.mbt` 结尾的文件是黑盒测试**:`mng/run_check_test.mbt` 被收进测试编译单元,包内符号(顶层私有 fn)全部 unbound,且语法错误探针都不报——check 输出完全看不出这个文件存在。普通源文件命名避开 `_test.mbt` 结尾。
+- **moon 嵌套会卡构建锁**:`moon run …/mng -- run` 里 mng 再 spawn `moon build`(同一 workspace)会等外层 moon 的构建目录锁,看起来像「日志停在 prebuild 不动」。本地冒烟要先把 mng 构建成二进制再直跑(CI 的 mng_scenario 同款);`mng dev` 真机用法(装的二进制)天然无此问题。

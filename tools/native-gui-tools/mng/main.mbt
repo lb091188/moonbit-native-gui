@@ -106,6 +106,18 @@ fn usage() -> Unit {
     "  init", "在模块根写 mng.toml 样板", "Write an mng.toml sample at module root",
   )
   usage_line(
+    "  run [子目录]", "构建当前工程并前台运行（mng.toml 的 run 优先，缺省从 Artifacts 推导）",
+    "Build the current project and run it in the foreground (mng.toml run first, else derived from Artifacts)",
+  )
+  usage_line(
+    "  check [参数]", "透传 moon check（参数原样转交，退出码透传）",
+    "Pass through to moon check (args forwarded, exit code preserved)",
+  )
+  usage_line(
+    "  test [参数]", "透传 moon test（参数原样转交，退出码透传）",
+    "Pass through to moon test (args forwarded, exit code preserved)",
+  )
+  usage_line(
     "  doctor [-f]", "环境体检（moon/编译器/GTK；Python 为可选提示）；全绿写 ~/.mng/ready，-f 强制重检",
     "Environment health check (moon/compilers/GTK; Python is an optional hint); writes ~/.mng/ready when green, -f forces re-check",
   )
@@ -893,6 +905,12 @@ fn main {
     cmd_lsp(rest)
   } else if cmd == "init" {
     cmd_init(rest)
+  } else if cmd == "run" {
+    cmd_run(rest)
+  } else if cmd == "check" {
+    cmd_check(rest)
+  } else if cmd == "test" {
+    cmd_test(rest)
   } else if cmd == "doctor" {
     cmd_doctor(force=rest.contains("-f") || rest.contains("--force"))
   } else {

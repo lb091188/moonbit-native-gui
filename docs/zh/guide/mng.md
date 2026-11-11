@@ -30,6 +30,9 @@ mng --version   # 应打印 mng 版本与 mng-schema 位
 | `mng build` | 无参按 `mng.toml` 生成全工程**生产形态**生成码；`mng build <in.mng> -o <out.mbt>` 编译单文件 |
 | `mng package` | 打包本平台应用产物（详见[打包与更新](./publish)）；`-h` 看细目 |
 | `mng publish` | 扫 `.mng/dist/` 生成 update.json 并经 gh 上传 draft Release |
+| `mng run [子目录]` | 构建当前工程并前台运行：`mng.toml` 的 `run` 优先，缺省从 `moon build` 的 Artifacts 推导可执行；stdio 直连终端，退出码透传 |
+| `mng check [参数]` | 透传 `moon check`（参数原样转交，退出码透传） |
+| `mng test [参数]` | 透传 `moon test`（参数原样转交，退出码透传） |
 | `mng doctor [-f]` | 环境体检；全绿写 `~/.mng/ready`，`-f` 强制重检 |
 | `mng lsp` | 语言服务（stdio JSON-RPC，VS Code 扩展的引擎） |
 | `mng ir <in.mng>` | 打印模板 IR 补丁（调试热更通道用） |

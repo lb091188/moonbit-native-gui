@@ -30,6 +30,9 @@ The bare-`mng` state machine:
 | `mng build` | No args: generate **production-form** code for the whole project per `mng.toml`; `mng build <in.mng> -o <out.mbt>` compiles one file |
 | `mng package` | Package platform-native app artifacts (see [Packaging & auto-update](./publish)); `-h` for details |
 | `mng publish` | Scan `.mng/dist/`, generate update.json, upload a draft Release via gh |
+| `mng run [dir]` | Build the current project and run it in the foreground: `mng.toml`'s `run` wins, else the executable is derived from `moon build` Artifacts; stdio goes straight to the terminal, exit code preserved |
+| `mng check [args]` | Pass through to `moon check` (args forwarded verbatim, exit code preserved) |
+| `mng test [args]` | Pass through to `moon test` (args forwarded verbatim, exit code preserved) |
 | `mng doctor [-f]` | Environment health check; all green writes `~/.mng/ready`, `-f` forces a re-check |
 | `mng lsp` | Language server (stdio JSON-RPC, the engine behind the VS Code extension) |
 | `mng ir <in.mng>` | Print the template IR patch (for debugging the hot-reload channel) |
