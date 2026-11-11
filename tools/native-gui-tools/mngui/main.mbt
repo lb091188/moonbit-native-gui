@@ -7,6 +7,7 @@ struct Wizard {
   items : Array[@doctor.DItem]
   name : @base.Store[String]
   parent : @base.Store[String]
+  icon : @base.Store[String]
   msg : @base.Store[String]
   proj : @base.Store[String]
   dev_hint : @base.Store[String]
@@ -34,6 +35,7 @@ fn main {
     items: @doctor.run_all(),
     name: @base.Store::new(""),
     parent: @base.Store::new(cwd),
+    icon: @base.Store::new(""),
     msg: @base.Store::new(""),
     proj: @base.Store::new(""),
     dev_hint: @base.Store::new(""),

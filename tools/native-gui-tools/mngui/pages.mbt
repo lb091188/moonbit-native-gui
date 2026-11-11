@@ -101,6 +101,17 @@ fn page_new_app(w : Wizard) -> Array[@widget.Node] {
           ],
           column_gap=12.0,
         ),
+        @ui.row(
+          [
+            @ui.text("图标 PNG", class=[@style.style(width=72.0)]),
+            @ui.input(
+              w.icon,
+              placeholder="可选：1024×1024 PNG，留空跳过",
+              width=360.0,
+            ),
+          ],
+          column_gap=12.0,
+        ),
       ],
       row_gap=12.0,
     ),
@@ -120,8 +131,16 @@ fn create_app(w : Wizard) -> Int32 {
   ) {
     match e {
       AppDone(dir~, ..) => {
+        // 图标步可选：失败不回滚工程，错误就地显示
+        let png = w.icon.get()
+        if png.length() > 0 {
+          match @scaffold.icon_step(dir=dir, png~) {
+            Ok(_) => w.msg.set("")
+            Err(err) =>
+              w.msg.set("图标步跳过（工程已建好）：" + err)
+          }
+        }
         w.proj.set(dir)
-        w.msg.set("")
         w.page.set(3)
       }
       other => w.msg.set(scaf_msg(other))
