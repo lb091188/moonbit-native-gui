@@ -261,6 +261,16 @@ int32_t mngpr_write_stdout(const char *data, int32_t len) {
   return (int32_t)put;
 }
 
+// 本进程可执行文件全路径（argv[0] 可能只是敲进去的名字）。
+int32_t mngpr_self_path(char *buf, int32_t cap) {
+  DWORD n = GetModuleFileNameA(NULL, buf, (DWORD)cap);
+  if (n <= 0 || n >= (DWORD)cap) {
+    mngpr_err = (int32_t)GetLastError();
+    return -1;
+  }
+  return (int32_t)n;
+}
+
 #else
 
 #include <unistd.h>
@@ -268,6 +278,9 @@ int32_t mngpr_write_stdout(const char *data, int32_t len) {
 #include <sys/wait.h>
 #include <signal.h>
 #include <fcntl.h>
+#if defined(__APPLE__)
+#include <mach-o/dyld.h>
+#endif
 
 // blob → argv（条目指向 blob 内部，不拷贝；空条目跳过）。
 static char **mngpr_argv(const char *file, const char *blob, int32_t len, int32_t *argc) {
@@ -554,6 +567,27 @@ int32_t mngpr_write_stdout(const char *data, int32_t len) {
     off += (int32_t)w;
   }
   return off;
+}
+
+// 本进程可执行文件全路径（argv[0] 是 shell 敲进去的名字，不带目录）。
+// POSIX：Linux 走 /proc/self/exe，mac 走 _NSGetExecutablePath。
+int32_t mngpr_self_path(char *buf, int32_t cap) {
+#if defined(__APPLE__)
+  uint32_t len = (uint32_t)cap;
+  if (_NSGetExecutablePath(buf, &len) != 0) {
+    mngpr_err = ENOMEM;
+    return -1;
+  }
+  return (int32_t)strlen(buf);
+#else
+  ssize_t n = readlink("/proc/self/exe", buf, (size_t)(cap - 1));
+  if (n < 0) {
+    mngpr_err = errno;
+    return -1;
+  }
+  buf[n] = '\0';
+  return (int32_t)n;
+#endif
 }
 
 #endif

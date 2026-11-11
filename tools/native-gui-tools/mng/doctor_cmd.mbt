@@ -82,7 +82,23 @@ fn cmd_doctor(force~ : Bool = false) -> Int32 {
 }
 
 ///|
-/// 裸 mng 在 ready 有效后的下一跳：让位给同目录的 mngui 向导。
+/// 兄弟可执行查找：依次试 `<dir>/<名>` 与 `<dir>/<名>.exe`；都在位给全路径。
+fn sibling_exe(dir : String, name : String) -> String? {
+  let a = dir + "/" + name
+  if @fs.path_exists(a) {
+    return Some(a)
+  }
+  let b = a + ".exe"
+  if @fs.path_exists(b) {
+    return Some(b)
+  }
+  None
+}
+
+///|
+/// 裸 mng 在 ready 有效后的下一跳：让位给 mngui 向导。
+/// 目录解析：进程真实路径（argv[0] 是 shell 敲进去的名字，常无目录）
+/// → argv0 带 目录时用它的目录 → 兜底 ~/.moon/bin（标准安装位）。
 /// 返回 (mngui 是否在位, 退出码)；「没装上」与「无显示服务」都回落 usage，
 /// 但前者要给安装提示——调用方按首位区分。
 fn mngui_hop(argv0 : String) -> (Bool, Int32) {
@@ -92,20 +108,37 @@ fn mngui_hop(argv0 : String) -> (Bool, Int32) {
       last = i
     }
   }
-  if last <= 0 {
-    return (false, 3)
+  let candidates : Array[String] = []
+  match @proc.self_path() {
+    Some(p) => {
+      let mut l = -1
+      for i, c in p {
+        if c == '/' || c == '\\' {
+          l = i
+        }
+      }
+      if l > 0 {
+        candidates.push(p[0:l].to_owned())
+      }
+    }
+    None => ()
   }
-  let dir = argv0[0:last].to_owned()
-  let exe = dir + "/mngui"
-  let exe = if @fs.path_exists(exe) {
-    exe
-  } else if @fs.path_exists(exe + ".exe") {
-    exe + ".exe"
-  } else {
-    return (false, 3)
+  if last > 0 {
+    candidates.push(argv0[0:last].to_owned())
   }
-  match @proc.spawn_wait(exe, [], "", 0x7fffffff) {
-    Ok(code) => (true, code)
-    Err(_) => (true, 3)
+  match @doctor.home_dir() {
+    h if h.length() > 0 => candidates.push(h + "/.moon/bin")
+    _ => ()
   }
+  for dir in candidates {
+    match sibling_exe(dir, "mngui") {
+      Some(exe) =>
+        match @proc.spawn_wait(exe, [], "", 0x7fffffff) {
+          Ok(code) => return (true, code)
+          Err(_) => return (true, 3)
+        }
+      None => ()
+    }
+  }
+  (false, 3)
 }

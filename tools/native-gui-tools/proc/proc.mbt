@@ -181,3 +181,20 @@ pub fn read_stdin(out : Bytes, cap : Int32) -> Int32 {
 pub fn write_stdout(data : Bytes, len : Int32) -> Int32 {
   ffi_write_stdout(data, len)
 }
+
+///|
+#borrow(out)
+extern "c" fn ffi_self_path(out : Bytes, cap : Int32) -> Int32 = "mngpr_self_path"
+
+///|
+/// 本进程可执行文件全路径。argv[0] 是 shell 敲进去的名字（裸 `mng` 无目录），
+/// 找兄弟可执行文件（mng→mngui）必须用真实路径。
+pub fn self_path() -> String? {
+  let buf = Bytes::make(1024, 0)
+  let n = ffi_self_path(buf, 1024)
+  if n <= 0 {
+    None
+  } else {
+    Some(@utf8.decode(buf[0:n].to_owned()) catch { _ => "" })
+  }
+}
