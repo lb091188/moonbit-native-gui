@@ -76,7 +76,8 @@ pub fn menu_page(cats : Array[(String, Array[Section])]) -> @widget.Node {
         @ui.ScrollState::new(),
         width=200.0,
         handle=fn(v) {
-          v.node.set_flex_grow(1.0)
+          // 定宽 200：不参与 grow（剩余空间全归右栏，否则两栏平分、右栏占不满），也不许被压缩
+          v.node.set_flex_grow(0.0)
           v.node.set_flex_shrink(0.0)
         },
       ),
