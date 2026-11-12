@@ -1,5 +1,5 @@
 # 演示板的项目级 dev 配置（mng dev 无参时向上找到本文件）。
-# 命令与相对路径以执行 mng dev 时的当前目录为准（通常在 examples/showcase）。
+# 命令与相对路径以执行 mng dev 时的当前目录为准（通常在 examples/components）。
 [dev]
 templates = ["."]
 build = "moon build ."

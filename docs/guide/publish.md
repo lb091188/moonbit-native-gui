@@ -71,7 +71,7 @@ Cross-platform manifests: drop artifacts produced elsewhere (e.g. the other two 
 Run the full "check → download → verify → install & relaunch" chain locally, with no CI and no GitHub release:
 
 ```sh
-cd examples/showcase && moon run ../../tools/native-gui-tools/mng -- package
+cd examples/components && moon run ../../tools/native-gui-tools/mng -- package
 python3 scripts/update_local_server.py --version 0.2.0
 ```
 
@@ -79,11 +79,11 @@ The server listens on `http://127.0.0.1:8765`; `/update.json` rescans the dist d
 
 - Plain `http://` is an explicit opt-out: `update_check` / `sys_update_actions` take `allow_http=true` (HTTPS stays mandatory by default) — local test chains only
 - Carrier policy matches CI: zip (mac/win) and AppImage (linux) go into the manifest; installers are served statically but never listed
-- `--version` defaults to the highest version found among carriers; change the port with `--port` (the showcase's local URL is hardcoded to 8765 — keep `LOCAL_UPDATE_URL` in sync if you change it)
+- `--version` defaults to the highest version found among carriers; change the port with `--port` (the components local URL is hardcoded to 8765 — keep `LOCAL_UPDATE_URL` in sync if you change it)
 
 ## In-app updates
 
-Shortest wiring (three dialogs live in showcase → System → App self-update: demo / real manifest / local server):
+Shortest wiring (three dialogs live in `examples/system` → System integration → App self-update: demo / real manifest / local server):
 
 ```moonbit
 let open : @base.Store[Bool] = @base.Store::new(false)

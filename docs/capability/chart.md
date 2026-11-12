@@ -6,7 +6,7 @@
 "NoahLiu/native-gui/chart" @charts,
 ```
 
-Each chart is a constructor: pass a `Store` (data lives in the `Store`, external writes refresh the chart), give it a width/height, get a node back. Live demo: the showcase "Charts" page (source `examples/showcase/pages/charts.mbt`).
+Each chart is a constructor: pass a `Store` (data lives in the `Store`, external writes refresh the chart), give it a width/height, get a node back. Live demo: the components "Charts" page (source `examples/components/pages/charts.mbt`).
 
 ## Common charts
 

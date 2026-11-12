@@ -5,7 +5,7 @@
 // 构造期就跑（gui/widget/node.mbt:42），thunk 化后这一步才是切页等待的大头。
 //
 // 无头：不开窗、不跑主循环，只建一棵挂在临时 `Widget` 根上的树 + 软件位图画一帧。
-// 跑法：cd examples/showcase && moon run ./cost_bench
+// 跑法：cd examples/components && moon run ./cost_bench
 //
 // 默认跳过构造期有真实外部副作用的页（见 SKIP），这类副作用正是「空闲预建」要
 // 逐个收口的对象，不是判据要在这里触发的东西。

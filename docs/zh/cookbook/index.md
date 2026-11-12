@@ -51,4 +51,4 @@ import {
 ## 下一步
 
 - 控件签名：[组件总览](../components/index.md)；状态绑定：[声明式与响应式](../guide/declarative.md)；布局字段全集：[布局样式](../guide/layout.md)。
-- 场景组合的完整程序：`cd examples/showcase && moon run .`，每页源码在 `examples/showcase/pages/*.mbt`。
+- 场景组合的完整程序：`cd examples/components && moon run .`，每页源码在 `examples/components/pages/*.mbt`。

@@ -26,7 +26,7 @@ The public macOS entry points and underlying calls: `open`/`open -R`, `sw_vers`,
 
 The Windows direct calls under the hood: SystemParametersInfoW (wallpaper), ShellExecuteW (launch/reveal/print), PowerGet/SetActiveScheme, the registry (product and DMI info), GlobalMemoryStatusEx, GetTickCount64, EnumWindows, EnumPrintersW, IAudioEndpointVolume (COM), GetLastInputInfo. For pitfalls and header/link requirements, see [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md).
 
-The full demo is the "System Probes" page of the showcase demo (`cd examples/showcase && moon run .`) — each section can "re-probe" to show this machine's real results item by item, and unsupported capabilities show their error text. For field-tested conclusions and rationale per capability across distros / desktop environments — including the logind path, wpctl/pactl differences and direct SQLite reads — see [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md).
+The full demo is the "System probes" group in `examples/system` (`cd examples/system && moon run .`) — each section can "re-probe" to show this machine's real results item by item, and unsupported capabilities show their error text. For field-tested conclusions and rationale per capability across distros / desktop environments — including the logind path, wpctl/pactl differences and direct SQLite reads — see [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md).
 
 ## Shared Infrastructure: Subprocess Execution (procrun)
 

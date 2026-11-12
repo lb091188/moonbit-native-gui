@@ -56,7 +56,7 @@ The enums `FlexDirection` / `AlignItems` / `JustifyContent` / `FlexWrap` / `Posi
 
 ## A few things you must know
 
-**min:auto blows up scroll and wrap containers.** A flex child's default minimum size is `auto`, i.e. its content size. A scroll viewport or wrapping container that doesn't set `min_width` / `min_height = 0.0` gets pushed to its content's natural size, `max()` stays 0, and the result is that it won't scroll or the row overflows. The library-level containers `scroll_view` / `virt_list` and the showcase sidebar already fix this; when you build your own scroll or wrap structure, write `min_width=0.0, min_height=0.0` yourself.
+**min:auto blows up scroll and wrap containers.** A flex child's default minimum size is `auto`, i.e. its content size. A scroll viewport or wrapping container that doesn't set `min_width` / `min_height = 0.0` gets pushed to its content's natural size, `max()` stays 0, and the result is that it won't scroll or the row overflows. The library-level containers `scroll_view` / `virt_list` and the components sidebar already fix this; when you build your own scroll or wrap structure, write `min_width=0.0, min_height=0.0` yourself.
 
 **Wrapping must go the right direction.** `flex_wrap=Wrap` only folds vertically when the container is a **column**: a `row` container doesn't stretch on the cross axis, so wrapped items sized to content fold into a vertical stack. A chip bar that must "wrap when too wide" therefore goes into a column container, with explicit `min_* = 0` at every level.
 

@@ -95,7 +95,7 @@ moon run cmd/main
 
 ## 4. 单文件组件（.mng）
 
-界面用声明式模板写、状态与逻辑用 MoonBit 写，两段合在一个 `.mng` 文件里，由 `mng` 工具预编译成 `.mbt` 再走 `moon build`——`moon check` 仍是唯一类型门禁。可跑的最小示例在 `examples/template-hello`。
+界面用声明式模板写、状态与逻辑用 MoonBit 写，两段合在一个 `.mng` 文件里，由 `mng` 工具预编译成 `.mbt` 再走 `moon build`——`moon check` 仍是唯一类型门禁。可跑的最小示例在 `examples/hello`（页面主体就是 `hello.mng` 单文件）。
 
 ### 装
 
@@ -185,7 +185,7 @@ handle=fn(a : @widget.WindowHost) -> Unit {
 
 把 `@ui.text` / `@ui.button` 换成主题化形态（`button` 的 `variant` 四档、`tag` / `alert` / `card` 等）见 [组件总览](../components/index.md)；样式表（`Style` 值 + `hover` / `active` / `focus` 状态、过渡）见 [布局样式](layout.md)。
 
-**想照着抄**——演示板就是素材库：左侧栏选页、右侧对着写，每页源码独立成文件（`examples/showcase/pages/*.mbt`），复制改写即可；下载与跑法见[跑预构建包](experience.md) §二。
+**想照着抄**——组件展示库就是素材库：左侧栏选页、右侧对着写，每页源码独立成文件（`examples/components/pages/*.mbt`），复制改写即可；下载与跑法见[跑预构建包](experience.md) §二。
 
 **想系统学**——按面选文档：
 
@@ -203,6 +203,6 @@ handle=fn(a : @widget.WindowHost) -> Unit {
 
 - **平台兼容**：Windows、Linux（Ubuntu XFCE/GNOME/KDE、Deepin）、macOS（Apple Silicon）三平台均已真机验证，按 `测试文档/测试用例.md` 同一份清单同步维护；新踩到的平台差异欢迎回报。
 - **控件与能力**：还没封装的条目、各平台的适配坑，都欢迎从 issue 开始讨论。
-- **文档与示例**：教程、组件文档、演示板每一页的例子，都欢迎改进。
+- **文档与示例**：教程、组件文档、组件展示库每一页的例子，都欢迎改进。
 
 参与没有门槛：提 issue 描述问题或想法、直接提 PR 都行。开始前只需记住三条——`moon check` 零错误零警告、`moon test` 全绿再提交，实测踩坑连同修复写进 [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md)，一个内聚改动一批提交。完整流程（新增示例模块、prebuild 链接托管）见[构建与运行](build.md)；FFI 规范见仓库 `.agents/skills/moonbit-c-binding/`。

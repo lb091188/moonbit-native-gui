@@ -32,7 +32,7 @@ nav.sidebar([("设置", ["常规", "外观"])], label_of=fn(k) { k })
 nav.view(None)
 ```
 
-放进 `mount_window` 的节点树即可。完整接线（侧栏外包滚动、原生菜单项、切换按钮）见 showcase 源码 `examples/showcase/main.mbt`。
+放进 `mount_window` 的节点树即可。完整接线（侧栏外包滚动、原生菜单项、切换按钮）见 components 源码 `examples/components/main.mbt`。
 
 ## 键与路径
 

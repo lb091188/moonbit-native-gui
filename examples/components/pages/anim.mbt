@@ -41,12 +41,12 @@ fn hover_card(label : String, sub : String, dur : Double) -> @widget.Node {
 ///|
 /// GIF 图源候选（moon run 可能从仓库根或 examples/ 目录起跑，逐个探测）。
 fn anim_gif_path() -> String {
-  for c in ["examples/showcase/assets/dot.gif", "assets/dot.gif", "showcase/assets/dot.gif"] {
+  for c in ["examples/components/assets/dot.gif", "assets/dot.gif", "components/assets/dot.gif"] {
     if @sys.sys_path_exists(c) {
       return c
     }
   }
-  "examples/showcase/assets/dot.gif"
+  "examples/components/assets/dot.gif"
 }
 
 pub fn page_anim(_app : @shared.App) -> @widget.Node {

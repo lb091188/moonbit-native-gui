@@ -2,7 +2,7 @@
 
 Every self-drawn widget and the component library live in `NoahLiu/native-gui/ui` (alias `@ui`); each component is a **constructor returning `@widget.Node`**. Parameters always follow the code (`gui/ui/*.mbt`).
 
-> Runnable examples for every component are gathered in `examples/showcase` — one source file per page.
+> Runnable examples for every component are gathered in `examples/components` — one source file per page.
 
 ## Family pages
 

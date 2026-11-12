@@ -406,7 +406,7 @@
     <p>本机浏览器的 localStorage（键名 <code>ngtt.v1</code>），不上传任何服务器，关掉页面不丢。它绑定「这台机器的这个浏览器」，换浏览器或清站点数据会丢——所以提供了「导出」：得到的 JSON 可以放进 <code>测试文档/</code> 一起提交，需要时用「导入」合并回来（按时间取新、日志去重）。</p>
     <p>页面被嵌在沙箱 iframe 里打开时（例如某些预览面板），浏览器会拒绝 localStorage，此时页面顶部会出现黄条提示，记录只留在内存。要正常保存，请用浏览器直接打开本文件。</p>
     <h3>用例库来源</h3>
-    <p>按「应用 → 页面 → 段落」组织，编号与 <code>测试文档/测试用例.md</code> 一一对应：<code>HL</code> = Hello、<code>SC</code> = Showcase、<code>BR</code> = Browser、<code>AU</code> = Audio、<code>VD</code> = Video。条数与应用内计数在加载时从用例文档现算。改用例只改 <code>测试用例.md</code>，本页刷新即生效。</p>
+    <p>按「应用 → 页面 → 段落」组织，编号与 <code>测试文档/测试用例.md</code> 一一对应：<code>HL</code> = Hello、<code>SC</code> = 组件/画板/系统三示例（按所在章节归位）、<code>BR</code> = Browser、<code>AU</code> = Audio、<code>VD</code> = Video、<code>TP</code> = Theme Playground。条数与应用内计数在加载时从用例文档现算。改用例只改 <code>测试用例.md</code>，本页刷新即生效。</p>
     <h3>已知边界</h3>
     <ul>
       <li>不存截图。失败项用文字备注，需要图就把文件名写进备注。</li>
@@ -431,45 +431,57 @@
   ];
 
   var APPS = [
-    { id: 'hello',    name: 'Hello',    desc: '最小窗口',      cmd: 'cd examples/hello && moon run .' },
-    { id: 'showcase', name: 'Showcase', desc: '完整演示板',    cmd: 'cd examples/showcase && moon run .' },
-    { id: 'browser',  name: 'Browser',  desc: 'WebView 示例',  cmd: 'cd examples/browser && moon run .' },
-    { id: 'audio',    name: 'Audio',    desc: '音频播放',      cmd: 'cd examples/audio && moon run .' },
-    { id: 'video',    name: 'Video',    desc: '视频帧源',      cmd: 'cd examples/video && moon run .' },
+    { id: 'hello',       name: 'Hello',       desc: 'mng 入门 + 多窗',  cmd: 'cd examples/hello && moon run .' },
+    { id: 'components',  name: 'Components',  desc: '组件展示库',       cmd: 'cd examples/components && moon run .' },
+    { id: 'canvas',      name: 'Canvas',      desc: '画板与富文本',     cmd: 'cd examples/canvas && moon run .' },
+    { id: 'system',      name: 'System',      desc: '系统集成与探测',   cmd: 'cd examples/system && moon run .' },
+    { id: 'browser',     name: 'Browser',     desc: 'WebView 示例',     cmd: 'cd examples/browser && moon run .' },
+    { id: 'audio',       name: 'Audio',       desc: '音频播放',         cmd: 'cd examples/audio && moon run .' },
+    { id: 'video',       name: 'Video',       desc: '视频帧源',         cmd: 'cd examples/video && moon run .' },
     { id: 'theme-playground', name: 'Theme Playground', desc: '主题定制工作台', cmd: 'cd examples/theme-playground && moon run .' }
   ];
 
   /* 用例库：唯一事实源是同目录的 `测试用例.md`，页面加载时取回解析成清单。
      md 表格一行 = | 编号 | 段落 | 检查点 | 操作 | 预期 |，映射成
      { id, app, page, sec, t, d }（d = 预期原文）；条数在加载时现算。
+     app 优先取所在 `## ` 节标题里的 `cd examples/<x>`（SC 用例现已分属
+     components/canvas/system 三个示例），取不到时回落编号前缀表。
      page 取 ### 小节名；browser / audio / video 的 ### 是功能段，
      page 用各应用的固定名。改用例只改 md，本文件不再存清单。 */
   var CASES = [];
   var CASE_PAGE_OF_APP = { browser: '浏览器窗口', audio: '音频播放器', video: '视频播放器' };
-  var CASE_APP_OF_PREFIX = { HL: 'hello', SC: 'showcase', BR: 'browser', AU: 'audio', VD: 'video', TP: 'theme-playground' };
+  var CASE_APP_OF_PREFIX = { HL: 'hello', SC: 'components', BR: 'browser', AU: 'audio', VD: 'video', TP: 'theme-playground' };
 
   function parseCases(md) {
     var lines = md.split(/\r?\n/);
     var out = [];
     var page = '';
+    var sectionApp = '';
     var fence = false;
     for (var i = 0; i < lines.length; i++) {
       var ln = lines[i];
       if (/^\s*```/.test(ln)) { fence = !fence; continue; }
       if (fence) continue;
+      var h2 = ln.match(/^##\s+(.+?)\s*$/);
+      if (h2) {
+        var cm = h2[1].match(/cd\s+examples\/([A-Za-z0-9_-]+)/);
+        sectionApp = cm ? cm[1] : '';
+        page = '';
+        continue;
+      }
       var h = ln.match(/^###\s+(.+?)\s*$/);
       if (h) {
         page = h[1].replace(/[（(][^）)]*[）)]\s*$/, '').replace(/^[\d.]+\s+/, '').trim();
         continue;
       }
-      if (!/^\|\s*(HL|SC|BR|AU|VD)-\d/.test(ln)) continue;
+      if (!/^\|\s*(HL|SC|BR|AU|VD|TP)-\d/.test(ln)) continue;
       var cells = ln.split('|');
       if (cells.length < 7) continue;
-      var idm = cells[1].trim().match(/^(HL|SC|BR|AU|VD)-/);
+      var idm = cells[1].trim().match(/^(HL|SC|BR|AU|VD|TP)-/);
       var sec = cells[2].trim();
       // 倒数第二格才是「预期」：最后一格是行尾竖线后的空串
       var d = cells[cells.length - 2].trim();
-      var app = CASE_APP_OF_PREFIX[idm[1]];
+      var app = sectionApp || CASE_APP_OF_PREFIX[idm[1]];
       out.push({
         id: cells[1].trim(), app: app,
         page: CASE_PAGE_OF_APP[app] || page,

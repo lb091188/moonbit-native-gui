@@ -3,7 +3,7 @@
 让自绘块响应键鼠见[自绘与键鼠](custom-draw.md)。
 
 
-**现场演示**：`cd examples/showcase && moon run .` 打开「画布」页——每段画法都有对应演示块，源码在 `examples/showcase/pages/canvas.mbt`。
+**现场演示**：`cd examples/components && moon run .` 打开「画布」页——每段画法都有对应演示块，源码在 `examples/components/pages/canvas.mbt`。
 
 ## 公共前提
 
@@ -157,7 +157,7 @@ let _ = @text.draw_box_at(
 注意：
 
 - `save` / `restore` 成对出现；`clip` 与 `translate` / `rotate` / `scale` 都改画笔状态，出栈才不影响后续。
-- `draw_image_from_rect` 参数序是**源矩形在前、目标矩形在后**（showcase 里真踩过写反把图画飞的坑）。
+- `draw_image_from_rect` 参数序是**源矩形在前、目标矩形在后**（早前真踩过写反把图画飞的坑）。
 - 图片解码只发生在 `new_from_file`；`draw_image` 只做缩放落位，可以放在回调里。
 - `draw_box_at` 一族返回实际占用高度等读数，用不到就 `let _ =` 收掉。
 
@@ -196,6 +196,6 @@ let _ = cv.write_to_file("out.png")      // 目前只支持 "png"，失败返回
 
 ## 下一步
 
-- 每段画法的现场效果：`cd examples/showcase && moon run .`「画布」页，源码 `examples/showcase/pages/canvas.mbt`。
+- 每段画法的现场效果：`cd examples/components && moon run .`「画布」页，源码 `examples/components/pages/canvas.mbt`。
 - 控件拼装与状态绑定：[组件总览](index.md)、[声明式与响应式](../guide/declarative.md)；尺寸与布局分配：[布局样式](../guide/layout.md)。
 - 从零起步：[上手体验](../guide/tutorial.md)。

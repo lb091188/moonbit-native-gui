@@ -71,7 +71,7 @@ moon run path/to/mng -- publish --no-upload --repo owner/name   # 只生成 upda
 免 CI、免 GitHub 发布，本机走完「检查 → 下载 → 校验 → 安装重启」全链路：
 
 ```sh
-cd examples/showcase && moon run ../../tools/native-gui-tools/mng -- package
+cd examples/components && moon run ../../tools/native-gui-tools/mng -- package
 python3 scripts/update_local_server.py --version 0.2.0
 ```
 
@@ -79,11 +79,11 @@ python3 scripts/update_local_server.py --version 0.2.0
 
 - 明文 `http://` 是显式开口：`update_check` / `sys_update_actions` 需传 `allow_http=true`（默认仍强制 HTTPS），只用于本地测试链路
 - 载体口径与 CI 一致：mac/win 的 zip、linux 的 AppImage 进清单；安装包只静态服务、不进清单
-- `--version` 缺省取载体里版本号最高的；改端口用 `--port`（showcase 的本地服务地址固定 8765，改端口需同步改代码里的 `LOCAL_UPDATE_URL`）
+- `--version` 缺省取载体里版本号最高的；改端口用 `--port`（components 的本地服务地址固定 8765，改端口需同步改代码里的 `LOCAL_UPDATE_URL`）
 
 ## 应用内更新
 
-最短接法三件套（showcase「系统集成 → 应用自更新」有演示/真实清单/本地服务三棵对话框）：
+最短接法三件套（`examples/system` 的「系统集成 → 应用自更新」有演示/真实清单/本地服务三棵对话框）：
 
 ```moonbit
 let open : @base.Store[Bool] = @base.Store::new(false)

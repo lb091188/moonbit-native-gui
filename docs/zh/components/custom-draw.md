@@ -152,4 +152,4 @@ let board = @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
 })
 ```
 
-指针/悬停/光标/键盘的现场演示：showcase「事件与布局」页（源码 `examples/showcase/pages/events.mbt`）。
+指针/悬停/光标/键盘的现场演示：components「事件与布局」页（源码 `examples/components/pages/events.mbt`）。

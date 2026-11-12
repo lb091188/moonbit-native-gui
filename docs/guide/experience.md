@@ -18,8 +18,8 @@ Every zip contains the same five executables plus third-party notices (`THIRD-PA
 
 | Executable | Content |
 |---|---|
-| `hello` | Minimal window (baseline for binary size and startup time) |
-| `showcase` | Full demo board: widget families, 14 interactive chart types, Markdown / code views, theme following, system-integration page, system-capability probe page |
+| `hello` | Starter sample: an `.mng` single-file declarative page + basic window demos (multi-window / tray) |
+| `components` | Component gallery: widget families, 19 interactive chart types, Markdown / code views, theme following |
 | `browser` | Embedded browser demo: address-bar navigation, local site, JS interop, policy interception |
 | `audio` / `video` | Audio / video player demos with bundled media files; FFmpeg dynamic libraries are bundled in the Windows / macOS packages |
 
@@ -46,19 +46,19 @@ sudo apt install libgtk-3-0 libpango-1.0-0 libx11-6 \
 
 ### What to try, per demo
 
-#### hello — minimal window
+#### hello — starter sample and basic window demos
 
-Launch and a native window appears, with no third-party windowing library behind it — the tangible sample of the lightweight-artifact / fast-startup claim.
+The top half is an `.mng` single-file declarative page (name input with live greeting, count stepper); the bottom half is a command-style basic window demo: three preset windows (memo / palette / about) open a new window each, every child window carries a "close this window" button, and the status line shows the live window count; a tray icon stays resident (left-click counter). Run `mng dev` and edit the template to watch hot reload.
 
-#### showcase — components / charts / system capabilities
+#### components — component gallery
 
 Switch pages in the left sidebar:
 
 - **Basic components / Form components / Data display**: the ready-made widget families — buttons, inputs, tables, trees, virtual scrolling
-- **Charts page**: line / bar / pie / gauge / scatter / radar / heatmap / candlestick / funnel / box / sankey / tree / treemap / sunburst — 14 kinds with a cross-cutting interaction layer (hover readouts)
+- **Charts pages**: line / bar / pie / gauge / scatter / radar / heatmap / candlestick / funnel / box / sankey / relationship / parallel / pictorial bar / sunburst / theme river / tree / treemap / effect scatter — 19 kinds with a cross-cutting interaction layer (hover readouts, zoom & pan, and more)
 - **Theme**: dark/light and accent color follow the system; the follow switch lives in the menu (picking a color manually turns following off — expected)
-- **System integration page**: live demos of the tray, desktop notification, global shortcut, autostart, clipboard and other facade APIs
-- **System capability probe page**: five read-only probe groups (system desktop / monitors & windows / app & files / browser data / clipboard & power & bus), demonstrating capability detection with structured degradation — an unavailable capability reports a structured reason instead of failing silently
+
+Live demos of the tray, notifications, autostart, single instance and other system capabilities live in `examples/system` (see §2); the drawing board and rich text live in `examples/canvas`.
 
 #### browser — embedded WebView
 
@@ -89,11 +89,14 @@ MOON_WORK=off moon run .               # resolve the published library from the 
 
 | Directory | What it is |
 |---|---|
-| `examples/hello` | Minimal window: one native window plus basic controls |
-| `examples/showcase` | Full demo board: component library, interactive icons, charts, system surfaces |
-| `examples/browser` | Embedded WebView (extra dependency `gui-webview`) |
+| `examples/hello` | Starter sample: `.mng` single-file page + basic window demos (multi-window / tray, hot-reloadable via `mng dev`) |
+| `examples/components` | Component gallery: all widgets / charts / themes (the `components` prebuilt package) |
+| `examples/canvas` | Drawing board and rich text: interactive board (mouse freehand + keyboard lines), Painter drawing, AttributedText |
+| `examples/system` | System capabilities: system integration (dialogs / notifications / tray / autostart / single instance / self-update) + read-only probes, left grouped menu |
+| `examples/browser` | Embedded WebView browser (extra dependency `gui-webview`) |
 | `examples/audio` · `video` | Audio/video players (extra dependency `gui-media`, needs ffmpeg) |
-| `examples/headless-audio` | No window; playback driven purely from code |
+| `examples/sysmonitor` | System monitor: overview, processes, disks, network and sensors |
+| `examples/theme-playground` | Theme fitting room: tune one theme and watch it apply globally |
 
 Beyond the examples: [Components overview](../components/index.md), [Declarative & reactivity](declarative.md), [Layout & styling](layout.md), [System capabilities overview](../capability/sys.md), [Embedded WebView](../capability/webview.md).
 

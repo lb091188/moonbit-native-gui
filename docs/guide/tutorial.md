@@ -95,7 +95,7 @@ A window appears: a title, a button, and a "Clicked 0 times" line. Click the but
 
 ## 4. Single-file components (.mng)
 
-Write the UI as a declarative template and the state/logic in MoonBit — both in one `.mng` file; the `mng` tool pre-compiles it to `.mbt` and the normal `moon build` takes over. `moon check` remains the only type gate. Full semantics live in `proposals/native-template.md`; a runnable minimal example is `examples/template-hello`.
+Write the UI as a declarative template and the state/logic in MoonBit — both in one `.mng` file; the `mng` tool pre-compiles it to `.mbt` and the normal `moon build` takes over. `moon check` remains the only type gate. Full semantics live in `proposals/native-template.md`; a runnable minimal example is `examples/hello` (the page body is the single-file `hello.mng`).
 
 ### Install
 
@@ -225,7 +225,7 @@ handle=fn(a : @widget.WindowHost) -> Unit {
 
 Themed forms for `@ui.text` / `@ui.button` (the four `button` `variant`s, `tag` / `alert` / `card`, …) are in [Components overview](../components/index.md); stylesheets (`Style` values plus `hover` / `active` / `focus` states and transitions) in [Layout & styling](layout.md).
 
-**Copy from a working app** — the demo board is the material library: pick a page in the left menu and write against it on the right; each page's source is its own file (`examples/showcase/pages/*.mbt`), ready to copy and adapt. Downloads and how to run: [Run the prebuilt packages](experience.md) §2.
+**Copy from a working app** — the demo board is the material library: pick a page in the left menu and write against it on the right; each page's source is its own file (`examples/components/pages/*.mbt`), ready to copy and adapt. Downloads and how to run: [Run the prebuilt packages](experience.md) §2.
 
 **Learn the layers** — pick by face:
 
@@ -243,6 +243,6 @@ This library aims at writing native desktop apps in MoonBit. It now covers self-
 
 - **Platform compatibility**: Windows, Linux (Ubuntu XFCE/GNOME/KDE, Deepin) and macOS (Apple Silicon) are all verified on real devices against the same checklist (`测试文档/测试用例.md`); newly found platform differences are welcome as reports.
 - **Widgets and capabilities**: un-wrapped items and per-platform adaptation pitfalls are all welcome as issues first.
-- **Docs and examples**: the tutorial, component docs, and every showcase page are open for improvement.
+- **Docs and examples**: the tutorial, component docs, and every component-gallery page are open for improvement.
 
 No barrier to taking part: file an issue describing a problem or idea, or send a PR directly. Before you start, remember three things — `moon check` passes with zero errors and zero warnings and `moon test` is all green before committing; field-tested pitfalls go into [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md) together with their fixes; one cohesive change per batch. The full process (adding example modules, prebuild-hosted linking) is in [Build & run](build.md); the FFI rules are in the repo's `.agents/skills/moonbit-c-binding/`.

@@ -88,9 +88,9 @@ moon run . --target native
 
 | 示例 | 模块依赖 | 额外安装 |
 |---|---|---|
-| `hello` / `showcase` / `sysmonitor` | 仅 native-gui | §2 基础清单即可 |
+| `hello` / `components` / `sysmonitor` 等 | 仅 native-gui | §2 基础清单即可 |
 | `browser` | + `gui-webview` | Linux 加 `libwebkit2gtk-4.1-dev`；Windows / macOS 用系统 WebView，无需额外安装 |
-| `audio` / `video` / `headless-audio` | + `gui-media`（需 ffmpeg） | Linux 加 §2 的 `libav*-dev` 五件；Windows / macOS 构建期自动取得，见下 |
+| `audio` / `video` | + `gui-media`（需 ffmpeg） | Linux 加 §2 的 `libav*-dev` 五件；Windows / macOS 构建期自动取得，见下 |
 
 **先分清两种跑法**：
 
@@ -112,7 +112,7 @@ cd examples/hello && moon run .
 cd gui && moon check                       # 库门禁：零错误零警告
 cd gui && moon test ui render text theme icons sys input win dbus chart mdview style base shell widget
 cd examples/hello && moon run .            # 任一示例：进目录跑
-moon build examples/showcase --target native   # 仓库根按路径点名构建
+moon build examples/components --target native   # 仓库根按路径点名构建
 ```
 
 **audio / video 的 FFmpeg 动态库（本地源码跑）**：
@@ -131,7 +131,7 @@ moon build examples/hello --target native --release --strip
 
 ## 5. 不想编：预构建二进制
 
-GitHub Releases 现有两条：**Binaries**（tag `bin`，由 `release-bin.yml` 自动发布）——三平台 zip（`bin-windows-x64.zip` / `bin-macos-arm64.zip` / `bin-linux-x64.zip`），每包含 hello / showcase / browser / audio / video 五个演示应用与第三方许可，体验点与运行要求见 [experience.md](experience.md)；国内直连可用 [Gitee 镜像](https://gitee.com/noahliu0911/moonbit-native-gui/releases/tag/bin)；以及 `vendor-v1`（构建期 vendor 输入，见 §10）。
+GitHub Releases 现有两条：**Binaries**（tag `bin`，由 `release-bin.yml` 自动发布）——三平台 zip（`bin-windows-x64.zip` / `bin-macos-arm64.zip` / `bin-linux-x64.zip`），每包含 hello / components / browser / audio / video 五个演示应用与第三方许可，体验点与运行要求见 [experience.md](experience.md)；国内直连可用 [Gitee 镜像](https://gitee.com/noahliu0911/moonbit-native-gui/releases/tag/bin)；以及 `vendor-v1`（构建期 vendor 输入，见 §10）。
 
 不想下载就按 §4 编一条示例——`examples/hello` 从零到窗口只吃 §2 那份依赖清单。
 

@@ -6,7 +6,7 @@
 "NoahLiu/native-gui/chart" @charts,
 ```
 
-每个图表是一个构造器：收一个 `Store`（数据住了 `Store`，外部改值即刷新），给宽高，返回节点。现场演示：showcase「图表」页（源码 `examples/showcase/pages/charts.mbt`）。
+每个图表是一个构造器：收一个 `Store`（数据住了 `Store`，外部改值即刷新），给宽高，返回节点。现场演示：components「图表」页（源码 `examples/components/pages/charts.mbt`）。
 
 ## 常用图表
 

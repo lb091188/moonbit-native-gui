@@ -152,4 +152,4 @@ let board = @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
 })
 ```
 
-Live demos for pointer/hover/cursor/keyboard: the showcase "Events & layout" page (source `examples/showcase/pages/events.mbt`).
+Live demos for pointer/hover/cursor/keyboard: the components "Events & layout" page (source `examples/components/pages/events.mbt`).

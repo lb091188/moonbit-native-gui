@@ -53,7 +53,7 @@ fn main {
 }
 ```
 
-> `cd examples/showcase && moon run .` — the demo board: basic components, interactive icons, system surfaces.
+> `cd examples/components && moon run .` — the component gallery: widgets, charts, themes; the starter sample & multi-window demo live in `examples/hello`.
 
 ## Ecosystem position
 

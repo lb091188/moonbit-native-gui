@@ -51,4 +51,4 @@ import {
 ## Next steps
 
 - Widget signatures: [Components overview](../components/index.md); state binding: [Declarative & reactivity](../guide/declarative.md); every layout field: [Layout & styling](../guide/layout.md).
-- Full programs combining these recipes: `cd examples/showcase && moon run .`; each page's source is under `examples/showcase/pages/*.mbt`.
+- Full programs combining these recipes: `cd examples/components && moon run .`; each page's source is under `examples/components/pages/*.mbt`.

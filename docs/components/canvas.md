@@ -2,7 +2,7 @@
 
 Keyboard & mouse interaction for custom blocks: [Custom draw & input](custom-draw.md).
 
-**Live demo**: `cd examples/showcase && moon run .` and open the "Canvas" page — every technique has a matching demo block; the source is `examples/showcase/pages/canvas.mbt`.
+**Live demo**: `cd examples/components && moon run .` and open the "Canvas" page — every technique has a matching demo block; the source is `examples/components/pages/canvas.mbt`.
 
 ## Prerequisites
 
@@ -193,6 +193,6 @@ let _ = cv.write_to_file("out.png")      // only "png" for now; returns false on
 
 ## Next steps
 
-- Live results for every technique: `cd examples/showcase && moon run .`, the "Canvas" page, source `examples/showcase/pages/canvas.mbt`; live keyboard & mouse interaction on the "Events & layout" page, source `examples/showcase/pages/events.mbt`.
+- Live results for every technique: `cd examples/components && moon run .`, the "Canvas" page, source `examples/components/pages/canvas.mbt`; live keyboard & mouse interaction on the "Events & layout" page, source `examples/components/pages/events.mbt`.
 - Widget assembly and state binding: [Components overview](index.md), [Declarative & reactivity](../guide/declarative.md); sizing and layout assignment: [Layout & styling](../guide/layout.md).
 - Starting from zero: [Getting started](../guide/tutorial.md).

@@ -55,8 +55,8 @@ fn demo_parent_dir(p : String) -> String {
 ///|
 /// 「外部打开」演示用的文档：从工作目录逐级上溯找 `TODO.md`，找到就给绝对路径。
 ///
-/// 为什么不写死相对路径：`open_file` 按**工作目录**归一，而演示板可能从仓库根
-/// （在仓库根 `moon run .`）、包目录（`cd examples/showcase && moon run .`）、
+/// 为什么不写死相对路径：`open_file` 按**工作目录**归一，而示例应用可能从仓库根
+/// （在仓库根 `moon run .`）、包目录（`cd examples/system && moon run .`）、
 /// `_build/native/debug/build/…/` （直接双击 exe）启动，写死的 `"TODO.md"` 只
 /// 在其中一种下成立，其余必然 `NotFound`——看着就像「文档路径过期了」。上溯
 /// 8 级够覆盖 `_build` 那种深落点；都找不到才退回 `"TODO.md"`，让失败保持真实。

@@ -2,7 +2,7 @@
 
 控件与组件库住在 `NoahLiu/native-gui/ui`（别名 `@ui`），每个组件是返回 `@widget.Node` 的构造器，参数以代码为准（`gui/ui/*.mbt`）。
 
-> 各组件的可运行示例集中在 `examples/showcase`（每页一个源文件）。
+> 各组件的可运行示例集中在 `examples/components`（每页一个源文件）。
 
 ## 家族一览
 

@@ -53,7 +53,7 @@ fn main {
 }
 ```
 
-> `cd examples/showcase && moon run .` —— 演示板：基础组件、交互图标、系统接口。
+> `cd examples/components && moon run .` —— 组件展示库：基础组件、图表、主题；入门样例与多窗演示在 `examples/hello`。
 
 ## 生态坐标
 

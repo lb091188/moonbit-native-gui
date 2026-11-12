@@ -32,7 +32,7 @@ nav.sidebar([("Settings", ["General", "Appearance"])], label_of=fn(k) { k })
 nav.view(None)
 ```
 
-Drop both into the `mount_window` node tree. Full wiring (sidebar in a scroll view, native menu items, toggle buttons) is in the showcase source `examples/showcase/main.mbt`.
+Drop both into the `mount_window` node tree. Full wiring (sidebar in a scroll view, native menu items, toggle buttons) is in the components source `examples/components/main.mbt`.
 
 ## Keys and paths
 
