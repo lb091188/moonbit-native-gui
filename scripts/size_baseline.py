@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# 示例体积基线测量(A5 体积门禁):对 hello / showcase 跑 release+strip 构建,
+# 示例体积基线测量(A5 体积门禁):对 hello / components 跑 release+strip 构建,
 # 从 moon 的 Artifacts 输出抓可执行路径、记字节数,合并进 tools/size-baseline.json。
 #
 # 用法:
@@ -25,7 +25,7 @@ for _stream in (sys.stdout, sys.stderr):
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BASELINE = os.path.join(ROOT, "tools", "size-baseline.json")
-EXAMPLES = ["hello", "showcase"]
+EXAMPLES = ["hello", "components"]
 
 
 def host_platform():

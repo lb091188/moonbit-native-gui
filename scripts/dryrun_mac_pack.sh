@@ -6,7 +6,7 @@
 # CI 口径用受限 PATH 重链:PATH="$HOME/.moon/bin:/usr/bin:/bin" moon build ...
 set -e
 cd "$(dirname "$0")/.."
-names=(hello showcase browser audio video)
+names=(hello components browser audio video)
 stage="staging"
 rm -rf "$stage" && mkdir -p "$stage"
 for name in $names; do

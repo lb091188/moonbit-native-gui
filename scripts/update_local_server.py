@@ -4,7 +4,7 @@
 # 用法(仓库根):
 #   python3 scripts/update_local_server.py --version 0.2.0
 #   python3 scripts/update_local_server.py --dir examples/components/.mng/dist --version 0.2.0 --port 8765
-# 配套:showcase「系统集成 → 应用自更新」的「检查更新(本地服务)」按钮
+# 配套:system 示例「系统集成 → 应用自更新」的「检查更新(本地服务)」按钮
 # (清单地址 http://127.0.0.1:8765/update.json,库侧 update_check 需 allow_http=true)。
 # 仓库口径:Python 3.7(不用 3.8+ 语法与参数)。
 
