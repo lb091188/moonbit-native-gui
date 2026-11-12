@@ -15,7 +15,7 @@ priv struct ScriptInfo {
   head_line : Int32
   head_ret : String
   params : Array[Param]
-  // 槽名 → 元素类型原文（`Store[Int]` → `Int`；dev 档按类型登记 state）
+  // 槽名 → 元素类型原文（`Store[Int32]` → `Int32`；dev 档按类型登记 state）
   slot_tys : Map[String, String]
   line0 : Int32
   lines : Array[String]
@@ -280,7 +280,7 @@ fn parse_mng_decl(l : String) -> Result[(String, CompDecl), String] {
 }
 
 ///|
-/// `@base.Store[Int]` / `Signal[Bool]` → 方括号内的元素类型文本；非容器返回 None。
+/// `@base.Store[Int32]` / `Signal[Bool]` → 方括号内的元素类型文本；非容器返回 None。
 fn elem_ty_of(ty : String) -> String? {
   let a = chars_of(ty)
   let mut lo = -1

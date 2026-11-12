@@ -1528,7 +1528,7 @@ fn dev_bindings(src : String, filename : String) -> Result[DevBindings, String] 
 ///|
 fn etype_of_store(t : String) -> EType? {
   match t {
-    "Int" => Some(TInt)
+    "Int32" => Some(TInt)
     "Bool" => Some(TBool)
     "String" => Some(TStr)
     _ => None

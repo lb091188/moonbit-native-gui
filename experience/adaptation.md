@@ -4024,3 +4024,9 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 ## Windows stub.c C2371：前置调用的隐式声明与 void 定义冲突（2026-11-13，win 腿编译红）
 
 - `wm_tray_set_icon_template` 定义在 `wm_tray_set_icon` 之前，体内前置调用产生隐式声明（默认 `int` 返回），随后遇到 `void` 定义报 C2371 重定义冲突——同一编译单元里委托包装必须放在被调函数定义之后（或先给前置声明）；移到定义之后即绿。
+
+## Int→Int32 批量替换漏 .mng 与生成器类型白名单（2026-11-13，CI 模板对账红复盘）
+
+- **批量类型替换要扫全部内嵌 MoonBit 的扩展名**：`.mng` 的 `<script>` 段是 MoonBit 原文——Int32 批只扫 .mbt/.mbti，`vfor_demo.mng` / `hello.mng` 的 `Store[Int]` 漏改，CI 模板对账（按 .mng 重新编译与提交的 .gen.mbt 比对）必红。
+- **.gen.mbt 不能手工改**：手工替换生成码里的类型后与模板源头脱节，而本地门禁不对账模板（同 prebuild.mbtx「本地门禁不覆盖」一条）——改模板源头 + 重新生成是唯一正道。
+- **生成器两处类型白名单断线**：mngkit 的 `state_kind_of`（"Int"→reg.int 登记方法名）与 `etype_of_store`（"Int"→TInt，热更白名单的符号类型表）都按槽元素类型原文匹配——模板换 Int32 后 reg.int 不再生成（mng dev 热更状态保活断）、热更条件报「表达式符号未登记为顶层 Store」；两处白名单改认 "Int32" 后恢复（mngkit 44/44）。

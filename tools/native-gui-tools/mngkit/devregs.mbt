@@ -68,10 +68,10 @@ fn dev_interp_expr(
 }
 
 ///|
-/// 槽元素类型 → 登记方法名（只认 Int/Bool/String 三档）。
+/// 槽元素类型 → 登记方法名（只认 Int32/Bool/String 三档）。
 fn state_kind_of(ty : String) -> String? {
   match ty {
-    "Int" => Some("int")
+    "Int32" => Some("int")
     "Bool" => Some("bool")
     "String" => Some("str")
     _ => None

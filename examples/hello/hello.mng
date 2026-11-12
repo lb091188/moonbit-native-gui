@@ -1,5 +1,5 @@
 <script>
-let count : @base.Store[Int] = @base.Store::new(0)
+let count : @base.Store[Int32] = @base.Store::new(0)
 let name : @base.Store[String] = @base.Store::new("")
 
 fn reset() {

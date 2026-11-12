@@ -1,6 +1,6 @@
 <script>
 let rows : @base.ListStore[@base.Item] = @base.ListStore::new()
-let next_id : @base.Store[Int] = @base.Store::new(0)
+let next_id : @base.Store[Int32] = @base.Store::new(0)
 
 fn add_row() {
   let id = next_id.get() + 1
