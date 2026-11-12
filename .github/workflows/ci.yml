@@ -394,8 +394,11 @@ jobs:
         shell: cmd
         # dll 已在上一步取到并放进 PATH，跳过 ffmpeg-mbt prebuild 的 150MB 运行期
         # dll 准备（落点是 vendor/win/bin，CI 用不着）。
+        # MNG_WGPU_LIB=off：CI 矩阵定案——GPU 验证只在 mac 真机腿（真 Metal），
+        # Windows runner 是软件 GPU（WARP），显式关 L1 走 CPU 路径。
         env:
           NATIVE_GUI_SKIP_VENDOR: "1"
+          MNG_WGPU_LIB: off
         run: >-
           for /f "tokens=*" %%i in ('"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath')
           do call "%%i\VC\Auxiliary\Build\vcvars64.bat"
@@ -605,6 +608,8 @@ jobs:
 
       # 尽力冒烟：macOS runner 有登录会话与窗口服务，`hello` 这类常驻事件循环的
       # 进程活着到超时就说明「窗口建出来了、循环转起来了」；退出码 124 = 存活。
+      # 这条是 CI 矩阵里的 GPU 验证腿：runner 是真 Metal，L1 不设 MNG_WGPU_LIB
+      # （Linux/Windows job 显式 off 走 CPU 路径，见各自步骤注释）。
       # 标 continue-on-error：这一条不是门禁（真机目视仍由使用者
       # 做，条目见 `测试文档/测试用例.md`），但红/绿本身就是有用的证据。
       - name: GUI 冒烟(hello 存活 20 秒即算通过,不卡门禁)

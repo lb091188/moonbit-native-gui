@@ -4006,3 +4006,4 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **保留字参数名**:gui 的 `entry(package~, …)` 触发 `[0035] reserved_keyword` 警告(与 gui-media 移植批同款),具名参数一律避开保留字,用 `pkg` 这类名字。
 - **L1 绑帧前必须探 surface capabilities**：wgpu-native 对 configure 的校验失败是进程级 panic（abort），桩侧的「逐字回退」纪律拦不住——CI 的 xvfb 软渲染（llvmpipe 队列族不支持呈现）实测炸出 `wgpuSurfaceConfigure: Surface does not support the adapter's queue family`（hello GUI 冒烟退出码 134）。修法：bind_frame 先 `wgpuSurfaceGetCapabilities`，返回非 Success 即判死永久回退（同款 alpha 档探测已先行存在，此次补的是状态检查）。
 - **CI 的 GUI 步骤用 `MNG_WGPU_LIB=off` 显式关 L1**：get_capabilities 在 llvmpipe 上返回 Success 但 configure 仍炸队列族校验（capabilities 探测拦不住这一档），env 候选失败后桩还会继续试 vendor 路径（指错路径关不掉）——桩里加了 off/0/none 显式关闭档，无 GPU runner 与用户排障共用。
+- **CI GPU 验证矩阵定案**：GPU 验证只在 mac 腿（GUI 冒烟步跑真 Metal 的 L1，continue-on-error 不卡门禁）；Linux/Windows runner 无真 GPU，GUI 相关步骤显式 `MNG_WGPU_LIB=off` 走 CPU 路径（验的是「L1 显式关闭/不可用时逐像素回退」这条断言）。编译链接层覆盖（gui-gpu 单测、showcase 构建）不受此开关影响。
