@@ -125,7 +125,7 @@ pub fn board_section() -> @shared.Section {
       if !ev.press {
         return false
       }
-      let step = 16.0
+      let step = 1.0
       let (cx, cy) = cursor.val
       let shift = (ev.mods & @base.MOD_SHIFT) != 0
       if ev.keysym == @base.KS_LEFT || ev.keysym == @base.KS_RIGHT ||
