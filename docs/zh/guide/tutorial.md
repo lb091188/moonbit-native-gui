@@ -15,7 +15,7 @@ moon add NoahLiu/native-gui
 - moon 只把名为 `main.mbt` 的文件识别为程序入口——自建入口文件时保持这个文件名，否则报 `Missing main function`。
 - 根目录的 `moon.pkg` 保持为空，依赖只在 `cmd/main/moon.pkg` 里声明。
 
-`moon add NoahLiu/native-gui` 只写了**模块级**依赖（`moon.mod` 里的 import），作用是让库的包可被解析；**包级** import 要在用它的包自己的 `moon.pkg` 里另写。这一步不做，代码里的 `@ui` 会报「找不到包」——新手第一卡点，见 §6。`import` 决定代码里能引用哪些别名：`@ui` 提供控件、组件与声明式入口（`mount_window` 与各节点构造器），响应式状态 `@base`、样式类 `@style`、应用宿主 `@widget`、系统能力 `@sys` 等按需再加，17 个包的别名速查见[包结构](../reference/packages.md)。没 import 的包不编译不链接，不占二进制体积；标准库 `moonbitlang/core` 由 moon 自动注入，不需要写进 import；传递依赖由库自己声明，`moon add` 后自动进 `.mooncakes/`。
+`moon add NoahLiu/native-gui` 只写了**模块级**依赖（`moon.mod` 里的 import），作用是让库的包可被解析；**包级** import 要在用它的包自己的 `moon.pkg` 里另写。这一步不做，代码里的 `@ui` 会报「找不到包」——新手第一卡点，见 §6。`import` 决定代码里能引用哪些别名：`@ui` 提供控件、组件与声明式入口（`mount_window` 与各节点构造器），响应式状态 `@base`、样式类 `@style`、应用宿主 `@widget`、系统能力 `@sys` 等按需再加，17 个包的别名速查与逐签名入口见[包结构与 API 参考](../reference/api.md)。没 import 的包不编译不链接，不占二进制体积；标准库 `moonbitlang/core` 由 moon 自动注入，不需要写进 import；传递依赖由库自己声明，`moon add` 后自动进 `.mooncakes/`。
 
 工程需要两处手工调整：
 

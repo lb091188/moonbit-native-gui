@@ -170,8 +170,7 @@ const zhReferenceSidebar = [
   {
     text: '参考',
     items: [
-      { text: '包结构', link: '/zh/reference/packages' },
-      { text: 'API 参考', link: '/zh/reference/api' },
+      { text: '包结构与 API 参考', link: '/zh/reference/api' },
       { text: '对外路线图', link: '/zh/reference/roadmap' },
     ],
   },
@@ -284,8 +283,7 @@ const enReferenceSidebar = [
   {
     text: 'Reference',
     items: [
-      { text: 'Package layout', link: '/reference/packages' },
-      { text: 'API reference', link: '/reference/api' },
+      { text: 'Package layout & API reference', link: '/reference/api' },
       { text: 'Roadmap (Chinese)', link: '/zh/reference/roadmap' },
     ],
   },

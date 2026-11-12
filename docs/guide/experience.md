@@ -102,4 +102,4 @@ Beyond the examples: [Components overview](../components/index.md), [Declarative
 
 ## 3. Working on the library
 
-Adding widgets, fixing platforms, reporting compatibility: the toolchain and dependency setup, build gates, test policy and troubleshooting all live in [Build & run](build.md); the package composition is in [Package layout](../reference/packages.md); how to contribute is in the README.
+Adding widgets, fixing platforms, reporting compatibility: the toolchain and dependency setup, build gates, test policy and troubleshooting all live in [Build & run](build.md); the package composition is in [Package layout & API reference](../reference/api.md); how to contribute is in the README.

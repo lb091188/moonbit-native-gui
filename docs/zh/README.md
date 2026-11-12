@@ -53,8 +53,7 @@ native-gui 是什么见[首页](/zh/)。站内结构与顶部导航一致，按�
 
 | 文档 | 内容 |
 |---|---|
-| [包结构](reference/packages.md) | 17 个包别名与两个独立模块的内容一览 |
-| [API 参考](reference/api.md) | mooncakes.io 自动生成的逐签名 API 参考（十七包直达链接） |
+| [包结构与 API 参考](reference/api.md) | 17 个包别名与两个独立模块一览；mooncakes.io 自动生成的逐签名参考（各包直达） |
 | [对外路线图](reference/roadmap.md) | 功能点、计划版本、开发与测试状态、平台兼容面、明确不做 |
 | [第三方授权](../THIRD-PARTY-NOTICES.md) | 随源码入库的资产、Release 上的自编二进制、随之而来的分发义务 |
 

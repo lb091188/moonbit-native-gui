@@ -53,8 +53,7 @@ For what native-gui is, see the [home page](/). The site structure mirrors the t
 
 | Document | Content |
 |---|---|
-| [Package layout](reference/packages.md) | The 17 package aliases and the two standalone modules at a glance |
-| [API reference](reference/api.md) | The auto-generated per-symbol reference on mooncakes.io, with shortcuts to all seventeen packages |
+| [Package layout & API reference](reference/api.md) | The 17 package aliases and the two standalone modules at a glance, with direct links to the auto-generated per-symbol reference on mooncakes.io |
 | [Roadmap](zh/reference/roadmap.md) | Public roadmap (Chinese only) |
 | [Third-party notices](THIRD-PARTY-NOTICES.md) | Licenses and provenance: in-repo assets, binaries we build and host on Releases, and the obligations that follow |
 
