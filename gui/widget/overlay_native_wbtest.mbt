@@ -19,6 +19,8 @@ fn fake_host_app() -> WindowHost {
     shown_cbs: [],
     page_fill: true,
     remember_id: "",
+    painted_once: false,
+    first_retry_left: 0,
   }
 }
 

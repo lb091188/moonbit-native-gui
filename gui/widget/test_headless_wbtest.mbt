@@ -33,7 +33,15 @@ test "test_headless：挂内容、置脏、step 一拍结算不崩" {
     }),
   ])
   assert_true(a.step())
+  // 首帧已上屏：兜底重绘不再排、脏标记已清（新窗不再等鼠标移动出内容）
+  assert_true(a.painted_once)
+  assert_eq(a.session.dirty, false)
+  assert_eq(a.first_retry_left, 0)
+  // 画过之后再 mount 不重复排首帧兜底
+  a.mount([node_of_new(fn(_p : Widget) -> Widget { Widget::new() })])
+  assert_eq(a.first_retry_left, 0)
   assert_true(a.step())
+  assert_true(a.painted_once)
 }
 
 ///|

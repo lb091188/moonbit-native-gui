@@ -21,7 +21,9 @@ fn fake_app() -> WindowHost {
     hidden_cbs: [],
     shown_cbs: [],
     page_fill: true,
-      remember_id: "",
+    remember_id: "",
+    painted_once: false,
+    first_retry_left: 0,
   }
 }
 

@@ -47,6 +47,12 @@ pub(all) struct WindowHost {
   /// 窗口状态记忆的应用 id（`WindowHost::remember_geometry` 置位；空 = 不记）。
   /// 记着的窗在关闭/宿主退出时把位置/尺寸/最大化档写回状态文件
   mut remember_id : String
+  /// 本窗是否已成功上屏过至少一帧。新窗首帧可能早于平台映射被丢掉，
+  /// 之后没有输入事件就不会再入泵（真机：新开窗白屏、动鼠标才出内容），
+  /// 故首帧前由 `mount` 排几次兜底重绘。
+  mut painted_once : Bool
+  /// 首帧兜底重绘剩余排期（>0 表示已排过，防止每次 mount 重复排）。
+  mut first_retry_left : Int
 }
 
 ///|
@@ -245,6 +251,8 @@ fn app_window(
         shown_cbs: [],
         page_fill: true,
         remember_id: "",
+        painted_once: false,
+        first_retry_left: 0,
       }
       // 缺省底色：宿主先铺一层主题页面色，最小示例不必自己写 on_draw 才有背景
       // （要别的底色/图案照常覆盖 root.on_draw 即可）；背景透视开着时本底让位——
@@ -280,6 +288,8 @@ pub fn test_app(s : @shell.Session) -> WindowHost {
     hidden_cbs: [],
     shown_cbs: [],
     remember_id: "",
+    painted_once: false,
+    first_retry_left: 0,
     page_fill: true,
   }
 }
@@ -420,6 +430,31 @@ pub fn theme_apply_system_once() -> Bool {
 }
 
 ///|
+/// 首帧兜底：新窗第一帧可能落在平台映射之前被丢掉，而排期当时那次
+/// `@win.wake()` 已经消费掉，之后没有输入事件就再也不入泵。这里在新窗
+/// 首次挂内容时排三拍延时重绘（画过即停），保证「开窗即出内容」不依赖
+/// 鼠标移动。`first_retry_left` 兼作「已排过」标记，避免每次 mount 重复排。
+fn arm_first_paint_retries(host : WindowHost) -> Unit {
+  if host.painted_once || host.first_retry_left > 0 {
+    return
+  }
+  host.first_retry_left = 3
+  fn retry(host : WindowHost, last : Bool) -> Unit {
+    if host.painted_once {
+      host.first_retry_left = 0
+    } else {
+      host.schedule_paint()
+      if last {
+        host.first_retry_left = 0
+      }
+    }
+  }
+  let _ = host.session.sched.timer(30, fn() { retry(host, false) })
+  let _ = host.session.sched.timer(120, fn() { retry(host, false) })
+  let _ = host.session.sched.timer(400, fn() { retry(host, true) })
+}
+
+///|
 /// 把声明式节点树挂进根控件（内容入口）。挂载即建控件，之后信号驱动的
 /// 重挂走 `bind_node` 的原位替换；挂完标一次脏，下一帧就有内容。
 /// 多窗时每窗挂自己那棵，浮层图层升回自己那层的最后。
@@ -428,6 +463,7 @@ pub fn WindowHost::mount(self : WindowHost, children : Array[Node]) -> Unit {
   // 新挂的内容会排在浮层图层之后，把**本窗**的图层挪回最后
   self.host.raise_layer()
   self.schedule_paint()
+  arm_first_paint_retries(self)
 }
 
 ///|
@@ -1135,8 +1171,10 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   if w < 1 || h < 1 {
     // 盒还没成好，这一帧画不了——但**别把脏标记吃掉**：画不了就没布局，收框也就
     // 永远量不到内容尺寸，两者互相等就成了「窗在、点位对、整块空白」的死局
-    // （真机 mac 弹层）。C 侧在贴不出帧时本来就会再请一次重绘，这里跟着它留脏。
+    // （真机 mac 弹层）。C 侧在贴不出帧时本来就会再请一次重绘，这里跟着它留脏；
+    // 同时排首帧兜底，防止平台重绘请求也被吞掉。
     self.session.dirty = true
+    arm_first_paint_retries(self)
     return ()
   }
   // 绘制前同步一次焦点标志：焦点栈、控件树、重挂都可能在上一拍改过
@@ -1203,6 +1241,9 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   @shell.atspi_tick()
   let t2 = @win.now_ms()
   self.session.window.present(bm.data, bm.width, bm.height)
+  // 成功上屏一帧：首帧兜底到此为止，后续重绘全走脏标记。
+  self.painted_once = true
+  self.first_retry_left = 0
   let t3 = @win.now_ms()
   // 分段账本：位图分配计入 total 不计入单段，避免把「分配」混进「布局」
   prof_record(t1 - t0, t2 - t1, t3 - t2, t3 - t0)}
