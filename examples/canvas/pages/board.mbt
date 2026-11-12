@@ -4,12 +4,8 @@
 // ① 指针：on_pointer 一颗回调吃全部指针事件，Down 起笔、Move 采点、Up/Leave
 //    收笔——坐标投递前已换算成本地坐标，直接进笔画点列；
 // ② 键盘：控件声明 focus_id（>0 即入 Tab 链）即可拿焦点，on_key 吃方向键移
-//    虚拟光标（每次按键事件 1 像素），Enter/空格 落点。长按自驱重复：按下
-//    登记进按住表并挂宿主 33ms 一拍的重复泵（系统自动重复的 keydown 只
-//    刷新修饰、不重复步进，节奏自己定，不吃系统首延），松开/Escape 收，
-//    指针按下也清表（焦点被夺收不到 keyUp 的残留漂移兜底）；修饰纯改步长
-//    （可叠加相乘）：Shift ×16、Ctrl ×4、Alt ×0.25（亚像素微调；mac 上
-//    Ctrl+方向可能被系统 Spaces 快捷键占用，收不到属系统行为）；
+//    虚拟光标，Enter/空格 落点，Shift+方向键从光标画直线（修饰键位取 base 的
+//    MOD_SHIFT 位掩码）；
 // ③ 数据与重绘：笔画是纯数据（点列 + 颜色 + 线宽），on_draw 全量重放，改动后
 //    @widget.invalidate() 请求一帧（进程级重画，宿主装的是 host_repaint_all）；
 // ④ 事件消费：on_pointer/on_key 返回 true = 已消费（不再外传）；没吃到的事件
@@ -33,82 +29,6 @@ pub fn board_section() -> @shared.Section {
   let strokes : Ref[Array[Stroke]] = Ref([])
   let current : Ref[Stroke?] = Ref(None)
   let cursor : Ref[(Double, Double)] = Ref((320.0, 200.0))
-  // 键盘长按重复：按住的方向键表 + 最近修饰快照 + 泵在跑标记
-  let held : Array[Int32] = []
-  let last_mods : Ref[Int32] = Ref(0)
-  let pump_on : Ref[Bool] = Ref(false)
-  // 修饰步长（可叠加相乘）：Shift ×16（兼从光标画直线）、Ctrl ×4、Alt ×0.25
-  fn step_move(ks : Int32, mods : Int32) -> Unit {
-    let mut step = 1.0
-    if (mods & @base.MOD_SHIFT) != 0 {
-      step *= 16.0
-    }
-    if (mods & @base.MOD_CTRL) != 0 {
-      step *= 4.0
-    }
-    if (mods & @base.MOD_ALT) != 0 {
-      step *= 0.25
-    }
-    let (cx, cy) = cursor.val
-    let nx = if ks == @base.KS_LEFT {
-      cx - step
-    } else if ks == @base.KS_RIGHT {
-      cx + step
-    } else {
-      cx
-    }
-    let ny = if ks == @base.KS_UP {
-      cy - step
-    } else if ks == @base.KS_DOWN {
-      cy + step
-    } else {
-      cy
-    }
-    cursor.val = (nx, ny)
-    @widget.invalidate()
-  }
-
-  fn release_key(ks : Int32) -> Unit {
-    for i in 0..<held.length() {
-      if held[i] == ks {
-        let _ = held.remove(i)
-        return
-      }
-    }
-  }
-
-  /// 重复泵：33ms 一拍对每个按住键各步进一次（约 30 步/s）；按住表空即停。
-  fn start_pump() -> Unit {
-    if pump_on.val {
-      return
-    }
-    pump_on.val = true
-    fn tick() -> Unit {
-      // 每拍先摘标记、重排成功才戴回：链路断掉（宿主表瞬时为空）后
-      // 下次按键能重启，不会永久假死
-      pump_on.val = false
-      if held.length() == 0 {
-        return
-      }
-      let snapshot : Array[Int32] = []
-      for ks in held {
-        snapshot.push(ks)
-      }
-      for ks in snapshot {
-        step_move(ks, last_mods.val)
-      }
-      for h in @widget.host_windows() {
-        let _ = h.timer(33, tick)
-        pump_on.val = true
-        break
-      }
-    }
-    for h in @widget.host_windows() {
-      let _ = h.timer(33, tick)
-      break
-    }
-  }
-
   let board = @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     w.node.set_width(@yoga.percent(100.0))
     w.node.set_height(@yoga.fixed(400.0))
@@ -172,8 +92,6 @@ pub fn board_section() -> @shared.Section {
     ) -> Bool {
       match ev.kind {
         @widget.PointerKind::Down => {
-          // 用户回到鼠标交互：清掉键盘按住表停泵（失焦收不到 keyUp 的残留）
-          held.clear()
           current.val = Some({
             pts: [(ev.x, ev.y)],
             color: colors[color_idx.val],
@@ -204,42 +122,47 @@ pub fn board_section() -> @shared.Section {
       }
     })
     w.on_key = Some(fn(ev : @widget.KeyEvent) -> Bool {
-      // 修饰快照随任何按键刷新（长按方向键时按/松修饰也能实时改步长）
-      last_mods.val = ev.mods
-      let is_arrow = ev.keysym == @base.KS_LEFT ||
-        ev.keysym == @base.KS_RIGHT ||
-        ev.keysym == @base.KS_UP ||
-        ev.keysym == @base.KS_DOWN
-      if is_arrow {
-        if ev.press {
-          // 首次按下才步进+登记；系统自动重复的 keydown（键已在表里）只
-          // 刷新了修饰，步进节奏归 33ms 重复泵
-          if !held.contains(ev.keysym) {
-            held.push(ev.keysym)
-            step_move(ev.keysym, ev.mods)
-            start_pump()
-          }
-        } else {
-          release_key(ev.keysym)
-        }
-        return true
-      }
       if !ev.press {
         return false
       }
-      if ev.keysym == @base.KS_RETURN || ev.keysym == @base.KS_SPACE {
+      let step = 16.0
+      let (cx, cy) = cursor.val
+      let shift = (ev.mods & @base.MOD_SHIFT) != 0
+      if ev.keysym == @base.KS_LEFT || ev.keysym == @base.KS_RIGHT ||
+        ev.keysym == @base.KS_UP || ev.keysym == @base.KS_DOWN {
+        let nx = if ev.keysym == @base.KS_LEFT {
+          cx - step
+        } else if ev.keysym == @base.KS_RIGHT {
+          cx + step
+        } else {
+          cx
+        }
+        let ny = if ev.keysym == @base.KS_UP {
+          cy - step
+        } else if ev.keysym == @base.KS_DOWN {
+          cy + step
+        } else {
+          cy
+        }
+        if shift {
+          // Shift+方向：从光标到新位置一条直线
+          strokes.val.push({
+            pts: [(cx, cy), (nx, ny)],
+            color: colors[color_idx.val],
+            width: widths[width_idx.val],
+          })
+        }
+        cursor.val = (nx, ny)
+        @widget.invalidate()
+        true
+      } else if ev.keysym == @base.KS_RETURN || ev.keysym == @base.KS_SPACE {
         // 落点：光标处一个实心圆
-        let (cx, cy) = cursor.val
         strokes.val.push({
           pts: [(cx, cy)],
           color: colors[color_idx.val],
           width: widths[width_idx.val],
         })
         @widget.invalidate()
-        true
-      } else if ev.keysym == @base.KS_ESCAPE {
-        // 兜底收尾：焦点被抢走收不到 keyUp 时，Esc 清掉按住表停泵
-        held.clear()
         true
       } else {
         false
@@ -268,7 +191,7 @@ pub fn board_section() -> @shared.Section {
   @shared.section(
     "画板",
     "交互画板：Pointer × Keyboard",
-    "on_pointer 一颗回调吃全部指针事件：按住左键手绘（Down 起笔 / Move 采点 / Up、Leave 收笔），坐标已换算成本地坐标。键盘：控件声明 focus_id 即入 Tab 链，Tab 或点击画板拿到焦点后，方向键移虚拟光标（每次按键 1 像素），按住不放连续移动（33ms 一拍的自驱重复泵，系统重复事件只刷新修饰不重复步进），Enter/空格 落点；修饰纯改步长、可叠加相乘：Shift ×16、Ctrl ×4、Alt ×0.25（亚像素微调），按住中途按/松立即生效；Esc 收掉按住表，点画板也停长按。mac 上 Ctrl+方向可能被系统 Spaces 快捷键占用。笔画是纯数据（点列 + 颜色 + 线宽），on_draw 全量重放，改动后 invalidate() 请求一帧。",
+    "on_pointer 一颗回调吃全部指针事件：按住左键手绘（Down 起笔 / Move 采点 / Up、Leave 收笔），坐标已换算成本地坐标。键盘：控件声明 focus_id 即入 Tab 链，Tab 或点击画板拿到焦点后，方向键移虚拟光标，Enter/空格 落点，Shift+方向键从光标画直线（修饰键位取 MOD_SHIFT 位掩码）。笔画是纯数据（点列 + 颜色 + 线宽），on_draw 全量重放，改动后 invalidate() 请求一帧。",
     [toolbar, board],
     code=[
       "w.focus_id = 930              // >0 即入 Tab 链，可点击/Tab 聚焦",
@@ -280,12 +203,10 @@ pub fn board_section() -> @shared.Section {
       "  }",
       "})",
       "w.on_key = Some(fn(ev) {",
-      "  // 方向键：首次按下步进 1px 并登记按住表，33ms 泵接管长按",
-      "  // 系统重复的 keydown 只刷新修饰，不重复步进",
-      "  // 步长 = 1px × Shift16 × Ctrl4 × Alt0.25（可叠加，纯速度）",
+      "  // 方向键移虚拟光标；Enter 落点",
       "  if ev.keysym == @base.KS_LEFT { … }",
-      "  // 修饰快照随任意按键刷新：长按中途按/松立即生效",
-      "  last_mods = ev.mods",
+      "  // Shift+方向 = 从光标到新位置画直线",
+      "  (ev.mods & @base.MOD_SHIFT) != 0",
       "})",
       "@widget.invalidate()  // 改完数据请求一帧",
     ],
