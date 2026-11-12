@@ -3023,24 +3023,45 @@ moonbit_bytes_t yue_sysmon_mem_hw_text(void) {
   if (f == NULL) {
     return NULL;
   }
-  SysmonBuf out = {0};
-  char chunk[4096];
-  size_t got = 0;
-  while ((got = fread(chunk, 1, sizeof(chunk), f)) > 0) {
-    if (!sysmon_buf_reserve(&out, got)) {
+  size_t cap = 8192;
+  size_t len = 0;
+  char *buf = (char *)malloc(cap);
+  if (buf == NULL) {
+    pclose(f);
+    return NULL;
+  }
+  for (;;) {
+    if (len == cap) {
+      size_t next = cap * 2;
+      char *grown = (char *)realloc(buf, next);
+      if (grown == NULL) {
+        free(buf);
+        pclose(f);
+        return NULL;
+      }
+      buf = grown;
+      cap = next;
+    }
+    size_t n = fread(buf + len, 1, cap - len, f);
+    len += n;
+    if (n == 0) {
       break;
     }
-    memcpy(out.p + out.len, chunk, got);
-    out.len += got;
-    out.p[out.len] = '\0';
   }
   int failed = ferror(f);
   pclose(f);
-  if (failed || out.p == NULL) {
-    free(out.p);
+  if (failed || len == 0) {
+    free(buf);
     return NULL;
   }
-  return sysmon_bytes_take(&out);
+  moonbit_bytes_t out = moonbit_make_bytes((int32_t)len, 0);
+  if (out == NULL) {
+    free(buf);
+    return NULL;
+  }
+  memcpy(out, buf, len);
+  free(buf);
+  return out;
 }
 
 #endif /* __APPLE__ */
