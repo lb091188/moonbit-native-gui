@@ -44,25 +44,7 @@ pub(all) struct App {
   /// 标题/尺寸/无边框、快捷键页要开轮询表，都经它取。页函数体跑完时还没挂载，
   /// 所以是 Ref——按钮点击时读，那时早已填上。
   host : Ref[@widget.WindowHost?]
-  /// 托盘句柄：由 main 在挂载期建好、挂上默认提示语与右键菜单，句柄放这里给
-  /// 系统集成页操作（换提示 / 换图标）。托盘是应用级单例，不归任何一页管——
-  /// 页会随切语言重挂，句柄放页内就成了孤儿。
-  tray : Ref[@shell.Tray?]
-  /// 托盘左键计数（main 的回调写，页里读）
-  tray_clicks : @base.Store[Int]
-  /// 托盘操作回显（main 建托盘时写后端名，页里按钮改写）
-  tray_note : @base.Store[String]
-  /// 单实例：本进程收到过的唤起条数（main 的 `on_instance_wake` 回调写，页里读）
-  inst_wakes : @base.Store[Int]
-  /// 单实例操作回显（main 声称时写「哪一档拿到了首实例」，页里按钮改写）
-  inst_note : @base.Store[String]
 }
-
-///|
-/// 演示板的单实例应用 id（反向域名形态，`@shell.instance_claim` 三平台共用）：
-/// main 声称用，系统集成页读后端与自环唤起也用，两边必须同一个串。
-/// 单源 @appmeta（mng.toml [package].id 经 mng 生成）。
-pub let showcase_app_id : String = @appmeta.app_id
 
 ///|
 /// 推送一条轻提示（转发 toast 函数字段；函数值字段不能直接点调用）。

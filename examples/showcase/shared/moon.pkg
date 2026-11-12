@@ -4,11 +4,9 @@ import {
   "NoahLiu/native-gui/widget" @widget,
 
   "NoahLiu/native-gui/ui",
-  "NoahLiu/native-gui/shell" @shell,
   "NoahLiu/native-gui/style" @style,
   "NoahLiu/native-gui/i18n" @i18n,
   "NoahLiu/yoga-mbt/src" @yoga,
-  "NoahLiu/native-gui-examples-showcase/appmeta" @appmeta,
 }
 
 supported_targets = "native"

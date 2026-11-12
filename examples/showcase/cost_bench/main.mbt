@@ -214,13 +214,6 @@ fn headless_app() -> @shared.App {
     dlg_result: @base.Store::new(""),
     flat: @base.Store::new(false),
     host: Ref(None),
-    // 托盘归 main（无头 bench 不建托盘，句柄槽留空）
-    tray: Ref(None),
-    tray_clicks: @base.Store::new(0),
-    tray_note: @base.Store::new(""),
-    // 单实例读数（无头 bench 不声称，槽位留初值）
-    inst_wakes: @base.Store::new(0),
-    inst_note: @base.Store::new(""),
   }
 }
 
@@ -255,16 +248,12 @@ fn main {
     ("事件与布局", @pages.page_events),
     ("窗口", @pages.page_window),
     ("图标库", @pages.page_icons),
-    ("画布与富文本", @pages.page_canvas),
     ("过渡与效果", @pages.page_anim),
   ]
   let results : Array[Bench] = []
   for item in pages {
     let (name, build) = item
     results.push(bench(name, app, build))
-  }
-  if WITH_IO {
-    results.push(bench("系统能力探测", app, @pages.page_sysprobe))
   }
   println("RCB-CFG w=" + W.to_string() + " h=" + H.to_string() +
     " with_io=" + WITH_IO.to_string())
