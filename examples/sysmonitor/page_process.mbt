@@ -1,8 +1,10 @@
 // 进程页（U3）：table_v 虚拟表格（千行级）+ 搜索过滤 + 列头排序 +
-// 选中 kill（SIGTERM 失败 SIGKILL）/ renice，1Hz 增量刷新。
+// 选中 kill（结束 / 强制结束），1Hz 增量刷新。
 // 选择按 pid 重映射：每次刷新把旧选中行号经 pid 数组映射到新行号，
 // 排序变化（CPU% 实时变动）不会让选中漂到别的进程。数据来自 main.mbt
 // 的 1Hz sample_once 写入的 app.procs。
+// 表格随手窗尺寸重挂：宽 = 右栏宽 − 页内边距（最小 700，超宽横向滚动），
+// 高 = 窗口高 − 顶栏/消息/内外边距（最小 160），内部仍虚拟滚动。
 
 ///|
 /// 进程排序列（列头索引经 sort_of_col 映射；状态与命令行列不参与排序）。
@@ -11,7 +13,6 @@ pub(all) enum ProcSort {
   ByName
   ByCpu
   ByMem
-  ByNice
   ByThreads
 }
 
@@ -61,7 +62,6 @@ pub fn sort_procs(
       ByName => 0.0
       ByCpu => p.cpu_pct
       ByMem => p.rss_kb.to_double()
-      ByNice => p.nice.to_double()
       ByThreads => p.threads.to_double()
     }
   }
@@ -98,16 +98,15 @@ pub fn sort_procs(
 }
 
 ///|
-/// 进程行 → 表格行（列序：PID / 进程名 / 状态 / CPU% / 内存 / nice / 线程 /
-/// 命令行；与 page_process 的 columns 定义一致）。
+/// 进程行 → 表格行（列序：PID / 进程名 / 状态 / CPU% / 内存 / 线程 /
+/// 命令行；与 columns 定义一致）。状态显示中文文字，不露内核字符。
 pub fn proc_row(p : ProcInfo) -> @ui.TableRow {
   @ui.TableRow::make([
     "\{p.pid}",
     p.name,
-    p.state,
+    proc_state_text(p.state),
     fmt1(p.cpu_pct),
     fmt_kb(p.rss_kb),
-    "\{p.nice}",
     "\{p.threads}",
     p.cmd,
   ])
@@ -121,8 +120,7 @@ fn sort_of_col(j : Int) -> ProcSort? {
     1 => Some(ByName)
     3 => Some(ByCpu)
     4 => Some(ByMem)
-    5 => Some(ByNice)
-    6 => Some(ByThreads)
+    5 => Some(ByThreads)
     _ => None
   }
 }
@@ -139,7 +137,6 @@ struct ProcPage {
   sort : @base.Store[@ui.TableSort]
   mut pids : Array[Int]
   mut query : String
-  mut nice_text : String
 }
 
 ///|
@@ -179,9 +176,9 @@ fn ProcPage::rebuild(self : ProcPage, procs : Array[ProcInfo]) -> Unit {
   }
   self.sel.set(new_sel)
   let base = if pids.length() == procs.length() {
-    "\{pids.length()} 个进程"
+    "进程总数 \{procs.length()}"
   } else {
-    "\{pids.length()}/\{procs.length()} 个进程"
+    "进程总数 \{procs.length()}（筛选 \{pids.length()}）"
   }
   self.status.set(
     if new_sel.length() > 0 {
@@ -234,64 +231,40 @@ fn ProcPage::signal_selected(
 }
 
 ///|
-/// 对选中进程设 nice（-20..19），逐个报告结果。Windows 侧 set 后回读
-/// 档位代表值（离散档钳制后的实际值），Linux 直接报告输入值。
-fn ProcPage::renice_selected(self : ProcPage, platform : String) -> Unit {
-  let pids = self.selected_pids()
-  if pids.length() == 0 {
-    self.msg.set("先选中进程")
-    return
-  }
-  let nice = match parse_i64(self.nice_text.trim()) {
-    None => {
-      self.msg.set("nice 需为整数")
-      return
-    }
-    Some(v) => v.to_int()
-  }
-  if nice < -20 || nice > 19 {
-    self.msg.set("nice 需在 -20..19")
-    return
-  }
-  let mut ok = 0
-  let mut fail = ""
-  let mut effective = nice
-  for pid in pids {
-    match set_priority(pid, nice) {
-      Ok(_) => {
-        ok += 1
-        if platform == "windows" {
-          // 离散档:回读钳制后的档位代表值再报告
-          match get_priority(pid) {
-            Ok(v) => effective = v
-            Err(_) => ()
-          }
-        }
+/// "WxH" → (宽, 高)；解析失败按窗口默认尺寸兜底。
+fn parse_size_key(key : String) -> (Double, Double) {
+  match key.split_once("x") {
+    Some((a, b)) => {
+      let w = match parse_i64(a.trim()) {
+        Some(v) => v.to_double()
+        None => 1240.0
       }
-      Err(e) => fail = "\{fail},[\{pid}]\{e}"
+      let h = match parse_i64(b.trim()) {
+        Some(v) => v.to_double()
+        None => 840.0
+      }
+      (w, h)
     }
+    None => (1240.0, 840.0)
   }
-  self.msg.set(priority_result(platform, effective, ok, fail))
 }
 
 ///|
+/// 进程页：顶栏（搜索 + 结束按钮 + 进程总数）+ 消息行 + 填满剩余空间的
+/// 表格（随窗口尺寸重挂）。
 fn page_process(app : App) -> @widget.Node {
-  // 平台化文案：Windows kill 一律 TerminateProcess 一档、优先级四档
-  // 离散钳制；Linux 维持 SIGTERM/SIGKILL 两档与连续 nice
+  // 平台化文案：Windows kill 一律 TerminateProcess 一档，Linux 两档
   let platform : String = if on_windows() { "windows" } else { "linux" }
   let (end_label, force_label) = kill_button_labels(platform)
-  let (prio_btn, prio_hint) = priority_ui(platform)
   let page : ProcPage = {
     rows: @base.Store::new([]),
     sel: @base.Store::new([]),
-    // 初始消息即优先级口径说明（首次操作后被结果覆盖）
-    msg: @base.Store::new(prio_hint),
+    msg: @base.Store::new(""),
     status: @base.Store::new("采样中…"),
     // 初始排序：CPU% 降序（列 3）
     sort: @base.Store::new(@ui.TableSort::{ column: 3, asc: false, }),
     pids: [],
     query: "",
-    nice_text: "10",
   }
   // 初始数据 + 订阅 1Hz 刷新（增量：只重算派生数据，不重建视图树）
   page.rebuild(app.procs.get())
@@ -300,14 +273,11 @@ fn page_process(app : App) -> @widget.Node {
   page.sort.subscribe(fn(_s) { page.rebuild(app.procs.get()) })
 
   let query_store : @base.Store[String] = @base.Store::new("")
-  let nice_store : @base.Store[String] = @base.Store::new("10")
   let tools : Array[@widget.Node] = [
-    @ui.text("搜索", color="text_secondary"),
-    // 搜索框：文本经 store 双向投影，on_change 里重建派生数据
     @ui.input(
       query_store,
       placeholder="进程名 / pid",
-      width=220.0,
+      width=240.0,
       on_change=fn(s) {
         page.query = s
         page.rebuild(app.procs.get())
@@ -336,48 +306,73 @@ fn page_process(app : App) -> @widget.Node {
       )
     }
   }
+  // 进程总数/选中数贴右（工具行剩余宽全给它）
   tools.push(
-    @ui.input(nice_store, width=72.0, on_change=fn(s) { page.nice_text = s }),
-  )
-  tools.push(
-    @ui.button(prio_btn, variant=@ui.Soft, on_click=fn() {
-      page.renice_selected(platform)
-    }),
+    @ui.text_dyn(
+      page.status.signal(),
+      font_size=12.0,
+      color="text_secondary",
+      align=@text.End,
+      wrap=false,
+      handle=fn(w) { w.node.set_flex_grow(1.0) },
+    ),
   )
 
   let columns = [
     @ui.TableColumn::make("PID", 86.0, align=@text.End),
     @ui.TableColumn::make("进程名", 150.0),
-    @ui.TableColumn::make("状态", 56.0, align=@text.Center, sortable=false),
+    @ui.TableColumn::make("状态", 80.0, align=@text.Center, sortable=false),
     @ui.TableColumn::make("CPU%", 72.0, align=@text.End),
     @ui.TableColumn::make("内存", 96.0, align=@text.End),
-    @ui.TableColumn::make(priority_col_header(platform), 72.0, align=@text.End),
     @ui.TableColumn::make("线程", 56.0, align=@text.End),
     @ui.TableColumn::make("命令行", 0.0, sortable=false),
   ]
+  let table_area = @widget.bind_node(app.size_key.signal(), fn(key) {
+    let (win_w, win_h) = parse_size_key(key)
+    // 右栏宽 = 窗口 − 外壳 padding(6×2) − 左栏；夹 400 下限后扣页内边距
+    let right_w = (win_w - 12.0 - LEFT_PANE_W).max(400.0)
+    let tw = (right_w - 24.0).max(700.0)
+    let th = (win_h - 98.0).max(160.0)
+    let table = @ui.table_v(
+      columns,
+      page.rows,
+      width=tw,
+      height=th,
+      row_height=30.0,
+      selection=page.sel,
+      sort=page.sort,
+    )
+    // 表格宽超视口时横向滚动（列拖窄/拖宽在同一总宽内此消彼长）
+    @ui.scroll_view(
+      [table],
+      @ui.ScrollState::new(),
+      height=th,
+      hscroll=true,
+      vscroll=false,
+      handle=fn(v) {
+        v.node.set_width(@yoga.percent(100.0))
+        v.node.set_flex_grow(1.0)
+      },
+    )
+  })
   @ui.col(
     [
-      // 工具栏：搜索 + 操作 + 消息
-      @ui.row(tools, column_gap=8.0),
-      @ui.text_dyn(
-        page.msg.signal(),
-        color="text_secondary",
+      // 工具栏：搜索 + 操作 + 总数
+      @ui.row(tools, column_gap=8.0, class=[@style.style(min_width=0.0)]),
+      // 操作消息（固定一行高，空串时不占额外结构）
+      @ui.view(
+        [@ui.text_dyn(page.msg.signal(), font_size=12.0, color="text_secondary", wrap=false)],
+        height=18.0,
       ),
-      @ui.table_v(
-        columns,
-        page.rows,
-        width=880.0,
-        height=520.0,
-        row_height=30.0,
-        selection=page.sel,
-        sort=page.sort,
-      ),
-      @ui.text_dyn(
-        page.status.signal(),
-        color="text_secondary",
-      ),
+      table_area,
     ],
     padding=12.0,
     row_gap=6.0,
+    handle=fn(c) {
+      c.node.set_width(@yoga.percent(100.0))
+      c.node.set_height(@yoga.percent(100.0))
+      c.node.set_min_width(@yoga.fixed(0.0))
+      c.node.set_min_height(@yoga.fixed(0.0))
+    },
   )
 }

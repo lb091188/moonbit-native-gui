@@ -56,17 +56,19 @@ fn fmt_rate(bps : Double) -> String {
 }
 
 ///|
-/// 速率紧凑格式（概览卡片用）：单位缩成单字母且不带 /s，箭头已表方向，
-/// 数值位尽量短。
-fn fmt_rate_c(bps : Double) -> String {
-  if bps >= 1073741824.0 {
-    "\{fmt_scale(bps / 1073741824.0)}G"
-  } else if bps >= 1048576.0 {
-    "\{fmt_scale(bps / 1048576.0)}M"
-  } else if bps >= 1024.0 {
-    "\{fmt_scale(bps / 1024.0)}K"
+/// 字节数 → 容量串（G 档；左栏「9.0G/16.0G」用）。
+fn fmt_gb(b : Double) -> String {
+  "\{fmt_scale(b / 1073741824.0)}G"
+}
+
+///|
+/// 速率 B/s → 比特速率（网络口径 Mb/s，运营商同款）。
+fn fmt_mbps(bps : Double) -> String {
+  let mb = bps * 8.0 / 1000000.0
+  if mb >= 100.0 {
+    "\{mb.to_int()}Mb/s"
   } else {
-    "\{bps.to_int()}B"
+    "\{fmt_scale(mb)}Mb/s"
   }
 }
 
@@ -87,20 +89,6 @@ fn pct(v : Double) -> String {
 }
 
 ///|
-/// 处理器卡值行追加温度位:有最热传感器给「· N℃」,来源不可用
-/// (hwmon 读不到 / 列表空)给「· —」——空缺会让用户分不清「没数据」
-/// 与「还没刷新」;cpu_text 为空(CPU 采样失败)时整体不追加。
-fn with_temp(cpu_text : String, hottest : TempSensor?) -> String {
-  if cpu_text == "" {
-    return ""
-  }
-  match hottest {
-    None => "\{cpu_text} · —"
-    Some(t) => "\{cpu_text} · \{t.celsius.to_int()}℃"
-  }
-}
-
-///|
 /// 应用状态：各采样器（持差值前样本）+ 跨页共享 Store。页面函数以 app
 /// 单参取用；页内私有状态不进 App。
 struct App {
@@ -111,75 +99,105 @@ struct App {
   // GPU：占用来源优先级（nvidia-smi > sysfs gpu_busy_percent > DRM
   // fdinfo 聚合）与 fdinfo 前样本差值状态
   gpu : GpuMonitor
-  // 概览页：资源卡片值行（标题行右侧，紧凑格式防溢出）
-  card_cpu : @base.Store[String]
-  card_mem : @base.Store[String]
-  card_net : @base.Store[String]
-  card_proc : @base.Store[String]
-  // 磁盘卡：每个用户挂载一张（数量取启动枚举结果，热插拔不重建）
-  card_disk_vals : Array[@base.Store[String]]
-  disk_hists : Array[@base.Store[Array[@charts.LineSeries]]]
-  // 概览页：实时曲线（定长滚动窗口 120 点 = 2 分钟 @1Hz）
+  // 左栏固定信息（启动取一次）
+  cpu_model : String
+  cpu_max : String
+  mem_brand : String
+  mem_mhz : Int
+  // 左栏六项菜单的值
+  cpu_usage : @base.Store[String]
+  mem_usage : @base.Store[String]
+  mem_pair : @base.Store[String]
+  swap_pair : @base.Store[String]
+  net_up : @base.Store[String]
+  net_down : @base.Store[String]
+  disk_rate : @base.Store[String]
+  disk_rows_ver : @base.Store[Int]
+  disk_rows : Ref[Array[(String, String)]]
+  disk_rows_sig : Ref[String]
+  proc_count : @base.Store[String]
+  gpu_usage : Array[@base.Store[String]]
+  gpu_vram : Array[@base.Store[String]]
+  // 各页曲线（定长滚动窗口 120 点 = 2 分钟 @1Hz）
   cpu_hist : @base.Store[Array[@charts.LineSeries]]
-  core_bars : @base.Store[Array[@charts.BarItem]]
+  core_hists : Array[@base.Store[Array[@charts.LineSeries]]]
+  core_pct : Array[@base.Store[String]]
   mem_hist : @base.Store[Array[@charts.LineSeries]]
   swap_hist : @base.Store[Array[@charts.LineSeries]]
-  net_hist : @base.Store[Array[@charts.LineSeries]]
-  // GPU 详情页与卡值：每块物理卡一套（数量取启动枚举结果，热插拔不重建）
-  card_gpu_vals : Array[@base.Store[String]]
+  // 网络：物理网卡集合变化时重建页面卡片，历史/实时值按网卡名保留
+  net_names_key : @base.Store[String]
+  net_hists : Map[String, @base.Store[Array[@charts.LineSeries]]]
+  net_speed : Map[String, @base.Store[String]]
+  // GPU 详情页：每块物理卡一套（数量取启动枚举结果，热插拔不重建）
   gpu_busy_hists : Array[@base.Store[Array[@charts.LineSeries]]]
   gpu_vram_hists : Array[@base.Store[Array[@charts.LineSeries]]]
-  // 其余页数据源（进程 / 传感器 / 磁盘 / 网络页订阅）
+  // 其余页数据源（进程 / 磁盘 / 网络页订阅）
   procs : @base.Store[Array[ProcInfo]]
-  sensors : @base.Store[Array[TempSensor]]
   gpus : @base.Store[Array[GpuInfo]]
   disks : @base.Store[Array[DiskInfo]]
   nets : @base.Store[Array[NetInfo]]
+  // 进程表随窗口尺寸重挂（250ms 轮询写入，"WxH"）
+  size_key : @base.Store[String]
+}
+
+///|
+/// 网络页/左栏按名字取曲线 Store（新网卡首次出现时现建）。
+fn net_hist_of(app : App, name : String) -> @base.Store[Array[@charts.LineSeries]] {
+  match app.net_hists.get(name) {
+    Some(s) => s
+    None => {
+      let s : @base.Store[Array[@charts.LineSeries]] = @base.Store::new([
+        @charts.LineSeries::make("接收", max_points=120),
+        @charts.LineSeries::make("发送", max_points=120),
+      ])
+      app.net_hists.set(name, s)
+      s
+    }
+  }
+}
+
+///|
+/// 网络页/左栏按名字取实时速率文本 Store。
+fn net_speed_of(app : App, name : String) -> @base.Store[String] {
+  match app.net_speed.get(name) {
+    Some(s) => s
+    None => {
+      let s : @base.Store[String] = @base.Store::new("—")
+      app.net_speed.set(name, s)
+      s
+    }
+  }
 }
 
 ///|
 /// 一次全量采样：全部监视器 tick 后写入对应 Store。单个来源读取失败
-/// （平台不支持 / 瞬时竞态）只跳过该项，不影响其余卡片。
+/// （平台不支持 / 瞬时竞态）只跳过该项，不影响其余菜单项。
 fn sample_once(app : App) -> Unit {
-  // 处理器卡：占用 % · 最高温度（两个来源拼一行，任一缺失只显示有的）
-  let mut cpu_text = ""
   match app.cpu.tick() {
     None => ()
     Some((usage, per_core)) => {
-      cpu_text = pct(usage)
+      app.cpu_usage.set(pct(usage))
       @charts.series_push(app.cpu_hist, 0, usage * 100.0)
-      let bars : Array[@charts.BarItem] = []
       for i, u in per_core {
-        bars.push(@charts.BarItem::make("\{i}", u * 100.0))
-      }
-      app.core_bars.set_always(bars)
-    }
-  }
-  match hwmon_sensors() {
-    None => cpu_text = with_temp(cpu_text, None)
-    Some(sensors) => {
-      app.sensors.set_always(sensors)
-      let mut hottest : TempSensor? = None
-      for s in sensors {
-        match hottest {
-          None => hottest = Some(s)
-          Some(t) => if s.celsius > t.celsius { hottest = Some(s) }
+        if i < app.core_hists.length() {
+          @charts.series_push(app.core_hists[i], 0, u * 100.0)
+          app.core_pct[i].set(pct(u))
         }
       }
-      cpu_text = with_temp(cpu_text, hottest)
     }
-  }
-  if cpu_text != "" {
-    app.card_cpu.set(cpu_text)
   }
   match mem_info() {
     None => ()
     Some(mem) => {
       let used_gb = mem.used_kb().to_double() / 1048576.0
-      let swap_gb = (mem.swap_total_kb - mem.swap_free_kb).to_double() /
-        1048576.0
-      app.card_mem.set(
-        "\{fmt_rate_c(mem.used_kb().to_double() * 1024.0)} / \{fmt_rate_c(mem.total_kb.to_double() * 1024.0)}",
+      let swap_used = mem.swap_total_kb - mem.swap_free_kb
+      let swap_gb = swap_used.to_double() / 1048576.0
+      app.mem_usage.set(pct(mem.usage()))
+      app.mem_pair.set(
+        "\{fmt_gb(mem.used_kb().to_double() * 1024.0)}/\{fmt_gb(mem.total_kb.to_double() * 1024.0)}",
+      )
+      app.swap_pair.set(
+        "\{fmt_gb(swap_used.to_double() * 1024.0)}/\{fmt_gb(mem.swap_total_kb.to_double() * 1024.0)}",
       )
       @charts.series_push(app.mem_hist, 0, used_gb)
       @charts.series_push(app.swap_hist, 0, swap_gb)
@@ -189,7 +207,7 @@ fn sample_once(app : App) -> Unit {
     None => ()
     Some(procs) => {
       app.procs.set_always(procs)
-      app.card_proc.set("\{procs.length()}")
+      app.proc_count.set("\{procs.length()}")
     }
   }
   match app.gpu.tick() {
@@ -202,22 +220,22 @@ fn sample_once(app : App) -> Unit {
           break
         }
         match g.busy {
-          Some(b) => @charts.series_push(app.gpu_busy_hists[i], 0, b)
-          None => ()
+          Some(b) => {
+            @charts.series_push(app.gpu_busy_hists[i], 0, b)
+            app.gpu_usage[i].set("\{b.to_int()}%")
+          }
+          None => app.gpu_usage[i].set("—")
         }
         match g.vram_used {
           Some(v) =>
             @charts.series_push(app.gpu_vram_hists[i], 0, v / 1073741824.0)
           None => ()
         }
-        // 占用与温度任一来源不可用,对应位显示「—」(不用空缺)
-        let val = match (g.busy, g.celsius) {
-          (Some(b), Some(c)) => "\{b.to_int()}% · \{c.to_int()}℃"
-          (Some(b), None) => "\{b.to_int()}% · —"
-          (None, Some(c)) => "— · \{c.to_int()}℃"
-          (None, None) => "—"
+        let vram = match (g.vram_used, g.vram_total) {
+          (Some(u), Some(t)) => "\{fmt_gb(u)}/\{fmt_gb(t)}"
+          _ => "—"
         }
-        app.card_gpu_vals[i].set(val)
+        app.gpu_vram[i].set(vram)
       }
     }
   }
@@ -225,16 +243,42 @@ fn sample_once(app : App) -> Unit {
     None => ()
     Some(disks) => {
       app.disks.set_always(disks)
-      // 数量以启动枚举为准（根分区必在），热插拔只跳过不重建视图
-      for i, d in disks {
-        if i >= app.disk_hists.length() {
-          break
+      let mut read = 0.0
+      let mut write = 0.0
+      let mut any_rate = false
+      let rows : Array[(String, String)] = []
+      let sig : Array[String] = []
+      for d in disks {
+        match d.read_bps {
+          Some(v) => {
+            read += v
+            any_rate = true
+          }
+          None => ()
         }
-        app.card_disk_vals[i].set(
-          "\{pct(d.usage())} · \{fmt_rate_c((d.total_bytes - d.avail_bytes).to_double())}",
-        )
-        @charts.series_push(app.disk_hists[i], 0, d.usage() * 100.0)
+        match d.write_bps {
+          Some(v) => {
+            write += v
+            any_rate = true
+          }
+          None => ()
+        }
+        rows.push((d.mount, pct(d.usage())))
+        sig.push("\{d.mount}:\{pct(d.usage())}")
       }
+      let key = sig.join("|")
+      if key != app.disk_rows_sig.val {
+        app.disk_rows_sig.val = key
+        app.disk_rows.val = rows
+        app.disk_rows_ver.set(app.disk_rows_ver.get() + 1)
+      }
+      app.disk_rate.set(
+        if any_rate {
+          "↓\{fmt_rate(read)} ↑\{fmt_rate(write)}"
+        } else {
+          "↓— ↑—"
+        },
+      )
     }
   }
   match app.net.tick() {
@@ -243,16 +287,43 @@ fn sample_once(app : App) -> Unit {
       app.nets.set_always(nets)
       let mut rx = 0.0
       let mut tx = 0.0
+      let names : Array[String] = []
       for n in nets {
-        if n.name != "lo" {
+        if n.physical {
           rx += n.rx_bps
           tx += n.tx_bps
+          names.push(n.name)
+          @charts.series_push(net_hist_of(app, n.name), 0, n.rx_bps)
+          @charts.series_push(net_hist_of(app, n.name), 1, n.tx_bps)
+          net_speed_of(app, n.name).set(
+            "↓\{fmt_mbps(n.rx_bps)} ↑\{fmt_mbps(n.tx_bps)}",
+          )
         }
       }
-      app.card_net.set("↓\{fmt_rate_c(rx)} ↑\{fmt_rate_c(tx)}")
-      @charts.series_push(app.net_hist, 0, rx)
-      @charts.series_push(app.net_hist, 1, tx)
+      app.net_up.set(fmt_mbps(tx))
+      app.net_down.set(fmt_mbps(rx))
+      names
+      .mut_view()
+      .sort_by(fn(a, b) {
+        if a < b { -1 } else if a > b { 1 } else { 0 }
+      })
+      let key = names.join(",")
+      if key != app.net_names_key.get() {
+        app.net_names_key.set(key)
+      }
     }
+  }
+}
+
+///|
+/// MHz → 主频串（≥1GHz 用 GHz 一位小数；0 = 来源不可用）。
+fn fmt_ghz(mhz : Double) -> String {
+  if mhz <= 0.0 {
+    "—"
+  } else if mhz >= 1000.0 {
+    "\{fmt_scale(mhz / 1000.0)}GHz"
+  } else {
+    "\{mhz.to_int()}MHz"
   }
 }
 
@@ -262,16 +333,23 @@ const MON_TITLE : String = "系统监视器"
 ///|
 fn main {
   let info = cpu_info().unwrap_or({ model: "(未知)", mhz: 0.0, max_mhz: 0.0, cores: 1, })
+  let (mem_brand, mem_mhz) = mem_hw_info()
+  let core_n = if info.cores < 1 { 1 } else { info.cores }
   // 磁盘与 GPU 数量取启动枚举结果，卡与曲线按块预建（热插拔不重建视图）
   let disk_mon = DiskMonitor::new()
-  let disks0 : Array[DiskInfo] = match disk_mon.tick() {
-    Some(d) => d
-    None => []
-  }
   let gpu_mon = GpuMonitor::new()
   let gpus0 : Array[GpuInfo] = match gpu_mon.tick() {
     Some(g) => g
     None => []
+  }
+  // 各核小图按启动核数预建（核数固定，热插拔不重建）
+  let core_hists : Array[@base.Store[Array[@charts.LineSeries]]] = []
+  let core_pct : Array[@base.Store[String]] = []
+  for _ in 0..<core_n {
+    core_hists.push(
+      @base.Store::new([@charts.LineSeries::make("核心", max_points=120)]),
+    )
+    core_pct.push(@base.Store::new("—"))
   }
 
   let app : App = {
@@ -280,23 +358,31 @@ fn main {
     disk: disk_mon,
     net: NetMonitor::new(),
     gpu: gpu_mon,
-    card_cpu: @base.Store::new("—"),
-    card_mem: @base.Store::new("—"),
-    card_net: @base.Store::new("—"),
-    card_proc: @base.Store::new("—"),
-    card_disk_vals: disks0.map(fn(_d) { @base.Store::new("—") }),
-    disk_hists: disks0.map(fn(_d) {
-      @base.Store::new([@charts.LineSeries::make("已用", max_points=120)])
-    }),
+    cpu_model: info.model,
+    cpu_max: fmt_ghz(info.max_mhz),
+    mem_brand: mem_brand,
+    mem_mhz: mem_mhz,
+    cpu_usage: @base.Store::new("—"),
+    mem_usage: @base.Store::new("—"),
+    mem_pair: @base.Store::new("—"),
+    swap_pair: @base.Store::new("—"),
+    net_up: @base.Store::new("—"),
+    net_down: @base.Store::new("—"),
+    disk_rate: @base.Store::new("—"),
+    disk_rows_ver: @base.Store::new(0),
+    disk_rows: Ref([]),
+    disk_rows_sig: Ref(""),
+    proc_count: @base.Store::new("—"),
+    gpu_usage: gpus0.map(fn(_g) { @base.Store::new("—") }),
+    gpu_vram: gpus0.map(fn(_g) { @base.Store::new("—") }),
     cpu_hist: @base.Store::new([@charts.LineSeries::make("CPU", max_points=120)]),
-    core_bars: @base.Store::new([]),
+    core_hists: core_hists,
+    core_pct: core_pct,
     mem_hist: @base.Store::new([@charts.LineSeries::make("内存", max_points=120)]),
     swap_hist: @base.Store::new([@charts.LineSeries::make("swap", max_points=120)]),
-    net_hist: @base.Store::new([
-      @charts.LineSeries::make("接收", max_points=120),
-      @charts.LineSeries::make("发送", max_points=120),
-    ]),
-    card_gpu_vals: gpus0.map(fn(_g) { @base.Store::new("—") }),
+    net_names_key: @base.Store::new(""),
+    net_hists: Map([]),
+    net_speed: Map([]),
     gpu_busy_hists: gpus0.map(fn(_g) {
       @base.Store::new([@charts.LineSeries::make("占用", max_points=120)])
     }),
@@ -304,10 +390,10 @@ fn main {
       @base.Store::new([@charts.LineSeries::make("显存", max_points=120)])
     }),
     procs: @base.Store::new([]),
-    sensors: @base.Store::new([]),
     gpus: @base.Store::new([]),
     disks: @base.Store::new([]),
     nets: @base.Store::new([]),
+    size_key: @base.Store::new("1240x840"),
   }
   // 首帧立即采一次（第二帧起差值速率才有值）；定时与主题跟随在挂载后接
   sample_once(app)
@@ -323,6 +409,18 @@ fn main {
       println("SYSMON-READY cores=\{info.cores}")
       // 深浅与主色启动跟随系统并实时联动（1s 轮询，指纹变了才 apply）
       ignore(a.follow_system_theme())
+      // 窗口尺寸轮询：进程页表格按右栏实际宽高重挂（250ms，尺寸变化才写）
+      let size_tick : Ref[() -> Unit] = Ref(fn() { () })
+      size_tick.val = fn() -> Unit {
+        let win : @win.Window = a.window()
+        let (w, h) = win.size()
+        let key = "\{w}x\{h}"
+        if key != app.size_key.get() {
+          app.size_key.set(key)
+        }
+        let _ = a.timer(250, size_tick.val)
+      }
+      (size_tick.val)()
       // 单一 1Hz 定时器驱动全部采样
       let tick : Ref[() -> Unit] = Ref(fn() { () })
       tick.val = fn() -> Unit {

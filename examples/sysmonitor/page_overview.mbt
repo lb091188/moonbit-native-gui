@@ -1,13 +1,13 @@
-// 应用壳 + 资源导航（U1/U2）：Mission Center 式双栏布局。
-// 左栏 = 资源卡片（处理器 / 内存 / 磁盘 / 网络 / 显卡×N / 进程），
-// 按硬件实况出卡（核显 / 独显各一张），卡片即菜单：点击切换右栏
-// 详情页，选中卡主题色描边。右栏 = 全部详情页一次性挂载、只切可见
-// 性，选中态 / 滚动位置 / 表格选择不丢。
-// 数据来自 main.mbt 的 1Hz sample_once；卡片数值只改文本，迷你曲线
-// 只进程级 invalidate 重绘画布。
+// 应用壳 + 六项资源菜单（U1/U2）：Mission Center 式双栏布局。
+// 左栏固定六项（处理器 / 内存 / 网络 / 磁盘 / 显卡 / 进程），每项
+// 50×50 图标 + 加粗标题 + 左 label / 右右对齐值的属性行；名称类信息
+// （CPU 型号、内存品牌/频率、显卡名）不带 label 直接显示。点击切换右栏，
+// 选中项主题色描边。右栏 = 全部详情页一次性挂载、只切可见性，选中态 /
+// 滚动位置 / 表格选择不丢。
+// 数据来自 main.mbt 的 1Hz sample_once；菜单数值只改文本。
 
 ///|
-/// 右栏视图（与左栏卡片一一对应；GPU 卡共享传感器页）。
+/// 右栏视图（与左栏六项一一对应）。
 pub(all) enum ViewId {
   VCpu
   VMem
@@ -31,86 +31,38 @@ fn view_index(v : ViewId) -> Int {
 }
 
 ///|
-/// 卡内迷你曲线：序列窗口值 + 末端圆点。y_range 给固定值域；None 时
-/// 取窗口峰值自适应（floor 保底，防全零时除零 / 全平时看不出起伏）。
-/// 手型光标由外层 cursor_group 统一下发（本栈光标按悬停路径最深请求
-/// 生效，不再逐子控件各设一份）。
-fn sparkline_box(
-  hist : @base.Store[Array[@charts.LineSeries]],
-  y_range : (Double, Double)?,
-  floor : Double,
-) -> @widget.Node {
-  @widget.node_of_new(fn(c : @widget.Widget) -> @widget.Widget {
-    c.node.set_height(@yoga.fixed(34.0))
-    c.node.set_width(@yoga.percent(100.0))
-    c.on_draw = Some(fn(_s : @widget.Widget, p : @render.Painter, r : @base.Rect) -> Unit {
-      let t = @theme.theme_current()
-      let (lo, hi) = match y_range {
-        Some((a, bb)) => (a, bb)
-        None => {
-          let mut peak = floor
-          for s in hist.get() {
-            for v in s.points {
-              if v > peak {
-                peak = v
-              }
-            }
-          }
-          (0.0, peak)
-        }
-      }
-      // 多序列同窗叠加（网络卡 rx 主题色 / tx 警告色）
-      for si, s in hist.get() {
-        let color = if si == 0 { t.primary } else { t.warning }
-        draw_sparkline(p, 0.0, 2.0, r.w, r.h - 4.0, s.points, lo, hi, color)
-      }
-    })
-    hist.subscribe(fn(_s) { @widget.invalidate() })
-    ignore(@theme.on_theme_change(fn() { @widget.invalidate() }))
-    c
-  })
-}
+/// 左栏固定宽度（进程页算表格宽也用它）。
+pub const LEFT_PANE_W : Double = 320.0
 
 ///|
-/// 资源卡片（导航菜单项）：标题行 = 图标 + 标题 + 右侧当前值（紧凑
-/// 格式），下方可选迷你曲线（hist 为 None 时省略，卡片只剩标题栏 +
-/// 内边距的高度）。点击切到 target 视图；选中卡主题色描边 + 浅底。
-/// 悬停反馈只有手型光标（cursor_group 统一给）。
-fn res_card(
+/// 菜单文字列宽度（320 − 外边距 20 − 项内边距 24 − 图标 50 − 间距 10）。
+const MENU_TEXT_W : Double = 216.0
+
+///|
+/// 菜单项外壳：50×50 图标钉左上，右侧一列（加粗标题 + 属性行）。
+/// 点击切到 target；选中项主题色描边 + 浅底，悬停由 cursor_group 给手型。
+fn menu_item(
   icon : @icons.IconKind,
   title : String,
-  value : @base.Store[String],
-  hist : @base.Store[Array[@charts.LineSeries]]?,
+  rows : Array[@widget.Node],
   view : @base.Store[ViewId],
   target : ViewId,
-  y_range? : (Double, Double)? = None,
-  floor? : Double = 1.0,
 ) -> @widget.Node {
-  let spark : Array[@widget.Node] = match hist {
-    None => []
-    Some(h) => [sparkline_box(h, y_range, floor)]
-  }
-  @ui.view(
+  @ui.row(
     [
-      @ui.row(
+      @ui.icon(icon, size=50.0),
+      @ui.col(
         [
-          @ui.icon(icon, size=16.0),
-          @ui.text(title, class=[@style.text_title]),
-          // 值行：吃掉标题行剩余宽度（grow），文本右对齐——空间全部
-          // 给数值，比标题小两档，固定右缘不随文本回流换行
-          @ui.text_dyn(
-            value.signal(),
-            font_size=14.0,
-            weight=@text.SemiBold,
-            color="text_primary",
-            align=@text.End,
-            handle=fn(w) { w.node.set_flex_grow(1.0) },
-          ),
-        ],
-        column_gap=6.0,
+          @ui.text(title, font_size=15.0, weight=@text.Bold, wrap=false),
+        ] + rows,
+        grow=1.0,
+        row_gap=4.0,
+        class=[@style.style(min_width=0.0)],
       ),
-    ] + spark,
+    ],
+    column_gap=10.0,
     padding=12.0,
+    align_items=@yoga.AlignItems::FlexStart,
     handle=fn(c) {
       // 覆盖 container 的默认底色绘制：选中态主题色描边 + 浅底
       c.on_draw = Some(fn(_s : @widget.Widget, p : @render.Painter, r : @base.Rect) -> Unit {
@@ -122,7 +74,6 @@ fn res_card(
         p.set_line_width(1.0)
         p.stroke_rect(0.0, 0.0, r.w, r.h)
       })
-      // 主题切换 / 选中态变化都只请求一次全窗重绘
       ignore(@theme.on_theme_change(fn() { @widget.invalidate() }))
       view.subscribe(fn(_v) { @widget.invalidate() })
       c.on_pointer = Some(fn(_s : @widget.Widget, ev : @widget.PointerEvent) -> Bool {
@@ -143,92 +94,151 @@ fn res_card(
 }
 
 ///|
-/// 左栏：资源卡片导航（显单一列，超高滚动）。显卡按硬件实况出卡
-/// （核显 / 独显各一张，均指向传感器页）。
-fn left_pane(app : App, view : @base.Store[ViewId]) -> @widget.Node {
-  let cards : Array[@widget.Node] = [
-    res_card(
-      @icons.Cpu,
-      "处理器",
-      app.card_cpu,
-      Some(app.cpu_hist),
-      view,
-      VCpu,
-      y_range=Some((0.0, 100.0)),
-    ),
-    res_card(
-      @icons.Database,
-      "内存",
-      app.card_mem,
-      Some(app.mem_hist),
-      view,
-      VMem,
-    ),
-    res_card(
-      @icons.Wifi,
-      "网络",
-      app.card_net,
-      Some(app.net_hist),
-      view,
-      VNet,
-      floor=1048576.0,
-    ),
-  ]
-  // 磁盘卡：每个用户挂载一张（根分区标题「磁盘」，其余用挂载点做
-  // 标题），数量取启动枚举结果，1Hz 采样更新各自文本与曲线
-  for i in 0..<app.disk_hists.length() {
-    let mount = if i < app.disks.get().length() {
-      app.disks.get()[i].mount
-    } else {
-      ""
-    }
-    let title = if mount == "/" || app.disk_hists.length() == 1 {
-      "磁盘"
-    } else {
-      mount
-    }
-    cards.push(
-      res_card(
-        @icons.Sever,
-        title,
-        app.card_disk_vals[i],
-        Some(app.disk_hists[i]),
-        view,
-        VDisk,
-        y_range=Some((0.0, 100.0)),
+/// 带 label 的属性行：label 固定宽、值吃满余量并右对齐。
+fn menu_row(label : String, value : @base.Store[String]) -> @widget.Node {
+  @ui.row(
+    [
+      @ui.view(
+        [@ui.text(label, font_size=12.0, color="text_secondary", wrap=false)],
+        width=72.0,
       ),
-    )
-  }
-  // 显卡卡：一块物理卡一张（值 = 使用率·温度，无曲线，紧凑高度；
-  // Store 在 App 构建时按启动枚举预建，1Hz 采样更新文本）
-  for i in 0..<app.card_gpu_vals.length() {
-    cards.push(
-      res_card(
-        @icons.Monitor,
-        "显卡 \{i + 1}",
-        app.card_gpu_vals[i],
-        None,
-        view,
-        VGpu,
+      @ui.text_dyn(
+        value.signal(),
+        font_size=12.0,
+        color="text_primary",
+        align=@text.End,
+        wrap=false,
+        handle=fn(w) { w.node.set_flex_grow(1.0) },
       ),
-    )
-  }
-  cards.push(
-    res_card(@icons.TableIcon, "进程", app.card_proc, None, view, VProc),
-  )
-  // 左栏宽度固定 292，**不能**再挂 `flex_grow`：外壳修好后这一行的父容器有了
-  // 确定宽度，左栏一旦也 grow 就会和右栏平分剩余空间，左栏被拉宽、右栏被挤窄。
-  // 竖直方向靠父 hbox 的 `align_items: Stretch` 撑满，本组件不需要额外处理。
-  @ui.scroll_view(
-    [@ui.col(cards, padding=10.0, row_gap=10.0)],
-    @ui.ScrollState::new(),
-    width=292.0,
+    ],
+    column_gap=6.0,
+    class=[@style.style(min_width=0.0)],
   )
 }
 
 ///|
-/// 右栏：全部详情页一次性挂载，按 view 切可见性（页内选中态 /
-/// 滚动位置不丢）。
+/// 无 label 的名称/信息行：值占满整行，左对齐，超长省略。
+fn menu_value(value : String) -> @widget.Node {
+  @ui.text(
+    value,
+    font_size=12.0,
+    color="text_secondary",
+    wrap=false,
+    ellipsis=true,
+    max_width=MENU_TEXT_W,
+  )
+}
+
+///|
+/// 磁盘项：一个图标 + 聚合速率行 + 每个物理分区一行（挂载点 / 使用率）。
+/// 分区集合变化时整块重挂（数量少，重建便宜）。
+fn disk_rows(app : App) -> @widget.Node {
+  @widget.bind_node(app.disk_rows_ver.signal(), fn(_v) {
+    let rows : Array[@widget.Node] = []
+    for r in app.disk_rows.val {
+      let (mount, usage) = r
+      rows.push(
+        @ui.row(
+          [
+            @ui.view(
+              [@ui.text(mount, font_size=12.0, color="text_secondary", wrap=false, ellipsis=true)],
+              width=72.0,
+            ),
+            @ui.text(
+              usage,
+              font_size=12.0,
+              color="text_primary",
+              align=@text.End,
+              wrap=false,
+              handle=fn(w) { w.node.set_flex_grow(1.0) },
+            ),
+          ],
+          column_gap=6.0,
+          class=[@style.style(min_width=0.0)],
+        ),
+      )
+    }
+    @ui.col(rows, row_gap=4.0, class=[@style.style(min_width=0.0)])
+  })
+}
+
+///|
+/// 左栏：固定六项资源菜单（超高滚动）。
+fn left_pane(app : App, view : @base.Store[ViewId]) -> @widget.Node {
+  let items : Array[@widget.Node] = []
+  // 处理器：名称（无 label）+ 利用率 + 最高主频
+  items.push(
+    menu_item(@icons.Cpu, "处理器", [
+      menu_value(app.cpu_model),
+      menu_row("利用率", app.cpu_usage),
+      menu_row("最高主频", @base.Store::new(app.cpu_max)),
+    ], view, VCpu),
+  )
+  // 内存：品牌/频率（无 label）+ 利用率 + 物理内存 + SWAP
+  let mem_brand = if app.mem_brand == "" { "—" } else { app.mem_brand }
+  let mem_mhz = if app.mem_mhz <= 0 { "—" } else { "\{app.mem_mhz}MHz" }
+  items.push(
+    menu_item(@icons.Database, "内存", [
+      menu_value(mem_brand),
+      menu_value(mem_mhz),
+      menu_row("利用率", app.mem_usage),
+      menu_row("物理内存", app.mem_pair),
+      menu_row("SWAP", app.swap_pair),
+    ], view, VMem),
+  )
+  // 网络：物理网卡聚合的上行/下行
+  items.push(
+    menu_item(@icons.Wifi, "网络", [
+      menu_row("上行", app.net_up),
+      menu_row("下行", app.net_down),
+    ], view, VNet),
+  )
+  // 磁盘：单图标，聚合速率 + 每个物理分区一行
+  items.push(
+    menu_item(@icons.Sever, "磁盘", [
+      menu_row("速率", app.disk_rate),
+      disk_rows(app),
+    ], view, VDisk),
+  )
+  // 显卡：每块卡一小组（名称无 label + 利用率 + 显存）
+  let gpu_rows : Array[@widget.Node] = []
+  let gpus = app.gpus.get()
+  if gpus.length() == 0 {
+    gpu_rows.push(menu_value("未检测到显卡"))
+  } else {
+    for i, g in gpus {
+      if i >= app.gpu_usage.length() {
+        break
+      }
+      let name = if g.model == "" { "\{g.vendor} \{g.device}" } else { g.model }
+      let block : Array[@widget.Node] = [
+        menu_value(name),
+        menu_row("利用率", app.gpu_usage[i]),
+        menu_row("显存", app.gpu_vram[i]),
+      ]
+      gpu_rows.push(@ui.col(block, row_gap=4.0, class=[@style.style(min_width=0.0)]))
+    }
+  }
+  items.push(
+    menu_item(@icons.Monitor, "显卡", gpu_rows, view, VGpu),
+  )
+  // 进程
+  items.push(
+    menu_item(@icons.TableIcon, "进程", [
+      menu_row("进程数", app.proc_count),
+    ], view, VProc),
+  )
+  @ui.scroll_view(
+    [@ui.col(items, padding=10.0, row_gap=8.0)],
+    @ui.ScrollState::new(),
+    width=LEFT_PANE_W,
+    handle=fn(w) { w.node.set_align_self(Some(@yoga.AlignItems::Stretch)) },
+  )
+}
+
+///|
+/// 右栏：全部详情页一次性挂载，按 view 切可见性；最小内容宽 400，
+/// 窗口更窄时整块横向滚动（页内纵向滚动归各页自己的 scroll_view）。
 fn view_area(app : App, view : @base.Store[ViewId]) -> @widget.Node {
   let items : Array[(ViewId, @widget.Node)] = [
     (VCpu, page_cpu_detail(app)),
@@ -238,23 +248,35 @@ fn view_area(app : App, view : @base.Store[ViewId]) -> @widget.Node {
     (VGpu, page_sensors(app)),
     (VProc, page_process(app)),
   ]
-  @ui.view(
+  let host = @ui.col(
     [],
     grow=1.0,
-    handle=fn(area) {
+    class=[@style.style(min_width=0.0, min_height=0.0)],
+    handle=fn(h) {
+      h.node.set_width(@yoga.percent(100.0))
+      h.node.set_height(@yoga.percent(100.0))
       let boxes : Array[@widget.Widget] = []
       for item in items {
         let (_, node) = item
         let pc = @widget.Widget::new()
         pc.node.set_flex_direction(@yoga.Column)
         pc.node.set_flex_grow(1.0)
+        pc.node.set_width(@yoga.percent(100.0))
+        pc.node.set_height(@yoga.percent(100.0))
         pc.node.set_min_width(@yoga.fixed(0.0))
         pc.node.set_min_height(@yoga.fixed(0.0))
         pc.set_visible(view_index(item.0) == view_index(view.get()))
-        // 页面内容整页滚动，超窗不裁切
-        let sc = @ui.scroll_view([node], @ui.ScrollState::new())
-        let _ = sc.mount_into(pc)
-        area.append_child(pc)
+        // 每页自己的纵向滚动视口（进程页例外：它内部表格自己滚）
+        if item.0 is VProc {
+          let _ = node.mount_into(pc)
+        } else {
+          let sc = @ui.scroll_view([node], @ui.ScrollState::new(), handle=fn(v) {
+            v.node.set_flex_grow(1.0)
+            v.node.set_align_self(Some(@yoga.AlignItems::Stretch))
+          })
+          let _ = sc.mount_into(pc)
+        }
+        h.append_child(pc)
         boxes.push(pc)
       }
       view.subscribe(fn(cur) {
@@ -265,59 +287,102 @@ fn view_area(app : App, view : @base.Store[ViewId]) -> @widget.Node {
       })
     },
   )
+  @ui.scroll_view(
+    [host],
+    @ui.ScrollState::new(),
+    hscroll=true,
+    min_content_width=400.0,
+    vscroll=false,
+    handle=fn(v) {
+      v.node.set_flex_grow(1.0)
+      v.node.set_align_self(Some(@yoga.AlignItems::Stretch))
+    },
+  )
 }
 
 ///|
-/// 处理器详情：总占用曲线（0-100 固定轴）+ 各核占用柱状（0-100，
-/// 自动量程会让 5% 看起来像满格）。
+/// 处理器详情：总利用率全宽曲线 + 各逻辑核小图（超宽换行、超高整页滚动）。
 fn page_cpu_detail(app : App) -> @widget.Node {
+  let cards : Array[@widget.Node] = []
+  for i in 0..<app.core_hists.length() {
+    cards.push(
+      @ui.col(
+        [
+          @ui.row(
+            [
+              @ui.text("核心 \{i}", font_size=12.0, color="text_secondary", wrap=false),
+              @ui.text_dyn(
+                app.core_pct[i].signal(),
+                font_size=12.0,
+                color="text_primary",
+                align=@text.End,
+                wrap=false,
+                handle=fn(w) { w.node.set_flex_grow(1.0) },
+              ),
+            ],
+            column_gap=6.0,
+          ),
+          @charts.line_chart_t(
+            app.core_hists[i],
+            width=240.0,
+            height=96.0,
+            y_range=Some((0.0, 100.0)),
+            area=true,
+            show_last=false,
+          ),
+        ],
+        width=240.0,
+        row_gap=4.0,
+      ),
+    )
+  }
   @ui.col(
     [
-      @ui.text("总占用（%）", class=[@style.text_title]),
+      @ui.text("总利用率（%）", class=[@style.text_title]),
       @charts.line_chart_t(
         app.cpu_hist,
-        height=250.0,
+        height=180.0,
         y_range=Some((0.0, 100.0)),
         area=true,
       ),
       @ui.text("各逻辑核（%）", class=[@style.text_title]),
-      @charts.bar_chart_t(
-        app.core_bars,
-        height=250.0,
-        y_range=Some((0.0, 100.0)),
+      @ui.row(
+        cards,
+        column_gap=12.0,
+        align_items=@yoga.AlignItems::FlexStart,
+        class=[@style.style(flex_wrap=@yoga.Wrap, row_gap=12.0, min_width=0.0)],
+        handle=fn(w) { w.node.set_width(@yoga.percent(100.0)) },
       ),
     ],
     padding=12.0,
-    row_gap=6.0,
+    row_gap=12.0,
+    class=[@style.style(min_width=0.0)],
   )
 }
 
 ///|
-/// 内存详情：已用曲线 + swap 曲线（自适应轴看细节）。
+/// 内存详情：物理内存曲线 + swap 曲线（自适应轴看细节）。
 fn page_mem_detail(app : App) -> @widget.Node {
   @ui.col(
     [
-      @ui.text("内存（GB）", class=[@style.text_title]),
-      @charts.line_chart_t(app.mem_hist, height=250.0, area=true),
+      @ui.text("物理内存（GB）", class=[@style.text_title]),
+      @charts.line_chart_t(app.mem_hist, height=200.0, area=true),
       @ui.text("swap（GB）", class=[@style.text_title]),
-      @charts.line_chart_t(app.swap_hist, height=250.0, area=true),
+      @charts.line_chart_t(app.swap_hist, height=200.0, area=true),
     ],
     padding=12.0,
-    row_gap=6.0,
+    row_gap=8.0,
+    class=[@style.style(min_width=0.0)],
   )
 }
 
 ///|
-/// 双栏应用壳：左栏卡片导航 + 右栏详情页。手型光标套 cursor_group，
-/// 组内任意位置（含卡片子控件）都是手型。
+/// 双栏应用壳：左栏六项菜单 + 右栏详情页。手型光标套 cursor_group，
+/// 组内任意位置（含菜单子控件）都是手型。
 fn app_shell(app : App) -> @widget.Node {
   let view : @base.Store[ViewId] = @base.Store::new(VCpu)
-  // 壳必须自己撑满窗口。`cursor_group` 只是 `container` 的壳，**本身既没有
-  // `flex_grow` 也没有宽度**，而它外层那个 hbox 是 Row：不补下面这两句，整棵树
-  // 就退化成「按内容撑」——主轴（水平）缩到内容宽，交叉轴（垂直）又被外层 hbox
-  // 默认的 `align_items: Center` 居中。真机上表现为「内容缩在窗口左侧一小块、
-  // 右半屏与上下全空」，右栏详情页更是只剩标签文字那么宽（2026-10-13 真机反馈
-  // 「sysmonitor 样式错乱」的根因）。主轴靠 `flex_grow`、交叉轴靠 `align_self`。
+  // 壳必须自己撑满窗口：主轴靠 flex_grow、交叉轴靠 align_self（外层 hbox
+  // 默认 Center，不补这句会缩在窗口左上角）。
   @ui.cursor_group(
     [
       @ui.row(

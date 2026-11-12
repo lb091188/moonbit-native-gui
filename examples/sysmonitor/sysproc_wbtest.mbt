@@ -260,16 +260,6 @@ test "priority_col_header:Windows 标优先级 / Linux 标 nice" {
 }
 
 ///|
-test "with_temp:有传感器给℃ / 来源不可用给「—」/ CPU 空值不追加" {
-  let s = { chip: "coretemp", label: "Package id 0", celsius: 45.7 }
-  assert_eq(with_temp("12%", Some(s)), "12% · 45℃")
-  // hwmon 读不到(None)与列表为空( hottest None 同形):显示「—」占位
-  assert_eq(with_temp("12%", None), "12% · —")
-  // CPU 采样失败(值行本身为空)时整体不追加
-  assert_eq(with_temp("", None), "")
-}
-
-///|
 test "F1 set_priority：越界nice参数(纯分支)" {
   assert_eq(set_priority(1, 20), Err(errno_text(22)))
   assert_eq(set_priority(1, -21), Err(errno_text(22)))
@@ -493,11 +483,9 @@ test "sort_procs：各列升降序 + 名称大小写不敏感 + 空数组" {
   assert_eq(by_name[1].name, "Firefox")
   assert_eq(by_name[2].name, "systemd")
   assert_eq(by_name[3].name, "Web Content")
-  // 内存 / nice / 线程
+  // 内存 / 线程
   let by_mem = sort_procs(procs, ByMem, false)
   assert_eq(by_mem[0].pid, 999)
-  let by_nice = sort_procs(procs, ByNice, false)
-  assert_eq(by_nice[0].pid, 999)
   let by_threads = sort_procs(procs, ByThreads, false)
   assert_eq(by_threads[0].pid, 420)
   // 空数组不炸
@@ -507,47 +495,25 @@ test "sort_procs：各列升降序 + 名称大小写不敏感 + 空数组" {
 }
 
 ///|
-test "sort_procs：ByNice 负值排序(负 nice 不再被钳成 0)" {
-  // nice=-20 的进程（内核 worker / 提权进程）解析回归后不再是 0，
-  // 否则降序时与普通进程混在一档、排不出真实优先级
-  let procs = [
-    mk_proc(101, 1, "kworker", "[kworker]", "I", 0.0, 0, -20, 1),
-    mk_proc(102, 1, "normal", "/bin/normal", "S", 0.0, 0, 0, 1),
-    mk_proc(103, 1, "idle", "/bin/idle", "S", 0.0, 0, 19, 1),
-  ]
-  // 降序：nice 越大越谦让 → 19 / 0 / -20
-  let desc = sort_procs(procs, ByNice, false)
-  assert_eq(desc[0].pid, 103)
-  assert_eq(desc[1].pid, 102)
-  assert_eq(desc[2].pid, 101)
-  // 升序：-20 / 0 / 19
-  let asc = sort_procs(procs, ByNice, true)
-  assert_eq(asc[0].pid, 101)
-  assert_eq(asc[1].pid, 102)
-  assert_eq(asc[2].pid, 103)
-  // 入参不被修改
-  assert_eq(procs[0].pid, 101)
-}
-
-///|
 test "proc_row：列内容与格式(CPU 一位小数 / 内存人类可读)" {
   let p = mk_proc(
     999, 420, "Web Content", "/usr/lib/firefox", "R", 45.25, 2621440, 5, 12,
   )
   let row = proc_row(p)
-  assert_eq(row.cells.length(), 8)
+  assert_eq(row.cells.length(), 7)
   assert_eq(cell_text(row.cells[0]), "999")
   assert_eq(cell_text(row.cells[1]), "Web Content")
-  assert_eq(cell_text(row.cells[2]), "R")
+  // 状态显示中文名而非内核字符
+  assert_eq(cell_text(row.cells[2]), "运行中")
   assert_eq(cell_text(row.cells[3]), "45.3")
   assert_eq(cell_text(row.cells[4]), "2.5 GB")
-  assert_eq(cell_text(row.cells[5]), "5")
-  assert_eq(cell_text(row.cells[6]), "12")
-  assert_eq(cell_text(row.cells[7]), "/usr/lib/firefox")
-  // 一位小数取整
+  assert_eq(cell_text(row.cells[5]), "12")
+  assert_eq(cell_text(row.cells[6]), "/usr/lib/firefox")
+  // 一位小数取整 / 状态文字
   let p2 = mk_proc(1, 0, "init", "/sbin/init", "S", 0.04, 1024, 0, 1)
   assert_eq(cell_text(proc_row(p2).cells[3]), "0.0")
   assert_eq(cell_text(proc_row(p2).cells[4]), "1 MB")
+  assert_eq(cell_text(proc_row(p2).cells[2]), "睡眠")
 }
 
 ///|
@@ -557,8 +523,8 @@ test "sort_of_col：列号映射(状态/命令行不参与)" {
   assert_true(sort_of_col(2) is None)
   assert_true(sort_of_col(3) is Some(ByCpu))
   assert_true(sort_of_col(4) is Some(ByMem))
-  assert_true(sort_of_col(5) is Some(ByNice))
-  assert_true(sort_of_col(6) is Some(ByThreads))
+  assert_true(sort_of_col(5) is Some(ByThreads))
+  assert_true(sort_of_col(6) is None)
   assert_true(sort_of_col(7) is None)
   assert_true(sort_of_col(-1) is None)
 }
