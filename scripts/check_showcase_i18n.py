@@ -7,7 +7,7 @@
 ③ `@shared.nav_label`：键 = `nav.` + 侧栏页名（main 的路由表）；
 ④ `@shared.tr_with("dyn.x", vars, zh)`：带插值的状态/回显串，模板里 `{名}` 由 tr_with 填。
 
-目录本体是 `examples/showcase/shared/i18n_data.mbt` 里的 MoonBit 串拼接常量，
+目录本体是 `examples/components/shared/i18n_data.mbt` 里的 MoonBit 串拼接常量，
 这里按它落成的 TOML 文本行反解：顶层键 = 中文原文，`[段]` 头之后的键带段前缀。
 
 跑法：python3 scripts/check_showcase_i18n.py（非零退出 = 有漏网的显示串）
@@ -18,7 +18,7 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SHOW = ROOT / "examples" / "showcase"
+SHOW = ROOT / "examples" / "components"
 
 
 def unescape_moon(s):

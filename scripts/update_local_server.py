@@ -3,7 +3,7 @@
 # 在免 CI、免 GitHub 发布的条件下走「检查 → 下载 → SHA256 校验 → 安装重启」全链路。
 # 用法(仓库根):
 #   python3 scripts/update_local_server.py --version 0.2.0
-#   python3 scripts/update_local_server.py --dir examples/showcase/.mng/dist --version 0.2.0 --port 8765
+#   python3 scripts/update_local_server.py --dir examples/components/.mng/dist --version 0.2.0 --port 8765
 # 配套:showcase「系统集成 → 应用自更新」的「检查更新(本地服务)」按钮
 # (清单地址 http://127.0.0.1:8765/update.json,库侧 update_check 需 allow_http=true)。
 # 仓库口径:Python 3.7(不用 3.8+ 语法与参数)。
@@ -93,11 +93,11 @@ def main():
     ap = argparse.ArgumentParser(description="本地更新服务(测试链路)")
     default_dist = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "examples", "showcase", ".mng", "dist",
+        "examples", "components", ".mng", "dist",
     )
-    ap.add_argument("--dir", default=default_dist, help="打包产物目录(默认 examples/showcase/.mng/dist)")
+    ap.add_argument("--dir", default=default_dist, help="打包产物目录(默认 examples/components/.mng/dist)")
     ap.add_argument("--version", default="", help="要当「新版」发的版本(缺省取载体里版本号最高的)")
-    ap.add_argument("--port", type=int, default=8765, help="监听端口(默认 8765,与 showcase 本地服务地址同源)")
+    ap.add_argument("--port", type=int, default=8765, help="监听端口(默认 8765,与 components 本地服务地址同源)")
     ap.add_argument("--notes", default="", help="update.json 的 notes(缺省 Release <版本>)")
     args = ap.parse_args()
 

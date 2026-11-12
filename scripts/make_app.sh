@@ -9,9 +9,9 @@
 # 这一族，所以打包这一步一次做好。
 #
 # 用法：
-#   moon build examples/showcase --target native
-#   scripts/make_app.sh showcase                 # 产 _build/apps/Showcase.app
-#   open _build/apps/Showcase.app
+#   moon build examples/components --target native
+#   scripts/make_app.sh components              # 产 _build/apps/Components.app
+#   open _build/apps/Components.app
 # 非 mac 平台直接退出（Win/GTK 不需要这一步）。
 set -euo pipefail
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""重写 examples/showcase/pages/icons.mbt:按主题组铺全量图标墙。
+"""重写 examples/components/pages/icons.mbt:按主题组铺全量图标墙。
 
 用法: python3 scripts/gen_showcase_icons.py
 读取 gui/icons/icons.mbt 的生成标记区(变体+font-class),按 GROUPS 分组输出,
@@ -13,7 +13,7 @@ import re
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ICONS_MBT = os.path.join(REPO, "gui", "icons", "icons.mbt")
-PAGE = os.path.join(REPO, "examples", "showcase", "pages", "icons.mbt")
+PAGE = os.path.join(REPO, "examples", "components", "pages", "icons.mbt")
 
 # (组名, 中文标题, 一句描述, [font_class...])
 GROUPS = [
