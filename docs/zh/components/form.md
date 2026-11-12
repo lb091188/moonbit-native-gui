@@ -27,7 +27,7 @@
 
 - 复选框 + 文本标签，整行点击区；空格 / 回车切换
 
-### `radio_group(options : Array[String], state : Store[Int], disabled?, direction?=Row, gap?=12.0, class?)`
+### `radio_group(options : Array[String], state : Store[Int32], disabled?, direction?=Row, gap?=12.0, class?)`
 
 - 单选组：`options` 依次对应值 `0..n-1`；空格 / 回车选中本项、方向键换选、到头环绕
 - `direction`：排布方向，默认横向
@@ -43,7 +43,7 @@
 - 滑块：按下即取值、拖动跟随；方向键步进、Home / End 到端点
 - `min` / `max`：取值范围；`step`：吸附步长（`>0` 生效）
 
-### `stepper(state : Store[Int], min?=0, max?=999, step?=1, focus_id?, class?)`
+### `stepper(state : Store[Int32], min?=0, max?=999, step?=1, focus_id?, class?)`
 
 - 数值步进器 `[-] 值 [+]`，共框三段；↑ / ↓ 增减，← / → 移光标
 - 中间格可直接输入：只收数字，回车或失焦回写并夹取
@@ -63,7 +63,7 @@
 - `colors`：色板颜色清单
 - `on_change`：取色回调
 
-### `rate(value : Store[Int], max?=5, on_change?, size?=22.0, gap?=4.0, focus_id?, …)`
+### `rate(value : Store[Int32], max?=5, on_change?, size?=22.0, gap?=4.0, focus_id?, …)`
 
 - 评分：矢量五角星 + 悬停预亮；方向键加减星、Home / End 清零 / 打满
 - `max`：星级上限；`size` / `gap`：星形尺寸与间距

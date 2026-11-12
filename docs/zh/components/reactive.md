@@ -20,7 +20,7 @@
 
 - 订阅一个 `Store` 只为请求重绘（值变即 `invalidate`）；退订随本代回收袋——自绘块接外部状态用
 
-### `for_list(ls : ListStore[T], build : (T, Int) -> Node, key~ : (T) -> K, eq? : (T, T) -> Bool)`
+### `for_list(ls : ListStore[T], build : (T, Int32) -> Node, key~ : (T) -> K, eq? : (T, T) -> Bool)`
 
 - keyed 列表差分：`build(item, index)` 构建行
 - `key`：键提取函数，键相同的元素视为同一行复用（必传）

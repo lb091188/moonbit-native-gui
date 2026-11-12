@@ -158,9 +158,9 @@ Semantic colors: `@ui.Primary` / `@ui.Success` / `@ui.Warning` / `@ui.Danger` / 
 
 ```moonbit
 fn main {
-  let ticks : @base.Store[Int] = @base.Store::new(0)
+  let ticks : @base.Store[Int32] = @base.Store::new(0)
   let app = match @ui.mount_window(
-    [@ui.bind_label(ticks, fn(n : Int) { "\{n} ticks" })],
+    [@ui.bind_label(ticks, fn(n : Int32) { "\{n} ticks" })],
     title="Timer",
     width=320, height=140,
     handle=fn(_app : @widget.WindowHost) {

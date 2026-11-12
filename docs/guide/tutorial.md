@@ -44,7 +44,7 @@ Replace `cmd/main/main.mbt` entirely with:
 
 ```moonbit
 fn main {
-  let count : @base.Store[Int] = @base.Store::new(0)
+  let count : @base.Store[Int32] = @base.Store::new(0)
   let app = match @ui.mount_window(
     [
       @ui.col(
@@ -53,7 +53,7 @@ fn main {
           @ui.button("Click me", variant=@ui.Solid, on_click=fn() {
             count.update(fn(n) { n + 1 })
           }),
-          @ui.bind_label(count, fn(n : Int) -> String { "Clicked \{n} times" }),
+          @ui.bind_label(count, fn(n : Int32) -> String { "Clicked \{n} times" }),
         ],
         padding=24.0,
         row_gap=12.0,
@@ -84,7 +84,7 @@ A window appears: a title, a button, and a "Clicked 0 times" line. Click the but
 | Syntax | Meaning |
 |---|---|
 | `fn main { ... }` | program entry |
-| `let count : @base.Store[Int] = ...` | type annotation: `Store[Int]` is a box of integer state |
+| `let count : @base.Store[Int32] = ...` | type annotation: `Store[Int32]` is a box of integer state |
 | `match expr { ... }` | pattern matching, take a value per branch (here, unwrapping an `Option`) |
 | `None => ... / Some(a) => a` | the two states of an optional value: `None` absent, `Some(x)` present |
 | `fn(n) { n + 1 }` | anonymous function (lambda), passed in as a callback |
@@ -120,7 +120,7 @@ For editor support install the VS Code extension from `tools/vscode-mng` (colori
 
 ```html
 <script>
-let count : @base.Store[Int] = @base.Store::new(0)
+let count : @base.Store[Int32] = @base.Store::new(0)
 let name : @base.Store[String] = @base.Store::new("")
 
 fn reset() {

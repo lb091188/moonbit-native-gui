@@ -49,7 +49,7 @@
 |---|---|---|
 | `position` | `Relative` / `Absolute` | 定位模式 |
 | `top` / `right` / `bottom` / `left` | `Double` | 相对或绝对偏移 |
-| `z_index` | `Int` | 绘制层序键，值越大越后绘制 |
+| `z_index` | `Int32` | 绘制层序键，值越大越后绘制 |
 | `display` | — | 参与布局或隐藏；`Style` 字段，绘制与命中都跳过 |
 
 枚举类型 `FlexDirection` / `AlignItems` / `JustifyContent` / `FlexWrap` / `PositionType` 与组件命名参数共用同一套定义，均来自 yoga-mbt，写作 `@yoga.Row` / `@yoga.Center` 形式，或直接传给 `view(direction=…)`。

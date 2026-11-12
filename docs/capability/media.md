@@ -82,18 +82,31 @@ let w = @sys.media_watch_status(interval_ms=1000, fn(s : @sys.MediaStatus) {
 
 ### Notification Progress
 
-The freedesktop notification protocol has no progress field, and native progress rendering on Windows / macOS each differs. The cross-platform-consistent approach renders a character progress bar + percentage inside the body.
+Notification progress has no unified field across the three platforms; presentation follows each backend:
+
+| Platform | Presentation |
+|---|---|
+| Linux (freedesktop) | standard hint `value`; servers that support it render progress natively |
+| Windows | percentage appended into the notification body (`body (42%)`) |
+| macOS | no progress presentation (argument ignored) |
 
 | Function | Description |
 |---|---|
-| `notification_progress_text(percent : Double, width? : Int = 10) -> String` | progress text: character bar + percentage; percent is clamped to [0,100], NaN treated as 0, width<=0 gives only the percentage |
-| `Notification::set_progress(body : String, percent : Double, width? : Int = 10) -> Unit` | set the notification body: the first line keeps the original text, the second line shows progress |
+| `notify_send(app_name, summary, body, …, progress? = -1, …) -> Result[Int32, NotifyError]` | send a notification; when `progress` is 0..100 the progress is carried per the table above |
+| `notify_progress(id, app_name, summary, body, pct) -> Result[Int32, NotifyError]` | update progress in place by id (re-sends the same notification; if the id changes, continue with the returned one) |
 
 ```moonbit
-let n = @shell.Notification::new()
-n.set_title("Exporting")
-n.set_progress("Exporting 3/8 files", 37.5, width=4)
-n.show()
+let id = match @shell.notify_send(
+  "Example App",
+  "Exporting",
+  "Exporting 3/8 files",
+  progress=37,
+) {
+  Ok(id) => id
+  Err(_) => return
+}
+// As progress advances: update the same notification in place
+let _ = @shell.notify_progress(id, "Example App", "Exporting", "Exporting 3/8 files", 50)
 ```
 
 ## Audio/Video Playback (gui-media Optional Layer)

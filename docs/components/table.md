@@ -10,7 +10,7 @@ General conventions: see [Components overview](index.md#conventions-read-this-fi
 
 - Virtual table at 10k+ rows: fixed header + only the visible range is mounted, sharing the header/row widgets with `table`
 
-### `virt_list(items : Store[Array[T]], height : Double, row_height : Double, row_of : (Int, T) -> Node, width?, overscan?=2, rev?, class?, handle?)`
+### `virt_list(items : Store[Array[T]], height : Double, row_height : Double, row_of : (Int32, T) -> Node, width?, overscan?=2, rev?, class?, handle?)`
 
 - Virtual list: `row_of(i, item)` builds row i; `i` is the source index, and sort/filter ordering stays the caller's choice
 

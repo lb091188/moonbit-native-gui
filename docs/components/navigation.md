@@ -18,11 +18,11 @@ General conventions: see [Components overview](index.md#conventions-read-this-fi
 
 - Breadcrumb: `/` between levels; **the current item is decided by `selected`**, not by position — otherwise the last item would never be clickable
 
-### `pagination(current : Store[Int], pages : Int, class?, handle?)`
+### `pagination(current : Store[Int32], pages : Int32, class?, handle?)`
 
 - Pagination `‹ 1 2 … ›`: `current` starts at 1; out-of-range arrows clamp to the first/last page
 
-### `steps(items : Array[String], current : Store[Int], on_select? : (Int) -> Unit, class?, handle?)`
+### `steps(items : Array[String], current : Store[Int32], on_select? : (Int32) -> Unit, class?, handle?)`
 
 - Steps: number squares (done/current/todo) + text + connector; `current` is a 0-based index
 - The number squares are clickable and focusable: without `on_select`, click / Space / Enter jumps to that step and ← / → moves between steps (out-of-range clamps); with `on_select(i)`, clicks and arrow keys go to the caller instead (e.g. a read-only preview in a wizard — the highlight still follows `current` only)
@@ -35,7 +35,7 @@ General conventions: see [Components overview](index.md#conventions-read-this-fi
 
 - Tree: per-level indent; clicking a row with children expands/collapses it
 
-### `tabs(pages : Array[(String, Node)], selected? : Store[Int], class?, handle?)`
+### `tabs(pages : Array[(String, Node)], selected? : Store[Int32], class?, handle?)`
 
 - Tabs: the selected header gets accent text + a bottom indicator; content pages are prebuilt and switched by visibility; `selected` is 0-based and created internally when omitted
 

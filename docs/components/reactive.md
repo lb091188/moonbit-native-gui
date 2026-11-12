@@ -18,7 +18,7 @@
 
 - Subscribes to a `Store` purely to request a repaint (value change → `invalidate`); unsubscribes with the current recycle bundle — for custom blocks wired to external state
 
-### `for_list(ls : @base.ListStore[T], build : (T, Int) -> Node, key~, eq?)`
+### `for_list(ls : @base.ListStore[T], build : (T, Int32) -> Node, key~, eq?)`
 
 - Keyed list diff: `build(item, index)` builds each row; the default criterion is "same key, same value", so mutable fields become their own Store
 

@@ -7,7 +7,7 @@ Write the UI as a declarative template and the state/logic in MoonBit, both insi
 ```html
 <script>
 // Page state & logic: verbatim MoonBit. A let binding referenced by the template is a reactive slot.
-let count : @base.Store[Int] = @base.Store::new(0)
+let count : @base.Store[Int32] = @base.Store::new(0)
 
 fn reset() {
   count.set(0)
@@ -62,7 +62,7 @@ The first `fn` declaration in the script section that has **only a signature and
 
 ```html
 <script>
-fn user_card(name : String, qty : @base.Store[Int], on_reset : () -> Unit, wide? : Bool = false) -> @widget.Node {
+fn user_card(name : String, qty : @base.Store[Int32], on_reset : () -> Unit, wide? : Bool = false) -> @widget.Node {
   ...
 }
 </script>

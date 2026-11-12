@@ -8,12 +8,12 @@ Every `@ui` component constructor returns a `@widget.Node`. Assemble nodes into 
 
 ```moonbit
 fn main {
-  let count : @base.Store[Int] = @base.Store::new(0)
+  let count : @base.Store[Int32] = @base.Store::new(0)
   let app = match @ui.mount_window(
     [@ui.col([
       @ui.text("Count", class=[@style.text_heading]),
       @ui.button("Increment", on_click=fn() { count.update(fn(n) { n + 1 }) }),
-      @ui.bind_label(count, fn(n : Int) -> String { "\{n}" }),
+      @ui.bind_label(count, fn(n : Int32) -> String { "\{n}" }),
     ], padding=16.0, row_gap=8.0)],
     title="Declarative demo",
     width=320, height=200,
@@ -60,7 +60,7 @@ let off = name.subscribe(fn(v) { println(v) })
 | `Store::new(value)` / `get()` | create / read |
 | `set(v)` / `update(f)` | write; requires `T : Eq` — no notify when new equals old, avoiding needless repaints |
 | `set_always(v)` / `update_always(f)` | use when the value type does no Eq dedup or every write must fire; for snapshot cases with in-place-mutated arrays, see adaptation |
-| `subscribe(f) -> () -> Unit` / `subscribe_id(f) -> Int` / `remove(id)` | subscribe / unsubscribe |
+| `subscribe(f) -> () -> Unit` / `subscribe_id(f) -> Int32` / `remove(id)` | subscribe / unsubscribe |
 | `map(f : A -> B) -> Store[B]` | derive a read-only box |
 | `signal() -> Signal[T]` | convert to a signal for the `Signal`-taking entries `bind` / `*_dyn` |
 
@@ -75,7 +75,7 @@ To bind to the UI: `bind_label(store, f)` for text, the `*_dyn` signal forms for
 | `Signal::new(v)` / `get` / `set` / `set_eq` / `update` | basic read / write |
 | `Signal::computed(fn () -> T)` | **derived signal**: every signal `get` inside becomes a dependency automatically; when a dependency changes, recompute and notify downstream |
 | `Signal::effect(fn () -> Unit)` / `@base.effect(body)` | **side effect**: tracks the signals read in the body, re-runs on change, returns an unsubscribe function |
-| `Signal::subscribe(f) -> Int` / `remove(sid)` / `sub_count()` | subscribe / unsubscribe / count |
+| `Signal::subscribe(f) -> Int32` / `remove(sid)` / `sub_count()` | subscribe / unsubscribe / count |
 | `Signal::map(f)` / `Signal::store()` | derive / convert back to a `Store` |
 | `batch(fn () -> Unit)` | commit in batch — multiple sets inside fire downstream only once |
 

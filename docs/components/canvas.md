@@ -165,7 +165,7 @@ Notes:
 A custom-drawn area is **imperative**: keep state in a `Ref`, and after changing it call `@widget.invalidate()` to request one repaint frame.
 
 ```moonbit
-let hue : Ref[Int] = Ref(0)
+let hue : Ref[Int32] = Ref(0)
 
 // inside a button callback:
 hue.val = (hue.val + 1) % 3

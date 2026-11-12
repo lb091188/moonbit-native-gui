@@ -22,9 +22,9 @@ Overlays — dialog / popover / menu / tooltip — all open on the window-wide *
 
 - Right-click context menu: in `items` the label `"-"` draws a separator; right-click dispatch is "ancestor-first"
 
-### `dropdown(trigger, items : Array[String], on_select? : (Int) -> Unit, width?=150.0, focus_id?, class?)`
+### `dropdown(trigger, items : Array[String], on_select? : (Int32) -> Unit, width?=150.0, focus_id?, class?)`
 
-- Menu button: trigger text + item list; the selection callback receives the index (`-1` when nothing is selected). `on_select` is an `(Int) -> Unit`, unlike `select`'s Store-based contract
+- Menu button: trigger text + item list; the selection callback receives the index (`-1` when nothing is selected). `on_select` is an `(Int32) -> Unit`, unlike `select`'s Store-based contract
 
 ### `toast_layer(duration_ms? = 2600) -> (String, SemanticType) -> Unit`
 

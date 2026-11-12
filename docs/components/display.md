@@ -10,9 +10,9 @@ The display family also has `*_dyn` signal forms: `text` becomes a `Signal`, the
 
 - Custom-colour tag: solid background + white text; `tag_dyn` takes a signal
 
-### `badge_count(value : Int, max?=99, color?, class?)`
+### `badge_count(value : Int32, max?=99, color?, class?)`
 
-- Number badge: over `max` it shows "max+"; `badge_count_dyn` takes a `Signal[Int]`
+- Number badge: over `max` it shows "max+"; `badge_count_dyn` takes a `Signal[Int32]`
 
 ### `badge_dot(size?=8.0, color?, class?)`
 

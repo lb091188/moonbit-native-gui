@@ -7,7 +7,7 @@
 ```html
 <script>
 // 页状态与逻辑：MoonBit 原文。被模板引用的 let 绑定即响应槽。
-let count : @base.Store[Int] = @base.Store::new(0)
+let count : @base.Store[Int32] = @base.Store::new(0)
 
 fn reset() {
   count.set(0)
@@ -62,7 +62,7 @@ script 段第一个**只有签名、没有函数体**的 `fn` 头就是本组件
 
 ```html
 <script>
-fn user_card(name : String, qty : @base.Store[Int], on_reset : () -> Unit, wide? : Bool = false) -> @widget.Node {
+fn user_card(name : String, qty : @base.Store[Int32], on_reset : () -> Unit, wide? : Bool = false) -> @widget.Node {
   ...
 }
 </script>

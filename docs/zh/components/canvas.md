@@ -166,7 +166,7 @@ let _ = @text.draw_box_at(
 自绘区域是**命令式语义**：状态放 `Ref`，改完调 `@widget.invalidate()` 请求重画一帧。
 
 ```moonbit
-let hue : Ref[Int] = Ref(0)
+let hue : Ref[Int32] = Ref(0)
 
 // 按钮回调里：
 hue.val = (hue.val + 1) % 3

@@ -49,7 +49,7 @@ The labelled parameters of `@style.style(...)` are the field names; all are opti
 |---|---|---|
 | `position` | `Relative` / `Absolute` | positioning mode |
 | `top` / `right` / `bottom` / `left` | `Double` | relative or absolute offset |
-| `z_index` | `Int` | paint-order key; higher values paint later |
+| `z_index` | `Int32` | paint-order key; higher values paint later |
 | `display` | — | participate in layout or hide; a `Style` field, skipped in both painting and hit-testing |
 
 The enums `FlexDirection` / `AlignItems` / `JustifyContent` / `FlexWrap` / `PositionType` are the same set the loose parameters use, all from yoga-mbt. Write them as `@yoga.Row` / `@yoga.Center`, or pass them straight to `view(direction=…)`.

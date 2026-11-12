@@ -10,9 +10,9 @@
 
 - 自定色标签，实底 + 白字；`color` 给色值；`tag_dyn` 收信号
 
-### `badge_count(value : Int, max?=99, color?, class?)`
+### `badge_count(value : Int32, max?=99, color?, class?)`
 
-- 数字徽标：超过 `max` 显示「max+」；`badge_count_dyn` 收 `Signal[Int]`
+- 数字徽标：超过 `max` 显示「max+」；`badge_count_dyn` 收 `Signal[Int32]`
 
 ### `badge_dot(size?=8.0, color?, class?)`
 

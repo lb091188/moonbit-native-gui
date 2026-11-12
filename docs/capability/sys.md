@@ -37,7 +37,7 @@ The shared "spawn → bounded-time reap → capture stdout/stderr to temp files"
 | `pr_available() -> Bool` | whether the current platform supports subprocess execution; true on the three main platforms Linux / macOS / Windows, based on the sys package's own C stubs |
 | `pr_run(cmd, args, timeout_ms? = 5000) -> Result[ProcOutput, ProcError]` | run a command and normalize the result; a timed-out process is force-terminated |
 
-`ProcOutput{ stdout, exit_code }`; error `ProcError`: `Unsupported` (not one of the Linux / macOS / Windows main platforms) / `SpawnFailed(String)` (a missing command surfaces via the subprocess's exit code 127, folded into a nonzero exit) / `Timeout(String)` / `NonZeroExit(Int, String)` / `Signaled(Int)`.
+`ProcOutput{ stdout, exit_code }`; error `ProcError`: `Unsupported` (not one of the Linux / macOS / Windows main platforms) / `SpawnFailed(String)` (a missing command surfaces via the subprocess's exit code 127, folded into a nonzero exit) / `Timeout(String)` / `NonZeroExit(Int32, String)` / `Signaled(Int32)`.
 
 "Command missing" and "present but failed" carry different semantics: the former normalizes to `*Supported == false` or `Unsupported` (e.g. `PpUnsupported`, `PrtUnsupported`); the latter is `CommandFailed`.
 

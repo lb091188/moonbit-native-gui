@@ -18,7 +18,7 @@ Value controls hold their current value in a `Store[T]`: an external change refr
 
 - Checkbox + text label; the whole row is the click area; Space/Enter toggle
 
-### `radio_group(options : Array[String], state : Store[Int], disabled?, direction?=Row, gap?=12.0, class?)`
+### `radio_group(options : Array[String], state : Store[Int32], disabled?, direction?=Row, gap?=12.0, class?)`
 
 - Radio group: `options` map to values 0..n-1 in order; Space/Enter select the current item, arrow keys move the selection and wrap around
 
@@ -30,7 +30,7 @@ Value controls hold their current value in a `Store[T]`: an external change refr
 
 - Slider: a press takes the value, dragging follows the pointer, `step>0` snaps; arrow keys step, Home/End jump to the ends
 
-### `stepper(state : Store[Int], min?=0, max?=999, step?=1, focus_id?, class?)`
+### `stepper(state : Store[Int32], min?=0, max?=999, step?=1, focus_id?, class?)`
 
 - Number stepper `[-] value [+]`: one boxed three-segment control whose middle segment is a real number field (digits only; written back and clamped on Enter or on blur); the button at a reached bound renders disabled (gray fill + secondary text, arrow cursor); gaining focus (click / Tab / buttons / Up-Down) selects the whole number so typing replaces it; Up/Down increment/decrement, Left/Right move the caret
 
@@ -42,7 +42,7 @@ Value controls hold their current value in a `Store[T]`: an external change refr
 
 - Color picker: field + swatch grid; Enter opens, ←/→ move a cell, ↑/↓ move a row, Enter picks
 
-### `rate(value : Store[Int], max?=5, on_change?, …)`
+### `rate(value : Store[Int32], max?=5, on_change?, …)`
 
 - Rating: vector five-point stars + hover pre-lighting; arrow keys change stars, Home/End clear or max out
 

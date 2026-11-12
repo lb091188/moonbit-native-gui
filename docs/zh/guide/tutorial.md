@@ -44,7 +44,7 @@ moon add NoahLiu/native-gui
 
 ```moonbit
 fn main {
-  let count : @base.Store[Int] = @base.Store::new(0)
+  let count : @base.Store[Int32] = @base.Store::new(0)
   let app = match @ui.mount_window(
     [
       @ui.col(
@@ -53,7 +53,7 @@ fn main {
           @ui.button("点我", variant=@ui.Solid, on_click=fn() {
             count.update(fn(n) { n + 1 })
           }),
-          @ui.bind_label(count, fn(n : Int) -> String { "已点 \{n} 次" }),
+          @ui.bind_label(count, fn(n : Int32) -> String { "已点 \{n} 次" }),
         ],
         padding=24.0,
         row_gap=12.0,
@@ -84,7 +84,7 @@ moon run cmd/main
 | 语法 | 含义 |
 |---|---|
 | `fn main { ... }` | 程序入口 |
-| `let count : @base.Store[Int] = ...` | 类型标注：`Store[Int]` 是一个整数状态盒 |
+| `let count : @base.Store[Int32] = ...` | 类型标注：`Store[Int32]` 是一个整数状态盒 |
 | `match expr { ... }` | 模式匹配，按分支取值（这里是拆 `Option`） |
 | `None => ... / Some(a) => a` | 可选值的两态：`None` 缺省、`Some(x)` 有值 |
 | `fn(n) { n + 1 }` | 匿名函数（lambda），作回调传入 |
@@ -119,7 +119,7 @@ mng --version   # 应打印 mng 版本与 mng-schema 位
 
 ```html
 <script>
-let count : @base.Store[Int] = @base.Store::new(0)
+let count : @base.Store[Int32] = @base.Store::new(0)
 fn reset() { count.set(0) }
 </script>
 <template>

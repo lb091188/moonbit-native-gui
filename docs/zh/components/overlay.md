@@ -28,9 +28,9 @@
 
 - 右键上下文菜单：`items` 文案为 `"-"` 时绘制分隔线；右键按「祖先优先」派发
 
-### `dropdown(trigger, items : Array[String], on_select? : (Int) -> Unit, width?=150.0, focus_id?, class?)`
+### `dropdown(trigger, items : Array[String], on_select? : (Int32) -> Unit, width?=150.0, focus_id?, class?)`
 
-- 菜单按钮：trigger 文字 + 项清单；选中回调收下标（`-1` 为未选）。`on_select` 是 `(Int) -> Unit`，与 `select` 的 Store 口径不同
+- 菜单按钮：trigger 文字 + 项清单；选中回调收下标（`-1` 为未选）。`on_select` 是 `(Int32) -> Unit`，与 `select` 的 Store 口径不同
 
 ### `toast_layer(duration_ms? = 2600) -> (String, SemanticType) -> Unit`
 

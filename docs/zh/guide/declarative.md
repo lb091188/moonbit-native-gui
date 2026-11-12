@@ -8,12 +8,12 @@
 
 ```moonbit
 fn main {
-  let count : @base.Store[Int] = @base.Store::new(0)
+  let count : @base.Store[Int32] = @base.Store::new(0)
   let app = match @ui.mount_window(
     [@ui.col([
       @ui.text("计数", class=[@style.text_heading]),
       @ui.button("加一", on_click=fn() { count.update(fn(n) { n + 1 }) }),
-      @ui.bind_label(count, fn(n : Int) -> String { "\{n}" }),
+      @ui.bind_label(count, fn(n : Int32) -> String { "\{n}" }),
     ], padding=16.0, row_gap=8.0)],
     title="声明式示例",
     width=320, height=200,
@@ -60,7 +60,7 @@ let off = name.subscribe(fn(v) { println(v) })
 | `Store::new(value)` / `get()` | 建、读 |
 | `set(v)` / `update(f)` | 写；要求 `T : Eq`，新旧相等就不通知，避免无谓重绘 |
 | `set_always(v)` / `update_always(f)` | 值类型不做 Eq 去重、每次必发时用；存会被原地改的数组这类快照场景另见 adaptation |
-| `subscribe(f) -> () -> Unit` / `subscribe_id(f) -> Int` / `remove(id)` | 订阅与退订 |
+| `subscribe(f) -> () -> Unit` / `subscribe_id(f) -> Int32` / `remove(id)` | 订阅与退订 |
 | `map(f : A -> B) -> Store[B]` | 派生一个只读盒 |
 | `signal() -> Signal[T]` | 转成信号，喂需要 `Signal` 的入口 `bind` / `*_dyn` |
 
@@ -75,7 +75,7 @@ let off = name.subscribe(fn(v) { println(v) })
 | `Signal::new(v)` / `get` / `set` / `set_eq` / `update` | 基础读写 |
 | `Signal::computed(fn () -> T)` | **派生信号**：函数里 `get` 到的信号自动成为依赖，依赖变则重算并通知下游 |
 | `Signal::effect(fn () -> Unit)` / `@base.effect(body)` | **副作用**：跟踪体内读到的信号，变了就重跑，返回退订函数 |
-| `Signal::subscribe(f) -> Int` / `remove(sid)` / `sub_count()` | 订阅、退订、计数 |
+| `Signal::subscribe(f) -> Int32` / `remove(sid)` / `sub_count()` | 订阅、退订、计数 |
 | `Signal::map(f)` / `Signal::store()` | 派生、转回 `Store` |
 | `batch(fn () -> Unit)` | 批量提交，批内多次 set 只触发一轮下游 |
 

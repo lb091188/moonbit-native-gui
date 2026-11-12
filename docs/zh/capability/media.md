@@ -82,18 +82,31 @@ let w = @sys.media_watch_status(interval_ms=1000, fn(s : @sys.MediaStatus) {
 
 ### 通知进度
 
-freedesktop 通知协议无 progress 字段，Windows / macOS 的原生进度呈现各自为政。跨平台一致的做法是在正文内渲染字符进度条 + 百分比。
+通知的进度呈现三平台无统一字段，按后端能力分派：
+
+| 平台 | 呈现方式 |
+|---|---|
+| Linux（freedesktop） | 标准 hint `value`，支持的服务端原生显示进度 |
+| Windows | 进度百分比拼进通知正文（`正文(42%)`） |
+| macOS | 无进度呈现（参数忽略） |
 
 | 函数 | 说明 |
 |---|---|
-| `notification_progress_text(percent : Double, width? : Int = 10) -> String` | 进度文本：字符条 + 百分比（percent 钳到 [0,100]，NaN 按 0，width<=0 只给百分比） |
-| `Notification::set_progress(body : String, percent : Double, width? : Int = 10) -> Unit` | 设通知正文：首行原文 + 第二行进度 |
+| `notify_send(app_name, summary, body, …, progress? = -1, …) -> Result[Int32, NotifyError]` | 发通知；`progress` 给 0..100 时按上表带进度 |
+| `notify_progress(id, app_name, summary, body, pct) -> Result[Int32, NotifyError]` | 按 id 原地更新进度（重发同一张；换 id 时用返回值继续） |
 
 ```moonbit
-let n = @shell.Notification::new()
-n.set_title("导出中")
-n.set_progress("正在导出 3/8 个文件", 37.5, width=4)
-n.show()
+let id = match @shell.notify_send(
+  "示例应用",
+  "导出中",
+  "正在导出 3/8 个文件",
+  progress=37,
+) {
+  Ok(id) => id
+  Err(_) => return
+}
+// 进度推进：原地更新同一张通知
+let _ = @shell.notify_progress(id, "示例应用", "导出中", "正在导出 3/8 个文件", 50)
 ```
 
 ## 音频/视频播放（gui-media 可选层）

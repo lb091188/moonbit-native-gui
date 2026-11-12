@@ -158,9 +158,9 @@ fn main {
 
 ```moonbit
 fn main {
-  let ticks : @base.Store[Int] = @base.Store::new(0)
+  let ticks : @base.Store[Int32] = @base.Store::new(0)
   let app = match @ui.mount_window(
-    [@ui.bind_label(ticks, fn(n : Int) { "已运行 \{n} 拍" })],
+    [@ui.bind_label(ticks, fn(n : Int32) { "已运行 \{n} 拍" })],
     title="定时刷新",
     width=320, height=140,
     handle=fn(_app : @widget.WindowHost) {
