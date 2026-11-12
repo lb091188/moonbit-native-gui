@@ -329,7 +329,7 @@ export default defineConfig({
           { text: 'Guide', link: '/guide/experience' },
           { text: 'Components', link: '/components/' },
           { text: 'Capabilities', link: '/capability/sys' },
-          { text: 'API ↗', link: apiRef },
+          { text: 'API', link: apiRef },
           { text: 'GitHub', link: gh },
         ],
         sidebar: {
@@ -352,7 +352,7 @@ export default defineConfig({
           { text: '指南', link: '/zh/guide/experience' },
           { text: '组件', link: '/zh/components/' },
           { text: '能力', link: '/zh/capability/sys' },
-          { text: 'API ↗', link: apiRef },
+          { text: 'API', link: apiRef },
           { text: '路线图', link: '/zh/reference/roadmap' },
           { text: 'GitHub', link: gh },
         ],

@@ -84,3 +84,4 @@ mng_crash.log
 
 # 品牌图标导出产物（scripts/gen_brand_icons.py 落点，落位消费点后即弃）
 /.brand-dist/
+.zcode/

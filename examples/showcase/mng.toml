@@ -1,15 +1,10 @@
 # 演示板的项目级 dev 配置（mng dev 无参时向上找到本文件）。
 # 命令与相对路径以执行 mng dev 时的当前目录为准（通常在 examples/showcase）。
 [dev]
-
-# 递归扫 *.mng（跳过 _build / .mooncakes / 点目录）
 templates = ["."]
-
 build = "moon build ."
-
 # 留空 = 跑一次 build 后从 Artifacts 输出抓可执行路径（Windows 请显式填）
 run = ""
-
 # 与 shared/app.mbt 的 SHOWCASE_APP_ID 一致（HOT 补丁经单实例套接字送达）
 app-id = "com.moonbitlibyue.showcase"
 
