@@ -536,6 +536,14 @@ test "parse_system_profiler_gpu：Apple Silicon 单卡 / Intel 双卡 / 宽容�
   assert_eq(g2[0].vram_total, None) // 集显无显存字段 → None
   assert_eq(g2[1].vendor, "AMD")
   assert_eq(g2[1].vram_total, Some(8.0 * 1024 * 1024 * 1024))
+  // 新版形态（macOS 26 / M4 实测）：顶层键直接挂数组，没有 _items 键；
+  // 显卡对象里显示器挂在 spdisplays_ndrvs
+  let m4 = "{\"SPDisplaysDataType\" : [{\"_name\" : \"Apple M4\", \"spdisplays_ndrvs\" : [{\"_name\" : \"2281W\"}], \"sppci_model\" : \"Apple M4\", \"spdisplays_vendor\" : \"sppci_vendor_apple\"}]}"
+  let g3 = parse_system_profiler_gpu(m4)
+  assert_eq(g3.length(), 1)
+  assert_eq(g3[0].model, "Apple M4")
+  assert_eq(g3[0].vendor, "Apple")
+  assert_eq(g3[0].vram_total, None)
   // 宽容口径：键缺失 / _items 为空 / 型号缺失回退 _name
   assert_eq(parse_system_profiler_gpu("{\"_items\" : []}").length(), 0)
   assert_eq(parse_system_profiler_gpu("{}").length(), 0)

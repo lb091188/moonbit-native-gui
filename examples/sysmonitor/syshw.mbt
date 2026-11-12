@@ -1315,13 +1315,25 @@ fn json_string_value(obj : String, key : String) -> String? {
 /// 花括号深度切分并跳过字符串内的括号（型号名可能含括号），键序无关。
 fn json_items_objects(text : String) -> Array[String] {
   let out : Array[String] = []
-  let key = match text.find("\"_items\"") {
-    Some(i) => i
-    None => return out
+  // 数组定位双形态：旧版本顶层 {"SPDisplaysDataType": {"_items": [...]}}；
+  // 新版本（macOS 26 / M4 实测）顶层键直接挂数组 {"SPDisplaysDataType":
+  // [...]}，没有 _items 键——按锚点序试，命中哪个用哪个
+  let mut anchor = -1
+  for pat in ["\"_items\"", "\"SPDisplaysDataType\""] {
+    match text.find(pat) {
+      Some(i) => {
+        anchor = i + pat.char_length()
+        break
+      }
+      None => ()
+    }
+  }
+  if anchor < 0 {
+    return out
   }
   let n = text.char_length()
-  // 从 "_items"（8 字符）起找数组左括号 '['（91）
-  let mut i = key + 8
+  // 从锚点之后找数组左括号 '['（91）
+  let mut i = anchor
   while i < n && text.unsafe_get(i).to_int() != 91 {
     i += 1
   }

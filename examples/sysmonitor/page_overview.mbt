@@ -19,7 +19,7 @@ pub(all) enum ViewId {
 
 ///|
 /// 视图 → 序号（枚举比较经序号，全库同款做法）。
-fn view_index(v : ViewId) -> Int {
+fn view_index(v : ViewId) -> Int32 {
   match v {
     VCpu => 0
     VMem => 1
@@ -52,9 +52,7 @@ fn menu_item(
     [
       @ui.icon(icon, size=50.0),
       @ui.col(
-        [
-          @ui.text(title, font_size=15.0, weight=@text.Bold, wrap=false),
-        ] + rows,
+        [@ui.text(title, font_size=15.0, weight=@text.Bold, wrap=false)] + rows,
         grow=1.0,
         row_gap=4.0,
         class=[@style.style(min_width=0.0)],
@@ -65,7 +63,11 @@ fn menu_item(
     align_items=@yoga.AlignItems::FlexStart,
     handle=fn(c) {
       // 覆盖 container 的默认底色绘制：选中态主题色描边 + 浅底
-      c.on_draw = Some(fn(_s : @widget.Widget, p : @render.Painter, r : @base.Rect) -> Unit {
+      c.on_draw = Some(fn(
+        _s : @widget.Widget,
+        p : @render.Painter,
+        r : @base.Rect,
+      ) -> Unit {
         let t = @theme.theme_current()
         let act = view_index(view.get()) == view_index(target)
         p.set_fill_color(if act { t.fill_hover } else { t.bg_panel })
@@ -76,7 +78,10 @@ fn menu_item(
       })
       ignore(@theme.on_theme_change(fn() { @widget.invalidate() }))
       view.subscribe(fn(_v) { @widget.invalidate() })
-      c.on_pointer = Some(fn(_s : @widget.Widget, ev : @widget.PointerEvent) -> Bool {
+      c.on_pointer = Some(fn(
+        _s : @widget.Widget,
+        ev : @widget.PointerEvent,
+      ) -> Bool {
         match ev.kind {
           @widget.PointerKind::Down =>
             if ev.button == 1 {
@@ -141,7 +146,15 @@ fn disk_rows(app : App) -> @widget.Node {
         @ui.row(
           [
             @ui.view(
-              [@ui.text(mount, font_size=12.0, color="text_secondary", wrap=false, ellipsis=true)],
+              [
+                @ui.text(
+                  mount,
+                  font_size=12.0,
+                  color="text_secondary",
+                  wrap=false,
+                  ellipsis=true,
+                ),
+              ],
               width=72.0,
             ),
             @ui.text(
@@ -168,37 +181,55 @@ fn left_pane(app : App, view : @base.Store[ViewId]) -> @widget.Node {
   let items : Array[@widget.Node] = []
   // 处理器：名称（无 label）+ 利用率 + 最高主频
   items.push(
-    menu_item(@icons.Cpu, "处理器", [
-      menu_value(app.cpu_model),
-      menu_row("利用率", app.cpu_usage),
-      menu_row("最高主频", @base.Store::new(app.cpu_max)),
-    ], view, VCpu),
+    menu_item(
+      @icons.Cpu,
+      "处理器",
+      [
+        menu_value(app.cpu_model),
+        menu_row("利用率", app.cpu_usage),
+        menu_row("最高主频", @base.Store::new(app.cpu_max)),
+      ],
+      view,
+      VCpu,
+    ),
   )
   // 内存：品牌/频率（无 label）+ 利用率 + 物理内存 + SWAP
   let mem_brand = if app.mem_brand == "" { "—" } else { app.mem_brand }
   let mem_mhz = if app.mem_mhz <= 0 { "—" } else { "\{app.mem_mhz}MHz" }
   items.push(
-    menu_item(@icons.Database, "内存", [
-      menu_value(mem_brand),
-      menu_value(mem_mhz),
-      menu_row("利用率", app.mem_usage),
-      menu_row("物理内存", app.mem_pair),
-      menu_row("SWAP", app.swap_pair),
-    ], view, VMem),
+    menu_item(
+      @icons.Database,
+      "内存",
+      [
+        menu_value(mem_brand),
+        menu_value(mem_mhz),
+        menu_row("利用率", app.mem_usage),
+        menu_row("物理内存", app.mem_pair),
+        menu_row("SWAP", app.swap_pair),
+      ],
+      view,
+      VMem,
+    ),
   )
   // 网络：物理网卡聚合的上行/下行
   items.push(
-    menu_item(@icons.Wifi, "网络", [
-      menu_row("上行", app.net_up),
-      menu_row("下行", app.net_down),
-    ], view, VNet),
+    menu_item(
+      @icons.Wifi,
+      "网络",
+      [menu_row("上行", app.net_up), menu_row("下行", app.net_down)],
+      view,
+      VNet,
+    ),
   )
   // 磁盘：单图标，聚合速率 + 每个物理分区一行
   items.push(
-    menu_item(@icons.Sever, "磁盘", [
-      menu_row("速率", app.disk_rate),
-      disk_rows(app),
-    ], view, VDisk),
+    menu_item(
+      @icons.Sever,
+      "磁盘",
+      [menu_row("速率", app.disk_rate), disk_rows(app)],
+      view,
+      VDisk,
+    ),
   )
   // 显卡：每块卡一小组（名称无 label + 利用率 + 显存）
   let gpu_rows : Array[@widget.Node] = []
@@ -216,17 +247,21 @@ fn left_pane(app : App, view : @base.Store[ViewId]) -> @widget.Node {
         menu_row("利用率", app.gpu_usage[i]),
         menu_row("显存", app.gpu_vram[i]),
       ]
-      gpu_rows.push(@ui.col(block, row_gap=4.0, class=[@style.style(min_width=0.0)]))
+      gpu_rows.push(
+        @ui.col(block, row_gap=4.0, class=[@style.style(min_width=0.0)]),
+      )
     }
   }
-  items.push(
-    menu_item(@icons.Monitor, "显卡", gpu_rows, view, VGpu),
-  )
+  items.push(menu_item(@icons.Monitor, "显卡", gpu_rows, view, VGpu))
   // 进程
   items.push(
-    menu_item(@icons.TableIcon, "进程", [
-      menu_row("进程数", app.proc_count),
-    ], view, VProc),
+    menu_item(
+      @icons.TableIcon,
+      "进程",
+      [menu_row("进程数", app.proc_count)],
+      view,
+      VProc,
+    ),
   )
   @ui.scroll_view(
     [@ui.col(items, padding=10.0, row_gap=8.0)],
@@ -274,7 +309,9 @@ fn view_area(app : App, view : @base.Store[ViewId]) -> @widget.Node {
         if item.0 is VProc {
           let _ = node.mount_into(pc)
         } else {
-          let sc = @ui.scroll_view([node], @ui.ScrollState::new(), handle=fn(v) {
+          let sc = @ui.scroll_view([node], @ui.ScrollState::new(), handle=fn(
+            v,
+          ) {
             v.node.set_flex_grow(1.0)
             v.node.set_align_self(Some(@yoga.AlignItems::Stretch))
           })
@@ -306,62 +343,82 @@ fn view_area(app : App, view : @base.Store[ViewId]) -> @widget.Node {
 
 ///|
 /// 处理器详情：总利用率全宽曲线 + 各逻辑核小图（超宽换行、超高整页滚动）。
+/// 各核卡随右栏宽重挂：行宽容得下 4 张用 4 张，否则 3 张；卡宽按行宽均分
+/// 精确铺满（floor − 0.5 防折行，行尾缺的不足 1px 不可见），没有缺位。
 fn page_cpu_detail(app : App) -> @widget.Node {
-  let cards : Array[@widget.Node] = []
-  for i in 0..<app.core_hists.length() {
-    cards.push(
-      @ui.col(
-        [
-          @ui.row(
-            [
-              @ui.text("核心 \{i}", font_size=12.0, color="text_secondary", wrap=false),
-              @ui.text_dyn(
-                app.core_pct[i].signal(),
-                font_size=12.0,
-                color="text_primary",
-                align=@text.End,
-                wrap=false,
-                handle=fn(w) { w.node.set_flex_grow(1.0) },
-              ),
-            ],
-            column_gap=6.0,
-          ),
-          @charts.line_chart_t(
-            app.core_hists[i],
-            width=240.0,
-            height=96.0,
-            y_range=Some((0.0, 100.0)),
-            area=true,
-            show_last=false,
-          ),
-        ],
-        width=240.0,
-        row_gap=4.0,
-      ),
+  @widget.bind_node(app.size_key.signal(), fn(key) {
+    let (win_w, _win_h) = parse_size_key(key)
+    // 右栏宽 = 窗口 − 外壳 padding(6×2) − 左栏，夹 400 下限；行宽再扣页 padding(12×2)
+    let right_w = (win_w - 12.0 - LEFT_PANE_W).max(400.0)
+    let row_w = (right_w - 24.0).max(300.0)
+    let per_row : Int = if row_w >= 4.0 * 240.0 + 3.0 * 12.0 {
+      4
+    } else {
+      3
+    }
+    let card_w = ((row_w - (per_row - 1).to_double() * 12.0) /
+                  per_row.to_double()).floor() - 0.5
+    let cards : Array[@widget.Node] = []
+    for i in 0..<app.core_hists.length() {
+      cards.push(
+        @ui.col(
+          [
+            @ui.row(
+              [
+                @ui.text(
+                  "核心 \{i}",
+                  font_size=12.0,
+                  color="text_secondary",
+                  wrap=false,
+                ),
+                @ui.text_dyn(
+                  app.core_pct[i].signal(),
+                  font_size=12.0,
+                  color="text_primary",
+                  align=@text.End,
+                  wrap=false,
+                  handle=fn(w) { w.node.set_flex_grow(1.0) },
+                ),
+              ],
+              column_gap=6.0,
+            ),
+            @charts.line_chart_t(
+              app.core_hists[i],
+              width=card_w,
+              height=96.0,
+              y_range=Some((0.0, 100.0)),
+              area=true,
+              show_last=false,
+            ),
+          ],
+          width=card_w,
+          row_gap=4.0,
+        ),
+      )
+    }
+    @ui.col(
+      [
+        @ui.text("总利用率（%）", class=[@style.text_title]),
+        @charts.line_chart_t(
+          app.cpu_hist,
+          height=180.0,
+          y_range=Some((0.0, 100.0)),
+          area=true,
+        ),
+        @ui.text("各逻辑核（%）", class=[@style.text_title]),
+        @ui.row(
+          cards,
+          column_gap=12.0,
+          align_items=@yoga.AlignItems::FlexStart,
+          class=[@style.style(flex_wrap=@yoga.Wrap, row_gap=12.0, min_width=0.0)],
+          handle=fn(w) { w.node.set_width(@yoga.percent(100.0)) },
+        ),
+      ],
+      padding=12.0,
+      row_gap=12.0,
+      class=[@style.style(min_width=0.0)],
     )
-  }
-  @ui.col(
-    [
-      @ui.text("总利用率（%）", class=[@style.text_title]),
-      @charts.line_chart_t(
-        app.cpu_hist,
-        height=180.0,
-        y_range=Some((0.0, 100.0)),
-        area=true,
-      ),
-      @ui.text("各逻辑核（%）", class=[@style.text_title]),
-      @ui.row(
-        cards,
-        column_gap=12.0,
-        align_items=@yoga.AlignItems::FlexStart,
-        class=[@style.style(flex_wrap=@yoga.Wrap, row_gap=12.0, min_width=0.0)],
-        handle=fn(w) { w.node.set_width(@yoga.percent(100.0)) },
-      ),
-    ],
-    padding=12.0,
-    row_gap=12.0,
-    class=[@style.style(min_width=0.0)],
-  )
+  })
 }
 
 ///|
