@@ -249,7 +249,7 @@ test "动图解码：逐帧前进、每帧时长、当前帧成图、close 之�
   if decode_available() == false {
     return
   }
-  let dot = test_asset("examples/showcase/assets/dot.gif")
+  let dot = test_asset("examples/components/assets/dot.gif")
   let anim = match dot {
     Some(p) => Animation::new_from_file(p)
     None => None

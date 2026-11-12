@@ -82,11 +82,11 @@ jobs:
       # mng package 内部自跑 `moon build . --target native --release --strip`
       # 并从 Artifacts 抓本模块可执行;链接参数由 gui prebuild 按平台下发。
       # Windows 链接要 MSVC 环境:vcvars 后在同一 cmd 会话里跑 mng package。
-      # 打包声明在 examples/showcase/mng.toml [package](验收载体,方案 D8)。
+      # 打包声明在 examples/components/mng.toml [package](验收载体,方案 D8)。
       - name: 打包(mng package)
         if: runner.os != 'Windows'
         run: |
-          cd examples/showcase
+          cd examples/components
           moon run ../../tools/native-gui-tools/mng -- package
 
       - name: 打包(mng package,MSVC 环境)
@@ -95,7 +95,7 @@ jobs:
         run: >-
           for /f "tokens=*" %%i in ('"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath')
           do call "%%i\VC\Auxiliary\Build\vcvars64.bat"
-          && cd examples\showcase
+          && cd examples\components
           && moon run ..\..\tools\native-gui-tools\mng -- package
 
       - name: 收集产物
@@ -103,11 +103,11 @@ jobs:
         with:
           name: app-${{ matrix.plat }}
           path: |
-            examples/showcase/.mng/dist/*.dmg
-            examples/showcase/.mng/dist/*.zip
-            examples/showcase/.mng/dist/*.exe
-            examples/showcase/.mng/dist/*.deb
-            examples/showcase/.mng/dist/*.AppImage
+            examples/components/.mng/dist/*.dmg
+            examples/components/.mng/dist/*.zip
+            examples/components/.mng/dist/*.exe
+            examples/components/.mng/dist/*.deb
+            examples/components/.mng/dist/*.AppImage
           if-no-files-found: error
 
   # 汇总:下载全部平台产物 → 现算 sha256/size 生成 update.json → draft release。

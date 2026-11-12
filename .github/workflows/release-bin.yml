@@ -1,5 +1,5 @@
 # 二进制发布:workflow_dispatch 或推 bin-* 标签触发,各平台矩阵各自编译
-# release 可执行文件(hello / showcase / browser / audio / video 五件套),
+# release 可执行文件(hello / components / browser / audio / video 五件套),
 # 打包为 bin-<平台>.zip,发布到固定单一名「Binaries」(tag bin)下覆盖更新——
 # 不按版本开 Release,拿到的永远是最新构建;音视频演示文件随包
 # (assets/audio、assets/video——POSIX 包内可执行文件叫 audio/video,同名
@@ -38,7 +38,7 @@ permissions:
 
 # 五件套的包路径(仓库根 workspace 口径,见 moon.work)
 env:
-  BIN_PKGS: examples/hello examples/showcase examples/browser examples/audio examples/video
+  BIN_PKGS: examples/hello examples/components examples/browser examples/audio examples/video
 
 jobs:
   build:
@@ -128,7 +128,7 @@ jobs:
                   stream.reconfigure(encoding="utf-8", errors="replace")
               except (AttributeError, OSError):
                   pass
-          names = ["hello", "showcase", "browser", "audio", "video"]
+          names = ["hello", "components", "browser", "audio", "video"]
           for name in names:
               p = f"_build/native/release/build/NoahLiu/native-gui-examples-{name}/native-gui-examples-{name}.exe"
               if not os.path.exists(p):
@@ -157,7 +157,7 @@ jobs:
                   pass
           # MoonBit native 后端各平台产物统一带 .exe 后缀(含 Linux/mac),
           # 仅 Windows 包内保留后缀,其余平台重命名去掉
-          names = ["hello", "showcase", "browser", "audio", "video"]
+          names = ["hello", "components", "browser", "audio", "video"]
           stage = "staging"
           os.makedirs(stage, exist_ok=True)
           for name in names:
@@ -214,7 +214,7 @@ jobs:
               print(f"FFmpeg dylib 随包: {len(kept)}/{len(dylibs)} 个 -> lib/")
               version = next(l.split('"')[1] for l in open("gui/moon.mod")
                              if l.startswith("version"))
-              apps = [("hello", "Hello"), ("showcase", "Showcase"),
+              apps = [("hello", "Hello"), ("components", "Components"),
                       ("browser", "Browser"), ("audio", "Audio"),
                       ("video", "Video")]
               plist = ('<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -293,8 +293,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cat > NOTES.md <<'EOF'
-          三平台预构建演示包：hello / showcase / browser / audio / video，解压即跑；音视频演示文件已随包。
-          Prebuilt demo packages: hello / showcase / browser / audio / video. Unzip and run; demo media files are bundled.
+          三平台预构建演示包：hello / components / browser / audio / video，解压即跑；音视频演示文件已随包。
+          Prebuilt demo packages: hello / components / browser / audio / video. Unzip and run; demo media files are bundled.
 
           - bin-windows-x64.zip：Windows 10/11 x64，解压即用 / Windows 10/11 x64, ready to run
           - bin-macos-arm64.zip：Apple Silicon，首次启动放行见包内 README-FIRST.txt / Apple Silicon, see README-FIRST.txt for the first-launch bypass

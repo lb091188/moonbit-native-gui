@@ -353,8 +353,8 @@ pub fn Tester::capabilities(self : Tester) -> Capabilities {
 ///|
 fn gif_probe_width() -> Double {
   for rel in [
-    "examples/showcase/assets/dot.gif",
-    "../examples/showcase/assets/dot.gif",
+    "examples/components/assets/dot.gif",
+    "../examples/components/assets/dot.gif",
   ] {
     let w = @render.Image::new_from_file(rel).get_width()
     if w > 0.0 {

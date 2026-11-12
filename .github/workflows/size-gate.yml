@@ -1,4 +1,4 @@
-# 示例体积门禁(A5,方案见 proposals/方向.md):三平台矩阵量 hello + showcase
+# 示例体积门禁(A5,方案见 proposals/方向.md):三平台矩阵量 hello + components
 # 的 release+strip 可执行字节数,汇总腿对 tools/size-baseline.json 出 diff。
 # 红线 = 增量超过 max(基线 5%, 128KB)——「功能不得让不使用它的应用变胖」,
 # 超了就查是不是把重东西链进了公共路径;确实该长的由本机跑
@@ -68,7 +68,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: 量 hello + showcase 体积(release+strip)
+      - name: 量 hello + components 体积(release+strip)
         if: runner.os != 'Windows'
         run: python scripts/size_baseline.py --update
         env:
@@ -78,7 +78,7 @@ jobs:
 
       # Windows 腿要先有 cl.exe：moon 的 native-stub 与 --target native 都走
       # MSVC。vcvars 只在同一 cmd 进程里生效，故与测量合并成一步。
-      - name: 量 hello + showcase 体积(release+strip, MSVC)
+      - name: 量 hello + components 体积(release+strip, MSVC)
         if: runner.os == 'Windows'
         shell: cmd
         run: >-

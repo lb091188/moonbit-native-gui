@@ -1,10 +1,10 @@
-name = "NoahLiu/native-gui-examples-showcase"
+name = "NoahLiu/native-gui-examples-components"
 
 version = "0.1.0"
 
 preferred_target = "native"
 
-description = "showcase 全功能演示板：组件库 + 系统能力探测 + 扩展图表"
+description = "组件展示库：基础/表单/导航/数据/图表/代码/反馈/事件/窗口/图标/过渡/GPU 画布全组件演示"
 
 license = "MIT"
 

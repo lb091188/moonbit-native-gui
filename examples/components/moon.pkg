@@ -14,8 +14,8 @@ import {
   "NoahLiu/native-gui/style" @style,
   "NoahLiu/native-gui/win",
   "NoahLiu/native-gui/sys" @sys,
-  "NoahLiu/native-gui-examples-showcase/shared",
-  "NoahLiu/native-gui-examples-showcase/pages",
+  "NoahLiu/native-gui-examples-components/shared",
+  "NoahLiu/native-gui-examples-components/pages",
 }
 
 pkgtype(kind: "executable")

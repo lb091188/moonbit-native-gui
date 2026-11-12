@@ -60,13 +60,13 @@ fn ui_decode_guard() -> Bool {
 /// `examples/` 下——两个候选都试，哪个解得出图用哪个（同 render 包 test_asset）。
 fn gif_asset() -> String {
   for rel in [
-    "examples/showcase/assets/dot.gif", "../examples/showcase/assets/dot.gif",
+    "examples/components/assets/dot.gif", "../examples/components/assets/dot.gif",
   ] {
     if @render.Image::new_from_file(rel).get_width() > 0.0 {
       return rel
     }
   }
-  "examples/showcase/assets/dot.gif"
+  "examples/components/assets/dot.gif"
 }
 
 ///|

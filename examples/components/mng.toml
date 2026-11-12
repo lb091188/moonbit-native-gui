@@ -12,7 +12,7 @@ poll-ms = 300
 
 # mng package 的打包声明（在项目根执行；本平台打本平台包）
 [package]
-# 与 app-id 同源；产物短名 = showcase
+# 与 app-id 同源；产物短名随目录名（components）
 id = "com.moonbitlibyue.showcase"
 name = "Native GUI Showcase"
 version = "0.2.0"
