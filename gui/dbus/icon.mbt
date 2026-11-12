@@ -40,96 +40,70 @@ fn tray_round_rect_hit(
 }
 
 ///|
-/// 默认托盘图标：32×32 品牌图标，返回 (宽, 高, ARGB 字节)。
-pub fn default_icon_pixmap() -> (Int, Int, Bytes) {
+/// 内置托盘图标（单色紧版）：按 master 内容框缩放居中，32 视口下剪影约
+/// 25×30、四边留白 1–3.4px；`dark` 选白色档（深色面板）或黑色档。
+/// 造型只留并集剪影（窗 + 头 + 双耳），耳窝挖空成透明，不做异色填充。
+/// 返回 (宽, 高, ARGB 字节)——SNI 口径大端 AARRGGBB、不预乘。
+pub fn mono_icon_pixmap(dark : Bool) -> (Int, Int, Bytes) {
   let w = 32
   let h = 32
   let px : FixedArray[Byte] = FixedArray::make(w * h * 4, b'\x00')
-  // 造型常数（32 视口）：双耳玫红含浅耳窝，从窗口上沿探出；
-  // 不画面部——32px 下五官糊成污点（几何预览定稿时验证过）
-  let ear_cy = 6.3
-  let ear_rx = 2.0
-  let ear_ry = 5.4
-  let bowl_rx = 0.75
-  let bowl_ry = 3.75
+  // 造型常数（32 视口，按 1024 master 内容框 x176..848 / y~32..832 等比放入 30px）
+  let ear_cy = 7.31
+  let ear_rx = 2.40
+  let ear_ry = 6.45
+  let ear_dx_l = 11.73
+  let ear_dx_r = 20.27
+  let bowl_rx = 0.90
+  let bowl_ry = 4.48
   let cos_a = 0.9743700647852352 // cos(13°)；左耳取 -sin、右耳取 +sin
   let sin_a = 0.2249510543438650
   let head_cx = 16.0
-  let head_cy = 12.5
-  let head_rx = 5.6
-  let head_ry = 5.0
+  let head_cy = 14.80
+  let head_rx = 6.67
+  let head_ry = 6.00
   let win_cx = 16.0
-  let win_cy = 20.2
-  let win_hw = 10.5
-  let win_hh = 5.8
-  let win_r = 2.5
-  let win_title_y = 18.0
+  let win_cy = 24.03
+  let win_hw = 12.60
+  let win_hh = 6.97
+  let win_r = 3.30
+  let ink = if dark { 255.0 } else { 0.0 }
   for y in 0..<h {
     for x in 0..<w {
       let mut n = 0.0
-      let mut sr = 0.0
-      let mut sg = 0.0
-      let mut sb = 0.0
       for sy in 0..<2 {
         for sx in 0..<2 {
           let sxp = x.to_double() + 0.25 + sx.to_double() * 0.5
           let syp = y.to_double() + 0.25 + sy.to_double() * 0.5
-          // 层优先级（高层覆盖低层，与 master 绘制顺序一致）：窗口 > 头 > 耳窝 > 耳
-          let in_ear_l = tray_ellipse_hit(ear_rx, ear_ry, cos_a, -sin_a, sxp - 12.4, syp - ear_cy)
-          let in_ear_r = tray_ellipse_hit(ear_rx, ear_ry, cos_a, sin_a, sxp - 19.6, syp - ear_cy)
-          let in_bowl_l = tray_ellipse_hit(bowl_rx, bowl_ry, cos_a, -sin_a, sxp - 12.4, syp - ear_cy)
-          let in_bowl_r = tray_ellipse_hit(bowl_rx, bowl_ry, cos_a, sin_a, sxp - 19.6, syp - ear_cy)
-          let mut cr = 0.0
-          let mut cg = 0.0
-          let mut cb = 0.0
-          let mut hit = false
-          if tray_round_rect_hit(win_cx, win_cy, win_hw, win_hh, win_r, sxp, syp) {
-            if syp < win_title_y {
-              cr = 36.0 // #2428A5 标题栏
-              cg = 40.0
-              cb = 165.0
-            } else {
-              cr = 46.0 // #2E33C9 内容区
-              cg = 51.0
-              cb = 201.0
-            }
-            hit = true
-          } else if tray_ellipse_hit(head_rx, head_ry, 1.0, 0.0, sxp - head_cx, syp - head_cy) {
-            cr = 199.0 // #C73E94
-            cg = 62.0
-            cb = 148.0
-            hit = true
-          } else if in_bowl_l || in_bowl_r {
-            cr = 241.0 // #F1D3E6 耳窝
-            cg = 211.0
-            cb = 230.0
-            hit = true
-          } else if in_ear_l || in_ear_r {
-            cr = 199.0 // #C73E94
-            cg = 62.0
-            cb = 148.0
-            hit = true
-          }
-          if hit {
+          let in_ear_l = tray_ellipse_hit(ear_rx, ear_ry, cos_a, -sin_a, sxp - ear_dx_l, syp - ear_cy)
+          let in_ear_r = tray_ellipse_hit(ear_rx, ear_ry, cos_a, sin_a, sxp - ear_dx_r, syp - ear_cy)
+          let in_bowl_l = tray_ellipse_hit(bowl_rx, bowl_ry, cos_a, -sin_a, sxp - ear_dx_l, syp - ear_cy)
+          let in_bowl_r = tray_ellipse_hit(bowl_rx, bowl_ry, cos_a, sin_a, sxp - ear_dx_r, syp - ear_cy)
+          let in_head = tray_ellipse_hit(head_rx, head_ry, 1.0, 0.0, sxp - head_cx, syp - head_cy)
+          let in_win = tray_round_rect_hit(win_cx, win_cy, win_hw, win_hh, win_r, sxp, syp)
+          // 层序：窗 > 头 > 耳窝挖空 > 耳；耳窝只挖耳内，不挖头/窗覆盖区
+          if in_win || in_head || ((in_ear_l || in_ear_r) && !(in_bowl_l || in_bowl_r)) {
             n += 1.0
-            sr += cr
-            sg += cg
-            sb += cb
           }
         }
       }
       if n > 0.0 {
         let a = (n / 4.0 * 255.0).to_int()
         let off = (y * w + x) * 4
-        // 大端序 AARRGGBB；命中层颜色取平均（跨层边缘 1px 混色，32px 下不可辨）
         px[off] = a.to_byte()
-        px[off + 1] = (sr / n).to_int().to_byte()
-        px[off + 2] = (sg / n).to_int().to_byte()
-        px[off + 3] = (sb / n).to_int().to_byte()
+        px[off + 1] = ink.to_int().to_byte()
+        px[off + 2] = ink.to_int().to_byte()
+        px[off + 3] = ink.to_int().to_byte()
       }
     }
   }
   (w, h, Bytes::makei(w * h * 4, fn(i) { px[i] }))
+}
+
+///|
+/// 默认托盘图标：浅色面板档的黑色单色图标（深色档用 [mono_icon_pixmap])。
+pub fn default_icon_pixmap() -> (Int, Int, Bytes) {
+  mono_icon_pixmap(false)
 }
 
 ///|

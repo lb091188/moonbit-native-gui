@@ -11,6 +11,7 @@ import {
   "NoahLiu/native-gui/sys" @sys,
   "NoahLiu/native-gui/dbus" @dbus,
   "NoahLiu/native-gui/i18n" @i18n,
+  "NoahLiu/native-gui/theme" @theme,
 }
 
 // shell_stub.c 是单实例的 POSIX 套接字臂，只用标准头，直接走 native-stub；

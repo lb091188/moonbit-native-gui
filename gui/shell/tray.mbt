@@ -60,6 +60,10 @@ struct TrayState {
   mut menu_handle : Int
   /// 语言广播登记号（0 = 没登记过随语言重算的文案，见 tray_locale.mbt）
   mut locale_key : Int
+  /// 主题明暗登记号（0 = 没跟随主题，见本文件内置图标跟随段）
+  mut theme_key : Int
+  /// 上一次应用的内置图标是否为深色档（只在明暗翻转时换图）
+  mut last_dark : Bool
 }
 
 ///|
@@ -114,17 +118,24 @@ pub fn Tray::new(
         // 注册成功后装退出信号兜底，让 Ctrl+C / kill 走到 remove_all_trays
         @dbus.dbus_install_quit_signals()
         quit_watch.val = true
-        return Ok({ backend: Sni(item), state: new_tray_state() })
+        let tray : Tray = { backend: Sni(item), state: new_tray_state() }
+        // Linux 内置图标始终是程序位图：创建即按当前明暗选黑/白并跟随主题
+        tray.set_icon_follow_theme()
+        return Ok(tray)
       }
       Err(_) => () // watcher 不在线等，继续向下回退
     }
   }
   if @win.tray_supported() {
+    let mut builtin = false
     let handle = match icon {
       Some(ic) => ic.handle
       None =>
         match icon_handle_of(icon_path) {
-          0 => builtin_tray_handle() // 没给图标就用库内置品牌图标
+          0 => {
+            builtin = true
+            builtin_tray_handle(@theme.theme_is_dark())
+          }
           h => h
         }
     }
@@ -132,6 +143,9 @@ pub fn Tray::new(
     if slot > 0 {
       let tray : Tray = { backend: Native(slot), state: new_tray_state() }
       tray_by_slot.set(slot, tray)
+      if builtin {
+        tray.set_icon_follow_theme()
+      }
       return Ok(tray)
     }
     // 槽表满或 Shell_NotifyIcon 失败
@@ -142,7 +156,14 @@ pub fn Tray::new(
 
 ///|
 fn new_tray_state() -> TrayState {
-  { on_click: None, on_context: None, menu_handle: 0, locale_key: 0 }
+  {
+    on_click: None,
+    on_context: None,
+    menu_handle: 0,
+    locale_key: 0,
+    theme_key: 0,
+    last_dark: false,
+  }
 }
 
 ///|
@@ -159,17 +180,18 @@ fn icon_handle_of(icon_path : String) -> Int {
 }
 
 ///|
-/// 库内置品牌图标的 native 句柄（Win/mac 托盘缺省图标，与 Linux SNI 同一张脸）：
-/// `@dbus.default_icon_pixmap()` 出的是 SNI 口径的大端 ARGB（不预乘），这里换成
-/// `icon_from_bgra` 要的 BGRA 小端预乘。句柄只建一次，随进程常驻。
-fn builtin_tray_handle() -> Int {
-  if g_builtin_icon.val > 0 {
-    return g_builtin_icon.val
+/// 库内置托盘图标的 native 句柄（Win/mac 缺省图标，与 Linux SNI 同一张脸）：
+/// `@dbus.mono_icon_pixmap(dark)` 出的是 SNI 口径的大端 ARGB（不预乘），这里换成
+/// `icon_from_bgra` 要的 BGRA 小端预乘。黑/白两档各建一次，随进程常驻。
+fn builtin_tray_handle(dark : Bool) -> Int {
+  let slot = if dark { g_builtin_icon_dark } else { g_builtin_icon_light }
+  if slot.val > 0 {
+    return slot.val
   }
-  let (w, h, argb) = @dbus.default_icon_pixmap()
+  let (w, h, argb) = @dbus.mono_icon_pixmap(dark)
   let handle = argb_to_icon_handle(argb, w, h)
   if handle > 0 {
-    g_builtin_icon.val = handle
+    slot.val = handle
   }
   handle
 }
@@ -205,6 +227,7 @@ fn argb_to_icon_handle(argb : Bytes, w : Int, h : Int) -> Int {
 /// BGRA 小端预乘再建原生句柄，SNI 侧直接进 `IconPixmap` 并发
 /// `NewIcon`。像素不合法（尺寸非正或字节不够）时静默保持原图标。
 pub fn Tray::set_icon_pixmap(self : Tray, w : Int, h : Int, argb : Bytes) -> Unit {
+  self.drop_theme_follow()
   match self.backend {
     Native(slot) => {
       let handle = argb_to_icon_handle(argb, w, h)
@@ -223,24 +246,67 @@ pub fn Tray::set_icon_pixmap(self : Tray, w : Int, h : Int, argb : Bytes) -> Uni
 }
 
 ///|
-/// 回到库内置品牌图标（与 `Tray::new` 不给图标时同一张脸，三平台同形）。
-pub fn Tray::set_icon_builtin(self : Tray) -> Unit {
+/// 内部：按明暗直接换内置单色图标（不碰跟随登记；跟随回调与显式入口共用）。
+fn Tray::apply_mono_icon(self : Tray, dark : Bool) -> Unit {
   match self.backend {
     Native(slot) => {
-      let handle = builtin_tray_handle()
+      let handle = builtin_tray_handle(dark)
       if handle > 0 {
         @win.tray_set_icon(slot, handle)
       }
     }
     Sni(item) => {
-      let (w, h, argb) = @dbus.default_icon_pixmap()
+      let (w, h, argb) = @dbus.mono_icon_pixmap(dark)
       item.set_pixmap(w, h, argb)
       item.emit_new_icon()
     }
   }
 }
 
-let g_builtin_icon : Ref[Int] = Ref(0)
+///|
+/// 显式换成内置单色图标（黑=浅色档 / 白=深色档）。这是一次性设置：
+/// 调用后不再跟随主题；要跟随用 [Tray::set_icon_follow_theme]。
+pub fn Tray::set_icon_monochrome(self : Tray, dark : Bool) -> Unit {
+  self.drop_theme_follow()
+  self.apply_mono_icon(dark)
+}
+
+///|
+/// 内置图标跟随主题明暗：立即按当前主题选黑/白，之后订阅主题变化，
+/// **只在明暗翻转时**重设（主色变化不重刷图标）；`Tray::remove` 退订。
+/// 幂等：已在跟随中再调只按当前明暗对一次。
+pub fn Tray::set_icon_follow_theme(self : Tray) -> Unit {
+  self.drop_theme_follow()
+  let dark = @theme.theme_is_dark()
+  self.state.last_dark = dark
+  self.apply_mono_icon(dark)
+  let tray = self
+  self.state.theme_key = @theme.on_theme_change(fn() {
+    let d = @theme.theme_is_dark()
+    if d != tray.state.last_dark {
+      tray.state.last_dark = d
+      tray.apply_mono_icon(d)
+    }
+  })
+}
+
+///|
+/// 取消内置图标跟随（0 = 没在跟随）。
+fn Tray::drop_theme_follow(self : Tray) -> Unit {
+  if self.state.theme_key != 0 {
+    @theme.off_theme_change(self.state.theme_key)
+    self.state.theme_key = 0
+  }
+}
+
+///|
+/// 回到库内置图标（黑/白按当前主题明暗；一次性设置，不再跟随主题）。
+pub fn Tray::set_icon_builtin(self : Tray) -> Unit {
+  self.set_icon_monochrome(@theme.theme_is_dark())
+}
+
+let g_builtin_icon_light : Ref[Int] = Ref(0)
+let g_builtin_icon_dark : Ref[Int] = Ref(0)
 
 ///|
 /// 从路径取不含扩展名的文件名，作托盘 Id。目录名里的点不算扩展名分隔。
@@ -292,6 +358,7 @@ pub fn Tray::set_title(self : Tray, title : String) -> Unit {
 /// 换图标（按文件路径）。SNI 后端取路径里的文件名当主题图标名；Win32 走后端
 /// 的图标表（加载失败静默保持原图标，不崩）。
 pub fn Tray::set_icon(self : Tray, icon_path : String) -> Unit {
+  self.drop_theme_follow()
   match self.backend {
     Native(slot) => @win.tray_set_icon(slot, icon_handle_of(icon_path))
     Sni(item) => item.set_icon_name(basename_no_ext(icon_path))
@@ -301,6 +368,7 @@ pub fn Tray::set_icon(self : Tray, icon_path : String) -> Unit {
 ///|
 /// 按主题图标名换图标（Linux 面板认主题名；Win32 无此概念，忽略）。
 pub fn Tray::set_icon_name(self : Tray, name : String) -> Unit {
+  self.drop_theme_follow()
   match self.backend {
     Native(_) => ()
     Sni(item) => item.set_icon_name(name)
@@ -421,6 +489,7 @@ pub fn Tray::popup_menu(self : Tray) -> Bool {
 /// 移除托盘图标（幂等）。SNI 走注销 + 从注册表摘除；Win32 走 NIM_DELETE。
 pub fn Tray::remove(self : Tray) -> Unit {
   self.drop_locale_surface()
+  self.drop_theme_follow()
   match self.backend {
     Native(slot) => {
       @win.tray_remove(slot)

@@ -148,8 +148,9 @@ test "自绘位图换图标：像素口径换算与非法输入保持原图标" 
   assert_eq(argb_to_icon_handle(Bytes::makei(12, fn(_i) { b'\xff' }), 2, 4), 0)
   // 合法位图：native（Win/mac）建得出句柄，GTK 桩那侧给 0——两档都不该崩
   assert_true(argb_to_icon_handle(solid, 2, 2) >= 0)
-  // 内置档同样走这条换算，句柄进程级缓存复用
-  assert_eq(builtin_tray_handle(), builtin_tray_handle())
+  // 内置档同样走这条换算，黑/白两档句柄各自进程级缓存复用
+  assert_eq(builtin_tray_handle(false), builtin_tray_handle(false))
+  assert_eq(builtin_tray_handle(true), builtin_tray_handle(true))
 }
 
 ///|
