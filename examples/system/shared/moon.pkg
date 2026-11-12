@@ -1,0 +1,11 @@
+// 系统能力示例共享层：跨段状态 App + 左菜单页装配 + 内嵌英文目录。
+import {
+  "NoahLiu/native-gui/base",
+  "NoahLiu/native-gui/widget" @widget,
+  "NoahLiu/native-gui/shell" @shell,
+  "NoahLiu/native-gui/ui",
+  "NoahLiu/native-gui/style" @style,
+  "NoahLiu/native-gui/i18n" @i18n,
+}
+
+supported_targets = "native"

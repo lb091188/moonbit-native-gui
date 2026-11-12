@@ -1,0 +1,15 @@
+// 系统能力示例页面：system.mbt 系统集成各段 / sysprobe.mbt 只读探测各段。
+import {
+  "NoahLiu/yoga-mbt/src" @yoga,
+  "NoahLiu/native-gui/base",
+  "NoahLiu/native-gui/widget" @widget,
+  "NoahLiu/native-gui/shell" @shell,
+  "NoahLiu/native-gui/text" @text,
+  "NoahLiu/native-gui/ui",
+  "NoahLiu/native-gui/style" @style,
+  "NoahLiu/native-gui/win",
+  "NoahLiu/native-gui/sys" @sys,
+  "NoahLiu/native-gui-examples-system/shared" @shared,
+}
+
+supported_targets = "native"
