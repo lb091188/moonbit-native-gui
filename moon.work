@@ -15,8 +15,6 @@ members = [
   "examples/sysmonitor",
   "examples/audio",
   "examples/video",
-  "examples/headless-audio",
   "examples/theme-playground",
-  "examples/template-hello",
   "tools/native-gui-tools",
 ]

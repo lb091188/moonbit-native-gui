@@ -6,5 +6,10 @@ templates = ["."]
 
 build = "moon build ."
 
-# 留空 = 跑一次 build 后从 Artifacts 抓可执行路径
+# 留空 = 跑一次 build 后从 Artifacts 输出抓可执行路径（Windows 请显式填）
 run = ""
+
+# 单实例应用 id（HOT 补丁经单实例通道送达）
+app-id = "libyue.hello"
+
+poll-ms = 300

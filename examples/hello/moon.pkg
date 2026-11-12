@@ -1,8 +1,14 @@
+// 你好窗口：.mng 单文件页（hello.gen.mbt）+ 命令式基本窗口示例（多窗/托盘）。
 import {
   "NoahLiu/yoga-mbt/src" @yoga,
+  "NoahLiu/native-gui/base",
+  "NoahLiu/native-gui/widget" @widget,
+  "NoahLiu/native-gui/shell" @shell,
+  "NoahLiu/native-gui/dbus" @dbus,
   "NoahLiu/native-gui/ui",
   "NoahLiu/native-gui/style" @style,
-  "NoahLiu/native-gui/sys" @sys,
+  "NoahLiu/native-gui/text",
+  "NoahLiu/native-gui/mngdev" @mngdev,
 }
 
 pkgtype(kind: "executable")

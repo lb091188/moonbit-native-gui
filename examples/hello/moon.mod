@@ -4,7 +4,7 @@ version = "0.1.0"
 
 preferred_target = "native"
 
-description = "hello 最小窗口示例：一个原生窗口 + 基本控件"
+description = "hello 入门样例：.mng 单文件页 + 基本窗口示例（多窗/托盘）"
 
 license = "MIT"
 

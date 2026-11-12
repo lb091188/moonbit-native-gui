@@ -9,8 +9,9 @@ fn reset() {
 </script>
 <template>
   <ui-col class="page">
-    <ui-text class="title" text="单文件页面（.mng）" />
-    <ui-input v-model="name" placeholder="你的名字" width="220.0" />
+    <ui-text class="title" text="你好，MoonBit 原生窗口" />
+    <ui-text class="hint" text="上面是声明式页（hello.mng 单文件，改字可 mng dev 热更）；下面是命令式代码的基本窗口示例。" />
+    <ui-input v-model="name" placeholder="你的名字" width="240.0" />
     你好, {{ name }}！
     <ui-stepper v-model="count" max="10" />
     计数: {{ count }}
@@ -19,12 +20,16 @@ fn reset() {
 </template>
 <style>
   .page {
-    padding: 24px;
+    padding: 20px;
     row-gap: 8px;
     align-items: center;
   }
   .title {
     font-size: 18px;
     font-weight: bold;
+  }
+  .hint {
+    font-size: 12px;
+    color: var(--text_secondary);
   }
 </style>
