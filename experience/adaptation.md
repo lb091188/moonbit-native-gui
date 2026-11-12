@@ -4004,3 +4004,4 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **验证手段**:改完 `moon run <模块>/scripts/prebuild.mbtx` 编译运行一遍(脱离 prebuild 环境运行期报错属预期,编译过即解析过);或清 target 重建再跑门禁。
 - **mac 对拍不覆盖 linux/win 腿**:mbtx 移植只对拍过 mac,linux/win 分支首次在 CI 跑出两坑——① pkg-config 输出带结尾换行,`split(" ")` 切完末尾 token 是 `"\n"`,cc 报「linker input file not found」且文件名空(打印像空参),要按换行+空格双切分;② dir_of 认反斜杠的修复只改了 gui/gui-gpu,gui-media 漏改,win 的 `MOON_MOD` 是反斜杠路径原样返回,拼出 `moon.mod/media/...` 致 `@fs.open` 炸——三份脚本的公共函数改完要对账。
 - **保留字参数名**:gui 的 `entry(package~, …)` 触发 `[0035] reserved_keyword` 警告(与 gui-media 移植批同款),具名参数一律避开保留字,用 `pkg` 这类名字。
+- **L1 绑帧前必须探 surface capabilities**：wgpu-native 对 configure 的校验失败是进程级 panic（abort），桩侧的「逐字回退」纪律拦不住——CI 的 xvfb 软渲染（llvmpipe 队列族不支持呈现）实测炸出 `wgpuSurfaceConfigure: Surface does not support the adapter's queue family`（hello GUI 冒烟退出码 134）。修法：bind_frame 先 `wgpuSurfaceGetCapabilities`，返回非 Success 即判死永久回退（同款 alpha 档探测已先行存在，此次补的是状态检查）。

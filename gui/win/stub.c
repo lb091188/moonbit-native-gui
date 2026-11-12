@@ -14419,6 +14419,21 @@ static WGPUCompositeAlphaMode l1_pick_alpha_mode(WGPUSurface surface) {
 // 配 surface（sw/sh = 客户区尺寸）+ 建帧对象（bw/bh = 位图尺寸）。
 // 1 = 成；-1 = 真失败（调用方标记该窗永久回退）。
 static int l1_bind_frame(WmL1 *st, int sw, int sh, int bw, int bh) {
+  // surface 与 adapter 不兼容（典型：xvfb 软渲染的队列族不支持呈现）时
+  // get_capabilities 先行返回 Error——直接 configure 会在 wgpu-native 内部
+  // 校验 panic（进程级 abort，桩侧拦不住）；按纪律②在此判死、永久回退。
+  if (p_wgpuSurfaceGetCapabilities != NULL) {
+    WGPUSurfaceCapabilities caps;
+    memset(&caps, 0, sizeof caps);
+    if (p_wgpuSurfaceGetCapabilities(st->surface, l1_adapter, &caps) !=
+        WGPUStatus_Success) {
+      l1_log("L1: surface 与 adapter 不兼容（capabilities=Error）——永久回退");
+      return -1;
+    }
+    if (p_wgpuSurfaceCapabilitiesFreeMembers != NULL) {
+      p_wgpuSurfaceCapabilitiesFreeMembers(caps);
+    }
+  }
   WGPUSurfaceConfiguration cfg;
   memset(&cfg, 0, sizeof cfg);
   cfg.device = g_l1_device;
