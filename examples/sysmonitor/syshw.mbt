@@ -306,6 +306,45 @@ fn is_system_mount(mount : String) -> Bool {
 }
 
 ///|
+/// 虚拟块设备 / 光驱：loop（镜像）、ram/zram（内存盘）、sr/scd（光驱）、
+/// nbd/rbd（网络块）、fd（软驱）。dm/md/nvme/sd/vd/hd/mmcblk 等实体盘保留。
+fn is_virtual_block_device(device : String) -> Bool {
+  let base = match device.rev_find("/") {
+    Some(i) => device[i + 1:].to_owned()
+    None => device
+  }
+  base.has_prefix("loop") ||
+  base.has_prefix("ram") ||
+  base.has_prefix("zram") ||
+  base.has_prefix("sr") ||
+  base.has_prefix("scd") ||
+  base.has_prefix("nbd") ||
+  base.has_prefix("rbd") ||
+  base.has_prefix("fd")
+}
+
+///|
+/// 网络文件系统：不算本机存储，容量/速率都不进磁盘页。
+fn is_network_fs(fstype : String) -> Bool {
+  match fstype {
+    "nfs"
+    | "nfs4"
+    | "cifs"
+    | "smbfs"
+    | "afpfs"
+    | "webdav"
+    | "davfs"
+    | "9p"
+    | "fuse.sshfs"
+    | "fuse.rclone"
+    | "glusterfs"
+    | "ceph"
+    | "lustre" => true
+    _ => false
+  }
+}
+
+///|
 /// 解析 /proc/diskstats：major minor name 之后取读扇区(5)与写扇区(9)。
 /// 行字段不足 14 个跳过；不过滤设备类型（loop/dm 等由调用方处置）。
 pub fn parse_diskstats(text : String) -> Array[DiskStat] {
@@ -378,6 +417,10 @@ pub fn DiskMonitor::tick(self : DiskMonitor) -> Array[DiskInfo]? {
   for m in parse_mounts(mounts_text) {
     // 系统自用挂载（/boot、/snap、/private 等）直接跳过，省一次 statvfs
     if is_system_mount(m.mount) {
+      continue
+    }
+    // 虚拟块设备（loop/zram/光驱等）与网络盘不算本机存储
+    if is_virtual_block_device(m.device) || is_network_fs(m.fstype) {
       continue
     }
     if seen.contains(m.device) {
@@ -1419,6 +1462,38 @@ pub(all) struct NetInfo {
   tx_bytes : Int64
   rx_bps : Double
   tx_bps : Double
+  /// 是否实体网卡（Linux 看 /sys/class/net/<name>/device/uevent；
+  /// mac 认 en*；Windows 按适配器别名排除虚拟隧道/回环）
+  physical : Bool
+}
+
+///|
+/// 是否实体网卡。Linux 认 `/sys/class/net/<name>/device/uevent`（虚拟
+/// 网桥/veth/docker 没有 device 节点）；mac 的实体口是 en*；Windows 的
+/// 适配器别名里排除回环/隧道/虚拟交换机。判不出时按非实体处理，宁可少列
+/// 也不把虚拟口混进物理汇总。
+pub fn is_physical_iface(name : String) -> Bool {
+  if name == "" || name == "lo" {
+    return false
+  }
+  if on_macos() {
+    return name.has_prefix("en")
+  }
+  if on_windows() {
+    let low = name.to_lower()
+    return !(low.contains("vethernet") ||
+      low.contains("loopback") ||
+      low.contains("teredo") ||
+      low.contains("isatap") ||
+      low.contains("vpn") ||
+      low.contains("bluetooth") ||
+      name.contains("虚拟") ||
+      name.contains("蓝牙"))
+  }
+  match read_text_file("/sys/class/net/\{name}/device/uevent") {
+    Some(_) => true
+    None => false
+  }
 }
 
 ///|
@@ -1464,7 +1539,14 @@ pub fn NetMonitor::tick(self : NetMonitor) -> Array[NetInfo]? {
         tx_bps = byte_rate(p.1, tx, wall_dt)
       }
     }
-    out.push({ name, rx_bytes: rx, tx_bytes: tx, rx_bps, tx_bps, })
+    out.push({
+      name,
+      rx_bytes: rx,
+      tx_bytes: tx,
+      rx_bps,
+      tx_bps,
+      physical: is_physical_iface(name),
+    })
     cur.set(name, (rx, tx))
   }
   self.prev = cur

@@ -210,6 +210,22 @@ test "kill_button_labels:Windows 单按钮强杀 / Linux 两档" {
 }
 
 ///|
+test "proc_state_text：内核状态字符 → 中文名，不露缩写" {
+  assert_eq(proc_state_text("R"), "运行中")
+  assert_eq(proc_state_text("S"), "睡眠")
+  assert_eq(proc_state_text("D"), "等待(不可中断)")
+  assert_eq(proc_state_text("Z"), "僵尸")
+  assert_eq(proc_state_text("T"), "已停止")
+  assert_eq(proc_state_text("t"), "跟踪停止")
+  assert_eq(proc_state_text("I"), "空闲")
+  assert_eq(proc_state_text("X"), "已退出")
+  assert_eq(proc_state_text("x"), "已退出")
+  assert_eq(proc_state_text("W"), "换页")
+  assert_eq(proc_state_text("P"), "已挂起")
+  assert_eq(proc_state_text("Q"), "未知")
+}
+
+///|
 test "priority_ui:Windows 四档说明 / Linux nice 说明" {
   let (wbtn, whint) = priority_ui("windows")
   assert_eq(wbtn, "设优先级")

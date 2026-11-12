@@ -151,20 +151,54 @@ test "cpu_usage：差值占用 / 零增量 / 负增量钳制 / 全空闲" {
 }
 
 ///|
-test "parse_cpuinfo：型号 / 核数 / 主频 / ARM 回退 / 无 processor 行" {
-  let x86 = "processor\t: 0\nmodel name\t: 12th Gen Intel(R) Core(TM) i7-12700F\ncpu MHz\t\t: 4500.000\n\nprocessor\t: 1\nmodel name\t: 12th Gen Intel(R) Core(TM) i7-12700F\ncpu MHz\t\t: 4500.000\n"
+test "parse_cpuinfo：型号 / 核数 / 主频 / 最高主频 / ARM 回退 / 无 processor 行" {
+  let x86 = "processor\t: 0\nmodel name\t: 12th Gen Intel(R) Core(TM) i7-12700F\ncpu MHz\t\t: 3200.000\n\nprocessor\t: 1\nmodel name\t: 12th Gen Intel(R) Core(TM) i7-12700F\ncpu MHz\t\t: 4500.000\n"
   let info = parse_cpuinfo(x86).unwrap()
   assert_eq(info.model, "12th Gen Intel(R) Core(TM) i7-12700F")
   assert_eq(info.cores, 2)
   assert_eq(info.mhz, 4500.0)
+  assert_eq(info.max_mhz, 4500.0)
+  // 最后一行不是最高频时 max 仍取最大
+  let varied = "processor\t: 0\ncpu MHz\t\t: 4800.000\nprocessor\t: 1\ncpu MHz\t\t: 3000.000\n"
+  let v = parse_cpuinfo(varied).unwrap()
+  assert_eq(v.mhz, 3000.0)
+  assert_eq(v.max_mhz, 4800.0)
   // ARM 开发板：无 model name，回退 Processor
   let arm = "processor\t: 0\nProcessor\t: ARMv7 Cortex-A53\n"
   let arm_info = parse_cpuinfo(arm).unwrap()
   assert_eq(arm_info.model, "ARMv7 Cortex-A53")
   assert_eq(arm_info.mhz, 0.0)
+  assert_eq(arm_info.max_mhz, 0.0)
   // 非 Linux 文本
   assert_true(parse_cpuinfo("model name: nothing\n") is None)
   assert_true(parse_cpuinfo("") is None)
+}
+
+///|
+test "parse_mem_hw：dmidecode / system_profiler / PowerShell 三种格式与空输入" {
+  // Linux dmidecode
+  let dmi = "Memory Device\n\tManufacturer: Samsung\n\tSpeed: 3200 MT/s\n\nMemory Device\n\tManufacturer: Samsung\n\tSpeed: 2666 MT/s\n"
+  let (b1, m1) = parse_mem_hw(dmi)
+  assert_eq(b1, "Samsung")
+  assert_eq(m1, 3200)
+  // macOS system_profiler
+  let mac = "Memory:\n\n      Memory Slots:\n\n        ECC: Disabled\n        Upgradeable Memory: Yes\n\n          BANK 0/ChannelA-DIMM0:\n\n            Size: 8 GB\n            Manufacturer: Micron\n            Speed: 3200 MHz\n"
+  let (b2, m2) = parse_mem_hw(mac)
+  assert_eq(b2, "Micron")
+  assert_eq(m2, 3200)
+  // Windows PowerShell（键=值）
+  let win = "Manufacturer=Samsung\r\nSpeed=4800\r\nManufacturer=Samsung\r\nSpeed=4800\r\n"
+  let (b3, m3) = parse_mem_hw(win)
+  assert_eq(b3, "Samsung")
+  assert_eq(m3, 4800)
+  // 只有占位品牌 / 没有 Speed
+  let empty = "Manufacturer=Unknown\nSpeed=Unknown\n"
+  let (b4, m4) = parse_mem_hw(empty)
+  assert_eq(b4, "")
+  assert_eq(m4, 0)
+  let (b5, m5) = parse_mem_hw("")
+  assert_eq(b5, "")
+  assert_eq(m5, 0)
 }
 
 ///|

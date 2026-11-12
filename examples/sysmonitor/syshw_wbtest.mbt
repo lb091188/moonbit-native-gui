@@ -38,6 +38,35 @@ test "parse_mounts：/dev 真实行 / 伪文件系统跳过" {
 }
 
 ///|
+test "磁盘过滤：虚拟块设备 / 光驱剔除，实体盘与 LVM 保留；网络 fs 剔除" {
+  assert_true(is_virtual_block_device("/dev/loop0"))
+  assert_true(is_virtual_block_device("/dev/zram0"))
+  assert_true(is_virtual_block_device("/dev/ram1"))
+  assert_true(is_virtual_block_device("/dev/sr0"))
+  assert_true(is_virtual_block_device("/dev/nbd0"))
+  assert_true(is_virtual_block_device("/dev/fd0"))
+  assert_true(!is_virtual_block_device("/dev/sda1"))
+  assert_true(!is_virtual_block_device("/dev/nvme0n1p2"))
+  assert_true(!is_virtual_block_device("/dev/vda1"))
+  assert_true(!is_virtual_block_device("/dev/mmcblk0p1"))
+  assert_true(!is_virtual_block_device("/dev/mapper/ubuntu--vg-ubuntu--lv"))
+  assert_true(!is_virtual_block_device("/dev/md0"))
+  assert_true(!is_virtual_block_device("C:"))
+  assert_true(is_network_fs("nfs4"))
+  assert_true(is_network_fs("cifs"))
+  assert_true(is_network_fs("smbfs"))
+  assert_true(is_network_fs("fuse.sshfs"))
+  assert_true(!is_network_fs("apfs"))
+  assert_true(!is_network_fs("ext4"))
+}
+
+///|
+test "物理网卡判定：空名与 lo 永不是实体" {
+  assert_true(!is_physical_iface(""))
+  assert_true(!is_physical_iface("lo"))
+}
+
+///|
 test "parse_diskstats：真实行 / 分区行 / 字段不足跳过" {
   let text = "   7       0 loop0 11 0 28 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n 259       0 nvme0n1 15931997 4728053 1171159154 1006981555 14641078 19676602 987613010 2801371767 0 6570892 3809050375 202243 0 301237488 112131 631653 584920\n 259       3 nvme0n1p3 15930626 4724532 1171124018 1006980878 14640631 19676835 987452912 2801368439 0 7105049 3808461349 202185 0 295880208 112031 0 0\n"
   let stats = parse_diskstats(text)

@@ -69,7 +69,14 @@ extern "c" fn ffi_nvidia_smi() -> Bytes? = "yue_sysmon_nvidia_smi"
 
 ///|
 // system_profiler SPDisplaysDataType -json 原始输出（macOS GPU 枚举）。
-// stub 内 fork + 匿名管道 + 8s 超时（不用 popen——GUI 进程下 shell 子
-// 进程会闪窗），首跑秒级、成功后进程内常驻缓存。无显卡 / 查询失败返回
+// stub 内 fork + 匿名管道 + 8s 超时（不用 popen——GUI 进程下 shell 子进
+// 程会闪窗），首跑秒级、成功后进程内常驻缓存。无显卡 / 查询失败返回
 // None。JSON 解析在 syshw.mbt 的纯函数（parse_system_profiler_gpu）。
 extern "c" fn ffi_system_profiler_gpu() -> Bytes? = "yue_sysmon_system_profiler_gpu"
+
+///|
+// 内存条硬件信息原始文本（厂商 / 频率）：
+// Linux `dmidecode -t memory`（常需 root，读不到给 None）、mac
+// `system_profiler SPMemoryDataType`、Windows PowerShell
+// Win32_PhysicalMemory。解析在 sysdata.mbt 的 parse_mem_hw。
+extern "c" fn ffi_mem_hw_text() -> Bytes? = "yue_sysmon_mem_hw_text"

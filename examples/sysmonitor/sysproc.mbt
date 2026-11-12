@@ -58,6 +58,24 @@ fn last_paren(text : String) -> Int {
 }
 
 ///|
+/// 内核进程状态字符 → 中文名（UI 只展示文字，不露 R/S/D 这类专业缩写）。
+pub fn proc_state_text(state : String) -> String {
+  match state {
+    "R" => "运行中"
+    "S" => "睡眠"
+    "D" => "等待(不可中断)"
+    "Z" => "僵尸"
+    "T" => "已停止"
+    "t" => "跟踪停止"
+    "I" => "空闲"
+    "X" | "x" => "已退出"
+    "W" => "换页"
+    "P" => "已挂起"
+    _ => "未知"
+  }
+}
+
+///|
 /// 解析 /proc/[pid]/stat。comm 后的字段序号（从 state 起 0 基）：
 /// state=0 ppid=1 utime=11 stime=12 nice=16 threads=17 starttime=19
 /// rss=21；字段不足 22 个或 pid 非法返回 None。nice 是有符号字段

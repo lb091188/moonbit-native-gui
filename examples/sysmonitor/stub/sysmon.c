@@ -1808,6 +1808,68 @@ int32_t yue_sysmon_set_priority(int32_t pid, int32_t nice) {
   return rc;
 }
 
+/* 内存条硬件信息：PowerShell 取 Win32_PhysicalMemory 的厂商与频率，
+   每项一行 "Manufacturer=xxx" / "Speed=xxxx"（MoonBit 侧统一解析）。
+   无 PowerShell / 查询失败返回 NULL（UI 显示「—」）。 */
+MOONBIT_FFI_EXPORT
+moonbit_bytes_t yue_sysmon_mem_hw_text(void) {
+  SysmonBuf out = {0};
+  SECURITY_ATTRIBUTES sa;
+  memset(&sa, 0, sizeof(sa));
+  sa.nLength = sizeof(sa);
+  sa.bInheritHandle = TRUE;
+  HANDLE rd = NULL, wr = NULL;
+  if (!CreatePipe(&rd, &wr, &sa, 0)) {
+    return NULL;
+  }
+  SetHandleInformation(rd, HANDLE_FLAG_INHERIT, 0);
+  STARTUPINFOA si;
+  memset(&si, 0, sizeof(si));
+  si.cb = sizeof(si);
+  si.dwFlags = STARTF_USESTDHANDLES;
+  si.hStdOutput = wr;
+  si.hStdError = wr;
+  PROCESS_INFORMATION pi;
+  memset(&pi, 0, sizeof(pi));
+  char cmd[] =
+      "powershell -NoProfile -NonInteractive -Command \"Get-CimInstance "
+      "Win32_PhysicalMemory | ForEach-Object { 'Manufacturer=' + "
+      "$_.Manufacturer; 'Speed=' + $_.Speed }\"";
+  BOOL spawned = CreateProcessA(NULL, cmd, NULL, NULL, TRUE, CREATE_NO_WINDOW,
+                                NULL, NULL, &si, &pi);
+  CloseHandle(wr);
+  if (!spawned) {
+    CloseHandle(rd);
+    return NULL;
+  }
+  DWORD wait = WaitForSingleObject(pi.hProcess, 8000);
+  if (wait != WAIT_OBJECT_0) {
+    TerminateProcess(pi.hProcess, 1);
+    WaitForSingleObject(pi.hProcess, 1000);
+    CloseHandle(rd);
+    CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+    return NULL;
+  }
+  CloseHandle(pi.hThread);
+  CloseHandle(pi.hProcess);
+  char chunk[4096];
+  DWORD got = 0;
+  while (ReadFile(rd, chunk, sizeof(chunk), &got, NULL) && got > 0) {
+    if (!sysmon_buf_reserve(&out, got)) {
+      break;
+    }
+    memcpy(out.p + out.len, chunk, got);
+    out.len += got;
+    out.p[out.len] = '\0';
+  }
+  CloseHandle(rd);
+  if (out.p == NULL) {
+    return NULL;
+  }
+  return sysmon_bytes_take(&out);
+}
+
 /* 平台探测(编译期定):UI 文案按平台收敛。 */
 MOONBIT_FFI_EXPORT
 int32_t yue_sysmon_is_windows(void) { return 1; }
@@ -2714,6 +2776,7 @@ static moonbit_bytes_t sysmon_apple_netif_bytes(const char *path) {
 
 static char *g_gpu_json = NULL;
 static unsigned long long g_gpu_json_at = 0;
+static char *g_mem_hw_text = NULL;
 
 static moonbit_bytes_t sysmon_bytes_from(const char *s, size_t len) {
   moonbit_bytes_t out = moonbit_make_bytes((int32_t)len, 0);
@@ -2817,6 +2880,24 @@ moonbit_bytes_t yue_sysmon_system_profiler_gpu(void) {
   free(g_gpu_json);
   g_gpu_json = fresh;
   return sysmon_bytes_from(g_gpu_json, strlen(g_gpu_json));
+}
+
+/* 内存条硬件信息：system_profiler SPMemoryDataType 原始文本（含
+   Manufacturer / Speed 行），首跑秒级、成功后进程内常驻缓存。无内存
+   信息 / 查询失败返回 NULL。 */
+MOONBIT_FFI_EXPORT
+moonbit_bytes_t yue_sysmon_mem_hw_text(void) {
+  if (g_mem_hw_text != NULL) {
+    return sysmon_bytes_from(g_mem_hw_text, strlen(g_mem_hw_text));
+  }
+  static const char *const argv[] = {"/usr/sbin/system_profiler",
+                                     "SPMemoryDataType", NULL};
+  char *fresh = sysmon_apple_run_capture(argv, 8000);
+  if (fresh == NULL) {
+    return NULL;
+  }
+  g_mem_hw_text = fresh;
+  return sysmon_bytes_from(g_mem_hw_text, strlen(g_mem_hw_text));
 }
 
 /* ---------------- 目录枚举路由 ---------------- */
@@ -2932,6 +3013,34 @@ moonbit_bytes_t yue_sysmon_list_pids(void) {
 MOONBIT_FFI_EXPORT
 moonbit_bytes_t yue_sysmon_list_dir(moonbit_bytes_t path) {
   return sysmon_list_dir_generic((const char *)path);
+}
+
+/* 内存条硬件信息：dmidecode -t memory 原始文本（含 Manufacturer / Speed
+   行）。普通用户通常无权限 → 空输出 / NULL，MoonBit 侧显示「—」。 */
+MOONBIT_FFI_EXPORT
+moonbit_bytes_t yue_sysmon_mem_hw_text(void) {
+  FILE *f = popen("dmidecode -t memory 2>/dev/null", "r");
+  if (f == NULL) {
+    return NULL;
+  }
+  SysmonBuf out = {0};
+  char chunk[4096];
+  size_t got = 0;
+  while ((got = fread(chunk, 1, sizeof(chunk), f)) > 0) {
+    if (!sysmon_buf_reserve(&out, got)) {
+      break;
+    }
+    memcpy(out.p + out.len, chunk, got);
+    out.len += got;
+    out.p[out.len] = '\0';
+  }
+  int failed = ferror(f);
+  pclose(f);
+  if (failed || out.p == NULL) {
+    free(out.p);
+    return NULL;
+  }
+  return sysmon_bytes_take(&out);
 }
 
 #endif /* __APPLE__ */

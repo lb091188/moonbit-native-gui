@@ -206,11 +206,12 @@ pub fn CpuTimes::busy(self : CpuTimes) -> Int64 {
 }
 
 ///|
-/// /proc/cpuinfo 摘要：型号 / 主频(MHz) / 逻辑核数。无 processor 行
-/// （非 Linux 内核文本）返回 None。
+/// /proc/cpuinfo 摘要：型号 / 主频(MHz) / 各核最高主频 / 逻辑核数。无
+/// processor 行（非 Linux 内核文本）返回 None。
 pub(all) struct CpuInfo {
   model : String
   mhz : Double
+  max_mhz : Double
   cores : Int
 }
 
@@ -280,11 +281,12 @@ pub fn cpu_usage(prev : CpuTimes, cur : CpuTimes) -> Double {
 
 ///|
 /// 解析 /proc/cpuinfo。型号优先 model name，缺失回退 Processor /
-/// Hardware（ARM 开发板）；主频取 cpu MHz，缺失为 0；核数为 processor
-/// 行计数（逻辑 CPU 数，含超线程）。
+/// Hardware（ARM 开发板）；主频取 cpu MHz（最后一行为 mhz、全部取最大为
+/// max_mhz），缺失为 0；核数为 processor 行计数（逻辑 CPU 数，含超线程）。
 pub fn parse_cpuinfo(text : String) -> CpuInfo? {
   let mut model = ""
   let mut mhz = 0.0
+  let mut max_mhz = 0.0
   let mut cores = 0
   for line in text.split("\n") {
     let (key, value) = match line.split_once(":") {
@@ -301,7 +303,12 @@ pub fn parse_cpuinfo(text : String) -> CpuInfo? {
       model = v.to_owned()
     } else if k.equal_to_string("cpu MHz") {
       match parse_double(v) {
-        Some(m) => mhz = m
+        Some(m) => {
+          mhz = m
+          if m > max_mhz {
+            max_mhz = m
+          }
+        }
         None => ()
       }
     } else if k.equal_to_string("processor") {
@@ -311,7 +318,7 @@ pub fn parse_cpuinfo(text : String) -> CpuInfo? {
   if cores == 0 {
     None
   } else {
-    Some({ model, mhz, cores, })
+    Some({ model, mhz, max_mhz, cores, })
   }
 }
 
@@ -480,5 +487,64 @@ pub fn mem_info() -> MemInfo? {
   match read_text_file("/proc/meminfo") {
     None => None
     Some(text) => parse_meminfo(text)
+  }
+}
+
+///|
+/// 解析内存条硬件信息文本（三平台原始格式统一按「键: 值 / 键=值」扫）：
+/// dmidecode 的 `Manufacturer: Samsung` / `Speed: 3200 MT/s`、mac
+/// system_profiler 的 `Manufacturer: ...` / `Speed: 3200 MHz`、Windows
+/// PowerShell 的 `Manufacturer=Samsung` / `Speed=3200`。品牌取第一个
+/// 有效值（跳过 Unknown/Not Specified/NO DIMM 等占位），频率取最大值。
+/// 都没有时返回 ("", 0)，UI 显示「—」。
+pub fn parse_mem_hw(text : String) -> (String, Int) {
+  let mut brand = ""
+  let mut mhz = 0
+  for line in text.split("\n") {
+    let (key, value) = match line.split_once(":") {
+      Some((k, v)) => (k, v)
+      None =>
+        match line.split_once("=") {
+          Some((k, v)) => (k, v)
+          None => continue
+        }
+    }
+    let k = key.trim()
+    let v = value.trim()
+    if k.equal_to_string("Manufacturer") && brand == "" {
+      let low = v.to_lower()
+      if v != "" &&
+        !low.contains("unknown") &&
+        !low.contains("not specified") &&
+        !low.contains("no dimm") &&
+        !low.contains("empty") &&
+        !low.contains("none") {
+        brand = v.to_owned()
+      }
+    } else if k.equal_to_string("Speed") {
+      let fields = split_fields(v)
+      if fields.length() > 0 {
+        match parse_u64(fields[0]) {
+          Some(n) => {
+            let m = n.to_int()
+            if m > mhz {
+              mhz = m
+            }
+          }
+          None => ()
+        }
+      }
+    }
+  }
+  (brand, mhz)
+}
+
+///|
+/// 探测内存条品牌与频率；来源不可用（Linux 无 root / 命令缺失）返回
+/// ("", 0)，不阻塞、不报错。
+pub fn mem_hw_info() -> (String, Int) {
+  match ffi_mem_hw_text() {
+    None => ("", 0)
+    Some(bytes) => parse_mem_hw(@utf8.decode_lossy(bytes))
   }
 }

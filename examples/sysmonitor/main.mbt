@@ -261,7 +261,7 @@ const MON_TITLE : String = "系统监视器"
 
 ///|
 fn main {
-  let info = cpu_info().unwrap_or({ model: "(未知)", mhz: 0.0, cores: 1, })
+  let info = cpu_info().unwrap_or({ model: "(未知)", mhz: 0.0, max_mhz: 0.0, cores: 1, })
   // 磁盘与 GPU 数量取启动枚举结果，卡与曲线按块预建（热插拔不重建视图）
   let disk_mon = DiskMonitor::new()
   let disks0 : Array[DiskInfo] = match disk_mon.tick() {
