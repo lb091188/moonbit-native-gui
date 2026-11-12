@@ -5,10 +5,92 @@
 //
 
 ///|
+/// 字体演示的自绘块：左右两盒同一段文字，右盒把末尾「28」设成 28px 区间字体——
+/// 行盒必须按混排口径抬起来（盒高取 `AttributedText::line_height`），否则大字被裁；
+/// 下方一行演示族名回退（不存在的族退到 monospace）。
+fn font_mix_widget() -> @widget.Node {
+  @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.node.set_width(@yoga.percent(100.0))
+    w.node.set_height(@yoga.fixed(96.0))
+    w.on_draw = Some(fn(
+      _w : @widget.Widget,
+      p : @render.Painter,
+      r : @base.Rect,
+    ) -> Unit {
+      p.set_fill_color(@theme.theme_bg_panel())
+      p.fill_rect(0.0, 0.0, r.w, r.h)
+      let base = @text.AttributedText::new(@shared.tx("基准 Base 28"))
+      let mixed = @text.AttributedText::new(@shared.tx("基准 Base 28"))
+      // 「28」是末尾两字节起、长 2 字节（字节下标口径，与编辑内核同源）
+      let nb = @utf8.encode(@shared.tx("基准 Base 28"))
+      let at = nb.length() - 2
+      mixed.set_font_for(@text.Font::new("", 28.0), at, nb.length())
+      let lh_base = match base.line_height() {
+        Some(v) => v.to_double()
+        None => 20.0
+      }
+      let lh_mixed = match mixed.line_height() {
+        Some(v) => v.to_double()
+        None => 20.0
+      }
+      // 两个盒子的边框：右盒没被抬起来就是行高口径错了
+      p.set_stroke_color(@theme.theme_border())
+      p.set_line_width(1.0)
+      p.stroke_rect(0.0, 0.0, 190.0, lh_base)
+      p.stroke_rect(198.0, 0.0, 190.0, lh_mixed)
+      p.flush()
+      let _ = base.draw_at(p, 4.0, 0.0, 186.0, lh_base)
+      let _ = mixed.draw_at(p, 202.0, 0.0, 186.0, lh_mixed)
+      let fam = @text.resolve_family(["绝对没有的族 Qzz", "monospace"])
+      let fam_count = match @text.families() {
+        Some(a) => a.length()
+        None => 0
+      }
+      let _ = @text.draw_text_at(
+        p,
+        4.0,
+        72.0,
+        @shared.tr_with(
+          "dyn.fallback_family",
+          [("f", fam), ("n", fam_count.to_string())],
+          "回退族名：\{fam}（可用字体族 \{fam_count} 个）",
+        ),
+        12.0,
+        @theme.theme_text_secondary(),
+      )
+    })
+    w
+  })
+}
+
+///|
 pub fn page_basic(app : @shared.App) -> @widget.Node {
   // 两个悬停/光标组各配一个文本框状态
   let box_a : @base.Store[String] = @base.Store::new(@shared.tx("组内输入框"))
   let box_b : @base.Store[String] = @base.Store::new(@shared.tx("组内输入框"))
+  // 富文本两个格式开关与两个演示对象（页内状态，不进 App）
+  let rt_wrap : Ref[Bool] = Ref(true)
+  let rt_ellipsis : Ref[Bool] = Ref(false)
+  let rt = @text.AttributedText::new(
+    @shared.tx("MoonBit 富文本：这段文字有范围着色与粗体。"),
+    wrap=rt_wrap.val,
+    ellipsis=rt_ellipsis.val,
+  )
+  rt.set_font(@text.Font::new("", 20.0, weight=@text.Bold))
+  rt.set_font_for(@text.Font::new("", 24.0, weight=@text.Black), 0, 6)
+  rt.set_color("#356AA0")
+  rt.set_color_for("#E5534B", 8, 11)
+  // 可选档演示对象：同样式区间，折行跟随容器宽
+  let rt_sel = @text.AttributedText::new(
+    @shared.tx(
+      "MoonBit 富文本 selectable：这段混排文本可以按住拖选、双击选词，然后 Ctrl/Cmd+C 复制，范围颜色与字体随选中高亮一起保留。",
+    ),
+    wrap=true,
+  )
+  rt_sel.set_font(@text.Font::new("", 16.0, weight=@text.Bold))
+  rt_sel.set_font_for(@text.Font::new("", 20.0, weight=@text.Black), 0, 6)
+  rt_sel.set_color("#356AA0")
+  rt_sel.set_color_for("#E5534B", 8, 11)
   @shared.page([
     @shared.section(
       "主题",
@@ -114,6 +196,33 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
       ],
     ),
     @shared.section(
+      "字体",
+      "字体回退与混排行高",
+      "左盒只有基准字体，右盒把末尾「28」换成 28px——两个盒子的盒高都取 `line_height()` 的混排口径，右盒必须被抬起来；不存在的族名经 `resolve_family` 回退（CSS 列表口径）。",
+      [
+        @ui.view([font_mix_widget()], background_color="bg_panel", border_color="border", padding=8.0, class=[@style.style(border_radius=6.0)]),
+        // 字距：同一句话两档 `letter_spacing`，量宽与绘制同源（只吃在字符之间）
+        @ui.row(
+          [
+            @ui.text(@shared.tx("字距 0：MoonBit GUI 字距对照")),
+            @ui.text(
+              @shared.tx("字距 4：MoonBit GUI 字距对照"),
+              class=[@style.style(letter_spacing=4.0)],
+            ),
+          ],
+          column_gap=24.0,
+          align_items=@yoga.AlignItems::Center,
+        ),
+      ],
+      code=[
+        "let mixed = @text.AttributedText::new(\"基准 Base 28\")",
+        "// 区间属性：字节下标口径，后设覆盖先设",
+        "mixed.set_font_for(@text.Font::new(\"\", 28.0), at, at + 2)",
+        "mixed.line_height()  // 基准与区间字体一起算，行盒 = max ascent + max descent",
+        "@text.resolve_family([\"没有的族\", \"monospace\"])  // 回退",
+      ],
+    ),
+    @shared.section(
       "按钮",
       "Button 按钮",
       "四变体；「主要操作」联动数据页访问量/进度条（信号）。",
@@ -180,6 +289,97 @@ pub fn page_basic(app : @shared.App) -> @widget.Node {
         "@ui.link(\"打开文档\", fn() { app.picked_lang.set(\"docs\") })",
         "// 可选中复制的静态文本（只读）",
         "@ui.text(\"……\", selectable=true)",
+      ],
+    ),
+    @shared.section(
+      "富文本",
+      "富文本 AttributedText",
+      "范围字体/颜色（0-6 号 24px Black、8-11 号红色）+ 换行/省略号开关 + 文本改写（属性保留）；下面那块是可选档 `@ui.rich_text`——混排文本可拖选/双击选词，Ctrl/Cmd+C 复制，选中高亮跟着范围样式走。",
+      [
+        @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+          w.node.set_width(@yoga.percent(100.0))
+          w.node.set_height(@yoga.fixed(120.0))
+          w.on_draw = Some(fn(
+            _self : @widget.Widget,
+            p : @render.Painter,
+            r : @base.Rect,
+          ) -> Unit {
+            p.set_fill_color(@theme.theme_bg_panel())
+            p.fill_rect(0.0, 0.0, r.w, r.h)
+            p.set_stroke_color(@theme.theme_border())
+            p.set_line_width(1.0)
+            p.stroke_rect(0.0, 0.0, r.w, r.h)
+            p.flush()
+            let _ = rt.draw_at(p, 10.0, 20.0, r.w - 20.0, r.h - 30.0)
+          })
+          w
+        }),
+        @ui.rich_text(rt_sel, selectable=true),
+        @ui.row(
+          [
+            @ui.button(@shared.tx("换行开关"), on_click=fn() {
+              rt_wrap.val = !rt_wrap.val
+              rt.set_format({
+                align: @text.Start,
+                valign: @text.Start,
+                wrap: rt_wrap.val,
+                ellipsis: rt_ellipsis.val,
+              })
+              @widget.invalidate()
+            }),
+            @ui.button(@shared.tx("省略号开关"), variant=@ui.Soft, on_click=fn() {
+              rt_ellipsis.val = !rt_ellipsis.val
+              rt.set_format({
+                align: @text.Start,
+                valign: @text.Start,
+                wrap: true,
+                ellipsis: rt_ellipsis.val,
+              })
+              @widget.invalidate()
+            }),
+            @ui.button(@shared.tx("改写文本"), variant=@ui.Solid, on_click=fn() {
+              rt.set_text(@shared.tx("文本已替换 ✓（范围属性保留）"))
+              @widget.invalidate()
+            }),
+          ],
+          column_gap=8.0,
+        ),
+        // 系统读数走共享状态：dark_mode 的来源是 sys_color_scheme、
+        // accent 的来源是 sys_accent（跟随开关开时每 2 秒被 main 的 tick 刷新）
+        @ui.row(
+          [
+            @ui.bind_label(app.dark_mode, fn(d) {
+              if d {
+                @shared.tx("系统深浅：深色")
+              } else {
+                @shared.tx("系统深浅：浅色")
+              }
+            }),
+            @ui.bind_label(app.accent, fn(a) {
+              if a.length() == 0 {
+                @shared.tx("系统主色：（无，回落内置）")
+              } else {
+                "系统主色：\{a}"
+              }
+            }),
+          ],
+          column_gap=16.0,
+        ),
+      ],
+      code=[
+        "let rt = @text.AttributedText::new(",
+        "  \"MoonBit 富文本：这段文字有范围着色与粗体。\", wrap=true)",
+        "rt.set_font(@text.Font::new(\"\", 20.0, weight=@text.Bold))",
+        "rt.set_font_for(@text.Font::new(\"\", 24.0, weight=@text.Black), 0, 6)",
+        "rt.set_color(\"#356AA0\")",
+        "rt.set_color_for(\"#E5534B\", 8, 11)",
+        "rt.set_format({",
+        "  align: @text.Start, valign: @text.Start,",
+        "  wrap: false, ellipsis: true,",
+        "})",
+        "rt.set_text(\"文本已替换 ✓（范围属性保留）\")",
+        "// 画：Painter 会话里直接落位",
+        "let _ = rt.draw_at(p, 10.0, 20.0, 600.0, 90.0)",
       ],
     ),
     @shared.section(

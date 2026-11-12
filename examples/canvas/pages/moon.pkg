@@ -1,6 +1,5 @@
-// 画板与富文本示例页面：每段一个文件（board.mbt 交互画板 / canvas.mbt 其余段）。
+// 画板示例页面：每段一个文件（board.mbt 交互画板 / canvas.mbt 其余段）。
 import {
-  "moonbitlang/core/encoding/utf8",
   "NoahLiu/yoga-mbt/src" @yoga,
   "NoahLiu/native-gui/base",
   "NoahLiu/native-gui/widget" @widget,

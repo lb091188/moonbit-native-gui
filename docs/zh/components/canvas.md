@@ -3,7 +3,7 @@
 让自绘块响应键鼠见[自绘与键鼠](custom-draw.md)。
 
 
-**现场演示**：`cd examples/canvas && moon run .` 打开「画布与富文本」页——每段画法都有对应演示块，源码在 `examples/canvas/pages/canvas.mbt`；交互画板（鼠标手绘 + 键盘画线）在 `examples/canvas/pages/board.mbt`。
+**现场演示**：`cd examples/canvas && moon run .` 打开「画板」窗——自绘/线型/虚线/裁剪/圆角/位图各段都有对应演示块，源码在 `examples/canvas/pages/canvas.mbt`；交互画板（鼠标手绘 + 键盘画线）在 `examples/canvas/pages/board.mbt`；富文本与字体演示在 components「基础组件」页（源码 `examples/components/pages/basic.mbt`）。
 
 ## 公共前提
 
@@ -196,6 +196,6 @@ let _ = cv.write_to_file("out.png")      // 目前只支持 "png"，失败返回
 
 ## 下一步
 
-- 每段画法的现场效果：`cd examples/canvas && moon run .`「画布与富文本」页，源码 `examples/canvas/pages/canvas.mbt`。
+- 每段画法的现场效果：`cd examples/canvas && moon run .`「画板」窗，源码 `examples/canvas/pages/canvas.mbt`；富文本与字体：[组件总览](index.md) 的「基础组件」页。
 - 控件拼装与状态绑定：[组件总览](index.md)、[声明式与响应式](../guide/declarative.md)；尺寸与布局分配：[布局样式](../guide/layout.md)。
 - 从零起步：[上手体验](../guide/tutorial.md)。

@@ -1,5 +1,5 @@
-// 画板与富文本示例：交互画板（Pointer 手绘 × Keyboard 画线）+ Painter 自绘 +
-// AttributedText 富文本 + 字体/线型/虚线/裁剪变换/位图各段。
+// 画板示例：交互画板（Pointer 手绘 × Keyboard 画线）+ Painter 自绘 +
+// 线型/虚线/裁剪变换/圆角/位图各段（富文本与字体演示在 components 基础组件页）。
 //
 // 形态要点：
 //   - 起窗走 `@ui.mount_window` + `WindowHost::run`；主题深浅与主色跟随系统
@@ -41,7 +41,7 @@ fn main {
   apply_theme(app)
   let mounted = @ui.mount_window(
     [
-      @ui.col([@pages.page_canvas(app)], grow=1.0),
+      @ui.col([@pages.page_canvas()], grow=1.0),
     ],
     title=CANVAS_TITLE,
     width=1100,

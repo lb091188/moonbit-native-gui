@@ -58,7 +58,7 @@ sudo apt install libgtk-3-0 libpango-1.0-0 libx11-6 \
 - **图表页**：折线 / 柱状 / 饼 / 仪表 / 散点 / 雷达 / 热力 / K 线 / 漏斗 / 箱线 / 桑基 / 关系图 / 平行坐标 / 象形柱 / 旭日 / 主题河流 / 树 / 矩形树 / 特效散点共 19 种，带横向交互层（悬停读数、缩放平移等）
 - **主题**：深浅色与强调色跟随系统，跟随开关在菜单里（手动选色会自动关掉跟随，属预期行为）
 
-托盘、通知、自启、单实例等系统能力的现场演示在 `examples/system`（见 §二）；画板与富文本在 `examples/canvas`。
+托盘、通知、自启、单实例等系统能力的现场演示在 `examples/system`（见 §二）；画板与自绘在 `examples/canvas`，富文本与字体演示在 `examples/components`「基础组件」页。
 
 #### browser —— 内嵌 WebView
 
@@ -91,7 +91,7 @@ MOON_WORK=off moon run .               # 按注册表已发布的库版本解析
 |---|---|
 | `examples/hello` | 入门样例：.mng 单文件页 + 基本窗口示例（多窗 / 托盘，`mng dev` 可热更）|
 | `examples/components` | 组件展示库：全部组件 / 图表 / 主题（预构建包里的 `components`）|
-| `examples/canvas` | 画板与富文本：交互画板（鼠标手绘 + 键盘画线）、Painter 自绘、AttributedText |
+| `examples/canvas` | 画板与自绘：交互画板（鼠标手绘 + 键盘画线）、Painter 自绘、线型/虚线/裁剪变换/圆角/位图 |
 | `examples/system` | 系统能力：系统集成（对话框 / 通知 / 托盘 / 自启 / 单实例 / 自更新）+ 只读探测，左侧分组菜单 |
 | `examples/browser` | 内嵌 WebView 浏览器（额外依赖 `gui-webview`）|
 | `examples/audio` · `video` | 音视频播放器（额外依赖 `gui-media`，需 ffmpeg）|

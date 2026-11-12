@@ -58,7 +58,7 @@ Switch pages in the left sidebar:
 - **Charts pages**: line / bar / pie / gauge / scatter / radar / heatmap / candlestick / funnel / box / sankey / relationship / parallel / pictorial bar / sunburst / theme river / tree / treemap / effect scatter — 19 kinds with a cross-cutting interaction layer (hover readouts, zoom & pan, and more)
 - **Theme**: dark/light and accent color follow the system; the follow switch lives in the menu (picking a color manually turns following off — expected)
 
-Live demos of the tray, notifications, autostart, single instance and other system capabilities live in `examples/system` (see §2); the drawing board and rich text live in `examples/canvas`.
+Live demos of the tray, notifications, autostart, single instance and other system capabilities live in `examples/system` (see §2); the drawing board and custom drawing live in `examples/canvas`, while rich text and fonts are on the "Basics" page of `examples/components`.
 
 #### browser — embedded WebView
 
@@ -91,7 +91,7 @@ MOON_WORK=off moon run .               # resolve the published library from the 
 |---|---|
 | `examples/hello` | Starter sample: `.mng` single-file page + basic window demos (multi-window / tray, hot-reloadable via `mng dev`) |
 | `examples/components` | Component gallery: all widgets / charts / themes (the `components` prebuilt package) |
-| `examples/canvas` | Drawing board and rich text: interactive board (mouse freehand + keyboard lines), Painter drawing, AttributedText |
+| `examples/canvas` | Drawing board and custom drawing: interactive board (mouse freehand + keyboard lines), Painter drawing, line styles / dashes / clipping / transforms / corners / bitmaps |
 | `examples/system` | System capabilities: system integration (dialogs / notifications / tray / autostart / single instance / self-update) + read-only probes, left grouped menu |
 | `examples/browser` | Embedded WebView browser (extra dependency `gui-webview`) |
 | `examples/audio` · `video` | Audio/video players (extra dependency `gui-media`, needs ffmpeg) |
