@@ -6,9 +6,10 @@
 // ② 键盘：控件声明 focus_id（>0 即入 Tab 链）即可拿焦点，on_key 吃方向键移
 //    虚拟光标（每次按键事件 1 像素），Enter/空格 落点。长按自驱重复：按下
 //    登记进按住表并挂宿主 33ms 一拍的重复泵（系统自动重复的 keydown 只
-//    刷新修饰、不重复步进，节奏自己定，不吃系统首延），松开/Escape 收；
-//    修饰改步长（可叠加相乘）：Shift ×16（兼从光标画直线）、Ctrl ×4、
-//    Alt ×0.25（亚像素微调）；
+//    刷新修饰、不重复步进，节奏自己定，不吃系统首延），松开/Escape 收，
+//    指针按下也清表（焦点被夺收不到 keyUp 的残留漂移兜底）；修饰纯改步长
+//    （可叠加相乘）：Shift ×16、Ctrl ×4、Alt ×0.25（亚像素微调；mac 上
+//    Ctrl+方向可能被系统 Spaces 快捷键占用，收不到属系统行为）；
 // ③ 数据与重绘：笔画是纯数据（点列 + 颜色 + 线宽），on_draw 全量重放，改动后
 //    @widget.invalidate() 请求一帧（进程级重画，宿主装的是 host_repaint_all）；
 // ④ 事件消费：on_pointer/on_key 返回 true = 已消费（不再外传）；没吃到的事件
@@ -63,14 +64,6 @@ pub fn board_section() -> @shared.Section {
     } else {
       cy
     }
-    if (mods & @base.MOD_SHIFT) != 0 {
-      // Shift+方向：从光标到新位置一条直线（长按时逐拍短线段连成线）
-      strokes.val.push({
-        pts: [(cx, cy), (nx, ny)],
-        color: colors[color_idx.val],
-        width: widths[width_idx.val],
-      })
-    }
     cursor.val = (nx, ny)
     @widget.invalidate()
   }
@@ -91,8 +84,10 @@ pub fn board_section() -> @shared.Section {
     }
     pump_on.val = true
     fn tick() -> Unit {
+      // 每拍先摘标记、重排成功才戴回：链路断掉（宿主表瞬时为空）后
+      // 下次按键能重启，不会永久假死
+      pump_on.val = false
       if held.length() == 0 {
-        pump_on.val = false
         return
       }
       let snapshot : Array[Int32] = []
@@ -104,6 +99,7 @@ pub fn board_section() -> @shared.Section {
       }
       for h in @widget.host_windows() {
         let _ = h.timer(33, tick)
+        pump_on.val = true
         break
       }
     }
@@ -176,6 +172,8 @@ pub fn board_section() -> @shared.Section {
     ) -> Bool {
       match ev.kind {
         @widget.PointerKind::Down => {
+          // 用户回到鼠标交互：清掉键盘按住表停泵（失焦收不到 keyUp 的残留）
+          held.clear()
           current.val = Some({
             pts: [(ev.x, ev.y)],
             color: colors[color_idx.val],
@@ -270,7 +268,7 @@ pub fn board_section() -> @shared.Section {
   @shared.section(
     "画板",
     "交互画板：Pointer × Keyboard",
-    "on_pointer 一颗回调吃全部指针事件：按住左键手绘（Down 起笔 / Move 采点 / Up、Leave 收笔），坐标已换算成本地坐标。键盘：控件声明 focus_id 即入 Tab 链，Tab 或点击画板拿到焦点后，方向键移虚拟光标（每次按键 1 像素），按住不放连续移动（33ms 一拍的自驱重复泵，系统重复事件只刷新修饰不重复步进），Enter/空格 落点；修饰改步长可叠加：Shift ×16（兼从光标画直线）、Ctrl ×4、Alt ×0.25（亚像素微调），Esc 收掉按住表。笔画是纯数据（点列 + 颜色 + 线宽），on_draw 全量重放，改动后 invalidate() 请求一帧。",
+    "on_pointer 一颗回调吃全部指针事件：按住左键手绘（Down 起笔 / Move 采点 / Up、Leave 收笔），坐标已换算成本地坐标。键盘：控件声明 focus_id 即入 Tab 链，Tab 或点击画板拿到焦点后，方向键移虚拟光标（每次按键 1 像素），按住不放连续移动（33ms 一拍的自驱重复泵，系统重复事件只刷新修饰不重复步进），Enter/空格 落点；修饰纯改步长、可叠加相乘：Shift ×16、Ctrl ×4、Alt ×0.25（亚像素微调），按住中途按/松立即生效；Esc 收掉按住表，点画板也停长按。mac 上 Ctrl+方向可能被系统 Spaces 快捷键占用。笔画是纯数据（点列 + 颜色 + 线宽），on_draw 全量重放，改动后 invalidate() 请求一帧。",
     [toolbar, board],
     code=[
       "w.focus_id = 930              // >0 即入 Tab 链，可点击/Tab 聚焦",
@@ -284,10 +282,10 @@ pub fn board_section() -> @shared.Section {
       "w.on_key = Some(fn(ev) {",
       "  // 方向键：首次按下步进 1px 并登记按住表，33ms 泵接管长按",
       "  // 系统重复的 keydown 只刷新修饰，不重复步进",
-      "  // 步长 = 1px × Shift16 × Ctrl4 × Alt0.25（可叠加）",
+      "  // 步长 = 1px × Shift16 × Ctrl4 × Alt0.25（可叠加，纯速度）",
       "  if ev.keysym == @base.KS_LEFT { … }",
-      "  // Shift+方向 = 快速移动并从光标画直线",
-      "  (ev.mods & @base.MOD_SHIFT) != 0",
+      "  // 修饰快照随任意按键刷新：长按中途按/松立即生效",
+      "  last_mods = ev.mods",
       "})",
       "@widget.invalidate()  // 改完数据请求一帧",
     ],
