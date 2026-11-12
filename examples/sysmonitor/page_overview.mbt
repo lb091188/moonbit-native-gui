@@ -232,7 +232,11 @@ fn left_pane(app : App, view : @base.Store[ViewId]) -> @widget.Node {
     [@ui.col(items, padding=10.0, row_gap=8.0)],
     @ui.ScrollState::new(),
     width=LEFT_PANE_W,
-    handle=fn(w) { w.node.set_align_self(Some(@yoga.AlignItems::Stretch)) },
+    handle=fn(w) {
+      // 固定宽侧栏不参与收缩：窗口变窄时由右栏缩视口并在内部横滚
+      w.node.set_flex_shrink(0.0)
+      w.node.set_align_self(Some(@yoga.AlignItems::Stretch))
+    },
   )
 }
 
