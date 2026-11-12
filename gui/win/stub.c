@@ -14032,6 +14032,13 @@ static int l1_load_lib(void) {
     return 1;
   }
   const char *env = getenv("MNG_WGPU_LIB");
+  // 显式关闭档：off/0/none 不再尝试任何候选，L1 永久回退 CPU 路径。
+  // wgpu-native 对 configure 的校验失败是进程级 panic（桩侧拦不住），无 GPU
+  // 的 CI runner（xvfb 软渲染队列族不兼容实测炸过）与用户排障都靠这个关。
+  if (env && (!strcmp(env, "off") || !strcmp(env, "0") || !strcmp(env, "none"))) {
+    snprintf(g_l1_missing, sizeof g_l1_missing, "MNG_WGPU_LIB=%s（显式关闭 L1）", env);
+    return 0;
+  }
   if (env && env[0]) {
     g_l1_lib = l1_dlopen(env);
   }

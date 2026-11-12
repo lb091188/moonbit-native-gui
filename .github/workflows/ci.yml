@@ -191,6 +191,10 @@ jobs:
       # 重启回页 → 新建/删除 .mng 的 [NEW]/[GONE] → 改源码 [SRC] → 项目级生产构建。
       # 单元用例够不到 watch 循环、单实例通道与重启编排，这条补上。
       - name: mng 应用侧场景(脚手架 + dev 热更 + 生产构建)
+        # MNG_WGPU_LIB=off 显式关 L1：runner 无 GPU，否则 wgpu 对 configure 的
+        # 校验失败是进程级 panic，应用直接 abort，HOT 回执链路跟着断。
+        env:
+          MNG_WGPU_LIB: off
         run: xvfb-run -a bash scripts/mng_scenario.sh
 
       # 模板生成物新鲜度对账：对每个提交的 .mng 用 dev / 生产两种形态重新编译，
@@ -252,7 +256,10 @@ jobs:
 
       # 冒烟判定:hello 是常驻事件循环,timeout 到期返回 124 = 进程存活 20 秒;
       # 启动崩溃/链接失败会以其他退出码失败。
+      # MNG_WGPU_LIB 同 mng 场景：无 GPU runner 显式关 L1，冒烟只考 CPU/GTK 存活。
       - name: GUI 冒烟(hello 在虚拟显示下存活 20 秒即通过)
+        env:
+          MNG_WGPU_LIB: off
         run: |
           set +e
           timeout 20s xvfb-run -a moon run examples/hello
