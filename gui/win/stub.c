@@ -10014,6 +10014,15 @@ int wm_set_transparent_bg(int64_t id, int on) {
       return 1;
     }
     s->transparent = on ? 1 : 0;
+    // 半路开透明且已挂 GPU 档：摘掉 Metal 层退回 drawRect 的 CG 直贴
+    // （BGRA 预乘带 alpha，配 clearColor/opaque:NO 才真透）。dead 挡住后续
+    // present 重挂；退回后 backing 若无帧，drawRect 经 need_draw 请一帧
+    if (on && s->l1.on) {
+      wm_l1_window_drop(&s->l1);
+      s->l1.on = 0;
+      s->l1.dead = 1;
+      [s.view setWantsLayer:NO];
+    }
     [s.win setOpaque:on ? NO : YES];
     [s.win setBackgroundColor:on ? [NSColor clearColor]
                                  : [NSColor windowBackgroundColor]];
@@ -10208,8 +10217,9 @@ void wm_request_focus(int64_t id) {
 // 贴像素路径（drawRect: 的 CG 直贴）在 l1.on 时停手。核心在文件末实现
 // TU 段。 ----
 static int wm_l1_try(WMState *s, const unsigned char *rgba, int bw, int bh) {
-  if (!wm_l1_available() || s->l1.dead) {
-    return 0;
+  if (!wm_l1_available() || s->l1.dead || s->transparent) {
+    return 0; // 透明档不走 GPU（对齐 Win32 支）：swapchain 帧没有 alpha 语义，
+              // 透不出桌面（真机：透明测试窗整窗黑底）
   }
   if (!s->l1.on) {
     if (s->width < 1 || s->height < 1) {

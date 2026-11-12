@@ -121,8 +121,8 @@ fn window_sections(host : Ref[@widget.WindowHost?]) -> Array[@widget.Node] {
   let multiwin_out : @base.Store[String] = @base.Store::new(
     "（还没开过子窗）",
   )
+  // alpha 与背景穿透共用一条回显行
   let layer_out : @base.Store[String] = @base.Store::new("（尚无操作）")
-  let transparent_on : Ref[Bool] = Ref(false)
   let tw_out : @base.Store[String] = @base.Store::new(
     "（还没开过透明测试窗）",
   )
@@ -301,7 +301,7 @@ fn window_sections(host : Ref[@widget.WindowHost?]) -> Array[@widget.Node] {
     // —— 透明度 ——
     hello_section(
       "透明度",
-      "两件不同的事。`set_opacity` 是**整窗 alpha**（0–255）——连同文字与控件一起变淡，需要合成器，没有就静默无效。`set_transparent_bg` 是**背景透视**——控件没铺到的像素留成透明，桌面从那些洞透出来，铺了底色的控件照旧不透明（Windows 上要无边框才成立，带边框的窗自动退回不透视）；**要经 `App::set_transparent_bg` 开**——宿主默认页面底会铺满整窗，直调窗口层摘不掉它。主窗看不了后者的效果：这一页整片铺满底色，没有「没铺到的像素」；点下面的「开透明测试窗」单开一扇无边框窗，里面只放几块卡片来验。",
+      "两件不同的事。`set_opacity` 是**整窗 alpha**（0–255）——连同文字与控件一起变淡，需要合成器，没有就静默无效，对主窗生效。`set_transparent_bg` 是**背景透视**——控件没铺到的像素留成透明，桌面从那些洞透出来（Windows 上要无边框才成立；**要经 `App::set_transparent_bg` 开**，宿主默认页面底会铺满整窗，直调窗口层摘不掉它）。主窗整片铺满底色、没有「没铺到的像素」，透视验不了也**不该在主窗开**；点「开透明测试窗」单开一扇无边框窗，根容器不铺底，只放几块不透明卡片来验。",
       [
         @ui.row(
           [
@@ -314,23 +314,6 @@ fn window_sections(host : Ref[@widget.WindowHost?]) -> Array[@widget.Node] {
             }),
             @ui.button("25%", variant=@ui.Soft, on_click=fn() {
               win_set_opacity(64)
-            }),
-            @ui.button("背景穿透", variant=@ui.Text, on_click=fn() {
-              transparent_on.val = !transparent_on.val
-              let on = transparent_on.val
-              match host.val {
-                Some(a) => {
-                  a.set_transparent_bg(on)
-                  layer_out.set(
-                    if on {
-                      "背景穿透：开（本页铺满底色，看得见的只有 alpha 的变化；要点下面的测试窗才看得见透视）"
-                    } else {
-                      "背景穿透：关"
-                    },
-                  )
-                }
-                None => ()
-              }
             }),
           ],
           column_gap=8.0,
