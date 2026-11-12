@@ -26,7 +26,8 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 （2026-11-11 主模块批已合入（67938096）：prebuild.py 407 行移植 mbtx、moon.mod 切换、py 删除、doctor Python 项退役、build.md/mng.md 双语同步；mac 对拍逐字段一致 + hello 端到端链接 + stamp 缓存 0.3s。移植坑记 adaptation.md「prebuild.py → prebuild.mbtx 移植坑」）
 
 - [ ] **win/linux 腿验证**（用户/CI）：CI 三腿绿（mbtx 在两平台首跑）+ 最好在无 python 环境各跑一次 `moon build examples/hello`（win：摘 PATH 里 python；linux：docker 无 python 镜像）
-- [ ] **gui-media / gui-gpu 的 prebuild 移植**：确认含归档下载（HTTP 已实锤 grep 到）；评估 mbtx 网络能力（async 有无 http 客户端）或下载前移 mng，随后同款移植
+
+（gui-media / gui-gpu 的 prebuild 移植已合入（09a64d03、35c0441b），本项收口）
 
 ## mng 全入口 P1：mngui 向导壳（2026-11-11 动手，分期见 roadmap「已规划 · 开发体验」；一项一提交，做完删一项）
 
