@@ -246,7 +246,6 @@ fn main {
     ("Store", @pages.page_store_demo),
     ("反馈组件", @pages.page_feedback),
     ("事件与布局", @pages.page_events),
-    ("窗口", @pages.page_window),
     ("图标库", @pages.page_icons),
     ("过渡与效果", @pages.page_anim),
   ]

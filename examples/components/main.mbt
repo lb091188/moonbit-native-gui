@@ -163,7 +163,6 @@ fn main {
     route_of_page(box, "Store", @pages.page_store_demo, @router.Prefetch),
     route_of_page(box, "反馈组件", @pages.page_feedback, @router.Prefetch),
     route_of_page(box, "事件与布局", @pages.page_events, @router.Prefetch),
-    route_of_page(box, "窗口", @pages.page_window, @router.Prefetch),
     route_of_page(box, "图标库", @pages.page_icons, @router.Prefetch),
     route_of_page(box, "过渡与效果", @pages.page_anim, @router.Prefetch),
     // GPU 画布构造期探 GPU 扩展 + 建离屏画布，同探针页口径只给点开时才做
@@ -222,7 +221,7 @@ fn main {
                 [
                   nav.sidebar(
                     [
-                      ("组件", ["基础组件", "表单组件", "导航组件", "数据展示", "图表", "代码文档", "Store", "反馈组件", "事件与布局", "窗口", "图标库", "过渡与效果"]),
+                      ("组件", ["基础组件", "表单组件", "导航组件", "数据展示", "图表", "代码文档", "Store", "反馈组件", "事件与布局", "图标库", "过渡与效果"]),
                       ("系统", ["GPU 画布"]),
                     ],
                     label_of=fn(k) { @shared.nav_label(k) },
@@ -236,7 +235,6 @@ fn main {
                       ("Store", @icons.Database),
                       ("反馈组件", @icons.ChatRound),
                       ("事件与布局", @icons.Mouse),
-                      ("窗口", @icons.Windows),
                       ("图标库", @icons.Layout),
                       ("过渡与效果", @icons.MagicStick),
                       ("GPU 画布", @icons.Picture),

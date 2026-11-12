@@ -1,13 +1,16 @@
-// 你好窗口（.mng 单文件形态入门样例）+ 基本窗口示例（多窗 + 托盘轻演示）。
+// 你好窗口（.mng 单文件形态入门样例）+ 基本窗口示例（多窗 + 托盘轻演示）
+// + 窗口功能八段（pages_window.mbt，迁自 components 窗口页）。
 //
-// 三条口径：
+// 四条口径：
 // ① 页面主体来自 hello.mng（`mng gen` 产 hello.gen.mbt，生成码入库）；
 // ② 基本窗口示例是命令式代码：三档预设窗口（备忘 / 调色 / 关于）的按钮
 //    按开/关状态切换（同一档只留一扇，关掉才能再开），按钮行走 flexbox wrap
 //    按窗宽换行；子窗自带「关闭此窗」（`WindowHost::close_window`），窗口数由
 //    轮询表刷新到状态行；
 // ③ 托盘是「事件循环依赖类能力」的最小面：单例 + 提示语 + 左键计数，200ms
-//    派发泵；Linux 的 D-Bus 排期通道同泵接线。
+//    派发泵；Linux 的 D-Bus 排期通道同泵接线；
+// ④ 窗口功能八段纵向排在入门页与基本窗口示例之后，整页包一层纵滚——
+//    展示形态从简（无 code 展示区、文案直写中文，详见 pages_window.mbt 头注释）。
 
 ///|
 /// 窗口标题
@@ -143,7 +146,18 @@ fn main {
     row_gap=8.0,
   )
   let mounted = @ui.mount_window(
-    [hello(), playground],
+    [
+      // 整页纵滚：mng 入门页 + 基本窗口示例 + 窗口功能八段（迁移自
+      // components 窗口页），纵向一块块、无左右分栏
+      @ui.scroll_view(
+        [hello(), playground] + window_sections(host_ref),
+        @ui.ScrollState::new(),
+        handle=fn(v) {
+          v.node.set_width(@yoga.percent(100.0))
+          v.node.set_flex_grow(1.0)
+        },
+      ),
+    ],
     title=HELLO_TITLE,
     width=760,
     height=680,
