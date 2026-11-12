@@ -49,6 +49,8 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - 🚧 **平台原生句柄透出**：`Window::native_handle() -> Int64`——Windows 给 `HWND`、macOS 给 `NSWindow*`、Linux/GTK 给 `GtkWidget*`（口径钉在桩注释），无效槽或无后端回 0；契约「裸句柄、平台语义、仅逃生用，跨平台代码不得依赖」写在方法文档，第三方原生内容挂窗与平台 API 直调不必再复制库的窗口槽表（接口已落地，三平台真机句柄有效性待复验）
 - 🚧 **窗口族能力可探测**：`Window::shell_caps()` 八位探测（`opacity` / `transparent_bg` 在 GTK 臂实时探合成器）+ `set_transparent_bg` 返回 `Result`（`Unsupported` / `Failed` 带原因，前置不满足如 Windows 需先无边框进 `Failed` 档）；窗口方法族契约注释逐平台钉死读回值含义（同签名悄悄无效清零，与系统能力族同一套诚实降级口径）
 
+- 🚧 **新窗首帧自动补绘（2026-11-12，真机待验）**：`open_window` 建窗后首帧若落在平台映射之前被丢掉，排期时的 wake 已消费，之后没有输入事件就不再入泵（真机：新开窗白屏、动鼠标才出内容）。现由 `WindowHost::mount` 在首帧前排 30/120/400ms 三拍兜底重绘（画过即停），`paint_frame` 尺寸未就绪早退也排期；应用零接线，widget 无头用例断言首帧上屏
+
 ### 渲染与绘制
 
 - ✅ **渲染内建**：控件绘制全部内建，不依赖 Skia 等外部图形引擎
@@ -213,7 +215,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **剪贴板**：读写系统剪贴板文本
 - ✅ **音量与静音**：读音量、设百分比、切静音
 - ✅ **显示器枚举**：在线屏、分辨率、刷新率、物理尺寸、模式列表（三平台各一条官方通道：Linux 解析 `xrandr`、macOS 直调 CoreGraphics、Windows 走 GDI 的 `EnumDisplayDevicesW` + `EnumDisplaySettingsExW`，2026-10-28 接上并真机验通——此前 Windows 掉进 mac 臂恒 `Unsupported`。读数边界：`connected` 恒真（三平台都没有「接了但断电」的公开清单）、`name` Windows 取 `DISPLAY1` 这种设备名去前缀、`mm_width`/`mm_height` 仅 Linux 有（Windows 的 GDI 不报物理尺寸）、`preferred` 三平台恒 false（没有公开信号，不拿「当前档」冒充））
-- ✅ **系统托盘**：通知区图标 + 右键/左键菜单（Linux 走 SNI，Windows 走 `Shell_NotifyIcon`）。**退出前必须逐个 `NIM_DELETE`**——Win32 的通知区项不随进程回收，宿主窗口没了会留僵尸图标（右键它既不出菜单也不出 tooltip，得等 Shell 下次鼠标扫过才清）；2026-10-28 修：`remove_all_trays()` 原先只有 SNI 兜底，改为取槽位快照逐个摘除再兜底。**仍是边界**：`taskkill` / 崩溃 / 断电这类非正常退出拦不住，Win32 通病
+- ✅ **系统托盘**：通知区图标 + 右键/左键菜单（Linux 走 SNI，Windows 走 `Shell_NotifyIcon`）。**退出前必须逐个 `NIM_DELETE`**——Win32 的通知区项不随进程回收，宿主窗口没了会留僵尸图标（右键它既不出菜单也不出 tooltip，得等 Shell 下次鼠标扫过才清）；2026-10-28 修：`remove_all_trays()` 原先只有 SNI 兜底，改为取槽位快照逐个摘除再兜底。✅ **内置图标单色紧版（2026-11-12，🚧 真机待验）**：`gui/dbus/icon.mbt` 按母版内容框收紧并居中（32 视口内容约 25×30），耳窝挖空，黑/白两档纯色剪影；`Tray::new` 用内置图标时自动跟随主题明暗（只翻转换图、黑白句柄各缓存，移除托盘退订，显式 `set_icon*` 取消跟随）。**仍是边界**：`taskkill` / 崩溃 / 断电这类非正常退出拦不住，Win32 通病
 - ✅ **空闲检测**：读系统空闲秒数（Linux X11、Windows；macOS 走 HID 系统态）
 - ✅ **开机自启**：写 autostart / Run 键 / LaunchAgents；开关即真实状态
 - ✅ **mac 通知迁移 UNUserNotificationCenter**：老 NSUserNotification 在新 macOS（26.x 实测）被降级成「只进中心不弹条」——通知后端整体迁到 UN：bundle 探测、首次使用请求 alert/sound/timeSensitive 授权（老授权自动补齐）、同 identifier 覆盖即更新、按标识摘除、授权异步裁决前投递排队、声音默认有声（对齐 Win32）、delegate 答复带 Banner|List|Sound、`NATIVEGUI_NOTIFY_LOG` 门控诊断。**前台横幅的钥匙是时间敏感档**：缺档时前台 delegate 询问派发不可靠（忙时静默），标记+授权后忙循环也正常（真机日志 + 探针定案，见 `experience/adaptation.md`）；mac 真机已验（横幅+声音），Linux 走 D-Bus、Windows 走托盘气泡不受影响
@@ -284,6 +286,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 
 - ✅ **真机用例与记录台**：按「应用 → 页面 → 段落」组织（现 191 条，八个示例）；记录台与用例文档同住 `测试文档/`，记录台加载 md 现算清单与计数，用例唯一事实源是 `测试用例.md`（经本地 HTTP 服务打开，Live Server 等）；用例归属按所在章节的 `cd examples/<名>` 现算，SC 前缀可跨 components / canvas / system 三示例
 - 🚧 **示例矩阵收拢（2026-11-12，验收前整理；真机冒烟归用户）**：showcase 改名 `examples/components` 收为纯组件展示库（12 组件页 + GPU 画布；系统集成 / 系统能力探测 / 画布富文本独立成示例，模板 Dev 与检查器两页随开发工具出清）；新增 `examples/system`（左侧分组菜单 + 滚动正文，单实例声称 / 托盘单例 / 双派发泵 / D-Bus 接线）与 `examples/canvas`（画板：鼠标手绘 + 键盘画直线 + 光标、富文本）；`examples/hello` 改 mng 单文件入门样例（声明页 + 三档预设子窗 + flexbox 换行 + 托盘 + `mng dev` 热更）；删 `template-hello` / `headless-audio`；文档站示例表、测试用例与 CI / size-gate / 发布流水线路径同步
+- 🚧 **hello 交互收口与 sysmonitor 改版（2026-11-12，真机待验）**：hello 三档预设窗按钮改开/关单例（同档只留一扇，子窗标题栏关闭由 200ms 轮询回收），提示语改单页组件与开发工具说明，接入系统主题跟随；sysmonitor 重排为固定六项资源菜单（50×50 图标、加粗标题、名称/属性行：CPU 型号、内存品牌/频率、多显卡分块）+ 右侧最小 400 横向滚动、CPU 各核小图换行、网络只列物理网卡、磁盘剔虚拟设备/光驱/网络盘、显卡页去温度段、进程页去 nice/状态中文/表格随窗填充与列宽拖动
 - 🚧 **组件文档与教程**：每个组件一页配图；教程给可运行最小工程
 - ✅ **上手门槛**：首页最短路径；缺依赖时构建报错自带修复提示
 - ✅ **贡献入口**：`.github/ISSUE_TEMPLATE` 两份 issue form（bug 带平台 / 会话 / 版本 / 复现步骤 / 退出读数行 / 门禁自查；feature 带真实用例 / 期望接口形态 / 三平台通道情况）+ `config.yml`（关空白 issue，导向体验包、文档站、构建指南与贡献指南）、`PULL_REQUEST_TEMPLATE.md`（门禁读数 + 三平台验证表 + 文档同步清单 + 破坏性改动声明）、`CONTRIBUTING_ZH.md` / `CONTRIBUTING.md` 双语指南（目录落位、设计口径、无头与真机分工、提交与 PR 约定；环境与失败处置指回 build.md，不双源）

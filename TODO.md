@@ -45,6 +45,13 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 
 
 
+## 验收前收口批（2026-11-12 代码合入，真机复验归用户）
+
+- [ ] **新窗首帧**：`cd examples/hello` 依次开三档子窗，**不动鼠标**每扇窗内容立即可见（不再白屏等鼠标）
+- [ ] **托盘单色**：浅色/深色模式下看 hello/内置托盘图标——纯黑/纯白剪影、留白收紧、不胖；切系统明暗后自动换黑白
+- [ ] **hello 开关窗**：同一档按钮「打开→关闭」单例（重复点不叠加）；子窗标题栏关闭后 ≤200ms 按钮回「打开」；提示语为单页组件与开发工具说明、无热更字样
+- [ ] **sysmonitor 改版**：六项菜单（含 CPU 型号/内存品牌频率/多显卡名称行）、右栏 <400 横向滚动、CPU 各核小图换行、网络只列实体网卡、磁盘无 loop/光驱/网络盘、显卡页无温度段、进程页搜索/结束/中文状态/列宽拖动/表格填满
+
 > 产物钉死四件：macOS DMG、Windows setup（NSIS）、Linux deb + AppImage；tar.gz 与 PKGBUILD 不做。Linux 自动更新走 AppImage 单文件替换，deb 档报新版本引导下载。
 
 - [ ] **A1 mac 腿真机复验**（用户执行）：`cd examples/components && moon run ../../tools/native-gui-tools/mng -- package`——`.mng/dist/` 应出 `Native GUI Showcase.app` + `showcase-0.1.0-darwin-aarch64.dmg/.zip` 三件；挂 DMG 拖装运行（adhoc 首启 Gatekeeper 右键放行属已知），看 Dock 图标（assets/icon.png 派生）与资源（2026-11-09 主链已过：拖装双击真机过（demo_app 实测；途中修出 DMG 卷内执行位、.exe 名两缺陷）；components DMG 卷内签名/可执行位挂载实测过；剩 components 拖装看 Dock 图标与资源一小步）

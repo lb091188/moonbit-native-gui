@@ -406,7 +406,7 @@
     <p>本机浏览器的 localStorage（键名 <code>ngtt.v1</code>），不上传任何服务器，关掉页面不丢。它绑定「这台机器的这个浏览器」，换浏览器或清站点数据会丢——所以提供了「导出」：得到的 JSON 可以放进 <code>测试文档/</code> 一起提交，需要时用「导入」合并回来（按时间取新、日志去重）。</p>
     <p>页面被嵌在沙箱 iframe 里打开时（例如某些预览面板），浏览器会拒绝 localStorage，此时页面顶部会出现黄条提示，记录只留在内存。要正常保存，请用浏览器直接打开本文件。</p>
     <h3>用例库来源</h3>
-    <p>按「应用 → 页面 → 段落」组织，编号与 <code>测试文档/测试用例.md</code> 一一对应：<code>HL</code> = Hello、<code>SC</code> = 组件/画板/系统三示例（按所在章节归位）、<code>BR</code> = Browser、<code>AU</code> = Audio、<code>VD</code> = Video、<code>TP</code> = Theme Playground。条数与应用内计数在加载时从用例文档现算。改用例只改 <code>测试用例.md</code>，本页刷新即生效。</p>
+    <p>按「应用 → 页面 → 段落」组织，编号与 <code>测试文档/测试用例.md</code> 一一对应：<code>HL</code> = Hello、<code>SC</code> = 组件/画板/系统三示例（按所在章节归位）、<code>BR</code> = Browser、<code>AU</code> = Audio、<code>VD</code> = Video、<code>TP</code> = Theme Playground、<code>SM</code> = Sysmonitor。条数与应用内计数在加载时从用例文档现算。改用例只改 <code>测试用例.md</code>，本页刷新即生效。</p>
     <h3>已知边界</h3>
     <ul>
       <li>不存截图。失败项用文字备注，需要图就把文件名写进备注。</li>
@@ -438,7 +438,8 @@
     { id: 'browser',     name: 'Browser',     desc: 'WebView 示例',     cmd: 'cd examples/browser && moon run .' },
     { id: 'audio',       name: 'Audio',       desc: '音频播放',         cmd: 'cd examples/audio && moon run .' },
     { id: 'video',       name: 'Video',       desc: '视频帧源',         cmd: 'cd examples/video && moon run .' },
-    { id: 'theme-playground', name: 'Theme Playground', desc: '主题定制工作台', cmd: 'cd examples/theme-playground && moon run .' }
+    { id: 'theme-playground', name: 'Theme Playground', desc: '主题定制工作台', cmd: 'cd examples/theme-playground && moon run .' },
+    { id: 'sysmonitor', name: 'Sysmonitor', desc: '资源监视与进程管理', cmd: 'cd examples/sysmonitor && moon run .' }
   ];
 
   /* 用例库：唯一事实源是同目录的 `测试用例.md`，页面加载时取回解析成清单。
@@ -450,7 +451,7 @@
      page 用各应用的固定名。改用例只改 md，本文件不再存清单。 */
   var CASES = [];
   var CASE_PAGE_OF_APP = { browser: '浏览器窗口', audio: '音频播放器', video: '视频播放器' };
-  var CASE_APP_OF_PREFIX = { HL: 'hello', SC: 'components', BR: 'browser', AU: 'audio', VD: 'video', TP: 'theme-playground' };
+  var CASE_APP_OF_PREFIX = { HL: 'hello', SC: 'components', BR: 'browser', AU: 'audio', VD: 'video', TP: 'theme-playground', SM: 'sysmonitor' };
 
   function parseCases(md) {
     var lines = md.split(/\r?\n/);
@@ -474,10 +475,10 @@
         page = h[1].replace(/[（(][^）)]*[）)]\s*$/, '').replace(/^[\d.]+\s+/, '').trim();
         continue;
       }
-      if (!/^\|\s*(HL|SC|BR|AU|VD|TP)-\d/.test(ln)) continue;
+      if (!/^\|\s*(HL|SC|BR|AU|VD|TP|SM)-\d/.test(ln)) continue;
       var cells = ln.split('|');
       if (cells.length < 7) continue;
-      var idm = cells[1].trim().match(/^(HL|SC|BR|AU|VD|TP)-/);
+      var idm = cells[1].trim().match(/^(HL|SC|BR|AU|VD|TP|SM)-/);
       var sec = cells[2].trim();
       // 倒数第二格才是「预期」：最后一格是行尾竖线后的空串
       var d = cells[cells.length - 2].trim();

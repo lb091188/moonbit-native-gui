@@ -48,7 +48,7 @@ sudo apt install libgtk-3-0 libpango-1.0-0 libx11-6 \
 
 #### hello — starter sample and basic window demos
 
-The top half is an `.mng` single-file declarative page (name input with live greeting, count stepper); the bottom half is a command-style basic window demo: three preset windows (memo / palette / about) open a new window each, every child window carries a "close this window" button, and the status line shows the live window count; a tray icon stays resident (left-click counter). Run `mng dev` and edit the template to watch hot reload.
+The top half is an `.mng` single-file declarative page (name input with live greeting, count stepper); the bottom half is a command-style basic window demo: three preset windows (memo / palette / about) **toggle open/close** (one window per preset; the button label follows the state), every child window carries a "close this window" button, and the status line shows the live window count; a tray icon stays resident (monochrome silhouette that follows the system light/dark mode, left-click counter). Run `mng dev` and edit the template to watch hot reload.
 
 #### components — component gallery
 
@@ -95,7 +95,7 @@ MOON_WORK=off moon run .               # resolve the published library from the 
 | `examples/system` | System capabilities: system integration (dialogs / notifications / tray / autostart / single instance / self-update) + read-only probes, left grouped menu |
 | `examples/browser` | Embedded WebView browser (extra dependency `gui-webview`) |
 | `examples/audio` · `video` | Audio/video players (extra dependency `gui-media`, needs ffmpeg) |
-| `examples/sysmonitor` | System monitor: overview, processes, disks, network and sensors |
+| `examples/sysmonitor` | System monitor: six-item resource menu (CPU / memory / network / disks / GPU / processes) with per-core charts, physical NICs, physical partitions and process management |
 | `examples/theme-playground` | Theme fitting room: tune one theme and watch it apply globally |
 
 Beyond the examples: [Components overview](../components/index.md), [Declarative & reactivity](declarative.md), [Layout & styling](layout.md), [System capabilities overview](../capability/sys.md), [Embedded WebView](../capability/webview.md).

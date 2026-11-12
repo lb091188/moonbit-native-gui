@@ -48,7 +48,7 @@ sudo apt install libgtk-3-0 libpango-1.0-0 libx11-6 \
 
 #### hello —— 入门样例与基本窗口示例
 
-上半是 `.mng` 单文件声明式页（输入联动问候、计数步进器）；下半是命令式的基本窗口示例：三档预设窗口（备忘 / 调色 / 关于）点开即出新窗、每扇子窗带「关闭此窗」、状态行实时显示窗口数；托盘常驻（左键计数）。模板改字后跑 `mng dev` 可看热更。
+上半是 `.mng` 单文件声明式页（输入联动问候、计数步进器）；下半是命令式的基本窗口示例：三档预设窗口（备忘 / 调色 / 关于）**按开/关切换**（同一档只留一扇，按钮随状态变「打开/关闭」）、每扇子窗带「关闭此窗」、状态行实时显示窗口数；托盘常驻（单色剪影随系统明暗、左键计数）。模板改字后跑 `mng dev` 可看热更。
 
 #### components —— 组件展示库
 
@@ -95,7 +95,7 @@ MOON_WORK=off moon run .               # 按注册表已发布的库版本解析
 | `examples/system` | 系统能力：系统集成（对话框 / 通知 / 托盘 / 自启 / 单实例 / 自更新）+ 只读探测，左侧分组菜单 |
 | `examples/browser` | 内嵌 WebView 浏览器（额外依赖 `gui-webview`）|
 | `examples/audio` · `video` | 音视频播放器（额外依赖 `gui-media`，需 ffmpeg）|
-| `examples/sysmonitor` | 系统监视器：概览、进程、磁盘、网络与传感器 |
+| `examples/sysmonitor` | 系统监视器：六项资源菜单（处理器/内存/网络/磁盘/显卡/进程）+ 各核曲线、物理网卡、物理分区与进程管理 |
 | `examples/theme-playground` | 主题试衣间：调一套主题看全局效果 |
 
 示例之上深入各面：[组件总览](../components/index.md)、[声明式与响应式](declarative.md)、[布局样式](layout.md)、[系统能力总览](../capability/sys.md)、[内嵌 WebView](../capability/webview.md)。
