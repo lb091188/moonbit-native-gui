@@ -460,8 +460,8 @@ test "is_system_mount：/boot 等系统挂载排除,/run/media 与自定义挂�
   assert_true(is_system_mount("/System/Volumes/Recovery"))
   assert_true(is_system_mount("/System/Volumes/xarts"))
   assert_true(is_system_mount("/System/Volumes/Cryptexes"))
-  // 用户数据卷与用户挂载保留（macOS 的 "Macintosh HD" 是 /System/Volumes/Data）
-  assert_false(is_system_mount("/System/Volumes/Data"))
+  // /System/Volumes/Data 与 / 同一块 APFS 容器（读数一致），并入黑名单留 / 一行
+  assert_true(is_system_mount("/System/Volumes/Data"))
   assert_false(is_system_mount("/Volumes/My Drive"))
   assert_false(is_system_mount("/System"))
 }

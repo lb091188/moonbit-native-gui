@@ -281,8 +281,10 @@ pub fn parse_mounts(text : String) -> Array[MountInfo] {
 /// 不进容量列表（前缀按路径段匹配，避免 /bootstrap 之类误伤；
 /// /run/media 可移动介质是用户挂载，保留）。macOS 侧补系统宗卷：
 /// /private（swap 后备卷 /private/var/vm）与 /System/Volumes 下的
-/// Preboot / Update / VM / Hardware / iSCPreboot；/System/Volumes/Data
-/// 是用户数据卷（"Macintosh HD"），保留。
+/// Preboot / Update / VM / Hardware / iSCPreboot / Recovery / xarts /
+/// Cryptexes；/System/Volumes/Data 与 "/" 是**同一块 APFS 容器**
+/// （系统只读快照卷 + 数据卷，可用/总量完全相同，真机实测两行读数
+/// 一致），留 "/" 一行即可，Data 并入黑名单。
 fn is_system_mount(mount : String) -> Bool {
   fn hit(prefix : String) -> Bool {
     mount == prefix || mount.has_prefix("\{prefix}/")
@@ -305,7 +307,8 @@ fn is_system_mount(mount : String) -> Bool {
   hit("/System/Volumes/iSCPreboot") ||
   hit("/System/Volumes/Recovery") ||
   hit("/System/Volumes/xarts") ||
-  hit("/System/Volumes/Cryptexes")
+  hit("/System/Volumes/Cryptexes") ||
+  mount == "/System/Volumes/Data"
 }
 
 ///|
