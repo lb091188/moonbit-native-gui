@@ -33,15 +33,24 @@ test "test_headless：挂内容、置脏、step 一拍结算不崩" {
     }),
   ])
   assert_true(a.step())
-  // 首帧已上屏：兜底重绘不再排、脏标记已清（新窗不再等鼠标移动出内容）
+  // 首帧已上屏、脏标记已清；兜底仍在排——present 成功不提前缴械
+  //（窗未映射完时的首帧会被平台丢掉，必须由计时拍补上）
   assert_true(a.painted_once)
   assert_eq(a.session.dirty, false)
-  assert_eq(a.first_retry_left, 0)
-  // 画过之后再 mount 不重复排首帧兜底
+  assert_eq(a.first_retry_left, 3)
+  // 飞行中再 mount 不重复排
   a.mount([node_of_new(fn(_p : Widget) -> Widget { Widget::new() })])
-  assert_eq(a.first_retry_left, 0)
+  assert_eq(a.first_retry_left, 3)
   assert_true(a.step())
   assert_true(a.painted_once)
+  // 推进到三拍（30/120/400ms）全部到期：收口为 -1，此后 mount 也不再排
+  let deadline = @win.now_ms() + 2000L
+  while a.first_retry_left != -1 && @win.now_ms() < deadline {
+    let _ = a.step()
+  }
+  assert_eq(a.first_retry_left, -1)
+  a.mount([node_of_new(fn(_p : Widget) -> Widget { Widget::new() })])
+  assert_eq(a.first_retry_left, -1)
 }
 
 ///|

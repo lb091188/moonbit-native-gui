@@ -432,21 +432,22 @@ pub fn theme_apply_system_once() -> Bool {
 ///|
 /// 首帧兜底：新窗第一帧可能落在平台映射之前被丢掉，而排期当时那次
 /// `@win.wake()` 已经消费掉，之后没有输入事件就再也不入泵。这里在新窗
-/// 首次挂内容时排三拍延时重绘（画过即停），保证「开窗即出内容」不依赖
-/// 鼠标移动。`first_retry_left` 兼作「已排过」标记，避免每次 mount 重复排。
+/// 首次挂内容时排三拍延时重绘（30/120/400ms），保证「开窗即出内容」
+/// 不依赖鼠标移动。三拍**不看 `painted_once` 照补**：present 成功只说明
+/// 位图提交了，窗还没映射完时那一帧照样被丢——同拍首帧恰好在映射前
+/// 「画过」时，看 painted_once 早退会把兜底提前缴械（真机复现：预设
+/// 子窗白屏到鼠标动为止）。代价是每扇新窗至多三次冗余补绘（内容相同
+/// 不闪）。`first_retry_left` 三态：0=未排（可排）、>0=飞行中（挡重复
+/// 排）、-1=已收口（永不再排）。
 fn arm_first_paint_retries(host : WindowHost) -> Unit {
-  if host.painted_once || host.first_retry_left > 0 {
+  if host.first_retry_left != 0 {
     return
   }
   host.first_retry_left = 3
   fn retry(host : WindowHost, last : Bool) -> Unit {
-    if host.painted_once {
-      host.first_retry_left = 0
-    } else {
+    if host.first_retry_left > 0 {
       host.schedule_paint()
-      if last {
-        host.first_retry_left = 0
-      }
+      host.first_retry_left = if last { -1 } else { host.first_retry_left - 1 }
     }
   }
   let _ = host.session.sched.timer(30, fn() { retry(host, false) })
@@ -1241,9 +1242,9 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   @shell.atspi_tick()
   let t2 = @win.now_ms()
   self.session.window.present(bm.data, bm.width, bm.height)
-  // 成功上屏一帧：首帧兜底到此为止，后续重绘全走脏标记。
+  // present 成功只计「提交过一帧」（诊断用）：帧是否真落屏要等平台映射，
+  // 首帧兜底的收口在三拍计时器里，不在这里提前缴械。
   self.painted_once = true
-  self.first_retry_left = 0
   let t3 = @win.now_ms()
   // 分段账本：位图分配计入 total 不计入单段，避免把「分配」混进「布局」
   prof_record(t1 - t0, t2 - t1, t3 - t2, t3 - t0)}
