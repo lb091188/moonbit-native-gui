@@ -4,13 +4,11 @@
 // 形态要点：
 //   - 起窗走 `@ui.mount_window` + `WindowHost::run`；主题深浅与主色跟随系统
 //     （2s tick 读偏好，变了写 App，subscribe 落成 theme_apply）。
-//   - 语言切换只换目录：整页包一层 `@widget.localized`，i18n 广播驱动原地重建
-//     （单页示例没有路由树，重挂靠这一层）。
 //   - 代码区「复制」回显走全局钩子 `@shared.code_toast`（main 注入 toast 层）。
 
 ///|
 /// 窗口标题
-const CANVAS_TITLE : String = "画板与富文本"
+const CANVAS_TITLE : String = "画板"
 
 ///|
 /// 主题应用：跟随系统深浅，主色读系统（无主色概念的平台回落内置基准盘）。
@@ -26,28 +24,12 @@ fn apply_theme(app : @shared.App) -> Unit {
 }
 
 ///|
-/// 语言切换按钮：只换目录，页面重挂由 `@widget.localized` 的 i18n 广播驱动。
-fn language_toggle_button(app : @shared.App) -> @widget.Node {
-  @ui.icon_button(
-    @icons.Earth,
-    on_click=fn() {
-      let to_en = app.locale.get() != "en"
-      let loc = if to_en { "en" } else { "zh-CN" }
-      @shared.set_locale_catalog(loc)
-      app.locale.set(loc)
-      @widget.host_repaint_all()
-    },
-  )
-}
-
-///|
 fn main {
   // 代码区「复制」要写系统剪贴板；在建 UI 之前打开
   @ui.use_system_clipboard(true)
   let toast_push = @ui.toast_layer(duration_ms=2600)
   @shared.code_toast.val = Some(toast_push)
   let app : @shared.App = {
-    locale: @base.Store::new("zh-CN"),
     toast: toast_push,
     dark_mode: @base.Store::new(@win.sys_color_scheme() == "dark"),
     accent: @base.Store::new(@win.sys_accent()),
@@ -59,13 +41,7 @@ fn main {
   apply_theme(app)
   let mounted = @ui.mount_window(
     [
-      @ui.col(
-        [
-          @ui.row([@ui.col([], grow=1.0), language_toggle_button(app)], padding=12.0),
-          @widget.localized(fn() -> @widget.Node { @pages.page_canvas(app) }),
-        ],
-        grow=1.0,
-      ),
+      @ui.col([@pages.page_canvas(app)], grow=1.0),
     ],
     title=CANVAS_TITLE,
     width=1100,

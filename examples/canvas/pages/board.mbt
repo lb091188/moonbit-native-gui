@@ -30,7 +30,7 @@ pub fn board_section() -> @shared.Section {
   let current : Ref[Stroke?] = Ref(None)
   let cursor : Ref[(Double, Double)] = Ref((320.0, 200.0))
   let board = @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
-    w.node.set_width(@yoga.fixed(640.0))
+    w.node.set_width(@yoga.percent(100.0))
     w.node.set_height(@yoga.fixed(400.0))
     // >0 即入 Tab 链（宿主按树序对齐焦点栈）；9xx 段页内唯一
     w.focus_id = 930
@@ -172,15 +172,15 @@ pub fn board_section() -> @shared.Section {
   })
   let toolbar = @ui.row(
     [
-      @ui.button(@shared.tx("换色"), variant=@ui.Soft, on_click=fn() {
+      @ui.button("换色", variant=@ui.Soft, on_click=fn() {
         color_idx.val = (color_idx.val + 1) % colors.length()
         @widget.invalidate()
       }),
-      @ui.button(@shared.tx("线宽"), variant=@ui.Soft, on_click=fn() {
+      @ui.button("线宽", variant=@ui.Soft, on_click=fn() {
         width_idx.val = (width_idx.val + 1) % widths.length()
         @widget.invalidate()
       }),
-      @ui.button(@shared.tx("清空画板"), variant=@ui.Solid, on_click=fn() {
+      @ui.button("清空画板", variant=@ui.Solid, on_click=fn() {
         strokes.val = []
         current.val = None
         @widget.invalidate()

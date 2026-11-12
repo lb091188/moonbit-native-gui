@@ -1,10 +1,9 @@
-// 画板与富文本示例共享层：跨段状态 App + 页面「段」装配 + 内嵌英文目录。
+// 画板与富文本示例共享层：跨段状态 App + 页面「段」装配。
 import {
   "NoahLiu/native-gui/base",
   "NoahLiu/native-gui/widget" @widget,
   "NoahLiu/native-gui/ui",
   "NoahLiu/native-gui/style" @style,
-  "NoahLiu/native-gui/i18n" @i18n,
   "NoahLiu/yoga-mbt/src" @yoga,
 }
 

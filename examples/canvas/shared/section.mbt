@@ -35,15 +35,7 @@ pub fn section(
   content : Array[@widget.Node],
   code? : Array[String] = [],
 ) -> Section {
-  // 段标题/描述是纯显示串：在出口统一取译（英文目录命中则英文，否则原中文）。
-  // 段名 name 作 segmented 的选中值不译，显示由 `page` 的 label_of 走 `seg.` 键。
-  {
-    name,
-    title: @i18n.t_or(title, title),
-    desc: @i18n.t_or("desc§" + title, desc),
-    content,
-    code,
-  }
+  { name, title, desc, content, code }
 }
 
 ///|
@@ -60,12 +52,10 @@ pub fn page(secs : Array[Section]) -> @widget.Node {
   // 包裹列自身没有宽度（纯靠 stretch 定宽）时，它的 min-content 高仍按
   // 「无定宽全堆叠」算，段条会把整块正文高度顶起来（实测 236 vs 真值 66）。
   let flat = @style.style(min_height=0.0, min_width=0.0)
-  // 段名是 key（选中值不译），显示走 `seg.` 前缀取译——前缀是为了和正文里
-  // 「原文当 key」的条目划开：短名如「文字」撞正文的概率太高。
+  // 段名是 key（选中值即显示名）。
   let strip = @ui.segmented(
     names,
     selected,
-    label_of=fn(n : String) -> String { @i18n.t_or("seg." + n, n) },
     class=[
       @style.style(flex_wrap=@yoga.Wrap, row_gap=4.0, min_width=0.0, margin=16.0),
     ],
@@ -123,9 +113,9 @@ fn section_body(s : Section, selected : @base.Store[String]) -> @widget.Node {
         match code_toast.val {
           Some(push) =>
             if ok {
-              push(tx("代码已复制 ✓"), @ui.Success)
+              push("代码已复制 ✓", @ui.Success)
             } else {
-              push(tx("复制失败：剪贴板不可用"), @ui.Danger)
+              push("复制失败：剪贴板不可用", @ui.Danger)
             }
           None => ()
         }

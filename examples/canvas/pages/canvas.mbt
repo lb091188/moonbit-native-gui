@@ -19,15 +19,15 @@
 /// 下方一行演示族名回退（不存在的族退到 monospace）。
 fn font_mix_widget() -> @widget.Node {
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
-    w.node.set_width(@yoga.fixed(400.0))
+    w.node.set_width(@yoga.percent(100.0))
     w.node.set_height(@yoga.fixed(96.0))
     w.on_draw = Some(fn(_w : @widget.Widget, p : @render.Painter, r : @base.Rect) -> Unit {
       p.set_fill_color(@theme.theme_bg_panel())
       p.fill_rect(0.0, 0.0, r.w, r.h)
-      let base = @text.AttributedText::new(@shared.tx("基准 Base 28"))
-      let mixed = @text.AttributedText::new(@shared.tx("基准 Base 28"))
+      let base = @text.AttributedText::new("基准 Base 28")
+      let mixed = @text.AttributedText::new("基准 Base 28")
       // 「28」是末尾两字节起、长 2 字节（字节下标口径，与编辑内核同源）
-      let nb = @utf8.encode(@shared.tx("基准 Base 28"))
+      let nb = @utf8.encode("基准 Base 28")
       let at = nb.length() - 2
       mixed.set_font_for(@text.Font::new("", 28.0), at, nb.length())
       let lh_base = match base.line_height() {
@@ -55,11 +55,7 @@ fn font_mix_widget() -> @widget.Node {
         p,
         4.0,
         72.0,
-        @shared.tr_with(
-          "dyn.fallback_family",
-          [("f", fam), ("n", fam_count.to_string())],
-          "回退族名：\{fam}（可用字体族 \{fam_count} 个）",
-        ),
+        "回退族名：\{fam}（可用字体族 \{fam_count} 个）",
         12.0,
         @theme.theme_text_secondary(),
       )
@@ -145,7 +141,7 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
       "fill_rect / arc / fill / stroke_rect / draw_text 基础绘制 + 线性渐变填充。场景按控件实际尺寸画（缩放窗口不变形）；「旋转色相」循环三种主色，「渐变」给中间圆上线性渐变。",
       [
         @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
-          w.node.set_width(@yoga.fixed(640.0))
+          w.node.set_width(@yoga.percent(100.0))
           w.node.set_height(@yoga.fixed(300.0))
           w.on_draw = Some(fn(
             _self : @widget.Widget,
@@ -158,11 +154,11 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
         }),
         @ui.row(
           [
-            @ui.button(@shared.tx("旋转色相"), on_click=fn() {
+            @ui.button("旋转色相", on_click=fn() {
               hue.val = (hue.val + 1) % 3
               @widget.invalidate()
             }),
-            @ui.button(@shared.tx("渐变开关"), variant=@ui.Soft, on_click=fn() {
+            @ui.button("渐变开关", variant=@ui.Soft, on_click=fn() {
               grad_on.val = !grad_on.val
               @widget.invalidate()
             }),
@@ -183,7 +179,7 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
         "    \"自绘文本\", font, \"#F0F0F0\", align=@text.Center)",
         "}",
         "@widget.node_of_new(fn(w) {",
-        "  w.node.set_width(@yoga.fixed(640.0))",
+        "  w.node.set_width(@yoga.percent(100.0))",
         "  w.on_draw = Some(fn(_s, p, r) { draw(p, r) })",
         "  w",
         "})",
@@ -197,7 +193,7 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
       "范围字体/颜色（0-6 号 24px Black、8-11 号红色）+ 换行/省略号开关 + 文本改写（属性保留）；下面那块是可选档 `@ui.rich_text`——混排文本可拖选/双击选词，Ctrl/Cmd+C 复制，选中高亮跟着范围样式走。",
       [
         @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
-          w.node.set_width(@yoga.fixed(640.0))
+          w.node.set_width(@yoga.percent(100.0))
           w.node.set_height(@yoga.fixed(120.0))
           w.on_draw = Some(fn(
             _self : @widget.Widget,
@@ -217,7 +213,7 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
         @ui.rich_text(rt_sel, selectable=true),
         @ui.row(
           [
-            @ui.button(@shared.tx("换行开关"), on_click=fn() {
+            @ui.button("换行开关", on_click=fn() {
               rt_wrap.val = !rt_wrap.val
               rt.set_format({
                 align: @text.Start,
@@ -227,7 +223,7 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
               })
               @widget.invalidate()
             }),
-            @ui.button(@shared.tx("省略号开关"), variant=@ui.Soft, on_click=fn() {
+            @ui.button("省略号开关", variant=@ui.Soft, on_click=fn() {
               rt_ellipsis.val = !rt_ellipsis.val
               rt.set_format({
                 align: @text.Start,
@@ -237,8 +233,8 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
               })
               @widget.invalidate()
             }),
-            @ui.button(@shared.tx("改写文本"), variant=@ui.Solid, on_click=fn() {
-              rt.set_text(@shared.tx("文本已替换 ✓（范围属性保留）"))
+            @ui.button("改写文本", variant=@ui.Solid, on_click=fn() {
+              rt.set_text("文本已替换 ✓（范围属性保留）")
               @widget.invalidate()
             }),
           ],
@@ -250,14 +246,14 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
           [
             @ui.bind_label(app.dark_mode, fn(d) {
               if d {
-                @shared.tx("系统深浅：深色")
+                "系统深浅：深色"
               } else {
-                @shared.tx("系统深浅：浅色")
+                "系统深浅：浅色"
               }
             }),
             @ui.bind_label(app.accent, fn(a) {
               if a.length() == 0 {
-                @shared.tx("系统主色：（无，回落内置）")
+                "系统主色：（无，回落内置）"
               } else {
                 "系统主色：\{a}"
               }
@@ -292,9 +288,9 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
         // 字距：同一句话两档 `letter_spacing`，量宽与绘制同源（只吃在字符之间）
         @ui.row(
           [
-            @ui.text(@shared.tx("字距 0：MoonBit GUI 字距对照")),
+            @ui.text("字距 0：MoonBit GUI 字距对照"),
             @ui.text(
-              @shared.tx("字距 4：MoonBit GUI 字距对照"),
+              "字距 4：MoonBit GUI 字距对照",
               class=[@style.style(letter_spacing=4.0)],
             ),
           ],
@@ -447,7 +443,7 @@ pub fn page_canvas(app : @shared.App) -> @widget.Node {
 /// 线型演示块：三行端点、三行拐角、右侧一条 Path 折线。
 fn line_style_widget() -> @widget.Node {
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
-    w.node.set_width(@yoga.fixed(520.0))
+    w.node.set_width(@yoga.percent(100.0))
     w.node.set_height(@yoga.fixed(220.0))
     w.on_draw = Some(fn(_w : @widget.Widget, p : @render.Painter, r : @base.Rect) -> Unit {
       p.set_fill_color(@theme.theme_bg_panel())
@@ -520,7 +516,7 @@ fn canvas_asset(name : String) -> String {
 /// 虚线演示块：三行同一条横线，只有图案/相位不同。
 fn dash_widget() -> @widget.Node {
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
-    w.node.set_width(@yoga.fixed(520.0))
+    w.node.set_width(@yoga.percent(100.0))
     w.node.set_height(@yoga.fixed(170.0))
     w.on_draw = Some(fn(_w : @widget.Widget, p : @render.Painter, r : @base.Rect) -> Unit {
       p.set_fill_color(@theme.theme_bg_panel())
@@ -544,9 +540,9 @@ fn dash_widget() -> @widget.Node {
       p.set_dashes([])
       p.flush()
       let notes : Array[String] = [
-        @shared.tx("set_dashes([10, 6])"),
-        @shared.tx("同一图案，offset = 8"),
-        @shared.tx("set_dashes([]) 回实线"),
+        "set_dashes([10, 6])",
+        "同一图案，offset = 8",
+        "set_dashes([]) 回实线",
       ]
       for i in 0..<3 {
         let _ = @text.draw_text_at(
@@ -567,7 +563,7 @@ fn dash_widget() -> @widget.Node {
 /// 裁剪与变换演示块：左边裁一块、右边转一个、放大一个。
 fn clip_transform_widget() -> @widget.Node {
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
-    w.node.set_width(@yoga.fixed(520.0))
+    w.node.set_width(@yoga.percent(100.0))
     w.node.set_height(@yoga.fixed(240.0))
     w.on_draw = Some(fn(_w : @widget.Widget, p : @render.Painter, r : @base.Rect) -> Unit {
       p.set_fill_color(@theme.theme_bg_panel())
@@ -605,7 +601,7 @@ fn clip_transform_widget() -> @widget.Node {
         p,
         24.0,
         14.0,
-        @shared.tx("clip_rect(24, 40, 140, 140)"),
+        "clip_rect(24, 40, 140, 140)",
         11.0,
         @theme.theme_text_secondary(),
       )
@@ -613,7 +609,7 @@ fn clip_transform_widget() -> @widget.Node {
         p,
         250.0,
         14.0,
-        @shared.tx("translate + rotate(20°) / scale(1.6)"),
+        "translate + rotate(20°) / scale(1.6)",
         11.0,
         @theme.theme_text_secondary(),
       )
@@ -626,7 +622,7 @@ fn clip_transform_widget() -> @widget.Node {
 /// 圆角与整层 alpha：上排三档半径，下排叠圆（右半 35% alpha）。
 fn round_alpha_widget() -> @widget.Node {
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
-    w.node.set_width(@yoga.fixed(520.0))
+    w.node.set_width(@yoga.percent(100.0))
     w.node.set_height(@yoga.fixed(220.0))
     w.on_draw = Some(fn(_w : @widget.Widget, p : @render.Painter, r : @base.Rect) -> Unit {
       p.set_fill_color(@theme.theme_bg_panel())
@@ -659,7 +655,7 @@ fn round_alpha_widget() -> @widget.Node {
         p,
         24.0,
         14.0,
-        @shared.tx("圆角 0 / 8 / 24（真圆弧 + 1px 抗锯齿）"),
+        "圆角 0 / 8 / 24（真圆弧 + 1px 抗锯齿）",
         11.0,
         @theme.theme_text_secondary(),
       )
@@ -667,7 +663,7 @@ fn round_alpha_widget() -> @widget.Node {
         p,
         200.0,
         122.0,
-        @shared.tx("右边两个：set_global_alpha(0.35)"),
+        "右边两个：set_global_alpha(0.35)",
         11.0,
         @theme.theme_text_secondary(),
       )
@@ -680,7 +676,7 @@ fn round_alpha_widget() -> @widget.Node {
 /// 位图：同一张 PNG 三档缩放 + GIF 首帧；图不在位时只画占位框，不崩。
 fn image_widget() -> @widget.Node {
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
-    w.node.set_width(@yoga.fixed(520.0))
+    w.node.set_width(@yoga.percent(100.0))
     w.node.set_height(@yoga.fixed(200.0))
     w.on_draw = Some(fn(_w : @widget.Widget, p : @render.Painter, r : @base.Rect) -> Unit {
       p.set_fill_color(@theme.theme_bg_panel())
@@ -718,7 +714,7 @@ fn image_widget() -> @widget.Node {
         p,
         24.0,
         14.0,
-        @shared.tx("PNG 64×64 / 128×128，GIF 首帧取中心 40×40 放大到 80"),
+        "PNG 64×64 / 128×128，GIF 首帧取中心 40×40 放大到 80",
         11.0,
         @theme.theme_text_secondary(),
       )
@@ -726,7 +722,7 @@ fn image_widget() -> @widget.Node {
         p,
         360.0,
         60.0,
-        @shared.tx("缩放不糊边"),
+        "缩放不糊边",
         11.0,
         @theme.theme_text_secondary(),
       )
