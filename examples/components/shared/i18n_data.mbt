@@ -210,7 +210,7 @@ pub const EN_CATALOG : String =
   "\"desc§CodeView 代码高亮\" = \"Per-token measured highlighting across platforms for many languages, plus line numbers.\"\n" +
   "\"desc§Markdown 渲染\" = \"mdast parse + rich-line drawing: headings, lists, code, tables, footnotes, tasks and emoji.\"\n" +
   "\"desc§Terminal 终端\" = \"Monospace grid + ANSI CSI/SGR: 16/256/truecolor, bold/italic/underline/reverse, cursor, autowrap and scrollback (wheel / Shift+PageUp/Down / scrollbar). Copy selection with Ctrl/Cmd+C (bare Ctrl+C feeds \\x03 to on_input), paste with Cmd/Ctrl+Shift+V; every key goes out via on_input — no PTY here, Enter feeds the input line back.\"\n" +
-  "\"desc§模板 v-for（.mng）\" = \"Single-file component demo: this section is produced by pages/vfor_demo.mng via mng (generated code committed, CI checks freshness). The list is a keyed @base.ListStore — add/remove remounts only the moved rows; row template v-for=\"r in rows\" :key=\"r.id\" reuses rows with equal keys. Hot-reload demo lives on the Template Dev page (v-for row edits fall back to COLD).\"\n" +
+  "\"desc§模板 v-for（.mng）\" = \"Single-file component demo: this section is produced by pages/vfor_demo.mng via mng (generated code committed, CI checks freshness). The list is a keyed @base.ListStore — add/remove remounts only the moved rows; row template v-for=\"r in rows\" :key=\"r.id\" reuses rows with equal keys.\"\n" +
   "\"desc§Tag 标签、Avatar 头像与 Badge 徽标\" = \"Five semantic tags plus custom fills; square avatars in four sizes; numeric and dot badges.\"\n" +
   "\"desc§Statistic 数值统计与 Progress 进度条\" = \"A static statistic snapshot and a themed progress bar, wired to the basics-page signal.\"\n" +
   "\"desc§Card 卡片与 Collapse 折叠面板\" = \"Card with header and divider; collapse panels expand independently, first open.\"\n" +
@@ -955,10 +955,8 @@ pub const EN_CATALOG : String =
   "\"面包屑\" = \"Breadcrumb\"\n" +
   "\"页签\" = \"Tabs\"\n" +
   "\"鼠标\" = \"Mouse\"\n" +
-  // —— 侧栏分组名 ——
+  // —— 侧栏页名 ——
   "[nav]\n" +
-  "\"g.组件\" = \"Components\"\n" +
-  "\"g.系统\" = \"System\"\n" +
   "\"基础组件\" = \"Basics\"\n" +
   "\"表单组件\" = \"Forms\"\n" +
   "\"导航组件\" = \"Navigation\"\n" +

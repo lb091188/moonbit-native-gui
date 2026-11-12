@@ -41,19 +41,19 @@ fn nav_item(
   height : Double,
   pad_x : Double,
   size : Double,
-  weight? : @text.FontWeight = @text.Normal,
-  width? : Double = 0.0,
-  bg? : (@widget.Widget) -> String = fn(_w : @widget.Widget) -> String { "" },
-  fg? : (@widget.Widget) -> String = fn(_w : @widget.Widget) -> String {
+  weight~ : @text.FontWeight = @text.Normal,
+  width~ : Double = 0.0,
+  bg~ : (@widget.Widget) -> String = fn(_w : @widget.Widget) -> String { "" },
+  fg~ : (@widget.Widget) -> String = fn(_w : @widget.Widget) -> String {
     @theme.theme_text_regular()
   },
-  on_click? : () -> Unit = fn() -> Unit { () },
-  focusable? : Bool = false,
-  on_step? : (Int) -> Unit = fn(_d : Int) -> Unit { () },
-  skin? : @style.Style = @style.empty_style(),
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  on_click~ : () -> Unit = fn() -> Unit { () },
+  focusable~ : Bool = false,
+  on_step~ : (Int32) -> Unit = fn(_d : Int32) -> Unit { () },
+  skin~ : @style.Style = @style.empty_style(),
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  let font = @text.Font::new("", size, weight=weight)
+  let font = @text.Font::new("", size, weight~)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
     let tw = text_width(text, font)
@@ -131,7 +131,10 @@ fn nav_item(
       match ev.kind {
         @widget.PointerKind::Down => true
         @widget.PointerKind::Up => {
-          let inside = ev.x >= 0.0 && ev.x <= self.rect.w && ev.y >= 0.0 && ev.y <= self.rect.h
+          let inside = ev.x >= 0.0 &&
+            ev.x <= self.rect.w &&
+            ev.y >= 0.0 &&
+            ev.y <= self.rect.h
           if inside {
             on_click()
             @widget.invalidate()
@@ -149,7 +152,11 @@ fn nav_item(
 ///|
 /// 悬停才有的底色（未悬停给空串 = 不铺底）。
 fn hover_bg(w : @widget.Widget, color : String) -> String {
-  if w.hovered { color } else { "" }
+  if w.hovered {
+    color
+  } else {
+    ""
+  }
 }
 
 ///|
@@ -160,9 +167,9 @@ fn hover_bg(w : @widget.Widget, color : String) -> String {
 pub fn segmented(
   options : Array[String],
   selected : @base.Store[String],
-  label_of? : (String) -> String = fn(k) { k },
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  label_of~ : (String) -> String = fn(k) { k },
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   follow_store(selected)
   let items : Array[@widget.Node] = []
@@ -192,7 +199,7 @@ pub fn segmented(
         },
         on_click=fn() -> Unit { selected.set(opt) },
         focusable=true,
-        on_step=fn(d : Int) -> Unit {
+        on_step=fn(d : Int32) -> Unit {
           selected.set(options[((idx + d) % n + n) % n])
         },
         skin=paint_subset(class),
@@ -208,7 +215,7 @@ pub fn segmented(
     background_color="border",
     // 轨道默认胶囊形（调用方 class 在后覆写；关圆角时令牌给 0 回直角）
     class=[@style.style(border_radius=@theme.radius_card())] + class,
-    handle=handle,
+    handle~,
   )
 }
 
@@ -219,8 +226,8 @@ pub fn segmented(
 pub fn breadcrumb(
   items : Array[String],
   selected : @base.Store[String],
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   follow_store(selected)
   let nodes : Array[@widget.Node] = []
@@ -270,8 +277,8 @@ pub fn breadcrumb(
     nodes,
     direction=@yoga.Row,
     align_items=@yoga.AlignItems::Center,
-    class=class,
-    handle=handle,
+    class~,
+    handle~,
   )
 }
 
@@ -279,15 +286,15 @@ pub fn breadcrumb(
 /// 分页（EP Pagination）：`‹ 1 2 … ›`，当前页主题色实底白字，悬停浅底。
 /// `current` 从 1 起；两侧箭头越界时夹到首/末页。
 pub fn pagination(
-  current : @base.Store[Int],
-  pages : Int,
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  current : @base.Store[Int32],
+  pages : Int32,
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   follow_store(current)
   let items : Array[@widget.Node] = []
   let hi = if pages > 0 { pages } else { 1 }
-  fn step(delta : Int) -> @widget.Node {
+  fn step(delta : Int32) -> @widget.Node {
     let right = delta > 0
     @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
       watch_theme()
@@ -295,7 +302,9 @@ pub fn pagination(
       w.node.set_height(@yoga.fixed(28.0))
       @style.apply(
         w,
-        @style.style(color="text_regular").hover(background_color="primary_light")
+        @style.style(color="text_regular").hover(
+          background_color="primary_light",
+        ),
       )
       @style.apply(w, paint_subset(class))
       w.on_draw = Some(fn(
@@ -333,13 +342,7 @@ pub fn pagination(
           @widget.PointerKind::Down => true
           @widget.PointerKind::Up => {
             let v = current.get() + delta
-            current.set(if v < 1 {
-              1
-            } else if v > hi {
-              hi
-            } else {
-              v
-            })
+            current.set(if v < 1 { 1 } else if v > hi { hi } else { v })
             @widget.invalidate()
             false
           }
@@ -385,8 +388,8 @@ pub fn pagination(
     direction=@yoga.Row,
     column_gap=4.0,
     align_items=@yoga.AlignItems::Center,
-    class=class,
-    handle=handle,
+    class~,
+    handle~,
   )
 }
 
@@ -398,17 +401,17 @@ pub fn pagination(
 /// 高亮仍只跟 `current`）。
 pub fn steps(
   items : Array[String],
-  current : @base.Store[Int],
-  on_select? : (Int) -> Unit,
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  current : @base.Store[Int32],
+  on_select? : (Int32) -> Unit,
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   follow_store(current)
   let n = items.length()
   // 缺省回调 = 内置切换（点谁高亮谁）；传了就整只交给调用方。都夹回步数域。
-  let pick : (Int) -> Unit = match on_select {
-    Some(f) => fn(i : Int) -> Unit { f(((i % n) + n) % n) }
-    None => fn(i : Int) -> Unit { current.set(((i % n) + n) % n) }
+  let pick : (Int32) -> Unit = match on_select {
+    Some(f) => fn(i : Int32) -> Unit { f((i % n + n) % n) }
+    None => fn(i : Int32) -> Unit { current.set((i % n + n) % n) }
   }
   let nodes : Array[@widget.Node] = []
   let n = items.length()
@@ -471,7 +474,7 @@ pub fn steps(
         },
         on_click=fn() -> Unit { pick(i) },
         focusable=true,
-        on_step=fn(d : Int) -> Unit { pick(i + d) },
+        on_step=fn(d : Int32) -> Unit { pick(i + d) },
         skin=paint_subset(class),
       ),
     )
@@ -521,8 +524,8 @@ pub fn steps(
     column_gap=6.0,
     height=40.0,
     align_items=@yoga.AlignItems::Center,
-    class=class,
-    handle=handle,
+    class~,
+    handle~,
   )
 }
 
@@ -531,16 +534,18 @@ pub fn steps(
 /// 默认只有第一个展开。
 pub fn collapse(
   panels : Array[(String, Array[@widget.Node])],
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let blocks : Array[@widget.Node] = []
   let n = panels.length()
   for i = 0; i < n; i = i + 1 {
     let input = panels[i]
-    blocks.push(collapse_panel(input.0, input.1, i == 0, skin=paint_subset(class)))
+    blocks.push(
+      collapse_panel(input.0, input.1, i == 0, skin=paint_subset(class)),
+    )
   }
-  view(blocks, row_gap=2.0, class=class, handle=handle)
+  view(blocks, row_gap=2.0, class~, handle~)
 }
 
 ///|
@@ -570,8 +575,9 @@ fn collapse_panel(
     // 常态底=info_light、悬停底=primary_light 交给样式桶；箭头是组件记号，留内置
     @style.apply(
       head,
-      @style.style(color="text_primary", background_color="info_light")
-        .hover(background_color="primary_light")
+      @style.style(color="text_primary", background_color="info_light").hover(
+        background_color="primary_light",
+      ),
     )
     @style.apply(head, skin)
     head.on_draw = Some(fn(
@@ -580,7 +586,9 @@ fn collapse_panel(
       r : @base.Rect,
     ) -> Unit {
       let st = @style.style_for(self)
-      p.set_fill_color(@style.color_of(st.background_color, @theme.theme_info_light()))
+      p.set_fill_color(
+        @style.color_of(st.background_color, @theme.theme_info_light()),
+      )
       let rad = @theme.radius_ctrl()
       if rad > 0.0 {
         p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
@@ -655,7 +663,7 @@ fn menu_item(
   label_of~ : () -> String = fn() { "" },
   skin~ : @style.Style = @style.empty_style(),
   focusable~ : Bool = false,
-  step~ : (Int) -> Unit = fn(_d : Int) { () },
+  step~ : (Int32) -> Unit = fn(_d : Int32) { () },
 ) -> @widget.Node {
   let font = @text.Font::new("", 13.0)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
@@ -695,7 +703,9 @@ fn menu_item(
     // 常态文字色与悬停底走样式（选中态是数据态：底色/文字/强调条留内置配色）
     @style.apply(
       w,
-      @style.style(color="text_primary", border_radius=@theme.radius_ctrl()).hover(background_color="fill_hover")
+      @style.style(color="text_primary", border_radius=@theme.radius_ctrl()).hover(
+        background_color="fill_hover",
+      ),
     )
     @style.apply(w, skin)
     w.on_draw = Some(fn(
@@ -749,7 +759,13 @@ fn menu_item(
       if self.focused {
         p.set_stroke_color(@theme.theme_primary())
         p.set_line_width(1.0)
-        p.stroke_round_rect(0.5, 0.5, r.w - 1.0, r.h - 1.0, @theme.radius_ctrl())
+        p.stroke_round_rect(
+          0.5,
+          0.5,
+          r.w - 1.0,
+          r.h - 1.0,
+          @theme.radius_ctrl(),
+        )
       }
     })
     w.cursor = @widget.CURSOR_HAND
@@ -760,7 +776,10 @@ fn menu_item(
       match ev.kind {
         @widget.PointerKind::Down => true
         @widget.PointerKind::Up => {
-          let inside = ev.x >= 0.0 && ev.x <= self.rect.w && ev.y >= 0.0 && ev.y <= self.rect.h
+          let inside = ev.x >= 0.0 &&
+            ev.x <= self.rect.w &&
+            ev.y >= 0.0 &&
+            ev.y <= self.rect.h
           if inside {
             selected.set(text)
             @widget.invalidate()
@@ -774,7 +793,11 @@ fn menu_item(
   })
 }
 
-fn icon_for(icons : Array[(String, @icons.IconKind)], name : String) -> @icons.IconKind? {
+///|
+fn icon_for(
+  icons : Array[(String, @icons.IconKind)],
+  name : String,
+) -> @icons.IconKind? {
   for kv in icons {
     if kv.0 == name {
       return Some(kv.1)
@@ -786,35 +809,58 @@ fn icon_for(icons : Array[(String, @icons.IconKind)], name : String) -> @icons.I
 ///|
 /// 侧边导航菜单（EP Menu）：悬停浅灰、选中主题浅底 + 主题色文字 + 左缘强调条。
 /// `selected` 是共享状态，主区可以订阅同一个 Store 做页面联动。
+/// `labels` / `label_of` 只改显示（本地化标签，优先级 labels > label_of > 原文）；
+/// `focusable=true` 时各项进 Tab 链，空格/回车选中本项、↑←/↓→ 环绕换选
+/// （与分组菜单组内同一口径，整份 items 即一个组）。
 pub fn menu(
   items : Array[String],
   selected : @base.Store[String],
   icons? : Array[(String, @icons.IconKind)] = [],
+  labels? : Array[(String, String)] = [],
+  label_of? : (String) -> String = fn(_k) { "" },
+  focusable? : Bool = false,
   width? : Double = 180.0,
   class? : Array[@style.Style] = [],
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   follow_store(selected)
   let nodes : Array[@widget.Node] = []
-  for it in items {
+  let n = items.length()
+  for i = 0; i < n; i = i + 1 {
+    let it = items[i]
+    let idx = i
     nodes.push(
       menu_item(
         it,
         width - 12.0,
         selected,
         icon_for(icons, it),
+        label_of=fn() {
+          let a = label_for(labels, it)
+          if a.length() > 0 {
+            a
+          } else {
+            label_of(it)
+          }
+        },
         skin=paint_subset(class),
+        focusable=focusable,
+        step=fn(d : Int32) {
+          // 环绕换选：方向键的落点与点击一致（换 selected 本身）
+          selected.set(items[((idx + d) % n + n) % n])
+          @widget.invalidate()
+        },
       ),
     )
   }
   view(
     nodes,
-    width=width,
+    width~,
     row_gap=2.0,
     padding=6.0,
     align_items=@yoga.AlignItems::FlexStart,
-    class=class,
-    handle=handle,
+    class~,
+    handle~,
   )
 }
 
@@ -824,13 +870,13 @@ pub fn menu(
 pub fn menu_sections(
   sections : Array[(String, Array[String])],
   selected : @base.Store[String],
-  icons? : Array[(String, @icons.IconKind)] = [],
-  labels? : Array[(String, String)] = [],
-  label_of? : (String) -> String = fn(_k) { "" },
-  foldable? : Bool = true,
-  width? : Double = 180.0,
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  icons~ : Array[(String, @icons.IconKind)] = [],
+  labels~ : Array[(String, String)] = [],
+  label_of~ : (String) -> String = fn(_k) { "" },
+  foldable~ : Bool = true,
+  width~ : Double = 180.0,
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   follow_store(selected)
   let blocks : Array[@widget.Node] = []
@@ -857,9 +903,9 @@ pub fn menu_sections(
               label_of(it)
             }
           },
-          skin=skin,
+          skin~,
           focusable=true,
-          step=fn(d : Int) {
+          step=fn(d : Int32) {
             // 组内环绕换选：方向键的落点与点击一致（换 selected 本身）
             selected.set(items[((idx + d) % n + n) % n])
             @widget.invalidate()
@@ -906,7 +952,14 @@ pub fn menu_sections(
         )
 
         if foldable {
-          fold_arrow(p, r.w - 10.0, r.h / 2.0, 3.5, open.val, @theme.theme_text_secondary())
+          fold_arrow(
+            p,
+            r.w - 10.0,
+            r.h / 2.0,
+            3.5,
+            open.val,
+            @theme.theme_text_secondary(),
+          )
         }
       })
       w.cursor = @widget.CURSOR_HAND
@@ -932,7 +985,7 @@ pub fn menu_sections(
     blocks.push(head)
     blocks.push(@widget.node_of(body))
   }
-  view(blocks, row_gap=2.0, padding=6.0, width=width, class=class, handle=handle)
+  view(blocks, row_gap=2.0, padding=6.0, width~, class~, handle~)
 }
 
 ///|
@@ -947,7 +1000,7 @@ pub(all) struct TreeNode {
 fn build_tree_rows(
   into : @widget.Widget,
   nodes : Array[TreeNode],
-  level : Int,
+  level : Int32,
   skin~ : @style.Style = @style.empty_style(),
 ) -> Unit {
   let font = @text.Font::new("", 13.0)
@@ -962,7 +1015,7 @@ fn build_tree_rows(
     // 标签色与悬停底走样式（箭头记号与「有才悬停」的条件留组件语义）
     @style.apply(
       row,
-      @style.style(color="text_primary").hover(background_color="fill_hover")
+      @style.style(color="text_primary").hover(background_color="fill_hover"),
     )
     @style.apply(row, skin)
     row.on_draw = Some(fn(
@@ -1009,7 +1062,7 @@ fn build_tree_rows(
     kids.node.set_flex_direction(@yoga.Column)
     kids.set_visible(false)
     if has_kids {
-      build_tree_rows(kids, nd.children, level + 1, skin=skin)
+      build_tree_rows(kids, nd.children, level + 1, skin~)
     }
     row.cursor = @widget.CURSOR_HAND
     row.on_pointer = Some(fn(
@@ -1038,8 +1091,8 @@ fn build_tree_rows(
 /// 树形控件：`root` 是顶层节点表，逐层缩进，点有子节点的行展开/收起。
 pub fn tree(
   root : Array[TreeNode],
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
@@ -1058,9 +1111,9 @@ pub fn tree(
 /// 不传则内部建一个。
 pub fn tabs(
   pages : Array[(String, @widget.Node)],
-  selected? : @base.Store[Int],
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  selected? : @base.Store[Int32],
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let n = pages.length()
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
@@ -1079,7 +1132,7 @@ pub fn tabs(
     head.node.set_width(@yoga.percent(100.0))
     let panels : Array[@widget.Widget] = []
     w.append_child(head)
-    fn show(i : Int) -> Unit {
+    fn show(i : Int32) -> Unit {
       // 先显示新页再隐藏旧页：反序会让「新页未显示、旧页已隐藏」的
       // 中间态把外层容器按 0 内容算高
       if i >= 0 && i < n {
@@ -1104,7 +1157,7 @@ pub fn tabs(
       // 未选中文字的常态色/悬停色交给样式基块与 hover 桶；选中态（含下划线）是数据态
       @style.apply(
         tab,
-        @style.style(color="text_secondary").hover(color="text_regular")
+        @style.style(color="text_secondary").hover(color="text_regular"),
       )
       @style.apply(tab, paint_subset(class))
       tab.on_draw = Some(fn(
@@ -1161,7 +1214,7 @@ pub fn tabs(
       w.append_child(page)
       panels.push(page)
     }
-    let sid = sel.signal().subscribe(fn(i : Int) -> Unit { show(i) })
+    let sid = sel.signal().subscribe(fn(i : Int32) -> Unit { show(i) })
     @base.sub_bag_register(fn() { sel.signal().remove(sid) })
     fold_style(w, @style.empty_style(), @style.empty_style(), class)
     handle(w)
@@ -1178,11 +1231,11 @@ pub fn tabs(
 pub fn transfer(
   left_items : @base.Store[Array[String]],
   right_items : @base.Store[Array[String]],
-  width? : Double = 200.0,
-  height? : Double = 160.0,
-  item_height? : Double = 24.0,
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  width~ : Double = 200.0,
+  height~ : Double = 160.0,
+  item_height~ : Double = 24.0,
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
@@ -1201,7 +1254,11 @@ pub fn transfer(
       box.node.set_min_height(@yoga.fixed(height))
       @style.apply(
         box,
-        @style.style(background_color="bg_panel", border_color="border", border_width=1.0)
+        @style.style(
+          background_color="bg_panel",
+          border_color="border",
+          border_width=1.0,
+        ),
       )
       @style.apply(box, paint_subset(class))
       box.on_draw = Some(fn(
@@ -1213,13 +1270,17 @@ pub fn transfer(
         let rad = @style.number_of(st.border_radius, @theme.radius_card())
         self.clip_rounded = rad > 0.0
         self.style_clip_radius = rad
-        p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
+        p.set_fill_color(
+          @style.color_of(st.background_color, @theme.theme_bg_panel()),
+        )
         if rad > 0.0 {
           p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
         } else {
           p.fill_rect(0.0, 0.0, r.w, r.h)
         }
-        p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
+        p.set_stroke_color(
+          @style.color_of(st.border_color, @theme.theme_border()),
+        )
         p.set_line_width(@style.number_of(st.border_width, 1.0))
         if rad > 0.0 {
           p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
@@ -1267,7 +1328,9 @@ pub fn transfer(
         row_w.node.set_height(@yoga.fixed(item_height))
         @style.apply(
           row_w,
-          @style.style(color="text_regular").hover(background_color="fill_hover")
+          @style.style(color="text_regular").hover(
+            background_color="fill_hover",
+          ),
         )
         @style.apply(row_w, paint_subset(class))
         row_w.on_draw = Some(fn(
@@ -1281,7 +1344,13 @@ pub fn transfer(
           if bg.length() > 0 {
             p.set_fill_color(bg)
             // 行高亮内缩 2px 走圆角：贴边会被圆角框啃出方角缺口
-            p.fill_round_rect(2.0, 0.0, (r.w - 4.0).max(1.0), r.h, @theme.radius_ctrl())
+            p.fill_round_rect(
+              2.0,
+              0.0,
+              (r.w - 4.0).max(1.0),
+              r.h,
+              @theme.radius_ctrl(),
+            )
           }
           // 选择标记方圆随令牌：开=正圆，关=方块
           let mark = @theme.radius_ctrl()
@@ -1341,13 +1410,13 @@ pub fn transfer(
       @widget.invalidate()
     }
 
-    let sid_l = left_items.signal().subscribe(fn(_v : Array[String]) -> Unit {
-      render_all()
-    })
+    let sid_l = left_items
+      .signal()
+      .subscribe(fn(_v : Array[String]) -> Unit { render_all() })
     @base.sub_bag_register(fn() { left_items.signal().remove(sid_l) })
-    let sid_r = right_items.signal().subscribe(fn(_v : Array[String]) -> Unit {
-      render_all()
-    })
+    let sid_r = right_items
+      .signal()
+      .subscribe(fn(_v : Array[String]) -> Unit { render_all() })
     @base.sub_bag_register(fn() { right_items.signal().remove(sid_r) })
 
     fn move_items(
@@ -1377,8 +1446,9 @@ pub fn transfer(
       b.node.set_height(@yoga.fixed(28.0))
       @style.apply(
         b,
-        @style.style(color="text_regular", background_color="info_light")
-          .hover(background_color="primary_light")
+        @style.style(color="text_regular", background_color="info_light").hover(
+          background_color="primary_light",
+        ),
       )
       @style.apply(b, paint_subset(class))
       b.on_draw = Some(fn(
@@ -1387,9 +1457,18 @@ pub fn transfer(
         r : @base.Rect,
       ) -> Unit {
         let st = @style.style_for(self)
-        p.set_fill_color(@style.color_of(st.background_color, @theme.theme_info_light()))
+        p.set_fill_color(
+          @style.color_of(st.background_color, @theme.theme_info_light()),
+        )
         p.fill_round_rect(0.0, 0.0, r.w, r.h, @theme.radius_ctrl())
-        draw_chevron(p, r.w / 2.0, r.h / 2.0, 4.0, to_right, @style.color_of(st.color, @theme.theme_text_regular()))
+        draw_chevron(
+          p,
+          r.w / 2.0,
+          r.h / 2.0,
+          4.0,
+          to_right,
+          @style.color_of(st.color, @theme.theme_text_regular()),
+        )
       })
       b.cursor = @widget.CURSOR_HAND
       b.on_pointer = Some(fn(

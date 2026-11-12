@@ -13,7 +13,7 @@ fn chars_of(s : String) -> Array[Char] {
 }
 
 ///|
-fn join(cs : Array[Char], from : Int, to : Int) -> String {
+fn join(cs : Array[Char], from : Int32, to : Int32) -> String {
   let mut s = ""
   let mut i = from
   while i < to {
@@ -58,7 +58,11 @@ fn key_of_line(line : String) -> String {
       }
     } else if cs[i] == '"' {
       in_str = true
-    } else if cs[i] == '=' && i > 0 && cs[i - 1] == ' ' && i + 1 < n && cs[i + 1] == ' ' {
+    } else if cs[i] == '=' &&
+      i > 0 &&
+      cs[i - 1] == ' ' &&
+      i + 1 < n &&
+      cs[i + 1] == ' ' {
       return join(cs, 0, i - 1)
     }
     i = i + 1
@@ -124,11 +128,14 @@ test "英文目录逐条自检：每一条键装载后都查得到（含段前�
 test "英文目录：`[meta]` 段头排在所有顶层键之后" {
   // `[meta]` 之前必须已经出现过键值行（段头写最前会把全表吞进 `meta.` 前缀）
   let head = join(chars_of(EN_CATALOG), 0, meta_offset())
-  assert_true(key_of_line_first(head), msg="[meta] 段头不能写在顶层键之前")
+  assert_true(
+    key_of_line_first(head),
+    msg="[meta] 段头不能写在顶层键之前",
+  )
 }
 
 ///|
-fn meta_offset() -> Int {
+fn meta_offset() -> Int32 {
   let cs = chars_of(EN_CATALOG)
   let n = cs.length()
   let mut i = 0
@@ -157,20 +164,31 @@ test "英文目录装载后抽查：正文/段标题/段描述/侧栏/菜单/插
   assert_eq(@i18n.i18n_locale(), "en")
   assert_eq(@i18n.t_or("上一步", "?"), "Back")
   assert_eq(@i18n.t_or("暂停推点", "?"), "Pause feed")
-  assert_eq(@i18n.t_or("文本基方向与布局镜像", "?"), "Base direction & layout mirror")
-  assert_true(@i18n.t_or("desc§从右起排的右侧文字", "?").has_prefix("Arabic"))
+  assert_eq(
+    @i18n.t_or("文本基方向与布局镜像", "?"),
+    "Base direction & layout mirror",
+  )
+  assert_true(
+    @i18n.t_or("desc§从右起排的右侧文字", "?").has_prefix("Arabic"),
+  )
   assert_eq(@i18n.t_or("nav.基础组件", "?"), "Basics")
-  assert_eq(@i18n.t_or("nav.g.组件", "?"), "Components")
-  assert_eq(@i18n.t_or("nav.g.系统", "?"), "System")
   assert_eq(@i18n.t_or("menu.theme", "?"), "Theme")
-  assert_eq(@i18n.t_with_or("gen.subtree", [("n", "3")], "?"), "Subtree generation 3")
+  assert_eq(
+    @i18n.t_with_or("gen.subtree", [("n", "3")], "?"),
+    "Subtree generation 3",
+  )
   // 段条通道（`seg.` + 段名）与状态回显通道（`dyn.` + 语义名）
   assert_eq(@i18n.t_or("seg.主题", "?"), "Theme")
   // 窗口标题走常量（`@shared.tx(SHOWCASE_TITLE)`），目录侧只能按这条键抽查
   assert_eq(@i18n.t_or("组件库演示板", "?"), "Component Showcase")
-  assert_eq(@i18n.t_with_or("dyn.accent_now", [("c", "#123456")], "?"), "Accent now: #123456")
+  assert_eq(
+    @i18n.t_with_or("dyn.accent_now", [("c", "#123456")], "?"),
+    "Accent now: #123456",
+  )
   // 值里带 `\n` 的条目：读手要把转义还原成两行
-  assert_true(@i18n.t_or("form.textarea_demo", "?").has_prefix("Text area demo.\n"))
+  assert_true(
+    @i18n.t_or("form.textarea_demo", "?").has_prefix("Text area demo.\n"),
+  )
   @i18n.i18n_reset()
   assert_eq(@i18n.t_or("上一步", "回落"), "回落")
 }

@@ -11,45 +11,17 @@
 /// Markdown 演示源文（逐行；渲染与复制串共用）。
 fn demo_md_lines() -> Array[String] {
   [
-    "# MoonBit × native-gui",
-    "## GFM 渲染演示",
-    "",
-    "支持 **粗体**、*斜体*、***粗斜体***、~~删除线~~、`行内代码` 与 [链接](https://github.com/lb091188/moonbit-native-gui),",
-    "自动链接 <https://libyue.com>,引用式链接见[主页][home]。",
-    "",
-    "Emoji 👍 之后的 **样式** 与 `区间` 仍应对齐。",
-    "",
-    "- 无序列表项一",
-    "- 无序列表项二(含 `代码`)",
-    "  - 嵌套列表项",
-    "1. 有序列表第一项",
-    "2. 有序列表第二项",
-    "- [x] 任务列表已完成项(点复选框可勾选)",
-    "- [ ] 任务列表待办项",
-    "",
-    "> 引用块:主题色竖条 + 缩进排版。",
-    "> 引用续行。",
-    "",
-    "---",
-    "",
-    "```rust",
-    "fn main() {",
-    "    println!(\" fenced 代码块 \" );",
-    "}",
-    "```",
-    "",
-    "| 对齐列 | 关键字 | 数值 |",
-    "|:-----|:----:|----:|",
-    "| 左对齐 | moonbit | 1 |",
-    "| 居中 | rust | 20 |",
-    "| **加粗** | `代码` | 300 |",
-    "",
-    "脚注引用在正文里[^1],再来一条[^note]。",
-    "",
-    "段落文本收尾。",
-    "",
-    "[home]: https://libyue.com",
-    "[^1]: 脚注定义一:在文末分隔线后按引用顺序渲染。",
+    "# MoonBit × native-gui", "## GFM 渲染演示", "", "支持 **粗体**、*斜体*、***粗斜体***、~~删除线~~、`行内代码` 与 [链接](https://github.com/lb091188/moonbit-native-gui),",
+    "自动链接 <https://libyue.com>,引用式链接见[主页][home]。", "",
+    "Emoji 👍 之后的 **样式** 与 `区间` 仍应对齐。", "", "- 无序列表项一",
+    "- 无序列表项二(含 `代码`)", "  - 嵌套列表项", "1. 有序列表第一项",
+    "2. 有序列表第二项", "- [x] 任务列表已完成项(点复选框可勾选)",
+    "- [ ] 任务列表待办项", "", "> 引用块:主题色竖条 + 缩进排版。",
+    "> 引用续行。", "", "---", "", "```rust", "fn main() {", "    println!(\" fenced 代码块 \" );",
+    "}", "```", "", "| 对齐列 | 关键字 | 数值 |", "|:-----|:----:|----:|",
+    "| 左对齐 | moonbit | 1 |", "| 居中 | rust | 20 |", "| **加粗** | `代码` | 300 |",
+    "", "脚注引用在正文里[^1],再来一条[^note]。", "", "段落文本收尾。",
+    "", "[home]: https://libyue.com", "[^1]: 脚注定义一:在文末分隔线后按引用顺序渲染。",
     "[^note]: 脚注定义支持 **富文本** 与 `代码`。",
   ]
 }
@@ -109,7 +81,9 @@ pub fn page_code(_app : @shared.App) -> @widget.Node {
       [
         @ui.col(
           [
-            @ui.code_editor(edit_store, height=190.0, on_change=fn(t : String) -> Unit {
+            @ui.code_editor(edit_store, height=190.0, on_change=fn(
+              t : String,
+            ) -> Unit {
               let nb = @utf8.encode(t).length()
               let nl = t.split("\n").count()
               edit_stat.set(
@@ -139,11 +113,8 @@ pub fn page_code(_app : @shared.App) -> @widget.Node {
           [
             @ui.code_view(
               [
-                "// MoonBit · 关键字/字符串/数字/注释",
-                "fn main {",
-                "  let msg = \"hello 组件库\"",
-                "  println(msg + \"!\" )  // 2026",
-                "}",
+                "// MoonBit · 关键字/字符串/数字/注释", "fn main {", "  let msg = \"hello 组件库\"",
+                "  println(msg + \"!\" )  // 2026", "}",
               ],
               lang="moonbit",
               line_numbers=true,
@@ -152,14 +123,9 @@ pub fn page_code(_app : @shared.App) -> @widget.Node {
             ),
             @ui.code_view(
               [
-                "use gtk::prelude::*;",
-                "",
-                "fn main() {",
-                "    let app = gtk::Application::new()",
-                "        .expect(\"init failed\");",
-                "    app.connect_activate(|_| {}); // 回调",
-                "    app.run();",
-                "}",
+                "use gtk::prelude::*;", "", "fn main() {", "    let app = gtk::Application::new()",
+                "        .expect(\"init failed\");", "    app.connect_activate(|_| {}); // 回调",
+                "    app.run();", "}",
               ],
               lang="rust",
               line_numbers=true,
@@ -168,11 +134,8 @@ pub fn page_code(_app : @shared.App) -> @widget.Node {
             ),
             @ui.code_view(
               [
-                "# Python · 注释与关键字",
-                "def greet(name: str) -> str:",
-                "    return f'Hello, {name}!'",
-                "",
-                "print(greet('MoonBit'))",
+                "# Python · 注释与关键字", "def greet(name: str) -> str:",
+                "    return f'Hello, {name}!'", "", "print(greet('MoonBit'))",
               ],
               lang="python",
               line_numbers=true,
@@ -185,11 +148,8 @@ pub fn page_code(_app : @shared.App) -> @widget.Node {
         ),
       ],
       code=[
-        "@ui.code_view([",
-        "  \"// MoonBit · 关键字/字符串/数字/注释\",",
-        "  \"fn main {\",",
-        "  \"  let msg = \\\"hello 组件库\\\"\",",
-        "  \"}\",",
+        "@ui.code_view([", "  \"// MoonBit · 关键字/字符串/数字/注释\",",
+        "  \"fn main {\",", "  \"  let msg = \\\"hello 组件库\\\"\",", "  \"}\",",
         "], lang=\"moonbit\", line_numbers=true)",
       ],
     ),
@@ -201,23 +161,23 @@ pub fn page_code(_app : @shared.App) -> @widget.Node {
         @mdview.markdown_view(
           demo,
           on_link=fn(u : String) -> Unit {
-          match @sys.open_url(u) {
-            Ok(_) =>
-              link_out.set(
-                @shared.tr_with(
-                  "dyn.md_link_opened",
-                  [("u", u)],
-                  "已交给默认程序：\{u}",
-                ),
-              )
-            Err(e) =>
-              link_out.set(
-                @shared.tr_with(
-                  "dyn.md_link_failed",
-                  [("u", u), ("e", "\{e}")],
-                  "打开失败：\{e}（\{u}）",
-                ),
-              )
+            match @sys.open_url(u) {
+              Ok(_) =>
+                link_out.set(
+                  @shared.tr_with(
+                    "dyn.md_link_opened",
+                    [("u", u)],
+                    "已交给默认程序：\{u}",
+                  ),
+                )
+              Err(e) =>
+                link_out.set(
+                  @shared.tr_with(
+                    "dyn.md_link_failed",
+                    [("u", u), ("e", "\{e}")],
+                    "打开失败：\{e}（\{u}）",
+                  ),
+                )
             }
           },
           selectable=true,
@@ -225,19 +185,6 @@ pub fn page_code(_app : @shared.App) -> @widget.Node {
         @ui.bind_label(link_out, fn(s) { s }),
       ],
       code=demo_md_code(md_w),
-    ),
-    code_terminal_section(),
-    @shared.section(
-      "模板列表",
-      "模板 v-for（.mng）",
-      "单文件组件演示：本段由 pages/vfor_demo.mng 经 mng 编译产出（生成码入库、CI 对账新鲜度）。列表走 @base.ListStore keyed——加/删只重挂该动的行；行模板 v-for=\"r in rows\" :key=\"r.id\"，键相同的行复用不重建。本段是纯生成码展示；热更演示在「模板 Dev」页（v-for 行模板改动会回 COLD 重启）。",
-      [vfor_demo()],
-      code=[
-        "<!-- pages/vfor_demo.mng -->",
-        "<ui-row v-for=\"r in rows\" :key=\"r.id\">",
-        "  <ui-text :text=\"r.name\" />",
-        "</ui-row>",
-      ],
     ),
   ])
 }

@@ -1,17 +1,26 @@
 // Store 对照页：手动响应式模式演示。与主题五页的 Signal 自动依赖收集
 // 对照——派生关系要手动接线（动作里 set / subscribe 回调里 set），
 // 忘接线界面就静默不刷新；信号版见「基础组件」等页。
+
+///|
 pub fn page_store_demo(_app : @shared.App) -> @widget.Node {
-  let rebuild_n : @base.Store[Int] = @base.Store::new(0)
-  let counter : @base.Store[Int] = @base.Store::new(0)
+  let counter : @base.Store[Int32] = @base.Store::new(0)
   // 手动派生一：动作回调里顺手 set（改 A 必须记得改 B）
-  let doubled : @base.Store[Int] = @base.Store::new(0)
+  let doubled : @base.Store[Int32] = @base.Store::new(0)
   counter.subscribe(fn(n) { doubled.set(n * 2) })
   // 手动派生二：Store::map（源 set 时自动跟随，一对一映射）
   let text = counter.map(fn(n) { "当前计数 \{n}" })
   // 手动派生三：跨 Store 手动同步
   let merged : @base.Store[String] = @base.Store::new("")
-  counter.subscribe(fn(n) { merged.set(@shared.tr_with("dyn.count_double", [("n", n.to_string()), ("d", (n * 2).to_string())], "计数 \{n},双倍 \{n * 2}")) })
+  counter.subscribe(fn(n) {
+    merged.set(
+      @shared.tr_with(
+        "dyn.count_double",
+        [("n", n.to_string()), ("d", (n * 2).to_string())],
+        "计数 \{n},双倍 \{n * 2}",
+      ),
+    )
+  })
   @shared.page([
     @shared.section(
       "手动派生",
@@ -25,8 +34,20 @@ pub fn page_store_demo(_app : @shared.App) -> @widget.Node {
               // ↑ 动作本体；若 doubled 不靠 subscribe，这里就得再写
               //   doubled.set(counter.get() * 2)——信号版无此负担
             }),
-            @ui.bind_label(counter, fn(n) { @shared.tr_with("dyn.count", [("n", n.to_string())], "计数：\{n}") }),
-            @ui.bind_label(doubled, fn(n) { @shared.tr_with("dyn.doubled_wired", [("n", n.to_string())], "双倍（动作里 set + subscribe 接线）：\{n}") }),
+            @ui.bind_label(counter, fn(n) {
+              @shared.tr_with(
+                "dyn.count",
+                [("n", n.to_string())],
+                "计数：\{n}",
+              )
+            }),
+            @ui.bind_label(doubled, fn(n) {
+              @shared.tr_with(
+                "dyn.doubled_wired",
+                [("n", n.to_string())],
+                "双倍（动作里 set + subscribe 接线）：\{n}",
+              )
+            }),
           ],
           column_gap=12.0,
         ),
@@ -34,15 +55,11 @@ pub fn page_store_demo(_app : @shared.App) -> @widget.Node {
         @ui.bind_label(merged, fn(s) { s }),
       ],
       code=[
-        "let counter = @base.Store::new(0)",
-        "let doubled = @base.Store::new(0)",
+        "let counter = @base.Store::new(0)", "let doubled = @base.Store::new(0)",
         "counter.subscribe(fn(n) { doubled.set(n * 2) })  // 派生关系散落在各处",
-        "@ui.button(\"计数 +1\", variant=@ui.Solid, on_click=fn() {",
-        "  counter.update(fn(n) { n + 1 })",
-        "})",
-        "let text = counter.map(fn(n) { \"当前计数 \\{n}\" })  // 一对一映射有现成糖",
-        "let merged = @base.Store::new(\"\")",
-        "counter.subscribe(fn(n) { merged.set(\"计数 \\{n},双倍 \\{n * 2}\") })",
+        "@ui.button(\"计数 +1\", variant=@ui.Solid, on_click=fn() {", "  counter.update(fn(n) { n + 1 })",
+        "})", "let text = counter.map(fn(n) { \"当前计数 \\{n}\" })  // 一对一映射有现成糖",
+        "let merged = @base.Store::new(\"\")", "counter.subscribe(fn(n) { merged.set(\"计数 \\{n},双倍 \\{n * 2}\") })",
         "@ui.bind_label(counter, fn(n) { \"计数：\\{n}\" })",
       ],
     ),
@@ -52,60 +69,27 @@ pub fn page_store_demo(_app : @shared.App) -> @widget.Node {
       "信号写法：computed(fn() { counter.get() * 2 })——关系声明在定义处，多源合成/条件派生同一写法。",
       [
         @ui.descriptions([
-          (@shared.tx("手动（本页）"), @shared.tx("动作里 set / subscribe 里 set / map 一对一")),
-          (@shared.tx("信号（主题页）"), @shared.tx("computed 声明派生，batch 合并同回调多次 set")),
-          (@shared.tx("取舍"), @shared.tx("两者共享同一内核，Store::signal / Signal::store 互转")),
+          (
+            @shared.tx("手动（本页）"),
+            @shared.tx("动作里 set / subscribe 里 set / map 一对一"),
+          ),
+          (
+            @shared.tx("信号（主题页）"),
+            @shared.tx(
+              "computed 声明派生，batch 合并同回调多次 set",
+            ),
+          ),
+          (
+            @shared.tx("取舍"),
+            @shared.tx(
+              "两者共享同一内核，Store::signal / Signal::store 互转",
+            ),
+          ),
         ]),
       ],
       code=[
-        "let a = @base.Signal::new(2)",
-        "let b = @base.Signal::new(3)",
-        "let sum = @base.Signal::computed(fn() { a.get() + b.get() })",
-        "let doubled = a.map(fn(n) { n * 2 })",
-        "@ui.bind(sum, fn(v) { \"和：\\{v}\" })",
-      ],
-    ),
-
-    @shared.section(
-      "原位重挂",
-      "bind_node 原位重建子树",
-      "一个 Store 驱动 `bind_node`：每次点击把这一棵子树**销毁重建**（底色随奇偶换、文字随计数换），兄弟项位置不动，旧代订阅随重建整袋退订。",
-      [
-        @ui.row(
-          [
-            @ui.text(@shared.tx("兄弟项（重建时不动）"), class=[@style.text_secondary]),
-            @widget.bind_node(rebuild_n.signal(), fn(n : Int) -> @widget.Node {
-              @ui.view(
-                [
-                  @ui.text(
-                    @shared.tr_with("gen.subtree", [("n", n.to_string())], "第 \{n} 代子树"),
-                  ),
-                  @ui.text(
-                    @shared.tx("这棵子树每次点击都是全新控件；旁边那行字没有被重挂。"),
-                    class=[@style.text_secondary],
-                    max_width=360.0,
-                  ),
-                ],
-                padding=12.0,
-                row_gap=4.0,
-                align_items=@yoga.AlignItems::FlexStart,
-                background_color=if n % 2 == 0 { "fill_hover" } else { "bg_panel" },
-                border_color="border",
-              )
-            }),
-            @ui.button(@shared.tx("再挂一代"), variant=@ui.Solid, on_click=fn() {
-              rebuild_n.update(fn(n : Int) { n + 1 })
-            }),
-          ],
-          column_gap=12.0,
-          align_items=@yoga.AlignItems::Center,
-        ),
-      ],
-      code=[
-        "@widget.bind_node(store.signal(), fn(v) -> @widget.Node {",
-        "  // 每次 set 都把返回的这棵子树原位换掉，兄弟项不受影响",
-        "  @ui.view([@ui.text(...)], ...),  // 返回的这棵按 v 现建",
-        "})",
+        "let a = @base.Signal::new(2)", "let b = @base.Signal::new(3)", "let sum = @base.Signal::computed(fn() { a.get() + b.get() })",
+        "let doubled = a.map(fn(n) { n * 2 })", "@ui.bind(sum, fn(v) { \"和：\\{v}\" })",
       ],
     ),
   ])

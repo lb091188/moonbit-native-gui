@@ -214,17 +214,20 @@ fn main {
     [
       @ui.row(
         [
-          // 侧栏：可滚动的分组菜单（窗口矮时滚到底部项）+ 底部主题切换 + 版本号
+          // 侧栏：可滚动的扁平菜单（窗口矮时滚到底部项）+ 底部主题切换 + 版本号
           @ui.col(
             [
               @ui.scroll_view(
                 [
-                  nav.sidebar(
+                  @ui.menu(
                     [
-                      ("组件", ["基础组件", "表单组件", "导航组件", "数据展示", "图表", "代码文档", "Store", "反馈组件", "事件与布局", "图标库", "过渡与效果"]),
-                      ("系统", ["GPU 画布"]),
+                      "基础组件", "表单组件", "导航组件", "数据展示", "图表",
+                      "代码文档", "Store", "反馈组件", "事件与布局", "图标库",
+                      "过渡与效果", "GPU 画布",
                     ],
+                    nav.store_at(0),
                     label_of=fn(k) { @shared.nav_label(k) },
+                    focusable=true,
                     icons=[
                       ("基础组件", @icons.Appstore),
                       ("表单组件", @icons.Edit1),
@@ -382,7 +385,7 @@ fn main {
     Some(host) => {
       let t_ready = @win.now_ms()
       println(
-        "SHOWCASE-READY title=\{SHOWCASE_TITLE} pages=13 follow=1 " +
+        "SHOWCASE-READY title=\{SHOWCASE_TITLE} pages=12 follow=1 " +
           "startup_ms=\{(t_ready - t_start).to_string()} " +
           "built=\{nav.built_count().to_string()} pending=\{nav.pending_count().to_string()}",
       )
