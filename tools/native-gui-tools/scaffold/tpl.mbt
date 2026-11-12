@@ -3,7 +3,7 @@
 ///|
 /// 版本缺省：不在 native-gui workspace 内时用的兜底值（注释提醒用户改成
 /// 自己锁定的版本）。
-const SCAFFOLD_GUI_FALLBACK : String = "0.3.1"
+const SCAFFOLD_GUI_FALLBACK : String = "0.3.2"
 
 ///|
 const SCAFFOLD_YOGA_FALLBACK : String = "0.1.1"

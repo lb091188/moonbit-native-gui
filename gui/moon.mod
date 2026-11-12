@@ -1,6 +1,6 @@
 name = "NoahLiu/native-gui"
 
-version = "0.3.1"
+version = "0.3.2"
 
 preferred_target = "native"
 
