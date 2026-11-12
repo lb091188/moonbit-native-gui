@@ -20,7 +20,7 @@ pub fn hello() -> @widget.Node {
   @mngdev.mng_dev_page("hello", reg, fn() {
     @ui.col([
       @ui.text("你好，MoonBit 原生窗口", class=@style.class_of(["title"])),
-      @ui.text("上面是声明式页（hello.mng 单文件，改字可 mng dev 热更）；下面是命令式代码的基本窗口示例。", class=@style.class_of(["hint"])),
+      @ui.text("本应用由单页面组件及其开发工具辅助开发而成。", class=@style.class_of(["hint"])),
       @ui.input(name, placeholder="你的名字", width=240.0),
       @ui.bind_label(name, fn(_v) { "你好, \{name.get()}！" }),
       @ui.stepper(count, max=10),

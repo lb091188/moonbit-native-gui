@@ -1,12 +1,11 @@
 // 你好窗口（.mng 单文件形态入门样例）+ 基本窗口示例（多窗 + 托盘轻演示）。
 //
 // 三条口径：
-// ① 页面主体来自 hello.mng（`mng gen` 产 hello.gen.mbt，生成码入库）——模板
-//    改字跑 `mng dev` 可热更（应用侧 dev 面已接：--mng-hot 原位重挂）；
-// ② 基本窗口示例是命令式代码：三档预设窗口（备忘 / 调色 / 关于）的打开按钮
-//    走 flexbox wrap 按窗宽换行，点开经 `WindowHost::open_window` 挂进同一
-//    循环；子窗自带「关闭此窗」（`WindowHost::close_window`），窗口数由轮询
-//    表刷新到状态行；
+// ① 页面主体来自 hello.mng（`mng gen` 产 hello.gen.mbt，生成码入库）；
+// ② 基本窗口示例是命令式代码：三档预设窗口（备忘 / 调色 / 关于）的按钮
+//    按开/关状态切换（同一档只留一扇，关掉才能再开），按钮行走 flexbox wrap
+//    按窗宽换行；子窗自带「关闭此窗」（`WindowHost::close_window`），窗口数由
+//    轮询表刷新到状态行；
 // ③ 托盘是「事件循环依赖类能力」的最小面：单例 + 提示语 + 左键计数，200ms
 //    派发泵；Linux 的 D-Bus 排期通道同泵接线。
 
@@ -23,23 +22,59 @@ let child_kinds : Array[(String, String, Int, Int)] = [
 ]
 
 ///|
-/// 开一扇子窗：挂进既有循环；建不起来如实报，不静默。
-fn open_child(
+/// 这扇子窗是否还活着（标题栏关 / 子窗按钮关都走同一判定）。
+fn host_alive(h : @widget.WindowHost) -> Bool {
+  let wid = h.wid()
+  for x in @widget.host_windows() {
+    if x.wid() == wid {
+      return true
+    }
+  }
+  false
+}
+
+///|
+/// 开/关一档子窗：已开 → 关掉并清状态；未开 → 开一扇并记住句柄，禁止重复开。
+fn toggle_child(
   owner : @widget.WindowHost,
   kind : (String, String, Int, Int),
   win_count : @base.Store[Int],
+  open : @base.Store[Bool],
+  slot : Ref[@widget.WindowHost?],
 ) -> Unit {
   let (name, desc, w, h) = kind
+  match slot.val {
+    Some(old) =>
+      if host_alive(old) {
+        old.close_window()
+        slot.val = None
+        open.set(false)
+        win_count.set(owner.window_count())
+        return
+      } else {
+        // 已自行关闭（标题栏 / 子窗按钮）：先清状态再按未开处理
+        slot.val = None
+        open.set(false)
+      }
+    None => ()
+  }
   match owner.open_window(w, h, name) {
     None => println("HELLO-NEWWIN-FAIL: 新窗建不起来（窗口上限/平台拒绝）")
     Some(a2) => {
+      slot.val = Some(a2)
+      open.set(true)
       // 内容在建壳之后组（关闭按钮要捕获这扇窗自己的句柄）
       let body = @ui.col(
         [
           @ui.text(name, class=[@style.text_title]),
           @ui.text(desc, wrap=true),
           @ui.col([], grow=1.0),
-          @ui.button("关闭此窗", on_click=fn() { a2.close_window() }),
+          @ui.button("关闭此窗", on_click=fn() {
+            a2.close_window()
+            slot.val = None
+            open.set(false)
+            win_count.set(owner.window_count())
+          }),
         ],
         padding=16.0,
         row_gap=8.0,
@@ -68,16 +103,27 @@ fn main {
   let tray_clicks : @base.Store[Int] = @base.Store::new(0)
   // 主窗句柄在挂载后才就绪：按钮回调经 Ref 取用
   let host_ref : Ref[@widget.WindowHost?] = Ref(None)
+  // 每档一份开关状态与窗口句柄：同一档只留一扇，按钮在「打开/关闭」间切换
+  let child_open : Array[@base.Store[Bool]] = child_kinds.map(fn(_k) {
+    @base.Store::new(false)
+  })
+  let child_hosts : Array[Ref[@widget.WindowHost?]] = child_kinds.map(fn(_k) {
+    Ref(None)
+  })
   // 基本窗口示例：按钮走 wrap，窗宽不够自动换行（flexbox 按需换行展示）
   let buttons : Array[@widget.Node] = []
-  for kind in child_kinds {
+  for i, kind in child_kinds {
     let (name, _, _, _) = kind
+    let open = child_open[i]
+    let slot = child_hosts[i]
     buttons.push(
-      @ui.button("打开\{name}", on_click=fn() {
-        match host_ref.val {
-          Some(a) => open_child(a, kind, win_count)
-          None => ()
-        }
+      @widget.bind_node(open.signal(), fn(is_open) {
+        @ui.button(if is_open { "关闭\{name}" } else { "打开\{name}" }, on_click=fn() {
+          match host_ref.val {
+            Some(a) => toggle_child(a, kind, win_count, open, slot)
+            None => ()
+          }
+        })
       }),
     )
   }
@@ -103,7 +149,9 @@ fn main {
     height=680,
     handle=fn(a : @widget.WindowHost) {
       host_ref.val = Some(a)
-      // 托盘轻演示：单例 + 提示语 + 左键计数（不传图标 = 库内置月牙）
+      // 界面与内置单色托盘图标随系统明暗实时切换
+      ignore(a.follow_system_theme())
+      // 托盘轻演示：单例 + 提示语 + 左键计数（不传图标 = 库内置单色图标）
       match @shell.Tray::new("libyue-hello-tray") {
         Ok(t) => {
           t.set_tooltip_localized(
@@ -117,11 +165,22 @@ fn main {
         }
         Err(e) => tray_note.set("托盘：" + tray_err(e))
       }
-      // 托盘派发 + 窗口数轮询同一条 200ms 表
+      // 托盘派发 + 窗口数/开窗状态轮询同一条 200ms 表
       let tick : Ref[() -> Unit] = Ref(fn() { () })
       tick.val = fn() -> Unit {
         let _ = @shell.dispatch_tray_event()
         win_count.set(a.window_count())
+        // 子窗被标题栏关掉时把开关状态收回（自关按钮已即时清）
+        for i, slot in child_hosts {
+          match slot.val {
+            Some(h) =>
+              if !host_alive(h) {
+                slot.val = None
+                child_open[i].set(false)
+              }
+            None => ()
+          }
+        }
         let _ = a.timer(200, tick.val)
       }
       (tick.val)()
