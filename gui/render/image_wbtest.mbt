@@ -3,7 +3,7 @@
 // 像素一律比 RGBA 分量（Bitmap::pixel 口径），不引入图片编码以外的工具。
 
 ///|
-fn fill_color(p : Painter, hex : String, n : Int) -> Unit {
+fn fill_color(p : Painter, hex : String, n : Int32) -> Unit {
   p.set_fill_color(hex)
   p.fill_rect(0.0, 0.0, n.to_double(), n.to_double())
 }
@@ -91,7 +91,9 @@ test "解码失败与空图语义" {
   let bad = Image::new_from_png(@utf8.encode("not a png at all"))
   assert_eq(bad.is_empty(), true)
   assert_eq(bad.get_width(), 0.0)
-  let missing = Image::new_from_file("/tmp/definitely-missing-moonbit-libyue-native.png")
+  let missing = Image::new_from_file(
+    "/tmp/definitely-missing-moonbit-libyue-native.png",
+  )
   assert_eq(missing.is_empty(), true)
   // 空图上画不落像素
   let bm = Bitmap::new(4, 4)
@@ -293,7 +295,9 @@ test "动图解码：逐帧前进、每帧时长、当前帧成图、close 之�
     }
   }
   // 静图走同一入口：is_static 为真、永远不换帧
-  let png = Animation::new_from_file("/tmp/definitely-missing-moonbit-libyue-native.png")
+  let png = Animation::new_from_file(
+    "/tmp/definitely-missing-moonbit-libyue-native.png",
+  )
   let missing_ok = match png {
     None => true
     Some(_) => false

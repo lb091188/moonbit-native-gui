@@ -33,7 +33,7 @@ pub(all) enum TrvBaseline {
 ///|
 /// 时间轴长度：全体序列取值序列的最大长度（等间隔时间轴按索引对齐，
 /// 短序列缺失位按 0 计）。
-pub fn trv_axis_len(values : Array[Array[Double]]) -> Int {
+pub fn trv_axis_len(values : Array[Array[Double]]) -> Int32 {
   let mut n = 0
   for row in values {
     if row.length() > n {
@@ -45,7 +45,11 @@ pub fn trv_axis_len(values : Array[Array[Double]]) -> Int {
 
 ///|
 /// 第 j 序列第 t 个时间点的取值（负值按 0、越界按 0）。
-pub fn trv_row_at(values : Array[Array[Double]], j : Int, t : Int) -> Double {
+pub fn trv_row_at(
+  values : Array[Array[Double]],
+  j : Int32,
+  t : Int32,
+) -> Double {
   if j < 0 || j >= values.length() {
     return 0.0
   }
@@ -63,7 +67,7 @@ pub fn trv_row_at(values : Array[Array[Double]], j : Int, t : Int) -> Double {
 
 ///|
 /// 第 t 个时间点的列总计（全部序列该列取值之和，负值已按 0）。
-pub fn trv_total_at(values : Array[Array[Double]], t : Int) -> Double {
+pub fn trv_total_at(values : Array[Array[Double]], t : Int32) -> Double {
   let mut total = 0.0
   for j in 0..<values.length() {
     total = total + trv_row_at(values, j, t)
@@ -149,7 +153,7 @@ pub fn trv_range(
 /// 样条因此过全部原始点。
 pub fn trv_spline_ctrl(
   pts : Array[(Double, Double)],
-  tension? : Double = 1.0,
+  tension~ : Double = 1.0,
 ) -> Array[((Double, Double), (Double, Double))] {
   let out : Array[((Double, Double), (Double, Double))] = []
   let n = pts.length()
@@ -187,8 +191,8 @@ pub fn trv_layer_band(
   x1 : Double,
   y0 : Double,
   y1 : Double,
-  j : Int,
-  t : Int,
+  j : Int32,
+  t : Int32,
 ) -> (Double, Double, Double, Double) {
   let n = trv_axis_len(values)
   let x = map_idx(t, n, x0, x1)
@@ -199,7 +203,7 @@ pub fn trv_layer_band(
 
 ///|
 /// 第 j 序列总量（全时间点取值之和，负值按 0）：图例右段数值标注口径。
-pub fn trv_series_total(values : Array[Array[Double]], j : Int) -> Double {
+pub fn trv_series_total(values : Array[Array[Double]], j : Int32) -> Double {
   let mut total = 0.0
   if j < 0 || j >= values.length() {
     return 0.0
@@ -212,7 +216,7 @@ pub fn trv_series_total(values : Array[Array[Double]], j : Int) -> Double {
 
 ///|
 /// 层名（越界兜底 "层\{n}"）：图例左段标注口径。
-pub fn trv_series_name(names : Array[String], j : Int) -> String {
+pub fn trv_series_name(names : Array[String], j : Int32) -> String {
   if j < 0 || j >= names.length() {
     "\{j}"
   } else {
@@ -256,8 +260,8 @@ fn trv_draw(
   names : Array[String],
   values : Array[Array[Double]],
   baseline : TrvBaseline,
-  tension? : Double = 1.0,
-  show_legend? : Bool = true,
+  tension~ : Double = 1.0,
+  show_legend~ : Bool = true,
 ) -> Unit {
   if w <= 0.0 || h <= 0.0 {
     return
@@ -411,12 +415,12 @@ fn trv_draw(
 pub fn trv_chart_t(
   names : @base.Store[Array[String]],
   values : @base.Store[Array[Array[Double]]],
-  baseline? : TrvBaseline = TrvZero,
-  tension? : Double = 1.0,
-  show_legend? : Bool = true,
-  width? : Double = 0.0,
-  height? : Double = 320.0,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  baseline~ : TrvBaseline = TrvZero,
+  tension~ : Double = 1.0,
+  show_legend~ : Bool = true,
+  width~ : Double = 0.0,
+  height~ : Double = 320.0,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.follow_store(names)
   @ui.follow_store(values)
@@ -444,7 +448,16 @@ pub fn trv_chart_t(
       } else {
         p.fill_rect(0.0, 0.0, r.w, r.h)
       }
-      trv_draw(p, r.w, r.h, names.get(), values.get(), bl, tension=tn, show_legend=lg)
+      trv_draw(
+        p,
+        r.w,
+        r.h,
+        names.get(),
+        values.get(),
+        bl,
+        tension=tn,
+        show_legend=lg,
+      )
     })
     handle(w)
     w

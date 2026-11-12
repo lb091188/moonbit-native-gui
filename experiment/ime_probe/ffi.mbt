@@ -5,8 +5,10 @@
 ///|
 #borrow(invoke, closure)
 extern "c" fn ip_on_key(
-  invoke : FuncRef[((Int, Int, Int, Int) -> Unit, Int, Int, Int, Int) -> Unit],
-  closure : (Int, Int, Int, Int) -> Unit,
+  invoke : FuncRef[
+    ((Int32, Int32, Int32, Int32) -> Unit, Int32, Int32, Int32, Int32) -> Unit,
+  ],
+  closure : (Int32, Int32, Int32, Int32) -> Unit,
 ) -> Unit = "ip_on_key"
 
 ///|
@@ -19,8 +21,8 @@ extern "c" fn ip_on_commit(
 ///|
 #borrow(invoke, closure)
 extern "c" fn ip_on_preedit(
-  invoke : FuncRef[((Bytes, Int, Int) -> Unit, Bytes, Int, Int) -> Unit],
-  closure : (Bytes, Int, Int) -> Unit,
+  invoke : FuncRef[((Bytes, Int32, Int32) -> Unit, Bytes, Int32, Int32) -> Unit],
+  closure : (Bytes, Int32, Int32) -> Unit,
 ) -> Unit = "ip_on_preedit"
 
 ///|
@@ -34,42 +36,51 @@ extern "c" fn ip_on_note(
 #borrow(text)
 extern "c" fn ip_set_surrounding(
   text : Bytes,
-  len : Int,
-  cursor_bytes : Int,
+  len : Int32,
+  cursor_bytes : Int32,
 ) -> Unit = "ip_set_surrounding"
 
 ///|
-extern "c" fn ip_init(mode : Int) -> Int = "ip_init"
+extern "c" fn ip_init(mode : Int32) -> Int32 = "ip_init"
 
 ///|
-extern "c" fn ip_iterate(blocking : Int) -> Int = "ip_iterate"
+extern "c" fn ip_iterate(blocking : Int32) -> Int32 = "ip_iterate"
 
 ///|
-extern "c" fn ip_should_quit() -> Int = "ip_should_quit"
+extern "c" fn ip_should_quit() -> Int32 = "ip_should_quit"
 
 ///|
 extern "c" fn ip_now_ms() -> Int64 = "ip_now_ms"
 
 ///|
-extern "c" fn ip_counter(idx : Int) -> Int = "ip_counter"
+extern "c" fn ip_counter(idx : Int32) -> Int32 = "ip_counter"
 
 ///|
 #borrow(text)
-extern "c" fn ip_set_display(text : Bytes, len : Int, caret_byte : Int) -> Unit = "ip_set_display"
+extern "c" fn ip_set_display(
+  text : Bytes,
+  len : Int32,
+  caret_byte : Int32,
+) -> Unit = "ip_set_display"
 
 ///|
-extern "c" fn ip_set_cursor_rect(x : Int, y : Int, w : Int, h : Int) -> Unit = "ip_set_cursor_rect"
+extern "c" fn ip_set_cursor_rect(
+  x : Int32,
+  y : Int32,
+  w : Int32,
+  h : Int32,
+) -> Unit = "ip_set_cursor_rect"
 
 ///|
 #borrow(text)
-extern "c" fn ip_measure(text : Bytes, len : Int) -> Double = "ip_measure"
+extern "c" fn ip_measure(text : Bytes, len : Int32) -> Double = "ip_measure"
 
 ///|
 extern "c" fn ip_line_height() -> Double = "ip_line_height"
 
 ///|
 #borrow(css)
-extern "c" fn ip_apply_css(css : Bytes, len : Int) -> Int = "ip_apply_css"
+extern "c" fn ip_apply_css(css : Bytes, len : Int32) -> Int32 = "ip_apply_css"
 
 ///|
 extern "c" fn ip_report_im_module() -> Unit = "ip_report_im_module"

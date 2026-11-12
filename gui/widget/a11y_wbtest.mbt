@@ -24,11 +24,30 @@ test "a11y：focus_id 换算成 widget id（快照行键，读屏焦点通道用
 
 ///|
 test "a11y：role 字符串与 ARole 往返（未知给 Unknown）" {
-  for r in [
-    Button, Checkbox, RadioButton, Switch, Slider, Stepper, TextInput, TextArea,
-    Select, DatePicker, ColorPicker, Rate, Progress, Tab, MenuItem, Link, Image,
-    Heading, Text, Window, Group,
-  ] {
+  for
+    r in [
+      Button,
+      Checkbox,
+      RadioButton,
+      Switch,
+      Slider,
+      Stepper,
+      TextInput,
+      TextArea,
+      Select,
+      DatePicker,
+      ColorPicker,
+      Rate,
+      Progress,
+      Tab,
+      MenuItem,
+      Link,
+      Image,
+      Heading,
+      Text,
+      Window,
+      Group,
+    ] {
     let s = arole_name(r)
     assert_true(s.length() > 0)
     assert_eq(arole_name(arole_of(s)), s)
@@ -106,7 +125,9 @@ test "语义快照：帧尾对账产出角色/状态/文本，删控件不留幽
   let box = Widget::new()
   box.role = "checkbox"
   box.enabled = false
-  box.a11y_state = Some(fn(_w : Widget) -> (String, String)? { Some(("checked", "")) })
+  box.a11y_state = Some(fn(_w : Widget) -> (String, String)? {
+    Some(("checked", ""))
+  })
   box.a11y_text = Some(fn(_w : Widget) -> String? { Some("记住我") })
   root.append_child(btn)
   root.append_child(box)
@@ -159,17 +180,19 @@ test "读屏动作：点击合成 Down+Up 打到控件中心，按钮回调照�
   root.rect = { x: 0.0, y: 0.0, w: 200.0, h: 100.0, }
   let btn = Widget::new()
   btn.rect = { x: 20.0, y: 30.0, w: 80.0, h: 30.0, }
-  let seen : Array[(Int, Double, Double)] = []
+  let seen : Array[(Int32, Double, Double)] = []
   btn.on_pointer = Some(fn(_w : Widget, ev : PointerEvent) -> Bool {
-    seen.push((
-      match ev.kind {
-        Down => 0
-        Up => 1
-        _ => 2
-      },
-      ev.x,
-      ev.y,
-    ))
+    seen.push(
+      (
+        match ev.kind {
+          Down => 0
+          Up => 1
+          _ => 2
+        },
+        ev.x,
+        ev.y,
+      ),
+    )
     true
   })
   root.append_child(btn)
@@ -195,13 +218,15 @@ test "读屏动作：id 不在树里或动作码不认识时原样返回、不�
   root.rect = { x: 0.0, y: 0.0, w: 200.0, h: 100.0, }
   let btn = Widget::new()
   btn.rect = { x: 20.0, y: 30.0, w: 80.0, h: 30.0, }
-  let seen : Array[Int] = []
+  let seen : Array[Int32] = []
   btn.on_pointer = Some(fn(_w : Widget, ev : PointerEvent) -> Bool {
-    seen.push(match ev.kind {
-      Down => 0
-      Up => 1
-      _ => 2
-    })
+    seen.push(
+      match ev.kind {
+        Down => 0
+        Up => 1
+        _ => 2
+      },
+    )
     true
   })
   root.append_child(btn)

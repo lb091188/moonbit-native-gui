@@ -65,8 +65,7 @@ test "a{sv} 构造与线往返:MPRIS Metadata 形状" {
                     _ => assert_true(false) // 走到错误分支：GVArray
                   }
                   match props.get("mpris:length") {
-                    Some(GVInt64(n)) =>
-                      assert_eq(n.to_string(), "180000000")
+                    Some(GVInt64(n)) => assert_eq(n.to_string(), "180000000")
                     _ => assert_true(false) // 走到错误分支：GVInt64
                   }
                   match props.get("xesam:userRating") {
@@ -105,8 +104,7 @@ test "属性 Get/Set 的参数与应答形状" {
         None => assert_true(false) // 走到错误分支：应可解析
         Some(m) =>
           match gdbus_reply_value(m) {
-            Ok(GVVariant(inner)) =>
-              assert_true(inner is GVDouble(87.5))
+            Ok(GVVariant(inner)) => assert_true(inner is GVDouble(87.5))
             _ => assert_true(false) // 走到错误分支：GVVariant
           }
       }
@@ -219,8 +217,7 @@ test "真总线冒烟:ListNames 与错误应答(会话)" {
           "NoSuchMethod",
           [],
         ) {
-        Err(e) =>
-          assert_eq(e.name, "org.freedesktop.DBus.Error.UnknownMethod")
+        Err(e) => assert_eq(e.name, "org.freedesktop.DBus.Error.UnknownMethod")
         Ok(_) => assert_true(false) // 走到错误分支：错误应答
       }
       // 连接握手已 Hello,重复 Hello 走错误应答通路(放最后)
@@ -233,8 +230,7 @@ test "真总线冒烟:ListNames 与错误应答(会话)" {
           "Hello",
           [],
         ) {
-        Err(e) =>
-          assert_true(e.name.has_prefix("org.freedesktop.DBus.Error"))
+        Err(e) => assert_true(e.name.has_prefix("org.freedesktop.DBus.Error"))
         Ok(_) => assert_true(false) // 走到错误分支：重复 Hello
       }
     }

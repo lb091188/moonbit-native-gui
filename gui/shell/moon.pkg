@@ -6,16 +6,17 @@ supported_targets = "native"
 
 import {
   "moonbitlang/core/encoding/utf8",
-  "moonbitlang/core/env" @env,
+  "moonbitlang/core/env",
   "NoahLiu/native-gui/win",
-  "NoahLiu/native-gui/sys" @sys,
-  "NoahLiu/native-gui/dbus" @dbus,
-  "NoahLiu/native-gui/i18n" @i18n,
-  "NoahLiu/native-gui/theme" @theme,
+  "NoahLiu/native-gui/sys",
+  "NoahLiu/native-gui/dbus",
+  "NoahLiu/native-gui/i18n",
+  "NoahLiu/native-gui/theme",
 }
 
 // shell_stub.c 是单实例的 POSIX 套接字臂，只用标准头，直接走 native-stub；
 // 链接参数由 scripts/prebuild.py 托管（本包无新增）。
+
 options(
   "native-stub": [ "shell_stub.c" ],
 )

@@ -10,36 +10,39 @@ pub fn Router::on_link(self : Router, path : String) -> () -> Unit {
 ///|
 /// 给任意节点套一层「点它 = 导航」：不动外观，只在套壳容器上接指针。认领口径与库内
 /// 导航项一致：按下认领、在框内抬起才算点中（`gui/ui/nav.mbt:119`）。
-pub fn Router::route_link(self : Router, path : String, node : @widget.Node) -> @widget.Node {
+pub fn Router::route_link(
+  self : Router,
+  path : String,
+  node : @widget.Node,
+) -> @widget.Node {
   let work = self.on_link(path)
-  @ui.col(
-    [node],
-    handle=fn(w : @widget.Widget) -> Unit {
-      w.on_pointer = Some(fn(
-        self_w : @widget.Widget,
-        ev : @widget.PointerEvent,
-      ) -> Bool {
-        match ev.kind {
-          @widget.PointerKind::Down => true
-          @widget.PointerKind::Up => {
-            let inside = ev.x >= 0.0 && ev.x <= self_w.rect.w &&
-              ev.y >= 0.0 && ev.y <= self_w.rect.h
-            if inside {
-              work()
-              @widget.invalidate()
-            }
-            false
+  @ui.col([node], handle=fn(w : @widget.Widget) -> Unit {
+    w.on_pointer = Some(fn(
+      self_w : @widget.Widget,
+      ev : @widget.PointerEvent,
+    ) -> Bool {
+      match ev.kind {
+        @widget.PointerKind::Down => true
+        @widget.PointerKind::Up => {
+          let inside = ev.x >= 0.0 &&
+            ev.x <= self_w.rect.w &&
+            ev.y >= 0.0 &&
+            ev.y <= self_w.rect.h
+          if inside {
+            work()
+            @widget.invalidate()
           }
-          _ => false
+          false
         }
-      })
-    },
-  )
+        _ => false
+      }
+    })
+  })
 }
 
 ///|
 /// 路径前 i 段（面包屑每段要导航到的那条路径）。
-fn join_upto(parts : Array[String], i : Int) -> String {
+fn join_upto(parts : Array[String], i : Int32) -> String {
   let mut out = ""
   for k in 0..<i {
     let p = parts[k]
@@ -60,15 +63,19 @@ fn Router::crumb_row(self : Router, p : String) -> @widget.Node {
   let n = parts.length()
   for i in 0..<n {
     if i > 0 {
-      items.push(@ui.text(" / ", font_size=12.0, color="text_secondary", wrap=false))
+      items.push(
+        @ui.text(" / ", font_size=12.0, color="text_secondary", wrap=false),
+      )
     }
     let seg = parts[i]
     let target = join_upto(parts, i + 1)
-    items.push(if i + 1 == n {
-      @ui.text(seg, wrap=false)
-    } else {
-      @ui.link(seg, self.on_link(target))
-    })
+    items.push(
+      if i + 1 == n {
+        @ui.text(seg, wrap=false)
+      } else {
+        @ui.link(seg, self.on_link(target))
+      },
+    )
   }
   @ui.row(items, column_gap=4.0)
 }
@@ -89,26 +96,30 @@ pub fn Router::breadcrumb(self : Router) -> @widget.Node {
 /// `label_of` 只改显示（本地化路由名），键仍是 `selected` 槽里的取值。
 pub fn Router::strip_at(
   self : Router,
-  depth : Int,
+  depth : Int32,
   candidates : Array[Route],
-  label_of? : (String) -> String = fn(k) { k },
+  label_of~ : (String) -> String = fn(k) { k },
 ) -> @widget.Node {
   let names : Array[String] = []
   for r in candidates {
     names.push(r.key)
   }
-  @ui.segmented(names, self.store_at(depth), label_of=label_of)
+  @ui.segmented(names, self.store_at(depth), label_of~)
 }
 
 ///|
 /// 带段条的整棵视图：分支内容前面放这一层的 `segmented`。
 pub fn Router::view_strip(self : Router) -> @widget.Node {
-  self.view(Some(fn(
-    ro : Router,
-    d : Int,
-    _p : String,
-    cs : Array[Route],
-  ) -> @widget.Node { ro.strip_at(d, cs) }))
+  self.view(
+    Some(fn(
+      ro : Router,
+      d : Int32,
+      _p : String,
+      cs : Array[Route],
+    ) -> @widget.Node {
+      ro.strip_at(d, cs)
+    }),
+  )
 }
 
 ///|
@@ -117,17 +128,17 @@ pub fn Router::view_strip(self : Router) -> @widget.Node {
 pub fn Router::sidebar(
   self : Router,
   groups : Array[(String, Array[String])],
-  icons? : Array[(String, @icons.IconKind)] = [],
-  labels? : Array[(String, String)] = [],
-  label_of? : (String) -> String = fn(_k) { "" },
-  width? : Double = 180.0,
+  icons~ : Array[(String, @icons.IconKind)] = [],
+  labels~ : Array[(String, String)] = [],
+  label_of~ : (String) -> String = fn(_k) { "" },
+  width~ : Double = 180.0,
 ) -> @widget.Node {
   @ui.menu_sections(
     groups,
     self.store_at(0),
-    icons=icons,
-    labels=labels,
-    label_of=label_of,
-    width=width,
+    icons~,
+    labels~,
+    label_of~,
+    width~,
   )
 }

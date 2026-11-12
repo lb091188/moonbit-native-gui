@@ -110,6 +110,7 @@ test "quit 后停止派发但保留待办" {
   assert_eq(fired, 0)
 }
 
+///|
 test "时基未建立时相对延时按 0 起算，start 之后按平台时钟起算" {
   // 未 start：基准取 0，delay 相对 0，advance 到该刻度即到期（明确化的旧行为）
   let l = Loop::new()
@@ -132,6 +133,7 @@ test "时基未建立时相对延时按 0 起算，start 之后按平台时钟�
   assert_eq(late, 1)
 }
 
+///|
 test "自重排的短周期节拍不应饿死长周期定时器" {
   // 现象复现：示例里 100ms 节拍 + 5000ms 自动退出，实测退出定时器从不触发。
   // 若本用例红，说明 Loop::advance 在「队首未到期即 break」的写法上丢了后序到期项。
@@ -168,11 +170,11 @@ test "进程级延时通道：无宿主时空操作，装通道后转派与取�
 
   let log : Array[String] = []
   set_timer_hooks(
-    fn(ms : Int, _f : () -> Unit) -> Int {
+    fn(ms : Int32, _f : () -> Unit) -> Int32 {
       log.push("s:" + ms.to_string())
       log.length()
     },
-    fn(id : Int) -> Unit { log.push("c:" + id.to_string()) },
+    fn(id : Int32) -> Unit { log.push("c:" + id.to_string()) },
   )
   let id = set_timeout(250, fn() { () })
   clear_timeout(id)
@@ -228,6 +230,7 @@ test "自重排周期表：只有记回新句柄才停得住" {
   assert_eq(hits.val, m)
 }
 
+///|
 test "Loop::due_pending:只数已到期、未跑掉的项" {
   let l = Loop::new()
   l.start(1000L)

@@ -29,16 +29,16 @@ pub fn SankeyNode::make(name : String) -> SankeyNode {
 /// 桑基图链路：source/target 为节点下标，value 为流量（>0 计入布局，
 /// 节点高度与色带宽度的量纲）。
 pub(all) struct SankeyLink {
-  source : Int
-  target : Int
+  source : Int32
+  target : Int32
   value : Double
 }
 
 ///|
 /// 建桑基图链路（source/target 为节点下标）。
 pub fn SankeyLink::make(
-  source : Int,
-  target : Int,
+  source : Int32,
+  target : Int32,
   value : Double,
 ) -> SankeyLink {
   { source, target, value, }
@@ -66,7 +66,10 @@ pub fn SankeyData::make(
 /// 不参与（与节点流量 / 色带口径一致）；含环的输入在 n_nodes 轮迭代
 /// 上限处截断（环上节点停在已推进的列，结果仍为有限非负值）。返回
 /// 长度 n_nodes 的列号表。
-pub fn sankey_columns(n_nodes : Int, links : Array[SankeyLink]) -> Array[Int] {
+pub fn sankey_columns(
+  n_nodes : Int32,
+  links : Array[SankeyLink],
+) -> Array[Int32] {
   let cols = Array::make(n_nodes, 0)
   if n_nodes <= 0 {
     return cols
@@ -100,7 +103,7 @@ pub fn sankey_columns(n_nodes : Int, links : Array[SankeyLink]) -> Array[Int] {
 /// 节点流量（矩形高度的量纲）：每节点取 max(入边和, 出边和)，只计
 /// 正值链路；下标越界的链路忽略。返回长度 n_nodes 的流量表。
 pub fn sankey_node_flow(
-  n_nodes : Int,
+  n_nodes : Int32,
   links : Array[SankeyLink],
 ) -> Array[Double] {
   let in_tot = Array::make(n_nodes, 0.0)
@@ -125,8 +128,8 @@ pub fn sankey_node_flow(
 ///|
 /// 桑基图节点矩形（画布坐标）：node 为节点下标，col 为所在列号。
 pub(all) struct SankeyNodeBox {
-  node : Int
-  col : Int
+  node : Int32
+  col : Int32
   x : Double
   y : Double
   w : Double
@@ -138,7 +141,7 @@ pub(all) struct SankeyNodeBox {
 /// (sy0, sy1) 为源端上下缘、(ty0, ty1) 为目标端上下缘；色带为两条三次
 /// 贝塞尔围成的区域（控制点取两端横坐标中点，两端切线水平）。
 pub(all) struct SankeyLinkBand {
-  link : Int
+  link : Int32
   x0 : Double
   x1 : Double
   sy0 : Double
@@ -154,7 +157,7 @@ pub(all) struct SankeyLinkBand {
 pub(all) struct SankeyLayout {
   boxes : Array[SankeyNodeBox]
   bands : Array[SankeyLinkBand]
-  cols : Array[Int]
+  cols : Array[Int32]
 }
 
 ///|
@@ -164,15 +167,15 @@ pub(all) struct SankeyLayout {
 /// 整体纵向居中（超出可用高时顶对齐）；同一节点的多条出/入链路沿矩形
 /// 纵向依序消费偏移（不重叠、无缝隙），band 高度与节点高度同 scale。
 pub fn sankey_layout(
-  n_nodes : Int,
+  n_nodes : Int32,
   links : Array[SankeyLink],
   x0 : Double,
   x1 : Double,
   y0 : Double,
   y1 : Double,
-  node_w? : Double = 14.0,
-  gap? : Double = 8.0,
-  min_h? : Double = 3.0,
+  node_w~ : Double = 14.0,
+  gap~ : Double = 8.0,
+  min_h~ : Double = 3.0,
 ) -> SankeyLayout {
   let cols = sankey_columns(n_nodes, links)
   let boxes : Array[SankeyNodeBox] = []
@@ -190,7 +193,7 @@ pub fn sankey_layout(
     }
     m + 1
   }
-  let by_col : Array[Array[Int]] = []
+  let by_col : Array[Array[Int32]] = []
   for _ in 0..<n_cols {
     by_col.push([])
   }
@@ -378,10 +381,10 @@ fn sankey_draw(
 /// 不重建控件树；主题切换现取色自动跟随。
 pub fn sankey_t(
   data : @base.Store[SankeyData],
-  show_labels? : Bool = true,
-  width? : Double = 0.0,
-  height? : Double = 320.0,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  show_labels~ : Bool = true,
+  width~ : Double = 0.0,
+  height~ : Double = 320.0,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.follow_store(data)
   let labels = show_labels

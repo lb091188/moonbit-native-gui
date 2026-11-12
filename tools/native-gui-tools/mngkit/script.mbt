@@ -8,22 +8,22 @@ priv struct ScriptInfo {
   // let 名 → 右值组件路径（`let sh_section = @shared.section`）
   let_paths : Map[String, String]
   // let 名 → script 内 0 基行号（被当组件消费且无引用时，生成体里丢该行）
-  let_lines : Map[String, Int]
+  let_lines : Map[String, Int32]
   comps : Map[String, CompDecl]
   // props 头：原文行（空数组 = 未声明，退回 `fn <stem>() -> @widget.Node`）与参数表
   head : Array[String]
-  head_line : Int
+  head_line : Int32
   head_ret : String
   params : Array[Param]
   // 槽名 → 元素类型原文（`Store[Int]` → `Int`；dev 档按类型登记 state）
   slot_tys : Map[String, String]
-  line0 : Int
+  line0 : Int32
   lines : Array[String]
 }
 
 ///|
 /// 签名头识别：script 段第一个 `fn` 声明，括号配平后**不含**顶层 `{`（含即为页内辅助函数）。
-fn find_head(lines : Array[String]) -> (Array[String], Int) {
+fn find_head(lines : Array[String]) -> (Array[String], Int32) {
   let n = lines.length()
   let mut i = 0
   while i < n {
@@ -111,11 +111,11 @@ fn strip_line_comment(s : String) -> String {
 
 ///|
 /// 声明行识别：`let <名> [: <类型>] = <右值>` 按类型注解（Store[ / Signal[）与右值形态分档。
-fn analyze_script(script : String, line0 : Int) -> ScriptInfo {
+fn analyze_script(script : String, line0 : Int32) -> ScriptInfo {
   let slots : Map[String, SlotKind] = Map([])
   let lets : Array[String] = []
   let let_paths : Map[String, String] = Map([])
-  let let_lines : Map[String, Int] = Map([])
+  let let_lines : Map[String, Int32] = Map([])
   let comps : Map[String, CompDecl] = Map([])
   let slot_tys : Map[String, String] = Map([])
   let lines = split_arr(script, "\n")
@@ -159,7 +159,10 @@ fn analyze_script(script : String, line0 : Int) -> ScriptInfo {
           let body = l[8:].to_owned()
           let toks = split_arr(body, " ")
           if toks.length() > 0 && toks[0].length() > 0 {
-            let _ = comps.set(snake(toks[0]), { path: "@mng-error:" + e, positional: [] })
+            let _ = comps.set(snake(toks[0]), {
+              path: "@mng-error:" + e,
+              positional: [],
+            })
           }
         }
       }
@@ -253,14 +256,12 @@ fn parse_mng_decl(l : String) -> Result[(String, CompDecl), String] {
     }
   }
   if nonempty.length() < 2 || nonempty[1] != "=" {
-    return Err("@mng 声明格式：// @mng <标签> = <路径> positional(参数…)")
+    return Err(
+      "@mng 声明格式：// @mng <标签> = <路径> positional(参数…)",
+    )
   }
   let tag = nonempty[0]
-  let path = if nonempty.length() > 2 {
-    nonempty[2]
-  } else {
-    ""
-  }
+  let path = if nonempty.length() > 2 { nonempty[2] } else { "" }
   let positional : Array[String] = []
   let mut joined = ""
   for k in 3..<nonempty.length() {
@@ -275,7 +276,7 @@ fn parse_mng_decl(l : String) -> Result[(String, CompDecl), String] {
       }
     }
   }
-  Ok((tag, { path, positional }))
+  Ok((tag, { path, positional, }))
 }
 
 ///|

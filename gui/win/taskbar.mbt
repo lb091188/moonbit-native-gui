@@ -29,7 +29,7 @@ pub(all) enum TaskbarState {
 
 ///|
 /// 状态 → C 侧编号（纯函数，供测试与文档对照）。
-pub fn taskbar_state_id(s : TaskbarState) -> Int {
+pub fn taskbar_state_id(s : TaskbarState) -> Int32 {
   match s {
     NoProgress => 0
     Normal => 1
@@ -41,7 +41,7 @@ pub fn taskbar_state_id(s : TaskbarState) -> Int {
 
 ///|
 /// 编号 → 状态（纯函数；未知编号归 NoProgress，与 C 侧 default 分支一致）。
-pub fn taskbar_state_of(id : Int) -> TaskbarState {
+pub fn taskbar_state_of(id : Int32) -> TaskbarState {
   match id {
     1 => Normal
     2 => Error

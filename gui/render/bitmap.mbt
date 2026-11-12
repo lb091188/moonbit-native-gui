@@ -7,26 +7,28 @@
 
 ///|
 pub(all) struct Bitmap {
-  width : Int
-  height : Int
+  width : Int32
+  height : Int32
   data : FixedArray[Byte]
 }
 
 ///|
 /// 建新位图并清成全透明；尺寸非正时得到空位图（任何写入被丢弃）。
-pub fn Bitmap::new(width : Int, height : Int) -> Bitmap {
+pub fn Bitmap::new(width : Int32, height : Int32) -> Bitmap {
   let w = if width < 0 { 0 } else { width }
   let h = if height < 0 { 0 } else { height }
-  { width: w, height: h, data: FixedArray::make(w * h * 4, b'\x00') }
+  { width: w, height: h, data: FixedArray::make(w * h * 4, b'\x00'), }
 }
 
 ///|
-pub fn Bitmap::inside(self : Bitmap, x : Int, y : Int) -> Bool {
+pub fn Bitmap::inside(self : Bitmap, x : Int32, y : Int32) -> Bool {
   x >= 0 && y >= 0 && x < self.width && y < self.height
 }
 
 // 反预乘：预乘分量 p、alpha a → 独立分量 p*255/a（a=0 视为全透明）。
-fn unpremul(p : Int, a : Int) -> Int {
+
+///|
+fn unpremul(p : Int32, a : Int32) -> Int32 {
   if a == 0 {
     0
   } else {
@@ -36,7 +38,7 @@ fn unpremul(p : Int, a : Int) -> Int {
 
 ///|
 /// 取像素（反预乘后的独立 RGBA 分量）；越界返回全透明。
-pub fn Bitmap::pixel(self : Bitmap, x : Int, y : Int) -> Color {
+pub fn Bitmap::pixel(self : Bitmap, x : Int32, y : Int32) -> Color {
   if !self.inside(x, y) {
     color_transparent
   } else {
@@ -49,14 +51,14 @@ pub fn Bitmap::pixel(self : Bitmap, x : Int, y : Int) -> Color {
     if a == 0 {
       color_transparent
     } else {
-      { r: unpremul(r, a), g: unpremul(g, a), b: unpremul(b, a), a }
+      { r: unpremul(r, a), g: unpremul(g, a), b: unpremul(b, a), a, }
     }
   }
 }
 
 ///|
 /// source-over 覆盖一个像素（在预乘域上混合，与 Cairo 同一套算术）。
-pub fn Bitmap::paint(self : Bitmap, x : Int, y : Int, c : Color) -> Unit {
+pub fn Bitmap::paint(self : Bitmap, x : Int32, y : Int32, c : Color) -> Unit {
   if !self.inside(x, y) {
     return ()
   }
@@ -78,7 +80,9 @@ pub fn Bitmap::paint(self : Bitmap, x : Int, y : Int, c : Color) -> Unit {
     let sg = (c.g * sa + 127) / 255
     let sb = (c.b * sa + 127) / 255
     let inv = 255 - sa
-    let mix = fn(s : Int, dst : Int) -> Int { s + (dst * inv + 127) / 255 }
+    let mix = fn(s : Int32, dst : Int32) -> Int32 {
+      s + (dst * inv + 127) / 255
+    }
     let db = d[i].to_int()
     let dg = d[i + 1].to_int()
     let dr = d[i + 2].to_int()
@@ -112,10 +116,10 @@ pub fn Bitmap::to_rgba_bytes(self : Bitmap) -> Bytes {
 /// 在闭区间 [x0,x1) × [y0,y1) 内逐像素覆盖；非法区间不做任何事。
 pub fn Bitmap::fill_area(
   self : Bitmap,
-  x0 : Int,
-  y0 : Int,
-  x1 : Int,
-  y1 : Int,
+  x0 : Int32,
+  y0 : Int32,
+  x1 : Int32,
+  y1 : Int32,
   c : Color,
 ) -> Unit {
   if x1 <= x0 || y1 <= y0 {

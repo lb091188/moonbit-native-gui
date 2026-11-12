@@ -15,7 +15,7 @@ let g_inhibit_service : Ref[String?] = Ref(None)
 
 ///|
 /// 活动抑制的 cookie(申请时记下,解除时带上)。
-let g_inhibit_cookie : Ref[Int?] = Ref(None)
+let g_inhibit_cookie : Ref[Int32?] = Ref(None)
 
 ///|
 /// 服务名 → 对象路径:org.xfce.ScreenSaver → /org/xfce/ScreenSaver。
@@ -84,7 +84,7 @@ fn probe_inhibit_service() -> Bool {
 ///|
 /// 申请屏幕抑制,返回 cookie(解除时须带原值)。幂等语义由调用方
 /// (KeepAwake)持有。
-pub fn inhibit(app_name : String, reason : String) -> Result[Int, String] {
+pub fn inhibit(app_name : String, reason : String) -> Result[Int32, String] {
   let service = match g_inhibit_service.val {
     Some(s) => s
     None =>

@@ -1,7 +1,7 @@
 // z_index（层序键）回归：正序 / 负值 / 并列稳定；z_index 不参与布局几何。
 
 ///|
-fn eq_ints(a : Array[Int], b : Array[Int]) -> Bool {
+fn eq_ints(a : Array[Int32], b : Array[Int32]) -> Bool {
   if a.length() != b.length() {
     return false
   }
@@ -17,7 +17,7 @@ fn eq_ints(a : Array[Int], b : Array[Int]) -> Bool {
 }
 
 ///|
-fn row_root_w3(z : Array[Int]) -> (Node, Array[Node]) {
+fn row_root_w3(z : Array[Int32]) -> (Node, Array[Node]) {
   let root = Node::new()
   root.set_width(fixed(300.0))
   root.set_height(fixed(100.0))

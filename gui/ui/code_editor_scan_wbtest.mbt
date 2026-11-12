@@ -14,7 +14,7 @@ fn scan_roles_have(roles : Array[TokenRole], want : TokenRole) -> Bool {
 
 ///|
 /// 收集一行的角色序列。
-fn scan_roles(cs : CodeScan, row : Int) -> Array[TokenRole] {
+fn scan_roles(cs : CodeScan, row : Int32) -> Array[TokenRole] {
   let out : Array[TokenRole] = []
   for t in cs.toks[row] {
     out.push(t.role)
@@ -45,7 +45,7 @@ fn scan_offsets_ok(cs : CodeScan) -> Bool {
 }
 
 ///|
-fn scan_lines(n : Int) -> String {
+fn scan_lines(n : Int32) -> String {
   let sb = StringBuilder()
   for i in 0..<n {
     sb.write_string("let v\{i} = \{i} // 行注 \{i}")
@@ -56,7 +56,9 @@ fn scan_lines(n : Int) -> String {
 
 ///|
 test "跨行块注释状态传播：整段 Comment、闭合行接正常 token" {
-  let cs = CodeScan::new("let a = 1\n/* 第一行\n第二行 */ let b = 2\nlet c = 3\n", "moonbit")
+  let cs = CodeScan::new(
+    "let a = 1\n/* 第一行\n第二行 */ let b = 2\nlet c = 3\n", "moonbit",
+  )
   cs.ensure(cs.line_count() - 1)
   assert_eq(cs.line_count(), 5)
   assert_eq(cs.line_at(0), "let a = 1")
@@ -135,7 +137,7 @@ test "渐进扫描：ensure 到哪扫到哪，跳转后状态链不断" {
 
 ///|
 /// 把全文第 row 行换成 text（测试助手：按行重拼）。
-fn cs_lines_replace(text : String, row : Int, repl : String) -> String {
+fn cs_lines_replace(text : String, row : Int32, repl : String) -> String {
   let sb = StringBuilder()
   let b = @utf8.encode(text)
   let mut cur = 0

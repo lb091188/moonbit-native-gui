@@ -14,7 +14,7 @@ fn plain_box(w : Double, h : Double) -> @widget.Node {
 
 ///|
 /// 命中链上有没有这个 id。
-fn path_has(path : Array[@widget.Widget], id : Int) -> Bool {
+fn path_has(path : Array[@widget.Widget], id : Int32) -> Bool {
   let mut i = 0
   let mut found = false
   while i < path.length() && !found {
@@ -33,26 +33,24 @@ fn drag_step(
   kind : @widget.PointerKind,
   x : Double,
   y : Double,
-  hover : Int,
-  cap : Int,
-) -> (Int, Int) {
-  let (h, c, _consumed, _changed) = @widget.route_pointer(root, {
-    kind,
-    x,
-    y,
-    button: 1,
-    mods: 0,
-  }, hover, cap)
+  hover : Int32,
+  cap : Int32,
+) -> (Int32, Int32) {
+  let (h, c, _consumed, _changed) = @widget.route_pointer(
+    root,
+    { kind, x, y, button: 1, mods: 0, },
+    hover,
+    cap,
+  )
   (h, c)
 }
 
 ///|
 test "应用内拖放：按下 → 过阈值开拖 → 移到目标 → 松手投递" {
   let got : Ref[String] = Ref("-")
-  let src = drag_source(
-    plain_box(80.0, 30.0),
-    payload=fn() -> @widget.DragData? { Some(@widget.DragData::Text("载荷")) },
-  )
+  let src = drag_source(plain_box(80.0, 30.0), payload=fn() -> @widget.DragData? {
+    Some(@widget.DragData::Text("载荷"))
+  })
   let tgt = drop_target(plain_box(80.0, 30.0), on_drop=fn(
     d : @widget.DragData,
     _x : Double,
@@ -89,11 +87,25 @@ test "应用内拖放：按下 → 过阈值开拖 → 移到目标 → 松手�
   assert_true(cap != -1)
   assert_false(@widget.drag_active())
   // 移动 2px（没过 4px 阈值）：不开拖
-  let (h2, cap2) = drag_step(root, @widget.PointerKind::Move, sx + 2.0, sy, h1, cap)
+  let (h2, cap2) = drag_step(
+    root,
+    @widget.PointerKind::Move,
+    sx + 2.0,
+    sy,
+    h1,
+    cap,
+  )
   assert_false(@widget.drag_active())
   assert_eq(cap2, deepest)
   // 移动 12px（过阈值）：开拖，源 id 记进会话
-  let (h3, cap3) = drag_step(root, @widget.PointerKind::Move, sx + 12.0, sy, h2, cap2)
+  let (h3, cap3) = drag_step(
+    root,
+    @widget.PointerKind::Move,
+    sx + 12.0,
+    sy,
+    h2,
+    cap2,
+  )
   assert_true(@widget.drag_active())
   assert_eq(@widget.drag_source(), sw.id)
   assert_eq(@widget.drag_hover(), 0)
@@ -110,10 +122,9 @@ test "应用内拖放：按下 → 过阈值开拖 → 移到目标 → 松手�
 ///|
 test "拖放：没过阈值当普通点击（不开会话）、投到空白处不投递" {
   let got : Ref[String] = Ref("-")
-  let src = drag_source(
-    plain_box(80.0, 30.0),
-    payload=fn() -> @widget.DragData? { Some(@widget.DragData::Text("x")) },
-  )
+  let src = drag_source(plain_box(80.0, 30.0), payload=fn() -> @widget.DragData? {
+    Some(@widget.DragData::Text("x"))
+  })
   let tgt = drop_target(plain_box(80.0, 30.0), on_drop=fn(
     _d : @widget.DragData,
     _x : Double,
@@ -137,9 +148,23 @@ test "拖放：没过阈值当普通点击（不开会话）、投到空白处�
   assert_eq(got.val, "-")
   // 开了拖但松手在空白处（没有落点）：不投递，会话照样结束
   let (h3, cap3) = drag_step(root, @widget.PointerKind::Down, sx, sy, h2, cap2)
-  let (h4, cap4) = drag_step(root, @widget.PointerKind::Move, sx + 10.0, sy, h3, cap3)
+  let (h4, cap4) = drag_step(
+    root,
+    @widget.PointerKind::Move,
+    sx + 10.0,
+    sy,
+    h3,
+    cap3,
+  )
   assert_true(@widget.drag_active())
-  let (_h5, _c5) = drag_step(root, @widget.PointerKind::Up, 310.0, 190.0, h4, cap4)
+  let (_h5, _c5) = drag_step(
+    root,
+    @widget.PointerKind::Up,
+    310.0,
+    190.0,
+    h4,
+    cap4,
+  )
   assert_eq(got.val, "-")
   assert_false(@widget.drag_active())
   @widget.clear_drag_root()
@@ -147,17 +172,14 @@ test "拖放：没过阈值当普通点击（不开会话）、投到空白处�
 
 ///|
 test "拖放：同一拖源连着拖两次都成立，载荷每次现取" {
-  let hits : Ref[Int] = Ref(0)
+  let hits : Ref[Int32] = Ref(0)
   let last : Ref[String] = Ref("-")
   // 载荷由 `payload()` 每次开拖时现取——会话不缓存，第二次拖要拿到新值
-  let seq : Ref[Int] = Ref(0)
-  let src = drag_source(
-    plain_box(80.0, 30.0),
-    payload=fn() -> @widget.DragData? {
-      seq.val = seq.val + 1
-      Some(@widget.DragData::Text("第 \{seq.val} 次"))
-    },
-  )
+  let seq : Ref[Int32] = Ref(0)
+  let src = drag_source(plain_box(80.0, 30.0), payload=fn() -> @widget.DragData? {
+    seq.val = seq.val + 1
+    Some(@widget.DragData::Text("第 \{seq.val} 次"))
+  })
   let tgt = drop_target(plain_box(80.0, 30.0), on_drop=fn(
     d : @widget.DragData,
     _x : Double,
@@ -186,8 +208,22 @@ test "拖放：同一拖源连着拖两次都成立，载荷每次现取" {
   let mut hover = -1
   let mut cap = -1
   for i = 0; i < 2; i = i + 1 {
-    let (h1, c1) = drag_step(root, @widget.PointerKind::Down, sx, sy, hover, cap)
-    let (h2, c2) = drag_step(root, @widget.PointerKind::Move, sx + 10.0, sy, h1, c1)
+    let (h1, c1) = drag_step(
+      root,
+      @widget.PointerKind::Down,
+      sx,
+      sy,
+      hover,
+      cap,
+    )
+    let (h2, c2) = drag_step(
+      root,
+      @widget.PointerKind::Move,
+      sx + 10.0,
+      sy,
+      h1,
+      c1,
+    )
     assert_true(@widget.drag_active())
     let (h3, c3) = drag_step(root, @widget.PointerKind::Move, tx, ty, h2, c2)
     assert_eq(@widget.drag_hover(), tw.id)
@@ -206,14 +242,15 @@ test "拖放：同一拖源连着拖两次都成立，载荷每次现取" {
 ///|
 test "拖放：accept 判收不收——拒绝时回调不跑、返回不被接受" {
   let dropped : Ref[String] = Ref("-")
-  let src = drag_source(
-    plain_box(80.0, 30.0),
-    payload=fn() -> @widget.DragData? { Some(@widget.DragData::Text("只收路径")) },
-  )
+  let src = drag_source(plain_box(80.0, 30.0), payload=fn() -> @widget.DragData? {
+    Some(@widget.DragData::Text("只收路径"))
+  })
   let tgt = drop_target(
     plain_box(80.0, 30.0),
     // 只收文件路径，文本一律拒
-    accept=fn(d : @widget.DragData) -> Bool { d.kind() == @widget.DataKind::FilePaths },
+    accept=fn(d : @widget.DragData) -> Bool {
+      d.kind() == @widget.DataKind::FilePaths
+    },
     on_drop=fn(_d : @widget.DragData, _x : Double, _y : Double) -> Unit {
       dropped.val = "投中了"
     },
@@ -231,7 +268,14 @@ test "拖放：accept 判收不收——拒绝时回调不跑、返回不被接�
   let tx = tw.rect.x + 8.0
   let ty = tw.rect.y + 8.0
   let (h1, cap) = drag_step(root, @widget.PointerKind::Down, sx, sy, -1, -1)
-  let (h2, cap2) = drag_step(root, @widget.PointerKind::Move, sx + 10.0, sy, h1, cap)
+  let (h2, cap2) = drag_step(
+    root,
+    @widget.PointerKind::Move,
+    sx + 10.0,
+    sy,
+    h1,
+    cap,
+  )
   let (h3, cap3) = drag_step(root, @widget.PointerKind::Move, tx, ty, h2, cap2)
   // 悬停照样命中（accept 是松手时才问的，悬停高亮不受它影响）
   assert_eq(@widget.drag_hover(), tw.id)
@@ -250,7 +294,14 @@ test "拖放：payload 给 None 时按普通按下处理，不产生会话" {
   let sx = sw.rect.x + 8.0
   let sy = sw.rect.y + 8.0
   let (h1, cap) = drag_step(root, @widget.PointerKind::Down, sx, sy, -1, -1)
-  let (h2, cap2) = drag_step(root, @widget.PointerKind::Move, sx + 20.0, sy, h1, cap)
+  let (h2, cap2) = drag_step(
+    root,
+    @widget.PointerKind::Move,
+    sx + 20.0,
+    sy,
+    h1,
+    cap,
+  )
   assert_false(@widget.drag_active())
   assert_eq(h2, h1)
   assert_eq(cap2, cap)
@@ -261,10 +312,11 @@ test "拖放：payload 给 None 时按普通按下处理，不产生会话" {
 /// `accept` 除了松手时判收不收，还要挂成悬停查询——系统级拖入的拖拽光标按它答
 /// （`@widget.drag_wants`），这里钉住接线。
 test "拖放：drop_target 的 accept 同时是悬停查询" {
-  let tgt = drop_target(
-    plain_box(80.0, 30.0),
-    accept=fn(d : @widget.DragData) -> Bool { d.kind() == @widget.DataKind::FilePaths },
-  )
+  let tgt = drop_target(plain_box(80.0, 30.0), accept=fn(
+    d : @widget.DragData,
+  ) -> Bool {
+    d.kind() == @widget.DataKind::FilePaths
+  })
   let (_root, w) = mounted(tgt, 200.0, 120.0)
   assert_true(w.drag_wants(@widget.DragData::Paths(["/a"])))
   assert_false(w.drag_wants(@widget.DragData::Text("t")))
@@ -315,15 +367,25 @@ test "拖放：external=true 起不来时回落到应用内会话" {
   let sy = sw.rect.y + 8.0
   let (h1, cap) = drag_step(root, @widget.PointerKind::Down, sx, sy, -1, -1)
   // 过阈值：系统那趟起不来 ⇒ 回落成应用内会话（源 id 仍记本控件）
-  let (h2, cap2) = drag_step(root, @widget.PointerKind::Move, sx + 12.0, sy, h1, cap)
+  let (h2, cap2) = drag_step(
+    root,
+    @widget.PointerKind::Move,
+    sx + 12.0,
+    sy,
+    h1,
+    cap,
+  )
   assert_true(@widget.drag_active())
   assert_eq(@widget.drag_source(), sw.id)
   assert_eq(@widget.drag_hover(), 0)
-  assert_eq(said.val, if @widget.drag_external_send_supported() {
-    "起不来"
-  } else {
-    "不支持"
-  })
+  assert_eq(
+    said.val,
+    if @widget.drag_external_send_supported() {
+      "起不来"
+    } else {
+      "不支持"
+    },
+  )
   // 后面完全走应用内那条链：移到目标 → 松手投递
   let (h3, cap3) = drag_step(
     root,
@@ -355,7 +417,9 @@ test "拖放：external=true 遇无系统级形态的数据回落并回报 Unsup
   let said : Ref[String] = Ref("-")
   let src = drag_source(
     plain_box(80.0, 30.0),
-    payload=fn() -> @widget.DragData? { Some(@widget.DragData::Html("<b>卡片</b>")) },
+    payload=fn() -> @widget.DragData? {
+      Some(@widget.DragData::Html("<b>卡片</b>"))
+    },
     external=true,
     on_external=fn(r : Result[@widget.DragEffect, @widget.DragError]) -> Unit {
       said.val = match r {
@@ -380,13 +444,41 @@ test "拖放：external=true 遇无系统级形态的数据回落并回报 Unsup
   @widget.set_drag_root(root)
   let sw = wrap.children()[0]
   let tw = wrap.children()[1]
-  let (h1, cap) = drag_step(root, @widget.PointerKind::Down, sw.rect.x + 8.0, sw.rect.y + 8.0, -1, -1)
-  let (h2, cap2) = drag_step(root, @widget.PointerKind::Move, sw.rect.x + 20.0, sw.rect.y + 8.0, h1, cap)
+  let (h1, cap) = drag_step(
+    root,
+    @widget.PointerKind::Down,
+    sw.rect.x + 8.0,
+    sw.rect.y + 8.0,
+    -1,
+    -1,
+  )
+  let (h2, cap2) = drag_step(
+    root,
+    @widget.PointerKind::Move,
+    sw.rect.x + 20.0,
+    sw.rect.y + 8.0,
+    h1,
+    cap,
+  )
   assert_true(@widget.drag_active())
   assert_eq(said.val, "不支持")
-  let (h3, cap3) = drag_step(root, @widget.PointerKind::Move, tw.rect.x + 8.0, tw.rect.y + 8.0, h2, cap2)
+  let (h3, cap3) = drag_step(
+    root,
+    @widget.PointerKind::Move,
+    tw.rect.x + 8.0,
+    tw.rect.y + 8.0,
+    h2,
+    cap2,
+  )
   assert_eq(@widget.drag_hover(), tw.id)
-  let _ = drag_step(root, @widget.PointerKind::Up, tw.rect.x + 8.0, tw.rect.y + 8.0, h3, cap3)
+  let _ = drag_step(
+    root,
+    @widget.PointerKind::Up,
+    tw.rect.x + 8.0,
+    tw.rect.y + 8.0,
+    h3,
+    cap3,
+  )
   assert_eq(got.val, "<b>卡片</b>")
   assert_false(@widget.drag_active())
   @widget.clear_drag_root()
@@ -411,12 +503,7 @@ test "拖源包文本：按下落在文本上照样过阈值开拖" {
     return
   }
   let src = drag_source(
-    view(
-      [text("拖我")],
-      width=120.0,
-      height=64.0,
-      padding=8.0,
-    ),
+    view([text("拖我")], width=120.0, height=64.0, padding=8.0),
     payload=fn() -> @widget.DragData? { Some(@widget.DragData::Text("载荷")) },
   )
   let (root, sw) = mounted(src, 320.0, 200.0)
@@ -429,10 +516,24 @@ test "拖源包文本：按下落在文本上照样过阈值开拖" {
   let (h1, cap) = drag_step(root, @widget.PointerKind::Down, px, py, -1, -1)
   assert_eq(cap, label.id)
   assert_false(@widget.drag_active())
-  let (h2, cap2) = drag_step(root, @widget.PointerKind::Move, px + 14.0, py, h1, cap)
+  let (h2, cap2) = drag_step(
+    root,
+    @widget.PointerKind::Move,
+    px + 14.0,
+    py,
+    h1,
+    cap,
+  )
   assert_true(@widget.drag_active())
   assert_eq(@widget.drag_source(), sw.id)
-  let (_h3, _cap3) = drag_step(root, @widget.PointerKind::Up, px + 14.0, py, h2, cap2)
+  let (_h3, _cap3) = drag_step(
+    root,
+    @widget.PointerKind::Up,
+    px + 14.0,
+    py,
+    h2,
+    cap2,
+  )
   assert_false(@widget.drag_active())
   @widget.clear_drag_root()
 }
@@ -445,12 +546,7 @@ test "拖源 external：系统级起不来时回落应用内会话" {
     return
   }
   let src = drag_source(
-    view(
-      [text("拖我出去")],
-      width=120.0,
-      height=64.0,
-      padding=8.0,
-    ),
+    view([text("拖我出去")], width=120.0, height=64.0, padding=8.0),
     payload=fn() -> @widget.DragData? { Some(@widget.DragData::Text("载荷")) },
     external=true,
   )
@@ -460,7 +556,14 @@ test "拖源 external：系统级起不来时回落应用内会话" {
   let px = label.rect.x + label.rect.w / 2.0
   let py = label.rect.y + label.rect.h / 2.0
   let (h1, cap) = drag_step(root, @widget.PointerKind::Down, px, py, -1, -1)
-  let (_h2, _cap2) = drag_step(root, @widget.PointerKind::Move, px + 14.0, py, h1, cap)
+  let (_h2, _cap2) = drag_step(
+    root,
+    @widget.PointerKind::Move,
+    px + 14.0,
+    py,
+    h1,
+    cap,
+  )
   assert_true(@widget.drag_active())
   assert_eq(@widget.drag_source(), sw.id)
   let _ = @widget.drag_cancel()
@@ -469,10 +572,9 @@ test "拖源 external：系统级起不来时回落应用内会话" {
 
 ///|
 test "拖拽反馈光标：悬停张手、按下与开拖握拳、松手回张手" {
-  let src = drag_source(
-    plain_box(80.0, 30.0),
-    payload=fn() -> @widget.DragData? { Some(@widget.DragData::Text("载荷")) },
-  )
+  let src = drag_source(plain_box(80.0, 30.0), payload=fn() -> @widget.DragData? {
+    Some(@widget.DragData::Text("载荷"))
+  })
   let (root, wrap) = mounted(
     view([src], align_items=@yoga.AlignItems::FlexStart),
     320.0,

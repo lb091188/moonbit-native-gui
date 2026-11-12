@@ -6,14 +6,14 @@
 
 ///|
 pub(all) struct Color {
-  r : Int
-  g : Int
-  b : Int
-  a : Int
+  r : Int32
+  g : Int32
+  b : Int32
+  a : Int32
 }
 
 ///|
-fn hex_val(c : Char) -> Int {
+fn hex_val(c : Char) -> Int32 {
   if c >= '0' && c <= '9' {
     c.to_int() - '0'.to_int()
   } else if c >= 'a' && c <= 'f' {
@@ -28,7 +28,7 @@ fn hex_val(c : Char) -> Int {
 ///|
 /// 解析 hex 颜色；写法不完整或含非 hex 字符时返回 None。
 pub fn Color::parse(hex : String) -> Color? {
-  let ds : Array[Int] = []
+  let ds : Array[Int32] = []
   for c in hex {
     if c == '#' || c == ' ' {
       continue
@@ -40,8 +40,8 @@ pub fn Color::parse(hex : String) -> Color? {
     ds.push(v)
   }
   let n = ds.length()
-  let at = fn(i : Int) -> Int { ds[i] * 16 + ds[i + 1] }
-  let up = fn(d : Int) -> Int { d * 17 }
+  let at = fn(i : Int32) -> Int32 { ds[i] * 16 + ds[i + 1] }
+  let up = fn(d : Int32) -> Int32 { d * 17 }
   if n == 6 {
     Some({ r: at(0), g: at(2), b: at(4), a: 255, })
   } else if n == 8 {
@@ -66,25 +66,27 @@ pub let color_transparent : Color = { r: 0, g: 0, b: 0, a: 0, }
 
 ///|
 /// 按 RGBA 分量（0–255）构造颜色。
-pub fn Color::rgba(r : Int, g : Int, b : Int, a : Int) -> Color {
+pub fn Color::rgba(r : Int32, g : Int32, b : Int32, a : Int32) -> Color {
   { r, g, b, a, }
 }
 
 ///|
 /// 按 RGB 构造不透明颜色。
-pub fn Color::rgb(r : Int, g : Int, b : Int) -> Color {
+pub fn Color::rgb(r : Int32, g : Int32, b : Int32) -> Color {
   { r, g, b, a: 255, }
 }
 
 ///|
-fn nibble_to_hex(n : Int) -> String {
-  let hex = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f"]
+fn nibble_to_hex(n : Int32) -> String {
+  let hex = [
+    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f",
+  ]
   hex[n]
 }
 
 ///|
-fn byte_to_hex2(v : Int) -> String {
-  let hi = (v / 16) % 16
+fn byte_to_hex2(v : Int32) -> String {
+  let hi = v / 16 % 16
   let lo = v % 16
   nibble_to_hex(hi) + nibble_to_hex(lo)
 }
@@ -92,7 +94,10 @@ fn byte_to_hex2(v : Int) -> String {
 ///|
 /// 输出 `#RRGGBB` 或 `#RRGGBBAA`（a==255 时省略 AA）。
 pub fn Color::to_hex(self : Color) -> String {
-  let s = "#" + byte_to_hex2(self.r) + byte_to_hex2(self.g) + byte_to_hex2(self.b)
+  let s = "#" +
+    byte_to_hex2(self.r) +
+    byte_to_hex2(self.g) +
+    byte_to_hex2(self.b)
   if self.a != 255 {
     s + byte_to_hex2(self.a)
   } else {

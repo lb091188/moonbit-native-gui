@@ -2,12 +2,12 @@
 // 未变行复用原控件；when 单支切显隐不销毁、双支常驻切换。
 
 ///|
-fn it(id : Int, name : String) -> @base.Item {
-  { id, name }
+fn it(id : Int32, name : String) -> @base.Item {
+  { id, name, }
 }
 
 ///|
-fn item_node(t : @base.Item, _i : Int) -> @widget.Node {
+fn item_node(t : @base.Item, _i : Int32) -> @widget.Node {
   text(t.name)
 }
 
@@ -17,15 +17,19 @@ fn item_eq(a : @base.Item, b : @base.Item) -> Bool {
 }
 
 ///|
-fn item_key(t : @base.Item) -> Int {
+fn item_key(t : @base.Item) -> Int32 {
   t.id
 }
 
 ///|
 test "for_list：keyed 增删改——新增建行、删除出树、中间插入挪位不重挂旧行" {
   let init : Array[@base.Item] = [it(1, "甲"), it(2, "乙")]
-  let ls = @base.ListStore::new(init=init)
-  let root = mount_root([for_list(ls, item_node, key=item_key, eq=item_eq)], 200.0, 300.0)
+  let ls = @base.ListStore::new(init~)
+  let root = mount_root(
+    [for_list(ls, item_node, key=item_key, eq=item_eq)],
+    200.0,
+    300.0,
+  )
   let host = kid(root, 0)
   assert_eq(host.children().length(), 2)
   let row1 = host.children()[0]
@@ -47,14 +51,19 @@ test "for_list：keyed 增删改——新增建行、删除出树、中间插入
 ///|
 test "for_list：同键值变（给了 eq）重挂该行，别的行原样" {
   let init : Array[@base.Item] = [it(1, "甲"), it(2, "乙")]
-  let ls = @base.ListStore::new(init=init)
-  let root = mount_root([for_list(ls, item_node, key=item_key, eq=item_eq)], 200.0, 300.0)
+  let ls = @base.ListStore::new(init~)
+  let root = mount_root(
+    [for_list(ls, item_node, key=item_key, eq=item_eq)],
+    200.0,
+    300.0,
+  )
   let host = kid(root, 0)
   let keep = host.children()[0].id
-  let _ = ls.update(
-    fn(t : @base.Item) -> Bool { t.id == 2 },
-    fn(t : @base.Item) -> @base.Item { { id: t.id, name: "乙改" } },
-  )
+  let _ = ls.update(fn(t : @base.Item) -> Bool { t.id == 2 }, fn(
+    t : @base.Item,
+  ) -> @base.Item {
+    { id: t.id, name: "乙改", }
+  })
   assert_eq(host.children().length(), 2)
   assert_true(host.children()[0].id == keep)
   assert_true(host.children()[1].id != keep) // 变更行是新控件
@@ -73,7 +82,11 @@ test "for_list_indexed：按下标对齐，内容变即重挂该行" {
 ///|
 test "when 单支：真挂假隐不销毁，Store/Signal 都能盯" {
   let busy = @base.Store::new(false)
-  let root = mount_root([when_store_bool(busy, text("保存中…"))], 200.0, 300.0)
+  let root = mount_root(
+    [when_store_bool(busy, text("保存中…"))],
+    200.0,
+    300.0,
+  )
   let host = kid(root, 0)
   assert_eq(host.children().length(), 1)
   assert_true(!host.children()[0].visible)
@@ -109,11 +122,7 @@ test "when_else 双支：两支常驻切显隐，零重建" {
 test "when：非布尔源用 pred 折算" {
   let n = @base.Store::new(0)
   let root = mount_root(
-    [when(
-      n.signal(),
-      text("有数"),
-      pred=fn(v : Int) -> Bool { v > 3 },
-    )],
+    [when(n.signal(), text("有数"), pred=fn(v : Int32) -> Bool { v > 3 })],
     200.0,
     300.0,
   )
@@ -131,7 +140,13 @@ test "when_else 通用档：非布尔源 pred 折算，真挂 then 假挂 otherw
   // swap_node（位序 a=假支、b=真支），条件真显示的是 otherwise
   let n = @base.Store::new(0)
   let root = mount_root(
-    [when_else(n.signal(), text("有数"), text("无数"), pred=fn(v : Int) -> Bool { v > 3 })],
+    [
+      when_else(n.signal(), text("有数"), text("无数"), pred=fn(
+        v : Int32,
+      ) -> Bool {
+        v > 3
+      }),
+    ],
     200.0,
     300.0,
   )
@@ -155,12 +170,11 @@ test "when_else_store 通用档：Store 形态与信号版同极性" {
   let opt : @base.Store[String?] = @base.Store::new(None)
   let root = mount_root(
     [
-      when_else_store(
-        opt,
-        text("有名字"),
-        text("缺名字"),
-        pred=fn(v : String?) -> Bool { v is Some(_) },
-      ),
+      when_else_store(opt, text("有名字"), text("缺名字"), pred=fn(
+        v : String?,
+      ) -> Bool {
+        v is Some(_)
+      }),
     ],
     200.0,
     300.0,

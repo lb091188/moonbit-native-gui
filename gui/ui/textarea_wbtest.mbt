@@ -10,15 +10,21 @@ fn area_font() -> @text.Font {
 ///|
 /// 注入给 `@input.TextLayout` 的测宽器：按本包的字体量字节区间的自然宽
 /// （`@input` 那层不带平台桥，宽由调用方给）。
-fn area_measure(t : String, from : Int, to : Int) -> Double {
+fn area_measure(t : String, from : Int32, to : Int32) -> Double {
   seg_width(t, from, to, area_font())
 }
 
 ///|
 /// 建一个已挂载并布局好的多行框，返回 (根, 控件, Store)。
+
 ///|
 /// 在控件内部坐标点一下（按下 + 抬起）。
-fn click_in(root : @widget.Widget, w : @widget.Widget, fx : Double, fy : Double) -> Unit {
+fn click_in(
+  root : @widget.Widget,
+  w : @widget.Widget,
+  fx : Double,
+  fy : Double,
+) -> Unit {
   let _ = root.dispatch_pointer({
     kind: @widget.PointerKind::Down,
     x: w.rect.x + fx,
@@ -40,11 +46,11 @@ fn mounted_area(
   text : String,
   width : Double,
   height : Double,
-  read_only? : Bool = false,
+  read_only~ : Bool = false,
 ) -> (@widget.Widget, @widget.Widget, @base.Store[String]) {
   let store = @base.Store::new(text)
   let (root, w) = mounted(
-    textarea(store, width=width, height=height, focus_id=1, read_only=read_only),
+    textarea(store, width~, height~, focus_id=1, read_only~),
     width + 40.0,
     height + 40.0,
   )
@@ -55,10 +61,7 @@ fn mounted_area(
 test "折行断点单位：空格成段、拉丁词成段、中日韩逐字成段" {
   // "ab 中c d"：a0 b1 空格2 中(3..5) c6 空格7 d8
   let u = @input.wrap_units("ab 中c d", 0, 9)
-  assert_eq(
-    u,
-    [(0, 2), (2, 3), (3, 6), (6, 7), (7, 8), (8, 9)],
-  )
+  assert_eq(u, [(0, 2), (2, 3), (3, 6), (6, 7), (7, 8), (8, 9)])
   // 区间可截在中间：只取 [0,6) 时不含末尾的空格与 d
   assert_eq(@input.wrap_units("ab 中c d", 0, 6).length(), 3)
 }
@@ -149,8 +152,12 @@ test "多行框：点击定位到第几行、拖选跨行、只读不吃编辑�
   if !ui_text_guard() {
     return
   }
-  let (root, w, store) = mounted_area("第一行内容\n第二行内容\n第三行内容", 220.0, 90.0)
-  let lh = (@text.line_height_font(area_font()).unwrap_or(18).to_double() + 2.0).max(14.0)
+  let (root, w, store) = mounted_area(
+    "第一行内容\n第二行内容\n第三行内容", 220.0, 90.0,
+  )
+  let lh = (@text.line_height_font(area_font()).unwrap_or(18).to_double() + 2.0).max(
+    14.0,
+  )
   // 点第二行最左：插入点落在第二行行首（每字 3 字节 → 15 + 换行 1 = 16）
   click_in(root, w, 4.0, lh + 4.0)
   assert_eq(caret_of(w), 16)
@@ -182,7 +189,12 @@ test "多行框：点击定位到第几行、拖选跨行、只读不吃编辑�
   key(root2, w2, @base.KS_DELETE, 0)
   assert_eq(store2.get(), "")
   // 只读：编辑键不改文本
-  let (root3, _w3, store3) = mounted_area("只读文本", 220.0, 60.0, read_only=true)
+  let (root3, _w3, store3) = mounted_area(
+    "只读文本",
+    220.0,
+    60.0,
+    read_only=true,
+  )
   key(root3, _w3, 'q'.to_int(), 0)
   key(root3, _w3, @base.KS_BACKSPACE, 0)
   assert_eq(store3.get(), "只读文本")
@@ -214,7 +226,13 @@ test "多行框：内容超视口才出滚动条，滚轮下滚后拇指下移�
   // 滚轮下滚三格 × 若干次：拇指从顶上走到底部
   let mut n = 0
   while n < 20 {
-    let _ = root.dispatch_scroll({ x: w.rect.x + 40.0, y: w.rect.y + 30.0, dx: 0.0, dy: 0.0 - 1.0, mods: 0, })
+    let _ = root.dispatch_scroll({
+      x: w.rect.x + 40.0,
+      y: w.rect.y + 30.0,
+      dx: 0.0,
+      dy: 0.0 - 1.0,
+      mods: 0,
+    })
     n = n + 1
   }
   let (bm1, _, _) = shot(w)

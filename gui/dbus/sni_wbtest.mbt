@@ -19,7 +19,10 @@ test "menu_path 随托盘项路径派生(首项沿用 /MenuBar)" {
   assert_eq(menu_path_of("/StatusNotifierItem_2"), "/MenuBar_2")
   assert_eq(menu_path_of("/StatusNotifierItem_7"), "/MenuBar_7")
   // 任意后缀都不退化成固定 /MenuBar——那会让多项共享菜单对象路径
-  assert_true(menu_path_of("/StatusNotifierItem_2") != menu_path_of("/StatusNotifierItem_3"))
+  assert_true(
+    menu_path_of("/StatusNotifierItem_2") !=
+    menu_path_of("/StatusNotifierItem_3"),
+  )
 }
 
 ///|

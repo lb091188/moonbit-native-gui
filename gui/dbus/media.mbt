@@ -205,10 +205,7 @@ pub fn media_playback_of(text : String) -> MediaPlayback {
 
 ///|
 /// Metadata（a{sv}）取字符串字段：缺失或类型不符给空串。
-fn media_meta_str(
-  meta : Map[String, GDBusValue],
-  key : String,
-) -> String {
+fn media_meta_str(meta : Map[String, GDBusValue], key : String) -> String {
   match meta.get(key) {
     Some(GVString(s)) => s
     _ => ""
@@ -656,7 +653,12 @@ fn media_watch_resolve(player : String) -> String? {
     Some(player)
   } else {
     match media_players() {
-      Ok(players) => if players.is_empty() { None } else { Some(players[0].name) }
+      Ok(players) =>
+        if players.is_empty() {
+          None
+        } else {
+          Some(players[0].name)
+        }
       Err(_) => None
     }
   }
@@ -669,9 +671,9 @@ fn media_watch_resolve(player : String) -> String? {
 /// 解析目标，出现后锁定。目标解析或查询失败的轮次静默跳过，不影响
 /// 后续轮询。不需要监视时 media_watch_stop 停止句柄。
 pub fn media_watch_status(
-  schedule : (Int, () -> Unit) -> Unit,
-  player? : String = "",
-  interval_ms? : Int = 1000,
+  schedule : (Int32, () -> Unit) -> Unit,
+  player~ : String = "",
+  interval_ms~ : Int32 = 1000,
   on_change : (MediaStatus) -> Unit,
 ) -> MediaWatcher {
   let w = MediaWatcher::make()

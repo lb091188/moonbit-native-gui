@@ -3,6 +3,7 @@
 // 与 tools/native-gui-tools/i18nkit·iconkit「共享格式不共享代码」：这里自带一份够用的极简读器，
 // gui 不引 fs/FFI——文件读取由应用层负责，本层只吃字符串。
 
+///|
 let g_iconfont : Array[(String, String)] = []
 
 ///|
@@ -15,7 +16,7 @@ fn ic_chars(s : String) -> Array[Char] {
 }
 
 ///|
-fn ic_join(a : Array[Char], from : Int, to : Int) -> String {
+fn ic_join(a : Array[Char], from : Int32, to : Int32) -> String {
   let mut s = ""
   let mut i = from
   while i < to {
@@ -100,7 +101,8 @@ pub fn parse_icons(text : String) -> Array[(String, String)] {
     if in_sec {
       match ic_split_eq(line) {
         None => ()
-        Some((k, v)) => out.push((ic_unquote(ic_trim(k)), ic_unquote(ic_trim(v))))
+        Some((k, v)) =>
+          out.push((ic_unquote(ic_trim(k)), ic_unquote(ic_trim(v))))
       }
     }
   }
@@ -109,7 +111,7 @@ pub fn parse_icons(text : String) -> Array[(String, String)] {
 
 ///|
 /// 用工具产出的 TOML 文本装入图标表（覆盖旧表）。返回装入条数。
-pub fn iconfont_load(text : String) -> Int {
+pub fn iconfont_load(text : String) -> Int32 {
   let entries = parse_icons(text)
   g_iconfont.clear()
   for e in entries {
@@ -131,7 +133,7 @@ pub fn iconfont_get(name : String) -> String? {
 
 ///|
 /// 已装入的图标数。
-pub fn iconfont_count() -> Int {
+pub fn iconfont_count() -> Int32 {
   g_iconfont.length()
 }
 

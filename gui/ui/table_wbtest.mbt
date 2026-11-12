@@ -29,15 +29,15 @@ test "列宽：固定列按声明、弹性列均分剩余，总宽不够时弹�
 test "表格：表头列数、斑马纹、行点选与取消、行回调带源下标" {
   let data = table_rows([["甲", "1"], ["乙", "2"], ["丙", "3"]])
   let rows = @base.Store::new(data)
-  let sel : @base.Store[Array[Int]] = @base.Store::new([])
-  let clicks : Array[Int] = []
+  let sel : @base.Store[Array[Int32]] = @base.Store::new([])
+  let clicks : Array[Int32] = []
   let (root, tb) = mounted(
     table(
       [TableColumn::make("名称", 120.0), TableColumn::make("值", 100.0)],
       rows,
       width=260.0,
       selection=sel,
-      on_row_click=fn(i : Int, _r : TableRow) -> Unit { clicks.push(i) },
+      on_row_click=fn(i : Int32, _r : TableRow) -> Unit { clicks.push(i) },
     ),
     360.0,
     300.0,
@@ -56,7 +56,10 @@ test "表格：表头列数、斑马纹、行点选与取消、行回调带源�
   p.end()
   let r0 = body.children()[0].rect
   let r1 = body.children()[1].rect
-  assert_true(px(bm, (r0.x + 5.0).round().to_int(), (r0.y + 5.0).round().to_int()) != px(bm, (r1.x + 5.0).round().to_int(), (r1.y + 5.0).round().to_int()))
+  assert_true(
+    px(bm, (r0.x + 5.0).round().to_int(), (r0.y + 5.0).round().to_int()) !=
+    px(bm, (r1.x + 5.0).round().to_int(), (r1.y + 5.0).round().to_int()),
+  )
   // 点第 2 行：选中并回调源下标
   click_at(root, body.children()[1], 30.0, 18.0)
   assert_eq(clicks, [1])
@@ -66,10 +69,21 @@ test "表格：表头列数、斑马纹、行点选与取消、行回调带源�
   root.paint(p2)
   p2.end()
   // 选中行底色变了，且左缘有 3px 强调条
-  let before = px(bm, (r1.x + 5.0).round().to_int(), (r1.y + 5.0).round().to_int())
-  let after = px(bm2, (r1.x + 5.0).round().to_int(), (r1.y + 5.0).round().to_int())
+  let before = px(
+    bm,
+    (r1.x + 5.0).round().to_int(),
+    (r1.y + 5.0).round().to_int(),
+  )
+  let after = px(
+    bm2,
+    (r1.x + 5.0).round().to_int(),
+    (r1.y + 5.0).round().to_int(),
+  )
   assert_true(before != after)
-  assert_true(px(bm2, (r1.x + 1.0).round().to_int(), (r1.y + 5.0).round().to_int()) != after)
+  assert_true(
+    px(bm2, (r1.x + 1.0).round().to_int(), (r1.y + 5.0).round().to_int()) !=
+    after,
+  )
   // 再点一次取消选中
   click_at(root, body.children()[1], 30.0, 18.0)
   assert_eq(sel.get(), [])
@@ -79,7 +93,7 @@ test "表格：表头列数、斑马纹、行点选与取消、行回调带源�
 ///|
 test "表格：表头排序状态机（新列升序 / 同列翻转 / 同列第三次取消）" {
   let rows = @base.Store::new(table_rows([["甲", "1"], ["乙", "2"]]))
-  let sort = @base.Store::new({ column: -1, asc: true })
+  let sort = @base.Store::new({ column: -1, asc: true, })
   let (root, tb) = mounted(
     table(
       [
@@ -89,7 +103,7 @@ test "表格：表头排序状态机（新列升序 / 同列翻转 / 同列第�
       ],
       rows,
       width=300.0,
-      sort=sort,
+      sort~,
     ),
     400.0,
     300.0,
@@ -111,16 +125,18 @@ test "表格：表头排序状态机（新列升序 / 同列翻转 / 同列第�
 
 ///|
 test "表格：多选表头全选框（点击全选/清空、部分态出墨、标题区照旧排序）" {
-  let rows = @base.Store::new(table_rows([["甲", "1"], ["乙", "2"], ["丙", "3"]]))
-  let sel : @base.Store[Array[Int]] = @base.Store::new([])
-  let sort = @base.Store::new({ column: -1, asc: true })
+  let rows = @base.Store::new(
+    table_rows([["甲", "1"], ["乙", "2"], ["丙", "3"]]),
+  )
+  let sel : @base.Store[Array[Int32]] = @base.Store::new([])
+  let sort = @base.Store::new({ column: -1, asc: true, })
   let (root, tb) = mounted(
     table(
       [TableColumn::make("名", 120.0), TableColumn::make("值", 100.0)],
       rows,
       width=260.0,
       selection=sel,
-      sort=sort,
+      sort~,
     ),
     360.0,
     300.0,
@@ -157,7 +173,14 @@ test "表格：多选表头全选框（点击全选/清空、部分态出墨、�
 ///|
 test "表格：单元格类型（标签 / 色块 / 多行）都出像素，数据变更整表重建" {
   let rows = @base.Store::new([
-    { cells: [CellText("行一"), CellTag("成功", Success), CellColorBox("#ff8800", "橙"), CellLines(["第一行", "第二行"])] },
+    {
+      cells: [
+        CellText("行一"),
+        CellTag("成功", Success),
+        CellColorBox("#ff8800", "橙"),
+        CellLines(["第一行", "第二行"]),
+      ],
+    },
   ])
   let (root, tb) = mounted(
     table(
@@ -183,14 +206,26 @@ test "表格：单元格类型（标签 / 色块 / 多行）都出像素，数�
   assert_eq(cells.length(), 4)
   // 标签单元格里有浅底像素（与行底不同）
   let tag_rect = cells[1].rect
-  let tag_px = px(bm, (tag_rect.x + 10.0).round().to_int(), (tag_rect.y + 10.0).round().to_int())
-  let row_px = px(bm, (cells[0].rect.x + 40.0).round().to_int(), (tag_rect.y + 2.0).round().to_int())
+  let tag_px = px(
+    bm,
+    (tag_rect.x + 10.0).round().to_int(),
+    (tag_rect.y + 10.0).round().to_int(),
+  )
+  let row_px = px(
+    bm,
+    (cells[0].rect.x + 40.0).round().to_int(),
+    (tag_rect.y + 2.0).round().to_int(),
+  )
   assert_true(tag_px != row_px)
   // 色块单元格里出现该颜色的像素
   let color_rect = cells[2].rect
   let mut found = false
-  for x = (color_rect.x + 10.0).round().to_int(); x < (color_rect.x + 24.0).round().to_int(); x = x + 1 {
-    for y = (color_rect.y + 8.0).round().to_int(); y < (color_rect.y + 24.0).round().to_int(); y = y + 1 {
+  for x = (color_rect.x + 10.0).round().to_int()
+      x < (color_rect.x + 24.0).round().to_int()
+      x = x + 1 {
+    for y = (color_rect.y + 8.0).round().to_int()
+        y < (color_rect.y + 24.0).round().to_int()
+        y = y + 1 {
       let c = px(bm, x, y)
       if c == (0xFF, 0x88, 0x00, 0xFF) {
         found = true
@@ -299,19 +334,32 @@ test "排序口径：数值优先（12 排在 6 之后）、字典序兜底、�
     out
   }
   // 升序：6 < 12 < 24 → 甲/丙/乙
-  assert_eq(names(sort_rows(rows, { column: 1, asc: true })), ["甲", "丙", "乙"])
+  assert_eq(names(sort_rows(rows, { column: 1, asc: true, })), [
+    "甲", "丙", "乙",
+  ])
   // 降序翻转
-  assert_eq(names(sort_rows(rows, { column: 1, asc: false })), ["乙", "丙", "甲"])
+  assert_eq(names(sort_rows(rows, { column: 1, asc: false, })), [
+    "乙", "丙", "甲",
+  ])
   // column < 0 = 取消排序：原样（且入参未被改动）
-  assert_eq(names(sort_rows(rows, { column: -1, asc: true })), ["丙", "甲", "乙"])
+  assert_eq(names(sort_rows(rows, { column: -1, asc: true, })), [
+    "丙", "甲", "乙",
+  ])
   assert_eq(names(rows), ["丙", "甲", "乙"])
   // 列越界（比列数大）不越界读：全空键 → 保持原序
-  assert_eq(names(sort_rows(rows, { column: 9, asc: true })), ["丙", "甲", "乙"])
+  assert_eq(names(sort_rows(rows, { column: 9, asc: true, })), [
+    "丙", "甲", "乙",
+  ])
 }
 
 ///|
 test "排序稳定性：同键保持原相对顺序" {
-  let rows = table_rows([["甲", "就绪"], ["乙", "排队"], ["丙", "就绪"], ["丁", "排队"]])
+  let rows = table_rows([
+    ["甲", "就绪"],
+    ["乙", "排队"],
+    ["丙", "就绪"],
+    ["丁", "排队"],
+  ])
   let names = fn(rs : Array[TableRow]) -> Array[String] {
     let out : Array[String] = []
     for r in rs {
@@ -320,8 +368,12 @@ test "排序稳定性：同键保持原相对顺序" {
     out
   }
   // 状态列同键成片：升序后两组内部仍是原顺序（就绪 < 排队）
-  assert_eq(names(sort_rows(rows, { column: 1, asc: true })), ["甲", "丙", "乙", "丁"])
-  assert_eq(names(sort_rows(rows, { column: 1, asc: false })), ["乙", "丁", "甲", "丙"])
+  assert_eq(names(sort_rows(rows, { column: 1, asc: true, })), [
+    "甲", "丙", "乙", "丁",
+  ])
+  assert_eq(names(sort_rows(rows, { column: 1, asc: false, })), [
+    "乙", "丁", "甲", "丙",
+  ])
 }
 
 ///|
@@ -331,9 +383,14 @@ test "表格只读样式槽：class 覆盖表头底/行底线/单元格文字色
   if !ui_text_guard() {
     return
   }
-  let cols = [TableColumn::make("名称", 120.0), TableColumn::make("说明", 120.0)]
-  let rows = @base.Store::new(table_rows([["甲", "一"], ["乙", "二"], ["丙", "三"]]))
-  let count = fn(node : @widget.Node) -> Int {
+  let cols = [
+    TableColumn::make("名称", 120.0),
+    TableColumn::make("说明", 120.0),
+  ]
+  let rows = @base.Store::new(
+    table_rows([["甲", "一"], ["乙", "二"], ["丙", "三"]]),
+  )
+  let count = fn(node : @widget.Node) -> Int32 {
     let (root, _t) = mounted(node, 260.0, 200.0)
     let bm = @render.Bitmap::new(260, 200)
     let p = @render.Painter::new(bm)
@@ -355,23 +412,15 @@ test "表格只读样式槽：class 覆盖表头底/行底线/单元格文字色
   // class 的底色盖过整表的 bg_panel 与表头 fill_zebra
   assert_true(
     count(
-      table(
-        cols,
-        rows,
-        width=250.0,
-        class=[@style.style(background_color="#ff0000")],
-      ),
-    ) > 200,
+      table(cols, rows, width=250.0, class=[
+        @style.style(background_color="#ff0000"),
+      ]),
+    ) >
+    200,
   )
   // class 的文字色盖过单元格内置的 text_regular（表头是 text_primary，同样被盖）
   assert_true(
-    count(
-      table(
-        cols,
-        rows,
-        width=250.0,
-        class=[@style.style(color="#ff0000")],
-      ),
-    ) > 4,
+    count(table(cols, rows, width=250.0, class=[@style.style(color="#ff0000")])) >
+    4,
   )
 }

@@ -27,10 +27,10 @@ pub(all) enum Backend {
 pub(all) struct PainterState {
   mut tx : Double
   mut ty : Double
-  mut clip_x0 : Int
-  mut clip_y0 : Int
-  mut clip_x1 : Int
-  mut clip_y1 : Int
+  mut clip_x0 : Int32
+  mut clip_y0 : Int32
+  mut clip_x1 : Int32
+  mut clip_y1 : Int32
   mut fill : Color
   mut stroke : Color
   mut fill_grad : Gradient?
@@ -58,11 +58,11 @@ pub(all) struct Painter {
 /// 绘制操作前以当前裁剪矩形调用——文本帧级批据此在「即将被覆盖」时冲掉
 /// 待批段，保「后画的盖住先画的」z 序；不相交则继续攒批。库内默认无闸
 /// （测试/工具直绘位图不走闸，文本批也不会开启）。
-let g_raster_gate : Ref[((Int, Int, Int, Int) -> Unit)?] = Ref(None)
+let g_raster_gate : Ref[((Int32, Int32, Int32, Int32) -> Unit)?] = Ref(None)
 
 ///|
 /// 注册光栅前置闸（幂等覆盖；宿主通常接文本批的 `flush_before_raster`）。
-pub fn set_raster_gate(f : (Int, Int, Int, Int) -> Unit) -> Unit {
+pub fn set_raster_gate(f : (Int32, Int32, Int32, Int32) -> Unit) -> Unit {
   g_raster_gate.val = Some(f)
 }
 
@@ -70,15 +70,19 @@ pub fn set_raster_gate(f : (Int, Int, Int, Int) -> Unit) -> Unit {
 fn Painter::raster_gate(self : Painter) -> Unit {
   match g_raster_gate.val {
     Some(f) =>
-      f(self.state.clip_x0, self.state.clip_y0, self.state.clip_x1,
-        self.state.clip_y1)
+      f(
+        self.state.clip_x0,
+        self.state.clip_y0,
+        self.state.clip_x1,
+        self.state.clip_y1,
+      )
     None => ()
   }
 }
 
 ///|
 /// 取整：+0.5 后向下取整（0.5 与 -0.5 分别进/退到 1 与 -1）。
-fn snap(v : Double) -> Int {
+fn snap(v : Double) -> Int32 {
   (v + 0.5).floor().to_int()
 }
 
@@ -208,18 +212,18 @@ fn Painter::flush_text_batch(self : Painter) -> Unit {
 
 ///|
 /// 把当前填充状态（颜色或渐变）落到后端 source 上。
+
 ///|
 /// 全局透明度：钳到 0..1，对后续绘制生效（两后端同语义——色 alpha 与渐变
 /// stop alpha 在门面折算，图片/画布走像素 alpha 缩放）。
 pub fn Painter::set_global_alpha(self : Painter, a : Double) -> Unit {
-  self.state.global_alpha =
-    if a < 0.0 {
-      0.0
-    } else if a > 1.0 {
-      1.0
-    } else {
-      a
-    }
+  self.state.global_alpha = if a < 0.0 {
+    0.0
+  } else if a > 1.0 {
+    1.0
+  } else {
+    a
+  }
 }
 
 ///|
@@ -237,7 +241,7 @@ pub fn Painter::paint_color(self : Painter, hex : String) -> String {
 }
 
 ///|
-fn hex2(v : Int) -> String {
+fn hex2(v : Int32) -> String {
   let digits : Array[Char] = [
     '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
   ]
@@ -245,9 +249,9 @@ fn hex2(v : Int) -> String {
   String::from_array([digits[x / 16], digits[x % 16]])
 }
 
+///|
 fn color_to_hex(c : Color) -> String {
-  let body =
-    "#" + hex2(c.r) + hex2(c.g) + hex2(c.b)
+  let body = "#" + hex2(c.r) + hex2(c.g) + hex2(c.b)
   if c.a >= 255 {
     body
   } else {
@@ -255,6 +259,7 @@ fn color_to_hex(c : Color) -> String {
   }
 }
 
+///|
 pub fn Painter::round_rect_path(
   self : Painter,
   x : Double,
@@ -512,15 +517,12 @@ fn clamp_radius(r : Double, w : Double, h : Double) -> Double {
   }
 }
 
-
-
-
 ///|
 fn scale_color(c : Color, g : Double) -> Color {
   if g >= 1.0 {
     c
   } else {
-    { r: c.r, g: c.g, b: c.b, a: (c.a.to_double() * g).round().to_int() }
+    { r: c.r, g: c.g, b: c.b, a: (c.a.to_double() * g).round().to_int(), }
   }
 }
 
@@ -533,7 +535,7 @@ fn scale_grad(g : Gradient, f : Double) -> Gradient {
     for pr in g.stops {
       let _ = stops.push((pr.0, scale_color(pr.1, f)))
     }
-    { kind: g.kind, stops }
+    { kind: g.kind, stops, }
   }
 }
 
@@ -547,11 +549,12 @@ fn dim_bitmap(bm : Bitmap, f : Double) -> Bitmap {
     let mut x = 0
     while x < bm.width {
       let c = bm.pixel(x, y)
-      out.paint(
-        x,
-        y,
-        { r: c.r, g: c.g, b: c.b, a: (c.a.to_double() * f).round().to_int() },
-      )
+      out.paint(x, y, {
+        r: c.r,
+        g: c.g,
+        b: c.b,
+        a: (c.a.to_double() * f).round().to_int(),
+      })
       x += 1
     }
     y += 1
@@ -559,17 +562,20 @@ fn dim_bitmap(bm : Bitmap, f : Double) -> Bitmap {
   out
 }
 
+///|
 fn Painter::apply_fill(self : Painter) -> Unit {
   match self.backend {
     Some(CairoBackend(c)) =>
       match self.state.fill_grad {
         Some(g) => c.set_fill_gradient(scale_grad(g, self.state.global_alpha))
-        None => c.source_rgba(scale_color(self.state.fill, self.state.global_alpha))
+        None =>
+          c.source_rgba(scale_color(self.state.fill, self.state.global_alpha))
       }
     Some(PureBackend(r)) =>
       match self.state.fill_grad {
         Some(g) => r.set_gradient(scale_grad(g, self.state.global_alpha))
-        None => r.source_rgba(scale_color(self.state.fill, self.state.global_alpha))
+        None =>
+          r.source_rgba(scale_color(self.state.fill, self.state.global_alpha))
       }
     None => ()
   }
@@ -581,12 +587,14 @@ fn Painter::apply_stroke(self : Painter) -> Unit {
     Some(CairoBackend(c)) =>
       match self.state.stroke_grad {
         Some(g) => c.set_stroke_gradient(scale_grad(g, self.state.global_alpha))
-        None => c.source_rgba(scale_color(self.state.stroke, self.state.global_alpha))
+        None =>
+          c.source_rgba(scale_color(self.state.stroke, self.state.global_alpha))
       }
     Some(PureBackend(r)) =>
       match self.state.stroke_grad {
         Some(g) => r.set_gradient(scale_grad(g, self.state.global_alpha))
-        None => r.source_rgba(scale_color(self.state.stroke, self.state.global_alpha))
+        None =>
+          r.source_rgba(scale_color(self.state.stroke, self.state.global_alpha))
       }
     None => ()
   }
@@ -742,13 +750,15 @@ pub(all) enum LineCap {
   Square
 }
 
+///|
 pub(all) enum LineJoin {
   Miter
   Round
   Bevel
 }
 
-fn line_cap_to_int(c : LineCap) -> Int {
+///|
+fn line_cap_to_int(c : LineCap) -> Int32 {
   match c {
     Butt => 0
     Round => 1
@@ -756,7 +766,8 @@ fn line_cap_to_int(c : LineCap) -> Int {
   }
 }
 
-fn line_join_to_int(j : LineJoin) -> Int {
+///|
+fn line_join_to_int(j : LineJoin) -> Int32 {
   match j {
     Miter => 0
     Round => 1
@@ -764,6 +775,7 @@ fn line_join_to_int(j : LineJoin) -> Int {
   }
 }
 
+///|
 pub fn Painter::set_line_cap(self : Painter, cap : LineCap) -> Unit {
   match self.backend {
     Some(CairoBackend(c)) => c.set_line_cap(line_cap_to_int(cap))
@@ -772,6 +784,7 @@ pub fn Painter::set_line_cap(self : Painter, cap : LineCap) -> Unit {
   }
 }
 
+///|
 pub fn Painter::set_line_join(self : Painter, join : LineJoin) -> Unit {
   match self.backend {
     Some(CairoBackend(c)) => c.set_line_join(line_join_to_int(join))
@@ -790,7 +803,7 @@ pub fn Painter::set_line_join(self : Painter, join : LineJoin) -> Unit {
 pub fn Painter::set_dashes(
   self : Painter,
   pattern : Array[Double],
-  offset? : Double = 0.0,
+  offset~ : Double = 0.0,
 ) -> Unit {
   let clean : Array[Double] = []
   let mut total = 0.0
@@ -806,8 +819,7 @@ pub fn Painter::set_dashes(
   match self.backend {
     Some(CairoBackend(c)) =>
       c.set_dashes(if solid { [] } else { clean }, offset)
-    Some(PureBackend(r)) =>
-      r.set_dashes(if solid { [] } else { clean }, offset)
+    Some(PureBackend(r)) => r.set_dashes(if solid { [] } else { clean }, offset)
     None => ()
   }
 }
@@ -821,7 +833,8 @@ pub fn Painter::draw_path(self : Painter, path : Path) -> Unit {
     match seg {
       SegMove(x, y) => self.move_to(x, y)
       SegLine(x, y) => self.line_to(x, y)
-      SegBezier(x1, y1, x2, y2, x3, y3) => self.bezier_curve_to(x1, y1, x2, y2, x3, y3)
+      SegBezier(x1, y1, x2, y2, x3, y3) =>
+        self.bezier_curve_to(x1, y1, x2, y2, x3, y3)
       SegClose => self.close_path()
     }
   }
@@ -899,7 +912,7 @@ pub fn Painter::stroke_rect(
 
 ///|
 /// 当前裁剪区（调试与快照定位用；`scale`/`rotate` 后为近似值）。
-pub fn Painter::clip_bounds(self : Painter) -> (Int, Int, Int, Int) {
+pub fn Painter::clip_bounds(self : Painter) -> (Int32, Int32, Int32, Int32) {
   let s = self.state
   (s.clip_x0, s.clip_y0, s.clip_x1, s.clip_y1)
 }
@@ -969,7 +982,7 @@ pub fn Painter::arc(
   radius : Double,
   start_angle : Double,
   end_angle : Double,
-  ccw? : Bool = false,
+  ccw~ : Bool = false,
 ) -> Unit {
   let _ = ccw
   match self.backend {
@@ -1059,13 +1072,7 @@ pub fn Painter::draw_image(
   if image.is_empty() {
     return ()
   }
-  self.draw_canvas(
-    { bitmap: image.pixels },
-    x,
-    y,
-    w,
-    h,
-  )
+  self.draw_canvas({ bitmap: image.pixels, }, x, y, w, h)
 }
 
 ///|
@@ -1103,7 +1110,7 @@ pub fn Painter::draw_image_from_rect(
     return ()
   }
   self.draw_canvas_from_rect(
-    { bitmap: image.pixels },
+    { bitmap: image.pixels, },
     sx,
     sy,
     sw,

@@ -32,7 +32,7 @@ fn BlockParser::try_parse_frontmatter(self : BlockParser) -> Frontmatter? {
   // Without any `key: value` line this is a thematic break followed by a
   // setext heading, not frontmatter.
   guard !entries.is_empty() else { return None }
-  Some({ raw, entries, span: Span::new(0, end) })
+  Some({ raw, entries, span: Span::new(0, end), })
 }
 
 ///|

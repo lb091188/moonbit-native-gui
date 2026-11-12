@@ -86,7 +86,9 @@ test "绘制冒烟：ANSI 色文本与光标出墨，不崩" {
 ///|
 test "resize 随矩形：窄盒列数变少不崩" {
   let term = Terminal::new(cols=80, rows=24)
-  term.feed("长长的一行内容超出窄盒宽度也会被列数截断显示 abcdefg\n")
+  term.feed(
+    "长长的一行内容超出窄盒宽度也会被列数截断显示 abcdefg\n",
+  )
   let root = @widget.Widget::new()
   root.set_size(120.0, 80.0)
   root.set_column()

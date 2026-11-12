@@ -12,7 +12,7 @@ pub(all) struct Canvas {
 pub fn Canvas::new(width : Double, height : Double) -> Canvas {
   let w = if width < 0.0 { 0 } else { (width + 0.5).floor().to_int() }
   let h = if height < 0.0 { 0 } else { (height + 0.5).floor().to_int() }
-  { bitmap: Bitmap::new(w, h) }
+  { bitmap: Bitmap::new(w, h), }
 }
 
 ///|

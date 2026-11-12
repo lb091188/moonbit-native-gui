@@ -77,7 +77,11 @@ fn geo_json_num(v : @sys.VscJson) -> Double? {
   match v {
     @sys.VscJInt(i) => Some(i.to_double())
     @sys.VscJFloat(f) => Some(f)
-    @sys.VscJNull | @sys.VscJBool | @sys.VscJStr(_) | @sys.VscJArr(_) | @sys.VscJObj(_) => None
+    @sys.VscJNull
+    | @sys.VscJBool
+    | @sys.VscJStr(_)
+    | @sys.VscJArr(_)
+    | @sys.VscJObj(_) => None
   }
 }
 
@@ -457,7 +461,7 @@ pub fn GeoFlight::make(
 pub fn geo_flight_ctrl(
   from : (Double, Double),
   to : (Double, Double),
-  bend? : Double = 0.2,
+  bend~ : Double = 0.2,
 ) -> (Double, Double) {
   let mid = ((from.0 + to.0) / 2.0, (from.1 + to.1) / 2.0)
   let dx = to.0 - from.0
@@ -493,8 +497,8 @@ pub fn geo_quad_bezier(
 pub fn geo_flight_points(
   from : (Double, Double),
   to : (Double, Double),
-  bend? : Double = 0.2,
-  steps? : Int = 48,
+  bend~ : Double = 0.2,
+  steps~ : Int32 = 48,
 ) -> Array[(Double, Double)] {
   let n = if steps < 1 { 1 } else { steps }
   let c = geo_flight_ctrl(from, to, bend~)
@@ -512,7 +516,7 @@ pub fn geo_flight_points(
 ///|
 /// 字符串哈希（FNV-1a 32 位）：区域填充明度微调随区域名稳定（同名同色，
 /// 换主题/缩放不变）。
-fn geo_name_hash(s : String) -> Int {
+fn geo_name_hash(s : String) -> Int32 {
   let mut h : Int64 = 0x811C9DC5L
   for ch in s {
     h = (h ^ ch.to_int().to_int64()) * 0x01000193L
@@ -547,7 +551,12 @@ fn geo_flight_seg_color(t : Double) -> String {
 
 ///|
 /// 实心小圆（飞线端点圆点用；整圆 0..tau 一段 arc）。
-fn geo_fill_dot(p : @render.Painter, cx : Double, cy : Double, r : Double) -> Unit {
+fn geo_fill_dot(
+  p : @render.Painter,
+  cx : Double,
+  cy : Double,
+  r : Double,
+) -> Unit {
   p.begin_path()
   p.arc(cx, cy, r, 0.0, tau)
   p.close_path()
@@ -770,11 +779,11 @@ fn geo_draw_map(
 /// [geojson_parse]；主题切换现取色自动跟随。
 pub fn geo_map_t(
   regions : @base.Store[Array[GeoRegion]],
-  flights? : Array[GeoFlight] = [],
-  show_labels? : Bool = true,
-  width? : Double = 0.0,
-  height? : Double = 360.0,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  flights~ : Array[GeoFlight] = [],
+  show_labels~ : Bool = true,
+  width~ : Double = 0.0,
+  height~ : Double = 360.0,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.follow_store(regions)
   let fl = flights

@@ -55,10 +55,7 @@ pub extend AutostartError with Show::{to_string, output}
 ///|
 /// 自启动目录：`XDG_CONFIG_HOME`（设且非空）优先，回退 `$HOME/.config`；
 /// 两者都不可用给 None。
-pub fn autostart_dir_of(
-  xdg_config_home : String?,
-  home : String?,
-) -> String? {
+pub fn autostart_dir_of(xdg_config_home : String?, home : String?) -> String? {
   match xdg_config_home {
     Some(d) if d != "" => Some(d + "/autostart")
     _ =>
@@ -128,7 +125,8 @@ pub fn autostart_run_value_exe(value : String) -> String? {
   if value == "" {
     return None
   }
-  if value.length() >= 2 && value.unsafe_get(0) == '"' &&
+  if value.length() >= 2 &&
+    value.unsafe_get(0) == '"' &&
     value.unsafe_get(value.length() - 1) == '"' {
     let inner = value[1:value.length() - 1].to_owned()
     if inner == "" {
@@ -161,14 +159,17 @@ pub fn autostart_valid_app_id(app_id : String) -> Bool {
       elem_start = true
     } else {
       let body_ok = (ch >= 'a' && ch <= 'z') ||
-        (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') ||
-        ch == '_' || ch == '-'
+        (ch >= 'A' && ch <= 'Z') ||
+        (ch >= '0' && ch <= '9') ||
+        ch == '_' ||
+        ch == '-'
       if !body_ok {
         return false
       }
       if elem_start {
         let head_ok = (ch >= 'a' && ch <= 'z') ||
-          (ch >= 'A' && ch <= 'Z') || ch == '_'
+          (ch >= 'A' && ch <= 'Z') ||
+          ch == '_'
         if !head_ok {
           return false // 元素不能以数字或 '-' 开头
         }
@@ -185,23 +186,26 @@ pub fn autostart_valid_app_id(app_id : String) -> Bool {
 
 ///|
 #borrow(ok)
-extern "c" fn ffi_sys_exe_path(ok : Ref[Int]) -> Bytes = "yue_sys_exe_path"
+extern "c" fn ffi_sys_exe_path(ok : Ref[Int32]) -> Bytes = "yue_sys_exe_path"
 
 ///|
 #borrow(app_id, ok)
-extern "c" fn ffi_sys_autostart_get(app_id : Bytes, ok : Ref[Int]) -> Bytes = "yue_sys_autostart_get"
+extern "c" fn ffi_sys_autostart_get(app_id : Bytes, ok : Ref[Int32]) -> Bytes = "yue_sys_autostart_get"
 
 ///|
 #borrow(app_id, value, ok)
 extern "c" fn ffi_sys_autostart_set(
   app_id : Bytes,
   value : Bytes,
-  ok : Ref[Int],
-) -> Int = "yue_sys_autostart_set"
+  ok : Ref[Int32],
+) -> Int32 = "yue_sys_autostart_set"
 
 ///|
 #borrow(app_id, ok)
-extern "c" fn ffi_sys_autostart_remove(app_id : Bytes, ok : Ref[Int]) -> Int = "yue_sys_autostart_remove"
+extern "c" fn ffi_sys_autostart_remove(
+  app_id : Bytes,
+  ok : Ref[Int32],
+) -> Int32 = "yue_sys_autostart_remove"
 
 ///|
 /// 当前进程可执行文件全路径；取不到给 None。
@@ -274,6 +278,7 @@ fn autostart_win_remove(app_id : String) -> Result[Unit, AutostartError] {
 // 本包不暴露取 uid 的口子，也一并记档不用。
 // ---------------------------------------------------------------------------
 
+///|
 fn autostart_mac_xml_escape(v : String) -> String {
   let buf = StringBuilder()
   for ch in v {
@@ -347,15 +352,15 @@ pub fn autostart_path(app_id : String) -> Result[String, AutostartError] {
         Some(d) => d
         None =>
           return Err(
-            IoFailed("无法定位自启动目录(XDG_CONFIG_HOME / HOME 均未设置)"),
+            IoFailed(
+              "无法定位自启动目录(XDG_CONFIG_HOME / HOME 均未设置)",
+            ),
           )
       }
       Ok(dir + "/" + app_id + ".desktop")
     }
     "windows" =>
-      Ok(
-        "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\" + app_id,
-      )
+      Ok("HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\" + app_id)
     "macos" =>
       match autostart_mac_dir() {
         Some(dir) => Ok(dir + "/" + app_id + ".plist")
@@ -368,6 +373,7 @@ pub fn autostart_path(app_id : String) -> Result[String, AutostartError] {
 ///|
 /// 查询是否已启用。Linux：`.desktop` 在且未被 Hidden / X-GNOME 关掉；
 /// Windows：Run 值存在即为启用。
+
 ///|
 /// `launchctl print-disabled gui/<uid>` 输出解析：`"<app_id>" => true` 即该
 /// 条目被系统侧禁用（用户在系统设置「App 后台活动」里关掉的开关——plist
@@ -414,13 +420,13 @@ pub fn autostart_is_enabled(app_id : String) -> Result[Bool, AutostartError] {
       match pr_run("id", ["-u"], timeout_ms=2000) {
         Ok(o) => {
           let uid = pp_first_line(o.stdout)
-          match pr_run(
-            "launchctl",
-            ["print-disabled", "gui/\{uid}"],
-            timeout_ms=3000,
-          ) {
-            Ok(o2) =>
-              Ok(!autostart_mac_disabled_by_launchd(o2.stdout, app_id))
+          match
+            pr_run(
+              "launchctl",
+              ["print-disabled", "gui/\{uid}"],
+              timeout_ms=3000,
+            ) {
+            Ok(o2) => Ok(!autostart_mac_disabled_by_launchd(o2.stdout, app_id))
             Err(_) => Ok(true)
           }
         }
@@ -456,14 +462,15 @@ pub fn autostart_enable(app_id : String) -> Result[Unit, AutostartError] {
         Err(e) => return Err(e)
       }
       // 写文件不会顺手建父目录——先建目录（已存在也算成功）
-      match autostart_dir_of(
-        sys_getenv("XDG_CONFIG_HOME"),
-        sys_getenv("HOME"),
-      ) {
+      match
+        autostart_dir_of(sys_getenv("XDG_CONFIG_HOME"), sys_getenv("HOME")) {
         Some(dir) =>
           if !sys_make_dirs(dir) {
             return Err(
-              IoFailed("无法创建自启动目录(目录不可写或无 mkdir 通道): " + dir),
+              IoFailed(
+                "无法创建自启动目录(目录不可写或无 mkdir 通道): " +
+                dir,
+              ),
             )
           }
         None => ()
@@ -483,13 +490,20 @@ pub fn autostart_enable(app_id : String) -> Result[Unit, AutostartError] {
       }
       let dir = match autostart_mac_dir() {
         Some(d) => d
-        None => return Err(IoFailed("无法定位自启动目录(HOME 未设置)"))
+        None =>
+          return Err(IoFailed("无法定位自启动目录(HOME 未设置)"))
       }
       if !sys_make_dirs(dir) {
-        return Err(IoFailed("无法创建自启动目录(目录不可写或无权限): " + dir))
+        return Err(
+          IoFailed(
+            "无法创建自启动目录(目录不可写或无权限): " + dir,
+          ),
+        )
       }
       if !sys_write_text_file(file, autostart_mac_plist(app_id, exe)) {
-        return Err(IoFailed("写入失败: " + file + " (目录不存在或无权限)"))
+        return Err(
+          IoFailed("写入失败: " + file + " (目录不存在或无权限)"),
+        )
       }
       // 不 load：plist 就位即「下次登录生效」。当场 load 会立刻多拉起一个副本
       Ok(())

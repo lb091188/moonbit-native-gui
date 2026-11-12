@@ -33,40 +33,40 @@ pub fn dragdnd_disable(id : Int64) -> Unit {
 
 ///|
 /// 事件种类：拖入本窗（载荷已可读）。
-pub const DRAGDND_ENTER : Int = 0
+pub const DRAGDND_ENTER : Int32 = 0
 
 ///|
 /// 事件种类：在本窗内移动（坐标变了，载荷不变）。
-pub const DRAGDND_OVER : Int = 1
+pub const DRAGDND_OVER : Int32 = 1
 
 ///|
 /// 事件种类：离开本窗（载荷已清空）。
-pub const DRAGDND_LEAVE : Int = 2
+pub const DRAGDND_LEAVE : Int32 = 2
 
 ///|
 /// 事件种类：松手投递（载荷仍可读，过了这一拍就作废）。
-pub const DRAGDND_DROP : Int = 3
+pub const DRAGDND_DROP : Int32 = 3
 
 ///|
 /// 效果值：与 Win32 `DROPEFFECT_*` 同值，落点不收。
-pub const DRAGDND_NONE : Int = 0
+pub const DRAGDND_NONE : Int32 = 0
 
 ///|
 /// 效果值：复制。
-pub const DRAGDND_COPY : Int = 1
+pub const DRAGDND_COPY : Int32 = 1
 
 ///|
 /// 效果值：移动。
-pub const DRAGDND_MOVE : Int = 2
+pub const DRAGDND_MOVE : Int32 = 2
 
 ///|
 /// 效果值：建立链接。
-pub const DRAGDND_LINK : Int = 4
+pub const DRAGDND_LINK : Int32 = 4
 
 ///|
 /// 取一条待处理的拖入事件：`(窗口平台 id, 种类, 客户区 x, 客户区 y)`；
 /// None = 队列空。
-pub fn dragdnd_poll() -> (Int, Int, Int, Int)? {
+pub fn dragdnd_poll() -> (Int32, Int32, Int32, Int32)? {
   let slot = Ref(0)
   let kind = Ref(0)
   let x = Ref(0)
@@ -103,19 +103,19 @@ pub fn dragdnd_payload() -> Bytes {
 ///|
 /// 写回本窗当前应有的效果（`DRAGDND_NONE`/`COPY`/`MOVE`/`LINK`）。下一次
 /// `DragOver`/`Drop` 就按它答系统。
-pub fn dragdnd_set_effect(id : Int64, effect : Int) -> Unit {
+pub fn dragdnd_set_effect(id : Int64, effect : Int32) -> Unit {
   wm_dragdnd_set_effect(id, effect)
 }
 
 ///|
 /// 读回当前效果（诊断用；-1 = 这扇窗没挂投放目标）。
-pub fn dragdnd_effect(id : Int64) -> Int {
+pub fn dragdnd_effect(id : Int64) -> Int32 {
   wm_dragdnd_effect(id)
 }
 
 ///|
 /// 在用的投放目标数（探针读回）。
-pub fn dragdnd_count() -> Int {
+pub fn dragdnd_count() -> Int32 {
   wm_dragdnd_count()
 }
 
@@ -130,11 +130,7 @@ pub fn dragdnd_count() -> Int {
 /// 语义，60 秒超时兜底）；期间
 /// 本窗的拖入回调照常打进 C 队列，返回后的下一拍由宿主抽取。要在鼠标键仍按下
 /// 时调用（过阈值那一刻），按钮抬起后再调系统不认。
-pub fn dragdnd_send(
-  id : Int64,
-  payload : Bytes,
-  allowed : Int,
-) -> Int? {
+pub fn dragdnd_send(id : Int64, payload : Bytes, allowed : Int32) -> Int32? {
   let out = Ref(0)
   if wm_dragdnd_send(id, payload, payload.length(), allowed, out) != 0 {
     Some(out.val)

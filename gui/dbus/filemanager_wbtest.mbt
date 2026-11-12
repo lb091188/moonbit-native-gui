@@ -8,8 +8,10 @@ test "file_uri:普通路径原样" {
 ///|
 test "file_uri:空格与中文按 UTF-8 字节编码" {
   assert_eq(file_uri("/opt/my app/x"), "file:///opt/my%20app/x")
-  assert_eq(file_uri("/home/u/文档/报告.doc"), // 文=E69687 档=E6A1A3 报=E68AA5 告=E5918A
-    "file:///home/u/%E6%96%87%E6%A1%A3/%E6%8A%A5%E5%91%8A.doc")
+  assert_eq(
+    file_uri("/home/u/文档/报告.doc"), // 文=E69687 档=E6A1A3 报=E68AA5 告=E5918A
+    "file:///home/u/%E6%96%87%E6%A1%A3/%E6%8A%A5%E5%91%8A.doc",
+  )
 }
 
 ///|

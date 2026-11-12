@@ -7,7 +7,11 @@
 /// `mng run [子目录]`——缺省当前目录；子目录用于 monorepo 里指定工程。
 fn cmd_run(args : Array[String]) -> Int32 {
   if args.length() > 1 {
-    println(tmsg("run 最多带一个子目录参数", "run takes at most one subdirectory"))
+    println(
+      tmsg(
+        "run 最多带一个子目录参数", "run takes at most one subdirectory",
+      ),
+    )
     return 2
   }
   let cwd = match @env.current_dir() {
@@ -24,8 +28,7 @@ fn cmd_run(args : Array[String]) -> Int32 {
   } else {
     cwd
   }
-  let conf = match
-    load_dev_conf("", "", "", None, dir) {
+  let conf = match load_dev_conf("", "", "", None, dir) {
     Ok(c) => c
     Err(e) => {
       eprintln(e)
@@ -52,7 +55,12 @@ fn cmd_run(args : Array[String]) -> Int32 {
           }
           Ok(code) =>
             if code != 0 {
-              eprintln(tmsg("build 退出码 " + code.to_string(), "build exit code " + code.to_string()))
+              eprintln(
+                tmsg(
+                  "build 退出码 " + code.to_string(),
+                  "build exit code " + code.to_string(),
+                ),
+              )
               return 1
             }
         }
@@ -85,7 +93,12 @@ fn cmd_run(args : Array[String]) -> Int32 {
 fn cmd_moon_passthrough(moon_args : Array[String], label : String) -> Int32 {
   match @proc.run_wait("moon", moon_args, 2_000_000_000) {
     Err(e) => {
-      eprintln(tmsg("moon " + label + " 跑不起来：" + e, "cannot run moon " + label + ": " + e))
+      eprintln(
+        tmsg(
+          "moon " + label + " 跑不起来：" + e,
+          "cannot run moon " + label + ": " + e,
+        ),
+      )
       1
     }
     Ok(code) => code
@@ -104,5 +117,7 @@ fn cmd_test(args : Array[String]) -> Int32 {
 
 ///|
 fn is_dir(p : String) -> Bool {
-  (@fs.is_dir(p) catch { _ => false })
+  @fs.is_dir(p) catch {
+    _ => false
+  }
 }

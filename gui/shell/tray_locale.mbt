@@ -11,16 +11,18 @@ priv struct LocaleSurface {
 
 ///|
 /// 登记号 → 语言口；登记号存在 `TrayState.locale_key` 里，随 `Tray::remove` 撤下。
-let locale_surfaces : Map[Int, LocaleSurface] = Map([])
+let locale_surfaces : Map[Int32, LocaleSurface] = Map([])
 
-let locale_seq : Ref[Int] = Ref(0)
+///|
+let locale_seq : Ref[Int32] = Ref(0)
 
-let locale_hook : Ref[Int] = Ref(0)
+///|
+let locale_hook : Ref[Int32] = Ref(0)
 
 ///|
 /// 广播回调：按登记序把每个在册托盘的两条口各算一遍。
 fn locale_refresh_all() -> Unit {
-  let keys : Array[Int] = []
+  let keys : Array[Int32] = []
   for (k, _s) in locale_surfaces {
     keys.push(k)
   }
@@ -62,13 +64,14 @@ fn Tray::locale_surface_of(self : Tray) -> LocaleSurface {
   match locale_surfaces.get(self.state.locale_key) {
     Some(s) => s
     None => {
-      let s = { tip: None, menu: None }
+      let s = { tip: None, menu: None, }
       locale_surfaces.set(self.state.locale_key, s)
       s
     }
   }
 }
 
+///|
 fn locale_run(slot : (() -> Unit)?) -> Unit {
   match slot {
     Some(f) => f()
@@ -119,6 +122,7 @@ fn Tray::clear_locale_tip(self : Tray) -> Unit {
   }
 }
 
+///|
 fn Tray::clear_locale_menu(self : Tray) -> Unit {
   match locale_surfaces.get(self.state.locale_key) {
     Some(s) => s.menu = None

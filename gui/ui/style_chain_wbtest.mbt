@@ -28,25 +28,28 @@ test "字号三层：默认（文本源 13）< 属性 < class，且 class 改测
   let h0 = kid0.rect.h
   let b : Ref[@widget.Widget?] = Ref(None)
   let kid1 = chain_mount(
-    text("abc", class=[@style.style(font_size=20.0)], handle=fn(w) { b.val = Some(w) }),
+    text("abc", class=[@style.style(font_size=20.0)], handle=fn(w) {
+      b.val = Some(w)
+    }),
   )
   assert_eq(@style.style_for(chain_widget(b)).font_size, Some(20.0))
   assert_true(kid1.rect.h > h0)
   // 属性层（font_size=16）低于 class（20）——class 赢
   let c : Ref[@widget.Widget?] = Ref(None)
   let kid2 = chain_mount(
-    text(
-      "abc",
-      font_size=16.0,
-      class=[@style.style(font_size=20.0)],
-      handle=fn(w) { c.val = Some(w) },
-    ),
+    text("abc", font_size=16.0, class=[@style.style(font_size=20.0)], handle=fn(
+      w,
+    ) {
+      c.val = Some(w)
+    }),
   )
   assert_eq(@style.style_for(chain_widget(c)).font_size, Some(20.0))
   assert_true(kid2.rect.h == kid1.rect.h)
   // 只给属性：16 生效，且高于默认
   let d : Ref[@widget.Widget?] = Ref(None)
-  let kid3 = chain_mount(text("abc", font_size=16.0, handle=fn(w) { d.val = Some(w) }))
+  let kid3 = chain_mount(
+    text("abc", font_size=16.0, handle=fn(w) { d.val = Some(w) }),
+  )
   assert_eq(@style.style_for(chain_widget(d)).font_size, Some(16.0))
   assert_true(kid3.rect.h > h0 && kid3.rect.h < kid1.rect.h)
 }
@@ -59,7 +62,9 @@ test "按钮：默认块给 13，属性/class 依次覆盖（绘制与测量同�
   let h0 = kid0.rect.h
   let b : Ref[@widget.Widget?] = Ref(None)
   let kid1 = chain_mount(
-    button("x", class=[@style.style(font_size=20.0)], handle=fn(w) { b.val = Some(w) }),
+    button("x", class=[@style.style(font_size=20.0)], handle=fn(w) {
+      b.val = Some(w)
+    }),
   )
   assert_eq(@style.style_for(chain_widget(b)).font_size, Some(20.0))
   // 高度由按钮样式定（control_height），字号变大不改盒高——与旧口径一致
@@ -70,7 +75,9 @@ test "按钮：默认块给 13，属性/class 依次覆盖（绘制与测量同�
 test "继承：容器字号下推给文字件，子声明优先，按钮默认 13 不吃继承" {
   // 基线：无容器字号
   let a : Ref[@widget.Widget?] = Ref(None)
-  let _ = chain_mount(col([text("abc", handle=fn(w) { a.val = Some(w) })], row_gap=0.0))
+  let _ = chain_mount(
+    col([text("abc", handle=fn(w) { a.val = Some(w) })], row_gap=0.0),
+  )
   let ta = chain_widget(a)
   assert_eq(@style.style_for(ta).font_size, None)
   let h0 = ta.rect.h
@@ -90,7 +97,11 @@ test "继承：容器字号下推给文字件，子声明优先，按钮默认 1
   let c : Ref[@widget.Widget?] = Ref(None)
   let _ = chain_mount(
     col(
-      [text("abc", class=[@style.style(font_size=30.0)], handle=fn(w) { c.val = Some(w) })],
+      [
+        text("abc", class=[@style.style(font_size=30.0)], handle=fn(w) {
+          c.val = Some(w)
+        }),
+      ],
       class=[@style.style(font_size=20.0)],
       row_gap=0.0,
     ),

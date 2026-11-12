@@ -52,14 +52,14 @@ pub(all) struct WindowHost {
   /// 故首帧前由 `mount` 排几次兜底重绘。
   mut painted_once : Bool
   /// 首帧兜底重绘剩余排期（>0 表示已排过，防止每次 mount 重复排）。
-  mut first_retry_left : Int
+  mut first_retry_left : Int32
 }
 
 ///|
 /// 宿主要不要把这枚无修饰 Tab 吃掉驱动焦点栈：焦点控件声明 `wants_tab`
 /// （Tab 是输入的控件，如代码编辑器）时不吃、放行给焦点链派发；无焦点或
 /// 焦点控件不在树上时照旧吃（纯 Tab 语义）。Shift+Tab 走不到这里。
-fn tab_consumed_by_host(root : Widget, current : Int?) -> Bool {
+fn tab_consumed_by_host(root : Widget, current : Int32?) -> Bool {
   match current {
     Some(id) =>
       match root.find_by_focus_id(id) {
@@ -79,7 +79,10 @@ fn tab_consumed_by_host(root : Widget, current : Int?) -> Bool {
 /// ③ 注册没有反注册通道（本层还没有控件卸载钩子），所以处理器**自己负责活体
 /// 判断**——用 `Widget::is_painted()` 问「我这棵子树还在被画吗」，不在就返回
 /// `false` 放行，别让摘掉的组件继续吃键。
-pub fn WindowHost::add_key_fallthrough(self : WindowHost, f : (KeyEvent) -> Bool) -> Unit {
+pub fn WindowHost::add_key_fallthrough(
+  self : WindowHost,
+  f : (KeyEvent) -> Bool,
+) -> Unit {
   let _ = self.key_fallthrough.push(f)
 }
 
@@ -88,16 +91,21 @@ pub fn WindowHost::add_key_fallthrough(self : WindowHost, f : (KeyEvent) -> Bool
 /// 绑到回调上。走的是同一条 `key_fallthrough` 通道，只在解析命中时调用 `cb`。
 /// `CmdOrCtrl` 按平台落地（macOS 是 Cmd、其余是 Ctrl），词表与全局热键、菜单
 /// 加速键同一套。解析失败的 spec 会被静默忽略（回调永不触发），不阻断注册流程。
-pub fn WindowHost::bind_combo(self : WindowHost, spec : String, cb : () -> Unit) -> Unit {
+pub fn WindowHost::bind_combo(
+  self : WindowHost,
+  spec : String,
+  cb : () -> Unit,
+) -> Unit {
   match parse_combo(spec, mac=@shell.platform_is_macos()) {
-    Some((mods, keysym)) => self.add_key_fallthrough(fn(ev : KeyEvent) -> Bool {
-      if match_combo(ev, mods, keysym) {
-        cb()
-        true
-      } else {
-        false
-      }
-    })
+    Some((mods, keysym)) =>
+      self.add_key_fallthrough(fn(ev : KeyEvent) -> Bool {
+        if match_combo(ev, mods, keysym) {
+          cb()
+          true
+        } else {
+          false
+        }
+      })
     None => ()
   }
 }
@@ -106,7 +114,11 @@ pub fn WindowHost::bind_combo(self : WindowHost, spec : String, cb : () -> Unit)
 /// W32 便捷：把「同一个键连按两次」绑到回调上（键多击的窗口级通道）。
 /// 同一键在 60–400ms 内再次按下才触发，系统自动重复（约 25–40ms 一拍）不计；
 /// 走 `key_fallthrough`，焦点链已消费的按键（例如输入框里打进字符）不会到这里。
-pub fn WindowHost::bind_key_double(self : WindowHost, spec : String, cb : () -> Unit) -> Unit {
+pub fn WindowHost::bind_key_double(
+  self : WindowHost,
+  spec : String,
+  cb : () -> Unit,
+) -> Unit {
   match parse_combo(spec, mac=@shell.platform_is_macos()) {
     Some((mods, keysym)) => {
       let tracker = KeyTracker::new()
@@ -139,11 +151,11 @@ pub fn WindowHost::set_system_keys(self : WindowHost, on : Bool) -> Unit {
 /// 2 关本窗 / 3 翻全屏。mods 按全等比——多按一个 Shift 不算命中。非 macOS
 /// 一律 0：Linux 的 Super、Windows 的 Win 各有桌面归属，不该被应用抢。
 fn system_key_action(
-  mods : Int,
-  keysym : Int,
+  mods : Int32,
+  keysym : Int32,
   press : Bool,
   is_mac : Bool,
-) -> Int {
+) -> Int32 {
   if !press || !is_mac {
     return 0
   }
@@ -211,13 +223,12 @@ fn install_host_hooks() -> Unit {
     }
   })
   let l = host_loop()
-  set_timer_hooks(
-    fn(ms : Int, f : () -> Unit) -> Int { l.timer(ms, f) },
-    fn(id : Int) -> Unit {
-      // 到期项已移除时 cancel 返回 false，不必上抛
-      let _ = l.cancel(id)
-    },
-  )
+  set_timer_hooks(fn(ms : Int32, f : () -> Unit) -> Int32 { l.timer(ms, f) }, fn(
+    id : Int32,
+  ) -> Unit {
+    // 到期项已移除时 cancel 返回 false，不必上抛
+    let _ = l.cancel(id)
+  })
 }
 
 ///|
@@ -225,14 +236,15 @@ fn install_host_hooks() -> Unit {
 /// 建不起来给 None），再铺缺省底色、装进程级挂钩，并登记进两半本账。
 /// 注册表还空即主窗，否则是附窗（共用同一个 `Loop` 与平台泵）。
 fn app_window(
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
   title : String,
   popup_of : @win.Window?,
-  place : (Int, Int)?,
-  popup_focus? : Bool = false,
+  place : (Int32, Int32)?,
+  popup_focus~ : Bool = false,
 ) -> WindowHost? {
-  match @shell.session_open(width, height, title, popup_of, place, popup_focus~) {
+  match
+    @shell.session_open(width, height, title, popup_of, place, popup_focus~) {
     None => None
     Some(session) => {
       let root = Widget::new()
@@ -257,7 +269,11 @@ fn app_window(
       // 缺省底色：宿主先铺一层主题页面色，最小示例不必自己写 on_draw 才有背景
       // （要别的底色/图案照常覆盖 root.on_draw 即可）；背景透视开着时本底让位——
       // 铺满整窗的默认底会把「没铺到的像素」吃光，透视形同虚设（透明测试窗实测）
-      root.on_draw = Some(fn(_w : Widget, p : @render.Painter, r : Rect) -> Unit {
+      root.on_draw = Some(fn(
+        _w : Widget,
+        p : @render.Painter,
+        r : Rect,
+      ) -> Unit {
         if app.page_fill {
           p.set_fill_color(@theme.theme_bg_page())
           p.fill_rect(0.0, 0.0, r.w, r.h)
@@ -302,17 +318,24 @@ pub fn test_app(s : @shell.Session) -> WindowHost {
 /// **虚窗 ≠ 真窗**：平台窗口映射 / FFI / 输入法 / Retina 观感仍归真机人工验。
 /// 对外契约是 `@uitest.test_headless`（「虚窗 ≠ 真窗」全清单在 uitest 包首），
 /// 本方法作为它的底座，签名不承诺 1.0 稳定。
-pub fn WindowHost::test_headless(width : Int, height : Int) -> WindowHost {
+pub fn WindowHost::test_headless(width : Int32, height : Int32) -> WindowHost {
   @shell.session_set_headless(true)
-  let a = test_app(@shell.fake_session(-1, @shell.host_new_wid(), true, width, height))
+  let a = test_app(
+    @shell.fake_session(-1, @shell.host_new_wid(), true, width, height),
+  )
   host_add_app(a)
   install_host_hooks()
   a
 }
 
+///|
 /// 首个宿主入口（主窗）。再要一扇窗用 `WindowHost::open_window`，或在本表已空时
 /// 再调一次本函数（那扇又成主窗）。
-pub fn WindowHost::new(width : Int, height : Int, title : String) -> WindowHost? {
+pub fn WindowHost::new(
+  width : Int32,
+  height : Int32,
+  title : String,
+) -> WindowHost? {
   app_window(width, height, title, None, None)
 }
 
@@ -320,14 +343,19 @@ pub fn WindowHost::new(width : Int, height : Int, title : String) -> WindowHost?
 /// 再开一扇窗：每窗一棵控件树、一套焦点栈与输入法状态，**共用**宿主的循环与泵。
 /// 关掉它不影响宿主存活（只有主窗或最后一扇被关才整体退出）；内容照挂
 /// `win.mount([...])`，事件路由与上屏在 `WindowHost::step` 里逐窗走。
-pub fn WindowHost::open_window(self : WindowHost, width : Int, height : Int, title : String) -> WindowHost? {
+pub fn WindowHost::open_window(
+  self : WindowHost,
+  width : Int32,
+  height : Int32,
+  title : String,
+) -> WindowHost? {
   let _ = self
   app_window(width, height, title, None, None)
 }
 
 ///|
 /// 在窗数与当前窗（诊断与测试用）。注册表是进程级的，`self` 只作调用点锚。
-pub fn WindowHost::window_count(self : WindowHost) -> Int {
+pub fn WindowHost::window_count(self : WindowHost) -> Int32 {
   let _ = self
   host_window_count()
 }
@@ -340,7 +368,7 @@ pub fn WindowHost::active_window(self : WindowHost) -> WindowHost? {
 
 ///|
 /// 本窗窗号与是否主窗。
-pub fn WindowHost::wid(self : WindowHost) -> Int {
+pub fn WindowHost::wid(self : WindowHost) -> Int32 {
   self.session.wid
 }
 
@@ -361,6 +389,7 @@ pub fn WindowHost::window(self : WindowHost) -> @win.Window {
 ///|
 /// 本窗全屏开关（播放器「铺满整屏」这类窗口级动作）。控件层拿不到窗口，
 /// 所以由宿主把请求转到这里；尺寸变化照常走 allocate，调用方不用自己重算。
+
 ///|
 /// 背景透视开关（转给本窗平台层），并让宿主默认页面底随之让位——铺满整窗的
 /// `bg_page` 会把「没铺到的像素」吃光，透视开着时它必须退场；关透视时恢复。
@@ -387,7 +416,10 @@ pub fn WindowHost::set_fullscreen(self : WindowHost, on : Bool) -> Unit {
 /// 放在窗口层而不是 `theme`：主题包不该反过来依赖平台后端与事件循环。
 /// 桌面环境没有对应通道（非 GNOME、或 schema 缺键）时读出来是空串，
 /// 于是按亮色预设走，且此后每拍都不变、不会反复重刷。
-pub fn WindowHost::follow_system_theme(self : WindowHost, interval_ms? : Int = 1000) -> () -> Unit {
+pub fn WindowHost::follow_system_theme(
+  self : WindowHost,
+  interval_ms~ : Int32 = 1000,
+) -> () -> Unit {
   let running : Ref[Bool] = Ref(true)
   let tick : Ref[() -> Unit] = Ref(fn() { () })
   tick.val = fn() -> Unit {
@@ -399,7 +431,8 @@ pub fn WindowHost::follow_system_theme(self : WindowHost, interval_ms? : Int = 1
       fn() -> String { @win.sys_color_scheme() },
       fn() -> String { @win.sys_accent() },
     )
-    if @theme.theme_fingerprint_of(t) != @theme.theme_fingerprint_of(@theme.theme_current()) {
+    if @theme.theme_fingerprint_of(t) !=
+      @theme.theme_fingerprint_of(@theme.theme_current()) {
       @theme.theme_apply(t)
     }
     let _ = self.timer(interval_ms, tick.val)
@@ -526,14 +559,23 @@ fn accept_widget_rect(full : Bool, cur : Rect?, r : Rect) -> Rect? {
   if full {
     cur
   } else {
-    Some(match cur { None => r; Some(x) => x.union(r) })
+    Some(
+      match cur {
+        None => r
+        Some(x) => x.union(r)
+      },
+    )
   }
 }
 
 ///|
 /// 一帧的裁剪框：整窗请求时无裁剪（None），否则用累积的脏区。
 fn dirty_clip(full : Bool, rect : Rect?) -> Rect? {
-  if full { None } else { rect }
+  if full {
+    None
+  } else {
+    rect
+  }
 }
 
 ///|
@@ -548,7 +590,7 @@ fn WindowHost::mark_widget_rect(self : WindowHost, w : Widget) -> Unit {
 /// 悬停/按下变化的标脏范围：指针底下那颗控件，**加上悬停链上每个自绘状态的祖先**。
 /// 只标最深那颗会漏——表格行的整行悬停底色由行控件画，脏区却只有鼠标那一格，
 /// 真机表现就是「悬停不是整行」。链上没有状态祖先时，代价仍只是一颗控件的矩形。
-fn WindowHost::mark_state_chain(self : WindowHost, id : Int) -> Unit {
+fn WindowHost::mark_state_chain(self : WindowHost, id : Int32) -> Unit {
   if id <= 0 {
     return
   }
@@ -569,7 +611,7 @@ fn WindowHost::mark_state_chain(self : WindowHost, id : Int) -> Unit {
 /// 焦点栈记的是**焦点 id**（使用者给控件的序号），不是控件实例 id——拿它去
 /// `by_id` 查树会把脏区标到「实例 id 恰好等于那个序号」的另一个控件上，
 /// 新焦点的焦点环与光标因此可能整片不重画。
-fn WindowHost::mark_focus_rect(self : WindowHost, id : Int?) -> Unit {
+fn WindowHost::mark_focus_rect(self : WindowHost, id : Int32?) -> Unit {
   match id {
     Some(i) => self.mark_focus_id_rect(i)
     None => ()
@@ -578,7 +620,7 @@ fn WindowHost::mark_focus_rect(self : WindowHost, id : Int?) -> Unit {
 
 ///|
 /// 按焦点 id 局部置脏；树里没有这个焦点 id（未挂载/已隐藏）回退整窗。
-fn WindowHost::mark_focus_id_rect(self : WindowHost, focus_id : Int) -> Unit {
+fn WindowHost::mark_focus_id_rect(self : WindowHost, focus_id : Int32) -> Unit {
   if focus_id <= 0 {
     return
   }
@@ -590,7 +632,11 @@ fn WindowHost::mark_focus_id_rect(self : WindowHost, focus_id : Int) -> Unit {
 
 ///|
 /// 相对延时定时器（转派 `Loop::timer`，返回可取消的句柄）。
-pub fn WindowHost::timer(self : WindowHost, delay_ms : Int, work : () -> Unit) -> Int {
+pub fn WindowHost::timer(
+  self : WindowHost,
+  delay_ms : Int32,
+  work : () -> Unit,
+) -> Int32 {
   self.session.timer(delay_ms, work)
 }
 
@@ -598,7 +644,7 @@ pub fn WindowHost::timer(self : WindowHost, delay_ms : Int, work : () -> Unit) -
 /// 停掉一个周期/延时表（`timer` 返回的句柄）。幂等：没这个句柄（已响完 /
 /// 已停 / 号不存在）都算成功。`timer` 的语义是「句柄可停」，没有取消口子
 /// 的话上层只能让回调自己判flag——那留着一个每拍空转的表，故这里补上。
-pub fn WindowHost::cancel_timer(self : WindowHost, id : Int) -> Bool {
+pub fn WindowHost::cancel_timer(self : WindowHost, id : Int32) -> Bool {
   if self.closed {
     return false
   }
@@ -666,17 +712,16 @@ fn WindowHost::handle_shown(self : WindowHost) -> Unit {
 ///   晚一拍排空就会落进新控件（真机实测：在 A 框打的字 commit 进了 B 框）；
 /// - 清掉旧控件画着的组合串；
 /// - `im_reset` 打断输入法侧未完成的组合串（一个窗口只有一个 IM 上下文）。
-fn WindowHost::flush_ime_for_switch(self : WindowHost, prev : Int?) -> Unit {
+fn WindowHost::flush_ime_for_switch(self : WindowHost, prev : Int32?) -> Unit {
   match prev {
     Some(id) => {
       let mut more = true
       while more {
         match self.session.window.take_commit() {
-          Some(t) => {
+          Some(t) =>
             if self.root.dispatch_commit(id, t) {
               self.schedule_paint()
             }
-          }
           None => more = false
         }
       }
@@ -728,7 +773,7 @@ pub fn WindowHost::move_focus(self : WindowHost, backward : Bool) -> Unit {
 ///|
 /// 把焦点交给焦点栈里的某个 id（控件自己请焦点走这条：步进器点 +/- 要把焦点落到
 /// 中间那格）。先把焦点栈与控件树对齐一次，id 不在册就不改焦点并给 false。
-pub fn WindowHost::focus_by_id(self : WindowHost, id : Int) -> Bool {
+pub fn WindowHost::focus_by_id(self : WindowHost, id : Int32) -> Bool {
   self.sync_focus()
   if self.focus.is_focused(id) {
     return true
@@ -762,13 +807,13 @@ pub(all) enum RawEvent {
 ///|
 /// 原始事件 → 本层事件形态。独立成函数是为了无头可测（宿主其余部分要窗口）。
 pub fn raw_to_event(
-  code : Int,
-  keysym : Int,
-  mods : Int,
-  x : Int,
-  y : Int,
-  button : Int,
-  axis : Int,
+  code : Int32,
+  keysym : Int32,
+  mods : Int32,
+  x : Int32,
+  y : Int32,
+  button : Int32,
+  axis : Int32,
 ) -> RawEvent {
   let xf = x.to_double()
   let yf = y.to_double()
@@ -796,6 +841,7 @@ pub fn raw_to_event(
 }
 
 ///|
+
 ///|
 /// 宿主路由诊断门：`LIBYUE_ROUTE_LOG` / `NATIVEGUI_ROUTE_LOG` 任一设了就往
 /// stdout 打按键与点击聚焦的关键拍（焦点栈当前值、命中可聚焦结果）——真机
@@ -817,24 +863,28 @@ fn route_diag(msg : String) -> Unit {
 /// 「真机上按键没反应」这类问题；无头复现一律走这两个口。
 pub fn WindowHost::test_pump_pointer(
   self : WindowHost,
-  code : Int,
-  x : Int,
-  y : Int,
-  button : Int,
+  code : Int32,
+  x : Int32,
+  y : Int32,
+  button : Int32,
 ) -> Unit {
-  self.route({ code, keysym: 0, mods: 0, x, y, button, axis: 0 })
+  self.route({ code, keysym: 0, mods: 0, x, y, button, axis: 0, })
 }
 
 ///|
 /// 测试泵（无头用例专用）：灌一条按键（`press=false` 走抬起声明制通道）。
 pub fn WindowHost::test_pump_key(
   self : WindowHost,
-  keysym : Int,
-  mods : Int,
-  press? : Bool = true,
+  keysym : Int32,
+  mods : Int32,
+  press~ : Bool = true,
 ) -> Unit {
   self.route({
-    code: if press { 0 } else { 1 },
+    code: if press {
+      0
+    } else {
+      1
+    },
     keysym,
     mods,
     x: 0,
@@ -844,18 +894,12 @@ pub fn WindowHost::test_pump_key(
   })
 }
 
+///|
 fn WindowHost::route(self : WindowHost, ev : @win.InputEvent) -> Unit {
   // 谁被操作谁就是当前窗（浮层与工具提示跟着它，见 host.mbt）
   host_mark_active(self.session)
-  match raw_to_event(
-    ev.code,
-    ev.keysym,
-    ev.mods,
-    ev.x,
-    ev.y,
-    ev.button,
-    ev.axis,
-  ) {
+  match
+    raw_to_event(ev.code, ev.keysym, ev.mods, ev.x, ev.y, ev.button, ev.axis) {
     Ignored => ()
     Pointer(pev) => {
       // 原生档浮层的点外收起：owner 上任何按下都是点外（弹层是独立窗），
@@ -865,7 +909,12 @@ fn WindowHost::route(self : WindowHost, ev : @win.InputEvent) -> Unit {
       }
       let old_hover = self.session.hover_id
       let old_cap = self.session.capture
-      let r = route_pointer(self.root, pev, self.session.hover_id, self.session.capture)
+      let r = route_pointer(
+        self.root,
+        pev,
+        self.session.hover_id,
+        self.session.capture,
+      )
       self.session.hover_id = r.0
       self.session.capture = r.1
       // 光标形状随悬停路径走（拖动期间被捕获，形状停在起手那档）
@@ -897,7 +946,9 @@ fn WindowHost::route(self : WindowHost, ev : @win.InputEvent) -> Unit {
           self.session.window.request_focus()
           // 命中可聚焦控件时切焦点栈（栈里没有该 id 时不改焦点栈）
           let hit_focus = self.root.focusable_at(pev.x, pev.y)
-          route_diag("pointer-down focusable_at(\{pev.x},\{pev.y})=\{Repr(hit_focus)} current=\{Repr(self.focus.current())}")
+          route_diag(
+            "pointer-down focusable_at(\{pev.x},\{pev.y})=\{Repr(hit_focus)} current=\{Repr(self.focus.current())}",
+          )
           match hit_focus {
             Some(id) =>
               if !self.focus.is_focused(id) {
@@ -950,11 +1001,7 @@ fn WindowHost::route(self : WindowHost, ev : @win.InputEvent) -> Unit {
         }
       }
     }
-    Scroll(sev) => {
-      if self.root.dispatch_scroll(sev) {
-        self.schedule_paint()
-      }
-    }
+    Scroll(sev) => if self.root.dispatch_scroll(sev) { self.schedule_paint() }
     Key(kev) => {
       route_diag(
         "key keysym=\{kev.keysym} mods=\{kev.mods} press=\{kev.press} focus=\{Repr(self.focus.current())}",
@@ -1090,12 +1137,13 @@ pub fn WindowHost::pump_ime(self : WindowHost) -> Unit {
     Some((text, caret)) => {
       self.session.window.set_im_surrounding(text, caret)
       match self.root.im_cursor_of(cur) {
-        Some(r) => self.session.window.set_im_cursor(
-          r.x.floor().to_int(),
-          r.y.floor().to_int(),
-          r.w.ceil().to_int(),
-          r.h.ceil().to_int(),
-        )
+        Some(r) =>
+          self.session.window.set_im_cursor(
+            r.x.floor().to_int(),
+            r.y.floor().to_int(),
+            r.w.ceil().to_int(),
+            r.h.ceil().to_int(),
+          )
         None => ()
       }
       let mut more = true
@@ -1114,7 +1162,8 @@ pub fn WindowHost::pump_ime(self : WindowHost) -> Unit {
         }
       }
       let st = self.session.window.preedit()
-      if st.text != self.session.last_preedit.0 || st.caret != self.session.last_preedit.1 {
+      if st.text != self.session.last_preedit.0 ||
+        st.caret != self.session.last_preedit.1 {
         self.session.last_preedit = (st.text, st.caret)
         self.root.dispatch_preedit(cur, st.text, st.caret)
         match self.root.by_id(cur) {
@@ -1149,7 +1198,7 @@ fn text_batch_init() -> Unit {
 /// 脏区非整窗时把绘制器裁到脏区——控件遍历的视口剔除按当前裁剪框判交，
 /// 裁剪外整块跳过；位图按窗复用保留上一帧内容，裁剪外像素即上一帧。
 // 布局诊断读数的上一帧宽（见 paint_frame 的 NATIVEGUI_LAYOUT_LOG）。
-let layout_log_last_w : Ref[Int] = Ref(0)
+let layout_log_last_w : Ref[Int32] = Ref(0)
 
 ///|
 pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
@@ -1185,10 +1234,12 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   }
   // 读屏焦点通道：焦点换了通知平台臂（mac AX FocusedUIElementChanged）。
   // 焦点栈的 id 是控件声明的 focus_id，快照行存的是 widget id——报之前换算。
-  a11y_set_focus(match self.focus.current() {
-    Some(fid) => a11y_focus_widget_id(self.root, fid)
-    None => 0
-  })
+  a11y_set_focus(
+    match self.focus.current() {
+      Some(fid) => a11y_focus_widget_id(self.root, fid)
+      None => 0
+    },
+  )
   // 分段账本从帧起算：位图分配（仅变尺寸时发生）计入 total 不计入单段，
   // 避免把「分配」混进「布局」
   let t0 = @win.now_ms()
@@ -1231,7 +1282,11 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   let _ = a11y_frame_sync(self.root)
   // 读屏动作通道（UIA Invoke/Toggle/Expand / AT-SPI DoAction / AX press）：
   // 抽干并合成点击，会话状态接回去
-  let act = a11y_pump_actions(self.root, self.session.hover_id, self.session.capture)
+  let act = a11y_pump_actions(
+    self.root,
+    self.session.hover_id,
+    self.session.capture,
+  )
   self.session.hover_id = act.0
   self.session.capture = act.1
   // AT-SPI 桥（Linux）：窗口原点报给平台侧（Component 的屏幕坐标 = 原点 +
@@ -1247,7 +1302,8 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   self.painted_once = true
   let t3 = @win.now_ms()
   // 分段账本：位图分配计入 total 不计入单段，避免把「分配」混进「布局」
-  prof_record(t1 - t0, t2 - t1, t3 - t2, t3 - t0)}
+  prof_record(t1 - t0, t2 - t1, t3 - t2, t3 - t0)
+}
 
 ///|
 /// 走一圈：等事件 → 跑到期任务 → **逐窗**排空事件 → 抽外部拖入 → 逐窗喂输入法 →
@@ -1324,12 +1380,11 @@ fn WindowHost::drain_events(self : WindowHost) -> Unit {
           _ => ()
         }
       }
-      @win.Input => {
+      @win.Input =>
         match self.session.window.take_input() {
           Some(ev) => self.route(ev)
           None => ()
         }
-      }
       @win.NoEvent => keep = false
     }
   }
@@ -1362,7 +1417,9 @@ pub fn WindowHost::close_window(self : WindowHost) -> Unit {
 ///|
 /// 阻塞式主循环。返回后由调用方拆对象（先停派发、再拆对象）。
 pub fn WindowHost::run(self : WindowHost) -> Unit {
-  while self.step() {}
+  while self.step() {
+
+  }
 }
 
 ///|

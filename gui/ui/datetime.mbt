@@ -10,9 +10,9 @@
 ///|
 /// 日期值（年月日，月/日按日常习惯 1 起始）。
 pub(all) struct DateYMD {
-  y : Int
-  m : Int
-  d : Int
+  y : Int32
+  m : Int32
+  d : Int32
 }
 
 ///|
@@ -57,13 +57,13 @@ pub extend DateTimeRange with Eq::{not_equal, equal}
 
 ///|
 /// 闰年（格里高利历）。
-pub fn date_leap(y : Int) -> Bool {
+pub fn date_leap(y : Int32) -> Bool {
   y % 4 == 0 && (y % 100 != 0 || y % 400 == 0)
 }
 
 ///|
 /// 当月天数（`m` 越界按 1 月处理：宁给可画的值，不给越界索引）。
-pub fn days_in_month(y : Int, m : Int) -> Int {
+pub fn days_in_month(y : Int32, m : Int32) -> Int32 {
   let days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
   let mi = if m >= 1 && m <= 12 { m } else { 1 }
   if mi == 2 && date_leap(y) {
@@ -75,7 +75,7 @@ pub fn days_in_month(y : Int, m : Int) -> Int {
 
 ///|
 /// 星期几（0 = 周日 .. 6 = 周六），Sakamoto 算法。
-pub fn date_weekday(y : Int, m : Int, d : Int) -> Int {
+pub fn date_weekday(y : Int32, m : Int32, d : Int32) -> Int32 {
   let t = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4]
   let yy = if m < 3 { y - 1 } else { y }
   (yy + yy / 4 - yy / 100 + yy / 400 + t[m - 1] + d) % 7
@@ -83,7 +83,7 @@ pub fn date_weekday(y : Int, m : Int, d : Int) -> Int {
 
 ///|
 /// 月份前进/后退 `delta` 个月（可跨年，`delta` 可为任意整数）。
-pub fn month_shift(y : Int, m : Int, delta : Int) -> (Int, Int) {
+pub fn month_shift(y : Int32, m : Int32, delta : Int32) -> (Int32, Int32) {
   let mi = if m >= 1 && m <= 12 { m } else { 1 }
   let zero = y * 12 + (mi - 1) + delta
   (zero / 12, zero % 12 + 1)
@@ -94,15 +94,15 @@ pub fn month_shift(y : Int, m : Int, delta : Int) -> (Int, Int) {
 pub fn today_date() -> DateYMD {
   let (y, m, d) = @shell.local_ymd()
   if y > 0 && m >= 1 && m <= 12 && d >= 1 && d <= 31 {
-    { y, m, d }
+    { y, m, d, }
   } else {
-    { y: 1970, m: 1, d: 1 }
+    { y: 1970, m: 1, d: 1, }
   }
 }
 
 ///|
 /// 两位补零。
-fn pad_two(n : Int) -> String {
+fn pad_two(n : Int32) -> String {
   if n < 10 {
     "0" + n.to_string()
   } else {
@@ -118,7 +118,7 @@ pub fn DateYMD::format(self : DateYMD) -> String {
 
 ///|
 /// 日期比较：负 = a 早于 b，0 = 同一天，正 = a 晚于 b。
-pub fn DateYMD::compare(a : DateYMD, b : DateYMD) -> Int {
+pub fn DateYMD::compare(a : DateYMD, b : DateYMD) -> Int32 {
   if a.y != b.y {
     a.y - b.y
   } else if a.m != b.m {
@@ -137,18 +137,14 @@ pub fn DateYMD::same(a : DateYMD, b : DateYMD) -> Bool {
 ///|
 /// `d` 是否落在 [s, e] 闭区间内（s/e 顺序不限，内部归一）。
 pub fn DateYMD::in_range(d : DateYMD, s : DateYMD, e : DateYMD) -> Bool {
-  let (lo, hi) = if DateYMD::compare(s, e) <= 0 {
-    (s, e)
-  } else {
-    (e, s)
-  }
+  let (lo, hi) = if DateYMD::compare(s, e) <= 0 { (s, e) } else { (e, s) }
   DateYMD::compare(d, lo) >= 0 && DateYMD::compare(d, hi) <= 0
 }
 
 ///|
 /// 月网格：固定 42 格（6 行 × 7 列），每格给日期与「是否本月」。首格前的
 /// 尾巴属于上月、月末后的头部属于下月，两者都按灰显且不可选处理。
-pub fn month_grid(y : Int, m : Int) -> Array[(DateYMD, Bool)] {
+pub fn month_grid(y : Int32, m : Int32) -> Array[(DateYMD, Bool)] {
   let out : Array[(DateYMD, Bool)] = []
   let first_wd = date_weekday(y, m, 1)
   let dim = days_in_month(y, m)
@@ -158,11 +154,11 @@ pub fn month_grid(y : Int, m : Int) -> Array[(DateYMD, Bool)] {
   for idx = 0; idx < 42; idx = idx + 1 {
     let in_month = idx >= first_wd && idx < first_wd + dim
     let date = if idx < first_wd {
-      { y: py, m: pm, d: dim_prev - (first_wd - idx) + 1 }
+      { y: py, m: pm, d: dim_prev - (first_wd - idx) + 1, }
     } else if in_month {
-      { y: y, m: m, d: idx - first_wd + 1 }
+      { y, m, d: idx - first_wd + 1, }
     } else {
-      { y: ny, m: nm, d: idx - first_wd - dim + 1 }
+      { y: ny, m: nm, d: idx - first_wd - dim + 1, }
     }
     out.push((date, in_month))
   }
@@ -173,41 +169,23 @@ pub fn month_grid(y : Int, m : Int) -> Array[(DateYMD, Bool)] {
 /// 时间值（时 0-23 / 分 0-59 / 秒 0-59；区间与日期时间选择的组成部分）。
 /// 秒默认 0：只选时分的调用方不必填它（`time_clamp(h, m)`）。
 pub(all) struct TimeHMS {
-  h : Int
-  m : Int
-  s : Int
+  h : Int32
+  m : Int32
+  s : Int32
 }
 
 ///|
 /// 钳制到合法时间（时 0-23 / 分 0-59 / 秒 0-59，秒不给即 0）。
-pub fn time_clamp(h : Int, m : Int, s? : Int = 0) -> TimeHMS {
-  let hc = if h < 0 {
-    0
-  } else if h > 23 {
-    23
-  } else {
-    h
-  }
-  let mc = if m < 0 {
-    0
-  } else if m > 59 {
-    59
-  } else {
-    m
-  }
-  let sc = if s < 0 {
-    0
-  } else if s > 59 {
-    59
-  } else {
-    s
-  }
-  { h: hc, m: mc, s: sc }
+pub fn time_clamp(h : Int32, m : Int32, s~ : Int32 = 0) -> TimeHMS {
+  let hc = if h < 0 { 0 } else if h > 23 { 23 } else { h }
+  let mc = if m < 0 { 0 } else if m > 59 { 59 } else { m }
+  let sc = if s < 0 { 0 } else if s > 59 { 59 } else { s }
+  { h: hc, m: mc, s: sc, }
 }
 
 ///|
 /// 时间比较：负 = a 早于 b，0 = 相同，正 = a 晚于 b。
-pub fn TimeHMS::compare(a : TimeHMS, b : TimeHMS) -> Int {
+pub fn TimeHMS::compare(a : TimeHMS, b : TimeHMS) -> Int32 {
   let sec_a = a.h * 3600 + a.m * 60 + a.s
   let sec_b = b.h * 3600 + b.m * 60 + b.s
   sec_a - sec_b
@@ -215,7 +193,7 @@ pub fn TimeHMS::compare(a : TimeHMS, b : TimeHMS) -> Int {
 
 ///|
 /// 格式化为 HH:MM；`show_seconds` 给真出 HH:MM:SS。
-pub fn TimeHMS::format(self : TimeHMS, show_seconds? : Bool = false) -> String {
+pub fn TimeHMS::format(self : TimeHMS, show_seconds~ : Bool = false) -> String {
   let base = pad_two(self.h) + ":" + pad_two(self.m)
   if show_seconds {
     base + ":" + pad_two(self.s)
@@ -265,7 +243,14 @@ fn cell_solid(st : CalCell) -> Bool {
 
 ///|
 /// 左右向的矢量三角（`‹`/`›` 字形跨平台发虚，一律画路径）。
-fn draw_chevron(p : @render.Painter, cx : Double, cy : Double, size : Double, right : Bool, color : String) -> Unit {
+fn draw_chevron(
+  p : @render.Painter,
+  cx : Double,
+  cy : Double,
+  size : Double,
+  right : Bool,
+  color : String,
+) -> Unit {
   p.set_fill_color(color)
   p.begin_path()
   if right {
@@ -329,7 +314,11 @@ fn build_calendar(
   @style.apply(
     panel,
     @style.merge_all([
-      @style.style(background_color="bg_panel", border_color="border", border_width=1.0),
+      @style.style(
+        background_color="bg_panel",
+        border_color="border",
+        border_width=1.0,
+      ),
       skin,
     ]),
   )
@@ -343,7 +332,9 @@ fn build_calendar(
 
     self.clip_rounded = rad > 0.0
     self.style_clip_radius = rad
-    p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
+    p.set_fill_color(
+      @style.color_of(st.background_color, @theme.theme_bg_panel()),
+    )
     p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
     p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
     p.set_line_width(@style.number_of(st.border_width, 1.0))
@@ -419,7 +410,10 @@ fn build_calendar(
   let title = @widget.Widget::new()
   title.node.set_flex_grow(1.0)
   title.node.set_height(@yoga.fixed(head_h))
-  @style.apply(title, @style.merge_all([@style.style(color="text_primary"), skin]))
+  @style.apply(
+    title,
+    @style.merge_all([@style.style(color="text_primary"), skin]),
+  )
   title.on_draw = Some(fn(
     self : @widget.Widget,
     p : @render.Painter,
@@ -457,11 +451,11 @@ fn build_calendar(
     let c = @widget.Widget::new()
     c.node.set_width(@yoga.fixed(cell_w))
     c.node.set_height(@yoga.fixed(week_h))
-    let label = @i18n.t_or(
-      "gui.ui.datepicker.wd." + i.to_string(),
-      name,
+    let label = @i18n.t_or("gui.ui.datepicker.wd." + i.to_string(), name)
+    @style.apply(
+      c,
+      @style.merge_all([@style.style(color="text_secondary"), skin]),
     )
-    @style.apply(c, @style.merge_all([@style.style(color="text_secondary"), skin]))
     c.on_draw = Some(fn(
       self : @widget.Widget,
       p : @render.Painter,
@@ -492,14 +486,17 @@ fn build_calendar(
     let row = @widget.Widget::new()
     row.node.set_flex_direction(@yoga.Row)
     for _col = 0; _col < 7; _col = _col + 1 {
-      let dref : Ref[DateYMD] = Ref({ y: 1970, m: 1, d: 1 })
+      let dref : Ref[DateYMD] = Ref({ y: 1970, m: 1, d: 1, })
       let inm : Ref[Bool] = Ref(false)
       let c = @widget.Widget::new()
       c.node.set_width(@yoga.fixed(cell_w))
       c.node.set_height(@yoga.fixed(cell_h))
       @style.apply(
         c,
-        @style.merge_all([@style.style().hover(background_color="fill_hover"), skin]),
+        @style.merge_all([
+          @style.style().hover(background_color="fill_hover"),
+          skin,
+        ]),
       )
       c.on_draw = Some(fn(
         self : @widget.Widget,
@@ -529,7 +526,13 @@ fn build_calendar(
         if solid {
           // 选中日=正圆（自带几何形态，不随圆角开关变方）
           p.set_fill_color(@theme.theme_primary())
-          p.fill_round_rect((r.w - 28.0) / 2.0, (r.h - 28.0) / 2.0, 28.0, 28.0, 14.0)
+          p.fill_round_rect(
+            (r.w - 28.0) / 2.0,
+            (r.h - 28.0) / 2.0,
+            28.0,
+            28.0,
+            14.0,
+          )
           let _ = @text.draw_box_at(
             p,
             0.0,
@@ -567,7 +570,7 @@ fn build_calendar(
         }
       })
       // 本月内的格子才可选：手型；跨月格不提请求，回默认箭头（与悬停底同条件）
-      c.cursor_fn = Some(fn(_w : @widget.Widget) -> Int {
+      c.cursor_fn = Some(fn(_w : @widget.Widget) -> Int32 {
         if inm.val {
           @widget.CURSOR_HAND
         } else {
@@ -582,7 +585,10 @@ fn build_calendar(
           // 松开才算选中（与弹层内点项同一口径），跨月格不可选
           @widget.PointerKind::Down => inm.val
           @widget.PointerKind::Up => {
-            let inside = ev.x >= 0.0 && ev.x <= self.rect.w && ev.y >= 0.0 && ev.y <= self.rect.h
+            let inside = ev.x >= 0.0 &&
+              ev.x <= self.rect.w &&
+              ev.y >= 0.0 &&
+              ev.y <= self.rect.h
             if inm.val && inside {
               on_cell(dref.val)
               @widget.invalidate()
@@ -621,11 +627,11 @@ fn build_calendar(
 /// 42 格月网格，跨月日期灰显且不可选，「今天」用主题色，选中日期实心主题色方块。
 /// 松开当月日期即写入 `value`（若有）并回调 `on_pick`。
 pub fn calendar(
-  on_pick? : (DateYMD) -> Unit = fn(_d : DateYMD) -> Unit { () },
+  on_pick~ : (DateYMD) -> Unit = fn(_d : DateYMD) -> Unit { () },
   value? : @base.Store[DateYMD?],
-  today? : DateYMD = today_date(),
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  today~ : DateYMD = today_date(),
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let t = today
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {

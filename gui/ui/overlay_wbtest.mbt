@@ -28,7 +28,7 @@ fn mounted_with_overlay(
 
 ///|
 /// 一个只记点击次数的小控件（用来验「空图层不挡内容」）。
-fn counter_box(n : Ref[Int], w : Double, h : Double) -> @widget.Node {
+fn counter_box(n : Ref[Int32], w : Double, h : Double) -> @widget.Node {
   @widget.node_of_new(fn(b : @widget.Widget) -> @widget.Widget {
     b.node.set_width(@yoga.fixed(w))
     b.node.set_height(@yoga.fixed(h))
@@ -53,7 +53,12 @@ fn counter_box(n : Ref[Int], w : Double, h : Double) -> @widget.Node {
 test "空图层不挡内容；点触发件开层、再点收起" {
   let clicks = Ref(0)
   let (root, wrap) = mounted(
-    popover(counter_box(clicks, 80.0, 24.0), text("弹层内容"), width=120.0, height=40.0),
+    popover(
+      counter_box(clicks, 80.0, 24.0),
+      text("弹层内容"),
+      width=120.0,
+      height=40.0,
+    ),
     300.0,
     200.0,
   )
@@ -71,7 +76,10 @@ test "空图层不挡内容；点触发件开层、再点收起" {
   // 浮层挂在触发件下方（距下沿 2px）
   match @widget.overlay_rect_of(@widget.overlay_top_id()) {
     Some(r) => {
-      assert_eq((r.x, r.y), (trigger.rect.x, trigger.rect.y + trigger.rect.h + 2.0))
+      assert_eq(
+        (r.x, r.y),
+        (trigger.rect.x, trigger.rect.y + trigger.rect.h + 2.0),
+      )
       assert_eq((r.w, r.h), (120.0, 40.0))
     }
     None => assert_true(false)
@@ -123,9 +131,11 @@ test "点浮层外收起最上面那层（不打扰被点的内容）" {
 
 ///|
 test "下拉菜单：'-' 画分隔线、选中回调序号并收起" {
-  let picks : Array[Int] = []
+  let picks : Array[Int32] = []
   let (root, menu) = mounted(
-    dropdown("操作", ["重命名", "复制", "-", "删除"], on_select=fn(i : Int) -> Unit {
+    dropdown("操作", ["重命名", "复制", "-", "删除"], on_select=fn(
+      i : Int32,
+    ) -> Unit {
       picks.push(i)
     }),
     300.0,
@@ -156,7 +166,10 @@ test "下拉菜单：'-' 画分隔线、选中回调序号并收起" {
 test "下拉贴窗口底边：弹层翻到锚点上方，不被窗口切掉" {
   let (root, col) = mounted(
     view(
-      [view([], width=100.0, height=260.0), dropdown("操作", ["甲", "乙", "丙"])],
+      [
+        view([], width=100.0, height=260.0),
+        dropdown("操作", ["甲", "乙", "丙"]),
+      ],
       direction=@yoga.Column,
     ),
     300.0,
@@ -186,11 +199,11 @@ test "下拉贴窗口底边：弹层翻到锚点上方，不被窗口切掉" {
 test "悬浮提示：延时到点才出现、离开即收、延时未到就离开则不出现" {
   let queue : Ref[Array[() -> Unit]] = Ref([])
   @shell.set_timer_hooks(
-    fn(_ms : Int, f : () -> Unit) -> Int {
+    fn(_ms : Int32, f : () -> Unit) -> Int32 {
       queue.val.push(f)
       1
     },
-    fn(_id : Int) -> Unit { () },
+    fn(_id : Int32) -> Unit { () },
   )
   let (root, wrap) = mounted(
     tooltip(counter_box(Ref(0), 80.0, 24.0), "点这里", delay_ms=400),
@@ -209,11 +222,15 @@ test "悬浮提示：延时到点才出现、离开即收、延时未到就离�
   // 再移进并让延时到点：气泡出现在锚点下方
   root.set_hover(anchor.id)
   assert_eq(queue.val.length(), 2)
-  (queue.val[1])()
+  queue.val[1]()
   assert_eq(@widget.overlay_count(), 1)
   root.relayout(300.0, 200.0)
   match @widget.overlay_rect_of(@widget.overlay_top_id()) {
-    Some(r) => assert_eq((r.x, r.y), (anchor.rect.x, anchor.rect.y + anchor.rect.h + 4.0))
+    Some(r) =>
+      assert_eq(
+        (r.x, r.y),
+        (anchor.rect.x, anchor.rect.y + anchor.rect.h + 4.0),
+      )
     None => assert_true(false)
   }
   // 指针离开：气泡收起
@@ -319,11 +336,11 @@ test "轻提示层：推送后挂一条、到点自动撤、宽度随文本" {
   }
   let queue : Ref[Array[() -> Unit]] = Ref([])
   @shell.set_timer_hooks(
-    fn(_ms : Int, f : () -> Unit) -> Int {
+    fn(_ms : Int32, f : () -> Unit) -> Int32 {
       queue.val.push(f)
       1
     },
-    fn(_id : Int) -> Unit { () },
+    fn(_id : Int32) -> Unit { () },
   )
   let push = toast_layer(duration_ms=1000)
   let (root, _host) = mounted(view([text("宿主页")]), 400.0, 200.0)
@@ -357,10 +374,10 @@ test "轻提示层：推送后挂一条、到点自动撤、宽度随文本" {
   assert_eq(toast_left(0.0, 120.0), 0.0)
   // 到点自动撤：撤到最后一条时整层收起
   assert_eq(queue.val.length(), 2)
-  (queue.val[0])()
+  queue.val[0]()
   assert_eq(strip.children().length(), 1)
   assert_eq(@widget.overlay_count(), 1)
-  (queue.val[1])()
+  queue.val[1]()
   assert_eq(strip.children().length(), 0)
   assert_eq(@widget.overlay_count(), 0)
   // 第二轮推送：收层之后必须还能再开（真机反馈过「提示一个之后就无法触发」）
@@ -375,14 +392,14 @@ test "轻提示层：推送后挂一条、到点自动撤、宽度随文本" {
     Some(r) => assert_true(r.w > 0.0 && r.h > 0.0)
     None => assert_true(false)
   }
-  (queue.val[2])()
+  queue.val[2]()
   assert_eq(@widget.overlay_count(), 0)
   @shell.set_timer_hooks(fn(_ms, _f) { 0 }, fn(_id) { () })
 }
 
 ///|
 test "右键上下文菜单：在指针处弹出、点项回调并收起" {
-  let picks : Array[Int] = []
+  let picks : Array[Int32] = []
   let (root, wrap) = mounted(
     context_menu_for(counter_box(Ref(0), 120.0, 40.0), [
       ("复制", fn() -> Unit { picks.push(1) }),
@@ -452,7 +469,12 @@ test "浮层族只读样式槽：class 覆盖下拉触发件、菜单行文字�
   if !ui_text_guard() {
     return
   }
-  let ink_in = fn(bm : @render.Bitmap, w : Int, h : Int, pick : (Int, Int, Int) -> Bool) -> Int {
+  let ink_in = fn(
+    bm : @render.Bitmap,
+    w : Int32,
+    h : Int32,
+    pick : (Int32, Int32, Int32) -> Bool,
+  ) -> Int32 {
     let mut n = 0
     for y = 0; y < h; y = y + 1 {
       for x = 0; x < w; x = x + 1 {
@@ -464,10 +486,10 @@ test "浮层族只读样式槽：class 覆盖下拉触发件、菜单行文字�
     }
     n
   }
-  let red = fn(r : Int, g : Int, b : Int) -> Bool {
+  let red = fn(r : Int32, g : Int32, b : Int32) -> Bool {
     r > 128 && g < 64 && b < 64
   }
-  let paint_count = fn(node : @widget.Node, open_it : Bool) -> Int {
+  let paint_count = fn(node : @widget.Node, open_it : Bool) -> Int32 {
     let (root, kid) = mounted_with_overlay(node, 300.0, 200.0)
     if open_it {
       let _ = root.dispatch_pointer({
@@ -498,19 +520,18 @@ test "浮层族只读样式槽：class 覆盖下拉触发件、菜单行文字�
     false,
   )
   let classed_closed = paint_count(
-    dropdown("选项", ["甲", "乙"], width=120.0, class=[@style.style(background_color="#ff0000")]),
+    dropdown("选项", ["甲", "乙"], width=120.0, class=[
+      @style.style(background_color="#ff0000"),
+    ]),
     false,
   )
   assert_true(plain_closed == 0)
   assert_true(classed_closed > 60)
   // 展开后菜单行的文字色也吃同一份 class 的 color（skin 透进内部件）
   let classed_open = paint_count(
-    dropdown(
-      "选项",
-      ["甲", "乙"],
-      width=120.0,
-      class=[@style.style(background_color="#ff0000", color="#ff0000")],
-    ),
+    dropdown("选项", ["甲", "乙"], width=120.0, class=[
+      @style.style(background_color="#ff0000", color="#ff0000"),
+    ]),
     true,
   )
   assert_true(classed_open > classed_closed)
@@ -519,12 +540,9 @@ test "浮层族只读样式槽：class 覆盖下拉触发件、菜单行文字�
   let vis = @base.Store::new(true)
   let dlg_plain = paint_count(dialog(vis, "标题", [text("内容")]), false)
   let dlg_classed = paint_count(
-    dialog(
-      vis,
-      "标题",
-      [text("内容")],
-      class=[@style.style(background_color="#ff0000")],
-    ),
+    dialog(vis, "标题", [text("内容")], class=[
+      @style.style(background_color="#ff0000"),
+    ]),
     false,
   )
   assert_true(dlg_classed > dlg_plain)
@@ -590,19 +608,19 @@ test "对话框：遮罩暗化、面板圆角外无描边墨" {
 
 ///|
 test "键盘可及性：下拉菜单下键开菜单、上下移高亮（分隔线不占位）、回车取项、Esc 收起" {
-  let picks : Array[Int] = []
+  let picks : Array[Int32] = []
   let (root, w) = mounted_with_overlay(
     dropdown(
       "菜单",
       ["甲", "-", "乙"],
-      on_select=fn(i : Int) -> Unit { picks.push(i) },
+      on_select=fn(i : Int32) -> Unit { picks.push(i) },
       width=120.0,
     ),
     300.0,
     240.0,
   )
   assert_true(w.focus_id > 0)
-  let key = fn(ks : Int) -> Unit {
+  let key = fn(ks : Int32) -> Unit {
     let _ = root.dispatch_key(w.focus_id, { press: true, keysym: ks, mods: 0, })
   }
   key(@base.KS_DOWN)
@@ -624,11 +642,14 @@ test "键盘可及性：下拉菜单下键开菜单、上下移高亮（分隔�
 /// 轻提示在屏时点浮层外：点击放行给页面控件（toast 无「点外收起」语义，图层
 /// 不得吞掉这一击、也不得误收提示层）；对照：默认层（dismiss 语义）仍吞击收层。
 test "轻提示层不吞点外点击，普通浮层照旧点外收起" {
-  let got : Ref[Int] = Ref(0)
+  let got : Ref[Int32] = Ref(0)
   let btn = @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     w.node.set_width(@yoga.fixed(120.0))
     w.node.set_height(@yoga.fixed(40.0))
-    w.on_pointer = Some(fn(_s : @widget.Widget, ev : @widget.PointerEvent) -> Bool {
+    w.on_pointer = Some(fn(
+      _s : @widget.Widget,
+      ev : @widget.PointerEvent,
+    ) -> Bool {
       match ev.kind {
         @widget.PointerKind::Down => {
           got.val = got.val + 1
@@ -644,35 +665,50 @@ test "轻提示层不吞点外点击，普通浮层照旧点外收起" {
     w.node.set_height(@yoga.fixed(64.0))
     w
   })
-  let (root, _host) = mounted(view([pad, btn], width=200.0, height=104.0), 400.0, 200.0)
+  let (root, _host) = mounted(
+    view([pad, btn], width=200.0, height=104.0),
+    400.0,
+    200.0,
+  )
   with_overlay(root)
   root.relayout(400.0, 200.0)
   // 轻提示层（dismiss_on_outside=false）：开在顶部，点底部按钮（浮层外）
   let queue : Ref[Array[() -> Unit]] = Ref([])
   @shell.set_timer_hooks(
-    fn(_ms : Int, f : () -> Unit) -> Int {
+    fn(_ms : Int32, f : () -> Unit) -> Int32 {
       queue.val.push(f)
       1
     },
-    fn(_id : Int) -> Unit { () },
+    fn(_id : Int32) -> Unit { () },
   )
   let push = toast_layer(duration_ms=60000)
   push("保存成功", Success)
   assert_eq(@widget.overlay_count(), 1)
   let _ = @widget.route_pointer(
     root,
-    { kind: @widget.PointerKind::Down, x: 10.0, y: 84.0, button: 1, mods: 0 },
+    { kind: @widget.PointerKind::Down, x: 10.0, y: 84.0, button: 1, mods: 0, },
     0,
     0,
   )
-  assert_eq(got.val, 1, msg="轻提示在屏时点外点击应放行给页面控件")
-  assert_eq(@widget.overlay_count(), 1, msg="点外点击不得误收轻提示层")
+  assert_eq(
+    got.val,
+    1,
+    msg="轻提示在屏时点外点击应放行给页面控件",
+  )
+  assert_eq(
+    @widget.overlay_count(),
+    1,
+    msg="点外点击不得误收轻提示层",
+  )
   // 普通层（默认 dismiss）：同样点外，点击被图层消费、页面控件收不到
-  let got2 : Ref[Int] = Ref(0)
+  let got2 : Ref[Int32] = Ref(0)
   let btn2 = @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     w.node.set_width(@yoga.fixed(120.0))
     w.node.set_height(@yoga.fixed(40.0))
-    w.on_pointer = Some(fn(_s : @widget.Widget, ev : @widget.PointerEvent) -> Bool {
+    w.on_pointer = Some(fn(
+      _s : @widget.Widget,
+      ev : @widget.PointerEvent,
+    ) -> Bool {
       match ev.kind {
         @widget.PointerKind::Down => {
           got2.val = got2.val + 1
@@ -687,14 +723,18 @@ test "轻提示层不吞点外点击，普通浮层照旧点外收起" {
     w.node.set_height(@yoga.fixed(64.0))
     w
   })
-  let (root2, _h2) = mounted(view([pad2, btn2], width=200.0, height=104.0), 400.0, 200.0)
+  let (root2, _h2) = mounted(
+    view([pad2, btn2], width=200.0, height=104.0),
+    400.0,
+    200.0,
+  )
   with_overlay(root2)
   root2.relayout(400.0, 200.0)
   let _ = @widget.overlay_show_at(text("模态面板"), 150.0, 20.0)
   assert_eq(@widget.overlay_count(), 1)
   let (_h3, _c3, _u3, _g3) = @widget.route_pointer(
     root2,
-    { kind: @widget.PointerKind::Down, x: 10.0, y: 84.0, button: 1, mods: 0 },
+    { kind: @widget.PointerKind::Down, x: 10.0, y: 84.0, button: 1, mods: 0, },
     0,
     0,
   )
@@ -721,7 +761,10 @@ test "对话框：底钮可聚焦、按钮区留右边距" {
   let btns = footer.children()
   assert_eq(btns.length(), 2)
   for b in btns {
-    assert_true(b.focus_id > 0, msg="对话框底钮没领焦点号，Tab 到不了它")
+    assert_true(
+      b.focus_id > 0,
+      msg="对话框底钮没领焦点号，Tab 到不了它",
+    )
   }
   let last = btns[btns.length() - 1]
   assert_true(

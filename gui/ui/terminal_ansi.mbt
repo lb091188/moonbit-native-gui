@@ -3,39 +3,66 @@
 // 剪贴板、超链一律不消费）；半截序列跨 feed 保留；未知 CSI 静默忽略。
 
 ///|
-const ANSI_GROUND : Int = 0
-const ANSI_ESC : Int = 1
-const ANSI_CSI : Int = 2
-const ANSI_OSC : Int = 3
-const ANSI_OSC_ESC : Int = 4
-const ANSI_STR : Int = 5
-const ANSI_STR_ESC : Int = 6
-const ANSI_CHARSET : Int = 7
+const ANSI_GROUND : Int32 = 0
+
+///|
+const ANSI_ESC : Int32 = 1
+
+///|
+const ANSI_CSI : Int32 = 2
+
+///|
+const ANSI_OSC : Int32 = 3
+
+///|
+const ANSI_OSC_ESC : Int32 = 4
+
+///|
+const ANSI_STR : Int32 = 5
+
+///|
+const ANSI_STR_ESC : Int32 = 6
+
+///|
+const ANSI_CHARSET : Int32 = 7
+
+///|
 /// 超长 CSI：不再积攒参数，吞到 final 为止（防把残余参数当正文打印）。
-const ANSI_CSI_SKIP : Int = 8
+const ANSI_CSI_SKIP : Int32 = 8
 
 ///|
 /// SGR 属性位（cell.attrs 掩码）。
-const TERM_ATTR_BOLD : Int = 1
-const TERM_ATTR_DIM : Int = 2
-const TERM_ATTR_ITALIC : Int = 4
-const TERM_ATTR_UNDERLINE : Int = 8
-const TERM_ATTR_INVERSE : Int = 16
-const TERM_ATTR_STRIKE : Int = 32
+const TERM_ATTR_BOLD : Int32 = 1
 
+///|
+const TERM_ATTR_DIM : Int32 = 2
+
+///|
+const TERM_ATTR_ITALIC : Int32 = 4
+
+///|
+const TERM_ATTR_UNDERLINE : Int32 = 8
+
+///|
+const TERM_ATTR_INVERSE : Int32 = 16
+
+///|
+const TERM_ATTR_STRIKE : Int32 = 32
+
+///|
 /// CSI 参数积攒上限（防失控序列），超长整段丢弃。
-const ANSI_PARAMS_MAX : Int = 128
+const ANSI_PARAMS_MAX : Int32 = 128
 
 ///|
 /// 解析器状态（跨 feed 保留）：当前模式与积攒中的 CSI 参数字节。
 pub struct AnsiState {
-  mut mode : Int
+  mut mode : Int32
   mut params : String
 }
 
 ///|
 fn AnsiState::new() -> AnsiState {
-  { mode: ANSI_GROUND, params: "" }
+  { mode: ANSI_GROUND, params: "", }
 }
 
 ///|
@@ -47,7 +74,7 @@ fn AnsiState::clear(self : AnsiState) -> Unit {
 ///|
 /// 空白格（擦除/新行用）：默认前景，背景取当前笔色（BCE 口径）。
 fn blank_cell_bg(bg : TermColor) -> TermCell {
-  { text: "", wide: false, cont: false, fg: Default, bg, attrs: 0 }
+  { text: "", wide: false, cont: false, fg: Default, bg, attrs: 0, }
 }
 
 ///|
@@ -106,10 +133,9 @@ fn Terminal::ansi_char(self : Terminal, ch : Char) -> Unit {
         '\u{1b}' => self.ansi.mode = ANSI_OSC_ESC
         _ => () // OSC 内容整段丢弃（标题/剪贴板/超链不消费）
       }
-    ANSI_OSC_ESC => {
+    ANSI_OSC_ESC =>
       // ST（ESC \）或任何其他字节都结束 OSC
       self.ansi.mode = ANSI_GROUND
-    }
     ANSI_STR =>
       match ch {
         '\u{7}' => self.ansi.mode = ANSI_GROUND
@@ -140,7 +166,7 @@ fn Terminal::reverse_index(self : Terminal) -> Unit {
 
 ///|
 /// 滚动区内下滚 n 行（SD / RI 在区顶触发）。
-fn Terminal::scroll_down(self : Terminal, n : Int) -> Unit {
+fn Terminal::scroll_down(self : Terminal, n : Int32) -> Unit {
   for _ in 0..<n {
     let mut i = self.scroll_bottom
     while i > self.scroll_top {
@@ -153,8 +179,8 @@ fn Terminal::scroll_down(self : Terminal, n : Int) -> Unit {
 
 ///|
 /// CSI 参数串 → 整数数组（`;`/`:` 分隔；空段与非数字段记 0；私有前缀字节忽略）。
-fn csi_nums(s : String) -> Array[Int] {
-  let out : Array[Int] = []
+fn csi_nums(s : String) -> Array[Int32] {
+  let out : Array[Int32] = []
   let mut cur = 0
   let mut got = false
   for c in s {
@@ -173,7 +199,7 @@ fn csi_nums(s : String) -> Array[Int] {
 }
 
 ///|
-fn nums_at(nums : Array[Int], i : Int, default : Int) -> Int {
+fn nums_at(nums : Array[Int32], i : Int32, default : Int32) -> Int32 {
   if i < nums.length() {
     let v = nums[i]
     if v > 0 {
@@ -186,11 +212,7 @@ fn nums_at(nums : Array[Int], i : Int, default : Int) -> Int {
 ///|
 fn Terminal::csi_dispatch(self : Terminal, code : Char) -> Unit {
   let raw = self.ansi.params
-  let body = if raw.has_prefix("?") {
-    raw[1:].to_owned()
-  } else {
-    raw
-  }
+  let body = if raw.has_prefix("?") { raw[1:].to_owned() } else { raw }
   let private = raw.has_prefix("?")
   let nums = csi_nums(body)
   match code {
@@ -231,7 +253,10 @@ fn Terminal::csi_dispatch(self : Terminal, code : Char) -> Unit {
     'r' => {
       // DECSTBM：滚动区（1 基，闭区间）；游标回左上
       let top = (nums_at(nums, 0, 1) - 1).clamp(min=0, max=self.rows - 1)
-      let bottom = (nums_at(nums, 1, self.rows) - 1).clamp(min=0, max=self.rows - 1)
+      let bottom = (nums_at(nums, 1, self.rows) - 1).clamp(
+        min=0,
+        max=self.rows - 1,
+      )
       if top < bottom {
         self.scroll_top = top
         self.scroll_bottom = bottom
@@ -262,34 +287,38 @@ fn Terminal::csi_dispatch(self : Terminal, code : Char) -> Unit {
 }
 
 ///|
-fn Terminal::cursor_up(self : Terminal, n : Int) -> Unit {
+fn Terminal::cursor_up(self : Terminal, n : Int32) -> Unit {
   let floor = if self.cy >= self.scroll_top { self.scroll_top } else { 0 }
   self.cy = (self.cy - n).max(floor)
   self.pending_wrap = false
 }
 
 ///|
-fn Terminal::cursor_down(self : Terminal, n : Int) -> Unit {
-  let ceiling = if self.cy <= self.scroll_bottom { self.scroll_bottom } else { self.rows - 1 }
+fn Terminal::cursor_down(self : Terminal, n : Int32) -> Unit {
+  let ceiling = if self.cy <= self.scroll_bottom {
+    self.scroll_bottom
+  } else {
+    self.rows - 1
+  }
   self.cy = (self.cy + n).min(ceiling)
   self.pending_wrap = false
 }
 
 ///|
-fn Terminal::cursor_left(self : Terminal, n : Int) -> Unit {
+fn Terminal::cursor_left(self : Terminal, n : Int32) -> Unit {
   self.cx = (self.cx - n).max(0)
   self.pending_wrap = false
 }
 
 ///|
-fn Terminal::cursor_right(self : Terminal, n : Int) -> Unit {
+fn Terminal::cursor_right(self : Terminal, n : Int32) -> Unit {
   self.cx = (self.cx + n).min(self.cols - 1)
   self.pending_wrap = false
 }
 
 ///|
 /// ED：0=光标到屏尾、1=屏首到光标、2=整屏、3=整屏并清回看。
-fn Terminal::erase_display(self : Terminal, mode : Int) -> Unit {
+fn Terminal::erase_display(self : Terminal, mode : Int32) -> Unit {
   match mode {
     0 => {
       self.erase_line(0)
@@ -304,18 +333,17 @@ fn Terminal::erase_display(self : Terminal, mode : Int) -> Unit {
       self.erase_line(1)
     }
     3 => self.ring.clear()
-    _ => {
+    _ =>
       // 2（及未知值）：整屏重铺
       for ri in 0..<self.rows {
         self.screen[ri] = new_row(self.cols, self.pen_bg)
       }
-    }
   }
 }
 
 ///|
 /// EL：0=光标到行尾、1=行首到光标（含光标格）、2=整行。
-fn Terminal::erase_line(self : Terminal, mode : Int) -> Unit {
+fn Terminal::erase_line(self : Terminal, mode : Int32) -> Unit {
   let row = self.screen[self.cy]
   match mode {
     0 =>
@@ -323,7 +351,7 @@ fn Terminal::erase_line(self : Terminal, mode : Int) -> Unit {
         row[ci] = blank_cell_bg(self.pen_bg)
       }
     1 =>
-      for ci in 0..=(self.cx.min(self.cols - 1)) {
+      for ci in 0..<=self.cx.min(self.cols - 1) {
         row[ci] = blank_cell_bg(self.pen_bg)
       }
     _ =>
@@ -335,7 +363,7 @@ fn Terminal::erase_line(self : Terminal, mode : Int) -> Unit {
 
 ///|
 /// ECH：从光标起擦 n 格（光标不动）。
-fn Terminal::erase_chars(self : Terminal, n : Int) -> Unit {
+fn Terminal::erase_chars(self : Terminal, n : Int32) -> Unit {
   let row = self.screen[self.cy]
   let end = (self.cx + n).min(self.cols)
   for ci in self.cx..<end {
@@ -345,7 +373,7 @@ fn Terminal::erase_chars(self : Terminal, n : Int) -> Unit {
 
 ///|
 /// ICH：光标处插 n 个空白格，行内右移溢出丢弃。
-fn Terminal::insert_chars(self : Terminal, n : Int) -> Unit {
+fn Terminal::insert_chars(self : Terminal, n : Int32) -> Unit {
   let row = self.screen[self.cy]
   let mut at = self.cols - 1
   while at >= self.cx + n {
@@ -360,7 +388,7 @@ fn Terminal::insert_chars(self : Terminal, n : Int) -> Unit {
 
 ///|
 /// DCH：光标处删 n 格，行内左移、尾部补空白。
-fn Terminal::delete_chars(self : Terminal, n : Int) -> Unit {
+fn Terminal::delete_chars(self : Terminal, n : Int32) -> Unit {
   let row = self.screen[self.cy]
   let mut at = self.cx
   while at + n < self.cols {
@@ -374,7 +402,7 @@ fn Terminal::delete_chars(self : Terminal, n : Int) -> Unit {
 
 ///|
 /// IL：光标行起在滚动区内插 n 行（光标在区外不动作）。
-fn Terminal::insert_lines(self : Terminal, n : Int) -> Unit {
+fn Terminal::insert_lines(self : Terminal, n : Int32) -> Unit {
   if self.cy < self.scroll_top || self.cy > self.scroll_bottom {
     return
   }
@@ -390,7 +418,7 @@ fn Terminal::insert_lines(self : Terminal, n : Int) -> Unit {
 
 ///|
 /// DL：光标行起在滚动区内删 n 行（光标在区外不动作）。
-fn Terminal::delete_lines(self : Terminal, n : Int) -> Unit {
+fn Terminal::delete_lines(self : Terminal, n : Int32) -> Unit {
   if self.cy < self.scroll_top || self.cy > self.scroll_bottom {
     return
   }
@@ -406,7 +434,7 @@ fn Terminal::delete_lines(self : Terminal, n : Int) -> Unit {
 
 ///|
 /// SGR：笔色与属性。38/48 的扩展档（5;n / 2;r;g;b）连带消费后续参数。
-fn Terminal::sgr(self : Terminal, nums : Array[Int]) -> Unit {
+fn Terminal::sgr(self : Terminal, nums : Array[Int32]) -> Unit {
   let n = nums.length()
   let mut i = 0
   while i < n {
@@ -460,7 +488,10 @@ fn Terminal::sgr(self : Terminal, nums : Array[Int]) -> Unit {
         4 => self.pen_attrs = self.pen_attrs | TERM_ATTR_UNDERLINE
         7 => self.pen_attrs = self.pen_attrs | TERM_ATTR_INVERSE
         9 => self.pen_attrs = self.pen_attrs | TERM_ATTR_STRIKE
-        22 => self.pen_attrs = self.pen_attrs.land(TERM_ATTR_BOLD.lor(TERM_ATTR_DIM).lnot())
+        22 =>
+          self.pen_attrs = self.pen_attrs.land(
+            TERM_ATTR_BOLD.lor(TERM_ATTR_DIM).lnot(),
+          )
         23 => self.pen_attrs = self.pen_attrs.land(TERM_ATTR_ITALIC.lnot())
         24 => self.pen_attrs = self.pen_attrs.land(TERM_ATTR_UNDERLINE.lnot())
         27 => self.pen_attrs = self.pen_attrs.land(TERM_ATTR_INVERSE.lnot())

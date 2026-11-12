@@ -43,7 +43,7 @@ priv struct MDStyle {
 
 ///|
 /// 无样式的片段(辅助构造)。
-fn md_plain_span(text : String, link? : Bool = false) -> MDSpan {
+fn md_plain_span(text : String, link~ : Bool = false) -> MDSpan {
   {
     text,
     bold: false,
@@ -73,9 +73,9 @@ fn md_style_default() -> MDStyle {
 ///|
 /// 脚注扫描结果:no 为 label→正文序号(1 起),order 保存编号顺序。
 priv struct MDFootScan {
-  no : Map[String, Int]
+  no : Map[String, Int32]
   order : Array[String]
-  counter : Ref[Int]
+  counter : Ref[Int32]
 }
 
 ///|
@@ -98,17 +98,17 @@ priv struct MDCtx {
 /// 命中要的落点几何走这份纯数据）；off/len 是本块在全文里的字节区间；
 /// hit 是「本块局部坐标 → 块内字节偏移」（捕获行模型，纯数据）。
 priv struct MDBlockEntry {
-  uid : Int
+  uid : Int32
   mut x : Double
   mut y : Double
   mut h : Double
-  off : Int
-  len : Int
-  hit : (Double, Double) -> Int
+  off : Int32
+  len : Int32
+  hit : (Double, Double) -> Int32
 }
 
 ///|
-let md_block_uid : Ref[Int] = Ref(0)
+let md_block_uid : Ref[Int32] = Ref(0)
 
 ///|
 /// 一篇 markdown 的文档级选中态：全文 = 各可选块按**构造序（即视觉序）**
@@ -121,16 +121,16 @@ priv struct MDDocSel {
   // 构造期顺序拼全文（\n 分隔），拼完一次性装进 ed
   buf : Ref[StringBuilder]
   // 下一块的全文字节偏移（构造期顺序分配）
-  mut acc : Int
+  mut acc : Int32
   // 块登记（视觉序），矩形挂载绘制后回填
   list : Ref[Array[MDBlockEntry]]
   // 选区持有者登记的固定 id（全块同号）
-  claim_id : Int
+  claim_id : Int32
 }
 
 ///|
 /// 文档级选中态的认领号计数。
-let md_doc_uid : Ref[Int] = Ref(0)
+let md_doc_uid : Ref[Int32] = Ref(0)
 
 ///|
 /// 绝对坐标 → 全文字节：先找矩形罩住落点的块（用它的逐字行模型精确定位），
@@ -140,7 +140,7 @@ fn MDDocSel::byte_at(
   e : MDBlockEntry,
   lx : Double,
   ly : Double,
-) -> Int {
+) -> Int32 {
   let ax = e.x + lx
   let ay = e.y + ly
   let bs = self.list.val
@@ -185,7 +185,7 @@ fn md_def_url(label : String, ctx : MDCtx) -> String {
 /// 一段文本的 UTF-8 字节数。`AttributedText` 的区间端点一律按**字节**计量
 /// （C 侧 Pango 直接用字节索引，DWrite 侧再换算），禁止按码点或 UTF-16 code
 /// unit 累计——中英混排时两者差 3 倍，样式会整体落到前面的字符上。
-fn md_byte_len(text : String) -> Int {
+fn md_byte_len(text : String) -> Int32 {
   let mut n = 0
   for ch in text {
     let c = ch.to_int()
@@ -211,12 +211,21 @@ fn md_byte_len(text : String) -> Int {
 /// http 不挂点击);图片渲染 alt 并加链接样式(块级单图段落才显示图片);
 /// FootnoteReference 渲染为上标 "[n]"(编号取脚注扫描);SoftBreak 渲染
 /// 为空格;HardBreak 渲染为换行;行内 HTML/行内指令不渲染。
-fn md_flatten_inline(inlines : Array[@mdast.Inline], ctx : MDCtx) -> Array[MDSpan] {
+fn md_flatten_inline(
+  inlines : Array[@mdast.Inline],
+  ctx : MDCtx,
+) -> Array[MDSpan] {
   let spans : Array[MDSpan] = []
   let nodes : Array[@mdast.Inline] = []
   let styles : Array[MDStyle] = []
   fn same_style(a : MDSpan, st : MDStyle) -> Bool {
-    a.bold == st.bold && a.italic == st.italic && a.code == st.code && a.link == st.link && a.strike == st.strike && a.sup == st.sup && a.url == st.url
+    a.bold == st.bold &&
+    a.italic == st.italic &&
+    a.code == st.code &&
+    a.link == st.link &&
+    a.strike == st.strike &&
+    a.sup == st.sup &&
+    a.url == st.url
   }
 
   fn emit(text : String, st : MDStyle) -> Unit {
@@ -254,19 +263,21 @@ fn md_flatten_inline(inlines : Array[@mdast.Inline], ctx : MDCtx) -> Array[MDSpa
     let st = styles.pop().unwrap()
     match node {
       Text(content~, ..) => emit(content, st)
-      Code(content~, ..) => emit(content, { ..st, code: true })
-      Strong(children~, ..) => push_all(children, { ..st, bold: true })
-      Emphasis(children~, ..) => push_all(children, { ..st, italic: true })
-      Strikethrough(children~, ..) => push_all(children, { ..st, strike: true })
-      Link(children~, url~, ..) => push_all(children, { ..st, link: true, url })
+      Code(content~, ..) => emit(content, { ..st, code: true, })
+      Strong(children~, ..) => push_all(children, { ..st, bold: true, })
+      Emphasis(children~, ..) => push_all(children, { ..st, italic: true, })
+      Strikethrough(children~, ..) =>
+        push_all(children, { ..st, strike: true, })
+      Link(children~, url~, ..) =>
+        push_all(children, { ..st, link: true, url, })
       RefLink(children~, label~, ..) =>
-        push_all(children, { ..st, link: true, url: md_def_url(label, ctx) })
-      Autolink(url~, ..) => emit(url, { ..st, link: true, url })
-      WikiLink(label~, ..) => emit(label, { ..st, link: true })
-      Image(alt~, ..) | RefImage(alt~, ..) => emit(alt, { ..st, link: true })
+        push_all(children, { ..st, link: true, url: md_def_url(label, ctx), })
+      Autolink(url~, ..) => emit(url, { ..st, link: true, url, })
+      WikiLink(label~, ..) => emit(label, { ..st, link: true, })
+      Image(alt~, ..) | RefImage(alt~, ..) => emit(alt, { ..st, link: true, })
       FootnoteReference(label~, ..) =>
         match ctx.foot.no.get(label) {
-          Some(n) => emit("[\{n}]", { ..st, sup: true })
+          Some(n) => emit("[\{n}]", { ..st, sup: true, })
           None => ()
         }
       SoftBreak(..) => emit(" ", st)
@@ -280,8 +291,8 @@ fn md_flatten_inline(inlines : Array[@mdast.Inline], ctx : MDCtx) -> Array[MDSpa
 ///|
 /// 展平片段 → 富文本区间表:[start, end) 为 **UTF-8 字节**端点
 /// (AttributedText 区间语义),渲染与测试共用同一计量。
-fn md_span_ranges(spans : Array[MDSpan]) -> Array[(Int, Int, MDSpan)] {
-  let marks : Array[(Int, Int, MDSpan)] = []
+fn md_span_ranges(spans : Array[MDSpan]) -> Array[(Int32, Int32, MDSpan)] {
+  let marks : Array[(Int32, Int32, MDSpan)] = []
   let pos = Ref(0)
   for span in spans {
     let start = pos.val
@@ -307,6 +318,7 @@ fn md_info_lang(info : String) -> String {
 
 ///|
 /// 整块代码文本按 \n 切行(顺去 \r 与末尾空行),供 code_view 使用。
+
 ///|
 fn md_split_code_lines(code : String) -> Array[String] {
   let lines : Array[String] = []
@@ -328,7 +340,7 @@ fn md_split_code_lines(code : String) -> Array[String] {
 
 ///|
 /// 标题字号(级别 1-6)。
-fn md_heading_size(level : Int) -> Double {
+fn md_heading_size(level : Int32) -> Double {
   match level {
     1 => 22.0
     2 => 18.0
@@ -422,9 +434,11 @@ fn md_scan_inline(inlines : Array[@mdast.Inline], s : MDFootScan) -> Unit {
 fn md_scan_blocks(blocks : Array[@mdast.Block], s : MDFootScan) -> Unit {
   for b in blocks {
     match b {
-      Heading(children~, ..) | Paragraph(children~, ..) => md_scan_inline(children, s)
-      Blockquote(children~, ..) | Alert(children~, ..) | Directive(children~, ..) =>
-        md_scan_blocks(children, s)
+      Heading(children~, ..) | Paragraph(children~, ..) =>
+        md_scan_inline(children, s)
+      Blockquote(children~, ..)
+      | Alert(children~, ..)
+      | Directive(children~, ..) => md_scan_blocks(children, s)
       BulletList(items~, ..) | OrderedList(items~, ..) =>
         for it in items {
           md_scan_blocks(it.children, s)
@@ -469,11 +483,15 @@ fn md_content_col(nodes : Array[@widget.Node]) -> @widget.Node {
 
 ///|
 /// 列表项内容:段落直接展平(不套段落外距,行距一致),其余块递归。
-fn md_item_content(children : Array[@mdast.Block], ctx : MDCtx) -> Array[@widget.Node] {
+fn md_item_content(
+  children : Array[@mdast.Block],
+  ctx : MDCtx,
+) -> Array[@widget.Node] {
   let nodes : Array[@widget.Node] = []
   for b in children {
     match b {
-      Paragraph(children=inl, ..) => nodes.push(md_rich_label(md_flatten_inline(inl, ctx), 13.0, ctx))
+      Paragraph(children=inl, ..) =>
+        nodes.push(md_rich_label(md_flatten_inline(inl, ctx), 13.0, ctx))
       _ =>
         for n in md_render_blocks([b], ctx) {
           nodes.push(n)
@@ -513,10 +531,10 @@ fn md_marker(text : String, w : Double) -> @widget.Node {
         @text.Font::new("", 13.0),
         @theme.theme_text_regular(),
         align=@text.Start,
-        // 贴**首行**顶对齐（不是整盒居中）：列表项盒子常有一行多高，居中会把
-        // 序号摆到中间——数字的中心正好压在首行基线上，看着像掉到基线下面
         valign=@text.Start,
         wrap=false,
+        // 贴**首行**顶对齐（不是整盒居中）：列表项盒子常有一行多高，居中会把
+        // 序号摆到中间——数字的中心正好压在首行基线上，看着像掉到基线下面
       )
     })
     mk
@@ -574,11 +592,15 @@ fn md_image(url : String, alt : String, ctx : MDCtx) -> @widget.Node {
 
 ///|
 /// 表格单元格 → 展平片段(表头加粗)。
-fn md_table_cell_spans(cell : @mdast.TableCell, head : Bool, ctx : MDCtx) -> Array[MDSpan] {
+fn md_table_cell_spans(
+  cell : @mdast.TableCell,
+  head : Bool,
+  ctx : MDCtx,
+) -> Array[MDSpan] {
   if head {
     let spans : Array[MDSpan] = []
     for s in md_flatten_inline(cell.children, ctx) {
-      spans.push({ ..s, bold: true })
+      spans.push({ ..s, bold: true, })
     }
     spans
   } else {
@@ -597,7 +619,10 @@ fn md_table(
   ctx : MDCtx,
 ) -> @widget.Node {
   let n = header.length().max(1)
-  let cells_of = fn(row : Array[@mdast.TableCell], head : Bool) -> Array[@widget.Node] {
+  let cells_of = fn(
+    row : Array[@mdast.TableCell],
+    head : Bool,
+  ) -> Array[@widget.Node] {
     let cells : Array[@widget.Node] = []
     for i, cell in row {
       let al = match alignments.get(i) {
@@ -628,19 +653,22 @@ fn md_table(
 ///|
 /// 块级渲染:mdast Block 17 变体 → 节点序列。不渲染的变体:HtmlBlock、
 /// BlankLines、FootnoteDefinition(定义在 markdown_view 文末统一渲染)。
-fn md_render_blocks(blocks : Array[@mdast.Block], ctx : MDCtx) -> Array[@widget.Node] {
+fn md_render_blocks(
+  blocks : Array[@mdast.Block],
+  ctx : MDCtx,
+) -> Array[@widget.Node] {
   let nodes : Array[@widget.Node] = []
   for block in blocks {
     match block {
       Heading(level~, children~, ..) =>
         nodes.push(
           @ui.col([
-          md_rich_label(
-            md_flatten_inline(children, ctx),
-            md_heading_size(level),
-            ctx,
-          ),
-        ]),
+            md_rich_label(
+              md_flatten_inline(children, ctx),
+              md_heading_size(level),
+              ctx,
+            ),
+          ]),
         )
       Paragraph(children~, ..) => {
         // 块级图片:段落恰为一张图时显示图片(引用式图片查链接定义取地址)
@@ -661,8 +689,8 @@ fn md_render_blocks(blocks : Array[@mdast.Block], ctx : MDCtx) -> Array[@widget.
           nodes.push(md_image(img.0, img.1, ctx))
         } else {
           nodes.push(
-          @ui.col([md_rich_label(md_flatten_inline(children, ctx), 13.0, ctx)]),
-        )
+            @ui.col([md_rich_label(md_flatten_inline(children, ctx), 13.0, ctx)]),
+          )
         }
       }
       FencedCode(info~, code~, ..) =>
@@ -676,7 +704,11 @@ fn md_render_blocks(blocks : Array[@mdast.Block], ctx : MDCtx) -> Array[@widget.
         )
       IndentedCode(code~, ..) =>
         nodes.push(
-          @ui.code_view(md_split_code_lines(code), selectable=ctx.sel, copyable=true),
+          @ui.code_view(
+            md_split_code_lines(code),
+            selectable=ctx.sel,
+            copyable=true,
+          ),
         )
       MathBlock(value~, ..) =>
         nodes.push(
@@ -736,7 +768,9 @@ fn md_render_blocks(blocks : Array[@mdast.Block], ctx : MDCtx) -> Array[@widget.
       DefinitionList(items~, ..) =>
         for item in items {
           nodes.push(
-            @ui.col([md_rich_label(md_flatten_inline(item.term, ctx), 13.0, ctx)]),
+            @ui.col([
+              md_rich_label(md_flatten_inline(item.term, ctx), 13.0, ctx),
+            ]),
           )
           for def in item.definitions {
             nodes.push(
@@ -827,9 +861,7 @@ fn md_units(text : String) -> Array[String] {
 
 ///|
 /// 两片段样式是否相同(同一行内相邻同样式单元合并用)。
-fn md_style_key(
-  x : MDSpan,
-) -> (Bool, Bool, Bool, Bool, Bool, Bool, String) {
+fn md_style_key(x : MDSpan) -> (Bool, Bool, Bool, Bool, Bool, Bool, String) {
   (x.bold, x.italic, x.code, x.link, x.strike, x.sup, x.url)
 }
 
@@ -843,10 +875,12 @@ fn md_same_style(a : MDSpan, b : MDSpan) -> Bool {
 /// 与宽度(删除线横线与链接命中按它换算)。三者全部**惰性**建:一次 min-content
 /// 探询能折出上百条行,全量建对象是这一页卡顿的主因,而其中绝大多数行永远不会
 /// 被画。`sum` 是折行期逐单元宽的累加(免费拿到的估算宽,只在探询档用)。
+
 ///|
 /// 控件 id → 选中态（本包用例的读回口：断言选区/插入点用，不对外）。
-let md_sel_states : Map[Int, @ui.TextSel] = Map([])
+let md_sel_states : Map[Int32, @ui.TextSel] = Map([])
 
+///|
 priv struct MDLine {
   spans : Array[MDSpan]
   sum : Double
@@ -858,9 +892,9 @@ priv struct MDLine {
   mut geo_ready : Bool
   // 选中档（首次用到才建）：lstart = 每个渲染段在原文里的字符起点；
   // cx / cidx 一一对应，长度 = 本行字符数 + 1（末尾那格是最后一个字的右缘）
-  lstart : Array[Int]
+  lstart : Array[Int32]
   cx : Array[Double]
-  cidx : Array[Int]
+  cidx : Array[Int32]
   mut cx_ready : Bool
 }
 
@@ -878,7 +912,7 @@ fn md_rich_label(
   spans : Array[MDSpan],
   size : Double,
   ctx : MDCtx,
-  max_w? : Double = 0.0,
+  max_w~ : Double = 0.0,
 ) -> @widget.Node {
   // 折行产出走 Ref:显式定宽(max_w/ctx.width > 0,旧口径)构造期折一次、
   // 节点定宽定高;宽度 0(跟随容器)由 yoga measure 按可用宽重折——布局引擎
@@ -901,7 +935,12 @@ fn md_rich_label(
   let regular = @text.Font::new("", size)
   let bold = @text.Font::new("", size, weight=@text.Bold)
   let italic = @text.Font::new("", size, style=@text.Italic)
-  let bold_italic = @text.Font::new("", size, weight=@text.Bold, style=@text.Italic)
+  let bold_italic = @text.Font::new(
+    "",
+    size,
+    weight=@text.Bold,
+    style=@text.Italic,
+  )
   let mono = @text.Font::new("Monospace", size - 1.0)
   let sup_font = @text.Font::new("", (size - 4.0).max(8.0))
   fn font_of(span : MDSpan) -> @text.Font {
@@ -946,7 +985,7 @@ fn md_rich_label(
   let sent_cache : Map[String, Double] = Map([])
   /// 段内前缀实测量：`bytes` 前 `bj` 字节在字体 `f` 下的 shaping 宽
   /// （逐字边缘的真值；与 entry/textarea 光标同口径的前缀量）。
-  fn md_prefix_w(bytes : Bytes, bj : Int, f : @text.Font) -> Double {
+  fn md_prefix_w(bytes : Bytes, bj : Int32, f : @text.Font) -> Double {
     if bj <= 0 {
       0.0
     } else {
@@ -978,13 +1017,14 @@ fn md_rich_label(
       Some(v) => v
       None => {
         let f = font_of(span)
-        let full = match @text.measure_font(
-          unit + "中",
-          f,
-          max_width=0,
-          ellipsize=false,
-          wrap=false,
-        ) {
+        let full = match
+          @text.measure_font(
+            unit + "中",
+            f,
+            max_width=0,
+            ellipsize=false,
+            wrap=false,
+          ) {
           Some(m) => m.width
           None => 0.0
         }
@@ -1031,7 +1071,7 @@ fn md_rich_label(
   /// 前缀），不按逐段宽度累加：换字体的边界上，一段单独量的宽与它在混排行里
   /// 占的宽不一致（mac 真机 13 号混排行实测累加比联合窄 11px），按累加值画的
   /// 删除线横线与按它命中的链接区间会整体错位、压在前一段字上。
-  fn joint_w(line : Array[MDSpan], upto : Int) -> Double {
+  fn joint_w(line : Array[MDSpan], upto : Int32) -> Double {
     if upto <= 0 {
       0.0
     } else {
@@ -1043,7 +1083,11 @@ fn md_rich_label(
     }
   }
 
-  fn mk_line(line : Array[MDSpan], sum : Double, starts : Array[Int]) -> MDLine {
+  fn mk_line(
+    line : Array[MDSpan],
+    sum : Double,
+    starts : Array[Int32],
+  ) -> MDLine {
     {
       spans: line,
       sum,
@@ -1114,7 +1158,7 @@ fn md_rich_label(
   fn fold_at(limit : Double) -> Array[MDLine] {
     let rows : Array[MDLine] = []
     let cur : Array[MDSpan] = []
-    let cur_starts : Array[Int] = []
+    let cur_starts : Array[Int32] = []
     let cur_w = Ref(0.0)
     fn end_line() -> Unit {
       if cur.length() > 0 {
@@ -1126,7 +1170,7 @@ fn md_rich_label(
     }
 
     // at = 本单元第一个字符在原文里的字符下标（选中档的逐字命中要它定位）
-    fn put(unit : String, span : MDSpan, at : Int) -> Unit {
+    fn put(unit : String, span : MDSpan, at : Int32) -> Unit {
       let uw = unit_w(unit, span)
       if cur_w.val + uw > limit && cur.length() > 0 {
         end_line()
@@ -1135,7 +1179,7 @@ fn md_rich_label(
       if n > 0 && md_same_style(cur[n - 1], span) {
         cur[n - 1].text = cur[n - 1].text + unit
       } else {
-        cur.push({ ..span, text: unit })
+        cur.push({ ..span, text: unit, })
         cur_starts.push(at)
       }
       cur_w.val += uw
@@ -1193,7 +1237,7 @@ fn md_rich_label(
   }
   let ltext = sel_buf.to_string()
   let sel_len = @utf8.encode(ltext).length()
-  let char2byte : Array[Int] = []
+  let char2byte : Array[Int32] = []
   {
     let mut b = 0
     for ch in ltext.to_array() {
@@ -1202,7 +1246,7 @@ fn md_rich_label(
     }
     char2byte.push(b)
   }
-  let sel_off : Int = match ctx.doc {
+  let sel_off : Int32 = match ctx.doc {
     Some(doc) => {
       // 构造序即视觉序：顺序分配全文偏移并拼全文
       let off = doc.acc
@@ -1265,7 +1309,7 @@ fn md_rich_label(
     g.cx_ready = true
   }
 
-  fn char_at(x : Double, y : Double) -> Int {
+  fn char_at(x : Double, y : Double) -> Int32 {
     let total = char2byte.length() - 1
     let rows = rows_ref.val
     let li = (y / line_h).floor().to_int()
@@ -1288,14 +1332,18 @@ fn md_rich_label(
             i += 1
           }
           let mid = g.cx[i] + (g.cx[i + 1] - g.cx[i]) / 2.0
-          if x > mid { g.cidx[i] + 1 } else { g.cidx[i] }
+          if x > mid {
+            g.cidx[i] + 1
+          } else {
+            g.cidx[i]
+          }
         }
       }
       None => total
     }
   }
 
-  fn byte_at(x : Double, y : Double) -> Int {
+  fn byte_at(x : Double, y : Double) -> Int32 {
     let c = char_at(x, y).max(0)
     match char2byte.get(c) {
       Some(b) => b
@@ -1308,17 +1356,15 @@ fn md_rich_label(
     match ctx.doc {
       Some(_) => {
         md_block_uid.val += 1
-        Some(
-          {
-            uid: md_block_uid.val,
-            x: 0.0,
-            y: 0.0,
-            h: 0.0,
-            off: sel_off,
-            len: sel_len,
-            hit: byte_at,
-          },
-        )
+        Some({
+          uid: md_block_uid.val,
+          x: 0.0,
+          y: 0.0,
+          h: 0.0,
+          off: sel_off,
+          len: sel_len,
+          hit: byte_at,
+        })
       }
       None => None
     }
@@ -1326,18 +1372,19 @@ fn md_rich_label(
     None
   }
   // 本块的命中换算：独立档按块内字节，文档档换算成全文字节
-  fn sel_hit(x : Double, y : Double) -> Int {
+  fn sel_hit(x : Double, y : Double) -> Int32 {
     match entry {
-      Some(e) => match ctx.doc {
-        Some(doc) => doc.byte_at(e, x, y)
-        None => byte_at(x, y)
-      }
+      Some(e) =>
+        match ctx.doc {
+          Some(doc) => doc.byte_at(e, x, y)
+          None => byte_at(x, y)
+        }
       None => byte_at(x, y)
     }
   }
 
   /// 字节偏移换字符下标（画选区要把选区切到各行）。
-  fn char_of_byte(b : Int) -> Int {
+  fn char_of_byte(b : Int32) -> Int32 {
     let mut lo = 0
     let mut hi = char2byte.length() - 1
     while lo < hi {
@@ -1352,7 +1399,11 @@ fn md_rich_label(
   }
 
   /// 选区在本行的像素区间：没有交集给 None。
-  fn line_sel_rect(g : MDLine, a : Int, b : Int) -> (Double, Double, Double)? {
+  fn line_sel_rect(
+    g : MDLine,
+    a : Int32,
+    b : Int32,
+  ) -> (Double, Double, Double)? {
     line_cx(g)
     if g.cidx.length() < 2 {
       return None
@@ -1364,13 +1415,10 @@ fn md_rich_label(
     if cb <= ca {
       None
     } else {
-      match
-        (
-          g.cx.get(ca - lo), g.cx.get(cb - lo),
-        ) {
-          (Some(x0), Some(x1)) => Some((x0, x1, x1 - x0))
-          _ => None
-        }
+      match (g.cx.get(ca - lo), g.cx.get(cb - lo)) {
+        (Some(x0), Some(x1)) => Some((x0, x1, x1 - x0))
+        _ => None
+      }
     }
   }
 
@@ -1378,57 +1426,58 @@ fn md_rich_label(
     @ui.watch_theme()
     let fps = Ref("")
     match static_limit {
-    Some(l) => {
-      let rows = fold_at(l)
-      rows_ref.val = rows
-      drawn_limit.val = l
-      w.node.set_width(@yoga.fixed(rows_w(rows)))
-      w.node.set_height(@yoga.fixed(line_h * rows.length().to_double()))
-    }
-    None =>
-      // 跟随容器:不设宽,yoga 才会把容器可用宽传进 measure 的 aw(设了宽
-      // ——percent 也一样——aw 就不来了,折行只能落 fallback)。min-content
-      // 探询已按「最窄可折」答,节点不会被探询宽撑大;宽随最长行,窄于容器
-      // 时节点与容器同宽。
-      // 不受约束(内在 max-content 探询)时答**自身最长行自然宽**,不落任何
-      // 常量:常量会顺着「单元格自然宽 → 行自然宽 → percent 列的参照」把
-      // 表格冻在该值上(真机 resize 后表格不重排、溢出滚不回来)。
-      // 三档各自成答:宽和高都取**本档自己那次**折叠的产出。此前探询档拿的是
-      // 顶之前算好的旧行数(1px 档折出「一字一行」的几十行高),整棵 md 列按这
-      // 个被顶高的 max-content 排,真机表现就是列表项之间空出半屏。
-      w.node.set_measure(fn(aw : Double?, _ah : Double?) -> (Double, Double) {
-        match aw {
-          // 正式档：按容器可用宽折，节点与可用宽同宽（块级跟随）
-          Some(v) if v >= 1.0 => {
-            if drawn_limit.val != v || rows_ref.val.length() == 0 {
-              rows_ref.val = fold_at(v)
-              drawn_limit.val = v
+      Some(l) => {
+        let rows = fold_at(l)
+        rows_ref.val = rows
+        drawn_limit.val = l
+        w.node.set_width(@yoga.fixed(rows_w(rows)))
+        w.node.set_height(@yoga.fixed(line_h * rows.length().to_double()))
+      }
+      None =>
+        // 跟随容器:不设宽,yoga 才会把容器可用宽传进 measure 的 aw(设了宽
+        // ——percent 也一样——aw 就不来了,折行只能落 fallback)。min-content
+        // 探询已按「最窄可折」答,节点不会被探询宽撑大;宽随最长行,窄于容器
+        // 时节点与容器同宽。
+        // 不受约束(内在 max-content 探询)时答**自身最长行自然宽**,不落任何
+        // 常量:常量会顺着「单元格自然宽 → 行自然宽 → percent 列的参照」把
+        // 表格冻在该值上(真机 resize 后表格不重排、溢出滚不回来)。
+        // 三档各自成答:宽和高都取**本档自己那次**折叠的产出。此前探询档拿的是
+        // 顶之前算好的旧行数(1px 档折出「一字一行」的几十行高),整棵 md 列按这
+        // 个被顶高的 max-content 排,真机表现就是列表项之间空出半屏。
+        w.node.set_measure(fn(aw : Double?, _ah : Double?) -> (Double, Double) {
+          match aw {
+            // 正式档：按容器可用宽折，节点与可用宽同宽（块级跟随）
+            Some(v) if v >= 1.0 => {
+              if drawn_limit.val != v || rows_ref.val.length() == 0 {
+                rows_ref.val = fold_at(v)
+                drawn_limit.val = v
+              }
+              let rows = rows_ref.val
+              (rows_w(rows).max(v), line_h * rows.length().to_double())
             }
-            let rows = rows_ref.val
-            (rows_w(rows).max(v), line_h * rows.length().to_double())
-          }
-          // min-content 探询（Some(0)）：1px 箱折，答最窄可折单元宽。
-          // 这一档能折出「一单元一行」的上百条行，故只算宽不建绘制对象，
-          // 且答案按档备忘——每次布局重折是这页滚动卡顿的来源。
-          Some(_) => {
-            if min_ans.val.0 <= 0.0 {
-              let rows = fold_at(1.0)
-              min_ans.val = (
-                rows_sum_w(rows), line_h * rows.length().to_double(),
-              )
+            // min-content 探询（Some(0)）：1px 箱折，答最窄可折单元宽。
+            // 这一档能折出「一单元一行」的上百条行，故只算宽不建绘制对象，
+            // 且答案按档备忘——每次布局重折是这页滚动卡顿的来源。
+            Some(_) => {
+              if min_ans.val.0 <= 0.0 {
+                let rows = fold_at(1.0)
+                min_ans.val = (
+                  rows_sum_w(rows),
+                  line_h * rows.length().to_double(),
+                )
+              }
+              min_ans.val
             }
-            min_ans.val
-          }
-          // max-content 探询（None）：单行不折，答自身最长行自然宽。
-          None => {
-            if max_ans.val.0 <= 0.0 {
-              let rows = fold_at(1000000.0)
-              max_ans.val = (rows_w(rows), line_h * rows.length().to_double())
+            // max-content 探询（None）：单行不折，答自身最长行自然宽。
+            None => {
+              if max_ans.val.0 <= 0.0 {
+                let rows = fold_at(1000000.0)
+                max_ans.val = (rows_w(rows), line_h * rows.length().to_double())
+              }
+              max_ans.val
             }
-            max_ans.val
           }
-        }
-      })
+        })
     }
     w.on_draw = Some(fn(
       _self : @widget.Widget,
@@ -1453,7 +1502,7 @@ fn md_rich_label(
       }
       // 本块可见的选区切片：独立档即全文（off=0）；文档档把全文选区裁到
       // [sel_off, sel_off+sel_len) 再换回块内字节
-      let sel_slice : (Int, Int)? = match st {
+      let sel_slice : (Int32, Int32)? = match st {
         Some(state) =>
           match state.range() {
             Some((a, b)) => {
@@ -1510,7 +1559,7 @@ fn md_rich_label(
     fn sel_via(self : @widget.Widget, ev : @widget.PointerEvent) -> Bool {
       match st {
         Some(state) =>
-          state.pointer(self, ev, fn(x : Double, y : Double) -> Int {
+          state.pointer(self, ev, fn(x : Double, y : Double) -> Int32 {
             sel_hit(x, y)
           })
         None => false
@@ -1582,7 +1631,9 @@ fn md_rich_label(
       w.on_pointer = Some(fn(
         self : @widget.Widget,
         ev : @widget.PointerEvent,
-      ) -> Bool { sel_via(self, ev) })
+      ) -> Bool {
+        sel_via(self, ev)
+      })
     }
     match st {
       Some(state) => {
@@ -1591,32 +1642,33 @@ fn md_rich_label(
         // 文档档：按 id 挂进块登记（矩形由 on_draw 回填）；摘除时同步移除，
         // 不在登记表里留死块
         match entry {
-          Some(e) => match ctx.doc {
-            Some(d) => {
-              d.list.val.push(e)
-              let dead_uid = e.uid
-              let give = state
-              w.on_discard = Some(fn(self : @widget.Widget) -> Unit {
-                let _ = md_sel_states.remove(self.id)
-                let keep : Array[MDBlockEntry] = []
-                for b in d.list.val {
-                  if b.uid != dead_uid {
-                    keep.push(b)
+          Some(e) =>
+            match ctx.doc {
+              Some(d) => {
+                d.list.val.push(e)
+                let dead_uid = e.uid
+                let give = state
+                w.on_discard = Some(fn(self : @widget.Widget) -> Unit {
+                  let _ = md_sel_states.remove(self.id)
+                  let keep : Array[MDBlockEntry] = []
+                  for b in d.list.val {
+                    if b.uid != dead_uid {
+                      keep.push(b)
+                    }
                   }
-                }
-                d.list.val = keep
-                give.give_up(self.id)
-                @widget.text_sel_release(d.claim_id)
-              })
+                  d.list.val = keep
+                  give.give_up(self.id)
+                  @widget.text_sel_release(d.claim_id)
+                })
+              }
+              None => {
+                let give = state
+                w.on_discard = Some(fn(self : @widget.Widget) -> Unit {
+                  let _ = md_sel_states.remove(self.id)
+                  give.give_up(self.id)
+                })
+              }
             }
-            None => {
-              let give = state
-              w.on_discard = Some(fn(self : @widget.Widget) -> Unit {
-                let _ = md_sel_states.remove(self.id)
-                give.give_up(self.id)
-              })
-            }
-          }
           None => {
             let give = state
             w.on_discard = Some(fn(self : @widget.Widget) -> Unit {
@@ -1642,14 +1694,18 @@ fn md_rich_label(
 /// resize 自动重排;>0 = 构造期定宽(旧口径,显式定宽的排版不再变)。
 pub fn markdown_view(
   source : String,
-  width? : Double = 0.0,
-  on_link? : (String) -> Unit = fn(_u : String) -> Unit { () },
-  selectable? : Bool = false,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  width~ : Double = 0.0,
+  on_link~ : (String) -> Unit = fn(_u : String) -> Unit { () },
+  selectable~ : Bool = false,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   let res = @mdast.parse(source)
   let doc = res.document
-  let foot : MDFootScan = { no: (Map([]) : Map[String, Int]), order: [], counter: Ref(0) }
+  let foot : MDFootScan = {
+    no: (Map([]) : Map[String, Int32]),
+    order: [],
+    counter: Ref(0),
+  }
   md_scan_blocks(doc.children, foot)
   let defs : Map[String, String] = (Map([]) : Map[String, String])
   for d in res.definitions {
@@ -1677,10 +1733,18 @@ pub fn markdown_view(
   } else {
     None
   }
-  let ctx : MDCtx = { foot, defs, width, on_link, sel: selectable, doc: doc_sel }
+  let ctx : MDCtx = {
+    foot,
+    defs,
+    width,
+    on_link,
+    sel: selectable,
+    doc: doc_sel,
+  }
   let nodes = md_render_blocks(doc.children, ctx)
   if foot.order.length() > 0 {
-    let fd : Map[String, Array[@mdast.Block]] = (Map([]) : Map[String, Array[@mdast.Block]])
+    let fd : Map[String, Array[@mdast.Block]] = (
+      Map([]) : Map[String, Array[@mdast.Block]])
     for b in doc.children {
       match b {
         FootnoteDefinition(label~, children~, ..) => fd.set(label, children)
@@ -1723,7 +1787,7 @@ pub fn markdown_view(
     nodes,
     width=col_w,
     row_gap=6.0,
-    class=(if width > 0.0 { [] } else { [@style.style(width_percent=100.0)] }),
+    class=if width > 0.0 { [] } else { [@style.style(width_percent=100.0)] },
     handle~,
   )
 }

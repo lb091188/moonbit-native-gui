@@ -6,7 +6,7 @@
 ///|
 /// RequestName 的 flags：DO_NOT_QUEUE。第二实例必须立即拿到 EXISTS 回复，
 /// 默认 flags=0 会让它排队挂到首实例退出为止。
-pub const FLAG_DO_NOT_QUEUE : Int = 4
+pub const FLAG_DO_NOT_QUEUE : Int32 = 4
 
 ///|
 /// RequestName 回复码（org.freedesktop.DBus.RequestNameReply）的语义化结果。
@@ -23,7 +23,7 @@ pub enum NameClaim {
 
 ///|
 /// 回复码 → 语义。纯函数，wbtest 覆盖。
-pub fn name_claim_of(code : Int) -> NameClaim? {
+pub fn name_claim_of(code : Int32) -> NameClaim? {
   match code {
     1 => Some(PrimaryOwner)
     2 => Some(InQueue)
@@ -93,7 +93,6 @@ pub fn valid_app_id(app_id : String) -> Bool {
   }
   dots >= 1 && !elem_start
 }
-
 
 ///|
 /// 声称应用专属总线名。Err 为 app_id 非法 / 连接失败 / 应答异常 /

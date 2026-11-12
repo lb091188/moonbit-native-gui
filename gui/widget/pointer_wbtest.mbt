@@ -9,7 +9,10 @@ fn pe(kind : PointerKind, x : Double, y : Double) -> PointerEvent {
 ///|
 /// 一棵三层树：root 里纵向排 A/B/C 各 100×20；B 记「事件名 + 本地坐标」，
 /// 只消费按下；C 只记事件名，一律不消费。
-fn hover_tree(log : Array[String], tag : String) -> (Widget, Widget, Widget, Widget) {
+fn hover_tree(
+  log : Array[String],
+  tag : String,
+) -> (Widget, Widget, Widget, Widget) {
   let root = Widget::new()
   root.set_column()
   let a = sized(Widget::new(), 100.0, 20.0)
@@ -22,8 +25,9 @@ fn hover_tree(log : Array[String], tag : String) -> (Widget, Widget, Widget, Wid
       Move => "move"
       Leave => "leave"
     }
-    let mark =
-      ev.x.round().to_int().to_string() + "/" + ev.y.round().to_int().to_string()
+    let mark = ev.x.round().to_int().to_string() +
+      "/" +
+      ev.y.round().to_int().to_string()
     log.push(tag + ":b:" + kind_str + ":" + mark)
     match ev.kind {
       Down => true
@@ -57,13 +61,18 @@ test "悬停跟随指针，换了就补发 Leave" {
   let r1 = route_pointer(root, pe(Move, 10.0, 50.0), hover, cap)
   hover = r1.0
   cap = r1.1
-  assert_eq((hover, c.hovered, b.hovered, a.hovered), (c.id, true, false, false))
+  assert_eq(
+    (hover, c.hovered, b.hovered, a.hovered),
+    (c.id, true, false, false),
+  )
 
   // 同一控件内再动：状态不变、不重复补发
-  let leaves = fn() -> Int {
+  let leaves = fn() -> Int32 {
     let mut n = 0
     for e in log {
-      if e.contains("leave") { n = n + 1 }
+      if e.contains("leave") {
+        n = n + 1
+      }
     }
     n
   }
@@ -197,14 +206,17 @@ test "悬停带父链语义（CSS :hover 同义），翻转时触发 on_hover_ch
   root.append_child(outer)
   root.append_child(sib)
   root.relayout(200.0, 100.0)
-  let fired : Array[(Int, Bool)] = []
+  let fired : Array[(Int32, Bool)] = []
   outer.on_hover_change = Some(fn(w : Widget, on : Bool) -> Unit {
     fired.push((w.id, on))
   })
 
   root.set_hover(leaf.id)
   // 命中链上的三层都算悬停，兄弟不算
-  assert_eq((root.hovered, outer.hovered, leaf.hovered, sib.hovered), (true, true, true, false))
+  assert_eq(
+    (root.hovered, outer.hovered, leaf.hovered, sib.hovered),
+    (true, true, true, false),
+  )
   assert_eq(fired.length(), 1)
   assert_eq(fired[0], (outer.id, true))
   // 同一状态重复设置不重复回调
@@ -253,7 +265,7 @@ test "cursor_at：控件带 cursor_fn 时以现算结果为准（压过静态 cu
   let live = Ref(false)
   // 两个都设上：cursor_fn 存在时静态 cursor 不参与（禁用态这类要现算的请求走它）
   w.cursor = CURSOR_TEXT
-  w.cursor_fn = Some(fn(_self : Widget) -> Int {
+  w.cursor_fn = Some(fn(_self : Widget) -> Int32 {
     if live.val {
       CURSOR_HAND
     } else {

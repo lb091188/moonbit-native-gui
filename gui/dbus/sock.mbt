@@ -13,7 +13,7 @@ fn utf8(s : String) -> Bytes {
 
 ///|
 /// 码元是不是孤立代理对（有效配对在迭代时已合成整个码点，不会落进这个区间）。
-fn is_lone_surrogate(code : Int) -> Bool {
+fn is_lone_surrogate(code : Int32) -> Bool {
   code >= 0xD800 && code <= 0xDFFF
 }
 
@@ -49,44 +49,42 @@ fn replace_lone_surrogates(s : String) -> String {
 
 ///|
 /// 装退出信号兜底（SIGINT/SIGTERM 只置标志，主循环下一拍取走）。
-extern "c" fn ffi_install_quit_signals() -> Unit =
-  "yue_dbus_install_quit_signals"
+extern "c" fn ffi_install_quit_signals() -> Unit = "yue_dbus_install_quit_signals"
 
 ///|
 /// 取走退出信号标志：读到过就清零，一次信号对应一次退出动作。
-extern "c" fn ffi_quit_signal() -> Int = "yue_dbus_quit_signal"
+extern "c" fn ffi_quit_signal() -> Int32 = "yue_dbus_quit_signal"
 
 ///|
 #borrow(path)
-extern "c" fn ffi_unix_connect(path : Bytes) -> Int = "yue_dbus_unix_connect"
+extern "c" fn ffi_unix_connect(path : Bytes) -> Int32 = "yue_dbus_unix_connect"
 
 ///|
 #borrow(buf)
 extern "c" fn ffi_read(
-  fd : Int,
+  fd : Int32,
   buf : Bytes,
-  off : Int,
-  len : Int,
-) -> Int = "yue_dbus_read"
+  off : Int32,
+  len : Int32,
+) -> Int32 = "yue_dbus_read"
 
 ///|
 #borrow(buf)
 extern "c" fn ffi_write(
-  fd : Int,
+  fd : Int32,
   buf : Bytes,
-  off : Int,
-  len : Int,
-) -> Int = "yue_dbus_write"
+  off : Int32,
+  len : Int32,
+) -> Int32 = "yue_dbus_write"
 
 ///|
-extern "c" fn ffi_poll(fd : Int, events : Int, timeout_ms : Int) -> Int =
-  "yue_dbus_poll"
+extern "c" fn ffi_poll(fd : Int32, events : Int32, timeout_ms : Int32) -> Int32 = "yue_dbus_poll"
 
 ///|
-extern "c" fn ffi_close(fd : Int) -> Unit = "yue_dbus_close"
+extern "c" fn ffi_close(fd : Int32) -> Unit = "yue_dbus_close"
 
 ///|
-extern "c" fn ffi_getuid() -> Int = "yue_dbus_getuid"
+extern "c" fn ffi_getuid() -> Int32 = "yue_dbus_getuid"
 
 ///|
 /// Double → IEEE 754 位模式（DBus 'd' 编码）。
@@ -94,8 +92,7 @@ extern "c" fn ffi_f64_to_bits(v : Double) -> Int64 = "yue_dbus_f64_to_bits"
 
 ///|
 /// IEEE 754 位模式 → Double（DBus 'd' 解码）。
-extern "c" fn ffi_f64_from_bits(bits : Int64) -> Double =
-  "yue_dbus_f64_from_bits"
+extern "c" fn ffi_f64_from_bits(bits : Int64) -> Double = "yue_dbus_f64_from_bits"
 
 ///|
 /// 读环境变量（走 `sys` 的 C 层 getenv，反映进程内写删后的实时值）。

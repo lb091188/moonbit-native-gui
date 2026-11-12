@@ -24,7 +24,11 @@ fn lower_ascii(s : String) -> String {
   let buf = StringBuilder()
   for ch in s {
     buf.write_char(
-      if ch >= 'A' && ch <= 'Z' { (ch.to_int() + 32).unsafe_to_char() } else { ch },
+      if ch >= 'A' && ch <= 'Z' {
+        (ch.to_int() + 32).unsafe_to_char()
+      } else {
+        ch
+      },
     )
   }
   buf.to_string()
@@ -77,7 +81,7 @@ fn arr_str_has(a : Array[String], x : String) -> Bool {
 
 ///|
 /// 字符串表里该值的下标（没有则 -1）。
-fn arr_str_idx(a : Array[String], x : String) -> Int {
+fn arr_str_idx(a : Array[String], x : String) -> Int32 {
   for i = 0; i < a.length(); i = i + 1 {
     if a[i] == x {
       return i
@@ -126,7 +130,9 @@ fn main {
   // 播放列表：完整路径表 + 选中名（menu 的 Store 存显示名）
   let tracks : Ref[Array[String]] = Ref([])
   let selected : @base.Store[String] = @base.Store::new("")
-  let track_line : @base.Store[String] = @base.Store::new("（还没载入曲目）")
+  let track_line : @base.Store[String] = @base.Store::new(
+    "（还没载入曲目）",
+  )
   let list_title : @base.Store[String] = @base.Store::new("播放列表")
   let tick_line : @base.Store[String] = @base.Store::new("")
   let lyric_line : @base.Store[String] = @base.Store::new("")
@@ -198,9 +204,13 @@ fn main {
           on_speed=fn(v : Double) -> Unit {
             tick_line.set("倍速 \{v.to_string()}x")
           },
-          on_lyric=fn(n : Int) -> Unit {
+          on_lyric=fn(n : Int32) -> Unit {
             lyric_line.set(
-              if n > 0 { "歌词 \{n} 行（同名 .lrc）" } else { "没配上同名 .lrc" },
+              if n > 0 {
+                "歌词 \{n} 行（同名 .lrc）"
+              } else {
+                "没配上同名 .lrc"
+              },
             )
           },
           on_error=fn(e : String) -> Unit { fail(e) },
@@ -219,19 +229,20 @@ fn main {
     match player_holder.val {
       Some(h) => {
         h.clear_children()
-        let _ = @ui
-          .view(
-            [
-              @ui.empty(description=note),
-              @ui.text("用左侧「选择文件…」或「选择目录…」载入音频", class=[@style.text_secondary]),
-            ],
-            row_gap=6.0,
-            align_items=@yoga.AlignItems::Center,
-            justify_content=@yoga.JustifyContent::Center,
-            padding=12.0,
-            grow=1.0,
-          )
-          .mount_into(h)
+        let _ = @ui.view(
+          [
+            @ui.empty(description=note),
+            @ui.text(
+              "用左侧「选择文件…」或「选择目录…」载入音频",
+              class=[@style.text_secondary],
+            ),
+          ],
+          row_gap=6.0,
+          align_items=@yoga.AlignItems::Center,
+          justify_content=@yoga.JustifyContent::Center,
+          padding=12.0,
+          grow=1.0,
+        ).mount_into(h)
       }
       None => ()
     }
@@ -259,11 +270,9 @@ fn main {
             }
           }
         }
-        let _ = @ui
-          .menu(names, selected, width=232.0, handle=fn(w) {
-            w.node.set_flex_grow(1.0)
-          })
-          .mount_into(h)
+        let _ = @ui.menu(names, selected, width=232.0, handle=fn(w) {
+          w.node.set_flex_grow(1.0)
+        }).mount_into(h)
       }
       None => ()
     }
@@ -280,7 +289,9 @@ fn main {
     match host.val {
       Some(a) => {
         let dlg = @sys.FileDialog::new_open()
-        dlg.set_filters("音频文件:wav,mp3,ogg,m4a,flac,aac,opus,wma|所有文件:*")
+        dlg.set_filters(
+          "音频文件:wav,mp3,ogg,m4a,flac,aac,opus,wma|所有文件:*",
+        )
         if dlg.run_for_window(a.wid().to_int64()) {
           let p = dlg.get_result()
           tracks.val.push(p)
@@ -315,7 +326,10 @@ fn main {
                 fail("目录里没有音频文件：\{dir}")
               } else {
                 tracks.val = found
-                toast("扫描到 \{found.length()} 个音频文件", @ui.Success)
+                toast(
+                  "扫描到 \{found.length()} 个音频文件",
+                  @ui.Success,
+                )
               }
               rebuild_list(true)
             }
@@ -340,8 +354,18 @@ fn main {
           @ui.bind_label(track_line, fn(s) { s }),
           @ui.row(
             [
-              @ui.bind_label(tick_line, fn(s) { s }, font_size=12.0, color="text_secondary"),
-              @ui.bind_label(lyric_line, fn(s) { s }, font_size=12.0, color="text_secondary"),
+              @ui.bind_label(
+                tick_line,
+                fn(s) { s },
+                font_size=12.0,
+                color="text_secondary",
+              ),
+              @ui.bind_label(
+                lyric_line,
+                fn(s) { s },
+                font_size=12.0,
+                color="text_secondary",
+              ),
             ],
             column_gap=12.0,
           ),
@@ -361,7 +385,12 @@ fn main {
           // 左：播放列表 + 载入入口
           @ui.col(
             [
-              @ui.bind_label(list_title, fn(s) { s }, font_size=12.0, color="text_secondary"),
+              @ui.bind_label(
+                list_title,
+                fn(s) { s },
+                font_size=12.0,
+                color="text_secondary",
+              ),
               @ui.scroll_view(
                 [@ui.col([], handle=fn(c) { list_holder.val = Some(c) })],
                 @ui.ScrollState::new(),
@@ -395,7 +424,9 @@ fn main {
           ),
           // 右：播放器（面板底与左侧一致，舞台直接融进面板）
           @ui.col(
-            [@ui.col([], grow=1.0, handle=fn(c) { player_holder.val = Some(c) })],
+            [
+              @ui.col([], grow=1.0, handle=fn(c) { player_holder.val = Some(c) }),
+            ],
             grow=1.0,
             padding=12.0,
             background_color="bg_panel",
@@ -433,7 +464,9 @@ fn main {
           None => {
             tracks.val = []
             rebuild_list(true)
-            err_line.set("默认资产 1.mp3 没找到（从当前目录逐级向上找 examples/audio/assets/）；用「选择文件…」载入本地音频")
+            err_line.set(
+              "默认资产 1.mp3 没找到（从当前目录逐级向上找 examples/audio/assets/）；用「选择文件…」载入本地音频",
+            )
           }
         }
       })

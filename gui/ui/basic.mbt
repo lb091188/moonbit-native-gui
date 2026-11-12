@@ -4,7 +4,6 @@
 // 禁用态配色暂用「fill_hover 底 + text_secondary 字」，真正的 disabled 色板
 // 待补进 `Theme`。
 
-
 ///|
 /// 通用容器：方向、两个轴的间距、内边距、尺寸、底色与描边。
 /// 尺寸给 0 表示按内容；要撑满剩余空间用 `grow=1.0`。
@@ -12,34 +11,34 @@ pub fn view(
   /// 装进容器的子节点，按主轴方向依次排。
   children : Array[@widget.Node],
   /// 设主轴方向（Column / Row 等）。
-  direction? : @yoga.FlexDirection = @yoga.Column,
+  direction~ : @yoga.FlexDirection = @yoga.Column,
   /// 拉开纵向相邻子节点的间隙。
-  row_gap? : Double = 0.0,
+  row_gap~ : Double = 0.0,
   /// 拉开横向相邻子节点的间隙。
-  column_gap? : Double = 0.0,
+  column_gap~ : Double = 0.0,
   /// 内缩四边同宽的内边距。
-  padding? : Double = 0.0,
+  padding~ : Double = 0.0,
   /// 定死宽度，0 = 按内容测量。
-  width? : Double = 0.0,
+  width~ : Double = 0.0,
   /// 定死高度，0 = 按内容测量。
-  height? : Double = 0.0,
+  height~ : Double = 0.0,
   /// 按父容器主轴余量占位，0 = 不参与分配。
-  grow? : Double = 0.0,
+  grow~ : Double = 0.0,
   /// 画底色（主题色名或 `#rrggbb`），空串不画。
-  background_color? : String = "",
+  background_color~ : String = "",
   /// 描一圈边色，空串不描边。
-  border_color? : String = "",
+  border_color~ : String = "",
   /// 让子节点在交叉轴上按此对齐。
-  align_items? : @yoga.AlignItems = @yoga.AlignItems::Stretch,
+  align_items~ : @yoga.AlignItems = @yoga.AlignItems::Stretch,
   /// 让子节点在主轴上按此对齐。
-  justify_content? : @yoga.JustifyContent = @yoga.JustifyContent::FlexStart,
+  justify_content~ : @yoga.JustifyContent = @yoga.JustifyContent::FlexStart,
   /// 圆角档：默认随控件令牌（开圆角 4、关圆角 0）；传 0 显式直角，class 的
   /// `border_radius` 可覆写档位。
-  corner_radius? : Double = -1.0,
+  corner_radius~ : Double = -1.0,
   /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
-  class? : Array[@style.Style] = [],
+  class~ : Array[@style.Style] = [],
   /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   // 散参数（颜色与布局同规则）全部折进匿名块：`class` 在后 ⇒ class > 散参数
   // 由数组顺序直接成立，节点上不再留第二条写入路径（§1.5）
@@ -190,13 +189,13 @@ pub fn panel(
   /// 装进容器的子节点，按主轴方向依次排。
   children : Array[@widget.Node],
   /// 内缩四边同宽的内边距。
-  padding? : Double = 10.0,
+  padding~ : Double = 10.0,
   /// 拉开纵向相邻子节点的间隙。
-  row_gap? : Double = 6.0,
+  row_gap~ : Double = 6.0,
   /// 定死宽度，0 = 按内容测量。
-  width? : Double = 0.0,
+  width~ : Double = 0.0,
   /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
-  class? : Array[@style.Style] = [],
+  class~ : Array[@style.Style] = [],
 ) -> @widget.Node {
   let body : Array[@widget.Node] = [
     text(title, font_size=12.0, color="text_secondary", wrap=false),
@@ -206,15 +205,13 @@ pub fn panel(
   }
   view(
     body,
-    padding=padding,
-    row_gap=row_gap,
-    width=width,
+    padding~,
+    row_gap~,
+    width~,
     background_color="bg_panel",
     border_color="border",
     // 基准：面板层圆角 6（调用方 class 在后覆写）
-    class=[
-      @style.style(border_radius=@theme.radius_card()),
-    ] + class,
+    class=[@style.style(border_radius=@theme.radius_card())] + class,
   )
 }
 
@@ -222,8 +219,8 @@ pub fn panel(
 /// 分隔线本体（§2 合并后公开入口是 [divider]，`text=` 给文字即带字档）。
 /// 默认横线（沿交叉轴撑满），`vertical=true` 为竖线。
 fn separator_impl(
-  vertical~ : Option[Bool],
-  color~ : Option[String],
+  vertical~ : Bool?,
+  color~ : String?,
   class~ : Array[@style.Style] = [],
 ) -> @widget.Node {
   let vertical = vertical.unwrap_or(false)
@@ -243,14 +240,21 @@ fn separator_impl(
       Some(b) => b
       None => @style.empty_style()
     }
-    fold_style_variant(w, ["divider-line", "divider-line-dark:dark"], anon, class)
+    fold_style_variant(
+      w,
+      ["divider-line", "divider-line-dark:dark"],
+      anon,
+      class,
+    )
     w.on_draw = Some(fn(
       self : @widget.Widget,
       p : @render.Painter,
       r : @base.Rect,
     ) -> Unit {
       let s = @style.style_for(self)
-      p.set_fill_color(@style.color_of(s.background_color, @theme.theme_border()))
+      p.set_fill_color(
+        @style.color_of(s.background_color, @theme.theme_border()),
+      )
       p.fill_rect(0.0, 0.0, r.w, r.h)
     })
     w
@@ -271,7 +275,7 @@ fn text_node_of(
   max_width : Double,
   wrap : Bool,
   ellipsis : Bool,
-  max_lines : Int,
+  max_lines : Int32,
   anon : @style.Style,
   class : Array[@style.Style],
   handle : (@widget.Widget) -> Unit,
@@ -292,14 +296,14 @@ fn text_node_of(
   let src = text_source(
     sig.get(),
     font_size=fs,
-    color=color,
+    color~,
     weight=wt,
-    family=family,
+    family~,
     align=al,
-    max_width=max_width,
-    wrap=wrap,
+    max_width~,
+    wrap~,
     ellipsis=ellipsis || !wrap,
-    max_lines=max_lines,
+    max_lines~,
   )
   let fg = match fg_block(color) {
     Some(b) => b
@@ -372,36 +376,24 @@ fn text_node_of(
 pub fn text_dyn(
   sig : @base.Signal[String],
   font_size? : Double,
-  color? : String = "",
+  color~ : String = "",
   weight? : @text.FontWeight,
-  family? : String = "",
+  family~ : String = "",
   align? : @text.TextAlign,
-  max_width? : Double = 0.0,
-  wrap? : Bool = true,
-  ellipsis? : Bool = false,
-  max_lines? : Int = 0,
+  max_width~ : Double = 0.0,
+  wrap~ : Bool = true,
+  ellipsis~ : Bool = false,
+  max_lines~ : Int32 = 0,
   /// 让这段文本可选中复制（只读：单击定位、双击选词、拖选、Shift+点击、
   /// Ctrl/Cmd+C 与右键复制；不可聚焦、不进 Tab 链）。
-  selectable? : Bool = false,
-  anon? : @style.Style = @style.empty_style(),
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  selectable~ : Bool = false,
+  anon~ : @style.Style = @style.empty_style(),
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   text_node_of(
-    sig,
-    font_size,
-    color,
-    weight,
-    family,
-    align,
-    max_width,
-    wrap,
-    ellipsis,
-    max_lines,
-    anon,
-    class,
-    handle,
-    selectable,
+    sig, font_size, color, weight, family, align, max_width, wrap, ellipsis, max_lines,
+    anon, class, handle, selectable,
   )
 }
 
@@ -418,28 +410,28 @@ pub fn text(
   /// 设字号（逻辑像素）。
   font_size? : Double,
   /// 设文字色（主题色名或 `#rrggbb`），空串随主题。
-  color? : String = "",
+  color~ : String = "",
   /// 设字重。
   weight? : @text.FontWeight,
   /// 指定字族，空串走系统默认字族。
-  family? : String = "",
+  family~ : String = "",
   /// 让文本按此水平对齐。
   align? : @text.TextAlign,
   /// 限制换行宽度，0 = 不限。
-  max_width? : Double = 0.0,
+  max_width~ : Double = 0.0,
   /// 控制是否自动换行；块级段落默认 true，单行标签显式 false。
-  wrap? : Bool = true,
+  wrap~ : Bool = true,
   /// 不换行时把末端溢出画成省略号。
-  ellipsis? : Bool = false,
+  ellipsis~ : Bool = false,
   /// 限制最多显示行数，0 = 不限。
-  max_lines? : Int = 0,
+  max_lines~ : Int32 = 0,
   /// 让这段文本可选中复制（只读：单击定位、双击选词、拖选、Shift+点击、
   /// Ctrl/Cmd+C 与右键复制；不可聚焦、不进 Tab 链）。
-  selectable? : Bool = false,
+  selectable~ : Bool = false,
   /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
-  class? : Array[@style.Style] = [],
+  class~ : Array[@style.Style] = [],
   /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   text_node_of(
     @base.Signal::new(content),
@@ -466,13 +458,13 @@ pub fn text(
 /// `background_color` / `color`（回落主题描边色与次要文字色），所以两条都能被
 /// `class` 覆盖。
 pub fn divider(
-  text? : String = "",
-  vertical? : Bool = false,
-  color? : String = "",
-  class? : Array[@style.Style] = [],
+  text~ : String = "",
+  vertical~ : Bool = false,
+  color~ : String = "",
+  class~ : Array[@style.Style] = [],
 ) -> @widget.Node {
   if text.length() == 0 {
-    separator_impl(vertical=Some(vertical), color=Some(color), class=class)
+    separator_impl(vertical=Some(vertical), color=Some(color), class~)
   } else {
     let font = @text.Font::new("", 12.0)
     @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
@@ -496,7 +488,14 @@ pub fn divider(
         let right_x = (r.w + tw) / 2.0 + gap
         p.fill_rect(right_x, cy, (r.w - right_x).max(0.0), 1.0)
         let th = @text.line_height_font(font).unwrap_or(16).to_double()
-        let _ = @text.draw_at(p, (r.w - tw) / 2.0, cy - th / 2.0, text, font, label)
+        let _ = @text.draw_at(
+          p,
+          (r.w - tw) / 2.0,
+          cy - th / 2.0,
+          text,
+          font,
+          label,
+        )
       })
       w
     })
@@ -507,9 +506,9 @@ pub fn divider(
 /// 图像：按文件解码（PNG/JPEG/GIF 首帧）；尺寸给 0 用图片原始尺寸。
 pub fn image(
   path : String,
-  width? : Double = 0.0,
-  height? : Double = 0.0,
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  width~ : Double = 0.0,
+  height~ : Double = 0.0,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let img = @render.Image::new_from_file(path)
   let w0 = if width > 0.0 { width } else { img.get_width() }
@@ -537,10 +536,10 @@ pub fn image(
 /// 颜色空 = 主题正文色。
 pub fn icon(
   kind : @icons.IconKind,
-  size? : Double = 16.0,
-  color? : String = "",
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  size~ : Double = 16.0,
+  color~ : String = "",
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let anon = match fg_block(color) {
     Some(b) => b
@@ -572,10 +571,10 @@ pub fn icon(
 /// 未装入或无名时画空（调用方可先 `@icons.iconfont_get` 判存在）。
 pub fn iconfont(
   name : String,
-  size? : Double = 16.0,
-  color? : String = "",
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  size~ : Double = 16.0,
+  color~ : String = "",
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let anon = match fg_block(color) {
     Some(b) => b
@@ -610,20 +609,20 @@ pub fn iconfont(
 /// 需要文字提示时由调用方在外面包 `tooltip`（本组件不重复管提示）。
 pub fn icon_button(
   kind : @icons.IconKind,
-  on_click? : () -> Unit = fn() -> Unit { () },
-  icon_size? : Double = 16.0,
-  box_size? : Double = 28.0,
-  color? : String = "",
-  disabled? : Bool = false,
-  enabled? : Enabled? = None,
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  on_click~ : () -> Unit = fn() -> Unit { () },
+  icon_size~ : Double = 16.0,
+  box_size~ : Double = 28.0,
+  color~ : String = "",
+  disabled~ : Bool = false,
+  enabled~ : Enabled? = None,
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   // 内置皮肤（圆角 + 悬停浅底 + 按下更深）写成样式块：基块没有底色，
   // 底色只从状态桶来，绘制期按 `self` 的态选桶即等价于旧的 hovered/pressed 分支
-  let skin = @style.style(border_radius=@theme.radius_ctrl()).hover(
-    background_color="fill_hover"
-  ).active(background_color="primary_light")
+  let skin = @style.style(border_radius=@theme.radius_ctrl())
+    .hover(background_color="fill_hover")
+    .active(background_color="primary_light")
   let blocks : Array[@style.Style] = [
     skin,
     match fg_block(color) {
@@ -664,7 +663,14 @@ pub fn icon_button(
       let bg = @style.color_of(s.background_color, "")
       if !off.off && bg.length() > 0 {
         p.set_fill_color(bg)
-        fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(s.border_radius, @theme.radius_ctrl()))
+        fill_round_rect(
+          p,
+          0.0,
+          0.0,
+          r.w,
+          r.h,
+          @style.number_of(s.border_radius, @theme.radius_ctrl()),
+        )
       }
       let fallback = if off.off {
         @theme.theme_text_secondary()
@@ -677,7 +683,13 @@ pub fn icon_button(
       if self.focused {
         p.set_stroke_color(@theme.theme_primary())
         p.set_line_width(1.0)
-        p.stroke_round_rect(0.5, 0.5, r.w - 1.0, r.h - 1.0, @theme.radius_ctrl())
+        p.stroke_round_rect(
+          0.5,
+          0.5,
+          r.w - 1.0,
+          r.h - 1.0,
+          @theme.radius_ctrl(),
+        )
       }
     })
     w.on_pointer = Some(fn(
@@ -687,9 +699,13 @@ pub fn icon_button(
       match ev.kind {
         @widget.PointerKind::Down => !off.off
         @widget.PointerKind::Up => {
-          let inside = ev.x >= 0.0 && ev.x <= self.rect.w &&
-            ev.y >= 0.0 && ev.y <= self.rect.h
-          if !off.off && inside { on_click() }
+          let inside = ev.x >= 0.0 &&
+            ev.x <= self.rect.w &&
+            ev.y >= 0.0 &&
+            ev.y <= self.rect.h
+          if !off.off && inside {
+            on_click()
+          }
           false
         }
         @widget.PointerKind::Move => !off.off

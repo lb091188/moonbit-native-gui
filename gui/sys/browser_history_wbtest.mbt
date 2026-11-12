@@ -60,7 +60,7 @@ test "bh_take：全收边界/截断" {
   assert_eq(bh_take(src, 3), [1, 2, 3])
   assert_eq(bh_take(src, 1), [1])
   // 空数组
-  let empty : Array[Int] = []
+  let empty : Array[Int32] = []
   assert_eq(bh_take(empty, 3), [])
 }
 
@@ -229,7 +229,9 @@ test "bh_browsers / bh_history：本机浏览器历史端到端（存在才跑�
       let first = profiles[0]
       // 探测结果应与库文件路径对应（目录枚举命中名为 History 的条目）
       assert_true(first.history_path.has_suffix("/History"))
-      assert_true(first.profile == "Default" || first.profile.has_prefix("Profile "))
+      assert_true(
+        first.profile == "Default" || first.profile.has_prefix("Profile "),
+      )
       match bh_history(limit=5) {
         Ok(items) => {
           println("bh: profiles=\{profiles.length()} items=\{items.length()}")
@@ -243,7 +245,7 @@ test "bh_browsers / bh_history：本机浏览器历史端到端（存在才跑�
               let b = items[i]
               assert_true(
                 a.last_visit_time > b.last_visit_time ||
-                  (a.last_visit_time == b.last_visit_time && a.url <= b.url),
+                (a.last_visit_time == b.last_visit_time && a.url <= b.url),
               )
             }
           }
@@ -276,7 +278,8 @@ test "bh Windows 读数环：枚举本机浏览器 profile（有则验路径，�
       }
       println("bh: \{profiles.length()} profiles")
     }
-    Err(BhNoBrowser) => println("bh: 本机无 Chrome/Edge History 库（合法）")
+    Err(BhNoBrowser) =>
+      println("bh: 本机无 Chrome/Edge History 库（合法）")
     Err(e) => {
       println("bh_browsers failed: \{e}")
       assert_true(false)

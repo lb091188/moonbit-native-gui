@@ -5,7 +5,7 @@
 // 跑法：moon run experiment/text_bench
 
 ///|
-fn ink(bm : @render.Bitmap) -> Int {
+fn ink(bm : @render.Bitmap) -> Int32 {
   let mut n = 0
   for y = 0; y < bm.height; y = y + 1 {
     for x = 0; x < bm.width; x = x + 1 {
@@ -17,6 +17,7 @@ fn ink(bm : @render.Bitmap) -> Int {
   n
 }
 
+///|
 fn main {
   let bm = @render.Bitmap::new(1400, 320)
   let p = @render.Painter::new(bm)

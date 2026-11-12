@@ -3,48 +3,126 @@
 // 回看翻页、IME commit。
 
 ///|
-fn term_ev(press : Bool, keysym : Int, mods : Int) -> @widget.KeyEvent {
-  { press, keysym, mods }
+fn term_ev(press : Bool, keysym : Int32, mods : Int32) -> @widget.KeyEvent {
+  { press, keysym, mods, }
 }
 
 ///|
 test "映射：回车/退格/Tab/Esc/方向键/导航键/F 键" {
-  assert_eq(terminal_input_of(term_ev(true, @base.KS_RETURN, 0), false), Some("\r"))
-  assert_eq(terminal_input_of(term_ev(true, @base.KS_BACKSPACE, 0), false), Some("\u{7f}"))
-  assert_eq(terminal_input_of(term_ev(true, @base.KS_TAB, 0), false), Some("\t"))
-  assert_eq(terminal_input_of(term_ev(true, @base.KS_ISO_LEFT_TAB, @base.MOD_SHIFT), false), Some("\u{1b}[Z"))
-  assert_eq(terminal_input_of(term_ev(true, @base.KS_ESCAPE, 0), false), Some("\u{1b}"))
-  assert_eq(terminal_input_of(term_ev(true, @base.KS_UP, 0), false), Some("\u{1b}[A"))
-  assert_eq(terminal_input_of(term_ev(true, @base.KS_DOWN, 0), false), Some("\u{1b}[B"))
-  assert_eq(terminal_input_of(term_ev(true, @base.KS_RIGHT, 0), false), Some("\u{1b}[C"))
-  assert_eq(terminal_input_of(term_ev(true, @base.KS_LEFT, 0), false), Some("\u{1b}[D"))
-  assert_eq(terminal_input_of(term_ev(true, @base.KS_HOME, 0), false), Some("\u{1b}[H"))
-  assert_eq(terminal_input_of(term_ev(true, @base.KS_END, 0), false), Some("\u{1b}[F"))
-  assert_eq(terminal_input_of(term_ev(true, @base.KS_DELETE, 0), false), Some("\u{1b}[3~"))
-  assert_eq(terminal_input_of(term_ev(true, KS_INSERT, 0), false), Some("\u{1b}[2~"))
-  assert_eq(terminal_input_of(term_ev(true, KS_PAGE_UP, 0), false), Some("\u{1b}[5~"))
-  assert_eq(terminal_input_of(term_ev(true, KS_PAGE_DOWN, 0), false), Some("\u{1b}[6~"))
+  assert_eq(
+    terminal_input_of(term_ev(true, @base.KS_RETURN, 0), false),
+    Some("\r"),
+  )
+  assert_eq(
+    terminal_input_of(term_ev(true, @base.KS_BACKSPACE, 0), false),
+    Some("\u{7f}"),
+  )
+  assert_eq(
+    terminal_input_of(term_ev(true, @base.KS_TAB, 0), false),
+    Some("\t"),
+  )
+  assert_eq(
+    terminal_input_of(
+      term_ev(true, @base.KS_ISO_LEFT_TAB, @base.MOD_SHIFT),
+      false,
+    ),
+    Some("\u{1b}[Z"),
+  )
+  assert_eq(
+    terminal_input_of(term_ev(true, @base.KS_ESCAPE, 0), false),
+    Some("\u{1b}"),
+  )
+  assert_eq(
+    terminal_input_of(term_ev(true, @base.KS_UP, 0), false),
+    Some("\u{1b}[A"),
+  )
+  assert_eq(
+    terminal_input_of(term_ev(true, @base.KS_DOWN, 0), false),
+    Some("\u{1b}[B"),
+  )
+  assert_eq(
+    terminal_input_of(term_ev(true, @base.KS_RIGHT, 0), false),
+    Some("\u{1b}[C"),
+  )
+  assert_eq(
+    terminal_input_of(term_ev(true, @base.KS_LEFT, 0), false),
+    Some("\u{1b}[D"),
+  )
+  assert_eq(
+    terminal_input_of(term_ev(true, @base.KS_HOME, 0), false),
+    Some("\u{1b}[H"),
+  )
+  assert_eq(
+    terminal_input_of(term_ev(true, @base.KS_END, 0), false),
+    Some("\u{1b}[F"),
+  )
+  assert_eq(
+    terminal_input_of(term_ev(true, @base.KS_DELETE, 0), false),
+    Some("\u{1b}[3~"),
+  )
+  assert_eq(
+    terminal_input_of(term_ev(true, KS_INSERT, 0), false),
+    Some("\u{1b}[2~"),
+  )
+  assert_eq(
+    terminal_input_of(term_ev(true, KS_PAGE_UP, 0), false),
+    Some("\u{1b}[5~"),
+  )
+  assert_eq(
+    terminal_input_of(term_ev(true, KS_PAGE_DOWN, 0), false),
+    Some("\u{1b}[6~"),
+  )
   assert_eq(terminal_input_of(term_ev(true, 65470, 0), false), Some("\u{1b}OP"))
-  assert_eq(terminal_input_of(term_ev(true, 65474, 0), false), Some("\u{1b}[15~"))
+  assert_eq(
+    terminal_input_of(term_ev(true, 65474, 0), false),
+    Some("\u{1b}[15~"),
+  )
   // 抬起事件不产输入
   assert_eq(terminal_input_of(term_ev(false, 97, 0), false), None)
 }
 
 ///|
 test "映射：Ctrl 组合控制字节（裸 Ctrl+C = \\x03）" {
-  assert_eq(terminal_input_of(term_ev(true, 99, @base.MOD_CTRL), false), Some("\u{3}"))
-  assert_eq(terminal_input_of(term_ev(true, 67, @base.MOD_CTRL), false), Some("\u{3}"))
-  assert_eq(terminal_input_of(term_ev(true, 105, @base.MOD_CTRL), false), Some("\t"))
-  assert_eq(terminal_input_of(term_ev(true, 109, @base.MOD_CTRL), false), Some("\r"))
-  assert_eq(terminal_input_of(term_ev(true, 97, @base.MOD_CTRL), false), Some("\u{1}"))
-  assert_eq(terminal_input_of(term_ev(true, 91, @base.MOD_CTRL), false), Some("\u{1b}"))
-  assert_eq(terminal_input_of(term_ev(true, @base.KS_SPACE, @base.MOD_CTRL), false), Some("\u{0}"))
-  assert_eq(terminal_input_of(term_ev(true, 64, @base.MOD_CTRL), false), Some("\u{0}"))
+  assert_eq(
+    terminal_input_of(term_ev(true, 99, @base.MOD_CTRL), false),
+    Some("\u{3}"),
+  )
+  assert_eq(
+    terminal_input_of(term_ev(true, 67, @base.MOD_CTRL), false),
+    Some("\u{3}"),
+  )
+  assert_eq(
+    terminal_input_of(term_ev(true, 105, @base.MOD_CTRL), false),
+    Some("\t"),
+  )
+  assert_eq(
+    terminal_input_of(term_ev(true, 109, @base.MOD_CTRL), false),
+    Some("\r"),
+  )
+  assert_eq(
+    terminal_input_of(term_ev(true, 97, @base.MOD_CTRL), false),
+    Some("\u{1}"),
+  )
+  assert_eq(
+    terminal_input_of(term_ev(true, 91, @base.MOD_CTRL), false),
+    Some("\u{1b}"),
+  )
+  assert_eq(
+    terminal_input_of(term_ev(true, @base.KS_SPACE, @base.MOD_CTRL), false),
+    Some("\u{0}"),
+  )
+  assert_eq(
+    terminal_input_of(term_ev(true, 64, @base.MOD_CTRL), false),
+    Some("\u{0}"),
+  )
 }
 
 ///|
 test "映射：Alt 前缀 ESC；mac Cmd 不进输入" {
-  assert_eq(terminal_input_of(term_ev(true, 100, @base.MOD_ALT), false), Some("\u{1b}d"))
+  assert_eq(
+    terminal_input_of(term_ev(true, 100, @base.MOD_ALT), false),
+    Some("\u{1b}d"),
+  )
   assert_eq(
     terminal_input_of(term_ev(true, @base.KS_LEFT, @base.MOD_ALT), false),
     Some("\u{1b}\u{1b}[D"),
@@ -65,13 +143,11 @@ fn mounted_terminal(
   let term = Terminal::new(cols=20, rows=6)
   term.feed(text)
   let got : Ref[Array[String]] = Ref([])
-  let n = terminal(
-    term,
-    height=120.0,
-    focus_id=1,
-    blink=false,
-    on_input=fn(s : String) -> Unit { got.val.push(s) },
-  )
+  let n = terminal(term, height=120.0, focus_id=1, blink=false, on_input=fn(
+    s : String,
+  ) -> Unit {
+    got.val.push(s)
+  })
   let root = @widget.Widget::new()
   root.set_size(280.0, 150.0)
   root.set_column()
@@ -81,8 +157,13 @@ fn mounted_terminal(
 }
 
 ///|
-fn term_key(root : @widget.Widget, w : @widget.Widget, keysym : Int, mods : Int) -> Bool {
-  root.dispatch_key(w.focus_id, { press: true, keysym, mods })
+fn term_key(
+  root : @widget.Widget,
+  w : @widget.Widget,
+  keysym : Int32,
+  mods : Int32,
+) -> Bool {
+  root.dispatch_key(w.focus_id, { press: true, keysym, mods, })
 }
 
 ///|
@@ -98,7 +179,11 @@ test "控件键路由：可打印与裸 Ctrl+C 进 on_input" {
 ///|
 test "组合键复制/粘贴走隔离剪贴板；无选区 Cmd/Ctrl+Shift+C 不产输入" {
   let mac = @shell.platform_is_macos()
-  let combo = if mac { @base.MOD_META } else { @base.MOD_CTRL.lor(@base.MOD_SHIFT) }
+  let combo = if mac {
+    @base.MOD_META
+  } else {
+    @base.MOD_CTRL.lor(@base.MOD_SHIFT)
+  }
   let (root, w, got) = mounted_terminal("hello world\nsecond\n")
   // 拖选第一行 "ello"（本地列 1..5）
   let font = @text.Font::new("Monospace", 13.0)
@@ -147,7 +232,9 @@ test "Shift+PageUp/Down 回看翻页（不进 on_input）" {
   let term = Terminal::new(cols=20, rows=3, scrollback=10)
   term.feed("1\n2\n3\n4\n5\n6")
   let got : Ref[Array[String]] = Ref([])
-  let n = terminal(term, height=90.0, focus_id=1, blink=false, on_input=fn(s : String) -> Unit {
+  let n = terminal(term, height=90.0, focus_id=1, blink=false, on_input=fn(
+    s : String,
+  ) -> Unit {
     got.val.push(s)
   })
   let root = @widget.Widget::new()

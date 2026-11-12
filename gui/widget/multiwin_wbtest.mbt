@@ -1,6 +1,7 @@
 // W30 多窗口生命周期无头回归：用 @shell.fake_session 造两扇假窗，验证注册表、
 // 主从判定、窗数计数与关闭摘除的行为。真窗口的可见性与交互由用户验。
 
+///|
 test "多窗注册表：两窗共存、主从判定、窗数计数" {
   host_reset()
   let s1 = @shell.fake_session(1, 100, true, 800, 600)
@@ -16,6 +17,7 @@ test "多窗注册表：两窗共存、主从判定、窗数计数" {
   assert_eq(a2.wid(), 101)
 }
 
+///|
 test "多窗关闭：从窗关闭不减主窗、主窗关闭走退出判定" {
   host_reset()
   let s1 = @shell.fake_session(1, 200, true, 800, 600)
@@ -29,6 +31,7 @@ test "多窗关闭：从窗关闭不减主窗、主窗关闭走退出判定" {
   assert_eq(a1.window_count(), 1)
 }
 
+///|
 test "多窗激活：host_host_mark_active 切活动窗" {
   host_reset()
   let s1 = @shell.fake_session(1, 300, true, 800, 600)

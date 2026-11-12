@@ -1,4 +1,3 @@
-
 ///|
 test "vol Windows 读数环：读快照 + 设回当前音量 + 静音态读回一致" {
   if sys_platform() != "windows" {
@@ -24,7 +23,8 @@ test "vol Windows 读数环：读快照 + 设回当前音量 + 静音态读回�
     }
   }
   match vol_get() {
-    Ok(after) => assert_true(after.volume == cur.volume && after.muted == cur.muted)
+    Ok(after) =>
+      assert_true(after.volume == cur.volume && after.muted == cur.muted)
     Err(e) => {
       println("vol_get failed: \{e}")
       assert_true(false)

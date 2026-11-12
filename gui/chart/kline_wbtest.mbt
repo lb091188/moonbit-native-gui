@@ -127,7 +127,11 @@ test "K 线组件：出像素、涨红跌绿、换数据画面变" {
     Candle::make(12.5, 13.5, 11.5, 11.0),
     Candle::make(11.0, 11.8, 10.2, 11.6),
   ])
-  let (root, w) = mounted(candlestick_t(cs, width=280.0, height=150.0), 320.0, 170.0)
+  let (root, w) = mounted(
+    candlestick_t(cs, width=280.0, height=150.0),
+    320.0,
+    170.0,
+  )
   let plain = bm_of(w)
   assert_true(ink_of(plain) > 400)
   cs.set_always([Candle::make(5.0, 8.0, 4.0, 7.0)])
@@ -142,7 +146,11 @@ test "K 线组件：涨红跌绿两色都出像素" {
     Candle::make(11.5, 13.0, 11.0, 11.0), // 平盘归涨
     Candle::make(12.0, 12.5, 10.0, 10.5), // 跌 → success 绿
   ])
-  let (_root, w) = mounted(candlestick_t(cs, width=280.0, height=150.0), 320.0, 170.0)
+  let (_root, w) = mounted(
+    candlestick_t(cs, width=280.0, height=150.0),
+    320.0,
+    170.0,
+  )
   let bm = bm_of(w)
   // danger / success 都要有墨（涨跌各至少一根）
   let mut red = 0

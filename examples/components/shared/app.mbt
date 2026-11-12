@@ -15,7 +15,7 @@ pub(all) struct App {
   locale : @base.Store[String]
   /// 结构重建代次：语言/透明等需要整树重建的改动 bump 它（bind_node 订阅）；
   /// 由调用方用宿主 timer 推迟一拍再 bump，避免在自身回调里销毁正在执行的子树。
-  ui_gen : @base.Store[Int]
+  ui_gen : @base.Store[Int32]
   /// 轻提示推送（转发 `toast_layer` 的函数值字段）
   toast : (String, @ui.SemanticType) -> Unit
   /// 深浅：跟随开关打开时由定时器写，按钮手动改时先关跟随
@@ -26,7 +26,7 @@ pub(all) struct App {
   follow : @base.Store[Bool]
   /// 主题页共享信号：基础页 Button 触发，数据页 Statistic/Progress 展示；
   /// visits/ratio 为 computed 派生（信号版消灭了手动 subscribe 接线）
-  counter : @base.Signal[Int]
+  counter : @base.Signal[Int32]
   visits : @base.Signal[String]
   ratio : @base.Signal[Double]
   /// 最近一次链接点击（基础页回显）
@@ -72,7 +72,11 @@ pub fn tx(zh : String) -> String {
 
 ///|
 /// 带插值的取译：目录条目用 `\{名}` 占位；中文态回落 `zh`（调用处已插值好）。
-pub fn tr_with(key : String, vars : Array[(String, String)], zh : String) -> String {
+pub fn tr_with(
+  key : String,
+  vars : Array[(String, String)],
+  zh : String,
+) -> String {
   @i18n.t_with_or(key, vars, zh)
 }
 

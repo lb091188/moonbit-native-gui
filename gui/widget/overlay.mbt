@@ -19,9 +19,10 @@
 ///|
 /// 浮层句柄取号：进程级递增。多窗形态每窗一套浮层栈，若各自从 1 数起，
 /// 「a 窗的 1 号」与「b 窗的 1 号」会在诊断与跨窗排查里撞号。
-let overlay_next_cid : Ref[Int] = Ref(0)
+let overlay_next_cid : Ref[Int32] = Ref(0)
 
-fn overlay_cid() -> Int {
+///|
+fn overlay_cid() -> Int32 {
   overlay_next_cid.val = overlay_next_cid.val + 1
   overlay_next_cid.val
 }
@@ -40,7 +41,7 @@ pub(all) struct OverlayHost {
 /// `full` 另表「铺满整窗的遮罩档」（对话框/消息框走 `overlay_show_full`）：这一层
 /// 开着时**焦点链只收它子树**，见 `WindowHost::sync_focus`。
 pub(all) struct OverlayItem {
-  id : Int
+  id : Int32
   w : Widget
   dismiss : Bool
   full : Bool
@@ -72,11 +73,8 @@ pub fn make_overlay_host(root : Widget) -> OverlayHost {
   layer.node.set_bottom(@yoga.fixed(0.0))
   layer.set_visible(false)
   root.append_child(layer)
-  let host : OverlayHost = { root, layer, items: [] }
-  layer.on_pointer = Some(fn(
-    self : Widget,
-    ev : PointerEvent,
-  ) -> Bool {
+  let host : OverlayHost = { root, layer, items: [], }
+  layer.on_pointer = Some(fn(self : Widget, ev : PointerEvent) -> Bool {
     let inside = {
       let ax = ev.x + self.rect.x
       let ay = ev.y + self.rect.y
@@ -93,12 +91,7 @@ pub fn make_overlay_host(root : Widget) -> OverlayHost {
       // 若放在按下，同一击的抬起会重新命中触发件、把刚关掉的浮层又打开。
       // 点在浮层之外且最上层声明「放行」时例外：按下就不消费——这一击会由
       // 底下的页面控件接住（按下即捕获），图层的抬起分支自然不会再走到。
-      Down =>
-        if inside {
-          true
-        } else {
-          overlay_top_dismiss(self)
-        }
+      Down => if inside { true } else { overlay_top_dismiss(self) }
       Up => {
         if !inside {
           overlay_hide_top()
@@ -151,7 +144,7 @@ fn overlay_top_dismiss(layer : Widget) -> Bool {
 
 ///|
 /// 已开浮层数（诊断与测试用）。
-pub fn overlay_count() -> Int {
+pub fn overlay_count() -> Int32 {
   let layer_n = match overlay_host() {
     Some(h) => h.items.length()
     None => 0
@@ -162,10 +155,10 @@ pub fn overlay_count() -> Int {
 ///|
 /// 当前窗已开浮层的句柄，按开层先后排列（排在后的画在上）。句柄是**进程级**
 /// 递增的（多窗各自从 1 数起会撞号），所以调用方拿返回值、不要把数字写死。
-pub fn overlay_ids() -> Array[Int] {
+pub fn overlay_ids() -> Array[Int32] {
   match overlay_host() {
     Some(h) => {
-      let out : Array[Int] = []
+      let out : Array[Int32] = []
       for it in h.items {
         out.push(it.id)
       }
@@ -177,7 +170,7 @@ pub fn overlay_ids() -> Array[Int] {
 
 ///|
 /// 最上面一层的句柄（没有浮层给 0，与「查不到」的返回值同形）。
-pub fn overlay_top_id() -> Int {
+pub fn overlay_top_id() -> Int32 {
   match overlay_host() {
     Some(h) =>
       if h.items.length() > 0 {
@@ -213,7 +206,7 @@ pub fn popup_fit(
   h : Double,
   bounds_w : Double,
   bounds_h : Double,
-  anchor? : Rect? = None,
+  anchor~ : Rect? = None,
 ) -> (Double, Double) {
   let mut px = x
   let mut py = y
@@ -249,9 +242,9 @@ pub fn overlay_show_at(
   content : Node,
   x : Double,
   y : Double,
-  dismiss_on_outside? : Bool = true,
-  anchor? : Rect? = None,
-) -> Int {
+  dismiss_on_outside~ : Bool = true,
+  anchor~ : Rect? = None,
+) -> Int32 {
   match overlay_host() {
     None => 0
     Some(h) => {
@@ -259,19 +252,12 @@ pub fn overlay_show_at(
       let native = overlay_native_tier()
       if g_native_probe_on.val {
         (g_native_probe.val)(
-          "POPUP-REQ cid=\{cid} tier=\{if native { 1 } else { 0 }} req=(\{x.round().to_int()},\{y.round().to_int()})"
+          "POPUP-REQ cid=\{cid} tier=\{if native { 1 } else { 0 }} req=(\{x.round().to_int()},\{y.round().to_int()})",
         )
       }
       if native &&
         overlay_native_open(
-          cid,
-          content,
-          x,
-          y,
-          0.0,
-          0.0,
-          false,
-          dismiss_on_outside,
+          cid, content, x, y, 0.0, 0.0, false, dismiss_on_outside,
         ) {
         // 原生档：所在窗有网页区，图层盖不住，改开真窗口（见 overlay_native.mbt）
         invalidate()
@@ -293,12 +279,13 @@ pub fn overlay_show_at(
       let lx = x - h.layer.rect.x
       let ly = y - h.layer.rect.y
       let local_anchor : Rect? = match anchor {
-        Some(a) => Some({
-          x: a.x - h.layer.rect.x,
-          y: a.y - h.layer.rect.y,
-          w: a.w,
-          h: a.h,
-        })
+        Some(a) =>
+          Some({
+            x: a.x - h.layer.rect.x,
+            y: a.y - h.layer.rect.y,
+            w: a.w,
+            h: a.h,
+          })
         None => None
       }
       let (fx, fy) = popup_fit(
@@ -315,7 +302,7 @@ pub fn overlay_show_at(
       h.root.relayout(h.root.rect.w, h.root.rect.h)
       if g_native_probe_on.val {
         (g_native_probe.val)(
-          "POPUP-LAYER cid=\{cid} fit=(\{fx.round().to_int()},\{fy.round().to_int()}) size=(\{wrap.rect.w.round().to_int()},\{wrap.rect.h.round().to_int()}) bounds=(\{h.layer.rect.w.round().to_int()},\{h.layer.rect.h.round().to_int()})"
+          "POPUP-LAYER cid=\{cid} fit=(\{fx.round().to_int()},\{fy.round().to_int()}) size=(\{wrap.rect.w.round().to_int()},\{wrap.rect.h.round().to_int()}) bounds=(\{h.layer.rect.w.round().to_int()},\{h.layer.rect.h.round().to_int()})",
         )
       }
       h.items.push({
@@ -333,7 +320,7 @@ pub fn overlay_show_at(
 ///|
 /// 开一层**铺满窗口**的浮层（insets 全 0，内容自己决定怎么用这块地方）：
 /// 对话框的遮罩、整屏面板都用它。
-pub fn overlay_show_full(content : Node) -> Int {
+pub fn overlay_show_full(content : Node) -> Int32 {
   match overlay_host() {
     None => 0
     Some(h) => {
@@ -345,15 +332,15 @@ pub fn overlay_show_full(content : Node) -> Int {
           Some(a) => {
             let (sw, sh) = a.window().size()
             if overlay_native_open(
-              cid,
-              content,
-              0.0,
-              0.0,
-              sw.to_double(),
-              sh.to_double(),
-              true,
-              false,
-            ) {
+                cid,
+                content,
+                0.0,
+                0.0,
+                sw.to_double(),
+                sh.to_double(),
+                true,
+                false,
+              ) {
               invalidate()
               return cid
             }
@@ -373,7 +360,7 @@ pub fn overlay_show_full(content : Node) -> Int {
       wrap.node.set_bottom(@yoga.fixed(0.0))
       let _ = content.mount_into(wrap)
       h.layer.append_child(wrap)
-      h.items.push({ id: cid, w: wrap, dismiss: true, full: true })
+      h.items.push({ id: cid, w: wrap, dismiss: true, full: true, })
       invalidate()
       cid
     }
@@ -383,7 +370,7 @@ pub fn overlay_show_full(content : Node) -> Int {
 ///|
 /// 移动一层浮层到窗口坐标 `(x, y)`（图层档）。原生档那扇弹层窗的位置开出来就归
 /// 窗口系统管，这里对它返回 false、不作移动。
-pub fn overlay_set_pos(id : Int, x : Double, y : Double) -> Bool {
+pub fn overlay_set_pos(id : Int32, x : Double, y : Double) -> Bool {
   match overlay_host() {
     None => false
     Some(h) => {
@@ -405,7 +392,7 @@ pub fn overlay_set_pos(id : Int, x : Double, y : Double) -> Bool {
 
 ///|
 /// 关掉指定浮层（句柄 0 或不存在时空操作）；关完最后一层就收起图层。
-pub fn overlay_hide(id : Int) -> Unit {
+pub fn overlay_hide(id : Int32) -> Unit {
   if overlay_native_close(id) {
     // 原生档：关掉那扇弹层窗就完事，不碰图层栈
     invalidate()
@@ -494,7 +481,7 @@ pub fn overlay_raise() -> Unit {
 
 ///|
 /// 指定浮层的包裹控件（诊断与测试用：浮层内容挂在它的子控件里）。
-pub fn overlay_root_of(id : Int) -> Widget? {
+pub fn overlay_root_of(id : Int32) -> Widget? {
   match overlay_host() {
     Some(h) => {
       for it in h.items {
@@ -510,7 +497,7 @@ pub fn overlay_root_of(id : Int) -> Widget? {
 
 ///|
 /// 指定浮层在窗口坐标里的矩形（诊断与测试用）。
-pub fn overlay_rect_of(id : Int) -> Rect? {
+pub fn overlay_rect_of(id : Int32) -> Rect? {
   match overlay_host() {
     Some(h) => {
       for it in h.items {

@@ -8,8 +8,14 @@ test "nightlight：GNOME schema 可用性探测（本机有则 true）" {
   let avail = nl_gnome_available()
   if avail {
     // 读一次当前温度键（无副作用）
-    match @sys.pr_run("gsettings", ["get", NL_GNOME_SCHEMA, NL_GNOME_KEY_TEMP], timeout_ms=3000) {
-      Ok(out) => assert_true(out.stdout.length() > 0, msg="读到的温度键为空")
+    match
+      @sys.pr_run(
+        "gsettings",
+        ["get", NL_GNOME_SCHEMA, NL_GNOME_KEY_TEMP],
+        timeout_ms=3000,
+      ) {
+      Ok(out) =>
+        assert_true(out.stdout.length() > 0, msg="读到的温度键为空")
       Err(_) => fail("schema 可用但读不到温度键")
     }
   }

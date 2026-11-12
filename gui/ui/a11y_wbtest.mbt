@@ -82,13 +82,21 @@ test "语义面：输入框读文本、密码框只报保护态、只读框报�
   assert_eq(w1.a11y_text_now(), Some("你好"))
   assert_eq(w1.a11y_state_now(), None)
   // 密码框：明文不出语义面
-  let (_r2, w2) = mounted(input(@base.Store::new("secret"), password=true), 220.0, 32.0)
+  let (_r2, w2) = mounted(
+    input(@base.Store::new("secret"), password=true),
+    220.0,
+    32.0,
+  )
   assert_eq(w2.a11y_text_now(), None)
   match w2.a11y_state_now() {
     Some((st, _)) => assert_eq(st, "password")
     None => abort("密码框没报保护态")
   }
-  let (_r3, w3) = mounted(input(@base.Store::new("固定"), read_only=true), 220.0, 32.0)
+  let (_r3, w3) = mounted(
+    input(@base.Store::new("固定"), read_only=true),
+    220.0,
+    32.0,
+  )
   match w3.a11y_state_now() {
     Some((st, _)) => assert_eq(st, "read_only")
     None => abort("只读框没报只读")

@@ -7,7 +7,7 @@
 
 ///|
 /// `DataKind?` → 可读编号（`None` 记 0）：断言走它，避开对枚举做 `assert_eq`。
-fn kind_id_of_opt(k : DataKind?) -> Int {
+fn kind_id_of_opt(k : DataKind?) -> Int32 {
   match k {
     Some(x) => data_kind_id(x)
     None => 0
@@ -298,7 +298,7 @@ test "拖出：效果编号与 `DragEffect::flag` 同 Win32 `DROPEFFECT_*` 口�
 ///|
 test "拖出：只 Text/Paths 有系统级形态；起不来时给 Err 且不动会话" {
   assert_true(drag_data_has_system_form(DragData::Text("a")))
-  assert_true(drag_data_has_system_form(DragData::Paths([ "a.txt" ])))
+  assert_true(drag_data_has_system_form(DragData::Paths(["a.txt"])))
   assert_false(drag_data_has_system_form(DragData::Html("<b>a</b>")))
   assert_false(drag_data_has_system_form(DragData::Img(b"png")))
   // 无头跑：本机后端没这条能力给 Unsupported，后端可用但当前没有活动窗口给
@@ -312,13 +312,18 @@ test "拖出：只 Text/Paths 有系统级形态；起不来时给 Err 且不动
   // 没有系统级形态的种类直接 Unsupported，不必等到真的起一趟
   match drag_external_send(DragData::Html("<b>x</b>")) {
     Err(DragError::Unsupported) => ()
-    Err(DragError::Failed(m)) => fail("Html 该先被种类判据拦下，不该走到起拖：\{m}")
+    Err(DragError::Failed(m)) =>
+      fail("Html 该先被种类判据拦下，不该走到起拖：\{m}")
     Ok(_) => fail("Html 没有系统级形态却报成交")
   }
   assert_false(drag_external_send(DragData::Img(b"png")) is Ok(_))
   // 探测与发送口径一致：探测说不可用时，发送必然 Unsupported
   inspect(
-    if drag_external_send_supported() { "可用" } else { "不可用" },
+    if drag_external_send_supported() {
+      "可用"
+    } else {
+      "不可用"
+    },
     content=if @win.dragdnd_supported() { "可用" } else { "不可用" },
   )
 }

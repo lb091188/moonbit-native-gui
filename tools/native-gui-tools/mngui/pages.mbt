@@ -192,9 +192,7 @@ fn page_dev(w : Wizard) -> Array[@widget.Node] {
     @ui.row(
       [
         @ui.button("启动 mng dev", on_click=fn() { start_dev(w) }),
-        @ui.button("下一步", variant=@ui.Border, on_click=fn() {
-          goto(w, 4)
-        }),
+        @ui.button("下一步", variant=@ui.Border, on_click=fn() { goto(w, 4) }),
       ],
       column_gap=8.0,
     ),

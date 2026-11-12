@@ -1,10 +1,9 @@
 import {
   "NoahLiu/native-gui/base",
-  "NoahLiu/native-gui/widget" @widget,
-
+  "NoahLiu/native-gui/widget",
   "NoahLiu/native-gui/render",
   "NoahLiu/native-gui/ui",
-  "NoahLiu/native-gui/style" @style,
+  "NoahLiu/native-gui/style",
   "NoahLiu/native-gui/win",
 }
 

@@ -14,19 +14,27 @@
 ///|
 /// 控制条高度与显示区分区常量。
 const BAR_H : Double = 34.0
+
+///|
 const BAR_VOL_W : Double = 80.0
+
+///|
 const BAR_TIME_W : Double = 150.0
+
+///|
 const BAR_GAP : Double = 8.0
 
 ///|
 /// 文字档位键的钉宽（按最宽档 + 左右 12px 内边距取值）：倍速最宽「1.25x」、
 /// 缩放最宽「适配」。窄档被 `min_width` 抬到同宽，档位切换按钮不横跳。
 const BAR_SPEED_W : Double = 60.0
+
+///|
 const BAR_ZOOM_W : Double = 52.0
 
 ///|
 /// 全屏观感：多少拍（33ms/拍）无指针活动就收条 + 藏指针（约 2.5 秒）。
-const BAR_IDLE_TICKS : Int = 75
+const BAR_IDLE_TICKS : Int32 = 75
 
 ///|
 /// 全屏观感的计拍步进（纯函数，组件 tick 每拍调一次）：全屏且指针停在画面上
@@ -35,8 +43,8 @@ const BAR_IDLE_TICKS : Int = 75
 pub fn bar_idle_step(
   fullscreen : Bool,
   pointer_on_stage : Bool,
-  idle : Int,
-) -> (Int, Bool) {
+  idle : Int32,
+) -> (Int32, Bool) {
   if !(fullscreen && pointer_on_stage) {
     (0, false)
   } else {
@@ -52,7 +60,7 @@ let bar_speeds : ReadOnlyArray[Double] = [1.0, 1.25, 1.5, 2.0, 0.75]
 
 ///|
 /// 第 i 次点击对应的档位（i 可任意增长，含负数）。
-pub fn bar_speed_at(i : Int) -> Double {
+pub fn bar_speed_at(i : Int32) -> Double {
   let n = bar_speeds.length()
   let k = i % n
   bar_speeds[if k < 0 { k + n } else { k }]
@@ -78,7 +86,7 @@ pub fn vp_fmt_speed(v : Double) -> String {
 
 ///|
 /// 缩放档位标签（0 等比适配 / 1 铺满裁切 / 2 原始像素）。
-pub fn vp_zoom_label(mode : Int) -> String {
+pub fn vp_zoom_label(mode : Int32) -> String {
   match mode {
     1 => "铺满"
     2 => "1:1"
@@ -105,19 +113,18 @@ pub fn vp_fit_rect(
   vh : Double,
   rw : Double,
   rh : Double,
-  mode : Int,
+  mode : Int32,
 ) -> (Double, Double, Double, Double) {
   if vw <= 0.0 || vh <= 0.0 || rw <= 0.0 || rh <= 0.0 {
     (0.0, 0.0, 0.0, 0.0)
   } else {
     let fit = rw / vw
     let fill = rh / vh
-    let s =
-      match mode {
-        1 => if fit > fill { fit } else { fill }
-        2 => 1.0
-        _ => if fit < fill { fit } else { fill }
-      }
+    let s = match mode {
+      1 => if fit > fill { fit } else { fill }
+      2 => 1.0
+      _ => if fit < fill { fit } else { fill }
+    }
     let dw = vw * s
     let dh = vh * s
     ((rw - dw) / 2.0, (rh - dh) / 2.0, dw, dh)
@@ -129,11 +136,22 @@ pub fn vp_fit_rect(
 /// 否则拖动没有分辨率可言。音量条是右侧独立控件，窄时由布局压它让位）。
 fn bar_track_w(w : Double) -> Double {
   let t = w - BAR_TIME_W - BAR_GAP
-  if t < 40.0 { 40.0 } else { t }
+  if t < 40.0 {
+    40.0
+  } else {
+    t
+  }
 }
 
+///|
 fn bar_clamp01(f : Double) -> Double {
-  if f < 0.0 { 0.0 } else if f > 1.0 { 1.0 } else { f }
+  if f < 0.0 {
+    0.0
+  } else if f > 1.0 {
+    1.0
+  } else {
+    f
+  }
 }
 
 ///|
@@ -201,14 +219,7 @@ fn media_error_board(
     p.set_fill_color(@theme.theme_bg_page())
     p.fill_rect(0.0, 0.0, r.w, r.h)
     p.flush()
-    let _ = @text.draw_text_at(
-      p,
-      8.0,
-      8.0,
-      msg,
-      13.0,
-      @theme.theme_danger(),
-    )
+    let _ = @text.draw_text_at(p, 8.0, 8.0, msg, 13.0, @theme.theme_danger())
   })
   handle(w)
   @widget.node_of(w)
@@ -377,45 +388,44 @@ fn player_bind_keys(
 ) -> Unit {
   match @widget.host_active() {
     None => ()
-    Some(app) => app.add_key_fallthrough(fn(
-      ev : @widget.KeyEvent,
-    ) -> Bool {
-      if !watch.is_painted() {
-        false
-      } else if ev.keysym == @base.KS_SPACE {
-        on_toggle()
-        true
-      } else if ev.keysym == @base.KS_RETURN {
-        on_full()
-        true
-      } else if ev.keysym == @base.KS_LEFT {
-        on_back()
-        true
-      } else if ev.keysym == @base.KS_RIGHT {
-        on_fwd()
-        true
-      } else if ev.keysym == @base.KS_UP {
-        on_vol(0.05)
-        true
-      } else if ev.keysym == @base.KS_DOWN {
-        on_vol(0.0 - 0.05)
-        true
-      } else if ev.keysym == 0x6D {
-        // 'm'（本栈 keysym 与 X11 同源：可打印字符 = 其 Latin-1 码位）
-        on_mute()
-        true
-      } else if ev.keysym == 0x6C {
-        // 'l'
-        on_loop()
-        true
-      } else if ev.keysym == @base.KS_ESCAPE && is_full() {
-        // 只在真处于全屏时接管：窗口态的 Esc 还有别的用途
-        on_full()
-        true
-      } else {
-        false
-      }
-    })
+    Some(app) =>
+      app.add_key_fallthrough(fn(ev : @widget.KeyEvent) -> Bool {
+        if !watch.is_painted() {
+          false
+        } else if ev.keysym == @base.KS_SPACE {
+          on_toggle()
+          true
+        } else if ev.keysym == @base.KS_RETURN {
+          on_full()
+          true
+        } else if ev.keysym == @base.KS_LEFT {
+          on_back()
+          true
+        } else if ev.keysym == @base.KS_RIGHT {
+          on_fwd()
+          true
+        } else if ev.keysym == @base.KS_UP {
+          on_vol(0.05)
+          true
+        } else if ev.keysym == @base.KS_DOWN {
+          on_vol(0.0 - 0.05)
+          true
+        } else if ev.keysym == 0x6D {
+          // 'm'（本栈 keysym 与 X11 同源：可打印字符 = 其 Latin-1 码位）
+          on_mute()
+          true
+        } else if ev.keysym == 0x6C {
+          // 'l'
+          on_loop()
+          true
+        } else if ev.keysym == @base.KS_ESCAPE && is_full() {
+          // 只在真处于全屏时接管：窗口态的 Esc 还有别的用途
+          on_full()
+          true
+        } else {
+          false
+        }
+      })
   }
 }
 
@@ -429,7 +439,7 @@ fn player_bar(
   full : @base.Store[Bool],
   muted : @base.Store[Bool],
   looping : @base.Store[Bool],
-  zoom : @base.Store[Int]?,
+  zoom : @base.Store[Int32]?,
   back_icon : @icons.IconKind,
   fwd_icon : @icons.IconKind,
   on_toggle : () -> Unit,
@@ -446,24 +456,18 @@ fn player_bar(
   let kids : Array[@widget.Node] = [
     @widget.bind_node(playing.signal(), fn(p : Bool) -> @widget.Node {
       @ui.icon_button(
-        if p { @icons.VideoPause } else { @icons.VideoPlay },
+        if p {
+          @icons.VideoPause
+        } else {
+          @icons.VideoPlay
+        },
         on_click=on_toggle,
         icon_size=16.0,
         box_size=28.0,
       )
     }),
-    @ui.icon_button(
-      back_icon,
-      on_click=on_back,
-      icon_size=16.0,
-      box_size=28.0,
-    ),
-    @ui.icon_button(
-      fwd_icon,
-      on_click=on_fwd,
-      icon_size=16.0,
-      box_size=28.0,
-    ),
+    @ui.icon_button(back_icon, on_click=on_back, icon_size=16.0, box_size=28.0),
+    @ui.icon_button(fwd_icon, on_click=on_fwd, icon_size=16.0, box_size=28.0),
     // 循环开关：图标恒 `Sync`，开着用主题色点亮（无独立关态字形）
     @widget.bind_node(looping.signal(), fn(l : Bool) -> @widget.Node {
       @ui.icon_button(
@@ -485,38 +489,51 @@ fn player_bar(
     }),
   ]
   match zoom {
-    Some(z) => kids.push(
-      @widget.bind_node(z.signal(), fn(m : Int) -> @widget.Node {
-        @ui.button(
-          vp_zoom_label(m),
-          on_click=on_zoom,
-          variant=@ui.Text,
-          font_size=12.0,
-          min_width=BAR_ZOOM_W,
-        )
-      }),
-    )
+    Some(z) =>
+      kids.push(
+        @widget.bind_node(z.signal(), fn(m : Int32) -> @widget.Node {
+          @ui.button(
+            vp_zoom_label(m),
+            on_click=on_zoom,
+            variant=@ui.Text,
+            font_size=12.0,
+            min_width=BAR_ZOOM_W,
+          )
+        }),
+      )
     None => ()
   }
   kids.push(@widget.node_of(seek))
   // 静音与音量成组（成熟播放器通行排法）：静音键贴音量条左沿
-  kids.push(@widget.bind_node(muted.signal(), fn(m : Bool) -> @widget.Node {
-    @ui.icon_button(
-      if m { @icons.Hide } else { @icons.Sound },
-      on_click=on_mute,
-      icon_size=16.0,
-      box_size=28.0,
-    )
-  }))
+  kids.push(
+    @widget.bind_node(muted.signal(), fn(m : Bool) -> @widget.Node {
+      @ui.icon_button(
+        if m {
+          @icons.Hide
+        } else {
+          @icons.Sound
+        },
+        on_click=on_mute,
+        icon_size=16.0,
+        box_size=28.0,
+      )
+    }),
+  )
   kids.push(@widget.node_of(volume))
-  kids.push(@widget.bind_node(full.signal(), fn(f : Bool) -> @widget.Node {
-    @ui.icon_button(
-      if f { @icons.FullscreenExit } else { @icons.Fullscreen },
-      on_click=on_full,
-      icon_size=16.0,
-      box_size=28.0,
-    )
-  }))
+  kids.push(
+    @widget.bind_node(full.signal(), fn(f : Bool) -> @widget.Node {
+      @ui.icon_button(
+        if f {
+          @icons.FullscreenExit
+        } else {
+          @icons.Fullscreen
+        },
+        on_click=on_full,
+        icon_size=16.0,
+        box_size=28.0,
+      )
+    }),
+  )
   @ui.row(
     kids,
     column_gap=2.0,

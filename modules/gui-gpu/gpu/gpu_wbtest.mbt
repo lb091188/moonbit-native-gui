@@ -69,14 +69,14 @@ test "canvas：无头 draw + 读回（有 GPU 扩展才跑）" {
         data,
         8,
         8,
-        { x: 0.0, y: 0.0, w: 64.0, h: 48.0 },
+        { x: 0.0, y: 0.0, w: 64.0, h: 48.0, },
         None,
         1.0,
       )
       // 半透明绿矩形盖在中间（opacity 0.5 × 色 alpha 0.5）
       @render.GpuSink::fill_rect(
         c,
-        { x: 16.0, y: 12.0, w: 32.0, h: 24.0 },
+        { x: 16.0, y: 12.0, w: 32.0, h: 24.0, },
         "#00ff0080",
         None,
         0.5,
@@ -88,15 +88,19 @@ test "canvas：无头 draw + 读回（有 GPU 扩展才跑）" {
           // 全零留作异常判据：曾因管线 multisample.mask 被 memset 清成 0
           // 导致所有 draw 不出像素（adaptation.md 2026-11-06 更正），现已修。
           // 这里保留全零分支只作诊断，管线/协议面的断言照跑。
-          let all_zero = b[0] == 0 && b[1] == 0 && b[2] == 0 && b[3] == 0 &&
-            b[4] == 0 && b[5] == 0
+          let all_zero = b[0] == 0 &&
+            b[1] == 0 &&
+            b[2] == 0 &&
+            b[3] == 0 &&
+            b[4] == 0 &&
+            b[5] == 0
           if all_zero {
             println(
               "canvas: 读回全零——离屏渲染或读回链异常（见 adaptation.md），像素断言跳过",
             )
           } else {
             // 样点读数先落一行：首轮真像素（mac）就是靠它判方向/通道序
-            let sample = fn(x : Int, y : Int) -> String {
+            let sample = fn(x : Int32, y : Int32) -> String {
               let i = (y * 64 + x) * 4
               "(\{b[i]},\{b[i + 1]},\{b[i + 2]},\{b[i + 3]})"
             }
@@ -113,7 +117,10 @@ test "canvas：无头 draw + 读回（有 GPU 扩展才跑）" {
             assert_eq(b[ri], 255, msg="右下 B 槽应 255（蓝区）")
             // 绿矩形中心：G 槽被抬过（绿矩形盖上了）
             let ci = (24 * 64 + 32) * 4
-            assert_true(b[ci + 1] > 40, msg="矩形中心应吃到绿：g=\{b[ci + 1]}")
+            assert_true(
+              b[ci + 1] > 40,
+              msg="矩形中心应吃到绿：g=\{b[ci + 1]}",
+            )
           }
         }
       }

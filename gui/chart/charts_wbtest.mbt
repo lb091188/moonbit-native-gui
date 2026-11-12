@@ -3,7 +3,10 @@
 
 ///|
 fn bm_of(w : @widget.Widget) -> @render.Bitmap {
-  let bm = @render.Bitmap::new(w.rect.w.round().to_int() + 2, w.rect.h.round().to_int() + 2)
+  let bm = @render.Bitmap::new(
+    w.rect.w.round().to_int() + 2,
+    w.rect.h.round().to_int() + 2,
+  )
   let p = @render.Painter::new(bm)
   w.paint_at(p, w.rect.x, w.rect.y)
   p.end()
@@ -13,7 +16,7 @@ fn bm_of(w : @widget.Widget) -> @render.Bitmap {
 ///|
 /// 两张位图的不同像素数（组件会先铺一层面板底，所以「有墨」不能只看 alpha，
 /// 一切换就得比差异）。
-fn diff_of(a : @render.Bitmap, b : @render.Bitmap) -> Int {
+fn diff_of(a : @render.Bitmap, b : @render.Bitmap) -> Int32 {
   let mut n = 0
   let h = a.height.min(b.height)
   let w = a.width.min(b.width)
@@ -31,7 +34,7 @@ fn diff_of(a : @render.Bitmap, b : @render.Bitmap) -> Int {
 
 ///|
 /// 与「全空位图」的差异数（等价于有墨像素数）。
-fn ink_of(bm : @render.Bitmap) -> Int {
+fn ink_of(bm : @render.Bitmap) -> Int32 {
   diff_of(bm, @render.Bitmap::new(bm.width, bm.height))
 }
 
@@ -42,7 +45,11 @@ fn close(a : Double, b : Double) -> Bool {
 
 ///|
 /// 挂进根控件并跑一轮布局（交叉轴不拉伸，组件自己算出的宽才是看得见的真值）。
-fn mounted(node : @widget.Node, w : Double, h : Double) -> (@widget.Widget, @widget.Widget) {
+fn mounted(
+  node : @widget.Node,
+  w : Double,
+  h : Double,
+) -> (@widget.Widget, @widget.Widget) {
   let root = @widget.Widget::new()
   root.set_size(w, h)
   root.set_column()
@@ -77,7 +84,9 @@ test "滚动窗口：定长丢最旧、越界索引无操作、Store 推点整�
 test "坐标换算与值域：退化不炸、单点居中、留白比例正确" {
   let empty = auto_y_range([])
   assert_eq(empty, (0.0, 1.0))
-  let one = auto_y_range([LineSeries::make("a", max_points=50).with_points([5.0])])
+  let one = auto_y_range([
+    LineSeries::make("a", max_points=50).with_points([5.0]),
+  ])
   assert_eq(one, (4.0, 6.0))
   let two = auto_y_range([LineSeries::make("a").with_points([0.0, 100.0])])
   assert_true(close(two.0, -8.0) && close(two.1, 108.0))
@@ -196,7 +205,9 @@ test "折线图：Store 推点后画面变化、空窗只画网格与提示" {
   let (root, w) = mounted(line_chart_t(s, height=120.0), 320.0, 140.0)
   assert_eq((w.rect.w, w.rect.h), (320.0, 120.0))
   let empty = bm_of(w)
-  s.set_always([LineSeries::make("a", max_points=50).with_points([1.0, 4.0, 2.0, 7.0, 5.0])])
+  s.set_always([
+    LineSeries::make("a", max_points=50).with_points([1.0, 4.0, 2.0, 7.0, 5.0]),
+  ])
   let _ = root.relayout(320.0, 140.0)
   assert_true(diff_of(bm_of(w), empty) > 200)
   // 密集：点数远多于像素列时仍出图（按列矩形，不逐段描边）
@@ -216,7 +227,11 @@ test "柱状图：悬停那根换浅底并标数值，离开后复原" {
     BarItem::make("乙", -12.0),
     BarItem::make("丙", 48.0),
   ])
-  let (root, w) = mounted(bar_chart_t(data, width=300.0, height=160.0), 340.0, 180.0)
+  let (root, w) = mounted(
+    bar_chart_t(data, width=300.0, height=160.0),
+    340.0,
+    180.0,
+  )
   let plain = bm_of(w)
   let px = 46.0 + (300.0 - 46.0 - 12.0) / 3.0 * 0.5 + 6.0
   let _ = root.dispatch_pointer({
@@ -245,7 +260,11 @@ test "环形图：扇区与图例出像素、donut_hit 指到扇区与中心孔"
     DonutSlice::make("乙", 35.0),
     DonutSlice::make("丙", 25.0),
   ])
-  let (_root, w) = mounted(donut_chart_t(data, width=420.0, height=180.0), 460.0, 200.0)
+  let (_root, w) = mounted(
+    donut_chart_t(data, width=420.0, height=180.0),
+    460.0,
+    200.0,
+  )
   assert_true(ink_of(bm_of(w)) > 2000)
   // 圆心在 (8+d/2, h/2)，d=h-16=164 → cx=90、cy=90；12 点方向第一扇区
   assert_eq(donut_hit(180.0, [DonutSlice::make("甲", 1.0)], 90.0, 20.0), 0)
@@ -271,11 +290,11 @@ test "仪表盘：值弧随 Store 平滑逼近目标，smooth=false 直接跳到
   // 平滑版：排了延时链，逐拍逼近（跑几拍后应已接近目标）
   let fired : Ref[Array[() -> Unit]] = Ref([])
   @shell.set_timer_hooks(
-    fn(_ms : Int, f : () -> Unit) -> Int {
+    fn(_ms : Int32, f : () -> Unit) -> Int32 {
       fired.val.push(f)
       fired.val.length()
     },
-    fn(_id : Int) -> Unit { () },
+    fn(_id : Int32) -> Unit { () },
   )
   let v2 = @base.Store::new(0.0)
   let (_r2, w2) = mounted(gauge_t(v2, width=220.0, height=180.0), 260.0, 200.0)
@@ -320,16 +339,18 @@ test "散点图：圆点形状与千点级实心度上限" {
     None => (0, 0, 0)
   }
   // 「这一点像点色多过像面板底」：网格线与刻度都离底色更近，只有点阵满足这条
-  let inked = fn(bm : @render.Bitmap, x : Int, y : Int) -> Bool {
+  let inked = fn(bm : @render.Bitmap, x : Int32, y : Int32) -> Bool {
     let c = bm.pixel(x, y)
-    let d_dot = (c.r - target.0).abs() + (c.g - target.1).abs() +
-    (c.b - target.2).abs()
+    let d_dot = (c.r - target.0).abs() +
+      (c.g - target.1).abs() +
+      (c.b - target.2).abs()
     let d_bg = (c.r - bg.0).abs() + (c.g - bg.1).abs() + (c.b - bg.2).abs()
     d_dot < d_bg
   }
-  let solid = fn(bm : @render.Bitmap, x : Int, y : Int) -> Bool {
+  let solid = fn(bm : @render.Bitmap, x : Int32, y : Int32) -> Bool {
     let c = bm.pixel(x, y)
-    (c.r - target.0).abs() <= 6 && (c.g - target.1).abs() <= 6 &&
+    (c.r - target.0).abs() <= 6 &&
+    (c.g - target.1).abs() <= 6 &&
     (c.b - target.2).abs() <= 6
   }
   let one = @base.Store::new([(5.0, 7.0)])
@@ -346,10 +367,18 @@ test "散点图：圆点形状与千点级实心度上限" {
   for y = 12; y < 236; y = y + 1 {
     for x = 46; x < 306; x = x + 1 {
       if inked(f1, x, y) {
-        if x < min_x { min_x = x }
-        if x > max_x { max_x = x }
-        if y < min_y { min_y = y }
-        if y > max_y { max_y = y }
+        if x < min_x {
+          min_x = x
+        }
+        if x > max_x {
+          max_x = x
+        }
+        if y < min_y {
+          min_y = y
+        }
+        if y > max_y {
+          max_y = y
+        }
       }
     }
   }
@@ -368,7 +397,11 @@ test "散点图：圆点形状与千点级实心度上限" {
     data.push((x, y))
   }
   many.set(data)
-  let (_r2, w2) = mounted(scatter_t(many, width=320.0, height=260.0), 320.0, 260.0)
+  let (_r2, w2) = mounted(
+    scatter_t(many, width=320.0, height=260.0),
+    320.0,
+    260.0,
+  )
   let f2 = bm_of(w2)
   let mut n_solid = 0
   for y = 12; y < 236; y = y + 1 {

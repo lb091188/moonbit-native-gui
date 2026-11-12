@@ -18,10 +18,12 @@ test {
           assert_true(false)
         }
       }
-    Ok(AlreadyOwner) => println("bridge: 名字已被本进程持有（重复跑）")
-    Ok(_) => println("bridge: 首次声称不是 PrimaryOwner（被别的进程占着？）")
-    Err(e) => {
-      println("bridge: skip（会话总线不可用：\{e}）")
-    }
+    Ok(AlreadyOwner) =>
+      println("bridge: 名字已被本进程持有（重复跑）")
+    Ok(_) =>
+      println(
+        "bridge: 首次声称不是 PrimaryOwner（被别的进程占着？）",
+      )
+    Err(e) => println("bridge: skip（会话总线不可用：\{e}）")
   }
 }

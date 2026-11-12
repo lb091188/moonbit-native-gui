@@ -2,6 +2,7 @@
 // 建窗 → 报插入符矩形 → reset → 读 commit/preedit（应为空）→ 泵消息 → 干净退出。
 // 跑法：moon run experiment/ime_win_probe
 
+///|
 fn name_of(c : String?) -> String {
   match c {
     Some(s) => s
@@ -9,6 +10,7 @@ fn name_of(c : String?) -> String {
   }
 }
 
+///|
 fn main {
   if !@win.init_backend() {
     println("IMEWIN SKIP (无显示服务)")

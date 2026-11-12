@@ -5,11 +5,10 @@
 
 ///|
 let theme_color_keys : Array[String] = [
-  "primary", "primary_light", "primary_hover", "danger_hover",
-  "success", "success_light", "warning", "warning_light",
-  "danger", "danger_light", "info", "info_light",
-  "text_primary", "text_regular", "text_secondary",
-  "border", "fill_hover", "fill_zebra", "bg_page", "bg_panel",
+  "primary", "primary_light", "primary_hover", "danger_hover", "success", "success_light",
+  "warning", "warning_light", "danger", "danger_light", "info", "info_light", "text_primary",
+  "text_regular", "text_secondary", "border", "fill_hover", "fill_zebra", "bg_page",
+  "bg_panel",
 ]
 
 ///|
@@ -19,7 +18,10 @@ fn theme_json_color(name : String, v : @sys.VscJson) -> Result[String, String] {
     @sys.VscJStr(s) =>
       match parse_hex(s) {
         Some(_) => Ok(s)
-        None => Err("\{name}: 非法颜色值「\{s}」（需 #rgb / #rrggbb / #rrggbbaa）")
+        None =>
+          Err(
+            "\{name}: 非法颜色值「\{s}」（需 #rgb / #rrggbb / #rrggbbaa）",
+          )
       }
     _ => Err("\{name}: 必须是颜色字符串")
   }
@@ -32,7 +34,7 @@ fn theme_json_color(name : String, v : @sys.VscJson) -> Result[String, String] {
 /// 合法（绘制期回落主色）。
 pub fn from_json(
   src : String,
-  base? : Theme = default_theme(),
+  base~ : Theme = default_theme(),
 ) -> Result[Theme, String] {
   let j = match @sys.vsc_json_parse(src) {
     Some(j) => j
@@ -67,7 +69,10 @@ pub fn from_json(
       }
       continue
     }
-    if k == "space_scale" || k == "radius_scale" || k == "type_scale" || k == "duration_scale" {
+    if k == "space_scale" ||
+      k == "radius_scale" ||
+      k == "type_scale" ||
+      k == "duration_scale" {
       match v {
         @sys.VscJArr(xs) => {
           let ds : Array[Double] = []
@@ -79,7 +84,9 @@ pub fn from_json(
             }
           }
           if ds.length() == 0 {
-            return Err("\{k}: 不能是空数组（去掉该字段即回落基准）")
+            return Err(
+              "\{k}: 不能是空数组（去掉该字段即回落基准）",
+            )
           }
           if k == "space_scale" {
             space_scale = Some(ds)

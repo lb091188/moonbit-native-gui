@@ -124,7 +124,7 @@ test "proc_tick_cpu_pct：无前样本当拍置 0(不拿开机累计当增量)" 
 
 ///|
 test "proc_children：ppid 构树 / 父不在列表 / 自父跳过 / 升序" {
-  fn mk(pid : Int, ppid : Int) -> ProcInfo {
+  fn mk(pid : Int32, ppid : Int32) -> ProcInfo {
     {
       pid,
       ppid,
@@ -246,7 +246,10 @@ test "priority_result:Windows 档位名+代表值 / Linux nice 原值 / 失败�
     priority_result("windows", -20, 1, ""),
     "优先级已设为 实时(REALTIME)(代表值 -20)(1 个进程)",
   )
-  assert_eq(priority_result("linux", 10, 2, ""), "nice 已设为 10(2 个进程)")
+  assert_eq(
+    priority_result("linux", 10, 2, ""),
+    "nice 已设为 10(2 个进程)",
+  )
   let fail = priority_result("linux", 5, 1, ",[42]权限不足(EACCES)")
   assert_true(fail.contains("nice 已设为 5"))
   assert_true(fail.contains("1 个成功"))
@@ -334,9 +337,10 @@ test "S3 ProcMonitor：真实 /proc 全量采样 + 二次差值(Linux)" {
       // 不构成 flaky。
       // 前样本按**上一拍**（second）算，不是第一拍：监视器自己的 prev 就是它，
       // 拿第一拍的 pid 集当基线会把「第二拍才出现、第三拍已有差值」的进程误判成新进程
-      let seen : Array[Int] = []
+      let seen : Array[Int32] = []
       match second {
-        Some(rows2) => for p in rows2 {
+        Some(rows2) =>
+          for p in rows2 {
             seen.push(p.pid)
           }
         None => ()
@@ -409,15 +413,15 @@ fn cell_text(c : @ui.TableCell) -> String {
 ///|
 /// 构造测试进程行（字段序同 ProcInfo）。
 fn mk_proc(
-  pid : Int,
-  ppid : Int,
+  pid : Int32,
+  ppid : Int32,
   name : String,
   cmd : String,
   state : String,
   cpu : Double,
   rss_kb : Int64,
-  nice : Int,
-  threads : Int,
+  nice : Int32,
+  threads : Int32,
 ) -> ProcInfo {
   { pid, ppid, name, cmd, state, nice, threads, rss_kb, cpu_pct: cpu, }
 }

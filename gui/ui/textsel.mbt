@@ -22,15 +22,15 @@
 pub(all) struct TextSel {
   ed : @input.Editor
   dragging : Ref[Bool]
-  anchor : Ref[Int]
+  anchor : Ref[Int32]
   last_down : Ref[Int64]
   last_xy : Ref[(Double, Double)]
-  claim : Ref[Int]
+  claim : Ref[Int32]
 }
 
 ///|
 /// 认领 id：状态自带固定号（共享档）就用它，否则按按下控件自己的 id。
-fn sel_claim_id(w : @widget.Widget, st : TextSel) -> Int {
+fn sel_claim_id(w : @widget.Widget, st : TextSel) -> Int32 {
   match st.claim.val {
     0 => w.id
     v => v
@@ -41,11 +41,11 @@ fn sel_claim_id(w : @widget.Widget, st : TextSel) -> Int {
 /// 控件 id → 「文本变了」的收尾口。`relabel` 是动态文本的唯一变化点
 /// （`bind` / `bind_label` / `text_dyn` 都汇到这里）：注册过的件走本档收尾
 /// （标脏重排 + 让出选区），没注册的走原路 `attach_text_measure`。
-let sel_hooks : Ref[Map[Int, () -> Unit]] = Ref(Map([]))
+let sel_hooks : Ref[Map[Int32, () -> Unit]] = Ref(Map([]))
 
 ///|
 /// 控件 id → 这一件的状态（本包内的读回口：白盒用例断言选区/ caret 用）。
-let sel_states : Ref[Map[Int, TextSel]] = Ref(Map([]))
+let sel_states : Ref[Map[Int32, TextSel]] = Ref(Map([]))
 
 ///|
 /// 本档实际可见的文本：`max_lines` 钳制与单行省略都复用 @text 那一把刀。
@@ -67,7 +67,11 @@ fn sel_visible_text(
 ///|
 /// 本档的行盒高：样式给了 `line_height` 用它，否则取引擎行高。
 fn sel_line_h(font : @text.Font, line_h : Double) -> Double {
-  if line_h > 0.0 { line_h } else { @text.line_height_font(font).unwrap_or(18).to_double() }
+  if line_h > 0.0 {
+    line_h
+  } else {
+    @text.line_height_font(font).unwrap_or(18).to_double()
+  }
 }
 
 ///|
@@ -79,7 +83,7 @@ fn sel_layout(w : @widget.Widget, src : TextSource) -> @input.TextLayout {
   let r = w.rect
   let box_w = if src.max_width > 0.0 { src.max_width.min(r.w) } else { r.w }
   let text = sel_visible_text(src, font, box_w)
-  let measure = fn(t : String, from : Int, to : Int) -> Double {
+  let measure = fn(t : String, from : Int32, to : Int32) -> Double {
     seg_width(t, from, to, font)
   }
   let line_h = sel_line_h(font, lh_raw)
@@ -100,13 +104,17 @@ fn sel_layout(w : @widget.Widget, src : TextSource) -> @input.TextLayout {
     0.0
   }
   let top = ((r.h - lines.length().to_double() * line_h) / 2.0).max(0.0)
-  { text, lines, pad, line_h, offset_y: pad - top, measure }
+  { text, lines, pad, line_h, offset_y: pad - top, measure, }
 }
 
 ///|
 /// 盒宽上限（与缺省档同式：`max_width` 是上限不是定值）。
 fn sel_box_w(w : @widget.Widget, src : TextSource) -> Double {
-  if src.max_width > 0.0 { src.max_width.min(w.rect.w) } else { w.rect.w }
+  if src.max_width > 0.0 {
+    src.max_width.min(w.rect.w)
+  } else {
+    w.rect.w
+  }
 }
 
 ///|
@@ -124,12 +132,15 @@ fn sel_widest(lines : Array[@input.TextLine]) -> Double {
 ///|
 /// 测量面（本档）：内容尺寸由同一份行模型答。min-content 探询（yoga 请求轴
 /// `Some(0.0)`）按 1px 箱折——最宽单元自然浮出来，与缺省档「按最窄可折答」同口径。
-fn attach_sel_measure(node : @yoga.Node, id : Int, src : TextSource) -> Unit {
-  node.set_measure(fn(avail_w : Double?, _avail_h : Double?) -> (
-    Double,
-    Double,
-  ) {
-    let (font, _align, wrap, lh_raw, _d) = text_eff(@style.resolved_for_measure(id), src)
+fn attach_sel_measure(node : @yoga.Node, id : Int32, src : TextSource) -> Unit {
+  node.set_measure(fn(
+    avail_w : Double?,
+    _avail_h : Double?,
+  ) -> (Double, Double) {
+    let (font, _align, wrap, lh_raw, _d) = text_eff(
+      @style.resolved_for_measure(id),
+      src,
+    )
     let avail = match avail_w {
       Some(v) if v > 0.0 => v
       _ => 0.0
@@ -140,7 +151,7 @@ fn attach_sel_measure(node : @yoga.Node, id : Int, src : TextSource) -> Unit {
       (false, true) => avail
       (false, false) => 0.0
     }
-    let measure = fn(t : String, from : Int, to : Int) -> Double {
+    let measure = fn(t : String, from : Int32, to : Int32) -> Double {
       seg_width(t, from, to, font)
     }
     let probing = match avail_w {
@@ -159,8 +170,11 @@ fn attach_sel_measure(node : @yoga.Node, id : Int, src : TextSource) -> Unit {
     }
   })
   node.set_baseline(fn(_a : Double?, _b : Double?) -> Double? {
-    let (font, _align, _wrap, _lh, _u) = text_eff(@style.resolved_for_measure(id), src)
-    @text.line_ascent_font(font).map(fn(v : Int) -> Double { v.to_double() })
+    let (font, _align, _wrap, _lh, _u) = text_eff(
+      @style.resolved_for_measure(id),
+      src,
+    )
+    @text.line_ascent_font(font).map(fn(v : Int32) -> Double { v.to_double() })
   })
 }
 
@@ -174,17 +188,11 @@ fn sel_sync(st : TextSel, lay : @input.TextLayout) -> Unit {
 
 ///|
 /// 认领选区：复制走内核（装了系统槽就落系统剪贴板），让位时清自己的选区。
-fn sel_claim(id : Int, st : TextSel) -> Unit {
-  @widget.text_sel_claim(
-    id,
-    fn() {
-      let _ = st.ed.copy()
-    },
-    fn() {
-      let p = st.ed.caret_pos()
-      st.ed.select_range(p, p)
-    },
-  )
+fn sel_claim(id : Int32, st : TextSel) -> Unit {
+  @widget.text_sel_claim(id, fn() { let _ = st.ed.copy() }, fn() {
+    let p = st.ed.caret_pos()
+    st.ed.select_range(p, p)
+  })
 }
 
 ///|
@@ -204,12 +212,11 @@ fn draw_sel_text(
     None => src.fg()
   }
   match st.ed.selection() {
-    Some((a, b)) => {
+    Some((a, b)) =>
       for rc in lay.rects(a, b) {
         p.set_fill_color(@theme.theme_primary_light())
         p.fill_rect(rc.x, rc.y, rc.w.max(1.0), rc.h)
       }
-    }
     None => ()
   }
   for i = 0; i < lay.lines.length(); i = i + 1 {
@@ -258,7 +265,7 @@ fn sel_pointer(
   w : @widget.Widget,
   ev : @widget.PointerEvent,
   st : TextSel,
-  hit : (Double, Double) -> Int,
+  hit : (Double, Double) -> Int32,
 ) -> Bool {
   match ev.kind {
     @widget.PointerKind::Down => {
@@ -279,9 +286,9 @@ fn sel_pointer(
       // 系不同，局部坐标一比就会把「不同块里的相同相对位置」误判成双击
       let ax = w.rect.x + ev.x
       let ay = w.rect.y + ev.y
-      let dbl = (now - st.last_down.val) < 400L && (ax - st.last_xy.val.0).abs() < 4.0 && (
-        ay - st.last_xy.val.1
-      ).abs() < 4.0
+      let dbl = now - st.last_down.val < 400L &&
+        (ax - st.last_xy.val.0).abs() < 4.0 &&
+        (ay - st.last_xy.val.1).abs() < 4.0
       st.last_down.val = now
       st.last_xy.val = (ax, ay)
       let shift = (ev.mods & @base.MOD_SHIFT) != 0
@@ -331,7 +338,7 @@ fn sel_setup(w : @widget.Widget, src : TextSource) -> TextSel {
     self : @widget.Widget,
     ev : @widget.PointerEvent,
   ) -> Bool {
-    sel_pointer(self, ev, st, fn(x : Double, y : Double) -> Int {
+    sel_pointer(self, ev, st, fn(x : Double, y : Double) -> Int32 {
       let lay = sel_layout(self, src)
       sel_sync(st, lay)
       lay.hit(x, y)
@@ -377,20 +384,20 @@ pub fn TextSel::pointer(
   self : TextSel,
   w : @widget.Widget,
   ev : @widget.PointerEvent,
-  hit : (Double, Double) -> Int,
+  hit : (Double, Double) -> Int32,
 ) -> Bool {
   sel_pointer(w, ev, self, hit)
 }
 
 ///|
 /// 当前选区（字节区间）；没有选区给 None。绘制方据此铺底色。
-pub fn TextSel::range(self : TextSel) -> (Int, Int)? {
+pub fn TextSel::range(self : TextSel) -> (Int32, Int32)? {
   self.ed.selection()
 }
 
 ///|
 /// 让出选区持有者（控件摘除时调用；同一条注册表保证跨件互斥）。
-pub fn TextSel::give_up(self : TextSel, id : Int) -> Unit {
+pub fn TextSel::give_up(self : TextSel, id : Int32) -> Unit {
   let _ = self
   @widget.text_sel_release(id)
 }

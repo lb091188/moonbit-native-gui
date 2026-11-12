@@ -46,10 +46,7 @@ fn page_net(app : App) -> @widget.Node {
     }
   })
   @ui.col(
-    [
-      @ui.text("实体网卡", class=[@style.text_title]),
-      body,
-    ],
+    [@ui.text("实体网卡", class=[@style.text_title]), body],
     padding=12.0,
     row_gap=8.0,
     class=[@style.style(min_width=0.0)],

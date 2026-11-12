@@ -34,13 +34,17 @@ pub fn required(msg~ : String = "") -> (String) -> String? {
   }
   fn(v : String) -> String? {
     let t = v.trim()
-    if t.length() == 0 { Some(text) } else { None }
+    if t.length() == 0 {
+      Some(text)
+    } else {
+      None
+    }
   }
 }
 
 ///|
 /// 定长下限（按字符数粗口径，够用即可）。
-pub fn min_len(n : Int, msg~ : String = "") -> (String) -> String? {
+pub fn min_len(n : Int32, msg~ : String = "") -> (String) -> String? {
   let text = if msg.length() > 0 {
     msg
   } else {
@@ -50,9 +54,7 @@ pub fn min_len(n : Int, msg~ : String = "") -> (String) -> String? {
       "至少 \{n.to_string()} 个字符",
     )
   }
-  fn(v : String) -> String? {
-    if v.length() < n { Some(text) } else { None }
-  }
+  fn(v : String) -> String? { if v.length() < n { Some(text) } else { None } }
 }
 
 ///|
@@ -76,15 +78,25 @@ pub fn email(msg~ : String = "") -> (String) -> String? {
       }
       i += 1
     }
-    let ok = at > 0 && at < cs.length() - 1 && dot_after &&
+    let ok = at > 0 &&
+      at < cs.length() - 1 &&
+      dot_after &&
       cs[cs.length() - 1] != '.'
-    if ok { None } else { Some(text) }
+    if ok {
+      None
+    } else {
+      Some(text)
+    }
   }
 }
 
 ///|
 /// 整数区间规则（配合 `stepper`/数值输入的值串）。
-pub fn int_range(lo : Int, hi : Int, msg~ : String = "") -> (String) -> String? {
+pub fn int_range(
+  lo : Int32,
+  hi : Int32,
+  msg~ : String = "",
+) -> (String) -> String? {
   let text = if msg.length() > 0 {
     msg
   } else {
@@ -120,7 +132,11 @@ pub fn int_range(lo : Int, hi : Int, msg~ : String = "") -> (String) -> String? 
       return bad
     }
     let y = if neg { -acc } else { acc }
-    if y >= lo && y <= hi { None } else { bad }
+    if y >= lo && y <= hi {
+      None
+    } else {
+      bad
+    }
   }
 }
 

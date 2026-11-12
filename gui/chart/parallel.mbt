@@ -61,15 +61,15 @@ pub(all) struct ParAxis {
 /// 建平行坐标轴（min/max 省略即由数据推断）。
 pub fn ParAxis::make(
   name : String,
-  min? : Double? = None,
-  max? : Double? = None,
+  min~ : Double? = None,
+  max~ : Double? = None,
 ) -> ParAxis {
   { name, min, max, }
 }
 
 ///|
 /// 取数据行的第 i 列（跨行收集；行短于 i+1 列的跳过该行）。i < 0 给空。
-pub fn par_axis_column(rows : Array[Array[Double]], i : Int) -> Array[Double] {
+pub fn par_axis_column(rows : Array[Array[Double]], i : Int32) -> Array[Double] {
   let out : Array[Double] = []
   if i < 0 {
     return out
@@ -166,7 +166,12 @@ pub fn par_norm(v : Double, lo : Double, hi : Double) -> Double {
 ///|
 /// 第 i 条轴的 x 像素：N 条竖轴等距横排，首轴贴 left、末轴贴 right
 /// （与画布语义 0 指向右一致）；n <= 1 时取绘制区中点。
-pub fn par_axis_x(i : Int, n : Int, left : Double, right : Double) -> Double {
+pub fn par_axis_x(
+  i : Int32,
+  n : Int32,
+  left : Double,
+  right : Double,
+) -> Double {
   if n <= 1 {
     (left + right) / 2.0
   } else {
@@ -272,7 +277,7 @@ fn par_draw_chart(
   h : Double,
   axes : Array[ParAxis],
   rows : Array[Array[Double]],
-  highlight : Int,
+  highlight : Int32,
 ) -> Unit {
   if w <= 0.0 || h <= 0.0 {
     return
@@ -308,18 +313,18 @@ fn par_draw_chart(
     p.stroke()
     // 轴名：轴顶上方居中
     let _ = @text.draw_box_at(
-        p,
-        ax - par_name_w / 2.0,
-        y0 - 24.0,
-        par_name_w,
-        16.0,
-        truncate_to(axes[i].name, par_name_w),
-        label_font(),
-        @theme.theme_text_secondary(),
-        align=@text.Center,
-        valign=@text.Center,
-        wrap=false,
-      )
+      p,
+      ax - par_name_w / 2.0,
+      y0 - 24.0,
+      par_name_w,
+      16.0,
+      truncate_to(axes[i].name, par_name_w),
+      label_font(),
+      @theme.theme_text_secondary(),
+      align=@text.Center,
+      valign=@text.Center,
+      wrap=false,
+    )
     // 量程标签：max 贴轴顶、min 贴轴底，奇偶轴左右交替
     let right_side = i % 2 == 1
     let (align, lx) = if right_side {
@@ -392,10 +397,10 @@ fn par_draw_chart(
 pub fn par_chart_t(
   axes : @base.Store[Array[ParAxis]],
   rows : @base.Store[Array[Array[Double]]],
-  highlight? : Int = -1,
-  width? : Double = 0.0,
-  height? : Double = 320.0,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  highlight~ : Int32 = -1,
+  width~ : Double = 0.0,
+  height~ : Double = 320.0,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.follow_store(axes)
   @ui.follow_store(rows)

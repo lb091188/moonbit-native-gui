@@ -52,7 +52,7 @@ pub(all) struct MenuItem {
   /// 子菜单（Command/Check/Radio 可有；Separator 无）
   mut submenu : Menu?
   /// 后端翻译时回填的原生 id（模型侧不用，仅后端记账；0 = 未分配）
-  mut native_id : Int
+  mut native_id : Int32
 }
 
 ///|
@@ -71,27 +71,27 @@ pub(all) struct MenuBar {
 ///|
 /// 建一个空菜单条。
 pub fn MenuBar::new() -> MenuBar {
-  { menus: [] }
+  { menus: [], }
 }
 
 ///|
 /// 在菜单条上追加一个顶级菜单（返回该菜单以便继续加项）。
 pub fn MenuBar::add_menu(self : MenuBar, title : String) -> Menu {
-  let m : Menu = { title, items: [] }
+  let m : Menu = { title, items: [], }
   self.menus.push(m)
   m
 }
 
 ///|
 /// 顶级菜单数量。
-pub fn MenuBar::menu_count(self : MenuBar) -> Int {
+pub fn MenuBar::menu_count(self : MenuBar) -> Int32 {
   self.menus.length()
 }
 
 ///|
 /// 建一个独立菜单（可作子菜单，也可将来挂托盘右键菜单）。
-pub fn Menu::new(title? : String = "") -> Menu {
-  { title, items: [] }
+pub fn Menu::new(title~ : String = "") -> Menu {
+  { title, items: [], }
 }
 
 ///|
@@ -113,10 +113,18 @@ pub fn Menu::add_item(self : Menu, label : String) -> MenuItem {
 
 ///|
 /// 加角色项（复制/剪切/退出等标准动作）。
-pub fn Menu::add_role_item(self : Menu, role : MenuRole, label? : String = "") -> MenuItem {
+pub fn Menu::add_role_item(
+  self : Menu,
+  role : MenuRole,
+  label~ : String = "",
+) -> MenuItem {
   let it : MenuItem = {
     kind: Command,
-    label: if label == "" { menu_role_default_label(role) } else { label },
+    label: if label == "" {
+      menu_role_default_label(role)
+    } else {
+      label
+    },
     role,
     accelerator: menu_role_default_accelerator(role),
     checked: false,
@@ -181,7 +189,7 @@ pub fn Menu::add_submenu(self : Menu, title : String) -> Menu {
 
 ///|
 /// 菜单项数量。
-pub fn Menu::item_count(self : Menu) -> Int {
+pub fn Menu::item_count(self : Menu) -> Int32 {
   self.items.length()
 }
 
@@ -228,12 +236,16 @@ pub fn MenuItem::is_separator(self : MenuItem) -> Bool {
 /// 遍历菜单树（含自身与其所有子菜单），对每个项依次回调 `f`。纯函数，无副作用
 /// 之外的东西——后端翻译前统计项数、wbtest 校验结构都走它。`depth` 是被访问项
 /// 所在的层级（顶级菜单的项为 1，其子菜单的项为 2……）。
-pub fn Menu::walk(self : Menu, f : (MenuItem, Int) -> Unit) -> Unit {
+pub fn Menu::walk(self : Menu, f : (MenuItem, Int32) -> Unit) -> Unit {
   menu_walk_into(self, 1, f)
 }
 
 ///|
-fn menu_walk_into(menu : Menu, depth : Int, f : (MenuItem, Int) -> Unit) -> Unit {
+fn menu_walk_into(
+  menu : Menu,
+  depth : Int32,
+  f : (MenuItem, Int32) -> Unit,
+) -> Unit {
   for it in menu.items {
     f(it, depth)
     match it.submenu {
@@ -245,7 +257,7 @@ fn menu_walk_into(menu : Menu, depth : Int, f : (MenuItem, Int) -> Unit) -> Unit
 
 ///|
 /// 整棵树的项数（递归计；含分隔线）。
-pub fn MenuBar::total_item_count(self : MenuBar) -> Int {
+pub fn MenuBar::total_item_count(self : MenuBar) -> Int32 {
   let n = Ref(0)
   for m in self.menus {
     m.walk(fn(_it, _d) { n.val = n.val + 1 })
@@ -285,7 +297,7 @@ pub fn menu_role_default_accelerator(role : MenuRole) -> String {
 
 ///|
 /// 角色 → 数字编号（后端 FFI 传参用）。
-pub fn menu_role_id(role : MenuRole) -> Int {
+pub fn menu_role_id(role : MenuRole) -> Int32 {
   match role {
     Normal => -1
     Copy => 0
@@ -300,7 +312,7 @@ pub fn menu_role_id(role : MenuRole) -> Int {
 
 ///|
 /// 菜单项类型 → 数字编号（后端 FFI 传参用）。
-pub fn menu_item_kind_id(kind : MenuItemKind) -> Int {
+pub fn menu_item_kind_id(kind : MenuItemKind) -> Int32 {
   match kind {
     Command => 0
     Check => 1
@@ -321,11 +333,11 @@ pub fn menu_item_kind_id(kind : MenuItemKind) -> Int {
 ///|
 /// 命令 id → 回调的进程级注册表（翻译层用）。`build` 时填，宿主取 id 时查。
 /// 用 Ref 包一层（与 host.mbt 的 g_* 同制——模块级可变状态在本工具链走 Ref）。
-let menu_callbacks : Ref[Map[Int, () -> Unit]] = Ref(Map([]))
+let menu_callbacks : Ref[Map[Int32, () -> Unit]] = Ref(Map([]))
 
 ///|
 /// 把一个菜单节点的项递归交给后端建（`handle` 是后端菜单句柄）。返回是否全部成功。
-fn menu_translate_into(menu : Menu, handle : Int) -> Bool {
+fn menu_translate_into(menu : Menu, handle : Int32) -> Bool {
   let ok = Ref(true)
   for it in menu.items {
     let kind = menu_item_kind_id(it.kind)
@@ -344,7 +356,14 @@ fn menu_translate_into(menu : Menu, handle : Int) -> Bool {
         }
       }
       None => {
-        let cmd = @win.menu_add_item(handle, it.label, kind, menu_role_id(it.role), acc, it.checked)
+        let cmd = @win.menu_add_item(
+          handle,
+          it.label,
+          kind,
+          menu_role_id(it.role),
+          acc,
+          it.checked,
+        )
         if cmd > 0 {
           it.native_id = cmd
           match it.on_click {

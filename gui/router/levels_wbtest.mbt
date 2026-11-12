@@ -1,12 +1,14 @@
 // 层级状态与路径回归：首屏取法、goto 的归一化与回落、层数恒定、children_at 随父层
 // 变化、同值不重复唤醒与重入不成环、route_at 取当前路径上的节点。
 
+///|
 fn t_lf(k : String) -> Route {
   route_leaf(k, fn() -> @widget.Node {
     @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget { w })
   })
 }
 
+///|
 fn t_br(k : String, kids : Array[Route]) -> Route {
   route_branch(k, kids)
 }
@@ -90,7 +92,9 @@ test "同值整条路径不重复唤醒" {
 test "订阅里再 goto 不成环" {
   let r = new_router(t_tree())
   let mut hits = 0
-  r.store_at(0).subscribe(fn(_v : String) -> Unit {
+  r
+  .store_at(0)
+  .subscribe(fn(_v : String) -> Unit {
     hits += 1
     r.goto("系统/托盘")
   })

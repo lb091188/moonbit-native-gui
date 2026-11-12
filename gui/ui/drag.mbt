@@ -48,13 +48,15 @@ fn dnd_err_text(err : @widget.DragError) -> String {
 /// 键仍按下时发起（本组件正是在那一刻调），详见 `@widget.drag_external_send`。
 pub fn drag_source(
   content : @widget.Node,
-  payload? : () -> @widget.DragData? = fn() -> @widget.DragData? { None },
-  threshold? : Double = 4.0,
-  external? : Bool = false,
-  on_external? : (
-    Result[@widget.DragEffect, @widget.DragError],
-  ) -> Unit = fn(_ : Result[@widget.DragEffect, @widget.DragError]) -> Unit { () },
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  payload~ : () -> @widget.DragData? = fn() -> @widget.DragData? { None },
+  threshold~ : Double = 4.0,
+  external~ : Bool = false,
+  on_external~ : (Result[@widget.DragEffect, @widget.DragError]) -> Unit = fn(
+    _ : Result[@widget.DragEffect, @widget.DragError],
+  ) -> Unit {
+    ()
+  },
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
@@ -64,7 +66,7 @@ pub fn drag_source(
     let dragging : Ref[Bool] = Ref(false)
     // 拖拽反馈光标：悬停可拖张手，按下（等阈值）与开拖后握拳——拖拽会话
     // 期间宿主会统一改握拳，这里管的是按下未过阈值的那一档
-    w.cursor_fn = Some(fn(_self : @widget.Widget) -> Int {
+    w.cursor_fn = Some(fn(_self : @widget.Widget) -> Int32 {
       if armed.val || dragging.val {
         @widget.CURSOR_GRABBING
       } else {
@@ -81,7 +83,7 @@ pub fn drag_source(
       let wx = self.rect.x + ev.x
       let wy = self.rect.y + ev.y
       match ev.kind {
-        @widget.PointerKind::Down => {
+        @widget.PointerKind::Down =>
           if ev.button != 1 {
             false
           } else {
@@ -92,8 +94,7 @@ pub fn drag_source(
             dnd_diag("按下记牢（等过阈值）")
             true
           }
-        }
-        @widget.PointerKind::Move => {
+        @widget.PointerKind::Move =>
           if dragging.val {
             let _ = @widget.drag_move(wx, wy)
             true
@@ -105,9 +106,8 @@ pub fn drag_source(
               match payload() {
                 Some(data) => {
                   dnd_diag(
-                    "过阈值：external=" + (
-                      if external { "开" } else { "关" }
-                    ),
+                    "过阈值：external=" +
+                    (if external { "开" } else { "关" }),
                   )
                   if external {
                     // 先试系统级拖出（这一支阻塞到松手/取消才回来）；没走成——后端
@@ -128,8 +128,10 @@ pub fn drag_source(
                         @widget.drag_external_abort_session()
                         let ok = @widget.drag_begin(data, self.id, wx, wy)
                         dnd_diag(
-                          "系统级没起来：" + dnd_err_text(err) + " → 回落应用内" +
-                            (if ok { "成" } else { "没成" }),
+                          "系统级没起来：" +
+                          dnd_err_text(err) +
+                          " → 回落应用内" +
+                          (if ok { "成" } else { "没成" }),
                         )
                         on_external(Err(err))
                         if ok {
@@ -161,7 +163,6 @@ pub fn drag_source(
           } else {
             false
           }
-        }
         @widget.PointerKind::Up => {
           let was = dragging.val
           armed.val = false
@@ -194,15 +195,17 @@ pub fn drag_source(
 /// 调 `accept` 判收不收、收则调 `on_drop`。`accept` 默认全收。
 pub fn drop_target(
   content : @widget.Node,
-  on_drop? : (@widget.DragData, Double, Double) -> Unit = fn(
+  on_drop~ : (@widget.DragData, Double, Double) -> Unit = fn(
     _d : @widget.DragData,
     _x : Double,
     _y : Double,
   ) -> Unit {
     ()
   },
-  accept? : (@widget.DragData) -> Bool = fn(_d : @widget.DragData) -> Bool { true },
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  accept~ : (@widget.DragData) -> Bool = fn(_d : @widget.DragData) -> Bool {
+    true
+  },
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()

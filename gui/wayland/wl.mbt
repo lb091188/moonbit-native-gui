@@ -19,9 +19,9 @@
 /// 一个 registry global（name 是 compositor 侧序号，interface/version 是
 /// 协议面；绑定要 name）。
 pub(all) struct WlGlobal {
-  name : Int
+  name : Int32
   iface : String
-  version : Int
+  version : Int32
 }
 
 ///|
@@ -53,31 +53,45 @@ pub fn wl_socket_path() -> String? {
 
 ///|
 #borrow(path)
-extern "c" fn ffi_wl_connect(path : Bytes) -> Int = "yue_wl_unix_connect"
+extern "c" fn ffi_wl_connect(path : Bytes) -> Int32 = "yue_wl_unix_connect"
 
 ///|
 #borrow(buf)
-extern "c" fn ffi_wl_read(fd : Int, buf : Bytes, off : Int, len : Int) -> Int =
-  "yue_wl_read"
+extern "c" fn ffi_wl_read(
+  fd : Int32,
+  buf : Bytes,
+  off : Int32,
+  len : Int32,
+) -> Int32 = "yue_wl_read"
 
 ///|
 #borrow(buf)
-extern "c" fn ffi_wl_write(fd : Int, buf : Bytes, off : Int, len : Int) -> Int =
-  "yue_wl_write"
+extern "c" fn ffi_wl_write(
+  fd : Int32,
+  buf : Bytes,
+  off : Int32,
+  len : Int32,
+) -> Int32 = "yue_wl_write"
 
 ///|
-extern "c" fn ffi_wl_poll(fd : Int, events : Int, timeout_ms : Int) -> Int =
-  "yue_wl_poll"
+extern "c" fn ffi_wl_poll(
+  fd : Int32,
+  events : Int32,
+  timeout_ms : Int32,
+) -> Int32 = "yue_wl_poll"
 
 ///|
-extern "c" fn ffi_wl_close(fd : Int) -> Unit = "yue_wl_close"
+extern "c" fn ffi_wl_close(fd : Int32) -> Unit = "yue_wl_close"
 
 ///|
 /// 连显示服务器（成功回 fd；调用方用完 `wl_close`）。没有 Wayland 会话 /
 /// 平台不支持给 Err。
-pub fn wl_connect() -> Result[Int, String] {
+pub fn wl_connect() -> Result[Int32, String] {
   match wl_socket_path() {
-    None => Err("没有 Wayland 会话（WAYLAND_DISPLAY / XDG_RUNTIME_DIR 未设置）")
+    None =>
+      Err(
+        "没有 Wayland 会话（WAYLAND_DISPLAY / XDG_RUNTIME_DIR 未设置）",
+      )
     Some(p) => {
       let fd = ffi_wl_connect(@utf8.encode(p))
       if fd < 0 {
@@ -91,7 +105,7 @@ pub fn wl_connect() -> Result[Int, String] {
 
 ///|
 /// 关连接（幂等）。
-pub fn wl_close(fd : Int) -> Unit {
+pub fn wl_close(fd : Int32) -> Unit {
   ffi_wl_close(fd)
 }
 
@@ -102,7 +116,7 @@ pub fn wl_close(fd : Int) -> Unit {
 ///|
 /// 消息头 + 参数体拼装（object_id, opcode, 参数字节）→ 完整消息字节。
 /// size 字段由本函数算（含 8 字节头）。
-pub fn wl_msg(object_id : Int, opcode : Int, body : Bytes) -> Bytes {
+pub fn wl_msg(object_id : Int32, opcode : Int32, body : Bytes) -> Bytes {
   let total = 8 + body.length()
   let out : FixedArray[Byte] = FixedArray::make(total, b'\x00')
   // object_id: u32 小端
@@ -124,7 +138,7 @@ pub fn wl_msg(object_id : Int, opcode : Int, body : Bytes) -> Bytes {
 
 ///|
 /// u32 小端追加进参数体。
-pub fn wl_put_u32(buf : FixedArray[Byte], off : Int, v : Int) -> Int {
+pub fn wl_put_u32(buf : FixedArray[Byte], off : Int32, v : Int32) -> Int32 {
   buf[off] = (v & 0xFF).to_byte()
   buf[off + 1] = ((v >> 8) & 0xFF).to_byte()
   buf[off + 2] = ((v >> 16) & 0xFF).to_byte()
@@ -135,7 +149,7 @@ pub fn wl_put_u32(buf : FixedArray[Byte], off : Int, v : Int) -> Int {
 ///|
 /// wayland string 追加（u32 长度 + 字节 + NUL，**不含**尾部对齐——对齐在
 /// 消息出口按 4 补；返回新偏移）。空串也是「长度 0 + 一个 NUL」。
-pub fn wl_put_string(buf : FixedArray[Byte], off : Int, s : String) -> Int {
+pub fn wl_put_string(buf : FixedArray[Byte], off : Int32, s : String) -> Int32 {
   let b = @utf8.encode(s)
   let n = wl_put_u32(buf, off, b.length())
   for i in 0..<b.length() {
@@ -147,13 +161,13 @@ pub fn wl_put_string(buf : FixedArray[Byte], off : Int, s : String) -> Int {
 
 ///|
 /// 消息体按 4 对齐补零（返回补齐后的长度）。
-pub fn wl_pad4(len : Int) -> Int {
+pub fn wl_pad4(len : Int32) -> Int32 {
   (len + 3) / 4 * 4
 }
 
 ///|
 /// 从消息字节读 u32 小端。
-pub fn wl_get_u32(b : Bytes, off : Int) -> Int {
+pub fn wl_get_u32(b : Bytes, off : Int32) -> Int32 {
   b[off].to_int() |
   (b[off + 1].to_int() << 8) |
   (b[off + 2].to_int() << 16) |
@@ -168,7 +182,7 @@ pub fn wl_get_u32(b : Bytes, off : Int) -> Int {
 /// wl_display.get_registry(registry: new_id)：**opcode 1**（wl_display 的请求
 /// 序是 sync=0 / get_registry=1——wayland.xml 口径，搞反过：服务端会把
 /// get_registry 当 sync 建出一个 callback，registry 永远拿不到 global）。
-pub fn wl_get_registry(fd : Int, registry_id : Int) -> Result[Unit, String] {
+pub fn wl_get_registry(fd : Int32, registry_id : Int32) -> Result[Unit, String] {
   let body : FixedArray[Byte] = FixedArray::make(4, b'\x00')
   let _ = wl_put_u32(body, 0, registry_id)
   wl_send(fd, wl_msg(1, 1, Bytes::from_array(body)))
@@ -177,7 +191,7 @@ pub fn wl_get_registry(fd : Int, registry_id : Int) -> Result[Unit, String] {
 ///|
 /// wl_display.sync(callback: new_id)：**opcode 0**，体是 new_id。done 事件
 /// 回来才代表「此前发的请求服务端都处理完了」——枚举 global 的屏障。
-pub fn wl_sync(fd : Int, callback_id : Int) -> Result[Unit, String] {
+pub fn wl_sync(fd : Int32, callback_id : Int32) -> Result[Unit, String] {
   let body : FixedArray[Byte] = FixedArray::make(4, b'\x00')
   let _ = wl_put_u32(body, 0, callback_id)
   wl_send(fd, wl_msg(1, 0, Bytes::from_array(body)))
@@ -186,12 +200,12 @@ pub fn wl_sync(fd : Int, callback_id : Int) -> Result[Unit, String] {
 ///|
 /// wl_registry.bind(name, interface, version, id: new_id)：opcode 0。
 pub fn wl_bind(
-  fd : Int,
-  registry_id : Int,
-  name : Int,
+  fd : Int32,
+  registry_id : Int32,
+  name : Int32,
   iface : String,
-  version : Int,
-  new_id : Int,
+  version : Int32,
+  new_id : Int32,
 ) -> Result[Unit, String] {
   let b = @utf8.encode(iface)
   // name(4) + string(4+n+1) + version(4) + new_id(4)，string 后补对齐
@@ -208,7 +222,7 @@ pub fn wl_bind(
 
 ///|
 /// 发一条消息（整段写出；写一半断了的按错误回）。
-pub fn wl_send(fd : Int, msg : Bytes) -> Result[Unit, String] {
+pub fn wl_send(fd : Int32, msg : Bytes) -> Result[Unit, String] {
   let mut off = 0
   while off < msg.length() {
     let n = ffi_wl_write(fd, msg, off, msg.length() - off)
@@ -231,10 +245,10 @@ pub fn wl_send(fd : Int, msg : Bytes) -> Result[Unit, String] {
 /// acc 是调用方的累积缓冲（FixedArray + 长度 Ref）——先读进临时 Bytes 再搬
 /// （extern 收 Bytes，与 dbus 的 Conn 同形态）。
 pub fn wl_read_into(
-  fd : Int,
+  fd : Int32,
   acc : FixedArray[Byte],
-  acc_len : Ref[Int],
-) -> Int {
+  acc_len : Ref[Int32],
+) -> Int32 {
   if ffi_wl_poll(fd, 1, 0) <= 0 {
     return -1
   }
@@ -257,7 +271,7 @@ pub fn wl_read_into(
 /// 枚举 registry 的全局对象：get_registry → sync → 读到 done 为止，其间
 /// 收 global 事件（opcode 0：name u32 + interface string + version u32）。
 /// global_remove（opcode 1）忽略——枚举是一次性快照。
-pub fn wl_globals(fd : Int) -> Result[Array[WlGlobal], String] {
+pub fn wl_globals(fd : Int32) -> Result[Array[WlGlobal], String] {
   let reg_id = 2
   let cb_id = 3
   let _ = wl_get_registry(fd, reg_id)
@@ -339,7 +353,7 @@ pub fn wl_parse_global(msg : Bytes) -> WlGlobal? {
     return None
   }
   let version = wl_get_u32(msg, voff)
-  Some({ name, iface, version })
+  Some({ name, iface, version, })
 }
 
 ///|

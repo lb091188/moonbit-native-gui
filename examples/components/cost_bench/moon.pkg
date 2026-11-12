@@ -2,11 +2,11 @@
 // 它要直接吃 pages 的页函数，跨模块取会牵出「探针模块依赖示例」的边）。
 import {
   "NoahLiu/native-gui/base",
-  "NoahLiu/native-gui/widget" @widget,
-  "NoahLiu/native-gui/render" @render,
+  "NoahLiu/native-gui/widget",
+  "NoahLiu/native-gui/render",
   "NoahLiu/native-gui/ui",
-  "NoahLiu/native-gui/win" @win,
-  "NoahLiu/native-gui/sys" @sys,
+  "NoahLiu/native-gui/win",
+  "NoahLiu/native-gui/sys",
   "NoahLiu/native-gui/style",
   "NoahLiu/native-gui-examples-components/shared",
   "NoahLiu/native-gui-examples-components/pages",

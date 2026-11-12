@@ -59,13 +59,7 @@ pub fn ScrollState::max_x(self : ScrollState) -> Double {
 /// 设横偏移：越界夹到 `[0, max_x]`，随后落布局并请求重绘。
 pub fn ScrollState::set_offset_x(self : ScrollState, v : Double) -> Unit {
   let m = self.max_x()
-  let nv = if v < 0.0 {
-    0.0
-  } else if v > m {
-    m
-  } else {
-    v
-  }
+  let nv = if v < 0.0 { 0.0 } else if v > m { m } else { v }
   if nv != self.offset_x {
     self.offset_x = nv
     (self.apply_x.val)()
@@ -88,13 +82,7 @@ pub fn ScrollState::offset_y(self : ScrollState) -> Double {
 /// 设偏移：越界一律夹到 `[0, max]`，随后把新值落到布局上并请求重绘。
 pub fn ScrollState::set_offset(self : ScrollState, v : Double) -> Unit {
   let m = self.max()
-  let nv = if v < 0.0 {
-    0.0
-  } else if v > m {
-    m
-  } else {
-    v
-  }
+  let nv = if v < 0.0 { 0.0 } else if v > m { m } else { v }
   if nv != self.offset {
     self.offset = nv
     (self.apply.val)()
@@ -198,9 +186,17 @@ fn scroll_bar(state : ScrollState) -> @widget.Widget {
       let travel = (r.h - thumb).max(0.0)
       let ratio = state.offset / (ch - vh)
       let st = @style.style_for(_self)
-      p.set_fill_color(@style.color_of(st.background_color, @theme.theme_border()))
+      p.set_fill_color(
+        @style.color_of(st.background_color, @theme.theme_border()),
+      )
       // 拇指胶囊形（几何取圆，不随圆角开关变方）
-      p.fill_round_rect(1.0, ratio * travel, r.w - 2.0, thumb, (r.w - 2.0) / 2.0)
+      p.fill_round_rect(
+        1.0,
+        ratio * travel,
+        r.w - 2.0,
+        thumb,
+        (r.w - 2.0) / 2.0,
+      )
       p.set_global_alpha(1.0)
     }
   })
@@ -272,8 +268,16 @@ fn scroll_bar_h(state : ScrollState) -> @widget.Widget {
       let travel = (r.w - thumb).max(0.0)
       let ratio = state.offset_x / (cw - vw)
       let st = @style.style_for(_self)
-      p.set_fill_color(@style.color_of(st.background_color, @theme.theme_border()))
-      p.fill_round_rect(ratio * travel, 1.0, thumb, r.h - 2.0, (r.h - 2.0) / 2.0)
+      p.set_fill_color(
+        @style.color_of(st.background_color, @theme.theme_border()),
+      )
+      p.fill_round_rect(
+        ratio * travel,
+        1.0,
+        thumb,
+        r.h - 2.0,
+        (r.h - 2.0) / 2.0,
+      )
       p.set_global_alpha(1.0)
     }
   })
@@ -328,13 +332,13 @@ fn scroll_bar_h(state : ScrollState) -> @widget.Widget {
 pub fn scroll_view(
   children : Array[@widget.Node],
   state : ScrollState,
-  width? : Double = 0.0,
-  height? : Double = 0.0,
-  hscroll? : Bool = false,
-  min_content_width? : Double = 0.0,
-  vscroll? : Bool = true,
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  width~ : Double = 0.0,
+  height~ : Double = 0.0,
+  hscroll~ : Bool = false,
+  min_content_width~ : Double = 0.0,
+  vscroll~ : Bool = true,
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   @widget.node_of_new(fn(viewport : @widget.Widget) -> @widget.Widget {
     watch_theme()
@@ -429,7 +433,9 @@ pub fn scroll_view(
       }
       if state.content_h > state.view_h {
         let st = @style.style_for(self)
-        p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
+        p.set_stroke_color(
+          @style.color_of(st.border_color, @theme.theme_border()),
+        )
         let dashed = set_border_pen(p, st)
         p.stroke_rect(0.0, 0.0, r.w, r.h)
         reset_border_pen(p, dashed)

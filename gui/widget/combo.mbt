@@ -7,7 +7,7 @@
 /// `@win.parse_accelerator`（全局热键、菜单加速键）同一套：同一串 spec
 /// 不该在窗口内与系统层有两个意思。修饰键的入乡随俗由调用方传平台读数
 /// （`@shell.platform_is_macos()`）。
-pub fn parse_combo(spec : String, mac? : Bool = false) -> (Int, Int)? {
+pub fn parse_combo(spec : String, mac~ : Bool = false) -> (Int32, Int32)? {
   let parts = spec.split("+")
   let cleaned : Array[String] = []
   for p in parts {
@@ -30,7 +30,11 @@ pub fn parse_combo(spec : String, mac? : Bool = false) -> (Int, Int)? {
       "shift" => @base.MOD_SHIFT
       "meta" | "super" | "win" | "cmd" | "command" => @base.MOD_META
       "cmdorctrl" | "cmdorctl" | "commandorcontrol" =>
-        if mac { @base.MOD_META } else { @base.MOD_CTRL }
+        if mac {
+          @base.MOD_META
+        } else {
+          @base.MOD_CTRL
+        }
       _ => -1
     }
     if bit >= 0 {
@@ -52,7 +56,7 @@ pub fn parse_combo(spec : String, mac? : Bool = false) -> (Int, Int)? {
 
 ///|
 /// 判定 KeyEvent 是否命中已解析的组合（按下 + mods + keysym 全等）。
-pub fn match_combo(ev : KeyEvent, mods : Int, keysym : Int) -> Bool {
+pub fn match_combo(ev : KeyEvent, mods : Int32, keysym : Int32) -> Bool {
   ev.press && ev.mods == mods && ev.keysym == keysym
 }
 
@@ -65,8 +69,9 @@ pub fn ev_is_combo(ev : KeyEvent, spec : String) -> Bool {
   }
 }
 
+///|
 /// 键名 → keysym 值。控制键用 @base 常量，字母数字用 ASCII 码。
-fn keysym_of_name(name : String) -> Int {
+fn keysym_of_name(name : String) -> Int32 {
   match name {
     "backspace" | "bs" => @base.KS_BACKSPACE
     "tab" => @base.KS_TAB
@@ -80,7 +85,7 @@ fn keysym_of_name(name : String) -> Int {
     "home" => @base.KS_HOME
     "end" => @base.KS_END
     "delete" | "del" => @base.KS_DELETE
-    _ => {
+    _ =>
       if name.length() == 1 {
         let c = name[0]
         let v = c.to_int()
@@ -93,6 +98,5 @@ fn keysym_of_name(name : String) -> Int {
       } else {
         -1
       }
-    }
   }
 }

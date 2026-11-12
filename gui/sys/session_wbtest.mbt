@@ -50,8 +50,9 @@ test "session_type 随进程环境变（前后还原本机值）" {
   let want = session_type_of(had_xdg.unwrap_or(""), had_wl.unwrap_or(""))
   assert_true(back is X11 || back is Wayland || back is Unknown)
   assert_true(
-    (back is X11 && want is X11) || (back is Wayland && want is Wayland) ||
-      (back is Unknown && want is Unknown),
+    (back is X11 && want is X11) ||
+    (back is Wayland && want is Wayland) ||
+    (back is Unknown && want is Unknown),
   )
 }
 

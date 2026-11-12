@@ -49,7 +49,7 @@ pub extend AppFindError with Show::{to_string, output}
 
 ///|
 /// 找字符首次出现下标，无则 -1。
-fn appfind_index_of_char(s : String, c : Int) -> Int {
+fn appfind_index_of_char(s : String, c : Int32) -> Int32 {
   let mut i = 0
   while i < s.length() {
     if s.unsafe_get(i).to_int() == c {
@@ -177,7 +177,7 @@ fn appfind_names_hit(names : Array[String], name : String) -> Bool {
 ///|
 /// 码点字典序比较（String 默认序是先比长度的 shortlex，应用清单要的是
 /// 字母序）：逐码点比，全同则短者前。
-fn appfind_str_cmp(a : String, b : String) -> Int {
+fn appfind_str_cmp(a : String, b : String) -> Int32 {
   let n = a.length()
   let m = b.length()
   let mut i = 0
@@ -326,7 +326,7 @@ pub fn appfind_mac_bundle_label(name : String) -> String? {
 
 ///|
 /// s 的 at 处是否以 p 开头（下标按 UTF-16 单元，与 unsafe_get 同一口径）。
-fn appfind_starts_with_at(s : String, at : Int, p : String) -> Bool {
+fn appfind_starts_with_at(s : String, at : Int32, p : String) -> Bool {
   let n = p.length()
   if at < 0 || at + n > s.length() {
     return false
@@ -343,7 +343,7 @@ fn appfind_starts_with_at(s : String, at : Int, p : String) -> Bool {
 
 ///|
 /// 从 from 起找子串 p，命中给下标，否则 -1。
-fn appfind_index_from(s : String, p : String, from : Int) -> Int {
+fn appfind_index_from(s : String, p : String, from : Int32) -> Int32 {
   let n = p.length()
   if n == 0 || from < 0 {
     return -1
@@ -360,7 +360,7 @@ fn appfind_index_from(s : String, p : String, from : Int) -> Int {
 
 ///|
 /// 从 from 起找码值为 code 的 UTF-16 单元，命中给下标，否则 -1。
-fn appfind_char_from(s : String, code : Int, from : Int) -> Int {
+fn appfind_char_from(s : String, code : Int32, from : Int32) -> Int32 {
   let mut i = if from < 0 { 0 } else { from }
   while i < s.length() {
     if s.unsafe_get(i).to_int() == code {
@@ -427,12 +427,12 @@ pub fn appfind_plist_string(plist : String, key : String) -> String? {
   let mut at = appfind_index_from(plist, needle, 0)
   while at >= 0 {
     let tag = appfind_char_from(plist, lt, at + needle.length())
-    let head_ok = tag >= 0 && tag + 7 < plist.length() &&
+    let head_ok = tag >= 0 &&
+      tag + 7 < plist.length() &&
       appfind_starts_with_at(plist, tag, "<string")
     let head = if head_ok { plist.unsafe_get(tag + 7).to_int() } else { 0 }
     // '<string' 后面必须紧跟 '>' 或属性分隔（防 `<stringify>` 这种同名前缀）
-    let is_string_tag =
-      head == gt || head == 32 || head == 9 || head == 10
+    let is_string_tag = head == gt || head == 32 || head == 9 || head == 10
     if head_ok && is_string_tag {
       let open = appfind_char_from(plist, gt, tag)
       if open >= 0 {
@@ -465,14 +465,15 @@ pub fn appfind_mac_entry(
   plist : String?,
 ) -> AppEntry {
   match plist {
-    None => {
-      id: label,
-      name: label,
-      locale_name: label,
-      exec: "",
-      icon: "",
-      categories: [],
-    }
+    None =>
+      {
+        id: label,
+        name: label,
+        locale_name: label,
+        exec: "",
+        icon: "",
+        categories: [],
+      }
     Some(text) => {
       let res = app_dir + "/Contents/Resources"
       let name = match appfind_plist_string(text, "CFBundleDisplayName") {
@@ -500,14 +501,7 @@ pub fn appfind_mac_entry(
           }
         _ => ""
       }
-      {
-        id,
-        name,
-        locale_name: name,
-        exec,
-        icon,
-        categories: [],
-      }
+      { id, name, locale_name: name, exec, icon, categories: [], }
     }
   }
 }
@@ -547,8 +541,8 @@ pub fn appfind_mac_exec_dirs(
     }
   }
   let fixed : Array[String] = [
-    "/usr/local/bin", "/opt/homebrew/bin", "/opt/homebrew/sbin", "/usr/bin",
-    "/bin", "/usr/sbin", "/sbin",
+    "/usr/local/bin", "/opt/homebrew/bin", "/opt/homebrew/sbin", "/usr/bin", "/bin",
+    "/usr/sbin", "/sbin",
   ]
   let user_bin = match home {
     Some(h) if h != "" => h + "/.local/bin"
@@ -779,6 +773,7 @@ fn appfind_windows_entry(lnk : String) -> AppEntry {
     categories: ["StartMenu"],
   }
 }
+
 ///|
 pub fn appfind_installed() -> Result[Array[AppEntry], AppFindError] {
   match sys_platform() {
@@ -802,10 +797,9 @@ pub fn appfind_installed() -> Result[Array[AppEntry], AppFindError] {
     "macos" =>
       // .app 包扫 /Applications 那三层（含 Utilities 与用户级），读公开
       // plist 键出条目；扫描目录皆缺 → NoScanDir
-      appfind_mac_installed(
-        appfind_mac_dirs(envx_get("HOME")),
-        fn(path) { fsx_list_dir(path) },
-      )
+      appfind_mac_installed(appfind_mac_dirs(envx_get("HOME")), fn(path) {
+        fsx_list_dir(path)
+      })
     _ => Err(Unsupported)
   }
 }
@@ -851,7 +845,7 @@ pub fn appfind_executable(name : String) -> Result[String, AppFindError] {
               continue
             }
             match fsx_list_dir(d) {
-              Ok(names) => {
+              Ok(names) =>
                 for n in names {
                   let ln = n.to_lower()
                   let target = name.to_lower()
@@ -859,7 +853,6 @@ pub fn appfind_executable(name : String) -> Result[String, AppFindError] {
                     return Ok(d + "\\" + n.to_string())
                   }
                 }
-              }
               Err(_) => ()
             }
           }

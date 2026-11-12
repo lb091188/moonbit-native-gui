@@ -39,7 +39,7 @@ fn icon_ext_of(path : String) -> String {
   if dot < 0 || dot == bs.length() - 1 {
     return ""
   }
-  @utf8.decode_lossy(bs[dot + 1 :]).to_lower()
+  @utf8.decode_lossy(bs[dot + 1:]).to_lower()
 }
 
 ///|
@@ -59,7 +59,7 @@ pub fn icon_format_of(path : String) -> IconFormat {
 /// 平台图标句柄（后端表下标；`handle == 0` 表示无效/平台不支持）。
 /// 用后调 `Icon::free` 释放；未释放的随进程退出由系统回收。
 pub(all) struct Icon {
-  mut handle : Int
+  mut handle : Int32
 }
 
 ///|
@@ -72,10 +72,10 @@ pub fn Icon::is_valid(self : Icon) -> Bool {
 /// 从磁盘文件载入图标。`.ico`/`.bmp` 走平台原生加载，PNG/JPEG/GIF 走平台解码
 /// 后端；文件不存在、解码失败或平台不支持时给 None（调用方走降级，不静默）。
 /// `size` 给期望边长（像素，0 = 平台默认）。
-pub fn load_icon_file(path : String, size? : Int = 0) -> Icon? {
+pub fn load_icon_file(path : String, size~ : Int32 = 0) -> Icon? {
   let h = wm_icon_load_file(@utf8.encode(path), size)
   if h > 0 {
-    Some({ handle: h })
+    Some({ handle: h, })
   } else {
     None
   }
@@ -86,7 +86,7 @@ pub fn load_icon_file(path : String, size? : Int = 0) -> Icon? {
 pub fn load_icon_bytes(data : Bytes) -> Icon? {
   let h = wm_icon_from_png(data, data.length())
   if h > 0 {
-    Some({ handle: h })
+    Some({ handle: h, })
   } else {
     None
   }
@@ -96,13 +96,17 @@ pub fn load_icon_bytes(data : Bytes) -> Icon? {
 /// 从已解码像素建图标。像素口径与 `render` 的 Bitmap 一致：BGRA 小端序、
 /// **预乘 alpha**（`CreateIconIndirect` 认预乘，两者逐字节直拷）；`px` 长度需
 /// `width*height*4`，尺寸非正或平台不支持给 None。
-pub fn icon_from_bgra(px : FixedArray[Byte], width : Int, height : Int) -> Icon? {
+pub fn icon_from_bgra(
+  px : FixedArray[Byte],
+  width : Int32,
+  height : Int32,
+) -> Icon? {
   if width <= 0 || height <= 0 || px.length() < width * height * 4 {
     return None
   }
   let h = wm_icon_from_bgra(px, width, height)
   if h > 0 {
-    Some({ handle: h })
+    Some({ handle: h, })
   } else {
     None
   }
@@ -119,6 +123,6 @@ pub fn Icon::free(self : Icon) -> Unit {
 
 ///|
 /// 当前存活图标数（探针/回归用：句柄表容量与释放对称性）。
-pub fn icon_alive_count() -> Int {
+pub fn icon_alive_count() -> Int32 {
   wm_icon_alive()
 }

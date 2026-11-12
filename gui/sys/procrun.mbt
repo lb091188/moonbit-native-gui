@@ -15,7 +15,7 @@
 /// （[pr_run] 成功时为 0）。
 pub(all) struct ProcOutput {
   stdout : String
-  exit_code : Int
+  exit_code : Int32
 }
 
 ///|
@@ -41,9 +41,9 @@ pub(all) enum ProcError {
   /// 超时（超过 timeout_ms 未退出，进程已被强制终止），带命令与预算
   Timeout(String)
   /// 非零退出码，带退出码与捕获到的 stderr（可能为空串）
-  NonZeroExit(Int, String)
+  NonZeroExit(Int32, String)
   /// 进程被信号终止，带信号编号（仅 POSIX 呈现，Windows 无此档）
-  Signaled(Int)
+  Signaled(Int32)
 }
 
 ///|
@@ -74,19 +74,19 @@ extern "c" fn ffi_proc_spawn(
   out_path : Bytes,
   err_path : Bytes,
   env : Bytes,
-) -> Int = "yue_sys_proc_spawn"
+) -> Int32 = "yue_sys_proc_spawn"
 
 ///|
 #borrow(status, code)
 extern "c" fn ffi_proc_wait(
-  pid : Int,
-  timeout_ms : Int,
-  status : Ref[Int],
-  code : Ref[Int],
-) -> Int = "yue_sys_proc_wait"
+  pid : Int32,
+  timeout_ms : Int32,
+  status : Ref[Int32],
+  code : Ref[Int32],
+) -> Int32 = "yue_sys_proc_wait"
 
 ///|
-extern "c" fn ffi_proc_getpid() -> Int = "yue_sys_proc_getpid"
+extern "c" fn ffi_proc_getpid() -> Int32 = "yue_sys_proc_getpid"
 
 // ---------------------------------------------------------------------------
 // 子进程执行层（桩：spawn → 限时回收 → 临时文件读回）
@@ -94,7 +94,7 @@ extern "c" fn ffi_proc_getpid() -> Int = "yue_sys_proc_getpid"
 
 ///|
 /// 临时文件名自增序号（与进程 pid 联合保证并发内唯一）。
-let pr_tmp_counter : Ref[Int] = Ref(0)
+let pr_tmp_counter : Ref[Int32] = Ref(0)
 
 ///|
 /// 临时输出文件路径：Windows 读 %TEMP%（回退当前目录、分隔符 `\`），其余
@@ -103,18 +103,17 @@ let pr_tmp_counter : Ref[Int] = Ref(0)
 fn pr_tmp_path(tag : String) -> String {
   pr_tmp_counter.val = pr_tmp_counter.val + 1
   let win = sys_platform() == "windows"
-  let dir =
-    if win {
-      match sys_getenv("TEMP") {
-        Some(d) => if d != "" { d } else { "." }
-        None => "."
-      }
-    } else {
-      match sys_getenv("TMPDIR") {
-        Some(d) => if d != "" { d } else { "/tmp" }
-        None => "/tmp"
-      }
+  let dir = if win {
+    match sys_getenv("TEMP") {
+      Some(d) => if d != "" { d } else { "." }
+      None => "."
     }
+  } else {
+    match sys_getenv("TMPDIR") {
+      Some(d) => if d != "" { d } else { "/tmp" }
+      None => "/tmp"
+    }
+  }
   let sep = if win { "\\" } else { "/" }
   "\{dir}\{sep}yue-pr-\{ffi_proc_getpid()}-\{pr_tmp_counter.val}.\{tag}"
 }
@@ -140,7 +139,11 @@ fn pr_pick_ctype(ctype : String?, lang : String?) -> String? {
     match v {
       Some(s) => {
         let t = s.trim(chars=" \t\n\r").to_owned()
-        if t == "" || t == "C" || t == "POSIX" { None } else { Some(t) }
+        if t == "" || t == "C" || t == "POSIX" {
+          None
+        } else {
+          Some(t)
+        }
       }
       None => None
     }
@@ -203,18 +206,11 @@ fn pr_env_posix(buf : StringBuilder, names : Array[String]) -> Unit {
 fn pr_env_blob() -> Bytes {
   let buf = StringBuilder()
   match sys_platform() {
-    "linux" => pr_env_posix(
-        buf,
-        [
-          "PATH",
-          "XDG_RUNTIME_DIR",
-          "HOME",
-          "DISPLAY",
-          "XAUTHORITY",
-          "WAYLAND_DISPLAY",
-          "DBUS_SESSION_BUS_ADDRESS",
-        ],
-      )
+    "linux" =>
+      pr_env_posix(buf, [
+        "PATH", "XDG_RUNTIME_DIR", "HOME", "DISPLAY", "XAUTHORITY", "WAYLAND_DISPLAY",
+        "DBUS_SESSION_BUS_ADDRESS",
+      ])
     "macos" => pr_env_posix(buf, ["PATH", "HOME"])
     _ => ()
   }
@@ -259,7 +255,7 @@ pub fn pr_available() -> Bool {
 pub fn pr_run(
   cmd : String,
   args : Array[String],
-  timeout_ms? : Int = 5000,
+  timeout_ms~ : Int32 = 5000,
 ) -> Result[ProcOutput, ProcError] {
   if !pr_available() {
     return Err(Unsupported)
@@ -310,27 +306,27 @@ pub fn pr_run(
 // ---------------------------------------------------------------------------
 
 ///|
-extern "c" fn ffi_sys_sleep_ms(ms : Int) -> Unit = "yue_sys_sleep_ms"
+extern "c" fn ffi_sys_sleep_ms(ms : Int32) -> Unit = "yue_sys_sleep_ms"
 
 ///|
-extern "c" fn ffi_sys_pr_signal(pid : Int, sig : Int) -> Int = "yue_sys_pr_signal"
+extern "c" fn ffi_sys_pr_signal(pid : Int32, sig : Int32) -> Int32 = "yue_sys_pr_signal"
 
 ///|
 /// 毫秒节拍（watch 轮询间隔用；≤0 直接返回）。
-pub fn pr_sleep_ms(ms : Int) -> Unit {
+pub fn pr_sleep_ms(ms : Int32) -> Unit {
   ffi_sys_sleep_ms(ms)
 }
 
 ///|
 /// 进程是否存活（sig=0 探活；不存在的 pid 返回 false）。
-pub fn pr_alive(pid : Int) -> Bool {
+pub fn pr_alive(pid : Int32) -> Bool {
   ffi_sys_pr_signal(pid, 0) == 0
 }
 
 ///|
 /// 请求终止进程（SIGTERM / TerminateProcess）。spawn 桩已让子进程自成
 /// 进程组，POSIX 先组杀再单杀兜底。返回是否送达。
-pub fn pr_kill(pid : Int) -> Bool {
+pub fn pr_kill(pid : Int32) -> Bool {
   ffi_sys_pr_signal(pid, 15) == 0
 }
 
@@ -342,9 +338,9 @@ pub fn pr_kill(pid : Int) -> Bool {
 pub fn pr_spawn(
   cmd : String,
   args : Array[String],
-  out_path? : String = "",
-  err_path? : String = "",
-) -> Result[Int, ProcError] {
+  out_path~ : String = "",
+  err_path~ : String = "",
+) -> Result[Int32, ProcError] {
   if !pr_available() {
     return Err(Unsupported)
   }
@@ -359,7 +355,11 @@ pub fn pr_spawn(
     pr_env_blob(),
   )
   if pid < 0 {
-    Err(SpawnFailed("\{cmd}: spawn 失败（错误码 \{-pid}，Windows 下含命令不存在）"))
+    Err(
+      SpawnFailed(
+        "\{cmd}: spawn 失败（错误码 \{-pid}，Windows 下含命令不存在）",
+      ),
+    )
   } else {
     Ok(pid)
   }

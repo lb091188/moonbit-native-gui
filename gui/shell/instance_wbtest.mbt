@@ -10,9 +10,15 @@ test "instance_slug：点与非 [A-Za-z0-9_-] 换下划线" {
     "io_github_lb091188_moon-launcher",
   )
   // 长 app_id：截到 SLUG_KEEP 再附内容哈希，同 id 恒得同 slug，不同 id 不撞名
-  let a = instance_slug("io.moonbitlibyue.very.long.application.id.for.truncation")
-  let b = instance_slug("io.moonbitlibyue.very.long.application.id.for.truncation")
-  let c = instance_slug("io.moonbitlibyue.very.long.application.id.for.truncatioX")
+  let a = instance_slug(
+    "io.moonbitlibyue.very.long.application.id.for.truncation",
+  )
+  let b = instance_slug(
+    "io.moonbitlibyue.very.long.application.id.for.truncation",
+  )
+  let c = instance_slug(
+    "io.moonbitlibyue.very.long.application.id.for.truncatioX",
+  )
   assert_eq(a.length(), SLUG_KEEP + 1 + 8)
   assert_eq(a, b)
   assert_true(a != c)
@@ -25,7 +31,9 @@ test "instance_socket_path_in：目录拼接与 sun_path 预算" {
   assert_true(p.has_suffix(".sock"))
   assert_true(p.length() <= SOCKET_PATH_LIMIT)
   // 根目录不出现双斜杠
-  assert_true(instance_socket_path_in("/", "com.example.app").has_prefix("/moonbit-"))
+  assert_true(
+    instance_socket_path_in("/", "com.example.app").has_prefix("/moonbit-"),
+  )
   // 长目录：slug 被截进预算，整条路径仍不撞 sun_path 上限
   let deep = instance_socket_path_in(
     "/var/folders/ab/cd1234567890abcdefghij0klm/T", "com.example.app",

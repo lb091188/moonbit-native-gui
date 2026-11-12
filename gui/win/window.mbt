@@ -38,8 +38,8 @@ pub(all) enum FocusOwner {
 ///|
 pub(all) struct Window {
   mut id : Int64
-  mut width : Int
-  mut height : Int
+  mut width : Int32
+  mut height : Int32
 }
 
 ///|
@@ -52,6 +52,7 @@ pub fn init_backend() -> Bool {
   ignore(wm_win_gui_marker())
   wm_init() == 1
 }
+
 ///|
 /// 单调时钟毫秒读数，供 Loop 的定时器与 `wait` 预算使用。
 pub fn now_ms() -> Int64 {
@@ -74,7 +75,7 @@ pub fn pump() -> Unit {
 ///|
 /// 等平台事件：`timeout_ms` 传 -1 表示可无限等（无待办时），此时只能靠
 /// 事件到达或 `wake` 回来；返回 true 表示确实有东西被跑掉了。
-pub fn wait(timeout_ms : Int) -> Bool {
+pub fn wait(timeout_ms : Int32) -> Bool {
   wm_wait(timeout_ms) == 1
 }
 
@@ -86,14 +87,14 @@ pub fn wake() -> Unit {
 
 ///|
 /// 建窗并设定初始尺寸；后端不可用或窗口槽耗尽返回 None。
-pub fn Window::new(width : Int, height : Int, title : String) -> Window? {
+pub fn Window::new(width : Int32, height : Int32, title : String) -> Window? {
   let w = if width < 1 { 1 } else { width }
   let h = if height < 1 { 1 } else { height }
   let id = wm_window_new(w, h, @utf8.encode(title))
   if id == 0L {
     None
   } else {
-    Some({ id, width: w, height: h })
+    Some({ id, width: w, height: h, })
   }
 }
 
@@ -121,7 +122,7 @@ pub fn Window::is_hidden(self : Window) -> Bool {
 /// 平台口径：Win32（`WS_EX_LAYERED`）与 macOS（`alphaValue`）真实现；
 /// Linux 走 `gdk_window_set_opacity`，X11 需合成器，**无合成器静默无效**
 /// ——先探 `shell_caps().opacity`。
-pub fn Window::set_opacity(self : Window, alpha : Int) -> Unit {
+pub fn Window::set_opacity(self : Window, alpha : Int32) -> Unit {
   let a = if alpha < 0 { 0 } else if alpha > 255 { 255 } else { alpha }
   wm_set_opacity(self.id, a)
 }
@@ -151,7 +152,8 @@ pub fn Window::set_transparent_bg(
   match wm_set_transparent_bg(self.id, if on { 1 } else { 0 }) {
     0 => Ok(())
     1 => Err(Unsupported)
-    _ => Err(Failed("Windows 透明底前置无边框：先 set_borderless(true)"))
+    _ =>
+      Err(Failed("Windows 透明底前置无边框：先 set_borderless(true)"))
   }
 }
 
@@ -186,7 +188,8 @@ pub(all) enum WindowLayer {
   Dock
 }
 
-fn window_layer_to_int(l : WindowLayer) -> Int {
+///|
+fn window_layer_to_int(l : WindowLayer) -> Int32 {
   match l {
     Normal => 0
     Desktop => 1
@@ -233,7 +236,7 @@ pub fn Window::poll_event(self : Window) -> Event {
 ///|
 /// 当前宽高（尺寸事件之外的兜底读取）。虚窗哨兵（`virtual_`，id<0）回
 /// 构造字段；真窗 close 后（id 置 -1）回最后已知值。
-pub fn Window::size(self : Window) -> (Int, Int) {
+pub fn Window::size(self : Window) -> (Int32, Int32) {
   if self.id <= 0L {
     return (self.width, self.height)
   }
@@ -249,8 +252,8 @@ pub fn Window::size(self : Window) -> (Int, Int) {
 /// （**C 桩一行不改**，真句柄语义零变化）。
 /// **虚窗 ≠ 真窗**：平台窗口映射 / FFI / 输入法 / Retina 观感不在此覆盖，
 /// 真机人工验的分工不变。
-pub fn Window::virtual_(width : Int, height : Int) -> Window {
-  { id: -1L, width, height }
+pub fn Window::virtual_(width : Int32, height : Int32) -> Window {
+  { id: -1L, width, height, }
 }
 
 ///|
@@ -259,8 +262,8 @@ pub fn Window::virtual_(width : Int, height : Int) -> Window {
 pub fn Window::present(
   self : Window,
   rgba : FixedArray[Byte],
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
 ) -> Unit {
   wm_present(self.id, rgba, width, height)
 }
@@ -270,18 +273,18 @@ pub fn Window::present(
 /// 5 滚轮；键事件用 `keysym`/`mods`，指针与滚轮用 `x`/`y`（按钮号在
 /// `button`，滚轮方向在 `axis`）。
 pub(all) struct InputEvent {
-  code : Int
-  keysym : Int
-  mods : Int
-  x : Int
-  y : Int
-  button : Int
-  axis : Int
+  code : Int32
+  keysym : Int32
+  mods : Int32
+  x : Int32
+  y : Int32
+  button : Int32
+  axis : Int32
 }
 
 ///|
 /// 待取的输入事件条数。
-pub fn Window::pending_input(self : Window) -> Int {
+pub fn Window::pending_input(self : Window) -> Int32 {
   wm_pending_events(self.id)
 }
 
@@ -312,7 +315,11 @@ pub fn Window::request_focus(self : Window) -> Unit {
 
 ///|
 /// 改窗口尺寸（原生浮层先开框、量完内容再收到贴合的大小）。
-pub fn Window::set_size_pixels(self : Window, width : Int, height : Int) -> Unit {
+pub fn Window::set_size_pixels(
+  self : Window,
+  width : Int32,
+  height : Int32,
+) -> Unit {
   if width < 1 || height < 1 {
     return
   }
@@ -360,7 +367,7 @@ pub fn Window::is_maximized(self : Window) -> Bool {
 ///|
 /// 设绘图区光标形状：0 默认箭头 / 1 手型 / 2 文本 I 形 / 3 横向调整 / 4 纵向调整。
 /// 全自绘栈没有原生控件，形状只能由宿主按命中路径下发（见 `Widget::cursor_at`）。
-pub fn Window::set_cursor(self : Window, kind : Int) -> Unit {
+pub fn Window::set_cursor(self : Window, kind : Int32) -> Unit {
   wm_set_cursor(self.id, kind)
 }
 
@@ -464,7 +471,7 @@ pub fn Window::set_title(self : Window, title : String) -> Unit {
 pub fn Window::set_icon(
   self : Window,
   icon : Icon?,
-  target? : IconTarget = IconBoth,
+  target~ : IconTarget = IconBoth,
 ) -> Unit {
   let which = match target {
     IconBig => 0
@@ -482,7 +489,11 @@ pub fn Window::set_icon(
 /// 设最小客户区尺寸（像素；某轴传 0 即该轴不限制）。改的是**客户区**下限，
 /// 后端按当前样式外扩成整窗下限（Win32 `WM_GETMINMAXINFO` 拦）。
 /// 平台口径：Win32/mac 真；GTK 空实现（`min_size()` 读回恒 (0, 0)）。
-pub fn Window::set_min_size(self : Window, width : Int, height : Int) -> Unit {
+pub fn Window::set_min_size(
+  self : Window,
+  width : Int32,
+  height : Int32,
+) -> Unit {
   wm_set_min_size(self.id, width, height)
 }
 
@@ -494,10 +505,10 @@ pub fn Window::set_min_size(self : Window, width : Int, height : Int) -> Unit {
 /// GTK 空实现（`drag_rect()` 读回恒全 0）。
 pub fn Window::set_drag_rect(
   self : Window,
-  x : Int,
-  y : Int,
-  width : Int,
-  height : Int,
+  x : Int32,
+  y : Int32,
+  width : Int32,
+  height : Int32,
 ) -> Unit {
   wm_set_drag_rect(self.id, x, y, width, height)
 }
@@ -514,7 +525,7 @@ pub fn Window::set_borderless(self : Window, on : Bool) -> Unit {
 
 ///|
 /// 读回最小尺寸（GTK 空实现，恒 (0, 0)；以 `shell_caps().min_size` 分辨）。
-pub fn Window::min_size(self : Window) -> (Int, Int) {
+pub fn Window::min_size(self : Window) -> (Int32, Int32) {
   let w = Ref(0)
   let h = Ref(0)
   wm_get_min_size(self.id, w, h)
@@ -523,7 +534,7 @@ pub fn Window::min_size(self : Window) -> (Int, Int) {
 
 ///|
 /// 读回拖拽区（GTK 空实现，恒全 0；以 `shell_caps().drag_rect` 分辨）。
-pub fn Window::drag_rect(self : Window) -> (Int, Int, Int, Int) {
+pub fn Window::drag_rect(self : Window) -> (Int32, Int32, Int32, Int32) {
   let x = Ref(0)
   let y = Ref(0)
   let w = Ref(0)
@@ -554,7 +565,7 @@ pub fn Window::title(self : Window) -> String {
 
 ///|
 /// 把 C 侧写进缓冲的短字符串读回来（空/读不到都给空串）。
-fn sys_read(f : (Bytes, Int) -> Int) -> String {
+fn sys_read(f : (Bytes, Int32) -> Int32) -> String {
   let buf = Bytes::new(64)
   let n = f(buf, 64)
   if n <= 0 {
@@ -590,7 +601,7 @@ pub fn hotkey_supported() -> Bool {
 /// id（>=1）——`None` 表示注册失败：组合键被系统或别的程序占用（X11 下
 /// XGrabKey 排他；Win32 的 RegisterHotKey 同样会失败）、裸键被拒、表满、
 /// 或后端不支持（占位分支恒 None）。
-pub fn register_global_shortcut(hk : Hotkey) -> Int? {
+pub fn register_global_shortcut(hk : Hotkey) -> Int32? {
   let id = wm_hotkey_register(hk.mods, hk.vk, hk.keysym)
   if id <= 0 {
     None
@@ -601,14 +612,14 @@ pub fn register_global_shortcut(hk : Hotkey) -> Int? {
 
 ///|
 /// 注销全局快捷键（幂等）。
-pub fn unregister_global_shortcut(id : Int) -> Unit {
+pub fn unregister_global_shortcut(id : Int32) -> Unit {
   wm_hotkey_unregister(id)
 }
 
 ///|
 /// 取一个已触发的快捷键 id；没有则 None。宿主每帧/每拍调用（Win32 的
 /// WM_HOTKEY 进线程队列，靠泵里抽；Linux 后端同形）。
-pub fn poll_global_shortcut() -> Int? {
+pub fn poll_global_shortcut() -> Int32? {
   let id = wm_hotkey_poll()
   if id <= 0 {
     None
@@ -628,7 +639,7 @@ pub fn show_message_box(
   text : String,
   kind : MessageBoxKind,
   buttons : MessageBoxButtons,
-  default_index? : Int = 0,
+  default_index~ : Int32 = 0,
 ) -> MessageBoxResult {
   let utype = message_box_utype(kind, buttons, default_index~)
   message_box_result_of(
@@ -640,13 +651,13 @@ pub fn show_message_box(
 /// 建一个空的原生菜单条，返回其句柄（0 = 后端不支持/表满）。句柄归平台后端
 /// 所有，`Menu::apply` 时把它交给窗口；窗口销毁时后端一并释放。
 /// 供 `shell/menu.mbt` 的翻译层使用——调用方一般用模型层，不直接碰这个。
-pub fn menu_bar_new() -> Int {
+pub fn menu_bar_new() -> Int32 {
   wm_menu_bar_new()
 }
 
 ///|
 /// 在父菜单（句柄）下加一个子菜单，返回子菜单句柄（0 = 失败）。
-pub fn menu_new_sub(parent : Int, title : String) -> Int {
+pub fn menu_new_sub(parent : Int32, title : String) -> Int32 {
   wm_menu_new_sub(parent, @utf8.encode(title))
 }
 
@@ -656,33 +667,37 @@ pub fn menu_new_sub(parent : Int, title : String) -> Int {
 /// 0..6 见 `shell/menu.mbt` 的 `menu_role_id`（Win32 无 role，暂忽略）；
 /// `acc` 为加速键描述串（"" 表示无）；`checked` 给复选/单选初值。
 pub fn menu_add_item(
-  parent : Int,
+  parent : Int32,
   label : String,
-  kind : Int,
-  role : Int,
+  kind : Int32,
+  role : Int32,
   acc : String,
   checked : Bool,
-) -> Int {
+) -> Int32 {
   wm_menu_add_item(
     parent,
     @utf8.encode(label),
     kind,
     role,
     @utf8.encode(acc),
-    if checked { 1 } else { 0 },
+    if checked {
+      1
+    } else {
+      0
+    },
   )
 }
 
 ///|
 /// 把菜单条（句柄，0 = 拆掉当前菜单）挂到窗口。
-pub fn menu_apply(id : Int64, bar : Int) -> Unit {
+pub fn menu_apply(id : Int64, bar : Int32) -> Unit {
   wm_menu_apply(id, bar)
 }
 
 ///|
 /// 取一个已触发的菜单命令 id；没有则 None。宿主每帧/每拍调用（Win32 的
 /// WM_COMMAND 进窗口消息队列，靠泵里抽）。
-pub fn poll_menu_command() -> Int? {
+pub fn poll_menu_command() -> Int32? {
   let cmd = wm_menu_poll()
   if cmd <= 0 {
     None

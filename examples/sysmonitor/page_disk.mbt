@@ -74,7 +74,7 @@ fn draw_disk_rows(
 
 ///|
 fn page_disk(app : App) -> @widget.Node {
-  let disk_n : @base.Store[Int] = @base.Store::new(app.disks.get().length())
+  let disk_n : @base.Store[Int32] = @base.Store::new(app.disks.get().length())
   app.disks.subscribe(fn(d) { disk_n.set(d.length()) })
   // 根分区 IO 曲线（读 / 写两序列，120 点窗口）；速率来源不可用时
   // （macOS 无 IO 数据）不推点，曲线保持空态而不是画一条假的 0 线

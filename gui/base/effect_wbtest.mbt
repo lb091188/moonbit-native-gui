@@ -71,7 +71,11 @@ test "watch：初值不发，变化给 (新, 旧)；immediate 补发一次" {
   assert_eq(got.length(), 2)
 
   let mut fired = 0
-  let off2 = watch(s.signal(), fn(_v : String, _o : String) -> Unit { fired += 1 }, immediate=true)
+  let off2 = watch(
+    s.signal(),
+    fn(_v : String, _o : String) -> Unit { fired += 1 },
+    immediate=true,
+  )
   assert_eq(fired, 1)
   s.set("戊")
   assert_eq(fired, 2)
@@ -83,7 +87,7 @@ test "watch_store：Store 形态与回收袋整代退订" {
   let n = Store::new(0)
   sub_bag_begin()
   let mut hits = 0
-  let _off = watch_store(n, fn(_v : Int, _o : Int) -> Unit { hits += 1 })
+  let _off = watch_store(n, fn(_v : Int32, _o : Int32) -> Unit { hits += 1 })
   let offs = sub_bag_end()
   n.set(1)
   assert_eq(hits, 1)

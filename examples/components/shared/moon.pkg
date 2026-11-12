@@ -1,11 +1,10 @@
 // 演示板共享层：跨页状态 App + 页面「段」装配。
 import {
   "NoahLiu/native-gui/base",
-  "NoahLiu/native-gui/widget" @widget,
-
+  "NoahLiu/native-gui/widget",
   "NoahLiu/native-gui/ui",
-  "NoahLiu/native-gui/style" @style,
-  "NoahLiu/native-gui/i18n" @i18n,
+  "NoahLiu/native-gui/style",
+  "NoahLiu/native-gui/i18n",
   "NoahLiu/yoga-mbt/src" @yoga,
 }
 

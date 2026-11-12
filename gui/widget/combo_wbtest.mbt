@@ -1,3 +1,4 @@
+///|
 test "parse_combo：Ctrl+S 解析" {
   match parse_combo("Ctrl+S") {
     Some((m, k)) => {
@@ -8,6 +9,7 @@ test "parse_combo：Ctrl+S 解析" {
   }
 }
 
+///|
 test "parse_combo：Alt+Shift+Tab 多修饰键" {
   match parse_combo("Alt+Shift+Tab") {
     Some((m, k)) => {
@@ -18,6 +20,7 @@ test "parse_combo：Alt+Shift+Tab 多修饰键" {
   }
 }
 
+///|
 test "parse_combo：大小写不敏感" {
   match parse_combo("ctrl+enter") {
     Some((m, k)) => {
@@ -28,6 +31,7 @@ test "parse_combo：大小写不敏感" {
   }
 }
 
+///|
 test "parse_combo：无修饰键的单键" {
   match parse_combo("Escape") {
     Some((m, k)) => {
@@ -38,22 +42,16 @@ test "parse_combo：无修饰键的单键" {
   }
 }
 
+///|
 test "ev_is_combo：按下且 mods 匹配才命中" {
-  let ev : KeyEvent = {
-    press: true,
-    keysym: 115,
-    mods: @base.MOD_CTRL,
-  }
+  let ev : KeyEvent = { press: true, keysym: 115, mods: @base.MOD_CTRL, }
   assert_true(ev_is_combo(ev, "Ctrl+S"))
   assert_false(ev_is_combo(ev, "Ctrl+Shift+S"))
-  let up : KeyEvent = {
-    press: false,
-    keysym: 115,
-    mods: @base.MOD_CTRL,
-  }
+  let up : KeyEvent = { press: false, keysym: 115, mods: @base.MOD_CTRL, }
   assert_false(ev_is_combo(up, "Ctrl+S"))
 }
 
+///|
 test "parse_combo：CmdOrCtrl 按平台落地（mac=Cmd、其余=Ctrl）" {
   match parse_combo("CmdOrCtrl+Shift+M", mac=true) {
     Some((m, k)) => {
@@ -73,13 +71,17 @@ test "parse_combo：CmdOrCtrl 按平台落地（mac=Cmd、其余=Ctrl）" {
   }
 }
 
+///|
 test "parse_combo：修饰键别名与 win 侧词表同源" {
   // control/option/command/win 都认（同一串 spec 在窗口内与全局热键不该两个意思）
-  for pair in [
-    ("Control+S", @base.MOD_CTRL), ("Option+S", @base.MOD_ALT),
-    ("Opt+S", @base.MOD_ALT), ("Command+S", @base.MOD_META),
-    ("Win+S", @base.MOD_META),
-  ] {
+  for
+    pair in [
+      ("Control+S", @base.MOD_CTRL),
+      ("Option+S", @base.MOD_ALT),
+      ("Opt+S", @base.MOD_ALT),
+      ("Command+S", @base.MOD_META),
+      ("Win+S", @base.MOD_META),
+    ] {
     match parse_combo(pair.0) {
       Some((m, _k)) => assert_eq(m, pair.1, msg=pair.0)
       None => assert_eq(true, false, msg=pair.0)
@@ -87,6 +89,7 @@ test "parse_combo：修饰键别名与 win 侧词表同源" {
   }
 }
 
+///|
 test "system_key_action：mac 三条系统档，非 mac 一律不抢" {
   let cmd = @base.MOD_META
   assert_eq(system_key_action(cmd, 113, true, true), 1) // Cmd+Q 退出

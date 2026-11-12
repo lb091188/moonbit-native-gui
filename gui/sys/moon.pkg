@@ -6,13 +6,14 @@ import {
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/math",
   "moonbitlang/core/env",
-  "prowk/moonsqlitefile" @moonsqlitefile,
+  "prowk/moonsqlitefile",
 }
 
 supported_targets = "native"
 
 // sys 桩只用标准头，直接走 native-stub（要 GTK 头的桩才走 prebuild
 // 静态库）；链接参数由 prebuild 托管（本包无新增）。
+
 options(
   "native-stub": [ "sys_stub.c" ],
 )

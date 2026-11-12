@@ -18,7 +18,7 @@ pub(all) enum VpState {
 
 ///|
 /// 播放位置（秒）→ 帧索引（钳非负）。
-pub fn vp_frame_idx(t_s : Double, fps : Int) -> Int {
+pub fn vp_frame_idx(t_s : Double, fps : Int32) -> Int32 {
   let f = if fps < 1 { 1.0 } else { fps.to_double() }
   let idx = (t_s * f).to_int()
   if idx < 0 {
@@ -73,14 +73,14 @@ pub(all) struct VideoPlayer {
   demuxer : @ffmbt.Demuxer
   audio : Ref[@ffmbt.Demuxer?]
   dev : Ref[MbtAdev?]
-  fps : Int
+  fps : Int32
   fps_real : Double
   duration_s : Double
-  width : Int
-  height : Int
+  width : Int32
+  height : Int32
   volume : Ref[Double]
   speed : Ref[Double]
-  audio_ch : Int
+  audio_ch : Int32
   looping : Ref[Bool]
   state : Ref[VpState]
   closed : Ref[Bool]
@@ -88,13 +88,13 @@ pub(all) struct VideoPlayer {
   wall0 : Ref[Int64]
   base_pts : Ref[Double]
   frame : Ref[Bytes?]
-  frame_no : Ref[Int]
-  mut pcm_tap : ((Bytes, Int) -> Unit)?
+  frame_no : Ref[Int32]
+  mut pcm_tap : ((Bytes, Int32) -> Unit)?
 }
 
 ///|
 /// 已解码帧数（UI 用它判断要不要重建图片对象）。
-pub fn VideoPlayer::frames_decoded(self : VideoPlayer) -> Int {
+pub fn VideoPlayer::frames_decoded(self : VideoPlayer) -> Int32 {
   self.frame_no.val
 }
 
@@ -125,13 +125,13 @@ pub fn VideoPlayer::duration(self : VideoPlayer) -> Double {
 
 ///|
 /// 输出画面宽。
-pub fn VideoPlayer::frame_width(self : VideoPlayer) -> Int {
+pub fn VideoPlayer::frame_width(self : VideoPlayer) -> Int32 {
   self.width
 }
 
 ///|
 /// 输出画面高。
-pub fn VideoPlayer::frame_height(self : VideoPlayer) -> Int {
+pub fn VideoPlayer::frame_height(self : VideoPlayer) -> Int32 {
   self.height
 }
 
@@ -293,7 +293,7 @@ pub fn VideoPlayer::seek(self : VideoPlayer, t : Double) -> Unit {
 /// 逐帧步进（`n` 帧，负数回退）：先暂停再把位置挪 n 帧，并**当场解到落点
 /// 的那一帧**——步进必须立刻看到画面，不能等下一次 tick（暂停时 tick 直接
 /// 返回，画面会停在黑帧上）。帧率未知（既无流帧率也无 make 参数）时不动。
-pub fn VideoPlayer::step(self : VideoPlayer, n : Int) -> Unit {
+pub fn VideoPlayer::step(self : VideoPlayer, n : Int32) -> Unit {
   if self.closed.val || n == 0 {
     return
   }
@@ -301,16 +301,11 @@ pub fn VideoPlayer::step(self : VideoPlayer, n : Int) -> Unit {
   if self.state.val is VpIdle {
     self.state.val = VpPaused
   }
-  let f =
-    if self.fps_real > 0.0 {
-      self.fps_real
-    } else {
-      self.fps.to_double()
-    }
+  let f = if self.fps_real > 0.0 { self.fps_real } else { self.fps.to_double() }
   if f <= 0.0 {
     return
   }
-  let target = vp_clamp_t(self.pos.val + (n.to_double() / f), self.duration_s)
+  let target = vp_clamp_t(self.pos.val + n.to_double() / f, self.duration_s)
   self.seek(target)
   self.vp_settle(target)
 }
@@ -362,7 +357,11 @@ pub fn VideoPlayer::free(self : VideoPlayer) -> Unit {
 
 ///|
 /// 目标时刻：基准位置 + 自基准以来真实流逝 × 倍速（纯函数，倍速语义只在这一处）。
-pub fn vp_target_pts(base : Double, elapsed_ms : Int64, speed : Double) -> Double {
+pub fn vp_target_pts(
+  base : Double,
+  elapsed_ms : Int64,
+  speed : Double,
+) -> Double {
   base + elapsed_ms.to_double() / 1000.0 * speed
 }
 
@@ -375,14 +374,19 @@ pub fn vp_target_pts(base : Double, elapsed_ms : Int64, speed : Double) -> Doubl
 /// 流无时间戳时回退每 tick 一帧、按流帧率步进（此时倍速只影响时钟不影响
 /// 画面——不假装支持）。追帧每 tick 上限 8 帧（seek 后关键帧距离长也不卡
 /// UI 一整拍）。
-///|（引擎的时钟推进口：调用方的定时器每 tick 调一次）
+
+///|
+///（引擎的时钟推进口：调用方的定时器每 tick 调一次）
 pub fn VideoPlayer::tick(self : VideoPlayer) -> Unit {
   if self.closed.val || !(self.state.val is VpPlaying) {
     return
   }
   let now = mbt_now_ms()
-  let target =
-    vp_target_pts(self.base_pts.val, now - self.wall0.val, self.speed.val)
+  let target = vp_target_pts(
+    self.base_pts.val,
+    now - self.wall0.val,
+    self.speed.val,
+  )
   let mut eof = false
   let mut pts_seen = false
   for i = 0; i < 8; i = i + 1 {
@@ -501,14 +505,14 @@ fn VideoPlayer::vp_audio_flush(self : VideoPlayer) -> Unit {
 /// 队列深度」，绘制侧用 `queued_frames` 回看对齐。
 pub fn VideoPlayer::set_pcm_tap(
   self : VideoPlayer,
-  tap : ((Bytes, Int) -> Unit)?,
+  tap : ((Bytes, Int32) -> Unit)?,
 ) -> Unit {
   self.pcm_tap = tap
 }
 
 ///|
 /// 音轨采样率（无音轨给 0）：频谱换算频段用。
-pub fn VideoPlayer::sample_rate(self : VideoPlayer) -> Int {
+pub fn VideoPlayer::sample_rate(self : VideoPlayer) -> Int32 {
   match self.audio.val {
     Some(a) => a.audio_rate()
     None => 0
@@ -517,7 +521,7 @@ pub fn VideoPlayer::sample_rate(self : VideoPlayer) -> Int {
 
 ///|
 /// 设备队列里还压着多少帧（无音轨/无设备给 0）：频谱回看深度与耳朵对齐。
-pub fn VideoPlayer::queued_frames(self : VideoPlayer) -> Int {
+pub fn VideoPlayer::queued_frames(self : VideoPlayer) -> Int32 {
   match self.dev.val {
     Some(d) =>
       if mbt_adev_has_device(d) == 1 && self.audio_ch > 0 {
@@ -536,11 +540,11 @@ pub fn VideoPlayer::queued_frames(self : VideoPlayer) -> Int {
 /// 输出画面尺寸（0 = 源尺寸）。
 pub fn VideoPlayer::make(
   path : String,
-  fps? : Int = 12,
-  width? : Int = 0,
-  height? : Int = 0,
-  volume? : Double = 0.8,
-  looping? : Bool = false,
+  fps~ : Int32 = 12,
+  width~ : Int32 = 0,
+  height~ : Int32 = 0,
+  volume~ : Double = 0.8,
+  looping~ : Bool = false,
 ) -> Result[VideoPlayer, String] {
   let demuxer = match @ffmbt.Demuxer::open(path) {
     Ok(d) => d

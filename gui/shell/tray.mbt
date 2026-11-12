@@ -18,7 +18,7 @@
 /// 托盘后端。
 pub(all) enum TrayBackend {
   /// Win32 Shell 通知图标（槽号，见 `win/tray.mbt`）
-  Native(Int)
+  Native(Int32)
   /// Linux StatusNotifierItem（`dbus/sni.mbt`）
   Sni(@dbus.Item)
 }
@@ -57,11 +57,11 @@ struct TrayState {
   mut on_click : (() -> Unit)?
   mut on_context : (() -> Unit)?
   /// 右键菜单的原生句柄（Win32 弹出菜单根；0 = 无）
-  mut menu_handle : Int
+  mut menu_handle : Int32
   /// 语言广播登记号（0 = 没登记过随语言重算的文案，见 tray_locale.mbt）
-  mut locale_key : Int
+  mut locale_key : Int32
   /// 主题明暗登记号（0 = 没跟随主题，见本文件内置图标跟随段）
-  mut theme_key : Int
+  mut theme_key : Int32
   /// 上一次应用的内置图标是否为深色档（只在明暗翻转时换图）
   mut last_dark : Bool
 }
@@ -76,7 +76,7 @@ pub(all) struct Tray {
 ///|
 /// Native 后端槽号 → 同一个 `Tray` 对象（`dispatch_tray_event` 按事件槽号找回
 /// 回调）。只登记 Native 后端；SNI 侧点击由 DBus 信号直达回调，不经队列表。
-let tray_by_slot : Map[Int, Tray] = Map([])
+let tray_by_slot : Map[Int32, Tray] = Map([])
 
 ///|
 /// 是否需要退出兜底：只有建过 Linux(SNI) 托盘才置位。兜底开关只决定主循环
@@ -109,7 +109,7 @@ pub fn Tray::is_supported() -> Bool {
 /// 位图，与 Linux SNI 显示的是同一张脸。
 pub fn Tray::new(
   icon_path : String,
-  icon? : @win.Icon? = None,
+  icon~ : @win.Icon? = None,
 ) -> Result[Tray, TrayError] {
   let id = basename_no_ext(icon_path)
   if @dbus.sni_watcher_present() {
@@ -118,7 +118,7 @@ pub fn Tray::new(
         // 注册成功后装退出信号兜底，让 Ctrl+C / kill 走到 remove_all_trays
         @dbus.dbus_install_quit_signals()
         quit_watch.val = true
-        let tray : Tray = { backend: Sni(item), state: new_tray_state() }
+        let tray : Tray = { backend: Sni(item), state: new_tray_state(), }
         // Linux 内置图标始终是程序位图：创建即按当前明暗选黑/白并跟随主题
         tray.set_icon_follow_theme()
         return Ok(tray)
@@ -141,7 +141,7 @@ pub fn Tray::new(
     }
     let slot = @win.tray_new(handle, id)
     if slot > 0 {
-      let tray : Tray = { backend: Native(slot), state: new_tray_state() }
+      let tray : Tray = { backend: Native(slot), state: new_tray_state(), }
       tray_by_slot.set(slot, tray)
       if builtin {
         tray.set_icon_follow_theme()
@@ -168,7 +168,7 @@ fn new_tray_state() -> TrayState {
 
 ///|
 /// 载入图标文件取句柄（空路径给 0 = 无图标；加载失败也给 0，交由后端用默认）。
-fn icon_handle_of(icon_path : String) -> Int {
+fn icon_handle_of(icon_path : String) -> Int32 {
   if icon_path == "" {
     0
   } else {
@@ -183,7 +183,7 @@ fn icon_handle_of(icon_path : String) -> Int {
 /// 库内置托盘图标的 native 句柄（Win/mac 缺省图标，与 Linux SNI 同一张脸）：
 /// `@dbus.mono_icon_pixmap(dark)` 出的是 SNI 口径的大端 ARGB（不预乘），这里换成
 /// `icon_from_bgra` 要的 BGRA 小端预乘。黑/白两档各建一次，随进程常驻。
-fn builtin_tray_handle(dark : Bool) -> Int {
+fn builtin_tray_handle(dark : Bool) -> Int32 {
   let slot = if dark { g_builtin_icon_dark } else { g_builtin_icon_light }
   if slot.val > 0 {
     return slot.val
@@ -199,7 +199,7 @@ fn builtin_tray_handle(dark : Bool) -> Int {
 ///|
 /// 大端 ARGB（不预乘，SNI 规范口径）→ `icon_from_bgra` 要的 BGRA 小端预乘句柄。
 /// 尺寸非正或像素不够给 0（调用方据此保持原图标）。
-fn argb_to_icon_handle(argb : Bytes, w : Int, h : Int) -> Int {
+fn argb_to_icon_handle(argb : Bytes, w : Int32, h : Int32) -> Int32 {
   let n = w * h
   if n <= 0 || argb.length() < n * 4 {
     return 0
@@ -226,7 +226,12 @@ fn argb_to_icon_handle(argb : Bytes, w : Int, h : Int) -> Int {
 /// `n = w * h` 个像素、每像素 4 字节（`R G B A` 顺序）——Win/mac 侧内部换成
 /// BGRA 小端预乘再建原生句柄，SNI 侧直接进 `IconPixmap` 并发
 /// `NewIcon`。像素不合法（尺寸非正或字节不够）时静默保持原图标。
-pub fn Tray::set_icon_pixmap(self : Tray, w : Int, h : Int, argb : Bytes) -> Unit {
+pub fn Tray::set_icon_pixmap(
+  self : Tray,
+  w : Int32,
+  h : Int32,
+  argb : Bytes,
+) -> Unit {
   self.drop_theme_follow()
   match self.backend {
     Native(slot) => {
@@ -309,8 +314,11 @@ pub fn Tray::set_icon_builtin(self : Tray) -> Unit {
   self.set_icon_monochrome(@theme.theme_is_dark())
 }
 
-let g_builtin_icon_light : Ref[Int] = Ref(0)
-let g_builtin_icon_dark : Ref[Int] = Ref(0)
+///|
+let g_builtin_icon_light : Ref[Int32] = Ref(0)
+
+///|
+let g_builtin_icon_dark : Ref[Int32] = Ref(0)
 
 ///|
 /// 从路径取不含扩展名的文件名，作托盘 Id。目录名里的点不算扩展名分隔。
@@ -318,7 +326,12 @@ pub fn basename_no_ext(path : String) -> String {
   let name = match path.rev_find("\\") {
     Some(i_bs) =>
       match path.rev_find("/") {
-        Some(i_sl) => if i_bs > i_sl { path[i_bs + 1:].to_owned() } else { path[i_sl + 1:].to_owned() }
+        Some(i_sl) =>
+          if i_bs > i_sl {
+            path[i_bs + 1:].to_owned()
+          } else {
+            path[i_sl + 1:].to_owned()
+          }
         None => path[i_bs + 1:].to_owned()
       }
     None =>
@@ -382,6 +395,7 @@ pub fn Tray::set_icon_name(self : Tray, name : String) -> Unit {
 ///|
 /// 设置悬浮提示。SNI 有 title/body 两段；Win32 只有一段 `szTip`，用 body（非空
 /// 时）否则 title。
+
 ///|
 /// 写进原生侧的提示语（不做语言口清理，供两条入口共用）。
 fn Tray::apply_tooltip(self : Tray, title : String, body : String) -> Unit {
@@ -536,7 +550,7 @@ pub fn dispatch_tray_event() -> Bool {
   match @win.poll_tray_event() {
     Some((slot, kind)) =>
       match tray_by_slot.get(slot) {
-        Some(tray) => {
+        Some(tray) =>
           if kind == @win.TRAY_EVENT_CONTEXT {
             match tray.state.on_context {
               Some(cb) => {
@@ -560,7 +574,6 @@ pub fn dispatch_tray_event() -> Bool {
               None => false
             }
           }
-        }
         None => false
       }
     None => false

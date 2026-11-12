@@ -30,7 +30,7 @@ pub(all) struct UpdateManifest {
 
 ///|
 /// semver 三段解析(a.b.c,每段纯数字);不合法给 None。
-fn upd_semver_parse(v : String) -> (Int, Int, Int)? {
+fn upd_semver_parse(v : String) -> (Int32, Int32, Int32)? {
   let parts : Array[String] = []
   for raw in v.split(".") {
     parts.push(raw.to_owned())
@@ -38,7 +38,7 @@ fn upd_semver_parse(v : String) -> (Int, Int, Int)? {
   if parts.length() != 3 {
     return None
   }
-  let out : Array[Int] = [0, 0, 0]
+  let out : Array[Int32] = [0, 0, 0]
   let mut i = 0
   while i < 3 {
     let p = parts[i]
@@ -61,15 +61,27 @@ fn upd_semver_parse(v : String) -> (Int, Int, Int)? {
 ///|
 /// 版本比较:-1(a<b)/ 0(相等)/ 1(a>b);任一段不合法按「不可比」返回 0
 /// 并由调用方以字符串不等兜底(宁可提示更新,不静默跳过)。
-pub fn update_version_cmp(a : String, b : String) -> Int {
+pub fn update_version_cmp(a : String, b : String) -> Int32 {
   match (upd_semver_parse(a), upd_semver_parse(b)) {
     (Some(x), Some(y)) =>
       if x.0 != y.0 {
-        if x.0 > y.0 { 1 } else { -1 }
+        if x.0 > y.0 {
+          1
+        } else {
+          -1
+        }
       } else if x.1 != y.1 {
-        if x.1 > y.1 { 1 } else { -1 }
+        if x.1 > y.1 {
+          1
+        } else {
+          -1
+        }
       } else if x.2 != y.2 {
-        if x.2 > y.2 { 1 } else { -1 }
+        if x.2 > y.2 {
+          1
+        } else {
+          -1
+        }
       } else {
         0
       }
@@ -143,19 +155,15 @@ pub fn update_parse_manifest(text : String) -> UpdateManifest? {
       }
     _ => ()
   }
-  Some(
-    {
-      version,
-      notes,
-      pub_date,
-      assets,
-    },
-  )
+  Some({ version, notes, pub_date, assets, })
 }
 
 ///|
 /// 清单里取本机 target 的载体;没有(发布面未覆盖本平台)给 None。
-pub fn update_manifest_asset(m : UpdateManifest, target : String) -> UpdateAsset? {
+pub fn update_manifest_asset(
+  m : UpdateManifest,
+  target : String,
+) -> UpdateAsset? {
   for pair in m.assets {
     let (t, a) = pair
     if t == target {
@@ -198,8 +206,8 @@ fn upd_extract_sha256(text : String) -> String? {
 pub fn update_check(
   manifest_url : String,
   current_version : String,
-  timeout_ms? : Int = 15000,
-  allow_http? : Bool = false,
+  timeout_ms~ : Int32 = 15000,
+  allow_http~ : Bool = false,
 ) -> Result[UpdateManifest?, String] {
   if !allow_http && manifest_url.has_prefix("http://") {
     return Err("更新清单必须走 HTTPS:\{manifest_url}")
@@ -220,7 +228,9 @@ pub fn update_check(
   }
   match update_manifest_asset(m, update_target_id()) {
     None =>
-      return Err("有新版 \{m.version},但清单没有本平台(\{update_target_id()})的载体")
+      return Err(
+        "有新版 \{m.version},但清单没有本平台(\{update_target_id()})的载体",
+      )
     Some(_) => ()
   }
   Ok(Some(m))
@@ -231,7 +241,8 @@ pub fn update_check(
 fn upd_sha256_file(path : String) -> String? {
   let out = match sys_platform() {
     "macos" => pr_run("shasum", ["-a", "256", path], timeout_ms=120000)
-    "windows" => pr_run("certutil", ["-hashfile", path, "SHA256"], timeout_ms=120000)
+    "windows" =>
+      pr_run("certutil", ["-hashfile", path, "SHA256"], timeout_ms=120000)
     _ => pr_run("sha256sum", [path], timeout_ms=120000)
   }
   match out {
@@ -265,13 +276,14 @@ fn upd_basename_of_url(url : String) -> String {
 pub fn update_download(
   asset : UpdateAsset,
   dest_dir : String,
-  timeout_ms? : Int = 600000,
+  timeout_ms~ : Int32 = 600000,
 ) -> Result[String, String] {
   if !sys_make_dirs(dest_dir) {
     return Err("建不了下载目录:\{dest_dir}")
   }
   let tmp = dest_dir + "/.mng-update-download"
-  let out = match pr_run("curl", ["-fL", "--retry", "3", "-o", tmp, asset.url], timeout_ms~) {
+  let out = match
+    pr_run("curl", ["-fL", "--retry", "3", "-o", tmp, asset.url], timeout_ms~) {
     Ok(o) => o
     Err(e) => {
       ignore(sys_remove_file(tmp))
@@ -312,12 +324,7 @@ pub fn update_download(
 /// 指向的文件不在(解包跑等)落回自身路径。
 fn upd_linux_target(exe : String) -> String {
   match sys_getenv("APPIMAGE") {
-    Some(a) =>
-      if a.length() > 0 && sys_path_exists(a) {
-        a
-      } else {
-        exe
-      }
+    Some(a) => if a.length() > 0 && sys_path_exists(a) { a } else { exe }
     None => exe
   }
 }
@@ -428,7 +435,11 @@ pub fn update_apply_carrier(carrier_path : String) -> Result[Unit, String] {
         Err(e) => return Err("挪走旧 .app 失败:\{e}")
         Ok(_) => ()
       }
-      let unzip = pr_run("unzip", ["-q", "-o", carrier_path, "-d", parent], timeout_ms=300000)
+      let unzip = pr_run(
+        "unzip",
+        ["-q", "-o", carrier_path, "-d", parent],
+        timeout_ms=300000,
+      )
       match unzip {
         Ok(o) if o.exit_code != 0 => {
           // 解压不成:撤半截新树,旧 .app 搬回来,应用保持可用
@@ -454,7 +465,11 @@ pub fn update_apply_carrier(carrier_path : String) -> Result[Unit, String] {
       if !sys_make_dirs(tmpdir) {
         return Err("建解压目录失败:\{tmpdir}")
       }
-      let tar = pr_run("tar", ["-xf", carrier_path, "-C", tmpdir], timeout_ms=300000)
+      let tar = pr_run(
+        "tar",
+        ["-xf", carrier_path, "-C", tmpdir],
+        timeout_ms=300000,
+      )
       match tar {
         Ok(o) if o.exit_code != 0 => {
           ignore(upd_remove_tree(tmpdir))
@@ -467,18 +482,18 @@ pub fn update_apply_carrier(carrier_path : String) -> Result[Unit, String] {
         _ => ()
       }
       let exe_name = match exe.contains("/") || exe.contains("\\") {
-          true => {
-            let mut last = exe
-            for raw in exe.split("/") {
-              last = raw.to_owned()
-            }
-            for raw in last.split("\\") {
-              last = raw.to_owned()
-            }
-            last
+        true => {
+          let mut last = exe
+          for raw in exe.split("/") {
+            last = raw.to_owned()
           }
-          false => exe
+          for raw in last.split("\\") {
+            last = raw.to_owned()
+          }
+          last
         }
+        false => exe
+      }
       // 非 exe 文件逐个覆盖(同名直接 move /y)
       match fsx_list_dir(tmpdir) {
         Ok(names) =>

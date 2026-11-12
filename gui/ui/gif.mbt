@@ -8,18 +8,18 @@
 /// 动图运行态：外部可读「已换过几帧 / 是否在播」，可暂停与继续。
 pub(all) struct GifHandle {
   mut running : Bool
-  mut frames : Int
+  mut frames : Int32
   mut tick : () -> Unit
 }
 
 ///|
-pub fn GifHandle::make(running? : Bool = true) -> GifHandle {
-  { running, frames: 0, tick: fn() { () } }
+pub fn GifHandle::make(running~ : Bool = true) -> GifHandle {
+  { running, frames: 0, tick: fn() { () }, }
 }
 
 ///|
 /// 已换过的帧数（每成功换一帧加一）。
-pub fn GifHandle::frame_count(self : GifHandle) -> Int {
+pub fn GifHandle::frame_count(self : GifHandle) -> Int32 {
   self.frames
 }
 
@@ -48,12 +48,12 @@ pub fn GifHandle::play(self : GifHandle) -> Unit {
 /// （帧号回到 0）就停。非 GIF 文件也能用：解出来是静图就只画一帧、不排自转。
 pub fn gif(
   path : String,
-  width? : Double = 0.0,
-  height? : Double = 0.0,
-  looping? : Bool = true,
-  running? : Bool = true,
+  width~ : Double = 0.0,
+  height~ : Double = 0.0,
+  looping~ : Bool = true,
+  running~ : Bool = true,
   state? : GifHandle,
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let anim : @render.Animation? = @render.Animation::new_from_file(path)
   let h = match state {
@@ -61,16 +61,18 @@ pub fn gif(
       s.running = running
       s
     }
-    None => GifHandle::make(running=running)
+    None => GifHandle::make(running~)
   }
   // 首帧在建树时就取好：静图（或解出动图失败）也走这条路，组件永远有一张可画的图
-  let keep : Ref[@render.Image] = Ref(match anim {
-    Some(a) => a.current()
-    None => @render.Image::new_from_file(path)
-  })
+  let keep : Ref[@render.Image] = Ref(
+    match anim {
+      Some(a) => a.current()
+      None => @render.Image::new_from_file(path)
+    },
+  )
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    let timer : Ref[Int] = Ref(0)
+    let timer : Ref[Int32] = Ref(0)
     let looping_ = looping
     // 被换树摘下就断自转链（step 见 h.running=false 直接 return，不排下一拍）；
     // 动图句柄本代由回收袋 close，这里只管停拍。

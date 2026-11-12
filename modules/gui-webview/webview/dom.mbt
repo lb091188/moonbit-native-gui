@@ -31,19 +31,19 @@ pub fn dom_script(k : DomKind) -> String {
     Links =>
       dom_wrap(
         "links:[].slice.call(document.querySelectorAll('a'),0,200)" +
-          ".map(function(a){return {href:a.href,text:(a.textContent||'').trim().slice(0,80)}})",
+        ".map(function(a){return {href:a.href,text:(a.textContent||'').trim().slice(0,80)}})",
       )
     Meta =>
       dom_wrap(
         "meta:[].slice.call(document.querySelectorAll('meta[name],meta[property]'),0,100)" +
-          ".map(function(m){return {k:m.getAttribute('name')||m.getAttribute('property')||''," +
-          "v:m.getAttribute('content')||''}})",
+        ".map(function(m){return {k:m.getAttribute('name')||m.getAttribute('property')||''," +
+        "v:m.getAttribute('content')||''}})",
       )
     Structure =>
       dom_wrap(
         "count:document.querySelectorAll('*').length," +
-          "headings:[].slice.call(document.querySelectorAll('h1,h2,h3'),0,50)" +
-          ".map(function(h){return {k:h.tagName,v:(h.textContent||'').trim().slice(0,80)}})",
+        "headings:[].slice.call(document.querySelectorAll('h1,h2,h3'),0,50)" +
+        ".map(function(h){return {k:h.tagName,v:(h.textContent||'').trim().slice(0,80)}})",
       )
   }
 }
@@ -65,7 +65,7 @@ pub(all) struct DomSnapshot {
   links : Array[DomLink]
   meta : Array[(String, String)]
   headings : Array[(String, String)]
-  mut elements : Int
+  mut elements : Int32
   raw : String
   mut ok : Bool
 }
@@ -99,7 +99,7 @@ fn j_text(v : @sys.VscJson?, key : String) -> String {
 }
 
 ///|
-fn j_int(v : @sys.VscJson?, key : String) -> Int {
+fn j_int(v : @sys.VscJson?, key : String) -> Int32 {
   match v {
     None => 0
     Some(o) =>
@@ -136,7 +136,10 @@ pub fn dom_parse(k : DomKind, raw : String) -> DomSnapshot {
       snap.text = j_text(Some(root), "text")
       snap.elements = j_int(Some(root), "count")
       for it in j_arr(Some(root), "links") {
-        snap.links.push({ href: j_text(Some(it), "href"), text: j_text(Some(it), "text") })
+        snap.links.push({
+          href: j_text(Some(it), "href"),
+          text: j_text(Some(it), "text"),
+        })
       }
       for it in j_arr(Some(root), "meta") {
         snap.meta.push((j_text(Some(it), "k"), j_text(Some(it), "v")))
@@ -156,7 +159,9 @@ pub fn Webview::capture_dom(
   k : DomKind,
   done : (DomSnapshot) -> Unit,
 ) -> Bool {
-  let seq = self.execute_javascript_with_result(dom_script(k), fn(raw : String) -> Unit {
+  let seq = self.execute_javascript_with_result(dom_script(k), fn(
+    raw : String,
+  ) -> Unit {
     done(dom_parse(k, raw))
   })
   seq > 0L

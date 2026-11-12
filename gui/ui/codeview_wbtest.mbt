@@ -4,7 +4,10 @@
 
 ///|
 fn mounted_bm(w : @widget.Widget) -> @render.Bitmap {
-  let bm = @render.Bitmap::new(w.rect.w.round().to_int() + 2, w.rect.h.round().to_int() + 2)
+  let bm = @render.Bitmap::new(
+    w.rect.w.round().to_int() + 2,
+    w.rect.h.round().to_int() + 2,
+  )
   let p = @render.Painter::new(bm)
   w.paint_at(p, w.rect.x, w.rect.y)
   p.end()
@@ -13,17 +16,14 @@ fn mounted_bm(w : @widget.Widget) -> @render.Bitmap {
 
 ///|
 /// 近似色计数（容差 16/通道）。
-fn count_color(
-  bm : @render.Bitmap,
-  r : Int,
-  g : Int,
-  b : Int,
-) -> Int {
+fn count_color(bm : @render.Bitmap, r : Int32, g : Int32, b : Int32) -> Int32 {
   let mut n = 0
   for y in 0..<bm.height {
     for x in 0..<bm.width {
       let px = bm.pixel(x, y)
-      if (px.r - r).abs() <= 16 && (px.g - g).abs() <= 16 && (px.b - b).abs() <= 16 {
+      if (px.r - r).abs() <= 16 &&
+        (px.g - g).abs() <= 16 &&
+        (px.b - b).abs() <= 16 {
         n = n + 1
       }
     }
@@ -73,10 +73,17 @@ test "tokenize_lang / tokenize_moonbit：分词与角色规则" {
     }
     found
   }
-  fn expect_role(line : String, word : String, lang : String, want : TokenRole) -> Unit {
+  fn expect_role(
+    line : String,
+    word : String,
+    lang : String,
+    want : TokenRole,
+  ) -> Unit {
     let got = role_of(line, word, lang)
     if !role_is(got, want) {
-      abort("\{line} 的 \{word}：期望 \{role_name(want)} 实得 \{role_name(got)}")
+      abort(
+        "\{line} 的 \{word}：期望 \{role_name(want)} 实得 \{role_name(got)}",
+      )
     }
   }
   // 关键字(含补全的 in/loop/typealias 等)、大写开头类型
@@ -126,12 +133,7 @@ test "code_view 组件：出像素、多色 token、行号列、高度按行数�
   if !ui_text_guard() {
     return
   }
-  let code = [
-    "fn main {",
-    "  let s = \"你好\"",
-    "  // 注释行",
-    "}",
-  ]
+  let code = ["fn main {", "  let s = \"你好\"", "  // 注释行", "}"]
   // 钉死 One Dark 配色（像素断言要确定值；刻意场景即此参数的用途）
   let one_dark : CodeTheme = {
     bg: "#282C34",
@@ -162,7 +164,10 @@ test "code_view 组件：出像素、多色 token、行号列、高度按行数�
   for y in 0..<bm.height {
     for x in 0..<bm.width {
       let px = bm.pixel(x, y)
-      if !((px.r - 40).abs() <= 16 && (px.g - 44).abs() <= 16 && (px.b - 52).abs() <= 16) && px.a > 0 {
+      if !((px.r - 40).abs() <= 16 &&
+        (px.g - 44).abs() <= 16 &&
+        (px.b - 52).abs() <= 16) &&
+        px.a > 0 {
         inked = inked + 1
       }
     }
@@ -190,12 +195,7 @@ test "code_view 缺省跟主题：当前主题的代码底色出像素" {
 ///|
 test "code_view 组件：行数翻倍高度近似翻倍（行高恒定）" {
   let two = ["let a = 1", "let b = 2"]
-  let four = [
-    "let a = 1",
-    "let b = 2",
-    "let c = 3",
-    "let d = 4",
-  ]
+  let four = ["let a = 1", "let b = 2", "let c = 3", "let d = 4"]
   let (_r1, w1) = mounted(code_view(two), 640.0, 400.0)
   let (_r2, w2) = mounted(code_view(four), 640.0, 400.0)
   let grew = w2.rect.h - w1.rect.h
@@ -212,8 +212,7 @@ test "code_view 宽跟随容器，代码比容器宽时才溢出横滚" {
   let _ = paint(root_s, 640, 200)
   let canvas_s = vp_s.children()[0].children()[0]
   assert_eq(canvas_s.rect.w, vp_s.rect.w)
-  let long_line =
-    "let x = \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\""
+  let long_line = "let x = \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\""
   let (root_l, vp_l) = mounted(code_view([long_line]), 400.0, 200.0)
   let _ = paint(root_l, 400, 200)
   let canvas_l = vp_l.children()[0].children()[0]
@@ -231,20 +230,18 @@ fn mount_code(
   line_numbers~ : Bool = true,
 ) -> (@widget.Widget, @widget.Widget) {
   let held = Ref(None)
-  let n = code_view(
-    lines,
-    lang="moonbit",
-    line_numbers=line_numbers,
-    selectable=selectable,
-    handle=fn(w : @widget.Widget) -> Unit { held.val = Some(w) },
-  )
+  let n = code_view(lines, lang="moonbit", line_numbers~, selectable~, handle=fn(
+    w : @widget.Widget,
+  ) -> Unit {
+    held.val = Some(w)
+  })
   let root = mount_root([n], 360.0, 160.0)
   (root, held.val.unwrap_or(@widget.Widget::new()))
 }
 
 ///|
 /// 第 row 行的中线（画布纵排：内容高 = 行数 × 行高 + 14 上下内缩）。
-fn row_y(w : @widget.Widget, rows : Int, row : Int) -> Double {
+fn row_y(w : @widget.Widget, rows : Int32, row : Int32) -> Double {
   let line_h = (w.rect.h - 28.0) / rows.to_double()
   w.rect.y + 14.0 + (row.to_double() + 0.5) * line_h
 }
@@ -255,7 +252,10 @@ test "code_view selectable：单击定位、双击选词、行号列不进选区
     return
   }
   use_system_clipboard(false)
-  let (root, w) = mount_code(["fn main() {", "  let x = 1", "}"], selectable=true)
+  let (root, w) = mount_code(
+    ["fn main() {", "  let x = 1", "}"],
+    selectable=true,
+  )
   let st = match sel_states.val.get(w.id) {
     Some(s) => s
     None => abort("code_view 没装起来")
@@ -292,7 +292,10 @@ test "code_view selectable：拖选跨行、复制按行拼换行" {
     return
   }
   use_system_clipboard(false)
-  let (root, w) = mount_code(["fn main() {", "  let x = 1", "}"], selectable=true)
+  let (root, w) = mount_code(
+    ["fn main() {", "  let x = 1", "}"],
+    selectable=true,
+  )
   let st = match sel_states.val.get(w.id) {
     Some(s) => s
     None => abort("code_view 没装起来")
@@ -368,7 +371,9 @@ test "scan_line：python 三引号串与 bash heredoc 跨行" {
     _ => abort("三引号没挂上跨行状态")
   }
   assert_true(
-    p1.any(fn(t : Token) -> Bool { t.role is StrLit && t.text == "\"\"\"开始" }),
+    p1.any(fn(t : Token) -> Bool {
+      t.role is StrLit && t.text == "\"\"\"开始"
+    }),
     msg="三引号串没从定界符起成段",
   )
   let (p2, st2) = scan_line("结束\"\"\" y = 1", "python", st1)
@@ -451,7 +456,9 @@ test "copyable：头部区加高、悬浮出复制按钮墨" {
   root.relayout(220.0, 90.0)
   // copyable=true：内容高 + 20（顶部头部区），现有布局缺省关不受影响
   let copied : Ref[Bool] = Ref(false)
-  let rich = code_view(["let a = 1"], lang="moonbit", copyable=true, on_copied=fn(_ok : Bool) -> Unit {
+  let rich = code_view(["let a = 1"], lang="moonbit", copyable=true, on_copied=fn(
+    _ok : Bool,
+  ) -> Unit {
     copied.val = true
   })
   let root2 = @widget.Widget::new()

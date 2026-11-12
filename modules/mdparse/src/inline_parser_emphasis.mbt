@@ -2,7 +2,7 @@
 
 ///|
 /// Read the code point ending just before `i`.
-fn char_before(text : String, i : Int) -> Char {
+fn char_before(text : String, i : Int32) -> Char {
   let lo = text.unsafe_get(i - 1).to_int()
   if lo >= 0xDC00 && lo <= 0xDFFF && i >= 2 {
     let hi = text.unsafe_get(i - 2).to_int()
@@ -15,7 +15,7 @@ fn char_before(text : String, i : Int) -> Char {
 
 ///|
 /// Read the code point starting at `i`.
-fn char_at_index(text : String, i : Int) -> Char {
+fn char_at_index(text : String, i : Int32) -> Char {
   let hi = text.unsafe_get(i).to_int()
   if hi >= 0xD800 && hi <= 0xDBFF && i + 1 < text.length() {
     let lo = text.unsafe_get(i + 1).to_int()
@@ -31,9 +31,9 @@ fn char_at_index(text : String, i : Int) -> Char {
 /// return the index just past it.
 fn InlineCtx::push_delimiter_run(
   self : InlineCtx,
-  start : Int,
+  start : Int32,
   ch : Char,
-) -> Int {
+) -> Int32 {
   let text = self.text
   let len = self.len
   let mut end = start
@@ -76,7 +76,7 @@ fn InlineCtx::push_delimiter_run(
 ///|
 /// Key for the `openers_bottom` table: delimiters can only be reconsidered
 /// per character, per closer length modulo three, and per "can also open".
-fn openers_bottom_key(ch : Char, closer_len : Int, can_open : Bool) -> Int {
+fn openers_bottom_key(ch : Char, closer_len : Int32, can_open : Bool) -> Int32 {
   let base = match ch {
     '*' => 0
     '_' => 1
@@ -87,8 +87,8 @@ fn openers_bottom_key(ch : Char, closer_len : Int, can_open : Bool) -> Int {
 
 ///|
 /// Turn stacked `*`/`_`/`~` runs at or above `bottom` into emphasis nodes.
-fn InlineCtx::process_emphasis(self : InlineCtx, bottom : Int) -> Unit {
-  let openers_bottom : Map[Int, Int] = Map([], capacity=8)
+fn InlineCtx::process_emphasis(self : InlineCtx, bottom : Int32) -> Unit {
+  let openers_bottom : Map[Int32, Int32] = Map([], capacity=8)
   let mut closer_i = bottom
   while closer_i < self.delims.length() {
     let closer_slot = self.delims[closer_i]
@@ -165,9 +165,9 @@ fn InlineCtx::process_emphasis(self : InlineCtx, bottom : Int) -> Unit {
 /// Wrap the slots between two delimiter runs in an emphasis node.
 fn InlineCtx::wrap_delimiters(
   self : InlineCtx,
-  opener_i : Int,
-  closer_i : Int,
-  use_count : Int,
+  opener_i : Int32,
+  closer_i : Int32,
+  use_count : Int32,
   strike : Bool,
 ) -> Unit {
   let opener_slot = self.delims[opener_i]

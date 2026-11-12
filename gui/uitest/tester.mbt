@@ -24,12 +24,12 @@
 /// 一次无头会话：一棵挂好的树 + 画帧缓冲。
 pub(all) struct Tester {
   root : @widget.Widget
-  wpx : Int
-  hpx : Int
+  wpx : Int32
+  hpx : Int32
   mut bm : @render.Bitmap?
-  mut frames : Int
+  mut frames : Int32
   // 观察点计数：找/动/看三类门面每调一次 +1，finish() 据此判「这条用例什么都没跑」
-  mut ops : Int
+  mut ops : Int32
 }
 
 ///|
@@ -51,10 +51,10 @@ pub(all) struct Capabilities {
 }
 
 ///|
-let skipped_text : Ref[Int] = Ref(0)
+let skipped_text : Ref[Int32] = Ref(0)
 
 ///|
-let skipped_decode : Ref[Int] = Ref(0)
+let skipped_decode : Ref[Int32] = Ref(0)
 
 ///|
 /// 建树：单根节点。root 先建一个 100% 容器再挂。
@@ -92,7 +92,7 @@ pub fn mount_all(
 /// 深度优先找第一个 `name == n` 的控件（`Node::named` / 动态文本写回的那份）。
 pub fn Tester::by_name(self : Tester, n : String) -> Target {
   self.ops += 1
-  { root: self.root, w: find_named(self.root, n) }
+  { root: self.root, w: find_named(self.root, n), }
 }
 
 ///|
@@ -104,17 +104,17 @@ pub fn Tester::by_text(self : Tester, s : String) -> Target {
 
 ///|
 /// `base` 的第 i 个直接子控件（base 未命中给未命中）。
-pub fn Tester::nth(self : Tester, base : Target, i : Int) -> Target {
+pub fn Tester::nth(self : Tester, base : Target, i : Int32) -> Target {
   self.ops += 1
   let _ = self
   match base.w {
     Some(w) =>
       if i >= 0 && i < w.kids.length() {
-        { root: base.root, w: Some(w.kids[i]) }
+        { root: base.root, w: Some(w.kids[i]), }
       } else {
-        { root: base.root, w: None }
+        { root: base.root, w: None, }
       }
-    None => { root: base.root, w: None }
+    None => { root: base.root, w: None, }
   }
 }
 
@@ -124,9 +124,9 @@ pub fn Tester::hit(self : Tester, x : Double, y : Double) -> Target {
   self.ops += 1
   let path = self.root.hit_path(x, y)
   if path.length() == 0 {
-    { root: self.root, w: None }
+    { root: self.root, w: None, }
   } else {
-    { root: self.root, w: Some(path[path.length() - 1]) }
+    { root: self.root, w: Some(path[path.length() - 1]), }
   }
 }
 
@@ -182,11 +182,11 @@ pub fn Tester::pointer(
   kind : @widget.PointerKind,
   x : Double,
   y : Double,
-  button? : Int = 1,
-  mods? : Int = 0,
+  button~ : Int32 = 1,
+  mods~ : Int32 = 0,
 ) -> Bool {
   self.ops += 1
-  self.root.dispatch_pointer({ kind, x, y, button, mods })
+  self.root.dispatch_pointer({ kind, x, y, button, mods, })
 }
 
 ///|
@@ -208,13 +208,13 @@ pub fn Tester::type_text(self : Tester, t : Target, s : String) -> Unit {
 /// 按键注入：按 focus_id 路由（0 = 无焦点，直接给未消费）。返回是否被消费。
 pub fn Tester::key(
   self : Tester,
-  focus_id : Int,
-  keysym : Int,
-  mods? : Int = 0,
-  press? : Bool = true,
+  focus_id : Int32,
+  keysym : Int32,
+  mods~ : Int32 = 0,
+  press~ : Bool = true,
 ) -> Bool {
   self.ops += 1
-  self.root.dispatch_key(focus_id, { press, keysym, mods })
+  self.root.dispatch_key(focus_id, { press, keysym, mods, })
 }
 
 ///|
@@ -226,7 +226,7 @@ pub fn Tester::scroll(self : Tester, t : Target, dy : Double) -> Unit {
     Some(w) => {
       let cx = w.rect.x + w.rect.w / 2.0
       let cy = w.rect.y + w.rect.h / 2.0
-      let _ = t.root.dispatch_scroll({ x: cx, y: cy, dx: 0.0, dy, mods: 0 })
+      let _ = t.root.dispatch_scroll({ x: cx, y: cy, dx: 0.0, dy, mods: 0, })
     }
     None => ()
   }
@@ -238,7 +238,7 @@ pub fn Tester::drag(
   self : Tester,
   from : (Double, Double),
   to : (Double, Double),
-  steps? : Int = 10,
+  steps~ : Int32 = 10,
 ) -> Unit {
   self.ops += 1
   let n = if steps < 1 { 1 } else { steps }
@@ -317,7 +317,11 @@ pub fn Tester::role(self : Tester, t : Target) -> String? {
 
 ///|
 /// 像素读数（RGBA；frame() 之后才有内容）。越界给全 0。
-pub fn Tester::pixel(self : Tester, x : Int, y : Int) -> (Int, Int, Int, Int) {
+pub fn Tester::pixel(
+  self : Tester,
+  x : Int32,
+  y : Int32,
+) -> (Int32, Int32, Int32, Int32) {
   self.ops += 1
   match self.bm {
     Some(bm) =>
@@ -352,10 +356,10 @@ pub fn Tester::capabilities(self : Tester) -> Capabilities {
 
 ///|
 fn gif_probe_width() -> Double {
-  for rel in [
-    "examples/components/assets/dot.gif",
-    "../examples/components/assets/dot.gif",
-  ] {
+  for
+    rel in [
+      "examples/components/assets/dot.gif", "../examples/components/assets/dot.gif",
+    ] {
     let w = @render.Image::new_from_file(rel).get_width()
     if w > 0.0 {
       return w
@@ -400,7 +404,7 @@ pub fn guard_decode(t : Tester) -> Bool {
 /// 本会话跑过的观察点数：找（`by_name` / `by_text` / `nth` / `hit`）、动
 /// （`click` / `pointer` / `type_text` / `key` / `scroll` / `drag`）、看
 /// （`rect` / `text` / `role` / `pixel` / `bitmap`）三类门面各算一次。
-pub fn Tester::assertions(self : Tester) -> Int {
+pub fn Tester::assertions(self : Tester) -> Int32 {
   self.ops
 }
 
@@ -422,7 +426,7 @@ pub fn Tester::finish(self : Tester) -> Unit {
 /// 1.0 契约，签名可能随宿主内部改）。用法：`let win = @uitest.test_headless(800, 600)`
 /// 后照常 `win.mount([...])`，再改状态 → `win.step()` 若干拍 → 断言泵行为
 /// （定时器到期、脏区合并、深浅轮询）。语义边界见本包顶部「虚窗 ≠ 真窗」。
-pub fn test_headless(width : Int, height : Int) -> @widget.WindowHost {
+pub fn test_headless(width : Int32, height : Int32) -> @widget.WindowHost {
   @widget.WindowHost::test_headless(width, height)
 }
 
@@ -448,7 +452,7 @@ pub fn guard_report() -> Unit {
 /// 虚拟时间整体前移 `ms` 毫秒，期间按 ~16ms 一拍补帧（每拍 step 一次：到期
 /// 任务结算 + 逐窗绘制）。返回实际走的拍数。宿主取 `test_headless` 的那扇
 /// （真实宿主不受影响——虚拟偏移只在无头泵档被消费）。
-pub fn advance(win : @widget.WindowHost, ms : Int) -> Int {
+pub fn advance(win : @widget.WindowHost, ms : Int32) -> Int32 {
   let mut left = if ms < 0 { 0 } else { ms }
   // 每拍把时基钉到「起点 + 累计」，不按偏移量叠加：step 内绘制/派发走过的
   // 墙钟毫秒不计入，慢机器上「推 100ms」也不会多吃出几十毫秒（定时器误到期
@@ -473,7 +477,7 @@ pub fn advance(win : @widget.WindowHost, ms : Int) -> Int {
 /// 收敛：跑到「无到期定时器且无脏窗」为止（每拍 step 一次）；`max_steps`
 /// 封顶防回调自排死循环（到顶就停，不是错——调用方按需断言后续状态）。
 /// 返回实际走的拍数。
-pub fn settle(win : @widget.WindowHost, max_steps? : Int = 120) -> Int {
+pub fn settle(win : @widget.WindowHost, max_steps~ : Int32 = 120) -> Int32 {
   @shell.session_vtime_unpin() // 同 advance：先解掉上一用例可能遗留的钉位
   let l = @shell.host_loop()
   let mut n = 0

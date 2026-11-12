@@ -192,7 +192,9 @@ test "ffx_parse_places_row：正常/隐藏过滤/列数不足" {
 test "ffx_supported：与平台一致的探测口径" {
   assert_eq(
     ffx_supported(),
-    sys_platform() == "linux" || sys_platform() == "macos" || sys_platform() == "windows",
+    sys_platform() == "linux" ||
+    sys_platform() == "macos" ||
+    sys_platform() == "windows",
   )
 }
 

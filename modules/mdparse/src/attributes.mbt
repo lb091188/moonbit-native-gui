@@ -77,7 +77,7 @@ fn parse_markdown_attributes(source : String) -> Array[MarkdownAttribute]? {
         value = text.unsafe_substring(start=value_start, end=i)
       }
     }
-    attributes.push({ name, value })
+    attributes.push({ name, value, })
   }
   if attributes.is_empty() {
     None
@@ -90,7 +90,7 @@ fn parse_markdown_attributes(source : String) -> Array[MarkdownAttribute]? {
 /// Parse `:name[label]{attributes}` starting at `start`.
 /// The attribute list is optional; nested Markdown in the label is left to
 /// higher-level directive handlers rather than being interpreted here.
-fn parse_inline_directive(text : String, start : Int) -> (Inline, Int)? {
+fn parse_inline_directive(text : String, start : Int32) -> (Inline, Int32)? {
   let len = text.length()
   guard start + 2 < len && text.unsafe_get(start) == ':' else { return None }
   let mut i = start + 1

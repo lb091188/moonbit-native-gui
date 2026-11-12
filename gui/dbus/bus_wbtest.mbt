@@ -51,14 +51,12 @@ test {
   if !bus_session_guard() {
     return
   }
-  let hits : Ref[Int] = Ref(0)
+  let hits : Ref[Int32] = Ref(0)
   match
     dbus_subscribe_session(
       "interface='org.freedesktop.DBus',member='NameOwnerChanged',path='/org/freedesktop/DBus',sender='org.freedesktop.DBus'",
       "org.freedesktop.DBus.NameOwnerChanged",
-      fn(_args : Array[GDBusValue]) -> Unit {
-        hits.val = hits.val + 1
-      },
+      fn(_args : Array[GDBusValue]) -> Unit { hits.val = hits.val + 1 },
     ) {
     Err(e) => {
       println("subscribe failed: \{e}")
@@ -93,7 +91,8 @@ test {
 ///|
 test {
   // 系统总线按环境容错：能连上就查一次名字表，连不上只记录
-  match gdbus_call_system(
+  match
+    gdbus_call_system(
       "org.freedesktop.DBus",
       "/org/freedesktop/DBus",
       "org.freedesktop.DBus",

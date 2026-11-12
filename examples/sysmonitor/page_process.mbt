@@ -114,7 +114,7 @@ pub fn proc_row(p : ProcInfo) -> @ui.TableRow {
 
 ///|
 /// 列头索引 → 排序列（状态 / 命令行列返回 None）。
-fn sort_of_col(j : Int) -> ProcSort? {
+fn sort_of_col(j : Int32) -> ProcSort? {
   match j {
     0 => Some(ByPid)
     1 => Some(ByName)
@@ -131,11 +131,11 @@ fn sort_of_col(j : Int) -> ProcSort? {
 /// 本页订阅后重建数据），箭头显示与点击切换因此对组件透明。
 struct ProcPage {
   rows : @base.Store[Array[@ui.TableRow]]
-  sel : @base.Store[Array[Int]]
+  sel : @base.Store[Array[Int32]]
   msg : @base.Store[String]
   status : @base.Store[String]
   sort : @base.Store[@ui.TableSort]
-  mut pids : Array[Int]
+  mut pids : Array[Int32]
   mut query : String
 }
 
@@ -144,7 +144,7 @@ struct ProcPage {
 fn ProcPage::rebuild(self : ProcPage, procs : Array[ProcInfo]) -> Unit {
   // 旧选中行号 → pid（刷新前先取，避免排序变化后漂移）
   let old = self.sel.get()
-  let sel_pids : Array[Int] = []
+  let sel_pids : Array[Int32] = []
   for i in old {
     if i >= 0 && i < self.pids.length() {
       sel_pids.push(self.pids[i])
@@ -157,7 +157,7 @@ fn ProcPage::rebuild(self : ProcPage, procs : Array[ProcInfo]) -> Unit {
     Some(by) => sort_procs(filtered, by, st.asc)
   }
   let rows : Array[@ui.TableRow] = []
-  let pids : Array[Int] = []
+  let pids : Array[Int32] = []
   for p in sorted {
     rows.push(proc_row(p))
     pids.push(p.pid)
@@ -165,7 +165,7 @@ fn ProcPage::rebuild(self : ProcPage, procs : Array[ProcInfo]) -> Unit {
   self.pids = pids
   self.rows.set(rows)
   // 重映射选择：pid 仍存在才保留
-  let new_sel : Array[Int] = []
+  let new_sel : Array[Int32] = []
   for pid in sel_pids {
     for i in 0..<pids.length() {
       if pids[i] == pid {
@@ -191,8 +191,8 @@ fn ProcPage::rebuild(self : ProcPage, procs : Array[ProcInfo]) -> Unit {
 
 ///|
 /// 当前选中行对应的 pid 列表。
-fn ProcPage::selected_pids(self : ProcPage) -> Array[Int] {
-  let out : Array[Int] = []
+fn ProcPage::selected_pids(self : ProcPage) -> Array[Int32] {
+  let out : Array[Int32] = []
   for i in self.sel.get() {
     if i >= 0 && i < self.pids.length() {
       out.push(self.pids[i])
@@ -205,7 +205,7 @@ fn ProcPage::selected_pids(self : ProcPage) -> Array[Int] {
 /// 对选中进程发信号（结束 / 强杀），逐个报告结果。
 fn ProcPage::signal_selected(
   self : ProcPage,
-  sig : Int,
+  sig : Int32,
   label : String,
 ) -> Unit {
   let pids = self.selected_pids()
@@ -274,15 +274,12 @@ fn page_process(app : App) -> @widget.Node {
 
   let query_store : @base.Store[String] = @base.Store::new("")
   let tools : Array[@widget.Node] = [
-    @ui.input(
-      query_store,
-      placeholder="进程名 / pid",
-      width=240.0,
-      on_change=fn(s) {
-        page.query = s
-        page.rebuild(app.procs.get())
-      },
-    ),
+    @ui.input(query_store, placeholder="进程名 / pid", width=240.0, on_change=fn(
+      s,
+    ) {
+      page.query = s
+      page.rebuild(app.procs.get())
+    }),
   ]
   match force_label {
     None =>
@@ -322,9 +319,9 @@ fn page_process(app : App) -> @widget.Node {
     @ui.TableColumn::make("PID", 86.0, align=@text.End),
     @ui.TableColumn::make("进程名", 150.0),
     @ui.TableColumn::make("状态", 80.0, align=@text.Center, sortable=false),
-    @ui.TableColumn::make("CPU%", 72.0, align=@text.End),
+    @ui.TableColumn::make("CPU", 72.0, align=@text.End),
     @ui.TableColumn::make("内存", 96.0, align=@text.End),
-    @ui.TableColumn::make("线程", 56.0, align=@text.End),
+    @ui.TableColumn::make("线程", 72.0, align=@text.End),
     @ui.TableColumn::make("命令行", 0.0, sortable=false),
   ]
   let table_area = @widget.bind_node(app.size_key.signal(), fn(key) {
@@ -361,7 +358,14 @@ fn page_process(app : App) -> @widget.Node {
       @ui.row(tools, column_gap=8.0, class=[@style.style(min_width=0.0)]),
       // 操作消息（固定一行高，空串时不占额外结构）
       @ui.view(
-        [@ui.text_dyn(page.msg.signal(), font_size=12.0, color="text_secondary", wrap=false)],
+        [
+          @ui.text_dyn(
+            page.msg.signal(),
+            font_size=12.0,
+            color="text_secondary",
+            wrap=false,
+          ),
+        ],
         height=18.0,
       ),
       table_area,

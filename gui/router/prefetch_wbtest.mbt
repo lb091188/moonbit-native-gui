@@ -1,31 +1,44 @@
 // 空闲预建回归：先序环形队列、当前路径插队、thunk 只跑一次、Lazy/Eager 策略、
 // 换页重新锚定、建完停链。队列都用 `prefetch_step` 逐拍手动驱动（不起定时器）。
 
+///|
 fn pf_node() -> @widget.Node {
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget { w })
 }
 
-fn pf_lf(k : String, hits : Ref[Int]) -> Route {
+///|
+fn pf_lf(k : String, hits : Ref[Int32]) -> Route {
   route_leaf(k, fn() -> @widget.Node {
     hits.val += 1
     pf_node()
   })
 }
 
-fn pf_lazy(k : String, hits : Ref[Int]) -> Route {
-  route_leaf(k, fn() -> @widget.Node {
-    hits.val += 1
-    pf_node()
-  }, load=Lazy)
+///|
+fn pf_lazy(k : String, hits : Ref[Int32]) -> Route {
+  route_leaf(
+    k,
+    fn() -> @widget.Node {
+      hits.val += 1
+      pf_node()
+    },
+    load=Lazy,
+  )
 }
 
-fn pf_eager(k : String, hits : Ref[Int]) -> Route {
-  route_leaf(k, fn() -> @widget.Node {
-    hits.val += 1
-    pf_node()
-  }, load=Eager)
+///|
+fn pf_eager(k : String, hits : Ref[Int32]) -> Route {
+  route_leaf(
+    k,
+    fn() -> @widget.Node {
+      hits.val += 1
+      pf_node()
+    },
+    load=Eager,
+  )
 }
 
+///|
 fn pf_br(k : String, kids : Array[Route]) -> Route {
   route_branch(k, kids)
 }
@@ -33,7 +46,7 @@ fn pf_br(k : String, kids : Array[Route]) -> Route {
 ///|
 /// 三层等深树，先序叶序为：甲/子/a1、甲/子/a2、甲/丑/a3、甲/丑/a4、
 /// 乙/子/b1、乙/子/b2、乙/丑/b3、乙/丑/b4。
-fn pf_tree(hits : Ref[Int]) -> Array[Route] {
+fn pf_tree(hits : Ref[Int32]) -> Array[Route] {
   [
     pf_br("甲", [
       pf_br("子", [pf_lf("a1", hits), pf_lf("a2", hits)]),

@@ -12,7 +12,7 @@
 pub fn Window::set_popup(
   self : Window,
   owner : Window?,
-  want_focus? : Bool = false,
+  want_focus~ : Bool = false,
 ) -> Unit {
   let oid = match owner {
     None => 0L
@@ -30,7 +30,7 @@ pub fn Window::request_redraw(self : Window) -> Unit {
 
 ///|
 /// 摆到屏幕坐标（弹层按「owner 原点 + 锚点的窗口内矩形」算）。
-pub fn Window::move_to(self : Window, x : Int, y : Int) -> Unit {
+pub fn Window::move_to(self : Window, x : Int32, y : Int32) -> Unit {
   wm_window_move(self.id, x, y)
 }
 
@@ -43,7 +43,7 @@ pub fn Window::had_focus(self : Window) -> Bool {
 
 ///|
 /// 客户区在屏幕上的原点（拿不到时给 (0,0)，调用方按它摆位不会崩，只会贴边）。
-pub fn Window::origin(self : Window) -> (Int, Int) {
+pub fn Window::origin(self : Window) -> (Int32, Int32) {
   let ox = Ref(0)
   let oy = Ref(0)
   wm_window_origin(self.id, ox, oy)

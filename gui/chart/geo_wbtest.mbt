@@ -373,7 +373,8 @@ test "GeoFlight / GeoRegion 构造与 geo_map_t 组件可编译（不 mount，�
 ///|
 test "地图组件：区域与飞线出像素、换区域画面变" {
   // 极简 GeoJSON：一个四边形区域（geojson_parse 收字符串文本）
-  let regions = match geojson_parse(
+  let regions = match
+    geojson_parse(
       "{\"type\":\"FeatureCollection\",\"features\":[{\"type\":\"Feature\",\"properties\":{\"name\":\"测试区\"},\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[20,-40],[160,-40],[160,60],[20,60]]]}}]}",
     ) {
     Ok(rs) => @base.Store::new(rs)

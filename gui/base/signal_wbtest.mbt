@@ -7,8 +7,8 @@
 
 ///|
 test "Signal 源:get/set/update/subscribe" {
-  let s : Signal[Int] = Signal::new(1)
-  let seen : Array[Int] = []
+  let s : Signal[Int32] = Signal::new(1)
+  let seen : Array[Int32] = []
   ignore(s.subscribe(fn(v) { seen.push(v) }))
   inspect(seen.length(), content="0") // 注册不回调
   s.set(2)
@@ -55,13 +55,7 @@ test "computed:条件分支只依赖实际读到的信号" {
   let flag = Signal::new(true)
   let x = Signal::new(1)
   let y = Signal::new(100)
-  let c = Signal::computed(fn() {
-    if flag.get() {
-      x.get()
-    } else {
-      y.get()
-    }
-  })
+  let c = Signal::computed(fn() { if flag.get() { x.get() } else { y.get() } })
   inspect(c.get(), content="1")
   y.set(200)
   inspect(c.get(), content="1") // y 不是当前依赖
@@ -118,7 +112,7 @@ test "map:派生只读信号" {
 
 ///|
 test "Store 与 Signal 互转:共享同一状态" {
-  let s : Store[Int] = Store::new(7)
+  let s : Store[Int32] = Store::new(7)
   let sig = s.signal()
   sig.set(9)
   inspect(s.get(), content="9")
@@ -126,7 +120,7 @@ test "Store 与 Signal 互转:共享同一状态" {
   s.set(11)
   inspect(back.get(), content="11")
   // 订阅互通
-  let seen : Array[Int] = []
+  let seen : Array[Int32] = []
   back.subscribe(fn(v) { seen.push(v) })
   s.set(12)
   debug_inspect(seen, content="[12]")
@@ -134,8 +128,8 @@ test "Store 与 Signal 互转:共享同一状态" {
 
 ///|
 test "Store 语义回归:get/set/update/subscribe/map 与旧实现一致" {
-  let s : Store[Int] = Store::new(1)
-  let seen : Array[Int] = []
+  let s : Store[Int32] = Store::new(1)
+  let seen : Array[Int32] = []
   ignore(s.subscribe(fn(v) { seen.push(v) }))
   s.set(2)
   s.update(fn(n) { n + 1 })
@@ -157,9 +151,9 @@ test "信号驱动 Store 参数组件形态:computed 经 store() 只读接入" {
 
 ///|
 test "Signal subscribe 返回句柄,remove 按 id 精确退订" {
-  let s : Signal[Int] = Signal::new(0)
-  let a : Array[Int] = []
-  let b : Array[Int] = []
+  let s : Signal[Int32] = Signal::new(0)
+  let a : Array[Int32] = []
+  let b : Array[Int32] = []
   let ha = s.subscribe(fn(v) { a.push(v) })
   let hb = s.subscribe(fn(v) { b.push(v) })
   s.set(1)
@@ -175,9 +169,9 @@ test "Signal subscribe 返回句柄,remove 按 id 精确退订" {
 
 ///|
 test "订阅回收袋:袋内订阅整代退订,袋外不受影响" {
-  let s : Signal[Int] = Signal::new(0)
-  let in_bag : Array[Int] = []
-  let out_bag : Array[Int] = []
+  let s : Signal[Int32] = Signal::new(0)
+  let in_bag : Array[Int32] = []
+  let out_bag : Array[Int32] = []
   let hout = s.subscribe(fn(v) { out_bag.push(v) })
   sub_bag_begin()
   ignore(s.subscribe(fn(v) { in_bag.push(v) }))
@@ -203,8 +197,8 @@ test "订阅回收袋:袋内订阅整代退订,袋外不受影响" {
 
 ///|
 test "订阅回收袋:无袋时订阅不入袋(subscribe 常态不退化)" {
-  let s : Signal[Int] = Signal::new(0)
-  let seen : Array[Int] = []
+  let s : Signal[Int32] = Signal::new(0)
+  let seen : Array[Int32] = []
   let bag = sub_bag_end() // 空栈收袋:不应崩,返回空表
   inspect(bag.length(), content="0")
   ignore(s.subscribe(fn(v) { seen.push(v) }))
@@ -216,9 +210,7 @@ test "订阅回收袋:无袋时订阅不入袋(subscribe 常态不退化)" {
 ///|
 test "next_tick：批尾冲刷、途中新排队进下一批、clear 丢队列" {
   let log : Array[String] = []
-  let push = fn(s : String) -> Unit {
-    let _ = log.push(s)
-  }
+  let push = fn(s : String) -> Unit { let _ = log.push(s) }
   next_tick(fn() -> Unit {
     push("a")
     next_tick(fn() -> Unit { push("b") }) // 冲刷途中排的不进本批

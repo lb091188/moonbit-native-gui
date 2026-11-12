@@ -1,7 +1,7 @@
 ///|
 /// 真实节奏等待（busy 等待单调时钟）：真设备分支按设备实际消费推进，
 /// 连打 pump 设备来不及吃队列，须按拍留出真实时间。
-fn ap_wait_ms(ms : Int) -> Unit {
+fn ap_wait_ms(ms : Int32) -> Unit {
   let t0 = mbt_now_ms()
   while mbt_now_ms() - t0 < ms.to_int64() {
     ()
@@ -16,7 +16,9 @@ fn ap_wait_ms(ms : Int) -> Unit {
 /// 时才有一下声音」的回归断言）。
 test "AudioPlayer 冒烟：播放/pump/seek/循环" {
   if !@ffmbt.ffmpeg_supported() {
-    println("skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）")
+    println(
+      "skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）",
+    )
     return
   }
   let p = match AudioPlayer::make("../ffmpeg-mbt/src/testdata/sine_1s.mp3") {

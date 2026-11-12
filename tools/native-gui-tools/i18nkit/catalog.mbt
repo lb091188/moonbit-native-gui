@@ -18,7 +18,7 @@ fn chars(s : String) -> Array[Char] {
 }
 
 ///|
-fn join(arr : Array[Char], from : Int, to : Int) -> String {
+fn join(arr : Array[Char], from : Int32, to : Int32) -> String {
   let mut s = ""
   let mut i = from
   while i < to {
@@ -189,11 +189,11 @@ pub fn parse_catalog(text : String) -> Catalog {
     Some(l) => l
     None => ""
   }
-  { locale, texts, plurals }
+  { locale, texts, plurals, }
 }
 
 ///|
-fn find_char(s : String, c : Char) -> Int {
+fn find_char(s : String, c : Char) -> Int32 {
   let a = chars(s)
   let n = a.length()
   let mut i = 0
@@ -207,7 +207,7 @@ fn find_char(s : String, c : Char) -> Int {
 }
 
 ///|
-fn slice(s : String, from : Int, to : Int) -> String {
+fn slice(s : String, from : Int32, to : Int32) -> String {
   join(chars(s), from, to)
 }
 
@@ -273,7 +273,11 @@ pub fn t(cat : Catalog, key : String) -> String? {
 
 ///|
 /// 带插值查译。
-pub fn t_with(cat : Catalog, key : String, vars : Array[(String, String)]) -> String? {
+pub fn t_with(
+  cat : Catalog,
+  key : String,
+  vars : Array[(String, String)],
+) -> String? {
   match t(cat, key) {
     Some(s) => Some(interp(s, vars))
     None => None
@@ -297,7 +301,7 @@ fn primary_lang(locale : String) -> String {
 
 ///|
 // CLDR 简化复数：东亚语言恒 other，其余 one/other。按主语言判。
-pub fn select_plural(locale : String, n : Int) -> String {
+pub fn select_plural(locale : String, n : Int32) -> String {
   match primary_lang(locale) {
     "zh" | "ja" | "ko" | "vi" | "th" | "id" => "other"
     _ => if n == 1 { "one" } else { "other" }
@@ -306,25 +310,26 @@ pub fn select_plural(locale : String, n : Int) -> String {
 
 ///|
 /// 复数查译：优先内联表按形式取，退普通串；n 填 {n}/{count}。
-pub fn t_count(cat : Catalog, key : String, n : Int) -> String? {
+pub fn t_count(cat : Catalog, key : String, n : Int32) -> String? {
   let vars = [("n", n.to_string()), ("count", n.to_string())]
   match find_plural_raw(cat.plurals, key) {
     Some(forms) => {
       let want = select_plural(cat.locale, n)
-      let tmpl =
-        match find_text_raw(forms, want) {
-          Some(s) => s
-          None => match find_text_raw(forms, "other") {
+      let tmpl = match find_text_raw(forms, want) {
+        Some(s) => s
+        None =>
+          match find_text_raw(forms, "other") {
             Some(s) => s
             None => if forms.length() > 0 { forms[0].1 } else { "" }
           }
-        }
+      }
       Some(interp(tmpl, vars))
     }
-    None => match t(cat, key) {
-      Some(s) => Some(interp(s, vars))
-      None => None
-    }
+    None =>
+      match t(cat, key) {
+        Some(s) => Some(interp(s, vars))
+        None => None
+      }
   }
 }
 

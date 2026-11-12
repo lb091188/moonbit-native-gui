@@ -68,9 +68,9 @@ pub extend MachineInfo with Show::{to_string, output}
 /// 含可回收缓存，是"还能拿来用多少"的更实口径）。
 pub(all) struct MemoryInfo {
   /// MemTotal（kB）
-  total_kb : Int
+  total_kb : Int32
   /// MemAvailable（kB）
-  available_kb : Int
+  available_kb : Int32
 }
 
 ///|
@@ -270,8 +270,8 @@ fn si_parse_os_release(text : String) -> OsInfo? {
 /// （`MemTotal:       32665016 kB`；容忍值后无单位后缀）。任一缺失或
 /// 非数值 → None。
 fn si_parse_meminfo(text : String) -> MemoryInfo? {
-  let mut total : Int? = None
-  let mut available : Int? = None
+  let mut total : Int32? = None
+  let mut available : Int32? = None
   for line in si_split_lines(text) {
     let t = si_trim(line)
     let key = match si_line_key(t) {
@@ -325,7 +325,7 @@ fn si_line_key(line : String) -> String? {
 ///|
 /// meminfo 行的冒号后的首个 token → 非负整数（kB；`32665016 kB` →
 /// 32665016；非数值或无 token 为 None）。
-fn si_meminfo_value(line : String) -> Int? {
+fn si_meminfo_value(line : String) -> Int32? {
   let chars : Array[Char] = []
   for ch in line {
     chars.push(ch)
@@ -487,10 +487,15 @@ fn si_read_first_file(paths : Array[String]) -> String? {
 ///|
 /// 发行版标识（/etc/os-release 的 PRETTY_NAME / ID / VERSION_ID；文件
 /// 读不到 → SiReadFailed，格式不符 → SiParseFailed）。
+
 ///|
 /// Windows 直调：读 HKLM 注册表 REG_SZ 值（UTF-8）。
 #borrow(subkey, value, ok)
-extern "c" fn ffi_reg_sz(subkey : Bytes, value : Bytes, ok : Ref[Int]) -> Bytes = "yue_sys_reg_sz"
+extern "c" fn ffi_reg_sz(
+  subkey : Bytes,
+  value : Bytes,
+  ok : Ref[Int32],
+) -> Bytes = "yue_sys_reg_sz"
 
 ///|
 /// Windows 直调：机器 DMI 的 WMI 兜底（一行三列 `厂商\t型号\t序列号`，缺失给
@@ -498,7 +503,7 @@ extern "c" fn ffi_reg_sz(subkey : Bytes, value : Bytes, ok : Ref[Int]) -> Bytes 
 /// 用户态，连 GetSystemFirmwareTable 都不认这张表），只能退到 WMI。非 Windows
 /// 平台恒给 ok=0。
 #borrow(ok)
-extern "c" fn ffi_wmi_machine(ok : Ref[Int]) -> Bytes = "yue_sys_wmi_machine"
+extern "c" fn ffi_wmi_machine(ok : Ref[Int32]) -> Bytes = "yue_sys_wmi_machine"
 
 ///|
 /// Windows 直调：物理内存快照（KB）。
@@ -506,8 +511,8 @@ extern "c" fn ffi_wmi_machine(ok : Ref[Int]) -> Bytes = "yue_sys_wmi_machine"
 extern "c" fn ffi_memory_kb(
   total_kb : Ref[Int64],
   avail_kb : Ref[Int64],
-  ok : Ref[Int],
-) -> Int = "yue_sys_memory_kb"
+  ok : Ref[Int32],
+) -> Int32 = "yue_sys_memory_kb"
 
 ///|
 /// Windows 直调：开机秒数。
@@ -580,7 +585,7 @@ fn si_win_memory_via_ffi(what : String) -> Result[MemoryInfo, SysInfoError] {
   if ok.val != 1 {
     return Err(SiReadFailed(what))
   }
-  Ok({ total_kb: total.val.to_int(), available_kb: avail.val.to_int() })
+  Ok({ total_kb: total.val.to_int(), available_kb: avail.val.to_int(), })
 }
 
 ///|
@@ -647,17 +652,17 @@ fn si_parse_sw_vers(text : String) -> OsInfo? {
   if ver == "" && name == "" {
     return None
   }
-  let pretty =
-    if name == "" {
-      ver
-    } else if ver == "" {
-      name
-    } else {
-      name + " " + ver
-    }
-  Some({ pretty_name: pretty, id: "macos", version_id: ver })
+  let pretty = if name == "" {
+    ver
+  } else if ver == "" {
+    name
+  } else {
+    name + " " + ver
+  }
+  Some({ pretty_name: pretty, id: "macos", version_id: ver, })
 }
 
+///|
 /// ioreg 的值有两种形态：`"v"` 与 `<"v">`（后者是 plist 的 data 包住字符串，
 /// Apple Silicon 上的 `manufacturer` 正是这一形态，真机 macOS 26.5 回证）。
 /// 带引号的取出来；纯 hex 的 `<...>` 不是字符串，判为取不到。
@@ -676,12 +681,17 @@ fn si_ioreg_unwrap(v : String) -> String {
     }
     let inner = buf.to_string()
     let un = si_unquote(inner)
-    if un == inner { "" } else { un }
+    if un == inner {
+      ""
+    } else {
+      un
+    }
   } else {
     v
   }
 }
 
+///|
 /// 从 `ioreg -rd1 -c IOPlatformExpertDevice` 的「"键" = 值」行里取值。
 /// 拆行与去引复用 `si_split_kv`，所以比键时要带上源文的引号形态。
 /// 两条源文现实（真机回证）：① **键的大小写不稳**——Apple Silicon 给的是全小写
@@ -721,22 +731,22 @@ pub fn si_os() -> Result[OsInfo, SysInfoError] {
       }
     "windows" => {
       // 注册表 CurrentVersion：ProductName（"Windows 11 Pro"）+ DisplayVersion（"24H2"）
-      let name = match si_win_reg(
-          "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
-          "ProductName",
+      let name = match
+        si_win_reg(
+          "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "ProductName",
         ) {
         Some(v) => v
         None => return Err(SiReadFailed("HKLM CurrentVersion:ProductName"))
       }
-      let ver = match si_win_reg(
-          "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion",
-          "DisplayVersion",
+      let ver = match
+        si_win_reg(
+          "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", "DisplayVersion",
         ) {
         Some(v) => v
         None => ""
       }
       let pretty = if ver == "" { name } else { name + " " + ver }
-      Ok({ pretty_name: pretty, id: "windows", version_id: ver })
+      Ok({ pretty_name: pretty, id: "windows", version_id: ver, })
     }
     // macOS：`sw_vers` 是三行 ASCII 读数，与 Windows 的注册表臂同档（一次进程往返）
     "macos" =>
@@ -745,7 +755,8 @@ pub fn si_os() -> Result[OsInfo, SysInfoError] {
         Some(text) =>
           match si_parse_sw_vers(text) {
             Some(info) => Ok(info)
-            None => Err(SiParseFailed("sw_vers: 缺 ProductName/ProductVersion"))
+            None =>
+              Err(SiParseFailed("sw_vers: 缺 ProductName/ProductVersion"))
           }
       }
     _ => Err(SiUnsupported)
@@ -772,9 +783,8 @@ pub fn si_machine() -> Result[MachineInfo, SysInfoError] {
       let serial = match si_read_dmi("product_serial") {
         Some(v) => v
         None =>
-          match si_read_first_file([
-            "/var/lib/dbus/machine-id", "/etc/machine-id",
-          ]) {
+          match
+            si_read_first_file(["/var/lib/dbus/machine-id", "/etc/machine-id"]) {
             Some(v) => v
             None =>
               return Err(
@@ -824,12 +834,12 @@ pub fn si_machine() -> Result[MachineInfo, SysInfoError] {
       let serial = match serial {
         Some(v) if v != "" => v
         _ =>
-          match si_win_reg(
-              "SOFTWARE\\Microsoft\\Cryptography",
-              "MachineGuid",
-            ) {
+          match si_win_reg("SOFTWARE\\Microsoft\\Cryptography", "MachineGuid") {
             Some(v) => v
-            None => return Err(SiReadFailed("BIOS SerialNumber/Cryptography MachineGuid"))
+            None =>
+              return Err(
+                SiReadFailed("BIOS SerialNumber/Cryptography MachineGuid"),
+              )
           }
       }
       Ok({ vendor, product, serial, })
@@ -837,7 +847,8 @@ pub fn si_machine() -> Result[MachineInfo, SysInfoError] {
     // macOS：厂商与序列号读 ioreg 的字符串键，机型走 `sysctl -n hw.model`
     // （ioreg 里的 model/product-name 是 Data 的 hex 形态，解它不值当）
     "macos" => {
-      let reg = match si_run_text("ioreg", ["-rd1", "-c", "IOPlatformExpertDevice"]) {
+      let reg = match
+        si_run_text("ioreg", ["-rd1", "-c", "IOPlatformExpertDevice"]) {
         None => return Err(SiReadFailed("ioreg IOPlatformExpertDevice"))
         Some(t) => t
       }
@@ -853,7 +864,7 @@ pub fn si_machine() -> Result[MachineInfo, SysInfoError] {
         Some(v) => v
         None => return Err(SiReadFailed("ioreg: IOPlatformSerialNumber"))
       }
-      Ok({ vendor, product, serial })
+      Ok({ vendor, product, serial, })
     }
     _ => Err(SiUnsupported)
   }
@@ -872,7 +883,7 @@ pub fn si_memory() -> Result[MemoryInfo, SysInfoError] {
       if ok.val != 1 {
         return Err(SiReadFailed("GlobalMemoryStatusEx"))
       }
-      Ok({ total_kb: total.val.to_int(), available_kb: avail.val.to_int() })
+      Ok({ total_kb: total.val.to_int(), available_kb: avail.val.to_int(), })
     }
     "macos" => si_win_memory_via_ffi("sysctl hw.memsize + host_statistics64")
     "linux" =>

@@ -166,7 +166,13 @@ test "Tray::set_icon_pixmap / set_icon_builtin（NG_TRAY_WBTEST=1 才真跑）" 
         let (w, h, px) = (
           4,
           4,
-          Bytes::makei(4 * 4 * 4, fn(i) { if i % 4 == 0 { b'\x80' } else { b'\x40' } }),
+          Bytes::makei(4 * 4 * 4, fn(i) {
+            if i % 4 == 0 {
+              b'\x80'
+            } else {
+              b'\x40'
+            }
+          }),
         )
         t.set_icon_pixmap(w, h, px)
         // 非法像素：静默保持上一次的图标，不崩也不清空

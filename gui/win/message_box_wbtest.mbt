@@ -10,7 +10,7 @@
 // match 归一成编号再比。
 
 ///|
-fn mbresult_code(r : MessageBoxResult) -> Int {
+fn mbresult_code(r : MessageBoxResult) -> Int32 {
   match r {
     Ok => 1
     Cancel => 2

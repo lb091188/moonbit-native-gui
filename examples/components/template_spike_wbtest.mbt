@@ -5,7 +5,7 @@
 ///|
 fn template_spike() -> @widget.Node {
   // —— script 段原文 ——
-  let qty : @base.Store[Int] = @base.Store::new(3)
+  let qty : @base.Store[Int32] = @base.Store::new(3)
   let slider_val : @base.Store[Double] = @base.Store::new(30.0)
   let wifi_on : @base.Store[Bool] = @base.Store::new(true)
   let nick : @base.Store[String] = @base.Store::new("")
@@ -23,11 +23,16 @@ fn template_spike() -> @widget.Node {
   }
   // —— 模板树 ——
   @shared.page([
-    @shared.section("数值", "步进器 / 滑杆 / 评分", "stepper 0..10 钳制。", [
-      @ui.stepper(qty, min=0, max=10, step=1),
-      @ui.slider(slider_val, min=0.0, max=100.0, step=5.0, width=200.0),
-      @ui.bind_label(qty, fn(v) { "当前数量：\{v}" }),
-    ]),
+    @shared.section(
+      "数值",
+      "步进器 / 滑杆 / 评分",
+      "stepper 0..10 钳制。",
+      [
+        @ui.stepper(qty, min=0, max=10, step=1),
+        @ui.slider(slider_val, min=0.0, max=100.0, step=5.0, width=200.0),
+        @ui.bind_label(qty, fn(v) { "当前数量：\{v}" }),
+      ],
+    ),
     @shared.section("开关", "Checkbox", "开关驱动结构条件。", [
       @ui.checkbox(@shared.tx("自动开启"), wifi_on),
       @widget.bind_node(wifi_on.signal(), fn(on) {
@@ -41,11 +46,15 @@ fn template_spike() -> @widget.Node {
     ]),
     @shared.section("表单校验", "Form", "规则即时重跑。", [
       @ui.form(@shared.tx("注册资料"), [
-        @ui.form_item(@shared.tx("昵称"), @ui.input(
+        @ui.form_item(
+          @shared.tx("昵称"),
+          @ui.input(
             nick,
             placeholder=@shared.tx("至少 2 个字符"),
             width=200.0,
-          ), error=err_nick),
+          ),
+          error=err_nick,
+        ),
       ]),
       @ui.bind(passed, fn(v) { "已通过校验 \{v} 项" }),
     ]),

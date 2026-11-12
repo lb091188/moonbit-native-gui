@@ -2,7 +2,7 @@
 // 每边内缘条（无圆角）、带圆角时 per-side 回落统一描边。
 
 ///|
-fn corners_bm(w : @widget.Widget, wpx : Int, hpx : Int) -> @render.Bitmap {
+fn corners_bm(w : @widget.Widget, wpx : Int32, hpx : Int32) -> @render.Bitmap {
   let bm = @render.Bitmap::new(wpx, hpx)
   let p = @render.Painter::new(bm)
   w.paint_at(p, w.rect.x, w.rect.y)
@@ -15,10 +15,7 @@ test "view 每角圆角：左上直角右上大圆角，角落像素分档" {
   @theme.theme_apply(@theme.default_theme())
   let (root, w) = mounted(
     view([], width=40.0, height=40.0, background_color="danger", class=[
-      @style.style(
-        border_top_left_radius=0.0,
-        border_top_right_radius=20.0,
-      ),
+      @style.style(border_top_left_radius=0.0, border_top_right_radius=20.0),
     ]),
     80.0,
     80.0,
@@ -31,8 +28,7 @@ test "view 每角圆角：左上直角右上大圆角，角落像素分档" {
   }
   // 左上直角：角点内侧仍是 danger
   assert_true(
-    (bm.pixel(1, 1).r - dr).abs() <= 8 &&
-    (bm.pixel(1, 1).g - _dg).abs() <= 8,
+    (bm.pixel(1, 1).r - dr).abs() <= 8 && (bm.pixel(1, 1).g - _dg).abs() <= 8,
   )
   // 右上大圆角：角点被裁掉（透明），圆心内侧在
   assert_eq(bm.pixel(38, 1).a, 0)
@@ -81,7 +77,11 @@ test "view 每边边框：无圆角逐边内缘条，颜色各异" {
 
 ///|
 test "side_borders_of / corner_radii_of：缺省回落统一值" {
-  let s = @style.style(border_width=2.0, border_color="primary", border_radius=6.0)
+  let s = @style.style(
+    border_width=2.0,
+    border_color="primary",
+    border_radius=6.0,
+  )
   let (bt, br, _bb, _bl) = @style.side_borders_of(s)
   assert_eq(bt.width, 2.0)
   assert_true(br.color == @theme.theme_primary())

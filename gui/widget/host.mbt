@@ -13,7 +13,7 @@
 ///|
 // 窗号 → 挂了内容的 WindowHost。表归 widget 侧：壳层泵每拍要按在窗逐个排空事件、
 // 喂输入法、画脏窗，拿的都是这半本账。
-let g_apps : Map[Int, WindowHost] = Map([])
+let g_apps : Map[Int32, WindowHost] = Map([])
 
 ///|
 pub fn host_add_app(app : WindowHost) -> Unit {
@@ -32,12 +32,12 @@ pub fn host_add_app(app : WindowHost) -> Unit {
 }
 
 ///|
-pub fn host_remove_app(wid : Int) -> Unit {
+pub fn host_remove_app(wid : Int32) -> Unit {
   let _ = g_apps.remove(wid)
 }
 
 ///|
-fn host_app_of(wid : Int) -> WindowHost? {
+fn host_app_of(wid : Int32) -> WindowHost? {
   g_apps.get(wid)
 }
 
@@ -79,7 +79,7 @@ pub fn host_repaint_all() -> Unit {
 /// 按控件 id 局部置脏：命中哪扇窗就把该控件的矩形并进那扇窗的脏区（动画这类
 /// 「只影响一个控件」的自驱动用它，不必整窗广播）。
 /// 所有窗都找不到（已卸载/隐藏）回退整窗广播——宁可多画，不可漏画。
-pub fn invalidate_id(id : Int) -> Unit {
+pub fn invalidate_id(id : Int32) -> Unit {
   if id <= 0 {
     return
   }

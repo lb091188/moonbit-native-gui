@@ -13,7 +13,12 @@ priv struct DevRegs {
 }
 
 ///|
-fn dev_push_val(a : Array[(String, String, Pos)], k : String, e : String, p : Pos) -> Unit {
+fn dev_push_val(
+  a : Array[(String, String, Pos)],
+  k : String,
+  e : String,
+  p : Pos,
+) -> Unit {
   for (x, _, _) in a {
     if x == k {
       return
@@ -33,7 +38,12 @@ fn dev_push_handler(a : Array[(String, Pos)], h : String, p : Pos) -> Unit {
 }
 
 ///|
-fn dev_push_state(a : Array[(String, String, Pos)], n : String, kd : String, p : Pos) -> Unit {
+fn dev_push_state(
+  a : Array[(String, String, Pos)],
+  n : String,
+  kd : String,
+  p : Pos,
+) -> Unit {
   for (x, _, _) in a {
     if x == n {
       return
@@ -44,7 +54,11 @@ fn dev_push_state(a : Array[(String, String, Pos)], n : String, kd : String, p :
 
 ///|
 /// 插值文本 → 值表达式（字符串字面量），与生产生成同源。
-fn dev_interp_expr(ctx : Ctx, raw : String, pos : Pos) -> Result[String, String] {
+fn dev_interp_expr(
+  ctx : Ctx,
+  raw : String,
+  pos : Pos,
+) -> Result[String, String] {
   let norm = normalize_text(raw)
   let pieces = match split_interp(norm, pos) {
     Ok(v) => v
@@ -71,7 +85,7 @@ fn dev_collect(
   ctx : Ctx,
   tys : Map[String, String],
 ) -> Result[DevRegs, String] {
-  let regs : DevRegs = { exprs: [], conds: [], handlers: [], states: [] }
+  let regs : DevRegs = { exprs: [], conds: [], handlers: [], states: [], }
   match dev_walk(nodes, ctx, tys, regs) {
     Ok(_) => Ok(regs)
     Err(e) => Err(e)
@@ -155,10 +169,7 @@ fn dev_walk(
           let mut dyn_text : Attr? = None
           for a in attrs {
             match a.kind {
-              Dyn =>
-                if a.name == "text" {
-                  dyn_text = Some(a)
-                }
+              Dyn => if a.name == "text" { dyn_text = Some(a) }
               _ => ()
             }
           }

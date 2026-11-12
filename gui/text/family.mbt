@@ -6,15 +6,14 @@
 // G3b 条）；族名比较 ASCII 大小写不敏感，与 fontconfig/Pango 同口径。
 
 ///|
-extern "c" fn pt_families_len() -> Int = "pt_families_len"
+extern "c" fn pt_families_len() -> Int32 = "pt_families_len"
 
 ///|
-extern "c" fn pt_families_byte(index : Int) -> Int = "pt_families_byte"
+extern "c" fn pt_families_byte(index : Int32) -> Int32 = "pt_families_byte"
 
 ///|
 #borrow(name)
-extern "c" fn pt_family_available(name : Bytes, len : Int) -> Int =
-  "pt_family_available"
+extern "c" fn pt_family_available(name : Bytes, len : Int32) -> Int32 = "pt_family_available"
 
 ///|
 /// CSS 通用族关键字：不在枚举表里也算可用（Pango 自己解析到具体字面族）。
@@ -88,7 +87,13 @@ pub fn Font::resolve(self : Font) -> Font {
   if self.name.length() == 0 || family_available(self.name) {
     self
   } else {
-    Font::new("", self.size, weight=self.weight, style=self.style, spacing=self.spacing)
+    Font::new(
+      "",
+      self.size,
+      weight=self.weight,
+      style=self.style,
+      spacing=self.spacing,
+    )
   }
 }
 

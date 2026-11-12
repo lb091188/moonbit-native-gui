@@ -6,7 +6,7 @@
 ///|
 /// 注册表槽：dev 档 codegen 生成的按名条目（探针手写等价物）。
 priv enum Slot {
-  IntSlot(@base.Store[Int])
+  IntSlot(@base.Store[Int32])
   DoubleSlot(@base.Store[Double])
   BoolSlot(@base.Store[Bool])
   DynFn(() -> @widget.Node)
@@ -77,7 +77,7 @@ fn mount_gen(holder : @widget.Widget, ir : Ir, reg : Map[String, Slot]) -> Gen {
   @base.sub_bag_begin()
   let w = apply_ir(ir, reg).mount_into(holder)
   let offs = @base.sub_bag_end()
-  { widget: w, offs }
+  { widget: w, offs, }
 }
 
 ///|
@@ -90,10 +90,10 @@ fn unmount_gen(holder : @widget.Widget, gen : Gen) -> Unit {
 ///|
 /// 探针页状态与注册表（dev 档 codegen 手写等价物；fires 供泄漏断言）。
 fn make_registry(
-  qty : @base.Store[Int],
+  qty : @base.Store[Int32],
   level : @base.Store[Double],
   wifi : @base.Store[Bool],
-  fires : Ref[Int],
+  fires : Ref[Int32],
 ) -> Map[String, Slot] {
   let reg : Map[String, Slot] = Map([])
   let _ = reg.set("qty", IntSlot(qty))
@@ -115,27 +115,21 @@ fn make_registry(
 ///|
 /// v1：步进器在上、标签在中、条件块与滑杆在尾。
 fn ir_v1() -> Ir {
-  Col(
-    8.0,
-    [
-      Stepper("qty"),
-      Dyn("qty_label"),
-      If("wifi", Static("自动开启：开"), Static("自动开启：关")),
-      Slider("level"),
-    ],
-  )
+  Col(8.0, [
+    Stepper("qty"),
+    Dyn("qty_label"),
+    If("wifi", Static("自动开启：开"), Static("自动开启：关")),
+    Slider("level"),
+  ])
 }
 
 ///|
 /// v2：结构补丁——标签提到最上、插静态说明、条件块换内容、滑杆删除、步进器挪尾。
 fn ir_v2() -> Ir {
-  Col(
-    8.0,
-    [
-      Dyn("qty_label"),
-      Static("结构已热替换"),
-      If("wifi", Checkbox("自动开启", "wifi"), Static("自动开启：关")),
-      Stepper("qty"),
-    ],
-  )
+  Col(8.0, [
+    Dyn("qty_label"),
+    Static("结构已热替换"),
+    If("wifi", Checkbox("自动开启", "wifi"), Static("自动开启：关")),
+    Stepper("qty"),
+  ])
 }

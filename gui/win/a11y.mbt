@@ -13,10 +13,10 @@
 
 ///|
 #borrow(blob)
-extern "c" fn wm_a11y_publish(blob : Bytes, len : Int, count : Int) -> Unit = "wm_a11y_publish"
+extern "c" fn wm_a11y_publish(blob : Bytes, len : Int32, count : Int32) -> Unit = "wm_a11y_publish"
 
 ///|
-extern "c" fn wm_a11y_count() -> Int = "wm_a11y_count"
+extern "c" fn wm_a11y_count() -> Int32 = "wm_a11y_count"
 
 ///|
 /// 抽一个读屏动作（Windows UIA 的 Invoke/Toggle/Expand 等压进的动作队列）：
@@ -27,34 +27,31 @@ extern "c" fn wm_uia_action_poll() -> Int64 = "wm_uia_action_poll"
 ///|
 /// 读屏动作码：在控件中心合成一次点击（Down+Up 走与真实点击同一条
 /// `route_pointer`，组件闭包里的 Store/Editor 由点击链路自己驱动）。
-pub const A11Y_ACT_CLICK : Int = 1
+pub const A11Y_ACT_CLICK : Int32 = 1
 
 ///|
 /// 推一帧语义快照（`blob` 为 TSV，`count` 为行数）。
-pub fn a11y_publish(blob : Bytes, count : Int) -> Unit {
+pub fn a11y_publish(blob : Bytes, count : Int32) -> Unit {
   wm_a11y_publish(blob, blob.length(), count)
 }
 
 ///|
 /// 平台侧当前持有的快照行数（用例/诊断观察面；也证明发布链路真的落地了）。
-pub fn a11y_published_count() -> Int {
+pub fn a11y_published_count() -> Int32 {
   wm_a11y_count()
 }
 
 ///|
 /// 快照行数（平台臂与纯 MoonBit 桥的读出面）。
-extern "c" fn wm_a11y_row_count() -> Int = "wm_a11y_count"
+extern "c" fn wm_a11y_row_count() -> Int32 = "wm_a11y_count"
 
 ///|
 /// 把快照行 `i` 摊成发布时同一格式的 TSV（字段序见文件头）；行不存在给
 /// None。AT-SPI 桥（住 shell 层，不依赖 widget 包）与诊断共用这一读出口。
+
 ///|
 #borrow(out)
-extern "c" fn wm_a11y_row_tsv(
-  i : Int,
-  out : Bytes,
-  cap : Int,
-) -> Int = "wm_a11y_row_tsv"
+extern "c" fn wm_a11y_row_tsv(i : Int32, out : Bytes, cap : Int32) -> Int32 = "wm_a11y_row_tsv"
 
 ///|
 /// 窗口客户区原点（物理像素）：MoonBit 每帧报，AT-SPI 的 Component 屏幕
@@ -71,13 +68,13 @@ extern "c" fn wm_a11y_window_origin_y() -> Double = "wm_a11y_window_origin_y"
 
 ///|
 /// 快照行数。
-pub fn a11y_row_count() -> Int {
+pub fn a11y_row_count() -> Int32 {
   wm_a11y_row_count()
 }
 
 ///|
 /// 读一行快照的 TSV（行不存在 None）。
-pub fn a11y_row_tsv(i : Int) -> String? {
+pub fn a11y_row_tsv(i : Int32) -> String? {
   // 最坏行 ≈1000B（C 侧 name[256]+text[512]+role/state/value+4 个 double），
   // 取 4096 留 4 倍余量：C 侧字段加宽时这里不用跟着猜，放不下 C 侧回 -1
   // （本函数当 None，该行从读屏树里静默消失——余量就是防这个）。
@@ -106,17 +103,17 @@ pub fn a11y_window_origin() -> (Double, Double) {
 ///|
 /// 压一个读屏动作进跨平台队列（MoonBit 侧入口：AT-SPI 的 DoAction 等；
 /// Windows UIA 与 macOS AX 的动作由各自 C 侧压同一份队列）。
-extern "c" fn wm_a11y_action_push(id : Int, act : Int) -> Unit = "wm_a11y_action_push"
+extern "c" fn wm_a11y_action_push(id : Int32, act : Int32) -> Unit = "wm_a11y_action_push"
 
 ///|
 /// MoonBit 侧压「点一下这个控件」进读屏动作队列（宿主每帧抽走派发）。
-pub fn a11y_action_push(id : Int, act : Int) -> Unit {
+pub fn a11y_action_push(id : Int32, act : Int32) -> Unit {
   wm_a11y_action_push(id, act)
 }
 
 ///|
 /// 抽一个待办的读屏动作：None = 队列空。
-pub fn a11y_action_poll() -> (Int, Int)? {
+pub fn a11y_action_poll() -> (Int32, Int32)? {
   let v = wm_uia_action_poll()
   if v <= 0 {
     None
@@ -127,11 +124,11 @@ pub fn a11y_action_poll() -> (Int, Int)? {
 
 ///|
 /// 报当前焦点控件 id（0 = 无焦点）：平台臂据此答「焦点元素是谁」。
-extern "c" fn wm_a11y_set_focus(id : Int) -> Unit = "wm_a11y_set_focus"
+extern "c" fn wm_a11y_set_focus(id : Int32) -> Unit = "wm_a11y_set_focus"
 
 ///|
 /// 读平台侧记录的焦点 id（诊断与用例观察面）。
-extern "c" fn wm_a11y_focus() -> Int = "wm_a11y_focus"
+extern "c" fn wm_a11y_focus() -> Int32 = "wm_a11y_focus"
 
 ///|
 /// 通知读屏「快照内容变了，该重新读」（mac 发 AX LayoutChanged；Win/GTK 无
@@ -144,21 +141,21 @@ extern "c" fn wm_a11y_notify_focus_changed() -> Unit = "wm_a11y_notify_focus_cha
 
 ///|
 /// 累计 layout 通知次数（纯读；通知本身不返回读数）。
-extern "c" fn wm_a11y_layout_notify_count() -> Int = "wm_a11y_layout_notify_count"
+extern "c" fn wm_a11y_layout_notify_count() -> Int32 = "wm_a11y_layout_notify_count"
 
 ///|
 /// 累计 focus 通知次数（纯读）。
-extern "c" fn wm_a11y_focus_notify_count() -> Int = "wm_a11y_focus_notify_count"
+extern "c" fn wm_a11y_focus_notify_count() -> Int32 = "wm_a11y_focus_notify_count"
 
 ///|
 /// 报焦点控件 id（宿主每帧调；0 = 无焦点）。
-pub fn a11y_set_focus(id : Int) -> Unit {
+pub fn a11y_set_focus(id : Int32) -> Unit {
   wm_a11y_set_focus(id)
 }
 
 ///|
 /// 平台侧记录的焦点 id。
-pub fn a11y_focus() -> Int {
+pub fn a11y_focus() -> Int32 {
   wm_a11y_focus()
 }
 
@@ -176,12 +173,12 @@ pub fn a11y_notify_focus_changed() -> Unit {
 
 ///|
 /// 累计 layout 通知次数（诊断与用例观察面）。
-pub fn a11y_layout_notify_count() -> Int {
+pub fn a11y_layout_notify_count() -> Int32 {
   wm_a11y_layout_notify_count()
 }
 
 ///|
 /// 累计 focus 通知次数（诊断与用例观察面）。
-pub fn a11y_focus_notify_count() -> Int {
+pub fn a11y_focus_notify_count() -> Int32 {
   wm_a11y_focus_notify_count()
 }

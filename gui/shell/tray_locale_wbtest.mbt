@@ -2,7 +2,7 @@
 // 普通写入口以最后一次写法为准。
 
 ///|
-fn locale_count_for_test() -> Int {
+fn locale_count_for_test() -> Int32 {
   let mut n = 0
   for (_k, _s) in locale_surfaces {
     n += 1

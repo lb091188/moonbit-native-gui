@@ -23,13 +23,13 @@ pub(all) enum TokenRole {
 pub(all) struct Token {
   text : String
   role : TokenRole
-  mut byte_start : Int
-  mut byte_len : Int
+  mut byte_start : Int32
+  mut byte_len : Int32
 }
 
 ///|
 fn tok(text : String, role : TokenRole) -> Token {
-  { text, role, byte_start: 0, byte_len: 0 }
+  { text, role, byte_start: 0, byte_len: 0, }
 }
 
 ///|
@@ -39,7 +39,7 @@ fn tok(text : String, role : TokenRole) -> Token {
 /// 增量重扫按「行首状态是否与缓存一致」决定收敛停。
 pub(all) enum ScanState {
   SNormal
-  SBlockComment(Int)
+  SBlockComment(Int32)
   STriple(String)
   SHeredoc(String)
 }
@@ -88,11 +88,16 @@ pub fn code_theme_of(t : @theme.Theme) -> CodeTheme {
   let dark = match @theme.parse_hex(t.bg_panel) {
     Some((r, g, b)) =>
       (0.299 * r.to_double() + 0.587 * g.to_double() + 0.114 * b.to_double()) /
-      255.0 < 0.5
+      255.0 <
+      0.5
     None => false
   }
   {
-    bg: if dark { t.bg_panel } else { t.fill_zebra },
+    bg: if dark {
+      t.bg_panel
+    } else {
+      t.fill_zebra
+    },
     text: t.text_primary,
     keyword: t.primary,
     ty: t.warning,
@@ -461,10 +466,24 @@ fn lang_shape(lang : String) -> ScanShape {
   match lang {
     // C 系块注释：开 /* 闭 */，不嵌套
     "moonbit" | "js" | "ts" | "c" | "go" | "java" | "sql" =>
-      { block: true, open: "/*", close: "*/", nested: false, heredoc: false, triples: [] }
+      {
+        block: true,
+        open: "/*",
+        close: "*/",
+        nested: false,
+        heredoc: false,
+        triples: [],
+      }
     // rust 的块注释允许嵌套（/* /* */ */），闭合要跟着深度走
     "rust" =>
-      { block: true, open: "/*", close: "*/", nested: true, heredoc: false, triples: [] }
+      {
+        block: true,
+        open: "/*",
+        close: "*/",
+        nested: true,
+        heredoc: false,
+        triples: [],
+      }
     // python 没有块注释，跨行靠三引号串
     "python" =>
       {
@@ -477,15 +496,29 @@ fn lang_shape(lang : String) -> ScanShape {
       }
     // shell：heredoc（结束标记在行首，允许 `<<-` 缩进档）
     "bash" =>
-      { block: false, open: "", close: "", nested: false, heredoc: true, triples: [] }
+      {
+        block: false,
+        open: "",
+        close: "",
+        nested: false,
+        heredoc: true,
+        triples: [],
+      }
     _ =>
-      { block: true, open: "/*", close: "*/", nested: false, heredoc: false, triples: [] }
+      {
+        block: true,
+        open: "/*",
+        close: "*/",
+        nested: false,
+        heredoc: false,
+        triples: [],
+      }
   }
 }
 
 ///|
 /// cs[at..] 是否以 `pat` 开头（越界即 false）。
-fn starts_at(cs : Array[Char], at : Int, pat : String) -> Bool {
+fn starts_at(cs : Array[Char], at : Int32, pat : String) -> Bool {
   let pc = pat.to_array()
   let m = pc.length()
   if m == 0 || at + m > cs.length() {
@@ -502,7 +535,7 @@ fn starts_at(cs : Array[Char], at : Int, pat : String) -> Bool {
 
 ///|
 /// [from, to) 区间的字符拼回字符串（越界夹到行尾）。
-fn chars_str(cs : Array[Char], from : Int, to : Int) -> String {
+fn chars_str(cs : Array[Char], from : Int32, to : Int32) -> String {
   let b = StringBuilder()
   let hi = to.min(cs.length())
   let mut i = from
@@ -521,9 +554,9 @@ fn eat_block_body(
   op : String,
   cl : String,
   nested : Bool,
-  start : Int,
-  depth : Int,
-) -> (Bool, Int, Int) {
+  start : Int32,
+  depth : Int32,
+) -> (Bool, Int32, Int32) {
   let n = cs.length()
   let mut i = start
   let mut d = depth
@@ -551,8 +584,8 @@ fn eat_block_open(
   op : String,
   cl : String,
   nested : Bool,
-  at : Int,
-) -> (Bool, Int, Int) {
+  at : Int32,
+) -> (Bool, Int32, Int32) {
   let (closed, ni, d) = eat_block_body(
     cs,
     op,
@@ -566,7 +599,7 @@ fn eat_block_open(
 
 ///|
 /// 行内命中的三引号定界符：`at` 指向首字符，没有匹配给 None。
-fn triple_at(sh : ScanShape, cs : Array[Char], at : Int) -> String? {
+fn triple_at(sh : ScanShape, cs : Array[Char], at : Int32) -> String? {
   for d in sh.triples {
     if starts_at(cs, at, d) {
       return Some(d)
@@ -577,7 +610,11 @@ fn triple_at(sh : ScanShape, cs : Array[Char], at : Int) -> String? {
 
 ///|
 /// 三引号串：`at` 指向定界符首字符，吃到同名定界符为止；没闭就走到行尾。
-fn eat_triple_open(cs : Array[Char], delim : String, at : Int) -> (Bool, Int) {
+fn eat_triple_open(
+  cs : Array[Char],
+  delim : String,
+  at : Int32,
+) -> (Bool, Int32) {
   let (closed, ni, _d) = eat_block_body(
     cs,
     delim,
@@ -592,7 +629,7 @@ fn eat_triple_open(cs : Array[Char], delim : String, at : Int) -> (Bool, Int) {
 ///|
 /// bash heredoc 的结束标记：`at` 指向 `<<`，跳过可选 `-` 与可选引号，取后面的
 /// 标识符串；取不到给 None。
-fn heredoc_tag(cs : Array[Char], at : Int) -> String? {
+fn heredoc_tag(cs : Array[Char], at : Int32) -> String? {
   let n = cs.length()
   let mut i = at + 2
   if i < n && cs[i] == '-' {
@@ -624,6 +661,7 @@ fn heredoc_tag(cs : Array[Char], at : Int) -> String? {
     Some(tag)
   }
 }
+
 ///|
 /// 运算符字符(连续出现时并成一个词,如 ->、<=、..<、&&、@ 无关的 '.')。
 fn is_op_char(ch : Char) -> Bool {
@@ -721,19 +759,19 @@ fn classify_word(
 /// 调用方直接摆进容器即可，不必再包 `scroll_view`。
 pub fn code_view(
   lines : Array[String],
-  lang? : String = "moonbit",
-  font_size? : Double = 13.0,
-  line_numbers? : Bool = false,
+  lang~ : String = "moonbit",
+  font_size~ : Double = 13.0,
+  line_numbers~ : Bool = false,
   /// 让代码可用鼠标选中复制（只读：拖选、双击选词、Shift+点击扩选、
   /// Ctrl/Cmd+C 与右键复制）；行号列不进选区，跨行复制按 \n 拼。
-  selectable? : Bool = false,
+  selectable~ : Bool = false,
   /// 代码块顶部留一条头部区，指针悬浮时右上显示「复制」小按钮：点击把全文
   ///（按 \n 拼）写系统剪贴板。缺省关（头部区不占高，现有布局零变化）。
-  copyable? : Bool = false,
+  copyable~ : Bool = false,
   /// 复制按钮点击后回调（参数=剪贴板是否写成功）；toast 回显走它接。
-  on_copied? : (Bool) -> Unit = fn(_ok : Bool) -> Unit { () },
+  on_copied~ : (Bool) -> Unit = fn(_ok : Bool) -> Unit { () },
   code_theme? : CodeTheme,
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let font = @text.Font::new("Monospace", font_size)
   // 预排版:逐 token 测宽(分词与测量一次完成,重绘零分词开销);颜色角色
@@ -790,7 +828,7 @@ pub fn code_view(
   let view_h = line_h * laid.length().to_double() + top_pad + 14.0
   // 选区参照系：全文 = 各行按 `\n` 拼接，`line_off[i]` 是第 i 行行首的全局字节号。
   // 行与行之间的换行字节算在「行外」——高亮不铺它，但跨行复制天然带 \n。
-  let line_off : Array[Int] = []
+  let line_off : Array[Int32] = []
   let joined = StringBuilder()
   let mut acc = 0
   for i, l in lines {
@@ -804,7 +842,7 @@ pub fn code_view(
   }
   // 文本左缘：行号列宽 + 绘制期的 16px 内缩（与 `seg.2 + 16.0` 同一式）
   let text_l = num_off + 16.0
-  let line_measure = fn(t : String, from : Int, to : Int) -> Double {
+  let line_measure = fn(t : String, from : Int32, to : Int32) -> Double {
     text_width(byte_slice(t, from, to), font)
   }
   // 单行几何：pad 与 offset_y 都取文本左缘，于是 rects 的 y 落回 0（行原点自己加）、
@@ -841,14 +879,15 @@ pub fn code_view(
           self : @widget.Widget,
           ev : @widget.PointerEvent,
         ) -> Bool {
-          sel_pointer(self, ev, state, fn(x : Double, y : Double) -> Int {
+          sel_pointer(self, ev, state, fn(x : Double, y : Double) -> Int32 {
             let n = lines.length()
             if n == 0 {
               return 0
             }
-            let row = (
-              (y - top_pad) / line_h
-            ).floor().to_int().clamp(min=0, max=n - 1)
+            let row = ((y - top_pad) / line_h)
+              .floor()
+              .to_int()
+              .clamp(min=0, max=n - 1)
             let col = one_line_layout(lines[row]).hit(x, line_h * 0.5)
             state.ed.floor_boundary(line_off[row] + col)
           })
@@ -880,7 +919,9 @@ pub fn code_view(
       }
       // 1px 描边与页面底分层（层次走「底色 + border」，见设计规则四）
       let sty = @style.style_for(_self)
-      p.set_stroke_color(@style.color_of(sty.border_color, @theme.theme_border()))
+      p.set_stroke_color(
+        @style.color_of(sty.border_color, @theme.theme_border()),
+      )
       p.set_line_width(@style.number_of(sty.border_width, 1.0))
       if rad > 0.0 {
         p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
@@ -889,7 +930,7 @@ pub fn code_view(
         p.stroke_rect(0.0, 0.0, r.w, r.h)
       }
       match st {
-        Some(state) => {
+        Some(state) =>
           match state.ed.selection() {
             Some((a, b)) => {
               let mut yy = top_pad
@@ -909,7 +950,6 @@ pub fn code_view(
             }
             None => ()
           }
-        }
         None => ()
       }
       let mut y = top_pad
@@ -937,73 +977,69 @@ pub fn code_view(
   })
   // 自带横滚视口：宽跟随容器（flex 1，摆进任何容器都占满行宽），高即内容高
   // （纵向不滚），代码比容器宽时底缘出横条
-  scroll_view(
-    [canvas],
-    ScrollState::new(),
-    height=view_h,
-    hscroll=true,
-    handle=fn(v : @widget.Widget) -> Unit {
-      v.node.set_width(@yoga.percent(100.0))
-      // 复制按钮：绝对定位钉在视口右上（头部区内），悬浮显形——与滚动条
-      // 同一套「视口的浮层子件」形态。self-draw 不用 button 组件：显隐是
-      // 「视口悬停」驱动的绘制态，不是布局态。
-      if copyable {
-        let label = @i18n.t_or("gui.ui.edit.copy", "复制")
-        let btn_font = @text.Font::new("", 12.0)
-        let full = joined.to_string()
-        let bw = text_width(label, btn_font) + 16.0
-        let btn = @widget.Widget::new()
-        btn.node.set_position(@yoga.Absolute)
-        btn.node.set_top(@yoga.fixed(5.0))
-        btn.node.set_right(@yoga.fixed(8.0))
-        btn.node.set_width(@yoga.fixed(bw))
-        btn.node.set_height(@yoga.fixed(20.0))
-        btn.cursor = @widget.CURSOR_HAND
-        btn.on_draw = Some(fn(
-          self : @widget.Widget,
-          p : @render.Painter,
-          r : @base.Rect,
-        ) -> Unit {
-          // 指针在视口内（或就在按钮上）才显形；平时头部区留白
-          if !(v.hovered || self.hovered) {
-            return
+  scroll_view([canvas], ScrollState::new(), height=view_h, hscroll=true, handle=fn(
+    v : @widget.Widget,
+  ) -> Unit {
+    v.node.set_width(@yoga.percent(100.0))
+    // 复制按钮：绝对定位钉在视口右上（头部区内），悬浮显形——与滚动条
+    // 同一套「视口的浮层子件」形态。self-draw 不用 button 组件：显隐是
+    // 「视口悬停」驱动的绘制态，不是布局态。
+    if copyable {
+      let label = @i18n.t_or("gui.ui.edit.copy", "复制")
+      let btn_font = @text.Font::new("", 12.0)
+      let full = joined.to_string()
+      let bw = text_width(label, btn_font) + 16.0
+      let btn = @widget.Widget::new()
+      btn.node.set_position(@yoga.Absolute)
+      btn.node.set_top(@yoga.fixed(5.0))
+      btn.node.set_right(@yoga.fixed(8.0))
+      btn.node.set_width(@yoga.fixed(bw))
+      btn.node.set_height(@yoga.fixed(20.0))
+      btn.cursor = @widget.CURSOR_HAND
+      btn.on_draw = Some(fn(
+        self : @widget.Widget,
+        p : @render.Painter,
+        r : @base.Rect,
+      ) -> Unit {
+        // 指针在视口内（或就在按钮上）才显形；平时头部区留白
+        if !(v.hovered || self.hovered) {
+          return
+        }
+        let hot = self.hovered
+        if hot {
+          p.set_fill_color(@theme.theme_fill_hover())
+          let rad = (r.h / 2.0).min(4.0)
+          p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
+        }
+        let _ = @text.draw_box_at(
+          p,
+          0.0,
+          0.0,
+          r.w,
+          r.h,
+          label,
+          btn_font,
+          @theme.theme_text_secondary(),
+          align=@text.Center,
+          valign=@text.Center,
+          wrap=false,
+        )
+      })
+      btn.on_pointer = Some(fn(
+        _self : @widget.Widget,
+        ev : @widget.PointerEvent,
+      ) -> Bool {
+        match ev.kind {
+          @widget.PointerKind::Down => {
+            let ok = @sys.clipboard_set_text(full)
+            on_copied(ok)
+            @widget.invalidate()
+            true
           }
-          let hot = self.hovered
-          if hot {
-            p.set_fill_color(@theme.theme_fill_hover())
-            let rad = (r.h / 2.0).min(4.0)
-            p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
-          }
-          let _ = @text.draw_box_at(
-            p,
-            0.0,
-            0.0,
-            r.w,
-            r.h,
-            label,
-            btn_font,
-            @theme.theme_text_secondary(),
-            align=@text.Center,
-            valign=@text.Center,
-            wrap=false,
-          )
-        })
-        btn.on_pointer = Some(fn(
-          _self : @widget.Widget,
-          ev : @widget.PointerEvent,
-        ) -> Bool {
-          match ev.kind {
-            @widget.PointerKind::Down => {
-              let ok = @sys.clipboard_set_text(full)
-              on_copied(ok)
-              @widget.invalidate()
-              true
-            }
-            _ => false
-          }
-        })
-        v.append_child(btn)
-      }
-    },
-  )
+          _ => false
+        }
+      })
+      v.append_child(btn)
+    }
+  })
 }

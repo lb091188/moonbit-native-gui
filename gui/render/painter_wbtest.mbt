@@ -3,13 +3,13 @@
 // 本包不依赖布局引擎。
 
 ///|
-fn rgba(p : Painter, x : Int, y : Int) -> (Int, Int, Int, Int) {
+fn rgba(p : Painter, x : Int32, y : Int32) -> (Int32, Int32, Int32, Int32) {
   let c = p.bitmap.pixel(x, y)
   (c.r, c.g, c.b, c.a)
 }
 
 ///|
-fn red_painter(w : Int, h : Int) -> Painter {
+fn red_painter(w : Int32, h : Int32) -> Painter {
   let p = Painter::new(Bitmap::new(w, h))
   p.set_fill_color("#ff0000")
   p
@@ -137,7 +137,7 @@ fn dot_source() -> Image {
 
 ///|
 /// 把源图缩到 `size` 画进位图，返回不透明像素的包围盒（空时给 (-1,-1,-1,-1)）。
-fn scaled_box(img : Image, size : Int) -> (Int, Int, Int, Int) {
+fn scaled_box(img : Image, size : Int32) -> (Int32, Int32, Int32, Int32) {
   let bm = Bitmap::new(size + 2, size + 2)
   let p = Painter::new(bm)
   p.draw_image(img, 0.0, 0.0, size.to_double(), size.to_double())
@@ -233,10 +233,10 @@ test "set_global_alpha：钳到 0..1，填充/描边/渐变/图片全路径按�
   let bm3 = Bitmap::new(10, 10)
   let p3 = Painter::new(bm3)
   p3.set_global_alpha(0.0)
-  p3.draw_canvas({ bitmap: src }, 0.0, 0.0, 4.0, 4.0)
+  p3.draw_canvas({ bitmap: src, }, 0.0, 0.0, 4.0, 4.0)
   assert_eq(bm3.pixel(1, 1).a, 0)
   p3.set_global_alpha(1.0)
-  p3.draw_canvas({ bitmap: src }, 0.0, 0.0, 4.0, 4.0)
+  p3.draw_canvas({ bitmap: src, }, 0.0, 0.0, 4.0, 4.0)
   assert_true(bm3.pixel(1, 1).a > 200)
   p3.end()
   // 渐变路径：stop alpha 同乘（透明目标上判）
@@ -254,9 +254,7 @@ test "set_global_alpha：钳到 0..1，填充/描边/渐变/图片全路径按�
   p5.set_fill_gradient(grad)
   p5.fill_rect(0.0, 0.0, 10.0, 10.0)
   let g25 = bm5.pixel(5, 5)
-  assert_true(
-    full_g.a > 200 && g25.a > 0 && g25.a < 100,
-  )
+  assert_true(full_g.a > 200 && g25.a > 0 && g25.a < 100)
   p4.end()
   p5.end()
   p.end()
@@ -276,7 +274,6 @@ test "fill_round_rect：四角不填、中心填；半径钳到短边一半" {
   assert_eq(bm.pixel(10, 10).a, 255)
   p.end()
 }
-
 
 ///|
 /// 两后端同口径：`fill()`/`stroke()` 落笔即清路径（cairo_fill/cairo_stroke 语义）。
@@ -333,7 +330,10 @@ test "stroke_round_rect：1px 圆角边框四条直段都落墨" {
   assert_eq(rgba(p, 15, 15).3, 0)
   // 边压在整数边界（y=4.0）：环带跨 3、4 两行各摊一半墨，直段仍要在
   p.stroke_round_rect(4.0, 4.0, 20.0, 20.0, 3.0)
-  assert_true(rgba(p, 14, 4).3 > 60, msg="压整数边的 1px 描边直段没落墨")
+  assert_true(
+    rgba(p, 14, 4).3 > 60,
+    msg="压整数边的 1px 描边直段没落墨",
+  )
   p.end()
 }
 
@@ -412,8 +412,8 @@ test "fill_round_rect：分数边有边缘 AA 且不整体偏移" {
 ///|
 /// 边缘灰级读数：一块画布里「半墨像素」的个数与**互不相同的 alpha 档数**。
 /// 档数是「像素画感」的直接度量——只有极少几档时，曲线沿线的明暗是跳变的。
-fn aa_levels(p : Painter, w : Int, h : Int) -> (Int, Int) {
-  let seen : Array[Int] = []
+fn aa_levels(p : Painter, w : Int32, h : Int32) -> (Int32, Int32) {
+  let seen : Array[Int32] = []
   let mut n = 0
   for y = 0; y < h; y = y + 1 {
     for x = 0; x < w; x = x + 1 {
@@ -492,10 +492,10 @@ test "浅角度斜线边缘的灰级连续" {
 /// 它与被测实现没有任何共享代码——用它量光栅器的覆盖精度，而不是拿实现自己的
 /// 输出当期望（那样坏实现照样绿）。
 fn ref_poly_cover(
-  px : Int,
-  py : Int,
+  px : Int32,
+  py : Int32,
   pts : Array[(Double, Double)],
-  n : Int,
+  n : Int32,
 ) -> Double {
   let mut hit = 0
   for j = 0; j < n; j = j + 1 {
@@ -520,12 +520,16 @@ fn ref_poly_cover(
       }
     }
   }
-  (hit.to_double() * 256.0) / (n.to_double() * n.to_double())
+  hit.to_double() * 256.0 / (n.to_double() * n.to_double())
 }
 
 ///|
 /// 画一个多边形（同一批顶点），返回它与解析参考的**最大覆盖偏差**。
-fn worst_cover_gap(pts : Array[(Double, Double)], w : Int, h : Int) -> Int {
+fn worst_cover_gap(
+  pts : Array[(Double, Double)],
+  w : Int32,
+  h : Int32,
+) -> Int32 {
   let p = red_painter(w, h)
   p.begin_path()
   let (fx, fy) = pts[0]
@@ -550,7 +554,7 @@ fn worst_cover_gap(pts : Array[(Double, Double)], w : Int, h : Int) -> Int {
 
 ///|
 /// 两点覆盖差的绝对值（四舍五入到整数档）。
-fn cover_gap(got : Int, want : Double) -> Int {
+fn cover_gap(got : Int32, want : Double) -> Int32 {
   let d = got.to_double() - want
   let a = if d < 0.0 { 0.0 - d } else { d }
   a.round().to_int()
@@ -571,8 +575,14 @@ test "覆盖精度：多边形与独立解析参考的偏差 ≤20 档" {
   let flat = [(2.0, 4.0), (30.0, 6.0), (16.0, 14.0)]
   assert_true(worst_cover_gap(rect_int, 24, 24) <= 20)
   assert_true(worst_cover_gap(rect_frac, 24, 24) <= 20)
-  assert_true(worst_cover_gap(tri, 24, 24) <= 20, msg="tri 偏 \{worst_cover_gap(tri, 24, 24)} 档")
-  assert_true(worst_cover_gap(flat, 32, 16) <= 20, msg="flat 偏 \{worst_cover_gap(flat, 32, 16)} 档")
+  assert_true(
+    worst_cover_gap(tri, 24, 24) <= 20,
+    msg="tri 偏 \{worst_cover_gap(tri, 24, 24)} 档",
+  )
+  assert_true(
+    worst_cover_gap(flat, 32, 16) <= 20,
+    msg="flat 偏 \{worst_cover_gap(flat, 32, 16)} 档",
+  )
 }
 
 ///|
@@ -602,8 +612,8 @@ test "覆盖精度：圆与独立解析参考的偏差 ≤24 档" {
 ///|
 /// 圆的解析参考（32×32 网格采样，逐点比半径）。
 fn ref_circle_cover(
-  px : Int,
-  py : Int,
+  px : Int32,
+  py : Int32,
   cx : Double,
   cy : Double,
   r : Double,
@@ -620,7 +630,7 @@ fn ref_circle_cover(
       }
     }
   }
-  (hit.to_double() * 256.0) / 1024.0
+  hit.to_double() * 256.0 / 1024.0
 }
 
 ///|
@@ -628,8 +638,8 @@ test "文本批边界：end/flush 按整张位图过光栅前置闸" {
   // 宿主打开文本帧级批后，批里存的是目标位图像素缓冲的裸指针。直绘临时
   // 位图（测试/离屏导出）时必须在本会话结束前把批落到这张位图上，否则
   // 位图释放后下一次冲刷会写进已释放的堆块（Windows 实测 0xc0000005）。
-  let calls : Array[(Int, Int, Int, Int)] = []
-  set_raster_gate(fn(x0 : Int, y0 : Int, x1 : Int, y1 : Int) -> Unit {
+  let calls : Array[(Int32, Int32, Int32, Int32)] = []
+  set_raster_gate(fn(x0 : Int32, y0 : Int32, x1 : Int32, y1 : Int32) -> Unit {
     calls.push((x0, y0, x1, y1))
   })
   let p = Painter::new(Bitmap::new(5, 4))
@@ -639,7 +649,12 @@ test "文本批边界：end/flush 按整张位图过光栅前置闸" {
   assert_eq(calls[0], (0, 0, 5, 4))
   assert_eq(calls[1], (0, 0, 5, 4))
   // 进程级单槽：还原成空动作，别影响同进程其它用例
-  set_raster_gate(fn(_x0 : Int, _y0 : Int, _x1 : Int, _y1 : Int) -> Unit {
+  set_raster_gate(fn(
+    _x0 : Int32,
+    _y0 : Int32,
+    _x1 : Int32,
+    _y1 : Int32,
+  ) -> Unit {
     ()
   })
 }

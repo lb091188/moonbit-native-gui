@@ -2,12 +2,14 @@
 // 与其提交历史（那些补丁记录的是生产环境里踩出来的布局塌陷，比手写用例更有指向性）。
 // 新增语料时保持一条一个 test，注释写清来源提交号与根因一句话。
 
+///|
 fn measured(w : Double, h : Double) -> Node {
   let n = Node::new()
   n.set_measure(fn(_aw, _ah) { (w, h) })
   n
 }
 
+///|
 /// 语料 `93078300`（patches/yoga-display-none-flex-basis.patch）：
 /// `flex` 简写派生的 basis-0 在 `display:none` 清零后重显时永久驻留，
 /// auto 高父容器下该节点高度恒为 0（MoonBit 层 tabs 切页塌陷的根因）。
@@ -42,6 +44,7 @@ test "display:none 重显后 flex 简写节点应回到内容高（语料 930783
 // 需要先用 Chrome 对照确认谁对，再决定是修引擎还是记录为有意取舍——涉及 §4.5
 // min:auto 与 auto 主轴尺寸推算的交互，故单列任务跟踪。
 
+///|
 /// 语料派生待查项结案（2026-10-11）：显式 `flex-basis: 0` + `min-height: 0`
 /// 在 auto 高列容器下应为 0。Chrome（Blink）实测口径：auto 主轴尺寸 =
 /// 各子项**假想主轴尺寸**之和（flex base 被 min/max 钳制），growth 完全不参与

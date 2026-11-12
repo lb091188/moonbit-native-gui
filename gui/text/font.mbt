@@ -17,7 +17,7 @@ pub(all) enum FontWeight {
 }
 
 ///|
-fn weight_value(w : FontWeight) -> Int {
+fn weight_value(w : FontWeight) -> Int32 {
   match w {
     Thin => 100
     ExtraLight => 200
@@ -53,11 +53,11 @@ pub(all) struct Font {
 pub fn Font::new(
   name : String,
   size : Double,
-  weight? : FontWeight = Normal,
-  style? : FontStyle = Roman,
-  spacing? : Double = 0.0,
+  weight~ : FontWeight = Normal,
+  style~ : FontStyle = Roman,
+  spacing~ : Double = 0.0,
 ) -> Font {
-  { name, size, weight, style, spacing }
+  { name, size, weight, style, spacing, }
 }
 
 ///|
@@ -67,7 +67,7 @@ pub fn font_body() -> Font {
 }
 
 ///|
-fn style_id(s : FontStyle) -> Int {
+fn style_id(s : FontStyle) -> Int32 {
   match s {
     Roman => 0
     Italic => 1

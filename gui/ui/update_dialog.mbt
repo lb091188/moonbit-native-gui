@@ -47,7 +47,7 @@ pub(all) struct UpdateFlow {
 ///|
 /// 建账本(初始 Idle)。
 pub fn make_update_flow() -> UpdateFlow {
-  { state: @base.Store::new(Idle), found: None, carrier: "" }
+  { state: @base.Store::new(Idle), found: None, carrier: "", }
 }
 
 ///|
@@ -139,7 +139,7 @@ pub(all) struct UpdateActions {
 /// 弧,旧表的停表闭包随本代回收袋退订,不累积。
 fn update_spinner(size : Double) -> @widget.Node {
   let phase : @base.Store[Double] = @base.Store::new(0.0)
-  let tid : Ref[Int] = Ref(0)
+  let tid : Ref[Int32] = Ref(0)
   let tick : Ref[() -> Unit] = Ref(fn() { () })
   tick.val = fn() -> Unit {
     phase.update_always(fn(p) { p + 0.125 })
@@ -165,7 +165,7 @@ fn update_spinner(size : Double) -> @widget.Node {
       p.arc(
         r.w / 2.0,
         r.h / 2.0,
-        ((size / 2.0) - 2.0).max(1.0),
+        (size / 2.0 - 2.0).max(1.0),
         start,
         start + 4.71238898038469,
       )
@@ -197,7 +197,13 @@ fn update_state_line(
       view(
         [
           text(main, wrap=true, max_width=inner_w - 34.0),
-          text(sub, font_size=12.0, color="text_secondary", wrap=true, max_width=inner_w - 34.0),
+          text(
+            sub,
+            font_size=12.0,
+            color="text_secondary",
+            wrap=true,
+            max_width=inner_w - 34.0,
+          ),
         ],
         direction=@yoga.Column,
         row_gap=2.0,
@@ -211,8 +217,12 @@ fn update_state_line(
 
 ///|
 /// `@icons.icon` 的本包直呼(省一层别名噪音)。
-fn upd_icon(kind : @icons.IconKind, size : Double, color : String) -> @widget.Node {
-  icon(kind, size=size, color=color)
+fn upd_icon(
+  kind : @icons.IconKind,
+  size : Double,
+  color : String,
+) -> @widget.Node {
+  icon(kind, size~, color~)
 }
 
 ///|
@@ -228,14 +238,23 @@ fn update_state_view(
   inner_w : Double,
 ) -> @widget.Node {
   // 按钮行的公共骨架:主钮(Solid)在前、次钮(Border)在后
-  fn buttons(primary : (String, () -> Unit), secondary : (String, () -> Unit)?) -> @widget.Node {
+  fn buttons(
+    primary : (String, () -> Unit),
+    secondary : (String, () -> Unit)?,
+  ) -> @widget.Node {
     let items : Array[@widget.Node] = [
-      button(primary.0, variant=Solid, on_click=primary.1, focus_id=auto_focus_id(0))
+      button(
+        primary.0,
+        variant=Solid,
+        on_click=primary.1,
+        focus_id=auto_focus_id(0),
+      ),
     ]
     match secondary {
-      Some((t, act)) => items.push(
-        button(t, variant=Border, on_click=act, focus_id=auto_focus_id(0)),
-      )
+      Some((t, act)) =>
+        items.push(
+          button(t, variant=Border, on_click=act, focus_id=auto_focus_id(0)),
+        )
       None => ()
     }
     view(
@@ -268,7 +287,9 @@ fn update_state_view(
       view(
         [
           text(
-            @i18n.t_or("gui.ui.update.idle_hint", "检查是否有新版本,下载并安装。"),
+            @i18n.t_or(
+              "gui.ui.update.idle_hint", "检查是否有新版本,下载并安装。",
+            ),
             wrap=true,
             max_width=inner_w,
           ),
@@ -286,7 +307,9 @@ fn update_state_view(
           view(
             [
               update_spinner(18.0),
-              text(@i18n.t_or("gui.ui.update.checking", "正在检查更新…")),
+              text(
+                @i18n.t_or("gui.ui.update.checking", "正在检查更新…"),
+              ),
             ],
             direction=@yoga.Row,
             column_gap=10.0,
@@ -304,7 +327,10 @@ fn update_state_view(
             @theme.theme_success(),
             @i18n.t_or("gui.ui.update.uptodate", "已是最新版本"),
             if current_version.length() > 0 {
-              @i18n.t_or("gui.ui.update.current", "当前版本:\{current_version}")
+              @i18n.t_or(
+                "gui.ui.update.current",
+                "当前版本:\{current_version}",
+              )
             } else {
               ""
             },
@@ -327,7 +353,10 @@ fn update_state_view(
               view(
                 [
                   text(
-                    @i18n.t_or("gui.ui.update.available", "发现新版本 \{v}"),
+                    @i18n.t_or(
+                      "gui.ui.update.available",
+                      "发现新版本 \{v}",
+                    ),
                     weight=@text.SemiBold,
                     wrap=true,
                     max_width=inner_w - 34.0,
@@ -349,7 +378,10 @@ fn update_state_view(
             align_items=@yoga.AlignItems::Center,
           ),
           buttons(
-            (@i18n.t_or("gui.ui.update.install_now", "立即更新"), do_download),
+            (
+              @i18n.t_or("gui.ui.update.install_now", "立即更新"),
+              do_download,
+            ),
             Some((@i18n.t_or("gui.ui.update.later", "暂不"), close)),
           ),
         ],
@@ -363,7 +395,10 @@ fn update_state_view(
             [
               update_spinner(18.0),
               text(
-                @i18n.t_or("gui.ui.update.downloading", "正在下载 \{found_version()}…"),
+                @i18n.t_or(
+                  "gui.ui.update.downloading",
+                  "正在下载 \{found_version()}…",
+                ),
               ),
             ],
             direction=@yoga.Row,
@@ -398,7 +433,11 @@ fn update_state_view(
           view(
             [
               update_spinner(18.0),
-              text(@i18n.t_or("gui.ui.update.installing", "正在安装,应用即将重启…")),
+              text(
+                @i18n.t_or(
+                  "gui.ui.update.installing", "正在安装,应用即将重启…",
+                ),
+              ),
             ],
             direction=@yoga.Row,
             column_gap=10.0,
@@ -424,7 +463,8 @@ fn update_state_view(
             (@i18n.t_or("gui.ui.update.retry", "重试"), do_download),
             secondary,
           )
-        RetryNone => buttons((@i18n.t_or("gui.ui.update.close", "关闭"), close), None)
+        RetryNone =>
+          buttons((@i18n.t_or("gui.ui.update.close", "关闭"), close), None)
       }
       view(
         [
@@ -452,17 +492,17 @@ pub fn update_dialog(
   visible : @base.Store[Bool],
   flow : UpdateFlow,
   actions : UpdateActions,
-  current_version? : String = "",
-  title? : String = @i18n.t_or("gui.ui.update.title", "软件更新"),
-  width? : Double = 400.0,
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  current_version~ : String = "",
+  title~ : String = @i18n.t_or("gui.ui.update.title", "软件更新"),
+  width~ : Double = 400.0,
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   {
     mount: fn(parent : @widget.Widget) -> @widget.Widget {
       let anchor = @widget.Widget::new()
       anchor.node.set_height(@yoga.fixed(0.0))
-      let open_id : Ref[Int] = Ref(0)
+      let open_id : Ref[Int32] = Ref(0)
       let close = fn() -> Unit { visible.set(false) }
       let inner_w = width - 40.0
       fn open() -> Unit {
@@ -477,7 +517,10 @@ pub fn update_dialog(
                 text(title, font_size=16.0, weight=@text.SemiBold),
                 text(
                   if current_version.length() > 0 {
-                    @i18n.t_or("gui.ui.update.current", "当前版本:\{current_version}")
+                    @i18n.t_or(
+                      "gui.ui.update.current",
+                      "当前版本:\{current_version}",
+                    )
                   } else {
                     ""
                   },
@@ -488,23 +531,26 @@ pub fn update_dialog(
               direction=@yoga.Column,
               row_gap=2.0,
             ),
-            @widget.bind_node(
-              flow.state.signal(),
-              fn(st : UpdateState) -> @widget.Node {
-                update_state_view(st, flow, actions, close, current_version, inner_w)
-              },
-            ),
+            @widget.bind_node(flow.state.signal(), fn(
+              st : UpdateState,
+            ) -> @widget.Node {
+              update_state_view(
+                st, flow, actions, close, current_version, inner_w,
+              )
+            }),
           ],
           direction=@yoga.Column,
           row_gap=16.0,
           padding=20.0,
-          width=width,
+          width~,
           background_color="bg_panel",
           border_color="border",
           corner_radius=@theme.radius_card(),
-          class=class,
+          class~,
         )
-        let scrim = @widget.node_of_new(fn(s : @widget.Widget) -> @widget.Widget {
+        let scrim = @widget.node_of_new(fn(
+          s : @widget.Widget,
+        ) -> @widget.Widget {
           watch_theme()
           s.node.set_width(@yoga.percent(100.0))
           s.node.set_height(@yoga.percent(100.0))
@@ -589,7 +635,7 @@ pub fn sys_update_actions(
   manifest_url : String,
   current_version : String,
   quit : () -> Unit,
-  allow_http? : Bool = false,
+  allow_http~ : Bool = false,
 ) -> UpdateActions {
   {
     check: fn() {
@@ -604,10 +650,12 @@ pub fn sys_update_actions(
         match flow.found {
           Some(m) =>
             match @sys.update_manifest_asset(m, @sys.update_target_id()) {
-              Some(a) => flow.report_download(
-                @sys.update_download(a, update_tmp_dir()),
-              )
-              None => flow.report_download(Err("清单没有本平台的更新载体"))
+              Some(a) =>
+                flow.report_download(@sys.update_download(a, update_tmp_dir()))
+              None =>
+                flow.report_download(
+                  Err("清单没有本平台的更新载体"),
+                )
             }
           None => flow.report_download(Err("没有可下载的更新信息"))
         }

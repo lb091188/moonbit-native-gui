@@ -3,7 +3,7 @@
 
 ///|
 /// 选择器弹层里的日历面板（图层第 id 层的第一块）。
-fn picker_panel(id : Int) -> @widget.Widget {
+fn picker_panel(id : Int32) -> @widget.Widget {
   match @widget.overlay_root_of(id) {
     Some(w) => w.children()[0]
     None => @widget.Widget::new()
@@ -31,7 +31,8 @@ test "日期选择器：字段显示占位、点开日历、点选回填并收�
   root.relayout(400.0, 300.0)
   // 弹层挂在字段下方 2px
   match @widget.overlay_rect_of(@widget.overlay_top_id()) {
-    Some(r) => assert_eq((r.x, r.y), (field.rect.x, field.rect.y + field.rect.h + 2.0))
+    Some(r) =>
+      assert_eq((r.x, r.y), (field.rect.x, field.rect.y + field.rect.h + 2.0))
     None => assert_true(false)
   }
   // 点第 14 格（10 月 11 日，first_wd=4）
@@ -52,8 +53,20 @@ test "日期选择器：字段显示占位、点开日历、点选回填并收�
   click_at(root, field, 40.0, 16.0)
   assert_eq(@widget.overlay_count(), 1)
   root.relayout(400.0, 300.0)
-  let _ = root.dispatch_pointer({ kind: @widget.PointerKind::Down, x: 380.0, y: 280.0, button: 1, mods: 0 })
-  let _ = root.dispatch_pointer({ kind: @widget.PointerKind::Up, x: 380.0, y: 280.0, button: 1, mods: 0 })
+  let _ = root.dispatch_pointer({
+    kind: @widget.PointerKind::Down,
+    x: 380.0,
+    y: 280.0,
+    button: 1,
+    mods: 0,
+  })
+  let _ = root.dispatch_pointer({
+    kind: @widget.PointerKind::Up,
+    x: 380.0,
+    y: 280.0,
+    button: 1,
+    mods: 0,
+  })
   assert_eq(@widget.overlay_count(), 0)
   click_at(root, field, 40.0, 16.0)
   assert_eq(@widget.overlay_count(), 1)
@@ -67,7 +80,7 @@ test "日期选择器：字段显示占位、点开日历、点选回填并收�
 
 ///|
 test "日期区间选择器：先点起点再点终点，写回整段并收起" {
-  let v : @base.Store[DateRange] = @base.Store::new({ start: None, end: None })
+  let v : @base.Store[DateRange] = @base.Store::new({ start: None, end: None, })
   let changes : Array[String] = []
   let (root, field) = mounted_with_overlay(
     date_range_picker(
@@ -108,20 +121,36 @@ test "日期区间选择器：先点起点再点终点，写回整段并收起" 
 ///|
 /// 弹层里的控件 `rect` 带弹层偏移（x 可为负），按窗口坐标命中会打空——
 /// 步进格与按钮格一律按 id 直投事件（坐标仍给控件本地位置）。
-fn tap_pop(root : @widget.Widget, w : @widget.Widget, fx : Double, fy : Double) -> Unit {
+fn tap_pop(
+  root : @widget.Widget,
+  w : @widget.Widget,
+  fx : Double,
+  fy : Double,
+) -> Unit {
   let x = w.rect.x + fx
   let y = w.rect.y + fy
   let _ = root.dispatch_pointer_to(w.id, {
-    kind: @widget.PointerKind::Down, x, y, button: 1, mods: 0,
+    kind: @widget.PointerKind::Down,
+    x,
+    y,
+    button: 1,
+    mods: 0,
   })
   let _ = root.dispatch_pointer_to(w.id, {
-    kind: @widget.PointerKind::Up, x, y, button: 1, mods: 0,
+    kind: @widget.PointerKind::Up,
+    x,
+    y,
+    button: 1,
+    mods: 0,
   })
 }
 
 ///|
 test "时间区间：步进器改值、确定写回、取消不改" {
-  let v : @base.Store[TimeRange] = @base.Store::new({ start: Some(TimeHMS::{ h: 9, m: 0, s: 0 }), end: None })
+  let v : @base.Store[TimeRange] = @base.Store::new({
+    start: Some(TimeHMS::{ h: 9, m: 0, s: 0, }),
+    end: None,
+  })
   let changes : Array[String] = []
   let (root, row) = mounted_with_overlay(
     time_range_picker(
@@ -172,8 +201,11 @@ test "时间区间：步进器改值、确定写回、取消不改" {
 
 ///|
 test "日期时间区间：日期走日历、时间走步进，两侧各写各的" {
-  let v : @base.Store[DateTimeRange] = @base.Store::new({ start: None, end: None })
-  let changes : Array[Int] = []
+  let v : @base.Store[DateTimeRange] = @base.Store::new({
+    start: None,
+    end: None,
+  })
+  let changes : Array[Int32] = []
   let (root, row) = mounted_with_overlay(
     datetime_range_picker(
       v,
@@ -190,7 +222,12 @@ test "日期时间区间：日期走日历、时间走步进，两侧各写各�
   let start_date = row.children()[0]
   click_at(root, start_date, 30.0, 16.0)
   root.relayout(500.0, 300.0)
-  click_at(root, cell_at(picker_panel(@widget.overlay_top_id()), 14), 18.0, 15.0)
+  click_at(
+    root,
+    cell_at(picker_panel(@widget.overlay_top_id()), 14),
+    18.0,
+    15.0,
+  )
   match v.get().start {
     Some(p) => {
       assert_eq(p.0.format(), "2026-10-11")
@@ -221,7 +258,7 @@ test "日期选择只读样式槽：class 覆盖字段底、日历面板与箭�
   if !ui_text_guard() {
     return
   }
-  let red_count = fn(bm : @render.Bitmap, w : Int, h : Int) -> Int {
+  let red_count = fn(bm : @render.Bitmap, w : Int32, h : Int32) -> Int32 {
     let mut n = 0
     for y = 0; y < h; y = y + 1 {
       for x = 0; x < w; x = x + 1 {
@@ -233,7 +270,7 @@ test "日期选择只读样式槽：class 覆盖字段底、日历面板与箭�
     }
     n
   }
-  let paint_count = fn(node : @widget.Node, open_it : Bool) -> Int {
+  let paint_count = fn(node : @widget.Node, open_it : Bool) -> Int32 {
     let (root, field) = mounted_with_overlay(node, 420.0, 360.0)
     if open_it {
       let _ = root.dispatch_pointer({
@@ -264,7 +301,9 @@ test "日期选择只读样式槽：class 覆盖字段底、日历面板与箭�
   }
   // 字段底色：内置是 bg_panel（无红），class 换成红
   assert_true(paint_count(mk([]), false) == 0)
-  assert_true(paint_count(mk([@style.style(background_color="#ff0000")]), false) > 200)
+  assert_true(
+    paint_count(mk([@style.style(background_color="#ff0000")]), false) > 200,
+  )
   // 展开的日历面板底色也吃同一份 class 投影（skin 透进弹层）
   assert_true(
     paint_count(mk([@style.style(background_color="#ff0000")]), true) > 1000,
@@ -275,7 +314,7 @@ test "日期选择只读样式槽：class 覆盖字段底、日历面板与箭�
 test "时间弹层：四行自上而下 + / 数值 / − / 单位，纵向不重叠、秒列可选" {
   fn mounted_panel(secs : Bool) -> @widget.Widget {
     let n = time_popup(
-      TimeHMS::{ h: 9, m: 0, s: 0 },
+      TimeHMS::{ h: 9, m: 0, s: 0, },
       fn(_) { () },
       fn() { () },
       show_seconds=secs,
@@ -299,7 +338,10 @@ test "时间弹层：四行自上而下 + / 数值 / − / 单位，纵向不重
     assert_true(c.rect.y >= prev_end, msg="弹层子件纵向重叠")
     prev_end = c.rect.y + c.rect.h
   }
-  assert_true(panel.rect.h >= prev_end + 10.0, msg="弹层高度没包住内容")
+  assert_true(
+    panel.rect.h >= prev_end + 10.0,
+    msg="弹层高度没包住内容",
+  )
   // 两列形态：每行 时 / 分隔 / 分 = 3 格（按钮行不参与）
   for i = 0; i < 4; i = i + 1 {
     assert_eq(kids[i].children().length(), 3)
@@ -316,7 +358,7 @@ test "时间弹层：四行自上而下 + / 数值 / − / 单位，纵向不重
 test "时间弹层步进：时/分/秒各自回绕，分步进 1 分钟" {
   let got : Array[String] = []
   let n = time_popup(
-    TimeHMS::{ h: 23, m: 59, s: 59 },
+    TimeHMS::{ h: 23, m: 59, s: 59, },
     fn(t : TimeHMS) -> Unit { got.push(t.format(show_seconds=true)) },
     fn() { () },
     show_seconds=true,
@@ -341,7 +383,9 @@ test "日期段标签不折行：测量宽与断行口径一致" {
   if !ui_text_guard() {
     return
   }
-  let dp : @base.Store[DateYMD?] = @base.Store::new(Some({ y: 2026, m: 10, d: 13 }))
+  let dp : @base.Store[DateYMD?] = @base.Store::new(
+    Some({ y: 2026, m: 10, d: 13, }),
+  )
   let (root, colw) = mounted(
     col(
       [
@@ -382,7 +426,10 @@ test "日期段标签不折行：测量宽与断行口径一致" {
       "盒宽=\{labs[0].rect.w} 测量宽=\{want}",
   )
   // 行整体落在 picker 之下，纵向不重叠
-  assert_true(kids[1].rect.y >= kids[0].rect.y + kids[0].rect.h, msg="选中行压住 picker")
+  assert_true(
+    kids[1].rect.y >= kids[0].rect.y + kids[0].rect.h,
+    msg="选中行压住 picker",
+  )
   ignore(root)
 }
 
@@ -391,14 +438,24 @@ test "键盘可及性：日期字段回车/空格开日历、Esc 收起" {
   let v : @base.Store[DateYMD?] = @base.Store::new(None)
   let (root, w) = mounted_with_overlay(date_picker(v), 400.0, 400.0)
   assert_true(w.focus_id > 0)
-  let _ = root.dispatch_key(w.focus_id, { press: true, keysym: @base.KS_RETURN, mods: 0, })
+  let _ = root.dispatch_key(w.focus_id, {
+    press: true,
+    keysym: @base.KS_RETURN,
+    mods: 0,
+  })
   root.relayout(400.0, 400.0)
   assert_eq(@widget.overlay_count(), 1)
-  let _ = root.dispatch_key(w.focus_id, { press: true, keysym: @base.KS_ESCAPE, mods: 0, })
-  assert_eq(@widget.overlay_count(), 0)
-  assert_true(match v.get() {
-    None => true
-    Some(_) => false
+  let _ = root.dispatch_key(w.focus_id, {
+    press: true,
+    keysym: @base.KS_ESCAPE,
+    mods: 0,
   })
+  assert_eq(@widget.overlay_count(), 0)
+  assert_true(
+    match v.get() {
+      None => true
+      Some(_) => false
+    },
+  )
   @widget.overlay_clear()
 }

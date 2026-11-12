@@ -17,12 +17,12 @@ import {
   "NoahLiu/ffmpeg-mbt/src" @ffmbt,
   "NoahLiu/native-gui/base",
   "NoahLiu/native-gui/shell",
-  "NoahLiu/native-gui/widget" @widget,
+  "NoahLiu/native-gui/widget",
   "NoahLiu/native-gui/render",
   "NoahLiu/native-gui/text",
   "NoahLiu/native-gui/theme",
-  "NoahLiu/native-gui/icons" @icons,
-  "NoahLiu/native-gui/ui" @ui,
+  "NoahLiu/native-gui/icons",
+  "NoahLiu/native-gui/ui",
 }
 
 options(

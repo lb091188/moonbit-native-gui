@@ -3,7 +3,7 @@
 
 ///|
 pub(all) enum ExprValue {
-  VInt(Int)
+  VInt(Int32)
   VDouble(Double)
   VBool(Bool)
   VString(String)
@@ -11,7 +11,7 @@ pub(all) enum ExprValue {
 
 ///|
 priv enum ExprAst {
-  AInt(Int)
+  AInt(Int32)
   ADouble(Double)
   ABool(Bool)
   AStr(String)
@@ -75,22 +75,26 @@ fn ast_of(j : MJ) -> Result[ExprAst, String] raise EvalRaise {
         Some(s) => Ok(AId(s))
         None => ast_err("id 缺 v")
       }
-    "get" => match mj_get(j, "a") {
-      Some(a) => Ok(AGet(ev_need(ast_of(a))))
-      None => ast_err("get 缺 a")
-    }
-    "tostr" => match mj_get(j, "a") {
-      Some(a) => Ok(AToStr(ev_need(ast_of(a))))
-      None => ast_err("tostr 缺 a")
-    }
-    "not" => match mj_get(j, "a") {
-      Some(a) => Ok(ANot(ev_need(ast_of(a))))
-      None => ast_err("not 缺 a")
-    }
-    "neg" => match mj_get(j, "a") {
-      Some(a) => Ok(ANeg(ev_need(ast_of(a))))
-      None => ast_err("neg 缺 a")
-    }
+    "get" =>
+      match mj_get(j, "a") {
+        Some(a) => Ok(AGet(ev_need(ast_of(a))))
+        None => ast_err("get 缺 a")
+      }
+    "tostr" =>
+      match mj_get(j, "a") {
+        Some(a) => Ok(AToStr(ev_need(ast_of(a))))
+        None => ast_err("tostr 缺 a")
+      }
+    "not" =>
+      match mj_get(j, "a") {
+        Some(a) => Ok(ANot(ev_need(ast_of(a))))
+        None => ast_err("not 缺 a")
+      }
+    "neg" =>
+      match mj_get(j, "a") {
+        Some(a) => Ok(ANeg(ev_need(ast_of(a))))
+        None => ast_err("neg 缺 a")
+      }
     "bin" => {
       let op = match mj_str(mj_get(j, "op")) {
         Some(s) => s
@@ -141,7 +145,10 @@ fn ast_of(j : MJ) -> Result[ExprAst, String] raise EvalRaise {
 }
 
 ///|
-fn eval_ast(n : ExprAst, reg : MngReg) -> Result[ExprValue, String] raise EvalRaise {
+fn eval_ast(
+  n : ExprAst,
+  reg : MngReg,
+) -> Result[ExprValue, String] raise EvalRaise {
   match n {
     AInt(v) => Ok(VInt(v))
     ADouble(v) => Ok(VDouble(v))
@@ -284,9 +291,7 @@ fn eval_cond(n : ExprAst, reg : MngReg) -> Bool {
 ///|
 /// 补丁里一条新表达式登记：`c:` 键进 conds，其余进 exprs；已编译的键不覆盖。
 fn mng_reg_eval(reg : MngReg, key : String, j : MJ) -> Result[Unit, String] {
-  let ast_r : Result[ExprAst, String] = try {
-    Ok(ev_need(ast_of(j)))
-  } catch {
+  let ast_r : Result[ExprAst, String] = Ok(ev_need(ast_of(j))) catch {
     EvalRaise(e) => Err(e)
   }
   let ast = match ast_r {

@@ -12,12 +12,12 @@ pub fn[T] virt_list(
   items : @base.Store[Array[T]],
   height : Double,
   row_height : Double,
-  row_of : (Int, T) -> @widget.Node,
-  width? : Double = 0.0,
-  overscan? : Int = 2,
-  rev? : @base.Store[Int],
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  row_of : (Int32, T) -> @widget.Node,
+  width~ : Double = 0.0,
+  overscan~ : Int32 = 2,
+  rev? : @base.Store[Int32],
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let rh = if row_height > 0.0 { row_height } else { 1.0 }
   @widget.node_of_new(fn(viewport : @widget.Widget) -> @widget.Widget {
@@ -41,9 +41,9 @@ pub fn[T] virt_list(
     inner.node.set_top(@yoga.fixed(0.0 - state.offset))
     viewport.append_child(inner)
     // 当前窗口（源下标区间）与窗口重建
-    let win_first : Ref[Int] = Ref(-1)
-    let win_last : Ref[Int] = Ref(-1)
-    let total : Ref[Int] = Ref(0)
+    let win_first : Ref[Int32] = Ref(-1)
+    let win_last : Ref[Int32] = Ref(-1)
+    let total : Ref[Int32] = Ref(0)
     let render_window = fn(force : Bool) -> Unit {
       // 偏移先落布局：窗口区间没变但偏移在行内变化（半行滚动）时也要跟手
       inner.node.set_top(@yoga.fixed(0.0 - state.offset))
@@ -54,7 +54,9 @@ pub fn[T] virt_list(
       // （on_draw 里不能重建窗口——绘制遍历正在读 kids，改动子控件会踩迭代）
       let vh = if state.view_h > 0.0 { state.view_h } else { height }
       let first = ((state.offset / rh).to_int() - overscan).max(0)
-      let last = (((state.offset + vh) / rh).ceil().to_int() + overscan).min(count)
+      let last = (((state.offset + vh) / rh).ceil().to_int() + overscan).min(
+        count,
+      )
       if !force && first == win_first.val && last == win_last.val {
         return
       }
@@ -101,7 +103,9 @@ pub fn[T] virt_list(
       state.content_h = total.val.to_double() * rh
       if state.content_h > state.view_h {
         let st = @style.style_for(self)
-                p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
+        p.set_stroke_color(
+          @style.color_of(st.border_color, @theme.theme_border()),
+        )
         p.set_line_width(@style.number_of(st.border_width, 1.0))
         p.stroke_rect(0.0, 0.0, r.w, r.h)
       }
@@ -114,22 +118,24 @@ pub fn[T] virt_list(
     match rev {
       Some(r) => {
         // 外部改列宽等「行内容要重建」的变更：给一个 rev，变了就整窗重挂
-        let rsid = r.signal().subscribe(fn(_v : Int) -> Unit {
-          render_window(true)
-        })
+        let rsid = r
+          .signal()
+          .subscribe(fn(_v : Int32) -> Unit { render_window(true) })
         @base.sub_bag_register(fn() { r.signal().remove(rsid) })
       }
       None => ()
     }
-    let sid = items.signal().subscribe(fn(_v : Array[T]) -> Unit {
-      // 数据变短时先把偏移拉回上界，再重挂窗口
-      state.content_h = items.get().length().to_double() * rh
-      if state.offset > state.max() {
-        state.set_offset(state.max())
-      } else {
-        render_window(true)
-      }
-    })
+    let sid = items
+      .signal()
+      .subscribe(fn(_v : Array[T]) -> Unit {
+        // 数据变短时先把偏移拉回上界，再重挂窗口
+        state.content_h = items.get().length().to_double() * rh
+        if state.offset > state.max() {
+          state.set_offset(state.max())
+        } else {
+          render_window(true)
+        }
+      })
     @base.sub_bag_register(fn() { items.signal().remove(sid) })
     viewport.append_child(scroll_bar(state))
     scroll_bar_hover(viewport, state)
@@ -145,14 +151,19 @@ pub fn[T] virt_list(
 pub fn table_v(
   columns : Array[TableColumn],
   rows : @base.Store[Array[TableRow]],
-  width? : Double = 560.0,
-  height? : Double = 360.0,
-  row_height? : Double = 32.0,
-  selection? : @base.Store[Array[Int]],
+  width~ : Double = 560.0,
+  height~ : Double = 360.0,
+  row_height~ : Double = 32.0,
+  selection? : @base.Store[Array[Int32]],
   sort? : @base.Store[TableSort],
-  on_row_click? : (Int, TableRow) -> Unit = fn(_i : Int, _r : TableRow) -> Unit { () },
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  on_row_click~ : (Int32, TableRow) -> Unit = fn(
+    _i : Int32,
+    _r : TableRow,
+  ) -> Unit {
+    ()
+  },
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let head_h = 40.0
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
@@ -174,7 +185,11 @@ pub fn table_v(
     @style.apply(
       w,
       @style.merge_all([
-        @style.style(background_color="bg_panel", border_color="border", border_width=1.0),
+        @style.style(
+          background_color="bg_panel",
+          border_color="border",
+          border_width=1.0,
+        ),
         @style.merge_all(class),
       ]),
     )
@@ -187,13 +202,17 @@ pub fn table_v(
       let rad = @style.number_of(st.border_radius, @theme.radius_card())
       self.clip_rounded = rad > 0.0
       self.style_clip_radius = rad
-      p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
+      p.set_fill_color(
+        @style.color_of(st.background_color, @theme.theme_bg_panel()),
+      )
       if rad > 0.0 {
         p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
       } else {
         p.fill_rect(0.0, 0.0, r.w, r.h)
       }
-      p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
+      p.set_stroke_color(
+        @style.color_of(st.border_color, @theme.theme_border()),
+      )
       p.set_line_width(@style.number_of(st.border_width, 1.0))
       if rad > 0.0 {
         p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
@@ -208,7 +227,7 @@ pub fn table_v(
       sort,
       head_h,
       skin=paint_subset(class),
-      on_resize=Some(fn(_j : Int, _nw : Double) -> Unit {
+      on_resize=Some(fn(_j : Int32, _nw : Double) -> Unit {
         // 虚拟表只管表头两格；数据行靠 rev 整窗重挂（可见行才十来个，重建便宜）
         rev.set(rev.get() + 1)
       }),
@@ -219,21 +238,23 @@ pub fn table_v(
       rows,
       height,
       row_height,
-      fn(src : Int, row : TableRow) -> @widget.Node {
-        @widget.node_of(table_row_widget(
-          columns,
-          widths.val,
-          row,
-          src,
-          row_height,
-          selection,
-          on_row_click,
-          skin=paint_subset(class),
-        ))
+      fn(src : Int32, row : TableRow) -> @widget.Node {
+        @widget.node_of(
+          table_row_widget(
+            columns,
+            widths.val,
+            row,
+            src,
+            row_height,
+            selection,
+            on_row_click,
+            skin=paint_subset(class),
+          ),
+        )
       },
       width=width - 2.0,
-      rev=rev,
-      class=class,
+      rev~,
+      class~,
     )
     let _ = list.mount_into(w)
     handle(w)
@@ -252,7 +273,7 @@ pub(all) struct StickyList {
 
 ///|
 pub fn StickyList::new() -> StickyList {
-  { scroll: ScrollState::new(), cur_group: "", cur_start: 0.0 }
+  { scroll: ScrollState::new(), cur_group: "", cur_start: 0.0, }
 }
 
 ///|
@@ -266,11 +287,11 @@ pub fn StickyList::new() -> StickyList {
 pub fn sticky_list(
   groups : Array[(String, Array[@widget.Node])],
   st : StickyList,
-  width? : Double = 0.0,
-  height? : Double = 0.0,
-  head_h? : Double = 28.0,
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  width~ : Double = 0.0,
+  height~ : Double = 0.0,
+  head_h~ : Double = 28.0,
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let state = st.scroll
   let hh = head_h
@@ -316,7 +337,9 @@ pub fn sticky_list(
         r : @base.Rect,
       ) -> Unit {
         let hs = @style.style_for(self)
-        p.set_fill_color(@style.color_of(hs.background_color, @theme.theme_fill_zebra()))
+        p.set_fill_color(
+          @style.color_of(hs.background_color, @theme.theme_fill_zebra()),
+        )
         p.fill_rect(0.0, 0.0, r.w, r.h)
         let f = @text.Font::new("", 12.0, weight=@text.SemiBold)
         let _ = @text.draw_box_at(
@@ -348,7 +371,11 @@ pub fn sticky_list(
     @style.apply(
       sticky_bar,
       @style.merge_all([
-        @style.style(background_color="bg_panel", border_color="border", color="text_primary"),
+        @style.style(
+          background_color="bg_panel",
+          border_color="border",
+          color="text_primary",
+        ),
         paint_subset(class),
       ]),
     )
@@ -358,7 +385,9 @@ pub fn sticky_list(
       r : @base.Rect,
     ) -> Unit {
       let bs = @style.style_for(self)
-      p.set_fill_color(@style.color_of(bs.background_color, @theme.theme_bg_panel()))
+      p.set_fill_color(
+        @style.color_of(bs.background_color, @theme.theme_bg_panel()),
+      )
       p.fill_rect(0.0, 0.0, r.w, r.h)
       p.set_fill_color(@style.color_of(bs.border_color, @theme.theme_border()))
       p.fill_rect(0.0, r.h - 1.0, r.w, 1.0)

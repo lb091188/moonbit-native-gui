@@ -121,12 +121,20 @@ pub(all) struct Mat2x3 {
 
 ///|
 fn Mat2x3::identity() -> Mat2x3 {
-  { a: 1.0, b: 0.0, c: 0.0, d: 1.0, e: 0.0, f: 0.0 }
+  { a: 1.0, b: 0.0, c: 0.0, d: 1.0, e: 0.0, f: 0.0, }
 }
 
 ///|
 /// CTM ← CTM ∘ M（与 cairo_translate/scale/rotate 的「先加变换后作用」一致）。
-fn Mat2x3::mul(self : Mat2x3, a2 : Double, b2 : Double, c2 : Double, d2 : Double, e2 : Double, f2 : Double) -> Unit {
+fn Mat2x3::mul(
+  self : Mat2x3,
+  a2 : Double,
+  b2 : Double,
+  c2 : Double,
+  d2 : Double,
+  e2 : Double,
+  f2 : Double,
+) -> Unit {
   let a1 = self.a
   let b1 = self.b
   let c1 = self.c
@@ -187,13 +195,7 @@ pub fn Path::add_arc(
   // 每段 ≤ 90°：段数取上限
   let sweep = end - a0
   let raw_n = (sweep / (0.5 * RASTER_PI)).ceil().to_int()
-  let n = if raw_n < 1 {
-    1
-  } else if raw_n > 1024 {
-    1024
-  } else {
-    raw_n
-  }
+  let n = if raw_n < 1 { 1 } else if raw_n > 1024 { 1024 } else { raw_n }
   let step = sweep / n.to_double()
   let k = RASTER_KAPPA
   let mut ang = a0
@@ -238,7 +240,7 @@ fn bezier_flat(
     0.0
   }
   let tol2 = RASTER_FLAT_TOLERANCE * RASTER_FLAT_TOLERANCE
-  if err <= tol2 || (dx * dx + dy * dy) < 0.000000000001 {
+  if err <= tol2 || dx * dx + dy * dy < 0.000000000001 {
     out.push((x3, y3))
     return
   }
@@ -277,7 +279,7 @@ fn cap_circle(cx : Double, cy : Double, r : Double) -> Poly {
     let a = 6.283185307179586 * i.to_double() / n.to_double()
     pts.push((cx + r * @math.cos(a), cy + r * @math.sin(a)))
   }
-  { pts, closed: true }
+  { pts, closed: true, }
 }
 
 ///|
@@ -366,7 +368,7 @@ fn dash_polys(
         remain = remain - seg
         if remain <= 0.000000001 {
           if pon && cur.length() >= 2 {
-            out.push({ pts: cur.copy(), closed: false })
+            out.push({ pts: cur.copy(), closed: false, })
           }
           cur = []
           // 越到下一段；跳过 0 长段
@@ -383,7 +385,7 @@ fn dash_polys(
       }
     }
     if pon && cur.length() >= 2 {
-      out.push({ pts: cur, closed: false })
+      out.push({ pts: cur, closed: false, })
     }
   }
   out
@@ -392,7 +394,8 @@ fn dash_polys(
 ///|
 /// 路径 → 设备空间折线集合（经矩阵变换 + 展平）。未闭合子路径在 fill 侧
 /// 自动闭线（stroke 侧保持开口、上端帽）。
-pub fn Path::flatten(self : Path, m : Mat2x3) -> Array[Poly] {  let polys : Array[Poly] = []
+pub fn Path::flatten(self : Path, m : Mat2x3) -> Array[Poly] {
+  let polys : Array[Poly] = []
   let cur : Array[(Double, Double)] = []
   let mut open = false
   let mut sx = 0.0
@@ -401,7 +404,7 @@ pub fn Path::flatten(self : Path, m : Mat2x3) -> Array[Poly] {  let polys : Arra
     match seg {
       SegMove(x, y) => {
         if open && cur.length() >= 2 {
-          polys.push({ pts: cur.copy(), closed: false })
+          polys.push({ pts: cur.copy(), closed: false, })
         }
         cur.clear()
         let (dx, dy) = m.apply(x, y)
@@ -410,7 +413,7 @@ pub fn Path::flatten(self : Path, m : Mat2x3) -> Array[Poly] {  let polys : Arra
         sy = dy
         open = true
       }
-      SegLine(x, y) => {
+      SegLine(x, y) =>
         if !open {
           let (dx, dy) = m.apply(x, y)
           cur.push((dx, dy))
@@ -420,7 +423,6 @@ pub fn Path::flatten(self : Path, m : Mat2x3) -> Array[Poly] {  let polys : Arra
         } else {
           cur.push(m.apply(x, y))
         }
-      }
       SegBezier(c1x, c1y, c2x, c2y, x, y) => {
         if !open {
           let (dx, dy) = m.apply(c1x, c1y)
@@ -435,20 +437,19 @@ pub fn Path::flatten(self : Path, m : Mat2x3) -> Array[Poly] {  let polys : Arra
         let (dx, dy) = m.apply(x, y)
         bezier_flat(lx, ly, d1x, d1y, d2x, d2y, dx, dy, cur)
       }
-      SegClose => {
+      SegClose =>
         if open {
           cur.push((sx, sy))
           if cur.length() >= 2 {
-            polys.push({ pts: cur.copy(), closed: true })
+            polys.push({ pts: cur.copy(), closed: true, })
           }
           cur.clear()
           open = false
         }
-      }
     }
   }
   if open && cur.length() >= 2 {
-    polys.push({ pts: cur.copy(), closed: false })
+    polys.push({ pts: cur.copy(), closed: false, })
   }
   polys
 }

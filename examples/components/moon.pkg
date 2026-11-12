@@ -4,16 +4,15 @@
 import {
   "NoahLiu/yoga-mbt/src" @yoga,
   "NoahLiu/native-gui/base",
-  "NoahLiu/native-gui/widget" @widget,
-
-  "NoahLiu/native-gui/shell" @shell,
-  "NoahLiu/native-gui/router" @router,
+  "NoahLiu/native-gui/widget",
+  "NoahLiu/native-gui/shell",
+  "NoahLiu/native-gui/router",
   "NoahLiu/native-gui/ui",
   "NoahLiu/native-gui/theme",
   "NoahLiu/native-gui/icons",
-  "NoahLiu/native-gui/style" @style,
+  "NoahLiu/native-gui/style",
   "NoahLiu/native-gui/win",
-  "NoahLiu/native-gui/sys" @sys,
+  "NoahLiu/native-gui/sys",
   "NoahLiu/native-gui-examples-components/shared",
   "NoahLiu/native-gui-examples-components/pages",
 }

@@ -2,9 +2,20 @@
 // 半径归一（over-constraint 等比缩小）闭合。
 
 ///|
-fn near_px(bm : Bitmap, x : Int, y : Int, r : Int, g : Int, b : Int, tol : Int) -> Bool {
+fn near_px(
+  bm : Bitmap,
+  x : Int32,
+  y : Int32,
+  r : Int32,
+  g : Int32,
+  b : Int32,
+  tol : Int32,
+) -> Bool {
   let px = bm.pixel(x, y)
-  (px.r - r).abs() <= tol && (px.g - g).abs() <= tol && (px.b - b).abs() <= tol && px.a > 0
+  (px.r - r).abs() <= tol &&
+  (px.g - g).abs() <= tol &&
+  (px.b - b).abs() <= tol &&
+  px.a > 0
 }
 
 ///|

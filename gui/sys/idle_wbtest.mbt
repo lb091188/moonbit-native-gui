@@ -24,10 +24,7 @@ test "idle_clamp_ms / idle_ms_to_seconds：负值归零、毫秒换秒" {
 ///|
 test "IdleError 的 Show：两档都能打出来" {
   assert_eq(IdleError::Unsupported.to_string(), "IdleError::Unsupported")
-  assert_eq(
-    IdleError::Failed("x").to_string(),
-    "IdleError::Failed(x)",
-  )
+  assert_eq(IdleError::Failed("x").to_string(), "IdleError::Failed(x)")
 }
 
 ///|
@@ -35,7 +32,10 @@ test "idle_supported：Windows 应为真（其余平台只打印运行时探测�
   let sup = idle_supported()
   match sys_platform() {
     "windows" => assert_true(sup)
-    _ => println("idle_supported(本机 " + sys_platform() + ") = " + sup.to_string())
+    _ =>
+      println(
+        "idle_supported(本机 " + sys_platform() + ") = " + sup.to_string(),
+      )
   }
 }
 

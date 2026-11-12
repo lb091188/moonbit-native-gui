@@ -240,7 +240,11 @@ test "本机 DMI:sys_vendor/product_name 可读,product_serial 可缺" {
     }
     Err(SiReadFailed(_)) => ()
     Err(SiUnsupported) => assert_true(sys_platform() != "linux")
-    Err(_) => assert_true(false, msg="si_machine 只应给 ReadFailed/Unsupported 或 Ok")
+    Err(_) =>
+      assert_true(
+        false,
+        msg="si_machine 只应给 ReadFailed/Unsupported 或 Ok",
+      )
   }
 }
 
@@ -251,7 +255,8 @@ test "si Windows 直调读数环：os/machine/memory/uptime 全通道" {
     return
   }
   match si_os() {
-    Ok(os) => assert_true(os.pretty_name.has_prefix("Windows") && os.id == "windows")
+    Ok(os) =>
+      assert_true(os.pretty_name.has_prefix("Windows") && os.id == "windows")
     Err(e) => {
       println("si_os failed: \{e}")
       assert_true(false)
@@ -265,7 +270,10 @@ test "si Windows 直调读数环：os/machine/memory/uptime 全通道" {
     }
   }
   match si_memory() {
-    Ok(m) => assert_true(m.total_kb > 0 && m.available_kb > 0 && m.available_kb <= m.total_kb)
+    Ok(m) =>
+      assert_true(
+        m.total_kb > 0 && m.available_kb > 0 && m.available_kb <= m.total_kb,
+      )
     Err(e) => {
       println("si_memory failed: \{e}")
       assert_true(false)
@@ -280,6 +288,7 @@ test "si Windows 直调读数环：os/machine/memory/uptime 全通道" {
   }
 }
 
+///|
 test "macOS 读数解析：sw_vers 三行与 ioreg 的带引号键" {
   let os = si_parse_sw_vers(
     "ProductName:\tmacOS\nProductVersion:\t15.2\nBuildVersion:\t24G84\n",

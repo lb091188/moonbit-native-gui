@@ -36,7 +36,7 @@ test "remove_child 只触发被摘子树的回调，树上兄弟不受牵连" {
 
 ///|
 test "丢弃幂等：摘下后再 clear 同一棵引用不会二次触发" {
-  let n : Ref[Int] = Ref(0)
+  let n : Ref[Int32] = Ref(0)
   let root = Widget::new()
   let child = Widget::new()
   child.on_discard = Some(fn(_w) { n.val = n.val + 1 })

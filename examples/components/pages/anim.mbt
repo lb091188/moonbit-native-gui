@@ -41,7 +41,10 @@ fn hover_card(label : String, sub : String, dur : Double) -> @widget.Node {
 ///|
 /// GIF 图源候选（moon run 可能从仓库根或 examples/ 目录起跑，逐个探测）。
 fn anim_gif_path() -> String {
-  for c in ["examples/components/assets/dot.gif", "assets/dot.gif", "components/assets/dot.gif"] {
+  for
+    c in [
+      "examples/components/assets/dot.gif", "assets/dot.gif", "components/assets/dot.gif",
+    ] {
     if @sys.sys_path_exists(c) {
       return c
     }
@@ -49,6 +52,7 @@ fn anim_gif_path() -> String {
   "examples/components/assets/dot.gif"
 }
 
+///|
 pub fn page_anim(_app : @shared.App) -> @widget.Node {
   let gif_h : @ui.GifHandle = @ui.GifHandle::make()
   let gif_note : @base.Store[String] = @base.Store::new(@shared.tx("自转中"))
@@ -68,12 +72,8 @@ pub fn page_anim(_app : @shared.App) -> @widget.Node {
         ),
       ],
       code=[
-        "@style.style(",
-        "  background_color=\"bg_panel\", border_radius=4.0,",
-        "  transition_ms=150.0,          // 时长写在基块上",
-        ").hover(",
-        "  background_color=\"primary\", border_radius=8.0,",
-        ")",
+        "@style.style(", "  background_color=\"bg_panel\", border_radius=4.0,", "  transition_ms=150.0,          // 时长写在基块上",
+        ").hover(", "  background_color=\"primary\", border_radius=8.0,", ")",
       ],
     ),
     @shared.section(
@@ -103,15 +103,11 @@ pub fn page_anim(_app : @shared.App) -> @widget.Node {
                 // hover 不会替子件换字号。文本铺满整块（width=170），指针在块内
                 // 任意位置都命中文本，字号这一档才看得见。测量期读同一份插值
                 // 字号（`@style.resolved_for_measure`），所以字长大会连着盒子一起长。
-                @ui.text(
-                  @shared.tx("字号+底色"),
-                  align=@text.Center,
-                  class=[
-                    @style.style(font_size=13.0, transition_ms=300.0).hover(
-                      font_size=17.0,
-                    ),
-                  ],
-                ),
+                @ui.text(@shared.tx("字号+底色"), align=@text.Center, class=[
+                  @style.style(font_size=13.0, transition_ms=300.0).hover(
+                    font_size=17.0,
+                  ),
+                ]),
               ],
               width=170.0,
               height=48.0,
@@ -141,37 +137,41 @@ pub fn page_anim(_app : @shared.App) -> @widget.Node {
               [
                 @ui.view(
                   [
-                    @ui.text(
-                      @shared.tx("下划线"),
-                      class=[@style.style(text_decoration=@style.Underline)],
-                    ),
+                    @ui.text(@shared.tx("下划线"), class=[
+                      @style.style(text_decoration=@style.Underline),
+                    ]),
                   ],
                   width=180.0,
                   class=[@style.style(background_color="bg_page")],
                 ),
                 @ui.view(
                   [
-                    @ui.text(
-                      @shared.tx("右对齐（text_align）"),
-                      class=[@style.style(text_align=@text.End)],
-                    ),
+                    @ui.text(@shared.tx("右对齐（text_align）"), class=[
+                      @style.style(text_align=@text.End),
+                    ]),
                   ],
                   width=180.0,
                   class=[@style.style(background_color="bg_page")],
                 ),
-                @ui.text(@shared.tx("行高 32"), class=[@style.style(line_height=32.0)]),
+                @ui.text(@shared.tx("行高 32"), class=[
+                  @style.style(line_height=32.0),
+                ]),
               ],
               column_gap=12.0,
             ),
             @ui.col(
               [
                 @ui.text(
-                  @shared.tx("折行：这段文字开了 white_space=Normal 并限宽 300，会按词折成多行；同一句改成 NoWrap 就停在盒宽外。"),
+                  @shared.tx(
+                    "折行：这段文字开了 white_space=Normal 并限宽 300，会按词折成多行；同一句改成 NoWrap 就停在盒宽外。",
+                  ),
                   max_width=300.0,
                   class=[@style.style(white_space=@style.Normal)],
                 ),
                 @ui.text(
-                  @shared.tx("不折行：这段文字开了 white_space=NoWrap 并限宽 300，超出的部分不折行。"),
+                  @shared.tx(
+                    "不折行：这段文字开了 white_space=NoWrap 并限宽 300，超出的部分不折行。",
+                  ),
                   max_width=300.0,
                   class=[@style.style(white_space=@style.NoWrap)],
                 ),
@@ -185,12 +185,10 @@ pub fn page_anim(_app : @shared.App) -> @widget.Node {
         ),
       ],
       code=[
-        "@style.style(text_decoration=@style.Underline)",
-        "@style.style(text_align=@text.End, line_height=32.0)",
+        "@style.style(text_decoration=@style.Underline)", "@style.style(text_align=@text.End, line_height=32.0)",
         "@style.style(white_space=@style.Normal, max_width=300.0)",
       ],
     ),
-
     @shared.section(
       "动图",
       "GIF 动图",
@@ -198,35 +196,50 @@ pub fn page_anim(_app : @shared.App) -> @widget.Node {
       [
         @ui.row(
           [
-            @ui.gif(
-              anim_gif_path(),
-              width=48.0,
-              height=48.0,
-              state=gif_h,
-            ),
+            @ui.gif(anim_gif_path(), width=48.0, height=48.0, state=gif_h),
             @ui.button(@shared.tx("暂停"), variant=@ui.Soft, on_click=fn() {
               gif_h.pause()
-              gif_note.set(@shared.tr_with("dyn.gif_paused", [("r", gif_h.running.to_string())], "已暂停（running=\{gif_h.running}）"))
+              gif_note.set(
+                @shared.tr_with(
+                  "dyn.gif_paused",
+                  [("r", gif_h.running.to_string())],
+                  "已暂停（running=\{gif_h.running}）",
+                ),
+              )
             }),
             @ui.button(@shared.tx("继续"), variant=@ui.Soft, on_click=fn() {
               gif_h.play()
-              gif_note.set(@shared.tr_with("dyn.gif_resumed", [("r", gif_h.running.to_string())], "已继续（running=\{gif_h.running}）"))
+              gif_note.set(
+                @shared.tr_with(
+                  "dyn.gif_resumed",
+                  [("r", gif_h.running.to_string())],
+                  "已继续（running=\{gif_h.running}）",
+                ),
+              )
             }),
             @ui.button(@shared.tx("读帧数"), variant=@ui.Text, on_click=fn() {
-              gif_note.set(@shared.tr_with("dyn.gif_frames", [("n", gif_h.frame_count().to_string())], "已换 \{gif_h.frame_count()} 帧"))
+              gif_note.set(
+                @shared.tr_with(
+                  "dyn.gif_frames",
+                  [("n", gif_h.frame_count().to_string())],
+                  "已换 \{gif_h.frame_count()} 帧",
+                ),
+              )
             }),
           ],
           column_gap=8.0,
           align_items=@yoga.AlignItems::Center,
         ),
-        @ui.bind_label(gif_note, fn(s) { s }, font_size=12.0, color="text_secondary"),
+        @ui.bind_label(
+          gif_note,
+          fn(s) { s },
+          font_size=12.0,
+          color="text_secondary",
+        ),
       ],
       code=[
-        "let h = @ui.GifHandle::make()",
-        "@ui.gif(\"assets/dot.gif\", width=48.0, height=48.0, state=h)",
-        "h.pause()  // 暂停自转",
-        "h.play()   // 继续",
-        "h.frame_count()  // 已换过的帧数",
+        "let h = @ui.GifHandle::make()", "@ui.gif(\"assets/dot.gif\", width=48.0, height=48.0, state=h)",
+        "h.pause()  // 暂停自转", "h.play()   // 继续", "h.frame_count()  // 已换过的帧数",
       ],
     ),
   ])

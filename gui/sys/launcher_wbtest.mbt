@@ -25,12 +25,16 @@ test {
   assert_true(cwd != "")
   if sys_platform() == "windows" {
     // 形如 "D:\…"：下标 0 是盘符、1 是冒号（0-based，别把冒号当成第 2 位）
-    let drive_abs =
-      cwd.length() > 2 &&
+    let drive_abs = cwd.length() > 2 &&
       cwd[1].to_int() == 58 && // ':'
-      ((cwd[0].to_int() >= 65 && cwd[0].to_int() <= 90) ||
-        (cwd[0].to_int() >= 97 && cwd[0].to_int() <= 122))
-    assert_true(drive_abs || cwd.has_prefix("\\\\"), msg="非绝对路径: \{cwd}")
+      (
+        (cwd[0].to_int() >= 65 && cwd[0].to_int() <= 90) ||
+        (cwd[0].to_int() >= 97 && cwd[0].to_int() <= 122)
+      )
+    assert_true(
+      drive_abs || cwd.has_prefix("\\\\"),
+      msg="非绝对路径: \{cwd}",
+    )
   } else {
     assert_true(cwd.has_prefix("/"))
   }
@@ -124,7 +128,10 @@ test {
 test {
   // Windows 形态：分隔符统一成反斜杠，且中文与已正确的串都不被写坏
   // （混着给时 explorer 的 /select 不选中，所以交出去之前先统一）
-  assert_eq(launcher_win_path("C:/Users/u/ proj/TODO.md"), "C:\\Users\\u\\ proj\\TODO.md")
+  assert_eq(
+    launcher_win_path("C:/Users/u/ proj/TODO.md"),
+    "C:\\Users\\u\\ proj\\TODO.md",
+  )
   assert_eq(launcher_win_path("C:\\a\\b.txt"), "C:\\a\\b.txt")
   assert_eq(launcher_win_path("C:/文档/报告.doc"), "C:\\文档\\报告.doc")
   assert_eq(launcher_win_path(""), "")
@@ -158,25 +165,36 @@ test {
   assert_true(open_file("") is Err(NotFound))
   assert_true(
     open_file("launcher_no_such_file_zzz.md") is Err(NotFound) ||
-      open_file("launcher_no_such_file_zzz.md") is Err(Unsupported),
+    open_file("launcher_no_such_file_zzz.md") is Err(Unsupported),
   )
   assert_true(open_file_with("", "TODO.md") is Err(SpawnFailed))
   assert_true(
-    open_file_with("notepad.exe", "launcher_no_such_file_zzz.md") is Err(NotFound) ||
-      open_file_with("notepad.exe", "launcher_no_such_file_zzz.md") is Err(Unsupported),
+    open_file_with("notepad.exe", "launcher_no_such_file_zzz.md")
+    is Err(NotFound) ||
+    open_file_with("notepad.exe", "launcher_no_such_file_zzz.md")
+    is Err(Unsupported),
   )
-  assert_eq(OpenFileError::Unsupported.to_string(), "OpenFileError::Unsupported")
+  assert_eq(
+    OpenFileError::Unsupported.to_string(),
+    "OpenFileError::Unsupported",
+  )
   assert_eq(OpenFileError::NotFound.to_string(), "OpenFileError::NotFound")
   assert_eq(
     OpenFileError::SpawnFailed.to_string(),
     "OpenFileError::SpawnFailed",
   )
-  assert_eq(FileManagerError::NotFound.to_string(), "FileManagerError::NotFound")
+  assert_eq(
+    FileManagerError::NotFound.to_string(),
+    "FileManagerError::NotFound",
+  )
   // 定位面同一条口径：不存在的路径不假装「已交给系统」
-  assert_true(reveal_in_file_manager("") is Err(NotFound) || reveal_in_file_manager("") is Err(Unsupported))
+  assert_true(
+    reveal_in_file_manager("") is Err(NotFound) ||
+    reveal_in_file_manager("") is Err(Unsupported),
+  )
   assert_true(
     reveal_in_file_manager("launcher_no_such_file_zzz.md") is Err(NotFound) ||
-      reveal_in_file_manager("launcher_no_such_file_zzz.md") is Err(Unsupported),
+    reveal_in_file_manager("launcher_no_such_file_zzz.md") is Err(Unsupported),
   )
 }
 

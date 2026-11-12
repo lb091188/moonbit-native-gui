@@ -16,7 +16,7 @@ pub struct Style {
   mut flex_basis : Value
   mut justify_content : JustifyContent
   mut align_items : AlignItems
-  mut align_self : Option[AlignItems]
+  mut align_self : AlignItems?
   mut align_content : AlignContent
   mut width : Value
   mut height : Value
@@ -24,7 +24,7 @@ pub struct Style {
   mut min_height : Value
   mut max_width : Value
   mut max_height : Value
-  mut aspect_ratio : Option[Double]
+  mut aspect_ratio : Double?
   margin : Edges
   padding : Edges
   border : Edges
@@ -32,7 +32,7 @@ pub struct Style {
   mut column_gap : Double
   /// 层序键：只在绘制期消费（布局几何与它无关）。引擎**不重排 children**——
   /// 增量布局按下标缓存，物理重排会搅乱缓存；层序投影走 `Node::paint_order`。
-  mut z_index : Int
+  mut z_index : Int32
 }
 
 ///|
@@ -40,41 +40,41 @@ pub struct Style {
 /// justify flex-start / align-items stretch / align-content stretch。
 pub fn Style::new() -> Style {
   {
-    display : Flex,
-    direction : Ltr,
-    position : Relative,
-    top : Auto,
-    right : Auto,
-    bottom : Auto,
-    left : Auto,
-    flex_direction : Row,
-    flex_wrap : NoWrap,
-    flex_grow : 0.0,
-    flex_shrink : 1.0,
-    flex_basis : Auto,
-    justify_content : FlexStart,
-    align_items : Stretch,
-    align_self : None,
-    align_content : Stretch,
-    width : Undefined,
-    height : Undefined,
-    min_width : Undefined,
-    min_height : Undefined,
-    max_width : Undefined,
-    max_height : Undefined,
-    aspect_ratio : None,
-    margin : Edges::zero(),
-    padding : Edges::zero(),
-    border : Edges::zero(),
-    row_gap : 0.0,
-    column_gap : 0.0,
-    z_index : 0,
+    display: Flex,
+    direction: Ltr,
+    position: Relative,
+    top: Auto,
+    right: Auto,
+    bottom: Auto,
+    left: Auto,
+    flex_direction: Row,
+    flex_wrap: NoWrap,
+    flex_grow: 0.0,
+    flex_shrink: 1.0,
+    flex_basis: Auto,
+    justify_content: FlexStart,
+    align_items: Stretch,
+    align_self: None,
+    align_content: Stretch,
+    width: Undefined,
+    height: Undefined,
+    min_width: Undefined,
+    min_height: Undefined,
+    max_width: Undefined,
+    max_height: Undefined,
+    aspect_ratio: None,
+    margin: Edges::zero(),
+    padding: Edges::zero(),
+    border: Edges::zero(),
+    row_gap: 0.0,
+    column_gap: 0.0,
+    z_index: 0,
   }
 }
 
 ///|
 /// 取某一边的值，padding/border 的 Auto 视同 Undefined。
-fn edge_value(e : Edges, which : Int) -> Value {
+fn edge_value(e : Edges, which : Int32) -> Value {
   let v = match which {
     0 => e.left
     1 => e.right
@@ -91,7 +91,7 @@ fn edge_value(e : Edges, which : Int) -> Value {
 /// 按「参照尺寸」解析一个值；Undefined/Auto、内在关键词与无参照的 Percent
 /// 均给 0（关键词只在尺寸类属性上有意义，解析需要节点上下文，走
 /// `algorithm.mbt` 的 `axis_size`）。
-fn resolve_value(v : Value, owner : Option[Double]) -> Double {
+fn resolve_value(v : Value, owner : Double?) -> Double {
   match v {
     Undefined => 0.0
     Auto => 0.0
@@ -110,7 +110,7 @@ fn resolve_value(v : Value, owner : Option[Double]) -> Double {
 ///|
 /// 把尺寸类取值解析为确定值；不可确定（Undefined/Auto/内在关键词/无参照
 /// Percent）给 None。内在关键词由 `axis_size` 带节点上下文另行解析。
-fn definite_size(v : Value, owner : Option[Double]) -> Option[Double] {
+fn definite_size(v : Value, owner : Double?) -> Double? {
   match v {
     Fixed(x) => Some(x)
     Percent(p) =>

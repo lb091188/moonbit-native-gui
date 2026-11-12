@@ -10,7 +10,7 @@
 /// 命名色按 named、其余按 theme token 名，token 不认识当场 raise，§1.4）；
 /// `padding` / `margin` 简写只表示**四边同值**，逐边参数可覆单条边（§1.1）。
 ///
-/// ```moonbit
+/// ```moonbit nocheck
 /// let card = style(padding=14.0, background_color="bg_panel", border_radius=8.0)
 /// ```
 pub fn style(
@@ -70,14 +70,14 @@ pub fn style(
   right? : Double,
   bottom? : Double,
   left? : Double,
-  z_index? : Int,
+  z_index? : Int32,
   // —— P4：整层透明度（投影档已撤，见 style.mbt 的同名注释）
   opacity? : Double,
   // —— P5：状态桶切换的过渡时长（毫秒；参与插值的字段见 §1.5）
   transition_ms? : Double,
   // —— 其它
   visibility? : Visibility,
-  cursor? : Int,
+  cursor? : Int32,
   background_gradient? : GradientSpec,
   // —— 每角圆角 / 每边边框（S3；None 回落统一值）
   border_top_left_radius? : Double,
@@ -271,7 +271,7 @@ pub fn Style::hover(
   border_radius? : Double,
   border_style? : BorderStyle,
   visibility? : Visibility,
-  cursor? : Int,
+  cursor? : Int32,
 ) -> Style {
   let b = empty_style()
   match color {
@@ -323,7 +323,7 @@ pub fn Style::active(
   border_radius? : Double,
   border_style? : BorderStyle,
   visibility? : Visibility,
-  cursor? : Int,
+  cursor? : Int32,
 ) -> Style {
   let b = empty_style()
   match color {
@@ -375,7 +375,7 @@ pub fn Style::focus(
   border_radius? : Double,
   border_style? : BorderStyle,
   visibility? : Visibility,
-  cursor? : Int,
+  cursor? : Int32,
 ) -> Style {
   let b = empty_style()
   match color {
@@ -406,4 +406,3 @@ pub fn Style::focus(
   self.focus = Some(merge_bucket(self.focus, b))
   self
 }
-

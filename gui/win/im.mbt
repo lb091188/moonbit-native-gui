@@ -12,13 +12,17 @@
 ///|
 pub struct PreeditState {
   text : String
-  caret : Int
+  caret : Int32
   active : Bool
 }
 
 ///|
 /// 把「已提交文本 + 字节光标」喂给输入法（组合串不喂，否则它会按错上下文推断）。
-pub fn Window::set_im_surrounding(self : Window, text : String, caret : Int) -> Unit {
+pub fn Window::set_im_surrounding(
+  self : Window,
+  text : String,
+  caret : Int32,
+) -> Unit {
   wm_im_set_surrounding(self.id, @utf8.encode(text), caret)
 }
 
@@ -26,10 +30,10 @@ pub fn Window::set_im_surrounding(self : Window, text : String, caret : Int) -> 
 /// 报插入符矩形（窗口坐标、设备像素），候选窗据此定位。
 pub fn Window::set_im_cursor(
   self : Window,
-  x : Int,
-  y : Int,
-  w : Int,
-  h : Int,
+  x : Int32,
+  y : Int32,
+  w : Int32,
+  h : Int32,
 ) -> Unit {
   wm_im_set_cursor(self.id, x, y, w, h)
 }
@@ -73,7 +77,7 @@ pub fn Window::take_commit(self : Window) -> String? {
 pub fn Window::preedit(self : Window) -> PreeditState {
   let n = wm_im_preedit_len(self.id)
   if n <= 0 {
-    { text: "", caret: 0, active: wm_im_preedit_active(self.id) == 1 }
+    { text: "", caret: 0, active: wm_im_preedit_active(self.id) == 1, }
   } else {
     let buf = FixedArray::make(n, b'\x00')
     for i = 0; i < n; i = i + 1 {

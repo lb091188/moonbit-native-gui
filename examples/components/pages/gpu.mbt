@@ -8,7 +8,7 @@
 ///|
 /// 32×32 不透明图案字节（draw_texture_rgba 语义：R,G,B,A，全 a=255）：
 /// 红蓝棋盘 + 横向渐变，边缘与中心都可当采样点。
-fn gpu_pattern(size : Int) -> Bytes {
+fn gpu_pattern(size : Int32) -> Bytes {
   let out = FixedArray::make(size * size * 4, b'\xFF')
   for y in 0..<size {
     for x in 0..<size {
@@ -30,7 +30,7 @@ fn gpu_pattern(size : Int) -> Bytes {
 
 ///|
 /// 同一图案的位图形态（CPU 回退参照）：RGBA → 位图内存序 B,G,R,A 换槽。
-fn gpu_pattern_bitmap(size : Int) -> @render.Bitmap {
+fn gpu_pattern_bitmap(size : Int32) -> @render.Bitmap {
   let bm = @render.Bitmap::new(size, size)
   let px = gpu_pattern(size)
   let d = bm.data
@@ -53,12 +53,12 @@ fn gpu_pattern_bitmap(size : Int) -> @render.Bitmap {
 fn gpu_scene_gpu(
   sink : &@render.GpuSink,
   pattern : Bytes,
-  step : Int,
+  step : Int32,
   r : @base.Rect,
 ) -> Unit {
   @render.GpuSink::fill_rect(
     sink,
-    { x: 0.0, y: 0.0, w: r.w, h: r.h },
+    { x: 0.0, y: 0.0, w: r.w, h: r.h, },
     "#1B2027",
     None,
     1.0,
@@ -68,21 +68,21 @@ fn gpu_scene_gpu(
     pattern,
     32,
     32,
-    { x: 16.0, y: 16.0, w: 168.0, h: 168.0 },
+    { x: 16.0, y: 16.0, w: 168.0, h: 168.0, },
     None,
     1.0,
   )
   let colors = ["#E8B34B", "#4B8BE8", "#4BE888"]
   @render.GpuSink::fill_rect(
     sink,
-    { x: r.w - 184.0, y: 16.0, w: 168.0, h: 168.0 },
+    { x: r.w - 184.0, y: 16.0, w: 168.0, h: 168.0, },
     colors[step % 3],
     None,
     1.0,
   )
   @render.GpuSink::fill_rect(
     sink,
-    { x: 16.0, y: r.h - 40.0, w: r.w - 32.0, h: 24.0 },
+    { x: 16.0, y: r.h - 40.0, w: r.w - 32.0, h: 24.0, },
     "#3A4350",
     None,
     1.0,
@@ -94,12 +94,12 @@ fn gpu_scene_gpu(
 fn gpu_scene_cpu(
   p : @render.Painter,
   pattern : @render.Bitmap,
-  step : Int,
+  step : Int32,
   r : @base.Rect,
 ) -> Unit {
   p.set_fill_color("#1B2027")
   p.fill_rect(0.0, 0.0, r.w, r.h)
-  p.draw_canvas(@render.Canvas::{ bitmap: pattern }, 16.0, 16.0, 168.0, 168.0)
+  p.draw_canvas(@render.Canvas::{ bitmap: pattern, }, 16.0, 16.0, 168.0, 168.0)
   let colors = ["#E8B34B", "#4B8BE8", "#4BE888"]
   p.set_fill_color(colors[step % 3])
   p.fill_rect(r.w - 184.0, 16.0, 168.0, 168.0)
@@ -109,7 +109,7 @@ fn gpu_scene_cpu(
 
 ///|
 /// 读回字节（BGRA）在 (x,y) 的采样串（R/G/B 十进制，四角对账用）。
-fn gpu_sample(bytes : Bytes, w : Int, x : Int, y : Int) -> String {
+fn gpu_sample(bytes : Bytes, w : Int32, x : Int32, y : Int32) -> String {
   let i = (y * w + x) * 4
   "R\{bytes[i + 2].to_int()} G\{bytes[i + 1].to_int()} B\{bytes[i].to_int()}"
 }
@@ -139,7 +139,7 @@ pub fn page_gpu(_app : @shared.App) -> @widget.Node {
     border_color="border",
     class=[@style.style(border_radius=6.0)],
   )
-  let step : Ref[Int] = Ref(0)
+  let step : Ref[Int32] = Ref(0)
   let status : @base.Store[String] = @base.Store::new(
     @shared.tx("（点「检查读回」分析最近一帧读回）"),
   )
@@ -208,7 +208,7 @@ pub fn page_gpu(_app : @shared.App) -> @widget.Node {
                     d[i] = bytes[i]
                   }
                   p.draw_canvas(
-                    @render.Canvas::{ bitmap: bm },
+                    @render.Canvas::{ bitmap: bm, },
                     0.0,
                     0.0,
                     r.w,
@@ -262,7 +262,9 @@ pub fn page_gpu(_app : @shared.App) -> @widget.Node {
                 @ui.button(@shared.tx("检查读回"), variant=@ui.Soft, on_click=fn() {
                   match canvas.finish() {
                     None =>
-                      status.set(@shared.tx("读回失败：设备丢失或 map 超时"))
+                      status.set(
+                        @shared.tx("读回失败：设备丢失或 map 超时"),
+                      )
                     Some(bytes) => {
                       let n = bytes.length()
                       let mut nz = 0
@@ -300,13 +302,9 @@ pub fn page_gpu(_app : @shared.App) -> @widget.Node {
           code=[
             "canvas.install()  // 进程级 sink 槽（@widget.gpu_set_sink）",
             "@ui.view([读回显示件], width=400.0, height=240.0, handle=fn(w) {",
-            "  w.on_render = Some(fn(_s, ctx, r) {",
-            "    match ctx.as_gpu() {",
+            "  w.on_render = Some(fn(_s, ctx, r) {", "    match ctx.as_gpu() {",
             "      Some(gc) => @render.GpuSink::fill_rect(gc.sink, r, \"#1B2027\", None, 1.0)",
-            "      None => ...  // Cpu 档回退画同款",
-            "    }",
-            "  })",
-            "})",
+            "      None => ...  // Cpu 档回退画同款", "    }", "  })", "})",
             "// 读回显示件 on_draw：canvas.finish() 读回 BGRA 字节直拷 Bitmap，",
             "// p.draw_canvas(...) 铺满同一区域（GPU 派发的控件不往 CPU 位图涂写）",
           ],

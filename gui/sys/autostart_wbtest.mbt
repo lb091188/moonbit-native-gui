@@ -40,10 +40,7 @@ test "autostart_dir_of：XDG 优先、HOME 回退、都没有给 None" {
 test "autostart_escape_exec：双引号包裹 + 反斜杠/引号转义 + % 翻倍" {
   assert_eq(autostart_escape_exec("/usr/bin/app"), "\"/usr/bin/app\"")
   // 空格在引号内原样
-  assert_eq(
-    autostart_escape_exec("/opt/my app/app"),
-    "\"/opt/my app/app\"",
-  )
+  assert_eq(autostart_escape_exec("/opt/my app/app"), "\"/opt/my app/app\"")
   // 中文原样
   assert_eq(autostart_escape_exec("/opt/应用/app"), "\"/opt/应用/app\"")
   // 双引号与反斜杠转义
@@ -66,9 +63,7 @@ test "autostart_desktop_entry / desktop_enabled：内容与解析两态" {
   assert_true(autostart_desktop_enabled(input))
   // 系统侧开关位两态
   assert_false(autostart_desktop_enabled("Hidden=true\n"))
-  assert_false(
-    autostart_desktop_enabled("X-GNOME-Autostart-enabled=false\n"),
-  )
+  assert_false(autostart_desktop_enabled("X-GNOME-Autostart-enabled=false\n"))
   // 缺行不算禁用（宽松：老 .desktop 没有这些键）
   assert_true(autostart_desktop_enabled("[Desktop Entry]\nType=Application\n"))
   // Hidden=false 明确启用
@@ -83,10 +78,7 @@ test "autostart_run_value / run_value_exe：引号形态与反解" {
     Some("C:/a b/app.exe"),
   )
   // 裸路径（调用方自己写的）原样认
-  assert_eq(
-    autostart_run_value_exe("C:/app.exe"),
-    Some("C:/app.exe"),
-  )
+  assert_eq(autostart_run_value_exe("C:/app.exe"), Some("C:/app.exe"))
   // 空 / 只有一对空引号 → None
   assert_eq(autostart_run_value_exe(""), None)
   assert_eq(autostart_run_value_exe("\"\""), None)
@@ -121,10 +113,7 @@ test "AutostartError 的 Show：四档都能打出来" {
     autostart_show(NoExecutablePath),
     "AutostartError::NoExecutablePath",
   )
-  assert_eq(
-    autostart_show(IoFailed("x")),
-    "AutostartError::IoFailed(x)",
-  )
+  assert_eq(autostart_show(IoFailed("x")), "AutostartError::IoFailed(x)")
 }
 
 ///|
@@ -186,10 +175,7 @@ test "生命周期：enable → is_enabled → disable → 幂等再 disable（�
       Ok(None) => fail("启用后 Run 值读不到")
       Err(e) => fail("读 Run 值失败: " + autostart_show(e))
     }
-    assert_eq(
-      autostart_run_value_exe(value),
-      autostart_exe_path(),
-    )
+    assert_eq(autostart_run_value_exe(value), autostart_exe_path())
   }
   // 启用幂等（重复 enable 不报错、状态不变）
   match autostart_enable(AUTOSTART_TEST_APP_ID) {
@@ -214,8 +200,11 @@ test "生命周期：enable → is_enabled → disable → 幂等再 disable（�
   assert_false(autostart_is_enabled(AUTOSTART_TEST_APP_ID).unwrap())
 }
 
+///|
 test "macOS 的 plist 正文：Label/ProgramArguments/RunAtLoad 与 XML 转义" {
-  let p = autostart_mac_plist("com.example.my-app2", "/Applications/My App/a&b<c>.app/Contents/MacOS/x")
+  let p = autostart_mac_plist(
+    "com.example.my-app2", "/Applications/My App/a&b<c>.app/Contents/MacOS/x",
+  )
   assert_true(p.has_prefix("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"))
   assert_true(p.has_suffix("</plist>\n"))
   assert_true(p.contains("<string>com.example.my-app2</string>"))

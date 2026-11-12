@@ -13,6 +13,8 @@
 // 两处排的首拍都进空通道（Windows 真机实证：探针 experiment/timer_probe，
 // 挂载回调里排的定时器 pending=0，宿主建好后再排的准点响）。on_mount 包的
 // mount 闭包在段正文惰性挂载、首次选中本段时才跑，那时宿主早已就绪。
+
+///|
 pub fn page_charts(_app : @shared.App) -> @widget.Node {
   // ---- 折线：3 序列定长窗口，500ms 推点（三角波模拟监控曲线），可暂停 ----
   let line_series : @base.Store[Array[@charts.LineSeries]] = @base.Store::new([
@@ -22,7 +24,12 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
   ])
   // 复选框语义与标签同向：勾上 = 暂停（断数据流，定时器照跑）
   let line_paused : @base.Store[Bool] = @base.Store::new(false)
-  fn triangle(t : Int, period : Int, base : Double, amp : Double) -> Double {
+  fn triangle(
+    t : Int32,
+    period : Int32,
+    base : Double,
+    amp : Double,
+  ) -> Double {
     let phase = t % period
     let half = period / 2
     base +
@@ -33,7 +40,7 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
     })
   }
 
-  let line_tick : Ref[Int] = Ref(0)
+  let line_tick : Ref[Int32] = Ref(0)
   fn line_pump() -> Unit {
     if !line_paused.get() {
       let t = line_tick.val + 1
@@ -73,7 +80,7 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
   ])
   // ---- 仪表盘：自动（2Hz 三角波）+ 手动（滑杆）双演示 ----
   let gauge_auto : @base.Store[Double] = @base.Store::new(0.0)
-  let gauge_tick : Ref[Int] = Ref(0)
+  let gauge_tick : Ref[Int32] = Ref(0)
   fn gauge_pump() -> Unit {
     let t = gauge_tick.val + 1
     gauge_tick.val = t
@@ -106,20 +113,33 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
   ]
   // ---- 扩展段：雷达 / 热力 / K 线 / 漏斗 / 箱线 / 桑基（内置演示数据） ----
   let radar_ind : @base.Store[Array[@charts.RadarIndicator]] = @base.Store::new([
-    @charts.RadarIndicator::make(@shared.tx("渲染"), 100.0),
-    @charts.RadarIndicator::make("IO", 100.0),
-    @charts.RadarIndicator::make(@shared.tx("内存"), 100.0),
-    @charts.RadarIndicator::make(@shared.tx("启动"), 100.0),
-    @charts.RadarIndicator::make(@shared.tx("体积"), 100.0),
-    @charts.RadarIndicator::make(@shared.tx("功耗"), 100.0),
-  ])
+      @charts.RadarIndicator::make(@shared.tx("渲染"), 100.0),
+      @charts.RadarIndicator::make("IO", 100.0),
+      @charts.RadarIndicator::make(@shared.tx("内存"), 100.0),
+      @charts.RadarIndicator::make(@shared.tx("启动"), 100.0),
+      @charts.RadarIndicator::make(@shared.tx("体积"), 100.0),
+      @charts.RadarIndicator::make(@shared.tx("功耗"), 100.0),
+    ],
+  )
   let radar_ser : @base.Store[Array[@charts.RadarSeries]] = @base.Store::new([
-    @charts.RadarSeries::make(@shared.tx("本方案"), [88.0, 72.0, 80.0, 92.0, 85.0, 78.0]),
-    @charts.RadarSeries::make(@shared.tx("对照"), [70.0, 90.0, 65.0, 75.0, 60.0, 82.0]),
+    @charts.RadarSeries::make(@shared.tx("本方案"), [
+      88.0, 72.0, 80.0, 92.0, 85.0, 78.0,
+    ]),
+    @charts.RadarSeries::make(@shared.tx("对照"), [
+      70.0, 90.0, 65.0, 75.0, 60.0, 82.0,
+    ]),
   ])
   let heat : @base.Store[@charts.HeatGrid] = @base.Store::new(
     @charts.HeatGrid::make(
-      [@shared.tx("周一"), @shared.tx("周二"), @shared.tx("周三"), @shared.tx("周四"), @shared.tx("周五"), @shared.tx("周六"), @shared.tx("周日")],
+      [
+        @shared.tx("周一"),
+        @shared.tx("周二"),
+        @shared.tx("周三"),
+        @shared.tx("周四"),
+        @shared.tx("周五"),
+        @shared.tx("周六"),
+        @shared.tx("周日"),
+      ],
       [@shared.tx("上午"), @shared.tx("下午"), @shared.tx("晚间")],
       [
         [3.0, 5.0, 7.0, 4.0, 6.0, 9.0, 8.0],
@@ -195,7 +215,11 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
     @charts.ParAxis::make(@shared.tx("延迟(ms)")),
     @charts.ParAxis::make(@shared.tx("吞吐(MB/s)")),
     @charts.ParAxis::make(@shared.tx("错误率(%)")),
-    @charts.ParAxis::make(@shared.tx("饱和度(%)"), min=Some(0.0), max=Some(100.0)),
+    @charts.ParAxis::make(
+      @shared.tx("饱和度(%)"),
+      min=Some(0.0),
+      max=Some(100.0),
+    ),
   ])
   let par_rows : @base.Store[Array[Array[Double]]] = @base.Store::new([
     [12.0, 320.0, 0.5, 40.0],
@@ -212,73 +236,60 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
     @charts.BarItem::make(@shared.tx("西安"), 36.0),
   ])
   let sun_root : @base.Store[@charts.SunItem] = @base.Store::new(
-    @charts.SunItem::make(
-      @shared.tx("访问来源"),
-      children=[
-        @charts.SunItem::make(
-          @shared.tx("搜索"),
-          children=[
-            @charts.SunItem::make(@shared.tx("百度"), value=Some(42.0)),
-            @charts.SunItem::make(@shared.tx("必应"), value=Some(18.0)),
-          ],
-        ),
-        @charts.SunItem::make(@shared.tx("直接访问"), value=Some(35.0)),
-        @charts.SunItem::make(
-          @shared.tx("外链"),
-          children=[
-            @charts.SunItem::make(@shared.tx("社区"), value=Some(22.0)),
-            @charts.SunItem::make(@shared.tx("博客"), value=Some(12.0)),
-          ],
-        ),
-      ],
-    ),
+    @charts.SunItem::make(@shared.tx("访问来源"), children=[
+      @charts.SunItem::make(@shared.tx("搜索"), children=[
+        @charts.SunItem::make(@shared.tx("百度"), value=Some(42.0)),
+        @charts.SunItem::make(@shared.tx("必应"), value=Some(18.0)),
+      ]),
+      @charts.SunItem::make(@shared.tx("直接访问"), value=Some(35.0)),
+      @charts.SunItem::make(@shared.tx("外链"), children=[
+        @charts.SunItem::make(@shared.tx("社区"), value=Some(22.0)),
+        @charts.SunItem::make(@shared.tx("博客"), value=Some(12.0)),
+      ]),
+    ]),
   )
-  let trv_names : @base.Store[Array[String]] = @base.Store::new([@shared.tx("移动端"), @shared.tx("桌面端"), @shared.tx("平板")])
+  let trv_names : @base.Store[Array[String]] = @base.Store::new([
+    @shared.tx("移动端"),
+    @shared.tx("桌面端"),
+    @shared.tx("平板"),
+  ])
   let trv_values : @base.Store[Array[Array[Double]]] = @base.Store::new([
     [12.0, 18.0, 25.0, 22.0, 30.0, 28.0, 20.0],
     [30.0, 32.0, 28.0, 35.0, 40.0, 38.0, 33.0],
     [8.0, 9.0, 11.0, 10.0, 14.0, 13.0, 9.0],
   ])
-  let tree_root : @base.Store[@charts.TreeItem] = @base.Store::new(
-    {
-      name: @shared.tx("产品线"),
-      value: None,
-      children: [
-        {
-          name: @shared.tx("移动端"),
-          value: Some(60.0),
-          children: [
-            { name: "iOS", value: Some(35.0), children: [] },
-            { name: "Android", value: Some(25.0), children: [] },
-          ],
-        },
-        {
-          name: @shared.tx("桌面端"),
-          value: Some(40.0),
-          children: [
-            { name: "Windows", value: Some(22.0), children: [] },
-            { name: "Linux", value: Some(18.0), children: [] },
-          ],
-        },
-      ],
-    },
-  )
+  let tree_root : @base.Store[@charts.TreeItem] = @base.Store::new({
+    name: @shared.tx("产品线"),
+    value: None,
+    children: [
+      {
+        name: @shared.tx("移动端"),
+        value: Some(60.0),
+        children: [
+          { name: "iOS", value: Some(35.0), children: [], },
+          { name: "Android", value: Some(25.0), children: [], },
+        ],
+      },
+      {
+        name: @shared.tx("桌面端"),
+        value: Some(40.0),
+        children: [
+          { name: "Windows", value: Some(22.0), children: [], },
+          { name: "Linux", value: Some(18.0), children: [], },
+        ],
+      },
+    ],
+  })
   let tm_items : @base.Store[Array[@charts.TmItem]] = @base.Store::new([
-    @charts.TmItem::make(
-      @shared.tx("研发"),
-      children=[
-        @charts.TmItem::make(@shared.tx("前端"), value=30.0),
-        @charts.TmItem::make(@shared.tx("后端"), value=45.0),
-        @charts.TmItem::make(@shared.tx("测试"), value=15.0),
-      ],
-    ),
-    @charts.TmItem::make(
-      @shared.tx("设计"),
-      children=[
-        @charts.TmItem::make(@shared.tx("视觉"), value=18.0),
-        @charts.TmItem::make(@shared.tx("交互"), value=12.0),
-      ],
-    ),
+    @charts.TmItem::make(@shared.tx("研发"), children=[
+      @charts.TmItem::make(@shared.tx("前端"), value=30.0),
+      @charts.TmItem::make(@shared.tx("后端"), value=45.0),
+      @charts.TmItem::make(@shared.tx("测试"), value=15.0),
+    ]),
+    @charts.TmItem::make(@shared.tx("设计"), children=[
+      @charts.TmItem::make(@shared.tx("视觉"), value=18.0),
+      @charts.TmItem::make(@shared.tx("交互"), value=12.0),
+    ]),
     @charts.TmItem::make(@shared.tx("运营"), value=25.0),
   ])
   let eff_points : @base.Store[Array[@charts.EffPoint]] = @base.Store::new([
@@ -295,12 +306,18 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
     {
       name: "CPU",
       max_points: 16,
-      points: [22.0, 28.0, 25.0, 31.0, 36.0, 33.0, 40.0, 38.0, 45.0, 42.0, 50.0, 47.0, 55.0, 60.0, 58.0, 64.0],
+      points: [
+        22.0, 28.0, 25.0, 31.0, 36.0, 33.0, 40.0, 38.0, 45.0, 42.0, 50.0, 47.0, 55.0,
+        60.0, 58.0, 64.0,
+      ],
     },
     {
       name: @shared.tx("内存"),
       max_points: 16,
-      points: [40.0, 42.0, 41.0, 44.0, 46.0, 45.0, 48.0, 50.0, 49.0, 52.0, 55.0, 54.0, 57.0, 60.0, 59.0, 62.0],
+      points: [
+        40.0, 42.0, 41.0, 44.0, 46.0, 45.0, 48.0, 50.0, 49.0, 52.0, 55.0, 54.0, 57.0,
+        60.0, 59.0, 62.0,
+      ],
     },
   ])
   let it_bar : @base.Store[Array[@charts.BarItem]] = @base.Store::new([
@@ -326,7 +343,12 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
         @ui.row(
           [
             @charts.line_chart_t(line_series, width=320.0, height=240.0),
-            @charts.line_chart_t(line_series, area=true, width=320.0, height=240.0),
+            @charts.line_chart_t(
+              line_series,
+              area=true,
+              width=320.0,
+              height=240.0,
+            ),
           ],
           column_gap=16.0,
           align_items=@yoga.AlignItems::FlexStart,
@@ -334,23 +356,22 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
         @ui.row(
           [
             @ui.checkbox(@shared.tx("暂停推点"), line_paused),
-            @ui.text(@shared.tx("窗口容量 120，推点频率 2Hz；暂停只断数据流，自排通道继续。"), class=[@style.text_secondary]),
+            @ui.text(
+              @shared.tx(
+                "窗口容量 120，推点频率 2Hz；暂停只断数据流，自排通道继续。",
+              ),
+              class=[@style.text_secondary],
+            ),
           ],
           column_gap=12.0,
         ),
       ],
       code=[
-        "let series = @base.Store::new([",
-        "  @charts.LineSeries::make(\"CPU\", max_points=120),",
-        "  @charts.LineSeries::make(\"内存\", max_points=120),",
-        "])",
-        "fn pump() -> Unit {",
-        "  @charts.series_push(series, 0, v)",
-        "  let _ = @shell.set_timeout(500, pump)  // 自重排循环",
-        "}",
-        "// 第一拍挂在真·挂载时机：handle 构造期就跑、那时宿主还没建好",
-        "@ui.row([chart]).on_mount(fn() { pump() })",
-        "@charts.line_chart_t(series, width=320.0, height=240.0)",
+        "let series = @base.Store::new([", "  @charts.LineSeries::make(\"CPU\", max_points=120),",
+        "  @charts.LineSeries::make(\"内存\", max_points=120),", "])", "fn pump() -> Unit {",
+        "  @charts.series_push(series, 0, v)", "  let _ = @shell.set_timeout(500, pump)  // 自重排循环",
+        "}", "// 第一拍挂在真·挂载时机：handle 构造期就跑、那时宿主还没建好",
+        "@ui.row([chart]).on_mount(fn() { pump() })", "@charts.line_chart_t(series, width=320.0, height=240.0)",
         "@charts.line_chart_t(series, area=true, width=320.0, height=240.0)",
       ],
     ),
@@ -362,7 +383,12 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
         @ui.row(
           [
             @charts.bar_chart_t(bar_data, width=320.0, height=240.0),
-            @charts.bar_chart_t(bar_h_data, horizontal=true, width=320.0, height=240.0),
+            @charts.bar_chart_t(
+              bar_h_data,
+              horizontal=true,
+              width=320.0,
+              height=240.0,
+            ),
           ],
           column_gap=16.0,
           align_items=@yoga.AlignItems::FlexStart,
@@ -370,17 +396,14 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
       ],
       code=[
         "let bars = @base.Store::new([@charts.BarItem::make(\"1月\", 12.0), @charts.BarItem::make(\"2月\", -8.0)])",
-        "@charts.bar_chart_t(bars, width=320.0, height=240.0)",
-        "@charts.bar_chart_t(top, horizontal=true, width=320.0, height=240.0)",
+        "@charts.bar_chart_t(bars, width=320.0, height=240.0)", "@charts.bar_chart_t(top, horizontal=true, width=320.0, height=240.0)",
       ],
     ),
     @shared.section(
       "环形",
       "Donut 环形图",
       "占比扇区（12 点方向起顺时针，五色循环）；中心汇总数值；右侧图例（标签 + 值 + 百分比）。悬停扇区外扩，图例行同步高亮。",
-      [
-        @charts.donut_chart_t(donut_data, width=440.0, height=240.0),
-      ],
+      [@charts.donut_chart_t(donut_data, width=440.0, height=240.0)],
       code=[
         "let donut = @base.Store::new([@charts.DonutSlice::make(\"直接访问\", 335.0)])",
         "@charts.donut_chart_t(donut, width=440.0, height=240.0)",
@@ -393,12 +416,28 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
       [
         @ui.row(
           [
-            @charts.gauge_t(gauge_auto, thresholds=gauge_thresholds, width=240.0, height=180.0),
-            @charts.gauge_t(gauge_manual, thresholds=gauge_thresholds, width=240.0, height=180.0),
+            @charts.gauge_t(
+              gauge_auto,
+              thresholds=gauge_thresholds,
+              width=240.0,
+              height=180.0,
+            ),
+            @charts.gauge_t(
+              gauge_manual,
+              thresholds=gauge_thresholds,
+              width=240.0,
+              height=180.0,
+            ),
             @ui.col(
               [
                 @ui.text(@shared.tx("手动值")),
-                @ui.slider(gauge_manual, min=0.0, max=1.0, step=0.01, width=160.0),
+                @ui.slider(
+                  gauge_manual,
+                  min=0.0,
+                  max=1.0,
+                  step=0.01,
+                  width=160.0,
+                ),
               ],
               row_gap=8.0,
               align_items=@yoga.AlignItems::FlexStart,
@@ -409,13 +448,9 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
         ).on_mount(fn() -> Unit { gauge_pump() }),
       ],
       code=[
-        "let gauge = @base.Store::new(0.35)",
-        "let thresholds = [",
-        "  (0.6, @theme.theme_current().success),",
-        "  (0.85, @theme.theme_current().warning),",
-        "  (1.0, @theme.theme_current().danger),",
-        "]",
-        "@charts.gauge_t(gauge, thresholds=thresholds, width=240.0, height=180.0)",
+        "let gauge = @base.Store::new(0.35)", "let thresholds = [", "  (0.6, @theme.theme_current().success),",
+        "  (0.85, @theme.theme_current().warning),", "  (1.0, @theme.theme_current().danger),",
+        "]", "@charts.gauge_t(gauge, thresholds=thresholds, width=240.0, height=180.0)",
         "@ui.slider(gauge, min=0.0, max=1.0, step=0.01, width=160.0)",
       ],
     ),
@@ -427,15 +462,19 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
         @ui.row(
           [
             @charts.scatter_t(scatter_pts, width=320.0, height=260.0),
-            @charts.scatter_t(scatter_pts, trend=true, width=320.0, height=260.0),
+            @charts.scatter_t(
+              scatter_pts,
+              trend=true,
+              width=320.0,
+              height=260.0,
+            ),
           ],
           column_gap=16.0,
           align_items=@yoga.AlignItems::FlexStart,
         ),
       ],
       code=[
-        "@charts.scatter_t(pts, width=320.0, height=260.0)",
-        "@charts.scatter_t(pts, trend=true, width=320.0, height=260.0)",
+        "@charts.scatter_t(pts, width=320.0, height=260.0)", "@charts.scatter_t(pts, trend=true, width=320.0, height=260.0)",
       ],
     ),
     @shared.section(
@@ -457,11 +496,8 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
         ),
       ],
       code=[
-        "@charts.radar_chart_t(indicators, series)",
-        "@charts.heatmap_t(grid, show_values=true)",
-        "@charts.candlestick_t(candles)",
-        "@charts.funnel_t(items)",
-        "@charts.boxplot_t(groups)",
+        "@charts.radar_chart_t(indicators, series)", "@charts.heatmap_t(grid, show_values=true)",
+        "@charts.candlestick_t(candles)", "@charts.funnel_t(items)", "@charts.boxplot_t(groups)",
         "@charts.sankey_t(data)",
       ],
     ),
@@ -481,7 +517,10 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
               unit=12.0,
               show_values=true,
             ),
-            @charts.sun_chart_t(sun_root, center_text=Some(@shared.tx("总计 129"))),
+            @charts.sun_chart_t(
+              sun_root,
+              center_text=Some(@shared.tx("总计 129")),
+            ),
             @charts.trv_chart_t(trv_names, trv_values),
             @charts.tree_chart_t(tree_root),
             @charts.tm_chart_t(tm_items),
@@ -496,14 +535,10 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
         ),
       ],
       code=[
-        "@charts.gph_chart_t(graph)          // 力导向关系图",
-        "@charts.par_chart_t(axes, rows)     // 平行坐标",
-        "@charts.pb_chart_t(data, symbol=@charts.PbCircle, ...)",
-        "@charts.sun_chart_t(root, center_text=Some(\"总计\"))",
-        "@charts.trv_chart_t(names, values)  // 主题河流",
-        "@charts.tree_chart_t(root)          // 树图",
-        "@charts.tm_chart_t(items)           // 矩形树图",
-        "@charts.eff_chart_t(points, ...)    // 特效散点(动画自驱动)",
+        "@charts.gph_chart_t(graph)          // 力导向关系图", "@charts.par_chart_t(axes, rows)     // 平行坐标",
+        "@charts.pb_chart_t(data, symbol=@charts.PbCircle, ...)", "@charts.sun_chart_t(root, center_text=Some(\"总计\"))",
+        "@charts.trv_chart_t(names, values)  // 主题河流", "@charts.tree_chart_t(root)          // 树图",
+        "@charts.tm_chart_t(items)           // 矩形树图", "@charts.eff_chart_t(points, ...)    // 特效散点(动画自驱动)",
       ],
     ),
     @shared.section(
@@ -522,10 +557,8 @@ pub fn page_charts(_app : @shared.App) -> @widget.Node {
         ),
       ],
       code=[
-        "@charts.line_chart_it(series)   // 滚轮缩放 + 拖拽平移",
-        "@charts.bar_chart_it(items)",
-        "@charts.donut_chart_it(slices, center=\"合计 100\")",
-        "// DataZoom 状态外置时给 zoom_state=Some(zoom) 自持",
+        "@charts.line_chart_it(series)   // 滚轮缩放 + 拖拽平移", "@charts.bar_chart_it(items)",
+        "@charts.donut_chart_it(slices, center=\"合计 100\")", "// DataZoom 状态外置时给 zoom_state=Some(zoom) 自持",
       ],
     ),
   ])

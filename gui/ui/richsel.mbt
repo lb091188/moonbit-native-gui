@@ -7,8 +7,8 @@
 /// 选中交互。`selectable=false` 时纯展示（点不动），与直接自绘同观感。
 pub fn rich_text(
   at : @text.AttributedText,
-  selectable? : Bool = false,
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  selectable~ : Bool = false,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let text = at.get_text()
   let sel_len = @utf8.encode(text).length()
@@ -76,12 +76,7 @@ pub fn rich_text(
                   match (x0, x1) {
                     (Some(c0), Some(c1)) => {
                       p.set_fill_color(@theme.theme_primary_light())
-                      p.fill_rect(
-                        c0,
-                        lb.y,
-                        (c1 - c0).max(1.0),
-                        lb.h,
-                      )
+                      p.fill_rect(c0, lb.y, (c1 - c0).max(1.0), lb.h)
                     }
                     _ => ()
                   }
@@ -101,7 +96,7 @@ pub fn rich_text(
           self : @widget.Widget,
           ev : @widget.PointerEvent,
         ) -> Bool {
-          sel_pointer(self, ev, state, fn(x : Double, y : Double) -> Int {
+          sel_pointer(self, ev, state, fn(x : Double, y : Double) -> Int32 {
             match at.hit(x, y, self.rect.w, self.rect.h) {
               Some(b) => b
               None => 0

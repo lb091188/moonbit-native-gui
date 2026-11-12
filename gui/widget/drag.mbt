@@ -32,7 +32,7 @@ pub(all) enum DataKind {
 
 ///|
 /// 种类编号。**值不能随手改**：它是「与剪贴板共用的线上形状」的一部分。
-pub fn data_kind_id(kind : DataKind) -> Int {
+pub fn data_kind_id(kind : DataKind) -> Int32 {
   match kind {
     Text => 1
     Html => 2
@@ -43,7 +43,7 @@ pub fn data_kind_id(kind : DataKind) -> Int {
 
 ///|
 /// 编号 → 种类（认不出给 None，调用方走降级而不是当成文本）。
-pub fn data_kind_of_id(id : Int) -> DataKind? {
+pub fn data_kind_of_id(id : Int32) -> DataKind? {
   match id {
     1 => Some(Text)
     2 => Some(Html)
@@ -148,9 +148,12 @@ pub fn drag_decode(raw : Bytes) -> DragData? {
         Some(Paths([]))
       } else {
         Some(
-          Paths(@utf8.decode_lossy(payload).split("\n").collect().map(fn(s) {
-            s.to_owned()
-          })),
+          Paths(
+            @utf8.decode_lossy(payload)
+            .split("\n")
+            .collect()
+            .map(fn(s) { s.to_owned() }),
+          ),
         )
       }
     Some(Image) => Some(Img(payload))
@@ -162,11 +165,11 @@ pub fn drag_decode(raw : Bytes) -> DragData? {
 pub(all) struct DragSession {
   data : DragData
   /// 拖源控件 id（0 = 非控件发起，如程序化拖拽）
-  source : Int
+  source : Int32
   mut x : Double
   mut y : Double
   /// 当前指针下的投放目标控件 id（0 = 没有可投处）
-  mut hover : Int
+  mut hover : Int32
 }
 
 ///|
@@ -182,7 +185,7 @@ let drag_root_slot : Ref[() -> Widget?] = Ref(fn() -> Widget? { None })
 ///|
 /// 正在跑外部拖入的窗口（平台窗口 id；0 = 没有）。外部拖入与应用内拖拽共用同
 /// 一个会话单例，这条标志用来判断「会话是谁的」，避免互相劫持。
-let drag_ext_window : Ref[Int] = Ref(0)
+let drag_ext_window : Ref[Int32] = Ref(0)
 
 ///|
 /// 外部拖入的落点树（按事件所属窗找到那扇窗的根）；None = 沿用宿主 provider。
@@ -190,7 +193,7 @@ let drag_ext_root : Ref[Widget?] = Ref(None)
 
 ///|
 /// MoonBit 侧最近一次答给系统的外部拖入效果（1 = 复制、0 = 不收）。
-let drag_ext_effect : Ref[Int] = Ref(0)
+let drag_ext_effect : Ref[Int32] = Ref(0)
 
 ///|
 pub fn set_drag_root_provider(f : () -> Widget?) -> Unit {
@@ -233,7 +236,7 @@ pub fn drag_data() -> DragData? {
 
 ///|
 /// 拖源控件 id（0 = 非控件发起 / 没在拖）。
-pub fn drag_source() -> Int {
+pub fn drag_source() -> Int32 {
   match drag_current.val {
     Some(s) => s.source
     None => 0
@@ -252,7 +255,7 @@ pub fn drag_position() -> (Double, Double) {
 ///|
 /// 当前指针下的投放目标控件 id（0 = 没有可投处）。拖入高亮由绘制方读它自判
 /// （`@widget.drag_hover() == self.id`），所以不需要 enter/update/leave 三个回调。
-pub fn drag_hover() -> Int {
+pub fn drag_hover() -> Int32 {
   match drag_current.val {
     Some(s) => s.hover
     None => 0
@@ -262,7 +265,7 @@ pub fn drag_hover() -> Int {
 ///|
 /// 在 `w` 子树里找指针下的投放目标：**最深的**那个带 `on_drop` 的可见控件
 /// （子控件优先，且从后往前找——后画的在上、命中优先）。找不到给 0。
-pub fn Widget::drop_target_at(self : Widget, x : Double, y : Double) -> Int {
+pub fn Widget::drop_target_at(self : Widget, x : Double, y : Double) -> Int32 {
   if !self.visible {
     return 0
   }
@@ -319,11 +322,16 @@ fn drag_retarget(s : DragSession) -> Unit {
 ///|
 /// 开一次拖拽：`data` 是载荷、`source` 是拖源控件 id（0 = 程序化）、`(x, y)` 是
 /// 当前指针位置（窗口坐标）。已在拖时给 false（不叠会话）。
-pub fn drag_begin(data : DragData, source : Int, x : Double, y : Double) -> Bool {
+pub fn drag_begin(
+  data : DragData,
+  source : Int32,
+  x : Double,
+  y : Double,
+) -> Bool {
   if drag_current.val is Some(_) {
     return false
   }
-  let s : DragSession = { data, source, x, y, hover: 0 }
+  let s : DragSession = { data, source, x, y, hover: 0, }
   drag_retarget(s)
   drag_current.val = Some(s)
   invalidate()
@@ -436,7 +444,7 @@ pub fn drag_external_disable(id : Int64) -> Unit {
 
 ///|
 /// 按平台窗口 id 找到那扇窗的根控件（找不到给 None，落点退回宿主 provider）。
-fn drag_window_root_of(slot : Int) -> Widget? {
+fn drag_window_root_of(slot : Int32) -> Widget? {
   let mut found : Widget? = None
   for a in host_windows() {
     if a.session.window.id.to_int() == slot {
@@ -453,7 +461,7 @@ fn drag_window_root_of(slot : Int) -> Widget? {
 /// 槽号/种类/坐标，那条随后续批。写回的值同时记在 MoonBit 侧一份
 /// （`drag_external_effect()` 读回，无头测试与诊断用——后端没挂上时 ffi 那次写
 /// 是静默丢弃的）。
-fn drag_external_answer(slot : Int, data : DragData) -> Unit {
+fn drag_external_answer(slot : Int32, data : DragData) -> Unit {
   let ok = match drag_current.val {
     None => false
     Some(s) =>
@@ -477,7 +485,7 @@ fn drag_external_answer(slot : Int, data : DragData) -> Unit {
 
 ///|
 /// 当前效果标志（1 = 复制、0 = 落点不收；没有外部拖入在跑时为 0）。
-pub fn drag_external_effect() -> Int {
+pub fn drag_external_effect() -> Int32 {
   drag_ext_effect.val
 }
 
@@ -487,8 +495,8 @@ pub fn drag_external_effect() -> Int {
 /// 进入/移动走「开会话或更新落点 → 答效果」，离开/投递结束时才会话与落点树一起
 /// 收掉。落点命中、悬停高亮、松手投递复用应用内那一条链。
 fn drag_external_feed(
-  slot : Int,
-  kind : Int,
+  slot : Int32,
+  kind : Int32,
   x : Double,
   y : Double,
   data : DragData?,
@@ -578,7 +586,7 @@ pub(all) enum DragEffect {
 
 ///|
 /// 效果 → 标志位（`Copy`=1、`Move`=2、`Link`=4，与 `@win.DRAGDND_*` 同值）。
-pub fn DragEffect::flag(self : DragEffect) -> Int {
+pub fn DragEffect::flag(self : DragEffect) -> Int32 {
   match self {
     Rejected => @win.DRAGDND_NONE
     Copy => @win.DRAGDND_COPY
@@ -589,7 +597,7 @@ pub fn DragEffect::flag(self : DragEffect) -> Int {
 
 ///|
 /// 标志位 → 效果（认不出的组合按「没成交」处理，不猜）。
-pub fn drag_effect_of_flag(flag : Int) -> DragEffect {
+pub fn drag_effect_of_flag(flag : Int32) -> DragEffect {
   match flag {
     1 => Copy
     2 => Move
@@ -653,7 +661,7 @@ pub fn drag_external_abort_session() -> Unit {
 /// 只能跑一条。
 pub fn drag_external_send(
   data : DragData,
-  mods? : Int = 0,
+  mods~ : Int32 = 0,
 ) -> Result[DragEffect, DragError] {
   if !@win.dragdnd_supported() {
     Err(Unsupported)
@@ -670,11 +678,8 @@ pub fn drag_external_send(
     match host_active() {
       None => Err(Failed("当前没有活动窗口"))
       Some(app) =>
-        match @win.dragdnd_send(
-          app.session.window.id,
-          drag_encode(data),
-          allowed,
-        ) {
+        match
+          @win.dragdnd_send(app.session.window.id, drag_encode(data), allowed) {
           None => Err(Failed("系统未接这趟拖出"))
           Some(flag) => {
             // 拖出已收口：这一按的抬起被系统的拖拽 grab 吃掉，宿主不会再见到

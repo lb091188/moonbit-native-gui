@@ -33,20 +33,20 @@ pub extend FsError with Show::{to_string, output}
 
 ///|
 #borrow(path, ok)
-extern "c" fn ffi_sys_list_dir(path : Bytes, ok : Ref[Int]) -> Bytes = "yue_sys_list_dir"
+extern "c" fn ffi_sys_list_dir(path : Bytes, ok : Ref[Int32]) -> Bytes = "yue_sys_list_dir"
 
 ///|
 #borrow(name, value, ok)
 extern "c" fn ffi_sys_set_env(
   name : Bytes,
   value : Bytes,
-  overwrite : Int,
-  ok : Ref[Int],
-) -> Int = "yue_sys_setenv"
+  overwrite : Int32,
+  ok : Ref[Int32],
+) -> Int32 = "yue_sys_setenv"
 
 ///|
 #borrow(name, ok)
-extern "c" fn ffi_sys_unset_env(name : Bytes, ok : Ref[Int]) -> Int = "yue_sys_unsetenv"
+extern "c" fn ffi_sys_unset_env(name : Bytes, ok : Ref[Int32]) -> Int32 = "yue_sys_unsetenv"
 
 // ---------------------------------------------------------------------------
 // 纯逻辑层：扁平文本解码（白盒测试覆盖）
@@ -138,17 +138,18 @@ pub fn fsx_unset_env(name : String) -> Result[Unit, FsError] {
 
 ///|
 #borrow(path, ok)
-extern "c" fn ffi_sys_read_text_file(path : Bytes, ok : Ref[Int]) -> Bytes = "yue_sys_read_text_file"
+extern "c" fn ffi_sys_read_text_file(path : Bytes, ok : Ref[Int32]) -> Bytes = "yue_sys_read_text_file"
 
 ///|
 #borrow(path, ok)
-extern "c" fn ffi_sys_remove_file(path : Bytes, ok : Ref[Int]) -> Int = "yue_sys_remove_file"
+extern "c" fn ffi_sys_remove_file(path : Bytes, ok : Ref[Int32]) -> Int32 = "yue_sys_remove_file"
 
 ///|
 #borrow(path)
-extern "c" fn ffi_sys_make_dirs(path : Bytes) -> Int = "yue_sys_make_dirs"
+extern "c" fn ffi_sys_make_dirs(path : Bytes) -> Int32 = "yue_sys_make_dirs"
 
-extern "c" fn ffi_sys_platform() -> Int = "yue_sys_platform"
+///|
+extern "c" fn ffi_sys_platform() -> Int32 = "yue_sys_platform"
 
 ///|
 /// 平台标识（桩编译期判定）："linux" / "windows" / "macos"。
@@ -187,7 +188,11 @@ pub fn sys_read_bytes_file(path : String) -> Bytes? {
   }
   let ok = Ref(0)
   let data = ffi_sys_read_text_file(@utf8.encode(path), ok)
-  if ok.val == 1 { Some(data) } else { None }
+  if ok.val == 1 {
+    Some(data)
+  } else {
+    None
+  }
 }
 
 ///|
@@ -204,7 +209,7 @@ pub fn sys_remove_file(path : String) -> Bool {
 ///|
 /// 路径存在判据（文件与目录都算）。
 #borrow(path)
-extern "c" fn ffi_sys_path_exists(path : Bytes) -> Int = "yue_sys_path_exists"
+extern "c" fn ffi_sys_path_exists(path : Bytes) -> Int32 = "yue_sys_path_exists"
 
 ///|
 /// 路径是否存在（文件或目录都算，空串恒 false）。「交给系统打开/定位」这类
@@ -222,7 +227,7 @@ pub fn sys_path_exists(path : String) -> Bool {
 /// setenv 后读不到；此入口反映进程内写删的最新状态，测试与需要
 /// 「写后立即可见」语义的调用方用）。
 #borrow(name, ok)
-extern "c" fn ffi_sys_getenv(name : Bytes, ok : Ref[Int]) -> Bytes = "yue_sys_getenv"
+extern "c" fn ffi_sys_getenv(name : Bytes, ok : Ref[Int32]) -> Bytes = "yue_sys_getenv"
 
 ///|
 /// 读环境变量原文（进程实时环境）；不存在为 None。
@@ -244,8 +249,8 @@ pub fn sys_getenv(name : String) -> String? {
 extern "c" fn ffi_sys_write_text_file(
   path : Bytes,
   data : Bytes,
-  ok : Ref[Int],
-) -> Int = "yue_sys_write_text_file"
+  ok : Ref[Int32],
+) -> Int32 = "yue_sys_write_text_file"
 
 ///|
 /// 写文本文件全文（存在覆盖，不存在新建；父目录须已存在）。

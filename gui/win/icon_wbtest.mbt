@@ -37,7 +37,7 @@ test "icon_format_of: 五种已知格式 + Other" {
 
 ///|
 test "icon: 句柄 0 视同不可用" {
-  let ic : Icon = { handle: 0 }
+  let ic : Icon = { handle: 0, }
   assert_false(ic.is_valid())
   // free 幂等：无效句柄上再释放不改变状态
   ic.free()

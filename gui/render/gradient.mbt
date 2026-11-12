@@ -23,7 +23,7 @@ pub fn Gradient::linear(
   x1 : Double,
   y1 : Double,
 ) -> Gradient {
-  { kind: Linear(x0, y0, x1, y1), stops: [] }
+  { kind: Linear(x0, y0, x1, y1), stops: [], }
 }
 
 ///|
@@ -34,7 +34,7 @@ pub fn Gradient::radial(
   r0 : Double,
   r1 : Double,
 ) -> Gradient {
-  { kind: Radial(cx, cy, r0, r1), stops: [] }
+  { kind: Radial(cx, cy, r0, r1), stops: [], }
 }
 
 ///|
@@ -44,13 +44,7 @@ pub fn Gradient::add_stop(
   offset : Double,
   hex : String,
 ) -> Unit {
-  let at = if offset < 0.0 {
-    0.0
-  } else if offset > 1.0 {
-    1.0
-  } else {
-    offset
-  }
+  let at = if offset < 0.0 { 0.0 } else if offset > 1.0 { 1.0 } else { offset }
   match Color::parse(hex) {
     Some(c) => self.stops.push((at, c))
     None => ()

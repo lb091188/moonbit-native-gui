@@ -17,7 +17,7 @@
 
 ///|
 /// 建-拆若干轮窗口槽，返回（成功建出的轮数, 建不出的轮数）。
-fn slot_reuse_rounds(rounds : Int) -> (Int, Int) {
+fn slot_reuse_rounds(rounds : Int32) -> (Int32, Int32) {
   let mut opened = 0
   let mut failed = 0
   for _ in 0..<rounds {
@@ -32,6 +32,7 @@ fn slot_reuse_rounds(rounds : Int) -> (Int, Int) {
   (opened, failed)
 }
 
+///|
 fn main {
   if !@win.init_backend() {
     println("MULTIWIN SKIP (无显示服务)")
@@ -54,7 +55,7 @@ fn main {
   let main_wid = host.wid()
   // 一轮：开附窗 → 挂空树 → 60ms 后关掉它（关窗走的是宿主同一顺序：先停派发
   // 再拆对象），逐轮打印当前窗与在窗数
-  let open_round = fn(round : Int) -> Unit {
+  let open_round = fn(round : Int32) -> Unit {
     match host.open_window(220, 120, "multiwin 附窗") {
       Some(sub) => {
         sub.mount([])

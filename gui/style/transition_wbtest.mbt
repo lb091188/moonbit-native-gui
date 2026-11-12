@@ -155,10 +155,11 @@ test "resolved_for_measure：与绘制期同一份字号与行高，落定后跟
   assert_eq(meas.font_size, drawn.font_size)
   assert_eq(meas.line_height, drawn.line_height)
   match (meas.font_size, meas.line_height) {
-    (Some(f), Some(l)) => assert_true(
-      f >= 13.0 && f <= 17.0 && l >= 20.0 && l <= 28.0,
-      msg="测量期读数越出两端：字号 \{f}、行高 \{l}",
-    )
+    (Some(f), Some(l)) =>
+      assert_true(
+        f >= 13.0 && f <= 17.0 && l >= 20.0 && l <= 28.0,
+        msg="测量期读数越出两端：字号 \{f}、行高 \{l}",
+      )
     _ => assert_true(false, msg="测量期丢了字号或行高")
   }
   // 基块不被写坏（测量走的是副本）

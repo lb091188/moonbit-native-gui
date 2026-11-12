@@ -8,7 +8,7 @@
 let text : Ref[Bytes] = Ref(Bytes::make(0, 0))
 
 ///|
-let caret : Ref[Int] = Ref(0)
+let caret : Ref[Int32] = Ref(0)
 
 ///|
 let preedit : Ref[Bytes] = Ref(Bytes::make(0, 0))
@@ -20,32 +20,32 @@ let preedit_active : Ref[Bool] = Ref(false)
 let notes : Ref[Array[(String, String)]] = Ref([])
 
 ///|
-let seen_commit : Ref[Int] = Ref(0)
+let seen_commit : Ref[Int32] = Ref(0)
 
 ///|
-let seen_preedit : Ref[Int] = Ref(0)
+let seen_preedit : Ref[Int32] = Ref(0)
 
 ///|
-let seen_key : Ref[Int] = Ref(0)
+let seen_key : Ref[Int32] = Ref(0)
 
 // 回调闭包保活：C 侧存的是函数指针 + 闭包指针，注册表按签名分表常驻
 // （探针自定的保活口径；库侧新栈不做 C→MoonBit 回调，见 gui/win/stub.c 头注释）
 
 ///|
-let keep_key : Ref[Array[(Int, Int, Int, Int) -> Unit]] = Ref([])
+let keep_key : Ref[Array[(Int32, Int32, Int32, Int32) -> Unit]] = Ref([])
 
 ///|
 let keep_commit : Ref[Array[(Bytes) -> Unit]] = Ref([])
 
 ///|
-let keep_preedit : Ref[Array[(Bytes, Int, Int) -> Unit]] = Ref([])
+let keep_preedit : Ref[Array[(Bytes, Int32, Int32) -> Unit]] = Ref([])
 
 ///|
 let keep_note : Ref[Array[(Bytes, Bytes) -> Unit]] = Ref([])
 
 ///|
 /// UTF-8 首字节 → 该码点占几字节；落在续字节上按 1 处理（只作兜底）
-fn cp_len(b : Bytes, i : Int) -> Int {
+fn cp_len(b : Bytes, i : Int32) -> Int32 {
   if i < 0 || i >= b.length() {
     1
   } else {
@@ -70,10 +70,10 @@ fn cp_len(b : Bytes, i : Int) -> Int {
 /// 拼接三段字节（前段 / 新增 / 后段），返回新 Bytes
 fn splice(
   head : Bytes,
-  head_len : Int,
+  head_len : Int32,
   mid : Bytes,
   tail : Bytes,
-  tail_from : Int,
+  tail_from : Int32,
 ) -> Bytes {
   let total = head_len + mid.length() + (tail.length() - tail_from)
   let out = FixedArray::make(total, b'\x00')
@@ -161,7 +161,7 @@ fn move_right() -> Unit {
 
 ///|
 /// 码点 → UTF-8 字节（自实现，避免依赖未经核实的 std 入口）
-fn encode_cp(u : Int) -> Bytes {
+fn encode_cp(u : Int32) -> Bytes {
   if u < 0x80 {
     let a = FixedArray::make(1, b'\x00')
     a[0] = u.to_byte()
@@ -218,7 +218,7 @@ fn push_display() -> Unit {
 
 ///|
 /// GTK 的 preedit 光标索引按「字符数」给，这里换成字节偏移
-fn preedit_caret_bytes(chars : Int) -> Int {
+fn preedit_caret_bytes(chars : Int32) -> Int32 {
   let p = preedit.val
   let mut i = 0
   let mut k = 0
@@ -236,7 +236,7 @@ fn on_commit_impl(content : Bytes) -> Unit {
 }
 
 ///|
-fn on_preedit_impl(content : Bytes, caret_char : Int, active : Int) -> Unit {
+fn on_preedit_impl(content : Bytes, caret_char : Int32, active : Int32) -> Unit {
   seen_preedit.val = seen_preedit.val + 1
   preedit.val = content
   preedit_active.val = active != 0 && content.length() > 0
@@ -257,10 +257,10 @@ fn on_preedit_impl(content : Bytes, caret_char : Int, active : Int) -> Unit {
 /// keyval 用 X11 keysym 值：BackSpace 0xff08 Delete 0xffff Left 0xff51
 /// Right 0xff53 Home 0xff50 End 0xff57
 fn on_key_impl(
-  keyval : Int,
-  unicode : Int,
-  state : Int,
-  is_press : Int,
+  keyval : Int32,
+  unicode : Int32,
+  state : Int32,
+  is_press : Int32,
 ) -> Unit {
   seen_key.val = seen_key.val + 1
   if is_press != 1 {
@@ -294,12 +294,18 @@ fn on_note_impl(tag : Bytes, msg : Bytes) -> Unit {
 
 ///|
 fn register_callbacks() -> Unit {
-  let k : (Int, Int, Int, Int) -> Unit = fn(a, b, c, d) {
+  let k : (Int32, Int32, Int32, Int32) -> Unit = fn(a, b, c, d) {
     on_key_impl(a, b, c, d)
   }
   keep_key.val.push(k)
   ip_on_key(
-    fn(f : (Int, Int, Int, Int) -> Unit, a : Int, b : Int, c : Int, d : Int) {
+    fn(
+      f : (Int32, Int32, Int32, Int32) -> Unit,
+      a : Int32,
+      b : Int32,
+      c : Int32,
+      d : Int32,
+    ) {
       f(a, b, c, d)
     },
     k,
@@ -307,10 +313,12 @@ fn register_callbacks() -> Unit {
   let cm : (Bytes) -> Unit = fn(b) { on_commit_impl(b) }
   keep_commit.val.push(cm)
   ip_on_commit(fn(f : (Bytes) -> Unit, b : Bytes) { f(b) }, cm)
-  let pe : (Bytes, Int, Int) -> Unit = fn(b, c, a) { on_preedit_impl(b, c, a) }
+  let pe : (Bytes, Int32, Int32) -> Unit = fn(b, c, a) {
+    on_preedit_impl(b, c, a)
+  }
   keep_preedit.val.push(pe)
   ip_on_preedit(
-    fn(f : (Bytes, Int, Int) -> Unit, b : Bytes, c : Int, a : Int) {
+    fn(f : (Bytes, Int32, Int32) -> Unit, b : Bytes, c : Int32, a : Int32) {
       f(b, c, a)
     },
     pe,

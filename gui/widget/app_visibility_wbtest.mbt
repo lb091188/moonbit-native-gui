@@ -82,10 +82,15 @@ test "拖拽会话进行中：宿主光标统一握拳，不随点下控件变" 
   a.root.append_child(box)
   a.root.relayout(300.0, 200.0)
   set_drag_root(a.root)
-  let _ = drag_begin(DragData::Text("载荷"), box.id, box.rect.x + 8.0, box.rect.y + 8.0)
+  let _ = drag_begin(
+    DragData::Text("载荷"),
+    box.id,
+    box.rect.x + 8.0,
+    box.rect.y + 8.0,
+  )
   assert_true(drag_active())
   // Move 落在空处也握拳：会话压过悬停路径，光标不再按命中控件改形
-  a.route({ code: 4, keysym: 0, mods: 0, x: 5, y: 5, button: 1, axis: 0 })
+  a.route({ code: 4, keysym: 0, mods: 0, x: 5, y: 5, button: 1, axis: 0, })
   assert_eq(a.session.cursor_kind, CURSOR_GRABBING)
   let _ = drag_drop(5.0, 5.0)
   assert_false(drag_active())

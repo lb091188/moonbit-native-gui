@@ -4,16 +4,16 @@
 // 混合/HSL 行留 ±2 容差（跨 pixman 版本的定标差异），Porter-Duff 行按精确值断言。
 
 ///|
-fn px4(bm : Bitmap, x : Int, y : Int) -> (Int, Int, Int, Int) {
+fn px4(bm : Bitmap, x : Int32, y : Int32) -> (Int32, Int32, Int32, Int32) {
   let c = bm.pixel(x, y)
   (c.r, c.g, c.b, c.a)
 }
 
 ///|
 fn near4(
-  got : (Int, Int, Int, Int),
-  want : (Int, Int, Int, Int),
-  tol : Int,
+  got : (Int32, Int32, Int32, Int32),
+  want : (Int32, Int32, Int32, Int32),
+  tol : Int32,
 ) -> Bool {
   let (gr, gg, gb, ga) = got
   let (wr, wg, wb, wa) = want
@@ -25,7 +25,7 @@ fn near4(
 
 ///|
 /// 一格样本：不透明底 `#8040c0`，按指定模式叠不透明纯红，取中心像素。
-fn blend_sample(mode : BlendMode) -> (Int, Int, Int, Int) {
+fn blend_sample(mode : BlendMode) -> (Int32, Int32, Int32, Int32) {
   let bm = Bitmap::new(2, 2)
   let p = Painter::new(bm)
   p.set_fill_color("#8040c0")

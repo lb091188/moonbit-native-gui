@@ -30,7 +30,7 @@ test "taskbar: 未知编号归 NoProgress（与 C 侧 default 分支一致）" {
 test "taskbar: 后端探测可用（Windows 恒真，其余平台打印跳过）" {
   if taskbar_supported() {
     // 连上了才硬断言：不存在的窗口句柄必须给 false，而不是静默成功
-    let fake : Window = { id: 999999, width: 0, height: 0 }
+    let fake : Window = { id: 999999, width: 0, height: 0, }
     inspect(fake.set_taskbar_state(Normal), content="false")
     inspect(fake.set_taskbar_progress(1, 2), content="false")
   } else {

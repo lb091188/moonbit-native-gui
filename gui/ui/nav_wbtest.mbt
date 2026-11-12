@@ -7,7 +7,11 @@ test "分段控制器：点某段即写 Store，选中段底色与其余段不�
     return
   }
   let sel = @base.Store::new("甲")
-  let (root, seg) = mounted(segmented(["甲", "乙", "很长的一段"], sel), 400.0, 60.0)
+  let (root, seg) = mounted(
+    segmented(["甲", "乙", "很长的一段"], sel),
+    400.0,
+    60.0,
+  )
   let items = seg.children()
   assert_eq(items.length(), 3)
   assert_true(items[2].rect.w > items[0].rect.w + 20.0)
@@ -129,9 +133,13 @@ test "折叠面板：默认只开第一块，各块独立开合、收起即不�
     240.0,
   )
   assert_eq(cl.children().length(), 3)
-  fn body(i : Int) -> @widget.Widget { cl.children()[i].children()[1] }
+  fn body(i : Int32) -> @widget.Widget {
+    cl.children()[i].children()[1]
+  }
 
-  assert_eq([body(0).visible, body(1).visible, body(2).visible], [true, false, false])
+  assert_eq([body(0).visible, body(1).visible, body(2).visible], [
+    true, false, false,
+  ])
   // 点第二块标题行：只开它自己
   click_at(root, cl.children()[1].children()[0], 30.0, 10.0)
   assert_eq([body(0).visible, body(1).visible], [true, true])
@@ -150,7 +158,9 @@ test "折叠面板：默认只开第一块，各块独立开合、收起即不�
 test "侧边菜单：项宽跟随容器、点项写 Store、选中项底色与未选不同" {
   let sel = @base.Store::new("首页")
   let (root, menu) = mounted(
-    menu(["首页", "报表", "设置"], sel, icons=[("报表", @icons.IconKind::Box)]),
+    menu(["首页", "报表", "设置"], sel, icons=[
+      ("报表", @icons.IconKind::Box),
+    ]),
     300.0,
     200.0,
   )
@@ -162,7 +172,11 @@ test "侧边菜单：项宽跟随容器、点项写 Store、选中项底色与�
   let p = @render.Painter::new(bm)
   root.paint(p)
   p.end()
-  let bg = px(bm, (menu.rect.x + 2.0).round().to_int(), (menu.rect.y + 2.0).round().to_int())
+  let bg = px(
+    bm,
+    (menu.rect.x + 2.0).round().to_int(),
+    (menu.rect.y + 2.0).round().to_int(),
+  )
   // 两列同宽同 x，取样必须各按自己行的 y（按第一行的 y 取会落进选中行里）
   let y0 = (kids[0].rect.y + 4.0).round().to_int()
   let y1 = (kids[1].rect.y + 4.0).round().to_int()
@@ -176,10 +190,10 @@ test "侧边菜单：项宽跟随容器、点项写 Store、选中项底色与�
 test "分组侧边菜单：标题行收起/展开只影响本组" {
   let sel = @base.Store::new("甲一")
   let (root, menu) = mounted(
-    menu_sections([
-      ("组一", ["甲一", "甲二"]),
-      ("组二", ["乙一", "乙二"]),
-    ], sel),
+    menu_sections(
+      [("组一", ["甲一", "甲二"]), ("组二", ["乙一", "乙二"])],
+      sel,
+    ),
     300.0,
     300.0,
   )
@@ -208,11 +222,11 @@ test "树：子层预建即收起，点父行展开、点叶子行不动作" {
     {
       label: "根一",
       children: [
-        { label: "子一", children: [] },
-        { label: "子二", children: [] },
+        { label: "子一", children: [], },
+        { label: "子二", children: [], },
       ],
     },
-    { label: "叶子", children: [] },
+    { label: "叶子", children: [], },
   ]
   let (root, tr) = mounted(tree(root_nodes), 320.0, 240.0)
   // 每个节点贡献「行 + 子层容器」两块
@@ -237,7 +251,11 @@ test "页签：预建三页只显当前页，点页签与外部改 Store 都换�
   let sel = @base.Store::new(0)
   let (root, tabs) = mounted(
     tabs(
-      [("概览", text("概览页")), ("明细", text("明细页")), ("设置", text("设置页"))],
+      [
+        ("概览", text("概览页")),
+        ("明细", text("明细页")),
+        ("设置", text("设置页")),
+      ],
       selected=sel,
     ),
     320.0,
@@ -247,13 +265,17 @@ test "页签：预建三页只显当前页，点页签与外部改 Store 都换�
   assert_eq(kids.length(), 4)
   let head = kids[0]
   assert_eq(head.children().length(), 3)
-  assert_eq([kids[1].visible, kids[2].visible, kids[3].visible], [true, false, false])
+  assert_eq([kids[1].visible, kids[2].visible, kids[3].visible], [
+    true, false, false,
+  ])
   click_at(root, head.children()[1], 10.0, 18.0)
   assert_eq(sel.get(), 1)
   assert_eq([kids[1].visible, kids[2].visible], [false, true])
   // 外部改 Store 也换页（订阅走 show，不只是重绘）
   sel.set(2)
-  assert_eq([kids[1].visible, kids[2].visible, kids[3].visible], [false, false, true])
+  assert_eq([kids[1].visible, kids[2].visible, kids[3].visible], [
+    false, false, true,
+  ])
   // 页签头行在最上，页区紧随其后
   assert_true(head.rect.y < kids[1].rect.y)
 }
@@ -298,7 +320,7 @@ test "导航族只读样式槽：class 覆盖分段底色、页签字色与穿�
   if !ui_text_guard() {
     return
   }
-  let warm_of = fn(node : @widget.Node, w : Double, h : Double) -> Int {
+  let warm_of = fn(node : @widget.Node, w : Double, h : Double) -> Int32 {
     let root = @widget.Widget::new()
     root.set_size(w, h)
     root.set_column()
@@ -320,9 +342,15 @@ test "导航族只读样式槽：class 覆盖分段底色、页签字色与穿�
     n
   }
   // 分段：内置皮肤只有选中段铺底，class 的底色铺进每一段
-  let plain_seg = warm_of(segmented(["甲", "乙"], @base.Store::new("甲")), 300.0, 60.0)
+  let plain_seg = warm_of(
+    segmented(["甲", "乙"], @base.Store::new("甲")),
+    300.0,
+    60.0,
+  )
   let classed_seg = warm_of(
-    segmented(["甲", "乙"], @base.Store::new("甲"), class=[@style.style(background_color="#ff0000")]),
+    segmented(["甲", "乙"], @base.Store::new("甲"), class=[
+      @style.style(background_color="#ff0000"),
+    ]),
     300.0,
     60.0,
   )
@@ -331,7 +359,10 @@ test "导航族只读样式槽：class 覆盖分段底色、页签字色与穿�
 
   // 页签：未选中页签的文字色吃 class 的 color
   let plain_tab = warm_of(
-    tabs([("概览", text("概览页")), ("明细", text("明细页"))], selected=@base.Store::new(0)),
+    tabs(
+      [("概览", text("概览页")), ("明细", text("明细页"))],
+      selected=@base.Store::new(0),
+    ),
     320.0,
     120.0,
   )
@@ -351,12 +382,9 @@ test "导航族只读样式槽：class 覆盖分段底色、页签字色与穿�
   let right : @base.Store[Array[String]] = @base.Store::new([])
   let plain_tr = warm_of(transfer(left, right, width=100.0), 320.0, 120.0)
   let classed_tr = warm_of(
-    transfer(
-      left,
-      right,
-      width=100.0,
-      class=[@style.style(border_color="#ff0000", border_width=4.0)],
-    ),
+    transfer(left, right, width=100.0, class=[
+      @style.style(border_color="#ff0000", border_width=4.0),
+    ]),
     320.0,
     120.0,
   )
@@ -370,7 +398,10 @@ test "穿梭框：面板默认 200×160，height= 可覆，项少也占满面板
   let (_, tr) = mounted(transfer(left, right), 460.0, 220.0)
   let lbox = tr.children()[0]
   assert_eq(lbox.rect.w, 200.0)
-  assert_true(lbox.rect.h >= 160.0, msg="面板没有默认 160 高：\{lbox.rect.h}")
+  assert_true(
+    lbox.rect.h >= 160.0,
+    msg="面板没有默认 160 高：\{lbox.rect.h}",
+  )
   let (_, tr2) = mounted(transfer(left, right, height=90.0), 460.0, 220.0)
   assert_true(tr2.children()[0].rect.h >= 90.0)
 }
@@ -383,8 +414,12 @@ test "键盘可及性：分段空格/回车选中本段，左右键在段间移�
   assert_eq(seg.kids.length(), 3)
   let item1 = seg.kids[1]
   assert_true(item1.focus_id > 0)
-  let key = fn(ks : Int) -> Unit {
-    let _ = root.dispatch_key(item1.focus_id, { press: true, keysym: ks, mods: 0, })
+  let key = fn(ks : Int32) -> Unit {
+    let _ = root.dispatch_key(item1.focus_id, {
+      press: true,
+      keysym: ks,
+      mods: 0,
+    })
   }
   key(@base.KS_SPACE)
   assert_eq(sel.get(), "乙")
@@ -406,7 +441,11 @@ test "menu_sections：键盘链可达且空格/方向键有效" {
   let selected = @base.Store::new("首页")
   let root = mount_root(
     [
-      menu_sections([ ("导航", [ "首页", "组件", "文档" ]), ("其它", []) ], selected, width=180.0),
+      menu_sections(
+        [("导航", ["首页", "组件", "文档"]), ("其它", [])],
+        selected,
+        width=180.0,
+      ),
     ],
     300.0,
     500.0,
@@ -414,7 +453,7 @@ test "menu_sections：键盘链可达且空格/方向键有效" {
   let ids = root.focus_ids()
   assert_eq(ids.length(), 3, msg="三个菜单项都应进 Tab 链")
   // 树里找第一个菜单项控件（focus_id 最小的树序项）
-  fn find_by_focus(w : @widget.Widget, fid : Int) -> @widget.Widget? {
+  fn find_by_focus(w : @widget.Widget, fid : Int32) -> @widget.Widget? {
     if w.focus_id == fid {
       return Some(w)
     }
@@ -430,22 +469,21 @@ test "menu_sections：键盘链可达且空格/方向键有效" {
   assert_true(first is Some(_))
   match first {
     None => ()
-    Some(m) => {
+    Some(m) =>
       match m.on_key {
         None => fail("菜单项应挂 on_key")
         Some(k) => {
           // 空格选中本项
-          assert_true(k({ press: true, keysym: @base.KS_SPACE, mods: 0 }))
+          assert_true(k({ press: true, keysym: @base.KS_SPACE, mods: 0, }))
           assert_eq(selected.get(), "首页")
           // 方向键 → 下一项（环绕取模）
-          assert_true(k({ press: true, keysym: @base.KS_DOWN, mods: 0 }))
+          assert_true(k({ press: true, keysym: @base.KS_DOWN, mods: 0, }))
           assert_eq(selected.get(), "组件")
-          assert_true(k({ press: true, keysym: @base.KS_UP, mods: 0 }))
+          assert_true(k({ press: true, keysym: @base.KS_UP, mods: 0, }))
           assert_eq(selected.get(), "文档") // 从第一项 UP 环绕到最后一项
           // 修饰键组合的按键不误触（比如 Ctrl+X 的 X 不是这里的业务）
-          assert_false(k({ press: true, keysym: 120, mods: 2 }))
+          assert_false(k({ press: true, keysym: 120, mods: 2, }))
         }
       }
-    }
   }
 }

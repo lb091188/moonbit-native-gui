@@ -8,8 +8,8 @@
 #derive(Eq, Debug)
 pub(all) enum TermColor {
   Default
-  Indexed(Int)
-  Rgb(Int, Int, Int)
+  Indexed(Int32)
+  Rgb(Int32, Int32, Int32)
 }
 
 ///|
@@ -27,28 +27,28 @@ pub struct TermCell {
   mut cont : Bool
   mut fg : TermColor
   mut bg : TermColor
-  mut attrs : Int
+  mut attrs : Int32
 }
 
 ///|
 /// 回看环形缓冲：定长槽位 + 起点下标，满时覆盖最旧一行（避免整体搬移）。
 pub struct ScrollRing {
   slots : Array[Array[TermCell]?]
-  mut start : Int
-  mut count : Int
+  mut start : Int32
+  mut count : Int32
 }
 
 ///|
-fn ScrollRing::new(capacity : Int) -> ScrollRing {
+fn ScrollRing::new(capacity : Int32) -> ScrollRing {
   let slots : Array[Array[TermCell]?] = []
   for _ in 0..<capacity.max(1) {
     slots.push(None)
   }
-  { slots, start: 0, count: 0 }
+  { slots, start: 0, count: 0, }
 }
 
 ///|
-fn ScrollRing::len(self : ScrollRing) -> Int {
+fn ScrollRing::len(self : ScrollRing) -> Int32 {
   self.count
 }
 
@@ -67,7 +67,7 @@ fn ScrollRing::push(self : ScrollRing, row : Array[TermCell]) -> Unit {
 
 ///|
 /// 第 i 行（0 = 最旧）。
-fn ScrollRing::get(self : ScrollRing, i : Int) -> Array[TermCell]? {
+fn ScrollRing::get(self : ScrollRing, i : Int32) -> Array[TermCell]? {
   if i < 0 || i >= self.count {
     return None
   }
@@ -84,41 +84,41 @@ fn ScrollRing::clear(self : ScrollRing) -> Unit {
 /// 终端模型：屏幕网格 + 光标/滚动区/笔色 + 回看偏移。可无头使用——不进控件树
 /// 也能 feed 后用 `text()` / `cursor()` 断言；控件经包内 `revision()` 订阅重绘。
 pub struct Terminal {
-  mut cols : Int
-  mut rows : Int
+  mut cols : Int32
+  mut rows : Int32
   /// 屏幕行（rows × cols，行定长）
   mut screen : Array[Array[TermCell]]
   ring : ScrollRing
   /// 距底部行数（0 = 贴底）
-  mut view_offset : Int
+  mut view_offset : Int32
   /// 累计进回看的行数（屏幕行的绝对行号 = total_rows + 屏内行号；选区坐标）
-  mut total_rows : Int
-  mut cx : Int
-  mut cy : Int
-  mut saved_cx : Int
-  mut saved_cy : Int
+  mut total_rows : Int32
+  mut cx : Int32
+  mut cy : Int32
+  mut saved_cx : Int32
+  mut saved_cy : Int32
   /// 末列打印后挂起待折（下一次打印先换行）
   mut pending_wrap : Bool
   mut autowrap : Bool
   mut cursor_visible : Bool
   /// 滚动区（闭区间行下标）
-  mut scroll_top : Int
-  mut scroll_bottom : Int
+  mut scroll_top : Int32
+  mut scroll_bottom : Int32
   /// 当前笔色/属性（SGR 落点，打印时写入 cell）
   mut pen_fg : TermColor
   mut pen_bg : TermColor
-  mut pen_attrs : Int
+  mut pen_attrs : Int32
   /// ANSI 解析器状态（跨 feed 保留半截序列）
   ansi : AnsiState
-  rev : @base.Store[Int]
+  rev : @base.Store[Int32]
 }
 
 ///|
 /// 建终端：`cols/rows` 网格尺寸，`scrollback` 回看容量（行数）。
 pub fn Terminal::new(
-  cols? : Int = 80,
-  rows? : Int = 24,
-  scrollback? : Int = 1000,
+  cols~ : Int32 = 80,
+  rows~ : Int32 = 24,
+  scrollback~ : Int32 = 1000,
 ) -> Terminal {
   let c = cols.max(1)
   let r = rows.max(1)
@@ -157,15 +157,15 @@ fn Terminal::bump(self : Terminal) -> Unit {
 
 ///|
 /// 变更信号：控件订阅它触发重绘（同一模型可被多个控件观察）。
-fn Terminal::revision(self : Terminal) -> @base.Signal[Int] {
+fn Terminal::revision(self : Terminal) -> @base.Signal[Int32] {
   self.rev.signal()
 }
 
 ///|
-fn new_row(cols : Int, bg : TermColor) -> Array[TermCell] {
+fn new_row(cols : Int32, bg : TermColor) -> Array[TermCell] {
   let row : Array[TermCell] = []
   for _ in 0..<cols {
-    row.push({ text: "", wide: false, cont: false, fg: Default, bg, attrs: 0 })
+    row.push({ text: "", wide: false, cont: false, fg: Default, bg, attrs: 0, })
   }
   row
 }
@@ -227,7 +227,7 @@ fn Terminal::linefeed(self : Terminal) -> Unit {
 
 ///|
 /// 滚动区内上滚 n 行：整屏滚动时离开区顶的行进回看，否则只在区内轮转。
-fn Terminal::scroll_up(self : Terminal, n : Int) -> Unit {
+fn Terminal::scroll_up(self : Terminal, n : Int32) -> Unit {
   let full = self.scroll_top == 0 && self.scroll_bottom == self.rows - 1
   for _ in 0..<n {
     let top_row = self.screen[self.scroll_top]
@@ -248,7 +248,7 @@ fn Terminal::scroll_up(self : Terminal, n : Int) -> Unit {
 
 ///|
 /// 落笔前清掉被压住的宽字符另一半（按旧状态判断，避免误清新写内容）。
-fn wipe_at(row : Array[TermCell], at : Int) -> Unit {
+fn wipe_at(row : Array[TermCell], at : Int32) -> Unit {
   let cell = row[at]
   if cell.cont && at > 0 {
     let p = row[at - 1]
@@ -334,7 +334,7 @@ fn Terminal::print_char(self : Terminal, ch : Char) -> Unit {
 ///|
 /// 改网格尺寸：保留左上交集内容，光标与滚动区钳进新范围；不做重排
 /// （已写内容不重新折行）。尺寸没变则不动。
-pub fn Terminal::resize(self : Terminal, cols : Int, rows : Int) -> Unit {
+pub fn Terminal::resize(self : Terminal, cols : Int32, rows : Int32) -> Unit {
   let c = cols.max(1)
   let r = rows.max(1)
   if c == self.cols && r == self.rows {
@@ -401,7 +401,7 @@ pub fn Terminal::reset(self : Terminal) -> Unit {
 
 ///|
 /// 回看滚动：正数往上看，0 不动；越界钳到回看区首尾。
-pub fn Terminal::scroll_lines(self : Terminal, n : Int) -> Unit {
+pub fn Terminal::scroll_lines(self : Terminal, n : Int32) -> Unit {
   if n == 0 {
     return
   }
@@ -424,18 +424,18 @@ pub fn Terminal::is_bottom(self : Terminal) -> Bool {
 }
 
 ///|
-pub fn Terminal::cols(self : Terminal) -> Int {
+pub fn Terminal::cols(self : Terminal) -> Int32 {
   self.cols
 }
 
 ///|
-pub fn Terminal::rows(self : Terminal) -> Int {
+pub fn Terminal::rows(self : Terminal) -> Int32 {
   self.rows
 }
 
 ///|
 /// 光标列行（0 基；pending_wrap 时列钳在末列）。
-pub fn Terminal::cursor(self : Terminal) -> (Int, Int) {
+pub fn Terminal::cursor(self : Terminal) -> (Int32, Int32) {
   (self.cx.min(self.cols - 1), self.cy)
 }
 
@@ -461,24 +461,32 @@ pub fn Terminal::text(self : Terminal) -> String {
 
 ///|
 /// 指定格的前景色（越界回 Default）。调试与无头测试取数用；绘制走包内直读。
-pub fn Terminal::cell_fg(self : Terminal, col : Int, row : Int) -> TermColor {
+pub fn Terminal::cell_fg(
+  self : Terminal,
+  col : Int32,
+  row : Int32,
+) -> TermColor {
   self.cell_at(col, row).fg
 }
 
 ///|
 /// 指定格的背景色（越界回 Default）。
-pub fn Terminal::cell_bg(self : Terminal, col : Int, row : Int) -> TermColor {
+pub fn Terminal::cell_bg(
+  self : Terminal,
+  col : Int32,
+  row : Int32,
+) -> TermColor {
   self.cell_at(col, row).bg
 }
 
 ///|
 /// 指定格的属性位（bold/dim/italic/underline/inverse/strike 位掩码，越界回 0）。
-pub fn Terminal::cell_attrs(self : Terminal, col : Int, row : Int) -> Int {
+pub fn Terminal::cell_attrs(self : Terminal, col : Int32, row : Int32) -> Int32 {
   self.cell_at(col, row).attrs
 }
 
 ///|
-fn Terminal::cell_at(self : Terminal, col : Int, row : Int) -> TermCell {
+fn Terminal::cell_at(self : Terminal, col : Int32, row : Int32) -> TermCell {
   let empty : TermCell = {
     text: "",
     wide: false,
@@ -495,13 +503,13 @@ fn Terminal::cell_at(self : Terminal, col : Int, row : Int) -> TermCell {
 
 ///|
 /// 屏幕行的绝对行号（进回看次数 + 屏内行号）：选区跨滚动的稳定坐标。
-fn Terminal::abs_of_screen(self : Terminal, r : Int) -> Int {
+fn Terminal::abs_of_screen(self : Terminal, r : Int32) -> Int32 {
   self.total_rows + r
 }
 
 ///|
 /// 绝对行号 → 行内容（回看或屏幕；已滚出回看的行回 None）。
-fn Terminal::row_by_abs(self : Terminal, abs : Int) -> Array[TermCell]? {
+fn Terminal::row_by_abs(self : Terminal, abs : Int32) -> Array[TermCell]? {
   let base = self.total_rows - self.ring.len()
   if abs < base {
     return None
@@ -520,7 +528,7 @@ fn Terminal::row_by_abs(self : Terminal, abs : Int) -> Array[TermCell]? {
 
 ///|
 /// 视口第 v 行（0 基，已含回看偏移）→ 绝对行号；越界 None。
-fn Terminal::view_abs(self : Terminal, v : Int) -> Int? {
+fn Terminal::view_abs(self : Terminal, v : Int32) -> Int32? {
   let total = self.ring.len() + self.rows
   let last = total - 1 - self.view_offset
   let abs = last - (self.rows - 1 - v)
@@ -533,7 +541,7 @@ fn Terminal::view_abs(self : Terminal, v : Int) -> Int? {
 
 ///|
 /// 视口最顶行的绝对行号。
-fn Terminal::view_top_abs(self : Terminal) -> Int {
+fn Terminal::view_top_abs(self : Terminal) -> Int32 {
   self.ring.len() + self.rows - 1 - self.view_offset - (self.rows - 1)
 }
 
@@ -541,10 +549,10 @@ fn Terminal::view_top_abs(self : Terminal) -> Int {
 /// 选区文本：按绝对行号区间取（含两端格），行尾去尾随空白，行间 \n。
 fn Terminal::selection_text(
   self : Terminal,
-  x1 : Int,
-  a1 : Int,
-  x2 : Int,
-  a2 : Int,
+  x1 : Int32,
+  a1 : Int32,
+  x2 : Int32,
+  a2 : Int32,
 ) -> String {
   let lo_c = x1.min(x2)
   let hi_c = x1.max(x2)
@@ -556,7 +564,11 @@ fn Terminal::selection_text(
     match self.row_by_abs(a) {
       Some(row) => {
         let start = if a == lo_a { lo_c.min(row.length() - 1) } else { 0 }
-        let end = if a == hi_a { hi_c.min(row.length() - 1) } else { row.length() - 1 }
+        let end = if a == hi_a {
+          hi_c.min(row.length() - 1)
+        } else {
+          row.length() - 1
+        }
         let sb = StringBuilder()
         let mut ci = start
         while ci <= end {
@@ -615,7 +627,7 @@ fn trim_end_spaces(s : String) -> String {
 ///|
 /// 字符占格宽：0 = 零宽（组合记号/变体选择符，拼进前一格）、2 = 宽、1 = 普通。
 /// CJK 判据与 mdview 的断行宽字符同源；emoji 平面按终端惯例记宽。
-fn term_char_width(ch : Char) -> Int {
+fn term_char_width(ch : Char) -> Int32 {
   let c = ch.to_int()
   if term_is_zero_width(c) {
     return 0
@@ -627,7 +639,7 @@ fn term_char_width(ch : Char) -> Int {
 }
 
 ///|
-fn term_is_wide(c : Int) -> Bool {
+fn term_is_wide(c : Int32) -> Bool {
   (c >= 0x1100 && c <= 0x115f) ||
   (c >= 0x2e80 && c <= 0x303e) ||
   (c >= 0x3041 && c <= 0x33ff) ||
@@ -649,7 +661,7 @@ fn term_is_wide(c : Int) -> Bool {
 }
 
 ///|
-fn term_is_zero_width(c : Int) -> Bool {
+fn term_is_zero_width(c : Int32) -> Bool {
   (c >= 0x0300 && c <= 0x036f) ||
   (c >= 0x200b && c <= 0x200f) ||
   (c >= 0x2060 && c <= 0x2064) ||

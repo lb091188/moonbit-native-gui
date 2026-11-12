@@ -19,18 +19,28 @@
 ///|
 /// 已开的原生档浮层：句柄 → 弹层宿主窗。表在进程级，不进 `OverlayHost`
 /// （宿主归 WindowHost，宿主再持它就是引用环）。
-let g_native : Ref[Map[Int, WindowHost]] = Ref(Map([]))
-let g_native_passes : Ref[Map[Int, Int]] = Ref(Map([]))
+let g_native : Ref[Map[Int32, WindowHost]] = Ref(Map([]))
+
+///|
+let g_native_passes : Ref[Map[Int32, Int32]] = Ref(Map([]))
+
+///|
 /// 收起型（点外收起）标志：cid → 是否点外收起。对话框类 false。
-let g_native_dismiss : Ref[Map[Int, Bool]] = Ref(Map([]))
+let g_native_dismiss : Ref[Map[Int32, Bool]] = Ref(Map([]))
+
+///|
 /// 弹层所属 owner 宿主的 wid：cid → owner_wid（点外收判定按窗隔离）。
-let g_native_owner : Ref[Map[Int, Int]] = Ref(Map([]))
+let g_native_owner : Ref[Map[Int32, Int32]] = Ref(Map([]))
+
+///|
 /// 本次指针手势已因「点外收起」被吞：Down 起、Up 终（Move 一并吞）。
 let g_swallow_pointer : Ref[Bool] = Ref(false)
+
+///|
 /// 最近一次向窗口申请的尺寸（收框放大分支的地板）。窗口实读在 WM 慢拍时
 /// 还停在初框值，拿它当地板会把已经收窄的申请反向钉回初框宽（KDE X11 真机
 /// 弹层右侧恒留一条 320−内容宽的死边，即此成因）。
-let g_native_req : Ref[Map[Int, (Int, Int)]] = Ref(Map([]))
+let g_native_req : Ref[Map[Int32, (Int32, Int32)]] = Ref(Map([]))
 
 ///|
 /// 该不该走原生档：当前窗有已挂载的原生子件就走。无宿主/无窗一律走图层。
@@ -47,15 +57,18 @@ pub fn overlay_native_tier() -> Bool {
 /// 「收框收坏」。默认口是 stdout；`moon run` 下子进程 stdout 可能被缓冲看不到，
 /// 调用方可换 `overlay_native_probe_to` 把读数接进自己的界面。
 let g_native_probe : Ref[(String) -> Unit] = Ref(fn(_s : String) { () })
+
+///|
 let g_native_probe_on : Ref[Bool] = Ref(false)
+
+///|
 pub fn overlay_native_probe(on : Bool) -> Unit {
   g_native_probe_on.val = on
-  g_native_probe.val =
-    if on {
-      fn(s : String) { println(s) }
-    } else {
-      fn(_s : String) { () }
-    }
+  g_native_probe.val = if on {
+    fn(s : String) { println(s) }
+  } else {
+    fn(_s : String) { () }
+  }
 }
 
 ///|
@@ -70,7 +83,7 @@ pub fn overlay_native_probe_to(sink : (String) -> Unit) -> Unit {
 /// `want_focus`：菜单/下拉类 false（不激活，键盘归 owner 触发件；点外收起走
 /// `overlay_pointer_prelude`）；对话框类 true。`dismiss` 记点外收起标志。
 fn overlay_native_open(
-  cid : Int,
+  cid : Int32,
   content : Node,
   x : Double,
   y : Double,
@@ -87,10 +100,17 @@ fn overlay_native_open(
       if g_native_probe_on.val {
         let o = a.session.window.origin()
         (g_native_probe.val)(
-          "POPUP-OPEN cid=\{cid} req=(\{x.round().to_int()},\{y.round().to_int()}) init=(\{iw},\{ih}) owner=(\{o.0},\{o.1}) pos=(\{o.0 + x.round().to_int()},\{o.1 + y.round().to_int()})"
+          "POPUP-OPEN cid=\{cid} req=(\{x.round().to_int()},\{y.round().to_int()}) init=(\{iw},\{ih}) owner=(\{o.0},\{o.1}) pos=(\{o.0 + x.round().to_int()},\{o.1 + y.round().to_int()})",
         )
       }
-      match a.open_popup(x.round().to_int(), y.round().to_int(), iw, ih, want_focus~) {
+      match
+        a.open_popup(
+          x.round().to_int(),
+          y.round().to_int(),
+          iw,
+          ih,
+          want_focus~,
+        ) {
         None => false
         Some(pop) => {
           pop.mount([content])
@@ -125,7 +145,7 @@ fn overlay_native_open(
 
 ///|
 /// 收起一个原生档浮层（窗已自己关过时只清表）。返回是否命中原生档。
-fn overlay_native_close(cid : Int) -> Bool {
+fn overlay_native_close(cid : Int32) -> Bool {
   match g_native.val.get(cid) {
     None => false
     Some(pop) => {
@@ -144,7 +164,7 @@ fn overlay_native_close(cid : Int) -> Bool {
 
 ///|
 /// 最新开的原生档浮层句柄（没有给 0）。
-fn overlay_native_top() -> Int {
+fn overlay_native_top() -> Int32 {
   let mut top = 0
   for cid, _ in g_native.val {
     top = if cid > top { cid } else { top }
@@ -154,7 +174,7 @@ fn overlay_native_top() -> Int {
 
 ///|
 /// 原生档在开数（诊断与 `overlay_count` 用）。
-pub fn overlay_native_count() -> Int {
+pub fn overlay_native_count() -> Int32 {
   g_native.val.length()
 }
 
@@ -162,7 +182,7 @@ pub fn overlay_native_count() -> Int {
 /// 指定句柄是不是还开着的原生档浮层：`overlay_alive` 必须认这一档——图层栈里
 /// 没有原生层的条目，只查栈会让组件以为「没开着」而再叠一扇（Linux 真机
 /// 弹层逐次累积、屏上留旧窗的成因之一）。
-pub fn overlay_native_opened(id : Int) -> Bool {
+pub fn overlay_native_opened(id : Int32) -> Bool {
   match g_native.val.get(id) {
     Some(_) => true
     None => false
@@ -171,7 +191,7 @@ pub fn overlay_native_opened(id : Int) -> Bool {
 
 ///|
 /// 量内容实际尺寸：弹层根控件的可见子项矩形并集（隐藏项矩形已被清零，天然排除）。
-fn overlay_content_size(app : WindowHost) -> (Int, Int) {
+fn overlay_content_size(app : WindowHost) -> (Int32, Int32) {
   let mut w = 0.0
   let mut h = 0.0
   for k in app.root.children() {
@@ -192,7 +212,7 @@ fn overlay_content_size(app : WindowHost) -> (Int, Int) {
 /// `g_native_req`，不是窗口实读（WM 慢拍时实读停在初框，会把窄申请反向顶回
 /// 初框宽）；收缩仍受三帧限制，避免宽度回环里来回改尺寸。
 pub fn overlay_fit_pass(app : WindowHost) -> Unit {
-  let hits : Array[Int] = []
+  let hits : Array[Int32] = []
   for cid, pop in g_native.val {
     if pop.session.wid == app.session.wid {
       hits.push(cid)
@@ -232,7 +252,7 @@ pub fn overlay_fit_pass(app : WindowHost) -> Unit {
             }
           }
           (g_native_probe.val)(
-            "POPUP-FIT cid=\{cid} meas=(\{w},\{h}) cur=(\{cw},\{ch}) req=\{req_txt} at=(\{ox},\{oy}) passes=\{passes} kids=[\{kids.join(" ")}]"
+            "POPUP-FIT cid=\{cid} meas=(\{w},\{h}) cur=(\{cw},\{ch}) req=\{req_txt} at=(\{ox},\{oy}) passes=\{passes} kids=[\{kids.join(" ")}]",
           )
         }
         let (rw, rh) = match g_native_req.val.get(cid) {
@@ -350,7 +370,7 @@ pub fn overlay_on_lost_focus(app : WindowHost) -> Unit {
 ///|
 /// 拆掉所有原生档浮层（宿主退出时调，避免主窗退了而弹层还留在屏上）。
 pub fn overlay_close_all_native() -> Unit {
-  let ids : Array[Int] = []
+  let ids : Array[Int32] = []
   for cid, _ in g_native.val {
     ids.push(cid)
   }

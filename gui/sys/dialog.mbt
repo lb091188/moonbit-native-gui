@@ -5,13 +5,13 @@
 
 ///|
 /// 对话框选项位（可组合）。
-pub const FILE_OPTION_PICK_FOLDERS : Int = 1
+pub const FILE_OPTION_PICK_FOLDERS : Int32 = 1
 
 ///|
-pub const FILE_OPTION_MULTI_SELECT : Int = 2
+pub const FILE_OPTION_MULTI_SELECT : Int32 = 2
 
 ///|
-pub const FILE_OPTION_SHOW_HIDDEN : Int = 4
+pub const FILE_OPTION_SHOW_HIDDEN : Int32 = 4
 
 ///|
 /// 文件对话框句柄（0 = 无效——建不出或已销毁）。
@@ -26,7 +26,7 @@ extern "c" fn ffi_file_open_dialog_new() -> Int64 = "wm_file_open_dialog_new"
 extern "c" fn ffi_file_save_dialog_new() -> Int64 = "wm_file_save_dialog_new"
 
 ///|
-extern "c" fn ffi_file_dialog_set_options(id : Int64, options : Int) -> Unit = "wm_file_dialog_set_options"
+extern "c" fn ffi_file_dialog_set_options(id : Int64, options : Int32) -> Unit = "wm_file_dialog_set_options"
 
 ///|
 #borrow(filters)
@@ -38,10 +38,16 @@ extern "c" fn ffi_file_dialog_set_folder(id : Int64, folder : Bytes) -> Unit = "
 
 ///|
 #borrow(filename)
-extern "c" fn ffi_file_dialog_set_filename(id : Int64, filename : Bytes) -> Unit = "wm_file_dialog_set_filename"
+extern "c" fn ffi_file_dialog_set_filename(
+  id : Int64,
+  filename : Bytes,
+) -> Unit = "wm_file_dialog_set_filename"
 
 ///|
-extern "c" fn ffi_file_dialog_run_for_window(id : Int64, parent : Int64) -> Int = "wm_file_dialog_run_for_window"
+extern "c" fn ffi_file_dialog_run_for_window(
+  id : Int64,
+  parent : Int64,
+) -> Int32 = "wm_file_dialog_run_for_window"
 
 ///|
 extern "c" fn ffi_file_dialog_get_result(id : Int64) -> Bytes = "wm_file_dialog_get_result"
@@ -52,13 +58,13 @@ extern "c" fn ffi_file_dialog_destroy(id : Int64) -> Unit = "wm_file_dialog_dest
 ///|
 /// 创建打开对话框（选文件；PICK_FOLDERS 选项改选文件夹）。
 pub fn FileDialog::new_open() -> FileDialog {
-  { id: ffi_file_open_dialog_new() }
+  { id: ffi_file_open_dialog_new(), }
 }
 
 ///|
 /// 创建保存对话框。
 pub fn FileDialog::new_save() -> FileDialog {
-  { id: ffi_file_save_dialog_new() }
+  { id: ffi_file_save_dialog_new(), }
 }
 
 ///|
@@ -69,7 +75,7 @@ pub fn FileDialog::set_filters(self : FileDialog, filters : String) -> Unit {
 
 ///|
 /// 设置选项位组合（如 FILE_OPTION_MULTI_SELECT | FILE_OPTION_SHOW_HIDDEN）。
-pub fn FileDialog::set_options(self : FileDialog, options : Int) -> Unit {
+pub fn FileDialog::set_options(self : FileDialog, options : Int32) -> Unit {
   ffi_file_dialog_set_options(self.id, options)
 }
 

@@ -1,3 +1,4 @@
+///|
 test "define_class + lookup_class：注册与回读" {
   reset_class_registry()
   let s = style(padding_left=8.0, padding_right=8.0, cursor=@widget.CURSOR_HAND)
@@ -12,6 +13,7 @@ test "define_class + lookup_class：注册与回读" {
   reset_class_registry()
 }
 
+///|
 test "class_of：按名数组解析、未注册跳过" {
   reset_class_registry()
   define_class("a", style(padding_left=10.0))
@@ -21,6 +23,7 @@ test "class_of：按名数组解析、未注册跳过" {
   reset_class_registry()
 }
 
+///|
 test "同名覆盖：后 define 生效" {
   reset_class_registry()
   define_class("x", style(padding_left=1.0))
@@ -32,6 +35,7 @@ test "同名覆盖：后 define 生效" {
   reset_class_registry()
 }
 
+///|
 test "registered_classes 列出已注册名" {
   reset_class_registry()
   define_class("p", style())
@@ -41,6 +45,7 @@ test "registered_classes 列出已注册名" {
   reset_class_registry()
 }
 
+///|
 test "resolve_named：多类按序合并、尾属性赢" {
   reset_class_registry()
   define_class("base", style(padding_left=1.0, padding_top=2.0))
@@ -51,6 +56,7 @@ test "resolve_named：多类按序合并、尾属性赢" {
   reset_class_registry()
 }
 
+///|
 test "resolve_with_variant：按深浅色选枚" {
   reset_class_registry()
   define_class("card", style(padding_left=4.0))

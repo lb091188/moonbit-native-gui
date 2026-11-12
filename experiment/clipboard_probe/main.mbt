@@ -39,9 +39,10 @@ fn payload() -> String {
   let head = "@ui.button(\"复制\", on_click=fn() {\n"
   let mid = "  // 中文注释 · “引号” 与反斜杠 \\\\ 与制表\t\n"
   let tail = "  println(100.0 / 3.0)\n})\n"
-  head + mid + tail + "t=" + (@win.now_ms()).to_string()
+  head + mid + tail + "t=" + @win.now_ms().to_string()
 }
 
+///|
 fn main {
   println("backend=" + @win.init_backend().to_string())
   println("available=" + @sys.clipboard_available().to_string())

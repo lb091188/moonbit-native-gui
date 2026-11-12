@@ -15,15 +15,15 @@
 ///|
 /// 按父链算每个节点的深度(根 parent=0;父不在表里视作根;有环防护按表长截断)。
 /// 返回与输入同长的深度表。纯函数,白盒用例钉住。
-pub fn insp_depths(nodes : Array[@widget.A11yNode]) -> Array[Int] {
+pub fn insp_depths(nodes : Array[@widget.A11yNode]) -> Array[Int32] {
   let n = nodes.length()
-  let idx : Map[Int, Int] = Map([])
+  let idx : Map[Int32, Int32] = Map([])
   let mut i = 0
   while i < n {
     idx[nodes[i].id] = i
     i += 1
   }
-  let out : Array[Int] = []
+  let out : Array[Int32] = []
   let mut k = 0
   while k < n {
     let mut d = 0
@@ -36,9 +36,7 @@ pub fn insp_depths(nodes : Array[@widget.A11yNode]) -> Array[Int] {
           cur = nodes[pi].parent
           steps += 1
         }
-        _ => {
-          steps = n
-        }
+        _ => steps = n
       }
     }
     out.push(d)
@@ -49,7 +47,7 @@ pub fn insp_depths(nodes : Array[@widget.A11yNode]) -> Array[Int] {
 
 ///|
 /// 树列的行文本:按深度缩进 + 角色 + 「名」+ #id(名空则不摆引号)。
-pub fn insp_row_label(n : @widget.A11yNode, depth : Int) -> String {
+pub fn insp_row_label(n : @widget.A11yNode, depth : Int32) -> String {
   let b = StringBuilder()
   let mut i = 0
   while i < depth {
@@ -101,11 +99,31 @@ fn insp_detail_lines(n : @widget.A11yNode) -> Array[String] {
   [
     "id=\{n.id}  parent=\{n.parent}",
     "role=\{n.role}",
-    if n.name.length() > 0 { "name=\{n.name}" } else { "name=(空)" },
-    if n.state.length() > 0 { "state=\{n.state}" } else { "state=(无)" },
-    if n.value.length() > 0 { "value=\{n.value}" } else { "value=(无)" },
-    if n.text.length() > 0 { "text=\{n.text}" } else { "text=(无)" },
-    if n.enabled { "enabled=true" } else { "enabled=false" },
+    if n.name.length() > 0 {
+      "name=\{n.name}"
+    } else {
+      "name=(空)"
+    },
+    if n.state.length() > 0 {
+      "state=\{n.state}"
+    } else {
+      "state=(无)"
+    },
+    if n.value.length() > 0 {
+      "value=\{n.value}"
+    } else {
+      "value=(无)"
+    },
+    if n.text.length() > 0 {
+      "text=\{n.text}"
+    } else {
+      "text=(无)"
+    },
+    if n.enabled {
+      "enabled=true"
+    } else {
+      "enabled=false"
+    },
     "rect=\{insp_rect_text(n)}",
   ]
 }
@@ -115,18 +133,22 @@ fn insp_detail_lines(n : @widget.A11yNode) -> Array[String] {
 /// `auto` 给初始是否自动;`table_h` 是树表高度。挂在应用任何位置即可
 /// (showcase 有整页演示);刷新读的是「上一帧」快照,起手先点一次「刷新」。
 pub fn inspector_panel(
-  refresh_ms? : Int = 500,
-  auto? : Bool = false,
-  table_h? : Double = 240.0,
-  width? : Double = 640.0,
-  class? : Array[@style.Style] = [],
+  refresh_ms~ : Int32 = 500,
+  auto~ : Bool = false,
+  table_h~ : Double = 240.0,
+  width~ : Double = 640.0,
+  class~ : Array[@style.Style] = [],
 ) -> @widget.Node {
   // 行缓存(与表格行序一致)与选中下标(-1 = 无);快照每次刷新整表重填
   let cache : Ref[Array[@widget.A11yNode]] = Ref([])
-  let selected : @base.Store[Array[Int]] = @base.Store::new([])
-  let sel_tbl : @base.Store[Array[Int]] = @base.Store::new([])
+  let selected : @base.Store[Array[Int32]] = @base.Store::new([])
+  let sel_tbl : @base.Store[Array[Int32]] = @base.Store::new([])
   let rows : @base.Store[Array[@ui.TableRow]] = @base.Store::new([])
-  let stats : @base.Store[String] = @base.Store::new(@i18n.t_or("gui.inspector.no_frame", "尚无帧快照——点「刷新」读一次"))
+  let stats : @base.Store[String] = @base.Store::new(
+    @i18n.t_or(
+      "gui.inspector.no_frame", "尚无帧快照——点「刷新」读一次",
+    ),
+  )
   fn do_refresh() -> Unit {
     let nodes = @widget.a11y_last_frame()
     cache.val = nodes
@@ -140,12 +162,15 @@ pub fn inspector_panel(
       sel_tbl.set([])
     }
     stats.set(
-      @i18n.t_or("gui.inspector.stats", "节点 \{nodes.length()} · \{@base.paint_profile_summary()}"),
+      @i18n.t_or(
+        "gui.inspector.stats",
+        "节点 \{nodes.length()} · \{@base.paint_profile_summary()}",
+      ),
     )
   }
   // 自动刷新:自重排延时表(与 tooltip 同泵法);关表清延时
   let auto_on : @base.Store[Bool] = @base.Store::new(auto)
-  let tid : Ref[Int] = Ref(0)
+  let tid : Ref[Int32] = Ref(0)
   let pump : Ref[() -> Unit] = Ref(fn() { () })
   pump.val = fn() -> Unit {
     do_refresh()
@@ -166,49 +191,72 @@ pub fn inspector_panel(
     (pump.val)()
   }
   let cols : Array[@ui.TableColumn] = [
-    @ui.TableColumn::make(@i18n.t_or("gui.inspector.col_widget", "控件"), 0.0, sortable=false),
-    @ui.TableColumn::make(@i18n.t_or("gui.inspector.col_role", "角色"), 84.0, sortable=false),
+    @ui.TableColumn::make(
+      @i18n.t_or("gui.inspector.col_widget", "控件"),
+      0.0,
+      sortable=false,
+    ),
+    @ui.TableColumn::make(
+      @i18n.t_or("gui.inspector.col_role", "角色"),
+      84.0,
+      sortable=false,
+    ),
     @ui.TableColumn::make("id", 52.0, sortable=false),
-    @ui.TableColumn::make(@i18n.t_or("gui.inspector.col_rect", "矩形"), 132.0, sortable=false),
+    @ui.TableColumn::make(
+      @i18n.t_or("gui.inspector.col_rect", "矩形"),
+      132.0,
+      sortable=false,
+    ),
   ]
   // 「控件树」页签:v1 只读三件套(工具行/树表/选中读数)
   let tree_section = @ui.view(
     [
       @ui.row(
         [
-          @ui.button(@i18n.t_or("gui.inspector.refresh", "刷新"), variant=@ui.Soft, on_click=do_refresh),
+          @ui.button(
+            @i18n.t_or("gui.inspector.refresh", "刷新"),
+            variant=@ui.Soft,
+            on_click=do_refresh,
+          ),
           @ui.switch(
             auto_on,
             on_text=@i18n.t_or("gui.inspector.auto_on", "自动刷新"),
             off_text=@i18n.t_or("gui.inspector.auto_off", "自动刷新"),
           ),
-          @ui.button(@i18n.t_or("gui.inspector.reset_stats", "重置统计"), variant=@ui.Text, on_click=fn() {
-            @base.paint_profile_reset()
-            do_refresh()
-          }),
+          @ui.button(
+            @i18n.t_or("gui.inspector.reset_stats", "重置统计"),
+            variant=@ui.Text,
+            on_click=fn() {
+              @base.paint_profile_reset()
+              do_refresh()
+            },
+          ),
         ],
         column_gap=8.0,
         align_items=@yoga.AlignItems::Center,
       ),
       @ui.bind_label(stats, fn(s) { s }),
-      @ui.table_v(
-        cols,
-        rows,
-        width=width,
-        height=table_h,
-        selection=sel_tbl,
-        on_row_click=fn(i : Int, _r : @ui.TableRow) -> Unit {
-          sel_tbl.set([i])
-          selected.set([i])
-        },
+      @ui.table_v(cols, rows, width~, height=table_h, selection=sel_tbl, on_row_click=fn(
+        i : Int32,
+        _r : @ui.TableRow,
+      ) -> Unit {
+        sel_tbl.set([i])
+        selected.set([i])
+      }),
+      @ui.text(
+        @i18n.t_or("gui.inspector.detail_title", "选中控件"),
+        weight=@text.SemiBold,
       ),
-      @ui.text(@i18n.t_or("gui.inspector.detail_title", "选中控件"), weight=@text.SemiBold),
-      @widget.bind_node(selected.signal(), fn(sel : Array[Int]) -> @widget.Node {
+      @widget.bind_node(selected.signal(), fn(
+        sel : Array[Int32],
+      ) -> @widget.Node {
         match sel.get(0) {
           Some(i) if i < cache.val.length() => {
             let lines : Array[@widget.Node] = []
             for t in insp_detail_lines(cache.val[i]) {
-              lines.push(@ui.text(t, font_size=12.0, class=[@style.text_secondary]))
+              lines.push(
+                @ui.text(t, font_size=12.0, class=[@style.text_secondary]),
+              )
             }
             @ui.view(
               lines,
@@ -222,7 +270,9 @@ pub fn inspector_panel(
           }
           _ =>
             @ui.text(
-              @i18n.t_or("gui.inspector.no_selection", "点树里一行看读数"),
+              @i18n.t_or(
+                "gui.inspector.no_selection", "点树里一行看读数",
+              ),
               font_size=12.0,
               color="text_secondary",
             )
@@ -238,19 +288,22 @@ pub fn inspector_panel(
   let tab_classes = @i18n.t_or("gui.inspector.tab_classes", "样式类")
   let tab : @base.Store[String] = @base.Store::new(tab_tree)
   let snap : Ref[Map[String, @style.Style]] = Ref(Map([]))
-  let classes_section = insp_classes_section(width, (table_h * 0.7).max(140.0), snap)
+  let classes_section = insp_classes_section(
+    width,
+    (table_h * 0.7).max(140.0),
+    snap,
+  )
   @ui.view(
     [
       @ui.segmented([tab_tree, tab_classes], tab),
-      @ui.when_else(
-        tab.signal(),
-        tree_section,
-        classes_section,
-        pred=fn(t : String) -> Bool { t == tab_tree },
-      ),
+      @ui.when_else(tab.signal(), tree_section, classes_section, pred=fn(
+        t : String,
+      ) -> Bool {
+        t == tab_tree
+      }),
     ],
     direction=@yoga.Column,
     row_gap=10.0,
-    class=class,
+    class~,
   )
 }

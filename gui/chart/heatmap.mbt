@@ -96,15 +96,15 @@ pub fn heat_color(
 /// 窄格仍可见）；cols/rows <= 0 时退化为整块网格区。行列索引均自 0 起，
 /// 行 0 在顶部（与矩阵展示方向一致）。
 pub fn heat_cell_rect(
-  col : Int,
-  row : Int,
-  cols : Int,
-  rows : Int,
+  col : Int32,
+  row : Int32,
+  cols : Int32,
+  rows : Int32,
   x0 : Double,
   y0 : Double,
   x1 : Double,
   y1 : Double,
-  gap? : Double = 2.0,
+  gap~ : Double = 2.0,
 ) -> (Double, Double, Double, Double) {
   if cols <= 0 || rows <= 0 {
     return (x0, y0, (x1 - x0).max(1.0), (y1 - y0).max(1.0))
@@ -271,13 +271,13 @@ fn heat_draw(
 /// 才画）。数据经 Store 驱动，set 后只重绘画布。
 pub fn heatmap_t(
   data : @base.Store[HeatGrid],
-  low_color? : String = "",
-  high_color? : String = "",
-  gap? : Double = 2.0,
-  show_values? : Bool = false,
-  width? : Double = 0.0,
-  height? : Double = 300.0,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  low_color~ : String = "",
+  high_color~ : String = "",
+  gap~ : Double = 2.0,
+  show_values~ : Bool = false,
+  width~ : Double = 0.0,
+  height~ : Double = 300.0,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.follow_store(data)
   let lc = low_color

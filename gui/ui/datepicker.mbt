@@ -35,7 +35,7 @@ fn setup_picker_field(
         border_width=1.0,
         color="text_primary",
       ).hover(background_color="fill_hover"),
-      @style.style(width=width),
+      @style.style(width~),
       skin,
     ]),
   )
@@ -49,7 +49,9 @@ fn setup_picker_field(
 
     self.clip_rounded = rad > 0.0
     self.style_clip_radius = rad
-    p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
+    p.set_fill_color(
+      @style.color_of(st.background_color, @theme.theme_bg_panel()),
+    )
     p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
     p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
     p.set_line_width(@style.number_of(st.border_width, 1.0))
@@ -123,7 +125,12 @@ fn setup_picker_field(
 
 ///|
 /// ✕ 热区（箭头左侧 20px 带宽）。
-fn clear_hit(local_x : Double, width : Double, clearable : Bool, filled : Bool) -> Bool {
+fn clear_hit(
+  local_x : Double,
+  width : Double,
+  clearable : Bool,
+  filled : Bool,
+) -> Bool {
   clearable && filled && local_x >= width - 40.0 && local_x <= width - 20.0
 }
 
@@ -132,7 +139,7 @@ fn clear_hit(local_x : Double, width : Double, clearable : Bool, filled : Bool) 
 /// （日历内部的方向键导航不在这层做，日历弹层里只保留点选）。
 fn attach_field_toggle_key(
   w : @widget.Widget,
-  open_id : Ref[Int],
+  open_id : Ref[Int32],
   open_pop : () -> Unit,
   close_pop : () -> Unit,
 ) -> Unit {
@@ -142,9 +149,7 @@ fn attach_field_toggle_key(
     }
     let ks = ev.keysym
     if overlay_alive(open_id.val) {
-      if ks == @base.KS_RETURN ||
-        ks == @base.KS_SPACE ||
-        ks == @base.KS_ESCAPE {
+      if ks == @base.KS_RETURN || ks == @base.KS_SPACE || ks == @base.KS_ESCAPE {
         close_pop()
         true
       } else {
@@ -170,7 +175,7 @@ fn calendar_popup(
   skin~ : @style.Style = @style.empty_style(),
 ) -> @widget.Node {
   @widget.node_of_new(fn(panel : @widget.Widget) -> @widget.Widget {
-    let _ = build_calendar(panel, today, state_of, on_cell, skin=skin)
+    let _ = build_calendar(panel, today, state_of, on_cell, skin~)
     panel
   })
 }
@@ -183,7 +188,7 @@ fn time_popup(
   initial : TimeHMS,
   on_confirm : (TimeHMS) -> Unit,
   on_cancel : () -> Unit,
-  show_seconds? : Bool = false,
+  show_seconds~ : Bool = false,
   skin~ : @style.Style = @style.empty_style(),
 ) -> @widget.Node {
   let cur : @base.Store[TimeHMS] = @base.Store::new(initial)
@@ -194,17 +199,21 @@ fn time_popup(
   let body_w = col_w * n_cols.to_double() + sep_w * (n_cols - 1).to_double()
   let panel_w = body_w.max(160.0) + 20.0
   // 到界回绕：模 24 / 60 取正余
-  fn wrap_add(v : Int, d : Int, mod : Int) -> Int {
+  fn wrap_add(v : Int32, d : Int32, mod : Int32) -> Int32 {
     let x = (v + d) % mod
-    if x < 0 { x + mod } else { x }
+    if x < 0 {
+      x + mod
+    } else {
+      x
+    }
   }
 
-  fn bump(which : Int, d : Int) -> Unit {
+  fn bump(which : Int32, d : Int32) -> Unit {
     let t = cur.get()
     let h = if which == 0 { wrap_add(t.h, d, 24) } else { t.h }
     let m = if which == 1 { wrap_add(t.m, d, 60) } else { t.m }
     let s = if which == 2 { wrap_add(t.s, d, 60) } else { t.s }
-    cur.set(time_clamp(h, m, s=s))
+    cur.set(time_clamp(h, m, s~))
     @widget.invalidate()
   }
 
@@ -218,26 +227,31 @@ fn time_popup(
     )
   }
 
-  fn tick(d : Int, which : Int, glyph : String) -> @widget.Node {
-    button(
-      glyph,
-      variant=Text,
-      font_size=15.0,
-      min_width=col_w,
-      on_click=fn() { bump(which, d) },
-    )
+  fn tick(d : Int32, which : Int32, glyph : String) -> @widget.Node {
+    button(glyph, variant=Text, font_size=15.0, min_width=col_w, on_click=fn() {
+      bump(which, d)
+    })
   }
 
-  fn value_cell(get : (TimeHMS) -> Int) -> @widget.Node {
+  fn value_cell(get : (TimeHMS) -> Int32) -> @widget.Node {
     cell(
-      bind_label(cur, fn(t : TimeHMS) -> String { pad_two(get(t)) }, font_size=16.0),
+      bind_label(
+        cur,
+        fn(t : TimeHMS) -> String { pad_two(get(t)) },
+        font_size=16.0,
+      ),
       col_w,
     )
   }
 
   fn caption_cell(key : String, zh : String) -> @widget.Node {
     cell(
-      text(@i18n.t_or(key, zh), font_size=11.0, color="text_secondary", wrap=false),
+      text(
+        @i18n.t_or(key, zh),
+        font_size=11.0,
+        color="text_secondary",
+        wrap=false,
+      ),
       col_w,
     )
   }
@@ -256,9 +270,9 @@ fn time_popup(
     tick(1, 1, "+"),
   ]
   let value_items : Array[@widget.Node] = [
-    value_cell(fn(t : TimeHMS) -> Int { t.h }),
+    value_cell(fn(t : TimeHMS) -> Int32 { t.h }),
     sep(":"),
-    value_cell(fn(t : TimeHMS) -> Int { t.m }),
+    value_cell(fn(t : TimeHMS) -> Int32 { t.m }),
   ]
   let minus_items : Array[@widget.Node] = [
     tick(-1, 0, "-"),
@@ -274,7 +288,7 @@ fn time_popup(
     plus_items.push(sep(""))
     plus_items.push(tick(1, 2, "+"))
     value_items.push(sep(":"))
-    value_items.push(value_cell(fn(t : TimeHMS) -> Int { t.s }))
+    value_items.push(value_cell(fn(t : TimeHMS) -> Int32 { t.s }))
     minus_items.push(sep(""))
     minus_items.push(tick(-1, 2, "-"))
     caption_items.push(sep(""))
@@ -288,7 +302,11 @@ fn time_popup(
     @style.apply(
       panel,
       @style.merge_all([
-        @style.style(background_color="bg_panel", border_color="border", border_width=1.0),
+        @style.style(
+          background_color="bg_panel",
+          border_color="border",
+          border_width=1.0,
+        ),
         skin,
       ]),
     )
@@ -302,9 +320,13 @@ fn time_popup(
 
       self.clip_rounded = rad > 0.0
       self.style_clip_radius = rad
-      p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
+      p.set_fill_color(
+        @style.color_of(st.background_color, @theme.theme_bg_panel()),
+      )
       p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
-      p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
+      p.set_stroke_color(
+        @style.color_of(st.border_color, @theme.theme_border()),
+      )
       p.set_line_width(@style.number_of(st.border_width, 1.0))
       if rad > 0.0 {
         p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
@@ -342,13 +364,17 @@ fn time_popup(
             r : @base.Rect,
           ) -> Unit {
             let st = @style.style_for(self)
-            p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
+            p.set_fill_color(
+              @style.color_of(st.background_color, @theme.theme_bg_panel()),
+            )
             let rad = @style.number_of(st.border_radius, @theme.radius_ctrl())
 
             self.clip_rounded = rad > 0.0
             self.style_clip_radius = rad
             fill_round_rect(p, 0.0, 0.0, r.w, r.h, rad)
-            p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
+            p.set_stroke_color(
+              @style.color_of(st.border_color, @theme.theme_border()),
+            )
             p.set_line_width(@style.number_of(st.border_width, 1.0))
             if rad > 0.0 {
               p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
@@ -407,8 +433,17 @@ fn time_popup(
             r : @base.Rect,
           ) -> Unit {
             let st = @style.style_for(self)
-            p.set_fill_color(@style.color_of(st.background_color, @theme.theme_primary()))
-            fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, @theme.radius_ctrl()))
+            p.set_fill_color(
+              @style.color_of(st.background_color, @theme.theme_primary()),
+            )
+            fill_round_rect(
+              p,
+              0.0,
+              0.0,
+              r.w,
+              r.h,
+              @style.number_of(st.border_radius, @theme.radius_ctrl()),
+            )
             let f = @text.Font::new("", 12.0)
             let _ = @text.draw_box_at(
               p,
@@ -459,19 +494,19 @@ fn time_popup(
 /// 字段自动进 Tab 链。
 pub fn date_picker(
   value : @base.Store[DateYMD?],
-  on_change? : (DateYMD) -> Unit = fn(_d : DateYMD) -> Unit { () },
-  placeholder? : String = "请选择日期",
-  clearable? : Bool = true,
-  today? : DateYMD = today_date(),
-  width? : Double = 180.0,
-  focus_id? : Int = 0,
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  on_change~ : (DateYMD) -> Unit = fn(_d : DateYMD) -> Unit { () },
+  placeholder~ : String = "请选择日期",
+  clearable~ : Bool = true,
+  today~ : DateYMD = today_date(),
+  width~ : Double = 180.0,
+  focus_id~ : Int32 = 0,
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   follow_store(value)
   let t = today
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
-    let open_id : Ref[Int] = Ref(0)
+    let open_id : Ref[Int32] = Ref(0)
     w.focus_id = auto_focus_id(focus_id)
     let close_pop = fn() -> Unit {
       if open_id.val != 0 {
@@ -547,17 +582,17 @@ pub fn date_picker(
 /// 键盘口径同 `date_picker`（开/收层），字段自动进 Tab 链。
 pub fn date_range_picker(
   value : @base.Store[DateRange],
-  on_change? : (DateRange) -> Unit = fn(_r : DateRange) -> Unit { () },
-  placeholder? : String = "请选择日期区间",
-  clearable? : Bool = true,
-  today? : DateYMD = today_date(),
-  width? : Double = 220.0,
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  on_change~ : (DateRange) -> Unit = fn(_r : DateRange) -> Unit { () },
+  placeholder~ : String = "请选择日期区间",
+  clearable~ : Bool = true,
+  today~ : DateYMD = today_date(),
+  width~ : Double = 220.0,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   follow_store(value)
   let t = today
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
-    let open_id : Ref[Int] = Ref(0)
+    let open_id : Ref[Int32] = Ref(0)
     w.focus_id = auto_focus_id(0)
     let close_pop = fn() -> Unit {
       if open_id.val != 0 {
@@ -573,13 +608,13 @@ pub fn date_range_picker(
           fn(d : DateYMD) -> Unit {
             let r = value.get()
             match (r.start, r.end) {
-              (None, _) => value.set({ start: Some(d), end: None })
+              (None, _) => value.set({ start: Some(d), end: None, })
               (Some(_), None) => {
-                value.set({ start: r.start, end: Some(d) })
+                value.set({ start: r.start, end: Some(d), })
                 on_change(value.get())
                 close_pop()
               }
-              (Some(_), Some(_)) => value.set({ start: Some(d), end: None })
+              (Some(_), Some(_)) => value.set({ start: Some(d), end: None, })
             }
           },
         ),
@@ -595,7 +630,8 @@ pub fn date_range_picker(
       fn() -> String {
         let r = value.get()
         match (r.start, r.end) {
-          (None, None) => @i18n.t_or("gui.ui.datepicker.range_placeholder", placeholder)
+          (None, None) =>
+            @i18n.t_or("gui.ui.datepicker.range_placeholder", placeholder)
           _ => {
             let s = match r.start {
               Some(x) => x.format()
@@ -624,7 +660,7 @@ pub fn date_range_picker(
           None => false
         }
         if clear_hit(local_x, width, clearable, filled) {
-          value.set({ start: None, end: None })
+          value.set({ start: None, end: None, })
           close_pop()
         } else if overlay_alive(open_id.val) {
           close_pop()
@@ -646,12 +682,12 @@ fn time_field(
   width : Double,
   get : () -> TimeHMS?,
   set : (TimeHMS) -> Unit,
-  placeholder? : String = "?:?",
-  show_seconds? : Bool = false,
+  placeholder~ : String = "?:?",
+  show_seconds~ : Bool = false,
 ) -> @widget.Node {
   let secs = show_seconds
   @widget.node_of_new(fn(field : @widget.Widget) -> @widget.Widget {
-    let open_id : Ref[Int] = Ref(0)
+    let open_id : Ref[Int32] = Ref(0)
     field.focus_id = auto_focus_id(0)
     let close_pop = fn() -> Unit {
       if open_id.val != 0 {
@@ -662,7 +698,7 @@ fn time_field(
     let open_pop = fn() -> Unit {
       let init = match get() {
         Some(t) => t
-        None => TimeHMS::{ h: 9, m: 0, s: 0 }
+        None => TimeHMS::{ h: 9, m: 0, s: 0, }
       }
       open_id.val = @widget.overlay_show_at(
         time_popup(
@@ -714,10 +750,10 @@ fn time_field(
 /// 时间区间选择器（EP TimePicker 区间形态）：起止两个时间字段（步进式弹层）。
 pub fn time_range_picker(
   value : @base.Store[TimeRange],
-  on_change? : (TimeRange) -> Unit = fn(_r : TimeRange) -> Unit { () },
-  width? : Double = 110.0,
-  show_seconds? : Bool = false,
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  on_change~ : (TimeRange) -> Unit = fn(_r : TimeRange) -> Unit { () },
+  width~ : Double = 110.0,
+  show_seconds~ : Bool = false,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   follow_store(value)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
@@ -730,10 +766,10 @@ pub fn time_range_picker(
       fn() -> TimeHMS? { value.get().start },
       fn(t : TimeHMS) -> Unit {
         let r = value.get()
-        value.set({ start: Some(t), end: r.end })
+        value.set({ start: Some(t), end: r.end, })
         on_change(value.get())
       },
-      show_seconds=show_seconds,
+      show_seconds~,
     ).mount_into(w)
     let _ = text("~", font_size=13.0, wrap=false).mount_into(w)
     let _ = time_field(
@@ -741,10 +777,10 @@ pub fn time_range_picker(
       fn() -> TimeHMS? { value.get().end },
       fn(t : TimeHMS) -> Unit {
         let r = value.get()
-        value.set({ start: r.start, end: Some(t) })
+        value.set({ start: r.start, end: Some(t), })
         on_change(value.get())
       },
-      show_seconds=show_seconds,
+      show_seconds~,
     ).mount_into(w)
     handle(w)
     w
@@ -756,12 +792,12 @@ pub fn time_range_picker(
 /// 时间走步进弹层；任一侧任一维改动都会把整份区间写回 Store 并回调。
 pub fn datetime_range_picker(
   value : @base.Store[DateTimeRange],
-  on_change? : (DateTimeRange) -> Unit = fn(_r : DateTimeRange) -> Unit { () },
-  today? : DateYMD = today_date(),
-  date_width? : Double = 130.0,
-  time_width? : Double = 86.0,
-  show_seconds? : Bool = false,
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  on_change~ : (DateTimeRange) -> Unit = fn(_r : DateTimeRange) -> Unit { () },
+  today~ : DateYMD = today_date(),
+  date_width~ : Double = 130.0,
+  time_width~ : Double = 86.0,
+  show_seconds~ : Bool = false,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   follow_store(value)
   let t = today
@@ -772,7 +808,7 @@ pub fn datetime_range_picker(
     w.node.set_gap(0.0, 6.0)
     fn date_field(is_start : Bool) -> @widget.Node {
       @widget.node_of_new(fn(field : @widget.Widget) -> @widget.Widget {
-        let open_id : Ref[Int] = Ref(0)
+        let open_id : Ref[Int32] = Ref(0)
         field.focus_id = auto_focus_id(0)
         let close_pop = fn() -> Unit {
           if open_id.val != 0 {
@@ -785,9 +821,18 @@ pub fn datetime_range_picker(
             calendar_popup(
               t,
               fn(d : DateYMD) -> CalCell {
-                let pair = if is_start { value.get().start } else { value.get().end }
+                let pair = if is_start {
+                  value.get().start
+                } else {
+                  value.get().end
+                }
                 match pair {
-                  Some(p) => if DateYMD::same(p.0, d) { Selected } else { Plain }
+                  Some(p) =>
+                    if DateYMD::same(p.0, d) {
+                      Selected
+                    } else {
+                      Plain
+                    }
                   None => Plain
                 }
               },
@@ -796,15 +841,15 @@ pub fn datetime_range_picker(
                 if is_start {
                   let tm = match r.start {
                     Some(p) => p.1
-                    None => TimeHMS::{ h: 9, m: 0, s: 0 }
+                    None => TimeHMS::{ h: 9, m: 0, s: 0, }
                   }
-                  value.set({ start: Some((d, tm)), end: r.end })
+                  value.set({ start: Some((d, tm)), end: r.end, })
                 } else {
                   let tm = match r.end {
                     Some(p) => p.1
-                    None => TimeHMS::{ h: 18, m: 0, s: 0 }
+                    None => TimeHMS::{ h: 18, m: 0, s: 0, }
                   }
-                  value.set({ start: r.start, end: Some((d, tm)) })
+                  value.set({ start: r.start, end: Some((d, tm)), })
                 }
                 on_change(value.get())
                 close_pop()
@@ -820,7 +865,11 @@ pub fn datetime_range_picker(
           field,
           date_width,
           fn() -> String {
-            let pair = if is_start { value.get().start } else { value.get().end }
+            let pair = if is_start {
+              value.get().start
+            } else {
+              value.get().end
+            }
             match pair {
               Some(p) => p.0.format()
               None => @i18n.t_or("gui.ui.datepicker.title", "选择日期")
@@ -858,12 +907,12 @@ pub fn datetime_range_picker(
       fn(tm : TimeHMS) -> Unit {
         let r = value.get()
         match r.start {
-          Some(p) => value.set({ start: Some((p.0, tm)), end: r.end })
+          Some(p) => value.set({ start: Some((p.0, tm)), end: r.end, })
           None => ()
         }
         on_change(value.get())
       },
-      show_seconds=show_seconds,
+      show_seconds~,
     ).mount_into(w)
     let _ = text("~", font_size=13.0, wrap=false).mount_into(w)
     let _ = date_field(false).mount_into(w)
@@ -878,12 +927,12 @@ pub fn datetime_range_picker(
       fn(tm : TimeHMS) -> Unit {
         let r = value.get()
         match r.end {
-          Some(p) => value.set({ start: r.start, end: Some((p.0, tm)) })
+          Some(p) => value.set({ start: r.start, end: Some((p.0, tm)), })
           None => ()
         }
         on_change(value.get())
       },
-      show_seconds=show_seconds,
+      show_seconds~,
     ).mount_into(w)
     handle(w)
     w

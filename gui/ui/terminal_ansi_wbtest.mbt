@@ -41,9 +41,11 @@ test "SGR：属性位置位与复位" {
   t.feed("\u{1b}[1;3;4;7;9mX\u{1b}[22;23;24;27;29mY")
   assert_eq(
     t.cell_attrs(0, 0),
-    TERM_ATTR_BOLD.lor(TERM_ATTR_ITALIC).lor(TERM_ATTR_UNDERLINE).lor(
-      TERM_ATTR_INVERSE,
-    ).lor(TERM_ATTR_STRIKE),
+    TERM_ATTR_BOLD
+    .lor(TERM_ATTR_ITALIC)
+    .lor(TERM_ATTR_UNDERLINE)
+    .lor(TERM_ATTR_INVERSE)
+    .lor(TERM_ATTR_STRIKE),
   )
   assert_eq(t.cell_attrs(1, 0), 0)
   let t2 = Terminal::new(cols=10, rows=2)

@@ -11,35 +11,50 @@
 // 注意后端差异：视口剔除只在纯光栅器后端（Windows / macOS）判交，Linux 的
 // cairo 分支不查（`skip=0` 属预期，不是坏了）——行首 `platform=` 标明这台是哪条腿。
 
+///|
 const W = 1400
+
+///|
 const H = 900
+
+///|
 const N = 20
 
 ///|
 /// 一页典型内容：每行「按钮 + 输入框 + 动态文本」，动态文本挂同一枚 Signal，
 ///  mutate 场景改它即触发整页重测。
-fn page_of(rows : Int, sig : @base.Signal[String]) -> @widget.Node {
+fn page_of(rows : Int32, sig : @base.Signal[String]) -> @widget.Node {
   let rows_nodes : Array[@widget.Node] = []
   for i = 0; i < rows; i = i + 1 {
-    let _ = rows_nodes.push(@ui.row(
-      [
-        @ui.button("保存" + (i % 7).to_string(), variant=@ui.Solid),
-        @ui.input(@base.Store::new("输入框内容")),
-        if i == 0 {
-          @ui.text_dyn(sig, class=[@style.text_secondary])
-        } else {
-          @ui.text("第 " + (i % 11).to_string() + " 行说明文字", class=[@style.text_secondary])
-        },
-      ],
-      column_gap=8.0,
-    ))
+    let _ = rows_nodes.push(
+      @ui.row(
+        [
+          @ui.button("保存" + (i % 7).to_string(), variant=@ui.Solid),
+          @ui.input(@base.Store::new("输入框内容")),
+          if i == 0 {
+            @ui.text_dyn(sig, class=[@style.text_secondary])
+          } else {
+            @ui.text("第 " + (i % 11).to_string() + " 行说明文字", class=[
+              @style.text_secondary,
+            ])
+          },
+        ],
+        column_gap=8.0,
+      ),
+    )
   }
-  @ui.col(rows_nodes, row_gap=6.0, padding=12.0, width=W.to_double(), height=H.to_double())
+  @ui.col(
+    rows_nodes,
+    row_gap=6.0,
+    padding=12.0,
+    width=W.to_double(),
+    height=H.to_double(),
+  )
 }
 
 ///|
 /// 挂好一页并布局一次，返回页控件。
-fn mount_page(rows : Int, sig : @base.Signal[String]) -> @widget.Widget {
+fn mount_page(rows : Int32, sig : @base.Signal[String]) -> @widget.Widget {
   let root = @widget.Widget::new()
   root.set_size(W.to_double(), H.to_double())
   root.set_column()
@@ -50,7 +65,7 @@ fn mount_page(rows : Int, sig : @base.Signal[String]) -> @widget.Widget {
 
 ///|
 /// 布局场景：`mutate` 为真时每帧改一次动态文本（缓存必然失效）。
-fn run_layout(rows : Int, mutate : Bool) -> Unit {
+fn run_layout(rows : Int32, mutate : Bool) -> Unit {
   let sig = @base.Signal::new("基线文本")
   let root = @widget.Widget::new()
   root.set_size(W.to_double(), H.to_double())
@@ -70,17 +85,26 @@ fn run_layout(rows : Int, mutate : Bool) -> Unit {
   let per = ms.to_double() / N.to_double()
   let scene = if mutate { "layout_mutate" } else { "layout_steady" }
   println(
-    "FRAME-COST scene=" + scene + " rows=" + rows.to_string() +
-      " n=" + N.to_string() + " ms=" + ms.to_string() +
-      " per_frame=" + per.to_string() +
-      " ledger=" + @base.paint_profile_summary() +
-      " yoga=" + @yoga.layout_stats_summary(),
+    "FRAME-COST scene=" +
+    scene +
+    " rows=" +
+    rows.to_string() +
+    " n=" +
+    N.to_string() +
+    " ms=" +
+    ms.to_string() +
+    " per_frame=" +
+    per.to_string() +
+    " ledger=" +
+    @base.paint_profile_summary() +
+    " yoga=" +
+    @yoga.layout_stats_summary(),
   )
 }
 
 ///|
 /// 绘制场景：整页重绘 vs 裁到页首一小条（脏矩形的量级）。
-fn run_paint(rows : Int, clip_h : Double) -> Unit {
+fn run_paint(rows : Int32, clip_h : Double) -> Unit {
   let sig = @base.Signal::new("基线文本")
   let page = mount_page(rows, sig)
   let bm = @render.Bitmap::new(W, H)
@@ -105,17 +129,32 @@ fn run_paint(rows : Int, clip_h : Double) -> Unit {
   let scene = if clip_h < 0.0 { "paint_full" } else { "paint_clip" }
   let clip = if clip_h < 0.0 { "full" } else { clip_h.to_string() }
   println(
-    "FRAME-COST scene=" + scene + " rows=" + rows.to_string() +
-      " clip=" + clip + " n=" + N.to_string() +
-      " ms=" + ms.to_string() + " per_frame=" + per.to_string() +
-      " ledger=" + @base.paint_profile_summary(),
+    "FRAME-COST scene=" +
+    scene +
+    " rows=" +
+    rows.to_string() +
+    " clip=" +
+    clip +
+    " n=" +
+    N.to_string() +
+    " ms=" +
+    ms.to_string() +
+    " per_frame=" +
+    per.to_string() +
+    " ledger=" +
+    @base.paint_profile_summary(),
   )
 }
 
+///|
 fn main {
   println(
-    "FRAME-COST bench=frame_cost_probe platform=" + @sys.sys_platform() +
-      " size=" + W.to_string() + "x" + H.to_string(),
+    "FRAME-COST bench=frame_cost_probe platform=" +
+    @sys.sys_platform() +
+    " size=" +
+    W.to_string() +
+    "x" +
+    H.to_string(),
   )
   for rows in [15, 60, 240] {
     run_layout(rows, false)

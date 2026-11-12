@@ -32,7 +32,7 @@ pub(all) struct HistoryItem {
   /// 页面标题（无标题为空串）
   title : String
   /// 累计访问次数
-  visit_count : Int
+  visit_count : Int32
   /// 最近访问时间（Unix 毫秒；Chrome 时间基准换算，未知为 0）
   last_visit_time : Int64
 }
@@ -139,7 +139,7 @@ pub fn bh_download_state_name(state : Int64) -> String {
 
 ///|
 /// 截断：limit <= 0 或超出长度时全收，否则取前 limit 项（返回新数组）。
-fn[T] bh_take(items : Array[T], limit : Int) -> Array[T] {
+fn[T] bh_take(items : Array[T], limit : Int32) -> Array[T] {
   if limit <= 0 || limit >= items.length() {
     return items.copy()
   }
@@ -270,7 +270,7 @@ fn bh_sqlite_error_text(e : @moonsqlitefile.SqliteError) -> String {
 ///|
 /// profile 目录候选名：Default 与 Profile 1..24（本包无 profile 目录
 /// 枚举手段，按固定候选名探测；自定义目录名的 profile 收不到）。
-let bh_profile_probe_max : Int = 24
+let bh_profile_probe_max : Int32 = 24
 
 ///|
 /// profile 目录候选名列表（Default 在前）。
@@ -551,7 +551,7 @@ fn bh_downloads_of_profile(
 /// （并列按 url 升序），取前 limit 项；limit 缺省 200，<= 0 取全部。
 /// hidden 条目（重定向等）已滤除；单 profile 读失败跳过，全部失败报错。
 pub fn bh_history(
-  limit? : Int = 200,
+  limit~ : Int32 = 200,
 ) -> Result[Array[HistoryItem], BrowserHistoryError] {
   match bh_merge_profiles(fn(_p, bytes) { bh_history_of_profile(bytes) }) {
     Err(e) => Err(e)
@@ -563,7 +563,7 @@ pub fn bh_history(
 /// 下载记录：聚合全部已探测 profile 的 downloads 表，按开始时间降序
 /// （并列按 target_path 升序），取前 limit 项；limit 缺省 50，<= 0 取全部。
 pub fn bh_downloads(
-  limit? : Int = 50,
+  limit~ : Int32 = 50,
 ) -> Result[Array[DownloadItem], BrowserHistoryError] {
   match bh_merge_profiles(fn(_p, bytes) { bh_downloads_of_profile(bytes) }) {
     Err(e) => Err(e)
@@ -578,7 +578,7 @@ pub fn bh_downloads(
 /// 而非 200）。
 pub fn bh_search(
   keyword : String,
-  limit? : Int = 50,
+  limit~ : Int32 = 50,
 ) -> Result[Array[HistoryItem], BrowserHistoryError] {
   match bh_merge_profiles(fn(_p, bytes) { bh_history_of_profile(bytes) }) {
     Err(e) => Err(e)

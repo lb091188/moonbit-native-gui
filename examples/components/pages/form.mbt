@@ -7,26 +7,34 @@
 // ③ `radio_group` 的值是索引 `Store[Int]`；
 // ④ `checkbox` 的 Store 即状态源；
 // ⑤ 宽高/间距全走命名参数（没有 CSS 样式通道）。
+
+///|
 pub fn page_form(_app : @shared.App) -> @widget.Node {
-  let qty : @base.Store[Int] = @base.Store::new(3)
-  let qty2 : @base.Store[Int] = @base.Store::new(1)
+  let qty : @base.Store[Int32] = @base.Store::new(3)
+  let qty2 : @base.Store[Int32] = @base.Store::new(1)
   let slider_val : @base.Store[Double] = @base.Store::new(30.0)
-  let rate_val : @base.Store[Int] = @base.Store::new(3)
+  let rate_val : @base.Store[Int32] = @base.Store::new(3)
   let picked_color : @base.Store[String] = @base.Store::new("#2D68C4")
   let dp_val : @base.Store[@ui.DateYMD?] = @base.Store::new(None)
   let sync : @base.Store[Bool] = @base.Store::new(false)
   let notify : @base.Store[Bool] = @base.Store::new(true)
-  let theme_idx : @base.Store[Int] = @base.Store::new(1)
-  let radio_idx : @base.Store[Int] = @base.Store::new(0)
+  let theme_idx : @base.Store[Int32] = @base.Store::new(1)
+  let radio_idx : @base.Store[Int32] = @base.Store::new(0)
   let wifi_on : @base.Store[Bool] = @base.Store::new(true)
   let locked : @base.Store[Bool] = @base.Store::new(false)
-  let dtr : @base.Store[@ui.DateTimeRange] = @base.Store::new({ start: None, end: None })
-  let tr_secs : @base.Store[@ui.TimeRange] = @base.Store::new({ start: None, end: None })
+  let dtr : @base.Store[@ui.DateTimeRange] = @base.Store::new({
+    start: None,
+    end: None,
+  })
+  let tr_secs : @base.Store[@ui.TimeRange] = @base.Store::new({
+    start: None,
+    end: None,
+  })
   let nick : @base.Store[String] = @base.Store::new("")
   let mail : @base.Store[String] = @base.Store::new("")
   let err_nick = @ui.validate(nick, @ui.all([@ui.required(), @ui.min_len(2)]))
   let err_mail = @ui.validate(mail, @ui.email())
-  let count : @base.Store[Int] = @base.Store::new(0)
+  let count : @base.Store[Int32] = @base.Store::new(0)
   let was_ok = Ref(false)
   let bump_ok = fn(_s : String) -> Unit {
     let ok = err_nick.get().length() == 0 && err_mail.get().length() == 0
@@ -58,7 +66,11 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
               width=300.0,
             ),
             @ui.textarea(
-              @base.Store::new(@shared.tr("form.textarea_demo", "多行文本输入演示。\n第二行内容。")),
+              @base.Store::new(
+                @shared.tr(
+                  "form.textarea_demo", "多行文本输入演示。\n第二行内容。",
+                ),
+              ),
               rows=3,
               width=300.0,
             ),
@@ -79,19 +91,34 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
       "stepper 步进器 0..10 钳制；slider 自绘轨道 + thumb（拖拽 step 5 量化）；rate 五角星 hover 预亮——值都住 Store，展示端 bind 直连。",
       [
         @ui.stepper(qty, min=0, max=10, step=1),
-        @ui.bind_label(qty, fn(v) { @shared.tr_with("dyn.qty_now", [("v", v.to_string())], "当前数量：\{v}") }),
+        @ui.bind_label(qty, fn(v) {
+          @shared.tr_with(
+            "dyn.qty_now",
+            [("v", v.to_string())],
+            "当前数量：\{v}",
+          )
+        }),
         @ui.slider(slider_val, min=0.0, max=100.0, step=5.0, width=200.0),
-        @ui.bind_label(slider_val, fn(v) { @shared.tr_with("dyn.slider_now", [("v", v.round().to_string())], "当前值：\{v.round()}") }),
+        @ui.bind_label(slider_val, fn(v) {
+          @shared.tr_with(
+            "dyn.slider_now",
+            [("v", v.round().to_string())],
+            "当前值：\{v.round()}",
+          )
+        }),
         @ui.rate(rate_val),
-        @ui.bind_label(rate_val, fn(v) { @shared.tr_with("dyn.rate_now", [("v", v.to_string())], "评分：\{v} 星") }),
+        @ui.bind_label(rate_val, fn(v) {
+          @shared.tr_with(
+            "dyn.rate_now",
+            [("v", v.to_string())],
+            "评分：\{v} 星",
+          )
+        }),
       ],
       code=[
-        "let qty : @base.Store[Int] = @base.Store::new(3)",
-        "@ui.stepper(qty, min=0, max=10, step=1)",
-        "@ui.bind_label(qty, fn(v) { \"当前数量：\\{v}\" })",
-        "let slider_val : @base.Store[Double] = @base.Store::new(30.0)",
-        "@ui.slider(slider_val, min=0.0, max=100.0, step=5.0, width=200.0)",
-        "let rate_val : @base.Store[Int] = @base.Store::new(3)",
+        "let qty : @base.Store[Int] = @base.Store::new(3)", "@ui.stepper(qty, min=0, max=10, step=1)",
+        "@ui.bind_label(qty, fn(v) { \"当前数量：\\{v}\" })", "let slider_val : @base.Store[Double] = @base.Store::new(30.0)",
+        "@ui.slider(slider_val, min=0.0, max=100.0, step=5.0, width=200.0)", "let rate_val : @base.Store[Int] = @base.Store::new(3)",
         "@ui.rate(rate_val)",
       ],
     ),
@@ -103,7 +130,13 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
         @ui.col(
           [
             @ui.select(
-              [@shared.tx("杭州"), @shared.tx("北京"), @shared.tx("上海"), @shared.tx("深圳"), @shared.tx("广州")],
+              [
+                @shared.tx("杭州"),
+                @shared.tx("北京"),
+                @shared.tx("上海"),
+                @shared.tx("深圳"),
+                @shared.tx("广州"),
+              ],
               @base.Store::new(""),
               clearable=true,
               width=170.0,
@@ -117,8 +150,7 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
       ],
       code=[
         "@ui.select([\"杭州\", \"北京\", \"上海\", \"深圳\", \"广州\"], city, clearable=true, width=170.0)",
-        "@ui.color_picker(color)",
-        "@ui.bind_label(color, fn(c) { c })",
+        "@ui.color_picker(color)", "@ui.bind_label(color, fn(c) { c })",
       ],
     ),
     @shared.section(
@@ -132,22 +164,47 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
             @ui.checkbox(@shared.tx("接收通知"), notify),
             @ui.row(
               [
-                @ui.bind_label(sync, fn(v) { if v { @shared.tx("同步：开") } else { @shared.tx("同步：关") } }),
-                @ui.bind_label(notify, fn(v) { if v { @shared.tx("通知：开") } else { @shared.tx("通知：关") } }),
+                @ui.bind_label(sync, fn(v) {
+                  if v {
+                    @shared.tx("同步：开")
+                  } else {
+                    @shared.tx("同步：关")
+                  }
+                }),
+                @ui.bind_label(notify, fn(v) {
+                  if v {
+                    @shared.tx("通知：开")
+                  } else {
+                    @shared.tx("通知：关")
+                  }
+                }),
               ],
               column_gap=24.0,
             ),
             @ui.row(
               [
-                @ui.radio_group(["浅色", "深色", "跟随系统"].map(x => @shared.tx(x)), theme_idx),
-                @ui.radio_group(["选项一", "选项二"].map(x => @shared.tx(x)), radio_idx, disabled=true),
+                @ui.radio_group(
+                  ["浅色", "深色", "跟随系统"].map(x => @shared.tx(x)),
+                  theme_idx,
+                ),
+                @ui.radio_group(
+                  ["选项一", "选项二"].map(x => @shared.tx(x)),
+                  radio_idx,
+                  disabled=true,
+                ),
               ],
               column_gap=24.0,
             ),
             @ui.row(
               [
                 @ui.switch(wifi_on),
-                @ui.bind_label(wifi_on, fn(v) { if v { @shared.tx("已开启") } else { @shared.tx("已关闭") } }),
+                @ui.bind_label(wifi_on, fn(v) {
+                  if v {
+                    @shared.tx("已开启")
+                  } else {
+                    @shared.tx("已关闭")
+                  }
+                }),
                 @ui.switch(locked, disabled=true),
                 @ui.text(@shared.tx("禁用")),
               ],
@@ -159,13 +216,10 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
         ),
       ],
       code=[
-        "let sync : @base.Store[Bool] = @base.Store::new(false)",
-        "@ui.checkbox(\"启用自动同步\", sync)",
+        "let sync : @base.Store[Bool] = @base.Store::new(false)", "@ui.checkbox(\"启用自动同步\", sync)",
         "@ui.bind_label(sync, fn(v) { if v { \"同步：开\" } else { \"同步：关\" } })",
-        "let theme_idx : @base.Store[Int] = @base.Store::new(1)",
-        "@ui.radio_group([\"浅色\", \"深色\", \"跟随系统\"], theme_idx)",
-        "let wifi_on : @base.Store[Bool] = @base.Store::new(true)",
-        "@ui.switch(wifi_on)",
+        "let theme_idx : @base.Store[Int] = @base.Store::new(1)", "@ui.radio_group([\"浅色\", \"深色\", \"跟随系统\"], theme_idx)",
+        "let wifi_on : @base.Store[Bool] = @base.Store::new(true)", "@ui.switch(wifi_on)",
         "@ui.switch(@base.Store::new(false), disabled=true)",
       ],
     ),
@@ -194,32 +248,40 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
           align_items=@yoga.AlignItems::FlexStart,
         ),
         @ui.calendar(),
-        @ui.col([
-          @ui.datetime_range_picker(dtr),
-          @ui.bind_label(dtr, fn(r) {
-            match (r.start, r.end) {
-              (Some((sd, st)), Some((ed, et))) => @shared.tr_with(
-                  "dyn.dt_range",
-                  [
-                    ("a", sd.format()),
-                    ("b", st.format()),
-                    ("c", ed.format()),
-                    ("d", et.format()),
-                  ],
-                  "日期时间区间：\{sd.format()} \{st.format()} ~ \{ed.format()} \{et.format()}",
-                )
-              _ => @shared.tx("日期时间区间：未完成选择")
-            }
-          }),
-        ], row_gap=6.0),
+        @ui.col(
+          [
+            @ui.datetime_range_picker(dtr),
+            @ui.bind_label(dtr, fn(r) {
+              match (r.start, r.end) {
+                (Some((sd, st)), Some((ed, et))) =>
+                  @shared.tr_with(
+                    "dyn.dt_range",
+                    [
+                      ("a", sd.format()),
+                      ("b", st.format()),
+                      ("c", ed.format()),
+                      ("d", et.format()),
+                    ],
+                    "日期时间区间：\{sd.format()} \{st.format()} ~ \{ed.format()} \{et.format()}",
+                  )
+                _ => @shared.tx("日期时间区间：未完成选择")
+              }
+            }),
+          ],
+          row_gap=6.0,
+        ),
         @ui.col(
           [
             @ui.time_range_picker(tr_secs, show_seconds=true, width=120.0),
             @ui.bind_label(tr_secs, fn(r) {
               match (r.start, r.end) {
-                (Some(a), Some(b)) => @shared.tr_with(
+                (Some(a), Some(b)) =>
+                  @shared.tr_with(
                     "dyn.t_range",
-                    [("a", a.format(show_seconds=true)), ("b", b.format(show_seconds=true))],
+                    [
+                      ("a", a.format(show_seconds=true)),
+                      ("b", b.format(show_seconds=true)),
+                    ],
                     "时间区间：\{a.format(show_seconds=true)} ~ \{b.format(show_seconds=true)}",
                   )
                 _ => @shared.tx("时间区间：未完成选择")
@@ -230,13 +292,10 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
         ),
       ],
       code=[
-        "let dp : @base.Store[@ui.DateYMD?] = @base.Store::new(None)",
-        "@ui.date_picker(dp, clearable=true, width=170.0)",
+        "let dp : @base.Store[@ui.DateYMD?] = @base.Store::new(None)", "@ui.date_picker(dp, clearable=true, width=170.0)",
         "@ui.bind(dp.signal(), fn(d) { match d { Some(v) => v.format()  None -> \"未选\" } })",
-        "@ui.calendar()",
-        "let dtr : @base.Store[@ui.DateTimeRange] = @base.Store::new({ start: None, end: None })",
-        "@ui.datetime_range_picker(dtr)",
-        "@ui.time_range_picker(tr, show_seconds=true, width=120.0)",
+        "@ui.calendar()", "let dtr : @base.Store[@ui.DateTimeRange] = @base.Store::new({ start: None, end: None })",
+        "@ui.datetime_range_picker(dtr)", "@ui.time_range_picker(tr, show_seconds=true, width=120.0)",
       ],
     ),
     @shared.section(
@@ -247,18 +306,28 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
         @ui.form(@shared.tx("用户设置"), [
           @ui.form_item(
             @shared.tx("用户名"),
-            @ui.input(@base.Store::new("moonbit"), placeholder=@shared.tx("登录名"), width=200.0, clearable=true),
+            @ui.input(
+              @base.Store::new("moonbit"),
+              placeholder=@shared.tx("登录名"),
+              width=200.0,
+              clearable=true,
+            ),
           ),
-          @ui.form_item(@shared.tx("城市"), @ui.input(@base.Store::new(@shared.tx("杭州")), placeholder=@shared.tx("城市名"), width=200.0)),
+          @ui.form_item(
+            @shared.tx("城市"),
+            @ui.input(
+              @base.Store::new(@shared.tx("杭州")),
+              placeholder=@shared.tx("城市名"),
+              width=200.0,
+            ),
+          ),
           @ui.form_item(@shared.tx("数量"), @ui.stepper(qty2, min=1, max=9)),
         ]),
       ],
       code=[
-        "@ui.form(\"用户设置\", [",
-        "  @ui.form_item(\"用户名\", @ui.input(",
+        "@ui.form(\"用户设置\", [", "  @ui.form_item(\"用户名\", @ui.input(",
         "    @base.Store::new(\"moonbit\"), placeholder=\"登录名\", width=200.0, clearable=true,",
-        "  )),",
-        "  @ui.form_item(\"数量\", @ui.stepper(qty2, min=1, max=9)),",
+        "  )),", "  @ui.form_item(\"数量\", @ui.stepper(qty2, min=1, max=9)),",
         "])",
       ],
     ),
@@ -270,7 +339,11 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
         @ui.form(@shared.tx("注册资料"), [
           @ui.form_item(
             @shared.tx("昵称"),
-            @ui.input(nick, placeholder=@shared.tx("至少 2 个字符"), width=200.0),
+            @ui.input(
+              nick,
+              placeholder=@shared.tx("至少 2 个字符"),
+              width=200.0,
+            ),
             error=err_nick,
           ),
           @ui.form_item(
@@ -279,12 +352,17 @@ pub fn page_form(_app : @shared.App) -> @widget.Node {
             error=err_mail,
           ),
         ]),
-        @ui.bind_label(count, fn(n : Int) { @shared.tr_with("dyn.valid_passed", [("n", n.to_string())], "已通过校验 \{n.to_string()} 项") }),
+        @ui.bind_label(count, fn(n : Int32) {
+          @shared.tr_with(
+            "dyn.valid_passed",
+            [("n", n.to_string())],
+            "已通过校验 \{n.to_string()} 项",
+          )
+        }),
       ],
       code=[
         "let err_nick = @ui.validate(nick, @ui.all([@ui.required(), @ui.min_len(2)]))",
-        "let err_mail = @ui.validate(mail, @ui.email())",
-        "@ui.form_item(\"昵称\", @ui.input(nick, placeholder=\"至少 2 个字符\"), error=err_nick)",
+        "let err_mail = @ui.validate(mail, @ui.email())", "@ui.form_item(\"昵称\", @ui.input(nick, placeholder=\"至少 2 个字符\"), error=err_nick)",
       ],
     ),
   ])

@@ -14,12 +14,14 @@
 //   moon run --release bench  # release
 // 计时用 `moonbitlang/core/env` 的毫秒时钟（bench 是外部包，引擎本体保持零依赖）。
 
+///|
 fn leaf(w : Double, h : Double) -> @src.Node {
   let n = @src.Node::new()
   n.set_measure(fn(_a, _b) { (w, h) })
   n
 }
 
+///|
 fn text(w : Double, h : Double, b : Double) -> @src.Node {
   let n = @src.Node::new()
   n.set_measure(fn(_a, _b) { (w, h) })
@@ -48,7 +50,10 @@ fn build_row() -> @src.Node {
 
 ///|
 /// 建树：返回根节点与探针（第一个文字叶子、最后一行，用于读取结果防优化掉）。
-fn build_tree(groups : Int, rows : Int) -> (@src.Node, @src.Node, @src.Node) {
+fn build_tree(
+  groups : Int32,
+  rows : Int32,
+) -> (@src.Node, @src.Node, @src.Node) {
   let root = @src.Node::new()
   root.set_width(@src.fixed(1280.0))
   root.set_height(@src.fixed(800.0))
@@ -85,15 +90,19 @@ fn probe_sum(probe : @src.Node, probe_text : @src.Node) -> Double {
   a.width + a.height + a.left + a.top + b.width + b.height
 }
 
-fn report(name : String, rounds : Int, ms : UInt64, sum : Double) -> Unit {
-  let per_round_us = (
-    ms.to_double() * 1000.0 / (if rounds > 0 { rounds.to_double() } else { 1.0 })
-  ).round().to_int()
+///|
+fn report(name : String, rounds : Int32, ms : UInt64, sum : Double) -> Unit {
+  let per_round_us = (ms.to_double() *
+    1000.0 /
+    (if rounds > 0 { rounds.to_double() } else { 1.0 }))
+    .round()
+    .to_int()
   println(
     "\{name}：\{rounds} 轮 合计 \{ms.to_int()}ms，每轮 \{per_round_us}µs（校验值 \{sum.round().to_int()}）",
   )
 }
 
+///|
 fn main {
   let rounds = 500
   let (root, probe, probe_text) = build_tree(20, 10)
@@ -103,7 +112,9 @@ fn main {
   @src.calculate_layout(root, Some(1280.0), Some(800.0))
   let sum0 = probe_sum(probe, probe_text)
   let t_first = @env.now() - t0
-  println("首轮全量：\{t_first.to_int()}ms（校验值 \{sum0.round().to_int()}）")
+  println(
+    "首轮全量：\{t_first.to_int()}ms（校验值 \{sum0.round().to_int()}）",
+  )
 
   // 场景 1：同参数重复布局
   let mut acc = 0.0
@@ -130,7 +141,7 @@ fn main {
   let mut acc3 = 0.0
   let t3 = @env.now()
   for i in 0..<rounds {
-    let w = (800 + (i % 600)).to_double()
+    let w = (800 + i % 600).to_double()
     root.set_width(@src.fixed(w))
     @src.calculate_layout(root, Some(1280.0), Some(800.0))
     acc3 = acc3 + probe_sum(probe, probe_text)

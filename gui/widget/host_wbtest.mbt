@@ -47,7 +47,7 @@ fn empty_node() -> Node {
 
 ///|
 /// 当前窗的窗号（无窗给 -1）；测试里反复要读，且 `WindowHost` 没有 Eq 可比。
-fn active_wid() -> Int {
+fn active_wid() -> Int32 {
   match host_active() {
     Some(x) => x.wid()
     None => -1
@@ -279,8 +279,8 @@ test "invalidate_id 只标命中窗的局部脏区" {
 ///|
 /// 整窗置脏（`full=true`）在同批内不可被局部置脏收窄成小矩形。
 test "整窗置脏之后同批的局部置脏不许收窄脏区" {
-  let r1 : Rect = { x: 10.0, y: 10.0, w: 20.0, h: 20.0 }
-  let r2 : Rect = { x: 40.0, y: 40.0, w: 8.0, h: 8.0 }
+  let r1 : Rect = { x: 10.0, y: 10.0, w: 20.0, h: 20.0, }
+  let r2 : Rect = { x: 40.0, y: 40.0, w: 8.0, h: 8.0, }
   // 没请求整窗：局部置脏照常累积
   let acc = accept_widget_rect(false, Some(r1), r2)
   match acc {
@@ -320,12 +320,11 @@ test "mark_focus_rect 按焦点 id 命中，不拿它当实例 id 用" {
   // 实例 id 撞上焦点号的那个控件（decoy 的实例 id 可能恰为 9）不该被标脏
   a.mark_focus_rect(Some(9))
   match a.dirty_rect {
-    Some(r) => {
+    Some(r) =>
       assert_true(
         r.w >= 120.0,
         msg="脏区没落在焦点 id=9 的控件上（w=\{r.w}）：把焦点 id 当实例 id 用了",
       )
-    }
     None => fail("焦点标脏丢了脏区")
   }
   // 树里没有这个焦点号：整窗兜底（宁可多画不可漏画）
@@ -352,10 +351,11 @@ test "mark_state_chain 只把带状态桶的祖先并进脏区" {
   a.root.relayout(200.0, 200.0)
   a.mark_state_chain(cell.id)
   match a.dirty_rect {
-    Some(r) => assert_true(
-      r.w >= 200.0,
-      msg="只标了鼠标那一格（宽 \{r.w}），整行悬停底色不会重画",
-    )
+    Some(r) =>
+      assert_true(
+        r.w >= 200.0,
+        msg="只标了鼠标那一格（宽 \{r.w}），整行悬停底色不会重画",
+      )
     None => fail("悬停标脏丢了脏区")
   }
   // 链上没有状态祖先：代价仍只是最深那颗控件的矩形
@@ -369,10 +369,11 @@ test "mark_state_chain 只把带状态桶的祖先并进脏区" {
   b.root.relayout(200.0, 200.0)
   b.mark_state_chain(leaf.id)
   match b.dirty_rect {
-    Some(r) => assert_true(
-      r.w <= 50.5,
-      msg="没有状态祖先却把整行并进了脏区（宽 \{r.w}）",
-    )
+    Some(r) =>
+      assert_true(
+        r.w <= 50.5,
+        msg="没有状态祖先却把整行并进了脏区（宽 \{r.w}）",
+      )
     None => fail("悬停标脏丢了脏区")
   }
   host_reset()
@@ -404,15 +405,27 @@ test "弹框开着时焦点链只收遮罩层，收框后页面回来" {
   // Tab 一步就落到钮上）
   assert_eq(a.focus.count(), 1)
   assert_false(a.focus.is_focused(777))
-  assert_true(a.focus.move_focus(false) == Some(777), msg="Tab 没落到遮罩层里的钮")
-  assert_false(a.focus.focus(4242), msg="页面控件还在弹框开着时的焦点链里")
+  assert_true(
+    a.focus.move_focus(false) == Some(777),
+    msg="Tab 没落到遮罩层里的钮",
+  )
+  assert_false(
+    a.focus.focus(4242),
+    msg="页面控件还在弹框开着时的焦点链里",
+  )
   // 轻提示这类「放行档」叠在上面不改变归属
   let tip_id = overlay_show_at(in_layer, 4.0, 4.0, dismiss_on_outside=false)
   a.sync_focus()
-  assert_true(a.focus.is_focused(777), msg="遮罩层之上叠了放行档就丢了归属")
+  assert_true(
+    a.focus.is_focused(777),
+    msg="遮罩层之上叠了放行档就丢了归属",
+  )
   overlay_hide(tip_id)
   overlay_hide(id)
   a.sync_focus()
-  assert_true(a.focus.focus(4242), msg="收框后页面控件没回到焦点链")
+  assert_true(
+    a.focus.focus(4242),
+    msg="收框后页面控件没回到焦点链",
+  )
   host_reset()
 }

@@ -47,12 +47,7 @@ test "rich_text：混排命中落字符边界、拖选区间即原文子串" {
   for ch in src {
     let x = at.caret_x(cb, ctl.rect.w, ctl.rect.h)
     assert_true(x is Some(_), msg="caret_x 缺值（b=\{cb}）")
-    let back = at.hit(
-      x.unwrap() + 0.5,
-      y,
-      ctl.rect.w,
-      ctl.rect.h,
-    )
+    let back = at.hit(x.unwrap() + 0.5, y, ctl.rect.w, ctl.rect.h)
     assert_eq(
       back,
       Some(cb),
@@ -65,15 +60,27 @@ test "rich_text：混排命中落字符边界、拖选区间即原文子串" {
   let b1 = @utf8.encode("富文本ABC").length()
   let x0 = at.caret_x(b0, ctl.rect.w, ctl.rect.h).unwrap()
   let x1 = at.caret_x(b1, ctl.rect.w, ctl.rect.h).unwrap()
-  let _ = root.dispatch_pointer(
-    { kind: @widget.PointerKind::Down, x: ctl.rect.x + x0 + 0.5, y, button: 1, mods: 0 },
-  )
-  let _ = root.dispatch_pointer(
-    { kind: @widget.PointerKind::Move, x: ctl.rect.x + x1 + 0.5, y, button: 0, mods: 0 },
-  )
-  let _ = root.dispatch_pointer(
-    { kind: @widget.PointerKind::Up, x: ctl.rect.x + x1 + 0.5, y, button: 1, mods: 0 },
-  )
+  let _ = root.dispatch_pointer({
+    kind: @widget.PointerKind::Down,
+    x: ctl.rect.x + x0 + 0.5,
+    y,
+    button: 1,
+    mods: 0,
+  })
+  let _ = root.dispatch_pointer({
+    kind: @widget.PointerKind::Move,
+    x: ctl.rect.x + x1 + 0.5,
+    y,
+    button: 0,
+    mods: 0,
+  })
+  let _ = root.dispatch_pointer({
+    kind: @widget.PointerKind::Up,
+    x: ctl.rect.x + x1 + 0.5,
+    y,
+    button: 1,
+    mods: 0,
+  })
   match state.ed.selection() {
     Some((a, b)) => {
       assert_eq(a, b0, msg="拖选起点不在「富」字前缘")

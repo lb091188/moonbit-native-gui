@@ -13,7 +13,7 @@ pub struct MngReg {
   exprs : Map[String, () -> String]
   conds : Map[String, () -> Bool]
   handlers : Map[String, () -> Unit]
-  ints : Map[String, @base.Store[Int]]
+  ints : Map[String, @base.Store[Int32]]
   bools : Map[String, @base.Store[Bool]]
   strs : Map[String, @base.Store[String]]
   calls : Map[String, (Array[ExprValue]) -> ExprValue]
@@ -69,19 +69,31 @@ pub fn MngReg::handler(self : MngReg, name : String, f : () -> Unit) -> Unit {
 }
 
 ///|
-pub fn MngReg::int(self : MngReg, name : String, s : @base.Store[Int]) -> Unit {
+pub fn MngReg::int(
+  self : MngReg,
+  name : String,
+  s : @base.Store[Int32],
+) -> Unit {
   self.note_key(name)
   let _ = self.ints.set(name, s)
 }
 
 ///|
-pub fn MngReg::bool(self : MngReg, name : String, s : @base.Store[Bool]) -> Unit {
+pub fn MngReg::bool(
+  self : MngReg,
+  name : String,
+  s : @base.Store[Bool],
+) -> Unit {
   self.note_key(name)
   let _ = self.bools.set(name, s)
 }
 
 ///|
-pub fn MngReg::str(self : MngReg, name : String, s : @base.Store[String]) -> Unit {
+pub fn MngReg::str(
+  self : MngReg,
+  name : String,
+  s : @base.Store[String],
+) -> Unit {
   self.note_key(name)
   let _ = self.strs.set(name, s)
 }
@@ -104,7 +116,7 @@ priv enum MJ {
 ///|
 priv struct JP {
   cs : Array[Char]
-  mut i : Int
+  mut i : Int32
 }
 
 ///|
@@ -262,7 +274,12 @@ fn jp_value(p : JP) -> Result[MJ, String] {
     let start = p.i
     while p.i < p.cs.length() {
       let d = p.cs[p.i]
-      if (d >= '0' && d <= '9') || d == '-' || d == '+' || d == '.' || d == 'e' || d == 'E' {
+      if (d >= '0' && d <= '9') ||
+        d == '-' ||
+        d == '+' ||
+        d == '.' ||
+        d == 'e' ||
+        d == 'E' {
         p.i += 1
       } else {
         break
@@ -410,10 +427,9 @@ let mng_regs : Map[String, MngReg] = Map([])
 pub const MNG_IR_REV : String = "mng-ir-1"
 
 ///|
-fn mng_hex8(h : Int) -> String {
+fn mng_hex8(h : Int32) -> String {
   let digits : Array[String] = [
-    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e",
-    "f",
+    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f",
   ]
   let out = StringBuilder()
   let mut i = 7
@@ -502,10 +518,7 @@ fn mng_handshake(parsed : MJ, reg : MngReg) -> String? {
 ///|
 /// 回执落盘（dev 工具读 `<补丁>.ack` 决定 HOT 还是转 COLD）：`ok` / `stale<TAB>原因`。
 fn mng_write_ack(irpath : String, status : String) -> Unit {
-  let _ =
-    @fs.write_string_to_file(irpath + ".ack", status) catch {
-      _ => ()
-    }
+  let _ = @fs.write_string_to_file(irpath + ".ack", status) catch { _ => () }
 }
 
 ///|
@@ -516,7 +529,11 @@ fn mng_write_ack(irpath : String, status : String) -> Unit {
 let wake_installed : Ref[Bool] = Ref(false)
 
 ///|
-pub fn mng_dev_page(page : String, reg : MngReg, build : () -> @widget.Node) -> @widget.Node {
+pub fn mng_dev_page(
+  page : String,
+  reg : MngReg,
+  build : () -> @widget.Node,
+) -> @widget.Node {
   if !wake_installed.val {
     wake_installed.val = true
     mng_dev_wake_default()
@@ -573,9 +590,11 @@ fn mj_node(j : MJ, reg : MngReg) -> Result[@widget.Node, String] {
           match reg.exprs.get(key) {
             Some(f) =>
               Ok(
-                @ui.bind(@base.Signal::computed(f), fn(s : String) {
-                  s
-                }, class=cls),
+                @ui.bind(
+                  @base.Signal::computed(f),
+                  fn(s : String) { s },
+                  class=cls,
+                ),
               )
             None => Err(mreg_miss("动态文本", key))
           }
@@ -652,12 +671,14 @@ fn mj_node(j : MJ, reg : MngReg) -> Result[@widget.Node, String] {
         None => None
       }
       // text 参数：静态直出；动态包 bind；click 可选
-      Ok(text.node(fn(s : String) {
-        match click {
-          Some(f) => @ui.button(s, on_click=f, class=cls)
-          None => @ui.button(s, class=cls)
-        }
-      }))
+      Ok(
+        text.node(fn(s : String) {
+          match click {
+            Some(f) => @ui.button(s, on_click=f, class=cls)
+            None => @ui.button(s, class=cls)
+          }
+        }),
+      )
     }
     "checkbox" | "switch" => {
       let name = match state_of(j) {
@@ -665,7 +686,7 @@ fn mj_node(j : MJ, reg : MngReg) -> Result[@widget.Node, String] {
         None => return Err("\{kind} 节点缺 state")
       }
       match reg.bools.get(name) {
-        Some(st) => {
+        Some(st) =>
           if kind == "checkbox" {
             let label = match mj_param(j, "label", reg, "") {
               Ok(p) => p
@@ -675,7 +696,6 @@ fn mj_node(j : MJ, reg : MngReg) -> Result[@widget.Node, String] {
           } else {
             Ok(@ui.switch(st, class=cls))
           }
-        }
         None => Err(mreg_miss("布尔状态", name))
       }
     }
@@ -719,7 +739,8 @@ fn mj_node(j : MJ, reg : MngReg) -> Result[@widget.Node, String] {
         None => Err(mreg_miss("字符串状态", name))
       }
     }
-    other => Err("组件「\{other}」不在 applier v1 表内——回 COLD 重启")
+    other =>
+      Err("组件「\{other}」不在 applier v1 表内——回 COLD 重启")
   }
 }
 
@@ -766,7 +787,12 @@ fn mj_arg(j : MJ, name : String) -> MJ? {
 
 ///|
 /// 参数取值：lit → 静态串；expr → 注册表动态信号。fallback 为静态缺省串。
-fn mj_param(j : MJ, name : String, reg : MngReg, default : String) -> Result[MParam, String] {
+fn mj_param(
+  j : MJ,
+  name : String,
+  reg : MngReg,
+  default : String,
+) -> Result[MParam, String] {
   match mj_arg(j, name) {
     None => Ok(MParamStatic(default))
     Some(v) =>
@@ -792,7 +818,7 @@ fn mj_param(j : MJ, name : String, reg : MngReg, default : String) -> Result[MPa
 ///|
 /// 补丁应用：解析 → 按 `page` 取页 → 构树 → 沿登记 holder 原位替换（整代退订照路由纪律）。
 pub fn mng_dev_apply(json : String) -> Result[Unit, String] {
-  let parsed = match jp_value({ cs: chars_of_m(json), i: 0 }) {
+  let parsed = match jp_value({ cs: chars_of_m(json), i: 0, }) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -802,7 +828,10 @@ pub fn mng_dev_apply(json : String) -> Result[Unit, String] {
   }
   let holder = match mng_holders.get(page) {
     Some(h) => h
-    None => return Err("页「\{page}」未挂载（holder 未登记）——先打开该页")
+    None =>
+      return Err(
+        "页「\{page}」未挂载（holder 未登记）——先打开该页",
+      )
   }
   let root = match mj_get(parsed, "root") {
     Some(r) => r
@@ -810,7 +839,10 @@ pub fn mng_dev_apply(json : String) -> Result[Unit, String] {
   }
   let reg = match mng_regs.get(page) {
     Some(r) => r
-    None => return Err("页「\{page}」未登记注册表——该页挂载时用 mng_dev_set_reg 登记")
+    None =>
+      return Err(
+        "页「\{page}」未登记注册表——该页挂载时用 mng_dev_set_reg 登记",
+      )
   }
   // 握手先行：对不上不建树、不留在旧树里「改了没反应」，回执交工具转 COLD 重启回原页
   match mng_handshake(parsed, reg) {
@@ -892,12 +924,9 @@ pub fn mng_dev_apply_from_file(path : String) -> Result[Unit, String] {
 ///|
 /// reload-theme 通道：读主题 JSON 文本（dev 循环经 --mng-theme 推来的路径）。
 pub fn mng_dev_theme_src(path : String) -> String? {
-  let text = @fs.read_file_to_string(path) catch {
-    _ => return None
-  }
+  let text = @fs.read_file_to_string(path) catch { _ => return None }
   Some(text)
 }
-
 
 ///|
 /// dev 三通道默认接线（脚手架与应用一行接入）：--mng-hot 补丁原位重挂、

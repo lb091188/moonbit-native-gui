@@ -44,7 +44,7 @@ pub fn RadarSeries::make(name : String, values : Array[Double]) -> RadarSeries {
 ///|
 /// 维度索引 → 轴角（弧度）：顶点 0 在 12 点方向，顺时针均布（画布语义
 /// 0 指向右）。n <= 0 一律返回 12 点方向。
-pub fn radar_axis_angle(i : Int, n : Int) -> Double {
+pub fn radar_axis_angle(i : Int32, n : Int32) -> Double {
   if n <= 0 {
     -pi / 2.0
   } else {
@@ -59,7 +59,7 @@ pub fn radar_polygon(
   cx : Double,
   cy : Double,
   r : Double,
-  n : Int,
+  n : Int32,
 ) -> Array[(Double, Double)] {
   let out : Array[(Double, Double)] = []
   if n <= 0 || r < 0.0 {
@@ -171,7 +171,7 @@ fn radar_draw_chart(
   h : Double,
   indicators : Array[RadarIndicator],
   series : Array[RadarSeries],
-  rings : Int,
+  rings : Int32,
   show_legend : Bool,
 ) -> Unit {
   if w <= 0.0 || h <= 0.0 {
@@ -295,11 +295,11 @@ fn radar_draw_chart(
 pub fn radar_chart_t(
   indicators : @base.Store[Array[RadarIndicator]],
   series : @base.Store[Array[RadarSeries]],
-  rings? : Int = 4,
-  show_legend? : Bool = true,
-  width? : Double = 0.0,
-  height? : Double = 340.0,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  rings~ : Int32 = 4,
+  show_legend~ : Bool = true,
+  width~ : Double = 0.0,
+  height~ : Double = 340.0,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.follow_store(indicators)
   @ui.follow_store(series)

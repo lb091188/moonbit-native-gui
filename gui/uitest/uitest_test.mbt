@@ -4,10 +4,14 @@
 ///|
 test "计数器：点一下加一（方案 §4.2 原例）" {
   let n = @base.Store::new(0)
-  let t = @uitest.mount_all([
-    @ui.bind_label(n, fn(v) { v.to_string() }).named("count"),
-    @ui.button("加一", on_click=fn() { n.set(n.get() + 1) }).named("inc"),
-  ], 200.0, 100.0)
+  let t = @uitest.mount_all(
+    [
+      @ui.bind_label(n, fn(v) { v.to_string() }).named("count"),
+      @ui.button("加一", on_click=fn() { n.set(n.get() + 1) }).named("inc"),
+    ],
+    200.0,
+    100.0,
+  )
   assert_eq(t.text(t.by_name("count")), Some("0"))
   t.click(t.by_name("inc"))
   t.frame()
@@ -22,11 +26,17 @@ test "计数器：点一下加一（方案 §4.2 原例）" {
 
 ///|
 test "定位：by_name 未命中、nth 子件、hit 命中最深件、role 读类名" {
-  let t = @uitest.mount_all([
-    @ui.view([
-      @ui.button("确定", on_click=fn() { () }).named("ok").with_role("button"),
-    ]).named("card"),
-  ], 200.0, 100.0)
+  let t = @uitest.mount_all(
+    [
+      @ui.view([
+        @ui.button("确定", on_click=fn() { () })
+        .named("ok")
+        .with_role("button"),
+      ]).named("card"),
+    ],
+    200.0,
+    100.0,
+  )
   let card = t.by_name("card")
   assert_true(card.w is Some(_))
   // 未命中：全部方法空操作
@@ -53,9 +63,11 @@ test "定位：by_name 未命中、nth 子件、hit 命中最深件、role 读�
 ///|
 test "type_text：焦点输入框收字符（IME commit 同一入口）" {
   let s = @base.Store::new("")
-  let t = @uitest.mount_all([
-    @ui.input(s, focus_id=7).named("box"),
-  ], 240.0, 80.0)
+  let t = @uitest.mount_all(
+    [@ui.input(s, focus_id=7).named("box")],
+    240.0,
+    80.0,
+  )
   assert_eq(s.get(), "")
   t.type_text(t.by_name("box"), "你好")
   assert_eq(s.get(), "你好")
@@ -67,13 +79,16 @@ test "type_text：焦点输入框收字符（IME commit 同一入口）" {
 
 ///|
 test "scroll 与 drag：不崩、坐标通路在" {
-  let hits : @base.Store[Int] = @base.Store::new(0)
-  let t = @uitest.mount_all([
-    @ui.hover_group(
-      [@ui.text("拖我")],
-      on_click=fn() { hits.set(hits.get() + 1) },
-    ).named("zone"),
-  ], 200.0, 100.0)
+  let hits : @base.Store[Int32] = @base.Store::new(0)
+  let t = @uitest.mount_all(
+    [
+      @ui.hover_group([@ui.text("拖我")], on_click=fn() {
+        hits.set(hits.get() + 1)
+      }).named("zone"),
+    ],
+    200.0,
+    100.0,
+  )
   // 滚轮（无人消费不崩）
   t.scroll(t.by_name("zone"), 40.0)
   // 拖拽起止都在 zone 内：Down+Move+Up 成对 → on_click 一次
@@ -104,9 +119,11 @@ test "capabilities 与守卫：三只读量给值、guard 缺失计数打印" {
 
 ///|
 test "frame 后像素可读：点主色按钮中心有非透明墨" {
-  let t = @uitest.mount_all([
-    @ui.button("提交", on_click=fn() { () }).named("go"),
-  ], 200.0, 80.0)
+  let t = @uitest.mount_all(
+    [@ui.button("提交", on_click=fn() { () }).named("go")],
+    200.0,
+    80.0,
+  )
   t.frame()
   match t.rect(t.by_name("go")) {
     Some(r) => {

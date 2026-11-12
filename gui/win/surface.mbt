@@ -27,7 +27,7 @@ pub(all) enum ChildKind {
 }
 
 ///|
-fn child_kind_int(k : ChildKind) -> Int {
+fn child_kind_int(k : ChildKind) -> Int32 {
   match k {
     Webview => 1
   }
@@ -41,7 +41,9 @@ pub(all) struct ChildSurface {
 }
 
 ///|
-fn rect_to_ints(rect : (Double, Double, Double, Double)) -> (Int, Int, Int, Int) {
+fn rect_to_ints(
+  rect : (Double, Double, Double, Double),
+) -> (Int32, Int32, Int32, Int32) {
   (
     rect.0.round().to_int(),
     rect.1.round().to_int(),

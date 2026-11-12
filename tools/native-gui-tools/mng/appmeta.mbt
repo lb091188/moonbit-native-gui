@@ -50,18 +50,12 @@ fn sync_appmeta(root : String) -> Result[Bool, String] {
   let pkg = dir + "/moon.pkg"
   match fs_read(pkg) {
     Some(_) => ()
-    None =>
-      if !spit(pkg, APPMETA_PKG) {
-        return Err("写不出：" + pkg)
-      }
+    None => if !spit(pkg, APPMETA_PKG) { return Err("写不出：" + pkg) }
   }
   let body = appmeta_text(p.id, p.name, p.version)
   let gp = dir + "/appmeta.gen.mbt"
   match fs_read(gp) {
-    Some(old) =>
-      if old == body {
-        return Ok(false)
-      }
+    Some(old) => if old == body { return Ok(false) }
     None => ()
   }
   if !spit(gp, body) {

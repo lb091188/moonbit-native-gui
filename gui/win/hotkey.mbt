@@ -25,11 +25,11 @@
 /// 以及归一化后的键名（诊断与提示文本用）。解析失败返回 None。
 pub(all) struct Hotkey {
   /// 修饰位：1=shift 2=ctrl 4=alt 8=meta（与 MOD_* 一致）
-  mods : Int
+  mods : Int32
   /// X11 keysym 口径（内核 KS_* 同源）
-  keysym : Int
+  keysym : Int32
   /// Win32 虚拟键码（RegisterHotKey 用；非 Windows 后端忽略）
-  vk : Int
+  vk : Int32
   /// 归一化键名（"M" / "F5" / "PageUp"），大小写按表定
   name : String
 }
@@ -37,14 +37,13 @@ pub(all) struct Hotkey {
 ///|
 /// 单个修饰词的判定：返回该词贡献的修饰位；不是修饰词给 -1。
 /// `is_mac` 决定 `CmdOrCtrl` 映射 Ctrl(2) 还是 Meta(8)。
-fn hotkey_modifier_bit(word : String, is_mac : Bool) -> Int {
+fn hotkey_modifier_bit(word : String, is_mac : Bool) -> Int32 {
   match word {
     "ctrl" | "control" => 2
     "shift" => 1
     "alt" | "option" | "opt" => 4
     "cmd" | "command" | "super" | "win" | "meta" => 8
-    "cmdorctrl" | "cmdorctl" | "commandorcontrol" =>
-      if is_mac { 8 } else { 2 }
+    "cmdorctrl" | "cmdorctl" | "commandorcontrol" => if is_mac { 8 } else { 2 }
     _ => -1
   }
 }
@@ -53,62 +52,63 @@ fn hotkey_modifier_bit(word : String, is_mac : Bool) -> Int {
 /// 主键名 → (keysym, vk, 归一化名)。名字按小写匹配（调用方预先 lower）。
 /// 单字符（字母/数字/标点）由调用方走 `hotkey_char_key` 处理。
 priv struct KeyCode {
-  keysym : Int
-  vk : Int
+  keysym : Int32
+  vk : Int32
 }
 
 ///|
 /// 具名键表（小写名 → 码）。返回 None 表示非具名键（可能是单字符）。
 fn hotkey_named_key(low : String) -> KeyCode? {
   match low {
-    "backspace" => Some({ keysym: 65288, vk: 0x08 })
-    "tab" => Some({ keysym: 65289, vk: 0x09 })
-    "enter" | "return" => Some({ keysym: 65293, vk: 0x0D })
-    "escape" | "esc" => Some({ keysym: 65307, vk: 0x1B })
-    "space" => Some({ keysym: 32, vk: 0x20 })
-    "left" => Some({ keysym: 65361, vk: 0x25 })
-    "up" => Some({ keysym: 65362, vk: 0x26 })
-    "right" => Some({ keysym: 65363, vk: 0x27 })
-    "down" => Some({ keysym: 65364, vk: 0x28 })
-    "home" => Some({ keysym: 65360, vk: 0x24 })
-    "end" => Some({ keysym: 65367, vk: 0x23 })
-    "pageup" | "pgup" => Some({ keysym: 65365, vk: 0x21 })
-    "pagedown" | "pgdn" => Some({ keysym: 65366, vk: 0x22 })
-    "insert" | "ins" => Some({ keysym: 65379, vk: 0x2D })
-    "delete" | "del" => Some({ keysym: 65535, vk: 0x2E })
-    "f1" => Some({ keysym: 65470, vk: 0x70 })
-    "f2" => Some({ keysym: 65471, vk: 0x71 })
-    "f3" => Some({ keysym: 65472, vk: 0x72 })
-    "f4" => Some({ keysym: 65473, vk: 0x73 })
-    "f5" => Some({ keysym: 65474, vk: 0x74 })
-    "f6" => Some({ keysym: 65475, vk: 0x75 })
-    "f7" => Some({ keysym: 65476, vk: 0x76 })
-    "f8" => Some({ keysym: 65477, vk: 0x77 })
-    "f9" => Some({ keysym: 65478, vk: 0x78 })
-    "f10" => Some({ keysym: 65479, vk: 0x79 })
-    "f11" => Some({ keysym: 65480, vk: 0x7A })
-    "f12" => Some({ keysym: 65481, vk: 0x7B })
-    "f13" => Some({ keysym: 65482, vk: 0x7C })
-    "f14" => Some({ keysym: 65483, vk: 0x7D })
-    "f15" => Some({ keysym: 65484, vk: 0x7E })
-    "f16" => Some({ keysym: 65485, vk: 0x7F })
-    "f17" => Some({ keysym: 65486, vk: 0x80 })
-    "f18" => Some({ keysym: 65487, vk: 0x81 })
-    "f19" => Some({ keysym: 65488, vk: 0x82 })
-    "f20" => Some({ keysym: 65489, vk: 0x83 })
-    "f21" => Some({ keysym: 65490, vk: 0x84 })
-    "f22" => Some({ keysym: 65491, vk: 0x85 })
-    "f23" => Some({ keysym: 65492, vk: 0x86 })
-    "f24" => Some({ keysym: 65493, vk: 0x87 })
+    "backspace" => Some({ keysym: 65288, vk: 0x08, })
+    "tab" => Some({ keysym: 65289, vk: 0x09, })
+    "enter" | "return" => Some({ keysym: 65293, vk: 0x0D, })
+    "escape" | "esc" => Some({ keysym: 65307, vk: 0x1B, })
+    "space" => Some({ keysym: 32, vk: 0x20, })
+    "left" => Some({ keysym: 65361, vk: 0x25, })
+    "up" => Some({ keysym: 65362, vk: 0x26, })
+    "right" => Some({ keysym: 65363, vk: 0x27, })
+    "down" => Some({ keysym: 65364, vk: 0x28, })
+    "home" => Some({ keysym: 65360, vk: 0x24, })
+    "end" => Some({ keysym: 65367, vk: 0x23, })
+    "pageup" | "pgup" => Some({ keysym: 65365, vk: 0x21, })
+    "pagedown" | "pgdn" => Some({ keysym: 65366, vk: 0x22, })
+    "insert" | "ins" => Some({ keysym: 65379, vk: 0x2D, })
+    "delete" | "del" => Some({ keysym: 65535, vk: 0x2E, })
+    "f1" => Some({ keysym: 65470, vk: 0x70, })
+    "f2" => Some({ keysym: 65471, vk: 0x71, })
+    "f3" => Some({ keysym: 65472, vk: 0x72, })
+    "f4" => Some({ keysym: 65473, vk: 0x73, })
+    "f5" => Some({ keysym: 65474, vk: 0x74, })
+    "f6" => Some({ keysym: 65475, vk: 0x75, })
+    "f7" => Some({ keysym: 65476, vk: 0x76, })
+    "f8" => Some({ keysym: 65477, vk: 0x77, })
+    "f9" => Some({ keysym: 65478, vk: 0x78, })
+    "f10" => Some({ keysym: 65479, vk: 0x79, })
+    "f11" => Some({ keysym: 65480, vk: 0x7A, })
+    "f12" => Some({ keysym: 65481, vk: 0x7B, })
+    "f13" => Some({ keysym: 65482, vk: 0x7C, })
+    "f14" => Some({ keysym: 65483, vk: 0x7D, })
+    "f15" => Some({ keysym: 65484, vk: 0x7E, })
+    "f16" => Some({ keysym: 65485, vk: 0x7F, })
+    "f17" => Some({ keysym: 65486, vk: 0x80, })
+    "f18" => Some({ keysym: 65487, vk: 0x81, })
+    "f19" => Some({ keysym: 65488, vk: 0x82, })
+    "f20" => Some({ keysym: 65489, vk: 0x83, })
+    "f21" => Some({ keysym: 65490, vk: 0x84, })
+    "f22" => Some({ keysym: 65491, vk: 0x85, })
+    "f23" => Some({ keysym: 65492, vk: 0x86, })
+    "f24" => Some({ keysym: 65493, vk: 0x87, })
     // 媒体键：keysym 走 XF86Audio*（X11 侧 XKeysymToKeycode 现场换键码，
     // 通用路径零改动）；vk 走 Win32 的 VK_MEDIA_*/VK_VOLUME_MUTE。
     // macOS 碳表没有媒体键位（那是 NSSystemDefined 事件，不走
     // RegisterEventHotKey），`wm_vk_to_mac_keycode` 查不到即注册失败——
     // 与「该平台没有这个键」同档，不静默。
-    "mediaplay" | "mediaplaypause" => Some({ keysym: 0x1008FF14, vk: 0xB3 })
-    "mediaprev" | "mediaprevioustrack" => Some({ keysym: 0x1008FF16, vk: 0xB1 })
-    "medianext" | "medianexttrack" => Some({ keysym: 0x1008FF17, vk: 0xB0 })
-    "mediamute" | "volumemute" => Some({ keysym: 0x1008FF12, vk: 0xAD })
+    "mediaplay" | "mediaplaypause" => Some({ keysym: 0x1008FF14, vk: 0xB3, })
+    "mediaprev" | "mediaprevioustrack" =>
+      Some({ keysym: 0x1008FF16, vk: 0xB1, })
+    "medianext" | "medianexttrack" => Some({ keysym: 0x1008FF17, vk: 0xB0, })
+    "mediamute" | "volumemute" => Some({ keysym: 0x1008FF12, vk: 0xAD, })
     _ => None
   }
 }
@@ -119,16 +119,16 @@ fn hotkey_named_key(low : String) -> KeyCode? {
 /// 布局下的 VK（大写字母 'A'..'Z' 给 0x41+；数字 '0'..'9' 给 0x30+；
 /// 标点按 US 布局硬表）。非 ASCII 给 None（全局快捷键必须是 ASCII 键）。
 /// `code` 是 ASCII 码点（调用方已从单字符串取到）。
-fn hotkey_char_key(code : Int) -> KeyCode? {
+fn hotkey_char_key(code : Int32) -> KeyCode? {
   if code >= 97 && code <= 122 {
     // a-z
-    Some({ keysym: code, vk: 0x41 + (code - 97) })
+    Some({ keysym: code, vk: 0x41 + (code - 97), })
   } else if code >= 65 && code <= 90 {
     // A-Z
-    Some({ keysym: 97 + (code - 65), vk: code })
+    Some({ keysym: 97 + (code - 65), vk: code, })
   } else if code >= 48 && code <= 57 {
     // 0-9
-    Some({ keysym: code, vk: code })
+    Some({ keysym: code, vk: code, })
   } else {
     hotkey_punct_key(code)
   }
@@ -137,7 +137,7 @@ fn hotkey_char_key(code : Int) -> KeyCode? {
 ///|
 /// US 布局下的标点 VK 表（OEM 键的 VK 是固定值，与布局相关但这是 Win32
 /// RegisterHotKey 的既有语义）。keysym 一律取该字符本身（X11 口径）。
-fn hotkey_punct_key(code : Int) -> KeyCode? {
+fn hotkey_punct_key(code : Int32) -> KeyCode? {
   let vk = match code {
     44 => 0xBC // ,
     46 => 0xBE // .
@@ -155,7 +155,7 @@ fn hotkey_punct_key(code : Int) -> KeyCode? {
   if vk == 0 {
     None
   } else {
-    Some({ keysym: code, vk })
+    Some({ keysym: code, vk, })
   }
 }
 
@@ -220,7 +220,7 @@ pub fn parse_accelerator(spec : String, is_mac : Bool) -> Hotkey? {
   }
   match key {
     None => None
-    Some(k) => Some({ mods, keysym: k.keysym, vk: k.vk, name: key_name })
+    Some(k) => Some({ mods, keysym: k.keysym, vk: k.vk, name: key_name, })
   }
 }
 
@@ -259,9 +259,9 @@ fn hotkey_canonical_name(low : String) -> String {
 
 ///|
 /// 单字符键的规范显示名：字母/数字大写，标点原样。`code` 是 ASCII 码点。
-fn hotkey_char_name(code : Int) -> String {
+fn hotkey_char_name(code : Int32) -> String {
   if code >= 97 && code <= 122 {
-    ((code - 32).to_char().unwrap_or('?')).to_string()
+    (code - 32).to_char().unwrap_or('?').to_string()
   } else {
     code.to_char().unwrap_or('?').to_string()
   }
@@ -270,7 +270,7 @@ fn hotkey_char_name(code : Int) -> String {
 ///|
 /// 修饰位的规范显示名（提示文本用）。顺序按平台惯例：mac 是
 /// Cmd/Shift/Alt/Ctrl，其余是 Ctrl/Shift/Alt/Win——主修饰在最前。
-pub fn hotkey_mods_label(mods : Int, is_mac : Bool) -> String {
+pub fn hotkey_mods_label(mods : Int32, is_mac : Bool) -> String {
   let mut s = ""
   if is_mac {
     if (mods & 8) != 0 {

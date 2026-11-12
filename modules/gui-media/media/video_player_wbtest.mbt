@@ -14,14 +14,7 @@ fn bytes_of(items : Array[Byte]) -> Bytes {
 ///|
 test "帧回灌：RGBA 进、BGRA 出、alpha 恒不透明" {
   let src = bytes_of([
-    b'\x10',
-    b'\x20',
-    b'\x30',
-    b'\x00',
-    b'\xaa',
-    b'\xbb',
-    b'\xcc',
-    b'\x80',
+    b'\x10', b'\x20', b'\x30', b'\x00', b'\xaa', b'\xbb', b'\xcc', b'\x80',
   ])
   let bm = rgba_to_bitmap(src, 2, 1)
   assert_eq(bm.width, 2)
@@ -81,15 +74,8 @@ test "倍速钳制与目标时刻" {
 test "s16 重采样：样本数按 1/speed 缩、插值取中间值" {
   // 单声道 4 个样本：0, 100, 200, 300（小端 s16）
   let src = bytes_of([
-      b'\x00',
-      b'\x00',
-      b'\x64',
-      b'\x00',
-      b'\xc8',
-      b'\x00',
-      b'\x2c',
-      b'\x01',
-    ])
+    b'\x00', b'\x00', b'\x64', b'\x00', b'\xc8', b'\x00', b'\x2c', b'\x01',
+  ])
   let fast = media_resample_s16(src, 1, 2.0)
   assert_eq(fast.length(), 4) // 2 帧
   assert_eq(media_s16_at(fast, 0), 0)
@@ -104,15 +90,8 @@ test "s16 重采样：样本数按 1/speed 缩、插值取中间值" {
   assert_eq(media_resample_s16(bytes_of([b'\x01']), 1, 2.0).length(), 1)
   // 双声道按帧插值，声道不串位：帧 0 = (10, 20)，帧 1 = (30, 40)
   let st = bytes_of([
-      b'\x0a',
-      b'\x00',
-      b'\x14',
-      b'\x00',
-      b'\x1e',
-      b'\x00',
-      b'\x28',
-      b'\x00',
-    ])
+    b'\x0a', b'\x00', b'\x14', b'\x00', b'\x1e', b'\x00', b'\x28', b'\x00',
+  ])
   let half = media_resample_s16(st, 2, 2.0)
   assert_eq(half.length(), 4) // 一帧两声道
   assert_eq(media_s16_at(half, 0), 10)

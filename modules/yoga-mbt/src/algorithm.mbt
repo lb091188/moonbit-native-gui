@@ -79,7 +79,11 @@ fn resolved_align(it : Item, items_align : AlignItems) -> AlignItems {
 ///|
 /// 项是否参与基线对齐（规范 §9.4：inline 轴平行于主轴 + align-self 为
 /// baseline + 交叉轴两侧 margin 均非 auto + 有真实基线）。
-fn is_baseline_item(it : Item, items_align : AlignItems, main_is_row : Bool) -> Bool {
+fn is_baseline_item(
+  it : Item,
+  items_align : AlignItems,
+  main_is_row : Bool,
+) -> Bool {
   if !main_is_row || it.m.auto_cross_start || it.m.auto_cross_end {
     false
   } else {
@@ -91,7 +95,7 @@ fn is_baseline_item(it : Item, items_align : AlignItems, main_is_row : Bool) -> 
 }
 
 ///|
-fn[T] first_some(a : Option[T], b : Option[T]) -> Option[T] {
+fn[T] first_some(a : T?, b : T?) -> T? {
   match a {
     Some(_) => a
     None => b
@@ -112,17 +116,12 @@ priv struct Resolved {
 }
 
 ///|
-fn resolve_edges(e : Edges, base_w : Option[Double]) -> Resolved {
+fn resolve_edges(e : Edges, base_w : Double?) -> Resolved {
   // 百分比 margin/padding/border 一律相对包含块宽度（web 标准）；
   // padding/border 的 Auto 视同 0，margin 的 Auto 保留标记。
   let one = fn(v : Value, is_margin : Bool) -> (Double, Bool) {
     match v {
-      Auto =>
-        if is_margin {
-          (0.0, true)
-        } else {
-          (0.0, false)
-        }
+      Auto => if is_margin { (0.0, true) } else { (0.0, false) }
       other => (resolve_value(other, base_w), false)
     }
   }
@@ -131,14 +130,14 @@ fn resolve_edges(e : Edges, base_w : Option[Double]) -> Resolved {
   let (t, at) = one(e.top, true)
   let (b, ab) = one(e.bottom, true)
   {
-    left : l,
-    right : r,
-    top : t,
-    bottom : b,
-    auto_left : al,
-    auto_right : ar,
-    auto_top : at,
-    auto_bottom : ab,
+    left: l,
+    right: r,
+    top: t,
+    bottom: b,
+    auto_left: al,
+    auto_right: ar,
+    auto_top: at,
+    auto_bottom: ab,
   }
 }
 
@@ -147,10 +146,11 @@ fn resolve_edges(e : Edges, base_w : Option[Double]) -> Resolved {
 /// 都给值时 `top`/`left` 胜（另一端忽略），`auto`/未设即不偏移；百分比按父内容盒
 /// 解（与把子项递归下去的包含块同一参照）。偏移只改落位、不参与常规流占位，
 /// 也不改本节点为绝对子项算出的包含块（滚动与浮层都只需要 fixed 语义）。
-fn relative_offset(c : Node, base_w : Option[Double], base_h : Option[Double]) -> (
-  Double,
-  Double,
-) {
+fn relative_offset(
+  c : Node,
+  base_w : Double?,
+  base_h : Double?,
+) -> (Double, Double) {
   match c.style.position {
     Absolute => (0.0, 0.0)
     Relative => {
@@ -233,14 +233,14 @@ fn axis_margin(
     (sv, ev, csv, cev, asv, aev, acsv, acev)
   }
   {
-    start : s,
-    end : e,
-    cross_start : cs,
-    cross_end : ce,
-    auto_start : a_s,
-    auto_end : a_e,
-    auto_cross_start : a_cs,
-    auto_cross_end : a_ce,
+    start: s,
+    end: e,
+    cross_start: cs,
+    cross_end: ce,
+    auto_start: a_s,
+    auto_end: a_e,
+    auto_cross_start: a_cs,
+    auto_cross_end: a_ce,
   }
 }
 
@@ -257,8 +257,8 @@ priv struct Item {
   max_main : Double
   min_cross : Double
   max_cross : Double
-  cross_definite : Option[Double]
-  mut baseline : Option[Double]
+  cross_definite : Double?
+  mut baseline : Double?
   grow : Double
   shrink : Double
   mut size_main : Double
@@ -271,7 +271,7 @@ priv struct Item {
 
 ///|
 /// 两个参照尺寸是否同一（逐项比较，避免为比较而构造键元组）。
-fn opt_eq(a : Option[Double], b : Option[Double]) -> Bool {
+fn opt_eq(a : Double?, b : Double?) -> Bool {
   match (a, b) {
     (None, None) => true
     (Some(x), Some(y)) => x == y
@@ -283,7 +283,7 @@ fn opt_eq(a : Option[Double], b : Option[Double]) -> Bool {
 /// 单次布局内每份缓存的槽位上限。连续改可用宽（拖动窗口、滚动列表）会让
 /// 同一节点攒出「每个宽度一条」的无限缓存，超限先整体丢——丢的是复用率，
 /// 不影响正确性。
-let cache_slots : Int = 16
+let cache_slots : Int32 = 16
 
 ///|
 /// 自顶向下扫一遍：给每个节点写下「本节点子树内最大 rev」。
@@ -291,7 +291,7 @@ let cache_slots : Int = 16
 /// - 布局时能判断「这棵子树自上次布局以来一点没变」→ 整棵跳过；
 /// - 缓存失效不需要父指针（祖先的内在尺寸依赖子孙，子孙一变祖先的
 ///   subtree_rev 就变，缓存自然废）。
-fn scan_subtree_rev(n : Node) -> Int {
+fn scan_subtree_rev(n : Node) -> Int32 {
   let mut m = n.rev
   for c in n.children {
     let cm = scan_subtree_rev(c)
@@ -357,9 +357,9 @@ fn round_to_grid(
 /// 不再按「无定宽全堆叠」（stretch-only 的中间列层虚高即缺这条传播）。
 fn measure_content(
   c : Node,
-  avail_w : Option[Double],
-  avail_h : Option[Double],
-  pinned_w? : Option[Double] = None,
+  avail_w : Double?,
+  avail_h : Double?,
+  pinned_w~ : Double? = None,
 ) -> (Double, Double) {
   note_measure_call()
   cache_fresh(c)
@@ -387,9 +387,9 @@ fn measure_content(
 /// 两条路径都会同时刷新节点的基线。
 fn measure_content_uncached(
   c : Node,
-  avail_w : Option[Double],
-  avail_h : Option[Double],
-  pinned_w : Option[Double],
+  avail_w : Double?,
+  avail_h : Double?,
+  pinned_w : Double?,
 ) -> (Double, Double) {
   if c.children.length() == 0 {
     let s = c.style
@@ -409,21 +409,20 @@ fn measure_content_uncached(
     }
     let pb_top = resolve_value(edge_value(s.padding, 2), avail_w) +
       resolve_value(edge_value(s.border, 2), avail_w)
-    c.baseline =
-      match c.baseline_fn {
-        Some(g) =>
-          match g(iw, ih) {
-            Some(b) => Some(pb_top + b)
-            None => None
-          }
-        None => None
-      }
-    let w =
-      first_some(
-        pinned_w,
-        definite_size(s.width, avail_w),
-      ).unwrap_or(cw + pb_w)
-    let h = first_some(definite_size(s.height, avail_h), None).unwrap_or(ch + pb_h)
+    c.baseline = match c.baseline_fn {
+      Some(g) =>
+        match g(iw, ih) {
+          Some(b) => Some(pb_top + b)
+          None => None
+        }
+      None => None
+    }
+    let w = first_some(pinned_w, definite_size(s.width, avail_w)).unwrap_or(
+      cw + pb_w,
+    )
+    let h = first_some(definite_size(s.height, avail_h), None).unwrap_or(
+      ch + pb_h,
+    )
     (w, h)
   } else {
     layout_into(c, avail_w, avail_h, pinned_w, None)
@@ -446,8 +445,8 @@ fn intrinsic_size(
   n : Node,
   want_row : Bool,
   kind : IntrinsicKind,
-  base_w : Option[Double],
-  base_h : Option[Double],
+  base_w : Double?,
+  base_h : Double?,
 ) -> Double {
   let is_min = match kind {
     Min => true
@@ -459,7 +458,9 @@ fn intrinsic_size(
     let (flag, refs) = e.0
     let (kw, kb) = flag
     let (bw, bh) = refs
-    if kw == want_row && kb == is_min && opt_eq(bw, base_w) &&
+    if kw == want_row &&
+      kb == is_min &&
+      opt_eq(bw, base_w) &&
       opt_eq(bh, base_h) {
       return e.1
     }
@@ -489,8 +490,8 @@ fn intrinsic_border_size(
   n : Node,
   want_row : Bool,
   kind : IntrinsicKind,
-  base_w : Option[Double],
-  base_h : Option[Double],
+  base_w : Double?,
+  base_h : Double?,
 ) -> Double {
   let s = n.style
   let pb_w = resolve_value(edge_value(s.padding, 0), base_w) +
@@ -529,16 +530,8 @@ fn intrinsic_border_size(
           Min => true
           Max => false
         }
-        let iw0 = if want_row && is_min {
-          Some(0.0)
-        } else {
-          None
-        }
-        let ih0 = if !want_row && is_min {
-          Some(0.0)
-        } else {
-          None
-        }
+        let iw0 = if want_row && is_min { Some(0.0) } else { None }
+        let ih0 = if !want_row && is_min { Some(0.0) } else { None }
         let iw = iw0.map(fn(v) { (v - pb_w).max(0.0) })
         let ih = ih0.map(fn(v) { (v - pb_h).max(0.0) })
         let (cw, ch) = match n.measure {
@@ -552,17 +545,28 @@ fn intrinsic_border_size(
         container_intrinsic_size(n, want_row, kind, pb_w, pb_h, base_w, base_h)
       }
   }
-  let lo =
-    definite_size(if want_row { s.min_width } else { s.min_height }, base_axis)
-      .unwrap_or(0.0)
-  let hi =
-    definite_size(if want_row { s.max_width } else { s.max_height }, base_axis)
-      .unwrap_or(max_dim)
+  let lo = definite_size(
+    if want_row {
+      s.min_width
+    } else {
+      s.min_height
+    },
+    base_axis,
+  ).unwrap_or(0.0)
+  let hi = definite_size(
+    if want_row {
+      s.max_width
+    } else {
+      s.max_height
+    },
+    base_axis,
+  ).unwrap_or(max_dim)
   clamp3(raw, lo, hi)
 }
 
 ///|
 /// 容器的内在尺寸（内容盒部分，不含自身 padding/border）。
+
 ///|
 /// 子项对容器**主轴**尺寸的贡献（对照 Chrome 实测口径：auto 主轴尺寸 =
 /// 各子项假想主轴尺寸之和，growth 不参与）。基准确定（显式 flex-basis 可解析）
@@ -574,37 +578,44 @@ fn main_contribution(
   c : Node,
   main_is_row : Bool,
   kind : IntrinsicKind,
-  cb_w : Option[Double],
-  cb_h : Option[Double],
+  cb_w : Double?,
+  cb_h : Double?,
 ) -> Double {
   let basis = if main_is_row { c.style.flex_basis } else { c.style.flex_basis }
   let base_axis = if main_is_row { cb_w } else { cb_h }
   match definite_size(basis, base_axis) {
     Some(b) => {
-      let lo =
-        definite_size(
-          if main_is_row { c.style.min_width } else { c.style.min_height },
-          base_axis,
-        ).unwrap_or(0.0)
-      let hi =
-        definite_size(
-          if main_is_row { c.style.max_width } else { c.style.max_height },
-          base_axis,
-        ).unwrap_or(max_dim)
+      let lo = definite_size(
+        if main_is_row {
+          c.style.min_width
+        } else {
+          c.style.min_height
+        },
+        base_axis,
+      ).unwrap_or(0.0)
+      let hi = definite_size(
+        if main_is_row {
+          c.style.max_width
+        } else {
+          c.style.max_height
+        },
+        base_axis,
+      ).unwrap_or(max_dim)
       clamp3(b, lo, hi)
     }
     None => intrinsic_size(c, main_is_row, kind, cb_w, cb_h)
   }
 }
 
+///|
 fn container_intrinsic_size(
   n : Node,
   want_row : Bool,
   kind : IntrinsicKind,
   pb_w : Double,
   pb_h : Double,
-  base_w : Option[Double],
-  base_h : Option[Double],
+  base_w : Double?,
+  base_h : Double?,
 ) -> Double {
   let s = n.style
   let main_is_row = is_row(s.flex_direction)
@@ -677,7 +688,9 @@ fn container_intrinsic_size(
     let mut has = false
     for p in contribs {
       if has && lm + main_gap + p.0 > main_max {
-        total_cross = total_cross + lc + (if line_count > 0 { cross_gap } else { 0.0 })
+        total_cross = total_cross +
+          lc +
+          (if line_count > 0 { cross_gap } else { 0.0 })
         line_count = line_count + 1
         lm = p.0
         lc = p.1
@@ -693,7 +706,9 @@ fn container_intrinsic_size(
       }
     }
     if has {
-      total_cross = total_cross + lc + (if line_count > 0 { cross_gap } else { 0.0 })
+      total_cross = total_cross +
+        lc +
+        (if line_count > 0 { cross_gap } else { 0.0 })
     }
     total_cross
   } else {
@@ -714,9 +729,9 @@ fn axis_size(
   n : Node,
   v : Value,
   want_row : Bool,
-  base_w : Option[Double],
-  base_h : Option[Double],
-) -> Option[Double] {
+  base_w : Double?,
+  base_h : Double?,
+) -> Double? {
   let base_axis = if want_row { base_w } else { base_h }
   match v {
     MinContent => Some(intrinsic_size(n, want_row, Min, base_w, base_h))
@@ -746,10 +761,10 @@ fn axis_size(
 /// `layout_width/height`，后者会被 `round_to_grid` 后处理改写。
 fn layout_into(
   node : Node,
-  avail_w : Option[Double],
-  avail_h : Option[Double],
-  pinned_w : Option[Double],
-  pinned_h : Option[Double],
+  avail_w : Double?,
+  avail_h : Double?,
+  pinned_w : Double?,
+  pinned_h : Double?,
 ) -> (Double, Double) {
   let fp = (avail_w, avail_h, pinned_w, pinned_h)
   if node.laid && node.subtree_rev == node.laid_rev && node.laid_fp == fp {
@@ -767,10 +782,10 @@ fn layout_into(
 /// 布局的实际工作（无跳过）。
 fn layout_into_impl(
   node : Node,
-  avail_w : Option[Double],
-  avail_h : Option[Double],
-  pinned_w : Option[Double],
-  pinned_h : Option[Double],
+  avail_w : Double?,
+  avail_h : Double?,
+  pinned_w : Double?,
+  pinned_h : Double?,
 ) -> (Double, Double) {
   let s = node.style
   match s.display {
@@ -784,8 +799,14 @@ fn layout_into_impl(
   // 自身 padding/border 的百分比参照：包含块宽度 = 可用宽
   let own_pad = resolve_edges(s.padding, avail_w)
   let own_border = resolve_edges(s.border, avail_w)
-  let pad_border_w = own_pad.left + own_pad.right + own_border.left + own_border.right
-  let pad_border_h = own_pad.top + own_pad.bottom + own_border.top + own_border.bottom
+  let pad_border_w = own_pad.left +
+    own_pad.right +
+    own_border.left +
+    own_border.right
+  let pad_border_h = own_pad.top +
+    own_pad.bottom +
+    own_border.top +
+    own_border.bottom
   // ---- 叶子节点：pinned / style / 内容 ----
   if node.children.length() == 0 {
     let iw = avail_w.map(fn(x) { (x - pad_border_w).max(0.0) })
@@ -794,8 +815,14 @@ fn layout_into_impl(
       Some(f) => f(iw, ih)
       None => (0.0, 0.0)
     }
-    let w0_ = first_some(pinned_w, axis_size(node, s.width, true, avail_w, avail_h))
-    let h0_ = first_some(pinned_h, axis_size(node, s.height, false, avail_w, avail_h))
+    let w0_ = first_some(
+      pinned_w,
+      axis_size(node, s.width, true, avail_w, avail_h),
+    )
+    let h0_ = first_some(
+      pinned_h,
+      axis_size(node, s.height, false, avail_w, avail_h),
+    )
     // 首选比例（border-box 语义：比例 = 宽/高）：一个轴确定 → 另一轴换算
     let w0 = match (w0_, h0_, s.aspect_ratio) {
       (None, Some(h), Some(r)) => Some(h * r)
@@ -819,15 +846,14 @@ fn layout_into_impl(
     node.layout_height = h
     // 基线：测量函数给的是「基线到内容盒顶部」，叠加自身 padding/border 后
     // 才是到边框盒顶部的距离（与 measure 的语义对称）
-    node.baseline =
-      match node.baseline_fn {
-        Some(f) =>
-          match f(iw, ih) {
-            Some(b) => Some(own_border.top + own_pad.top + b)
-            None => None
-          }
-        None => None
-      }
+    node.baseline = match node.baseline_fn {
+      Some(f) =>
+        match f(iw, ih) {
+          Some(b) => Some(own_border.top + own_pad.top + b)
+          None => None
+        }
+      None => None
+    }
     return (w, h)
   }
   let main_is_row = is_row(s.flex_direction)
@@ -840,13 +866,23 @@ fn layout_into_impl(
   let rev_main = is_reverse(s.flex_direction) != (rtl && main_is_row)
   let rev_cross = rtl && !main_is_row
   // 自身尺寸（确定值）
-  let own_w_def =
-    first_some(pinned_w, axis_size(node, s.width, true, avail_w, avail_h))
-  let own_h_def =
-    first_some(pinned_h, axis_size(node, s.height, false, avail_w, avail_h))
+  let own_w_def = first_some(
+    pinned_w,
+    axis_size(node, s.width, true, avail_w, avail_h),
+  )
+  let own_h_def = first_some(
+    pinned_h,
+    axis_size(node, s.height, false, avail_w, avail_h),
+  )
   // 子项百分比参照：本节点内容盒确定尺寸优先，退回可用空间
-  let child_pct_w = first_some(own_w_def.map(fn(w) { (w - pad_border_w).max(0.0) }), avail_w)
-  let child_pct_h = first_some(own_h_def.map(fn(h) { (h - pad_border_h).max(0.0) }), avail_h)
+  let child_pct_w = first_some(
+    own_w_def.map(fn(w) { (w - pad_border_w).max(0.0) }),
+    avail_w,
+  )
+  let child_pct_h = first_some(
+    own_h_def.map(fn(h) { (h - pad_border_h).max(0.0) }),
+    avail_h,
+  )
   let avail_main = if main_is_row { avail_w } else { avail_h }
   let pad_border_main = if main_is_row { pad_border_w } else { pad_border_h }
   let pad_border_cross = if main_is_row { pad_border_h } else { pad_border_w }
@@ -891,8 +927,8 @@ fn layout_into_impl(
     _ => wrap_limit is Some(_)
   }
   let line_cross_est : Double? = if !main_is_row &&
-    (own_cross_def is None) &&
-    (ratio_cross is None) &&
+    own_cross_def is None &&
+    ratio_cross is None &&
     !can_wrap_early {
     let mut mx = 0.0
     let mut any = false
@@ -907,7 +943,8 @@ fn layout_into_impl(
       }
       let mcross = resolve_edges(c.style.margin, avail_w)
       let cc = intrinsic_size(c, true, Max, child_pct_w, child_pct_h) +
-        mcross.left + mcross.right
+        mcross.left +
+        mcross.right
       if cc > mx {
         mx = cc
       }
@@ -953,15 +990,26 @@ fn layout_into_impl(
       resolve_value(edge_value(c.style.border, 2), child_pct_w) +
       resolve_value(edge_value(c.style.border, 3), child_pct_w)
     }
-    let child_main_style = if main_is_row { c.style.width } else { c.style.height }
-    let child_cross_style = if main_is_row { c.style.height } else { c.style.width }
+    let child_main_style = if main_is_row {
+      c.style.width
+    } else {
+      c.style.height
+    }
+    let child_cross_style = if main_is_row {
+      c.style.height
+    } else {
+      c.style.width
+    }
     let c_avail_main = first_some(
       axis_size(c, child_main_style, main_is_row, child_pct_w, child_pct_h),
       wrap_limit,
     )
     let c_avail_cross = first_some(
       axis_size(c, child_cross_style, !main_is_row, child_pct_w, child_pct_h),
-      first_some(own_cross_def.map(fn(v) { (v - pad_border_cross).max(0.0) }), None),
+      first_some(
+        own_cross_def.map(fn(v) { (v - pad_border_cross).max(0.0) }),
+        None,
+      ),
     )
     let cross_definite = axis_size(
       c,
@@ -982,7 +1030,7 @@ fn layout_into_impl(
     // 是 → 按「钦定宽」测本项（measure_content 的 pinned_w），确定感才会继续
     // 下传孙项；否则中间列层（自身无宽、只被拉伸）里的折行子项会按
     // 「无定宽全堆叠」算内在下限，整层虚高。
-    let no_pin = main_is_row || !is_stretch || (cross_definite is Some(_))
+    let no_pin = main_is_row || !is_stretch || cross_definite is Some(_)
     let stretch_w : Double? = if no_pin {
       None
     } else {
@@ -1012,11 +1060,10 @@ fn layout_into_impl(
     // 内在探询按需要做：基准已由显式尺寸 / 比例给出时不再探 max-content，
     // 显式 min-* 已定时不再探 min-content（探到的值会被丢弃）。
     // 递归到子树代价不低，这一层短路是热路径的主要止损点。
-    let basis_style =
-      first_some(
-        axis_size(c, basis_val, main_is_row, child_pct_w, child_pct_h),
-        ratio_main,
-      )
+    let basis_style = first_some(
+      axis_size(c, basis_val, main_is_row, child_pct_w, child_pct_h),
+      ratio_main,
+    )
     // 本项交叉轴是否被定住：自身给了确定交叉尺寸，或被拉伸到父的确定内交叉。
     // 只在**父主轴为列**时启用下面的替代算路：那时 c_avail_cross 就是「定住的
     // 交叉宽」；父主轴为行时 c_avail_main 是可用宽**限制**，拿它量的值当基准
@@ -1063,7 +1110,8 @@ fn layout_into_impl(
               )
               h_at
             }
-            None => intrinsic_size(c, main_is_row, Max, child_pct_w, child_pct_h)
+            None =>
+              intrinsic_size(c, main_is_row, Max, child_pct_w, child_pct_h)
           }
         }
     }
@@ -1093,49 +1141,53 @@ fn layout_into_impl(
     // min 跟着内容长，会把遮罩这类「percent 跟宿主」的件顶得比宿主还宽
     // （溢出窗口）；basis 显式给值不参与（语料 F 行：basis 0 + min auto
     // 仍按内容下限 60）。
-    let min_main = match axis_size(
-      c,
-      child_main_style,
-      main_is_row,
-      child_pct_w,
-      child_pct_h,
-    ) {
+    let min_main = match
+      axis_size(c, child_main_style, main_is_row, child_pct_w, child_pct_h) {
       Some(v) => min_main.min(v)
       None => min_main
     }
     let max_v = if main_is_row { c.style.max_width } else { c.style.max_height }
-    let max_main = axis_size(c, max_v, main_is_row, child_pct_w, child_pct_h)
-      .unwrap_or(max_dim)
-    let cmin_v = if main_is_row { c.style.min_height } else { c.style.min_width }
-    let min_cross =
-      axis_size(c, cmin_v, !main_is_row, child_pct_w, child_pct_h)
-        .unwrap_or(0.0)
-    let cmax_v = if main_is_row { c.style.max_height } else { c.style.max_width }
-    let max_cross =
-      axis_size(c, cmax_v, !main_is_row, child_pct_w, child_pct_h)
-        .unwrap_or(max_dim)
+    let max_main = axis_size(c, max_v, main_is_row, child_pct_w, child_pct_h).unwrap_or(
+      max_dim,
+    )
+    let cmin_v = if main_is_row {
+      c.style.min_height
+    } else {
+      c.style.min_width
+    }
+    let min_cross = axis_size(c, cmin_v, !main_is_row, child_pct_w, child_pct_h).unwrap_or(
+      0.0,
+    )
+    let cmax_v = if main_is_row {
+      c.style.max_height
+    } else {
+      c.style.max_width
+    }
+    let max_cross = axis_size(c, cmax_v, !main_is_row, child_pct_w, child_pct_h).unwrap_or(
+      max_dim,
+    )
     items.push({
-      node : c,
+      node: c,
       m,
       base,
-      inner_base : (base - c_pb_main).max(0.0),
-      pb_main : c_pb_main,
-      content_cross : content_cross0,
-      hyp_main : clamp3(base, min_main, max_main),
+      inner_base: (base - c_pb_main).max(0.0),
+      pb_main: c_pb_main,
+      content_cross: content_cross0,
+      hyp_main: clamp3(base, min_main, max_main),
       min_main,
       max_main,
       min_cross,
       max_cross,
       cross_definite,
-      baseline : c.baseline,
-      grow : c.style.flex_grow,
-      shrink : c.style.flex_shrink,
-      size_main : 0.0,
-      final_cross : 0.0,
-      frozen : false,
-      violation : 0.0,
-      pos_main : 0.0,
-      pos_cross : 0.0,
+      baseline: c.baseline,
+      grow: c.style.flex_grow,
+      shrink: c.style.flex_shrink,
+      size_main: 0.0,
+      final_cross: 0.0,
+      frozen: false,
+      violation: 0.0,
+      pos_main: 0.0,
+      pos_cross: 0.0,
     })
   }
   // ---- 换行 ----
@@ -1174,7 +1226,7 @@ fn layout_into_impl(
   // ---- 逐行：弹性解析 → 主轴定位 → 交叉轴内容尺寸 ----
   let nlines = lines.length()
   let line_crosses : Array[Double] = []
-  let line_ascents : Array[Option[Double]] = []
+  let line_ascents : Array[Double?] = []
   for line in lines {
     for it in line {
       it.size_main = it.hyp_main
@@ -1184,43 +1236,47 @@ fn layout_into_impl(
     // 不参与 grow/shrink 分配）。漏减会让 grow 项吃掉间隙、整行溢出。
     let gap_total = (main_gap * (line.length() - 1).to_double()).max(0.0)
     match inner_main {
-      Some(im) =>
-        // 按 CSS Flexbox §9.7 逐条实现：
-        // 目标尺寸从 flex base 起步，先冻结不弹性项，循环内按违规
-        // 正负选择性冻结；shrink 加权用内基准尺寸；弹性因子和 <1 时
-        // 以「初始剩余空间 × 因子和」封顶。
-        {
-          let sum_hyp_outer = line.iter().fold(init=0.0, fn(acc, it) {
+      // 按 CSS Flexbox §9.7 逐条实现：
+      // 目标尺寸从 flex base 起步，先冻结不弹性项，循环内按违规
+      // 正负选择性冻结；shrink 加权用内基准尺寸；弹性因子和 <1 时
+      // 以「初始剩余空间 × 因子和」封顶。
+      Some(im) => {
+        let sum_hyp_outer = line
+          .iter()
+          .fold(init=0.0, fn(acc, it) {
             acc + it.hyp_main + it.m.start + it.m.end
           })
-          let use_grow = sum_hyp_outer < im
-          // 目标尺寸初始化为 flex base；冻结不弹性项
-          for it in line {
-            let factor = if use_grow { it.grow } else { it.shrink }
-            if factor == 0.0 ||
-              (use_grow && it.base > it.hyp_main) ||
-              (!use_grow && it.base < it.hyp_main) {
-              it.size_main = it.hyp_main
-              it.frozen = true
-            } else {
-              it.size_main = it.base
-              it.frozen = false
-            }
+        let use_grow = sum_hyp_outer < im
+        // 目标尺寸初始化为 flex base；冻结不弹性项
+        for it in line {
+          let factor = if use_grow { it.grow } else { it.shrink }
+          if factor == 0.0 ||
+            (use_grow && it.base > it.hyp_main) ||
+            (!use_grow && it.base < it.hyp_main) {
+            it.size_main = it.hyp_main
+            it.frozen = true
+          } else {
+            it.size_main = it.base
+            it.frozen = false
           }
-          let outer_of = fn(it : Item) -> Double {
-            let size = if it.frozen { it.size_main } else { it.base }
-            size + it.m.start + it.m.end
-          }
-          let initial_free =
-            im - gap_total -
+        }
+        let outer_of = fn(it : Item) -> Double {
+          let size = if it.frozen { it.size_main } else { it.base }
+          size + it.m.start + it.m.end
+        }
+        let initial_free = im -
+          gap_total -
+          line.iter().fold(init=0.0, fn(acc, it) { acc + outer_of(it) })
+        let mut done = line.iter().all(fn(it) { it.frozen })
+        let mut rounds = 0
+        while !done && rounds < line.length() + 2 {
+          rounds = rounds + 1
+          let mut remaining = im -
+            gap_total -
             line.iter().fold(init=0.0, fn(acc, it) { acc + outer_of(it) })
-          let mut done = line.iter().all(fn(it) { it.frozen })
-          let mut rounds = 0
-          while !done && rounds < line.length() + 2 {
-            rounds = rounds + 1
-            let mut remaining = im - gap_total -
-              line.iter().fold(init=0.0, fn(acc, it) { acc + outer_of(it) })
-            let factor_sum = line.iter().fold(init=0.0, fn(acc, it) {
+          let factor_sum = line
+            .iter()
+            .fold(init=0.0, fn(acc, it) {
               if it.frozen {
                 acc
               } else if use_grow {
@@ -1229,78 +1285,82 @@ fn layout_into_impl(
                 acc + (it.shrink * it.inner_base).max(0.0)
               }
             })
-            if factor_sum > 0.0 && factor_sum < 1.0 {
-              let scaled = initial_free * factor_sum
-              if scaled.abs() < remaining.abs() {
-                remaining = scaled
-              }
+          if factor_sum > 0.0 && factor_sum < 1.0 {
+            let scaled = initial_free * factor_sum
+            if scaled.abs() < remaining.abs() {
+              remaining = scaled
             }
-            if remaining != 0.0 && factor_sum > 0.0 {
-              for it in line {
-                if it.frozen {
-                  continue
-                }
-                let factor = if use_grow {
-                  it.grow
-                } else {
-                  (it.shrink * it.inner_base).max(0.0)
-                }
-                it.size_main = if use_grow {
-                  it.base + remaining * factor / factor_sum
-                } else {
-                  it.base - remaining.abs() * factor / factor_sum
-                }
-              }
-            }
-            // 修 min/max 违规并按总违规正负选择性冻结
-            let mut total_violation = 0.0
-            for it in line {
-              if it.frozen {
-                it.violation = 0.0
-                continue
-              }
-              let unclamped = it.size_main
-              let clamped = clamp3(unclamped, it.min_main, it.max_main).max(it.pb_main)
-              it.violation = clamped - unclamped
-              it.size_main = clamped
-              total_violation = total_violation + it.violation
-            }
-            for it in line {
-              if it.frozen {
-                continue
-              }
-              let freeze_it = if total_violation == 0.0 {
-                true
-              } else if total_violation > 0.0 {
-                // 正违规 = 被 min 抬大 → 冻结 min 违规项
-                it.violation > 0.0
-              } else {
-                // 负违规 = 被 max 压小 → 冻结 max 违规项
-                it.violation < 0.0
-              }
-              if freeze_it {
-                it.frozen = true
-              }
-            }
-            done = line.iter().all(fn(it) { it.frozen })
           }
+          if remaining != 0.0 && factor_sum > 0.0 {
+            for it in line {
+              if it.frozen {
+                continue
+              }
+              let factor = if use_grow {
+                it.grow
+              } else {
+                (it.shrink * it.inner_base).max(0.0)
+              }
+              it.size_main = if use_grow {
+                it.base + remaining * factor / factor_sum
+              } else {
+                it.base - remaining.abs() * factor / factor_sum
+              }
+            }
+          }
+          // 修 min/max 违规并按总违规正负选择性冻结
+          let mut total_violation = 0.0
+          for it in line {
+            if it.frozen {
+              it.violation = 0.0
+              continue
+            }
+            let unclamped = it.size_main
+            let clamped = clamp3(unclamped, it.min_main, it.max_main).max(
+              it.pb_main,
+            )
+            it.violation = clamped - unclamped
+            it.size_main = clamped
+            total_violation = total_violation + it.violation
+          }
+          for it in line {
+            if it.frozen {
+              continue
+            }
+            let freeze_it = if total_violation == 0.0 {
+              true
+            } else if total_violation > 0.0 {
+              // 正违规 = 被 min 抬大 → 冻结 min 违规项
+              it.violation > 0.0
+            } else {
+              // 负违规 = 被 max 压小 → 冻结 max 违规项
+              it.violation < 0.0
+            }
+            if freeze_it {
+              it.frozen = true
+            }
+          }
+          done = line.iter().all(fn(it) { it.frozen })
         }
+      }
       None => ()
     }
 
     // 主轴 auto margin 吸收（优先于 justify-content）
-    let sum_fixed = line.iter().fold(init=0.0, fn(acc, it) {
-      acc + it.size_main + it.m.start + it.m.end
-    })
+    let sum_fixed = line
+      .iter()
+      .fold(init=0.0, fn(acc, it) { acc + it.size_main + it.m.start + it.m.end })
     let free = match inner_main {
       Some(im) => im - gap_total - sum_fixed
       None => 0.0
     }
-    let auto_count = line.iter().fold(init=0, fn(acc, it) {
-      acc +
+    let auto_count = line
+      .iter()
+      .fold(init=0, fn(acc, it) {
+        acc +
         (if it.m.auto_start { 1 } else { 0 }) +
         (if it.m.auto_end { 1 } else { 0 })
-    })
+      })
     let mut seq = false
     if free > 0.0 && auto_count > 0 {
       let share = free / auto_count.to_double()
@@ -1317,9 +1377,14 @@ fn layout_into_impl(
     // justify-content 定位
     let n = line.length()
     let free2 = match inner_main {
-      Some(im) => im - gap_total - line.iter().fold(init=0.0, fn(acc, it) {
-        acc + it.size_main + it.m.start + it.m.end
-      })
+      Some(im) =>
+        im -
+        gap_total -
+        line
+        .iter()
+        .fold(init=0.0, fn(acc, it) {
+          acc + it.size_main + it.m.start + it.m.end
+        })
       None => 0.0
     }
     let (leading, between) = if seq {
@@ -1331,12 +1396,23 @@ fn layout_into_impl(
             FlexStart => (0.0, 0.0)
             FlexEnd => (free2, 0.0)
             Center => (free2 / 2.0, 0.0)
-            SpaceBetween => (0.0, if n > 1 { free2 / (n - 1).to_double() } else { 0.0 })
-            SpaceAround => (
-              if n > 0 { free2 / (2.0 * n.to_double()) } else { 0.0 },
-              if n > 0 { free2 / n.to_double() } else { 0.0 },
-            )
-            SpaceEvenly => (free2 / (n + 1).to_double(), free2 / (n + 1).to_double())
+            SpaceBetween =>
+              (0.0, if n > 1 { free2 / (n - 1).to_double() } else { 0.0 })
+            SpaceAround =>
+              (
+                if n > 0 {
+                  free2 / (2.0 * n.to_double())
+                } else {
+                  0.0
+                },
+                if n > 0 {
+                  free2 / n.to_double()
+                } else {
+                  0.0
+                },
+              )
+            SpaceEvenly =>
+              (free2 / (n + 1).to_double(), free2 / (n + 1).to_double())
           }
         None => (0.0, 0.0)
       }
@@ -1344,7 +1420,12 @@ fn layout_into_impl(
     let mut cursor = leading
     for it in line {
       it.pos_main = cursor + it.m.start
-      cursor = cursor + it.m.start + it.size_main + it.m.end + main_gap + between
+      cursor = cursor +
+        it.m.start +
+        it.size_main +
+        it.m.end +
+        main_gap +
+        between
     }
     // 交叉轴内容尺寸（用最终主尺寸约束重测）
     for it in line {
@@ -1374,20 +1455,26 @@ fn layout_into_impl(
                 (h, w)
               }
               it.content_cross = content.1
-              it.final_cross = clamp3(it.content_cross, it.min_cross, it.max_cross)
+              it.final_cross = clamp3(
+                it.content_cross,
+                it.min_cross,
+                it.max_cross,
+              )
               it.baseline = it.node.baseline
             }
           }
       }
     }
-    let content_cross = line.iter().fold(init=0.0, fn(acc, it) {
-      let outer = it.final_cross + it.m.cross_start + it.m.cross_end
-      if outer > acc {
-        outer
-      } else {
-        acc
-      }
-    })
+    let content_cross = line
+      .iter()
+      .fold(init=0.0, fn(acc, it) {
+        let outer = it.final_cross + it.m.cross_start + it.m.cross_end
+        if outer > acc {
+          outer
+        } else {
+          acc
+        }
+      })
     // 规范 §9.4：基线分组——参与基线对齐的项取「基线到外沿交叉起端」最大值
     // 与「基线到外沿交叉末端」最大值，两者之和即本行的基线尺寸
     let mut max_ascent = 0.0
@@ -1425,7 +1512,9 @@ fn layout_into_impl(
     line_crosses.push(line_cross)
   }
   // ---- 整行分布（align-content）----
-  let own_cross_content = line_crosses.iter().fold(init=0.0, fn(acc, v) { acc + v }) +
+  let own_cross_content = line_crosses
+    .iter()
+    .fold(init=0.0, fn(acc, v) { acc + v }) +
     (cross_gap * (nlines - 1).to_double()).max(0.0)
   let wrap_reverse = match s.flex_wrap {
     WrapReverse => true
@@ -1502,9 +1591,9 @@ fn layout_into_impl(
   // 各行外沿主轴尺寸的最大值：既作容器内容推算的主轴尺寸，也作主轴
   // 无确定尺寸时翻转定位的参照（否则 row-reverse 的 auto 宽容器会算出负偏移）
   let line_main_of = fn(line : Array[Item]) -> Double {
-    line.iter().fold(init=0.0, fn(acc, it) {
-      acc + it.size_main + it.m.start + it.m.end
-    }) +
+    line
+    .iter()
+    .fold(init=0.0, fn(acc, it) { acc + it.size_main + it.m.start + it.m.end }) +
     (main_gap * (line.length() - 1).to_double()).max(0.0)
   }
   let mut line_main_max = 0.0
@@ -1597,7 +1686,7 @@ fn layout_into_impl(
   // 首行有基线对齐项 → 取该行共同基线；否则取交叉轴起端最靠前的
   // 有基线 in-flow 项（含嵌套容器上抛的基线），无则本节点无基线。
   let mut first_top = max_dim
-  let mut item_baseline : Option[Double] = None
+  let mut item_baseline : Double? = None
   for line in lines {
     for it in line {
       match it.node.baseline {
@@ -1610,15 +1699,14 @@ fn layout_into_impl(
       }
     }
   }
-  node.baseline =
-    if nlines > 0 {
-      match line_ascents[0] {
-        Some(a) => Some(own_border.top + own_pad.top + line_offsets[0] + a)
-        None => item_baseline
-      }
-    } else {
-      None
+  node.baseline = if nlines > 0 {
+    match line_ascents[0] {
+      Some(a) => Some(own_border.top + own_pad.top + line_offsets[0] + a)
+      None => item_baseline
     }
+  } else {
+    None
+  }
   // ---- 自身尺寸 ----
   // 内容推算出的自身尺寸要含自身 padding/border（宽高语义为 border-box）
   let content_main_sum = line_main_max + pad_border_main
@@ -1642,14 +1730,22 @@ fn layout_into_impl(
     own_main0,
     axis_size(
       node,
-      if main_is_row { s.min_width } else { s.min_height },
+      if main_is_row {
+        s.min_width
+      } else {
+        s.min_height
+      },
       main_is_row,
       child_pct_w,
       child_pct_h,
     ).unwrap_or(0.0),
     axis_size(
       node,
-      if main_is_row { s.max_width } else { s.max_height },
+      if main_is_row {
+        s.max_width
+      } else {
+        s.max_height
+      },
       main_is_row,
       child_pct_w,
       child_pct_h,
@@ -1659,14 +1755,22 @@ fn layout_into_impl(
     own_cross0,
     axis_size(
       node,
-      if main_is_row { s.min_height } else { s.min_width },
+      if main_is_row {
+        s.min_height
+      } else {
+        s.min_width
+      },
       !main_is_row,
       child_pct_w,
       child_pct_h,
     ).unwrap_or(0.0),
     axis_size(
       node,
-      if main_is_row { s.max_height } else { s.max_width },
+      if main_is_row {
+        s.max_height
+      } else {
+        s.max_width
+      },
       !main_is_row,
       child_pct_w,
       child_pct_h,
@@ -1702,7 +1806,8 @@ fn layout_into_impl(
         Some(v) => Some(v.max(cpb_w))
         None =>
           match (ins_l, ins_r) {
-            (Some(lv), Some(rv)) => Some((cb_w - lv - rv - cm.left - cm.right).max(cpb_w))
+            (Some(lv), Some(rv)) =>
+              Some((cb_w - lv - rv - cm.left - cm.right).max(cpb_w))
             _ => None
           }
       }
@@ -1710,7 +1815,8 @@ fn layout_into_impl(
         Some(v) => Some(v.max(cpb_h))
         None =>
           match (ins_t, ins_b) {
-            (Some(tv), Some(bv)) => Some((cb_h - tv - bv - cm.top - cm.bottom).max(cpb_h))
+            (Some(tv), Some(bv)) =>
+              Some((cb_h - tv - bv - cm.top - cm.bottom).max(cpb_h))
             _ => None
           }
       }
@@ -1729,12 +1835,20 @@ fn layout_into_impl(
       let avail_w = match sized_w {
         Some(v) => (v - cpb_w).max(0.0)
         None =>
-          (cb_w - cm.left - cm.right - ins_l.unwrap_or(0.0) - ins_r.unwrap_or(0.0)).max(0.0)
+          (cb_w -
+          cm.left -
+          cm.right -
+          ins_l.unwrap_or(0.0) -
+          ins_r.unwrap_or(0.0)).max(0.0)
       }
       let avail_h = match sized_h {
         Some(v) => (v - cpb_h).max(0.0)
         None =>
-          (cb_h - cm.top - cm.bottom - ins_t.unwrap_or(0.0) - ins_b.unwrap_or(0.0)).max(0.0)
+          (cb_h -
+          cm.top -
+          cm.bottom -
+          ins_t.unwrap_or(0.0) -
+          ins_b.unwrap_or(0.0)).max(0.0)
       }
       let (ccw, cch) = measure_content(c, Some(avail_w), Some(avail_h))
       let w0 = match sized_w {
@@ -1763,10 +1877,11 @@ fn layout_into_impl(
             Some(rv) => cb_w - rv - cm.right - aw
             None => {
               let lead = (if main_is_row {
-                justify_leading(s.justify_content, cb_w - aw)
-              } else {
-                align_offset(s.align_items, cb_w - aw)
-              }) + (if h_rev { cm.right } else { cm.left })
+                  justify_leading(s.justify_content, cb_w - aw)
+                } else {
+                  align_offset(s.align_items, cb_w - aw)
+                }) +
+                (if h_rev { cm.right } else { cm.left })
               if h_rev {
                 cb_w - aw - lead
               } else {
@@ -1782,10 +1897,11 @@ fn layout_into_impl(
             Some(bv) => cb_h - bv - cm.bottom - ah
             None => {
               let lead = (if main_is_row {
-                align_offset(s.align_items, cb_h - ah)
-              } else {
-                justify_leading(s.justify_content, cb_h - ah)
-              }) + (if v_rev { cm.bottom } else { cm.top })
+                  align_offset(s.align_items, cb_h - ah)
+                } else {
+                  justify_leading(s.justify_content, cb_h - ah)
+                }) +
+                (if v_rev { cm.bottom } else { cm.top })
               if v_rev {
                 cb_h - ah - lead
               } else {

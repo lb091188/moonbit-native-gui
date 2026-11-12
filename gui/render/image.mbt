@@ -8,53 +8,50 @@
 
 ///|
 #borrow(data)
-extern "c" fn img_decode_bytes(data : Bytes, len : Int) -> Int64 = "img_decode_bytes"
+extern "c" fn img_decode_bytes(data : Bytes, len : Int32) -> Int64 = "img_decode_bytes"
 
 ///|
 #borrow(path)
-extern "c" fn img_decode_file(path : Bytes, len : Int) -> Int64 = "img_decode_file"
+extern "c" fn img_decode_file(path : Bytes, len : Int32) -> Int64 = "img_decode_file"
 
 ///|
-extern "c" fn img_w(h : Int64) -> Int = "img_w"
+extern "c" fn img_w(h : Int64) -> Int32 = "img_w"
 
 ///|
-extern "c" fn img_h(h : Int64) -> Int = "img_h"
+extern "c" fn img_h(h : Int64) -> Int32 = "img_h"
 
 ///|
 #borrow(out)
-extern "c" fn img_copy(h : Int64, out : FixedArray[Byte]) -> Int = "img_copy"
+extern "c" fn img_copy(h : Int64, out : FixedArray[Byte]) -> Int32 = "img_copy"
 
 ///|
 extern "c" fn img_free(h : Int64) -> Unit = "img_free"
 
 ///|
 #borrow(path)
-extern "c" fn img_anim_decode_file(
-  path : Bytes,
-  len : Int,
-) -> Int64 = "img_anim_decode_file"
+extern "c" fn img_anim_decode_file(path : Bytes, len : Int32) -> Int64 = "img_anim_decode_file"
 
 ///|
-extern "c" fn img_anim_is_static(h : Int64) -> Int = "img_anim_is_static"
+extern "c" fn img_anim_is_static(h : Int64) -> Int32 = "img_anim_is_static"
 
 ///|
-extern "c" fn img_anim_w(h : Int64) -> Int = "img_anim_w"
+extern "c" fn img_anim_w(h : Int64) -> Int32 = "img_anim_w"
 
 ///|
-extern "c" fn img_anim_h(h : Int64) -> Int = "img_anim_h"
+extern "c" fn img_anim_h(h : Int64) -> Int32 = "img_anim_h"
 
 ///|
-extern "c" fn img_anim_delay_ms(h : Int64) -> Int = "img_anim_delay_ms"
+extern "c" fn img_anim_delay_ms(h : Int64) -> Int32 = "img_anim_delay_ms"
 
 ///|
-extern "c" fn img_anim_frame(h : Int64) -> Int = "img_anim_frame"
+extern "c" fn img_anim_frame(h : Int64) -> Int32 = "img_anim_frame"
 
 ///|
-extern "c" fn img_anim_advance(h : Int64) -> Int = "img_anim_advance"
+extern "c" fn img_anim_advance(h : Int64) -> Int32 = "img_anim_advance"
 
 ///|
 #borrow(out)
-extern "c" fn img_anim_copy(h : Int64, out : FixedArray[Byte]) -> Int = "img_anim_copy"
+extern "c" fn img_anim_copy(h : Int64, out : FixedArray[Byte]) -> Int32 = "img_anim_copy"
 
 ///|
 extern "c" fn img_anim_free(h : Int64) -> Unit = "img_anim_free"
@@ -69,7 +66,7 @@ pub(all) struct Image {
 fn image_of(h : Int64, scale : Double) -> Image {
   let s = if scale <= 0.0 { 1.0 } else { scale }
   if h == 0L {
-    return { pixels: Bitmap::new(0, 0), scale: s }
+    return { pixels: Bitmap::new(0, 0), scale: s, }
   }
   let w = img_w(h)
   let ht = img_h(h)
@@ -77,16 +74,16 @@ fn image_of(h : Int64, scale : Double) -> Image {
   let ok = img_copy(h, bm.data)
   img_free(h)
   if ok == 0 {
-    { pixels: Bitmap::new(0, 0), scale: s }
+    { pixels: Bitmap::new(0, 0), scale: s, }
   } else {
-    { pixels: bm, scale: s }
+    { pixels: bm, scale: s, }
   }
 }
 
 ///|
 /// 从内存解码图片（PNG/JPEG/GIF 首帧等，按内容嗅探；名字沿用旧契约）。
 /// 解码失败得到空图（`is_empty` 为真）。
-pub fn Image::new_from_png(data : Bytes, scale? : Double = 1.0) -> Image {
+pub fn Image::new_from_png(data : Bytes, scale~ : Double = 1.0) -> Image {
   image_of(img_decode_bytes(data, data.length()), scale)
 }
 
@@ -99,9 +96,9 @@ pub fn Image::new_from_file(path : String) -> Image {
 
 ///|
 /// 直接以现有位图为像素源（视频帧、离屏快照等自产数据用，免一次编解码）。
-pub fn Image::from_bitmap(bitmap : Bitmap, scale? : Double = 1.0) -> Image {
+pub fn Image::from_bitmap(bitmap : Bitmap, scale~ : Double = 1.0) -> Image {
   let s = if scale <= 0.0 { 1.0 } else { scale }
-  { pixels: bitmap, scale: s }
+  { pixels: bitmap, scale: s, }
 }
 
 ///|
@@ -134,19 +131,30 @@ pub fn Image::resize(
   self : Image,
   width : Double,
   height : Double,
-  scale? : Double = 1.0,
+  scale~ : Double = 1.0,
 ) -> Image {
   let s = if scale <= 0.0 { 1.0 } else { scale }
   let dw = (width * s + 0.5).floor().to_int()
   let dh = (height * s + 0.5).floor().to_int()
-  let dst = Bitmap::new(if dw < 0 { 0 } else { dw }, if dh < 0 { 0 } else { dh })
+  let dst = Bitmap::new(
+    if dw < 0 {
+      0
+    } else {
+      dw
+    },
+    if dh < 0 {
+      0
+    } else {
+      dh
+    },
+  )
   if self.is_empty() || dst.width == 0 || dst.height == 0 {
-    return { pixels: dst, scale: s }
+    return { pixels: dst, scale: s, }
   }
   let p = Painter::new(dst)
   p.draw_image(self, 0.0, 0.0, dst.width.to_double(), dst.height.to_double())
   p.end()
-  { pixels: dst, scale: s }
+  { pixels: dst, scale: s, }
 }
 
 ///|
@@ -189,8 +197,8 @@ pub fn ImageSlot::get(self : ImageSlot) -> Image? {
 /// 槽位有限且不自动回收——不用了要 `close`（组件侧由挂载生命周期负责）。
 pub(all) struct Animation {
   mut handle : Int64
-  width : Int
-  height : Int
+  width : Int32
+  height : Int32
   is_static : Bool
 }
 
@@ -219,7 +227,7 @@ pub fn Animation::is_valid(self : Animation) -> Bool {
 
 ///|
 /// 当前帧的停留时长（毫秒）；读不到时 C 侧退回 100。
-pub fn Animation::delay_ms(self : Animation) -> Int {
+pub fn Animation::delay_ms(self : Animation) -> Int32 {
   if self.handle == 0L {
     0
   } else {
@@ -229,7 +237,7 @@ pub fn Animation::delay_ms(self : Animation) -> Int {
 
 ///|
 /// 当前帧序号（从 0 起，每次成功 `advance` 加一；归零即说明动画回绕了）。
-pub fn Animation::frame(self : Animation) -> Int {
+pub fn Animation::frame(self : Animation) -> Int32 {
   if self.handle == 0L {
     -1
   } else {
@@ -247,13 +255,13 @@ pub fn Animation::advance(self : Animation) -> Bool {
 /// 取当前帧为静态 `Image`（尺寸与整幅不符的帧会被跳过，返回空图）。
 pub fn Animation::current(self : Animation) -> Image {
   if self.handle == 0L {
-    return { pixels: Bitmap::new(0, 0), scale: 1.0 }
+    return { pixels: Bitmap::new(0, 0), scale: 1.0, }
   }
   let bm = Bitmap::new(self.width, self.height)
   if img_anim_copy(self.handle, bm.data) == 0 {
-    { pixels: Bitmap::new(0, 0), scale: 1.0 }
+    { pixels: Bitmap::new(0, 0), scale: 1.0, }
   } else {
-    { pixels: bm, scale: 1.0 }
+    { pixels: bm, scale: 1.0, }
   }
 }
 

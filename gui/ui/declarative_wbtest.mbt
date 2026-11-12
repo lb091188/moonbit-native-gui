@@ -14,7 +14,11 @@ test "vbox / hbox：方向与间距来自参数，交叉轴按 align_items" {
   assert_eq(k1.rect.y - (k0.rect.y + k0.rect.h), 10.0)
   assert_eq(k0.rect.x, 4.0)
   assert_true(k1.rect.y > k0.rect.y)
-  let (_r2, row) = mounted(row([text("丙"), text("丁")], column_gap=12.0), 300.0, 120.0)
+  let (_r2, row) = mounted(
+    row([text("丙"), text("丁")], column_gap=12.0),
+    300.0,
+    120.0,
+  )
   let h0 = row.children()[0]
   let h1 = row.children()[1]
   assert_eq(h1.rect.x - (h0.rect.x + h0.rect.w), 12.0)
@@ -32,7 +36,7 @@ test "bind_label：Store 一改就就地换文本并重测宽（不重建子树�
   }
   let n = @base.Store::new(1)
   let (root, w) = mounted(
-    bind_label(n, fn(v : Int) -> String { "计数 " + v.to_string() }),
+    bind_label(n, fn(v : Int32) -> String { "计数 " + v.to_string() }),
     300.0,
     120.0,
   )
@@ -49,10 +53,12 @@ test "bind_label：Store 一改就就地换文本并重测宽（不重建子树�
 ///|
 test "bind：派生信号变化才换文本，订阅随回收袋退订" {
   let src = @base.Store::new(3)
-  let doubled = src.map(fn(v : Int) -> Int { v * 2 })
+  let doubled = src.map(fn(v : Int32) -> Int32 { v * 2 })
   let holder = @widget.Widget::new()
   @base.sub_bag_begin()
-  let _w = (bind(doubled.signal(), fn(v : Int) -> String { v.to_string() })).mount_into(holder)
+  let _w = bind(doubled.signal(), fn(v : Int32) -> String { v.to_string() }).mount_into(
+    holder,
+  )
   let offs = @base.sub_bag_end()
   assert_eq(doubled.signal().sub_count(), 1)
   @base.sub_bag_discard(offs)
@@ -107,7 +113,11 @@ test "hover_group：子控件悬停即整组换底色，松开在组内才算一
 ///|
 test "旧名构造器落到新组件上：select 点开浮层、scroll 出滚动条、tab 按 Store 切页" {
   let v = @base.Store::new("")
-  let (root, field) = mounted_with_overlay(select(["甲", "乙"], v, width=140.0), 400.0, 300.0)
+  let (root, field) = mounted_with_overlay(
+    select(["甲", "乙"], v, width=140.0),
+    400.0,
+    300.0,
+  )
   click_at(root, field, 30.0, 16.0)
   assert_eq(@widget.overlay_count(), 1)
   root.relayout(400.0, 300.0)
@@ -121,7 +131,11 @@ test "旧名构造器落到新组件上：select 点开浮层、scroll 出滚动
   for i = 0; i < 20; i = i + 1 {
     rows_in.push(view([text("行 " + i.to_string())], height=22.0))
   }
-  let (_r2, view) = mounted(scroll_view(rows_in, st, width=160.0, height=80.0), 220.0, 200.0)
+  let (_r2, view) = mounted(
+    scroll_view(rows_in, st, width=160.0, height=80.0),
+    220.0,
+    200.0,
+  )
   let (bm, _, _) = shot(view)
   // 内容超视口 → 右缘画得出滚动条（轨道色不是透明）
   let bx = view.rect.w.round().to_int() - 4
@@ -130,7 +144,10 @@ test "旧名构造器落到新组件上：select 点开浮层、scroll 出滚动
 
   let sel = @base.Store::new(0)
   let (_r3, tabs) = mounted(
-    tabs([("页一", text("第一页内容")), ("页二", text("第二页内容"))], selected=sel),
+    tabs(
+      [("页一", text("第一页内容")), ("页二", text("第二页内容"))],
+      selected=sel,
+    ),
     300.0,
     160.0,
   )
@@ -150,17 +167,32 @@ test "光标形状请求：按钮手型、输入框文本形、分隔把手横�
   // 按钮的请求是**动态**的（`cursor_fn`，按命中查询现算），所以查它自己的请求函数
   assert_eq(card.children()[1].cursor_request(), @widget.CURSOR_HAND)
   // 悬停在卡片空白处也是手型（组的请求回退生效）
-  assert_eq(root.cursor_at(card.rect.x + 4.0, card.rect.y + 4.0), @widget.CURSOR_HAND)
-  let (_r2, box1) = mounted(input(@base.Store::new("x"), focus_id=1), 200.0, 60.0)
+  assert_eq(
+    root.cursor_at(card.rect.x + 4.0, card.rect.y + 4.0),
+    @widget.CURSOR_HAND,
+  )
+  let (_r2, box1) = mounted(
+    input(@base.Store::new("x"), focus_id=1),
+    200.0,
+    60.0,
+  )
   assert_eq(box1.cursor, @widget.CURSOR_TEXT)
   let (_r3, area) = mounted(textarea(@base.Store::new("y")), 260.0, 90.0)
   assert_eq(area.cursor, @widget.CURSOR_TEXT)
   let (_r4, hs) = mounted(split(text("甲"), text("乙")), 220.0, 80.0)
   assert_eq(hs.children()[1].cursor, @widget.CURSOR_RESIZE_H)
-  let (_r5, vs) = mounted(split(text("甲"), text("乙"), direction=Vertical), 220.0, 120.0)
+  let (_r5, vs) = mounted(
+    split(text("甲"), text("乙"), direction=Vertical),
+    220.0,
+    120.0,
+  )
   assert_eq(vs.children()[1].cursor, @widget.CURSOR_RESIZE_V)
   let (_r6, cg) = mounted(
-    cursor_group([text("缩放热区")], cursor=@widget.CURSOR_RESIZE_V, width=120.0),
+    cursor_group(
+      [text("缩放热区")],
+      cursor=@widget.CURSOR_RESIZE_V,
+      width=120.0,
+    ),
     200.0,
     60.0,
   )
@@ -170,7 +202,7 @@ test "光标形状请求：按钮手型、输入框文本形、分隔把手横�
 
 ///|
 test "mount_window_render：render 恰好调用一次" {
-  let runs : Ref[Int] = Ref(0)
+  let runs : Ref[Int32] = Ref(0)
   let _app = mount_window_render(
     fn() -> Array[@widget.Node] {
       runs.val += 1

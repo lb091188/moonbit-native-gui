@@ -7,10 +7,10 @@
 ///|
 /// 语义令牌：全文码元区间 + legend 下标 + 修饰位。
 pub struct SemTok {
-  start : Int // 全文 UTF-16 码元偏移
-  len : Int
-  ty : Int    // tokenTypes 标准序下标
-  mods : Int  // tokenModifiers 位掩码
+  start : Int32 // 全文 UTF-16 码元偏移
+  len : Int32
+  ty : Int32 // tokenTypes 标准序下标
+  mods : Int32 // tokenModifiers 位掩码
 }
 
 // tokenTypes 标准序（与 extension.js 的 SEMANTIC_TYPES 同序拷贝）：
@@ -18,24 +18,42 @@ pub struct SemTok {
 // 6 typeParameter  7 parameter  8 variable   9 property  10 enumMember
 // 11 event     12 function  13 method    14 macro     15 label     16 comment
 // 17 string    18 number    19 regexp    20 operator  21 keyword
+
+///|
 const SEM_TY_NAMESPACE = 0
+
+///|
 const SEM_TY_TYPE = 1
+
+///|
 const SEM_TY_PARAMETER = 7
+
+///|
 const SEM_TY_VARIABLE = 8
+
+///|
 const SEM_TY_PROPERTY = 9
+
+///|
 const SEM_TY_FUNCTION = 12
+
+///|
 const SEM_TY_METHOD = 13
 
 // tokenModifiers 位（标准序）：declaration=0 readonly=2
+
+///|
 const SEM_MD_DECL = 1
+
+///|
 const SEM_MD_READONLY = 4
 
 ///|
 priv struct SemScan {
   cs : Array[Char] // 全文字符
-  u16 : Array[Int] // u16[k] = 第 k 个字符的码元偏移
-  mut i : Int      // 字符下标
-  endi : Int       // 区域终点（不含）
+  u16 : Array[Int32] // u16[k] = 第 k 个字符的码元偏移
+  mut i : Int32 // 字符下标
+  endi : Int32 // 区域终点（不含）
   toks : Array[SemTok]
   // 页面符号表
   lets : Map[String, Bool]
@@ -45,10 +63,10 @@ priv struct SemScan {
   // 上下文机
   mut cur_params : Map[String, Bool] // 当前 fn 签名参数（体内引用按参数发色）
   mut collect_sig : Bool // 正在 fn 签名里收参数
-  mut sig_paren : Int    // 签名括号层深
-  mut sig_arm : Bool     // 刚过 fn 名（下个 ( 开签名）
-  mut paren : Int
-  mut brace : Int
+  mut sig_paren : Int32 // 签名括号层深
+  mut sig_arm : Bool // 刚过 fn 名（下个 ( 开签名）
+  mut paren : Int32
+  mut brace : Int32
   mut let_pending : Bool // 刚见 let（下个标识符是绑定名）
   mut let_mut : Bool
   mut prev_dot : Bool
@@ -123,8 +141,8 @@ pub fn semantic_tokens(src : String) -> Array[SemTok] {
 
 ///|
 /// 每个字符的码元偏移（星面字符宽 2，保证与 LSP UTF-16 列对齐）。
-fn sem_u16(cs : Array[Char]) -> Array[Int] {
-  let out : Array[Int] = []
+fn sem_u16(cs : Array[Char]) -> Array[Int32] {
+  let out : Array[Int32] = []
   let mut u = 0
   for c in cs {
     out.push(u)
@@ -192,12 +210,12 @@ fn sem_syms_of(src : String) -> SemSyms {
     }
     Err(_) => ()
   }
-  { lets, muts, fns, params }
+  { lets, muts, fns, params, }
 }
 
 ///|
 /// 顶层区域内容界：`<tag …>` 到配平的 `</tag>`（字符下标，不含标签本身）。
-fn sem_find_region(cs : Array[Char], tag : String) -> (Int, Int) {
+fn sem_find_region(cs : Array[Char], tag : String) -> (Int32, Int32) {
   let n = cs.length()
   let tag_cs = chars_of(tag)
   let m = tag_cs.length()
@@ -321,7 +339,7 @@ fn sem_expr_token(sc : SemScan, comments : Bool) -> Unit {
     if d == '*' {
       sc.i += 2
       while sc.i + 1 < sc.endi &&
-      !(sc.cs[sc.i] == '*' && sc.cs[sc.i + 1] == '/') {
+            !(sc.cs[sc.i] == '*' && sc.cs[sc.i + 1] == '/') {
         sc.i += 1
       }
       sc.i = if sc.i + 1 < sc.endi { sc.i + 2 } else { sc.endi }
@@ -442,8 +460,8 @@ fn sem_ident(sc : SemScan) -> Unit {
 ///|
 fn sem_classify(
   sc : SemScan,
-  s : Int,
-  e : Int,
+  s : Int32,
+  e : Int32,
   text : String,
   was_dot : Bool,
   was_c2 : Bool,
@@ -706,7 +724,9 @@ fn sem_char_lit(sc : SemScan) -> Unit {
 
 ///|
 fn sem_number(sc : SemScan) -> Unit {
-  if sc.cs[sc.i] == '0' && sc.i + 1 < sc.endi && (sc.cs[sc.i + 1] == 'x' || sc.cs[sc.i + 1] == 'X') {
+  if sc.cs[sc.i] == '0' &&
+    sc.i + 1 < sc.endi &&
+    (sc.cs[sc.i + 1] == 'x' || sc.cs[sc.i + 1] == 'X') {
     sc.i += 2
     while sc.i < sc.endi && is_ident_char(sc.cs[sc.i]) {
       sc.i += 1
@@ -737,10 +757,16 @@ fn sem_number(sc : SemScan) -> Unit {
 }
 
 ///|
-fn sem_emit(sc : SemScan, s : Int, len : Int, ty : Int, mods : Int) -> Unit {
+fn sem_emit(
+  sc : SemScan,
+  s : Int32,
+  len : Int32,
+  ty : Int32,
+  mods : Int32,
+) -> Unit {
   // 标识符全 ASCII：码元长 == 字符长
   if s < sc.u16.length() {
-    sc.toks.push({ start: sc.u16[s], len, ty, mods })
+    sc.toks.push({ start: sc.u16[s], len, ty, mods, })
   }
 }
 
@@ -749,10 +775,16 @@ fn sem_emit(sc : SemScan, s : Int, len : Int, ty : Int, mods : Int) -> Unit {
 fn sem_scan_template(sc : SemScan) -> Unit {
   while sc.i < sc.endi {
     let c = sc.cs[sc.i]
-    if c == '<' && sc.i + 3 < sc.endi && sc.cs[sc.i + 1] == '!' && sc.cs[sc.i + 2] == '-' && sc.cs[sc.i + 3] == '-' {
+    if c == '<' &&
+      sc.i + 3 < sc.endi &&
+      sc.cs[sc.i + 1] == '!' &&
+      sc.cs[sc.i + 2] == '-' &&
+      sc.cs[sc.i + 3] == '-' {
       sc.i += 4
       while sc.i + 2 < sc.endi &&
-      !(sc.cs[sc.i] == '-' && sc.cs[sc.i + 1] == '-' && sc.cs[sc.i + 2] == '>') {
+            !(sc.cs[sc.i] == '-' &&
+            sc.cs[sc.i + 1] == '-' &&
+            sc.cs[sc.i + 2] == '>') {
         sc.i += 1
       }
       sc.i = if sc.i + 2 < sc.endi { sc.i + 3 } else { sc.endi }
@@ -836,7 +868,12 @@ fn sem_tag(sc : SemScan) -> Unit {
     // 属性名（标识符 + : @ -）
     let ns = sc.i
     while sc.i < sc.endi &&
-    (is_ident_char(sc.cs[sc.i]) || sc.cs[sc.i] == ':' || sc.cs[sc.i] == '@' || sc.cs[sc.i] == '-') {
+          (
+            is_ident_char(sc.cs[sc.i]) ||
+            sc.cs[sc.i] == ':' ||
+            sc.cs[sc.i] == '@' ||
+            sc.cs[sc.i] == '-'
+          ) {
       sc.i += 1
     }
     let name = slice_str(sc.cs, ns, sc.i)

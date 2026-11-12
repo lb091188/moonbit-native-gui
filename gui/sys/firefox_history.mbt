@@ -117,7 +117,7 @@ fn ffx_split_lines(s : String) -> Array[String] {
 
 ///|
 /// 取子串 [start, end)（越界区间按夹逼到 [0, n] 处理）。
-fn ffx_slice(s : String, start : Int, end : Int) -> String {
+fn ffx_slice(s : String, start : Int32, end : Int32) -> String {
   let n = s.length()
   let lo = if start < 0 { 0 } else if start > n { n } else { start }
   let hi = if end > n { n } else if end < lo { lo } else { end }
@@ -268,7 +268,9 @@ let ffx_fallback_profile_names : Array[String] = [
 /// 当前平台是否支持 Firefox 历史读取（profiles.ini 定位实现了
 /// Linux/macOS/Windows 三条路径）。
 pub fn ffx_supported() -> Bool {
-  sys_platform() == "linux" || sys_platform() == "macos" || sys_platform() == "windows"
+  sys_platform() == "linux" ||
+  sys_platform() == "macos" ||
+  sys_platform() == "windows"
 }
 
 ///|
@@ -355,7 +357,7 @@ fn ffx_history_of_profile(bytes : Bytes) -> Result[Array[HistoryItem], String] {
 /// 主库的最新记录读不到；单 profile 读失败跳过，全部失败给
 /// [FfxIoFailed]。
 pub fn ffx_history(
-  limit? : Int = 200,
+  limit~ : Int32 = 200,
 ) -> Result[Array[HistoryItem], FirefoxHistoryError] {
   let pairs = match ffx_profiles_loaded() {
     Ok(ps) => ps

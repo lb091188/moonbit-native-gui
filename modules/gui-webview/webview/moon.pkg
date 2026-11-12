@@ -16,7 +16,7 @@ import {
   "NoahLiu/yoga-mbt/src" @yoga,
   "NoahLiu/native-gui/base",
   "NoahLiu/native-gui/shell",
-  "NoahLiu/native-gui/widget" @widget,
+  "NoahLiu/native-gui/widget",
   "NoahLiu/native-gui/win",
   "NoahLiu/native-gui/render",
   "NoahLiu/native-gui/sys",
@@ -28,6 +28,7 @@ import {
 // （Windows，native-stub 自编，MIT vendor 头相对路径自取）。每个平台上都只有
 // 一个落分支、一份 wb_* 符号（不带宏的那次 native-stub 编译在 Linux/macOS 都
 // 编出空翻译单元）。
+
 options(
   "native-stub": [ "webkit_stub.c", "webview2_stub.c" ],
 )

@@ -11,7 +11,9 @@ test "行容器内文本件紧贴排布：bind 回显贴着标签，不顶出也
   let label_w : Ref[@widget.Widget?] = Ref(None)
   let row = row(
     [
-      link("打开文档", fn() { lang.set("docs") }, handle=fn(w) { link_a.val = Some(w) }),
+      link("打开文档", fn() { lang.set("docs") }, handle=fn(w) {
+        link_a.val = Some(w)
+      }),
       link("帮助中心", fn() { lang.set("help") }),
       text("最近点击：", handle=fn(w) { label_w.val = Some(w) }),
       bind(lang.signal(), fn(s) { s }, handle=fn(w) { bind_w.val = Some(w) }),
@@ -28,9 +30,27 @@ test "行容器内文本件紧贴排布：bind 回显贴着标签，不顶出也
     Some(la) => {
       let cx = la.rect.x + la.rect.w / 2.0
       let cy = la.rect.y + la.rect.h / 2.0
-      let _ = root.dispatch_pointer({ kind: @widget.PointerKind::Move, x: cx, y: cy, button: 0, mods: 0 })
-      let _ = root.dispatch_pointer({ kind: @widget.PointerKind::Down, x: cx, y: cy, button: 1, mods: 0 })
-      let _ = root.dispatch_pointer({ kind: @widget.PointerKind::Up, x: cx, y: cy, button: 1, mods: 0 })
+      let _ = root.dispatch_pointer({
+        kind: @widget.PointerKind::Move,
+        x: cx,
+        y: cy,
+        button: 0,
+        mods: 0,
+      })
+      let _ = root.dispatch_pointer({
+        kind: @widget.PointerKind::Down,
+        x: cx,
+        y: cy,
+        button: 1,
+        mods: 0,
+      })
+      let _ = root.dispatch_pointer({
+        kind: @widget.PointerKind::Up,
+        x: cx,
+        y: cy,
+        button: 1,
+        mods: 0,
+      })
     }
     None => fail("link handle 未拿到")
   }
@@ -62,8 +82,7 @@ test "文本件口径：缺省折行按可用宽排，单行档收缩让宽不�
   if !ui_text_guard() {
     return
   }
-  let long =
-    "这段文字足够长，在窄容器里应当折行或收缩让位，而不是撑破容器，也不再留整行的 flex 占位。"
+  let long = "这段文字足够长，在窄容器里应当折行或收缩让位，而不是撑破容器，也不再留整行的 flex 占位。"
   // 缺省即折行：真实列（缺省 stretch 给确定宽）里 200 宽排成多行。
   // 不用 `mounted` 助手——它把 align_items 定成 FlexStart，列自己缩到
   // max-content，量不到块级跟随这条真语境（CSS shrink-to-fit 同口径）。
@@ -79,8 +98,9 @@ test "文本件口径：缺省折行按可用宽排，单行档收缩让宽不�
   let root2 = @widget.Widget::new()
   root2.set_size(200.0, 60.0)
   root2.set_column()
-  let rw = row([view([], width=180.0, height=18.0), text(long, wrap=false)])
-         .mount_into(root2)
+  let rw = row([view([], width=180.0, height=18.0), text(long, wrap=false)]).mount_into(
+    root2,
+  )
   root2.relayout(200.0, 60.0)
   match rw.children().get(1) {
     Some(t) => {

@@ -165,7 +165,9 @@ test "sys_make_dirs：逐级建目录后写文件才有着落" {
   // 空串拒绝
   assert_false(sys_make_dirs(""))
   // 父目录不存在时写文件失败：这条正是 make_dirs 要挡住的坑
-  assert_false(sys_write_text_file("\{root}\{sep}gone\{sep}deep\{sep}x.txt", "x"))
+  assert_false(
+    sys_write_text_file("\{root}\{sep}gone\{sep}deep\{sep}x.txt", "x"),
+  )
   fsx_remove_tree(root)
 }
 

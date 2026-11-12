@@ -1229,10 +1229,7 @@ fn text_wrap(words : Array[Double], line_h : Double) -> Node {
   let n = Node::new()
   n.set_measure(fn(avail_w, _avail_h) {
     match avail_w {
-      None => (
-        words.iter().fold(init=0.0, fn(a, v) { a + v }),
-        line_h,
-      )
+      None => (words.iter().fold(init=0.0, fn(a, v) { a + v }), line_h)
       Some(av) => {
         let mut line_w = 0.0
         let mut max_w = 0.0

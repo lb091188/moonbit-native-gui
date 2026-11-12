@@ -87,7 +87,7 @@ fn ksc_sub_arr(v : @dbus.GDBusValue) -> Array[@dbus.GDBusValue]? {
 
 ///|
 /// 取字典里的整数字段（int64/int32/uint32 都吃）。
-fn ksc_int(m : Map[String, @dbus.GDBusValue], key : String) -> Int? {
+fn ksc_int(m : Map[String, @dbus.GDBusValue], key : String) -> Int32? {
   match m.get(key) {
     Some(@dbus.GVInt64(v)) => Some(v.to_int())
     Some(@dbus.GVInt32(v)) => Some(v)
@@ -135,7 +135,11 @@ fn ksc_mode(v : @dbus.GDBusValue) -> KscMode? {
   let (w, h) = match m.get("size") {
     Some(sv) =>
       match ksc_sub_dict(sv) {
-        Some(sm) => (ksc_int(sm, "width").unwrap_or(0), ksc_int(sm, "height").unwrap_or(0))
+        Some(sm) =>
+          (
+            ksc_int(sm, "width").unwrap_or(0),
+            ksc_int(sm, "height").unwrap_or(0),
+          )
         None => (0, 0)
       }
     None => (0, 0)
@@ -150,7 +154,16 @@ fn ksc_mode(v : @dbus.GDBusValue) -> KscMode? {
     Some(@dbus.GVVariant(@dbus.GVDouble(hz))) => (hz * 100.0).to_int()
     _ => 0
   }
-  Some({ id, mode: { width: w, height: h, refresh_centi: rate, preferred: false, current: false } })
+  Some({
+    id,
+    mode: {
+      width: w,
+      height: h,
+      refresh_centi: rate,
+      preferred: false,
+      current: false,
+    },
+  })
 }
 
 ///|
@@ -203,7 +216,8 @@ fn ksc_output(v : @dbus.GDBusValue) -> @sys.MonitorInfo? {
   let (px, py) = match m.get("pos") {
     Some(pv) =>
       match ksc_sub_dict(pv) {
-        Some(pm) => (ksc_int(pm, "x").unwrap_or(0), ksc_int(pm, "y").unwrap_or(0))
+        Some(pm) =>
+          (ksc_int(pm, "x").unwrap_or(0), ksc_int(pm, "y").unwrap_or(0))
         None => (0, 0)
       }
     None => (0, 0)
@@ -274,7 +288,11 @@ pub fn wayland_mon_list() -> Result[Array[@sys.MonitorInfo], String] {
     return kscreen_mon_list()
   }
   if mutter_dc_available() {
-    return Err("mutter DisplayConfig 在，但字段序未核（S7 真机定）——暂不产出读数")
+    return Err(
+      "mutter DisplayConfig 在，但字段序未核（S7 真机定）——暂不产出读数",
+    )
   }
-  Err("Wayland 会话无已知显示器通道（wlroots 协议客户端待 P3 之后）")
+  Err(
+    "Wayland 会话无已知显示器通道（wlroots 协议客户端待 P3 之后）",
+  )
 }

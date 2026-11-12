@@ -28,7 +28,11 @@ pub(all) struct Lrc {
 fn lrc_signed(s : String) -> Double {
   let t = s.trim().to_owned()
   let v = num_or_zero(t)
-  if t.length() > 0 && t[0] == '-' { -v } else { v }
+  if t.length() > 0 && t[0] == '-' {
+    -v
+  } else {
+    v
+  }
 }
 
 ///|
@@ -68,7 +72,11 @@ fn lrc_bracket(inner : String) -> (Bool, String, String) {
     let key = StringBuilder()
     for ch in inner[0:colon].iter() {
       key.write_char(
-        if ch >= 'A' && ch <= 'Z' { (ch.to_int() + 32).unsafe_to_char() } else { ch },
+        if ch >= 'A' && ch <= 'Z' {
+          (ch.to_int() + 32).unsafe_to_char()
+        } else {
+          ch
+        },
       )
     }
     (false, key.to_string(), inner[colon + 1:].trim().to_owned())
@@ -84,7 +92,7 @@ pub fn lrc_parse(raw : String) -> Lrc {
   // 替换符 U+FFFD 只会来自非 UTF-8 字节（GBK 老歌词最常见）——整篇按空歌词
   // 处理，不把乱码当内容画上屏；调用方可经 `on_lyric(0)` 得知。
   if raw.contains("\u{FFFD}") {
-    return { cues: [], title: "", artist: "", album: "", maker: "" }
+    return { cues: [], title: "", artist: "", album: "", maker: "", }
   }
   let items : Array[(Double, String)] = []
   let mut title = ""
@@ -147,11 +155,10 @@ pub fn lrc_parse(raw : String) -> Lrc {
   }
   let cues : Array[Cue] = []
   for i = 0; i < items.length(); i = i + 1 {
-    let end =
-      if i + 1 < items.length() { items[i + 1].0 } else { lrc_open_end }
+    let end = if i + 1 < items.length() { items[i + 1].0 } else { lrc_open_end }
     cues.push({ start: items[i].0, end, text: items[i].1, })
   }
-  { cues, title, artist, album, maker }
+  { cues, title, artist, album, maker, }
 }
 
 ///|

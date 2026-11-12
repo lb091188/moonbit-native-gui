@@ -22,36 +22,36 @@ priv struct Slot {
   /// openers say no, so that link content stays in slots of its own.
   mergeable : Bool
   ch : Char
-  mut count : Int
-  orig : Int
+  mut count : Int32
+  orig : Int32
   can_open : Bool
   can_close : Bool
-  start : Int
-  mut prev : Int
-  mut next : Int
+  start : Int32
+  mut prev : Int32
+  mut next : Int32
 }
 
 ///|
 /// An unmatched `[` or `![` on the bracket stack.
 priv struct Bracket {
-  slot : Int // slot holding the literal "[" / "!["
-  content_start : Int // source offset just after the bracket
+  slot : Int32 // slot holding the literal "[" / "!["
+  content_start : Int32 // source offset just after the bracket
   image : Bool
   mut active : Bool
-  delim_bottom : Int // delimiter stack height when this bracket was pushed
+  delim_bottom : Int32 // delimiter stack height when this bracket was pushed
 }
 
 ///|
 /// Working state for one inline-content string.
 priv struct InlineCtx {
   text : String
-  len : Int
+  len : Int32
   defs : Map[String, LinkDefinition]
   wikilinks : Bool
   slots : Array[Slot]
-  mut head : Int
-  mut tail : Int
-  delims : Array[Int]
+  mut head : Int32
+  mut tail : Int32
+  delims : Array[Int32]
   brackets : Array[Bracket]
 }
 
@@ -79,7 +79,7 @@ fn InlineCtx::new(
 // =============================================================================
 
 ///|
-fn InlineCtx::append(self : InlineCtx, slot : Slot) -> Int {
+fn InlineCtx::append(self : InlineCtx, slot : Slot) -> Int32 {
   let idx = self.slots.length()
   slot.prev = self.tail
   slot.next = -1
@@ -94,7 +94,7 @@ fn InlineCtx::append(self : InlineCtx, slot : Slot) -> Int {
 }
 
 ///|
-fn InlineCtx::insert_after(self : InlineCtx, at : Int, slot : Slot) -> Int {
+fn InlineCtx::insert_after(self : InlineCtx, at : Int32, slot : Slot) -> Int32 {
   let idx = self.slots.length()
   let next = self.slots[at].next
   slot.prev = at
@@ -110,7 +110,7 @@ fn InlineCtx::insert_after(self : InlineCtx, at : Int, slot : Slot) -> Int {
 }
 
 ///|
-fn InlineCtx::unlink(self : InlineCtx, idx : Int) -> Unit {
+fn InlineCtx::unlink(self : InlineCtx, idx : Int32) -> Unit {
   let prev = self.slots[idx].prev
   let next = self.slots[idx].next
   if prev >= 0 {
@@ -128,7 +128,7 @@ fn InlineCtx::unlink(self : InlineCtx, idx : Int) -> Unit {
 }
 
 ///|
-fn new_inline_slot(inline : Inline, start : Int) -> Slot {
+fn new_inline_slot(inline : Inline, start : Int32) -> Slot {
   {
     inline: Some(inline),
     mergeable: true,
@@ -147,8 +147,8 @@ fn new_inline_slot(inline : Inline, start : Int) -> Slot {
 fn InlineCtx::push_inline(
   self : InlineCtx,
   inline : Inline,
-  start : Int,
-) -> Int {
+  start : Int32,
+) -> Int32 {
   self.append(new_inline_slot(inline, start))
 }
 
@@ -158,8 +158,8 @@ fn InlineCtx::push_inline(
 fn InlineCtx::push_text(
   self : InlineCtx,
   content : String,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Unit {
   if content.is_empty() {
     return
@@ -186,7 +186,7 @@ fn InlineCtx::push_text(
 
 ///|
 /// The inline a slot stands for; leftover delimiters become literal text.
-fn InlineCtx::slot_inline(self : InlineCtx, idx : Int) -> Inline {
+fn InlineCtx::slot_inline(self : InlineCtx, idx : Int32) -> Inline {
   let slot = self.slots[idx]
   match slot.inline {
     Some(v) => v
@@ -203,8 +203,8 @@ fn InlineCtx::slot_inline(self : InlineCtx, idx : Int) -> Inline {
 /// merging adjacent text nodes.
 fn InlineCtx::materialize(
   self : InlineCtx,
-  from : Int,
-  to : Int,
+  from : Int32,
+  to : Int32,
 ) -> Array[Inline] {
   let result : Array[Inline] = []
   self.materialize_into(from, to, result)
@@ -217,8 +217,8 @@ fn InlineCtx::materialize(
 /// children after link definitions have been collected.
 fn InlineCtx::materialize_into(
   self : InlineCtx,
-  from : Int,
-  to : Int,
+  from : Int32,
+  to : Int32,
   result : Array[Inline],
 ) -> Unit {
   let mut i = from
@@ -254,8 +254,8 @@ fn InlineCtx::materialize_into(
 /// follows the CommonMark algorithm.
 pub fn parse_inlines(
   text : String,
-  strict? : Bool = false,
-  wikilinks? : Bool = false,
+  strict~ : Bool = false,
+  wikilinks~ : Bool = false,
 ) -> Array[Inline] {
   ignore(strict)
   parse_inlines_with_defs(text, Map([], capacity=0), wikilinks)
@@ -313,7 +313,7 @@ fn InlineCtx::scan(self : InlineCtx) -> Unit {
   let mut run_start = 0
   let mut i = 0
   // Flush the pending literal run that ends just before `end`.
-  fn flush(end : Int) -> Unit {
+  fn flush(end : Int32) -> Unit {
     if !buf.is_empty() {
       self.push_text(buf.to_string(), run_start, end)
       buf.reset()
@@ -561,7 +561,7 @@ fn is_inline_marker_code_unit(c : UInt16) -> Bool {
 }
 
 ///|
-fn count_run(text : String, start : Int, ch : UInt16) -> Int {
+fn count_run(text : String, start : Int32, ch : UInt16) -> Int32 {
   let len = text.length()
   let mut i = start
   while i < len && text.unsafe_get(i) == ch {
@@ -577,7 +577,7 @@ fn count_run(text : String, start : Int, ch : UInt16) -> Int {
 ///|
 /// Parse the code span opening at `start`, returning content, fence length and
 /// the index just past the closing run.
-fn parse_code_span(text : String, start : Int) -> (String, Int, Int)? {
+fn parse_code_span(text : String, start : Int32) -> (String, Int32, Int32)? {
   let len = text.length()
   let opener = count_run(text, start, '`')
   let mut i = start + opener
@@ -614,7 +614,7 @@ fn is_uri_scheme_char(c : UInt16) -> Bool {
 
 ///|
 /// `<scheme:...>` absolute URI autolinks and `<user@host>` email autolinks.
-fn parse_autolink(text : String, start : Int) -> (String, Bool, Int)? {
+fn parse_autolink(text : String, start : Int32) -> (String, Bool, Int32)? {
   let len = text.length()
   guard start + 1 < len else { return None }
   let mut end = start + 1
@@ -709,7 +709,7 @@ fn is_email_address(s : String) -> Bool {
 ///|
 /// Raw inline HTML: open/closing tags, comments, processing instructions,
 /// declarations and CDATA sections. Returns the index just past the construct.
-fn parse_raw_html(text : String, start : Int) -> Int? {
+fn parse_raw_html(text : String, start : Int32) -> Int32? {
   let len = text.length()
   guard start + 1 < len else { return None }
   let next = text.unsafe_get(start + 1)
@@ -748,7 +748,7 @@ fn parse_raw_html(text : String, start : Int) -> Int? {
 }
 
 ///|
-fn matches_at(text : String, start : Int, needle : String) -> Bool {
+fn matches_at(text : String, start : Int32, needle : String) -> Bool {
   let len = text.length()
   let n = needle.length()
   if start + n > len {
@@ -769,7 +769,7 @@ fn is_html_space(c : UInt16) -> Bool {
 
 ///|
 /// `<!-->`, `<!--->` or `<!--` … `-->`.
-fn parse_html_comment(text : String, start : Int) -> Int? {
+fn parse_html_comment(text : String, start : Int32) -> Int32? {
   if matches_at(text, start, "<!-->") {
     return Some(start + 5)
   }
@@ -780,7 +780,7 @@ fn parse_html_comment(text : String, start : Int) -> Int? {
 }
 
 ///|
-fn parse_html_open_tag(text : String, start : Int) -> Int? {
+fn parse_html_open_tag(text : String, start : Int32) -> Int32? {
   let len = text.length()
   let mut i = start + 1
   guard i < len && is_ascii_letter_unit(text.unsafe_get(i)) else { return None }

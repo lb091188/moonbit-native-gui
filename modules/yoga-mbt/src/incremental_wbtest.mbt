@@ -21,7 +21,7 @@ fn snapshot(n : Node, out : Array[(Double, Double, Double, Double)]) -> Unit {
 fn build_sample(
   text_h : Double,
   hidden : Bool,
-  calls : Ref[Int],
+  calls : Ref[Int32],
 ) -> (Node, Node, Node) {
   let root = Node::new()
   root.set_width(fixed(200.0))
@@ -62,7 +62,7 @@ fn build_sample(
 
 ///|
 /// 叶子内容宽随可用宽变化的探针树：缓存若串了宽度立刻看得出来。
-fn build_width_probe(calls : Ref[Int]) -> Node {
+fn build_width_probe(calls : Ref[Int32]) -> Node {
   let root = Node::new()
   root.set_flex_direction(FlexDirection::Column)
   let leaf = Node::new()
@@ -323,8 +323,10 @@ test "原位增删子节点：insert_child / remove_child_at 与参考树一致"
   let want : Array[(Double, Double, Double, Double)] = []
   snapshot(ref_root, want)
   assert_eq(got, want)
-  assert_eq((ra.layout().height, rb.layout().height, rc.layout().height),
-            (10.0, 20.0, 30.0))
+  assert_eq(
+    (ra.layout().height, rb.layout().height, rc.layout().height),
+    (10.0, 20.0, 30.0),
+  )
 
   // 越界：删除不动树，插入按尾钳制
   assert_true(root.remove_child_at(9) is None)

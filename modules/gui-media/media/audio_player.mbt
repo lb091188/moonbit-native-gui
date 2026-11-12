@@ -16,7 +16,11 @@
 pub fn ap_skip(cur : Double, duration_s : Double, delta : Double) -> Double {
   let t = cur + delta
   if duration_s <= 0.0 {
-    if t < 0.0 { 0.0 } else { t }
+    if t < 0.0 {
+      0.0
+    } else {
+      t
+    }
   } else {
     vp_clamp_t(t, duration_s)
   }
@@ -38,38 +42,36 @@ let ap_spectrum_alpha : Double = 0.4
 /// ——画说明板并把原因经 `on_error` 交出去（探测 + 降级不静默）。
 pub fn audio(
   path : String,
-  lyric? : String = "",
-  width? : Double = 560.0,
-  height? : Double = 34.0,
-  auto_play? : Bool = false,
-  volume? : Double = 0.8,
-  looping? : Bool = false,
+  lyric~ : String = "",
+  width~ : Double = 560.0,
+  height~ : Double = 34.0,
+  auto_play~ : Bool = false,
+  volume~ : Double = 0.8,
+  looping~ : Bool = false,
   /// 舞台区画不画实时频谱条（关掉就是纯文字舞台，解码旁路也不再喂分析器）。
-  spectrum? : Bool = true,
+  spectrum~ : Bool = true,
   /// 每 tick 的观测口（位置秒 / 是否在播）：示例与回证靠它证明时钟在走。
-  on_tick? : (Double, Bool) -> Unit = fn(
-    _t : Double,
-    _playing : Bool,
-  ) -> Unit { () },
+  on_tick~ : (Double, Bool) -> Unit = fn(_t : Double, _playing : Bool) -> Unit {
+    ()
+  },
   /// 倍速档位变化的观测口（控制条点倍速键时回调）。
-  on_speed? : (Double) -> Unit = fn(_v : Double) -> Unit { () },
+  on_speed~ : (Double) -> Unit = fn(_v : Double) -> Unit { () },
   /// 歌词来源的观测口（行数），打开时回调一次：调用方要区分「没配上歌词」与
   /// 「配上了但还没唱」，不必去猜引擎状态。
-  on_lyric? : (Int) -> Unit = fn(_n : Int) -> Unit { () },
-  on_error? : (String) -> Unit = fn(_s : String) -> Unit { () },
-  handle? : (@widget.Widget) -> Unit = fn(_w : @widget.Widget) -> Unit { () },
+  on_lyric~ : (Int32) -> Unit = fn(_n : Int32) -> Unit { () },
+  on_error~ : (String) -> Unit = fn(_s : String) -> Unit { () },
+  handle~ : (@widget.Widget) -> Unit = fn(_w : @widget.Widget) -> Unit { () },
 ) -> @widget.Node {
   let sp = Spectrum::make()
-  let engine = match AudioPlayer::make(
-    path,
-    volume~,
-    looping~,
-    pcm_tap=fn(b : Bytes, ch : Int) -> Unit {
+  let engine = match
+    AudioPlayer::make(path, volume~, looping~, pcm_tap=fn(
+      b : Bytes,
+      ch : Int32,
+    ) -> Unit {
       if spectrum {
         sp.feed(b, ch)
       }
-    },
-  ) {
+    }) {
     Ok(p) => p
     Err(e) => {
       on_error(e)
@@ -79,7 +81,7 @@ pub fn audio(
   let lrc = lrc_parse(lyric)
   on_lyric(lrc.cues.length())
   let dragging : Ref[Bool] = Ref(false)
-  let speed_i : Ref[Int] = Ref(0)
+  let speed_i : Ref[Int32] = Ref(0)
   // 按钮行是真控件，档位/态变了要重挂，所以读数走 Store（等值不重发）
   let playing : @base.Store[Bool] = @base.Store::new(false)
   let speed_st : @base.Store[Double] = @base.Store::new(1.0)
@@ -91,7 +93,7 @@ pub fn audio(
   let bar_vis : @base.Store[Bool] = @base.Store::new(true)
   let cursor_hide : @base.Store[Bool] = @base.Store::new(false)
   let pointer_on_stage : Ref[Bool] = Ref(false)
-  let idle : Ref[Int] = Ref(0)
+  let idle : Ref[Int32] = Ref(0)
   fn activity() -> Unit {
     idle.val = 0
     if !bar_vis.get() {
@@ -144,7 +146,11 @@ pub fn audio(
     @widget.invalidate()
   }
   fn toggle_mute() -> Unit {
-    let (m, v, lv) = bar_mute_toggle(muted.get(), engine.get_volume(), last_vol.val)
+    let (m, v, lv) = bar_mute_toggle(
+      muted.get(),
+      engine.get_volume(),
+      last_vol.val,
+    )
     muted.set(m)
     engine.set_volume(v)
     last_vol.val = lv
@@ -247,7 +253,7 @@ pub fn audio(
   ) -> Unit {
     toggle_full()
   })
-  stage.cursor_fn = Some(fn(_w : @widget.Widget) -> Int {
+  stage.cursor_fn = Some(fn(_w : @widget.Widget) -> Int32 {
     if cursor_hide.get() {
       @widget.CURSOR_HIDDEN
     } else {
@@ -264,10 +270,11 @@ pub fn audio(
     },
     dragging,
   )
-  let volume = player_volume(
-    fn() -> Double { engine.get_volume() },
-    fn(v : Double) -> Unit { apply_vol(v) },
-  )
+  let volume = player_volume(fn() -> Double { engine.get_volume() }, fn(
+    v : Double,
+  ) -> Unit {
+    apply_vol(v)
+  })
   let root = @widget.Widget::new()
   root.node.set_flex_direction(@yoga.Column)
   root.node.set_width(@yoga.fixed(width))

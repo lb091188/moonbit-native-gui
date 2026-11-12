@@ -93,8 +93,8 @@ pub fn ci_tooltip_pos(
   canvas_h : Double,
   tip_w : Double,
   tip_h : Double,
-  offset? : Double = 14.0,
-  margin? : Double = 6.0,
+  offset~ : Double = 14.0,
+  margin~ : Double = 6.0,
 ) -> (Double, Double) {
   let mut x = px + offset
   if x + tip_w > canvas_w - margin {
@@ -238,7 +238,12 @@ pub fn CiPlot::contains(self : CiPlot, px : Double, py : Double) -> Bool {
 /// 最近点命中：n 个点（序号 0..n-1）均布 [x0, x1] 时鼠标 px 的最近
 /// 序号；绘制区外 -1（单点在区内为 0）。与 map_idx 同一套均布几何，
 /// 命中与折线互为逆运算。
-pub fn ci_nearest_idx(px : Double, n : Int, x0 : Double, x1 : Double) -> Int {
+pub fn ci_nearest_idx(
+  px : Double,
+  n : Int32,
+  x0 : Double,
+  x1 : Double,
+) -> Int32 {
   if n <= 0 || !(x1 > x0) {
     return -1
   }
@@ -272,7 +277,7 @@ pub fn ci_sector_at(
   r_in : Double,
   r_out : Double,
   values : Array[Double],
-) -> Int {
+) -> Int32 {
   let dx = px - cx
   let dy = py - cy
   let r = (dx * dx + dy * dy).sqrt()
@@ -328,16 +333,16 @@ pub fn ci_sector_at(
 pub fn ci_tooltip(
   draw : (@render.Painter, Double, Double) -> Unit,
   hit : (Double, Double, Double, Double) -> (String, Array[(String, String)])?,
-  plot? : (Double, Double) -> CiPlot = fn(_w, _h) {
+  plot~ : (Double, Double) -> CiPlot = fn(_w, _h) {
     CiPlot::make(0.0, 0.0, 1.0, 1.0)
   },
-  zoom? : CiZoom? = None,
-  pan? : Bool = false,
-  zoom_map? : ((Double, Double, Double, Double) -> Double)? = None,
-  on_leave? : () -> Unit = fn() { () },
-  width? : Double = 0.0,
-  height? : Double = 280.0,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  zoom~ : CiZoom? = None,
+  pan~ : Bool = false,
+  zoom_map~ : ((Double, Double, Double, Double) -> Double)? = None,
+  on_leave~ : () -> Unit = fn() { () },
+  width~ : Double = 0.0,
+  height~ : Double = 280.0,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.watch_theme()
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
@@ -398,7 +403,11 @@ pub fn ci_tooltip(
             Some(z) =>
               if dragging.val {
                 let d = zmap(ev.x, ev.y, self.rect.w, self.rect.h) - drag_a0.val
-                ci_zoom_set(z, drag_s0.val + d, drag_s0.val + d + ci_zoom_span(z))
+                ci_zoom_set(
+                  z,
+                  drag_s0.val + d,
+                  drag_s0.val + d + ci_zoom_span(z),
+                )
                 need = true
               }
           }
@@ -417,7 +426,7 @@ pub fn ci_tooltip(
           }
           false
         }
-        @widget.PointerKind::Down => {
+        @widget.PointerKind::Down =>
           match zoom {
             None => false
             Some(z) =>
@@ -431,15 +440,13 @@ pub fn ci_tooltip(
                 false
               }
           }
-        }
-        @widget.PointerKind::Up => {
+        @widget.PointerKind::Up =>
           if dragging.val {
             dragging.val = false
             true
           } else {
             false
           }
-        }
       }
     })
     match zoom {

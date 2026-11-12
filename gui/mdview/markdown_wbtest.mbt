@@ -6,7 +6,7 @@
 /// 测试帮手:空渲染上下文(无脚注/无链接定义,基准宽 560)。
 fn md_test_ctx() -> MDCtx {
   {
-    foot: { no: (Map([]) : Map[String, Int]), order: [], counter: Ref(0) },
+    foot: { no: (Map([]) : Map[String, Int32]), order: [], counter: Ref(0), },
     defs: (Map([]) : Map[String, String]),
     width: 560.0,
     on_link: fn(_u : String) -> Unit { () },
@@ -120,7 +120,14 @@ test {
   for d in res.definitions {
     defs.set(d.label.trim(chars=" \t\n\r").to_owned(), d.url)
   }
-  let ctx : MDCtx = { foot: md_test_ctx().foot, defs, width: 560.0, on_link: fn(_u : String) -> Unit { () }, sel: false, doc: None }
+  let ctx : MDCtx = {
+    foot: md_test_ctx().foot,
+    defs,
+    width: 560.0,
+    on_link: fn(_u : String) -> Unit { () },
+    sel: false,
+    doc: None,
+  }
   let spans : Array[MDSpan] = []
   for b in res.document.children {
     match b {
@@ -185,13 +192,26 @@ test {
 ///|
 test {
   // 脚注:正文引用按出现顺序编号,展平为上标 "[n]";同一 label 不重编
-  let res = @mdast.parse("甲[^a] 乙[^b] 丙[^a]\n\n[^a]: 定义甲\n[^b]: 定义乙")
-  let foot : MDFootScan = { no: (Map([]) : Map[String, Int]), order: [], counter: Ref(0) }
+  let res = @mdast.parse(
+    "甲[^a] 乙[^b] 丙[^a]\n\n[^a]: 定义甲\n[^b]: 定义乙",
+  )
+  let foot : MDFootScan = {
+    no: (Map([]) : Map[String, Int32]),
+    order: [],
+    counter: Ref(0),
+  }
   md_scan_blocks(res.document.children, foot)
   assert_eq(foot.order, ["a", "b"])
   assert_eq(foot.no.get("a"), Some(1))
   assert_eq(foot.no.get("b"), Some(2))
-  let ctx : MDCtx = { foot, defs: (Map([]) : Map[String, String]), width: 560.0, on_link: fn(_u : String) -> Unit { () }, sel: false, doc: None }
+  let ctx : MDCtx = {
+    foot,
+    defs: (Map([]) : Map[String, String]),
+    width: 560.0,
+    on_link: fn(_u : String) -> Unit { () },
+    sel: false,
+    doc: None,
+  }
   let spans : Array[MDSpan] = []
   for b in res.document.children {
     match b {
@@ -265,7 +285,9 @@ test {
 test {
   // 区间表必须**首尾相接**且每个端点都恰好停在字符边界上:端点若按
   // UTF-16/码点计量,中英混排时就会切进字符中间,样式落到别的字上。
-  let spans = md_flat_par("前👍中**后粗**完毕`代码`~~删~~[链接](https://x.y)")
+  let spans = md_flat_par(
+    "前👍中**后粗**完毕`代码`~~删~~[链接](https://x.y)",
+  )
   let all = StringBuilder()
   for x in spans {
     all.write_string(x.text)
@@ -440,7 +462,9 @@ test {
 ///|
 test {
   // 表格渲染:出 表头行 + 分隔线 + 数据行 三节点;单元格富文本展平
-  let doc = @mdast.parse("| A | B |\n|:--|--:|\n| 甲 | 乙 |\n| **粗** | `码` |\n").document
+  let doc = @mdast.parse(
+      "| A | B |\n|:--|--:|\n| 甲 | 乙 |\n| **粗** | `码` |\n",
+    ).document
   match doc.children[0] {
     Table(header~, alignments~, rows~, ..) => {
       assert_eq(header.length(), 2)
@@ -466,13 +490,19 @@ test {
 test {
   // 默认不渲染的块级变体:空白行、HtmlBlock 与 FootnoteDefinition 不产
   // 节点(脚注定义在 markdown_view 文末统一渲染)
-  let doc = @mdast.parse("段落甲\n\n\n\n段落乙\n\n<div>x</div>\n\n[^f]: 脚注\n").document
+  let doc = @mdast.parse(
+      "段落甲\n\n\n\n段落乙\n\n<div>x</div>\n\n[^f]: 脚注\n",
+    ).document
   let nodes = md_render_blocks(doc.children, md_test_ctx())
   assert_eq(nodes.length(), 2)
 }
 
 ///|
-fn md_mounted(node : @widget.Node, w : Double, h : Double) -> (@widget.Widget, @widget.Widget) {
+fn md_mounted(
+  node : @widget.Node,
+  w : Double,
+  h : Double,
+) -> (@widget.Widget, @widget.Widget) {
   let root = @widget.Widget::new()
   root.set_size(w, h)
   root.set_column()
@@ -555,9 +585,12 @@ test "有序列表：序号与正文落在同一条基线上" {
   let cells = row.children()
   assert_eq(cells.length(), 2)
   let marker = cells[0]
-  assert_true(marker.rect.h > 0.0, msg="标记格高度为 0（未注册测量）")
+  assert_true(
+    marker.rect.h > 0.0,
+    msg="标记格高度为 0（未注册测量）",
+  )
   // 两格都非空墨，且底边（基线附近）相差不超过 2px
-  let ink_of = fn(w : @widget.Widget) -> (Int, Int) {
+  let ink_of = fn(w : @widget.Widget) -> (Int32, Int32) {
     let x0 = w.rect.x.round().to_int()
     let y0 = w.rect.y.round().to_int()
     let x1 = (w.rect.x + w.rect.w).round().to_int()
@@ -607,8 +640,7 @@ test {
   // 长段落必须按文档宽折行:折完没有任何子孙比文档宽,段落高度多于一行。
   // 旧实现 wrap=false 且节点宽=整段自然宽(实测 656px 撑进 480 文档),
   // 真机表现:右边缘整片裁字、代码区「复制」按钮被推出可视区。
-  let src =
-    "支持 **粗体**、*斜体*、***粗斜体***、~~删除线~~、`行内代码` 与 [链接](https://github.com/lb091188/moonbit-native-gui)，自动链接 <https://libyue.com>。"
+  let src = "支持 **粗体**、*斜体*、***粗斜体***、~~删除线~~、`行内代码` 与 [链接](https://github.com/lb091188/moonbit-native-gui)，自动链接 <https://libyue.com>。"
   let doc_w = 300.0
   let root = mount_doc(markdown_view(src, width=doc_w), 360.0, 400.0)
   let widest = Ref(0.0)
@@ -628,7 +660,10 @@ test {
   )
   let para = root.children()[0].children()[0]
   // 一行约 20px：折过之后必须明显高于一行
-  assert_true(para.rect.h > 30.0, msg="段落没有折成多行：高 \{para.rect.h}")
+  assert_true(
+    para.rect.h > 30.0,
+    msg="段落没有折成多行：高 \{para.rect.h}",
+  )
 }
 
 ///|
@@ -692,8 +727,7 @@ test {
   // 11px 压在「粗斜体、」上，Linux 同向但幅度小）。判据用像素：横线段的起点要
   // 等于组件自报的「删除线之前那段」的联合行宽。
   let size = 13.0
-  let src =
-    "支持 **粗体**、*斜体*、***粗斜体***、~~删除线~~、`行内代码` 与 链接"
+  let src = "支持 **粗体**、*斜体*、***粗斜体***、~~删除线~~、`行内代码` 与 链接"
   let spans = md_flat_par(src)
   let root = mount_doc(md_rich_label(spans, size, md_test_ctx()), 560.0, 40.0)
   let bm = @render.Bitmap::new(560, 40)
@@ -740,7 +774,10 @@ test {
 test "正文行距留前导，块间留缝" {
   // 中文逐字可断：60 宽里一行放不下这么多字，必然折成多行
   let root = mount_doc(
-    markdown_view("一二三四五六七八九十甲乙丙丁戊己庚辛壬癸", width=60.0),
+    markdown_view(
+      "一二三四五六七八九十甲乙丙丁戊己庚辛壬癸",
+      width=60.0,
+    ),
     360.0,
     300.0,
   )
@@ -778,7 +815,11 @@ test "跟随容器的富文本 measure 三档分答：列表标签不塌成一�
   root.set_size(1100.0, 700.0)
   root.set_column()
   let inner = @ui.col(
-    [markdown_view("- 无序列表项一二三\n- 列表项二(含 `代码`)\n\n段落一行文字。\n")],
+    [
+      markdown_view(
+        "- 无序列表项一二三\n- 列表项二(含 `代码`)\n\n段落一行文字。\n",
+      ),
+    ],
     padding=16.0,
   )
   let _ = inner.mount_into(root)
@@ -803,8 +844,7 @@ test "探询档不顶高块盒：一行列表项就是一行高" {
   // 几十行），整棵 md 列照这个被顶高的内在尺寸排，单行项因此占五六行到十几行高。
   // 判据：任何块不超过两行行盒，整篇不超过「块数 × 两行 + 块间距」；三个宽度各测一遍
   // （换宽会换一档先被问，正是顶高最容易复现的时机）。
-  let src =
-    "- 无序列表项一\n- 列表项二(含 `代码`)\n\n1. 有序列表第一项\n2. 有序列表第二项\n\n段落一行文字。\n"
+  let src = "- 无序列表项一\n- 列表项二(含 `代码`)\n\n1. 有序列表第一项\n2. 有序列表第二项\n\n段落一行文字。\n"
   let line_h = 13.0 * 1.6
   for w in [900.0, 640.0, 1100.0] {
     let root = @widget.Widget::new()
@@ -834,8 +874,7 @@ test "行内块内容吃掉行内剩余宽：单行项不折第二行、不被�
   // shrink-to-fit 成自身 max-content，盒宽与「逐单元累加」的折行判据差不到 1px
   // 就整体折出第二行，第二行又被单行的行盒裁掉。判据：整棵演示文档里，任何
   // 自己画字的叶子都不许比它的父盒高（三个宽度各扫一遍）。
-  let src =
-    "支持 **粗体**、`行内代码` 与 [链接](https://x.y),引用式链接见[主页][home]。\n\n- 无序列表项一\n- 无序列表项二(含 `代码`)\n  - 嵌套列表项\n1. 有序列表第一项\n- [x] 任务列表已完成项(点复选框可勾选)\n\n> 引用块:主题色竖条 + 缩进排版。\n\n正文脚注[^1]。\n\n[home]: https://x.y\n[^1]: 脚注定义一:在文末分隔线后按引用顺序渲染。\n"
+  let src = "支持 **粗体**、`行内代码` 与 [链接](https://x.y),引用式链接见[主页][home]。\n\n- 无序列表项一\n- 无序列表项二(含 `代码`)\n  - 嵌套列表项\n1. 有序列表第一项\n- [x] 任务列表已完成项(点复选框可勾选)\n\n> 引用块:主题色竖条 + 缩进排版。\n\n正文脚注[^1]。\n\n[home]: https://x.y\n[^1]: 脚注定义一:在文末分隔线后按引用顺序渲染。\n"
   fn fmt(r : @base.Rect) -> String {
     "(\{r.x},\{r.y},\{r.w}x\{r.h})"
   }
@@ -870,15 +909,15 @@ test "行内块内容吃掉行内剩余宽：单行项不折第二行、不被�
 /// 选中档夹具：其余量沿用 md_test_ctx，只把 `sel` 打开。
 fn md_sel_ctx() -> MDCtx {
   let c = md_test_ctx()
-  { ..c, sel: true }
+  { ..c, sel: true, }
 }
 
 ///|
 fn md_sel_click(root : @widget.Widget, x : Double, y : Double) -> Unit {
   let _ = root.dispatch_pointer({
     kind: @widget.PointerKind::Down,
-    x: x,
-    y: y,
+    x,
+    y,
     button: 1,
     mods: 0,
   })
@@ -888,8 +927,8 @@ fn md_sel_click(root : @widget.Widget, x : Double, y : Double) -> Unit {
 fn md_sel_move(root : @widget.Widget, x : Double, y : Double) -> Unit {
   let _ = root.dispatch_pointer({
     kind: @widget.PointerKind::Move,
-    x: x,
-    y: y,
+    x,
+    y,
     button: 0,
     mods: 0,
   })
@@ -899,8 +938,8 @@ fn md_sel_move(root : @widget.Widget, x : Double, y : Double) -> Unit {
 fn md_sel_up(root : @widget.Widget, x : Double, y : Double) -> Unit {
   let _ = root.dispatch_pointer({
     kind: @widget.PointerKind::Up,
-    x: x,
-    y: y,
+    x,
+    y,
     button: 1,
     mods: 0,
   })
@@ -921,7 +960,8 @@ test "选中档：逐字命中落字节、拖选区间就是原文子串" {
   }
   assert_eq(state.ed.get_text(), src)
   // 单行 10 个等宽汉字：一个字宽 = 整行宽/10，第 k 字中心 = (k+0.5)*cw
-  let cw = match @text.measure_font("甲", @text.Font::new("", 13.0), wrap=false) {
+  let cw = match
+    @text.measure_font("甲", @text.Font::new("", 13.0), wrap=false) {
     Some(m) => m.width
     None => abort("本平台没有文本测量")
   }
@@ -974,12 +1014,8 @@ test "选中档：混排行里段界仍取联合几何，跨行拖选把两行�
   }
   let want = buf.to_string()
   // 定宽 240 才折得开（md_test_ctx 的 560 会让这段只排一行）
-  let cx : MDCtx = { ..md_test_ctx(), sel: true, width: 240.0 }
-  let root = mount_doc(
-    md_rich_label(spans, 13.0, cx),
-    240.0,
-    120.0,
-  )
+  let cx : MDCtx = { ..md_test_ctx(), sel: true, width: 240.0, }
+  let root = mount_doc(md_rich_label(spans, 13.0, cx), 240.0, 120.0)
   let label = root.children()[0]
   let state = match md_sel_states.get(label.id) {
     Some(s) => s
@@ -1015,13 +1051,13 @@ test "选中档：混排行里段界仍取联合几何，跨行拖选把两行�
 
 ///|
 /// 下一个汉字边界（3 字节一个汉字；判据容差用，别在别处依赖它）
-fn caret_ceil(b : Int) -> Int {
+fn caret_ceil(b : Int32) -> Int32 {
   b + 3
 }
 
 ///|
 /// 字节前缀切片（测试与实现同口径的前缀量用）。
-fn byte_prefix(s : String, bj : Int) -> String {
+fn byte_prefix(s : String, bj : Int32) -> String {
   @utf8.decode_lossy(@utf8.encode(s)[:bj])
 }
 
@@ -1068,7 +1104,8 @@ test "选中档：逐字边缘是前缀实测量（kerning 混排也精确落边
     }
     bj2 += md_byte_len(ch.to_string())
     let old_e = acc * (joint / sum_per)
-    let true_e = match @text.measure_font(byte_prefix(src, bj2), f, wrap=false) {
+    let true_e = match
+      @text.measure_font(byte_prefix(src, bj2), f, wrap=false) {
       Some(m) => m.width
       None => 0.0
     }
@@ -1134,7 +1171,10 @@ test "跨段选中：markdown_view 文档级拖选跨块连续、复制得跨块
     None => abort("选中档没装起来")
   }
   // 全文 = 各块拼换行分隔：第一个块是标题甲
-  assert_eq(state.ed.get_text_in_range(0, md_byte_len("标题甲")), "标题甲")
+  assert_eq(
+    state.ed.get_text_in_range(0, md_byte_len("标题甲")),
+    "标题甲",
+  )
   // 从标题甲内按下，拖到最后的段落丙里松开：选区跨块连续
   let first = labels[0]
   let last = labels[labels.length() - 1]
@@ -1147,7 +1187,8 @@ test "跨段选中：markdown_view 文档级拖选跨块连续、复制得跨块
       assert_eq(a, 0, msg="锚点没落在文档首")
       let picked = state.ed.get_text_in_range(a, b)
       assert_true(
-        picked.contains("标题甲") && picked.contains("段落乙") &&
+        picked.contains("标题甲") &&
+        picked.contains("段落乙") &&
         picked.contains("段落丙"),
         msg="跨块选区没盖住三块：\{picked}",
       )
@@ -1174,7 +1215,7 @@ test "选中档：拖选松手后再移动不改选区（带链接的段落也�
   // sel_pointer 清不掉 dragging，松手后移动会一直从旧锚点改选区（真机实测）。
   let src = "前半句足够长用来把这一段折成两行，看 [链接](https://example.com) 与后续文字。"
   let spans = md_flat_par(src)
-  let cx : MDCtx = { ..md_test_ctx(), sel: true, width: 240.0 }
+  let cx : MDCtx = { ..md_test_ctx(), sel: true, width: 240.0, }
   let root = mount_doc(md_rich_label(spans, 13.0, cx), 240.0, 120.0)
   let label = root.children()[0]
   let state = match md_sel_states.get(label.id) {
@@ -1193,5 +1234,9 @@ test "选中档：拖选松手后再移动不改选区（带链接的段落也�
   assert_eq(state.ed.selection(), after_up, msg="松手后移动仍改选区")
   // 换一行位置再扫一遍，同样不许动
   md_sel_move(root, label.rect.x + 200.0, label.rect.y + label.rect.h - 1.0)
-  assert_eq(state.ed.selection(), after_up, msg="松手后跨行移动仍改选区")
+  assert_eq(
+    state.ed.selection(),
+    after_up,
+    msg="松手后跨行移动仍改选区",
+  )
 }

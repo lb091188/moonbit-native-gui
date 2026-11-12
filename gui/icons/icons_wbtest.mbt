@@ -2,7 +2,7 @@
 // 以及「每个图标都真的画出像素且内容居中」。
 
 ///|
-fn painted_count(bm : @render.Bitmap) -> Int {
+fn painted_count(bm : @render.Bitmap) -> Int32 {
   let mut n = 0
   for y = 0; y < bm.height; y = y + 1 {
     for x = 0; x < bm.width; x = x + 1 {
@@ -16,7 +16,7 @@ fn painted_count(bm : @render.Bitmap) -> Int {
 
 ///|
 /// 已画像素的包围盒（无非空像素给 None）。
-fn painted_box(bm : @render.Bitmap) -> (Int, Int, Int, Int)? {
+fn painted_box(bm : @render.Bitmap) -> (Int32, Int32, Int32, Int32)? {
   let mut x0 = bm.width
   let mut y0 = bm.height
   let mut x1 = -1
@@ -98,7 +98,10 @@ fn path_charset_ok(d : String) -> Bool {
     }
   }
   let n = d.length()
-  ok && n >= 2 && d.unsafe_get(0).to_int() == 77 && d.unsafe_get(n - 1).to_int() == 90
+  ok &&
+  n >= 2 &&
+  d.unsafe_get(0).to_int() == 77 &&
+  d.unsafe_get(n - 1).to_int() == 90
 }
 
 ///|

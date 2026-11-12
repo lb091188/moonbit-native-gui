@@ -8,7 +8,10 @@ fn panel_body(w : Wizard) -> @widget.Node {
     [
       @ui.text("工程面板", class=[@style.text_heading]),
       @ui.text(w.proj.get(), selectable=true, color="info"),
-      @ui.alert("打包与发布落在工程 .mng/dist/；命令日志在 .mng/wizard/", t=@ui.Info),
+      @ui.alert(
+        "打包与发布落在工程 .mng/dist/；命令日志在 .mng/wizard/",
+        t=@ui.Info,
+      ),
       @ui.row(
         [
           @ui.button("打包", on_click=fn() -> Unit { panel_run(w, "package") }),
@@ -64,7 +67,12 @@ fn panel_run(w : Wizard, subcmd : String) -> Unit {
     match exe_exists(w.argv0_dir, name="mng") {
       Some(p) => "\"" + p + "\" " + subcmd
       None => {
-        w.dev_hint.set("在面板旁找不到 mng（" + w.argv0_dir + "）——终端里手动跑 mng " + subcmd)
+        w.dev_hint.set(
+          "在面板旁找不到 mng（" +
+          w.argv0_dir +
+          "）——终端里手动跑 mng " +
+          subcmd,
+        )
         return
       }
     }
@@ -80,7 +88,9 @@ fn panel_run(w : Wizard, subcmd : String) -> Unit {
   match res {
     Ok(pid) => {
       w.dev_hint.set(
-        "mng " + subcmd + " 已启动（pid \{pid}）；跑完点「刷新日志」看结果",
+        "mng " +
+        subcmd +
+        " 已启动（pid \{pid}）；跑完点「刷新日志」看结果",
       )
       // 先把现有日志（上一轮的）拉出来，别让面板空白
       refresh_panel_log(w)
@@ -117,13 +127,14 @@ fn refresh_panel_log(w : Wizard) -> Unit {
   let p = proj + "/.mng/wizard/" + cmd + ".log"
   match fs_tail(p, 60) {
     Some(t) => w.log_view.set(p + "（末 60 行）\n\n" + t)
-    None => w.log_view.set("（读不到 " + p + "——命令跑完了吗？）")
+    None =>
+      w.log_view.set("（读不到 " + p + "——命令跑完了吗？）")
   }
 }
 
 ///|
 /// 文本文件末 n 行。
-fn fs_tail(p : String, n : Int) -> String? {
+fn fs_tail(p : String, n : Int32) -> String? {
   let text : String = @fs.read_file_to_string(p) catch { _ => return None }
   let lines : Array[String] = []
   for l in text.split("\n") {

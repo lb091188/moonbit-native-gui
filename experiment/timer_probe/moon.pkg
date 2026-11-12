@@ -1,10 +1,9 @@
 import {
   "NoahLiu/native-gui/shell",
-  "NoahLiu/native-gui/widget" @widget,
-
+  "NoahLiu/native-gui/widget",
   "NoahLiu/native-gui/ui",
   "NoahLiu/native-gui/win",
-  "NoahLiu/native-gui/sys" @sys,
+  "NoahLiu/native-gui/sys",
 }
 
 pkgtype(kind: "executable")

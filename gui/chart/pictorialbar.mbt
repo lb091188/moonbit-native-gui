@@ -37,13 +37,13 @@ pub(all) enum PbMode {
 ///|
 /// 单杆平铺符号个数上限（防病态小 unit 把单帧绘制量打爆：槽长不足
 /// 5px 后符号已不可辨，封顶不损失可读性）。
-let pb_tile_max : Int = 64
+let pb_tile_max : Int32 = 64
 
 ///|
 /// 符号重复个数：ceil(|值| / 单位)——PbRepeat 模式下沿杆轴平铺的符号
 /// 个数；值为 0 时 0（不画）；单位 <= 0 时兜底 1（等价整体画一个，
 /// 避免除零与无限平铺）；结果钳到 pb_tile_max 上限。
-pub fn pb_repeat_count(value : Double, unit : Double) -> Int {
+pub fn pb_repeat_count(value : Double, unit : Double) -> Int32 {
   let a = if value < 0.0 { -value } else { value }
   if a <= 0.0 {
     return 0
@@ -58,7 +58,7 @@ pub fn pb_repeat_count(value : Double, unit : Double) -> Int {
 /// 平铺符号中心沿杆轴的偏移量（相对基线、向值端方向为正）：count 个
 /// 符号均分杆长 len 后取各槽中心；count <= 0 或 len <= 0 时给空数组。
 /// 首尾符号（配 pb_symbol_side 边长）不越杆轴两端，间距为符号间距。
-pub fn pb_tile_centers(len : Double, count : Int) -> Array[Double] {
+pub fn pb_tile_centers(len : Double, count : Int32) -> Array[Double] {
   let out : Array[Double] = []
   if count <= 0 || !(len > 0.0) {
     return out
@@ -73,7 +73,7 @@ pub fn pb_tile_centers(len : Double, count : Int) -> Array[Double] {
 ///|
 /// 平铺符号边长：杆轴槽长扣除符号间距 gap 后得到的绘制边长，不足 1px
 /// 钳到 1（数值密集、槽长很小时间隔退化为零，符号仍可见）。
-pub fn pb_symbol_side(slot_len : Double, gap? : Double = 1.5) -> Double {
+pub fn pb_symbol_side(slot_len : Double, gap~ : Double = 1.5) -> Double {
   (slot_len - gap).max(1.0)
 }
 
@@ -203,7 +203,11 @@ fn pb_draw(
       let vy = map_y(data[i].value, lo, hi, y0, y1)
       let len = (vy - yb).abs()
       let positive = data[i].value >= 0.0
-      let color = if positive { @theme.theme_primary() } else { @theme.theme_danger() }
+      let color = if positive {
+        @theme.theme_primary()
+      } else {
+        @theme.theme_danger()
+      }
       p.set_fill_color(color)
       pb_draw_bar(
         p,
@@ -276,7 +280,11 @@ fn pb_draw(
       let vx = map_xv(data[i].value, lo, hi, x0, x1)
       let len = (vx - xb).abs()
       let positive = data[i].value >= 0.0
-      let color = if positive { @theme.theme_primary() } else { @theme.theme_danger() }
+      let color = if positive {
+        @theme.theme_primary()
+      } else {
+        @theme.theme_danger()
+      }
       p.set_fill_color(color)
       pb_draw_bar(
         p,
@@ -468,15 +476,15 @@ fn pb_draw_symbol(
 /// Store 驱动：set 后只重绘画布不重建控件树；主题切换现取色自动跟随。
 pub fn pb_chart_t(
   data : @base.Store[Array[BarItem]],
-  symbol? : PbSymbol = PbRect,
-  mode? : PbMode = PbRepeat,
-  unit? : Double = 10.0,
-  horizontal? : Bool = false,
-  show_values? : Bool = false,
-  y_range? : (Double, Double)? = None,
-  width? : Double = 0.0,
-  height? : Double = 280.0,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  symbol~ : PbSymbol = PbRect,
+  mode~ : PbMode = PbRepeat,
+  unit~ : Double = 10.0,
+  horizontal~ : Bool = false,
+  show_values~ : Bool = false,
+  y_range~ : (Double, Double)? = None,
+  width~ : Double = 0.0,
+  height~ : Double = 280.0,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.follow_store(data)
   let sym = symbol

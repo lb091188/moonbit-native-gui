@@ -1,6 +1,8 @@
 // 窗口 resize 桩链探针：开窗 → 改宽 → 收事件 → 读账本。
 // 预期读数（桩链健康）：RESIZED-EVENT 出现（可能多条）、SIZE-BEFORE 800、
 // SIZE-AFTER 1200（或拖动后的任意新宽）。SIZE-AFTER 仍是 800 即桩账本没跟上。
+
+///|
 fn main {
   let w = match @win.Window::new(800, 600, "resize-probe") {
     Some(w) => w

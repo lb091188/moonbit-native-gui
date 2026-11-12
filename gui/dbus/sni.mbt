@@ -47,14 +47,14 @@ pub struct Item {
   id : String
   mut title : String
   mut icon_name : String
-  mut pixmap_w : Int
-  mut pixmap_h : Int
+  mut pixmap_w : Int32
+  mut pixmap_h : Int32
   mut pixmap : Bytes // ARGB 大端序（网络字节序），长度 4*w*h
   mut tip_title : String
   mut tip_body : String
   menu_path : String
   menu_items : Array[MenuEntry]
-  mut menu_revision : Int
+  mut menu_revision : Int32
   mut on_click : (() -> Unit)?
   mut on_context : (() -> Unit)?
   mut on_context_menu : ((Double, Double) -> Unit)?
@@ -120,7 +120,7 @@ pub fn sni_watcher_present() -> Bool {
 ///|
 /// 托盘菜单条目（一级；DBusMenu id = 数组下标 + 1，0 是根）。
 pub struct MenuEntry {
-  id : Int
+  id : Int32
   label : String
   is_separator : Bool
   enabled : Bool
@@ -310,7 +310,12 @@ pub fn Item::set_icon_name(self : Item, name : String) -> Unit {
 
 ///|
 /// 设置位图图标（SNI 的 ARGB32 大端字节流，无行距补齐）。
-pub fn Item::set_pixmap(self : Item, w : Int, h : Int, argb : Bytes) -> Unit {
+pub fn Item::set_pixmap(
+  self : Item,
+  w : Int32,
+  h : Int32,
+  argb : Bytes,
+) -> Unit {
   self.icon_name = ""
   self.pixmap_w = w
   self.pixmap_h = h
@@ -415,7 +420,7 @@ fn menu_entry_prop_pairs(input : MenuEntry) -> Array[DVal] {
 
 ///|
 /// DBusMenu 布局节点：(id, 属性, 子节点 av)。
-fn Item::menu_layout(self : Item, id : Int, depth : Int) -> DVal {
+fn Item::menu_layout(self : Item, id : Int32, depth : Int32) -> DVal {
   let props : Array[DVal] = []
   if id == 0 {
     props.push(
@@ -444,7 +449,7 @@ fn Item::menu_layout(self : Item, id : Int, depth : Int) -> DVal {
 
 ///|
 /// 按条目 id 触发点击回调（id 从 1 计，与布局/属性层一致）。
-fn Item::dispatch_menu_click(self : Item, id : Int) -> Unit {
+fn Item::dispatch_menu_click(self : Item, id : Int32) -> Unit {
   if id >= 1 {
     match self.menu_items.get(id - 1) {
       Some(input) => if !input.is_separator { (input.on_click)() }

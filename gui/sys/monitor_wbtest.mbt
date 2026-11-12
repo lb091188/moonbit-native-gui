@@ -269,14 +269,9 @@ test "mon_list 真机只读冒烟（无 X display / 无 xrandr 时跳过）" {
 /// 另有一行孤儿 MODE 与一条字段不全的 MON 要被丢弃。
 fn mon_mac_sample() -> String {
   mon_lines([
-    "MON\tBuilt-in\t1\t0\t0\t310\t194",
-    "MODE\t3024\t1964\t0\t1\t1",
-    "MODE\t2560\t1600\t0\t0\t0",
-    "MODE\t1280\t800\t6000\t0\t0",
-    "MON\tDisplay-69733\t0\t1920\t-1080\t527\t296",
-    "MODE\t3840\t2160\t6000\t0\t1",
-    "MODE\t1920\t1080\t5995\t0\t0",
-    "MON\tBad\t1",
+    "MON\tBuilt-in\t1\t0\t0\t310\t194", "MODE\t3024\t1964\t0\t1\t1", "MODE\t2560\t1600\t0\t0\t0",
+    "MODE\t1280\t800\t6000\t0\t0", "MON\tDisplay-69733\t0\t1920\t-1080\t527\t296",
+    "MODE\t3840\t2160\t6000\t0\t1", "MODE\t1920\t1080\t5995\t0\t0", "MON\tBad\t1",
   ])
 }
 
@@ -349,8 +344,7 @@ test "mon_current_from(mac 样例)：只取有当前档的屏" {
 ///|
 test "mon_parse_blob(Windows 样例)：DISPLAY1 / 主输出 / 当前档" {
   // 本机实测形态（QEMU QXL 虚拟显卡）：GDI 的清单，1920x1080@64Hz 是当前档
-  let text =
-    "MON\tDISPLAY1\t1\t0\t0\t0\t0\n" +
+  let text = "MON\tDISPLAY1\t1\t0\t0\t0\t0\n" +
     "MODE\t1024\t768\t6400\t0\t0\n" +
     "MODE\t1920\t1080\t6400\t1\t0\n" +
     "MODE\t2560\t1440\t6400\t0\t0\n"

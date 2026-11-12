@@ -424,7 +424,11 @@ test "旭日图组件：出像素、换数据画面变" {
   root_item.children.push(mk("乙", 5.0))
   root_item.children.push(branch)
   let d = @base.Store::new(root_item)
-  let (root, w) = mounted(sun_chart_t(d, width=280.0, height=220.0), 320.0, 240.0)
+  let (root, w) = mounted(
+    sun_chart_t(d, width=280.0, height=220.0),
+    320.0,
+    240.0,
+  )
   let plain = bm_of(w)
   assert_true(ink_of(plain) > 1500)
   d.set_always(mk("独子", 9.0))

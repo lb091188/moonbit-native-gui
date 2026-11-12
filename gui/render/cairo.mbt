@@ -14,8 +14,8 @@
 #borrow(data)
 extern "c" fn cr_begin(
   data : FixedArray[Byte],
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
 ) -> Int64 = "cr_begin"
 
 ///|
@@ -81,20 +81,20 @@ extern "c" fn cr_stroke_rect(
 ///|
 extern "c" fn cr_set_fill_rgba(
   id : Int64,
-  r : Int,
-  g : Int,
-  b : Int,
-  a : Int,
+  r : Int32,
+  g : Int32,
+  b : Int32,
+  a : Int32,
 ) -> Unit = "cr_set_fill_rgba"
 
 ///|
 extern "c" fn cr_set_line_width(id : Int64, w : Double) -> Unit = "cr_set_line_width"
 
 ///|
-extern "c" fn cr_set_line_cap(id : Int64, cap : Int) -> Unit = "cr_set_line_cap"
+extern "c" fn cr_set_line_cap(id : Int64, cap : Int32) -> Unit = "cr_set_line_cap"
 
 ///|
-extern "c" fn cr_set_line_join(id : Int64, join : Int) -> Unit = "cr_set_line_join"
+extern "c" fn cr_set_line_join(id : Int64, join : Int32) -> Unit = "cr_set_line_join"
 
 ///|
 extern "c" fn cr_dash_begin(id : Int64) -> Unit = "cr_dash_begin"
@@ -137,8 +137,8 @@ extern "c" fn cr_flush(id : Int64) -> Unit = "cr_flush"
 extern "c" fn cr_blit(
   dst : Int64,
   src : FixedArray[Byte],
-  sw : Int,
-  sh : Int,
+  sw : Int32,
+  sh : Int32,
   sx : Double,
   sy : Double,
   ssw : Double,
@@ -150,7 +150,7 @@ extern "c" fn cr_blit(
 ) -> Unit = "cr_blit"
 
 ///|
-extern "c" fn cr_set_operator(id : Int64, mode : Int) -> Unit = "cr_set_operator"
+extern "c" fn cr_set_operator(id : Int64, mode : Int32) -> Unit = "cr_set_operator"
 
 ///|
 extern "c" fn cr_grad_linear(
@@ -172,10 +172,10 @@ extern "c" fn cr_grad_radial(
 extern "c" fn cr_grad_stop(
   pid : Int64,
   offset : Double,
-  r : Int,
-  g : Int,
-  b : Int,
-  a : Int,
+  r : Int32,
+  g : Int32,
+  b : Int32,
+  a : Int32,
 ) -> Unit = "cr_grad_stop"
 
 ///|
@@ -196,7 +196,7 @@ pub fn Cairo::over(bitmap : Bitmap) -> Cairo? {
   if id == 0L {
     None
   } else {
-    Some({ id, bitmap })
+    Some({ id, bitmap, })
   }
 }
 
@@ -344,13 +344,13 @@ pub fn Cairo::set_line_width(self : Cairo, width : Double) -> Unit {
 
 ///|
 /// W35：端点形状（0=butt 1=round 2=square）。
-pub fn Cairo::set_line_cap(self : Cairo, cap : Int) -> Unit {
+pub fn Cairo::set_line_cap(self : Cairo, cap : Int32) -> Unit {
   cr_set_line_cap(self.id, cap)
 }
 
 ///|
 /// W35：拐角形状（0=miter 1=round 2=bevel）。
-pub fn Cairo::set_line_join(self : Cairo, join : Int) -> Unit {
+pub fn Cairo::set_line_join(self : Cairo, join : Int32) -> Unit {
   cr_set_line_join(self.id, join)
 }
 
@@ -425,5 +425,18 @@ pub fn Cairo::blit(
   dw : Double,
   dh : Double,
 ) -> Unit {
-  cr_blit(self.id, src.data, src.width, src.height, sx, sy, sw, sh, dx, dy, dw, dh)
+  cr_blit(
+    self.id,
+    src.data,
+    src.width,
+    src.height,
+    sx,
+    sy,
+    sw,
+    sh,
+    dx,
+    dy,
+    dw,
+    dh,
+  )
 }

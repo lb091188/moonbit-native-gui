@@ -12,8 +12,11 @@ pub struct Io {
 
 ///|
 /// 建文件访问端口（工具侧把 @fs 包进来）。
-pub fn io_new(read : (String) -> String?, list_dir : (String) -> Array[String]) -> Io {
-  { read, list_dir }
+pub fn io_new(
+  read : (String) -> String?,
+  list_dir : (String) -> Array[String],
+) -> Io {
+  { read, list_dir, }
 }
 
 ///|
@@ -32,14 +35,7 @@ pub struct Sigs {
 /// 建解析器：`root` 是 workspace 根（含 moon.work；单模块工程传模块目录），
 /// `pkg_dir` 是模板文件所在目录。
 pub fn sigs_new(root : String, pkg_dir : String, io : Io) -> Sigs {
-  {
-    root,
-    pkg_dir,
-    io,
-    aliases: Map([]),
-    fn_cache: Map([]),
-    ready: false,
-  }
+  { root, pkg_dir, io, aliases: Map([]), fn_cache: Map([]), ready: false, }
 }
 
 ///|
@@ -80,7 +76,11 @@ fn parse_imports(text : String, out : Map[String, String]) -> Unit {
       slice_str(a, 1, k)
     } else {
       let segs = split_arr(pkg, "/")
-      if segs.length() > 0 { segs[segs.length() - 1] } else { "" }
+      if segs.length() > 0 {
+        segs[segs.length() - 1]
+      } else {
+        ""
+      }
     }
     if al.length() > 0 {
       let _ = out.set(al, pkg)
@@ -215,7 +215,7 @@ fn parent_dir(p : String) -> String {
 fn find_pkg_dir(s : Sigs, pkg : String) -> String {
   // ① workspace 成员：模块名是 pkg 前缀（且其后为 / 或结束）
   match io_read(s, s.root + "/moon.work") {
-    Some(wt) => {
+    Some(wt) =>
       for m in parse_members(wt) {
         match io_read(s, s.root + "/" + m + "/moon.mod") {
           Some(mt) => {
@@ -233,18 +233,13 @@ fn find_pkg_dir(s : Sigs, pkg : String) -> String {
           None => ()
         }
       }
-    }
     None => ()
   }
   // ② 依赖缓存：.mooncakes/<author>/<name>[/<子包>]（模块名取前两段）
   let segs = split_arr(pkg, "/")
   if segs.length() >= 2 {
     let mn = segs[0] + "/" + segs[1]
-    let sub = if segs.length() > 2 {
-      "/" + join_segs(segs, 2)
-    } else {
-      ""
-    }
+    let sub = if segs.length() > 2 { "/" + join_segs(segs, 2) } else { "" }
     for base in mooncake_bases(s) {
       let cand = base + "/" + mn + sub
       match io_read(s, cand + "/moon.pkg") {
@@ -262,7 +257,7 @@ fn find_pkg_dir(s : Sigs, pkg : String) -> String {
 }
 
 ///|
-fn join_segs(segs : Array[String], from : Int) -> String {
+fn join_segs(segs : Array[String], from : Int32) -> String {
   let mut out = ""
   for k in from..<segs.length() {
     out = out + (if k > from { "/" } else { "" }) + segs[k]
@@ -272,7 +267,7 @@ fn join_segs(segs : Array[String], from : Int) -> String {
 
 ///|
 /// 从第 idx 行起的签名块：括号配平后含 `->` 或到出现 `{` 的行止。
-fn sig_block(lines : Array[String], idx : Int) -> String? {
+fn sig_block(lines : Array[String], idx : Int32) -> String? {
   let n = lines.length()
   let mut depth = 0
   let mut opened = false
@@ -364,7 +359,7 @@ fn find_doc_in_text(text : String, fname : String) -> String? {
         let mut k = i - 1
         while k >= 0 {
           let d = lines[k].trim().to_owned()
-          if d == "///|" || !(d.has_prefix("///")) {
+          if d == "///|" || !d.has_prefix("///") {
             break
           }
           let cs = chars_of(d)
@@ -394,12 +389,11 @@ fn scan_dir_for_doc(s : Sigs, dir : String, fname : String) -> String? {
     }
     if f.has_suffix(".mbt") {
       match io_read(s, dir + "/" + f) {
-        Some(text) => {
+        Some(text) =>
           match find_doc_in_text(text, fname) {
             Some(d) => return Some(d)
             None => ()
           }
-        }
         None => ()
       }
     }
@@ -447,12 +441,11 @@ fn scan_dir_for_fn(s : Sigs, dir : String, fname : String) -> String? {
     }
     if f.has_suffix(".mbt") {
       match io_read(s, dir + "/" + f) {
-        Some(text) => {
+        Some(text) =>
           match find_fn_in_text(text, fname) {
             Some(b) => return Some(b)
             None => ()
           }
-        }
         None => ()
       }
     }
@@ -460,12 +453,11 @@ fn scan_dir_for_fn(s : Sigs, dir : String, fname : String) -> String? {
   for f in files {
     if f.has_suffix(".mng") {
       match io_read(s, dir + "/" + f) {
-        Some(text) => {
+        Some(text) =>
           match find_fn_in_mng(text, fname) {
             Some(b) => return Some(b)
             None => ()
           }
-        }
         None => ()
       }
     }
@@ -550,7 +542,7 @@ pub fn Sigs::resolve(self : Sigs, path : String) -> String? {
 }
 
 ///|
-fn dot_index(s : String) -> Int? {
+fn dot_index(s : String) -> Int32? {
   let cs = chars_of(s)
   let mut i = 0
   while i < cs.length() {

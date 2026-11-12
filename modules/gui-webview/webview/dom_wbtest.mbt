@@ -17,7 +17,7 @@ test "抓取脚本：四档都 stringify 且都带 title/url 头" {
 }
 
 ///|
-fn count_byte(s : String, target : Byte) -> Int {
+fn count_byte(s : String, target : Byte) -> Int32 {
   let bytes = @utf8.encode(s)
   let mut n = 0
   for b in bytes {
@@ -42,8 +42,7 @@ test "抓取脚本括号配平：多一个右括号就是页面侧 SyntaxError" 
 
 ///|
 test "结构化解析：标题/地址/正文与计数各归各位" {
-  let raw =
-    "{\"title\":\"标题甲\",\"url\":\"https://e.x/a\",\"text\":\"正文一二三\",\"count\":42}"
+  let raw = "{\"title\":\"标题甲\",\"url\":\"https://e.x/a\",\"text\":\"正文一二三\",\"count\":42}"
   let snap = dom_parse(Structure, raw)
   assert_eq(snap.ok, true)
   assert_eq(snap.title, "标题甲")
@@ -55,8 +54,7 @@ test "结构化解析：标题/地址/正文与计数各归各位" {
 
 ///|
 test "结构化解析：链接表 / meta / 标题层级按档取" {
-  let links =
-    "{\"title\":\"t\",\"url\":\"u\",\"links\":[{\"href\":\"https://a\",\"text\":\"甲\"}," +
+  let links = "{\"title\":\"t\",\"url\":\"u\",\"links\":[{\"href\":\"https://a\",\"text\":\"甲\"}," +
     "{\"href\":\"https://b\",\"text\":\"\"}]}"
   let s1 = dom_parse(Links, links)
   assert_eq(s1.links.length(), 2)
@@ -94,9 +92,15 @@ test "长回包解析不截断：4000 字正文与 200 条链接的完整 JSON �
   for i = 0; i < 400; i = i + 1 {
     body = body + "0123456789"
   }
-  let long1 = "{\"title\":\"页\",\"url\":\"https://x\",\"text\":\"" + body + "\"}"
+  let long1 = "{\"title\":\"页\",\"url\":\"https://x\",\"text\":\"" +
+    body +
+    "\"}"
   let s1 = dom_parse(PageText, long1)
-  assert_eq(s1.ok, true, msg="长正文解析失败：ok=\{s1.ok} raw 长度=\{s1.raw.length()}")
+  assert_eq(
+    s1.ok,
+    true,
+    msg="长正文解析失败：ok=\{s1.ok} raw 长度=\{s1.raw.length()}",
+  )
   assert_eq(s1.text.length(), 4000)
   let items = "{\"title\":\"页\",\"url\":\"https://x\",\"links\":["
   let mut arr = items
@@ -104,11 +108,18 @@ test "长回包解析不截断：4000 字正文与 200 条链接的完整 JSON �
     if i > 0 {
       arr = arr + ","
     }
-    arr = arr + "{\"href\":\"https://x/" + i.to_string() + "\",\"text\":\"链接\"}"
+    arr = arr +
+      "{\"href\":\"https://x/" +
+      i.to_string() +
+      "\",\"text\":\"链接\"}"
   }
   arr = arr + "]}"
   let s2 = dom_parse(Links, arr)
-  assert_eq(s2.ok, true, msg="长链接解析失败：ok=\{s2.ok} raw 长度=\{s2.raw.length()}")
+  assert_eq(
+    s2.ok,
+    true,
+    msg="长链接解析失败：ok=\{s2.ok} raw 长度=\{s2.raw.length()}",
+  )
   assert_eq(s2.links.length(), 200)
   assert_eq(s2.links[199].href, "https://x/199")
 }

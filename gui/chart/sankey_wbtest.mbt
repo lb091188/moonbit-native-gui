@@ -4,7 +4,7 @@
 
 ///|
 /// 按节点下标取布局矩形（未命中给全 -1/0 的哨兵，断言侧再校验）。
-fn sankey_box_of(lay : SankeyLayout, node : Int) -> SankeyNodeBox {
+fn sankey_box_of(lay : SankeyLayout, node : Int32) -> SankeyNodeBox {
   for b in lay.boxes {
     if b.node == node {
       return b
@@ -15,7 +15,7 @@ fn sankey_box_of(lay : SankeyLayout, node : Int) -> SankeyNodeBox {
 
 ///|
 /// 按链路下标取布局色带端缘。
-fn sankey_band_of(lay : SankeyLayout, link : Int) -> SankeyLinkBand? {
+fn sankey_band_of(lay : SankeyLayout, link : Int32) -> SankeyLinkBand? {
   for b in lay.bands {
     if b.link == link {
       return Some(b)
@@ -337,16 +337,18 @@ test "SankeyData 构造与 sankey_t 组件可编译（不 mount，真机验证�
 test "桑基图组件：出像素、换数据画面变" {
   let d = @base.Store::new(
     SankeyData::make(
-      [SankeyNode::make("浏览"), SankeyNode::make("加购"), SankeyNode::make("下单")],
+      [
+        SankeyNode::make("浏览"),
+        SankeyNode::make("加购"),
+        SankeyNode::make("下单"),
+      ],
       [SankeyLink::make(0, 1, 100.0), SankeyLink::make(1, 2, 60.0)],
     ),
   )
   let (root, w) = mounted(sankey_t(d, width=300.0, height=160.0), 340.0, 180.0)
   let plain = bm_of(w)
   assert_true(ink_of(plain) > 500)
-  d.set_always(
-    SankeyData::make([SankeyNode::make("单节点")], []),
-  )
+  d.set_always(SankeyData::make([SankeyNode::make("单节点")], []))
   let _ = root.relayout(340.0, 180.0)
   assert_true(diff_of(bm_of(w), plain) > 50)
 }

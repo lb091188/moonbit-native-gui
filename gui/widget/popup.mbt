@@ -10,15 +10,15 @@
 /// 越过屏幕右边/下边时翻到锚点另一侧（菜单贴着右边缘时向左展开、贴底时向上），
 /// 最后钳回非负。屏幕尺寸给 0 表示未知，此时只钳不翻。
 pub fn popup_place(
-  owner_x : Int,
-  owner_y : Int,
-  x : Int,
-  y : Int,
-  w : Int,
-  h : Int,
-  screen_w : Int,
-  screen_h : Int,
-) -> (Int, Int) {
+  owner_x : Int32,
+  owner_y : Int32,
+  x : Int32,
+  y : Int32,
+  w : Int32,
+  h : Int32,
+  screen_w : Int32,
+  screen_h : Int32,
+) -> (Int32, Int32) {
   let mut px = owner_x + x
   let mut py = owner_y + y
   if screen_w > 0 && px + w > screen_w {
@@ -36,25 +36,16 @@ pub fn popup_place(
 /// `mount` 内容、`close_window` 收起；本窗与它共用同一个循环与泵。
 pub fn WindowHost::open_popup(
   self : WindowHost,
-  x : Int,
-  y : Int,
-  width : Int,
-  height : Int,
-  screen_w? : Int = 0,
-  screen_h? : Int = 0,
-  want_focus? : Bool = false,
+  x : Int32,
+  y : Int32,
+  width : Int32,
+  height : Int32,
+  screen_w~ : Int32 = 0,
+  screen_h~ : Int32 = 0,
+  want_focus~ : Bool = false,
 ) -> WindowHost? {
   let o = self.session.window.origin()
-  let pos = popup_place(
-    o.0,
-    o.1,
-    x,
-    y,
-    width,
-    height,
-    screen_w,
-    screen_h,
-  )
+  let pos = popup_place(o.0, o.1, x, y, width, height, screen_w, screen_h)
   app_window(
     width,
     height,

@@ -58,7 +58,7 @@ pub fn[T] Store::subscribe(self : Store[T], f : (T) -> Unit) -> Unit {
 ///|
 /// 订阅变化并返回退订句柄(订阅注册表 id):经 [Store::remove] 按
 /// 句柄摘除。与 [Store::subscribe] 同一注册表,区别只在句柄可退订。
-pub fn[T] Store::subscribe_id(self : Store[T], f : (T) -> Unit) -> Int {
+pub fn[T] Store::subscribe_id(self : Store[T], f : (T) -> Unit) -> Int32 {
   self.sig.subscribe(f)
 }
 
@@ -66,7 +66,7 @@ pub fn[T] Store::subscribe_id(self : Store[T], f : (T) -> Unit) -> Int {
 /// 退订:摘除 [Store::subscribe_id](或 store.signal().subscribe)返回的
 /// 句柄对应的订阅(幂等,未知句柄空操作)。已随视图销毁的订阅应及时
 /// 退订,否则变更通知仍会对死视图空跑、无界累积。
-pub fn[T] Store::remove(self : Store[T], handle : Int) -> Unit {
+pub fn[T] Store::remove(self : Store[T], handle : Int32) -> Unit {
   self.sig.remove(handle)
 }
 

@@ -12,7 +12,7 @@
 /// 空串）、音量百分比 0-100、是否静音。
 pub(all) struct VolumeInfo {
   sink : String
-  volume : Int
+  volume : Int32
   muted : Bool
 }
 
@@ -146,7 +146,7 @@ fn vol_first_char(s : String) -> Char? {
 
 ///|
 /// 无符号整数文本（"100" → 100；空串或含非数字为 None）。
-fn vol_parse_uint(s : String) -> Int? {
+fn vol_parse_uint(s : String) -> Int32? {
   if s == "" {
     return None
   }
@@ -180,7 +180,7 @@ fn vol_strip_suffix(s : String, suffix : Char) -> String? {
 
 ///|
 /// 音量百分比钳到 0..100。
-fn vol_clamp_percent(p : Int) -> Int {
+fn vol_clamp_percent(p : Int32) -> Int32 {
   if p < 0 {
     0
   } else if p > 100 {
@@ -193,7 +193,7 @@ fn vol_clamp_percent(p : Int) -> Int {
 ///|
 /// wpctl 音量文本 → 百分比整数（"0.42" → 42，两位小数内四舍五入，
 /// "1.00" → 100，超量程如实返回如 "1.20" → 120；非法为 None）。
-fn vol_parse_volume_text(tok : String) -> Int? {
+fn vol_parse_volume_text(tok : String) -> Int32? {
   let mut ip = 0
   let mut int_any = false
   let mut seen_dot = false
@@ -237,7 +237,7 @@ fn vol_parse_volume_text(tok : String) -> Int? {
 ///|
 /// 解析 `wpctl get-volume @DEFAULT_SINK@` 输出：
 /// "Volume: 0.42" / "Volume: 0.42 [MUTED]" → (百分比 0-100, 是否静音)。
-fn vol_parse_wpctl_volume(out : String) -> (Int, Bool)? {
+fn vol_parse_wpctl_volume(out : String) -> (Int32, Bool)? {
   let toks = vol_split_ws(out)
   if toks.length() < 2 || toks[0] != "Volume:" {
     return None
@@ -339,8 +339,8 @@ fn vol_parse_wpctl_status_sink(status : String) -> String? {
 /// 解析 `pactl get-sink-volume` 输出：取全部 `N%` 形态百分比的最大值
 /// （各声道不一致时以最响为准）。
 /// 样例："Volume: front-left: 65536 / 100% / 0.00 dB,  front-right: ...".
-fn vol_parse_pactl_percent(out : String) -> Int? {
-  let mut best : Int? = None
+fn vol_parse_pactl_percent(out : String) -> Int32? {
+  let mut best : Int32? = None
   for tok in vol_split_ws(out) {
     match vol_strip_suffix(tok, '%') {
       None => ()
@@ -396,7 +396,7 @@ fn vol_prog(b : VolBackend) -> String {
 
 ///|
 /// 设绝对音量的参数表（入参钳 0..100；两后端百分比语法相同）。
-fn vol_set_args(b : VolBackend, percent : Int) -> Array[String] {
+fn vol_set_args(b : VolBackend, percent : Int32) -> Array[String] {
   let p = vol_clamp_percent(percent)
   match b {
     Wpctl => ["set-volume", "@DEFAULT_SINK@", "\{p}%"]
@@ -407,7 +407,7 @@ fn vol_set_args(b : VolBackend, percent : Int) -> Array[String] {
 ///|
 /// 相对增减音量的参数表（wpctl 相对量后缀 "5%+"/"5%-"，pactl 前缀
 /// "+5%"/"-5%"，delta 为负即减）。
-fn vol_add_args(b : VolBackend, delta : Int) -> Array[String] {
+fn vol_add_args(b : VolBackend, delta : Int32) -> Array[String] {
   let step = if delta < 0 { -delta } else { delta }
   match b {
     Wpctl => {
@@ -443,8 +443,8 @@ fn vol_mute_args(b : VolBackend, mute : Bool) -> Array[String] {
 fn vol_run_capture(
   prog : String,
   args : Array[String],
-  timeout_ms? : Int = 4000,
-) -> Result[(Int, String), VolumeError] {
+  timeout_ms~ : Int32 = 4000,
+) -> Result[(Int32, String), VolumeError] {
   match pr_run(prog, args, timeout_ms~) {
     Ok(o) => Ok((o.exit_code, o.stdout))
     Err(NonZeroExit(code, _)) => Ok((code, ""))
@@ -463,6 +463,7 @@ fn vol_run_capture(
 // 这条口给不到**（契约里 sink 为次要信息、取不到置空串不影响音量与静音），
 // 另外首次调用可能被系统的自动化授权拦下（真机复验清单里有一条专测它）。
 
+///|
 fn vol_mac_ask(script : String) -> String? {
   match vol_run_capture("osascript", ["-e", script], timeout_ms=6000) {
     Ok((0, out)) => Some(vol_trim(out))
@@ -470,6 +471,7 @@ fn vol_mac_ask(script : String) -> String? {
   }
 }
 
+///|
 fn vol_mac_do(script : String) -> Result[Unit, VolumeError] {
   match vol_run_capture("osascript", ["-e", script], timeout_ms=6000) {
     Ok((0, _)) => Ok(())
@@ -478,6 +480,7 @@ fn vol_mac_do(script : String) -> Result[Unit, VolumeError] {
   }
 }
 
+///|
 fn vol_get_mac() -> Result[VolumeInfo, VolumeError] {
   match vol_mac_ask("output volume of (get volume settings)") {
     None => Err(CommandFailed("osascript: 取音量失败"))
@@ -485,26 +488,26 @@ fn vol_get_mac() -> Result[VolumeInfo, VolumeError] {
       match win_parse_int(text) {
         None => Err(ParseFailed("osascript 音量读数: \{text}"))
         Some(v) => {
-          let muted =
-            match vol_mac_ask("output muted of (get volume settings)") {
-              Some(t) => t == "1"
-              None => false
-            }
-          Ok({ sink: "", volume: v, muted })
+          let muted = match
+            vol_mac_ask("output muted of (get volume settings)") {
+            Some(t) => t == "1"
+            None => false
+          }
+          Ok({ sink: "", volume: v, muted, })
         }
       }
   }
 }
 
-fn vol_set_mac(percent : Int) -> Result[Unit, VolumeError] {
+///|
+fn vol_set_mac(percent : Int32) -> Result[Unit, VolumeError] {
   let v = if percent < 0 { 0 } else if percent > 100 { 100 } else { percent }
   vol_mac_do("set volume output volume " + v.to_string())
 }
 
+///|
 fn vol_set_mute_mac(mute : Bool) -> Result[Unit, VolumeError] {
-  vol_mac_do(
-    "set volume output muted " + (if mute { "true" } else { "false" }),
-  )
+  vol_mac_do("set volume output muted " + (if mute { "true" } else { "false" }))
 }
 
 ///|
@@ -528,15 +531,20 @@ fn vol_backend() -> VolBackend? {
 ///|
 /// 当前系统是否支持音量控制（wpctl 或 pactl 任一可用）。每次调用真实
 /// 探测，高频场景请调用方自行缓存结果。
+
 ///|
 /// Windows 直调：快照字节串「设备 id\t百分比\t静音」。
 #borrow(ok)
-extern "c" fn ffi_vol_get(ok : Ref[Int]) -> Bytes = "yue_sys_vol_get"
+extern "c" fn ffi_vol_get(ok : Ref[Int32]) -> Bytes = "yue_sys_vol_get"
 
 ///|
 /// Windows 直调：mode 0=设音量 1=设静音。
 #borrow(ok)
-extern "c" fn ffi_vol_write(mode : Int, value : Int, ok : Ref[Int]) -> Int = "yue_sys_vol_write"
+extern "c" fn ffi_vol_write(
+  mode : Int32,
+  value : Int32,
+  ok : Ref[Int32],
+) -> Int32 = "yue_sys_vol_write"
 
 ///|
 /// Windows 分支：默认渲染端点读数。
@@ -555,7 +563,7 @@ fn vol_get_windows() -> Result[VolumeInfo, VolumeError] {
     None => return Err(ParseFailed("vol: 百分比段非法"))
   }
   let muted = parts[2].to_owned() == "1"
-  Ok({ sink: parts[0].to_owned(), volume: pct, muted })
+  Ok({ sink: parts[0].to_owned(), volume: pct, muted, })
 }
 
 ///|
@@ -664,7 +672,7 @@ fn vol_apply(prog : String, args : Array[String]) -> Result[Unit, VolumeError] {
 
 ///|
 /// 设绝对音量（0-100，出界钳制），作用于默认 sink。
-pub fn vol_set(percent : Int) -> Result[Unit, VolumeError] {
+pub fn vol_set(percent : Int32) -> Result[Unit, VolumeError] {
   if sys_platform() == "macos" {
     return vol_set_mac(percent)
   }
@@ -685,7 +693,7 @@ pub fn vol_set(percent : Int) -> Result[Unit, VolumeError] {
 ///|
 /// 相对增减音量（delta 为正增、为负减，作用于默认 sink；每步量取绝对
 /// 值交给工具的相对语法执行，最终音量由工具侧钳制）。
-pub fn vol_add(delta : Int) -> Result[Unit, VolumeError] {
+pub fn vol_add(delta : Int32) -> Result[Unit, VolumeError] {
   if sys_platform() == "macos" {
     // 与 Windows 同一条「读—钳—写」路（osascript 没有相对增减语法）
     let r = match vol_get_mac() {
@@ -734,4 +742,3 @@ pub fn vol_set_mute(mute : Bool) -> Result[Unit, VolumeError] {
     Some(b) => vol_apply(vol_prog(b), vol_mute_args(b, mute))
   }
 }
-

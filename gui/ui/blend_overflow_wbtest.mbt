@@ -2,7 +2,7 @@
 // 装饰线三档（line-through / overline / underline 各自落线）。
 
 ///|
-fn s4_bm(w : @widget.Widget, wpx : Int, hpx : Int) -> @render.Bitmap {
+fn s4_bm(w : @widget.Widget, wpx : Int32, hpx : Int32) -> @render.Bitmap {
   let bm = @render.Bitmap::new(wpx, hpx)
   let p = @render.Painter::new(bm)
   w.paint_at(p, w.rect.x, w.rect.y)
@@ -17,7 +17,13 @@ test "blend_mode：Multiply 重叠区变黑、非重叠区保持底色" {
     @style.style(blend_mode=@render.Multiply),
   ])
   let (root, w) = mounted(
-    view([inner], width=40.0, height=40.0, background_color="#ff0000", corner_radius=0.0),
+    view(
+      [inner],
+      width=40.0,
+      height=40.0,
+      background_color="#ff0000",
+      corner_radius=0.0,
+    ),
     80.0,
     80.0,
   )
@@ -40,7 +46,13 @@ test "overflow：默认裁掉越界子件，Visible 放行" {
     ])
   }
   let (_, hidden) = mounted(
-    view([kid()], width=40.0, height=40.0, background_color="bg_panel", corner_radius=0.0),
+    view(
+      [kid()],
+      width=40.0,
+      height=40.0,
+      background_color="bg_panel",
+      corner_radius=0.0,
+    ),
     80.0,
     80.0,
   )
@@ -50,9 +62,14 @@ test "overflow：默认裁掉越界子件，Visible 放行" {
   // 改验 Visible 档把「越出父矩形」的像素放进 60×60 画布：
   let _ = hidden
   let (_, vis) = mounted(
-    view([kid()], width=40.0, height=40.0, background_color="bg_panel", corner_radius=0.0, class=[
-      @style.style(overflow=@style.Visible),
-    ]),
+    view(
+      [kid()],
+      width=40.0,
+      height=40.0,
+      background_color="bg_panel",
+      corner_radius=0.0,
+      class=[@style.style(overflow=@style.Visible)],
+    ),
     80.0,
     80.0,
   )
@@ -91,7 +108,7 @@ test "text 装饰线：line-through 在字高中部、overline 在盒顶" {
   let _ = root1
   let bm1 = s4_bm(w1, 200, 40)
   // 找删除线：连续 danger 色横线（宽 > 40）
-  fn count_line(bm : @render.Bitmap) -> Int {
+  fn count_line(bm : @render.Bitmap) -> Int32 {
     let (dr, _dg, _db) = match @theme.parse_hex(@theme.theme_danger()) {
       Some((r, g, b)) => (r, g, b)
       None => (214, 69, 80)

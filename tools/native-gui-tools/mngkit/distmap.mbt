@@ -10,7 +10,7 @@
 //   <gen_line>\t<src_line>\t<src_col>      （均为 1 基）
 
 ///|
-fn dm_atoi(s : String) -> Int? {
+fn dm_atoi(s : String) -> Int32? {
   let cs = s.to_array()
   if cs.length() == 0 {
     return None
@@ -28,9 +28,11 @@ fn dm_atoi(s : String) -> Int? {
 
 ///|
 /// 解析一行 `gen\tsrc_line\tsrc_col`；表头/空行/坏行给 None。
-fn dm_entry(line : String) -> (Int, Int, Int)? {
+fn dm_entry(line : String) -> (Int32, Int32, Int32)? {
   let trimmed = line.trim(chars=" \t\r").to_owned()
-  if trimmed.length() == 0 || trimmed.has_prefix("#") || trimmed.has_prefix("source") {
+  if trimmed.length() == 0 ||
+    trimmed.has_prefix("#") ||
+    trimmed.has_prefix("source") {
     return None
   }
   let parts = trimmed.split("\t").to_array()
@@ -50,8 +52,12 @@ fn dm_entry(line : String) -> (Int, Int, Int)? {
 /// 源位置 → 生成码位置（1 基行列）。取「源坐标 ≤ 目标」里最靠后的那条记录；
 /// 生成列按「同一条记录起点的列差」估：生成码里该语句的起始缩进与源不同，
 /// 精确列做不到（map 只记语句起点），读出 hover 通常只要行对、列落在语句内即可。
-pub fn src_to_gen(map_text : String, src_line : Int, src_col : Int) -> (Int, Int)? {
-  let mut best : (Int, Int, Int)? = None
+pub fn src_to_gen(
+  map_text : String,
+  src_line : Int32,
+  src_col : Int32,
+) -> (Int32, Int32)? {
+  let mut best : (Int32, Int32, Int32)? = None
   for line in map_text.split("\n") {
     match dm_entry(line.to_owned()) {
       Some((gl, sl, sc)) => {
@@ -77,14 +83,11 @@ pub fn src_to_gen(map_text : String, src_line : Int, src_col : Int) -> (Int, Int
 
 ///|
 /// 生成码行 → 源位置（诊断回投用；取该生成行上最后一条记录）。
-pub fn gen_to_src(map_text : String, gen_line : Int) -> (Int, Int)? {
-  let mut best : (Int, Int)? = None
+pub fn gen_to_src(map_text : String, gen_line : Int32) -> (Int32, Int32)? {
+  let mut best : (Int32, Int32)? = None
   for line in map_text.split("\n") {
     match dm_entry(line.to_owned()) {
-      Some((gl, sl, sc)) =>
-        if gl == gen_line {
-          best = Some((sl, sc))
-        }
+      Some((gl, sl, sc)) => if gl == gen_line { best = Some((sl, sc)) }
       None => ()
     }
   }

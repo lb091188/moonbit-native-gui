@@ -4,9 +4,9 @@
 
 ///|
 test "native_handle：无效槽返回 0（无后端可验）" {
-  let w : Window = { id: 0, width: 0, height: 0 }
+  let w : Window = { id: 0, width: 0, height: 0, }
   inspect(w.native_handle(), content="0")
-  let bad : Window = { id: 999999, width: 0, height: 0 }
+  let bad : Window = { id: 999999, width: 0, height: 0, }
   inspect(bad.native_handle(), content="0")
 }
 

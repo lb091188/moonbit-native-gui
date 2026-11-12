@@ -29,20 +29,36 @@ pub(all) enum ImeRoute {
 
 ///|
 /// 本栈的修饰位（与 `keys.mbt` 一致）：1=shift 2=ctrl 4=alt 8=meta。
-const WIN_MK_SHIFT : Int = 0x0004
-const WIN_MK_CONTROL : Int = 0x0008
-const WIN_ALT_DOWN : Int = 0x0020
-const WIN_META_DOWN : Int = 0x0040
-const MAC_CAPS_LOCK : Int = 0x10000
-const MAC_SHIFT : Int = 0x20000
-const MAC_CONTROL : Int = 0x40000
-const MAC_OPTION : Int = 0x80000
-const MAC_COMMAND : Int = 0x100000
+const WIN_MK_SHIFT : Int32 = 0x0004
+
+///|
+const WIN_MK_CONTROL : Int32 = 0x0008
+
+///|
+const WIN_ALT_DOWN : Int32 = 0x0020
+
+///|
+const WIN_META_DOWN : Int32 = 0x0040
+
+///|
+const MAC_CAPS_LOCK : Int32 = 0x10000
+
+///|
+const MAC_SHIFT : Int32 = 0x20000
+
+///|
+const MAC_CONTROL : Int32 = 0x40000
+
+///|
+const MAC_OPTION : Int32 = 0x80000
+
+///|
+const MAC_COMMAND : Int32 = 0x100000
 
 ///|
 /// GDK modifier state → 本栈修饰位。GTK 自己的位是 1=shift 2=lock 4=ctrl
 /// 8=alt 16=meta，必须显式重映射；`win` 的 C 桩里那份 `wm_mods` 与此逐位对齐。
-pub fn gtk_mods_to_mods(state : Int) -> Int {
+pub fn gtk_mods_to_mods(state : Int32) -> Int32 {
   let mut m = 0
   if (state & 1) != 0 {
     m = m | MOD_SHIFT
@@ -63,7 +79,7 @@ pub fn gtk_mods_to_mods(state : Int) -> Int {
 /// Win32 按键/指针状态 → 本栈修饰位。`MK_*` 是消息里的位（shift=0x4、
 /// control=0x8），alt 取低层钩子的 `LLKHF_ALTDOWN`（0x20），meta 由调用方用
 /// `GetKeyState(VK_LWIN)` 补成自定义位 0x40——Windows 没有一个统一的修饰位字。
-pub fn win_mods_to_mods(flags : Int) -> Int {
+pub fn win_mods_to_mods(flags : Int32) -> Int32 {
   let mut m = 0
   if (flags & WIN_MK_SHIFT) != 0 {
     m = m | MOD_SHIFT
@@ -83,7 +99,7 @@ pub fn win_mods_to_mods(flags : Int) -> Int {
 ///|
 /// macOS `NSEvent.modifierFlags` → 本栈修饰位（Command 记成 meta，
 /// Option 记成 alt——与用户看到的键名一致，也与 X11 的 Alt/Meta 语义对齐）。
-pub fn mac_mods_to_mods(flags : Int) -> Int {
+pub fn mac_mods_to_mods(flags : Int32) -> Int32 {
   let mut m = 0
   if (flags & MAC_SHIFT) != 0 {
     m = m | MOD_SHIFT
@@ -102,14 +118,14 @@ pub fn mac_mods_to_mods(flags : Int) -> Int {
 
 ///|
 /// macOS 的 Caps Lock 位（`win_apply_shift` 用它决定字母大小写）。
-pub fn mac_caps_lock(flags : Int) -> Bool {
+pub fn mac_caps_lock(flags : Int32) -> Bool {
   (flags & MAC_CAPS_LOCK) != 0
 }
 
 ///|
 /// Windows 虚拟键码 → X11 keysym。字母给小写基码（shift 另算），数字给字符本身，
 /// 控制/功能/小键盘按 X11 常量表；表里没有的给 0（调用方按「未知键」处理）。
-pub fn win_vk_to_keysym(vk : Int) -> Int {
+pub fn win_vk_to_keysym(vk : Int32) -> Int32 {
   if vk >= 0x41 && vk <= 0x5A {
     // VK_A..VK_Z 就是 'A'..'Z'，X11 的小写字母是 +32
     vk + 32
@@ -161,7 +177,7 @@ pub fn win_vk_to_keysym(vk : Int) -> Int {
 ///|
 /// X11 的 shift 折算：字母看「shift 异或 caps」，数字与符号查 ASCII 移位表；
 /// 表里没有的原样返回（不猜布局）。
-pub fn win_apply_shift(ks : Int, shift : Bool, caps : Bool) -> Int {
+pub fn win_apply_shift(ks : Int32, shift : Bool, caps : Bool) -> Int32 {
   if ks >= 97 && ks <= 122 {
     if shift != caps {
       ks - 32
@@ -202,7 +218,7 @@ pub fn win_apply_shift(ks : Int, shift : Bool, caps : Bool) -> Int {
 /// macOS 虚拟键码（`kVK_*`，硬件键位）→ X11 keysym。字母/数字**不在这里**：
 /// mac 的字符要由事件带的 Unicode 文本给（键盘布局由系统解析），这张表只覆盖
 /// 编辑键、导航键、功能键与小键盘；表外给 0。
-pub fn mac_vk_to_keysym(code : Int) -> Int {
+pub fn mac_vk_to_keysym(code : Int32) -> Int32 {
   match code {
     36 => KS_RETURN // kVK_Return
     48 => KS_TAB // kVK_Tab
@@ -242,7 +258,7 @@ pub fn mac_vk_to_keysym(code : Int) -> Int {
 
 ///|
 /// Win32 指针消息的 `MK_*` 按钮位 → 本栈按钮号（1 左 2 中 3 右，与 X11 同口径）。
-pub fn win_button_to_index(mk : Int) -> Int {
+pub fn win_button_to_index(mk : Int32) -> Int32 {
   if (mk & 0x0001) != 0 {
     1
   } else if (mk & 0x0002) != 0 {
@@ -256,7 +272,7 @@ pub fn win_button_to_index(mk : Int) -> Int {
 
 ///|
 /// macOS `NSMouseEvent.buttonNumber` → 本栈按钮号（0 左 1 右 2 中）。
-pub fn mac_button_to_index(number : Int) -> Int {
+pub fn mac_button_to_index(number : Int32) -> Int32 {
   match number {
     0 => 1
     1 => 3
@@ -276,15 +292,20 @@ pub fn mac_button_to_index(number : Int) -> Int {
 /// ⑤ 可打印键先给输入法过一遍（未被消费才进内核）——G5a 实测「未被消费键才进
 ///    内核」就是这一条；
 /// ⑥ 其余（功能键、Escape、修饰键自身）归宿主。
-pub fn ime_route(keysym : Int, mods : Int, composing : Bool) -> ImeRoute {
+pub fn ime_route(keysym : Int32, mods : Int32, composing : Bool) -> ImeRoute {
   let ctrl_meta = (mods & (MOD_CTRL | MOD_META)) != 0
   let alt_only = (mods & MOD_ALT) != 0
   let tab_key = keysym == KS_TAB || keysym == KS_ISO_LEFT_TAB
-  let cursor_key =
-    keysym == KS_LEFT || keysym == KS_RIGHT || keysym == KS_UP ||
-      keysym == KS_DOWN || keysym == KS_HOME || keysym == KS_END ||
-      keysym == 65365 || keysym == 65366 || keysym == KS_BACKSPACE ||
-      keysym == KS_DELETE
+  let cursor_key = keysym == KS_LEFT ||
+    keysym == KS_RIGHT ||
+    keysym == KS_UP ||
+    keysym == KS_DOWN ||
+    keysym == KS_HOME ||
+    keysym == KS_END ||
+    keysym == 65365 ||
+    keysym == 65366 ||
+    keysym == KS_BACKSPACE ||
+    keysym == KS_DELETE
   if composing {
     ToIme
   } else if cursor_key && !alt_only {
@@ -305,13 +326,13 @@ pub fn ime_route(keysym : Int, mods : Int, composing : Bool) -> ImeRoute {
 /// 焦点换控件时要不要打断输入法（`im_reset` 的触发条件）。规则：**逻辑焦点真的
 /// 换了控件**才 reset——每拍都 reset 会一直打断组合（G5a 实测坑），而换焦点时不
 /// reset 会把 A 框里排队的拼音 commit 落进 B 框。
-pub fn ime_should_reset(prev_focus : Int, next_focus : Int) -> Bool {
+pub fn ime_should_reset(prev_focus : Int32, next_focus : Int32) -> Bool {
   prev_focus != next_focus && (prev_focus != 0 || next_focus != 0)
 }
 
 ///|
 /// 输入法四条件之一：每拍喂给输入法的「已提交文本 + 光标」。给 None 表示这一拍
 /// 不喂（焦点控件没有声明 `im_context`，或焦点不在任何控件上）。
-pub fn ime_should_feed_surrounding(focus_id : Int) -> Bool {
+pub fn ime_should_feed_surrounding(focus_id : Int32) -> Bool {
   focus_id != 0
 }

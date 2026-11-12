@@ -13,30 +13,38 @@
 /// 光标形状编号（`Widget.cursor` 与 `Window::set_cursor` 共用同一套码）。
 /// 全自绘栈没有原生控件，形状只能由宿主按悬停路径下发：取路径上**最深的那个
 /// 非零请求**，所以包住一整组的 `cursor_group` 会自然回退生效。
-pub const CURSOR_DEFAULT : Int = 0
+pub const CURSOR_DEFAULT : Int32 = 0
+
 ///|
-pub const CURSOR_HAND : Int = 1
+pub const CURSOR_HAND : Int32 = 1
+
 ///|
-pub const CURSOR_TEXT : Int = 2
+pub const CURSOR_TEXT : Int32 = 2
+
 ///|
-pub const CURSOR_RESIZE_H : Int = 3
+pub const CURSOR_RESIZE_H : Int32 = 3
+
 ///|
-pub const CURSOR_RESIZE_V : Int = 4
+pub const CURSOR_RESIZE_V : Int32 = 4
+
 ///|
 /// 隐藏指针（播放器全屏自动藏指针用）：宿主分别映射 Win32 `SetCursor(NULL)` /
 /// GTK `GDK_BLANK_CURSOR` / mac 空白 `NSCursor`。
-pub const CURSOR_HIDDEN : Int = 5
+pub const CURSOR_HIDDEN : Int32 = 5
 
+///|
 /// 张开的手：悬停在可拖拽的内容上（`drag_source` 用）。
-pub const CURSOR_GRAB : Int = 6
+pub const CURSOR_GRAB : Int32 = 6
 
+///|
 /// 握紧的拳：拖拽会话进行中（按下/开拖后；会话期间宿主统一用它）。
-pub const CURSOR_GRABBING : Int = 7
+pub const CURSOR_GRABBING : Int32 = 7
 
+///|
 /// 禁止（🚫）：禁用态的可交互件悬停其上——「这里能点但现在不让点」。
 /// 宿主分别映射 Win32 `IDC_NO` / GTK `not-allowed` / mac
 /// `operationNotAllowedCursor`。
-pub const CURSOR_NOT_ALLOWED : Int = 8
+pub const CURSOR_NOT_ALLOWED : Int32 = 8
 
 ///|
 pub(all) enum PointerKind {
@@ -52,16 +60,16 @@ pub(all) struct PointerEvent {
   kind : PointerKind
   x : Double
   y : Double
-  button : Int
-  mods : Int
+  button : Int32
+  mods : Int32
 }
 
 ///|
 /// 按键事件（`keysym` 为平台虚拟键码，修饰键位取 `base/keys.mbt` 的 MOD_*）。
 pub(all) struct KeyEvent {
   press : Bool
-  keysym : Int
-  mods : Int
+  keysym : Int32
+  mods : Int32
 }
 
 ///|
@@ -71,7 +79,7 @@ pub(all) struct ScrollEvent {
   y : Double
   dx : Double
   dy : Double
-  mods : Int
+  mods : Int32
 }
 
 ///|
@@ -80,7 +88,7 @@ pub(all) struct ScrollEvent {
 pub(all) struct Widget {
   /// 实例编号（自增，从 1 起）：控件本体比较与注册表都靠它——
   /// Widget 带闭包字段，`==` 派生不出来。
-  id : Int
+  id : Int32
   node : @yoga.Node
   mut kids : Array[Widget]
   mut rect : Rect
@@ -90,39 +98,39 @@ pub(all) struct Widget {
   /// 引用**（父子互指是引用环，本工具链断不掉），所以「我所在的整块被藏起来了吗」
   /// 只能靠这个读数回答：`is_painted()` 在本帧没被画过 = 被祖先隐藏或在视口外。
   /// 自转型组件（轮播、动图）据此停掉无效重绘。
-  mut paint_epoch : Int
+  mut paint_epoch : Int32
   /// 绘制回调：入参是**已平移到本控件原点、已裁剪到本控件矩形**的绘制器，
   /// 以及本控件的绝对矩形（取宽高用；坐标请一律按本地写）。
   /// 绘制回调：第一个参数是控件本身（读 `hovered`/`pressed`/`rect` 等状态用），
   /// **不要再把控件句柄捕获进闭包**——控件持有回调、回调又持有控件就是引用环，
   /// 本工具链的计数式回收断不掉环，动态换树（bind_node 重挂）会稳定泄漏。
-  mut on_draw : Option[(Widget, @render.Painter, Rect) -> Unit]
+  mut on_draw : ((Widget, @render.Painter, Rect) -> Unit)?
   /// W38 3D/GPU 渲染口子：控件声明 `on_render` 时，paint_walk 优先派发它并
   /// 传 RenderCtx；`on_draw` 作为 CPU 回退保留。当前 RenderCtx 恒为 Cpu 档，
   /// 等价于把 Painter 包一层；WebGPU 后端落地时 Gpu 档才填实际句柄。
-  mut on_render : Option[(Widget, @render.RenderCtx, Rect) -> Unit]
+  mut on_render : ((Widget, @render.RenderCtx, Rect) -> Unit)?
   /// 指针回调：首参是控件本身（要读 `rect` 判「松开是否在自己范围内」、
   /// 拖动边界等，都由参数拿，不要把控件句柄捕获进闭包——见 `on_draw` 注）
-  mut on_pointer : Option[(Widget, PointerEvent) -> Bool]
+  mut on_pointer : ((Widget, PointerEvent) -> Bool)?
   /// W32 双击/三击回调：宿主在 `dispatch_on_path` 派发 Down 时喂控件自带的
   /// `ClickTracker`（400 ms/4 px 阈值），命中双击/三击档时调用对应回调。
   /// `on_pointer` 仍照收每次 Down/Up，两者共存不冲突。
-  mut on_double_click : Option[(Widget, PointerEvent) -> Unit]
-  mut on_triple_click : Option[(Widget, PointerEvent) -> Unit]
+  mut on_double_click : ((Widget, PointerEvent) -> Unit)?
+  mut on_triple_click : ((Widget, PointerEvent) -> Unit)?
   /// 每控件独立的多击状态（宿主维护，控件读写无必要）
   mut tracker : ClickTracker
   /// W32 键多击：同一个键在 60–400ms 内再按下（且该控件持有焦点）时回调。
   /// 自动重复（typically 25–40ms）不计入；带修饰键需 mods 完全一致。
-  mut on_key_double : Option[(Widget, KeyEvent) -> Unit]
-  mut on_key_triple : Option[(Widget, KeyEvent) -> Unit]
+  mut on_key_double : ((Widget, KeyEvent) -> Unit)?
+  mut on_key_triple : ((Widget, KeyEvent) -> Unit)?
   mut key_tracker : KeyTracker
-  mut on_key : Option[(KeyEvent) -> Bool]
+  mut on_key : ((KeyEvent) -> Bool)?
   /// 抬起事件的**声明制**回调：路由对 key-up 一律只投给这条（焦点链最深优先），
   /// `on_key` 与按键兜底通道永不收抬起——前者（编辑内核）不区分按下/抬起，
   /// 放行等于「松手再插一个字符」（实测 Tab 抬起插成 '\t'）；后者按按下语义
   /// 写，放行等于一次按键触发两次。要「按住…松手停」形态的组件挂这条。
-  mut on_key_release : Option[(KeyEvent) -> Bool]
-  mut on_scroll : Option[(ScrollEvent) -> Bool]
+  mut on_key_release : ((KeyEvent) -> Bool)?
+  mut on_scroll : ((ScrollEvent) -> Bool)?
   /// 交互态（悬停 / 按下）：**由宿主按命中与捕获统一维护**，控件只在
   /// `on_draw` 里读，不必自己处理 enter/leave（见 `set_hover`/`set_press`）
   mut hovered : Bool
@@ -134,22 +142,22 @@ pub(all) struct Widget {
   /// 组件用（悬浮提示）。宿主只在悬停归属变化时调用，且父链上的控件同样算悬停
   /// （与 CSS `:hover` 同义），所以包住别人的组件也能收到——不必依赖子控件把
   /// 移动事件冒泡上来（子控件可能自己消费掉移动）。
-  mut on_hover_change : Option[(Widget, Bool) -> Unit]
+  mut on_hover_change : ((Widget, Bool) -> Unit)?
   /// 焦点得失回调（入参是本控件与新的聚焦值）：给「失焦即提交」的编辑类控件用
   /// （数字框、可编辑下拉）。触发口径与 `on_hover_change` 同一条——宿主每帧同步
   /// `focused` 时只在真正翻转的那一下调用。
-  mut on_focus_change : Option[(Widget, Bool) -> Unit]
+  mut on_focus_change : ((Widget, Bool) -> Unit)?
   /// 输入法提交文本到达本控件（宿主按焦点 id 路由）；返回是否消费。
-  mut on_commit : Option[(String) -> Bool]
+  mut on_commit : ((String) -> Bool)?
   /// 组合串更新（文本 + 串内字节光标）；宿主每拍投给焦点控件。
-  mut on_preedit : Option[(String, Int) -> Unit]
+  mut on_preedit : ((String, Int32) -> Unit)?
   /// 输入法需要的上下文（已提交文本 + 字节光标）；给 None 表示本控件不吃
   /// 输入法，宿主于是本轮不喂 surrounding、也不取 commit。
-  mut im_context : Option[() -> (String, Int)?]
+  mut im_context : (() -> (String, Int32)?)?
   /// 插入符矩形（窗口坐标），候选窗据此定位。
-  mut im_cursor : Option[(Widget) -> Rect?]
+  mut im_cursor : ((Widget) -> Rect?)?
   /// 焦点栈里的 id（0 = 不参与键盘焦点）
-  mut focus_id : Int
+  mut focus_id : Int32
   /// 「点它不让位」：宿主点击让位（blur）语义会跳过命中链上带这个标记的区域。
   /// 给复合控件的附属小件用（步进器的 +/- 格）：点它只是操作，不抢输入格的焦点。
   mut keep_focus_on_click : Bool
@@ -166,28 +174,28 @@ pub(all) struct Widget {
   /// 光标形状请求（0 = 不请求，用默认箭头；1 手型 / 2 文本 I 形 / 3 横向调整 /
   /// 4 纵向调整）。全自绘栈没有原生控件，形状由宿主按命中路径下发：取悬停路径上
   /// **最深的那个非零请求**，所以包住一整组的 `cursor_group` 会自然回退生效。
-  mut cursor : Int
+  mut cursor : Int32
   /// 动态光标请求：给 Some 时**优先于 `cursor`**，且每次命中查询现算——`cursor`
   /// 是建树时定死的一次性值，禁用态这类会随单元变化的请求要用它。入参是控件本身，
   /// 同 `on_draw` 注：不要把控件句柄捕获进闭包（引用环）。返回 0 表示本控件不请求，
   /// 查询继续往祖先走（`cursor_group` 的组请求仍然生效）。
-  mut cursor_fn : Option[(Widget) -> Int]
+  mut cursor_fn : ((Widget) -> Int32)?
   /// 拖源载荷（W21c）：给 Some 即「本控件可拖出」，按下拖过阈值后调它取数据；
   /// 给 None（返回 None 同理）表示这一拖不成立。
-  mut drag_payload : Option[() -> DragData?]
+  mut drag_payload : (() -> DragData?)?
   /// 投放回调（W21c）：拖拽松手且本控件是**最深命中者**时调用，返回是否接受。
   /// 悬停高亮不靠回调：绘制方读 `@widget.drag_hover() == self.id` 自判（见 drag.mbt）。
-  mut on_drop : Option[(DragData, Double, Double) -> Bool]
+  mut on_drop : ((DragData, Double, Double) -> Bool)?
   /// 悬停期的「收不收」查询（W23a 系统级拖入用）：系统要在拖拽**过程中**就知道
   /// 落点接不接这份数据（决定光标），而 `on_drop` 一调就真投了，所以查询另开一条。
   /// 没装时按「是投放目标就收」处理。
-  mut drag_accept : Option[(DragData) -> Bool]
+  mut drag_accept : ((DragData) -> Bool)?
   /// 丢弃回调：本控件被 `clear_children` / `remove_child` 摘下时调用（含整棵
   /// 子树被丢弃时对每个装了回调的控件各调一次）。给持进程级资源（播放引擎、
   /// 定时器链、系统句柄）的组件用——组件把引擎藏在闭包里，外层换树拿不到，
   /// 没有这个口就没人能停它（换载后旧视频的音频继续解码播放就是这么来的）。
   /// 回调里做同步清理（停引擎/终止定时器），不重入树操作。
-  mut on_discard : Option[(Widget) -> Unit]
+  mut on_discard : ((Widget) -> Unit)?
   /// resolved `Style` 本体不进 widget（widget 依赖 style 会与 style 依赖 widget 成环）：由 `@style` 包的
   /// 进程级侧表按控件 id 持有，绘制期 `@style.resolved(self)` 读取。
   /// 绘制层序键（resolved `z_index` 的落点，design.md §5 P1）：`@style.apply`
@@ -217,14 +225,14 @@ pub(all) struct Widget {
   mut enabled : Bool
   /// 语义状态与值：回调首参是控件本身（不把控件捕进闭包），返回
   /// (状态串, 值串)（如 ("checked", "") / ("已选", "50%")），None = 没有语义值。
-  mut a11y_state : Option[(Widget) -> (String, String)?]
+  mut a11y_state : ((Widget) -> (String, String)?)?
   /// 语义文本内容（读屏朗读的正文）：与 `label` 的区别是它可以现算
   /// （富文本段、代码块这类不在 `label` 里的文本）。None = 回落 `label`。
-  mut a11y_text : Option[(Widget) -> String?]
+  mut a11y_text : ((Widget) -> String?)?
 }
 
 ///|
-let widget_next_id : Ref[Int] = Ref(0)
+let widget_next_id : Ref[Int32] = Ref(0)
 
 ///|
 pub fn Widget::new() -> Widget {
@@ -285,17 +293,17 @@ pub fn Widget::new() -> Widget {
 ///|
 /// 绘制轮次（进程级）：宿主每帧在绘制入口 `bump_paint_epoch` 一次，遍历经过的控件
 /// 把当时的轮次记进 `Widget.paint_epoch`。无头测试自己派帧时也要手动 bump 才算一帧。
-let paint_epoch_ref : Ref[Int] = Ref(0)
+let paint_epoch_ref : Ref[Int32] = Ref(0)
 
 ///|
-pub fn bump_paint_epoch() -> Int {
+pub fn bump_paint_epoch() -> Int32 {
   paint_epoch_ref.val = paint_epoch_ref.val + 1
   paint_epoch_ref.val
 }
 
 ///|
 /// 当前绘制轮次。
-pub fn paint_epoch() -> Int {
+pub fn paint_epoch() -> Int32 {
   paint_epoch_ref.val
 }
 
@@ -312,7 +320,9 @@ pub fn Widget::is_painted(self : Widget) -> Bool {
 let widget_mount_hook : Ref[(Widget, Widget) -> Unit] = Ref(fn(
   _p : Widget,
   _c : Widget,
-) -> Unit { () })
+) -> Unit {
+  ()
+})
 
 ///|
 pub fn set_widget_mount_hook(f : (Widget, Widget) -> Unit) -> Unit {
@@ -339,10 +349,12 @@ pub fn Widget::append_child(self : Widget, child : Widget) -> Unit {
 /// 虚拟列表重挂窗口、浮层收起）每换一代就多留一份残账，不清就是进程级泄漏。
 /// 附属表的持有方自己装钩子（style 依赖 widget，方向合规），widget 不认识装钩子的是谁。
 /// **挪位不要走这两条**：`move_child` 才是挪，摘下来就是丢弃。
-let widget_discard_hook : Ref[(Int) -> Unit] = Ref(fn(_id : Int) -> Unit { () })
+let widget_discard_hook : Ref[(Int32) -> Unit] = Ref(fn(_id : Int32) -> Unit {
+  ()
+})
 
 ///|
-pub fn set_widget_discard_hook(f : (Int) -> Unit) -> Unit {
+pub fn set_widget_discard_hook(f : (Int32) -> Unit) -> Unit {
   widget_discard_hook.val = f
 }
 
@@ -379,7 +391,11 @@ pub fn Widget::clear_children(self : Widget) -> Unit {
 /// 在 `index` 处插入子控件（布局树同位插入，越界按首/尾钳制）。
 /// 声明式层的就地重挂必须走这个而不是「清空再追加」——兄弟项的排布
 /// 顺序与坐标才不会被换掉的那一项影响。
-pub fn Widget::insert_child(self : Widget, index : Int, child : Widget) -> Unit {
+pub fn Widget::insert_child(
+  self : Widget,
+  index : Int32,
+  child : Widget,
+) -> Unit {
   let n = self.kids.length()
   let at = if index < 0 { 0 } else if index > n { n } else { index }
   self.kids.insert(at, child)
@@ -409,7 +425,7 @@ pub fn Widget::remove_child(self : Widget, child : Widget) -> Bool {
 
 ///|
 /// 直接子控件的位置（按控件身份找）；不是本控件的子项给 -1。
-pub fn Widget::index_of(self : Widget, child : Widget) -> Int {
+pub fn Widget::index_of(self : Widget, child : Widget) -> Int32 {
   let mut i = 0
   for k in self.kids {
     if k.id == child.id {
@@ -423,7 +439,7 @@ pub fn Widget::index_of(self : Widget, child : Widget) -> Int {
 ///|
 /// 把第 `from` 个子控件挪到第 `to` 位（两端都越界即钳制）。
 /// 声明式层的原位重挂用它：新一代先挂到尾部，再挪回旧一代原先的位置。
-pub fn Widget::move_child(self : Widget, from : Int, to : Int) -> Unit {
+pub fn Widget::move_child(self : Widget, from : Int32, to : Int32) -> Unit {
   let n = self.kids.length()
   if n == 0 {
     return ()
@@ -450,11 +466,7 @@ pub fn Widget::children(self : Widget) -> Array[Widget] {
 /// （`display:none` 的清零重显语义由布局引擎的语料用例守着）。
 pub fn Widget::set_visible(self : Widget, v : Bool) -> Unit {
   self.visible = v
-  self.node.set_display(if v {
-    @yoga.Flex
-  } else {
-    @yoga.None
-  })
+  self.node.set_display(if v { @yoga.Flex } else { @yoga.None })
 }
 
 ///|
@@ -467,7 +479,11 @@ pub fn Widget::set_size(self : Widget, w : Double, h : Double) -> Unit {
 ///|
 /// 排布整棵树并把绝对矩形折算回各控件；`avail_w/avail_h` 为可用空间，
 /// 根控件落在窗口原点。
-pub fn Widget::relayout(self : Widget, avail_w : Double, avail_h : Double) -> Unit {
+pub fn Widget::relayout(
+  self : Widget,
+  avail_w : Double,
+  avail_h : Double,
+) -> Unit {
   self.relayout_at(0.0, 0.0, avail_w, avail_h)
 }
 
@@ -535,7 +551,11 @@ pub fn Widget::hit_test(self : Widget, px : Double, py : Double) -> Widget? {
 
 ///|
 /// 命中路径：自根控件到命中控件（含两端）；未命中给空表。
-pub fn Widget::hit_path(self : Widget, px : Double, py : Double) -> Array[Widget] {
+pub fn Widget::hit_path(
+  self : Widget,
+  px : Double,
+  py : Double,
+) -> Array[Widget] {
   path_to(self, px, py)
 }
 
@@ -561,7 +581,7 @@ fn path_to(w : Widget, px : Double, py : Double) -> Array[Widget] {
 
 ///|
 /// 自根到指定控件 id 的路径（含两端）；控件隐藏或不在树里给空表。
-fn path_to_widget(w : Widget, id : Int, acc : Array[Widget]) -> Array[Widget] {
+fn path_to_widget(w : Widget, id : Int32, acc : Array[Widget]) -> Array[Widget] {
   if !w.visible {
     return []
   }
@@ -583,7 +603,7 @@ fn path_to_widget(w : Widget, id : Int, acc : Array[Widget]) -> Array[Widget] {
 /// 命中链上最近的可聚焦控件 id（从命中控件沿祖先链向上，第一个声明了
 /// `focus_id` 的算），整条链都没有则 None。宿主在按钮按下时用它把键盘
 /// 焦点交给控件——与 Web 同源（点表单控件即聚焦它），控件不必自己改焦点栈。
-pub fn Widget::focusable_at(self : Widget, x : Double, y : Double) -> Int? {
+pub fn Widget::focusable_at(self : Widget, x : Double, y : Double) -> Int32? {
   let path = self.hit_path(x, y)
   let mut i = path.length()
   while i > 0 {
@@ -607,14 +627,14 @@ pub fn Widget::keep_focus_at(self : Widget, x : Double, y : Double) -> Bool {
 /// 同号去重，`focus_id` 为 0 或负数的不算）。宿主用它把焦点栈对齐控件树，
 /// 所以「声明 `focus_id`」就是「可聚焦、可 Tab 到」，调用方不必自己注册；
 /// 被藏起来的整块（隐藏页、收起的浮层）自然不在 Tab 次序里。
-pub fn Widget::focus_ids(self : Widget) -> Array[Int] {
-  let acc : Array[Int] = []
+pub fn Widget::focus_ids(self : Widget) -> Array[Int32] {
+  let acc : Array[Int32] = []
   collect_focus_ids(self, acc)
   acc
 }
 
 ///|
-fn collect_focus_ids(w : Widget, acc : Array[Int]) -> Unit {
+fn collect_focus_ids(w : Widget, acc : Array[Int32]) -> Unit {
   if !w.visible {
     return ()
   }
@@ -667,7 +687,11 @@ fn dispatch_on_path(path : Array[Widget], ev : PointerEvent) -> Bool {
     // W32 多击检测：**只在最深命中档**喂 tracker 与触发回调——避免每层祖先
     // 都收到重复的 double_click。最深档对普通键是 path 末项，对右键（祖先
     // 优先）是 path 首项。与 on_pointer 并存，两者语义不冲突。
-    let is_deepest = if ancestor_first { i == 0 } else { i == path.length() - 1 }
+    let is_deepest = if ancestor_first {
+      i == 0
+    } else {
+      i == path.length() - 1
+    }
     let is_down = match ev.kind {
       PointerKind::Down => true
       _ => false
@@ -711,14 +735,18 @@ pub fn Widget::dispatch_pointer(self : Widget, ev : PointerEvent) -> Bool {
 /// 用于按下后的捕获期：拖动与松手要交给**被按下**的那个控件，而不是当前
 /// 坐标底下的控件——否则指针一离开控件就收不到 Up，按下态卡死、拖选也做不了
 /// （与 Web 的 setPointerCapture 同义）。
-pub fn Widget::dispatch_pointer_to(self : Widget, widget_id : Int, ev : PointerEvent) -> Bool {
+pub fn Widget::dispatch_pointer_to(
+  self : Widget,
+  widget_id : Int32,
+  ev : PointerEvent,
+) -> Bool {
   dispatch_on_path(path_to_widget(self, widget_id, []), ev)
 }
 
 ///|
 /// 本控件**自己**的光标请求（0 = 不请求）：`cursor_fn` 存在时以它现算的结果为准，
 /// 否则取静态 `cursor`。
-pub fn Widget::cursor_request(self : Widget) -> Int {
+pub fn Widget::cursor_request(self : Widget) -> Int32 {
   match self.cursor_fn {
     Some(f) => f(self)
     None => self.cursor
@@ -728,7 +756,7 @@ pub fn Widget::cursor_request(self : Widget) -> Int {
 ///|
 /// 命中路径上「最深的一个非零光标请求」；无人请求时返回 0（默认箭头）。
 /// 控件带 `cursor_fn` 时以它现算的结果为准（禁用态等动态请求）。
-pub fn Widget::cursor_at(self : Widget, x : Double, y : Double) -> Int {
+pub fn Widget::cursor_at(self : Widget, x : Double, y : Double) -> Int32 {
   let path = self.hit_path(x, y)
   let mut i = path.length()
   while i > 0 {
@@ -743,7 +771,7 @@ pub fn Widget::cursor_at(self : Widget, x : Double, y : Double) -> Int {
 
 ///|
 /// 按控件身份找控件（不在树里给 None）。
-pub fn Widget::by_id(self : Widget, id : Int) -> Widget? {
+pub fn Widget::by_id(self : Widget, id : Int32) -> Widget? {
   match path_to_widget(self, id, []) {
     [] => None
     path => Some(path[path.length() - 1])
@@ -768,7 +796,7 @@ pub fn Widget::request_host_focus(self : Widget) -> Bool {
 /// 按**焦点栈 id** 重排 `focused` 标志（一次遍历，宿主每帧画之前同步一次）。
 /// 焦点栈只记 id，控件绘制要的是「我是不是那个被聚焦的」，这层换算归宿主。
 /// 标志真正翻转时按控件触发 `on_focus_change`。
-pub fn Widget::set_focused_by_focus(self : Widget, focus_id : Int) -> Unit {
+pub fn Widget::set_focused_by_focus(self : Widget, focus_id : Int32) -> Unit {
   let on = focus_id > 0 && self.focus_id == focus_id
   if self.focused != on {
     self.focused = on
@@ -786,7 +814,7 @@ pub fn Widget::set_focused_by_focus(self : Widget, focus_id : Int) -> Unit {
 /// 把悬停态交给 id 对应的控件**及其祖先链**（与 CSS `:hover` 同义：指针在子项上
 /// 时父项也算悬停），`id` 为 0 或负数表示全部清掉。只有一趟遍历，且只在悬停者
 /// 变化时由宿主调用；状态翻转时按控件触发 `on_hover_change`。
-pub fn Widget::set_hover(self : Widget, id : Int) -> Unit {
+pub fn Widget::set_hover(self : Widget, id : Int32) -> Unit {
   let path = if id > 0 {
     path_to_widget(self, id, [])
   } else {
@@ -818,7 +846,7 @@ fn Widget::apply_hover_path(self : Widget, path : Array[Widget]) -> Unit {
 
 ///|
 /// 把按下态交给 id 对应的控件（`id` 为 0 或负数表示全部清掉）。
-pub fn Widget::set_press(self : Widget, id : Int) -> Unit {
+pub fn Widget::set_press(self : Widget, id : Int32) -> Unit {
   self.pressed = self.id == id
   for k in self.kids {
     k.set_press(id)
@@ -834,11 +862,17 @@ pub fn Widget::set_press(self : Widget, id : Int) -> Unit {
 ///   （指针离开也不丢抬起，按下态不会卡死，拖选与拖动插入点才有依据）；
 /// - 捕获期悬停不动，`Up` 之后按抬起位置重新判定悬停者；
 /// - 悬停者换了就给上一个补一次 `Leave`（窗口坐标）。
+
 ///|
 /// 浮层图层的命中穿透（见 `route_pointer`）。命中不在图层上、图层不可见、
 /// 或最上层是「点外收起」语义（默认）时原样返回；穿透时临时把图层摘出命中
 /// （visible=false）重命中一次再恢复，布局不动、rect 保留。
-fn overlay_pass_through_hit(root : Widget, hit0 : Int, x : Double, y : Double) -> Int {
+fn overlay_pass_through_hit(
+  root : Widget,
+  hit0 : Int32,
+  x : Double,
+  y : Double,
+) -> Int32 {
   if hit0 < 0 {
     return hit0
   }
@@ -866,9 +900,9 @@ fn overlay_pass_through_hit(root : Widget, hit0 : Int, x : Double, y : Double) -
 pub fn route_pointer(
   root : Widget,
   ev : PointerEvent,
-  hover_id : Int,
-  capture : Int,
-) -> (Int, Int, Bool, Bool) {
+  hover_id : Int32,
+  capture : Int32,
+) -> (Int32, Int32, Bool, Bool) {
   let hit0 = match root.hit_test(ev.x, ev.y) {
     Some(w) => w.id
     None => -1
@@ -887,19 +921,21 @@ pub fn route_pointer(
       changed = true
     }
     Up => changed = true
-    Move => {
+    Move =>
       if cap < 0 && hit != hover {
         if hover >= 0 {
-          let _ = root.dispatch_pointer_to(
-            hover,
-            { kind: Leave, x: ev.x, y: ev.y, button: ev.button, mods: ev.mods, },
-          )
+          let _ = root.dispatch_pointer_to(hover, {
+            kind: Leave,
+            x: ev.x,
+            y: ev.y,
+            button: ev.button,
+            mods: ev.mods,
+          })
         }
         root.set_hover(hit)
         hover = hit
         changed = true
       }
-    }
     Leave => ()
   }
   let consumed = if cap >= 0 {
@@ -951,7 +987,7 @@ pub fn Widget::dispatch_scroll(self : Widget, ev : ScrollEvent) -> Bool {
 /// 找不到该 id（控件不存在或已隐藏）时不做任何事，返回 false。
 pub fn Widget::dispatch_key(
   self : Widget,
-  focus_id : Int,
+  focus_id : Int32,
   ev : KeyEvent,
 ) -> Bool {
   let path = path_to_id(self, focus_id, [])
@@ -987,7 +1023,7 @@ pub fn Widget::dispatch_key(
 ///|
 /// 焦点控件与其带 `on_key` 的祖先链：键处理只可能落在这条链上，
 /// 是按键置脏的标记范围。
-pub fn Widget::key_targets(self : Widget, focus_id : Int) -> Array[Widget] {
+pub fn Widget::key_targets(self : Widget, focus_id : Int32) -> Array[Widget] {
   let path = path_to_id(self, focus_id, [])
   let out : Array[Widget] = []
   for w in path {
@@ -1005,7 +1041,7 @@ pub fn Widget::key_targets(self : Widget, focus_id : Int) -> Array[Widget] {
 /// 编辑内核照旧只见按下，「松手再插字符」的旧坑从结构上不会回来。
 pub fn Widget::dispatch_key_release(
   self : Widget,
-  focus_id : Int,
+  focus_id : Int32,
   ev : KeyEvent,
 ) -> Bool {
   let path = path_to_id(self, focus_id, [])
@@ -1023,7 +1059,10 @@ pub fn Widget::dispatch_key_release(
 
 ///|
 /// 焦点控件与其带 `on_key_release` 的祖先链（抬起事件的置脏标记范围）。
-pub fn Widget::key_release_targets(self : Widget, focus_id : Int) -> Array[Widget] {
+pub fn Widget::key_release_targets(
+  self : Widget,
+  focus_id : Int32,
+) -> Array[Widget] {
   let path = path_to_id(self, focus_id, [])
   let out : Array[Widget] = []
   for w in path {
@@ -1036,7 +1075,7 @@ pub fn Widget::key_release_targets(self : Widget, focus_id : Int) -> Array[Widge
 }
 
 ///|
-fn path_to_id(w : Widget, id : Int, acc : Array[Widget]) -> Array[Widget] {
+fn path_to_id(w : Widget, id : Int32, acc : Array[Widget]) -> Array[Widget] {
   if !w.visible {
     return []
   }
@@ -1056,7 +1095,7 @@ fn path_to_id(w : Widget, id : Int, acc : Array[Widget]) -> Array[Widget] {
 
 ///|
 /// 在树里按焦点 id 找控件（焦点栈只存整数 id，路由之外还要它做高亮等判断）。
-pub fn Widget::find_by_focus_id(self : Widget, id : Int) -> Widget? {
+pub fn Widget::find_by_focus_id(self : Widget, id : Int32) -> Widget? {
   match path_to_id(self, id, []) {
     path =>
       if path.length() == 0 {
@@ -1080,10 +1119,10 @@ pub fn Widget::set_column(self : Widget) -> Unit {
 /// 位置参数四路全 `Double`，错序编译期查不出。
 pub fn Widget::set_margin(
   self : Widget,
-  top? : Double = 0.0,
-  right? : Double = 0.0,
-  bottom? : Double = 0.0,
-  left? : Double = 0.0,
+  top~ : Double = 0.0,
+  right~ : Double = 0.0,
+  bottom~ : Double = 0.0,
+  left~ : Double = 0.0,
 ) -> Unit {
   self.node.set_margin_top(@yoga.fixed(top))
   self.node.set_margin_right(@yoga.fixed(right))
@@ -1105,10 +1144,10 @@ pub fn Widget::set_margin_all(self : Widget, v : Double) -> Unit {
 /// 四边同值用 [Widget::set_padding_all]（对应 CSS `padding: 14px` 的一值简写）。
 pub fn Widget::set_padding(
   self : Widget,
-  top? : Double = 0.0,
-  right? : Double = 0.0,
-  bottom? : Double = 0.0,
-  left? : Double = 0.0,
+  top~ : Double = 0.0,
+  right~ : Double = 0.0,
+  bottom~ : Double = 0.0,
+  left~ : Double = 0.0,
 ) -> Unit {
   self.node.set_padding_top(@yoga.fixed(top))
   self.node.set_padding_right(@yoga.fixed(right))
@@ -1143,7 +1182,7 @@ pub fn Widget::paint_at(
   p : @render.Painter,
   ox : Double,
   oy : Double,
-  clip? : @base.Rect? = None,
+  clip~ : @base.Rect? = None,
 ) -> Unit {
   if !self.visible {
     return ()
@@ -1156,13 +1195,14 @@ pub fn Widget::paint_at(
   // 会话里是设备空间的真值（滚动的平移也在 CTM 里），所以这层判交天然把滚动
   // 视口算对。cairo 后端不查（那边没有可查的设备裁剪且本来快）；旋转矩阵下
   // 用两角包围盒近似（本栈的控件绘制只用平移，够用）。
-  match widget_cull_skip(
-    p,
-    self.rect.x - ox,
-    self.rect.y - oy,
-    self.rect.w,
-    self.rect.h,
-  ) {
+  match
+    widget_cull_skip(
+      p,
+      self.rect.x - ox,
+      self.rect.y - oy,
+      self.rect.w,
+      self.rect.h,
+    ) {
     true => {
       @base.prof_note_paint_skip()
       return ()
@@ -1236,12 +1276,13 @@ pub fn Widget::paint_at(
     let w = self.rect.w
     let h = self.rect.h
     p.set_global_alpha(1.0)
-    for (cx0, cy0, left, top) in [
-      (0.0, 0.0, true, true),
-      (w - r, 0.0, false, true),
-      (0.0, h - r, true, false),
-      (w - r, h - r, false, false)
-    ] {
+    for
+      (cx0, cy0, left, top) in [
+        (0.0, 0.0, true, true),
+        (w - r, 0.0, false, true),
+        (0.0, h - r, true, false),
+        (w - r, h - r, false, false),
+      ] {
       // 左角读本控件左缘外一像素、右角读右缘外一像素，纵向取角盒中段
       let sx = if left { -1.0 } else { w }
       match p.pixel_at(sx, cy0 + r / 2.0) {
@@ -1252,19 +1293,23 @@ pub fn Widget::paint_at(
           let mut yy = 0
           while yy < r.floor().to_int() + 1 {
             // 该行行心到圆心的竖直距离：顶角从盒底往上数，底角从盒顶往下数
-            let yc =
-              if top {
-                (r - yy.to_double() - 0.5).max(0.0)
-              } else {
-                yy.to_double() + 0.5
-              }
+            let yc = if top {
+              (r - yy.to_double() - 0.5).max(0.0)
+            } else {
+              yy.to_double() + 0.5
+            }
             let half = (r * r - yc * yc).max(0.0).sqrt()
             let outside = (r - half).max(0.0)
             if outside > 0.0 {
               if left {
                 p.fill_rect(cx0, cy0 + yy.to_double(), outside, 1.0)
               } else {
-                p.fill_rect(cx0 + r - outside, cy0 + yy.to_double(), outside, 1.0)
+                p.fill_rect(
+                  cx0 + r - outside,
+                  cy0 + yy.to_double(),
+                  outside,
+                  1.0,
+                )
               }
             }
             yy += 1
@@ -1304,6 +1349,7 @@ fn widget_paint_order(kids : Array[Widget]) -> Array[Widget] {
 }
 
 ///|
+
 ///|
 /// 控件矩形（内容坐标）与当前设备裁剪不相交则为 true（可跳过）。
 fn widget_cull_skip(
@@ -1337,7 +1383,7 @@ fn widget_cull_skip(
 /// 提交文本路由给焦点控件（沿祖先链冒泡，同指针事件的规则）。
 pub fn Widget::dispatch_commit(
   self : Widget,
-  focus_id : Int,
+  focus_id : Int32,
   text : String,
 ) -> Bool {
   let path = path_to_id(self, focus_id, [])
@@ -1357,9 +1403,9 @@ pub fn Widget::dispatch_commit(
 /// 组合串投递给焦点控件（不冒泡：组合串属于正在编辑的那一个字段）。
 pub fn Widget::dispatch_preedit(
   self : Widget,
-  focus_id : Int,
+  focus_id : Int32,
   text : String,
-  caret : Int,
+  caret : Int32,
 ) -> Unit {
   match self.find_by_focus_id(focus_id) {
     Some(w) =>
@@ -1375,8 +1421,8 @@ pub fn Widget::dispatch_preedit(
 /// 焦点控件的输入法上下文（None = 本轮不需要喂输入法）。
 pub fn Widget::im_context_of(
   self : Widget,
-  focus_id : Int,
-) -> (String, Int)? {
+  focus_id : Int32,
+) -> (String, Int32)? {
   match self.find_by_focus_id(focus_id) {
     Some(w) =>
       match w.im_context {
@@ -1389,7 +1435,7 @@ pub fn Widget::im_context_of(
 
 ///|
 /// 焦点控件的插入符矩形（候选窗定位用）。
-pub fn Widget::im_cursor_of(self : Widget, focus_id : Int) -> Rect? {
+pub fn Widget::im_cursor_of(self : Widget, focus_id : Int32) -> Rect? {
   match self.find_by_focus_id(focus_id) {
     Some(w) =>
       match w.im_cursor {

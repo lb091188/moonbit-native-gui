@@ -3,7 +3,7 @@
 
 ///|
 /// 假测宽器：按字节数线性给宽，好让断言写得出整数。
-fn fake_width(_t : String, from : Int, to : Int) -> Double {
+fn fake_width(_t : String, from : Int32, to : Int32) -> Double {
   (to - from).to_double() * 10.0
 }
 

@@ -5,7 +5,7 @@
 ///| CommonMark spec appendix.
 
 ///|
-fn InlineCtx::open_bracket(self : InlineCtx, pos : Int, image : Bool) -> Unit {
+fn InlineCtx::open_bracket(self : InlineCtx, pos : Int32, image : Bool) -> Unit {
   let width = if image { 2 } else { 1 }
   let literal = if image { "![" } else { "[" }
   let slot = self.append({
@@ -34,7 +34,7 @@ fn InlineCtx::open_bracket(self : InlineCtx, pos : Int, image : Bool) -> Unit {
 ///|
 /// Handle a `]`, turning the matching bracket into a link or image when one of
 /// the inline or reference forms applies. Returns the index to resume from.
-fn InlineCtx::close_bracket(self : InlineCtx, pos : Int) -> Int {
+fn InlineCtx::close_bracket(self : InlineCtx, pos : Int32) -> Int32 {
   let text = self.text
   let len = self.len
   if self.brackets.is_empty() {
@@ -132,7 +132,10 @@ fn InlineCtx::close_bracket(self : InlineCtx, pos : Int) -> Int {
 
 ///|
 /// Parse `(dest "title")` starting at the `(`.
-fn parse_inline_link_tail(text : String, start : Int) -> (String, String, Int)? {
+fn parse_inline_link_tail(
+  text : String,
+  start : Int32,
+) -> (String, String, Int32)? {
   let len = text.length()
   let mut i = start + 1
   i = skip_link_space(text, i)
@@ -158,7 +161,7 @@ fn parse_inline_link_tail(text : String, start : Int) -> (String, String, Int)? 
 }
 
 ///|
-fn skip_link_space(text : String, start : Int) -> Int {
+fn skip_link_space(text : String, start : Int32) -> Int32 {
   let len = text.length()
   let mut i = start
   while i < len && is_html_space(text.unsafe_get(i)) {
@@ -169,7 +172,7 @@ fn skip_link_space(text : String, start : Int) -> Int {
 
 ///|
 /// A link destination: either `<...>` or a bare run with balanced parentheses.
-fn parse_link_destination(text : String, start : Int) -> (String, Int)? {
+fn parse_link_destination(text : String, start : Int32) -> (String, Int32)? {
   let len = text.length()
   guard start < len else { return None }
   if text.unsafe_get(start) == '<' {
@@ -221,7 +224,7 @@ fn parse_link_destination(text : String, start : Int) -> (String, Int)? {
 
 ///|
 /// A link title in `"…"`, `'…'` or `(…)`.
-fn parse_link_title(text : String, start : Int) -> (String, Int)? {
+fn parse_link_title(text : String, start : Int32) -> (String, Int32)? {
   let len = text.length()
   guard start < len else { return None }
   let open = text.unsafe_get(start)
@@ -256,7 +259,7 @@ fn parse_link_title(text : String, start : Int) -> (String, Int)? {
 /// Read the `[label]` that may follow a `]`, distinguishing the collapsed form
 /// `[]` (empty label) from a full reference. Returns `None` for the shortcut
 /// form, where nothing follows.
-fn read_reference_label(text : String, start : Int) -> (String, Int)? {
+fn read_reference_label(text : String, start : Int32) -> (String, Int32)? {
   let len = text.length()
   guard start < len && text.unsafe_get(start) == '[' else { return None }
   let mut i = start + 1
@@ -345,7 +348,7 @@ fn fold_case(c : Char) -> Char {
 ///|
 /// Latin Extended-A is laid out as upper/lower pairs, but the parity flips
 /// twice inside the block, so the sub-ranges have to be spelled out.
-fn fold_latin_extended_a(code : Int) -> Char {
+fn fold_latin_extended_a(code : Int32) -> Char {
   if code <= 0x137 || (code >= 0x14A && code <= 0x177) {
     // Even is uppercase.
     return (if code % 2 == 0 { code + 1 } else { code }).unsafe_to_char()
@@ -425,7 +428,7 @@ fn split_wikilink_destination(destination : String) -> (String, String) {
 
 ///|
 /// `[[target]]` or `[[target|label]]` (opt-in extension).
-fn parse_wikilink(text : String, start : Int) -> (Inline, Int)? {
+fn parse_wikilink(text : String, start : Int32) -> (Inline, Int32)? {
   let len = text.length()
   guard start + 1 < len && text.unsafe_get(start + 1) == '[' else {
     return None
@@ -490,7 +493,7 @@ fn parse_wikilink(text : String, start : Int) -> (Inline, Int)? {
 
 ///|
 /// `[^label]` footnote reference (GFM).
-fn parse_footnote_reference(text : String, start : Int) -> (Inline, Int)? {
+fn parse_footnote_reference(text : String, start : Int32) -> (Inline, Int32)? {
   let len = text.length()
   guard start + 1 < len && text.unsafe_get(start + 1) == '^' else {
     return None

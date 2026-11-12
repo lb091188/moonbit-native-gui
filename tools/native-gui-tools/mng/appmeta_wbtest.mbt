@@ -19,8 +19,7 @@ test "sync_appmeta:没 mng.toml / 没配 id-version 都跳过" {
   }
   ignore(mkdir_p("/tmp/mng_appmeta/noid"))
   let _ = spit(
-    "/tmp/mng_appmeta/noid/mng.toml",
-    "[package]\nversion = \"1.0.0\"\n",
+    "/tmp/mng_appmeta/noid/mng.toml", "[package]\nversion = \"1.0.0\"\n",
   )
   match sync_appmeta("/tmp/mng_appmeta/noid") {
     Ok(false) => ()
@@ -32,8 +31,7 @@ test "sync_appmeta:没 mng.toml / 没配 id-version 都跳过" {
 test "sync_appmeta:配置齐了就写盘,再跑内容一致不重写" {
   ignore(mkdir_p("/tmp/mng_appmeta/ok"))
   let _ = spit(
-    "/tmp/mng_appmeta/ok/mng.toml",
-    "[package]\nid = \"com.ex.demo\"\nname = \"Demo\"\nversion = \"1.2.3\"\n",
+    "/tmp/mng_appmeta/ok/mng.toml", "[package]\nid = \"com.ex.demo\"\nname = \"Demo\"\nversion = \"1.2.3\"\n",
   )
   match sync_appmeta("/tmp/mng_appmeta/ok") {
     Ok(true) => ()
@@ -54,15 +52,15 @@ test "sync_appmeta:配置齐了就写盘,再跑内容一致不重写" {
   }
   // 版本改了:重新写盘
   let _ = spit(
-    "/tmp/mng_appmeta/ok/mng.toml",
-    "[package]\nid = \"com.ex.demo\"\nname = \"Demo\"\nversion = \"2.0.0\"\n",
+    "/tmp/mng_appmeta/ok/mng.toml", "[package]\nid = \"com.ex.demo\"\nname = \"Demo\"\nversion = \"2.0.0\"\n",
   )
   match sync_appmeta("/tmp/mng_appmeta/ok") {
     Ok(true) => ()
     _ => abort("版本变更应重写 Ok(true)")
   }
   match fs_read("/tmp/mng_appmeta/ok/appmeta/appmeta.gen.mbt") {
-    Some(t) => assert_true(t.contains("pub let app_version : String = \"2.0.0\""))
+    Some(t) =>
+      assert_true(t.contains("pub let app_version : String = \"2.0.0\""))
     None => abort("生成码应在")
   }
 }

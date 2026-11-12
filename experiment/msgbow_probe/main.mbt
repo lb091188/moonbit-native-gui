@@ -13,7 +13,7 @@
 
 ///|
 /// MessageBoxResult → 编号（可读渲染用）
-fn rcode(r : @win.MessageBoxResult) -> Int {
+fn rcode(r : @win.MessageBoxResult) -> Int32 {
   match r {
     Ok => 1
     Cancel => 2
@@ -31,17 +31,16 @@ fn show_utype(
   label : String,
   kind : @win.MessageBoxKind,
   buttons : @win.MessageBoxButtons,
-  default_index : Int,
+  default_index : Int32,
 ) -> Unit {
   let t = @win.message_box_utype(kind, buttons, default_index~)
   let icon = t & 0xF0
   let btn = t & 0xF
   let def = t & 0xF00
-  println(
-    "MSGBOX-UTYPE \{label} icon=\{icon} btn=\{btn} def=\{def} raw=\{t}",
-  )
+  println("MSGBOX-UTYPE \{label} icon=\{icon} btn=\{btn} def=\{def} raw=\{t}")
 }
 
+///|
 fn main {
   // ① 纯映射段（后端无关）
   show_utype("a", Information, Ok, 0)

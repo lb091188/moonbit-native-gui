@@ -61,7 +61,11 @@ fn num_or_zero(s : String) -> Double {
       ()
     }
   }
-  if digits == 0 { 0.0 } else { int_part + frac }
+  if digits == 0 {
+    0.0
+  } else {
+    int_part + frac
+  }
 }
 
 ///|
@@ -70,12 +74,7 @@ fn num_or_zero(s : String) -> Double {
 pub fn srt_time(s : String) -> Double {
   let t = s.trim().to_owned()
   let comma = sp(t, ",")
-  let frac =
-    if comma.length() > 1 {
-      num_or_zero("0." + comma[1])
-    } else {
-      0.0
-    }
+  let frac = if comma.length() > 1 { num_or_zero("0." + comma[1]) } else { 0.0 }
   let segs : Array[Double] = []
   for q in sp(comma[0], ":") {
     segs.push(num_or_zero(q))
@@ -156,9 +155,9 @@ pub fn subtitle_parse(raw : String) -> Array[Cue] {
         }
         let body : Array[String] = []
         let mut j = i + 1
-        while j < lines.length() && lines[j].trim().length() > 0 && !is_timing_line(
-          lines[j],
-        ) {
+        while j < lines.length() &&
+              lines[j].trim().length() > 0 &&
+              !is_timing_line(lines[j]) {
           let txt = strip_cue_tags(lines[j])
           if txt.length() > 0 {
             body.push(txt)
@@ -170,7 +169,7 @@ pub fn subtitle_parse(raw : String) -> Array[Cue] {
           for b in body {
             text = if text.length() == 0 { b } else { text + "\n" + b }
           }
-          cues.push({ start, end, text })
+          cues.push({ start, end, text, })
         }
         i = j
         continue

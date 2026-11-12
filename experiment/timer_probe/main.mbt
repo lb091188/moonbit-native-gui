@@ -19,18 +19,19 @@ fn dump(s : String) -> Unit {
 fn main {
   let app_ref : Ref[@widget.WindowHost?] = Ref(None)
   let tick : Ref[() -> Unit] = Ref(fn() { () })
-  let n : Ref[Int] = Ref(0)
+  let n : Ref[Int32] = Ref(0)
   tick.val = fn() -> Unit {
     n.val = n.val + 1
     if n.val < 100 {
-      let _ = @shell.set_timeout(200, (tick.val))
+      let _ = @shell.set_timeout(200, tick.val)
     }
   }
-  let app = match @ui.mount_window(
-    [
-      @ui.col(
-        [@ui.text("timer probe")],
-        handle=fn(_w : @widget.Widget) -> Unit {
+  let app = match
+    @ui.mount_window(
+      [
+        @ui.col([@ui.text("timer probe")], handle=fn(
+          _w : @widget.Widget,
+        ) -> Unit {
           // 与 showcase 折线段同口径：第一拍挂在挂载回调上
           (tick.val)()
           // 看门狗：3 秒后退窗。它若响，说明单次 set_timeout 是通的
@@ -41,14 +42,13 @@ fn main {
               None => ()
             }
           })
-          dump("ARMED pending=" + (@shell.host_loop().pending()).to_string())
-        },
-      ),
-    ],
-    title="timer-probe",
-    width=300,
-    height=200,
-  ) {
+          dump("ARMED pending=" + @shell.host_loop().pending().to_string())
+        }),
+      ],
+      title="timer-probe",
+      width=300,
+      height=200,
+    ) {
     None => {
       dump("SKIP: 本平台没有窗口后端或没有显示服务")
       return
@@ -58,7 +58,7 @@ fn main {
   app_ref.val = Some(app)
   // 分辨实验：App::new 返回之后（钩子按契约必已装好）再排一个定时器
   let _ = @shell.set_timeout(400, fn() -> Unit { dump("POST-TIMER fired") })
-  dump("POST-ARM pending=" + (@shell.host_loop().pending()).to_string())
+  dump("POST-ARM pending=" + @shell.host_loop().pending().to_string())
   // 手动驱动：约 6 秒上限（每步 wait 受 wait_budget 钳 1s），必然正常退出
   let t0 = @win.now_ms()
   let mut steps = 0
@@ -66,13 +66,22 @@ fn main {
     let _ = app.step()
     steps = steps + 1
     dump(
-      "step=" + steps.to_string() + " ticks=" + n.val.to_string() +
-      " pending=" + (@shell.host_loop().pending()).to_string() +
-      " now=" + (@win.now_ms() - t0).to_string(),
+      "step=" +
+      steps.to_string() +
+      " ticks=" +
+      n.val.to_string() +
+      " pending=" +
+      @shell.host_loop().pending().to_string() +
+      " now=" +
+      (@win.now_ms() - t0).to_string(),
     )
   }
   dump(
-    "DONE steps=" + steps.to_string() + " ticks=" + n.val.to_string() +
-    " elapsed=" + (@win.now_ms() - t0).to_string(),
+    "DONE steps=" +
+    steps.to_string() +
+    " ticks=" +
+    n.val.to_string() +
+    " elapsed=" +
+    (@win.now_ms() - t0).to_string(),
   )
 }

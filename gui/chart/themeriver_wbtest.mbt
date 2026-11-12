@@ -265,7 +265,10 @@ test "trv_series_name：越界兜底占位" {
 ///|
 test "Store 驱动：names / values 各自订阅、set 各通知一次" {
   let names : @base.Store[Array[String]] = @base.Store::new(["A", "B"])
-  let values : @base.Store[Array[Array[Double]]] = @base.Store::new([[1.0, 1.0], [2.0, 2.0]])
+  let values : @base.Store[Array[Array[Double]]] = @base.Store::new([
+    [1.0, 1.0],
+    [2.0, 2.0],
+  ])
   let nhits = Ref(0)
   let vhits = Ref(0)
   names.subscribe(fn(_n) { nhits.val = nhits.val + 1 })

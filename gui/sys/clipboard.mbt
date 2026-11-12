@@ -13,25 +13,25 @@
 
 ///|
 #borrow(ok)
-extern "c" fn ffi_clipboard_get_text(ok : Ref[Int]) -> Bytes = "yue_sys_clipboard_get_text"
+extern "c" fn ffi_clipboard_get_text(ok : Ref[Int32]) -> Bytes = "yue_sys_clipboard_get_text"
 
 ///|
 #borrow(text)
-extern "c" fn ffi_clipboard_set_text(text : Bytes) -> Int = "yue_sys_clipboard_set_text"
+extern "c" fn ffi_clipboard_set_text(text : Bytes) -> Int32 = "yue_sys_clipboard_set_text"
 
 ///|
 /// Linux/macOS 原生落点（sys_stub.c 转发层 → win 桩的 GTK 分支或 mac 臂
 /// NSPasteboard）。Linux 侧 `available` 在没有显示服务或本进程没跑过
 /// gtk_init 时给 0——那是无头消费者的正常形态；mac 侧恒 1。
-extern "c" fn ffi_clipboard_gtk_available() -> Int = "yue_sys_clipboard_gtk_available"
+extern "c" fn ffi_clipboard_gtk_available() -> Int32 = "yue_sys_clipboard_gtk_available"
 
 ///|
 #borrow(ok)
-extern "c" fn ffi_clipboard_gtk_get_text(ok : Ref[Int]) -> Bytes = "yue_sys_clipboard_gtk_get_text"
+extern "c" fn ffi_clipboard_gtk_get_text(ok : Ref[Int32]) -> Bytes = "yue_sys_clipboard_gtk_get_text"
 
 ///|
 #borrow(text)
-extern "c" fn ffi_clipboard_gtk_set_text(text : Bytes) -> Int = "yue_sys_clipboard_gtk_set_text"
+extern "c" fn ffi_clipboard_gtk_set_text(text : Bytes) -> Int32 = "yue_sys_clipboard_gtk_set_text"
 
 ///|
 /// Linux 这一趟走不走 GtkClipboard（每次真判，与下面的探测同口径）。
@@ -57,14 +57,10 @@ pub fn clipboard_available() -> Bool {
       if linux_on_gtk_clipboard() {
         true
       } else {
-        pr_available() && pr_run("xclip", ["-version"], timeout_ms=1000) is Ok(_)
+        pr_available() &&
+        pr_run("xclip", ["-version"], timeout_ms=1000) is Ok(_)
       }
-    "macos" =>
-      if macos_on_ns_clipboard() {
-        true
-      } else {
-        pr_available()
-      }
+    "macos" => if macos_on_ns_clipboard() { true } else { pr_available() }
     _ => false
   }
 }
@@ -91,7 +87,11 @@ pub fn clipboard_get_text() -> String? {
           None
         } else {
           let t = @utf8.decode_lossy(bytes)
-          if t == "" { None } else { Some(t) }
+          if t == "" {
+            None
+          } else {
+            Some(t)
+          }
         }
       } else {
         match pr_run("xclip", ["-selection", "clipboard", "-o"]) {
@@ -107,7 +107,11 @@ pub fn clipboard_get_text() -> String? {
           None
         } else {
           let t = @utf8.decode_lossy(bytes)
-          if t == "" { None } else { Some(t) }
+          if t == "" {
+            None
+          } else {
+            Some(t)
+          }
         }
       } else {
         match pr_run("pbpaste", []) {
@@ -132,14 +136,19 @@ pub fn clipboard_set_text(text : String) -> Bool {
           "sh",
           ["-c", "printf %s \"$1\" | xclip -selection clipboard", "sh", text],
           timeout_ms=2000,
-        ) is Ok(_)
+        )
+        is Ok(_)
       }
     "macos" =>
       if macos_on_ns_clipboard() {
         ffi_clipboard_gtk_set_text(@utf8.encode(text)) == 1
       } else {
-        pr_run("sh", ["-c", "printf %s \"$1\" | pbcopy", "sh", text], timeout_ms=2000) is
-          Ok(_)
+        pr_run(
+          "sh",
+          ["-c", "printf %s \"$1\" | pbcopy", "sh", text],
+          timeout_ms=2000,
+        )
+        is Ok(_)
       }
     _ => false
   }

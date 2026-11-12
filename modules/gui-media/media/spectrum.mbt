@@ -10,15 +10,17 @@
 
 ///|
 /// FFT 点数（2 的幂；44.1kHz 下约 23 毫秒窗口，30fps 刷新足够跟住节奏）。
-let sp_window : Int = 1024
+let sp_window : Int32 = 1024
 
 ///|
 /// 样本环的回看深度（帧）：覆盖设备队列高水位还有余量。
-let sp_lookback : Int = 16384
+let sp_lookback : Int32 = 16384
 
 ///|
 /// 分带下界/上界（Hz）：上界再与奈奎斯特取小。
 let sp_fmin : Double = 40.0
+
+///|
 let sp_fmax : Double = 16000.0
 
 ///|
@@ -29,9 +31,9 @@ let sp_db_floor : Double = -80.0
 /// 一个频谱分析器：样本环 + 平滑后的频段电平。
 pub(all) struct Spectrum {
   ring : Array[Double]
-  cap : Int
-  mut fed : Int
-  bands : Int
+  cap : Int32
+  mut fed : Int32
+  bands : Int32
   levels : Array[Double]
   re : Array[Double]
   im : Array[Double]
@@ -40,7 +42,7 @@ pub(all) struct Spectrum {
 ///|
 /// 建分析器。`bands` 是画出来的条数（对数分带）；条数少些单条更宽，
 /// 视觉上更从容。
-pub fn Spectrum::make(bands? : Int = 18) -> Spectrum {
+pub fn Spectrum::make(bands~ : Int32 = 18) -> Spectrum {
   let cap = sp_window + sp_lookback
   {
     ring: Array::make(cap, 0.0),
@@ -65,7 +67,7 @@ pub fn Spectrum::reset(self : Spectrum) -> Unit {
 
 ///|
 /// 喂一段 s16 交错 PCM（小端），多声道取平均下混成单声道。
-pub fn Spectrum::feed(self : Spectrum, pcm : Bytes, channels : Int) -> Unit {
+pub fn Spectrum::feed(self : Spectrum, pcm : Bytes, channels : Int32) -> Unit {
   let ch = if channels <= 0 { 1 } else { channels }
   let frames = pcm.length() / (ch * 2)
   let mut f = 0
@@ -85,11 +87,13 @@ pub fn Spectrum::feed(self : Spectrum, pcm : Bytes, channels : Int) -> Unit {
 
 ///|
 /// s16 小端样本 → [-1, 1]。
-fn s16_at(b : Bytes, at : Int) -> Double {
+fn s16_at(b : Bytes, at : Int32) -> Double {
   let lo = b[at].to_int()
   let hi = b[at + 1].to_int()
   let mut v = lo + (hi << 8)
-  if v >= 32768 { v = v - 65536 }
+  if v >= 32768 {
+    v = v - 65536
+  }
   v.to_double() / 32768.0
 }
 
@@ -151,8 +155,8 @@ fn spectrum_fft(re : Array[Double], im : Array[Double]) -> Unit {
 /// 的结果（刚 seek 完的短暂空档不闪回零）。
 pub fn Spectrum::levels(
   self : Spectrum,
-  back_frames : Int,
-  rate : Int,
+  back_frames : Int32,
+  rate : Int32,
 ) -> Array[Double] {
   let back = if back_frames < 0 { 0 } else { back_frames }
   let end = self.fed - back
@@ -186,12 +190,13 @@ pub fn Spectrum::levels(
       let db = 20.0 * @math.log10(mag + 1.0e-9)
       let norm = sp_clamp01((db - sp_db_floor) / (0.0 - sp_db_floor))
       let band_f = @math.log10(f / sp_fmin) / span * self.bands.to_double()
-      let band_i =
-        if band_f < 0.0 { 0 } else if band_f >= self.bands.to_double() {
-          self.bands - 1
-        } else {
-          band_f.to_int()
-        }
+      let band_i = if band_f < 0.0 {
+        0
+      } else if band_f >= self.bands.to_double() {
+        self.bands - 1
+      } else {
+        band_f.to_int()
+      }
       if norm > peaks[band_i] {
         peaks[band_i] = norm
       }

@@ -5,13 +5,13 @@
 // impl 方法隐式升成普通方法并告警，零警告门禁下不划算。
 
 ///|
-fn d(y : Int, m : Int, dd : Int) -> DateYMD {
-  { y, m, d: dd }
+fn d(y : Int32, m : Int32, dd : Int32) -> DateYMD {
+  { y, m, d: dd, }
 }
 
 ///|
 /// 网格第 idx 格的可读形态：`YYYY-MM-DD`，本月的加 `*`。
-fn grid_str(grid : Array[(DateYMD, Bool)], idx : Int) -> String {
+fn grid_str(grid : Array[(DateYMD, Bool)], idx : Int32) -> String {
   let (dt, inm) = grid[idx]
   dt.format() + (if inm { "*" } else { "" })
 }
@@ -37,7 +37,7 @@ fn sel_str(v : @base.Store[DateYMD?]) -> String {
 }
 
 ///|
-fn cell_at(panel : @widget.Widget, idx : Int) -> @widget.Widget {
+fn cell_at(panel : @widget.Widget, idx : Int32) -> @widget.Widget {
   let grid = panel.children()[2]
   grid.children()[idx / 7].children()[idx % 7]
 }
@@ -46,14 +46,33 @@ fn cell_at(panel : @widget.Widget, idx : Int) -> @widget.Widget {
 fn pick(root : @widget.Widget, c : @widget.Widget) -> Unit {
   let x = c.rect.x + c.rect.w / 2.0
   let y = c.rect.y + c.rect.h / 2.0
-  let _ = root.dispatch_pointer({ kind: @widget.PointerKind::Down, x, y, button: 1, mods: 0 })
-  let _ = root.dispatch_pointer({ kind: @widget.PointerKind::Up, x, y, button: 1, mods: 0 })
+  let _ = root.dispatch_pointer({
+    kind: @widget.PointerKind::Down,
+    x,
+    y,
+    button: 1,
+    mods: 0,
+  })
+  let _ = root.dispatch_pointer({
+    kind: @widget.PointerKind::Up,
+    x,
+    y,
+    button: 1,
+    mods: 0,
+  })
 }
 
 ///|
 /// 面板底色取样点（左侧 padding 带，任何格子都够不到）。
-fn bg_of(bm : @render.Bitmap, panel : @widget.Widget) -> (Int, Int, Int, Int) {
-  px(bm, (panel.rect.x + 2.0).round().to_int(), (panel.rect.y + 60.0).round().to_int())
+fn bg_of(
+  bm : @render.Bitmap,
+  panel : @widget.Widget,
+) -> (Int32, Int32, Int32, Int32) {
+  px(
+    bm,
+    (panel.rect.x + 2.0).round().to_int(),
+    (panel.rect.y + 60.0).round().to_int(),
+  )
 }
 
 ///|
@@ -80,20 +99,31 @@ test "日期数学：闰年、月长、星期与月份进退" {
 test "格式化与比较：补零、时间钳制、区间端点顺序不限" {
   assert_eq(d(2026, 1, 9).format(), "2026-01-09")
   assert_eq(d(2026, 12, 31).format(), "2026-12-31")
-  assert_eq((TimeHMS::{ h: 9, m: 5, s: 0 }).format(), "09:05")
+  assert_eq(TimeHMS::{ h: 9, m: 5, s: 0, }.format(), "09:05")
   assert_eq(time_clamp(25, -3).format(), "23:00")
   assert_true(DateYMD::compare(d(2026, 9, 30), d(2026, 10, 1)) < 0)
   assert_true(DateYMD::compare(d(2025, 12, 31), d(2026, 1, 1)) < 0)
   assert_eq(DateYMD::same(d(2026, 10, 11), d(2026, 10, 11)), true)
   // 端点写反也要判在区间内
-  assert_eq(DateYMD::in_range(d(2026, 10, 5), d(2026, 10, 1), d(2026, 10, 9)), true)
-  assert_eq(DateYMD::in_range(d(2026, 10, 5), d(2026, 10, 9), d(2026, 10, 1)), true)
+  assert_eq(
+    DateYMD::in_range(d(2026, 10, 5), d(2026, 10, 1), d(2026, 10, 9)),
+    true,
+  )
+  assert_eq(
+    DateYMD::in_range(d(2026, 10, 5), d(2026, 10, 9), d(2026, 10, 1)),
+    true,
+  )
   assert_eq(
     DateYMD::in_range(d(2026, 10, 10), d(2026, 10, 1), d(2026, 10, 9)),
     false,
   )
   assert_true(
-    TimeHMS::compare((TimeHMS::{ h: 9, m: 30, s: 0 }), (TimeHMS::{ h: 10, m: 0, s: 0 })) < 0,
+    TimeHMS::compare(TimeHMS::{ h: 9, m: 30, s: 0, }, TimeHMS::{
+      h: 10,
+      m: 0,
+      s: 0,
+    }) <
+    0,
   )
 }
 
@@ -207,15 +237,28 @@ test "日历面板：切月后可选日期跟着换，选中格画实心方块" 
   // 实心方块 28×28 居中：格内左侧 6px 在方块里、又离字形足够远——
   // 选中格该处不是面板底，未选格该处仍是面板底
   assert_true(
-    px(bm, (sel.rect.x + 6.0).round().to_int(), (sel.rect.y + 15.0).round().to_int()) != bg,
+    px(
+      bm,
+      (sel.rect.x + 6.0).round().to_int(),
+      (sel.rect.y + 15.0).round().to_int(),
+    ) !=
+    bg,
   )
   assert_eq(
-    px(bm, (other.rect.x + 6.0).round().to_int(), (other.rect.y + 15.0).round().to_int()),
+    px(
+      bm,
+      (other.rect.x + 6.0).round().to_int(),
+      (other.rect.y + 15.0).round().to_int(),
+    ),
     bg,
   )
   // 方块不铺满整格：选中格的左上角仍是面板底
   assert_eq(
-    px(bm, (sel.rect.x + 1.0).round().to_int(), (sel.rect.y + 1.0).round().to_int()),
+    px(
+      bm,
+      (sel.rect.x + 1.0).round().to_int(),
+      (sel.rect.y + 1.0).round().to_int(),
+    ),
     bg,
   )
 }
@@ -239,25 +282,40 @@ test "外部改 Store 即换选中格；区间格子映射端点实心、中间�
   let on20 = cell_at(panel, 23)
   let on11 = cell_at(panel, 14)
   assert_true(
-    px(bm, (on20.rect.x + 6.0).round().to_int(), (on20.rect.y + 15.0).round().to_int()) != bg,
+    px(
+      bm,
+      (on20.rect.x + 6.0).round().to_int(),
+      (on20.rect.y + 15.0).round().to_int(),
+    ) !=
+    bg,
   )
   assert_eq(
-    px(bm, (on11.rect.x + 6.0).round().to_int(), (on11.rect.y + 15.0).round().to_int()),
+    px(
+      bm,
+      (on11.rect.x + 6.0).round().to_int(),
+      (on11.rect.y + 15.0).round().to_int(),
+    ),
     bg,
   )
 
-  let r : DateRange = { start: Some(d(2026, 10, 3)), end: Some(d(2026, 10, 7)) }
+  let r : DateRange = {
+    start: Some(d(2026, 10, 3)),
+    end: Some(d(2026, 10, 7)),
+  }
   assert_eq(cell_name(range_state_of(r, d(2026, 10, 3))), "edge")
   assert_eq(cell_name(range_state_of(r, d(2026, 10, 7))), "edge")
   assert_eq(cell_name(range_state_of(r, d(2026, 10, 5))), "band")
   assert_eq(cell_name(range_state_of(r, d(2026, 10, 8))), "plain")
   // 端点写反同样归一
-  let rev : DateRange = { start: Some(d(2026, 10, 7)), end: Some(d(2026, 10, 3)) }
+  let rev : DateRange = {
+    start: Some(d(2026, 10, 7)),
+    end: Some(d(2026, 10, 3)),
+  }
   assert_eq(cell_name(range_state_of(rev, d(2026, 10, 5))), "band")
-  let half : DateRange = { start: Some(d(2026, 10, 3)), end: None }
+  let half : DateRange = { start: Some(d(2026, 10, 3)), end: None, }
   assert_eq(cell_name(range_state_of(half, d(2026, 10, 3))), "selected")
   assert_eq(cell_name(range_state_of(half, d(2026, 10, 4))), "plain")
-  let empty : DateRange = { start: None, end: None }
+  let empty : DateRange = { start: None, end: None, }
   assert_eq(cell_name(range_state_of(empty, d(2026, 10, 4))), "plain")
 }
 
@@ -270,7 +328,11 @@ test "日历光标：翻月箭头与本月格手型，跨月格回默认箭头" 
   // 42 格的光标请求与 month_grid 的在月标记逐一对应
   let grid = month_grid(2026, 10)
   for i = 0; i < 42; i = i + 1 {
-    let want = if grid[i].1 { @widget.CURSOR_HAND } else { @widget.CURSOR_DEFAULT }
+    let want = if grid[i].1 {
+      @widget.CURSOR_HAND
+    } else {
+      @widget.CURSOR_DEFAULT
+    }
     assert_eq(cell_at(panel, i).cursor_request(), want)
   }
 }

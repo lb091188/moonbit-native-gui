@@ -25,7 +25,7 @@ pub(all) struct CodeBlockInfo {
 pub fn parse_code_block_info(info : String) -> CodeBlockInfo {
   let trimmed = info.trim(chars=" \t\n\r").to_owned()
   if trimmed.is_empty() {
-    return { lang: "", filename: "", meta: "" }
+    return { lang: "", filename: "", meta: "", }
   }
 
   // Find meta section (starts with space + {)
@@ -49,9 +49,9 @@ pub fn parse_code_block_info(info : String) -> CodeBlockInfo {
         start=idx + 1,
         end=main_part.length(),
       )
-      { lang, filename, meta }
+      { lang, filename, meta, }
     }
-    None => { lang: main_part, filename: "", meta }
+    None => { lang: main_part, filename: "", meta, }
   }
 }
 
@@ -67,7 +67,7 @@ pub struct RenderOptions {
 ///|
 /// Create default render options
 pub fn RenderOptions::default() -> RenderOptions {
-  { code_highlighter: None, math_block_renderer: None }
+  { code_highlighter: None, math_block_renderer: None, }
 }
 
 ///|
@@ -75,7 +75,7 @@ pub fn RenderOptions::default() -> RenderOptions {
 pub fn RenderOptions::with_highlighter(
   highlighter : (CodeBlockInfo, String) -> String,
 ) -> RenderOptions {
-  { code_highlighter: Some(highlighter), math_block_renderer: None }
+  { code_highlighter: Some(highlighter), math_block_renderer: None, }
 }
 
 ///|
@@ -99,5 +99,5 @@ pub fn RenderOptions::with_math_block_renderer(
   self : RenderOptions,
   renderer : (String) -> String,
 ) -> RenderOptions {
-  { ..self, math_block_renderer: Some(renderer) }
+  { ..self, math_block_renderer: Some(renderer), }
 }

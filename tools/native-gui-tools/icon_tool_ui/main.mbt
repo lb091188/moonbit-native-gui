@@ -1,11 +1,14 @@
 // iconfont 预览 GUI 入口。用法：moon run tools/native-gui-tools/icon_tool_ui -- <iconfont.toml>
 
+///|
 fn slurp(p : String) -> String? {
   let s = @fs.read_file_to_string(p) catch { _ => return None }
   Some(s)
 }
 
 // 每格：图标 + 下方名字
+
+///|
 fn tile(name : String) -> @widget.Node {
   @ui.col(
     [
@@ -17,10 +20,13 @@ fn tile(name : String) -> @widget.Node {
   )
 }
 
+///|
 fn main {
   let raw = @env.args()
   if raw.length() < 2 {
-    println("用法：moon run tools/native-gui-tools/icon_tool_ui -- <iconfont.toml>")
+    println(
+      "用法：moon run tools/native-gui-tools/icon_tool_ui -- <iconfont.toml>",
+    )
     return
   }
   let path = raw[1]
@@ -47,16 +53,19 @@ fn main {
     rows.push(@ui.row(cells, column_gap=8.0))
     i += 5
   }
-  let header =
-    "iconfont 预览 · " + names.length().to_string() + " 个（来源：" + path + "）"
+  let header = "iconfont 预览 · " +
+    names.length().to_string() +
+    " 个（来源：" +
+    path +
+    "）"
   let root = @ui.col(
     [
       @ui.text(header),
-      @ui.scroll_view(
-        [@ui.col(rows, row_gap=10.0)],
-        @ui.ScrollState::new(),
-        handle=fn(v : @widget.Widget) { v.node.set_flex_grow(1.0) },
-      ),
+      @ui.scroll_view([@ui.col(rows, row_gap=10.0)], @ui.ScrollState::new(), handle=fn(
+        v : @widget.Widget,
+      ) {
+        v.node.set_flex_grow(1.0)
+      }),
     ],
     row_gap=8.0,
     padding=12.0,

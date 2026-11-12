@@ -66,9 +66,7 @@ pub fn default_theme() -> Theme {
     fill_zebra: "#F5F7FA",
     bg_page: "#F5F6F7",
     bg_panel: "#FFFFFF",
-    chart_palette: [
-      "#2D68C4", "#2E9E5B", "#D9822B", "#8E5CC7", "#199FB0",
-    ],
+    chart_palette: ["#2D68C4", "#2E9E5B", "#D9822B", "#8E5CC7", "#199FB0"],
     space_scale: space_scale_base,
     radius_scale: radius_scale_base,
     type_scale: type_scale_base,
@@ -100,9 +98,7 @@ pub fn dark_theme() -> Theme {
     fill_zebra: "#232629",
     bg_page: "#141518",
     bg_panel: "#1E2126",
-    chart_palette: [
-      "#5B8DEF", "#4CB878", "#E5A04C", "#A98BE8", "#4FB6C8",
-    ],
+    chart_palette: ["#5B8DEF", "#4CB878", "#E5A04C", "#A98BE8", "#4FB6C8"],
     space_scale: space_scale_base,
     radius_scale: radius_scale_base,
     type_scale: type_scale_base,
@@ -120,7 +116,7 @@ pub fn dark_theme() -> Theme {
 ///     明度随模式（浅 0.38 / 深 0.62），浅底变体再混白 14% / 混面板底 28%；
 ///   - 中性色（文字/边框/悬停/斑马纹/背景）取内置基准盘，不随主色偏移。
 /// accent 非法时回落内置基准主题。
-pub fn theme_from_accent(accent : String, dark? : Bool = false) -> Theme {
+pub fn theme_from_accent(accent : String, dark~ : Bool = false) -> Theme {
   let base = if dark { dark_theme() } else { default_theme() }
   let (r, g, b) = match parse_hex(accent) {
     Some(rgb) => rgb
@@ -218,7 +214,7 @@ pub fn theme_from_accent(accent : String, dark? : Bool = false) -> Theme {
 /// 深浅切换不重建界面）。`on_theme_change` 返回的句柄即退订 id。
 priv struct ThemeBox {
   mut t : Theme
-  mut subs : Array[(Int, () -> Unit)]
+  mut subs : Array[(Int32, () -> Unit)]
 }
 
 ///|
@@ -226,7 +222,7 @@ let theme_box : ThemeBox = { t: default_theme(), subs: [], }
 
 ///|
 /// 主题订阅 id 计数器。
-let theme_sub_next_id : Ref[Int] = Ref(0)
+let theme_sub_next_id : Ref[Int32] = Ref(0)
 
 ///|
 /// 显式应用标记：`theme_apply` 被调过即置位。窗口层的默认主题接线据此跳过
@@ -247,7 +243,7 @@ pub fn theme_current() -> Theme {
 
 ///|
 /// 订阅主题变更（`theme_apply` 时回调）。返回退订句柄。
-pub fn on_theme_change(f : () -> Unit) -> Int {
+pub fn on_theme_change(f : () -> Unit) -> Int32 {
   theme_sub_next_id.val += 1
   let h = theme_sub_next_id.val
   theme_box.subs.push((h, f))
@@ -256,7 +252,7 @@ pub fn on_theme_change(f : () -> Unit) -> Int {
 
 ///|
 /// 退订主题变更（幂等，未知句柄空操作）。
-pub fn off_theme_change(handle : Int) -> Unit {
+pub fn off_theme_change(handle : Int32) -> Unit {
   theme_box.subs = theme_box.subs.filter(fn(e) { e.0 != handle })
 }
 
@@ -384,7 +380,7 @@ pub fn theme_focus_accent() -> String {
 ///|
 /// 图表系列色：按序从 `chart_palette` 取，越界循环。色板随主色旋转，
 /// 换主题后系列色整体随动且相邻可分辨。
-pub fn theme_chart_color(i : Int) -> String {
+pub fn theme_chart_color(i : Int32) -> String {
   let p = theme_box.t.chart_palette
   if p.length() == 0 {
     return theme_primary()
@@ -440,19 +436,31 @@ pub fn corners_round_set(on : Bool) -> Unit {
 ///|
 /// 控件层圆角（按钮、输入框、下拉、标签、图标按钮）。
 pub fn radius_ctrl() -> Double {
-  if corners_round_flag.val { 4.0 } else { 0.0 }
+  if corners_round_flag.val {
+    4.0
+  } else {
+    0.0
+  }
 }
 
 ///|
 /// 卡片/面板层圆角。
 pub fn radius_card() -> Double {
-  if corners_round_flag.val { 6.0 } else { 0.0 }
+  if corners_round_flag.val {
+    6.0
+  } else {
+    0.0
+  }
 }
 
 ///|
 /// 对话框/浮层容器层圆角。
 pub fn radius_overlay() -> Double {
-  if corners_round_flag.val { 8.0 } else { 0.0 }
+  if corners_round_flag.val {
+    8.0
+  } else {
+    0.0
+  }
 }
 
 ///|
@@ -484,7 +492,8 @@ pub fn default_font_family() -> String {
 pub fn entry_ctrl_height(bordered : Bool) -> Double {
   let probe = @text.AttributedText::new("Ag", wrap=false)
   probe.set_font(@text.Font::new("Sans", 13.0))
-  probe.get_bounds_for(10000.0, 1000.0).height + (if bordered { 2.0 } else { 0.0 })
+  probe.get_bounds_for(10000.0, 1000.0).height +
+  (if bordered { 2.0 } else { 0.0 })
 }
 
 ///|
@@ -501,7 +510,8 @@ pub fn theme_is_dark() -> Bool {
   match parse_hex(theme_box.t.bg_page) {
     Some((r, g, b)) =>
       (0.299 * r.to_double() + 0.587 * g.to_double() + 0.114 * b.to_double()) /
-      255.0 < 0.5
+      255.0 <
+      0.5
     None => false
   }
 }
@@ -517,7 +527,7 @@ pub fn theme_from_system(
   let dark = sys_color_scheme() == "dark"
   let accent = sys_accent()
   if accent.length() > 0 {
-    theme_from_accent(accent, dark=dark)
+    theme_from_accent(accent, dark~)
   } else if dark {
     dark_theme()
   } else {

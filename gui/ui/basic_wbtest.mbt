@@ -2,14 +2,22 @@
 // 容器/分组/分隔线几何、图标与图像的缺图兜底。全程无头（内存位图 + 手工投递事件）。
 
 ///|
-fn color_of(bm : @render.Bitmap, x : Int, y : Int) -> (Int, Int, Int, Int) {
+fn color_of(
+  bm : @render.Bitmap,
+  x : Int32,
+  y : Int32,
+) -> (Int32, Int32, Int32, Int32) {
   let c = bm.pixel(x, y)
   (c.r, c.g, c.b, c.a)
 }
 
 ///|
 /// 把节点挂进根控件并跑一轮布局，返回根（绘制时整棵树都摆好位置）。
-fn mount_root(children : Array[@widget.Node], w : Double, h : Double) -> @widget.Widget {
+fn mount_root(
+  children : Array[@widget.Node],
+  w : Double,
+  h : Double,
+) -> @widget.Widget {
   let root = @widget.Widget::new()
   root.set_size(w, h)
   root.set_column()
@@ -23,7 +31,7 @@ fn mount_root(children : Array[@widget.Node], w : Double, h : Double) -> @widget
 
 ///|
 /// 找根下第 n 个直接子控件。
-fn kid(root : @widget.Widget, i : Int) -> @widget.Widget {
+fn kid(root : @widget.Widget, i : Int32) -> @widget.Widget {
   root.children()[i]
 }
 
@@ -59,9 +67,10 @@ fn ui_decode_guard() -> Bool {
 /// 动图资源路径：moon test 的测试进程 cwd 是模块根（`gui/`），示例资源在仓根
 /// `examples/` 下——两个候选都试，哪个解得出图用哪个（同 render 包 test_asset）。
 fn gif_asset() -> String {
-  for rel in [
-    "examples/components/assets/dot.gif", "../examples/components/assets/dot.gif",
-  ] {
+  for
+    rel in [
+      "examples/components/assets/dot.gif", "../examples/components/assets/dot.gif",
+    ] {
     if @render.Image::new_from_file(rel).get_width() > 0.0 {
       return rel
     }
@@ -104,7 +113,7 @@ test "标签尺寸来自测量(容差内跟随)；文本随信号变化就重测
 
 ///|
 /// 数「红通道压过绿蓝」的墨像素与「三通道都近黑」的墨像素。
-fn ink_red_dark(bm : @render.Bitmap, w : Int, h : Int) -> (Int, Int) {
+fn ink_red_dark(bm : @render.Bitmap, w : Int32, h : Int32) -> (Int32, Int32) {
   let mut red = 0
   let mut dark = 0
   for y = 0; y < h; y = y + 1 {
@@ -124,9 +133,9 @@ fn ink_red_dark(bm : @render.Bitmap, w : Int, h : Int) -> (Int, Int) {
 
 ///|
 /// 用给定颜色串画一条 `text_dyn`，返回位图里的红/黑墨像素数。
-fn paint_dyn_ink(color : String) -> (Int, Int) {
+fn paint_dyn_ink(color : String) -> (Int32, Int32) {
   let root = mount_root(
-    [text_dyn(@base.Signal::new("至少 3 个字符"), font_size=16.0, color=color)],
+    [text_dyn(@base.Signal::new("至少 3 个字符"), font_size=16.0, color~)],
     220.0,
     30.0,
   )
@@ -153,7 +162,10 @@ test "文本散参数给 token 名：绘制期现取主题色，不落黑" {
     return
   }
   let (red, dark) = paint_dyn_ink("danger")
-  assert_true(red > 5, msg="danger 色文字没画成红色（红像素=\{red} 黑像素=\{dark}）")
+  assert_true(
+    red > 5,
+    msg="danger 色文字没画成红色（红像素=\{red} 黑像素=\{dark}）",
+  )
 }
 
 ///|
@@ -174,14 +186,21 @@ test "两个字号混排按基线对齐（文本测量回灌布局的直接结�
   let a26 = @text.line_ascent(26.0).unwrap().to_double()
   // 基线对齐：同一条基线上，小字号的顶要更低（差的正是两个 ascent 之差）
   // 基线重合 ⇒ 顶边差 = 两个 ascent 之差（大字号更靠上）
-  assert_eq(kids[0].rect.y.round() - kids[1].rect.y.round(), (a26 - a13).round())
+  assert_eq(
+    kids[0].rect.y.round() - kids[1].rect.y.round(),
+    (a26 - a13).round(),
+  )
   assert_true(a26 > a13)
 }
 
 ///|
 test "按钮：松开落在按钮内才算点击，落在外面不算" {
   let clicks = Ref(0)
-  let b = button("确定", on_click=fn() { clicks.val = clicks.val + 1 }, min_width=80.0)
+  let b = button(
+    "确定",
+    on_click=fn() { clicks.val = clicks.val + 1 },
+    min_width=80.0,
+  )
   let root = mount_root([b], 200.0, 60.0)
   let w = kid(root, 0)
   assert_eq(w.rect.h, @theme.control_height)
@@ -227,7 +246,11 @@ test "按钮：松开落在按钮内才算点击，落在外面不算" {
 ///|
 test "按钮：禁用态不消费事件、也不响应点击" {
   let clicks = Ref(0)
-  let b = button("禁用", on_click=fn() { clicks.val = clicks.val + 1 }, disabled=true)
+  let b = button(
+    "禁用",
+    on_click=fn() { clicks.val = clicks.val + 1 },
+    disabled=true,
+  )
   let root = mount_root([b], 200.0, 60.0)
   let w = kid(root, 0)
   let consumed = w.dispatch_pointer({
@@ -376,7 +399,7 @@ test "文本随控件原点落位并被裁剪（画在 Painter 会话上）" {
   let p = @render.Painter::new(bm)
   root.paint(p)
   p.end()
-  let ink_in = fn(y0 : Int, y1 : Int) -> Int {
+  let ink_in = fn(y0 : Int32, y1 : Int32) -> Int32 {
     let mut n = 0
     for y = y0; y < y1; y = y + 1 {
       for x = 0; x < 200; x = x + 1 {
@@ -400,8 +423,8 @@ test "文本随控件原点落位并被裁剪（画在 Painter 会话上）" {
     pp : @render.Painter,
     _r : @base.Rect,
   ) -> Unit {
-      let _ = draw_text_in(self, pp, src)
-    })
+    let _ = draw_text_in(self, pp, src)
+  })
   let holder = @widget.Widget::new()
   holder.set_size(200.0, 200.0)
   holder.append_child(narrow)
@@ -418,12 +441,16 @@ test "文本随控件原点落位并被裁剪（画在 Painter 会话上）" {
 }
 
 ///|
-fn ink_at(bm : @render.Bitmap, x : Int, y : Int) -> (Int, Int, Int, Int) {
+fn ink_at(
+  bm : @render.Bitmap,
+  x : Int32,
+  y : Int32,
+) -> (Int32, Int32, Int32, Int32) {
   color_of(bm, x, y)
 }
 
 ///|
-fn ink_in_box(bm : @render.Bitmap, x1 : Int, y1 : Int) -> Int {
+fn ink_in_box(bm : @render.Bitmap, x1 : Int32, y1 : Int32) -> Int32 {
   let mut n = 0
   for y = 0; y < y1; y = y + 1 {
     for x = 0; x < x1; x = x + 1 {
@@ -439,7 +466,13 @@ fn ink_in_box(bm : @render.Bitmap, x1 : Int, y1 : Int) -> Int {
 test "图标按钮：尺寸固定、悬停换底色、点击在抬起且落在框内、禁用不吃事件" {
   let mut hits = 0
   let root = mount_root(
-    [icon_button(@icons.Close2, on_click=fn() { hits = hits + 1 }, box_size=24.0)],
+    [
+      icon_button(
+        @icons.Close2,
+        on_click=fn() { hits = hits + 1 },
+        box_size=24.0,
+      ),
+    ],
     120.0,
     60.0,
   )
@@ -456,7 +489,13 @@ test "图标按钮：尺寸固定、悬停换底色、点击在抬起且落在�
   let _ = click(w, w.rect.x + 12.0, w.rect.y + 12.0)
   assert_eq(hits, 1)
   // 抬起在框外：不算一次点击
-  let _ = w.dispatch_pointer({ kind: @widget.PointerKind::Down, x: 4.0, y: 4.0, button: 1, mods: 0, })
+  let _ = w.dispatch_pointer({
+    kind: @widget.PointerKind::Down,
+    x: 4.0,
+    y: 4.0,
+    button: 1,
+    mods: 0,
+  })
   let _ = w.dispatch_pointer({
     kind: @widget.PointerKind::Up,
     x: 4.0,
@@ -467,7 +506,13 @@ test "图标按钮：尺寸固定、悬停换底色、点击在抬起且落在�
   assert_eq(hits, 1)
   let mut off_hits = 0
   let root2 = mount_root(
-    [icon_button(@icons.Close2, on_click=fn() { off_hits = off_hits + 1 }, disabled=true)],
+    [
+      icon_button(
+        @icons.Close2,
+        on_click=fn() { off_hits = off_hits + 1 },
+        disabled=true,
+      ),
+    ],
     120.0,
     60.0,
   )
@@ -483,21 +528,17 @@ test "动图组件：按帧时长自转换帧、暂停不再换帧、play 续上
     return
   }
   let queue : Ref[Array[() -> Unit]] = Ref([])
-  let delays : Ref[Array[Int]] = Ref([])
+  let delays : Ref[Array[Int32]] = Ref([])
   @shell.set_timer_hooks(
-    fn(ms : Int, f : () -> Unit) -> Int {
+    fn(ms : Int32, f : () -> Unit) -> Int32 {
       delays.val.push(ms)
       queue.val.push(f)
       delays.val.length()
     },
-    fn(_id : Int) -> Unit { () },
+    fn(_id : Int32) -> Unit { () },
   )
   let h = GifHandle::make()
-  let (r, w) = mounted(
-    gif(gif_asset(), state=h),
-    160.0,
-    160.0,
-  )
+  let (r, w) = mounted(gif(gif_asset(), state=h), 160.0, 160.0)
   // 自转换帧的前提是「这一帧被画到」：先画一帧，动图才算挂在看得见的地方
   let bm_seen = @render.Bitmap::new(160, 160)
   let p_seen = @render.Painter::new(bm_seen)
@@ -575,7 +616,11 @@ test "动图组件：按帧时长自转换帧、暂停不再换帧、play 续上
   assert_true(ink > 100)
   // 缩到 48×48 也画得出来（目标尺寸与图幅不符时走缩放那条路）
   let hg2 = GifHandle::make()
-  let (_r4, w4) = mounted(gif(gif_asset(), width=48.0, height=48.0, state=hg2), 80.0, 80.0)
+  let (_r4, w4) = mounted(
+    gif(gif_asset(), width=48.0, height=48.0, state=hg2),
+    80.0,
+    80.0,
+  )
   let (bm2, _, _) = shot(w4)
   let mut ink2 = 0
   for y = 0; y < 48; y = y + 1 {
@@ -589,7 +634,11 @@ test "动图组件：按帧时长自转换帧、暂停不再换帧、play 续上
   assert_true(ink2 > 40)
   // 静图：解得出图但没有下一帧，不排自转、也不换帧
   let hs = GifHandle::make()
-  let (_r2, _w2) = mounted(gif("/tmp/definitely-missing-gif.png", state=hs), 80.0, 80.0)
+  let (_r2, _w2) = mounted(
+    gif("/tmp/definitely-missing-gif.png", state=hs),
+    80.0,
+    80.0,
+  )
   assert_eq((hs.frame_count(), hs.is_running(), _w2.rect.w), (0, true, 0.0))
   @shell.set_timer_hooks(fn(_ms, _f) { 0 }, fn(_id) { () })
 }
@@ -597,12 +646,9 @@ test "动图组件：按帧时长自转换帧、暂停不再换帧、play 续上
 ///|
 /// P2-e 口径：绘制期只读样式槽并按状态选桶，`class` 的属性必须真的落进像素。
 test "样式槽是绘制期唯一入口：底色/圆角/边框宽与状态桶都照画" {
-  let rounded = view(
-    [],
-    width=60.0,
-    height=40.0,
-    class=[@style.style(background_color="#ff0000", border_radius=12.0)],
-  )
+  let rounded = view([], width=60.0, height=40.0, class=[
+    @style.style(background_color="#ff0000", border_radius=12.0),
+  ])
   let root = mount_root([rounded], 100.0, 60.0)
   let w = kid(root, 0)
   assert_eq((w.rect.w, w.rect.h), (60.0, 40.0))
@@ -610,7 +656,7 @@ test "样式槽是绘制期唯一入口：底色/圆角/边框宽与状态桶都
   let p = @render.Painter::new(bm)
   root.paint(p)
   p.end()
-  let red = fn(x : Int, y : Int) -> Bool {
+  let red = fn(x : Int32, y : Int32) -> Bool {
     let c = color_of(bm, x, y)
     c.0 > 128 && c.1 < 64 && c.2 < 64
   }
@@ -619,20 +665,20 @@ test "样式槽是绘制期唯一入口：底色/圆角/边框宽与状态桶都
   assert_false(red(1, 1))
 
   // 状态桶：hover / focus / active 各自换底色，并存时按 hover < focus < active
-  let src = view(
-    [],
-    width=40.0,
-    height=40.0,
-    class=[
-      @style.style(background_color="#00ff00")
-        .hover(background_color="#ff0000")
-        .focus(background_color="#ffff00")
-        .active(background_color="#0000ff"),
-    ],
-  )
+  let src = view([], width=40.0, height=40.0, class=[
+    @style.style(background_color="#00ff00")
+    .hover(background_color="#ff0000")
+    .focus(background_color="#ffff00")
+    .active(background_color="#0000ff"),
+  ])
   let root2 = mount_root([src], 60.0, 60.0)
   let w2 = kid(root2, 0)
-  let centre : () -> (Int, Int, Int, Int) = fn() -> (Int, Int, Int, Int) {
+  let centre : () -> (Int32, Int32, Int32, Int32) = fn() -> (
+    Int32,
+    Int32,
+    Int32,
+    Int32,
+  ) {
     let b = @render.Bitmap::new(60, 60)
     let pp = @render.Painter::new(b)
     root2.paint(pp)
@@ -662,7 +708,7 @@ test "样式槽是绘制期唯一入口：底色/圆角/边框宽与状态桶都
     @style.style(border_color="#ff0000", border_width=5.0),
   ])
   let root3 = mount_root([thin, thick], 60.0, 120.0)
-  let ink_col = fn(bm : @render.Bitmap, y : Int) -> Int {
+  let ink_col = fn(bm : @render.Bitmap, y : Int32) -> Int32 {
     let mut n = 0
     for x = 0; x < 40; x = x + 1 {
       if color_of(bm, x, y).0 > 96 {
@@ -683,7 +729,7 @@ test "内置皮肤也走样式槽：图标按钮悬停/按下有底、divider �
   let ib = icon_button(@icons.IconKind::MediumCircleFill, box_size=32.0)
   let root = mount_root([ib], 60.0, 60.0)
   let w = kid(root, 0)
-  let ink : () -> Int = fn() -> Int {
+  let ink : () -> Int32 = fn() -> Int32 {
     let b = @render.Bitmap::new(60, 60)
     let pp = @render.Painter::new(b)
     root.paint(pp)
@@ -796,11 +842,11 @@ test "文本类样式属性真生效：对齐/换行/行高/下划线" {
   }
   // 返回（首墨列, 有墨行数, 墨像素数）：对齐比首列，折行比行数，
   // 下划线比墨量（行距里落进最后一行的线不算「多一行」）
-  let ink_scan = fn(node : @widget.Node, w : Double, h : Double) -> (
-    Int,
-    Int,
-    Int,
-  ) {
+  let ink_scan = fn(
+    node : @widget.Node,
+    w : Double,
+    h : Double,
+  ) -> (Int32, Int32, Int32) {
     let root = mount_root([node], w, h)
     let bm = @render.Bitmap::new(w.to_int(), h.to_int())
     let p = @render.Painter::new(bm)
@@ -845,12 +891,16 @@ test "文本类样式属性真生效：对齐/换行/行高/下划线" {
 
   // 2) white_space：可折行的有墨行数明显多于不折行
   let (_wx, wrap_rows, _wi) = ink_scan(
-    text(long_text, max_width=80.0, class=[@style.style(white_space=@style.WhiteSpace::Normal)]),
+    text(long_text, max_width=80.0, class=[
+      @style.style(white_space=@style.WhiteSpace::Normal),
+    ]),
     120.0,
     120.0,
   )
   let (_nx, nowrap_rows, _ni) = ink_scan(
-    text(long_text, max_width=80.0, class=[@style.style(white_space=@style.WhiteSpace::NoWrap)]),
+    text(long_text, max_width=80.0, class=[
+      @style.style(white_space=@style.WhiteSpace::NoWrap),
+    ]),
     120.0,
     120.0,
   )
@@ -868,13 +918,14 @@ test "文本类样式属性真生效：对齐/换行/行高/下划线" {
   //    的行距时行数是平的，而各后端的行盒高度本来就不一致）
   let (_pu, _pr, plain_ink) = ink_scan(text("下划线", class=[]), 120.0, 40.0)
   let (_uu, _ur, under_ink) = ink_scan(
-    text("下划线", class=[@style.style(text_decoration=@style.TextDecoration::Underline)]),
+    text("下划线", class=[
+      @style.style(text_decoration=@style.TextDecoration::Underline),
+    ]),
     120.0,
     40.0,
   )
-  let probe = match @text.measure_font("下划线", @text.Font::new("", 13.0),
-    wrap=false
-  ) {
+  let probe = match
+    @text.measure_font("下划线", @text.Font::new("", 13.0), wrap=false) {
     Some(m) => "w=\{m.width} h=\{m.height} baseline=\{m.baseline}"
     None => "None"
   }
@@ -882,21 +933,22 @@ test "文本类样式属性真生效：对齐/换行/行高/下划线" {
     under_ink > plain_ink,
     msg="下划线没多出墨：plain=\{plain_ink} under=\{under_ink} 行=\{_pr}/\{_ur} measure_font(13.0)=\{probe}",
   )
-
 }
 
 ///|
+
 ///|
 /// 回归：`size` 是盒子边长，字形须落在盒子内并居中。
 /// 曾经的口径错是把盒子边长当内容半径传给 `draw_icon`，字形画到盒子短边的
 /// 176%，被控件裁剪后四边各切掉一大块（见 adaptation 的图标尺寸条）。
 test "图标字形随盒子缩放、不溢出、居中" {
-  let ink_box = fn(bm : @render.Bitmap, x0 : Int, y0 : Int, x1 : Int, y1 : Int) -> (
-    Int,
-    Int,
-    Int,
-    Int,
-  ) {
+  let ink_box = fn(
+    bm : @render.Bitmap,
+    x0 : Int32,
+    y0 : Int32,
+    x1 : Int32,
+    y1 : Int32,
+  ) -> (Int32, Int32, Int32, Int32) {
     let mut min_x = 1 << 30
     let mut min_y = 1 << 30
     let mut max_x = -1
@@ -905,16 +957,28 @@ test "图标字形随盒子缩放、不溢出、居中" {
       for x = x0; x <= x1; x = x + 1 {
         let c = color_of(bm, x, y)
         if c.0 > 128 && c.1 < 64 && c.2 < 64 {
-          if x < min_x { min_x = x }
-          if x > max_x { max_x = x }
-          if y < min_y { min_y = y }
-          if y > max_y { max_y = y }
+          if x < min_x {
+            min_x = x
+          }
+          if x > max_x {
+            max_x = x
+          }
+          if y < min_y {
+            min_y = y
+          }
+          if y > max_y {
+            max_y = y
+          }
         }
       }
     }
     (min_x, min_y, max_x, max_y)
   }
-  let paint = fn(nodes : Array[@widget.Node], w : Int, h : Int) -> @render.Bitmap {
+  let paint = fn(
+    nodes : Array[@widget.Node],
+    w : Int32,
+    h : Int32,
+  ) -> @render.Bitmap {
     let root = mount_root(nodes, w.to_double(), h.to_double())
     let bm = @render.Bitmap::new(w, h)
     let p = @render.Painter::new(bm)
@@ -924,7 +988,11 @@ test "图标字形随盒子缩放、不溢出、居中" {
   }
 
   // @ui.icon：24 的盒子，字形须短边内缩且居中在 (12,12)
-  let bm1 = paint([icon(@icons.IconKind::MediumCircleFill, size=24.0, color="#ff0000")], 48, 48)
+  let bm1 = paint(
+    [icon(@icons.IconKind::MediumCircleFill, size=24.0, color="#ff0000")],
+    48,
+    48,
+  )
   let a = ink_box(bm1, 0, 0, 47, 47)
   assert_true(a.0 >= 1 && a.1 >= 1)
   assert_true(a.2 <= 22 && a.3 <= 22)
@@ -967,7 +1035,7 @@ test "border_style：虚/点边沿像素比实线少，画完复位不漏给同�
   let p = @render.Painter::new(bm)
   root.paint(p)
   p.end()
-  let edge_ink = fn(y : Int) -> Int {
+  let edge_ink = fn(y : Int32) -> Int32 {
     let mut n = 0
     for x = 0; x < 181; x = x + 1 {
       if color_of(bm, x, y).0 > 96 {
@@ -980,7 +1048,9 @@ test "border_style：虚/点边沿像素比实线少，画完复位不漏给同�
   let d = edge_ink(42)
   let t = edge_ink(83)
   let s2 = edge_ink(124)
-  println("BORDER-STYLE solid=\{s1.to_string()} dashed=\{d.to_string()} dotted=\{t.to_string()} solid2=\{s2.to_string()}")
+  println(
+    "BORDER-STYLE solid=\{s1.to_string()} dashed=\{d.to_string()} dotted=\{t.to_string()} solid2=\{s2.to_string()}",
+  )
   assert_true(s1 > 170)
   assert_true(d < s1)
   assert_true(t < d)

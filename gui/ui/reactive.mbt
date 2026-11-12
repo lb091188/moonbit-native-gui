@@ -26,7 +26,7 @@ pub fn[T] when_default_pred(v : T) -> Bool {
 pub fn[T] when(
   cond : @base.Signal[T],
   then : @widget.Node,
-  pred? : (T) -> Bool = when_default_pred,
+  pred~ : (T) -> Bool = when_default_pred,
 ) -> @widget.Node {
   @widget.node_of_new(fn(host : @widget.Widget) -> @widget.Widget {
     let w = (then.mount)(host)
@@ -45,7 +45,7 @@ pub fn[T] when_else(
   cond : @base.Signal[T],
   then : @widget.Node,
   otherwise : @widget.Node,
-  pred? : (T) -> Bool = when_default_pred,
+  pred~ : (T) -> Bool = when_default_pred,
 ) -> @widget.Node {
   @widget.node_of_new(fn(host : @widget.Widget) -> @widget.Widget {
     let va = (then.mount)(host)
@@ -67,9 +67,9 @@ pub fn[T] when_else(
 pub fn[T] when_store(
   cond : @base.Store[T],
   then : @widget.Node,
-  pred? : (T) -> Bool = when_default_pred,
+  pred~ : (T) -> Bool = when_default_pred,
 ) -> @widget.Node {
-  when(cond.signal(), then, pred=pred)
+  when(cond.signal(), then, pred~)
 }
 
 ///|
@@ -78,9 +78,9 @@ pub fn[T] when_else_store(
   cond : @base.Store[T],
   then : @widget.Node,
   otherwise : @widget.Node,
-  pred? : (T) -> Bool = when_default_pred,
+  pred~ : (T) -> Bool = when_default_pred,
 ) -> @widget.Node {
-  when_else(cond.signal(), then, otherwise, pred=pred)
+  when_else(cond.signal(), then, otherwise, pred~)
 }
 
 ///|
@@ -88,7 +88,7 @@ pub fn[T] when_else_store(
 /// 内容变化不该触发行重挂——会变的字段各自做成 Store，§4.0）。
 pub fn[T, K : Eq] for_list(
   ls : @base.ListStore[T],
-  build : (T, Int) -> @widget.Node,
+  build : (T, Int32) -> @widget.Node,
   key~ : (T) -> K,
   eq~ : (T, T) -> Bool = fn(_a : T, _b : T) -> Bool { true },
 ) -> @widget.Node {
@@ -99,13 +99,13 @@ pub fn[T, K : Eq] for_list(
 /// `for_list`（按下标对齐，等价无 `:key`）：长度收缩才卸多余行，改一格重挂那行。
 pub fn[T] for_list_indexed(
   ls : @base.ListStore[T],
-  build : (T, Int) -> @widget.Node,
+  build : (T, Int32) -> @widget.Node,
 ) -> @widget.Node {
   // 下标对齐：键恒等 → 同下标比内容，内容变即重挂该行（Vue 无 :key 的语义）
   list_node(
     ls,
     build,
-    fn(_t : T) -> Int { 0 },
+    fn(_t : T) -> Int32 { 0 },
     fn(a : T, b : T) -> Bool { @base.index_same(a, b) },
     indexed=true,
   )
@@ -116,7 +116,7 @@ pub fn[T] for_list_indexed(
 /// 一轮更新= 卸 removed/changed 的旧控件 → 按新序列逐位「复用挪位 / 新建插入」。
 fn[T, K : Eq] list_node(
   ls : @base.ListStore[T],
-  build : (T, Int) -> @widget.Node,
+  build : (T, Int32) -> @widget.Node,
   key : (T) -> K,
   eq : (T, T) -> Bool,
   indexed~ : Bool = false,
@@ -220,13 +220,19 @@ fn[T, K : Eq] list_node(
 
 ///|
 /// `when`（布尔源·常用档）：直接看 `Bool` 值显隐。
-pub fn when_bool(cond : @base.Signal[Bool], then : @widget.Node) -> @widget.Node {
+pub fn when_bool(
+  cond : @base.Signal[Bool],
+  then : @widget.Node,
+) -> @widget.Node {
   when(cond, then, pred=fn(v : Bool) -> Bool { v })
 }
 
 ///|
 /// `when_store`（布尔源·常用档）。
-pub fn when_store_bool(cond : @base.Store[Bool], then : @widget.Node) -> @widget.Node {
+pub fn when_store_bool(
+  cond : @base.Store[Bool],
+  then : @widget.Node,
+) -> @widget.Node {
   when_bool(cond.signal(), then)
 }
 

@@ -10,7 +10,9 @@
 
 ///|
 /// `handle?` 的默认值：不需要句柄时不必写空闭包。
-pub fn default_handle(_w : @widget.Widget) -> Unit { () }
+pub fn default_handle(_w : @widget.Widget) -> Unit {
+  ()
+}
 
 ///|
 /// 一份文本状态（引用语义：字段 mut，测量与绘制回调共用同一份）。
@@ -22,7 +24,7 @@ pub(all) struct TextSource {
   mut wrap : Bool
   mut ellipsis : Bool
   /// 行数钳制：0 = 不限；> 0 且折行时超行截断、第 max_lines 行末尾出 …
-  mut max_lines : Int
+  mut max_lines : Int32
   /// 盒宽上限（像素）；0 = 不设限。换行与省略都按它算
   mut max_width : Double
 }
@@ -32,21 +34,25 @@ pub(all) struct TextSource {
 /// （Windows 钉雅黑；探不到交引擎缺省），见 @theme.default_font_family 的注释。
 pub fn text_source(
   text : String,
-  font_size? : Double = 13.0,
-  color? : String = "",
-  weight? : @text.FontWeight = @text.Normal,
-  style? : @text.FontStyle = @text.Roman,
-  family? : String = "",
-  align? : @text.TextAlign = @text.Start,
-  wrap? : Bool = false,
-  ellipsis? : Bool = false,
-  max_lines? : Int = 0,
-  max_width? : Double = 0.0,
+  font_size~ : Double = 13.0,
+  color~ : String = "",
+  weight~ : @text.FontWeight = @text.Normal,
+  style~ : @text.FontStyle = @text.Roman,
+  family~ : String = "",
+  align~ : @text.TextAlign = @text.Start,
+  wrap~ : Bool = false,
+  ellipsis~ : Bool = false,
+  max_lines~ : Int32 = 0,
+  max_width~ : Double = 0.0,
 ) -> TextSource {
-  let fam = if family.length() > 0 { family } else { @theme.default_font_family() }
+  let fam = if family.length() > 0 {
+    family
+  } else {
+    @theme.default_font_family()
+  }
   {
     text,
-    font: @text.Font::new(fam, font_size, weight=weight, style=style),
+    font: @text.Font::new(fam, font_size, weight~, style~),
     color,
     align,
     wrap,
@@ -61,11 +67,7 @@ pub fn text_source(
 /// 交给文本层——`text_dyn`/`bind` 这类散参数 `color` 不进样式槽，token 名（`danger`）
 /// 到了只认 hex 的绘制层会被解析成黑字，所以在这里现取当前主题落色。
 pub fn TextSource::fg(self : TextSource) -> String {
-  let raw = if self.color.length() == 0 {
-    "text_regular"
-  } else {
-    self.color
-  }
+  let raw = if self.color.length() == 0 { "text_regular" } else { self.color }
   @style.resolve_color(@style.parse_color(raw))
 }
 
@@ -126,15 +128,18 @@ fn text_eff(
 fn attach_text_measure(
   w : @widget.Widget,
   src : TextSource,
-  lead_w? : Double = 0.0,
+  lead_w~ : Double = 0.0,
 ) -> Unit {
   // 只记 id，不记句柄：回调挂在布局节点上，捕获控件就成了引用环
   let id = w.id
-  w.node.set_measure(fn(avail_w : Double?, _avail_h : Double?) -> (
-    Double,
-    Double,
-  ) {
-    let (font, _align, wrap, line_h, _u) = text_eff(@style.resolved_for_measure(id), src)
+  w.node.set_measure(fn(
+    avail_w : Double?,
+    _avail_h : Double?,
+  ) -> (Double, Double) {
+    let (font, _align, wrap, line_h, _u) = text_eff(
+      @style.resolved_for_measure(id),
+      src,
+    )
     // max_width 是**上限**不是定值：与父给的可用宽取小——语义写成「覆盖可用
     // 宽」的话，窗口内容区窄于上限时文本仍按上限宽折行，右侧整片截字（真机
     // 「段描述不换行」即此）。可用宽拿不到（None/0）才单独用上限。
@@ -160,14 +165,15 @@ fn attach_text_measure(
     // 「选中：」32.37px 在 32 的限宽里凭空折两行（绘制侧同用 ceil，口径一致）
     let box_w = if probing { 1 } else { cap.ceil().to_int() }
     let do_wrap = wrap && box_w > 0
-    match @text.measure_font(
-      src.text,
-      font,
-      max_width=box_w,
-      ellipsize=src.ellipsis,
-      wrap=do_wrap,
-      max_lines=if probing { 0 } else { src.max_lines },
-    ) {
+    match
+      @text.measure_font(
+        src.text,
+        font,
+        max_width=box_w,
+        ellipsize=src.ellipsis,
+        wrap=do_wrap,
+        max_lines=if probing { 0 } else { src.max_lines },
+      ) {
       Some(m) => {
         // `line_height` 是行盒高：单行档精确生效；折行档要多行行距，那要等
         // 文本层开行距接口（记档在 design.md §1.1），这里只在单行时覆盖
@@ -184,14 +190,21 @@ fn attach_text_measure(
     }
   })
   w.node.set_baseline(fn(_a : Double?, _b : Double?) -> Double? {
-    let (font, _align, _wrap, _lh, _u) = text_eff(@style.resolved_for_measure(id), src)
-    @text.line_ascent_font(font).map(fn(v : Int) -> Double { v.to_double() })
+    let (font, _align, _wrap, _lh, _u) = text_eff(
+      @style.resolved_for_measure(id),
+      src,
+    )
+    @text.line_ascent_font(font).map(fn(v : Int32) -> Double { v.to_double() })
   })
 }
 
 ///|
 /// 按文本状态在控件盒内绘制（对齐/换行/省略都按 `src`，垂直居中）。
-fn draw_text_in(w : @widget.Widget, p : @render.Painter, src : TextSource) -> Bool {
+fn draw_text_in(
+  w : @widget.Widget,
+  p : @render.Painter,
+  src : TextSource,
+) -> Bool {
   let r = w.rect
   // 盒宽取「控件宽与声明的 max_width 的较小者」：draw_box_at 的宽度约束就是盒宽
   let box_w = if src.max_width > 0.0 { src.max_width.min(r.w) } else { r.w }
@@ -295,6 +308,7 @@ fn draw_deco_line(
 
 // ---- 主题跟随 ----
 
+///|
 let theme_watch : Ref[Bool] = Ref(false)
 
 ///|
@@ -382,7 +396,7 @@ pub fn fold_style(
   defaults : @style.Style,
   anon : @style.Style,
   class : Array[@style.Style],
-  style? : @style.Style = @style.empty_style(),
+  style~ : @style.Style = @style.empty_style(),
 ) -> Unit {
   @style.apply(w, @style.merge_all([defaults, anon] + class + [style]))
 }
@@ -397,7 +411,7 @@ pub fn fold_style_variant(
   names : Array[String],
   anon : @style.Style,
   class : Array[@style.Style],
-  style? : @style.Style = @style.empty_style(),
+  style~ : @style.Style = @style.empty_style(),
 ) -> Unit {
   @style.install_builtin_classes()
   let reapply = fn() -> Unit {
@@ -406,7 +420,7 @@ pub fn fold_style_variant(
       @style.resolve_with_variant(names, @theme.theme_is_dark()),
       anon,
       class,
-      style=style,
+      style~,
     )
   }
   reapply()
@@ -472,4 +486,3 @@ fn reset_border_pen(p : @render.Painter, dashed : Bool) -> Unit {
     p.set_line_cap(@render.Butt)
   }
 }
-

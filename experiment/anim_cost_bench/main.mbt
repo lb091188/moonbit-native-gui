@@ -3,7 +3,8 @@
 // 「脏矩形」这类的天然便宜可占）；③ 小面积变化单独算多少钱。
 // 跑法：moon run experiment/anim_cost_bench
 
-fn ink(bm : @render.Bitmap) -> Int {
+///|
+fn ink(bm : @render.Bitmap) -> Int32 {
   let mut n = 0
   let mut y = 0
   while y < bm.height {
@@ -20,21 +21,28 @@ fn ink(bm : @render.Bitmap) -> Int {
 }
 
 // 一屏典型内容：30 行「按钮 + 输入框 + 文本」（native-app/showcase 的密度量级）
+
+///|
 fn build_page() -> @widget.Node {
   let rows : Array[@widget.Node] = []
   for _ in 0..<30 {
-    let _ = rows.push(@ui.row(
-      [
-        @ui.button("保存", variant=@ui.Solid),
-        @ui.input(@base.Store::new("输入框内容")),
-        @ui.text("一行说明文字，用来占住交叉轴", class=[@style.text_secondary]),
-      ],
-      column_gap=8.0,
-    ))
+    let _ = rows.push(
+      @ui.row(
+        [
+          @ui.button("保存", variant=@ui.Solid),
+          @ui.input(@base.Store::new("输入框内容")),
+          @ui.text("一行说明文字，用来占住交叉轴", class=[
+            @style.text_secondary,
+          ]),
+        ],
+        column_gap=8.0,
+      ),
+    )
   }
   @ui.col(rows, row_gap=6.0, padding=12.0, width=1400.0, height=900.0)
 }
 
+///|
 fn main {
   let w = 1400
   let h = 900
@@ -49,7 +57,14 @@ fn main {
   let r1 = page.children()[0].rect
   println("DIAG rows=" + page.children().length().to_string())
   println(
-    "DIAG r0w=" + r0.w.to_string() + " r0h=" + r0.h.to_string() + " r1w=" + r1.w.to_string() + " r1h=" + r1.h.to_string(),
+    "DIAG r0w=" +
+    r0.w.to_string() +
+    " r0h=" +
+    r0.h.to_string() +
+    " r1w=" +
+    r1.w.to_string() +
+    " r1h=" +
+    r1.h.to_string(),
   )
   let p = @render.Painter::new(bm)
   // ① 全窗重绘

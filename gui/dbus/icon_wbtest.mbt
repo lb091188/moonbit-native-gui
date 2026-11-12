@@ -2,7 +2,7 @@
 // 内容框收紧；以及默认档与黑档一致。
 
 ///|
-fn icon_bbox(px : Bytes, w : Int, h : Int) -> (Int, Int, Int, Int) {
+fn icon_bbox(px : Bytes, w : Int32, h : Int32) -> (Int32, Int32, Int32, Int32) {
   let mut x0 = w
   let mut y0 = h
   let mut x1 = -1

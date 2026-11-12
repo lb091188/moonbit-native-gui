@@ -1,35 +1,45 @@
 // 挂载槽回归：选中才挂、其余只隐藏，Keep 保形，Lru 淘汰真的摘树并重建，
 // 淘汰把这一代订阅一起退掉，单层树同样能挂。
 
+///|
 fn sl_text() -> @widget.Node {
   @ui.text("内容")
 }
 
-fn sl_lf(k : String, hits : Ref[Int]) -> Route {
+///|
+fn sl_lf(k : String, hits : Ref[Int32]) -> Route {
   route_leaf(k, fn() -> @widget.Node {
     hits.val += 1
     sl_text()
   })
 }
 
-fn sl_lf_evict(k : String, hits : Ref[Int], n : Int) -> Route {
-  route_leaf(k, fn() -> @widget.Node {
-    hits.val += 1
-    sl_text()
-  }, evict=Lru(n))
+///|
+fn sl_lf_evict(k : String, hits : Ref[Int32], n : Int32) -> Route {
+  route_leaf(
+    k,
+    fn() -> @widget.Node {
+      hits.val += 1
+      sl_text()
+    },
+    evict=Lru(n),
+  )
 }
 
+///|
 fn sl_br(k : String, kids : Array[Route]) -> Route {
   route_branch(k, kids)
 }
 
-fn sl_tree(hits : Ref[Int]) -> Array[Route] {
+///|
+fn sl_tree(hits : Ref[Int32]) -> Array[Route] {
   [
     sl_br("组件", [sl_lf("按钮", hits), sl_lf("消息框", hits)]),
     sl_br("系统", [sl_lf("托盘", hits), sl_lf("通知", hits)]),
   ]
 }
 
+///|
 fn sl_mount(view : @widget.Node) -> @widget.Widget {
   let root = @widget.Widget::new()
   root.set_size(1200.0, 800.0)
@@ -39,7 +49,8 @@ fn sl_mount(view : @widget.Node) -> @widget.Widget {
   w
 }
 
-fn sl_count(w : @widget.Widget) -> Int {
+///|
+fn sl_count(w : @widget.Widget) -> Int32 {
   let kids = w.children()
   let mut n = 1
   for c in kids {
@@ -112,20 +123,24 @@ test "淘汰把这一代订阅退掉" {
   let wakes = Ref(0)
   let roots = [
     sl_br("组件", [
-      route_leaf("按钮", fn() -> @widget.Node {
-        hits.val += 1
-        let _ = sig.subscribe(fn(_v : Int) -> Unit {
-          wakes.val += 1
-        })
-        sl_text()
-      }, evict=Lru(1)),
-      route_leaf("消息框", fn() -> @widget.Node {
-        hits.val += 1
-        let _ = sig.subscribe(fn(_v : Int) -> Unit {
-          wakes.val += 1
-        })
-        sl_text()
-      }, evict=Lru(1)),
+      route_leaf(
+        "按钮",
+        fn() -> @widget.Node {
+          hits.val += 1
+          let _ = sig.subscribe(fn(_v : Int32) -> Unit { wakes.val += 1 })
+          sl_text()
+        },
+        evict=Lru(1),
+      ),
+      route_leaf(
+        "消息框",
+        fn() -> @widget.Node {
+          hits.val += 1
+          let _ = sig.subscribe(fn(_v : Int32) -> Unit { wakes.val += 1 })
+          sl_text()
+        },
+        evict=Lru(1),
+      ),
     ]),
   ]
   let r = new_router(roots)
@@ -179,14 +194,18 @@ test "单层路由同样能挂" {
 test "入口载体挂在分支内容前面" {
   let hits = Ref(0)
   let r = new_router(sl_tree(hits))
-  let bar : (Router, Int, String, Array[Route]) -> @widget.Node =
-    fn(_ro : Router, _d : Int, _p : String, cs : Array[Route]) -> @widget.Node {
-      let names : Array[String] = []
-      for c in cs {
-        names.push(c.key)
-      }
-      @ui.text("入口:" + names.join(","), wrap=false)
+  let bar : (Router, Int32, String, Array[Route]) -> @widget.Node = fn(
+    _ro : Router,
+    _d : Int32,
+    _p : String,
+    cs : Array[Route],
+  ) -> @widget.Node {
+    let names : Array[String] = []
+    for c in cs {
+      names.push(c.key)
     }
+    @ui.text("入口:" + names.join(","), wrap=false)
+  }
   let root = sl_mount(r.view(Some(bar)))
   assert_true(sl_count(root) > 4)
   assert_true(r.is_mounted("组件/按钮"))

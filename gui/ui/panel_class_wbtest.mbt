@@ -2,19 +2,14 @@
 
 ///|
 test "panel 收 class：背景与圆角经 class 生效" {
-  let node = panel(
-    "",
-    [],
-    padding=10.0,
-    class=[
-      @style.style(
-        background_color="#ff0000",
-        border_radius=6.0,
-        width=120.0,
-        height=80.0,
-      ),
-    ],
-  )
+  let node = panel("", [], padding=10.0, class=[
+    @style.style(
+      background_color="#ff0000",
+      border_radius=6.0,
+      width=120.0,
+      height=80.0,
+    ),
+  ])
   let root = mount_root([node], 200.0, 120.0)
   let w = kid(root, 0)
   assert_eq((w.rect.w, w.rect.h), (120.0, 80.0))
@@ -22,7 +17,7 @@ test "panel 收 class：背景与圆角经 class 生效" {
   let p = @render.Painter::new(bm)
   root.paint(p)
   p.end()
-  let red = fn(x : Int, y : Int) -> Bool {
+  let red = fn(x : Int32, y : Int32) -> Bool {
     let c = color_of(bm, x, y)
     c.0 > 128 && c.1 < 64 && c.2 < 64
   }

@@ -35,10 +35,13 @@ test "分隔把手：拖动增量按窗口坐标算、把手平移不把自己�
   }
   let send = fn(kind : @widget.PointerKind, x : Double) -> Unit {
     // 与宿主同款：按下时命中的控件在抬起前一直收事件（指针捕获期）
-    let _ = root.dispatch_pointer_to(
-      bar.id,
-      { kind, x, y: 100.0, button: 1, mods: 0 },
-    )
+    let _ = root.dispatch_pointer_to(bar.id, {
+      kind,
+      x,
+      y: 100.0,
+      button: 1,
+      mods: 0,
+    })
     let _ = root.relayout(400.0, 200.0)
   }
   send(@widget.PointerKind::Down, x0 + 4.0)
@@ -70,10 +73,13 @@ test "分隔把手：两个最小宽度夹取仍然生效" {
   )
   let bar = w.children()[1]
   let send = fn(kind : @widget.PointerKind, x : Double) -> Unit {
-    let _ = root.dispatch_pointer_to(
-      bar.id,
-      { kind, x, y: 100.0, button: 1, mods: 0 },
-    )
+    let _ = root.dispatch_pointer_to(bar.id, {
+      kind,
+      x,
+      y: 100.0,
+      button: 1,
+      mods: 0,
+    })
     let _ = root.relayout(400.0, 200.0)
   }
   send(@widget.PointerKind::Down, bar.rect.x + 4.0)

@@ -11,20 +11,22 @@
 ///|
 /// 图表系列色（按色板循环）：来源是主题的 `chart_palette`（随主色旋转），
 /// 换主题后系列色整体随动，相邻序列保持可分辨。
-pub fn series_color(i : Int) -> String {
+pub fn series_color(i : Int32) -> String {
   @theme.theme_chart_color(i)
 }
 
 ///|
 /// 环形图扇区色（同一色板循环，相邻扇区不同色）。
-pub fn donut_color(i : Int) -> String {
+pub fn donut_color(i : Int32) -> String {
   @theme.theme_chart_color(i)
 }
 
+///|
 fn label_font() -> @text.Font {
   @text.Font::new("", 12.0)
 }
 
+///|
 fn hint_font() -> @text.Font {
   @text.Font::new("", 13.0)
 }
@@ -40,7 +42,7 @@ pub fn draw_hgrid(
   lo : Double,
   hi : Double,
   ticks : Array[Double],
-  label_w? : Double = 40.0,
+  label_w~ : Double = 40.0,
 ) -> Unit {
   let f = label_font()
   p.set_line_width(1.0)
@@ -166,7 +168,12 @@ pub fn decimate_columns(
 
 ///|
 /// 面积填充锚点：0 在值域内时取零线，全正值取绘制区底，全负值取绘制区顶。
-pub fn area_anchor(lo : Double, hi : Double, y0 : Double, y1 : Double) -> Double {
+pub fn area_anchor(
+  lo : Double,
+  hi : Double,
+  y0 : Double,
+  y1 : Double,
+) -> Double {
   if lo <= 0.0 && hi >= 0.0 {
     map_y(0.0, lo, hi, y0, y1)
   } else if lo > 0.0 {
@@ -358,8 +365,8 @@ pub fn draw_bar_chart(
   h : Double,
   data : Array[BarItem],
   horizontal : Bool,
-  hover : Int,
-  y_range? : (Double, Double)? = None,
+  hover : Int32,
+  y_range~ : (Double, Double)? = None,
 ) -> Unit {
   let n = data.length()
   if n == 0 || w <= 0.0 || h <= 0.0 {
@@ -392,17 +399,27 @@ pub fn draw_bar_chart(
     let yb = map_y(0.0, lo, hi, y0, y1)
     let slot = (x1 - x0) / n.to_double()
     // 类目标签抽稀：槽宽不足 26px 时每隔 step 个画一个
-    let step =
-      if slot >= 26.0 { 1 } else { (26.0 / slot).ceil().to_int().max(1) }
+    let step = if slot >= 26.0 {
+      1
+    } else {
+      (26.0 / slot).ceil().to_int().max(1)
+    }
     for i in 0..<n {
       let (bx, bw) = bar_slot(i, n, x0, x1, gap=slot * 0.25)
       let vy = map_y(data[i].value, lo, hi, y0, y1)
       let top = if vy < yb { vy } else { yb }
       let bh = (vy - yb).abs().max(1.0)
       let positive = data[i].value >= 0.0
-      let base_color = if positive { @theme.theme_primary() } else { @theme.theme_danger() }
-      let light_color =
-        if positive { @theme.theme_primary_light() } else { @theme.theme_danger_light() }
+      let base_color = if positive {
+        @theme.theme_primary()
+      } else {
+        @theme.theme_danger()
+      }
+      let light_color = if positive {
+        @theme.theme_primary_light()
+      } else {
+        @theme.theme_danger_light()
+      }
       if hover == i {
         p.set_fill_color(light_color)
         p.fill_rect(bx, top, bw, bh)
@@ -460,8 +477,11 @@ pub fn draw_bar_chart(
     draw_vgrid(p, x0, y0, x1, y1, lo, hi, ticks)
     let xb = map_xv(0.0, lo, hi, x0, x1)
     let slot = (y1 - y0) / n.to_double()
-    let step =
-      if slot >= 22.0 { 1 } else { (22.0 / slot).ceil().to_int().max(1) }
+    let step = if slot >= 22.0 {
+      1
+    } else {
+      (22.0 / slot).ceil().to_int().max(1)
+    }
     for i in 0..<n {
       let by = y0 + slot * i.to_double() + (slot - (slot - 4.0).max(1.0)) / 2.0
       let bh = (slot - 4.0).max(1.0)
@@ -469,9 +489,16 @@ pub fn draw_bar_chart(
       let left = if vx < xb { vx } else { xb }
       let bw = (vx - xb).abs().max(1.0)
       let positive = data[i].value >= 0.0
-      let base_color = if positive { @theme.theme_primary() } else { @theme.theme_danger() }
-      let light_color =
-        if positive { @theme.theme_primary_light() } else { @theme.theme_danger_light() }
+      let base_color = if positive {
+        @theme.theme_primary()
+      } else {
+        @theme.theme_danger()
+      }
+      let light_color = if positive {
+        @theme.theme_primary_light()
+      } else {
+        @theme.theme_danger_light()
+      }
       if hover == i {
         // 行内高亮：整行浅底 + 条描边
         p.set_fill_color(@theme.theme_fill_hover())
@@ -522,7 +549,7 @@ pub fn draw_bar_chart(
 
 ///|
 /// 内弧折线段数：按扫角约每 11° 一段（整圆 32 段，弦误差 <0.4px），至少 4 段。
-pub fn ring_steps(a0 : Double, a1 : Double) -> Int {
+pub fn ring_steps(a0 : Double, a1 : Double) -> Int32 {
   ((a1 - a0).abs() / (pi / 16.0)).ceil().to_int().max(4)
 }
 
@@ -560,10 +587,10 @@ pub fn draw_donut_core(
   w : Double,
   h : Double,
   data : Array[DonutSlice],
-  color_at : (Int) -> String,
+  color_at : (Int32) -> String,
   thickness : Double,
   center : String,
-  hover : Int,
+  hover : Int32,
 ) -> Unit {
   let n = data.length()
   if n == 0 || w <= 0.0 || h <= 0.0 {
@@ -638,7 +665,7 @@ pub fn draw_donut(
   data : Array[DonutSlice],
   thickness : Double,
   center : String,
-  hover : Int,
+  hover : Int32,
 ) -> Unit {
   let n = data.length()
   if n == 0 || w <= 0.0 || h <= 0.0 {
@@ -680,8 +707,11 @@ pub fn draw_donut(
       }
       p.set_fill_color(donut_color(i))
       p.fill_rect(legend_x, ry + (row_h - 10.0) / 2.0, 10.0, 10.0)
-      let pct =
-        if total > 0.0 { (data[i].value / total * 100.0).round().to_int() } else { 0 }
+      let pct = if total > 0.0 {
+        (data[i].value / total * 100.0).round().to_int()
+      } else {
+        0
+      }
       let val_txt = "\{fmt_axis(data[i].value)} (\{pct}%)"
       let lab_w = (w - legend_x - 130.0).max(20.0)
       let _ = @text.draw_box_at(
@@ -717,7 +747,10 @@ pub fn draw_donut(
 ///|
 /// 仪表盘阈值分段取色：`thresholds` 按阈值升序给（阈值上限, 颜色），取第一个
 /// 阈值 >= frac 段的颜色；越界取末段；空表用主题主色。
-pub fn band_color(frac : Double, thresholds : Array[(Double, String)]) -> String {
+pub fn band_color(
+  frac : Double,
+  thresholds : Array[(Double, String)],
+) -> String {
   if thresholds.length() == 0 {
     return @theme.theme_primary()
   }

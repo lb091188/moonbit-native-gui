@@ -59,7 +59,7 @@ const HOME_URL : String = "yuedemo://local/index.html"
 
 ///|
 /// 按码点截断到前 n 个字符（超出补省略号），状态栏单行用。
-fn clip(s : String, n : Int) -> String {
+fn clip(s : String, n : Int32) -> String {
   if s.length() <= n {
     return s
   }
@@ -95,7 +95,11 @@ fn main {
 /// 首窗（owner=None）经 mount_window 建宿主并驱动整组窗口的循环；新窗
 /// （新窗策略放行档）经 `App::open_window` 挂进同一循环，退出裁决仍归
 /// 主窗/最后一扇。
-fn open_browser(title : String, home : String, owner : @widget.WindowHost?) -> Unit {
+fn open_browser(
+  title : String,
+  home : String,
+  owner : @widget.WindowHost?,
+) -> Unit {
   // 输入框的 Ctrl+C/X/V 接系统剪贴板；要在建 UI 前开（开关只影响此后新建的
   // 输入框，见 gui/ui/clipboard.mbt），首窗与放行档新窗都打这过
   @ui.use_system_clipboard(true)
@@ -107,18 +111,24 @@ fn open_browser(title : String, home : String, owner : @widget.WindowHost?) -> U
   let loading : @base.Store[Bool] = @base.Store::new(false)
   let cur_url : @base.Store[String] = @base.Store::new(home)
   let title_st : @base.Store[String] = @base.Store::new("（无标题）")
-  let ev_count : @base.Store[Int] = @base.Store::new(0)
-  let ev_line : @base.Store[String] = @base.Store::new("（事件流水显示在此）")
-  let result_full : @base.Store[String] = @base.Store::new("（能力结果显示在此）")
+  let ev_count : @base.Store[Int32] = @base.Store::new(0)
+  let ev_line : @base.Store[String] = @base.Store::new(
+    "（事件流水显示在此）",
+  )
+  let result_full : @base.Store[String] = @base.Store::new(
+    "（能力结果显示在此）",
+  )
   let result_open : @base.Store[Bool] = @base.Store::new(false)
-  let result_view : @base.Store[String] = @base.Store::new("（能力结果显示在此）")
+  let result_view : @base.Store[String] = @base.Store::new(
+    "（能力结果显示在此）",
+  )
   let wv : Ref[@web.Webview?] = Ref(None)
   let holder : Ref[@widget.Widget?] = Ref(None)
   // 两类策略的当前档（false = 拦截；新窗默认拦下，下载默认放行——
   // 保存对话框本身就是确认，拦下档手动切）
   let pol_newwin : Ref[Bool] = Ref(false)
   let pol_dl : Ref[Bool] = Ref(true)
-  let ev_no : Ref[Int] = Ref(0)
+  let ev_no : Ref[Int32] = Ref(0)
   fn set_status(k : LoadKind, text : String) -> Unit {
     let tag = match k {
       Ready => "0"
@@ -137,7 +147,11 @@ fn open_browser(title : String, home : String, owner : @widget.WindowHost?) -> U
   fn sync_result_view() -> Unit {
     let full = result_full.get()
     result_view.set(
-      if result_open.get() || full.length() <= 150 { full } else { clip(full, 150) },
+      if result_open.get() || full.length() <= 150 {
+        full
+      } else {
+        clip(full, 150)
+      },
     )
   }
   result_full.subscribe(fn(_s) { sync_result_view() })
@@ -212,7 +226,9 @@ fn open_browser(title : String, home : String, owner : @widget.WindowHost?) -> U
                   v.go_back()
                   ev("后退 → \{clip(v.current_url(), 90)}")
                 } else {
-                  ev("后退：无处可退（can_go_back=0；load_html 的页面不入历史）")
+                  ev(
+                    "后退：无处可退（can_go_back=0；load_html 的页面不入历史）",
+                  )
                 }
               None => ()
             }
@@ -229,31 +245,32 @@ fn open_browser(title : String, home : String, owner : @widget.WindowHost?) -> U
               None => ()
             }
           }),
-          @widget.bind_node(
-            loading.signal(),
-            fn(busy : Bool) -> @widget.Node {
-              // 重载/停止合一：加载中显「停止」，其余显「重载」；图标与文字同高
-              @ui.button(
-                if busy { "停止" } else { "重载" },
-                variant=@ui.Soft,
-                icon=Some(if busy { @icons.Stop } else { @icons.Reload }),
-                icon_size=14.0,
-                on_click=fn() {
-                  match wv.val {
-                    Some(v) =>
-                      if busy {
-                        v.stop()
-                        set_status(Ready, "已停止")
-                      } else {
-                        v.reload()
-                        set_status(Loading, "加载中")
-                      }
-                    None => ()
-                  }
-                },
-              )
-            },
-          ),
+          @widget.bind_node(loading.signal(), fn(busy : Bool) -> @widget.Node {
+            // 重载/停止合一：加载中显「停止」，其余显「重载」；图标与文字同高
+            @ui.button(
+              if busy {
+                "停止"
+              } else {
+                "重载"
+              },
+              variant=@ui.Soft,
+              icon=Some(if busy { @icons.Stop } else { @icons.Reload }),
+              icon_size=14.0,
+              on_click=fn() {
+                match wv.val {
+                  Some(v) =>
+                    if busy {
+                      v.stop()
+                      set_status(Ready, "已停止")
+                    } else {
+                      v.reload()
+                      set_status(Loading, "加载中")
+                    }
+                  None => ()
+                }
+              },
+            )
+          }),
           @ui.input(
             url_in,
             placeholder="输入 URL，回车或点「进入」加载",
@@ -264,26 +281,13 @@ fn open_browser(title : String, home : String, owner : @widget.WindowHost?) -> U
           @ui.dropdown(
             "演示",
             [
-              "example.com（需外网）",
-              "本地协议页 yuedemo://",
-              "本地 HTML 片段",
-              "拒绝路径演示",
-              "-",
-              "JS 互操作三连",
-              "DOM 抓取·正文",
-              "DOM 抓取·链接",
-              "DOM 抓取·meta",
-              "DOM 抓取·结构",
-              "Cookie 查询",
-              "原生绑定 注册/移除",
-              "-",
-              "策略·新窗切换",
-              "策略·下载切换",
-              "-",
-              "策略触发·新窗(当前页)",
-              "策略触发·下载(当前页)",
+              "example.com（需外网）", "本地协议页 yuedemo://", "本地 HTML 片段",
+              "拒绝路径演示", "-", "JS 互操作三连", "DOM 抓取·正文",
+              "DOM 抓取·链接", "DOM 抓取·meta", "DOM 抓取·结构", "Cookie 查询",
+              "原生绑定 注册/移除", "-", "策略·新窗切换", "策略·下载切换",
+              "-", "策略触发·新窗(当前页)", "策略触发·下载(当前页)",
             ],
-            on_select=fn(i : Int) {
+            on_select=fn(i : Int32) {
               match wv.val {
                 Some(v) =>
                   if i == 0 {
@@ -291,17 +295,26 @@ fn open_browser(title : String, home : String, owner : @widget.WindowHost?) -> U
                   } else if i == 1 {
                     if prepare_scheme(v) {
                       nav_to(HOME_URL)
-                      show_result("已注册 yuedemo:// 并加载首页（HTML+CSS+第二页都走协议）")
+                      show_result(
+                        "已注册 yuedemo:// 并加载首页（HTML+CSS+第二页都走协议）",
+                      )
                     } else {
-                      show_result("协议未就绪（文件写失败或引擎不支持）")
+                      show_result(
+                        "协议未就绪（文件写失败或引擎不支持）",
+                      )
                     }
                   } else if i == 2 {
                     // base 挂协议地址：不给 base 落 about:blank 不透明源，引擎的
                     // blob 注册表按顶层源分区对账，此页的 blob 下载会无声解析不到
                     // （挂同源后与首页同一条已验证的下载路径）
-                    v.load_html(LOCAL_HTML, base_uri="yuedemo://local/fragment.html")
+                    v.load_html(
+                      LOCAL_HTML,
+                      base_uri="yuedemo://local/fragment.html",
+                    )
                     set_status(Ready, "本地片段")
-                    ev("load_html 完成（base=yuedemo://local/fragment.html，不入历史）")
+                    ev(
+                      "load_html 完成（base=yuedemo://local/fragment.html，不入历史）",
+                    )
                   } else if i == 3 {
                     let _ = v.unregister_protocol("yuedemo")
                     v.load_url(HOME_URL)
@@ -313,56 +326,70 @@ fn open_browser(title : String, home : String, owner : @widget.WindowHost?) -> U
                       lines.push(tag + r)
                       show_result(lines.join("\n"))
                     }
-                    let _ = v
-                      .execute_javascript_with_result(
-                        "1 + 41",
-                        fn(r : String) -> Unit { add("1+41 回包：", r) },
-                      )
-                    let _ = v
-                      .execute_javascript_with_result(
-                        "document.title",
-                        fn(r : String) -> Unit { add("document.title：", r) },
-                      )
+                    let _ = v.execute_javascript_with_result("1 + 41", fn(
+                      r : String,
+                    ) -> Unit {
+                      add("1+41 回包：", r)
+                    })
+                    let _ = v.execute_javascript_with_result("document.title", fn(
+                      r : String,
+                    ) -> Unit {
+                      add("document.title：", r)
+                    })
                     v.execute_javascript("document.title='由原生改写 ✓'")
-                    add("已执行：", "document.title='由原生改写 ✓'（看标题回显）")
+                    add(
+                      "已执行：", "document.title='由原生改写 ✓'（看标题回显）",
+                    )
                   } else if i == 6 {
-                    let _ = v
-                      .capture_dom(@web.PageText, fn(s : @web.DomSnapshot) -> Unit {
-                        show_result(
-                          "正文 ok=\{s.ok} 标题=\{s.title}，正文 \{s.text.length()} 字符\n\n\{s.text}",
-                        )
-                      })
+                    let _ = v.capture_dom(@web.PageText, fn(
+                      s : @web.DomSnapshot,
+                    ) -> Unit {
+                      show_result(
+                        "正文 ok=\{s.ok} 标题=\{s.title}，正文 \{s.text.length()} 字符\n\n\{s.text}",
+                      )
+                    })
                   } else if i == 7 {
-                    let _ = v
-                      .capture_dom(@web.Links, fn(s : @web.DomSnapshot) -> Unit {
-                        let buf = StringBuilder()
-                        buf.write_string("链接 ok=\{s.ok} 共 \{s.links.length()} 条\n")
-                        for l in s.links {
-                          buf.write_string("· \{clip(l.text, 40)} → \{l.href}\n")
-                        }
-                        show_result(buf.to_string())
-                      })
-                  } else if i == 8 {
-                    let _ = v
-                      .capture_dom(@web.Meta, fn(s : @web.DomSnapshot) -> Unit {
-                        let buf = StringBuilder()
-                        buf.write_string("meta ok=\{s.ok} 共 \{s.meta.length()} 条\n")
-                        for kv in s.meta {
-                          buf.write_string("· \{kv.0} = \{clip(kv.1, 80)}\n")
-                        }
-                        show_result(buf.to_string())
-                      })
-                  } else if i == 9 {
-                    let _ = v
-                      .capture_dom(@web.Structure, fn(s : @web.DomSnapshot) -> Unit {
-                        show_result(
-                          "结构 ok=\{s.ok} 元素=\{s.elements} 标题=\{s.title} 链接=\{s.links.length()} meta=\{s.meta.length()}",
+                    let _ = v.capture_dom(@web.Links, fn(
+                      s : @web.DomSnapshot,
+                    ) -> Unit {
+                      let buf = StringBuilder()
+                      buf.write_string(
+                        "链接 ok=\{s.ok} 共 \{s.links.length()} 条\n",
+                      )
+                      for l in s.links {
+                        buf.write_string(
+                          "· \{clip(l.text, 40)} → \{l.href}\n",
                         )
-                      })
+                      }
+                      show_result(buf.to_string())
+                    })
+                  } else if i == 8 {
+                    let _ = v.capture_dom(@web.Meta, fn(
+                      s : @web.DomSnapshot,
+                    ) -> Unit {
+                      let buf = StringBuilder()
+                      buf.write_string(
+                        "meta ok=\{s.ok} 共 \{s.meta.length()} 条\n",
+                      )
+                      for kv in s.meta {
+                        buf.write_string("· \{kv.0} = \{clip(kv.1, 80)}\n")
+                      }
+                      show_result(buf.to_string())
+                    })
+                  } else if i == 9 {
+                    let _ = v.capture_dom(@web.Structure, fn(
+                      s : @web.DomSnapshot,
+                    ) -> Unit {
+                      show_result(
+                        "结构 ok=\{s.ok} 元素=\{s.elements} 标题=\{s.title} 链接=\{s.links.length()} meta=\{s.meta.length()}",
+                      )
+                    })
                   } else if i == 10 {
                     let u = v.current_url()
                     v.get_cookies_for_url(u)
-                    show_result("已请求 \{u} 的 Cookie（回包走事件通道，到达后显示在这里）")
+                    show_result(
+                      "已请求 \{u} 的 Cookie（回包走事件通道，到达后显示在这里）",
+                    )
                   } else if i == 11 {
                     if v.has_bindings() {
                       show_result(
@@ -389,16 +416,23 @@ fn open_browser(title : String, home : String, owner : @widget.WindowHost?) -> U
                     show_result("策略切换完成\n\{policy_text()}")
                   } else if i == 16 {
                     v.execute_javascript("window.open('https://example.com')")
-                    ev("已执行 window.open（新窗事件按策略拦/落，见结果区）")
+                    ev(
+                      "已执行 window.open（新窗事件按策略拦/落，见结果区）",
+                    )
                   } else if i == 17 {
                     v.execute_javascript(
                       "var b=new Blob(['native-gui download probe'],{type:'text/plain'});var u=URL.createObjectURL(b);var a=document.createElement('a');a.href=u;a.download='ngui.txt';document.body.appendChild(a);a.click();",
                     )
-                    ev("已发起 blob 下载（放行档弹保存框定落点，拦下档取消）")
+                    ev(
+                      "已发起 blob 下载（放行档弹保存框定落点，拦下档取消）",
+                    )
                   } else {
                     ()
                   }
-                None => show_result("webview 未就绪，演示不可用（引擎不在位？）")
+                None =>
+                  show_result(
+                    "webview 未就绪，演示不可用（引擎不在位？）",
+                  )
               }
             },
             width=208.0,
@@ -416,38 +450,44 @@ fn open_browser(title : String, home : String, owner : @widget.WindowHost?) -> U
         [
           @ui.row(
             [
-              @widget.bind_node(
-                status.signal(),
-                fn(s : String) -> @widget.Node {
-                  // 编码形如「k|文本」：首字符是状态档，其余是文本
-                  let tag = s[:1]
-                  let text = s[2:].to_owned()
-                  let t : @ui.SemanticType = if tag == "1" {
-                    @ui.Primary
-                  } else if tag == "2" {
-                    @ui.Success
-                  } else if tag == "3" {
-                    @ui.Danger
-                  } else {
-                    @ui.Info
-                  }
-                  @ui.tag_of_type(
-                    if tag == "1" { "加载中" } else { text },
-                    t,
-                  )
-                },
-              ),
+              @widget.bind_node(status.signal(), fn(
+                s : String,
+              ) -> @widget.Node {
+                // 编码形如「k|文本」：首字符是状态档，其余是文本
+                let tag = s[:1]
+                let text = s[2:].to_owned()
+                let t : @ui.SemanticType = if tag == "1" {
+                  @ui.Primary
+                } else if tag == "2" {
+                  @ui.Success
+                } else if tag == "3" {
+                  @ui.Danger
+                } else {
+                  @ui.Info
+                }
+                @ui.tag_of_type(if tag == "1" { "加载中" } else { text }, t)
+              }),
               @ui.bind_label(cur_url, fn(s) { clip(s, 96) }, handle=fn(w) {
                 w.node.set_flex_grow(1.0)
               }),
-              @ui.bind_label(title_st, fn(s) { clip(s, 40) }, font_size=12.0, color="text_secondary"),
+              @ui.bind_label(
+                title_st,
+                fn(s) { clip(s, 40) },
+                font_size=12.0,
+                color="text_secondary",
+              ),
             ],
             column_gap=8.0,
             align_items=@yoga.AlignItems::Center,
           ),
           @ui.row(
             [
-              @ui.bind_label(ev_count, fn(n) { "事件\{n}" }, font_size=12.0, color="text_secondary"),
+              @ui.bind_label(
+                ev_count,
+                fn(n) { "事件\{n}" },
+                font_size=12.0,
+                color="text_secondary",
+              ),
               @ui.bind_label(ev_line, fn(s) { s }, font_size=12.0),
             ],
             column_gap=8.0,
@@ -463,16 +503,19 @@ fn open_browser(title : String, home : String, owner : @widget.WindowHost?) -> U
                 max_width=820.0,
                 handle=fn(w) { w.node.set_flex_grow(1.0) },
               ),
-              @widget.bind_node(
-                result_open.signal(),
-                fn(open : Bool) -> @widget.Node {
-                  @ui.button(
-                    if open { "收起" } else { "展开" },
-                    variant=@ui.Text,
-                    on_click=fn() { result_open.set(!result_open.get()) },
-                  )
-                },
-              ),
+              @widget.bind_node(result_open.signal(), fn(
+                open : Bool,
+              ) -> @widget.Node {
+                @ui.button(
+                  if open {
+                    "收起"
+                  } else {
+                    "展开"
+                  },
+                  variant=@ui.Text,
+                  on_click=fn() { result_open.set(!result_open.get()) },
+                )
+              }),
               @ui.button("复制", variant=@ui.Text, on_click=fn() {
                 let _ = @sys.clipboard_set_text(result_full.get())
                 toast("结果已复制 ✓", @ui.Success)
@@ -490,187 +533,210 @@ fn open_browser(title : String, home : String, owner : @widget.WindowHost?) -> U
     grow=1.0,
   )
   let setup = fn(a : @widget.WindowHost) -> Unit {
-      // webview 建在首帧之后（宿主循环已跑、窗口已上屏，与 showcase 旧页
-      // 「选中页才建」的时机同口径）
-      let _ = a.timer(0, fn() -> Unit {
-        match @web.webview_new(a, "about:blank") {
-          Some(v) => {
-            wv.val = Some(v)
-            v.on_event = Some(fn(e : @web.WebEvent) -> Unit {
-              match e {
-                @web.TitleChanged(t) => title_st.set(t)
-                @web.UrlChanged(u) => cur_url.set(u)
-                @web.NavStarted(u) => {
-                  set_status(Loading, "加载中")
-                  ev("导航开始 \{clip(u, 100)}")
+    // webview 建在首帧之后（宿主循环已跑、窗口已上屏，与 showcase 旧页
+    // 「选中页才建」的时机同口径）
+    let _ = a.timer(0, fn() -> Unit {
+      match @web.webview_new(a, "about:blank") {
+        Some(v) => {
+          wv.val = Some(v)
+          v.on_event = Some(fn(e : @web.WebEvent) -> Unit {
+            match e {
+              @web.TitleChanged(t) => title_st.set(t)
+              @web.UrlChanged(u) => cur_url.set(u)
+              @web.NavStarted(u) => {
+                set_status(Loading, "加载中")
+                ev("导航开始 \{clip(u, 100)}")
+              }
+              @web.NavCommitted(u) => {
+                cur_url.set(u)
+                url_in.set(u)
+                ev("导航提交 \{clip(u, 100)}")
+              }
+              @web.NavRedirected(u) => ev("重定向 \{clip(u, 100)}")
+              @web.NavFinished(u) => {
+                set_status(Done, "完成")
+                ev("导航完成 \{clip(u, 100)}")
+              }
+              @web.LoadFailed(raw) => {
+                set_status(Failed, "加载失败")
+                let reason = match @web.nav_error_parse(raw) {
+                  None => raw
+                  Some(ne) => "\{ne.domain}/\{ne.code} \{ne.uri}"
                 }
-                @web.NavCommitted(u) => {
-                  cur_url.set(u)
-                  url_in.set(u)
-                  ev("导航提交 \{clip(u, 100)}")
+                ev("加载失败 \{clip(raw, 100)}")
+                show_result(
+                  "加载失败（结构化原因）\n\{reason}\n\n原始载荷：\n\{raw}",
+                )
+              }
+              @web.NewWindow(u) =>
+                if pol_newwin.val {
+                  // 放行档=真实浏览器语义：另起一扇带完整工具栏的独立窗并导航过去
+                  ev(
+                    "新窗请求已放行：另起一扇浏览器窗 \{clip(u, 60)}",
+                  )
+                  show_result(
+                    "新窗请求（放行）：已另起一扇独立浏览器窗\n\{u}\n\n当前策略：\n\{policy_text()}",
+                  )
+                  open_browser("新窗 · \{clip(u, 24)}", u, Some(a))
+                } else {
+                  ev("新窗请求被策略拦下")
+                  show_result(
+                    "新窗请求（拦下）：\n\{u}\n\n当前策略：\n\{policy_text()}",
+                  )
                 }
-                @web.NavRedirected(u) => ev("重定向 \{clip(u, 100)}")
-                @web.NavFinished(u) => {
-                  set_status(Done, "完成")
-                  ev("导航完成 \{clip(u, 100)}")
-                }
-                @web.LoadFailed(raw) => {
-                  set_status(Failed, "加载失败")
-                  let reason = match @web.nav_error_parse(raw) {
-                    None => raw
-                    Some(ne) => "\{ne.domain}/\{ne.code} \{ne.uri}"
+              @web.Permission(c) => {
+                // 权限不做演示（mac 需签名打包才拿得到回调，见 README）；
+                // 事件来了立即拒绝，不让请求挂在引擎里
+                ev("权限请求已默认拒绝：\{clip(c, 80)}")
+                match wv.val {
+                  Some(v) => {
+                    let _ = v.respond_permission(false)
                   }
-                  ev("加载失败 \{clip(raw, 100)}")
-                  show_result("加载失败（结构化原因）\n\{reason}\n\n原始载荷：\n\{raw}")
+                  None => ()
                 }
-                @web.NewWindow(u) => {
-                  if pol_newwin.val {
-                    // 放行档=真实浏览器语义：另起一扇带完整工具栏的独立窗并导航过去
-                    ev("新窗请求已放行：另起一扇浏览器窗 \{clip(u, 60)}")
-                    show_result("新窗请求（放行）：已另起一扇独立浏览器窗\n\{u}\n\n当前策略：\n\{policy_text()}")
-                    open_browser("新窗 · \{clip(u, 24)}", u, Some(a))
-                  } else {
-                    ev("新窗请求被策略拦下")
-                    show_result("新窗请求（拦下）：\n\{u}\n\n当前策略：\n\{policy_text()}")
-                  }
-                }
-                @web.Permission(c) => {
-                  // 权限不做演示（mac 需签名打包才拿得到回调，见 README）；
-                  // 事件来了立即拒绝，不让请求挂在引擎里
-                  ev("权限请求已默认拒绝：\{clip(c, 80)}")
-                  match wv.val {
-                    Some(v) => {
-                      let _ = v.respond_permission(false)
-                    }
-                    None => ()
-                  }
-                }
-                @web.Download(req) => {
-                  // 库只上报与扣住（询问档），落判在本层：放行=弹系统保存框
-                  // 定落点，拦下/对话框取消=取消下载
-                  match wv.val {
-                    Some(v) => {
-                      if pol_dl.val {
-                        let dlg = @sys.FileDialog::new_save()
-                        if req.suggested != "" {
-                          dlg.set_filename(req.suggested)
-                        }
-                        let ok = dlg.run_for_window(a.wid().to_int64())
-                        let path = if ok { dlg.get_result() } else { "" }
-                        dlg.destroy()
-                        if ok && path != "" {
-                          let _ = v.respond_download(req.id, true, path)
-                          ev("下载放行：\{clip(path, 80)}")
-                          show_result(
-                            "下载请求（放行）：\{req.uri}\n落点：\{path}\n\n当前策略：\n\{policy_text()}",
-                          )
-                        } else {
-                          let _ = v.respond_download(req.id, false, "")
-                          ev("下载已取消（对话框取消）")
-                          show_result(
-                            "下载请求（取消）：\{req.uri}\n\n当前策略：\n\{policy_text()}",
-                          )
-                        }
+              }
+              @web.Download(req) =>
+                // 库只上报与扣住（询问档），落判在本层：放行=弹系统保存框
+                // 定落点，拦下/对话框取消=取消下载
+                match wv.val {
+                  Some(v) =>
+                    if pol_dl.val {
+                      let dlg = @sys.FileDialog::new_save()
+                      if req.suggested != "" {
+                        dlg.set_filename(req.suggested)
+                      }
+                      let ok = dlg.run_for_window(a.wid().to_int64())
+                      let path = if ok { dlg.get_result() } else { "" }
+                      dlg.destroy()
+                      if ok && path != "" {
+                        let _ = v.respond_download(req.id, true, path)
+                        ev("下载放行：\{clip(path, 80)}")
+                        show_result(
+                          "下载请求（放行）：\{req.uri}\n落点：\{path}\n\n当前策略：\n\{policy_text()}",
+                        )
                       } else {
                         let _ = v.respond_download(req.id, false, "")
-                        ev("下载被策略拦下")
+                        ev("下载已取消（对话框取消）")
                         show_result(
-                          "下载请求（拦下）：\{req.uri}\n\n当前策略：\n\{policy_text()}",
+                          "下载请求（取消）：\{req.uri}\n\n当前策略：\n\{policy_text()}",
                         )
                       }
+                    } else {
+                      let _ = v.respond_download(req.id, false, "")
+                      ev("下载被策略拦下")
+                      show_result(
+                        "下载请求（拦下）：\{req.uri}\n\n当前策略：\n\{policy_text()}",
+                      )
                     }
-                    None => ()
-                  }
+                  None => ()
                 }
-                @web.Cookies(j) =>
-                  show_result("Cookie 回包（\{j.length()} 字节）\n\{j}")
-                @web.ProcessTerminated(r) => {
-                  set_status(Failed, "渲染进程退出")
-                  ev("渲染进程退出 \{clip(r, 100)}")
-                }
-                _ => ()
+              @web.Cookies(j) =>
+                show_result("Cookie 回包（\{j.length()} 字节）\n\{j}")
+              @web.ProcessTerminated(r) => {
+                set_status(Failed, "渲染进程退出")
+                ev("渲染进程退出 \{clip(r, 100)}")
               }
-            })
-            v.on_invoke = Some(fn(payload : String) -> Unit {
-              show_result("网页 → 原生（raw binding demoBinding）\n\{payload}")
-            })
-            match holder.val {
-              Some(c) => { let _ = v.node(grow=1.0).mount_into(c) }
-              None => ()
+              _ => ()
             }
-            // 绑定与策略要有句柄才生效（挂载发生在第一次绘制）：排期重试
-            let tries : Ref[Int] = Ref(0)
-            let tick : Ref[() -> Unit] = Ref(fn() { () })
-            tick.val = fn() -> Unit {
-              if v.add_raw_binding("demoBinding") {
-                // 下载走询问档：事件后扣住待决，放行/拦下由下面的 Download
-                // 分支按当前策略落判（库不做 UI 策略，保存框在本示例层）
-                v.set_download_mode(false)
-              } else {
-                tries.val = tries.val + 1
-                if tries.val < 60 {
-                  let _ = a.timer(80, tick.val)
-                }
-              }
+          })
+          v.on_invoke = Some(fn(payload : String) -> Unit {
+            show_result(
+              "网页 → 原生（raw binding demoBinding）\n\{payload}",
+            )
+          })
+          match holder.val {
+            Some(c) => {
+              let _ = v.node(grow=1.0).mount_into(c)
             }
-            let _ = a.timer(80, tick.val)
-            // 首页：本地协议页（无需外网）；协议就绪失败则停在 about:blank
-            if prepare_scheme(v) {
-              v.load_url(home)
-              set_status(Loading, "加载中")
+            None => ()
+          }
+          // 绑定与策略要有句柄才生效（挂载发生在第一次绘制）：排期重试
+          let tries : Ref[Int32] = Ref(0)
+          let tick : Ref[() -> Unit] = Ref(fn() { () })
+          tick.val = fn() -> Unit {
+            if v.add_raw_binding("demoBinding") {
+              // 下载走询问档：事件后扣住待决，放行/拦下由下面的 Download
+              // 分支按当前策略落判（库不做 UI 策略，保存框在本示例层）
+              v.set_download_mode(false)
             } else {
-              set_status(Ready, "协议注册失败，请在演示菜单重试或输入 URL")
-              ev("协议注册失败（prepare_scheme=0）")
+              tries.val = tries.val + 1
+              if tries.val < 60 {
+                let _ = a.timer(80, tick.val)
+              }
             }
           }
-          None => {
-            // 探测不到引擎：降级不静默
-            match holder.val {
-              Some(c) => {
-                let _ = @ui
-                  .view(
-                    [
-                      @ui.text("webview 引擎不在位"),
-                      @ui.text(
-                        "本机缺 WebView2 运行时 / webkit2gtk-4.1。装上后重启本示例自动走 webview 分支。",
-                        class=[@style.text_secondary],
-                      ),
-                    ],
-                    padding=12.0,
-                    grow=1.0,
-                    background_color="bg_panel",
-                    border_color="border",
-                  )
-                  .mount_into(c)
-              }
-              None => ()
-            }
-            println("BROWSER-NOENGINE: webview 引擎不在位，已降级说明板")
+          let _ = a.timer(80, tick.val)
+          // 首页：本地协议页（无需外网）；协议就绪失败则停在 about:blank
+          if prepare_scheme(v) {
+            v.load_url(home)
+            set_status(Loading, "加载中")
+          } else {
+            set_status(
+              Ready,
+              "协议注册失败，请在演示菜单重试或输入 URL",
+            )
+            ev("协议注册失败（prepare_scheme=0）")
           }
         }
-      })
+        None => {
+          // 探测不到引擎：降级不静默
+          match holder.val {
+            Some(c) => {
+              let _ = @ui.view(
+                [
+                  @ui.text("webview 引擎不在位"),
+                  @ui.text(
+                    "本机缺 WebView2 运行时 / webkit2gtk-4.1。装上后重启本示例自动走 webview 分支。",
+                    class=[@style.text_secondary],
+                  ),
+                ],
+                padding=12.0,
+                grow=1.0,
+                background_color="bg_panel",
+                border_color="border",
+              ).mount_into(c)
+            }
+            None => ()
+          }
+          println(
+            "BROWSER-NOENGINE: webview 引擎不在位，已降级说明板",
+          )
+        }
+      }
+    })
   }
   match owner {
     None => {
       // 首窗：mount_window 建宿主；host.run() 驱动整组窗口（多窗共用泵）
-      let mounted = @ui.mount_window([body], title=title, width=1120, height=780, handle=setup)
+      let mounted = @ui.mount_window(
+        [body],
+        title~,
+        width=1120,
+        height=780,
+        handle=setup,
+      )
       match mounted {
-        None => println("BROWSER-SKIP: 本平台没有窗口后端或没有显示服务")
+        None =>
+          println(
+            "BROWSER-SKIP: 本平台没有窗口后端或没有显示服务",
+          )
         Some(host) => {
           println("BROWSER-READY")
           host.run()
         }
       }
     }
-    Some(host) => {
+    Some(host) =>
       // 新窗：挂进既有循环；建不起来如实报，不静默
       match host.open_window(1120, 780, title) {
-        None => println("BROWSER-NEWWIN-FAIL: 新窗建不起来（窗口上限/平台拒绝）")
+        None =>
+          println(
+            "BROWSER-NEWWIN-FAIL: 新窗建不起来（窗口上限/平台拒绝）",
+          )
         Some(a2) => {
           a2.mount([body])
           setup(a2)
         }
       }
-    }
   }
 }

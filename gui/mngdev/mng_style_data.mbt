@@ -111,7 +111,7 @@ fn sd_num(e : String) -> Result[Double, String] {
 }
 
 ///|
-fn sd_int(e : String) -> Result[Int, String] {
+fn sd_int(e : String) -> Result[Int32, String] {
   match sd_num(e) {
     Ok(v) => Ok(v.to_int())
     Err(x) => Err(x)
@@ -454,7 +454,9 @@ fn sd_set_prop(
 }
 
 ///|
-fn sd_build_style(props : Array[MJ]) -> Result[@style.Style, String] raise SdRaise {
+fn sd_build_style(
+  props : Array[MJ],
+) -> Result[@style.Style, String] raise SdRaise {
   let s = @style.empty_style()
   for p in props {
     let name = match mj_str(mj_get(p, "p")) {
@@ -475,7 +477,9 @@ fn sd_build_style(props : Array[MJ]) -> Result[@style.Style, String] raise SdRai
 
 ///|
 /// 补丁的 classes 数组 → 重注册命名类（同名覆盖，后写赢）。
-fn mng_reg_classes_inner(rules : Array[MJ]) -> Result[Unit, String] raise SdRaise {
+fn mng_reg_classes_inner(
+  rules : Array[MJ],
+) -> Result[Unit, String] raise SdRaise {
   let base : Map[String, @style.Style] = Map([])
   let hover : Map[String, @style.Style] = Map([])
   let active : Map[String, @style.Style] = Map([])
@@ -571,9 +575,7 @@ fn mng_reg_classes_inner(rules : Array[MJ]) -> Result[Unit, String] raise SdRais
 
 ///|
 fn mng_reg_classes(rules : Array[MJ]) -> Result[Unit, String] {
-  try {
-    mng_reg_classes_inner(rules)
-  } catch {
+  mng_reg_classes_inner(rules) catch {
     SdRaise(e) => Err(e)
   }
 }

@@ -150,8 +150,7 @@ test "wp_select_last_image_prop：真实属性清单 + 已连接输出" {
   // 候选里没有 workspace0：前两轮都落空，第三轮只按清单顺序取首个可解析
   // 项（不再看已连接）——DP-9 那条虽未连接仍在前
   let no_ws0 = [
-    "/backdrop/screen0/monitorDP-9/workspace2/last-image",
-    "/backdrop/screen0/monitorHDMI-0/workspace1/last-image",
+    "/backdrop/screen0/monitorDP-9/workspace2/last-image", "/backdrop/screen0/monitorHDMI-0/workspace1/last-image",
   ]
   assert_eq(
     wp_select_last_image_prop(no_ws0, ["HDMI-0"]),
@@ -199,9 +198,8 @@ test "wp_xfce_set_args / wp_gsettings_set_args：写路径参数" {
     "/backdrop/screen0/monitorNone-1/workspace0/last-image", "/a.png",
   )
   assert_eq(xfce, [
-    "-c", "xfce4-desktop", "-p",
-    "/backdrop/screen0/monitorNone-1/workspace0/last-image", "-n", "-t",
-    "string", "-s", "/a.png",
+    "-c", "xfce4-desktop", "-p", "/backdrop/screen0/monitorNone-1/workspace0/last-image",
+    "-n", "-t", "string", "-s", "/a.png",
   ])
   // gsettings 系：写落点表的首个键，值形态随表（GNOME 一族是 file:// URI）
   let gnome = wp_gsettings_target(Gnome).unwrap()
@@ -213,10 +211,9 @@ test "wp_xfce_set_args / wp_gsettings_set_args：写路径参数" {
   ])
   // MATE 的 picture-filename 存裸路径，写值不能再套 file://
   let mate = wp_gsettings_target(Mate).unwrap()
-  assert_eq(
-    wp_gsettings_set_args(mate, "/a.png"),
-    ["set", "org.mate.background", "picture-filename", "/a.png"],
-  )
+  assert_eq(wp_gsettings_set_args(mate, "/a.png"), [
+    "set", "org.mate.background", "picture-filename", "/a.png",
+  ])
 }
 
 ///|

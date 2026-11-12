@@ -14,9 +14,18 @@ fn msgbox_key_of(w : @widget.Widget) -> (@widget.KeyEvent) -> Bool {
 ///|
 test "msgbox_icon_of：五种消息种类各给一个图标" {
   inspect(@icons.icon_name(msgbox_icon_of(Default)), content="info-circle-fill")
-  inspect(@icons.icon_name(msgbox_icon_of(Information)), content="info-circle-fill")
-  inspect(@icons.icon_name(msgbox_icon_of(Warning)), content="warning-circle-fill")
-  inspect(@icons.icon_name(msgbox_icon_of(Question)), content="question-circle-fill")
+  inspect(
+    @icons.icon_name(msgbox_icon_of(Information)),
+    content="info-circle-fill",
+  )
+  inspect(
+    @icons.icon_name(msgbox_icon_of(Warning)),
+    content="warning-circle-fill",
+  )
+  inspect(
+    @icons.icon_name(msgbox_icon_of(Question)),
+    content="question-circle-fill",
+  )
   inspect(@icons.icon_name(msgbox_icon_of(Error)), content="close-circle-fill")
 }
 
@@ -49,7 +58,7 @@ test "消息框：Store 驱动弹收，按钮回调响应编号并收起" {
     return
   }
   let vis = @base.Store::new(false)
-  let got : Array[Int] = []
+  let got : Array[Int32] = []
   let dismissed = Ref(0)
   let (root, _anchor) = mounted_with_overlay(
     message_box(
@@ -59,7 +68,7 @@ test "消息框：Store 驱动弹收，按钮回调响应编号并收起" {
       kind=Warning,
       informative="删掉后无法恢复。",
       buttons=[("删除", 10), ("取消", 20)],
-      on_response=fn(code : Int) -> Unit { got.push(code) },
+      on_response=fn(code : Int32) -> Unit { got.push(code) },
       on_dismiss=fn() -> Unit { dismissed.val = dismissed.val + 1 },
     ),
     400.0,
@@ -119,7 +128,7 @@ test "消息框：✕ 与 Esc 走 dismiss（不给响应编号），Enter 走默
     return
   }
   let vis = @base.Store::new(true)
-  let got : Array[Int] = []
+  let got : Array[Int32] = []
   let dismissed = Ref(0)
   let (_root, _a) = mounted_with_overlay(
     message_box(
@@ -127,7 +136,7 @@ test "消息框：✕ 与 Esc 走 dismiss（不给响应编号），Enter 走默
       "提示",
       "正文",
       buttons=[("确定", 1), ("取消", 2)],
-      on_response=fn(code : Int) -> Unit { got.push(code) },
+      on_response=fn(code : Int32) -> Unit { got.push(code) },
       on_dismiss=fn() -> Unit { dismissed.val = dismissed.val + 1 },
     ),
     400.0,
@@ -140,8 +149,8 @@ test "消息框：✕ 与 Esc 走 dismiss（不给响应编号），Enter 走默
   }
   let key = msgbox_key_of(panel)
   // Esc：收起 + dismiss，不给编号；抬起不处理
-  assert_eq(key({ press: false, keysym: @base.KS_ESCAPE, mods: 0 }), false)
-  assert_eq(key({ press: true, keysym: @base.KS_ESCAPE, mods: 0 }), true)
+  assert_eq(key({ press: false, keysym: @base.KS_ESCAPE, mods: 0, }), false)
+  assert_eq(key({ press: true, keysym: @base.KS_ESCAPE, mods: 0, }), true)
   assert_eq(dismissed.val, 1)
   assert_eq(got.length(), 0)
   assert_eq(@widget.overlay_count(), 0)
@@ -154,7 +163,7 @@ test "消息框：✕ 与 Esc 走 dismiss（不给响应编号），Enter 走默
     None => @widget.Widget::new()
   }
   let key2 = msgbox_key_of(panel2)
-  assert_eq(key2({ press: true, keysym: @base.KS_RETURN, mods: 0 }), true)
+  assert_eq(key2({ press: true, keysym: @base.KS_RETURN, mods: 0, }), true)
   assert_eq(got, [1])
   assert_eq(dismissed.val, 1)
   assert_eq(@widget.overlay_count(), 0)
@@ -166,7 +175,7 @@ test "消息框：close_on_mask=false 时点遮罩不收，但 ✕ 收（走 dis
     return
   }
   let vis = @base.Store::new(true)
-  let got : Array[Int] = []
+  let got : Array[Int32] = []
   let dismissed = Ref(0)
   let (root, _a) = mounted_with_overlay(
     message_box(
@@ -175,7 +184,7 @@ test "消息框：close_on_mask=false 时点遮罩不收，但 ✕ 收（走 dis
       "内容",
       buttons=[("确定", 1)],
       close_on_mask=false,
-      on_response=fn(code : Int) -> Unit { got.push(code) },
+      on_response=fn(code : Int32) -> Unit { got.push(code) },
       on_dismiss=fn() -> Unit { dismissed.val = dismissed.val + 1 },
     ),
     400.0,
@@ -208,13 +217,9 @@ test "消息框：close_on_mask=true 时点遮罩收起且走 dismiss" {
   let vis = @base.Store::new(true)
   let dismissed = Ref(0)
   let (root, _a) = mounted_with_overlay(
-    message_box(
-      vis,
-      "标题",
-      "内容",
-      close_on_mask=true,
-      on_dismiss=fn() -> Unit { dismissed.val = dismissed.val + 1 },
-    ),
+    message_box(vis, "标题", "内容", close_on_mask=true, on_dismiss=fn() -> Unit {
+      dismissed.val = dismissed.val + 1
+    }),
     400.0,
     300.0,
   )
@@ -233,13 +238,9 @@ test "消息框：close_on_mask=true 时点遮罩收起且走 dismiss" {
   let vis2 = @base.Store::new(true)
   let dismissed2 = Ref(0)
   let (root2, _b) = mounted_with_overlay(
-    message_box(
-      vis2,
-      "标题",
-      "内容",
-      close_on_mask=false,
-      on_dismiss=fn() -> Unit { dismissed2.val = dismissed2.val + 1 },
-    ),
+    message_box(vis2, "标题", "内容", close_on_mask=false, on_dismiss=fn() -> Unit {
+      dismissed2.val = dismissed2.val + 1
+    }),
     400.0,
     300.0,
   )
@@ -262,12 +263,11 @@ test "消息框：informative 为空时不占副行；空文案按钮跳过" {
   }
   let vis = @base.Store::new(true)
   let (_root, _a) = mounted_with_overlay(
-    message_box(
-      vis,
-      "标题",
-      "只有正文",
-      buttons=[("确定", 1), ("", 2), ("取消", 3)],
-    ),
+    message_box(vis, "标题", "只有正文", buttons=[
+      ("确定", 1),
+      ("", 2),
+      ("取消", 3),
+    ]),
     400.0,
     300.0,
   )

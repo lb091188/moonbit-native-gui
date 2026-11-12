@@ -1,5 +1,7 @@
 name = "NoahLiu/gui-webview"
+
 version = "0.2.0"
+
 preferred_target = "native"
 
 description = "native-gui 的 WebView 扩展（独立模块）：内嵌系统 WebView（WebKitGTK / WebView2 / WKWebView），vendor 资产与链接参数由本模块 prebuild 自管，对主模块消费者保持「模块级可选」"

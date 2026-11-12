@@ -17,9 +17,9 @@ pub(all) struct TermTheme {
 /// 深底 ANSI 盘（黑位提亮保证可辨）。
 fn term_ansi_dark() -> Array[String] {
   [
-    "#4b5263", "#e06c75", "#98c379", "#e5c07b", "#61afef", "#c678dd",
-    "#56b6c2", "#abb2bf", "#5c6370", "#ff7b86", "#b5e890", "#ffd48a",
-    "#7cc4ff", "#d9a0ea", "#7cd9e6", "#e6e6e6",
+    "#4b5263", "#e06c75", "#98c379", "#e5c07b", "#61afef", "#c678dd", "#56b6c2",
+    "#abb2bf", "#5c6370", "#ff7b86", "#b5e890", "#ffd48a", "#7cc4ff", "#d9a0ea",
+    "#7cd9e6", "#e6e6e6",
   ]
 }
 
@@ -27,9 +27,9 @@ fn term_ansi_dark() -> Array[String] {
 /// 浅底 ANSI 盘（白位压暗保证可辨）。
 fn term_ansi_light() -> Array[String] {
   [
-    "#3a3f46", "#c0392b", "#1f8f4e", "#9a6a00", "#2d68c4", "#8e44ad",
-    "#199fb0", "#7f8c8d", "#55595f", "#d64550", "#2e9e5b", "#b8860b",
-    "#5b8def", "#a55bc4", "#0f8a9e", "#3a3f46",
+    "#3a3f46", "#c0392b", "#1f8f4e", "#9a6a00", "#2d68c4", "#8e44ad", "#199fb0",
+    "#7f8c8d", "#55595f", "#d64550", "#2e9e5b", "#b8860b", "#5b8def", "#a55bc4",
+    "#0f8a9e", "#3a3f46",
   ]
 }
 
@@ -39,7 +39,8 @@ pub fn term_theme_of(t : @theme.Theme) -> TermTheme {
   let dark = match @theme.parse_hex(t.bg_panel) {
     Some((r, g, b)) =>
       (0.299 * r.to_double() + 0.587 * g.to_double() + 0.114 * b.to_double()) /
-      255.0 < 0.5
+      255.0 <
+      0.5
     None => false
   }
   if dark {
@@ -69,7 +70,7 @@ pub fn term_theme_current() -> TermTheme {
 
 ///|
 /// 256 色立方/灰度阶（xterm 口径）。
-fn term_cube_level(i : Int) -> Int {
+fn term_cube_level(i : Int32) -> Int32 {
   let levels = [0, 95, 135, 175, 215, 255]
   levels[i]
 }
@@ -86,21 +87,23 @@ fn term_color_hex(tt : TermTheme, c : TermColor, is_fg : Bool) -> String {
         let n = i - 16
         term_rgb_hex(
           term_cube_level(n / 36),
-          term_cube_level((n % 36) / 6),
+          term_cube_level(n % 36 / 6),
           term_cube_level(n % 6),
         )
       } else if i < 256 {
         let v = 8 + (i - 232) * 10
         term_rgb_hex(v, v, v)
+      } else if is_fg {
+        tt.fg
       } else {
-        if is_fg { tt.fg } else { tt.bg }
+        tt.bg
       }
     Rgb(r, g, b) => term_rgb_hex(r, g, b)
   }
 }
 
 ///|
-fn term_rgb_hex(r : Int, g : Int, b : Int) -> String {
+fn term_rgb_hex(r : Int32, g : Int32, b : Int32) -> String {
   @render.Color::rgb(
     r.clamp(min=0, max=255),
     g.clamp(min=0, max=255),
@@ -113,7 +116,7 @@ fn term_rgb_hex(r : Int, g : Int, b : Int) -> String {
 fn term_blend_hex(a : String, b : String, k : Double) -> String {
   match (@render.Color::parse(a), @render.Color::parse(b)) {
     (Some(ca), Some(cb)) => {
-      let f = fn(x : Int, y : Int) -> Int {
+      let f = fn(x : Int32, y : Int32) -> Int32 {
         (x.to_double() * (1.0 - k) + y.to_double() * k).round().to_int()
       }
       @render.Color::rgb(f(ca.r, cb.r), f(ca.g, cb.g), f(ca.b, cb.b)).to_hex()
@@ -128,30 +131,38 @@ fn term_blend_hex(a : String, b : String, k : Double) -> String {
 pub fn terminal(
   term : Terminal,
   /// 字号（逻辑像素，等宽字族）。
-  font_size? : Double = 13.0,
+  font_size~ : Double = 13.0,
   /// 定死高度；0 = flex_grow 撑满容器剩余空间。
-  height? : Double = 0.0,
+  height~ : Double = 0.0,
   /// 进 Tab 焦点链的序号；传正数才可 Tab 到，0 = 自动领号。
-  focus_id? : Int = 0,
+  focus_id~ : Int32 = 0,
   /// 光标闪烁（聚焦时）；false 常亮。
-  blink? : Bool = true,
+  blink~ : Bool = true,
   /// 应用接管光标可见性时给谓词；给了就完全按它画，不走内部 blink。
-  cursor_on? : (() -> Bool)? = None,
+  cursor_on~ : (() -> Bool)? = None,
   /// 开关鼠标选区（拖选高亮）。
-  selectable? : Bool = true,
+  selectable~ : Bool = true,
   /// 键盘输入出口：可打印字符、控制键（裸 Ctrl+C = \x03）、方向键、IME commit
   /// 与粘贴内容都从这里出去；回显/接线由应用决定（本控件不本地回显）。
-  on_input? : (String) -> Unit = fn(_s : String) -> Unit { () },
+  on_input~ : (String) -> Unit = fn(_s : String) -> Unit { () },
   /// 终端配色；缺省跟当前主题。
-  theme? : TermTheme = term_theme_current(),
+  theme~ : TermTheme = term_theme_current(),
   /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
-  class? : Array[@style.Style] = [],
+  class~ : Array[@style.Style] = [],
   /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let font = @text.Font::new("Monospace", font_size)
-  let font_bold = @text.Font::new("Monospace", font_size, weight=@text.FontWeight::Bold)
-  let font_italic = @text.Font::new("Monospace", font_size, style=@text.FontStyle::Italic)
+  let font_bold = @text.Font::new(
+    "Monospace",
+    font_size,
+    weight=@text.FontWeight::Bold,
+  )
+  let font_italic = @text.Font::new(
+    "Monospace",
+    font_size,
+    style=@text.FontStyle::Italic,
+  )
   let font_bold_italic = @text.Font::new(
     "Monospace",
     font_size,
@@ -168,12 +179,12 @@ pub fn terminal(
   let want_blink = blink
   let selectable = selectable
   // 选区：绝对行号坐标（col, abs），跨滚动稳定
-  let sel_anchor : Ref[(Int, Int)?] = Ref(None)
-  let sel_head : Ref[(Int, Int)?] = Ref(None)
+  let sel_anchor : Ref[(Int32, Int32)?] = Ref(None)
+  let sel_head : Ref[(Int32, Int32)?] = Ref(None)
   let dragging : Ref[Bool] = Ref(false)
   let dragging_sb : Ref[Bool] = Ref(false)
   let blink_on : Ref[Bool] = Ref(true)
-  let timer_id : Ref[Int] = Ref(0)
+  let timer_id : Ref[Int32] = Ref(0)
   let timer_alive : Ref[Bool] = Ref(false)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     w.role = "terminal"
@@ -212,21 +223,21 @@ pub fn terminal(
       })
     }
     // 命中 → (列, 绝对行)
-    let hit_cell = fn(x : Double, y : Double) -> (Int, Int)? {
-      let col = (((x - pad) / cell_w).floor().to_int()).clamp(
-        min=0,
-        max=term.cols() - 1,
-      )
-      let v = (((y - pad) / cell_h).floor().to_int()).clamp(
-        min=0,
-        max=term.rows() - 1,
-      )
+    let hit_cell = fn(x : Double, y : Double) -> (Int32, Int32)? {
+      let col = ((x - pad) / cell_w)
+        .floor()
+        .to_int()
+        .clamp(min=0, max=term.cols() - 1)
+      let v = ((y - pad) / cell_h)
+        .floor()
+        .to_int()
+        .clamp(min=0, max=term.rows() - 1)
       match term.view_abs(v) {
         Some(a) => Some((col, a))
         None => None
       }
     }
-    let sel_range = fn() -> ((Int, Int), (Int, Int))? {
+    let sel_range = fn() -> ((Int32, Int32), (Int32, Int32))? {
       match (sel_anchor.val, sel_head.val) {
         (Some(a), Some(h)) =>
           if a.1 < h.1 || (a.1 == h.1 && a.0 <= h.0) {
@@ -237,21 +248,28 @@ pub fn terminal(
         _ => None
       }
     }
-    let sb_geom = fn(rw : Double, rh : Double) -> (Double, Double, Double, Double, Double) {
+    let sb_geom = fn(
+      rw : Double,
+      rh : Double,
+    ) -> (Double, Double, Double, Double, Double) {
       // (track_x, track_y, track_w, track_h, thumb_len)
       let sh = (rh - 4.0).max(0.0)
       let content = (term.ring.len() + term.rows()).max(1)
-      let thumb = ((term.rows().to_double() / content.to_double()) * sh).max(
-        24.0,
-      ).min(sh)
+      let thumb = (term.rows().to_double() / content.to_double() * sh)
+        .max(24.0)
+        .min(sh)
       (rw - 9.0, 2.0, 5.0, sh, thumb)
     }
-    w.on_draw = Some(fn(self_w : @widget.Widget, p : @render.Painter, r : @base.Rect) -> Unit {
+    w.on_draw = Some(fn(
+      self_w : @widget.Widget,
+      p : @render.Painter,
+      r : @base.Rect,
+    ) -> Unit {
       let st = @style.resolved(self_w)
       let bg_hex = @style.color_of(st.background_color, tt.bg)
       // 网格随矩形现算（resize 内部判同不做重复 bump）
-      let cols = (((r.w - 2.0 * pad) / cell_w).floor().to_int()).max(2)
-      let rows = (((r.h - 2.0 * pad) / cell_h).floor().to_int()).max(1)
+      let cols = ((r.w - 2.0 * pad) / cell_w).floor().to_int().max(2)
+      let rows = ((r.h - 2.0 * pad) / cell_h).floor().to_int().max(1)
       term.resize(cols, rows)
       let cols = term.cols()
       let rows = term.rows()
@@ -288,7 +306,9 @@ pub fn terminal(
           }
           let selected = match sel {
             Some((a, b2)) =>
-              abs >= a.1 && abs <= b2.1 && ci >= (if abs == a.1 { a.0 } else { 0 }) &&
+              abs >= a.1 &&
+              abs <= b2.1 &&
+              ci >= (if abs == a.1 { a.0 } else { 0 }) &&
               ci < (if abs == b2.1 { b2.0 + 1 } else { cols })
             None => false
           }
@@ -313,7 +333,9 @@ pub fn terminal(
             }
             let sel2 = match sel {
               Some((a, b3)) =>
-                abs >= a.1 && abs <= b3.1 && end >= (if abs == a.1 { a.0 } else { 0 }) &&
+                abs >= a.1 &&
+                abs <= b3.1 &&
+                end >= (if abs == a.1 { a.0 } else { 0 }) &&
                 end < (if abs == b3.1 { b3.0 + 1 } else { cols })
               None => false
             }
@@ -337,10 +359,11 @@ pub fn terminal(
             p.fill_rect(rx, y, rw, cell_h)
           }
           if cell.text.length() > 0 {
-            let f = match (
-              attrs.land(TERM_ATTR_BOLD) != 0,
-              attrs.land(TERM_ATTR_ITALIC) != 0,
-            ) {
+            let f = match
+              (
+                attrs.land(TERM_ATTR_BOLD) != 0,
+                attrs.land(TERM_ATTR_ITALIC) != 0,
+              ) {
               (true, true) => font_bold_italic
               (true, false) => font_bold
               (false, true) => font_italic
@@ -378,14 +401,7 @@ pub fn terminal(
             p.set_fill_color(tt.cursor)
             p.fill_rect(cx0, cy0, cw, cell_h)
             if ccell.text.length() > 0 {
-              let _ = @text.draw_at(
-                p,
-                cx0,
-                cy0 + 1.0,
-                ccell.text,
-                font,
-                bg_hex,
-              )
+              let _ = @text.draw_at(p, cx0, cy0 + 1.0, ccell.text, font, bg_hex)
             }
           } else {
             p.set_stroke_color(tt.cursor)
@@ -417,7 +433,10 @@ pub fn terminal(
         None => ()
       }
       // 闪烁表停了（曾被挪出视口）且现在画得到：复活
-      if want_blink && cursor_on is None && !timer_alive.val && self_w.is_painted() {
+      if want_blink &&
+        cursor_on is None &&
+        !timer_alive.val &&
+        self_w.is_painted() {
         arm()
       }
     })
@@ -460,7 +479,8 @@ pub fn terminal(
       let is_v = ev.keysym == 118 || ev.keysym == 86
       let combo_hit = if is_mac {
         ev.mods.land(@base.MOD_META) != 0 &&
-        ev.mods.land(@base.MOD_CTRL.lor(@base.MOD_SHIFT).lor(@base.MOD_ALT)) == 0
+        ev.mods.land(@base.MOD_CTRL.lor(@base.MOD_SHIFT).lor(@base.MOD_ALT)) ==
+        0
       } else {
         ev.mods.land(@base.MOD_CTRL) != 0 &&
         ev.mods.land(@base.MOD_SHIFT) != 0 &&
@@ -481,10 +501,7 @@ pub fn terminal(
       }
       if combo_hit && is_v {
         match terminal_clip_get() {
-          Some(t) =>
-            if t.length() > 0 {
-              input_cb(t)
-            }
+          Some(t) => if t.length() > 0 { input_cb(t) }
           None => ()
         }
         return true
@@ -501,15 +518,26 @@ pub fn terminal(
       input_cb(t)
       true
     })
-    w.on_pointer = Some(fn(self_w : @widget.Widget, ev : @widget.PointerEvent) -> Bool {
+    w.on_pointer = Some(fn(
+      self_w : @widget.Widget,
+      ev : @widget.PointerEvent,
+    ) -> Bool {
       match ev.kind {
         @widget.PointerKind::Down => {
           if ev.x >= self_w.rect.w - 12.0 && term.ring.len() > 0 {
             // 滚动条：点按/拖动跳位（鼠标向下 ratio 大 = 看更新，offset 反向）
             dragging_sb.val = true
-            let (_, sy2, _sw2, sh2, thumb) = sb_geom(self_w.rect.w, self_w.rect.h)
-            let ratio = ((ev.y - sy2 - thumb / 2.0) / (sh2 - thumb).max(1.0)).clamp(min=0.0, max=1.0)
-            let target = ((1.0 - ratio) * term.ring.len().to_double()).round().to_int()
+            let (_, sy2, _sw2, sh2, thumb) = sb_geom(
+              self_w.rect.w,
+              self_w.rect.h,
+            )
+            let ratio = ((ev.y - sy2 - thumb / 2.0) / (sh2 - thumb).max(1.0)).clamp(
+              min=0.0,
+              max=1.0,
+            )
+            let target = ((1.0 - ratio) * term.ring.len().to_double())
+              .round()
+              .to_int()
             term.scroll_lines(target - term.view_offset)
             return true
           }
@@ -525,9 +553,17 @@ pub fn terminal(
         }
         @widget.PointerKind::Move => {
           if dragging_sb.val {
-            let (_, sy2, _sw2, sh2, thumb) = sb_geom(self_w.rect.w, self_w.rect.h)
-            let ratio = ((ev.y - sy2 - thumb / 2.0) / (sh2 - thumb).max(1.0)).clamp(min=0.0, max=1.0)
-            let target = ((1.0 - ratio) * term.ring.len().to_double()).round().to_int()
+            let (_, sy2, _sw2, sh2, thumb) = sb_geom(
+              self_w.rect.w,
+              self_w.rect.h,
+            )
+            let ratio = ((ev.y - sy2 - thumb / 2.0) / (sh2 - thumb).max(1.0)).clamp(
+              min=0.0,
+              max=1.0,
+            )
+            let target = ((1.0 - ratio) * term.ring.len().to_double())
+              .round()
+              .to_int()
             term.scroll_lines(target - term.view_offset)
             return true
           }
@@ -561,9 +597,11 @@ pub fn terminal(
     fold_style(
       w,
       @style.empty_style(),
-      @style.style(background_color="bg_panel", border_color="border", border_width=1.0).focus(
-        border_color="primary",
-      ),
+      @style.style(
+        background_color="bg_panel",
+        border_color="border",
+        border_width=1.0,
+      ).focus(border_color="primary"),
       class,
     )
     handle(w)

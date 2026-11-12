@@ -34,11 +34,11 @@ pub fn funnel_sort(items : Array[BarItem]) -> Array[BarItem] {
 /// 第 i 层的 (y, 层高)：n 层均分 [top, bottom]，层间缝 gap 从槽内扣
 /// （槽内居中），层高不足 1px 时钳到 1；n <= 0 或区间退化给 (top, 0)。
 pub fn funnel_band(
-  i : Int,
-  n : Int,
+  i : Int32,
+  n : Int32,
   top : Double,
   bottom : Double,
-  gap? : Double = 2.0,
+  gap~ : Double = 2.0,
 ) -> (Double, Double) {
   if n <= 0 || bottom <= top {
     return (top, 0.0)
@@ -55,7 +55,7 @@ pub fn funnel_band(
 /// （绘制路径传 funnel_sort 的输出）。
 pub fn funnel_band_widths(
   values : Array[Double],
-  i : Int,
+  i : Int32,
   full : Double,
 ) -> (Double, Double) {
   if i < 0 || i >= values.length() || !(full > 0.0) {
@@ -83,7 +83,7 @@ pub fn funnel_band_widths(
 pub fn funnel_pct(
   v : Double,
   values : Array[Double],
-  of_total? : Bool = false,
+  of_total~ : Bool = false,
 ) -> Double {
   let base = if of_total {
     let mut t = 0.0
@@ -112,7 +112,7 @@ pub fn funnel_pct(
 ///|
 /// 第 i 层填充色：主题主色同系列按层提亮（顶层原色，向下逐层变浅，
 /// 末层最浅），每次绘制现取主题色，主题切换自动跟随；单层即原色。
-fn funnel_layer_color(i : Int, n : Int) -> String {
+fn funnel_layer_color(i : Int32, n : Int32) -> String {
   let span = 0.34
   let t = if n <= 1 { 0.0 } else { i.to_double() / (n - 1).to_double() }
   @theme.lighten_hex(@theme.theme_primary(), span * t)
@@ -216,11 +216,11 @@ fn funnel_draw(
 /// 主题切换现取色自动跟随。
 pub fn funnel_t(
   data : @base.Store[Array[BarItem]],
-  alignment? : FunnelAlign = FunnelCenter,
-  pct_of_total? : Bool = false,
-  width? : Double = 0.0,
-  height? : Double = 280.0,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  alignment~ : FunnelAlign = FunnelCenter,
+  pct_of_total~ : Bool = false,
+  width~ : Double = 0.0,
+  height~ : Double = 280.0,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.follow_store(data)
   let align = alignment

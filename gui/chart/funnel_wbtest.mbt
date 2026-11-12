@@ -93,19 +93,21 @@ test "funnel_pct：相对首层/相对总和/基数与负值退化" {
 ///|
 test "funnel_layer_color：同系列自顶向下渐浅" {
   // 首层与主题主色同色（hex 经 HSL 往返会小写化，按 RGB 分量比较）
-  match (
-    @theme.parse_hex(funnel_layer_color(0, 4)),
-    @theme.parse_hex(@theme.theme_primary()),
-  ) {
+  match
+    (
+      @theme.parse_hex(funnel_layer_color(0, 4)),
+      @theme.parse_hex(@theme.theme_primary()),
+    ) {
     (Some((r1, g1, b1)), Some((r2, g2, b2))) =>
       assert_eq((r1, g1, b1), (r2, g2, b2))
     _ => assert_true(false)
   }
   // 单层即原色
-  match (
-    @theme.parse_hex(funnel_layer_color(0, 1)),
-    @theme.parse_hex(@theme.theme_primary()),
-  ) {
+  match
+    (
+      @theme.parse_hex(funnel_layer_color(0, 1)),
+      @theme.parse_hex(@theme.theme_primary()),
+    ) {
     (Some((r1, g1, b1)), Some((r2, g2, b2))) =>
       assert_eq((r1, g1, b1), (r2, g2, b2))
     _ => assert_true(false)

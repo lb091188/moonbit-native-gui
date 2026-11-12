@@ -2,6 +2,7 @@
 // Cairo 后端在纯 CI 无显示时不可用；本 wbtest 走 Pure 后端。
 // line_cap 的 Round 档两后端都真实生效（dotted 边框的圆头点靠它落墨）。
 
+///|
 test "Painter.set_line_cap/join 在 Pure 后端不抛错" {
   let bmp = Bitmap::new(4, 4)
   let p = Painter::new(bmp)
@@ -11,6 +12,7 @@ test "Painter.set_line_cap/join 在 Pure 后端不抛错" {
   p.set_line_join(Miter)
 }
 
+///|
 test "draw_path 回放 Path 序列不抛错" {
   let bmp = Bitmap::new(8, 8)
   let p = Painter::new(bmp)
@@ -23,6 +25,7 @@ test "draw_path 回放 Path 序列不抛错" {
   // 只是不抛；具体像素覆盖由 Cairo 真机验收承担
 }
 
+///|
 test "LineCap/LineJoin 枚举变体齐全" {
   let a : LineCap = Butt
   let b : LineCap = Round
@@ -60,9 +63,18 @@ test "Round 端帽真实落墨：dotted 点段横向 ±1px 有墨、butt 档没�
   let round_bmp = draw(Round)
   // 点心在 x=5/15/25/35、y=10：±1px 与上下 ±1px 都该有墨
   for cx in [5, 15, 25, 35] {
-    assert_true(round_bmp.pixel(cx - 1, 10).a > 128, msg="圆帽左侧没墨 x=\{cx}")
-    assert_true(round_bmp.pixel(cx + 1, 10).a > 128, msg="圆帽右侧没墨 x=\{cx}")
-    assert_true(round_bmp.pixel(cx, 9).a > 128, msg="圆帽上侧没墨 x=\{cx}")
+    assert_true(
+      round_bmp.pixel(cx - 1, 10).a > 128,
+      msg="圆帽左侧没墨 x=\{cx}",
+    )
+    assert_true(
+      round_bmp.pixel(cx + 1, 10).a > 128,
+      msg="圆帽右侧没墨 x=\{cx}",
+    )
+    assert_true(
+      round_bmp.pixel(cx, 9).a > 128,
+      msg="圆帽上侧没墨 x=\{cx}",
+    )
   }
   // 点间空隙（周期 10 的半相）必须留白——点糊成线也算红
   assert_eq(round_bmp.pixel(10, 10).a, 0)

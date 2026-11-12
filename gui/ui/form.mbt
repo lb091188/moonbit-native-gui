@@ -23,13 +23,18 @@ fn attach_toggle(
   toggle : () -> Unit,
   off : Enabled,
 ) -> Unit {
-  w.on_pointer = Some(fn(self : @widget.Widget, ev : @widget.PointerEvent) -> Bool {
+  w.on_pointer = Some(fn(
+    self : @widget.Widget,
+    ev : @widget.PointerEvent,
+  ) -> Bool {
     match ev.kind {
       @widget.PointerKind::Down => !off.off
       @widget.PointerKind::Up => {
         let inside_x = ev.x >= 0.0 && ev.x <= self.rect.w
         let inside_y = ev.y >= 0.0 && ev.y <= self.rect.h
-        if !off.off && inside_x && inside_y { toggle() }
+        if !off.off && inside_x && inside_y {
+          toggle()
+        }
         false
       }
       @widget.PointerKind::Move => !off.off
@@ -47,17 +52,17 @@ pub fn checkbox(
   /// 双向绑定勾选状态（布尔 Store）。
   state : @base.Store[Bool],
   /// 置灰且不响应交互。
-  disabled? : Bool = false,
+  disabled~ : Bool = false,
   /// 按谓词/能力细粒度控制启用，与 `disabled` 二选一。
-  enabled? : Enabled? = None,
+  enabled~ : Enabled? = None,
   /// 进 Tab 焦点链的序号；传正数才可 Tab 到，0 = 自动领号。
-  focus_id? : Int = 0,
+  focus_id~ : Int32 = 0,
   /// 设字号（逻辑像素）。
-  font_size? : Double = 13.0,
+  font_size~ : Double = 13.0,
   /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
-  class? : Array[@style.Style] = [],
+  class~ : Array[@style.Style] = [],
   /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   follow_store(state)
   @widget.node_of_new(fn(row : @widget.Widget) -> @widget.Widget {
@@ -76,7 +81,10 @@ pub fn checkbox(
     // 标记的内置基调存 token 名（随主题现取）：强调色=primary，未选框色=border
     @style.apply(
       box,
-      @style.merge_all([@style.style(color="primary", border_color="border"), paint_subset(class)]),
+      @style.merge_all([
+        @style.style(color="primary", border_color="border"),
+        paint_subset(class),
+      ]),
     )
     box.on_draw = Some(fn(
       self : @widget.Widget,
@@ -107,11 +115,13 @@ pub fn checkbox(
         p.stroke_rect(0.0, 0.0, 14.0, 14.0)
       }
       if checked {
-        p.set_stroke_color(if off.off {
-          @theme.theme_text_secondary()
-        } else {
-          accent
-        })
+        p.set_stroke_color(
+          if off.off {
+            @theme.theme_text_secondary()
+          } else {
+            accent
+          },
+        )
         // 勾比框粗：14px 的框里 1px 折线只剩几个像素，看不出是个勾；
         // 两端离框边各留 2px 以上，否则与框线糊在一起。
         p.set_line_width(2.4)
@@ -129,7 +139,7 @@ pub fn checkbox(
     //（真机 XFCE 默认字体实测），与 radio 行同一条 min_height 口径
     row.node.set_min_height(@yoga.fixed(20.0))
     row.append_child(box)
-    let _ = (text(content, font_size=font_size, wrap=false)).mount_into(row)
+    let _ = text(content, font_size~, wrap=false).mount_into(row)
     row.cursor_fn = Some(enabled_cursor(off, @widget.CURSOR_HAND))
     attach_toggle(row, fn() { state.set(!state.get()) }, off)
     row.on_key = Some(fn(ev : @widget.KeyEvent) -> Bool {
@@ -155,15 +165,15 @@ pub fn checkbox(
 /// 每项各自进 Tab 链（自动领号），聚焦时环转主题色。
 pub fn radio_group(
   options : Array[String],
-  state : @base.Store[Int],
+  state : @base.Store[Int32],
   /// 置灰且不响应交互。
-  disabled? : Bool = false,
+  disabled~ : Bool = false,
   /// 按此方向排选项。
-  direction? : @yoga.FlexDirection = @yoga.Row,
+  direction~ : @yoga.FlexDirection = @yoga.Row,
   /// 拉开选项之间的间距。
-  gap? : Double = 12.0,
+  gap~ : Double = 12.0,
   /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
-  class? : Array[@style.Style] = [],
+  class~ : Array[@style.Style] = [],
 ) -> @widget.Node {
   follow_store(state)
   let is_row = match direction {
@@ -179,7 +189,10 @@ pub fn radio_group(
       // 内置基调存 token 名：选中=primary，未选环=border
       @style.apply(
         w,
-        @style.merge_all([@style.style(color="primary", border_color="border"), paint_subset(class)]),
+        @style.merge_all([
+          @style.style(color="primary", border_color="border"),
+          paint_subset(class),
+        ]),
       )
       w.on_draw = Some(fn(
         self : @widget.Widget,
@@ -189,17 +202,25 @@ pub fn radio_group(
         let s = @style.style_for(self)
         let accent = @style.color_of(s.color, "")
         let picked = state.get() == idx
-        p.set_stroke_color(if picked && !disabled { accent } else { @style.color_of(s.border_color, "") })
+        p.set_stroke_color(
+          if picked && !disabled {
+            accent
+          } else {
+            @style.color_of(s.border_color, "")
+          },
+        )
         p.set_line_width(1.3)
         // 环与心都走解析圆（半径=边长一半）：像素按到圆心的距离求覆盖，
         // 展平成折线再描边会在小半径上留下接头缺口
         p.stroke_round_rect(1.0, 1.0, 12.0, 12.0, 6.0)
         if picked {
-          p.set_fill_color(if disabled {
-            @theme.theme_text_secondary()
-          } else {
-            accent
-          })
+          p.set_fill_color(
+            if disabled {
+              @theme.theme_text_secondary()
+            } else {
+              accent
+            },
+          )
           // 心半径 3.0：环的内沿在 5.4，两者之间留得出一条空白，
           // 否则 14px 的标记上环与心糊成一整块实心板
           p.fill_round_rect(4.0, 4.0, 6.0, 6.0, 3.0)
@@ -213,7 +234,7 @@ pub fn radio_group(
         direction=@yoga.Row,
         column_gap=6.0,
         align_items=@yoga.AlignItems::Center,
-        class=class,
+        class~,
         handle=fn(w : @widget.Widget) -> Unit {
           // 行高不随字体度量塌陷：文本行盒比 14px 标记还矮的字体上（真机
           // XFCE 的默认字体实测如此），标记会把行撑破、圆圈顶被上一行盖住
@@ -268,7 +289,7 @@ pub fn radio_group(
   }
   view(
     items,
-    direction=direction,
+    direction~,
     row_gap=if is_row { 0.0 } else { gap },
     column_gap=if is_row { gap } else { 0.0 },
   )
@@ -281,17 +302,17 @@ pub fn switch(
   /// 双向绑定开关状态。
   state : @base.Store[Bool],
   /// 显示开启态文案。
-  on_text? : String = "",
+  on_text~ : String = "",
   /// 显示关闭态文案。
-  off_text? : String = "",
+  off_text~ : String = "",
   /// 置灰且不响应交互。
-  disabled? : Bool = false,
+  disabled~ : Bool = false,
   /// 进 Tab 焦点链的序号；传正数才可 Tab 到，0 = 自动领号。
-  focus_id? : Int = 0,
+  focus_id~ : Int32 = 0,
   /// 值变化时回调。
-  on_change? : (Bool) -> Unit = fn(_v : Bool) -> Unit { () },
+  on_change~ : (Bool) -> Unit = fn(_v : Bool) -> Unit { () },
   /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
-  class? : Array[@style.Style] = [],
+  class~ : Array[@style.Style] = [],
 ) -> @widget.Node {
   follow_store(state)
   @widget.node_of_new(fn(row : @widget.Widget) -> @widget.Widget {
@@ -314,7 +335,11 @@ pub fn switch(
     @style.apply(
       pill,
       @style.merge_all([
-        @style.style(color="#ffffff", background_color="primary", border_color="border"),
+        @style.style(
+          color="#ffffff",
+          background_color="primary",
+          border_color="border",
+        ),
         paint_subset(class),
       ]),
     )
@@ -365,7 +390,7 @@ pub fn switch(
     row.append_child(pill)
     let txt = if state.get() { on_text } else { off_text }
     if txt.length() > 0 {
-      let _ = (text(txt, wrap=false)).mount_into(row)
+      let _ = text(txt, wrap=false).mount_into(row)
     }
     row.cursor_fn = Some(enabled_cursor(off, @widget.CURSOR_HAND))
     attach_toggle(row, toggle, off)
@@ -393,20 +418,20 @@ pub fn slider(
   /// 双向绑定这个数值。
   state : @base.Store[Double],
   /// 限制数值下限。
-  min? : Double = 0.0,
+  min~ : Double = 0.0,
   /// 限制数值上限。
-  max? : Double = 100.0,
-  step? : Double = 0.0,
+  max~ : Double = 100.0,
+  step~ : Double = 0.0,
   /// 定死宽度，0 = 按内容测量。
-  width? : Double = 160.0,
+  width~ : Double = 160.0,
   /// 置灰且不响应交互。
-  disabled? : Bool = false,
+  disabled~ : Bool = false,
   /// 进 Tab 焦点链的序号；传正数才可 Tab 到，0 = 自动领号。
-  focus_id? : Int = 0,
+  focus_id~ : Int32 = 0,
   /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
-  class? : Array[@style.Style] = [],
+  class~ : Array[@style.Style] = [],
   /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   follow_store(state)
   let lo = min
@@ -447,23 +472,33 @@ pub fn slider(
       let cy = r.h / 2.0
       // 方圆随令牌：开=轨道全圆端头 + 圆形拇指，关=直角轨道 + 方形拇指
       let rad = @theme.radius_ctrl()
-      p.set_fill_color(if off.off {
-        @theme.theme_fill_hover()
-      } else {
-        @theme.theme_fill_zebra()
-      })
+      p.set_fill_color(
+        if off.off {
+          @theme.theme_fill_hover()
+        } else {
+          @theme.theme_fill_zebra()
+        },
+      )
       if rad > 0.0 {
         p.fill_round_rect(0.0, cy - 2.0, r.w, 4.0, 2.0)
       } else {
         p.fill_rect(0.0, cy - 2.0, r.w, 4.0)
       }
-      p.set_fill_color(if off.off {
-        @theme.theme_text_secondary()
-      } else {
-        @style.color_of(s.color, @theme.theme_primary())
-      })
+      p.set_fill_color(
+        if off.off {
+          @theme.theme_text_secondary()
+        } else {
+          @style.color_of(s.color, @theme.theme_primary())
+        },
+      )
       if rad > 0.0 {
-        p.fill_round_rect(0.0, cy - 2.0, (6.0 + track * ratio).max(4.0), 4.0, 2.0)
+        p.fill_round_rect(
+          0.0,
+          cy - 2.0,
+          (6.0 + track * ratio).max(4.0),
+          4.0,
+          2.0,
+        )
       } else {
         p.fill_rect(0.0, cy - 2.0, (6.0 + track * ratio).max(4.0), 4.0)
       }
@@ -514,7 +549,9 @@ pub fn slider(
           true
         }
         @widget.PointerKind::Move => {
-          if dragging.val { set_from_x(self, ev.x) }
+          if dragging.val {
+            set_from_x(self, ev.x)
+          }
           true
         }
         @widget.PointerKind::Up => {
@@ -546,7 +583,12 @@ pub fn slider(
         false
       }
     })
-    fold_style(w, @style.empty_style(), @style.style(color="primary", border_color="border"), class)
+    fold_style(
+      w,
+      @style.empty_style(),
+      @style.style(color="primary", border_color="border"),
+      class,
+    )
     handle(w)
     w
   })
@@ -556,12 +598,12 @@ pub fn slider(
 /// 进度条：`state` 取 0..max 的实数值（纯展示，不响应点击）。
 pub fn progress(
   state : @base.Store[Double],
-  max? : Double = 1.0,
-  width? : Double = 200.0,
-  height? : Double = 6.0,
-  color? : String = "",
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  max~ : Double = 1.0,
+  width~ : Double = 200.0,
+  height~ : Double = 6.0,
+  color~ : String = "",
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   follow_store(state)
   let hi = if max > 0.0 { max } else { 1.0 }
@@ -592,8 +634,12 @@ pub fn progress(
       let s = @style.style_for(self)
       let ratio = (state.get() / hi).clamp(min=0.0, max=1.0)
       // 细条端头随圆角令牌：开=全圆端头，关=直角
-      let pill = (r.h / 2.0).min(@style.number_of(s.border_radius, @theme.radius_ctrl()))
-      p.set_fill_color(@style.color_of(s.background_color, @theme.theme_fill_zebra()))
+      let pill = (r.h / 2.0).min(
+        @style.number_of(s.border_radius, @theme.radius_ctrl()),
+      )
+      p.set_fill_color(
+        @style.color_of(s.background_color, @theme.theme_fill_zebra()),
+      )
       p.fill_round_rect(0.0, 0.0, r.w, r.h, pill)
       p.set_fill_color(@style.color_of(s.color, ""))
       p.fill_round_rect(0.0, 0.0, (r.w * ratio).max(pill * 2.0), r.h, pill)
@@ -623,9 +669,9 @@ fn step_cell(
     fold_style(
       w,
       @style.empty_style(),
-      @style.empty_style().hover(background_color="fill_hover").active(
-        background_color="border",
-      ),
+      @style.empty_style()
+      .hover(background_color="fill_hover")
+      .active(background_color="border"),
       [subset],
     )
     w.on_draw = Some(fn(
@@ -639,11 +685,23 @@ fn step_cell(
         // 内缩并走圆角：外框（含聚焦高亮环）由行容器画在子件之下，
         // 方形填充会啃掉边框与圆角；半径 = 外框令牌 - 内缩 1。
         p.set_fill_color(bg)
-        p.fill_round_rect(1.0, 1.0, r.w - 2.0, r.h - 2.0, @theme.radius_ctrl() - 1.0)
+        p.fill_round_rect(
+          1.0,
+          1.0,
+          r.w - 2.0,
+          r.h - 2.0,
+          @theme.radius_ctrl() - 1.0,
+        )
       } else if off.off {
         // 禁用档与按钮族同口径：fill_hover 底（字色换次级由下方分支给）
         p.set_fill_color(@theme.theme_fill_hover())
-        p.fill_round_rect(1.0, 1.0, r.w - 2.0, r.h - 2.0, @theme.radius_ctrl() - 1.0)
+        p.fill_round_rect(
+          1.0,
+          1.0,
+          r.w - 2.0,
+          r.h - 2.0,
+          @theme.radius_ctrl() - 1.0,
+        )
       }
       p.set_stroke_color(@theme.theme_border())
       p.set_line_width(1.0)
@@ -677,8 +735,10 @@ fn step_cell(
       match ev.kind {
         @widget.PointerKind::Down => !off.off
         @widget.PointerKind::Up => {
-          let inside = ev.x >= 0.0 && ev.x <= self.rect.w &&
-            ev.y >= 0.0 && ev.y <= self.rect.h
+          let inside = ev.x >= 0.0 &&
+            ev.x <= self.rect.w &&
+            ev.y >= 0.0 &&
+            ev.y <= self.rect.h
           if !off.off && inside {
             on_click()
           }
@@ -695,7 +755,7 @@ fn step_cell(
 ///|
 /// 输入串 → 整数：整串是「可选负号 + 十进制数字」才给 Some，空串、只一个负号、
 /// 含非数字字符都给 None。累加到 9 位就封顶（再长的数必然越界，夹取时落在端点上）。
-fn int_of_digits(s : String) -> Int? {
+fn int_of_digits(s : String) -> Int32? {
   let n = s.length()
   let neg = n > 0 && s.unsafe_get(0).to_int() == 45
   let mut i = if neg { 1 } else { 0 }
@@ -728,17 +788,17 @@ fn int_of_digits(s : String) -> Int? {
 /// 聚焦时外框描边转主题色。
 pub fn stepper(
   /// 双向绑定这个数值。
-  state : @base.Store[Int],
+  state : @base.Store[Int32],
   /// 限制数值下限。
-  min? : Int = 0,
+  min~ : Int32 = 0,
   /// 限制数值上限。
-  max? : Int = 999,
+  max~ : Int32 = 999,
   /// 每次增减的步长。
-  step? : Int = 1,
+  step~ : Int32 = 1,
   /// 进 Tab 焦点链的序号；传正数才可 Tab 到，0 = 自动领号。
-  focus_id? : Int = 0,
+  focus_id~ : Int32 = 0,
   /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
-  class? : Array[@style.Style] = [],
+  class~ : Array[@style.Style] = [],
 ) -> @widget.Node {
   let lo = min
   let hi = if max > min { max } else { min }
@@ -771,9 +831,7 @@ pub fn stepper(
   }
   let take_focus = fn() -> Unit {
     match cell_ref.val {
-      Some(w) => if !w.focused {
-        let _ = w.request_host_focus()
-      }
+      Some(w) => if !w.focused { let _ = w.request_host_focus() }
       None => ()
     }
   }
@@ -782,7 +840,7 @@ pub fn stepper(
     minus_off.off = v <= lo
     plus_off.off = v >= hi
   }
-  let write = fn(v : Int) -> Unit { text.set(v.to_string()) }
+  let write = fn(v : Int32) -> Unit { text.set(v.to_string()) }
   let commit = fn() -> Unit {
     match int_of_digits(text.get()) {
       Some(v) => {
@@ -796,22 +854,20 @@ pub fn stepper(
   // 钮与方向键都先把「打字未提交」的串折进值再走步长：点 +/- 不会把焦点让出去，
   // 少了这一步就是格上显示 5、按值加出 3。走完步长再把焦点要给中间格，
   // 否则点两下 +/- 后接着打字会打到别处去。
-  let bump = fn(delta : Int) -> Unit {
+  let bump = fn(delta : Int32) -> Unit {
     commit()
     state.set((state.get() + delta).clamp(min=lo, max=hi))
     sync()
     take_focus()
     // 焦点已在中格时 take_focus 不动焦点标志，↑/↓ 连步后接着打字也要整体替换
     match cell_ref.val {
-      Some(w) => if w.focused {
-        select_all()
-      }
+      Some(w) => if w.focused { select_all() }
       None => ()
     }
   }
   // 值变 → 中间格跟随；串已经表示同一个数就不动（`007` 这类在打的串不被顶回）。
   // 越界值先夹回（set 同步再进本订阅，c 已在界内走常规分支）再照常跟随。
-  let sid = state.subscribe_id(fn(v : Int) -> Unit {
+  let sid = state.subscribe_id(fn(v : Int32) -> Unit {
     if v < lo || v > hi {
       state.set(v.clamp(min=lo, max=hi))
       return
@@ -841,15 +897,14 @@ pub fn stepper(
     focus_id=auto_focus_id(focus_id),
     on_enter=fn() { commit() },
     editor=fn(e : @input.Editor) -> Unit { cell_ed.val = Some(e) },
-    class=
-      [
-        subset,
-        @style.style(
-          border_width=0.0,
-          height=@theme.control_height - 2.0,
-          text_align=@text.TextAlign::Center,
-        ),
-      ],
+    class=[
+      subset,
+      @style.style(
+        border_width=0.0,
+        height=@theme.control_height - 2.0,
+        text_align=@text.TextAlign::Center,
+      ),
+    ],
     handle=fn(w : @widget.Widget) -> Unit {
       cell_ref.val = Some(w)
       w.on_focus_change = Some(fn(_self : @widget.Widget, on : Bool) -> Unit {
@@ -865,14 +920,11 @@ pub fn stepper(
       })
       let prev_key = w.on_key
       w.on_key = Some(fn(ev : @widget.KeyEvent) -> Bool {
-        let bare = (ev.mods & (
-          @base.MOD_CTRL | @base.MOD_ALT | @base.MOD_META
-        )) == 0
+        let bare = (ev.mods & (@base.MOD_CTRL | @base.MOD_ALT | @base.MOD_META)) ==
+          0
         if ev.press && bare {
           match @input.keysym_to_text(ev.keysym) {
-            Some(s) => if !num_text(s) {
-              return true
-            }
+            Some(s) => if !num_text(s) { return true }
             None => ()
           }
         }
@@ -896,21 +948,9 @@ pub fn stepper(
   )
   view(
     [
-      step_cell(
-        "-",
-        minus_off,
-        true,
-        fn() { bump(-inc) },
-        subset,
-      ),
+      step_cell("-", minus_off, true, fn() { bump(-inc) }, subset),
       value,
-      step_cell(
-        "+",
-        plus_off,
-        false,
-        fn() { bump(inc) },
-        subset,
-      ),
+      step_cell("+", plus_off, false, fn() { bump(inc) }, subset),
     ],
     direction=@yoga.Row,
     width=108.0,
@@ -918,12 +958,13 @@ pub fn stepper(
     align_items=@yoga.AlignItems::Center,
     corner_radius=@theme.radius_ctrl(),
     class=[
-      @style.style(
-        background_color="bg_panel",
-        border_color="border",
-        border_width=1.0,
-      ),
-    ] + class,
+        @style.style(
+          background_color="bg_panel",
+          border_color="border",
+          border_width=1.0,
+        ),
+      ] +
+      class,
     handle=fn(w : @widget.Widget) -> Unit {
       // 外框底/描边是 view 的内置绘制：包一层，聚焦时末尾补一圈主题色。
       // 描边走 `round_rect_path` + `stroke`（居中描边，压在盒子最外一圈像素上）：
@@ -974,6 +1015,7 @@ pub fn stepper(
     },
   )
 }
+
 ///|
 /// 按钮变体：Solid 主题色实底白字 / Soft 浅底主题色字 / Text 透明底主题色字 /
 /// Danger 红底白字。
@@ -1016,28 +1058,28 @@ pub fn button(
   /// 显示按钮上的文字。
   text : String,
   /// 点击时回调（空格/回车同样触发）。
-  on_click? : () -> Unit = fn() -> Unit { () },
-  variant? : ButtonVariant = Soft,
+  on_click~ : () -> Unit = fn() -> Unit { () },
+  variant~ : ButtonVariant = Soft,
   /// 覆盖文字色，空串随变体配色。
-  color? : String = "",
+  color~ : String = "",
   /// 覆盖底色，空串随变体配色。
-  background_color? : String = "",
-  icon? : @icons.IconKind? = None,
-  icon_size? : Double = 14.0,
+  background_color~ : String = "",
+  icon~ : @icons.IconKind? = None,
+  icon_size~ : Double = 14.0,
   /// 设字号（逻辑像素）。
   font_size? : Double,
   /// 限制最小宽度。
-  min_width? : Double = 0.0,
+  min_width~ : Double = 0.0,
   /// 进 Tab 焦点链的序号；传正数才可 Tab 到，0 = 自动领号。
-  focus_id? : Int = 0,
+  focus_id~ : Int32 = 0,
   /// 置灰且不响应交互。
-  disabled? : Bool = false,
+  disabled~ : Bool = false,
   /// 按谓词/能力细粒度控制启用，与 `disabled` 二选一。
-  enabled? : Enabled? = None,
+  enabled~ : Enabled? = None,
   /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
-  class? : Array[@style.Style] = [],
+  class~ : Array[@style.Style] = [],
   /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let src = text_source(
     text,
@@ -1059,9 +1101,17 @@ pub fn button(
   let (fg0, bg0) = button_skin_token(variant, false)
   let (fg1, bg1) = button_skin_token(variant, true)
   let base_fg = if color.length() > 0 { color } else { fg0 }
-  let base_bg = if background_color.length() > 0 { background_color } else { bg0 }
+  let base_bg = if background_color.length() > 0 {
+    background_color
+  } else {
+    bg0
+  }
   let lit_fg = if color.length() > 0 { color } else { fg1 }
-  let lit_bg = if background_color.length() > 0 { background_color } else { bg1 }
+  let lit_bg = if background_color.length() > 0 {
+    background_color
+  } else {
+    bg1
+  }
   let blocks : Array[@style.Style] = [
     match fg_block(base_fg) {
       Some(b) => b
@@ -1128,7 +1178,11 @@ pub fn button(
       } else {
         @style.color_of(s.color, "")
       }
-      let bg = if off.off { @theme.theme_fill_hover() } else { @style.color_of(s.background_color, "") }
+      let bg = if off.off {
+        @theme.theme_fill_hover()
+      } else {
+        @style.color_of(s.background_color, "")
+      }
       if bg.length() > 0 {
         p.set_fill_color(bg)
         if rad > 0.0 {
@@ -1138,7 +1192,7 @@ pub fn button(
         }
       }
       match icon {
-        Some(kind) => {
+        Some(kind) =>
           // 图标落左槽（内容区起点），字形盒居中在槽内，色随文字（含禁用态）
           @icons.draw_icon(
             p,
@@ -1148,7 +1202,6 @@ pub fn button(
             icon_size / 2.0,
             fg,
           )
-        }
         None => ()
       }
       let tx = 12.0 + icon_slot
@@ -1186,7 +1239,13 @@ pub fn button(
             p.set_stroke_color("#ffffff")
             p.set_line_width(1.0)
             if rad > 0.0 {
-              p.round_rect_path(1.5, 1.5, r.w - 3.0, r.h - 3.0, (rad - 1.0).max(0.0))
+              p.round_rect_path(
+                1.5,
+                1.5,
+                r.w - 3.0,
+                r.h - 3.0,
+                (rad - 1.0).max(0.0),
+              )
             } else {
               p.stroke_rect(1.0, 1.0, r.w - 2.0, r.h - 2.0)
             }
@@ -1211,9 +1270,13 @@ pub fn button(
       match ev.kind {
         @widget.PointerKind::Down => !off.off
         @widget.PointerKind::Up => {
-          let inside = ev.x >= 0.0 && ev.x <= self.rect.w &&
-            ev.y >= 0.0 && ev.y <= self.rect.h
-          if !off.off && inside { on_click() }
+          let inside = ev.x >= 0.0 &&
+            ev.x <= self.rect.w &&
+            ev.y >= 0.0 &&
+            ev.y <= self.rect.h
+          if !off.off && inside {
+            on_click()
+          }
           false
         }
         @widget.PointerKind::Move => !off.off
@@ -1243,10 +1306,10 @@ pub fn button(
 pub fn link(
   text : String,
   on_click : () -> Unit,
-  font_size? : Double = 13.0,
-  focus_id? : Int = 0,
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  font_size~ : Double = 13.0,
+  focus_id~ : Int32 = 0,
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let font = @text.Font::new("", font_size)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
@@ -1254,7 +1317,9 @@ pub fn link(
     let tw = text_width(text, font)
     w.focus_id = auto_focus_id(focus_id)
     w.node.set_width(@yoga.fixed(tw))
-    w.node.set_height(@yoga.fixed(@text.line_height_font(font).unwrap_or(18).to_double()))
+    w.node.set_height(
+      @yoga.fixed(@text.line_height_font(font).unwrap_or(18).to_double()),
+    )
     w.node.set_flex_shrink(0.0)
     w.cursor = @widget.CURSOR_HAND
     w.on_draw = Some(fn(
@@ -1275,7 +1340,13 @@ pub fn link(
         p.set_stroke_color(@theme.theme_primary())
         p.set_line_width(1.0)
         if rad > 0.0 {
-          p.round_rect_path(0.5, 0.5, (r.w - 1.0).max(1.0), (r.h - 1.0).max(1.0), rad)
+          p.round_rect_path(
+            0.5,
+            0.5,
+            (r.w - 1.0).max(1.0),
+            (r.h - 1.0).max(1.0),
+            rad,
+          )
           p.stroke()
         } else {
           p.stroke_rect(0.5, 0.5, (r.w - 1.0).max(1.0), (r.h - 1.0).max(1.0))
@@ -1289,9 +1360,13 @@ pub fn link(
       match ev.kind {
         @widget.PointerKind::Down => true
         @widget.PointerKind::Up => {
-          let inside = ev.x >= 0.0 && ev.x <= self.rect.w &&
-            ev.y >= 0.0 && ev.y <= self.rect.h
-          if inside { on_click() }
+          let inside = ev.x >= 0.0 &&
+            ev.x <= self.rect.w &&
+            ev.y >= 0.0 &&
+            ev.y <= self.rect.h
+          if inside {
+            on_click()
+          }
           false
         }
         _ => false
@@ -1323,10 +1398,10 @@ pub fn form_item(
   /// 在右侧放这个控件。
   control : @widget.Node,
   /// 限制左侧标签列的宽度。
-  label_width? : Double = 90.0,
-  error? : @base.Store[String] = @base.Store::new(""),
+  label_width~ : Double = 90.0,
+  error~ : @base.Store[String] = @base.Store::new(""),
   /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let err_store = error
   view(
@@ -1355,15 +1430,24 @@ pub fn form_item(
         align_items=@yoga.AlignItems::Center,
       ),
       view(
-        [text_dyn(err_store.signal(), font_size=12.0, color="danger", wrap=false)],
+        [
+          text_dyn(
+            err_store.signal(),
+            font_size=12.0,
+            color="danger",
+            wrap=false,
+          ),
+        ],
         direction=@yoga.Row,
         height=18.0,
-        handle=fn(w : @widget.Widget) -> Unit { w.set_margin(left=label_width + 12.0) },
+        handle=fn(w : @widget.Widget) -> Unit {
+          w.set_margin(left=label_width + 12.0)
+        },
       ),
     ],
     direction=@yoga.Column,
     row_gap=2.0,
-    handle=handle,
+    handle~,
   )
 }
 
@@ -1375,9 +1459,9 @@ pub fn form(
   /// 按顺序装进表单的表单项。
   items : Array[@widget.Node],
   /// 拉开纵向相邻子节点的间隙。
-  row_gap? : Double = 8.0,
+  row_gap~ : Double = 8.0,
   /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let nodes : Array[@widget.Node] = [
     text(title, class=[@style.text_title], wrap=false),
@@ -1385,13 +1469,17 @@ pub fn form(
   for it in items {
     nodes.push(it)
   }
-  view(nodes, direction=@yoga.Column, row_gap=row_gap, handle=handle)
+  view(nodes, direction=@yoga.Column, row_gap~, handle~)
 }
 
 ///|
 /// 五角星顶点（纯几何，供绘制与测试共用）：`cx`/`cy` 星心，`r_out` 外半径，
 /// 内半径取 0.382R（正五角星比例），起点朝上，共 10 点（外内交替）。
-pub fn star_points(cx : Double, cy : Double, r_out : Double) -> Array[(Double, Double)] {
+pub fn star_points(
+  cx : Double,
+  cy : Double,
+  r_out : Double,
+) -> Array[(Double, Double)] {
   let r_in = r_out * 0.382
   let pts : Array[(Double, Double)] = []
   for k = 0; k < 10; k = k + 1 {
@@ -1404,7 +1492,12 @@ pub fn star_points(cx : Double, cy : Double, r_out : Double) -> Array[(Double, D
 
 ///|
 /// 画一颗星（路径 + 上色由调用方决定：亮星填充、暗星描边）。
-fn star_path(p : @render.Painter, cx : Double, cy : Double, r_out : Double) -> Unit {
+fn star_path(
+  p : @render.Painter,
+  cx : Double,
+  cy : Double,
+  r_out : Double,
+) -> Unit {
   p.begin_path()
   let pts = star_points(cx, cy, r_out)
   for i = 0; i < pts.length(); i = i + 1 {
@@ -1423,28 +1516,30 @@ fn star_path(p : @render.Painter, cx : Double, cy : Double, r_out : Double) -> U
 /// 组件同口径）。键盘口径：→/↑ 加一星、←/↓ 减一星、Home/End 到两端，
 /// 写值同点击（回调 on_change）；自动进 Tab 链，聚焦时整圈主题色描边。
 pub fn rate(
-  value : @base.Store[Int],
-  max? : Int = 5,
+  value : @base.Store[Int32],
+  max~ : Int32 = 5,
   /// 值变化时回调。
-  on_change? : (Int) -> Unit = fn(_v : Int) -> Unit { () },
+  on_change~ : (Int32) -> Unit = fn(_v : Int32) -> Unit { () },
   /// 设单颗星的字形盒边长。
-  size? : Double = 22.0,
+  size~ : Double = 22.0,
   /// 拉开星与星的间距。
-  gap? : Double = 4.0,
+  gap~ : Double = 4.0,
   /// 进 Tab 焦点链的序号；传正数才可 Tab 到，0 = 自动领号。
-  focus_id? : Int = 0,
+  focus_id~ : Int32 = 0,
   /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
-  class? : Array[@style.Style] = [],
+  class~ : Array[@style.Style] = [],
   /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   follow_store(value)
   let n = if max > 0 { max } else { 1 }
-  let hover_n : Ref[Int] = Ref(0)
+  let hover_n : Ref[Int32] = Ref(0)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
     w.focus_id = auto_focus_id(focus_id)
-    w.node.set_width(@yoga.fixed(size * n.to_double() + gap * (n - 1).to_double()))
+    w.node.set_width(
+      @yoga.fixed(size * n.to_double() + gap * (n - 1).to_double()),
+    )
     w.node.set_height(@yoga.fixed(size))
     w.node.set_flex_shrink(0.0)
     w.cursor = @widget.CURSOR_HAND
@@ -1471,8 +1566,11 @@ pub fn rate(
       true
     })
     // 第几颗星（1 起，越界夹住）：星星间距的一半算在星内，边缘不空
-    w.on_pointer = Some(fn(_self : @widget.Widget, ev : @widget.PointerEvent) -> Bool {
-      let star_at = fn(x : Double) -> Int {
+    w.on_pointer = Some(fn(
+      _self : @widget.Widget,
+      ev : @widget.PointerEvent,
+    ) -> Bool {
+      let star_at = fn(x : Double) -> Int32 {
         let idx = ((x + gap / 2.0) / (size + gap)).to_int() + 1
         idx.clamp(min=1, max=n)
       }
@@ -1535,7 +1633,7 @@ pub fn rate(
         return false
       }
       let cur = value.get()
-      let setv = fn(v : Int) -> Bool {
+      let setv = fn(v : Int32) -> Bool {
         value.set(v)
         on_change(v)
         true
@@ -1553,7 +1651,12 @@ pub fn rate(
         false
       }
     })
-    fold_style(w, @style.empty_style(), @style.style(color="primary", border_color="border"), class)
+    fold_style(
+      w,
+      @style.empty_style(),
+      @style.style(color="primary", border_color="border"),
+      class,
+    )
     handle(w)
     w
   })
@@ -1562,7 +1665,11 @@ pub fn rate(
 ///|
 /// 下拉候选行（EP 样式）：当前选中浅蓝底 + 主色字 + 右侧 ✓，悬停灰底。
 /// 选中在**抬起**时触发（与浮层其它项同：按下被图层消费，抬起才派发）。
-fn select_row(opt : String, selected : () -> Bool, on_pick : () -> Unit) -> @widget.Node {
+fn select_row(
+  opt : String,
+  selected : () -> Bool,
+  on_pick : () -> Unit,
+) -> @widget.Node {
   let font = @text.Font::new("", 13.0)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
@@ -1600,7 +1707,11 @@ fn select_row(opt : String, selected : () -> Bool, on_pick : () -> Unit) -> @wid
         r.h,
         opt,
         font,
-        if act { @theme.theme_primary() } else { @style.color_of(st.color, @theme.theme_text_regular()) },
+        if act {
+          @theme.theme_primary()
+        } else {
+          @style.color_of(st.color, @theme.theme_text_regular())
+        },
         align=@text.Start,
         valign=@text.Center,
       )
@@ -1635,11 +1746,15 @@ fn select_row(opt : String, selected : () -> Bool, on_pick : () -> Unit) -> @wid
 ///|
 /// 候选浮层：`n` 行 × 28 高 + 4×2 内边距，超过 300 高就套一层垂直滚动
 /// （选项再多也不会顶出窗口）。`select_t` 与 `combo` 共用。
-fn list_popup(rows : Array[@widget.Node], n : Int, width : Double) -> @widget.Node {
+fn list_popup(
+  rows : Array[@widget.Node],
+  n : Int32,
+  width : Double,
+) -> @widget.Node {
   let want = n.to_double() * 28.0 + 8.0
   let list_h = if want > 300.0 { 300.0 } else { want }
   let st = ScrollState::new()
-  overlay_pane([scroll_view(rows, st, width=width, height=list_h)], width, list_h)
+  overlay_pane([scroll_view(rows, st, width~, height=list_h)], width, list_h)
 }
 
 ///|
@@ -1657,20 +1772,20 @@ pub fn select(
   options : Array[String],
   value : @base.Store[String],
   /// 值变化时回调。
-  on_change? : (String) -> Unit = fn(_s : String) -> Unit { () },
-  clearable? : Bool = false,
+  on_change~ : (String) -> Unit = fn(_s : String) -> Unit { () },
+  clearable~ : Bool = false,
   /// 没输入时显示占位文字。
-  placeholder? : String = "",
+  placeholder~ : String = "",
   /// 定死宽度，0 = 按内容测量。
-  width? : Double = 200.0,
+  width~ : Double = 200.0,
   /// 进 Tab 焦点链的序号；传正数才可 Tab 到，0 = 自动领号。
-  focus_id? : Int = 0,
+  focus_id~ : Int32 = 0,
   /// 允许直接输入（下拉同时当输入框）。
-  editable? : Bool = false,
+  editable~ : Bool = false,
   /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
-  class? : Array[@style.Style] = [],
+  class~ : Array[@style.Style] = [],
   /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   if editable {
     // §2 合并:`combo`(可输入)就是 select 的 editable 档,原实现整体复用
@@ -1694,8 +1809,8 @@ pub fn select(
     w.a11y_state = Some(fn(_self : @widget.Widget) -> (String, String)? {
       Some(("", value.get()))
     })
-    let open_id : Ref[Int] = Ref(0)
-    let hi : Ref[Int] = Ref(0)
+    let open_id : Ref[Int32] = Ref(0)
+    let hi : Ref[Int32] = Ref(0)
     let shown : Ref[Array[String]] = Ref([])
     w.focus_id = auto_focus_id(focus_id)
     let close_pop = fn() -> Unit {
@@ -1755,7 +1870,11 @@ pub fn select(
       width,
       fn() -> String {
         let v = value.get()
-        if v.length() > 0 { v } else { ph }
+        if v.length() > 0 {
+          v
+        } else {
+          ph
+        }
       },
       fn() -> Bool { value.get().length() > 0 },
       clearable,
@@ -1818,16 +1937,16 @@ pub fn select(
 /// 回车/空格取色、Esc 收层。
 pub fn color_picker(
   value : @base.Store[String],
-  colors? : Array[String] = [
+  colors~ : Array[String] = [
     "#2D68C4", "#2E9E5B", "#D9822B", "#D64550", "#6B7480", "#1E4FA3", "#3F6E9E",
     "#7A9E4E", "#B86E2B", "#9AA0A6", "#E8EAED", "#BDC1C6", "#4E5560", "#2A2F36",
     "#F5F7FA",
   ],
-  on_change? : (String) -> Unit = fn(_s : String) -> Unit { () },
-  width? : Double = 200.0,
-  focus_id? : Int = 0,
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  on_change~ : (String) -> Unit = fn(_s : String) -> Unit { () },
+  width~ : Double = 200.0,
+  focus_id~ : Int32 = 0,
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   follow_store(value)
   let cs = colors
@@ -1836,8 +1955,8 @@ pub fn color_picker(
   let per_row = 5
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    let open_id : Ref[Int] = Ref(0)
-    let hi : Ref[Int] = Ref(0)
+    let open_id : Ref[Int32] = Ref(0)
+    let hi : Ref[Int32] = Ref(0)
     w.focus_id = auto_focus_id(focus_id)
     let close_pop = fn() -> Unit {
       if open_id.val != 0 {
@@ -1993,7 +2112,9 @@ fn color_swatch(
       let st = @style.style_for(self)
       p.set_fill_color(@style.color_of(st.background_color, c))
       p.fill_rect(0.0, 0.0, r.w, r.h)
-      p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
+      p.set_stroke_color(
+        @style.color_of(st.border_color, @theme.theme_border()),
+      )
       p.set_line_width(1.0)
       p.stroke_rect(0.0, 0.0, r.w, r.h)
       if selected() {
@@ -2034,11 +2155,11 @@ fn color_swatch(
 fn combo_impl(
   options : Array[String],
   value : @base.Store[String],
-  on_change~ : Option[(String) -> Unit],
-  placeholder~ : Option[String],
-  width~ : Option[Double],
-  focus_id~ : Option[Int],
-  handle~ : Option[(@widget.Widget) -> Unit],
+  on_change~ : ((String) -> Unit)?,
+  placeholder~ : String?,
+  width~ : Double?,
+  focus_id~ : Int32?,
+  handle~ : ((@widget.Widget) -> Unit)?,
 ) -> @widget.Node {
   let on_change = on_change.unwrap_or(fn(_s : String) -> Unit { () })
   let placeholder = placeholder.unwrap_or("")
@@ -2049,8 +2170,8 @@ fn combo_impl(
   let opts = options
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    let open_id : Ref[Int] = Ref(0)
-    let hi : Ref[Int] = Ref(0)
+    let open_id : Ref[Int32] = Ref(0)
+    let hi : Ref[Int32] = Ref(0)
     let shown : Ref[Array[String]] = Ref([])
     let close = fn() -> Unit {
       if open_id.val != 0 {
@@ -2094,7 +2215,9 @@ fn combo_impl(
         let idx = i
         let text = cand[i]
         rows.push(
-          select_row(text, fn() -> Bool { hi.val == idx }, fn() -> Unit { pick(text) }),
+          select_row(text, fn() -> Bool { hi.val == idx }, fn() -> Unit {
+            pick(text)
+          }),
         )
       }
       shown.val = cand
@@ -2115,9 +2238,9 @@ fn combo_impl(
 
     let box = input(
       value,
-      placeholder=placeholder,
-      width=width,
-      focus_id=focus_id,
+      placeholder~,
+      width~,
+      focus_id~,
       on_change=fn(_t : String) -> Unit { open() },
       on_enter=accept,
     )

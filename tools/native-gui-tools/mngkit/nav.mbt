@@ -6,13 +6,13 @@
 /// 源码位置：文件路径 + 0 基行号。
 pub struct Loc {
   path : String
-  line : Int
+  line : Int32
 }
 
 ///|
 /// 建源码位置（跨包构造用）。
-pub fn loc_new(path : String, line : Int) -> Loc {
-  { path, line }
+pub fn loc_new(path : String, line : Int32) -> Loc {
+  { path, line, }
 }
 
 ///|
@@ -49,7 +49,7 @@ fn strip_vis(l : String) -> String {
 
 ///|
 /// 跳过 `[..]`（泛型参数块），返回 `]` 之后的位置。
-fn skip_bracket(cs : Array[Char], from : Int) -> Int {
+fn skip_bracket(cs : Array[Char], from : Int32) -> Int32 {
   let n = cs.length()
   let mut i = from
   if i >= n || cs[i] != '[' {
@@ -73,7 +73,7 @@ fn skip_bracket(cs : Array[Char], from : Int) -> Int {
 
 ///|
 /// 从 `i` 起读一个名字（标识符，允许 `::`）。
-fn read_name(cs : Array[Char], from : Int) -> String {
+fn read_name(cs : Array[Char], from : Int32) -> String {
   let n = cs.length()
   let mut i = from
   while i < n && (is_ident_char(cs[i]) || cs[i] == ':') {
@@ -84,13 +84,22 @@ fn read_name(cs : Array[Char], from : Int) -> String {
 
 ///|
 /// 名字后跟的字符是否断词（`Store` 不匹配 `StoreX`）。
-fn name_boundary(cs : Array[Char], at : Int) -> Bool {
+fn name_boundary(cs : Array[Char], at : Int32) -> Bool {
   if at >= cs.length() {
     return true
   }
   let c = cs[at]
-  c == '(' || c == '[' || c == '{' || c == '<' || c == ' ' || c == '\t' || c == ':' ||
-  c == '=' || c == '?' || c == ',' || c == ')'
+  c == '(' ||
+  c == '[' ||
+  c == '{' ||
+  c == '<' ||
+  c == ' ' ||
+  c == '\t' ||
+  c == ':' ||
+  c == '=' ||
+  c == '?' ||
+  c == ',' ||
+  c == ')'
 }
 
 ///|
@@ -153,9 +162,10 @@ fn scan_dir_for_decl(s : Sigs, dir : String, name : String) -> Loc? {
         for raw in lines {
           if !(raw.has_prefix(" ") || raw.has_prefix("\t")) {
             match decl_name_of(raw.trim().to_owned()) {
-              Some(n) => if n == name {
-                return Some({ path: dir + "/" + f, line: idx })
-              }
+              Some(n) =>
+                if n == name {
+                  return Some({ path: dir + "/" + f, line: idx, })
+                }
               None => ()
             }
           }
@@ -204,9 +214,10 @@ fn scan_dir_for_decl_suffix(s : Sigs, dir : String, suffix : String) -> Loc? {
         for raw in lines {
           if !(raw.has_prefix(" ") || raw.has_prefix("\t")) {
             match decl_name_of(raw.trim().to_owned()) {
-              Some(n) => if n.has_suffix(suffix) {
-                return Some({ path: dir + "/" + f, line: idx })
-              }
+              Some(n) =>
+                if n.has_suffix(suffix) {
+                  return Some({ path: dir + "/" + f, line: idx, })
+                }
               None => ()
             }
           }
@@ -292,7 +303,7 @@ pub fn Sigs::locate_decl(self : Sigs, path : String) -> Loc? {
   }
   if rest.length() == 0 {
     match pkg_entry(self, dir) {
-      Some(p) => Some({ path: p, line: 0 })
+      Some(p) => Some({ path: p, line: 0, })
       None => None
     }
   } else {
@@ -325,9 +336,10 @@ pub fn Sigs::decl_text(self : Sigs, path : String) -> String? {
 fn mbti_members(text : String, out : Array[String]) -> Unit {
   for raw in split_arr(text, "\n") {
     match decl_name_of(raw.trim().to_owned()) {
-      Some(name) => if name.length() > 0 && !arr_contains(out, name) {
-        out.push(name)
-      }
+      Some(name) =>
+        if name.length() > 0 && !arr_contains(out, name) {
+          out.push(name)
+        }
       None => ()
     }
   }

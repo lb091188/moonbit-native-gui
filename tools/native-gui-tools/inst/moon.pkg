@@ -2,7 +2,7 @@
 // 帧格式与 gui/shell 的单实例通道一致；应用侧在 D-Bus 档也会同时开套接字监听。
 import {
   "moonbitlang/core/encoding/utf8",
-  "moonbitlang/core/env" @env,
+  "moonbitlang/core/env",
 }
 
 supported_targets = "native"

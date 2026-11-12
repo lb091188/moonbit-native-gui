@@ -284,8 +284,9 @@ test "bm_supported：与平台一致的探测口径" {
   // 三平台的 Bookmarks 同为 JSON、只差数据根，探测口径与历史侧同源
   assert_eq(
     bm_supported(),
-    sys_platform() == "linux" || sys_platform() == "windows" ||
-      sys_platform() == "macos",
+    sys_platform() == "linux" ||
+    sys_platform() == "windows" ||
+    sys_platform() == "macos",
   )
 }
 
@@ -310,7 +311,11 @@ test "bm_bookmarks：本机 Chrome 书签端到端（存在才跑）" {
           named = true
         }
       }
-      assert_true(named, msg="探测出的书签路径不在候选文件名里: " + first.bookmarks_path)
+      assert_true(
+        named,
+        msg="探测出的书签路径不在候选文件名里: " +
+          first.bookmarks_path,
+      )
       match bm_bookmarks(first.browser) {
         Ok(root) => {
           // 虚拟根名 "<浏览器>/<profile>"

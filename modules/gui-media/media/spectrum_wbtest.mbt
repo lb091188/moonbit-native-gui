@@ -1,11 +1,15 @@
 ///|
 /// 造一段 s16 小端正弦 PCM（`channels`>1 时各声道同值交错）。
-fn sp_sine(freq : Double, rate : Int, frames : Int, channels : Int) -> Bytes {
+fn sp_sine(
+  freq : Double,
+  rate : Int32,
+  frames : Int32,
+  channels : Int32,
+) -> Bytes {
   let raw = FixedArray::make(frames * channels * 2, b'\x00')
   for f = 0; f < frames; f = f + 1 {
-    let v = (24000.0 * @math.sin(
-        2.0 * @math.PI * freq * f.to_double() / rate.to_double(),
-      )).to_int()
+    let v = (24000.0 *
+    @math.sin(2.0 * @math.PI * freq * f.to_double() / rate.to_double())).to_int()
     let u = if v < 0 { v + 65536 } else { v }
     for c = 0; c < channels; c = c + 1 {
       let at = (f * channels + c) * 2
@@ -18,7 +22,7 @@ fn sp_sine(freq : Double, rate : Int, frames : Int, channels : Int) -> Bytes {
 
 ///|
 /// 电平表里的最强条下标。
-fn sp_argmax(lv : Array[Double]) -> Int {
+fn sp_argmax(lv : Array[Double]) -> Int32 {
   let mut best = 0
   for i = 1; i < lv.length(); i = i + 1 {
     if lv[i] > lv[best] {
@@ -35,7 +39,7 @@ test "radix-2 FFT：直流只点亮 bin 0" {
   let re = Array::make(n, 1.0)
   let im = Array::make(n, 0.0)
   spectrum_fft(re, im)
-  assert_true(re[0] > (n.to_double() - 0.001))
+  assert_true(re[0] > n.to_double() - 0.001)
   let mut worst = 0.0
   for k = 1; k < n; k = k + 1 {
     let m = (re[k] * re[k] + im[k] * im[k]).sqrt()

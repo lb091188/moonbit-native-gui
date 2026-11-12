@@ -304,10 +304,10 @@ fn draw_boxplot(
 /// 视图树；主题切换现取色自动跟随。
 pub fn boxplot_t(
   groups : @base.Store[Array[(String, Array[Double])]],
-  y_range? : (Double, Double)? = None,
-  width? : Double = 0.0,
-  height? : Double = 280.0,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  y_range~ : (Double, Double)? = None,
+  width~ : Double = 0.0,
+  height~ : Double = 280.0,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.follow_store(groups)
   let yr = y_range

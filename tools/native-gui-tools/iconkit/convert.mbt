@@ -3,8 +3,12 @@
 // 序列化为「命令字母 + 逗号分隔整数」，无空格——与 gui/icons 的 fill_icon_path/path_num 同口径。
 
 ///|
-fn round_i(v : Double) -> Int {
-  if v >= 0.0 { (v + 0.5).to_int() } else { (v - 0.5).to_int() }
+fn round_i(v : Double) -> Int32 {
+  if v >= 0.0 {
+    (v + 0.5).to_int()
+  } else {
+    (v - 0.5).to_int()
+  }
 }
 
 ///|
@@ -31,7 +35,7 @@ pub fn transform(
       mapped.push(Double::from_int(round_i((a[k + 1] - oy) * scale)))
       k += 2
     }
-    out.push({ cmd: s.cmd, args: mapped })
+    out.push({ cmd: s.cmd, args: mapped, })
   }
   out
 }

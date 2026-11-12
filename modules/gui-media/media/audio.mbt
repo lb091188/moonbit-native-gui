@@ -14,12 +14,12 @@ pub(all) enum ApState {
 
 ///|
 /// 填充目标：队列高于此值不再解码（约 0.3 秒的 PCM）。
-let ap_high_water : Int = 40000
+let ap_high_water : Int32 = 40000
 
 ///|
 /// 组件层的 tick 周期（毫秒）：`audio` 按它排 `pump`，静音降级模式
 /// 的位置近似也按它算——两处必须是同一个数，否则无设备环境的进度会漂。
-let ap_tick_ms : Int = 33
+let ap_tick_ms : Int32 = 33
 
 ///|
 /// 音量钳制（有效区间 [0,1]；NaN 按 0 处理）。
@@ -53,11 +53,15 @@ fn media_clamp_speed(v : Double) -> Double {
 
 ///|
 /// 读第 i 个 s16 样本（小端、交错按帧内声道偏移算好）。
-fn media_s16_at(src : Bytes, i : Int) -> Int {
+fn media_s16_at(src : Bytes, i : Int32) -> Int32 {
   let lo = src[i * 2].to_int()
   let hi = src[i * 2 + 1].to_int()
   let v = (hi << 8) | lo
-  if v >= 0x8000 { v - 0x10000 } else { v }
+  if v >= 0x8000 {
+    v - 0x10000
+  } else {
+    v
+  }
 }
 
 ///|
@@ -65,15 +69,11 @@ fn media_s16_at(src : Bytes, i : Int) -> Int {
 /// 按原采样率消费，于是媒体时间轴走得快一倍、**音高随动**——本栈不做时间
 /// 拉伸（那要相位声码器），代价写在 adaptation 文档里。
 /// 声道数非法 / `speed==1` / 太短都原样返回（不制造新对象）。
-fn media_resample_s16(
-  src : Bytes,
-  channels : Int,
-  speed : Double,
-) -> Bytes {
+fn media_resample_s16(src : Bytes, channels : Int32, speed : Double) -> Bytes {
   if channels <= 0 || speed == 1.0 || src.length() < channels * 4 {
     src
   } else {
-    let frames = (src.length() / 2) / channels
+    let frames = src.length() / 2 / channels
     let n = (frames.to_double() / speed).floor().to_int()
     if n <= 0 {
       src
@@ -91,9 +91,9 @@ fn media_resample_s16(
         while c < channels {
           let s0 = media_s16_at(src, i0 * channels + c)
           let s1 = media_s16_at(src, i1 * channels + c)
-          let mut v = (
-            s0.to_double() + (s1 - s0).to_double() * frac
-          ).round().to_int()
+          let mut v = (s0.to_double() + (s1 - s0).to_double() * frac)
+            .round()
+            .to_int()
           if v > 32767 {
             v = 32767
           } else if v < -32768 {
@@ -124,8 +124,8 @@ pub(all) struct AdevBox {
 pub(all) struct AudioPlayer {
   demuxer : @ffmbt.Demuxer
   dev : Ref[MbtAdev?]
-  channels : Int
-  rate : Int
+  channels : Int32
+  rate : Int32
   duration_s : Double
   volume : Ref[Double]
   speed : Ref[Double]
@@ -135,10 +135,10 @@ pub(all) struct AudioPlayer {
   closed : Ref[Bool]
   played_base : Ref[Int64]
   pos_base : Ref[Double]
-  muted_ticks : Ref[Int]
+  muted_ticks : Ref[Int32]
   /// PCM 旁路（频谱等消费者用）：每次推给设备前回调一段 s16 交错样本与声道数。
   /// 在 MoonBit 侧、主线程上跑，不碰设备回调线程。
-  tap : (Bytes, Int) -> Unit
+  tap : (Bytes, Int32) -> Unit
 }
 
 ///|
@@ -163,8 +163,8 @@ pub fn AudioPlayer::current(self : AudioPlayer) -> Double {
         let consumed = mbt_adev_played_bytes(d) - self.played_base.val
         let frames = consumed.to_double() / (self.channels * 2).to_double()
         // 队列里是重采样后的样本：消费 N 个样本 = 走过 N*speed 个源样本
-        let t =
-          self.pos_base.val + frames * self.speed.val / self.rate.to_double()
+        let t = self.pos_base.val +
+          frames * self.speed.val / self.rate.to_double()
         if t < 0.0 {
           0.0
         } else if self.duration_s > 0.0 && t > self.duration_s {
@@ -174,8 +174,11 @@ pub fn AudioPlayer::current(self : AudioPlayer) -> Double {
         }
       } else {
         // 哑设备：每 tick 解一帧（一帧 ≈ 一个 tick）近似推进
-        self.pos_base.val + self.muted_ticks.val.to_double() *
-          ap_tick_ms.to_double() / 1000.0 * self.speed.val
+        self.pos_base.val +
+        self.muted_ticks.val.to_double() *
+        ap_tick_ms.to_double() /
+        1000.0 *
+        self.speed.val
       }
     None => 0.0
   }
@@ -189,13 +192,13 @@ pub fn AudioPlayer::duration(self : AudioPlayer) -> Double {
 
 ///|
 /// 声道数。
-pub fn AudioPlayer::channel_count(self : AudioPlayer) -> Int {
+pub fn AudioPlayer::channel_count(self : AudioPlayer) -> Int32 {
   self.channels
 }
 
 ///|
 /// 采样率。
-pub fn AudioPlayer::sample_rate(self : AudioPlayer) -> Int {
+pub fn AudioPlayer::sample_rate(self : AudioPlayer) -> Int32 {
   self.rate
 }
 
@@ -211,7 +214,7 @@ pub fn AudioPlayer::is_muted(self : AudioPlayer) -> Bool {
 ///|
 /// 设备队列里还压着多少帧（无设备/未开给 0）：频谱用它把「取样时刻」换算回
 /// 「耳朵听到的时刻」。
-pub fn AudioPlayer::queued_frames(self : AudioPlayer) -> Int {
+pub fn AudioPlayer::queued_frames(self : AudioPlayer) -> Int32 {
   match self.dev.val {
     Some(d) =>
       if mbt_adev_has_device(d) == 1 && self.channels > 0 {
@@ -463,14 +466,16 @@ fn AudioPlayer::ap_reset_pos(self : AudioPlayer) -> Unit {
 /// 打开音频文件为播放器（ffmpeg 全格式：MP3/OGG/M4A/AAC/FLAC/WAV…）。
 pub fn AudioPlayer::make(
   path : String,
-  volume? : Double = 0.8,
-  looping? : Bool = false,
+  volume~ : Double = 0.8,
+  looping~ : Bool = false,
   /// PCM 旁路回调（频谱动画用）：每段推给设备的 s16 交错样本都转一份出来，
   /// 第二参是声道数。默认空操作——不用动画的人零代价。
-  pcm_tap? : (Bytes, Int) -> Unit = fn(
+  pcm_tap~ : (Bytes, Int32) -> Unit = fn(
     _pcm : Bytes,
-    _channels : Int,
-  ) -> Unit { () },
+    _channels : Int32,
+  ) -> Unit {
+    ()
+  },
 ) -> Result[AudioPlayer, String] {
   let demuxer = match @ffmbt.Demuxer::open(path) {
     Ok(d) => d
@@ -514,7 +519,7 @@ pub fn AudioPlayer::make(
 pub type MbtAdev
 
 ///|
-extern "c" fn mbt_adev_open(ch : Int, rate : Int) -> MbtAdev = "mbt_adev_open"
+extern "c" fn mbt_adev_open(ch : Int32, rate : Int32) -> MbtAdev = "mbt_adev_open"
 
 ///|
 #borrow(p)
@@ -522,19 +527,19 @@ extern "c" fn mbt_adev_close(p : MbtAdev) -> Unit = "mbt_adev_close"
 
 ///|
 #borrow(p)
-extern "c" fn mbt_adev_has_device(p : MbtAdev) -> Int = "mbt_adev_has_device"
+extern "c" fn mbt_adev_has_device(p : MbtAdev) -> Int32 = "mbt_adev_has_device"
 
 ///|
 #borrow(p)
-extern "c" fn mbt_adev_start(p : MbtAdev) -> Int = "mbt_adev_start"
+extern "c" fn mbt_adev_start(p : MbtAdev) -> Int32 = "mbt_adev_start"
 
 ///|
 #borrow(p)
-extern "c" fn mbt_adev_pause(p : MbtAdev) -> Int = "mbt_adev_pause"
+extern "c" fn mbt_adev_pause(p : MbtAdev) -> Int32 = "mbt_adev_pause"
 
 ///|
 #borrow(p, data)
-extern "c" fn mbt_adev_push(p : MbtAdev, data : Bytes, len : Int) -> Int = "mbt_adev_push"
+extern "c" fn mbt_adev_push(p : MbtAdev, data : Bytes, len : Int32) -> Int32 = "mbt_adev_push"
 
 ///|
 #borrow(p)

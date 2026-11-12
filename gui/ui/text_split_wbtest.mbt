@@ -47,11 +47,7 @@ test "主题化标签：按 max_width 折行（高度随之变高），固定色
     return
   }
   let long = "标签文字很长很长很长很长很长很长很长很长很长很长很长很长"
-  let (_, narrow) = mounted(
-    text(long, max_width=80.0),
-    200.0,
-    300.0,
-  )
+  let (_, narrow) = mounted(text(long, max_width=80.0), 200.0, 300.0)
   let (_, wide) = mounted(text(long, max_width=0.0), 200.0, 300.0)
   assert_true(narrow.rect.h > wide.rect.h)
   assert_true(wide.rect.w > 100.0)

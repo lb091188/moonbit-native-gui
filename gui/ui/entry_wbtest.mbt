@@ -5,12 +5,21 @@
 ///|
 /// 编辑快捷键的「主修饰键」跟宿主平台走（mac=Cmd，其余=Ctrl）。用例在两平台
 /// CI 上都要成立，硬写 Ctrl 的话在 mac 上等于没按键——真机 Cmd+A 无法全选就是这么漏的。
-fn mod_edit() -> Int {
-  if @shell.platform_is_macos() { @base.MOD_META } else { @base.MOD_CTRL }
+fn mod_edit() -> Int32 {
+  if @shell.platform_is_macos() {
+    @base.MOD_META
+  } else {
+    @base.MOD_CTRL
+  }
 }
 
 ///|
-fn key(root : @widget.Widget, w : @widget.Widget, keysym : Int, mods : Int) -> Unit {
+fn key(
+  root : @widget.Widget,
+  w : @widget.Widget,
+  keysym : Int32,
+  mods : Int32,
+) -> Unit {
   let _ = root.dispatch_key(w.focus_id, { press: true, keysym, mods, })
 }
 
@@ -52,19 +61,12 @@ fn release(root : @widget.Widget, w : @widget.Widget, x : Double) -> Unit {
 fn mounted_entry(
   text : String,
   width : Double,
-  placeholder? : String = "",
-  password? : Bool = false,
-  read_only? : Bool = false,
+  placeholder~ : String = "",
+  password~ : Bool = false,
+  read_only~ : Bool = false,
 ) -> (@widget.Widget, @widget.Widget, @base.Store[String]) {
   let store = @base.Store::new(text)
-  let e = input(
-    store,
-    placeholder=placeholder,
-    password=password,
-    read_only=read_only,
-    width=width,
-    focus_id=1,
-  )
+  let e = input(store, placeholder~, password~, read_only~, width~, focus_id=1)
   let root = @widget.Widget::new()
   root.set_size(width + 20.0, 60.0)
   root.set_column()
@@ -105,9 +107,16 @@ test "clearable：悬停出清空标记，点它整框清空并回写 Store" {
       }
     }
   }
-  assert_true(diff > 4, msg="悬停时清空标记没出现（热区像素零变化）")
+  assert_true(
+    diff > 4,
+    msg="悬停时清空标记没出现（热区像素零变化）",
+  )
   let _ = root.dispatch_pointer_to(w.id, {
-    kind: @widget.PointerKind::Down, x: 189.0, y: 12.0, button: 1, mods: 0,
+    kind: @widget.PointerKind::Down,
+    x: 189.0,
+    y: 12.0,
+    button: 1,
+    mods: 0,
   })
   assert_eq(store.get(), "")
 }
@@ -120,7 +129,10 @@ test "不给 focus_id 也自动可聚焦（输入框默认就该能点进能打�
   root.set_column()
   let w = input(store, width=200.0).mount_into(root)
   root.relayout(220.0, 60.0)
-  assert_true(w.focus_id > 0, msg="focus_id 仍是 0（宿主判定为不可聚焦）")
+  assert_true(
+    w.focus_id > 0,
+    msg="focus_id 仍是 0（宿主判定为不可聚焦）",
+  )
   match root.focusable_at(w.rect.x + 20.0, w.rect.y + 6.0) {
     Some(id) => assert_eq(id, w.focus_id)
     None => fail("点不进输入框：focusable_at 给 None")
@@ -219,7 +231,7 @@ test "拖动选区：按下为锚点，拖到最左端全选；松手后不再�
 }
 
 ///|
-fn caret_of(w : @widget.Widget) -> Int {
+fn caret_of(w : @widget.Widget) -> Int32 {
   match w.im_context {
     Some(f) => f().unwrap().1
     None => -1
@@ -329,11 +341,11 @@ test "输入框只读样式槽：class 覆盖底与描边，焦点框色来自 f
   }
   let v = @base.Store::new("内容")
   let root = mount_root(
-    [input(
-      v,
-      width=120.0,
-      class=[@style.style(background_color="#ff0000", border_color="#0000ff")],
-    )],
+    [
+      input(v, width=120.0, class=[
+        @style.style(background_color="#ff0000", border_color="#0000ff"),
+      ]),
+    ],
     200.0,
     60.0,
   )
@@ -363,7 +375,12 @@ test "输入框只读样式槽：class 覆盖底与描边，焦点框色来自 f
   let v2 = @base.Store::new("甲")
   let root2 = mount_root([input(v2, width=120.0)], 200.0, 60.0)
   let w2 = kid(root2, 0)
-  let edge : () -> (Int, Int, Int, Int) = fn() -> (Int, Int, Int, Int) {
+  let edge : () -> (Int32, Int32, Int32, Int32) = fn() -> (
+    Int32,
+    Int32,
+    Int32,
+    Int32,
+  ) {
     let b = @render.Bitmap::new(200, 60)
     let pp = @render.Painter::new(b)
     root2.paint(pp)
@@ -384,14 +401,16 @@ test "输入框只读样式槽：class 覆盖底与描边，焦点框色来自 f
 test "抬起事件不进编辑内核：按下+抬起恰一个字符" {
   let (root, w, store) = mounted_entry("hi", 200.0)
   key(root, w, 'a'.to_int(), 0)
-  let _ = root.dispatch_key_release(
-    w.focus_id,
-    { press: false, keysym: 'a'.to_int(), mods: 0, },
-  )
-  let _ = root.dispatch_key_release(
-    w.focus_id,
-    { press: false, keysym: @base.KS_TAB, mods: 0, },
-  )
+  let _ = root.dispatch_key_release(w.focus_id, {
+    press: false,
+    keysym: 'a'.to_int(),
+    mods: 0,
+  })
+  let _ = root.dispatch_key_release(w.focus_id, {
+    press: false,
+    keysym: @base.KS_TAB,
+    mods: 0,
+  })
   assert_eq(store.get(), "hia")
 }
 
@@ -413,7 +432,8 @@ test "密码遮罩：光标按遮罩串宽度定位（不是原文字宽）" {
     None => -1.0
   }
   let pad = 4.0
-  let mask_w = match @text.measure_font(mask_of("123"), @text.Font::new("", 13.0)) {
+  let mask_w = match
+    @text.measure_font(mask_of("123"), @text.Font::new("", 13.0)) {
     Some(m) => m.width
     None => 0.0
   }
@@ -440,12 +460,9 @@ test "居中档：光标跟着文本起点，不钉在左内边距" {
     return
   }
   let store = @base.Store::new("123")
-  let e = input(
-    store,
-    width=120.0,
-    focus_id=1,
-    class=[@style.style(text_align=@text.TextAlign::Center)],
-  )
+  let e = input(store, width=120.0, focus_id=1, class=[
+    @style.style(text_align=@text.TextAlign::Center),
+  ])
   let root = @widget.Widget::new()
   root.set_size(140.0, 60.0)
   root.set_column()

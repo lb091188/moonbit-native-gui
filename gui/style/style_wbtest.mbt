@@ -50,7 +50,11 @@ test "style 工厂：简写四边同值、逐边覆写、gap 展开" {
 
 ///|
 test "style 工厂：颜色三形态进字段，未写的属性保持 None" {
-  let s = style(color="#fff", background_color="primary", cursor=@widget.CURSOR_HAND)
+  let s = style(
+    color="#fff",
+    background_color="primary",
+    cursor=@widget.CURSOR_HAND,
+  )
   assert_true(is_color(s.color, Hex("#fff")))
   assert_true(is_color(s.background_color, Var("primary")))
   assert_true(s.cursor == Some(@widget.CURSOR_HAND))
@@ -74,8 +78,10 @@ test "merge：逐属性并集、后者赢、不改入参" {
 
 ///|
 test "merge：状态桶逐属性递归，不是整块互换" {
-  let a =
-    style(background_color="primary").hover(background_color="primary_hover", color="#fff")
+  let a = style(background_color="primary").hover(
+    background_color="primary_hover",
+    color="#fff",
+  )
   let b = style().hover(border_color="border")
   let m = merge(a, b)
   match m.hover {
@@ -175,7 +181,7 @@ test "border_style：工厂 / merge 覆写 / 状态桶都接这根槽" {
   let m = merge(style(border_style=Dotted), style(border_style=Solid))
   assert_true(m.border_style is Some(Solid))
   let h = style().hover(border_style=Dashed)
-  assert_true(h.hover is Some(_) )
+  assert_true(h.hover is Some(_))
   match h.hover {
     Some(b) => assert_true(b.border_style is Some(Dashed))
     None => assert_true(false)

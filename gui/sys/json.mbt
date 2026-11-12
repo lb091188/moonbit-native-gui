@@ -23,7 +23,7 @@ pub(all) enum VscJson {
 /// 递归下降解析器状态（text + 游标）。
 priv struct VscJsonParser {
   text : String
-  mut pos : Int
+  mut pos : Int32
 }
 
 ///|
@@ -59,7 +59,7 @@ fn VscJsonParser::skip_ws(self : VscJsonParser) -> Unit {
 
 ///|
 /// 当前码元；越界返回 -1。
-fn VscJsonParser::peek(self : VscJsonParser) -> Int {
+fn VscJsonParser::peek(self : VscJsonParser) -> Int32 {
   if self.pos < self.text.length() {
     self.text.unsafe_get(self.pos).to_int()
   } else {
@@ -198,7 +198,7 @@ fn VscJsonParser::parse_string_v(self : VscJsonParser) -> VscJson? {
       // '\'
       self.pos += 1
       let e = self.peek()
-      let simple : Int? = match e {
+      let simple : Int32? = match e {
         34 => Some(34)
         92 => Some(92)
         47 => Some(47) // '/'
@@ -258,7 +258,7 @@ fn VscJsonParser::parse_string_v(self : VscJsonParser) -> VscJson? {
 
 ///|
 /// 从当前位置读 4 位十六进制（\uXXXX 的 XXXX 部分）。
-fn VscJsonParser::hex4(self : VscJsonParser) -> Int? {
+fn VscJsonParser::hex4(self : VscJsonParser) -> Int32? {
   let mut v = 0
   let mut i = 0
   while i < 4 {
@@ -275,7 +275,7 @@ fn VscJsonParser::hex4(self : VscJsonParser) -> Int? {
 
 ///|
 /// 单个十六进制码元 → 数值（大小写均可）。
-pub fn vsc_hex_val(c : Int) -> Int? {
+pub fn vsc_hex_val(c : Int32) -> Int32? {
   if c >= 48 && c <= 57 {
     Some(c - 48)
   } else if c >= 97 && c <= 102 {
@@ -290,7 +290,7 @@ pub fn vsc_hex_val(c : Int) -> Int? {
 ///|
 /// 数值：纯整数走 Int64（溢出与含小数/指数走 Double 近似）。
 fn VscJsonParser::parse_number(self : VscJsonParser) -> VscJson? {
-  let chars : Array[Int] = []
+  let chars : Array[Int32] = []
   let n = self.text.length()
   while self.pos < n {
     let c = self.text.unsafe_get(self.pos).to_int()
@@ -314,7 +314,7 @@ fn VscJsonParser::parse_number(self : VscJsonParser) -> VscJson? {
 
 ///|
 /// 数值词元（码元列表）→ VscJson。
-fn vsc_number_value(chars : Array[Int]) -> VscJson {
+fn vsc_number_value(chars : Array[Int32]) -> VscJson {
   let mut is_float = false
   for c in chars {
     if c == 46 || c == 101 || c == 69 {
@@ -453,10 +453,11 @@ fn vsc_float_to_int64(f : Double) -> Int64? {
 // ---------------------------------------------------------------------------
 // 纯函数层:UTF-16 码点取值(JSON 字符串转义与 URI 解码共用)
 // ---------------------------------------------------------------------------
+
 ///|
 /// 取 i 处码点：代理对合并为一个码点，返回 (码点, 消耗码元数)；
 /// 孤立代理替换为 U+FFFD。
-pub fn vsc_codepoint_at(s : String, i : Int) -> (Int, Int) {
+pub fn vsc_codepoint_at(s : String, i : Int32) -> (Int32, Int32) {
   let c = s.unsafe_get(i).to_int()
   if c >= 0xD800 && c <= 0xDBFF && i + 1 < s.length() {
     let lo = s.unsafe_get(i + 1).to_int()

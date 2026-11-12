@@ -15,7 +15,7 @@
 
 ///|
 /// 码点 → UTF-8 字节（追加进 out）。
-fn vsc_utf8_encode(cp : Int, out : Array[Int]) -> Unit {
+fn vsc_utf8_encode(cp : Int32, out : Array[Int32]) -> Unit {
   if cp < 0x80 {
     out.push(cp)
   } else if cp < 0x800 {
@@ -35,7 +35,7 @@ fn vsc_utf8_encode(cp : Int, out : Array[Int]) -> Unit {
 
 ///|
 /// UTF-8 字节 → 码点（追加进 out）；非法序列以 U+FFFD 逐字节容错。
-fn vsc_utf8_decode(bytes : Array[Int], out : Array[Int]) -> Unit {
+fn vsc_utf8_decode(bytes : Array[Int32], out : Array[Int32]) -> Unit {
   let n = bytes.length()
   let mut i = 0
   while i < n {
@@ -85,13 +85,13 @@ fn vsc_utf8_decode(bytes : Array[Int], out : Array[Int]) -> Unit {
 
 ///|
 /// UTF-8 续字节（10xxxxxx）判定。
-fn vsc_is_cont(b : Int) -> Bool {
+fn vsc_is_cont(b : Int32) -> Bool {
   b >= 0x80 && b <= 0xBF
 }
 
 ///|
 /// 字节 → "%XX"（大写十六进制，与 JS encodeURIComponent 同形）。
-fn vsc_byte_hex(b : Int) -> String {
+fn vsc_byte_hex(b : Int32) -> String {
   let sb = StringBuilder()
   sb.write_char('%')
   sb.write_char(vsc_hex_char(b / 16, true))
@@ -101,7 +101,7 @@ fn vsc_byte_hex(b : Int) -> String {
 
 ///|
 /// 数值 → 十六进制字符（大写或小写）。
-fn vsc_hex_char(d : Int, upper : Bool) -> Char {
+fn vsc_hex_char(d : Int32, upper : Bool) -> Char {
   if d < 10 {
     (48 + d).unsafe_to_char()
   } else if upper {
@@ -135,7 +135,7 @@ fn vsc_uri_encode_path(path : String) -> String {
       i += 1
     } else {
       let (cp, step) = vsc_codepoint_at(path, i)
-      let bytes : Array[Int] = []
+      let bytes : Array[Int32] = []
       vsc_utf8_encode(cp, bytes)
       for b in bytes {
         sb.write_string(vsc_byte_hex(b))
@@ -149,9 +149,9 @@ fn vsc_uri_encode_path(path : String) -> String {
 ///|
 /// URI 段百分号解码（[start, end) 区间）：%XX 连续段按 UTF-8 组合解码，
 /// 原样字符直通。
-fn vsc_uri_percent_decode(s : String, start : Int, end : Int) -> String {
+fn vsc_uri_percent_decode(s : String, start : Int32, end : Int32) -> String {
   let sb = StringBuilder()
-  let pending : Array[Int] = []
+  let pending : Array[Int32] = []
   let mut i = start
   while i < end {
     let c = s.unsafe_get(i).to_int()
@@ -177,11 +177,11 @@ fn vsc_uri_percent_decode(s : String, start : Int, end : Int) -> String {
 
 ///|
 /// 把累积的 %XX 字节按 UTF-8 解码刷入 sb（空则无操作）。
-fn vsc_flush_pending(sb : StringBuilder, pending : Array[Int]) -> Unit {
+fn vsc_flush_pending(sb : StringBuilder, pending : Array[Int32]) -> Unit {
   if pending.length() == 0 {
     return
   }
-  let cps : Array[Int] = []
+  let cps : Array[Int32] = []
   vsc_utf8_decode(pending, cps)
   for cp in cps {
     sb.write_char(cp.unsafe_to_char())
@@ -233,7 +233,7 @@ fn vsc_resource_uri(user_dir : String, file_path : String) -> String {
 
 ///|
 /// 从 start 起做路径段编码（UNC 余段用）。
-fn vsc_uri_encode_path_from(path : String, start : Int) -> String {
+fn vsc_uri_encode_path_from(path : String, start : Int32) -> String {
   let n = path.length()
   if start >= n {
     return ""
@@ -257,7 +257,7 @@ fn vsc_uri_encode_path_from(path : String, start : Int) -> String {
       i += 1
     } else {
       let (cp, step) = vsc_codepoint_at(path, i)
-      let bytes : Array[Int] = []
+      let bytes : Array[Int32] = []
       vsc_utf8_encode(cp, bytes)
       for b in bytes {
         sb.write_string(vsc_byte_hex(b))
@@ -365,7 +365,7 @@ fn vsc_i64_hex32(h : Int64) -> String {
   }
   let neg = h < 0L
   let mut u : Int64 = if neg { -h } else { h }
-  let digits : Array[Int] = []
+  let digits : Array[Int32] = []
   while u > 0L {
     digits.push((u % 16L).to_int())
     u = u / 16L
@@ -475,7 +475,8 @@ fn vsc_window_path(w : VscJson) -> String? {
 /// storage.json 可读）。
 pub fn vsc_supported() -> Bool {
   match vsc_user_data_dir() {
-    Some(d) => sys_read_text_file(d + "/User/globalStorage/storage.json") is Some(_)
+    Some(d) =>
+      sys_read_text_file(d + "/User/globalStorage/storage.json") is Some(_)
     None => false
   }
 }
@@ -597,4 +598,3 @@ pub fn vsc_recent() -> Result[Array[String], VscodeError] {
   }
   Ok(vsc_recent_paths_of(root))
 }
-

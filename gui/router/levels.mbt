@@ -12,17 +12,17 @@ pub struct Router {
   default_evict : EvictPolicy
   built : Map[String, Built]
   queue : Ref[Array[String]]
-  queue_at : Ref[Int]
+  queue_at : Ref[Int32]
   prefetch_on : Ref[Bool]
   wired : Ref[Bool]
-  tick_handle : Ref[Int]
+  tick_handle : Ref[Int32]
   // 挂载登记（slot.mbt）：路径 → 挂在哪个容器、挂进去的控件、这一代的退订袋
   mounted : Map[String, Mounted]
   mount_order : Ref[Array[String]]
   // 每个分支的子槽登记一条重置闭包，淘汰祖先链时用它把子孙槽的挂载态一起归零
   slot_resets : Map[String, () -> Unit]
   // 语言广播句柄（remount.mbt）：0=未登记随语言重挂
-  locale_hook : Ref[Int]
+  locale_hook : Ref[Int32]
 }
 
 ///|
@@ -37,6 +37,7 @@ fn find_child(level : Array[Route], key : String) -> Route? {
   found
 }
 
+///|
 fn child_keys(level : Array[Route]) -> Array[String] {
   let keys : Array[String] = []
   for r in level {
@@ -50,8 +51,8 @@ fn child_keys(level : Array[Route]) -> Array[String] {
 /// 每层的初始值取该层候选的首个键，即首屏路径 = 首个根一路走到首个叶。
 pub fn new_router(
   roots : Array[Route],
-  default_load? : LoadPolicy = Prefetch,
-  default_evict? : EvictPolicy = Keep,
+  default_load~ : LoadPolicy = Prefetch,
+  default_evict~ : EvictPolicy = Keep,
 ) -> Router {
   let errs = tree_errors(roots)
   if errs.length() > 0 {
@@ -85,7 +86,7 @@ pub fn new_router(
 
 ///|
 /// 层数。
-pub fn Router::level_count(self : Router) -> Int {
+pub fn Router::level_count(self : Router) -> Int32 {
   self.levels.length()
 }
 
@@ -134,7 +135,7 @@ pub fn Router::goto(self : Router, path : String) -> Unit {
 
 ///|
 /// 该层的候选短名（`depth` 从 0 起）；越界给空数组。
-pub fn Router::children_at(self : Router, depth : Int) -> Array[String] {
+pub fn Router::children_at(self : Router, depth : Int32) -> Array[String] {
   let n = self.levels.length()
   if depth < 0 || depth >= n {
     []
@@ -157,11 +158,14 @@ pub fn Router::children_at(self : Router, depth : Int) -> Array[String] {
 
 ///|
 /// 该层的权威选中键，供任意 link 载体绑定；越界 abort。
-pub fn Router::store_at(self : Router, depth : Int) -> @base.Store[String] {
+pub fn Router::store_at(self : Router, depth : Int32) -> @base.Store[String] {
   if depth < 0 || depth >= self.levels.length() {
     abort(
-      "取层越界：" + depth.to_string() + "，本路由共 " +
-        self.levels.length().to_string() + " 层",
+      "取层越界：" +
+      depth.to_string() +
+      "，本路由共 " +
+      self.levels.length().to_string() +
+      " 层",
     )
   }
   self.levels[depth]
@@ -169,14 +173,14 @@ pub fn Router::store_at(self : Router, depth : Int) -> @base.Store[String] {
 
 ///|
 /// 当前路径上该层的节点（策略与 `build` 都挂在节点上）；越界或走不通给 None。
-pub fn Router::route_at(self : Router, depth : Int) -> Route? {
+pub fn Router::route_at(self : Router, depth : Int32) -> Route? {
   let n = self.levels.length()
   if depth < 0 || depth >= n {
     None
   } else {
     let mut level = self.roots
     let mut found : Route? = None
-    for i in 0..=depth {
+    for i in 0..<=depth {
       match find_child(level, self.levels[i].get()) {
         Some(r) => {
           level = r.children
@@ -184,9 +188,7 @@ pub fn Router::route_at(self : Router, depth : Int) -> Route? {
             found = Some(r)
           }
         }
-        None => {
-          return None
-        }
+        None => return None
       }
     }
     found

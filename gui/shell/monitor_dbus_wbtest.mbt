@@ -4,7 +4,12 @@
 ///|
 /// 造一个 KScreen mode 条目（variant(a{sv})：id / size{width,height} /
 /// refreshRate int64 赫兹——本机实物口径）。
-fn ksc_t_mode(id : String, w : Int, h : Int, hz : Int64) -> @dbus.GDBusValue {
+fn ksc_t_mode(
+  id : String,
+  w : Int32,
+  h : Int32,
+  hz : Int64,
+) -> @dbus.GDBusValue {
   let m : Map[String, @dbus.GDBusValue] = Map([])
   m.set("id", @dbus.GVString(id))
   let sz : Map[String, @dbus.GDBusValue] = Map([])
@@ -38,12 +43,10 @@ fn ksc_t_output(
 
 ///|
 test "kscreen：合成值树解析（嵌套 variant(a{sv}) / int64 赫兹 / currentModeId 对回）" {
-  let out = ksc_t_output(
-    "HDMI-0",
-    true,
-    "449",
-    [ksc_t_mode("448", 1920, 1080, 60), ksc_t_mode("449", 2560, 1440, 59)],
-  )
+  let out = ksc_t_output("HDMI-0", true, "449", [
+    ksc_t_mode("448", 1920, 1080, 60),
+    ksc_t_mode("449", 2560, 1440, 59),
+  ])
   match ksc_output(out) {
     None => fail("output 解析失败")
     Some(mi) => {
@@ -95,11 +98,20 @@ test "kscreen：真总线集成（无 KScreen 的环境跳过）" {
         for m in list {
           if m.connected {
             seen_connected = true
-            assert_true(m.width > 0 && m.height > 0, msg="已连输出无分辨率: \{m.name}")
-            assert_true(m.modes.length() > 0, msg="已连输出无模式表: \{m.name}")
+            assert_true(
+              m.width > 0 && m.height > 0,
+              msg="已连输出无分辨率: \{m.name}",
+            )
+            assert_true(
+              m.modes.length() > 0,
+              msg="已连输出无模式表: \{m.name}",
+            )
           }
         }
-        assert_true(seen_connected, msg="KScreen 在但一个已连输出都没有")
+        assert_true(
+          seen_connected,
+          msg="KScreen 在但一个已连输出都没有",
+        )
       }
     }
   }
@@ -110,7 +122,8 @@ test "monitor 门面：Wayland 档不拿 XWayland 假数据冒充" {
   // 无 KScreen 且无 mutter 时必须 Err（不是回 xrandr 的 XWAYLAND 虚拟屏）
   if !kscreen_available() && !mutter_dc_available() {
     match wayland_mon_list() {
-      Ok(_) => fail("无 Wayland 显示器通道却返回了读数（假数据）")
+      Ok(_) =>
+        fail("无 Wayland 显示器通道却返回了读数（假数据）")
       Err(_) => ()
     }
   }

@@ -26,14 +26,14 @@ pub(all) struct TreeItem {
 
 ///|
 /// 建树图节点（value 省略时圆点等大；children 建后可再 push）。
-pub fn TreeItem::make(name : String, value? : Double? = None) -> TreeItem {
+pub fn TreeItem::make(name : String, value~ : Double? = None) -> TreeItem {
   { name, value, children: [], }
 }
 
 ///|
 /// 子树高度（边数）：叶子（无子节点）为 0，否则 1 + 子节点最大高度。
 /// 即布局里深度分层的总层数减一（根深度 0）。
-pub fn tree_depth(item : TreeItem) -> Int {
+pub fn tree_depth(item : TreeItem) -> Int32 {
   if item.children.length() == 0 {
     return 0
   }
@@ -50,7 +50,7 @@ pub fn tree_depth(item : TreeItem) -> Int {
 ///|
 /// 叶子数：无子节点的节点计 1，否则为各子节点叶子数之和。叶节点沿横铺
 /// 方向均分槽位、父节点按子节点定位，故叶子数是布局的行列基准。
-pub fn tree_leaf_count(item : TreeItem) -> Int {
+pub fn tree_leaf_count(item : TreeItem) -> Int32 {
   if item.children.length() == 0 {
     return 1
   }
@@ -82,8 +82,8 @@ pub fn tree_max_value(item : TreeItem) -> Double {
 /// 叶槽位中心：n 个叶节点在 [start, start+span] 上均分，第 i 个叶节点
 /// 取第 i 段槽位的中心（(i+0.5)/n 处）。n <= 0 或 i 越界退化为区间中点。
 pub fn tree_leaf_slot(
-  i : Int,
-  n : Int,
+  i : Int32,
+  n : Int32,
   start : Double,
   span : Double,
 ) -> Double {
@@ -100,8 +100,8 @@ pub fn tree_leaf_slot(
 pub fn tree_dot_radius(
   value : Double?,
   max_value : Double,
-  min_r? : Double = 4.0,
-  max_r? : Double = 10.0,
+  min_r~ : Double = 4.0,
+  max_r~ : Double = 10.0,
 ) -> Double {
   let lo = if min_r < max_r { min_r } else { max_r }
   let hi = if min_r < max_r { max_r } else { min_r }
@@ -134,7 +134,7 @@ pub fn tree_vertical(orientation : String) -> Bool {
 /// 树图节点几何（画布坐标）：depth 为所在层（根 0），(x, y) 为圆点中心，
 /// r 为圆点半径，is_leaf 标记叶节点。
 pub(all) struct TreeNodeBox {
-  depth : Int
+  depth : Int32
   x : Double
   y : Double
   r : Double
@@ -155,7 +155,7 @@ pub(all) struct TreeEdge {
 pub(all) struct TreeLayout {
   boxes : Array[TreeNodeBox]
   edges : Array[TreeEdge]
-  max_depth : Int
+  max_depth : Int32
 }
 
 ///|
@@ -171,7 +171,7 @@ pub fn tree_layout(
   y0 : Double,
   x1 : Double,
   y1 : Double,
-  vertical? : Bool = false,
+  vertical~ : Bool = false,
 ) -> TreeLayout {
   let max_depth = tree_depth(root)
   let n_leaves = tree_leaf_count(root)
@@ -186,7 +186,7 @@ pub fn tree_layout(
   if n_leaves > 0 {
     let leaf_i = Ref(0)
     // 深度 d → 分层轴坐标（最深叶贴末端；单层树全部落在起点）
-    fn depth_pos(d : Int) -> Double {
+    fn depth_pos(d : Int32) -> Double {
       if max_depth <= 0 {
         start_p
       } else {
@@ -195,14 +195,14 @@ pub fn tree_layout(
     }
 
     // 第 k 个（DFS 序）叶子 → 横铺轴槽位中心
-    fn slot(k : Int) -> Double {
+    fn slot(k : Int32) -> Double {
       tree_leaf_slot(k, n_leaves, start_c, span_c)
     }
 
     // 深度优先遍历：返回本节点横铺轴坐标（叶子取槽位中心，父节点取子
     // 节点均值）；节点几何登记 boxes（后序：先子后父），折线登记
     // edges（子树边先于父边）。
-    fn walk(item : TreeItem, depth : Int) -> Double {
+    fn walk(item : TreeItem, depth : Int32) -> Double {
       let kids = item.children
       let ccs : Array[Double] = []
       let cross = if kids.length() == 0 {
@@ -264,7 +264,7 @@ fn tree_elbow(
 ///|
 /// 深度渐变着色：根取主题主色、最深层取主色浅色，中间按层线性混色；
 /// on_draw 现取主题色（深浅切换即跟随）。
-fn tree_depth_color(depth : Int, max_depth : Int) -> String {
+fn tree_depth_color(depth : Int32, max_depth : Int32) -> String {
   let f = if max_depth <= 0 {
     0.0
   } else {
@@ -431,10 +431,10 @@ fn tree_draw(
 /// 主题切换现取色自动跟随。
 pub fn tree_chart_t(
   root : @base.Store[TreeItem],
-  vertical? : Bool = false,
-  width? : Double = 0.0,
-  height? : Double = 320.0,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  vertical~ : Bool = false,
+  width~ : Double = 0.0,
+  height~ : Double = 320.0,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.follow_store(root)
   let vert = vertical

@@ -53,25 +53,23 @@ fn splitter_impl(
   ratio : Double,
   min_first : Double,
   min_second : Double,
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let r0 = ratio.clamp(min=0.05, max=0.95)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    w.node.set_flex_direction(if horizontal {
-      @yoga.Row
-    } else {
-      @yoga.Column
-    })
+    w.node.set_flex_direction(if horizontal { @yoga.Row } else { @yoga.Column })
     w.node.set_width(@yoga.percent(100.0))
     w.node.set_height(@yoga.percent(100.0))
     // 首栏：初始按比例（百分比），拖动后切成固定值
     let first_wrap = @widget.Widget::new()
-    first_wrap.node.set_flex_direction(if horizontal {
-      @yoga.Column
-    } else {
-      @yoga.Row
-    })
+    first_wrap.node.set_flex_direction(
+      if horizontal {
+        @yoga.Column
+      } else {
+        @yoga.Row
+      },
+    )
     if horizontal {
       first_wrap.node.set_width(@yoga.percent(r0 * 100.0))
     } else {
@@ -80,11 +78,13 @@ fn splitter_impl(
     first_wrap.node.set_flex_shrink(0.0)
     let _ = first.mount_into(first_wrap)
     let second_wrap = @widget.Widget::new()
-    second_wrap.node.set_flex_direction(if horizontal {
-      @yoga.Column
-    } else {
-      @yoga.Row
-    })
+    second_wrap.node.set_flex_direction(
+      if horizontal {
+        @yoga.Column
+      } else {
+        @yoga.Row
+      },
+    )
     second_wrap.node.set_flex_grow(1.0)
     second_wrap.node.set_min_width(@yoga.fixed(0.0))
     second_wrap.node.set_min_height(@yoga.fixed(0.0))
@@ -100,7 +100,11 @@ fn splitter_impl(
     }
     bar.node.set_flex_shrink(0.0)
     // 横向分隔用左右箭头、纵向用上下箭头（宿主按命中路径下发）
-    bar.cursor = if horizontal { @widget.CURSOR_RESIZE_H } else { @widget.CURSOR_RESIZE_V }
+    bar.cursor = if horizontal {
+      @widget.CURSOR_RESIZE_H
+    } else {
+      @widget.CURSOR_RESIZE_V
+    }
     let dragging = Ref(false)
     let drag_start : Ref[Double] = Ref(0.0)
     let drag_first0 : Ref[Double] = Ref(0.0)
@@ -132,7 +136,7 @@ fn splitter_impl(
           }
           true
         }
-        @widget.PointerKind::Move => {
+        @widget.PointerKind::Move =>
           if dragging.val {
             let cur = win
             // 总量从三个控件的实际矩形读：不捕获父控件（父子互指是引用环）
@@ -156,7 +160,6 @@ fn splitter_impl(
           } else {
             false
           }
-        }
         @widget.PointerKind::Up => {
           dragging.val = false
           true
@@ -187,21 +190,25 @@ pub(all) enum SplitDirection {
 pub fn split(
   first : @widget.Node,
   second : @widget.Node,
-  direction? : SplitDirection = Horizontal,
-  ratio? : Double = 0.5,
+  direction~ : SplitDirection = Horizontal,
+  ratio~ : Double = 0.5,
   // 缺省下限按方向分档（同现状 hsplit 80 / vsplit 60）；None=未给,现场折算
-  min_first? : Double = 0.0,
-  min_second? : Double = 0.0,
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  min_first~ : Double = 0.0,
+  min_second~ : Double = 0.0,
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let horiz = match direction {
     Horizontal => true
     Vertical => false
   }
-  let mf = if min_first > 0.0 { min_first } else { if horiz { 80.0 } else { 60.0 } }
-  let ms = if min_second > 0.0 { min_second } else { if horiz { 80.0 } else { 60.0 } }
-  splitter_impl(class, horiz, first, second, ratio, mf, ms, handle=handle)
+  let mf = if min_first > 0.0 { min_first } else if horiz { 80.0 } else { 60.0 }
+  let ms = if min_second > 0.0 {
+    min_second
+  } else if horiz {
+    80.0
+  } else {
+    60.0
+  }
+  splitter_impl(class, horiz, first, second, ratio, mf, ms, handle~)
 }
-
-

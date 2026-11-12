@@ -32,7 +32,12 @@ fn codeedit_diag(msg : String) -> Unit {
 ///|
 /// 行首到行内字节列 `col` 的宽：**逐码点累积**（与 `code_col_at` 同一条链，
 /// 点击定位与光标/选区绘制才不会因「整串一次量 vs 逐码点累加」的分叉错位）。
-fn code_prefix_w(doc : CodeScan, row : Int, col : Int, font : @text.Font) -> Double {
+fn code_prefix_w(
+  doc : CodeScan,
+  row : Int32,
+  col : Int32,
+  font : @text.Font,
+) -> Double {
   let line = doc.line_at(row)
   let b = @utf8.encode(line)
   let n = b.length()
@@ -52,7 +57,12 @@ fn code_prefix_w(doc : CodeScan, row : Int, col : Int, font : @text.Font) -> Dou
 ///|
 /// 控件内 x（内容系，已含横滚回补）→ 行内字节列：逐码点量前缀取不超过 x 的
 /// 最右码点边界。`content_x` 是行内容坐标（不含行号列与横滚偏移）。
-fn code_col_at(doc : CodeScan, row : Int, content_x : Double, font : @text.Font) -> Int {
+fn code_col_at(
+  doc : CodeScan,
+  row : Int32,
+  content_x : Double,
+  font : @text.Font,
+) -> Int32 {
   let line = doc.line_at(row)
   let b = @utf8.encode(line)
   let n = b.length()
@@ -100,8 +110,8 @@ fn code_auto_indent(line : String) -> String {
 ///|
 /// 查找全部匹配：ASCII 大小写不敏感逐字节比对（多字节序列不会误配——
 /// UTF-8 各字节 ≥ 0x80 原样比较）；空 query 给空表。
-fn find_all_matches(text : String, query : String) -> Array[(Int, Int)] {
-  let out : Array[(Int, Int)] = []
+fn find_all_matches(text : String, query : String) -> Array[(Int32, Int32)] {
+  let out : Array[(Int32, Int32)] = []
   let q = @utf8.encode(query)
   let m = q.length()
   if m == 0 {
@@ -109,14 +119,14 @@ fn find_all_matches(text : String, query : String) -> Array[(Int, Int)] {
   }
   let t = @utf8.encode(text)
   let n = t.length()
-  let lower = fn(v : Int) -> Int {
+  let lower = fn(v : Int32) -> Int32 {
     if v >= 65 && v <= 90 {
       v + 32
     } else {
       v
     }
   }
-  let ql : Array[Int] = []
+  let ql : Array[Int32] = []
   for i in 0..<m {
     ql.push(lower(q[i].to_int()))
   }
@@ -140,39 +150,35 @@ fn find_all_matches(text : String, query : String) -> Array[(Int, Int)] {
 /// 括号匹配：caret 处字符是开括号 → 向后找配对闭括号；caret 前一字符是
 /// 闭括号 → 向前找配对开括号。字符串/注释 token 内的括号不参与；两侧各限
 /// 400 行，找不到给 None。返回 (开括号字节号, 闭括号字节号)。
-fn code_bracket_pair(doc : CodeScan, caret : Int) -> (Int, Int)? {
+fn code_bracket_pair(doc : CodeScan, caret : Int32) -> (Int32, Int32)? {
   let n = doc.line_count()
   let anchor_row = doc.row_of(caret)
   doc.ensure((anchor_row + 400).min(n - 1))
   let col0 = caret - doc.start_of(anchor_row)
-  let is_open = fn(v : Int) -> Bool { v == 40 || v == 91 || v == 123 }
-  let is_close = fn(v : Int) -> Bool { v == 41 || v == 93 || v == 125 }
-  let close_of = fn(v : Int) -> Int {
+  let is_open = fn(v : Int32) -> Bool { v == 40 || v == 91 || v == 123 }
+  let is_close = fn(v : Int32) -> Bool { v == 41 || v == 93 || v == 125 }
+  let close_of = fn(v : Int32) -> Int32 {
     match v {
       40 => 41
       91 => 93
       _ => 125
     }
   }
-  let open_of = fn(v : Int) -> Int {
+  let open_of = fn(v : Int32) -> Int32 {
     match v {
       41 => 40
       93 => 91
       _ => 123
     }
   }
-  let line_bytes = fn(row : Int) -> Bytes {
-    @utf8.encode(doc.line_at(row))
-  }
-  let skipped = fn(byte : Int) -> Bool {
+  let line_bytes = fn(row : Int32) -> Bytes { @utf8.encode(doc.line_at(row)) }
+  let skipped = fn(byte : Int32) -> Bool {
     match doc.role_at(byte) {
       Some(StrLit) | Some(Comment) => true
       _ => false
     }
   }
-  let g = fn(row : Int, col : Int) -> Int {
-    doc.start_of(row) + col
-  }
+  let g = fn(row : Int32, col : Int32) -> Int32 { doc.start_of(row) + col }
   // 锚点口径：caret 处是开括号 → 向后找闭；caret 前一字符是闭括号 → 向前
   // 找开；caret 前一字符是开括号 → 也向后找闭（紧贴开括号右侧高亮配对，
   // 编辑器通例）。
@@ -182,7 +188,7 @@ fn code_bracket_pair(doc : CodeScan, caret : Int) -> (Int, Int)? {
   let mut fcol = col0
   let mut fbyte = caret
   let mut fopen = c0
-  let mut backward : (Int, Int, Int)? = None
+  let mut backward : (Int32, Int32, Int32)? = None
   if caret > 0 {
     let prow = doc.row_of(caret - 1)
     let pcol = caret - 1 - doc.start_of(prow)
@@ -282,27 +288,27 @@ pub fn code_editor(
   /// 双向绑定这段文本。
   store : @base.Store[String],
   /// 高亮语言（code_view 的关键字表同名）。
-  lang? : String = "moonbit",
+  lang~ : String = "moonbit",
   /// 设字号（逻辑像素，等宽字族）。
-  font_size? : Double = 13.0,
+  font_size~ : Double = 13.0,
   /// 行号列（默认开）。
-  line_numbers? : Bool = true,
+  line_numbers~ : Bool = true,
   /// 设为只读：可选中不可改。
-  read_only? : Bool = false,
+  read_only~ : Bool = false,
   /// 按行数撑出初始高度（height 优先）。
-  rows? : Int = 12,
+  rows~ : Int32 = 12,
   /// 定死高度，0 = 按 rows。
-  height? : Double = 0.0,
+  height~ : Double = 0.0,
   /// 进 Tab 焦点链的序号；传正数才可 Tab 到，0 = 自动领号。
-  focus_id? : Int = 0,
+  focus_id~ : Int32 = 0,
   /// 决定光标是否可见的谓词。
-  caret_on? : () -> Bool = fn() -> Bool { true },
+  caret_on~ : () -> Bool = fn() -> Bool { true },
   /// 值变化时回调（每次编辑给全文）。
-  on_change? : (String) -> Unit = fn(_s : String) -> Unit { () },
+  on_change~ : (String) -> Unit = fn(_s : String) -> Unit { () },
   /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
-  class? : Array[@style.Style] = [],
+  class~ : Array[@style.Style] = [],
   /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let ed = @input.Editor::new()
   attach_system_clipboard(ed)
@@ -310,7 +316,9 @@ pub fn code_editor(
   let _ = ed.insert_text(store.get())
   let doc = CodeScan::new(store.get(), lang)
   let font = @text.Font::new("Monospace", font_size)
-  let line_h = (@text.line_height_font(font).unwrap_or(18).to_double() + 5.0).max(14.0)
+  let line_h = (@text.line_height_font(font).unwrap_or(18).to_double() + 5.0).max(
+    14.0,
+  )
   // 几何口径与 code_view 同一套（观感统一，两个文件注释互指）：
   // 顶部 14；行号左缘 16；代码文字左缘 = 16 + 行号位宽 + 8（无行号 16）；内容右留白 8。
   let pad_top = 14.0
@@ -329,11 +337,9 @@ pub fn code_editor(
       16.0
     }
   }
-  let text_left = fn() -> Double {
-    gutter_of()
-  }
+  let text_left = fn() -> Double { gutter_of() }
   // 全文字节号 → 控件内坐标（已扣滚动偏移）
-  let caret_xy = fn(caret : Int) -> (Double, Double) {
+  let caret_xy = fn(caret : Int32) -> (Double, Double) {
     let row = doc.row_of(caret)
     let col = caret - doc.start_of(row)
     (
@@ -342,12 +348,12 @@ pub fn code_editor(
     )
   }
   // 控件内坐标 → 全文字节号
-  let hit_at = fn(x : Double, y : Double) -> Int {
+  let hit_at = fn(x : Double, y : Double) -> Int32 {
     let n = doc.line_count()
-    let row = (((y - pad_top + st.offset) / line_h).floor().to_int()).clamp(
-      min=0,
-      max=n - 1,
-    )
+    let row = ((y - pad_top + st.offset) / line_h)
+      .floor()
+      .to_int()
+      .clamp(min=0, max=n - 1)
     let content_x = x - text_left() + st.offset_x
     doc.start_of(row) + code_col_at(doc, row, content_x, font)
   }
@@ -385,14 +391,16 @@ pub fn code_editor(
   // —— P2：查找与括号匹配的状态 ——
   let find_store = @base.Store::new("")
   let find_open = Ref(false)
-  let find_matches : Ref[Array[(Int, Int)]] = Ref([])
+  let find_matches : Ref[Array[(Int32, Int32)]] = Ref([])
   let find_cur = Ref(-1)
   let pair_key = Ref(-1)
-  let pair_val : Ref[(Int, Int)?] = Ref(None)
+  let pair_val : Ref[(Int32, Int32)?] = Ref(None)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
     w.role = "code_editor"
-    w.a11y_text = Some(fn(_self : @widget.Widget) -> String? { Some(ed.get_text()) })
+    w.a11y_text = Some(fn(_self : @widget.Widget) -> String? {
+      Some(ed.get_text())
+    })
     w.a11y_state = Some(fn(_self : @widget.Widget) -> (String, String)? {
       if ro {
         Some(("read_only", ""))
@@ -411,7 +419,7 @@ pub fn code_editor(
       find_matches.val = find_all_matches(ed.get_text(), find_store.get())
       find_cur.val = if find_matches.val.length() > 0 { 0 } else { -1 }
     }
-    let jump_find = fn(dir : Int) -> Unit {
+    let jump_find = fn(dir : Int32) -> Unit {
       let ms = find_matches.val
       if ms.length() == 0 {
         return
@@ -443,12 +451,9 @@ pub fn code_editor(
         [
           view(
             [
-              input(
-                find_store,
-                width=150.0,
-                placeholder="查找…",
-                on_enter=fn() -> Unit { jump_find(1) },
-              ),
+              input(find_store, width=150.0, placeholder="查找…", on_enter=fn() -> Unit {
+                jump_find(1)
+              }),
               // 图标按钮（无默认底色、悬停浅底）：查找条要紧凑，普通按钮
               // 的底色与左右衬垫会把浮层撑出搜索框范围
               icon_button(
@@ -567,11 +572,11 @@ pub fn code_editor(
       let sel = ed.selection()
       let caret = ed.caret_pos()
       let n = doc.line_count()
-      let first = ((st.offset / line_h).floor().to_int()).clamp(min=0, max=n - 1)
-      let last = (((st.offset + r.h - pad_top) / line_h).ceil().to_int()).clamp(
-        min=0,
-        max=n - 1,
-      )
+      let first = (st.offset / line_h).floor().to_int().clamp(min=0, max=n - 1)
+      let last = ((st.offset + r.h - pad_top) / line_h)
+        .ceil()
+        .to_int()
+        .clamp(min=0, max=n - 1)
       doc.ensure(last)
       // 当前行高亮（聚焦时；画在选区与 token 之下）
       if self.focused && !off.off {
@@ -665,7 +670,12 @@ pub fn code_editor(
                 let y = pad_top + row.to_double() * line_h - st.offset
                 let x0 = code_prefix_w(doc, row, lo, font)
                 let x1 = code_prefix_w(doc, row, hi2, font)
-                p.fill_rect(tl - st.offset_x + x0, y, (x1 - x0).max(1.0), line_h)
+                p.fill_rect(
+                  tl - st.offset_x + x0,
+                  y,
+                  (x1 - x0).max(1.0),
+                  line_h,
+                )
               }
             }
           }
@@ -734,7 +744,9 @@ pub fn code_editor(
         p.fill_rect(cx, cy, 1.0, line_h)
       }
       // 焦点框色由 focus 桶供（样式没给就回落主题描边色）
-      p.set_stroke_color(@style.color_of(sty.border_color, @theme.theme_border()))
+      p.set_stroke_color(
+        @style.color_of(sty.border_color, @theme.theme_border()),
+      )
       p.set_line_width(@style.number_of(sty.border_width, 1.0))
       if rad > 0.0 {
         p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
@@ -777,7 +789,9 @@ pub fn code_editor(
         move_row(ev, w.rect)
         return true
       }
-      if !ctrl && !meta && (ev.keysym == @base.KS_HOME || ev.keysym == @base.KS_END) {
+      if !ctrl &&
+        !meta &&
+        (ev.keysym == @base.KS_HOME || ev.keysym == @base.KS_END) {
         let caret = ed.caret_pos()
         let row = doc.row_of(caret)
         let at = if ev.keysym == @base.KS_HOME {
@@ -818,7 +832,8 @@ pub fn code_editor(
         close_find()
         return true
       }
-      let editing = ev.keysym == @base.KS_BACKSPACE || ev.keysym == @base.KS_DELETE
+      let editing = ev.keysym == @base.KS_BACKSPACE ||
+        ev.keysym == @base.KS_DELETE
       // 只读时导航与复制照旧：带 Ctrl/Cmd 的组合要放行（mac 的选全、复制靠 Cmd）
       let nav = primary ||
         shift ||
@@ -847,7 +862,7 @@ pub fn code_editor(
       @widget.invalidate()
       true
     })
-    w.on_preedit = Some(fn(t : String, _caret : Int) -> Unit {
+    w.on_preedit = Some(fn(t : String, _caret : Int32) -> Unit {
       ed.set_preedit(t)
       @widget.invalidate()
     })
@@ -874,7 +889,7 @@ pub fn code_editor(
             )
           }
           let now = @shell.now_ms()
-          let dbl = (now - last_down.val) < 400L &&
+          let dbl = now - last_down.val < 400L &&
             (ev.x - last_xy.val.0).abs() < 4.0 &&
             (ev.y - last_xy.val.1).abs() < 4.0
           last_down.val = now
@@ -919,17 +934,12 @@ pub fn code_editor(
       st.scroll_by(0.0 - ev.dy * line_h * 3.0)
       st.offset != before
     })
-    w.im_context = Some(fn() -> (String, Int)? {
+    w.im_context = Some(fn() -> (String, Int32)? {
       Some((ed.get_text(), ed.caret_pos()))
     })
     w.im_cursor = Some(fn(self : @widget.Widget) -> @base.Rect? {
       let (cx, cy) = caret_xy(ed.caret_pos())
-      Some({
-        x: self.rect.x + cx,
-        y: self.rect.y + cy,
-        w: 1.0,
-        h: line_h,
-      })
+      Some({ x: self.rect.x + cx, y: self.rect.y + cy, w: 1.0, h: line_h, })
     })
     // 滚动条：视口的绝对定位子控件（纵贴右缘、横贴底缘，压在内容之上）
     w.append_child(scroll_bar(st))
@@ -947,7 +957,9 @@ pub fn code_editor(
     fold_style(
       w,
       @style.empty_style(),
-      @style.style(border_color="border", border_width=1.0).focus(border_color="primary"),
+      @style.style(border_color="border", border_width=1.0).focus(
+        border_color="primary",
+      ),
       class,
     )
     handle(w)

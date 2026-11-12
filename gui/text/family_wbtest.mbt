@@ -7,14 +7,13 @@ fn flip_ascii(s : String) -> String {
   let mut out = ""
   for c in s.to_array() {
     let i = c.to_int()
-    let v =
-      if i >= 97 && i <= 122 {
-        i - 32
-      } else if i >= 65 && i <= 90 {
-        i + 32
-      } else {
-        i
-      }
+    let v = if i >= 97 && i <= 122 {
+      i - 32
+    } else if i >= 65 && i <= 90 {
+      i + 32
+    } else {
+      i
+    }
     out = out + v.unsafe_to_char().to_string()
   }
   out
@@ -77,7 +76,12 @@ test "resolve_family：取第一个可用者，跳过空串，全不可用退系
 
 ///|
 test "Font::resolve：不可用的族名退空族名，字号字重样式不动" {
-  let bogus = Font::new("绝不可能存在的族 Qzzx", 21.0, weight=Bold, style=Italic)
+  let bogus = Font::new(
+    "绝不可能存在的族 Qzzx",
+    21.0,
+    weight=Bold,
+    style=Italic,
+  )
   let r = bogus.resolve()
   assert_eq((r.name, r.size), ("", 21.0))
   assert_eq(weight_value(r.weight), 700)

@@ -5,14 +5,21 @@
 //   ① 样式槽每帧读取（P2-e）② 文本布局缓存（323b537）。
 // 跑法：moon run experiment/showcase_cost_bench
 
+///|
 const PAGES = 14
+
+///|
 const TEXTS_PER_PAGE = 120
+
+///|
 const W = 1400
+
+///|
 const H = 900
 
 ///|
 /// 递归数「每帧真的会被画的控件」（有 on_draw 的），顺带数总控件数
-fn count_widgets(w : @widget.Widget) -> (Int, Int) {
+fn count_widgets(w : @widget.Widget) -> (Int32, Int32) {
   let mut total = 1
   let mut drawn = if w.on_draw is Some(_) { 1 } else { 0 }
   let kids = w.children()
@@ -26,7 +33,7 @@ fn count_widgets(w : @widget.Widget) -> (Int, Int) {
 
 ///|
 /// 一段典型内容：标题 + 一行控件 + 一叠文本行 + 统计块 + 提示条
-fn page_of(idx : Int, label : (Int) -> String) -> @widget.Node {
+fn page_of(idx : Int32, label : (Int32) -> String) -> @widget.Node {
   let parts : Array[@widget.Node] = [
     @ui.text("第 " + idx.to_string() + " 页", class=[@style.text_heading]),
     @ui.row(
@@ -42,19 +49,36 @@ fn page_of(idx : Int, label : (Int) -> String) -> @widget.Node {
     @ui.divider(),
   ]
   for i = 0; i < TEXTS_PER_PAGE; i = i + 1 {
-    let _ = parts.push(@ui.text(label(i), font_size=13.0, class=[@style.text_secondary]))
+    let _ = parts.push(
+      @ui.text(label(i), font_size=13.0, class=[@style.text_secondary]),
+    )
   }
   let _ = parts.push(@ui.statistic("访问量", "1,234"))
-  let _ = parts.push(@ui.alert("提示", description="这一段描述用来带出提示条的画法", t=@ui.Info))
-  @ui.col(parts, row_gap=4.0, padding=10.0, width=1360.0, background_color="bg_panel")
+  let _ = parts.push(
+    @ui.alert(
+      "提示",
+      description="这一段描述用来带出提示条的画法",
+      t=@ui.Info,
+    ),
+  )
+  @ui.col(
+    parts,
+    row_gap=4.0,
+    padding=10.0,
+    width=1360.0,
+    background_color="bg_panel",
+  )
 }
 
+///|
 fn build_page(cold~ : Bool) -> @widget.Node {
   // warm：12 条字符串轮转；cold：每条都带唯一编号（数量远超缓存上限）
-  let label : (Int) -> String = if cold {
-    fn(i : Int) -> String { "唯一文本 " + i.to_string() + "-" + (i * 7919).to_string() }
+  let label : (Int32) -> String = if cold {
+    fn(i : Int32) -> String {
+      "唯一文本 " + i.to_string() + "-" + (i * 7919).to_string()
+    }
   } else {
-    fn(i : Int) -> String { "复用文本 " + (i % 12).to_string() }
+    fn(i : Int32) -> String { "复用文本 " + (i % 12).to_string() }
   }
   let pages : Array[@widget.Node] = []
   for p = 0; p < PAGES; p = p + 1 {
@@ -63,7 +87,10 @@ fn build_page(cold~ : Bool) -> @widget.Node {
   @ui.col(pages, row_gap=8.0, width=W.to_double(), height=H.to_double())
 }
 
-fn mount_and_layout(node : @widget.Node) -> (@widget.Widget, Int, Int, Int64) {
+///|
+fn mount_and_layout(
+  node : @widget.Node,
+) -> (@widget.Widget, Int32, Int32, Int64) {
   let root = @widget.Widget::new()
   root.set_size(W.to_double(), H.to_double())
   root.set_column()
@@ -75,7 +102,8 @@ fn mount_and_layout(node : @widget.Node) -> (@widget.Widget, Int, Int, Int64) {
   (page, total, drawn, t1 - t0)
 }
 
-fn paint_frames(page : @widget.Widget, n : Int) -> Int64 {
+///|
+fn paint_frames(page : @widget.Widget, n : Int32) -> Int64 {
   let bm = @render.Bitmap::new(W, H)
   let p = @render.Painter::new(bm)
   let t0 = @win.now_ms()
@@ -89,8 +117,11 @@ fn paint_frames(page : @widget.Widget, n : Int) -> Int64 {
   t1 - t0
 }
 
+///|
 fn main {
-  let (warm_page, widgets, drawn, warm_mount) = mount_and_layout(build_page(cold=false))
+  let (warm_page, widgets, drawn, warm_mount) = mount_and_layout(
+    build_page(cold=false),
+  )
   let (cold_page, _, _, cold_mount) = mount_and_layout(build_page(cold=true))
   let n = 20
   let warm_ms = paint_frames(warm_page, n)
@@ -98,12 +129,31 @@ fn main {
   let warm_per = warm_ms.to_double() / n.to_double()
   let cold_per = cold_ms.to_double() / n.to_double()
   println(
-    "SCB widgets=" + widgets.to_string() + " drawn=" + drawn.to_string() +
-      " pages=" + PAGES.to_string() + " texts/page=" + TEXTS_PER_PAGE.to_string(),
+    "SCB widgets=" +
+    widgets.to_string() +
+    " drawn=" +
+    drawn.to_string() +
+    " pages=" +
+    PAGES.to_string() +
+    " texts/page=" +
+    TEXTS_PER_PAGE.to_string(),
   )
   println(
-    "SCB-COST mount=" + warm_mount.to_string() + "/" + cold_mount.to_string() + "ms" +
-      " warm=" + warm_ms.to_string() + "ms cold=" + cold_ms.to_string() + "ms /" +
-      n.to_string() + "帧 ⇒ " + warm_per.to_string() + " vs " + cold_per.to_string() + " ms/帧",
+    "SCB-COST mount=" +
+    warm_mount.to_string() +
+    "/" +
+    cold_mount.to_string() +
+    "ms" +
+    " warm=" +
+    warm_ms.to_string() +
+    "ms cold=" +
+    cold_ms.to_string() +
+    "ms /" +
+    n.to_string() +
+    "帧 ⇒ " +
+    warm_per.to_string() +
+    " vs " +
+    cold_per.to_string() +
+    " ms/帧",
   )
 }

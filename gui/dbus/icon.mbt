@@ -44,7 +44,7 @@ fn tray_round_rect_hit(
 /// 25×30、四边留白 1–3.4px；`dark` 选白色档（深色面板）或黑色档。
 /// 造型只留并集剪影（窗 + 头 + 双耳），耳窝挖空成透明，不做异色填充。
 /// 返回 (宽, 高, ARGB 字节)——SNI 口径大端 AARRGGBB、不预乘。
-pub fn mono_icon_pixmap(dark : Bool) -> (Int, Int, Bytes) {
+pub fn mono_icon_pixmap(dark : Bool) -> (Int32, Int32, Bytes) {
   let w = 32
   let h = 32
   let px : FixedArray[Byte] = FixedArray::make(w * h * 4, b'\x00')
@@ -75,14 +75,53 @@ pub fn mono_icon_pixmap(dark : Bool) -> (Int, Int, Bytes) {
         for sx in 0..<2 {
           let sxp = x.to_double() + 0.25 + sx.to_double() * 0.5
           let syp = y.to_double() + 0.25 + sy.to_double() * 0.5
-          let in_ear_l = tray_ellipse_hit(ear_rx, ear_ry, cos_a, -sin_a, sxp - ear_dx_l, syp - ear_cy)
-          let in_ear_r = tray_ellipse_hit(ear_rx, ear_ry, cos_a, sin_a, sxp - ear_dx_r, syp - ear_cy)
-          let in_bowl_l = tray_ellipse_hit(bowl_rx, bowl_ry, cos_a, -sin_a, sxp - ear_dx_l, syp - ear_cy)
-          let in_bowl_r = tray_ellipse_hit(bowl_rx, bowl_ry, cos_a, sin_a, sxp - ear_dx_r, syp - ear_cy)
-          let in_head = tray_ellipse_hit(head_rx, head_ry, 1.0, 0.0, sxp - head_cx, syp - head_cy)
-          let in_win = tray_round_rect_hit(win_cx, win_cy, win_hw, win_hh, win_r, sxp, syp)
+          let in_ear_l = tray_ellipse_hit(
+            ear_rx,
+            ear_ry,
+            cos_a,
+            -sin_a,
+            sxp - ear_dx_l,
+            syp - ear_cy,
+          )
+          let in_ear_r = tray_ellipse_hit(
+            ear_rx,
+            ear_ry,
+            cos_a,
+            sin_a,
+            sxp - ear_dx_r,
+            syp - ear_cy,
+          )
+          let in_bowl_l = tray_ellipse_hit(
+            bowl_rx,
+            bowl_ry,
+            cos_a,
+            -sin_a,
+            sxp - ear_dx_l,
+            syp - ear_cy,
+          )
+          let in_bowl_r = tray_ellipse_hit(
+            bowl_rx,
+            bowl_ry,
+            cos_a,
+            sin_a,
+            sxp - ear_dx_r,
+            syp - ear_cy,
+          )
+          let in_head = tray_ellipse_hit(
+            head_rx,
+            head_ry,
+            1.0,
+            0.0,
+            sxp - head_cx,
+            syp - head_cy,
+          )
+          let in_win = tray_round_rect_hit(
+            win_cx, win_cy, win_hw, win_hh, win_r, sxp, syp,
+          )
           // 层序：窗 > 头 > 耳窝挖空 > 耳；耳窝只挖耳内，不挖头/窗覆盖区
-          if in_win || in_head || ((in_ear_l || in_ear_r) && !(in_bowl_l || in_bowl_r)) {
+          if in_win ||
+            in_head ||
+            ((in_ear_l || in_ear_r) && !(in_bowl_l || in_bowl_r)) {
             n += 1.0
           }
         }
@@ -102,7 +141,7 @@ pub fn mono_icon_pixmap(dark : Bool) -> (Int, Int, Bytes) {
 
 ///|
 /// 默认托盘图标：浅色面板档的黑色单色图标（深色档用 [mono_icon_pixmap])。
-pub fn default_icon_pixmap() -> (Int, Int, Bytes) {
+pub fn default_icon_pixmap() -> (Int32, Int32, Bytes) {
   mono_icon_pixmap(false)
 }
 
@@ -113,12 +152,12 @@ pub fn default_icon_pixmap() -> (Int, Int, Bytes) {
 /// 属性回调里即 PanicError（实测点「切主题图标」后面板查 IconPixmap
 /// 触发，定案见 adaptation.md「托盘空 pixmap 属性回调 panic」条）。
 pub fn downscale_pixmap(
-  w : Int,
-  h : Int,
+  w : Int32,
+  h : Int32,
   px : Bytes,
-  nw : Int,
-  nh : Int,
-) -> (Int, Int, Bytes) {
+  nw : Int32,
+  nh : Int32,
+) -> (Int32, Int32, Bytes) {
   if w <= 0 || h <= 0 || nw <= 0 || nh <= 0 || px.length() < w * h * 4 {
     return (0, 0, Bytes::make(0, 0))
   }

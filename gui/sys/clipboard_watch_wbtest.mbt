@@ -104,18 +104,16 @@ test "cbw_stop：置停靠标志，幂等" {
 test "cbw_start_watch：注入假定时器通道，续拍与 stop 后不再续拍" {
   // 本包不认识事件循环：schedule 由调用方注入，测试用假通道把每拍回调
   // 收进表里手动派拍（GUI 层给 fn(ms, f) { let _ = @shell.set_timeout(ms, f) }）
-  let pending : Array[(() -> Unit)] = []
+  let pending : Array[() -> Unit] = []
   let seen : Array[String] = []
-  let intervals : Array[Int] = []
-  fn schedule(ms : Int, f : () -> Unit) -> Unit {
+  let intervals : Array[Int32] = []
+  fn schedule(ms : Int32, f : () -> Unit) -> Unit {
     intervals.push(ms)
     pending.push(f)
   }
   let watcher = cbw_start_watch(
     schedule,
-    fn(t) {
-      seen.push(t)
-    },
+    fn(t) { seen.push(t) },
     interval_ms=50,
   )
   // 50ms 被钳到下限 100ms
@@ -139,16 +137,14 @@ test "cbw_start_watch：注入假定时器通道，续拍与 stop 后不再续�
   // 基线取启动瞬间的内容，故未变化时不派发回调
   assert_eq(seen.length(), 0)
 }
+
 ///|
 test "ClipboardError Show 文本" {
   assert_eq(
     ClipboardError::Unsupported.to_string(),
     "ClipboardError::Unsupported",
   )
-  assert_eq(
-    ClipboardError::NoText.to_string(),
-    "ClipboardError::NoText",
-  )
+  assert_eq(ClipboardError::NoText.to_string(), "ClipboardError::NoText")
   assert_eq(
     ClipboardError::CommandFailed("退出码 1").to_string(),
     "ClipboardError::CommandFailed(退出码 1)",
@@ -176,7 +172,8 @@ test "cbw_get_text：真实只读探测（三平台原生后端，结果随环�
   // 后端与命令线都不在 Unsupported / 子进程失败 CommandFailed
   match cbw_get_text() {
     Ok(t) => println("cbw_get_text: Ok（\{t.length()} 字符）: \{t}")
-    Err(ClipboardError::NoText) => println("cbw_get_text: NoText（当前无文本）")
+    Err(ClipboardError::NoText) =>
+      println("cbw_get_text: NoText（当前无文本）")
     Err(ClipboardError::Unsupported) =>
       println("cbw_get_text: Unsupported（后端与命令线都不在）")
     Err(e) => println("cbw_get_text: \{e}")

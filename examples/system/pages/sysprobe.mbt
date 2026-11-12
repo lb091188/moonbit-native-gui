@@ -13,8 +13,8 @@
 fn sp_uptime(secs : Double) -> String {
   let total = secs.to_int()
   let d = total / 86400
-  let h = (total % 86400) / 3600
-  let m = (total % 3600) / 60
+  let h = total % 86400 / 3600
+  let m = total % 3600 / 60
   if d > 0 {
     "\{d} 天 \{h} 时 \{m} 分"
   } else if h > 0 {
@@ -26,13 +26,13 @@ fn sp_uptime(secs : Double) -> String {
 
 ///|
 /// kB → GB（四舍五入到整数位）。
-fn sp_gb(kb : Int) -> String {
+fn sp_gb(kb : Int32) -> String {
   (kb.to_double() / 1024.0 / 1024.0).round().to_int().to_string() + " GB"
 }
 
 ///|
 /// 按码点截断到前 n 个字符（超出补省略号）。
-fn sp_clip(s : String, n : Int) -> String {
+fn sp_clip(s : String, n : Int32) -> String {
   if s.length() <= n {
     return s
   }
@@ -61,7 +61,7 @@ fn sp_panel(
       @ui.text(title, font_size=13.0, weight=@text.SemiBold),
       @ui.text_dyn(body, font_size=12.0, wrap=true, max_width=width - 24.0),
     ],
-    width=width,
+    width~,
     row_gap=4.0,
     padding=12.0,
     align_items=@yoga.AlignItems::FlexStart,
@@ -92,16 +92,17 @@ fn sp_group(
     @ui.row(
       [
         @ui.button(btn_label, variant=@ui.Solid, on_click=fn() { refresh() }),
-        @ui.text(@shared.tx("读数因机而异；读不到的族显示原因，不影响其余部分。"), class=[@style.text_secondary]),
+        @ui.text(
+          @shared.tx(
+            "读数因机而异；读不到的族显示原因，不影响其余部分。",
+          ),
+          class=[@style.text_secondary],
+        ),
       ],
       column_gap=8.0,
       align_items=@yoga.AlignItems::Center,
     ),
-    @ui.row(
-      boxes,
-      column_gap=8.0,
-      align_items=@yoga.AlignItems::FlexStart,
-    ),
+    @ui.row(boxes, column_gap=8.0, align_items=@yoga.AlignItems::FlexStart),
   ]
 }
 
@@ -111,24 +112,32 @@ fn sp_sys_machine() -> String {
   let buf = StringBuilder()
   match @sys.si_os() {
     Ok(o) =>
-      buf.write_string("发行版: \{o.pretty_name}（id \{o.id}，版本 \{o.version_id}）\n")
+      buf.write_string(
+        "发行版: \{o.pretty_name}（id \{o.id}，版本 \{o.version_id}）\n",
+      )
     Err(e) => buf.write_string("发行版: 读不到：\{e}\n")
   }
   match @sys.si_machine() {
     Ok(m) =>
-      buf.write_string("机器: \{sp_clip(m.vendor + " " + m.product, 50)}（序列号 \{sp_clip(m.serial, 24)}）\n")
+      buf.write_string(
+        "机器: \{sp_clip(m.vendor + " " + m.product, 50)}（序列号 \{sp_clip(m.serial, 24)}）\n",
+      )
     Err(e) => buf.write_string("机器: 读不到：\{e}\n")
   }
   match @sys.si_memory() {
     Ok(mem) =>
-      buf.write_string("内存: 共 \{sp_gb(mem.total_kb)}，可用 \{sp_gb(mem.available_kb)}\n")
+      buf.write_string(
+        "内存: 共 \{sp_gb(mem.total_kb)}，可用 \{sp_gb(mem.available_kb)}\n",
+      )
     Err(e) => buf.write_string("内存: 读不到：\{e}\n")
   }
   match @sys.si_uptime() {
     Ok(secs) => buf.write_string("开机时长: \{sp_uptime(secs)}\n")
     Err(e) => buf.write_string("开机时长: 读不到：\{e}\n")
   }
-  buf.write_string("桌面环境: \{@sys.desktop_name()}（\{@sys.sys_platform()}）\n")
+  buf.write_string(
+    "桌面环境: \{@sys.desktop_name()}（\{@sys.sys_platform()}）\n",
+  )
   // 会话类型是 X 工具族的降级门：Wayland 会话里夜灯与窗口管理只剩 XWayland 兼容层
   let st = match @sys.session_type() {
     @sys.SessionType::X11 => "X11"
@@ -159,7 +168,11 @@ fn sp_sys_desktop() -> String {
       Ok(ps) => {
         buf.write_string("打印机: \{ps.length()} 台\n")
         for p in ps {
-          let ok = if @sys.prt_status_available(p.status) { @shared.tx("可用") } else { @shared.tx("不可用") }
+          let ok = if @sys.prt_status_available(p.status) {
+            @shared.tx("可用")
+          } else {
+            @shared.tx("不可用")
+          }
           buf.write_string("  \{sp_clip(p.name, 40)} [\{ok}]\n")
         }
       }
@@ -170,7 +183,9 @@ fn sp_sys_desktop() -> String {
       Err(_) => buf.write_string("默认打印机: 未设置\n")
     }
   } else {
-    buf.write_string("打印机: 本机取不到列表（无 CUPS / winspool）\n")
+    buf.write_string(
+      "打印机: 本机取不到列表（无 CUPS / winspool）\n",
+    )
   }
   buf.to_string()
 }
@@ -195,9 +210,19 @@ fn sp_monitors() -> String {
     Ok(mons) => {
       buf.write_string("全部输出: \{mons.length()} 个\n")
       for m in mons {
-        let conn = if m.connected { @shared.tx("已连接") } else { @shared.tx("未连接") }
-        let prim = if m.primary { @shared.tx("主输出") } else { @shared.tx("非主输出") }
-        buf.write_string("  \{m.name}: \{conn} \{prim}，支持模式 \{m.modes.length()} 种\n")
+        let conn = if m.connected {
+          @shared.tx("已连接")
+        } else {
+          @shared.tx("未连接")
+        }
+        let prim = if m.primary {
+          @shared.tx("主输出")
+        } else {
+          @shared.tx("非主输出")
+        }
+        buf.write_string(
+          "  \{m.name}: \{conn} \{prim}，支持模式 \{m.modes.length()} 种\n",
+        )
       }
     }
     Err(e) => buf.write_string("全部输出: 读不到：\{e}\n")
@@ -222,7 +247,9 @@ fn sp_apps() -> String {
         }
         first.push(list[i].name)
       }
-      buf.write_string("已装应用: \{list.length()} 个，例如 \{first.join("、")}\n")
+      buf.write_string(
+        "已装应用: \{list.length()} 个，例如 \{first.join("、")}\n",
+      )
       list
     }
     Err(e) => {
@@ -264,7 +291,9 @@ fn sp_recent() -> String {
   if @sys.vsc_supported() {
     match @sys.vsc_recent() {
       Ok(paths) => {
-        buf.write_string("VS Code 最近工作区: \{paths.length()} 条（列前 6）\n")
+        buf.write_string(
+          "VS Code 最近工作区: \{paths.length()} 条（列前 6）\n",
+        )
         let n = if paths.length() > 6 { 6 } else { paths.length() }
         for i = 0; i < n; i = i + 1 {
           buf.write_string("  \{sp_clip(paths[i], 56)}\n")
@@ -284,12 +313,20 @@ fn sp_browser_hist() -> String {
   let buf = StringBuilder()
   match @sys.bh_browsers() {
     Ok(profiles) => {
-      buf.write_string("浏览器 profile: \{profiles.length()} 个有 History 库\n")
+      buf.write_string(
+        "浏览器 profile: \{profiles.length()} 个有 History 库\n",
+      )
       match @sys.bh_history(limit=6) {
         Ok(items) => {
-          buf.write_string("历史样本: \{items.length()} 条（列前 6）\n")
+          buf.write_string(
+            "历史样本: \{items.length()} 条（列前 6）\n",
+          )
           for it in items {
-            let title = if it.title == "" { @shared.tx("(无标题)") } else { it.title }
+            let title = if it.title == "" {
+              @shared.tx("(无标题)")
+            } else {
+              it.title
+            }
             buf.write_string("  [\{it.visit_count}次] \{sp_clip(title, 34)}\n")
           }
         }
@@ -334,7 +371,9 @@ fn sp_bookmarks() -> String {
               let b = flats[i]
               match b.url {
                 Some(u) =>
-                  buf.write_string("  \{sp_clip(b.name, 26)}: \{sp_clip(u, 44)}\n")
+                  buf.write_string(
+                    "  \{sp_clip(b.name, 26)}: \{sp_clip(u, 44)}\n",
+                  )
                 None => ()
               }
             }
@@ -349,9 +388,15 @@ fn sp_bookmarks() -> String {
   if @sys.ffx_supported() {
     match @sys.ffx_history(limit=6) {
       Ok(items) => {
-        buf.write_string("Firefox 历史: \{items.length()} 条（列前 6）\n")
+        buf.write_string(
+          "Firefox 历史: \{items.length()} 条（列前 6）\n",
+        )
         for it in items {
-          let title = if it.title == "" { @shared.tx("(无标题)") } else { it.title }
+          let title = if it.title == "" {
+            @shared.tx("(无标题)")
+          } else {
+            it.title
+          }
           buf.write_string("  [\{it.visit_count}次] \{sp_clip(title, 34)}\n")
         }
       }
@@ -374,12 +419,17 @@ fn sp_clip_power() -> String {
     // 「没有文本」与「读不出来」是两件事：前者是剪贴板当前装着图片/文件
     // （或什么都没装），后者才是探测失败
     Err(@sys.ClipboardError::NoText) =>
-      buf.write_string("剪贴板: 当前无文本内容（空或图片/文件）\n")
+      buf.write_string(
+        "剪贴板: 当前无文本内容（空或图片/文件）\n",
+      )
     Err(e) => buf.write_string("剪贴板: 读不到：\{e}\n")
   }
   if @sys.idle_supported() {
     match @sys.idle_seconds() {
-      Ok(sec) => buf.write_string("空闲: \{sec.to_int()} 秒（自最后一次输入起）\n")
+      Ok(sec) =>
+        buf.write_string(
+          "空闲: \{sec.to_int()} 秒（自最后一次输入起）\n",
+        )
       Err(e) => buf.write_string("空闲: 读取失败：\{e}\n")
     }
   } else {
@@ -388,7 +438,10 @@ fn sp_clip_power() -> String {
   if @sys.autostart_supported() {
     let id = "libyue.showcase"
     match @sys.autostart_is_enabled(id) {
-      Ok(v) => buf.write_string("本示例开机自启: \{if v { "已开启" } else { "未开启" }}\n")
+      Ok(v) =>
+        buf.write_string(
+          "本示例开机自启: \{if v { "已开启" } else { "未开启" }}\n",
+        )
       Err(e) => buf.write_string("本示例开机自启: 读不到：\{e}\n")
     }
     match @sys.autostart_path(id) {
@@ -434,47 +487,45 @@ pub fn sysprobe_sections(_app : @shared.App) -> Array[@shared.Section] {
       "系统桌面",
       "系统与桌面",
       "发行版 / 机器 / 内存 / 开机时长 / 桌面环境，以及环境变量、壁纸、打印机。全部只读。",
-      sp_group(
-        @shared.tx("重新探测"),
-        [
-          (sys_a, @shared.tx("系统与机器"), sp_sys_machine),
-          (sys_b, @shared.tx("桌面与外设"), sp_sys_desktop),
-          (sys_c, @shared.tx("GPU 呈现档"), sp_gpu),
-        ],
-      ),
+      sp_group(@shared.tx("重新探测"), [
+        (sys_a, @shared.tx("系统与机器"), sp_sys_machine),
+        (sys_b, @shared.tx("桌面与外设"), sp_sys_desktop),
+        (sys_c, @shared.tx("GPU 呈现档"), sp_gpu),
+      ]),
     ),
     @shared.section(
       "显示器",
       "显示器",
       "显示器在用模式与全部输出（三平台各自的原生读数，只读）。窗口列表不列：Linux 走 wmctrl、Windows 走 EnumWindows，macOS 只能靠辅助功能授权，属两平台概念。",
-      sp_group(@shared.tx("重新探测"), [(mon_a, @shared.tx("显示器"), sp_monitors)]),
+      sp_group(@shared.tx("重新探测"), [
+        (mon_a, @shared.tx("显示器"), sp_monitors),
+      ]),
     ),
     @shared.section(
       "应用文件",
       "应用与文件",
       "已装应用统计与关键词查找（三平台同一判法，不拿发行版专属名当探针）、which 语义二进制查找；VS Code 最近工作区。最近文件不列：Linux 读 xbel、Windows 读 Recent 目录，macOS 无对应面。",
-      sp_group(
-        @shared.tx("重新探测"),
-        [(app_a, @shared.tx("已装应用"), sp_apps), (app_b, @shared.tx("编辑器工作区"), sp_recent)],
-      ),
+      sp_group(@shared.tx("重新探测"), [
+        (app_a, @shared.tx("已装应用"), sp_apps),
+        (app_b, @shared.tx("编辑器工作区"), sp_recent),
+      ]),
     ),
     @shared.section(
       "浏览器",
       "浏览器数据",
       "Chromium 系历史与下载、书签树；Firefox 历史。读的是本机浏览器的本地库，不上网。",
-      sp_group(
-        @shared.tx("重新探测"),
-        [
-          (brw_a, @shared.tx("历史与下载"), sp_browser_hist),
-          (brw_b, @shared.tx("书签与 Firefox"), sp_bookmarks),
-        ],
-      ),
+      sp_group(@shared.tx("重新探测"), [
+        (brw_a, @shared.tx("历史与下载"), sp_browser_hist),
+        (brw_b, @shared.tx("书签与 Firefox"), sp_bookmarks),
+      ]),
     ),
     @shared.section(
       "剪贴板电源",
       "剪贴板与桌面状态",
       "剪贴板文本、空闲读数、自启状态（只读）。电源计划与 D-Bus/MPRIS/通知能力不列：前者 macOS 无三值语义对位，后三者是 Linux 总线族。",
-      sp_group(@shared.tx("重新探测"), [(ses_a, @shared.tx("剪贴板与桌面状态"), sp_clip_power)]),
+      sp_group(@shared.tx("重新探测"), [
+        (ses_a, @shared.tx("剪贴板与桌面状态"), sp_clip_power),
+      ]),
     ),
   ]
 }

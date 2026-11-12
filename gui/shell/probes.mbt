@@ -29,7 +29,7 @@ pub fn sys_accent() -> String {
 ///|
 /// 本地时区的今天 (年, 月, 日)。平台给不出时返回 (0, 0, 0)——组件层据此退回
 /// 自己的兜底值，本层不猜日期。
-pub fn local_ymd() -> (Int, Int, Int) {
+pub fn local_ymd() -> (Int32, Int32, Int32) {
   let v = @win.local_date()
   if v <= 0L {
     (0, 0, 0)
@@ -42,8 +42,12 @@ pub fn local_ymd() -> (Int, Int, Int) {
 ///|
 /// 平台标识："linux" / "windows" / "macos"（桩编译期判定）。上层按它做**运行时**
 /// 平台分派（本栈不用 `#cfg(platform=)` 分派运行期行为）。
-pub fn platform_name() -> String { @sys.sys_platform() }
+pub fn platform_name() -> String {
+  @sys.sys_platform()
+}
 
 ///|
 /// 是否 macOS：修饰键习惯与系统默认加速键都按它分档（Cmd 而非 Ctrl）。
-pub fn platform_is_macos() -> Bool { platform_name() == "macos" }
+pub fn platform_is_macos() -> Bool {
+  platform_name() == "macos"
+}

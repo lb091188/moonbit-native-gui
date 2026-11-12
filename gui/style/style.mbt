@@ -59,7 +59,7 @@ pub(all) struct Style {
   mut right : Double?
   mut bottom : Double?
   mut left : Double?
-  mut z_index : Int?
+  mut z_index : Int32?
   // 整层透明度（0..1，画期把 global alpha 乘进全路径）。不提供投影（box_shadow），
   // 前置条件见 experience/adaptation.md「阴影」节。
   mut opacity : Double?
@@ -67,7 +67,7 @@ pub(all) struct Style {
   mut transition_ms : Double?
   // —— 其它（落宿主 Widget）
   mut visibility : Visibility?
-  mut cursor : Int?
+  mut cursor : Int32?
   // 背景渐变（S2）：给了且可解析（≥2 个有效 stop）时优先于 `background_color`
   mut background_gradient : GradientSpec?
   // —— 每角圆角 / 每边边框（S3；None = 回落统一 border_radius / border_width·color。
@@ -174,7 +174,7 @@ pub fn empty_style() -> Style {
 
 ///|
 /// 包内通用：`over` 有值就用 `over`，否则保留 `base`（merge 的逐属性规则）。
-fn [T] pick(base : T?, over : T?) -> T? {
+fn[T] pick(base : T?, over : T?) -> T? {
   match over {
     Some(_) => over
     None => base
@@ -190,6 +190,7 @@ fn merge_bucket(base : Style?, over : Style) -> Style {
   }
 }
 
+///|
 fn pick_style(base : Style?, over : Style?) -> Style? {
   match (base, over) {
     (Some(b), Some(o)) => Some(merge(b, o))
@@ -258,9 +259,18 @@ pub fn merge(base : Style, over : Style) -> Style {
   s.transition_ms = pick(base.transition_ms, over.transition_ms)
   s.visibility = pick(base.visibility, over.visibility)
   s.cursor = pick(base.cursor, over.cursor)
-  s.background_gradient = pick(base.background_gradient, over.background_gradient)
-  s.border_top_left_radius = pick(base.border_top_left_radius, over.border_top_left_radius)
-  s.border_top_right_radius = pick(base.border_top_right_radius, over.border_top_right_radius)
+  s.background_gradient = pick(
+    base.background_gradient,
+    over.background_gradient,
+  )
+  s.border_top_left_radius = pick(
+    base.border_top_left_radius,
+    over.border_top_left_radius,
+  )
+  s.border_top_right_radius = pick(
+    base.border_top_right_radius,
+    over.border_top_right_radius,
+  )
   s.border_bottom_right_radius = pick(
     base.border_bottom_right_radius,
     over.border_bottom_right_radius,
@@ -273,8 +283,14 @@ pub fn merge(base : Style, over : Style) -> Style {
   s.border_top_color = pick(base.border_top_color, over.border_top_color)
   s.border_right_width = pick(base.border_right_width, over.border_right_width)
   s.border_right_color = pick(base.border_right_color, over.border_right_color)
-  s.border_bottom_width = pick(base.border_bottom_width, over.border_bottom_width)
-  s.border_bottom_color = pick(base.border_bottom_color, over.border_bottom_color)
+  s.border_bottom_width = pick(
+    base.border_bottom_width,
+    over.border_bottom_width,
+  )
+  s.border_bottom_color = pick(
+    base.border_bottom_color,
+    over.border_bottom_color,
+  )
   s.border_left_width = pick(base.border_left_width, over.border_left_width)
   s.border_left_color = pick(base.border_left_color, over.border_left_color)
   s.blend_mode = pick(base.blend_mode, over.blend_mode)
@@ -559,7 +575,7 @@ pub fn Style::set_left(self : Style, v : Double?) -> Style {
 }
 
 ///|
-pub fn Style::set_z_index(self : Style, v : Int?) -> Style {
+pub fn Style::set_z_index(self : Style, v : Int32?) -> Style {
   self.z_index = v
   self
 }
@@ -571,7 +587,7 @@ pub fn Style::set_visibility(self : Style, v : Visibility?) -> Style {
 }
 
 ///|
-pub fn Style::set_cursor(self : Style, v : Int?) -> Style {
+pub fn Style::set_cursor(self : Style, v : Int32?) -> Style {
   self.cursor = v
   self
 }

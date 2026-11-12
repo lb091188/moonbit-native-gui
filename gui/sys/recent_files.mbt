@@ -26,7 +26,7 @@ pub(all) struct RecentItem {
   /// 最近修改时间（Unix 毫秒；modified 缺失或非法为 0）
   modified : Int64
   /// 记录过该文件的应用个数（bookmark:application 节点数）
-  app_count : Int
+  app_count : Int32
 }
 
 ///|
@@ -85,7 +85,7 @@ pub extend RecentError with Show::{to_string, output}
 
 ///|
 /// 码点拾取：取 s[i] 处码点，代理对合并为一个码点，返回 (码点, 消耗码元数)。
-fn rf_char_at(s : String, i : Int) -> (Char, Int) {
+fn rf_char_at(s : String, i : Int32) -> (Char, Int32) {
   let c = s.unsafe_get(i).to_int()
   if c >= 0xD800 && c <= 0xDBFF && i + 1 < s.length() {
     let lo = s.unsafe_get(i + 1).to_int()
@@ -101,7 +101,7 @@ fn rf_char_at(s : String, i : Int) -> (Char, Int) {
 
 ///|
 /// 码元 → 数值（越界给 -1）。
-fn rf_at(s : String, i : Int) -> Int {
+fn rf_at(s : String, i : Int32) -> Int32 {
   if i >= 0 && i < s.length() {
     s.unsafe_get(i).to_int()
   } else {
@@ -111,13 +111,13 @@ fn rf_at(s : String, i : Int) -> Int {
 
 ///|
 /// 空白码元（空格 / 制表 / 换行 / 回车）。
-fn rf_is_ws(c : Int) -> Bool {
+fn rf_is_ws(c : Int32) -> Bool {
   c == 32 || c == 9 || c == 10 || c == 13
 }
 
 ///|
 /// XML 标签名 / 属性名可用字符：字母、数字与 _ - : . 五种符号。
-fn rf_is_name_char(c : Int) -> Bool {
+fn rf_is_name_char(c : Int32) -> Bool {
   (c >= 97 && c <= 122) ||
   (c >= 65 && c <= 90) ||
   (c >= 48 && c <= 57) ||
@@ -129,7 +129,7 @@ fn rf_is_name_char(c : Int) -> Bool {
 
 ///|
 /// 从 i 起逐码元比对文本（全中给 true；用于 "-->"/"?>" 等短串匹配）。
-fn rf_match(s : String, i : Int, word : String) -> Bool {
+fn rf_match(s : String, i : Int32, word : String) -> Bool {
   let n = s.length()
   let mut k = 0
   while k < word.length() {
@@ -143,7 +143,7 @@ fn rf_match(s : String, i : Int, word : String) -> Bool {
 
 ///|
 /// 十六进制码元 → 数值（大小写均可；非十六进制给 None）。
-fn rf_hex_val(c : Int) -> Int? {
+fn rf_hex_val(c : Int32) -> Int32? {
   if c >= 48 && c <= 57 {
     Some(c - 48)
   } else if c >= 97 && c <= 102 {
@@ -188,7 +188,7 @@ pub fn rf_xml_unescape(s : String) -> String {
 ///|
 /// 从 s[i]（'&' 码元）起解一个 XML 实体：成功给 (解码文本, 消耗码元数)；
 /// 未知实体名、坏字符引用或缺 ';' 给 None（调用方按字面 '&' 放行）。
-fn rf_entity_at(s : String, i : Int) -> (String, Int)? {
+fn rf_entity_at(s : String, i : Int32) -> (String, Int32)? {
   let n = s.length()
   let j0 = i + 1
   if j0 < n && s.unsafe_get(j0).to_int() == 35 {
@@ -288,7 +288,7 @@ pub fn rf_percent_decode(s : String) -> String {
 
 ///|
 /// s[i] 处 "%XX" → 字节值（% 缺失或两位非十六进制给 None）。
-fn rf_hex_byte_at(s : String, i : Int) -> Int? {
+fn rf_hex_byte_at(s : String, i : Int32) -> Int32? {
   if i + 2 >= s.length() || s.unsafe_get(i).to_int() != 37 {
     // '%'
     return None
@@ -338,7 +338,7 @@ pub fn rf_uri_to_path(uri : String) -> String? {
 
 ///|
 /// 取子串 [start, end)（码元区间，按码点复制）。
-fn rf_substring(s : String, start : Int, end : Int) -> String {
+fn rf_substring(s : String, start : Int32, end : Int32) -> String {
   let sb = StringBuilder()
   let mut i = start
   while i < end {
@@ -351,13 +351,13 @@ fn rf_substring(s : String, start : Int, end : Int) -> String {
 
 ///|
 /// 闰年判定（4 年一闰、百年不闰、四百年再闰）。
-fn rf_is_leap(y : Int) -> Bool {
+fn rf_is_leap(y : Int32) -> Bool {
   (y % 4 == 0 && y % 100 != 0) || y % 400 == 0
 }
 
 ///|
 /// 月份天数（按闰年实算；月份越界给 None）。
-fn rf_days_in_month(y : Int, m : Int) -> Int? {
+fn rf_days_in_month(y : Int32, m : Int32) -> Int32? {
   match m {
     1 | 3 | 5 | 7 | 8 | 10 | 12 => Some(31)
     4 | 6 | 9 | 11 => Some(30)
@@ -368,7 +368,7 @@ fn rf_days_in_month(y : Int, m : Int) -> Int? {
 
 ///|
 /// 公历日期 → 距 1970-01-01 的天数（Hinnant days_from_civil 标准算法）。
-pub fn rf_days_from_civil(y : Int, m : Int, d : Int) -> Int {
+pub fn rf_days_from_civil(y : Int32, m : Int32, d : Int32) -> Int32 {
   let yy = if m <= 2 { y - 1 } else { y }
   let era = (if yy >= 0 { yy } else { yy - 399 }) / 400
   let yoe = yy - era * 400
@@ -495,7 +495,7 @@ pub fn rf_iso_to_unix_ms(text : String) -> Int64? {
 
 ///|
 /// 从 i 起读恰好 len 位十进制数字（不足位或含非数字给 None）。
-fn rf_num(s : String, i : Int, len : Int) -> Int? {
+fn rf_num(s : String, i : Int32, len : Int32) -> Int32? {
   if i < 0 || i + len > s.length() {
     return None
   }
@@ -529,12 +529,12 @@ priv struct RfEntry {
 /// 扫描器状态（XBEL 文本 + 码元游标）。
 priv struct RfScanner {
   text : String
-  mut pos : Int
+  mut pos : Int32
 }
 
 ///|
 /// 当前码元（越界 -1）。
-fn RfScanner::peek(self : RfScanner) -> Int {
+fn RfScanner::peek(self : RfScanner) -> Int32 {
   rf_at(self.text, self.pos)
 }
 
@@ -693,7 +693,7 @@ fn RfScanner::skip_pi(self : RfScanner) -> Unit {
 ///|
 /// 定位 <xbel 根起始标签位置（'<' 的下标）：按 '<' + "xbel" + 空白/'>'/'/'
 /// 匹配；找不到给 None（不是 XBEL 文档）。
-fn rf_find_root(xml : String) -> Int? {
+fn rf_find_root(xml : String) -> Int32? {
   let n = xml.length()
   let mut i = 0
   while i < n {
@@ -893,7 +893,7 @@ pub fn rf_sort_recent(items : Array[RecentItem]) -> Array[RecentItem] {
 
 ///|
 /// 截断：limit <= 0 或超出长度时全收，否则取前 limit 项（返回新数组）。
-fn[T] rf_take(items : Array[T], limit : Int) -> Array[T] {
+fn[T] rf_take(items : Array[T], limit : Int32) -> Array[T] {
   if limit <= 0 || limit >= items.length() {
     return items.copy()
   }
@@ -923,10 +923,11 @@ pub fn rf_data_dir(xdg_data_home : String?, home : String?) -> String? {
 }
 
 ///|
+
 ///|
 /// Windows 直调：文件最后写入时间（Unix 毫秒；取不到 0）。
 #borrow(path, ok)
-extern "c" fn ffi_rf_file_mtime(path : Bytes, ok : Ref[Int]) -> Int64 = "yue_sys_file_mtime"
+extern "c" fn ffi_rf_file_mtime(path : Bytes, ok : Ref[Int32]) -> Int64 = "yue_sys_file_mtime"
 
 ///|
 /// Windows 最近文档目录（%APPDATA%\Microsoft\Windows\Recent），不存在
@@ -1026,7 +1027,9 @@ pub fn rf_supported() -> Bool {
 ///|
 /// 最近文件列表：解析本机 recently-used.xbel，按 modified 倒序（并列按
 /// path 升序）取前 limit 项；limit 缺省 100，<= 0 取全部。
-pub fn rf_recent(limit? : Int = 100) -> Result[Array[RecentItem], RecentError] {
+pub fn rf_recent(
+  limit~ : Int32 = 100,
+) -> Result[Array[RecentItem], RecentError] {
   if sys_platform() == "windows" {
     match rf_windows_items() {
       Err(e) => Err(e)
@@ -1034,8 +1037,8 @@ pub fn rf_recent(limit? : Int = 100) -> Result[Array[RecentItem], RecentError] {
     }
   } else {
     match rf_load_entries() {
-    Err(e) => Err(e)
-    Ok(entries) =>
+      Err(e) => Err(e)
+      Ok(entries) =>
         Ok(rf_take(rf_sort_recent(entries.map(rf_entry_to_item)), limit))
     }
   }
@@ -1046,7 +1049,7 @@ pub fn rf_recent(limit? : Int = 100) -> Result[Array[RecentItem], RecentError] {
 /// 条目，同样按 modified 倒序取前 limit 项；limit 缺省 100，<= 0 取全部。
 pub fn rf_by_app(
   name : String,
-  limit? : Int = 100,
+  limit~ : Int32 = 100,
 ) -> Result[Array[RecentItem], RecentError] {
   match rf_load_entries() {
     Err(e) => Err(e)

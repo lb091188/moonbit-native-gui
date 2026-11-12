@@ -15,24 +15,24 @@
 /// subs 为 (订阅 id, 回调) 对:subscribe 返回的 id 即退订句柄
 /// (见 Signal::remove),recompute 期间登记的依赖不受影响。
 struct SigNode {
-  id : Int
+  id : Int32
   mut dirty : Bool
   mut queued : Bool
-  mut subs : Array[(Int, () -> Unit)]
+  mut subs : Array[(Int32, () -> Unit)]
   mut deps : Array[SigNode]
   mut observers : Array[SigNode]
 }
 
 ///|
-let sig_next_id : Ref[Int] = Ref(0)
+let sig_next_id : Ref[Int32] = Ref(0)
 
 ///|
 /// 订阅 id 计数器:subscribe 的返回值即本计数器的当期值,
 /// remove 按 id 精确摘除,互不影响同一信号上的其他订阅。
-let sig_sub_next_id : Ref[Int] = Ref(0)
+let sig_sub_next_id : Ref[Int32] = Ref(0)
 
 ///|
-let sig_batch_depth : Ref[Int] = Ref(0)
+let sig_batch_depth : Ref[Int32] = Ref(0)
 
 ///|
 let sig_pending : Ref[Array[SigNode]] = Ref([])
@@ -50,13 +50,13 @@ let sig_collector : Ref[(SigNode, Array[SigNode])?] = Ref(None)
 let sub_bags : Ref[Array[Array[() -> Unit]]] = Ref([])
 
 ///|
-fn sig_fresh_id() -> Int {
+fn sig_fresh_id() -> Int32 {
   sig_next_id.val += 1
   sig_next_id.val
 }
 
 ///|
-fn sig_fresh_sub_id() -> Int {
+fn sig_fresh_sub_id() -> Int32 {
   sig_sub_next_id.val += 1
   sig_sub_next_id.val
 }
@@ -283,7 +283,7 @@ pub fn[T] Signal::update(self : Signal[T], f : (T) -> T) -> Unit {
 /// 返回订阅 id(退订句柄):经 [Signal::remove] 按 id 摘除;重建式
 /// 组件更省事的做法是把挂载包进 [sub_bag_begin]/[sub_bag_end],
 /// 旧代订阅整袋退订(见 bind_node)。
-pub fn[T] Signal::subscribe(self : Signal[T], f : (T) -> Unit) -> Int {
+pub fn[T] Signal::subscribe(self : Signal[T], f : (T) -> Unit) -> Int32 {
   let sid = sig_fresh_sub_id()
   self.node.subs.push((sid, fn() { f(self.get()) }))
   sub_bag_register(fn() { self.remove(sid) })
@@ -293,7 +293,7 @@ pub fn[T] Signal::subscribe(self : Signal[T], f : (T) -> Unit) -> Int {
 ///|
 /// 副作用专用订阅：回调**原样**入队（不像 [Signal::subscribe] 的包装会再 `get`
 /// 一次，那会把 effect 的一轮跑成两遍）。退订进回收袋，口径与 subscribe 一致。
-fn Signal::subscribe_raw(self : Signal[Unit], f : () -> Unit) -> Int {
+fn Signal::subscribe_raw(self : Signal[Unit], f : () -> Unit) -> Int32 {
   let sid = sig_fresh_sub_id()
   self.node.subs.push((sid, f))
   sub_bag_register(fn() { self.remove(sid) })
@@ -303,7 +303,7 @@ fn Signal::subscribe_raw(self : Signal[Unit], f : () -> Unit) -> Int {
 ///|
 /// 当前订阅条数。组件层的「不随重挂堆积死订阅」这类回归要有可观测的量,
 /// 否则只能靠人肉数回调次数。
-pub fn[T] Signal::sub_count(self : Signal[T]) -> Int {
+pub fn[T] Signal::sub_count(self : Signal[T]) -> Int32 {
   self.node.subs.length()
 }
 
@@ -311,10 +311,9 @@ pub fn[T] Signal::sub_count(self : Signal[T]) -> Int {
 /// 退订:摘除 subscribe 返回的 id 对应的回调(幂等,其余订阅不受
 /// 影响;已随视图销毁的订阅应及时退订,否则主题/Signal 变更时仍
 /// 会对死视图空跑)。
-pub fn[T] Signal::remove(self : Signal[T], sid : Int) -> Unit {
+pub fn[T] Signal::remove(self : Signal[T], sid : Int32) -> Unit {
   self.node.subs = self.node.subs.filter(fn(e) { e.0 != sid })
 }
-
 
 ///|
 /// 副作用节点重跑:断开旧依赖 → 收集期执行闭包 → 接回新依赖 → 清脏。
@@ -345,6 +344,7 @@ fn Signal::rerun_effect(self : Signal[Unit]) -> Unit {
     None => ()
   }
 }
+
 ///|
 /// 派生只读信号(等价 computed 闭包里只读一个源):源变化自动跟随。
 pub fn[A, B] Signal::map(self : Signal[A], f : (A) -> B) -> Signal[B] {
@@ -357,4 +357,3 @@ pub fn[A, B] Signal::map(self : Signal[A], f : (A) -> B) -> Signal[B] {
 pub fn[T] Signal::store(self : Signal[T]) -> Store[T] {
   { sig: self, }
 }
-

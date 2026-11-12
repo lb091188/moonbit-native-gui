@@ -75,7 +75,7 @@ fn upower_get_all(
 ///|
 /// DisplayDevice 电量读数:(百分比, 充电中, 距充满秒, 距放空秒)。
 /// 无电池(或读不到 IsPresent)返回 None——台式机的常态。
-pub fn upower_battery() -> Result[(Int, Bool, Int64, Int64)?, String] {
+pub fn upower_battery() -> Result[(Int32, Bool, Int64, Int64)?, String] {
   let c = match system_conn() {
     Ok(c) => c
     Err(e) => return Err(e)

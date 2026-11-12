@@ -196,7 +196,9 @@ test "ParAxis 构造 / 量程省略与显式 / Store 驱动" {
     ParAxis::make("b"),
     ParAxis::make("c"),
   ])
-  let data : @base.Store[Array[Array[Double]]] = @base.Store::new([[1.0, 2.0, 3.0]])
+  let data : @base.Store[Array[Array[Double]]] = @base.Store::new([
+    [1.0, 2.0, 3.0],
+  ])
   let hits = Ref(0)
   axes.subscribe(fn(_a) { hits.val = hits.val + 1 })
   data.subscribe(fn(_r) { hits.val = hits.val + 1 })

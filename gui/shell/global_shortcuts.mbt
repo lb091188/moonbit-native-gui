@@ -75,11 +75,13 @@ pub fn gs_trigger_of(spec : String) -> String? {
       // 单字符键 GTK 口径小写；F9/PageUp 这类多字符键名原样
       if hk.name.length() == 1 {
         for c in hk.name {
-          sb.write_char(if c >= 'A' && c <= 'Z' {
-            (c.to_int() + 32).unsafe_to_char()
-          } else {
-            c
-          })
+          sb.write_char(
+            if c >= 'A' && c <= 'Z' {
+              (c.to_int() + 32).unsafe_to_char()
+            } else {
+              c
+            },
+          )
         }
       } else {
         sb.write_string(hk.name)
@@ -96,8 +98,13 @@ priv struct GsBind {
   on_activated : () -> Unit
 }
 
+///|
 let gs_binds : Ref[Array[GsBind]] = Ref([])
+
+///|
 let gs_session : Ref[String?] = Ref(None) // session_handle（建过就复用）
+
+///|
 let gs_sub_on : Ref[Bool] = Ref(false)
 
 ///|
@@ -162,7 +169,7 @@ pub fn global_shortcuts_bind(
       Some(session) => gs_bind_on(session, id, trigger)
     }
   })
-  gs_binds.val.push({ id, on_activated })
+  gs_binds.val.push({ id, on_activated, })
   ()
 }
 
@@ -171,7 +178,9 @@ pub fn global_shortcuts_bind(
 pub fn gs_id_of(spec : String) -> String {
   let sb = StringBuilder()
   for c in spec {
-    if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') {
+    if (c >= 'a' && c <= 'z') ||
+      (c >= 'A' && c <= 'Z') ||
+      (c >= '0' && c <= '9') {
       sb.write_char(c)
     } else {
       sb.write_char('_')
@@ -220,8 +229,7 @@ fn gs_sub_activated() -> Unit {
     Some(s) => s
     None => return
   }
-  let rule =
-    "type='signal',sender='\{@dbus.PORTAL_DEST}',interface='\{GLOBAL_SHORTCUTS_IFACE}',member='Activated',path='\{session}'"
+  let rule = "type='signal',sender='\{@dbus.PORTAL_DEST}',interface='\{GLOBAL_SHORTCUTS_IFACE}',member='Activated',path='\{session}'"
   let _ = @dbus.dbus_subscribe_session(rule, "portal.gs.activated", fn(vals) {
     // Activated(o session, s shortcut_id, t timestamp, a{sv} options)
     match vals.get(1) {
@@ -243,6 +251,6 @@ fn gs_fire(id : String) -> Unit {
 
 ///|
 /// 已绑定条数（状态行读数）。
-pub fn global_shortcuts_count() -> Int {
+pub fn global_shortcuts_count() -> Int32 {
   gs_binds.val.length()
 }

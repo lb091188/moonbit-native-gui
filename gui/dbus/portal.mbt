@@ -26,7 +26,7 @@ pub const PORTAL_REQUEST_PREFIX : String = "/org/freedesktop/portal/desktop/requ
 
 ///|
 /// 自增 token（进程内唯一即可——request 路径已在 sender 段隔离）。
-let g_portal_seq : Ref[Int] = Ref(0)
+let g_portal_seq : Ref[Int32] = Ref(0)
 
 ///|
 /// 造一个 handle_token（`mng<序号>` 形态；D-Bus 对象路径段安全字符）。
@@ -61,7 +61,7 @@ pub fn portal_request_path(token : String) -> String {
 ///|
 /// Response 信号回调的载荷：应答码（0=成功 1=取消 2=失败）+ 结果字典。
 pub(all) struct PortalResponse {
-  code : Int
+  code : Int32
   results : Map[String, GDBusValue]
 }
 
@@ -78,22 +78,22 @@ pub fn portal_call(
 ) -> Result[String, GDBusError] {
   let path = portal_request_path(token)
   let key = "portal.request.\{token}"
-  let rule =
-    "type='signal',sender='\{PORTAL_DEST}',interface='org.freedesktop.portal.Request',member='Response',path='\{path}'"
-  match dbus_subscribe_session(rule, key, fn(vals : Array[GDBusValue]) -> Unit {
-    // 一次性：先撤订阅再回调（回调里可能再发起下一轮 portal 调用）
-    let _ = dbus_unsubscribe_session(rule, key)
-    let code = match vals.get(0) {
-      Some(GVUInt32(c)) => c
-      Some(GVInt32(c)) => c
-      _ => 2
-    }
-    let results : Map[String, GDBusValue] = match vals.get(1) {
-      Some(GVDict(m)) => m
-      _ => Map([])
-    }
-    on_response({ code, results })
-  }) {
+  let rule = "type='signal',sender='\{PORTAL_DEST}',interface='org.freedesktop.portal.Request',member='Response',path='\{path}'"
+  match
+    dbus_subscribe_session(rule, key, fn(vals : Array[GDBusValue]) -> Unit {
+      // 一次性：先撤订阅再回调（回调里可能再发起下一轮 portal 调用）
+      let _ = dbus_unsubscribe_session(rule, key)
+      let code = match vals.get(0) {
+        Some(GVUInt32(c)) => c
+        Some(GVInt32(c)) => c
+        _ => 2
+      }
+      let results : Map[String, GDBusValue] = match vals.get(1) {
+        Some(GVDict(m)) => m
+        _ => Map([])
+      }
+      on_response({ code, results, })
+    }) {
     Err(e) => Err(gdbus_err("gdbus.io", e))
     Ok(_) =>
       match gdbus_call_session(PORTAL_DEST, PORTAL_PATH, iface, action, args) {
@@ -111,7 +111,14 @@ pub fn portal_call(
 /// portal 是否可达（前端在会话总线上有名）。Wayland 原生会话才有意义；
 /// X11/Windows/macOS 上一般没有——由调用方判会话类型。
 pub fn portal_available() -> Bool {
-  match gdbus_call_session(PORTAL_DEST, PORTAL_PATH, "org.freedesktop.DBus.Peer", "Ping", []) {
+  match
+    gdbus_call_session(
+      PORTAL_DEST,
+      PORTAL_PATH,
+      "org.freedesktop.DBus.Peer",
+      "Ping",
+      [],
+    ) {
     Ok(_) => true
     Err(_) => false
   }

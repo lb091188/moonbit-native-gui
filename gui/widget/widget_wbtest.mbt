@@ -43,7 +43,7 @@ fn column(w : Widget) -> Widget {
 ///|
 /// Option[Widget] 比不了 `==`（Widget 带闭包字段、Eq 派生不出来），
 /// 一律换成取 id：命中不到给 -1。
-fn hit_id(w : Widget, x : Double, y : Double) -> Int {
+fn hit_id(w : Widget, x : Double, y : Double) -> Int32 {
   match w.hit_test(x, y) {
     Some(k) => k.id
     None => -1
@@ -51,7 +51,7 @@ fn hit_id(w : Widget, x : Double, y : Double) -> Int {
 }
 
 ///|
-fn find_id(w : Widget, id : Int) -> Int {
+fn find_id(w : Widget, id : Int32) -> Int32 {
   match w.find_by_focus_id(id) {
     Some(k) => k.id
     None => -1
@@ -71,11 +71,17 @@ test "relayout 把父子相对偏移折算成窗口绝对矩形" {
   a.append_child(inner)
 
   root.relayout(200.0, 100.0)
-  assert_eq((root.rect.x, root.rect.y, root.rect.w, root.rect.h), (0.0, 0.0, 200.0, 100.0))
+  assert_eq(
+    (root.rect.x, root.rect.y, root.rect.w, root.rect.h),
+    (0.0, 0.0, 200.0, 100.0),
+  )
   assert_eq((a.rect.x, a.rect.y, a.rect.w, a.rect.h), (0.0, 0.0, 100.0, 40.0))
   assert_eq((b.rect.x, b.rect.y, b.rect.w, b.rect.h), (0.0, 40.0, 100.0, 60.0))
   // 父控件的 padding 要进到子控件的绝对坐标里（只在这一处折算）
-  assert_eq((inner.rect.x, inner.rect.y, inner.rect.w, inner.rect.h), (10.0, 0.0, 20.0, 20.0))
+  assert_eq(
+    (inner.rect.x, inner.rect.y, inner.rect.w, inner.rect.h),
+    (10.0, 0.0, 20.0, 20.0),
+  )
 }
 
 ///|
@@ -166,7 +172,10 @@ test "指针事件：本地坐标换算 + 沿祖先链冒泡 + 消费即停" {
     order2.push("mid")
     true
   })
-  assert_eq(root.dispatch_pointer({ kind: Up, x: 15.0, y: 15.0, button: 1, mods: 0 }), true)
+  assert_eq(
+    root.dispatch_pointer({ kind: Up, x: 15.0, y: 15.0, button: 1, mods: 0, }),
+    true,
+  )
   assert_eq(order2.length(), 1)
   assert_eq(order2[0], "leaf")
 }
@@ -243,7 +252,7 @@ test "按键按焦点 id 定位并冒泡；未知 id 不做任何事" {
     log.push("wrapper")
     true
   })
-  let ev = { press: true, keysym: 97, mods: 0 }
+  let ev = { press: true, keysym: 97, mods: 0, }
   assert_eq(root.dispatch_key(7, ev), true)
   assert_eq(log.length(), 2)
   assert_eq(log[0], "field:97")
@@ -261,7 +270,11 @@ test "按键按焦点 id 定位并冒泡；未知 id 不做任何事" {
 }
 
 ///|
-fn color_of(bm : @render.Bitmap, x : Int, y : Int) -> (Int, Int, Int, Int) {
+fn color_of(
+  bm : @render.Bitmap,
+  x : Int32,
+  y : Int32,
+) -> (Int32, Int32, Int32, Int32) {
   let c = bm.pixel(x, y)
   (c.r, c.g, c.b, c.a)
 }
@@ -451,7 +464,7 @@ test "右键祖先优先：走完路径不越界，顺序根→叶" {
   // 祖先优先：根先收；无人消费要能走完路径并返回 false
   // （早先取下标前自增：走完末项 i 恰好等于长度，path[i] 越界，真机右键必崩）
   assert_eq(
-    root.dispatch_pointer({ kind: Down, x: 50.0, y: 50.0, button: 3, mods: 0 }),
+    root.dispatch_pointer({ kind: Down, x: 50.0, y: 50.0, button: 3, mods: 0, }),
     false,
   )
   assert_eq(order, ["root", "mid", "leaf"])
@@ -460,7 +473,7 @@ test "右键祖先优先：走完路径不越界，顺序根→叶" {
   solo.set_size(50.0, 50.0)
   solo.relayout(50.0, 50.0)
   assert_eq(
-    solo.dispatch_pointer({ kind: Down, x: 10.0, y: 10.0, button: 3, mods: 0 }),
+    solo.dispatch_pointer({ kind: Down, x: 10.0, y: 10.0, button: 3, mods: 0, }),
     false,
   )
 }
@@ -489,7 +502,7 @@ test "dispatch_key_release：声明制、最深优先、on_key 不掺和" {
     log.push("wrapper:rel")
     true
   })
-  let up = { press: false, keysym: 97, mods: 0 }
+  let up = { press: false, keysym: 97, mods: 0, }
   // 深处不吃、祖先吃：两站都到，on_key 没被调
   assert_eq(root.dispatch_key_release(7, up), true)
   assert_eq(log.length(), 2)

@@ -3,18 +3,17 @@
 // 调用经应用自有 native-stub（stub/sysmon.c + sysffi.mbt）——Windows /
 // macOS 侧 stub 把 Win32 / Mach 数据源虚拟成同构文本，解析层零平台分支。
 import {
-  "moonbitlang/core/encoding/utf8" @utf8,
+  "moonbitlang/core/encoding/utf8",
   "NoahLiu/yoga-mbt/src" @yoga,
   "NoahLiu/native-gui/base",
-
-  "NoahLiu/native-gui/widget" @widget,
+  "NoahLiu/native-gui/widget",
   "NoahLiu/native-gui/ui",
-  "NoahLiu/native-gui/style" @style,
-  "NoahLiu/native-gui/theme" @theme,
-  "NoahLiu/native-gui/render" @render,
-  "NoahLiu/native-gui/text" @text,
-  "NoahLiu/native-gui/sys" @sys,
-  "NoahLiu/native-gui/win" @win,
+  "NoahLiu/native-gui/style",
+  "NoahLiu/native-gui/theme",
+  "NoahLiu/native-gui/render",
+  "NoahLiu/native-gui/text",
+  "NoahLiu/native-gui/sys",
+  "NoahLiu/native-gui/win",
   "NoahLiu/native-gui/icons",
   "NoahLiu/native-gui/chart" @charts,
 }

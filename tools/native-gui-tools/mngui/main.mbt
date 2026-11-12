@@ -73,7 +73,9 @@ fn main {
     argv0_dir: argv0_dir(argv0),
     dev_form: argv0.contains("_build"),
     panel: panel_proj.length() > 0,
-    log_view: @base.Store::new("（还没有日志——点上面的按钮跑命令）"),
+    log_view: @base.Store::new(
+      "（还没有日志——点上面的按钮跑命令）",
+    ),
   }
   let top : Array[@widget.Node] = if w.panel {
     // 面板模式无步骤条：标题 + 操作按钮组 + 日志区（hint 与日志走
@@ -82,7 +84,7 @@ fn main {
   } else {
     [
       // 点数字方块只换展示页做预览；高亮仍跟进度
-      @ui.steps(steps_labels(), w.page, on_select=fn(i : Int) -> Unit {
+      @ui.steps(steps_labels(), w.page, on_select=fn(i : Int32) -> Unit {
         w.view.set(i)
       }),
       @ui.divider(),
@@ -98,7 +100,7 @@ fn main {
   )
   let mounted = @ui.mount_window(
     [root],
-    title=(if w.panel { "mng 工程面板" } else { "mng 向导" }),
+    title=if w.panel { "mng 工程面板" } else { "mng 向导" },
     width=720,
     height=560,
     handle=fn(_h : @widget.WindowHost) { () },
@@ -141,7 +143,8 @@ fn wizard_body(w : Wizard) -> @widget.Node {
         column_gap=12.0,
       ),
       @ui.divider(),
-    ] + body
+    ] +
+    body
   } else {
     body
   }

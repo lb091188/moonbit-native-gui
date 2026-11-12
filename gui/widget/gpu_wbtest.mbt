@@ -14,48 +14,51 @@ struct FakeSink {
 fn gpu_clip_str(c : @base.Rect?) -> String {
   match c {
     None => "none"
-    Some(r) =>
-      "some(\{r.x},\{r.y},\{r.w},\{r.h})"
+    Some(r) => "some(\{r.x},\{r.y},\{r.w},\{r.h})"
   }
 }
 
 ///|
 impl @render.GpuSink for FakeSink with fn draw_texture_rgba(
-    self : FakeSink,
-    _data : Bytes,
-    w : Int,
-    h : Int,
-    dst : @base.Rect,
-    clip : @base.Rect?,
-    opacity : Double,
-  ) -> Unit {
-    self.calls.push(
-      "tex \{w}x\{h} @\{dst.x},\{dst.y} \{dst.w}x\{dst.h} clip=\{gpu_clip_str(clip)} op=\{opacity}",
-    )
-  }
+  self : FakeSink,
+  _data : Bytes,
+  w : Int32,
+  h : Int32,
+  dst : @base.Rect,
+  clip : @base.Rect?,
+  opacity : Double,
+) -> Unit {
+  self.calls.push(
+    "tex \{w}x\{h} @\{dst.x},\{dst.y} \{dst.w}x\{dst.h} clip=\{gpu_clip_str(clip)} op=\{opacity}",
+  )
+}
 
 ///|
 impl @render.GpuSink for FakeSink with fn fill_rect(
-    self : FakeSink,
-    rect : @base.Rect,
-    color : String,
-    clip : @base.Rect?,
-    opacity : Double,
-  ) -> Unit {
-    self.calls.push(
-      "fill \{color} @\{rect.x},\{rect.y} clip=\{gpu_clip_str(clip)} op=\{opacity}",
-    )
-  }
+  self : FakeSink,
+  rect : @base.Rect,
+  color : String,
+  clip : @base.Rect?,
+  opacity : Double,
+) -> Unit {
+  self.calls.push(
+    "fill \{color} @\{rect.x},\{rect.y} clip=\{gpu_clip_str(clip)} op=\{opacity}",
+  )
+}
 
 ///|
 fn gpu_walk(log : Array[String]) -> (Widget, FakeSink) {
   let root = Widget::new()
   root.rect = { x: 0.0, y: 0.0, w: 200.0, h: 100.0, }
-  let sink = FakeSink::{ calls: [] }
+  let sink = FakeSink::{ calls: [], }
   gpu_set_sink(Some(sink))
   let g = Widget::new()
   g.rect = { x: 10.0, y: 10.0, w: 40.0, h: 30.0, }
-  g.on_render = Some(fn(_self : Widget, ctx : @render.RenderCtx, r : @base.Rect) -> Unit {
+  g.on_render = Some(fn(
+    _self : Widget,
+    ctx : @render.RenderCtx,
+    r : @base.Rect,
+  ) -> Unit {
     match ctx.as_gpu() {
       Some(gc) => {
         log.push("gpu")
@@ -76,7 +79,11 @@ test "L2：sink 未设时 on_render 拿 Cpu 档（现有行为零变化）" {
   let log : Array[String] = []
   let w = Widget::new()
   w.rect = { x: 10.0, y: 10.0, w: 40.0, h: 30.0, }
-  w.on_render = Some(fn(_self : Widget, ctx : @render.RenderCtx, _r : @base.Rect) -> Unit {
+  w.on_render = Some(fn(
+    _self : Widget,
+    ctx : @render.RenderCtx,
+    _r : @base.Rect,
+  ) -> Unit {
     match ctx.as_gpu() {
       Some(_) => log.push("gpu")
       None => log.push("cpu")
@@ -98,10 +105,7 @@ test "L2：设了 sink 后 on_render 拿 Gpu 档，clip/opacity 随合成传" {
   assert_eq(log, ["gpu"])
   // dst = 控件矩形；clip = 自身矩形（clip_content 默认开，eff_clip 与父链
   // 根矩形求交后正好落回自身）；opacity = walk 累乘值（这里全 1）
-  assert_eq(
-    sink.calls,
-    ["fill #ff0000 @10,10 clip=some(10,10,40,30) op=1"],
-  )
+  assert_eq(sink.calls, ["fill #ff0000 @10,10 clip=some(10,10,40,30) op=1"])
   gpu_set_sink(None)
 }
 
@@ -119,26 +123,34 @@ test "L2：clip_content 与 alpha 累乘进 eff_clip/opacity（父链求交）" 
   let leaf = Widget::new()
   leaf.rect = { x: 30.0, y: 20.0, w: 60.0, h: 40.0, }
   let log : Array[String] = []
-  leaf.on_render = Some(fn(_self : Widget, ctx : @render.RenderCtx, r : @base.Rect) -> Unit {
+  leaf.on_render = Some(fn(
+    _self : Widget,
+    ctx : @render.RenderCtx,
+    r : @base.Rect,
+  ) -> Unit {
     match ctx.as_gpu() {
       Some(gc) => {
         log.push("gpu")
-        gc.sink.draw_texture_rgba(b"\x00\x00\x00\x00", 1, 1, r, gc.clip, gc.opacity)
+        gc.sink.draw_texture_rgba(
+          b"\x00\x00\x00\x00",
+          1,
+          1,
+          r,
+          gc.clip,
+          gc.opacity,
+        )
       }
       None => log.push("cpu")
     }
   })
   mid.append_child(leaf)
-  let sink = FakeSink::{ calls: [] }
+  let sink = FakeSink::{ calls: [], }
   gpu_set_sink(Some(sink))
   let p = @render.Painter::new(@render.Bitmap::new(200, 100))
   root.paint(p)
   assert_eq(log, ["gpu"])
   // clip = 根(0,0,200,100) ∩ mid(20,10,100,80) ∩ leaf(30,20,60,40) = leaf 自身
-  assert_eq(
-    sink.calls,
-    ["tex 1x1 @30,20 60x40 clip=some(30,20,60,40) op=0.5"],
-  )
+  assert_eq(sink.calls, ["tex 1x1 @30,20 60x40 clip=some(30,20,60,40) op=0.5"])
   gpu_set_sink(None)
 }
 
@@ -148,11 +160,15 @@ test "L2：混排一窗——调用序 = 控件树序（GPU draw 与 CPU 绘制�
   let root = Widget::new()
   root.rect = { x: 0.0, y: 0.0, w: 200.0, h: 100.0, }
   let log : Array[String] = []
-  let sink = FakeSink::{ calls: [] }
+  let sink = FakeSink::{ calls: [], }
   gpu_set_sink(Some(sink))
   let g1 = Widget::new()
   g1.rect = { x: 0.0, y: 0.0, w: 50.0, h: 50.0, }
-  g1.on_render = Some(fn(_s : Widget, ctx : @render.RenderCtx, r : @base.Rect) -> Unit {
+  g1.on_render = Some(fn(
+    _s : Widget,
+    ctx : @render.RenderCtx,
+    r : @base.Rect,
+  ) -> Unit {
     match ctx.as_gpu() {
       Some(gc) => gc.sink.fill_rect(r, "#111111", gc.clip, gc.opacity)
       None => ()
@@ -162,13 +178,21 @@ test "L2：混排一窗——调用序 = 控件树序（GPU draw 与 CPU 绘制�
   // 中间一个纯 CPU 控件（只有 on_draw）：照旧画进 CPU 位图
   let c = Widget::new()
   c.rect = { x: 50.0, y: 0.0, w: 50.0, h: 50.0, }
-  c.on_draw = Some(fn(_s : Widget, _p : @render.Painter, _r : @base.Rect) -> Unit {
+  c.on_draw = Some(fn(
+    _s : Widget,
+    _p : @render.Painter,
+    _r : @base.Rect,
+  ) -> Unit {
     log.push("cpu-draw")
   })
   root.append_child(c)
   let g2 = Widget::new()
   g2.rect = { x: 100.0, y: 0.0, w: 50.0, h: 50.0, }
-  g2.on_render = Some(fn(_s : Widget, ctx : @render.RenderCtx, r : @base.Rect) -> Unit {
+  g2.on_render = Some(fn(
+    _s : Widget,
+    ctx : @render.RenderCtx,
+    r : @base.Rect,
+  ) -> Unit {
     match ctx.as_gpu() {
       Some(gc) => gc.sink.fill_rect(r, "#222222", gc.clip, gc.opacity)
       None => ()

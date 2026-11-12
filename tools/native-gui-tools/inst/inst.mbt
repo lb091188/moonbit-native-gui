@@ -5,47 +5,46 @@
 
 ///|
 /// 单帧载荷上限（字节）。
-pub const PAYLOAD_CAP : Int = 65536
+pub const PAYLOAD_CAP : Int32 = 65536
 
 ///|
 /// 套接字文件名的 sun_path 安全长度（macOS 的 sun_path 容量 104，留足余量）。
-const SOCKET_PATH_LIMIT : Int = 100
+const SOCKET_PATH_LIMIT : Int32 = 100
 
 ///|
 /// slug 里 app_id 原样保留的最大长度；超出就截断并附内容哈希。
-const SLUG_KEEP : Int = 40
+const SLUG_KEEP : Int32 = 40
 
 ///|
 #borrow(path, data)
-extern "c" fn inst_wake_raw(path : Bytes, data : Bytes, len : Int) -> Int = "mnginst_wake"
+extern "c" fn inst_wake_raw(path : Bytes, data : Bytes, len : Int32) -> Int32 = "mnginst_wake"
 
 ///|
 #borrow(slug, data)
 extern "c" fn inst_wake_win_raw(
   slug : Bytes,
   data : Bytes,
-  len : Int,
-) -> Int = "mnginst_wake_win"
+  len : Int32,
+) -> Int32 = "mnginst_wake_win"
 
 ///|
-extern "c" fn inst_is_windows() -> Int = "mnginst_is_windows"
+extern "c" fn inst_is_windows() -> Int32 = "mnginst_is_windows"
 
 ///|
-extern "c" fn inst_getuid() -> Int = "mnginst_getuid"
+extern "c" fn inst_getuid() -> Int32 = "mnginst_getuid"
 
 ///|
-extern "c" fn inst_last_errno() -> Int = "mnginst_last_errno"
+extern "c" fn inst_last_errno() -> Int32 = "mnginst_last_errno"
 
 ///|
 /// app_id 的 djb2 哈希，十六进制定长 8 位。
 fn instance_hash8(s : String) -> String {
-  let mut h : Int = 5381
+  let mut h : Int32 = 5381
   for i = 0; i < s.length(); i = i + 1 {
     h = ((h << 5) + h + s.unsafe_get(i).to_int()) & 0x7FFF_FFFF
   }
   let digits : Array[String] = [
-    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e",
-    "f",
+    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f",
   ]
   let out = StringBuilder()
   let mut i = 7
@@ -95,7 +94,11 @@ pub fn socket_path(app_id : String) -> String {
   let dir = socket_dir()
   let base = "moonbit-instance-"
   let tail = ".\{inst_getuid()}.sock"
-  let budget = SOCKET_PATH_LIMIT - dir.length() - 1 - base.length() - tail.length()
+  let budget = SOCKET_PATH_LIMIT -
+    dir.length() -
+    1 -
+    base.length() -
+    tail.length()
   let slug = instance_slug(app_id)
   let used = if budget < 8 {
     ""
@@ -118,7 +121,7 @@ pub fn encode_args(args : Array[String]) -> Bytes {
   }
   let buf = FixedArray::make(total, b'\x00')
   let mut o = 0
-  let write_i32 = fn(v : Int, at : Int) -> Int {
+  let write_i32 = fn(v : Int32, at : Int32) -> Int32 {
     buf[at] = (v & 255).to_byte()
     buf[at + 1] = ((v >> 8) & 255).to_byte()
     buf[at + 2] = ((v >> 16) & 255).to_byte()
@@ -146,7 +149,12 @@ pub fn wake(app_id : String, args : Array[String]) -> Result[Unit, String] {
     return Err("命令行帧超出 \{PAYLOAD_CAP} 字节上限")
   }
   if inst_is_windows() == 1 {
-    match inst_wake_win_raw(@utf8.encode(instance_slug(app_id)), frame, frame.length()) {
+    match
+      inst_wake_win_raw(
+        @utf8.encode(instance_slug(app_id)),
+        frame,
+        frame.length(),
+      ) {
       r if r > 0 => Ok(())
       -1 => Err("找不到首实例窗口（应用未运行？）")
       _ => Err("win32 errno=\{inst_last_errno()}")

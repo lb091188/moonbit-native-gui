@@ -45,8 +45,8 @@ pub fn is_disabled(cell : Enabled) -> Bool {
 /// 「能点但现在不让点」，与 CSS `cursor: not-allowed` 同义）。光标是按命中
 /// 路径现查的，所以禁用态必须**查询时现算**——建树时定死会与「禁用态是
 /// 单元」的口径冲突（同 `enabled_cell` 的注释）。
-fn enabled_cursor(cell : Enabled, on : Int) -> (@widget.Widget) -> Int {
-  fn(_w : @widget.Widget) -> Int {
+fn enabled_cursor(cell : Enabled, on : Int32) -> (@widget.Widget) -> Int32 {
+  fn(_w : @widget.Widget) -> Int32 {
     if cell.off {
       @widget.CURSOR_NOT_ALLOWED
     } else {

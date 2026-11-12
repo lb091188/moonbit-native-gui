@@ -103,7 +103,7 @@ struct App {
   cpu_model : String
   cpu_max : String
   mem_brand : String
-  mem_mhz : Int
+  mem_mhz : Int32
   // 左栏六项菜单的值
   cpu_usage : @base.Store[String]
   mem_usage : @base.Store[String]
@@ -112,7 +112,7 @@ struct App {
   net_up : @base.Store[String]
   net_down : @base.Store[String]
   disk_rate : @base.Store[String]
-  disk_rows_ver : @base.Store[Int]
+  disk_rows_ver : @base.Store[Int32]
   disk_rows : Ref[Array[(String, String)]]
   disk_rows_sig : Ref[String]
   proc_count : @base.Store[String]
@@ -142,7 +142,10 @@ struct App {
 
 ///|
 /// 网络页/左栏按名字取曲线 Store（新网卡首次出现时现建）。
-fn net_hist_of(app : App, name : String) -> @base.Store[Array[@charts.LineSeries]] {
+fn net_hist_of(
+  app : App,
+  name : String,
+) -> @base.Store[Array[@charts.LineSeries]] {
   match app.net_hists.get(name) {
     Some(s) => s
     None => {
@@ -304,9 +307,7 @@ fn sample_once(app : App) -> Unit {
       app.net_down.set(fmt_mbps(rx))
       names
       .mut_view()
-      .sort_by(fn(a, b) {
-        if a < b { -1 } else if a > b { 1 } else { 0 }
-      })
+      .sort_by(fn(a, b) { if a < b { -1 } else if a > b { 1 } else { 0 } })
       let key = names.join(",")
       if key != app.net_names_key.get() {
         app.net_names_key.set(key)
@@ -332,7 +333,12 @@ const MON_TITLE : String = "系统监视器"
 
 ///|
 fn main {
-  let info = cpu_info().unwrap_or({ model: "(未知)", mhz: 0.0, max_mhz: 0.0, cores: 1, })
+  let info = cpu_info().unwrap_or({
+    model: "(未知)",
+    mhz: 0.0,
+    max_mhz: 0.0,
+    cores: 1,
+  })
   let (mem_brand, mem_mhz) = mem_hw_info()
   let core_n = if info.cores < 1 { 1 } else { info.cores }
   // 磁盘与 GPU 数量取启动枚举结果，卡与曲线按块预建（热插拔不重建视图）
@@ -360,8 +366,8 @@ fn main {
     gpu: gpu_mon,
     cpu_model: info.model,
     cpu_max: fmt_ghz(info.max_mhz),
-    mem_brand: mem_brand,
-    mem_mhz: mem_mhz,
+    mem_brand,
+    mem_mhz,
     cpu_usage: @base.Store::new("—"),
     mem_usage: @base.Store::new("—"),
     mem_pair: @base.Store::new("—"),
@@ -376,10 +382,14 @@ fn main {
     gpu_usage: gpus0.map(fn(_g) { @base.Store::new("—") }),
     gpu_vram: gpus0.map(fn(_g) { @base.Store::new("—") }),
     cpu_hist: @base.Store::new([@charts.LineSeries::make("CPU", max_points=120)]),
-    core_hists: core_hists,
-    core_pct: core_pct,
-    mem_hist: @base.Store::new([@charts.LineSeries::make("内存", max_points=120)]),
-    swap_hist: @base.Store::new([@charts.LineSeries::make("swap", max_points=120)]),
+    core_hists,
+    core_pct,
+    mem_hist: @base.Store::new([
+      @charts.LineSeries::make("内存", max_points=120),
+    ]),
+    swap_hist: @base.Store::new([
+      @charts.LineSeries::make("swap", max_points=120),
+    ]),
     net_names_key: @base.Store::new(""),
     net_hists: Map([]),
     net_speed: Map([]),
@@ -435,6 +445,7 @@ fn main {
       a.run()
       println("SYSMON-DONE")
     }
-    None => println("SYSMON-SKIP: 本平台没有窗口后端或没有显示服务")
+    None =>
+      println("SYSMON-SKIP: 本平台没有窗口后端或没有显示服务")
   }
 }

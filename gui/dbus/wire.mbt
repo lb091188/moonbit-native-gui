@@ -8,12 +8,12 @@
 ///|
 /// 解析后的 DBus 值。
 priv enum DVal {
-  VByte(Int)
+  VByte(Int32)
   VBool(Bool)
-  VI16(Int)
-  VQ16(Int)
-  VI32(Int)
-  VU32(Int)
+  VI16(Int32)
+  VQ16(Int32)
+  VI32(Int32)
+  VU32(Int32)
   VI64(Int64)
   VU64(Int64) // UINT64 't':DBus 实践值(时间戳/计数)不超 2^63,Int64 承载
   VDouble(Double)
@@ -26,7 +26,7 @@ priv enum DVal {
 }
 
 ///|
-fn sig_align(s : Sig) -> Int {
+fn sig_align(s : Sig) -> Int32 {
   match s {
     SigByte | SigSig | SigVariant => 1
     SigI16 | SigQ16 => 2
@@ -60,11 +60,11 @@ priv enum Sig {
 ///|
 priv struct SigParser {
   sig : String
-  mut pos : Int
+  mut pos : Int32
 }
 
 ///|
-fn SigParser::peek(self : SigParser) -> Int {
+fn SigParser::peek(self : SigParser) -> Int32 {
   if self.pos < self.sig.length() {
     self.sig.unsafe_get(self.pos).to_int()
   } else {
@@ -73,7 +73,7 @@ fn SigParser::peek(self : SigParser) -> Int {
 }
 
 ///|
-fn SigParser::next(self : SigParser) -> Int {
+fn SigParser::next(self : SigParser) -> Int32 {
   let c = self.peek()
   if c >= 0 {
     self.pos += 1
@@ -191,8 +191,8 @@ fn sig_of(v : DVal) -> String {
 ///|
 priv struct Buf {
   mut data : FixedArray[Byte]
-  mut len : Int
-  mut base : Int // 缓冲内容在其作用域内的负偏移（体缓冲 = -头长度）
+  mut len : Int32
+  mut base : Int32 // 缓冲内容在其作用域内的负偏移（体缓冲 = -头长度）
 }
 
 ///|
@@ -201,7 +201,7 @@ fn Buf::new() -> Buf {
 }
 
 ///|
-fn Buf::ensure(self : Buf, extra : Int) -> Unit {
+fn Buf::ensure(self : Buf, extra : Int32) -> Unit {
   if self.len + extra > self.data.length() {
     let mut cap = self.data.length()
     while cap < self.len + extra {
@@ -217,21 +217,21 @@ fn Buf::ensure(self : Buf, extra : Int) -> Unit {
 
 ///|
 /// 补齐到 n 的倍数（相对作用域起点）。
-fn Buf::pad(self : Buf, n : Int) -> Unit {
+fn Buf::pad(self : Buf, n : Int32) -> Unit {
   while (self.len + self.base) % n != 0 {
     self.u8(0)
   }
 }
 
 ///|
-fn Buf::u8(self : Buf, v : Int) -> Unit {
+fn Buf::u8(self : Buf, v : Int32) -> Unit {
   self.ensure(1)
   self.data[self.len] = (v & 0xFF).to_byte()
   self.len += 1
 }
 
 ///|
-fn Buf::u32(self : Buf, v : Int) -> Unit {
+fn Buf::u32(self : Buf, v : Int32) -> Unit {
   self.pad(4)
   self.u8(v)
   self.u8(v >> 8)
@@ -280,13 +280,13 @@ fn Buf::to_bytes(self : Buf) -> Bytes {
 }
 
 ///|
-fn Buf::len(self : Buf) -> Int {
+fn Buf::len(self : Buf) -> Int32 {
   self.len
 }
 
 ///|
 /// 回填已预留的 u32（位置必须已对齐，裸写 4 字节）。
-fn Buf::patch_u32(self : Buf, pos : Int, v : Int) -> Unit {
+fn Buf::patch_u32(self : Buf, pos : Int32, v : Int32) -> Unit {
   self.data[pos] = v.to_byte()
   self.data[pos + 1] = (v >> 8).to_byte()
   self.data[pos + 2] = (v >> 16).to_byte()
@@ -366,20 +366,20 @@ fn encode(buf : Buf, s : Sig, v : DVal) -> Unit {
 
 ///|
 priv struct Msg {
-  kind : Int // 1 调用 2 返回 3 错误 4 信号
-  serial : Int
+  kind : Int32 // 1 调用 2 返回 3 错误 4 信号
+  serial : Int32
   mut path : String
   mut iface : String
   mut action : String
   mut error_name : String
-  mut reply_serial : Int
+  mut reply_serial : Int32
   mut sender : String
   mut sig : String
   body : Array[DVal]
 }
 
 ///|
-fn Msg::fresh(kind : Int, serial : Int) -> Msg {
+fn Msg::fresh(kind : Int32, serial : Int32) -> Msg {
   {
     kind,
     serial,
@@ -405,7 +405,7 @@ fn dstr(v : DVal) -> String? {
 }
 
 ///|
-fn put_field_string(fields : Buf, tag : Int, value : String) -> Unit {
+fn put_field_string(fields : Buf, tag : Int32, value : String) -> Unit {
   fields.pad(8)
   fields.u8(tag)
   fields.sig_field("s")
@@ -414,7 +414,7 @@ fn put_field_string(fields : Buf, tag : Int, value : String) -> Unit {
 
 ///|
 /// 对象路径：与字符串同编码，variant 签名为 "o"。
-fn put_field_path(fields : Buf, tag : Int, value : String) -> Unit {
+fn put_field_path(fields : Buf, tag : Int32, value : String) -> Unit {
   fields.pad(8)
   fields.u8(tag)
   fields.sig_field("o")
@@ -423,7 +423,7 @@ fn put_field_path(fields : Buf, tag : Int, value : String) -> Unit {
 
 ///|
 /// 签名头字段：variant 签名为 "g"，值是 u8 长度前缀的签名编码。
-fn put_field_signature(fields : Buf, tag : Int, value : String) -> Unit {
+fn put_field_signature(fields : Buf, tag : Int32, value : String) -> Unit {
   fields.pad(8)
   fields.u8(tag)
   fields.sig_field("g")
@@ -431,7 +431,7 @@ fn put_field_signature(fields : Buf, tag : Int, value : String) -> Unit {
 }
 
 ///|
-fn put_field_u32(fields : Buf, tag : Int, value : Int) -> Unit {
+fn put_field_u32(fields : Buf, tag : Int32, value : Int32) -> Unit {
   fields.pad(8)
   fields.u8(tag)
   fields.sig_field("u")
@@ -440,14 +440,14 @@ fn put_field_u32(fields : Buf, tag : Int, value : Int) -> Unit {
 
 ///|
 fn build_msg(
-  kind : Int,
-  flags : Int,
-  serial : Int,
+  kind : Int32,
+  flags : Int32,
+  serial : Int32,
   path : String,
   iface : String,
   action : String,
   error_name : String,
-  reply_serial : Int,
+  reply_serial : Int32,
   dest : String,
   sig : String,
   args : Array[DVal],
@@ -509,7 +509,7 @@ fn build_msg(
 
 ///|
 fn build_call(
-  serial : Int,
+  serial : Int32,
   dest : String,
   path : String,
   iface : String,
@@ -522,7 +522,7 @@ fn build_call(
 
 ///|
 fn build_signal(
-  serial : Int,
+  serial : Int32,
   path : String,
   iface : String,
   action : String,
@@ -534,8 +534,8 @@ fn build_signal(
 
 ///|
 fn build_reply(
-  serial : Int,
-  reply_serial : Int,
+  serial : Int32,
+  reply_serial : Int32,
   dest : String,
   sig : String,
   args : Array[DVal],
@@ -545,8 +545,8 @@ fn build_reply(
 
 ///|
 fn build_error(
-  serial : Int,
-  reply_serial : Int,
+  serial : Int32,
+  reply_serial : Int32,
   dest : String,
   error_name : String,
   text : String,
@@ -561,25 +561,25 @@ fn build_error(
 ///|
 priv struct Rd {
   data : BytesView
-  mut pos : Int
+  mut pos : Int32
 }
 
 ///|
-fn Rd::pad(self : Rd, n : Int, base : Int) -> Unit {
+fn Rd::pad(self : Rd, n : Int32, base : Int32) -> Unit {
   while (self.pos - base) % n != 0 {
     self.pos += 1
   }
 }
 
 ///|
-fn Rd::u8v(self : Rd) -> Int {
+fn Rd::u8v(self : Rd) -> Int32 {
   let v = self.data[self.pos].to_int()
   self.pos += 1
   v
 }
 
 ///|
-fn Rd::u32v(self : Rd) -> Int {
+fn Rd::u32v(self : Rd) -> Int32 {
   let v = self.data[self.pos].to_int() |
     (self.data[self.pos + 1].to_int() << 8) |
     (self.data[self.pos + 2].to_int() << 16) |
@@ -624,7 +624,7 @@ fn Rd::read_sig(self : Rd) -> String {
 }
 
 ///|
-fn decode_in(rd : Rd, s : Sig, base : Int) -> DVal {
+fn decode_in(rd : Rd, s : Sig, base : Int32) -> DVal {
   match s {
     SigByte => VByte(rd.u8v())
     SigBool => {
@@ -746,7 +746,7 @@ fn sig_char(s : Sig) -> String {
 }
 
 ///|
-fn rd_u32_at(data : BytesView, pos : Int) -> Int {
+fn rd_u32_at(data : BytesView, pos : Int32) -> Int32 {
   data[pos].to_int() |
   (data[pos + 1].to_int() << 8) |
   (data[pos + 2].to_int() << 16) |

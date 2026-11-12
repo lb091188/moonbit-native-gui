@@ -28,7 +28,7 @@ fn BlockParser::try_atx_heading(self : BlockParser, container : Node) -> Node? {
 ///|
 /// Drop the optional closing run of `#`, which has to be preceded by
 /// whitespace and followed by nothing but whitespace.
-fn chop_trailing_hashes(text : String) -> (String, Int) {
+fn chop_trailing_hashes(text : String) -> (String, Int32) {
   let mut end = text.length()
   while end > 0 && is_space_or_tab(text.unsafe_get(end - 1)) {
     end = end - 1

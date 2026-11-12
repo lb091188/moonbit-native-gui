@@ -8,6 +8,7 @@ pub(all) struct Catalog {
   plurals : Array[(String, Array[(String, String)])]
 }
 
+///|
 fn i_chars(s : String) -> Array[Char] {
   let a : Array[Char] = []
   for c in s {
@@ -16,7 +17,8 @@ fn i_chars(s : String) -> Array[Char] {
   a
 }
 
-fn i_join(a : Array[Char], from : Int, to : Int) -> String {
+///|
+fn i_join(a : Array[Char], from : Int32, to : Int32) -> String {
   let mut s = ""
   let mut i = from
   while i < to {
@@ -26,6 +28,7 @@ fn i_join(a : Array[Char], from : Int, to : Int) -> String {
   s
 }
 
+///|
 fn i_trim(s : String) -> String {
   let a = i_chars(s)
   let n = a.length()
@@ -46,15 +49,15 @@ fn i_trim(s : String) -> String {
 fn i_unquote(s : String) -> String {
   let a = i_chars(s)
   let n = a.length()
-  let body =
-    if n >= 2 && a[0] == '"' && a[n - 1] == '"' {
-      i_join(a, 1, n - 1)
-    } else {
-      s
-    }
+  let body = if n >= 2 && a[0] == '"' && a[n - 1] == '"' {
+    i_join(a, 1, n - 1)
+  } else {
+    s
+  }
   i_unescape(body)
 }
 
+///|
 fn i_unescape(s : String) -> String {
   if !s.to_array().exists(c => c == '\\') {
     return s
@@ -115,6 +118,7 @@ fn i_split_eq(line : String) -> (String, String)? {
   None
 }
 
+///|
 fn i_split_lines(s : String) -> Array[String] {
   let out : Array[String] = []
   let a = i_chars(s)
@@ -132,6 +136,7 @@ fn i_split_lines(s : String) -> Array[String] {
   out
 }
 
+///|
 fn i_split_top_commas(s : String) -> Array[String] {
   let out : Array[String] = []
   let a = i_chars(s)
@@ -153,6 +158,7 @@ fn i_split_top_commas(s : String) -> Array[String] {
   out
 }
 
+///|
 fn i_inline_table(val : String) -> Array[(String, String)] {
   let forms : Array[(String, String)] = []
   let v = i_trim(val)
@@ -221,9 +227,10 @@ pub fn parse_catalog(text : String) -> Catalog {
       locale = v
     }
   }
-  { locale, texts, plurals }
+  { locale, texts, plurals, }
 }
 
+///|
 fn find_text(arr : Array[(String, String)], key : String) -> String? {
   for (k, v) in arr {
     if k == key {
@@ -233,6 +240,7 @@ fn find_text(arr : Array[(String, String)], key : String) -> String? {
   None
 }
 
+///|
 fn find_plural(
   arr : Array[(String, Array[(String, String)])],
   key : String,
@@ -276,6 +284,7 @@ pub fn interp(tmpl : String, vars : Array[(String, String)]) -> String {
   out
 }
 
+///|
 fn primary_lang(locale : String) -> String {
   let a = i_chars(locale)
   let n = a.length()
@@ -289,7 +298,8 @@ fn primary_lang(locale : String) -> String {
   i_join(a, 0, i)
 }
 
-fn select_plural(locale : String, n : Int) -> String {
+///|
+fn select_plural(locale : String, n : Int32) -> String {
   match primary_lang(locale) {
     "zh" | "ja" | "ko" | "vi" | "th" | "id" => "other"
     _ => if n == 1 { "one" } else { "other" }
@@ -300,20 +310,20 @@ fn select_plural(locale : String, n : Int) -> String {
 // 默认语言**内置**：下面这份编译期就写死，应用不加载任何外置文件也能 t() 出中文 chrome。
 // 其它语言是**独立文件**（locales/*.toml），通过 i18n_extend/i18n_load 从外置文件夹读入文本后启用。
 
-const BUILTIN_DEFAULT : String =
-  "[meta]\nlocale = \"default\"\n[gui.ui.dialog]\nconfirm = \"确定\"\ncancel = \"取消\"\n[gui.ui.message_box]\nok = \"确定\"\n[gui.ui.datepicker]\ncancel = \"取消\"\nok = \"确定\"\nplaceholder = \"请选择日期\"\nrange_placeholder = \"请选择日期区间\"\ntitle = \"选择日期\"\nmonth_year = \"{y} 年 {m} 月\"\nunit.h = \"时\"\nunit.m = \"分\"\nunit.s = \"秒\"\nwd.0 = \"日\"\nwd.1 = \"一\"\nwd.2 = \"二\"\nwd.3 = \"三\"\nwd.4 = \"四\"\nwd.5 = \"五\"\nwd.6 = \"六\"\n[gui.ui.validation]\nrequired = \"不能为空\"\nmin_len = \"至少 {n} 个字符\"\nemail = \"邮箱格式不对\"\nint_range = \"须在 {lo}.. {hi} 之间\"\n[gui.ui.edit]\ncut = \"剪切\"\ncopy = \"复制\"\npaste = \"粘贴\"\nselect_all = \"全选\"\n"
+///|
+const BUILTIN_DEFAULT : String = "[meta]\nlocale = \"default\"\n[gui.ui.dialog]\nconfirm = \"确定\"\ncancel = \"取消\"\n[gui.ui.message_box]\nok = \"确定\"\n[gui.ui.datepicker]\ncancel = \"取消\"\nok = \"确定\"\nplaceholder = \"请选择日期\"\nrange_placeholder = \"请选择日期区间\"\ntitle = \"选择日期\"\nmonth_year = \"{y} 年 {m} 月\"\nunit.h = \"时\"\nunit.m = \"分\"\nunit.s = \"秒\"\nwd.0 = \"日\"\nwd.1 = \"一\"\nwd.2 = \"二\"\nwd.3 = \"三\"\nwd.4 = \"四\"\nwd.5 = \"五\"\nwd.6 = \"六\"\n[gui.ui.validation]\nrequired = \"不能为空\"\nmin_len = \"至少 {n} 个字符\"\nemail = \"邮箱格式不对\"\nint_range = \"须在 {lo}.. {hi} 之间\"\n[gui.ui.edit]\ncut = \"剪切\"\ncopy = \"复制\"\npaste = \"粘贴\"\nselect_all = \"全选\"\n"
 
+///|
 let g_builtin : Catalog = parse_catalog(BUILTIN_DEFAULT)
 
+///|
 priv struct Store {
   mut cur : Catalog
   mut fb : Catalog?
 }
 
-let g_store : Store = Store::{
-  cur: g_builtin,
-  fb: None,
-}
+///|
+let g_store : Store = Store::{ cur: g_builtin, fb: None, }
 
 ///|
 /// 内置默认目录（源语言 chrome），任何查译的最终兜底。
@@ -366,12 +376,11 @@ pub fn t(key : String) -> String? {
     Some(s) => Some(s)
     None =>
       match g_store.fb {
-        Some(f) => {
+        Some(f) =>
           match find_text(f.texts, key) {
             Some(s) => Some(s)
             None => find_text(g_builtin.texts, key)
           }
-        }
         None => find_text(g_builtin.texts, key)
       }
   }
@@ -388,25 +397,26 @@ pub fn t_with(key : String, vars : Array[(String, String)]) -> String? {
 
 ///|
 /// 复数查译。
-pub fn t_count(key : String, n : Int) -> String? {
+pub fn t_count(key : String, n : Int32) -> String? {
   let vars = [("n", n.to_string()), ("count", n.to_string())]
   match find_plural(g_store.cur.plurals, key) {
     Some(forms) => {
       let want = select_plural(g_store.cur.locale, n)
-      let tmpl =
-        match find_text(forms, want) {
-          Some(s) => s
-          None => match find_text(forms, "other") {
+      let tmpl = match find_text(forms, want) {
+        Some(s) => s
+        None =>
+          match find_text(forms, "other") {
             Some(s) => s
             None => if forms.length() > 0 { forms[0].1 } else { "" }
           }
-        }
+      }
       Some(interp(tmpl, vars))
     }
-    None => match t(key) {
-      Some(s) => Some(interp(s, vars))
-      None => None
-    }
+    None =>
+      match t(key) {
+        Some(s) => Some(interp(s, vars))
+        None => None
+      }
   }
 }
 

@@ -2,7 +2,7 @@
 // cairo 会话建不出，Painter 自动落纯光栅器），像素读数直接来自自有位图。
 
 ///|
-fn col_inked(bm : Bitmap, x : Int, h : Int) -> Bool {
+fn col_inked(bm : Bitmap, x : Int32, h : Int32) -> Bool {
   let mut hit = false
   for y = 0; y < h; y = y + 1 {
     if bm.pixel(x, y).a > 0 {
@@ -13,8 +13,8 @@ fn col_inked(bm : Bitmap, x : Int, h : Int) -> Bool {
 }
 
 ///|
-fn dash_runs(bm : Bitmap, w : Int, h : Int) -> Array[(Int, Int)] {
-  let runs : Array[(Int, Int)] = []
+fn dash_runs(bm : Bitmap, w : Int32, h : Int32) -> Array[(Int32, Int32)] {
+  let runs : Array[(Int32, Int32)] = []
   let mut start = -1
   for x = 0; x < w; x = x + 1 {
     let on = col_inked(bm, x, h)
@@ -36,7 +36,7 @@ fn dash_runs(bm : Bitmap, w : Int, h : Int) -> Array[(Int, Int)] {
 fn dashed_line(
   pattern : Array[Double],
   offset : Double,
-) -> Array[(Int, Int)] {
+) -> Array[(Int32, Int32)] {
   let bm = Bitmap::new(160, 24)
   let p = Painter::new(bm)
   p.set_line_width(2.0)
@@ -50,6 +50,7 @@ fn dashed_line(
   dash_runs(bm, 160, 24)
 }
 
+///|
 test "虚线：段数与首段长度按图案切分" {
   let runs = dashed_line([10.0, 10.0], 0.0)
   // 100px 的线、周期 20px ⇒ 5 段；首段从 x=5 起
@@ -66,6 +67,7 @@ test "虚线：段数与首段长度按图案切分" {
   }
 }
 
+///|
 test "虚线：相位偏移把图案起点前移" {
   // 图案 [10,10] + 相位 10 ⇒ 先空 10px：首段从 x=15 起
   let runs = dashed_line([10.0, 10.0], 10.0)
@@ -76,6 +78,7 @@ test "虚线：相位偏移把图案起点前移" {
   }
 }
 
+///|
 test "虚线：清空图案回到实线" {
   let bm = Bitmap::new(160, 24)
   let p = Painter::new(bm)
@@ -89,9 +92,14 @@ test "虚线：清空图案回到实线" {
   p.stroke()
   p.end()
   let runs = dash_runs(bm, 160, 24)
-  assert_eq(runs.length(), 1, msg="清空虚线后应是整条实线，段数=\{runs.length()}")
+  assert_eq(
+    runs.length(),
+    1,
+    msg="清空虚线后应是整条实线，段数=\{runs.length()}",
+  )
 }
 
+///|
 test "虚线：闭合子路径不崩且按图案断段" {
   let bm = Bitmap::new(120, 120)
   let p = Painter::new(bm)
@@ -110,15 +118,22 @@ test "虚线：闭合子路径不崩且按图案断段" {
   let mut top_runs = 0
   let mut prev = false
   for x = 0; x < 120; x = x + 1 {
-    let on = bm.pixel(x, 20).a > 0 || bm.pixel(x, 19).a > 0 || bm.pixel(x, 21).a > 0
+    let on = bm.pixel(x, 20).a > 0 ||
+      bm.pixel(x, 19).a > 0 ||
+      bm.pixel(x, 21).a > 0
     if on && !prev {
       top_runs = top_runs + 1
     }
     prev = on
   }
-  assert_eq(top_runs >= 2, true, msg="闭合路径顶边虚线断段数=\{top_runs}")
+  assert_eq(
+    top_runs >= 2,
+    true,
+    msg="闭合路径顶边虚线断段数=\{top_runs}",
+  )
 }
 
+///|
 test "虚线状态进 save/restore" {
   let bm = Bitmap::new(40, 40)
   let p = Painter::new(bm)

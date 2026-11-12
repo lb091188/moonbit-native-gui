@@ -11,11 +11,11 @@
 
 ///|
 /// 编辑字段号:0 背景 / 1 文字 / 2 边框色 / 3 边框宽 / 4 圆角。
-let insp_field_count : Int = 5
+let insp_field_count : Int32 = 5
 
 ///|
 /// 字段显示名(编辑器行标签)。
-fn insp_field_label(i : Int) -> String {
+fn insp_field_label(i : Int32) -> String {
   match i {
     0 => @i18n.t_or("gui.inspector.f_bg", "背景")
     1 => @i18n.t_or("gui.inspector.f_color", "文字")
@@ -88,7 +88,7 @@ pub fn insp_color_input(s : String) -> @style.Color? {
 
 ///|
 /// 读一个字段的显示值(颜色走 resolve_color,数值直出;未设给空串)。
-pub fn insp_field_get(st : @style.Style, i : Int) -> String {
+pub fn insp_field_get(st : @style.Style, i : Int32) -> String {
   match i {
     0 =>
       match st.background_color {
@@ -122,31 +122,35 @@ pub fn insp_field_get(st : @style.Style, i : Int) -> String {
 /// 把一段输入落进字段的样式拷贝:空串 = 不改原样返回;颜色按 insp_color_input、
 /// 数值按 insp_parse_double,解析失败也不改(宁可没效果,不写坏样式)。
 /// 纯函数,白盒用例钉住。
-pub fn insp_field_set(st : @style.Style, i : Int, raw : String) -> @style.Style {
+pub fn insp_field_set(
+  st : @style.Style,
+  i : Int32,
+  raw : String,
+) -> @style.Style {
   match i {
     0 =>
       match insp_color_input(raw) {
-        Some(c) => { ..st, background_color: Some(c) }
+        Some(c) => { ..st, background_color: Some(c), }
         None => st
       }
     1 =>
       match insp_color_input(raw) {
-        Some(c) => { ..st, color: Some(c) }
+        Some(c) => { ..st, color: Some(c), }
         None => st
       }
     2 =>
       match insp_color_input(raw) {
-        Some(c) => { ..st, border_color: Some(c) }
+        Some(c) => { ..st, border_color: Some(c), }
         None => st
       }
     3 =>
       match insp_parse_double(raw) {
-        Some(d) => { ..st, border_width: Some(d) }
+        Some(d) => { ..st, border_width: Some(d), }
         None => st
       }
     _ =>
       match insp_parse_double(raw) {
-        Some(d) => { ..st, border_radius: Some(d) }
+        Some(d) => { ..st, border_radius: Some(d), }
         None => st
       }
   }
@@ -154,7 +158,10 @@ pub fn insp_field_set(st : @style.Style, i : Int, raw : String) -> @style.Style 
 
 ///|
 /// 一档样式(基档或 hover 档)的五个输入全部落进拷贝。
-fn insp_apply_all(st : @style.Style, inputs : Array[@base.Store[String]]) -> @style.Style {
+fn insp_apply_all(
+  st : @style.Style,
+  inputs : Array[@base.Store[String]],
+) -> @style.Style {
   let mut out = st
   let mut i = 0
   while i < insp_field_count {
@@ -195,32 +202,41 @@ fn insp_classes_section(
   snap : Ref[Map[String, @style.Style]],
 ) -> @widget.Node {
   let names : @base.Store[Array[@ui.TableRow]] = @base.Store::new([])
-  let sel_tbl : @base.Store[Array[Int]] = @base.Store::new([])
+  let sel_tbl : @base.Store[Array[Int32]] = @base.Store::new([])
   let sel_cls : @base.Store[String] = @base.Store::new("")
-  let note : @base.Store[String] = @base.Store::new(@i18n.t_or("gui.inspector.cls_hint", "回灌走 @style.define_class(与 mngdev 样式热更同口);空白输入 = 不改该字段"))
+  let note : @base.Store[String] = @base.Store::new(
+    @i18n.t_or(
+      "gui.inspector.cls_hint", "回灌走 @style.define_class(与 mngdev 样式热更同口);空白输入 = 不改该字段",
+    ),
+  )
   fn list_classes() -> Unit {
     let rows : Array[@ui.TableRow] = []
     for n in @style.registered_classes() {
       match @style.lookup_class(n) {
-        Some(c) =>
-          if !(snap.val.contains(n)) {
-            snap.val[n] = c.style
-          }
+        Some(c) => if !snap.val.contains(n) { snap.val[n] = c.style }
         None => ()
       }
       rows.push(insp_class_row(n))
     }
     names.set(rows)
     // 选中类还在就保持,不在清掉
-    if !(snap.val.contains(sel_cls.get())) {
+    if !snap.val.contains(sel_cls.get()) {
       sel_cls.set("")
       sel_tbl.set([])
     }
   }
   list_classes()
   let cols : Array[@ui.TableColumn] = [
-    @ui.TableColumn::make(@i18n.t_or("gui.inspector.cls_col_name", "类名"), 0.0, sortable=false),
-    @ui.TableColumn::make(@i18n.t_or("gui.inspector.cls_col_states", "交互态"), 120.0, sortable=false),
+    @ui.TableColumn::make(
+      @i18n.t_or("gui.inspector.cls_col_name", "类名"),
+      0.0,
+      sortable=false,
+    ),
+    @ui.TableColumn::make(
+      @i18n.t_or("gui.inspector.cls_col_states", "交互态"),
+      120.0,
+      sortable=false,
+    ),
   ]
   // 编辑器的输入行:选中类变化时整块重建(输入 Store 带当前值预填)
   let cls_cols : Array[@ui.TableColumn] = cols
@@ -228,44 +244,64 @@ fn insp_classes_section(
     [
       @ui.row(
         [
-          @ui.button(@i18n.t_or("gui.inspector.cls_refresh", "刷新类列表"), variant=@ui.Soft, on_click=list_classes),
-          @ui.button(@i18n.t_or("gui.inspector.cls_restore", "还原此类"), variant=@ui.Text, on_click=fn() {
-            let n = sel_cls.get()
-            if n.length() > 0 {
-              match snap.val.get(n) {
-                Some(s0) => {
-                  @style.define_class(n, s0)
-                  @widget.invalidate()
-                  note.set(@i18n.t_or("gui.inspector.cls_restored", "已还原 \{n}(回会话首见时的样式)"))
+          @ui.button(
+            @i18n.t_or("gui.inspector.cls_refresh", "刷新类列表"),
+            variant=@ui.Soft,
+            on_click=list_classes,
+          ),
+          @ui.button(
+            @i18n.t_or("gui.inspector.cls_restore", "还原此类"),
+            variant=@ui.Text,
+            on_click=fn() {
+              let n = sel_cls.get()
+              if n.length() > 0 {
+                match snap.val.get(n) {
+                  Some(s0) => {
+                    @style.define_class(n, s0)
+                    @widget.invalidate()
+                    note.set(
+                      @i18n.t_or(
+                        "gui.inspector.cls_restored",
+                        "已还原 \{n}(回会话首见时的样式)",
+                      ),
+                    )
+                  }
+                  None =>
+                    note.set(
+                      @i18n.t_or(
+                        "gui.inspector.cls_no_snap",
+                        "没有 \{n} 的会话快照——先刷新类列表",
+                      ),
+                    )
                 }
-                None => note.set(@i18n.t_or("gui.inspector.cls_no_snap", "没有 \{n} 的会话快照——先刷新类列表"))
               }
-            }
-          }),
+            },
+          ),
           @ui.bind_label(note, fn(s) { s }),
         ],
         column_gap=8.0,
         align_items=@yoga.AlignItems::Center,
       ),
-      @ui.table_v(
-        cls_cols,
-        names,
-        width=width,
-        height=list_h,
-        selection=sel_tbl,
-        on_row_click=fn(i : Int, r : @ui.TableRow) -> Unit {
-          sel_tbl.set([i])
-          match r.cells.get(0) {
-            Some(@ui.CellText(n)) => sel_cls.set(n)
-            _ => ()
-          }
-        },
+      @ui.table_v(cls_cols, names, width~, height=list_h, selection=sel_tbl, on_row_click=fn(
+        i : Int32,
+        r : @ui.TableRow,
+      ) -> Unit {
+        sel_tbl.set([i])
+        match r.cells.get(0) {
+          Some(@ui.CellText(n)) => sel_cls.set(n)
+          _ => ()
+        }
+      }),
+      @ui.text(
+        @i18n.t_or("gui.inspector.cls_editor_title", "样式类编辑器"),
+        weight=@text.SemiBold,
       ),
-      @ui.text(@i18n.t_or("gui.inspector.cls_editor_title", "样式类编辑器"), weight=@text.SemiBold),
       @widget.bind_node(sel_cls.signal(), fn(name : String) -> @widget.Node {
         if name.length() == 0 {
           return @ui.text(
-            @i18n.t_or("gui.inspector.cls_no_selection", "点上面一行类名开始编辑"),
+            @i18n.t_or(
+              "gui.inspector.cls_no_selection", "点上面一行类名开始编辑",
+            ),
             font_size=12.0,
             color="text_secondary",
           )
@@ -273,7 +309,10 @@ fn insp_classes_section(
         match @style.lookup_class(name) {
           None =>
             @ui.text(
-              @i18n.t_or("gui.inspector.cls_gone", "类 \{name} 已不在注册表里——刷新类列表"),
+              @i18n.t_or(
+                "gui.inspector.cls_gone",
+                "类 \{name} 已不在注册表里——刷新类列表",
+              ),
               font_size=12.0,
               color="text_secondary",
             )
@@ -326,21 +365,30 @@ fn insp_classes_section(
               }
             }
             rows.push(
-              @ui.button(@i18n.t_or("gui.inspector.cls_apply", "应用(下一帧生效)"), variant=@ui.Solid, on_click=fn() {
-                let mut nb = insp_apply_all(c.style, base_in)
-                if hover_in.length() == insp_field_count {
-                  match nb.hover {
-                    Some(h) => {
-                      let nh = insp_apply_all(h, hover_in)
-                      nb = { ..nb, hover: Some(nh) }
+              @ui.button(
+                @i18n.t_or("gui.inspector.cls_apply", "应用(下一帧生效)"),
+                variant=@ui.Solid,
+                on_click=fn() {
+                  let mut nb = insp_apply_all(c.style, base_in)
+                  if hover_in.length() == insp_field_count {
+                    match nb.hover {
+                      Some(h) => {
+                        let nh = insp_apply_all(h, hover_in)
+                        nb = { ..nb, hover: Some(nh), }
+                      }
+                      None => ()
                     }
-                    None => ()
                   }
-                }
-                @style.define_class(name, nb)
-                @widget.invalidate()
-                note.set(@i18n.t_or("gui.inspector.cls_applied", "已回灌 \{name}——用了它的控件下一帧换新样式"))
-              }),
+                  @style.define_class(name, nb)
+                  @widget.invalidate()
+                  note.set(
+                    @i18n.t_or(
+                      "gui.inspector.cls_applied",
+                      "已回灌 \{name}——用了它的控件下一帧换新样式",
+                    ),
+                  )
+                },
+              ),
             )
             @ui.view(
               rows,

@@ -13,38 +13,41 @@
 pub(all) struct Session {
   mut window : @win.Window
   mut sched : Loop
-  mut wid : Int
+  mut wid : Int32
   mut primary : Bool
   mut closed : Bool
   mut running : Bool
   /// 本窗「该重画」标志：壳层只置位与消费，真正画一帧归 widget 层
   mut dirty : Bool
   /// 上一次投递给焦点控件的组合串（相同内容不重复投递，避免每拍置脏）
-  mut last_preedit : (String, Int)
+  mut last_preedit : (String, Int32)
   /// 上一轮输入法服务的控件焦点 id（0 = 无；初值 -1 是「未同步」哨兵——
   /// `pump_ime` 靠「焦点变了才同步 IM 门」工作，0 与无焦点同值会让首拍
   /// 与丢焦后都不再同步，后端门就停在旧档上）
-  mut ime_focus : Int
+  mut ime_focus : Int32
   /// 悬停归属与按下捕获（控件 id，-1 = 无）
-  mut hover_id : Int
-  mut capture : Int
+  mut hover_id : Int32
+  mut capture : Int32
   /// 已下发给窗口的光标形状（只在变了时再走一次 FFI）
-  mut cursor_kind : Int
+  mut cursor_kind : Int32
 }
 
 ///|
 /// 关一扇窗之后宿主该不该整体退出：主窗关了退出，或这是最后一扇也退出。
-pub fn host_close_action(primary : Bool, remaining : Int) -> Bool {
+pub fn host_close_action(primary : Bool, remaining : Int32) -> Bool {
   primary || remaining <= 0
 }
 
 ///|
 let g_windows : Ref[Array[Session]] = Ref([])
 
-let g_active : Ref[Int] = Ref(0)
+///|
+let g_active : Ref[Int32] = Ref(0)
 
-let g_next_wid : Ref[Int] = Ref(1)
+///|
+let g_next_wid : Ref[Int32] = Ref(1)
 
+///|
 let g_loop : Ref[Loop?] = Ref(None)
 
 ///|
@@ -65,7 +68,7 @@ pub fn host_loop() -> Loop {
 
 ///|
 /// 取一个新窗号（与平台窗口句柄无关，只作注册表键）。
-pub fn host_new_wid() -> Int {
+pub fn host_new_wid() -> Int32 {
   let id = g_next_wid.val
   g_next_wid.val = id + 1
   id
@@ -76,12 +79,12 @@ pub fn host_new_wid() -> Int {
 /// show 之前定（弹层类型提示与 transient 关系在映射时生效）。`popup_focus`
 /// 是弹层是否要键盘焦点（菜单/下拉 false，对话框 true，见 `Window::set_popup`）。
 pub fn session_open(
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
   title : String,
   popup_of : @win.Window?,
-  place : (Int, Int)?,
-  popup_focus? : Bool = false,
+  place : (Int32, Int32)?,
+  popup_focus~ : Bool = false,
 ) -> Session? {
   if !@win.init_backend() {
     return None
@@ -166,12 +169,12 @@ pub fn host_windows() -> Array[Session] {
 }
 
 ///|
-pub fn host_window_count() -> Int {
+pub fn host_window_count() -> Int32 {
   g_windows.val.length()
 }
 
 ///|
-fn host_window_of(wid : Int) -> Session? {
+fn host_window_of(wid : Int32) -> Session? {
   for a in g_windows.val {
     if a.wid == wid {
       return Some(a)
@@ -187,7 +190,11 @@ pub fn session_active() -> Session? {
     Some(a) => Some(a)
     None => {
       let n = g_windows.val.length()
-      if n > 0 { Some(g_windows.val[n - 1]) } else { None }
+      if n > 0 {
+        Some(g_windows.val[n - 1])
+      } else {
+        None
+      }
     }
   }
 }
@@ -237,11 +244,7 @@ pub fn session_pump_advance() -> Unit {
   )
   // 无头档吃虚拟时钟（real + 偏移；uitest 的 advance 推偏移），真实运行档
   // 恒走墙上时钟——同一条泵，两种时基
-  let now = if headless_pump.val {
-    session_vtime_now()
-  } else {
-    @win.now_ms()
-  }
+  let now = if headless_pump.val { session_vtime_now() } else { @win.now_ms() }
   let _ = l.advance(now)
 }
 
@@ -270,13 +273,14 @@ pub fn session_is_headless() -> Bool {
 ///|
 let vtime_offset : Ref[Int64] = Ref(0L)
 
+///|
 /// 钉住的虚拟时刻（-1 = 未钉）。`advance` 每拍置位：一拍之内的读数恒等于
 /// 推进目标，不掺墙钟在绘制/派发期间走过的毫秒。
 let vtime_pinned : Ref[Int64] = Ref(-1L)
 
 ///|
 /// 虚拟时钟整体前移 ms（仅无头档被消费；重复调用累加）。
-pub fn session_vtime_advance(ms : Int) -> Unit {
+pub fn session_vtime_advance(ms : Int32) -> Unit {
   vtime_offset.val = vtime_offset.val + ms.to_int64()
 }
 
@@ -340,7 +344,9 @@ pub fn session_pump_running() -> Bool {
 
 ///|
 /// 单调时钟（毫秒）。
-pub fn session_now_ms() -> Int64 { @win.now_ms() }
+pub fn session_now_ms() -> Int64 {
+  @win.now_ms()
+}
 
 ///|
 /// 退出：只停派发，不拆对象。`Loop` 是各窗共用的，任一窗调它即整体退出。
@@ -357,7 +363,11 @@ pub fn Session::is_running(self : Session) -> Bool {
 
 ///|
 /// 相对延时定时器（转派共用的 `Loop`）。
-pub fn Session::timer(self : Session, delay_ms : Int, work : () -> Unit) -> Int {
+pub fn Session::timer(
+  self : Session,
+  delay_ms : Int32,
+  work : () -> Unit,
+) -> Int32 {
   // 无头档先对齐时基：`Loop::timer` 的基准是 last_now（上一拍时刻），跨用例/
   // 首拍前会落后于虚拟「现在」——CI 慢机上 150ms 定时器因此被第一段 100ms
   // 推进误判为到期（`2 != 1`）。真实档保持原样（墙钟基准不重排）。
@@ -369,7 +379,7 @@ pub fn Session::timer(self : Session, delay_ms : Int, work : () -> Unit) -> Int 
 
 ///|
 /// 停掉一个周期/延时表。幂等。
-pub fn Session::cancel_timer(self : Session, id : Int) -> Bool {
+pub fn Session::cancel_timer(self : Session, id : Int32) -> Bool {
   if self.closed {
     return false
   }
@@ -384,7 +394,7 @@ pub fn Session::task(self : Session, work : () -> Unit) -> Unit {
 
 ///|
 /// 本窗窗号与是否主窗。
-pub fn Session::wid(self : Session) -> Int {
+pub fn Session::wid(self : Session) -> Int32 {
   self.wid
 }
 
@@ -434,12 +444,17 @@ pub fn Session::close_window(self : Session) -> Unit {
   }
 }
 
-
 ///|
 /// 测试通道的假会话：句柄取越界值（桩里所有 wm_* 对越界句柄早退），
 /// 于是「挂内容 + 注册表 + 浮层」逻辑可以完全不碰平台。生产路径不走这里。
-pub fn fake_session(id : Int, wid : Int, primary : Bool, w : Int, h : Int) -> Session {
-  let win : @win.Window = { id: id.to_int64(), width: w, height: h }
+pub fn fake_session(
+  id : Int32,
+  wid : Int32,
+  primary : Bool,
+  w : Int32,
+  h : Int32,
+) -> Session {
+  let win : @win.Window = { id: id.to_int64(), width: w, height: h, }
   {
     window: win,
     sched: host_loop(),

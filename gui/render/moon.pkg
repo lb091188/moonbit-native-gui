@@ -1,5 +1,5 @@
 import {
-  "moonbitlang/core/encoding/utf8" @utf8,
+  "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/math",
   "NoahLiu/native-gui/base",
 }
@@ -14,6 +14,7 @@ import {
 // **图片解码两支都已实装**（Windows WIC / macOS ImageIO；macOS 的 GIF 动图暂退
 // 回静帧，缺口见 TODO.md「mac 平台批」）。链接参数全部由
 // prebuild 托管。
+
 supported_targets = "native"
 
 options(

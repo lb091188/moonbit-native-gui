@@ -6,17 +6,18 @@
 
 ///|
 let ffmpeg_required_dlls : Array[String] = [
-  "avcodec-63.dll", "avformat-63.dll", "avutil-61.dll", "swscale-10.dll",
-  "swresample-7.dll",
+  "avcodec-63.dll", "avformat-63.dll", "avutil-61.dll", "swscale-10.dll", "swresample-7.dll",
 ]
 
 ///|
 /// 与 REQUIRED 同版本配套，带了无害。
-let ffmpeg_optional_dlls : Array[String] = ["avdevice-63.dll", "avfilter-12.dll"]
+let ffmpeg_optional_dlls : Array[String] = [
+  "avdevice-63.dll", "avfilter-12.dll",
+]
 
 ///|
 /// 单个 dll 的体积下限：判掉残缺/半截文件，不是精确校验。
-let dll_min_bytes : Int = 100 * 1024
+let dll_min_bytes : Int32 = 100 * 1024
 
 ///|
 /// `mng ffmpeg-dll [audio|video] [--dll-dir <dir>] [--run] [--dry-run]`
@@ -57,11 +58,7 @@ fn cmd_ffmpeg_dll(args : Array[String]) -> Int32 {
     }
   }
   let root = repo_root_of_cwd()
-  let examples = if target.length() > 0 {
-    [target]
-  } else {
-    ["audio", "video"]
-  }
+  let examples = if target.length() > 0 { [target] } else { ["audio", "video"] }
   let mut code = 0
   for ex in examples {
     let r = ffmpeg_dll_for(root, ex, dll_dir~, dry~, do_run~)
@@ -86,8 +83,15 @@ fn ffmpeg_dll_for(
     None => {
       println(
         tmsg(
-          "[" + example + "] 找不到构建产物 exe——先 moon build " + example,
-          "[" + example + "] no built exe found — moon build " + example + " first",
+          "[" +
+          example +
+          "] 找不到构建产物 exe——先 moon build " +
+          example,
+          "[" +
+          example +
+          "] no built exe found — moon build " +
+          example +
+          " first",
         ),
       )
       return 1
@@ -99,8 +103,12 @@ fn ffmpeg_dll_for(
     None => {
       println(
         tmsg(
-          "[" + example + "] 七路都没找到配套 ffmpeg dll（先构建一次媒体示例让 prebuild 取 vendor，或 --dll-dir 指路）",
-          "[" + example + "] no matching ffmpeg dlls in any of the 7 sources (build the example once so the prebuild vendors them, or pass --dll-dir)",
+          "[" +
+          example +
+          "] 七路都没找到配套 ffmpeg dll（先构建一次媒体示例让 prebuild 取 vendor，或 --dll-dir 指路）",
+          "[" +
+          example +
+          "] no matching ffmpeg dlls in any of the 7 sources (build the example once so the prebuild vendors them, or pass --dll-dir)",
         ),
       )
       return 1
@@ -110,8 +118,7 @@ fn ffmpeg_dll_for(
   let mut missing = false
   for name in ffmpeg_required_dlls {
     let dst = exe_dir + "/" + name
-    if (@fs.is_file(dst) catch { _ => false }) &&
-      dll_big_enough(dst) {
+    if (@fs.is_file(dst) catch { _ => false }) && dll_big_enough(dst) {
       continue
     }
     let src = src_dir + "/" + name
@@ -153,8 +160,14 @@ fn ffmpeg_dll_for(
   }
   println(
     tmsg(
-      "[" + example + "] 就绪（补 \{copied} 支）" + (if dry { "（dry-run 未落盘）" } else { "" }),
-      "[" + example + "] ready (\{copied} copied)" + (if dry { " (dry-run, nothing written)" } else { "" }),
+      "[" +
+      example +
+      "] 就绪（补 \{copied} 支）" +
+      (if dry { "（dry-run 未落盘）" } else { "" }),
+      "[" +
+      example +
+      "] ready (\{copied} copied)" +
+      (if dry { " (dry-run, nothing written)" } else { "" }),
     ),
   )
   if do_run && !dry {
@@ -170,11 +183,7 @@ fn ffmpeg_dll_for(
 }
 
 ///|
-fn find_dll_dir(
-  root : String,
-  exe_dir : String,
-  dll_dir~ : String,
-) -> String? {
+fn find_dll_dir(root : String, exe_dir : String, dll_dir~ : String) -> String? {
   // 1. 显式 --dll-dir（环境变量 NATIVE_GUI_FFMPEG_BIN 同级）
   let mut explicit = dll_dir
   if explicit.length() == 0 {
@@ -203,7 +212,8 @@ fn find_dll_dir(
     Some(path) =>
       for raw in path.split(";") {
         let d = raw.to_owned()
-        if d.length() > 0 && (@fs.is_file(d + "/avcodec-63.dll") catch { _ => false }) {
+        if d.length() > 0 &&
+          (@fs.is_file(d + "/avcodec-63.dll") catch { _ => false }) {
           return Some(d)
         }
       }
@@ -279,7 +289,14 @@ fn dll_big_enough(p : String) -> Bool {
 /// （发布形态语义），其次 debug。
 fn find_example_exe(root : String, mod_name : String) -> String? {
   for mode in ["release", "debug"] {
-    let cand = root + "/_build/native/" + mode + "/build/NoahLiu/" + mod_name + "/" + mod_name + ".exe"
+    let cand = root +
+      "/_build/native/" +
+      mode +
+      "/build/NoahLiu/" +
+      mod_name +
+      "/" +
+      mod_name +
+      ".exe"
     if (@fs.is_file(cand) catch { _ => false }) {
       return Some(cand)
     }

@@ -46,7 +46,7 @@ pub extend HotkeyError with Show::{to_string, output}
 /// 由门面按修饰位与主键现算（mac `Cmd+…`、其余 `Ctrl+…`），不是原始入参：
 /// 入参里的别名（`CmdOrCtrl` / `Option` / `Meta`…）不该出现在回显里。
 pub(all) struct Hotkey {
-  id : Int
+  id : Int32
   spec : String
 }
 
@@ -58,7 +58,7 @@ let hotkey_registry : Ref[Array[Hotkey]] = Ref([])
 
 ///|
 /// 按 id 回查（本工具链的 Array 没有 find，手写循环；表很小，线性扫足够）。
-fn hotkey_find(id : Int) -> Hotkey? {
+fn hotkey_find(id : Int32) -> Hotkey? {
   for h in hotkey_registry.val {
     if h.id == id {
       return Some(h)
@@ -88,11 +88,12 @@ pub fn hotkey_register(spec : String) -> Result[Hotkey, HotkeyError] {
     None => Err(Failed("加速串无法解析：\{spec}"))
     Some(hk) =>
       match @win.register_global_shortcut(hk) {
-        None => Err(Failed("注册失败（组合被占用或表满）：\{spec}"))
+        None =>
+          Err(Failed("注册失败（组合被占用或表满）：\{spec}"))
         Some(id) => {
           let label = @win.hotkey_label(hk, is_mac)
-          hotkey_registry.val.push({ id, spec: label })
-          Ok({ id, spec: label })
+          hotkey_registry.val.push({ id, spec: label, })
+          Ok({ id, spec: label, })
         }
       }
   }
@@ -121,7 +122,7 @@ pub fn hotkey_poll() -> Hotkey? {
     None => None
     Some(id) =>
       match hotkey_find(id) {
-        None => Some({ id, spec: "" })
+        None => Some({ id, spec: "", })
         Some(h) => Some(h)
       }
   }
@@ -129,7 +130,7 @@ pub fn hotkey_poll() -> Hotkey? {
 
 ///|
 /// 回查已注册热键的加速串（菜单提示 / 状态行用）。
-pub fn hotkey_spec_of(id : Int) -> String {
+pub fn hotkey_spec_of(id : Int32) -> String {
   match hotkey_find(id) {
     None => ""
     Some(h) => h.spec
@@ -138,6 +139,6 @@ pub fn hotkey_spec_of(id : Int) -> String {
 
 ///|
 /// 已注册数（状态行读数用）。
-pub fn hotkey_registered_count() -> Int {
+pub fn hotkey_registered_count() -> Int32 {
   hotkey_registry.val.length()
 }

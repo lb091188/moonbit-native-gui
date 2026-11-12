@@ -8,19 +8,16 @@ fn mounted_editor(
   text : String,
   width : Double,
   height : Double,
-  lang? : String = "moonbit",
-  read_only? : Bool = false,
+  lang~ : String = "moonbit",
+  read_only~ : Bool = false,
 ) -> (@widget.Widget, @widget.Widget, @base.Store[String], Ref[Array[String]]) {
   let store = @base.Store::new(text)
   let changes : Ref[Array[String]] = Ref([])
-  let e = code_editor(
-    store,
-    lang=lang,
-    read_only=read_only,
-    height=height,
-    focus_id=1,
-    on_change=fn(t : String) -> Unit { changes.val.push(t) },
-  )
+  let e = code_editor(store, lang~, read_only~, height~, focus_id=1, on_change=fn(
+    t : String,
+  ) -> Unit {
+    changes.val.push(t)
+  })
   let root = @widget.Widget::new()
   root.set_size(width + 20.0, height + 20.0)
   root.set_column()
@@ -37,7 +34,11 @@ fn press_xy(
   y : Double,
 ) -> Unit {
   let _ = root.dispatch_pointer_to(w.id, {
-    kind: @widget.PointerKind::Down, x, y, button: 1, mods: 0,
+    kind: @widget.PointerKind::Down,
+    x,
+    y,
+    button: 1,
+    mods: 0,
   })
 }
 
@@ -49,7 +50,11 @@ fn move_xy(
   y : Double,
 ) -> Unit {
   let _ = root.dispatch_pointer_to(w.id, {
-    kind: @widget.PointerKind::Move, x, y, button: 1, mods: 0,
+    kind: @widget.PointerKind::Move,
+    x,
+    y,
+    button: 1,
+    mods: 0,
   })
 }
 
@@ -61,7 +66,11 @@ fn release_xy(
   y : Double,
 ) -> Unit {
   let _ = root.dispatch_pointer_to(w.id, {
-    kind: @widget.PointerKind::Up, x, y, button: 1, mods: 0,
+    kind: @widget.PointerKind::Up,
+    x,
+    y,
+    button: 1,
+    mods: 0,
   })
 }
 
@@ -75,7 +84,7 @@ fn editor_line_h() -> Double {
 ///|
 /// 文本区左缘 x（与组件同一式：16 + digit_w × digits + 8；点击坐标用它算，
 /// 不依赖具体字宽）。
-fn editor_text_left(digits : Int) -> Double {
+fn editor_text_left(digits : Int32) -> Double {
   let font = @text.Font::new("Monospace", 13.0)
   text_width("8", font) * digits.to_double() + 24.0
 }
@@ -83,7 +92,9 @@ fn editor_text_left(digits : Int) -> Double {
 ///|
 test "键入回写 Store 与 on_change；初始 caret 在文末" {
   use_system_clipboard(false)
-  let (root, w, store, changes) = mounted_editor("let a = 1\nlet b = 2\n", 300.0, 120.0)
+  let (root, w, store, changes) = mounted_editor(
+    "let a = 1\nlet b = 2\n", 300.0, 120.0,
+  )
   key(root, w, 'x'.to_int(), 0)
   assert_eq(store.get(), "let a = 1\nlet b = 2\nx")
   assert_true(changes.val.length() >= 1)
@@ -140,7 +151,7 @@ test "PageDown 按可视行数翻页并保列" {
   key(root, w, 65365, 0) // PageUp：从行 0 起翻不出去，仍在首行
   assert_eq(caret_of(w), 0)
   key(root, w, 65366, 0) // PageDown：step = 可视行数（(120-8)/行高 向下取整）
-  let step = (((120.0 - 8.0) / lh).floor().to_int()).max(1)
+  let step = ((120.0 - 8.0) / lh).floor().to_int().max(1)
   assert_eq(caret_of(w), step * 4) // 每行 "L?x\n" 4 字节，起算列 0
   let _ = store
 }
@@ -176,7 +187,12 @@ test "undo/redo 走主修饰键（mac=Cmd 其余=Ctrl）" {
 ///|
 test "只读：编辑键不吃，导航与全选复制照旧" {
   use_system_clipboard(false)
-  let (root, w, store, _) = mounted_editor("锁住\n", 300.0, 120.0, read_only=true)
+  let (root, w, store, _) = mounted_editor(
+    "锁住\n",
+    300.0,
+    120.0,
+    read_only=true,
+  )
   key(root, w, 'x'.to_int(), 0)
   key(root, w, @base.KS_BACKSPACE, 0)
   assert_eq(store.get(), "锁住\n")
@@ -250,7 +266,10 @@ test "拖选跨行：锚点按下，拖到下方行替换" {
   // 结果按它现算，不依赖字宽
   let caret = caret_of(w)
   key(root, w, 'Z'.to_int(), 0)
-  assert_eq(store.get(), "Z" + byte_slice(text, caret, @utf8.encode(text).length()))
+  assert_eq(
+    store.get(),
+    "Z" + byte_slice(text, caret, @utf8.encode(text).length()),
+  )
 }
 
 ///|
@@ -270,7 +289,6 @@ test "bash heredoc 高亮逐行走状态：正文整段字符串着色" {
   key(root, w, @base.KS_END, 0)
   assert_eq(caret_of(w), @utf8.encode(store.get()).length())
 }
-
 
 ///|
 test "自动缩进：换行继承行首空白，开括号行再进一格" {
@@ -374,9 +392,11 @@ test "行号列真实出墨（clip 修复后）与 wants_tab 声明" {
   }
   assert_true(ink > 8, msg="行号列没有出墨（仍被裁或没画）")
   // wants_tab：向宿主声明「Tab 是我的输入」
-  let got : Ref[Int] = Ref(0)
+  let got : Ref[Int32] = Ref(0)
   let store2 = @base.Store::new("")
-  let node = code_editor(store2, height=80.0, handle=fn(w : @widget.Widget) -> Unit {
+  let node = code_editor(store2, height=80.0, handle=fn(
+    w : @widget.Widget,
+  ) -> Unit {
     got.val = if w.wants_tab { 1 } else { 0 }
   })
   let root2 = @widget.Widget::new()
@@ -406,11 +426,9 @@ test "宿主真泵：点击聚焦后打字与快捷键全链路" {
   use_system_clipboard(false)
   let host = @widget.WindowHost::test_headless(320, 240)
   let store = @base.Store::new("abcdef\nghijkl\n")
-  host.mount([
-    code_editor(store, height=220.0, focus_id=1),
-  ])
+  host.mount([code_editor(store, height=220.0, focus_id=1)])
   host.root.relayout(320, 240)
-    // 点击编辑器中心（真泵指针路径：命中 → 点击聚焦）
+  // 点击编辑器中心（真泵指针路径：命中 → 点击聚焦）
   host.test_pump_pointer(2, 160, 100, 1)
   host.test_pump_pointer(3, 160, 100, 1)
   // 打字：按键必须真进编辑器（真机上计数行不更新 = 这条断了）

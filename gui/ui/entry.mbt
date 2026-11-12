@@ -31,7 +31,7 @@ fn entry_layout(
   mask : Bool,
   pad~ : Double = 0.0,
 ) -> @input.TextLayout {
-  let measure = fn(t : String, from : Int, to : Int) -> Double {
+  let measure = fn(t : String, from : Int32, to : Int32) -> Double {
     let raw = byte_slice(t, from, to)
     let shown = if mask { mask_of(raw) } else { raw }
     match @text.measure_font(shown, font) {
@@ -40,14 +40,15 @@ fn entry_layout(
     }
   }
   // 行不可折：给一个量不到的宽，整段就是一行（单行档的 y 不参与定行）
-  @input.TextLayout::build(ed.get_text(), 1000000.0, measure, 1.0, pad=pad)
+  @input.TextLayout::build(ed.get_text(), 1000000.0, measure, 1.0, pad~)
 }
 
+///|
 fn prefix_width(
   ed : @input.Editor,
-  upto : Int,
+  upto : Int32,
   font : @text.Font,
-  mask? : Bool = false,
+  mask~ : Bool = false,
 ) -> Double {
   entry_layout(ed, font, mask).caret_x(upto)
 }
@@ -59,24 +60,27 @@ fn byte_at_x(
   x : Double,
   pad : Double,
   font : @text.Font,
-  mask? : Bool = false,
-) -> Int {
-  entry_layout(ed, font, mask, pad=pad).hit(x, 0.5)
+  mask~ : Bool = false,
+) -> Int32 {
+  entry_layout(ed, font, mask, pad~).hit(x, 0.5)
 }
 
 ///|
 /// 选词：从 `at` 向两侧扩到字母/数字/下划线之外（与内核 `is_word_byte` 同口径，
 /// 非 ASCII 一律算词内，中文因此整段连续可选）。
-fn word_range(text : String, at : Int) -> (Int, Int) {
+fn word_range(text : String, at : Int32) -> (Int32, Int32) {
   let b = @utf8.encode(text)
   let n = b.length()
-  let is_word = fn(i : Int) -> Bool {
+  let is_word = fn(i : Int32) -> Bool {
     if i < 0 || i >= n {
       return false
     }
     let v = b[i].to_int()
-    (v >= 48 && v <= 57) || (v >= 65 && v <= 90) || (v >= 97 && v <= 122) ||
-      v == 95 || v >= 0x80
+    (v >= 48 && v <= 57) ||
+    (v >= 65 && v <= 90) ||
+    (v >= 97 && v <= 122) ||
+    v == 95 ||
+    v >= 0x80
   }
   let clamped = if at > n { n } else if at < 0 { 0 } else { at }
   let mut start = clamped
@@ -94,9 +98,10 @@ fn word_range(text : String, at : Int) -> (Int, Int) {
 /// 没显式给 `focus_id` 时自动分配一个（从 1000000 起递增，避开使用者手写的
 /// 小序号）。宿主侧 `focus_id=0` 就是「不可聚焦」，让每个调用点自己想起给号，
 /// 等于把「输入框点不进、打不了字」埋进每一个示例。
-let next_auto_focus : Ref[Int] = Ref(1000000)
+let next_auto_focus : Ref[Int32] = Ref(1000000)
 
-pub fn auto_focus_id(explicit : Int) -> Int {
+///|
+pub fn auto_focus_id(explicit : Int32) -> Int32 {
   if explicit != 0 {
     explicit
   } else {
@@ -113,34 +118,34 @@ pub fn input(
   /// 双向绑定这段文本。
   store : @base.Store[String],
   /// 没输入时显示占位文字。
-  placeholder? : String = "",
+  placeholder~ : String = "",
   /// 当密码框用，显示成掩码。
-  password? : Bool = false,
+  password~ : Bool = false,
   /// 设为只读：可选中不可改。
-  read_only? : Bool = false,
+  read_only~ : Bool = false,
   /// 设字号（逻辑像素）。
-  font_size? : Double = 13.0,
+  font_size~ : Double = 13.0,
   /// 指定字族，空串走系统默认字族。
-  family? : String = "",
+  family~ : String = "",
   /// 定死宽度，0 = 按内容测量。
-  width? : Double = 0.0,
+  width~ : Double = 0.0,
   /// 进 Tab 焦点链的序号；传正数才可 Tab 到，0 = 自动领号。
-  focus_id? : Int = 0,
+  focus_id~ : Int32 = 0,
   /// 决定光标是否可见的谓词。
-  caret_on? : () -> Bool = fn() -> Bool { true },
+  caret_on~ : () -> Bool = fn() -> Bool { true },
   /// 回车时回调。
-  on_enter? : () -> Unit = fn() { () },
+  on_enter~ : () -> Unit = fn() { () },
   /// 值变化时回调。
-  on_change? : (String) -> Unit = fn(_s : String) { () },
+  on_change~ : (String) -> Unit = fn(_s : String) { () },
   /// 加一枚清除按钮（有内容且聚焦时出现）。
-  clearable? : Bool = false,
+  clearable~ : Bool = false,
   /// mount 时交出编辑内核：改选区 / 读文本这类组件外的操作用它拿句柄
   /// （步进器的「聚焦全选」即此用法）。
-  editor? : (@input.Editor) -> Unit = fn(_e : @input.Editor) -> Unit { () },
+  editor~ : (@input.Editor) -> Unit = fn(_e : @input.Editor) -> Unit { () },
   /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
-  class? : Array[@style.Style] = [],
+  class~ : Array[@style.Style] = [],
   /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let ed = @input.Editor::new()
   attach_system_clipboard(ed)
@@ -160,7 +165,10 @@ pub fn input(
     (r.w - 18.0, ((r.h - 14.0) / 2.0).max(0.0), 14.0, 14.0)
   }
   let clear_shown = fn(self : @widget.Widget) -> Bool {
-    can_clear && !ro && ed.get_text().length() > 0 && (self.hovered || self.focused)
+    can_clear &&
+    !ro &&
+    ed.get_text().length() > 0 &&
+    (self.hovered || self.focused)
   }
   let last_down = Ref(-1000000L)
   let last_x = Ref(-1000.0)
@@ -172,7 +180,11 @@ pub fn input(
     change_cb(t)
   }
   let show_text = fn() -> String {
-    if mask { mask_of(ed.get_text()) } else { ed.get_text() }
+    if mask {
+      mask_of(ed.get_text())
+    } else {
+      ed.get_text()
+    }
   }
   // 文本起点：样式槽给了居中就把整串挪到盒中线。光标、选区、点击命中都跟着这
   // 同一个起点——只挪字不挪光标，数字就会和光标各站一处（步进器格踩过）。
@@ -191,7 +203,7 @@ pub fn input(
     origin_x(self, if t.length() == 0 { ph } else { t })
   }
   let caret_at = fn(self : @widget.Widget) -> Double {
-    shown_origin(self) + prefix_width(ed, ed.caret_pos(), font, mask=mask)
+    shown_origin(self) + prefix_width(ed, ed.caret_pos(), font, mask~)
   }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     // 语义面：读屏读当前文本；密码框只报保护态，绝不外泄明文
@@ -235,7 +247,9 @@ pub fn input(
 
       self.clip_rounded = rad > 0.0
       self.style_clip_radius = rad
-      p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
+      p.set_fill_color(
+        @style.color_of(st.background_color, @theme.theme_bg_panel()),
+      )
       if rad > 0.0 {
         p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
       } else {
@@ -245,15 +259,17 @@ pub fn input(
       let ox = shown_origin(self)
       match ed.selection() {
         Some((s, e)) => {
-          let x0 = ox + prefix_width(ed, s, font, mask=mask)
-          let x1 = ox + prefix_width(ed, e, font, mask=mask)
+          let x0 = ox + prefix_width(ed, s, font, mask~)
+          let x1 = ox + prefix_width(ed, e, font, mask~)
           p.set_fill_color(@theme.theme_primary_light())
           p.fill_rect(x0, ty, (x1 - x0).max(1.0), lh)
         }
         None => ()
       }
       // 焦点框色改由 focus 桶供（样式没给就回落到主题描边色）
-      p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
+      p.set_stroke_color(
+        @style.color_of(st.border_color, @theme.theme_border()),
+      )
       p.set_line_width(@style.number_of(st.border_width, 1.0))
       if rad > 0.0 {
         p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
@@ -266,18 +282,32 @@ pub fn input(
       // 屏幕上什么都不出现（组合照常在走），看起来就是「打不进字」——真机踩到。
       if txt.length() == 0 && ph.length() > 0 && pe.length() == 0 {
         // 占位符按它自己的宽度取起点（空文本时光标也落在这个起点上）
-        let _ = @text.draw_at(p, ox, ty, ph, font, @theme.theme_text_secondary())
+        let _ = @text.draw_at(
+          p,
+          ox,
+          ty,
+          ph,
+          font,
+          @theme.theme_text_secondary(),
+        )
       } else {
         if txt.length() > 0 {
-          let _ = @text.draw_at(p, ox, ty, txt, font, if off.off {
-            @theme.theme_text_secondary()
-          } else {
-            @style.color_of(st.color, @theme.theme_text_regular())
-          })
+          let _ = @text.draw_at(
+            p,
+            ox,
+            ty,
+            txt,
+            font,
+            if off.off {
+              @theme.theme_text_secondary()
+            } else {
+              @style.color_of(st.color, @theme.theme_text_regular())
+            },
+          )
         }
         if pe.length() > 0 {
           // 组合串画在 caret 处并加下划线，且只此一份（内核不并入文本）
-          let px = ox + prefix_width(ed, ed.caret_pos(), font, mask=mask)
+          let px = ox + prefix_width(ed, ed.caret_pos(), font, mask~)
           let _ = @text.draw_at(p, px, ty, pe, font, @theme.theme_warning())
           let pw = match @text.measure_font(pe, font) {
             Some(m) => m.width
@@ -290,7 +320,7 @@ pub fn input(
       if self.focused && !off.off && caret_on() {
         p.set_fill_color(@theme.theme_text_primary())
         p.fill_rect(
-          ox + prefix_width(ed, ed.caret_pos(), font, mask=mask),
+          ox + prefix_width(ed, ed.caret_pos(), font, mask~),
           4.0,
           1.0,
           (r.h - 8.0).max(1.0),
@@ -299,7 +329,9 @@ pub fn input(
       if clear_shown(self) && !off.off {
         let (cx, cy, cw, ch) = clear_box(r)
         // 先盖一小块底色，长文本不至于和 ✕ 叠成一团
-        p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
+        p.set_fill_color(
+          @style.color_of(st.background_color, @theme.theme_bg_panel()),
+        )
         p.fill_rect(cx - 3.0, 1.0, cw + 5.0, r.h - 2.0)
         p.set_stroke_color(@theme.theme_text_secondary())
         p.set_line_width(1.0)
@@ -321,10 +353,12 @@ pub fn input(
       }
       // 导航键：方向/Home/End/PageUp-Down/Tab（65360..65367 是这一族）与带修饰的组合
       // （含 mac 的 Cmd 族——只读输入框照样要能全选与复制）
-      let nav = (
-        ev.mods & (@base.MOD_CTRL | @base.MOD_SHIFT | @base.MOD_META)
-      ) != 0 || (ev.keysym >= 65360 && ev.keysym <= 65367) || ev.keysym == @base.KS_TAB
-      let editing = ev.keysym == @base.KS_BACKSPACE || ev.keysym == @base.KS_DELETE
+      let nav = (ev.mods & (@base.MOD_CTRL | @base.MOD_SHIFT | @base.MOD_META)) !=
+        0 ||
+        (ev.keysym >= 65360 && ev.keysym <= 65367) ||
+        ev.keysym == @base.KS_TAB
+      let editing = ev.keysym == @base.KS_BACKSPACE ||
+        ev.keysym == @base.KS_DELETE
       if ro && (editing || !nav) {
         // 只读：导航与复制照旧，编辑类按键（含退格/删除/可打印字符）一律不吃
         return false
@@ -345,11 +379,14 @@ pub fn input(
       @widget.invalidate()
       true
     })
-    w.on_preedit = Some(fn(t : String, _caret : Int) -> Unit {
+    w.on_preedit = Some(fn(t : String, _caret : Int32) -> Unit {
       ed.set_preedit(t)
       @widget.invalidate()
     })
-    w.on_pointer = Some(fn(_self : @widget.Widget, ev : @widget.PointerEvent) -> Bool {
+    w.on_pointer = Some(fn(
+      _self : @widget.Widget,
+      ev : @widget.PointerEvent,
+    ) -> Bool {
       match ev.kind {
         @widget.PointerKind::Down => {
           if ev.button == 3 {
@@ -379,7 +416,8 @@ pub fn input(
             }
           }
           let now = @shell.now_ms()
-          let dbl = (now - last_down.val) < 400L && (ev.x - last_x.val).abs() < 4.0
+          let dbl = now - last_down.val < 400L &&
+            (ev.x - last_x.val).abs() < 4.0
           last_down.val = now
           last_x.val = ev.x
           dragging.val = true
@@ -388,11 +426,11 @@ pub fn input(
           if dbl {
             let (s, e) = word_range(
               ed.get_text(),
-              byte_at_x(ed, ev.x, ox, font, mask=mask),
+              byte_at_x(ed, ev.x, ox, font, mask~),
             )
             ed.select_range(s, e)
           } else {
-            let at = byte_at_x(ed, ev.x, ox, font, mask=mask)
+            let at = byte_at_x(ed, ev.x, ox, font, mask~)
             ed.select_range(at, at)
             anchor.val = at
           }
@@ -404,7 +442,7 @@ pub fn input(
             // 拖出的部分靠宿主的捕获期投递，选区可以越过框边缘继续走
             ed.select_range(
               anchor.val,
-              byte_at_x(ed, ev.x, shown_origin(_self), font, mask=mask),
+              byte_at_x(ed, ev.x, shown_origin(_self), font, mask~),
             )
             @widget.invalidate()
           }
@@ -417,7 +455,7 @@ pub fn input(
         @widget.PointerKind::Leave => false
       }
     })
-    w.im_context = Some(fn() -> (String, Int)? {
+    w.im_context = Some(fn() -> (String, Int32)? {
       Some((ed.get_text(), ed.caret_pos()))
     })
     w.im_cursor = Some(fn(self : @widget.Widget) -> @base.Rect? {
@@ -441,7 +479,12 @@ pub fn input(
     fold_style(
       w,
       @style.empty_style(),
-      @style.style(background_color="bg_panel", border_color="border", border_width=1.0, color="text_regular").focus(border_color="primary"),
+      @style.style(
+        background_color="bg_panel",
+        border_color="border",
+        border_width=1.0,
+        color="text_regular",
+      ).focus(border_color="primary"),
       class,
     )
     handle(w)

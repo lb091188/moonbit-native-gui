@@ -5,7 +5,7 @@
 
 ///|
 // 等 is_maximized 落定：预算内读到 want 即真；预算耗尽按最后读数判定
-fn wait_maximized(w : Window, want : Bool, budget_ms : Int) -> Bool {
+fn wait_maximized(w : Window, want : Bool, budget_ms : Int32) -> Bool {
   let deadline = now_ms() + budget_ms.to_int64()
   let mut ok = w.is_maximized() == want
   while !ok && now_ms() < deadline {
@@ -16,7 +16,13 @@ fn wait_maximized(w : Window, want : Bool, budget_ms : Int) -> Bool {
 }
 
 // 等几何落定：pred 对当前尺寸成立即真（「撑大」「回原尺寸」两处共用）
-fn wait_size(w : Window, pred : ((Int, Int)) -> Bool, budget_ms : Int) -> Bool {
+
+///|
+fn wait_size(
+  w : Window,
+  pred : ((Int32, Int32)) -> Bool,
+  budget_ms : Int32,
+) -> Bool {
   let deadline = now_ms() + budget_ms.to_int64()
   let mut ok = pred(w.size())
   while !ok && now_ms() < deadline {

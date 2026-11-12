@@ -3,7 +3,7 @@
 // 唯一锁死的绝对值是「单行高度与多行高度的大小关系」这类结构性事实。
 
 ///|
-fn painted_box(bm : @render.Bitmap) -> (Int, Int, Int, Int)? {
+fn painted_box(bm : @render.Bitmap) -> (Int32, Int32, Int32, Int32)? {
   let mut x0 = bm.width
   let mut y0 = bm.height
   let mut x1 = -1
@@ -36,7 +36,7 @@ fn painted_box(bm : @render.Bitmap) -> (Int, Int, Int, Int)? {
 ///|
 /// 空图给哨兵 (0,0,-1,-1)：调用点的「x1 >= 0」断言会把它暴露出来，
 /// 同时避免在无 error 签名的辅助函数里用 assert（工具链限制）。
-fn box_of(bm : @render.Bitmap) -> (Int, Int, Int, Int) {
+fn box_of(bm : @render.Bitmap) -> (Int32, Int32, Int32, Int32) {
   match painted_box(bm) {
     Some(b) => b
     None => (0, 0, -1, -1)
@@ -46,10 +46,11 @@ fn box_of(bm : @render.Bitmap) -> (Int, Int, Int, Int) {
 ///|
 test "wrap=false 单行自然宽：宽度不折行（与 wrap=true 的高度对照）" {
   let t = "the quick brown fox jumps over the lazy dog"
-  match (
-    measure(t, 14.0, max_width=120, wrap=false),
-    measure(t, 14.0, max_width=120, wrap=true),
-  ) {
+  match
+    (
+      measure(t, 14.0, max_width=120, wrap=false),
+      measure(t, 14.0, max_width=120, wrap=true),
+    ) {
     (Some(one), Some(many)) => {
       // 不换行：高度按单行，宽度按自然宽（可超出约束）
       assert_eq(many.height > one.height, true)
@@ -109,7 +110,7 @@ test "字重参与度量（粗体不窄于常规）" {
 ///|
 test "盒内水平对齐：start < center < end，且 center 居中" {
   let f = Font::new("", 14.0)
-  let make = fn(a : TextAlign) -> (Int, Int, Int, Int) {
+  let make = fn(a : TextAlign) -> (Int32, Int32, Int32, Int32) {
     let bm = @render.Bitmap::new(200, 24)
     let _ = draw_in_box(bm, 0.0, 0.0, 200.0, 24.0, "Xg", f, "#000", align=a)
     box_of(bm)
@@ -130,7 +131,7 @@ test "盒内水平对齐：start < center < end，且 center 居中" {
 ///|
 test "盒内垂直对齐：start < center < end，且 center 居盒中" {
   let f = Font::new("", 14.0)
-  let make = fn(a : TextAlign) -> (Int, Int, Int, Int) {
+  let make = fn(a : TextAlign) -> (Int32, Int32, Int32, Int32) {
     let bm = @render.Bitmap::new(60, 80)
     let _ = draw_in_box(bm, 0.0, 0.0, 60.0, 80.0, "Xg", f, "#000", valign=a)
     box_of(bm)

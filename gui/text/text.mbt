@@ -9,68 +9,68 @@
 #borrow(text, family, out_w, out_h, out_baseline)
 extern "c" fn pt_measure(
   text : Bytes,
-  len : Int,
+  len : Int32,
   size : Double,
   family : Bytes,
   spacing : Double,
-  max_width : Int,
-  ellipsize : Int,
-  wrap : Int,
+  max_width : Int32,
+  ellipsize : Int32,
+  wrap : Int32,
   out_w : Ref[Double],
-  out_h : Ref[Int],
-  out_baseline : Ref[Int],
-) -> Int = "pt_measure"
+  out_h : Ref[Int32],
+  out_baseline : Ref[Int32],
+) -> Int32 = "pt_measure"
 
 ///|
 #borrow(family, out_h, out_ascent)
 extern "c" fn pt_font_line_height(
   size : Double,
   family : Bytes,
-  weight : Int,
-  italic : Int,
-  out_h : Ref[Int],
-  out_ascent : Ref[Int],
-) -> Int = "pt_font_line_height"
+  weight : Int32,
+  italic : Int32,
+  out_h : Ref[Int32],
+  out_ascent : Ref[Int32],
+) -> Int32 = "pt_font_line_height"
 
 ///|
 #borrow(data, text, family)
 extern "c" fn pt_draw(
   data : FixedArray[Byte],
-  buf_w : Int,
-  buf_h : Int,
+  buf_w : Int32,
+  buf_h : Int32,
   x : Double,
   y : Double,
   text : Bytes,
-  len : Int,
+  len : Int32,
   size : Double,
   family : Bytes,
-  r : Int,
-  g : Int,
-  b : Int,
-  a : Int,
+  r : Int32,
+  g : Int32,
+  b : Int32,
+  a : Int32,
   spacing : Double,
-  max_width : Int,
-  ellipsize : Int,
-  wrap : Int,
-) -> Int = "pt_draw"
+  max_width : Int32,
+  ellipsize : Int32,
+  wrap : Int32,
+) -> Int32 = "pt_draw"
 
 ///|
 #borrow(text, family, out_w, out_h, out_baseline)
 extern "c" fn pt_measure_font(
   text : Bytes,
-  len : Int,
+  len : Int32,
   size : Double,
   family : Bytes,
-  weight : Int,
-  italic : Int,
+  weight : Int32,
+  italic : Int32,
   spacing : Double,
-  max_width : Int,
-  ellipsize : Int,
-  wrap : Int,
+  max_width : Int32,
+  ellipsize : Int32,
+  wrap : Int32,
   out_w : Ref[Double],
-  out_h : Ref[Int],
-  out_baseline : Ref[Int],
-) -> Int = "pt_measure_font"
+  out_h : Ref[Int32],
+  out_baseline : Ref[Int32],
+) -> Int32 = "pt_measure_font"
 
 ///|
 /// FFI 参数顺序三端必须逐位一致：Windows x64 的参数按「位置」分配寄存器与
@@ -80,31 +80,31 @@ extern "c" fn pt_measure_font(
 #borrow(data, text, family)
 extern "c" fn pt_draw_box(
   data : FixedArray[Byte],
-  buf_w : Int,
-  buf_h : Int,
+  buf_w : Int32,
+  buf_h : Int32,
   x : Double,
   y : Double,
   box_w : Double,
   box_h : Double,
   text : Bytes,
-  len : Int,
+  len : Int32,
   size : Double,
   family : Bytes,
-  weight : Int,
-  italic : Int,
-  r : Int,
-  g : Int,
-  b : Int,
-  a : Int,
-  align : Int,
-  valign : Int,
-  ellipsize : Int,
-  wrap : Int,
+  weight : Int32,
+  italic : Int32,
+  r : Int32,
+  g : Int32,
+  b : Int32,
+  a : Int32,
+  align : Int32,
+  valign : Int32,
+  ellipsize : Int32,
+  wrap : Int32,
   spacing : Double,
-) -> Int = "pt_draw_box"
+) -> Int32 = "pt_draw_box"
 
 ///|
-extern "c" fn pt_set_base_dir(rtl : Int) -> Unit = "pt_set_base_dir"
+extern "c" fn pt_set_base_dir(rtl : Int32) -> Unit = "pt_set_base_dir"
 
 ///|
 /// 文本 run 基方向。`Rtl` 让段落内文字按右起排版(阿语/希伯来语、混排括号镜像)。
@@ -132,8 +132,8 @@ pub(all) struct TextMetrics {
   /// 取整测量 × 逐字符累加会漂移（code_editor 光标错位半格的根因）；
   /// Pango 侧绘制 advance 本在整数网格，浮点无损。
   width : Double
-  height : Int
-  baseline : Int
+  height : Int32
+  baseline : Int32
 }
 
 ///|
@@ -142,11 +142,11 @@ pub(all) struct TextMetrics {
 pub fn measure(
   text : String,
   size : Double,
-  family? : String = "",
-  max_width? : Int = 0,
-  ellipsize? : Bool = false,
-  wrap? : Bool = false,
-  spacing? : Double = 0.0,
+  family~ : String = "",
+  max_width~ : Int32 = 0,
+  ellipsize~ : Bool = false,
+  wrap~ : Bool = false,
+  spacing~ : Double = 0.0,
 ) -> TextMetrics? {
   measure_cached(text, size, family, max_width, ellipsize, wrap, spacing)
 }
@@ -156,7 +156,7 @@ fn measure_uncached(
   text : String,
   size : Double,
   family : String,
-  max_width : Int,
+  max_width : Int32,
   ellipsize : Bool,
   wrap : Bool,
   spacing : Double,
@@ -173,8 +173,16 @@ fn measure_uncached(
     fb,
     spacing,
     max_width,
-    if ellipsize { 1 } else { 0 },
-    if wrap { 1 } else { 0 },
+    if ellipsize {
+      1
+    } else {
+      0
+    },
+    if wrap {
+      1
+    } else {
+      0
+    },
     ow,
     oh,
     ob,
@@ -182,7 +190,7 @@ fn measure_uncached(
   if ok != 1 {
     None
   } else {
-    Some({ width: ow.val, height: oh.val, baseline: ob.val })
+    Some({ width: ow.val, height: oh.val, baseline: ob.val, })
   }
 }
 
@@ -191,12 +199,12 @@ fn measure_uncached(
 /// 有无下伸部（g/y）当成行高差，布局盒高会随内容抖。探针记的「14px 量得
 /// 17」是文本 "M" 的盒高（等于首行基线），不是行高，两者在这里分开。
 /// 按 (size, family) 走缓存（见 cache.mbt）。
-pub fn line_height(size : Double, family? : String = "") -> Option[Int] {
+pub fn line_height(size : Double, family~ : String = "") -> Int32? {
   line_cached(Height, size, family)
 }
 
 ///|
-fn line_height_uncached(size : Double, family : String) -> Option[Int] {
+fn line_height_uncached(size : Double, family : String) -> Int32? {
   let fb = @utf8.encode(family)
   let oh = Ref(0)
   let oa = Ref(0)
@@ -211,12 +219,12 @@ fn line_height_uncached(size : Double, family : String) -> Option[Int] {
 ///|
 /// 首行基线（ascent，像素），给自绘 caret 与文本垂直居中使用。
 /// 按 (size, family) 走缓存（见 cache.mbt）。
-pub fn line_ascent(size : Double, family? : String = "") -> Option[Int] {
+pub fn line_ascent(size : Double, family~ : String = "") -> Int32? {
   line_cached(Ascent, size, family)
 }
 
 ///|
-fn line_ascent_uncached(size : Double, family : String) -> Option[Int] {
+fn line_ascent_uncached(size : Double, family : String) -> Int32? {
   let fb = @utf8.encode(family)
   let oh = Ref(0)
   let oa = Ref(0)
@@ -237,11 +245,11 @@ pub fn draw_to(
   text : String,
   size : Double,
   color : String,
-  family? : String = "",
-  max_width? : Int = 0,
-  ellipsize? : Bool = false,
-  wrap? : Bool = false,
-  spacing? : Double = 0.0,
+  family~ : String = "",
+  max_width~ : Int32 = 0,
+  ellipsize~ : Bool = false,
+  wrap~ : Bool = false,
+  spacing~ : Double = 0.0,
 ) -> Bool {
   if target.width < 1 || target.height < 1 {
     return false
@@ -253,7 +261,7 @@ pub fn draw_to(
   let fb = @utf8.encode(family)
   let c = match @render.Color::parse(color) {
     Some(c) => c
-    None => { r: 0, g: 0, b: 0, a: 255 }
+    None => { r: 0, g: 0, b: 0, a: 255, }
   }
   pt_draw(
     target.data,
@@ -271,13 +279,22 @@ pub fn draw_to(
     c.a,
     spacing,
     max_width,
-    if ellipsize { 1 } else { 0 },
-    if wrap { 1 } else { 0 },
-  ) == 1
+    if ellipsize {
+      1
+    } else {
+      0
+    },
+    if wrap {
+      1
+    } else {
+      0
+    },
+  ) ==
+  1
 }
 
 ///|
-fn align_id(a : TextAlign) -> Int {
+fn align_id(a : TextAlign) -> Int32 {
   match a {
     Start => 0
     Center => 1
@@ -293,10 +310,10 @@ fn align_id(a : TextAlign) -> Int {
 pub fn measure_font(
   text : String,
   font : Font,
-  max_width? : Int = 0,
-  ellipsize? : Bool = false,
-  wrap? : Bool = false,
-  max_lines? : Int = 0,
+  max_width~ : Int32 = 0,
+  ellipsize~ : Bool = false,
+  wrap~ : Bool = false,
+  max_lines~ : Int32 = 0,
 ) -> TextMetrics? {
   if max_lines > 0 && wrap {
     let clamped = clamp_lines(text, font, max_width, max_lines)
@@ -314,8 +331,8 @@ pub fn measure_font(
 pub fn clamp_lines(
   text : String,
   font : Font,
-  max_width : Int,
-  max_lines : Int,
+  max_width : Int32,
+  max_lines : Int32,
 ) -> String {
   let probe = match measure_font_cached("中", font, 0, false, false) {
     Some(m) => m.height
@@ -324,9 +341,7 @@ pub fn clamp_lines(
   let limit = probe * max_lines
   match measure_font_cached(text, font, max_width, false, true) {
     None => return text
-    Some(m) => if m.height <= limit {
-      return text
-    }
+    Some(m) => if m.height <= limit { return text }
   }
   // 码点总数（String 迭代按码点给 Char）
   let mut total = 0
@@ -334,7 +349,7 @@ pub fn clamp_lines(
     total += 1
   }
   // fits(前缀码点数)：前缀 + … 的折行高不超限
-  fn fits(cnt : Int) -> Bool {
+  fn fits(cnt : Int32) -> Bool {
     let sb = StringBuilder()
     let mut i = 0
     for ch in text {
@@ -378,7 +393,7 @@ pub fn clamp_lines(
 fn measure_font_uncached(
   text : String,
   font : Font,
-  max_width : Int,
+  max_width : Int32,
   ellipsize : Bool,
   wrap : Bool,
 ) -> TextMetrics? {
@@ -396,8 +411,16 @@ fn measure_font_uncached(
     style_id(font.style),
     font.spacing,
     max_width,
-    if ellipsize { 1 } else { 0 },
-    if wrap { 1 } else { 0 },
+    if ellipsize {
+      1
+    } else {
+      0
+    },
+    if wrap {
+      1
+    } else {
+      0
+    },
     ow,
     oh,
     ob,
@@ -405,7 +428,7 @@ fn measure_font_uncached(
   if ok != 1 {
     None
   } else {
-    Some({ width: ow.val, height: oh.val, baseline: ob.val })
+    Some({ width: ow.val, height: oh.val, baseline: ob.val, })
   }
 }
 
@@ -413,8 +436,8 @@ fn measure_font_uncached(
 /// 一份字体的行盒度量（像素）：`ascent` 是基线到盒顶、`descent` 是基线以下，
 /// 都来自字体度量本身（字重/斜体参与），与样例文本无关。
 pub(all) struct FontMetrics {
-  ascent : Int
-  descent : Int
+  ascent : Int32
+  descent : Int32
 }
 
 ///|
@@ -430,15 +453,15 @@ fn font_metrics_uncached(font : Font) -> FontMetrics? {
   let oh = Ref(0)
   let oa = Ref(0)
   if pt_font_line_height(
-    font.size,
-    fb,
-    weight_value(font.weight),
-    style_id(font.style),
-    oh,
-    oa,
-  ) ==
+      font.size,
+      fb,
+      weight_value(font.weight),
+      style_id(font.style),
+      oh,
+      oa,
+    ) ==
     1 {
-    Some({ ascent: oa.val, descent: oh.val - oa.val })
+    Some({ ascent: oa.val, descent: oh.val - oa.val, })
   } else {
     None
   }
@@ -454,23 +477,27 @@ const LINE_HEIGHT_K : Double = 1.36
 
 ///|
 /// 行高地板值（size 的纯函数）。
-fn line_floor(size : Double) -> Int {
+fn line_floor(size : Double) -> Int32 {
   (size * LINE_HEIGHT_K).ceil().to_int()
 }
 
 ///|
 /// 字体行高（ascent+descent，像素；再套 K 地板），字重/斜体参与度量。
-pub fn line_height_font(font : Font) -> Option[Int] {
+pub fn line_height_font(font : Font) -> Int32? {
   font_metrics(font).map(fn(m) {
     let natural = m.ascent + m.descent
     let floor = line_floor(font.size)
-    if natural > floor { natural } else { floor }
+    if natural > floor {
+      natural
+    } else {
+      floor
+    }
   })
 }
 
 ///|
 /// 字体首行基线（ascent，像素）。
-pub fn line_ascent_font(font : Font) -> Option[Int] {
+pub fn line_ascent_font(font : Font) -> Int32? {
   font_metrics(font).map(fn(m) { m.ascent })
 }
 
@@ -480,7 +507,7 @@ pub fn line_ascent_font(font : Font) -> Option[Int] {
 /// 那一份的行高」——两份字体的 descent 可以来自不同字体。
 /// 空表给 None；任一份取不到度量也整体给 None（宁可不给数，也不给按部分字体
 /// 算出的偏小行高——布局盒矮了会裁字，比高了难看得多）。
-pub fn line_height_multi(fonts : Array[Font]) -> Option[Int] {
+pub fn line_height_multi(fonts : Array[Font]) -> Int32? {
   if fonts.length() == 0 {
     return None
   }
@@ -518,9 +545,9 @@ pub fn draw_font(
   text : String,
   font : Font,
   color : String,
-  max_width? : Int = 0,
-  ellipsize? : Bool = false,
-  wrap? : Bool = false,
+  max_width~ : Int32 = 0,
+  ellipsize~ : Bool = false,
+  wrap~ : Bool = false,
 ) -> Bool {
   draw_in_box(
     target,
@@ -531,9 +558,9 @@ pub fn draw_font(
     text,
     font,
     color,
-    ellipsize=ellipsize,
-    wrap=wrap,
-    max_width=max_width,
+    ellipsize~,
+    wrap~,
+    max_width~,
   )
 }
 
@@ -567,8 +594,8 @@ fn draw_box_raster(
       text,
       font,
       max_width=if box_w > 0.0 { box_w.ceil().to_int() } else { 0 },
-      ellipsize=ellipsize,
-      wrap=wrap,
+      ellipsize~,
+      wrap~,
     )
   }
   let ow = if box_w > 0.0 {
@@ -593,19 +620,19 @@ fn draw_box_raster(
   }
   let off = @render.Bitmap::new(ow, oh)
   if !draw_in_box(
-    off,
-    0.0,
-    0.0,
-    box_w,
-    box_h,
-    text,
-    font,
-    color,
-    align=align,
-    valign=valign,
-    ellipsize=ellipsize,
-    wrap=wrap,
-  ) {
+      off,
+      0.0,
+      0.0,
+      box_w,
+      box_h,
+      text,
+      font,
+      color,
+      align~,
+      valign~,
+      ellipsize~,
+      wrap~,
+    ) {
     return false
   }
   // 帧级批存的是目标位图像素缓冲的裸指针：`off` 一出作用域就随引用计数释放，
@@ -631,11 +658,11 @@ pub fn draw_in_box(
   text : String,
   font : Font,
   color : String,
-  align? : TextAlign = Start,
-  valign? : TextAlign = Start,
-  ellipsize? : Bool = false,
-  wrap? : Bool = true,
-  max_width? : Int = 0,
+  align~ : TextAlign = Start,
+  valign~ : TextAlign = Start,
+  ellipsize~ : Bool = false,
+  wrap~ : Bool = true,
+  max_width~ : Int32 = 0,
 ) -> Bool {
   if target.width < 1 || target.height < 1 {
     return false
@@ -647,13 +674,9 @@ pub fn draw_in_box(
   let fb = @utf8.encode(font.name)
   let c = match @render.Color::parse(color) {
     Some(c) => c
-    None => { r: 0, g: 0, b: 0, a: 255 }
+    None => { r: 0, g: 0, b: 0, a: 255, }
   }
-  let bw = if max_width > 0 {
-    max_width.to_double()
-  } else {
-    w
-  }
+  let bw = if max_width > 0 { max_width.to_double() } else { w }
   pt_draw_box(
     target.data,
     target.width,
@@ -674,10 +697,19 @@ pub fn draw_in_box(
     c.a,
     align_id(align),
     align_id(valign),
-    if ellipsize { 1 } else { 0 },
-    if wrap { 1 } else { 0 },
+    if ellipsize {
+      1
+    } else {
+      0
+    },
+    if wrap {
+      1
+    } else {
+      0
+    },
     font.spacing,
-  ) == 1
+  ) ==
+  1
 }
 
 ///|
@@ -689,21 +721,21 @@ extern "c" fn pt_draw_box_cr(
   box_w : Double,
   box_h : Double,
   text : Bytes,
-  len : Int,
+  len : Int32,
   size : Double,
   family : Bytes,
-  weight : Int,
-  italic : Int,
-  r : Int,
-  g : Int,
-  b : Int,
-  a : Int,
-  align : Int,
-  valign : Int,
-  ellipsize : Int,
-  wrap : Int,
+  weight : Int32,
+  italic : Int32,
+  r : Int32,
+  g : Int32,
+  b : Int32,
+  a : Int32,
+  align : Int32,
+  valign : Int32,
+  ellipsize : Int32,
+  wrap : Int32,
   spacing : Double,
-) -> Int = "pt_draw_box_cr"
+) -> Int32 = "pt_draw_box_cr"
 
 ///|
 /// 把文本画在**调用方 Painter 的 Cairo 会话**上：控件原点（宿主的 translate）
@@ -720,11 +752,11 @@ pub fn draw_box_at(
   text : String,
   font : Font,
   color : String,
-  align? : TextAlign = Start,
-  valign? : TextAlign = Start,
-  ellipsize? : Bool = false,
-  wrap? : Bool = true,
-  max_lines? : Int = 0,
+  align~ : TextAlign = Start,
+  valign~ : TextAlign = Start,
+  ellipsize~ : Bool = false,
+  wrap~ : Bool = true,
+  max_lines~ : Int32 = 0,
 ) -> Bool {
   let text = if max_lines > 0 && wrap {
     // 限宽向上取整：盒宽浮点化后地板会比内容窄，按测量宽下发的盒自己折行
@@ -737,18 +769,7 @@ pub fn draw_box_at(
     // 纯光栅器后端没有 cairo 会话：走离屏 + blit 的等价通道
     None =>
       return draw_box_raster(
-        p,
-        x,
-        y,
-        box_w,
-        box_h,
-        text,
-        font,
-        color,
-        align,
-        valign,
-        ellipsize,
-        wrap,
+        p, x, y, box_w, box_h, text, font, color, align, valign, ellipsize, wrap,
       )
   }
   let tb = @utf8.encode(text)
@@ -758,7 +779,7 @@ pub fn draw_box_at(
   let fb = @utf8.encode(font.name)
   let c = match @render.Color::parse(color) {
     Some(c) => c
-    None => { r: 0, g: 0, b: 0, a: 255 }
+    None => { r: 0, g: 0, b: 0, a: 255, }
   }
   pt_draw_box_cr(
     id,
@@ -778,10 +799,19 @@ pub fn draw_box_at(
     c.a,
     align_id(align),
     align_id(valign),
-    if ellipsize { 1 } else { 0 },
-    if wrap { 1 } else { 0 },
+    if ellipsize {
+      1
+    } else {
+      0
+    },
+    if wrap {
+      1
+    } else {
+      0
+    },
     font.spacing,
-  ) == 1
+  ) ==
+  1
 }
 
 ///|
@@ -806,7 +836,7 @@ pub fn draw_text_at(
   text : String,
   size : Double,
   color : String,
-  family? : String = "",
+  family~ : String = "",
 ) -> Bool {
   draw_at(p, x, y, text, Font::new(family, size), color)
 }
@@ -821,12 +851,18 @@ pub fn draw_text_outlined(
   text : String,
   size : Double,
   color : String,
-  outline_color? : String = "#000000",
-  family? : String = "",
+  outline_color~ : String = "#000000",
+  family~ : String = "",
 ) -> Bool {
   let offsets : Array[(Double, Double)] = [
-    (-1.0, 0.0), (1.0, 0.0), (0.0, -1.0), (0.0, 1.0),
-    (-0.7, -0.7), (0.7, -0.7), (-0.7, 0.7), (0.7, 0.7),
+    (-1.0, 0.0),
+    (1.0, 0.0),
+    (0.0, -1.0),
+    (0.0, 1.0),
+    (-0.7, -0.7),
+    (0.7, -0.7),
+    (-0.7, 0.7),
+    (0.7, 0.7),
   ]
   for off in offsets {
     let _ = draw_at(
@@ -860,7 +896,7 @@ extern "c" fn pt_render_stats(
   prep_us : Ref[Int64],
   d2d_us : Ref[Int64],
   read_us : Ref[Int64],
-) -> Int = "pt_render_stats"
+) -> Int32 = "pt_render_stats"
 
 ///|
 /// 文本帧级批开关（生产路径由宿主打开；测试/探针默认关，走逐段即绘即混
@@ -884,24 +920,24 @@ pub fn flush_pending() -> Unit {
 /// 光栅前置闸：待批文本与即将写入的矩形（裁剪框）相交时冲刷——保
 /// 「后画的盖住先画的」的 z 序；不相交则继续攒批。
 pub fn flush_before_raster(
-  x0 : Int,
-  y0 : Int,
-  x1 : Int,
-  y1 : Int,
+  x0 : Int32,
+  y0 : Int32,
+  x1 : Int32,
+  y1 : Int32,
 ) -> Unit {
   let _ = pt_flush_if_overlap(x0, y0, x1, y1)
 }
 
 ///|
-extern "c" fn pt_set_batching(on : Int) -> Unit = "pt_set_batching"
+extern "c" fn pt_set_batching(on : Int32) -> Unit = "pt_set_batching"
 
 ///|
-extern "c" fn pt_flush() -> Int = "pt_flush"
+extern "c" fn pt_flush() -> Int32 = "pt_flush"
 
 ///|
 extern "c" fn pt_flush_if_overlap(
-  x0 : Int,
-  y0 : Int,
-  x1 : Int,
-  y1 : Int,
-) -> Int = "pt_flush_if_overlap"
+  x0 : Int32,
+  y0 : Int32,
+  x1 : Int32,
+  y1 : Int32,
+) -> Int32 = "pt_flush_if_overlap"

@@ -1,21 +1,33 @@
 // iconfont 转化 CLI 入口。用法见 print_usage。
 
+///|
 fn print_usage() -> Unit {
-  println("用法：moon run tools/native-gui-tools/icon_convert -- <input.svg> [output.toml] [--subset 名1,名2] [--keep-file list.txt]")
-  println("  不给 output.toml 时把 TOML 打到 stdout（可用 > out.toml 重定向）。")
-  println("  --subset 逗号分隔名 / --keep-file 名单文件（换行或逗号分隔），只保留命中的（对接构建期裁剪）。")
+  println(
+    "用法：moon run tools/native-gui-tools/icon_convert -- <input.svg> [output.toml] [--subset 名1,名2] [--keep-file list.txt]",
+  )
+  println(
+    "  不给 output.toml 时把 TOML 打到 stdout（可用 > out.toml 重定向）。",
+  )
+  println(
+    "  --subset 逗号分隔名 / --keep-file 名单文件（换行或逗号分隔），只保留命中的（对接构建期裁剪）。",
+  )
 }
 
+///|
 fn slurp(p : String) -> String? {
   let s = @fs.read_file_to_string(p) catch { _ => return None }
   Some(s)
 }
 
+///|
 fn spit(p : String, s : String) -> Bool {
-  @fs.write_string_to_file(p, s) catch { _ => return false }
+  @fs.write_string_to_file(p, s) catch {
+    _ => return false
+  }
   true
 }
 
+///|
 fn main {
   // native 下 @env.args() 含 argv[0]（可执行名），丢弃只留用户参数
   let raw = @env.args()

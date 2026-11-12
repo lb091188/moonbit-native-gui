@@ -4,16 +4,22 @@
 
 ///|
 /// n 行、每行 h 高的内容节点。
-fn scroll_rows(n : Int, h : Double, bg : String) -> Array[@widget.Node] {
+fn scroll_rows(n : Int32, h : Double, bg : String) -> Array[@widget.Node] {
   let rows : Array[@widget.Node] = []
   for i = 0; i < n; i = i + 1 {
-    rows.push(view([text("行 " + i.to_string(), font_size=12.0)], height=h, background_color=bg))
+    rows.push(
+      view(
+        [text("行 " + i.to_string(), font_size=12.0)],
+        height=h,
+        background_color=bg,
+      ),
+    )
   }
   rows
 }
 
 ///|
-fn paint(root : @widget.Widget, w : Int, h : Int) -> @render.Bitmap {
+fn paint(root : @widget.Widget, w : Int32, h : Int32) -> @render.Bitmap {
   let bm = @render.Bitmap::new(w, h)
   let p = @render.Painter::new(bm)
   root.paint(p)
@@ -28,7 +34,7 @@ fn wheel(root : @widget.Widget, vp : @widget.Widget, dy : Double) -> Bool {
     x: vp.rect.x + 40.0,
     y: vp.rect.y + 40.0,
     dx: 0.0,
-    dy: dy,
+    dy,
     mods: 0,
   })
 }
@@ -37,7 +43,12 @@ fn wheel(root : @widget.Widget, vp : @widget.Widget, dy : Double) -> Bool {
 test "滚动容器：视口/内容几何来自布局，滚轮改偏移并两端夹取" {
   let st = ScrollState::new()
   let (root, vp) = mounted(
-    scroll_view(scroll_rows(20, 20.0, @theme.theme_bg_panel()), st, width=200.0, height=100.0),
+    scroll_view(
+      scroll_rows(20, 20.0, @theme.theme_bg_panel()),
+      st,
+      width=200.0,
+      height=100.0,
+    ),
     240.0,
     140.0,
   )
@@ -81,7 +92,12 @@ test "滚动容器：视口/内容几何来自布局，滚轮改偏移并两端�
 test "滚动容器：内容随偏移整体上移，滚动条在内容之上" {
   let st = ScrollState::new()
   let (root, vp) = mounted(
-    scroll_view(scroll_rows(10, 20.0, @theme.theme_bg_panel()), st, width=200.0, height=100.0),
+    scroll_view(
+      scroll_rows(10, 20.0, @theme.theme_bg_panel()),
+      st,
+      width=200.0,
+      height=100.0,
+    ),
     240.0,
     140.0,
   )
@@ -108,7 +124,12 @@ test "滚动容器：内容随偏移整体上移，滚动条在内容之上" {
 test "滚动容器：点条跳转与拖动拇指（松手后移动不再跟手）" {
   let st = ScrollState::new()
   let (root, vp) = mounted(
-    scroll_view(scroll_rows(20, 20.0, @theme.theme_bg_panel()), st, width=200.0, height=100.0),
+    scroll_view(
+      scroll_rows(20, 20.0, @theme.theme_bg_panel()),
+      st,
+      width=200.0,
+      height=100.0,
+    ),
     240.0,
     140.0,
   )
@@ -186,11 +207,11 @@ test "滚动容器：只给 grow 不给高度时视口不被内容撑高" {
   let root = @widget.Widget::new()
   root.set_size(240.0, 140.0)
   root.set_column()
-  let vp = scroll_view(
-    scroll_rows(20, 20.0, @theme.theme_bg_panel()),
-    st,
-    handle=fn(v : @widget.Widget) -> Unit { v.node.set_flex_grow(1.0) },
-  ).mount_into(root)
+  let vp = scroll_view(scroll_rows(20, 20.0, @theme.theme_bg_panel()), st, handle=fn(
+    v : @widget.Widget,
+  ) -> Unit {
+    v.node.set_flex_grow(1.0)
+  }).mount_into(root)
   root.relayout(240.0, 140.0)
   let _ = paint(root, 240, 140)
   assert_true(vp.rect.h <= 140.0, msg="视口被内容撑高：\{vp.rect.h}")
@@ -228,16 +249,17 @@ test "滚动条浮层档：不画轨道，悬停视口拇指提亮" {
     None => (0, 0, 0, 0)
   }
   // 淡档既不是满色拇指，也不是「什么都没画」——落在内容底色与满色之间
-  assert_true(idle != border, msg="淡档不该是满色：\{idle.0},\{idle.1},\{idle.2}")
-  let between = fn(i : Int, a : Int, b : Int) -> Bool {
+  assert_true(
+    idle != border,
+    msg="淡档不该是满色：\{idle.0},\{idle.1},\{idle.2}",
+  )
+  let between = fn(i : Int32, a : Int32, b : Int32) -> Bool {
     i > a.min(b) && i < a.max(b)
   }
   assert_true(
-    between(idle.0, 0x33, border.0) && between(idle.1, 0x44, border.1) && between(
-      idle.2,
-      0x55,
-      border.2,
-    ),
+    between(idle.0, 0x33, border.0) &&
+    between(idle.1, 0x44, border.1) &&
+    between(idle.2, 0x55, border.2),
     msg="淡档不是部分混合：淡=\{idle.0},\{idle.1},\{idle.2} 满=\{border.0},\{border.1},\{border.2} 内容=51,68,85",
   )
   root.set_hover(vp.id)
@@ -253,13 +275,10 @@ test "横滚内容宽 = max(自然宽, 视口宽)：percent 子项拿视口当�
   let st = ScrollState::new()
   let cell : Ref[@widget.Widget] = Ref(@widget.Widget::new())
   let body = col([
-    view(
-      [text("甲", font_size=12.0)],
-      handle=fn(w : @widget.Widget) -> Unit {
-        w.node.set_width(@yoga.percent(50.0))
-        cell.val = w
-      },
-    ),
+    view([text("甲", font_size=12.0)], handle=fn(w : @widget.Widget) -> Unit {
+      w.node.set_width(@yoga.percent(50.0))
+      cell.val = w
+    }),
   ])
   let (root, vp) = mounted(
     scroll_view([body], st, width=400.0, height=80.0, hscroll=true),
@@ -273,7 +292,10 @@ test "横滚内容宽 = max(自然宽, 视口宽)：percent 子项拿视口当�
     msg="percent 50 没按视口宽解析，得 \{cell.val.rect.w}",
   )
   // 窄内容被下限撑到视口宽：不该产生横向溢出，也不该画横条
-  assert_true(st.content_w <= vp.rect.w + 1.0, msg="内容宽 \{st.content_w} 越过视口")
+  assert_true(
+    st.content_w <= vp.rect.w + 1.0,
+    msg="内容宽 \{st.content_w} 越过视口",
+  )
   assert_eq(st.max_x(), 0.0)
 }
 
@@ -283,11 +305,20 @@ test "横滚内容宽：自然宽超视口时才溢出可滚" {
   let long = "一段不可折行的长内容长内容长内容长内容长内容长内容长内容长内容"
   let (root, _vp) = mounted(
     scroll_view(
-      [col([view([text(long, font_size=14.0)], handle=fn(w : @widget.Widget) -> Unit {
-        w.node.set_width(@yoga.percent(100.0))
-      })], handle=fn(w : @widget.Widget) -> Unit {
-        w.node.set_width(@yoga.percent(100.0))
-      })],
+      [
+        col(
+          [
+            view([text(long, font_size=14.0)], handle=fn(
+              w : @widget.Widget,
+            ) -> Unit {
+              w.node.set_width(@yoga.percent(100.0))
+            }),
+          ],
+          handle=fn(w : @widget.Widget) -> Unit {
+            w.node.set_width(@yoga.percent(100.0))
+          },
+        ),
+      ],
       st,
       width=200.0,
       height=60.0,
@@ -309,15 +340,13 @@ test "横滚下限档：内容宽只看 min_content_width，不被子项自然�
   // 自然宽档会让子项（自带横滚的宽代码块）的自然宽一路上浮，把外层容器的
   // min-width 顶掉（设 400 实得 573）。下限档下外层只认那个数，
   // 更宽的内容由它自己的视口滚。
-  let long_line =
-    "let x = \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\""
+  let long_line = "let x = \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\""
   let st = ScrollState::new()
   let inner_code : Ref[@widget.Widget] = Ref(@widget.Widget::new())
   let page = col([
-    view(
-      [code_view([long_line])],
-      handle=fn(w : @widget.Widget) -> Unit { inner_code.val = w },
-    ),
+    view([code_view([long_line])], handle=fn(w : @widget.Widget) -> Unit {
+      inner_code.val = w
+    }),
   ])
   let (root, vp) = mounted(
     scroll_view(
@@ -376,7 +405,12 @@ test "跟随底部：首帧布局完即贴底，内容变高继续跟随" {
   let st = ScrollState::new()
   st.set_follow_bottom(true)
   let (root, vp) = mounted(
-    scroll_view(scroll_rows(20, 20.0, @theme.theme_bg_panel()), st, width=200.0, height=100.0),
+    scroll_view(
+      scroll_rows(20, 20.0, @theme.theme_bg_panel()),
+      st,
+      width=200.0,
+      height=100.0,
+    ),
     240.0,
     140.0,
   )
@@ -387,7 +421,11 @@ test "跟随底部：首帧布局完即贴底，内容变高继续跟随" {
   assert_true(st.is_following_bottom())
   // 追加一行：内容变高后下一帧继续贴底，宿主不需要手动 scroll_to_bottom
   let content = vp.children()[0]
-  let _ = view([text("追加行", font_size=12.0)], height=20.0, background_color=@theme.theme_bg_panel()).mount_into(content)
+  let _ = view(
+    [text("追加行", font_size=12.0)],
+    height=20.0,
+    background_color=@theme.theme_bg_panel(),
+  ).mount_into(content)
   root.relayout(240.0, 140.0)
   let _ = paint(root, 240, 140)
   assert_eq(st.max(), 320.0)
@@ -416,7 +454,11 @@ test "跟随底部：用户上滚暂停、回到底部恢复；未开启者不�
   assert_false(st.is_following_bottom())
   // 暂停期间内容变高不贴底
   let content = vp.children()[0]
-  let _ = view([text("追加行", font_size=12.0)], height=20.0, background_color=bg).mount_into(content)
+  let _ = view(
+    [text("追加行", font_size=12.0)],
+    height=20.0,
+    background_color=bg,
+  ).mount_into(content)
   root.relayout(240.0, 140.0)
   let _ = paint(root, 240, 140)
   assert_eq(st.max(), 320.0)
@@ -427,7 +469,11 @@ test "跟随底部：用户上滚暂停、回到底部恢复；未开启者不�
   }
   assert_eq(st.offset_y(), 320.0)
   assert_true(st.is_following_bottom())
-  let _ = view([text("再追加", font_size=12.0)], height=20.0, background_color=bg).mount_into(content)
+  let _ = view(
+    [text("再追加", font_size=12.0)],
+    height=20.0,
+    background_color=bg,
+  ).mount_into(content)
   root.relayout(240.0, 140.0)
   let _ = paint(root, 240, 140)
   assert_eq(st.offset_y(), 340.0)
@@ -463,7 +509,11 @@ test "跟随底部：用户上滚暂停、回到底部恢复；未开启者不�
   assert_eq(st2.offset_y(), 300.0)
   assert_false(st2.is_following_bottom())
   let content2 = vp2.children()[0]
-  let _ = view([text("追加行", font_size=12.0)], height=20.0, background_color=bg).mount_into(content2)
+  let _ = view(
+    [text("追加行", font_size=12.0)],
+    height=20.0,
+    background_color=bg,
+  ).mount_into(content2)
   root2.relayout(240.0, 140.0)
   let _ = paint(root2, 240, 140)
   assert_eq(st2.max(), 320.0)

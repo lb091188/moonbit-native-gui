@@ -9,7 +9,7 @@ pub(all) struct SvgDoc {
 }
 
 ///|
-fn ascii_from(cs : Array[Int], a : Int, b : Int) -> String {
+fn ascii_from(cs : Array[Int32], a : Int32, b : Int32) -> String {
   let mut s = ""
   let mut i = a
   while i < b {
@@ -20,7 +20,7 @@ fn ascii_from(cs : Array[Int], a : Int, b : Int) -> String {
 }
 
 ///|
-fn match_at(cs : Array[Int], i : Int, pat : String) -> Bool {
+fn match_at(cs : Array[Int32], i : Int32, pat : String) -> Bool {
   let p = codes(pat)
   let m = p.length()
   if i + m > cs.length() {
@@ -35,18 +35,27 @@ fn match_at(cs : Array[Int], i : Int, pat : String) -> Bool {
 }
 
 ///|
-fn is_ws(c : Int) -> Bool {
+fn is_ws(c : Int32) -> Bool {
   c == 32 || c == 44 || c == 9 || c == 10 || c == 13
 }
 
 ///|
-fn is_word(c : Int) -> Bool {
-  (c >= 48 && c <= 57) || (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c == 45 || c == 95
+fn is_word(c : Int32) -> Bool {
+  (c >= 48 && c <= 57) ||
+  (c >= 65 && c <= 90) ||
+  (c >= 97 && c <= 122) ||
+  c == 45 ||
+  c == 95
 }
 
 ///|
 // 从 <a..b) 标签体里取属性 key 的值；无则空串。
-fn extract_attr(cs : Array[Int], a : Int, b : Int, key : String) -> String {
+fn extract_attr(
+  cs : Array[Int32],
+  a : Int32,
+  b : Int32,
+  key : String,
+) -> String {
   let k = codes(key)
   let kl = k.length()
   let mut p = a
@@ -78,7 +87,7 @@ fn extract_attr(cs : Array[Int], a : Int, b : Int, key : String) -> String {
 }
 
 ///|
-fn find_gt(cs : Array[Int], i : Int) -> Int {
+fn find_gt(cs : Array[Int32], i : Int32) -> Int32 {
   let n = cs.length()
   let mut j = i
   while j < n && cs[j] != 62 {
@@ -88,7 +97,7 @@ fn find_gt(cs : Array[Int], i : Int) -> Int {
 }
 
 ///|
-fn viewbox_of(cs : Array[Int]) -> (Double, Double, Double, Double)? {
+fn viewbox_of(cs : Array[Int32]) -> (Double, Double, Double, Double)? {
   let n = cs.length()
   let mut i = 0
   while i < n {
@@ -137,19 +146,18 @@ pub fn parse_svg(text : String) -> SvgDoc {
         let te = find_gt(cs, i)
         let d = extract_attr(cs, i, te, "d")
         if d.length() > 0 {
-          let name =
-            if cur_id.length() > 0 {
-              cur_id
-            } else {
-              let nm = "icon_" + auto.to_string()
-              auto += 1
-              nm
-            }
+          let name = if cur_id.length() > 0 {
+            cur_id
+          } else {
+            let nm = "icon_" + auto.to_string()
+            auto += 1
+            nm
+          }
           paths.push((name, d))
         }
       }
     }
     i += 1
   }
-  { viewbox: vb, paths }
+  { viewbox: vb, paths, }
 }

@@ -5,7 +5,7 @@
 // 跑法：moon run experiment/menu_probe
 
 ///|
-fn kind_id(k : @shell.MenuItemKind) -> Int {
+fn kind_id(k : @shell.MenuItemKind) -> Int32 {
   match k {
     Command => 0
     Check => 1
@@ -15,10 +15,11 @@ fn kind_id(k : @shell.MenuItemKind) -> Int {
 }
 
 ///|
-fn role_id(r : @shell.MenuRole) -> Int {
+fn role_id(r : @shell.MenuRole) -> Int32 {
   @shell.menu_role_id(r)
 }
 
+///|
 fn main {
   // ① 建条 + 加菜单
   let bar = @shell.MenuBar::new()
@@ -33,8 +34,12 @@ fn main {
   let _c = file2.add_radio_item("浅色")
   let _d = file2.add_separator()
   println("MENU file_items=\{file2.item_count()}")
-  println("MENU kinds=\{kind_id(file2.items[0].kind)},\{kind_id(file2.items[1].kind)},\{kind_id(file2.items[2].kind)},\{kind_id(file2.items[3].kind)}")
-  println("MENU sep0=\{file2.items[0].is_separator()} sep3=\{file2.items[3].is_separator()}")
+  println(
+    "MENU kinds=\{kind_id(file2.items[0].kind)},\{kind_id(file2.items[1].kind)},\{kind_id(file2.items[2].kind)},\{kind_id(file2.items[3].kind)}",
+  )
+  println(
+    "MENU sep0=\{file2.items[0].is_separator()} sep3=\{file2.items[3].is_separator()}",
+  )
 
   // ③ 子菜单嵌套 + 遍历层级
   let sub = file2.add_submenu("更多")
@@ -54,9 +59,13 @@ fn main {
   // ④ 角色项默认标签/加速键/编号
   let _rc = edit.add_role_item(@shell.MenuRole::Copy)
   let c = edit.items[0]
-  println("MENU role copy label=\{c.label} acc=\{c.accelerator} id=\{role_id(@shell.MenuRole::Copy)}")
+  println(
+    "MENU role copy label=\{c.label} acc=\{c.accelerator} id=\{role_id(@shell.MenuRole::Copy)}",
+  )
   let q = edit.add_role_item(@shell.MenuRole::Quit)
-  println("MENU role quit label=\{q.label} acc=\{q.accelerator} id=\{role_id(@shell.MenuRole::Quit)}")
+  println(
+    "MENU role quit label=\{q.label} acc=\{q.accelerator} id=\{role_id(@shell.MenuRole::Quit)}",
+  )
 
   // ⑤ 整树项数
   println("MENU total_items=\{bar.total_item_count()}")
@@ -76,7 +85,9 @@ fn main {
   it.set_checked(true)
   it.set_label("保存草稿")
   it.set_accelerator("CmdOrCtrl+S")
-  println("MENU mut checked=\{it.is_checked()} label=\{it.label} acc=\{it.accelerator}")
+  println(
+    "MENU mut checked=\{it.is_checked()} label=\{it.label} acc=\{it.accelerator}",
+  )
 
   // ⑦ 回调槽
   let m = @shell.Menu::new(title="测试")

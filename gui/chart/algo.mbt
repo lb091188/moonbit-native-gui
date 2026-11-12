@@ -20,26 +20,33 @@ pub let tau : Double = 6.283185307179586
 /// 折线序列：名称 + 定长滚动窗口（points 旧→新排列）。推点用 `win_push` 换新窗口。
 pub(all) struct LineSeries {
   name : String
-  max_points : Int
+  max_points : Int32
   points : Array[Double]
 }
 
 ///|
 /// 建序列（`max_points` 为窗口容量，超出丢最旧）。
-pub fn LineSeries::make(name : String, max_points? : Int = 100) -> LineSeries {
+pub fn LineSeries::make(name : String, max_points~ : Int32 = 100) -> LineSeries {
   { name, max_points, points: [], }
 }
 
 ///|
 /// 换上一份点列（测试与一次性灌数据用；高频推点仍走 `win_push`）。
-pub fn LineSeries::with_points(self : LineSeries, pts : Array[Double]) -> LineSeries {
+pub fn LineSeries::with_points(
+  self : LineSeries,
+  pts : Array[Double],
+) -> LineSeries {
   { ..self, points: pts, }
 }
 
 ///|
 /// 滚动窗口推点：返回新窗口（旧→新），超出 `max_points` 丢最旧；入参窗口不变。
 /// `max_points <= 0` 时只保留最新一点。
-pub fn win_push(win : Array[Double], max_points : Int, v : Double) -> Array[Double] {
+pub fn win_push(
+  win : Array[Double],
+  max_points : Int32,
+  v : Double,
+) -> Array[Double] {
   let keep = if max_points < 1 { 1 } else { max_points }
   let n = win.length()
   let start = if n >= keep { n - keep + 1 } else { 0 }
@@ -54,14 +61,18 @@ pub fn win_push(win : Array[Double], max_points : Int, v : Double) -> Array[Doub
 ///|
 /// 向多序列 Store 的第 i 个序列推点（窗口超限自动丢最旧），整表 set 一次触发
 /// 订阅者重绘；`i` 越界时无操作。
-pub fn series_push(series : @base.Store[Array[LineSeries]], i : Int, v : Double) -> Unit {
+pub fn series_push(
+  series : @base.Store[Array[LineSeries]],
+  i : Int32,
+  v : Double,
+) -> Unit {
   let cur = series.get()
   if i < 0 || i >= cur.length() {
     return
   }
   let out = cur.copy()
   let s = out[i]
-  out[i] = { ..s, points: win_push(s.points, s.max_points, v) }
+  out[i] = { ..s, points: win_push(s.points, s.max_points, v), }
   series.set_always(out) // 折线窗口整体替换:数据点无 Eq,去重代价高于收益
 }
 
@@ -134,7 +145,7 @@ pub fn map_xv(
 
 ///|
 /// 序号 → x 像素（n 个点均布 left..right；单点取中点）。
-pub fn map_idx(i : Int, n : Int, left : Double, right : Double) -> Double {
+pub fn map_idx(i : Int32, n : Int32, left : Double, right : Double) -> Double {
   if n <= 1 {
     (left + right) / 2.0
   } else {
@@ -183,7 +194,11 @@ pub fn nice_step(raw : Double) -> Double {
 ///|
 /// 轴刻度值：在 [lo, hi] 内取约 count 个 1/2/5×10^k 整齐值；lo >= hi
 /// 或 count <= 0 时返回空。
-pub fn nice_ticks(lo : Double, hi : Double, count? : Int = 4) -> Array[Double] {
+pub fn nice_ticks(
+  lo : Double,
+  hi : Double,
+  count~ : Int32 = 4,
+) -> Array[Double] {
   if count <= 0 || !(hi > lo) {
     return []
   }
@@ -299,11 +314,11 @@ pub fn bar_range(values : Array[Double]) -> (Double, Double) {
 /// 第 i 根的矩形（x, w）：n 根均分 [left, right]，根间距 gap，宽不足 1px 时
 /// 钳到 1（200 类目窄条仍可见）。
 pub fn bar_slot(
-  i : Int,
-  n : Int,
+  i : Int32,
+  n : Int32,
   left : Double,
   right : Double,
-  gap? : Double = 4.0,
+  gap~ : Double = 4.0,
 ) -> (Double, Double) {
   if n <= 0 {
     return (left, (right - left).max(1.0))
@@ -320,12 +335,12 @@ pub fn bar_slot(
 /// 绘制与命中必须同源，否则高亮与柱子错位。
 pub fn bar_hit(
   horizontal : Bool,
-  n : Int,
+  n : Int32,
   w : Double,
   h : Double,
   px : Double,
   py : Double,
-) -> Int {
+) -> Int32 {
   if n <= 0 {
     return -1
   }
@@ -356,7 +371,7 @@ pub fn bar_hit(
 ///|
 /// 环形图第 i 扇区的起止弧度（12 点方向起，顺时针；0 指向右）。只累计正值；
 /// 总和 <= 0 或 i 越界返回 None。
-pub fn sector_angles(values : Array[Double], i : Int) -> (Double, Double)? {
+pub fn sector_angles(values : Array[Double], i : Int32) -> (Double, Double)? {
   if i < 0 || i >= values.length() {
     return None
   }
@@ -389,8 +404,8 @@ pub fn sector_angles(values : Array[Double], i : Int) -> (Double, Double)? {
 /// （默认 135° 起、扫 270°，开口朝下）。
 pub fn gauge_angle(
   frac : Double,
-  start? : Double = 0.75 * pi,
-  sweep? : Double = 1.5 * pi,
+  start~ : Double = 0.75 * pi,
+  sweep~ : Double = 1.5 * pi,
 ) -> Double {
   let f = if frac < 0.0 { 0.0 } else if frac > 1.0 { 1.0 } else { frac }
   start + sweep * f
@@ -423,6 +438,7 @@ pub fn linreg(points : Array[(Double, Double)]) -> (Double, Double)? {
   Some((k, b))
 }
 
+///|
 fn axis_range(lo0 : Double, hi0 : Double, any : Bool) -> (Double, Double) {
   if !any {
     (0.0, 1.0)

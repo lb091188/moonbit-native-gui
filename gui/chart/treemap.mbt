@@ -30,8 +30,8 @@ pub(all) struct TmItem {
 /// 建矩形树图节点（value 默认 0，children 默认空）。
 pub fn TmItem::make(
   name : String,
-  value? : Double = 0.0,
-  children? : Array[TmItem] = [],
+  value~ : Double = 0.0,
+  children~ : Array[TmItem] = [],
 ) -> TmItem {
   { name, value, children, }
 }
@@ -92,8 +92,8 @@ pub fn tm_squarified_rows(
   values : Array[Double],
   w : Double,
   h : Double,
-) -> Array[Array[Int]] {
-  let rows : Array[Array[Int]] = []
+) -> Array[Array[Int32]] {
+  let rows : Array[Array[Int32]] = []
   if !(w > 0.0) || !(h > 0.0) {
     return rows
   }
@@ -104,7 +104,7 @@ pub fn tm_squarified_rows(
       total = total + v
     }
   }
-  let mut rem : Array[Int] = []
+  let mut rem : Array[Int32] = []
   for i, v in values {
     if v > 0.0 {
       rem.push(i)
@@ -121,7 +121,7 @@ pub fn tm_squarified_rows(
   while rem.length() > 0 && budget > 0 {
     budget = budget - 1
     let side = if rw >= rh { rh } else { rw }
-    let row : Array[Int] = [rem[0]]
+    let row : Array[Int32] = [rem[0]]
     let mut sum = values[rem[0]]
     let mut k = 1
     while k < rem.length() {
@@ -154,7 +154,7 @@ pub fn tm_squarified_rows(
       let t = (sum * scale / rw).max(0.0).min(rh)
       rh = (rh - t).max(0.0)
     }
-    let rest : Array[Int] = []
+    let rest : Array[Int32] = []
     for j in k..<rem.length() {
       rest.push(rem[j])
     }
@@ -251,8 +251,8 @@ pub fn tm_squarified_rects(
 pub fn tm_layout(
   items : Array[TmItem],
   rect : TmRect,
-  depth? : Int = 2,
-  gap? : Double = 4.0,
+  depth~ : Int32 = 2,
+  gap~ : Double = 4.0,
 ) -> Array[(TmItem, TmRect)] {
   tm_layout_nest(items, rect, depth, gap)
 }
@@ -265,7 +265,7 @@ let tm_header_h : Double = 18.0
 fn tm_layout_nest(
   items : Array[TmItem],
   rect : TmRect,
-  depth : Int,
+  depth : Int32,
   gap : Double,
 ) -> Array[(TmItem, TmRect)] {
   let out : Array[(TmItem, TmRect)] = []
@@ -337,7 +337,7 @@ pub fn tm_label_lines(
 /// 兄弟节点取色：同一父节点下的子项沿主题主色的 HSL 明度轴均摊（i 越小
 /// 越亮、越大越暗，色相与饱和度跟随主色，主题切换现取）；n <= 1 直接取
 /// 主色；主色不可解析时退化为主题主色。
-pub fn tm_sibling_color(i : Int, n : Int) -> String {
+pub fn tm_sibling_color(i : Int32, n : Int32) -> String {
   let base = @theme.theme_primary()
   if n <= 1 {
     return base
@@ -383,10 +383,10 @@ fn tm_draw_nodes(
   p : @render.Painter,
   items : Array[TmItem],
   rect : TmRect,
-  levels : Int,
+  levels : Int32,
   gap : Double,
-  hover : Int,
-  flat : Array[(TmItem, TmRect, Int, Int)],
+  hover : Int32,
+  flat : Array[(TmItem, TmRect, Int32, Int32)],
 ) -> Unit {
   if items.length() == 0 || levels < 1 {
     return
@@ -414,20 +414,10 @@ fn tm_draw_nodes(
     p.fill_rect(cell.x, cell.y, cell.width, cell.height)
     if hot {
       p.set_stroke_color(@theme.theme_text_primary())
-      p.stroke_rect(
-        cell.x,
-        cell.y,
-        cell.width.max(0.0),
-        cell.height.max(0.0),
-      )
+      p.stroke_rect(cell.x, cell.y, cell.width.max(0.0), cell.height.max(0.0))
     } else if expand {
       p.set_stroke_color(@theme.theme_border())
-      p.stroke_rect(
-        cell.x,
-        cell.y,
-        cell.width.max(0.0),
-        cell.height.max(0.0),
-      )
+      p.stroke_rect(cell.x, cell.y, cell.width.max(0.0), cell.height.max(0.0))
     }
     let header = if cell.height > tm_header_h { tm_header_h } else { 0.0 }
     if expand {
@@ -435,18 +425,18 @@ fn tm_draw_nodes(
       let name = truncate_to(item.name, (cell.width - 8.0).max(0.0))
       if name != "" && header > 0.0 {
         let _ = @text.draw_box_at(
-        p,
-        cell.x + 4.0,
-        cell.y + (header - 16.0) / 2.0,
-        (cell.width - 8.0).max(0.0),
-        16.0,
-        name,
-        label_font(),
-        @theme.theme_text_primary(),
-        align=@text.Start,
-        valign=@text.Center,
-        wrap=false,
-      )
+          p,
+          cell.x + 4.0,
+          cell.y + (header - 16.0) / 2.0,
+          (cell.width - 8.0).max(0.0),
+          16.0,
+          name,
+          label_font(),
+          @theme.theme_text_primary(),
+          align=@text.Start,
+          valign=@text.Center,
+          wrap=false,
+        )
       }
       let inner : TmRect = {
         x: cell.x + gap / 2.0,
@@ -459,33 +449,33 @@ fn tm_draw_nodes(
       let (nm, val) = tm_label_lines(item.name, v, cell.width, cell.height)
       if nm != "" {
         let _ = @text.draw_box_at(
-        p,
-        cell.x + 4.0,
-        cell.y + 2.0,
-        (cell.width - 8.0).max(0.0),
-        16.0,
-        nm,
-        label_font(),
-        @theme.theme_text_primary(),
-        align=@text.Start,
-        valign=@text.Center,
-        wrap=false,
-      )
+          p,
+          cell.x + 4.0,
+          cell.y + 2.0,
+          (cell.width - 8.0).max(0.0),
+          16.0,
+          nm,
+          label_font(),
+          @theme.theme_text_primary(),
+          align=@text.Start,
+          valign=@text.Center,
+          wrap=false,
+        )
       }
       if val != "" {
         let _ = @text.draw_box_at(
-        p,
-        cell.x + 4.0,
-        cell.y + 18.0,
-        (cell.width - 8.0).max(0.0),
-        16.0,
-        val,
-        label_font(),
-        @theme.theme_text_secondary(),
-        align=@text.Start,
-        valign=@text.Center,
-        wrap=false,
-      )
+          p,
+          cell.x + 4.0,
+          cell.y + 18.0,
+          (cell.width - 8.0).max(0.0),
+          16.0,
+          val,
+          label_font(),
+          @theme.theme_text_secondary(),
+          align=@text.Start,
+          valign=@text.Center,
+          wrap=false,
+        )
       }
     }
   }
@@ -505,11 +495,11 @@ fn tm_draw_nodes(
 /// 数据经 Store 驱动，set 后只重绘画布不重建控件树。
 pub fn tm_chart_t(
   items : @base.Store[Array[TmItem]],
-  levels? : Int = 2,
-  gap? : Double = 4.0,
-  width? : Double = 0.0,
-  height? : Double = 360.0,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  levels~ : Int32 = 2,
+  gap~ : Double = 4.0,
+  width~ : Double = 0.0,
+  height~ : Double = 360.0,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.follow_store(items)
   let lv = levels
@@ -517,7 +507,7 @@ pub fn tm_chart_t(
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     @ui.watch_theme()
     // 拍平画卷（on_draw 重建）：(项, 矩形, 兄弟序, 兄弟数)
-    let flat : Array[(TmItem, TmRect, Int, Int)] = []
+    let flat : Array[(TmItem, TmRect, Int32, Int32)] = []
     let hover = Ref(-1)
     w.node.set_height(@yoga.fixed(height))
     if width > 0.0 {

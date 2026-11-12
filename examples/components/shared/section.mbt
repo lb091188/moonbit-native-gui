@@ -33,7 +33,7 @@ pub fn section(
   title : String,
   desc : String,
   content : Array[@widget.Node],
-  code? : Array[String] = [],
+  code~ : Array[String] = [],
 ) -> Section {
   // 段标题/描述是纯显示串：在出口统一取译（英文目录命中则英文，否则原中文）。
   // 段名 name 作 segmented 的选中值不译，显示由 `page` 的 label_of 走 `seg.` 键。
@@ -67,7 +67,12 @@ pub fn page(secs : Array[Section]) -> @widget.Node {
     selected,
     label_of=fn(n : String) -> String { @i18n.t_or("seg." + n, n) },
     class=[
-      @style.style(flex_wrap=@yoga.Wrap, row_gap=4.0, min_width=0.0, margin=16.0),
+      @style.style(
+        flex_wrap=@yoga.Wrap,
+        row_gap=4.0,
+        min_width=0.0,
+        margin=16.0,
+      ),
     ],
     // 段条是不可压缩的定高头部：正文够高时（Markdown 段整篇文档）压缩量
     // 会全落到「min=0 且没设 flex_shrink=0」的层上，实测 44px → 23.3px，
@@ -80,11 +85,9 @@ pub fn page(secs : Array[Section]) -> @widget.Node {
   }
   // 页列自带 percent(100) 宽：折行容器的内在下限以「自身 style 定住的宽」为
   // 参照，纯 stretch 的列不做这个参照（实测同一条段条两种写法差 170px）。
-  @ui.col(
-    [strip, @ui.col(bodies, grow=1.0, class=[flat])],
-    grow=1.0,
-    class=[@style.style(width_percent=100.0)],
-  )
+  @ui.col([strip, @ui.col(bodies, grow=1.0, class=[flat])], grow=1.0, class=[
+    @style.style(width_percent=100.0),
+  ])
 }
 
 ///|
@@ -119,7 +122,9 @@ fn section_body(s : Section, selected : @base.Store[String]) -> @widget.Node {
   if s.code.length() > 0 {
     // 复制按钮内建在 code_view 头部（悬浮右上显形），toast 回显经 on_copied 接
     inner.push(
-      @ui.code_view(s.code, lang="moonbit", line_numbers=true, copyable=true, on_copied=fn(ok : Bool) -> Unit {
+      @ui.code_view(s.code, lang="moonbit", line_numbers=true, copyable=true, on_copied=fn(
+        ok : Bool,
+      ) -> Unit {
         match code_toast.val {
           Some(push) =>
             if ok {
@@ -154,4 +159,3 @@ fn section_body(s : Section, selected : @base.Store[String]) -> @widget.Node {
     },
   )
 }
-

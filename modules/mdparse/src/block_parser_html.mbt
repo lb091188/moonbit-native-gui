@@ -64,7 +64,11 @@ let html_raw_text_tags : Array[String] = ["script", "pre", "style", "textarea"]
 ///|
 /// SIMD finds sparse `<` candidates; scalar case-insensitive comparison only
 /// runs at those positions. No substring is materialized while scanning.
-fn find_html_raw_text_closer(text : String, start : Int, tag : String) -> Int? {
+fn find_html_raw_text_closer(
+  text : String,
+  start : Int32,
+  tag : String,
+) -> Int32? {
   let text_len = text.length()
   let needle = "</" + tag + ">"
   let needle_len = needle.length()
@@ -88,7 +92,7 @@ fn find_html_raw_text_closer(text : String, start : Int, tag : String) -> Int? {
 
 ///|
 /// Read the tag name starting at `start` (after `<` or `</`).
-fn read_tag_name(text : String, start : Int) -> Int {
+fn read_tag_name(text : String, start : Int32) -> Int32 {
   let len = text.length()
   let mut i = start
   guard i < len && is_ascii_letter_unit(text.unsafe_get(i)) else {
@@ -128,7 +132,7 @@ fn BlockParser::try_html_block_start(
 
 ///|
 /// The raw text element name that opens a condition-1 block at `start`.
-fn raw_text_tag(line : String, start : Int) -> String {
+fn raw_text_tag(line : String, start : Int32) -> String {
   let name_end = read_tag_name(line, start + 1)
   for raw in html_raw_text_tags {
     if line.unsafe_substring(start=start + 1, end=name_end)[:].equal_ignore_ascii_case(
@@ -143,7 +147,7 @@ fn raw_text_tag(line : String, start : Int) -> String {
 ///|
 fn html_block_kind(
   line : String,
-  start : Int,
+  start : Int32,
   container : Node,
 ) -> HtmlBlockKind {
   let len = line.length()
@@ -216,7 +220,7 @@ fn html_block_kind(
 
 ///|
 /// A complete open or closing tag starting at `start`.
-fn scan_complete_tag(line : String, start : Int) -> Int? {
+fn scan_complete_tag(line : String, start : Int32) -> Int32? {
   let len = line.length()
   if start + 1 < len && line.unsafe_get(start + 1) == '/' {
     let name_end = read_tag_name(line, start + 2)

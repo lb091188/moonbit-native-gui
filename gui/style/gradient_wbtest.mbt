@@ -11,7 +11,10 @@ test "gradient_spec：构造、stop 钳制、merge 传递" {
   assert_eq(g.stops[1].0, 1.0)
   assert_true(g.stops[0].1 is Var("primary"))
   // merge：后者赢、缺省不抹
-  let merged = merge(style(background_color="bg_panel"), style(background_gradient=g))
+  let merged = merge(
+    style(background_color="bg_panel"),
+    style(background_gradient=g),
+  )
   assert_true(merged.background_color is Some(_))
   assert_true(merged.background_gradient is Some(_))
   // 径向构造
@@ -40,13 +43,21 @@ test "apply_gradient_bg：token stop 落成当前主题色、不足两 stop 回�
   }
   let top = bm.pixel(20, 1)
   // 像素中心采样在端点内侧一小段，插值有 3–5 的偏移，容差给 8
-  assert_true((top.r - pr).abs() <= 8 && (top.g - pg).abs() <= 8 && (top.b - pb).abs() <= 8)
+  assert_true(
+    (top.r - pr).abs() <= 8 &&
+    (top.g - pg).abs() <= 8 &&
+    (top.b - pb).abs() <= 8,
+  )
   let (br, bg2, bb) = match @theme.parse_hex(@theme.theme_bg_page()) {
     Some((r, g, b)) => (r, g, b)
     None => abort("bg_page 解析失败")
   }
   let bot = bm.pixel(20, 58)
-  assert_true((bot.r - br).abs() <= 8 && (bot.g - bg2).abs() <= 8 && (bot.b - bb).abs() <= 8)
+  assert_true(
+    (bot.r - br).abs() <= 8 &&
+    (bot.g - bg2).abs() <= 8 &&
+    (bot.b - bb).abs() <= 8,
+  )
   // 单 stop（画不出渐变）回落 false
   let one = gradient_linear(0.0, 0.0, 0.0, 1.0)
   one.add_stop(0.0, "primary")

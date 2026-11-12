@@ -111,18 +111,8 @@ pub fn Widget::a11y_text_now(self : Widget) -> String? {
     None => None
   }
   match t {
-    Some(s) =>
-      if s.length() > 0 {
-        Some(s)
-      } else {
-        None
-      }
-    None =>
-      if self.label.length() > 0 {
-        Some(self.label)
-      } else {
-        None
-      }
+    Some(s) => if s.length() > 0 { Some(s) } else { None }
+    None => if self.label.length() > 0 { Some(self.label) } else { None }
   }
 }
 
@@ -161,8 +151,8 @@ pub fn Node::a11y(
 ///|
 /// 一个控件的语义快照（矩形是窗口坐标，读屏拿去做屏上高亮框）。
 pub(all) struct A11yNode {
-  id : Int
-  parent : Int
+  id : Int32
+  parent : Int32
   role : String
   name : String
   /// 状态串（如 "checked" / "password" / "read_only"），空串 = 无
@@ -183,7 +173,7 @@ pub(all) struct A11yNode {
 let g_a11y_last : Ref[Array[A11yNode]] = Ref([])
 
 ///|
-fn a11y_walk(w : Widget, parent : Int, out : Array[A11yNode]) -> Unit {
+fn a11y_walk(w : Widget, parent : Int32, out : Array[A11yNode]) -> Unit {
   if !w.visible {
     return
   }
@@ -216,7 +206,7 @@ fn a11y_walk(w : Widget, parent : Int, out : Array[A11yNode]) -> Unit {
 ///|
 /// 帧尾对账：重扫整棵树的语义面，替换上一帧快照并返回控件数。
 /// 排在上屏（present）之前——推给读屏的矩形必须是这一帧的。
-pub fn a11y_frame_sync(root : Widget) -> Int {
+pub fn a11y_frame_sync(root : Widget) -> Int32 {
   let out : Array[A11yNode] = []
   a11y_walk(root, 0, out)
   g_a11y_last.val = out
@@ -268,7 +258,7 @@ let g_a11y_last_pub : Ref[String] = Ref("")
 /// focus_id → widget id（读屏焦点通道的对齐层）：焦点栈记的是控件声明的
 /// `focus_id`，快照行存的是 `w.id`——两套编号，平台臂按行 id 找「焦点元素」，
 /// 这里负责换算。找不到（焦点在别窗/浮层）回 0。
-fn a11y_focus_widget_id(w : Widget, focus_id : Int) -> Int {
+fn a11y_focus_widget_id(w : Widget, focus_id : Int32) -> Int32 {
   if focus_id <= 0 {
     return 0
   }
@@ -287,7 +277,7 @@ fn a11y_focus_widget_id(w : Widget, focus_id : Int) -> Int {
 ///|
 /// 报焦点控件 id并维护「换焦点才通知」：焦点与上次相同不通知读屏。
 /// 宿主每帧调（0 = 无焦点）。
-pub fn a11y_set_focus(id : Int) -> Unit {
+pub fn a11y_set_focus(id : Int32) -> Unit {
   let changed = id != g_a11y_focus.val
   g_a11y_focus.val = id
   @win.a11y_set_focus(id)
@@ -298,7 +288,7 @@ pub fn a11y_set_focus(id : Int) -> Unit {
 
 ///|
 /// 上一次报给平台臂的焦点 id（测试与诊断观察面）。
-let g_a11y_focus : Ref[Int] = Ref(0)
+let g_a11y_focus : Ref[Int32] = Ref(0)
 
 ///|
 /// TSV 字段清洗：制表符与换行换成空格（保持「一行一控件」的对齐）。
@@ -332,9 +322,9 @@ pub fn a11y_last_frame() -> Array[A11yNode] {
 /// consumed)` 会话状态（合成点击与真实点击同链，状态要接回宿主）。
 pub fn a11y_pump_actions(
   root : Widget,
-  hover : Int,
-  capture : Int,
-) -> (Int, Int, Bool, Bool) {
+  hover : Int32,
+  capture : Int32,
+) -> (Int32, Int32, Bool, Bool) {
   let mut h = hover
   let mut c = capture
   let mut ch = false
@@ -359,11 +349,11 @@ pub fn a11y_pump_actions(
 /// 按控件中心合成 Down+Up。控件不在树里（已删/跨窗 id）时原样返回状态。
 pub fn a11y_action_dispatch(
   root : Widget,
-  id : Int,
-  act : Int,
-  hover : Int,
-  capture : Int,
-) -> (Int, Int, Bool, Bool) {
+  id : Int32,
+  act : Int32,
+  hover : Int32,
+  capture : Int32,
+) -> (Int32, Int32, Bool, Bool) {
   match root.by_id(id) {
     None => (hover, capture, false, false)
     Some(w) =>

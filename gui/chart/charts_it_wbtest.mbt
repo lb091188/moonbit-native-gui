@@ -120,7 +120,11 @@ test "折线交互图：hover 浮层与准线、图例点击显隐" {
     LineSeries::make("a", max_points=50).with_points([3.0, 8.0, 5.0, 9.0, 4.0]),
     LineSeries::make("b", max_points=50).with_points([1.0, 2.0, 6.0, 3.0, 7.0]),
   ])
-  let (root, panel) = mounted(line_chart_it(s, width=320.0, height=160.0), 360.0, 220.0)
+  let (root, panel) = mounted(
+    line_chart_it(s, width=320.0, height=160.0),
+    360.0,
+    220.0,
+  )
   // panel 是 vbox：kids[0]=图例、kids[1]=画布
   let legend = panel.kids[0]
   let canvas = panel.kids[1]
@@ -171,10 +175,14 @@ test "折线交互图：hover 浮层与准线、图例点击显隐" {
 test "柱状交互图：滚轮缩放改可见窗" {
   let bars : Array[BarItem] = []
   for i = 0; i < 24; i = i + 1 {
-    bars.push(BarItem::make("c\{i}", ((i * 13) % 37).to_double()))
+    bars.push(BarItem::make("c\{i}", (i * 13 % 37).to_double()))
   }
   let data = @base.Store::new(bars)
-  let (root, panel) = mounted(bar_chart_it(data, width=320.0, height=160.0), 360.0, 220.0)
+  let (root, panel) = mounted(
+    bar_chart_it(data, width=320.0, height=160.0),
+    360.0,
+    220.0,
+  )
   let canvas = panel.kids[1]
   let full = bm_of(canvas)
   // 画布中部上滚一格（dy=1 → delta=-1 → 放大）：窗从 100% 收到 80%
@@ -199,7 +207,11 @@ test "环形交互图：hover 扇区与图例显隐" {
     DonutSlice::make("乙", 35.0),
     DonutSlice::make("丙", 25.0),
   ])
-  let (root, panel) = mounted(donut_chart_it(data, width=240.0, height=160.0), 280.0, 220.0)
+  let (root, panel) = mounted(
+    donut_chart_it(data, width=240.0, height=160.0),
+    280.0,
+    220.0,
+  )
   let canvas = panel.kids[1]
   let plain = bm_of(canvas)
   // 12 点方向第一扇区：圆心 (8+d/2, h/2)，d=h-16
@@ -233,7 +245,7 @@ test "环形交互图：hover 扇区与图例显隐" {
 /// 120px 窄带（真机 mac/Linux：showcase 图表页·交互段）。
 test "交互图默认铺满父宽，显式 width 照旧" {
   let s : @base.Store[Array[LineSeries]] = @base.Store::new([
-    { name: "CPU", max_points: 10, points: [1.0, 2.0, 3.0] },
+    { name: "CPU", max_points: 10, points: [1.0, 2.0, 3.0], },
   ])
   let (_, auto) = mounted(line_chart_it(s), 600.0, 400.0)
   assert_eq(auto.kids[1].rect.w, 600.0, msg="默认宽的画布没铺满父宽")

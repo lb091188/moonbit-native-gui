@@ -12,7 +12,7 @@
 // 也不值得为此引依赖。
 
 ///|
-const CACHE_LIMIT : Int = 8192
+const CACHE_LIMIT : Int32 = 8192
 
 ///|
 priv struct Slot[V] {
@@ -23,18 +23,18 @@ priv struct Slot[V] {
 ///|
 priv struct StrCache[V] {
   mut slots : Array[Slot[V]?]
-  mut count : Int
+  mut count : Int32
 }
 
 ///|
 fn[V] StrCache::new() -> StrCache[V] {
-  { slots: Array::make(256, None), count: 0 }
+  { slots: Array::make(256, None), count: 0, }
 }
 
 ///|
 /// djb2 字符串哈希：h = h×33 + 字符码，溢出按 32 位环绕，哈希用途无妨。
 /// （不用 FNV-1a 是它的初始常量 2166136261 超出 Int 字面量范围。）
-fn hash_str(s : String) -> Int {
+fn hash_str(s : String) -> Int32 {
   let mut h = 5381
   for c in s {
     h = h * 33 + c.to_int()
@@ -50,10 +50,7 @@ fn[V] StrCache::get(self : StrCache[V], key : String) -> V? {
   let mut i = hash_str(key) & (cap - 1)
   for _k in 0..<cap {
     match self.slots[i] {
-      Some(s) =>
-        if s.key == key {
-          return Some(s.val)
-        }
+      Some(s) => if s.key == key { return Some(s.val) }
       None => return None
     }
     i = (i + 1) & (cap - 1)
@@ -77,11 +74,11 @@ fn[V] StrCache::put(self : StrCache[V], key : String, val : V) -> Unit {
     match self.slots[i] {
       Some(s) =>
         if s.key == key {
-          self.slots[i] = Some({ key, val })
+          self.slots[i] = Some({ key, val, })
           return
         }
       None => {
-        self.slots[i] = Some({ key, val })
+        self.slots[i] = Some({ key, val, })
         self.count += 1
         return
       }
@@ -92,7 +89,7 @@ fn[V] StrCache::put(self : StrCache[V], key : String, val : V) -> Unit {
 
 ///|
 /// 倍增重排：新表容量必须是 2 的幂，旧条目按各自哈希重新落位，计数不变。
-fn[V] StrCache::rehash(self : StrCache[V], newcap : Int) -> Unit {
+fn[V] StrCache::rehash(self : StrCache[V], newcap : Int32) -> Unit {
   let old = self.slots
   self.slots = Array::make(newcap, None)
   for slot in old {
@@ -105,7 +102,7 @@ fn[V] StrCache::rehash(self : StrCache[V], newcap : Int) -> Unit {
 
 ///|
 /// 把一个已有条目放进容量 newcap 的新表（只在新表里找空位，不计数）。
-fn[V] StrCache::place(self : StrCache[V], newcap : Int, s : Slot[V]) -> Unit {
+fn[V] StrCache::place(self : StrCache[V], newcap : Int32, s : Slot[V]) -> Unit {
   let mut i = hash_str(s.key) & (newcap - 1)
   for _k in 0..<newcap {
     if self.slots[i] is None {
@@ -133,7 +130,7 @@ let g_measure_cache : StrCache[TextMetrics?] = StrCache::new()
 let g_font_metrics_cache : StrCache[FontMetrics?] = StrCache::new()
 
 ///|
-let g_line_cache : StrCache[Int?] = StrCache::new()
+let g_line_cache : StrCache[Int32?] = StrCache::new()
 
 ///|
 /// 清度量缓存:文本 run 基方向(LTR↔RTL)改变时调用——同一串的换行/宽度会变,
@@ -147,7 +144,15 @@ pub fn clear_measure_caches() -> Unit {
 /// 字体键：族名 + 字号 + 字重 + 字形 + 字距（度量由这五者决定；漏掉字距会
 /// 让不同字距的同一串命中同一条宽度）。
 fn font_key(f : Font) -> String {
-  f.name + "\u{1F}" + f.size.to_string() + "\u{1F}" + weight_value(f.weight).to_string() + "\u{1F}" + style_id(f.style).to_string() + "\u{1F}" + f.spacing.to_string()
+  f.name +
+  "\u{1F}" +
+  f.size.to_string() +
+  "\u{1F}" +
+  weight_value(f.weight).to_string() +
+  "\u{1F}" +
+  style_id(f.style).to_string() +
+  "\u{1F}" +
+  f.spacing.to_string()
 }
 
 ///|
@@ -174,11 +179,19 @@ pub(all) enum LineKind {
 pub fn measure_font_cached(
   text : String,
   font : Font,
-  max_width : Int,
+  max_width : Int32,
   ellipsize : Bool,
   wrap : Bool,
 ) -> TextMetrics? {
-  let key = font_key(font) + "\u{1F}" + max_width.to_string() + "\u{1F}" + (if ellipsize { "1" } else { "0" }) + "\u{1F}" + (if wrap { "1" } else { "0" }) + "\u{1F}" + text
+  let key = font_key(font) +
+    "\u{1F}" +
+    max_width.to_string() +
+    "\u{1F}" +
+    (if ellipsize { "1" } else { "0" }) +
+    "\u{1F}" +
+    (if wrap { "1" } else { "0" }) +
+    "\u{1F}" +
+    text
   cache_get(g_measure_font_cache, key, fn() {
     measure_font_uncached(text, font, max_width, ellipsize, wrap)
   })
@@ -190,12 +203,24 @@ pub fn measure_cached(
   text : String,
   size : Double,
   family : String,
-  max_width : Int,
+  max_width : Int32,
   ellipsize : Bool,
   wrap : Bool,
   spacing : Double,
 ) -> TextMetrics? {
-  let key = family + "\u{1F}" + size.to_string() + "\u{1F}" + spacing.to_string() + "\u{1F}" + max_width.to_string() + "\u{1F}" + (if ellipsize { "1" } else { "0" }) + "\u{1F}" + (if wrap { "1" } else { "0" }) + "\u{1F}" + text
+  let key = family +
+    "\u{1F}" +
+    size.to_string() +
+    "\u{1F}" +
+    spacing.to_string() +
+    "\u{1F}" +
+    max_width.to_string() +
+    "\u{1F}" +
+    (if ellipsize { "1" } else { "0" }) +
+    "\u{1F}" +
+    (if wrap { "1" } else { "0" }) +
+    "\u{1F}" +
+    text
   cache_get(g_measure_cache, key, fn() {
     measure_uncached(text, size, family, max_width, ellipsize, wrap, spacing)
   })
@@ -205,14 +230,20 @@ pub fn measure_cached(
 /// 字体度量：键 = 字体四要素。line_height_font / line_ascent_font /
 /// line_height_multi 都经此，缓存后基线与行高回调零 FFI。
 pub fn font_metrics_cached(font : Font) -> FontMetrics? {
-  cache_get(g_font_metrics_cache, font_key(font), fn() { font_metrics_uncached(font) })
+  cache_get(g_font_metrics_cache, font_key(font), fn() {
+    font_metrics_uncached(font)
+  })
 }
 
 ///|
 /// 行高 / 基线（族名 + 字号，字重字形固定常规正体）：键 = kind + 族名 + 字号
 /// ——同一 (size, family) 的行高与基线是两个值，kind 必须进键。
-pub fn line_cached(kind : LineKind, size : Double, family : String) -> Int? {
-  let key = (if kind is Height { "h" } else { "a" }) + "\u{1F}" + family + "\u{1F}" + size.to_string()
+pub fn line_cached(kind : LineKind, size : Double, family : String) -> Int32? {
+  let key = (if kind is Height { "h" } else { "a" }) +
+    "\u{1F}" +
+    family +
+    "\u{1F}" +
+    size.to_string()
   cache_get(g_line_cache, key, fn() {
     match kind {
       Height => line_height_uncached(size, family)

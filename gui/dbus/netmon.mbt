@@ -36,7 +36,7 @@ pub fn nm_available() -> Bool {
 
 ///|
 /// Properties.Get("u") 应答的 variant 内值。
-fn vu32_of(m : Msg) -> Int? {
+fn vu32_of(m : Msg) -> Int32? {
   match m.body.get(0) {
     Some(VVariant(VU32(v))) => Some(v)
     _ => None
@@ -45,7 +45,7 @@ fn vu32_of(m : Msg) -> Int? {
 
 ///|
 /// 读单个顶层属性(u32)。
-fn nm_get_u32(prop : String) -> Result[Int, String] {
+fn nm_get_u32(prop : String) -> Result[Int32, String] {
   let c = match system_conn() {
     Ok(c) => c
     Err(e) => return Err(e)
@@ -67,24 +67,24 @@ fn nm_get_u32(prop : String) -> Result[Int, String] {
 ///|
 /// 连接状态原始码(State):70=全球联网 50=站点级 40=连接中 30=断开中
 /// 20=已断开 10=休眠。
-pub fn nm_state() -> Result[Int, String] {
+pub fn nm_state() -> Result[Int32, String] {
   nm_get_u32("State")
 }
 
 ///|
 /// 互联网连通性原始码(Connectivity):4=完全 3=受限 2=门户 1=无 0=未知。
-pub fn nm_connectivity() -> Result[Int, String] {
+pub fn nm_connectivity() -> Result[Int32, String] {
   nm_get_u32("Connectivity")
 }
 
 ///|
-let g_nm_state : Ref[Int] = Ref(-1)
+let g_nm_state : Ref[Int32] = Ref(-1)
 
 ///|
-let g_nm_conn : Ref[Int] = Ref(-1)
+let g_nm_conn : Ref[Int32] = Ref(-1)
 
 ///|
-let g_nm_cbs : Array[(Int, Int) -> Unit] = []
+let g_nm_cbs : Array[(Int32, Int32) -> Unit] = []
 
 ///|
 let g_nm_watched : Ref[Bool] = Ref(false)
@@ -99,7 +99,7 @@ fn nm_notify() -> Unit {
 
 ///|
 /// PropertiesChanged 的 changed 字典里找 u32 属性。
-fn changed_u32(body : Array[DVal], key : String) -> Int? {
+fn changed_u32(body : Array[DVal], key : String) -> Int32? {
   match body.get(1) {
     Some(VArray(_, items)) => {
       for it in items {
@@ -121,7 +121,7 @@ fn changed_u32(body : Array[DVal], key : String) -> Int? {
 /// StateChanged 信号体的新状态值。NM 规范里该信号参数是 Int32(i)
 /// （属性 State 才是 u32,信号与属性类型不同源）,按 i 解码为 VI32,
 /// u 兜底兼容个别实现差异;其余类型丢弃。
-fn statechanged_of(body : Array[DVal]) -> Int? {
+fn statechanged_of(body : Array[DVal]) -> Int32? {
   match body.get(0) {
     Some(VI32(v)) | Some(VU32(v)) => Some(v)
     _ => None
@@ -131,7 +131,7 @@ fn statechanged_of(body : Array[DVal]) -> Int? {
 ///|
 /// 注册 (State, Connectivity) 变化回调。注册时同步查询一次建缓存
 /// (主线程、非 drain 栈,合法);此后信号驱动,回调内只读缓存。
-pub fn nm_on_change(cb : (Int, Int) -> Unit) -> Result[Unit, String] {
+pub fn nm_on_change(cb : (Int32, Int32) -> Unit) -> Result[Unit, String] {
   let c = match system_conn() {
     Ok(c) => c
     Err(e) => return Err(e)

@@ -3,10 +3,10 @@
 ///|
 /// A parsed list marker: its width in characters and the list it starts.
 priv struct ListMarker {
-  width : Int
+  width : Int32
   ordered : Bool
   bullet : Char
-  start : Int
+  start : Int32
   delim : Char
 }
 
@@ -18,7 +18,7 @@ priv struct ListMarker {
 /// may not be empty.
 fn BlockParser::parse_list_marker(
   self : BlockParser,
-  pos : Int,
+  pos : Int32,
   interrupts_paragraph : Bool,
 ) -> ListMarker? {
   let line = self.line
@@ -65,7 +65,7 @@ fn BlockParser::parse_list_marker(
       return None
     }
   }
-  Some({ width: i - pos, ordered, bullet, start: number, delim })
+  Some({ width: i - pos, ordered, bullet, start: number, delim, })
 }
 
 ///|

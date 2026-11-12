@@ -48,7 +48,7 @@ pub extend ClipboardError with Show::{to_string, output}
 /// last 为上拍看到的剪贴板文本（比对基线）。
 pub(all) struct ClipboardWatcher {
   active : Ref[Bool]
-  interval_ms : Int
+  interval_ms : Int32
   last : Ref[String]
 }
 
@@ -58,7 +58,7 @@ pub(all) struct ClipboardWatcher {
 
 ///|
 /// 轮询间隔钳到 100..60000 毫秒（下限防失控 spawn，上限防永驻高频轮询）。
-fn cbw_clamp_interval(ms : Int) -> Int {
+fn cbw_clamp_interval(ms : Int32) -> Int32 {
   if ms < 100 {
     100
   } else if ms > 60000 {
@@ -148,7 +148,11 @@ pub fn cbw_get_text() -> Result[String, ClipboardError] {
 ///|
 /// 空串按「无文本」报（NoText），非空原样返回。
 fn cbw_text_or_none(t : String) -> Result[String, ClipboardError] {
-  if t == "" { Err(NoText) } else { Ok(t) }
+  if t == "" {
+    Err(NoText)
+  } else {
+    Ok(t)
+  }
 }
 
 ///|
@@ -161,7 +165,9 @@ fn cbw_get_text_pbpaste() -> Result[String, ClipboardError] {
     Ok(o) => cbw_text_or_none(o.stdout)
     Err(NonZeroExit(127, _)) => Err(Unsupported)
     Err(NonZeroExit(code, err)) =>
-      Err(CommandFailed("pbpaste: 退出码 \{code}（\{cbw_first_line(err)}）"))
+      Err(
+        CommandFailed("pbpaste: 退出码 \{code}（\{cbw_first_line(err)}）"),
+      )
     Err(e) => Err(CommandFailed("\{e}"))
   }
 }
@@ -183,7 +189,9 @@ fn cbw_get_text_xclip() -> Result[String, ClipboardError] {
       if cbw_xclip_no_text(err) {
         Err(NoText)
       } else {
-        Err(CommandFailed("xclip: 退出码 \{code}（\{cbw_first_line(err)}）"))
+        Err(
+          CommandFailed("xclip: 退出码 \{code}（\{cbw_first_line(err)}）"),
+        )
       }
     Err(Timeout(m)) => Err(CommandFailed(m))
     Err(SpawnFailed(m)) => Err(CommandFailed(m))
@@ -221,8 +229,8 @@ fn cbw_tick(watcher : ClipboardWatcher, cb : (String) -> Unit) -> Bool {
 /// 给一个把回调收进表里的假通道），每拍结束再自行续下一拍。句柄交
 /// [cbw_stop] 停止（置停靠标志，至多再跑一拍即自行终止）。
 pub fn cbw_start_watch(
-  schedule : (Int, () -> Unit) -> Unit,
-  interval_ms? : Int = 800,
+  schedule : (Int32, () -> Unit) -> Unit,
+  interval_ms~ : Int32 = 800,
   cb : (String) -> Unit,
 ) -> ClipboardWatcher {
   let ms = cbw_clamp_interval(interval_ms)
@@ -237,11 +245,7 @@ pub fn cbw_start_watch(
     ),
   }
   fn arm() -> Unit {
-    schedule(ms, fn() {
-      if cbw_tick(watcher, cb) {
-        arm()
-      }
-    })
+    schedule(ms, fn() { if cbw_tick(watcher, cb) { arm() } })
   }
   arm()
   watcher

@@ -5,7 +5,7 @@
 
 ///|
 /// 两点距离（断言语义：两节点弹簧把边拉近/推远）。
-fn gph_dist(pts : Array[(Double, Double)], i : Int, j : Int) -> Double {
+fn gph_dist(pts : Array[(Double, Double)], i : Int32, j : Int32) -> Double {
   let dx = pts[j].0 - pts[i].0
   let dy = pts[j].1 - pts[i].1
   (dx * dx + dy * dy).sqrt()
@@ -356,17 +356,23 @@ test "GraphData 构造与 gph_chart_t 组件可编译（不 mount，真机验证
 test "关系图组件：出像素、换数据画面变（布局缓存失效）" {
   let d = @base.Store::new(
     GraphData::make(
-      [GraphNode::make("甲", value=30.0), GraphNode::make("乙", value=20.0), GraphNode::make("丙", value=10.0)],
+      [
+        GraphNode::make("甲", value=30.0),
+        GraphNode::make("乙", value=20.0),
+        GraphNode::make("丙", value=10.0),
+      ],
       [GraphEdge::make(0, 1, weight=5.0), GraphEdge::make(1, 2, weight=3.0)],
     ),
   )
-  let (root, w) = mounted(gph_chart_t(d, width=280.0, height=180.0), 320.0, 200.0)
+  let (root, w) = mounted(
+    gph_chart_t(d, width=280.0, height=180.0),
+    320.0,
+    200.0,
+  )
   let plain = bm_of(w)
   assert_true(ink_of(plain) > 600)
   // 数据变更 → 布局缓存置 None → 重新收敛 → 画面变
-  d.set_always(
-    GraphData::make([GraphNode::make("丁", value=40.0)], []),
-  )
+  d.set_always(GraphData::make([GraphNode::make("丁", value=40.0)], []))
   let _ = root.relayout(320.0, 200.0)
   assert_true(diff_of(bm_of(w), plain) > 50)
 }

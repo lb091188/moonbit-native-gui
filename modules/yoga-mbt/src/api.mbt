@@ -153,7 +153,7 @@ pub fn Node::set_align_items(self : Node, v : AlignItems) -> Unit {
 
 ///|
 /// 覆盖自身在父容器交叉轴的对齐（None = 跟随父容器 align-items）。
-pub fn Node::set_align_self(self : Node, v : Option[AlignItems]) -> Unit {
+pub fn Node::set_align_self(self : Node, v : AlignItems?) -> Unit {
   self.mark_changed()
   self.style.align_self = v
 }
@@ -205,7 +205,7 @@ pub fn Node::set_max_height(self : Node, v : Value) -> Unit {
 /// 首选宽高比。比例语义为 **border-box**：`ratio = 边框盒宽 / 边框盒高`
 /// （与 CSS 默认的 content-box 比例不同）。一个轴尺寸确定时，另一个轴按
 /// 比例换算；`None` 表示不设比例，非正数视同 `None`。
-pub fn Node::set_aspect_ratio(self : Node, ratio : Option[Double]) -> Unit {
+pub fn Node::set_aspect_ratio(self : Node, ratio : Double?) -> Unit {
   self.mark_changed()
   self.style.aspect_ratio = match ratio {
     Some(r) => if r > 0.0 { Some(r) } else { None }
@@ -308,12 +308,12 @@ pub fn Node::set_column_gap(self : Node, v : Double) -> Unit {
 ///|
 /// 层序键（z-index）：默认 0。布局几何与它无关（不调 `mark_changed`），
 /// 只在绘制期经 [Node::paint_order] 消费。
-pub fn Node::set_z_index(self : Node, v : Int) -> Unit {
+pub fn Node::set_z_index(self : Node, v : Int32) -> Unit {
   self.style.z_index = v
 }
 
 ///|
-pub fn Node::z_index(self : Node) -> Int {
+pub fn Node::z_index(self : Node) -> Int32 {
   self.style.z_index
 }
 
@@ -321,8 +321,8 @@ pub fn Node::z_index(self : Node) -> Int {
 /// 绘制层序投影：按 `z_index` 升序**稳定**排列的子下标（同值保持 children
 /// 原数组序，即后添加者仍画在前）。引擎不物理重排 children——增量布局按
 /// 下标缓存，重排会搅乱缓存；消费者拿这份下标序去安排绘制即可。
-pub fn Node::paint_order(self : Node) -> Array[Int] {
-  let out : Array[Int] = []
+pub fn Node::paint_order(self : Node) -> Array[Int32] {
+  let out : Array[Int32] = []
   let n = self.children.length()
   let mut i = 0
   while i < n {
@@ -347,11 +347,7 @@ pub fn Node::paint_order(self : Node) -> Array[Int] {
 /// 对整棵树做一次布局。width/height 为根节点可用空间（None 表示该方向
 /// 不约束，根按内容取尺寸）；需要撑满可用空间时给根设置
 /// `set_width(percent(100.0))` / `set_height(percent(100.0))`。
-pub fn calculate_layout(
-  root : Node,
-  width : Option[Double],
-  height : Option[Double],
-) -> Unit {
+pub fn calculate_layout(root : Node, width : Double?, height : Double?) -> Unit {
   // 入口只扫一遍版本号（整数比较，不碰测量），缓存与子树结果按版本判定复用
   let _ = scan_subtree_rev(root)
   let _ = layout_into(root, width, height, None, None)

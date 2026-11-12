@@ -1,7 +1,7 @@
 // 原地重挂回归：remount_all 重建树但停在原页；i18n 广播驱动 localize_remount。
 
 ///|
-fn rm_lf(k : String, hits : Ref[Int]) -> Route {
+fn rm_lf(k : String, hits : Ref[Int32]) -> Route {
   route_leaf(k, fn() -> @widget.Node {
     hits.val += 1
     @ui.text("内容")

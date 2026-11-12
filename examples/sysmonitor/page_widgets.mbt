@@ -17,13 +17,17 @@ fn row_h() -> Double {
 /// 只重绘画布；行数变化时同步更新容器高度。draw 签名为
 /// (painter, width)；rows 存当前行数（供定高与刷新触发）。
 fn draw_rows(
-  rows : @base.Store[Int],
+  rows : @base.Store[Int32],
   draw : (@render.Painter, Double) -> Unit,
 ) -> @widget.Node {
   @widget.node_of_new(fn(c : @widget.Widget) -> @widget.Widget {
     c.node.set_flex_direction(@yoga.Column)
     c.node.set_height(@yoga.fixed(rows.get().to_double() * row_h()))
-    c.on_draw = Some(fn(_s : @widget.Widget, p : @render.Painter, r : @base.Rect) -> Unit {
+    c.on_draw = Some(fn(
+      _s : @widget.Widget,
+      p : @render.Painter,
+      r : @base.Rect,
+    ) -> Unit {
       draw(p, r.w)
     })
     rows.subscribe(fn(n) {
@@ -38,6 +42,6 @@ fn draw_rows(
 
 ///|
 /// 斑马纹底色（奇行浅灰）。
-fn zebra_bg(i : Int) -> Bool {
+fn zebra_bg(i : Int32) -> Bool {
   i % 2 == 1
 }

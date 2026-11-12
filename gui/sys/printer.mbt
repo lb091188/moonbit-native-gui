@@ -206,7 +206,7 @@ fn prt_parse_destinations(out : String) -> Array[PrinterInfo] {
   for line in prt_split_lines(out) {
     let name = prt_trim(line)
     if name != "" && !name.has_prefix("lpstat") {
-      infos.push({ name: name, status: Unknown, })
+      infos.push({ name, status: Unknown, })
     }
   }
   infos
@@ -315,7 +315,7 @@ fn prt_parse_default(out : String) -> String? {
 fn prt_print_args(
   printer : String?,
   path : String,
-  copies : Int,
+  copies : Int32,
 ) -> Array[String] {
   let args : Array[String] = []
   match printer {
@@ -345,7 +345,7 @@ fn prt_print_args(
 fn prt_run_tool(
   prog : String,
   args : Array[String],
-  timeout_ms? : Int = 4000,
+  timeout_ms~ : Int32 = 4000,
 ) -> Result[String, PrinterError] {
   match pr_run(prog, args, timeout_ms~) {
     Ok(o) => Ok(o.stdout)
@@ -368,7 +368,7 @@ fn prt_run_tool(
 /// 运行 lpstat 并捕获标准输出。
 fn prt_lpstat(
   args : Array[String],
-  timeout_ms? : Int = 4000,
+  timeout_ms~ : Int32 = 4000,
 ) -> Result[String, PrinterError] {
   prt_run_tool("lpstat", args, timeout_ms~)
 }
@@ -380,19 +380,20 @@ fn prt_lpstat(
 ///|
 /// 当前系统是否装有 CUPS 命令行工具（跑通只读的 lpstat -p 即为可用）。
 /// 每次调用真实探测，高频场景请调用方自行缓存结果。
+
 ///|
 /// Windows 直调：打印机清单字节串「名称\t状态码」逐行。
 #borrow(ok)
-extern "c" fn ffi_prt_list(ok : Ref[Int]) -> Bytes = "yue_sys_prt_list"
+extern "c" fn ffi_prt_list(ok : Ref[Int32]) -> Bytes = "yue_sys_prt_list"
 
 ///|
 /// Windows 直调：默认打印机名。
 #borrow(ok)
-extern "c" fn ffi_prt_default(ok : Ref[Int]) -> Bytes = "yue_sys_prt_default"
+extern "c" fn ffi_prt_default(ok : Ref[Int32]) -> Bytes = "yue_sys_prt_default"
 
 ///|
 /// 状态码 → PrinterStatus（C 侧口径见 sys_stub.c 平台批⑤注释）。
-fn prt_win_status(code : Int) -> PrinterStatus {
+fn prt_win_status(code : Int32) -> PrinterStatus {
   match code {
     1 => Printing
     2 => Paused
@@ -402,10 +403,11 @@ fn prt_win_status(code : Int) -> PrinterStatus {
 }
 
 ///|
+
 ///|
 /// Windows 直调：ShellExecuteW「print」动词打印文件。
 #borrow(path, ok)
-extern "c" fn ffi_shell_print(path : Bytes, ok : Ref[Int]) -> Int = "yue_sys_shell_print"
+extern "c" fn ffi_shell_print(path : Bytes, ok : Ref[Int32]) -> Int32 = "yue_sys_shell_print"
 
 ///|
 pub fn prt_supported() -> Bool {
@@ -445,7 +447,10 @@ pub fn prt_list() -> Result[Array[PrinterInfo], PrinterError] {
         Some(v) => v
         None => 0
       }
-      let _ = out.push({ name: parts[0].to_owned(), status: prt_win_status(code) })
+      let _ = out.push({
+        name: parts[0].to_owned(),
+        status: prt_win_status(code),
+      })
     }
     return Ok(out)
   }
@@ -498,7 +503,7 @@ pub fn prt_default() -> Result[String, PrinterError] {
 pub fn prt_print(
   printer? : String,
   path : String,
-  copies? : Int = 1,
+  copies~ : Int32 = 1,
 ) -> Result[Unit, PrinterError] {
   if path == "" {
     return Err(PrtInvalidParam("文件路径为空"))
@@ -510,14 +515,22 @@ pub fn prt_print(
     // ShellExecute「print」动词：交给文件关联应用、落默认打印机；
     // copies > 1 不支持（关联应用不收份数参数）
     if copies > 1 {
-      return Err(PrtInvalidParam("Windows 打印动词不支持份数参数（copies=\{copies}）"))
+      return Err(
+        PrtInvalidParam(
+          "Windows 打印动词不支持份数参数（copies=\{copies}）",
+        ),
+      )
     }
     let ok = Ref(0)
     let _ = ffi_shell_print(@utf8.encode(path), ok)
     if ok.val == 1 {
       return Ok(())
     }
-    return Err(PrtCommandFailed("ShellExecute print 失败（该类型无关联打印应用）"))
+    return Err(
+      PrtCommandFailed(
+        "ShellExecute print 失败（该类型无关联打印应用）",
+      ),
+    )
   }
   match
     prt_run_tool("lp", prt_print_args(printer, path, copies), timeout_ms=10000) {

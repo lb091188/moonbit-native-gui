@@ -28,7 +28,7 @@ pub fn browser_profile_persistence() -> ProfilePersistence {
 ///|
 /// 引擎侧可选信号在位掩码：1 下载 / 2 web 进程终止 / 4 权限请求 / 8 新窗。
 /// 缺哪条就少哪条回证（诊断读数，不是错误）。
-pub fn webview_signal_mask() -> Int {
+pub fn webview_signal_mask() -> Int32 {
   wb_signal_mask()
 }
 
@@ -44,7 +44,7 @@ pub(all) struct WebviewOptions {
 ///|
 /// 默认参数：只给地址，其余走引擎默认。
 pub fn webview_options(url : String) -> WebviewOptions {
-  { url, profile: "", user_agent: "" }
+  { url, profile: "", user_agent: "", }
 }
 
 ///|
@@ -74,7 +74,7 @@ pub(all) enum WebEvent {
   FocusGained
   /// 网页交回键盘焦点
   FocusLost
-  Unknown(Int, String)
+  Unknown(Int32, String)
 }
 
 ///|
@@ -95,16 +95,16 @@ fn download_request_parse(id : Int64, raw : String) -> DownloadRequest {
   for ch in raw.iter() {
     if ch == '|' {
       uri = raw[:i].to_owned()
-      suggested = raw[i + 1 :].to_owned()
+      suggested = raw[i + 1:].to_owned()
       break
     }
     i = i + 1
   }
-  { id, uri, suggested }
+  { id, uri, suggested, }
 }
 
 ///|
-fn wb_str(f : (Int64, Bytes, Int) -> Int, id : Int64) -> String {
+fn wb_str(f : (Int64, Bytes, Int32) -> Int32, id : Int64) -> String {
   let cap = 256
   let buf = Bytes::new(cap)
   let n = f(id, buf, cap)
@@ -116,6 +116,7 @@ fn wb_str(f : (Int64, Bytes, Int) -> Int, id : Int64) -> String {
   }
 }
 
+///|
 const WB_TEXT_CAP = 768
 
 ///|
@@ -147,7 +148,7 @@ pub(all) struct Webview {
   /// 泵是否在跑（close 之后不再排期）
   mut pumping : Bool
   /// 已注册的页面→原生通道数（引擎没有注销口，计数只增）
-  mut binding_count : Int
+  mut binding_count : Int32
 }
 
 ///|
@@ -159,7 +160,10 @@ pub fn webview_new(app : @widget.WindowHost, url : String) -> Webview? {
 
 ///|
 /// 带参数地建 pane（profile / UA 这类引擎原生开关走这里）。
-pub fn webview_open(app : @widget.WindowHost, opts : WebviewOptions) -> Webview? {
+pub fn webview_open(
+  app : @widget.WindowHost,
+  opts : WebviewOptions,
+) -> Webview? {
   if !webview_supported() {
     return None
   }
@@ -188,7 +192,7 @@ pub fn webview_open(app : @widget.WindowHost, opts : WebviewOptions) -> Webview?
 /// （截断会让 0.6px 的漂移每帧都算「变了」，每帧多走一遍 FFI 与一次重排）。
 pub fn webview_rect_key(
   rect : (Double, Double, Double, Double),
-) -> (Int, Int, Int, Int) {
+) -> (Int32, Int32, Int32, Int32) {
   (
     rect.0.round().to_int(),
     rect.1.round().to_int(),
@@ -199,7 +203,10 @@ pub fn webview_rect_key(
 
 ///|
 /// 把布局算出的矩形同步给子件（窗口内容坐标）。每帧调用，位置没动不重复走 FFI。
-fn Webview::sync_rect(self : Webview, rect : (Double, Double, Double, Double)) -> Unit {
+fn Webview::sync_rect(
+  self : Webview,
+  rect : (Double, Double, Double, Double),
+) -> Unit {
   let same = {
     let a = webview_rect_key(self.last_rect)
     let b = webview_rect_key(rect)
@@ -224,9 +231,9 @@ fn Webview::sync_rect(self : Webview, rect : (Double, Double, Double, Double)) -
 /// 否则按 `width`/`height` 定尺寸（左右分栏里页面区通常也是 grow 的那一侧）。
 pub fn Webview::node(
   self : Webview,
-  width? : Double = 0.0,
-  height? : Double = 0.0,
-  grow? : Double = 0.0,
+  width~ : Double = 0.0,
+  height~ : Double = 0.0,
+  grow~ : Double = 0.0,
 ) -> @widget.Node {
   @widget.node_of_new(fn(parent : @widget.Widget) -> @widget.Widget {
     let w = @widget.Widget::new()
@@ -258,7 +265,10 @@ pub fn Webview::node(
 
 ///|
 /// 第一次拿到真实矩形时挂子件槽并把页面装进去，同时起事件泵。
-fn Webview::mount_at(self : Webview, rect : (Double, Double, Double, Double)) -> Unit {
+fn Webview::mount_at(
+  self : Webview,
+  rect : (Double, Double, Double, Double),
+) -> Unit {
   let k = webview_rect_key(rect)
   match self.app.window().mount_child_surface(@win.Webview, rect) {
     None => ()
@@ -370,7 +380,12 @@ pub fn Webview::pump(self : Webview) -> Unit {
 }
 
 ///|
-fn Webview::dispatch(self : Webview, kind : Int, num : Int64, text : String) -> Unit {
+fn Webview::dispatch(
+  self : Webview,
+  kind : Int32,
+  num : Int64,
+  text : String,
+) -> Unit {
   let ev = match kind {
     1 => TitleChanged(text)
     2 => UrlChanged(text)
@@ -396,17 +411,18 @@ fn Webview::dispatch(self : Webview, kind : Int, num : Int64, text : String) -> 
       let kept : Array[(Int64, (String) -> Unit)] = []
       for it in self.eval_waiters {
         if it.0 == seq {
-          it.1(value)
+          (it.1)(value)
         } else {
           kept.push(it)
         }
       }
       self.eval_waiters = kept
     }
-    Invoke(payload) => match self.on_invoke {
-      None => ()
-      Some(f) => f(payload)
-    }
+    Invoke(payload) =>
+      match self.on_invoke {
+        None => ()
+        Some(f) => f(payload)
+      }
     _ => ()
   }
   match self.on_event {
@@ -437,7 +453,7 @@ pub fn Webview::load_url(self : Webview, url : String) -> Unit {
 pub fn Webview::load_html(
   self : Webview,
   html : String,
-  base_uri? : String = "",
+  base_uri~ : String = "",
 ) -> Unit {
   if self.handle == 0L {
     // 还没挂载（挂载发生在第一次拿到真实矩形的那一帧）：先记下，别丢
@@ -681,9 +697,14 @@ pub fn Webview::respond_download(
     wb_respond_download(
       self.handle,
       id,
-      if allow { 1 } else { 0 },
+      if allow {
+        1
+      } else {
+        0
+      },
       @utf8.encode(path),
-    ) != 0
+    ) !=
+    0
   } else {
     false
   }

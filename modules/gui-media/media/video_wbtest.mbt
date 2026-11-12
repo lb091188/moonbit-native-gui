@@ -18,7 +18,9 @@ test "播放数学：帧索引/钳制/进度/时间文本" {
 /// seek/play/tick 推帧/pause/stop/free）。
 test "VideoPlayer 真机冒烟：FFI 双路状态机" {
   if !@ffmbt.ffmpeg_supported() {
-    println("skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）")
+    println(
+      "skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）",
+    )
     return
   }
   let path = "../ffmpeg-mbt/src/testdata/av_1s.mp4"
@@ -87,7 +89,9 @@ test "VideoPlayer 真机冒烟：FFI 双路状态机" {
 /// 纯视频状态机照常。
 test "VideoPlayer 无音轨：静音播放路径" {
   if !@ffmbt.ffmpeg_supported() {
-    println("skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）")
+    println(
+      "skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）",
+    )
     return
   }
   let path = "../ffmpeg-mbt/src/testdata/testsrc_1s.avi"
@@ -113,7 +117,9 @@ test "VideoPlayer 无音轨：静音播放路径" {
 /// 满格）。白盒回拨墙钟基准模拟时间流逝。
 test "VideoPlayer 时钟同轴：回退 fps 不影响时间轴" {
   if !@ffmbt.ffmpeg_supported() {
-    println("skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）")
+    println(
+      "skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）",
+    )
     return
   }
   let path = "../ffmpeg-mbt/src/testdata/av_1s.mp4"
@@ -164,7 +170,9 @@ fn vp_force_eof(player : VideoPlayer) -> Unit {
 /// 缺口，此前视频侧无循环回归）。
 test "VideoPlayer 循环：EOF 自动回起点重播" {
   if !@ffmbt.ffmpeg_supported() {
-    println("skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）")
+    println(
+      "skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）",
+    )
     return
   }
   let path = "../ffmpeg-mbt/src/testdata/av_1s.mp4"
@@ -201,7 +209,9 @@ test "VideoPlayer 循环：EOF 自动回起点重播" {
 /// 钉时长、画面钉末帧、音频队列全空，再点播放毫无变化）。
 test "VideoPlayer 播完后再 play：回起点重播" {
   if !@ffmbt.ffmpeg_supported() {
-    println("skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）")
+    println(
+      "skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）",
+    )
     return
   }
   let path = "../ffmpeg-mbt/src/testdata/av_1s.mp4"
@@ -252,7 +262,9 @@ test "VideoPlayer 播完后再 play：回起点重播" {
 /// （重播语义只属于「停在末尾直接再 play」）。
 test "VideoPlayer 播完态 seek 后再 play：从落点续播" {
   if !@ffmbt.ffmpeg_supported() {
-    println("skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）")
+    println(
+      "skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）",
+    )
     return
   }
   let path = "../ffmpeg-mbt/src/testdata/av_1s.mp4"
@@ -285,7 +297,9 @@ test "VideoPlayer 播完态 seek 后再 play：从落点续播" {
 /// 有声画面全程静音）。
 test "VideoPlayer stop 后再 play：重播有声" {
   if !@ffmbt.ffmpeg_supported() {
-    println("skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）")
+    println(
+      "skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）",
+    )
     return
   }
   let path = "../ffmpeg-mbt/src/testdata/av_1s.mp4"
@@ -333,7 +347,9 @@ test "VideoPlayer stop 后再 play：重播有声" {
 /// 循环测试之外的对称缺口）。
 test "音量钳制：media_clamp_volume 与 set_volume" {
   if !@ffmbt.ffmpeg_supported() {
-    println("skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）")
+    println(
+      "skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）",
+    )
     return
   }
   inspect(media_clamp_volume(-0.5), content="0")
@@ -364,7 +380,9 @@ test "音量钳制：media_clamp_volume 与 set_volume" {
 /// 暂停时 tick 直接返回，画面会停在黑帧上）。
 test "逐帧步进：暂停中挪一帧并立刻出画面" {
   if !@ffmbt.ffmpeg_supported() {
-    println("skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）")
+    println(
+      "skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）",
+    )
     return
   }
   let path = "../ffmpeg-mbt/src/testdata/av_1s.mp4"
@@ -413,15 +431,18 @@ test "逐帧步进：暂停中挪一帧并立刻出画面" {
 /// （与 AudioPlayer 的 pcm_tap 同口径，取样点在重采样后、入队前）。
 test "VideoPlayer PCM 旁路：频谱吃得到重采样后的流" {
   if !@ffmbt.ffmpeg_supported() {
-    println("skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）")
+    println(
+      "skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）",
+    )
     return
   }
   let sp = Spectrum::make()
-  let player = match VideoPlayer::make("../ffmpeg-mbt/src/testdata/av_1s.mp4", fps=12) {
+  let player = match
+    VideoPlayer::make("../ffmpeg-mbt/src/testdata/av_1s.mp4", fps=12) {
     Ok(p) => p
     Err(e) => fail("make 失败：\{e}")
   }
-  player.set_pcm_tap(Some(fn(b : Bytes, ch : Int) -> Unit { sp.feed(b, ch) }))
+  player.set_pcm_tap(Some(fn(b : Bytes, ch : Int32) -> Unit { sp.feed(b, ch) }))
   player.play()
   player.wall0.val = player.wall0.val - 300L
   player.tick()

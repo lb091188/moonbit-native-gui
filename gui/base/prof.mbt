@@ -5,7 +5,7 @@
 
 ///|
 priv struct FrameProf {
-  mut frames : Int
+  mut frames : Int32
   mut layout_ms : Int64
   mut paint_ms : Int64
   mut present_ms : Int64
@@ -13,9 +13,9 @@ priv struct FrameProf {
   mut max_total_ms : Int64
   // 每帧重绘范围的两条计数：整帧与按脏矩形裁剪后画到的控件数、被视口剔除
   // 跳过的控件数（性能基线探针 `experiment/frame_cost_probe` 吃这三个数）。
-  mut relayout_calls : Int
-  mut paint_visit : Int
-  mut paint_skip : Int
+  mut relayout_calls : Int32
+  mut paint_visit : Int32
+  mut paint_skip : Int32
 }
 
 ///|
@@ -86,5 +86,22 @@ pub fn paint_profile_reset() -> Unit {
 /// "frames=120 layout=2100ms paint=9800ms present=340ms total=12400ms max_frame=310ms"
 pub fn paint_profile_summary() -> String {
   let p = g_frame_prof
-  "frames=" + p.frames.to_string() + " layout=" + p.layout_ms.to_string() + "ms paint=" + p.paint_ms.to_string() + "ms present=" + p.present_ms.to_string() + "ms total=" + p.total_ms.to_string() + "ms max_frame=" + p.max_total_ms.to_string() + "ms relayout=" + p.relayout_calls.to_string() + " visit=" + p.paint_visit.to_string() + " skip=" + p.paint_skip.to_string()
+  "frames=" +
+  p.frames.to_string() +
+  " layout=" +
+  p.layout_ms.to_string() +
+  "ms paint=" +
+  p.paint_ms.to_string() +
+  "ms present=" +
+  p.present_ms.to_string() +
+  "ms total=" +
+  p.total_ms.to_string() +
+  "ms max_frame=" +
+  p.max_total_ms.to_string() +
+  "ms relayout=" +
+  p.relayout_calls.to_string() +
+  " visit=" +
+  p.paint_visit.to_string() +
+  " skip=" +
+  p.paint_skip.to_string()
 }

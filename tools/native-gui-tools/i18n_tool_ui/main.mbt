@@ -1,14 +1,18 @@
 // i18n 目录查看器入口。用法：moon run tools/native-gui-tools/i18n_tool_ui -- <locale.toml>
 
+///|
 fn slurp(p : String) -> String? {
   let s = @fs.read_file_to_string(p) catch { _ => return None }
   Some(s)
 }
 
+///|
 fn main {
   let raw = @env.args()
   if raw.length() < 2 {
-    println("用法：moon run tools/native-gui-tools/i18n_tool_ui -- <locale.toml>")
+    println(
+      "用法：moon run tools/native-gui-tools/i18n_tool_ui -- <locale.toml>",
+    )
     return
   }
   let path = raw[1]
@@ -25,10 +29,7 @@ fn main {
     let shown = if v.length() > 0 { v } else { "（空/缺译）" }
     rows.push(
       @ui.row(
-        [
-          @ui.text(k, class=[@style.text_secondary]),
-          @ui.text(shown),
-        ],
+        [@ui.text(k, class=[@style.text_secondary]), @ui.text(shown)],
         column_gap=16.0,
       ),
     )
@@ -37,15 +38,21 @@ fn main {
     rows.push(@ui.text(k + "  {复数 " + forms.length().to_string() + " 式}"))
   }
 
-  let header = "i18n 目录 · locale=" + cat.locale + " · " + cat.texts.length().to_string() + " 键（" + path + "）"
+  let header = "i18n 目录 · locale=" +
+    cat.locale +
+    " · " +
+    cat.texts.length().to_string() +
+    " 键（" +
+    path +
+    "）"
   let root = @ui.col(
     [
       @ui.text(header),
-      @ui.scroll_view(
-        [@ui.col(rows, row_gap=6.0)],
-        @ui.ScrollState::new(),
-        handle=fn(v : @widget.Widget) { v.node.set_flex_grow(1.0) },
-      ),
+      @ui.scroll_view([@ui.col(rows, row_gap=6.0)], @ui.ScrollState::new(), handle=fn(
+        v : @widget.Widget,
+      ) {
+        v.node.set_flex_grow(1.0)
+      }),
     ],
     row_gap=8.0,
     padding=12.0,

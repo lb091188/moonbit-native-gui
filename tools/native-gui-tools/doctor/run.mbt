@@ -15,7 +15,11 @@ pub fn run_all(
   items.push({
     ..py,
     optional: true,
-    status: if py.status is Fail { Warn } else { py.status },
+    status: if py.status is Fail {
+      Warn
+    } else {
+      py.status
+    },
   })
   if platform == "linux" {
     items.push(check_cc(platform, log_dir))

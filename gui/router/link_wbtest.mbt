@@ -2,14 +2,17 @@
 // 原位重挂、strip_at/sidebar 与层 store 同源。段条「点一下切段」那一向要真鼠标，
 // 归到真机验证清单里。
 
+///|
 fn ln_text() -> @widget.Node {
   @ui.text("内容")
 }
 
+///|
 fn ln_lf(k : String) -> Route {
   route_leaf(k, fn() -> @widget.Node { ln_text() })
 }
 
+///|
 fn ln_tree() -> Array[Route] {
   [
     route_branch("组件", [ln_lf("按钮"), ln_lf("消息框")]),
@@ -17,6 +20,7 @@ fn ln_tree() -> Array[Route] {
   ]
 }
 
+///|
 fn ln_mount(view : @widget.Node) -> @widget.Widget {
   let root = @widget.Widget::new()
   root.set_size(1200.0, 800.0)
@@ -26,7 +30,8 @@ fn ln_mount(view : @widget.Node) -> @widget.Widget {
   root
 }
 
-fn ln_clickable(w : @widget.Widget) -> Int {
+///|
+fn ln_clickable(w : @widget.Widget) -> Int32 {
   let kids = w.children()
   let mut n = if w.on_pointer is Some(_) { 1 } else { 0 }
   for c in kids {
@@ -35,12 +40,19 @@ fn ln_clickable(w : @widget.Widget) -> Int {
   n
 }
 
+///|
 fn ln_press(w : @widget.Widget, x : Double, y : Double) -> Unit {
   match w.on_pointer {
     None => abort("这一层没接指针")
     Some(f) => {
-      let _ = (f)(w, { kind: @widget.PointerKind::Down, x, y, button: 1, mods: 0 })
-      let _ = (f)(w, { kind: @widget.PointerKind::Up, x, y, button: 1, mods: 0 })
+      let _ = f(w, {
+        kind: @widget.PointerKind::Down,
+        x,
+        y,
+        button: 1,
+        mods: 0,
+      })
+      let _ = f(w, { kind: @widget.PointerKind::Up, x, y, button: 1, mods: 0, })
     }
   }
 }
@@ -49,10 +61,10 @@ fn ln_press(w : @widget.Widget, x : Double, y : Double) -> Unit {
 test "on_link 就是导航，深层自动回落首项" {
   let r = new_router(ln_tree())
   let f = r.on_link("系统")
-  (f)()
+  f()
   assert_eq(r.path(), "系统/托盘")
   let g = r.on_link("组件/消息框")
-  (g)()
+  g()
   assert_eq(r.path(), "组件/消息框")
 }
 
@@ -117,10 +129,12 @@ test "strip_at 驱动的层键与槽同源" {
 ///|
 test "sidebar 与侧栏外载体共享同一份导航状态" {
   let r = new_router(ln_tree())
-  let _root = ln_mount(@ui.row(
-    [r.sidebar([("导航", ["组件", "系统"])], icons=[]), r.view_strip()],
-    grow=1.0,
-  ))
+  let _root = ln_mount(
+    @ui.row(
+      [r.sidebar([("导航", ["组件", "系统"])], icons=[]), r.view_strip()],
+      grow=1.0,
+    ),
+  )
   assert_true(r.is_mounted("组件/按钮"))
   r.goto("系统")
   assert_true(r.is_mounted("系统/托盘"))

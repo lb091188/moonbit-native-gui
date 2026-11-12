@@ -8,11 +8,11 @@
 /// 自然高与绘制时按盒宽折行算出的高可能不是一回事，显式设高最稳。
 pub fn measure_text_height(
   text : String,
-  font? : @text.Font = @text.Font::new(
+  font~ : @text.Font = @text.Font::new(
     @theme.default_font_family(),
     @theme.font_size_body,
   ),
-  width? : Double = 0.0,
+  width~ : Double = 0.0,
 ) -> Double {
   // 限宽向上取整：盒宽是浮点（测量链已浮点），地板到 int 会比内容窄，
   // 标签在自己的盒里凭空折行（「选中：」32.37 → 32 折两行）

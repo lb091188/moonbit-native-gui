@@ -22,7 +22,7 @@ pub(all) enum EvictPolicy {
   /// 挂过就保形：切页只切显隐，不重建，滚动位置各自保留
   Keep
   /// 本层槽最多保 `n` 棵已挂载子树，超出的最久未用者淘汰
-  Lru(Int)
+  Lru(Int32)
 }
 
 ///|
@@ -44,7 +44,7 @@ pub fn route_leaf(
   load? : LoadPolicy,
   evict? : EvictPolicy,
 ) -> Route {
-  { key, children: [], build: Some(build), load, evict }
+  { key, children: [], build: Some(build), load, evict, }
 }
 
 ///|
@@ -55,7 +55,7 @@ pub fn route_branch(
   load? : LoadPolicy,
   evict? : EvictPolicy,
 ) -> Route {
-  { key, children, build: None, load, evict }
+  { key, children, build: None, load, evict, }
 }
 
 ///|
@@ -68,6 +68,7 @@ fn LoadPolicy::is_lazy(self : LoadPolicy) -> Bool {
   }
 }
 
+///|
 fn LoadPolicy::is_eager(self : LoadPolicy) -> Bool {
   match self {
     Eager => true
@@ -83,7 +84,7 @@ pub fn Route::is_leaf(self : Route) -> Bool {
 
 ///|
 /// 子树深度：叶为 1，分支为 1 + 子表最大深度。
-pub fn Route::depth(self : Route) -> Int {
+pub fn Route::depth(self : Route) -> Int32 {
   if self.is_leaf() {
     1
   } else {
@@ -102,8 +103,12 @@ pub fn Route::depth(self : Route) -> Int {
 /// 同父重名表（返回「父路径 / 重名」说明，空数组=通过）。唯一性域是同父唯一，
 /// 所以只比同一 parent 下的兄弟，跨父重名不报。逐层由 `check_level` 调用，
 /// 本函数自己不递归。
-fn dup_keys_at(parent_path : String, siblings : Array[Route], out : Array[String]) -> Unit {
-  let seen : Map[String, Int] = Map([])
+fn dup_keys_at(
+  parent_path : String,
+  siblings : Array[Route],
+  out : Array[String],
+) -> Unit {
+  let seen : Map[String, Int32] = Map([])
   let order : Array[String] = []
   for r in siblings {
     let n = seen.get_or_default(r.key, 0)
@@ -115,7 +120,15 @@ fn dup_keys_at(parent_path : String, siblings : Array[Route], out : Array[String
   for k in order {
     let n = seen.get_or_default(k, 0)
     if n > 1 {
-      out.push("同父重名：" + parent_path + " 下的「" + k + "」出现 " + n.to_string() + " 次")
+      out.push(
+        "同父重名：" +
+        parent_path +
+        " 下的「" +
+        k +
+        "」出现 " +
+        n.to_string() +
+        " 次",
+      )
     }
   }
 }
@@ -132,7 +145,12 @@ fn tree_errors(roots : Array[Route]) -> Array[String] {
   out
 }
 
-fn check_level(path : String, level : Array[Route], out : Array[String]) -> Unit {
+///|
+fn check_level(
+  path : String,
+  level : Array[Route],
+  out : Array[String],
+) -> Unit {
   let mut depth = -1
   let mut first_key = ""
   for r in level {
@@ -151,8 +169,16 @@ fn check_level(path : String, level : Array[Route], out : Array[String]) -> Unit
       first_key = r.key
     } else if d != depth {
       out.push(
-        "同父深度不齐：" + path + " 下的「" + first_key + "」深 " + depth.to_string() +
-          " 而「" + r.key + "」深 " + d.to_string(),
+        "同父深度不齐：" +
+        path +
+        " 下的「" +
+        first_key +
+        "」深 " +
+        depth.to_string() +
+        " 而「" +
+        r.key +
+        "」深 " +
+        d.to_string(),
       )
     }
     if r.is_leaf() {
@@ -171,6 +197,7 @@ fn check_level(path : String, level : Array[Route], out : Array[String]) -> Unit
   dup_keys_at(path, level, out)
 }
 
+///|
 fn join_path(parent : String, key : String) -> String {
   if parent == "" {
     key
@@ -182,7 +209,7 @@ fn join_path(parent : String, key : String) -> String {
 ///|
 /// 路由表的层数（= `Router.levels` 长度）。契约不过的直接 abort，键与深度问题
 /// 都是写表时的手误，留到运行期只会变成「切不过去」。
-pub fn tree_depth(roots : Array[Route]) -> Int {
+pub fn tree_depth(roots : Array[Route]) -> Int32 {
   let errs = tree_errors(roots)
   if errs.length() > 0 {
     abort("路由表不合法：" + errs.join("；"))

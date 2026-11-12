@@ -3,9 +3,9 @@
 #inline
 fn find_inline_marker_candidate_scalar(
   text : String,
-  start : Int,
-  end : Int,
-) -> Int {
+  start : Int32,
+  end : Int32,
+) -> Int32 {
   for pos in start..<end {
     if is_inline_marker_code_unit(text.unsafe_get(pos)) {
       break pos
@@ -23,9 +23,9 @@ fn find_inline_marker_candidate_scalar(
 #cfg(target="js")
 extern "js" fn find_inline_marker_wasm_utf8(
   text : String,
-  start : Int,
-  end : Int,
-) -> Int =
+  start : Int32,
+  end : Int32,
+) -> Int32 =
   #| (text, start, end) => {
   #| const bridge = globalThis.__mizchiMarkdownInlineMarkerSimd;
   #| return bridge === undefined
@@ -37,7 +37,11 @@ extern "js" fn find_inline_marker_wasm_utf8(
 /// Use the copy-inclusive Wasm path only for runs long enough to amortize
 /// TextEncoder and the JS/Wasm boundary.
 #cfg(target="js")
-fn find_inline_marker_candidate(text : String, start : Int, end : Int) -> Int {
+fn find_inline_marker_candidate(
+  text : String,
+  start : Int32,
+  end : Int32,
+) -> Int32 {
   guard end - start >= 64 else {
     return find_inline_marker_candidate_scalar(text, start, end)
   }
@@ -51,6 +55,10 @@ fn find_inline_marker_candidate(text : String, start : Int, end : Int) -> Int {
 ///|
 #cfg(not(target="js"))
 #inline
-fn find_inline_marker_candidate(text : String, start : Int, end : Int) -> Int {
+fn find_inline_marker_candidate(
+  text : String,
+  start : Int32,
+  end : Int32,
+) -> Int32 {
   find_inline_marker_candidate_scalar(text, start, end)
 }

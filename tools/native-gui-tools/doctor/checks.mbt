@@ -157,7 +157,9 @@ fn python_item(
 ) -> DItem {
   ditem(
     id~,
-    title=bi("Python（可选，构建已不再依赖）", "Python (optional, no longer a build dependency)"),
+    title=bi(
+      "Python（可选，构建已不再依赖）", "Python (optional, no longer a build dependency)",
+    ),
     status~,
     detail~,
     fix~,

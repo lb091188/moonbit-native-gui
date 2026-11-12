@@ -12,7 +12,7 @@ priv enum EType {
 
 ///|
 priv enum ENode {
-  NInt(Int)
+  NInt(Int32)
   NDouble(Double)
   NBool(Bool)
   NStr(String)
@@ -29,7 +29,7 @@ priv enum ENode {
 ///|
 priv struct EP {
   cs : Array[Char]
-  mut i : Int
+  mut i : Int32
 }
 
 ///|
@@ -47,7 +47,7 @@ fn[A] need(r : Result[A, String]) -> A raise ExprRaise {
 
 ///|
 fn ep_new(s : String) -> EP {
-  { cs: chars_of(s), i: 0 }
+  { cs: chars_of(s), i: 0, }
 }
 
 ///|
@@ -111,8 +111,7 @@ fn ep_expect(p : EP, c : Char) -> Result[Unit, String] {
 fn ep_ident(p : EP) -> String {
   ep_ws(p)
   let mut s = ""
-  if p.i < p.cs.length() &&
-    (is_ident_start(p.cs[p.i]) || p.cs[p.i] == '@') {
+  if p.i < p.cs.length() && (is_ident_start(p.cs[p.i]) || p.cs[p.i] == '@') {
     s = s + p.cs[p.i].to_string()
     p.i += 1
     while p.i < p.cs.length() && is_ident_char(p.cs[p.i]) {
@@ -414,7 +413,10 @@ fn etype_eq(a : EType, b : EType) -> Bool {
 }
 
 ///|
-fn etype_of(n : ENode, syms : Map[String, EType]) -> Result[EType, String] raise ExprRaise {
+fn etype_of(
+  n : ENode,
+  syms : Map[String, EType],
+) -> Result[EType, String] raise ExprRaise {
   match n {
     NInt(_) => Ok(TInt)
     NDouble(_) => Ok(TDouble)
@@ -512,7 +514,9 @@ fn etype_of(n : ENode, syms : Map[String, EType]) -> Result[EType, String] raise
             Err("表达式：@shared.tx 需要 1 个字符串")
           }
         "@shared.tr" =>
-          if tys.length() == 2 && etype_eq(tys[0], TStr) && etype_eq(tys[1], TStr) {
+          if tys.length() == 2 &&
+            etype_eq(tys[0], TStr) &&
+            etype_eq(tys[1], TStr) {
             Ok(TStr)
           } else {
             Err("表达式：@shared.tr 需要 2 个字符串")
@@ -528,7 +532,8 @@ fn enode_json(n : ENode) -> String {
   match n {
     NInt(v) => "{\"k\":\"int\",\"v\":" + v.to_string() + "}"
     NDouble(v) => "{\"k\":\"dbl\",\"v\":" + v.to_string() + "}"
-    NBool(v) => "{\"k\":\"bool\",\"v\":" + (if v { "true" } else { "false" }) + "}"
+    NBool(v) =>
+      "{\"k\":\"bool\",\"v\":" + (if v { "true" } else { "false" }) + "}"
     NStr(v) => "{\"k\":\"str\",\"v\":\"" + jstr(v) + "\"}"
     NId(v) => "{\"k\":\"id\",\"v\":\"" + jstr(v) + "\"}"
     NGet(a) => "{\"k\":\"get\",\"a\":" + enode_json(a) + "}"
@@ -536,17 +541,31 @@ fn enode_json(n : ENode) -> String {
     NNot(a) => "{\"k\":\"not\",\"a\":" + enode_json(a) + "}"
     NNeg(a) => "{\"k\":\"neg\",\"a\":" + enode_json(a) + "}"
     NBin(op, l, r) =>
-      "{\"k\":\"bin\",\"op\":\"" + jstr(op) + "\",\"l\":" + enode_json(l) +
-        ",\"r\":" + enode_json(r) + "}"
+      "{\"k\":\"bin\",\"op\":\"" +
+      jstr(op) +
+      "\",\"l\":" +
+      enode_json(l) +
+      ",\"r\":" +
+      enode_json(r) +
+      "}"
     NIf(c, t, f) =>
-      "{\"k\":\"if\",\"c\":" + enode_json(c) + ",\"t\":" + enode_json(t) +
-        ",\"f\":" + enode_json(f) + "}"
+      "{\"k\":\"if\",\"c\":" +
+      enode_json(c) +
+      ",\"t\":" +
+      enode_json(t) +
+      ",\"f\":" +
+      enode_json(f) +
+      "}"
     NCall(name, args) => {
       let xs : Array[String] = []
       for a in args {
         xs.push(enode_json(a))
       }
-      "{\"k\":\"call\",\"f\":\"" + jstr(name) + "\",\"a\":[" + xs.join(",") + "]}"
+      "{\"k\":\"call\",\"f\":\"" +
+      jstr(name) +
+      "\",\"a\":[" +
+      xs.join(",") +
+      "]}"
     }
   }
 }

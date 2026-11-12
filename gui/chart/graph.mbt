@@ -72,7 +72,7 @@ pub(all) struct GraphNode {
 
 ///|
 /// 建关系图节点（value 为量值，默认 1）。
-pub fn GraphNode::make(name : String, value? : Double = 1.0) -> GraphNode {
+pub fn GraphNode::make(name : String, value~ : Double = 1.0) -> GraphNode {
   { name, value, }
 }
 
@@ -80,17 +80,17 @@ pub fn GraphNode::make(name : String, value? : Double = 1.0) -> GraphNode {
 /// 关系图边：source/target 为节点下标，weight 为权重（>0 才参与力模拟
 /// 与绘制；弹簧劲度与边带宽度量纲）。
 pub(all) struct GraphEdge {
-  source : Int
-  target : Int
+  source : Int32
+  target : Int32
   weight : Double
 }
 
 ///|
 /// 建关系图边（source/target 为节点下标，weight 为权重，默认 1）。
 pub fn GraphEdge::make(
-  source : Int,
-  target : Int,
-  weight? : Double = 1.0,
+  source : Int32,
+  target : Int32,
+  weight~ : Double = 1.0,
 ) -> GraphEdge {
   { source, target, weight, }
 }
@@ -114,7 +114,7 @@ pub fn GraphData::make(
 ///|
 /// 边是否有效：两端下标在 [0, n_nodes) 内、非自环、weight > 0。无效
 /// 边不参与力模拟、不画带（与节点流量口径一致）。
-pub fn gph_edge_valid(e : GraphEdge, n_nodes : Int) -> Bool {
+pub fn gph_edge_valid(e : GraphEdge, n_nodes : Int32) -> Bool {
   e.source >= 0 &&
   e.source < n_nodes &&
   e.target >= 0 &&
@@ -143,7 +143,7 @@ pub(all) struct GraphSim {
 ///|
 /// 建模拟状态：n 个节点在画布内切圆上均匀布点（确定性起步，无随机
 /// 源），速度归零；n <= 0 为空表。
-pub fn GraphSim::make(n : Int, width : Double, height : Double) -> GraphSim {
+pub fn GraphSim::make(n : Int32, width : Double, height : Double) -> GraphSim {
   let pos : Array[(Double, Double)] = []
   let vel : Array[(Double, Double)] = []
   if n <= 0 {
@@ -376,7 +376,7 @@ pub fn gph_layout(
   edges : Array[GraphEdge],
   width : Double,
   height : Double,
-  iterations? : Int = 300,
+  iterations~ : Int32 = 300,
 ) -> GraphLayout {
   let n = nodes.length()
   let sim = GraphSim::make(n, width, height)
@@ -394,8 +394,8 @@ pub fn gph_layout(
 pub fn gph_node_radius(
   value : Double,
   vmax : Double,
-  r_min? : Double = gph_r_min,
-  r_max? : Double = gph_r_max,
+  r_min~ : Double = gph_r_min,
+  r_max~ : Double = gph_r_max,
 ) -> Double {
   if !(vmax > 0.0) {
     return r_min
@@ -411,8 +411,8 @@ pub fn gph_node_radius(
 pub fn gph_edge_width(
   weight : Double,
   wmax : Double,
-  w_min? : Double = gph_w_min,
-  w_max? : Double = gph_w_max,
+  w_min~ : Double = gph_w_min,
+  w_max~ : Double = gph_w_max,
 ) -> Double {
   if !(wmax > 0.0) {
     return w_min
@@ -429,7 +429,7 @@ pub fn gph_edge_width(
 pub fn gph_label_slots(
   pts : Array[(Double, Double)],
   radii : Array[Double],
-  gap? : Double = 14.0,
+  gap~ : Double = 14.0,
 ) -> Array[Double] {
   let n = pts.length()
   let out = Array::make(n, 0.0)
@@ -437,7 +437,7 @@ pub fn gph_label_slots(
     return out
   }
   // (y, idx) 按 y 升序（稳定：同 y 按下标）
-  let order : Array[(Double, Int)] = []
+  let order : Array[(Double, Int32)] = []
   for i in 0..<n {
     let rr = if i < radii.length() { radii[i] } else { 0.0 }
     order.push((pts[i].1 + rr * 0.35, i))
@@ -479,7 +479,12 @@ pub fn gph_label_slots(
 ///|
 /// 实心圆（折线近似，子午线弦误差亚像素；arc 整圆跨平台行为不一致，
 /// 统一走折线）。r <= 0 无操作。
-fn gph_fill_circle(p : @render.Painter, cx : Double, cy : Double, r : Double) -> Unit {
+fn gph_fill_circle(
+  p : @render.Painter,
+  cx : Double,
+  cy : Double,
+  r : Double,
+) -> Unit {
   if !(r > 0.0) {
     return
   }
@@ -650,11 +655,11 @@ fn gph_draw_chart(
 /// 不重建控件树；主题切换现取色自动跟随。
 pub fn gph_chart_t(
   data : @base.Store[GraphData],
-  iterations? : Int = 300,
-  show_labels? : Bool = true,
-  width? : Double = 0.0,
-  height? : Double = 320.0,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  iterations~ : Int32 = 300,
+  show_labels~ : Bool = true,
+  width~ : Double = 0.0,
+  height~ : Double = 320.0,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.follow_store(data)
   let iters = iterations

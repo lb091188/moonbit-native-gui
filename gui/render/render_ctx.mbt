@@ -19,18 +19,18 @@ pub(open) trait GpuSink {
   /// 一帧 CPU RGBA（`w * h * 4`，行优先）上传成纹理并按 `dst` 贴出：
   /// 视频 quad 的最小面。GPU 线的「视频直纹理」落地后，帧源从 CPU 拷贝
   /// 升级成 hw frame 直导入——**只换这一处的帧源，合成路径零改动**。
-  draw_texture_rgba(
+  fn draw_texture_rgba(
     Self,
     data : Bytes,
-    w : Int,
-    h : Int,
+    w : Int32,
+    h : Int32,
     dst : @base.Rect,
     clip : @base.Rect?,
     opacity : Double,
   ) -> Unit
   /// 纯色矩形（简单图形档；`color` 为 `#rrggbb` / `#rrggbbaa` 口径，
   /// 与 Painter 的 fill 色同一解析）。
-  fill_rect(
+  fn fill_rect(
     Self,
     rect : @base.Rect,
     color : String,

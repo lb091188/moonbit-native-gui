@@ -5,10 +5,24 @@
 
 ///|
 pub type Painter = @render.Painter
+
+///|
 pub type Color = @render.Color
+
+///|
 pub type Bitmap = @render.Bitmap
+
+///|
 pub type Gradient = @render.Gradient
+
+///|
 pub type Canvas = @render.Canvas
+
+///|
 pub type Image = @render.Image
+
+///|
 pub type ImageSlot = @render.ImageSlot
+
+///|
 pub type Animation = @render.Animation

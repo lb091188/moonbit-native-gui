@@ -48,8 +48,8 @@ fn ci_donut_geom(
 ///|
 /// line 图例项：（名称, 原始序号）——色由 ci_legend 的 color_at 按原始
 /// 序号现取，显隐切换不串色。
-fn ci_line_items(all : Array[LineSeries]) -> Array[(String, Int)] {
-  let out : Array[(String, Int)] = []
+fn ci_line_items(all : Array[LineSeries]) -> Array[(String, Int32)] {
+  let out : Array[(String, Int32)] = []
   for si, s in all {
     out.push((s.name, si))
   }
@@ -59,8 +59,8 @@ fn ci_line_items(all : Array[LineSeries]) -> Array[(String, Int)] {
 ///|
 /// bar 图例项：（类目, 原始序号）——色按值正负现取（正数主色/负数
 /// danger，与 draw_bar_chart 同色）。
-fn ci_bar_items(all : Array[BarItem]) -> Array[(String, Int)] {
-  let out : Array[(String, Int)] = []
+fn ci_bar_items(all : Array[BarItem]) -> Array[(String, Int32)] {
+  let out : Array[(String, Int32)] = []
   for i, it in all {
     out.push((it.label, i))
   }
@@ -69,8 +69,8 @@ fn ci_bar_items(all : Array[BarItem]) -> Array[(String, Int)] {
 
 ///|
 /// donut 图例项：（标签, 原始序号）——色按原始序号现取，显隐切换不串色。
-fn ci_donut_items(all : Array[DonutSlice]) -> Array[(String, Int)] {
-  let out : Array[(String, Int)] = []
+fn ci_donut_items(all : Array[DonutSlice]) -> Array[(String, Int32)] {
+  let out : Array[(String, Int32)] = []
   for i, s in all {
     out.push((s.label, i))
   }
@@ -80,7 +80,7 @@ fn ci_donut_items(all : Array[DonutSlice]) -> Array[(String, Int)] {
 ///|
 /// 序列窗口长度（各序列最长点数）：zoom 窗的定标基准，隐藏序列不改变
 /// 时间轴窗口。
-fn ci_win_len(all : Array[LineSeries]) -> Int {
+fn ci_win_len(all : Array[LineSeries]) -> Int32 {
   let mut m = 0
   for s in all {
     if s.points.length() > m {
@@ -119,14 +119,14 @@ fn ci_it_handle(
 /// 布局 = vbox（图例 + 画布），总高比画布参数多图例行（24 + 6）。
 pub fn line_chart_it(
   series : @base.Store[Array[LineSeries]],
-  area? : Bool = false,
-  y_range? : (Double, Double)? = None,
-  show_last? : Bool = true,
-  zoom? : Bool = true,
-  zoom_state? : CiZoom? = None,
-  width? : Double = 0.0,
-  height? : Double = 260.0,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  area~ : Bool = false,
+  y_range~ : (Double, Double)? = None,
+  show_last~ : Bool = true,
+  zoom~ : Bool = true,
+  zoom_state~ : CiZoom? = None,
+  width~ : Double = 0.0,
+  height~ : Double = 260.0,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.follow_store(series)
   let fill = area
@@ -270,12 +270,11 @@ pub fn line_chart_it(
 
   @ui.col(
     [
-      ci_legend(
-        items~,
-        color_at=fn(i) { series_color(i) },
-        visible~,
-        on_toggle=fn(_i) { @widget.invalidate() },
-      ),
+      ci_legend(items~, color_at=fn(i) { series_color(i) }, visible~, on_toggle=fn(
+        _i,
+      ) {
+        @widget.invalidate()
+      }),
       ci_tooltip(
         draw,
         hit,
@@ -288,7 +287,7 @@ pub fn line_chart_it(
       ),
     ],
     row_gap=6.0,
-    width=width,
+    width~,
     handle=ci_it_handle(width, handle),
   )
 }
@@ -307,13 +306,13 @@ pub fn line_chart_it(
 /// 布局 = vbox（图例 + 画布），总高比画布参数多图例行（24 + 6）。
 pub fn bar_chart_it(
   data : @base.Store[Array[BarItem]],
-  horizontal? : Bool = false,
-  y_range? : (Double, Double)? = None,
-  zoom? : Bool = true,
-  zoom_state? : CiZoom? = None,
-  width? : Double = 0.0,
-  height? : Double = 280.0,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  horizontal~ : Bool = false,
+  y_range~ : (Double, Double)? = None,
+  zoom~ : Bool = true,
+  zoom_state~ : CiZoom? = None,
+  width~ : Double = 0.0,
+  height~ : Double = 280.0,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.follow_store(data)
   let horiz = horizontal
@@ -425,7 +424,7 @@ pub fn bar_chart_it(
       ),
     ],
     row_gap=6.0,
-    width=width,
+    width~,
     handle=ci_it_handle(width, handle),
   )
 }
@@ -440,11 +439,11 @@ pub fn bar_chart_it(
 /// 布局 = vbox（图例 + 画布），总高比画布参数多图例行（24 + 6）。
 pub fn donut_chart_it(
   data : @base.Store[Array[DonutSlice]],
-  thickness? : Double = 34.0,
-  center? : String = "",
-  width? : Double = 0.0,
-  height? : Double = 240.0,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  thickness~ : Double = 34.0,
+  center~ : String = "",
+  width~ : Double = 0.0,
+  height~ : Double = 240.0,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.follow_store(data)
   let thick = thickness
@@ -535,16 +534,15 @@ pub fn donut_chart_it(
 
   @ui.col(
     [
-      ci_legend(
-        items~,
-        color_at=fn(i) { donut_color(i) },
-        visible~,
-        on_toggle=fn(_i) { @widget.invalidate() },
-      ),
+      ci_legend(items~, color_at=fn(i) { donut_color(i) }, visible~, on_toggle=fn(
+        _i,
+      ) {
+        @widget.invalidate()
+      }),
       ci_tooltip(draw, hit, on_leave=fn() { hover.val = -1 }, width~, height~),
     ],
     row_gap=6.0,
-    width=width,
+    width~,
     handle=ci_it_handle(width, handle),
   )
 }

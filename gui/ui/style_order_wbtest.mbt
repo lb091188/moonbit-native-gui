@@ -2,7 +2,11 @@
 // （组件收的显式规则块）。断言读解析后的样式槽与实排宽度，不锁具体色值。
 
 ///|
-fn mount_box(node : @widget.Node, w : Double, h : Double) -> (@widget.Widget, @widget.Widget) {
+fn mount_box(
+  node : @widget.Node,
+  w : Double,
+  h : Double,
+) -> (@widget.Widget, @widget.Widget) {
   let root = @widget.Widget::new()
   root.set_size(w, h)
   root.set_column()
@@ -47,7 +51,11 @@ test "文字全序：属性 < class，class < style（显式块）" {
 ///|
 test "布局全序：散参数落进属性层，class 与 style 逐级盖过" {
   // 散参数折进属性层（样式槽读得到，class/style 才盖得住）
-  let (_r1, w1) = mount_box(hover_group([], width=60.0, padding=6.0), 200.0, 40.0)
+  let (_r1, w1) = mount_box(
+    hover_group([], width=60.0, padding=6.0),
+    200.0,
+    40.0,
+  )
   assert_eq(@style.style_for(w1).width, Some(60.0))
   assert_eq(@style.style_for(w1).padding_left, Some(6.0))
   assert_eq(w1.rect.w, 60.0)

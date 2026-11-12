@@ -1,5 +1,6 @@
 // 焦点栈的次序与环绕语义回归（与 Web 的 Tab 行为一致）。
 
+///|
 test "第一个注册项默认聚焦" {
   let f = FocusStack::new()
   assert_eq(f.current(), None)
@@ -10,6 +11,7 @@ test "第一个注册项默认聚焦" {
   assert_eq(f.count(), 2)
 }
 
+///|
 test "Tab 环绕与 Shift+Tab 反向环绕" {
   let f = FocusStack::new()
   let _ = f.register(1)
@@ -22,6 +24,7 @@ test "Tab 环绕与 Shift+Tab 反向环绕" {
   assert_eq(f.current(), Some(3))
 }
 
+///|
 test "重复注册忽略，显式 focus 可跳转" {
   let f = FocusStack::new()
   let _ = f.register(7)
@@ -36,6 +39,7 @@ test "重复注册忽略，显式 focus 可跳转" {
   assert_eq(f.current(), Some(8))
 }
 
+///|
 test "注销当前项时焦点交给后继，注销空栈置空" {
   let f = FocusStack::new()
   let _ = f.register(1)
@@ -55,6 +59,7 @@ test "注销当前项时焦点交给后继，注销空栈置空" {
   assert_eq(f.current(), Some(5))
 }
 
+///|
 test "空栈 move_focus 返回 None 且 clear 复位" {
   let f = FocusStack::new()
   assert_eq(f.move_focus(false), None)

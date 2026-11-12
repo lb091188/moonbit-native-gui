@@ -1,9 +1,9 @@
 // L1 呈现档 × webview 共存探针：窗口自绘走 L1（GPU present）时，原生子件
 // （WebKitGTK）是否还能出像素。验收判据在窗口外的像素读数，见 README。
 import {
-  "NoahLiu/native-gui/widget" @widget,
+  "NoahLiu/native-gui/widget",
   "NoahLiu/native-gui/ui",
-  "NoahLiu/native-gui/win" @win,
+  "NoahLiu/native-gui/win",
   "NoahLiu/gui-webview/webview" @web,
 }
 

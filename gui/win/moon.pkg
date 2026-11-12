@@ -23,6 +23,7 @@ supported_targets = "native"
 //
 // crash_log.c 是 Windows 崩溃取证档（NATIVEGUI_CRASH_LOG=1 才装 VEH，默认关），
 // 其余平台整篇空实现；与 stub.c 同编，调用点不必加平台宏。
+
 options(
   "native-stub": [ "stub.c", "win_gui.c", "uia_provider.c", "crash_log.c" ],
 )

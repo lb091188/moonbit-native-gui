@@ -19,13 +19,13 @@ pub(all) struct RasterState {
   op : BlendMode
   line_width : Double
   source : RSource
-  clip_x0 : Int
-  clip_y0 : Int
-  clip_x1 : Int
-  clip_y1 : Int
+  clip_x0 : Int32
+  clip_y0 : Int32
+  clip_x1 : Int32
+  clip_y1 : Int32
   dashes : Array[Double]
   dash_offset : Double
-  line_cap : Int
+  line_cap : Int32
 }
 
 ///|
@@ -36,25 +36,29 @@ pub struct Raster {
   mut op : BlendMode
   mut line_width : Double
   mut source : RSource
-  mut clip_x0 : Int
-  mut clip_y0 : Int
-  mut clip_x1 : Int
-  mut clip_y1 : Int
+  mut clip_x0 : Int32
+  mut clip_y0 : Int32
+  mut clip_x1 : Int32
+  mut clip_y1 : Int32
   mut dashes : Array[Double]
   mut dash_offset : Double
-  mut line_cap : Int
+  mut line_cap : Int32
   stack : Array[RasterState]
 }
 
 ///|
 /// 当前裁剪框（设备空间；右/下为开区间）——控件绘制遍历做视口剔除时用来判交。
-pub fn Raster::clip_bounds(self : Raster) -> (Int, Int, Int, Int) {
+pub fn Raster::clip_bounds(self : Raster) -> (Int32, Int32, Int32, Int32) {
   (self.clip_x0, self.clip_y0, self.clip_x1, self.clip_y1)
 }
 
 ///|
 /// 内容坐标 → 设备坐标（当前 CTM）。
-pub fn Raster::map_point(self : Raster, x : Double, y : Double) -> (Double, Double) {
+pub fn Raster::map_point(
+  self : Raster,
+  x : Double,
+  y : Double,
+) -> (Double, Double) {
   self.m.apply(x, y)
 }
 
@@ -95,7 +99,7 @@ pub fn Raster::flush(self : Raster) -> Unit {
 }
 
 ///|
-fn raster_snap(v : Double) -> Int {
+fn raster_snap(v : Double) -> Int32 {
   (v + 0.5).floor().to_int()
 }
 
@@ -201,7 +205,13 @@ pub fn Raster::arc(
 /// 一块与它无关的色块。
 pub fn Raster::fill(self : Raster) -> Unit {
   let polys = self.path.flatten(self.m)
-  fill_polys(self.bitmap, polys, (self.clip_x0, self.clip_y0, self.clip_x1, self.clip_y1), self.op, self.source)
+  fill_polys(
+    self.bitmap,
+    polys,
+    (self.clip_x0, self.clip_y0, self.clip_x1, self.clip_y1),
+    self.op,
+    self.source,
+  )
   self.path.clear()
 }
 
@@ -234,16 +244,25 @@ pub fn Raster::stroke(self : Raster) -> Unit {
       }
       let (fx, fy) = poly.pts[0]
       let (lx, ly) = poly.pts[n - 1]
-      let is_loop =
-        poly.closed ||
-          (n >= 3 && (lx - fx).abs() < 0.000000001 && (ly - fy).abs() < 0.000000001)
+      let is_loop = poly.closed ||
+        (
+          n >= 3 &&
+          (lx - fx).abs() < 0.000000001 &&
+          (ly - fy).abs() < 0.000000001
+        )
       if !is_loop {
         polys.push(cap_circle(fx, fy, half))
         polys.push(cap_circle(lx, ly, half))
       }
     }
   }
-  fill_polys(self.bitmap, polys, (self.clip_x0, self.clip_y0, self.clip_x1, self.clip_y1), self.op, self.source)
+  fill_polys(
+    self.bitmap,
+    polys,
+    (self.clip_x0, self.clip_y0, self.clip_x1, self.clip_y1),
+    self.op,
+    self.source,
+  )
   self.path.clear()
 }
 
@@ -252,10 +271,10 @@ pub fn Raster::stroke(self : Raster) -> Unit {
 /// 状态，裁剪区相交）。空矩形不画。
 fn Raster::fill_device_rect(
   self : Raster,
-  x0 : Int,
-  y0 : Int,
-  x1 : Int,
-  y1 : Int,
+  x0 : Int32,
+  y0 : Int32,
+  x1 : Int32,
+  y1 : Int32,
 ) -> Unit {
   let rx0 = raster_max_i(x0, self.clip_x0)
   let ry0 = raster_max_i(y0, self.clip_y0)
@@ -286,12 +305,21 @@ fn Raster::fill_device_rect(
     }
     return
   }
-  let cov : FixedArray[Int] = FixedArray::make(self.bitmap.width, 0)
+  let cov : FixedArray[Int32] = FixedArray::make(self.bitmap.width, 0)
   for y = ry0; y < ry1; y = y + 1 {
     for i = rx0; i < rx1; i = i + 1 {
       cov[i] = 256
     }
-    composite_span(self.bitmap.data, self.bitmap.width, y, rx0, rx1, cov, self.op, self.source)
+    composite_span(
+      self.bitmap.data,
+      self.bitmap.width,
+      y,
+      rx0,
+      rx1,
+      cov,
+      self.op,
+      self.source,
+    )
   }
 }
 
@@ -351,10 +379,7 @@ pub fn Raster::fill_round_rect(
   if rx1 <= rx0 || ry1 <= ry0 {
     return true
   }
-  if rx0 < 0 ||
-    ry0 < 0 ||
-    rx1 > self.bitmap.width ||
-    ry1 > self.bitmap.height {
+  if rx0 < 0 || ry0 < 0 || rx1 > self.bitmap.width || ry1 > self.bitmap.height {
     return true
   }
   let cx = (ex0 + ex1) / 2.0
@@ -362,7 +387,7 @@ pub fn Raster::fill_round_rect(
   let hx = (ex1 - ex0) / 2.0 - rr
   let hy = (ey1 - ey0) / 2.0 - rr
   // 带符号距离式覆盖：d ≤ −0.5 满、d ≥ +0.5 无，中间线性（1 像素 AA 带）
-  let cov_at = fn(xcen : Double, ycen : Double) -> Int {
+  let cov_at = fn(xcen : Double, ycen : Double) -> Int32 {
     let qx = (xcen - cx).abs() - hx
     let qy = (ycen - cy).abs() - hy
     let ox = if qx > 0.0 { qx } else { 0.0 }
@@ -383,7 +408,7 @@ pub fn Raster::fill_round_rect(
     (true, SrcSolid(c)) => c.a >= 255
     _ => false
   }
-  let cov : FixedArray[Int] = FixedArray::make(self.bitmap.width, 0)
+  let cov : FixedArray[Int32] = FixedArray::make(self.bitmap.width, 0)
   for j = ry0; j < ry1; j = j + 1 {
     let ycen = j.to_double() + 0.5
     let qy = (ycen - cy).abs() - hy
@@ -392,16 +417,28 @@ pub fn Raster::fill_round_rect(
       hx + ri
     } else {
       let t = ri * ri - qy * qy
-      if t <= 0.0 { -1.0 } else { hx + t.sqrt() }
+      if t <= 0.0 {
+        -1.0
+      } else {
+        hx + t.sqrt()
+      }
     }
     if ink_half < 0.0 {
       continue
     }
     let full_half = if qy <= 0.0 {
-      if rf < 0.0 { -1.0 } else { hx + rf }
+      if rf < 0.0 {
+        -1.0
+      } else {
+        hx + rf
+      }
     } else {
       let t = rf * rf - qy * qy
-      if t <= 0.0 || rf < 0.0 { -1.0 } else { hx + t.sqrt() }
+      if t <= 0.0 || rf < 0.0 {
+        -1.0
+      } else {
+        hx + t.sqrt()
+      }
     }
     let xlo = raster_max_i(rx0, (cx - ink_half - 0.5).floor().to_int())
     let xhi = raster_min_i(rx1, (cx + ink_half + 0.5).ceil().to_int())
@@ -545,10 +582,7 @@ pub fn Raster::stroke_round_rect(
   if rx1 <= rx0 || ry1 <= ry0 {
     return true
   }
-  if rx0 < 0 ||
-    ry0 < 0 ||
-    rx1 > self.bitmap.width ||
-    ry1 > self.bitmap.height {
+  if rx0 < 0 || ry0 < 0 || rx1 > self.bitmap.width || ry1 > self.bitmap.height {
     return true
   }
   // 直段/角部分区界（像素中心 +0.5 与之比较）
@@ -556,7 +590,7 @@ pub fn Raster::stroke_round_rect(
   let mx1 = ex1 - rr
   let my0 = ey0 + rr
   let my1 = ey1 - rr
-  let band = fn(d : Double) -> Int {
+  let band = fn(d : Double) -> Int32 {
     let v = (hw + 0.5 - d) * 256.0
     if v <= 0.0 {
       0
@@ -566,7 +600,7 @@ pub fn Raster::stroke_round_rect(
       v.to_int()
     }
   }
-  let cov : FixedArray[Int] = FixedArray::make(self.bitmap.width, 0)
+  let cov : FixedArray[Int32] = FixedArray::make(self.bitmap.width, 0)
   for j = ry0; j < ry1; j = j + 1 {
     let ycen = j.to_double() + 0.5
     let in_mid_y = ycen >= my0 && ycen < my1
@@ -611,12 +645,13 @@ pub fn Raster::stroke_round_rect(
 ///|
 /// 用户矩形 → 设备空间取整矩形（轴对齐才成立，斜切/旋转返回 false——
 /// cr_rect_device 同口径：取整语义对斜矩形无意义，交给抗锯齿）。
-fn Raster::rect_device(  self : Raster,
+fn Raster::rect_device(
+  self : Raster,
   x : Double,
   y : Double,
   w : Double,
   h : Double,
-) -> (Int, Int, Int, Int)? {
+) -> (Int32, Int32, Int32, Int32)? {
   if !self.m.axis_aligned() {
     return None
   }
@@ -634,11 +669,10 @@ pub fn Raster::fill_rect(
   h : Double,
 ) -> Unit {
   match self.rect_device(x, y, w, h) {
-    Some((x0, y0, x1, y1)) => {
+    Some((x0, y0, x1, y1)) =>
       if x1 > x0 && y1 > y0 {
         self.fill_device_rect(x0, y0, x1, y1)
       }
-    }
     None => {
       // 斜矩形：路径 AA 填充（cairo_rectangle + fill 同语义）
       self.path.move_to(x, y)
@@ -734,10 +768,22 @@ pub fn Raster::clip_rect(
       let (bx0, by0) = self.m.apply(x + w, y)
       let (cx0, cy0) = self.m.apply(x, y + h)
       let (dx0, dy0) = self.m.apply(x + w, y + h)
-      let lx = raster_min_i(raster_min_i(ax0.floor().to_int(), bx0.floor().to_int()), raster_min_i(cx0.floor().to_int(), dx0.floor().to_int()))
-      let ly = raster_min_i(raster_min_i(ay0.floor().to_int(), by0.floor().to_int()), raster_min_i(cy0.floor().to_int(), dy0.floor().to_int()))
-      let hx = raster_max_i(raster_max_i(ax0.ceil().to_int(), bx0.ceil().to_int()), raster_max_i(cx0.ceil().to_int(), dx0.ceil().to_int()))
-      let hy = raster_max_i(raster_max_i(ay0.ceil().to_int(), by0.ceil().to_int()), raster_max_i(cy0.ceil().to_int(), dy0.ceil().to_int()))
+      let lx = raster_min_i(
+        raster_min_i(ax0.floor().to_int(), bx0.floor().to_int()),
+        raster_min_i(cx0.floor().to_int(), dx0.floor().to_int()),
+      )
+      let ly = raster_min_i(
+        raster_min_i(ay0.floor().to_int(), by0.floor().to_int()),
+        raster_min_i(cy0.floor().to_int(), dy0.floor().to_int()),
+      )
+      let hx = raster_max_i(
+        raster_max_i(ax0.ceil().to_int(), bx0.ceil().to_int()),
+        raster_max_i(cx0.ceil().to_int(), dx0.ceil().to_int()),
+      )
+      let hy = raster_max_i(
+        raster_max_i(ay0.ceil().to_int(), by0.ceil().to_int()),
+        raster_max_i(cy0.ceil().to_int(), dy0.ceil().to_int()),
+      )
       if hx > lx && hy > ly {
         if lx > self.clip_x0 {
           self.clip_x0 = lx
@@ -753,7 +799,7 @@ pub fn Raster::clip_rect(
         }
       }
     }
-    Some((x0, y0, x1, y1)) => {
+    Some((x0, y0, x1, y1)) =>
       if x1 > x0 && y1 > y0 {
         if x0 > self.clip_x0 {
           self.clip_x0 = x0
@@ -768,7 +814,6 @@ pub fn Raster::clip_rect(
           self.clip_y1 = y1
         }
       }
-    }
   }
 }
 
@@ -821,7 +866,7 @@ pub fn Raster::set_dashes(
 /// 端帽形状（0=butt / 1=round / 2=square，与 cairo 线形编码同源）。Round 在
 /// `stroke()` 里给每条开口折线段的两端补半径 = 线宽一半的圆点——dotted 边框
 /// 的「圆头点」吃的就是这条（0.1px 段在 butt 档没有墨）。
-pub fn Raster::set_line_cap(self : Raster, cap : Int) -> Unit {
+pub fn Raster::set_line_cap(self : Raster, cap : Int32) -> Unit {
   self.line_cap = cap
 }
 
@@ -835,17 +880,18 @@ pub fn Raster::set_blend_mode(self : Raster, mode : BlendMode) -> Unit {
 /// 源位图子矩形 → 目标矩形（最近邻采样；cr_blit 的采样域收口同语义：
 /// 采样恒落在源子矩形内，精灵图/子表面不串色）。目标矩形设备空间取整，
 /// 算子与裁剪沿用当前状态；不要把某位图画到它自己。采样映射经
+
 ///|
 /// 预乘字节的「通用路径等价值」查表（256×256，首次用时建）：
 /// 通用路经 `Bitmap::pixel` 解除预乘、再 `premul_bytes` 乘回，值会与存量字节
 /// 差 ±1；快路径要逐位一致就得复刻这一趟，而每像素三次除法太贵——查表省掉。
-let g_rtt : FixedArray[Int] = FixedArray::make(65536, 0)
+let g_rtt : FixedArray[Int32] = FixedArray::make(65536, 0)
 
 ///|
 let g_rtt_ready : Ref[Bool] = Ref(false)
 
 ///|
-fn rtt_of(p : Int, a : Int) -> Int {
+fn rtt_of(p : Int32, a : Int32) -> Int32 {
   if !g_rtt_ready.val {
     g_rtt_ready.val = true
     for a2 = 0; a2 < 256; a2 = a2 + 1 {
@@ -872,7 +918,12 @@ pub fn Raster::blit(
   dw : Double,
   dh : Double,
 ) -> Unit {
-  if src.width < 1 || src.height < 1 || ssw <= 0.0 || ssh <= 0.0 || dw <= 0.0 || dh <= 0.0 {
+  if src.width < 1 ||
+    src.height < 1 ||
+    ssw <= 0.0 ||
+    ssh <= 0.0 ||
+    dw <= 0.0 ||
+    dh <= 0.0 {
     return
   }
   let (tx, ty, tw, th) = match self.rect_device(dx, dy, dw, dh) {
@@ -880,7 +931,12 @@ pub fn Raster::blit(
       if x1 <= x0 || y1 <= y0 {
         return
       }
-      (x0.to_double(), y0.to_double(), (x1 - x0).to_double(), (y1 - y0).to_double())
+      (
+        x0.to_double(),
+        y0.to_double(),
+        (x1 - x0).to_double(),
+        (y1 - y0).to_double(),
+      )
     }
     None => (dx, dy, dw, dh)
   }
@@ -898,7 +954,14 @@ pub fn Raster::blit(
   mt.d = dh / ssh
   mt.e = dx
   mt.f = dy
-  let total = { a: self.m.a, b: self.m.b, c: self.m.c, d: self.m.d, e: self.m.e, f: self.m.f }
+  let total = {
+    a: self.m.a,
+    b: self.m.b,
+    c: self.m.c,
+    d: self.m.d,
+    e: self.m.e,
+    f: self.m.f,
+  }
   total.mul(mt.a, mt.b, mt.c, mt.d, mt.e, mt.f)
   let bsrc = SrcPixels(src, total.inverse(), lox, loy, hix, hiy)
   let rx0 = raster_max_i(tx.to_int(), self.clip_x0)
@@ -914,10 +977,19 @@ pub fn Raster::blit(
   // 缩放/子矩形当 1:1 拷（实测踩过：取左上象限铺 4×4 那条当场红）。
   // 两边缓冲都是预乘 BGRA，按字节直接做 Normal over 即可，与 composite_span
   // 的公式同式（cov = 256 满覆盖档）；源字节先过 rtt_of 换成通用路径的等价值。
-  if blend_mode_id(self.op) == 0 && self.m.axis_aligned() &&
-    self.m.a == 1.0 && self.m.d == 1.0 && self.m.b == 0.0 && self.m.c == 0.0 &&
-    tx == tx.floor() && ty == ty.floor() && sx == 0.0 && sy == 0.0 &&
-    dw == ssw && dh == ssh && ssw == src.width.to_double() &&
+  if blend_mode_id(self.op) == 0 &&
+    self.m.axis_aligned() &&
+    self.m.a == 1.0 &&
+    self.m.d == 1.0 &&
+    self.m.b == 0.0 &&
+    self.m.c == 0.0 &&
+    tx == tx.floor() &&
+    ty == ty.floor() &&
+    sx == 0.0 &&
+    sy == 0.0 &&
+    dw == ssw &&
+    dh == ssh &&
+    ssw == src.width.to_double() &&
     ssh == src.height.to_double() {
     let sox = lox - tx.to_int()
     let soy = loy - ty.to_int()
@@ -944,27 +1016,31 @@ pub fn Raster::blit(
         }
         let inv = 255 - sa
         let di = drow + x * 4
-        ddata[di] = (
-          rtt_of(sdata[si].to_int(), sa) + (ddata[di].to_int() * inv + 127) / 255
-        ).to_byte()
-        ddata[di + 1] = (
-          rtt_of(sdata[si + 1].to_int(), sa) +
-          (ddata[di + 1].to_int() * inv + 127) / 255
-        ).to_byte()
-        ddata[di + 2] = (
-          rtt_of(sdata[si + 2].to_int(), sa) +
-          (ddata[di + 2].to_int() * inv + 127) / 255
-        ).to_byte()
+        ddata[di] = (rtt_of(sdata[si].to_int(), sa) +
+        (ddata[di].to_int() * inv + 127) / 255).to_byte()
+        ddata[di + 1] = (rtt_of(sdata[si + 1].to_int(), sa) +
+        (ddata[di + 1].to_int() * inv + 127) / 255).to_byte()
+        ddata[di + 2] = (rtt_of(sdata[si + 2].to_int(), sa) +
+        (ddata[di + 2].to_int() * inv + 127) / 255).to_byte()
         ddata[di + 3] = (sa + (ddata[di + 3].to_int() * inv + 127) / 255).to_byte()
       }
     }
     return
   }
-  let cov : FixedArray[Int] = FixedArray::make(self.bitmap.width, 0)
+  let cov : FixedArray[Int32] = FixedArray::make(self.bitmap.width, 0)
   for y = ry0; y < ry1; y = y + 1 {
     for x = rx0; x < rx1; x = x + 1 {
       cov[x] = 256
     }
-    composite_span(self.bitmap.data, self.bitmap.width, y, rx0, rx1, cov, self.op, bsrc)
+    composite_span(
+      self.bitmap.data,
+      self.bitmap.width,
+      y,
+      rx0,
+      rx1,
+      cov,
+      self.op,
+      bsrc,
+    )
   }
 }

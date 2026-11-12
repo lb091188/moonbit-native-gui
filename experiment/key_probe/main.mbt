@@ -2,6 +2,7 @@
 // 配 PowerShell 的 AppActivate+SendKeys 做 Windows 键盘/输入法通路回证。
 // 跑法：moon run experiment/key_probe（20 秒后自退）
 
+///|
 fn main {
   if !@win.init_backend() {
     println("KEYPROBE SKIP (无显示服务)")
@@ -26,7 +27,7 @@ fn main {
     while keep {
       match w.poll_event() {
         @win.NoEvent => keep = false
-        @win.Input => {
+        @win.Input =>
           match w.take_input() {
             Some(ev) =>
               println(
@@ -34,14 +35,15 @@ fn main {
               )
             None => ()
           }
-        }
         _ => ()
       }
     }
     // IME 的 preedit（组合串）与 commit（提交串）：非空就报
     let pd = w.preedit()
     if pd.text.length() > 0 || pd.active {
-      println("KEYPROBE preedit=[\{pd.text}] caret=\{pd.caret} active=\{pd.active}")
+      println(
+        "KEYPROBE preedit=[\{pd.text}] caret=\{pd.caret} active=\{pd.active}",
+      )
     }
     match w.take_commit() {
       Some(s) => println("KEYPROBE commit=[\{s}]")

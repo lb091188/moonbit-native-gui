@@ -29,7 +29,7 @@ pub(all) struct CiZoom {
 
 ///|
 /// 建 DataZoom（默认全窗）；起止互换/越界/零跨度由 ci_zoom_normalize 归一。
-pub fn ci_zoom_make(start? : Double = 0.0, end? : Double = 100.0) -> CiZoom {
+pub fn ci_zoom_make(start~ : Double = 0.0, end~ : Double = 100.0) -> CiZoom {
   let (s, e) = ci_zoom_normalize(start, end)
   { start: s, end: e, }
 }
@@ -96,7 +96,7 @@ pub fn ci_zoom_set(
   z : CiZoom,
   start : Double,
   end : Double,
-  min_span? : Double = 5.0,
+  min_span~ : Double = 5.0,
 ) -> Unit {
   let ms = ci_zoom_min_span(min_span)
   let (s, e) = ci_zoom_normalize(start, end)
@@ -127,8 +127,8 @@ pub fn ci_zoom_wheel(
   z : CiZoom,
   anchor : Double,
   delta : Double,
-  min_span? : Double = 5.0,
-  step? : Double = 0.2,
+  min_span~ : Double = 5.0,
+  step~ : Double = 0.2,
 ) -> Unit {
   let ms = ci_zoom_min_span(min_span)
   let span = ci_zoom_span(z)
@@ -185,7 +185,7 @@ pub fn ci_zoom_pan(z : CiZoom, dx : Double) -> Unit {
 ///|
 /// 窗 → 可见序号闭区间 [i0, i1]（n 个点按百分比定位；i0 向下取整、i1
 /// 向上取整-1，保证窗口内点不漏）。n <= 0 返回 (0, -1)（空区间）。
-pub fn ci_zoom_visible(z : CiZoom, n : Int) -> (Int, Int) {
+pub fn ci_zoom_visible(z : CiZoom, n : Int32) -> (Int32, Int32) {
   if n <= 0 {
     return (0, -1)
   }
@@ -339,9 +339,9 @@ pub fn ci_mark_line(
   y0 : Double,
   x1 : Double,
   y1 : Double,
-  label? : String = "",
-  color? : String = @theme.theme_danger(),
-  dashed? : Bool = true,
+  label~ : String = "",
+  color~ : String = @theme.theme_danger(),
+  dashed~ : Bool = true,
 ) -> Unit {
   if value < lo || value > hi || !(hi > lo) {
     return
@@ -419,9 +419,9 @@ pub fn ci_mark_area(
   y0 : Double,
   x1 : Double,
   y1 : Double,
-  label? : String = "",
-  color? : String = @theme.theme_warning(),
-  alpha? : String = "26",
+  label~ : String = "",
+  color~ : String = @theme.theme_warning(),
+  alpha~ : String = "26",
 ) -> Unit {
   if !(hi > lo) {
     return
@@ -521,7 +521,7 @@ fn ci_save_format_ok(format : String) -> Bool {
 pub fn ci_save(
   canvas : @render.Canvas,
   path : String,
-  format? : String = "png",
+  format~ : String = "png",
 ) -> Result[Unit, CiSaveError] {
   if !ci_save_format_ok(format) {
     return Err(UnsupportedFormat(format))
@@ -541,7 +541,7 @@ pub fn ci_save_chart(
   w : Double,
   h : Double,
   path : String,
-  format? : String = "png",
+  format~ : String = "png",
 ) -> Result[Unit, CiSaveError] {
   if !(w > 0.0) || !(h > 0.0) {
     return Err(WriteFailed("导出尺寸非法: \{w}x\{h}"))
@@ -573,8 +573,8 @@ fn ci_legend_item_w(name : String) -> Double {
 pub fn ci_legend_hit(
   x : Double,
   items : Array[String],
-  width? : Double = 1.0e9,
-) -> Int {
+  width~ : Double = 1.0e9,
+) -> Int32 {
   let mut acc = 0.0
   for i, it in items {
     if acc >= width {
@@ -590,7 +590,7 @@ pub fn ci_legend_hit(
 
 ///|
 /// 显隐位补齐到长度 n（缺省 true=可见）：数据变长/变短后旧标志不丢。
-pub fn ci_fit_len(flags : Array[Bool], n : Int) -> Array[Bool] {
+pub fn ci_fit_len(flags : Array[Bool], n : Int32) -> Array[Bool] {
   let out : Array[Bool] = []
   for i in 0..<n {
     out.push(if i < flags.length() { flags[i] } else { true })
@@ -600,7 +600,7 @@ pub fn ci_fit_len(flags : Array[Bool], n : Int) -> Array[Bool] {
 
 ///|
 /// 翻转第 i 位（越界原样返回新副本）。
-pub fn ci_toggle_flag(flags : Array[Bool], i : Int) -> Array[Bool] {
+pub fn ci_toggle_flag(flags : Array[Bool], i : Int32) -> Array[Bool] {
   let out = flags.copy()
   if i >= 0 && i < out.length() {
     out[i] = !out[i]
@@ -614,9 +614,9 @@ pub fn ci_toggle_flag(flags : Array[Bool], i : Int) -> Array[Bool] {
 pub fn[T] ci_filter_visible(
   arr : Array[T],
   flags : Array[Bool],
-) -> (Array[T], Array[Int]) {
+) -> (Array[T], Array[Int32]) {
   let out : Array[T] = []
-  let idx : Array[Int] = []
+  let idx : Array[Int32] = []
   for i, a in arr {
     let on = if i < flags.length() { flags[i] } else { true }
     if on {
@@ -634,10 +634,10 @@ pub fn[T] ci_filter_visible(
 pub fn[T] ci_filter_visible_at(
   arr : Array[T],
   flags : Array[Bool],
-  base : Int,
-) -> (Array[T], Array[Int]) {
+  base : Int32,
+) -> (Array[T], Array[Int32]) {
   let out : Array[T] = []
-  let idx : Array[Int] = []
+  let idx : Array[Int32] = []
   for i, a in arr {
     let g = base + i
     let on = if g >= 0 && g < flags.length() { flags[g] } else { true }
@@ -651,7 +651,7 @@ pub fn[T] ci_filter_visible_at(
 
 ///|
 /// 切片闭区间 [i0, i1]（越界自动收窄；空区间给空数组）。
-pub fn[T] ci_slice_range(arr : Array[T], i0 : Int, i1 : Int) -> Array[T] {
+pub fn[T] ci_slice_range(arr : Array[T], i0 : Int32, i1 : Int32) -> Array[T] {
   let out : Array[T] = []
   if arr.length() == 0 {
     return out
@@ -674,17 +674,17 @@ pub fn[T] ci_slice_range(arr : Array[T], i0 : Int, i1 : Int) -> Array[T] {
 /// 重建 items）；visible 与 items 同长的显隐位（不必预先对齐，绘制/点击
 /// 时按 ci_fit_len 补齐）。两个 Store 变化时自绘刷新。
 pub fn ci_legend(
-  items~ : @base.Store[Array[(String, Int)]],
-  color_at~ : (Int) -> String,
+  items~ : @base.Store[Array[(String, Int32)]],
+  color_at~ : (Int32) -> String,
   visible~ : @base.Store[Array[Bool]],
-  on_toggle? : (Int) -> Unit = fn(_i) { () },
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  on_toggle~ : (Int32) -> Unit = fn(_i) { () },
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.follow_store(items)
   @ui.follow_store(visible)
   @ui.watch_theme()
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
-    let hover : Ref[Int] = Ref(-1)
+    let hover : Ref[Int32] = Ref(-1)
     w.node.set_width(@yoga.percent(100.0))
     w.node.set_height(@yoga.fixed(24.0))
     w.node.set_flex_shrink(0.0)
@@ -712,7 +712,13 @@ pub fn ci_legend(
           p.fill_rect(x - 4.0, 1.0, iw, r.h - 2.0)
         }
         let on = if i < flags.length() { flags[i] } else { true }
-        p.set_fill_color(if on { color_at(it.1) } else { @theme.theme_border() })
+        p.set_fill_color(
+          if on {
+            color_at(it.1)
+          } else {
+            @theme.theme_border()
+          },
+        )
         p.fill_rect(x, (r.h - 10.0) / 2.0, 10.0, 10.0)
         let _ = @text.draw_box_at(
           p,
@@ -722,7 +728,11 @@ pub fn ci_legend(
           r.h,
           it.0,
           label_font(),
-          if on { @theme.theme_text_regular() } else { @theme.theme_text_secondary() },
+          if on {
+            @theme.theme_text_regular()
+          } else {
+            @theme.theme_text_secondary()
+          },
           align=@text.Start,
           valign=@text.Center,
           wrap=false,

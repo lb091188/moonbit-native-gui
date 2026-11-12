@@ -3,11 +3,14 @@
 ///|
 fn is_wordc(c : Char) -> Bool {
   let u = c.to_int()
-  (u >= 48 && u <= 57) || (u >= 65 && u <= 90) || (u >= 97 && u <= 122) || u == 95
+  (u >= 48 && u <= 57) ||
+  (u >= 65 && u <= 90) ||
+  (u >= 97 && u <= 122) ||
+  u == 95
 }
 
 ///|
-fn starts_with_at(a : Array[Char], i : Int, pat : String) -> Bool {
+fn starts_with_at(a : Array[Char], i : Int32, pat : String) -> Bool {
   let p = chars(pat)
   let m = p.length()
   if i + m > a.length() {
@@ -56,8 +59,9 @@ pub fn scan_keys(src : String) -> Array[String] {
       for pf in prefixes {
         let l = chars(pf).length()
         let pi = i - l
-        if pi >= 0 && starts_with_at(a, pi, pf) &&
-           (pi == 0 || !is_wordc(a[pi - 1])) {
+        if pi >= 0 &&
+          starts_with_at(a, pi, pf) &&
+          (pi == 0 || !is_wordc(a[pi - 1])) {
           ok = true
         }
       }

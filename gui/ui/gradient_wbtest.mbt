@@ -1,7 +1,7 @@
 // 背景渐变组件级回归（S2）：view 盒子的渐变底铺满、渐变优先于纯色。
 
 ///|
-fn grad_bm(w : @widget.Widget, wpx : Int, hpx : Int) -> @render.Bitmap {
+fn grad_bm(w : @widget.Widget, wpx : Int32, hpx : Int32) -> @render.Bitmap {
   let bm = @render.Bitmap::new(wpx, hpx)
   let p = @render.Painter::new(bm)
   w.paint_at(p, w.rect.x, w.rect.y)
@@ -32,13 +32,21 @@ test "view 渐变底：上主色下页面底，线性随盒子铺满" {
   }
   let top = bm.pixel(20, 1)
   // 像素中心采样在端点内侧一小段，插值有 3–5 的偏移，容差给 8
-  assert_true((top.r - pr).abs() <= 8 && (top.g - pg).abs() <= 8 && (top.b - pb).abs() <= 8)
+  assert_true(
+    (top.r - pr).abs() <= 8 &&
+    (top.g - pg).abs() <= 8 &&
+    (top.b - pb).abs() <= 8,
+  )
   let (br, bg2, bb) = match @theme.parse_hex(@theme.theme_bg_page()) {
     Some((r, g, b)) => (r, g, b)
     None => abort("bg_page 解析失败")
   }
   let bot = bm.pixel(20, 58)
-  assert_true((bot.r - br).abs() <= 8 && (bot.g - bg2).abs() <= 8 && (bot.b - bb).abs() <= 8)
+  assert_true(
+    (bot.r - br).abs() <= 8 &&
+    (bot.g - bg2).abs() <= 8 &&
+    (bot.b - bb).abs() <= 8,
+  )
   // 中点在两端插值之间（渐变确实在过渡，不是分段纯色）
   let mid = bm.pixel(20, 30)
   assert_true(mid.g > (pg + bg2) / 2 - 24 && mid.g < (pg + bg2) / 2 + 24)
@@ -69,6 +77,14 @@ test "view 渐变优先于纯色：给渐变时不再铺 background_color" {
     None => abort("danger 解析失败")
   }
   let mid = bm.pixel(15, 15)
-  assert_true((mid.r - pr).abs() <= 8 && (mid.g - pg).abs() <= 8 && (mid.b - pb).abs() <= 8)
-  assert_true(!((mid.r - dr).abs() <= 8 && (mid.g - dg).abs() <= 8 && (mid.b - db).abs() <= 8))
+  assert_true(
+    (mid.r - pr).abs() <= 8 &&
+    (mid.g - pg).abs() <= 8 &&
+    (mid.b - pb).abs() <= 8,
+  )
+  assert_true(
+    !((mid.r - dr).abs() <= 8 &&
+    (mid.g - dg).abs() <= 8 &&
+    (mid.b - db).abs() <= 8),
+  )
 }

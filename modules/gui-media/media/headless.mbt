@@ -15,7 +15,7 @@
 /// 无头音频播放器：建引擎 + 挂定时器自 pump + 播完回调。
 pub(all) struct HeadlessAudio {
   player : AudioPlayer
-  mut pump_id : Int
+  mut pump_id : Int32
   on_complete : () -> Unit
 }
 
@@ -24,12 +24,12 @@ pub(all) struct HeadlessAudio {
 /// （GUI 层给 `fn(ms, f) { @shell.set_timeout(ms, f) }`，纯后台自管轮询）。
 pub fn HeadlessAudio::open(
   path : String,
-  schedule : (Int, () -> Unit) -> Int,
-  on_complete? : () -> Unit = fn() {},
+  schedule : (Int32, () -> Unit) -> Int32,
+  on_complete~ : () -> Unit = fn() {  },
 ) -> HeadlessAudio? {
   match AudioPlayer::make(path) {
     Ok(p) => {
-      let h : HeadlessAudio = { player: p, pump_id: 0, on_complete: on_complete }
+      let h : HeadlessAudio = { player: p, pump_id: 0, on_complete, }
       let self_ref = Ref(h)
       let tick = fn() -> Unit {
         let a = self_ref.val
@@ -41,28 +41,66 @@ pub fn HeadlessAudio::open(
         self_ref.val = a
       }
       let id = schedule(20, tick)
-      Some({ player: p, pump_id: id, on_complete: on_complete, })
+      Some({ player: p, pump_id: id, on_complete, })
     }
     Err(_) => None
   }
 }
 
 ///|
-pub fn HeadlessAudio::play(self : HeadlessAudio) -> Unit { self.player.play() }
-pub fn HeadlessAudio::pause(self : HeadlessAudio) -> Unit { self.player.pause() }
-pub fn HeadlessAudio::stop(self : HeadlessAudio) -> Unit { self.player.stop() }
-pub fn HeadlessAudio::seek(self : HeadlessAudio, t : Double) -> Unit { self.player.seek(t) }
-pub fn HeadlessAudio::set_volume(self : HeadlessAudio, v : Double) -> Unit { self.player.set_volume(v) }
-pub fn HeadlessAudio::set_speed(self : HeadlessAudio, v : Double) -> Unit { self.player.set_speed(v) }
-pub fn HeadlessAudio::set_looping(self : HeadlessAudio, on : Bool) -> Unit { self.player.set_looping(on) }
-pub fn HeadlessAudio::current(self : HeadlessAudio) -> Double { self.player.current() }
-pub fn HeadlessAudio::duration(self : HeadlessAudio) -> Double { self.player.duration() }
-pub fn HeadlessAudio::is_playing(self : HeadlessAudio) -> Bool { self.player.is_playing() }
+pub fn HeadlessAudio::play(self : HeadlessAudio) -> Unit {
+  self.player.play()
+}
+
+///|
+pub fn HeadlessAudio::pause(self : HeadlessAudio) -> Unit {
+  self.player.pause()
+}
+
+///|
+pub fn HeadlessAudio::stop(self : HeadlessAudio) -> Unit {
+  self.player.stop()
+}
+
+///|
+pub fn HeadlessAudio::seek(self : HeadlessAudio, t : Double) -> Unit {
+  self.player.seek(t)
+}
+
+///|
+pub fn HeadlessAudio::set_volume(self : HeadlessAudio, v : Double) -> Unit {
+  self.player.set_volume(v)
+}
+
+///|
+pub fn HeadlessAudio::set_speed(self : HeadlessAudio, v : Double) -> Unit {
+  self.player.set_speed(v)
+}
+
+///|
+pub fn HeadlessAudio::set_looping(self : HeadlessAudio, on : Bool) -> Unit {
+  self.player.set_looping(on)
+}
+
+///|
+pub fn HeadlessAudio::current(self : HeadlessAudio) -> Double {
+  self.player.current()
+}
+
+///|
+pub fn HeadlessAudio::duration(self : HeadlessAudio) -> Double {
+  self.player.duration()
+}
+
+///|
+pub fn HeadlessAudio::is_playing(self : HeadlessAudio) -> Bool {
+  self.player.is_playing()
+}
 
 ///|
 pub fn HeadlessAudio::close(
   self : HeadlessAudio,
-  cancel : (Int) -> Unit,
+  cancel : (Int32) -> Unit,
 ) -> Unit {
   cancel(self.pump_id)
   self.player.free()
@@ -72,19 +110,19 @@ pub fn HeadlessAudio::close(
 /// 无头视频播放器：同上 + current_frame() 取 RGBA 帧。
 pub(all) struct HeadlessVideo {
   player : VideoPlayer
-  mut pump_id : Int
+  mut pump_id : Int32
   on_complete : () -> Unit
 }
 
 ///|
 pub fn HeadlessVideo::open(
   path : String,
-  schedule : (Int, () -> Unit) -> Int,
-  on_complete? : () -> Unit = fn() {},
+  schedule : (Int32, () -> Unit) -> Int32,
+  on_complete~ : () -> Unit = fn() {  },
 ) -> HeadlessVideo? {
   match VideoPlayer::make(path) {
     Ok(p) => {
-      let v : HeadlessVideo = { player: p, pump_id: 0, on_complete: on_complete }
+      let v : HeadlessVideo = { player: p, pump_id: 0, on_complete, }
       let self_ref = Ref(v)
       let tick = fn() -> Unit {
         let h = self_ref.val
@@ -96,21 +134,51 @@ pub fn HeadlessVideo::open(
         self_ref.val = h
       }
       let id = schedule(20, tick)
-      Some({ player: p, pump_id: id, on_complete: on_complete, })
+      Some({ player: p, pump_id: id, on_complete, })
     }
     Err(_) => None
   }
 }
 
 ///|
-pub fn HeadlessVideo::play(self : HeadlessVideo) -> Unit { self.player.play() }
-pub fn HeadlessVideo::pause(self : HeadlessVideo) -> Unit { self.player.pause() }
-pub fn HeadlessVideo::stop(self : HeadlessVideo) -> Unit { self.player.stop() }
-pub fn HeadlessVideo::seek(self : HeadlessVideo, t : Double) -> Unit { self.player.seek(t) }
-pub fn HeadlessVideo::set_volume(self : HeadlessVideo, v : Double) -> Unit { self.player.set_volume(v) }
-pub fn HeadlessVideo::current(self : HeadlessVideo) -> Double { self.player.current() }
-pub fn HeadlessVideo::duration(self : HeadlessVideo) -> Double { self.player.duration() }
-pub fn HeadlessVideo::is_playing(self : HeadlessVideo) -> Bool { self.player.is_playing() }
+pub fn HeadlessVideo::play(self : HeadlessVideo) -> Unit {
+  self.player.play()
+}
+
+///|
+pub fn HeadlessVideo::pause(self : HeadlessVideo) -> Unit {
+  self.player.pause()
+}
+
+///|
+pub fn HeadlessVideo::stop(self : HeadlessVideo) -> Unit {
+  self.player.stop()
+}
+
+///|
+pub fn HeadlessVideo::seek(self : HeadlessVideo, t : Double) -> Unit {
+  self.player.seek(t)
+}
+
+///|
+pub fn HeadlessVideo::set_volume(self : HeadlessVideo, v : Double) -> Unit {
+  self.player.set_volume(v)
+}
+
+///|
+pub fn HeadlessVideo::current(self : HeadlessVideo) -> Double {
+  self.player.current()
+}
+
+///|
+pub fn HeadlessVideo::duration(self : HeadlessVideo) -> Double {
+  self.player.duration()
+}
+
+///|
+pub fn HeadlessVideo::is_playing(self : HeadlessVideo) -> Bool {
+  self.player.is_playing()
+}
 
 ///|
 /// 当前帧 RGBA 像素；None 表示还没有解码完第一帧。
@@ -121,7 +189,7 @@ pub fn HeadlessVideo::current_frame(self : HeadlessVideo) -> Bytes? {
 ///|
 pub fn HeadlessVideo::close(
   self : HeadlessVideo,
-  cancel : (Int) -> Unit,
+  cancel : (Int32) -> Unit,
 ) -> Unit {
   cancel(self.pump_id)
   self.player.free()

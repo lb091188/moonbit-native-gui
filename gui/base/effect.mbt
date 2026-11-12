@@ -12,9 +12,7 @@ pub fn effect(body : () -> Unit) -> () -> Unit {
   // computed 的「重算 = 重跑闭包 + 依赖重收集」正是 effect 的语义；套一个
   // 空订阅让它接到通知（Signal::subscribe 的唤醒形态就是 self.get()）。
   // 依赖一变:observer 标脏 → sig_deliver 走订阅 → rerun_effect 恰好跑 body 一遍。
-  let s = Signal::effect(fn() -> Unit {
-    body()
-  })
+  let s = Signal::effect(fn() -> Unit { body() })
   let sid = s.subscribe_raw(fn() -> Unit { s.rerun_effect() })
   s.rerun_effect() // 建立即跑第一遍(同时完成依赖收集)
   fn() -> Unit { s.remove(sid) }
@@ -27,7 +25,7 @@ pub fn effect(body : () -> Unit) -> () -> Unit {
 pub fn[T] watch(
   src : Signal[T],
   on_change : (T, T) -> Unit,
-  immediate? : Bool = false,
+  immediate~ : Bool = false,
 ) -> () -> Unit {
   let last : Ref[T] = Ref(src.get())
   let sid = src.subscribe(fn(v : T) -> Unit {

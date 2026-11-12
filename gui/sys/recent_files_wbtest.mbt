@@ -193,7 +193,10 @@ test "rf_parse_xbel：完整样例（转义/多 application/缺属性/自闭合/
       assert_eq(entries[0].modified, 1790769600000L)
       assert_eq(entries[0].apps, ["Thunar", "org.gnome.Nautilus"])
       // ② 单引号属性 + 无 mime 节点 + application 缺 count（仍按名计数）
-      assert_eq(entries[1].uri, "file:///home/u/%E4%B8%AD%E6%96%87%20%E8%B5%84%E6%96%99.txt")
+      assert_eq(
+        entries[1].uri,
+        "file:///home/u/%E4%B8%AD%E6%96%87%20%E8%B5%84%E6%96%99.txt",
+      )
       assert_eq(entries[1].mime, None)
       assert_eq(entries[1].modified, 1789862400000L) // 2026-09-20T00:00:00Z
       assert_eq(entries[1].apps, ["Thunar"])

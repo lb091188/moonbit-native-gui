@@ -89,71 +89,71 @@ pub let divider_base : Style = style(border_color="border", border_width=1.0)
 /// 主按钮 solid 档（现状 `button`(Primary) 与 `button_t`(Solid)：主色底 + 白字 +
 /// 左右 12 + 亮档 `primary_hover`；焦点环现状实底按钮走白描边）。
 pub let button_solid : Style = style(
-  background_color="primary",
-  color="#fff",
-  font_size=13.0,
-  padding_left=@theme.space_12,
-  padding_right=@theme.space_12,
-  height=@theme.control_height,
-)
-.hover(background_color="primary_hover", color="#fff")
-.active(background_color="primary_hover", color="#fff")
-.focus(border_width=1.0, border_color="#fff")
+    background_color="primary",
+    color="#fff",
+    font_size=13.0,
+    padding_left=@theme.space_12,
+    padding_right=@theme.space_12,
+    height=@theme.control_height,
+  )
+  .hover(background_color="primary_hover", color="#fff")
+  .active(background_color="primary_hover", color="#fff")
+  .focus(border_width=1.0, border_color="#fff")
 
 ///|
 /// 按钮默认档 soft（**现状组件库默认档是 Soft 不是 Solid**：
 /// 浅主色底 + 主色字，亮档翻主色底白字）。
 pub let button_base : Style = style(
-  background_color="primary_light",
-  color="primary",
-  font_size=13.0,
-  padding_left=@theme.space_12,
-  padding_right=@theme.space_12,
-  height=@theme.control_height,
-)
-.hover(background_color="primary", color="#fff")
-.active(background_color="primary", color="#fff")
-.focus(border_width=1.0, border_color="primary")
+    background_color="primary_light",
+    color="primary",
+    font_size=13.0,
+    padding_left=@theme.space_12,
+    padding_right=@theme.space_12,
+    height=@theme.control_height,
+  )
+  .hover(background_color="primary", color="#fff")
+  .active(background_color="primary", color="#fff")
+  .focus(border_width=1.0, border_color="primary")
 
 ///|
 /// 描边按钮 border 档（现状 `button` Border / `stepper` 两侧钮）。
 pub let button_border : Style = style(
-  background_color="bg_panel",
-  color="primary",
-  border_width=1.0,
-  border_color="border",
-  font_size=13.0,
-  padding_left=@theme.space_12,
-  padding_right=@theme.space_12,
-  height=@theme.control_height,
-)
-.hover(background_color="fill_hover")
-.active(background_color="fill_hover")
+    background_color="bg_panel",
+    color="primary",
+    border_width=1.0,
+    border_color="border",
+    font_size=13.0,
+    padding_left=@theme.space_12,
+    padding_right=@theme.space_12,
+    height=@theme.control_height,
+  )
+  .hover(background_color="fill_hover")
+  .active(background_color="fill_hover")
 
 ///|
 /// 文本按钮 text 档（现状 `button` Text：无底，亮档浅灰底）。
 pub let button_text : Style = style(
-  color="primary",
-  font_size=13.0,
-  padding_left=@theme.space_12,
-  padding_right=@theme.space_12,
-  height=@theme.control_height,
-)
-.hover(background_color="fill_hover")
-.active(background_color="fill_hover")
+    color="primary",
+    font_size=13.0,
+    padding_left=@theme.space_12,
+    padding_right=@theme.space_12,
+    height=@theme.control_height,
+  )
+  .hover(background_color="fill_hover")
+  .active(background_color="fill_hover")
 
 ///|
 /// 危险按钮 danger 档（现状 `button_t` Danger）。
 pub let button_danger : Style = style(
-  background_color="danger",
-  color="#fff",
-  font_size=13.0,
-  padding_left=@theme.space_12,
-  padding_right=@theme.space_12,
-  height=@theme.control_height,
-)
-.hover(background_color="danger_hover", color="#fff")
-.active(background_color="danger_hover", color="#fff")
+    background_color="danger",
+    color="#fff",
+    font_size=13.0,
+    padding_left=@theme.space_12,
+    padding_right=@theme.space_12,
+    height=@theme.control_height,
+  )
+  .hover(background_color="danger_hover", color="#fff")
+  .active(background_color="danger_hover", color="#fff")
 
 ///|
 /// 禁用按钮通用配方（现状所有变体统一：`fill_hover` 底 + `text_secondary` 字）。
@@ -165,18 +165,19 @@ pub let button_disabled : Style = style(
 ///|
 /// 图标按钮 `icon_button`（现状 28×28 盒、无常态底、悬停浅灰、按下浅主色、圆角 4）。
 pub let icon_button_base : Style = style(
-  width=28.0,
-  height=28.0,
-  border_radius=4.0,
-  color="text_regular",
-)
-.hover(background_color="fill_hover")
-.active(background_color="primary_light")
+    width=28.0,
+    height=28.0,
+    border_radius=4.0,
+    color="text_regular",
+  )
+  .hover(background_color="fill_hover")
+  .active(background_color="primary_light")
 
 ///|
 /// 链接 `link`（现状主色文本、悬停加下划线；悬停口径与 `breadcrumb` 末段一致）。
-pub let link_base : Style = style(color="primary", font_size=13.0)
-.hover(text_decoration=Underline)
+pub let link_base : Style = style(color="primary", font_size=13.0).hover(
+  text_decoration=Underline,
+)
 
 // ---- 输入族 ----
 
@@ -190,8 +191,7 @@ pub let input_base : Style = style(
   color="text_regular",
   font_size=13.0,
   height=@theme.control_height,
-)
-.focus(border_color="primary", color="text_primary")
+).focus(border_color="primary", color="text_primary")
 
 ///|
 /// 输入禁用档（现状 placeholder 与禁用同走 `text_secondary`）。
@@ -221,8 +221,7 @@ pub let select_base : Style = style(
   height=32.0,
   width=200.0,
   padding_left=10.0,
-)
-.focus(border_color="primary", color="text_primary")
+).focus(border_color="primary", color="text_primary")
 
 ///|
 /// 下拉触发钮 `dropdown` 字段（现状：宽=文本+40、高 30、圆角 4、悬停浅灰底）。
@@ -235,8 +234,7 @@ pub let dropdown_base : Style = style(
   height=30.0,
   border_radius=4.0,
   padding_left=10.0,
-)
-.hover(background_color="fill_hover")
+).hover(background_color="fill_hover")
 
 ///|
 /// 复选框 `checkbox`（现状 14×14 方框，未选 `border`、选中主色；行内文字同 `text_base`）。
@@ -245,8 +243,7 @@ pub let checkbox_base : Style = style(
   height=14.0,
   border_width=1.0,
   border_color="border",
-)
-.hover(border_color="primary")
+).hover(border_color="primary")
 
 ///|
 /// 开关 `switch`（现状胶囊 40×20：开=主色底、关=`border` 底、禁用=`fill_hover`）。
@@ -254,8 +251,7 @@ pub let switch_base : Style = style(
   width=40.0,
   height=20.0,
   background_color="border",
-)
-.hover(background_color="primary")
+).hover(background_color="primary")
 
 ///|
 /// 滑块 `slider`（现状轨道 160×4 走 `border`、拇指 12×12 主色；禁用轨道转浅灰）。
@@ -263,8 +259,7 @@ pub let slider_base : Style = style(
   width=160.0,
   height=@theme.control_height,
   background_color="border",
-)
-.hover(background_color="primary")
+).hover(background_color="primary")
 
 ///|
 /// 进度条 `progress`（现状 200×6：轨道 `fill_zebra`、填充主色）。
@@ -287,8 +282,11 @@ pub let stepper_field_base : Style = style(
 
 ///|
 /// 评分星 `rate`（现状 22 号星：亮=主色实心、暗=`border` 描边）。
-pub let rate_base : Style = style(width=22.0, height=22.0, border_color="border")
-.hover(color="primary")
+pub let rate_base : Style = style(
+  width=22.0,
+  height=22.0,
+  border_color="border",
+).hover(color="primary")
 
 ///|
 /// 表单行 `form_item` 标签列（现状定宽 90 右对齐、12 号 `text_secondary`）。
@@ -301,7 +299,11 @@ pub let form_label_base : Style = style(
 
 ///|
 /// 表单错误行（现状 12 号 danger、行高 18）。
-pub let form_error_base : Style = style(font_size=12.0, color="danger", height=18.0)
+pub let form_error_base : Style = style(
+  font_size=12.0,
+  color="danger",
+  height=18.0,
+)
 
 ///|
 /// 表单容器 `form`（现状无底色：列布局行距 8，标题走 `text_title`）。
@@ -326,8 +328,7 @@ pub let overlay_row_base : Style = style(
   font_size=13.0,
   color="text_regular",
   padding_left=@theme.space_8,
-)
-.hover(background_color="fill_hover")
+).hover(background_color="fill_hover")
 
 ///|
 /// 选中行档（现状通用配方：`primary_light` 底 + `primary` 字，选择器/表格/穿梭框共用）。
@@ -374,8 +375,7 @@ pub let menu_row_base : Style = style(
   font_size=13.0,
   color="text_regular",
   padding_left=10.0,
-)
-.hover(background_color="fill_hover")
+).hover(background_color="fill_hover")
 
 ///|
 /// 侧边菜单 `menu`（现状容器 padding 6 / 行距 2，项高 40、圆角 4，
@@ -394,8 +394,7 @@ pub let side_menu_item_base : Style = style(
   border_radius=4.0,
   color="text_primary",
   font_size=13.0,
-)
-.hover(background_color="fill_hover")
+).hover(background_color="fill_hover")
 
 ///|
 /// 侧边菜单选中项（现状浅主色底 + 主色字 + 左缘 3px 主色条）。
@@ -408,8 +407,11 @@ pub let side_menu_item_selected : Style = style(
 ///|
 /// 页签 `tabs` 头行（现状头行高 36、页签 13 号、未选 `text_secondary`、
 /// 悬停回 `text_regular`，选中走 `tabs_item_active`）。
-pub let tabs_base : Style = style(height=36.0, font_size=13.0, color="text_secondary")
-.hover(color="text_regular")
+pub let tabs_base : Style = style(
+  height=36.0,
+  font_size=13.0,
+  color="text_secondary",
+).hover(color="text_regular")
 
 ///|
 /// 页签选中档（现状主色字 + 底部 2px 主色指示条）。
@@ -444,8 +446,7 @@ pub let table_row_base : Style = style(
   font_size=13.0,
   color="text_regular",
   padding_left=10.0,
-)
-.hover(background_color="fill_hover")
+).hover(background_color="fill_hover")
 
 ///|
 /// 斑马行档（现状奇数行 `fill_zebra`）。
@@ -493,7 +494,10 @@ pub let avatar_base : Style = style(
 
 ///|
 /// 统计数值 `statistic`（现状标题 12 / `text_secondary`，值 22 / `text_primary`）。
-pub let statistic_value_base : Style = style(font_size=22.0, color="text_primary")
+pub let statistic_value_base : Style = style(
+  font_size=22.0,
+  color="text_primary",
+)
 
 ///|
 /// 描述列表 `descriptions`（现状标签列 12 / `text_secondary`、值列 12 默认色、
@@ -560,8 +564,7 @@ pub let tree_row_base : Style = style(
   font_size=13.0,
   color="text_primary",
   padding_left=14.0,
-)
-.hover(background_color="fill_hover")
+).hover(background_color="fill_hover")
 
 ///|
 /// 穿梭框列（现状列宽 160、条目高 24、面板底 + 1px 边框、行同 `overlay_row_base` 悬停）。
@@ -597,8 +600,7 @@ pub let breadcrumb_base : Style = style(
   color="text_secondary",
   padding_left=@theme.space_4,
   padding_right=@theme.space_4,
-)
-.hover(color="primary")
+).hover(color="primary")
 
 ///|
 /// 分页 `pagination`（现状钮 28×28、13 号，当前页主色底白字、其余悬停浅主色底）。
@@ -608,8 +610,7 @@ pub let pagination_base : Style = style(
   font_size=13.0,
   color="text_regular",
   cursor=@widget.CURSOR_HAND,
-)
-.hover(background_color="primary_light")
+).hover(background_color="primary_light")
 
 ///|
 /// 分页当前页档（现状主色底 + 白字）。
@@ -627,8 +628,7 @@ pub let collapse_base : Style = style(
   font_size=13.0,
   font_weight=@text.SemiBold,
   color="text_primary",
-)
-.hover(background_color="primary_light")
+).hover(background_color="primary_light")
 
 ///|
 /// 分段器 `segmented`（现状容器 `border` 底 + 内 2、项高 30 内 16，
@@ -647,8 +647,7 @@ pub let segmented_item_base : Style = style(
   padding_right=@theme.space_16,
   font_size=13.0,
   color="text_regular",
-)
-.hover(background_color="border")
+).hover(background_color="border")
 
 ///|
 /// 分段选中档（现状面板底 + 主色字）。
@@ -677,11 +676,11 @@ pub let scroll_bar_base : Style = style(
 ///|
 /// 分隔把手 `split`（现状把手 8.0、常显 `fill_zebra`、悬停浅灰、拖动主色）。
 pub let split_handle_base : Style = style(
-  width=8.0,
-  background_color="fill_zebra",
-)
-.hover(background_color="fill_hover")
-.active(background_color="primary")
+    width=8.0,
+    background_color="fill_zebra",
+  )
+  .hover(background_color="fill_hover")
+  .active(background_color="primary")
 
 ///|
 /// 颜色选择器 `color_picker`（字段同 `select_base`；色板格 26×26、格边框、
@@ -711,8 +710,7 @@ pub let calendar_cell_base : Style = style(
   height=30.0,
   font_size=13.0,
   color="text_primary",
-)
-.hover(background_color="fill_hover")
+).hover(background_color="fill_hover")
 
 ///|
 /// 日历选中档（现状主色实心块 + 白字）。
@@ -733,5 +731,4 @@ pub let primary : Style = style(
   color="#fff",
   border_radius=4.0,
   cursor=@widget.CURSOR_HAND,
-)
-.hover(background_color="primary_hover")
+).hover(background_color="primary_hover")

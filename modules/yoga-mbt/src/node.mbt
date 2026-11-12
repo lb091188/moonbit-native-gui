@@ -27,35 +27,37 @@ pub struct Layout {
 pub struct Node {
   style : Style
   children : Array[Node]
-  mut measure : Option[(Option[Double], Option[Double]) -> (Double, Double)]
-  mut baseline_fn : Option[(Option[Double], Option[Double]) -> Option[Double]]
+  mut measure : ((Double?, Double?) -> (Double, Double))?
+  mut baseline_fn : ((Double?, Double?) -> Double?)?
   // 本次布局算出的基线（到本节点边框盒顶部的距离），None = 无基线
-  mut baseline : Option[Double]
+  mut baseline : Double?
   // 像素网格取整间隔（0 = 关闭）；只有作为布局根节点的设置生效
   mut pixel_grid : Double
   // 测量缓存：键 = (可用宽, 可用高)，值 = (宽, 高, 基线)。
   // **跨布局驻留**：有效性由节点的版本面判定（见 cache_rev），样式没变的
   // 子树在下一轮直接拿它，测量回调（文本即 Pango）因此不必每帧重跑
-  measure_cache : Array[((Option[Double], Option[Double], Option[Double]), (Double, Double, Option[Double]))]
+  measure_cache : Array[
+    ((Double?, Double?, Double?), (Double, Double, Double?)),
+  ]
   // 内在尺寸缓存：键 = ((请求行轴?, 求 min-content?), (宽参照, 高参照))，
   // 值 = 边框盒尺寸。与测量缓存同一失效时机（cache_rev）
-  intrinsic_cache : Array[(((Bool, Bool), (Option[Double], Option[Double])), Double)]
+  intrinsic_cache : Array[(((Bool, Bool), (Double?, Double?)), Double)]
   mut layout_left : Double
   mut layout_top : Double
   mut layout_width : Double
   mut layout_height : Double
   // ---- 变更通知面（脏区增量重排与缓存驻留的判据，见 algorithm.mbt）----
   // 本节点最后一次「自身变更」的时钟值（样式 setter、增删子项、换测量回调）
-  mut rev : Int
+  mut rev : Int32
   // 本次扫描算出的「本节点子树内最大 rev」
-  mut subtree_rev : Int
+  mut subtree_rev : Int32
   // 两份缓存当前所属的 subtree_rev：不等先整体清一次。祖先的内在尺寸依赖
   // 子孙，子孙一变祖先就该废——靠它替代「父指针往上清」的形态
-  mut cache_rev : Int
+  mut cache_rev : Int32
   // 上次完整布局本节点时的 subtree_rev / 入参指纹 / 返回值（跳过判据）
-  mut laid_rev : Int
+  mut laid_rev : Int32
   mut laid : Bool
-  mut laid_fp : (Option[Double], Option[Double], Option[Double], Option[Double])
+  mut laid_fp : (Double?, Double?, Double?, Double?)
   // 上次 `layout_into` 返回的边框盒尺寸，取整**前**的值：layout_width/height
   // 会被像素网格后处理改写，跳过时必须还它取整前的原值
   mut laid_size : (Double, Double)
@@ -64,31 +66,33 @@ pub struct Node {
 ///|
 pub fn Node::new() -> Node {
   {
-    style : Style::new(),
-    children : [],
-    measure : None,
-    baseline_fn : None,
-    baseline : None,
-    pixel_grid : 0.0,
-    measure_cache : [],
-    intrinsic_cache : [],
-    layout_left : 0.0,
-    layout_top : 0.0,
-    layout_width : 0.0,
-    layout_height : 0.0,
-    rev : 0,
-    subtree_rev : 0,
-    cache_rev : 0,
-    laid_rev : -1,
-    laid : false,
-    laid_fp : (None, None, None, None),
-    laid_size : (0.0, 0.0),
+    style: Style::new(),
+    children: [],
+    measure: None,
+    baseline_fn: None,
+    baseline: None,
+    pixel_grid: 0.0,
+    measure_cache: [],
+    intrinsic_cache: [],
+    layout_left: 0.0,
+    layout_top: 0.0,
+    layout_width: 0.0,
+    layout_height: 0.0,
+    rev: 0,
+    subtree_rev: 0,
+    cache_rev: 0,
+    laid_rev: -1,
+    laid: false,
+    laid_fp: (None, None, None, None),
+    laid_size: (0.0, 0.0),
   }
 }
 
 // 全局变更时钟。用 `Ref` 而不是顶层可变绑定：跨文件可见性一致，且
 // 顶层 `let mut` 在本工具链不是稳定写法。
-let rev_clock : Ref[Int] = Ref(0)
+
+///|
+let rev_clock : Ref[Int32] = Ref(0)
 
 ///|
 /// 记一次「本节点自身发生变更」。不标自身的话，子树扫描看不出这里变过；
@@ -117,7 +121,7 @@ pub fn Node::clear_children(self : Node) -> Unit {
 /// 在 `index` 处插入子节点（`index` 越界时按首/尾钳制）。
 /// 与 `append_child` 的区别只在于**位置**：声明式层的就地替换
 /// （bind_node 重挂）要在原位换节点，才能让兄弟项的排布与坐标不变。
-pub fn Node::insert_child(self : Node, index : Int, child : Node) -> Unit {
+pub fn Node::insert_child(self : Node, index : Int32, child : Node) -> Unit {
   let n = self.children.length()
   let at = if index < 0 { 0 } else if index > n { n } else { index }
   self.children.insert(at, child)
@@ -126,7 +130,7 @@ pub fn Node::insert_child(self : Node, index : Int, child : Node) -> Unit {
 
 ///|
 /// 移除 `index` 处的子节点并返回它；下标越界返回 None（不做任何改动）。
-pub fn Node::remove_child_at(self : Node, index : Int) -> Node? {
+pub fn Node::remove_child_at(self : Node, index : Int32) -> Node? {
   let n = self.children.length()
   if index < 0 || index >= n {
     return None
@@ -146,7 +150,7 @@ pub fn Node::children(self : Node) -> Array[Node] {
 /// 设置叶子节点内容测量函数。
 pub fn Node::set_measure(
   self : Node,
-  f : (Option[Double], Option[Double]) -> (Double, Double),
+  f : (Double?, Double?) -> (Double, Double),
 ) -> Unit {
   self.measure = Some(f)
   self.mark_changed()
@@ -159,7 +163,7 @@ pub fn Node::set_measure(
 /// 仅对叶子节点生效；容器节点的基线由引擎按规范从内部项推出。
 pub fn Node::set_baseline(
   self : Node,
-  f : (Option[Double], Option[Double]) -> Option[Double],
+  f : (Double?, Double?) -> Double?,
 ) -> Unit {
   self.baseline_fn = Some(f)
   self.mark_changed()
@@ -179,9 +183,9 @@ pub fn Node::set_pixel_grid(self : Node, interval : Double) -> Unit {
 /// 读取已计算的布局结果（须先调用 `calculate_layout`）。
 pub fn Node::layout(self : Node) -> Layout {
   {
-    left : self.layout_left,
-    top : self.layout_top,
-    width : self.layout_width,
-    height : self.layout_height,
+    left: self.layout_left,
+    top: self.layout_top,
+    width: self.layout_width,
+    height: self.layout_height,
   }
 }

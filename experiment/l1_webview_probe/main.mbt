@@ -8,9 +8,7 @@ fn main {
   let magenta = "<html><body style='margin:0;background:#ff00ff'>probe</body></html>"
   let holder : Ref[@widget.Widget?] = Ref(None)
   let body : @widget.Node = @ui.col(
-    [
-      @ui.col([], grow=1.0, handle=fn(c) { holder.val = Some(c) }),
-    ],
+    [@ui.col([], grow=1.0, handle=fn(c) { holder.val = Some(c) })],
     grow=1.0,
   )
   let setup = fn(a : @widget.WindowHost) -> Unit {
@@ -32,7 +30,14 @@ fn main {
     })
   }
   println("L1WV-GPU: \{@win.gpu_present_status()}")
-  match @ui.mount_window([body], title="L1WV-PROBE", width=520, height=360, handle=setup) {
+  match
+    @ui.mount_window(
+      [body],
+      title="L1WV-PROBE",
+      width=520,
+      height=360,
+      handle=setup,
+    ) {
     None => println("L1WV-SKIP")
     Some(host) => {
       println("L1WV-READY")

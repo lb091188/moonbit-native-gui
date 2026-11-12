@@ -212,7 +212,7 @@ pub(all) struct CpuInfo {
   model : String
   mhz : Double
   max_mhz : Double
-  cores : Int
+  cores : Int32
 }
 
 ///|
@@ -246,7 +246,7 @@ pub fn parse_proc_stat(text : String) -> (CpuTimes, Array[CpuTimes])? {
 
 ///|
 fn cpu_line_times(f : Array[StringView]) -> CpuTimes {
-  fn at(i : Int) -> Int64 {
+  fn at(i : Int32) -> Int64 {
     if i < f.length() {
       parse_u64(f[i]).unwrap_or(0)
     } else {
@@ -434,7 +434,7 @@ fn zero_times() -> CpuTimes {
 pub(all) struct CpuMonitor {
   mut prev : CpuTimes
   mut prev_cores : Array[CpuTimes]
-  mut cores : Int
+  mut cores : Int32
 }
 
 ///|
@@ -497,7 +497,7 @@ pub fn mem_info() -> MemInfo? {
 /// PowerShell 的 `Manufacturer=Samsung` / `Speed=3200`。品牌取第一个
 /// 有效值（跳过 Unknown/Not Specified/NO DIMM 等占位），频率取最大值。
 /// 都没有时返回 ("", 0)，UI 显示「—」。
-pub fn parse_mem_hw(text : String) -> (String, Int) {
+pub fn parse_mem_hw(text : String) -> (String, Int32) {
   let mut brand = ""
   let mut mhz = 0
   for line in text.split("\n") {
@@ -542,7 +542,7 @@ pub fn parse_mem_hw(text : String) -> (String, Int) {
 ///|
 /// 探测内存条品牌与频率；来源不可用（Linux 无 root / 命令缺失）返回
 /// ("", 0)，不阻塞、不报错。
-pub fn mem_hw_info() -> (String, Int) {
+pub fn mem_hw_info() -> (String, Int32) {
   match ffi_mem_hw_text() {
     None => ("", 0)
     Some(bytes) => parse_mem_hw(@utf8.decode_lossy(bytes))

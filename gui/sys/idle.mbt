@@ -7,7 +7,7 @@
 //   Windows `GetLastInputInfo` + `GetTickCount`（差值按 DWORD 取模，扛 ~49.7 天回绕）
 //   Linux   X11 的 XScreenSaver 扩展（运行期 dlopen libX11 + libXss，不引入链接依赖）
 //   macOS   CGEventSource 的 HID 系统态读数（`CGEventSourceSecondsSinceLastEventType`，
- //           只问「距上次输入多久」，不读事件内容，故不需要辅助功能权限）
+//           只问「距上次输入多久」，不读事件内容，故不需要辅助功能权限）
 //
 // **Wayland 会话**：没有 X 服务端（`DISPLAY` 为空）时 `idle_supported()` 就是
 // false，`idle_seconds()` 给 `Unsupported` 而**不给错数**——XWayland 下输入不进
@@ -57,11 +57,11 @@ pub fn idle_ms_to_seconds(ms : Int64) -> Double {
 }
 
 ///|
-extern "c" fn ffi_sys_idle_supported() -> Int = "yue_sys_idle_supported"
+extern "c" fn ffi_sys_idle_supported() -> Int32 = "yue_sys_idle_supported"
 
 ///|
 #borrow(ok)
-extern "c" fn ffi_sys_idle_seconds_ms(ok : Ref[Int]) -> Int64 = "yue_sys_idle_seconds_ms"
+extern "c" fn ffi_sys_idle_seconds_ms(ok : Ref[Int32]) -> Int64 = "yue_sys_idle_seconds_ms"
 
 ///|
 /// 本平台 / 本会话是否提供空闲查询（运行期探测：Windows 恒真；Linux 要有

@@ -14,6 +14,7 @@ supported_targets = "native"
 // DirectWrite 实现（dwrite.h 是 C++ 专属头，C TU 编不了），由 native-stub
 // 直接编（moon 认 .cpp，实测）；两文件的平台分支互斥，非本平台各自编出空
 // 翻译单元。链接参数全部由 prebuild 托管。
+
 options(
   "native-stub": [ "stub.c", "dwrite_text.cpp" ],
 )

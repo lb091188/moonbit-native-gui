@@ -2,7 +2,13 @@
 // 缺省档一行不变。全程无头（内存位图 + 手工投递事件）。
 
 ///|
-fn sel_click(root : @widget.Widget, x : Double, y : Double, mods~ : Int = 0, button~ : Int = 1) -> Unit {
+fn sel_click(
+  root : @widget.Widget,
+  x : Double,
+  y : Double,
+  mods~ : Int32 = 0,
+  button~ : Int32 = 1,
+) -> Unit {
   let _ = root.dispatch_pointer({
     kind: @widget.PointerKind::Down,
     x,
@@ -166,7 +172,11 @@ test "selectable 档：动态文本变了就清选区并让出持有" {
     return
   }
   let sig = @base.Signal::new("可变的段落文字")
-  let root = mount_root([text_dyn(sig, selectable=true, wrap=false)], 260.0, 40.0)
+  let root = mount_root(
+    [text_dyn(sig, selectable=true, wrap=false)],
+    260.0,
+    40.0,
+  )
   let w = kid(root, 0)
   let st = match sel_states.val.get(w.id) {
     Some(s) => s

@@ -6,7 +6,9 @@
 
 ///|
 /// 间距阶基准（与 native-gui-design 技能的间距刻度同源：2/4/6/8/12/16/24）。
-pub let space_scale_base : Array[Double] = [2.0, 4.0, 6.0, 8.0, 12.0, 16.0, 24.0]
+pub let space_scale_base : Array[Double] = [
+  2.0, 4.0, 6.0, 8.0, 12.0, 16.0, 24.0,
+]
 
 ///|
 /// 半径阶基准（控件 4 / 卡片·面板 6 / 对话框·浮层 8，上限 8；圆形态组件
@@ -48,7 +50,7 @@ pub let space_24 : Double = 24.0
 
 ///|
 /// 阶取值：空表回落基准、越界按首末档夹取。
-fn scale_at(scale : Array[Double], base : Array[Double], i : Int) -> Double {
+fn scale_at(scale : Array[Double], base : Array[Double], i : Int32) -> Double {
   let src = if scale.length() > 0 { scale } else { base }
   if i < 0 {
     src[0]
@@ -61,24 +63,24 @@ fn scale_at(scale : Array[Double], base : Array[Double], i : Int) -> Double {
 
 ///|
 /// 间距阶第 `i` 档（当前主题；0=2 … 6=24，越界夹取）。
-pub fn theme_space(i : Int) -> Double {
+pub fn theme_space(i : Int32) -> Double {
   scale_at(theme_box.t.space_scale, space_scale_base, i)
 }
 
 ///|
 /// 半径阶第 `i` 档（当前主题；0=控件 4 / 1=卡片 6 / 2=浮层 8）。
-pub fn theme_radius(i : Int) -> Double {
+pub fn theme_radius(i : Int32) -> Double {
   scale_at(theme_box.t.radius_scale, radius_scale_base, i)
 }
 
 ///|
 /// 字阶第 `i` 档（当前主题；0=12 / 1=13 / 2=14 / 3=18）。
-pub fn theme_type_size(i : Int) -> Double {
+pub fn theme_type_size(i : Int32) -> Double {
   scale_at(theme_box.t.type_scale, type_scale_base, i)
 }
 
 ///|
 /// 时长阶第 `i` 档（当前主题，ms；0=80 / 1=120 / 2=200 / 3=320）。
-pub fn theme_duration(i : Int) -> Double {
+pub fn theme_duration(i : Int32) -> Double {
   scale_at(theme_box.t.duration_scale, duration_scale_base, i)
 }

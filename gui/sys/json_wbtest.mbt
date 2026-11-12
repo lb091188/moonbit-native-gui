@@ -61,7 +61,10 @@ test "Int64 精度：毫秒时间戳不被截成 Int32 语义" {
   assert_eq(ts, Some(1632000000123L))
   // 超出 2^53 精确范围的浮点拒绝；恰好 2^53 放行（字面量本身已在二进制里取整）
   assert_eq(vsc_json_int64(vsc_json_parse("1e20")), None)
-  assert_eq(vsc_json_int64(vsc_json_parse("9007199254740992.0")), Some(9007199254740992L))
+  assert_eq(
+    vsc_json_int64(vsc_json_parse("9007199254740992.0")),
+    Some(9007199254740992L),
+  )
 }
 
 ///|
@@ -91,10 +94,12 @@ test "嵌套结构与链式取值" {
   assert_eq(kind_of(empty_obj), "obj")
   // 缺失键与非对象接收者都给 None
   assert_eq(
-    is_none(match v {
-      Some(o) => vsc_json_get(o, "nope")
-      None => None
-    }),
+    is_none(
+      match v {
+        Some(o) => vsc_json_get(o, "nope")
+        None => None
+      },
+    ),
     true,
   )
   assert_eq(is_none(vsc_json_get(VscJNull, "k")), true)
@@ -122,14 +127,7 @@ test "字符串转义：常规、\\u、代理对与孤立代理" {
 ///|
 test "语法错误与尾随内容一律拒绝" {
   let bad : Array[String] = [
-    "{\"a\":1,}",
-    "{\"a\" 1}",
-    "{'a':1}",
-    "[1,2",
-    "tru",
-    "{\"a\":1} extra",
-    "",
-    "[,]",
+    "{\"a\":1,}", "{\"a\" 1}", "{'a':1}", "[1,2", "tru", "{\"a\":1} extra", "", "[,]",
     "\"\\q\"",
   ]
   let mut accepted = 0

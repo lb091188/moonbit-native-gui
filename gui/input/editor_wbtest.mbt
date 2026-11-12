@@ -1,5 +1,6 @@
 // 编辑内核的语义回归：一切下标按 UTF-8 字节，且 caret 不落续字节。
 
+///|
 test "设置与取回文本，caret 落在末尾边界" {
   let ed = Editor::new()
   ed.set_text("中文ab")
@@ -8,6 +9,7 @@ test "设置与取回文本，caret 落在末尾边界" {
   assert_eq(ed.caret_pos(), 8)
 }
 
+///|
 test "退格删整个汉字，不留半字" {
   let ed = Editor::new()
   ed.set_text("汉a")
@@ -18,6 +20,7 @@ test "退格删整个汉字，不留半字" {
   assert_eq(ed.caret_pos(), 0)
 }
 
+///|
 test "手工把 caret 摆到选区上再插入即替换" {
   let ed = Editor::new()
   ed.set_text("hello world")
@@ -29,6 +32,7 @@ test "手工把 caret 摆到选区上再插入即替换" {
   assert_eq(ed.selection(), None)
 }
 
+///|
 test "词跳转：ctrl+left/right 按词而非字符" {
   let ed = Editor::new()
   ed.set_text("foo bar baz")
@@ -41,6 +45,7 @@ test "词跳转：ctrl+left/right 按词而非字符" {
   assert_eq(ed.caret_pos(), 7) // 词右移停在词尾（'r' 之后、空格之前）
 }
 
+///|
 test "shift 移动延长选区、不带 shift 折叠" {
   let ed = Editor::new()
   ed.set_text("abcd")
@@ -53,6 +58,7 @@ test "shift 移动延长选区、不带 shift 折叠" {
   assert_eq(ed.caret_pos(), 2)
 }
 
+///|
 test "copy 不动状态、cut 删选区、粘贴走内核缓存" {
   let ed = Editor::new()
   ed.set_text("one two")
@@ -65,6 +71,7 @@ test "copy 不动状态、cut 删选区、粘贴走内核缓存" {
   assert_eq(ed.get_text(), "one two")
 }
 
+///|
 test "undo 与 redo 往返一致" {
   let ed = Editor::new()
   ed.set_text("start")
@@ -77,6 +84,7 @@ test "undo 与 redo 往返一致" {
   assert_eq(ed.get_text(), "start-more")
 }
 
+///|
 test "handle_key：打字、退格、方向、Tab 归属" {
   let ed = Editor::new()
   assert_eq(ed.handle_key('a'.to_int(), 0), true)
@@ -91,6 +99,7 @@ test "handle_key：打字、退格、方向、Tab 归属" {
   assert_eq(ed.handle_key(@base.KS_ESCAPE, 0), false)
 }
 
+///|
 test "handle_key：Ctrl+A 全选、Ctrl+Z 撤销、Ctrl+箭头按词" {
   let ed = Editor::new()
   ed.set_text("aa bb")
@@ -106,6 +115,7 @@ test "handle_key：Ctrl+A 全选、Ctrl+Z 撤销、Ctrl+箭头按词" {
   assert_eq(ed.caret_pos(), 3) // 按词回退到 "bb" 词首
 }
 
+///|
 test "handle_key：mac 主修饰键是 Cmd，Ctrl 靠边" {
   // 真机 mac：地址栏 Cmd+A 全选无反应。旧写法把 META 并进 alt，于是 Cmd 这一族
   // 既不匹配「ctrl && 'a'」、又落进「带修饰不消费」，选全/复制/粘贴/撤销在 mac
@@ -130,6 +140,7 @@ test "handle_key：mac 主修饰键是 Cmd，Ctrl 靠边" {
   assert_eq(other.get_text(), "aa bb")
 }
 
+///|
 test "区间取值不切碎多字节且越界钳制" {
   let ed = Editor::new()
   ed.set_text("αβγ") // 每个 2 字节

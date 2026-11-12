@@ -1,5 +1,7 @@
 name = "NoahLiu/gui-media"
+
 version = "0.2.0"
+
 preferred_target = "native"
 
 description = "native-gui 的媒体扩展（独立模块，媒体对主模块消费者保持「模块级可选」）：media/ 提供 ffmpeg 解码 + miniaudio 输出的引擎与播放器组件"

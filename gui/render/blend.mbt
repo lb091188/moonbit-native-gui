@@ -33,7 +33,7 @@ pub(all) enum BlendMode {
 
 ///|
 /// 传给 C 的枚举序（与 nu::BlendMode 数值直传的口径一致）。
-fn blend_mode_id(mode : BlendMode) -> Int {
+fn blend_mode_id(mode : BlendMode) -> Int32 {
   match mode {
     Normal => 0
     Multiply => 1

@@ -137,7 +137,9 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
           Show => show = Some(a)
           If => cond = Some(a)
           For =>
-            return Err("\{pos_str(pos)}：v-for 不在 v1 补丁边界（应用侧转 COLD）")
+            return Err(
+              "\{pos_str(pos)}：v-for 不在 v1 补丁边界（应用侧转 COLD）",
+            )
           Plain =>
             if a.name == "class" {
               for n in class_names_of(a.value) {
@@ -182,16 +184,14 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
                   "\{pos_str(a.pos)}：<\{tag}> 的参数 \{a.name} 不在 v1 补丁表（应用侧转 COLD）",
                 )
               }
-            Dyn => {
+            Dyn =>
               return Err(
                 "\{pos_str(a.pos)}：<\{tag}> 的动态参数 \{a.name} 不在 v1 补丁表（应用侧转 COLD）",
               )
-            }
-            Event | Model => {
+            Event | Model =>
               return Err(
                 "\{pos_str(a.pos)}：<\{tag}> 的事件/绑定不在 v1 补丁表（应用侧转 COLD）",
               )
-            }
             _ => ()
           }
         }
@@ -220,17 +220,15 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
         let mut found : Attr? = None
         for a in attrs {
           match a.kind {
-            Dyn | Plain =>
-              if a.name == "text" {
-                found = Some(a)
-              }
+            Dyn | Plain => if a.name == "text" { found = Some(a) }
             _ => ()
           }
         }
         match found {
           Some(a) =>
             match a.kind {
-              Dyn => IDynTextEl(bind_key("t", a.value.trim().to_owned()), classes)
+              Dyn =>
+                IDynTextEl(bind_key("t", a.value.trim().to_owned()), classes)
               _ => ITextEl(text_of_lit(a), classes)
             }
           None =>
@@ -243,7 +241,9 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
             } else if kids.length() == 0 {
               IText("")
             } else {
-              return Err("\{pos_str(pos)}：<ui-text> 的 text 混入子元素（v1 边界）")
+              return Err(
+                "\{pos_str(pos)}：<ui-text> 的 text 混入子元素（v1 边界）",
+              )
             }
         }
       } else {
@@ -262,20 +262,21 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
           match spec {
             "children" =>
               if kids.length() > 0 {
-                return Err("\{pos_str(pos)}：组件 <\{tag}> 的 children 不在 v1 补丁边界（应用侧转 COLD）")
+                return Err(
+                  "\{pos_str(pos)}：组件 <\{tag}> 的 children 不在 v1 补丁边界（应用侧转 COLD）",
+                )
               }
             "child" =>
               if kids.length() > 0 {
-                return Err("\{pos_str(pos)}：组件 <\{tag}> 的 child 不在 v1 补丁边界（应用侧转 COLD）")
+                return Err(
+                  "\{pos_str(pos)}：组件 <\{tag}> 的 child 不在 v1 补丁边界（应用侧转 COLD）",
+                )
               }
             "text" => {
               let mut found : Attr? = None
               for a in attrs {
                 match a.kind {
-                  Dyn | Plain =>
-                    if a.name == "text" {
-                      found = Some(a)
-                    }
+                  Dyn | Plain => if a.name == "text" { found = Some(a) }
                   _ => ()
                 }
               }
@@ -292,7 +293,9 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
                     }
                   }
                   if bad {
-                    return Err("\{pos_str(pos)}：<\{tag}> 的 text 混入子元素（v1 边界）")
+                    return Err(
+                      "\{pos_str(pos)}：<\{tag}> 的 text 混入子元素（v1 边界）",
+                    )
                   }
                   let raw = normalize_text(raw)
                   if has_interp(raw) {
@@ -309,7 +312,7 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
               for a in attrs {
                 match a.kind {
                   Dyn | Plain | Model =>
-                    if (a.name == spec) || (a.kind is Model && spec == "value") {
+                    if a.name == spec || (a.kind is Model && spec == "value") {
                       found = Some(a)
                     }
                   _ => ()
@@ -334,7 +337,7 @@ fn ir_of_node(node : TNode, out : Array[IrNode]) -> Result[Unit, String] {
                 )
               } else if args_has(args, a.name) {
                 ()
-              } else if (a.kind is Dyn) && !hot_comp_dyn_arg(tag, a.name) {
+              } else if a.kind is Dyn && !hot_comp_dyn_arg(tag, a.name) {
                 return Err(
                   "\{pos_str(a.pos)}：<\{tag}> 的动态参数 \{a.name} 不在 v1 补丁表（应用侧转 COLD）",
                 )
@@ -382,6 +385,7 @@ fn text_of_lit(a : Attr) -> String {
 }
 
 ///|
+
 ///|
 /// 手写定点的 double 解析（IR 里的字面量数字；格式在 ir_val_of 已验证）。
 fn parse_double(s : String) -> Double {
@@ -424,7 +428,9 @@ fn resolve_comp(tag : String, pos : Pos) -> Result[CompDecl, String] {
     }
   } else {
     // let 绑定组件在补丁里按黑盒处理（v1 不跨补丁重建自定义组件）
-    Err("\{pos_str(pos)}：自定义组件 <\{tag}> 不在 v1 补丁边界（应用侧转 COLD）")
+    Err(
+      "\{pos_str(pos)}：自定义组件 <\{tag}> 不在 v1 补丁边界（应用侧转 COLD）",
+    )
   }
 }
 
@@ -432,7 +438,8 @@ fn resolve_comp(tag : String, pos : Pos) -> Result[CompDecl, String] {
 /// applier v1 表内的通用组件（col/row/text 另走专用分支）。
 fn hot_comp_tag(tag : String) -> Bool {
   match tag {
-    "ui-button" | "ui-checkbox" | "ui-switch" | "ui-stepper" | "ui-input" => true
+    "ui-button" | "ui-checkbox" | "ui-switch" | "ui-stepper" | "ui-input" =>
+      true
     _ => false
   }
 }
@@ -517,7 +524,9 @@ fn ir_seq(nodes : Array[TNode], out : Array[IrNode]) -> Result[Unit, String] {
           match a.kind {
             Else => has_else = true
             ElseIf =>
-              return Err("\{pos_str(pos)}：v-else-if 链不在 v1 补丁边界（应用侧转 COLD）")
+              return Err(
+                "\{pos_str(pos)}：v-else-if 链不在 v1 补丁边界（应用侧转 COLD）",
+              )
             _ => ()
           }
         }
@@ -607,7 +616,9 @@ pub fn ir_of_with(
     Err(e) => return Err(e)
   }
   if sfc.roots.length() != 1 {
-    return Err("\{filename}：模板必须单根（v1），现 \{sfc.roots.length()} 个顶层节点")
+    return Err(
+      "\{filename}：模板必须单根（v1），现 \{sfc.roots.length()} 个顶层节点",
+    )
   }
   let seq : Array[IrNode] = []
   match ir_seq(sfc.roots, seq) {
@@ -643,10 +654,7 @@ pub fn ir_of_with(
           }
         }
         match click {
-          Some(h) =>
-            if !arr_contains(handlers, h) {
-              handlers.push(h)
-            }
+          Some(h) => if !arr_contains(handlers, h) { handlers.push(h) }
           None => ()
         }
       }
@@ -749,23 +757,28 @@ fn ir_node_json(nd : IrNode) -> String {
     IDynTextEl(k, cls) =>
       "{\"k\":\"dyn\",\"key\":\"" + jstr(k) + "\"" + ir_class_json(cls) + "}"
     IIf(c, t, f) =>
-      "{\"k\":\"if\",\"c\":\"" + jstr(c) + "\",\"t\":" + ir_node_json(t) +
-        ",\"f\":" + ir_node_json(f) + "}"
+      "{\"k\":\"if\",\"c\":\"" +
+      jstr(c) +
+      "\",\"t\":" +
+      ir_node_json(t) +
+      ",\"f\":" +
+      ir_node_json(f) +
+      "}"
     ICol(gap, kids, cls) =>
-      "{\"k\":\"col\",\"gap\":\{gap},\"kids\":[" + ir_kids_json(kids) + "]" +
-        ir_class_json(cls) +
-        "}"
+      "{\"k\":\"col\",\"gap\":\{gap},\"kids\":[" +
+      ir_kids_json(kids) +
+      "]" +
+      ir_class_json(cls) +
+      "}"
     IRow(gap, kids, cls) =>
-      "{\"k\":\"row\",\"gap\":\{gap},\"kids\":[" + ir_kids_json(kids) + "]" +
-        ir_class_json(cls) +
-        "}"
+      "{\"k\":\"row\",\"gap\":\{gap},\"kids\":[" +
+      ir_kids_json(kids) +
+      "]" +
+      ir_class_json(cls) +
+      "}"
     IComp(tag, args, click, cls) => {
       let parts : Array[String] = []
-      let short = if tag.has_prefix("ui-") {
-        tag[3:].to_owned()
-      } else {
-        tag
-      }
+      let short = if tag.has_prefix("ui-") { tag[3:].to_owned() } else { tag }
       parts.push("\"k\":\"" + jstr(short) + "\"")
       let aa : Array[String] = []
       for a in args {

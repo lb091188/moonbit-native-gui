@@ -78,19 +78,16 @@ test "原始事件翻译：键/按钮/移动/滚轮/未知" {
 
 ///|
 /// 一棵带输入法回调的小树：root > mid > field
-fn ime_tree(
-  log : Array[String],
-  commits : Bool,
-) -> (Widget, Widget, Widget) {
+fn ime_tree(log : Array[String], commits : Bool) -> (Widget, Widget, Widget) {
   let root = Widget::new()
   let mid = Widget::new()
   let field = Widget::new()
   root.append_child(mid)
   mid.append_child(field)
   field.focus_id = 5
-  field.im_context = Some(fn() -> (String, Int)? { Some(("已提交", 6)) })
+  field.im_context = Some(fn() -> (String, Int32)? { Some(("已提交", 6)) })
   field.im_cursor = Some(fn(_w : Widget) -> Rect? {
-    Some({ x: 12.0, y: 3.0, w: 1.0, h: 16.0 })
+    Some({ x: 12.0, y: 3.0, w: 1.0, h: 16.0, })
   })
   field.on_commit = Some(fn(t : String) -> Bool {
     log.push("field:" + t)
@@ -100,7 +97,7 @@ fn ime_tree(
     log.push("mid:" + t)
     true
   })
-  field.on_preedit = Some(fn(t : String, caret : Int) -> Unit {
+  field.on_preedit = Some(fn(t : String, caret : Int32) -> Unit {
     log.push("preedit:\{t}@\{caret}")
   })
   (root, mid, field)

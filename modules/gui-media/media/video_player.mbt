@@ -13,8 +13,8 @@
 /// 预乘与非预乘在不透明像素上同值，所以只需换 R/B。
 pub fn rgba_to_bitmap(
   rgba : Bytes,
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
 ) -> @render.Bitmap {
   let bm = @render.Bitmap::new(width, height)
   let n = width * height * 4
@@ -40,52 +40,54 @@ pub fn rgba_to_bitmap(
 /// 经 `on_error` 交出去（探测 + 降级不静默）。
 pub fn video(
   path : String,
-  subtitle? : String = "",
-  width? : Double = 640.0,
-  height? : Double = 360.0,
-  auto_play? : Bool = false,
-  looping? : Bool = false,
+  subtitle~ : String = "",
+  width~ : Double = 640.0,
+  height~ : Double = 360.0,
+  auto_play~ : Bool = false,
+  looping~ : Bool = false,
   /// 画面底部画不画实时频谱条（带音轨的素材才有电平；关掉就是纯画面）。
-  spectrum? : Bool = false,
+  spectrum~ : Bool = false,
   /// 歌词：**已读好的 LRC 文本**（外部文件的读取归调用方）。有字幕同屏时
   /// 歌词行让到字幕上方；来源行数经 `on_lyric` 给出（空=没配上）。
-  lyric? : String = "",
+  lyric~ : String = "",
   /// 每 tick 的观测口（位置秒 / 已解码帧数 / 是否在播）：示例与测试靠它证明
   /// 「帧在推进、时钟在走」，而不是一张贴图。
-  on_tick? : (Double, Int, Bool) -> Unit = fn(
+  on_tick~ : (Double, Int32, Bool) -> Unit = fn(
     _t : Double,
-    _frames : Int,
+    _frames : Int32,
     _playing : Bool,
-  ) -> Unit { () },
+  ) -> Unit {
+    ()
+  },
   /// 倍速档位变化的观测口（控制条点倍速键时回调）：调用方要把它显示到
   /// 界面或写进回证时不必去猜引擎状态。
-  on_speed? : (Double) -> Unit = fn(_v : Double) -> Unit { () },
+  on_speed~ : (Double) -> Unit = fn(_v : Double) -> Unit { () },
   /// 字幕来源的观测口（条数 + 是否来自内嵌轨），打开时回调一次：外部文本与
   /// 内嵌轨在界面上是同一排字，调用方要区分得从这里取，而不是猜文件旁边有没有 .srt。
-  on_subtitle? : (Int, Bool) -> Unit = fn(_n : Int, _embedded : Bool) -> Unit {
+  on_subtitle~ : (Int32, Bool) -> Unit = fn(
+    _n : Int32,
+    _embedded : Bool,
+  ) -> Unit {
     ()
   },
   /// 歌词来源的观测口（行数），打开时回调一次：调用方要区分「没配上歌词」
   /// 与「配上了但还没唱」，不必去猜引擎状态。
-  on_lyric? : (Int) -> Unit = fn(_n : Int) -> Unit { () },
-  on_error? : (String) -> Unit = fn(_s : String) -> Unit { () },
-  handle? : (@widget.Widget) -> Unit = fn(_w : @widget.Widget) -> Unit { () },
+  on_lyric~ : (Int32) -> Unit = fn(_n : Int32) -> Unit { () },
+  on_error~ : (String) -> Unit = fn(_s : String) -> Unit { () },
+  handle~ : (@widget.Widget) -> Unit = fn(_w : @widget.Widget) -> Unit { () },
 ) -> @widget.Node {
   let sp = Spectrum::make()
   let engine = match VideoPlayer::make(path, looping~) {
     Ok(p) => p
     Err(e) => {
       on_error(e)
-      return media_error_board(
-        "打不开媒体：" + e,
-        width,
-        height,
-        handle,
-      )
+      return media_error_board("打不开媒体：" + e, width, height, handle)
     }
   }
   if spectrum {
-    engine.set_pcm_tap(Some(fn(b : Bytes, ch : Int) -> Unit { sp.feed(b, ch) }))
+    engine.set_pcm_tap(
+      Some(fn(b : Bytes, ch : Int32) -> Unit { sp.feed(b, ch) }),
+    )
   }
   // 字幕两条来源：调用方给的外部文本优先（那是明确意图）；没给才试容器的内嵌轨。
   // 内嵌轨只在打开时整条读一次（字幕稀疏，一次读完比逐帧查解码器便宜，也不碰主
@@ -93,31 +95,30 @@ pub fn video(
   // 交出去——「这条片没字幕」与「字幕轨解不开」不能混成同一个空表。
   let none_cue : Array[Cue] = []
   let from_embedded = subtitle.length() == 0
-  let cues =
-    if !from_embedded {
-      subtitle_parse(subtitle)
-    } else {
-      match @ffmbt.subtitle_cues(path) {
-        Ok(list) => subtitle_from_embedded(list)
-        Err(e) => {
-          on_error("内嵌字幕读取失败：" + e.to_string())
-          none_cue
-        }
+  let cues = if !from_embedded {
+    subtitle_parse(subtitle)
+  } else {
+    match @ffmbt.subtitle_cues(path) {
+      Ok(list) => subtitle_from_embedded(list)
+      Err(e) => {
+        on_error("内嵌字幕读取失败：" + e.to_string())
+        none_cue
       }
     }
+  }
   on_subtitle(cues.length(), from_embedded && cues.length() > 0)
   let lrc = lrc_parse(lyric)
   on_lyric(lrc.cues.length())
-  let frame_no : Ref[Int] = Ref(-1)
+  let frame_no : Ref[Int32] = Ref(-1)
   let image : Ref[@render.Image?] = Ref(None)
   let dragging : Ref[Bool] = Ref(false)
-  let speed_i : Ref[Int] = Ref(0)
+  let speed_i : Ref[Int32] = Ref(0)
   // 按钮行是**真控件**，档位/态变了要重挂，所以读数走 Store（`Store::set` 等值
   // 不重发，每 tick 刷一次不产生重建）
   let playing : @base.Store[Bool] = @base.Store::new(false)
   let speed_st : @base.Store[Double] = @base.Store::new(1.0)
   let full_st : @base.Store[Bool] = @base.Store::new(false)
-  let zoom_st : @base.Store[Int] = @base.Store::new(0)
+  let zoom_st : @base.Store[Int32] = @base.Store::new(0)
   let muted : @base.Store[Bool] = @base.Store::new(false)
   let looping_st : @base.Store[Bool] = @base.Store::new(looping)
   let last_vol : Ref[Double] = Ref(engine.get_volume())
@@ -125,7 +126,7 @@ pub fn video(
   let bar_vis : @base.Store[Bool] = @base.Store::new(true)
   let cursor_hide : @base.Store[Bool] = @base.Store::new(false)
   let pointer_on_stage : Ref[Bool] = Ref(false)
-  let idle : Ref[Int] = Ref(0)
+  let idle : Ref[Int32] = Ref(0)
   fn activity() -> Unit {
     idle.val = 0
     if !bar_vis.get() {
@@ -148,7 +149,7 @@ pub fn video(
     playing.set(engine.is_playing())
     @widget.invalidate()
   }
-  fn step_by(n : Int) -> Unit {
+  fn step_by(n : Int32) -> Unit {
     // 逐帧：引擎自己先暂停再解到落点，组件不碰时钟
     engine.step(n)
     playing.set(engine.is_playing())
@@ -183,7 +184,11 @@ pub fn video(
     @widget.invalidate()
   }
   fn toggle_mute() -> Unit {
-    let (m, v, lv) = bar_mute_toggle(muted.get(), engine.get_volume(), last_vol.val)
+    let (m, v, lv) = bar_mute_toggle(
+      muted.get(),
+      engine.get_volume(),
+      last_vol.val,
+    )
     muted.set(m)
     engine.set_volume(v)
     last_vol.val = lv
@@ -216,7 +221,11 @@ pub fn video(
         let no = engine.frames_decoded()
         if no != frame_no.val {
           frame_no.val = no
-          let bm = rgba_to_bitmap(rgba, engine.frame_width(), engine.frame_height())
+          let bm = rgba_to_bitmap(
+            rgba,
+            engine.frame_width(),
+            engine.frame_height(),
+          )
           image.val = Some(@render.Image::from_bitmap(bm))
         }
         match image.val {
@@ -243,12 +252,7 @@ pub fn video(
         let h = lv[b] * (r.h - 6.0) * 0.35
         if h > 0.5 {
           p.set_fill_color(@theme.theme_primary())
-          p.fill_rect(
-            b.to_double() * slot + (slot - bw) / 2.0,
-            r.h - h,
-            bw,
-            h,
-          )
+          p.fill_rect(b.to_double() * slot + (slot - bw) / 2.0, r.h - h, bw, h)
         }
       }
     }
@@ -301,7 +305,7 @@ pub fn video(
   ) -> Unit {
     toggle_full()
   })
-  screen.cursor_fn = Some(fn(_w : @widget.Widget) -> Int {
+  screen.cursor_fn = Some(fn(_w : @widget.Widget) -> Int32 {
     if cursor_hide.get() {
       @widget.CURSOR_HIDDEN
     } else {
@@ -318,10 +322,11 @@ pub fn video(
     },
     dragging,
   )
-  let volume = player_volume(
-    fn() -> Double { engine.get_volume() },
-    fn(v : Double) -> Unit { apply_vol(v) },
-  )
+  let volume = player_volume(fn() -> Double { engine.get_volume() }, fn(
+    v : Double,
+  ) -> Unit {
+    apply_vol(v)
+  })
   let root = @widget.Widget::new()
   root.node.set_flex_direction(@yoga.Column)
   root.node.set_width(@yoga.fixed(width))

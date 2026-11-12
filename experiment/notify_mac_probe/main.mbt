@@ -11,6 +11,8 @@
 //   NATIVEGUI_NOTIFY_LOG=/tmp/ngui-probe.log open _build/apps/NotifyMacProbe.app
 // 期望：窗口在前台时点 open 起来 → 两条都弹横幅（探针 J 档已证 UN 路径本身
 // 是通的）；不弹则 MoonBit 栈与纯 ObjC 探针存在真实差异，读数即证据。
+
+///|
 fn main {
   let host = match @widget.WindowHost::new(280, 120, "通知栈探针") {
     Some(a) => a
@@ -35,9 +37,13 @@ fn main {
   // 2 秒后发:此刻正处于忙循环中,模拟 showcase 点按钮时的主循环形态
   let _ = host.timer(2000, fn() {
     println("NOTIFY-MAC-PROBE sending kind=0 (busy)")
-    let id0 = @win.notify_send(0, "栈探针 忙循环", "忙循环中发的 kind=2(带声)", 2)
+    let id0 = @win.notify_send(
+      0, "栈探针 忙循环", "忙循环中发的 kind=2(带声)", 2,
+    )
     println("NOTIFY-MAC-PROBE sent kind=0 id=\{id0}")
-    let id2 = @win.notify_send(0, "栈探针 忙循环2", "第二条 kind=2(带声)", 2)
+    let id2 = @win.notify_send(
+      0, "栈探针 忙循环2", "第二条 kind=2(带声)", 2,
+    )
     println("NOTIFY-MAC-PROBE sent kind=2 id=\{id2}")
   })
   // 停忙,让主循环回到空闲长等待,看迟到的 delegate 会不会补进来

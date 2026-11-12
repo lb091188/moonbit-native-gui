@@ -17,8 +17,9 @@ struct Mounted {
 ///|
 /// 本层入口载体的构造钩子：`(路由, 层号, 父路径, 候选)` → 一个节点。段条、侧栏、
 /// 面包屑都走这一个口子（见 `nav.mbt`）；不给就没有入口，分支只挂它的子槽。
-pub type SlotBar = (Router, Int, String, Array[Route]) -> @widget.Node
+pub type SlotBar = (Router, Int32, String, Array[Route]) -> @widget.Node
 
+///|
 fn evict_of(r : Route, default_ : EvictPolicy) -> EvictPolicy {
   match r.evict {
     Some(p) => p
@@ -28,7 +29,7 @@ fn evict_of(r : Route, default_ : EvictPolicy) -> EvictPolicy {
 
 ///|
 /// `Lru(n)` 的窗口大小；`Keep` 不参与淘汰，给 None。`n` 不足 1 按 1 算。
-fn EvictPolicy::lru_cap(self : EvictPolicy) -> Int? {
+fn EvictPolicy::lru_cap(self : EvictPolicy) -> Int32? {
   match self {
     Keep => None
     Lru(n) => Some(if n < 1 { 1 } else { n })
@@ -41,7 +42,7 @@ fn under_level(prefix : String, path : String) -> Bool {
   let rest = if prefix == "" {
     path
   } else if path.has_prefix(prefix + "/") {
-    path[(prefix.length() + 1):].to_owned()
+    path[prefix.length() + 1:].to_owned()
   } else {
     ""
   }
@@ -85,9 +86,9 @@ fn Router::mount_into_holder(
   make_content : () -> @widget.Node,
 ) -> Unit {
   @base.sub_bag_begin()
-  let w = (make_content()).mount_into(holder)
+  let w = make_content().mount_into(holder)
   let offs = @base.sub_bag_end()
-  let _ = self.mounted.set(path, { holder, widget: w, offs })
+  let _ = self.mounted.set(path, { holder, widget: w, offs, })
   self.mount_order.val.push(path)
   holder.set_visible(true)
   @widget.invalidate()
@@ -129,7 +130,7 @@ fn Router::unmount(self : Router, path : String) -> Unit {
 /// 重新构造上，不需要在同一个槽里换候选表。
 pub fn Router::slot(
   self : Router,
-  depth : Int,
+  depth : Int32,
   prefix : String,
   candidates : Array[Route],
   bar_of : SlotBar?,
@@ -138,13 +139,15 @@ pub fn Router::slot(
   let cols : Array[@widget.Node] = []
   for r in candidates {
     let key = r.key
-    cols.push(@ui.col([], grow=1.0, handle=fn(w : @widget.Widget) -> Unit {
-      let _ = holders.set(key, w)
-    }))
+    cols.push(
+      @ui.col([], grow=1.0, handle=fn(w : @widget.Widget) -> Unit {
+        let _ = holders.set(key, w)
+      }),
+    )
   }
   // 这一层里某个候选的淘汰窗口（Keep 给 None）
-  fn cap_at(key : String) -> Int? {
-    let mut out : Int? = None
+  fn cap_at(key : String) -> Int32? {
+    let mut out : Int32? = None
     for r in candidates {
       if r.key == key {
         out = evict_of(r, self.default_evict).lru_cap()
@@ -156,7 +159,11 @@ pub fn Router::slot(
   fn trim(fresh : String) -> Unit {
     let lru : Array[String] = []
     for k in self.mounted_at(prefix) {
-      let key = if prefix == "" { k } else { k[(prefix.length() + 1):].to_owned() }
+      let key = if prefix == "" {
+        k
+      } else {
+        k[prefix.length() + 1:].to_owned()
+      }
       if cap_at(key) is Some(_) {
         lru.push(k)
       }
@@ -164,11 +171,13 @@ pub fn Router::slot(
     let cnt = lru.length()
     let mut need = 0
     for k in lru {
-      let key = if prefix == "" { k } else { k[(prefix.length() + 1):].to_owned() }
+      let key = if prefix == "" {
+        k
+      } else {
+        k[prefix.length() + 1:].to_owned()
+      }
       match cap_at(key) {
-        Some(c) => if cnt - c > need {
-          need = cnt - c
-        }
+        Some(c) => if cnt - c > need { need = cnt - c }
         None => ()
       }
     }
@@ -208,7 +217,9 @@ pub fn Router::slot(
           let here = join_path(prefix, r.key)
           if on && !self.is_mounted(here) {
             let rr = r
-            self.mount_into_holder(here, h, fn() -> @widget.Node { content_of(rr, here) })
+            self.mount_into_holder(here, h, fn() -> @widget.Node {
+              content_of(rr, here)
+            })
             trim(here)
           }
           h.set_visible(on)
@@ -216,22 +227,16 @@ pub fn Router::slot(
       }
     }
   }
-  @ui.col(
-    cols,
-    grow=1.0,
-    handle=fn(_w : @widget.Widget) -> Unit {
-      let reset_all : () -> Unit = fn() -> Unit {
-        for k in self.mounted_at(prefix) {
-          self.unmount(k)
-        }
+  @ui.col(cols, grow=1.0, handle=fn(_w : @widget.Widget) -> Unit {
+    let reset_all : () -> Unit = fn() -> Unit {
+      for k in self.mounted_at(prefix) {
+        self.unmount(k)
       }
-      let _ = self.slot_resets.set(prefix, reset_all)
-      apply(self.levels[depth].get())
-      self.levels[depth].subscribe(fn(k : String) -> Unit {
-        apply(k)
-      })
-    },
-  )
+    }
+    let _ = self.slot_resets.set(prefix, reset_all)
+    apply(self.levels[depth].get())
+    self.levels[depth].subscribe(fn(k : String) -> Unit { apply(k) })
+  })
 }
 
 ///|

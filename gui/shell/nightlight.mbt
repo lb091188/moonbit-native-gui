@@ -49,7 +49,12 @@ pub const NL_KDE6_PATH : String = "/org/kde/KWin/NightLight"
 /// 总线上时写键也落得下去（DE 起来才生效）——不拿「服务在不在」当门槛，
 /// 只保证「写得进」。
 pub fn nl_gnome_available() -> Bool {
-  match @sys.pr_run("gsettings", ["get", NL_GNOME_SCHEMA, NL_GNOME_KEY_TEMP], timeout_ms=3000) {
+  match
+    @sys.pr_run(
+      "gsettings",
+      ["get", NL_GNOME_SCHEMA, NL_GNOME_KEY_TEMP],
+      timeout_ms=3000,
+    ) {
     Ok(_) => true
     Err(_) => false
   }
@@ -57,7 +62,7 @@ pub fn nl_gnome_available() -> Bool {
 
 ///|
 /// GNOME 档设色温：enabled=true + temperature=K（K 口径同 @sys redshift）。
-pub fn nl_gnome_set(percent : Int) -> Result[Unit, @sys.NightlightError] {
+pub fn nl_gnome_set(percent : Int32) -> Result[Unit, @sys.NightlightError] {
   let k = @sys.nl_kelvin(percent)
   match nl_gnome_write_bool(true) {
     Err(m) => return Err(@sys.NightlightError::CommandFailed(m))
@@ -81,16 +86,33 @@ pub fn nl_gnome_reset() -> Result[Unit, @sys.NightlightError] {
 ///|
 fn nl_gnome_write_bool(v : Bool) -> Result[Unit, String] {
   match
-    @sys.pr_run("gsettings", ["set", NL_GNOME_SCHEMA, NL_GNOME_KEY_ENABLED, if v { "true" } else { "false" }], timeout_ms=3000) {
+    @sys.pr_run(
+      "gsettings",
+      [
+        "set",
+        NL_GNOME_SCHEMA,
+        NL_GNOME_KEY_ENABLED,
+        if v {
+          "true"
+        } else {
+          "false"
+        },
+      ],
+      timeout_ms=3000,
+    ) {
     Ok(_) => Ok(())
     Err(e) => Err("gsettings 写 \{NL_GNOME_KEY_ENABLED} 失败: \{e}")
   }
 }
 
 ///|
-fn nl_gnome_write_uint(v : Int) -> Result[Unit, String] {
+fn nl_gnome_write_uint(v : Int32) -> Result[Unit, String] {
   match
-    @sys.pr_run("gsettings", ["set", NL_GNOME_SCHEMA, NL_GNOME_KEY_TEMP, "\{v}"], timeout_ms=3000) {
+    @sys.pr_run(
+      "gsettings",
+      ["set", NL_GNOME_SCHEMA, NL_GNOME_KEY_TEMP, "\{v}"],
+      timeout_ms=3000,
+    ) {
     Ok(_) => Ok(())
     Err(e) => Err("gsettings 写 \{NL_GNOME_KEY_TEMP} 失败: \{e}")
   }
@@ -99,7 +121,7 @@ fn nl_gnome_write_uint(v : Int) -> Result[Unit, String] {
 ///|
 /// KDE 夜灯读数（Plasma 5 ColorCorrect）：当前色温 K + 是否在跑。接口不在
 /// （Plasma 6 会话/非 KDE）给 None。
-pub fn nl_kde_state() -> (Int, Bool)? {
+pub fn nl_kde_state() -> (Int32, Bool)? {
   match
     @dbus.gdbus_call_session(
       NL_KDE5_DEST,
@@ -128,7 +150,7 @@ pub fn nl_kde_state() -> (Int, Bool)? {
 /// KDE 档写色温：**当前一律 Unsupported**——Plasma 5.27 的 ColorCorrect 属性
 /// 全 read-only（实物 introspection 核过，5.x 没有公开写入口）；Plasma 6 的
 /// NightLight 写入口径未核（S6 真机定）。不拿「读得到」装「写得进」。
-pub fn nl_kde_set(_percent : Int) -> Result[Unit, @sys.NightlightError] {
+pub fn nl_kde_set(_percent : Int32) -> Result[Unit, @sys.NightlightError] {
   Err(@sys.NightlightError::Unsupported)
 }
 
@@ -142,7 +164,7 @@ pub fn nl_kde_reset() -> Result[Unit, @sys.NightlightError] {
 /// Wayland 档设色温（集成门面）：GNOME 可写走 GNOME；KDE 会话如实报不
 /// 支持（读得到写不进）；都不是给 Unsupported。X11 会话不走这里——
 /// 调用方用 `@sys.nl_set_temperature`（redshift/xrandr 通道）。
-pub fn wayland_nl_set(percent : Int) -> Result[Unit, @sys.NightlightError] {
+pub fn wayland_nl_set(percent : Int32) -> Result[Unit, @sys.NightlightError] {
   if nl_gnome_available() {
     return nl_gnome_set(percent)
   }

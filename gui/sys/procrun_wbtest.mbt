@@ -48,7 +48,11 @@ fn pr_sh(script : String) -> (String, Array[String]) {
 ///|
 /// 命令输出的行尾：cmd 系给 \r\n，POSIX 给 \n。
 fn pr_eol() -> String {
-  if sys_platform() == "windows" { "\r\n" } else { "\n" }
+  if sys_platform() == "windows" {
+    "\r\n"
+  } else {
+    "\n"
+  }
 }
 
 ///|
@@ -90,12 +94,11 @@ test "pr_run:多参数按序传入" {
   }
   // POSIX 侧保留「argv 逐个传」的原形（echo a b c），Windows 侧走 cmd 的
   // 单串脚本——两边走的都是「参数按序拼进命令行」这条实现
-  let (cmd, args) =
-    if sys_platform() == "windows" {
-      pr_sh("echo a b c")
-    } else {
-      ("echo", ["a", "b", "c"])
-    }
+  let (cmd, args) = if sys_platform() == "windows" {
+    pr_sh("echo a b c")
+  } else {
+    ("echo", ["a", "b", "c"])
+  }
   match pr_run(cmd, args) {
     Ok(o) => assert_eq(o.stdout, "a b c\{pr_eol()}")
     Err(e) => {
@@ -110,10 +113,11 @@ test "pr_run:退出码 0 且无输出" {
   if !pr_skip_guard() {
     return
   }
-  let (cmd, args) =
-    if sys_platform() == "windows" { ("cmd", ["/c", "exit", "0"]) } else {
-      ("true", [])
-    }
+  let (cmd, args) = if sys_platform() == "windows" {
+    ("cmd", ["/c", "exit", "0"])
+  } else {
+    ("true", [])
+  }
   match pr_run(cmd, args) {
     Ok(o) => {
       assert_eq(o.exit_code, 0)
@@ -226,12 +230,11 @@ test "pr_run:超时真测（睡 5 秒配 100ms 预算）" {
   if !pr_skip_guard() {
     return
   }
-  let (cmd, args) =
-    if sys_platform() == "windows" {
-      ("cmd", ["/c", "ping -n 6 127.0.0.1 >nul"])
-    } else {
-      ("sleep", ["5"])
-    }
+  let (cmd, args) = if sys_platform() == "windows" {
+    ("cmd", ["/c", "ping -n 6 127.0.0.1 >nul"])
+  } else {
+    ("sleep", ["5"])
+  }
   let t0 = @env.now()
   let ans = pr_run(cmd, args, timeout_ms=100)
   let spent = @env.now() - t0
@@ -263,28 +266,25 @@ test "pr_run:被信号终止（子进程自发 TERM，只读）" {
 test "pr_locale_vars：字符集随会话、消息固定英文，不再设 LC_ALL" {
   // LC_ALL 会连字符集一起钉成 ASCII——真机 Cinnamon 的中文壁纸路径因此就地
   // 变问号。解析只依赖英文文案，那是 LC_MESSAGES 一件事。
-  assert_eq(
-    pr_locale_vars(None, None),
-    [("LC_CTYPE", "C.UTF-8"), ("LC_MESSAGES", "C")],
-  )
+  assert_eq(pr_locale_vars(None, None), [
+    ("LC_CTYPE", "C.UTF-8"),
+    ("LC_MESSAGES", "C"),
+  ])
   // LC_CTYPE 优先于 LANG；C/POSIX/空串都算「没挑到」，退到下一个来源
-  assert_eq(
-    pr_locale_vars(Some("C"), Some("zh_CN.UTF-8")),
-    [("LC_CTYPE", "zh_CN.UTF-8"), ("LC_MESSAGES", "C")],
-  )
-  assert_eq(
-    pr_locale_vars(Some("zh_CN.UTF-8"), Some("en_US.UTF-8")),
-    [("LC_CTYPE", "zh_CN.UTF-8"), ("LC_MESSAGES", "C")],
-  )
-  assert_eq(
-    pr_locale_vars(Some("POSIX"), Some("  ")),
-    [("LC_CTYPE", "C.UTF-8"), ("LC_MESSAGES", "C")],
-  )
+  assert_eq(pr_locale_vars(Some("C"), Some("zh_CN.UTF-8")), [
+    ("LC_CTYPE", "zh_CN.UTF-8"),
+    ("LC_MESSAGES", "C"),
+  ])
+  assert_eq(pr_locale_vars(Some("zh_CN.UTF-8"), Some("en_US.UTF-8")), [
+    ("LC_CTYPE", "zh_CN.UTF-8"),
+    ("LC_MESSAGES", "C"),
+  ])
+  assert_eq(pr_locale_vars(Some("POSIX"), Some("  ")), [
+    ("LC_CTYPE", "C.UTF-8"),
+    ("LC_MESSAGES", "C"),
+  ])
   // 别名大小写与点号写法原样透传（glibc 认 C.utf8）
-  assert_eq(
-    pr_locale_vars(Some("C.utf8"), None)[0],
-    ("LC_CTYPE", "C.utf8"),
-  )
+  assert_eq(pr_locale_vars(Some("C.utf8"), None)[0], ("LC_CTYPE", "C.utf8"))
   // 表里不许再出现 LC_ALL
   for (k, _) in pr_locale_vars(Some("zh_CN.UTF-8"), None) {
     assert_false(k == "LC_ALL")
@@ -298,15 +298,13 @@ test "pr_run:子进程 locale 对（消息英文、字符集非 ASCII、LC_ALL �
   if !pr_posix_guard() {
     return
   }
-  match pr_run(
-    "sh",
-    [
-      "-c",
-      "printf '%s|%s|%s' \"$LC_MESSAGES\" \"$LC_CTYPE\" \"$LC_ALL\"",
-    ],
-  ) {
+  match
+    pr_run("sh", [
+      "-c", "printf '%s|%s|%s' \"$LC_MESSAGES\" \"$LC_CTYPE\" \"$LC_ALL\"",
+    ]) {
     Ok(o) => {
-      let parts : Array[String] = o.stdout.split("|")
+      let parts : Array[String] = o.stdout
+        .split("|")
         .map(fn(v : StringView) -> String { v.to_owned() })
         .collect()
       assert_eq(parts.length(), 3)
@@ -333,15 +331,12 @@ test "pr_run:子进程字符集＝会话字符集（中文路径不被转成问�
   if !pr_posix_guard() {
     return
   }
-  let parent_utf8 = pr_pick_ctype(
-    sys_getenv("LC_CTYPE"),
-    sys_getenv("LANG"),
-  ) is Some(_)
+  let parent_utf8 = pr_pick_ctype(sys_getenv("LC_CTYPE"), sys_getenv("LANG"))
+    is Some(_)
   match pr_run("locale", ["charmap"], timeout_ms=2000) {
     Ok(o) => {
       let cs = o.stdout.trim(chars=" \t\n\r").to_owned()
-      let ascii =
-        cs == "US-ASCII" || cs == "ANSI_X3.4-1968" || cs == "ASCII"
+      let ascii = cs == "US-ASCII" || cs == "ANSI_X3.4-1968" || cs == "ASCII"
       if ascii && !parent_utf8 {
         println(
           "skip: 会话本身没有 UTF-8 locale（父 LANG/LC_CTYPE 未设），子进程无从跟随",

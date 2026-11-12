@@ -80,7 +80,7 @@ pub fn permission_supported() -> Bool {
 ///|
 /// 探测一项权限的当前状态。
 pub fn permission_probe(
-  kind : PermissionKind
+  kind : PermissionKind,
 ) -> Result[PermissionStatus, PermissionError] {
   if sys_platform() != "macos" {
     return Ok(PermNotNeeded)
@@ -105,7 +105,9 @@ pub fn permission_probe(
 /// 请求一项权限：弹系统自带引导框（辅助功能是「打开系统设置」对话框，
 /// 屏幕录制同）。**不阻塞等待授权结果**——用户跳走设置再回来需要时间，
 /// 引导弹出后由调用方在合适时机重新 [permission_probe]。
-pub fn permission_request(kind : PermissionKind) -> Result[Unit, PermissionError] {
+pub fn permission_request(
+  kind : PermissionKind,
+) -> Result[Unit, PermissionError] {
   if sys_platform() != "macos" {
     return Ok(())
   }
@@ -135,7 +137,7 @@ pub fn permission_ensure(kind : PermissionKind) -> Bool {
 
 ///|
 #borrow(ok)
-extern "c" fn ffi_permission_probe(kind : Int, ok : Ref[Int]) -> Int = "wm_permission_probe"
+extern "c" fn ffi_permission_probe(kind : Int32, ok : Ref[Int32]) -> Int32 = "wm_permission_probe"
 
 ///|
-extern "c" fn ffi_permission_request(kind : Int) -> Unit = "wm_permission_request"
+extern "c" fn ffi_permission_request(kind : Int32) -> Unit = "wm_permission_request"

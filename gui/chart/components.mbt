@@ -10,12 +10,12 @@
 /// 手动指定；横向网格 + 左侧刻度；`area=true` 半透明填充；`show_last` 右端标最新值。
 pub fn line_chart_t(
   series : @base.Store[Array[LineSeries]],
-  area? : Bool = false,
-  y_range? : (Double, Double)? = None,
-  show_last? : Bool = true,
-  width? : Double = 0.0,
-  height? : Double = 200.0,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  area~ : Bool = false,
+  y_range~ : (Double, Double)? = None,
+  show_last~ : Bool = true,
+  width~ : Double = 0.0,
+  height~ : Double = 200.0,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.follow_store(series)
   let fill = area
@@ -54,18 +54,18 @@ pub fn line_chart_t(
 /// 描边并在行内标数值（自绘，无弹层）。
 pub fn bar_chart_t(
   data : @base.Store[Array[BarItem]],
-  horizontal? : Bool = false,
-  y_range? : (Double, Double)? = None,
-  width? : Double = 0.0,
-  height? : Double = 200.0,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  horizontal~ : Bool = false,
+  y_range~ : (Double, Double)? = None,
+  width~ : Double = 0.0,
+  height~ : Double = 200.0,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.follow_store(data)
   let horiz = horizontal
   let yr = y_range
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     @ui.watch_theme()
-    let hover : Ref[Int] = Ref(-1)
+    let hover : Ref[Int32] = Ref(-1)
     w.node.set_height(@yoga.fixed(height))
     if width > 0.0 {
       w.node.set_width(@yoga.fixed(width))
@@ -93,7 +93,14 @@ pub fn bar_chart_t(
     ) -> Bool {
       match ev.kind {
         @widget.PointerKind::Move => {
-          let h = bar_hit(horiz, data.get().length(), self.rect.w, self.rect.h, ev.x, ev.y)
+          let h = bar_hit(
+            horiz,
+            data.get().length(),
+            self.rect.w,
+            self.rect.h,
+            ev.x,
+            ev.y,
+          )
           if h != hover.val {
             hover.val = h
             @widget.invalidate()
@@ -119,18 +126,18 @@ pub fn bar_chart_t(
 /// 环形图：占比扇区 + 中心汇总（`center` 传空用总和）+ 右侧图例；悬停扇区外扩。
 pub fn donut_chart_t(
   data : @base.Store[Array[DonutSlice]],
-  thickness? : Double = 26.0,
-  center? : String = "",
-  width? : Double = 0.0,
-  height? : Double = 180.0,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  thickness~ : Double = 26.0,
+  center~ : String = "",
+  width~ : Double = 0.0,
+  height~ : Double = 180.0,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.follow_store(data)
   let thick = thickness
   let mid = center
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     @ui.watch_theme()
-    let hover : Ref[Int] = Ref(-1)
+    let hover : Ref[Int32] = Ref(-1)
     w.node.set_height(@yoga.fixed(height))
     if width > 0.0 {
       w.node.set_width(@yoga.fixed(width))
@@ -184,7 +191,12 @@ pub fn donut_chart_t(
 ///|
 /// 环形图命中：返回指针下的扇区索引（中心孔、圆外、无数据都给 -1）。
 /// 几何与 `draw_donut` 同源：直径 `h-16`、圆心 `(8+d/2, h/2)`、外扩只影响绘制。
-pub fn donut_hit(h : Double, data : Array[DonutSlice], px : Double, py : Double) -> Int {
+pub fn donut_hit(
+  h : Double,
+  data : Array[DonutSlice],
+  px : Double,
+  py : Double,
+) -> Int32 {
   let n = data.length()
   if n == 0 {
     return -1
@@ -227,11 +239,11 @@ pub fn donut_hit(h : Double, data : Array[DonutSlice], px : Double, py : Double)
 /// （非动画帧驱动），`smooth=false` 时直接跳到位。
 pub fn gauge_t(
   value : @base.Store[Double],
-  thresholds? : Array[(Double, String)] = [],
-  width? : Double = 220.0,
-  height? : Double = 180.0,
-  smooth? : Bool = true,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  thresholds~ : Array[(Double, String)] = [],
+  width~ : Double = 220.0,
+  height~ : Double = 180.0,
+  smooth~ : Bool = true,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.follow_store(value)
   let bands = thresholds
@@ -239,7 +251,7 @@ pub fn gauge_t(
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     @ui.watch_theme()
     let disp : Ref[Double] = Ref(value.get().clamp(min=0.0, max=1.0))
-    let timer : Ref[Int] = Ref(0)
+    let timer : Ref[Int32] = Ref(0)
     let step : Ref[() -> Unit] = Ref(fn() { () })
     step.val = fn() -> Unit {
       timer.val = 0
@@ -290,11 +302,11 @@ pub fn gauge_t(
 /// `dot` 是点直径（像素）：千点级要按「点面积 × 点数 ≤ 绘制区面积」取值，默认 3.0。
 pub fn scatter_t(
   points : @base.Store[Array[(Double, Double)]],
-  trend? : Bool = false,
-  dot? : Double = 3.0,
-  width? : Double = 0.0,
-  height? : Double = 200.0,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  trend~ : Bool = false,
+  dot~ : Double = 3.0,
+  width~ : Double = 0.0,
+  height~ : Double = 200.0,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.follow_store(points)
   let line = trend

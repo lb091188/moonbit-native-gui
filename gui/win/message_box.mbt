@@ -32,7 +32,7 @@ pub(all) enum MessageBoxButtons {
 
 ///|
 /// 图标位：`MB_ICON*`。None → 0（系统给默认）。
-fn message_box_icon_bits(kind : MessageBoxKind) -> Int {
+fn message_box_icon_bits(kind : MessageBoxKind) -> Int32 {
   match kind {
     None => 0
     Information => 0x00000040
@@ -44,7 +44,7 @@ fn message_box_icon_bits(kind : MessageBoxKind) -> Int {
 
 ///|
 /// 按钮位：`MB_*` 按钮组合。
-fn message_box_button_bits(buttons : MessageBoxButtons) -> Int {
+fn message_box_button_bits(buttons : MessageBoxButtons) -> Int32 {
   match buttons {
     Ok => 0x00000000
     OkCancel => 0x00000001
@@ -57,7 +57,7 @@ fn message_box_button_bits(buttons : MessageBoxButtons) -> Int {
 
 ///|
 /// 默认钮位：`MB_DEFBUTTON2/3/4`。0 表示默认第一个钮（`MB_DEFBUTTON1` 即 0）。
-fn message_box_default_bits(default_index : Int) -> Int {
+fn message_box_default_bits(default_index : Int32) -> Int32 {
   match default_index {
     1 => 0x00000100
     2 => 0x00000200
@@ -74,9 +74,9 @@ fn message_box_default_bits(default_index : Int) -> Int {
 pub fn message_box_utype(
   kind : MessageBoxKind,
   buttons : MessageBoxButtons,
-  default_index? : Int = 0,
-  is_rtl? : Bool = false,
-) -> Int {
+  default_index~ : Int32 = 0,
+  is_rtl~ : Bool = false,
+) -> Int32 {
   let mut bits = message_box_icon_bits(kind)
   bits = bits | message_box_button_bits(buttons)
   bits = bits | message_box_default_bits(default_index)
@@ -104,7 +104,7 @@ pub(all) enum MessageBoxResult {
 }
 
 ///|
-pub fn message_box_result_of(code : Int) -> MessageBoxResult {
+pub fn message_box_result_of(code : Int32) -> MessageBoxResult {
   match code {
     1 => Ok
     2 => Cancel

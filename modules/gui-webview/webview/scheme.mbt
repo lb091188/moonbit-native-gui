@@ -16,13 +16,13 @@
 pub(all) struct NavError {
   uri : String
   domain : String
-  code : Int
+  code : Int32
   message : String
 }
 
 ///|
 /// 本工具链没有 `String::to_int`，错误码按字符扫（可带负号，非数字即停）。
-fn nav_parse_int(s : String) -> Int {
+fn nav_parse_int(s : String) -> Int32 {
   let mut acc = 0
   let mut neg = false
   let mut seen = false

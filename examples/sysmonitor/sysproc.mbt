@@ -16,14 +16,14 @@
 ///|
 /// /proc/[pid]/stat 解析结果（时间为 tick，见 ProcMonitor 的 clk_tck）。
 pub(all) struct ProcStat {
-  pid : Int
+  pid : Int32
   comm : String
   state : String
-  ppid : Int
+  ppid : Int32
   utime : Int64
   stime : Int64
-  nice : Int
-  threads : Int
+  nice : Int32
+  threads : Int32
   start_time : Int64
   rss_pages : Int64
 }
@@ -31,13 +31,13 @@ pub(all) struct ProcStat {
 ///|
 /// 进程快照（采样器输出，cpu_pct 为两次采样差值）。
 pub(all) struct ProcInfo {
-  pid : Int
-  ppid : Int
+  pid : Int32
+  ppid : Int32
   name : String
   cmd : String
   state : String
-  nice : Int
-  threads : Int
+  nice : Int32
+  threads : Int32
   rss_kb : Int64
   cpu_pct : Double
 }
@@ -45,7 +45,7 @@ pub(all) struct ProcInfo {
 ///|
 /// 最后一次 ')' 的下标；不存在返回 -1。/proc/[pid]/stat 的 comm 可含
 /// 空格与括号（进程名 "(foo (bar))"），只能按最后一个 ')' 切分。
-fn last_paren(text : String) -> Int {
+fn last_paren(text : String) -> Int32 {
   let n = text.length()
   let mut i = n - 1
   while i >= 0 {
@@ -98,13 +98,13 @@ pub fn parse_proc_pid_stat(text : String) -> ProcStat? {
   if f.length() < 22 {
     return None
   }
-  fn num(i : Int) -> Int64 {
+  fn num(i : Int32) -> Int64 {
     parse_u64(f[i]).unwrap_or(0)
   }
 
   // nice 可为负（-20..19），必须走有符号解析；parse_u64 遇负号整字段
   // 返回 None，负 nice 会静默变 0（显示失真且 ByNice 排序失真）
-  fn num_s(i : Int) -> Int {
+  fn num_s(i : Int32) -> Int32 {
     parse_i64(f[i]).unwrap_or(0).to_int()
   }
 
@@ -140,9 +140,9 @@ pub fn parse_cmdline(text : String) -> String {
 pub fn proc_cpu_pct(
   prev : Int64,
   cur : Int64,
-  clk_tck : Int,
+  clk_tck : Int32,
   wall_s : Double,
-  cores : Int,
+  cores : Int32,
 ) -> Double {
   if clk_tck <= 0 || wall_s <= 0.0 {
     return 0.0
@@ -160,9 +160,9 @@ pub fn proc_cpu_pct(
 pub fn proc_tick_cpu_pct(
   prev : Int64?,
   cur : Int64,
-  clk_tck : Int,
+  clk_tck : Int32,
   wall_s : Double,
-  cores : Int,
+  cores : Int32,
 ) -> Double {
   match prev {
     None => 0.0
@@ -172,12 +172,12 @@ pub fn proc_tick_cpu_pct(
 
 ///|
 /// ppid → 子进程 pid 列表（只收列表中出现的 pid，按 pid 升序）。
-pub fn proc_children(procs : Array[ProcInfo]) -> Map[Int, Array[Int]] {
-  let by_pid : Map[Int, Bool] = Map([])
+pub fn proc_children(procs : Array[ProcInfo]) -> Map[Int32, Array[Int32]] {
+  let by_pid : Map[Int32, Bool] = Map([])
   for p in procs {
     by_pid.set(p.pid, true)
   }
-  let out : Map[Int, Array[Int]] = Map([])
+  let out : Map[Int32, Array[Int32]] = Map([])
   for p in procs {
     if p.ppid == p.pid || !by_pid.contains(p.ppid) {
       continue
@@ -198,15 +198,15 @@ pub fn proc_children(procs : Array[ProcInfo]) -> Map[Int, Array[Int]] {
 /// 首次采样所有进程 cpu_pct 为 0（无前样本），第二次起为真实差值；
 /// 采样间隙新出现的 pid 同样当拍为 0，下一拍起才有真实差值。
 pub(all) struct ProcMonitor {
-  mut prev : Map[Int, Int64]
+  mut prev : Map[Int32, Int64]
   mut prev_wall : Double
-  clk_tck : Int
-  page_kb : Int
-  cores : Int
+  clk_tck : Int32
+  page_kb : Int32
+  cores : Int32
 }
 
 ///|
-pub fn ProcMonitor::new(cores : Int) -> ProcMonitor {
+pub fn ProcMonitor::new(cores : Int32) -> ProcMonitor {
   {
     prev: {},
     prev_wall: 0.0,
@@ -225,7 +225,7 @@ pub fn ProcMonitor::tick(self : ProcMonitor) -> Array[ProcInfo]? {
     None => return None
     Some(bytes) => @utf8.decode_lossy(bytes)
   }
-  let pids : Array[Int] = []
+  let pids : Array[Int32] = []
   for line in listed.split("\n") {
     match parse_u64(line.trim()) {
       Some(p) => pids.push(p.to_int())
@@ -235,7 +235,7 @@ pub fn ProcMonitor::tick(self : ProcMonitor) -> Array[ProcInfo]? {
   let wall = ffi_monotonic()
   let wall_dt = if self.prev_wall > 0.0 { wall - self.prev_wall } else { 0.0 }
   let out : Array[ProcInfo] = []
-  let cur : Map[Int, Int64] = Map([])
+  let cur : Map[Int32, Int64] = Map([])
   for pid in pids {
     let stat_text = match read_text_file("/proc/\{pid}/stat") {
       None => continue
@@ -287,15 +287,15 @@ pub fn ProcMonitor::tick(self : ProcMonitor) -> Array[ProcInfo]? {
 
 ///|
 /// SIGTERM（可被捕获的终止请求，kill 首选）。
-pub const SIGTERM : Int = 15
+pub const SIGTERM : Int32 = 15
 
 ///|
 /// SIGKILL（不可捕获的强杀，SIGTERM 失败后的兜底）。
-pub const SIGKILL : Int = 9
+pub const SIGKILL : Int32 = 9
 
 ///|
 /// errno → 中文语义（Linux errno 编号；应用仅面向 Ubuntu，硬编码可接受）。
-pub fn errno_text(err : Int) -> String {
+pub fn errno_text(err : Int32) -> String {
   if err == -1000 {
     return "当前平台不支持(仅 Linux)"
   }
@@ -310,7 +310,7 @@ pub fn errno_text(err : Int) -> String {
 
 ///|
 /// 发信号（SIGTERM / SIGKILL）。
-pub fn kill_signal(pid : Int, sig : Int) -> Result[Unit, String] {
+pub fn kill_signal(pid : Int32, sig : Int32) -> Result[Unit, String] {
   let err = ffi_kill(pid, sig)
   if err == 0 {
     Ok(())
@@ -321,7 +321,7 @@ pub fn kill_signal(pid : Int, sig : Int) -> Result[Unit, String] {
 
 ///|
 /// 读进程 nice 值（-20..19）。
-pub fn get_priority(pid : Int) -> Result[Int, String] {
+pub fn get_priority(pid : Int32) -> Result[Int32, String] {
   let out = Ref(0)
   let err = ffi_get_priority(pid, out)
   if err == 0 {
@@ -333,7 +333,7 @@ pub fn get_priority(pid : Int) -> Result[Int, String] {
 
 ///|
 /// 设进程 nice 值（-20..19，越大越谦让）。
-pub fn set_priority(pid : Int, nice : Int) -> Result[Unit, String] {
+pub fn set_priority(pid : Int32, nice : Int32) -> Result[Unit, String] {
   if nice < -20 || nice > 19 {
     return Err(errno_text(22))
   }
@@ -361,7 +361,7 @@ pub fn on_windows() -> Bool {
 /// (档界与 stub 的 sysmon_nice_to_class 一致:10..19 IDLE / -9..9
 /// NORMAL / -16..-10 HIGH / -20..-17 REALTIME)。Windows 优先级是
 /// 离散档,get 返回档位代表值;Linux 是连续 nice。
-pub fn priority_level_name(nice : Int) -> String {
+pub fn priority_level_name(nice : Int32) -> String {
   if nice >= 10 {
     "空闲(IDLE)"
   } else if nice <= -17 {
@@ -392,8 +392,7 @@ pub fn kill_button_labels(platform : String) -> (String, String?) {
 pub fn priority_ui(platform : String) -> (String, String) {
   if platform == "windows" {
     (
-      "设优先级",
-      "优先级为离散档:≥10 空闲 / -9..9 正常 / -16..-10 高 / ≤-17 实时,输入就近钳制",
+      "设优先级", "优先级为离散档:≥10 空闲 / -9..9 正常 / -16..-10 高 / ≤-17 实时,输入就近钳制",
     )
   } else {
     ("设 nice", "nice 越大越谦让(-20..19)")
@@ -406,8 +405,8 @@ pub fn priority_ui(platform : String) -> (String, String) {
 /// 时逐个附失败原因。
 pub fn priority_result(
   platform : String,
-  effective : Int,
-  ok : Int,
+  effective : Int32,
+  ok : Int32,
   fail : String,
 ) -> String {
   let head = if platform == "windows" {

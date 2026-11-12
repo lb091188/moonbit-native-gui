@@ -4,22 +4,26 @@
 // 语义正确。文件打开失败时结构体本身仍应构造（open 返回 Option 或 Some，
 // 后续 play 才真跑）。
 
+///|
 test "HeadlessAudio/HeadlessVideo open 无文件时给 None、不炸宿主" {
-  let schedule = fn(_ms : Int, _f : () -> Unit) -> Int { 0 }
-  match HeadlessAudio::open("/nonexistent/definitely-not-a-file.mp3", schedule) {
+  let schedule = fn(_ms : Int32, _f : () -> Unit) -> Int32 { 0 }
+  match
+    HeadlessAudio::open("/nonexistent/definitely-not-a-file.mp3", schedule) {
     Some(_) => assert_eq(true, false)
     None => assert_true(true)
   }
-  match HeadlessVideo::open("/nonexistent/definitely-not-a-file.mp4", schedule) {
+  match
+    HeadlessVideo::open("/nonexistent/definitely-not-a-file.mp4", schedule) {
     Some(_) => assert_eq(true, false)
     None => assert_true(true)
   }
 }
 
+///|
 test "HeadlessAudio/HeadlessVideo schedule 通道签名可传" {
   // 只验接口能编、闭包能跑；具体播放依赖 ffmpeg 归真机验收
-  let fired : Ref[Int] = Ref(0)
-  let schedule = fn(_ms : Int, f : () -> Unit) -> Int {
+  let fired : Ref[Int32] = Ref(0)
+  let schedule = fn(_ms : Int32, f : () -> Unit) -> Int32 {
     fired.val = fired.val + 1
     f()
     42

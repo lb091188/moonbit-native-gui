@@ -34,7 +34,7 @@ pub extend NightlightError with Show::{to_string, output}
 
 ///|
 /// 百分比钳到 0..100。
-fn nl_clamp_percent(p : Int) -> Int {
+fn nl_clamp_percent(p : Int32) -> Int32 {
   if p < 0 {
     0
   } else if p > 100 {
@@ -46,14 +46,14 @@ fn nl_clamp_percent(p : Int) -> Int {
 
 ///|
 /// 暖度（0 = 中性/最冷，100 = 最暖）：与 percent 反向。
-fn nl_warmth(percent : Int) -> Int {
+fn nl_warmth(percent : Int32) -> Int32 {
   100 - nl_clamp_percent(percent)
 }
 
 ///|
 /// 千分比 gamma 值格式化为两位小数字符串（1000 → "1.00"，
 /// 850 → "0.85"，2200 → "2.20"；四舍五入到百分位，进位到 1.00）。
-fn nl_fmt_permille(v : Int) -> String {
+fn nl_fmt_permille(v : Int32) -> String {
   let mut whole = v / 1000
   let mut frac = (v % 1000 + 5) / 10
   if frac >= 100 {
@@ -66,20 +66,20 @@ fn nl_fmt_permille(v : Int) -> String {
 
 ///|
 /// 红通道 gamma 千分比：最暖时 0.85（微提红，补偿暖观感）。
-fn nl_red_gamma(warmth : Int) -> Int {
+fn nl_red_gamma(warmth : Int32) -> Int32 {
   1000 - warmth * 15 / 10
 }
 
 ///|
 /// 蓝通道 gamma 千分比：最暖时 2.20（gamma > 1 衰减该通道，色温向暖偏移）。
-fn nl_blue_gamma(warmth : Int) -> Int {
+fn nl_blue_gamma(warmth : Int32) -> Int32 {
   1000 + warmth * 12
 }
 
 ///|
 /// xrandr --gamma 的 "R:G:B" 参数文本（如 "0.85:1.00:2.20"；绿通道恒
 /// 1.00）。percent 出界先钳。
-fn nl_gamma_text(percent : Int) -> String {
+fn nl_gamma_text(percent : Int32) -> String {
   let w = nl_warmth(percent)
   "\{nl_fmt_permille(nl_red_gamma(w))}:1.00:\{nl_fmt_permille(nl_blue_gamma(w))}"
 }
@@ -88,19 +88,19 @@ fn nl_gamma_text(percent : Int) -> String {
 /// redshift -O 的色温（K）：percent 0 → 2500K（最暖），100 → 6500K
 /// （中性）。**跨包单源**——shell 的 Wayland 夜灯通道（gsettings /
 /// ColorCorrect）也按这个口径换算，不另推公式。
-pub fn nl_kelvin(percent : Int) -> Int {
+pub fn nl_kelvin(percent : Int32) -> Int32 {
   2500 + nl_clamp_percent(percent) * 40
 }
 
 ///|
 /// xrandr 设色温参数表：--output <输出> --gamma R:G:B。
-fn nl_xrandr_set_args(output : String, percent : Int) -> Array[String] {
+fn nl_xrandr_set_args(output : String, percent : Int32) -> Array[String] {
   ["--output", output, "--gamma", nl_gamma_text(percent)]
 }
 
 ///|
 /// redshift 设色温参数表：-P 先清既有 gamma 斜坡，-O 一次性设置色温。
-fn nl_redshift_set_args(percent : Int) -> Array[String] {
+fn nl_redshift_set_args(percent : Int32) -> Array[String] {
   ["-P", "-O", "\{nl_kelvin(percent)}"]
 }
 
@@ -113,7 +113,7 @@ fn nl_redshift_set_args(percent : Int) -> Array[String] {
 /// pow(i/255, gamma)，gamma 千分比与 xrandr 路径同源（红提亮/蓝衰减，绿恒
 /// 1.00）。语义与 `--gamma` 完全一致——GDI 的 ramp 就是这条幂曲线。
 /// 全 1.00（identity）即复位：pow 归一曲线尾值 65535、i*257 恒等斜坡。
-fn nl_ramp_bytes(red_permille : Int, blue_permille : Int) -> Bytes {
+fn nl_ramp_bytes(red_permille : Int32, blue_permille : Int32) -> Bytes {
   let out : Array[Byte] = []
   for ch in 0..<3 {
     let permille = match ch {
@@ -124,13 +124,7 @@ fn nl_ramp_bytes(red_permille : Int, blue_permille : Int) -> Bytes {
     let g = permille.to_double() / 1000.0
     for i in 0..<256 {
       let v = @math.pow(i.to_double() / 255.0, g) * 65535.0
-      let w = if v < 0.0 {
-        0
-      } else if v > 65535.0 {
-        65535
-      } else {
-        v.to_int()
-      }
+      let w = if v < 0.0 { 0 } else if v > 65535.0 { 65535 } else { v.to_int() }
       let _ = out.push((w & 0xFF).to_byte())
       let _ = out.push(((w >> 8) & 0xFF).to_byte())
     }
@@ -140,17 +134,17 @@ fn nl_ramp_bytes(red_permille : Int, blue_permille : Int) -> Bytes {
 
 ///|
 /// 单通道恒等斜坡 WORD 值：i*257（0,257,…,65535）。
-fn nl_ramp_identity_word(i : Int) -> Int {
+fn nl_ramp_identity_word(i : Int32) -> Int32 {
   i * 257
 }
 
 ///|
 #borrow(ramp, ok)
-extern "c" fn ffi_nl_set_ramp(ramp : Bytes, ok : Ref[Int]) -> Unit = "yue_sys_nl_set_ramp"
+extern "c" fn ffi_nl_set_ramp(ramp : Bytes, ok : Ref[Int32]) -> Unit = "yue_sys_nl_set_ramp"
 
 ///|
 #borrow(ok)
-extern "c" fn ffi_screen_tint_apply(percent : Int, ok : Ref[Int]) -> Unit = "wm_screen_tint_apply"
+extern "c" fn ffi_screen_tint_apply(percent : Int32, ok : Ref[Int32]) -> Unit = "wm_screen_tint_apply"
 
 // ---------------------------------------------------------------------------
 // 后端探测（redshift 优先；可用性判定均为只读调用）
@@ -247,7 +241,7 @@ pub fn nl_supported() -> Bool {
 /// 钳制。redshift 存在走 `redshift -P -O <K>`，否则走
 /// `xrandr --output <首选输出> --gamma R:G:B`（首选输出取当前主输出，
 /// 无主输出取首个已连接输出）。
-pub fn nl_set_temperature(percent : Int) -> Result[Unit, NightlightError] {
+pub fn nl_set_temperature(percent : Int32) -> Result[Unit, NightlightError] {
   let p = nl_clamp_percent(percent)
   if sys_platform() == "macos" {
     let ok = Ref(0)
@@ -360,7 +354,7 @@ test "nl_ramp_bytes 形状：长度/端点/通道序/恒等" {
 test "nl_ramp_bytes 蓝衰减：最暖档蓝通道低于红通道" {
   // warmth=100:红 gamma 0.85(上提)、蓝 gamma 2.20(下压)
   let r = nl_ramp_bytes(850, 2200)
-  let word_at = fn(ch : Int, i : Int) -> Int {
+  let word_at = fn(ch : Int32, i : Int32) -> Int32 {
     let off = ch * 512 + i * 2
     r[off].to_int() | (r[off + 1].to_int() << 8)
   }

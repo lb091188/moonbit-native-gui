@@ -3,19 +3,19 @@
 // 使用者在自己的 moon.pkg 里写 test-import 引本包。
 import {
   "NoahLiu/yoga-mbt/src" @yoga,
-  "NoahLiu/native-gui/base" @base,
-  "NoahLiu/native-gui/widget" @widget,
-  "NoahLiu/native-gui/render" @render,
-  "NoahLiu/native-gui/text" @text,
-  "NoahLiu/native-gui/shell" @shell,
+  "NoahLiu/native-gui/base",
+  "NoahLiu/native-gui/widget",
+  "NoahLiu/native-gui/render",
+  "NoahLiu/native-gui/text",
+  "NoahLiu/native-gui/shell",
 }
 
 // 黑盒回归（uitest_test.mbt）以使用者视角引本包与组件库（文本格式：
 // `import {…} for "test"` 即 test-import）
 import {
-  "NoahLiu/native-gui/uitest" @uitest,
-  "NoahLiu/native-gui/ui" @ui,
-  "NoahLiu/native-gui/base" @base,
+  "NoahLiu/native-gui/uitest",
+  "NoahLiu/native-gui/ui",
+  "NoahLiu/native-gui/base",
 } for "test"
 
 supported_targets = "native"

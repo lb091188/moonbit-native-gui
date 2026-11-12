@@ -63,43 +63,39 @@ pub extend InstanceError with Show::{to_string, output}
 
 ///|
 /// 单帧载荷上限（字节），与 C 侧缓冲同值。
-pub const INSTANCE_PAYLOAD_CAP : Int = 65536
+pub const INSTANCE_PAYLOAD_CAP : Int32 = 65536
 
 ///|
 /// 套接字文件名的 sun_path 安全长度（macOS 的 sun_path 容量 104，留足余量）。
-const SOCKET_PATH_LIMIT : Int = 100
+const SOCKET_PATH_LIMIT : Int32 = 100
 
 ///|
 /// slug 里 app_id 原样保留的最大长度；超出就截断并附内容哈希，保证同一
 /// app_id 每次派生出同一个名字。
-const SLUG_KEEP : Int = 40
+const SLUG_KEEP : Int32 = 40
 
 // ---- 原生口：AF_UNIX 套接字臂（shell_stub.c，Windows 侧是失败桩）----
 
 ///|
 #borrow(path)
-extern "c" fn yi_inst_listen(path : Bytes) -> Int = "yi_inst_listen"
+extern "c" fn yi_inst_listen(path : Bytes) -> Int32 = "yi_inst_listen"
 
 ///|
 #borrow(path, data)
-extern "c" fn yi_inst_wake(
-  path : Bytes,
-  data : Bytes,
-  len : Int,
-) -> Int = "yi_inst_wake"
+extern "c" fn yi_inst_wake(path : Bytes, data : Bytes, len : Int32) -> Int32 = "yi_inst_wake"
 
 ///|
-extern "c" fn yi_inst_poll() -> Int = "yi_inst_poll"
+extern "c" fn yi_inst_poll() -> Int32 = "yi_inst_poll"
 
 ///|
 #borrow(out)
-extern "c" fn yi_inst_take(out : Bytes, cap : Int) -> Int = "yi_inst_take"
+extern "c" fn yi_inst_take(out : Bytes, cap : Int32) -> Int32 = "yi_inst_take"
 
 ///|
-extern "c" fn yi_inst_last_errno() -> Int = "yi_inst_last_errno"
+extern "c" fn yi_inst_last_errno() -> Int32 = "yi_inst_last_errno"
 
 ///|
-extern "c" fn yi_inst_getuid() -> Int = "yi_inst_getuid"
+extern "c" fn yi_inst_getuid() -> Int32 = "yi_inst_getuid"
 
 // ---- 进程级状态 ----
 
@@ -113,7 +109,7 @@ let g_on_wake : Ref[((Array[String]) -> Unit)?] = Ref(None)
 
 ///|
 /// 本进程派发过的唤起条数（诊断与测试用）。
-let g_wake_count : Ref[Int] = Ref(0)
+let g_wake_count : Ref[Int32] = Ref(0)
 
 ///|
 /// 非套接字臂额外补开的套接字旁路：dev 工具只带套接字客户端，
@@ -125,13 +121,12 @@ let g_sock_dev : Map[String, Bool] = Map([])
 ///|
 /// app_id 的 djb2 哈希，十六进制定长 8 位。
 fn instance_hash8(s : String) -> String {
-  let mut h : Int = 5381
+  let mut h : Int32 = 5381
   for i = 0; i < s.length(); i = i + 1 {
     h = ((h << 5) + h + s.unsafe_get(i).to_int()) & 0x7FFF_FFFF
   }
   let digits : Array[String] = [
-    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e",
-    "f",
+    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f",
   ]
   let out = StringBuilder()
   let mut i = 7
@@ -190,7 +185,11 @@ pub fn instance_socket_path(app_id : String) -> String {
 fn instance_socket_path_in(dir : String, app_id : String) -> String {
   let base = "moonbit-instance-"
   let tail = ".\{yi_inst_getuid()}.sock"
-  let budget = SOCKET_PATH_LIMIT - dir.length() - 1 - base.length() - tail.length()
+  let budget = SOCKET_PATH_LIMIT -
+    dir.length() -
+    1 -
+    base.length() -
+    tail.length()
   let slug = instance_slug(app_id)
   let used = if budget < 8 {
     ""
@@ -207,14 +206,14 @@ fn instance_socket_path_in(dir : String, app_id : String) -> String {
 /// 命令行参数 → 线帧 `[argc:i32 LE]([len:i32 LE][utf8])*`。
 /// 两臂都按这条帧原样搬运，C 侧不解析。
 pub fn instance_encode_args(args : Array[String]) -> Bytes {
-  let parts : Array[Bytes] = args.map(fn(s){ @utf8.encode(s) })
+  let parts : Array[Bytes] = args.map(fn(s) { @utf8.encode(s) })
   let mut total = 4
   for p in parts {
     total = total + 4 + p.length()
   }
   let buf = FixedArray::make(total, b'\x00')
   let mut o = 0
-  let write_i32 = fn(v : Int, at : Int) -> Int {
+  let write_i32 = fn(v : Int32, at : Int32) -> Int32 {
     buf[at] = (v & 255).to_byte()
     buf[at + 1] = ((v >> 8) & 255).to_byte()
     buf[at + 2] = ((v >> 16) & 255).to_byte()
@@ -234,11 +233,11 @@ pub fn instance_encode_args(args : Array[String]) -> Bytes {
 
 ///|
 /// 读 `[o,o+4)` 的小端 int32。
-fn instance_read_i32(raw : Bytes, o : Int) -> Int {
+fn instance_read_i32(raw : Bytes, o : Int32) -> Int32 {
   raw[o].to_int() |
-    (raw[o + 1].to_int() << 8) |
-    (raw[o + 2].to_int() << 16) |
-    (raw[o + 3].to_int() << 24)
+  (raw[o + 1].to_int() << 8) |
+  (raw[o + 2].to_int() << 16) |
+  (raw[o + 3].to_int() << 24)
 }
 
 ///|
@@ -281,12 +280,7 @@ pub fn instance_decode_args(raw : Bytes) -> Array[String]? {
 /// Linux 先看会话总线连不连得上，连不上落套接字档。
 pub fn instance_backend() -> InstanceBackend {
   match @sys.sys_platform() {
-    "windows" =>
-      if @win.inst_supported() {
-        Win32
-      } else {
-        Unavailable
-      }
+    "windows" => if @win.inst_supported() { Win32 } else { Unavailable }
     "macos" => Socket
     _ =>
       match @dbus.dbus_ensure_session() {
@@ -398,7 +392,7 @@ pub fn on_instance_wake(cb : (Array[String]) -> Unit) -> Unit {
 
 ///|
 /// 本进程收到过的唤起条数（诊断与测试用）。
-pub fn instance_wake_count() -> Int {
+pub fn instance_wake_count() -> Int32 {
   g_wake_count.val
 }
 
@@ -542,7 +536,9 @@ pub fn instance_wake(
   }
   let frame = instance_encode_args(args)
   if frame.length() > INSTANCE_PAYLOAD_CAP {
-    return Err(Backend("命令行帧超出 \{INSTANCE_PAYLOAD_CAP} 字节上限"))
+    return Err(
+      Backend("命令行帧超出 \{INSTANCE_PAYLOAD_CAP} 字节上限"),
+    )
   }
   let slug = instance_slug(app_id)
   let sock = instance_socket_path(app_id)

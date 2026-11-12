@@ -11,8 +11,8 @@
 ///|
 pub struct Editor {
   chars : Array[Byte]
-  mut caret : Int
-  mut anchor : Int?
+  mut caret : Int32
+  mut anchor : Int32?
   mut clip : String
   // 未提交的组合串：只用于绘制，绝不并入 text —— 文本状态仍然只有一份
   mut preedit : String
@@ -20,21 +20,26 @@ pub struct Editor {
   // 没装就走内置 clip（无头测试与无剪贴板环境的行为与从前一致）
   mut clip_ext_get : (() -> String?)?
   mut clip_ext_set : ((String) -> Unit)?
-  undo : Array[(Array[Byte], Int, Int?)]
-  redo : Array[(Array[Byte], Int, Int?)]
+  undo : Array[(Array[Byte], Int32, Int32?)]
+  redo : Array[(Array[Byte], Int32, Int32?)]
   // 撤销栈深度上限（None = 不限）。大文件编辑器用它防长会话内存无界
   // （快照是全文拷贝，万行文件一次快照近 1MB）。
-  mut undo_limit : Int?
+  mut undo_limit : Int32?
 }
 
+///|
 fn is_cont(b : Byte) -> Bool {
   (b.to_int() & 0xc0) == 0x80
 }
 
+///|
 fn is_word_byte(b : Byte) -> Bool {
   let v = b.to_int()
-  (v >= 48 && v <= 57) || (v >= 65 && v <= 90) || (v >= 97 && v <= 122) ||
-    v == 95 || v >= 0x80
+  (v >= 48 && v <= 57) ||
+  (v >= 65 && v <= 90) ||
+  (v >= 97 && v <= 122) ||
+  v == 95 ||
+  v >= 0x80
 }
 
 ///|
@@ -56,7 +61,7 @@ pub fn Editor::new() -> Editor {
 ///|
 /// 限制撤销栈深度：每次快照后超限丢栈底最旧。缺省不限；code_editor 这类
 /// 全文快照的大文本编辑件用它防长会话内存无界。
-pub fn Editor::set_undo_limit(self : Editor, limit : Int) -> Unit {
+pub fn Editor::set_undo_limit(self : Editor, limit : Int32) -> Unit {
   self.undo_limit = Some(limit)
 }
 
@@ -101,9 +106,9 @@ pub fn Editor::clip_fetch(self : Editor) -> String {
 
 ///|
 /// 码点边界回退：落到续字节上就一直往前退。
-pub fn Editor::floor_boundary(self : Editor, i : Int) -> Int {
+pub fn Editor::floor_boundary(self : Editor, i : Int32) -> Int32 {
   let n = self.chars.length()
-  let mut k = if i > n { n } else { if i < 0 { 0 } else { i } }
+  let mut k = if i > n { n } else if i < 0 { 0 } else { i }
   // k == n 是合法的「末尾边界」，不能拿去取字符
   while k > 0 && k < n && is_cont(self.chars[k]) {
     k = k - 1
@@ -113,9 +118,9 @@ pub fn Editor::floor_boundary(self : Editor, i : Int) -> Int {
 
 ///|
 /// 码点边界前进：落到续字节上就一直往后走。
-pub fn Editor::boundary_after(self : Editor, i : Int) -> Int {
+pub fn Editor::boundary_after(self : Editor, i : Int32) -> Int32 {
   let n = self.chars.length()
-  let mut k = if i > n { n } else { if i < 0 { 0 } else { i } }
+  let mut k = if i > n { n } else if i < 0 { 0 } else { i }
   while k < n && is_cont(self.chars[k]) {
     k = k + 1
   }
@@ -123,18 +128,18 @@ pub fn Editor::boundary_after(self : Editor, i : Int) -> Int {
 }
 
 ///|
-pub fn Editor::caret_pos(self : Editor) -> Int {
+pub fn Editor::caret_pos(self : Editor) -> Int32 {
   self.caret
 }
 
 ///|
-pub fn Editor::byte_len(self : Editor) -> Int {
+pub fn Editor::byte_len(self : Editor) -> Int32 {
   self.chars.length()
 }
 
 ///|
 /// 选区半开区间 [start,end)；无选区返回 None。
-pub fn Editor::selection(self : Editor) -> (Int, Int)? {
+pub fn Editor::selection(self : Editor) -> (Int32, Int32)? {
   match self.anchor {
     Some(a) =>
       if a == self.caret {
@@ -151,13 +156,23 @@ pub fn Editor::selection(self : Editor) -> (Int, Int)? {
 // Array[Byte] → String：手写 UTF-8 解码，逐码点写进 builder（O(n)。编辑内核
 // 是万行级代码编辑器的文本权威，字符串拼接式的逐码点累加是 O(n²)，每次
 // get_text 都会撞上）。
+
+///|
 fn bytes_to_string(bs : Array[Byte]) -> String {
   let b = StringBuilder()
   let n = bs.length()
   let mut i = 0
   while i < n {
     let b0 = bs[i].to_int()
-    let len = if b0 < 0x80 { 1 } else if b0 >= 0xe0 { 3 } else if b0 >= 0xc0 { 2 } else { 1 }
+    let len = if b0 < 0x80 {
+      1
+    } else if b0 >= 0xe0 {
+      3
+    } else if b0 >= 0xc0 {
+      2
+    } else {
+      1
+    }
     if i + len > n {
       i = n
     } else {
@@ -184,7 +199,11 @@ pub fn Editor::get_text(self : Editor) -> String {
 
 ///|
 /// 取 [start,end) 的文本；越界钳制并对齐码点边界。
-pub fn Editor::get_text_in_range(self : Editor, start : Int, end : Int) -> String {
+pub fn Editor::get_text_in_range(
+  self : Editor,
+  start : Int32,
+  end : Int32,
+) -> String {
   let s = self.floor_boundary(start)
   let e = self.boundary_after(end)
   if e <= s {
@@ -198,6 +217,7 @@ pub fn Editor::get_text_in_range(self : Editor, start : Int, end : Int) -> Strin
   }
 }
 
+///|
 fn Editor::snapshot(self : Editor) -> Unit {
   let copy : Array[Byte] = []
   for b in self.chars {
@@ -220,7 +240,8 @@ fn Editor::snapshot(self : Editor) -> Unit {
   }
 }
 
-fn Editor::restore(self : Editor, snap : (Array[Byte], Int, Int?)) -> Unit {
+///|
+fn Editor::restore(self : Editor, snap : (Array[Byte], Int32, Int32?)) -> Unit {
   let (text, c, a) = snap
   self.chars.clear()
   for b in text {
@@ -230,7 +251,13 @@ fn Editor::restore(self : Editor, snap : (Array[Byte], Int, Int?)) -> Unit {
   self.anchor = a
 }
 
-fn Editor::replace_range(self : Editor, start : Int, end : Int, bytes : Array[Byte]) -> Unit {
+///|
+fn Editor::replace_range(
+  self : Editor,
+  start : Int32,
+  end : Int32,
+  bytes : Array[Byte],
+) -> Unit {
   // 先删尾再插头，避免下标在删插之间漂移
   let mut i = end
   while i > start {
@@ -244,6 +271,7 @@ fn Editor::replace_range(self : Editor, start : Int, end : Int, bytes : Array[By
   }
 }
 
+///|
 fn to_bytes(text : String) -> Array[Byte] {
   let bs = @utf8.encode(text)
   let out : Array[Byte] = []
@@ -287,7 +315,7 @@ pub fn Editor::delete_selection(self : Editor) -> Bool {
 
 ///|
 /// 在 caret 插入文本（先替换选区），返回插入字节数。
-pub fn Editor::insert_text(self : Editor, text : String) -> Int {
+pub fn Editor::insert_text(self : Editor, text : String) -> Int32 {
   let bs = to_bytes(text)
   if bs.length() == 0 {
     return 0
@@ -307,7 +335,7 @@ pub fn Editor::insert_text(self : Editor, text : String) -> Int {
 
 ///|
 /// 选中 [start,end)（end 即 caret）；两端相同则视为折叠。
-pub fn Editor::select_range(self : Editor, start : Int, end : Int) -> Unit {
+pub fn Editor::select_range(self : Editor, start : Int32, end : Int32) -> Unit {
   let a = self.floor_boundary(start)
   let c = self.boundary_after(end)
   self.caret = c
@@ -326,7 +354,12 @@ pub fn Editor::select_all(self : Editor) -> Unit {
 
 ///|
 /// 移动 caret。`shift` 延长选区，否则折叠。`unit`：0 码点 / 1 词 / 2 文本首末。
-pub fn Editor::move_caret(self : Editor, dir : Int, unit : Int, shift : Bool) -> Unit {
+pub fn Editor::move_caret(
+  self : Editor,
+  dir : Int32,
+  unit : Int32,
+  shift : Bool,
+) -> Unit {
   let n = self.chars.length()
   if !shift {
     match self.selection() {
@@ -487,7 +520,7 @@ pub fn Editor::redo(self : Editor) -> Bool {
 
 ///|
 /// keysym → 可直接插入的字符（Latin-1 与 UCS keysym 两条路；其余交给 IME）。
-pub fn keysym_to_text(keysym : Int) -> String? {
+pub fn keysym_to_text(keysym : Int32) -> String? {
   let cp = if keysym >= 32 && keysym <= 126 {
     keysym
   } else if keysym >= 0xa0 && keysym <= 0xff {
@@ -515,9 +548,9 @@ pub fn keysym_to_text(keysym : Int) -> String? {
 /// 缺省 false 即其余平台的 Ctrl 口径。
 pub fn Editor::handle_key(
   self : Editor,
-  keysym : Int,
-  modifiers : Int,
-  mac? : Bool = false,
+  keysym : Int32,
+  modifiers : Int32,
+  mac~ : Bool = false,
 ) -> Bool {
   let shift = (modifiers & @base.MOD_SHIFT) != 0
   let ctrl = (modifiers & @base.MOD_CTRL) != 0
@@ -591,7 +624,6 @@ pub fn Editor::handle_key(
   }
   handled
 }
-
 
 ///|
 /// 设置/清空未提交组合串（`text` 为空即清空）。它只是显示层的东西，

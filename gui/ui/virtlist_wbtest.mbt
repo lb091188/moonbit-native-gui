@@ -2,8 +2,8 @@
 // 表头固定不滚、虚拟表格的行点选与 table 同口径。
 
 ///|
-fn virt_items(n : Int) -> @base.Store[Array[Int]] {
-  let out : Array[Int] = []
+fn virt_items(n : Int32) -> @base.Store[Array[Int32]] {
+  let out : Array[Int32] = []
   for i = 0; i < n; i = i + 1 {
     out.push(i)
   }
@@ -13,13 +13,13 @@ fn virt_items(n : Int) -> @base.Store[Array[Int]] {
 ///|
 test "虚拟列表：千行只挂可见区间，滚动后窗口平移、占位撑起总高" {
   let items = virt_items(1000)
-  let seen : Array[Int] = []
+  let seen : Array[Int32] = []
   let (root, vp) = mounted(
     virt_list(
       items,
       200.0,
       20.0,
-      fn(i : Int, _x : Int) -> @widget.Node {
+      fn(i : Int32, _x : Int32) -> @widget.Node {
         seen.push(i)
         view([text("行")], height=20.0)
       },
@@ -59,7 +59,7 @@ test "虚拟列表：拖滚动条改偏移、数据变短偏移夹回上界" {
       items,
       200.0,
       20.0,
-      fn(_i : Int, _x : Int) -> @widget.Node {
+      fn(_i : Int32, _x : Int32) -> @widget.Node {
         view([text("行")], height=20.0)
       },
       width=300.0,
@@ -99,9 +99,9 @@ test "虚拟表格：表头固定不滚、行只挂可见区间、点选与 tabl
   }
 
   let rows = @base.Store::new(data)
-  let sel : @base.Store[Array[Int]] = @base.Store::new([])
-  let sort = @base.Store::new({ column: -1, asc: true })
-  let clicks : Array[Int] = []
+  let sel : @base.Store[Array[Int32]] = @base.Store::new([])
+  let sort = @base.Store::new({ column: -1, asc: true, })
+  let clicks : Array[Int32] = []
   let (root, tv) = mounted(
     table_v(
       [TableColumn::make("名", 140.0), TableColumn::make("值", 0.0)],
@@ -110,8 +110,8 @@ test "虚拟表格：表头固定不滚、行只挂可见区间、点选与 tabl
       height=150.0,
       row_height=30.0,
       selection=sel,
-      sort=sort,
-      on_row_click=fn(i : Int, _r : TableRow) -> Unit { clicks.push(i) },
+      sort~,
+      on_row_click=fn(i : Int32, _r : TableRow) -> Unit { clicks.push(i) },
     ),
     320.0,
     240.0,
@@ -150,14 +150,20 @@ test "粘性列表：滚动跨过组边界时吸顶标题换文字，组内行�
   let rows_of = fn(prefix : String) -> Array[@widget.Node] {
     let out : Array[@widget.Node] = []
     for i = 1; i <= 4; i = i + 1 {
-      out.push(view([text(prefix + i.to_string(), font_size=12.0)], height=20.0))
+      out.push(
+        view([text(prefix + i.to_string(), font_size=12.0)], height=20.0),
+      )
     }
     out
   }
 
   let (root, vp) = mounted(
     sticky_list(
-      [("组一", rows_of("甲")), ("组二", rows_of("乙")), ("组三", rows_of("丙"))],
+      [
+        ("组一", rows_of("甲")),
+        ("组二", rows_of("乙")),
+        ("组三", rows_of("丙")),
+      ],
       st,
       width=240.0,
       height=100.0,
@@ -204,7 +210,7 @@ test "缺陷钉桩：滚动后可见行必须落在视口内（非整行偏移�
       items,
       150.0,
       30.0,
-      fn(i : Int, _x : Int) -> @widget.Node {
+      fn(i : Int32, _x : Int32) -> @widget.Node {
         view([text("行 " + i.to_string())], height=30.0)
       },
       width=260.0,
@@ -266,7 +272,7 @@ test "虚拟列表与滚动族只读样式槽：class 覆盖视口描边与分�
   if !ui_text_guard() {
     return
   }
-  let red_count = fn(node : @widget.Node, w : Double, h : Double) -> Int {
+  let red_count = fn(node : @widget.Node, w : Double, h : Double) -> Int32 {
     let root = @widget.Widget::new()
     root.set_size(w, h)
     root.set_column()
@@ -287,7 +293,7 @@ test "虚拟列表与滚动族只读样式槽：class 覆盖视口描边与分�
     }
     n
   }
-  let row_of = fn(i : Int, _x : Int) -> @widget.Node {
+  let row_of = fn(i : Int32, _x : Int32) -> @widget.Node {
     view([text("行 " + i.to_string())], height=30.0)
   }
   let plain = red_count(
@@ -296,14 +302,9 @@ test "虚拟列表与滚动族只读样式槽：class 覆盖视口描边与分�
     110.0,
   )
   let framed = red_count(
-    virt_list(
-      virt_items(200),
-      90.0,
-      30.0,
-      row_of,
-      width=200.0,
-      class=[@style.style(border_color="#ff0000", border_width=3.0)],
-    ),
+    virt_list(virt_items(200), 90.0, 30.0, row_of, width=200.0, class=[
+      @style.style(border_color="#ff0000", border_width=3.0),
+    ]),
     220.0,
     110.0,
   )
@@ -312,9 +313,7 @@ test "虚拟列表与滚动族只读样式槽：class 覆盖视口描边与分�
 
   // 粘性列表：分组标题条的底色与文字色吃 class
   let st = StickyList::new()
-  let rows_of = fn() -> Array[@widget.Node] {
-    [text("一行"), text("两行")]
-  }
+  let rows_of = fn() -> Array[@widget.Node] { [text("一行"), text("两行")] }
   let sticky_classed = red_count(
     sticky_list(
       [("组一", rows_of()), ("组二", rows_of())],

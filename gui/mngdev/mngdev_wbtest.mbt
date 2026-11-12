@@ -5,25 +5,21 @@
 ///|
 fn demo_ir() -> String {
   [
-  "{\"v\":1,\"rev\":\"mng-ir-1\",\"page\":\"dev_demo\",",
-  "\"root\":{\"k\":\"col\",\"gap\":8.0,\"class\":[\"demo\"],\"kids\":[",
-  "  {\"k\":\"checkbox\",\"args\":{\"label\":{\"expr\":\"t:8:18\"},\"value\":{\"state\":\"wifi\"}}},",
-  "  {\"k\":\"if\",\"c\":\"c:9:5\",\"t\":{\"k\":\"dyn\",\"key\":\"t:9:5\"},\"f\":{\"k\":\"text\",\"v\":\"已关闭\"}},",
-  "  {\"k\":\"stepper\",\"args\":{\"value\":{\"state\":\"qty\"}}},",
-  "  {\"k\":\"dyn\",\"key\":\"t:12:5\"},",
-  "  {\"k\":\"input\",\"args\":{\"value\":{\"state\":\"nick\"}}},",
-  "  {\"k\":\"button\",\"args\":{\"text\":{\"lit\":\"重置\"}},\"click\":\"on_reset\"}",
-  "]},",
-  "\"exprs\":[\"t:8:18\",\"c:9:5\",\"t:9:5\",\"t:12:5\"],",
-  "\"states\":[\"wifi\",\"qty\",\"nick\"],",
-  "\"handlers\":[\"on_reset\"]}",
-].join("") + "\n"
+    "{\"v\":1,\"rev\":\"mng-ir-1\",\"page\":\"dev_demo\",", "\"root\":{\"k\":\"col\",\"gap\":8.0,\"class\":[\"demo\"],\"kids\":[",
+    "  {\"k\":\"checkbox\",\"args\":{\"label\":{\"expr\":\"t:8:18\"},\"value\":{\"state\":\"wifi\"}}},",
+    "  {\"k\":\"if\",\"c\":\"c:9:5\",\"t\":{\"k\":\"dyn\",\"key\":\"t:9:5\"},\"f\":{\"k\":\"text\",\"v\":\"已关闭\"}},",
+    "  {\"k\":\"stepper\",\"args\":{\"value\":{\"state\":\"qty\"}}},", "  {\"k\":\"dyn\",\"key\":\"t:12:5\"},",
+    "  {\"k\":\"input\",\"args\":{\"value\":{\"state\":\"nick\"}}},", "  {\"k\":\"button\",\"args\":{\"text\":{\"lit\":\"重置\"}},\"click\":\"on_reset\"}",
+    "]},", "\"exprs\":[\"t:8:18\",\"c:9:5\",\"t:9:5\",\"t:12:5\"],", "\"states\":[\"wifi\",\"qty\",\"nick\"],",
+    "\"handlers\":[\"on_reset\"]}",
+  ].join("") +
+  "\n"
 }
 
 ///|
 fn demo_reg(
-  fires : Ref[Int],
-  qty : @base.Store[Int],
+  fires : Ref[Int32],
+  qty : @base.Store[Int32],
   wifi : @base.Store[Bool],
   nick : @base.Store[String],
 ) -> MngReg {
@@ -45,7 +41,12 @@ fn demo_reg(
 ///|
 test "applier:补丁构树挂上 holder，动态槽走注册表" {
   let fires = Ref(0)
-  let reg = demo_reg(fires, @base.Store::new(3), @base.Store::new(true), @base.Store::new(""))
+  let reg = demo_reg(
+    fires,
+    @base.Store::new(3),
+    @base.Store::new(true),
+    @base.Store::new(""),
+  )
   mng_dev_set_reg("dev_demo", reg)
   let holder = @widget.Widget::new()
   let _ = holder.set_column()
@@ -66,7 +67,7 @@ test "applier:补丁构树挂上 holder，动态槽走注册表" {
 ///|
 test "applier:旧代订阅整袋退订，迭代不累积" {
   let fires = Ref(0)
-  let qty : @base.Store[Int] = @base.Store::new(3)
+  let qty : @base.Store[Int32] = @base.Store::new(3)
   let reg = demo_reg(fires, qty, @base.Store::new(true), @base.Store::new(""))
   mng_dev_set_reg("dev_demo", reg)
   let holder = @widget.Widget::new()
@@ -89,7 +90,7 @@ test "applier:旧代订阅整袋退订，迭代不累积" {
 
 ///|
 fn mj_of_test(s : String) -> MJ {
-  match jp_value({ cs: chars_of_m(s), i: 0 }) {
+  match jp_value({ cs: chars_of_m(s), i: 0, }) {
     Ok(v) => v
     Err(e) => abort("测试 IR JSON 解析失败：\{e}")
   }
@@ -165,8 +166,7 @@ test "受限表达式求值：Store/运算/条件/内置函数" {
   // 库侧语义：@shared.tx 求值 = @i18n.t_or（测试未装载英文目录 → 回落原文）
   assert_eq(txv, "A")
   // qty > 5 → false
-  let cond_ast =
-    "{\"k\":\"bin\",\"op\":\">\",\"l\":{\"k\":\"get\",\"a\":{\"k\":\"id\",\"v\":\"qty\"}},\"r\":{\"k\":\"int\",\"v\":5}}"
+  let cond_ast = "{\"k\":\"bin\",\"op\":\">\",\"l\":{\"k\":\"get\",\"a\":{\"k\":\"id\",\"v\":\"qty\"}},\"r\":{\"k\":\"int\",\"v\":5}}"
   match mng_reg_eval(reg, "c:gt", mj_of_test(cond_ast)) {
     Ok(_) => ()
     Err(e) => abort("\{e}")
@@ -177,8 +177,7 @@ test "受限表达式求值：Store/运算/条件/内置函数" {
   }
   assert_true(!gt)
   // qty.to_string()
-  let s_ast =
-    "{\"k\":\"tostr\",\"a\":{\"k\":\"get\",\"a\":{\"k\":\"id\",\"v\":\"qty\"}}}"
+  let s_ast = "{\"k\":\"tostr\",\"a\":{\"k\":\"get\",\"a\":{\"k\":\"id\",\"v\":\"qty\"}}}"
   match mng_reg_eval(reg, "t:s", mj_of_test(s_ast)) {
     Ok(_) => ()
     Err(e) => abort("\{e}")
@@ -200,10 +199,8 @@ test "applier：补丁里的 eval 表登记新表达式后再构树" {
   let _ = holder.set_column()
   mng_dev_bind_holder("evalpage", holder)
   let ir = [
-    "{\"v\":1,\"rev\":\"mng-ir-1\",\"page\":\"evalpage\",",
-    "\"root\":{\"k\":\"dyn\",\"key\":\"t:abc\"},",
-    "\"exprs\":[\"t:abc\"],\"states\":[],\"handlers\":[],",
-    "\"eval\":{\"t:abc\":{\"k\":\"tostr\",\"a\":{\"k\":\"id\",\"v\":\"qty\"}}}}",
+    "{\"v\":1,\"rev\":\"mng-ir-1\",\"page\":\"evalpage\",", "\"root\":{\"k\":\"dyn\",\"key\":\"t:abc\"},",
+    "\"exprs\":[\"t:abc\"],\"states\":[],\"handlers\":[],", "\"eval\":{\"t:abc\":{\"k\":\"tostr\",\"a\":{\"k\":\"id\",\"v\":\"qty\"}}}}",
   ].join("")
   match mng_dev_apply(ir) {
     Ok(_) => ()
@@ -243,7 +240,8 @@ test "applier:协议代次不符判 stale（旧补丁没有 rev）" {
   let r = mng_dev_apply(ir)
   assert_true(
     match r {
-      Err(e) => contains_sub_m(e, "stale：") && contains_sub_m(e, "协议代次不符")
+      Err(e) =>
+        contains_sub_m(e, "stale：") && contains_sub_m(e, "协议代次不符")
       _ => false
     },
   )

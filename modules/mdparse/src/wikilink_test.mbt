@@ -82,8 +82,6 @@ test "wikilink label and target" {
   guard result.document.children[0] is Paragraph(children~, ..) else {
     fail("Expected paragraph")
   }
-  guard children[0] is WikiLink(label~, ..) else {
-    fail("Expected WikiLink")
-  }
+  guard children[0] is WikiLink(label~, ..) else { fail("Expected WikiLink") }
   inspect(label, content="MoonBit syntax")
 }

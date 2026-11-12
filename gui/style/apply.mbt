@@ -9,24 +9,33 @@
 /// 外观字段的落点：进程级侧表 `Map[控件 id, Style]`（widget 不能反向依赖本包，
 /// 槽放不进 `Widget`）。**只增不减会漏**——动态换树每换一代多留一批残账，所以
 /// 首次 `apply` 时把 widget 的控件丢弃钩子装上，摘下的子树连带清掉它的条目。
-let resolved_table : Map[Int, Style] = Map([])
+let resolved_table : Map[Int32, Style] = Map([])
 // 继承层：从最近一次向下推得到的「祖先可继承文字属性」，以及合并后的生效样式。
 // 三张表分开是为了主题/类重算时能「先回退到继承基线、再叠自身声明」。
-let inherited_table : Map[Int, Style] = Map([])
-let effective_table : Map[Int, Style] = Map([])
+
+///|
+let inherited_table : Map[Int32, Style] = Map([])
+
+///|
+let effective_table : Map[Int32, Style] = Map([])
+
+///|
 let drop_hook_installed : Ref[Bool] = Ref(false)
 
 ///|
 fn install_drop_hook() -> Unit {
   if !drop_hook_installed.val {
     drop_hook_installed.val = true
-    @widget.set_widget_discard_hook(fn(id : Int) -> Unit {
+    @widget.set_widget_discard_hook(fn(id : Int32) -> Unit {
       let _ = resolved_table.remove(id)
       let _ = inherited_table.remove(id)
       let _ = effective_table.remove(id)
       forget_anim(id)
     })
-    @widget.set_widget_mount_hook(fn(parent : @widget.Widget, child : @widget.Widget) -> Unit {
+    @widget.set_widget_mount_hook(fn(
+      parent : @widget.Widget,
+      child : @widget.Widget,
+    ) -> Unit {
       let peff = match effective_table.get(parent.id) {
         Some(s) => s
         None => empty_style()
@@ -74,7 +83,7 @@ fn push_inherit(w : @widget.Widget, inh : Style) -> Unit {
 
 ///|
 /// 侧表当前条数（诊断用：残账清理的判据）。
-pub fn resolved_count() -> Int {
+pub fn resolved_count() -> Int32 {
   resolved_table.length()
 }
 
@@ -336,7 +345,7 @@ pub fn resolved(w : @widget.Widget) -> Style {
 /// 按**控件 id** 读基块（不选桶）。测量回调只需要 id：回调存在布局节点上，
 /// 抓住控件句柄就成了「控件 → 节点 → 回调 → 控件」的引用环（计数式回收断不掉）。
 /// 布局属性只存在于基块里（状态桶签名里没有它们，§1.3），所以测量期读基块是完整的。
-pub fn resolved_by_id(id : Int) -> Style {
+pub fn resolved_by_id(id : Int32) -> Style {
   match effective_table.get(id) {
     Some(st) => st
     None => empty_style()
@@ -349,7 +358,7 @@ pub fn resolved_by_id(id : Int) -> Style {
 /// 尺寸、字画得比盒子大（看着像被裁/像跳变）。过渡账里的 `shown` 落定后即目标
 /// 值（含状态桶），所以动画结束盒子也和绘制一致。其余布局属性只在基块里
 /// （§1.3 口径不变），照旧取基块。没配过渡的控件没有账，直接返回基块。
-pub fn resolved_for_measure(id : Int) -> Style {
+pub fn resolved_for_measure(id : Int32) -> Style {
   let st = resolved_by_id(id)
   let fs = anim_shown_font_size(id)
   let lh = anim_shown_line_height(id)

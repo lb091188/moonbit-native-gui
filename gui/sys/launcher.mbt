@@ -56,18 +56,15 @@ pub extend FileManagerError with Show::{to_string, output}
 
 ///|
 #borrow(file, arg)
-extern "c" fn ffi_sys_spawn_detached(
-  file : Bytes,
-  arg : Bytes,
-) -> Int = "yue_sys_spawn_detached"
+extern "c" fn ffi_sys_spawn_detached(file : Bytes, arg : Bytes) -> Int32 = "yue_sys_spawn_detached"
 
 ///|
 #borrow(ok)
-extern "c" fn ffi_sys_getcwd(ok : Ref[Int]) -> Bytes = "yue_sys_getcwd"
+extern "c" fn ffi_sys_getcwd(ok : Ref[Int32]) -> Bytes = "yue_sys_getcwd"
 
 ///|
 #borrow(ok)
-extern "c" fn ffi_sys_exe_dir(ok : Ref[Int]) -> Bytes = "yue_sys_exe_dir"
+extern "c" fn ffi_sys_exe_dir(ok : Ref[Int32]) -> Bytes = "yue_sys_exe_dir"
 
 // ---------------------------------------------------------------------------
 // 纯逻辑层（白盒测试覆盖）
@@ -125,7 +122,11 @@ pub fn launcher_win_path(path : String) -> String {
       buf[i] = c
     }
   }
-  if changed { @utf8.decode_lossy(Bytes::from_array(buf)) } else { path }
+  if changed {
+    @utf8.decode_lossy(Bytes::from_array(buf))
+  } else {
+    path
+  }
 }
 
 ///|
@@ -174,7 +175,11 @@ pub fn spawn_detached(file : String, arg : String) -> Result[Unit, String] {
 pub fn current_dir() -> String {
   let ok = Ref(0)
   let v = ffi_sys_getcwd(ok)
-  if ok.val == 1 { @utf8.decode_lossy(v) } else { "" }
+  if ok.val == 1 {
+    @utf8.decode_lossy(v)
+  } else {
+    ""
+  }
 }
 
 ///|
@@ -183,19 +188,24 @@ pub fn current_dir() -> String {
 pub fn exe_dir() -> String {
   let ok = Ref(0)
   let v = ffi_sys_exe_dir(ok)
-  if ok.val == 1 { @utf8.decode_lossy(v) } else { "" }
+  if ok.val == 1 {
+    @utf8.decode_lossy(v)
+  } else {
+    ""
+  }
 }
 
 ///|
+
 ///|
 /// Windows 直调：ShellExecuteW「open」打开 URL/文件（>32 成功的约定）。
 #borrow(target, ok)
-extern "c" fn ffi_shell_open(target : Bytes, ok : Ref[Int]) -> Int = "yue_sys_shell_open"
+extern "c" fn ffi_shell_open(target : Bytes, ok : Ref[Int32]) -> Int32 = "yue_sys_shell_open"
 
 ///|
 /// Windows 直调：explorer /select,"path" 在文件管理器里定位。
 #borrow(path, ok)
-extern "c" fn ffi_shell_reveal(path : Bytes, ok : Ref[Int]) -> Int = "yue_sys_shell_reveal"
+extern "c" fn ffi_shell_reveal(path : Bytes, ok : Ref[Int32]) -> Int32 = "yue_sys_shell_reveal"
 
 ///|
 /// Windows 直调：ShellExecuteW 用**指定程序**打开文件（lpFile=程序、
@@ -204,8 +214,8 @@ extern "c" fn ffi_shell_reveal(path : Bytes, ok : Ref[Int]) -> Int = "yue_sys_sh
 extern "c" fn ffi_shell_open_with(
   app : Bytes,
   path : Bytes,
-  ok : Ref[Int],
-) -> Int = "yue_sys_shell_open_with"
+  ok : Ref[Int32],
+) -> Int32 = "yue_sys_shell_open_with"
 
 ///|
 /// 打开文件的错误类型（`open_file` / `open_file_with` 共用）。
@@ -247,7 +257,11 @@ pub fn open_file(path : String) -> Result[Unit, OpenFileError] {
     "windows" => {
       let ok = Ref(0)
       let _ = ffi_shell_open(@utf8.encode(launcher_win_path(abs)), ok)
-      if ok.val == 1 { Ok(()) } else { Err(SpawnFailed) }
+      if ok.val == 1 {
+        Ok(())
+      } else {
+        Err(SpawnFailed)
+      }
     }
     "linux" =>
       match spawn_detached("xdg-open", abs) {
@@ -292,7 +306,11 @@ pub fn open_file_with(
         @utf8.encode(launcher_win_path(abs)),
         ok,
       )
-      if ok.val == 1 { Ok(()) } else { Err(SpawnFailed) }
+      if ok.val == 1 {
+        Ok(())
+      } else {
+        Err(SpawnFailed)
+      }
     }
     _ =>
       match spawn_detached(app, abs) {
@@ -351,9 +369,7 @@ pub fn open_url(url : String) -> Result[Unit, OpenUrlError] {
 /// 选中态丢失**：要「打开并选中」请调 `@shell.reveal_in_file_manager`——它在
 /// Linux 上先走会话总线的 `FileManager1.ShowItems`（`@dbus` 依赖本包，两条通道
 /// 只能在 shell 会师），不在线才退回这里。
-pub fn reveal_in_file_manager(
-  path : String,
-) -> Result[Unit, FileManagerError] {
+pub fn reveal_in_file_manager(path : String) -> Result[Unit, FileManagerError] {
   let plat = sys_platform()
   // 平台门在前：不支持的平台连「路径不存在」都不该说
   if plat != "windows" && plat != "linux" && plat != "macos" {

@@ -8,12 +8,13 @@ pub(all) struct StyleClass {
   style : Style
 }
 
+///|
 let registry : Map[String, StyleClass] = Map([])
 
 ///|
 /// 定义/覆盖一个命名样式类。同名重复 define 以最后一次为准。
 pub fn define_class(name : String, s : Style) -> Unit {
-  let _ = registry.set(name, { name: name, style: s, })
+  let _ = registry.set(name, { name, style: s, })
 }
 
 ///|

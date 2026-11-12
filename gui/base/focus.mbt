@@ -11,18 +11,18 @@
 
 ///|
 pub struct FocusStack {
-  ids : Array[Int]
-  mut cur : Int
+  ids : Array[Int32]
+  mut cur : Int32
 }
 
 ///|
 pub fn FocusStack::new() -> FocusStack {
-  { ids: [], cur: -1 }
+  { ids: [], cur: -1, }
 }
 
 ///|
 /// 注册可聚焦对象（重复 id 忽略），返回是否新增。
-pub fn FocusStack::register(self : FocusStack, id : Int) -> Bool {
+pub fn FocusStack::register(self : FocusStack, id : Int32) -> Bool {
   for v in self.ids {
     if v == id {
       return false
@@ -37,7 +37,7 @@ pub fn FocusStack::register(self : FocusStack, id : Int) -> Bool {
 
 ///|
 /// 注销对象；被注销的正是当前焦点时，焦点交给下一个（或置空）。
-pub fn FocusStack::unregister(self : FocusStack, id : Int) -> Unit {
+pub fn FocusStack::unregister(self : FocusStack, id : Int32) -> Unit {
   let mut i = 0
   let mut found = -1
   for v in self.ids {
@@ -61,7 +61,7 @@ pub fn FocusStack::unregister(self : FocusStack, id : Int) -> Unit {
 }
 
 ///|
-pub fn FocusStack::current(self : FocusStack) -> Int? {
+pub fn FocusStack::current(self : FocusStack) -> Int32? {
   if self.cur < 0 || self.cur >= self.ids.length() {
     None
   } else {
@@ -70,13 +70,13 @@ pub fn FocusStack::current(self : FocusStack) -> Int? {
 }
 
 ///|
-pub fn FocusStack::count(self : FocusStack) -> Int {
+pub fn FocusStack::count(self : FocusStack) -> Int32 {
   self.ids.length()
 }
 
 ///|
 /// 显式聚焦某项；不在栈里返回 false。
-pub fn FocusStack::focus(self : FocusStack, id : Int) -> Bool {
+pub fn FocusStack::focus(self : FocusStack, id : Int32) -> Bool {
   let mut i = 0
   for v in self.ids {
     if v == id {
@@ -91,7 +91,7 @@ pub fn FocusStack::focus(self : FocusStack, id : Int) -> Bool {
 ///|
 /// 只读判定某个 id 是不是当前焦点。**绘制时判高亮要用这个**——`focus`
 /// 是设焦点，在 `on_draw` 里调它会把焦点抢给自己。
-pub fn FocusStack::is_focused(self : FocusStack, id : Int) -> Bool {
+pub fn FocusStack::is_focused(self : FocusStack, id : Int32) -> Bool {
   match self.current() {
     Some(c) => c == id
     None => false
@@ -100,7 +100,7 @@ pub fn FocusStack::is_focused(self : FocusStack, id : Int) -> Bool {
 
 ///|
 /// Tab / Shift+Tab：返回跳转后的焦点 id（无项则 None）。
-pub fn FocusStack::move_focus(self : FocusStack, backward : Bool) -> Int? {
+pub fn FocusStack::move_focus(self : FocusStack, backward : Bool) -> Int32? {
   let n = self.ids.length()
   if n == 0 {
     self.cur = -1
@@ -131,7 +131,7 @@ pub fn FocusStack::drop_current(self : FocusStack) -> Unit {
 /// 本来没有焦点时**不抢焦点**（`drop_current` 让位给网页子件之后，不能下一拍
 /// 又抢回来）。手动 `register` 的号若不在这一份列表里会被对齐掉，那是「焦点
 /// 归控件树」这条口径的代价：不在树里的临时焦点要每次对齐后再 `focus` 一次。
-pub fn FocusStack::sync(self : FocusStack, ids : Array[Int]) -> Unit {
+pub fn FocusStack::sync(self : FocusStack, ids : Array[Int32]) -> Unit {
   let cur_id = match self.current() {
     Some(v) => v
     None => 0

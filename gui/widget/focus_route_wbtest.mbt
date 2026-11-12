@@ -44,12 +44,12 @@ fn two_fields(a : WindowHost) -> (Widget, Widget) {
 }
 
 ///|
-fn down_at(a : WindowHost, x : Int, y : Int) -> Unit {
+fn down_at(a : WindowHost, x : Int32, y : Int32) -> Unit {
   a.route({ code: 2, keysym: 0, mods: 0, x, y, button: 1, axis: 0, })
 }
 
 ///|
-fn key_down(a : WindowHost, keysym : Int) -> Unit {
+fn key_down(a : WindowHost, keysym : Int32) -> Unit {
   a.route({ code: 0, keysym, mods: 0, x: 0, y: 0, button: 0, axis: 0, })
 }
 

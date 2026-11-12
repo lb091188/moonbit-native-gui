@@ -78,15 +78,16 @@ fn wp_split_lines(s : String) -> Array[String] {
 
 ///|
 /// 去首尾空白。
+
 ///|
 /// Windows 直调：SPI_GETDESKWALLPAPER 读当前壁纸全路径（UTF-8 字节串）。
 #borrow(ok)
-extern "c" fn ffi_wallpaper_get(ok : Ref[Int]) -> Bytes = "yue_sys_wallpaper_get"
+extern "c" fn ffi_wallpaper_get(ok : Ref[Int32]) -> Bytes = "yue_sys_wallpaper_get"
 
 ///|
 /// Windows 直调：SPI_SETDESKWALLPAPER 写壁纸并广播。
 #borrow(path, ok)
-extern "c" fn ffi_wallpaper_set(path : Bytes, ok : Ref[Int]) -> Int = "yue_sys_wallpaper_set"
+extern "c" fn ffi_wallpaper_set(path : Bytes, ok : Ref[Int32]) -> Int32 = "yue_sys_wallpaper_set"
 
 ///|
 fn wp_trim(s : String) -> String {
@@ -187,7 +188,7 @@ fn wp_is_last_image_prop(line : String) -> Bool {
 /// "monitor" 前缀，"None-1" 为未单独配置输出的兜底项）与工作区序号。
 priv struct WpBackdropProp {
   monitor : String
-  workspace : Int
+  workspace : Int32
 }
 
 ///|
@@ -232,7 +233,7 @@ fn wp_parse_backdrop_prop(prop : String) -> WpBackdropProp? {
 ///|
 /// 解析 "<前缀><无符号十进制>" 形态文本（"workspace0" 带 "workspace" →
 /// Some(0)；无前缀或含非数字为 None）。
-fn wp_parse_uint(s : String, prefix : String) -> Int? {
+fn wp_parse_uint(s : String, prefix : String) -> Int32? {
   match wp_strip_prefix(s, prefix) {
     None => None
     Some(rest) => {
@@ -403,8 +404,8 @@ fn wp_first_line(s : String) -> String {
 fn wp_run_capture(
   prog : String,
   args : Array[String],
-  timeout_ms? : Int = 5000,
-) -> Result[(Int, String), WallpaperError] {
+  timeout_ms~ : Int32 = 5000,
+) -> Result[(Int32, String), WallpaperError] {
   match pr_run(prog, args, timeout_ms~) {
     Ok(o) => Ok((o.exit_code, o.stdout))
     Err(NonZeroExit(code, err)) => Ok((code, err))
@@ -512,10 +513,12 @@ fn wp_mac_quote(path : String) -> String {
   buf.to_string()
 }
 
-fn wp_mac_run(script : String) -> Result[(Int, String), WallpaperError] {
+///|
+fn wp_mac_run(script : String) -> Result[(Int32, String), WallpaperError] {
   wp_run_capture("osascript", ["-e", script], timeout_ms=8000)
 }
 
+///|
 fn wp_get_mac() -> Result[String, WallpaperError] {
   // `picture` 属性本身就是 POSIX 路径字符串（System Events 字典口径），
   // 不能再套 `POSIX path of`——对字符串做文件转换报 -1728（真机实测）
@@ -525,7 +528,9 @@ fn wp_get_mac() -> Result[String, WallpaperError] {
     Ok((code, out)) => {
       if code != 0 {
         return Err(
-          CommandFailed("osascript 读壁纸: 退出码 \{code}（\{wp_first_line(out)}）"),
+          CommandFailed(
+            "osascript 读壁纸: 退出码 \{code}（\{wp_first_line(out)}）",
+          ),
         )
       }
       let p = wp_trim(out)
@@ -540,16 +545,18 @@ fn wp_get_mac() -> Result[String, WallpaperError] {
   }
 }
 
+///|
 fn wp_set_mac(path : String) -> Result[Unit, WallpaperError] {
-  let head =
-    "tell application \"System Events\" to set desktop picture to POSIX file \""
+  let head = "tell application \"System Events\" to set desktop picture to POSIX file \""
   let script = head + wp_mac_quote(path) + "\""
   match wp_mac_run(script) {
     Err(e) => Err(e)
     Ok((0, _)) => Ok(())
     Ok((code, err)) =>
       Err(
-        CommandFailed("osascript 写壁纸: 退出码 \{code}（\{wp_first_line(err)}）"),
+        CommandFailed(
+          "osascript 写壁纸: 退出码 \{code}（\{wp_first_line(err)}）",
+        ),
       )
   }
 }
@@ -664,7 +671,9 @@ fn wp_get_xfce() -> Result[String, WallpaperError] {
     Ok((code, out)) => {
       if code != 0 {
         return Err(
-          CommandFailed("xfconf-query -l: 退出码 \{code}（\{wp_first_line(out)}）"),
+          CommandFailed(
+            "xfconf-query -l: 退出码 \{code}（\{wp_first_line(out)}）",
+          ),
         )
       }
       let candidates : Array[String] = []
@@ -760,7 +769,9 @@ fn wp_read_gsettings_key(
     Ok((code, out)) =>
       if code != 0 {
         Err(
-          CommandFailed("gsettings get \{key}: 退出码 \{code}（\{wp_first_line(out)}）"),
+          CommandFailed(
+            "gsettings get \{key}: 退出码 \{code}（\{wp_first_line(out)}）",
+          ),
         )
       } else {
         Ok(wp_parse_gsettings_uri(out))

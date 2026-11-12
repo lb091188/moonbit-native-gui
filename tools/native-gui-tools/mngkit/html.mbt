@@ -4,8 +4,8 @@
 ///|
 priv struct Cur {
   cs : Array[Char]
-  mut i : Int
-  starts : Array[Int]
+  mut i : Int32
+  starts : Array[Int32]
 }
 
 ///|
@@ -17,16 +17,16 @@ fn make_cur(src : String) -> Cur {
       starts.push(k + 1)
     }
   }
-  { cs, i: 0, starts }
+  { cs, i: 0, starts, }
 }
 
 ///|
-fn pos_at(c : Cur, idx : Int) -> Pos {
+fn pos_at(c : Cur, idx : Int32) -> Pos {
   let mut line = 0
   while line + 1 < c.starts.length() && c.starts[line + 1] <= idx {
     line += 1
   }
-  { line: line + 1, col: idx - c.starts[line] + 1 }
+  { line: line + 1, col: idx - c.starts[line] + 1, }
 }
 
 ///|
@@ -78,10 +78,10 @@ fn read_while(c : Cur, pred : (Char) -> Bool) -> String {
 ///|
 priv struct Sfc {
   script : String
-  script_line0 : Int
+  script_line0 : Int32
   roots : Array[TNode]
   style : String
-  style_line0 : Int
+  style_line0 : Int32
 }
 
 ///|
@@ -117,14 +117,16 @@ fn attr_kind_of(name : String) -> (AttrKind, String) {
 ///|
 fn parse_attr(c : Cur) -> Result[Attr, String] {
   let pos = pos_at(c, c.i)
-  let name = read_while(c, fn(ch) { is_ident_char(ch) || ch == ':' || ch == '@' || ch == '-' })
+  let name = read_while(c, fn(ch) {
+    is_ident_char(ch) || ch == ':' || ch == '@' || ch == '-'
+  })
   if name.length() == 0 {
     return Err(cur_err(c, "属性名非法"))
   }
   skip_ws(c)
   let (kind, bare) = attr_kind_of(name)
   if cur_eof(c) || cur_peek(c) != '=' {
-    return Ok({ kind, name: bare, value: "", has_value: false, pos })
+    return Ok({ kind, name: bare, value: "", has_value: false, pos, })
   }
   c.i += 1
   skip_ws(c)
@@ -159,7 +161,7 @@ fn parse_attr(c : Cur) -> Result[Attr, String] {
     Dyn | Event | Model | If | ElseIf | Show | For => requote_expr(raw_value)
     _ => raw_value
   }
-  Ok({ kind, name: bare, value, has_value: true, pos })
+  Ok({ kind, name: bare, value, has_value: true, pos, })
 }
 
 ///|
@@ -221,7 +223,10 @@ fn parse_nodes(c : Cur, stop : String) -> Result[Array[TNode], String] {
         // 注释跳过
         c.i += 4
         while !cur_eof(c) &&
-          !(c.cs[c.i] == '-' && c.i + 2 < c.cs.length() && c.cs[c.i + 1] == '-' && c.cs[c.i + 2] == '>') {
+              !(c.cs[c.i] == '-' &&
+              c.i + 2 < c.cs.length() &&
+              c.cs[c.i + 1] == '-' &&
+              c.cs[c.i + 2] == '>') {
           c.i += 1
         }
         if cur_eof(c) {
@@ -238,7 +243,9 @@ fn parse_nodes(c : Cur, stop : String) -> Result[Array[TNode], String] {
         if name == stop {
           return Ok(out)
         }
-        return Err(cur_err(c, "闭合标签 </\{name}> 与打开的 <\{stop}> 不匹配"))
+        return Err(
+          cur_err(c, "闭合标签 </\{name}> 与打开的 <\{stop}> 不匹配"),
+        )
       }
       match parse_elem(c) {
         Ok(n) => out.push(n)
@@ -274,7 +281,7 @@ fn parse_nodes(c : Cur, stop : String) -> Result[Array[TNode], String] {
 ///|
 /// 原文段读取（script / style）：从开标签 `>` 之后读到 `</名字`，返回内容与首行行号；
 /// 调用结束时游标停在闭标签之后。
-fn read_raw(c : Cur, name : String) -> Result[(String, Int), String] {
+fn read_raw(c : Cur, name : String) -> Result[(String, Int32), String] {
   let content_start = c.i
   let line0 = pos_at(c, c.i).line
   let nm = chars_of(name)
@@ -336,7 +343,7 @@ fn parse_sfc(src : String) -> Result[Sfc, String] {
       }
       let _ = expect(c, '>', name + " 开标签")
       match read_raw(c, name) {
-        Ok((content, ln)) => {
+        Ok((content, ln)) =>
           if name == "script" {
             script = content
             script_line0 = ln
@@ -344,7 +351,6 @@ fn parse_sfc(src : String) -> Result[Sfc, String] {
             style = content
             style_line0 = ln
           }
-        }
         Err(e) => return Err(e)
       }
     } else if name == "template" {
@@ -360,11 +366,16 @@ fn parse_sfc(src : String) -> Result[Sfc, String] {
         Err(e) => return Err(e)
       }
     } else {
-      return Err(cur_err(c, "顶层只允许 <script>、<template> 与 <style>，见到 <\{name}>"))
+      return Err(
+        cur_err(
+          c,
+          "顶层只允许 <script>、<template> 与 <style>，见到 <\{name}>",
+        ),
+      )
     }
   }
   if !got_template {
     return Err("缺 <template> 段")
   }
-  Ok({ script, script_line0, roots, style, style_line0 })
+  Ok({ script, script_line0, roots, style, style_line0, })
 }

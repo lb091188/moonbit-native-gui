@@ -23,26 +23,10 @@ priv struct StyleRule {
 /// 主题色令牌（Theme 的 20 个字段名，绘制期按当前主题落色）。
 fn color_tokens() -> Array[String] {
   [
-    "primary",
-    "primary_light",
-    "primary_hover",
-    "danger",
-    "danger_light",
-    "danger_hover",
-    "success",
-    "success_light",
-    "warning",
-    "warning_light",
-    "info",
-    "info_light",
-    "text_primary",
-    "text_regular",
-    "text_secondary",
-    "border",
-    "fill_hover",
-    "fill_zebra",
-    "bg_page",
-    "bg_panel",
+    "primary", "primary_light", "primary_hover", "danger", "danger_light", "danger_hover",
+    "success", "success_light", "warning", "warning_light", "info", "info_light",
+    "text_primary", "text_regular", "text_secondary", "border", "fill_hover", "fill_zebra",
+    "bg_page", "bg_panel",
   ]
 }
 
@@ -72,14 +56,8 @@ pub fn style_color_tokens() -> Array[String] {
 /// `<style>` 可用的数值尺度令牌名（不带 `--`）。
 pub fn style_scale_tokens() -> Array[String] {
   [
-    "control_height",
-    "font_size_body",
-    "font_size_secondary",
-    "font_size_section",
-    "font_size_title",
-    "radius_ctrl",
-    "radius_card",
-    "radius_overlay",
+    "control_height", "font_size_body", "font_size_secondary", "font_size_section",
+    "font_size_title", "radius_ctrl", "radius_card", "radius_overlay",
   ]
 }
 
@@ -87,28 +65,10 @@ pub fn style_scale_tokens() -> Array[String] {
 /// `<style>` 可写的属性名（kebab 写法，编辑器补全用）。
 pub fn style_props() -> Array[String] {
   let snake_names : Array[String] = [
-    "color",
-    "background_color",
-    "border_color",
-    "font_family",
-    "z_index",
-    "cursor",
-    "font_weight",
-    "text_align",
-    "white_space",
-    "border_style",
-    "visibility",
-    "display",
-    "flex_direction",
-    "flex_wrap",
-    "justify_content",
-    "align_items",
-    "align_self",
-    "position",
-    "flex",
-    "flex-shrink",
-    "opacity",
-    "transition-duration",
+    "color", "background_color", "border_color", "font_family", "z_index", "cursor",
+    "font_weight", "text_align", "white_space", "border_style", "visibility", "display",
+    "flex_direction", "flex_wrap", "justify_content", "align_items", "align_self",
+    "position", "flex", "flex-shrink", "opacity", "transition-duration",
   ]
   let out : Array[String] = []
   for n in snake_names {
@@ -160,61 +120,49 @@ fn prop_kind_of(name : String) -> PropKind {
     "opacity" | "flex_shrink" => PKFactor
     "transition_duration" => PKTime
     "font_weight" =>
-      PKEnum("@text.FontWeight", "normal=Normal,bold=Bold,100=Thin,200=ExtraLight,300=Light,400=Normal,500=Medium,600=SemiBold,700=Bold,800=ExtraBold,900=Black")
-    "text_align" => PKEnum("@text.TextAlign", "start=Start,left=Start,center=Center,end=End,right=End")
+      PKEnum(
+        "@text.FontWeight", "normal=Normal,bold=Bold,100=Thin,200=ExtraLight,300=Light,400=Normal,500=Medium,600=SemiBold,700=Bold,800=ExtraBold,900=Black",
+      )
+    "text_align" =>
+      PKEnum(
+        "@text.TextAlign", "start=Start,left=Start,center=Center,end=End,right=End",
+      )
     "white_space" => PKEnum("@style.WhiteSpace", "normal=Normal,no_wrap=NoWrap")
-    "border_style" => PKEnum("@style.BorderStyle", "solid=Solid,dashed=Dashed,dotted=Dotted")
+    "border_style" =>
+      PKEnum("@style.BorderStyle", "solid=Solid,dashed=Dashed,dotted=Dotted")
     "visibility" => PKEnum("@style.Visibility", "visible=Visible,hidden=Hidden")
     // 布局枚举（@yoga 类型；模板所在包需 import NoahLiu/yoga-mbt/src as @yoga）
     "display" => PKEnum("@yoga.Display", "flex=Flex,none=None")
     "flex_direction" =>
-      PKEnum("@yoga.FlexDirection", "row=Row,row_reverse=RowReverse,column=Column,column_reverse=ColumnReverse")
-    "flex_wrap" => PKEnum("@yoga.FlexWrap", "nowrap=NoWrap,no_wrap=NoWrap,wrap=Wrap,wrap_reverse=WrapReverse")
+      PKEnum(
+        "@yoga.FlexDirection", "row=Row,row_reverse=RowReverse,column=Column,column_reverse=ColumnReverse",
+      )
+    "flex_wrap" =>
+      PKEnum(
+        "@yoga.FlexWrap", "nowrap=NoWrap,no_wrap=NoWrap,wrap=Wrap,wrap_reverse=WrapReverse",
+      )
     "justify_content" =>
-      PKEnum("@yoga.JustifyContent", "flex_start=FlexStart,start=FlexStart,left=FlexStart,flex_end=FlexEnd,end=FlexEnd,right=FlexEnd,center=Center,space_between=SpaceBetween,space_around=SpaceAround,space_evenly=SpaceEvenly")
+      PKEnum(
+        "@yoga.JustifyContent", "flex_start=FlexStart,start=FlexStart,left=FlexStart,flex_end=FlexEnd,end=FlexEnd,right=FlexEnd,center=Center,space_between=SpaceBetween,space_around=SpaceAround,space_evenly=SpaceEvenly",
+      )
     "align_items" | "align_self" =>
-      PKEnum("@yoga.AlignItems", "stretch=Stretch,flex_start=FlexStart,start=FlexStart,flex_end=FlexEnd,end=FlexEnd,center=Center,baseline=Baseline")
-    "position" => PKEnum("@yoga.PositionType", "relative=Relative,absolute=Absolute")
-    _ =>
-      if arr_contains(number_props(), name) {
-        PKNumber
-      } else {
-        PKUnknown
-      }
+      PKEnum(
+        "@yoga.AlignItems", "stretch=Stretch,flex_start=FlexStart,start=FlexStart,flex_end=FlexEnd,end=FlexEnd,center=Center,baseline=Baseline",
+      )
+    "position" =>
+      PKEnum("@yoga.PositionType", "relative=Relative,absolute=Absolute")
+    _ => if arr_contains(number_props(), name) { PKNumber } else { PKUnknown }
   }
 }
 
 ///|
 fn number_props() -> Array[String] {
   [
-    "font_size",
-    "line_height",
-    "letter_spacing",
-    "width",
-    "height",
-    "min_width",
-    "min_height",
-    "max_width",
-    "max_height",
-    "padding",
-    "padding_left",
-    "padding_right",
-    "padding_top",
-    "padding_bottom",
-    "margin",
-    "margin_left",
-    "margin_right",
-    "margin_top",
-    "margin_bottom",
-    "border_width",
-    "border_radius",
-    "gap",
-    "row_gap",
-    "column_gap",
-    "top",
-    "right",
-    "bottom",
-    "left",
+    "font_size", "line_height", "letter_spacing", "width", "height", "min_width",
+    "min_height", "max_width", "max_height", "padding", "padding_left", "padding_right",
+    "padding_top", "padding_bottom", "margin", "margin_left", "margin_right", "margin_top",
+    "margin_bottom", "border_width", "border_radius", "gap", "row_gap", "column_gap",
+    "top", "right", "bottom", "left",
   ]
 }
 
@@ -223,15 +171,8 @@ fn number_props() -> Array[String] {
 /// 模板里写死字面量即编译报错（它们正是随主题变的那一组）。
 fn themed_props() -> Array[String] {
   [
-    "color",
-    "background_color",
-    "border_color",
-    "border_width",
-    "border_radius",
-    "font_size",
-    "font_family",
-    "font_weight",
-    "opacity",
+    "color", "background_color", "border_color", "border_width", "border_radius",
+    "font_size", "font_family", "font_weight", "opacity",
   ]
 }
 
@@ -249,7 +190,9 @@ fn is_hex_color(v : String) -> Bool {
   let mut ok = true
   for k in 1..<n {
     let c = a[k]
-    let hex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
+    let hex = (c >= '0' && c <= '9') ||
+      (c >= 'a' && c <= 'f') ||
+      (c >= 'A' && c <= 'F')
     if !hex {
       ok = false
     }
@@ -353,18 +296,21 @@ fn flex_basis_pair(tok : String, pos : Pos) -> Result[(String, String), String] 
   }
   match length_or_zero(tok) {
     Some(e) => Ok(("flex_basis", e))
-    None => {
+    None =>
       Err(
         "\{pos_str(pos)}：flex basis 要像素或百分比（`100%` / `120px` / `0`）；`auto` 用 width/height 表达",
       )
-    }
   }
 }
 
 ///|
 /// 属性展开：`flex` 按 CSS 简写拆成 grow/shrink/basis 三件套，`flex_basis` 认百分比，
 /// 其余属性单值直传。
-fn style_expand(prop : String, raw : String, pos : Pos) -> Result[Array[(String, String)], String] {
+fn style_expand(
+  prop : String,
+  raw : String,
+  pos : Pos,
+) -> Result[Array[(String, String)], String] {
   if prop == "flex" {
     let toks = split_ws(raw)
     if toks.length() == 0 {
@@ -385,7 +331,10 @@ fn style_expand(prop : String, raw : String, pos : Pos) -> Result[Array[(String,
     let shrink = if toks.length() >= 2 {
       match bare_number(toks[1]) {
         Some(e) => e
-        None => return Err("\{pos_str(pos)}：flex shrink 要无单位数值，见到 `\{toks[1]}`")
+        None =>
+          return Err(
+            "\{pos_str(pos)}：flex shrink 要无单位数值，见到 `\{toks[1]}`",
+          )
       }
     } else {
       "1.0"
@@ -422,7 +371,11 @@ fn percent_prop(prop : String) -> String? {
 
 ///|
 /// 属性值原文 → (Style 字段名, MoonBit 表达式)。
-fn style_value_of(prop : String, raw : String, pos : Pos) -> Result[(String, String), String] {
+fn style_value_of(
+  prop : String,
+  raw : String,
+  pos : Pos,
+) -> Result[(String, String), String] {
   let v = raw.trim().to_owned()
   let kind = prop_kind_of(prop)
   if v.length() == 0 {
@@ -439,14 +392,22 @@ fn style_value_of(prop : String, raw : String, pos : Pos) -> Result[(String, Str
         if arr_contains(color_tokens(), tok) {
           Ok((prop, q(tok)))
         } else {
-          Err("\{pos_str(pos)}：`--\{tok}` 不是主题色令牌（20 枚：primary/text_primary/bg_panel…）")
+          Err(
+            "\{pos_str(pos)}：`--\{tok}` 不是主题色令牌（20 枚：primary/text_primary/bg_panel…）",
+          )
         }
       PKNumber =>
         match scale_token_expr(tok) {
           Some(e) => Ok((prop, e))
-          None => Err("\{pos_str(pos)}：`--\{tok}` 不是数值尺度令牌（control_height/font_size_*/radius_*）")
+          None =>
+            Err(
+              "\{pos_str(pos)}：`--\{tok}` 不是数值尺度令牌（control_height/font_size_*/radius_*）",
+            )
         }
-      _ => Err("\{pos_str(pos)}：`var()` 只用于颜色属性与数值尺度属性")
+      _ =>
+        Err(
+          "\{pos_str(pos)}：`var()` 只用于颜色属性与数值尺度属性",
+        )
     }
   } else {
     match kind {
@@ -454,7 +415,9 @@ fn style_value_of(prop : String, raw : String, pos : Pos) -> Result[(String, Str
         if is_hex_color(v) {
           Ok((prop, q(v)))
         } else {
-          Err("\{pos_str(pos)}：颜色要写 `var(--令牌)` 或 `#rrggbb`，见到 `\{v}`")
+          Err(
+            "\{pos_str(pos)}：颜色要写 `var(--令牌)` 或 `#rrggbb`，见到 `\{v}`",
+          )
         }
       PKNumber =>
         if v.has_suffix("%") {
@@ -469,7 +432,9 @@ fn style_value_of(prop : String, raw : String, pos : Pos) -> Result[(String, Str
           if is_number_text(head) {
             Ok((target, num_lit(head)))
           } else {
-            Err("\{pos_str(pos)}：`\{prop}` 的百分比要数值，见到 `\{v}`")
+            Err(
+              "\{pos_str(pos)}：`\{prop}` 的百分比要数值，见到 `\{v}`",
+            )
           }
         } else {
           match length_or_zero(v) {
@@ -483,7 +448,10 @@ fn style_value_of(prop : String, raw : String, pos : Pos) -> Result[(String, Str
       PKFactor =>
         match bare_number(v) {
           Some(e) => Ok((prop, e))
-          None => Err("\{pos_str(pos)}：`\{prop}` 要无单位数值（如 `1`），见到 `\{v}`")
+          None =>
+            Err(
+              "\{pos_str(pos)}：`\{prop}` 要无单位数值（如 `1`），见到 `\{v}`",
+            )
         }
       PKTime =>
         if v.length() > 2 && v.has_suffix("ms") {
@@ -491,7 +459,9 @@ fn style_value_of(prop : String, raw : String, pos : Pos) -> Result[(String, Str
           if is_number_text(head) {
             Ok(("transition_ms", num_lit(head)))
           } else {
-            Err("\{pos_str(pos)}：`transition-duration` 的时长要数值 + `ms`，见到 `\{v}`")
+            Err(
+              "\{pos_str(pos)}：`transition-duration` 的时长要数值 + `ms`，见到 `\{v}`",
+            )
           }
         } else {
           Err(
@@ -512,7 +482,9 @@ fn style_value_of(prop : String, raw : String, pos : Pos) -> Result[(String, Str
         if found.length() > 0 {
           Ok((prop, found))
         } else {
-          Err("\{pos_str(pos)}：`cursor` 只认 default / pointer / text，见到 `\{v}`")
+          Err(
+            "\{pos_str(pos)}：`cursor` 只认 default / pointer / text，见到 `\{v}`",
+          )
         }
       }
       PKInt =>
@@ -522,10 +494,13 @@ fn style_value_of(prop : String, raw : String, pos : Pos) -> Result[(String, Str
           Err("\{pos_str(pos)}：`\{prop}` 要整数，见到 `\{v}`")
         }
       PKString =>
-        if (v.has_prefix("\"") && v.has_suffix("\"")) || (v.has_prefix("'") && v.has_suffix("'")) {
+        if (v.has_prefix("\"") && v.has_suffix("\"")) ||
+          (v.has_prefix("'") && v.has_suffix("'")) {
           Ok((prop, "\"" + v[1:v.length() - 1].to_owned() + "\""))
         } else {
-          Err("\{pos_str(pos)}：`\{prop}` 要引号包裹的串，见到 `\{v}`")
+          Err(
+            "\{pos_str(pos)}：`\{prop}` 要引号包裹的串，见到 `\{v}`",
+          )
         }
       PKEnum(path, table) => {
         let key = snake(v)
@@ -560,7 +535,7 @@ fn int_text(v : String) -> String {
 }
 
 ///|
-fn dot_pos(v : String) -> Int? {
+fn dot_pos(v : String) -> Int32? {
   let a = chars_of(v)
   let mut i = 0
   while i < a.length() {
@@ -609,7 +584,9 @@ fn is_number_text(v : String) -> Bool {
 fn parse_selector(sel : String, pos : Pos) -> Result[(String, String), String] {
   let s = sel.trim().to_owned()
   if !s.has_prefix(".") {
-    return Err("\{pos_str(pos)}：`<style>` v1 只支持类选择器 `.名`（元素/ID/属性/后代选择器不做）")
+    return Err(
+      "\{pos_str(pos)}：`<style>` v1 只支持类选择器 `.名`（元素/ID/属性/后代选择器不做）",
+    )
   }
   let body = s[1:].to_owned()
   let a = chars_of(body)
@@ -638,19 +615,22 @@ fn parse_selector(sel : String, pos : Pos) -> Result[(String, String), String] {
 ///|
 /// 段内位置 → 模板文件位置。`line0` 是内容首行的 1 基行号，段内 `pos.line` 也是
 /// 1 基，首行重叠一次故减 1。
-fn shift_pos(pos : Pos, line0 : Int) -> Pos {
-  { line: pos.line + line0 - 1, col: pos.col }
+fn shift_pos(pos : Pos, line0 : Int32) -> Pos {
+  { line: pos.line + line0 - 1, col: pos.col, }
 }
 
 ///|
 /// 段内打错的坐标补上 `<style>` 的行偏移。
-fn style_err(c : Cur, line0 : Int, msg : String) -> String {
+fn style_err(c : Cur, line0 : Int32, msg : String) -> String {
   "\{pos_str(shift_pos(pos_at(c, c.i), line0))}：\{msg}"
 }
 
 ///|
 /// `<style>` 段原文 → 规则表。重复声明同类同名属性以最后一次为准（编译期摊平）。
-fn parse_style(text : String, line0 : Int) -> Result[Array[StyleRule], String] {
+fn parse_style(
+  text : String,
+  line0 : Int32,
+) -> Result[Array[StyleRule], String] {
   let c = make_cur(text)
   let rules : Array[StyleRule] = []
   let n = text.length()
@@ -708,13 +688,13 @@ fn parse_style(text : String, line0 : Int) -> Result[Array[StyleRule], String] {
         Err(x) => return Err(x)
       }
       for (n, e) in pairs {
-        props.push({ name: n, expr: e })
+        props.push({ name: n, expr: e, })
       }
       if c.i < n && cur_peek(c) == ';' {
         c.i += 1
       }
     }
-    rules.push({ class: cls, state, props })
+    rules.push({ class: cls, state, props, })
   }
   Ok(rules)
 }
@@ -808,7 +788,13 @@ fn style_defs(rules : Array[StyleRule]) -> Array[String] {
         }
       }
     }
-    out.push("  @style.define_class(" + q(n + ":dark") + ", @style.style(" + props_expr(ps) + "))")
+    out.push(
+      "  @style.define_class(" +
+      q(n + ":dark") +
+      ", @style.style(" +
+      props_expr(ps) +
+      "))",
+    )
   }
   out
 }
@@ -879,7 +865,7 @@ fn class_names_of(raw : String) -> Array[String] {
 ///|
 /// `<style>` 规则 → 补丁用类定义数据：`[{n:类名, s:状态, props:[{p,e}]}]`。
 /// `e` 是编译期已算好的 MoonBit 值表达式，应用侧按属性名落到 Style 字段。
-fn style_classes_json(text : String, line0 : Int) -> Result[String, String] {
+fn style_classes_json(text : String, line0 : Int32) -> Result[String, String] {
   let rules = match parse_style(text, line0) {
     Ok(v) => v
     Err(e) => return Err(e)
@@ -891,7 +877,11 @@ fn style_classes_json(text : String, line0 : Int) -> Result[String, String] {
       ps.push("{\"p\":\"" + jstr(p.name) + "\",\"e\":\"" + jstr(p.expr) + "\"}")
     }
     xs.push(
-      "{\"n\":\"" + jstr(r.class) + "\",\"s\":\"" + jstr(r.state) + "\",\"props\":[" +
+      "{\"n\":\"" +
+      jstr(r.class) +
+      "\",\"s\":\"" +
+      jstr(r.state) +
+      "\",\"props\":[" +
       ps.join(",") +
       "]}",
     )

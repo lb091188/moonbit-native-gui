@@ -227,10 +227,7 @@ test "圆角令牌：默认开圆角给 4/6/8，关圆角全为 0，开关可复
 ///|
 test "from_json：全字段合法加载" {
   let j = [
-    "{",
-    "  \"primary\": \"#123456\",",
-    "  \"bg_panel\": \"#abcdef\",",
-    "  \"chart_palette\": [\"#111111\", \"#222222\", \"#333333\", \"#444444\", \"#555555\"]",
+    "{", "  \"primary\": \"#123456\",", "  \"bg_panel\": \"#abcdef\",", "  \"chart_palette\": [\"#111111\", \"#222222\", \"#333333\", \"#444444\", \"#555555\"]",
     "}",
   ].join("\n")
   let t = match from_json(j) {
@@ -343,9 +340,10 @@ test "设计令牌四阶：getter 越界夹取、静态令牌与基准同步" {
 
 ///|
 test "from_json：四阶定制，缺省回落基准" {
-  let t = match from_json(
-    "{\"space_scale\": [4.0, 8.0, 12.0], \"duration_scale\": [100, 150]}",
-  ) {
+  let t = match
+    from_json(
+      "{\"space_scale\": [4.0, 8.0, 12.0], \"duration_scale\": [100, 150]}",
+    ) {
     Ok(t) => t
     Err(e) => abort(e)
   }

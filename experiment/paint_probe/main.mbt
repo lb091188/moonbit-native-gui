@@ -3,7 +3,14 @@
 // markdown / 纯填充」逐类隔离计时，定位剩下的钱花在哪。
 // 跑法：moon run experiment/paint_probe
 
-fn bench(name : String, build : () -> @widget.Node, w : Int, h : Int, n : Int) -> Unit {
+///|
+fn bench(
+  name : String,
+  build : () -> @widget.Node,
+  w : Int32,
+  h : Int32,
+  n : Int32,
+) -> Unit {
   let bm = @render.Bitmap::new(w, h)
   let root = @widget.Widget::new()
   root.set_size(w.to_double(), h.to_double())
@@ -19,10 +26,13 @@ fn bench(name : String, build : () -> @widget.Node, w : Int, h : Int, n : Int) -
     it += 1
   }
   let ms = @win.now_ms() - t0
-  println("PAINT-PROB \{name} frames=\{n} \{ms}ms(\{ms / n.to_int64()}ms/帧) size=\{page.rect.w.round().to_int()}x\{page.rect.h.round().to_int()}")
+  println(
+    "PAINT-PROB \{name} frames=\{n} \{ms}ms(\{ms / n.to_int64()}ms/帧) size=\{page.rect.w.round().to_int()}x\{page.rect.h.round().to_int()}",
+  )
   p.end()
 }
 
+///|
 fn main {
   let w = 1400
   let h = 900
@@ -32,7 +42,7 @@ fn main {
   let vals2 : Array[Double] = []
   for i = 0; i < 80; i = i + 1 {
     let _ = vals.push((i % 37).to_double())
-    let _ = vals2.push(((i * 7) % 53).to_double())
+    let _ = vals2.push((i * 7 % 53).to_double())
   }
   let lin = @base.Store::new([
     @chart.LineSeries::make("负载", max_points=80).with_points(vals),
@@ -41,7 +51,9 @@ fn main {
   let bar_arr : Array[@chart.BarItem] = []
   let mut i = 0
   while i < 29 {
-    let _ = bar_arr.push(@chart.BarItem::make("c\{i}", ((i * 13) % 29).to_double() - 4.0))
+    let _ = bar_arr.push(
+      @chart.BarItem::make("c\{i}", (i * 13 % 29).to_double() - 4.0),
+    )
     i += 1
   }
   let bars = @base.Store::new(bar_arr)
@@ -72,7 +84,17 @@ fn main {
   let tb_arr : Array[@ui.TableRow] = []
   let mut i = 0
   while i < 200 {
-    let _ = tb_arr.push(@ui.TableRow::make(["虚拟行 \{i}", "\{i} 处", if i % 3 == 0 { "待修" } else { "通过" }]))
+    let _ = tb_arr.push(
+      @ui.TableRow::make([
+        "虚拟行 \{i}",
+        "\{i} 处",
+        if i % 3 == 0 {
+          "待修"
+        } else {
+          "通过"
+        },
+      ]),
+    )
     i += 1
   }
   let tb_rows = @base.Store::new(tb_arr)
@@ -118,8 +140,8 @@ fn main {
     while k < 60 {
       p.set_fill_color("#20222b")
       p.fill_round_rect(
-        ((k % 3) * 460).to_double(),
-        ((k / 3) * 130).to_double(),
+        (k % 3 * 460).to_double(),
+        (k / 3 * 130).to_double(),
         400.0,
         120.0,
         6.0,
@@ -129,7 +151,9 @@ fn main {
     it += 1
   }
   let ms = @win.now_ms() - t0
-  println("PAINT-PROB fills(60张400x120圆角) frames=\{n} \{ms}ms(\{ms / n.to_int64()}ms/帧)")
+  println(
+    "PAINT-PROB fills(60张400x120圆角) frames=\{n} \{ms}ms(\{ms / n.to_int64()}ms/帧)",
+  )
   // ⑤ 对照：同尺寸直角 fill_rect（判定贵在圆角路径还是填充本身）
   let t1 = @win.now_ms()
   it = 0
@@ -137,13 +161,20 @@ fn main {
     let mut k = 0
     while k < 60 {
       p.set_fill_color("#20222b")
-      p.fill_rect(((k % 3) * 460).to_double(), ((k / 3) * 130).to_double(), 400.0, 120.0)
+      p.fill_rect(
+        (k % 3 * 460).to_double(),
+        (k / 3 * 130).to_double(),
+        400.0,
+        120.0,
+      )
       k += 1
     }
     it += 1
   }
   let ms2 = @win.now_ms() - t1
-  println("PAINT-PROB fills_rect(60张400x120直角) frames=\{n} \{ms2}ms(\{ms2 / n.to_int64()}ms/帧)")
+  println(
+    "PAINT-PROB fills_rect(60张400x120直角) frames=\{n} \{ms2}ms(\{ms2 / n.to_int64()}ms/帧)",
+  )
   // ⑥ 对照：单张大圆角矩形（量单张成本）
   let t2 = @win.now_ms()
   it = 0
@@ -153,7 +184,9 @@ fn main {
     it += 1
   }
   let ms3 = @win.now_ms() - t2
-  println("PAINT-PROB round_rect_x1(400x120) frames=\{n} \{ms3}ms(\{ms3 / n.to_int64()}ms/帧)")
+  println(
+    "PAINT-PROB round_rect_x1(400x120) frames=\{n} \{ms3}ms(\{ms3 / n.to_int64()}ms/帧)",
+  )
   // ⑦ 描边：60 张 400×120 圆角卡片描边（卡片 border 的实际密度）
   let t3 = @win.now_ms()
   it = 0
@@ -162,13 +195,21 @@ fn main {
     while k < 60 {
       p.set_stroke_color("#3a3d4a")
       p.set_line_width(1.0)
-      p.stroke_round_rect(((k % 3) * 460).to_double(), ((k / 3) * 130).to_double(), 400.0, 120.0, 6.0)
+      p.stroke_round_rect(
+        (k % 3 * 460).to_double(),
+        (k / 3 * 130).to_double(),
+        400.0,
+        120.0,
+        6.0,
+      )
       k += 1
     }
     it += 1
   }
   let ms4 = @win.now_ms() - t3
-  println("PAINT-PROB strokes_rr(60张400x120圆角描边) frames=\{n} \{ms4}ms(\{ms4 / n.to_int64()}ms/帧)")
+  println(
+    "PAINT-PROB strokes_rr(60张400x120圆角描边) frames=\{n} \{ms4}ms(\{ms4 / n.to_int64()}ms/帧)",
+  )
   // ⑧ 折线：单条 80 段折线 stroke（图表线的实际形状）
   let t4 = @win.now_ms()
   it = 0
@@ -179,7 +220,7 @@ fn main {
     let mut i2 = 0
     while i2 < 80 {
       let xx = 20.0 + i2.to_double() * 5.0
-      let yy = 20.0 + ((i2 * 17) % 90).to_double()
+      let yy = 20.0 + (i2 * 17 % 90).to_double()
       if i2 == 0 {
         p.move_to(xx, yy)
       } else {
@@ -191,7 +232,9 @@ fn main {
     it += 1
   }
   let ms5 = @win.now_ms() - t4
-  println("PAINT-PROB polyline(80段2px折线) frames=\{n} \{ms5}ms(\{ms5 / n.to_int64()}ms/帧)")
+  println(
+    "PAINT-PROB polyline(80段2px折线) frames=\{n} \{ms5}ms(\{ms5 / n.to_int64()}ms/帧)",
+  )
   // ⑨ 圆弧：3 个 130 半径圆环（donut 同款）
   let t5 = @win.now_ms()
   it = 0
@@ -208,7 +251,9 @@ fn main {
     it += 1
   }
   let ms6 = @win.now_ms() - t5
-  println("PAINT-PROB arcs(3个60半径14px圆弧) frames=\{n} \{ms6}ms(\{ms6 / n.to_int64()}ms/帧)")
+  println(
+    "PAINT-PROB arcs(3个60半径14px圆弧) frames=\{n} \{ms6}ms(\{ms6 / n.to_int64()}ms/帧)",
+  )
   p.end()
   // ⑩ 文本批对照：200 段互不重叠的短文本，逐段即绘（旧行为）vs 攒批一次冲刷
   let tb = @render.Bitmap::new(w, h)
@@ -217,25 +262,43 @@ fn main {
   while it < n {
     let mut k = 0
     while k < 200 {
-      let _ = @text.draw_to(tb, 20.0 + (k % 20).to_double() * 68.0, 10.0 + (k / 20).to_double() * 22.0, "标签 0123", 13.0, "#c8ccd8")
+      let _ = @text.draw_to(
+        tb,
+        20.0 + (k % 20).to_double() * 68.0,
+        10.0 + (k / 20).to_double() * 22.0,
+        "标签 0123",
+        13.0,
+        "#c8ccd8",
+      )
       k += 1
     }
     it += 1
   }
   let ms7 = @win.now_ms() - t7
-  println("PAINT-PROB text_immediate(200段/帧 逐段提交) frames=\{n} \{ms7}ms(\{ms7 / n.to_int64()}ms/帧)")
+  println(
+    "PAINT-PROB text_immediate(200段/帧 逐段提交) frames=\{n} \{ms7}ms(\{ms7 / n.to_int64()}ms/帧)",
+  )
   @text.enable_batching()
   let t8 = @win.now_ms()
   it = 0
   while it < n {
     let mut k = 0
     while k < 200 {
-      let _ = @text.draw_to(tb, 20.0 + (k % 20).to_double() * 68.0, 10.0 + (k / 20).to_double() * 22.0, "标签 0123", 13.0, "#c8ccd8")
+      let _ = @text.draw_to(
+        tb,
+        20.0 + (k % 20).to_double() * 68.0,
+        10.0 + (k / 20).to_double() * 22.0,
+        "标签 0123",
+        13.0,
+        "#c8ccd8",
+      )
       k += 1
     }
     @text.flush_pending()
     it += 1
   }
   let ms8 = @win.now_ms() - t8
-  println("PAINT-PROB text_batched(200段/帧 一次提交) frames=\{n} \{ms8}ms(\{ms8 / n.to_int64()}ms/帧)")
+  println(
+    "PAINT-PROB text_batched(200段/帧 一次提交) frames=\{n} \{ms8}ms(\{ms8 / n.to_int64()}ms/帧)",
+  )
 }

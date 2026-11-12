@@ -1,7 +1,8 @@
 // window_state 纯函数用例:JSON 往返、坏输入拒收、状态目录按平台拼装。
 
+///|
 test "wstate_text/parse:往返;键序无关" {
-  let g : WinGeom = { x: 100, y: -40, w: 1280, h: 800, maximized: false }
+  let g : WinGeom = { x: 100, y: -40, w: 1280, h: 800, maximized: false, }
   let t = wstate_text(g)
   match wstate_parse(t) {
     Some(r) => {
@@ -25,8 +26,12 @@ test "wstate_text/parse:往返;键序无关" {
   }
 }
 
+///|
 test "wstate_parse:缺字段/负尺寸/坏值给 None" {
-  match wstate_parse("{ \"x\": 1, \"y\": 2, \"w\": 0, \"h\": 3, \"maximized\": false }") {
+  match
+    wstate_parse(
+      "{ \"x\": 1, \"y\": 2, \"w\": 0, \"h\": 3, \"maximized\": false }",
+    ) {
     Some(_) => abort("zero width accepted")
     None => ()
   }
@@ -39,12 +44,16 @@ test "wstate_parse:缺字段/负尺寸/坏值给 None" {
     None => ()
   }
   // 非整数(带小数点)不是合法值
-  match wstate_parse("{ \"x\": 1.5, \"y\": 2, \"w\": 10, \"h\": 3, \"maximized\": false }") {
+  match
+    wstate_parse(
+      "{ \"x\": 1.5, \"y\": 2, \"w\": 10, \"h\": 3, \"maximized\": false }",
+    ) {
     Some(_) => abort("float accepted")
     None => ()
   }
 }
 
+///|
 test "wstate_dir:三平台目录拼装;空 id/空环境给 None" {
   // linux: XDG_STATE_HOME 优先,回退 ~/.local/state
   assert_eq(
@@ -62,7 +71,9 @@ test "wstate_dir:三平台目录拼装;空 id/空环境给 None" {
   )
   // windows: %APPDATA% 反斜杠
   assert_eq(
-    wstate_dir("windows", "", "C:\\Users\\u\\AppData\\Roaming", "", "com.ex.app"),
+    wstate_dir(
+      "windows", "", "C:\\Users\\u\\AppData\\Roaming", "", "com.ex.app",
+    ),
     Some("C:\\Users\\u\\AppData\\Roaming\\com.ex.app"),
   )
   // 空环境与空 id

@@ -3,13 +3,17 @@
 // 不锁具体色值（换主题换字体都不该假红）。
 
 ///|
-fn px(bm : @render.Bitmap, x : Int, y : Int) -> (Int, Int, Int, Int) {
+fn px(
+  bm : @render.Bitmap,
+  x : Int32,
+  y : Int32,
+) -> (Int32, Int32, Int32, Int32) {
   let c = bm.pixel(x, y)
   (c.r, c.g, c.b, c.a)
 }
 
 ///|
-fn ink_count(bm : @render.Bitmap, x1 : Int, y1 : Int) -> Int {
+fn ink_count(bm : @render.Bitmap, x1 : Int32, y1 : Int32) -> Int32 {
   let mut n = 0
   for y = 0; y < y1; y = y + 1 {
     for x = 0; x < x1; x = x + 1 {
@@ -24,7 +28,13 @@ fn ink_count(bm : @render.Bitmap, x1 : Int, y1 : Int) -> Int {
 ///|
 /// 一块区域里「与横幅浅底不同」的像素数（浅底按左上角取；标记与强调条都算，
 /// 所以调用方给的范围要避开左缘 3px 强调条）
-fn mark_in(bm : @render.Bitmap, x0 : Int, y0 : Int, x1 : Int, y1 : Int) -> Int {
+fn mark_in(
+  bm : @render.Bitmap,
+  x0 : Int32,
+  y0 : Int32,
+  x1 : Int32,
+  y1 : Int32,
+) -> Int32 {
   // 基准色从带内左缘中段取：横幅默认圆角，角上的像素是补回的父层底色，不是浅底
   let base = bm.pixel(x0 + 1, y0 + (y1 - y0) / 2)
   let mut n = 0
@@ -46,7 +56,11 @@ fn mark_in(bm : @render.Bitmap, x0 : Int, y0 : Int, x1 : Int, y1 : Int) -> Int {
 }
 
 ///|
-fn mounted(node : @widget.Node, w : Double, h : Double) -> (@widget.Widget, @widget.Widget) {
+fn mounted(
+  node : @widget.Node,
+  w : Double,
+  h : Double,
+) -> (@widget.Widget, @widget.Widget) {
   let root = @widget.Widget::new()
   root.set_size(w, h)
   root.set_column()
@@ -63,8 +77,8 @@ test "语义色五档互不相同且都是合法 hex" {
   for t in kinds {
     let c = type_color(t)
     let l = type_light_color(t)
-    assert_true(@render.Color::parse(c) is Some(_) )
-    assert_true(@render.Color::parse(l) is Some(_) )
+    assert_true(@render.Color::parse(c) is Some(_))
+    assert_true(@render.Color::parse(l) is Some(_))
     assert_true(c != l)
     for s in seen {
       assert_true(s != c)
@@ -80,7 +94,11 @@ test "标签与徽标按内容定宽，超上限显示 99+" {
     return
   }
   let (_, short_tag) = mounted(tag_of_type("新", Primary), 200.0, 60.0)
-  let (_, long_tag) = mounted(tag_of_type("很长的一段标签文字", Primary), 300.0, 60.0)
+  let (_, long_tag) = mounted(
+    tag_of_type("很长的一段标签文字", Primary),
+    300.0,
+    60.0,
+  )
   assert_eq(short_tag.rect.h, 24.0)
   assert_true(long_tag.rect.w > short_tag.rect.w + 40.0)
   let (_, five) = mounted(badge_count(5), 100.0, 40.0)
@@ -153,7 +171,9 @@ test "带文字分隔线：整宽、文字两侧都有线" {
 test "提示条：有描述时更高，关闭热区与标记都在右缘垂直居中，点 ✕ 收起" {
   let closes = Ref(0)
   let (root1, a1) = mounted(
-    alert("标题", description="描述在这里", t=Warning, closable=true, on_close=fn() { closes.val = closes.val + 1 }),
+    alert("标题", description="描述在这里", t=Warning, closable=true, on_close=fn() {
+      closes.val = closes.val + 1
+    }),
     300.0,
     80.0,
   )
@@ -241,7 +261,11 @@ test "空状态与结果页都真画出像素" {
   root.paint(p)
   p.end()
   assert_true(ink_count(bm, 240, 160) > 30)
-  let (_, r) = mounted(result("操作完成", subtitle="已保存 3 条记录", t=Success), 240.0, 200.0)
+  let (_, r) = mounted(
+    result("操作完成", subtitle="已保存 3 条记录", t=Success),
+    240.0,
+    200.0,
+  )
   assert_true(r.rect.h > 60.0)
 }
 
@@ -273,11 +297,28 @@ test "折线进度：条与百分比两列，填充随 Store 变化" {
 }
 
 ///|
-fn click_at(root : @widget.Widget, w : @widget.Widget, fx : Double, fy : Double) -> Unit {
+fn click_at(
+  root : @widget.Widget,
+  w : @widget.Widget,
+  fx : Double,
+  fy : Double,
+) -> Unit {
   let x = w.rect.x + fx
   let y = w.rect.y + fy
-  let _ = root.dispatch_pointer({ kind: @widget.PointerKind::Down, x, y, button: 1, mods: 0 })
-  let _ = root.dispatch_pointer({ kind: @widget.PointerKind::Up, x, y, button: 1, mods: 0 })
+  let _ = root.dispatch_pointer({
+    kind: @widget.PointerKind::Down,
+    x,
+    y,
+    button: 1,
+    mods: 0,
+  })
+  let _ = root.dispatch_pointer({
+    kind: @widget.PointerKind::Up,
+    x,
+    y,
+    button: 1,
+    mods: 0,
+  })
 }
 
 ///|
@@ -292,7 +333,10 @@ test "时间线：逐行等高、首末行的贯通线只到点心" {
   assert_eq(rows.length(), 3)
   assert_eq(rows[0].children().length(), 2)
   // 行间距 12 画进**本行**里（末行不带间距）：连接线才会在间隙处不断
-  assert_eq((rows[0].rect.h, rows[1].rect.h, rows[2].rect.h), (68.0, 68.0, 56.0))
+  assert_eq(
+    (rows[0].rect.h, rows[1].rect.h, rows[2].rect.h),
+    (68.0, 68.0, 56.0),
+  )
   assert_eq((rows[1].rect.y, rows[2].rect.y), (68.0, 136.0))
 
   let bm = @render.Bitmap::new(240, 220)
@@ -330,7 +374,9 @@ test "轮播：面板预建只显示当前页，箭头与指示点切页、越�
   let stage = stage_row.children()[1]
   let panels = stage.children()
   assert_eq(panels.length(), 3)
-  assert_eq([panels[0].visible, panels[1].visible, panels[2].visible], [true, false, false])
+  assert_eq([panels[0].visible, panels[1].visible, panels[2].visible], [
+    true, false, false,
+  ])
   assert_eq(stage.rect.h, 80.0)
   // 舞台 = 左箭头 + 面板区 + 右箭头，两侧各 24px 热区
   click_at(root, stage_row.children()[2], 12.0, 40.0)
@@ -354,15 +400,15 @@ test "轮播：面板预建只显示当前页，箭头与指示点切页、越�
 ///|
 test "轮播自转走宿主延时通道：暂停不前进、stop 断链并取消待触发" {
   let queue : Ref[Array[() -> Unit]] = Ref([])
-  let delays : Ref[Array[Int]] = Ref([])
-  let cancelled : Ref[Array[Int]] = Ref([])
+  let delays : Ref[Array[Int32]] = Ref([])
+  let cancelled : Ref[Array[Int32]] = Ref([])
   @shell.set_timer_hooks(
-    fn(ms : Int, f : () -> Unit) -> Int {
+    fn(ms : Int32, f : () -> Unit) -> Int32 {
       delays.val.push(ms)
       queue.val.push(f)
       delays.val.length()
     },
-    fn(id : Int) -> Unit { cancelled.val.push(id) },
+    fn(id : Int32) -> Unit { cancelled.val.push(id) },
   )
   let h = CarouselHandle::make()
   let host = @widget.Widget::new()
@@ -418,7 +464,11 @@ test "空条目：时间线零行、空轮播不出面板也不排自转" {
   let (_, tl) = mounted(timeline([]), 200.0, 60.0)
   assert_eq(tl.children().length(), 0)
   let h = CarouselHandle::make()
-  let (_, c) = mounted(carousel([], width=100.0, height=40.0, rotation=h), 200.0, 80.0)
+  let (_, c) = mounted(
+    carousel([], width=100.0, height=40.0, rotation=h),
+    200.0,
+    80.0,
+  )
   assert_eq(c.children().length(), 0)
   carousel_goto(h, 1)
   assert_eq(h.index(), 0)
@@ -433,7 +483,11 @@ test "展示族 *_dyn：值变就地改字、按内容重算宽度" {
   }
   // 徽标：5 → 150（显示成「99+」），宽度跟着长
   let unread = @base.Store::new(5)
-  let (root_b, bd) = mounted(badge_count_dyn(unread.signal(), max=99), 120.0, 40.0)
+  let (root_b, bd) = mounted(
+    badge_count_dyn(unread.signal(), max=99),
+    120.0,
+    40.0,
+  )
   let w_small = bd.rect.w
   unread.set(150)
   root_b.relayout(120.0, 40.0)
@@ -452,7 +506,11 @@ test "展示族 *_dyn：值变就地改字、按内容重算宽度" {
   assert_true(tg2.rect.w > w_t2)
   // 统计块：数值行走信号，标题与前缀建树时定死
   let hits = @base.Store::new("1,234")
-  let (root_s, st) = mounted(statistic_dyn("访问量", hits.signal()), 240.0, 80.0)
+  let (root_s, st) = mounted(
+    statistic_dyn("访问量", hits.signal()),
+    240.0,
+    80.0,
+  )
   let w_num = st.rect.w
   hits.set("12,345,678")
   root_s.relayout(240.0, 80.0)
@@ -513,7 +571,9 @@ test "展示族只读样式槽：token 落色等于主题取色、class 覆盖�
 
   // class 覆盖内置皮肤：标签底改成红
   let (root_c, tc) = mounted(
-    tag_of_type("长文字", Primary, class=[@style.style(background_color="#ff0000")]),
+    tag_of_type("长文字", Primary, class=[
+      @style.style(background_color="#ff0000"),
+    ]),
     160.0,
     40.0,
   )
@@ -562,11 +622,14 @@ test "展示族只读样式槽：token 落色等于主题取色、class 覆盖�
 /// 遍历经过谁就记谁）。被祖先藏起来的轮播不得再切页、不得再置脏。
 test "轮播自转只在本帧被画到时推进：整块隐藏就不驱动重绘，复现后继续" {
   let queue : Ref[Array[() -> Unit]] = Ref([])
-  @shell.set_timer_hooks(fn(_ms : Int, f : () -> Unit) -> Int {
-    queue.val.push(f)
-    queue.val.length()
-  }, fn(_id : Int) -> Unit { () })
-  let repaints : Ref[Int] = Ref(0)
+  @shell.set_timer_hooks(
+    fn(_ms : Int32, f : () -> Unit) -> Int32 {
+      queue.val.push(f)
+      queue.val.length()
+    },
+    fn(_id : Int32) -> Unit { () },
+  )
+  let repaints : Ref[Int32] = Ref(0)
   @widget.set_repaint_hook(fn() -> Unit { repaints.val = repaints.val + 1 })
   let h = CarouselHandle::make()
   let root = @widget.Widget::new()

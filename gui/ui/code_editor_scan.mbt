@@ -16,11 +16,11 @@
 ///|
 /// 全文按 `\n` 切行，给 (行文本, 行首全文字节号)。空文本也给一行；
 /// 尾随 `\n` 的空末行照出（编辑器的插入点要落在那一行上）。
-fn split_code_lines(text : String) -> (Array[String], Array[Int]) {
+fn split_code_lines(text : String) -> (Array[String], Array[Int32]) {
   let b = @utf8.encode(text)
   let n = b.length()
   let ls : Array[String] = []
-  let starts : Array[Int] = []
+  let starts : Array[Int32] = []
   let mut line_start = 0
   for i = 0; i <= n; i = i + 1 {
     if i == n || b[i].to_int() == 0x0a {
@@ -48,7 +48,7 @@ priv struct CodeScan {
   lang : String
   mut text : String
   mut lines : Array[String]
-  mut starts : Array[Int]
+  mut starts : Array[Int32]
   // 行首状态：states[row] 是 row 的进入状态，states[row+1] 是它的吐出状态；
   // 只有 [0, scanned+1] 有效，其余是占位值（渐进扫描顺序填充，不跳行）。
   mut states : Array[ScanState]
@@ -56,7 +56,7 @@ priv struct CodeScan {
   // 逐 token 宽（与 toks 同下标；空 = 未量）。行宽 = 累加。
   mut laid : Array[Array[Double]]
   // 已扫末行（含），-1 = 一行未扫。
-  mut scanned : Int
+  mut scanned : Int32
   mut max_w : Double
   mut max_dirty : Bool
 }
@@ -90,24 +90,24 @@ fn CodeScan::new(text : String, lang : String) -> CodeScan {
 }
 
 ///|
-fn CodeScan::line_count(self : CodeScan) -> Int {
+fn CodeScan::line_count(self : CodeScan) -> Int32 {
   self.lines.length()
 }
 
 ///|
-fn CodeScan::line_at(self : CodeScan, row : Int) -> String {
+fn CodeScan::line_at(self : CodeScan, row : Int32) -> String {
   self.lines[row]
 }
 
 ///|
 /// 行首的全文字节号。
-fn CodeScan::start_of(self : CodeScan, row : Int) -> Int {
+fn CodeScan::start_of(self : CodeScan, row : Int32) -> Int32 {
   self.starts[row]
 }
 
 ///|
 /// 行的 UTF-8 字节长（不含换行符）。
-fn CodeScan::len_of(self : CodeScan, row : Int) -> Int {
+fn CodeScan::len_of(self : CodeScan, row : Int32) -> Int32 {
   if row + 1 < self.starts.length() {
     self.starts[row + 1] - self.starts[row] - 1
   } else {
@@ -117,7 +117,7 @@ fn CodeScan::len_of(self : CodeScan, row : Int) -> Int {
 
 ///|
 /// 全文字节号 → 行号（二分；末行之后的字节号落在末行）。
-fn CodeScan::row_of(self : CodeScan, byte : Int) -> Int {
+fn CodeScan::row_of(self : CodeScan, byte : Int32) -> Int32 {
   let n = self.lines.length()
   let mut lo = 0
   let mut hi = n - 1
@@ -134,14 +134,14 @@ fn CodeScan::row_of(self : CodeScan, byte : Int) -> Int {
 
 ///|
 /// row 的 token（调用方先 `ensure(row)`）。
-fn CodeScan::tokens_of(self : CodeScan, row : Int) -> Array[Token] {
+fn CodeScan::tokens_of(self : CodeScan, row : Int32) -> Array[Token] {
   self.toks[row]
 }
 
 ///|
 /// 全文字节号处的 token 角色（该行已扫才有意义；未扫/无覆盖给 None）。
 /// 括号匹配用它跳过字符串/注释里的括号。
-fn CodeScan::role_at(self : CodeScan, byte : Int) -> TokenRole? {
+fn CodeScan::role_at(self : CodeScan, byte : Int32) -> TokenRole? {
   let row = self.row_of(byte)
   if row > self.scanned {
     return None
@@ -157,7 +157,7 @@ fn CodeScan::role_at(self : CodeScan, byte : Int) -> TokenRole? {
 
 ///|
 /// 渐进扫描：把 0..=row 扫齐（从 scanned+1 顺序推进，不跳行）。
-fn CodeScan::ensure(self : CodeScan, row : Int) -> Unit {
+fn CodeScan::ensure(self : CodeScan, row : Int32) -> Unit {
   let target = row.min(self.lines.length() - 1)
   while self.scanned < target {
     self.scan_row(self.scanned + 1)
@@ -165,7 +165,7 @@ fn CodeScan::ensure(self : CodeScan, row : Int) -> Unit {
 }
 
 ///|
-fn CodeScan::scan_row(self : CodeScan, row : Int) -> Unit {
+fn CodeScan::scan_row(self : CodeScan, row : Int32) -> Unit {
   let incoming = self.states[row]
   let (tk, next) = scan_line(self.lines[row], self.lang, incoming)
   self.states[row] = incoming
@@ -180,7 +180,7 @@ fn CodeScan::scan_row(self : CodeScan, row : Int) -> Unit {
 ///|
 /// 全文变了：前缀/后缀行对齐后只重扫中段，返回实际重扫行数（文本没变给
 /// -1）。0 = 命中前缀/后缀全部复用，一行没扫。
-fn CodeScan::sync(self : CodeScan, new_text : String) -> Int {
+fn CodeScan::sync(self : CodeScan, new_text : String) -> Int32 {
   if new_text == self.text {
     return -1
   }
@@ -269,7 +269,11 @@ fn CodeScan::sync(self : CodeScan, new_text : String) -> Int {
 
 ///|
 /// row 的逐 token 宽（惰性测量；先 `ensure(row)`）。
-fn CodeScan::measure_row(self : CodeScan, row : Int, font : @text.Font) -> Array[Double] {
+fn CodeScan::measure_row(
+  self : CodeScan,
+  row : Int32,
+  font : @text.Font,
+) -> Array[Double] {
   let laid = self.laid[row]
   if laid.length() == 0 {
     let toks = self.toks[row]

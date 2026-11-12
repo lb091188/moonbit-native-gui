@@ -28,39 +28,39 @@ pub fn col(
   /// 装进容器的子节点，按主轴方向依次排。
   children : Array[@widget.Node],
   /// 拉开纵向相邻子节点的间隙。
-  row_gap? : Double = 0.0,
+  row_gap~ : Double = 0.0,
   /// 内缩四边同宽的内边距。
-  padding? : Double = 0.0,
+  padding~ : Double = 0.0,
   /// 定死宽度，0 = 按内容测量。
-  width? : Double = 0.0,
+  width~ : Double = 0.0,
   /// 定死高度，0 = 按内容测量。
-  height? : Double = 0.0,
+  height~ : Double = 0.0,
   /// 按父容器主轴余量占位，0 = 不参与分配。
-  grow? : Double = 0.0,
+  grow~ : Double = 0.0,
   /// 画底色（主题色名或 `#rrggbb`），空串不画。
-  background_color? : String = "",
+  background_color~ : String = "",
   /// 描一圈边色，空串不描边。
-  border_color? : String = "",
+  border_color~ : String = "",
   /// 让子节点在交叉轴上按此对齐。
-  align_items? : @yoga.AlignItems = @yoga.AlignItems::Stretch,
+  align_items~ : @yoga.AlignItems = @yoga.AlignItems::Stretch,
   /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
-  class? : Array[@style.Style] = [],
+  class~ : Array[@style.Style] = [],
   /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   view(
     children,
     direction=@yoga.Column,
-    row_gap=row_gap,
-    padding=padding,
-    width=width,
-    height=height,
-    grow=grow,
-    background_color=background_color,
-    border_color=border_color,
-    align_items=align_items,
-    class=class,
-    handle=handle,
+    row_gap~,
+    padding~,
+    width~,
+    height~,
+    grow~,
+    background_color~,
+    border_color~,
+    align_items~,
+    class~,
+    handle~,
   )
 }
 
@@ -70,39 +70,39 @@ pub fn row(
   /// 装进容器的子节点，按主轴方向依次排。
   children : Array[@widget.Node],
   /// 拉开横向相邻子节点的间隙。
-  column_gap? : Double = 0.0,
+  column_gap~ : Double = 0.0,
   /// 内缩四边同宽的内边距。
-  padding? : Double = 0.0,
+  padding~ : Double = 0.0,
   /// 定死宽度，0 = 按内容测量。
-  width? : Double = 0.0,
+  width~ : Double = 0.0,
   /// 定死高度，0 = 按内容测量。
-  height? : Double = 0.0,
+  height~ : Double = 0.0,
   /// 按父容器主轴余量占位，0 = 不参与分配。
-  grow? : Double = 0.0,
+  grow~ : Double = 0.0,
   /// 画底色（主题色名或 `#rrggbb`），空串不画。
-  background_color? : String = "",
+  background_color~ : String = "",
   /// 描一圈边色，空串不描边。
-  border_color? : String = "",
+  border_color~ : String = "",
   /// 让子节点在交叉轴上按此对齐。
-  align_items? : @yoga.AlignItems = @yoga.AlignItems::Center,
+  align_items~ : @yoga.AlignItems = @yoga.AlignItems::Center,
   /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
-  class? : Array[@style.Style] = [],
+  class~ : Array[@style.Style] = [],
   /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   view(
     children,
     direction=@yoga.Row,
-    column_gap=column_gap,
-    padding=padding,
-    width=width,
-    height=height,
-    grow=grow,
-    background_color=background_color,
-    border_color=border_color,
-    align_items=align_items,
-    class=class,
-    handle=handle,
+    column_gap~,
+    padding~,
+    width~,
+    height~,
+    grow~,
+    background_color~,
+    border_color~,
+    align_items~,
+    class~,
+    handle~,
   )
 }
 
@@ -128,19 +128,12 @@ pub fn row(
 pub fn[A] bind_label(
   store : @base.Store[A],
   f : (A) -> String,
-  font_size? : Double = 13.0,
-  color? : String = "",
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  font_size~ : Double = 13.0,
+  color~ : String = "",
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  bind(
-    store.signal(),
-    f,
-    font_size=font_size,
-    color=color,
-    class=class,
-    handle=handle,
-  )
+  bind(store.signal(), f, font_size~, color~, class~, handle~)
 }
 
 ///|
@@ -148,15 +141,15 @@ pub fn[A] bind_label(
 pub fn[A] bind(
   sig : @base.Signal[A],
   f : (A) -> String,
-  font_size? : Double = 13.0,
-  color? : String = "",
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  font_size~ : Double = 13.0,
+  color~ : String = "",
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let src = text_source(
     f(sig.get()),
-    font_size=font_size,
-    color=color,
+    font_size~,
+    color~,
     wrap=false,
     ellipsis=true,
   )
@@ -192,14 +185,14 @@ pub fn[A] bind(
 /// 宿主的悬停态本身就是父链语义，所以这里既不排定时器也不查指针。
 pub fn hover_group(
   children : Array[@widget.Node],
-  on_click? : () -> Unit = fn() -> Unit { () },
-  padding? : Double = 8.0,
-  row_gap? : Double = 4.0,
-  width? : Double = 0.0,
-  background_color? : String = "",
-  hover_bg? : String = "",
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  on_click~ : () -> Unit = fn() -> Unit { () },
+  padding~ : Double = 8.0,
+  row_gap~ : Double = 4.0,
+  width~ : Double = 0.0,
+  background_color~ : String = "",
+  hover_bg~ : String = "",
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let base_bg = background_color
   let lit_bg = hover_bg
@@ -229,7 +222,11 @@ pub fn hover_group(
       r : @base.Rect,
     ) -> Unit {
       let fill = if self.hovered {
-        if lit_bg.length() > 0 { lit_bg } else { @theme.theme_fill_hover() }
+        if lit_bg.length() > 0 {
+          lit_bg
+        } else {
+          @theme.theme_fill_hover()
+        }
       } else if base_bg.length() > 0 {
         base_bg
       } else {
@@ -258,7 +255,10 @@ pub fn hover_group(
       match ev.kind {
         @widget.PointerKind::Down => true
         @widget.PointerKind::Up => {
-          if ev.x >= 0.0 && ev.x <= self.rect.w && ev.y >= 0.0 && ev.y <= self.rect.h {
+          if ev.x >= 0.0 &&
+            ev.x <= self.rect.w &&
+            ev.y >= 0.0 &&
+            ev.y <= self.rect.h {
             on_click()
           }
           false
@@ -286,10 +286,12 @@ pub fn hover_group(
 /// 仍是 opt-in（`WindowHost::follow_system_theme`）。
 pub fn mount_window(
   children : Array[@widget.Node],
-  title? : String = "",
-  width? : Int = 800,
-  height? : Int = 600,
-  handle? : (@widget.WindowHost) -> Unit = fn(_a : @widget.WindowHost) -> Unit { () },
+  title~ : String = "",
+  width~ : Int32 = 800,
+  height~ : Int32 = 600,
+  handle~ : (@widget.WindowHost) -> Unit = fn(_a : @widget.WindowHost) -> Unit {
+    ()
+  },
 ) -> @widget.WindowHost? {
   let _ = @widget.theme_apply_system_once()
   match @widget.WindowHost::new(width, height, title) {
@@ -323,12 +325,14 @@ pub fn mount_window(
 /// `*_dyn` 管展示文本），整棵换内容才走 `bind_node`。
 pub fn mount_window_render(
   render : () -> Array[@widget.Node],
-  title? : String = "",
-  width? : Int = 800,
-  height? : Int = 600,
-  handle? : (@widget.WindowHost) -> Unit = fn(_a : @widget.WindowHost) -> Unit { () },
+  title~ : String = "",
+  width~ : Int32 = 800,
+  height~ : Int32 = 600,
+  handle~ : (@widget.WindowHost) -> Unit = fn(_a : @widget.WindowHost) -> Unit {
+    ()
+  },
 ) -> @widget.WindowHost? {
-  mount_window(render(), title=title, width=width, height=height, handle=handle)
+  mount_window(render(), title~, width~, height~, handle~)
 }
 
 ///|
@@ -337,24 +341,18 @@ pub fn mount_window_render(
 /// （比如卡片里那颗按钮）时以它为准，其余位置回退到组的形状。
 pub fn cursor_group(
   children : Array[@widget.Node],
-  direction? : @yoga.FlexDirection = @yoga.Column,
-  row_gap? : Double = 0.0,
-  column_gap? : Double = 0.0,
-  padding? : Double = 0.0,
-  width? : Double = 0.0,
-  cursor? : Int = @widget.CURSOR_HAND,
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  direction~ : @yoga.FlexDirection = @yoga.Column,
+  row_gap~ : Double = 0.0,
+  column_gap~ : Double = 0.0,
+  padding~ : Double = 0.0,
+  width~ : Double = 0.0,
+  cursor~ : Int32 = @widget.CURSOR_HAND,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  view(
-    children,
-    direction=direction,
-    row_gap=row_gap,
-    column_gap=column_gap,
-    padding=padding,
-    width=width,
-    handle=fn(w : @widget.Widget) -> Unit {
-      w.cursor = cursor
-      handle(w)
-    },
-  )
+  view(children, direction~, row_gap~, column_gap~, padding~, width~, handle=fn(
+    w : @widget.Widget,
+  ) -> Unit {
+    w.cursor = cursor
+    handle(w)
+  })
 }

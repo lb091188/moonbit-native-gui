@@ -13,8 +13,7 @@ test "时间戳：SRT 逗号与 VTT 点号、分秒两段都吃" {
 
 ///|
 test "SRT 解析：编号行与空行分隔，多行文本合成一条" {
-  let s =
-    "1\n00:00:01,000 --> 00:00:04,000\n第一行\n第二行\n\n2\n00:00:05,000 --> 00:00:06,000\n只有这一句\n"
+  let s = "1\n00:00:01,000 --> 00:00:04,000\n第一行\n第二行\n\n2\n00:00:05,000 --> 00:00:06,000\n只有这一句\n"
   let cues = subtitle_parse(s)
   assert_eq(cues.length(), 2)
   assert_eq(cues[0].start, 1.0)
@@ -25,8 +24,7 @@ test "SRT 解析：编号行与空行分隔，多行文本合成一条" {
 
 ///|
 test "VTT 解析：跳头、剥标记、右端的位置设置不影响时间" {
-  let s =
-    "WEBVTT\n\n00:00:01.000 --> 00:00:03.000 align:start position:10%\n<c.yellow>黄字</c>正文\n\n" +
+  let s = "WEBVTT\n\n00:00:01.000 --> 00:00:03.000 align:start position:10%\n<c.yellow>黄字</c>正文\n\n" +
     "NOTE 这段是注释\n\n00:00:04.000 --> 00:00:05.000\n{\\an8}顶部对齐的一句\n"
   let cues = subtitle_parse(s)
   assert_eq(cues.length(), 2)
@@ -68,7 +66,9 @@ test "内嵌轨转 Cue：搬运并对齐外部字幕的清洗口径" {
 /// 「解码器 → 搬运 → 查表」整条链，任何一环字段错位都会在这里露出来。
 test "内嵌字幕端到端：解码转 Cue 后按位置命中" {
   if !@ffmbt.ffmpeg_supported() {
-    println("skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）")
+    println(
+      "skip: 本平台无 ffmpeg 后端（Windows 媒体线未接，降级口径）",
+    )
     return
   }
   let path = "../ffmpeg-mbt/src/testdata/av_1s_subs.mp4"

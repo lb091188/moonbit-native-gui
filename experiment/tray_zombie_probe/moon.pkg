@@ -1,7 +1,7 @@
 import {
-  "NoahLiu/native-gui/shell" @shell,
-  "NoahLiu/native-gui/dbus" @dbus,
-  "NoahLiu/native-gui/sys" @sys,
+  "NoahLiu/native-gui/shell",
+  "NoahLiu/native-gui/dbus",
+  "NoahLiu/native-gui/sys",
 }
 
 pkgtype(kind: "executable")

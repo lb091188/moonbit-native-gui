@@ -110,16 +110,14 @@ test "消息往返：a{sv} 内含 Percentage(d) 的 UPower GetAll 真实形状" 
                   assert_eq(name, "Percentage")
                   assert_eq(v.to_string(), "87.5")
                 }
-                _ =>
-                  assert_true(false) // 走到错误分支：VStruct[VString, VVariant[VDouble]]
+                _ => assert_true(false) // 走到错误分支：VStruct[VString, VVariant[VDouble]]
               }
               match entries[3] {
                 VStruct([VString(name), VVariant(VI64(t))]) => {
                   assert_eq(name, "TimeToEmpty")
                   assert_eq(t.to_string(), "5400")
                 }
-                _ =>
-                  assert_true(false) // 走到错误分支：VStruct[VString, VVariant[VI64]]
+                _ => assert_true(false) // 走到错误分支：VStruct[VString, VVariant[VI64]]
               }
             }
             _ => assert_true(false) // 走到错误分支：VArray
@@ -151,16 +149,14 @@ test "消息往返：a{sv} 属性字典" {
                   assert_eq(name, "Id")
                   assert_eq(value, "demo")
                 }
-                _ =>
-                  assert_true(false) // 走到错误分支：VStruct[VString, VVariant]
+                _ => assert_true(false) // 走到错误分支：VStruct[VString, VVariant]
               }
               match entries[1] {
                 VStruct([VString(name), VVariant(VBool(b))]) => {
                   assert_eq(name, "ItemIsMenu")
                   assert_true(b)
                 }
-                _ =>
-                  assert_true(false) // 走到错误分支：VStruct[VString, VVariant]
+                _ => assert_true(false) // 走到错误分支：VStruct[VString, VVariant]
               }
             }
             _ => assert_true(false) // 走到错误分支：VArray

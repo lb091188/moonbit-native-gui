@@ -6,7 +6,7 @@
 
 ///|
 test "shell_caps：解码不崩、无效槽透视给 Err" {
-  let w : Window = { id: 0, width: 0, height: 0 }
+  let w : Window = { id: 0, width: 0, height: 0, }
   let caps = w.shell_caps()
   inspect(caps.layer == caps.layer, content="true")
   match w.set_transparent_bg(true) {

@@ -258,6 +258,7 @@ fn bm_profile_dir(
   base + "/" + profile
 }
 
+///|
 /// 书签文件名候选，按优先级排。新版 Chromium 把书签挪进了账号库——真机
 /// macOS 26.5 上 Chrome 的 `Default` 目录里根本没有 `Bookmarks`，只有
 /// `AccountBookmarks`（同一份 `roots{bookmark_bar,other,synced}` JSON 形状，

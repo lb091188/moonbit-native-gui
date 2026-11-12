@@ -19,7 +19,7 @@ pub fn next_tick(f : () -> Unit) -> Unit {
 
 ///|
 /// 当前排队条数（测试与宿主观测用）。
-pub fn tick_pending() -> Int {
+pub fn tick_pending() -> Int32 {
   tick_queue.val.length()
 }
 

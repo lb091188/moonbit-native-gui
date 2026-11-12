@@ -63,7 +63,7 @@ pub fn show_items(
 
 ///|
 /// URI 百分号 hex 用大写(RFC 3986 大小写均可,大写是通行惯例)。
-fn uri_hex(v : Int) -> Char {
+fn uri_hex(v : Int32) -> Char {
   if v < 10 {
     (48 + v).unsafe_to_char() // '0'
   } else {

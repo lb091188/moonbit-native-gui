@@ -12,14 +12,14 @@ pub fn inst_supported() -> Bool {
 ///|
 /// 声称进程唯一。`slug` 是门面派生过的名字（只含 [A-Za-z0-9_-]）。
 /// 返回 1 = 本进程是首实例，2 = 已有首实例，<0 = 失败。
-pub fn inst_listen(slug : String) -> Int {
+pub fn inst_listen(slug : String) -> Int32 {
   wm_inst_listen(@utf8.encode(slug))
 }
 
 ///|
 /// 把一帧字节送进首实例（同步送到，对方没在抽消息时最多等 3 秒）。
 /// 返回 >0 已送达，<0 失败。
-pub fn inst_wake(slug : String, frame : Bytes) -> Int {
+pub fn inst_wake(slug : String, frame : Bytes) -> Int32 {
   wm_inst_wake(@utf8.encode(slug), frame, frame.length())
 }
 
@@ -43,7 +43,7 @@ pub fn inst_take() -> Bytes {
 
 ///|
 /// 最近一次失败的操作系统错误码（无错误为 0）。
-pub fn inst_last_errno() -> Int {
+pub fn inst_last_errno() -> Int32 {
   wm_inst_last_errno()
 }
 

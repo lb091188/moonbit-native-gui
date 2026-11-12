@@ -272,15 +272,16 @@ fn pp_available() -> Bool {
 // ---------------------------------------------------------------------------
 
 ///|
+
 ///|
 /// Windows 直调：读当前活动电源方案的 GUID（标准小写串）。
 #borrow(ok)
-extern "c" fn ffi_pp_current_guid(ok : Ref[Int]) -> Bytes = "yue_sys_pp_current_guid"
+extern "c" fn ffi_pp_current_guid(ok : Ref[Int32]) -> Bytes = "yue_sys_pp_current_guid"
 
 ///|
 /// Windows 直调：按 GUID 串切换电源方案。
 #borrow(guid, ok)
-extern "c" fn ffi_pp_set(guid : Bytes, ok : Ref[Int]) -> Int = "yue_sys_pp_set"
+extern "c" fn ffi_pp_set(guid : Bytes, ok : Ref[Int32]) -> Int32 = "yue_sys_pp_set"
 
 ///|
 /// 当前系统是否支持电源计划（powerprofilesctl 存在且可查询）。每次调用
@@ -391,10 +392,7 @@ pub fn pp_current() -> Result[PowerProfile, PowerProfileError] {
         match pp_mac_parse_lowpower(o.stdout) {
           Some(true) => return Ok(PPowerSaver)
           Some(false) => return Ok(PBalanced)
-          None =>
-            return Err(
-              PpParseFailed("pmset -g: 没有 lowpowermode 行"),
-            )
+          None => return Err(PpParseFailed("pmset -g: 没有 lowpowermode 行"))
         }
       Err(NonZeroExit(127, _)) => return Err(PpUnsupported)
       Err(e) =>
@@ -434,10 +432,17 @@ pub fn pp_set(profile : PowerProfile) -> Result[Unit, PowerProfileError] {
   if sys_platform() == "macos" {
     // 性能档不在 mac 档集合里（High Power 机型限定且要提权）
     if profile is PPerformance {
-      return Err(PpCommandFailed("macOS 没有性能档（High Power 机型限定）"))
+      return Err(
+        PpCommandFailed("macOS 没有性能档（High Power 机型限定）"),
+      )
     }
     // 写走管理员授权弹框（每次一弹的操作提权；用户取消密码框按失败出声）
-    match pr_run("osascript", pp_mac_set_args(profile is PPowerSaver), timeout_ms=120000) {
+    match
+      pr_run(
+        "osascript",
+        pp_mac_set_args(profile is PPowerSaver),
+        timeout_ms=120000,
+      ) {
       Ok(_) => return Ok(())
       Err(NonZeroExit(code, err)) =>
         return Err(
@@ -445,7 +450,8 @@ pub fn pp_set(profile : PowerProfile) -> Result[Unit, PowerProfileError] {
             "osascript: 退出码 \{code}（\{pp_first_line(err)}；取消授权也走这里）",
           ),
         )
-      Err(e) => return Err(PpCommandFailed("osascript: \{pp_first_line("\{e}")}"))
+      Err(e) =>
+        return Err(PpCommandFailed("osascript: \{pp_first_line("\{e}")}"))
     }
   }
   if sys_platform() == "windows" {
@@ -455,7 +461,11 @@ pub fn pp_set(profile : PowerProfile) -> Result[Unit, PowerProfileError] {
       return Ok(())
     } else {
       // 现代待机设备可能未注册高性能/节能方案
-      return Err(PpCommandFailed("PowerSetActiveScheme 失败（方案可能未注册）"))
+      return Err(
+        PpCommandFailed(
+          "PowerSetActiveScheme 失败（方案可能未注册）",
+        ),
+      )
     }
   } else if !pr_available() {
     return Err(PpUnsupported)

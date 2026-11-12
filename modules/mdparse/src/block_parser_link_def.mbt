@@ -46,7 +46,7 @@ fn BlockParser::take_link_definitions(
 }
 
 ///|
-fn skip_spaces_tabs(text : String, start : Int) -> Int {
+fn skip_spaces_tabs(text : String, start : Int32) -> Int32 {
   let len = text.length()
   let mut i = start
   while i < len && is_space_or_tab(text.unsafe_get(i)) {
@@ -58,7 +58,7 @@ fn skip_spaces_tabs(text : String, start : Int) -> Int {
 ///|
 /// Skip whitespace, allowing at most one line ending. Returns the new position
 /// and how many line endings were crossed.
-fn skip_ws_one_newline(text : String, start : Int) -> (Int, Int) {
+fn skip_ws_one_newline(text : String, start : Int32) -> (Int32, Int32) {
   let len = text.length()
   let mut i = skip_spaces_tabs(text, start)
   let mut newlines = 0
@@ -76,9 +76,9 @@ fn BlockParser::parse_link_reference(
   self : BlockParser,
   node : Node,
   text : String,
-  pos : Int,
+  pos : Int32,
   register : Bool,
-) -> Int? {
+) -> Int32? {
   let len = text.length()
   guard pos < len && text.unsafe_get(pos) == '[' else { return None }
   let label_start = pos + 1

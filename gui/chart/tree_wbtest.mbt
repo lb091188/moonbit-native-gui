@@ -267,7 +267,11 @@ test "树图组件：两形态出像素、换数据画面变" {
     children: [mk("甲", 3.0), mk("乙", 2.0), branch],
   }
   let root = @base.Store::new(top)
-  let (r1, w1) = mounted(tree_chart_t(root, width=280.0, height=150.0), 320.0, 170.0)
+  let (r1, w1) = mounted(
+    tree_chart_t(root, width=280.0, height=150.0),
+    320.0,
+    170.0,
+  )
   assert_true(ink_of(bm_of(w1)) > 400)
   // 纵向形态出像素
   let (_r2, w2) = mounted(

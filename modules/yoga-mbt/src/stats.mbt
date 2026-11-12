@@ -6,13 +6,14 @@
 // 缓存就是白付失效判定的钱。读数经 `layout_stats_summary()` 取，探针在
 // `experiment/frame_cost_probe` 里按场景分段打印。
 
+///|
 priv struct LayoutStats {
-  mut calls : Int
-  mut hits : Int
+  mut calls : Int32
+  mut hits : Int32
 }
 
 ///|
-let g_layout_stats : LayoutStats = { calls: 0, hits: 0 }
+let g_layout_stats : LayoutStats = { calls: 0, hits: 0, }
 
 ///|
 /// 清零（新一轮观测前）。
@@ -24,7 +25,10 @@ pub fn layout_stats_reset() -> Unit {
 ///|
 /// 累计汇总，一行可读串："measure=1234 hit=1100"。
 pub fn layout_stats_summary() -> String {
-  "measure=" + g_layout_stats.calls.to_string() + " hit=" + g_layout_stats.hits.to_string()
+  "measure=" +
+  g_layout_stats.calls.to_string() +
+  " hit=" +
+  g_layout_stats.hits.to_string()
 }
 
 ///|

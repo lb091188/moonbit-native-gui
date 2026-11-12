@@ -13,20 +13,20 @@
 #valtype
 #derive(Eq, Debug)
 pub(all) struct Span {
-  from : Int
-  to : Int
+  from : Int32
+  to : Int32
 }
 
 ///|
 /// Create a span
-pub fn Span::new(from : Int, to : Int) -> Span {
-  { from, to }
+pub fn Span::new(from : Int32, to : Int32) -> Span {
+  { from, to, }
 }
 
 ///|
 /// Empty span (for synthetic nodes)
 pub fn Span::empty() -> Span {
-  { from: 0, to: 0 }
+  { from: 0, to: 0, }
 }
 
 // =============================================================================
@@ -101,7 +101,7 @@ pub fn Trivia::new(content : String) -> Trivia {
 
 ///|
 pub fn Trivia::empty() -> Trivia {
-  { content: "" }
+  { content: "", }
 }
 
 ///|
@@ -219,17 +219,17 @@ pub(all) enum Block {
   /// Thematic break (---, ***, ___)
   ThematicBreak(
     marker~ : Char, // '-', '*', or '_'
-    count~ : Int, // Number of marker chars (>= 3)
+    count~ : Int32, // Number of marker chars (>= 3)
     span~ : Span,
     leading_trivia~ : Trivia,
     trailing_trivia~ : Trivia
   )
   /// ATX or Setext heading
   Heading(
-    level~ : Int, // 1-6
+    level~ : Int32, // 1-6
     style~ : HeadingStyle,
     children~ : Array[Inline],
-    closing_hashes~ : Int, // For ATX: number of closing # (0 if none)
+    closing_hashes~ : Int32, // For ATX: number of closing # (0 if none)
     span~ : Span,
     leading_trivia~ : Trivia,
     trailing_trivia~ : Trivia
@@ -244,10 +244,10 @@ pub(all) enum Block {
   /// Fenced code block
   FencedCode(
     fence_marker~ : FenceMarker,
-    fence_length~ : Int, // Number of fence chars (>= 3)
+    fence_length~ : Int32, // Number of fence chars (>= 3)
     info~ : String, // Language info (e.g., "json:file.json")
     code~ : String, // Code content
-    indent~ : Int, // Leading spaces on fence (0-3)
+    indent~ : Int32, // Leading spaces on fence (0-3)
     span~ : Span,
     leading_trivia~ : Trivia,
     trailing_trivia~ : Trivia
@@ -255,7 +255,7 @@ pub(all) enum Block {
   /// Display math fenced by a line containing two or more `$` characters.
   MathBlock(
     value~ : String,
-    fence_length~ : Int,
+    fence_length~ : Int32,
     span~ : Span,
     leading_trivia~ : Trivia,
     trailing_trivia~ : Trivia
@@ -265,7 +265,7 @@ pub(all) enum Block {
     name~ : String,
     meta~ : String,
     children~ : Array[Block],
-    fence_length~ : Int,
+    fence_length~ : Int32,
     span~ : Span,
     leading_trivia~ : Trivia,
     trailing_trivia~ : Trivia
@@ -316,7 +316,7 @@ pub(all) enum Block {
   )
   /// Ordered list
   OrderedList(
-    start~ : Int, // Starting number
+    start~ : Int32, // Starting number
     delimiter~ : OrderedDelimiter,
     tight~ : Bool,
     items~ : Array[ListItem],
@@ -341,7 +341,7 @@ pub(all) enum Block {
     trailing_trivia~ : Trivia
   )
   /// Blank lines (preserved)
-  BlankLines(count~ : Int, span~ : Span)
+  BlankLines(count~ : Int32, span~ : Span)
   /// Footnote definition [^label]: content (GFM)
   FootnoteDefinition(
     label~ : String,
@@ -357,8 +357,8 @@ pub(all) enum Block {
 pub(all) struct ListItem {
   children : Array[Block]
   checked : Bool? // For task lists: Some(true), Some(false), or None
-  marker_offset : Int // Spaces before marker
-  content_offset : Int // Spaces after marker before content
+  marker_offset : Int32 // Spaces before marker
+  content_offset : Int32 // Spaces after marker before content
   span : Span
 }
 
@@ -408,7 +408,7 @@ pub(all) enum Inline {
   /// Inline code (`code`)
   Code(
     content~ : String,
-    backtick_count~ : Int, // Number of backticks used
+    backtick_count~ : Int32, // Number of backticks used
     span~ : Span
   )
   /// Text directive `:name[label]{#id .class key=value}`.

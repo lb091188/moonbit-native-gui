@@ -46,7 +46,7 @@ fn lookup_entity(name : String) -> String? {
 }
 
 ///|
-fn code_point_to_string(code : Int) -> String {
+fn code_point_to_string(code : Int32) -> String {
   if code == 0 || code > 0x10FFFF || (code >= 0xD800 && code <= 0xDFFF) {
     return ReplacementChar
   }
@@ -67,7 +67,7 @@ fn is_ascii_alnum_unit(c : UInt16) -> Bool {
 }
 
 ///|
-fn hex_digit_value(c : UInt16) -> Int? {
+fn hex_digit_value(c : UInt16) -> Int32? {
   if c >= '0' && c <= '9' {
     Some(c.to_int() - '0'.to_int())
   } else if c >= 'a' && c <= 'f' {
@@ -85,7 +85,7 @@ fn hex_digit_value(c : UInt16) -> Int? {
 /// Returns the replacement text together with the index just past the closing
 /// `;`, or `None` when this is not a valid reference and the `&` should be kept
 /// as literal text.
-fn decode_entity(text : String, start : Int) -> (String, Int)? {
+fn decode_entity(text : String, start : Int32) -> (String, Int32)? {
   let len = text.length()
   guard start < len && text.unsafe_get(start) == '&' else { return None }
   let mut i = start + 1

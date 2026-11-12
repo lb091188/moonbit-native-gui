@@ -16,16 +16,15 @@ pub struct ListStore[T] {
 
 ///|
 pub fn[T] ListStore::new(init~ : Array[T] = []) -> ListStore[T] {
-  { store: Store::new(init) }
+  { store: Store::new(init), }
 }
 
 ///|
 /// 列表元素示例类型（测试与最小示例用；真实项目自带记录类型即可）。
 pub(all) struct Item {
-  id : Int
+  id : Int32
   name : String
 }
-
 
 ///|
 /// 读当前列表（快照副本，外部改不回填）。
@@ -34,7 +33,7 @@ pub fn[T] ListStore::get(self : ListStore[T]) -> Array[T] {
 }
 
 ///|
-pub fn[T] ListStore::length(self : ListStore[T]) -> Int {
+pub fn[T] ListStore::length(self : ListStore[T]) -> Int32 {
   self.store.get().length()
 }
 
@@ -66,7 +65,11 @@ pub fn[T] ListStore::remove(self : ListStore[T], pred : (T) -> Bool) -> Bool {
 
 ///|
 /// 按谓词定位并改写（回调拿到旧值，返回新值；没命中什么都不发生）。
-pub fn[T] ListStore::update(self : ListStore[T], pred : (T) -> Bool, f : (T) -> T) -> Bool {
+pub fn[T] ListStore::update(
+  self : ListStore[T],
+  pred : (T) -> Bool,
+  f : (T) -> T,
+) -> Bool {
   let mut hit = false
   self.store.update_always(fn(ts) {
     let out : Array[T] = []
@@ -85,7 +88,12 @@ pub fn[T] ListStore::update(self : ListStore[T], pred : (T) -> Bool, f : (T) -> 
 
 ///|
 /// 区间替换：从 `at` 起删 `del` 条、插入 `items`（`at` 越界钳到端点；`del` 按剩余量截断）。
-pub fn[T] ListStore::splice(self : ListStore[T], at : Int, del : Int, items : Array[T]) -> Unit {
+pub fn[T] ListStore::splice(
+  self : ListStore[T],
+  at : Int32,
+  del : Int32,
+  items : Array[T],
+) -> Unit {
   self.store.update_always(fn(ts) {
     let n = ts.length()
     let mut start = at
@@ -130,9 +138,9 @@ pub(all) struct KeyDiff[T] {
   /// 两代都有但内容变了——要就地刷新
   changed : Array[(T, T)]
   /// 这一代新增（带落位下标）——要挂载
-  added : Array[(Int, T)]
+  added : Array[(Int32, T)]
   /// 两代都有（带新落位下标）——绘制层序按它摆
-  kept : Array[(Int, T)]
+  kept : Array[(Int32, T)]
 }
 
 ///|
@@ -162,8 +170,8 @@ pub fn[T, K : Eq] keyed_diff(
     }
   }
   let changed : Array[(T, T)] = []
-  let added : Array[(Int, T)] = []
-  let kept : Array[(Int, T)] = []
+  let added : Array[(Int32, T)] = []
+  let kept : Array[(Int32, T)] = []
   let seen : Array[K] = []
   for i in 0..<new.length() {
     let t = new[i]
@@ -197,17 +205,21 @@ pub fn[T, K : Eq] keyed_diff(
       let _ = removed.push(t)
     }
   }
-  { removed, changed, added, kept }
+  { removed, changed, added, kept, }
 }
 
 ///|
 /// 按下标对齐的差分（不给 key 的场合，等价 Vue 无 `:key`）：只报「长度收缩」的
 /// removed 与「内容替换」的 changed/added，顺序敏感。
-pub fn[T] index_diff(old : Array[T], new : Array[T], eq : (T, T) -> Bool) -> KeyDiff[T] {
+pub fn[T] index_diff(
+  old : Array[T],
+  new : Array[T],
+  eq : (T, T) -> Bool,
+) -> KeyDiff[T] {
   let removed : Array[T] = []
   let changed : Array[(T, T)] = []
-  let added : Array[(Int, T)] = []
-  let kept : Array[(Int, T)] = []
+  let added : Array[(Int32, T)] = []
+  let kept : Array[(Int32, T)] = []
   let n = old.length().min(new.length())
   for i in 0..<n {
     let _ = kept.push((i, new[i]))
@@ -221,7 +233,7 @@ pub fn[T] index_diff(old : Array[T], new : Array[T], eq : (T, T) -> Bool) -> Key
   for i in n..<old.length() {
     let _ = removed.push(old[i])
   }
-  { removed, changed, added, kept }
+  { removed, changed, added, kept, }
 }
 
 ///|
@@ -233,7 +245,7 @@ pub fn[T, K : Eq] ListStore::subscribe_diff(
   key : (T) -> K,
   eq : (T, T) -> Bool,
   on_diff : (Array[T], Array[T], KeyDiff[T]) -> Unit,
-) -> Int {
+) -> Int32 {
   let mut prev = self.store.get()
   let id = self.store.subscribe_id(fn(next : Array[T]) -> Unit {
     let d = keyed_diff(prev, next, key, eq)
@@ -256,8 +268,8 @@ pub fn[T, K : Eq] keyed_align(
 ) -> KeyDiff[T] {
   let removed : Array[T] = []
   let changed : Array[(T, T)] = []
-  let added : Array[(Int, T)] = []
-  let kept : Array[(Int, T)] = []
+  let added : Array[(Int32, T)] = []
+  let kept : Array[(Int32, T)] = []
   let old_index : Array[(K, T)] = []
   for i in 0..<old_items.length() {
     let k = key(old_items[i])
@@ -304,7 +316,7 @@ pub fn[T, K : Eq] keyed_align(
       let _ = removed.push(t)
     }
   }
-  { removed, changed, added, kept }
+  { removed, changed, added, kept, }
 }
 
 ///|

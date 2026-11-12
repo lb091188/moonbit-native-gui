@@ -7,7 +7,7 @@
 test "无焦点也吃到键，抬起事件不进通道" {
   host_reset()
   let a = fake_win_app()
-  let seen : Array[Int] = []
+  let seen : Array[Int32] = []
   a.add_key_fallthrough(fn(ev : KeyEvent) -> Bool {
     seen.push(ev.keysym)
     ev.keysym == @base.KS_SPACE

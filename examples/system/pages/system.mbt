@@ -103,33 +103,30 @@ fn open_probe_app() -> String {
 ///|
 /// 自绘档演示位图：32×32 实心琥珀圆，SNI 口径的大端 ARGB（每像素 `A R G B`）。
 /// 同一份字节交给 Win/mac 时由库内转成 BGRA 小端预乘，三平台拿到同一张脸。
-fn amber_pixmap() -> (Int, Int, Bytes) {
+fn amber_pixmap() -> (Int32, Int32, Bytes) {
   let w = 32
   let h = 32
   let r = 14.0
   (
     w,
     h,
-    Bytes::makei(
-      w * h * 4,
-      fn(i) {
-        let px = i / 4
-        let x = (px % w).to_double() - 15.5
-        let y = (px / w).to_double() - 15.5
-        let off = i % 4
-        if x * x + y * y > r * r {
-          b'\x00'
-        } else if off == 0 {
-          b'\xff' // A
-        } else if off == 1 {
-          b'\xe8' // R
-        } else if off == 2 {
-          b'\xa3' // G
-        } else {
-          b'\x17' // B
-        }
-      },
-    ),
+    Bytes::makei(w * h * 4, fn(i) {
+      let px = i / 4
+      let x = (px % w).to_double() - 15.5
+      let y = (px / w).to_double() - 15.5
+      let off = i % 4
+      if x * x + y * y > r * r {
+        b'\x00'
+      } else if off == 0 {
+        b'\xff' // A
+      } else if off == 1 {
+        b'\xe8' // R
+      } else if off == 2 {
+        b'\xa3' // G
+      } else {
+        b'\x17' // B
+      }
+    }),
   )
 }
 
@@ -184,24 +181,46 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
     },
     allow_http=true,
   )
-  let file_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没选过文件）"))
-  let mb_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没弹过框）"))
-  let nt_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没发过通知）"))
-  let cb_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没动过剪贴板）"))
-  let timer_out : @base.Store[String] = @base.Store::new(@shared.tx("（表未起）"))
-  let ticks : @base.Store[Int] = @base.Store::new(0)
-  let auto_state : @base.Store[String] = @base.Store::new(@shared.tx("（未读）"))
-  let ext_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没打开过外部）"))
+  let file_out : @base.Store[String] = @base.Store::new(
+    @shared.tx("（还没选过文件）"),
+  )
+  let mb_out : @base.Store[String] = @base.Store::new(
+    @shared.tx("（还没弹过框）"),
+  )
+  let nt_out : @base.Store[String] = @base.Store::new(
+    @shared.tx("（还没发过通知）"),
+  )
+  let cb_out : @base.Store[String] = @base.Store::new(
+    @shared.tx("（还没动过剪贴板）"),
+  )
+  let timer_out : @base.Store[String] = @base.Store::new(
+    @shared.tx("（表未起）"),
+  )
+  let ticks : @base.Store[Int32] = @base.Store::new(0)
+  let auto_state : @base.Store[String] = @base.Store::new(
+    @shared.tx("（未读）"),
+  )
+  let ext_out : @base.Store[String] = @base.Store::new(
+    @shared.tx("（还没打开过外部）"),
+  )
   // 「外部打开」三个按钮共用的文档路径：建页时解析一次（见 demo_doc_path）
   let ext_doc : String = demo_doc_path()
-  let si_out : @base.Store[String] = @base.Store::new(@shared.tx("（点「刷新」读一次）"))
-  let vol_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没读过音量）"))
+  let si_out : @base.Store[String] = @base.Store::new(
+    @shared.tx("（点「刷新」读一次）"),
+  )
+  let vol_out : @base.Store[String] = @base.Store::new(
+    @shared.tx("（还没读过音量）"),
+  )
   // 平台专属能力：一个回显行管全部，剪贴板监视另带自己的行与句柄
-  let plat_out : @base.Store[String] = @base.Store::new(@shared.tx("（还没动过）"))
-  let watch_out : @base.Store[String] = @base.Store::new(@shared.tx("（监视未启动）"))
+  let plat_out : @base.Store[String] = @base.Store::new(
+    @shared.tx("（还没动过）"),
+  )
+  let watch_out : @base.Store[String] = @base.Store::new(
+    @shared.tx("（监视未启动）"),
+  )
   let watcher : Ref[@sys.ClipboardWatcher?] = Ref(None)
   // 周期表句柄（0 = 没起）；停表用
-  let tick_id : Ref[Int] = Ref(0)
+  let tick_id : Ref[Int32] = Ref(0)
   // 自启动开关：Store 是唯一态，subscribe 落进真实系统状态。
   // priming 标志：初值读取不算「用户改动」，不能反向写一遍系统
   let auto_on : @base.Store[Bool] = @base.Store::new(false)
@@ -220,14 +239,34 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
       @sys.autostart_disable(AUTOSTART_APP_ID)
     }
     match r {
-      Ok(_) => auto_state.set(if v { @shared.tx("已开启（重新登录后生效）") } else { @shared.tx("已关闭") })
-      Err(e) => auto_state.set(@shared.tr_with("dyn.autostart_write_failed", [("e", "\{e}")], "写入失败：\{e}"))
+      Ok(_) =>
+        auto_state.set(
+          if v {
+            @shared.tx("已开启（重新登录后生效）")
+          } else {
+            @shared.tx("已关闭")
+          },
+        )
+      Err(e) =>
+        auto_state.set(
+          @shared.tr_with(
+            "dyn.autostart_write_failed",
+            [("e", "\{e}")],
+            "写入失败：\{e}",
+          ),
+        )
     }
   })
   match @sys.autostart_is_enabled(AUTOSTART_APP_ID) {
     Ok(v) => {
       auto_on.set(v)
-      auto_state.set(if v { @shared.tx("已开启（重新登录后生效）") } else { @shared.tx("已关闭") })
+      auto_state.set(
+        if v {
+          @shared.tx("已开启（重新登录后生效）")
+        } else {
+          @shared.tx("已关闭")
+        },
+      )
     }
     Err(_) => auto_state.set(@shared.tx("读不到当前自启状态"))
   }
@@ -244,13 +283,35 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
               match app.host.val {
                 Some(a) => {
                   let dlg = @sys.FileDialog::new_open()
-                  dlg.set_filters(@shared.tx("文本文件:txt,md|所有文件:*"))
+                  dlg.set_filters(
+                    @shared.tx("文本文件:txt,md|所有文件:*"),
+                  )
                   if dlg.run_for_window(dialog_parent(a)) {
                     let p = dlg.get_result()
-                    file_out.set(@shared.tr_with("dyn.file_picked", [("p", p)], "已选：\{p}"))
+                    file_out.set(
+                      @shared.tr_with(
+                        "dyn.file_picked",
+                        [("p", p)],
+                        "已选：\{p}",
+                      ),
+                    )
                     match @sys.sys_read_text_file(p) {
-                      Some(t) => file_out.set(@shared.tr_with("dyn.file_picked_chars", [("p", p), ("n", t.length().to_string())], "已选：\{p}（读回 \{t.length()} 字符）"))
-                      None => file_out.set(@shared.tr_with("dyn.file_picked_unreadable", [("p", p)], "已选：\{p}（读不出内容或不是文本）"))
+                      Some(t) =>
+                        file_out.set(
+                          @shared.tr_with(
+                            "dyn.file_picked_chars",
+                            [("p", p), ("n", t.length().to_string())],
+                            "已选：\{p}（读回 \{t.length()} 字符）",
+                          ),
+                        )
+                      None =>
+                        file_out.set(
+                          @shared.tr_with(
+                            "dyn.file_picked_unreadable",
+                            [("p", p)],
+                            "已选：\{p}（读不出内容或不是文本）",
+                          ),
+                        )
                     }
                   } else {
                     file_out.set(@shared.tx("已取消"))
@@ -289,13 +350,9 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
         @ui.bind_label(file_out, fn(s) { s }),
       ],
       code=[
-        "let dlg = @sys.FileDialog::new_open()",
-        "dlg.set_filters(\"文本文件:txt,md|所有文件:*\")",
-        "let parent = a.wid().to_int64() // 宿主窗口 id",
-        "if dlg.run_for_window(parent) {",
-        "  let p = dlg.get_result()",
-        "  ignore(@sys.sys_read_text_file(p))",
-        "}",
+        "let dlg = @sys.FileDialog::new_open()", "dlg.set_filters(\"文本文件:txt,md|所有文件:*\")",
+        "let parent = a.wid().to_int64() // 宿主窗口 id", "if dlg.run_for_window(parent) {",
+        "  let p = dlg.get_result()", "  ignore(@sys.sys_read_text_file(p))", "}",
         "dlg.destroy()",
       ],
     ),
@@ -309,34 +366,47 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
             @ui.button(@shared.tx("信息 是/否"), on_click=fn() {
               let r = @win.show_message_box(
                 @shared.tx("libyue 演示板"),
-                @shared.tx("原生消息框：点「是」或「否」看回显。"),
+                @shared.tx(
+                  "原生消息框：点「是」或「否」看回显。",
+                ),
                 @win.Information,
                 @win.YesNo,
               )
-              mb_out.set(@shared.tr_with("dyn.msgbox_info", [("r", msgbox_result_label(r))], "信息档 → \{msgbox_result_label(r)}"))
-            }),
-            @ui.button(@shared.tx("错误 是/否/取消"), variant=@ui.Danger, on_click=fn() {
-              let r = @win.show_message_box(
-                @shared.tx("libyue 演示板"),
-                @shared.tx("错误档：三个按钮都能收回语义。"),
-                @win.Error,
-                @win.YesNoCancel,
+              mb_out.set(
+                @shared.tr_with(
+                  "dyn.msgbox_info",
+                  [("r", msgbox_result_label(r))],
+                  "信息档 → \{msgbox_result_label(r)}",
+                ),
               )
-              mb_out.set(@shared.tr_with("dyn.msgbox_error", [("r", msgbox_result_label(r))], "错误档 → \{msgbox_result_label(r)}"))
             }),
+            @ui.button(
+              @shared.tx("错误 是/否/取消"),
+              variant=@ui.Danger,
+              on_click=fn() {
+                let r = @win.show_message_box(
+                  @shared.tx("libyue 演示板"),
+                  @shared.tx("错误档：三个按钮都能收回语义。"),
+                  @win.Error,
+                  @win.YesNoCancel,
+                )
+                mb_out.set(
+                  @shared.tr_with(
+                    "dyn.msgbox_error",
+                    [("r", msgbox_result_label(r))],
+                    "错误档 → \{msgbox_result_label(r)}",
+                  ),
+                )
+              },
+            ),
           ],
           column_gap=8.0,
         ),
         @ui.bind_label(mb_out, fn(s) { s }),
       ],
       code=[
-        "let r = @win.show_message_box(",
-        "  \"libyue 演示板\",",
-        "  \"原生消息框：点「是」或「否」看回显。\",",
-        "  Information,",
-        "  YesNo,",
-        ")",
-        "match r { Yes => ... No => ... _ => ... }",
+        "let r = @win.show_message_box(", "  \"libyue 演示板\",", "  \"原生消息框：点「是」或「否」看回显。\",",
+        "  Information,", "  YesNo,", ")", "match r { Yes => ... No => ... _ => ... }",
       ],
     ),
     @shared.section(
@@ -347,9 +417,28 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
         @ui.row(
           [
             @ui.button(@shared.tx("普通通知"), on_click=fn() {
-              match @shell.notify_send(@shared.tx("libyue 演示板"), @shared.tx("构建完成"), @shared.tx("3 个目标已产出")) {
-                Ok(id) => nt_out.set(@shared.tr_with("dyn.notif_sent", [("i", id.to_string())], "已发送 #\{id}"))
-                Err(e) => nt_out.set(@shared.tr_with("dyn.notif_failed", [("e", "\{e}")], "发送失败：\{e}"))
+              match
+                @shell.notify_send(
+                  @shared.tx("libyue 演示板"),
+                  @shared.tx("构建完成"),
+                  @shared.tx("3 个目标已产出"),
+                ) {
+                Ok(id) =>
+                  nt_out.set(
+                    @shared.tr_with(
+                      "dyn.notif_sent",
+                      [("i", id.to_string())],
+                      "已发送 #\{id}",
+                    ),
+                  )
+                Err(e) =>
+                  nt_out.set(
+                    @shared.tr_with(
+                      "dyn.notif_failed",
+                      [("e", "\{e}")],
+                      "发送失败：\{e}",
+                    ),
+                  )
               }
             }),
             @ui.button(@shared.tx("带进度 60%"), variant=@ui.Soft, on_click=fn() {
@@ -361,26 +450,45 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
                   kind=1,
                   progress=60,
                 ) {
-                Ok(id) => nt_out.set(@shared.tr_with("dyn.notif_sent_progress", [("i", id.to_string())], "已发送 #\{id}（带进度）"))
+                Ok(id) =>
+                  nt_out.set(
+                    @shared.tr_with(
+                      "dyn.notif_sent_progress",
+                      [("i", id.to_string())],
+                      "已发送 #\{id}（带进度）",
+                    ),
+                  )
                 Err(e) => nt_out.set("发送失败：\{e}")
               }
             }),
-            @ui.button(
-              @shared.tx("非紧急通知"),
-              variant=@ui.Text,
-              on_click=fn() {
-                match
-                  @shell.notify_send(
-                    @shared.tx("libyue 演示板"),
-                    @shared.tx("后台同步完成"),
-                    @shared.tx("urgent=false：macOS 前台忙时静默，只进通知中心"),
-                    urgent=false,
-                  ) {
-                  Ok(id) => nt_out.set(@shared.tr_with("dyn.notif_sent", [("i", id.to_string())], "已发送 #\{id}"))
-                  Err(e) => nt_out.set(@shared.tr_with("dyn.notif_failed", [("e", "\{e}")], "发送失败：\{e}"))
-                }
-              },
-            ),
+            @ui.button(@shared.tx("非紧急通知"), variant=@ui.Text, on_click=fn() {
+              match
+                @shell.notify_send(
+                  @shared.tx("libyue 演示板"),
+                  @shared.tx("后台同步完成"),
+                  @shared.tx(
+                    "urgent=false：macOS 前台忙时静默，只进通知中心",
+                  ),
+                  urgent=false,
+                ) {
+                Ok(id) =>
+                  nt_out.set(
+                    @shared.tr_with(
+                      "dyn.notif_sent",
+                      [("i", id.to_string())],
+                      "已发送 #\{id}",
+                    ),
+                  )
+                Err(e) =>
+                  nt_out.set(
+                    @shared.tr_with(
+                      "dyn.notif_failed",
+                      [("e", "\{e}")],
+                      "发送失败：\{e}",
+                    ),
+                  )
+              }
+            }),
           ],
           column_gap=8.0,
         ),
@@ -395,13 +503,9 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
         ),
       ],
       code=[
-        "match @shell.notify_send(",
-        "  \"libyue 演示板\", \"构建完成\", \"3 个目标已产出\") {",
-        "  Ok(id) => println(\"已发送 #\\{id}\")",
-        "  Err(e) => println(\"失败: \\{e}\")",
-        "}",
-        "// 带进度：progress=60, kind=1",
-        "// 打扰档（仅 macOS 吃）：urgent=false",
+        "match @shell.notify_send(", "  \"libyue 演示板\", \"构建完成\", \"3 个目标已产出\") {",
+        "  Ok(id) => println(\"已发送 #\\{id}\")", "  Err(e) => println(\"失败: \\{e}\")",
+        "}", "// 带进度：progress=60, kind=1", "// 打扰档（仅 macOS 吃）：urgent=false",
       ],
     ),
     @shared.section(
@@ -413,7 +517,9 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
           [
             @ui.button(@shared.tx("写入文本"), on_click=fn() {
               cb_out.set(
-                if @sys.clipboard_set_text(@shared.tx("libyue 演示板 · 剪贴板写入")) {
+                if @sys.clipboard_set_text(
+                    @shared.tx("libyue 演示板 · 剪贴板写入"),
+                  ) {
                   @shared.tx("已写入（去别处粘贴试试）")
                 } else {
                   @shared.tx("写入失败（剪贴板不可用）")
@@ -422,7 +528,14 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
             }),
             @ui.button(@shared.tx("读取剪贴板"), variant=@ui.Soft, on_click=fn() {
               match @sys.clipboard_get_text() {
-                Some(t) => cb_out.set(@shared.tr_with("dyn.clip_read", [("t", t)], "读到：\{t}"))
+                Some(t) =>
+                  cb_out.set(
+                    @shared.tr_with(
+                      "dyn.clip_read",
+                      [("t", t)],
+                      "读到：\{t}",
+                    ),
+                  )
                 None => cb_out.set(@shared.tx("读不到（空或不可用）"))
               }
             }),
@@ -432,10 +545,8 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
         @ui.bind_label(cb_out, fn(s) { s }),
       ],
       code=[
-        "@sys.clipboard_set_text(\"libyue 演示板 · 剪贴板写入\")",
-        "match @sys.clipboard_get_text() {",
-        "  Some(t) => println(\"读到: \\{t}\")",
-        "  None => println(\"空或不可用\")",
+        "@sys.clipboard_set_text(\"libyue 演示板 · 剪贴板写入\")", "match @sys.clipboard_get_text() {",
+        "  Some(t) => println(\"读到: \\{t}\")", "  None => println(\"空或不可用\")",
         "}",
       ],
     ),
@@ -491,16 +602,18 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
           column_gap=8.0,
         ),
         @ui.bind_label(timer_out, fn(s) { s }),
-        @ui.bind_label(ticks, fn(n) { @shared.tr_with("dyn.timer_ticks", [("n", n.to_string())], "周期表已响 \{n} 次") }),
+        @ui.bind_label(ticks, fn(n) {
+          @shared.tr_with(
+            "dyn.timer_ticks",
+            [("n", n.to_string())],
+            "周期表已响 \{n} 次",
+          )
+        }),
       ],
       code=[
-        "// 单次延时（进程级）",
-        "ignore(@shell.set_timeout(1500, fn() {",
-        "  app.toast_push(\"延时任务触发\", Success)",
-        "}))",
-        "// 周期表：回调里自重排，且每次都要记回新句柄才可停",
-        "let id = a.timer(1000, tick)",
-        "ignore(a.cancel_timer(id))",
+        "// 单次延时（进程级）", "ignore(@shell.set_timeout(1500, fn() {",
+        "  app.toast_push(\"延时任务触发\", Success)", "}))", "// 周期表：回调里自重排，且每次都要记回新句柄才可停",
+        "let id = a.timer(1000, tick)", "ignore(a.cancel_timer(id))",
       ],
     ),
     @shared.section(
@@ -516,11 +629,20 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
                   // 重新登记取串口：文案随语言、计数随左键一起走
                   t.set_tooltip_localized(
                     fn() -> String { @shared.tx("libyue 演示板") },
-                    fn() -> String { @shared.tr_with("dyn.tray_tooltip", [("n", app.tray_clicks.get().to_string())], "提示已改 · \{app.tray_clicks.get()} 次左键") },
+                    fn() -> String {
+                      @shared.tr_with(
+                        "dyn.tray_tooltip",
+                        [("n", app.tray_clicks.get().to_string())],
+                        "提示已改 · \{app.tray_clicks.get()} 次左键",
+                      )
+                    },
                   )
-                  app.tray_note.set(@shared.tx("提示已改（悬停托盘图标可见）"))
+                  app.tray_note.set(
+                    @shared.tx("提示已改（悬停托盘图标可见）"),
+                  )
                 }
-                None => app.tray_note.set(@shared.tx("本平台没有托盘后端"))
+                None =>
+                  app.tray_note.set(@shared.tx("本平台没有托盘后端"))
               }
             }),
             @ui.button(@shared.tx("换自绘图标"), variant=@ui.Soft, on_click=fn() {
@@ -528,9 +650,12 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
                 Some(t) => {
                   let (w, h, px) = amber_pixmap()
                   t.set_icon_pixmap(w, h, px)
-                  app.tray_note.set(@shared.tx("图标已换成自绘琥珀圆"))
+                  app.tray_note.set(
+                    @shared.tx("图标已换成自绘琥珀圆"),
+                  )
                 }
-                None => app.tray_note.set(@shared.tx("本平台没有托盘后端"))
+                None =>
+                  app.tray_note.set(@shared.tx("本平台没有托盘后端"))
               }
             }),
             @ui.button(@shared.tx("回内置图标"), variant=@ui.Text, on_click=fn() {
@@ -539,34 +664,30 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
                   t.set_icon_builtin()
                   app.tray_note.set(@shared.tx("图标已回库内置月牙"))
                 }
-                None => app.tray_note.set(@shared.tx("本平台没有托盘后端"))
+                None =>
+                  app.tray_note.set(@shared.tx("本平台没有托盘后端"))
               }
             }),
           ],
           column_gap=8.0,
         ),
         @ui.bind_label(app.tray_note, fn(s) { s }),
-        @ui.bind_label(app.tray_clicks, fn(n) { @shared.tr_with("dyn.left_clicks", [("n", n.to_string())], "左键 \{n} 次") }),
+        @ui.bind_label(app.tray_clicks, fn(n) {
+          @shared.tr_with(
+            "dyn.left_clicks",
+            [("n", n.to_string())],
+            "左键 \{n} 次",
+          )
+        }),
       ],
       code=[
         "// 建托盘（main 挂载期，应用级单例）：不传 icon = 库内置月牙",
-        "match @shell.Tray::new(\"libyue-showcase-tray\") {",
-        "  Ok(t) => {",
-        "    // 提示语/右键菜单登记进语言口：换语言随广播重算",
-        "    t.set_tooltip_localized(",
-        "      fn() { \"libyue 演示板\" },",
-        "      fn() { \"左键计数 · W 族门面\" },",
-        "    )",
-        "    t.set_menu_localized(fn() { menu })",
-        "    t.on_click(fn() { clicks.update(fn(n) { n + 1 }) })",
-        "  }",
-        "  Err(e) => ...",
-        "}",
-        "// 换图标：大端 ARGB 自绘位图（Win/mac 内部转 BGRA 预乘）",
-        "t.set_icon_pixmap(32, 32, argb_bytes)",
-        "t.set_icon_builtin() // 回库内置月牙",
-        "// 派发表：宿主循环没有每帧钩子，200ms 一拍",
-        "let _ = @shell.dispatch_tray_event()",
+        "match @shell.Tray::new(\"libyue-showcase-tray\") {", "  Ok(t) => {", "    // 提示语/右键菜单登记进语言口：换语言随广播重算",
+        "    t.set_tooltip_localized(", "      fn() { \"libyue 演示板\" },", "      fn() { \"左键计数 · W 族门面\" },",
+        "    )", "    t.set_menu_localized(fn() { menu })", "    t.on_click(fn() { clicks.update(fn(n) { n + 1 }) })",
+        "  }", "  Err(e) => ...", "}", "// 换图标：大端 ARGB 自绘位图（Win/mac 内部转 BGRA 预乘）",
+        "t.set_icon_pixmap(32, 32, argb_bytes)", "t.set_icon_builtin() // 回库内置月牙",
+        "// 派发表：宿主循环没有每帧钩子，200ms 一拍", "let _ = @shell.dispatch_tray_event()",
       ],
     ),
     @shared.section(
@@ -576,7 +697,11 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
       [
         @ui.row(
           [
-            @ui.switch(auto_on, on_text=@shared.tx("开启自启"), off_text=@shared.tx("关闭自启")),
+            @ui.switch(
+              auto_on,
+              on_text=@shared.tx("开启自启"),
+              off_text=@shared.tx("关闭自启"),
+            ),
             @ui.bind_label(auto_state, fn(s) { s }),
           ],
           column_gap=8.0,
@@ -584,14 +709,9 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
         ),
       ],
       code=[
-        "// 读当前真实状态",
-        "match @sys.autostart_is_enabled(\"libyue.showcase\") {",
-        "  Ok(v) => on.set(v)",
-        "  Err(_) => ...",
-        "}",
-        "// 开关即写系统",
-        "@sys.autostart_enable(\"libyue.showcase\")",
-        "@sys.autostart_disable(\"libyue.showcase\")",
+        "// 读当前真实状态", "match @sys.autostart_is_enabled(\"libyue.showcase\") {",
+        "  Ok(v) => on.set(v)", "  Err(_) => ...", "}", "// 开关即写系统",
+        "@sys.autostart_enable(\"libyue.showcase\")", "@sys.autostart_disable(\"libyue.showcase\")",
       ],
     ),
     @shared.section(
@@ -604,51 +724,104 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
             @ui.button(@shared.tx("打开 libyue.com"), on_click=fn() {
               match @sys.open_url("https://libyue.com") {
                 Ok(_) => ext_out.set(@shared.tx("已交给默认浏览器"))
-                Err(e) => ext_out.set(@shared.tr_with("dyn.open_failed", [("e", "\{e}")], "打开失败：\{e}"))
+                Err(e) =>
+                  ext_out.set(
+                    @shared.tr_with(
+                      "dyn.open_failed",
+                      [("e", "\{e}")],
+                      "打开失败：\{e}",
+                    ),
+                  )
               }
             }),
-            @ui.button(@shared.tx("在文件管理器显示 TODO.md"), variant=@ui.Soft, on_click=fn() {
-              match @shell.reveal_in_file_manager(ext_doc) {
-                Ok(_) => ext_out.set(@shared.tx("已交给文件管理器"))
-                Err(e) => ext_out.set(@shared.tr_with("dyn.reveal_failed", [("e", "\{e}")], "显示失败：\{e}"))
-              }
-            }),
-            @ui.button(@shared.tx("用默认程序打开 TODO.md"), variant=@ui.Soft, on_click=fn() {
-              match @sys.open_file(ext_doc) {
-                Ok(_) => ext_out.set(@shared.tx("已交给默认程序"))
-                Err(e) => ext_out.set(@shared.tr_with("dyn.default_open_failed", [("e", "\{e}")], "默认程序打开失败：\{e}"))
-              }
-            }),
-            @ui.button(@shared.tx("用指定程序打开 TODO.md"), variant=@ui.Soft, on_click=fn() {
-              let app = open_probe_app()
-              match @sys.open_file_with(app, ext_doc) {
-                Ok(_) => ext_out.set(@shared.tr_with("dyn.opened_with", [("a", app)], "已交给 \{app}"))
-                Err(e) => ext_out.set(@shared.tr_with("dyn.chosen_open_failed", [("a", app), ("e", "\{e}")], "指定程序（\{app}）打开失败：\{e}"))
-              }
-            }),
-            @ui.button(@shared.tx("用指定程序打开不存在的路径"), variant=@ui.Soft, on_click=fn() {
-              match @sys.open_file_with(open_probe_app(), "no-such-file-zzz.md") {
-                Ok(_) => ext_out.set(@shared.tx("已交给指定程序"))
-                Err(e) => ext_out.set(@shared.tr_with("dyn.blocked_as_expected", [("e", "\{e}")], "按预期被拦下：\{e}"))
-              }
-            }),
+            @ui.button(
+              @shared.tx("在文件管理器显示 TODO.md"),
+              variant=@ui.Soft,
+              on_click=fn() {
+                match @shell.reveal_in_file_manager(ext_doc) {
+                  Ok(_) => ext_out.set(@shared.tx("已交给文件管理器"))
+                  Err(e) =>
+                    ext_out.set(
+                      @shared.tr_with(
+                        "dyn.reveal_failed",
+                        [("e", "\{e}")],
+                        "显示失败：\{e}",
+                      ),
+                    )
+                }
+              },
+            ),
+            @ui.button(
+              @shared.tx("用默认程序打开 TODO.md"),
+              variant=@ui.Soft,
+              on_click=fn() {
+                match @sys.open_file(ext_doc) {
+                  Ok(_) => ext_out.set(@shared.tx("已交给默认程序"))
+                  Err(e) =>
+                    ext_out.set(
+                      @shared.tr_with(
+                        "dyn.default_open_failed",
+                        [("e", "\{e}")],
+                        "默认程序打开失败：\{e}",
+                      ),
+                    )
+                }
+              },
+            ),
+            @ui.button(
+              @shared.tx("用指定程序打开 TODO.md"),
+              variant=@ui.Soft,
+              on_click=fn() {
+                let app = open_probe_app()
+                match @sys.open_file_with(app, ext_doc) {
+                  Ok(_) =>
+                    ext_out.set(
+                      @shared.tr_with(
+                        "dyn.opened_with",
+                        [("a", app)],
+                        "已交给 \{app}",
+                      ),
+                    )
+                  Err(e) =>
+                    ext_out.set(
+                      @shared.tr_with(
+                        "dyn.chosen_open_failed",
+                        [("a", app), ("e", "\{e}")],
+                        "指定程序（\{app}）打开失败：\{e}",
+                      ),
+                    )
+                }
+              },
+            ),
+            @ui.button(
+              @shared.tx("用指定程序打开不存在的路径"),
+              variant=@ui.Soft,
+              on_click=fn() {
+                match
+                  @sys.open_file_with(open_probe_app(), "no-such-file-zzz.md") {
+                  Ok(_) => ext_out.set(@shared.tx("已交给指定程序"))
+                  Err(e) =>
+                    ext_out.set(
+                      @shared.tr_with(
+                        "dyn.blocked_as_expected",
+                        [("e", "\{e}")],
+                        "按预期被拦下：\{e}",
+                      ),
+                    )
+                }
+              },
+            ),
           ],
           column_gap=8.0,
         ),
         @ui.bind_label(ext_out, fn(s) { s }),
       ],
       code=[
-        "match @sys.open_url(\"https://libyue.com\") {",
-        "  Ok(_) => println(\"已交给默认浏览器\")",
-        "  Err(e) => println(\"失败: \\{e}\")",
-        "}",
-        "// 相对路径按工作目录归一；换目录跑就 NotFound，所以先上溯解析成绝对路径",
-        "let doc = demo_doc_path()",
-        "// 打开并选中：Linux 走 FileManager1.ShowItems，退回 xdg-open 父目录\n",
-        "match @shell.reveal_in_file_manager(doc) { ... }",
-        "// 用默认程序打开",
-        "match @sys.open_file(doc) { ... }",
-        "// 用指定程序打开：app 可以是 PATH 里的命令名或完整可执行路径",
+        "match @sys.open_url(\"https://libyue.com\") {", "  Ok(_) => println(\"已交给默认浏览器\")",
+        "  Err(e) => println(\"失败: \\{e}\")", "}", "// 相对路径按工作目录归一；换目录跑就 NotFound，所以先上溯解析成绝对路径",
+        "let doc = demo_doc_path()", "// 打开并选中：Linux 走 FileManager1.ShowItems，退回 xdg-open 父目录\n",
+        "match @shell.reveal_in_file_manager(doc) { ... }", "// 用默认程序打开",
+        "match @sys.open_file(doc) { ... }", "// 用指定程序打开：app 可以是 PATH 里的命令名或完整可执行路径",
         "match @sys.open_file_with(\"notepad.exe\", doc) { ... }",
       ],
     ),
@@ -664,8 +837,26 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
             }),
             @ui.button(@shared.tx("读音量"), on_click=fn() {
               match @sys.vol_get() {
-                Ok(v) => vol_out.set(@shared.tr_with("dyn.volume_now", [("v", v.volume.to_string()), ("m", v.muted.to_string()), ("s", v.sink)], "音量 \{v.volume}% 静音=\{v.muted}（\{v.sink}）"))
-                Err(e) => vol_out.set(@shared.tr_with("dyn.read_failed", [("e", "\{e}")], "读取失败：\{e}"))
+                Ok(v) =>
+                  vol_out.set(
+                    @shared.tr_with(
+                      "dyn.volume_now",
+                      [
+                        ("v", v.volume.to_string()),
+                        ("m", v.muted.to_string()),
+                        ("s", v.sink),
+                      ],
+                      "音量 \{v.volume}% 静音=\{v.muted}（\{v.sink}）",
+                    ),
+                  )
+                Err(e) =>
+                  vol_out.set(
+                    @shared.tr_with(
+                      "dyn.read_failed",
+                      [("e", "\{e}")],
+                      "读取失败：\{e}",
+                    ),
+                  )
               }
             }),
             @ui.button(@shared.tx("设为 50%"), variant=@ui.Soft, on_click=fn() {
@@ -678,7 +869,14 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
               match @sys.vol_get() {
                 Ok(v) =>
                   match @sys.vol_set_mute(!v.muted) {
-                    Ok(_) => vol_out.set(if v.muted { @shared.tx("已取消静音") } else { @shared.tx("已静音") })
+                    Ok(_) =>
+                      vol_out.set(
+                        if v.muted {
+                          @shared.tx("已取消静音")
+                        } else {
+                          @shared.tx("已静音")
+                        },
+                      )
                     Err(e) => vol_out.set("设置失败：\{e}")
                   }
                 Err(e) => vol_out.set("读取失败：\{e}")
@@ -691,20 +889,12 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
         @ui.bind_label(vol_out, fn(s) { s }),
       ],
       code=[
-        "match @sys.si_os() {",
-        "  Ok(o) => println(\"\\{o.pretty_name} \\{o.version_id}\")",
-        "  Err(_) => ...",
-        "}",
-        "// 同族：si_machine / si_memory / si_uptime / desktop_name",
-        "match @sys.vol_get() {",
-        "  Ok(v) => println(\"\\{v.volume}% muted=\\{v.muted}\")",
-        "  Err(e) => ...",
-        "}",
-        "@sys.vol_set(50)",
-        "@sys.vol_set_mute(true)",
+        "match @sys.si_os() {", "  Ok(o) => println(\"\\{o.pretty_name} \\{o.version_id}\")",
+        "  Err(_) => ...", "}", "// 同族：si_machine / si_memory / si_uptime / desktop_name",
+        "match @sys.vol_get() {", "  Ok(v) => println(\"\\{v.volume}% muted=\\{v.muted}\")",
+        "  Err(e) => ...", "}", "@sys.vol_set(50)", "@sys.vol_set_mute(true)",
       ],
     ),
-
     @shared.section(
       "单实例",
       "防多开与唤起已有实例",
@@ -717,30 +907,41 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
                 Some(b) => @shell.instance_backend_name(b)
                 None => "-"
               }
-              app.inst_note.set(@shared.tr_with(
-                "dyn.inst_state",
-                [
-                  ("a", arm),
-                  ("n", app.inst_wakes.get().to_string()),
-                  ("i", @shared.sys_app_id),
-                ],
-                "app_id \{@shared.sys_app_id} · 后端 \{arm} · 已收到唤起 \{app.inst_wakes.get()} 次",
-              ))
+              app.inst_note.set(
+                @shared.tr_with(
+                  "dyn.inst_state",
+                  [
+                    ("a", arm),
+                    ("n", app.inst_wakes.get().to_string()),
+                    ("i", @shared.sys_app_id),
+                  ],
+                  "app_id \{@shared.sys_app_id} · 后端 \{arm} · 已收到唤起 \{app.inst_wakes.get()} 次",
+                ),
+              )
             }),
             @ui.button(@shared.tx("自环唤起"), variant=@ui.Soft, on_click=fn() {
-              match @shell.instance_wake(@shared.sys_app_id, ["系统集成页"]) {
-                Ok(_) => app.inst_note.set(@shared.tx("已发出唤起：下一拍切回首页并冒提示"))
-                Err(e) => app.inst_note.set(
-                  @shared.tr_with(
-                    "dyn.inst_wake_failed",
-                    [("e", e.to_string())],
-                    "唤起失败：\{e}",
-                  ),
-                )
+              match
+                @shell.instance_wake(@shared.sys_app_id, ["系统集成页"]) {
+                Ok(_) =>
+                  app.inst_note.set(
+                    @shared.tx(
+                      "已发出唤起：下一拍切回首页并冒提示",
+                    ),
+                  )
+                Err(e) =>
+                  app.inst_note.set(
+                    @shared.tr_with(
+                      "dyn.inst_wake_failed",
+                      [("e", e.to_string())],
+                      "唤起失败：\{e}",
+                    ),
+                  )
               }
             }),
             @ui.text(
-              @shared.tx("唤起回调由 main 挂：切回首页 + 提示 + 计数"),
+              @shared.tx(
+                "唤起回调由 main 挂：切回首页 + 提示 + 计数",
+              ),
               class=[@style.text_secondary],
             ),
           ],
@@ -750,17 +951,13 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
         @ui.bind_label(app.inst_note, fn(s) { s }),
       ],
       code=[
-        "match @shell.instance_claim(\"com.moonbitlibyue.showcase\") {",
-        "  Ok(@shell.Primary) => ...   // 首实例：窗口照常开",
+        "match @shell.instance_claim(\"com.moonbitlibyue.showcase\") {", "  Ok(@shell.Primary) => ...   // 首实例：窗口照常开",
         "  Ok(@shell.Existing) => ...  // 已有实例：唤起后自己退出",
-        "  Err(e) => println(\"降级：\\{e}\"),",
-        "}",
-        "@shell.on_instance_wake(fn(args) { show_window() })",
+        "  Err(e) => println(\"降级：\\{e}\"),", "}", "@shell.on_instance_wake(fn(args) { show_window() })",
         "// 宿主每拍抽一次（套接字/Win32 臂）；D-Bus 臂在 dbus_pump 里直达",
         "let _ = @shell.dispatch_instance_wake()",
       ],
     ),
-
     @shared.section(
       "平台专属",
       "子进程与平台专属能力",
@@ -780,7 +977,10 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
                   plat_out.set(
                     @shared.tr_with(
                       "dyn.proc_ok",
-                      [("c", o.exit_code.to_string()), ("s", o.stdout.trim().to_owned())],
+                      [
+                        ("c", o.exit_code.to_string()),
+                        ("s", o.stdout.trim().to_owned()),
+                      ],
                       "子进程退出码 \{o.exit_code}，输出：\{o.stdout.trim()}",
                     ),
                   )
@@ -790,16 +990,28 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
             @ui.button(@shared.tx("跑超时档"), variant=@ui.Soft, on_click=fn() {
               let is_win = @sys.sys_platform() == "windows"
               let r = if is_win {
-                @sys.pr_run("cmd", ["/c", "ping -n 3 127.0.0.1"], timeout_ms=150)
+                @sys.pr_run(
+                  "cmd",
+                  ["/c", "ping -n 3 127.0.0.1"],
+                  timeout_ms=150,
+                )
               } else {
                 @sys.pr_run("sh", ["-c", "sleep 2"], timeout_ms=150)
               }
               match r {
-                Ok(o) => plat_out.set("超时档竟然跑完了，退出码 \{o.exit_code}")
+                Ok(o) =>
+                  plat_out.set(
+                    "超时档竟然跑完了，退出码 \{o.exit_code}",
+                  )
                 Err(e) => plat_out.set("超时档按预期失败：\{e}")
               }
             }),
-            @ui.text(@shared.tx("pr_run：命令 + 参数 + 超时，回 stdout 与退出码"), class=[@style.text_secondary]),
+            @ui.text(
+              @shared.tx(
+                "pr_run：命令 + 参数 + 超时，回 stdout 与退出码",
+              ),
+              class=[@style.text_secondary],
+            ),
           ],
           column_gap=8.0,
           align_items=@yoga.AlignItems::Center,
@@ -808,17 +1020,25 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
           [
             @ui.button(@shared.tx("列窗口"), on_click=fn() {
               if !@sys.win_supported() {
-                plat_out.set(@shared.tx("窗口管理：本平台没有窗口枚举后端"))
+                plat_out.set(
+                  @shared.tx("窗口管理：本平台没有窗口枚举后端"),
+                )
               } else {
                 // 读全窗口标题要屏幕录制权限：未授就弹引导并提示重试
                 if !@sys.permission_ensure(@sys.PermScreenRecording) {
-                  plat_out.set(@shared.tx("读全窗口标题要屏幕录制权限——已弹系统授权框，授权后再点一次"))
+                  plat_out.set(
+                    @shared.tx(
+                      "读全窗口标题要屏幕录制权限——已弹系统授权框，授权后再点一次",
+                    ),
+                  )
                   return
                 }
                 match @sys.win_list() {
                   Ok(ws) => {
                     let sb = StringBuilder()
-                    sb.write_string("窗口 \{ws.length()} 个（列前 5）：\n")
+                    sb.write_string(
+                      "窗口 \{ws.length()} 个（列前 5）：\n",
+                    )
                     let n = if ws.length() > 5 { 5 } else { ws.length() }
                     for i in 0..<n {
                       sb.write_string("  \{ws[i].id} · \{ws[i].title}\n")
@@ -831,7 +1051,9 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
             }),
             @ui.button(@shared.tx("激活第一扇"), variant=@ui.Soft, on_click=fn() {
               if !@sys.win_supported() {
-                plat_out.set(@shared.tx("激活窗口：本平台没有窗口枚举后端"))
+                plat_out.set(
+                  @shared.tx("激活窗口：本平台没有窗口枚举后端"),
+                )
               } else {
                 match @sys.win_list() {
                   Ok(ws) =>
@@ -847,7 +1069,9 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
                 }
               }
             }),
-            @ui.text(@shared.tx("win_list / win_activate / win_close"), class=[@style.text_secondary]),
+            @ui.text(@shared.tx("win_list / win_activate / win_close"), class=[
+              @style.text_secondary,
+            ]),
           ],
           column_gap=8.0,
           align_items=@yoga.AlignItems::Center,
@@ -856,9 +1080,18 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
           [
             @ui.button(@shared.tx("夜间色温 60%"), on_click=fn() {
               match @sys.nl_set_temperature(60) {
-                Ok(_) => plat_out.set(@shared.tx("夜间色温已设 60%（Windows gamma 直调 / Linux redshift 或 xrandr）"))
+                Ok(_) =>
+                  plat_out.set(
+                    @shared.tx(
+                      "夜间色温已设 60%（Windows gamma 直调 / Linux redshift 或 xrandr）",
+                    ),
+                  )
                 Err(@sys.NightlightError::Unsupported) =>
-                  plat_out.set(@shared.tx("夜间色温：本平台没有可用的色温后端"))
+                  plat_out.set(
+                    @shared.tx(
+                      "夜间色温：本平台没有可用的色温后端",
+                    ),
+                  )
                 Err(e) => plat_out.set("夜间色温设置失败：\{e}")
               }
             }),
@@ -866,13 +1099,21 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
               match @sys.nl_reset() {
                 Ok(_) => plat_out.set(@shared.tx("夜间色温已复位"))
                 Err(@sys.NightlightError::Unsupported) =>
-                  plat_out.set(@shared.tx("夜间色温：本平台没有可用的色温后端"))
+                  plat_out.set(
+                    @shared.tx(
+                      "夜间色温：本平台没有可用的色温后端",
+                    ),
+                  )
                 Err(e) => plat_out.set("复位失败：\{e}")
               }
             }),
             @ui.button(@shared.tx("读电源计划"), variant=@ui.Soft, on_click=fn() {
               if !@sys.pp_supported() {
-                plat_out.set(@shared.tx("电源计划：本机没有 powerprofilesctl（Linux）或 PowerGet（Windows）"))
+                plat_out.set(
+                  @shared.tx(
+                    "电源计划：本机没有 powerprofilesctl（Linux）或 PowerGet（Windows）",
+                  ),
+                )
               } else {
                 match @sys.pp_current() {
                   Ok(cur) =>
@@ -890,7 +1131,8 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
                           ),
                         )
                       }
-                      Err(e) => plat_out.set("电源计划列表读不到：\{e}")
+                      Err(e) =>
+                        plat_out.set("电源计划列表读不到：\{e}")
                     }
                   Err(e) => plat_out.set("当前电源计划读不到：\{e}")
                 }
@@ -898,7 +1140,8 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
             }),
             @ui.button(@shared.tx("切性能档"), variant=@ui.Text, on_click=fn() {
               match @sys.pp_set(@sys.PowerProfile::PPerformance) {
-                Ok(_) => plat_out.set(@shared.tx("电源计划已切到性能档"))
+                Ok(_) =>
+                  plat_out.set(@shared.tx("电源计划已切到性能档"))
                 Err(e) => plat_out.set("切换失败：\{e}")
               }
             }),
@@ -909,10 +1152,15 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
           [
             @ui.button(@shared.tx("启动剪贴板监视"), on_click=fn() {
               match watcher.val {
-                Some(_) => watch_out.set(@shared.tx("监视已经在跑（改一下剪贴板试试）"))
+                Some(_) =>
+                  watch_out.set(
+                    @shared.tx(
+                      "监视已经在跑（改一下剪贴板试试）",
+                    ),
+                  )
                 None => {
                   let w = @sys.cbw_start_watch(
-                    fn(ms : Int, f : () -> Unit) -> Unit {
+                    fn(ms : Int32, f : () -> Unit) -> Unit {
                       match app.host.val {
                         Some(a) => ignore(a.timer(ms, f))
                         None => ()
@@ -929,7 +1177,11 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
                     },
                   )
                   watcher.val = Some(w)
-                  watch_out.set(@shared.tx("剪贴板监视已启动（800ms 轮询，仅 Linux X11）"))
+                  watch_out.set(
+                    @shared.tx(
+                      "剪贴板监视已启动（800ms 轮询，仅 Linux X11）",
+                    ),
+                  )
                 }
               }
             }),
@@ -943,7 +1195,10 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
                 None => watch_out.set(@shared.tx("监视本来就没起"))
               }
             }),
-            @ui.text(@shared.tx("cbw_start_watch：宿主 timer 当排期通道"), class=[@style.text_secondary]),
+            @ui.text(
+              @shared.tx("cbw_start_watch：宿主 timer 当排期通道"),
+              class=[@style.text_secondary],
+            ),
           ],
           column_gap=8.0,
           align_items=@yoga.AlignItems::Center,
@@ -954,25 +1209,15 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
       code=[
         "// 子进程（三平台）：命令 + 参数 + 超时，回 stdout 与退出码",
         "match @sys.pr_run(\"sh\", [\"-c\", \"echo hello\"], timeout_ms=2000) {",
-        "  Ok(o) => println(\"{o.exit_code}: {o.stdout}\")",
-        "  Err(e) => println(\"{e}\")",
-        "}",
-        "// 窗口管理（仅 Linux X11，走 wmctrl）",
-        "match @sys.win_list() {",
-        "  Ok(ws) => @sys.win_activate(ws[0].id)",
-        "  Err(e) => ...",
-        "}",
-        "// 夜间色温（仅 Linux）",
-        "@sys.nl_set_temperature(60)",
-        "@sys.nl_reset()",
-        "// 电源计划（Linux / Windows）",
-        "@sys.pp_set(@sys.PowerProfile::PPerformance)",
-        "// 剪贴板监视（仅 Linux X11）：排期通道由宿主 timer 给",
+        "  Ok(o) => println(\"{o.exit_code}: {o.stdout}\")", "  Err(e) => println(\"{e}\")",
+        "}", "// 窗口管理（仅 Linux X11，走 wmctrl）", "match @sys.win_list() {",
+        "  Ok(ws) => @sys.win_activate(ws[0].id)", "  Err(e) => ...", "}", "// 夜间色温（仅 Linux）",
+        "@sys.nl_set_temperature(60)", "@sys.nl_reset()", "// 电源计划（Linux / Windows）",
+        "@sys.pp_set(@sys.PowerProfile::PPerformance)", "// 剪贴板监视（仅 Linux X11）：排期通道由宿主 timer 给",
         "let w = @sys.cbw_start_watch(fn(ms, f) { app.timer(ms, f) }, cb=fn(t) { ... })",
         "@sys.cbw_stop(w)",
       ],
     ),
-
     @shared.section(
       "更新",
       "应用自更新",
@@ -983,12 +1228,16 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
             @ui.button(@shared.tx("检查更新(演示)"), on_click=fn() {
               demo_open.set(true)
             }),
-            @ui.button(@shared.tx("检查更新(真实清单)"), variant=@ui.Soft, on_click=fn() {
-              real_open.set(true)
-            }),
-            @ui.button(@shared.tx("检查更新(本地服务)"), variant=@ui.Soft, on_click=fn() {
-              local_open.set(true)
-            }),
+            @ui.button(
+              @shared.tx("检查更新(真实清单)"),
+              variant=@ui.Soft,
+              on_click=fn() { real_open.set(true) },
+            ),
+            @ui.button(
+              @shared.tx("检查更新(本地服务)"),
+              variant=@ui.Soft,
+              on_click=fn() { local_open.set(true) },
+            ),
             @ui.text(
               @shared.tx("当前版本:演示版 0.3.1 / 打包口径 0.1.0"),
               class=[@style.text_secondary],
@@ -999,18 +1248,31 @@ pub fn system_sections(app : @shared.App) -> Array[@shared.Section] {
         ),
         // 三棵对话框锚点(0 高占位,开时进浮层图层)
         // 演示框的「当前版本」取库版本号(与侧栏同源,见 main.mbt)
-        @ui.update_dialog(demo_open, demo_flow, demo_actions, current_version="0.3.1"),
-        @ui.update_dialog(real_open, real_flow, real_actions, current_version=pkg_version),
-        @ui.update_dialog(local_open, local_flow, local_actions, current_version=pkg_version),
+        @ui.update_dialog(
+          demo_open,
+          demo_flow,
+          demo_actions,
+          current_version="0.3.1",
+        ),
+        @ui.update_dialog(
+          real_open,
+          real_flow,
+          real_actions,
+          current_version=pkg_version,
+        ),
+        @ui.update_dialog(
+          local_open,
+          local_flow,
+          local_actions,
+          current_version=pkg_version,
+        ),
       ],
       code=[
         "// 组件:状态机账本 + 动作注入,按钮触发动作、report 口收结果",
-        "let flow = @ui.make_update_flow()",
-        "let actions = @ui.sys_update_actions(",
+        "let flow = @ui.make_update_flow()", "let actions = @ui.sys_update_actions(",
         "  flow, \"https://…/releases/latest/download/update.json\", \"0.1.0\",",
         "  quit=fn() { a.quit() },  // 安装成功:relaunch 已发起,立刻退",
-        ")",
-        "@ui.update_dialog(open_store, flow, actions, current_version=\"0.1.0\")",
+        ")", "@ui.update_dialog(open_store, flow, actions, current_version=\"0.1.0\")",
         "// 本地更新服务(测试):URL 换 http://127.0.0.1:8765/update.json,加 allow_http=true",
         "// 自定义调度(后台线程/子进程)就换掉 actions 里的三个闭包,",
         "// 组件面不动:flow.report_check / report_download / report_install",
@@ -1059,7 +1321,10 @@ fn demo_update_actions(
     install: fn() {
       let _ = @shell.set_timeout(900, fn() {
         open.set(false)
-        app.toast_push(@shared.tx("演示安装完成:真实链路会替换文件并重启"), @ui.Success)
+        app.toast_push(
+          @shared.tx("演示安装完成:真实链路会替换文件并重启"),
+          @ui.Success,
+        )
       })
     },
   }
@@ -1100,7 +1365,7 @@ fn read_sysinfo() -> String {
 
 ///|
 /// 按字符截断到前 n 个（超出补省略号）：剪贴板回显用，避免长文本顶穿一行。
-fn sp_clip_text(s : String, n : Int) -> String {
+fn sp_clip_text(s : String, n : Int32) -> String {
   let buf = StringBuilder()
   let mut i = 0
   for ch in s {

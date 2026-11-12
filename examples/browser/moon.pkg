@@ -2,12 +2,11 @@
 import {
   "NoahLiu/yoga-mbt/src" @yoga,
   "NoahLiu/native-gui/base",
-  "NoahLiu/native-gui/widget" @widget,
-
+  "NoahLiu/native-gui/widget",
   "NoahLiu/native-gui/ui",
   "NoahLiu/native-gui/icons",
-  "NoahLiu/native-gui/style" @style,
-  "NoahLiu/native-gui/sys" @sys,
+  "NoahLiu/native-gui/style",
+  "NoahLiu/native-gui/sys",
   "NoahLiu/gui-webview/webview" @web,
 }
 

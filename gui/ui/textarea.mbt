@@ -14,7 +14,7 @@
 
 ///|
 /// 取字节下标 `[from,to)` 的子串（调用方保证落在码点边界；越界由切片夹住）。
-fn byte_slice(text : String, from : Int, to : Int) -> String {
+fn byte_slice(text : String, from : Int32, to : Int32) -> String {
   if to <= from {
     ""
   } else {
@@ -24,7 +24,12 @@ fn byte_slice(text : String, from : Int, to : Int) -> String {
 
 ///|
 /// 一行文本的自然宽（测量失败按 0）。
-fn seg_width(text : String, from : Int, to : Int, font : @text.Font) -> Double {
+fn seg_width(
+  text : String,
+  from : Int32,
+  to : Int32,
+  font : @text.Font,
+) -> Double {
   if to <= from {
     0.0
   } else {
@@ -44,29 +49,29 @@ pub fn textarea(
   /// 双向绑定这段文本。
   store : @base.Store[String],
   /// 没输入时显示占位文字。
-  placeholder? : String = "",
+  placeholder~ : String = "",
   /// 按行数撑出初始高度（每行一个行高）。
-  rows? : Int = 3,
+  rows~ : Int32 = 3,
   /// 定死宽度，0 = 按内容测量。
-  width? : Double = 260.0,
+  width~ : Double = 260.0,
   /// 定死高度，0 = 按内容测量。
-  height? : Double = 0.0,
+  height~ : Double = 0.0,
   /// 设字号（逻辑像素）。
-  font_size? : Double = 13.0,
+  font_size~ : Double = 13.0,
   /// 指定字族，空串走系统默认字族。
-  family? : String = "",
+  family~ : String = "",
   /// 设为只读：可选中不可改。
-  read_only? : Bool = false,
+  read_only~ : Bool = false,
   /// 进 Tab 焦点链的序号；传正数才可 Tab 到，0 = 自动领号。
-  focus_id? : Int = 0,
+  focus_id~ : Int32 = 0,
   /// 决定光标是否可见的谓词。
-  caret_on? : () -> Bool = fn() -> Bool { true },
+  caret_on~ : () -> Bool = fn() -> Bool { true },
   /// 值变化时回调。
-  on_change? : (String) -> Unit = fn(_s : String) -> Unit { () },
+  on_change~ : (String) -> Unit = fn(_s : String) -> Unit { () },
   /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
-  class? : Array[@style.Style] = [],
+  class~ : Array[@style.Style] = [],
   /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let ed = @input.Editor::new()
   attach_system_clipboard(ed)
@@ -78,15 +83,23 @@ pub fn textarea(
   let is_mac = @shell.platform_is_macos()
   let ph = placeholder
   let change_cb = on_change
-  let line_h = (@text.line_height_font(font).unwrap_or(18).to_double() + 2.0).max(14.0)
-  let box_h = if height > 0.0 { height } else { line_h * rows.to_double() + pad * 2.0 }
+  let line_h = (@text.line_height_font(font).unwrap_or(18).to_double() + 2.0).max(
+    14.0,
+  )
+  let box_h = if height > 0.0 {
+    height
+  } else {
+    line_h * rows.to_double() + pad * 2.0
+  }
   let st = ScrollState::new()
   // 测宽器注入给 @input.TextLayout：字节区间的自然宽按本控件的字体量
-  let measure = fn(t : String, from : Int, to : Int) -> Double {
+  let measure = fn(t : String, from : Int32, to : Int32) -> Double {
     seg_width(t, from, to, font)
   }
   // 布局缓存：文本或盒宽变了才重排显示行（每帧都重折一遍是白烧）
-  let cache : Ref[(String, Double, Array[@input.TextLine])] = Ref(("", -1.0, []))
+  let cache : Ref[(String, Double, Array[@input.TextLine])] = Ref(
+    ("", -1.0, []),
+  )
   let lines_of = fn(text : String, w : Double) -> Array[@input.TextLine] {
     let key = cache.val
     if key.0 == text && key.1 == w {
@@ -101,7 +114,9 @@ pub fn textarea(
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
     w.role = "text_area"
-    w.a11y_text = Some(fn(_self : @widget.Widget) -> String? { Some(ed.get_text()) })
+    w.a11y_text = Some(fn(_self : @widget.Widget) -> String? {
+      Some(ed.get_text())
+    })
     w.a11y_state = Some(fn(_self : @widget.Widget) -> (String, String)? {
       if ro {
         Some(("read_only", ""))
@@ -123,7 +138,14 @@ pub fn textarea(
     let text_of = fn() -> String { ed.get_text() }
     // 按当前文本/盒宽/滚动偏移装配几何（行模型走缓存，不重折）
     let layout_at = fn(text : String, w : Double) -> @input.TextLayout {
-      { text, lines: lines_of(text, w), pad, line_h, offset_y: st.offset, measure }
+      {
+        text,
+        lines: lines_of(text, w),
+        pad,
+        line_h,
+        offset_y: st.offset,
+        measure,
+      }
     }
     // 把插入点滚进可视区（键入、点击、上下移动后都调）
     let ensure_visible = fn(lay : @input.TextLayout) -> Unit {
@@ -158,7 +180,9 @@ pub fn textarea(
 
       self.clip_rounded = rad > 0.0
       self.style_clip_radius = rad
-      p.set_fill_color(@style.color_of(sty.background_color, @theme.theme_bg_panel()))
+      p.set_fill_color(
+        @style.color_of(sty.background_color, @theme.theme_bg_panel()),
+      )
       p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
       let sel = ed.selection()
       let caret = ed.caret_pos()
@@ -185,7 +209,14 @@ pub fn textarea(
           None => ()
         }
         if t.length() == 0 && i == 0 && ph.length() > 0 {
-          let _ = @text.draw_at(p, pad, y, ph, font, @theme.theme_text_secondary())
+          let _ = @text.draw_at(
+            p,
+            pad,
+            y,
+            ph,
+            font,
+            @theme.theme_text_secondary(),
+          )
         } else if ln.end > ln.start {
           let _ = @text.draw_at(
             p,
@@ -216,7 +247,9 @@ pub fn textarea(
         p.fill_rect(cx, cy, 1.0, line_h)
       }
       // 焦点框色由 focus 桶供（样式没给就回落主题描边色）
-      p.set_stroke_color(@style.color_of(sty.border_color, @theme.theme_border()))
+      p.set_stroke_color(
+        @style.color_of(sty.border_color, @theme.theme_border()),
+      )
       p.set_line_width(@style.number_of(sty.border_width, 1.0))
       if rad > 0.0 {
         p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
@@ -251,11 +284,7 @@ pub fn textarea(
       if ev.keysym == @base.KS_UP || ev.keysym == @base.KS_DOWN {
         let caret = ed.caret_pos()
         let i = lay.line_of(caret)
-        let x = if pref_x.val >= 0.0 {
-          pref_x.val
-        } else {
-          lay.caret_x(caret)
-        }
+        let x = if pref_x.val >= 0.0 { pref_x.val } else { lay.caret_x(caret) }
         let j = if ev.keysym == @base.KS_UP { i - 1 } else { i + 1 }
         if j < 0 || j >= lines.length() {
           pref_x.val = -1.0
@@ -288,7 +317,9 @@ pub fn textarea(
         @widget.invalidate()
         return true
       }
-      if !ctrl && !meta && (ev.keysym == @base.KS_HOME || ev.keysym == @base.KS_END) {
+      if !ctrl &&
+        !meta &&
+        (ev.keysym == @base.KS_HOME || ev.keysym == @base.KS_END) {
         let caret = ed.caret_pos()
         let ln = lines[lay.line_of(caret)]
         let at = if ev.keysym == @base.KS_HOME { ln.start } else { ln.end }
@@ -306,11 +337,13 @@ pub fn textarea(
         @widget.invalidate()
         return true
       }
-      let editing = ev.keysym == @base.KS_BACKSPACE || ev.keysym == @base.KS_DELETE
+      let editing = ev.keysym == @base.KS_BACKSPACE ||
+        ev.keysym == @base.KS_DELETE
       // 只读时导航与复制照旧：带 Ctrl/Cmd 的组合要放行（mac 的选全、复制靠 Cmd）
-      let nav = primary || (ev.mods & @base.MOD_SHIFT) != 0 || (
-        ev.keysym >= 65360 && ev.keysym <= 65367
-      ) || ev.keysym == @base.KS_TAB
+      let nav = primary ||
+        (ev.mods & @base.MOD_SHIFT) != 0 ||
+        (ev.keysym >= 65360 && ev.keysym <= 65367) ||
+        ev.keysym == @base.KS_TAB
       if ro && (editing || !nav) {
         return false
       }
@@ -333,7 +366,7 @@ pub fn textarea(
       @widget.invalidate()
       true
     })
-    w.on_preedit = Some(fn(t : String, _caret : Int) -> Unit {
+    w.on_preedit = Some(fn(t : String, _caret : Int32) -> Unit {
       ed.set_preedit(t)
       @widget.invalidate()
     })
@@ -361,8 +394,9 @@ pub fn textarea(
           }
           let lay = layout_at(text_of(), self.rect.w)
           let now = @shell.now_ms()
-          let dbl = (now - last_down.val) < 400L &&
-            (ev.x - last_xy.val.0).abs() < 4.0 && (ev.y - last_xy.val.1).abs() < 4.0
+          let dbl = now - last_down.val < 400L &&
+            (ev.x - last_xy.val.0).abs() < 4.0 &&
+            (ev.y - last_xy.val.1).abs() < 4.0
           last_down.val = now
           last_xy.val = (ev.x, ev.y)
           dragging.val = true
@@ -398,7 +432,7 @@ pub fn textarea(
       st.scroll_by(0.0 - ev.dy * line_h * 3.0)
       st.offset != before
     })
-    w.im_context = Some(fn() -> (String, Int)? {
+    w.im_context = Some(fn() -> (String, Int32)? {
       Some((ed.get_text(), ed.caret_pos()))
     })
     w.im_cursor = Some(fn(self : @widget.Widget) -> @base.Rect? {
@@ -425,7 +459,12 @@ pub fn textarea(
     fold_style(
       w,
       @style.empty_style(),
-      @style.style(background_color="bg_panel", border_color="border", border_width=1.0, color="text_regular").focus(border_color="primary"),
+      @style.style(
+        background_color="bg_panel",
+        border_color="border",
+        border_width=1.0,
+        color="text_regular",
+      ).focus(border_color="primary"),
       class,
     )
     handle(w)

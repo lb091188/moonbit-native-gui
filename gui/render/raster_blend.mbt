@@ -16,7 +16,7 @@
 pub(all) enum RSource {
   SrcSolid(Color)
   SrcGrad(Gradient, Mat2x3)
-  SrcPixels(Bitmap, Mat2x3, Int, Int, Int, Int)
+  SrcPixels(Bitmap, Mat2x3, Int32, Int32, Int32, Int32)
 }
 
 ///|
@@ -85,7 +85,7 @@ fn grad_color_at(g : Gradient, t : Double) -> Color {
 }
 
 ///|
-fn raster_clamp255(v : Int) -> Int {
+fn raster_clamp255(v : Int32) -> Int32 {
   if v < 0 {
     0
   } else if v > 255 {
@@ -160,7 +160,7 @@ fn source_at(s : RSource, x : Double, y : Double) -> Color {
 // ---- 预乘域读写 ----
 
 ///|
-fn premul_bytes(c : Color, cov : Int) -> (Int, Int, Int, Int) {
+fn premul_bytes(c : Color, cov : Int32) -> (Int32, Int32, Int32, Int32) {
   // 两步取整，不能合并：预乘是 255 域（(v·a+127)/255），覆盖是 256 域
   // （·cov/256）——合并成 65536 域会把 255/256 的比例差吞成 -1（不透明源
   // 满覆盖实测 254 而非 255）。
@@ -171,17 +171,12 @@ fn premul_bytes(c : Color, cov : Int) -> (Int, Int, Int, Int) {
     let pr = (c.r * c.a + 127) / 255
     let pg = (c.g * c.a + 127) / 255
     let pb = (c.b * c.a + 127) / 255
-    (
-      (pr * cov + 128) / 256,
-      (pg * cov + 128) / 256,
-      (pb * cov + 128) / 256,
-      a,
-    )
+    ((pr * cov + 128) / 256, (pg * cov + 128) / 256, (pb * cov + 128) / 256, a)
   }
 }
 
 ///|
-fn unpremul_ch(p : Int, a : Int) -> Int {
+fn unpremul_ch(p : Int32, a : Int32) -> Int32 {
   if a <= 0 {
     0
   } else {
@@ -192,7 +187,7 @@ fn unpremul_ch(p : Int, a : Int) -> Int {
 // ---- 16 个 W3C 混合函数（非预乘 [0,1] 域） ----
 
 ///|
-fn blend_separable(mode_id : Int, cb : Double, cs : Double) -> Double {
+fn blend_separable(mode_id : Int32, cb : Double, cs : Double) -> Double {
   if mode_id == 1 {
     cb * cs
   } else if mode_id == 2 {
@@ -285,8 +280,8 @@ fn lum_of(r : Double, g : Double, b : Double) -> Double {
 ///|
 fn clip_color(r : Double, g : Double, b : Double) -> (Double, Double, Double) {
   let l = lum_of(r, g, b)
-  let n = if r < g { (if r < b { r } else { b }) } else { (if g < b { g } else { b }) }
-  let x = if r > g { (if r > b { r } else { b }) } else { (if g > b { g } else { b }) }
+  let n = if r < g { if r < b { r } else { b } } else if g < b { g } else { b }
+  let x = if r > g { if r > b { r } else { b } } else if g > b { g } else { b }
   let (r2, g2, b2) = if n < 0.0 {
     let k = l / (l - n)
     (l + (r - l) * k, l + (g - l) * k, l + (b - l) * k)
@@ -302,21 +297,31 @@ fn clip_color(r : Double, g : Double, b : Double) -> (Double, Double, Double) {
 }
 
 ///|
-fn set_lum(r : Double, g : Double, b : Double, l : Double) -> (Double, Double, Double) {
+fn set_lum(
+  r : Double,
+  g : Double,
+  b : Double,
+  l : Double,
+) -> (Double, Double, Double) {
   let d = l - lum_of(r, g, b)
   clip_color(r + d, g + d, b + d)
 }
 
 ///|
 fn sat_of(r : Double, g : Double, b : Double) -> Double {
-  let n = if r < g { (if r < b { r } else { b }) } else { (if g < b { g } else { b }) }
-  let x = if r > g { (if r > b { r } else { b }) } else { (if g > b { g } else { b }) }
+  let n = if r < g { if r < b { r } else { b } } else if g < b { g } else { b }
+  let x = if r > g { if r > b { r } else { b } } else if g > b { g } else { b }
   x - n
 }
 
 ///|
 /// W3C SetSat：最大分量置 s、最小置 0、中间按比例；max==min（饱和度 0）全置 0。
-fn set_sat(r : Double, g : Double, b : Double, s : Double) -> (Double, Double, Double) {
+fn set_sat(
+  r : Double,
+  g : Double,
+  b : Double,
+  s : Double,
+) -> (Double, Double, Double) {
   // 找 min/max 通道下标
   let idx_min = if r <= g && r <= b {
     0
@@ -338,7 +343,7 @@ fn set_sat(r : Double, g : Double, b : Double, s : Double) -> (Double, Double, D
   if maxv <= minv {
     return (0.0, 0.0, 0.0)
   }
-  let midv = (vals[0] + vals[1] + vals[2]) - maxv - minv
+  let midv = vals[0] + vals[1] + vals[2] - maxv - minv
   let mid = (midv - minv) * s / (maxv - minv)
   let out = [0.0, 0.0, 0.0]
   out[idx_min] = 0.0
@@ -350,7 +355,15 @@ fn set_sat(r : Double, g : Double, b : Double, s : Double) -> (Double, Double, D
 
 ///|
 /// 非分离混合（HSL 系）：mode_id 12..15。
-fn blend_nonseparable(mode_id : Int, cb_r : Double, cb_g : Double, cb_b : Double, cs_r : Double, cs_g : Double, cs_b : Double) -> (Double, Double, Double) {
+fn blend_nonseparable(
+  mode_id : Int32,
+  cb_r : Double,
+  cb_g : Double,
+  cb_b : Double,
+  cs_r : Double,
+  cs_g : Double,
+  cs_b : Double,
+) -> (Double, Double, Double) {
   if mode_id == 12 {
     // Hue: SetLum(SetSat(Cs, Sat(Cb)), Lum(Cb))
     let (r, g, b) = set_sat(cs_r, cs_g, cs_b, sat_of(cb_r, cb_g, cb_b))
@@ -369,7 +382,7 @@ fn blend_nonseparable(mode_id : Int, cb_r : Double, cb_g : Double, cb_b : Double
 }
 
 ///|
-fn to_byte01(v : Double) -> Int {
+fn to_byte01(v : Double) -> Int32 {
   let b = (v * 255.0 + 0.5).floor().to_int()
   if b < 0 {
     0
@@ -387,10 +400,10 @@ fn to_byte01(v : Double) -> Int {
 /// false 走 composite_span。
 fn composite_solid_span(
   d : FixedArray[Byte],
-  width : Int,
-  y : Int,
-  x0 : Int,
-  x1 : Int,
+  width : Int32,
+  y : Int32,
+  x0 : Int32,
+  x1 : Int32,
   op : BlendMode,
   src : RSource,
 ) -> Bool {
@@ -427,11 +440,11 @@ fn composite_solid_span(
 /// 预乘序），width 为位图宽。
 fn composite_span(
   d : FixedArray[Byte],
-  width : Int,
-  y : Int,
-  x0 : Int,
-  x1 : Int,
-  cov : FixedArray[Int],
+  width : Int32,
+  y : Int32,
+  x0 : Int32,
+  x1 : Int32,
+  cov : FixedArray[Int32],
   op : BlendMode,
   src : RSource,
 ) -> Unit {
@@ -499,7 +512,7 @@ fn composite_span(
     let dg = d[i + 1].to_int()
     let dr = d[i + 2].to_int()
     let da = d[i + 3].to_int()
-    let (ob, og, or_, oa) : (Int, Int, Int, Int) = if mode_id == 0 {
+    let (ob, og, or_, oa) : (Int32, Int32, Int32, Int32) = if mode_id == 0 {
       // Normal(Over)
       let inv = 255 - sa
       (
@@ -516,21 +529,11 @@ fn composite_span(
         (sb, sg, sr, sa)
       } else if mode_id == 18 {
         // SourceIn: cs·αb
-        (
-          sb * da / 255,
-          sg * da / 255,
-          sr * da / 255,
-          sa * da / 255,
-        )
+        (sb * da / 255, sg * da / 255, sr * da / 255, sa * da / 255)
       } else if mode_id == 19 {
         // SourceOut: cs·(1−αb)
         let inv = 255 - da
-        (
-          sb * inv / 255,
-          sg * inv / 255,
-          sr * inv / 255,
-          sa * inv / 255,
-        )
+        (sb * inv / 255, sg * inv / 255, sr * inv / 255, sa * inv / 255)
       } else if mode_id == 20 {
         // SourceAtop: cs·αb + ds·(1−αs)
         let inv_s = 255 - sa
@@ -542,12 +545,7 @@ fn composite_span(
         )
       } else if mode_id == 22 {
         // DestinationIn: ds·αs
-        (
-          db * sa / 255,
-          dg * sa / 255,
-          dr * sa / 255,
-          da * sa / 255,
-        )
+        (db * sa / 255, dg * sa / 255, dr * sa / 255, da * sa / 255)
       } else if mode_id == 23 {
         // DestinationAtop: ds·αs + cs·(1−αb)
         let inv_d = 255 - da
@@ -596,7 +594,7 @@ fn composite_span(
       }
       let as_ = sa.to_double() / 255.0
       let ab = da.to_double() / 255.0
-      let out_ch = fn(cs : Double, b : Double, cb : Double) -> Int {
+      let out_ch = fn(cs : Double, b : Double, cb : Double) -> Int32 {
         let co = as_ * b + ab * (1.0 - as_) * cb + as_ * (1.0 - ab) * cs
         to_byte01(co)
       }

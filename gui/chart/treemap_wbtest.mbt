@@ -388,7 +388,11 @@ test "矩形树图组件：出像素、hover 提亮、换数据画面变" {
     TmItem::make("乙", value=30.0),
     TmItem::make("丙", value=10.0),
   ])
-  let (root, w) = mounted(tm_chart_t(d, width=280.0, height=170.0), 320.0, 190.0)
+  let (root, w) = mounted(
+    tm_chart_t(d, width=280.0, height=170.0),
+    320.0,
+    190.0,
+  )
   let plain = bm_of(w)
   assert_true(ink_of(plain) > 2000)
   // hover 左上角格子：提亮 + 描边（flat 画卷与绘制同源）

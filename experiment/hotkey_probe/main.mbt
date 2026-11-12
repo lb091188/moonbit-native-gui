@@ -13,7 +13,7 @@
 
 ///|
 /// Option[Int] 的可读渲染（Some(3) / None）。
-fn opt_str(v : Int?) -> String {
+fn opt_str(v : Int32?) -> String {
   match v {
     Some(x) => "Some(\{x})"
     None => "None"
@@ -31,6 +31,7 @@ fn show(label : String, spec : String) -> Unit {
   }
 }
 
+///|
 fn main {
   // ① 纯解析段（后端无关）
   show("a", "CmdOrCtrl+Shift+M")
@@ -55,7 +56,9 @@ fn main {
     }
   }
   let id1 = @win.register_global_shortcut(m)
-  println("HOTKEY-REG id1=\{opt_str(id1)} (Some=成功 None=被占用/不支持)")
+  println(
+    "HOTKEY-REG id1=\{opt_str(id1)} (Some=成功 None=被占用/不支持)",
+  )
   let m2 = match @win.parse_accelerator("Ctrl+Alt+J", false) {
     Some(hk) => hk
     None => {

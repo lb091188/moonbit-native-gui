@@ -17,10 +17,10 @@
 ///|
 /// 一份窗口几何(平台像素口径,与 `Window::origin`/`size` 同源)。
 pub(all) struct WinGeom {
-  x : Int
-  y : Int
-  w : Int
-  h : Int
+  x : Int32
+  y : Int32
+  w : Int32
+  h : Int32
   maximized : Bool
 }
 
@@ -34,7 +34,7 @@ pub fn wstate_text(g : WinGeom) -> String {
 /// 从 JSON 文本解五字段:键都在且值合法才给 Some(允许键序任意、容忍空白;
 /// 其余内容一律拒——状态文件是本包自己写的,不必宽容)。
 pub fn wstate_parse(text : String) -> WinGeom? {
-  fn num_of(key : String) -> Int? {
+  fn num_of(key : String) -> Int32? {
     let i = find_quoted_key(text, key)
     if i < 0 {
       return None
@@ -70,9 +70,12 @@ pub fn wstate_parse(text : String) -> WinGeom? {
     return None
   }
   let mut maximized = false
-  if text.has_suffix("") && text.length() >= after + 4 && text[after:after + 4].to_owned() == "true" {
+  if text.has_suffix("") &&
+    text.length() >= after + 4 &&
+    text[after:after + 4].to_owned() == "true" {
     maximized = true
-  } else if text.length() >= after + 5 && text[after:after + 5].to_owned() == "false" {
+  } else if text.length() >= after + 5 &&
+    text[after:after + 5].to_owned() == "false" {
     maximized = false
   } else {
     return None
@@ -80,12 +83,12 @@ pub fn wstate_parse(text : String) -> WinGeom? {
   if w <= 0 || h <= 0 {
     return None
   }
-  Some({ x, y, w, h, maximized })
+  Some({ x, y, w, h, maximized, })
 }
 
 ///|
 /// 找 `"key"`(带引号)在文本里的下标;没有给 -1。
-fn find_quoted_key(text : String, key : String) -> Int {
+fn find_quoted_key(text : String, key : String) -> Int32 {
   let pat = "\"" + key + "\""
   let n = text.length()
   let m = pat.length()
@@ -101,7 +104,7 @@ fn find_quoted_key(text : String, key : String) -> Int {
 
 ///|
 /// 从 `at`(键尾引号之后)向后跳过空白与冒号,落在值首字符;越界给 -1。
-fn skip_ws_colon(text : String, at : Int) -> Int {
+fn skip_ws_colon(text : String, at : Int32) -> Int32 {
   let n = text.length()
   let mut i = at
   while i < n {
@@ -129,7 +132,7 @@ fn skip_ws_colon(text : String, at : Int) -> Int {
 
 ///|
 /// 从 `at` 起解析一个(可带负号的)十进制整数;没有数字给 None。
-fn parse_int_at(text : String, at : Int) -> Int? {
+fn parse_int_at(text : String, at : Int32) -> Int32? {
   let n = text.length()
   let mut i = at
   let mut neg = false
@@ -224,11 +227,13 @@ pub fn wstate_path(app_id : String) -> String? {
   }
   match wstate_dir(platform, home, appdata, xdg, app_id) {
     Some(d) =>
-      Some(if platform == "windows" {
-        d + "\\window-state.json"
-      } else {
-        d + "/window-state.json"
-      })
+      Some(
+        if platform == "windows" {
+          d + "\\window-state.json"
+        } else {
+          d + "/window-state.json"
+        },
+      )
     None => None
   }
 }
@@ -239,7 +244,10 @@ pub fn wstate_path(app_id : String) -> String? {
 /// 恢复序:位置 → 尺寸 → 最大化(最后盖前两样;文件记的是最大化时的外框,
 /// 先落再 maximize 与手动最大化轨迹一致)。文件不在/不合法就跳过恢复,
 /// 只挂记忆——首次运行不动窗口。
-pub fn WindowHost::remember_geometry(self : WindowHost, app_id : String) -> Unit {
+pub fn WindowHost::remember_geometry(
+  self : WindowHost,
+  app_id : String,
+) -> Unit {
   self.remember_id = app_id
   match wstate_path(app_id) {
     Some(p) =>

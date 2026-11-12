@@ -24,7 +24,10 @@ test "apply：absolute + 四向 inset 落位（定位组）" {
   root.node.set_height(@yoga.fixed(200.0))
   let kid = @widget.Widget::new()
   root.append_child(kid)
-  apply(kid, style(width=40.0, height=20.0, position=@yoga.Absolute, top=10.0, left=20.0))
+  apply(
+    kid,
+    style(width=40.0, height=20.0, position=@yoga.Absolute, top=10.0, left=20.0),
+  )
   laid_out(root)
   assert_eq(kid.node.layout().top, 10.0)
   assert_eq(kid.node.layout().left, 20.0)
@@ -41,13 +44,17 @@ test "apply：width_percent 与 width 共用一条 Yoga 入口（后写者赢）
   laid_out(root)
   assert_eq(kid.node.layout().width, 100.0)
 }
+
 ///|
 test "apply：padding 逐边、margin、flex_direction 全走 Yoga 落位" {
   let root = @widget.Widget::new()
   apply(root, style(width=300.0, height=200.0, flex_direction=@yoga.Column))
   let kid = @widget.Widget::new()
   root.append_child(kid)
-  apply(kid, style(padding=14.0, padding_top=4.0, margin=8.0, width=50.0, height=30.0))
+  apply(
+    kid,
+    style(padding=14.0, padding_top=4.0, margin=8.0, width=50.0, height=30.0),
+  )
   let inner = @widget.Widget::new()
   kid.append_child(inner)
   apply(inner, style(width=20.0, height=10.0))
@@ -59,6 +66,7 @@ test "apply：padding 逐边、margin、flex_direction 全走 Yoga 落位" {
   assert_eq(inner.node.layout().top, 4.0)
 }
 
+///|
 test "apply：visibility/cursor 落宿主，z_index 落绘制层序键" {
   let w = @widget.Widget::new()
   apply(w, style(visibility=Hidden, cursor=@widget.CURSOR_HAND, z_index=3))
@@ -73,8 +81,7 @@ test "apply：visibility/cursor 落宿主，z_index 落绘制层序键" {
 ///|
 test "resolved/style_for：基块与状态桶按控件交互态选桶" {
   let w = @widget.Widget::new()
-  let block =
-    style(background_color="bg_panel")
+  let block = style(background_color="bg_panel")
     .hover(background_color="fill_hover")
     .active(color="danger")
     .focus(color="success")

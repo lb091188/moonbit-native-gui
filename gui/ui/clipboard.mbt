@@ -16,12 +16,9 @@ pub fn use_system_clipboard(enable : Bool) -> Unit {
 /// 按开关与探测结果给内核装槽（input/textarea 构造时调；包内函数）。
 fn attach_system_clipboard(ed : @input.Editor) -> Unit {
   if g_sys_clipboard.val && @sys.clipboard_available() {
-    ed.set_clipboard(
-      @sys.clipboard_get_text,
-      fn(t) {
-        let _ = @sys.clipboard_set_text(t)
-      },
-    )
+    ed.set_clipboard(@sys.clipboard_get_text, fn(t) {
+      let _ = @sys.clipboard_set_text(t)
+    })
   }
 }
 
@@ -35,48 +32,56 @@ fn show_edit_menu(
   x : Double,
   y : Double,
   ed : @input.Editor,
-  can_edit? : Bool = true,
-  can_copy? : Bool = true,
-  changed? : () -> Unit = fn() -> Unit { @widget.invalidate() },
+  can_edit~ : Bool = true,
+  can_copy~ : Bool = true,
+  changed~ : () -> Unit = fn() -> Unit { @widget.invalidate() },
 ) -> Bool {
   let items : Array[(String, () -> Unit)] = []
   if can_edit {
-    items.push((
-      @i18n.t_or("gui.ui.edit.cut", "剪切"),
-      fn() -> Unit {
-        let _ = ed.cut()
-        changed()
-      },
-    ))
+    items.push(
+      (
+        @i18n.t_or("gui.ui.edit.cut", "剪切"),
+        fn() -> Unit {
+          let _ = ed.cut()
+          changed()
+        },
+      ),
+    )
   }
   if can_copy {
-    items.push((
-      @i18n.t_or("gui.ui.edit.copy", "复制"),
-      fn() -> Unit { let _ = ed.copy() },
-    ))
+    items.push(
+      (
+        @i18n.t_or("gui.ui.edit.copy", "复制"),
+        fn() -> Unit { let _ = ed.copy() },
+      ),
+    )
   }
   if can_edit {
-    items.push((
-      @i18n.t_or("gui.ui.edit.paste", "粘贴"),
-      fn() -> Unit {
-        let t = ed.clip_fetch()
-        if t.length() > 0 {
-          ed.paste_text(t)
-          changed()
-        }
-      },
-    ))
+    items.push(
+      (
+        @i18n.t_or("gui.ui.edit.paste", "粘贴"),
+        fn() -> Unit {
+          let t = ed.clip_fetch()
+          if t.length() > 0 {
+            ed.paste_text(t)
+            changed()
+          }
+        },
+      ),
+    )
   }
   if items.length() > 0 {
     items.push(("-", fn() -> Unit { () }))
   }
-  items.push((
-    @i18n.t_or("gui.ui.edit.select_all", "全选"),
-    fn() -> Unit {
-      ed.select_all()
-      @widget.invalidate()
-    },
-  ))
+  items.push(
+    (
+      @i18n.t_or("gui.ui.edit.select_all", "全选"),
+      fn() -> Unit {
+        ed.select_all()
+        @widget.invalidate()
+      },
+    ),
+  )
   let rows : Array[@widget.Node] = []
   for i = 0; i < items.length(); i = i + 1 {
     let it = items[i]

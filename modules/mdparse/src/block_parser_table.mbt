@@ -95,7 +95,7 @@ fn parse_table_alignments(line : String) -> Array[TableAlign] {
 fn BlockParser::parse_table_row(
   self : BlockParser,
   line : String,
-  expected_cols : Int,
+  expected_cols : Int32,
 ) -> Array[TableCell] {
   let cells : Array[TableCell] = []
   let raw_cells = split_table_cells(line)
@@ -110,7 +110,7 @@ fn BlockParser::parse_table_row(
     })
   }
   while cells.length() < expected_cols {
-    cells.push({ children: [], span: Span::new(0, 0) })
+    cells.push({ children: [], span: Span::new(0, 0), })
   }
   cells
 }

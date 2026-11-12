@@ -2,10 +2,9 @@
 // 结构增删挪不换键——应用侧注册表（dev 档 codegen）与补丁 IR 据此对齐。
 
 ///|
-fn hotkey_hex8(h : Int) -> String {
+fn hotkey_hex8(h : Int32) -> String {
   let digits : Array[String] = [
-    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e",
-    "f",
+    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f",
   ]
   let out = StringBuilder()
   let mut i = 7
@@ -17,7 +16,7 @@ fn hotkey_hex8(h : Int) -> String {
 }
 
 ///|
-fn hotkey_hash(s : String, seed : Int) -> Int {
+fn hotkey_hash(s : String, seed : Int32) -> Int32 {
   let mut h = seed
   for c in s.to_array() {
     h = ((h << 5) + h + c.to_int()) & 0x7FFF_FFFF

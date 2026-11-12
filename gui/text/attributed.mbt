@@ -12,12 +12,12 @@
 #borrow(text, family)
 extern "c" fn rt_new(
   text : Bytes,
-  tlen : Int,
+  tlen : Int32,
   size : Double,
   family : Bytes,
-  flen : Int,
-  weight : Int,
-  italic : Int,
+  flen : Int32,
+  weight : Int32,
+  italic : Int32,
 ) -> Int64 = "rt_new"
 
 ///|
@@ -26,34 +26,34 @@ extern "c" fn rt_free(h : Int64) -> Unit = "rt_free"
 ///|
 extern "c" fn rt_set_format(
   h : Int64,
-  align : Int,
-  valign : Int,
-  wrap : Int,
-  ellipsize : Int,
+  align : Int32,
+  valign : Int32,
+  wrap : Int32,
+  ellipsize : Int32,
 ) -> Unit = "rt_set_format"
 
 ///|
 extern "c" fn rt_add_color(
   h : Int64,
-  start : Int,
-  end : Int,
-  r : Int,
-  g : Int,
-  b : Int,
-  a : Int,
+  start : Int32,
+  end : Int32,
+  r : Int32,
+  g : Int32,
+  b : Int32,
+  a : Int32,
 ) -> Unit = "rt_add_color"
 
 ///|
 #borrow(family)
 extern "c" fn rt_add_font(
   h : Int64,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
   family : Bytes,
-  flen : Int,
+  flen : Int32,
   size : Double,
-  weight : Int,
-  italic : Int,
+  weight : Int32,
+  italic : Int32,
 ) -> Unit = "rt_add_font"
 
 ///|
@@ -62,28 +62,29 @@ extern "c" fn rt_measure(
   h : Int64,
   box_w : Double,
   out_w : Ref[Double],
-  out_h : Ref[Int],
-  out_baseline : Ref[Int],
-) -> Int = "rt_measure"
+  out_h : Ref[Int32],
+  out_baseline : Ref[Int32],
+) -> Int32 = "rt_measure"
 
 ///|
 #borrow(data)
 extern "c" fn rt_draw(
   h : Int64,
   data : FixedArray[Byte],
-  buf_w : Int,
-  buf_h : Int,
+  buf_w : Int32,
+  buf_h : Int32,
   x : Double,
   y : Double,
   box_w : Double,
   box_h : Double,
-  r : Int,
-  g : Int,
-  b : Int,
-  a : Int,
-) -> Int = "rt_draw"
+  r : Int32,
+  g : Int32,
+  b : Int32,
+  a : Int32,
+) -> Int32 = "rt_draw"
 
 ///|
+
 ///|
 pub(all) enum TextAlign {
   Start
@@ -137,11 +138,12 @@ pub(all) struct SizeF {
 }
 
 ///|
+
 ///|
 /// 一条区间属性（`[start, end)` 为 **UTF-8 字节下标**；字体与颜色至多其一）。
 pub(all) struct TextRange {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   font : Font?
   color : @render.Color?
 }
@@ -164,21 +166,12 @@ pub(all) struct AttributedText {
 /// 创建富文本（可设对齐/换行/省略）。
 pub fn AttributedText::new(
   text : String,
-  align? : TextAlign = Start,
-  valign? : TextAlign = Start,
-  wrap? : Bool = true,
-  ellipsis? : Bool = false,
+  align~ : TextAlign = Start,
+  valign~ : TextAlign = Start,
+  wrap~ : Bool = true,
+  ellipsis~ : Bool = false,
 ) -> AttributedText {
-  {
-    text,
-    align,
-    valign,
-    wrap,
-    ellipsis,
-    font: None,
-    color: None,
-    spans: [],
-  }
+  { text, align, valign, wrap, ellipsis, font: None, color: None, spans: [], }
 }
 
 ///|
@@ -213,7 +206,12 @@ pub fn AttributedText::set_format(
 
 ///|
 pub fn AttributedText::get_format(self : AttributedText) -> TextFormat {
-  { align: self.align, valign: self.valign, wrap: self.wrap, ellipsis: self.ellipsis, }
+  {
+    align: self.align,
+    valign: self.valign,
+    wrap: self.wrap,
+    ellipsis: self.ellipsis,
+  }
 }
 
 ///|
@@ -256,8 +254,8 @@ pub fn AttributedText::clear(self : AttributedText) -> Unit {
 pub fn AttributedText::set_font_for(
   self : AttributedText,
   font : Font,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Unit {
   self.spans.push({ start, end, font: Some(font), color: None, })
 }
@@ -267,8 +265,8 @@ pub fn AttributedText::set_font_for(
 pub fn AttributedText::set_color_for(
   self : AttributedText,
   hex : String,
-  start : Int,
-  end : Int,
+  start : Int32,
+  end : Int32,
 ) -> Unit {
   match @render.Color::parse(hex) {
     Some(c) => self.spans.push({ start, end, font: None, color: Some(c), })
@@ -278,7 +276,7 @@ pub fn AttributedText::set_color_for(
 
 ///|
 /// 已设的区间属性条数（组件层做「是否走富文本路径」的判据用）。
-pub fn AttributedText::range_count(self : AttributedText) -> Int {
+pub fn AttributedText::range_count(self : AttributedText) -> Int32 {
   self.spans.length()
 }
 
@@ -286,7 +284,7 @@ pub fn AttributedText::range_count(self : AttributedText) -> Int {
 /// 混排行高（像素）：基准字体加上每一条区间字体，按 `line_height_multi`
 /// 取「升距最大 + 降距最大」。区间里有更大字号时**别再用基准字体的
 /// `line_height_font`** 定盒高——盒会矮一截、字被裁。
-pub fn AttributedText::line_height(self : AttributedText) -> Option[Int] {
+pub fn AttributedText::line_height(self : AttributedText) -> Int32? {
   let fonts : Array[Font] = [self.effective_font()]
   for r in self.spans {
     match r.font {
@@ -319,8 +317,16 @@ fn AttributedText::rt(self : AttributedText) -> Int64 {
     h,
     align_id(self.align),
     align_id(self.valign),
-    if self.wrap { 1 } else { 0 },
-    if self.ellipsis { 1 } else { 0 },
+    if self.wrap {
+      1
+    } else {
+      0
+    },
+    if self.ellipsis {
+      1
+    } else {
+      0
+    },
   )
   for sp in self.spans {
     match sp.color {
@@ -357,7 +363,7 @@ pub fn AttributedText::get_bounds_for(
   let _ = h
   let h = self.rt()
   if h == 0L {
-    return { width: 0.0, height: 0.0 }
+    return { width: 0.0, height: 0.0, }
   }
   let ow = Ref(0.0)
   let oh = Ref(0)
@@ -365,9 +371,9 @@ pub fn AttributedText::get_bounds_for(
   let ok = rt_measure(h, w, ow, oh, ob)
   rt_free(h)
   if ok != 1 {
-    { width: 0.0, height: 0.0 }
+    { width: 0.0, height: 0.0, }
   } else {
-    { width: ow.val, height: oh.val.to_double() }
+    { width: ow.val, height: oh.val.to_double(), }
   }
 }
 
@@ -385,14 +391,15 @@ pub fn AttributedText::draw(
   if session == 0L {
     return false
   }
-  let base = match @render.Color::parse(
-    match self.color {
-      Some(c) => c
-      None => "#000"
-    },
-  ) {
+  let base = match
+    @render.Color::parse(
+      match self.color {
+        Some(c) => c
+        None => "#000"
+      },
+    ) {
     Some(c) => c
-    None => { r: 0, g: 0, b: 0, a: 255 }
+    None => { r: 0, g: 0, b: 0, a: 255, }
   }
   let ok = rt_draw(
     session,
@@ -420,11 +427,11 @@ extern "c" fn rt_draw_cr(
   y : Double,
   box_w : Double,
   box_h : Double,
-  r0 : Int,
-  g0 : Int,
-  b0 : Int,
-  a0 : Int,
-) -> Int = "rt_draw_cr"
+  r0 : Int32,
+  g0 : Int32,
+  b0 : Int32,
+  a0 : Int32,
+) -> Int32 = "rt_draw_cr"
 
 ///|
 /// 画在**调用方 Painter 的 Cairo 会话**上：控件原点与裁剪都生效。
@@ -442,25 +449,35 @@ pub fn AttributedText::draw_at(
   if session == 0L {
     return false
   }
-  let base = match @render.Color::parse(
-    // 全局透明度：颜色串先经会话折算（Painter::paint_color），文本与其余
-    // 绘制路径同一口径（design.md §5 P4）
-    p.paint_color(
-      match self.color {
-        Some(c) => c
-        None => "#000"
-      },
-    ),
-  ) {
+  let base = match
+    @render.Color::parse(
+      // 全局透明度：颜色串先经会话折算（Painter::paint_color），文本与其余
+      // 绘制路径同一口径（design.md §5 P4）
+      p.paint_color(
+        match self.color {
+          Some(c) => c
+          None => "#000"
+        },
+      ),
+    ) {
     Some(c) => c
-    None => { r: 0, g: 0, b: 0, a: 255 }
+    None => { r: 0, g: 0, b: 0, a: 255, }
   }
   // 纯光栅器后端（Windows）：没有 cairo 会话就画进自有离屏位图，再经会话的
   // blit 落位——平移/裁剪/混合由 blit 现算（与 draw_box_raster 同一条通道）
   match p.cairo_id() {
     Some(id) => {
       let ok = rt_draw_cr(
-        id, session, x, y, w, h, base.r, base.g, base.b, base.a,
+        id,
+        session,
+        x,
+        y,
+        w,
+        h,
+        base.r,
+        base.g,
+        base.b,
+        base.a,
       )
       rt_free(session)
       ok == 1
@@ -474,8 +491,16 @@ pub fn AttributedText::draw_at(
         }
       }
       let bm = self.get_bounds_for(w, h)
-      let ow = if w > 0.0 { w.ceil().to_int() } else { bm.width.ceil().to_int() }
-      let oh = if h > 0.0 { h.ceil().to_int() } else { bm.height.ceil().to_int() }
+      let ow = if w > 0.0 {
+        w.ceil().to_int()
+      } else {
+        bm.width.ceil().to_int()
+      }
+      let oh = if h > 0.0 {
+        h.ceil().to_int()
+      } else {
+        bm.height.ceil().to_int()
+      }
       if ow < 1 || oh < 1 {
         rt_free(session)
         return false
@@ -513,33 +538,29 @@ pub fn AttributedText::draw_at(
 ///|
 /// 一行的选中几何：行覆盖的 UTF-8 字节区间 + 盒空间里行的左缘/顶/盒高。
 pub(all) struct RTLineBox {
-  byte_start : Int
-  byte_end : Int
+  byte_start : Int32
+  byte_end : Int32
   x : Double
   y : Double
   h : Double
 }
 
 ///|
-extern "c" fn rt_line_count(
-  h : Int64,
-  box_w : Double,
-  box_h : Double,
-) -> Int = "rt_line_count"
+extern "c" fn rt_line_count(h : Int64, box_w : Double, box_h : Double) -> Int32 = "rt_line_count"
 
 ///|
 #borrow(out_b0, out_b1, out_x, out_y, out_h)
 extern "c" fn rt_line_box(
   h : Int64,
-  line : Int,
+  line : Int32,
   box_w : Double,
   box_h : Double,
-  out_b0 : Ref[Int],
-  out_b1 : Ref[Int],
+  out_b0 : Ref[Int32],
+  out_b1 : Ref[Int32],
   out_x : Ref[Double],
   out_y : Ref[Double],
   out_h : Ref[Double],
-) -> Int = "rt_line_box"
+) -> Int32 = "rt_line_box"
 
 ///|
 #borrow(out_byte)
@@ -549,18 +570,18 @@ extern "c" fn rt_hit(
   y : Double,
   box_w : Double,
   box_h : Double,
-  out_byte : Ref[Int],
-) -> Int = "rt_hit"
+  out_byte : Ref[Int32],
+) -> Int32 = "rt_hit"
 
 ///|
 #borrow(out_x)
 extern "c" fn rt_caret_x(
   h : Int64,
-  byte : Int,
+  byte : Int32,
   box_w : Double,
   box_h : Double,
   out_x : Ref[Double],
-) -> Int = "rt_caret_x"
+) -> Int32 = "rt_caret_x"
 
 ///|
 /// 逐行几何：选中高亮按它铺矩形（行内 [max(a,b0), min(b,b1)) 的字前缘差）。
@@ -604,7 +625,7 @@ pub fn AttributedText::hit(
   y : Double,
   box_w : Double,
   box_h : Double,
-) -> Int? {
+) -> Int32? {
   let h = self.rt()
   if h == 0L {
     return None
@@ -623,7 +644,7 @@ pub fn AttributedText::hit(
 /// 字节位 → 它所在行的字前缘 x（盒空间，含对齐偏移）。后端不可用给 None。
 pub fn AttributedText::caret_x(
   self : AttributedText,
-  byte : Int,
+  byte : Int32,
   box_w : Double,
   box_h : Double,
 ) -> Double? {

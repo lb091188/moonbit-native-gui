@@ -27,7 +27,11 @@ fn overlay_pane(
     @style.apply(
       w,
       @style.merge_all([
-        @style.style(background_color="bg_panel", border_color="border", border_width=1.0),
+        @style.style(
+          background_color="bg_panel",
+          border_color="border",
+          border_width=1.0,
+        ),
         skin,
       ]),
     )
@@ -41,13 +45,17 @@ fn overlay_pane(
 
       self.clip_rounded = rad > 0.0
       self.style_clip_radius = rad
-      p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
+      p.set_fill_color(
+        @style.color_of(st.background_color, @theme.theme_bg_panel()),
+      )
       if rad > 0.0 {
         p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
       } else {
         p.fill_rect(0.0, 0.0, r.w, r.h)
       }
-      p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
+      p.set_stroke_color(
+        @style.color_of(st.border_color, @theme.theme_border()),
+      )
       p.set_line_width(@style.number_of(st.border_width, 1.0))
       if rad > 0.0 {
         p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
@@ -64,7 +72,7 @@ fn overlay_pane(
 ///|
 /// 浮层是否还开着（图层栈或原生档任一处有效即开着：点外部会被图层/失焦收起，
 /// 句柄随之失效——组件因此不必自己跟踪「外面关掉了」这件事）。
-fn overlay_alive(id : Int) -> Bool {
+fn overlay_alive(id : Int32) -> Bool {
   match @widget.overlay_rect_of(id) {
     Some(_) => true
     None => @widget.overlay_native_opened(id)
@@ -77,14 +85,14 @@ fn overlay_alive(id : Int) -> Bool {
 pub fn popover(
   trigger : @widget.Node,
   content : @widget.Node,
-  width? : Double = 0.0,
-  height? : Double = 0.0,
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  width~ : Double = 0.0,
+  height~ : Double = 0.0,
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    let open_id : Ref[Int] = Ref(0)
+    let open_id : Ref[Int32] = Ref(0)
     // trigger 自己仍在最前：它内部控件的事件先跑，抬起冒泡到这里才切换开合
     let _ = trigger.mount_into(w)
     w.on_pointer = Some(fn(
@@ -123,7 +131,7 @@ pub fn popover(
 fn menu_row(
   text : String,
   on_pick : () -> Unit,
-  selected? : () -> Bool = fn() -> Bool { false },
+  selected~ : () -> Bool = fn() -> Bool { false },
   skin~ : @style.Style = @style.empty_style(),
 ) -> @widget.Node {
   if text == "-" {
@@ -152,13 +160,25 @@ fn menu_row(
       // 行高亮内缩 2px 走圆角（与下拉候选行同口径，贴边会被浮层圆角裁出缺口）
       if act {
         p.set_fill_color(@theme.theme_primary_light())
-        p.fill_round_rect(2.0, 0.0, (r.w - 4.0).max(1.0), r.h, @theme.radius_ctrl())
+        p.fill_round_rect(
+          2.0,
+          0.0,
+          (r.w - 4.0).max(1.0),
+          r.h,
+          @theme.radius_ctrl(),
+        )
       } else {
         // 悬停底来自 hover 桶：没给就是不铺底
         let bg = @style.color_of(st.background_color, "")
         if bg.length() > 0 {
           p.set_fill_color(bg)
-          p.fill_round_rect(2.0, 0.0, (r.w - 4.0).max(1.0), r.h, @theme.radius_ctrl())
+          p.fill_round_rect(
+            2.0,
+            0.0,
+            (r.w - 4.0).max(1.0),
+            r.h,
+            @theme.radius_ctrl(),
+          )
         }
       }
       let _ = @text.draw_box_at(
@@ -202,11 +222,11 @@ fn menu_row(
 pub fn dropdown(
   trigger : String,
   items : Array[String],
-  on_select? : (Int) -> Unit = fn(_i : Int) -> Unit { () },
-  width? : Double = 150.0,
-  focus_id? : Int = 0,
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  on_select~ : (Int32) -> Unit = fn(_i : Int32) -> Unit { () },
+  width~ : Double = 150.0,
+  focus_id~ : Int32 = 0,
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let font = @text.Font::new("", 13.0)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
@@ -216,10 +236,10 @@ pub fn dropdown(
     w.node.set_height(@yoga.fixed(30.0))
     w.cursor = @widget.CURSOR_HAND
     w.focus_id = auto_focus_id(focus_id)
-    let open_id : Ref[Int] = Ref(0)
-    let hi : Ref[Int] = Ref(0)
+    let open_id : Ref[Int32] = Ref(0)
+    let hi : Ref[Int32] = Ref(0)
     // 可选中的行号（分隔线 "-" 不占高亮位）：picks 里存的是 items 下标
-    let picks : Ref[Array[Int]] = Ref([])
+    let picks : Ref[Array[Int32]] = Ref([])
     let close_pop = fn() -> Unit {
       if open_id.val != 0 {
         @widget.overlay_hide(open_id.val)
@@ -229,7 +249,7 @@ pub fn dropdown(
     let open_pop = fn() -> Unit {
       hi.val = 0
       let rows : Array[@widget.Node] = []
-      let pick_rows : Array[Int] = []
+      let pick_rows : Array[Int32] = []
       for i = 0; i < items.length(); i = i + 1 {
         if items[i] == "-" {
           rows.push(divider())
@@ -284,9 +304,13 @@ pub fn dropdown(
 
       self.clip_rounded = rad > 0.0
       self.style_clip_radius = rad
-      p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
+      p.set_fill_color(
+        @style.color_of(st.background_color, @theme.theme_bg_panel()),
+      )
       p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
-      p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
+      p.set_stroke_color(
+        @style.color_of(st.border_color, @theme.theme_border()),
+      )
       p.set_line_width(@style.number_of(st.border_width, 1.0))
       if rad > 0.0 {
         p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
@@ -414,8 +438,17 @@ fn tooltip_pane(
       r : @base.Rect,
     ) -> Unit {
       let st = @style.style_for(self)
-      p.set_fill_color(@style.color_of(st.background_color, @theme.theme_text_primary()))
-      fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, @theme.radius_ctrl()))
+      p.set_fill_color(
+        @style.color_of(st.background_color, @theme.theme_text_primary()),
+      )
+      fill_round_rect(
+        p,
+        0.0,
+        0.0,
+        r.w,
+        r.h,
+        @style.number_of(st.border_radius, @theme.radius_ctrl()),
+      )
       let _ = @text.draw_box_at(
         p,
         0.0,
@@ -443,20 +476,17 @@ fn tooltip_pane(
 pub fn tooltip(
   content : @widget.Node,
   tip : String,
-  delay_ms? : Int = 500,
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  delay_ms~ : Int32 = 500,
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   let font = @text.Font::new("", 12.0)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    let tip_id : Ref[Int] = Ref(0)
-    let timer : Ref[Int] = Ref(0)
+    let tip_id : Ref[Int32] = Ref(0)
+    let timer : Ref[Int32] = Ref(0)
     let _ = content.mount_into(w)
-    w.on_hover_change = Some(fn(
-      self : @widget.Widget,
-      on : Bool,
-    ) -> Unit {
+    w.on_hover_change = Some(fn(self : @widget.Widget, on : Bool) -> Unit {
       if on {
         if timer.val == 0 && tip_id.val == 0 {
           // 锚点先算好再排延时：定时回调不捕获本控件（自捕获是引用环）
@@ -501,267 +531,179 @@ pub fn dialog(
   visible : @base.Store[Bool],
   title : String,
   children : Array[@widget.Node],
-  confirm_text? : String = @i18n.t_or("gui.ui.dialog.confirm", "确定"),
-  cancel_text? : String = @i18n.t_or("gui.ui.dialog.cancel", "取消"),
-  on_confirm? : () -> Unit = fn() -> Unit { () },
-  on_cancel? : () -> Unit = fn() -> Unit { () },
-  close_on_mask? : Bool = false,
-  width? : Double = 420.0,
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  confirm_text~ : String = @i18n.t_or("gui.ui.dialog.confirm", "确定"),
+  cancel_text~ : String = @i18n.t_or("gui.ui.dialog.cancel", "取消"),
+  on_confirm~ : () -> Unit = fn() -> Unit { () },
+  on_cancel~ : () -> Unit = fn() -> Unit { () },
+  close_on_mask~ : Bool = false,
+  width~ : Double = 420.0,
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   // 用显式 mount 而不是 `node_of_new`：后者的 finish 在**构造期**就跑
   // （`node_of_new` = `node_of(finish(Widget::new()))`），而「按 Store 立刻开层」
   // 需要浮层宿主已经就位——宿主是 WindowHost 建窗时装的，挂载期调用才稳。
   {
     mount: fn(parent : @widget.Widget) -> @widget.Widget {
-    let anchor = @widget.Widget::new()
-    watch_theme()
-    // 锚点自己是个 0 尺寸占位：对话框的可见性只由 Store 驱动
-    anchor.node.set_height(@yoga.fixed(0.0))
-    let open_id : Ref[Int] = Ref(0)
-    // 底钮的焦点号（进树即在焦点链里）与开框前的焦点（收框时还回去）
-    let btn_ids : Array[Int] = []
-    let prev_focus : Ref[Int] = Ref(0)
-    let title_font = @text.Font::new("", 16.0, weight=@text.SemiBold)
-    let btn_font = @text.Font::new("", 14.0)
-    let close = fn(v : Bool) -> Unit { visible.set(v) }
-    let teardown_open = fn() -> Unit {
-      if open_id.val != 0 {
-        @widget.overlay_hide(open_id.val)
-        open_id.val = 0
-      }
-      if btn_ids.length() > 0 {
-        match @widget.host_active() {
-          Some(a) => {
-            for id in btn_ids {
-              a.focus.unregister(id)
-            }
-            if prev_focus.val > 0 {
-              let _ = a.focus.focus(prev_focus.val)
-            }
-          }
-          None => ()
+      let anchor = @widget.Widget::new()
+      watch_theme()
+      // 锚点自己是个 0 尺寸占位：对话框的可见性只由 Store 驱动
+      anchor.node.set_height(@yoga.fixed(0.0))
+      let open_id : Ref[Int32] = Ref(0)
+      // 底钮的焦点号（进树即在焦点链里）与开框前的焦点（收框时还回去）
+      let btn_ids : Array[Int32] = []
+      let prev_focus : Ref[Int32] = Ref(0)
+      let title_font = @text.Font::new("", 16.0, weight=@text.SemiBold)
+      let btn_font = @text.Font::new("", 14.0)
+      let close = fn(v : Bool) -> Unit { visible.set(v) }
+      let teardown_open = fn() -> Unit {
+        if open_id.val != 0 {
+          @widget.overlay_hide(open_id.val)
+          open_id.val = 0
         }
-      }
-    }
-    let open = fn() -> Unit {
-      if open_id.val != 0 {
-        return
-      }
-      let panel_w = width
-      // 面板：主题面板底 + 描边 + 标题栏/内容/按钮三区
-      let panel : @widget.Widget = @widget.Widget::new()
-      let panel_node = @widget.node_of(panel)
-      let scrim = @widget.node_of_new(fn(s : @widget.Widget) -> @widget.Widget {
-        watch_theme()
-        // 铺满「铺满窗口的包裹层」：宽度靠内部对齐撑不可靠（内容可能更宽），
-        // 显式 100% 才保证遮罩确实盖住整窗
-        s.node.set_width(@yoga.percent(100.0))
-        s.node.set_height(@yoga.percent(100.0))
-        s.node.set_justify_content(@yoga.JustifyContent::Center)
-        s.node.set_align_items(@yoga.AlignItems::Center)
-        // 遮罩自己吃下按下：视觉模态（点击不穿透到内容）
-        s.on_pointer = Some(fn(
-          self : @widget.Widget,
-          ev : @widget.PointerEvent,
-        ) -> Bool {
-          match ev.kind {
-            @widget.PointerKind::Down => true
-            @widget.PointerKind::Up => {
-              let ax = ev.x + self.rect.x
-              let ay = ev.y + self.rect.y
-              if !panel.rect.contains(ax, ay) && close_on_mask {
-                close(false)
+        if btn_ids.length() > 0 {
+          match @widget.host_active() {
+            Some(a) => {
+              for id in btn_ids {
+                a.focus.unregister(id)
               }
-              false
+              if prev_focus.val > 0 {
+                let _ = a.focus.focus(prev_focus.val)
+              }
             }
-            _ => false
+            None => ()
           }
-        })
-        s.on_draw = Some(fn(
-          _s : @widget.Widget,
-          p : @render.Painter,
-          r : @base.Rect,
-        ) -> Unit {
-          // 半透明黑罩（EP 同款 rgba(0,0,0,.5)）：内容面板之外先压一层暗底
-          p.set_fill_color("#000000")
-          p.set_global_alpha(0.5)
-          p.fill_rect(0.0, 0.0, r.w, r.h)
-          p.set_global_alpha(1.0)
-        })
-        let _ = panel_node.mount_into(s)
-        s
-      })
-      // 面板内容
-      let title_bar = @widget.Widget::new()
-      title_bar.node.set_flex_direction(@yoga.Row)
-      title_bar.node.set_height(@yoga.fixed(40.0))
-      title_bar.node.set_align_items(@yoga.AlignItems::Center)
-      title_bar.set_padding(left=12.0)
-      @style.apply(
-        title_bar,
-        @style.merge_all([@style.style(color="text_primary"), paint_subset(class)]),
-      )
-      title_bar.on_draw = Some(fn(
-        self : @widget.Widget,
-        p : @render.Painter,
-        r : @base.Rect,
-      ) -> Unit {
-        let st = @style.style_for(self)
-        let _ = @text.draw_box_at(
-          p,
-          12.0,
-          0.0,
-          (r.w - 44.0).max(1.0),
-          r.h,
-          title,
-          title_font,
-          @style.color_of(st.color, @theme.theme_text_primary()),
-          align=@text.Start,
-          valign=@text.Center,
-        )
-      })
-      let close_btn = @widget.Widget::new()
-      close_btn.node.set_position(@yoga.Absolute)
-      close_btn.node.set_top(@yoga.fixed(8.0))
-      close_btn.node.set_right(@yoga.fixed(8.0))
-      close_btn.node.set_width(@yoga.fixed(24.0))
-      close_btn.node.set_height(@yoga.fixed(24.0))
-      close_btn.cursor = @widget.CURSOR_HAND
-      @style.apply(
-        close_btn,
-        @style.merge_all([
-          @style.style(color="text_secondary", border_radius=@theme.radius_ctrl())
-            .hover(background_color="fill_hover"),
-          paint_subset(class),
-        ]),
-      )
-      close_btn.on_draw = Some(fn(
-        self : @widget.Widget,
-        p : @render.Painter,
-        r : @base.Rect,
-      ) -> Unit {
-        let st = @style.style_for(self)
-        let bg = @style.color_of(st.background_color, "")
-        if bg.length() > 0 {
-          p.set_fill_color(bg)
-          fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, @theme.radius_ctrl()))
         }
-        p.set_stroke_color(@style.color_of(st.color, @theme.theme_text_secondary()))
-        p.set_line_width(1.4)
-        p.begin_path()
-        p.move_to(8.0, 8.0)
-        p.line_to(r.w - 8.0, r.h - 8.0)
-        p.move_to(r.w - 8.0, 8.0)
-        p.line_to(8.0, r.h - 8.0)
-        p.stroke()
-      })
-      close_btn.on_pointer = Some(fn(
-        _s : @widget.Widget,
-        ev : @widget.PointerEvent,
-      ) -> Bool {
-        match ev.kind {
-          @widget.PointerKind::Down => true
-          @widget.PointerKind::Up => {
-            close(false)
-            false
-          }
-          _ => false
-        }
-      })
-      let body = @widget.Widget::new()
-      body.node.set_flex_direction(@yoga.Column)
-      body.node.set_width(@yoga.percent(100.0))
-      // 四边留空 + 相邻内容间一档呼吸位：正文不顶标题栏/底栏，输入类内容不贴缘
-      body.node.set_gap(0.0, 10.0)
-      body.set_padding(left=16.0, right=16.0, top=8.0, bottom=8.0)
-      @widget.mount_children(body, children)
-      let footer = @widget.Widget::new()
-      footer.node.set_flex_direction(@yoga.Row)
-      footer.node.set_height(@yoga.fixed(44.0))
-      footer.node.set_justify_content(@yoga.JustifyContent::FlexEnd)
-      footer.node.set_align_items(@yoga.AlignItems::Center)
-      footer.node.set_gap(0.0, 8.0)
-      footer.set_padding(right=12.0)
-      fn footer_btn(text : String, primary : Bool, act : () -> Unit) -> Unit {
-        if text.length() == 0 {
+      }
+      let open = fn() -> Unit {
+        if open_id.val != 0 {
           return
         }
-        let b = @widget.Widget::new()
-        b.node.set_width(@yoga.fixed(text_width(text, btn_font) + 28.0))
-        b.node.set_height(@yoga.fixed(28.0))
-        b.cursor = @widget.CURSOR_HAND
-        // 底钮进焦点链：弹框开着时链只收这一层（`WindowHost::sync_focus`），Tab 在钮间走
-        b.focus_id = auto_focus_id(0)
-        btn_ids.push(b.focus_id)
-        // 两档皮肤都折进槽：主档 常态 primary / 悬停 primary_hover，
-        // 次档 常态 bg_panel / 悬停 fill_hover（悬停分支由 hover 桶承担）
-        let skin = if primary {
-          @style.style(color="#ffffff", background_color="primary", border_color="border", border_width=1.0, border_radius=@theme.radius_ctrl()).hover(
-            background_color="primary_hover",
-          )
-        } else {
-          @style.style(color="text_regular", background_color="bg_panel", border_color="border", border_width=1.0, border_radius=@theme.radius_ctrl()).hover(
-            background_color="fill_hover",
-          )
-        }
-        @style.apply(b, @style.merge_all([skin, paint_subset(class)]))
-        b.on_draw = Some(fn(
+        let panel_w = width
+        // 面板：主题面板底 + 描边 + 标题栏/内容/按钮三区
+        let panel : @widget.Widget = @widget.Widget::new()
+        let panel_node = @widget.node_of(panel)
+        let scrim = @widget.node_of_new(fn(
+          s : @widget.Widget,
+        ) -> @widget.Widget {
+          watch_theme()
+          // 铺满「铺满窗口的包裹层」：宽度靠内部对齐撑不可靠（内容可能更宽），
+          // 显式 100% 才保证遮罩确实盖住整窗
+          s.node.set_width(@yoga.percent(100.0))
+          s.node.set_height(@yoga.percent(100.0))
+          s.node.set_justify_content(@yoga.JustifyContent::Center)
+          s.node.set_align_items(@yoga.AlignItems::Center)
+          // 遮罩自己吃下按下：视觉模态（点击不穿透到内容）
+          s.on_pointer = Some(fn(
+            self : @widget.Widget,
+            ev : @widget.PointerEvent,
+          ) -> Bool {
+            match ev.kind {
+              @widget.PointerKind::Down => true
+              @widget.PointerKind::Up => {
+                let ax = ev.x + self.rect.x
+                let ay = ev.y + self.rect.y
+                if !panel.rect.contains(ax, ay) && close_on_mask {
+                  close(false)
+                }
+                false
+              }
+              _ => false
+            }
+          })
+          s.on_draw = Some(fn(
+            _s : @widget.Widget,
+            p : @render.Painter,
+            r : @base.Rect,
+          ) -> Unit {
+            // 半透明黑罩（EP 同款 rgba(0,0,0,.5)）：内容面板之外先压一层暗底
+            p.set_fill_color("#000000")
+            p.set_global_alpha(0.5)
+            p.fill_rect(0.0, 0.0, r.w, r.h)
+            p.set_global_alpha(1.0)
+          })
+          let _ = panel_node.mount_into(s)
+          s
+        })
+        // 面板内容
+        let title_bar = @widget.Widget::new()
+        title_bar.node.set_flex_direction(@yoga.Row)
+        title_bar.node.set_height(@yoga.fixed(40.0))
+        title_bar.node.set_align_items(@yoga.AlignItems::Center)
+        title_bar.set_padding(left=12.0)
+        @style.apply(
+          title_bar,
+          @style.merge_all([
+            @style.style(color="text_primary"),
+            paint_subset(class),
+          ]),
+        )
+        title_bar.on_draw = Some(fn(
           self : @widget.Widget,
           p : @render.Painter,
           r : @base.Rect,
         ) -> Unit {
           let st = @style.style_for(self)
-          p.set_fill_color(
-            @style.color_of(
-              st.background_color,
-              if primary {
-                @theme.theme_primary()
-              } else {
-                @theme.theme_bg_panel()
-              },
-            ),
-          )
-          fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, @theme.radius_ctrl()))
-          p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
-          p.set_line_width(@style.number_of(st.border_width, 1.0))
-          p.stroke_round_rect(
-            0.0,
-            0.0,
-            r.w,
-            r.h,
-            @style.number_of(st.border_radius, @theme.radius_ctrl()),
-          )
           let _ = @text.draw_box_at(
             p,
+            12.0,
             0.0,
-            0.0,
-            r.w,
+            (r.w - 44.0).max(1.0),
             r.h,
-            text,
-            btn_font,
-            @style.color_of(
-              st.color,
-              if primary { "#ffffff" } else { @theme.theme_text_regular() },
-            ),
-            align=@text.Center,
+            title,
+            title_font,
+            @style.color_of(st.color, @theme.theme_text_primary()),
+            align=@text.Start,
             valign=@text.Center,
           )
-          if self.focused {
-            // 焦点环（与消息框底钮同口径）：主色实底上用白环，主题色环压在上面不可见
-            p.set_stroke_color(
-              if primary {
-                "#ffffff"
-              } else {
-                @theme.theme_primary()
-              },
-            )
-            p.set_line_width(1.0)
-            p.stroke_rect(1.0, 1.0, r.w - 2.0, r.h - 2.0)
-          }
         })
-        b.on_pointer = Some(fn(
+        let close_btn = @widget.Widget::new()
+        close_btn.node.set_position(@yoga.Absolute)
+        close_btn.node.set_top(@yoga.fixed(8.0))
+        close_btn.node.set_right(@yoga.fixed(8.0))
+        close_btn.node.set_width(@yoga.fixed(24.0))
+        close_btn.node.set_height(@yoga.fixed(24.0))
+        close_btn.cursor = @widget.CURSOR_HAND
+        @style.apply(
+          close_btn,
+          @style.merge_all([
+            @style.style(
+              color="text_secondary",
+              border_radius=@theme.radius_ctrl(),
+            ).hover(background_color="fill_hover"),
+            paint_subset(class),
+          ]),
+        )
+        close_btn.on_draw = Some(fn(
+          self : @widget.Widget,
+          p : @render.Painter,
+          r : @base.Rect,
+        ) -> Unit {
+          let st = @style.style_for(self)
+          let bg = @style.color_of(st.background_color, "")
+          if bg.length() > 0 {
+            p.set_fill_color(bg)
+            fill_round_rect(
+              p,
+              0.0,
+              0.0,
+              r.w,
+              r.h,
+              @style.number_of(st.border_radius, @theme.radius_ctrl()),
+            )
+          }
+          p.set_stroke_color(
+            @style.color_of(st.color, @theme.theme_text_secondary()),
+          )
+          p.set_line_width(1.4)
+          p.begin_path()
+          p.move_to(8.0, 8.0)
+          p.line_to(r.w - 8.0, r.h - 8.0)
+          p.move_to(r.w - 8.0, 8.0)
+          p.line_to(8.0, r.h - 8.0)
+          p.stroke()
+        })
+        close_btn.on_pointer = Some(fn(
           _s : @widget.Widget,
           ev : @widget.PointerEvent,
         ) -> Bool {
@@ -769,103 +711,239 @@ pub fn dialog(
             @widget.PointerKind::Down => true
             @widget.PointerKind::Up => {
               close(false)
-              act()
               false
             }
             _ => false
           }
         })
-        b.on_key = Some(fn(ev : @widget.KeyEvent) -> Bool {
-          if !ev.press {
-            return false
+        let body = @widget.Widget::new()
+        body.node.set_flex_direction(@yoga.Column)
+        body.node.set_width(@yoga.percent(100.0))
+        // 四边留空 + 相邻内容间一档呼吸位：正文不顶标题栏/底栏，输入类内容不贴缘
+        body.node.set_gap(0.0, 10.0)
+        body.set_padding(left=16.0, right=16.0, top=8.0, bottom=8.0)
+        @widget.mount_children(body, children)
+        let footer = @widget.Widget::new()
+        footer.node.set_flex_direction(@yoga.Row)
+        footer.node.set_height(@yoga.fixed(44.0))
+        footer.node.set_justify_content(@yoga.JustifyContent::FlexEnd)
+        footer.node.set_align_items(@yoga.AlignItems::Center)
+        footer.node.set_gap(0.0, 8.0)
+        footer.set_padding(right=12.0)
+        fn footer_btn(text : String, primary : Bool, act : () -> Unit) -> Unit {
+          if text.length() == 0 {
+            return
           }
-          if ev.keysym == @base.KS_SPACE || ev.keysym == @base.KS_RETURN {
-            close(false)
-            act()
-            true
+          let b = @widget.Widget::new()
+          b.node.set_width(@yoga.fixed(text_width(text, btn_font) + 28.0))
+          b.node.set_height(@yoga.fixed(28.0))
+          b.cursor = @widget.CURSOR_HAND
+          // 底钮进焦点链：弹框开着时链只收这一层（`WindowHost::sync_focus`），Tab 在钮间走
+          b.focus_id = auto_focus_id(0)
+          btn_ids.push(b.focus_id)
+          // 两档皮肤都折进槽：主档 常态 primary / 悬停 primary_hover，
+          // 次档 常态 bg_panel / 悬停 fill_hover（悬停分支由 hover 桶承担）
+          let skin = if primary {
+            @style.style(
+              color="#ffffff",
+              background_color="primary",
+              border_color="border",
+              border_width=1.0,
+              border_radius=@theme.radius_ctrl(),
+            ).hover(background_color="primary_hover")
           } else {
-            false
+            @style.style(
+              color="text_regular",
+              background_color="bg_panel",
+              border_color="border",
+              border_width=1.0,
+              border_radius=@theme.radius_ctrl(),
+            ).hover(background_color="fill_hover")
           }
-        })
-        footer.append_child(b)
-      }
-
-      footer_btn(cancel_text, false, on_cancel)
-      footer_btn(confirm_text, true, on_confirm)
-      panel.node.set_flex_direction(@yoga.Column)
-      panel.node.set_width(@yoga.fixed(panel_w))
-      panel.set_padding_all(0.0)
-      @style.apply(
-        panel,
-        @style.merge_all([
-          @style.style(
-            background_color="bg_panel",
-            border_color="border",
-            border_width=1.0,
-            border_radius=@theme.radius_card(),
-          ),
-          paint_subset(class),
-        ]),
-      )
-      panel.on_draw = Some(fn(
-        self : @widget.Widget,
-        p : @render.Painter,
-        r : @base.Rect,
-      ) -> Unit {
-        let st = @style.style_for(self)
-        p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
-        fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, @theme.radius_card()))
-        p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
-        p.set_line_width(@style.number_of(st.border_width, 1.0))
-        p.stroke_round_rect(
-          0.0,
-          0.0,
-          r.w,
-          r.h,
-          @style.number_of(st.border_radius, @theme.radius_card()),
-        )
-      })
-      panel.append_child(title_bar)
-      panel.append_child(close_btn)
-      panel.append_child(body)
-      panel.append_child(footer)
-      open_id.val = @widget.overlay_show_full(scrim)
-      // 开框即把焦点交给第一个底钮（默认是取消位，与消息框「第一个钮=默认」同
-      // 口径由调用方的按钮顺序决定）；收框还回开框前的那个焦点
-      match @widget.host_active() {
-        Some(a) => {
-          match a.focus.current() {
-            Some(p) => prev_focus.val = p
-            None => prev_focus.val = 0
-          }
-          if btn_ids.length() > 0 {
-            for id in btn_ids {
-              let _ = a.focus.register(id)
+          @style.apply(b, @style.merge_all([skin, paint_subset(class)]))
+          b.on_draw = Some(fn(
+            self : @widget.Widget,
+            p : @render.Painter,
+            r : @base.Rect,
+          ) -> Unit {
+            let st = @style.style_for(self)
+            p.set_fill_color(
+              @style.color_of(
+                st.background_color,
+                if primary {
+                  @theme.theme_primary()
+                } else {
+                  @theme.theme_bg_panel()
+                },
+              ),
+            )
+            fill_round_rect(
+              p,
+              0.0,
+              0.0,
+              r.w,
+              r.h,
+              @style.number_of(st.border_radius, @theme.radius_ctrl()),
+            )
+            p.set_stroke_color(
+              @style.color_of(st.border_color, @theme.theme_border()),
+            )
+            p.set_line_width(@style.number_of(st.border_width, 1.0))
+            p.stroke_round_rect(
+              0.0,
+              0.0,
+              r.w,
+              r.h,
+              @style.number_of(st.border_radius, @theme.radius_ctrl()),
+            )
+            let _ = @text.draw_box_at(
+              p,
+              0.0,
+              0.0,
+              r.w,
+              r.h,
+              text,
+              btn_font,
+              @style.color_of(
+                st.color,
+                if primary {
+                  "#ffffff"
+                } else {
+                  @theme.theme_text_regular()
+                },
+              ),
+              align=@text.Center,
+              valign=@text.Center,
+            )
+            if self.focused {
+              // 焦点环（与消息框底钮同口径）：主色实底上用白环，主题色环压在上面不可见
+              p.set_stroke_color(
+                if primary {
+                  "#ffffff"
+                } else {
+                  @theme.theme_primary()
+                },
+              )
+              p.set_line_width(1.0)
+              p.stroke_rect(1.0, 1.0, r.w - 2.0, r.h - 2.0)
             }
-            let _ = a.focus.focus(btn_ids[0])
-          }
+          })
+          b.on_pointer = Some(fn(
+            _s : @widget.Widget,
+            ev : @widget.PointerEvent,
+          ) -> Bool {
+            match ev.kind {
+              @widget.PointerKind::Down => true
+              @widget.PointerKind::Up => {
+                close(false)
+                act()
+                false
+              }
+              _ => false
+            }
+          })
+          b.on_key = Some(fn(ev : @widget.KeyEvent) -> Bool {
+            if !ev.press {
+              return false
+            }
+            if ev.keysym == @base.KS_SPACE || ev.keysym == @base.KS_RETURN {
+              close(false)
+              act()
+              true
+            } else {
+              false
+            }
+          })
+          footer.append_child(b)
         }
-        None => ()
-      }
-      handle(anchor)
-    }
 
-    // Store 驱动：为真开一层、为假收掉（开着时被图层收起也要同步回 Store）
-    let sig = visible.signal()
-    let sid = sig.subscribe(fn(v : Bool) -> Unit {
-      if v {
-        open()
-      } else {
-        teardown_open()
+        footer_btn(cancel_text, false, on_cancel)
+        footer_btn(confirm_text, true, on_confirm)
+        panel.node.set_flex_direction(@yoga.Column)
+        panel.node.set_width(@yoga.fixed(panel_w))
+        panel.set_padding_all(0.0)
+        @style.apply(
+          panel,
+          @style.merge_all([
+            @style.style(
+              background_color="bg_panel",
+              border_color="border",
+              border_width=1.0,
+              border_radius=@theme.radius_card(),
+            ),
+            paint_subset(class),
+          ]),
+        )
+        panel.on_draw = Some(fn(
+          self : @widget.Widget,
+          p : @render.Painter,
+          r : @base.Rect,
+        ) -> Unit {
+          let st = @style.style_for(self)
+          p.set_fill_color(
+            @style.color_of(st.background_color, @theme.theme_bg_panel()),
+          )
+          fill_round_rect(
+            p,
+            0.0,
+            0.0,
+            r.w,
+            r.h,
+            @style.number_of(st.border_radius, @theme.radius_card()),
+          )
+          p.set_stroke_color(
+            @style.color_of(st.border_color, @theme.theme_border()),
+          )
+          p.set_line_width(@style.number_of(st.border_width, 1.0))
+          p.stroke_round_rect(
+            0.0,
+            0.0,
+            r.w,
+            r.h,
+            @style.number_of(st.border_radius, @theme.radius_card()),
+          )
+        })
+        panel.append_child(title_bar)
+        panel.append_child(close_btn)
+        panel.append_child(body)
+        panel.append_child(footer)
+        open_id.val = @widget.overlay_show_full(scrim)
+        // 开框即把焦点交给第一个底钮（默认是取消位，与消息框「第一个钮=默认」同
+        // 口径由调用方的按钮顺序决定）；收框还回开框前的那个焦点
+        match @widget.host_active() {
+          Some(a) => {
+            match a.focus.current() {
+              Some(p) => prev_focus.val = p
+              None => prev_focus.val = 0
+            }
+            if btn_ids.length() > 0 {
+              for id in btn_ids {
+                let _ = a.focus.register(id)
+              }
+              let _ = a.focus.focus(btn_ids[0])
+            }
+          }
+          None => ()
+        }
+        handle(anchor)
       }
-    })
-    @base.sub_bag_register(fn() { sig.remove(sid) })
-    if visible.get() {
-      open()
-    }
-    parent.append_child(anchor)
-    fold_style(anchor, @style.empty_style(), @style.empty_style(), class)
-    anchor
+
+      // Store 驱动：为真开一层、为假收掉（开着时被图层收起也要同步回 Store）
+      let sig = visible.signal()
+      let sid = sig.subscribe(fn(v : Bool) -> Unit {
+        if v {
+          open()
+        } else {
+          teardown_open()
+        }
+      })
+      @base.sub_bag_register(fn() { sig.remove(sid) })
+      if visible.get() {
+        open()
+      }
+      parent.append_child(anchor)
+      fold_style(anchor, @style.empty_style(), @style.empty_style(), class)
+      anchor
     },
   }
 }
@@ -889,11 +967,11 @@ fn toast_left(win_w : Double, group_w : Double) -> Double {
 /// 而那扇窗的根自带页面底色 —— 轻提示于是变成一整块盖住窗口的板（看着像遮罩）。
 /// 轻提示没有「点外收起」语义，也不需要占住整窗。
 pub fn toast_layer(
-  duration_ms? : Int = 2600,
+  duration_ms~ : Int32 = 2600,
 ) -> (String, SemanticType) -> Unit {
   let strip : Ref[@widget.Widget?] = Ref(None)
-  let open_id : Ref[Int] = Ref(0)
-  let alive : Ref[Int] = Ref(0)
+  let open_id : Ref[Int32] = Ref(0)
+  let alive : Ref[Int32] = Ref(0)
   let widest : Ref[Double] = Ref(0.0)
   let font = @text.Font::new("", 13.0)
   // 列 + 交叉轴居中：宽度自然等于最宽那一条，浮层也就只开那么大
@@ -912,7 +990,10 @@ pub fn toast_layer(
       None => 0.0
     }
   }
-  let push : (String, SemanticType) -> Unit = fn(text : String, t : SemanticType) -> Unit {
+  let push : (String, SemanticType) -> Unit = fn(
+    text : String,
+    t : SemanticType,
+  ) -> Unit {
     match strip.val {
       None => ()
       Some(c) => {
@@ -1012,8 +1093,8 @@ pub fn toast_layer(
 pub fn context_menu_for(
   content : @widget.Node,
   items : Array[(String, () -> Unit)],
-  width? : Double = 150.0,
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  width~ : Double = 150.0,
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
@@ -1023,7 +1104,7 @@ pub fn context_menu_for(
       ev : @widget.PointerEvent,
     ) -> Bool {
       match ev.kind {
-        @widget.PointerKind::Down => {
+        @widget.PointerKind::Down =>
           if ev.button != 3 {
             false
           } else {
@@ -1044,7 +1125,6 @@ pub fn context_menu_for(
             )
             true
           }
-        }
         @widget.PointerKind::Up => ev.button == 3
         _ => false
       }
@@ -1053,4 +1133,3 @@ pub fn context_menu_for(
     w
   })
 }
-

@@ -9,16 +9,16 @@
 
 ///|
 pub struct Job {
-  id : Int
+  id : Int32
   due_ms : Int64
-  seq : Int
+  seq : Int32
   run : () -> Unit
 }
 
 ///|
 pub struct Loop {
-  mut next_id : Int
-  mut next_seq : Int
+  mut next_id : Int32
+  mut next_seq : Int32
   mut last_now : Int64
   mut running : Bool
   jobs : Array[Job]
@@ -29,7 +29,7 @@ pub fn Loop::new() -> Loop {
   // -1 = 时基未建立。平台时钟是 CLOCK_MONOTONIC（开机起算），若从 0 起算
   // 相对延时，首次 advance 前排的定时器会全部立刻到期（实测骨架动画只跑
   // 一拍就是这么来的），故必须由宿主先 start 一次。
-  { next_id: 1, next_seq: 0, last_now: -1L, running: true, jobs: [] }
+  { next_id: 1, next_seq: 0, last_now: -1L, running: true, jobs: [], }
 }
 
 ///|
@@ -79,7 +79,7 @@ pub fn Loop::post_task(self : Loop, work : () -> Unit) -> Unit {
 
 ///|
 /// 延时任务（毫秒）。返回的 id 可用于 `cancel`，延时 0 与 `post_task` 同拍。
-pub fn Loop::timer(self : Loop, delay_ms : Int, work : () -> Unit) -> Int {
+pub fn Loop::timer(self : Loop, delay_ms : Int32, work : () -> Unit) -> Int32 {
   let delay = if delay_ms < 0 { 0 } else { delay_ms }
   let id = self.next_id
   self.next_id = self.next_id + 1
@@ -98,7 +98,7 @@ pub fn Loop::timer(self : Loop, delay_ms : Int, work : () -> Unit) -> Int {
 
 ///|
 /// 取消尚未执行的定时器；已执行或不存在返回 false。
-pub fn Loop::cancel(self : Loop, id : Int) -> Bool {
+pub fn Loop::cancel(self : Loop, id : Int32) -> Bool {
   let js = self.jobs
   let mut found = -1
   for i = 0; i < js.length(); i = i + 1 {
@@ -117,7 +117,7 @@ pub fn Loop::cancel(self : Loop, id : Int) -> Bool {
 
 ///|
 /// 待跑项还有多少（测试与诊断用）。
-pub fn Loop::pending(self : Loop) -> Int {
+pub fn Loop::pending(self : Loop) -> Int32 {
   self.jobs.length()
 }
 
@@ -131,7 +131,7 @@ pub fn Loop::rebase(self : Loop, now_ms : Int64) -> Unit {
 
 ///|
 /// 时刻 `now_ms` 已到期、还没跑掉的项数(0 = 无到期任务;settle 的收敛判据)。
-pub fn Loop::due_pending(self : Loop, now_ms : Int64) -> Int {
+pub fn Loop::due_pending(self : Loop, now_ms : Int64) -> Int32 {
   let mut n = 0
   for j in self.jobs {
     if j.due_ms <= now_ms {
@@ -143,7 +143,7 @@ pub fn Loop::due_pending(self : Loop, now_ms : Int64) -> Int {
 
 ///|
 /// 跑完所有到期项，返回执行个数。`quit` 之后不做任何回调。
-pub fn Loop::advance(self : Loop, now_ms : Int64) -> Int {
+pub fn Loop::advance(self : Loop, now_ms : Int64) -> Int32 {
   self.last_now = now_ms
   if !self.running {
     return 0
@@ -174,7 +174,7 @@ pub fn Loop::advance(self : Loop, now_ms : Int64) -> Int {
 /// 平台泵本次最长可等多久：有立即项或已到期项返回 `Some(0)`，
 /// 只有未来定时器返回距最近的毫秒数，无待办返回 `None`（可无限等，
 /// 但必须有跨线程唤醒位把 `wait` 叫回来）。
-pub fn Loop::wait_budget(self : Loop, now_ms : Int64) -> Int? {
+pub fn Loop::wait_budget(self : Loop, now_ms : Int64) -> Int32? {
   let js = self.jobs
   if js.length() == 0 {
     None
@@ -202,18 +202,24 @@ pub fn Loop::is_running(self : Loop) -> Bool {
 
 // ---- 进程级延时通道 ----
 
-let timer_schedule : Ref[(Int, () -> Unit) -> Int] = Ref(fn(_ms, _f) { 0 })
+///|
+let timer_schedule : Ref[(Int32, () -> Unit) -> Int32] = Ref(fn(_ms, _f) { 0 })
 
-let timer_cancel : Ref[(Int) -> Unit] = Ref(fn(_id) { () })
+///|
+let timer_cancel : Ref[(Int32) -> Unit] = Ref(fn(_id) { () })
 
 // 宿主就绪前排的定时器先排队：默认选中段/页面构造期就会跑 on_mount 一类
 // 回调，那时 WindowHost 还没装钩子；不排队的话首拍进空通道、循环再也起不来。
 // 句柄用负数（挂载后真实句柄从 1 起，0 仍保留「空操作」语义），可取消。
+
+///|
 let timer_hooks_ready : Ref[Bool] = Ref(false)
 
-let pending_timers : Array[(Int, Int, () -> Unit)] = []
+///|
+let pending_timers : Array[(Int32, Int32, () -> Unit)] = []
 
-let next_pending_id : Ref[Int] = Ref(-1)
+///|
+let next_pending_id : Ref[Int32] = Ref(-1)
 
 ///|
 /// 安装延时任务的派发通道（`WindowHost::new` 把这两个转派到自己的 `Loop`）。
@@ -221,8 +227,8 @@ let next_pending_id : Ref[Int] = Ref(-1)
 /// `set_repaint_hook` 同款进程级单槽（当前形态一进程一宿主）。
 /// 安装时把排队中的早鸟定时器一并补发。
 pub fn set_timer_hooks(
-  schedule : (Int, () -> Unit) -> Int,
-  cancel : (Int) -> Unit,
+  schedule : (Int32, () -> Unit) -> Int32,
+  cancel : (Int32) -> Unit,
 ) -> Unit {
   timer_schedule.val = schedule
   timer_cancel.val = cancel
@@ -237,7 +243,7 @@ pub fn set_timer_hooks(
 ///|
 /// 相对延时 `ms` 毫秒跑一次 `f`，返回可取消句柄。宿主未就绪时先排队，
 /// `set_timer_hooks` 装上后按原延时补发（句柄返回负数，可用于 `clear_timeout`）。
-pub fn set_timeout(ms : Int, f : () -> Unit) -> Int {
+pub fn set_timeout(ms : Int32, f : () -> Unit) -> Int32 {
   if timer_hooks_ready.val {
     (timer_schedule.val)(ms, f)
   } else {
@@ -250,9 +256,9 @@ pub fn set_timeout(ms : Int, f : () -> Unit) -> Int {
 
 ///|
 /// 取消尚未触发的延时任务（句柄 0 或已触发时空操作）。
-pub fn clear_timeout(id : Int) -> Unit {
+pub fn clear_timeout(id : Int32) -> Unit {
   if id < 0 {
-    let keep : Array[(Int, Int, () -> Unit)] = []
+    let keep : Array[(Int32, Int32, () -> Unit)] = []
     for (pid, ms, f) in pending_timers {
       if pid != id {
         keep.push((pid, ms, f))
@@ -270,8 +276,8 @@ pub fn clear_timeout(id : Int) -> Unit {
 ///|
 /// 复位进程级延时通道（测试用：`host_reset` 调，回到「无宿主」基线）。
 pub fn reset_timer_channel() -> Unit {
-  timer_schedule.val = fn(_ms : Int, _f : () -> Unit) -> Int { 0 }
-  timer_cancel.val = fn(_id : Int) -> Unit { () }
+  timer_schedule.val = fn(_ms : Int32, _f : () -> Unit) -> Int32 { 0 }
+  timer_cancel.val = fn(_id : Int32) -> Unit { () }
   timer_hooks_ready.val = false
   pending_timers.clear()
   next_pending_id.val = -1

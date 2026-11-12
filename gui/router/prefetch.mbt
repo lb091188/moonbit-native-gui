@@ -36,6 +36,7 @@ fn preorder_leaves(r : Route, prefix : String, out : Array[String]) -> Unit {
   }
 }
 
+///|
 fn all_leaves(roots : Array[Route]) -> Array[String] {
   let out : Array[String] = []
   for r in roots {
@@ -88,15 +89,13 @@ fn route_by_path(roots : Array[Route], path : String) -> Route? {
       }
     }
     match next {
-      None => {
-        return None
-      }
+      None => return None
       Some(r) =>
-      if i + 1 == total {
-        found = Some(r)
-      } else {
-        level = r.children
-      }
+        if i + 1 == total {
+          found = Some(r)
+        } else {
+          level = r.children
+        }
     }
   }
   found
@@ -167,20 +166,20 @@ pub fn Router::build_now(self : Router, path : String) -> @widget.Node {
   match self.built.get(path) {
     Some(b) => b.node
     None =>
-    match route_by_path(self.roots, path) {
-      Some(r) =>
-      match r.build {
-        Some(f) => {
-          @base.sub_bag_begin()
-          let n = f()
-          let offs = @base.sub_bag_end()
-          let _ = self.built.set(path, { node: n, offs })
-          n
-        }
-        None => abort("路由节点没有 build：" + path)
+      match route_by_path(self.roots, path) {
+        Some(r) =>
+          match r.build {
+            Some(f) => {
+              @base.sub_bag_begin()
+              let n = f()
+              let offs = @base.sub_bag_end()
+              let _ = self.built.set(path, { node: n, offs, })
+              n
+            }
+            None => abort("路由节点没有 build：" + path)
+          }
+        None => abort("路由表里没有这条路径：" + path)
       }
-      None => abort("路由表里没有这条路径：" + path)
-    }
   }
 }
 
@@ -189,9 +188,7 @@ pub fn Router::build_now(self : Router, path : String) -> @widget.Node {
 pub fn Router::ensure_current(self : Router) -> Unit {
   let p = self.path()
   match route_by_path(self.roots, p) {
-    Some(r) => if r.build is Some(_) {
-      let _ = self.build_now(p)
-    }
+    Some(r) => if r.build is Some(_) { let _ = self.build_now(p) }
     None => ()
   }
 }
@@ -199,7 +196,7 @@ pub fn Router::ensure_current(self : Router) -> Unit {
 ///|
 /// 已构造进缓存的节点数（与 `pending_count` 一起看才分得清「队列建空了」和
 /// 「队列没跑起来」——两种情况 pending 都是 0）。
-pub fn Router::built_count(self : Router) -> Int {
+pub fn Router::built_count(self : Router) -> Int32 {
   let mut n = 0
   for (_k, _b) in self.built {
     n += 1
@@ -210,7 +207,7 @@ pub fn Router::built_count(self : Router) -> Int {
 ///|
 /// 预建队列还剩多少个待建。`Lazy` 节点是豁免对象、不是欠账，不计入——
 /// 否则每次切页重新锚定后，队列尾部那个 `Lazy` 会永远挂着一个假的 `pending=1`。
-pub fn Router::pending_count(self : Router) -> Int {
+pub fn Router::pending_count(self : Router) -> Int32 {
   let mut n = 0
   let q = self.queue.val
   let i = self.queue_at.val
@@ -219,9 +216,7 @@ pub fn Router::pending_count(self : Router) -> Int {
       let path = q[k]
       if !self.is_built(path) {
         match route_by_path(self.roots, path) {
-          Some(r) => if !load_of(r, self.default_load).is_lazy() {
-            n += 1
-          }
+          Some(r) => if !load_of(r, self.default_load).is_lazy() { n += 1 }
           None => ()
         }
       }
@@ -243,12 +238,12 @@ pub fn Router::prefetch_step(self : Router) -> Bool {
     if !self.is_built(path) {
       match route_by_path(self.roots, path) {
         Some(r) =>
-        if load_of(r, self.default_load).is_lazy() {
-          ()
-        } else {
-          let _ = self.build_now(path)
-          built_one = true
-        }
+          if load_of(r, self.default_load).is_lazy() {
+            ()
+          } else {
+            let _ = self.build_now(path)
+            built_one = true
+          }
         None => ()
       }
     }
@@ -270,7 +265,12 @@ pub fn Router::build_eager(self : Router) -> Unit {
   self.eager_under(self.roots, "")
 }
 
-fn Router::eager_under(self : Router, level : Array[Route], prefix : String) -> Unit {
+///|
+fn Router::eager_under(
+  self : Router,
+  level : Array[Route],
+  prefix : String,
+) -> Unit {
   for r in level {
     let here = if prefix == "" { r.key } else { prefix + "/" + r.key }
     if r.build is Some(_) && load_of(r, self.default_load).is_eager() {
@@ -286,7 +286,7 @@ fn Router::eager_under(self : Router, level : Array[Route], prefix : String) -> 
 /// 起空闲预建：先插队建完当前路径，再每 `tick_ms` 建一个，队列建空就停（不再排拍）。
 /// 任一层的选中变化都会立刻插队建完当前路径并重新锚定队列。宿主未就绪时
 /// `@shell.set_timeout` 自己排队，装好钩子后按原延时补发，不会空转。
-pub fn Router::start_prefetch(self : Router, tick_ms? : Int = 16) -> Unit {
+pub fn Router::start_prefetch(self : Router, tick_ms~ : Int32 = 16) -> Unit {
   if !self.prefetch_on.val {
     self.prefetch_on.val = true
     self.ensure_current()
@@ -304,7 +304,8 @@ pub fn Router::start_prefetch(self : Router, tick_ms? : Int = 16) -> Unit {
   }
 }
 
-fn Router::schedule_tick(self : Router, tick_ms : Int) -> Unit {
+///|
+fn Router::schedule_tick(self : Router, tick_ms : Int32) -> Unit {
   if !self.prefetch_on.val {
     ()
   } else if self.prefetch_step() {

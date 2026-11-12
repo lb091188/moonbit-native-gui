@@ -31,15 +31,15 @@ let eff_ring_min_r : Double = 0.5
 
 ///|
 /// 每周期定时器帧数（3000ms 周期 ≈ 50ms 一帧）。
-let eff_frames_per_period : Int = 60
+let eff_frames_per_period : Int32 = 60
 
 ///|
 /// 定时器帧步长下限（ms）。
-let eff_tick_min_ms : Int = 16
+let eff_tick_min_ms : Int32 = 16
 
 ///|
 /// 涟漪圈数上限（防病态参数把单帧绘制量打爆）。
-let eff_rings_max : Int = 8
+let eff_rings_max : Int32 = 8
 
 // ---------------------------------------------------------------------------
 // 纯函数层：点直径钳制 / 相位推进 / 圈进度 / 圈半径 / 圈 alpha / 坐标换算
@@ -60,7 +60,7 @@ pub(all) struct EffPoint {
 pub fn EffPoint::make(
   x : Double,
   y : Double,
-  size? : Double = 12.0,
+  size~ : Double = 12.0,
 ) -> EffPoint {
   { x, y, size, }
 }
@@ -71,7 +71,7 @@ pub fn EffPoint::make(
 /// 触发回调；同一句柄传给多个 eff_chart_t 时联动控制这些实例。
 pub(all) struct EffAnim {
   running : Ref[Bool]
-  timer : Ref[Int]
+  timer : Ref[Int32]
 }
 
 ///|
@@ -119,7 +119,7 @@ pub fn eff_ripple_rmax(dot_r : Double) -> Double {
 ///|
 /// 定时器帧步长（ms）：周期 ÷ 每周期帧数，兜底到最小步长；period_ms
 /// <= 0 时给最小步长（调用方据此判定不启动动画）。
-pub fn eff_tick_ms(period_ms : Int) -> Int {
+pub fn eff_tick_ms(period_ms : Int32) -> Int32 {
   if period_ms < 1 {
     return eff_tick_min_ms
   }
@@ -147,7 +147,7 @@ pub fn eff_phase_advance(phase : Double, delta : Double) -> Double {
 /// 第 k 圈的归一进度（0..1）：同轮各圈以 k/rings 错峰出生，进度 =
 /// frac(phase + k/rings)；rings < 1 退化为单圈；k 越界（含负值）按
 /// 圈数回卷。
-pub fn eff_ring_progress(phase : Double, k : Int, rings : Int) -> Double {
+pub fn eff_ring_progress(phase : Double, k : Int32, rings : Int32) -> Double {
   let m = if rings < 1 { 1 } else { rings }
   let kk = (k % m + m) % m
   eff_phase_advance(phase, kk.to_double() / m.to_double())
@@ -182,7 +182,7 @@ pub fn eff_ring_alpha(p : Double) -> Double {
 
 ///|
 /// alpha（0..1）→ 0..255 字节（四舍五入，越界钳制）。
-pub fn eff_alpha_u8(a : Double) -> Int {
+pub fn eff_alpha_u8(a : Double) -> Int32 {
   let x = if !(a >= 0.0) { 0.0 } else if a > 1.0 { 1.0 } else { a }
   (x * 255.0).round().to_int()
 }
@@ -206,15 +206,15 @@ fn eff_alpha_color(base : String, a : Double) -> String {
 
 ///|
 /// 量化 alpha 与 RGB 合成 "#AARRGGBB"（alpha 在前约定，同 with_alpha）。
-fn eff_argb_hex(a : Int, r : Int, g : Int, b : Int) -> String {
-  let d = fn(v : Int) -> Char {
+fn eff_argb_hex(a : Int32, r : Int32, g : Int32, b : Int32) -> String {
+  let d = fn(v : Int32) -> Char {
     if v < 10 {
       (v + 48).unsafe_to_char()
     } else {
       (v + 87).unsafe_to_char()
     }
   }
-  let h = fn(v : Int) -> String {
+  let h = fn(v : Int32) -> String {
     let sb = StringBuilder()
     sb.write_char(d((v >> 4) & 15))
     sb.write_char(d(v & 15))
@@ -266,7 +266,7 @@ fn eff_draw(
   h : Double,
   points : Array[EffPoint],
   phase : Double,
-  rings : Int,
+  rings : Int32,
   x_range : (Double, Double)?,
   y_range : (Double, Double)?,
 ) -> Unit {
@@ -382,14 +382,14 @@ fn eff_draw(
 /// 调 [eff_stop] 即时取消待触发回调。
 pub fn eff_chart_t(
   points : @base.Store[Array[EffPoint]],
-  period_ms? : Int = 3000,
-  rings? : Int = 3,
-  x_range? : (Double, Double)? = None,
-  y_range? : (Double, Double)? = None,
-  anim? : EffAnim = EffAnim::make(),
-  width? : Double = 0.0,
-  height? : Double = 320.0,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  period_ms~ : Int32 = 3000,
+  rings~ : Int32 = 3,
+  x_range~ : (Double, Double)? = None,
+  y_range~ : (Double, Double)? = None,
+  anim~ : EffAnim = EffAnim::make(),
+  width~ : Double = 0.0,
+  height~ : Double = 320.0,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.follow_store(points)
   let ringn = rings

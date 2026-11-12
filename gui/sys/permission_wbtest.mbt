@@ -42,10 +42,7 @@ test "request 契约：不炸、非 mac 是空操作" {
 
 ///|
 test "状态 Show 形状" {
-  assert_eq(
-    PermNotNeeded.to_string(),
-    "PermNotNeeded"
-  )
+  assert_eq(PermNotNeeded.to_string(), "PermNotNeeded")
   assert_eq(PermGranted.to_string(), "PermGranted")
   assert_eq(PermNotGranted.to_string(), "PermNotGranted")
 }

@@ -154,10 +154,16 @@ test "字幕文本归一化：剥 ASS 整行前缀，普通逗号不误伤" {
     "第一条字幕",
   )
   assert_eq(subtitle_ass_text("你好, 世界"), "你好, 世界")
-  assert_eq(subtitle_ass_text("正文里,有,很多,逗号,但前缀不是数字"), "正文里,有,很多,逗号,但前缀不是数字")
+  assert_eq(
+    subtitle_ass_text("正文里,有,很多,逗号,但前缀不是数字"),
+    "正文里,有,很多,逗号,但前缀不是数字",
+  )
   assert_eq(subtitle_ass_text(""), "")
   // 字段数不足八段的一律原样（宁可不剥，也不把正文切一半）
-  assert_eq(subtitle_ass_text("0,0,Default,,0,0,0,短行"), "0,0,Default,,0,0,0,短行")
+  assert_eq(
+    subtitle_ass_text("0,0,Default,,0,0,0,短行"),
+    "0,0,Default,,0,0,0,短行",
+  )
 }
 
 ///|
@@ -248,7 +254,10 @@ test "ffmpeg 硬解：显式请求下的三档状态与回落等价" {
     Err(e) => fail("硬解请求下开解码器失败：\{e}")
   }
   let st = hw.hw_status()
-  assert_true(st == 1 || st == 2, msg="状态只许 1(硬解) 或 2(已回落)，实际 \{st}")
+  assert_true(
+    st == 1 || st == 2,
+    msg="状态只许 1(硬解) 或 2(已回落)，实际 \{st}",
+  )
   // 帧输出策略位：软解与硬解两路都只有 SwScale 一档（H2 收敛点；直纹理档
   // 随 GPU 线首消费者落地，见 proposals/gpu-architecture.md）
   assert_eq(hw.transfer_mode(), 0)
@@ -256,7 +265,13 @@ test "ffmpeg 硬解：显式请求下的三档状态与回落等价" {
   if st == 2 {
     assert_true(hw.hw_reason().length() > 0, msg="回落必须带原因")
   }
-  let label = if st == 1 { "硬解" } else if st == 2 { "已回落" } else { "软解" }
+  let label = if st == 1 {
+    "硬解"
+  } else if st == 2 {
+    "已回落"
+  } else {
+    "软解"
+  }
   println("ffmpeg 硬解冒烟 status=\{st}（\{label}）\{hw.hw_reason()}")
   let got = match hw.decode_rgba() {
     Some(b) => b
@@ -301,7 +316,10 @@ test "transfer_mode setter：0/1 可设可读、未知档回 Err；直纹理档�
     Err(e) => fail("设 1 不该报错：\{e}")
   }
   assert_eq(d.transfer_mode(), 1)
-  assert_true(d.decode_rgba() is None, msg="直纹理档未落地，应如实不出帧")
+  assert_true(
+    d.decode_rgba() is None,
+    msg="直纹理档未落地，应如实不出帧",
+  )
   // 未知档回 Err，位保持原值
   match d.set_transfer_mode(5) {
     Err(msg) =>

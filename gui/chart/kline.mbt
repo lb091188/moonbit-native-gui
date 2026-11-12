@@ -76,11 +76,11 @@ pub fn kline_is_up(c : Candle) -> Bool {
 /// 中心过槽中点（影线同用此中心），实体宽为槽宽 × ratio（默认 0.7，
 /// 钳到 [0, 1]），宽不足 1px 时钳到 1（密集根数仍可见）。
 pub fn kline_slot(
-  i : Int,
-  n : Int,
+  i : Int32,
+  n : Int32,
   left : Double,
   right : Double,
-  ratio? : Double = 0.7,
+  ratio~ : Double = 0.7,
 ) -> (Double, Double) {
   if n <= 0 {
     return ((left + right) / 2.0, (right - left).max(1.0))
@@ -97,8 +97,8 @@ pub fn kline_slot(
 /// 两像素值的上端与 |close-open| 像素高；平盘（open==close）高度钳到
 /// >= 1 保持可见。
 pub fn kline_body_rect(
-  i : Int,
-  n : Int,
+  i : Int32,
+  n : Int32,
   c : Candle,
   lo : Double,
   hi : Double,
@@ -106,7 +106,7 @@ pub fn kline_body_rect(
   right : Double,
   top : Double,
   bottom : Double,
-  ratio? : Double = 0.7,
+  ratio~ : Double = 0.7,
 ) -> (Double, Double, Double, Double) {
   let (cx, w) = kline_slot(i, n, left, right, ratio~)
   let y_open = map_y(c.open, lo, hi, top, bottom)
@@ -120,8 +120,8 @@ pub fn kline_body_rect(
 /// 第 i 根 K 线影线段 (cx, y_high, y_low)（画布坐标）：竖线过实体中心
 /// （与 [kline_slot] 同源），从 high 像素到 low 像素。
 pub fn kline_wick_span(
-  i : Int,
-  n : Int,
+  i : Int32,
+  n : Int32,
   c : Candle,
   lo : Double,
   hi : Double,
@@ -129,7 +129,7 @@ pub fn kline_wick_span(
   right : Double,
   top : Double,
   bottom : Double,
-  ratio? : Double = 0.7,
+  ratio~ : Double = 0.7,
 ) -> (Double, Double, Double) {
   let (cx, _w) = kline_slot(i, n, left, right, ratio~)
   (cx, map_y(c.high, lo, hi, top, bottom), map_y(c.low, lo, hi, top, bottom))
@@ -192,7 +192,11 @@ fn kline_draw(
     return
   }
   let up_c = if up_color != "" { up_color } else { @theme.theme_danger() }
-  let down_c = if down_color != "" { down_color } else { @theme.theme_success() }
+  let down_c = if down_color != "" {
+    down_color
+  } else {
+    @theme.theme_success()
+  }
   for i in 0..<n {
     let c = candles[i]
     let color = if kline_is_up(c) { up_c } else { down_c }
@@ -218,12 +222,12 @@ fn kline_draw(
 /// 驱动，set 后只重绘画布不重建视图树；主题切换现取色自动跟随。
 pub fn candlestick_t(
   candles : @base.Store[Array[Candle]],
-  y_range? : (Double, Double)? = None,
-  up_color? : String = "",
-  down_color? : String = "",
-  width? : Double = 0.0,
-  height? : Double = 280.0,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  y_range~ : (Double, Double)? = None,
+  up_color~ : String = "",
+  down_color~ : String = "",
+  width~ : Double = 0.0,
+  height~ : Double = 280.0,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.follow_store(candles)
   let yr = y_range

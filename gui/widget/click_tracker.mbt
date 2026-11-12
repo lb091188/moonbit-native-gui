@@ -8,7 +8,7 @@ pub(all) struct ClickTracker {
   mut last_time : Int64
   mut last_x : Double
   mut last_y : Double
-  mut click_count : Int
+  mut click_count : Int32
 }
 
 ///|
@@ -19,7 +19,11 @@ pub fn ClickTracker::new() -> ClickTracker {
 ///|
 /// 收到 Down 事件时调：命中双击阈值返回 2（双击），否则重置为 1（单击）。
 /// 第三次快速连点返回 3（三击），依次类推。
-pub fn ClickTracker::feed_down(self : ClickTracker, x : Double, y : Double) -> Int {
+pub fn ClickTracker::feed_down(
+  self : ClickTracker,
+  x : Double,
+  y : Double,
+) -> Int32 {
   let now = @shell.now_ms()
   let dt = now - self.last_time
   let dx = x - self.last_x
@@ -55,9 +59,9 @@ pub fn ClickTracker::is_triple(self : ClickTracker) -> Bool {
 /// 限幅内的人手连按才计为多击。
 pub(all) struct KeyTracker {
   mut last_time : Int64
-  mut last_keysym : Int
-  mut last_mods : Int
-  mut press_count : Int
+  mut last_keysym : Int32
+  mut last_mods : Int32
+  mut press_count : Int32
 }
 
 ///|
@@ -67,7 +71,11 @@ pub fn KeyTracker::new() -> KeyTracker {
 
 ///|
 /// 收到按键按下时调：同一键在 60–400ms 内再按返回 2（双击），依次类推。
-pub fn KeyTracker::feed(self : KeyTracker, keysym : Int, mods : Int) -> Int {
+pub fn KeyTracker::feed(
+  self : KeyTracker,
+  keysym : Int32,
+  mods : Int32,
+) -> Int32 {
   let now = @shell.now_ms()
   let dt = now - self.last_time
   let same = keysym == self.last_keysym && mods == self.last_mods

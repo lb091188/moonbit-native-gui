@@ -25,26 +25,24 @@ pub fn gradient_linear(
   x1 : Double,
   y1 : Double,
 ) -> GradientSpec {
-  { kind: Linear(x0, y0, x1, y1), stops: [] }
+  { kind: Linear(x0, y0, x1, y1), stops: [], }
 }
 
 ///|
 /// 径向渐变（归一化圆心与半径比例；r=1.0 即短边一半）。
 pub fn gradient_radial(cx : Double, cy : Double, r : Double) -> GradientSpec {
-  { kind: Radial(cx, cy, r), stops: [] }
+  { kind: Radial(cx, cy, r), stops: [], }
 }
 
 ///|
 /// 追加停靠点：offset 钳制 [0,1]；颜色按样式颜色口径（token 名 / hex / 命名色，
 /// 非法名在绘制期 resolve 时回落，与纯色同口径）。
-pub fn GradientSpec::add_stop(self : GradientSpec, offset : Double, color : String) -> Unit {
-  let at = if offset < 0.0 {
-    0.0
-  } else if offset > 1.0 {
-    1.0
-  } else {
-    offset
-  }
+pub fn GradientSpec::add_stop(
+  self : GradientSpec,
+  offset : Double,
+  color : String,
+) -> Unit {
+  let at = if offset < 0.0 { 0.0 } else if offset > 1.0 { 1.0 } else { offset }
   self.stops.push((at, parse_color(color)))
 }
 

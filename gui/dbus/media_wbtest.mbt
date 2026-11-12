@@ -41,7 +41,10 @@ test "media_mpris_names：ListNames 应答过滤" {
   assert_eq(names[1], "org.mpris.MediaPlayer2.playerctld")
   // 非数组应答 → 空表（应答形态不符不当作"有播放器"）
   assert_eq(media_mpris_names(GVNone).length(), 0)
-  assert_eq(media_mpris_names(GVString("org.mpris.MediaPlayer2.vlc")).length(), 0)
+  assert_eq(
+    media_mpris_names(GVString("org.mpris.MediaPlayer2.vlc")).length(),
+    0,
+  )
 }
 
 ///|
@@ -66,10 +69,7 @@ test "media_status_of：Metadata 的 xesam 字段提取" {
   meta.set("xesam:title", GVString("晴天"))
   meta.set(
     "xesam:artist",
-    GVArray("s", [
-      GVString("周杰伦"),
-      GVString("费玉清"),
-    ]),
+    GVArray("s", [GVString("周杰伦"), GVString("费玉清")]),
   )
   meta.set("xesam:album", GVString("叶惠美"))
   let st = media_status_of("org.mpris.MediaPlayer2.vlc", MediaPlaying, meta)
@@ -97,7 +97,10 @@ test "media_status_of：Metadata 的 xesam 字段提取" {
 test "media_playerctl_sel / media_playerctl_parse_meta：命令回退纯逻辑" {
   // -p 选择参数：剥 MPRIS 前缀取实例名；非 MPRIS 形态原样
   assert_eq(media_playerctl_sel("org.mpris.MediaPlayer2.vlc"), "vlc")
-  assert_eq(media_playerctl_sel("org.mpris.MediaPlayer2.chromium.instance1"), "chromium.instance1")
+  assert_eq(
+    media_playerctl_sel("org.mpris.MediaPlayer2.chromium.instance1"),
+    "chromium.instance1",
+  )
   assert_eq(media_playerctl_sel("vlc"), "vlc")
   // --format 输出按 US 字符切三段
   let (t1, a1, b1) = media_playerctl_parse_meta(
@@ -203,18 +206,19 @@ test "media_status_changed：状态快照变化判定" {
   // 完全相同的快照无变化
   assert_false(media_status_changed(base, base))
   // 播放态变化
-  assert_true(media_status_changed(
-      base,
-      MediaStatus::{ ..base, playback: MediaPaused },
-    ))
+  assert_true(
+    media_status_changed(base, MediaStatus::{ ..base, playback: MediaPaused, }),
+  )
   // 标题变化
-  assert_true(media_status_changed(base, MediaStatus::{ ..base, title: "X" }))
+  assert_true(media_status_changed(base, MediaStatus::{ ..base, title: "X", }))
   // 艺术家变化
-  assert_true(media_status_changed(base, MediaStatus::{ ..base, artist: "Y" }))
+  assert_true(media_status_changed(base, MediaStatus::{ ..base, artist: "Y", }))
   // 专辑变化
-  assert_true(media_status_changed(base, MediaStatus::{ ..base, album: "Z" }))
+  assert_true(media_status_changed(base, MediaStatus::{ ..base, album: "Z", }))
   // player 字段本身不参与变化判定（目标锁定后不会变）
-  assert_false(media_status_changed(base, MediaStatus::{ ..base, player: "other" }))
+  assert_false(
+    media_status_changed(base, MediaStatus::{ ..base, player: "other", }),
+  )
 }
 
 ///|
@@ -239,7 +243,7 @@ test "media 真机冒烟：监视启动后立停不崩（无播放器环境跳�
   // 只验证句柄与停止路径，不真起轮询
   let pending : Array[() -> Unit] = []
   let w = media_watch_status(
-    fn(_ms : Int, f : () -> Unit) -> Unit { pending.push(f) },
+    fn(_ms : Int32, f : () -> Unit) -> Unit { pending.push(f) },
     fn(_s : MediaStatus) -> Unit { fired = fired + 1 },
     interval_ms=100,
   )

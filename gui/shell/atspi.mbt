@@ -29,8 +29,8 @@
 ///|
 /// AT-SPI 桥的一行快照（从 @win 的 TSV 通道解析；字段序与发布侧一致）。
 pub(all) struct AtspiNode {
-  id : Int
-  parent : Int
+  id : Int32
+  parent : Int32
   enabled : Bool
   role : String
   name : String
@@ -45,7 +45,7 @@ pub(all) struct AtspiNode {
 
 ///|
 /// 有符号十进制整数（"-1" → -1；空串或含非数字 None）。
-fn atspi_parse_int(s : String) -> Int? {
+fn atspi_parse_int(s : String) -> Int32? {
   if s == "" {
     return None
   }
@@ -129,11 +129,7 @@ fn atspi_parse_double(s : String) -> Double? {
   if !seen_digit {
     return None
   }
-  let mut out = if frac > 0.0 {
-    v + frac / scale
-  } else {
-    v
-  }
+  let mut out = if frac > 0.0 { v + frac / scale } else { v }
   // 指数段（k 停在 e/E 上）：带符号十进制，按位乘除 10（%.10g 的指数范围
   // 内够用，且不引数学依赖）
   if k < s.length() {
@@ -145,9 +141,7 @@ fn atspi_parse_double(s : String) -> Double? {
         eneg = true
         k = k + 1
       }
-      Some('+') => {
-        k = k + 1
-      }
+      Some('+') => k = k + 1
       _ => ()
     }
     let mut eseen = false
@@ -195,15 +189,16 @@ pub fn atspi_row_parse(tsv : String) -> AtspiNode? {
   if f.length() < 12 {
     return None
   }
-  match (
-    atspi_parse_int(f[0]),
-    atspi_parse_int(f[1]),
-    atspi_parse_int(f[2]),
-    atspi_parse_double(f[8]),
-    atspi_parse_double(f[9]),
-    atspi_parse_double(f[10]),
-    atspi_parse_double(f[11]),
-  ) {
+  match
+    (
+      atspi_parse_int(f[0]),
+      atspi_parse_int(f[1]),
+      atspi_parse_int(f[2]),
+      atspi_parse_double(f[8]),
+      atspi_parse_double(f[9]),
+      atspi_parse_double(f[10]),
+      atspi_parse_double(f[11]),
+    ) {
     (Some(id), Some(parent), Some(en), Some(x), Some(y), Some(w), Some(h)) =>
       Some({
         id,
@@ -233,7 +228,7 @@ pub const ATSPI_WIN_PATH : String = "/org/a11y/atspi/accessible/win"
 
 ///|
 /// 控件对象路径（按 widget id 稳态寻址）。
-pub fn atspi_widget_path(id : Int) -> String {
+pub fn atspi_widget_path(id : Int32) -> String {
   "\{ATSPI_WIN_PATH}/\{id}"
 }
 
@@ -250,7 +245,7 @@ fn atspi_window_row(rows : Array[AtspiNode]) -> AtspiNode? {
 
 ///|
 /// 按 id 找快照行。
-fn atspi_row_by_id(rows : Array[AtspiNode], id : Int) -> AtspiNode? {
+fn atspi_row_by_id(rows : Array[AtspiNode], id : Int32) -> AtspiNode? {
   for r in rows {
     if r.id == id {
       return Some(r)
@@ -261,7 +256,10 @@ fn atspi_row_by_id(rows : Array[AtspiNode], id : Int) -> AtspiNode? {
 
 ///|
 /// parent 的直接子行（按快照序）。
-fn atspi_children_of(rows : Array[AtspiNode], parent : Int) -> Array[AtspiNode] {
+fn atspi_children_of(
+  rows : Array[AtspiNode],
+  parent : Int32,
+) -> Array[AtspiNode] {
   let out : Array[AtspiNode] = []
   for r in rows {
     if r.parent == parent {
@@ -276,7 +274,7 @@ fn atspi_children_of(rows : Array[AtspiNode], parent : Int) -> Array[AtspiNode] 
 
 ///|
 /// 库内 role 串 → AtspiRole 枚举值（未登记的面板容器给 panel）。
-pub fn atspi_role_of(role : String) -> Int {
+pub fn atspi_role_of(role : String) -> Int32 {
   match role {
     "button" => 43 // push_button
     "checkbox" => 7 // check_box
@@ -331,8 +329,8 @@ pub fn atspi_role_name_of(role : String) -> String {
 
 ///|
 /// AtspiStateType 状态位集合（au）：快照行 + 焦点 id → 状态数组。
-pub fn atspi_states_of(n : AtspiNode, focus_id : Int) -> Array[Int] {
-  let st : Array[Int] = []
+pub fn atspi_states_of(n : AtspiNode, focus_id : Int32) -> Array[Int32] {
+  let st : Array[Int32] = []
   st.push(25) // showing（快照只收可见行）
   st.push(30) // visible
   if n.enabled {
@@ -364,8 +362,7 @@ pub fn atspi_states_of(n : AtspiNode, focus_id : Int) -> Array[Int] {
 /// 该行挂哪些接口（GetInterfaces 的答案；Accessible/Component 全体有）。
 pub fn atspi_ifaces_of(n : AtspiNode) -> Array[String] {
   let ifs : Array[String] = [
-    "org.a11y.atspi.Accessible",
-    "org.a11y.atspi.Component",
+    "org.a11y.atspi.Accessible", "org.a11y.atspi.Component",
   ]
   if n.role == "text" || n.role == "text_input" || n.role == "text_area" {
     ifs.push("org.a11y.atspi.Text")
@@ -373,8 +370,9 @@ pub fn atspi_ifaces_of(n : AtspiNode) -> Array[String] {
   if n.role == "slider" || n.role == "stepper" || n.role == "progress" {
     ifs.push("org.a11y.atspi.Value")
   }
-  if
-    n.role == "button" || n.role == "link" || n.role == "menuitem" ||
+  if n.role == "button" ||
+    n.role == "link" ||
+    n.role == "menuitem" ||
     n.role == "checkbox" ||
     n.role == "switch" ||
     n.role == "radio" ||
@@ -413,12 +411,25 @@ priv enum AtspiState {
   AtspiDown
 }
 
+///|
 let g_atspi_state : Ref[AtspiState] = Ref(AtspiIdle)
-let g_atspi_retry : Ref[Int] = Ref(0)
+
+///|
+let g_atspi_retry : Ref[Int32] = Ref(0)
+
+///|
 let g_atspi_name : Ref[String] = Ref("")
+
+///|
 let g_atspi_last_rows : Ref[Array[AtspiNode]] = Ref([])
+
+///|
 let g_atspi_last_digest : Ref[String] = Ref("")
-let g_atspi_last_focus : Ref[Int] = Ref(0)
+
+///|
+let g_atspi_last_focus : Ref[Int32] = Ref(0)
+
+///|
 let g_atspi_handler_on : Ref[Bool] = Ref(false)
 
 ///|
@@ -506,12 +517,7 @@ pub fn atspi_start() -> Result[Unit, String] {
       ATSPI_ROOT_PATH,
       "org.a11y.atspi.Socket",
       "Embed",
-      [
-        @dbus.GVStruct([
-          @dbus.GVString(mine),
-          @dbus.GVPath(ATSPI_ROOT_PATH),
-        ]),
-      ],
+      [@dbus.GVStruct([@dbus.GVString(mine), @dbus.GVPath(ATSPI_ROOT_PATH)])],
     ) {
     Ok(_) => ()
     Err(e) => return Err("Socket.Embed 失败: \{e.name} \{e.message}")
@@ -536,8 +542,7 @@ fn atspi_install_handler() -> Unit {
   @dbus.dbus_set_call_handler(fn(req : @dbus.CallReq) -> Unit {
     if !atspi_handle(req) {
       (req.reply_error)(
-        "org.freedesktop.DBus.Error.UnknownMethod",
-        "非 AT-SPI 对象或不支持的方法",
+        "org.freedesktop.DBus.Error.UnknownMethod", "非 AT-SPI 对象或不支持的方法",
       )
     }
   })
@@ -652,39 +657,45 @@ fn atspi_self_ref(path : String) -> @dbus.GDBusValue {
 fn atspi_root_accessor(rows : Array[AtspiNode]) -> AtspiNode {
   // 应用根是合成节点：身份取窗口根行（名字/几何），id=0、parent=0
   match atspi_window_row(rows) {
-    Some(w) => {
-      id: 0,
-      parent: 0,
-      enabled: w.enabled,
-      role: "window",
-      name: w.name,
-      state: w.state,
-      value: w.value,
-      text: w.text,
-      x: w.x,
-      y: w.y,
-      w: w.w,
-      h: w.h,
-    }
-    None => {
-      id: 0,
-      parent: 0,
-      enabled: true,
-      role: "window",
-      name: "",
-      state: "",
-      value: "",
-      text: "",
-      x: 0.0,
-      y: 0.0,
-      w: 0.0,
-      h: 0.0,
-    }
+    Some(w) =>
+      {
+        id: 0,
+        parent: 0,
+        enabled: w.enabled,
+        role: "window",
+        name: w.name,
+        state: w.state,
+        value: w.value,
+        text: w.text,
+        x: w.x,
+        y: w.y,
+        w: w.w,
+        h: w.h,
+      }
+    None =>
+      {
+        id: 0,
+        parent: 0,
+        enabled: true,
+        role: "window",
+        name: "",
+        state: "",
+        value: "",
+        text: "",
+        x: 0.0,
+        y: 0.0,
+        w: 0.0,
+        h: 0.0,
+      }
   }
 }
 
 ///|
-fn atspi_accessible(req : @dbus.CallReq, rows : Array[AtspiNode], focus_id : Int) -> Bool {
+fn atspi_accessible(
+  req : @dbus.CallReq,
+  rows : Array[AtspiNode],
+  focus_id : Int32,
+) -> Bool {
   let is_root = req.path == ATSPI_ROOT_PATH
   let node = if is_root {
     Some(atspi_root_accessor(rows))
@@ -703,13 +714,13 @@ fn atspi_accessible(req : @dbus.CallReq, rows : Array[AtspiNode], focus_id : Int
   } else {
     atspi_children_of(rows, n.id)
   }
-  let arg = fn(i : Int) -> @dbus.GDBusValue? {
+  let arg = fn(i : Int32) -> @dbus.GDBusValue? {
     match req.args.get(i) {
       Some(v) => Some(v)
       None => None
     }
   }
-  let arg_i = fn(i : Int) -> Int? {
+  let arg_i = fn(i : Int32) -> Int32? {
     match arg(i) {
       Some(@dbus.GVInt32(v)) => Some(v)
       Some(@dbus.GVUInt32(v)) => Some(v)
@@ -718,15 +729,33 @@ fn atspi_accessible(req : @dbus.CallReq, rows : Array[AtspiNode], focus_id : Int
   }
   match req.action {
     "GetRole" => {
-      (req.reply)([@dbus.GVUInt32(if is_root { 75 } else { atspi_role_of(n.role) })])
+      (req.reply)([
+        @dbus.GVUInt32(if is_root { 75 } else { atspi_role_of(n.role) }),
+      ])
       true
     }
     "GetRoleName" => {
-      (req.reply)([@dbus.GVString(if is_root { "application" } else { atspi_role_name_of(n.role) })])
+      (req.reply)([
+        @dbus.GVString(
+          if is_root {
+            "application"
+          } else {
+            atspi_role_name_of(n.role)
+          },
+        ),
+      ])
       true
     }
     "GetLocalizedRoleName" => {
-      (req.reply)([@dbus.GVString(if is_root { "application" } else { atspi_role_name_of(n.role) })])
+      (req.reply)([
+        @dbus.GVString(
+          if is_root {
+            "application"
+          } else {
+            atspi_role_name_of(n.role)
+          },
+        ),
+      ])
       true
     }
     "GetChildCount" => {
@@ -817,14 +846,9 @@ fn atspi_accessible(req : @dbus.CallReq, rows : Array[AtspiNode], focus_id : Int
 
 ///|
 /// 屏幕坐标矩形（窗口原点 + 快照矩形）。
-fn atspi_screen_rect(n : AtspiNode) -> (Int, Int, Int, Int) {
+fn atspi_screen_rect(n : AtspiNode) -> (Int32, Int32, Int32, Int32) {
   let (ox, oy) = @win.a11y_window_origin()
-  (
-    (ox + n.x).to_int(),
-    (oy + n.y).to_int(),
-    n.w.to_int(),
-    n.h.to_int(),
-  )
+  ((ox + n.x).to_int(), (oy + n.y).to_int(), n.w.to_int(), n.h.to_int())
 }
 
 ///|
@@ -832,18 +856,19 @@ fn atspi_screen_rect(n : AtspiNode) -> (Int, Int, Int, Int) {
 fn atspi_rect_for(
   rows : Array[AtspiNode],
   n : AtspiNode,
-  coord : Int,
-) -> (Int, Int, Int, Int) {
+  coord : Int32,
+) -> (Int32, Int32, Int32, Int32) {
   match coord {
     0 => atspi_screen_rect(n)
     2 =>
       match atspi_row_by_id(rows, n.parent) {
-        Some(p) => (
-          (n.x - p.x).to_int(),
-          (n.y - p.y).to_int(),
-          n.w.to_int(),
-          n.h.to_int(),
-        )
+        Some(p) =>
+          (
+            (n.x - p.x).to_int(),
+            (n.y - p.y).to_int(),
+            n.w.to_int(),
+            n.h.to_int(),
+          )
         None => (n.x.to_int(), n.y.to_int(), n.w.to_int(), n.h.to_int())
       }
     _ => (n.x.to_int(), n.y.to_int(), n.w.to_int(), n.h.to_int())
@@ -855,9 +880,9 @@ fn atspi_rect_for(
 fn atspi_contains(
   rows : Array[AtspiNode],
   n : AtspiNode,
-  x : Int,
-  y : Int,
-  coord : Int,
+  x : Int32,
+  y : Int32,
+  coord : Int32,
 ) -> Bool {
   let (rx, ry, rw, rh) = atspi_rect_for(rows, n, coord)
   x >= rx && x < rx + rw && y >= ry && y < ry + rh
@@ -875,7 +900,7 @@ fn atspi_component(req : @dbus.CallReq, rows : Array[AtspiNode]) -> Bool {
     Some(x) => x
     None => return false
   }
-  let arg_i = fn(i : Int) -> Int? {
+  let arg_i = fn(i : Int32) -> Int32? {
     match req.args.get(i) {
       Some(@dbus.GVInt32(v)) => Some(v)
       Some(@dbus.GVUInt32(v)) => Some(v)
@@ -902,9 +927,7 @@ fn atspi_component(req : @dbus.CallReq, rows : Array[AtspiNode]) -> Bool {
             }
           }
           match best {
-            Some(b) => {
-              (req.reply)([atspi_self_ref(atspi_widget_path(b.id))])
-            }
+            Some(b) => (req.reply)([atspi_self_ref(atspi_widget_path(b.id))])
             None => (req.reply)([atspi_self_ref(ATSPI_WIN_PATH)])
           }
           true
@@ -915,16 +938,14 @@ fn atspi_component(req : @dbus.CallReq, rows : Array[AtspiNode]) -> Bool {
       match arg_i(0) {
         Some(ct) => {
           let (x, y, w, h) = atspi_rect_for(rows, n, ct)
-          (req.reply)(
-            [
-              @dbus.GVStruct([
-                @dbus.GVInt32(x),
-                @dbus.GVInt32(y),
-                @dbus.GVInt32(w),
-                @dbus.GVInt32(h),
-              ]),
-            ],
-          )
+          (req.reply)([
+            @dbus.GVStruct([
+              @dbus.GVInt32(x),
+              @dbus.GVInt32(y),
+              @dbus.GVInt32(w),
+              @dbus.GVInt32(h),
+            ]),
+          ])
           true
         }
         None => false
@@ -948,12 +969,11 @@ fn atspi_component(req : @dbus.CallReq, rows : Array[AtspiNode]) -> Bool {
       (req.reply)([@dbus.GVUInt32(if n.parent == 0 { 2 } else { 3 })])
       true
     }
-    "GrabFocus" =>
-      // 焦点栈在 widget 层，桥不直改——如实回false（读屏回落键盘交互）
-      {
-        (req.reply)([@dbus.GVBool(false)])
-        true
-      }
+    // 焦点栈在 widget 层，桥不直改——如实回false（读屏回落键盘交互）
+    "GrabFocus" => {
+      (req.reply)([@dbus.GVBool(false)])
+      true
+    }
     "GetAlpha" => {
       (req.reply)([@dbus.GVDouble(1.0)])
       true
@@ -978,7 +998,7 @@ fn atspi_chars(s : String) -> Array[Char] {
 
 ///|
 /// 字符区间 → 子串（越界钳制；end<start 给空）。
-fn atspi_slice_chars(s : String, start : Int, end : Int) -> String {
+fn atspi_slice_chars(s : String, start : Int32, end : Int32) -> String {
   let cs = atspi_chars(s)
   let n = cs.length()
   let a = if start < 0 { 0 } else if start > n { n } else { start }
@@ -1006,7 +1026,7 @@ fn atspi_text(req : @dbus.CallReq, rows : Array[AtspiNode]) -> Bool {
     n.text
   }
   let cs = atspi_chars(body)
-  let arg_i = fn(i : Int) -> Int? {
+  let arg_i = fn(i : Int32) -> Int32? {
     match req.args.get(i) {
       Some(@dbus.GVInt32(v)) => Some(v)
       Some(@dbus.GVUInt32(v)) => Some(v)
@@ -1043,14 +1063,12 @@ fn atspi_text(req : @dbus.CallReq, rows : Array[AtspiNode]) -> Bool {
           let o = if off < 0 { 0 } else if off > n2 { n2 } else { off }
           let _ = gran
           let s = if o < n2 { cs[o].to_string() } else { "" }
-          (req.reply)(
-            [
-              @dbus.GVString(s),
-              @dbus.GVInt32(o),
-              @dbus.GVInt32(o + 1),
-              @dbus.GVString(""),
-            ],
-          )
+          (req.reply)([
+            @dbus.GVString(s),
+            @dbus.GVInt32(o),
+            @dbus.GVInt32(o + 1),
+            @dbus.GVString(""),
+          ])
           true
         }
         _ => false
@@ -1167,7 +1185,7 @@ fn atspi_action(req : @dbus.CallReq, rows : Array[AtspiNode]) -> Bool {
   if !atspi_ifaces_of(n).contains("org.a11y.atspi.Action") {
     return false
   }
-  let arg_i = fn(i : Int) -> Int? {
+  let arg_i = fn(i : Int32) -> Int32? {
     match req.args.get(i) {
       Some(@dbus.GVInt32(v)) => Some(v)
       _ => None
@@ -1201,7 +1219,10 @@ fn atspi_action(req : @dbus.CallReq, rows : Array[AtspiNode]) -> Bool {
             @win.a11y_action_push(n.id, @win.A11Y_ACT_CLICK)
             (req.reply)([@dbus.GVBool(true)])
           } else {
-            (req.reply_error)("org.a11y.atspi.Error.Failed", "未知动作下标 \{i}")
+            (req.reply_error)(
+              "org.a11y.atspi.Error.Failed",
+              "未知动作下标 \{i}",
+            )
           }
           true
         }
@@ -1228,7 +1249,7 @@ fn atspi_props(req : @dbus.CallReq, rows : Array[AtspiNode]) -> Bool {
     Some(x) => x
     None => return false
   }
-  let prop_of = fn(i : Int) -> String? {
+  let prop_of = fn(i : Int32) -> String? {
     match req.args.get(i) {
       Some(@dbus.GVString(s)) => Some(s)
       _ => None
@@ -1303,22 +1324,18 @@ fn atspi_props(req : @dbus.CallReq, rows : Array[AtspiNode]) -> Bool {
     "GetAll" => {
       let arr : Array[@dbus.GDBusValue] = []
       for k, v in props {
-        arr.push(
-          @dbus.GVStruct([@dbus.GVString(k), @dbus.GVVariant(v)]),
-        )
+        arr.push(@dbus.GVStruct([@dbus.GVString(k), @dbus.GVVariant(v)]))
       }
       (req.reply)([@dbus.GVArray("{sv}", arr)])
       true
     }
-    "Set" =>
-      // 属性只读（registry 的 Application.Id 走标准 Properties 实现，不归本桥）
-      {
-        (req.reply_error)(
-          "org.freedesktop.DBus.Error.PropertyReadOnly",
-          "AT-SPI 桥的属性只读",
-        )
-        true
-      }
+    // 属性只读（registry 的 Application.Id 走标准 Properties 实现，不归本桥）
+    "Set" => {
+      (req.reply_error)(
+        "org.freedesktop.DBus.Error.PropertyReadOnly", "AT-SPI 桥的属性只读",
+      )
+      true
+    }
     _ => false
   }
 }
@@ -1341,14 +1358,16 @@ fn atspi_props(req : @dbus.CallReq, rows : Array[AtspiNode]) -> Bool {
 fn atspi_digest(rows : Array[AtspiNode]) -> String {
   let sb = StringBuilder()
   for r in rows {
-    sb.write_string("\{r.id}/\{r.parent}/\{r.role}/\{r.name}/\{r.state}/\{r.value}/\{r.enabled}\n")
+    sb.write_string(
+      "\{r.id}/\{r.parent}/\{r.role}/\{r.name}/\{r.state}/\{r.value}/\{r.enabled}\n",
+    )
   }
   sb.to_string()
 }
 
 ///|
 /// 发 ChildrenChanged（树内容变了）。
-fn atspi_emit_children_changed(count : Int) -> Unit {
+fn atspi_emit_children_changed(count : Int32) -> Unit {
   let _ = @dbus.dbus_emit_signal_a11y(
     ATSPI_WIN_PATH,
     "org.a11y.atspi.Event.Object",

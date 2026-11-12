@@ -3,7 +3,11 @@
 // 一律用「像素包围盒 + 相对位置」判定，不锁具体字形尺寸（换字体不假红）。
 
 ///|
-fn pixel_rgba(bm : @render.Bitmap, x : Int, y : Int) -> (Int, Int, Int, Int) {
+fn pixel_rgba(
+  bm : @render.Bitmap,
+  x : Int32,
+  y : Int32,
+) -> (Int32, Int32, Int32, Int32) {
   let c = bm.pixel(x, y)
   (c.r, c.g, c.b, c.a)
 }
@@ -12,8 +16,8 @@ fn pixel_rgba(bm : @render.Bitmap, x : Int, y : Int) -> (Int, Int, Int, Int) {
 /// 满足条件的像素包围盒（无命中给 None）。
 fn bbox_where(
   bm : @render.Bitmap,
-  pred : ((Int, Int, Int, Int)) -> Bool,
-) -> (Int, Int, Int, Int)? {
+  pred : ((Int32, Int32, Int32, Int32)) -> Bool,
+) -> (Int32, Int32, Int32, Int32)? {
   let mut x0 = bm.width
   let mut y0 = bm.height
   let mut x1 = -1
@@ -44,19 +48,19 @@ fn bbox_where(
 }
 
 ///|
-fn is_red(c : (Int, Int, Int, Int)) -> Bool {
+fn is_red(c : (Int32, Int32, Int32, Int32)) -> Bool {
   let (r, g, b, a) = c
   a > 100 && r > 180 && g < 80 && b < 80
 }
 
 ///|
-fn is_black(c : (Int, Int, Int, Int)) -> Bool {
+fn is_black(c : (Int32, Int32, Int32, Int32)) -> Bool {
   let (r, g, b, a) = c
   a > 100 && r < 80 && g < 80 && b < 80
 }
 
 ///|
-fn paint(at : AttributedText, w : Int, h : Int) -> @render.Bitmap {
+fn paint(at : AttributedText, w : Int32, h : Int32) -> @render.Bitmap {
   let bm = @render.Bitmap::new(w, h)
   let _ = at.draw(bm, 2.0, 2.0, 0.0, h.to_double())
   bm
@@ -185,10 +189,18 @@ test "富文本经会话绘制：随平移落位且被裁剪" {
   for y = 0; y < 200; y = y + 1 {
     for x = 0; x < 200; x = x + 1 {
       if bm.pixel(x, y).a > 0 {
-        if x < x0 { x0 = x }
-        if y < y0 { y0 = y }
-        if x > x1 { x1 = x }
-        if y > y1 { y1 = y }
+        if x < x0 {
+          x0 = x
+        }
+        if y < y0 {
+          y0 = y
+        }
+        if x > x1 {
+          x1 = x
+        }
+        if y > y1 {
+          y1 = y
+        }
       }
     }
   }

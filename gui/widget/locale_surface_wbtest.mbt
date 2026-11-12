@@ -24,7 +24,7 @@ fn clear_locale_subs() -> Unit {
 test "set_menu_bar_localized：注册即建一次，换目录再建一次，重复登记替换旧构建器" {
   clear_locale_subs()
   @i18n.i18n_reset()
-  let builds : Ref[Int] = Ref(0)
+  let builds : Ref[Int32] = Ref(0)
   set_menu_bar_localized(fn(_w : @win.Window) -> @shell.MenuBar {
     builds.val += 1
     @shell.MenuBar::new()
@@ -50,7 +50,7 @@ test "set_menu_bar_localized：注册即建一次，换目录再建一次，重�
 test "set_window_title_localized：注册即写一次，换目录再写，重复登记替换旧取串口" {
   clear_locale_subs()
   @i18n.i18n_reset()
-  let calls : Ref[Int] = Ref(0)
+  let calls : Ref[Int32] = Ref(0)
   set_window_title_localized(fn(_w : @win.Window) -> String {
     calls.val += 1
     "标题"
@@ -60,7 +60,7 @@ test "set_window_title_localized：注册即写一次，换目录再写，重复
   @i18n.i18n_load("[meta]\nlocale = \"en\"\n")
   assert_true(calls.val > a)
   // 换一任登记：旧口停住，新口接手（登记即写一次，广播再写一次）
-  let calls2 : Ref[Int] = Ref(0)
+  let calls2 : Ref[Int32] = Ref(0)
   set_window_title_localized(fn(_w : @win.Window) -> String {
     calls2.val += 1
     "另一任"
@@ -80,7 +80,7 @@ test "set_window_title_localized：注册即写一次，换目录再写，重复
 test "localized：广播即重建子树，旧树让位" {
   clear_locale_subs()
   @i18n.i18n_reset()
-  let builds : Ref[Int] = Ref(0)
+  let builds : Ref[Int32] = Ref(0)
   let root = Widget::new()
   root.set_size(200.0, 80.0)
   root.set_column()

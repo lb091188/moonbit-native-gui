@@ -30,8 +30,8 @@ pub(all) struct SunItem {
 /// [sun_total]，与独立聚合函数同一规则，不传即自动填默认）。
 pub fn SunItem::make(
   name : String,
-  value? : Double? = None,
-  children? : Array[SunItem] = [],
+  value~ : Double? = None,
+  children~ : Array[SunItem] = [],
 ) -> SunItem {
   let v = match value {
     Some(x) => x
@@ -65,7 +65,7 @@ pub fn sun_total(item : SunItem) -> Double {
 ///|
 /// 树最大深度：根的直系子项深度为 1，逐层向下取最大；无子项为 0。
 /// 即环形分段的最深层级（环数）。
-pub fn sun_max_depth(item : SunItem) -> Int {
+pub fn sun_max_depth(item : SunItem) -> Int32 {
   let mut d = 0
   for c in item.children {
     let cd = sun_max_depth(c) + 1
@@ -86,7 +86,7 @@ pub fn sun_max_depth(item : SunItem) -> Int {
 /// 父段下标恒小于其子段下标。
 pub(all) struct SunSegment {
   name : String
-  depth : Int
+  depth : Int32
   value : Double
   a0 : Double
   a1 : Double
@@ -94,8 +94,8 @@ pub(all) struct SunSegment {
   cy : Double
   r_in : Double
   r_out : Double
-  parent : Int
-  top : Int
+  parent : Int32
+  top : Int32
 }
 
 ///|
@@ -105,7 +105,7 @@ priv struct SunRingGeom {
   cy : Double
   ri0 : Double
   span : Double
-  rings : Int
+  rings : Int32
 }
 
 ///|
@@ -117,11 +117,11 @@ priv struct SunRingGeom {
 /// 父段下标恒小于子段。
 fn sun_emit(
   item : SunItem,
-  depth : Int,
+  depth : Int32,
   a0 : Double,
   a1 : Double,
-  parent : Int,
-  top : Int,
+  parent : Int32,
+  top : Int32,
   geom : SunRingGeom,
   out : Array[SunSegment],
 ) -> Unit {
@@ -213,7 +213,7 @@ pub fn sun_seam(
   a0 : Double,
   a1 : Double,
   rm : Double,
-  gap? : Double = 1.6,
+  gap~ : Double = 1.6,
 ) -> (Double, Double)? {
   let half = gap / 2.0 / (if rm > 1.0 { rm } else { 1.0 })
   if a1 - a0 <= 2.0 * half {
@@ -230,7 +230,7 @@ pub fn sun_seam(
 pub fn sun_radial_gap(
   r_in : Double,
   r_out : Double,
-  gap? : Double = 0.8,
+  gap~ : Double = 0.8,
 ) -> (Double, Double)? {
   let half = gap / 2.0
   if r_out - r_in <= gap + 1.0e-9 {
@@ -244,7 +244,7 @@ pub fn sun_radial_gap(
 /// 文本宽度估算字宽数：CJK 及全角字符（码位 >= 0x2E80）按 2 个字宽、
 /// 其余按 1（每字宽约 7px，Sans 12px，与 truncate_to 同一口径），供
 /// 段内标签是否放得下与落盒宽度共用一套估算。
-pub fn sun_text_units(text : String) -> Int {
+pub fn sun_text_units(text : String) -> Int32 {
   let mut units = 0
   for ch in text {
     units = units + (if ch.to_int() >= 0x2E80 { 2 } else { 1 })
@@ -271,7 +271,7 @@ pub fn sun_label_fits(
 /// 色深渐变：同支系（同一顶层段）逐层提亮——第 1 级取基色原样，之后
 /// 每深一级提亮 7%（HSL 的 L），最多提亮 35%（深层环不至洗白）。
 /// base 通常为顶层段的主题语义色（绘制时经 sun_base_color 现取）。
-pub fn sun_shade(base : String, depth : Int) -> String {
+pub fn sun_shade(base : String, depth : Int32) -> String {
   let d = if depth < 1 { 1 } else { depth }
   @theme.lighten_hex(base, (0.07 * (d - 1).to_double()).min(0.35))
 }
@@ -299,7 +299,7 @@ pub fn sun_text_on(hex : String) -> String {
 ///|
 /// 顶层段基色（5 语义色循环，相邻顶层段不同色；每次绘制现取主题色，
 /// 主题切换自动跟随）。
-fn sun_base_color(top : Int) -> String {
+fn sun_base_color(top : Int32) -> String {
   match top % 5 {
     0 => @theme.theme_primary()
     1 => @theme.theme_success()
@@ -479,12 +479,12 @@ fn sun_draw(
 /// 现取色自动跟随。
 pub fn sun_chart_t(
   data : @base.Store[SunItem],
-  inner? : Double = 0.0,
-  show_labels? : Bool = true,
-  center_text? : String? = None,
-  width? : Double = 0.0,
-  height? : Double = 380.0,
-  handle? : (@widget.Widget) -> Unit = @ui.default_handle,
+  inner~ : Double = 0.0,
+  show_labels~ : Bool = true,
+  center_text~ : String? = None,
+  width~ : Double = 0.0,
+  height~ : Double = 380.0,
+  handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
   @ui.follow_store(data)
   let inner_r = inner

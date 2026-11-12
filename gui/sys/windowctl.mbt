@@ -21,7 +21,7 @@
 /// host 为窗口所属主机名；title 为窗口标题（保留原标题内的空白）。
 pub(all) struct WindowInfo {
   id : String
-  desktop : Int
+  desktop : Int32
   host : String
   title : String
 }
@@ -147,7 +147,7 @@ fn win_first_line(s : String) -> String {
 
 ///|
 /// 有符号十进制整数文本（"-1" → -1；空串或含非数字为 None）。
-fn win_parse_int(s : String) -> Int? {
+fn win_parse_int(s : String) -> Int32? {
   if s == "" {
     return None
   }
@@ -346,25 +346,26 @@ fn win_probe(prog : String) -> Bool {
 /// 当前系统是否支持窗口管理：Linux 且 wmctrl / xdotool 任一存在。
 /// 工具缺失是合法状态（返回 false，不是失败）。每次调用真实探测，高频
 /// 场景请调用方自行缓存结果。
+
 ///|
 /// Windows 直调：枚举可见顶层窗口，行「0xhwnd\tmonitor\ttitle\n」。
 #borrow(ok)
-extern "c" fn ffi_win_list(ok : Ref[Int]) -> Bytes = "yue_sys_win_list"
+extern "c" fn ffi_win_list(ok : Ref[Int32]) -> Bytes = "yue_sys_win_list"
 
 ///|
 /// Windows 直调：本机名。
 #borrow(ok)
-extern "c" fn ffi_host_name(ok : Ref[Int]) -> Bytes = "yue_sys_host_name"
+extern "c" fn ffi_host_name(ok : Ref[Int32]) -> Bytes = "yue_sys_host_name"
 
 ///|
 /// Windows 直调：激活（0x id 或标题子串）。
 #borrow(id_or_title, ok)
-extern "c" fn ffi_win_activate(id_or_title : Bytes, ok : Ref[Int]) -> Int = "yue_sys_win_activate"
+extern "c" fn ffi_win_activate(id_or_title : Bytes, ok : Ref[Int32]) -> Int32 = "yue_sys_win_activate"
 
 ///|
 /// Windows 直调：关闭（标题子串，首个匹配）。
 #borrow(title, ok)
-extern "c" fn ffi_win_close(title : Bytes, ok : Ref[Int]) -> Int = "yue_sys_win_close"
+extern "c" fn ffi_win_close(title : Bytes, ok : Ref[Int32]) -> Int32 = "yue_sys_win_close"
 
 ///|
 fn win_win_host() -> String {
@@ -403,10 +404,11 @@ fn win_win_parse_list(blob : String) -> Array[WindowInfo] {
     if title == "" {
       continue
     }
-    let _ = out.push({ id: parts[0].to_owned(), desktop, host, title })
+    let _ = out.push({ id: parts[0].to_owned(), desktop, host, title, })
   }
   out
 }
+
 ///|
 // macOS 档：列表/激活走 CGWindowList + NSRunningApplication（免授权，标题要
 // 屏幕录制权限——未授权时无标题窗被解析跳过，列表显著变短即权限信号）；关闭
@@ -499,7 +501,11 @@ pub fn win_close(title : String) -> Result[Unit, WinError] {
       return Ok(())
     }
     if ok.val == 2 {
-      return Err(Denied("关闭别的应用的窗口要辅助功能权限——用 permission_request(PermAccessibility) 引导授权"))
+      return Err(
+        Denied(
+          "关闭别的应用的窗口要辅助功能权限——用 permission_request(PermAccessibility) 引导授权",
+        ),
+      )
     }
     return Err(CommandFailed("窗口不存在"))
   }

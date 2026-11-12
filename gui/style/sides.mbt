@@ -28,7 +28,9 @@ pub(all) struct SideBorder {
 ///|
 /// 四边有效读数（上/右/下/左）：per-side width ?? 统一 `border_width` ?? 0，
 /// per-side color ?? 统一 `border_color` ?? 空串。颜色在绘制期按 token 现取。
-pub fn side_borders_of(s : Style) -> (SideBorder, SideBorder, SideBorder, SideBorder) {
+pub fn side_borders_of(
+  s : Style,
+) -> (SideBorder, SideBorder, SideBorder, SideBorder) {
   let uw = number_of(s.border_width, 0.0)
   let uc = color_of(s.border_color, "")
   (

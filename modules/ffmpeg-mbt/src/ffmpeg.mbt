@@ -11,11 +11,11 @@ pub fn ffmpeg_supported() -> Bool {
 }
 
 ///|
-let supported_cache : Ref[Int] = Ref(-1)
+let supported_cache : Ref[Int32] = Ref(-1)
 
 ///|
 /// ffmpeg 库版本（avformat_version，如 60161637 对应 6.1）。
-pub fn ffmpeg_version() -> Int {
+pub fn ffmpeg_version() -> Int32 {
   vf_version()
 }
 
@@ -92,9 +92,9 @@ pub fn Demuxer::open(path : String) -> Result[Demuxer, VfError] {
     vf_close(fmt.h)
     return Err(OpenFailed(path))
   }
-  let no_media =
-    vf_video_stream(fmt.h) < 0 &&
-      vf_audio_stream(fmt.h) < 0 && vf_subtitle_stream(fmt.h) < 0
+  let no_media = vf_video_stream(fmt.h) < 0 &&
+    vf_audio_stream(fmt.h) < 0 &&
+    vf_subtitle_stream(fmt.h) < 0
   if no_media {
     vf_close(fmt.h)
     return Err(NoMediaStream)
@@ -122,13 +122,13 @@ pub fn Demuxer::has_subtitle(self : Demuxer) -> Bool {
 
 ///|
 /// 视频流原生宽（无视频流 0）。
-pub fn Demuxer::stream_width(self : Demuxer) -> Int {
+pub fn Demuxer::stream_width(self : Demuxer) -> Int32 {
   vf_stream_width(self.fmt)
 }
 
 ///|
 /// 视频流原生高（无视频流 0）。
-pub fn Demuxer::stream_height(self : Demuxer) -> Int {
+pub fn Demuxer::stream_height(self : Demuxer) -> Int32 {
   vf_stream_height(self.fmt)
 }
 
@@ -156,9 +156,9 @@ pub fn Demuxer::last_frame_pts(self : Demuxer) -> Double {
 /// （0 = 源尺寸）。已开时幂等。
 pub fn Demuxer::open_video_decoder(
   self : Demuxer,
-  width? : Int = 0,
-  height? : Int = 0,
-  hw? : Bool = false,
+  width~ : Int32 = 0,
+  height~ : Int32 = 0,
+  hw~ : Bool = false,
 ) -> Result[Unit, VfError] {
   if vf_dec_width(self.dec) > 0 {
     return Ok(())
@@ -203,32 +203,32 @@ pub fn Demuxer::open_audio_decoder(self : Demuxer) -> Result[Unit, VfError] {
 
 ///|
 /// 音频解码输出声道数（未开音频解码器 0）。
-pub fn Demuxer::audio_channels(self : Demuxer) -> Int {
+pub fn Demuxer::audio_channels(self : Demuxer) -> Int32 {
   vf_adec_channels(self.adec)
 }
 
 ///|
 /// 音频解码输出采样率（未开音频解码器 0）。
-pub fn Demuxer::audio_rate(self : Demuxer) -> Int {
+pub fn Demuxer::audio_rate(self : Demuxer) -> Int32 {
   vf_adec_rate(self.adec)
 }
 
 ///|
 /// 视频解码输出宽（未开视频解码器 0）。
-pub fn Demuxer::out_width(self : Demuxer) -> Int {
+pub fn Demuxer::out_width(self : Demuxer) -> Int32 {
   vf_dec_width(self.dec)
 }
 
 ///|
 /// 视频解码输出高（未开视频解码器 0）。
-pub fn Demuxer::out_height(self : Demuxer) -> Int {
+pub fn Demuxer::out_height(self : Demuxer) -> Int32 {
   vf_dec_height(self.dec)
 }
 
 ///|
 /// 视频硬解状态：0=软解 1=硬解 2=已回落（回落原因见 `hw_reason`）。
 /// 三档如实报——回落不许报成硬解。
-pub fn Demuxer::hw_status(self : Demuxer) -> Int {
+pub fn Demuxer::hw_status(self : Demuxer) -> Int32 {
   vf_hw_status(self.dec)
 }
 
@@ -249,7 +249,7 @@ pub fn Demuxer::hw_reason(self : Demuxer) -> String {
 /// 帧输出策略位（H2，方案 §五）：0=SwScale（当前唯一已落地档，硬件帧经
 /// transfer_data 下行后走 sws 出 RGBA）。GPU 线落地时加 1=DirectTexture——
 /// 只动 C 侧输出端一行，解码端（hwdevice 建立、回落、计数）零改动。
-pub fn Demuxer::transfer_mode(self : Demuxer) -> Int {
+pub fn Demuxer::transfer_mode(self : Demuxer) -> Int32 {
   vf_transfer_mode(self.dec)
 }
 
@@ -260,7 +260,7 @@ pub fn Demuxer::transfer_mode(self : Demuxer) -> Int {
 /// 回 Err 且位保持原值。
 pub fn Demuxer::set_transfer_mode(
   self : Demuxer,
-  mode : Int,
+  mode : Int32,
 ) -> Result[Unit, String] {
   if mode == 0 || mode == 1 {
     vf_set_transfer_mode(self.dec, mode)
@@ -349,13 +349,12 @@ pub fn Demuxer::close(self : Demuxer) -> Unit {
 pub fn subtitle_ass_text(line : String) -> String {
   let bs = @utf8.encode(line)
   // @utf8.encode 末尾可能带一个 NUL（FFI 约定），按实际字节长度算
-  let n =
-    if bs.length() > 0 && bs[bs.length() - 1] == b'\x00' {
-      bs.length() - 1
-    } else {
-      bs.length()
-    }
-  let marks : Array[Int] = []
+  let n = if bs.length() > 0 && bs[bs.length() - 1] == b'\x00' {
+    bs.length() - 1
+  } else {
+    bs.length()
+  }
+  let marks : Array[Int32] = []
   let mut i = 0
   while i < n {
     if bs[i] == b',' {
@@ -367,7 +366,7 @@ pub fn subtitle_ass_text(line : String) -> String {
     return line
   }
   // 字段 [a,b) 是否「空或全数字」
-  let numeric = fn(a : Int, b : Int) -> Bool {
+  let numeric = fn(a : Int32, b : Int32) -> Bool {
     let mut j = a
     while j < b {
       let c = bs[j]
@@ -380,9 +379,11 @@ pub fn subtitle_ass_text(line : String) -> String {
   }
   // ReadOrder 必须是非空数字；三个边距字段允许空。样式名/人名/特效是自由文本，
   // 所以不能拿它们当判据——少了这条，正文里恰好有八个逗号的字幕会被切掉半句
-  let shaped =
-    marks[0] > 0 && numeric(0, marks[0]) && numeric(marks[3] + 1, marks[4]) &&
-      numeric(marks[4] + 1, marks[5]) && numeric(marks[5] + 1, marks[6])
+  let shaped = marks[0] > 0 &&
+    numeric(0, marks[0]) &&
+    numeric(marks[3] + 1, marks[4]) &&
+    numeric(marks[4] + 1, marks[5]) &&
+    numeric(marks[5] + 1, marks[6])
   if !shaped {
     return line
   }
@@ -445,7 +446,11 @@ pub fn subtitle_cues(path : String) -> Result[Array[SubCue], VfError] {
           start_s: st,
           // 少数流不填 end_display_time（算出来与起始同刻），给两秒兜底而不是让
           // 这条字幕一闪而过
-          end_s: if en > st { en } else { st + 2.0 },
+          end_s: if en > st {
+            en
+          } else {
+            st + 2.0
+          },
           text: parts.join("\n"),
         })
       }
@@ -456,11 +461,11 @@ pub fn subtitle_cues(path : String) -> Result[Array[SubCue], VfError] {
 }
 
 ///|
-extern "c" fn vf_version() -> Int = "vf_version"
+extern "c" fn vf_version() -> Int32 = "vf_version"
 
 ///|
 /// 运行期 dll 是否齐备（Windows 上会真的加载；其余平台恒为 1）。
-extern "c" fn vf_rt_ready() -> Int = "vf_rt_ready"
+extern "c" fn vf_rt_ready() -> Int32 = "vf_rt_ready"
 
 ///|
 #borrow(path)
@@ -468,7 +473,7 @@ extern "c" fn vf_open(path : Bytes) -> VfFmt = "vf_open"
 
 ///|
 #borrow(f)
-extern "c" fn vf_ok(f : VfFmt) -> Int = "vf_ok"
+extern "c" fn vf_ok(f : VfFmt) -> Int32 = "vf_ok"
 
 ///|
 #borrow(f)
@@ -476,11 +481,11 @@ extern "c" fn vf_close(f : VfFmt) -> Unit = "vf_close"
 
 ///|
 #borrow(f)
-extern "c" fn vf_video_stream(f : VfFmt) -> Int = "vf_video_stream"
+extern "c" fn vf_video_stream(f : VfFmt) -> Int32 = "vf_video_stream"
 
 ///|
 #borrow(f)
-extern "c" fn vf_audio_stream(f : VfFmt) -> Int = "vf_audio_stream"
+extern "c" fn vf_audio_stream(f : VfFmt) -> Int32 = "vf_audio_stream"
 
 ///|
 extern "c" fn vf_no_decoder() -> VfDec = "vf_no_decoder"
@@ -490,11 +495,11 @@ extern "c" fn vf_no_audio_decoder() -> VfADec = "vf_no_audio_decoder"
 
 ///|
 #borrow(f)
-extern "c" fn vf_stream_width(f : VfFmt) -> Int = "vf_stream_width"
+extern "c" fn vf_stream_width(f : VfFmt) -> Int32 = "vf_stream_width"
 
 ///|
 #borrow(f)
-extern "c" fn vf_stream_height(f : VfFmt) -> Int = "vf_stream_height"
+extern "c" fn vf_stream_height(f : VfFmt) -> Int32 = "vf_stream_height"
 
 ///|
 #borrow(f)
@@ -512,32 +517,31 @@ extern "c" fn vf_frame_pts_s(d : VfDec) -> Double = "vf_frame_pts_s"
 #borrow(f)
 extern "c" fn vf_open_video_decoder(
   f : VfFmt,
-  out_w : Int,
-  out_h : Int,
+  out_w : Int32,
+  out_h : Int32,
 ) -> VfDec = "vf_open_video_decoder"
 
 ///|
 extern "c" fn vf_open_video_decoder_hw(
   f : VfFmt,
-  out_w : Int,
-  out_h : Int,
-  hw : Int,
+  out_w : Int32,
+  out_h : Int32,
+  hw : Int32,
 ) -> VfDec = "vf_open_video_decoder_hw"
 
 ///|
-extern "c" fn vf_hw_status(d : VfDec) -> Int = "vf_hw_status"
+extern "c" fn vf_hw_status(d : VfDec) -> Int32 = "vf_hw_status"
 
 ///|
 #borrow(out)
-extern "c" fn vf_hw_reason(d : VfDec, out : Bytes, cap : Int) -> Int = "vf_hw_reason"
+extern "c" fn vf_hw_reason(d : VfDec, out : Bytes, cap : Int32) -> Int32 = "vf_hw_reason"
 
 ///|
-extern "c" fn vf_transfer_mode(d : VfDec) -> Int = "vf_transfer_mode"
+extern "c" fn vf_transfer_mode(d : VfDec) -> Int32 = "vf_transfer_mode"
 
 ///|
 #borrow(d)
-extern "c" fn vf_set_transfer_mode(d : VfDec, mode : Int) -> Unit =
-  "vf_set_transfer_mode"
+extern "c" fn vf_set_transfer_mode(d : VfDec, mode : Int32) -> Unit = "vf_set_transfer_mode"
 
 ///|
 #borrow(d)
@@ -545,19 +549,19 @@ extern "c" fn vf_close_decoder(d : VfDec) -> Unit = "vf_close_decoder"
 
 ///|
 #borrow(d)
-extern "c" fn vf_dec_width(d : VfDec) -> Int = "vf_dec_width"
+extern "c" fn vf_dec_width(d : VfDec) -> Int32 = "vf_dec_width"
 
 ///|
 #borrow(d)
-extern "c" fn vf_dec_height(d : VfDec) -> Int = "vf_dec_height"
+extern "c" fn vf_dec_height(d : VfDec) -> Int32 = "vf_dec_height"
 
 ///|
 #borrow(d, out)
-extern "c" fn vf_decode_next(d : VfDec, out : Bytes, out_len : Int) -> Int = "vf_decode_next"
+extern "c" fn vf_decode_next(d : VfDec, out : Bytes, out_len : Int32) -> Int32 = "vf_decode_next"
 
 ///|
 #borrow(d)
-extern "c" fn vf_seek_s(d : VfDec, t_s : Double) -> Int = "vf_seek_s"
+extern "c" fn vf_seek_s(d : VfDec, t_s : Double) -> Int32 = "vf_seek_s"
 
 ///|
 #borrow(f)
@@ -569,23 +573,23 @@ extern "c" fn vf_close_audio_decoder(d : VfADec) -> Unit = "vf_close_audio_decod
 
 ///|
 #borrow(d)
-extern "c" fn vf_adec_channels(d : VfADec) -> Int = "vf_adec_channels"
+extern "c" fn vf_adec_channels(d : VfADec) -> Int32 = "vf_adec_channels"
 
 ///|
 #borrow(d)
-extern "c" fn vf_adec_rate(d : VfADec) -> Int = "vf_adec_rate"
+extern "c" fn vf_adec_rate(d : VfADec) -> Int32 = "vf_adec_rate"
 
 ///|
 #borrow(d, out)
-extern "c" fn vf_decode_pcm(d : VfADec, out : Bytes, out_len : Int) -> Int = "vf_decode_pcm"
+extern "c" fn vf_decode_pcm(d : VfADec, out : Bytes, out_len : Int32) -> Int32 = "vf_decode_pcm"
 
 ///|
 #borrow(d)
-extern "c" fn vf_aseek_s(d : VfADec, t_s : Double) -> Int = "vf_aseek_s"
+extern "c" fn vf_aseek_s(d : VfADec, t_s : Double) -> Int32 = "vf_aseek_s"
 
 ///|
 #borrow(f)
-extern "c" fn vf_subtitle_stream(f : VfFmt) -> Int = "vf_subtitle_stream"
+extern "c" fn vf_subtitle_stream(f : VfFmt) -> Int32 = "vf_subtitle_stream"
 
 ///|
 #borrow(path)
@@ -593,11 +597,11 @@ extern "c" fn vf_sub_open(path : Bytes) -> VfSDec = "vf_sub_open"
 
 ///|
 #borrow(d)
-extern "c" fn vf_sub_ok(d : VfSDec) -> Int = "vf_sub_ok"
+extern "c" fn vf_sub_ok(d : VfSDec) -> Int32 = "vf_sub_ok"
 
 ///|
 #borrow(d, out)
-extern "c" fn vf_sub_next(d : VfSDec, out : Bytes, out_len : Int) -> Int = "vf_sub_next"
+extern "c" fn vf_sub_next(d : VfSDec, out : Bytes, out_len : Int32) -> Int32 = "vf_sub_next"
 
 ///|
 #borrow(d)

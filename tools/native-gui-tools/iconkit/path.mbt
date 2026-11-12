@@ -5,13 +5,13 @@
 
 ///|
 pub(all) struct Seg {
-  cmd : Char   // 'M' | 'L' | 'C' | 'Z'，一律绝对
+  cmd : Char // 'M' | 'L' | 'C' | 'Z'，一律绝对
   args : Array[Double]
 }
 
 ///|
-fn codes(s : String) -> Array[Int] {
-  let a : Array[Int] = []
+fn codes(s : String) -> Array[Int32] {
+  let a : Array[Int32] = []
   for c in s {
     a.push(c.to_int())
   }
@@ -19,17 +19,21 @@ fn codes(s : String) -> Array[Int] {
 }
 
 ///|
-fn is_command(x : Int) -> Bool {
+fn is_command(x : Int32) -> Bool {
   (x >= 65 && x <= 90) || (x >= 97 && x <= 122)
 }
 
 ///|
-fn to_upper(x : Int) -> Int {
-  if x >= 97 && x <= 122 { x - 32 } else { x }
+fn to_upper(x : Int32) -> Int32 {
+  if x >= 97 && x <= 122 {
+    x - 32
+  } else {
+    x
+  }
 }
 
 ///|
-fn skip_sep(cs : Array[Int], start : Int) -> Int {
+fn skip_sep(cs : Array[Int32], start : Int32) -> Int32 {
   let n = cs.length()
   let mut j = start
   while j < n {
@@ -46,7 +50,7 @@ fn skip_sep(cs : Array[Int], start : Int) -> Int {
 ///|
 // 读一个数：跳过前置分隔符后解析 [+-][digits][.digits][e[+-]digits]。
 // 解析不到数字时返回 (0.0, 原起点)——调用方以「起点未推进」判失败。
-fn readnum(cs : Array[Int], start : Int) -> (Double, Int) {
+fn readnum(cs : Array[Int32], start : Int32) -> (Double, Int32) {
   let n = cs.length()
   let mut i = skip_sep(cs, start)
   let mut neg = false
@@ -112,12 +116,12 @@ fn readnum(cs : Array[Int], start : Int) -> (Double, Int) {
 ///|
 // 读一个点（一对数），rel 时相对当前点 (cx,cy)。
 fn readpoint(
-  cs : Array[Int],
-  i : Int,
+  cs : Array[Int32],
+  i : Int32,
   rel : Bool,
   cx : Double,
   cy : Double,
-) -> (Double, Double, Int, Bool) {
+) -> (Double, Double, Int32, Bool) {
   let (x0, i1) = readnum(cs, i)
   let (y0, i2) = readnum(cs, i1)
   if i1 == i || i2 == i1 {
@@ -130,7 +134,7 @@ fn readpoint(
 
 ///|
 // 读 `count` 个数（arc 用），推进游标；缺数即返回当前。
-fn skip_nums(cs : Array[Int], i : Int, count : Int) -> Int {
+fn skip_nums(cs : Array[Int32], i : Int32, count : Int32) -> Int32 {
   let mut j = i
   for _k in 0..<count {
     let (_, nj) = readnum(cs, j)
@@ -179,7 +183,7 @@ pub fn parse_path(d : String) -> (Array[Seg], Array[String]) {
 
     if up == 90 {
       // Z
-      out.push({ cmd: 'Z', args: [] })
+      out.push({ cmd: 'Z', args: [], })
       cx = sx
       cy = sy
       has_prev = false
@@ -191,7 +195,7 @@ pub fn parse_path(d : String) -> (Array[Seg], Array[String]) {
         break
       }
       let cmd : Char = if up == 77 { 'M' } else { 'L' }
-      out.push({ cmd, args: [x, y] })
+      out.push({ cmd, args: [x, y], })
       cx = x
       cy = y
       if up == 77 {
@@ -208,7 +212,7 @@ pub fn parse_path(d : String) -> (Array[Seg], Array[String]) {
         break
       }
       let x = if rel { cx + v } else { v }
-      out.push({ cmd: 'L', args: [x, cy] })
+      out.push({ cmd: 'L', args: [x, cy], })
       cx = x
       has_prev = false
       next_letter = letter
@@ -220,7 +224,7 @@ pub fn parse_path(d : String) -> (Array[Seg], Array[String]) {
         break
       }
       let y = if rel { cy + v } else { v }
-      out.push({ cmd: 'L', args: [cx, y] })
+      out.push({ cmd: 'L', args: [cx, y], })
       cy = y
       has_prev = false
       next_letter = letter
@@ -233,7 +237,7 @@ pub fn parse_path(d : String) -> (Array[Seg], Array[String]) {
       if !(ok1 && ok2 && ok3) {
         break
       }
-      out.push({ cmd: 'C', args: [x1, y1, x2, y2, x3, y3] })
+      out.push({ cmd: 'C', args: [x1, y1, x2, y2, x3, y3], })
       px = x2
       py = y2
       has_prev = true
@@ -251,7 +255,7 @@ pub fn parse_path(d : String) -> (Array[Seg], Array[String]) {
       if !(ok2 && ok3) {
         break
       }
-      out.push({ cmd: 'C', args: [rx, ry, x2, y2, x3, y3] })
+      out.push({ cmd: 'C', args: [rx, ry, x2, y2, x3, y3], })
       px = x2
       py = y2
       has_prev = true
@@ -267,11 +271,11 @@ pub fn parse_path(d : String) -> (Array[Seg], Array[String]) {
       if !(ok1 && ok2) {
         break
       }
-      let c1x = cx + (2.0 / 3.0) * (qx - cx)
-      let c1y = cy + (2.0 / 3.0) * (qy - cy)
-      let c2x = ex + (2.0 / 3.0) * (qx - ex)
-      let c2y = ey + (2.0 / 3.0) * (qy - ey)
-      out.push({ cmd: 'C', args: [c1x, c1y, c2x, c2y, ex, ey] })
+      let c1x = cx + 2.0 / 3.0 * (qx - cx)
+      let c1y = cy + 2.0 / 3.0 * (qy - cy)
+      let c2x = ex + 2.0 / 3.0 * (qx - ex)
+      let c2y = ey + 2.0 / 3.0 * (qy - ey)
+      out.push({ cmd: 'C', args: [c1x, c1y, c2x, c2y, ex, ey], })
       px = qx
       py = qy
       has_prev = true
@@ -288,11 +292,11 @@ pub fn parse_path(d : String) -> (Array[Seg], Array[String]) {
       if !ok {
         break
       }
-      let c1x = cx + (2.0 / 3.0) * (qx - cx)
-      let c1y = cy + (2.0 / 3.0) * (qy - cy)
-      let c2x = ex + (2.0 / 3.0) * (qx - ex)
-      let c2y = ey + (2.0 / 3.0) * (qy - ey)
-      out.push({ cmd: 'C', args: [c1x, c1y, c2x, c2y, ex, ey] })
+      let c1x = cx + 2.0 / 3.0 * (qx - cx)
+      let c1y = cy + 2.0 / 3.0 * (qy - cy)
+      let c2x = ex + 2.0 / 3.0 * (qx - ex)
+      let c2y = ey + 2.0 / 3.0 * (qy - ey)
+      out.push({ cmd: 'C', args: [c1x, c1y, c2x, c2y, ex, ey], })
       px = qx
       py = qy
       has_prev = true

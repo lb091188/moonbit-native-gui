@@ -3,7 +3,7 @@
 
 ///|
 /// 记下重绘请求次数的钩子（测试结束务必还原成空操作，别污染别的用例）。
-fn counting_hook(counter : Ref[Int]) -> (() -> Unit) {
+fn counting_hook(counter : Ref[Int32]) -> () -> Unit {
   fn() { counter.val = counter.val + 1 }
 }
 
@@ -18,7 +18,10 @@ test "node_of / mount_children：按顺序成为 parent 的直接子项" {
   parent.relayout(40.0, 60.0)
   let kids = parent.children()
   assert_eq(kids.length(), 3)
-  assert_eq((kids[0].rect.h, kids[1].rect.h, kids[2].rect.h), (10.0, 20.0, 30.0))
+  assert_eq(
+    (kids[0].rect.h, kids[1].rect.h, kids[2].rect.h),
+    (10.0, 20.0, 30.0),
+  )
   assert_eq((kids[0].rect.y, kids[1].rect.y, kids[2].rect.y), (0.0, 10.0, 30.0))
 }
 
@@ -62,10 +65,10 @@ test "bind_node：旧代子树的订阅整袋退订，不随重建次数累积" 
   let sig = Signal::new(0)
   let source = Signal::new(1)
   let parent = Widget::new()
-  let bn = bind_node(sig, fn(_v : Int) -> Node {
+  let bn = bind_node(sig, fn(_v : Int32) -> Node {
     node_of_new(fn(w : Widget) {
       // 每一代都往 source 上挂一条订阅（不写句柄，全靠回收袋退订）
-      ignore(source.subscribe(fn(_x : Int) { () }))
+      ignore(source.subscribe(fn(_x : Int32) { () }))
       w
     })
   })
@@ -84,8 +87,8 @@ test "bind_node：旧代子树的订阅整袋退订，不随重建次数累积" 
 test "bind_node：挂载失败不留半棵（重挂后 parent 里始终只有一棵）" {
   let sig = Signal::new(1)
   let parent = Widget::new()
-  let bn = bind_node(sig, fn(v : Int) -> Node {
-    node_of(sized(Widget::new(), (v.to_double() * 10.0), 10.0))
+  let bn = bind_node(sig, fn(v : Int32) -> Node {
+    node_of(sized(Widget::new(), v.to_double() * 10.0, 10.0))
   })
   let w0 = (bn.mount)(parent)
   assert_eq(parent.children().length(), 1)
@@ -134,7 +137,7 @@ test "invalidate：没装钩子时是空操作，重挂照常完成" {
   invalidate()
   let sig = Signal::new(1)
   let parent = Widget::new()
-  let bn = bind_node(sig, fn(v : Int) -> Node {
+  let bn = bind_node(sig, fn(v : Int32) -> Node {
     node_of(sized(Widget::new(), v.to_double(), 1.0))
   })
   let _ = (bn.mount)(parent)
@@ -147,16 +150,15 @@ test "on_mount：构造期不跑、mount_into 时在挂载之后跑" {
   // view 的 handle 在 node_of_new 里构造期就执行（早于宿主建好）——需要推迟
   // 到真·挂载时机的回调一律包 on_mount
   let ran : Ref[Bool] = Ref(false)
-  let kids_at_fire : Ref[Int] = Ref(-1)
+  let kids_at_fire : Ref[Int32] = Ref(-1)
   let parent = Widget::new()
   let n = node_of_new(fn(w : Widget) -> Widget {
-        w.set_size(10.0, 10.0)
-        w
-      })
-      .on_mount(fn() -> Unit {
-        ran.val = true
-        kids_at_fire.val = parent.children().length()
-      })
+    w.set_size(10.0, 10.0)
+    w
+  }).on_mount(fn() -> Unit {
+    ran.val = true
+    kids_at_fire.val = parent.children().length()
+  })
   // 构造完还没挂：回调不许跑
   assert_false(ran.val)
   let _ = (n.mount)(parent)

@@ -19,11 +19,11 @@ pub(all) struct ParseResult {
 
 ///|
 /// Number of columns a tab advances to.
-const TabStop : Int = 4
+const TabStop : Int32 = 4
 
 ///|
 /// Indentation at which a line becomes an indented code block.
-const CodeIndent : Int = 4
+const CodeIndent : Int32 = 4
 
 ///|
 /// Parse markdown source into CST.
@@ -32,8 +32,8 @@ const CodeIndent : Int = 4
 /// the CommonMark rules now.
 pub fn parse(
   source : String,
-  strict? : Bool = false,
-  wikilinks? : Bool = false,
+  strict~ : Bool = false,
+  wikilinks~ : Bool = false,
 ) -> ParseResult {
   ignore(strict)
   BlockParser::new(source, wikilinks).parse_document()
@@ -92,35 +92,35 @@ priv struct Node {
   lines : Array[String]
   /// Source offset each entry of `lines` was taken from, so that positions
   /// inside the joined content can be mapped back to the document.
-  line_starts : Array[Int]
-  start : Int
-  mut end : Int
+  line_starts : Array[Int32]
+  start : Int32
+  mut end : Int32
   mut open : Bool
   mut last_line_blank : Bool
-  mut level : Int
+  mut level : Int32
   mut style : HeadingStyle
-  mut closing_hashes : Int
+  mut closing_hashes : Int32
   mut marker : Char
-  mut marker_count : Int
-  mut fence_length : Int
-  mut fence_indent : Int
+  mut marker_count : Int32
+  mut fence_length : Int32
+  mut fence_indent : Int32
   mut info : String
   /// Set while a fenced code block's info-string line has yet to be skipped.
   mut info_pending : Bool
   mut html_kind : HtmlBlockKind
   mut ordered : Bool
-  mut list_start : Int
+  mut list_start : Int32
   mut delim : Char
   mut tight : Bool
-  mut item_marker_offset : Int
-  mut item_padding : Int
+  mut item_marker_offset : Int32
+  mut item_padding : Int32
   mut checked : Bool?
   mut alignments : Array[TableAlign]
   mut label : String
 }
 
 ///|
-fn Node::new(kind : NodeKind, start : Int) -> Node {
+fn Node::new(kind : NodeKind, start : Int32) -> Node {
   {
     kind,
     parent: None,
@@ -155,7 +155,7 @@ fn Node::new(kind : NodeKind, start : Int) -> Node {
 
 ///|
 /// Map an offset inside `joined_lines(node)` back to a document offset.
-fn source_offset_in(node : Node, content_offset : Int) -> Int {
+fn source_offset_in(node : Node, content_offset : Int32) -> Int32 {
   let mut remaining = content_offset
   for i, line in node.lines {
     let len = line.length()
@@ -169,7 +169,7 @@ fn source_offset_in(node : Node, content_offset : Int) -> Int {
 
 ///|
 /// Total indentation a continuation line of this list item must have.
-fn Node::item_indent(self : Node) -> Int {
+fn Node::item_indent(self : Node) -> Int32 {
   self.item_marker_offset + self.item_padding
 }
 
@@ -177,7 +177,7 @@ fn Node::item_indent(self : Node) -> Int {
 /// Block parser state
 priv struct BlockParser {
   source : String
-  len : Int
+  len : Int32
   wikilinks : Bool
   definitions : Array[LinkDefinition]
   /// Inline content is parsed only after the whole document has been converted,
@@ -188,14 +188,14 @@ priv struct BlockParser {
   /// The deepest block left open by the previous line.
   mut tip : Node
   mut line : String
-  mut line_len : Int
-  mut line_start : Int
-  mut line_end : Int
-  mut offset : Int
-  mut column : Int
-  mut next_nonspace : Int
-  mut next_nonspace_column : Int
-  mut indent : Int
+  mut line_len : Int32
+  mut line_start : Int32
+  mut line_end : Int32
+  mut offset : Int32
+  mut column : Int32
+  mut next_nonspace : Int32
+  mut next_nonspace_column : Int32
+  mut indent : Int32
   mut blank : Bool
   mut partially_consumed_tab : Bool
 }
@@ -274,7 +274,7 @@ fn BlockParser::resolve_inlines(self : BlockParser) -> Unit {
 // =============================================================================
 
 ///|
-fn BlockParser::peek_line(self : BlockParser, i : Int) -> UInt16 {
+fn BlockParser::peek_line(self : BlockParser, i : Int32) -> UInt16 {
   if i >= 0 && i < self.line_len {
     self.line.unsafe_get(i)
   } else {
@@ -292,7 +292,7 @@ fn is_space_or_tab(c : UInt16) -> Bool {
 /// expanding tabs to the next tab stop.
 fn BlockParser::advance_offset(
   self : BlockParser,
-  count : Int,
+  count : Int32,
   columns : Bool,
 ) -> Unit {
   let mut remaining = count
@@ -425,7 +425,7 @@ fn BlockParser::add_child(
   self : BlockParser,
   parent : Node,
   kind : NodeKind,
-  start : Int,
+  start : Int32,
 ) -> Node {
   let mut p = parent
   while !can_contain(p.kind, kind) {
@@ -493,7 +493,7 @@ fn BlockParser::parse_document(self : BlockParser) -> ParseResult {
     definitions: self.definitions,
     span: Span::new(0, self.len),
   }
-  { document, definitions: self.definitions }
+  { document, definitions: self.definitions, }
 }
 
 ///|
@@ -593,7 +593,7 @@ fn recognize_attributes_in_block(block : Block) -> Block {
     ) => {
       let nested : Array[ListItem] = []
       for item in items {
-        nested.push({ ..item, children: recognize_attributes(item.children) })
+        nested.push({ ..item, children: recognize_attributes(item.children), })
       }
       Block::BulletList(
         marker~,
@@ -615,7 +615,7 @@ fn recognize_attributes_in_block(block : Block) -> Block {
     ) => {
       let nested : Array[ListItem] = []
       for item in items {
-        nested.push({ ..item, children: recognize_attributes(item.children) })
+        nested.push({ ..item, children: recognize_attributes(item.children), })
       }
       Block::OrderedList(
         start~,
@@ -771,7 +771,7 @@ fn recognize_alerts(blocks : Array[Block]) -> Array[Block] {
       ) => {
         let nested : Array[ListItem] = []
         for item in items {
-          nested.push({ ..item, children: recognize_alerts(item.children) })
+          nested.push({ ..item, children: recognize_alerts(item.children), })
         }
         result.push(
           Block::BulletList(
@@ -795,7 +795,7 @@ fn recognize_alerts(blocks : Array[Block]) -> Array[Block] {
       ) => {
         let nested : Array[ListItem] = []
         for item in items {
-          nested.push({ ..item, children: recognize_alerts(item.children) })
+          nested.push({ ..item, children: recognize_alerts(item.children), })
         }
         result.push(
           Block::OrderedList(
@@ -860,7 +860,7 @@ fn extract_alert(children : Array[Block]) -> (AlertKind, Array[Block])? {
 ///|
 /// Read the line starting at `pos`, returning its text (without the line
 /// ending) and the offset of the next line.
-fn BlockParser::read_line(self : BlockParser, pos : Int) -> (String, Int) {
+fn BlockParser::read_line(self : BlockParser, pos : Int32) -> (String, Int32) {
   let i = find_line_end(self.source, pos, self.len)
   let text = self.source.unsafe_substring(start=pos, end=i)
   let mut next = i
@@ -1176,7 +1176,7 @@ fn BlockParser::add_text(
 /// CST can round-trip the document's vertical spacing.
 fn BlockParser::insert_blank_line_nodes(
   self : BlockParser,
-  doc_start : Int,
+  doc_start : Int32,
 ) -> Unit {
   let children = self.doc.children
   let rebuilt : Array[Node] = []
@@ -1203,8 +1203,8 @@ fn BlockParser::insert_blank_line_nodes(
 ///|
 fn BlockParser::blank_lines_node(
   self : BlockParser,
-  from : Int,
-  to : Int,
+  from : Int32,
+  to : Int32,
 ) -> Node? {
   guard to > from else { return None }
   let mut pos = from
@@ -1229,7 +1229,7 @@ fn BlockParser::blank_lines_node(
 }
 
 ///|
-fn BlockParser::line_start_of(self : BlockParser, pos : Int) -> Int {
+fn BlockParser::line_start_of(self : BlockParser, pos : Int32) -> Int32 {
   let mut i = if pos > self.len { self.len } else { pos }
   while i > 0 && self.source.unsafe_get(i - 1) != '\n' {
     i = i - 1
@@ -1595,7 +1595,7 @@ fn BlockParser::try_definition_list(
       i = i + 1
     }
     guard !definitions.is_empty() else { return None }
-    items.push({ term: self.parse_inline_content(term), definitions })
+    items.push({ term: self.parse_inline_content(term), definitions, })
   }
   Some(
     Block::DefinitionList(

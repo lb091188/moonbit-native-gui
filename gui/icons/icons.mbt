@@ -844,7 +844,7 @@ pub extend IconKind with Debug::{to_repr}
 ///|
 /// 从定点路径串 d 的 d[i] 起读一个定点整数(可选负号,前导逗号跳过),
 /// 返回 (值, 新下标)。
-fn path_num(d : String, i : Int) -> (Double, Int) {
+fn path_num(d : String, i : Int32) -> (Double, Int32) {
   let n = d.length()
   let mut j = i
   let mut neg = false
@@ -1761,7 +1761,7 @@ let icon_path_data : Array[String] = [
 
 ///|
 /// 图标变体 → 路径数据下标(与 all_icons 清单同序,wbtest 断言双射)。
-fn kind_index(kind : IconKind) -> Int {
+fn kind_index(kind : IconKind) -> Int32 {
   match kind {
     TreeStructure => 0
     Hide => 1

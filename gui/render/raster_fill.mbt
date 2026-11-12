@@ -21,14 +21,14 @@
 /// 纵向解析积分的带数（每带权重 = 256 / 本值）。带内已做精确面积，带数**不贡献
 /// 量化台阶**，只影响「同一带内两条边交叉重排」的误差；4 带已把圆/弧/斜边做到
 /// 与 cairo 解析覆盖同档，再多只是白花算力。
-const RASTER_AA_BANDS : Int = 4
+const RASTER_AA_BANDS : Int32 = 4
 
 ///|
 /// 大到等于「无界」的坐标哨兵（不用科学计数法字面量，解析有坑）。
 const RASTER_FAR : Double = 1000000000000000000.0
 
 ///|
-fn raster_min_i(a : Int, b : Int) -> Int {
+fn raster_min_i(a : Int32, b : Int32) -> Int32 {
   if a < b {
     a
   } else {
@@ -37,7 +37,7 @@ fn raster_min_i(a : Int, b : Int) -> Int {
 }
 
 ///|
-fn raster_max_i(a : Int, b : Int) -> Int {
+fn raster_max_i(a : Int32, b : Int32) -> Int32 {
   if a > b {
     a
   } else {
@@ -58,7 +58,7 @@ fn raster_max_i(a : Int, b : Int) -> Int {
 fn fill_polys(
   bm : Bitmap,
   polys : Array[Poly],
-  clip : (Int, Int, Int, Int),
+  clip : (Int32, Int32, Int32, Int32),
   op : BlendMode,
   src : RSource,
 ) -> Unit {
@@ -96,7 +96,7 @@ fn fill_polys(
     return
   }
   let width = bm.width
-  let cov : FixedArray[Int] = FixedArray::make(width, 0)
+  let cov : FixedArray[Int32] = FixedArray::make(width, 0)
   // 覆盖按解析面积累进这条 Double 侧（0..256 制），行尾一次量化
   let cov_f : FixedArray[Double] = FixedArray::make(width, 0.0)
   // ---- 全局边表（GET）----
@@ -116,8 +116,8 @@ fn fill_polys(
   let gs : FixedArray[Double] = FixedArray::make(total_edges + 1, 0.0)
   let gx1 : FixedArray[Double] = FixedArray::make(total_edges + 1, 0.0)
   let gy1 : FixedArray[Double] = FixedArray::make(total_edges + 1, 0.0)
-  let gw : FixedArray[Int] = FixedArray::make(total_edges + 1, 0)
-  let gidx : Array[Int] = []
+  let gw : FixedArray[Int32] = FixedArray::make(total_edges + 1, 0)
+  let gidx : Array[Int32] = []
   let mut ge = 0
   for poly in polys {
     let pts = poly.pts
@@ -148,13 +148,13 @@ fn fill_polys(
   }
   gidx.sort_by(fn(a, b) { gy_t[a].compare(gy_t[b]) })
   // 行内活跃表（跨本行的边）与切片用的三条 x（片顶/片底/片中）+ 环绕方向
-  let row_e : FixedArray[Int] = FixedArray::make(total_edges + 1, 0)
+  let row_e : FixedArray[Int32] = FixedArray::make(total_edges + 1, 0)
   let mut row_len = 0
-  let sl_e : FixedArray[Int] = FixedArray::make(total_edges + 1, 0)
+  let sl_e : FixedArray[Int32] = FixedArray::make(total_edges + 1, 0)
   let sl_m : FixedArray[Double] = FixedArray::make(total_edges + 1, 0.0)
   let sl_t : FixedArray[Double] = FixedArray::make(total_edges + 1, 0.0)
   let sl_b : FixedArray[Double] = FixedArray::make(total_edges + 1, 0.0)
-  let sl_w : FixedArray[Int] = FixedArray::make(total_edges + 1, 0)
+  let sl_w : FixedArray[Int32] = FixedArray::make(total_edges + 1, 0)
   // 临界 y 缓冲：每条边贡献两个端点，加上带边界与行首尾
   let cuts : FixedArray[Double] = FixedArray::make(total_edges * 2 + 8, 0.0)
   let band_h = 1.0 / RASTER_AA_BANDS.to_double()
@@ -306,7 +306,8 @@ fn fill_polys(
           if px >= f0 && px < f1 {
             cov_f[px] = cov_f[px] + hs
           } else {
-            cov_f[px] = cov_f[px] + span_slice_cover(px, la0, la1, ra0, ra1) * hs
+            cov_f[px] = cov_f[px] +
+              span_slice_cover(px, la0, la1, ra0, ra1) * hs
           }
           px = px + 1
         }
@@ -316,14 +317,13 @@ fn fill_polys(
       let mut px = ink_l
       while px < ink_r {
         let v = cov_f[px]
-        cov[px] =
-          if v <= 0.0 {
-            0
-          } else if v >= 256.0 {
-            256
-          } else {
-            v.round().to_int()
-          }
+        cov[px] = if v <= 0.0 {
+          0
+        } else if v >= 256.0 {
+          256
+        } else {
+          v.round().to_int()
+        }
         px = px + 1
       }
       composite_span(bm.data, width, y, ink_l, ink_r, cov, op, src)
@@ -340,7 +340,7 @@ fn fill_polys(
 /// 处；把这些 s 排进断点表后逐段用梯形公式积分**就是精确值**（线性段积分无误差）。
 /// 整列被包住的情形由调用方走快路径，不进这里。
 fn span_slice_cover(
-  px : Int,
+  px : Int32,
   la0 : Double,
   la1 : Double,
   ra0 : Double,
@@ -402,6 +402,7 @@ fn span_slice_cover(
     area
   }
 }
+
 ///|
 /// 折线一侧的**闭合**偏移轮廓：逐顶点求相邻两条偏移线的交点（miter，超限退
 /// bevel）。零长边与重复点先剔除，末点回绕到首点，接缝顶点同样求交。
@@ -417,22 +418,20 @@ fn loop_offsets(
     let (px, py) = p
     match v.last() {
       None => v.push(p)
-      Some((lx, ly)) => {
+      Some((lx, ly)) =>
         if (px - lx).abs() > 0.000000001 || (py - ly).abs() > 0.000000001 {
           v.push(p)
         }
-      }
     }
   }
   if v.length() > 1 {
     let (fx, fy) = v[0]
     match v.last() {
       None => ()
-      Some((lx, ly)) => {
+      Some((lx, ly)) =>
         if (lx - fx).abs() < 0.000000001 && (ly - fy).abs() < 0.000000001 {
           let _ = v.pop()
         }
-      }
     }
   }
   let m = v.length()
@@ -488,16 +487,13 @@ fn loop_offsets(
 ///|
 /// 描边轮廓：折线 → 闭合填充多边形。开放折线两侧缝成一条轮廓并加 butt 端帽；
 /// 闭合折线（含首末点重合的整圆）两侧各自成环，外圈正向、内圈反向。
-fn stroke_polys(
-  polys : Array[Poly],
-  lw : Double,
-) -> Array[Poly] {
+fn stroke_polys(polys : Array[Poly], lw : Double) -> Array[Poly] {
   let out : Array[Poly] = []
   if lw <= 0.0 {
     return out
   }
   let half = lw / 2.0
-  let miter2 = (10.0 * half) * (10.0 * half) // miter 长度²上限（limit 10）
+  let miter2 = 10.0 * half * (10.0 * half) // miter 长度²上限（limit 10）
   for poly in polys {
     let pts = poly.pts
     let n = pts.length()
@@ -508,9 +504,8 @@ fn stroke_polys(
     // 不加端帽，否则缝合处两个 butt 端帽之间留出一道缝
     let (fx, fy) = pts[0]
     let (lx, ly) = pts[n - 1]
-    let is_loop =
-      poly.closed ||
-        (n >= 3 && (lx - fx).abs() < 0.000000001 && (ly - fy).abs() < 0.000000001)
+    let is_loop = poly.closed ||
+      (n >= 3 && (lx - fx).abs() < 0.000000001 && (ly - fy).abs() < 0.000000001)
     let edges = if is_loop { n } else { n - 1 }
     if edges < 1 {
       continue
@@ -522,12 +517,12 @@ fn stroke_polys(
       let outer = loop_offsets(pts, half, miter2)
       let inner = loop_offsets(pts, -half, miter2)
       if outer.length() >= 3 && inner.length() >= 3 {
-        out.push({ pts: outer, closed: true })
+        out.push({ pts: outer, closed: true, })
         let rev : Array[(Double, Double)] = []
         for i = inner.length() - 1; i >= 0; i = i - 1 {
           rev.push(inner[i])
         }
-        out.push({ pts: rev, closed: true })
+        out.push({ pts: rev, closed: true, })
       }
       continue
     }
@@ -606,7 +601,7 @@ fn stroke_polys(
       outline.push(side_b[i])
     }
     if outline.length() >= 3 {
-      out.push({ pts: outline, closed: true })
+      out.push({ pts: outline, closed: true, })
     }
   }
   out

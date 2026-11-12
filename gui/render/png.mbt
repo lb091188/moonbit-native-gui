@@ -7,10 +7,10 @@
 #borrow(path, data)
 extern "c" fn fsw_write_file(
   path : Bytes,
-  plen : Int,
+  plen : Int32,
   data : Bytes,
-  dlen : Int,
-) -> Int = "fsw_write_file"
+  dlen : Int32,
+) -> Int32 = "fsw_write_file"
 
 ///|
 /// 位图落盘为 PNG 文件（当前唯一支持的格式）；编码或写失败返回 false。
@@ -57,7 +57,7 @@ fn pngr_crc_table() -> Array[Int64] {
 
 ///|
 /// CRC32 累计值（初值 0xFFFFFFFF，结束取反）。
-fn pngr_crc32(data : Bytes) -> Int {
+fn pngr_crc32(data : Bytes) -> Int32 {
   let table = pngr_crc_table()
   let mut c : Int64 = 4294967295L
   for i = 0; i < data.length(); i = i + 1 {
@@ -68,7 +68,7 @@ fn pngr_crc32(data : Bytes) -> Int {
 
 ///|
 /// Adler-32（zlib 校验和：s1=1+Σ字节, s2=ΣΣ字节，模 65521）。
-fn pngr_adler32(data : Bytes) -> Int {
+fn pngr_adler32(data : Bytes) -> Int32 {
   let mut s1 = 1
   let mut s2 = 0
   for i = 0; i < data.length(); i = i + 1 {
@@ -80,7 +80,7 @@ fn pngr_adler32(data : Bytes) -> Int {
 
 ///|
 /// RGBA 原始扫描流：每行 = 过滤字节 0 + 该行 RGBA。
-fn pngr_scanlines(data : Bytes, width : Int, height : Int) -> Bytes {
+fn pngr_scanlines(data : Bytes, width : Int32, height : Int32) -> Bytes {
   let out = FixedArray::make(height * (1 + width * 4), b'\x00')
   let mut off = 0
   for row = 0; row < height; row = row + 1 {
@@ -136,10 +136,10 @@ fn pngr_zlib_stored(raw : Bytes) -> Bytes {
 /// 把一个 chunk（length + type + data + crc）追加到 out，返回写游标。
 fn pngr_push_chunk(
   out : FixedArray[Byte],
-  off : Int,
+  off : Int32,
   ctype : String,
   data : Bytes,
-) -> Int {
+) -> Int32 {
   let type_bytes = @utf8.encode(ctype)
   let mut o = off
   for i = 0; i < 4; i = i + 1 {
@@ -174,8 +174,8 @@ fn pngr_push_chunk(
 /// 不符给 Err。
 pub fn png_encode_rgba(
   data : Bytes,
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
 ) -> Result[Bytes, String] {
   if width <= 0 || height <= 0 {
     return Err("width/height 必须为正")

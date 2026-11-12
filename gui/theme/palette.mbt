@@ -3,7 +3,7 @@
 // HSL / 混色 / 明度升降按同一套语义实现，便于逐值比对。
 
 ///|
-fn hex_digit(v : Int) -> Char {
+fn hex_digit(v : Int32) -> Char {
   if v < 10 {
     (48 + v).unsafe_to_char()
   } else {
@@ -13,7 +13,7 @@ fn hex_digit(v : Int) -> Char {
 
 ///|
 /// 6 位 `#RRGGBB`（派生色板用；输出小写十六进制）。
-pub fn hex6(r : Int, g : Int, b : Int) -> String {
+pub fn hex6(r : Int32, g : Int32, b : Int32) -> String {
   let sb = StringBuilder()
   for v in [r, g, b] {
     sb.write_char(hex_digit((v >> 4) & 15))
@@ -24,7 +24,7 @@ pub fn hex6(r : Int, g : Int, b : Int) -> String {
 
 ///|
 /// hex → RGB(0..255)；非法写法给 None。
-pub fn parse_hex(hex : String) -> (Int, Int, Int)? {
+pub fn parse_hex(hex : String) -> (Int32, Int32, Int32)? {
   match @render.Color::parse(hex) {
     Some(c) => Some((c.r, c.g, c.b))
     None => None
@@ -32,7 +32,7 @@ pub fn parse_hex(hex : String) -> (Int, Int, Int)? {
 }
 
 ///|
-fn clamp8(v : Int) -> Int {
+fn clamp8(v : Int32) -> Int32 {
   if v < 0 {
     0
   } else if v > 255 {
@@ -44,7 +44,7 @@ fn clamp8(v : Int) -> Int {
 
 ///|
 /// RGB(0..255) → HSL(h 0..360, s 0..1, l 0..1)；灰色（s=0）时 h 归零。
-pub fn rgb_to_hsl(r : Int, g : Int, b : Int) -> (Double, Double, Double) {
+pub fn rgb_to_hsl(r : Int32, g : Int32, b : Int32) -> (Double, Double, Double) {
   let rf = r.to_double() / 255.0
   let gf = g.to_double() / 255.0
   let bf = b.to_double() / 255.0
@@ -69,11 +69,7 @@ pub fn rgb_to_hsl(r : Int, g : Int, b : Int) -> (Double, Double, Double) {
 
 ///|
 /// HSL(h 0..360, s 0..1, l 0..1) → RGB(0..255)。
-pub fn hsl_to_rgb(
-  h : Double,
-  s : Double,
-  l : Double,
-) -> (Int, Int, Int) {
+pub fn hsl_to_rgb(h : Double, s : Double, l : Double) -> (Int32, Int32, Int32) {
   let ss = if s < 0.0 { 0.0 } else if s > 1.0 { 1.0 } else { s }
   let ll = if l < 0.0 { 0.0 } else if l > 1.0 { 1.0 } else { l }
   let mut hh = h % 360.0
@@ -122,8 +118,10 @@ pub fn mix_hex(a : String, b : String, t : Double) -> String {
       } else if t <= 0.0 {
         b
       } else {
-        let ch = fn(x : Int, y : Int) -> Int {
-          clamp8((x.to_double() * t + y.to_double() * (1.0 - t)).round().to_int())
+        let ch = fn(x : Int32, y : Int32) -> Int32 {
+          clamp8(
+            (x.to_double() * t + y.to_double() * (1.0 - t)).round().to_int(),
+          )
         }
         hex6(ch(r1, r2), ch(g1, g2), ch(b1, b2))
       }

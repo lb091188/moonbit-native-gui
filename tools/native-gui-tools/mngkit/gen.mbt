@@ -466,7 +466,7 @@ fn gen_for_elem(
   ctx : Ctx,
   fa : Attr,
   node : TNode,
-  ind : Int,
+  ind : Int32,
 ) -> Result[Array[(String, Pos)], String] {
   let (item_name, idx_alias, src) = match parse_for_value(fa.value) {
     Ok(v) => v
@@ -485,8 +485,7 @@ fn gen_for_elem(
   }
   let (tag, attrs, children, pos) = match node {
     Elem(tag, attrs, children, p) => (tag, attrs, children, p)
-    Text(_, p) =>
-      return Err("\{pos_str(p)}：v-for 只能写在元素上")
+    Text(_, p) => return Err("\{pos_str(p)}：v-for 只能写在元素上")
   }
   // :key 表达式（值语义改写；别名引用保持原样）
   let mut key_expr : (String, Pos)? = None
@@ -496,13 +495,16 @@ fn gen_for_elem(
         if a.has_value {
           key_expr = Some((a.value, a.pos))
         } else {
-          return Err("\{pos_str(a.pos)}：:key 需要表达式（如 :key=\"it.id\"）")
+          return Err(
+            "\{pos_str(a.pos)}：:key 需要表达式（如 :key=\"it.id\"）",
+          )
         }
       _ => ()
     }
   }
   // 行体（内层缩进 +1；For/Key 已剥）
-  let body = match gen_elem_base(ctx, tag, strip_for_key(attrs), children, pos, ind + 1) {
+  let body = match
+    gen_elem_base(ctx, tag, strip_for_key(attrs), children, pos, ind + 1) {
     Ok(v) => v
     Err(e) => return Err(e)
   }
@@ -518,17 +520,30 @@ fn gen_for_elem(
     "_i"
   }
   let out : Array[(String, Pos)] = []
-  let head = ind_str(ind) + "@ui.for_list" + (match key_expr {
+  let head = ind_str(ind) +
+    "@ui.for_list" +
+    (match key_expr {
       Some(_) => "("
       None => "_indexed("
-    }) + src + ", fn(" + item_name + ", " + idx_param + ") {"
+    }) +
+    src +
+    ", fn(" +
+    item_name +
+    ", " +
+    idx_param +
+    ") {"
   out.push((head, fa.pos))
   for ln in body {
     out.push(ln)
   }
   let tail = match key_expr {
     Some(kv) =>
-      ind_str(ind) + "}, key=fn(" + item_name + ") { " + rewrite_value(kv.0, ctx.slots) + " })"
+      ind_str(ind) +
+      "}, key=fn(" +
+      item_name +
+      ") { " +
+      rewrite_value(kv.0, ctx.slots) +
+      " })"
     None => ind_str(ind) + "}"
   }
   out.push((tail, fa.pos))

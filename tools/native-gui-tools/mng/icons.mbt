@@ -28,13 +28,20 @@ fn cmd_icons(args : Array[String]) -> Int32 {
     return 2
   }
   if !(@fs.is_file(src) catch { _ => false }) {
-    println(tmsg("读不到源图：" + src, "cannot read source image: " + src))
+    println(
+      tmsg("读不到源图：" + src, "cannot read source image: " + src),
+    )
     return 1
   }
   let abssrc = abs_path(src)
   let dir = if outdir.length() > 0 {
     if !mkdir_p(outdir) {
-      println(tmsg("建不了输出目录：" + outdir, "cannot create output dir: " + outdir))
+      println(
+        tmsg(
+          "建不了输出目录：" + outdir,
+          "cannot create output dir: " + outdir,
+        ),
+      )
       return 1
     }
     abs_path(outdir)
@@ -46,7 +53,9 @@ fn cmd_icons(args : Array[String]) -> Int32 {
   // ico：纯 MoonBit 字节合成，全平台可出
   let png : Bytes = @fs.read_file_to_bytes(src) catch {
     _ => {
-      println(tmsg("读不到源图：" + src, "cannot read source image: " + src))
+      println(
+        tmsg("读不到源图：" + src, "cannot read source image: " + src),
+      )
       return 1
     }
   }
@@ -84,13 +93,19 @@ fn cmd_icons(args : Array[String]) -> Int32 {
       let dim = n.to_string()
       match
         run_logged(
-          "sips -z \{dim} \{dim} " + sq(abssrc) + " --out " + sq(iconset + "/" + fname),
+          "sips -z \{dim} \{dim} " +
+          sq(abssrc) +
+          " --out " +
+          sq(iconset + "/" + fname),
           dir + "/mng-icons.log",
           60000,
         ) {
         Ok(_) => ()
         Err(e) => {
-          println(tmsg("icns 派生失败(sips):", "icns derivation failed (sips): ") + e)
+          println(
+            tmsg("icns 派生失败(sips):", "icns derivation failed (sips): ") +
+            e,
+          )
           derived = false
           break
         }
@@ -99,13 +114,21 @@ fn cmd_icons(args : Array[String]) -> Int32 {
     if derived {
       match
         run_logged(
-          "iconutil -c icns " + sq(iconset) + " -o " + sq(dir + "/" + stem + ".icns"),
+          "iconutil -c icns " +
+          sq(iconset) +
+          " -o " +
+          sq(dir + "/" + stem + ".icns"),
           dir + "/mng-icons.log",
           60000,
         ) {
         Ok(_) => println("OK " + dir + "/" + stem + ".icns")
         Err(e) => {
-          println(tmsg("icns 合成失败(iconutil):", "icns build failed (iconutil): ") + e)
+          println(
+            tmsg(
+              "icns 合成失败(iconutil):", "icns build failed (iconutil): ",
+            ) +
+            e,
+          )
           ok = false
         }
       }
@@ -115,7 +138,9 @@ fn cmd_icons(args : Array[String]) -> Int32 {
   } else {
     println(
       tmsg(
-        "icns 仅 macOS 可派生（sips/iconutil）；本机（" + host + "）跳过",
+        "icns 仅 macOS 可派生（sips/iconutil）；本机（" +
+        host +
+        "）跳过",
         "icns requires macOS (sips/iconutil); skipped on " + host,
       ),
     )

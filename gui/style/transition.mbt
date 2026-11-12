@@ -16,13 +16,13 @@ priv struct Anim {
   mut from : Style
   mut target : Style
   mut start : Int64
-  mut dur : Int
+  mut dur : Int32
   mut shown : Style
   mut finished : Bool
 }
 
 ///|
-let anims : Map[Int, Anim] = Map([])
+let anims : Map[Int32, Anim] = Map([])
 
 ///|
 let ticking : Ref[Bool] = Ref(false)
@@ -30,23 +30,23 @@ let ticking : Ref[Bool] = Ref(false)
 ///|
 /// 每拍的间隔（毫秒）：60fps 的一格。插值按**真实经过时间**算，不看拍数，
 /// 所以这一格不准（掉帧、宿主忙）只会让过渡少几帧，不会变快变慢。
-let tick_ms : Int = 16
+let tick_ms : Int32 = 16
 
 ///|
 /// 控件被摘掉时连带清掉它的过渡账（与样式侧表同一条丢弃钩子）。
-pub fn forget_anim(id : Int) -> Unit {
+pub fn forget_anim(id : Int32) -> Unit {
   let _ = anims.remove(id)
 }
 
 ///|
 /// 当前挂着账的控件数（诊断用：残账判据）。
-pub fn anim_count() -> Int {
+pub fn anim_count() -> Int32 {
   anims.length()
 }
 
 ///|
 /// 过渡时长（毫秒）：基块上的 `transition_ms`，没写或 ≤0 都不动画。
-fn duration_of(target : Style) -> Int {
+fn duration_of(target : Style) -> Int32 {
   match target.transition_ms {
     Some(v) => if v > 0.5 { v.round().to_int() } else { 0 }
     None => 0
@@ -103,7 +103,7 @@ pub fn lerp_style(from : Style, to : Style, t : Double) -> Style {
 /// 测量期读的字号：配了过渡的控件按「这一帧该画的值」量。`shown` 在落定后就是
 /// 目标值（含状态桶），所以悬停放大结束后盒子仍跟绘制一致。没配过渡的控件
 /// 没有账，给 None 让调用方回落基块。
-pub fn anim_shown_font_size(id : Int) -> Double? {
+pub fn anim_shown_font_size(id : Int32) -> Double? {
   match anims.get(id) {
     Some(a) => a.shown.font_size
     None => None
@@ -112,7 +112,7 @@ pub fn anim_shown_font_size(id : Int) -> Double? {
 
 ///|
 /// 测量期读的行高（与字号同理：单行档的行盒高由它定，测量与绘制必须同值）。
-pub fn anim_shown_line_height(id : Int) -> Double? {
+pub fn anim_shown_line_height(id : Int32) -> Double? {
   match anims.get(id) {
     Some(a) => a.shown.line_height
     None => None
@@ -124,6 +124,7 @@ pub fn anim_shown_line_height(id : Int) -> Double? {
 /// 会**长大**——而局部脏区是按标脏那一刻（上一帧）的矩形并进去的，新露出来的那圈
 /// 会被裁掉。所以这类过渡要改走整窗置脏；只改颜色/边框宽/圆角的仍按局部标
 /// （P5 那套局部置脏的优化不为它们让路）。
+
 ///|
 /// 两个可选数不同吗（都没写算相同）。
 fn opt_ne(x : Double?, y : Double?) -> Bool {
@@ -134,16 +135,15 @@ fn opt_ne(x : Double?, y : Double?) -> Bool {
   }
 }
 
+///|
 fn grows_layout(a : Anim) -> Bool {
-  opt_ne(a.from.font_size, a.target.font_size) || opt_ne(
-    a.from.line_height,
-    a.target.line_height,
-  )
+  opt_ne(a.from.font_size, a.target.font_size) ||
+  opt_ne(a.from.line_height, a.target.line_height)
 }
 
 ///|
 /// 这条账是否需要整窗重绘（诊断与测试用：字号/行高参与插值时矩形会长大）。
-pub fn anim_needs_full_paint(id : Int) -> Bool {
+pub fn anim_needs_full_paint(id : Int32) -> Bool {
   match anims.get(id) {
     Some(a) => !a.finished && grows_layout(a)
     None => false
@@ -210,7 +210,7 @@ fn settle(a : Anim, target : Style, now : Int64) -> Unit {
 /// ② 当前显示值已经等于目标（或差异不在插值集合里）就落定；
 /// ③ 目标换了就从当前显示值续接（反向打断不跳变），同一目标则按原时钟继续走；
 /// ④ `transition_ms` 没写或为 0 立刻落定。
-pub fn step(id : Int, target : Style, now : Int64) -> Style {
+pub fn step(id : Int32, target : Style, now : Int64) -> Style {
   let dur = duration_of(target)
   match anims.get(id) {
     None => {
@@ -250,7 +250,7 @@ pub fn step(id : Int, target : Style, now : Int64) -> Style {
 ///|
 /// 一拍里给一条账标脏：字号/行高在变的走整窗（矩形会长大，局部脏区按上一帧的矩形并，
 /// 新露出的那圈会被裁掉），其余走局部置脏。
-fn mark_dirty(id : Int, a : Anim) -> Unit {
+fn mark_dirty(id : Int32, a : Anim) -> Unit {
   if grows_layout(a) {
     @widget.invalidate()
   } else {
@@ -294,7 +294,7 @@ fn ensure_ticking() -> Unit {
 
 ///|
 /// 过渡是否还在跑（诊断与测试用）。
-pub fn anim_running(id : Int) -> Bool {
+pub fn anim_running(id : Int32) -> Bool {
   match anims.get(id) {
     Some(a) => !a.finished
     None => false

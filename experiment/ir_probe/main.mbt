@@ -20,11 +20,15 @@ fn main {
     gen = mount_gen(holder, if i % 2 == 0 { ir_v2() } else { ir_v1() }, reg)
   }
   let dt = @env.now() - t0
-  println("PROBE-SWAP = \{dt} ms / 200 次（均 \{dt * 5} µs/次；验收线：单次 ≪ 1000 ms）")
+  println(
+    "PROBE-SWAP = \{dt} ms / 200 次（均 \{dt * 5} µs/次；验收线：单次 ≪ 1000 ms）",
+  )
   // 泄漏检查：换完代后 set 一次，只有现役代渲染
   let before = fires.val
   qty.set(97)
-  println("PROBE-LEAK = set 一次渲染 \{fires.val - before} 次（应为 1；>1 即旧代订阅残留）")
+  println(
+    "PROBE-LEAK = set 一次渲染 \{fires.val - before} 次（应为 1；>1 即旧代订阅残留）",
+  )
   println(
     "PROBE-INT-SUB = qty 订阅数 \{qty.signal().sub_count()}（初代 \{sc0}；相等即不累积——含 bind_label 与 stepper 受控订阅各一条）",
   )

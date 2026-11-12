@@ -12,7 +12,7 @@ test "MenuBar/建条与加菜单" {
 }
 
 ///|
-fn kind_id(k : MenuItemKind) -> Int {
+fn kind_id(k : MenuItemKind) -> Int32 {
   match k {
     Command => 0
     Check => 1

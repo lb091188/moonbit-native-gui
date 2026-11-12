@@ -12,7 +12,7 @@
 
 ///|
 #borrow(out)
-extern "c" fn mng_gpu_probe(out : Bytes, cap : Int) -> Int = "mng_gpu_probe"
+extern "c" fn mng_gpu_probe(out : Bytes, cap : Int32) -> Int32 = "mng_gpu_probe"
 
 ///|
 /// 探测结果：`loaded` 可用性 + `detail`（装载路径或失败原因，原样可打印）。
@@ -34,12 +34,8 @@ pub fn probe() -> GpuProbe {
   while n < cap && bytes[n] != b'\x00' {
     n += 1
   }
-  let detail = if n == 0 {
-    ""
-  } else {
-    @utf8.decode_lossy(bytes[:n])
-  }
-  { loaded: ok == 1, detail }
+  let detail = if n == 0 { "" } else { @utf8.decode_lossy(bytes[:n]) }
+  { loaded: ok == 1, detail, }
 }
 
 ///|
@@ -50,10 +46,14 @@ pub fn probe() -> GpuProbe {
 /// 与 `probe()` 同一套「降级不是错误」口径。wgpu 库与 libX11 都 dlopen，
 /// 本模块不占链接面；vendor 归档或 Xlib 头缺失的平台是编译期桩，同样回 Err。
 #borrow(out)
-extern "c" fn mng_gpu_triangle(out : Bytes, cap : Int, frames : Int) -> Int = "mng_gpu_triangle"
+extern "c" fn mng_gpu_triangle(
+  out : Bytes,
+  cap : Int32,
+  frames : Int32,
+) -> Int32 = "mng_gpu_triangle"
 
 ///|
-pub fn run_triangle(frames~ : Int = 600) -> Result[Unit, String] {
+pub fn run_triangle(frames~ : Int32 = 600) -> Result[Unit, String] {
   let cap = 320
   let bytes = Bytes::from_array(FixedArray::make(cap, b'\x00'))
   let rc = mng_gpu_triangle(bytes, cap, frames)
@@ -88,17 +88,17 @@ pub fn run_triangle(frames~ : Int = 600) -> Result[Unit, String] {
 /// 换算归宿主）；clip/opacity 与 trait 一致。不可用（没装 GPU 扩展/驱动
 /// 起不来）时 `new` 回 Err——调用方照走 CPU 路径，「降级不是错误」。
 pub(all) struct GpuCanvas {
-  handle : Int
-  w : Int
-  h : Int
+  handle : Int32
+  w : Int32
+  h : Int32
 }
 
 ///|
-extern "c" fn mng_gpu_canvas_new(w : Int, h : Int) -> Int = "mng_gpu_canvas_new"
+extern "c" fn mng_gpu_canvas_new(w : Int32, h : Int32) -> Int32 = "mng_gpu_canvas_new"
 
 ///|
 #borrow(out)
-extern "c" fn mng_gpu_canvas_detail(out : Bytes, cap : Int) -> Unit = "mng_gpu_canvas_detail"
+extern "c" fn mng_gpu_canvas_detail(out : Bytes, cap : Int32) -> Unit = "mng_gpu_canvas_detail"
 
 ///|
 /// 最近一次 `GpuCanvas::new` 失败的原因（C 侧逐档记录：核心未就绪/缺符号/
@@ -119,30 +119,30 @@ fn canvas_detail() -> String {
 }
 
 ///|
-extern "c" fn mng_gpu_canvas_resize(h : Int, w : Int, hh : Int) -> Int = "mng_gpu_canvas_resize"
+extern "c" fn mng_gpu_canvas_resize(h : Int32, w : Int32, hh : Int32) -> Int32 = "mng_gpu_canvas_resize"
 
 ///|
 #borrow(data)
 extern "c" fn mng_gpu_canvas_draw_texture(
-  h : Int,
+  h : Int32,
   data : Bytes,
-  dw : Int,
-  dh : Int,
+  dw : Int32,
+  dh : Int32,
   dx : Double,
   dy : Double,
   dw2 : Double,
   dh2 : Double,
-  has_clip : Int,
+  has_clip : Int32,
   cx : Double,
   cy : Double,
   cw : Double,
   ch : Double,
   opacity : Double,
-) -> Int = "mng_gpu_canvas_draw_texture"
+) -> Int32 = "mng_gpu_canvas_draw_texture"
 
 ///|
 extern "c" fn mng_gpu_canvas_fill(
-  h : Int,
+  h : Int32,
   x : Double,
   y : Double,
   w : Double,
@@ -151,25 +151,29 @@ extern "c" fn mng_gpu_canvas_fill(
   g : Double,
   b : Double,
   a : Double,
-  has_clip : Int,
+  has_clip : Int32,
   cx : Double,
   cy : Double,
   cw : Double,
   ch : Double,
   opacity : Double,
-) -> Int = "mng_gpu_canvas_fill"
+) -> Int32 = "mng_gpu_canvas_fill"
 
 ///|
 #borrow(out)
-extern "c" fn mng_gpu_canvas_finish(h : Int, out : Bytes, cap : Int) -> Int = "mng_gpu_canvas_finish"
+extern "c" fn mng_gpu_canvas_finish(
+  h : Int32,
+  out : Bytes,
+  cap : Int32,
+) -> Int32 = "mng_gpu_canvas_finish"
 
 ///|
-extern "c" fn mng_gpu_canvas_free(h : Int) -> Unit = "mng_gpu_canvas_free"
+extern "c" fn mng_gpu_canvas_free(h : Int32) -> Unit = "mng_gpu_canvas_free"
 
 ///|
 /// 建一块 w×h 的 GPU 画布（上限 8192）。没装 GPU 扩展/驱动起不来/尺寸
 /// 非法回 Err，调用方照走 CPU 路径。
-pub fn GpuCanvas::new(w : Int, h : Int) -> Result[GpuCanvas, String] {
+pub fn GpuCanvas::new(w : Int32, h : Int32) -> Result[GpuCanvas, String] {
   // 不拿 probe() 当前置门槛：probe 与 core 是两套装载器，候选表一旦分叉，
   // 「core 能建设备、probe 却报 not-found」会把可用画布误判成降级。画布只
   // 信自己实际用的那条链——mng_gpu_canvas_new 内 mng_wgpu_ready() 判定，
@@ -178,19 +182,23 @@ pub fn GpuCanvas::new(w : Int, h : Int) -> Result[GpuCanvas, String] {
   if hd <= 0 {
     Err("GPU 画布建不出（\{w}x\{h}）：\{canvas_detail()}")
   } else {
-    Ok({ handle: hd, w, h })
+    Ok({ handle: hd, w, h, })
   }
 }
 
 ///|
 /// 画布尺寸（建时给定；`resize` 后跟着变）。
-pub fn GpuCanvas::size(self : GpuCanvas) -> (Int, Int) {
+pub fn GpuCanvas::size(self : GpuCanvas) -> (Int32, Int32) {
   (self.w, self.h)
 }
 
 ///|
 /// 改画布尺寸（重建离屏目标与读回缓冲）。失败回 Err（调用方应弃用这块画布）。
-pub fn GpuCanvas::resize(self : GpuCanvas, w : Int, h : Int) -> Result[Unit, String] {
+pub fn GpuCanvas::resize(
+  self : GpuCanvas,
+  w : Int32,
+  h : Int32,
+) -> Result[Unit, String] {
   if mng_gpu_canvas_resize(self.handle, w, h) == 1 {
     Ok(())
   } else {
@@ -229,7 +237,7 @@ pub fn GpuCanvas::free(self : GpuCanvas) -> Unit {
 
 ///|
 /// clip（None = 不裁）→ C 侧的 (flag, x, y, w, h)。
-fn canvas_clip(c : @base.Rect?) -> (Int, Double, Double, Double, Double) {
+fn canvas_clip(c : @base.Rect?) -> (Int32, Double, Double, Double, Double) {
   match c {
     None => (0, 0.0, 0.0, 0.0, 0.0)
     Some(r) => (1, r.x, r.y, r.w, r.h)
@@ -238,7 +246,7 @@ fn canvas_clip(c : @base.Rect?) -> (Int, Double, Double, Double, Double) {
 
 ///|
 /// 单个 hex 数位（0-9/a-f/A-F → 0..15；非法 -1）。
-fn canvas_hex_digit(c : Char) -> Int {
+fn canvas_hex_digit(c : Char) -> Int32 {
   if c >= '0' && c <= '9' {
     c.to_int() - '0'.to_int()
   } else if c >= 'a' && c <= 'f' {
@@ -252,7 +260,7 @@ fn canvas_hex_digit(c : Char) -> Int {
 
 ///|
 /// 两位 hex（下标 i 起）→ 0..255；非法 -1。
-fn canvas_hex_pair(s : String, i : Int) -> Int {
+fn canvas_hex_pair(s : String, i : Int32) -> Int32 {
   let hi = match s.get_char(i) {
     Some(c) => canvas_hex_digit(c)
     None => -1
@@ -272,11 +280,7 @@ fn canvas_hex_pair(s : String, i : Int) -> Int {
 /// `#rrggbb` / `#rrggbbaa` → (r,g,b,a) 0..1（解析不了按不透明白，与 Painter
 /// 的 fill 色同一式容忍）。
 fn canvas_color(hex : String) -> (Double, Double, Double, Double) {
-  let s = if hex.has_prefix("#") {
-    hex[1:].to_owned()
-  } else {
-    hex
-  }
+  let s = if hex.has_prefix("#") { hex[1:].to_owned() } else { hex }
   let n = s.length()
   if n != 6 && n != 8 {
     return (1.0, 1.0, 1.0, 1.0)
@@ -307,14 +311,14 @@ fn canvas_color(hex : String) -> (Double, Double, Double, Double) {
 
 ///|
 impl @render.GpuSink for GpuCanvas with fn draw_texture_rgba(
-    self : GpuCanvas,
-    data : Bytes,
-    w : Int,
-    h : Int,
-    dst : @base.Rect,
-    clip : @base.Rect?,
-    opacity : Double,
-  ) -> Unit {
+  self : GpuCanvas,
+  data : Bytes,
+  w : Int32,
+  h : Int32,
+  dst : @base.Rect,
+  clip : @base.Rect?,
+  opacity : Double,
+) -> Unit {
   let (hc, cx, cy, cw, ch) = canvas_clip(clip)
   let _ = mng_gpu_canvas_draw_texture(
     self.handle,
@@ -336,12 +340,12 @@ impl @render.GpuSink for GpuCanvas with fn draw_texture_rgba(
 
 ///|
 impl @render.GpuSink for GpuCanvas with fn fill_rect(
-    self : GpuCanvas,
-    rect : @base.Rect,
-    color : String,
-    clip : @base.Rect?,
-    opacity : Double,
-  ) -> Unit {
+  self : GpuCanvas,
+  rect : @base.Rect,
+  color : String,
+  clip : @base.Rect?,
+  opacity : Double,
+) -> Unit {
   let (r, g, b, a) = canvas_color(color)
   let (hc, cx, cy, cw, ch) = canvas_clip(clip)
   let _ = mng_gpu_canvas_fill(

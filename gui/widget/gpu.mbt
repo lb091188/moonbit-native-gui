@@ -8,18 +8,18 @@
 // `@render.GpuSink`，实现住可选模块 `@guigpu`——主包不引不背。
 
 ///|
-let g_gpu_sink : Ref[(&@render.GpuSink)?] = Ref(None)
+let g_gpu_sink : Ref[&@render.GpuSink?] = Ref(None)
 
 ///|
 /// 设/清当前帧的 GPU sink（宿主用；`None` = 全 CPU 路径）。
 /// L1（present 纹理合成）落地后由 `paint_frame` 在探测到后端时设。
-pub fn gpu_set_sink(sink : (&@render.GpuSink)?) -> Unit {
+pub fn gpu_set_sink(sink : &@render.GpuSink?) -> Unit {
   g_gpu_sink.val = sink
 }
 
 ///|
 /// 当前帧的 GPU sink（`None` = 没有 GPU 后端，控件走 `on_draw` CPU 路径）。
-pub fn gpu_sink() -> (&@render.GpuSink)? {
+pub fn gpu_sink() -> &@render.GpuSink? {
   g_gpu_sink.val
 }
 

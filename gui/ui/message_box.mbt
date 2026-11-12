@@ -59,7 +59,7 @@ pub fn msgbox_icon_color_of(kind : MsgBoxKind) -> String {
 ///|
 /// 默认钮的响应编号（第一个按钮；空表给 0，调用方据此判「没有默认钮」）。
 /// Enter 键与「默认聚焦哪个钮」都用它。
-pub fn msgbox_default_code(buttons : Array[(String, Int)]) -> Int {
+pub fn msgbox_default_code(buttons : Array[(String, Int32)]) -> Int32 {
   if buttons.length() > 0 {
     buttons[0].1
   } else {
@@ -71,9 +71,10 @@ pub fn msgbox_default_code(buttons : Array[(String, Int)]) -> Int {
 /// 消息框的焦点 id 取号：从 700000 起（避开调用方常用的低号段，如示例里的
 /// 1..25）。每次开层取一个、关层注销。**只服务「一个按钮都没有」那一档**：
 /// 那种框没有可聚焦项，得给面板一个手动号，Esc 才有落点。
-let msgbox_next_focus_id : Ref[Int] = Ref(700000)
+let msgbox_next_focus_id : Ref[Int32] = Ref(700000)
 
-fn msgbox_alloc_focus_id() -> Int {
+///|
+fn msgbox_alloc_focus_id() -> Int32 {
   msgbox_next_focus_id.val = msgbox_next_focus_id.val + 1
   msgbox_next_focus_id.val
 }
@@ -95,15 +96,17 @@ pub fn message_box(
   visible : @base.Store[Bool],
   title : String,
   content : String,
-  kind? : MsgBoxKind = Information,
-  informative? : String = "",
-  buttons? : Array[(String, Int)] = [(@i18n.t_or("gui.ui.message_box.ok", "确定"), 1)],
-  on_response? : (Int) -> Unit = fn(_r : Int) -> Unit { () },
-  on_dismiss? : () -> Unit = fn() -> Unit { () },
-  close_on_mask? : Bool = false,
-  width? : Double = 420.0,
-  class? : Array[@style.Style] = [],
-  handle? : (@widget.Widget) -> Unit = default_handle,
+  kind~ : MsgBoxKind = Information,
+  informative~ : String = "",
+  buttons~ : Array[(String, Int32)] = [
+    (@i18n.t_or("gui.ui.message_box.ok", "确定"), 1),
+  ],
+  on_response~ : (Int32) -> Unit = fn(_r : Int32) -> Unit { () },
+  on_dismiss~ : () -> Unit = fn() -> Unit { () },
+  close_on_mask~ : Bool = false,
+  width~ : Double = 420.0,
+  class~ : Array[@style.Style] = [],
+  handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   // 用显式 mount 而不是 `node_of_new`：后者的 finish 在构造期就跑，而「按 Store
   // 立刻开层」要求浮层宿主已经就位（宿主是 WindowHost 建窗时装的）。同 `dialog`。
@@ -113,12 +116,12 @@ pub fn message_box(
       watch_theme()
       // 锚点是个 0 尺寸占位：可见性只由 Store 驱动，不在页面里占位
       anchor.node.set_height(@yoga.fixed(0.0))
-      let open_id : Ref[Int] = Ref(0)
+      let open_id : Ref[Int32] = Ref(0)
       // 本层可聚焦项：底钮各一个号（进树即被宿主的焦点链收到），外加
       // 「无按钮」那一档的面板手动号。开框时焦点交给第一个，收框时整批注销。
-      let btn_ids : Array[Int] = []
-      let panel_focus : Ref[Int] = Ref(0)
-      let prev_focus : Ref[Int] = Ref(0)
+      let btn_ids : Array[Int32] = []
+      let panel_focus : Ref[Int32] = Ref(0)
+      let prev_focus : Ref[Int32] = Ref(0)
       let icon_kind = msgbox_icon_of(kind)
       let icon_color = msgbox_icon_color_of(kind)
       let title_font = @text.Font::new("", 14.0, weight=@text.SemiBold)
@@ -152,7 +155,7 @@ pub fn message_box(
           }
         }
       }
-      let respond = fn(code : Int) -> Unit {
+      let respond = fn(code : Int32) -> Unit {
         // 先直接收层（不依赖 Store 真值到假值的跳变），再同步 Store（订阅里再收一次
         // 是幂等的），最后回调——口径与 `dialog` 的「三个出口都先收起再回调」一致
         teardown_open()
@@ -171,7 +174,9 @@ pub fn message_box(
         let panel = @widget.Widget::new()
         let panel_node = @widget.node_of(panel)
         // 遮罩：铺满窗口 + 吃下按下（视觉模态，点击不穿透到内容）
-        let scrim = @widget.node_of_new(fn(s : @widget.Widget) -> @widget.Widget {
+        let scrim = @widget.node_of_new(fn(
+          s : @widget.Widget,
+        ) -> @widget.Widget {
           watch_theme()
           s.node.set_width(@yoga.percent(100.0))
           s.node.set_height(@yoga.percent(100.0))
@@ -205,7 +210,10 @@ pub fn message_box(
         title_bar.set_padding(left=16.0)
         @style.apply(
           title_bar,
-          @style.merge_all([@style.style(color="text_primary"), paint_subset(class)]),
+          @style.merge_all([
+            @style.style(color="text_primary"),
+            paint_subset(class),
+          ]),
         )
         title_bar.on_draw = Some(fn(
           self : @widget.Widget,
@@ -238,7 +246,10 @@ pub fn message_box(
         @style.apply(
           close_btn,
           @style.merge_all([
-            @style.style(color="text_secondary", border_radius=@theme.radius_ctrl()).hover(background_color="fill_hover"),
+            @style.style(
+              color="text_secondary",
+              border_radius=@theme.radius_ctrl(),
+            ).hover(background_color="fill_hover"),
             paint_subset(class),
           ]),
         )
@@ -251,9 +262,18 @@ pub fn message_box(
           let bg = @style.color_of(st.background_color, "")
           if bg.length() > 0 {
             p.set_fill_color(bg)
-            fill_round_rect(p, 0.0, 0.0, r.w, r.h, @style.number_of(st.border_radius, @theme.radius_ctrl()))
+            fill_round_rect(
+              p,
+              0.0,
+              0.0,
+              r.w,
+              r.h,
+              @style.number_of(st.border_radius, @theme.radius_ctrl()),
+            )
           }
-          p.set_stroke_color(@style.color_of(st.color, @theme.theme_text_secondary()))
+          p.set_stroke_color(
+            @style.color_of(st.color, @theme.theme_text_secondary()),
+          )
           p.set_line_width(1.4)
           p.begin_path()
           p.move_to(8.0, 8.0)
@@ -327,7 +347,14 @@ pub fn message_box(
           r : @base.Rect,
         ) -> Unit {
           let st = @style.style_for(self)
-          @icons.draw_icon(p, icon_kind, r.w / 2.0, r.h / 2.0, 11.0, @style.color_of(st.color, icon_color))
+          @icons.draw_icon(
+            p,
+            icon_kind,
+            r.w / 2.0,
+            r.h / 2.0,
+            11.0,
+            @style.color_of(st.color, icon_color),
+          )
         })
         let col = @widget.Widget::new()
         col.node.set_flex_direction(@yoga.Column)
@@ -404,7 +431,11 @@ pub fn message_box(
             p.set_fill_color(
               @style.color_of(
                 st.background_color,
-                if primary { @theme.theme_primary() } else { @theme.theme_bg_panel() },
+                if primary {
+                  @theme.theme_primary()
+                } else {
+                  @theme.theme_bg_panel()
+                },
               ),
             )
             let rad = @style.number_of(st.border_radius, @theme.radius_ctrl())
@@ -412,7 +443,9 @@ pub fn message_box(
             self.clip_rounded = rad > 0.0
             self.style_clip_radius = rad
             fill_round_rect(p, 0.0, 0.0, r.w, r.h, rad)
-            p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
+            p.set_stroke_color(
+              @style.color_of(st.border_color, @theme.theme_border()),
+            )
             p.set_line_width(@style.number_of(st.border_width, 1.0))
             if rad > 0.0 {
               p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)
@@ -430,7 +463,11 @@ pub fn message_box(
               btn_font,
               @style.color_of(
                 st.color,
-                if primary { "#ffffff" } else { @theme.theme_text_regular() },
+                if primary {
+                  "#ffffff"
+                } else {
+                  @theme.theme_text_regular()
+                },
               ),
               align=@text.Center,
               valign=@text.Center,
@@ -447,7 +484,13 @@ pub fn message_box(
               )
               p.set_line_width(1.0)
               if rad > 0.0 {
-                p.round_rect_path(1.5, 1.5, r.w - 3.0, r.h - 3.0, (rad - 1.0).max(0.0))
+                p.round_rect_path(
+                  1.5,
+                  1.5,
+                  r.w - 3.0,
+                  r.h - 3.0,
+                  (rad - 1.0).max(0.0),
+                )
                 p.stroke()
               } else {
                 p.stroke_rect(1.0, 1.0, r.w - 2.0, r.h - 2.0)
@@ -488,7 +531,7 @@ pub fn message_box(
           panel,
           @style.merge_all([
             @style.style(
-              width=width,
+              width~,
               background_color="bg_panel",
               border_color="border",
               border_width=1.0,
@@ -507,9 +550,13 @@ pub fn message_box(
 
           self.clip_rounded = rad > 0.0
           self.style_clip_radius = rad
-          p.set_fill_color(@style.color_of(st.background_color, @theme.theme_bg_panel()))
+          p.set_fill_color(
+            @style.color_of(st.background_color, @theme.theme_bg_panel()),
+          )
           p.fill_round_rect(0.0, 0.0, r.w, r.h, rad)
-          p.set_stroke_color(@style.color_of(st.border_color, @theme.theme_border()))
+          p.set_stroke_color(
+            @style.color_of(st.border_color, @theme.theme_border()),
+          )
           p.set_line_width(@style.number_of(st.border_width, 1.0))
           if rad > 0.0 {
             p.round_rect_path(0.5, 0.5, r.w - 1.0, r.h - 1.0, rad)

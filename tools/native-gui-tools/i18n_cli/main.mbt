@@ -1,12 +1,20 @@
 // i18n 预处理 CLI。子命令：extract <src_dir>；check <locales_dir> <locale> <src_dir>。
 
+///|
 fn usage() -> Unit {
-  println("用法：moon run tools/native-gui-tools/i18n_cli -- <子命令> ...")
-  println("  extract <src_dir>                       打印源码用到的所有 t() 键（每行一个）")
-  println("  check <locales_dir> <locale> <src_dir>  比对源码用量与目录定义，报缺失/残项")
+  println(
+    "用法：moon run tools/native-gui-tools/i18n_cli -- <子命令> ...",
+  )
+  println(
+    "  extract <src_dir>                       打印源码用到的所有 t() 键（每行一个）",
+  )
+  println(
+    "  check <locales_dir> <locale> <src_dir>  比对源码用量与目录定义，报缺失/残项",
+  )
   println("  缺失非空时退出码为 1（供 CI 门禁）。")
 }
 
+///|
 fn chars_of(s : String) -> Array[Char] {
   let a : Array[Char] = []
   for c in s {
@@ -15,6 +23,7 @@ fn chars_of(s : String) -> Array[Char] {
   a
 }
 
+///|
 fn ends_with(s : String, suf : String) -> Bool {
   let a = chars_of(s)
   let b = chars_of(suf)
@@ -33,11 +42,13 @@ fn ends_with(s : String, suf : String) -> Bool {
   }
 }
 
+///|
 fn slurp(p : String) -> String? {
   let s = @fs.read_file_to_string(p) catch { _ => return None }
   Some(s)
 }
 
+///|
 fn walk(dir : String, acc : Array[String]) -> Unit {
   let names = @fs.read_dir(dir) catch { _ => return }
   for name in names {
@@ -51,17 +62,17 @@ fn walk(dir : String, acc : Array[String]) -> Unit {
   }
 }
 
+///|
 fn collect_used(src_dir : String) -> Array[String] {
   let files : Array[String] = []
   walk(src_dir, files)
   let all : Array[String] = []
   for f in files {
     match slurp(f) {
-      Some(text) => {
+      Some(text) =>
         for k in @i18nkit.scan_keys(text) {
           all.push(k)
         }
-      }
       None => ()
     }
   }
@@ -81,6 +92,7 @@ fn collect_used(src_dir : String) -> Array[String] {
   out
 }
 
+///|
 fn main {
   let raw = @env.args()
   let args : Array[String] = []
@@ -131,7 +143,9 @@ fn main {
     for u in unused {
       println("UNUSED\t\{u}")
     }
-    println("SUMMARY\tused=\{used.length()}\tdefined=\{defined.length()}\tmissing=\{missing.length()}\tunused=\{unused.length()}")
+    println(
+      "SUMMARY\tused=\{used.length()}\tdefined=\{defined.length()}\tmissing=\{missing.length()}\tunused=\{unused.length()}",
+    )
     if missing.length() > 0 {
       @sys.exit(1)
     }

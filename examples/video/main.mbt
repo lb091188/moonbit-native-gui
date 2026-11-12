@@ -78,7 +78,7 @@ fn arr_str_has(a : Array[String], x : String) -> Bool {
 
 ///|
 /// 字符串表里该值的下标（没有则 -1）。
-fn arr_str_idx(a : Array[String], x : String) -> Int {
+fn arr_str_idx(a : Array[String], x : String) -> Int32 {
   for i = 0; i < a.length(); i = i + 1 {
     if a[i] == x {
       return i
@@ -127,10 +127,14 @@ fn main {
   // 播放列表：完整路径表 + 选中名（menu 的 Store 存显示名）
   let tracks : Ref[Array[String]] = Ref([])
   let selected : @base.Store[String] = @base.Store::new("")
-  let track_line : @base.Store[String] = @base.Store::new("（还没载入视频）")
+  let track_line : @base.Store[String] = @base.Store::new(
+    "（还没载入视频）",
+  )
   let list_title : @base.Store[String] = @base.Store::new("播放列表")
   let tick_line : @base.Store[String] = @base.Store::new("")
-  let sub_line : @base.Store[String] = @base.Store::new("字幕：未打开（打开时回报来源与条数）")
+  let sub_line : @base.Store[String] = @base.Store::new(
+    "字幕：未打开（打开时回报来源与条数）",
+  )
   let err_line : @base.Store[String] = @base.Store::new("")
   // 外挂字幕文本（空串 = 优先同名 .srt 配对，再退容器内嵌轨；读取归本示例，
   // 组件只收文本）；sub_off 是「用内嵌轨」的显式关闸，关掉后不再自动配对
@@ -198,15 +202,18 @@ fn main {
           height=420.0,
           auto_play=true,
           looping=true,
-          on_tick=fn(t : Double, frames : Int, playing : Bool) -> Unit {
+          on_tick=fn(t : Double, frames : Int32, playing : Bool) -> Unit {
             if frames % 8 == 0 {
               tick_line.set(
                 (if playing { "▶ " } else { "❚❚ " }) +
-                  t.to_string() + "s · " + frames.to_string() + " 帧",
+                t.to_string() +
+                "s · " +
+                frames.to_string() +
+                " 帧",
               )
             }
           },
-          on_subtitle=fn(n : Int, embedded : Bool) -> Unit {
+          on_subtitle=fn(n : Int32, embedded : Bool) -> Unit {
             if n == 0 {
               sub_line.set(
                 if embedded {
@@ -218,8 +225,12 @@ fn main {
             } else {
               sub_line.set(
                 "字幕：\{n} 条（" +
-                  (if embedded { "容器内嵌轨，自动读取" } else { "外挂 SRT 文本" }) +
-                  "）",
+                (if embedded {
+                  "容器内嵌轨，自动读取"
+                } else {
+                  "外挂 SRT 文本"
+                }) +
+                "）",
               )
             }
           },
@@ -239,19 +250,20 @@ fn main {
     match player_holder.val {
       Some(h) => {
         h.clear_children()
-        let _ = @ui
-          .view(
-            [
-              @ui.empty(description=note),
-              @ui.text("用左侧「选择文件…」或「选择目录…」载入视频", class=[@style.text_secondary]),
-            ],
-            row_gap=6.0,
-            align_items=@yoga.AlignItems::Center,
-            justify_content=@yoga.JustifyContent::Center,
-            padding=12.0,
-            grow=1.0,
-          )
-          .mount_into(h)
+        let _ = @ui.view(
+          [
+            @ui.empty(description=note),
+            @ui.text(
+              "用左侧「选择文件…」或「选择目录…」载入视频",
+              class=[@style.text_secondary],
+            ),
+          ],
+          row_gap=6.0,
+          align_items=@yoga.AlignItems::Center,
+          justify_content=@yoga.JustifyContent::Center,
+          padding=12.0,
+          grow=1.0,
+        ).mount_into(h)
       }
       None => ()
     }
@@ -278,11 +290,9 @@ fn main {
             }
           }
         }
-        let _ = @ui
-          .menu(names, selected, width=232.0, handle=fn(w) {
-            w.node.set_flex_grow(1.0)
-          })
-          .mount_into(h)
+        let _ = @ui.menu(names, selected, width=232.0, handle=fn(w) {
+          w.node.set_flex_grow(1.0)
+        }).mount_into(h)
       }
       None => ()
     }
@@ -299,7 +309,9 @@ fn main {
     match host.val {
       Some(a) => {
         let dlg = @sys.FileDialog::new_open()
-        dlg.set_filters("视频文件:mp4,mkv,mov,avi,webm,flv,ts,wmv,m4v,mpg,mpeg|所有文件:*")
+        dlg.set_filters(
+          "视频文件:mp4,mkv,mov,avi,webm,flv,ts,wmv,m4v,mpg,mpeg|所有文件:*",
+        )
         if dlg.run_for_window(a.wid().to_int64()) {
           let p = dlg.get_result()
           tracks.val.push(p)
@@ -333,7 +345,10 @@ fn main {
                 fail("目录里没有视频文件：\{dir}")
               } else {
                 tracks.val = found
-                toast("扫描到 \{found.length()} 个视频文件", @ui.Success)
+                toast(
+                  "扫描到 \{found.length()} 个视频文件",
+                  @ui.Success,
+                )
               }
               rebuild_list(true)
             }
@@ -357,7 +372,10 @@ fn main {
             Some(t) => {
               sub_text.val = t
               sub_off.val = false
-              toast("已读外挂字幕：\{base_name(p)}（换片也沿用）", @ui.Success)
+              toast(
+                "已读外挂字幕：\{base_name(p)}（换片也沿用）",
+                @ui.Success,
+              )
               // 重挂当前片让 subtitle 参数立即生效
               let names = display_names()
               let idx = arr_str_idx(names, selected.get())
@@ -396,8 +414,18 @@ fn main {
           @ui.bind_label(track_line, fn(s) { s }),
           @ui.row(
             [
-              @ui.bind_label(tick_line, fn(s) { s }, font_size=12.0, color="text_secondary"),
-              @ui.bind_label(sub_line, fn(s) { s }, font_size=12.0, color="text_secondary"),
+              @ui.bind_label(
+                tick_line,
+                fn(s) { s },
+                font_size=12.0,
+                color="text_secondary",
+              ),
+              @ui.bind_label(
+                sub_line,
+                fn(s) { s },
+                font_size=12.0,
+                color="text_secondary",
+              ),
             ],
             column_gap=12.0,
           ),
@@ -417,7 +445,12 @@ fn main {
           // 左：播放列表 + 载入入口 + 字幕
           @ui.col(
             [
-              @ui.bind_label(list_title, fn(s) { s }, font_size=12.0, color="text_secondary"),
+              @ui.bind_label(
+                list_title,
+                fn(s) { s },
+                font_size=12.0,
+                color="text_secondary",
+              ),
               @ui.scroll_view(
                 [@ui.col([], handle=fn(c) { list_holder.val = Some(c) })],
                 @ui.ScrollState::new(),
@@ -445,7 +478,11 @@ fn main {
               @ui.col(
                 [
                   @ui.button("选外挂 .srt…", on_click=pick_subtitle),
-                  @ui.button("用内嵌轨", variant=@ui.Text, on_click=clear_subtitle),
+                  @ui.button(
+                    "用内嵌轨",
+                    variant=@ui.Text,
+                    on_click=clear_subtitle,
+                  ),
                 ],
                 row_gap=6.0,
               ),
@@ -459,7 +496,9 @@ fn main {
           ),
           // 右：视频区（面板底与左侧一致）
           @ui.col(
-            [@ui.col([], grow=1.0, handle=fn(c) { player_holder.val = Some(c) })],
+            [
+              @ui.col([], grow=1.0, handle=fn(c) { player_holder.val = Some(c) }),
+            ],
             grow=1.0,
             padding=12.0,
             background_color="bg_panel",
@@ -497,7 +536,9 @@ fn main {
           None => {
             tracks.val = []
             rebuild_list(true)
-            err_line.set("默认资产 1.mp4 没找到（从当前目录逐级向上找 examples/video/assets/）；用「选择文件…」载入本地视频")
+            err_line.set(
+              "默认资产 1.mp4 没找到（从当前目录逐级向上找 examples/video/assets/）；用「选择文件…」载入本地视频",
+            )
           }
         }
       })

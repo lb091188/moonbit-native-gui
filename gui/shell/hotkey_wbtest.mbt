@@ -17,6 +17,8 @@ test "hotkey: 后端探测（Windows 恒真，其余平台打印跳过）" {
       Ok(_) => inspect(0, content="1")
     }
   } else {
-    println("hotkey: skip (本平台无全局热键后端，W22 门面给 Unsupported)")
+    println(
+      "hotkey: skip (本平台无全局热键后端，W22 门面给 Unsupported)",
+    )
   }
 }

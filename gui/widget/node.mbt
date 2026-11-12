@@ -27,10 +27,12 @@ pub fn Node::mount_into(self : Node, parent : Widget) -> Widget {
 ///|
 /// 已有控件包成节点（挂上去即成为 parent 的直接子项）。
 pub fn node_of(w : Widget) -> Node {
-  { mount: fn(parent : Widget) -> Widget {
+  {
+    mount: fn(parent : Widget) -> Widget {
       parent.append_child(w)
       w
-    } }
+    },
+  }
 }
 
 ///|
@@ -49,11 +51,13 @@ pub fn node_of_new(finish : (Widget) -> Widget) -> Node {
 /// 选中时才挂），本方法把回调推迟到那一刻。挂载几次跑几次——重挂会重跑，
 /// 一次性启动类回调要由调用方保证只挂一次。
 pub fn Node::on_mount(self : Node, f : () -> Unit) -> Node {
-  { mount: fn(parent : Widget) -> Widget {
+  {
+    mount: fn(parent : Widget) -> Widget {
       let w = (self.mount)(parent)
       f()
       w
-    } }
+    },
+  }
 }
 
 ///|
@@ -66,7 +70,8 @@ pub fn mount_children(parent : Widget, children : Array[Node]) -> Unit {
 
 // ---- 重绘请求：内容变了要让宿主再画一帧 ----
 
-let repaint_hook : Ref[(() -> Unit)] = Ref(fn() { () })
+///|
+let repaint_hook : Ref[() -> Unit] = Ref(fn() { () })
 
 ///|
 /// 安装「请求重绘」回调。宿主装的是 `host_repaint_all`，于是信号回调里的

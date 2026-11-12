@@ -72,7 +72,10 @@ test "未挂载时所有调用都是安全的空操作" {
   assert_eq(v.add_user_script("x"), false)
   assert_eq(v.add_raw_binding("native_echo"), false)
   assert_eq(v.capture_dom(PageText, fn(_s : DomSnapshot) -> Unit { () }), false)
-  assert_eq(v.execute_javascript_with_result("1", fn(_r : String) -> Unit { () }), -1L)
+  assert_eq(
+    v.execute_javascript_with_result("1", fn(_r : String) -> Unit { () }),
+    -1L,
+  )
   // 地址是记下来的（挂载时才交给引擎）
   assert_eq(v.url, "https://e.x/b")
   assert_eq(log.length(), 0)
@@ -96,7 +99,9 @@ test "事件分派：kind 映射逐条对上，JS 回包按序号配对后出队
       LoadFailed(t) => log.push("fail:" + t)
       Permission(t) => log.push("perm:" + t)
       Download(req) =>
-        log.push("dl:" + req.id.to_string() + ":" + req.uri + "|" + req.suggested)
+        log.push(
+          "dl:" + req.id.to_string() + ":" + req.uri + "|" + req.suggested,
+        )
       NewWindow(t) => log.push("win:" + t)
       Cookies(t) => log.push("cookies:" + t)
       ProcessTerminated(t) => log.push("crash:" + t)
@@ -119,25 +124,12 @@ test "事件分派：kind 映射逐条对上，JS 回包按序号配对后出队
   v.dispatch(11, 0L, "reason=1")
   v.dispatch(12, 0L, "")
   v.dispatch(77, 0L, "x")
-  assert_eq(
-    log,
-    [
-      "title:标题",
-      "finish:https://e.x/",
-      "url:https://e.x/",
-      "start:https://e.x/",
-      "commit:https://e.x/",
-      "redirect:https://e.x/2",
-      "fail:https://e.x/2|WebKitNetworkError|-1|boom",
-      "perm:GeolocationPermissionRequest",
-      "dl:7:https://e.x/f.zip|f.zip",
-      "win:https://e.x/open",
-      "cookies:[]",
-      "crash:reason=1",
-      "close",
-      "unknown:77:x",
-    ],
-  )
+  assert_eq(log, [
+    "title:标题", "finish:https://e.x/", "url:https://e.x/", "start:https://e.x/",
+    "commit:https://e.x/", "redirect:https://e.x/2", "fail:https://e.x/2|WebKitNetworkError|-1|boom",
+    "perm:GeolocationPermissionRequest", "dl:7:https://e.x/f.zip|f.zip", "win:https://e.x/open",
+    "cookies:[]", "crash:reason=1", "close", "unknown:77:x",
+  ])
   // JS 回包：命中等待者就回调一次并出队，没命中只当事件走旁路
   let got : Array[String] = []
   v.eval_waiters.push((4L, fn(r : String) -> Unit { got.push("4:" + r) }))
@@ -157,7 +149,7 @@ test "invoke 通道：页面载荷直达 on_invoke，旁路也看得到" {
     Some(x) => x
   }
   let hits : Array[String] = []
-  let seen : Array[Int] = []
+  let seen : Array[Int32] = []
   v.on_invoke = Some(fn(p : String) -> Unit { hits.push(p) })
   v.on_event = Some(fn(_e : WebEvent) -> Unit { seen.push(1) })
   v.dispatch(6, 0L, "{\"msg\":\"hi\"}")

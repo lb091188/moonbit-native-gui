@@ -7,10 +7,14 @@
 //    （菜单栏形态在 `examples/native-app` 演示，弹出形态待窗口页接线补）；
 // ③ 菜单项/面包屑写**存在**的页面名会直接切换页面（共享同一导航 Store 是
 //    刻意的联动演示）。
+
+///|
 pub fn page_nav(app : @shared.App) -> @widget.Node {
-  let page_no : @base.Store[Int] = @base.Store::new(2)
-  let step : @base.Store[Int] = @base.Store::new(1)
-  let last_op : @base.Store[String] = @base.Store::new(@shared.tx("（尚未操作）"))
+  let page_no : @base.Store[Int32] = @base.Store::new(2)
+  let step : @base.Store[Int32] = @base.Store::new(1)
+  let last_op : @base.Store[String] = @base.Store::new(
+    @shared.tx("（尚未操作）"),
+  )
   @shared.page([
     @shared.section(
       "侧栏",
@@ -19,17 +23,24 @@ pub fn page_nav(app : @shared.App) -> @widget.Node {
       [
         @ui.descriptions([
           (@shared.tx("悬停态"), @shared.tx("浅灰底")),
-          (@shared.tx("选中态"), @shared.tx("主题浅蓝底 + 主题色文字 + 3px 强调条")),
-          (@shared.tx("折叠"), @shared.tx("组标题行点击收起/展开组内菜单项")),
-          (@shared.tx("联动"), @shared.tx("菜单项、面包屑、分段共享同一导航状态")),
+          (
+            @shared.tx("选中态"),
+            @shared.tx("主题浅蓝底 + 主题色文字 + 3px 强调条"),
+          ),
+          (
+            @shared.tx("折叠"),
+            @shared.tx("组标题行点击收起/展开组内菜单项"),
+          ),
+          (
+            @shared.tx("联动"),
+            @shared.tx("菜单项、面包屑、分段共享同一导航状态"),
+          ),
         ]),
       ],
       code=[
-        "let selected = @base.Store::new(\"基础组件\")",
-        "@ui.menu_sections(",
+        "let selected = @base.Store::new(\"基础组件\")", "@ui.menu_sections(",
         "  [(\"组件\", [\"基础组件\", \"表单组件\"]), (\"系统能力\", [\"系统集成\"])],",
-        "  selected,",
-        "  icons=[(\"基础组件\", @icons.Appstore), (\"系统集成\", @icons.Setting1)],",
+        "  selected,", "  icons=[(\"基础组件\", @icons.Appstore), (\"系统集成\", @icons.Setting1)],",
         ")",
       ],
     ),
@@ -41,48 +52,74 @@ pub fn page_nav(app : @shared.App) -> @widget.Node {
         @ui.row(
           [
             @ui.context_menu_for(
-              @ui.view([@ui.tag(@shared.tx("右键我"), "#2D68C4")], width=140.0, height=32.0, align_items=@yoga.AlignItems::Center),
+              @ui.view(
+                [@ui.tag(@shared.tx("右键我"), "#2D68C4")],
+                width=140.0,
+                height=32.0,
+                align_items=@yoga.AlignItems::Center,
+              ),
               [
-                (@shared.tx("复制"), fn() { last_op.set(@shared.tx("已复制")) }),
-                (@shared.tx("重命名"), fn() { last_op.set(@shared.tx("重命名")) }),
+                (
+                  @shared.tx("复制"),
+                  fn() { last_op.set(@shared.tx("已复制")) },
+                ),
+                (
+                  @shared.tx("重命名"),
+                  fn() { last_op.set(@shared.tx("重命名")) },
+                ),
                 ("-", fn() { () }),
-                (@shared.tx("删除"), fn() { last_op.set(@shared.tx("已删除")) }),
+                (
+                  @shared.tx("删除"),
+                  fn() { last_op.set(@shared.tx("已删除")) },
+                ),
               ],
             ),
             @ui.dropdown(
               @shared.tx("操作"),
-              [@shared.tx("打开"), @shared.tx("保存"), "-", @shared.tx("复制链接"), @shared.tx("删除")],
+              [
+                @shared.tx("打开"),
+                @shared.tx("保存"),
+                "-",
+                @shared.tx("复制链接"),
+                @shared.tx("删除"),
+              ],
               on_select=fn(_i) { last_op.set(@shared.tx("菜单项已选")) },
             ),
-            @ui.bind_label(last_op, fn(s) { @shared.tr_with("dyn.last_op", [("s", s)], "最近操作：\{s}") }),
+            @ui.bind_label(last_op, fn(s) {
+              @shared.tr_with("dyn.last_op", [("s", s)], "最近操作：\{s}")
+            }),
           ],
           column_gap=16.0,
         ),
         @ui.descriptions([
-          (@shared.tx("快捷键"), "item.set_accelerator(\"CmdOrCtrl+I\") 注册系统级加速键"),
-          (@shared.tx("角色项"), "menu.add_role_item(role) 取平台原生文案"),
-          (@shared.tx("分隔线"), "menu.add_separator() 插入不可点分隔线"),
-          (@shared.tx("挂载"), @shared.tx("窗口由 main 经宿主菜单栏通道挂载（示例见 native-app 的菜单区块）")),
+          (
+            @shared.tx("快捷键"),
+            "item.set_accelerator(\"CmdOrCtrl+I\") 注册系统级加速键",
+          ),
+          (
+            @shared.tx("角色项"),
+            "menu.add_role_item(role) 取平台原生文案",
+          ),
+          (
+            @shared.tx("分隔线"),
+            "menu.add_separator() 插入不可点分隔线",
+          ),
+          (
+            @shared.tx("挂载"),
+            @shared.tx(
+              "窗口由 main 经宿主菜单栏通道挂载（示例见 native-app 的菜单区块）",
+            ),
+          ),
         ]),
       ],
       code=[
-        "@ui.context_menu_for(",
-        "  @ui.tag(\"右键我\", \"#2D68C4\"),",
-        "  [",
-        "    (\"复制\", fn() { last_op.set(\"已复制\") }),",
-        "    (\"-\", fn() { () }),",
-        "    (\"删除\", fn() { last_op.set(\"已删除\") }),",
-        "  ],",
-        ")",
-        "@ui.dropdown(\"操作\", [\"打开\", \"保存\", \"-\", \"删除\"], on_select=fn(_i) { () })",
-        "// 原生菜单栏：模型翻译成原生菜单挂窗口",
-        "let bar = @shell.MenuBar::new()",
-        "let file = bar.add_menu(\"文件\")",
-        "let about = file.add_item(\"关于\")",
-        "about.set_accelerator(\"CmdOrCtrl+I\")",
-        "let _ = file.add_separator()",
-        "let edit = bar.add_menu(\"编辑\")",
-        "let _ = edit.add_role_item(@shell.MenuRole::Copy)",
+        "@ui.context_menu_for(", "  @ui.tag(\"右键我\", \"#2D68C4\"),", "  [",
+        "    (\"复制\", fn() { last_op.set(\"已复制\") }),", "    (\"-\", fn() { () }),",
+        "    (\"删除\", fn() { last_op.set(\"已删除\") }),", "  ],", ")", "@ui.dropdown(\"操作\", [\"打开\", \"保存\", \"-\", \"删除\"], on_select=fn(_i) { () })",
+        "// 原生菜单栏：模型翻译成原生菜单挂窗口", "let bar = @shell.MenuBar::new()",
+        "let file = bar.add_menu(\"文件\")", "let about = file.add_item(\"关于\")",
+        "about.set_accelerator(\"CmdOrCtrl+I\")", "let _ = file.add_separator()",
+        "let edit = bar.add_menu(\"编辑\")", "let _ = edit.add_role_item(@shell.MenuRole::Copy)",
       ],
     ),
     @shared.section(
@@ -106,16 +143,23 @@ pub fn page_nav(app : @shared.App) -> @widget.Node {
       "顶部页签形态：选中主题色文字 + 底部指示条，内容区切换（子区预建 + 显隐，不重建）。",
       [
         @ui.tabs([
-          (@shared.tx("概览"), @ui.text(@shared.tx("这里是概览页内容。"))),
-          (@shared.tx("配置"), @ui.text(@shared.tx("这里是配置页内容。"))),
-          (@shared.tx("日志"), @ui.text(@shared.tx("这里是日志页内容。"))),
+          (
+            @shared.tx("概览"),
+            @ui.text(@shared.tx("这里是概览页内容。")),
+          ),
+          (
+            @shared.tx("配置"),
+            @ui.text(@shared.tx("这里是配置页内容。")),
+          ),
+          (
+            @shared.tx("日志"),
+            @ui.text(@shared.tx("这里是日志页内容。")),
+          ),
         ]),
       ],
       code=[
-        "@ui.tabs([",
-        "  (\"概览\", @ui.text(\"这里是概览页内容。\")),",
-        "  (\"配置\", @ui.text(\"这里是配置页内容。\")),",
-        "])",
+        "@ui.tabs([", "  (\"概览\", @ui.text(\"这里是概览页内容。\")),",
+        "  (\"配置\", @ui.text(\"这里是配置页内容。\")),", "])",
       ],
     ),
     @shared.section(
@@ -124,7 +168,9 @@ pub fn page_nav(app : @shared.App) -> @widget.Node {
       "项名即页面名：点非当前项即直达（与侧边菜单共享同一导航状态）；当前项（导航状态里那个值）深色、点它不改值，分隔符 `/` 不可点。",
       [
         @ui.breadcrumb(
-          ["数据展示", "导航组件", "基础组件"].map(x => @shared.nav_label(x)),
+          ["数据展示", "导航组件", "基础组件"].map(x => {
+            @shared.nav_label(x)
+          }),
           app.selected,
         ),
       ],
@@ -138,8 +184,7 @@ pub fn page_nav(app : @shared.App) -> @widget.Node {
       "当前页主题色实底白字，悬停浅蓝；点击页码切换。",
       [@ui.pagination(page_no, 5)],
       code=[
-        "let page_no : @base.Store[Int] = @base.Store::new(2)",
-        "@ui.pagination(page_no, 5)",
+        "let page_no : @base.Store[Int] = @base.Store::new(2)", "@ui.pagination(page_no, 5)",
       ],
     ),
     @shared.section(
@@ -170,14 +215,19 @@ pub fn page_nav(app : @shared.App) -> @widget.Node {
                 }
               })
             }),
-            @ui.bind_label(step, fn(n) { @shared.tr_with("dyn.step_now", [("s", (n + 1).to_string())], "当前第 \{n + 1} 步") }),
+            @ui.bind_label(step, fn(n) {
+              @shared.tr_with(
+                "dyn.step_now",
+                [("s", (n + 1).to_string())],
+                "当前第 \{n + 1} 步",
+              )
+            }),
           ],
           column_gap=8.0,
         ),
       ],
       code=[
-        "let step : @base.Store[Int] = @base.Store::new(1)",
-        "@ui.steps([\"填写\", \"确认\", \"完成\"], step)  // 点数字直达；传 on_select 可接管点击（如只读预览）",
+        "let step : @base.Store[Int] = @base.Store::new(1)", "@ui.steps([\"填写\", \"确认\", \"完成\"], step)  // 点数字直达；传 on_select 可接管点击（如只读预览）",
         "@ui.button(\"下一步\", variant=@ui.Solid, on_click=fn() { step.update(fn(n) { if n + 1 > 2 { 2 } else { n + 1 } }) })",
       ],
     ),

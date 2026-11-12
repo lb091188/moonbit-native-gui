@@ -34,7 +34,7 @@ test "订阅表按 服务名.ActiveChanged 分发" {
     alive: false,
     acc: FixedArray::make(16, b'\x00'),
     acc_len: 0,
-    pending: (Map([]) : Map[Int, (Msg) -> Unit]),
+    pending: (Map([]) : Map[Int32, (Msg) -> Unit]),
     subs: (Map([]) : Map[String, Array[(Msg) -> Unit]]),
     match_rules: [],
     items: (Map([]) : Map[String, Item]),

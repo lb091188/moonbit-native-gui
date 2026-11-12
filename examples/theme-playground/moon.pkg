@@ -1,9 +1,9 @@
 import {
-  "NoahLiu/native-gui/base" @base,
-  "NoahLiu/native-gui/widget" @widget,
-  "NoahLiu/native-gui/ui" @ui,
-  "NoahLiu/native-gui/theme" @theme,
-  "NoahLiu/native-gui/style" @style,
+  "NoahLiu/native-gui/base",
+  "NoahLiu/native-gui/widget",
+  "NoahLiu/native-gui/ui",
+  "NoahLiu/native-gui/theme",
+  "NoahLiu/native-gui/style",
 }
 
 pkgtype(kind: "executable")

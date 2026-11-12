@@ -14,18 +14,18 @@
 
 ///|
 priv struct TextSelOwner {
-  mut id : Int
+  mut id : Int32
   mut copy : (() -> Unit)?
   mut clear : (() -> Unit)?
 }
 
 ///|
-let g_text_sel : TextSelOwner = { id: 0, copy: None, clear: None }
+let g_text_sel : TextSelOwner = { id: 0, copy: None, clear: None, }
 
 ///|
 /// 当前持有选区的控件 id（0 = 没有）。绘制方用它判「是不是我」：
 /// `@widget.text_sel_owner() == self.id`。
-pub fn text_sel_owner() -> Int {
+pub fn text_sel_owner() -> Int32 {
   g_text_sel.id
 }
 
@@ -33,7 +33,7 @@ pub fn text_sel_owner() -> Int {
 /// 认领选区：把 `id` 登记为当前持有者。已有别的持有者时先调它的 `clear`
 /// （前任让位即清自己的选区），再覆盖登记。`copy` 执行复制、`clear` 清选区。
 pub fn text_sel_claim(
-  id : Int,
+  id : Int32,
   copy : () -> Unit,
   clear : () -> Unit,
 ) -> Unit {
@@ -50,7 +50,7 @@ pub fn text_sel_claim(
 
 ///|
 /// 释放登记（仅当登记的确实是它）：选区折叠为空、或控件重挂时用。
-pub fn text_sel_release(id : Int) -> Unit {
+pub fn text_sel_release(id : Int32) -> Unit {
   if g_text_sel.id == id {
     g_text_sel.id = 0
     g_text_sel.copy = None

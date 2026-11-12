@@ -1,7 +1,8 @@
 // Cairo 光栅器的像素级回归：与纯 MoonBit 矩形绘制器的口径一致性，是这一批
 // 最要紧的不变量（两者同一份契约、同一块缓冲，将来组件层在它们之间切换）。
 
-fn rgba_of(bm : Bitmap, x : Int, y : Int) -> (Int, Int, Int, Int) {
+///|
+fn rgba_of(bm : Bitmap, x : Int32, y : Int32) -> (Int32, Int32, Int32, Int32) {
   let c = bm.pixel(x, y)
   (c.r, c.g, c.b, c.a)
 }
@@ -9,6 +10,8 @@ fn rgba_of(bm : Bitmap, x : Int, y : Int) -> (Int, Int, Int, Int) {
 // 同一段绘制序列跑两条路径：门面探针选中的后端与强制切换的纯光栅器后端。
 // 矩形口径（取整、内侧描边、裁剪求交、平移、半透明 source-over）必须逐像素一致，
 // 这是纯实现与 cairo 可互换的前提，也是纯实现不被门面改动破坏的回归线。
+
+///|
 fn paint_seq(bm : Bitmap, fallback : Bool) -> Unit {
   let p = Painter::new(bm)
   if fallback {
@@ -87,6 +90,7 @@ fn paint_seq_aa(bm : Bitmap) -> Unit {
   p.end()
 }
 
+///|
 test "路径/描边/弧两后端对拍（AA 容差）" {
   let a = Bitmap::new(16, 16)
   paint_seq_aa(a)
@@ -106,7 +110,7 @@ test "路径/描边/弧两后端对拍（AA 容差）" {
       let (r1, g1, b1, a1) = rgba_of(a, x, y)
       let (r2, g2, b2, a2) = rgba_of(b, x, y)
       painted = painted + a1
-      let d = fn(u : Int, v : Int) -> Int {
+      let d = fn(u : Int32, v : Int32) -> Int32 {
         let w = u - v
         if w < 0 {
           -w
@@ -125,13 +129,13 @@ test "路径/描边/弧两后端对拍（AA 容差）" {
   assert_eq(painted > 0, true)
 }
 
-
 // —— 以下测试一律「后端探测」：cairo 会话可用（Linux）直接用；不可用
 // （Windows/mac 占位桩）落纯光栅器 Raster——两者方法面逐条同形。断言分两档：
 // 结构档（内部着色/外部透明/中间 alpha 存在）跨平台共用；数值档（如斜边
 // 覆盖的具体字节）属平台基线，纯后端走容差带（4×4 超采样 16 级 vs cairo
 // 解析覆盖，单样本 16/256 量化差以内）。
 
+///|
 test "路径填充：三角形内部着色、外部透明" {
   let bm = Bitmap::new(16, 16)
   let p = Painter::new(bm)
@@ -148,6 +152,7 @@ test "路径填充：三角形内部着色、外部透明" {
   assert_eq(rgba_of(bm, 14, 14), (0, 0, 0, 0))
 }
 
+///|
 test "抗锯齿：斜边像素出现中间 alpha" {
   let bm = Bitmap::new(16, 16)
   let p = Painter::new(bm)
@@ -171,6 +176,7 @@ test "抗锯齿：斜边像素出现中间 alpha" {
   assert_eq(partial > 0, true)
 }
 
+///|
 test "clip_rect 与 translate 生效" {
   let bm = Bitmap::new(16, 16)
   let p = Painter::new(bm)
@@ -188,6 +194,7 @@ test "clip_rect 与 translate 生效" {
   assert_eq(rgba_of(bm, 9, 9), (0, 0, 255, 255))
 }
 
+///|
 test "stroke_rect 走内侧口径（与 Painter 同语义）" {
   let a = Bitmap::new(12, 12)
   let pa = Painter::new(a)
@@ -224,6 +231,7 @@ test "stroke_rect 走内侧口径（与 Painter 同语义）" {
   pa.end()
 }
 
+///|
 test "颜色含 alpha 时与矩形绘制器结果一致" {
   let a = Bitmap::new(4, 4)
   let pa = Painter::new(a)

@@ -5,16 +5,15 @@
 supported_targets = "native"
 
 import {
-  "moonbitlang/x/fs" @fs,
+  "moonbitlang/x/fs",
   "NoahLiu/native-gui/base",
-  "NoahLiu/native-gui/widget" @widget,
+  "NoahLiu/native-gui/widget",
   "NoahLiu/native-gui/ui",
-  "NoahLiu/native-gui/style" @style,
-  "NoahLiu/native-gui/text" @text,
-  "NoahLiu/native-gui/theme" @theme,
-  "NoahLiu/native-gui/shell" @shell,
-  "NoahLiu/native-gui/win" @win,
-  "NoahLiu/native-gui/i18n" @i18n,
+  "NoahLiu/native-gui/style",
+  "NoahLiu/native-gui/text",
+  "NoahLiu/native-gui/theme",
+  "NoahLiu/native-gui/shell",
+  "NoahLiu/native-gui/win",
+  "NoahLiu/native-gui/i18n",
   "NoahLiu/yoga-mbt/src" @yoga,
 }
-

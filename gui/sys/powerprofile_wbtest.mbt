@@ -16,7 +16,7 @@ test "pp Windows 直调读数环：profiles 非空 + current 可识别 + set 回
     }
   }
   match pp_current() {
-    Ok(cur) => {
+    Ok(cur) =>
       // 写回当前方案：系统调用走全链，状态等效无变化
       match pp_set(cur) {
         Ok(_) => println("pp: set round-trip ok (\{cur})")
@@ -25,7 +25,6 @@ test "pp Windows 直调读数环：profiles 非空 + current 可识别 + set 回
           assert_true(false)
         }
       }
-    }
     Err(e) => {
       println("pp_current failed: \{e}")
       assert_true(false)

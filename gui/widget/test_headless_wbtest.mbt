@@ -3,7 +3,7 @@
 
 ///|
 test "test_headless：定时器经 step 驱动到期（wait(0) 不真睡）" {
-  let fired : Ref[Int] = Ref(0)
+  let fired : Ref[Int32] = Ref(0)
   let a = WindowHost::test_headless(200, 120)
   assert_true(a.is_primary())
   assert_true(@shell.session_is_headless())

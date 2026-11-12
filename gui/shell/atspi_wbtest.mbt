@@ -4,8 +4,8 @@
 
 ///|
 fn atspi_test_node(
-  id : Int,
-  parent : Int,
+  id : Int32,
+  parent : Int32,
   role : String,
   name : String,
   state : String,
@@ -13,7 +13,20 @@ fn atspi_test_node(
   text : String,
   enabled : Bool,
 ) -> AtspiNode {
-  { id, parent, enabled, role, name, state, value, text, x: 10.0, y: 20.0, w: 80.0, h: 30.0 }
+  {
+    id,
+    parent,
+    enabled,
+    role,
+    name,
+    state,
+    value,
+    text,
+    x: 10.0,
+    y: 20.0,
+    w: 80.0,
+    h: 30.0,
+  }
 }
 
 ///|
@@ -68,7 +81,9 @@ test "atspi：状态位集合（焦点/勾选/只读/多行/可编辑）" {
   // 焦点命中
   assert_true(atspi_states_of(btn, 1).contains(12))
   // 勾选态
-  let cb = atspi_test_node(2, 0, "checkbox", "记住我", "checked", "", "", true)
+  let cb = atspi_test_node(
+    2, 0, "checkbox", "记住我", "checked", "", "", true,
+  )
   assert_true(atspi_states_of(cb, 0).contains(4)) // checked
   // 只读文本件：read_only 有、editable 无
   let ro = atspi_test_node(3, 0, "text_input", "", "read_only", "abc", "", true)
@@ -118,7 +133,10 @@ test "atspi：路径 scheme（应用根/窗口根/控件按 id 稳态）" {
   // 窗口根行 = parent==0
   assert_eq(atspi_window_row(rows).unwrap().id, 9)
   // 按路径找行
-  assert_eq(atspi_row_at(rows, "/org/a11y/atspi/accessible/win/10").unwrap().id, 10)
+  assert_eq(
+    atspi_row_at(rows, "/org/a11y/atspi/accessible/win/10").unwrap().id,
+    10,
+  )
   assert_true(atspi_row_at(rows, "/org/a11y/atspi/accessible/win/999") is None)
   assert_true(atspi_row_at(rows, "/org/a11y/atspi/accessible/root") is None) // 合成节点
   // 子行按快照序
@@ -181,7 +199,14 @@ test "atspi：入站派发（假 CallReq 驱动，不碰真总线）" {
   }
   // Accessible.GetRole（按钮 = push_button 43）
   assert_true(
-    atspi_handle(req("/org/a11y/atspi/accessible/win/2", "org.a11y.atspi.Accessible", "GetRole", [])),
+    atspi_handle(
+      req(
+        "/org/a11y/atspi/accessible/win/2",
+        "org.a11y.atspi.Accessible",
+        "GetRole",
+        [],
+      ),
+    ),
   )
   assert_eq(got.length(), 1)
   assert_eq(got[0].0, "GetRole")
@@ -247,7 +272,9 @@ test "atspi：入站派发（假 CallReq 驱动，不碰真总线）" {
   )
   // 非 a11y 路径直接不接（返回 false）
   assert_false(
-    atspi_handle(req("/some/other/path", "org.a11y.atspi.Accessible", "GetRole", [])),
+    atspi_handle(
+      req("/some/other/path", "org.a11y.atspi.Accessible", "GetRole", []),
+    ),
   )
 }
 
@@ -266,7 +293,7 @@ test "atspi：连接活性判据（自愈重连换名即该重Embed）" {
 
 ///|
 /// 测试用重复串（最坏行 canary 造字段用）。
-fn atspi_fill(ch : Char, n : Int) -> String {
+fn atspi_fill(ch : Char, n : Int32) -> String {
   let mut s = ""
   let mut i = 0
   while i < n {
@@ -309,8 +336,16 @@ test "atspi：最坏行经发布通道往返不丢（缓冲余量 canary）" {
   // 行从读屏树里静默消失）。字段以后加宽，这条会红。
   let name = atspi_fill('A', 255)
   let text = atspi_fill('B', 511)
-  let tsv = "2147483647\t-2147483648\t1\t" + atspi_fill('r', 31) + "\t" + name +
-    "\t" + atspi_fill('s', 31) + "\t" + atspi_fill('v', 63) + "\t" + text +
+  let tsv = "2147483647\t-2147483648\t1\t" +
+    atspi_fill('r', 31) +
+    "\t" +
+    name +
+    "\t" +
+    atspi_fill('s', 31) +
+    "\t" +
+    atspi_fill('v', 63) +
+    "\t" +
+    text +
     "\t-1.234567890e+300\t9.876543210e-300\t1.234567890e+300\t-9.876543210e-300"
   @win.a11y_publish(@utf8.encode(tsv), 1)
   let rows = atspi_rows_now()
@@ -327,9 +362,7 @@ test "atspi：最坏行经发布通道往返不丢（缓冲余量 canary）" {
 ///|
 test "atspi：真总线集成（无 a11y 总线的环境跳过）" {
   match atspi_start() {
-    Err(e) => {
-      println("atspi: skip（本机无 a11y 总线: \{e}）")
-    }
+    Err(e) => println("atspi: skip（本机无 a11y 总线: \{e}）")
     Ok(_) => {
       // 发一帧三行快照（窗口 + 按钮 + 勾选）并泵一拍
       let tsv = "1\t0\t1\twindow\t演示窗\t\t\t\t0\t0\t400\t300\n" +

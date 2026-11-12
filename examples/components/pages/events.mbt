@@ -20,7 +20,7 @@
 
 ///|
 /// 修饰键位掩码 → 可读串（指针与按键事件同一口径）。
-fn mods_label(m : Int) -> String {
+fn mods_label(m : Int32) -> String {
   let mut s = ""
   if (m & @base.MOD_SHIFT) != 0 {
     s = s + "Shift "
@@ -44,7 +44,7 @@ fn mods_label(m : Int) -> String {
 ///|
 /// 虚拟键码 → 可读名：可打印区间直接给字符，命名键给名字，其余给编号。
 /// （宿主只投按下，`press` 恒真；这里仍显示它，字段就在事件上。）
-fn key_name(ks : Int) -> String {
+fn key_name(ks : Int32) -> String {
   if ks == @base.KS_BACKSPACE {
     "Backspace"
   } else if ks == @base.KS_TAB {
@@ -87,11 +87,13 @@ fn skin_panel(w : @widget.Widget) -> Unit {
     p : @render.Painter,
     r : @base.Rect,
   ) -> Unit {
-    p.set_fill_color(if self.hovered {
-      @theme.theme_fill_hover()
-    } else {
-      @theme.theme_bg_panel()
-    })
+    p.set_fill_color(
+      if self.hovered {
+        @theme.theme_fill_hover()
+      } else {
+        @theme.theme_bg_panel()
+      },
+    )
     p.fill_rect(0.0, 0.0, r.w, r.h)
     p.set_stroke_color(@theme.theme_border())
     p.set_line_width(1.0)
@@ -106,7 +108,7 @@ fn skin_panel(w : @widget.Widget) -> Unit {
 fn key_focus_area(echo : @base.Store[String]) -> @widget.Node {
   // 诊断（真机一轮定位，拿到读数后删）：n 只走 stdout，与重绘链无关——
   // stdout 里 n 在涨而屏幕上不更新 = 重绘链断；stdout 一条不涨 = 事件链断。
-  let n : Ref[Int] = Ref(0)
+  let n : Ref[Int32] = Ref(0)
   {
     mount: fn(parent : @widget.Widget) -> @widget.Widget {
       let w = @widget.Widget::new()
@@ -123,11 +125,13 @@ fn key_focus_area(echo : @base.Store[String]) -> @widget.Node {
         p.set_fill_color(@theme.theme_bg_panel())
         p.fill_rect(0.0, 0.0, r.w, r.h)
         // 焦点环：聚焦主题色、未聚焦边框色（focused 由宿主按焦点栈维护）
-        p.set_stroke_color(if self.focused {
-          @theme.theme_primary()
-        } else {
-          @theme.theme_border()
-        })
+        p.set_stroke_color(
+          if self.focused {
+            @theme.theme_primary()
+          } else {
+            @theme.theme_border()
+          },
+        )
         p.set_line_width(1.0)
         p.stroke_rect(0.0, 0.0, r.w, r.h)
         // 文本走 text 自己的 Cairo 会话，与 Painter 会话交替前刷一次
@@ -146,7 +150,10 @@ fn key_focus_area(echo : @base.Store[String]) -> @widget.Node {
           wrap=false,
         )
       })
-      w.on_pointer = Some(fn(_self : @widget.Widget, ev : @widget.PointerEvent) -> Bool {
+      w.on_pointer = Some(fn(
+        _self : @widget.Widget,
+        ev : @widget.PointerEvent,
+      ) -> Bool {
         match ev.kind {
           @widget.PointerKind::Down => true
           _ => false
@@ -155,8 +162,14 @@ fn key_focus_area(echo : @base.Store[String]) -> @widget.Node {
       w.on_key = Some(fn(ev : @widget.KeyEvent) -> Bool {
         n.val = n.val + 1
         println(
-          "KEY-DIAG n=" + n.val.to_string() + " keysym=" + ev.keysym.to_string() +
-          " press=" + ev.press.to_string() + " mods=" + ev.mods.to_string()
+          "KEY-DIAG n=" +
+          n.val.to_string() +
+          " keysym=" +
+          ev.keysym.to_string() +
+          " press=" +
+          ev.press.to_string() +
+          " mods=" +
+          ev.mods.to_string(),
         )
         echo.set(
           "\{key_name(ev.keysym)}（keysym \{ev.keysym}）mods=\{mods_label(ev.mods)} press=\{ev.press} 第 \{n.val.to_string()} 键",
@@ -171,22 +184,26 @@ fn key_focus_area(echo : @base.Store[String]) -> @widget.Node {
 
 ///|
 /// 键盘焦点区的焦点 id（页内唯一；>0 才可聚焦）。本页之外无人占用 9xx 段。
-const KEY_AREA_FOCUS_ID : Int = 910
+const KEY_AREA_FOCUS_ID : Int32 = 910
 
 ///|
 pub fn page_events(app : @shared.App) -> @widget.Node {
   // ---- 段一：鼠标（五类指针事件 + 双击判定） ----
-  let evt_mouse : @base.Store[String] = @base.Store::new(@shared.tx("(移入色块区操作)"))
-  let evt_dbl : @base.Store[String] = @base.Store::new(@shared.tx("(在操作区快速连点两次)"))
-  let dbl_n : Ref[Int] = Ref(0)
+  let evt_mouse : @base.Store[String] = @base.Store::new(
+    @shared.tx("(移入色块区操作)"),
+  )
+  let evt_dbl : @base.Store[String] = @base.Store::new(
+    @shared.tx("(在操作区快速连点两次)"),
+  )
+  let dbl_n : Ref[Int32] = Ref(0)
   // 双击判定与 input 的「双击选词」同一口径：400ms + 4px（monotonic 时钟）
   let last_down : Ref[(Int64, Double, Double)] = Ref((0L, 0.0, 0.0))
   // ---- 段二：悬停秒表（on_hover_change 起停 200ms 自重排定时器） ----
   // 自停上限 100 拍（20s）：切页后悬停态可能滞留（隐藏控件不参与命中，但宿主
   // 只在指针移动时重算悬停），自停兜底，不会永远转下去
-  let watch_n : Ref[Int] = Ref(0)
-  let watch_timer : Ref[Int] = Ref(0)
-  let watch_secs : @base.Store[Int] = @base.Store::new(0)
+  let watch_n : Ref[Int32] = Ref(0)
+  let watch_timer : Ref[Int32] = Ref(0)
+  let watch_secs : @base.Store[Int32] = @base.Store::new(0)
   let watch_tick : Ref[() -> Unit] = Ref(fn() { () })
 
   watch_tick.val = fn() -> Unit {
@@ -207,31 +224,38 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
   }
 
   // ---- 段三：捕获（命中即捕获，拖动演示） ----
-  let cap_log : @base.Store[String] = @base.Store::new(@shared.tx("(在 A 区按下，拖到 B 区上再松手)"))
+  let cap_log : @base.Store[String] = @base.Store::new(
+    @shared.tx("(在 A 区按下，拖到 B 区上再松手)"),
+  )
 
   fn cap_area(tag : String) -> @widget.Node {
     @ui.col(
-      [
-        @ui.text(
-          @shared.tr_with("zone.tag", [("tag", tag)], tag + " 区"),
-        ),
-      ],
+      [@ui.text(@shared.tr_with("zone.tag", [("tag", tag)], tag + " 区"))],
       width=150.0,
       height=80.0,
       handle=fn(w : @widget.Widget) -> Unit {
         skin_panel(w)
-        w.on_pointer = Some(fn(_self : @widget.Widget, ev : @widget.PointerEvent) -> Bool {
+        w.on_pointer = Some(fn(
+          _self : @widget.Widget,
+          ev : @widget.PointerEvent,
+        ) -> Bool {
           match ev.kind {
             @widget.PointerKind::Down => {
-              cap_log.set("\{tag} 按下 → 捕获者换成 \{tag}（pressed 已由宿主置上）")
+              cap_log.set(
+                "\{tag} 按下 → 捕获者换成 \{tag}（pressed 已由宿主置上）",
+              )
               true
             }
             @widget.PointerKind::Move => {
-              cap_log.set("\{tag} 收到 move (\{ev.x.round()}, \{ev.y.round()})——负值 = 指针已移出本区，仍投给捕获者")
+              cap_log.set(
+                "\{tag} 收到 move (\{ev.x.round()}, \{ev.y.round()})——负值 = 指针已移出本区，仍投给捕获者",
+              )
               false
             }
             @widget.PointerKind::Up => {
-              cap_log.set("\{tag} 抬起 → 捕获释放，悬停按抬起位置重判")
+              cap_log.set(
+                "\{tag} 抬起 → 捕获释放，悬停按抬起位置重判",
+              )
               true
             }
             @widget.PointerKind::Leave => false
@@ -245,7 +269,7 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
   let cur_area : Ref[@widget.Widget?] = Ref(None)
   let cur_now : @base.Store[String] = @base.Store::new("Default")
 
-  fn apply_cursor(kind : Int, name : String) -> Unit {
+  fn apply_cursor(kind : Int32, name : String) -> Unit {
     match cur_area.val {
       Some(w) => {
         w.cursor = kind
@@ -256,63 +280,71 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
   }
 
   // ---- 段五：键盘 ----
-  let key_echo : @base.Store[String] = @base.Store::new(@shared.tx("(点击下面区域获得焦点，再按任意键)"))
+  let key_echo : @base.Store[String] = @base.Store::new(
+    @shared.tx("(点击下面区域获得焦点，再按任意键)"),
+  )
   @shared.page([
     @shared.section(
       "鼠标",
       "指针事件 PointerEvent",
       "五类指针事件（Down/Up/Move/Leave）走控件同一个 `on_pointer` 回调；坐标在交给处理器前已换算成**本地坐标**（Leave 保持窗口坐标），button 与修饰键位掩码随事件下发——修饰键不再需要轮询。双击判定 400ms + 4px，与输入框的「双击选词」同一口径。",
       [
-        @ui.col(
-          [@ui.text(@shared.tx("鼠标操作区"))],
-          height=96.0,
-          handle=fn(w : @widget.Widget) -> Unit {
-            skin_panel(w)
-            w.on_pointer = Some(fn(_self : @widget.Widget, ev : @widget.PointerEvent) -> Bool {
-              match ev.kind {
-                @widget.PointerKind::Down => {
-                  let now = @shell.now_ms()
-                  let (t0, x0, y0) = last_down.val
-                  if now - t0 < 400L && (ev.x - x0).abs() < 4.0 && (ev.y - y0).abs() < 4.0 {
-                    dbl_n.val = dbl_n.val + 1
-                    evt_dbl.set("双击！连击 \{dbl_n.val} 次 btn=\{ev.button}")
-                  }
-                  last_down.val = (now, ev.x, ev.y)
-                  evt_mouse.set("down btn=\{ev.button} mods=\{mods_label(ev.mods)}")
-                  true
+        @ui.col([@ui.text(@shared.tx("鼠标操作区"))], height=96.0, handle=fn(
+          w : @widget.Widget,
+        ) -> Unit {
+          skin_panel(w)
+          w.on_pointer = Some(fn(
+            _self : @widget.Widget,
+            ev : @widget.PointerEvent,
+          ) -> Bool {
+            match ev.kind {
+              @widget.PointerKind::Down => {
+                let now = @shell.now_ms()
+                let (t0, x0, y0) = last_down.val
+                if now - t0 < 400L &&
+                  (ev.x - x0).abs() < 4.0 &&
+                  (ev.y - y0).abs() < 4.0 {
+                  dbl_n.val = dbl_n.val + 1
+                  evt_dbl.set(
+                    "双击！连击 \{dbl_n.val} 次 btn=\{ev.button}",
+                  )
                 }
-                @widget.PointerKind::Up => {
-                  evt_mouse.set("up btn=\{ev.button}")
-                  true
-                }
-                @widget.PointerKind::Move => {
-                  evt_mouse.set("move (\{ev.x.round()}, \{ev.y.round()}) btn=\{ev.button} mods=\{mods_label(ev.mods)}")
-                  false
-                }
-                @widget.PointerKind::Leave => {
-                  evt_mouse.set("leave（窗口坐标 (\{ev.x.round()}, \{ev.y.round()})）")
-                  false
-                }
+                last_down.val = (now, ev.x, ev.y)
+                evt_mouse.set(
+                  "down btn=\{ev.button} mods=\{mods_label(ev.mods)}",
+                )
+                true
               }
-            })
-          },
-        ),
+              @widget.PointerKind::Up => {
+                evt_mouse.set("up btn=\{ev.button}")
+                true
+              }
+              @widget.PointerKind::Move => {
+                evt_mouse.set(
+                  "move (\{ev.x.round()}, \{ev.y.round()}) btn=\{ev.button} mods=\{mods_label(ev.mods)}",
+                )
+                false
+              }
+              @widget.PointerKind::Leave => {
+                evt_mouse.set(
+                  "leave（窗口坐标 (\{ev.x.round()}, \{ev.y.round()})）",
+                )
+                false
+              }
+            }
+          })
+        }),
         @ui.bind_label(evt_mouse, fn(s) { s }),
         @ui.bind_label(evt_dbl, fn(s) { s }),
       ],
       code=[
         "let evt : @base.Store[String] = @base.Store::new(\"(移入操作区操作)\")",
-        "@ui.col([@ui.text(\"鼠标操作区\")], height=96.0, handle=fn(w) {",
-        "  w.on_pointer = Some(fn(_self, ev : @widget.PointerEvent) -> Bool {",
-        "    match ev.kind {",
-        "      @widget.PointerKind::Down => { evt.set(\"down btn=\\{ev.button}\"); true }",
+        "@ui.col([@ui.text(\"鼠标操作区\")], height=96.0, handle=fn(w) {", "  w.on_pointer = Some(fn(_self, ev : @widget.PointerEvent) -> Bool {",
+        "    match ev.kind {", "      @widget.PointerKind::Down => { evt.set(\"down btn=\\{ev.button}\"); true }",
         "      @widget.PointerKind::Up => { evt.set(\"up btn=\\{ev.button}\"); true }",
         "      @widget.PointerKind::Move => { evt.set(\"move (\\{ev.x}, \\{ev.y})\"); false }",
-        "      @widget.PointerKind::Leave => { evt.set(\"leave\"); false }",
-        "    }",
-        "  })",
-        "})",
-        "@ui.bind_label(evt, fn(s) { s })",
+        "      @widget.PointerKind::Leave => { evt.set(\"leave\"); false }", "    }",
+        "  })", "})", "@ui.bind_label(evt, fn(s) { s })",
       ],
     ),
     @shared.section(
@@ -322,11 +354,18 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
       [
         @ui.col(
           [
-            @ui.text(@shared.tx("悬停秒表：把鼠标放进这块面板（或点上面那颗按钮都算）")),
+            @ui.text(
+              @shared.tx(
+                "悬停秒表：把鼠标放进这块面板（或点上面那颗按钮都算）",
+              ),
+            ),
             @ui.row(
               [
                 @ui.button(@shared.tx("组内按钮"), variant=@ui.Solid, on_click=fn() {
-                  app.toast_push(@shared.tx("悬停组里的按钮被点了"), @ui.Success)
+                  app.toast_push(
+                    @shared.tx("悬停组里的按钮被点了"),
+                    @ui.Success,
+                  )
                 }),
                 @ui.bind_label(watch_secs, fn(n) {
                   if n == 0 {
@@ -343,7 +382,10 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
           row_gap=8.0,
           handle=fn(w : @widget.Widget) -> Unit {
             skin_panel(w)
-            w.on_hover_change = Some(fn(_w : @widget.Widget, on : Bool) -> Unit {
+            w.on_hover_change = Some(fn(
+              _w : @widget.Widget,
+              on : Bool,
+            ) -> Unit {
               if on {
                 watch_n.val = 0
                 watch_secs.set(0)
@@ -356,15 +398,10 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
         ),
       ],
       code=[
-        "let secs : @base.Store[Int] = @base.Store::new(0)",
-        "@ui.col([...], handle=fn(w) {",
-        "  w.on_hover_change = Some(fn(_w, on : Bool) -> Unit {",
-        "    if on { (tick.val)() } else { stop() }  // 悬停起停定时器",
-        "  })",
-        "})",
-        "// 进程级延时通道：回调里自重排即周期定时器，句柄可取消",
-        "let id = @shell.set_timeout(200, tick.val)",
-        "@shell.clear_timeout(id)",
+        "let secs : @base.Store[Int] = @base.Store::new(0)", "@ui.col([...], handle=fn(w) {",
+        "  w.on_hover_change = Some(fn(_w, on : Bool) -> Unit {", "    if on { (tick.val)() } else { stop() }  // 悬停起停定时器",
+        "  })", "})", "// 进程级延时通道：回调里自重排即周期定时器，句柄可取消",
+        "let id = @shell.set_timeout(200, tick.val)", "@shell.clear_timeout(id)",
       ],
     ),
     @shared.section(
@@ -376,15 +413,11 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
         @ui.bind_label(cap_log, fn(s) { s }),
       ],
       code=[
-        "// 宿主规则：命中即捕获，没有显式开关",
-        "w.on_pointer = Some(fn(_self, ev) -> Bool {",
-        "  match ev.kind {",
-        "    @widget.PointerKind::Down => true   // 按下起，Move/Up 全归本控件",
+        "// 宿主规则：命中即捕获，没有显式开关", "w.on_pointer = Some(fn(_self, ev) -> Bool {",
+        "  match ev.kind {", "    @widget.PointerKind::Down => true   // 按下起，Move/Up 全归本控件",
         "    @widget.PointerKind::Move => { log.set(\"(\\{ev.x}, \\{ev.y})\"); false }",
         "    @widget.PointerKind::Up => true     // 松手释放；指针在区外也收得到",
-        "    @widget.PointerKind::Leave => false",
-        "  }",
-        "})",
+        "    @widget.PointerKind::Leave => false", "  }", "})",
       ],
     ),
     @shared.section(
@@ -393,7 +426,13 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
       "`w.cursor` 是控件上的形状请求（0 默认 / 1 手型 / 2 文本 / 3 横向调整 / 4 纵向调整）；宿主每次移动按悬停路径取「**最深的非零请求**」下发——包住一整组的 `cursor_group` 会自然回退，组内子件自己提了形状以它为准。Crosshair/NotAllowed 平台没有，不强推。",
       [
         @ui.col(
-          [@ui.text(@shared.tx("光标预览区（把鼠标放上来，再点下面按钮换形状）"))],
+          [
+            @ui.text(
+              @shared.tx(
+                "光标预览区（把鼠标放上来，再点下面按钮换形状）",
+              ),
+            ),
+          ],
           height=56.0,
           handle=fn(w : @widget.Widget) -> Unit {
             skin_panel(w)
@@ -420,16 +459,30 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
           ],
           column_gap=8.0,
         ),
-        @ui.bind_label(cur_now, fn(s) { @shared.tr_with("dyn.cursor_now", [("s", s)], "预览区当前光标：\{s}") }),
+        @ui.bind_label(cur_now, fn(s) {
+          @shared.tr_with(
+            "dyn.cursor_now",
+            [("s", s)],
+            "预览区当前光标：\{s}",
+          )
+        }),
         @ui.text(
-          @shared.tx("组回退：下面一组的 cursor = ResizeH；组内文本没提请求 → 用组的形状，按钮自己请求了手型 → 以它为准。"),
+          @shared.tx(
+            "组回退：下面一组的 cursor = ResizeH；组内文本没提请求 → 用组的形状，按钮自己请求了手型 → 以它为准。",
+          ),
           class=[@style.text_secondary],
           max_width=640.0,
         ),
         @ui.cursor_group(
           [
-            @ui.text(@shared.tx("组内文本（回退到组的横向调整）")),
-            @ui.button(@shared.tx("组内按钮（自己的手型）"), variant=@ui.Soft, on_click=fn() { () }),
+            @ui.text(
+              @shared.tx("组内文本（回退到组的横向调整）"),
+            ),
+            @ui.button(
+              @shared.tx("组内按钮（自己的手型）"),
+              variant=@ui.Soft,
+              on_click=fn() { () },
+            ),
           ],
           direction=@yoga.Row,
           column_gap=12.0,
@@ -439,8 +492,7 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
       ],
       code=[
         "w.cursor = @widget.CURSOR_HAND  // 0 默认 / 1 手型 / 2 文本 / 3 横调 / 4 纵调",
-        "// 宿主按悬停路径取「最深的非零请求」下发：",
-        "@ui.cursor_group([...], cursor=@widget.CURSOR_RESIZE_H)",
+        "// 宿主按悬停路径取「最深的非零请求」下发：", "@ui.cursor_group([...], cursor=@widget.CURSOR_RESIZE_H)",
         "// 组内没提请求的位置回退到组；子件提了以子件为准",
       ],
     ),
@@ -448,16 +500,11 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
       "键盘",
       "键盘事件 KeyEvent",
       "键只投给**当前焦点控件**：点击下方区域即聚焦（宿主 Down → 焦点栈对齐树 → focusable_at → focus）。宿主只投**按下**（抬起不投——防编辑内核把松手当字符）；Tab/Shift+Tab 被宿主消费去驱动焦点栈，到不了 on_key。`ev.mods` 是修饰键位掩码。",
-      [
-        key_focus_area(key_echo),
-        @ui.bind_label(key_echo, fn(s) { s }),
-      ],
+      [key_focus_area(key_echo), @ui.bind_label(key_echo, fn(s) { s })],
       code=[
         "w.focus_id = 910   // >0 即可聚焦、即可 Tab 到（宿主按树序对齐焦点栈）",
-        "w.on_key = Some(fn(ev : @widget.KeyEvent) -> Bool {",
-        "  echo.set(\"\\{ev.keysym} mods=\\{ev.mods}\")",
-        "  true",
-        "})",
+        "w.on_key = Some(fn(ev : @widget.KeyEvent) -> Bool {", "  echo.set(\"\\{ev.keysym} mods=\\{ev.mods}\")",
+        "  true", "})",
       ],
     ),
     @shared.section(
@@ -475,19 +522,25 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
                     {
                       label: @shared.tx("基础"),
                       children: [
-                        { label: @shared.tx("图标"), children: [] },
-                        { label: @shared.tx("分隔"), children: [] },
+                        { label: @shared.tx("图标"), children: [], },
+                        { label: @shared.tx("分隔"), children: [], },
                       ],
                     },
                     {
                       label: @shared.tx("导航"),
-                      children: [{ label: @shared.tx("分栏"), children: [] }],
+                      children: [{ label: @shared.tx("分栏"), children: [], }],
                     },
                   ],
                 },
               ]),
               @ui.col(
-                [@ui.text(@shared.tx("右侧详情区：拖动中间把手调整占比"))],
+                [
+                  @ui.text(
+                    @shared.tx(
+                      "右侧详情区：拖动中间把手调整占比",
+                    ),
+                  ),
+                ],
                 padding=12.0,
               ),
               min_first=120.0,
@@ -534,35 +587,40 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
       ],
       code=[
         "@ui.split(@ui.tree(root), detail, min_first=120.0)  // 拖动 8px 把手改占比",
-        "@ui.view([...], width=80.0, height=40.0)        // 固定",
-        "// 百分比：容器没接这个参数，handle 里对布局节点写",
-        "handle=fn(w) { w.node.set_width(@yoga.percent(50.0)) }",
-        "@ui.view([...], grow=1.0)                       // flex",
+        "@ui.view([...], width=80.0, height=40.0)        // 固定", "// 百分比：容器没接这个参数，handle 里对布局节点写",
+        "handle=fn(w) { w.node.set_width(@yoga.percent(50.0)) }", "@ui.view([...], grow=1.0)                       // flex",
       ],
     ),
-
     @shared.section(
       "多击与组合键",
       "Widget.on_double_click / on_triple_click / App::bind_combo",
       "W32 的通用多击通道：控件挂上 `on_double_click` / `on_triple_click` 后，宿主在指针派发时自动维护 ClickTracker（400 ms + 4 px 阈值，与编辑内核同口径），命中档位才回调。组合键走 `App::bind_combo(\"Ctrl+Shift+K\", cb)`——一次注册、按键兜底通道自动分派，不用手写 mods 位与 keysym 比较。键盘键多击走 `App::bind_key_double(\"A\", cb)`：同一键 60–400ms 内连按两次触发，系统自动重复不计。",
       [
         @ui.view(
-          [
-            @ui.text_dyn(
-              dbl_api_out.signal(),
-            ),
-          ],
+          [@ui.text_dyn(dbl_api_out.signal())],
           width=100.0,
           height=120.0,
           background_color="primary_light",
           border_color="primary",
           padding=16.0,
           handle=fn(w : @widget.Widget) -> Unit {
-            w.on_double_click = Some(fn(_w : @widget.Widget, _ev : @widget.PointerEvent) -> Unit {
+            w.on_double_click = Some(fn(
+              _w : @widget.Widget,
+              _ev : @widget.PointerEvent,
+            ) -> Unit {
               dbl_api_n.update(fn(n) { n + 1 })
-              dbl_api_out.set(@shared.tr_with("dyn.dbl_total", [("n", dbl_api_n.get().to_string())], "双击命中！累计 \{dbl_api_n.get().to_string()} 次"))
+              dbl_api_out.set(
+                @shared.tr_with(
+                  "dyn.dbl_total",
+                  [("n", dbl_api_n.get().to_string())],
+                  "双击命中！累计 \{dbl_api_n.get().to_string()} 次",
+                ),
+              )
             })
-            w.on_triple_click = Some(fn(_w : @widget.Widget, _ev : @widget.PointerEvent) -> Unit {
+            w.on_triple_click = Some(fn(
+              _w : @widget.Widget,
+              _ev : @widget.PointerEvent,
+            ) -> Unit {
               dbl_api_out.set(@shared.tx("三击！"))
             })
           },
@@ -571,16 +629,30 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
         @ui.text_dyn(combo_out.signal(), class=[@style.text_secondary]),
         // 零尺寸挂载钩子：页内容挂载时宿主 handle 还没跑（mount_window 先
         // mount 后 handle），延后一拍再注册组合键。
-        @ui.view([], width=0.0, height=0.0, handle=fn(_w : @widget.Widget) -> Unit {
+        @ui.view([], width=0.0, height=0.0, handle=fn(
+          _w : @widget.Widget,
+        ) -> Unit {
           let _ = @shell.set_timeout(0, fn() {
             match app.host.val {
               Some(a) => {
                 a.bind_combo("Ctrl+Shift+K", fn() {
-                  combo_out.set(@shared.tr_with("dyn.combo_keys", [("ms", @shell.now_ms().to_string())], "组合键 Ctrl+Shift+K 命中（\{@shell.now_ms().to_string()}ms）"))
+                  combo_out.set(
+                    @shared.tr_with(
+                      "dyn.combo_keys",
+                      [("ms", @shell.now_ms().to_string())],
+                      "组合键 Ctrl+Shift+K 命中（\{@shell.now_ms().to_string()}ms）",
+                    ),
+                  )
                 })
                 // 键多击：同一键 60–400ms 内连按两次（自动重复不计）
                 a.bind_key_double("A", fn() {
-                  combo_out.set(@shared.tr_with("dyn.combo_hit_ms", [("ms", @shell.now_ms().to_string())], "A 键双击命中（\{@shell.now_ms().to_string()}ms）"))
+                  combo_out.set(
+                    @shared.tr_with(
+                      "dyn.combo_hit_ms",
+                      [("ms", @shell.now_ms().to_string())],
+                      "A 键双击命中（\{@shell.now_ms().to_string()}ms）",
+                    ),
+                  )
                 })
               }
               None => ()
@@ -590,13 +662,9 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
       ],
       code=[
         "// 双击/三击（宿主自动喂 ClickTracker，400ms + 4px 阈值）",
-        "w.on_double_click = Some(fn(_w, _ev) { ... })",
-        "w.on_triple_click = Some(fn(_w, _ev) { ... })",
-        "",
-        "// 组合键：一次注册，走窗口级按键兜底通道",
-        "app.bind_combo(\"Ctrl+Shift+K\", fn() { ... })",
-        "",
-        "// 键盘键多击：同一键 60–400ms 内连按两次（自动重复不计）",
+        "w.on_double_click = Some(fn(_w, _ev) { ... })", "w.on_triple_click = Some(fn(_w, _ev) { ... })",
+        "", "// 组合键：一次注册，走窗口级按键兜底通道", "app.bind_combo(\"Ctrl+Shift+K\", fn() { ... })",
+        "", "// 键盘键多击：同一键 60–400ms 内连按两次（自动重复不计）",
         "app.bind_key_double(\"A\", fn() { ... })",
       ],
     ),
@@ -605,7 +673,14 @@ pub fn page_events(app : @shared.App) -> @widget.Node {
 
 ///|
 /// W32 多击/组合键段的两块回显与计数（页函数里初始化，handle 里写入）。
-let dbl_api_out : @base.Store[String] = @base.Store::new(@shared.tx("(双击上面色块)"))
-let dbl_api_n : @base.Store[Int] = @base.Store::new(0)
-let combo_out : @base.Store[String] = @base.Store::new(@shared.tx("(按 Ctrl+Shift+K 触发)"))
+let dbl_api_out : @base.Store[String] = @base.Store::new(
+  @shared.tx("(双击上面色块)"),
+)
 
+///|
+let dbl_api_n : @base.Store[Int32] = @base.Store::new(0)
+
+///|
+let combo_out : @base.Store[String] = @base.Store::new(
+  @shared.tx("(按 Ctrl+Shift+K 触发)"),
+)

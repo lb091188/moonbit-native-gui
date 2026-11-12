@@ -42,7 +42,7 @@ pub struct Edges {
 ///|
 /// 四边全 Undefined。
 pub fn Edges::zero() -> Edges {
-  { left : Undefined, right : Undefined, top : Undefined, bottom : Undefined }
+  { left: Undefined, right: Undefined, top: Undefined, bottom: Undefined, }
 }
 
 ///|

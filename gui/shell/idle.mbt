@@ -33,6 +33,7 @@ priv enum MutterIdle {
   IdleAbsent
 }
 
+///|
 let g_mutter : Ref[MutterIdle] = Ref(IdleUnknown)
 
 ///|

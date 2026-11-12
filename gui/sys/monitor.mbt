@@ -9,9 +9,9 @@
 /// 单个显示模式：分辨率、刷新率厘赫兹（×100）、是否首选（'+'）、
 /// 是否当前（'*'）。
 pub(all) struct MonitorMode {
-  width : Int
-  height : Int
-  refresh_centi : Int
+  width : Int32
+  height : Int32
+  refresh_centi : Int32
   preferred : Bool
   current : Bool
 }
@@ -49,13 +49,13 @@ pub(all) struct MonitorInfo {
   name : String
   connected : Bool
   primary : Bool
-  width : Int
-  height : Int
-  refresh_centi : Int
-  pos_x : Int
-  pos_y : Int
-  mm_width : Int
-  mm_height : Int
+  width : Int32
+  height : Int32
+  refresh_centi : Int32
+  pos_x : Int32
+  pos_y : Int32
+  mm_width : Int32
+  mm_height : Int32
   modes : Array[MonitorMode]
 }
 
@@ -88,11 +88,11 @@ pub extend MonitorInfo with Show::{to_string, output}
 /// 支持的模式列表）。
 pub(all) struct CurrentOutput {
   name : String
-  width : Int
-  height : Int
-  refresh_centi : Int
-  pos_x : Int
-  pos_y : Int
+  width : Int32
+  height : Int32
+  refresh_centi : Int32
+  pos_x : Int32
+  pos_y : Int32
 }
 
 ///|
@@ -145,13 +145,13 @@ pub extend MonitorError with Show::{to_string, output}
 /// ok=0（桩体在那边是哑的），于是 mon_list 退 Unsupported——运行时探测，
 /// 不用编译指令，与另两平台同口径。
 #borrow(ok)
-extern "c" fn ffi_mon_mac(ok : Ref[Int]) -> Bytes = "yue_sys_mon_mac"
+extern "c" fn ffi_mon_mac(ok : Ref[Int32]) -> Bytes = "yue_sys_mon_mac"
 
 ///|
 /// Windows 直调：GDI 的显示设备清单，行式格式与 macOS 臂完全一致（同一份
 /// 解析函数吃），非 Windows 平台恒给 ok=0。
 #borrow(ok)
-extern "c" fn ffi_mon_win(ok : Ref[Int]) -> Bytes = "yue_sys_mon_win"
+extern "c" fn ffi_mon_win(ok : Ref[Int32]) -> Bytes = "yue_sys_mon_win"
 
 ///|
 /// 字符是否空白（空格 / 制表）。
@@ -210,7 +210,7 @@ fn mon_split_lines(s : String) -> Array[String] {
 ///|
 /// 解析十进制小数为厘赫兹（×100，四舍五入到百分位）："60.00" → 6000，
 /// "59.95" → 5995，"60" → 6000；非法为 None。
-fn mon_parse_centi(s : String) -> Int? {
+fn mon_parse_centi(s : String) -> Int32? {
   if s == "" {
     return None
   }
@@ -259,7 +259,7 @@ fn mon_parse_centi(s : String) -> Int? {
 ///|
 /// 解析 "WxH" 分辨率 token（"1920x1080" → (1920, 1080)；无数值或 'x'
 /// 分隔不符为 None）。
-fn mon_parse_dims(tok : String) -> (Int, Int)? {
+fn mon_parse_dims(tok : String) -> (Int32, Int32)? {
   let chars : Array[Char] = []
   for ch in tok {
     chars.push(ch)
@@ -296,7 +296,7 @@ fn mon_parse_dims(tok : String) -> (Int, Int)? {
 ///|
 /// 解析 xrandr 几何 token "WxH+X+Y"（"1920x1080+0+0" →
 /// (1920, 1080, 0, 0)；偏移可为负，如 "1920x1080+-1080+0"）。
-fn mon_parse_geometry(tok : String) -> (Int, Int, Int, Int)? {
+fn mon_parse_geometry(tok : String) -> (Int32, Int32, Int32, Int32)? {
   let chars : Array[Char] = []
   for ch in tok {
     chars.push(ch)
@@ -346,7 +346,7 @@ fn mon_parse_geometry(tok : String) -> (Int, Int, Int, Int)? {
 ///|
 /// 解析 "+N"/"+N..." 形态的带符号偏移：chars[i] 应为 '+'，后跟可选
 /// '-' 与十进制数字；返回 (值, 下一个下标)。
-fn mon_parse_offset(chars : Array[Char], i : Int) -> (Int?, Int) {
+fn mon_parse_offset(chars : Array[Char], i : Int32) -> (Int32?, Int32) {
   let n = chars.length()
   if i >= n || chars[i] != '+' {
     return (None, i)
@@ -378,10 +378,10 @@ priv struct MonDraft {
   name : String
   connected : Bool
   primary : Bool
-  pos_x : Int
-  pos_y : Int
-  mm_width : Int
-  mm_height : Int
+  pos_x : Int32
+  pos_y : Int32
+  mm_width : Int32
+  mm_height : Int32
   modes : Array[MonitorMode]
 }
 
@@ -417,7 +417,7 @@ fn mon_finish(d : MonDraft) -> MonitorInfo {
 ///|
 /// 解析 xrandr 模式行的刷新率 token：去掉尾部 '*'（当前）、'+'（首选）、
 /// 'i'（隔行）标记后按厘赫兹解析，返回 (厘赫兹, 是否当前, 是否首选)。
-fn mon_parse_rate_token(tok : String) -> (Int, Bool, Bool)? {
+fn mon_parse_rate_token(tok : String) -> (Int32, Bool, Bool)? {
   let chars : Array[Char] = []
   for ch in tok {
     chars.push(ch)
@@ -454,7 +454,7 @@ fn mon_parse_rate_token(tok : String) -> (Int, Bool, Bool)? {
 
 ///|
 /// 解析 "Nmm" 物理尺寸 token（"530mm" → 530；非该形态为 None）。
-fn mon_parse_mm(tok : String) -> Int? {
+fn mon_parse_mm(tok : String) -> Int32? {
   match mon_strip_suffix(tok, "mm") {
     None => None
     Some(numtxt) => {
@@ -509,7 +509,7 @@ fn mon_strip_suffix(s : String, suffix : String) -> String? {
 ///|
 /// 从输出行 token 中提取物理尺寸（"… 530mm x 290mm" → (530, 290)；
 /// 未报为 (0, 0)）。
-fn mon_parse_mm_pair(toks : Array[String]) -> (Int, Int) {
+fn mon_parse_mm_pair(toks : Array[String]) -> (Int32, Int32) {
   let n = toks.length()
   let mut i = 0
   while i < n - 2 {
@@ -650,7 +650,7 @@ fn mon_split_tab(s : String) -> Array[String] {
 
 ///|
 /// 取记录字段的整数（非法或越界按 0）。
-fn mon_tab_int(toks : Array[String], i : Int) -> Int {
+fn mon_tab_int(toks : Array[String], i : Int32) -> Int32 {
   if i < 0 || i >= toks.length() {
     return 0
   }
@@ -662,7 +662,7 @@ fn mon_tab_int(toks : Array[String], i : Int) -> Int {
 
 ///|
 /// 取记录字段的 0/1 标志（1 为真，其余为假）。
-fn mon_tab_flag(toks : Array[String], i : Int) -> Bool {
+fn mon_tab_flag(toks : Array[String], i : Int32) -> Bool {
   mon_tab_int(toks, i) == 1
 }
 

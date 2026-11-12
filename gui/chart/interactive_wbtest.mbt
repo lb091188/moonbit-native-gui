@@ -202,7 +202,7 @@ test "ci_slice_range：闭区间切片/越界收窄/空区间" {
   debug_inspect(ci_slice_range([1, 2, 3], 0, 99), content="[1, 2, 3]")
   debug_inspect(ci_slice_range([1, 2, 3], 2, 1), content="[]")
   debug_inspect(ci_slice_range([1, 2, 3], -5, 1), content="[1, 2]")
-  let empty : Array[Int] = []
+  let empty : Array[Int32] = []
   debug_inspect(ci_slice_range(empty, 0, 1), content="[]")
 }
 
