@@ -3,30 +3,14 @@
 // （系统与桌面 / 显示器 / 应用与文件 / 浏览器数据 / 剪贴板与桌面状态）。
 // 布局是左侧分组菜单 + 右侧滚动正文（`@shared.menu_page`），不再是段条形式。
 //
-// main 负责应用级设施（段会随语言重挂，句柄类东西不能放段里）：
+// main 负责应用级设施（句柄类单例不进段，段随页面装配重建会另造句柄）：
 //   - 单实例声称：main 启动即 claim，已有实例唤起它并退出；wake 回调计数 + 冒提示
 //   - 托盘单例：main 挂载期建、默认提示语 + 左键计数，200ms 派发泵也在 main
 //   - D-Bus 排期通道 + 200ms 泵（Linux 托盘/通知的到件路径）
-//   - 语言切换：整页包 `@widget.localized`，i18n 广播驱动原地重建
 
 ///|
 /// 窗口标题
 const SYS_TITLE : String = "系统能力"
-
-///|
-/// 语言切换按钮：只换目录，页面重挂由 `@widget.localized` 的 i18n 广播驱动。
-fn language_toggle_button(app : @shared.App) -> @widget.Node {
-  @ui.icon_button(
-    @icons.Earth,
-    on_click=fn() {
-      let to_en = app.locale.get() != "en"
-      let loc = if to_en { "en" } else { "zh-CN" }
-      @shared.set_locale_catalog(loc)
-      app.locale.set(loc)
-      @widget.host_repaint_all()
-    },
-  )
-}
 
 ///|
 /// 托盘错误 → 可读串（没后端 / 图标没建成 / 后端具体失败）。
@@ -35,7 +19,11 @@ fn tray_err_text(e : @shell.TrayError) -> String {
     @shell.TrayError::Unsupported => @shared.tx("本平台没有托盘后端")
     @shell.TrayError::IconLoadFailed => @shared.tx("图标加载失败")
     @shell.TrayError::Backend(msg) =>
-      @shared.tr_with("dyn.tray_backend_failed", [("m", msg)], "托盘后端失败：\{msg}")
+      @shared.tr_with(
+        "dyn.tray_backend_failed",
+        [("m", msg)],
+        "托盘后端失败：\{msg}",
+      )
   }
 }
 
@@ -46,7 +34,6 @@ fn main {
   let toast_push = @ui.toast_layer(duration_ms=2600)
   @shared.code_toast.val = Some(toast_push)
   let app : @shared.App = {
-    locale: @base.Store::new("zh-CN"),
     toast: toast_push,
     host: Ref(None),
     tray: Ref(None),
@@ -85,13 +72,10 @@ fn main {
     [
       @ui.col(
         [
-          @ui.row([@ui.col([], grow=1.0), language_toggle_button(app)], padding=8.0),
-          @widget.localized(fn() -> @widget.Node {
-            @shared.menu_page([
-              ("系统集成", @pages.system_sections(app)),
-              ("系统能力探测", @pages.sysprobe_sections(app)),
-            ])
-          }),
+          @shared.menu_page([
+            ("系统集成", @pages.system_sections(app)),
+            ("系统能力探测", @pages.sysprobe_sections(app)),
+          ]),
         ],
         grow=1.0,
       ),
@@ -102,7 +86,7 @@ fn main {
     handle=fn(a : @widget.WindowHost) {
       app.host.val = Some(a)
       // 单实例的 D-Bus 接线：排期通道与 200ms 泵都由宿主给（无总线时空转）
-      @dbus.dbus_set_post_delayed(fn(ms : Int, f : () -> Unit) -> Unit {
+      @dbus.dbus_set_post_delayed(fn(ms : Int32, f : () -> Unit) -> Unit {
         let _ = a.timer(ms, f)
       })
       let pump : Ref[() -> Unit] = Ref(fn() { () })
@@ -113,8 +97,8 @@ fn main {
         let _ = a.timer(200, pump.val)
       }
       (pump.val)()
-      // 托盘：应用级单例，main 挂载期建（段会随切语言重挂，句柄放段里每挂一次
-      // 换一个新的，旧图标成孤儿）。不传图标 = 库内置月牙，三平台同一张脸。
+      // 托盘：应用级单例，main 挂载期建（不进段：页面装配重建会另造托盘句柄，
+      // 旧图标成孤儿）。不传图标 = 库内置月牙，三平台同一张脸。
       match @shell.Tray::new("libyue-sysdemo-tray") {
         Ok(t) => {
           t.set_tooltip_localized(
@@ -146,9 +130,8 @@ fn main {
     },
   )
   match mounted {
-    None => {
+    None =>
       println("SYS-SKIP: 本平台没有窗口后端或没有显示服务")
-    }
     Some(host) => {
       println("SYS-READY title=\{SYS_TITLE}")
       host.run()

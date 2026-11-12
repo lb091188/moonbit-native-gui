@@ -1,5 +1,5 @@
-// 共享层：页面「段」装配。`page` 用 segmented 列出各段短名（如
-// 主题|按钮|文字|…）；每段正文自带滚动区（切段各自保留滚动位置，
+// 共享层：页面「段」装配。`menu_page` 用左侧分组菜单列出各段短名（如
+// 文件|消息框|通知|…）；每段正文自带滚动区（切段各自保留滚动位置，
 // 页级不再整体滚动），选中段填满剩余高度。切段只切容器可见性，
 // 不重建视图树。代码区顶行常驻「复制」，点击写入剪贴板并经全局
 // toast 回显（钩子由 main 注入）。
@@ -33,10 +33,10 @@ pub fn section(
   title : String,
   desc : String,
   content : Array[@widget.Node],
-  code? : Array[String] = [],
+  code~ : Array[String] = [],
 ) -> Section {
-  // 段标题/描述是纯显示串：在出口统一取译（英文目录命中则英文，否则原中文）。
-  // 段名 name 作 segmented 的选中值不译，显示由 `page` 的 label_of 走 `seg.` 键。
+  // 段标题/描述是纯显示串：在出口统一取译（目录命中则译文，否则原中文）。
+  // 段名 name 作菜单选中值不译，显示即短名本身（本示例不做语言切换）。
   {
     name,
     title: @i18n.t_or(title, title),
@@ -47,27 +47,20 @@ pub fn section(
 }
 
 ///|
-/// 一页 = 左侧分组菜单（可滚动，分组标题 + 段按钮）+ 右侧段正文栈；选中段填满
-/// 剩余高度并自带滚动，其余段隐藏（不重建，滚动位置各自保留）。
-/// 分组是 (组名, 组内段列)；组名走目录取译（缺失回落原文），段按钮显示走
-/// `seg.` 前缀取译。
+/// 一页 = 左侧分组菜单（`@ui.menu_sections`，组可折叠、项可键盘换选）+ 右侧
+/// 段正文栈；选中段填满剩余高度并自带滚动，其余段隐藏（不重建，滚动位置各自
+/// 保留）。菜单项与选中值都是段短名 `name`，与右侧显隐用同一份 Store。
+/// 分组是 (组名, 组内段列)；组名显示走 `nav.g.` 前缀取译（缺失回落原文，由
+/// 菜单组件内部处理）。
 pub fn menu_page(cats : Array[(String, Array[Section])]) -> @widget.Node {
   let selected : @base.Store[String] = @base.Store::new(cats[0].1[0].name)
-  let items : Array[@widget.Node] = []
+  let secs : Array[(String, Array[String])] = []
   for cat in cats {
-    items.push(
-      @ui.text(@i18n.t_or(cat.0, cat.0), class=[@style.text_title]),
-    )
+    let names : Array[String] = []
     for s in cat.1 {
-      let name = s.name
-      items.push(
-        @ui.button(
-          @i18n.t_or("seg." + name, name),
-          variant=@ui.Soft,
-          on_click=fn() { selected.set(name) },
-        ),
-      )
+      names.push(s.name)
     }
+    secs.push((cat.0, names))
   }
   let bodies : Array[@widget.Node] = []
   for cat in cats {
@@ -77,18 +70,23 @@ pub fn menu_page(cats : Array[(String, Array[Section])]) -> @widget.Node {
   }
   @ui.row(
     [
+      // 左栏定宽不可压缩：正文列再宽也挤不到菜单（收缩量全落 min=0 的右栏）
       @ui.scroll_view(
-        [@ui.col(items, row_gap=4.0)],
+        [@ui.menu_sections(secs, selected, width=200.0)],
         @ui.ScrollState::new(),
-        handle=fn(v) { v.node.set_flex_grow(1.0) },
+        width=200.0,
+        handle=fn(v) {
+          v.node.set_flex_grow(1.0)
+          v.node.set_flex_shrink(0.0)
+        },
       ),
-      @ui.col(
-        bodies,
-        grow=1.0,
-        class=[@style.style(min_height=0.0, min_width=0.0)],
-      ),
+      @ui.col(bodies, grow=1.0, class=[
+        @style.style(min_height=0.0, min_width=0.0),
+      ]),
     ],
     grow=1.0,
+    // 拉伸对齐：左栏视口高度才确定，菜单超高时栏内才真滚得动
+    align_items=@yoga.AlignItems::Stretch,
     class=[@style.style(width_percent=100.0)],
   )
 }
@@ -125,7 +123,9 @@ fn section_body(s : Section, selected : @base.Store[String]) -> @widget.Node {
   if s.code.length() > 0 {
     // 复制按钮内建在 code_view 头部（悬浮右上显形），toast 回显经 on_copied 接
     inner.push(
-      @ui.code_view(s.code, lang="moonbit", line_numbers=true, copyable=true, on_copied=fn(ok : Bool) -> Unit {
+      @ui.code_view(s.code, lang="moonbit", line_numbers=true, copyable=true, on_copied=fn(
+        ok : Bool,
+      ) -> Unit {
         match code_toast.val {
           Some(push) =>
             if ok {
@@ -160,4 +160,3 @@ fn section_body(s : Section, selected : @base.Store[String]) -> @widget.Node {
     },
   )
 }
-
