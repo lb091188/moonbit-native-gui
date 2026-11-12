@@ -2070,11 +2070,6 @@ void wm_tray_set_tooltip(int slot, const char *tip) {
   }
 }
 
-/* 换图标并标模板图：Windows 通知区按位图原样显示，等同 wm_tray_set_icon。 */
-void wm_tray_set_icon_template(int slot, int icon_slot) {
-  wm_tray_set_icon(slot, icon_slot);
-}
-
 /* 换图标（NIM_MODIFY；icon_slot 是 W20f 句柄，0 = 清空图标）。 */
 void wm_tray_set_icon(int slot, int icon_slot) {
   if (slot <= 0 || slot >= WM_MAX_TRAYS || !wm_trays[slot].used ||
@@ -2092,6 +2087,12 @@ void wm_tray_set_icon(int slot, int icon_slot) {
   if (Shell_NotifyIconW(NIM_MODIFY, &nid)) {
     wm_trays[slot].icon = ic;
   }
+}
+
+/* 换图标并标模板图：Windows 通知区按位图原样显示，等同 wm_tray_set_icon
+ * （在它定义之后，前置调用会隐式声明成 int 返回、与 void 定义冲突 C2371）。 */
+void wm_tray_set_icon_template(int slot, int icon_slot) {
+  wm_tray_set_icon(slot, icon_slot);
 }
 
 /* 挂右键菜单：menu_handle 是 W20a 句柄表下标（wm_menu_popup_new 建的弹出根）。 */
