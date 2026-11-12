@@ -42,6 +42,15 @@ pub fn tray_set_icon(slot : Int, icon_slot : Int) -> Unit {
 }
 
 ///|
+/// 换图标并标模板图：mac 状态栏只用 alpha 蒙版按菜单栏明暗自动反色
+/// （浅栏黑 / 深栏白，源图颜色被忽略）；Windows 等平台等同
+/// `tray_set_icon` 按位图原样显示。库内置单色剪影走这一条；显式彩色
+/// 位图别用（模板化会把彩色重着成单色）。
+pub fn tray_set_icon_template(slot : Int, icon_slot : Int) -> Unit {
+  wm_tray_set_icon_template(slot, icon_slot)
+}
+
+///|
 /// 挂右键菜单（`menu_handle` 是 `menu_popup_new` 返回的弹出菜单根句柄）。
 pub fn tray_set_menu(slot : Int, menu_handle : Int) -> Unit {
   wm_tray_set_menu(slot, menu_handle)

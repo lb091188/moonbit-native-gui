@@ -247,12 +247,16 @@ pub fn Tray::set_icon_pixmap(self : Tray, w : Int, h : Int, argb : Bytes) -> Uni
 
 ///|
 /// 内部：按明暗直接换内置单色图标（不碰跟随登记；跟随回调与显式入口共用）。
+/// Native 档走模板图入口：mac 状态栏只用 alpha 蒙版按菜单栏明暗自动反色
+/// （浅栏黑 / 深栏白，源图颜色被忽略，dark 档只是像素来源，效果一致）；
+/// Windows 等同位图直贴。SNI 档按 dark 选黑白（面板底色探测不到，跟应用
+/// 主题走）。
 fn Tray::apply_mono_icon(self : Tray, dark : Bool) -> Unit {
   match self.backend {
     Native(slot) => {
       let handle = builtin_tray_handle(dark)
       if handle > 0 {
-        @win.tray_set_icon(slot, handle)
+        @win.tray_set_icon_template(slot, handle)
       }
     }
     Sni(item) => {

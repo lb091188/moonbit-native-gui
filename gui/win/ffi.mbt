@@ -361,6 +361,10 @@ extern "c" fn wm_tray_set_icon(slot : Int, icon_slot : Int) -> Unit =
   "wm_tray_set_icon"
 
 ///|
+extern "c" fn wm_tray_set_icon_template(slot : Int, icon_slot : Int) -> Unit =
+  "wm_tray_set_icon_template"
+
+///|
 extern "c" fn wm_tray_set_menu(slot : Int, menu_handle : Int) -> Unit =
   "wm_tray_set_menu"
 

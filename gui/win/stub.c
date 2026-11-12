@@ -2070,6 +2070,11 @@ void wm_tray_set_tooltip(int slot, const char *tip) {
   }
 }
 
+/* 换图标并标模板图：Windows 通知区按位图原样显示，等同 wm_tray_set_icon。 */
+void wm_tray_set_icon_template(int slot, int icon_slot) {
+  wm_tray_set_icon(slot, icon_slot);
+}
+
 /* 换图标（NIM_MODIFY；icon_slot 是 W20f 句柄，0 = 清空图标）。 */
 void wm_tray_set_icon(int slot, int icon_slot) {
   if (slot <= 0 || slot >= WM_MAX_TRAYS || !wm_trays[slot].used ||
@@ -7837,6 +7842,10 @@ void wm_tray_set_icon(int slot, int icon_slot) {
   (void)slot;
   (void)icon_slot;
 }
+void wm_tray_set_icon_template(int slot, int icon_slot) {
+  (void)slot;
+  (void)icon_slot;
+}
 void wm_tray_set_menu(int slot, int menu_handle) {
   (void)slot;
   (void)menu_handle;
@@ -11833,6 +11842,21 @@ void wm_tray_set_icon(int slot, int icon_slot) {
   [[wm_tray_items[slot] button] setImage:wm_status_icon(icon_slot)];
 }
 
+// 换图标并标成模板图：系统只用 alpha 蒙版按菜单栏明暗自动着色（浅栏黑 /
+// 深栏白），源图颜色被忽略——库内置单色剪影走这条（QQ/微信同款机制）；
+// 显式彩色位图仍走 wm_tray_set_icon 保持原样。setTemplate 只设在这份
+// 菜单栏尺寸副本上，图标表里的原件不动（还要给窗口图标复用）。
+void wm_tray_set_icon_template(int slot, int icon_slot) {
+  if (slot <= 0 || slot >= WM_MAX_TRAYS || wm_tray_items[slot] == nil) {
+    return;
+  }
+  NSImage *img = wm_status_icon(icon_slot);
+  if (img != nil) {
+    [img setTemplate:YES];
+  }
+  [[wm_tray_items[slot] button] setImage:img];
+}
+
 void wm_tray_set_menu(int slot, int menu_handle) {
   if (slot <= 0 || slot >= WM_MAX_TRAYS || wm_tray_items[slot] == nil) {
     return;
@@ -13501,6 +13525,10 @@ void wm_tray_set_tooltip(int slot, const char *tip) {
   (void)tip;
 }
 void wm_tray_set_icon(int slot, int icon_slot) {
+  (void)slot;
+  (void)icon_slot;
+}
+void wm_tray_set_icon_template(int slot, int icon_slot) {
   (void)slot;
   (void)icon_slot;
 }
