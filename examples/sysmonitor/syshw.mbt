@@ -43,8 +43,8 @@ pub fn parse_temp_input(text : String) -> Double? {
 ///|
 /// 从 hwmon 目录条目提取 tempN_input 的 N（升序；忽略 label / crit /
 /// max 等旁支条目，编号允许跳号）。
-pub fn temp_indices(entries : String) -> Array[Int] {
-  let out : Array[Int] = []
+pub fn temp_indices(entries : String) -> Array[Int32] {
+  let out : Array[Int32] = []
   for name in nonempty_lines(entries) {
     if !name.has_prefix("temp") || !name.has_suffix("_input") {
       continue
@@ -302,7 +302,10 @@ fn is_system_mount(mount : String) -> Bool {
   hit("/System/Volumes/Update") ||
   hit("/System/Volumes/VM") ||
   hit("/System/Volumes/Hardware") ||
-  hit("/System/Volumes/iSCPreboot")
+  hit("/System/Volumes/iSCPreboot") ||
+  hit("/System/Volumes/Recovery") ||
+  hit("/System/Volumes/xarts") ||
+  hit("/System/Volumes/Cryptexes")
 }
 
 ///|
@@ -731,11 +734,7 @@ fn pci_ids_id_name(content : StringView) -> (StringView, String) {
     }
     i += 1
   }
-  let id = if id_end < 0 {
-    content
-  } else {
-    content.exact_view(end=id_end)
-  }
+  let id = if id_end < 0 { content } else { content.exact_view(end=id_end) }
   let name = if name_start < 0 {
     ""
   } else {
@@ -811,12 +810,7 @@ fn gpu_model_name(
   }
   match pci_ids_device_name(ids, vendor, device) {
     Some(name) => name
-    None =>
-      if is_hex4(norm_pci_id(device)) {
-        device
-      } else {
-        ""
-      }
+    None => if is_hex4(norm_pci_id(device)) { device } else { "" }
   }
 }
 
@@ -931,7 +925,11 @@ pub fn drm_clients_total(entries : Array[DrmFdinfo]) -> Map[String, Int64] {
 /// 全卡利用率（%，0..100）：两次采样的全卡累计忙时间差值 / 墙钟。墙钟
 /// ≤ 0（首帧）按 0；累计值回落（客户端退出重开 / 计数器重置，内核规范
 /// 允许非单调更新）按 0；多引擎并行时合计可超墙钟，钳到 100。
-pub fn drm_busy_percent(prev_ns : Int64, cur_ns : Int64, wall_s : Double) -> Double {
+pub fn drm_busy_percent(
+  prev_ns : Int64,
+  cur_ns : Int64,
+  wall_s : Double,
+) -> Double {
   if wall_s <= 0.0 {
     0.0
   } else {
@@ -1409,7 +1407,10 @@ fn gpu_vendor_name(vendor_text : String, model : String) -> String {
     "NVIDIA"
   } else if has(t, "amd") || has(t, "AMD") || has(t, "Radeon") {
     "AMD"
-  } else if has(t, "intel") || has(t, "Intel") || has(t, "UHD") || has(t, "Iris") {
+  } else if has(t, "intel") ||
+    has(t, "Intel") ||
+    has(t, "UHD") ||
+    has(t, "Iris") {
     "Intel"
   } else if has(t, "Apple") || has(t, "apple") {
     "Apple"
@@ -1429,17 +1430,21 @@ pub fn parse_system_profiler_gpu(json : String) -> Array[GpuInfo] {
   for i, obj in json_items_objects(json) {
     let model = match json_string_value(obj, "sppci_model") {
       Some(m) => m
-      None => (json_string_value(obj, "_name")).unwrap_or("")
+      None => json_string_value(obj, "_name").unwrap_or("")
     }
     let vram = match json_string_value(obj, "spdisplays_vram") {
       Some(t) => parse_vram(t)
       None => None
     }
-    let vendor_text = (json_string_value(obj, "spdisplays_vendor")).unwrap_or("")
+    let vendor_text = json_string_value(obj, "spdisplays_vendor").unwrap_or("")
     out.push({
       pci: "spdisplays\{i}",
       vendor: gpu_vendor_name(vendor_text, model),
-      device: if model == "" { "(未知)" } else { model },
+      device: if model == "" {
+        "(未知)"
+      } else {
+        model
+      },
       model,
       celsius: None,
       busy: None,

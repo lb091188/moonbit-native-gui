@@ -244,9 +244,14 @@ test "parse_drm_fdinfo：i915 形态(无 pdev / capacity 键排除)" {
 ///|
 test "parse_drm_fdinfo：非 DRM fd 与无引擎统计的老驱动 → None" {
   // 普通文件 fd：只有 pos/flags/mnt_id/ino
-  assert_true(parse_drm_fdinfo("pos:\t0\nflags:\t02\nmnt_id:\t11\nino:\t4026531841\n") is None)
+  assert_true(
+    parse_drm_fdinfo("pos:\t0\nflags:\t02\nmnt_id:\t11\nino:\t4026531841\n")
+    is None,
+  )
   // i915 gen<8 早退：有 drm-driver/client-id 但无引擎键
-  let old_i915 = parse_drm_fdinfo("pos:\t0\nflags:\t02\nmnt_id:\t11\nino:\t123\ndrm-driver:\ti915\ndrm-client-id:\t3\n")
+  let old_i915 = parse_drm_fdinfo(
+    "pos:\t0\nflags:\t02\nmnt_id:\t11\nino:\t123\ndrm-driver:\ti915\ndrm-client-id:\t3\n",
+  )
   assert_true(old_i915 is None)
   assert_true(parse_drm_fdinfo("") is None)
 }
@@ -269,19 +274,19 @@ test "is_drm_engine_key / drm_device_key：引擎键判定与设备键选择" {
     engine_ns: 100,
   }
   assert_eq(drm_device_key(amd), "0000:0c:00.0")
-  let old : DrmFdinfo = { driver: "i915", pdev: "", client_id: 5, engine_ns: 100 }
+  let old : DrmFdinfo = {
+    driver: "i915",
+    pdev: "",
+    client_id: 5,
+    engine_ns: 100,
+  }
   assert_eq(drm_device_key(old), "i915")
 }
 
 ///|
 test "drm_clients_total：同 client 归并 / 跨进程共享 fd / 按设备分键" {
-  fn e(
-    driver : String,
-    pdev : String,
-    cid : Int64,
-    ns : Int64,
-  ) -> DrmFdinfo {
-    { driver, pdev, client_id: cid, engine_ns: ns }
+  fn e(driver : String, pdev : String, cid : Int64, ns : Int64) -> DrmFdinfo {
+    { driver, pdev, client_id: cid, engine_ns: ns, }
   }
 
   // 同一客户端（client 16）在两个 fd（dup）里重复出现：只计一次
@@ -452,6 +457,9 @@ test "is_system_mount：/boot 等系统挂载排除,/run/media 与自定义挂�
   assert_true(is_system_mount("/System/Volumes/VM"))
   assert_true(is_system_mount("/System/Volumes/Hardware"))
   assert_true(is_system_mount("/System/Volumes/iSCPreboot"))
+  assert_true(is_system_mount("/System/Volumes/Recovery"))
+  assert_true(is_system_mount("/System/Volumes/xarts"))
+  assert_true(is_system_mount("/System/Volumes/Cryptexes"))
   // 用户数据卷与用户挂载保留（macOS 的 "Macintosh HD" 是 /System/Volumes/Data）
   assert_false(is_system_mount("/System/Volumes/Data"))
   assert_false(is_system_mount("/Volumes/My Drive"))
@@ -481,12 +489,12 @@ test "json_string_value：键值提取 / 嵌套键 / 数字值 / 转义" {
   // 键缺失
   assert_eq(json_string_value(obj, "nope"), None)
   // 值内含转义引号
-  assert_eq(
-    json_string_value("{\"k\" : \"a\\\"b\"}", "k"),
-    Some("a\"b"),
-  )
+  assert_eq(json_string_value("{\"k\" : \"a\\\"b\"}", "k"), Some("a\"b"))
   // 键名是其它键值的前缀也不能误配（带引号整键匹配）
-  assert_eq(json_string_value("{\"ab\" : \"1\", \"a\" : \"2\"}", "a"), Some("2"))
+  assert_eq(
+    json_string_value("{\"ab\" : \"1\", \"a\" : \"2\"}", "a"),
+    Some("2"),
+  )
 }
 
 ///|
@@ -531,7 +539,9 @@ test "parse_system_profiler_gpu：Apple Silicon 单卡 / Intel 双卡 / 宽容�
   // 宽容口径：键缺失 / _items 为空 / 型号缺失回退 _name
   assert_eq(parse_system_profiler_gpu("{\"_items\" : []}").length(), 0)
   assert_eq(parse_system_profiler_gpu("{}").length(), 0)
-  let noname = parse_system_profiler_gpu("{\"_items\" : [{\"_name\" : \"Fallback GPU\"}]}")
+  let noname = parse_system_profiler_gpu(
+    "{\"_items\" : [{\"_name\" : \"Fallback GPU\"}]}",
+  )
   assert_eq(noname.length(), 1)
   assert_eq(noname[0].model, "Fallback GPU")
 }
@@ -573,8 +583,14 @@ test "pci_ids_device_name：缩进层级解析(subsystem 跳过 / 出节提前�
     Some("WhiskeyLake-U GT2 [UHD Graphics 620]"),
   )
   // 前导零 vendor id 与无前缀 device id 都认（归一化）
-  assert_eq(pci_ids_device_name(ids, "0x0010", "8139"), Some("AT-2500TX V3 Ethernet"))
-  assert_eq(pci_ids_device_name(ids, "0X1002", "7480"), pci_ids_device_name(ids, "0x1002", "0x7480"))
+  assert_eq(
+    pci_ids_device_name(ids, "0x0010", "8139"),
+    Some("AT-2500TX V3 Ethernet"),
+  )
+  assert_eq(
+    pci_ids_device_name(ids, "0X1002", "7480"),
+    pci_ids_device_name(ids, "0x1002", "0x7480"),
+  )
   // 同 vendor 下查无此 device：扫到下一 vendor 行即出节返回 None；
   // 9999 有条目但无名称（真实库不出现），同样按查不到处理
   assert_true(pci_ids_device_name(ids, "0x1002", "0x9999") is None)
@@ -599,9 +615,15 @@ test "pci_ids_device_name：缩进层级解析(subsystem 跳过 / 出节提前�
 test "gpu_model_name：smi 优先 / pci.ids 命中 / 回退 device id / 占位留空" {
   let ids = "1002  Advanced Micro Devices, Inc. [AMD/ATI]\n\t7480  Navi 33 [Radeon RX 7700S/7600]\n"
   // nvidia-smi 命中优先（其型号名比 pci.ids 更具体），不经数据库
-  assert_eq(gpu_model_name("NVIDIA GeForce RTX 3070", "0x10de", "0x2488", ids), "NVIDIA GeForce RTX 3070")
+  assert_eq(
+    gpu_model_name("NVIDIA GeForce RTX 3070", "0x10de", "0x2488", ids),
+    "NVIDIA GeForce RTX 3070",
+  )
   // AMD / Intel 走 pci.ids 商业型号名
-  assert_eq(gpu_model_name("", "0x1002", "0x7480", ids), "Navi 33 [Radeon RX 7700S/7600]")
+  assert_eq(
+    gpu_model_name("", "0x1002", "0x7480", ids),
+    "Navi 33 [Radeon RX 7700S/7600]",
+  )
   // 数据库不可达（空文本）与库内无该条目：回退 device id 原文
   assert_eq(gpu_model_name("", "0x1002", "0x7480", ""), "0x7480")
   assert_eq(gpu_model_name("", "0x1002", "0x9999", ids), "0x9999")
@@ -705,4 +727,3 @@ test "SYS5 真实采样：pci.ids 商业型号名(Linux)" {
     }
   }
 }
-

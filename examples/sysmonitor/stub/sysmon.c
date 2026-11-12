@@ -2378,8 +2378,12 @@ static moonbit_bytes_t sysmon_apple_cpuinfo(void) {
   model[sizeof(model) - 1] = '\0';
   long long freq_hz = 0;
   size_t freq_len = sizeof(freq_hz);
-  /* 主频取不到（部分机型无该键）保持 0 */
-  sysctlbyname("hw.cpufrequency", &freq_hz, &freq_len, NULL, 0);
+  /* 主频取 max 档，无该键回退当前档；仍无（Apple Silicon 无公开接口）保持 0 */
+  sysctlbyname("hw.cpufrequency_max", &freq_hz, &freq_len, NULL, 0);
+  if (freq_hz <= 0) {
+    freq_len = sizeof(freq_hz);
+    sysctlbyname("hw.cpufrequency", &freq_hz, &freq_len, NULL, 0);
+  }
   int ncpu = 0;
   size_t ncpu_len = sizeof(ncpu);
   sysctlbyname("hw.ncpu", &ncpu, &ncpu_len, NULL, 0);
