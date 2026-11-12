@@ -1,0 +1,16 @@
+// 画板与富文本示例：本包只做装配——起窗、主题跟随、语言切换；共享层在
+// `shared/`，页面内容在 `pages/`。
+import {
+  "NoahLiu/native-gui/base",
+  "NoahLiu/native-gui/widget" @widget,
+  "NoahLiu/native-gui/ui",
+  "NoahLiu/native-gui/icons",
+  "NoahLiu/native-gui/theme",
+  "NoahLiu/native-gui/win",
+  "NoahLiu/native-gui-examples-canvas/shared" @shared,
+  "NoahLiu/native-gui-examples-canvas/pages" @pages,
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"
