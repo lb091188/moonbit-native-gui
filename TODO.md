@@ -21,7 +21,7 @@
 
 ## mng 工具链复验（用户执行）
 
-- [ ] **mngui 向导壳**：`moon install ./tools/native-gui-tools` 后裸 `mng`：
+- [ ] **mngui 向导壳**：`moon install ./tools/native-gui-tools/mng && moon install ./tools/native-gui-tools/mngui` 后裸 `mng`（install 按可执行包逐个装，装模块路径会报 not a main package）：
   1. 应开向导窗
   2. 五步走通：体检四项 ✓ → 建 demo 工程 → 起 dev 应用窗弹出 → 关向导 dev 仍在 → 完成页命令可选中复制
   3. 图标步给一个 1024 PNG：应落 `assets/icon.png` 且 `mng.toml` `icon` 键接上；给错路径应红字提示且工程不回滚
