@@ -10,9 +10,12 @@ import {
 
 // collect_bin：构建示例与工具的可执行包，把产物 exe 短名收进仓库根 bin/。
 //
-// 用法（在 tools/native-gui-tools 目录下）：
-//   moon run scripts/collect_bin.mbtx              # release 档
-//   moon run scripts/collect_bin.mbtx -- --debug   # debug 档（mbtx 参数要 -- 分隔）
+// 用法（仓库内任一目录均可，脚本自找仓库根）：
+//   moon run tools/native-gui-tools/scripts/collect_bin.mbtx           # 仓库根
+//   cd tools/native-gui-tools && moon run scripts/collect_bin.mbtx     # 模块目录
+//   moon -C tools/native-gui-tools run scripts/collect_bin.mbtx        # -C 形态
+// debug 档在脚本参数前加 --（mbtx 传参要 -- 分隔）：
+//   moon run <脚本路径> -- --debug
 //
 // 收集面：示例 9 件 + native-gui-tools 6 件可执行包，清单见下。
 // bin/ 为本脚本自管目录，每次运行先清空再放。
@@ -109,6 +112,19 @@ fn mib(size : Int64) -> String {
 }
 
 ///|
+/// 从当前目录向上找 moon.work，返回仓库根；找不到返回 None。
+async fn find_repo() -> String? {
+  let mut dir = "."
+  for _ in 0..<8 {
+    if @fs.exists(dir + "/moon.work") {
+      return Some(dir)
+    }
+    dir = dir + "/.."
+  }
+  None
+}
+
+///|
 async fn main {
   let args = @env.args()
   let mut release = true
@@ -119,13 +135,14 @@ async fn main {
   }
   let mode = if release { "release" } else { "debug" }
 
-  // 脚本约定从 tools/native-gui-tools 跑（moon run 把 cwd 设在模块目录），
-  // 仓库根即上两级
-  let repo = "../.."
-  if !@fs.exists(repo + "/moon.work") {
-    err("找不到 \{repo}/moon.work —— 请在 tools/native-gui-tools 目录下跑：")
-    err("  cd tools/native-gui-tools && moon run scripts/collect_bin.mbtx")
-    abort("collect_bin: 起跑目录不对")
+  // 仓库根：从当前目录向上找 moon.work，仓库内任一位置起跑都行
+  let repo = match find_repo() {
+    Some(r) => r
+    None => {
+      err("找不到 moon.work —— 请在仓库内运行，例如：")
+      err("  cd tools/native-gui-tools && moon run scripts/collect_bin.mbtx")
+      abort("collect_bin: 不在仓库内")
+    }
   }
 
   // 两批构建：示例在仓库根按 workspace 路径点名；工具在模块目录内点名
@@ -136,7 +153,7 @@ async fn main {
   if !build(repo, example_args, release) {
     abort("collect_bin: 示例构建失败，中止")
   }
-  if !build(".", tool_packages, release) {
+  if !build(repo + "/tools/native-gui-tools", tool_packages, release) {
     abort("collect_bin: 工具构建失败，中止")
   }
 
