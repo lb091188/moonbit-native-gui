@@ -23,6 +23,13 @@ FAIL=0
 ok() { echo "  OK   $*"; PASS=$((PASS + 1)); }
 bad() { echo "  FAIL $*"; FAIL=$((FAIL + 1)); }
 
+# 清上一轮残留：硬杀过的应用会留单实例套接字，不清会让新实例误判「已有实例」秒退；
+# dev 的 COLD 重启进程不在 DEV_PID 跟踪内，退出时按名字兜底清一次
+sweep_leftovers() {
+  pkill -9 -f "$APP_NAME" 2>/dev/null || true
+  rm -f "${TMPDIR:-/tmp}"/moonbit-instance-local_"$APP_NAME".*.sock 2>/dev/null || true
+}
+
 cleanup() {
   if [ -n "${DEV_PID:-}" ] && kill -0 "$DEV_PID" 2>/dev/null; then
     kill -TERM "$DEV_PID" 2>/dev/null || true
@@ -32,6 +39,7 @@ cleanup() {
     done
     kill -9 "$DEV_PID" 2>/dev/null || true
   fi
+  sweep_leftovers
   if [ "$KEEP" = "0" ]; then
     # 先还原 moon.work 再删现场：备份就在 $WORK 里，删早了没得还原
     restore_workfile
@@ -103,6 +111,7 @@ wait_for() { # <固定串> <秒> <说明>
 
 echo "== mng 应用侧场景 =="
 mkdir -p "$WORK"
+sweep_leftovers
 
 # ---- 1. mng 可执行文件 ------------------------------------------------------
 MNG="${MNG_BIN:-}"
@@ -148,7 +157,7 @@ ok "已把 $APP_NAME 加进 moon.work（跑完还原）"
 
 # ---- 3. dev 循环 ------------------------------------------------------------
 : >"$DEV_LOG"
-(cd "$APP_DIR" && "$MNG" dev >"$DEV_LOG" 2>&1) &
+(cd "$APP_DIR" && exec "$MNG" dev >"$DEV_LOG" 2>&1) &
 DEV_PID=$!
 
 if ! wait_for "DEV 起应用 pid=" 180 "dev 首轮启动（构建 + 起应用）"; then
@@ -169,8 +178,8 @@ mark
 import sys
 p = sys.argv[1]
 s = open(p, encoding="utf-8").read()
-s = s.replace("let count : @base.Store[Int] = @base.Store::new(0)",
-              "let count : @base.Store[Int] = @base.Store::new(0)\nfn extra() -> Int { 7 }")
+s = s.replace("let count : @base.Store[Int32] = @base.Store::new(0)",
+              "let count : @base.Store[Int32] = @base.Store::new(0)\nfn extra() -> Int32 { 7 }")
 # 顺手把新符号用起来：不然生成码里是 unused_value 警告，会给 COLD 的构建日志添噪
 s = s.replace("{{ count }}", "{{ count + extra() }}")
 open(p, "w", encoding="utf-8").write(s)
@@ -183,6 +192,8 @@ wait_for "[COLD] 已请求回到模板页" 30 "COLD 后回改动页"
 mark
 (cd "$APP_DIR" && "$MNG" new page pages/about >/dev/null 2>&1)
 wait_for "[NEW]" 20 "新建 .mng 被扫到"
+# 等 NEW 拍构建完成再删：模板删除与 dev 的 build 抢跑时，moon 会报输入缺失
+wait_for "[COLD] 应用已重启" 120 "NEW 拍构建完成"
 mark
 rm -f "$APP_DIR/pages/about.mng"
 wait_for "[GONE]" 20 "删除 .mng 清生成码"

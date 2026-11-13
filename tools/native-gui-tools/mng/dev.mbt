@@ -472,6 +472,12 @@ fn cmd_dev(args : Array[String]) -> Int32 {
       return 1
     }
   }
+  // 旧实例占坑时新进程会「唤醒旧实例并秒退」，补丁按旧注册表判 stale、
+  // COLD 重启也起不来：dev 是受控单实例，起新应用前清掉同可执行名的旧实例
+  // （pkill 退出码 1=无匹配，忽略；Windows 无 pkill 时 run_wait 报错也忽略）。
+  let app_base = basename(rfile)
+  let _ = @proc.run_wait("pkill", ["-9", "-f", app_base], 5000)
+  @proc.sleep_ms(200)
   let mut app_pid = match @proc.spawn(rfile, rargs, app_log) {
     Ok(pid) => pid
     Err(e) => {
@@ -480,6 +486,24 @@ fn cmd_dev(args : Array[String]) -> Int32 {
     }
   }
   @proc.watch(app_pid)
+  // 应用首页挂载前 dev 通道（单实例套接字）未监听，此时推补丁必然「唤起失败」；
+  // 以套接字文件出现为就绪信号（POSIX），Windows 无文件面靠短超时兜底。
+  let ready_sock = @inst.socket_path(conf.app_id)
+  let ready_deadline = if @inst.on_windows() { 1500 } else { 10000 }
+  let mut ready_wait = 0
+  while ready_wait < ready_deadline && @proc.alive(app_pid) {
+    let ready_ok = @fs.is_file(ready_sock) catch { _ => false }
+    if ready_ok {
+      break
+    }
+    @proc.sleep_ms(100)
+    ready_wait += 100
+  }
+  if !@proc.alive(app_pid) {
+    eprintln(
+      "DEV 起应用 pid=\{app_pid} 已退出（单实例占坑？先杀掉残留实例）",
+    )
+  }
   eprintln(
     "DEV 起应用 pid=\{app_pid}（输出 → \{app_log}）；工程级 watch \{files.length()} 个模板，\{conf.poll_ms}ms 一拍。Ctrl-C 退出。",
   )

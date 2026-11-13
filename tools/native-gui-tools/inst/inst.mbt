@@ -140,6 +140,12 @@ pub fn encode_args(args : Array[String]) -> Bytes {
 }
 
 ///|
+/// 是否 Windows（工具侧按平台选探测策略：Windows 无单实例套接字文件面）。
+pub fn on_windows() -> Bool {
+  inst_is_windows() == 1
+}
+
+///|
 /// 唤起已有实例并带上命令行参数；没有实例在听时返回 Err。
 /// Windows 走 WM_COPYDATA 直发首实例的隐藏消息窗口（与 GUI 第二实例同一条
 /// 通路，服务端零改动）；POSIX 走 AF_UNIX 套接字。
