@@ -535,7 +535,7 @@ def main():
         + "\n]\n\n"
         "///|\n"
         "/// 图标变体 → 路径数据下标(与 all_icons 清单同序,wbtest 断言双射)。\n"
-        "fn kind_index(kind : IconKind) -> Int {\n"
+        "fn kind_index(kind : IconKind) -> Int32 {\n"
         "  match kind {\n"
         + "\n".join(index_lines)
         + "\n  }\n"

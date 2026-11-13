@@ -86,10 +86,10 @@ pub fn page(raw~ : String, on_event~ : (ScafEvent) -> Unit) -> Int32 {
     "// 必填走位置参数，可选走 `名? : 类型 = 默认值`。不写即零参组件。",
     "// fn " +
     snake +
-    "(title : String, qty : @base.Store[Int], on_reset : () -> Unit, wide? : Bool = false) -> @widget.Node",
+    "(title : String, qty : @base.Store[Int32], on_reset : () -> Unit, wide? : Bool = false) -> @widget.Node",
     "",
     "// 页状态：Store/Signal 声明在此；被模板引用的 let 绑定即响应槽。",
-    "let qty : @base.Store[Int] = @base.Store::new(0)",
+    "let qty : @base.Store[Int32] = @base.Store::new(0)",
     "",
     "// 组件调用零声明：ui-* 走内置表；同包 `fn 组件名` 直接当标签用；",
     "// 跨包写 `let 组件名 = @包.函数`，路径取自右值、参数顺序取自源码签名。",

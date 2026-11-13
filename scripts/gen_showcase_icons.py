@@ -251,7 +251,7 @@ def main():
     out.append("")
     out.append("///|")
     out.append("/// 一组图标的网格:单容器 wrap,按容器宽自动换行,悬停 tooltip 显示名称。")
-    out.append("fn icon_grid(kinds : Array[@icons.IconKind], per_row : Int) -> @widget.Node {")
+    out.append("fn icon_grid(kinds : Array[@icons.IconKind], per_row : Int32) -> @widget.Node {")
     out.append("  // per_row 参数保留兼容既有调用点(不再参与换行,响应式后由容器宽决定)")
     out.append("  let _ = per_row")
     out.append("  let items : Array[@widget.Node] = []")

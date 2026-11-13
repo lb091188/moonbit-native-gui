@@ -23,7 +23,7 @@ DEFAULT_ICONS = os.path.join(REPO, "gui/icons/icons.mbt")
 ENGINE = '''// 自动生成：内置图标子集（含绘图引擎）。用 scripts/subset_icons.py 产出，勿手改。
 
 ///|
-fn path_num(d : String, i : Int) -> (Double, Int) {
+fn path_num(d : String, i : Int32) -> (Double, Int32) {
   let n = d.length()
   let mut j = i
   let mut neg = false

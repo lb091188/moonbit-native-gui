@@ -3,7 +3,7 @@
 ///|
 fn tpl_ok() -> String {
   [
-    "<script setup lang=\"moonbit\">", "let qty : @base.Store[Int] = @base.Store::new(0)",
+    "<script setup lang=\"moonbit\">", "let qty : @base.Store[Int32] = @base.Store::new(0)",
     "</script>", "<style>", ".card { color: var(--text_primary); }", "</style>",
     "<template>", "  <ui-col class=\"card\">", "    值 {{ qty }}", "  </ui-col>",
     "</template>",
@@ -233,7 +233,7 @@ test "LSP：外部包跳转（@包.成员 / 包入口 / 内置标签）与成员
   // 与 VS Code 送的 file:///c%3A/… 同一条链路，三平台同一份断言）
   let uri = path_to_uri(root + "/app/page/page.mng")
   let text = [
-      "<script setup lang=\"moonbit\">", "let qty : @base.Store[Int] = @base.Store::new(0)",
+      "<script setup lang=\"moonbit\">", "let qty : @base.Store[Int32] = @base.Store::new(0)",
       "let z = @base.", "</script>", "<template>", "  <ui-col>", "    <ui-text value=\"x\" max=\"2\" placeholder=\"a\" />",
       "    <ui-stepper v-model=\"qty\" max=\"10\" />", "  </ui-col>", "</template>",
     ].join("\n") +
@@ -375,7 +375,7 @@ test "LSP：指令悬浮不再当组件；提示文案随 locale 中英切换" {
   let docs : Map[String, String] = Map([])
   let uri = "file:///tmp/lsp_hover_i18n.mng"
   let text = [
-      "<script setup lang=\"moonbit\">", "let qty : @base.Store[Int] = @base.Store::new(0)",
+      "<script setup lang=\"moonbit\">", "let qty : @base.Store[Int32] = @base.Store::new(0)",
       "</script>", "<template>", "  <ui-stepper v-model=\"qty\" max=\"10\" />", "</template>",
     ].join("\n") +
     "\n"
