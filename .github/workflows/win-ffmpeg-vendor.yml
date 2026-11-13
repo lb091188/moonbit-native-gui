@@ -4,7 +4,7 @@
 # 不含 exe/头/导入库(导入库已在仓库 vendor/ 里,头也入库)。打好后直接
 # gh release upload 到 vendor-v1,与 mac 归档、miniaudio.h、WebView2 同处一档。
 #
-# 回填: 日志与 step summary 里的 sha256 写进 modules/ffmpeg-mbt/prebuild.py 的
+# 回填: 日志与 step summary 里的 sha256 写进 modules/ffmpeg-mbt/scripts/prebuild.mbtx 的
 # WIN_VENDOR_ARCHIVE,之后免装 ffmpeg 的 Windows 机器构建时按它下载校验。
 name: win-ffmpeg-vendor
 

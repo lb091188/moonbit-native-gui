@@ -30,7 +30,7 @@
 | `ffmpeg-macos-arm64-9.0.2-lgpl-shared.tar.gz` | **我们自编**：源 `ffmpeg-9.0.2.tar.xz`，LGPLv3 配置、五支 dylib @rpath 化、闭包只含系统库 | 归档内 `LICENSE.txt` + `COPYING.LGPLv2.1` + `COPYING.GPLv3`；仓内 `modules/ffmpeg-mbt/vendor/mac/` 亦有副本 |
 
 - **macOS 为什么自编而不是发 brew 的 ffmpeg**：brew 默认带 x264/x265（GPL），依赖闭包还拖进 openssl/libvpx/svt-av1 等十几支 formula——既与 Windows 的 lgpl-shared 口径不一致，归档也得把整个闭包捆进去才能离机运行。自编用 `--disable-autodetect` 把 brew 隔离在外，configure 后逐库 `otool` 断言闭包，破断言即构建失败。
-- **可追溯**：两个 FFmpeg 归档的版本与 sha256 同时写在归档名和 `modules/ffmpeg-mbt/prebuild.py`（`MAC_VENDOR_TARBALLS` / `WIN_VENDOR_ARCHIVE`）里，换版本时归档名、该常量与对应 vendor workflow 的默认版本一起改。
+- **可追溯**：两个 FFmpeg 归档的版本与 sha256 同时写在归档名和 `modules/ffmpeg-mbt/scripts/prebuild.mbtx`（`mac_vendor_tarballs` / `win_vendor_archive_*`）里，换版本时归档名、该常量与对应 vendor workflow 的默认版本一起改。
 - **下载与镜像**（谁在什么时机取、镜像顺序、超时预算）属构建事项，见 [`docs/zh/build.md`](https://github.com/lb091188/moonbit-native-gui/blob/master/docs/zh/build.md) §4，此处不重复。
 
 ## 对外发预构建二进制时的义务清单
@@ -41,4 +41,4 @@
 2. 本文件随包一起发；
 3. LGPL 线（FFmpeg、GTK 族）保持**动态链**并给出替换路径：Windows 侧 dll 放 exe 同目录或加进 `PATH`（口径见 [`docs/zh/build.md`](https://github.com/lb091188/moonbit-native-gui/blob/master/docs/zh/build.md) 的「Windows 运行期 ffmpeg dll」节），这已满足 LGPL 的「用户可换库」要求；
 4. 静态入库的 Windows 导入库（`*.lib`）本身不含 FFmpeg 代码，只是链接期符号表——但**运行期 dll 必须与同一份 LGPL 构建配套**，发布说明里要写清版本串；
-5. **我们自编或重打包的 FFmpeg 二进制**（`vendor-v1` 上的 `ffmpeg-macos-arm64-*.tar.gz` 与 `ffmpeg-windows-x64-*.zip`）同样受 LGPL-3 约束，发版时要一并给出：**对应源码**的获取位置（`https://ffmpeg.org/releases/ffmpeg-<版本>.tar.xz`，版本见归档名）与**构建脚本**（mac 侧 configure 参数全在 `modules/ffmpeg-mbt/scripts/make_mac_ffmpeg_vendor.sh`，这是「同一份源码 + 同一份参数」可复现的唯一凭据）；并在发布说明写明归档名与 sha256（与 `prebuild.py` 里回填的常量一致）。`--enable-version3` 只是把默认的 LGPLv2.1 升到 LGPLv3，**不等于** GPL——`--enable-gpl` 才会改变许可，我们的构建没有用它。
+5. **我们自编或重打包的 FFmpeg 二进制**（`vendor-v1` 上的 `ffmpeg-macos-arm64-*.tar.gz` 与 `ffmpeg-windows-x64-*.zip`）同样受 LGPL-3 约束，发版时要一并给出：**对应源码**的获取位置（`https://ffmpeg.org/releases/ffmpeg-<版本>.tar.xz`，版本见归档名）与**构建脚本**（mac 侧 configure 参数全在 `modules/ffmpeg-mbt/scripts/make_mac_ffmpeg_vendor.sh`，这是「同一份源码 + 同一份参数」可复现的唯一凭据）；并在发布说明写明归档名与 sha256（与 prebuild.mbtx 里回填的常量一致）。`--enable-version3` 只是把默认的 LGPLv2.1 升到 LGPLv3，**不等于** GPL——`--enable-gpl` 才会改变许可，我们的构建没有用它。

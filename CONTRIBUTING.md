@@ -30,7 +30,7 @@ dbus-run-session -- moon test base shell widget ui render text theme icons sys i
 | Path | Contents |
 | ---- | -------- |
 | `gui/` | The library, one directory per package (`ui` / `widget` / `style` / `theme` / `render` / `text` / `input` / `win` / `sys` / `dbus` / `shell` …) |
-| `gui/<pkg>/stub.c` | Platform C stubs: one file, four conditional arms (Win32 / GTK / macOS / headless fallback); link flags belong to `gui/scripts/prebuild.py` |
+| `gui/<pkg>/stub.c` | Platform C stubs: one file, four conditional arms (Win32 / GTK / macOS / headless fallback); link flags belong to `gui/scripts/prebuild.mbtx` |
 | `examples/<name>/` | Each example is its own MoonBit module, registered in the root `moon.work` |
 | `modules/` | Sub-modules (yoga-mbt / mdparse / gui-media / gui-webview / ffmpeg-mbt) |
 | `experiment/` | Probes and micro-benchmarks, never shipped in the library |

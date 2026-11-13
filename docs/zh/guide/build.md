@@ -144,7 +144,7 @@ GitHub Releases 现有两条：**Binaries**（tag `bin`，由 `release-bin.yml` 
 | `~/.moon/lib/runtime/process.c: error: 'SYS_pidfd_open' undeclared` | 地板在 **MoonBit 工具链自带的 runtime C 源**：它无条件用 `SYS_pidfd_open`，而这个宏来自 glibc 构建时冻结的 syscall 表（老 glibc 就算配新内核头也没有它，升 `linux-libc-dev` 补不上）。与本库无关，此时本库的 prebuild 与桩都已编过 | 换 glibc 较新的机器 / 发行版；这一档**不承诺支持**，自救口径见 §2「低版本发行版」 |
 | prebuild 在 stderr 打「缺少 gtk+-3.0 开发包」一类提示后继续走，最后链接期爆 `undefined reference to gtk_*` / `pango_*` | 开发包没装全。prebuild 探不到包时只警告、**不下发链接条目**，错误推迟到链接期才露头 | 补 §2 的 apt 清单，重跑 `moon build`；仍链旧结果就 `moon clean` 一次 |
 | Windows 上 `moon install <工具包>`（或 `moon build --release`）爆 `LNK2019: 无法解析的外部符号 __imp_FindWindowW` 一类，**同一条 `moon build` 不加 `--release` 却是绿的** | 两种构建画像的链接行不同：debug 由 moon 追加显式系统库（`libcmt kernel32 shell32 user32 dbghelp …`），release 只有 `/link /LIBPATH:` 一行，系统库全靠对象自带的 `/DEFAULTLIB`。`tools/native-gui-tools` 这类**不挂 prebuild**的模块拿不到 `link_configs`，Win32 符号就成悬空引用 | 在用到该 API 的 `.c` 里写 `#pragma comment(lib, "user32.lib")`——MSVC 把 `/DEFAULTLIB` 写进该 TU 的 `.drectve`，链接器抽到这份 `.obj` 时自动带库，依赖方零配置。挂了 prebuild 的库模块仍按 §8 补链接串 |
-| Windows 链接期爆 `error LNK2019: 无法解析的外部符号 __imp_SetDeviceGammaRamp`（或任意 `__imp_*`），紧跟着 `fatal error LNK1120` | `__imp_` 打头的是 Win32 **导入函数**：桩编得过，但它所在的 `.lib` 没链上。`SetDeviceGammaRamp` 在 `gdi32.lib`，`gui/scripts/prebuild.py` 的 sys 包 Windows 分支当时缺它；`sys_stub.obj` 整个进不了链接，所以每个用到 sys 的 exe 都断在同一条 | 更新到当前 master（sys 包已补 `gdi32.lib`）。自己加 Windows 直调时按归属补库：取 DC 与消息循环→`user32`、DC 绘图与 gamma 斜坡→`gdi32`、注册表→`advapi32`、`ShellExecuteW`/`SH*`→`shell32`、COM 基础→`ole32`、`SysAllocString`→`oleaut32`、WMI 的 GUID 常量→`wbemuuid` |
+| Windows 链接期爆 `error LNK2019: 无法解析的外部符号 __imp_SetDeviceGammaRamp`（或任意 `__imp_*`），紧跟着 `fatal error LNK1120` | `__imp_` 打头的是 Win32 **导入函数**：桩编得过，但它所在的 `.lib` 没链上。`SetDeviceGammaRamp` 在 `gdi32.lib`，旧版 `prebuild.py`（现 prebuild.mbtx）的 sys 包 Windows 分支当时缺它；`sys_stub.obj` 整个进不了链接，所以每个用到 sys 的 exe 都断在同一条 | 更新到当前 master（sys 包已补 `gdi32.lib`）。自己加 Windows 直调时按归属补库：取 DC 与消息循环→`user32`、DC 绘图与 gamma 斜坡→`gdi32`、注册表→`advapi32`、`ShellExecuteW`/`SH*`→`shell32`、COM 基础→`ole32`、`SysAllocString`→`oleaut32`、WMI 的 GUID 常量→`wbemuuid` |
 | 构建不中断，但 MSVC 刷一片 `warning C4090: 不同的"const"限定符` / `C4113: 参数列表不同` / `C4133: 类型不兼容` | 桩里的 COM 写法与 SDK 头对不上三类：`const` 的 Vtbl 赋给非 `const` 的 `lpVtbl`、一个实现函数塞进多个接口的 vtable（`self` 形参类型必须逐接口各写一份）、`LPWSTR*` 与 `LPCWSTR*` 之差 | 不挡构建，但每一行都指着「这个槽运行期按 SDK 那份签名被调用」——照 `include/WebView2.h` 的声明逐条改桩；`modules/gui-webview/webview/webview2_stub.c` 三类已清 |
 | `Package 'webkit2gtk-4.1' not found`，且只有 `@web` 用不了 | 不是故障，是设计：探不到 webkit 时 `@web` 退成占位实现、能力报 `Unsupported`，不让整包链接失败 | 要内嵌浏览器就装 `libwebkit2gtk-4.1-dev` |
 | `moon.mod.json ... is no longer supported` | 依赖缓存里第三方包带的还是旧清单（注册表侧改不动） | 对 `.mooncakes/**/moon.{mod,pkg}.json` 逐个 `moon fmt`，循环到解图收敛（CI 同口径） |
@@ -157,7 +157,7 @@ GitHub Releases 现有两条：**Binaries**（tag `bin`，由 `release-bin.yml` 
 
 ## 7. 链接从哪来
 
-- moon 在构建时执行库模块的 `gui/scripts/prebuild.py`，它由 `gui/moon.mod` 的 `options(--moonbit-unstable-prebuild)` 挂上，按当前系统输出 `link_configs`，并自动传播给依赖本库模块的所有 main 包。声明的只有脚本路径，**没有命令字段**——用哪个解释器由 moon 按 §6 第一行的顺序挑。
+- moon 在构建时执行各模块的 prebuild 钩子（`moon.mod` 的 `options(--moonbit-unstable-prebuild)` 挂 `scripts/prebuild.mbtx`），按当前系统输出 `vars` 与 `link_configs`，并自动传播给依赖本库模块的所有 main 包。脚本由 moon 自带的 MoonBit 运行器执行，机器上不需要任何解释器。
 - prebuild 同时探测系统库：Linux 找 GTK3 / Pango / FontConfig / X11，内嵌 WebView 找 `webkit2gtk-4.1`，媒体模块找 ffmpeg。探不到 GTK 就非零退出并给修复提示；探不到 webkit 则 `@web` 退成占位实现、能力报 `Unsupported`，不让整包链接失败。
 - 结果：链接 flags 不用写也不该写，由 prebuild 统一给出。
 
@@ -166,7 +166,7 @@ GitHub Releases 现有两条：**Binaries**（tag `bin`，由 `release-bin.yml` 
 - 库包不放 `link` 段——moon 会为库包生成无 `main` 的 `.exe`，构建失败。
 - 不手写 `cc-link-flags`——链接一律由 prebuild 下发，手改会与它冲突。
 - 新增平台 C 能力按「单一 `stub.c` 多分支 + prebuild 宏」组织，先例见 `gui/win/stub.c`；链接参数仍归 prebuild。
-- Windows 分支每用一个新的 Win32 API，先查它属于哪个 `.lib`，同批把库补进 `gui/scripts/prebuild.py` 对应包的 Windows 链接串——桩编译期不查库，缺库只在链接期以 `LNK2019 __imp_*` 露头（见 §6）。
+- Windows 分支每用一个新的 Win32 API，先查它属于哪个 `.lib`，同批把库补进 `gui/scripts/prebuild.mbtx` 对应包的 Windows 链接串——桩编译期不查库，缺库只在链接期以 `LNK2019 __imp_*` 露头（见 §6）。
 - 不挂 prebuild 的模块（`tools/native-gui-tools` 这类独立模块）没有 `link_configs` 可下发，改为在该 `.c` 里 `#pragma comment(lib, ...)`，让 `/DEFAULTLIB` 随 `.obj` 的 `.drectve` 段走；先例 `tools/native-gui-tools/inst/inst_stub.c`（user32）、`modules/ffmpeg-mbt/src/ffmpeg_win_dll.c`（delayimp）。
 
 FFI 声明与蹦床对齐的规范见 `.agents/skills/moonbit-c-binding/`。
@@ -188,7 +188,7 @@ rm -rf _build/native/debug/build/examples/<示例>/<示例>   # 该示例重链
 
 删完再 `moon build` / `moon test`，会重新编译桩并链新 exe。
 
-**webview / media 这类 prebuild 专编归档多一层**：`modules/gui-webview/webview/webkit_stub.c` 不走 native-stub，由 `prebuild.py` 专编成 `modules/gui-webview/build/libgui_webview[-mac]-<指纹8>.a`——**归档文件名里编着源码 sha256 前 8 位**。源码变 → 归档名变 → `link_flags` 变 → moon 失效链接目标、exe 必然重链；三段缺一不可（归档重编而 link_flags 没变时，moon 不重链，exe 一直跑旧桩——真机踩实过）。判定「改动进没进」用符号最稳：
+**webview / media 这类 prebuild 专编归档多一层**：`modules/gui-webview/webview/webkit_stub.c` 不走 native-stub，由 prebuild 专编成 `libgui_webview[-mac]-<指纹8>.a`（落在该模块 prebuild 的输出目录）——**归档文件名里编着源码 sha256 前 8 位**。源码变 → 归档名变 → `link_flags` 变 → moon 失效链接目标、exe 必然重链；三段缺一不可（归档重编而 link_flags 没变时，moon 不重链，exe 一直跑旧桩——真机踩实过）。判定「改动进没进」用符号最稳：
 
 ```sh
 nm modules/gui-webview/build/libgui_webview-*.a | grep -c gtk_file_chooser_native_new
@@ -204,19 +204,19 @@ nm modules/gui-webview/build/libgui_webview-*.a | grep -c gtk_file_chooser_nativ
 
 | 文件 | 下载方 | 何时下载 |
 |---|---|---|
-| `WebView2LoaderStatic.lib`（11 MB）、`WebView2.h`（2.8 MB） | `modules/gui-webview/prebuild.py` | **仅 Windows**；Linux / macOS 直接跳过，省下 14 MB |
+| `WebView2LoaderStatic.lib`（11 MB）、`WebView2.h`（2.8 MB） | `modules/gui-webview/scripts/prebuild.mbtx` | **仅 Windows**；Linux / macOS 直接跳过，省下 14 MB |
 | `miniaudio.h`（4 MB） | `modules/gui-media/scripts/prebuild.mbtx` | 缺失即下（各平台都要编）；已就位也会校验 sha256，损坏自动重取 |
 | `wgpu-*-release.zip`（30–64 MB，wgpu-native 动态库 + 头） | `modules/gui-gpu/scripts/prebuild.mbtx` | `vendor/` 缺 `.ok` 标记即下（按平台取对应资产）；解压 spawn 系统 unzip（Windows 走 PowerShell `Expand-Archive`） |
-| `ffmpeg-windows-x64-9.0-lgpl-shared.zip`（约 64 MB，7 支 dll） | `modules/ffmpeg-mbt/prebuild.py` | **仅 Windows** 且本地缺运行期 dll；取不到再退 BtbN 上游 |
+| `ffmpeg-windows-x64-9.0-lgpl-shared.zip`（约 64 MB，7 支 dll） | `modules/ffmpeg-mbt/scripts/prebuild.mbtx` | **仅 Windows** 且本地缺运行期 dll；取不到再退 BtbN 上游 |
 | `ffmpeg-macos-arm64-9.0.2-lgpl-shared.tar.gz`（约 10 MB，5 支 dylib + 头） | 同上 | **仅 macOS arm64** 且缺 `vendor/mac`；装了 brew ffmpeg 的机器走 pkg-config，不下载 |
 
 FFmpeg 这两个归档**由我们制作**（macOS 自编 LGPLv3、@rpath 化，Windows 是从 BtbN lgpl-shared 重打包运行期 dll），不是上游现成产物——所以它们的授权文本与源码提供义务单独记在 [THIRD-PARTY-NOTICES.md](/THIRD-PARTY-NOTICES.md)。
 
 - **校验优先**：sha256 与 prebuild 里的常量一致才落盘，任何镜像都可验证。
-- **镜像**：GitHub Release → Gitee，都**不做延迟探测**。模块间策略不同——webview 与 ffmpeg 默认**并行竞速**（谁先交出校验通过的文件用谁，总耗时等于最快镜像）；gui-media 串行按序。
-- **超时**：单源 socket 超时 20 秒，另加**总预算**兜底（socket 级超时挡不住 DNS 挂起与慢速滴流，只靠它会把一次构建吊死）。预算按体积分档：mac 归档、`miniaudio.h`、WebView2 两件套 **60 秒**，Windows 的 64 MB dll 归档 **360 秒**——否则「数据还在流、预算先到」会把那一路误判成失败。
-- **换源与加源**：`modules/gui-webview/prebuild.py` 的 `VENDOR_BASES`、`modules/gui-media/scripts/prebuild.mbtx` 的 `vendor_bases` 各改一行（另有 `modules/ffmpeg-mbt/prebuild.py` 管 dll 归档，镜像与超时口径同源）。三处**刻意各留一份**，每个模块都要能独立发布。**Gitee 的用户名与 GitHub 不同**（同一个仓在 gitee 归 `noahliu0911`，GitHub 是 `lb091188`），照抄会 404，而且只在 GitHub 不通时才暴露。
-- **内网与离线**：环境变量 `NATIVE_GUI_VENDOR_BASE` 接受单个 base 或逗号分隔列表，排在最前；设了它就不再并行竞速（webview 转串行按序）。也可手工把文件放到对应路径。
+- **镜像**：GitHub Release → Gitee，都**不做延迟探测**，统一**串行按序**（sha256 过了才落盘；py 时代 webview / ffmpeg 的并行竞速形态已随 mbtx 化收口，不再保留）。
+- **超时**：单源 socket 超时之外另加**总预算**兜底（socket 级超时挡不住 DNS 挂起与慢速滴流，只靠它会把一次构建吊死）。预算按体积分档：`miniaudio.h` 与 WebView2 两件套 **60 秒**，mac 归档 **240 秒**，Windows 的 64 MB dll 归档 **480 秒**——否则「数据还在流、预算先到」会把那一路误判成失败。
+- **换源与加源**：`modules/gui-webview/scripts/prebuild.mbtx` 的 `vendor_bases`、`modules/gui-media/scripts/prebuild.mbtx` 的 `vendor_bases` 各改一行（另有同文件管 dll 归档，镜像与超时口径同源）。三处**刻意各留一份**，每个模块都要能独立发布。**Gitee 的用户名与 GitHub 不同**（同一个仓在 gitee 归 `noahliu0911`，GitHub 是 `lb091188`），照抄会 404，而且只在 GitHub 不通时才暴露。
+- **内网与离线**：环境变量 `NATIVE_GUI_VENDOR_BASE` 接受单个 base 或逗号分隔列表，排在最前（指定自定义源时只走自定义源，不并行外网）。也可手工把文件放到对应路径。
 - 全部失败时 prebuild 不中断，只打印手工放置提示，把缺文件错误留给链接期。
 
 授权与来源见 [THIRD-PARTY-NOTICES.md](/THIRD-PARTY-NOTICES.md)。

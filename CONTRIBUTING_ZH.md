@@ -30,7 +30,7 @@ dbus-run-session -- moon test base shell widget ui render text theme icons sys i
 | 位置 | 放什么 |
 | ---- | ------ |
 | `gui/` | 库本体，按包分目录（`ui` / `widget` / `style` / `theme` / `render` / `text` / `input` / `win` / `sys` / `dbus` / `shell` …） |
-| `gui/<包>/stub.c` | 平台 C 桩：单一文件多分支（Win32 / GTK / macOS / 无 GUI 兜底四臂），链接参数归 `gui/scripts/prebuild.py` |
+| `gui/<包>/stub.c` | 平台 C 桩：单一文件多分支（Win32 / GTK / macOS / 无 GUI 兜底四臂），链接参数归 `gui/scripts/prebuild.mbtx` |
 | `examples/<name>/` | 每个示例一个独立 moon 模块，并注册进根目录 `moon.work` |
 | `modules/` | 子模块（yoga-mbt / mdparse / gui-media / gui-webview / ffmpeg-mbt） |
 | `experiment/` | 探针与微基准，不进库 |

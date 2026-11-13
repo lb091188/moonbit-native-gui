@@ -5,7 +5,7 @@
 #
 # 后续两步(共享动作,由维护者执行,不在本 workflow 里):
 #   1. gh release upload vendor-v1 <归档> --clobber
-#   2. 把 sha256 回填 modules/ffmpeg-mbt/prebuild.py 的 MAC_VENDOR_TARBALLS
+#   2. 把 sha256 回填 modules/ffmpeg-mbt/scripts/prebuild.mbtx 的 mac_vendor_tarballs
 # 回填生效后,免 brew 机器的 prebuild 回退路即可自动下载。
 name: mac-ffmpeg-vendor
 
