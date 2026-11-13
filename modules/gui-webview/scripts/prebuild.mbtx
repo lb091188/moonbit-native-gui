@@ -1,0 +1,705 @@
+----
+import {
+  "moonbitlang/core/env",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/async",
+  "moonbitlang/async/fs" @fs,
+  "moonbitlang/async/shell" @shell,
+  "moonbitlang/async/stdio" @stdio,
+  "q2316367743/moonhttp/client" @mhttp,
+}
+----
+
+// NoahLiu/gui-webview 的链接预构建（--moonbit-unstable-prebuild）。
+// 语义与上一版 prebuild.py 一致（git 历史可对照），2026-11-13 起 MoonBit 化。
+//
+// 职责：给本模块包 NoahLiu/gui-webview/webview 下发 webview 引擎的编译与
+// 链接参数。
+//
+// Linux：pkg-config 探 webkit2gtk-4.1，带 -DWB_HAVE_WEBKIT 把 webkit_stub.c
+// 编成静态库；缺开发包不算错——native-stub 那次无宏编译已给出占位符号，
+// MoonBit 侧按 webview_supported() 探测降级。真实现分支引用主模块 win 桩的
+// wm_surface_container()，所以链接行要带上主模块编好的 libyue_win_stub.a——
+// 按「workspace 兄弟目录 → 依赖缓存 → 当前工作区 _build」三处定位，定位不到
+// 时退回占位分支（宁可不链，不给断链的 exe）。
+//
+// Windows：webview2_stub.c 由 moon native-stub 自编（vendor 头相对路径自取），
+// 这里只下发静态 Loader（缺失时按 sha256 从 Release 资产下载；两模块刻意各留
+// 一份 vendor，本模块要能独立发布）。
+//
+// macOS：webkit_stub.c 的 WB_HAVE_WKWEBVIEW 分支（WKWebView，系统自带引擎，
+// 没有 Linux 那条「缺开发包」的退路）由本脚本专编成静态库；它引用主模块
+// win 桩的 wm_surface_container，还要定位 libyue_win_stub_mac.a 一起链——
+// native-stub 在 macOS 编出的是空翻译单元，这条链不上符号就断，定位不到时
+// 出声报错。
+//
+// 协议（moon prebuild）：stdout 恰好一个 JSON 值；诊断一律走 stderr。目录与
+// 平台信息从环境变量取：MOON_MOD（moon.mod 绝对路径）/ MOON_BUILD_DIR（本模块
+// 输出目录，持久跨构建）/ MOON_HOST_OS。
+
+///|
+let webview_package : String = "NoahLiu/gui-webview/webview"
+
+///|
+let webkit_pkg_config : String = "webkit2gtk-4.1"
+
+///|
+/// vendor 大文件走 Release 资产：WebView2 静态 Loader 与 SDK 头体积大且基本
+/// 不更新，不入库；构建时缺失即下载并校验 sha256，离线环境可提前手工放置
+/// （已存在不动）。镜像按序尝试、sha256 过了才落盘；单源 60 秒总预算之外
+/// 再给整体预算——DNS 挂起与慢速滴流不受 socket 级超时约束。外部源用环境
+/// 变量 NATIVE_GUI_VENDOR_BASE 覆盖（单个 base 或逗号分隔列表；指定后按序
+/// 串行，不并行外网）。gitee 用户名与 GitHub 不同：同一仓在 gitee 归
+/// noahliu0911，照抄 lb091188 会 404。
+let vendor_bases : Array[String] = [
+  "https://github.com/lb091188/moonbit-native-gui/releases/download/vendor-v1",
+  "https://gitee.com/noahliu0911/moonbit-native-gui/releases/download/vendor-v1",
+]
+
+///|
+/// 最大的单件是 WebView2.h（13MB 量级）：按慢网 100KB/s 也有余。
+let vendor_budget_ms : Int32 = 240_000
+
+///|
+let vendor_loader_rel : String = "webview/lib/WebView2LoaderStatic.lib"
+
+///|
+let vendor_loader_sha : String =
+  "e66284970876a616c82e7dcda75a17fd46d04827f9de81d4299b8862d34d25d6"
+
+///|
+let vendor_header_rel : String = "webview/include/WebView2.h"
+
+///|
+let vendor_header_sha : String =
+  "dff1e3181ec7ec203a34ef6efa966590e0ef0ba1a5c3fe3b69da6508c2f8a02e"
+
+///|
+async fn err(msg : String) -> Unit {
+  @stdio.stderr.write(msg + "\n")
+}
+
+///|
+fn env_or(name : String, fallback : String) -> String {
+  match @env.get_env_var(name) {
+    Some(v) if v.length() > 0 => v
+    _ => fallback
+  }
+}
+
+///|
+fn json_escape(s : String) -> String {
+  let out = StringBuilder()
+  for c in s {
+    if c == '"' {
+      out.write_string("\\\"")
+    } else if c == '\\' {
+      out.write_string("\\\\")
+    } else {
+      out.write_char(c)
+    }
+  }
+  out.to_string()
+}
+
+///|
+/// SHA-256（FIPS 180-4），十六进制小写（vendor 校验与源码指纹同用）。
+let k256 : Array[UInt] = [
+  0x428a2f98U, 0x71374491U, 0xb5c0fbcfU, 0xe9b5dba5U, 0x3956c25bU,
+  0x59f111f1U, 0x923f82a4U, 0xab1c5ed5U, 0xd807aa98U, 0x12835b01U,
+  0x243185beU, 0x550c7dc3U, 0x72be5d74U, 0x80deb1feU, 0x9bdc06a7U,
+  0xc19bf174U, 0xe49b69c1U, 0xefbe4786U, 0x0fc19dc6U, 0x240ca1ccU,
+  0x2de92c6fU, 0x4a7484aaU, 0x5cb0a9dcU, 0x76f988daU, 0x983e5152U,
+  0xa831c66dU, 0xb00327c8U, 0xbf597fc7U, 0xc6e00bf3U, 0xd5a79147U,
+  0x06ca6351U, 0x14292967U, 0x27b70a85U, 0x2e1b2138U, 0x4d2c6dfcU,
+  0x53380d13U, 0x650a7354U, 0x766a0abbU, 0x81c2c92eU, 0x92722c85U,
+  0xa2bfe8a1U, 0xa81a664bU, 0xc24b8b70U, 0xc76c51a3U, 0xd192e819U,
+  0xd6990624U, 0xf40e3585U, 0x106aa070U, 0x19a4c116U, 0x1e376c08U,
+  0x2748774cU, 0x34b0bcb5U, 0x391c0cb3U, 0x4ed8aa4aU, 0x5b9cca4fU,
+  0x682e6ff3U, 0x748f82eeU, 0x78a5636fU, 0x84c87814U, 0x8cc70208U,
+  0x90befffaU, 0xa4506cebU, 0xbef9a3f7U, 0xc67178f2U,
+]
+
+///|
+fn rotr32(x : UInt, n : Int) -> UInt {
+  (x >> n) | (x << (32 - n))
+}
+
+///|
+/// 第 i 字节的虚拟视图（含 0x80 padding 与 8 字节大端位长的拼接视图，
+/// 不物理拼接大缓冲）。
+fn padded_byte(data : Bytes, n : Int, total : Int, i : Int) -> UInt {
+  if i < n {
+    data[i].to_int().reinterpret_as_uint()
+  } else if i == n {
+    0x80U
+  } else if i >= total - 8 {
+    let bit_len = n.to_int64() * 8L
+    let shift = (total - 1 - i) * 8
+    ((bit_len >> shift) & 0xFFL).to_int().reinterpret_as_uint()
+  } else {
+    0U
+  }
+}
+
+///|
+fn sha256_hex(data : Bytes) -> String {
+  let mut h0 = 0x6a09e667U
+  let mut h1 = 0xbb67ae85U
+  let mut h2 = 0x3c6ef372U
+  let mut h3 = 0xa54ff53aU
+  let mut h4 = 0x510e527fU
+  let mut h5 = 0x9b05688cU
+  let mut h6 = 0x1f83d9abU
+  let mut h7 = 0x5be0cd19U
+  let n = data.length()
+  let rem = n % 64
+  let total = if rem < 56 {
+    n - rem + 64
+  } else {
+    n - rem + 128
+  }
+  let w : Array[UInt] = []
+  let mut wi = 0
+  while wi < 64 {
+    w.push(0U)
+    wi += 1
+  }
+  let mut base = 0
+  while base < total {
+    let mut j = 0
+    while j < 16 {
+      let o = base + j * 4
+      w[j] = (padded_byte(data, n, total, o) << 24) |
+        (padded_byte(data, n, total, o + 1) << 16) |
+        (padded_byte(data, n, total, o + 2) << 8) |
+        padded_byte(data, n, total, o + 3)
+      j += 1
+    }
+    let mut j = 16
+    while j < 64 {
+      let s0 = rotr32(w[j - 15], 7) ^ rotr32(w[j - 15], 18) ^ (w[j - 15] >> 3)
+      let s1 = rotr32(w[j - 2], 17) ^ rotr32(w[j - 2], 19) ^ (w[j - 2] >> 10)
+      w[j] = w[j - 16] + s1 + w[j - 7] + s0
+      j += 1
+    }
+    let mut a = h0
+    let mut b = h1
+    let mut c = h2
+    let mut d = h3
+    let mut e = h4
+    let mut f = h5
+    let mut g = h6
+    let mut hh = h7
+    let mut j = 0
+    while j < 64 {
+      let s1 = rotr32(e, 6) ^ rotr32(e, 11) ^ rotr32(e, 25)
+      let ch = (e & f) ^ ((e ^ 0xFFFFFFFFU) & g)
+      let t1 = hh + s1 + ch + k256[j] + w[j]
+      let s0 = rotr32(a, 2) ^ rotr32(a, 13) ^ rotr32(a, 22)
+      let maj = (a & b) ^ (a & c) ^ (b & c)
+      let t2 = s0 + maj
+      hh = g
+      g = f
+      f = e
+      e = d + t1
+      d = c
+      c = b
+      b = a
+      a = t1 + t2
+      j += 1
+    }
+    h0 = h0 + a
+    h1 = h1 + b
+    h2 = h2 + c
+    h3 = h3 + d
+    h4 = h4 + e
+    h5 = h5 + f
+    h6 = h6 + g
+    h7 = h7 + hh
+    base += 64
+  }
+  let out = StringBuilder()
+  for x in [h0, h1, h2, h3, h4, h5, h6, h7] {
+    let mut sh = 28
+    while sh >= 0 {
+      let nib = ((x >> sh) & 0xFU).reinterpret_as_int()
+      let code = if nib < 10 { 48 + nib } else { 87 + nib }
+      out.write_char(code.unsafe_to_char())
+      sh -= 4
+    }
+  }
+  out.to_string()
+}
+
+///|
+/// 单镜像下载：HTTP GET 拿全量，外套总预算。失败给 None（诊断已出声）。
+async fn fetch_one(url : String) -> Bytes? {
+  match @async.with_timeout_opt(vendor_budget_ms, () => fetch_url(url)) {
+    Some(got) => got
+    None => {
+      err("prebuild: " + url + " 在预算内无产出")
+      None
+    }
+  }
+}
+
+///|
+/// GET 全量。走 moonhttp：release 下载链接都是 302 → CDN，它内置自动重定向
+/// （moonbitlang/async/http 不跟随）。
+async fn fetch_url(url : String) -> Bytes? {
+  let client = @mhttp.default_client()
+  let resp = client.get(url) catch {
+    e => {
+      err("prebuild: " + url + " 请求失败：" + e.to_string())
+      return None
+    }
+  }
+  if !resp.is_success() {
+    err("prebuild: " + url + " 返回 " + resp.status.to_string())
+    return None
+  }
+  Some(resp.bytes())
+}
+
+///|
+fn strip_spaces(s : String) -> String {
+  let mut lo = 0
+  let n = s.length()
+  let mut hi = n
+  while lo < hi && (s[lo] == ' ' || s[lo] == '\t') {
+    lo += 1
+  }
+  while hi > lo && (s[hi - 1] == ' ' || s[hi - 1] == '\t') {
+    hi -= 1
+  }
+  s[lo:hi].to_owned()
+}
+
+///|
+fn rstrip_slash(s : String) -> String {
+  let mut end = s.length()
+  while end > 0 && s[end - 1] == '/' {
+    end -= 1
+  }
+  s[0:end].to_owned()
+}
+
+///|
+/// 镜像序取一份 vendor 文件并校验 sha256：NATIVE_GUI_VENDOR_BASE 指定自定义
+/// 源时按序串行只走自定义源，否则按内置双镜像序（上一版 py 的并行竞速形态
+/// 不再保留，与 gui-media 同走「串行按序 + 总预算」口径）。
+async fn fetch_vendor_file(name : String, sha : String) -> Bytes? {
+  let bases : Array[String] = []
+  match @env.get_env_var("NATIVE_GUI_VENDOR_BASE") {
+    Some(v) if strip_spaces(v).length() > 0 =>
+      for b in v.split(",") {
+        let b = strip_spaces(rstrip_slash(strip_spaces(b.to_owned())))
+        if b.length() > 0 {
+          bases.push(b)
+        }
+      }
+    _ => for b in vendor_bases {
+      bases.push(b)
+    }
+  }
+  for base in bases {
+    let url = base + "/" + name
+    err("prebuild: 取 vendor " + url + " ...")
+    match fetch_one(url) {
+      Some(data) => {
+        let got = sha256_hex(data)
+        if got == sha {
+          return Some(data)
+        }
+        err("prebuild: " + base + " 上 sha256 不符，换下一个")
+      }
+      None => continue
+    }
+  }
+  err("prebuild: 全部镜像都没给出校验通过的 " + name)
+  None
+}
+
+///|
+/// 两份 vendor 资产只有 Windows 分支消费（Loader 与 SDK 头），其他平台是
+/// 纯浪费的 14MB 下载——直接跳过（已就位的存量文件也不动）。
+async fn ensure_release_files(module_root~ : String) -> Unit {
+  if env_or("MOON_HOST_OS", "") != "windows" {
+    return
+  }
+  let files = [
+    (vendor_loader_rel, vendor_loader_sha),
+    (vendor_header_rel, vendor_header_sha),
+  ]
+  for pair in files {
+    let rel = pair.0
+    let sha = pair.1
+    let dest = module_root + "/" + rel
+    if @fs.exists(dest) {
+      continue
+    }
+    let name = file_name_of(rel)
+    match fetch_vendor_file(name, sha) {
+      Some(data) => {
+        @fs.mkdir(dir_of(dest), recursive=true, allow_exist=true)
+        @fs.write_file(dest, data)
+        err("prebuild: 已就位 " + name + "（sha256 ✓）")
+      }
+      None =>
+        err("prebuild: 全部镜像都没取到 " + name +
+          "\n  离线环境可手工放置，或用 NATIVE_GUI_VENDOR_BASE 指到自己的源")
+    }
+  }
+}
+
+///|
+fn file_name_of(p : String) -> String {
+  let mut name_start = 0
+  let n = p.length()
+  let mut i = 0
+  while i < n {
+    if p[i] == '/' || p[i] == '\\' {
+      name_start = i + 1
+    }
+    i += 1
+  }
+  p[name_start:].to_owned()
+}
+
+///|
+/// 绝对路径的目录部分（取最后一个 / 或 \ 之前）。
+fn dir_of(p : String) -> String {
+  let mut last = -1
+  let n = p.length()
+  let mut i = 0
+  while i < n {
+    if p[i] == '/' || p[i] == '\\' {
+      last = i
+    }
+    i += 1
+  }
+  if last <= 0 {
+    p
+  } else {
+    p[0:last].to_owned()
+  }
+}
+
+///|
+/// 探包配置：None = 包不存在；空数组 = 存在但该 flag 无输出。
+async fn pkg_config(args : Array[String], flag : String) -> Array[String]? {
+  let full : Array[String] = [flag]
+  for a in args {
+    full.push(a)
+  }
+  let out = @shell.Cmd("pkg-config", full).output()
+  if out.exit_code() != 0 {
+    return None
+  }
+  let parts : Array[String] = []
+  for seg in out.stdout().split("\n") {
+    for p in seg.split(" ") {
+      if p.length() > 0 {
+        parts.push(p.to_owned())
+      }
+    }
+  }
+  Some(parts)
+}
+
+///|
+/// 读整个文件为 Bytes；失败给 None（调用方出声）。
+async fn read_bytes(path : String) -> Bytes? {
+  if !@fs.exists(path) {
+    return None
+  }
+  let data = @fs.read_file(path)
+  Some(data.binary())
+}
+
+///|
+/// 跑编译/打包命令，失败把命令与 stderr 出声到 stderr 诊断。
+async fn run_tool(file : String, args : Array[String]) -> Bool {
+  let out = @shell.Cmd(file, args).output()
+  if out.exit_code() != 0 {
+    let parts : Array[String] = [file]
+    for a in args {
+      parts.push(a)
+    }
+    err("prebuild: " + parts.join(" ") + " 失败\n" + out.stderr())
+    return false
+  }
+  true
+}
+
+///|
+/// 源码内容指纹（sha256 前 8 位）：编进归档文件名。源码变 → 归档名变 →
+/// link_flags 变 → moon 失效链接目标、exe 重链。只看 mtime 的旧判据有两层
+/// 洞——同步保留时间戳骗过是一层；更根本的是归档内容变了而 link_flags 没
+/// 变，moon 不重链，exe 一直跑旧桩（真机踩实过的教训）。
+async fn stub_tag(src~ : String) -> String {
+  match read_bytes(src) {
+    Some(bytes) => sha256_hex(bytes)[0:8].to_owned()
+    None => "nosrc"
+  }
+}
+
+///|
+/// 同前缀旧指纹的归档清掉，防堆积。
+async fn prune_stub_libs(dir~ : String, prefix~ : String, keep~ : String) -> Unit {
+  let names = @fs.readdir(dir) catch {
+    _ => return
+  }
+  for name in names {
+    if name.length() > prefix.length() + 2 &&
+      name[0:prefix.length()].to_owned() == prefix &&
+      name[prefix.length():].to_owned().has_suffix(".a") &&
+      dir + "/" + name != keep {
+      @fs.remove(dir + "/" + name) catch {
+        _ => ()
+      }
+    }
+  }
+}
+
+///|
+/// 编 webkit 桩成静态库，返回库绝对路径；失败给空串。
+/// def 是宏与额外 cflags 的差异（Linux 要 pkg-config cflags，mac 是 ObjC/ARC）。
+async fn compile_webkit_stub(
+  module_root~ : String,
+  build_dir~ : String,
+  define_flag~ : String,
+  obj~ : String,
+  prefix~ : String,
+  objc~ : Bool,
+  extra_cflags~ : Array[String],
+) -> String {
+  let src = module_root + "/webview/webkit_stub.c"
+  let tag = stub_tag(src~)
+  let lib = build_dir + "/" + prefix + "-" + tag + ".a"
+  if @fs.exists(lib) {
+    return lib
+  }
+  let cflags : Array[String] = ["-O2", "-fPIC", define_flag]
+  if objc {
+    // 参数序：-x objective-c 只作用于其后的输入，必须在源之前
+    cflags.insert(0, "-fobjc-arc")
+    cflags.insert(0, "objective-c")
+    cflags.insert(0, "-x")
+  }
+  for c in extra_cflags {
+    cflags.push(c)
+  }
+  let obj_path = build_dir + "/" + obj
+  let args : Array[String] = ["-c"]
+  for c in cflags {
+    args.push(c)
+  }
+  args.push("-o")
+  args.push(obj_path)
+  args.push(src)
+  if !run_tool("cc", args) {
+    return ""
+  }
+  // 先删旧归档再建：ar rcs 对改了名的成员是追加，会留重复符号
+  @fs.remove(lib) catch {
+    _ => ()
+  }
+  if !run_tool("ar", ["rcs", lib, obj_path]) {
+    return ""
+  }
+  prune_stub_libs(dir=build_dir, prefix~, keep=lib)
+  err("prebuild: webkit 桩重编（指纹 " + tag + "）")
+  lib
+}
+
+///|
+/// 定位主模块 win 桩的静态库（webkit 真实现引用其 wm_surface_container）。
+/// 候选序：workspace 兄弟目录 gui/build → moon 依赖缓存（registry 消费方）→
+/// 当前工作区 _build/prebuild 产物目录（目录名是 hash 不猜，逐层 readdir）。
+async fn find_win_stub_archive(
+  lib_name~ : String,
+  module_root~ : String,
+) -> String {
+  let home = env_or("MOON_HOME", env_or("HOME", env_or("USERPROFILE", "")) + "/.moon")
+  let candidates = [
+    module_root + "/../../gui/build/" + lib_name,
+    home + "/packages/NoahLiu/native-gui/gui/build/" + lib_name,
+    home + "/deps/NoahLiu/native-gui/gui/build/" + lib_name,
+  ]
+  for c in candidates {
+    if @fs.exists(c) {
+      return c
+    }
+  }
+  // _build 兜底：cwd 或 module_root 上溯两级的 _build/native/<档>/build|test
+  // /prebuild/<hash>/ 里逐层 readdir（hash 目录名不猜）
+  let roots = [
+    env_or("MOON_CWD", "."),
+    module_root + "/..",
+    module_root + "/../..",
+  ]
+  for root in roots {
+    let native = root + "/_build/native"
+    if !@fs.exists(native) {
+      continue
+    }
+    let modes = @fs.readdir(native) catch {
+      _ => continue
+    }
+    for mode in modes {
+      let prebuild = native + "/" + mode + "/build/prebuild"
+      let hashes = @fs.readdir(prebuild) catch {
+        _ => continue
+      }
+      for h in hashes {
+        let cand = prebuild + "/" + h + "/" + lib_name
+        if @fs.exists(cand) {
+          return cand
+        }
+      }
+    }
+  }
+  ""
+}
+
+///|
+fn entry(pkg~ : String, link_flags~ : String) -> String {
+  "{ \"package\": \"" +
+  json_escape(pkg) +
+  "\", \"link_flags\": \"" +
+  json_escape(link_flags) +
+  "\" }"
+}
+
+///|
+fn join_flags(parts : Array[String]) -> String {
+  parts.join(" ")
+}
+
+///|
+async fn link_configs() -> String {
+  let module_root = dir_of(env_or("MOON_MOD", "."))
+  let build_dir = env_or("MOON_BUILD_DIR", module_root + "/build")
+  ensure_release_files(module_root~)
+  let host = env_or("MOON_HOST_OS", "")
+  let sys_libs = join_flags(["-lpthread", "-ldl", "-lm", "-lstdc++", "-latomic"])
+  if host == "linux" {
+    let win_archive = find_win_stub_archive(
+      lib_name="libyue_win_stub.a",
+      module_root~,
+    )
+    let webkit_libs = pkg_config([webkit_pkg_config], "--libs")
+    if win_archive.length() == 0 || webkit_libs is None {
+      let reason = if win_archive.length() == 0 {
+        "找不到主模块 win 桩归档 gui/build/libyue_win_stub.a"
+      } else {
+        "缺 " + webkit_pkg_config + " 开发包"
+      }
+      err("prebuild: " + reason + "，webview 走占位实现（探测返回不可用）")
+      return "{ \"link_configs\": [] }"
+    }
+    let cflags = pkg_config([webkit_pkg_config], "--cflags")
+    match cflags {
+      None => {
+        err("prebuild: 缺 " + webkit_pkg_config +
+          "，webview 走占位实现（探测返回不可用）")
+        return "{ \"link_configs\": [] }"
+      }
+      Some(got) => {
+        let web_lib = compile_webkit_stub(
+          module_root~,
+          build_dir~,
+          define_flag="-DWB_HAVE_WEBKIT",
+          obj="webkit_stub.o",
+          prefix="libgui_webview",
+          objc=false,
+          extra_cflags=got,
+        )
+        if web_lib.length() == 0 {
+          return "{ \"link_configs\": [] }"
+        }
+        let stem = file_name_of(web_lib)
+        let win_dir = dir_of(win_archive)
+        // 归档名带源码指纹（-l 名跟随实际文件名）：指纹变 → link_flags 变
+        // → moon 失效链接目标，exe 必然重链新桩。路径整体加双引号：撇号
+        // 用户名会按 shell 词法拆碎整条 link_flags（adaptation.md
+        // 「同族第二条·撇号路径」教训，同口径预防）
+        let flags = "-L" +
+        build_dir +
+        " -l" +
+        stem[3:stem.length() - 2].to_owned() +
+        " -L\"" +
+        win_dir +
+        "\" -lyue_win_stub " +
+        join_flags(webkit_libs.unwrap()) +
+        " " +
+        sys_libs
+        return "{ \"link_configs\": [" + entry(pkg=webview_package, link_flags=flags) + "] }"
+      }
+    }
+  } else if host == "windows" {
+    // 静态 Loader 免运行期分发 DLL（Evergreen Runtime 本机已有，探测在 C 桩
+    // 做）。依赖的 win 桩符号（wm_surface_container 等）由 moon native-stub
+    // 的归档提供——主包链 win 桩，同一个 exe 链接行里符号天然可见。
+    let wv2_lib = module_root + "/" + vendor_loader_rel
+    if @fs.exists(wv2_lib) {
+      let flags = "\"" +
+      wv2_lib +
+      "\" shlwapi.lib ole32.lib oleaut32.lib uuid.lib user32.lib gdi32.lib advapi32.lib"
+      return "{ \"link_configs\": [" + entry(pkg=webview_package, link_flags=flags) + "] }"
+    }
+    err("prebuild: 缺 webview/lib/WebView2LoaderStatic.lib，webview 走占位实现（探测返回不可用）")
+    return "{ \"link_configs\": [] }"
+  } else if host == "macos" {
+    // WKWebView 分支专编（Objective-C/ARC）。native-stub 在 macOS 编本文件
+    // 落不进任何分支（空翻译单元），符号全靠这份归档——win 桩 mac 归档
+    // 定位不到就是断链，出声报错不静默。顺序上 -lgui_webview_mac 在前：
+    // 它引用 win 桩的 wm_surface_container（与 Linux 分支同一口径）。
+    let win_archive = find_win_stub_archive(
+      lib_name="libyue_win_stub_mac.a",
+      module_root~,
+    )
+    if win_archive.length() == 0 {
+      err("prebuild: 找不到主模块 win 桩归档 gui/build/libyue_win_stub_mac.a，" +
+        "webview 的 mac 分支没法链（native-stub 空翻译单元，符号会断）")
+      return "{ \"link_configs\": [] }"
+    }
+    let web_lib = compile_webkit_stub(
+      module_root~,
+      build_dir~,
+      define_flag="-DWB_HAVE_WKWEBVIEW",
+      obj="webkit_stub_mac.o",
+      prefix="libgui_webview_mac",
+      objc=true,
+      extra_cflags=[],
+    )
+    if web_lib.length() == 0 {
+      return "{ \"link_configs\": [] }"
+    }
+    let stem = file_name_of(web_lib)
+    let win_dir = dir_of(win_archive)
+    // mac 桩要链的框架（与 gui prebuild 的同表——链的是同一份归档，缺一个
+    // 框架就在用户机器上 dyld 报错）
+    let flags = "-L" +
+    build_dir +
+    " -l" +
+    stem[3:stem.length() - 2].to_owned() +
+    " -L\"" +
+    win_dir +
+    "\" -lyue_win_stub_mac -framework WebKit -framework Cocoa " +
+    join_flags([
+      "-framework", "Cocoa", "-framework", "CoreGraphics", "-framework",
+      "Carbon", "-framework", "IOKit",
+    ])
+    return "{ \"link_configs\": [" + entry(pkg=webview_package, link_flags=flags) + "] }"
+  }
+  "{ \"link_configs\": [] }"
+}
+
+///|
+async fn main {
+  // stdout 恰好一个 JSON；其余诊断都在 stderr
+  println(link_configs())
+}
