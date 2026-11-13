@@ -18,5 +18,5 @@ import {
 }
 
 options(
-  "--moonbit-unstable-prebuild": "scripts/prebuild.py",
+  "--moonbit-unstable-prebuild": "scripts/prebuild.mbtx",
 )

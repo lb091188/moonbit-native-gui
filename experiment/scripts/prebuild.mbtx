@@ -1,0 +1,302 @@
+----
+import {
+  "moonbitlang/core/env",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/async",
+  "moonbitlang/async/fs" @fs,
+  "moonbitlang/async/shell" @shell,
+  "moonbitlang/async/stdio" @stdio,
+}
+----
+
+// NoahLiu/native-gui-experiment 的链接预构建（--moonbit-unstable-prebuild）。
+// 语义与上一版 prebuild.py 一致（git 历史可对照），2026-11-13 起 MoonBit 化。
+//
+// 职责一件：给本模块的输入法探针 NoahLiu/native-gui-experiment/ime_probe 编
+// C 端静态库并下发链接参数——G0 输入法探针的桩要 GTK3/X11 头与库，moon 的
+// link_configs 只有链接期字段、c_flags 会被静默忽略，必须在脚本里编译。
+//
+// 非 Linux（Windows 走 ime_probe_stub_portable.c，moon native-stub 自编）零
+// 额外链接库即归零，空 link_configs 即正确形态。
+//
+// 协议（moon prebuild）：stdout 恰好一个 JSON 值；诊断一律走 stderr。目录与
+// 平台信息从环境变量取：MOON_MOD（moon.mod 绝对路径）/ MOON_BUILD_DIR（本模块
+// 输出目录，持久跨构建）/ MOON_HOST_OS。
+
+///|
+let ime_probe_package : String = "NoahLiu/native-gui-experiment/ime_probe"
+
+///|
+/// 与 gui 模块 prebuild 同一套系统库清单：探针桩直接吃 GTK3/X11 头。
+let linux_pkg_config_libs : Array[String] = [
+  "gtk+-3.0", "pangoft2", "pangocairo", "fontconfig", "x11",
+]
+
+///|
+async fn err(msg : String) -> Unit {
+  @stdio.stderr.write(msg + "\n")
+}
+
+///|
+fn env_or(name : String, fallback : String) -> String {
+  match @env.get_env_var(name) {
+    Some(v) if v.length() > 0 => v
+    _ => fallback
+  }
+}
+
+///|
+fn json_escape(s : String) -> String {
+  let out = StringBuilder()
+  for c in s {
+    if c == '"' {
+      out.write_string("\\\"")
+    } else if c == '\\' {
+      out.write_string("\\\\")
+    } else {
+      out.write_char(c)
+    }
+  }
+  out.to_string()
+}
+
+///|
+/// FNV-1a 64：桩库新鲜度戳用（源路径 + 内容 + 编译参数一起进哈希）。
+fn fnv1a(acc : Int64, data : Bytes) -> Int64 {
+  let mut h = acc
+  for b in data {
+    h = h ^ b.to_int().to_int64()
+    h = h * 0x100000001b3L
+  }
+  h
+}
+
+///|
+fn fnv1a_str(acc : Int64, s : String) -> Int64 {
+  fnv1a(acc, @utf8.encode(s))
+}
+
+///|
+/// 探包配置：None = 包不存在；空数组 = 存在但该 flag 无输出（--cflags x11
+/// 就是合法空输出，当成缺失会让探针退避）。
+async fn pkg_config(args : Array[String], flag : String) -> Array[String]? {
+  let full : Array[String] = [flag]
+  for a in args {
+    full.push(a)
+  }
+  let out = @shell.Cmd("pkg-config", full).output()
+  if out.exit_code() != 0 {
+    return None
+  }
+  let parts : Array[String] = []
+  for seg in out.stdout().split("\n") {
+    for p in seg.split(" ") {
+      if p.length() > 0 {
+        parts.push(p.to_owned())
+      }
+    }
+  }
+  Some(parts)
+}
+
+///|
+/// 读整个文件为 Bytes；失败给 None（调用方出声）。
+async fn read_bytes(path : String) -> Bytes? {
+  if !@fs.exists(path) {
+    return None
+  }
+  let data = @fs.read_file(path)
+  Some(data.binary())
+}
+
+///|
+/// 归档能否跳过重编：lib 与 stamp 都在，且 stamp 内容等于当前
+/// 「库名 + 编译参数 + 源路径与内容」的哈希。
+async fn stub_current(
+  lib : String,
+  stamp : String,
+  src : String,
+  cflags : Array[String],
+) -> Bool {
+  if !@fs.exists(lib) || !@fs.exists(stamp) {
+    return false
+  }
+  let mut h : Int64 = 0xcbf29ce484222325L
+  h = fnv1a_str(h, lib)
+  for c in cflags {
+    h = fnv1a_str(h, c)
+  }
+  h = fnv1a_str(h, src)
+  match read_bytes(src) {
+    Some(bytes) => h = fnv1a(h, bytes)
+    None => return false
+  }
+  let want = h.to_string()
+  match read_bytes(stamp) {
+    Some(bytes) => @utf8.decode(bytes) == want
+    None => false
+  }
+}
+
+///|
+/// 跑编译/打包命令，失败把命令与 stderr 出声到 stderr 诊断。
+async fn run_tool(file : String, args : Array[String]) -> Bool {
+  let out = @shell.Cmd(file, args).output()
+  if out.exit_code() != 0 {
+    let parts : Array[String] = [file]
+    for a in args {
+      parts.push(a)
+    }
+    err("experiment(prebuild): " + parts.join(" ") + " 失败\n" + out.stderr())
+    return false
+  }
+  true
+}
+
+///|
+/// 把探针桩编成静态库，返回库绝对路径；编译失败返回空串（链接条目随之
+/// 不下发，原因已在 stderr 出声）。
+async fn compile_stub(
+  build_dir~ : String,
+  src~ : String,
+  lib_file~ : String,
+  cflags~ : Array[String],
+) -> String {
+  if !@fs.exists(src) {
+    err("experiment(prebuild): 源文件不存在，跳过：" + src)
+    return ""
+  }
+  let lib = build_dir + "/" + lib_file
+  let obj = build_dir + "/ime_probe_stub.o"
+  if stub_current(lib, lib + ".stamp", src, cflags) {
+    return lib
+  }
+  let args : Array[String] = ["-c", "-O0", "-fPIC"]
+  for c in cflags {
+    args.push(c)
+  }
+  args.push("-o")
+  args.push(obj)
+  args.push(src)
+  if !run_tool("cc", args) {
+    return ""
+  }
+  @fs.remove(lib) catch {
+    _ => ()
+  }
+  if !run_tool("ar", ["rcs", lib, obj]) {
+    return ""
+  }
+  let mut h : Int64 = 0xcbf29ce484222325L
+  h = fnv1a_str(h, lib)
+  for c in cflags {
+    h = fnv1a_str(h, c)
+  }
+  h = fnv1a_str(h, src)
+  match read_bytes(src) {
+    Some(bytes) => h = fnv1a(h, bytes)
+    None => ()
+  }
+  @fs.write_file(lib + ".stamp", h.to_string())
+  lib
+}
+
+///|
+/// 绝对路径的目录部分（取最后一个 / 或 \ 之前）。
+fn dir_of(p : String) -> String {
+  let mut last = -1
+  let n = p.length()
+  let mut i = 0
+  while i < n {
+    if p[i] == '/' || p[i] == '\\' {
+      last = i
+    }
+    i += 1
+  }
+  if last <= 0 {
+    p
+  } else {
+    p[0:last].to_owned()
+  }
+}
+
+///|
+fn entry(pkg~ : String, link_flags~ : String) -> String {
+  "{ \"package\": \"" +
+  json_escape(pkg) +
+  "\", \"link_flags\": \"" +
+  json_escape(link_flags) +
+  "\" }"
+}
+
+///|
+fn join_flags(parts : Array[String]) -> String {
+  parts.join(" ")
+}
+
+///|
+async fn link_configs() -> String {
+  let module_root = dir_of(env_or("MOON_MOD", "."))
+  let build_dir = env_or("MOON_BUILD_DIR", module_root + "/build")
+  let host = env_or("MOON_HOST_OS", "")
+  if host != "linux" {
+    err("experiment(prebuild): 非 Linux 走 portable 桩，零额外库")
+    return "{ \"link_configs\": [] }"
+  }
+  let libs : Array[String] = []
+  let cflags : Array[String] = []
+  let mut missing = false
+  for name in linux_pkg_config_libs {
+    match pkg_config([name], "--libs") {
+      None => {
+        err("experiment(prebuild): 缺少 " + name + " 开发包，ime_probe 链接条目不下发")
+        missing = true
+      }
+      Some(got) =>
+        for g in got {
+          libs.push(g)
+        }
+    }
+  }
+  if missing {
+    return "{ \"link_configs\": [] }"
+  }
+  for name in linux_pkg_config_libs {
+    match pkg_config([name], "--cflags") {
+      None => {
+        err("experiment(prebuild): 缺少 " + name + " 开发包")
+        missing = true
+      }
+      Some(got) =>
+        for g in got {
+          cflags.push(g)
+        }
+    }
+  }
+  if missing {
+    return "{ \"link_configs\": [] }"
+  }
+  let lib = compile_stub(
+    build_dir~,
+    src=module_root + "/ime_probe/ime_probe_stub.c",
+    lib_file="libime_probe_stub.a",
+    cflags~,
+  )
+  if lib.length() == 0 {
+    return "{ \"link_configs\": [] }"
+  }
+  // 顺序要紧：先库后系统库（GNU ld 单遍扫描）。
+  let flags = "-L" +
+  build_dir +
+  " -lime_probe_stub " +
+  join_flags(libs) +
+  " " +
+  join_flags(["-lpthread", "-ldl", "-lm", "-lstdc++", "-latomic"])
+  "{ \"link_configs\": [" + entry(pkg=ime_probe_package, link_flags=flags) + "] }"
+}
+
+///|
+async fn main {
+  // stdout 恰好一个 JSON；其余诊断都在 stderr
+  println(link_configs())
+}
