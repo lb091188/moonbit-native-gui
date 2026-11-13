@@ -4030,3 +4030,10 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **批量类型替换要扫全部内嵌 MoonBit 的扩展名**：`.mng` 的 `<script>` 段是 MoonBit 原文——Int32 批只扫 .mbt/.mbti，`vfor_demo.mng` / `hello.mng` 的 `Store[Int]` 漏改，CI 模板对账（按 .mng 重新编译与提交的 .gen.mbt 比对）必红。
 - **.gen.mbt 不能手工改**：手工替换生成码里的类型后与模板源头脱节，而本地门禁不对账模板（同 prebuild.mbtx「本地门禁不覆盖」一条）——改模板源头 + 重新生成是唯一正道。
 - **生成器两处类型白名单断线**：mngkit 的 `state_kind_of`（"Int"→reg.int 登记方法名）与 `etype_of_store`（"Int"→TInt，热更白名单的符号类型表）都按槽元素类型原文匹配——模板换 Int32 后 reg.int 不再生成（mng dev 热更状态保活断）、热更条件报「表达式符号未登记为顶层 Store」；两处白名单改认 "Int32" 后恢复（mngkit 44/44）。
+
+## mng dev 场景三类假红：DEV_PID 子 shell、旧实例占坑、补丁先于应用就绪（2026-11-13，场景脚本连红复盘）
+
+- **`DEV_PID` 是子 shell 不是 dev**：`(cd X && "$MNG" dev >log 2>&1) &` 的 `$!` 是子 shell pid，`kill $DEV_PID` 只杀壳、dev 成孤儿继续 watch——多轮场景各留一个 dev，同一工程并发扫码互删生成码（「about.gen.mbt 写了又没」的元凶）。修法：子 shell 内 `exec "$MNG" dev`，`$!` 即 dev 本体。
+- **旧实例占坑会让新进程秒退**：应用是单实例语义——新进程发现已有实例就「唤醒旧实例并退出」，dev 记下的 pid 是秒退进程，补丁实际投给旧实例；旧实例注册表来自上一轮生成码，必然 stale（表现为「补丁缺 N 键」的假回归）。修法：dev spawn 前按可执行名 `pkill -9 -f <basename>`（受控单实例语义），并 spawn 后查 `@proc.alive` 报「已退出（单实例占坑？）」。
+- **补丁不能早于应用就绪**：dev 通道（单实例套接字）在首页首次挂载时才建——首轮 build 完刚 spawn 就推补丁必然「连不上套接字」。修法：spawn 后等套接字文件出现（POSIX 10s 上限、`@proc.alive` 短路；Windows 无文件面短等），就绪后再进 watch。
+- **删模板与 dev 的 build 抢跑**：场景脚本 `[NEW]` 出现就删模板，而 NEW 拍的 workspace build 还在跑（moon 报 `input about.gen.mbt missing`）——等 `[COLD] 应用已重启` 再删。
