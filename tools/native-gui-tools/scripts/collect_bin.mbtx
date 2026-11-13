@@ -1,0 +1,196 @@
+----
+import {
+  "moonbitlang/async",
+  "moonbitlang/async/fs" @fs,
+  "moonbitlang/async/shell" @shell,
+  "moonbitlang/async/stdio" @stdio,
+  "moonbitlang/core/env",
+}
+----
+
+// collect_bin：构建示例与工具的可执行包，把产物 exe 短名收进仓库根 bin/。
+//
+// 用法（在 tools/native-gui-tools 目录下）：
+//   moon run scripts/collect_bin.mbtx              # release 档
+//   moon run scripts/collect_bin.mbtx -- --debug   # debug 档（mbtx 参数要 -- 分隔）
+//
+// 收集面：示例 9 件 + native-gui-tools 6 件可执行包，清单见下。
+// bin/ 为本脚本自管目录，每次运行先清空再放。
+// FFmpeg dylib / 签名 / .app 打包不在本脚本范围（见 scripts/dryrun_mac_pack.sh、make_app.sh）。
+
+///|
+let example_names : Array[String] = [
+  "hello", "components", "canvas", "system", "sysmonitor", "audio", "video",
+  "browser", "theme-playground",
+]
+
+///|
+let tool_packages : Array[String] = [
+  "mng", "mngui", "i18n_cli", "i18n_tool_ui", "icon_convert", "icon_tool_ui",
+]
+
+///|
+async fn err(msg : String) -> Unit {
+  @stdio.stderr.write(msg + "\n")
+}
+
+///|
+/// 跑一条 moon build；失败把 stderr 出声并返回 false。
+async fn build(cwd : String, args : Array[String], release : Bool) -> Bool {
+  let full : Array[String] = ["build"]
+  for a in args {
+    full.push(a)
+  }
+  full.push("--target")
+  full.push("native")
+  if release {
+    full.push("--release")
+  }
+  let out = @shell.Cmd("moon", full, cwd~).output()
+  if out.exit_code() != 0 {
+    err("moon build 失败（cwd=\{cwd}）\n" + out.stderr())
+    return false
+  }
+  true
+}
+
+///|
+/// 递归收集目录下全部 .exe 文件路径。
+async fn collect_exes(dir : String, out : Array[String]) -> Unit {
+  let entries = @fs.readdir(dir, include_hidden=false, sort=true)
+  for e in entries {
+    let p = dir + "/" + e
+    match @fs.kind(p) {
+      Directory =>
+        // .dSYM 跳过：mac debug 档符号束里藏同名二进制
+        if !e.has_suffix(".dSYM") {
+          collect_exes(p, out)
+        }
+      _ => if e.has_suffix(".exe") {
+        out.push(p)
+      }
+    }
+  }
+}
+
+///|
+/// 短名：示例模块产物剥 native-gui-examples- 前缀，其余保留 stem。
+fn short_name(file : String) -> String {
+  let mut start = file.length()
+  let mut end = file.length()
+  let mut i = 0
+  while i < file.length() {
+    if file[i] == '/' {
+      start = i + 1
+    }
+    i += 1
+  }
+  let mut j = start
+  while j < file.length() {
+    if file[j] == '.' {
+      end = j
+      break
+    }
+    j += 1
+  }
+  let stem = file[start:end].to_owned()
+  if stem.has_prefix("native-gui-examples-") {
+    stem["native-gui-examples-".length():].to_owned()
+  } else {
+    stem
+  }
+}
+
+///|
+fn mib(size : Int64) -> String {
+  // 整数算到 0.1 MiB，四舍五入
+  let tenth = (size * 10 + 524288) / 1048576
+  "\{tenth / 10}.\{tenth % 10} MiB"
+}
+
+///|
+async fn main {
+  let args = @env.args()
+  let mut release = true
+  for a in args {
+    if a == "--debug" {
+      release = false
+    }
+  }
+  let mode = if release { "release" } else { "debug" }
+
+  // 脚本约定从 tools/native-gui-tools 跑（moon run 把 cwd 设在模块目录），
+  // 仓库根即上两级
+  let repo = "../.."
+  if !@fs.exists(repo + "/moon.work") {
+    err("找不到 \{repo}/moon.work —— 请在 tools/native-gui-tools 目录下跑：")
+    err("  cd tools/native-gui-tools && moon run scripts/collect_bin.mbtx")
+    abort("collect_bin: 起跑目录不对")
+  }
+
+  // 两批构建：示例在仓库根按 workspace 路径点名；工具在模块目录内点名
+  let example_args : Array[String] = []
+  for name in example_names {
+    example_args.push("examples/" + name)
+  }
+  if !build(repo, example_args, release) {
+    abort("collect_bin: 示例构建失败，中止")
+  }
+  if !build(".", tool_packages, release) {
+    abort("collect_bin: 工具构建失败，中止")
+  }
+
+  // 收集：示例走 _build 下各示例模块目录，工具走 native-gui-tools 目录
+  let base = "\{repo}/_build/native/\{mode}/build/NoahLiu"
+  let dirs : Array[String] = []
+  for name in example_names {
+    dirs.push("native-gui-examples-\{name}")
+  }
+  dirs.push("native-gui-tools")
+  let found : Array[(String, String)] = [] // (短名, 源路径)
+  let missing : Array[String] = []
+  for d in dirs {
+    let dir = "\{base}/\{d}"
+    if !@fs.exists(dir) {
+      missing.push(d)
+      continue
+    }
+    let exes : Array[String] = []
+    collect_exes(dir, exes)
+    for src in exes {
+      found.push((short_name(src), src))
+    }
+  }
+  if found.is_empty() {
+    abort("collect_bin: 一个产物都没收到（\{base} 下无 .exe）——构建看似成功却无产物？")
+  }
+
+  // bin 重建 + 短名复制
+  let bin = "\{repo}/bin"
+  if @fs.exists(bin) {
+    @fs.rmdir(bin, recursive=true)
+  }
+  @fs.mkdir(bin)
+  // 短名冲突检查（清单内理论无重名，撞了说明收集面变了）
+  let seen : Map[String, String] = Map([])
+  for pair in found {
+    let (name, src) = pair
+    match seen.get(name) {
+      Some(prev) =>
+        abort("collect_bin: 短名冲突 \{name} —— \{prev} 与 \{src}")
+      None => seen[name] = src
+    }
+  }
+  for pair in found {
+    let (name, src) = pair
+    let data = @fs.read_file(src)
+    let dst = "\{bin}/\{name}.exe"
+    @fs.write_file(dst, data)
+    @fs.chmod(dst, 0o755)
+    println("\{name}.exe  (\{mib(@fs.file_size(src))})  ← \{src}")
+  }
+  for m in missing {
+    err("[!] \{m}: 产物目录缺失，跳过")
+  }
+  println("collect_bin: \{found.length()} 个产物已进 \{bin}（\{mode} 档）")
+}
