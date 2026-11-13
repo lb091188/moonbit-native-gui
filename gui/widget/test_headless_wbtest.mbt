@@ -37,10 +37,13 @@ test "test_headless：挂内容、置脏、step 一拍结算不崩" {
   //（窗未映射完时的首帧会被平台丢掉，必须由计时拍补上）
   assert_true(a.painted_once)
   assert_eq(a.session.dirty, false)
-  assert_eq(a.first_retry_left, 3)
+  // 三拍按真实时间递减（30/120/400ms），慢机上 assert 前可能已减——判据是
+  // 「仍在飞行（>0）」，不押绝对值；绝对值一见落定档由后面的 -1 断言覆盖。
+  assert_true(a.first_retry_left > 0)
   // 飞行中再 mount 不重复排
+  let before = a.first_retry_left
   a.mount([node_of_new(fn(_p : Widget) -> Widget { Widget::new() })])
-  assert_eq(a.first_retry_left, 3)
+  assert_eq(a.first_retry_left, before)
   assert_true(a.step())
   assert_true(a.painted_once)
   // 推进到三拍（30/120/400ms）全部到期：收口为 -1，此后 mount 也不再排
