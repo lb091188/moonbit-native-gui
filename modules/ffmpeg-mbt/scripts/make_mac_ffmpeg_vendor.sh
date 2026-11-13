@@ -6,7 +6,7 @@
 #   include/   五个库的头（libav* / libsw*）
 #   lib/       动态库 + 版本 symlink，id/依赖全部 @rpath 化并 ad-hoc 重签
 #   LICENSE.txt 与 COPYING.* —— 许可全文
-# prebuild.py 的 Darwin 回退路按 sha256 下载解包，rpath 指向解包 lib 目录。
+# prebuild 钩子 的 Darwin 回退路按 sha256 下载解包，rpath 指向解包 lib 目录。
 #
 # 为什么自编而不用 brew 的 ffmpeg：brew 默认构建带 x264/x265（GPL），依赖闭包
 # 还会拖进 openssl/libvpx/svt-av1 等十几支 formula——许可口径与 Windows 的
@@ -107,4 +107,4 @@ COPYFILE_DISABLE=1 tar -C "$WORK" -czf "$DIST/$NAME.tar.gz" "$NAME"
 echo "==> 完成：$DIST/$NAME.tar.gz"
 echo "    上传（征得维护者确认后）："
 echo "      gh release upload vendor-v1 $DIST/$NAME.tar.gz --clobber"
-echo "    然后把 sha256 回填 modules/ffmpeg-mbt/prebuild.py 的 MAC_VENDOR_TARBALLS"
+echo "    然后把 sha256 回填 modules/ffmpeg-mbt/prebuild 钩子 的 MAC_VENDOR_TARBALLS"

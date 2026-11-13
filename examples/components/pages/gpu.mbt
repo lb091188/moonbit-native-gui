@@ -159,7 +159,7 @@ pub fn page_gpu(_app : @shared.App) -> @widget.Node {
           [
             @ui.text(
               @shared.tx(
-                "GPU 画布建不出：\{e}\n需要 gui-gpu 的 vendor 归档（modules/gui-gpu/prebuild.py 下载 wgpu-native）与可用 GPU 驱动；不可用是降级形态，不影响其余页面。",
+                "GPU 画布建不出：\{e}\n需要 gui-gpu 的 vendor 归档（scripts/prebuild.mbtx 下载 wgpu-native）与可用 GPU 驱动；不可用是降级形态，不影响其余页面。",
               ),
               wrap=true,
               class=[@style.text_secondary],

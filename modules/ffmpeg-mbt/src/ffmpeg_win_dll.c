@@ -1,6 +1,6 @@
 //! Windows 运行期 dll 的查找路径：等价于 macOS 那边 link_flags 里的 `-rpath`。
 //!
-//! 构建期 prebuild.py 按需注入两个宏：
+//! 构建期 prebuild 钩子 按需注入两个宏：
 //! - `NG_FFMPEG_DELAYLOAD`：让 vendor 导入库对应的 5 个 dll **延迟加载**，exe 启动
 //!   时不再要求它们就位；
 //! - `NG_FFMPEG_BIN=<目录>`：构建机上 `vendor/win/bin` 的绝对路径（裸路径记号）。
@@ -37,7 +37,7 @@ static const char *const vf_bin_dir = NG_FFMPEG_STR(NG_FFMPEG_BIN);
 static const char *const vf_bin_dir = "";
 #endif
 
-// 与 prebuild.py 的 WIN_LIBS 一一对应（同一份 BtbN win64-lgpl-shared 9.0 归档）。
+// 与 prebuild 钩子 的 WIN_LIBS 一一对应（同一份 BtbN win64-lgpl-shared 9.0 归档）。
 static const char *const vf_dll_names[] = {
   "avformat-63.dll", "avcodec-63.dll", "swscale-10.dll",
   "swresample-7.dll", "avutil-61.dll",

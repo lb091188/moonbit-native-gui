@@ -15,7 +15,7 @@ Then check `moon version --all`: moon / moonc / core must come from the same ins
 
 ## 2. Install the development dependencies
 
-The library draws its own pixels over native FFI, so a build needs three things: **a C toolchain, pkg-config and — on Linux — the GTK3 / Pango / FontConfig / X11 development packages**. Since 2026-11-11 the link prebuild is a MoonBit script (`gui/scripts/prebuild.mbtx`) and builds **no longer need Python** (it was a hard dependency in the prebuild.py era). The `gui-media` / `gui-gpu` optional modules have been ported as well; the `gui-webview` / `ffmpeg-mbt` prebuilds are still Python (with archive downloads) — building those still needs python3 until their ports land.
+The library draws its own pixels over native FFI, so a build needs three things: **a C toolchain, pkg-config and — on Linux — the GTK3 / Pango / FontConfig / X11 development packages**. The link prebuild has been a MoonBit script since 2026-11-11, and since 2026-11-13 the prebuilds of `gui`, `gui-media`, `gui-gpu`, `gui-webview`, `ffmpeg-mbt` and the probe module are all mbtx — builds **do not need Python** (it was a hard dependency in the prebuild.py era).
 
 ### Linux (Debian / Ubuntu family)
 
@@ -52,7 +52,7 @@ The media module additionally needs ffmpeg: `brew install ffmpeg`, or let prebui
 
 ### Windows (10 / 11, x64)
 
-The MSVC C++ toolchain — the "Desktop development with C++" workload of VS 2022 Build Tools (the core build and gui-media / gui-gpu no longer need Python; only the `gui-webview` / `ffmpeg-mbt` optional modules still want python3 for their prebuilds):
+The MSVC C++ toolchain — the "Desktop development with C++" workload of VS 2022 Build Tools (builds do not depend on Python):
 
 ```powershell
 winget install Microsoft.VisualStudio.2022.BuildTools -e --override "--quiet --wait --norestart --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
@@ -64,7 +64,6 @@ moon **locates MSVC out of the box** on Windows: plain PowerShell / Git Bash can
 
 ```sh
 moon version --all                 # the three pieces come from one install
-python -V && python3 -V            # both must be 3.x (≥ 3.7) — the first one especially
 pkg-config --modversion gtk+-3.0   # Linux: a version number = dev packages present
 cc --version                       # Linux / macOS: a C toolchain is reachable
 ```
@@ -125,9 +124,6 @@ So "let me just see it" still means building one example per §4 — `examples/h
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `SyntaxError: Non-ASCII character '\xe7' ... but no encoding declared; see pep-0263` followed by `Failed to run prebuild script` | moon **ignores the shebang** for `.py` prebuild scripts and takes the first usable interpreter in PATH in the order `python` → `python3`, which lands on Python 2 | One-off: `MOON_PYTHON_OVERRIDE=python3 moon build`. Permanent: `ln -s "$(command -v python3)" ~/.local/bin/python`, make sure that directory is first in PATH, then **open a new terminal** (Debian-family only prepends `~/.local/bin` at login, and only if it already exists) |
-| `Running prebuild script for module ... needs \`python\` or \`python3\` executable in PATH` | no Python 3 on the machine | install python3 per §2 |
-| prebuild raises `TypeError: ... got an unexpected keyword argument 'missing_ok'` (or any other 3.8+-only argument/syntax) | the interpreter is Python 3.7 while the script reached for a newer stdlib surface — the repository baseline is that **scripts must run on 3.7** | update to current master (the four `unlink(missing_ok=True)` calls now use the equivalent form); if it still reproduces, open an issue with the full traceback |
 | Running `examples/hello` in this repository, but prebuild complains about a dependency of **another module** (e.g. `ffmpeg(prebuild): 缺少 libavformat 开发包`) | not a broken example dependency: moon runs the prebuild script of **every** module in the workspace module graph that declares one, and any non-zero exit blocks the whole build. The media module hard-fails on Linux (its Windows / macOS branches degrade to empty link entries) | install what it prints: `sudo apt install -y libavformat-dev libavcodec-dev libswresample-dev libavutil-dev libswscale-dev`; or to run an example without any of that, `MOON_WORK=off moon run .` (bypasses the workspace — see §4) |
 | `cc: error trying to exec 'cc1plus': execvp: No such file or directory` (while compiling `dwrite_text.cpp`) | no C++ compiler on the machine: `gui/text/dwrite_text.cpp` is compiled on all three platforms, and off Windows it still needs a compiler to produce an empty translation unit | `sudo apt install g++` (`build-essential` is supposed to pull it in; install it explicitly if the box only has gcc) |
 | A prebuild error that is already fixed in this repository reappears verbatim (same line numbers) under `MOON_WORK=off` | that path runs **the copy of the script inside the published archive** (`examples/<example>/.mooncakes/NoahLiu/native-gui/scripts/prebuild.py`), and the registry side cannot be rewritten | to verify a fix, drop `MOON_WORK=off` and build in the workspace; for consumers to get it there is only one way — **republish the module**, since the script ships inside the package and is part of the public surface |

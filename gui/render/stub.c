@@ -2,7 +2,7 @@
 // cr_*/img_*/fsw_* 统一 API。
 //
 //   WM_STUB_CAIRO   → cairo 光栅 + GdkPixbuf 解码真实现（Linux）。仅
-//                     scripts/prebuild.py 带 -DWM_STUB_CAIRO + pkg-config 头
+//                     scripts/prebuild 钩子 带 -DWM_STUB_CAIRO + pkg-config 头
 //                     编进 build/librender_cairo_stub.a；moon 的 native-stub
 //                     拿不到 cairo 头路径（link_configs 只有链接期字段，实测
 //                     同 G0 探针），所以宏不传的那次编译必须编出空，防与

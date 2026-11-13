@@ -6,7 +6,7 @@
 # 只把 moon.mod / modules/ffmpeg-mbt/moon.mod 的 prebuild 行摘掉再跑，跑完
 # 必还原（trap，异常也还原）。
 #
-# 注意：摘掉 prebuild 后链接期会缺 prebuild.py 下发的系统库（Windows 上表现为
+# 注意：摘掉 prebuild 后链接期会缺 prebuild 钩子下发的系统库（Windows 上表现为
 # 一串 LNK2019 __imp_*），**编译期产物（.obj/.c/.core）照常生成**——所以这个
 # 入口的用处是「先拿到编译产物，再手工链接」；`moon check --deny-warn` 才是
 # 本机可靠的全量检查信号。

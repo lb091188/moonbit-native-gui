@@ -7,7 +7,7 @@
 //
 // 归属：本包住在**独立模块** `NoahLiu/gui-media`——这样主模块的依赖闭包里不出现
 // `ffmpeg-mbt`，媒体对主模块消费者保持「模块级可选」。本包的系统库链接参数由本模块自己的
-// `modules/gui-media/prebuild.py` 按包名 `NoahLiu/gui-media/media` 下发。
+// `modules/gui-media/prebuild 钩子` 按包名 `NoahLiu/gui-media/media` 下发。
 
 supported_targets = "native"
 

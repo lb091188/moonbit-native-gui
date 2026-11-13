@@ -5,7 +5,7 @@ import {
 }
 
 // stub.c 一个文件三条分支：WM_STUB_CAIRO 真实现（cairo 光栅 + GdkPixbuf 解码）
-// 仅由 scripts/prebuild.py 在 Linux 带 -DWM_STUB_CAIRO + pkg-config 头编成
+// 仅由 scripts/prebuild 钩子 在 Linux 带 -DWM_STUB_CAIRO + pkg-config 头编成
 // build/librender_cairo_stub.a 经 link_flags 传入（native-stub 拿不到 cairo 头
 // 路径，实测同 G0 探针）；WM_STUB_MAC 真解码（ImageIO，Objective-C）仅由
 // prebuild 在 Darwin 带 -x objective-c 编成 build/librender_mac_stub.a；非 Linux

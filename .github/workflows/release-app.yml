@@ -71,14 +71,6 @@ jobs:
       - name: 刷新注册表索引
         run: moon update
 
-      # gui prebuild 钩子要 python3;Windows runner 只有 python.exe
-      - name: 提供 python3 命令别名
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $py = (Get-Command python).Source
-          Copy-Item $py "$env:USERPROFILE\.moon\bin\python3.exe"
-
       # mng package 内部自跑 `moon build . --target native --release --strip`
       # 并从 Artifacts 抓本模块可执行;链接参数由 gui prebuild 按平台下发。
       # Windows 链接要 MSVC 环境:vcvars 后在同一 cmd 会话里跑 mng package。

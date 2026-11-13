@@ -1,6 +1,6 @@
 // D-Bus 客户端的系统调用桩（yue/dbus 线）：Unix 流式套接字 + uid + Double
 // 位模式。只用标准头，故直接走 moon 的 native-stub（要 GTK 头的桩才走
-// scripts/prebuild.py 编静态库）。错误码约定与旧链 shim 逐位一致，MoonBit
+// scripts/prebuild 钩子 编静态库）。错误码约定与旧链 shim 逐位一致，MoonBit
 // 侧按这套约定分流：
 //   read  : >0 字节数 / 0 对端关闭 / -1 暂不可读(EAGAIN、EINTR) / -2 其它错误
 //   write : >=0 已写出(可能短写) / -1 暂不可写 / -2 其它错误

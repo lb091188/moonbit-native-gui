@@ -16,7 +16,6 @@
 ## CI 与门禁
 
 - [ ] **gui-media video_wbtest mac 本机失败**（CI 未覆盖组合）：用例「VideoPlayer 时钟同轴：回退 fps 不影响时间轴」——回拨 500ms 后位置 0.613 / 0.633（期望窗 0.45–0.55），稳定复现；Windows CI 每轮跑且过，Linux / mac 腿不跑 gui-media test 故从未暴露
-- [ ] **prebuild mbtx 无 python 腿**：mac 本机消费者腿已绿（2026-11-13，`MOON_WORK=off` + PATH 注入假 python 桩，registry gui@0.3.3 的 mbtx 正常下发链接参数，构建过）；剩仓库内 workspace 腿与 win / linux 腿——workspace 构建被 3 个 py prebuild 挡（experiment / ffmpeg-mbt / gui-webview，prebuild 阶段是 workspace 级，连不相干模块的构建都会被 experiment 挡），与 roadmap「prebuild 去 Python」同账；win 摘 PATH 里 python、linux 用无 python 的 docker 镜像
 
 ## mng 工具链复验（用户执行）
 

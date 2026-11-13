@@ -2,7 +2,7 @@
 
 ffmpeg 的 MoonBit 动态链 FFI 绑定（libavformat/libavcodec/libswscale/
 libswresample/libavutil），进程内解码：容器 demux、视频逐帧解码为 RGBA、
-时间戳 seek。三平台实现同源，链接参数由本模块 `prebuild.py` 按平台下发，
+时间戳 seek。三平台实现同源，链接参数由本模块 `prebuild 钩子` 按平台下发，
 自动传播给依赖方 main 包（无需手写链接配置）。
 
 ## 依赖
@@ -39,7 +39,7 @@ ffmpeg pkg-config`；brew 前缀显式拼进 `PKG_CONFIG_PATH`）；探不到回
 `link_flags` 下发 `-Wl,-rpath` 指向解包的 `vendor/mac/lib`，dyld 运行期
 就地加载，运行机无需任何安装。归档由
 `scripts/make_mac_ffmpeg_vendor.sh` 制作（自编 LGPL 隔离 brew 的 GPL 闭包，
-产物入 `dist/`，sha256 回填 `prebuild.py` 后上传 `vendor-v1` Release）；
+产物入 `dist/`，sha256 回填 `prebuild 钩子` 后上传 `vendor-v1` Release）；
 离线机器也可手工把归档解开到 `vendor/mac/`（`include/` + `lib/`）。两路
 都拿不到才构建失败（不做「能链不能跑」的假可用降级）。
 

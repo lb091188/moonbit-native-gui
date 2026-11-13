@@ -1,7 +1,7 @@
 // ffmpeg 动态链 FFI 的薄 stub：只做句柄/字符串转换，无业务逻辑。
 // 依赖 libavformat/libavcodec/libswscale/libswresample/libavutil（动态链）。
 //
-// 平台口径（由本模块 prebuild.py 下发参数）：
+// 平台口径（由本模块 prebuild 钩子 下发参数）：
 // - Linux：pkg-config 探测系统 dev 包，头与链接参数随构建注入；
 // - Windows：dev 内容 vendor 进仓库（vendor/include + vendor/*.lib，
 //   BtbN win64-lgpl-shared 构建），头文件路径经 moon.pkg 的

@@ -107,7 +107,7 @@ moon install ./tools/native-gui-tools/mngui   # GUI 向导（裸 mng 自动拉�
 mng --version   # 应打印 mng 版本与 mng-schema 位
 ```
 
-裸敲 `mng`：首跑自动做一轮环境体检（moon / Python / 编译器 / GTK，末尾真编译一个 hello 工程探针），全绿写 `~/.mng/ready` 并拉起 GUI 向导；之后裸 mng 直达向导。命令面提示中英随 locale。
+裸敲 `mng`：首跑自动做一轮环境体检（moon / 编译器 / GTK，Python 仅为可选提示，末尾真编译一个 hello 工程探针），全绿写 `~/.mng/ready` 并拉起 GUI 向导；之后裸 mng 直达向导。命令面提示中英随 locale。
 
 ### 起与改
 
@@ -165,7 +165,7 @@ fn reset() { count.set(0) }
 | `Missing main function` | moon 只把名为 `main.mbt` 的文件当程序入口，见 §1 |
 | `Parsing error: unexpected token {`（读 `moon.pkg`） | `moon.pkg` 是 DSL 格式，不是 JSON，别写 `{ ... }`；根目录的 `moon.pkg` 保持为空 |
 | `Cannot inject the standard library moonbitlang/core: Cannot load the core file` | 工具链装残了（多为升级中断，`~/.moon/lib` 丢失）——重跑一遍官方安装脚本即可修复，与你的工程无关 |
-| Linux 起手就红：缺 GTK 头文件 / `pep-0263` 报错 | 构建依赖没装齐、或 `python` 还指向 2.7——清单见[构建与运行](build.md) §2，处置见其 §6 前两行 |
+| Linux 起手就红：缺 GTK 头文件（旧版库还有 `pep-0263` 报错） | 构建依赖没装齐——清单见[构建与运行](build.md) §2，处置见其 §6 |
 | 程序直接退出、没有窗口 | `mount_window` 返回 `None`：无窗口后端或无显示服务（如无 X 的 SSH 会话）——结构化退出是预期行为 |
 | 改完代码行为没变 | 改了 C 桩不一定触发重链，见[构建与运行](build.md) §9 |
 

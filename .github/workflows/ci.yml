@@ -14,9 +14,10 @@
 #   macOS job 只验「编得过、链得上」——runner 无窗口服务会话,视觉与交互验证
 #   由使用者在真机做,批次口径见 TODO.md 的「mac 平台批」一节)。
 #
-# 链接参数由 `gui/scripts/prebuild.py`(`gui/moon.mod` 的 prebuild 钩子)按当前
-# 系统生成并传播;prebuild 只能给自己模块内的包下发配置(moon 拒绝外部包名),
-# 示例/探针模块构建时自动继承库模块的链接参数,故本文件不写任何链接配置。
+# 链接参数由各模块的 prebuild 钩子(scripts/prebuild.mbtx,全仓已无 Python
+# prebuild)按当前系统生成并传播;prebuild 只能给自己模块内的包下发配置
+# (moon 拒绝外部包名),示例/探针模块构建时自动继承库模块的链接参数,
+# 故本文件不写任何链接配置。
 
 name: CI
 
@@ -290,15 +291,6 @@ jobs:
         run: |
           iwr https://cli.moonbitlang.com/install/powershell.ps1 -useb | iex
           echo "$env:USERPROFILE\.moon\bin" >> $env:GITHUB_PATH
-
-      # gui/moon.mod 的 prebuild 钩子执行 `scripts/prebuild.py`,需要 python3
-      # 命令;Windows runner 只有 python.exe——复制一份改名放进已入 PATH 的
-      # ~/.moon/bin,后续步骤的 python3 即可解析。
-      - name: 提供 python3 命令别名
-        shell: pwsh
-        run: |
-          $py = (Get-Command python).Source
-          Copy-Item $py "$env:USERPROFILE\.moon\bin\python3.exe"
 
       - name: 刷新注册表索引(同 Linux job)
         shell: pwsh

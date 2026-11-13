@@ -6,7 +6,7 @@ import {
 supported_targets = "native"
 
 // 文本层按「单一 stub.c 多分支 + prebuild 宏」组织（与 render/win 同例）：
-// Pango 端由 scripts/prebuild.py 带 -DWM_STUB_PANGO 编成静态库（link_configs
+// Pango 端由 scripts/prebuild 钩子 带 -DWM_STUB_PANGO 编成静态库（link_configs
 // 只有链接期字段、native-stub 拿不到 pango 头，实测同 G0/G3）；CoreText 端
 // （macOS）由同一脚本带 -DWM_STUB_MAC 编成 build/libyue_text_mac.a——两支的
 // 源码都是纯 C（CoreText 是 C API），非本平台的那次 native-stub 编译落不进

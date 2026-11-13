@@ -205,7 +205,7 @@ Refresh reads the "previous frame" snapshot — interact first, then refresh, or
 | `Missing main function` | moon only treats a file named `main.mbt` as the program entry, see §1 |
 | `Parsing error: unexpected token {` (reading `moon.pkg`) | `moon.pkg` is moon's DSL format, not JSON — don't write `{ ... }`; keep the root `moon.pkg` empty |
 | `Cannot inject the standard library moonbitlang/core: Cannot load the core file` | the toolchain installed incompletely (usually an interrupted `moon upgrade` with `~/.moon/lib` lost) — rerun the official install script; unrelated to your project |
-| Red from the start on Linux: missing GTK headers / `pep-0263` | build dependencies incomplete, or `python` still points at 2.7 — the list is in [Build & run](build.md) §2, the fixes are its first two rows of §6 |
+| Red from the start on Linux: missing GTK headers (old library releases also failed with `pep-0263`) | build dependencies incomplete — the list is in [Build & run](build.md) §2, the fixes are its §6 |
 | The program exits immediately, no window | `mount_window` returned `None`: no window backend or no display service (e.g. an SSH session without X) — the structured exit is expected |
 | Code changed but behaviour did not | a C stub change does not always trigger a relink, see [Build & run](build.md) §9 |
 

@@ -1,7 +1,7 @@
 // MoonBit 原生 GUI 栈文本层的平台桩：一个文件、按平台分支，对外是 `pt_*` /
 // `rt_*` 那一套测量与绘制 API（会话句柄归 MoonBit 侧持有）。
 //
-//   WM_STUB_PANGO → Pango + Cairo 真实现（Linux）。仅 scripts/prebuild.py 带
+//   WM_STUB_PANGO → Pango + Cairo 真实现（Linux）。仅 scripts/prebuild 钩子 带
 //                   -DWM_STUB_PANGO + pkg-config 头路径编进
 //                   build/libyue_text_pango.a；moon 的 native-stub 拿不到 pango
 //                   头（link_configs 只有链接期字段，实测同 render/G0），所以宏

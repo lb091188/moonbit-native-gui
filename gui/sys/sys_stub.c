@@ -1453,7 +1453,7 @@ static int64_t sys_file_dialog_new(int save) {
     return 0;
   }
   // GUID 只能取头文件里的 extern 常量（__uuidof 是 C++ 专属，MSVC 在 C 模式
-  // 直接报 C4233），这些符号由 uuid.lib 提供——链接参数见 scripts/prebuild.py
+  // 直接报 C4233），这些符号由 uuid.lib 提供——链接参数见 scripts/prebuild 钩子
   IFileDialog *dlg = NULL;
   HRESULT hr = CoCreateInstance(save ? &CLSID_FileSaveDialog
                                      : &CLSID_FileOpenDialog,

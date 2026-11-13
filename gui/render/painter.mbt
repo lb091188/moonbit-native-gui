@@ -1,5 +1,5 @@
 // 绘制契约：方法名与参数形态照旧 `yue/painter.mbt`，实现 = 双后端——
-// Cairo 光栅器（Linux 侧，`scripts/prebuild.py` 编入）与纯 MoonBit 光栅器
+// Cairo 光栅器（Linux 侧，`scripts/prebuild.mbtx` 编入）与纯 MoonBit 光栅器
 // `Raster`（Windows/mac，零第三方依赖）。**运行时探针**选择：`Cairo::over`
 // 建不出会话（占位桩返回 0）即落纯路径（运行时探测 +
 // 模式匹配，不用编译指令）；两后端的方法面逐条同形（`Raster` 镜像

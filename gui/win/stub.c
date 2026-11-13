@@ -4,7 +4,7 @@
 //   _WIN32        → Win32 真实现。由 moon 的 native-stub 自编（windows.h 走
 //                    MSVC 自带 SDK 路径，实测可达，探针记录见 adaptation），
 //                    系统库链接参数由 prebuild 的 Windows 分支下发。
-//   WM_STUB_GTK   → GTK3 真实现（Linux）。仅 scripts/prebuild.py 带
+//   WM_STUB_GTK   → GTK3 真实现（Linux）。仅 scripts/prebuild 钩子 带
 //                    -DWM_STUB_GTK + pkg-config 头文件路径编译进
 //                    build/libyue_win_stub.a；moon 的 native-stub 拿不到
 //                    GTK 头路径（link_configs 只有链接期字段，G0 实测），
@@ -8556,7 +8556,7 @@ void wm_inst_release(void) {}
 
 // ---------------- macOS 后端（Cocoa，prebuild 带 -x objective-c 专编） ----------------
 //
-// 这一支是 Objective-C：本文件由 scripts/prebuild.py 的 Darwin 分支带
+// 这一支是 Objective-C：本文件由 scripts/prebuild 钩子 的 Darwin 分支带
 // `-x objective-c -fobjc-arc -DWM_STUB_MAC` 编成 build/libyue_win_stub_mac.a，
 // 经 link_flags 传给 win/sys/web 三个包。moon 的 native-stub 在 macOS 上编本
 // 文件时不带这个宏、且落不进 `!defined(__linux__) && !defined(__APPLE__)`

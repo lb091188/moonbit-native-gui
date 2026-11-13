@@ -1,7 +1,7 @@
 // GPU 地基（wgpu-native 运行期装载）。
 //
 // 本包回答两件事：**这台机器上现在能不能用 wgpu-native**（`probe()`：按
-// vendor/ 下的归档（模块根 prebuild.py 按平台拉取并校验 sha256）dlopen，
+// vendor/ 下的归档（scripts/prebuild.mbtx 按平台拉取并校验 sha256）dlopen，
 // 取到 `wgpuCreateInstance` 才算可用），以及**整条链路上不上得去屏**
 // （`run_triangle()`：X11 wgpu 三角形探针，GPU 线第一步真机验收面）。
 // 装载走运行期、不占链接面：没装 GPU 扩展的应用照常编译运行，只是

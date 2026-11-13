@@ -23,7 +23,7 @@
 // GUID 取法（方案坑清单第 2 条，本批定案）：C 模式用不了 __uuidof，全部
 // IID/PATTERNID 常量由 uiautomationcore.h 声明、链接期从 uiautomationcore.lib
 // 取符号——与 WIC 的 windowscodecs.lib、任务栏的 uuid.lib 同一条套路
-// （prebuild.py Windows 分支已下发 uiautomationcore.lib / oleaut32.lib）。
+// （prebuild 钩子 Windows 分支已下发 uiautomationcore.lib / oleaut32.lib）。
 //
 // 只在 Win32 实现 TU 里编（native-stub 在 Linux/mac 上是空 TU，不能定义符号）；
 // 快照访问函数由 stub.c 的同一 TU 定义。

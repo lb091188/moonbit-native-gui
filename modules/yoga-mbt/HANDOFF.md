@@ -184,7 +184,7 @@ git cherry-pick ab7c12a 105d3c7 <后续 yoga 提交>
 - **经验回写**：真机实测/踩坑按「环境 + 现象 + 根因 + 修复 + 验证」写进 `experience/adaptation.md`，与代码改动**同批**提交；内容类文档（README、docs 使用文档）只写「是什么/怎么用」，原理与取舍只进 adaptation.md。
 - **全部交流用中文**（代码、命令、路径除外）。
 - **真机 GUI 测试由用户执行**：助手只做代码修复、三类检查（check/test/build）与启动冒烟，涉及其他桌面环境/虚拟机的视觉验证要列清单交给用户。
-- 与本次工作**无关**但别忘：任何包的 `moon.pkg` 都不写链接参数（由 `scripts/prebuild.py` 全权托管）；库包（如 `yue/`）不得放 `link` 段。
+- 与本次工作**无关**但别忘：任何包的 `moon.pkg` 都不写链接参数（由 `scripts/prebuild 钩子` 全权托管）；库包（如 `yue/`）不得放 `link` 段。
 
 ---
 

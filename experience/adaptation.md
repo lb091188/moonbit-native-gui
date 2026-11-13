@@ -4042,3 +4042,10 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 
 - **症状**：`scripts/mng_scenario.sh` 本机 mac 连跑 4 轮 15/15 全绿，CI Linux（xvfb）/ mac 两腿仍偶发红，且 `continue-on-error` 挂着也不收敛——进程级 watch / 单实例 / HOT-COLD 编排对启动耗时与负载敏感，xvfb 冷缓存环境的时序与本机不可比，红绿不出信号。
 - **口径**：该场景 2026-11-13 起从 ci.yml 两腿删除（连 continue-on-error 一起删），改「改到对应面时本地跑 `bash scripts/mng_scenario.sh`」兜底（AGENTS.md 已同步）；CI 剩余的 `continue-on-error` 只有 mac hello 存活冒烟一条，口径不变。
+
+## py prebuild 全量 mbtx 化：移植语法坑与验证口径（2026-11-13，三模块移植实录）
+
+- **MoonBit 与 Python 的形态差**（ffmpeg-mbt / gui-webview / experiment 三份移植实测）：无 `defer`（临时目录清理改显式 `rmdir`）；`String::replace` 是 labeled 参数（`replace(old=, new=)`）；`match` 带 guard 报 `partial_match`（guard 不计入分支覆盖，改取值后 `if`）；`Array` 的 `push` 不需要 `let mut`（`mut` 是绑定重绑语义，多余即 `unused_mut` 红）；`macro` / `define` / `fn` 均为保留字（参数命名避开）；async 调用无 `await` 关键字，直接调用。
+- **sha256 常量表必须整块照抄**：k256 抄错一个常量（丢 `0xa81a664b`）不报编译错，运行期 `Array::at` 越界 trap；抄完与已验证实现 `grep -o | wc -l` 数个数（64）+ diff 全表。归档名指纹（sha256 前 8 位）与 py 时代同源，py 时代的旧桩归档能直接复用。
+- **验证口径三级**：`MOON_MOD` / `MOON_HOST_OS` 手工注入直跑 mbtx（协议语法门禁）→ 借 moon 真协议环境找产物落点（桩是否编进 `MOON_BUILD_DIR`）→ PATH 注入假 python 桩（stub 报 `PYTHON-INVOKED` 并退出 127）跑 `moon build examples/hello examples/audio examples/video --target native` 全链绿。workspace 的 prebuild 阶段是模块图全量执行，任何一个 py prebuild 都挡住不相干模块的构建。
+- **下载口径统一**：py 时代的「双镜像并行竞速」在 mbtx 一律改「串行按序 + 总预算」（与 gui-media 同口径）；预算按体积给足（mac 归档 240s、win dll 归档 480s）。zip/tar.gz 解包统一 spawn `tar`（三平台自带，bsdtar 支持 zip）。

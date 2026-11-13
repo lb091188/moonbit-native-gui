@@ -511,8 +511,7 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案（proposa
     - 五步壳：欢迎 → 体检 → 新建 → 起 dev → 完成页；图标步未做
   - **P2 工程中心化** 🚧 已合入待真机
     - 工程面板、`mng run/check/test` 包装、`mng icons` / `mng ffmpeg-dll` 内建化
-  - **prebuild 去 Python** 🚧
-    - gui / gui-media / gui-gpu 已切 `.mbtx`，win / linux 腿随 CI 验证；gui-webview / ffmpeg-mbt 仍 py
+  - **prebuild 去 Python** ✅ 2026-11-13 全部切 `.mbtx`（gui / gui-media / gui-gpu / gui-webview / ffmpeg-mbt / experiment），构建不再依赖 Python；mac 本机无 python 全链构建验证过，win / linux 腿随 CI 回证
   - **P3 三通道分发** ⏳ 方案已定
     - 版本两轴独立、install 脚本、Gitee 镜像；修复动作第一版只给可复制命令
 

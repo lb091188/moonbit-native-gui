@@ -9,7 +9,7 @@
 //    链进可执行文件，运行期不再分发 Loader DLL；Evergreen Runtime 在本机的
 //    探测走 GetAvailableCoreWebView2BrowserVersionString。头文件相对源文件
 //    路径自取（native-stub 拿不到外部 include 路径，同 win 桩 GTK 的教训）；
-//    链接参数由 scripts/prebuild.py 的 Windows 分支下发。
+//    链接参数由 scripts/prebuild 钩子 的 Windows 分支下发。
 // ② 分支形态照 webkit_stub.c：非 _WIN32 平台编出空 TU，wb_* 符号在 Windows 上
 //    只有一份（本文件）；Linux 的 WebKitGTK 实现在 webkit_stub.c 的
 //    WB_HAVE_WEBKIT 分支，两者互不相见。
