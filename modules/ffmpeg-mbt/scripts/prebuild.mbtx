@@ -1,0 +1,950 @@
+----
+import {
+  "moonbitlang/core/env",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/async",
+  "moonbitlang/async/fs" @fs,
+  "moonbitlang/async/shell" @shell,
+  "moonbitlang/async/stdio" @stdio,
+  "q2316367743/moonhttp/client" @mhttp,
+}
+----
+
+// NoahLiu/ffmpeg-mbt 的链接预构建（--moonbit-unstable-prebuild）。
+// 语义与上一版 prebuild.py 一致（git 历史可对照），2026-11-13 起 MoonBit 化。
+//
+// 给 ffmpeg FFI 桩下发编译/链接参数，按平台分三路：
+//
+// - Linux：pkg-config 探测 libavformat/libavcodec/libswscale/libswresample/
+//   libavutil（系统 dev 包），输出 link_flags。缺 dev 包时给安装提示并失败
+//   （abort，媒体线要求真给得出 ffmpeg）。
+// - Windows：dev 内容 vendor 进仓库（vendor/include 头 + vendor/*.lib 导入库，
+//   取自 BtbN win64-lgpl-shared 构建，LGPLv3，见 vendor/FFMPEG-LICENSE.txt）。
+//   输出 vars.FFMPEG_INC（供 moon.pkg 的 stub-cc-flags 引用 -I${build.FFMPEG_INC}）
+//   与 link_flags（导入库绝对路径）。运行期 dll 不进仓库：缺失时取到
+//   vendor/win/bin（先本仓 vendor-v1 Release 归档 sha256 校验，退化 BtbN 上游），
+//   运行期由使用方放到 exe 同目录或 PATH。vendor dev 内容缺失时降级为空
+//   link_configs 保可构建（退出 0，与 macOS vendor 缺失不同档）。
+// - macOS：两级——先 pkg-config 探系统 ffmpeg（brew），探不到回退 Release
+//   下载的预编译 dev 归档（LGPL 自编、.dylib @rpath 化；sha256 校验、双镜像
+//   按序、NATIVE_GUI_VENDOR_BASE 可覆盖、离线可手工放置到 vendor/mac/）。
+//   归档里的 dylib 互相 @rpath 引用，link_flags 下发 -Wl,-rpath 让 dyld 找得到；
+//   两路都拿不到才 abort（不静默编「看着能链、跑起来没解码器」的桩）。
+//
+// 协议（moon prebuild）：stdout 恰好一个 JSON 值（vars + link_configs）；
+// 诊断一律走 stderr。目录与平台信息从环境变量取：MOON_MOD（moon.mod 绝对
+// 路径）/ MOON_BUILD_DIR / MOON_HOST_OS。
+
+///|
+let src_package : String = "NoahLiu/ffmpeg-mbt/src"
+
+///|
+/// Linux / macOS pkg-config 路的探测清单
+let libs : Array[String] = [
+  "libavformat", "libavcodec", "libswscale", "libswresample", "libavutil",
+]
+
+///|
+/// 导入库文件名（BtbN 构建无 lib 前缀）；与 libs 顺序对应
+let win_libs : Array[String] = [
+  "avformat.lib", "avcodec.lib", "swscale.lib", "swresample.lib", "avutil.lib",
+]
+
+///|
+/// 运行期 dll（同一份 BtbN win64-lgpl-shared 9.0 归档的 bin/）。约 150MB，不入
+/// 仓库：构建时缺失就从归档取一份放到 vendor/win/bin/，运行期由使用方放到 exe
+/// 同目录或 PATH。只列实际链接的五支。
+let win_runtime_dlls : Array[String] = [
+  "avcodec-63.dll", "avformat-63.dll", "avutil-61.dll", "swscale-10.dll",
+  "swresample-7.dll",
+]
+
+///|
+let win_dll_url : String =
+  "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/" +
+  "ffmpeg-n9.0-latest-win64-lgpl-shared-9.0.zip"
+
+///|
+/// 本仓 vendor-v1 Release 的 Windows 归档（win-ffmpeg-vendor workflow 产物）。
+/// sha256 回填后这一路优先于上游 BtbN；sha 空串表示尚未上传，直接走上游。
+let win_vendor_archive_name : String = "ffmpeg-windows-x64-9.0-lgpl-shared.zip"
+
+///|
+let win_vendor_archive_sha : String =
+  "8e14b2ae384982830d60a98cfc5c66d6bfcaf59d17f42170ca914edc1be38516"
+
+///|
+/// 单个 dll 的体积下限：用来判掉残缺/半截文件，不是精确校验。
+let win_dll_min_bytes : Int = 100 * 1024
+
+///|
+/// vendor 归档双镜像（mac 的 dylib 与 Windows 的运行期 dll 同一套口径）。
+/// gitee 用户名与 GitHub 不同：同一仓在 gitee 归 noahliu0911。
+let vendor_bases : Array[String] = [
+  "https://github.com/lb091188/moonbit-native-gui/releases/download/vendor-v1",
+  "https://gitee.com/noahliu0911/moonbit-native-gui/releases/download/vendor-v1",
+]
+
+///|
+/// mac 归档 10MB 量级；Windows 归档是 dll（64MB 量级）：按 800KB/s 的慢网也要
+/// 90 秒以上，总预算按体积给足，否则「数据还在流、预算先到」会把这一路判死。
+let mac_vendor_budget_ms : Int32 = 240_000
+
+///|
+let win_vendor_budget_ms : Int32 = 480_000
+
+///|
+/// -lavformat 等短名（macOS 链接器自己补 lib 前缀/后缀）
+let mac_dylibs : Array[String] = [
+  "avformat", "avcodec", "swscale", "swresample", "avutil",
+]
+
+///|
+/// 按 uname -m 取归档名（CI 的 mac-ffmpeg-vendor workflow 产物）。条目缺席时
+/// 提示「归档尚未提供」，pkg-config（brew）路不受影响。
+let mac_vendor_tarballs : Array[(String, String, String)] = [
+  (
+    "arm64",
+    "ffmpeg-macos-arm64-9.0.2-lgpl-shared.tar.gz",
+    "9fdff76c33ebc3a60757c725d2d4affd280bfbc46f5b8d3d86f3dd6728a14572",
+  ),
+]
+
+///|
+/// brew 的两个前缀（Apple Silicon / Intel）。GUI 环境里 PKG_CONFIG_PATH 与
+/// /usr/local、/opt/homebrew 都不在默认搜索路径上，探测前显式拼进去。
+let brew_prefixes : Array[String] = ["/opt/homebrew", "/usr/local"]
+
+///|
+async fn err(msg : String) -> Unit {
+  @stdio.stderr.write(msg + "\n")
+}
+
+///|
+fn env_or(name : String, fallback : String) -> String {
+  match @env.get_env_var(name) {
+    Some(v) if v.length() > 0 => v
+    _ => fallback
+  }
+}
+
+///|
+fn json_escape(s : String) -> String {
+  let out = StringBuilder()
+  for c in s {
+    if c == '"' {
+      out.write_string("\\\"")
+    } else if c == '\\' {
+      out.write_string("\\\\")
+    } else {
+      out.write_char(c)
+    }
+  }
+  out.to_string()
+}
+
+///|
+/// SHA-256（FIPS 180-4），十六进制小写（vendor 校验与源码指纹同用）。
+let k256 : Array[UInt] = [
+  0x428a2f98U, 0x71374491U, 0xb5c0fbcfU, 0xe9b5dba5U, 0x3956c25bU,
+  0x59f111f1U, 0x923f82a4U, 0xab1c5ed5U, 0xd807aa98U, 0x12835b01U,
+  0x243185beU, 0x550c7dc3U, 0x72be5d74U, 0x80deb1feU, 0x9bdc06a7U,
+  0xc19bf174U, 0xe49b69c1U, 0xefbe4786U, 0x0fc19dc6U, 0x240ca1ccU,
+  0x2de92c6fU, 0x4a7484aaU, 0x5cb0a9dcU, 0x76f988daU, 0x983e5152U,
+  0xa831c66dU, 0xb00327c8U, 0xbf597fc7U, 0xc6e00bf3U, 0xd5a79147U,
+  0x06ca6351U, 0x14292967U, 0x27b70a85U, 0x2e1b2138U, 0x4d2c6dfcU,
+  0x53380d13U, 0x650a7354U, 0x766a0abbU, 0x81c2c92eU, 0x92722c85U,
+  0xa2bfe8a1U, 0xa81a664bU, 0xc24b8b70U, 0xc76c51a3U, 0xd192e819U,
+  0xd6990624U, 0xf40e3585U, 0x106aa070U, 0x19a4c116U, 0x1e376c08U,
+  0x2748774cU, 0x34b0bcb5U, 0x391c0cb3U, 0x4ed8aa4aU, 0x5b9cca4fU,
+  0x682e6ff3U, 0x748f82eeU, 0x78a5636fU, 0x84c87814U, 0x8cc70208U,
+  0x90befffaU, 0xa4506cebU, 0xbef9a3f7U, 0xc67178f2U,
+]
+
+///|
+fn rotr32(x : UInt, n : Int) -> UInt {
+  (x >> n) | (x << (32 - n))
+}
+
+///|
+/// 第 i 字节的虚拟视图（含 0x80 padding 与 8 字节大端位长的拼接视图）。
+fn padded_byte(data : Bytes, n : Int, total : Int, i : Int) -> UInt {
+  if i < n {
+    data[i].to_int().reinterpret_as_uint()
+  } else if i == n {
+    0x80U
+  } else if i >= total - 8 {
+    let bit_len = n.to_int64() * 8L
+    let shift = (total - 1 - i) * 8
+    ((bit_len >> shift) & 0xFFL).to_int().reinterpret_as_uint()
+  } else {
+    0U
+  }
+}
+
+///|
+fn sha256_hex(data : Bytes) -> String {
+  let mut h0 = 0x6a09e667U
+  let mut h1 = 0xbb67ae85U
+  let mut h2 = 0x3c6ef372U
+  let mut h3 = 0xa54ff53aU
+  let mut h4 = 0x510e527fU
+  let mut h5 = 0x9b05688cU
+  let mut h6 = 0x1f83d9abU
+  let mut h7 = 0x5be0cd19U
+  let n = data.length()
+  let rem = n % 64
+  let total = if rem < 56 {
+    n - rem + 64
+  } else {
+    n - rem + 128
+  }
+  let w : Array[UInt] = []
+  let mut wi = 0
+  while wi < 64 {
+    w.push(0U)
+    wi += 1
+  }
+  let mut base = 0
+  while base < total {
+    let mut j = 0
+    while j < 16 {
+      let o = base + j * 4
+      w[j] = (padded_byte(data, n, total, o) << 24) |
+        (padded_byte(data, n, total, o + 1) << 16) |
+        (padded_byte(data, n, total, o + 2) << 8) |
+        padded_byte(data, n, total, o + 3)
+      j += 1
+    }
+    let mut j = 16
+    while j < 64 {
+      let s0 = rotr32(w[j - 15], 7) ^ rotr32(w[j - 15], 18) ^ (w[j - 15] >> 3)
+      let s1 = rotr32(w[j - 2], 17) ^ rotr32(w[j - 2], 19) ^ (w[j - 2] >> 10)
+      w[j] = w[j - 16] + s1 + w[j - 7] + s0
+      j += 1
+    }
+    let mut a = h0
+    let mut b = h1
+    let mut c = h2
+    let mut d = h3
+    let mut e = h4
+    let mut f = h5
+    let mut g = h6
+    let mut hh = h7
+    let mut j = 0
+    while j < 64 {
+      let s1 = rotr32(e, 6) ^ rotr32(e, 11) ^ rotr32(e, 25)
+      let ch = (e & f) ^ ((e ^ 0xFFFFFFFFU) & g)
+      let t1 = hh + s1 + ch + k256[j] + w[j]
+      let s0 = rotr32(a, 2) ^ rotr32(a, 13) ^ rotr32(a, 22)
+      let maj = (a & b) ^ (a & c) ^ (b & c)
+      let t2 = s0 + maj
+      hh = g
+      g = f
+      f = e
+      e = d + t1
+      d = c
+      c = b
+      b = a
+      a = t1 + t2
+      j += 1
+    }
+    h0 = h0 + a
+    h1 = h1 + b
+    h2 = h2 + c
+    h3 = h3 + d
+    h4 = h4 + e
+    h5 = h5 + f
+    h6 = h6 + g
+    h7 = h7 + hh
+    base += 64
+  }
+  let out = StringBuilder()
+  for x in [h0, h1, h2, h3, h4, h5, h6, h7] {
+    let mut sh = 28
+    while sh >= 0 {
+      let nib = ((x >> sh) & 0xFU).reinterpret_as_int()
+      let code = if nib < 10 { 48 + nib } else { 87 + nib }
+      out.write_char(code.unsafe_to_char())
+      sh -= 4
+    }
+  }
+  out.to_string()
+}
+
+///|
+/// 单镜像下载：HTTP GET 拿全量（10MB tar.gz / 64MB zip 内存直取），外套总
+/// 预算。失败给 None（诊断已出声）。
+async fn fetch_one(url : String, budget_ms~ : Int32) -> Bytes? {
+  match @async.with_timeout_opt(budget_ms, () => fetch_url(url)) {
+    Some(got) => got
+    None => {
+      err("ffmpeg(prebuild): " + url + " 在预算内无产出")
+      None
+    }
+  }
+}
+
+///|
+/// GET 全量。走 moonhttp：release 下载链接都是 302 → CDN，它内置自动重定向。
+async fn fetch_url(url : String) -> Bytes? {
+  let client = @mhttp.default_client()
+  let resp = client.get(url) catch {
+    e => {
+      err("ffmpeg(prebuild): " + url + " 请求失败：" + e.to_string())
+      return None
+    }
+  }
+  if !resp.is_success() {
+    err("ffmpeg(prebuild): " + url + " 返回 " + resp.status.to_string())
+    return None
+  }
+  Some(resp.bytes())
+}
+
+///|
+fn strip_spaces(s : String) -> String {
+  let mut lo = 0
+  let n = s.length()
+  let mut hi = n
+  while lo < hi && (s[lo] == ' ' || s[lo] == '\t') {
+    lo += 1
+  }
+  while hi > lo && (s[hi - 1] == ' ' || s[hi - 1] == '\t') {
+    hi -= 1
+  }
+  s[lo:hi].to_owned()
+}
+
+///|
+fn rstrip_slash(s : String) -> String {
+  let mut end = s.length()
+  while end > 0 && s[end - 1] == '/' {
+    end -= 1
+  }
+  s[0:end].to_owned()
+}
+
+///|
+/// 镜像序取一份 vendor 文件并校验 sha256：NATIVE_GUI_VENDOR_BASE 指定自定义
+/// 源时按序串行只走自定义源，否则按内置双镜像序（py 版的并行竞速形态不再
+/// 保留，与 gui-media / gui-webview 同走「串行按序 + 总预算」口径）。
+async fn fetch_vendor_file(
+  name : String,
+  sha : String,
+  budget_ms~ : Int32,
+) -> Bytes? {
+  let bases : Array[String] = []
+  match @env.get_env_var("NATIVE_GUI_VENDOR_BASE") {
+    Some(v) if strip_spaces(v).length() > 0 =>
+      for b in v.split(",") {
+        let b = strip_spaces(rstrip_slash(strip_spaces(b.to_owned())))
+        if b.length() > 0 {
+          bases.push(b)
+        }
+      }
+    _ => for b in vendor_bases {
+      bases.push(b)
+    }
+  }
+  for base in bases {
+    let url = base + "/" + name
+    err("ffmpeg(prebuild): 取 vendor " + url + " ...")
+    match fetch_one(url, budget_ms~) {
+      Some(data) => {
+        let got = sha256_hex(data)
+        if got == sha {
+          return Some(data)
+        }
+        err("ffmpeg(prebuild): " + base + " 上 sha256 不符，换下一个")
+      }
+      None => continue
+    }
+  }
+  err("ffmpeg(prebuild): 全部镜像都没给出校验通过的 " + name)
+  None
+}
+
+///|
+/// 绝对路径的目录部分（取最后一个 / 或 \ 之前）。
+fn dir_of(p : String) -> String {
+  let mut last = -1
+  let n = p.length()
+  let mut i = 0
+  while i < n {
+    if p[i] == '/' || p[i] == '\\' {
+      last = i
+    }
+    i += 1
+  }
+  if last <= 0 {
+    p
+  } else {
+    p[0:last].to_owned()
+  }
+}
+
+///|
+/// 跑一次命令，失败把命令与 stderr 出声。成功 true。
+async fn run_tool(file : String, args : Array[String]) -> Bool {
+  let out = @shell.Cmd(file, args).output()
+  if out.exit_code() != 0 {
+    let parts : Array[String] = [file]
+    for a in args {
+      parts.push(a)
+    }
+    err("ffmpeg(prebuild): " + parts.join(" ") + " 失败\n" + out.stderr())
+    return false
+  }
+  true
+}
+
+///|
+/// 跑一次 pkg-config（可带 PKG_CONFIG_PATH 覆盖），成功给按空白切分的输出，
+/// 失败给空串。
+async fn pkg_config(args : Array[String], pkg_config_path~ : String) -> Array[String] {
+  let env : Map[String, String] = { "PKG_CONFIG_PATH": pkg_config_path }
+  let out = @shell.Cmd("pkg-config", args, env~, inherit_env=true).output()
+  let parts : Array[String] = []
+  if out.exit_code() == 0 {
+    for seg in out.stdout().split("\n") {
+      for p in seg.split(" ") {
+        if p.length() > 0 {
+          parts.push(p.to_owned())
+        }
+      }
+    }
+  }
+  parts
+}
+
+///|
+/// 归档（zip 或 tar.gz）解到 dir：三平台统一 spawn tar（mac/linux 自带，
+/// Windows 10+ 自带 bsdtar 形态的 tar.exe，支持 zip）。失败出声给 false。
+async fn untar_into(archive~ : String, dir~ : String, gz~ : Bool) -> Bool {
+  let args : Array[String] = ["-x"]
+  if gz {
+    args.push("-z")
+  }
+  args.push("-f")
+  args.push(archive)
+  args.push("-C")
+  args.push(dir)
+  run_tool("tar", args)
+}
+
+///|
+/// 跑 uname -m 取机器架构（macOS 的归档选择用）；取不到给空串。
+async fn machine_arch() -> String {
+  let out = @shell.Cmd("uname", ["-m"]).output()
+  if out.exit_code() != 0 {
+    return ""
+  }
+  strip_spaces(out.stdout())
+}
+
+///|
+/// 读整个文件为 Bytes；失败给 None（调用方出声）。
+async fn read_bytes(path : String) -> Bytes? {
+  if !@fs.exists(path) {
+    return None
+  }
+  let data = @fs.read_file(path)
+  Some(data.binary())
+}
+
+///|
+fn entry(pkg~ : String, link_flags~ : String) -> String {
+  "{ \"package\": \"" +
+  json_escape(pkg) +
+  "\", \"link_flags\": \"" +
+  json_escape(link_flags) +
+  "\" }"
+}
+
+///|
+fn join_flags(parts : Array[String]) -> String {
+  parts.join(" ")
+}
+
+///|
+fn quote(p : String) -> String {
+  "\"" + p + "\""
+}
+
+///|
+/// 输出 JSON：vars（FFMPEG_INC / FFMPEG_STUB_CC，供 moon.pkg 的 stub-cc-flags
+/// 引用）+ link_configs。路径都过 json_escape。
+fn emit_json(inc~ : String, stub_cc~ : String, link_flags~ : String) -> String {
+  "{ \"vars\": { \"FFMPEG_INC\": \"" +
+  json_escape(inc) +
+  "\", \"FFMPEG_STUB_CC\": \"" +
+  json_escape(stub_cc) +
+  "\" }, \"link_configs\": [" +
+  entry(pkg=src_package, link_flags~) +
+  "] }"
+}
+
+///|
+fn emit_empty(inc~ : String, stub_cc~ : String) -> String {
+  "{ \"vars\": { \"FFMPEG_INC\": \"" +
+  json_escape(inc) +
+  "\", \"FFMPEG_STUB_CC\": \"" +
+  json_escape(stub_cc) +
+  "\" }, \"link_configs\": [] }"
+}
+
+///|
+/// vendor 根目录（模块根 vendor/）。
+fn vendor_dir(module_root~ : String) -> String {
+  module_root + "/vendor"
+}
+
+///|
+/// 运行期 dll 的构建期落点（与 mac 的 vendor/mac 对称，同样不进仓库）。
+fn win_runtime_dir(module_root~ : String) -> String {
+  vendor_dir(module_root~) + "/win/bin"
+}
+
+///|
+/// 运行期 dll 就位判据：五支都在且不小于体积下限（判残缺/半截，非精确校验）。
+async fn win_runtime_ready(bin_dir~ : String) -> Bool {
+  for name in win_runtime_dlls {
+    let p = bin_dir + "/" + name
+    if !@fs.exists(p) {
+      return false
+    }
+    if @fs.file_size(p) < win_dll_min_bytes.to_int64() {
+      return false
+    }
+  }
+  true
+}
+
+///|
+/// 把已解开的归档目录里的 bin/*.dll 挑五支拷到 bin_dir；不全给 false。
+async fn install_win_dlls(from_dir~ : String, bin_dir~ : String) -> Bool {
+  for name in win_runtime_dlls {
+    let src = from_dir + "/bin/" + name
+    if !@fs.exists(src) {
+      err("ffmpeg(prebuild): 归档里缺 " + name)
+      return false
+    }
+    let data = @fs.read_file(src)
+    @fs.write_file(bin_dir + "/" + name, data)
+  }
+  win_runtime_ready(bin_dir~)
+}
+
+///|
+/// BtbN 上游归档（滚动资产没有固定 sha）取运行期 dll：NATIVE_GUI_FFMPEG_ZIP
+/// 指本地归档则直接用，否则下载（内存直取）。成功给 true。
+async fn fetch_upstream_dlls(module_root~ : String) -> Bool {
+  let bin_dir = win_runtime_dir(module_root~)
+  let src = match @env.get_env_var("NATIVE_GUI_FFMPEG_ZIP") {
+    Some(v) if strip_spaces(v).length() > 0 => strip_spaces(v)
+    _ => ""
+  }
+  let mut data : Bytes? = None
+  if src.length() > 0 && @fs.exists(src) {
+    err("ffmpeg(prebuild): 用本地归档 " + src)
+    data = read_bytes(src)
+  } else {
+    let url = if src.length() > 0 { src } else { win_dll_url }
+    err("ffmpeg(prebuild): 取运行期 dll " + url + "（约 150MB，慢网请耐心）")
+    data = fetch_one(url, budget_ms=win_vendor_budget_ms)
+  }
+  match data {
+    Some(bytes) => {
+      let tmp = @fs.tmpdir(prefix="ng-ffmpeg-zip-")
+      let zip = tmp + "/ffmpeg.zip"
+      @fs.write_file(zip, bytes)
+      let ok = if untar_into(archive=zip, dir=tmp, gz=false) {
+        install_win_dlls(from_dir=tmp, bin_dir~)
+      } else {
+        false
+      }
+      @fs.rmdir(tmp, recursive=true, allow_missing=true)
+      ok
+    }
+    None => false
+  }
+}
+
+///|
+/// 构建期把运行期 dll 备到 vendor/win/bin/；就位返回 true。
+/// 两级：先取本仓 vendor-v1 Release 的归档（sha256 校验 + 双镜像），拿不到再
+/// 退 BtbN 上游（滚动资产，没有可固定的 sha）。失败只提示不中断——导入库链接
+/// 照旧可用，只是运行期得自行放 dll。CI 已自备 dll 时用
+/// NATIVE_GUI_SKIP_VENDOR=1 跳过这次下载。
+async fn ensure_win_runtime_dlls(module_root~ : String) -> Bool {
+  match @env.get_env_var("NATIVE_GUI_SKIP_VENDOR") {
+    Some(v) => {
+      let v = strip_spaces(v)
+      if v == "1" || v == "true" || v == "yes" {
+        err("ffmpeg(prebuild): NATIVE_GUI_SKIP_VENDOR 已设，跳过运行期 dll 准备")
+        return false
+      }
+    }
+    None => ()
+  }
+  let bin_dir = win_runtime_dir(module_root~)
+  if win_runtime_ready(bin_dir~) {
+    return true
+  }
+  @fs.mkdir(bin_dir, recursive=true, allow_exist=true)
+  if win_vendor_archive_sha.length() > 0 {
+    err("ffmpeg(prebuild): 取运行期 dll " + win_vendor_archive_name + "（vendor 归档）")
+    match fetch_vendor_file(
+        win_vendor_archive_name,
+        win_vendor_archive_sha,
+        budget_ms=win_vendor_budget_ms,
+      ) {
+      Some(data) => {
+        let tmp = @fs.tmpdir(prefix="ng-ffmpeg-vendor-")
+        let zip = tmp + "/" + win_vendor_archive_name
+        @fs.write_file(zip, data)
+        let ok = untar_into(archive=zip, dir=tmp, gz=false) &&
+          install_win_dlls(from_dir=tmp, bin_dir~)
+        @fs.rmdir(tmp, recursive=true, allow_missing=true)
+        if ok {
+          err("ffmpeg(prebuild): 运行期 dll 已就位 " + bin_dir +
+            "（vendor 归档，sha256 通过）\n  运行前把它们放到 exe 同目录（mng ffmpeg-dll 可代劳）")
+          return true
+        }
+        err("ffmpeg(prebuild): vendor 归档没取到或校验不过，退 BtbN 上游")
+      }
+      None => err("ffmpeg(prebuild): vendor 归档没取到或校验不过，退 BtbN 上游")
+    }
+  }
+  let ok = fetch_upstream_dlls(module_root~)
+  if ok {
+    err("ffmpeg(prebuild): 运行期 dll 已就位 " + bin_dir +
+      "\n  运行前把它们放到 exe 同目录（mng ffmpeg-dll 可代劳）")
+  } else {
+    err("ffmpeg(prebuild): 运行期 dll 未就位——构建仍可完成，但运行前要自备 " +
+      "avcodec-63.dll 等与 exe 同目录（或 PATH）；离线可用 NATIVE_GUI_FFMPEG_ZIP 指本地归档")
+  }
+  ok
+}
+
+///|
+/// vendor/mac 的可用判据：头树齐 + 五个库都解得开 -l 短名。
+/// 就位返回 include 目录，否则空串。
+async fn mac_vendor_ready(module_root~ : String, libdir~ : String) -> String {
+  let inc = vendor_dir(module_root~) + "/mac/include"
+  if !@fs.exists(inc + "/libavformat/avformat.h") {
+    return ""
+  }
+  for stem in mac_dylibs {
+    if !@fs.exists(libdir + "/lib" + stem + ".dylib") {
+      return ""
+    }
+  }
+  inc
+}
+
+///|
+/// vendor/mac 缺失时从 Release 下载归档并解开；就位返回 true。
+/// 解完对 lib/*.dylib 补 0755（dyld 映射执行段要求 x 位，tar 解包在某些
+/// umask/归档头缺失下会掉）。
+async fn ensure_mac_vendor(module_root~ : String) -> Bool {
+  let vdir = vendor_dir(module_root~) + "/mac"
+  let libdir = vdir + "/lib"
+  if mac_vendor_ready(module_root~, libdir~).length() > 0 {
+    return true
+  }
+  let arch = machine_arch()
+  let mut name = ""
+  let mut sha = ""
+  for t in mac_vendor_tarballs {
+    if t.0 == arch {
+      name = t.1
+      sha = t.2
+    }
+  }
+  if name.length() == 0 {
+    err("ffmpeg(prebuild): 架构 " + arch +
+      " 的 mac 归档尚未提供（brew install ffmpeg 走 pkg-config 路不受影响）")
+    return false
+  }
+  let data = match fetch_vendor_file(name, sha, budget_ms=mac_vendor_budget_ms) {
+    Some(d) => d
+    None => {
+      err("ffmpeg(prebuild): 全部镜像都没取到 " + name +
+        "\n  离线环境可手工解开到 vendor/mac/（include/ + lib/），" +
+        "或用 NATIVE_GUI_VENDOR_BASE 指到自己的源")
+      return false
+    }
+  }
+  let base = dir_of(vdir)
+  @fs.mkdir(base, recursive=true, allow_exist=true)
+  let tmp = base + "/.extract-tmp"
+  @fs.rmdir(tmp, recursive=true, allow_missing=true)
+  @fs.mkdir(tmp, recursive=true, allow_exist=true)
+  let tgz = tmp + "/" + name
+  @fs.write_file(tgz, data)
+  if !untar_into(archive=tgz, dir=tmp, gz=true) {
+    @fs.rmdir(tmp, recursive=true, allow_missing=true)
+    return false
+  }
+  // 归档顶层统一是 ffmpeg-macos-*/，找到它再整棵搬进 vendor/mac
+  let entries = @fs.readdir(tmp) catch {
+    _ => []
+  }
+  let mut src_root = ""
+  for e in entries {
+    if e != "." && !e.has_prefix(".") && tmp + "/" + e != tgz {
+      src_root = tmp + "/" + e
+    }
+  }
+  if src_root.length() == 0 || !@fs.exists(src_root + "/include") {
+    err("ffmpeg(prebuild): 归档顶层结构意外，放弃安装")
+    @fs.rmdir(tmp, recursive=true, allow_missing=true)
+    return false
+  }
+  @fs.rmdir(vdir, recursive=true, allow_missing=true)
+  @fs.rename(src_root, vdir, replace=true) catch {
+    e => {
+      err("ffmpeg(prebuild): 归档搬入 vendor/mac 失败：" + e.to_string())
+      @fs.rmdir(tmp, recursive=true, allow_missing=true)
+      return false
+    }
+  }
+  @fs.rmdir(tmp, recursive=true, allow_missing=true)
+  let names = @fs.readdir(libdir) catch {
+    _ => []
+  }
+  for dy in names {
+    if dy.has_suffix(".dylib") {
+      @fs.chmod(libdir + "/" + dy, 0o755)
+    }
+  }
+  err("ffmpeg(prebuild): 已就位 dev 归档（sha256 ✓）")
+  mac_vendor_ready(module_root~, libdir~).length() > 0
+}
+
+///|
+/// ffmpeg 头所在目录：先问 pkg-config 的 includedir，问不到就扫 brew 前缀
+/// （存在 libavformat/avformat.h 的那一个），再不行给占位值让后面报同一个错。
+async fn mac_includedir(pkg_config_path~ : String, fallback~ : String) -> String {
+  let got = pkg_config(["--cflags-only-I", "libavformat"], pkg_config_path~)
+  for tok in got {
+    if tok.has_prefix("-I") {
+      let cand = tok[2:].to_owned()
+      if @fs.exists(cand + "/libavformat/avformat.h") {
+        return cand
+      }
+    }
+  }
+  for p in brew_prefixes {
+    let cand = p + "/include"
+    if @fs.exists(cand + "/libavformat/avformat.h") {
+      return cand
+    }
+  }
+  fallback
+}
+
+///|
+/// pkg-config 一路：探 brew 的 ffmpeg 并下发 -I/-L/-l。成功给 JSON，失败给
+/// 空串（pkg-config 命令缺失也算这一路失败，交给 vendor 路）。
+async fn mac_pkg_config_route() -> String {
+  let parts : Array[String] = []
+  let cur = env_or("PKG_CONFIG_PATH", "")
+  if cur.length() > 0 {
+    parts.push(cur)
+  }
+  for p in brew_prefixes {
+    parts.push(p + "/lib/pkgconfig")
+  }
+  let pkg_config_path = join_flags(parts)
+  let flags : Array[String] = []
+  for lib in libs {
+    let out = pkg_config(["--libs", lib], pkg_config_path~)
+    if out.is_empty() {
+      return ""
+    }
+    for f in out {
+      flags.push(f)
+    }
+  }
+  let inc = mac_includedir(pkg_config_path~, fallback=brew_prefixes[0] + "/include")
+  // brew 的 .pc 一般已在 Libs 里展开过 -L，这里再问一次 libdir 兜底
+  // （Apple Silicon 是 /opt/homebrew/lib、Intel 是 /usr/local/lib，写死任一
+  // 个都会在另一类机器上链不到）。
+  let libdir_out = pkg_config(["--variable=libdir", "libavformat"], pkg_config_path~)
+  let libdir = if libdir_out.is_empty() {
+    dir_of(inc) + "/lib"
+  } else {
+    libdir_out[0]
+  }
+  err("ffmpeg(prebuild): macOS 走 brew 的 ffmpeg（include=" + inc + " lib=" + libdir + "）")
+  emit_json(
+    inc~,
+    stub_cc="-finput-charset=UTF-8",
+    link_flags="-L" + libdir + " " + join_flags(flags),
+  )
+}
+
+///|
+/// vendor 归档一路：就位后下发 -L/-l/-rpath。成功给 JSON，失败给空串。
+async fn mac_vendor_route(module_root~ : String) -> String {
+  if !ensure_mac_vendor(module_root~) {
+    return ""
+  }
+  let vdir = vendor_dir(module_root~) + "/mac"
+  let libdir = vdir + "/lib"
+  let inc = mac_vendor_ready(module_root~, libdir~)
+  if inc.length() == 0 {
+    return ""
+  }
+  // 每个路径参数单独双引号：link_flags 按 shell 词法拆分，撇号用户名的
+  // 教训同 Windows 分支；-Wl,-rpath 指向绝对路径，dyld 据此加载 @rpath 依赖。
+  let stems : Array[String] = []
+  for s in mac_dylibs {
+    stems.push("-l" + s)
+  }
+  let link_flags = quote("-L" + libdir) +
+  " " +
+  join_flags(stems) +
+  " " +
+  quote("-Wl,-rpath," + libdir)
+  err("ffmpeg(prebuild): macOS 走 vendor 归档（include=" + inc + " lib=" + libdir + "）")
+  emit_json(inc~, stub_cc="-finput-charset=UTF-8", link_flags~)
+}
+
+///|
+/// Windows 分支。vendor dev 内容缺失时降级空 link_configs 保可构建（退出 0）；
+/// 就位时下发导入库绝对路径 + delayload 宏。
+async fn win_route(module_root~ : String) -> String {
+  let vendor = vendor_dir(module_root~)
+  let inc = vendor + "/include"
+  let missing : Array[String] = []
+  for l in win_libs {
+    if !@fs.exists(vendor + "/" + l) {
+      missing.push(l)
+    }
+  }
+  let has_headers = @fs.exists(inc + "/libavformat/avformat.h")
+  if !has_headers || missing.length() > 0 {
+    // vendor 内容缺失：降级为空 link_configs 保可构建（与 macOS 同口径）
+    let reason = if !has_headers {
+      "缺头文件"
+    } else {
+      "缺 " + join_flags(missing)
+    }
+    err("ffmpeg(prebuild): vendor dev 内容缺失（" + reason +
+      "），ffmpeg 后端降级——请按 README 恢复 vendor/")
+    return emit_empty(inc=".", stub_cc="/utf-8")
+  }
+  // 路径一律正斜杠（cl 对两种都接受，还免去 JSON 转义）
+  let inc_norm = inc.replace(old="\\", new="/")
+  // 各库路径单独加双引号：link_flags 会被按 shell 词法拆分，用户名含单引号
+  // 的机器里路径自带未配对引号，整条 link_flags 会被静默丢弃（adaptation.md
+  // 「同族第二条·撇号路径」教训）。
+  let lib_parts : Array[String] = []
+  for l in win_libs {
+    lib_parts.push(quote((vendor + "/" + l).replace(old="\\", new="/")))
+  }
+  err("ffmpeg(prebuild): 导入库就位（vendor BtbN）")
+  let ready = ensure_win_runtime_dlls(module_root~)
+  let bin_dir = win_runtime_dir(module_root~).replace(old="\\", new="/")
+  let mut stub_cc = "/utf-8"
+  let no_delayload = match @env.get_env_var("NATIVE_GUI_FFMPEG_NO_DELAYLOAD") {
+    Some(v) => strip_spaces(v).length() > 0 && strip_spaces(v) != "0"
+    None => false
+  }
+  if no_delayload {
+    err("ffmpeg(prebuild): NATIVE_GUI_FFMPEG_NO_DELAYLOAD 已设，" +
+      "dll 仍需运行前放到 exe 同目录或 PATH")
+  } else {
+    // 延迟加载 + 构建期记下 vendor 目录：exe 启动不要求 dll 就位，第一次用到
+    // ffmpeg 时按「exe 同目录/PATH → 该目录」查找（macOS 的 -rpath 等价物）。
+    // 值只能传裸路径记号：Windows 这条链上引号到不了宏，字符串化在
+    // ffmpeg_win_dll.c 里做。
+    let mut has_space = false
+    for c in bin_dir {
+      if c == ' ' || c == '\t' || c == '\n' {
+        has_space = true
+      }
+    }
+    if has_space {
+      err("ffmpeg(prebuild): 警告：vendor 路径含空白，" +
+        "-DNG_FFMPEG_BIN 会被命令行拆断，dll 回落目录将失效")
+    }
+    stub_cc += " -DNG_FFMPEG_DELAYLOAD -DNG_FFMPEG_BIN=" + bin_dir
+    if ready {
+      err("ffmpeg(prebuild): 运行期 dll 延迟加载，无需复制到 exe 旁")
+    }
+  }
+  emit_json(inc=inc_norm, stub_cc~, link_flags=join_flags(lib_parts))
+}
+
+///|
+/// Linux 分支：pkg-config 探系统 dev 包；缺包 abort（行级安装提示）。
+async fn linux_route() -> String {
+  let flags : Array[String] = []
+  for lib in libs {
+    let probe = pkg_config(["--libs", lib], pkg_config_path="")
+    if probe.is_empty() {
+      let devs : Array[String] = []
+      for l in libs {
+        devs.push(l + "-dev")
+      }
+      err("ffmpeg(prebuild): 缺少 " + lib + " 开发包" +
+        "（Ubuntu: sudo apt install -y " + join_flags(devs) + "）")
+      abort("ffmpeg(prebuild): Linux 缺 ffmpeg 开发包，无法下发链接参数")
+    }
+    for f in probe {
+      flags.push(f)
+    }
+  }
+  // gcc/clang 默认按 UTF-8 读源，显式声明与 Windows 的 /utf-8 同义
+  emit_json(
+    inc="/usr/include",
+    stub_cc="-finput-charset=UTF-8",
+    link_flags=join_flags(flags),
+  )
+}
+
+///|
+async fn link_configs() -> String {
+  let module_root = dir_of(env_or("MOON_MOD", "."))
+  let host = env_or("MOON_HOST_OS", "")
+  if host == "windows" {
+    win_route(module_root~)
+  } else if host == "macos" {
+    // 两级：pkg-config 探系统 ffmpeg（brew 的构建给得出 .pc）→ 退 Release
+    // 下载的 vendor 归档（免 brew 机器的通路，@rpath 动态链）。两路都断才
+    // 失败——媒体线要求真给得出 ffmpeg，静默编一支「看着能链、跑起来没
+    // 解码器」的桩更坏。
+    let r1 = mac_pkg_config_route()
+    if r1.length() > 0 {
+      r1
+    } else {
+      let r2 = mac_vendor_route(module_root~)
+      if r2.length() > 0 {
+        r2
+      } else {
+        abort(
+          "ffmpeg(prebuild): macOS 两路都拿不到 ffmpeg" +
+          "（brew install pkg-config ffmpeg，或按 README 手工放置 vendor/mac/），" +
+          "ffmpeg 后端不可用",
+        )
+      }
+    }
+  } else if host == "linux" {
+    linux_route()
+  } else {
+    // 未知宿主：降级为空 link_configs
+    err("ffmpeg(prebuild): 其余平台降级为空 link_configs（Linux/Windows/macOS 之外的目标）")
+    emit_empty(inc=".", stub_cc="-finput-charset=UTF-8")
+  }
+}
+
+///|
+async fn main {
+  // stdout 恰好一个 JSON；其余诊断都在 stderr
+  println(link_configs())
+}

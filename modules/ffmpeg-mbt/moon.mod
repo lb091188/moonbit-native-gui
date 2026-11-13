@@ -15,5 +15,5 @@ license = "MIT"
 repository = "https://github.com/lb091188/moonbit-native-gui"
 
 options(
-  "--moonbit-unstable-prebuild": "prebuild.py",
+  "--moonbit-unstable-prebuild": "scripts/prebuild.mbtx",
 )
