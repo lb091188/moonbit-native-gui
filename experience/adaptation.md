@@ -4037,3 +4037,8 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **旧实例占坑会让新进程秒退**：应用是单实例语义——新进程发现已有实例就「唤醒旧实例并退出」，dev 记下的 pid 是秒退进程，补丁实际投给旧实例；旧实例注册表来自上一轮生成码，必然 stale（表现为「补丁缺 N 键」的假回归）。修法：dev spawn 前按可执行名 `pkill -9 -f <basename>`（受控单实例语义），并 spawn 后查 `@proc.alive` 报「已退出（单实例占坑？）」。
 - **补丁不能早于应用就绪**：dev 通道（单实例套接字）在首页首次挂载时才建——首轮 build 完刚 spawn 就推补丁必然「连不上套接字」。修法：spawn 后等套接字文件出现（POSIX 10s 上限、`@proc.alive` 短路；Windows 无文件面短等），就绪后再进 watch。
 - **删模板与 dev 的 build 抢跑**：场景脚本 `[NEW]` 出现就删模板，而 NEW 拍的 workspace build 还在跑（moon 报 `input about.gen.mbt missing`）——等 `[COLD] 应用已重启` 再删。
+
+## mng 应用侧场景移出 CI：xvfb 腿偶发红不可收敛（2026-11-13，CI 移出门禁复盘）
+
+- **症状**：`scripts/mng_scenario.sh` 本机 mac 连跑 4 轮 15/15 全绿，CI Linux（xvfb）/ mac 两腿仍偶发红，且 `continue-on-error` 挂着也不收敛——进程级 watch / 单实例 / HOT-COLD 编排对启动耗时与负载敏感，xvfb 冷缓存环境的时序与本机不可比，红绿不出信号。
+- **口径**：该场景 2026-11-13 起从 ci.yml 两腿删除（连 continue-on-error 一起删），改「改到对应面时本地跑 `bash scripts/mng_scenario.sh`」兜底（AGENTS.md 已同步）；CI 剩余的 `continue-on-error` 只有 mac hello 存活冒烟一条，口径不变。

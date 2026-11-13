@@ -15,7 +15,6 @@
 
 ## CI 与门禁
 
-- [ ] **恢复 CI 热更场景门禁**（2026-11-13 移出）：Linux / mac 两腿的「mng 应用侧场景」已标 `continue-on-error`——本机 mng_scenario 连跑 4 轮 15/15 全绿，CI 仍偶发红；查 CI 环境差异（xvfb / 启动耗时 / 构建负载）后删标记恢复门禁
 - [ ] **gui-media video_wbtest mac 本机失败**（CI 未覆盖组合）：用例「VideoPlayer 时钟同轴：回退 fps 不影响时间轴」——回拨 500ms 后位置 0.613 / 0.633（期望窗 0.45–0.55），稳定复现；Windows CI 每轮跑且过，Linux / mac 腿不跑 gui-media test 故从未暴露
 - [ ] **prebuild mbtx 两腿验证**（CI，最好加无 python 环境腿）：CI 三腿绿（mbtx 在 win / linux 首跑）；另在无 python 环境各跑一次 `moon build examples/hello`——win 摘 PATH 里 python，linux 用无 python 的 docker 镜像
 

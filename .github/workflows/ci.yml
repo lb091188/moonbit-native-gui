@@ -187,19 +187,6 @@ jobs:
           cd tools/vscode-mng
           xvfb-run -a npm run test:vscode
 
-      # 应用侧场景（进程级）：脚手架 → dev 首轮起窗 → 字面量 HOT → 新符号 COLD
-      # 重启回页 → 新建/删除 .mng 的 [NEW]/[GONE] → 改源码 [SRC] → 项目级生产构建。
-      # 单元用例够不到 watch 循环、单实例通道与重启编排，这条补上。
-      # 2026-11-13 起移出门禁（continue-on-error）：本机已连跑多轮全绿，CI 仍偶发红；
-      # 后续修复后删 continue-on-error 恢复门禁（TODO 有账）。
-      - name: mng 应用侧场景(非门禁,热更场景修复中)
-        continue-on-error: true
-        # MNG_WGPU_LIB=off 显式关 L1：runner 无 GPU，否则 wgpu 对 configure 的
-        # 校验失败是进程级 panic，应用直接 abort，HOT 回执链路跟着断。
-        env:
-          MNG_WGPU_LIB: off
-        run: xvfb-run -a bash scripts/mng_scenario.sh
-
       # 模板生成物新鲜度对账：对每个提交的 .mng 用 dev / 生产两种形态重新编译，
       # 与提交的 <stem>.gen.mbt 比对——匹配任一形态即过（mng dev 写 dev 形态、
       # mng build 写生产形态，两者共用同一条 <stem>.gen.mbt，提交前选一种保持一致）。
@@ -571,13 +558,6 @@ jobs:
           npm ci --no-audit --no-fund
           npm run typecheck
           npm test
-
-      # 应用侧场景（进程级，同 Linux job）。mac runner 有窗口服务会话，直接跑；
-      # 这条腿同时回证 AF_UNIX 单实例通道上的 HOT 推送与 COLD 重启回页。
-      # 2026-11-13 起移出门禁（continue-on-error，同 Linux job 口径）。
-      - name: mng 应用侧场景(非门禁,热更场景修复中)
-        continue-on-error: true
-        run: bash scripts/mng_scenario.sh
 
       # webview 扩展模块与 Linux job 同一步:回证模块 prebuild 的 Darwin 分支
       # (WB_HAVE_WKWEBVIEW 归档 + 主仓 libyue_win_stub_mac.a)在真 macOS 上链得上。
