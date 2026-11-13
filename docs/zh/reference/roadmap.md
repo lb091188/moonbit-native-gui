@@ -124,7 +124,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **CJK 与 RTL 行首方向**：对齐给 `align`（Start/Center/End），方向给 `direction`，两者分开
 - ✅ **样式槽文本字段**：`text_align` / `white_space` / `line_height` / `text_decoration` 写入 class 即生效
 - ✅ **字距**：`letter_spacing` 生效到测量与绘制，字间按设定值加宽
-- ✅ **行数钳制**：`max_lines` 折行文本超行数上限时截断、末尾出 …（三平台一实现，库级用例钉住）
+- ✅ **行数钳制**：`max_lines` 折行文本超行数上限时截断、末尾出 …
 - ✅ **文本件口径定案**：`TextRole` 退役，角色收编为 `@style` 字阶预设
   - `class` 挂 `text_heading` 等，字号读主题字阶令牌
   - `text` / `text_dyn` 缺省折行，单行标签显式 `wrap=false`
@@ -272,7 +272,11 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **页面路由**：路由树、每层选中键、link 绑定、Eager / Prefetch / Lazy 三档预建
 - ✅ **路由每层淘汰**：`Lru(n)` 摘树 + 整代退订，重进按 thunk 重建；只数已挂载子树，`Keep` 不参与淘汰——长会话缓存不无限长
 - ✅ **样式与主题**：样式槽 + 状态桶 + 命名类；20 个颜色 token；跟随系统明暗与强调色
-- ✅ **声明式层**：`Node{mount}` 地基 + L1 构造器全集（`ui/declarative.mbt`，旧链构造器全部到位收口）；`cursor_group` 窗口层光标通道、`combo` 按键祖先链冒泡、`gif` 逐帧迭代
+- ✅ **声明式层**：`Node{mount}` 地基 + L1 构造器全集（`ui/declarative.mbt`）
+  - 旧链构造器全部到位收口
+  - `cursor_group` 窗口层光标通道
+  - `combo` 按键祖先链冒泡
+  - `gif` 逐帧迭代
 
 ### 主题与样式
 
@@ -281,7 +285,8 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案（proposa
 - 🚧 **设计令牌四阶**：间距阶 / 半径阶 / 字阶 / 时长阶进 `Theme`
   - 基准常量与静态间距令牌 + 运行时 getter（越界按首末夹取）
   - 刻度字面量已换令牌单源
-- 🚧 **背景渐变**：`background_gradient` 线性 / 径向 + stops（stop 颜色可用主题 token）
+- 🚧 **背景渐变**：`background_gradient` 线性 / 径向 + stops
+  - stop 颜色可用主题 token
   - view 盒子渐变优先、不足两 stop 回落纯色
   - 待收尾：半透明 stop 的后端插值口径差（golden 对拍）
 - 🚧 **每角圆角**：四角独立半径；相邻角和超边长时等比缩小
@@ -295,19 +300,22 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案（proposa
   - dev 档 `mng.toml` 支持 `theme` 键存盘即重载
 - 🚧 **跟随系统默认接线**：`theme_apply_system_once`——首个窗口挂载前探测一次并应用，深色系统首次启动不再白闪
   - 持续轮询仍 opt-in
-- 🚧 **深浅变体接入消费**：`theme_is_dark()` 判档 + 内置变体类注册表（tooltip / scroll-thumb / divider-line 深档）+ 两个消费口；`dark:` / `light:` 前缀有了真实消费者
+- 🚧 **深浅变体接入消费**：`theme_is_dark()` 判档 + 内置变体类注册表 + 两个消费口
+  - 内置变体类：tooltip / scroll-thumb / divider-line 深档
+  - `dark:` / `light:` 前缀有了真实消费者
 - 🚧 **代码视图主题化**：`Token.role` 角色化 + `CodeTheme`
   - 按面板底色分深浅两套映射，色值全走语义 token
   - 缺省跟当前主题，可显式钉死
 - 🚧 **主题定制示例**：`examples/theme-playground/` 独立模块
   - 覆盖：换主色 / 全量覆盖 / 持续跟随 / 类槽覆盖
   - 用例已进测试文档；待验：真机清单
-- ✅ **样式全序四层**：一条链 **继承 < 默认 < 属性 < class < `style(...)`**；对外可配的布局散参数折进属性层，组件内部布局不对外样式化（用例钉住）
+- ✅ **样式全序四层**：一条链 **继承 < 默认 < 属性 < class < `style(...)`**；对外可配的布局散参数折进属性层，组件内部布局不对外样式化
 - ✅ **样式层 `border_style`**：`Solid` / `Dashed` / `Dotted` 三档虚线框，线形定档、粗细定周期；通用容器与滚动视口描边即吃
 
 ### 系统能力
 
-- ✅ **全局快捷键键名随平台**：门面回查 / 回显给平台规范名（mac `Cmd+…`、其余 `Ctrl+…`，`CmdOrCtrl` 别名不外泄）
+- ✅ **全局快捷键键名随平台**：门面回查 / 回显给平台规范名
+  - mac `Cmd+…`、其余 `Ctrl+…`；`CmdOrCtrl` 别名不外泄
 - ✅ **文件对话框**：打开 / 保存 / 选目录；取消返回 None
 - ✅ **打开与定位**：URL 交浏览器、文件交默认程序、路径交文件管理器；不存在给 NotFound 不崩
 - ✅ **剪贴板**：读写系统剪贴板文本
@@ -315,11 +323,13 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案（proposa
 - ✅ **显示器枚举**：在线屏、分辨率、刷新率、模式列表
   - 平台实现：Linux `xrandr`、macOS CoreGraphics、Windows GDI
   - 读数边界如实：`connected` 恒真、物理尺寸仅 Linux 有、`preferred` 恒 false（无公开信号不拿当前档冒充）
-- ✅ **系统托盘**：通知区图标 + 右键 / 左键菜单（Linux SNI、Windows `Shell_NotifyIcon`）
+- ✅ **系统托盘**：通知区图标 + 右键 / 左键菜单
+  - 平台实现：Linux SNI、Windows `Shell_NotifyIcon`
   - 退出前逐个摘除不留僵尸图标（非正常退出仍拦不住，Win32 通病）
   - 内置品牌单色图标随主题明暗，mac 走系统模板图自动反色
   - 待验：图标部分真机
-- ✅ **空闲检测**：读系统空闲秒数（Linux X11、Windows；macOS 走 HID）
+- ✅ **空闲检测**：读系统空闲秒数
+  - 平台实现：Linux X11、Windows；macOS 走 HID
 - ✅ **开机自启**：写 autostart / Run 键 / LaunchAgents；查询读系统侧禁用位，系统设置里关掉的不误报
 - ✅ **通知**：授权请求、同 id 覆盖即更新、按标识摘除；前台横幅走时间敏感档
   - 平台实现：macOS UNUserNotificationCenter、Linux D-Bus、Windows 托盘气泡
@@ -337,8 +347,11 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案（proposa
 - ✅ **子进程与文件原语**：`pr_run` 带超时与输出捕获；`fsx` / `envx` / JSON 读写
 - ✅ **传感器 / 蓝牙 / 磁盘**：Linux 侧硬件族只读读数
 - ✅ **系统信息**：发行版、机器、内存、开机时长、桌面环境
-- ✅ **应用枚举**：已装应用清单与分类（Linux `.desktop`、Windows 开始菜单、macOS `/Applications`）
-- ✅ **最近文件**：系统最近文件列表（Linux / Windows；macOS 无公开面，属平台边界不是缺口）
+- ✅ **应用枚举**：已装应用清单与分类
+  - 平台实现：Linux `.desktop`、Windows 开始菜单、macOS `/Applications`
+- ✅ **最近文件**：系统最近文件列表
+  - 平台实现：Linux / Windows
+  - macOS 无公开面，属平台边界不是缺口
 - ✅ **壁纸与默认应用**：读写壁纸、查默认应用
 - ✅ **单实例**：进程级唯一 + 唤起已有实例
   - 平台实现：Linux D-Bus 知名名、Windows 命名互斥体、macOS AF_UNIX
@@ -476,7 +489,7 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案（proposa
   - 项目级 dev（一条命令盯整个工作区）已落地
 - 🚧 **样式类热更新**：`<style>` 规则随补丁以数据重注册命名类（类名与样式值都可热）
   - 主题 token 定义改动仍走重启
-  - 模板属性里的样式字面量一律编译报错（「样式进槽」编译器强制已落）
+  - 模板属性里的样式字面量一律编译报错；「样式进槽」编译器强制已落
 - 🚧 **模板样式章**：`<style>` 段编译期摊平进命名类注册表
   - 支持：类选择器、`var(--令牌)`、`#rrggbb`、枚举关键字、flex 简写、`%` 宽高、深浅两档、`:hover/:active/:focus` 交互态、文字属性继承
   - 不做：运行时级联 / 元素与后代选择器
@@ -494,23 +507,30 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案（proposa
 - 🚧 **mng 全入口：doctor 体检 + GUI 向导 + 三通道分发**（2026-11-11 立项）：mng 从模板工具升格为项目唯一入口
   - 裸 `mng` 状态机：环境未体检先跑 doctor（全绿写 ready 并继续），ready 有效起向导；ready 只门交互入口，子命令与 CI 永不被拦
   - **P0 doctor 体检** ✅ 三平台真机全过
-  - **P1 mngui 向导壳** 🚧 已合入待真机（欢迎→体检→新建→起 dev→完成页五步壳；图标步未做）+ 工具链文档区建区
-  - **P2 工程中心化** 🚧 已合入待真机（工程面板、`mng run/check/test` 包装、`mng icons` / `mng ffmpeg-dll` 内建化）
-  - **prebuild 去 Python** 🚧 gui / gui-media / gui-gpu 已切 `.mbtx`（win / linux 腿随 CI 验证）；gui-webview / ffmpeg-mbt 仍 py
-  - **P3 三通道分发** ⏳ 方案已定（版本两轴独立、install 脚本、Gitee 镜像；修复动作第一版只给可复制命令）
+  - **P1 mngui 向导壳** 🚧 已合入待真机 + 工具链文档区建区
+    - 五步壳：欢迎 → 体检 → 新建 → 起 dev → 完成页；图标步未做
+  - **P2 工程中心化** 🚧 已合入待真机
+    - 工程面板、`mng run/check/test` 包装、`mng icons` / `mng ffmpeg-dll` 内建化
+  - **prebuild 去 Python** 🚧
+    - gui / gui-media / gui-gpu 已切 `.mbtx`，win / linux 腿随 CI 验证；gui-webview / ffmpeg-mbt 仍 py
+  - **P3 三通道分发** ⏳ 方案已定
+    - 版本两轴独立、install 脚本、Gitee 镜像；修复动作第一版只给可复制命令
 
 ### 工程与交付
 
 - ⏳ **品牌与应用图标 v1**（定案见对内 experience/brand.md）：master 图标「月兔从应用窗口探头」+ 品牌四色落 `assets/brand/`
   - 导出矩阵脚本化（macOS icns / Windows ico / Linux png / favicon / 文档站 logo）
   - 待验：应用图标替换真机
-- ⏳ **应用打包管线·剩余面**：安装卸载观感真机清单、签名公证真机复验（自定义证书入口已留 `[package.sign]`）
+- ⏳ **应用打包管线·剩余面**：安装卸载观感真机清单、签名公证真机复验
+  - 自定义证书入口已留 `[package.sign]`
 - ⏳ **自动更新·剩余面**：异步下载执行器（进度 / 取消，随平台线程批）、Ed25519 清单签名（v1.5）、增量更新（v2）
 - ⏳ **桌面登记面·剩余面**：
   - 基础键已随打包落（`StartupWMClass` / `CFBundleDisplayName` / Maintainer 可配）
   - 剩：深链 scheme、文件关联、最近文档写侧——登记声明进 `mng.toml`、打包器落各平台清单、唤起事件经单实例通道回投
 - ⏳ **稳定面清单与 1.0 时点**：逐包划分承诺面 / 实验面，公告破坏性改动截止线；在 moonbit 1.0 之后评估
-- ⏳ **CPU/GPU 像素对拍与无头像素快照基线**：同一套比对器两用——快照基线管「跨版本不漂」、对拍管「GPU 路径与纯光栅逐像素一致」；容差与基线治理判据立项时定（工作量大于门面本体，单独立项）
+- ⏳ **CPU/GPU 像素对拍与无头像素快照基线**：同一套比对器两用——快照基线管「跨版本不漂」、对拍管「GPU 路径与纯光栅逐像素一致」
+  - 容差与基线治理判据立项时定
+  - 工作量大于门面本体，单独立项
 
 ### 示例与文档
 
