@@ -46,6 +46,12 @@ Wayland/DE 专属工作（协议客户、spike、DE 实测矩阵）已移交 [pr
 
 
 
+## 扩大本地门禁抓出的回归（2026-11-13，门禁对齐 CI 后首跑发现）
+
+- [ ] **mng dev 热更回归**（嫌疑：1c9d196d 全仓 Int→Int32 迁移，该提交尚无 CI 背书）：`bash scripts/mng_scenario.sh` 本机 12/14——①字面量 HOT 补丁被应用侧判 stale 拒收（dev.log：`握手不符：stale：注册表键集落后（补丁缺 1 键：t:…）`）；②新增 `.mng` 报「并入本拍构建」却未 regen 生成码，build 报 `about.gen.mbt missing` 退出 255，后续断言连锁超时。复跑用 `--keep` 留 `.mng-scenario/dev.log`
+- [ ] **mng_scenario 起手不自清残留**：上一轮 COLD 重启后的 demo 实例进程不在 DEV_PID 跟踪内、cleanup 杀不到，残留实例占单实例通道让下一轮假红（本轮实测：手动 kill 残留 pid 60041 后场景行为改变）——脚本起手按 `mng_scenario_demo` 名字清残留
+- [ ] **gui-media video_wbtest mac 本机失败**（CI 未覆盖组合）：`VideoPlayer 时钟同轴：回退 fps 不影响时间轴`——回拨 500ms 后位置 0.613 / 0.633（期望窗 0.45–0.55），稳定复现；Windows CI 每轮跑且过，Linux / mac 腿不跑 gui-media test 故从未暴露
+
 ## 验收前收口批（2026-11-12 代码合入，真机复验归用户）
 
 - [ ] **新窗首帧**：`cd examples/hello` 依次开三档子窗，**不动鼠标**每扇窗内容立即可见（不再白屏等鼠标）

@@ -17,9 +17,16 @@
 
 ```sh
 cd gui && moon check          # 门禁:零错误零警告
-cd gui && moon test ui render text theme icons sys input win dbus wayland chart mdview style base shell widget router inspector uitest
+cd gui && moon test base shell widget ui render text theme icons sys input win dbus wayland chart mdview style router uitest mngdev inspector
+cd tools/native-gui-tools && moon test mng mngkit proc inst   # mng 工具链测试
+cd modules/gui-webview && moon test webview                   # webview 扩展模块(点名包,裸跑会连带全 workspace)
+cd gui && moon build base shell widget ui render text theme icons sys input win chart mdview style router --target native
+moon build examples/hello examples/audio examples/video --target native   # 示例链接(含媒体桩真链)
+cd docs && npm run build && cd .. && node tools/check-docs-index.mjs      # 文档站构建 + 索引守卫
 moon run examples/hello       # 最小窗口(另有 showcase 等)
 ```
+
+门禁范围与 `.github/workflows/ci.yml` 三腿一致(本机视角 = macOS 腿 + Docs;xvfb 冒烟与 Windows 链接本地不做)。按需加跑——编辑器场景:`moon build tools/native-gui-tools/mng --target native` 后在 `tools/vscode-mng` 跑 `npm run typecheck` + `npm test`;mng 应用侧场景:`bash scripts/mng_scenario.sh`(起真进程,跑完自动还原 `moon.work`);mac 原生桩语法门禁:照 ci.yml macOS 腿对五桩逐个 `clang -fsyntax-only`——改到对应面时必跑。
 
 裸 `moon test` 会连带 examples / experiment / 媒体模块(含平台适配缺口，非库缺陷)，不作库门禁。
 
