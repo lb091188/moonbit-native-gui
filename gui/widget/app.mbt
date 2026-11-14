@@ -248,6 +248,9 @@ fn app_window(
     None => None
     Some(session) => {
       let root = Widget::new()
+      // 窗根是竖排容器：页面顶层元素缺省撑满窗宽、高度按内容，要占满剩余
+      // 高度给 grow=1.0——与 web 块级布局同口径
+      root.node.set_flex_direction(@yoga.Column)
       let app : WindowHost = {
         session,
         root,
@@ -290,6 +293,7 @@ fn app_window(
 /// 跨模块测试通道：给一扇（假）壳层窗挂上空的根控件与浮层宿主。
 pub fn test_app(s : @shell.Session) -> WindowHost {
   let root = Widget::new()
+  root.node.set_flex_direction(@yoga.Column)
   {
     session: s,
     root,

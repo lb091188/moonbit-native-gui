@@ -83,8 +83,8 @@ pub fn row(
   background_color~ : String = "",
   /// 描一圈边色，空串不描边。
   border_color~ : String = "",
-  /// 让子节点在交叉轴上按此对齐。
-  align_items~ : @yoga.AlignItems = @yoga.AlignItems::Center,
+  /// 让子节点在交叉轴上按此对齐，缺省 Stretch——子项撑满行高。
+  align_items~ : @yoga.AlignItems = @yoga.AlignItems::Stretch,
   /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
   class~ : Array[@style.Style] = [],
   /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。

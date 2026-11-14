@@ -10,9 +10,10 @@ General conventions (typed parameters, the `class` override order, `Store`-held 
 
 - Vertical layout container (the Column form of `view`)
 
-### `row(children, column_gap?, padding?, width?, height?, grow?, background_color?, border_color?, align_items?=Center, class?, handle?)`
+### `row(children, column_gap?, padding?, width?, height?, grow?, background_color?, border_color?, align_items?=Stretch, class?, handle?)`
 
-- Horizontal layout container (the Row form of `view`)
+- Horizontal layout container (the Row form of `view`); `align_items` defaults to `Stretch`, so children fill the row's height
+  - Stretch: the flexbox cross-axis alignment that makes children fill the container along the axis perpendicular to the layout direction
 
 ### `panel(title, children, padding?=10.0, row_gap?=6.0, width?, class?)`
 

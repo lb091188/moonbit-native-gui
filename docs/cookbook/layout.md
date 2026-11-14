@@ -95,7 +95,6 @@ Fixed width via `width=`, flexibility via `grow=1.0`, equal halves via `width_pe
     @ui.col([@ui.text("Nav"), @ui.text("Settings")], width=180.0),
     @ui.col([@ui.text("Main area")], grow=1.0),
   ],
-  align_items=@yoga.AlignItems::Stretch,
 )
 ```
 
@@ -117,7 +116,7 @@ Fixed width via `width=`, flexibility via `grow=1.0`, equal halves via `width_pe
 )
 ```
 
-Note: `row`'s `align_items` defaults to Center (`col` defaults to Stretch); write `Stretch` explicitly for full-height panes.
+Note: `row`'s `align_items` also defaults to `Stretch`, same as `col`, so children in a row get equal height automatically; write `Center` explicitly for content-height children centered vertically in the row.
 
 ## Scrolling overflowing content
 

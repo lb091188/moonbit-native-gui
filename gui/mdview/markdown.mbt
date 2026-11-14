@@ -506,10 +506,8 @@ fn md_item_content(
 fn md_marker(text : String, w : Double) -> @widget.Node {
   @widget.node_of_new(fn(mk : @widget.Widget) -> @widget.Widget {
     mk.node.set_width(@yoga.fixed(w))
-    // 行盒高度必须注册测量：这个格子只有绘制、没有子件，不注册就是**零高度**，
-    // 而 hbox 默认 align_items=Center——0 高的格子被摆到行的中点，序号整个
-    // 掉到文字基线上（实测 rect=(0,111,18,0) 而正文在 102..120，数字中心正好
-    // 压在基线上）。测一次自己的文本，拿到与正文同源的行盒高。
+    // 这个格子只有绘制、没有子件：测一次自己的文本，拿到与正文同源的行盒高，
+    // 序号才有真实高度可贴首行顶对齐。
     mk.node.set_measure(fn(_aw : Double?, _ah : Double?) -> (Double, Double) {
       match @text.measure(text, 13.0) {
         Some(m) => (m.width, m.height.to_double())

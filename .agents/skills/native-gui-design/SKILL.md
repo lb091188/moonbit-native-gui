@@ -46,6 +46,6 @@ description: Design rules for building user interfaces with NoahLiu/native-gui (
 - 文本对齐只有 `@text.Start` / `Center` / `End`，没有 `Left` / `Right` / `Justify`。
 - 现取 token 颜色用 `@style.theme_token_value(name)`，不在 `@theme` 包里。
 - `padding=` 是四边简写，`padding_top=` 等逐边参数写在它**之后**才覆写；`gap=` 同时铺 `row_gap` 与 `column_gap`，逐轴参数同样在后。
-- `@ui.view` / `col` / `row` 里尺寸给 `0` 表示按内容取尺寸，撑满剩余空间用 `grow=1.0`，不是 `height="100%"`；`@ui.row` 的 `align_items` 默认是 `Center`，而 `view` / `col` 是 `Stretch`。
+- `@ui.view` / `col` / `row` 里尺寸给 `0` 表示按内容取尺寸，撑满剩余空间用 `grow=1.0`，不是 `height="100%"`；三者的 `align_items` 都缺省 `Stretch`——列里子项撑满容器宽、行里子项撑满行高，要居中显式传 `Center`；窗根是竖排容器，页面顶层元素缺省撑满窗宽。
 - 用到布局的包要在 `moon.pkg` 写 `supported_targets = "native"`，不写报警告；引了不用的包同样报 `unused_package`。
 - 观感不按平台分叉：库不提供按平台改样式的路径，三端同一套值。界面里出现的平台判断只该是能力探测（有没有托盘、有没有显示服务），不是给某个平台换一套圆角或配色。

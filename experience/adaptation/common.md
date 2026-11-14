@@ -2083,3 +2083,10 @@ GpuCanvas——@render.GpuSink 的 gui-gpu 实现，GPU 线首消费者——落
 - **sha256 常量表必须整块照抄**：k256 抄错一个常量——丢 `0xa81a664b`——不报编译错，运行期 `Array::at` 越界 trap；抄完与已验证实现 `grep -o | wc -l` 数个数——64——+ diff 全表。归档名指纹——sha256 前 8 位——与 py 时代同源，py 时代的旧桩归档能直接复用。
 - **验证口径三级**：`MOON_MOD` / `MOON_HOST_OS` 手工注入直跑 mbtx——协议语法门禁→ 借 moon 真协议环境找产物落点——桩是否编进 `MOON_BUILD_DIR`→ PATH 注入假 python 桩——stub 报 `PYTHON-INVOKED` 并退出 127——跑 `moon build examples/hello examples/audio examples/video --target native` 全链绿。workspace 的 prebuild 阶段是模块图全量执行，任何一个 py prebuild 都挡住不相干模块的构建。
 - **下载口径统一**：py 时代的「双镜像并行竞速」在 mbtx 一律改「串行按序 + 总预算」——与 gui-media 同口径；预算按体积给足——mac 归档 240s、win dll 归档 480s。zip/tar.gz 解包统一 spawn `tar`——三平台自带，bsdtar 支持 zip。
+
+## 布局缺省对齐 web：窗根 Column、row 交叉轴 Stretch——2026-11-14，「新建应用页面宽度不占满」收口
+
+- **定案**：窗根从 yoga 默认 Row 改显式 Column——页面顶层元素缺省撑满窗宽、高度按内容，要占满剩余高度给 `grow=1.0`；`@ui.row` 缺省 `align_items` 从 Center 改 Stretch——与 `view` / `col` / CSS flexbox 同口径，行内子项缺省撑满行高，要居中显式传 Center。引擎层零改动——yoga 本就缺省 stretch，非 web 行为全是 GUI 层两处覆盖造成。
+- **兼容面**：库内部容器——nav / form / datepicker / overlay / message_box / checkbox / switch 等——原本就显式钉 Center，零回归；全库 1428 测试全绿。文本控件统一 `valign=Center` 绘制，被拉伸后视觉不变；mdview 列表序号由「整盒居中」变「贴首行顶对齐」，与原注释声明的设计意图一致；markdown 表格单元格由「相对最高格居中」变顶对齐，与 HTML 表格同口径。
+- **迁移口径**：旧应用顶层若依赖 Row 窗根的「交叉轴撑满窗高」而不带 `grow`，补 `grow=1.0`；行内要旧居中观感显式传 `align_items=Center`。
+- **验证**：`cd gui && moon check` 零警告、门禁 19 包 1428/1428；九个注册示例 native 链接全过。**待真机**：工具行 / 面包屑 / markdown 列表与表格纵向对齐观感，新建页面顶层宽度自动占满。

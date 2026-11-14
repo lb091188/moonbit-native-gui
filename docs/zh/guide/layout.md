@@ -35,11 +35,11 @@
 
 | 字段 | 取值 | 含义 |
 |---|---|---|
-| `flex_direction` | `Row` / `RowReverse` / `Column` / `ColumnReverse` | 主轴方向，默认 `Row`，web 语义 |
+| `flex_direction` | `Row` / `RowReverse` / `Column` / `ColumnReverse` | 主轴方向；样式层默认 `Row`，容器 `view` / `col` 缺省 `Column`、`row` 为 `Row`、窗根为 `Column` |
 | `flex_wrap` | `NoWrap` / `Wrap` / `WrapReverse` | 是否换行，默认 `NoWrap` |
 | `flex` | `Double` | 弹性增长因子，配合 `grow` |
 | `justify_content` | `FlexStart` / `FlexEnd` / `Center` / `SpaceBetween` / `SpaceAround` / `SpaceEvenly` | 主轴对齐 |
-| `align_items` | `Stretch` / `FlexStart` / `FlexEnd` / `Center` / `Baseline` | 交叉轴对齐，子项默认 |
+| `align_items` | `Stretch` / `FlexStart` / `FlexEnd` / `Center` / `Baseline` | 交叉轴对齐，容器缺省 `Stretch` |
 | `align_self` | 同 `align_items` | 单项覆盖父的 `align_items` |
 | `row_gap` / `column_gap` / `gap` | `Double` | 换行行间距 / 列间距 / 统一简写 |
 
@@ -54,11 +54,20 @@
 
 枚举类型 `FlexDirection` / `AlignItems` / `JustifyContent` / `FlexWrap` / `PositionType` 与组件命名参数共用同一套定义，均来自 yoga-mbt，写作 `@yoga.Row` / `@yoga.Center` 形式，或直接传给 `view(direction=…)`。
 
+## 缺省行为
+
+与 web 同口径的三条缺省：
+
+- **窗根是竖排容器。** 页面顶层元素缺省撑满窗宽、高度按内容；要占满剩余高度给 `grow=1.0`。
+- **容器交叉轴缺省拉满。** `view` / `col` / `row` 的 `align_items` 缺省 `Stretch`——列里子项撑满容器宽、行里子项撑满行高；要居中显式传 `Center`。
+  - Stretch：flexbox 交叉轴拉齐——子项沿垂直于排列方向的轴撑满容器。
+- **主轴不自动撑满。** `flex_grow` 缺省 0，主轴要占满剩余空间显式给 `grow=1.0`。
+
 ## 关键行为
 
 **min:auto 会使滚动与换行容器失效。** Flex 子项的默认最小尺寸是 `auto`（即内容尺寸）。滚动视口或换行容器若不显式设置 `min_width` / `min_height = 0.0`，会被内容撑到自然尺寸，导致无法滚动或整行溢出。库内容器 `scroll_view` / `virt_list` 及 components 侧栏已处理此项；自建滚动或换行结构时需自行设置 `min_width=0.0, min_height=0.0`。
 
-**换行容器须为列方向。** `flex_wrap=Wrap` 只有在容器为**列**方向时才能正常折行：`row` 容器的交叉轴不拉伸，换行子项按内容定宽会堆叠为竖排。标签组这类「超宽自动换行」的场景应放入列容器，且每层显式设置 `min_* = 0`。
+**换行容器须为列方向。** `flex_wrap=Wrap` 只有在容器为**列**方向时才能正常折行：折行下限按定住的交叉宽参照，放不下的子项自动落到下一行。标签组这类「超宽自动换行」的场景应放入列容器，且每层显式设置 `min_* = 0`。
 
 **gap 计入弹性分配。** 弹性分配（grow/shrink）计算自由空间时会先扣除 `gap × (n-1)`，因此「固定项 + grow 项 + gap」的组合不会溢出。引擎内置行为，无需额外处理。
 

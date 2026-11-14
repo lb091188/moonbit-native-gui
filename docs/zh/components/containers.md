@@ -13,9 +13,10 @@
 
 - 垂直布局容器（`view` 的 Column 形态）
 
-### `row(children, column_gap?, padding?, width?, height?, grow?, background_color?, border_color?, align_items?=Center, class?, handle?)`
+### `row(children, column_gap?, padding?, width?, height?, grow?, background_color?, border_color?, align_items?=Stretch, class?, handle?)`
 
-- 水平布局容器（`view` 的 Row 形态）；`align_items` 默认 `Center`
+- 水平布局容器（`view` 的 Row 形态）；`align_items` 缺省 `Stretch`，行内子项撑满行高
+  - Stretch：flexbox 交叉轴拉齐——子项沿垂直于排列方向的轴撑满容器
 
 ### `panel(title, children, padding?=10.0, row_gap?=6.0, width?, class?)`
 

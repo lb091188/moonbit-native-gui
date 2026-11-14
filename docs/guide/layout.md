@@ -35,11 +35,11 @@ The labelled parameters of `@style.style(...)` are the field names; all are opti
 
 | Field | Values | Meaning |
 |---|---|---|
-| `flex_direction` | `Row` / `RowReverse` / `Column` / `ColumnReverse` | main-axis direction; default `Row`, web semantics |
+| `flex_direction` | `Row` / `RowReverse` / `Column` / `ColumnReverse` | main-axis direction; at the style layer the default is `Row`, while the containers `view` / `col` default to `Column`, `row` is `Row`, and the window root is `Column` |
 | `flex_wrap` | `NoWrap` / `Wrap` / `WrapReverse` | whether to wrap; default `NoWrap` |
 | `flex` | `Double` | flex grow factor, used with `grow` |
 | `justify_content` | `FlexStart` / `FlexEnd` / `Center` / `SpaceBetween` / `SpaceAround` / `SpaceEvenly` | main-axis alignment |
-| `align_items` | `Stretch` / `FlexStart` / `FlexEnd` / `Center` / `Baseline` | cross-axis alignment, the default for children |
+| `align_items` | `Stretch` / `FlexStart` / `FlexEnd` / `Center` / `Baseline` | cross-axis alignment; containers default to `Stretch` |
 | `align_self` | same as `align_items` | one item overrides the parent's `align_items` |
 | `row_gap` / `column_gap` / `gap` | `Double` | row gap / column gap / uniform shorthand |
 
@@ -54,11 +54,20 @@ The labelled parameters of `@style.style(...)` are the field names; all are opti
 
 The enums `FlexDirection` / `AlignItems` / `JustifyContent` / `FlexWrap` / `PositionType` are the same set the loose parameters use, all from yoga-mbt. Write them as `@yoga.Row` / `@yoga.Center`, or pass them straight to `view(direction=…)`.
 
+## Web-parity defaults
+
+Three defaults that match the web:
+
+- **The window root is a vertical container.** Top-level page elements fill the window width by default and hug their content height; pass `grow=1.0` to take up the remaining height.
+- **Containers stretch on the cross axis by default.** `view` / `col` / `row` all default `align_items` to `Stretch` — children fill the container's width in a column and the row's height in a row; pass `Center` explicitly for centering.
+  - Stretch: the flexbox cross-axis alignment that makes children fill the container along the axis perpendicular to the layout direction.
+- **The main axis does not fill automatically.** `flex_grow` defaults to 0; pass `grow=1.0` to take up the remaining space on the main axis.
+
 ## A few things you must know
 
 **min:auto blows up scroll and wrap containers.** A flex child's default minimum size is `auto`, i.e. its content size. A scroll viewport or wrapping container that doesn't set `min_width` / `min_height = 0.0` gets pushed to its content's natural size, `max()` stays 0, and the result is that it won't scroll or the row overflows. The library-level containers `scroll_view` / `virt_list` and the components sidebar already fix this; when you build your own scroll or wrap structure, write `min_width=0.0, min_height=0.0` yourself.
 
-**Wrapping must go the right direction.** `flex_wrap=Wrap` only folds vertically when the container is a **column**: a `row` container doesn't stretch on the cross axis, so wrapped items sized to content fold into a vertical stack. A chip bar that must "wrap when too wide" therefore goes into a column container, with explicit `min_* = 0` at every level.
+**Wrapping must go the right direction.** `flex_wrap=Wrap` only folds vertically when the container is a **column**: the wrap lower bound is judged against the pinned cross width, and items that don't fit drop to the next line. A chip bar that must "wrap when too wide" therefore goes into a column container, with explicit `min_* = 0` at every level.
 
 **gap is already subtracted from free space.** When grow/shrink computes free space, it first deducts `gap × (n-1)`, so a row of "fixed items + a grow item + gap" never overflows. The engine does this for you — no workaround needed.
 

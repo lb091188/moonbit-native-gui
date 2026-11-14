@@ -442,19 +442,16 @@ fn page_mem_detail(app : App) -> @widget.Node {
 /// 组内任意位置（含菜单子控件）都是手型。
 fn app_shell(app : App) -> @widget.Node {
   let view : @base.Store[ViewId] = @base.Store::new(VCpu)
-  // 壳必须自己撑满窗口：主轴靠 flex_grow、交叉轴靠 align_self（外层 hbox
-  // 默认 Center，不补这句会缩在窗口左上角）。
+  // 壳撑满窗口：宽度窗根缺省已拉满，剩余高度靠 flex_grow
   @ui.cursor_group(
     [
       @ui.row(
         [left_pane(app, view), view_area(app, view)],
         grow=1.0,
-        align_items=@yoga.AlignItems::Stretch,
       ),
     ],
     handle=fn(w : @widget.Widget) -> Unit {
       w.node.set_flex_grow(1.0)
-      w.node.set_align_self(Some(@yoga.AlignItems::Stretch))
     },
   )
 }

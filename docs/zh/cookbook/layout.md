@@ -95,7 +95,6 @@ let body = @ui.ScrollState::new()
     @ui.col([@ui.text("导航"), @ui.text("设置")], width=180.0),
     @ui.col([@ui.text("主内容区")], grow=1.0),
   ],
-  align_items=@yoga.AlignItems::Stretch,
 )
 ```
 
@@ -117,7 +116,7 @@ let body = @ui.ScrollState::new()
 )
 ```
 
-注意：`row` 的 `align_items` 缺省 Center（`col` 缺省 Stretch）；等高两栏显式写 `Stretch`。
+注意：`row` 的 `align_items` 缺省 Stretch，与 `col` 一致，行内子项自动等高；要子项按内容高、整行纵向居中显式写 `Center`。
 
 ## 内容超高滚动
 
