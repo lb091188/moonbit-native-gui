@@ -1,21 +1,32 @@
 # MoonBit native runtime 的 `SYS_pidfd_open`：向官方求证的记录
 
-目的：native-gui 在做 Linux 发行版兼容验证，这台 deepin 20 上 `moon build --target native` 编不过工具链自带的 runtime C 源。定位到根因在上游（判据与符号不同源），本文件存证据与两条可直接粘贴的问稿（长版 / 5 行短版）。
+目的：native-gui 在做 Linux 发行版兼容验证，这台 deepin 20 上 `moon build --target native` 编不过工具链自带的 runtime C 源。定位到根因在上游，判据与符号不同源；本文件存证据与两条可直接粘贴的问稿，长版与 5 行短版。
+- deepin：基于 Debian 的国产 Linux 桌面发行版。
+- 发行版：带打包与配套软件的 Linux 整套系统，如 deepin、Ubuntu。
+- runtime：moon 工具链自带的底层运行时库，含进程与线程管理。
 
-## 已提 issue（2026-11-07）
+## 已提 issue·2026-11-07
 
-- <https://github.com/moonbitlang/moonbit-native-runtime/issues/8>（中文，精简版：问题 / 依据 / 复现；以 moon 0.1.20261104 随发 runtime 取证，行号与 20261023 相同；同批指出 `posix_spawn_file_actions_addchdir_np` 无 glibc 护栏与 `moonbitlang/async` 同款写法）。
+- <https://github.com/moonbitlang/moonbit-native-runtime/issues/8>
+  - 语言：中文，精简版，问题 / 依据 / 复现。
+  - 取证：以 moon 0.1.20261104 随发 runtime 取证，行号与 20261023 相同。
+  - 同批指出：`posix_spawn_file_actions_addchdir_np` 无 glibc 护栏与 `moonbitlang/async` 同款写法。
+  - issue：GitHub 上的议题帖，用来报缺陷或提请求。
+  - glibc：Linux 的 C 标准库，几乎所有 C 程序都依赖它。
 
 ## 环境读数
 
 | 项 | 值 |
 |---|---|
-| 发行版 | deepin 20（Debian 10 基线） |
+| 发行版 | deepin 20，Debian 10 基线 |
 | glibc | 2.28 |
-| linux-libc-dev | 5.18.17-amd64-desktop-hwe（已是该机源里最新） |
+| linux-libc-dev | 5.18.17-amd64-desktop-hwe，已是该机源里最新 |
 | gcc / g++ | 8.3 |
 | moon | 0.1.20261023 |
 | python3 / python | 3.7.3 / 2.7.16 |
+
+- linux-libc-dev：发行版提供的 Linux 内核头文件包。
+- 内核头：描述内核系统调用与常量的 C 头文件，编 C 程序时引用。
 
 ## 现象
 
@@ -29,33 +40,41 @@ warning: implicit declaration of function 'posix_spawn_file_actions_addchdir_np'
 
 ## 定位
 
-两处代码形状相同（`process.c` 124-138、`thread_pool.c` 1522-1530）：
+两处代码形状相同：
+- 取证：`process.c` 124-138、`thread_pool.c` 1522-1530。
 
 ```c
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)   // 判据来自内核头（linux-libc-dev）
   int pidfd = syscall(SYS_pidfd_open, pid, 0);      // 符号来自 glibc 的 sys/syscall.h
 ```
 
-判据与符号**不同源**：`SYS_*` 表在 glibc 构建期冻结（glibc 2.28 对着 4.18 时代的头生成，表里没有 `SYS_pidfd_open`），而这台机器内核头是 5.18，判据照样放行 → 编译失败。机器内核（5.18）实际支持 `pidfd_open`（5.3 引入），缺的只是宏名，升 `linux-libc-dev` 也补不上（已是最新）。
+判据与符号**不同源**：`SYS_*` 表在 glibc 构建期冻结，而这台机器内核头是 5.18，判据照样放行 → 编译失败。机器内核 5.18 实际支持 `pidfd_open`，5.3 引入；缺的只是宏名，升 `linux-libc-dev` 也补不上，已是最新。
+- 补充：glibc 2.28 对着 4.18 时代的头生成，表里没有 `SYS_pidfd_open`。
+- pidfd：Linux 5.3 起提供的进程句柄，内核用它稳定指代一个进程。
+- 宏名：C 预处理器常量名，`SYS_pidfd_open` 展开后就是系统调用号。
+- syscall：程序请求内核提供服务的入口，每个调用一个编号。
 
-fallback 路径上游已存在：`thread_pool.c` 1523-1528 的注释写明 pidfd 拿不到时 `wait_pid` 退化为工作线程里阻塞 `waitpid`（实现在 1588 附近）——所以改用 `__NR_pidfd_open` 是**运行时零差别**的改名，不是关掉功能。
+fallback 路径上游已存在：`thread_pool.c` 1523-1528 的注释写明 pidfd 拿不到时 `wait_pid` 退化为工作线程里阻塞 `waitpid`，实现在 1588 附近——所以改用 `__NR_pidfd_open` 是**运行时零差别**的改名，不是关掉功能。
+- fallback：主路径不可用时的备选路径。
 
 ## 待官方确认
 
 1. 判据与符号不同源算不算 bug。
-2. 修法：改用 `__NR_pidfd_open`（随内核头同步），或判据换成 `#if defined(__NR_pidfd_open)`。
-3. native 目标是否有官方系统下限（最低 glibc / 内核头），文档里没找到。
-4. 临时用 `MOON_CC` 包一层补 `-DSYS_pidfd_open=434`（x86_64 号）在官方口径里是否安全。
+2. 修法：改用 `__NR_pidfd_open`，随内核头同步；或判据换成 `#if defined(__NR_pidfd_open)`。
+3. native 目标是否有官方系统下限，即最低 glibc / 内核头，文档里没找到。
+4. 临时用 `MOON_CC` 包一层补 `-DSYS_pidfd_open=434`，x86_64 号，在官方口径里是否安全。
+   - MOON_CC：moon 用来指定 C 编译器命令的环境变量。
 
 ## 为什么值得修
 
-统信 UOS V20 与 deepin 20 同一条基线（Debian 10 / glibc 2.28），政企桌面装机量口径为百万套级，全是「老 glibc + 新内核」，撞同一条。改一个宏名的收益不止 deepin 20。
+统信 UOS V20 与 deepin 20 同一条基线，Debian 10 / glibc 2.28；政企桌面装机量口径为百万套级，全是「老 glibc + 新内核」，撞同一条。改一个宏名的收益不止 deepin 20。
+- 统信 UOS：与 deepin 同源的国产 Linux 桌面发行版，面向政企。
 
 ## 复现
 
 任意 native 目标工程，在一台 glibc < 2.31 且 linux-libc-dev ≥ 5.4 的机器上 `moon build --target native`，不需要本库参与。
 
-## 微信问稿（长版）
+## 微信问稿·长版
 
 ```
 【想问一个 MoonBit native runtime 的编译问题，附定位】
@@ -118,7 +137,7 @@ python3 3.7.3（python 是 2.7.16，这条已自查自修，见第四点）
 任意一个 native 目标工程 moon build --target native 即可，不需要本库参与。
 ```
 
-## 微信问稿（5 行短版）
+## 微信问稿·5 行短版
 
 ```
 请教一个 MoonBit native runtime 的编译问题：
