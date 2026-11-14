@@ -3,6 +3,17 @@
 // 路径/链接地址/表格),外加组件挂载断言(标题/代码块/链接/任务列表)。
 
 ///|
+/// 真后端守卫：逐字命中/边缘定位类用例依赖真字体度量（kerning/shaping），
+/// 回退估算档量不出像素级边界，跳过。判据同 uitest Capabilities：
+/// measure_real 量 "Ag" 有值且宽 > 0。
+fn md_text_real() -> Bool {
+  match @text.measure_real("Ag", 13.0) {
+    Some(m) => m.width > 0.0
+    None => false
+  }
+}
+
+///|
 /// 测试帮手:空渲染上下文(无脚注/无链接定义,基准宽 560)。
 fn md_test_ctx() -> MDCtx {
   {
@@ -947,6 +958,10 @@ fn md_sel_up(root : @widget.Widget, x : Double, y : Double) -> Unit {
 
 ///|
 test "选中档：逐字命中落字节、拖选区间就是原文子串" {
+  if !md_text_real() {
+    println("mdview: skip [需真后端]（回退估算档量不出逐字边界）")
+    return
+  }
   let src = "甲乙丙丁戊己庚辛壬癸"
   let root = mount_doc(
     md_rich_label(md_flat_par(src), 13.0, md_sel_ctx()),
@@ -1063,6 +1078,10 @@ fn byte_prefix(s : String, bj : Int32) -> String {
 
 ///|
 test "选中档：逐字边缘是前缀实测量（kerning 混排也精确落边界，不再 ±1 字）" {
+  if !md_text_real() {
+    println("mdview: skip [需真后端]（kerning 精度判据只在真字体下成立）")
+    return
+  }
   // "AV" 反复： kerning 让「逐字单独量之和」与「联合排版宽」差出几十像素
   // （本机 Pango 实测每对约 -3px），旧口径把这点差按比例分摊到每个字上，
   // 边缘整体漂移；前缀实测量在段内是精确值，点击落点不再飘

@@ -1,4 +1,16 @@
 // 文本层的口径回归：不断言具体像素宽（随字体配置变），只断言单调性与约束。
+// 单调与约束类用例在内建回退估算档同样成立（估算天然单调、贪心断行守限），
+// 只有绘制类（像素落盘走真后端 FFI）在回退档跳过。
+
+///|
+/// 真后端守卫：后端不可用（占位降级档）时绘制类用例跳过——估算器只量不画，
+/// pt_* 绘制返 0。判据同 uitest Capabilities：真后端量 "Ag" 有值且宽 > 0。
+fn wb_text_real() -> Bool {
+  match measure_real("Ag", 13.0) {
+    Some(m) => m.width > 0.0
+    None => false
+  }
+}
 
 ///|
 fn painted_count(bm : @render.Bitmap, w : Int32, h : Int32) -> Int32 {
@@ -182,6 +194,10 @@ test "ellipsize 尾端省略不超约束" {
 
 ///|
 test "绘制真的往自有缓冲落像素" {
+  if !wb_text_real() {
+    println("text: skip [需真后端]（回退估算档画不了字）")
+    return
+  }
   let bm = @render.Bitmap::new(120, 30)
   let ok = draw_to(bm, 2.0, 2.0, "MoonBit", 16.0, "#ffffff")
   assert_eq(ok, true)
@@ -194,6 +210,10 @@ test "中文可测可画" {
     Some(m) => assert_eq(m.width > 0 && m.height > 0, true)
     None => assert_eq(false, true)
   }
+  if !wb_text_real() {
+    println("text: skip [需真后端]（回退估算档画不了字，测量部分已验）")
+    return
+  }
   let bm = @render.Bitmap::new(80, 24)
   assert_eq(draw_to(bm, 1.0, 1.0, "中文", 14.0, "#ff0000"), true)
   assert_eq(painted_count(bm, 80, 24) > 10, true)
@@ -205,7 +225,11 @@ test "空文本与空缓冲的安全边界" {
   assert_eq(draw_to(bm, 0.0, 0.0, "", 14.0, "#00ff00"), true)
   let empty = @render.Bitmap::new(0, 0)
   assert_eq(draw_to(empty, 0.0, 0.0, "x", 14.0, "#00ff00"), false)
-  // 非法 hex 按黑色兜底，不应崩也不应空画
+  // 非法 hex 按黑色兜底，不应崩也不应空画（这条要走真后端，回退档跳过）
+  if !wb_text_real() {
+    println("text: skip [需真后端]（回退估算档画不了字，边界两条已验）")
+    return
+  }
   let bm2 = @render.Bitmap::new(60, 20)
   assert_eq(draw_to(bm2, 1.0, 1.0, "abc", 14.0, "oops"), true)
 }
