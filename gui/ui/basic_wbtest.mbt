@@ -41,7 +41,7 @@ fn kid(root : @widget.Widget, i : Int32) -> @widget.Widget {
 /// 无从比较——打印跳过，其余不依赖文本的断言照常跑。判据同 uitest 的
 /// Capabilities：有值且宽 > 0（没字体时后端量出零宽仍返回 Some）。
 fn ui_text_guard() -> Bool {
-  match @text.measure("Ag", 13.0) {
+  match @text.measure_real("Ag", 13.0) {
     Some(m) =>
       if m.width > 0.0 {
         true

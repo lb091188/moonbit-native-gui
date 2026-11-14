@@ -357,8 +357,10 @@ pub fn Tester::capabilities(self : Tester) -> Capabilities {
 }
 
 ///|
+/// 判据走真后端直通（measure_real）：复合入口带回退估算恒有值，探它会把
+/// 回退档误判成真后端。
 fn text_backend_ok() -> Bool {
-  match @text.measure("Ag", 13.0) {
+  match @text.measure_real("Ag", 13.0) {
     Some(m) => m.width > 0.0
     None => false
   }

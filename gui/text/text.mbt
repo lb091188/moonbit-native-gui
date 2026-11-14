@@ -137,9 +137,46 @@ pub(all) struct TextMetrics {
 }
 
 ///|
-/// 量一段文本。后端不可用（非 Linux 或无字体服务）返回 None。
-/// 度量是纯函数，按输入键走缓存（见 cache.mbt）：布局期每帧都会问它。
+/// 量一段文本（复合入口，布局用）：真后端优先，后端不可用（缺开发包降级档 /
+/// DirectWrite 未接 / 无字体服务）时走内建回退估算（见 fallback.mbt）——
+/// 布局尺寸总有一份合理值。判「后端在不在」用 `measure_real`，回退档不冒充
+/// 真后端。度量是纯函数，按输入键走缓存（见 cache.mbt）：布局期每帧都会问它。
 pub fn measure(
+  text : String,
+  size : Double,
+  family~ : String = "",
+  max_width~ : Int32 = 0,
+  ellipsize~ : Bool = false,
+  wrap~ : Bool = false,
+  spacing~ : Double = 0.0,
+) -> TextMetrics? {
+  match measure_real(
+      text,
+      size,
+      family~,
+      max_width~,
+      ellipsize~,
+      wrap~,
+      spacing~,
+    ) {
+    Some(m) => Some(m)
+    None =>
+      Some(fallback_measure(
+          text,
+          size,
+          family,
+          max_width,
+          ellipsize,
+          wrap,
+          spacing,
+        ))
+  }
+}
+
+///|
+/// 真后端测量（FFI 直通，不走回退估算）：后端不可用返回 None。
+/// 探针、守卫与「必须真字体才可比」的断言用这一族。
+pub fn measure_real(
   text : String,
   size : Double,
   family~ : String = "",
@@ -195,11 +232,20 @@ fn measure_uncached(
 }
 
 ///|
-/// 单行行高：字体 ascent+descent（像素），**与样例文本无关**——绑文本会把
-/// 有无下伸部（g/y）当成行高差，布局盒高会随内容抖。探针记的「14px 量得
-/// 17」是文本 "M" 的盒高（等于首行基线），不是行高，两者在这里分开。
-/// 按 (size, family) 走缓存（见 cache.mbt）。
+/// 单行行高（复合入口）：真后端优先，不可用走回退估算。字体 ascent+descent
+/// （像素），**与样例文本无关**——绑文本会把有无下伸部（g/y）当成行高差，
+/// 布局盒高会随内容抖。探针记的「14px 量得 17」是文本 "M" 的盒高（等于首行
+/// 基线），不是行高，两者在这里分开。按 (size, family) 走缓存（见 cache.mbt）。
 pub fn line_height(size : Double, family~ : String = "") -> Int32? {
+  match line_height_real(size, family~) {
+    Some(h) => Some(h)
+    None => Some(fallback_line_h(size))
+  }
+}
+
+///|
+/// 真后端行高（FFI 直通）：后端不可用返回 None。
+pub fn line_height_real(size : Double, family~ : String = "") -> Int32? {
   line_cached(Height, size, family)
 }
 
@@ -217,9 +263,18 @@ fn line_height_uncached(size : Double, family : String) -> Int32? {
 }
 
 ///|
-/// 首行基线（ascent，像素），给自绘 caret 与文本垂直居中使用。
-/// 按 (size, family) 走缓存（见 cache.mbt）。
+/// 首行基线（复合入口）：真后端优先，不可用走回退估算。ascent（像素），
+/// 给自绘 caret 与文本垂直居中使用。按 (size, family) 走缓存（见 cache.mbt）。
 pub fn line_ascent(size : Double, family~ : String = "") -> Int32? {
+  match line_ascent_real(size, family~) {
+    Some(a) => Some(a)
+    None => Some(fallback_ascent(size))
+  }
+}
+
+///|
+/// 真后端基线（FFI 直通）：后端不可用返回 None。
+pub fn line_ascent_real(size : Double, family~ : String = "") -> Int32? {
   line_cached(Ascent, size, family)
 }
 
@@ -303,8 +358,9 @@ fn align_id(a : TextAlign) -> Int32 {
 }
 
 ///|
-/// 按字体量一段文本（字重/斜体参与度量）。度量是纯函数，按输入键走缓存
-/// （见 cache.mbt）：布局期每个文本控件每帧都会经测量回调问它。
+/// 按字体量一段文本（复合入口，布局用；字重/斜体参与真后端度量）。度量是
+/// 纯函数，按输入键走缓存（见 cache.mbt）：布局期每个文本控件每帧都会经
+/// 测量回调问它。真后端不可用走回退估算（字重/斜体不参与估算）。
 /// `max_lines` > 0 且 `wrap` 时为行数钳制：超过 max_lines 行截断，第
 /// max_lines 行末尾补省略号（MoonBit 侧前缀截断，三平台一实现）。
 pub fn measure_font(
@@ -317,10 +373,41 @@ pub fn measure_font(
 ) -> TextMetrics? {
   if max_lines > 0 && wrap {
     let clamped = clamp_lines(text, font, max_width, max_lines)
-    measure_font_cached(clamped, font, max_width, ellipsize, wrap)
+    match measure_font_real(
+        clamped,
+        font,
+        max_width=max_width,
+        ellipsize~,
+        wrap~,
+      ) {
+      Some(m) => Some(m)
+      None =>
+        Some(fallback_measure_font(clamped, font, max_width, ellipsize, wrap))
+    }
   } else {
-    measure_font_cached(text, font, max_width, ellipsize, wrap)
+    match measure_font_real(
+        text,
+        font,
+        max_width=max_width,
+        ellipsize~,
+        wrap~,
+      ) {
+      Some(m) => Some(m)
+      None => Some(fallback_measure_font(text, font, max_width, ellipsize, wrap))
+    }
   }
+}
+
+///|
+/// 真后端按字体测量（FFI 直通，不走回退估算）：后端不可用返回 None。
+pub fn measure_font_real(
+  text : String,
+  font : Font,
+  max_width~ : Int32 = 0,
+  ellipsize~ : Bool = false,
+  wrap~ : Bool = false,
+) -> TextMetrics? {
+  measure_font_cached(text, font, max_width, ellipsize, wrap)
 }
 
 ///|
@@ -334,12 +421,13 @@ pub fn clamp_lines(
   max_width : Int32,
   max_lines : Int32,
 ) -> String {
-  let probe = match measure_font_cached("中", font, 0, false, false) {
+  // 复合入口（真后端优先、回退兜底）：回退档折行高度可估算，钳制同样工作
+  let probe = match measure_font("中", font) {
     Some(m) => m.height
     None => return text
   }
   let limit = probe * max_lines
-  match measure_font_cached(text, font, max_width, false, true) {
+  match measure_font(text, font, max_width=max_width, wrap=true) {
     None => return text
     Some(m) => if m.height <= limit { return text }
   }
@@ -360,7 +448,12 @@ pub fn clamp_lines(
       i += 1
     }
     sb.write_string("…")
-    match measure_font_cached(sb.to_string(), font, max_width, false, true) {
+    match measure_font(
+        sb.to_string(),
+        font,
+        max_width=max_width,
+        wrap=true,
+      ) {
       None => true
       Some(m) => m.height <= limit
     }
@@ -441,9 +534,18 @@ pub(all) struct FontMetrics {
 }
 
 ///|
-/// 字体度量。后端不可用返回 None。按字体四要素走缓存（见 cache.mbt）：
-/// 行高/基线回调每帧都会问它。
+/// 字体度量（复合入口）：真后端优先，不可用走回退估算。按字体四要素走缓存
+/// （见 cache.mbt）：行高/基线回调每帧都会问它。
 pub fn font_metrics(font : Font) -> FontMetrics? {
+  match font_metrics_real(font) {
+    Some(m) => Some(m)
+    None => Some(fallback_metrics(font))
+  }
+}
+
+///|
+/// 真后端字体度量（FFI 直通）：后端不可用返回 None。
+pub fn font_metrics_real(font : Font) -> FontMetrics? {
   font_metrics_cached(font)
 }
 
