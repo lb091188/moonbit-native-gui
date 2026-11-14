@@ -88,6 +88,15 @@
 
 ## 示例与控件复验·用户执行
 
+- [ ] **布局缺省对齐 web**：窗根竖排顶层撑满窗宽、行容器子项缺省撑满行高，按 TP-1.2 与 SC-6.5 走
+  - Stretch：flexbox 交叉轴拉齐——子项沿垂直于排列方向的轴撑满容器。
+  1. `moon run examples/theme-playground` 起窗拖宽再缩回——四张卡左右随窗拉伸铺满内容区，不留右侧空白带
+     - 用例：TP-1.2。
+  2. `moon run examples/components` 进「代码文档」页 Markdown 段看三处——列表序号 / 圆点贴首行顶、表格单行格与多行格上缘对齐、引用竖条与整块内容等高
+     - 用例：SC-6.5。
+  3. `moon run examples/hello` 起窗拖宽——整页卡片随窗宽铺满，高度仍按内容
+  4. 抽查原先行内居中的段落没有走样——工具行、面包屑、sysmonitor 顶栏的图标文字不被拉变形
+     - 需居中的容器显式传 `align_items=Center`。
 - [ ] **新窗首帧**：`cd examples/hello` 依次开三档子窗，**不动鼠标**每扇窗内容立即可见
   - 回归判据：不再白屏等鼠标。
 - [ ] **托盘单色**：浅色 / 深色模式下看 hello / 内置托盘图标——纯黑 / 纯白剪影、留白收紧；mac 为模板图；Windows / Linux 跟随系统明暗换黑白
@@ -102,8 +111,7 @@
   - 透明度段无「背景穿透」按钮，主窗不提供。
   - 透出判据：mac 透明档已拦 GPU 档。
   - 侧栏变化：少一项、其余页照常。
-- [ ] **终端控件**：components「代码文档」→「终端」段按 SC-6.5 走——ANSI 16/256/truecolor、CJK 对齐、折行、滚轮回看 + Shift+PageUp + 滚动条、四按钮、打字 / 退格 / 方向键回显、回车喂回、拖选 Ctrl/Cmd+C 复制、裸 Ctrl+C 进输入、深浅主题
-- [ ] **模板 v-for**：components「代码文档」→「模板列表」段按 SC-6.6 走——加 / 删首 / 清空、行序一致、无残影；`mng dev` 下改 `vfor_demo` 行模板应 `[HOT→COLD]` 带原因重启
+- [ ] **模板 v-for**：components「数据展示」页「模板列表」段按 SC-4.11 走——加 / 删首 / 清空、行序一致、无残影；`mng dev` 下改 `vfor_demo` 行模板应 `[HOT→COLD]` 带原因重启
 - [ ] **项目级 build 与 dev watch**：
   1. `cd examples/components && moon run ../../tools/native-gui-tools/mng -- build`：应列全部模板 OK 且 `moon check` 过
      - 注意：会把 dev 形态生成码覆盖成生产形态，验完 `git checkout` 生成码或跑一轮 dev 恢复。
