@@ -2,6 +2,15 @@
 
 收 Linux 专有的实测坑与口径：G 系列批次、GTK / Pango / Cairo、D-Bus / SNI / 桌面集成、webview GTK 桩、Wayland / X11 / AT-SPI 与 Linux 真机反馈修复集。
 
+### 无头化收尾：缺开发包占位降级与无字体回退 · 2026-11-14
+
+- **占位归档的三方互斥**：缺 GTK 开发包时 prebuild 用新宏 `WM_STUB_LINUX_PLACEHOLDER` 把三个 stub.c 编成 `_ph.a` 占位归档（只保链接符号、`cr_*`/`pt_*`/`wm_*` 返 0），与「真实现 `.a`（`WM_STUB_GTK` 等宏）」「native-stub 无宏空 TU」三方永不同场。占位臂条件是「平台闸**追加**宏」——`(!defined(__linux__) && !defined(__APPLE__)) || defined(WM_STUB_LINUX_PLACEHOLDER)`；**不能放宽成 `!defined(__linux__) || …`**：那会把 mac 无宏的 native-stub 编译也带进占位臂，与 prebuild 的 mac 归档 126 个符号双定义（本批实测踩到后改回）。
+- **`_ph` 独立命名不是美观**：`modules/gui-webview/scripts/prebuild.mbtx` 的 `find_win_stub_archive` 按真归档名 `libyue_win_stub.a` 查找，占位归档沿用重名会在「有 webkit 开发包、缺 GTK」的组合下把真 webkit 实现链到占位 win 桩上（`wm_surface_container` undefined）。
+- **占位臂此前是死代码**：`win/stub.c` 的「其余平台」臂从没被任何编译触达过，藏着 `wm_hotkey_register` 重复定义与缺标准头（`snprintf`/`va_list`）两处旧账；开启占位编译首跑即暴露，属预期内的「低频路径不固化必烂」，CI 的 Linux bare 腿就是为固化它加的。
+- **文本回退两层各治一段**：内建回退测量器（`gui/text/fallback.mbt`，纯 MoonBit）治「量不出」——占位档/无后端下 `measure` 复合入口按字符宽表估算，探针与守卫走 `measure_real` 不吃回退；内嵌字体子集（`text/assets/fallback-cjk.ttf`，Noto Sans SC 裁剪 965KB）治「有 Pango 无字体」——`pt_ensure_fallback_font` 探到 font family 数为 0 时 `FcConfigAppFontAddFile` 注册并 `pango_cairo_font_map_set_default(NULL)` 重置默认 fontmap（探测那趟可能已缓存了不含应用字体的配置快照），有系统字体绝不干预。注册代码挂三个入口：`pt_make_layout` / `pt_font_line_height` / `pt_fam_build`，once 开销为零。
+- **字体路径编译期注入**：prebuild 用 `-DNGUI_FALLBACK_FONT_PATH="<module_root>/text/assets/fallback-cjk.ttf"` 下发——构建机器的绝对路径，发布场景使用者侧重跑 prebuild 重新解析；文件缺失只影响运行时注册（`AddFile` 自弃），不影响编译。
+- **验证**：mac 本机 19 包 1422 测试全绿 + 五桩 mac gate 过 + mac 无宏空 TU 口径保持（符号数 0）；占位宏形态三桩 `clang -fsyntax-only` 过。Linux 占位真链与 bare 腿判定、无字体真机的内嵌字体注册，见 TODO「无头化收尾真机复验」。
+
 ### MoonBit 原生 GUI 栈 · Linux 全局热键后端 · W22 Linux 档 X11 `XGrabKey` · 2026-10-16
 
 - **范围**：`win/stub.c` GTK 分支的 `wm_hotkey_*` 三件套从占位桩换真实现，新增 `wm_hotkey_supported`；门面 `core/hotkey.mbt` 与解析 `win/hotkey.mbt` 零语义变化——「两套码」约定本批生效：C ABI 的 register 加了第三个参数，`vk` 与 `keysym` 都传、各平台桩自己挑——Windows 取 vk、X11 取 keysym；MoonBit 侧 `register_global_shortcut` 改收 `Hotkey` 整体。

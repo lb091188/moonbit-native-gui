@@ -207,6 +207,7 @@
 ## 开发待办
 
 - [ ] **A6 CPU/GPU 像素对拍**：与「无头像素快照基线」合并比对器，随控件级 GPU 批扩用例
-- [ ] **无头化收尾**：占位降级 + 探针收紧 + dragdnd memoize + 回退测量器与内嵌字体 + CI 裸镜像腿 + 三档分工文档，方案见 proposals/headless-closeout.md，执行者：助手
-  - 裸容器：不装 Linux 图形开发包的干净环境，验收「moon test 全绿」。
-  - 回退测量器：文本后端不可用时按字符宽表估算尺寸的纯 MoonBit 兜底。
+- [ ] **无头化收尾真机复验**：执行者：用户执行
+  - Linux：CI 的 Linux bare 腿首跑（dev 合入 master 或开 PR 触发），看「占位降级 19 包全绿 + 降级提示 + 守卫跳过」三判定。
+  - 无字体 Linux 真机：`FONTCONFIG_FILE` 指向空配置跑任一示例——应见文字真字形（内嵌字体注册生效），非方框或空白。
+  - Windows：`moon build --target native` 链接复验（本批未动 Windows 分支，例行确认）。
