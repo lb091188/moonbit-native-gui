@@ -12,7 +12,7 @@ General conventions: see [Components overview](index.md#conventions-read-this-fi
 
 - Drop target: hover highlights with the theme accent; on release `accept` (defaults to accepting everything) decides, and an accepted drop calls `on_drop`
 
-> Don't put a button inside a drag source: pointer events go deepest-first, so the interactive widget eats the press. `payload()` is lazy — under the threshold the gesture stays a normal click. `DragData` = `Text`/`Html`/`Paths`/`Img` (`@widget`). Cross-application system drag & drop is covered in the platform batches of [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md).
+> Don't put a button inside a drag source: pointer events go deepest-first, so the interactive widget eats the press. `payload()` is lazy — under the threshold the gesture stays a normal click. `DragData` = `Text`/`Html`/`Paths`/`Img` (`@widget`). Cross-application system drag & drop is covered in the platform batches of [experience/adaptation/](https://github.com/lb091188/moonbit-native-gui/tree/master/experience/adaptation/).
 
 ## Hover & cursor groups
 

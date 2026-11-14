@@ -60,7 +60,7 @@
 
 | 属性 | 后端就绪 | 落地要点 |
 |---|---|---|
-| **background-gradient**，线性/径向+stops | ✅ 双后端已测 | 加 Style 字段+factory kwargs+merge/setter；box 绘制处把 `set_fill_color`→`set_fill_gradient`，照 `basic.mbt:83-94` 型：83 填色 / 85 `fill_round_rect` / 94 `round_rect_path`+stroke。注意半透明 stop 在 raster/cairo 的非预乘口径差，取证 adaptation.md:57 |
+| **background-gradient**，线性/径向+stops | ✅ 双后端已测 | 加 Style 字段+factory kwargs+merge/setter；box 绘制处把 `set_fill_color`→`set_fill_gradient`，照 `basic.mbt:83-94` 型：83 填色 / 85 `fill_round_rect` / 94 `round_rect_path`+stroke。注意半透明 stop 在 raster/cairo 的非预乘口径差，取证 `experience/adaptation/common.md`「与 cairo 的已知口径差」 |
 | **每角 border-radius** 4 值 | ✅ 接近 | `trace_round_rect` 见 `painter.mbt:307`，四等弧推广到四半径，走 path 回退；仅 `Raster::fill_round_rect` 解析快路见 `raster.mbt:264`，需加不等半径 guard 退回 path |
 | **每边 border 宽/色** | ✅ 可行 | 用 `clip_rect`+`fill_rect` 叠四边条；难点只在"有半径时角部接缝" |
 | **mix-blend-mode** | ✅ 25 个 BlendMode 双后端 | 加 Style 字段接 `Painter::set_blend_mode`，见 `painter.mbt:638` |
@@ -95,7 +95,7 @@
 - [ ] **S0 修文档矛盾**：roadmap.md:162 硬阴影条目与代码对齐。
 - [x] **S1 设计令牌**：四阶进 `Theme`，即 `space_scale`/`radius_scale`/`type_scale`/`duration_scale`，pub(all) 破坏记提交信息；加基准常量与静态间距令牌 `space_2..24`；加运行时 getter `theme_space/radius/type_size/duration`，越界首末夹取；`from_json` 白名单同步扩四字段；`tokens.mbt` 35 处刻度间距字面量换令牌单源，非刻度组件现状值保留并自注释。时长阶基准 80/120/200/320 为初值，库内 transition 无集中档，供样式与应用按档取用。
   - 状态：2026-11-02 落地。
-- [x] **S2 background-gradient**：`GradientSpec` + `style(background_gradient=)` kwargs + merge/setter；`apply_gradient_bg` 落色助手，view 盒子渐变优先、不足两 stop 回落纯色。半透明 stop 双后端插值口径差已在 adaptation.md「与 cairo 的已知口径差」记档，不透明 stop 主链 wbtest 像素钉死，半透明 golden 归 Windows/mac 批。
+- [x] **S2 background-gradient**：`GradientSpec` + `style(background_gradient=)` kwargs + merge/setter；`apply_gradient_bg` 落色助手，view 盒子渐变优先、不足两 stop 回落纯色。半透明 stop 双后端插值口径差已在 `experience/adaptation/common.md`「与 cairo 的已知口径差」记档，不透明 stop 主链 wbtest 像素钉死，半透明 golden 归 Windows/mac 批。
   - 状态：2026-11-02 落地。
   - `GradientSpec`：归一化几何 Linear/Radial + stops 复用 style `Color`，token 名绘制期现取。
   - view 盒子：view/col/row/panel/card 全走 `apply_gradient_bg`。
@@ -114,14 +114,14 @@
 - [ ] **S5 letter_spacing·选做·贵**：三引擎 stub + measure/paint 一致性；先确认 DWrite 逐字形方案再排期。
   - stub：C 桩文件，MoonBit 外部函数调到平台 C API 的胶水层。
 
-> 每项按仓库约定：代码改动同批把「环境+现象+根因+修复+验证」回写 `experience/adaptation.md`；交付面写进 `docs/zh/roadmap.md` 对应小节。真机视觉由用户验证。
+> 每项按仓库约定：代码改动同批把「环境+现象+根因+修复+验证」回写 `experience/adaptation/`；交付面写进 `docs/zh/roadmap.md` 对应小节。真机视觉由用户验证。
 >
 > - 补充：平台列用 ✅/🚧/❌/⏳。
 
 ## 五、风险 / 不对称陷阱
 - **raster 快路 vs path 回退**：每角不等半径若漏 guard，raster 解析快路会画错，应退回 path。
 - **半透明渐变口径差**：raster stop 非预乘插值，与 Cairo 仅在半透明 stop 处有差，要钉 golden 测试。
-  - 取证：adaptation.md:57。
+  - 取证：`experience/adaptation/common.md`「与 cairo 的已知口径差」。
 - **量画一致**：任何进文本度量的属性，即 letter-spacing/多行 line-height，必须同步 `resolved_for_measure`，否则布局盒与绘制不符 + 整窗重算。
 - **勿引入平台不对称**：cap/join 在 raster 处 no-op 是反面教材；新属性优先两后端同时落。
 - **性能**：Raster 圆角/描边/blit 慢路每次分配 per-row `cov` 数组；扩每角半径会走更多 path，注意。

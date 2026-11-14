@@ -1,6 +1,6 @@
 # 前端化设计：样式 / 组件 / 响应式 / 视图
 
-本文件是**设计文档**：写清楚 native-gui 往 Vue 靠的四件事各自做成什么样、边界在哪、分几批落地。实施细节与实测坑按仓库惯例回写 `experience/adaptation.md`。
+本文件是**设计文档**：写清楚 native-gui 往 Vue 靠的四件事各自做成什么样、边界在哪、分几批落地。实施细节与实测坑按仓库惯例回写 `experience/adaptation/`。
 
 
 ## 0. 目标与三条原则
@@ -42,7 +42,7 @@ ui 只管组件，三包职责不混。
 | flex 布局 | `display`（`flex` / `none`）、`flex_direction`、`flex_wrap`（`nowrap` / `wrap` / `wrap-reverse`）、`justify_content`、`align_items`、`align_self`、`flex`（grow）、`gap`、`row_gap`、`column_gap` | Yoga |
 | 定位 | `position`（`relative` / `absolute`）、`top`、`right`、`bottom`、`left`、`z_index` | Yoga（`set_position` / `set_top` …底层现成，含百分比 inset；`z_index` 由 yoga-mbt 提供 `set_z_index` 并按稳定序输出）。Style 首批只开逻辑像素值，百分比入口同 `width_percent` 形态另开 |
 | 状态 | `hover`、`active`、`focus`（各是一个嵌套 `Style`） | 绘制期按控件状态选桶，见 §1.3 |
-| 效果 | `opacity` | `opacity` 落 `Widget.alpha_paint`（绘制遍历累乘）。**不提供投影 `box_shadow`**；重新评估的前置是有真高斯 blur，过程与读数见 `experience/adaptation.md`「阴影」节 |
+| 效果 | `opacity` | `opacity` 落 `Widget.alpha_paint`（绘制遍历累乘）。**不提供投影 `box_shadow`**；重新评估的前置是有真高斯 blur，过程与读数见 `experience/adaptation/common.md`「阴影」节 |
 | 过渡 | `transition_ms`（状态桶切换的时长，毫秒） | 只在**绘制期**生效：`style_for` 的出口按真实时间把「当前显示值 → 目标桶值」插一帧出来。参与插值的是 `color`、`background_color`、`border_color`、`border_width`、`border_radius`、**字号 `font_size`** 与**行高 `line_height`**（后两条在 CSS 里也是可动画的 `<length>`）——字号/行高是绘制与测量共用的属性，测量期一并读同一份插值值（`resolved_for_measure`），否则字放大后盒子还按旧字号量、看着仍像跳变；本栈每帧本来就走一圈 relayout，插值它们不额外排一次。这两条在动画期间改走**整窗置脏**（局部脏区按上一帧的矩形并，长大那圈会被裁掉），其余属性仍局部置脏。`opacity` 的生效点在 `apply` 落 `Widget` 字段（绘制遍历不逐帧读槽），尺寸类布局属性切换即生效 |
 | 其它 | `visibility`、`cursor` | 宿主 `Widget`（`set_visible` / `cursor`） |
 
@@ -511,8 +511,8 @@ fn render(ctx : Ctx) -> @widget.Node {
 ## 5. 门禁口径
 
 - 每批单独提交；收口条件固定：`cd gui && moon check` 零错零警 + 分包测试通过，观感逐页比对不回退。
-- 实测坑回写 `experience/adaptation.md`；使用类说明写进 `docs/zh/` 下的使用文档，不写进本文件。
-- 动画的代价是「连续置脏重绘」每帧多少钱，所以它排在脏矩形与文本布局缓存之后：局部脏区一帧的实测读数决定过渡能开多长，不决定它怎么设计（读数与判据写在 `experience/adaptation.md`，不在这里重复）。`opacity` 是**静态属性**（画一帧就够），不参与插值集合。
+- 实测坑回写 `experience/adaptation/`；使用类说明写进 `docs/zh/` 下的使用文档，不写进本文件。
+- 动画的代价是「连续置脏重绘」每帧多少钱，所以它排在脏矩形与文本布局缓存之后：局部脏区一帧的实测读数决定过渡能开多长，不决定它怎么设计（读数与判据写在 `experience/adaptation/common.md`，不在这里重复）。`opacity` 是**静态属性**（画一帧就够），不参与插值集合。
 
 ## 6. 口径记录
 
@@ -525,7 +525,7 @@ fn render(ctx : Ctx) -> @widget.Node {
    （`Loop::timer` / `@shell.set_timeout` 都是一次性），周期任务靠回调尾自己重排。
    **重排拿到的新句柄必须覆盖调用方存着的那一份**，否则「停表」取消的是早已跑掉的
    旧号，取消返回 true/false 都停不住（`shell/loop_wbtest.mbt` 钉住这条语义）。
-3. **三份文档的分工与状态口径**：`roadmap.md` 是**功能面全景**——功能点 × 三平台状态四列，计划项与已完成项都在同一张目录里，不写接口与过程；仓库根 `TODO.md` **只跟踪未完成项**；批次过程、根因与实测细节**只**在 `adaptation.md`。三处互不复述。平台状态五档：✅ 有实现且有逐项回证（真机 / 探针 / 分包测试绿任一，且适配文档留了记录）· 🚧 有实现但回证只到「分支在位 + 分包绿」或分支未合流 · ❌ 未接 · — 该平台无对应面 · ？查过仍无定论。**「代码里有分支」不构成 ✅，最多 🚧**；查不出的格子留 ？进待核清单，不填假值。
+3. **三份文档的分工与状态口径**：`roadmap.md` 是**功能面全景**——功能点 × 三平台状态四列，计划项与已完成项都在同一张目录里，不写接口与过程；仓库根 `TODO.md` **只跟踪未完成项**；批次过程、根因与实测细节**只**在 `experience/adaptation/`。三处互不复述。平台状态五档：✅ 有实现且有逐项回证（真机 / 探针 / 分包测试绿任一，且适配文档留了记录）· 🚧 有实现但回证只到「分支在位 + 分包绿」或分支未合流 · ❌ 未接 · — 该平台无对应面 · ？查过仍无定论。**「代码里有分支」不构成 ✅，最多 🚧**；查不出的格子留 ？进待核清单，不填假值。
 4. **组件命名去 `_t` 尾巴、对齐 Web 元素名**：媒体播放器组件叫 `audio` / `video`（与 HTML 同名元素），新组件一律不带 `_t`。共用件按 `bar_*` 前缀（`bar_hit` / `bar_speed_at`）。
 5. **两条播放时钟不互相代打**：`video` 的位置是**墙钟 + 帧时间戳**，`audio` 的是**设备已消费字节**。纯音频文件不进 `VideoPlayer`（没有帧就没有时钟，硬撑等于在视频引擎里重做一套设备时钟），带视频轨的文件不进 `audio`；组件层**不做**「自动识别后二选一」，调用方按媒体类型选组件。
 6. **窗口级按键兜底的三条边界**：① 焦点链消费掉的键不外溢，所以输入框打字天然不被抢；② 只在本窗事件循环生效，与 `sys`/`win` 那条**系统级**热键（X11 grab / `RegisterHotKey`）是两层，不混用一个门面；③ 通道没有反注册口，处理器必须自己用 `Widget::is_painted()` 判活体——被摘掉的组件不能再吃键。

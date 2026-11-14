@@ -211,7 +211,7 @@ WebGPU 可用 → GPU 合成（Layer 1+2 都开）
 - DPI：**本仓没有窗级 logical/physical 换算**【实测：全仓检索】——GPU 档要么先补换算，要么首版限 `scale = 1` 并在能力位上如实声明。
   - 取证：全仓只有 `Image::get_scale_factor`，落 `gui/render/image.mbt:113`。
 - present 与 `wm_present` **并存**，桩内分派：GPU 挂上后该 area 的 cairo 贴像素必须停手，否则两路互相覆盖。已知坑：wgpu present 到自绘容器的 `GdkWindow` 会吞掉该容器的鼠标事件【实测】——规避口径：**GPU 内容一律宿主顶层窗，交互挂 Window 级信号**，不往 GtkDrawingArea 里塞。
-  - 取证：`experience/adaptation.md:1564`。
+  - 取证：`experience/adaptation/linux.md`「NUContainer 作为 wgpu 渲染宿主收不到鼠标事件」条。
 
 ### CI 三档——无 GPU runner 的判据分层
 
@@ -239,4 +239,4 @@ pin v29.0.1.1【实测：wgpu-mbt 版本口】；许可归档核对随骨架批�
 - **wgpu-native v29.0.1.1 运行期装载在本机——lavapipe/Vulkan——完全可用**：C 原型 dlopen `libwgpu_native.so` → `wgpuCreateInstance` → `wgpuInstanceRequestAdapter`——`WGPUBackendType_Vulkan`——拿到 adapter，status=1 Success；`wgpuDeviceCreateTexture` + `wgpuQueueWriteTexture` + `wgpuCommandEncoderCopyTextureToBuffer` 一条离屏管线走得通，设备/纹理/上传/拷贝四步实测。**离屏渲染 + 回读可作无头判据**，不需要显示服务器——CI 二档 xvfb 之外，本机无头即可验「设备+纹理+绘制+回读」。
   - 离屏渲染：画到内存里的图而不是窗口，供无显示环境的验证与回读。
 - **v29 是 future 风格 API**：`wgpuAdapterRequestDevice` 返回 `WGPUFuture`，设备经回调给出——`WGPURequestAdapterCallbackInfo` + `WGPUCallbackMode_AllowSpontaneous`——C 侧要按「回调 + 自发模式」写，不能当同步函数用；surface 的 `wgpuSurfaceGetCurrentTexture` / present 同代。L1 的 wm_present 臂要按这个形态取 current texture。
-- **落地边界复述**：L1 的 wgpu 代码住 `gui/win` 桩——wm_present 是内部改造、对外 API 零变化，主包不依赖 gui-gpu 的家规不变——gui-gpu 模块仍是「探测 + 应用侧 GpuContext」的位次；surface 走 `WGPUSurfaceSourceXlibWindow{display, window}`，XID 取点 `gdk_x11_window_get_xid` 已在桩内；present 与 cairo 贴像素二选一——挂上 GPU 就停 cairo 臂，否则两路互相覆盖，adaptation.md 已记的坑。
+- **落地边界复述**：L1 的 wgpu 代码住 `gui/win` 桩——wm_present 是内部改造、对外 API 零变化，主包不依赖 gui-gpu 的家规不变——gui-gpu 模块仍是「探测 + 应用侧 GpuContext」的位次；surface 走 `WGPUSurfaceSourceXlibWindow{display, window}`，XID 取点 `gdk_x11_window_get_xid` 已在桩内；present 与 cairo 贴像素二选一——挂上 GPU 就停 cairo 臂，否则两路互相覆盖，`experience/adaptation/linux.md` 已记的坑。

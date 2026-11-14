@@ -12,7 +12,7 @@
 
 | 面 | 现状 | 证据 |
 | --- | --- | --- |
-| 库测试套件 | CI Linux 腿 19 包 `moon test` 只包 `dbus-run-session`、**不包 xvfb**；`env -u DISPLAY moon test` 本机复现全绿 | ci.yml:130、adaptation.md:52 |
+| 库测试套件 | CI Linux 腿 19 包 `moon test` 只包 `dbus-run-session`、**不包 xvfb**；`env -u DISPLAY moon test` 本机复现全绿 | ci.yml:130、experience/adaptation/common.md「CI runner 环境与开发机的差别」节 |
 | 公开测试门面 | `gui/uitest` P1 mount/click/pixel 断言 + P2 `Window::virtual_` id<0 哨兵、`App::test_headless` 无头泵 + 确定性虚拟时钟，全部落地 | headless-tester.md |
 | 渲染 | cairo 走 `cairo_image_surface` **纯内存**离屏，不碰 X；另有纯 MoonBit 光栅器运行时兜底 | gui/render/painter.mbt:130 |
 | 文本测量 | Pango 底座是 fontconfig 文件扫描，无显示可用 | gui/text/stub.c:42 |

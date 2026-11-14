@@ -15,7 +15,7 @@ auto 高列容器的子项主轴基准取「未约束宽的内在高」，子项
 宽折行落地，实际比基准更高 → 容器 rect 比内容矮 → `hit_path` 要求每个
 祖先矩形都包含点位 → 容器底缘以下的子项收不到指针。
   - 依据：YG3d ③ 档。
-    - YG3d：本仓 yoga-mbt 内在尺寸基准的既有定案条目，记录在 experience/adaptation.md。
+    - YG3d：本仓 yoga-mbt 内在尺寸基准的既有定案条目，记录在 experience/adaptation/common.md。
 
 - 最小复现：`calculate_layout` 后 outer=20、inner=40、leaf=40——外层列矩形盖不住自己的子项。
   - 设置：测量叶 `f(None)=(100,20)`、`f(Some(w))=(w,40)`，双层 auto 列 + 根 FlexStart。

@@ -19,7 +19,7 @@
 - **Windows（WebView2）**：`PermissionRequested` + deferral。
 - **macOS（WKWebView）**：只有媒体采集回调（`requestMediaCapturePermissionForOrigin`，macOS 12+；定位在公开 `WKUIDelegate` 里没有回调）。
 
-**mac 上这条回调要求应用正确打包并签名**（含 `NSCameraUsageDescription` / `NSMicrophoneUsageDescription`）。未签名 / 裸二进制形态下 WebKit 枚举不到采集设备，页面 `getUserMedia` 会挂起、回调不会触发——这不是本模块的问题，是引擎侧的既成行为（实测记录见 `experience/adaptation.md` 与 `experiment/webkit_media_probe/`）。因此本仓示例不做权限演示；事件到达时默认拒绝并记一行事件流水，不让请求挂在引擎里。
+**mac 上这条回调要求应用正确打包并签名**（含 `NSCameraUsageDescription` / `NSMicrophoneUsageDescription`）。未签名 / 裸二进制形态下 WebKit 枚举不到采集设备，页面 `getUserMedia` 会挂起、回调不会触发——这不是本模块的问题，是引擎侧的既成行为（实测记录见 `experience/adaptation/mac.md` 与 `experiment/webkit_media_probe/`）。因此本仓示例不做权限演示；事件到达时默认拒绝并记一行事件流水，不让请求挂在引擎里。
 
 ## 平台差异简表
 

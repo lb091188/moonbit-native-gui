@@ -49,4 +49,4 @@ Every self-drawn widget and the component library live in `NoahLiu/native-gui/ui
 - Declarative tree / `Store` / `Signal`: [Declarative & reactivity](../guide/declarative.md)
 - Layout styling (`Style` fields and the `class` channel): [Layout & styling](../guide/layout.md)
 - System capabilities (`@sys`): [System capabilities overview](../capability/sys.md)
-- Field-tested platform pitfalls: [adaptation.md](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/adaptation.md)
+- Field-tested platform pitfalls: [experience/adaptation/](https://github.com/lb091188/moonbit-native-gui/tree/master/experience/adaptation/)

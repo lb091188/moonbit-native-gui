@@ -43,7 +43,7 @@ dbus-run-session -- moon test base shell widget ui render text theme icons sys i
 - **Honest degradation**: if a platform does not implement something, say so — no fake return values, no silent no-ops. Cross-platform contracts are set by the **strictest** platform; extra capabilities of looser platforms stay internal.
 - **APIs come from real use cases**: when filing a feature request, lead with the scenario you are stuck on. "Another toolkit has this" is not a reason (see the "Explicitly not doing" list in the [roadmap](docs/zh/roadmap.md)).
 - **Appearance is fully overridable**: themes, style slots and named classes are the override points; new components must derive colours from theme tokens instead of hard-coding a palette.
-- **Comments state what something is and how to use it**: rationale, root causes and platform pitfalls go to `experience/adaptation.md`, committed with the code.
+- **Comments state what something is and how to use it**: rationale, root causes and platform pitfalls go to `experience/adaptation/`, committed with the code.
 - **Formatting**: follow the surrounding code. Do **not** run `moon fmt` across the repository — it sweeps unrelated files into your diff.
 
 ## 5. How testing splits

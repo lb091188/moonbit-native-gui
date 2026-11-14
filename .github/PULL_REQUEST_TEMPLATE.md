@@ -49,7 +49,7 @@ moon test ui render text theme icons sys input win dbus chart mdview style base 
 - [ ] `docs/` 同路径英文文档已同步
 - [ ] `docs/zh/roadmap.md` 状态位已更新
 - [ ] 新增真机型：`测试文档/测试用例.md` 补条目（记录台加载它现算清单，不用改网页）
-- [ ] 实测坑与口径回写 `experience/adaptation.md`
+- [ ] 实测坑与口径回写 `experience/adaptation/`
 
 ## 破坏性改动 / Breaking changes
 

@@ -165,7 +165,7 @@ TextLayout {
 
 ### 桥的既有模子，新桥照哪个模子挂
 
-- `gui/win/stub.c` 三平台分段，Win32 :33 起、GTK3/Linux :4797 起、macOS Cocoa :8056 起。两条硬纪律写在文件头：**循环归 MoonBit**、**不做 C→MoonBit 回调**——stub.c:22-23，蹦床坑记 `experience/adaptation.md:391-397`——本方案不破例。
+- `gui/win/stub.c` 三平台分段，Win32 :33 起、GTK3/Linux :4797 起、macOS Cocoa :8056 起。两条硬纪律写在文件头：**循环归 MoonBit**、**不做 C→MoonBit 回调**——stub.c:22-23，蹦床坑记 `experience/adaptation/common.md`「MoonBit ↔ C ABI」节——本方案不破例。
   - 蹦床：C 反向调 MoonBit 函数的技术，易踩栈与生命周期坑，故被禁。
 - 消费式轮询槽已成体系：`wm_tray_poll`/`wm_hotkey_poll`/`wm_menu_poll`/`wm_inst_poll`/`wm_dragdnd_poll`，stub.c:1941/3680/3867/4764/2588，extern 声明全在 gui/win/ffi.mbt。
   - 轮询槽：MoonBit 每帧主动来 C 侧拉一次数据的固定接口。
@@ -258,13 +258,13 @@ pub fn Widget::a11y_caret(self) -> Int?                                      // 
 
 ### 风险与坑
 
-1. **C→MoonBit 回调纪律的边界**：本方案不破例——查询全由 C 桩槽表应答。若 spike 发现槽表应答不了的查询形态，宁可 MoonBit 推更全的快照，不加重蹦床，见 adaptation.md:393-397。
+1. **C→MoonBit 回调纪律的边界**：本方案不破例——查询全由 C 桩槽表应答。若 spike 发现槽表应答不了的查询形态，宁可 MoonBit 推更全的快照，不加重蹦床，见 `experience/adaptation/common.md`「MoonBit ↔ C ABI」节。
 2. **语义槽与控件树对账**：挂摘已有钩子，widget.mbt:277/307，登记/注销接同一对；**不清账 = C 侧幽灵控件**，即读屏读到已删控件，与样式 resolved 侧表泄漏坑同型，widget.mbt:301-306。
 3. **绘制态 ≠ 语义态的时差**：组件 draw 时读 Store，帧尾对账在 paint_frame 后，理论窗口内查询可能读到上一帧值——读屏查询频率下可接受，不加锁；对账必须排 present 前，否则推的是旧 rect。
 4. **UIA 的 COM 面新坑**，2026-11-03 定案：CLSID/IID 取法=SDK 头声明 + 链接期取 `uiautomationcore.lib` 符号，确为 WIC 套路，C 模式用不了 `__uuidof`；**pattern 对象的 COM 布局坑**——vtable 指针必须是结构体首成员、QI 对 IUnknown 与主接口同回主接口指针，否则方法收到的 `self` 偏移错位直接读崩，本批实测踩到，写法钉在 uia_provider.c 头注；另：BSTR 是 UTF-16，快照 UTF-8 字段必须 `MultiByteToWideChar` 转换，首批的 `SysAllocStringByteLen` 直拷会让中文名乱码。provider 的 `Navigate` 方向逻辑易错，Accessibility Insights 树形视图当回归镜。
   - CLSID/IID：COM 的类 ID 与接口 ID。
   - BSTR：Windows 的 UTF-16 计长字符串类型。
-5. **AT-SPI 未定项**，2026-11-04 全部实证回填，见 experience/adaptation.md：`Socket.Embed` 在 2.52 是 `(so)→(so)`、**旧 `RegisterApplication` 已废**，Registry 只剩 RegisterEvent 族；Text 偏移单位是**字符**，即码点；XFCE/deepin 的 a11y bus 启用状态仍待桌面矩阵实测，S 系列 spike。
+5. **AT-SPI 未定项**，2026-11-04 全部实证回填，见 experience/adaptation/linux.md：`Socket.Embed` 在 2.52 是 `(so)→(so)`、**旧 `RegisterApplication` 已废**，Registry 只剩 RegisterEvent 族；Text 偏移单位是**字符**，即码点；XFCE/deepin 的 a11y bus 启用状态仍待桌面矩阵实测，S 系列 spike。
 6. **mac 弹层窗的 AX 树**：无边框弹层默认不能成为 key window，stub.c:8146，菜单/下拉候选是独立窗各挂各的；VoiceOver 对多窗 app 的焦点切换行为待真机验。
   - key window：macOS 里接收键盘输入的当前窗口。
 7. **焦点语义差**：本栈焦点是控件级，平台焦点是窗级——窗内控件焦点变化平台无感知，三平台 focus 事件全靠手工上行，漏发 = 读屏停在旧控件。

@@ -10,7 +10,7 @@
 
 - 工具链模块 `tools/native-gui-tools`，即 `NoahLiu/native-gui-tools@0.1.0`，可执行包 `mng/` 与 `mngui/` 各自 `pkgtype(kind: "executable")`。
 - **已实测**：`moon install` 按**可执行包**逐个装，Windows 上 `moon install ./tools/native-gui-tools/mng` 只装 mng.exe 一件；装模块名报「not a main package」。
-  - 取证：adaptation.md 有实录，docs/zh/guide/mng.md 已写口径。
+  - 取证：`experience/adaptation/windows.md` 有实录，docs/zh/guide/mng.md 已写口径。
 - gui 库线上版 0.3.1，**发版缺口**：mngdev 与 prebuild.mbtx 都在 0.3.1 之后——仓外新建工程跑 `mng dev` 必挂，TODO 已记「仓外腿挂起」。
   - 补充：mngdev 是 scaffold 的依赖，2026-11-07 进库。
   - 补充：prebuild.mbtx 2026-11-11 进库。

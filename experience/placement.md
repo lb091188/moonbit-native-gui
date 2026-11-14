@@ -10,7 +10,7 @@
 | `modules/` | 子模块：yoga-mbt / mdparse / gui-media / gui-webview / ffmpeg-mbt | 示例 |
 | `tools/` | DX 工具总目录：`tools/native-gui-tools/` 是 moon 模块与 mooncakes 发布单元（mngkit / mng_cli / icon* / i18n*，注册进 `moon.work`）；非 moon 工具同层放（如编辑器插件 `tools/vscode-mng/`，纯 TS，不进 `moon.work`） | 库本体、示例、探针 |
 | `proposals/` | 对内方案/计划——要做或在做的提案，纯中文，扁平一层 | 对外使用文档；已收口的定案（迁 `experience/`） |
-| `experience/` | 对内经验与定案：实测坑与结论（adaptation）、已收口设计定案（design）、品牌定案（brand）、仓库判据（placement），纯中文，扁平一层 | 待做的方案计划（进 `proposals/`）、对外使用文档 |
+| `experience/` | 对内经验与定案：实测坑与结论（adaptation，按系统拆子目录：`adaptation/` 下 index 导航 + common / mac / windows / linux / linux-distros）、已收口设计定案（design）、品牌定案（brand）、仓库判据（placement），纯中文；adaptation 用子目录，其余扁平一层 | 待做的方案计划（进 `proposals/`）、对外使用文档 |
 | `docs/` | 对外文档站（VitePress，中英双语），只发对外使用文档与路线图 | 对内方案、计划与实测经验 |
 | `assets/brand/` | 品牌源资产：应用图标 master SVG、单色变体、资产许可（对外发布单元，定案见 brand.md） | 生成物（PNG/icns/ico 各回消费点：示例进 `examples/<name>/assets/`、文档站进 `docs/public/`）；示例运行时资产 |
 | `测试文档/` | 用例文档与记录台（记录台运行时解析用例 md，编号一一对应，经本地 HTTP 服务打开） | |

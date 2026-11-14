@@ -4,7 +4,7 @@
 
 - **规划后执行**——接到需求先检查是否完整，不完整先列出缺项向用户补全；动手前先出规划。
 - **规划有检查**——规划完成后先检查有无遗漏、是否与既有约束冲突，检查通过再执行。
-- **注释与文档只说内容、保持简单**——只写「是什么/怎么用/怎么做」；原理与根因写进专门文档 `experience/adaptation.md` 等。文档行内不用括号补注，术语解释、日期、平台、出处一律展开为缩进子要点。
+- **注释与文档只说内容、保持简单**——只写「是什么/怎么用/怎么做」；原理与根因写进专门文档 `experience/adaptation/` 等。文档行内不用括号补注，术语解释、日期、平台、出处一律展开为缩进子要点。
 - **读者非桌面专业**——TODO、roadmap 与各文档里的桌面/GUI 专业名词，首次出现时紧跟一条大白话解释子要点，让非桌面背景的开发者能读懂；文档整体保持言简意赅。
 - **对外文档默认中文先行**——改动一律先写 `docs/zh/` 对应文档；推送前把改动意译进 `docs/` 同路径英文文档。
 - **不做本地冒烟测试，真机 GUI 测试由用户执行**——助手负责代码与 `moon check`/`moon test`/`moon build` 零错误零警告；视觉与交互给操作步骤清单交用户，不远程驱动，不在反馈前下结论。
@@ -14,7 +14,7 @@
   - 平台状态标记：✅已验 / 🚧已合入待真机 / ❌未做 / ⏳待定。
   - 记录台加载 `测试文档/测试用例.md` 现算清单，不用另改记录台。
 - **新内容按落位判据落位**——先读 `experience/placement.md`；示例一律 `examples/<name>/` 独立模块并注册进 `moon.work`。
-- **改领域配置先读对应指导文档**——`moon.pkg` / `moon.mod` / 链接与依赖 → [docs/zh/build.md](docs/zh/build.md)；FFI / C 绑定 → `.agents/skills/moonbit-c-binding/`；平台适配 → `experience/adaptation.md`，实测坑与适配经验回写此文件，与代码同批提交。
+- **改领域配置先读对应指导文档**——`moon.pkg` / `moon.mod` / 链接与依赖 → [docs/zh/build.md](docs/zh/build.md)；FFI / C 绑定 → `.agents/skills/moonbit-c-binding/`；平台适配 → `experience/adaptation/`，实测坑与适配经验按平台回写对应文件，与代码同批提交。
 
 ## 常用命令与门禁
 
@@ -59,9 +59,10 @@ moon run examples/hello       # 最小窗口(另有 showcase 等)
   - 用例编号 `HL/SC/BR/AU/VD` 一一对应。
   - 经本地 HTTP 服务打开。
 - FFI / C 绑定细节:`.agents/skills/moonbit-c-binding/`、`.agents/skills/make-moonbit-c-bindings/`
-- DBus / SNI 实现与真总线读数:`gui/dbus/`、`experience/adaptation.md`
-  - 查总线读数在 `experience/adaptation.md` 搜 D-Bus / SNI。
-- 平台适配经验:`experience/adaptation.md`
+- DBus / SNI 实现与真总线读数:`gui/dbus/`、`experience/adaptation/linux.md`
+  - 查总线读数在 `experience/adaptation/linux.md` 搜 D-Bus / SNI。
+- 平台适配经验，按系统拆分:`experience/adaptation/`
+  - index.md 导航；common.md 跨平台；mac.md / windows.md / linux.md 各系统；linux-distros.md 发行版。
 - 写或改界面之前:`.agents/skills/native-gui-design/`
   - 里面有间距刻度、字阶、圆角层级、token。
 - 无障碍通道现状——已端到端、非占位:

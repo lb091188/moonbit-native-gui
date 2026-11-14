@@ -50,7 +50,7 @@
   - 取证：守卫点 5365、5408、5470、6514、7111、7169 等。
 - `wm_shell_caps` 在 Wayland 下 `gdk_x11_display_get_xdisplay` 返回 NULL，合成器探测 `_NET_WM_CM_S0` 做不了 → caps 只给 title/borderless/layer 三位，opacity/transparent_bg 位不给。这是诚实口径：窗口透明 `gdk_window_set_opacity` Wayland 档本就是无操作。
   - 取证：`wm_shell_caps` 在 `gui/win/stub.c:5779-5792`；`gdk_window_set_opacity` 在 5379-5387。
-- **窗口层级族**：`gtk_window_set_keep_above/below`、`skip_taskbar` 在 Wayland 下只是客户端提示，`_NET_WM_STATE` 消息被 X11 守卫挡住。**Wayland 会话下五个层级档实际都不兑现**。roadmap 中「层级五档三平台真机通过」的 Linux 真机**验的是 X11 会话**——证据：`测试文档/测试用例.md:23`「Linux（Ubuntu 24.04 + X11 + XFCE）」，`experience/adaptation.md:36`「开发机是 Ubuntu 24.04 + X11 + XFCE」。Wayland 会话下层级族未验、预期不兑现。
+- **窗口层级族**：`gtk_window_set_keep_above/below`、`skip_taskbar` 在 Wayland 下只是客户端提示，`_NET_WM_STATE` 消息被 X11 守卫挡住。**Wayland 会话下五个层级档实际都不兑现**。roadmap 中「层级五档三平台真机通过」的 Linux 真机**验的是 X11 会话**——证据：`测试文档/测试用例.md:23`「Linux（Ubuntu 24.04 + X11 + XFCE）」，`experience/adaptation/common.md`「CI runner 环境与开发机的差别」节「开发机是 Ubuntu 24.04 + X11 + XFCE」。Wayland 会话下层级族未验、预期不兑现。
   - 取证：`wm_set_layer` 在 `gui/win/stub.c:5451-5515`、`gui/win/window.mbt:159-197`。
   - 注释明说「Wayland 下这几条只是客户端提示，兑现归 compositor」。
   - 五个层级档：Dock/Desktop/DesktopWidget/AlwaysOnTop/Normal。
@@ -106,7 +106,7 @@
 - **文件对话框 / 消息框 / 音量 / 电源计划 / 自启动**：GTK 对话框、wpctl/pactl、powerprofilesctl、`$XDG_CONFIG_HOME/autostart`。均不依赖 X。
   - 取证：GTK 对话框自 `stub.c:7447` 起；自启动在 `gui/sys/autostart.mbt:9-15`。
   - wpctl/pactl：PipeWire/PulseAudio 音量控制的命令行工具。
-- **修正一处既有注记**：`experience/adaptation.md:293` 把 `org.freedesktop.ScreenSaver` 列为 Wayland idle 出路之一——该 portal 只有 Inhibit 没有读空闲口，出路应为 GNOME IdleMonitor D-Bus 与 ext-idle-notify 协议。
+- **修正一处既有注记**：`experience/adaptation/linux.md` 的 Wayland idle 注记把 `org.freedesktop.ScreenSaver` 列为 Wayland idle 出路之一——该 portal 只有 Inhibit 没有读空闲口，出路应为 GNOME IdleMonitor D-Bus 与 ext-idle-notify 协议。
   - 依据：§三。
 
 ## 三、能力出路总表
@@ -211,7 +211,7 @@
 
 | # | 验证什么 | 在哪验 | 判据 |
 |---|---|---|---|
-| S1 | GTK3 本体在 Wayland 会话的全量行为：渲染/输入/IME，即输入法/浮层开窗/拖放/透明 | Ubuntu 24.04 GNOME Wayland + deepin 25 Treeland，跑 hello/showcase 过测试用例相邻条目 | 相邻条目通过；差异逐条记 `experience/adaptation.md` |
+| S1 | GTK3 本体在 Wayland 会话的全量行为：渲染/输入/IME，即输入法/浮层开窗/拖放/透明 | Ubuntu 24.04 GNOME Wayland + deepin 25 Treeland，跑 hello/showcase 过测试用例相邻条目 | 相邻条目通过；差异逐条记 `experience/adaptation/linux.md` |
 | S2 | XWayland 静默降级实测：`xrandr --query` 输出形态是否 XWAYLANDn 假名与模式列表受限、`redshift -P -O` 退出码与实际效果、`wmctrl -l` 可见窗口集合 | 同上两个 Wayland 会话 | 每条给出「返回成功但无效」清单，定 P0 探针写法 |
 | S3 | GlobalShortcuts portal 全流程：CreateSession→BindShortcuts 授权框→Activated 回调→拒绝给空集 | KDE Plasma 6 Wayland 一台 + GNOME 48+ 一台 | 授权框出现、回调可达、handle 时序坑记录，含 Request/Response 的 bus 层适配点 |
 | S4 | 空闲检测：GNOME `GetIdletime` 对照手动计时；KDE/wlroots ext-idle-notify 1s-watch 近似档误差 | GNOME 与 KWin Wayland 各一台 | 精确档误差 ±1s；近似档误差写进文档语义 |
@@ -244,7 +244,7 @@
 2. 会话矩阵：`测试文档/测试用例.md` 补 Wayland 会话条目，至少覆盖 deepin 25 Treeland 与 Ubuntu GNOME Wayland 两台；X11 全量用例不退，含 SC-10.2 的 Wayland 预期更新为实际能力。
    - 形态：SC 系，记录台现算。
 3. **「返回成功但无效」清零**：P0 后在任一 Wayland 会话，五个会话相关能力的探针输出与文档口径一一对应——不可用的必须 `Unsupported`，可用的必须真有效，以 S2 的实测清单为红线。
-4. 每条 P1/P2 能力的真机验收由用户执行，助手给操作步骤清单；结论回 `experience/adaptation.md`；进度按平台标 ✅/🚧/❌/⏳ 记在 [linux-mbt](linux-mbt.md)。
+4. 每条 P1/P2 能力的真机验收由用户执行，助手给操作步骤清单；结论回 `experience/adaptation/linux.md`；进度按平台标 ✅/🚧/❌/⏳ 记在 [linux-mbt](linux-mbt.md)。
 5. roadmap「Linux 兼容说明 · 会话」表、[linux-mbt](linux-mbt.md)「DE 实测矩阵」与 `TODO.md` 同批更新，三者不得互相矛盾。
 
 ## 八、证据清单
@@ -261,7 +261,7 @@
 - `gui/sys/procrun.mbt:198-214`——子进程环境保留 DISPLAY/XAUTHORITY/WAYLAND_DISPLAY
 - `gui/dbus/sni.mbt:87`、`gui/shell/tray.mbt:6-7,93,111`——SNI watcher 判据；`gui/shell/notify.mbt:69`——GetCapabilities；`gui/dbus/instance.mbt:101-122`——RequestName；`gui/dbus/screensaver.mbt:7-9`、`gui/dbus/inhibit.mbt:7-9`——锁屏信号与抑制；`gui/dbus/media.mbt`——MPRIS；`gui/win/stub.c:7502-7546,7549-7608`——GSettings 深浅/主色
 - `gui/sys/desktop.mbt:1-8`、`gui/sys/wallpaper.mbt:1-8,306-308`、`gui/sys/autostart.mbt:9-15`——DE 识别/壁纸/自启
-- `测试文档/测试用例.md:23`——Linux 真机 = Ubuntu 24.04 + **X11** + XFCE；`:170`——SC-10.2 Wayland 预期；`experience/adaptation.md:36`——开发机同；`:263`——热键 Wayland 口径；`:293`——idle 出路注记，本方案 §2.3 修正
+- `测试文档/测试用例.md:23`——Linux 真机 = Ubuntu 24.04 + **X11** + XFCE；`:170`——SC-10.2 Wayland 预期；`experience/adaptation/common.md`「CI runner 环境与开发机的差别」——开发机同；`experience/adaptation/linux.md`「Linux 全局热键后端」——热键 Wayland 口径；同文件「Wayland 原生会话的 idle」——idle 出路注记，本方案 §2.3 修正
 
 **外部证据**
 
