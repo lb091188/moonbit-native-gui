@@ -38,10 +38,17 @@ fn kid(root : @widget.Widget, i : Int32) -> @widget.Widget {
 ///|
 /// 文本测量后端的守卫：本平台的文字层还没接上时（Windows 走 DirectWrite，
 /// 见 TODO 的 W5），measure/line_ascent 给 None，「尺寸来自测量」这类断言
-/// 无从比较——打印跳过，其余不依赖文本的断言照常跑。
+/// 无从比较——打印跳过，其余不依赖文本的断言照常跑。判据同 uitest 的
+/// Capabilities：有值且宽 > 0（没字体时后端量出零宽仍返回 Some）。
 fn ui_text_guard() -> Bool {
   match @text.measure("Ag", 13.0) {
-    Some(_) => true
+    Some(m) =>
+      if m.width > 0.0 {
+        true
+      } else {
+        println("ui: skip (文本测量量出零宽：本机无字体)")
+        false
+      }
     None => {
       println("ui: skip (无文本测量后端)")
       false

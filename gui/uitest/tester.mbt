@@ -345,12 +345,22 @@ pub fn Tester::bitmap(self : Tester) -> @render.Bitmap? {
 ///|
 /// 平台能力探测（一次会话探一遍，结果与进程一致）。图片解码用示例 GIF
 /// 探（测试进程 cwd 是模块根，资源在仓根 examples/ 下，两个候选都试）。
+/// 文本测量判据是「有值且宽 > 0」：没字体的机器上后端仍返回 Some 但量出
+/// 宽 0，只认有值会把假绿放行。
 pub fn Tester::capabilities(self : Tester) -> Capabilities {
   let _ = self
   {
-    text_measure: @text.measure("Ag", 13.0) is Some(_),
+    text_measure: text_backend_ok(),
     image_decode: gif_probe_width() > 0.0,
     raster: probe_raster_ok(),
+  }
+}
+
+///|
+fn text_backend_ok() -> Bool {
+  match @text.measure("Ag", 13.0) {
+    Some(m) => m.width > 0.0
+    None => false
   }
 }
 
