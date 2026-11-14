@@ -7332,8 +7332,16 @@ static void wm_dnd_on_received(GtkWidget *widget, GdkDragContext *ctx,
   }
 }
 
+/* 探测一次就不再重试（同 Windows 分支 wm_dnd_ole_init 的口径）：无头档
+ * App::step 每拍都会经 drag_external_pump 走到这里，失败结果不缓存等于
+ * 每帧白探一次 gtk_init_check。 */
 int wm_dragdnd_supported(void) {
-  return gtk_init_check(NULL, NULL) ? 1 : 0; // 与文件对话框同一条惰性探测
+  static int ready = -1;
+  if (ready >= 0) {
+    return ready;
+  }
+  ready = gtk_init_check(NULL, NULL) ? 1 : 0;
+  return ready;
 }
 
 int wm_dragdnd_enable(int64_t id) {
