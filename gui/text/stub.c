@@ -10,6 +10,10 @@
 //                   直接可见，不需要 prebuild）；macOS 的 CoreText 待真机，
 //                   现在是占位 no-op。运行时探测选择：探到
 //                   占位即退降级，不用编译指令。
+//   WM_STUB_LINUX_PLACEHOLDER → Linux 缺 GTK 开发包时的降级占位（prebuild
+//                   带此宏编 *_ph.a，见 scripts/prebuild.mbtx），与其余平台
+//                   共用同一份占位实现；Linux 无宏的 native-stub 编译仍然
+//                   落不进任何分支（空 TU 口径不动）。
 
 #if defined(WM_STUB_PANGO)
 // Pango 文本层：测量与绘制都走 Pango（老师 libyue 在 GTK 上同样是 Pango，
@@ -2884,10 +2888,16 @@ int rt_caret_x(int64_t h, int byte, double box_w, double box_h, double *out_x) {
   }
   return 0;
 }
-#elif !defined(__linux__) && !defined(__APPLE__)
+// Linux 缺 GTK 开发包时 prebuild 带 WM_STUB_LINUX_PLACEHOLDER 编降级归档，
+// 与其余平台共用这一臂占位（零复制）。平台闸只在后面追加占位宏、不能放宽：
+// mac 无宏的 native-stub 编译必须仍落空 TU（否则与 prebuild 的 mac 归档
+// 双定义），Linux 无宏同理。
+#elif (!defined(__linux__) && !defined(__APPLE__)) || \
+    defined(WM_STUB_LINUX_PLACEHOLDER)
 
 // 非 Linux 的文本层：macOS 的 CoreText 待真机，现在是占位 no-op（探到占位
-// 即退降级）；Windows 分支见上面的 _WIN32 段。占位只保链接符号不断。
+// 即退降级）；Windows 分支见上面的 _WIN32 段。占位只保链接符号不断；
+// Linux 缺开发包的降级档同用此臂。
 #include <stdint.h>
 
 int pt_measure(const char *text, int len, double size, const char *family,

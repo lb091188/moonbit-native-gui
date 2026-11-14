@@ -13,6 +13,10 @@
 //                     探到占位即选纯路径，占位只保链接符号不断。图片解码则是
 //                     例外——**Windows 已实装**（W9）：光栅器不负责解码，走
 //                     WIC（系统组件）；macOS 仍占位，随 mac 窗口层落地。
+//   WM_STUB_LINUX_PLACEHOLDER → Linux 缺 GTK 开发包时的降级占位（prebuild
+//                     带此宏编 *_ph.a，见 scripts/prebuild.mbtx），与上面的
+//                     占位分支同一份实现；Linux 无宏的 native-stub 编译仍然
+//                     落不进任何分支（空 TU 口径不动）。
 //
 // 像素缓冲归 MoonBit（yue/render 的 Bitmap，ARGB32 预乘布局与
 // CAIRO_FORMAT_ARGB32 一致），本层不拥有内存、不 free 数据；PNG 编解码本体
@@ -1629,7 +1633,12 @@ void *cr_session_context(int64_t id) {
   return NULL;
 }
 
-#elif !defined(__linux__) && !defined(__APPLE__)
+// Linux 缺 GTK 开发包时 prebuild 带 WM_STUB_LINUX_PLACEHOLDER 编降级归档，
+// 与其余平台共用这一臂占位（零复制）。平台闸只在后面追加占位宏、不能放宽：
+// mac 无宏的 native-stub 编译必须仍落空 TU（否则与 prebuild 的 mac 归档
+// 双定义），Linux 无宏同理。
+#elif (!defined(__linux__) && !defined(__APPLE__)) || \
+    defined(WM_STUB_LINUX_PLACEHOLDER)
 
 // 其余平台的后端随各自窗口层落地时补。
 

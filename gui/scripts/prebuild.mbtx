@@ -205,6 +205,7 @@ async fn compile_stub(
   lib_file~ : String,
   objc~ : Bool,
   extra_cflags~ : Array[String],
+  skip_pkg_config~ : Bool = false,
 ) -> String {
   let srcs : Array[String] = []
   for rel in srcs_rel {
@@ -218,7 +219,9 @@ async fn compile_stub(
   if srcs.is_empty() {
     abort("stub: " + lib_file + " 的源文件全部缺失——包搬家后忘了改路径？")
   }
-  // 编译参数：ObjC 桩按 ObjC 编 + ARC；Linux 桩要 GTK 系头文件 cflags
+  // 编译参数：ObjC 桩按 ObjC 编 + ARC；Linux 桩要 GTK 系头文件 cflags；
+  // 占位桩（skip_pkg_config）只用标准头，不带 pkg-config cflags——缺开发包
+  // 正是它的编译前提
   let cflags : Array[String] = []
   if objc {
     cflags.push("-x")
@@ -228,7 +231,7 @@ async fn compile_stub(
   for c in extra_cflags {
     cflags.push(c)
   }
-  if !objc {
+  if !objc && !skip_pkg_config {
     for name in linux_pkg_config_libs {
       match pkg_config([name], "--cflags") {
         None => {
@@ -373,13 +376,73 @@ async fn link_configs() -> String {
           }
       }
     }
-    if missing {
-      return "{ \"link_configs\": [] }"
-    }
     // 系统库不会被自动带上，显式补
     let sys_libs = join_flags([
       "-lpthread", "-ldl", "-lm", "-lstdc++", "-latomic",
     ])
+    if missing {
+      // 缺开发包：占位降级——stub.c 带 WM_STUB_LINUX_PLACEHOLDER 编 _ph 归档，
+      // 只保链接符号不断（运行时探针退纯光栅 / 无文本测量），不下发 GTK/Pango
+      // 链接参数。归档名带 _ph 与真归档区分：gui-webview 的 find_win_stub_archive
+      // 按真归档名查找，重名会在「有 webkit 开发包缺 GTK」的组合下把真 webkit
+      // 实现链到占位 win 桩上。
+      err(
+        "prebuild: 已降级占位桩——纯光栅渲染 + 无文本测量；装齐开发包后重跑可恢复真后端",
+      )
+      let ph = "-DWM_STUB_LINUX_PLACEHOLDER"
+      let win_lib = compile_stub(
+        module_root~,
+        build_dir~,
+        srcs_rel=["win/stub.c", "win/crash_log.c"],
+        lib_file="libyue_win_stub_ph.a",
+        objc=false,
+        extra_cflags=[ph],
+        skip_pkg_config=true,
+      )
+      if win_lib.length() > 0 {
+        let flags = "-L" + build_dir + " -lyue_win_stub_ph " + sys_libs
+        entries.push(entry(pkg=win_package, link_flags=flags))
+        // sys 的文件对话框 extern 直链 win 桩的 wm_file_*，与真实现同口径共条
+        entries.push(entry(pkg=sys_package, link_flags=flags))
+      }
+      let cairo_lib = compile_stub(
+        module_root~,
+        build_dir~,
+        srcs_rel=["render/stub.c"],
+        lib_file="librender_cairo_stub_ph.a",
+        objc=false,
+        extra_cflags=[ph],
+        skip_pkg_config=true,
+      )
+      if cairo_lib.length() > 0 {
+        entries.push(
+          entry(pkg=render_package, link_flags="-L" +
+            build_dir +
+            " -lrender_cairo_stub_ph " +
+            sys_libs,
+          ),
+        )
+      }
+      let text_lib = compile_stub(
+        module_root~,
+        build_dir~,
+        srcs_rel=["text/stub.c"],
+        lib_file="libyue_text_pango_ph.a",
+        objc=false,
+        extra_cflags=[ph],
+        skip_pkg_config=true,
+      )
+      if text_lib.length() > 0 {
+        entries.push(
+          entry(pkg=text_package, link_flags="-L" +
+            build_dir +
+            " -lyue_text_pango_ph -lrender_cairo_stub_ph " +
+            sys_libs,
+          ),
+        )
+      }
+      return "{ \"link_configs\": [" + entries.join(", ") + "] }"
+    }
     // stub.c 的崩溃取证调用点（wm_crash_mark/note）实现住 crash_log.c：
     // 非 Windows 平台是空实现，必须同编进归档，否则链接期缺符号
     let win_lib = compile_stub(

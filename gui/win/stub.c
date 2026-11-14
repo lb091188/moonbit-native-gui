@@ -10,6 +10,10 @@
 //                    GTK 头路径（link_configs 只有链接期字段，G0 实测），
 //                    所以不带宏的那次编译必须落不进这个分支。
 //   其余（macOS） → 占位空实现，保证链接不断符号。
+//   WM_STUB_LINUX_PLACEHOLDER → Linux 缺 GTK 开发包时的降级占位（prebuild
+//                    带此宏编 libyue_win_stub_ph.a，见 scripts/prebuild.mbtx），
+//                    与其余平台共用同一份占位实现；Linux 无宏的 native-stub
+//                    编译仍然落不进任何分支（空 TU 口径不动）。
 //
 // 分支顺序有讲究：Linux 上 native-stub 也会编译本文件（不带宏），必须让
 // 它编出空翻译单元——否则 wm_* 会与 prebuild 的 .a 双定义。空 TU 在本链
@@ -13243,7 +13247,12 @@ int wm_inst_take(char *out, int32_t cap) {
 int wm_inst_last_errno(void) { return 0; }
 void wm_inst_release(void) {}
 
-#elif !defined(__linux__) && !defined(__APPLE__)
+// Linux 缺 GTK 开发包时 prebuild 带 WM_STUB_LINUX_PLACEHOLDER 编降级归档，
+// 与其余平台共用这一臂占位（零复制）。平台闸只在后面追加占位宏、不能放宽：
+// mac 无宏的 native-stub 编译必须仍落空 TU（否则与 prebuild 的 mac 归档
+// 双定义），Linux 无宏同理。
+#elif (!defined(__linux__) && !defined(__APPLE__)) || \
+    defined(WM_STUB_LINUX_PLACEHOLDER)
 
 /* 剪贴板三符号（占位）：macOS 走 sys 自己的 pbpaste/pbcopy 命令线。 */
 int wm_clipboard_available(void) { return 0; }
@@ -13259,7 +13268,13 @@ int wm_clipboard_set_text(const char *text) {
 // ---------------- 其余平台（macOS 等）占位 ----------------
 // 保证 `moon build --target native` 的符号不断；真后端随各自窗口层落地补。
 
+// 标准头齐备：本臂与尾部「实现 TU」段（a11y 存储、GPU 诊断日志）共用——
+// 其余平台臂在文件早处已各自 include，占位臂此前没人编译过，头要自带
 #include <stdint.h>
+#include <stdio.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
 
 int wm_init(void) {
   return 0;
@@ -13364,17 +13379,6 @@ int wm_im_preedit_caret(int64_t id) { (void)id; return 0; }
 int wm_im_preedit_active(int64_t id) { (void)id; return 0; }
 
 void wm_wakeup(void) {}
-
-int wm_hotkey_register(int mods, int vk, int keysym) {
-  (void)mods;
-  (void)vk;
-  (void)keysym;
-  return 0;
-}
-
-void wm_hotkey_unregister(int id) { (void)id; }
-
-int wm_hotkey_poll(void) { return 0; }
 
 /* W20a 菜单占位（macOS 等）：句柄 0 = 建失败，MoonBit 层走语义化降级。
  * macOS 原生档是 NSMenu（ObjectC++ 单独 TU，将来随 mac 平台批补）。*/
@@ -13737,10 +13741,11 @@ int64_t wm_shell_caps(void) {
 // 分支，编出空翻译单元——GTK 实现由 prebuild 的 libyue_win_stub.a 提供，
 // 这里绝不能再定义一份（双定义）。
 
-/* 存储只编进「实现 TU」：Win32 原生 / GTK 的 .a / mac 的 .a。
- * native-stub 在 Linux/mac 上编的是空 TU，若也定义就会与 .a 双定义（链接期
- * multiple definition，已在 Linux 实测踩到）。 */
+/* 存储只编进「实现 TU」：Win32 原生 / GTK 的 .a / mac 的 .a / Linux 缺包
+ * 降级的 _ph.a。native-stub 在 Linux/mac 上编的是空 TU，若也定义就会与 .a
+ * 双定义（链接期 multiple definition，已在 Linux 实测踩到）。 */
 #if defined(WM_STUB_MAC) || defined(WM_STUB_GTK) || \
+    defined(WM_STUB_LINUX_PLACEHOLDER) || \
     (!defined(__linux__) && !defined(__APPLE__))
 
 /* ================= 语义快照存储（所有平台同一份，平台臂只读） ================= */
