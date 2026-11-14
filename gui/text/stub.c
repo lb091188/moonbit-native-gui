@@ -40,9 +40,54 @@ int pt_render_stats(int64_t *calls, int64_t *d2d_us, int64_t *read_us) {
 // pt_set_base_dir(1) 后生效;置位时清空布局缓存,并把该标志并入缓存键防串味。
 static int g_pt_rtl = 0;
 
+/* 内嵌回退字体：无字体环境（最小安装/容器）里 Pango 匹配不到任何族，量出
+ * 宽 0、画豆腐块。系统有字体时绝不干预；探到零族才把随包发布的子集 ttf
+ * （ASCII + GB2312 一级常用汉字，scripts/gen_fallback_font.py 生成）注册进
+ * fontconfig 的应用字体表。路径由 prebuild 编译期注入（-DNGUI_FALLBACK_
+ * FONT_PATH），随构建环境走——发布场景使用侧重跑 prebuild 重新解析。
+ * 注册只做一次（成败都 memoize）：失败即放弃，后续靠零宽探针走回退。 */
+#if defined(NGUI_FALLBACK_FONT_PATH)
+#include <fontconfig/fontconfig.h>
+
+static void pt_ensure_fallback_font(void) {
+  static int tried = 0;
+  if (tried) {
+    return;
+  }
+  tried = 1;
+  PangoFontMap *fm = pango_cairo_font_map_get_default();
+  if (fm == NULL) {
+    return;
+  }
+  PangoFontFamily **fams = NULL;
+  int n = 0;
+  pango_font_map_list_families(fm, &fams, &n);
+  if (fams != NULL) {
+    g_free(fams);
+  }
+  if (n > 0) {
+    return; // 系统有字体，绝不干预
+  }
+  FcConfig *cfg = FcConfigGetCurrent();
+  if (cfg == NULL) {
+    return;
+  }
+  if (!FcConfigAppFontAddFile(cfg, (const FcChar8 *)NGUI_FALLBACK_FONT_PATH)) {
+    return;
+  }
+  // 探测用的默认 fontmap 可能已缓存不含应用字体的配置快照——重置默认，
+  // 下一次 get_default 新建的 map 按已注册的 config 解析
+  pango_cairo_font_map_set_default(NULL);
+}
+
+#else
+#define pt_ensure_fallback_font() ((void)0)
+#endif
+
 static PangoLayout *pt_make_layout(const char *text, int len, double size,
                                    const char *family, int weight,
                                    int italic, double spacing) {
+  pt_ensure_fallback_font();
   PangoFontMap *fm = pango_cairo_font_map_get_default();
   if (fm == NULL) {
     return NULL;
@@ -314,6 +359,7 @@ int pt_font_line_height(double size, const char *family, int weight,
   if (out_h == NULL || out_ascent == NULL) {
     return 0;
   }
+  pt_ensure_fallback_font();
   PangoFontMap *fm = pango_cairo_font_map_get_default();
   if (fm == NULL) {
     return 0;
@@ -1114,6 +1160,7 @@ static void pt_fam_build(void) {
     return;
   }
   pt_fam_len = 0;
+  pt_ensure_fallback_font();
   PangoFontMap *fm = pango_cairo_font_map_get_default();
   if (fm == NULL) {
     return;

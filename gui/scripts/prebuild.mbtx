@@ -484,13 +484,20 @@ async fn link_configs() -> String {
         ),
       )
     }
+    // 内嵌回退字体的绝对路径编译期注入：探到系统零字体时注册进 fontconfig
+    // （见 text/stub.c 的 pt_ensure_fallback_font）。构建机器的路径，发布场景
+    // 使用者重跑 prebuild 重新解析；文件缺失只影响运行时注册（自弃，走回退
+    // 估算），不影响编译。
+    let font_flag = "-DNGUI_FALLBACK_FONT_PATH=\\\"" +
+      module_root +
+      "/text/assets/fallback-cjk.ttf\\\""
     let text_lib = compile_stub(
       module_root~,
       build_dir~,
       srcs_rel=["text/stub.c"],
       lib_file="libyue_text_pango.a",
       objc=false,
-      extra_cflags=["-DWM_STUB_PANGO"],
+      extra_cflags=["-DWM_STUB_PANGO", font_flag],
     )
     if text_lib.length() > 0 {
       // 文本层要复用 Painter 的 Cairo 会话（cr_session_context 定义在
