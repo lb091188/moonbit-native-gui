@@ -261,6 +261,94 @@ jobs:
             exit 1
           fi
 
+  # 无 GTK 裸容器腿：占位降级路径的固化(低频路径不固化必烂)。镜像刻意不装
+  # 任何 GTK/Pango/X11/字体开发包——prebuild 走 WM_STUB_LINUX_PLACEHOLDER
+  # 占位归档(纯光栅 + 无文本测量),文本走内建回退估算。与主 Linux 腿的关系
+  # 见「三档分工」：本腿仍是第①档无头断言,验「缺开发包的机器上测试全绿」；
+  # 真窗冒烟归主腿的 xvfb 步,观感归真机人工清单。
+  linux-bare:
+    name: Linux bare(无 GTK 裸容器:占位降级 + 回退测量)
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      # 最小依赖,刻意不含 GTK/Pango/X11/字体系开发包。ffmpeg 开发包不是主链路:
+      # uitest/mngdev 的依赖闭包连带 gui-media,workspace 解析会跑 ffmpeg-mbt
+      # 的 prebuild,缺 libav* 直接失败(与主腿 L37 注释同因)。dbus-run-session
+      # 要 dbus-daemon；容器无 machine-id 时先补一份。
+      - name: 最小依赖(git/curl/编译器/pkg-config/dbus + ffmpeg 开发包)
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            git curl build-essential pkg-config dbus \
+            libavformat-dev libavcodec-dev libswscale-dev \
+            libswresample-dev libavutil-dev
+          dbus-uuidgen --ensure >/dev/null 2>&1 || true
+
+      - name: 安装 moon 工具链
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      # 主腿同因:新装注册表索引查不到依赖要先刷,旧式清单要就地迁移
+      - name: 刷新注册表索引
+        run: moon update
+
+      - name: 迁移依赖缓存里的旧式清单
+        run: |
+          for i in $(seq 1 40); do
+            if (cd gui && moon check >/tmp/resolve.log 2>&1); then
+              echo "依赖图解析通过(第 $i 轮)"
+              exit 0
+            fi
+            if ! grep -aq "no longer supported" /tmp/resolve.log; then
+              tail -20 /tmp/resolve.log
+              exit 1
+            fi
+            find .mooncakes \( -name moon.mod.json -o -name moon.pkg.json \) \
+              | while read -r f; do
+                  (cd "$(dirname "$f")" && moon fmt >/dev/null 2>&1) || true
+                done
+          done
+          echo "::error title=依赖清单迁移没收敛::40 轮后仍报 no longer supported"
+          tail -20 /tmp/resolve.log
+          exit 1
+
+      - name: 静态检查(占位降级形态)
+        working-directory: gui
+        run: moon check
+
+      # 降级判定三条(全绿只是底线,还要证明「真的走了降级」而不是碰巧没炸):
+      # 1. prebuild stderr 有「已降级占位桩」——占位归档真编了;
+      # 2. 绘制类用例按守卫跳过(text: skip [需真后端])——探针诚实化生效;
+      # 3. 单调/约束类用例照跑全过——回退估算接住了布局。
+      - name: 单元测试(占位降级形态,19 包全绿 + 降级口径三判定)
+        working-directory: gui
+        run: |
+          set +e
+          dbus-run-session -- moon test \
+            base shell widget ui render text theme icons sys input win dbus \
+            chart mdview style router uitest mngdev \
+            >/tmp/mt.out 2>&1
+          code=$?
+          set -e
+          if [ $code -ne 0 ]; then
+            echo "::error title=裸容器 moon test 退出码 $code::$(grep -aiE 'failed|FAILED|error|panicked|expect' /tmp/mt.out | tail -c 1800 | sed ':a;N;$!ba;s/\n/%0A/g')"
+            tail -c 4000 /tmp/mt.out
+            exit 1
+          fi
+          grep -aE "Total tests" /tmp/mt.out | tail -1
+          grep -aq "已降级占位桩" /tmp/mt.out || {
+            echo "::error::没看到占位降级提示——镜像意外装上了开发包或 prebuild 分支失守"
+            exit 1
+          }
+          grep -aq "skip \[需真后端\]" /tmp/mt.out || {
+            echo "::error::绘制类用例没按守卫跳过——探针诚实化口径失守"
+            exit 1
+          }
+
   # 文档站门禁：死链/构建错误推送即红（CF Pages 只在后台建，失败不可见），
   # 外加索引守卫——docs/ 新页面漏挂侧边栏或索引时非零退出，杜绝「写完文档
   # 站上没入口」（CF 构建根目录是 docs/，本 job 与其口径一致）。
