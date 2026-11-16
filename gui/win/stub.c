@@ -5349,6 +5349,8 @@ typedef struct {
   unsigned char *backing; // 后端自己拥有的帧缓冲（跨到下一次 draw 回调仍有效）
   size_t backing_cap;
   WmL1 l1; // GPU present 档（L1）每窗状态（核心在文件末实现 TU 段）
+  int ct_want;  // 整窗点击穿透意图（wm_set_click_through 记账）
+  int ct2_mode; // 当前 input region 形态：0=整窗 1=逐像素 2=整窗穿透
   GtkIMContext *im;
   int cursor_kind;   // 当前光标形状（0 默认/1 手/2 文本/3 横向/4 纵向），-1 未设过
   char commit[256]; // 已提交文本（UTF-8），MoonBit 逐字节读走后清零
@@ -6088,6 +6090,7 @@ int wm_set_transparent_bg(int64_t id, int on) {
   // 切完要重画一次：GTK 不会因为 paintable 变了就自己把旧底清掉
   gtk_widget_queue_draw(w->window);
   wm_mark_draw(w);
+  wm_ct2_sync(w); // 透视开关切命中形态（W-CT2）
   return 0;
 }
 
@@ -6111,10 +6114,127 @@ int wm_set_click_through(int64_t id, int on) {
   int ev_base = 0, err_base = 0;
   if (XShapeQueryExtension(d, &ev_base, &err_base) == 0) return 1;
   Window xid = gdk_x11_window_get_xid(gw);
+  w->ct_want = on ? 1 : 0;
   if (on) {
     XShapeCombineRectangles(d, xid, ShapeInput, 0, 0, NULL, 0, ShapeSet,
                             Unsorted);
+    w->ct2_mode = 2;
   } else {
+    // 关掉整窗穿透：若这窗开着透明档，逐像素命中即刻接管（restore 形态
+    // 交给下一拍 sync；无帧时先回整窗，帧到了 present 再细打）
+    w->ct2_mode = 0;
+    if (w->trans_want && w->pending != NULL) {
+      wm_ct2_sync(w);
+    } else {
+      XRectangle r;
+      r.x = 0;
+      r.y = 0;
+      r.width = (unsigned short)w->width;
+      r.height = (unsigned short)w->height;
+      XShapeCombineRectangles(d, xid, ShapeInput, 0, 0, &r, 1, ShapeSet,
+                              Unsorted);
+    }
+  }
+  XFlush(d);
+  return 0;
+#endif
+}
+
+/* 逐像素命中（W-CT2）：透明档窗按帧 alpha 生成 input region——a=0 的洞点
+ * 穿到下层，可见像素照常收交互（与 Win ULW 的系统命中语义对齐）。行扫描
+ * 找 a>0 区间、与上一行同区间矩形纵向合并；矩形数超上限回退整窗（内容基本
+ * 铺满时逐像素没有意义，region 复杂度也省了）。X11-only，与整窗穿透同门。 */
+#define WM_CT2_MAX_RECTS 256
+
+// 扫描 pending 帧（预乘 BGRA，alpha 在每像素第 4 字节）。回矩形数；-1 = 超
+// 上限（调用方回退整窗）。
+static int wm_ct2_build(WmWindow *w, XRectangle *out, int cap) {
+  int pw = w->pending_w, ph = w->pending_h;
+  const unsigned char *pix = w->pending;
+  if (pix == NULL || pw < 1 || ph < 1) {
+    return 0;
+  }
+  int n = 0;
+  for (int y = 0; y < ph; y++) {
+    const unsigned char *row = pix + (size_t)y * (size_t)pw * 4;
+    int x = 0;
+    while (x < pw) {
+      if (row[(size_t)x * 4 + 3] == 0) {
+        x++;
+        continue;
+      }
+      int x0 = x;
+      while (x < pw && row[(size_t)x * 4 + 3] != 0) {
+        x++;
+      }
+      int merged = 0;
+      for (int i = n - 1; i >= 0; i--) {
+        if (out[i].y + out[i].height == y && out[i].x == x0 &&
+            out[i].width == (unsigned short)(x - x0)) {
+          out[i].height = (unsigned short)(out[i].height + 1);
+          merged = 1;
+          break;
+        }
+      }
+      if (!merged) {
+        if (n >= cap) {
+          return -1;
+        }
+        out[n].x = (short)x0;
+        out[n].y = (short)y;
+        out[n].width = (unsigned short)(x - x0);
+        out[n].height = 1;
+        n++;
+      }
+    }
+  }
+  return n;
+}
+
+// 按当前意图打 input region：整窗穿透 > 透明档逐像素 > 整窗恢复。每帧帧变
+// 后调（逐像素 region 要跟帧走）；形态没变且不是逐像素时跳过重打。
+static void wm_ct2_sync(WmWindow *w) {
+#ifndef WM_L1_XSHAPE
+  (void)w;
+#else
+  if (w->window == NULL) return;
+  GdkDisplay *gd = gdk_display_get_default();
+  if (gd == NULL) return;
+  Display *d = gdk_x11_get_default_xdisplay();
+  if (d == NULL) return;
+  GdkWindow *gw = gtk_widget_get_window(w->window);
+  if (gw == NULL) return;
+  int ev_base = 0, err_base = 0;
+  if (XShapeQueryExtension(d, &ev_base, &err_base) == 0) return;
+  Window xid = gdk_x11_window_get_xid(gw);
+  if (w->ct_want) {
+    return; // 整窗穿透已打（wm_set_click_through），不抢
+  }
+  if (w->trans_want && w->pending != NULL) {
+    XRectangle rects[WM_CT2_MAX_RECTS];
+    int n = wm_ct2_build(w, rects, WM_CT2_MAX_RECTS);
+    if (n < 0) {
+      XRectangle r;
+      r.x = 0;
+      r.y = 0;
+      r.width = (unsigned short)w->width;
+      r.height = (unsigned short)w->height;
+      XShapeCombineRectangles(d, xid, ShapeInput, 0, 0, &r, 1, ShapeSet,
+                              Unsorted);
+      w->ct2_mode = 0;
+    } else if (n == 0) {
+      // 全透明帧：等效整窗穿透
+      XShapeCombineRectangles(d, xid, ShapeInput, 0, 0, NULL, 0, ShapeSet,
+                              Unsorted);
+      w->ct2_mode = 2;
+    } else {
+      XShapeCombineRectangles(d, xid, ShapeInput, 0, 0, rects, n, ShapeSet,
+                              Unsorted);
+      w->ct2_mode = 1;
+    }
+    return;
+  }
+  if (w->ct2_mode != 0) {
     XRectangle r;
     r.x = 0;
     r.y = 0;
@@ -6122,9 +6242,8 @@ int wm_set_click_through(int64_t id, int on) {
     r.height = (unsigned short)w->height;
     XShapeCombineRectangles(d, xid, ShapeInput, 0, 0, &r, 1, ShapeSet,
                             Unsorted);
+    w->ct2_mode = 0;
   }
-  XFlush(d);
-  return 0;
 #endif
 }
 
@@ -6391,6 +6510,8 @@ void wm_present(int64_t id, const unsigned char *rgba, int width, int height) {
   // 本就要它来贴像素——真正的贴像素在下一次 draw 回调里，那时窗口一定活着、
   // 数据也一定还活着。
   wm_store_frame(w, rgba, width, height);
+  // 透明档的逐像素 input region 要跟帧走（W-CT2）：帧数据落定后重打
+  wm_ct2_sync(w);
   // GPU 档（L1）：Bitmap 上传纹理 → 全屏 quad → swapchain present。返回 0
   // （没挂上/本帧失败）时逐字回退下面的 cairo 路径——贴的还是同一份
   // Bitmap，逐像素一致。
@@ -9951,6 +10072,31 @@ static NSString *wm_a11y_ax_role(const char *role) {
 - (BOOL)isOpaque {
   WMState *s = wm_state(vsid);
   return (s != nil && s->transparent) ? NO : YES;
+}
+
+// 逐像素命中（W-CT2）：透明档窗 a=0 的像素让点击穿到下层，与 Win ULW 的
+// 系统命中语义对齐——看得见的部分照常收交互。backing 是预乘 BGRA（小端，
+// 内存字节序 B,G,R,A），a=0 即全 0；事件坐标是视图点（原点左下），换算到
+// backing 物理像素（原点左上）。整窗穿透档（ignoresMouseEvents）由系统在
+// 更外层处理，走不到这里，两者不打架。
+- (NSView *)hitTest:(NSPoint)p {
+  WMState *s = wm_state(vsid);
+  if (s != nil && s->transparent && s->backing != NULL && s->backing_w > 0 &&
+      s->backing_h > 0) {
+    CGFloat scale = wm_scale_of(s);
+    NSInteger px = (NSInteger)(p.x * scale);
+    NSInteger py =
+        (NSInteger)(((double)self.bounds.size.height - (double)p.y) * scale);
+    if (px >= 0 && py >= 0 && px < s->backing_w && py < s->backing_h) {
+      const unsigned char *pix = (const unsigned char *)s->backing;
+      unsigned char a =
+          pix[((size_t)py * (size_t)s->backing_w + (size_t)px) * 4 + 3];
+      if (a == 0) {
+        return nil;
+      }
+    }
+  }
+  return [super hitTest:p];
 }
 
 - (void)drawRect:(NSRect)dirtyRect {

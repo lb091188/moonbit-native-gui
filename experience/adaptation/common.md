@@ -2119,3 +2119,11 @@ GpuCanvas——@render.GpuSink 的 gui-gpu 实现，GPU 线首消费者——落
 - **TSV 行尾字段会消费行分隔符**：win 桩的 `wm_a11y_field` 读字段遇 `\t` 或 `\n` 停并把分隔符吃掉——行尾字段天然「收行」。快照 12 列扩 13 列（尾加 kind）后发布侧与解析侧同批改自洽；但**手写 12 列 TSV 的测试**（喂 `a11y_publish` 的用例）会把下一行开头吃进上一行的 kind 段，行错位、断言全歪——atspi 入站派发用例实测踩中。口径：快照列数动一格，三同步点（a11y.mbt 摊平、win 桩解析与 TSV 读出、手写 TSV 的全部用例）同批改，测试里手写的 TSV 行也是契约面。
 - **MoonBit 字符串没有行尾反斜杠续行**：`"abc\<换行>"` 是非法转义直接红——多行长文案用「多段字符串 `+` 拼接」或 `\n` 转义写在一行，别照 shell heredoc 的续行习惯写。
 - **inspect 泵的选型定案**：declarative 挂窗在宿主同位无条件遍历 shell 帧泵钩子表（200ms 一拍自排续泵，表空零开销）；钩子表放 shell 层的原因是 ui 与 inspector 互相依赖成环。服务启动是纯注入式：应用 `main` 调一行 `@inspector.inspect_auto_install()` 装泵，泵内首次跑才探测 `MNG_INSPECT`——未注入零监听、listen 被占静默降级一次定型不重试。命令式应用不经 declarative 泵，自己在事件循环里定时调 `@inspector.inspect_pump()`。
+
+## 逐像素点击穿透：透明档窗三平台命中语义——2026-11-16，W-CT2 实现口径
+
+- **行为定案**：背景透视档（无边框 + `set_transparent_bg`）的窗自动逐像素命中——a=0 的像素点穿到下层、可见像素照常收交互；`set_click_through` 是整窗穿透档（卡片也穿），优先级更高，两者叠加使用。三者关系：整窗穿透 > 逐像素 > 普通窗。
+- **Windows 免费**：ULW（`UpdateLayeredWindow` + `AC_SRC_OVER|AC_SRC_ALPHA`）提交的帧系统自带逐像素命中——a=0 像素返回穿透，零代码。唯一例外：自绘标题栏拖拽矩形内 `WM_NCHITTEST` 回 `HTCAPTION` 压过 alpha 穿透，属期望行为。
+- **mac**：NSView `hitTest:` 重写——透明档时把事件点换算到 backing 物理像素（视图点原点左下 × scale 翻转到左上），读预乘 BGRA 第 4 字节，a=0 回 `nil` 即穿透。backing 是桩自有缓冲，hitTest 每次鼠标移动都调，O(1) 读单像素无性能问题。整窗穿透档由 `ignoresMouseEvents` 在更外层处理，走不到 hitTest，不打架。
+- **Linux X11**：XShape input region 按帧不透明区拼矩形集合（行扫描合并、栈上 256 矩形、超上限回退整窗），每帧 present 后重打——region 必须跟帧走，否则卡片移动后命中区错位。全透明帧等效空 region。XShape 只对鼠标与键盘，不影响显示。
+- **实测自测**：region 构建器假声明 TU 带合成帧自测——双卡片生成 2 矩形正确（含 alpha=128 可见）、噪声帧超限回退 -1。

@@ -340,9 +340,9 @@ fn window_sections(host : Ref[@widget.WindowHost?]) -> Array[@widget.Node] {
                     Ok(_) =>
                       layer_out.set(
                         if on {
-                          "点击穿透：开——点测试窗等于点它下面的东西（键盘不受影响）；再点这里关"
+                          "整窗穿透：开——卡片也穿，点测试窗等于点它下面的东西；再点这里关回逐像素"
                         } else {
-                          "点击穿透：关"
+                          "整窗穿透：关——回到逐像素命中（透明像素穿、卡片照常收交互）"
                         },
                       )
                     Err(Unsupported) =>
