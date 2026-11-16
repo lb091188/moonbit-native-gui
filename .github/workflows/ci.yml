@@ -277,12 +277,14 @@ jobs:
       # 最小依赖,刻意不含 GTK/Pango/X11/字体系开发包。ffmpeg 开发包不是主链路:
       # uitest/mngdev 的依赖闭包连带 gui-media,workspace 解析会跑 ffmpeg-mbt
       # 的 prebuild,缺 libav* 直接失败(与主腿 L37 注释同因)。dbus-run-session
-      # 要 dbus-daemon；容器无 machine-id 时先补一份。
+      # 要 dbus-daemon；容器无 machine-id 时先补一份。ca-certificates 是 curl
+      # 的 Recommends 而非 Depends——最小镜像配 --no-install-recommends 会漏装,
+      # 装 moon 的 curl 就报 (77) error setting certificate file。
       - name: 最小依赖(git/curl/编译器/pkg-config/dbus + ffmpeg 开发包)
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
-            git curl build-essential pkg-config dbus \
+            git curl ca-certificates build-essential pkg-config dbus \
             libavformat-dev libavcodec-dev libswscale-dev \
             libswresample-dev libavutil-dev
           dbus-uuidgen --ensure >/dev/null 2>&1 || true
