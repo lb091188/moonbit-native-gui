@@ -5132,7 +5132,8 @@ static int wm_insp_read_chunk(void) {
   return -1;
 }
 
-int yi_insp_listen(const char *slug) {
+int yi_insp_listen(const char *path, const char *slug) {
+  (void)path; /* 管道臂只用 slug 拼 \\.\pipe\moonbit-inspect-<slug>；完整路径供 POSIX 套接字臂 */
   if (slug == NULL) {
     wm_insp_errno = ERROR_INVALID_PARAMETER;
     return -1;

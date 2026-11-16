@@ -25,8 +25,8 @@ const INSP_REQUEST_CAP : Int32 = 4096
 //（gui/win/stub.c 的 _WIN32 分支），同符号族每平台恰好一份定义 ----
 
 ///|
-#borrow(path)
-extern "c" fn yi_insp_listen(path : Bytes) -> Int32 = "yi_insp_listen"
+#borrow(path, slug)
+extern "c" fn yi_insp_listen(path : Bytes, slug : Bytes) -> Int32 = "yi_insp_listen"
 
 ///|
 extern "c" fn yi_insp_poll() -> Int32 = "yi_insp_poll"
@@ -140,18 +140,14 @@ fn insp_socket_dir() -> String {
 
 ///|
 /// inspector 服务 socket 路径：`moonbit-inspect-<slug>.<uid>.sock`。
-/// Windows 管道臂只认 slug（C 侧拼 `\\.\pipe\moonbit-inspect-<slug>`，
-/// 与客户端 mnginsp_call 的 Windows 分支同约定），这里原样回 slug；
-/// POSIX 回完整路径。两个分支编译进同一个对象文件，Windows 上也要链
-/// 得出 yi_insp_getuid（桩回 0）。
+/// 三平台同一构造（Windows 的 uid 段为 0）：完整路径供 POSIX 套接字臂与
+/// 测试断言用，Windows 管道臂实际只用 slug——listen 时两个参数都传，
+/// C 臂各取所需（与客户端 mnginsp_call 的双参契约同形）。
 pub fn inspect_socket_path(app_id : String) -> String {
-  let slug = insp_slug(app_id)
-  if @shell.platform_name() == "windows" {
-    return slug
-  }
   let dir = insp_socket_dir()
   let base = "moonbit-inspect-"
   let tail = ".\{yi_insp_getuid()}.sock"
+  let slug = insp_slug(app_id)
   let sep = if dir == "/" { "" } else { "/" }
   "\{dir}\{sep}\{base}\{slug}\{tail}"
 }
@@ -210,7 +206,10 @@ pub fn inspect_pump() -> Unit {
       Some(a) if a != "" => a
       _ => "app"
     }
-    match yi_insp_listen(@utf8.encode(inspect_socket_path(app_id))) {
+    match yi_insp_listen(
+        @utf8.encode(inspect_socket_path(app_id)),
+        @utf8.encode(insp_slug(app_id)),
+      ) {
       1 => g_insp_started.val = true
       _ => g_insp_failed.val = true
     }

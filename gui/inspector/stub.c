@@ -68,7 +68,8 @@ static void yi_insp_drop_conn(void) {
   yi_insp_ready = 0;
 }
 
-int32_t yi_insp_listen(const char *path) {
+int32_t yi_insp_listen(const char *path, const char *slug) {
+  (void)slug; /* 套接字臂用完整路径；slug 供 Windows 管道臂（双参契约同客户端） */
   if (path == NULL) {
     yi_insp_err = EINVAL;
     return -1;
