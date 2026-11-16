@@ -5282,6 +5282,12 @@ int yi_insp_respond(const char *data, int32_t len) {
 
 int yi_insp_last_errno(void) { return wm_insp_errno; }
 
+/* Windows 无 getuid：路径构造里的 uid 段固定 0（管道名实际只用 slug，
+ * 与客户端 insp_stub.c 的 mnginsp_getuid 同口径）。MoonBit 侧
+ * inspect_socket_path 的两个平台分支编译进同一个对象文件，这里缺定义
+ * 就会在链接引用 inspector 的示例时 LNK2019。 */
+int32_t yi_insp_getuid(void) { return 0; }
+
 /* 系统权限 / 屏幕色温的空桩住声明者 sys 的桩（sys/sys_stub.c）：sys 的
  * 白盒测试 exe 只链 sys 包，占位放这边时 Windows 链接 LNK2019。 */
 

@@ -140,11 +140,18 @@ fn insp_socket_dir() -> String {
 
 ///|
 /// inspector 服务 socket 路径：`moonbit-inspect-<slug>.<uid>.sock`。
+/// Windows 管道臂只认 slug（C 侧拼 `\\.\pipe\moonbit-inspect-<slug>`，
+/// 与客户端 mnginsp_call 的 Windows 分支同约定），这里原样回 slug；
+/// POSIX 回完整路径。两个分支编译进同一个对象文件，Windows 上也要链
+/// 得出 yi_insp_getuid（桩回 0）。
 pub fn inspect_socket_path(app_id : String) -> String {
+  let slug = insp_slug(app_id)
+  if @shell.platform_name() == "windows" {
+    return slug
+  }
   let dir = insp_socket_dir()
   let base = "moonbit-inspect-"
   let tail = ".\{yi_insp_getuid()}.sock"
-  let slug = insp_slug(app_id)
   let sep = if dir == "/" { "" } else { "/" }
   "\{dir}\{sep}\{base}\{slug}\{tail}"
 }
