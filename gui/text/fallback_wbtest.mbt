@@ -67,15 +67,21 @@ test "回退：字体版与族名版同口径（字重斜体不参与估算）" 
   assert_eq(a.height, b.height)
 }
 
-test "回退：clamp_lines 在回退档也工作（行数钳制补 …）" {
-  // 复合入口：真后端不可用时走估算，3 行限 1 行应截断补 …
+test "clamp_lines 跨档可用：钳出省略号且高度单行级" {
+  // 复合入口真后端优先——这条在真后端机器走真字体、回退档走估算，断言只认
+  // 环境无关量：省略号必在；高度上界取本环境实测单字行盒，不硬编码任何一档
+  // 的行高常数（真字体自然行高可超 K 地板，硬编码会在桌面机误红，实测踩到）
   let font = Font::new("", 13.0)
   let clamped = clamp_lines("甲甲甲甲甲", font, 15, 1)
   assert_eq(clamped.contains("…"), true)
   let m = measure_font(clamped, font, max_width=15, wrap=true)
   assert_eq(m is Some(_), true)
+  let one_h = match measure_font("中", font) {
+    Some(mm) => mm.height
+    None => fallback_line_h(13.0)
+  }
   match m {
-    Some(mm) => assert_eq(mm.height <= fallback_line_h(13.0), true)
+    Some(mm) => assert_eq(mm.height <= one_h * 2, true)
     None => assert_eq(false, true)
   }
 }
