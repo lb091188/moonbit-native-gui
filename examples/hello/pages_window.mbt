@@ -74,6 +74,8 @@ fn open_transparent_demo(
           // 直调窗口层摘不掉它，卡片外那圈就不是真透明（实测踩过）
           w.set_borderless(true)
           child.set_transparent_bg(true)
+          // 置顶：透明区点穿会点到桌面/下层窗，窗被盖住就没法反复测了
+          w.set_layer(@win.WindowLayer::AlwaysOnTop)
           child.mount([
             @ui.col(
               [
