@@ -88,6 +88,7 @@ const zhGuideSidebar = [
     items: [
       { text: 'mng 命令与配置', link: '/zh/guide/mng' },
       { text: '热更与编辑器', link: '/zh/guide/mng-dev' },
+      { text: '界面检查器', link: '/zh/guide/inspector' },
     ],
   },
   {
@@ -201,6 +202,7 @@ const enGuideSidebar = [
     items: [
       { text: 'mng commands & config', link: '/guide/mng' },
       { text: 'Hot reload & editor', link: '/guide/mng-dev' },
+      { text: 'Inspector', link: '/guide/inspector' },
     ],
   },
   {

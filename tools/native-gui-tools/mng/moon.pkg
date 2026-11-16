@@ -1,5 +1,5 @@
 // .mng 编译 CLI（终端形态）：build / map-errors / ir / new / dev。I/O 走 moonbitlang/x；
-// 进程与单实例客户端在 tools 内自给（proc / inst），不依赖 GUI 库。
+// 进程与单实例/检查器客户端在 tools 内自给（proc / inst / insp），不依赖 GUI 库。
 import {
   "moonbitlang/core/env",
   "moonbitlang/core/encoding/utf8",
@@ -8,6 +8,7 @@ import {
   "NoahLiu/native-gui-tools/mngkit",
   "NoahLiu/native-gui-tools/proc",
   "NoahLiu/native-gui-tools/inst",
+  "NoahLiu/native-gui-tools/insp",
   "NoahLiu/native-gui-tools/doctor",
   "NoahLiu/native-gui-tools/scaffold",
 }

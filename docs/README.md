@@ -14,6 +14,7 @@ For what native-gui is, see the [home page](/). The site structure mirrors the t
 | [Single-file components (.mng)](guide/sfc.md) | The full `.mng` grammar: directives, component props, the `<style>` section, generated-code discipline, common errors |
 | [mng commands & config](guide/mng.md) | Installation, the bare-`mng` state machine, command reference, the full `mng.toml` key tables, doctor health check |
 | [Hot reload & editor](guide/mng-dev.md) | The `mng dev` loop and HOT/COLD classification, state preservation, @mngdev wiring, the VS Code extension |
+| [Inspector](guide/inspector.md) | The widget `kind` names, the embedded panel, the MNG_INSPECT-injected service (`tree` / `style` / `shot`), `mng inspect`, the `mng mcp` MCP server, headless `dump_tree` / `shot` |
 
 ## How-to cookbook
 

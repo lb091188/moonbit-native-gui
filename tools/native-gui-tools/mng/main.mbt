@@ -103,6 +103,16 @@ fn usage() -> Unit {
   )
   usage_line("  lsp", "语言服务", "Language server")
   usage_line(
+    "  inspect tree | style <id> | shot [路径]",
+    "连应用内检查服务取树 / 样式读数 / 截帧（应用需 MNG_INSPECT=1 起过）",
+    "Query the in-app inspector service: tree / style reading / frame shot (app started with MNG_INSPECT=1)",
+  )
+  usage_line(
+    "  mcp [--run \"<命令>\"] [--app <id>]",
+    "stdio MCP server：AI 客户端取树、读样式、截帧三工具；--run 拉起应用并注入",
+    "stdio MCP server: three tools for AI clients (tree / style / shot); --run spawns the app with injection",
+  )
+  usage_line(
     "  init", "在模块根写 mng.toml 样板", "Write an mng.toml sample at module root",
   )
   usage_line(
@@ -891,6 +901,10 @@ fn main {
       help_init()
     } else if cmd == "doctor" {
       help_doctor()
+    } else if cmd == "inspect" {
+      usage_inspect()
+    } else if cmd == "mcp" {
+      usage_mcp()
     } else if cmd == "dev" {
       usage_dev()
     } else if cmd == "package" {
@@ -940,6 +954,10 @@ fn main {
     cmd_ffmpeg_dll(rest)
   } else if cmd == "doctor" {
     cmd_doctor(force=rest.contains("-f") || rest.contains("--force"))
+  } else if cmd == "inspect" {
+    cmd_inspect(rest)
+  } else if cmd == "mcp" {
+    cmd_mcp(rest)
   } else {
     usage()
     2

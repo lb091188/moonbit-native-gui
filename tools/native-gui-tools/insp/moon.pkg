@@ -1,0 +1,12 @@
+// 检查器客户端原语（无 GUI 依赖）：连应用内 inspector 服务、发命令、收 TSV。
+// mng inspect 与 mng mcp 共用。
+import {
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/env",
+}
+
+supported_targets = "native"
+
+options(
+  "native-stub": [ "insp_stub.c" ],
+)

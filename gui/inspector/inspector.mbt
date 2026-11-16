@@ -159,7 +159,8 @@ pub fn inspector_panel(
     ),
   )
   fn do_refresh() -> Unit {
-    let nodes = @widget.a11y_last_frame()
+    // 统一取数口：与 dump(tree) 服务同一份（面板不直读全局快照）
+    let nodes = insp_tree_snapshot()
     cache.val = nodes
     rows.set(insp_table_rows(nodes))
     // 选中行在上一轮快照之外就清掉(树变了,旧下标不作数)

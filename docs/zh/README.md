@@ -14,6 +14,7 @@ native-gui 是什么见[首页](/zh/)。站内结构与顶部导航一致，按�
 | [单文件组件（.mng）](guide/sfc.md) | `.mng` 文法全解：指令集、组件 props、`<style>` 章、生成码纪律、常见错误 |
 | [mng 命令与配置](guide/mng.md) | 安装、裸 mng 状态机、命令参考、`mng.toml` 全键表、doctor 体检 |
 | [热更与编辑器](guide/mng-dev.md) | `mng dev` 循环与 HOT/COLD 分类、状态保活、@mngdev 接入、VS Code 扩展 |
+| [界面检查器](guide/inspector.md) | 控件 `kind` 类型名、内嵌面板、MNG_INSPECT 注入式服务（tree / style / shot）、`mng inspect`、`mng mcp`、无头 dump_tree / shot |
 
 ## 场景速查
 
