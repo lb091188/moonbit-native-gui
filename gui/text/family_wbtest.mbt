@@ -197,6 +197,10 @@ test "AttributedText 混排行高：区间字号参与，纯颜色区间不参�
 
 ///|
 test "混排行高覆盖实际绘制高度（基准字体的行高装不下大字号）" {
+  if !wb_text_real() {
+    println("text: skip [需真后端]（回退估算档无真实字形）")
+    return
+  }
   let t = AttributedText::new("基准 Base 28")
   t.set_font_for(Font::new("", 28.0), 10, 12)
   match (t.line_height(), t.get_bounds_for(240.0, 0.0).height) {

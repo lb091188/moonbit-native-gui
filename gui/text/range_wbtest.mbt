@@ -68,6 +68,10 @@ fn paint(at : AttributedText, w : Int32, h : Int32) -> @render.Bitmap {
 
 ///|
 test "颜色区间：落在正确的字形上，其余保持基准色" {
+  if !wb_text_real() {
+    println("text: skip [需真后端]（回退估算档画不出字形）")
+    return
+  }
   let at = AttributedText::new("AAAA", wrap=false)
   at.set_font(Font::new("", 20.0))
   at.set_color("#000")
@@ -89,6 +93,10 @@ test "颜色区间：落在正确的字形上，其余保持基准色" {
 
 ///|
 test "字节下标：多字节文本切在字节上而不是字符上" {
+  if !wb_text_real() {
+    println("text: skip [需真后端]（回退估算档画不出字形）")
+    return
+  }
   // "中文A" = 3 + 3 + 1 字节；区间 [3, 6) 只覆盖第二个汉字
   let at = AttributedText::new("中文A", wrap=false)
   at.set_font(Font::new("", 20.0))
@@ -107,6 +115,10 @@ test "字节下标：多字节文本切在字节上而不是字符上" {
 
 ///|
 test "字号区间：抬高包围盒高度且不超过无区间时的一半宽度" {
+  if !wb_text_real() {
+    println("text: skip [需真后端]（回退估算档量不出真包围盒）")
+    return
+  }
   let plain = AttributedText::new("Ag", wrap=false)
   plain.set_font(Font::new("", 13.0))
   let big = AttributedText::new("Ag", wrap=false)
@@ -121,6 +133,10 @@ test "字号区间：抬高包围盒高度且不超过无区间时的一半宽�
 
 ///|
 test "后设的区间覆盖先设的" {
+  if !wb_text_real() {
+    println("text: skip [需真后端]（回退估算档画不出字形）")
+    return
+  }
   let at = AttributedText::new("AAAA", wrap=false)
   at.set_font(Font::new("", 20.0))
   at.set_color("#000")
@@ -140,6 +156,10 @@ test "后设的区间覆盖先设的" {
 
 ///|
 test "越界区间与非法输入都不炸、不落像素" {
+  if !wb_text_real() {
+    println("text: skip [需真后端]（回退估算档画不出字形，墨迹断言不可比）")
+    return
+  }
   let at = AttributedText::new("hi", wrap=false)
   at.set_font(Font::new("", 16.0))
   at.set_color("#000")
@@ -154,6 +174,10 @@ test "越界区间与非法输入都不炸、不落像素" {
 
 ///|
 test "区间不改变无颜色时的绘制语义（空文本、空盒）" {
+  if !wb_text_real() {
+    println("text: skip [需真后端]（回退估算档画不出字形，绘制返值不可比）")
+    return
+  }
   let at = AttributedText::new("", wrap=false)
   at.set_color_for("#ff0000", 0, 4)
   let b = at.get_bounds_for(0.0, 0.0)
@@ -171,6 +195,10 @@ test "区间不改变无颜色时的绘制语义（空文本、空盒）" {
 /// 回归：富文本必须画在**调用方 Painter 的会话**上——随平移落位、被裁剪挡住。
 /// 旧路径自建 surface，控件里的富文本会无视宿主原点画到窗口左上角。
 test "富文本经会话绘制：随平移落位且被裁剪" {
+  if !wb_text_real() {
+    println("text: skip [需真后端]（回退估算档画不出字形）")
+    return
+  }
   let t = AttributedText::new("标题 Title")
   t.set_font_for(Font::new("", 22.0), 0, 6)
   let bm = @render.Bitmap::new(200, 200)

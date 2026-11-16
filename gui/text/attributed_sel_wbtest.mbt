@@ -8,6 +8,10 @@ fn rt_byte_len(s : String) -> Int32 {
 
 ///|
 test "AttributedText 选中几何：行盒连续覆盖、命中与游标往返" {
+  if !wb_text_real() {
+    println("text: skip [需真后端]（回退估算档量不出逐字几何）")
+    return
+  }
   let at = AttributedText::new(
     "Hello 富文本 World，再来一段足够长的中文用来把这一段在盒宽里折成多行显示。",
     wrap=true,

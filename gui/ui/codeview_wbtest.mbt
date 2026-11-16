@@ -448,6 +448,9 @@ test "code_view 描边：边缘出 border 墨，与底色分层" {
 
 ///|
 test "copyable：头部区加高、悬浮出复制按钮墨" {
+  if !ui_text_guard() {
+    return
+  }
   let plain = code_view(["let a = 1"], lang="moonbit")
   let root = @widget.Widget::new()
   root.set_size(220.0, 90.0)

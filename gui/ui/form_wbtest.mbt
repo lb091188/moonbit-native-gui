@@ -1110,6 +1110,9 @@ fn darkest_px(w : @widget.Widget) -> (Int32, Int32, Int32, Int32) {
 
 ///|
 test "步进器：打字未成交先落值再步进，外部改值时禁用态跟随" {
+  if !ui_text_guard() {
+    return
+  }
   let st = @base.Store::new(2)
   let root = mount_root([stepper(st, min=1, max=9)], 260.0, 60.0)
   let row = kid(root, 0)

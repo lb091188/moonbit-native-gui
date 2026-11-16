@@ -733,6 +733,9 @@ test "样式槽是绘制期唯一入口：底色/圆角/边框宽与状态桶都
 
 ///|
 test "内置皮肤也走样式槽：图标按钮悬停/按下有底、divider 与 icon 能被 class 改色" {
+  if !ui_text_guard() {
+    return
+  }
   let ib = icon_button(@icons.IconKind::MediumCircleFill, box_size=32.0)
   let root = mount_root([ib], 60.0, 60.0)
   let w = kid(root, 0)

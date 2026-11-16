@@ -18,6 +18,9 @@ fn rich_mount(
 
 ///|
 test "rich_text：混排命中落字符边界、拖选区间即原文子串" {
+  if !ui_text_guard() {
+    return
+  }
   let src = "富文本ABC混排 selectable"
   let at = @text.AttributedText::new(src, wrap=false)
   at.set_font(@text.Font::new("", 14.0))

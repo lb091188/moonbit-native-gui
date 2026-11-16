@@ -371,6 +371,9 @@ fn paint_editor(root : @widget.Widget) -> @render.Bitmap {
 
 ///|
 test "行号列真实出墨（clip 修复后）与 wants_tab 声明" {
+  if !ui_text_guard() {
+    return
+  }
   use_system_clipboard(false)
   let (root, w, store, _) = mounted_editor("aaaa\nbbbb\n", 300.0, 120.0)
   let bm = @render.Bitmap::new(320, 140)

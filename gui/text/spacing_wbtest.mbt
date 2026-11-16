@@ -53,6 +53,10 @@ test "字距：量宽差 = 字符数 × spacing" {
 
 ///|
 test "字距：绘制与测量同源（墨迹右界随字距外扩）" {
+  if !wb_text_real() {
+    println("text: skip [需真后端]（回退估算档画不出墨迹）")
+    return
+  }
   let plain = Font::new("", 14.0)
   let wide = Font::new("", 14.0, spacing=8.0)
   let bm0 = @render.Bitmap::new(200, 40)

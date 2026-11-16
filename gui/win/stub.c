@@ -13589,6 +13589,7 @@ int wm_clipboard_set_text(const char *text) {
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 int wm_init(void) {
   return 0;
@@ -14000,7 +14001,12 @@ void *wm_file_dialog_get_result(int64_t id) {
 void wm_file_dialog_destroy(int64_t id) { (void)id; }
 
 int64_t wm_now_ms(void) {
-  return 0;
+  // 真时钟而不是恒 0：无头泵的虚拟时基于墙钟，恒 0 会让定时器/重试拍
+  // 永不到期——widget 的 headless 回归死循环（真机实测踩到）。
+  // clock_gettime 是 POSIX 标准接口，占位档（缺 GTK 的 Linux）同样可用。
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 }
 
 int64_t wm_local_date(void) {

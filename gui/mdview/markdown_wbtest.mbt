@@ -1020,6 +1020,10 @@ test "选中档：逐字命中落字节、拖选区间就是原文子串" {
 
 ///|
 test "选中档：混排行里段界仍取联合几何，跨行拖选把两行都算进选区" {
+  if !md_text_real() {
+    println("mdview: skip [需真后端]（回退估算档量不出逐字几何）")
+    return
+  }
   let src = "支持 **粗体**、*斜体*、`行内代码` 与一段足够长的中文用来把它折成两行显示"
   let spans = md_flat_par(src)
   // 渲染文本 = 各段文本拼接（markdown 的 ** ` 标记不进文本）
@@ -1165,6 +1169,10 @@ test "选中档：逐字边缘是前缀实测量（kerning 混排也精确落边
 
 ///|
 test "跨段选中：markdown_view 文档级拖选跨块连续、复制得跨块原文" {
+  if !md_text_real() {
+    println("mdview: skip [需真后端]（回退估算档量不出逐字几何）")
+    return
+  }
   let src = "# 标题甲\n\n段落乙有足够长的文本用来折成两行显示，跨块拖选要能一路延伸。\n\n段落丙结尾。"
   let root = mount_doc(markdown_view(src, selectable=true), 400.0, 600.0)
   // 收集可选块（md_sel_states 里共享同一份文档级 TextSel）
@@ -1230,6 +1238,10 @@ test "跨段选中：markdown_view 文档级拖选跨块连续、复制得跨块
 
 ///|
 test "选中档：拖选松手后再移动不改选区（带链接的段落也必须成立）" {
+  if !md_text_real() {
+    println("mdview: skip [需真后端]（回退估算档量不出逐字几何）")
+    return
+  }
   // 带链接的段落走的是「链接命中优先」的指针分支——Up 若不转发进选中链，
   // sel_pointer 清不掉 dragging，松手后移动会一直从旧锚点改选区（真机实测）。
   let src = "前半句足够长用来把这一段折成两行，看 [链接](https://example.com) 与后续文字。"

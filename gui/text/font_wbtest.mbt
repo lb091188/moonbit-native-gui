@@ -63,6 +63,10 @@ test "wrap=false 单行自然宽：宽度不折行（与 wrap=true 的高度对�
 
 ///|
 test "省略：单行截断且宽度受钳" {
+  if !wb_text_real() {
+    println("text: skip [需真后端]（回退估算档画不出字形）")
+    return
+  }
   let t = "the quick brown fox jumps over the lazy dog"
   let bm = @render.Bitmap::new(80, 20)
   let f = Font::new("", 14.0)
@@ -109,6 +113,10 @@ test "字重参与度量（粗体不窄于常规）" {
 
 ///|
 test "盒内水平对齐：start < center < end，且 center 居中" {
+  if !wb_text_real() {
+    println("text: skip [需真后端]（回退估算档画不出字形）")
+    return
+  }
   let f = Font::new("", 14.0)
   let make = fn(a : TextAlign) -> (Int32, Int32, Int32, Int32) {
     let bm = @render.Bitmap::new(200, 24)
@@ -130,6 +138,10 @@ test "盒内水平对齐：start < center < end，且 center 居中" {
 
 ///|
 test "盒内垂直对齐：start < center < end，且 center 居盒中" {
+  if !wb_text_real() {
+    println("text: skip [需真后端]（回退估算档画不出字形）")
+    return
+  }
   let f = Font::new("", 14.0)
   let make = fn(a : TextAlign) -> (Int32, Int32, Int32, Int32) {
     let bm = @render.Bitmap::new(60, 80)
@@ -148,6 +160,10 @@ test "盒内垂直对齐：start < center < end，且 center 居盒中" {
 
 ///|
 test "AttributedText：属性面与包围盒" {
+  if !wb_text_real() {
+    println("text: skip [需真后端]（回退估算档量不出真包围盒）")
+    return
+  }
   let at = AttributedText::new("hello world")
   assert_eq(at.get_text(), "hello world")
   at.set_text("again")

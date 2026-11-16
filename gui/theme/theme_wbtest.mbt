@@ -174,10 +174,16 @@ test "控件高度基准：常量与字体实测两路" {
   let bordered = entry_ctrl_height(true)
   // 有边框比无边框高 2px（边框各 1px）；13px 字体的行盒要高于字号本身
   assert_eq(close(bordered - plain, 2.0, 0.001), true)
-  // 「行盒高于字号」这一路的前提是字体给得出实测行高；文字层还没接上的
-  // 平台（Windows 走 DirectWrite，见 TODO 的 W5）拿的是缺省值，跳过
-  match @text.measure("Ag", 13.0) {
-    Some(_) => assert_eq(plain >= 13.0, true)
+  // 「行盒高于字号」这一路的前提是字体给得出实测行高；判据走真后端直通
+  // （measure_real 有值且宽 > 0）——复合入口带回退估算恒有值，占位降级档
+  // 会假绿放行（实测踩到：估算行高小于字号，断言红）
+  match @text.measure_real("Ag", 13.0) {
+    Some(m) =>
+      if m.width > 0.0 {
+        assert_eq(plain >= 13.0, true)
+      } else {
+        println("theme: skip (文本测量量出零宽：无字体环境)")
+      }
     None => println("theme: skip (无文本测量后端)")
   }
 }

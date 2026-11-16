@@ -25,6 +25,10 @@ test "set_base_dir 往返 + 复位不影响度量" {
 /// align=End 也要贴右缘（Linux 曾因 Pango 按段落方向解释 LEFT/RIGHT 而
 /// 贴左）。wrap 走缺省 true，即「Pango 设宽 + 布局对齐」那条路径。
 test "RTL 起头的串盒内对齐仍是绝对左右缘" {
+  if !wb_text_real() {
+    println("text: skip [需真后端]（回退估算档画不出墨迹）")
+    return
+  }
   let f = Font::new("", 14.0)
   let make = fn(text : String, a : TextAlign) -> (Int32, Int32, Int32, Int32) {
     let bm = @render.Bitmap::new(400, 32)
