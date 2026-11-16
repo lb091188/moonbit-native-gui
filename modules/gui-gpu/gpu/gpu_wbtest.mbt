@@ -449,3 +449,214 @@ test "frame：资源面——shader/buffer/bind 全链（有 GPU 扩展才跑）
     }
   }
 }
+
+///|
+/// 列主序 4x4 乘法（回归用例内联；demo 同数学）。
+fn frame_mat_mul(
+  ma : FixedArray[Double],
+  mb : FixedArray[Double],
+) -> FixedArray[Double] {
+  let m = FixedArray::make(16, 0.0)
+  for c in 0..<4 {
+    for r in 0..<4 {
+      let mut s = 0.0
+      for k in 0..<4 {
+        s += ma[k * 4 + r] * mb[c * 4 + k]
+      }
+      m[c * 4 + r] = s
+    }
+  }
+  m
+}
+
+///|
+/// demo 同款组合回归：36 顶点立方体 + uniform mat4 MVP + 深度帧——三件
+/// 叠加是本接口的第一个全组合用例（曾因旋转矩阵漏设 x 对角元静默塌成
+/// 零面积，0 像素且无报错）。真后端跑出像素、断言立方体覆盖屏中心。
+test "frame：立方体全组合——顶点缓冲 + uniform MVP + 深度（有 GPU 扩展才跑）" {
+  let p = probe()
+  if !p.loaded {
+    println("frame-cube: skip（没装 GPU 扩展: \{p.detail}）")
+    return
+  }
+  match GpuCanvas::new(360, 240) {
+    Err(e) => fail("画布建不出：\{e}")
+    Ok(c) => {
+      let wgsl =
+        (
+        #|struct U {
+        #|  mvp : mat4x4<f32>,
+        #|}
+        #|@group(0) @binding(0) var<uniform> u : U;
+        #|struct VOut {
+        #|  @builtin(position) pos : vec4f,
+        #|  @location(0) col : vec4f,
+        #|}
+        #|@vertex fn vs(@location(0) p : vec3f, @location(1) col : vec4f) -> VOut {
+        #|  var o : VOut;
+        #|  o.pos = u.mvp * vec4f(p, 1.0);
+        #|  o.col = col;
+        #|  return o;
+        #|}
+        #|@fragment fn fs(frag_in : VOut) -> @location(0) vec4f {
+        #|  return frag_in.col;
+        #|}
+        )
+      let layout = [
+        GpuVertexLayout::{
+          stride: 28L,
+          step_mode: GpuStepMode::StepVertex,
+          attrs: [
+            GpuVertexAttr::{ location: 0, format: GpuVertexFormat::Float32x3, offset: 0L },
+            GpuVertexAttr::{ location: 1, format: GpuVertexFormat::Float32x4, offset: 12L },
+          ],
+        },
+      ]
+      let pipe = match c.create_render_pipeline(
+          wgsl,
+          layout,
+          blend=false,
+          depth=true,
+        ) {
+        Err(e) => fail("管线建不出：\{e}")
+        Ok(h) => h
+      }
+      let bgl = match c.pipeline_bind_group_layout(pipe) {
+        Err(e) => fail("bind group layout 拿不到：\{e}")
+        Ok(h) => h
+      }
+      let vbo = match c.create_buffer(1008L, [GpuBufFlag::Vertex, GpuBufFlag::CopyDst]) {
+        Err(e) => fail("顶点缓冲建不出：\{e}")
+        Ok(h) => h
+      }
+      let ubo = match c.create_buffer(64L, [GpuBufFlag::Uniform, GpuBufFlag::CopyDst]) {
+        Err(e) => fail("uniform 缓冲建不出：\{e}")
+        Ok(h) => h
+      }
+      let bind = match c.create_bind_group(
+          bgl,
+          [GpuBindBuffer::{ binding: 0, buffer: ubo, offset: 0L, size: 64L }],
+        ) {
+        Err(e) => fail("bind group 建不出：\{e}")
+        Ok(h) => h
+      }
+      // 立方体 36 顶点（六面各一色）
+      let all = FixedArray::make(36 * 7, 0.0)
+      let vi = Ref(0)
+      let face = fn(
+        v : Array[(Double, Double, Double)],
+        r : Double,
+        g : Double,
+        b : Double,
+      ) -> Unit {
+        for idx in [0, 1, 2, 0, 2, 3] {
+          let (x, y, z) = v[idx]
+          let o = vi.val
+          all[o] = x
+          all[o + 1] = y
+          all[o + 2] = z
+          all[o + 3] = r
+          all[o + 4] = g
+          all[o + 5] = b
+          all[o + 6] = 1.0
+          vi.val = o + 7
+        }
+      }
+      let a = 1.0
+      face([(-a, -a, a), (a, -a, a), (a, a, a), (-a, a, a)], 0.9, 0.25, 0.25)
+      face([(a, -a, -a), (-a, -a, -a), (-a, a, -a), (a, a, -a)], 0.93, 0.6, 0.24)
+      face([(-a, a, a), (a, a, a), (a, a, -a), (-a, a, -a)], 0.3, 0.75, 0.35)
+      face([(-a, -a, -a), (a, -a, -a), (a, -a, a), (-a, -a, a)], 0.3, 0.5, 0.9)
+      face([(a, -a, a), (a, -a, -a), (a, a, -a), (a, a, a)], 0.95, 0.8, 0.25)
+      face([(-a, -a, -a), (-a, -a, a), (-a, a, a), (-a, a, -a)], 0.25, 0.8, 0.8)
+      let vd = FixedArray::make(1008, b'\x00')
+      for i in 0..<(36 * 7) {
+        gpu_pack_f32(vd, i * 4, all[i])
+      }
+      assert_true(c.write_buffer(vbo, Bytes::from_array(vd)), msg="顶点写入失败")
+      // MVP = persp(0..1 深度, yy 翻转) * translate(0,0,-4) * Ry(0.5) * Rx(0.3)
+      // 三角值用双精度字面量（f = 1/tan(25°)，其余标注在行尾）——不依赖
+      // math 包，回归数据死板可比对
+      let f = 2.1445069205095586
+      let proj = FixedArray::make(16, 0.0)
+      proj[0] = f / 1.5
+      proj[5] = -f
+      proj[10] = 40.0 / (0.1 - 40.0)
+      proj[11] = -1.0
+      proj[14] = 40.0 * 0.1 / (0.1 - 40.0)
+      let view = FixedArray::make(16, 0.0)
+      view[0] = 1.0
+      view[5] = 1.0
+      view[10] = 1.0
+      view[15] = 1.0
+      view[14] = -4.0
+      let ry = FixedArray::make(16, 0.0)
+      ry[0] = 0.8775825618903728 // cos(0.5)
+      ry[5] = 1.0
+      ry[2] = -(0.479425538604203) // -sin(0.5)
+      ry[8] = 0.479425538604203
+      ry[10] = 0.8775825618903728
+      ry[15] = 1.0
+      let rx = FixedArray::make(16, 0.0)
+      rx[0] = 1.0
+      rx[5] = 0.955336489125606 // cos(0.3)
+      rx[6] = 0.29552020666133955 // sin(0.3)
+      rx[9] = -(0.29552020666133955)
+      rx[10] = 0.955336489125606
+      rx[15] = 1.0
+      let mvp = frame_mat_mul(proj, frame_mat_mul(view, frame_mat_mul(ry, rx)))
+      // 防回归哨兵：MVP 第一对角元必须非零（漏设 x 对角元时这里先红）
+      assert_true(
+        mvp[0].abs() > 0.5,
+        msg="MVP[0][0] 应含 x 缩放与旋转（旋转矩阵漏对角元会塌成 0）",
+      )
+      let ub = FixedArray::make(64, b'\x00')
+      for i in 0..<16 {
+        gpu_pack_f32(ub, i * 4, mvp[i])
+      }
+      assert_true(c.write_buffer(ubo, Bytes::from_array(ub)), msg="uniform 写入失败")
+      match c.begin_frame(clear="#101820", depth=true) {
+        Err(e) => fail("帧开不出：\{e}")
+        Ok(fr) => {
+          assert_true(fr.set_pipeline(pipe), msg="set_pipeline 失败")
+          assert_true(fr.set_bind_group(bind), msg="set_bind_group 失败")
+          assert_true(fr.set_vertex_buffer(vbo), msg="set_vertex_buffer 失败")
+          assert_true(fr.draw(36), msg="draw 失败")
+          fr.end()
+        }
+      }
+      match c.finish() {
+        None => fail("读回失败")
+        Some(b) => {
+          if !frame_all_zero(b) {
+            let mut diff = 0
+            for i in 0..<(360 * 240) {
+              let j = i * 4
+              if !(b[j] == 0x20 && b[j + 1] == 0x18 && b[j + 2] == 0x10) {
+                diff += 1
+              }
+            }
+            // 立方体投影覆盖屏中心一大片；塌成零面积时 diff=0
+            assert_true(
+              diff > 1000,
+              msg="立方体应出像素（非 clear \{diff}/86400——旋转矩阵塌 0 或几何被裁）",
+            )
+            let ci = (120 * 360 + 180) * 4
+            let center_clear = b[ci] == 0x20 &&
+              b[ci + 1] == 0x18 &&
+              b[ci + 2] == 0x10
+            assert_false(
+              center_clear,
+              msg="屏中心应被立方体盖住",
+            )
+          }
+        }
+      }
+      let _ = c.release_bind_group(bind)
+      let _ = c.release_buffer(ubo)
+      let _ = c.release_buffer(vbo)
+      let _ = c.release_pipeline(pipe)
+      c.free()
+    }
+  }
+}

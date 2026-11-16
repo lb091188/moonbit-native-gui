@@ -158,6 +158,7 @@ fn cube_perspective(
 fn cube_rotate_y(t : Double) -> FixedArray[Double] {
   let m = FixedArray::make(16, 0.0)
   m[0] = @math.cos(t)
+  m[5] = 1.0
   m[2] = -(@math.sin(t))
   m[8] = @math.sin(t)
   m[10] = @math.cos(t)
@@ -169,6 +170,7 @@ fn cube_rotate_y(t : Double) -> FixedArray[Double] {
 /// 绕 X 轴旋转（列主序）。
 fn cube_rotate_x(t : Double) -> FixedArray[Double] {
   let m = FixedArray::make(16, 0.0)
+  m[0] = 1.0
   m[5] = @math.cos(t)
   m[6] = @math.sin(t)
   m[9] = -(@math.sin(t))
