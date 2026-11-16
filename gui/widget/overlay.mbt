@@ -66,6 +66,7 @@ pub fn OverlayHost::focus_root(self : OverlayHost) -> Widget? {
 /// 建宿主并把图层挂到根控件最后（后画在上），图层默认不可见。
 pub fn make_overlay_host(root : Widget) -> OverlayHost {
   let layer = Widget::new()
+  layer.kind = "OverlayLayer"
   layer.node.set_position(@yoga.Absolute)
   layer.node.set_top(@yoga.fixed(0.0))
   layer.node.set_left(@yoga.fixed(0.0))
@@ -269,6 +270,7 @@ pub fn overlay_show_at(
       // 图层此前可能是不可见的（矩形清零），摆位前先让它按当前布局就位
       h.root.relayout(h.root.rect.w, h.root.rect.h)
       let wrap = Widget::new()
+      wrap.kind = "Popup"
       wrap.node.set_position(@yoga.Absolute)
       wrap.node.set_left(@yoga.fixed(x - h.layer.rect.x))
       wrap.node.set_top(@yoga.fixed(y - h.layer.rect.y))
@@ -353,6 +355,7 @@ pub fn overlay_show_full(content : Node) -> Int32 {
       }
       h.root.relayout(h.root.rect.w, h.root.rect.h)
       let wrap = Widget::new()
+      wrap.kind = "Sheet"
       wrap.node.set_position(@yoga.Absolute)
       wrap.node.set_top(@yoga.fixed(0.0))
       wrap.node.set_left(@yoga.fixed(0.0))

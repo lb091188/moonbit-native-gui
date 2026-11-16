@@ -187,6 +187,7 @@ pub fn terminal(
   let timer_id : Ref[Int32] = Ref(0)
   let timer_alive : Ref[Bool] = Ref(false)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "Terminal"
     w.role = "terminal"
     w.node.set_width(@yoga.percent(100.0))
     if height > 0.0 {

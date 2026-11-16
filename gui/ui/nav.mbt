@@ -55,6 +55,7 @@ fn nav_item(
 ) -> @widget.Node {
   let font = @text.Font::new("", size, weight~)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "NavItem"
     watch_theme()
     let tw = text_width(text, font)
     let box_w = if width > 0.0 { width } else { tw + pad_x * 2.0 }
@@ -559,6 +560,7 @@ fn collapse_panel(
   let open = Ref(open0)
   let head_font = @text.Font::new("", 13.0, weight=@text.SemiBold)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "CollapsePanel"
     watch_theme()
     w.node.set_flex_direction(@yoga.Column)
     w.node.set_width(@yoga.percent(100.0))
@@ -667,6 +669,7 @@ fn menu_item(
 ) -> @widget.Node {
   let font = @text.Font::new("", 13.0)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "MenuItem"
     watch_theme()
     // 语义面：菜单项=按钮角色，正文现算（label_of 绘制期取译，换语言下一帧
     // 快照即刷）——此前裸 widget，读屏只会念「group」（真机 VoiceOver 抓到）
@@ -922,6 +925,7 @@ pub fn menu_sections(
     body.node.set_align_items(@yoga.AlignItems::FlexStart)
     @widget.mount_children(body, nodes)
     let head = @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+      w.kind = "MenuGroup"
       watch_theme()
       // 组名进读屏（现算译文）：此前组标题行是裸 widget，念「group」无名
       w.a11y_text = Some(fn(_w : @widget.Widget) -> String? {
@@ -1095,6 +1099,7 @@ pub fn tree(
   handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "Tree"
     watch_theme()
     w.node.set_flex_direction(@yoga.Column)
     w.node.set_width(@yoga.percent(100.0))
@@ -1117,6 +1122,7 @@ pub fn tabs(
 ) -> @widget.Node {
   let n = pages.length()
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "Tabs"
     watch_theme()
     let sel = match selected {
       Some(s) => s
@@ -1238,6 +1244,7 @@ pub fn transfer(
   handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "Transfer"
     watch_theme()
     w.node.set_flex_direction(@yoga.Row)
     w.node.set_align_items(@yoga.AlignItems::Center)

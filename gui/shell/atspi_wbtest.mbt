@@ -49,6 +49,11 @@ test "atspi：行 TSV 往返解析（字段序与发布侧一致）" {
   // 字段不够 / 数字坏了都要 None（不许半价行）
   assert_true(atspi_row_parse("1\t2\t3") is None)
   assert_true(atspi_row_parse("x\t2\t1\tb\t\t\t\t\t10\t20\t80\t30") is None)
+  // 尾部追加列自动兼容：第 13 列起是组件类型名 kind（inspector 用），桥不读
+  match atspi_row_parse("7\t3\t1\tbutton\t确定\t\t\t确定\t10\t20\t80\t30\tButton") {
+    Some(r) => assert_eq(r.id, 7)
+    None => fail("13 列解析失败")
+  }
 }
 
 ///|
@@ -169,9 +174,9 @@ test "atspi：百分比解析（\"50%\"→50）" {
 ///|
 test "atspi：入站派发（假 CallReq 驱动，不碰真总线）" {
   // 造一棵三行树：窗口根 + 按钮 + 输入框
-  let tsv = "1\t0\t1\twindow\t演示窗\t\t\t\t0\t0\t400\t300\n" +
-    "2\t1\t1\tbutton\t确定\t\t\t确定\t10\t10\t80\t30\n" +
-    "5\t1\t1\ttext_input\t昵称\t\t你好世界\t\t220\t10\t160\t30\n"
+  let tsv = "1\t0\t1\twindow\t演示窗\t\t\t\t0\t0\t400\t300\tWindow\n" +
+    "2\t1\t1\tbutton\t确定\t\t\t确定\t10\t10\t80\t30\tButton\n" +
+    "5\t1\t1\ttext_input\t昵称\t\t你好世界\t\t220\t10\t160\t30\tEntry\n"
   @win.a11y_publish(@utf8.encode(tsv), 3)
   @win.a11y_set_focus(2)
   // 记录应答的假 CallReq（bus=2 = a11y 总线）

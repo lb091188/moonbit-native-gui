@@ -212,6 +212,10 @@ pub(all) struct Widget {
   mut label : String
   /// 控件类名（如 "button"）：组件构造时写，测试断言与将来无障碍共用。
   mut role : String
+  /// 组件类型名（如 "Button" / "Table" / "CodeEditor"）：组件构造时自带，
+  /// inspector 树与 dump 的类型列。开放字符串，与读屏封闭枚举 `role`
+  /// 独立演化——role 管读屏语义，kind 管组件身份。
+  mut kind : String
   /// 混合模式（样式 `blend_mode` 落点，apply 写入）：本控件自绘与子树画在
   /// 其下内容之上时的混合算子，画完恢复 Normal。
   mut blend_paint : @render.BlendMode
@@ -281,6 +285,7 @@ pub fn Widget::new() -> Widget {
     name: "",
     label: "",
     role: "",
+    kind: "",
     blend_paint: Normal,
     clip_content: true,
     paints_state: false,

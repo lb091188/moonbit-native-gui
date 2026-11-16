@@ -155,6 +155,7 @@ pub fn[A] bind(
   )
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
+    w.kind = "Bind"
     if class.length() > 0 {
       fold_style(w, @style.empty_style(), @style.empty_style(), class)
     }
@@ -212,6 +213,7 @@ pub fn hover_group(
   }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
+    w.kind = "HoverGroup"
     // 内部布局，不对外样式化：列方向与「子件按内容起排」是组件形态本身
     w.node.set_flex_direction(@yoga.Column)
     w.node.set_align_items(@yoga.AlignItems::FlexStart)
@@ -313,6 +315,15 @@ pub fn mount_window(
         }
         (wake_pump.val)()
       }
+      // 帧泵钩子遍历（宿主同位无条件）：inspector 服务等在 shell 表里注册的
+      // 回调每拍执行一遍——表空零开销。钩子表在 shell 层，ui 与 inspector
+      // 互相依赖成环不可直连。命令式应用不经本泵，各自在自己的循环里调。
+      let frame_pump : Ref[() -> Unit] = Ref(fn() { () })
+      frame_pump.val = fn() -> Unit {
+        @shell.frame_pumps_fire()
+        let _ = app.timer(200, frame_pump.val)
+      }
+      (frame_pump.val)()
       Some(app)
     }
   }

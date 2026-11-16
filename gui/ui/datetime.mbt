@@ -635,6 +635,7 @@ pub fn calendar(
 ) -> @widget.Node {
   let t = today
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "Calendar"
     // 有 Store 就以 Store 为唯一权威（外部 set 立刻反映到画法），没有才自持
     let sel : Ref[DateYMD?] = Ref(
       match value {

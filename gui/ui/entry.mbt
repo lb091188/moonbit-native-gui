@@ -206,6 +206,7 @@ pub fn input(
     shown_origin(self) + prefix_width(ed, ed.caret_pos(), font, mask~)
   }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "Entry"
     // 语义面：读屏读当前文本；密码框只报保护态，绝不外泄明文
     w.role = "text_input"
     w.a11y_text = Some(fn(_self : @widget.Widget) -> String? {

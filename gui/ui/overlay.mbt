@@ -16,6 +16,7 @@ fn overlay_pane(
   skin~ : @style.Style = @style.empty_style(),
 ) -> @widget.Node {
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "Popover"
     watch_theme()
     w.node.set_flex_direction(@yoga.Column)
     if width > 0.0 {
@@ -91,6 +92,7 @@ pub fn popover(
   handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "Dropdown"
     watch_theme()
     let open_id : Ref[Int32] = Ref(0)
     // trigger 自己仍在最前：它内部控件的事件先跑，抬起冒泡到这里才切换开合
@@ -139,6 +141,7 @@ fn menu_row(
   }
   let font = @text.Font::new("", 13.0)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "MenuRow"
     watch_theme()
     w.node.set_width(@yoga.percent(100.0))
     w.node.set_height(@yoga.fixed(28.0))
@@ -230,6 +233,7 @@ pub fn dropdown(
 ) -> @widget.Node {
   let font = @text.Font::new("", 13.0)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "Dropdown"
     watch_theme()
     let tw = text_width(trigger, font)
     w.node.set_width(@yoga.fixed(tw + 40.0))
@@ -416,6 +420,7 @@ fn tooltip_pane(
 ) -> @widget.Node {
   let text_w = text_width(tip, font)
   @widget.node_of_new(fn(pane_w : @widget.Widget) -> @widget.Widget {
+    pane_w.kind = "Tooltip"
     watch_theme()
     pane_w.node.set_height(@yoga.fixed(24.0))
     pane_w.node.set_width(@yoga.fixed(text_w + 16.0))
@@ -482,6 +487,7 @@ pub fn tooltip(
 ) -> @widget.Node {
   let font = @text.Font::new("", 12.0)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "Tooltip"
     watch_theme()
     let tip_id : Ref[Int32] = Ref(0)
     let timer : Ref[Int32] = Ref(0)
@@ -547,6 +553,7 @@ pub fn dialog(
     mount: fn(parent : @widget.Widget) -> @widget.Widget {
       let anchor = @widget.Widget::new()
       watch_theme()
+      anchor.kind = "Dialog"
       // 锚点自己是个 0 尺寸占位：对话框的可见性只由 Store 驱动
       anchor.node.set_height(@yoga.fixed(0.0))
       let open_id : Ref[Int32] = Ref(0)
@@ -1097,6 +1104,7 @@ pub fn context_menu_for(
   handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "ContextMenu"
     watch_theme()
     let _ = content.mount_into(w)
     w.on_pointer = Some(fn(

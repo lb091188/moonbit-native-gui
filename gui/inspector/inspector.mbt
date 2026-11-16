@@ -46,13 +46,17 @@ pub fn insp_depths(nodes : Array[@widget.A11yNode]) -> Array[Int32] {
 }
 
 ///|
-/// 树列的行文本:按深度缩进 + 角色 + 「名」+ #id(名空则不摆引号)。
+/// 树列的行文本:按深度缩进 + 类型名(空省略) + 角色 + 「名」+ #id(名空则不摆引号)。
 pub fn insp_row_label(n : @widget.A11yNode, depth : Int32) -> String {
   let b = StringBuilder()
   let mut i = 0
   while i < depth {
     b.write_string("  ")
     i += 1
+  }
+  if n.kind.length() > 0 {
+    b.write_string(n.kind)
+    b.write_string("·")
   }
   b.write_string(n.role)
   if n.name.length() > 0 {
@@ -94,10 +98,15 @@ pub fn insp_table_rows(nodes : Array[@widget.A11yNode]) -> Array[@ui.TableRow] {
 }
 
 ///|
-/// 选中节点的读数行(id/父/角色/名/状态/值/正文/启用/矩形);没选中给空表。
+/// 选中节点的读数行(id/父/类型名/角色/名/状态/值/正文/启用/矩形);没选中给空表。
 fn insp_detail_lines(n : @widget.A11yNode) -> Array[String] {
   [
     "id=\{n.id}  parent=\{n.parent}",
+    if n.kind.length() > 0 {
+      "kind=\{n.kind}"
+    } else {
+      "kind=(无)"
+    },
     "role=\{n.role}",
     if n.name.length() > 0 {
       "name=\{n.name}"

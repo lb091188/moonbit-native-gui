@@ -143,6 +143,7 @@ fn chip(
     @style.merge_all(blocks)
   }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "Chip"
     watch_theme()
     fold_style(w, @style.empty_style(), anon, class)
     // 字号口径：class 给了 font_size 就以它为准（与文本件 text_eff 的取值序
@@ -385,6 +386,7 @@ pub fn badge_dot(
   let d = size
   let bg = if color.length() > 0 { color } else { "danger" }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "BadgeDot"
     watch_theme()
     w.node.set_width(@yoga.fixed(d))
     w.node.set_height(@yoga.fixed(d))
@@ -458,6 +460,7 @@ fn avatar_of(
   ]
   let anon = @style.merge_all(blocks)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "Avatar"
     watch_theme()
     let ch : Ref[String] = Ref(one)
     w.node.set_width(@yoga.fixed(d))
@@ -553,6 +556,7 @@ fn statistic_of(
     None => @style.empty_style()
   }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "Statistic"
     watch_theme()
     let txt : Ref[String] = Ref(line)
     // 宽度在挂载与订阅回调里按测量算定（绘制回调里改布局会把 paint 变成布局的写入方）
@@ -660,6 +664,7 @@ pub fn alert(
   ]
   let anon = @style.merge_all(blocks)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "Alert"
     watch_theme()
     w.node.set_height(
       @yoga.fixed(if description.length() > 0 { 56.0 } else { 36.0 }),
@@ -1101,6 +1106,7 @@ pub fn carousel(
   let n = pages.length()
   let cur = rotation.cur
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "Carousel"
     watch_theme()
     w.node.set_flex_direction(@yoga.Column)
     w.node.set_width(@yoga.fixed(width))

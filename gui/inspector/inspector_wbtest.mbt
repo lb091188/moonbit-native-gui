@@ -7,11 +7,13 @@ fn nd(
   parent : Int32,
   role : String,
   name : String,
+  kind? : String = "",
 ) -> @widget.A11yNode {
   {
     id,
     parent,
     role,
+    kind,
     name,
     state: "",
     value: "",
@@ -56,6 +58,9 @@ test "insp_row_label:缩进 + 角色 + 「名」 + #id;名空不摆引号" {
   assert_eq(insp_row_label(n, 0), "button「确定」 #7")
   let m = nd(8, 0, "window", "")
   assert_eq(insp_row_label(m, 2), "    window #8")
+  // 组件类型名在前,空则整段省略
+  let k = nd(9, 0, "button", "确定", kind="Button")
+  assert_eq(insp_row_label(k, 0), "Button·button「确定」 #9")
 }
 
 ///|
@@ -99,21 +104,23 @@ test "insp_table_rows:列序 控件/角色/id/矩形" {
 
 ///|
 test "insp_detail_lines:九项读数,空语义字段标 (无)/(空)" {
-  let mut n = nd(5, 1, "slider", "音量")
+  let mut n = nd(5, 1, "slider", "音量", kind="Slider")
   n = { ..n, value: "50%", state: "", }
   let lines = insp_detail_lines(n)
-  assert_eq(lines.length(), 8)
+  assert_eq(lines.length(), 9)
   assert_eq(lines[0], "id=5  parent=1")
-  assert_eq(lines[1], "role=slider")
-  assert_eq(lines[2], "name=音量")
-  assert_eq(lines[3], "state=(无)")
-  assert_eq(lines[4], "value=50%")
-  assert_eq(lines[5], "text=(无)")
-  assert_eq(lines[6], "enabled=true")
-  assert_eq(lines[7], "rect=10,20 120×36")
-  // 空名的 name 档
+  assert_eq(lines[1], "kind=Slider")
+  assert_eq(lines[2], "role=slider")
+  assert_eq(lines[3], "name=音量")
+  assert_eq(lines[4], "state=(无)")
+  assert_eq(lines[5], "value=50%")
+  assert_eq(lines[6], "text=(无)")
+  assert_eq(lines[7], "enabled=true")
+  assert_eq(lines[8], "rect=10,20 120×36")
+  // 空档:kind 与 name 各标 (无)/(空)
   let m = nd(6, 0, "window", "")
-  assert_eq(insp_detail_lines(m)[2], "name=(空)")
+  assert_eq(insp_detail_lines(m)[1], "kind=(无)")
+  assert_eq(insp_detail_lines(m)[3], "name=(空)")
 }
 
 ///|

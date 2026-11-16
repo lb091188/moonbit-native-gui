@@ -248,6 +248,7 @@ fn app_window(
     None => None
     Some(session) => {
       let root = Widget::new()
+      root.kind = "Window"
       // 窗根是竖排容器：页面顶层元素缺省撑满窗宽、高度按内容，要占满剩余
       // 高度给 grow=1.0——与 web 块级布局同口径
       root.node.set_flex_direction(@yoga.Column)
@@ -293,6 +294,7 @@ fn app_window(
 /// 跨模块测试通道：给一扇（假）壳层窗挂上空的根控件与浮层宿主。
 pub fn test_app(s : @shell.Session) -> WindowHost {
   let root = Widget::new()
+  root.kind = "Window"
   root.node.set_flex_direction(@yoga.Column)
   {
     session: s,
@@ -1301,12 +1303,32 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   @shell.atspi_tick()
   let t2 = @win.now_ms()
   self.session.window.present(bm.data, bm.width, bm.height)
+  // 最近一帧位图登记（inspector shot 用）：canvas 是按窗复用的缓冲，present
+  // 后内容就是本帧完整体，进程级记引用即可（只读，不改写）
+  g_last_frame_bitmap.val = Some(bm)
+  g_last_frame_title.val = self.session.window.title()
   // present 成功只计「提交过一帧」（诊断用）：帧是否真落屏要等平台映射，
   // 首帧兜底的收口在三拍计时器里，不在这里提前缴械。
   self.painted_once = true
   let t3 = @win.now_ms()
   // 分段账本：位图分配计入 total 不计入单段，避免把「分配」混进「布局」
   prof_record(t1 - t0, t2 - t1, t3 - t2, t3 - t0)
+}
+
+///|
+/// 最近上屏一帧的位图（进程级一份，多窗应用记最后 present 的那扇）：
+/// inspector 的 shot 命令从这里取图。位图是按窗复用的绘制缓冲，读侧只读。
+let g_last_frame_bitmap : Ref[@render.Bitmap?] = Ref(None)
+
+///|
+/// 最近上屏一帧所属窗口的标题（shot 落盘文件名用）。
+let g_last_frame_title : Ref[String] = Ref("")
+
+///|
+/// 最近上屏一帧的位图与窗口标题（没上过帧给 None）。返回的是复用缓冲的
+/// 引用，只读——要落盘请走 `@render.png_write_bitmap`。
+pub fn last_frame_bitmap() -> (@render.Bitmap?, String) {
+  (g_last_frame_bitmap.val, g_last_frame_title.val)
 }
 
 ///|

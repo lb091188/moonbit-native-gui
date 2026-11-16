@@ -113,6 +113,7 @@ pub fn textarea(
 
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
+    w.kind = "TextArea"
     w.role = "text_area"
     w.a11y_text = Some(fn(_self : @widget.Widget) -> String? {
       Some(ed.get_text())

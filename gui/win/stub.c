@@ -41,7 +41,8 @@ extern void *moonbit_make_bytes(int size, int value);
 
 /* —— 语义快照通道（无障碍阶段 1/3 共用）——
  * MoonBit 每帧推一段 TSV（一行一个控件：id\tparent\trole\tname\tstate\tvalue\t
- * text\tx\ty\tw\th），这里只做存储；平台臂（macOS NSAccessibility / Windows
+ * text\tx\ty\tw\th\tkind，kind 是第 13 列组件类型名，inspector 用；读屏不用），
+ * 这里只做存储；平台臂（macOS NSAccessibility / Windows
  * UIA / Linux AT-SPI）从这份表读。整体替换、按值拷贝——删掉的控件下一帧就没了。
  */
 #define WM_A11Y_MAX 4096
@@ -55,6 +56,7 @@ typedef struct WmA11yRow {
     char value[64];
     char text[512];
     double x, y, w, h;
+    char kind[64];
 } WmA11yRow;
 
 void wm_a11y_publish(const uint8_t *blob, int32_t len, int32_t count);
@@ -5043,6 +5045,242 @@ void wm_inst_release(void) {
   }
   wm_inst_got = 0;
 }
+
+/* ---------------- inspector 服务臂（命名管道，与 POSIX 套接字臂同符号族） ----------------
+ * 四符号 yi_insp_* 与 inspector/stub.c 的 POSIX 实现同族：本平台恰好这一份定义
+ * （那边 #ifndef _WIN32 整文件为空）。管道 \\.\pipe\moonbit-inspect-<slug>，
+ * 帧协议用长度前缀（[len:i32 LE][payload]，管道没有半关概念，套接字那边的
+ * EOF 判帧完在这边换成先读 4 字节长度再读齐载荷）。管道句柄常驻：respond 写回
+ * 后 DisconnectNamedPipe（等价「写回后关连接」），同一句柄重新 ConnectNamedPipe
+ * 等下一个客户端。
+ * 状态机：0 等连接（ConnectNamedPipe 已发起）1 读长度头 2 读载荷 3 请求就绪
+ * 4 已取待响应（poll 不再收新，直到 respond 断开重挂）。
+ */
+#define WM_INSP_CAP 4096
+#define WM_INSP_PIPE_PREFIX "\\\\.\\pipe\\moonbit-inspect-"
+
+static HANDLE wm_insp_pipe = NULL; /* 常驻管道句柄（进程退出系统回收） */
+static OVERLAPPED wm_insp_ov;
+static int wm_insp_stage = 0;
+static DWORD wm_insp_want = 0;  /* 本段还要读的字节数 */
+static DWORD wm_insp_len = 0;   /* 请求载荷总长（头里来） */
+static char wm_insp_buf[WM_INSP_CAP];
+static DWORD wm_insp_buf_len = 0;
+static int wm_insp_errno = 0;
+
+/* UTF-8 名字 → 宽字符（与 wm_inst_wide 同规：非 [A-Za-z0-9_-] 换 '_'）。 */
+static void wm_insp_wide(const char *prefix, const char *slug, wchar_t *out, int cap) {
+  char raw[320];
+  size_t pn = strlen(prefix);
+  size_t sn = strlen(slug);
+  if (pn >= sizeof(raw)) { pn = sizeof(raw) - 1; }
+  if (pn + sn >= sizeof(raw)) { sn = sizeof(raw) - 1 - pn; }
+  memcpy(raw, prefix, pn);
+  for (size_t i = 0; i < sn; i++) {
+    unsigned char c = (unsigned char)slug[i];
+    raw[pn + i] =
+        ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+         (c >= '0' && c <= '9') || c == '_' || c == '-') ? (char)c : '_';
+  }
+  raw[pn + sn] = '\0';
+  memset(out, 0, (size_t)cap * sizeof(wchar_t));
+  MultiByteToWideChar(CP_UTF8, 0, raw, -1, out, cap);
+}
+
+/* 断开当前客户端并回到等连接态（句柄保留，overlapped 重新发起）。 */
+static void wm_insp_reaccept(void) {
+  if (wm_insp_pipe != NULL) {
+    DisconnectNamedPipe(wm_insp_pipe);
+  }
+  wm_insp_stage = 0;
+  wm_insp_buf_len = 0;
+  wm_insp_len = 0;
+  wm_insp_want = 0;
+  memset(&wm_insp_ov, 0, sizeof(wm_insp_ov));
+  if (!ConnectNamedPipe(wm_insp_pipe, &wm_insp_ov) &&
+      GetLastError() != ERROR_IO_PENDING && GetLastError() != ERROR_PIPE_CONNECTED) {
+    wm_insp_errno = (int)GetLastError();
+  }
+}
+
+/* 客户端已连上：发起读长度头。失败 -1（本次连接作废）。 */
+static int wm_insp_start_read(DWORD want) {
+  wm_insp_buf_len = 0;
+  wm_insp_want = want;
+  memset(&wm_insp_ov, 0, sizeof(wm_insp_ov));
+  if (!ReadFile(wm_insp_pipe, wm_insp_buf, want, NULL, &wm_insp_ov) &&
+      GetLastError() != ERROR_IO_PENDING) {
+    wm_insp_errno = (int)GetLastError();
+    return -1;
+  }
+  return 0;
+}
+
+/* overlapped 读推进：返回 1 读齐、0 未完成、-1 断开/出错。 */
+static int wm_insp_read_chunk(void) {
+  DWORD got = 0;
+  if (GetOverlappedResult(wm_insp_pipe, &wm_insp_ov, &got, FALSE)) {
+    wm_insp_buf_len += got;
+    wm_insp_want = (wm_insp_want > got) ? (wm_insp_want - got) : 0;
+    return wm_insp_want == 0 ? 1 : 0;
+  }
+  DWORD e = GetLastError();
+  if (e == ERROR_IO_INCOMPLETE) {
+    return 0;
+  }
+  wm_insp_errno = (int)e;
+  return -1;
+}
+
+int yi_insp_listen(const char *slug) {
+  if (slug == NULL) {
+    wm_insp_errno = ERROR_INVALID_PARAMETER;
+    return -1;
+  }
+  if (wm_insp_pipe != NULL) {
+    return 1; /* 已在听：幂等 */
+  }
+  wchar_t pname[256];
+  wm_insp_wide(WM_INSP_PIPE_PREFIX, slug, pname, 256);
+  HANDLE h = CreateNamedPipeW(
+      pname,
+      PIPE_ACCESS_DUPLEX | FILE_FLAG_FIRST_PIPE_INSTANCE | FILE_FLAG_OVERLAPPED,
+      PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
+      1, 4096, 4096, 0, NULL);
+  if (h == INVALID_HANDLE_VALUE) {
+    DWORD e = GetLastError();
+    wm_insp_errno = (int)e;
+    /* 同名管道已被占（别的实例在听）：调用方按非 1 静默降级不监听 */
+    return (e == ERROR_ACCESS_DENIED || e == ERROR_PIPE_BUSY) ? 2 : -1;
+  }
+  wm_insp_pipe = h;
+  memset(&wm_insp_ov, 0, sizeof(wm_insp_ov));
+  wm_insp_ov.hEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
+  if (wm_insp_ov.hEvent == NULL) {
+    wm_insp_errno = (int)GetLastError();
+    CloseHandle(wm_insp_pipe);
+    wm_insp_pipe = NULL;
+    return -1;
+  }
+  if (!ConnectNamedPipe(h, &wm_insp_ov) &&
+      GetLastError() != ERROR_IO_PENDING && GetLastError() != ERROR_PIPE_CONNECTED) {
+    wm_insp_errno = (int)GetLastError();
+    CloseHandle(wm_insp_ov.hEvent);
+    wm_insp_ov.hEvent = NULL;
+    CloseHandle(h);
+    wm_insp_pipe = NULL;
+    return -1;
+  }
+  wm_insp_stage = 0;
+  wm_insp_buf_len = 0;
+  wm_insp_len = 0;
+  wm_insp_want = 0;
+  return 1;
+}
+
+int yi_insp_poll(void) {
+  if (wm_insp_stage == 3) {
+    return 1;
+  }
+  if (wm_insp_stage == 4 || wm_insp_pipe == NULL) {
+    return 0; /* 已取待响应 / 未监听：不收新 */
+  }
+  if (wm_insp_stage == 0) {
+    /* 等客户端连上 */
+    DWORD got = 0;
+    if (!GetOverlappedResult(wm_insp_pipe, &wm_insp_ov, &got, FALSE)) {
+      DWORD e = GetLastError();
+      if (e == ERROR_IO_INCOMPLETE) {
+        return 0;
+      }
+      wm_insp_errno = (int)e;
+      wm_insp_reaccept();
+      return -1;
+    }
+    if (wm_insp_start_read(4) < 0) {
+      wm_insp_reaccept();
+      return -1;
+    }
+    wm_insp_stage = 1;
+  }
+  for (;;) {
+    int r = wm_insp_read_chunk();
+    if (r < 0) {
+      wm_insp_reaccept();
+      return -1;
+    }
+    if (r == 0) {
+      return 0; /* 没读齐，下一拍继续 */
+    }
+    if (wm_insp_stage == 1) {
+      /* 长度头到手：解析载荷长并发起读载荷 */
+      const unsigned char *h = (const unsigned char *)wm_insp_buf;
+      DWORD plen = (DWORD)h[0] | ((DWORD)h[1] << 8) | ((DWORD)h[2] << 16) |
+                   ((DWORD)h[3] << 24);
+      if (plen == 0 || plen > WM_INSP_CAP - 4) {
+        wm_insp_errno = ERROR_INVALID_PARAMETER;
+        wm_insp_reaccept();
+        return -1;
+      }
+      wm_insp_len = plen;
+      if (wm_insp_start_read(plen) < 0) {
+        wm_insp_reaccept();
+        return -1;
+      }
+      wm_insp_stage = 2;
+    } else {
+      /* 载荷读齐：请求就绪 */
+      wm_insp_stage = 3;
+      wm_insp_errno = 0;
+      return 1;
+    }
+  }
+}
+
+int yi_insp_take(char *out, int32_t cap) {
+  if (wm_insp_stage != 3 || out == NULL || cap <= 0 || wm_insp_len == 0) {
+    return 0;
+  }
+  DWORD n = wm_insp_len < (DWORD)cap ? wm_insp_len : (DWORD)cap;
+  memcpy(out, wm_insp_buf, (size_t)n);
+  wm_insp_stage = 4; /* 一取就进「待响应」，respond 前不再收新请求 */
+  wm_insp_len = 0;
+  wm_insp_buf_len = 0;
+  return (int32_t)n;
+}
+
+int yi_insp_respond(const char *data, int32_t len) {
+  if (wm_insp_pipe == NULL) {
+    wm_insp_errno = ERROR_INVALID_PARAMETER;
+    return -1;
+  }
+  /* 长度前缀头 + 载荷全量写出（响应可达 256KB，同步 WriteFile 循环） */
+  unsigned char head[4];
+  head[0] = (unsigned char)(len & 255);
+  head[1] = (unsigned char)((len >> 8) & 255);
+  head[2] = (unsigned char)((len >> 16) & 255);
+  head[3] = (unsigned char)((len >> 24) & 255);
+  DWORD put = 0;
+  if (!WriteFile(wm_insp_pipe, head, 4, &put, NULL) || put != 4) {
+    wm_insp_errno = (int)GetLastError();
+    wm_insp_reaccept();
+    return -2; /* 客户端先走了：响应丢弃 */
+  }
+  int32_t off = 0;
+  while (off < len) {
+    if (!WriteFile(wm_insp_pipe, data + off, (DWORD)(len - off), &put, NULL)) {
+      wm_insp_errno = (int)GetLastError();
+      wm_insp_reaccept();
+      return -2;
+    }
+    off += (int32_t)put;
+  }
+  FlushFileBuffers(wm_insp_pipe); /* 客户端 ReadFile 立即可见全量 */
+  wm_insp_reaccept(); /* 断开本客户端、同一句柄重新等下一个连接 */
+  return 1;
+}
+
+int yi_insp_last_errno(void) { return wm_insp_errno; }
 
 /* 系统权限 / 屏幕色温的空桩住声明者 sys 的桩（sys/sys_stub.c）：sys 的
  * 白盒测试 exe 只链 sys 包，占位放这边时 Windows 链接 LNK2019。 */
@@ -13895,6 +14133,7 @@ void wm_a11y_publish(const uint8_t *blob, int32_t len, int32_t count) {
         r->w = strtod(buf, NULL);
         wm_a11y_field(&p, end, buf, (int)sizeof buf);
         r->h = strtod(buf, NULL);
+        wm_a11y_field(&p, end, r->kind, (int)sizeof r->kind);
         n++;
     }
     g_a11y_n = n;
@@ -13956,9 +14195,9 @@ int32_t wm_a11y_row_tsv(int32_t i, uint8_t *out, int32_t cap) {
     }
     const WmA11yRow *r = &g_a11y_rows[i];
     int n = snprintf((char *)out, (size_t)cap,
-                     "%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%.10g\t%.10g\t%.10g\t%.10g",
+                     "%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%.10g\t%.10g\t%.10g\t%.10g\t%s",
                      (int)r->id, (int)r->parent, (int)r->enabled, r->role, r->name,
-                     r->state, r->value, r->text, r->x, r->y, r->w, r->h);
+                     r->state, r->value, r->text, r->x, r->y, r->w, r->h, r->kind);
     if (n < 0 || n >= cap) {
         return -1;
     }

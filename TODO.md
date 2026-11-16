@@ -206,6 +206,12 @@
 
 ## 开发待办
 
+- [ ] **inspector 服务化**：组件类型名 + 服务核 + 消费端三块一次做完，门禁全绿后逐项删除
+  - inspector 服务：应用内起的只读检查通道，mng 经 socket 取树、样式读数与截图。
+  - 块 A：`Widget.kind` 组件类型名字段进语义快照 13 列（a11y.mbt / win stub.c / atspi 三同步），面板显示 kind，全库控件构造补 kind，窗口根 "Window"
+  - 块 B：`yi_insp_*` 四符号服务端（POSIX 套接字 + Windows 命名管道两臂），shell 帧泵钩子表，`MNG_INSPECT=1` 注入式开关（mng dev spawn 扩 env 参数），tree / style / shot 三命令，响应 TSV 上限 256KB 截断
+  - 块 C：uitest `dump_tree` / `shot` 直调，`mng inspect` 一次性 CLI，`mng mcp` stdio MCP server（initialize / tools/list / tools/call），面板改服务数据门面，`docs/zh/guide/inspector.md` 中英双注册
+  - 验证：本机编译面门禁全绿即 🚧已合入待真机；win 管道臂由 CI Windows 腿回证；真机操作步骤见交付清单
 - [ ] **A6 CPU/GPU 像素对拍**：比对器本体单独立项（与「无头像素快照基线」合并）；随控件级 GPU 批的用例扩面已随 SC-16.8/16.9 落
 - [ ] **无头化收尾真机复验**：执行者：用户执行
   - Linux：CI 的 Linux bare 腿首跑（dev 合入 master 或开 PR 触发），看「占位降级 19 包全绿 + 降级提示 + 守卫跳过」三判定。

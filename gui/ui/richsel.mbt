@@ -20,6 +20,7 @@ pub fn rich_text(
     None
   }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "RichText"
     watch_theme()
     // 尺寸三档同 mdview 富文本行的口径：定宽按定宽、min-content 1px 箱、
     // max-content 单行；行数×行高从 line_boxes 读（与选中高亮同一份几何）

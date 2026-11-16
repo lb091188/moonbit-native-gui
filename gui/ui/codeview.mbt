@@ -866,6 +866,7 @@ pub fn code_view(
   }
   let canvas = @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
+    w.kind = "CodeView"
     // 宽 = max(容器宽, 最长行)：代码行不可折，比容器窄时**铺满容器**（底色条
     // 不断在最长行处），比容器宽时交给自带视口横滚。高度 = 行数,与宽无关。
     w.node.set_width(@yoga.percent(100.0))

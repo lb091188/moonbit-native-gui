@@ -175,6 +175,7 @@ fn calendar_popup(
   skin~ : @style.Style = @style.empty_style(),
 ) -> @widget.Node {
   @widget.node_of_new(fn(panel : @widget.Widget) -> @widget.Widget {
+    panel.kind = "Calendar"
     let _ = build_calendar(panel, today, state_of, on_cell, skin~)
     panel
   })
@@ -295,6 +296,7 @@ fn time_popup(
     caption_items.push(caption_cell("gui.ui.datepicker.unit.s", "秒"))
   }
   @widget.node_of_new(fn(panel : @widget.Widget) -> @widget.Widget {
+    panel.kind = "TimePopup"
     watch_theme()
     panel.node.set_flex_direction(@yoga.Column)
     panel.node.set_width(@yoga.fixed(panel_w))
@@ -506,6 +508,7 @@ pub fn date_picker(
   follow_store(value)
   let t = today
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "DatePicker"
     let open_id : Ref[Int32] = Ref(0)
     w.focus_id = auto_focus_id(focus_id)
     let close_pop = fn() -> Unit {
@@ -592,6 +595,7 @@ pub fn date_range_picker(
   follow_store(value)
   let t = today
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "DateRangePicker"
     let open_id : Ref[Int32] = Ref(0)
     w.focus_id = auto_focus_id(0)
     let close_pop = fn() -> Unit {
@@ -687,6 +691,7 @@ fn time_field(
 ) -> @widget.Node {
   let secs = show_seconds
   @widget.node_of_new(fn(field : @widget.Widget) -> @widget.Widget {
+    field.kind = "TimeField"
     let open_id : Ref[Int32] = Ref(0)
     field.focus_id = auto_focus_id(0)
     let close_pop = fn() -> Unit {
@@ -757,6 +762,7 @@ pub fn time_range_picker(
 ) -> @widget.Node {
   follow_store(value)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "TimeRangePicker"
     watch_theme()
     w.node.set_flex_direction(@yoga.Row)
     w.node.set_align_items(@yoga.AlignItems::Center)
@@ -802,12 +808,14 @@ pub fn datetime_range_picker(
   follow_store(value)
   let t = today
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    w.kind = "DatetimeRangePicker"
     watch_theme()
     w.node.set_flex_direction(@yoga.Row)
     w.node.set_align_items(@yoga.AlignItems::Center)
     w.node.set_gap(0.0, 6.0)
     fn date_field(is_start : Bool) -> @widget.Node {
       @widget.node_of_new(fn(field : @widget.Widget) -> @widget.Widget {
+        field.kind = "TimeField"
         let open_id : Ref[Int32] = Ref(0)
         field.focus_id = auto_focus_id(0)
         let close_pop = fn() -> Unit {

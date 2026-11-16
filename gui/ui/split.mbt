@@ -58,6 +58,7 @@ fn splitter_impl(
   let r0 = ratio.clamp(min=0.05, max=0.95)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
+    w.kind = "Split"
     w.node.set_flex_direction(if horizontal { @yoga.Row } else { @yoga.Column })
     w.node.set_width(@yoga.percent(100.0))
     w.node.set_height(@yoga.percent(100.0))

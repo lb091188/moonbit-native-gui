@@ -647,6 +647,14 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
     - prebuild：构建前自动跑的准备脚本，比如生成代码。
   - **P3 三通道分发** ⏳ 方案已定
     - 版本两轴独立、install 脚本、Gitee 镜像；修复动作第一版只给可复制命令
+- 🚧 **inspector 服务化**：内建检查器从面板库扩成服务——AI 与工具经 socket 取界面读数
+  - inspector 服务：应用内起的只读检查通道，mng 经 socket 取树、样式读数与截图。
+  - **组件类型名** `Widget.kind`：开放字符串组件类型名，与读屏封闭枚举 `role` 独立演化；进语义快照第 13 列（发布 / win 桩 / AT-SPI 三同步），面板树表与详情显示
+  - **服务核**：`yi_insp_*` 四符号（listen / poll / take / respond），POSIX 套接字臂 + Windows 命名管道臂；请求单行命令、响应 TSV 行文本，上限 256KB 截断
+  - **三命令**：`tree` 整树 dump、`style <id>` 生效样式读数五字段、`shot [路径]` 最近一帧 PNG 落盘
+  - **开关纯注入式**：`MNG_INSPECT=1` 由 mng dev / mng mcp 起应用时注入，未注入零监听；socket 被占静默降级
+  - **消费端**：`mng inspect` 一次性 CLI、`mng mcp` stdio MCP server（initialize / tools/list / tools/call）、uitest `dump_tree` / `shot` 直调
+  - 待验：真机 mng inspect / mng mcp 全链、面板 kind 显示
 
 ### 工程与交付
 

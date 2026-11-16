@@ -154,6 +154,9 @@ pub(all) struct A11yNode {
   id : Int32
   parent : Int32
   role : String
+  /// 组件类型名（如 "Button"）：组件构造自带，inspector 类型列；
+  /// 读屏不用它（读屏走封闭枚举 `role`）。
+  kind : String
   name : String
   /// 状态串（如 "checked" / "password" / "read_only"），空串 = 无
   state : String
@@ -185,6 +188,7 @@ fn a11y_walk(w : Widget, parent : Int32, out : Array[A11yNode]) -> Unit {
     id: w.id,
     parent,
     role: w.role,
+    kind: w.kind,
     name: w.name,
     state,
     value,
@@ -237,6 +241,8 @@ pub fn a11y_frame_sync(root : Widget) -> Int32 {
     sb.write_string(n.w.to_string())
     sb.write_string("\t")
     sb.write_string(n.h.to_string())
+    sb.write_string("\t")
+    sb.write_string(tsv_clean(n.kind))
     sb.write_string("\n")
   }
   let blob = sb.to_string()

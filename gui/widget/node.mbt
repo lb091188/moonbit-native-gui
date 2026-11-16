@@ -175,3 +175,16 @@ pub fn Node::with_role(self : Node, role : String) -> Node {
     },
   }
 }
+
+///|
+/// 组件类型名包装器：挂载后写 `kind`（如 "Button"），inspector 树与 dump
+/// 的类型列。组件构造已自带类型名，这条给调用方覆盖（包装层、动态建树）。
+pub fn Node::with_kind(self : Node, kind : String) -> Node {
+  {
+    mount: fn(parent : Widget) -> Widget {
+      let w = (self.mount)(parent)
+      w.kind = kind
+      w
+    },
+  }
+}
