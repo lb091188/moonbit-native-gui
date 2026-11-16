@@ -1307,6 +1307,7 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   // 后内容就是本帧完整体，进程级记引用即可（只读，不改写）
   g_last_frame_bitmap.val = Some(bm)
   g_last_frame_title.val = self.session.window.title()
+  g_last_frame_root.val = Some(self.root)
   // present 成功只计「提交过一帧」（诊断用）：帧是否真落屏要等平台映射，
   // 首帧兜底的收口在三拍计时器里，不在这里提前缴械。
   self.painted_once = true
@@ -1325,10 +1326,76 @@ let g_last_frame_bitmap : Ref[@render.Bitmap?] = Ref(None)
 let g_last_frame_title : Ref[String] = Ref("")
 
 ///|
+/// 最近上屏一帧的窗口根控件（整页重画找滚动容器用）。
+let g_last_frame_root : Ref[Widget?] = Ref(None)
+
+///|
 /// 最近上屏一帧的位图与窗口标题（没上过帧给 None）。返回的是复用缓冲的
 /// 引用，只读——要落盘请走 `@render.png_write_bitmap`。
 pub fn last_frame_bitmap() -> (@render.Bitmap?, String) {
   (g_last_frame_bitmap.val, g_last_frame_title.val)
+}
+
+///|
+/// 最近上屏一帧的窗口根控件（整页重画用；没上过帧给 None）。
+pub fn last_frame_root() -> Widget? {
+  g_last_frame_root.val
+}
+
+///|
+/// 整页重画尺寸上限：宽/高各自 clamp（超长页截到上限内，防异常内存占用）。
+const FULL_PAGE_CAP : Int32 = 20000
+
+///|
+/// 深度优先找第一个 `ScrollView`（页面级滚动容器通常在浅层先命中）。
+fn find_first_scroll_view(w : Widget) -> Widget? {
+  if w.kind == "ScrollView" {
+    return Some(w)
+  }
+  for k in w.kids {
+    match find_first_scroll_view(k) {
+      Some(x) => return Some(x)
+      None => ()
+    }
+  }
+  None
+}
+
+///|
+/// 整页内容重画：根下第一个 `ScrollView` 的内容子树按**全内容高**画到独立
+/// 位图（滚动截图语义），返回位图与「是否因尺寸上限截断」。页内没有滚动
+/// 容器时给 None（调用方回退视口帧或报错）。
+///
+/// 边界：虚拟列表只有视口窗口内的行真实挂载，整页图不含未挂载行；
+/// GPU 档控件在独立绘制器上按 CPU 回退（`on_render` 的 Cpu 档），与主帧
+/// 混排路径同语义。绘制先铺主题页面底色，内容子树原点归零到大图左上。
+pub fn paint_full_page(w : Widget) -> (@render.Bitmap?, Bool) {
+  let sv = match find_first_scroll_view(w) {
+    Some(v) => v
+    None => return (None, false)
+  }
+  // scroll_view 的构造序恒定：首个子件是内容容器（自然高撑开、不裁切），
+  // 第二个起是滚动条
+  if sv.kids.length() == 0 {
+    return (None, false)
+  }
+  let content = sv.kids[0]
+  let cw = content.rect.w.round().to_int()
+  let ch = content.rect.h.round().to_int()
+  if cw <= 0 || ch <= 0 {
+    return (None, false)
+  }
+  let wpx = cw.min(FULL_PAGE_CAP)
+  let hpx = ch.min(FULL_PAGE_CAP)
+  let clipped = wpx < cw || hpx < ch
+  let bm = @render.Bitmap::new(wpx, hpx)
+  let p = @render.Painter::new(bm)
+  p.set_fill_color(@theme.theme_bg_page())
+  p.fill_rect(0.0, 0.0, wpx.to_double(), hpx.to_double())
+  // 内容子树原点归零：paint_at 的 ox/oy 传内容绝对矩形原点，绘制期平移掉
+  content.paint_at(p, content.rect.x, content.rect.y)
+  p.end()
+  (Some(bm), clipped)
 }
 
 ///|

@@ -33,7 +33,7 @@
 |---|---|
 | `tree` | 整树 dump，一行一控件；首行列头，列序 kind/role/name/id/parent/x/y/w/h/state/value/text/enabled |
 | `style <id>` | 按 id 读生效样式五字段（background/color/border_color/border_width/border_radius），与样式编辑器同口径 |
-| `shot [路径]` | 最近一帧落盘 PNG；不带路径写系统临时目录 `mng-shot-<窗题>-<时间戳>.png`，回执带实际路径 |
+| `shot [--full] [路径]` | 截图落盘 PNG。缺省档截最近上屏帧（视口所见）；`--full` 档对页面滚动容器的内容按全内容高重画（滚动截图语义，含视口外内容；虚拟列表只含已挂载行；超 20000px 截断并注明）。不带路径写系统临时目录 `mng-shot-<窗题>-<时间戳>.png`，回执带实际路径 |
 
 ## mng inspect
 
@@ -63,7 +63,7 @@ AI 客户端把 `mng mcp` 配成 MCP server 即可，三工具：
 |---|---|---|
 | `inspector_tree` | 无 | 读控件树（同 `tree`） |
 | `inspector_style` | `id` 整数 | 读样式五字段 |
-| `inspector_shot` | `path` 可选 | 截帧落盘，回执带路径（二进制不进对话） |
+| `inspector_shot` | `path` 可选、`full` 可选 | 截图落盘，回执带路径（二进制不进对话）；`full=true` 整页内容重画 |
 
 典型用法：AI 先 `inspector_tree` 看树找控件 id，再 `inspector_style` 读样式、`inspector_shot` 看界面长什么样。
 
@@ -72,7 +72,8 @@ AI 客户端把 `mng mcp` 配成 MCP server 即可，三工具：
 `@uitest` 的 `Tester` 有两个不经 socket 的直调方法，断言口径与服务端一致：
 
 - `dump_tree()`：先做帧尾对账再摊 TSV，列头与 `tree` 命令相同。
-- `shot(路径)`：整帧位图落盘 PNG（`frame()` 之后才有内容）。
+- `shot(路径)`：整帧位图落盘 PNG（视口所见，`frame()` 之后才有内容）。
+- `shot_full(路径)`：整页内容重画落盘 PNG（与服务端 `shot --full` 同口径）。
 
 ```moonbit
 t.frame()

@@ -33,7 +33,7 @@ Three commands — one-line request, TSV-lines response (256KB cap; over-long re
 |---|---|
 | `tree` | Full-tree dump, one widget per line; header row first, columns kind/role/name/id/parent/x/y/w/h/state/value/text/enabled |
 | `style <id>` | Effective style five fields for the id (background/color/border_color/border_width/border_radius), same reading as the style editor |
-| `shot [path]` | Last frame saved as PNG; without a path goes to the temp dir as `mng-shot-<title>-<timestamp>.png`, reply carries the actual path |
+| `shot [--full] [path]` | Save a PNG. Default captures the last presented frame (viewport view); `--full` repaints the page scroll container's content at full content height (scrolling-screenshot semantics, including off-viewport content; virtual lists only include mounted rows; content beyond 20000px is clipped and noted). Without a path goes to the temp dir as `mng-shot-<title>-<timestamp>.png`; reply carries the actual path |
 
 ## mng inspect
 
@@ -63,7 +63,7 @@ Point your AI client at `mng mcp` as an MCP server; three tools:
 |---|---|---|
 | `inspector_tree` | none | Read the widget tree (same as `tree`) |
 | `inspector_style` | `id` integer | Read the five style fields |
-| `inspector_shot` | `path` optional | Capture a frame to disk, reply carries the path (no binary in the conversation) |
+| `inspector_shot` | `path` optional, `full` optional | Save a screenshot, reply carries the path (no binary in the conversation); `full=true` repaints the whole page content |
 
 Typical flow: `inspector_tree` to find widget ids, then `inspector_style` for styles and `inspector_shot` to see the screen.
 
@@ -72,7 +72,8 @@ Typical flow: `inspector_tree` to find widget ids, then `inspector_style` for st
 `@uitest`'s `Tester` has two direct methods that skip the socket, with the same assertions contract as the service:
 
 - `dump_tree()`: runs a frame-end sync then flattens TSV, same header as the `tree` command.
-- `shot(path)`: writes the frame bitmap as PNG (content available after `frame()`).
+- `shot(path)`: writes the viewport frame bitmap as PNG (content available after `frame()`).
+- `shot_full(path)`: writes the full-page repaint as PNG (same semantics as the service's `shot --full`).
 
 ```moonbit
 t.frame()

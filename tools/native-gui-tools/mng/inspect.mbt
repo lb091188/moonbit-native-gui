@@ -5,10 +5,12 @@
 ///|
 fn usage_inspect() -> Unit {
   println(tmsg(
-    "inspect 用法：`mng inspect tree` / `mng inspect style <id>` / `mng inspect shot [路径]`\n  " +
+    "inspect 用法：`mng inspect tree` / `mng inspect style <id>` / `mng inspect shot [--full] [路径]`\n  " +
+    "shot 缺省截视口帧，--full 整页内容重画（滚动截图语义）。\n  " +
     "连应用内的检查服务（应用需 MNG_INSPECT=1 起过——mng dev 自动注入）。\n  " +
     "--app <id> 显式给应用 id；缺省读工程 mng.toml / moon.mod 推导。",
-    "inspect usage: `mng inspect tree` / `mng inspect style <id>` / `mng inspect shot [path]`\n  " +
+    "inspect usage: `mng inspect tree` / `mng inspect style <id>` / `mng inspect shot [--full] [path]`\n  " +
+    "shot captures the viewport frame by default; --full repaints the whole scrolled content.\n  " +
     "Talks to the in-app inspector service (requires MNG_INSPECT=1 — injected by mng dev).\n  " +
     "Pass --app <id> explicitly; defaults to the project mng.toml / moon.mod.",
   ))
@@ -61,6 +63,7 @@ fn cmd_inspect(args : Array[String]) -> Int32 {
         return 2
       }
     "shot" => {
+      // `shot [--full] [路径]` 原样透传服务端（--full 走整页内容重画档）
       let buf = StringBuilder()
       buf.write_string("shot")
       let mut j = 1

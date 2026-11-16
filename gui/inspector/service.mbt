@@ -281,11 +281,22 @@ pub fn inspect_handle(req : String) -> String {
       None => "error: style 需要 <id>\n"
     }
   } else if cmd == "shot" {
-    insp_shot(words.get(1))
+    // `shot [--full] [路径]`：--full 档整页内容重画（滚动截图语义），
+    // 缺省档是最近上屏帧（视口所见）
+    let mut full = false
+    let mut path : String? = None
+    for i = 1; i < words.length(); i = i + 1 {
+      if words[i] == "--full" {
+        full = true
+      } else if path is None {
+        path = Some(words[i])
+      }
+    }
+    insp_shot(path, full)
   } else if cmd == "" {
     "error: 空请求\n"
   } else {
-    "error: 未知命令 \{cmd}（可用：tree / style <id> / shot [路径]）\n"
+    "error: 未知命令 \{cmd}（可用：tree / style <id> / shot [--full] [路径]）\n"
   }
 }
 
@@ -382,11 +393,28 @@ pub fn insp_style_dump(id : Int32) -> String {
 }
 
 ///|
-/// `shot [路径]`：最近一帧位图落盘 PNG（`png_write_bitmap`），二进制不过
-/// 管道；不带路径写 `$TMPDIR/mng-shot-<窗题>-<毫秒时间戳>.png`。
-/// 回执一行带实际路径。
-pub fn insp_shot(path : String?) -> String {
-  let (bm, title) = @widget.last_frame_bitmap()
+/// `shot [--full] [路径]`：位图落盘 PNG（`png_write_bitmap`），二进制不过
+/// 管道。缺省档取最近上屏帧（视口所见）；`--full` 档对页面滚动容器的内容
+/// 按全内容高重画（滚动截图语义，虚拟列表只含已挂载行）。不带路径写
+/// `$TMPDIR/mng-shot-<窗题>-<毫秒时间戳>.png`（full 档文件名带 `-full`）。
+/// 回执一行带实际路径；full 档因尺寸上限截断时追加一行注明。
+pub fn insp_shot(path : String?, full : Bool) -> String {
+  let (frame_bm, title) = @widget.last_frame_bitmap()
+  let (bm, clipped) = if full {
+    match @widget.last_frame_root() {
+      Some(root) =>
+        match @widget.paint_full_page(root) {
+          (Some(b), c) => (Some(b), c)
+          (None, _) => {
+            // 页内没有滚动容器：没有「整页」可言，如实报错让调用方改 shot
+            return "error: 页内无滚动容器（无整页可截），改用 shot 截视口帧\n"
+          }
+        }
+      None => (None, false)
+    }
+  } else {
+    (frame_bm, false)
+  }
   match bm {
     None => "error: 尚无上屏帧\n"
     Some(b) => {
@@ -398,11 +426,16 @@ pub fn insp_shot(path : String?) -> String {
             _ => "/tmp"
           }
           let ts = @win.now_ms()
-          "\{insp_strip_trailing_slash(dir)}/mng-shot-\{insp_file_slug(title)}-\{ts}.png"
+          let tag = if full { "mng-shot-full-" } else { "mng-shot-" }
+          "\{insp_strip_trailing_slash(dir)}/\{tag}\{insp_file_slug(title)}-\{ts}.png"
         }
       }
       if @render.png_write_bitmap(b, p) {
-        "ok \{p}\n"
+        if clipped {
+          "ok \{p}\n# 注：内容超出 \{b.width}×\{b.height} 上限，已截断\n"
+        } else {
+          "ok \{p}\n"
+        }
       } else {
         "error: 写不出 \{p}\n"
       }

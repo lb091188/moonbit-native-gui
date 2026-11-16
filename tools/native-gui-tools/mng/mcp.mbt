@@ -32,7 +32,7 @@ fn mcp_tools_list_json() -> String {
   let style_schema =
     "{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"integer\",\"description\":\"控件 id（inspector_tree 的 id 列）\"}},\"required\":[\"id\"]}"
   let shot_schema =
-    "{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\",\"description\":\"PNG 落盘路径；缺省写系统临时目录\"}},\"required\":[]}"
+    "{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\",\"description\":\"PNG 落盘路径；缺省写系统临时目录\"},\"full\":{\"type\":\"boolean\",\"description\":\"true = 整页内容重画（滚动截图语义，含视口外内容）；缺省 false 截视口帧\"}},\"required\":[]}"
   let sb = StringBuilder()
   sb.write_string("{\"tools\":[")
   sb.write_string(
@@ -44,7 +44,7 @@ fn mcp_tools_list_json() -> String {
   )
   sb.write_string(",")
   sb.write_string(
-    "{\"name\":\"inspector_shot\",\"description\":\"把应用最近一帧截成 PNG 落盘，回执带实际路径（二进制不进对话）\",\"inputSchema\":\{shot_schema}}",
+    "{\"name\":\"inspector_shot\",\"description\":\"把应用截图成 PNG 落盘，回执带实际路径（二进制不进对话）；缺省视口帧，full=true 整页内容重画\",\"inputSchema\":\{shot_schema}}",
   )
   sb.write_string("]}")
   sb.to_string()
@@ -77,13 +77,18 @@ fn mcp_tools_call(app_id : String, params : LJson) -> Result[String, String] {
       None => return Err("inspector_style 需要整数参数 id")
     }
   } else if name == "inspector_shot" {
+    let full = match jpath(args, "full") {
+      Some(LBool(true)) => true
+      _ => false
+    }
+    let flag = if full { " --full" } else { "" }
     match jpath(args, "path") {
       Some(v) =>
         match json_str(v) {
-          Some(p) => "shot \{p}"
-          None => "shot"
+          Some(p) => "shot\{flag} \{p}"
+          None => "shot\{flag}"
         }
-      None => "shot"
+      None => "shot\{flag}"
     }
   } else {
     return Err("未知工具 \{name}")

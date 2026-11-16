@@ -63,6 +63,15 @@ test "insp_strip_trailing_slash：mac TMPDIR 尾斜杠归一，根目录保留" 
 }
 
 ///|
+test "inspect_handle：shot 解析 --full 与路径两档（无帧都给 error）" {
+  // 测试进程没跑过帧同步：视口档与整页档都落 error（解析本身不炸）
+  assert_true(inspect_handle("shot").has_prefix("error:"))
+  assert_true(inspect_handle("shot --full").has_prefix("error:"))
+  assert_true(inspect_handle("shot /tmp/x.png").has_prefix("error:"))
+  assert_true(inspect_handle("shot --full /tmp/x.png").has_prefix("error:"))
+}
+
+///|
 test "insp_file_slug：文件名净化与空回退" {
   assert_eq(insp_file_slug("你好 MoonBit"), "___MoonBit")
   assert_eq(insp_file_slug(""), "app")

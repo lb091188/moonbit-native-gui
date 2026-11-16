@@ -55,6 +55,17 @@ pub fn Tester::shot(self : Tester, path : String) -> Bool {
 }
 
 ///|
+/// 整页内容重画落盘 PNG（滚动截图语义，与服务端 `shot --full` 同口径）：
+/// 根下第一个滚动容器的内容按全内容高重画。页内无滚动容器或写失败给 false。
+pub fn Tester::shot_full(self : Tester, path : String) -> Bool {
+  self.ops += 1
+  match @widget.paint_full_page(self.root) {
+    (Some(bm), _) => @render.png_write_bitmap(bm, path)
+    (None, _) => false
+  }
+}
+
+///|
 /// 控件组件类型名（构造自带，`with_kind` 可覆盖）。
 pub fn Tester::kind(self : Tester, t : Target) -> String? {
   self.ops += 1
