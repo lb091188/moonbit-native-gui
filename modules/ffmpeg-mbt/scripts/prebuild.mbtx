@@ -564,7 +564,7 @@ async fn fetch_upstream_dlls(module_root~ : String) -> Bool {
       } else {
         false
       }
-      @fs.rmdir(tmp, recursive=true, allow_missing=true)
+      @fs.rmdir(tmp, recursive=true) catch { _ => () }
       ok
     }
     None => false
@@ -606,7 +606,7 @@ async fn ensure_win_runtime_dlls(module_root~ : String) -> Bool {
         @fs.write_file(zip, data)
         let ok = untar_into(archive=zip, dir=tmp, gz=false) &&
           install_win_dlls(from_dir=tmp, bin_dir~)
-        @fs.rmdir(tmp, recursive=true, allow_missing=true)
+        @fs.rmdir(tmp, recursive=true) catch { _ => () }
         if ok {
           err("ffmpeg(prebuild): 运行期 dll 已就位 " + bin_dir +
             "（vendor 归档，sha256 通过）\n  运行前把它们放到 exe 同目录（mng ffmpeg-dll 可代劳）")
@@ -680,12 +680,12 @@ async fn ensure_mac_vendor(module_root~ : String) -> Bool {
   let base = dir_of(vdir)
   @fs.mkdir(base, recursive=true, allow_exist=true)
   let tmp = base + "/.extract-tmp"
-  @fs.rmdir(tmp, recursive=true, allow_missing=true)
+  @fs.rmdir(tmp, recursive=true) catch { _ => () }
   @fs.mkdir(tmp, recursive=true, allow_exist=true)
   let tgz = tmp + "/" + name
   @fs.write_file(tgz, data)
   if !untar_into(archive=tgz, dir=tmp, gz=true) {
-    @fs.rmdir(tmp, recursive=true, allow_missing=true)
+    @fs.rmdir(tmp, recursive=true) catch { _ => () }
     return false
   }
   // 归档顶层统一是 ffmpeg-macos-*/，找到它再整棵搬进 vendor/mac
@@ -700,18 +700,18 @@ async fn ensure_mac_vendor(module_root~ : String) -> Bool {
   }
   if src_root.length() == 0 || !@fs.exists(src_root + "/include") {
     err("ffmpeg(prebuild): 归档顶层结构意外，放弃安装")
-    @fs.rmdir(tmp, recursive=true, allow_missing=true)
+    @fs.rmdir(tmp, recursive=true) catch { _ => () }
     return false
   }
-  @fs.rmdir(vdir, recursive=true, allow_missing=true)
+  @fs.rmdir(vdir, recursive=true) catch { _ => () }
   @fs.rename(src_root, vdir, replace=true) catch {
     e => {
       err("ffmpeg(prebuild): 归档搬入 vendor/mac 失败：" + e.to_string())
-      @fs.rmdir(tmp, recursive=true, allow_missing=true)
+      @fs.rmdir(tmp, recursive=true) catch { _ => () }
       return false
     }
   }
-  @fs.rmdir(tmp, recursive=true, allow_missing=true)
+  @fs.rmdir(tmp, recursive=true) catch { _ => () }
   let names = @fs.readdir(libdir) catch {
     _ => []
   }
