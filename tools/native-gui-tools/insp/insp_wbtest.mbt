@@ -9,6 +9,12 @@ test "insp_slug：净化、截断加哈希" {
 }
 
 ///|
+test "insp_strip_trailing_slash：mac TMPDIR 尾斜杠归一" {
+  assert_eq(insp_strip_trailing_slash("/var/folders/x/T/"), "/var/folders/x/T")
+  assert_eq(insp_strip_trailing_slash("/"), "/")
+}
+
+///|
 test "insp_socket_path：前缀、uid 尾与预算内" {
   let p = insp_socket_path("libyue.hello")
   assert_true(p.contains("/moonbit-inspect-"))

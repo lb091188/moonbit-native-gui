@@ -71,9 +71,24 @@ pub fn insp_slug(app_id : String) -> String {
 }
 
 ///|
+/// 目录归一：去掉尾部 `/`（mac 的 `$TMPDIR` 自带尾斜杠，直接拼会出 `//`；
+/// 根目录 `/` 保持不变）。
+fn insp_strip_trailing_slash(d : String) -> String {
+  let mut end = d.length()
+  while end > 1 && d[end - 1] == '/' {
+    end -= 1
+  }
+  if end == d.length() {
+    d
+  } else {
+    d[:end].to_owned()
+  }
+}
+
+///|
 /// 套接字文件所在目录：`$XDG_RUNTIME_DIR` → `$TMPDIR` → `/tmp`。
 fn insp_socket_dir() -> String {
-  match @env.get_env_var("XDG_RUNTIME_DIR") {
+  let d = match @env.get_env_var("XDG_RUNTIME_DIR") {
     Some(d) if d != "" => d
     _ =>
       match @env.get_env_var("TMPDIR") {
@@ -81,6 +96,7 @@ fn insp_socket_dir() -> String {
         _ => "/tmp"
       }
   }
+  insp_strip_trailing_slash(d)
 }
 
 ///|

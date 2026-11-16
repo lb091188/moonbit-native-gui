@@ -109,10 +109,25 @@ fn insp_file_slug(name : String) -> String {
 }
 
 ///|
+/// 目录归一：去掉尾部 `/`（mac 的 `$TMPDIR` 自带尾斜杠，直接拼会出 `//`；
+/// 根目录 `/` 保持不变）。
+fn insp_strip_trailing_slash(d : String) -> String {
+  let mut end = d.length()
+  while end > 1 && d[end - 1] == '/' {
+    end -= 1
+  }
+  if end == d.length() {
+    d
+  } else {
+    d[:end].to_owned()
+  }
+}
+
+///|
 /// socket 所在目录：`$XDG_RUNTIME_DIR` → `$TMPDIR` → `/tmp`（Windows 认
 /// `$TEMP`，管道臂实际只用 slug，目录仅供路径构造完整）。
 fn insp_socket_dir() -> String {
-  match @env.get_env_var("XDG_RUNTIME_DIR") {
+  let d = match @env.get_env_var("XDG_RUNTIME_DIR") {
     Some(d) if d != "" => d
     _ =>
       match @env.get_env_var("TMPDIR") {
@@ -120,6 +135,7 @@ fn insp_socket_dir() -> String {
         _ => "/tmp"
       }
   }
+  insp_strip_trailing_slash(d)
 }
 
 ///|
@@ -382,7 +398,7 @@ pub fn insp_shot(path : String?) -> String {
             _ => "/tmp"
           }
           let ts = @win.now_ms()
-          "\{dir}/mng-shot-\{insp_file_slug(title)}-\{ts}.png"
+          "\{insp_strip_trailing_slash(dir)}/mng-shot-\{insp_file_slug(title)}-\{ts}.png"
         }
       }
       if @render.png_write_bitmap(b, p) {

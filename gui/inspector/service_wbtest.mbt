@@ -55,6 +55,14 @@ test "inspect_handle：style <id> 不在快照给 error；空树 tree 只有列�
 }
 
 ///|
+test "insp_strip_trailing_slash：mac TMPDIR 尾斜杠归一，根目录保留" {
+  assert_eq(insp_strip_trailing_slash("/var/folders/x/T/"), "/var/folders/x/T")
+  assert_eq(insp_strip_trailing_slash("/var/folders/x/T"), "/var/folders/x/T")
+  assert_eq(insp_strip_trailing_slash("/"), "/")
+  assert_eq(insp_strip_trailing_slash("/tmp"), "/tmp")
+}
+
+///|
 test "insp_file_slug：文件名净化与空回退" {
   assert_eq(insp_file_slug("你好 MoonBit"), "___MoonBit")
   assert_eq(insp_file_slug(""), "app")
