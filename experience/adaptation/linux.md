@@ -8,7 +8,7 @@
 - **`_ph` 独立命名不是美观**：`modules/gui-webview/scripts/prebuild.mbtx` 的 `find_win_stub_archive` 按真归档名 `libyue_win_stub.a` 查找，占位归档沿用重名会在「有 webkit 开发包、缺 GTK」的组合下把真 webkit 实现链到占位 win 桩上（`wm_surface_container` undefined）。
 - **占位臂此前是死代码**：`win/stub.c` 的「其余平台」臂从没被任何编译触达过，藏着 `wm_hotkey_register` 重复定义与缺标准头（`snprintf`/`va_list`）两处旧账；开启占位编译首跑即暴露，属预期内的「低频路径不固化必烂」，CI 的 Linux bare 腿就是为固化它加的。
 - **文本回退两层各治一段**：内建回退测量器（`gui/text/fallback.mbt`，纯 MoonBit）治「量不出」——占位档/无后端下 `measure` 复合入口按字符宽表估算，探针与守卫走 `measure_real` 不吃回退；内嵌字体子集（`text/assets/fallback-cjk.ttf`，Noto Sans SC 裁剪 965KB）治「有 Pango 无字体」——`pt_ensure_fallback_font` 探到 font family 数为 0 时 `FcConfigAppFontAddFile` 注册并 `pango_cairo_font_map_set_default(NULL)` 重置默认 fontmap（探测那趟可能已缓存了不含应用字体的配置快照），有系统字体绝不干预。注册代码挂三个入口：`pt_make_layout` / `pt_font_line_height` / `pt_fam_build`，once 开销为零。
-- **字体路径编译期注入**：prebuild 用 `-DNGUI_FALLBACK_FONT_PATH="<module_root>/text/assets/fallback-cjk.ttf"` 下发——构建机器的绝对路径，发布场景使用者侧重跑 prebuild 重新解析；文件缺失只影响运行时注册（`AddFile` 自弃），不影响编译。
+- **字体路径编译期注入**：prebuild 用 `-DNGUI_FALLBACK_FONT_PATH="<module_root>/text/assets/fallback-cjk.ttf"` 下发——构建机器的绝对路径，发布场景使用者侧重跑 prebuild 重新解析；文件缺失只影响运行时注册（`AddFile` 自弃），不影响编译。**引号要直传裸字符**：prebuild 用 `@shell.Cmd` 经 execve 直调 cc、不经 shell，MoonBit 字符串里写 `\\\"` 会把反斜杠+引号两个字符原样送进宏（真机报 `stray '\' in program` + `missing terminating "`）——shell 转义习惯在这里是反效果，宏要带引号就在字符串里写单个 `\"`。
 - **验证**：mac 本机 19 包 1422 测试全绿 + 五桩 mac gate 过 + mac 无宏空 TU 口径保持（符号数 0）；占位宏形态三桩 `clang -fsyntax-only` 过。Linux 占位真链与 bare 腿判定、无字体真机的内嵌字体注册，见 TODO「无头化收尾真机复验」。
 
 ### MoonBit 原生 GUI 栈 · Linux 全局热键后端 · W22 Linux 档 X11 `XGrabKey` · 2026-10-16

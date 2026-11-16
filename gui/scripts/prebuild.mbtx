@@ -487,10 +487,11 @@ async fn link_configs() -> String {
     // 内嵌回退字体的绝对路径编译期注入：探到系统零字体时注册进 fontconfig
     // （见 text/stub.c 的 pt_ensure_fallback_font）。构建机器的路径，发布场景
     // 使用者重跑 prebuild 重新解析；文件缺失只影响运行时注册（自弃，走回退
-    // 估算），不影响编译。
-    let font_flag = "-DNGUI_FALLBACK_FONT_PATH=\\\"" +
+    // 估算），不影响编译。引号直传裸字符——cc 经 execve 直调不经 shell，
+    // 反斜杠转义会原样进宏（Linux 真机实测 stray '\'，见 adaptation）。
+    let font_flag = "-DNGUI_FALLBACK_FONT_PATH=\"" +
       module_root +
-      "/text/assets/fallback-cjk.ttf\\\""
+      "/text/assets/fallback-cjk.ttf\""
     let text_lib = compile_stub(
       module_root~,
       build_dir~,
