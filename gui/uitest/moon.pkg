@@ -10,6 +10,11 @@ import {
   "NoahLiu/native-gui/shell",
 }
 
+// 白盒用例（inspect_wbtest.mbt）按平台取临时目录根写 shot 落盘文件
+import {
+  "moonbitlang/core/env",
+} for "wbtest"
+
 // 黑盒回归（uitest_test.mbt）以使用者视角引本包与组件库（文本格式：
 // `import {…} for "test"` 即 test-import）
 import {
