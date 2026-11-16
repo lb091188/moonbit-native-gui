@@ -290,8 +290,10 @@ jobs:
       # 容器腿偶发 curl(77)：apt 升级后 /etc/ssl/certs/ca-certificates.crt
       # 残缺，装 moon 的 curl 直接断（管道下游 bash 拿到空脚本还回 0，
       # 拖到下一步 moon: not found 才炸）。pipefail 让失败当场可见，
-      # 重建证书束后重试两轮。
+      # 重建证书束后重试两轮。容器默认 shell 是 sh(dash) 不认 pipefail，
+      # 显式指定 bash。
       - name: 安装 moon 工具链
+        shell: bash
         run: |
           set -o pipefail
           ok=0
