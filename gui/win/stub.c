@@ -13646,21 +13646,43 @@ int wm_hotkey_register(int mods, int vk, int keysym) {
 void wm_hotkey_unregister(int id) { (void)id; }
 int wm_hotkey_poll(void) { return 0; }
 
-/* 系统权限 / 屏幕色温占位（macOS 等）：真实现住 WM_STUB_MAC 分支。 */
-int wm_permission_probe(int kind, int32_t *ok) {
-  (void)kind;
-  if (ok != NULL) {
-    *ok = 1;
-  }
+/* 系统权限 / 屏幕色温的空桩住声明者 sys 的桩（sys/sys_stub.c，非 mac 平台
+ * 由它的 !defined(__APPLE__) 闸供符号）——这里不再定义一份（占位档会与
+ * libsys.a 双定义，真机实测踩到）。 */
+
+/* ---- 文件对话框（占位）：句柄 0 = 建失败，MoonBit 层走语义化降级；
+ * run 返 0 = 取消。真实现住 WM_STUB_GTK / WM_STUB_MAC 分支。 ---- */
+static int64_t wm_file_dialog_new(int save) {
+  (void)save;
   return 0;
 }
-void wm_permission_request(int kind) { (void)kind; }
-void wm_screen_tint_apply(int32_t percent, int32_t *ok) {
-  (void)percent;
-  if (ok != NULL) {
-    *ok = 1;
-  }
+int64_t wm_file_open_dialog_new(void) {
+  return wm_file_dialog_new(0);
 }
+int64_t wm_file_save_dialog_new(void) {
+  return wm_file_dialog_new(1);
+}
+void wm_file_dialog_set_options(int64_t id, int32_t options) {
+  (void)id; (void)options;
+}
+void wm_file_dialog_set_filters(int64_t id, const char *filters) {
+  (void)id; (void)filters;
+}
+void wm_file_dialog_set_folder(int64_t id, const char *folder) {
+  (void)id; (void)folder;
+}
+void wm_file_dialog_set_filename(int64_t id, const char *filename) {
+  (void)id; (void)filename;
+}
+int32_t wm_file_dialog_run_for_window(int64_t id, int64_t parent_id) {
+  (void)id; (void)parent_id;
+  return 0;
+}
+void *wm_file_dialog_get_result(int64_t id) {
+  (void)id;
+  return NULL;
+}
+void wm_file_dialog_destroy(int64_t id) { (void)id; }
 
 int64_t wm_now_ms(void) {
   return 0;

@@ -2956,6 +2956,10 @@ int pt_measure(const char *text, int len, double size, const char *family,
   return 0;
 }
 
+/* RTL 基方向 setter（占位）：无文本后端时无处可设，no-op 保符号不断。
+ * 真实现住 WM_STUB_PANGO / _WIN32 / WM_STUB_MAC 分支。 */
+void pt_set_base_dir(int rtl) { (void)rtl; }
+
 int pt_render_stats(int64_t *calls, int64_t *d2d_us, int64_t *read_us) {
   (void)calls; (void)d2d_us; (void)read_us;
   return 1;
