@@ -12,6 +12,7 @@ import {
   "NoahLiu/native-gui-tools/doctor",
   "NoahLiu/native-gui-tools/scaffold",
   "NoahLiu/native-gui-tools/proc",
+  "NoahLiu/native-gui-tools/insp",
 }
 
 pkgtype(kind: "executable")

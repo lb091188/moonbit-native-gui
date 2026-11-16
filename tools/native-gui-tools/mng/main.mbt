@@ -955,7 +955,7 @@ fn main {
   } else if cmd == "doctor" {
     cmd_doctor(force=rest.contains("-f") || rest.contains("--force"))
   } else if cmd == "inspect" {
-    cmd_inspect(rest)
+    cmd_inspect(raw[0], rest)
   } else if cmd == "mcp" {
     cmd_mcp(rest)
   } else {

@@ -32,7 +32,8 @@ Three commands — one-line request, TSV-lines response (256KB cap; over-long re
 | Command | Response |
 |---|---|
 | `tree` | Full-tree dump, one widget per line; header row first, columns kind/role/name/id/parent/x/y/w/h/state/value/text/enabled |
-| `style <id>` | Effective style five fields for the id (background/color/border_color/border_width/border_radius), same reading as the style editor |
+| `style <id>` | Effective style for the id: the first five rows are the style-editor fields (background/color/border_color/border_width/border_radius), followed by **every set field** with a group prefix (text./box./edge./border./flex./pos./misc., e.g. `text.font_size`, `flex.flex_direction`) |
+| `highlight <id>` | Highlights that widget in the target app (light-blue translucent fill + outline, Chrome-DevTools-like); `highlight 0` clears. The overlay is hit-transparent and stays out of the semantic tree |
 | `shot [--full] [path]` | Save a PNG. Default captures the last presented frame (viewport view); `--full` repaints the page scroll container's content at full content height (scrolling-screenshot semantics, including off-viewport content; virtual lists only include mounted rows; content beyond 20000px is clipped and noted). Without a path goes to the temp dir as `mng-shot-<title>-<timestamp>.png`; reply carries the actual path |
 
 ## mng inspect
@@ -47,6 +48,21 @@ mng inspect --app libyue.hello tree   # explicit app id
 ```
 
 If the app is not running or not injected, you get "cannot connect to the inspection channel".
+
+## mng inspect --gui (graphical inspector)
+
+A standalone Chrome-DevTools-like inspector window shipped by mngui (the mng binary itself never links GUI libs — it only forwards arguments):
+
+```sh
+mng inspect --gui              # derive the app id from the project, then open
+mng inspect --gui --app libyue.hello
+mngui --inspect --app libyue.hello   # running mngui directly also works
+```
+
+- Left pane: indented widget tree (Kind·role「name」 #id), click to select, 300ms auto-refresh.
+- Right pane: detail readings for the selected row (id/parent/kind/role/name/state/value/text/rect/enabled) plus the full style field set grouped (editor five first, then text/size/edges/border/flex/position/misc).
+- Select-to-highlight: a highlight overlay is drawn live on the target app window and follows layout changes; closing the window clears it.
+- If the app is not running or not injected, the status bar shows "not connected" and reconnects automatically.
 
 ## mng mcp (AI clients)
 

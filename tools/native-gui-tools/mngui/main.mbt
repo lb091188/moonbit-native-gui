@@ -43,7 +43,10 @@ fn main {
     None => "."
   }
   // --project [路径]：工程面板模式。路径缺省当前目录。
+  // --inspect [--app id]：检查器模式（仿 Chrome DevTools），直接进独立窗。
   let mut panel_proj = ""
+  let mut inspect_mode = false
+  let mut inspect_app = ""
   let mut k = 1
   while k < raw.length() {
     if raw[k] == "--project" {
@@ -54,9 +57,19 @@ fn main {
         panel_proj = cwd
         k += 1
       }
+    } else if raw[k] == "--inspect" {
+      inspect_mode = true
+      k += 1
+    } else if raw[k] == "--app" && k + 1 < raw.length() {
+      inspect_app = raw[k + 1]
+      k += 2
     } else {
       k += 1
     }
+  }
+  if inspect_mode {
+    run_inspector(inspect_app)
+    return
   }
   let w = Wizard::{
     page: @base.Store::new(0),

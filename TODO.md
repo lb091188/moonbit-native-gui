@@ -206,6 +206,13 @@
 
 ## 开发待办
 
+- [ ] **检查器 GUI 工具**：mngui 加 --inspect 模式（仿 Chrome DevTools 的独立检查器窗），mng inspect --gui 纯 hop
+  - 检查器工具：独立窗口连应用内的检查服务，看树、读数与样式；与 mngui 向导壳同一可执行，mng 二进制不链 GUI 库。
+  - 入口：`mng inspect --gui [--app <id>]` → hop 到 `mngui --inspect [--app <id>]`；裸跑 `mngui --inspect` 亦可。
+  - 界面：左栏缩进控件树（点击选中、300ms 自动刷新）；右栏详情读数（kind/role/name/id/parent/state/value/text/rect/enabled）+ 样式分组（七组全量已设字段）；选中行发 `highlight <id>` 在目标应用上画高亮框。
+  - 服务端：`style` 命令扩为全部已设字段（分组输出）；新增 `highlight <id>` 命令（overlay 高亮框、widget 层命中穿透）。
+  - 验证：本机编译面门禁全绿即 🚧已合入待真机；真机开窗连 hello 看树/选中/高亮。
+
 - [ ] **A6 CPU/GPU 像素对拍**：比对器本体单独立项（与「无头像素快照基线」合并）；随控件级 GPU 批的用例扩面已随 SC-16.8/16.9 落
 - [ ] **无头化收尾真机复验**：执行者：用户执行
   - Linux：CI 的 Linux bare 腿首跑（dev 合入 master 或开 PR 触发），看「占位降级 19 包全绿 + 降级提示 + 守卫跳过」三判定。
