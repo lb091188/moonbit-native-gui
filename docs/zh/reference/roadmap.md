@@ -9,7 +9,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
   - mooncakes：MoonBit 官方的包发布仓库，`moon install` 从这里装包。
 - 组件库、图表、文档视图、系统能力、媒体播放、WebView、打包与自动更新主链均已落地，三平台 CI 全绿。
 - **进行中的重点**：
-  - 真机验证批：新窗首帧补绘、托盘品牌图标、通知打扰档、inspector、模板工具链一批条目已合入待真机；GPU 内容画布 3D 接口随批
+  - 真机验证批：新窗首帧补绘、托盘品牌图标、通知打扰档、inspector、模板工具链一批条目已合入待真机；GPU 内容画布 3D 接口与窗级点击穿透已验
   - 媒体硬解与解码白名单自建归档
     - 硬解：由显卡等专用硬件解码视频，比软件解码省 CPU。
     - 进度：Linux VAAPI 已通，mac / Windows 待接。
@@ -20,7 +20,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
   - 模板工具链「mng 全入口」
     - mng：本仓的开发者工具命令行，管新建工程、dev 热更、体检与打包发布。
     - 内容：向导壳、工程中心化、三通道分发。
-  - GPU 合成后续：性能治理读数、GPU 内容画布 3D 接口真机复验
+  - GPU 合成后续：性能治理读数
 - 平台覆盖与 Linux 桌面环境支持面见文末「Linux 兼容说明」。
 
 ## 怎么读
@@ -106,11 +106,11 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - 🚧 **窗口族能力可探测**：`Window::shell_caps()` 能力探测
   - `opacity` / `transparent_bg` 等位可查
   - `set_transparent_bg` 返回 `Result` 诚实降级：前置不满足给 `Unsupported` / `Failed` 带原因
-- 🚧 **窗级点击穿透**：`Window::set_click_through(on)`——鼠标事件整窗让路到下层；透明档窗另带**逐像素命中**——透明像素自动点穿、可见像素照常收交互（Win ULW 系统语义对齐）
+- ✅ **窗级点击穿透**：`Window::set_click_through(on)`——鼠标事件整窗让路到下层；透明档窗另带**逐像素命中**——透明像素自动点穿、可见像素照常收交互（Win ULW 系统语义对齐）
   - 逐像素命中：Win 分层窗免费自带；mac `hitTest:` 读帧 alpha；Linux X11 XShape 按帧不透明区拼 input region（矩形超上限回退整窗）
   - 整窗穿透：mac `ignoresMouseEvents` / Win `WS_EX_TRANSPARENT`（补 `WS_EX_LAYERED`）/ Linux XShape 空输入形状
   - Wayland 无 XShape：`shell_caps().click_through` 为 false，调了回 `Unsupported`
-  - 🚧已合入待真机：用例 HL-4.4
+  - ✅已验：用例 HL-4.4，mac 真机
 - 🚧 **新窗首帧自动补绘**：建窗后自动三拍兜底重绘，应用零接线
   - 背景：新开窗首帧落在平台映射前被丢弃导致白屏
 - ✅ **窗口状态记忆**：`WindowHost::remember_geometry(app_id)` 一行接上
@@ -151,9 +151,10 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
   - 用途：视频 quad / 简单图形。
   - quad：GPU 绘图用的矩形面片，画面纹理贴在它上面。
   - GPU 画布控件与视频直纹理 setter 已落
-- 🚧 **GPU 内容画布**：`GpuCanvas` 薄壳原始接口，3D 走应用自建管线
+- ✅ **GPU 内容画布**：`GpuCanvas` 薄壳原始接口，3D 走应用自建管线
   - 帧生命周期带深度附件、shader / 顶点与 uniform 缓冲 / bind group / 管线创建薄壳、`lib()` dlsym 逃生口
-  - 无头判据：gui-gpu 六用例真后端全绿；components「GPU 画布」页 3D 段旋转立方体
+  - 无头判据：gui-gpu 七用例真后端全绿；components「GPU 画布」页 3D 段旋转立方体
+  - ✅已验：用例 SC-16.8/16.9，mac 真机
   - 3D / 场景图归未来 gui-3d 独立模块
 
 ### 文字排印
