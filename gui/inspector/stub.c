@@ -80,6 +80,20 @@ int32_t yi_insp_listen(const char *path) {
   if (yi_insp_fill_addr(path, &addr) < 0) {
     return -1;
   }
+  /* 先探活：connect 一下区分「对面真有人听」与「残桩」。应用被 kill -9
+   * （dev 的 COLD 重启就这么干）不会 unlink 套接字文件，残桩会让 bind
+   * 误报被占用、静默降级——probe 连得上才是真被占，连不上先清残桩。
+   * 本地 AF_UNIX 的阻塞 connect 立即返回（成功 / ECONNREFUSED / ENOENT），
+   * 无阻塞风险。 */
+  int probe = socket(AF_UNIX, SOCK_STREAM, 0);
+  if (probe >= 0) {
+    if (connect(probe, (struct sockaddr *)&addr, sizeof(addr)) == 0) {
+      close(probe);
+      return 2; /* 对面有人在听：本进程让位，调用方按非 1 静默降级 */
+    }
+    close(probe);
+  }
+  unlink(path); /* 没人听：上个实例崩/被杀留下的残桩，清掉再 bind */
   int fd = socket(AF_UNIX, SOCK_STREAM, 0);
   if (fd < 0) {
     yi_insp_err = errno;
@@ -89,7 +103,7 @@ int32_t yi_insp_listen(const char *path) {
     int saved = errno;
     close(fd);
     yi_insp_err = saved;
-    /* 被占用（别的进程已监听同名）：调用方按非 1 静默降级不监听 */
+    /* 抢输了一档（罕见竞态）：调用方按非 1 静默降级不监听 */
     return (saved == EADDRINUSE) ? 2 : -1;
   }
   if (chmod(path, 0600) != 0) { /* 只让本用户连（文件名带 uid 是双保险） */
