@@ -78,6 +78,16 @@ MNG_CV_FN(TextureRelease)
 MNG_CV_FN(SamplerRelease)
 MNG_CV_FN(RenderPipelineRelease)
 MNG_CV_FN(CommandBufferRelease)
+// 3D 帧面（方案 gpu-architecture.md「GPU 内容画布」）：索引绘制 + 资源释放 +
+// 未提交 encoder 的弃置
+MNG_CV_FN(RenderPassEncoderSetIndexBuffer)
+MNG_CV_FN(RenderPassEncoderDrawIndexed)
+MNG_CV_FN(RenderPassEncoderRelease)
+MNG_CV_FN(ShaderModuleRelease)
+MNG_CV_FN(CommandEncoderRelease)
+// 错误范围（v29 校验失败给无效句柄不回 NULL——错误经 scope 才可感知）
+MNG_CV_FN(DevicePushErrorScope)
+MNG_CV_FN(DevicePopErrorScope)
 
 static int cv_syms_ready;
 // 最近一次建画布失败的原因（mng_gpu_canvas_new 回 Err 时带出，诊断用）
@@ -135,6 +145,13 @@ static int cv_load_syms(void) {
   MNG_CV_LOAD(SamplerRelease);
   MNG_CV_LOAD(RenderPipelineRelease);
   MNG_CV_LOAD(CommandBufferRelease);
+  MNG_CV_LOAD(RenderPassEncoderSetIndexBuffer);
+  MNG_CV_LOAD(RenderPassEncoderDrawIndexed);
+  MNG_CV_LOAD(RenderPassEncoderRelease);
+  MNG_CV_LOAD(ShaderModuleRelease);
+  MNG_CV_LOAD(CommandEncoderRelease);
+  MNG_CV_LOAD(DevicePushErrorScope);
+  MNG_CV_LOAD(DevicePopErrorScope);
 #undef MNG_CV_LOAD
   cv_syms_ready = 1;
   return 1;
@@ -142,6 +159,67 @@ static int cv_load_syms(void) {
 
 // 入口前向声明（new 的失败清理要调 free；free 定义在文件末）
 void mng_gpu_canvas_free(int64_t h);
+
+// ---- 错误范围（v29 校验失败给无效句柄不回 NULL——错误经 scope 才可感知）----
+// push/pop 包住 shader / 管线 / bind group 的创建，弹出时泵 ProcessEvents
+// 等回调；有校验错误就把 wgpu 的诊断写进 canvas_detail 通道。
+static volatile int g_scope_got;
+static int g_scope_type; // WGPUErrorType（NoError = 干净）
+static char g_scope_msg[512];
+static void cv_on_scope(WGPUPopErrorScopeStatus status, WGPUErrorType type,
+                        WGPUStringView message, void *u1, void *u2) {
+  (void)u1;
+  (void)u2;
+  if (status == WGPUPopErrorScopeStatus_Success) {
+    g_scope_type = (int)type;
+    snprintf(g_scope_msg, sizeof g_scope_msg, "%.*s", (int)message.length,
+             message.data ? message.data : "");
+  } else {
+    g_scope_type = (int)WGPUErrorType_Internal;
+    snprintf(g_scope_msg, sizeof g_scope_msg, "error scope 弹出失败 status=%d",
+             (int)status);
+  }
+  g_scope_got = 1;
+}
+
+static void cv_scope_push(void) {
+  g_scope_got = 0;
+  g_scope_type = (int)WGPUErrorType_NoError;
+  g_scope_msg[0] = 0;
+  p_wgpuDevicePushErrorScope(mng_wgpu_device(), WGPUErrorFilter_Validation);
+}
+
+// 弹出并等回调。1 = 范围内有校验错误（诊断在 g_scope_msg / canvas_detail）。
+static int cv_scope_pop_check(void) {
+  WGPUPopErrorScopeCallbackInfo ci;
+  memset(&ci, 0, sizeof ci);
+  ci.mode = WGPUCallbackMode_AllowSpontaneous;
+  ci.callback = cv_on_scope;
+  p_wgpuDevicePopErrorScope(mng_wgpu_device(), ci);
+  int waited = 0;
+  while (!g_scope_got && waited < 5000) {
+    WGPUProcInstanceProcessEvents pe =
+        (WGPUProcInstanceProcessEvents)MNG_CV_DLSYM(mng_wgpu_lib(),
+                                                    "wgpuInstanceProcessEvents");
+    if (pe != NULL) {
+      pe((WGPUInstance)mng_wgpu_instance());
+    }
+    if (g_scope_got) {
+      break;
+    }
+    MNG_CV_SLEEP_1MS();
+    waited += 1;
+  }
+  if (!g_scope_got) {
+    g_scope_type = (int)WGPUErrorType_Internal;
+    snprintf(g_scope_msg, sizeof g_scope_msg, "error scope 回调超时");
+  }
+  if (g_scope_type != (int)WGPUErrorType_NoError) {
+    cv_set_detail(g_scope_msg[0] ? g_scope_msg : "范围内有校验错误");
+    return 1;
+  }
+  return 0;
+}
 
 // ---- 每画布状态 ----
 typedef struct {
@@ -160,6 +238,14 @@ typedef struct {
   WGPUSampler sampler;
   WGPUBindGroupLayout bgl_tex;
   WGPUBindGroupLayout bgl_fill;
+  // 3D 帧面：深度附件 + 开帧期间的三件（pass/encoder/view）。end 时 pass
+  // 结束、encoder finish+submit、view 释放；finish 对开着的帧先自动收口。
+  WGPUTexture depth_tex;            // Depth24Plus（RENDER_ATTACHMENT，随目标尺寸）
+  WGPUTextureView depth_view;
+  WGPURenderPassEncoder frame_pass;
+  WGPUCommandEncoder frame_enc;
+  WGPUTextureView frame_view;
+  int frame_open;
   int alive;
 } GpuCanvas;
 
@@ -414,6 +500,56 @@ static int cv_build_upbuf(GpuCanvas *c, size_t need) {
   return 1;
 }
 
+// 深度附件（Depth24Plus，RENDER_ATTACHMENT；尺寸随目标，resize 已丢弃重建）。
+static int cv_build_depth(GpuCanvas *c) {
+  if (c->depth_tex != NULL && c->depth_view != NULL) {
+    return 1;
+  }
+  if (c->depth_view != NULL) {
+    p_wgpuTextureViewRelease(c->depth_view);
+    c->depth_view = NULL;
+  }
+  if (c->depth_tex != NULL) {
+    p_wgpuTextureRelease(c->depth_tex);
+    c->depth_tex = NULL;
+  }
+  WGPUTextureDescriptor td;
+  memset(&td, 0, sizeof td);
+  td.usage = WGPUTextureUsage_RenderAttachment;
+  td.dimension = WGPUTextureDimension_2D;
+  td.size.width = (uint32_t)c->w;
+  td.size.height = (uint32_t)c->h;
+  td.size.depthOrArrayLayers = 1;
+  td.format = WGPUTextureFormat_Depth24Plus;
+  td.mipLevelCount = 1;
+  td.sampleCount = 1;
+  c->depth_tex = p_wgpuDeviceCreateTexture(mng_wgpu_device(), &td);
+  if (c->depth_tex == NULL) {
+    cv_set_detail("深度附件建不出");
+    return 0;
+  }
+  c->depth_view = p_wgpuTextureCreateView(c->depth_tex, NULL);
+  return c->depth_view != NULL;
+}
+
+// 开帧中途弃置（resize/free 时的收场）：pass 未 End 直接释放、encoder 未
+// Finish 直接释放、视图释放——已录指令一并弃掉，不上屏。
+static void cv_frame_cancel(GpuCanvas *c) {
+  if (c->frame_pass != NULL) {
+    p_wgpuRenderPassEncoderRelease(c->frame_pass);
+    c->frame_pass = NULL;
+  }
+  if (c->frame_enc != NULL) {
+    p_wgpuCommandEncoderRelease(c->frame_enc);
+    c->frame_enc = NULL;
+  }
+  if (c->frame_view != NULL) {
+    p_wgpuTextureViewRelease(c->frame_view);
+    c->frame_view = NULL;
+  }
+  c->frame_open = 0;
+}
+
 // 一次 draw：一个 render pass（loadOp=Load 保留此前绘制），带 scissor clip。
 // bind 可空（solid 管线无 bindgroup）。
 static void cv_pass(GpuCanvas *c, WGPURenderPipeline pipe, WGPUBindGroup bind,
@@ -467,6 +603,543 @@ static void cv_pass(GpuCanvas *c, WGPURenderPipeline pipe, WGPUBindGroup bind,
     p_wgpuCommandBufferRelease(cb);
   }
   p_wgpuTextureViewRelease(view);
+}
+
+// ---- 3D 帧面（方案 gpu-architecture.md「GPU 内容画布」）----
+// 薄壳原始接口：全部转调 wgpu_core 装好的符号，C 侧只补「结构体组装」——
+// 管线描述符用 builder 增量外呼避开结构体封送；句柄一律 int64 原样透传，
+// 应用可拿句柄经 GpuCanvas::lib() dlsym 自行扩展薄壳没覆盖的 webgpu.h 面。
+
+// 管线 builder 临时态（一次一个；pipe_begin 重置）。顶点缓冲上限 8、
+// 每缓冲属性上限 16——与 WebGPU 单管线默认上限同量级。
+#define MNG_PB_MAX_VBL 8
+#define MNG_PB_MAX_ATT 16
+static WGPUShaderModule g_pb_mod;
+static WGPUVertexBufferLayout g_pb_vbl[MNG_PB_MAX_VBL];
+static WGPUVertexAttribute g_pb_att[MNG_PB_MAX_VBL][MNG_PB_MAX_ATT];
+static int g_pb_nvbl;
+static int g_pb_att_n[MNG_PB_MAX_VBL];
+static int g_pb_topology, g_pb_cull, g_pb_front, g_pb_blend;
+static int g_pb_depth, g_pb_depth_write, g_pb_depth_compare;
+
+// 管线 builder 开始：建 shader module、记原始态。字符串按 (指针, 长度) 传，
+// 调用方（MoonBit）给 UTF-8 Bytes 与长度。1 = shader 建成。
+int mng_gpu_canvas_pipe_begin(int64_t h, const uint8_t *wgsl, int wgsl_len,
+                              const char *vs_entry, int vs_len,
+                              const char *fs_entry, int fs_len, int topology,
+                              int cull, int front, int blend, int depth_write,
+                              int depth_compare, int depth) {
+  (void)h;
+  memset(&g_pb_vbl, 0, sizeof g_pb_vbl);
+  memset(&g_pb_att, 0, sizeof g_pb_att);
+  memset(&g_pb_att_n, 0, sizeof g_pb_att_n);
+  g_pb_nvbl = 0;
+  g_pb_topology = topology;
+  g_pb_cull = cull;
+  g_pb_front = front;
+  g_pb_blend = blend;
+  g_pb_depth = depth;
+  g_pb_depth_write = depth_write;
+  g_pb_depth_compare = depth_compare;
+  g_pb_mod = NULL;
+  if (!mng_wgpu_ready() || !cv_load_syms()) {
+    return 0;
+  }
+  if (wgsl == NULL || wgsl_len <= 0) {
+    cv_set_detail("WGSL 为空");
+    return 0;
+  }
+  cv_scope_push();
+  WGPUShaderSourceWGSL wsrc;
+  memset(&wsrc, 0, sizeof wsrc);
+  wsrc.chain.sType = WGPUSType_ShaderSourceWGSL;
+  wsrc.code.data = (const char *)wgsl;
+  wsrc.code.length = (size_t)wgsl_len;
+  WGPUShaderModuleDescriptor smd;
+  memset(&smd, 0, sizeof smd);
+  smd.nextInChain = &wsrc.chain;
+  g_pb_mod = p_wgpuDeviceCreateShaderModule(mng_wgpu_device(), &smd);
+  if (g_pb_mod == NULL) {
+    cv_set_detail("shader module 建不出（WGSL 编译失败或后端不支持）");
+    return 0;
+  }
+  (void)vs_entry;
+  (void)vs_len;
+  (void)fs_entry;
+  (void)fs_len;
+  return 1;
+}
+
+// 追加一个顶点缓冲布局（属性随后逐个 attr 追加）。回缓冲序号，-1 = 越界。
+int mng_gpu_canvas_pipe_buffer(int64_t h, int64_t stride, int step_mode) {
+  (void)h;
+  if (g_pb_mod == NULL || g_pb_nvbl >= MNG_PB_MAX_VBL) {
+    return -1;
+  }
+  int idx = g_pb_nvbl++;
+  g_pb_vbl[idx].arrayStride = (uint64_t)stride;
+  g_pb_vbl[idx].stepMode = (WGPUVertexStepMode)step_mode;
+  g_pb_vbl[idx].attributeCount = 0;
+  g_pb_vbl[idx].attributes = g_pb_att[idx];
+  g_pb_att_n[idx] = 0;
+  return idx;
+}
+
+// 向最近一个顶点缓冲布局追加属性。-1 = 没有打开的布局或越界。
+int mng_gpu_canvas_pipe_attr(int64_t h, int location, int format,
+                             int64_t offset) {
+  (void)h;
+  int idx = g_pb_nvbl - 1;
+  if (g_pb_mod == NULL || idx < 0 || g_pb_att_n[idx] >= MNG_PB_MAX_ATT) {
+    return -1;
+  }
+  int n = g_pb_att_n[idx]++;
+  g_pb_att[idx][n].shaderLocation = (uint32_t)location;
+  g_pb_att[idx][n].format = (WGPUVertexFormat)format;
+  g_pb_att[idx][n].offset = (uint64_t)offset;
+  return n;
+}
+
+// 管线 builder 收口：组描述符建管线。回句柄，0 = 建不出（builder 未开/
+// 验证错误——core 挂的静默错误回调吃掉诊断，见 wgpu_core 注释）。
+int64_t mng_gpu_canvas_pipe_end(int64_t h) {
+  (void)h;
+  if (g_pb_mod == NULL) {
+    return 0;
+  }
+  WGPURenderPipeline pipe = NULL;
+  for (int i = 0; i < g_pb_nvbl; i++) {
+    g_pb_vbl[i].attributeCount = (uint32_t)g_pb_att_n[i];
+  }
+  WGPUBlendState blend;
+  memset(&blend, 0, sizeof blend);
+  WGPUPrimitiveState prim;
+  memset(&prim, 0, sizeof prim);
+  prim.topology = (WGPUPrimitiveTopology)g_pb_topology;
+  prim.frontFace = (WGPUFrontFace)g_pb_front;
+  prim.cullMode = (WGPUCullMode)g_pb_cull;
+  WGPUColorTargetState ct;
+  memset(&ct, 0, sizeof ct);
+  ct.format = WGPUTextureFormat_BGRA8Unorm;
+  ct.writeMask = WGPUColorWriteMask_All;
+  if (g_pb_blend) {
+    blend.color.srcFactor = WGPUBlendFactor_SrcAlpha;
+    blend.color.dstFactor = WGPUBlendFactor_OneMinusSrcAlpha;
+    blend.color.operation = WGPUBlendOperation_Add;
+    blend.alpha.srcFactor = WGPUBlendFactor_One;
+    blend.alpha.dstFactor = WGPUBlendFactor_OneMinusSrcAlpha;
+    blend.alpha.operation = WGPUBlendOperation_Add;
+    ct.blend = &blend;
+  }
+  WGPUFragmentState frag;
+  memset(&frag, 0, sizeof frag);
+  frag.module = g_pb_mod;
+  frag.entryPoint = cv_sv("fs");
+  frag.targetCount = 1;
+  frag.targets = &ct;
+  WGPUVertexState vert;
+  memset(&vert, 0, sizeof vert);
+  vert.module = g_pb_mod;
+  vert.entryPoint = cv_sv("vs");
+  // 空布局合法：@builtin(vertex_index) 全屏三角形这类顶点着色器不消费
+  // 顶点缓冲，bufferCount=0 即可
+  vert.bufferCount = (uint32_t)g_pb_nvbl;
+  vert.buffers = g_pb_nvbl > 0 ? g_pb_vbl : NULL;
+  WGPURenderPipelineDescriptor pd;
+  memset(&pd, 0, sizeof pd);
+  pd.vertex = vert;
+  pd.primitive = prim;
+  pd.multisample.count = 1;
+  // C 桩 memset 吃不到头文件默认值：mask 默认应为 0xFFFFFFFF，清零后所有
+  // 样本被遮掉，draw 一条像素都不出（canvas 内建管线同坑，实测已修）
+  pd.multisample.mask = 0xFFFFFFFFu;
+  WGPUDepthStencilState ds;
+  memset(&ds, 0, sizeof ds);
+  if (g_pb_depth) {
+    ds.format = WGPUTextureFormat_Depth24Plus;
+    ds.depthWriteEnabled = g_pb_depth_write ? WGPUOptionalBool_True
+                                            : WGPUOptionalBool_False;
+    ds.depthCompare = (WGPUCompareFunction)g_pb_depth_compare;
+    pd.depthStencil = &ds;
+  }
+  pd.fragment = &frag;
+  pipe = p_wgpuDeviceCreateRenderPipeline(mng_wgpu_device(), &pd);
+  int bad = cv_scope_pop_check();
+  p_wgpuShaderModuleRelease(g_pb_mod);
+  g_pb_mod = NULL;
+  if (bad) {
+    return 0;
+  }
+  if (pipe == NULL) {
+    cv_set_detail("管线建不出（布局/入口/验证错误，见 WGSL 与属性表）");
+    return 0;
+  }
+  return (int64_t)(uintptr_t)pipe;
+}
+
+// bind group builder 临时态（一次一个；bind_begin 重置）。layout 不归
+// builder 所有（来自 pipeline_bgl 或应用自建），收口不动它。
+#define MNG_BG_MAX 8
+static WGPUBindGroupLayout g_bg_layout;
+static WGPUBindGroupEntry g_bg_ent[MNG_BG_MAX];
+static int g_bg_n;
+
+// bind group builder 开始：记 layout（裸句柄）。
+int mng_gpu_canvas_bind_begin(int64_t h, int64_t layout) {
+  (void)h;
+  memset(&g_bg_ent, 0, sizeof g_bg_ent);
+  g_bg_n = 0;
+  g_bg_layout = NULL;
+  if (!mng_wgpu_ready() || !cv_load_syms() || layout == 0) {
+    return 0;
+  }
+  cv_scope_push();
+  g_bg_layout = (WGPUBindGroupLayout)(uintptr_t)layout;
+  return 1;
+}
+
+// 追加一个 buffer 条目；size 0 = WGPU_WHOLE_SIZE（整段缓冲）。
+int mng_gpu_canvas_bind_buffer(int64_t h, int binding, int64_t buffer,
+                               int64_t offset, int64_t size) {
+  (void)h;
+  if (g_bg_layout == NULL || g_bg_n >= MNG_BG_MAX || buffer == 0) {
+    return 0;
+  }
+  int n = g_bg_n++;
+  g_bg_ent[n].binding = (uint32_t)binding;
+  g_bg_ent[n].buffer = (WGPUBuffer)(uintptr_t)buffer;
+  g_bg_ent[n].offset = (uint64_t)offset;
+  g_bg_ent[n].size = size == 0 ? (uint64_t)WGPU_WHOLE_SIZE : (uint64_t)size;
+  return 1;
+}
+
+// bind group builder 收口。回句柄，0 = 建不出。
+int64_t mng_gpu_canvas_bind_end(int64_t h) {
+  (void)h;
+  if (g_bg_layout == NULL || g_bg_n == 0) {
+    g_bg_layout = NULL;
+    return 0;
+  }
+  WGPUBindGroupDescriptor bgd;
+  memset(&bgd, 0, sizeof bgd);
+  bgd.layout = g_bg_layout;
+  bgd.entryCount = (uint32_t)g_bg_n;
+  bgd.entries = g_bg_ent;
+  g_bg_layout = NULL;
+  WGPUBindGroup bg = p_wgpuDeviceCreateBindGroup(mng_wgpu_device(), &bgd);
+  int bad = cv_scope_pop_check();
+  if (bad || bg == NULL) {
+    if (!bad) {
+      cv_set_detail("bind group 建不出（layout/条目不匹配）");
+    }
+    return 0;
+  }
+  return (int64_t)(uintptr_t)bg;
+}
+
+// ---- 3D 帧面的资源与句柄薄壳 ----
+
+// 建 shader module（WGSL UTF-8）。回句柄，0 = 建不出（WGSL 解析错误经
+// error scope 捕获，诊断在 canvas_detail）。
+int64_t mng_gpu_canvas_shader_new(int64_t h, const uint8_t *wgsl, int len) {
+  (void)h;
+  if (!mng_wgpu_ready() || !cv_load_syms() || wgsl == NULL || len <= 0) {
+    return 0;
+  }
+  cv_scope_push();
+  WGPUShaderSourceWGSL wsrc;
+  memset(&wsrc, 0, sizeof wsrc);
+  wsrc.chain.sType = WGPUSType_ShaderSourceWGSL;
+  wsrc.code.data = (const char *)wgsl;
+  wsrc.code.length = (size_t)len;
+  WGPUShaderModuleDescriptor smd;
+  memset(&smd, 0, sizeof smd);
+  smd.nextInChain = &wsrc.chain;
+  WGPUShaderModule mod = p_wgpuDeviceCreateShaderModule(mng_wgpu_device(), &smd);
+  int bad = cv_scope_pop_check();
+  if (bad || mod == NULL) {
+    return 0;
+  }
+  return (int64_t)(uintptr_t)mod;
+}
+
+// 建缓冲（size 字节，usage 是 WGPUBufferUsage 位值）。回句柄，0 = 建不出。
+int64_t mng_gpu_canvas_buffer_new(int64_t h, int64_t size, int64_t usage) {
+  (void)h;
+  if (!mng_wgpu_ready() || !cv_load_syms() || size <= 0) {
+    return 0;
+  }
+  WGPUBufferDescriptor bd;
+  memset(&bd, 0, sizeof bd);
+  bd.size = (uint64_t)size;
+  bd.usage = (WGPUBufferUsage)usage;
+  WGPUBuffer buf = p_wgpuDeviceCreateBuffer(mng_wgpu_device(), &bd);
+  return (int64_t)(uintptr_t)buf;
+}
+
+// 写缓冲（QueueWriteBuffer；offset 与 len 须 4 字节对齐——WebGPU 硬规）。
+int mng_gpu_canvas_buffer_write(int64_t h, int64_t buffer, int64_t offset,
+                                const uint8_t *data, int len) {
+  (void)h;
+  if (!mng_wgpu_ready() || !cv_load_syms() || buffer == 0 || data == NULL ||
+      len <= 0 || (offset % 4) != 0 || (len % 4) != 0) {
+    return 0;
+  }
+  p_wgpuQueueWriteBuffer(mng_wgpu_queue(), (WGPUBuffer)(uintptr_t)buffer,
+                         (uint64_t)offset, data, (size_t)len);
+  return 1;
+}
+
+// 管线的 bind group layout（组号 group）。回句柄，0 = 拿不到。
+int64_t mng_gpu_canvas_pipeline_bgl(int64_t h, int64_t pipeline, int group) {
+  (void)h;
+  if (!mng_wgpu_ready() || !cv_load_syms() || pipeline == 0 || group < 0) {
+    return 0;
+  }
+  WGPUBindGroupLayout bgl = p_wgpuRenderPipelineGetBindGroupLayout(
+      (WGPURenderPipeline)(uintptr_t)pipeline, (uint32_t)group);
+  return (int64_t)(uintptr_t)bgl;
+}
+
+int mng_gpu_canvas_release_buffer(int64_t h, int64_t res) {
+  (void)h;
+  if (res == 0 || !cv_load_syms()) {
+    return 0;
+  }
+  p_wgpuBufferRelease((WGPUBuffer)(uintptr_t)res);
+  return 1;
+}
+
+int mng_gpu_canvas_release_shader(int64_t h, int64_t res) {
+  (void)h;
+  if (res == 0 || !cv_load_syms()) {
+    return 0;
+  }
+  p_wgpuShaderModuleRelease((WGPUShaderModule)(uintptr_t)res);
+  return 1;
+}
+
+int mng_gpu_canvas_release_pipeline(int64_t h, int64_t res) {
+  (void)h;
+  if (res == 0 || !cv_load_syms()) {
+    return 0;
+  }
+  p_wgpuRenderPipelineRelease((WGPURenderPipeline)(uintptr_t)res);
+  return 1;
+}
+
+int mng_gpu_canvas_release_bind_group(int64_t h, int64_t res) {
+  (void)h;
+  if (res == 0 || !cv_load_syms()) {
+    return 0;
+  }
+  p_wgpuBindGroupRelease((WGPUBindGroup)(uintptr_t)res);
+  return 1;
+}
+
+// ---- 3D 帧生命周期 ----
+
+// 开帧：color loadOp = Clear（has_clear）或 Load（保留既有像素）；depth
+// 时挂 Depth24Plus 附件（Clear 到 1.0，storeOp=Discard——深度只在 pass
+// 内比较用，跨帧不留）。1 = 开成；0 = 失败（已开帧/画布失效/建不出）。
+int mng_gpu_canvas_frame_begin(int64_t h, int has_clear, double r, double g,
+                               double b, double a, int depth) {
+  if (h < 1 || h > MNG_CV_MAX) {
+    return 0;
+  }
+  GpuCanvas *c = &g_cv[h - 1];
+  if (!c->alive || c->target == NULL) {
+    return 0;
+  }
+  if (c->frame_open) {
+    cv_set_detail("已有开着的帧（end 后才能再开）");
+    return 0;
+  }
+  if (!cv_load_syms()) {
+    return 0;
+  }
+  WGPUTextureView view = p_wgpuTextureCreateView(c->target, NULL);
+  if (view == NULL) {
+    cv_set_detail("目标视图建不出");
+    return 0;
+  }
+  WGPUCommandEncoder enc = p_wgpuDeviceCreateCommandEncoder(mng_wgpu_device(), NULL);
+  if (enc == NULL) {
+    p_wgpuTextureViewRelease(view);
+    cv_set_detail("command encoder 建不出");
+    return 0;
+  }
+  if (depth && !cv_build_depth(c)) {
+    p_wgpuCommandEncoderRelease(enc);
+    p_wgpuTextureViewRelease(view);
+    return 0; // cv_build_depth 已写 detail
+  }
+  WGPURenderPassColorAttachment att;
+  memset(&att, 0, sizeof att);
+  att.view = view;
+  att.loadOp = has_clear ? WGPULoadOp_Clear : WGPULoadOp_Load;
+  att.storeOp = WGPUStoreOp_Store;
+  att.depthSlice = WGPU_DEPTH_SLICE_UNDEFINED;
+  att.clearValue.r = r;
+  att.clearValue.g = g;
+  att.clearValue.b = b;
+  att.clearValue.a = a;
+  WGPURenderPassDescriptor rp;
+  memset(&rp, 0, sizeof rp);
+  rp.colorAttachmentCount = 1;
+  rp.colorAttachments = &att;
+  WGPURenderPassDepthStencilAttachment datt;
+  if (depth) {
+    memset(&datt, 0, sizeof datt);
+    datt.view = c->depth_view;
+    datt.depthLoadOp = WGPULoadOp_Clear;
+    datt.depthClearValue = 1.0f;
+    datt.depthReadOnly = 0;
+    datt.depthStoreOp = WGPUStoreOp_Discard;
+    rp.depthStencilAttachment = &datt;
+  }
+  WGPURenderPassEncoder pass = p_wgpuCommandEncoderBeginRenderPass(enc, &rp);
+  if (pass == NULL) {
+    p_wgpuCommandEncoderRelease(enc);
+    p_wgpuTextureViewRelease(view);
+    cv_set_detail("render pass 开不出");
+    return 0;
+  }
+  c->frame_pass = pass;
+  c->frame_enc = enc;
+  c->frame_view = view;
+  c->frame_open = 1;
+  return 1;
+}
+
+// 开帧期间的 pass / 目标视图 / 深度视图句柄（应用经 lib() dlsym 直调
+// 薄壳没覆盖的 render pass 方法时用；未开帧回 0）。
+int64_t mng_gpu_canvas_frame_pass(int64_t h) {
+  if (h < 1 || h > MNG_CV_MAX || !g_cv[h - 1].alive || !g_cv[h - 1].frame_open) {
+    return 0;
+  }
+  return (int64_t)(uintptr_t)g_cv[h - 1].frame_pass;
+}
+
+int64_t mng_gpu_canvas_frame_target_view(int64_t h) {
+  if (h < 1 || h > MNG_CV_MAX || !g_cv[h - 1].alive || !g_cv[h - 1].frame_open) {
+    return 0;
+  }
+  return (int64_t)(uintptr_t)g_cv[h - 1].frame_view;
+}
+
+int64_t mng_gpu_canvas_frame_depth_view(int64_t h) {
+  if (h < 1 || h > MNG_CV_MAX || !g_cv[h - 1].alive || !g_cv[h - 1].frame_open) {
+    return 0;
+  }
+  return (int64_t)(uintptr_t)g_cv[h - 1].depth_view;
+}
+
+// 收帧：End pass + finish encoder + submit。**提交在此发生**——开帧期间
+// 的 3D 指令随 end 入队，与 2D 原语（各自即时提交）按调用序排布。1 = 收成。
+// 帧内绘制薄壳（全部要求开帧中；句柄 0/未开帧回 0 = 静默不画，与 2D
+// 原语同一口径）。顶点/索引缓冲按整段挂（offset 0、WGPU_WHOLE_SIZE）。
+int mng_gpu_canvas_frame_set_pipeline(int64_t h, int64_t pipeline) {
+  if (h < 1 || h > MNG_CV_MAX || pipeline == 0) {
+    return 0;
+  }
+  GpuCanvas *c = &g_cv[h - 1];
+  if (!c->alive || !c->frame_open) {
+    return 0;
+  }
+  p_wgpuRenderPassEncoderSetPipeline(c->frame_pass,
+                                     (WGPURenderPipeline)(uintptr_t)pipeline);
+  return 1;
+}
+
+int mng_gpu_canvas_frame_set_bind_group(int64_t h, int index, int64_t group) {
+  if (h < 1 || h > MNG_CV_MAX || group == 0) {
+    return 0;
+  }
+  GpuCanvas *c = &g_cv[h - 1];
+  if (!c->alive || !c->frame_open) {
+    return 0;
+  }
+  p_wgpuRenderPassEncoderSetBindGroup(c->frame_pass, (uint32_t)index,
+                                      (WGPUBindGroup)(uintptr_t)group, 0, NULL);
+  return 1;
+}
+
+int mng_gpu_canvas_frame_set_vertex_buffer(int64_t h, int slot, int64_t buffer) {
+  if (h < 1 || h > MNG_CV_MAX || buffer == 0) {
+    return 0;
+  }
+  GpuCanvas *c = &g_cv[h - 1];
+  if (!c->alive || !c->frame_open) {
+    return 0;
+  }
+  p_wgpuRenderPassEncoderSetVertexBuffer(c->frame_pass, (uint32_t)slot,
+                                         (WGPUBuffer)(uintptr_t)buffer, 0,
+                                         (uint64_t)WGPU_WHOLE_SIZE);
+  return 1;
+}
+
+int mng_gpu_canvas_frame_set_index_buffer(int64_t h, int64_t buffer,
+                                          int format) {
+  if (h < 1 || h > MNG_CV_MAX || buffer == 0) {
+    return 0;
+  }
+  GpuCanvas *c = &g_cv[h - 1];
+  if (!c->alive || !c->frame_open) {
+    return 0;
+  }
+  p_wgpuRenderPassEncoderSetIndexBuffer(c->frame_pass,
+                                        (WGPUBuffer)(uintptr_t)buffer,
+                                        (WGPUIndexFormat)format, 0,
+                                        (uint64_t)WGPU_WHOLE_SIZE);
+  return 1;
+}
+
+int mng_gpu_canvas_frame_draw(int64_t h, int vertices, int instances) {
+  if (h < 1 || h > MNG_CV_MAX || vertices <= 0 || instances <= 0) {
+    return 0;
+  }
+  GpuCanvas *c = &g_cv[h - 1];
+  if (!c->alive || !c->frame_open) {
+    return 0;
+  }
+  p_wgpuRenderPassEncoderDraw(c->frame_pass, (uint32_t)vertices,
+                              (uint32_t)instances, 0, 0);
+  return 1;
+}
+
+int mng_gpu_canvas_frame_draw_indexed(int64_t h, int indices, int instances) {
+  if (h < 1 || h > MNG_CV_MAX || indices <= 0 || instances <= 0) {
+    return 0;
+  }
+  GpuCanvas *c = &g_cv[h - 1];
+  if (!c->alive || !c->frame_open) {
+    return 0;
+  }
+  p_wgpuRenderPassEncoderDrawIndexed(c->frame_pass, (uint32_t)indices,
+                                     (uint32_t)instances, 0, 0, 0);
+  return 1;
+}
+
+int mng_gpu_canvas_frame_end(int64_t h) {
+  if (h < 1 || h > MNG_CV_MAX || !g_cv[h - 1].alive || !g_cv[h - 1].frame_open) {
+    return 0;
+  }
+  GpuCanvas *c = &g_cv[h - 1];
+  p_wgpuRenderPassEncoderEnd(c->frame_pass);
+  p_wgpuRenderPassEncoderRelease(c->frame_pass);
+  c->frame_pass = NULL;
+  WGPUCommandBuffer cb = p_wgpuCommandEncoderFinish(c->frame_enc, NULL);
+  if (cb != NULL) {
+    p_wgpuQueueSubmit(mng_wgpu_queue(), 1, &cb);
+    p_wgpuCommandBufferRelease(cb);
+  }
+  p_wgpuCommandEncoderRelease(c->frame_enc);
+  c->frame_enc = NULL;
+  p_wgpuTextureViewRelease(c->frame_view);
+  c->frame_view = NULL;
+  c->frame_open = 0;
+  return 1;
 }
 
 // ---- mapAsync 读回（future 风格：回调 + ProcessEvents 泵） ----
@@ -575,6 +1248,17 @@ int mng_gpu_canvas_resize(int64_t h, int w, int hh) {
   GpuCanvas *c = &g_cv[h - 1];
   if (!c->alive) {
     return 0;
+  }
+  if (c->frame_open) {
+    cv_frame_cancel(c);
+  }
+  if (c->depth_view != NULL) {
+    p_wgpuTextureViewRelease(c->depth_view);
+    c->depth_view = NULL;
+  }
+  if (c->depth_tex != NULL) {
+    p_wgpuTextureRelease(c->depth_tex);
+    c->depth_tex = NULL;
   }
   if (c->target != NULL) {
     p_wgpuTextureRelease(c->target);
@@ -690,6 +1374,7 @@ int mng_gpu_canvas_fill(int64_t h, double x, double y, double w, double hh,
 
 // finish：把离屏目标（BGRA8Unorm）读回成 BGRA 字节（w*h*4，行优先，与
 // Bitmap 内存序同口径）写进 out（容量须 ≥ w*h*4）。1 = 成；0 = 失败。
+// 开着的帧先自动收口（end 后读回），忘调 end 不吞帧。
 int mng_gpu_canvas_finish(int64_t h, uint8_t *out, int cap) {
   if (h < 1 || h > MNG_CV_MAX || out == NULL) {
     return 0;
@@ -697,6 +1382,9 @@ int mng_gpu_canvas_finish(int64_t h, uint8_t *out, int cap) {
   GpuCanvas *c = &g_cv[h - 1];
   if (!c->alive || c->target == NULL || c->readback == NULL) {
     return 0;
+  }
+  if (c->frame_open) {
+    mng_gpu_canvas_frame_end(h);
   }
   size_t need = (size_t)c->w * (size_t)c->h * 4u;
   if ((size_t)cap < need) {
@@ -775,6 +1463,9 @@ void mng_gpu_canvas_free(int64_t h) {
   if (!c->alive) {
     return;
   }
+  cv_frame_cancel(c);
+  if (c->depth_view != NULL) p_wgpuTextureViewRelease(c->depth_view);
+  if (c->depth_tex != NULL) p_wgpuTextureRelease(c->depth_tex);
   if (c->tex_bind != NULL) p_wgpuBindGroupRelease(c->tex_bind);
   if (c->up_view != NULL) p_wgpuTextureViewRelease(c->up_view);
   if (c->upload != NULL) p_wgpuTextureRelease(c->upload);
@@ -840,6 +1531,122 @@ int mng_gpu_canvas_finish(int64_t h, uint8_t *out, int cap) {
   (void)cap;
   return 0;
 }
+int64_t mng_gpu_canvas_pipe_begin(int64_t h, const uint8_t *wgsl, int wgsl_len,
+                                  const char *vs_entry, int vs_len,
+                                  const char *fs_entry, int fs_len,
+                                  int topology, int cull, int front,
+                                  int blend, int depth_write,
+                                  int depth_compare, int depth) {
+  (void)h; (void)wgsl; (void)wgsl_len; (void)vs_entry; (void)vs_len;
+  (void)fs_entry; (void)fs_len; (void)topology; (void)cull; (void)front;
+  (void)blend; (void)depth_write; (void)depth_compare; (void)depth;
+  return 0;
+}
+int mng_gpu_canvas_pipe_buffer(int64_t h, int64_t stride, int step_mode) {
+  (void)h; (void)stride; (void)step_mode;
+  return -1;
+}
+int mng_gpu_canvas_pipe_attr(int64_t h, int location, int format,
+                             int64_t offset) {
+  (void)h; (void)location; (void)format; (void)offset;
+  return -1;
+}
+int64_t mng_gpu_canvas_pipe_end(int64_t h) {
+  (void)h;
+  return 0;
+}
+int64_t mng_gpu_canvas_shader_new(int64_t h, const uint8_t *wgsl, int len) {
+  (void)h; (void)wgsl; (void)len;
+  return 0;
+}
+int64_t mng_gpu_canvas_buffer_new(int64_t h, int64_t size, int64_t usage) {
+  (void)h; (void)size; (void)usage;
+  return 0;
+}
+int mng_gpu_canvas_buffer_write(int64_t h, int64_t buffer, int64_t offset,
+                                const uint8_t *data, int len) {
+  (void)h; (void)buffer; (void)offset; (void)data; (void)len;
+  return 0;
+}
+int64_t mng_gpu_canvas_pipeline_bgl(int64_t h, int64_t pipeline, int group) {
+  (void)h; (void)pipeline; (void)group;
+  return 0;
+}
+int mng_gpu_canvas_release_buffer(int64_t h, int64_t res) {
+  (void)h; (void)res;
+  return 0;
+}
+int mng_gpu_canvas_release_shader(int64_t h, int64_t res) {
+  (void)h; (void)res;
+  return 0;
+}
+int mng_gpu_canvas_release_pipeline(int64_t h, int64_t res) {
+  (void)h; (void)res;
+  return 0;
+}
+int mng_gpu_canvas_release_bind_group(int64_t h, int64_t res) {
+  (void)h; (void)res;
+  return 0;
+}
+int mng_gpu_canvas_bind_begin(int64_t h, int64_t layout) {
+  (void)h; (void)layout;
+  return 0;
+}
+int mng_gpu_canvas_bind_buffer(int64_t h, int binding, int64_t buffer,
+                               int64_t offset, int64_t size) {
+  (void)h; (void)binding; (void)buffer; (void)offset; (void)size;
+  return 0;
+}
+int64_t mng_gpu_canvas_bind_end(int64_t h) {
+  (void)h;
+  return 0;
+}
+int mng_gpu_canvas_frame_begin(int64_t h, int has_clear, double r, double g,
+                               double b, double a, int depth) {
+  (void)h; (void)has_clear; (void)r; (void)g; (void)b; (void)a; (void)depth;
+  return 0;
+}
+int64_t mng_gpu_canvas_frame_pass(int64_t h) {
+  (void)h;
+  return 0;
+}
+int64_t mng_gpu_canvas_frame_target_view(int64_t h) {
+  (void)h;
+  return 0;
+}
+int64_t mng_gpu_canvas_frame_depth_view(int64_t h) {
+  (void)h;
+  return 0;
+}
+int mng_gpu_canvas_frame_set_pipeline(int64_t h, int64_t pipeline) {
+  (void)h; (void)pipeline;
+  return 0;
+}
+int mng_gpu_canvas_frame_set_bind_group(int64_t h, int index, int64_t group) {
+  (void)h; (void)index; (void)group;
+  return 0;
+}
+int mng_gpu_canvas_frame_set_vertex_buffer(int64_t h, int slot, int64_t buffer) {
+  (void)h; (void)slot; (void)buffer;
+  return 0;
+}
+int mng_gpu_canvas_frame_set_index_buffer(int64_t h, int64_t buffer,
+                                          int format) {
+  (void)h; (void)buffer; (void)format;
+  return 0;
+}
+int mng_gpu_canvas_frame_draw(int64_t h, int vertices, int instances) {
+  (void)h; (void)vertices; (void)instances;
+  return 0;
+}
+int mng_gpu_canvas_frame_draw_indexed(int64_t h, int indices, int instances) {
+  (void)h; (void)indices; (void)instances;
+  return 0;
+}
+int mng_gpu_canvas_frame_end(int64_t h) {
+  (void)h;
+  return 0;
+}
 void mng_gpu_canvas_free(int64_t h) {
   (void)h;
 }
@@ -857,3 +1664,12 @@ void mng_gpu_canvas_detail(char *out, int cap) {
 }
 
 #endif /* MNG_CANVAS_REAL */
+
+// f32 位模式（顶点 / 均匀缓冲数据打包用；Double 入参舍入到 float）。纯 C
+// 读写，不碰 wgpu——vendor 在不在都成立，故放在分支外。
+int32_t mng_gpu_f32_bits(double v) {
+  float f = (float)v;
+  int32_t bits;
+  memcpy(&bits, &f, sizeof bits);
+  return bits;
+}

@@ -2090,3 +2090,25 @@ GpuCanvas——@render.GpuSink 的 gui-gpu 实现，GPU 线首消费者——落
 - **兼容面**：库内部容器——nav / form / datepicker / overlay / message_box / checkbox / switch 等——原本就显式钉 Center，零回归；全库 1428 测试全绿。文本控件统一 `valign=Center` 绘制，被拉伸后视觉不变；mdview 列表序号由「整盒居中」变「贴首行顶对齐」，与原注释声明的设计意图一致；markdown 表格单元格由「相对最高格居中」变顶对齐，与 HTML 表格同口径。
 - **迁移口径**：旧应用顶层若依赖 Row 窗根的「交叉轴撑满窗高」而不带 `grow`，补 `grow=1.0`；行内要旧居中观感显式传 `align_items=Center`。
 - **验证**：`cd gui && moon check` 零警告、门禁 19 包 1428/1428；九个注册示例 native 链接全过。**待真机**：工具行 / 面包屑 / markdown 列表与表格纵向对齐观感，新建页面顶层宽度自动占满。
+
+## gui-gpu 3D 帧面：提交时机与校验错误可见性——2026-11-16，mac Metal 实测
+
+- **wgpu v29 校验失败给无效句柄不回 NULL**：`DeviceCreateRenderPipeline` /
+  `DeviceCreateShaderModule` / `DeviceCreateBindGroup` 三口，布局或 WGSL 有
+  校验错误时照样回非空句柄，错误走 uncaptured 回调打一句短消息——想拿到
+  诊断必须 `DevicePushErrorScope` / `DevicePopErrorScope` 包住创建、
+  `InstanceProcessEvents` 泵回调。gui-gpu 的三个创建口已按此包住，诊断进
+  `canvas_detail` 通道。
+- **开帧未收就提交是像素全无且无 draw 级报错**：帧三件（pass/encoder/view）
+  开着时走另一条 encoder 的即时提交——cv_pass 与 2D 原语的形态——两
+  encoder 交叠，`QueueSubmit` 报校验错误、读回只剩 clear 底色，draw 本身
+  不报错。二分定位靠「同一管线塞回已知能出图的 cv_pass」——出图则帧路径
+  坏、不出图则管线坏。口径：帧内指令一律 end 后才允许其他提交路径动队列。
+- **FFI 打包偏移按字节不按 float 槽位**：MoonBit 侧顶点/uniform 数据打包
+  助手（`gpu_pack_f32(out, i, v)`）的 `i` 是字节偏移——float 逐个写要
+  +4 步进；写成 +1 会数据重叠错乱，现象是读回非零但内容错、无任何报错。
+  uniform 的 WGSL `mat4x4<f32>` 内存布局是 16 f32 列主序，直接按字节打包。
+- **离屏深度附件口径**：Depth24Plus、每帧 `depthLoadOp=Clear` 到 1.0、
+  `depthStoreOp=Discard`——深度只在 pass 内比较用，跨帧不留；带深度档的
+  管线（`depthStencil` 描述符）与不带深度的管线（2D 风格）可共存在同一
+  深度帧里。

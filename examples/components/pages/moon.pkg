@@ -2,6 +2,7 @@
 // 跨页共享状态从 `shared` 的 `App` 取。
 import {
   "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/math",
   "NoahLiu/yoga-mbt/src" @yoga,
   "NoahLiu/native-gui/base",
   "NoahLiu/native-gui/widget",

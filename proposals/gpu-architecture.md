@@ -93,6 +93,22 @@ WebGPU 可用 → GPU 合成（Layer 1+2 都开）
 
 **第三步**：`RenderCtx` 开 `Gpu(GpuContext)` 变体。视频控件先切，地图 / 3D 场景控件随后续批次。
 
+## GPU 内容画布接口形态（3D 批）
+
+- 时间：2026-11-16 落地。
+
+**薄壳原始接口**：`GpuCanvas` 长出「句柄 + 帧生命周期 + 资源创建/绘制的直通薄壳」，应用纯 MoonBit 写 3D；3D 引擎/场景图不做在库里，归未来 gui-3d（「不做」口径不变）。
+
+- 帧生命周期：`begin_frame(clear~, depth~)` → `GpuFrame`（pass/视图句柄 `pub(all)` 暴露）→ `end()` 提交；`finish()` 既有语义不变、开帧未收自动收口。
+- 资源薄壳：`create_shader_module` / `create_buffer` / `write_buffer` / `create_bind_group`（仅 buffer 条目）/ `pipeline_bind_group_layout` / `create_render_pipeline`（WGSL + 顶点布局描述符，MoonBit 侧展开 builder 增量外呼）/ 各 release。
+- 帧内绘制：`set_pipeline / set_bind_group / set_vertex_buffer / set_index_buffer / draw / draw_indexed`。
+- 枚举常量：拓扑/剔除/绕向/深度比较/顶点格式/步进/索引/缓冲旗标，数值引 pin 住的 vendor `webgpu.h`——枚举值是 ABI 固定的显式数值，C 侧转调不做翻译。
+- `lib() / device() / queue()`：dlopen 句柄与进程级 wgpu 对象透出——薄壳没覆盖的 webgpu.h 面（纹理与采样器、compute、frame pass 高级方法）应用 dlsym 直调，原始接口的逃生口。
+- C 侧：深度附件 Depth24Plus（随 resize 重建）、管线/bind group builder、帧三件（pass/encoder/view）；管线与 bind group 的创建包错误范围（push/pop + ProcessEvents 泵）——v29 校验失败给无效句柄不回 NULL，错误经 scope 才可如实回 Err（WGSL 诊断进 canvas_detail 通道）。
+- 实测坑（mac Metal 真后端）：提交时机二分定位——开帧未 end 就走 2D 原语的即时提交，两 encoder 交叠 submit 被判校验错误（像素全无且无 draw 级报错）；MoonBit 侧 `gpu_pack_f32` 的偏移是**字节**不是 float 槽位，两处用例数据写成 +1 步进导致顶点/uniform 全乱（读回非零但内容错）。
+- 无头判据：`modules/gui-gpu` 六用例（2D 原语、3D 管线 + 深度序、begin/end 语义与 finish 自动收口、shader 建释 + 坏 WGSL Err、uniform 管线 + bind group 全链、4 字节对齐校验），本机 mac Metal 全绿——「设备+绘制+深度+读回」离屏链不需要窗口。
+- 消费者关系：`GpuSink` 协议面零改动；3D 是应用自有画布直接持 `GpuCanvas` 对象，不走进程级 sink 槽。demo 落 components「GPU 画布」页 3D 段（旋转立方体，`WindowHost` 定时器自续驱动，被换树摘下断链）。
+
 ## 平台兼容档位
 
 | 平台 | 后端 | 系统门槛 | 兼容跨度风险 |
