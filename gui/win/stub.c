@@ -1458,6 +1458,23 @@ int wm_set_transparent_bg(int64_t id, int on) {
   return 0;
 }
 
+/* 点击穿透（W-CT）：鼠标整窗让路，键盘不受影响。Win32 的 WS_EX_TRANSPARENT
+ * 只对分层窗的鼠标生效，非分层窗开穿透时补 WS_EX_LAYERED（不动 alpha——
+ * 与透明档的 ULW 共存；关穿透只摘 TRANSPARENT，LAYERED 留给透明档管）。 */
+int wm_set_click_through(int64_t id, int on) {
+  if (id <= 0 || id >= WM_MAX_WINDOWS) return 1;
+  WmWindow *w = &wm_windows[id];
+  if (w->hwnd == NULL) return 1;
+  LONG ex = GetWindowLongW(w->hwnd, GWL_EXSTYLE);
+  if (on) {
+    SetWindowLongW(w->hwnd, GWL_EXSTYLE,
+                   ex | WS_EX_TRANSPARENT | WS_EX_LAYERED);
+  } else {
+    SetWindowLongW(w->hwnd, GWL_EXSTYLE, ex & ~WS_EX_TRANSPARENT);
+  }
+  return 0;
+}
+
 void wm_size(int64_t id, int32_t *out_w, int32_t *out_h) {
   if (id <= 0 || id >= WM_MAX_WINDOWS) {
     return;
@@ -4596,7 +4613,7 @@ int64_t wm_native_handle(int64_t id) {
 // 1=title 2=icon 4=min_size 8=drag_rect 16=borderless 32=opacity
 // 64=transparent_bg 128=layer。Win32 支全真。
 int64_t wm_shell_caps(void) {
-  return 255;
+  return 511;
 }
 
 // 原生弹层窗（Win32 真实现）：无边框 + 不进任务栏/Alt+Tab + transient 到 owner
@@ -5836,6 +5853,43 @@ int wm_set_transparent_bg(int64_t id, int on) {
   return 0;
 }
 
+/* 点击穿透（W-CT）：XShape 空输入形状让整窗对鼠标让路（与 L1 子窗口同一
+ * 手法），恢复时用整窗矩形重打输入形状。X11-only——Wayland 下没有 X11
+ * 连接回 Unsupported；shape.h 没编进（WM_L1_XSHAPE 未定义）同 Unsupported。 */
+int wm_set_click_through(int64_t id, int on) {
+  if (id <= 0 || id >= WM_MAX_WINDOWS) return 1;
+  WmWindow *w = &wm_windows[id];
+  if (w->window == NULL) return 1;
+#ifndef WM_L1_XSHAPE
+  (void)on;
+  return 1;
+#else
+  GdkDisplay *gd = gdk_display_get_default();
+  if (gd == NULL) return 1;
+  Display *d = gdk_x11_get_default_xdisplay();
+  if (d == NULL) return 1; // Wayland：无 X11 连接
+  GdkWindow *gw = gtk_widget_get_window(w->window);
+  if (gw == NULL) return 1; // 未 realize
+  int ev_base = 0, err_base = 0;
+  if (XShapeQueryExtension(d, &ev_base, &err_base) == 0) return 1;
+  Window xid = gdk_x11_window_get_xid(gw);
+  if (on) {
+    XShapeCombineRectangles(d, xid, ShapeInput, 0, 0, NULL, 0, ShapeSet,
+                            Unsorted);
+  } else {
+    XRectangle r;
+    r.x = 0;
+    r.y = 0;
+    r.width = (unsigned short)w->width;
+    r.height = (unsigned short)w->height;
+    XShapeCombineRectangles(d, xid, ShapeInput, 0, 0, &r, 1, ShapeSet,
+                            Unsorted);
+  }
+  XFlush(d);
+  return 0;
+#endif
+}
+
 void wm_size(int64_t id, int32_t *out_w, int32_t *out_h) {
   if (id <= 0 || id >= WM_MAX_WINDOWS) {
     return;
@@ -6271,6 +6325,15 @@ int64_t wm_shell_caps(void) {
   if (gd != NULL) {
     Display *d = gdk_x11_display_get_xdisplay(gd);
     if (d != NULL) {
+#ifdef WM_L1_XSHAPE
+      // 点击穿透走 XShape 空输入形状，只要扩展在位，不需要合成器
+      {
+        int ev_base = 0, err_base = 0;
+        if (XShapeQueryExtension(d, &ev_base, &err_base) != 0) {
+          caps |= 256;
+        }
+      }
+#endif
       Atom cm = XInternAtom(d, "_NET_WM_CM_S0", True);
       if (cm != None && XGetSelectionOwner(d, cm) != None) {
         caps |= 32 | 64;
@@ -10043,6 +10106,19 @@ int wm_set_transparent_bg(int64_t id, int on) {
   }
 }
 
+/* 点击穿透（W-CT）：ignoresMouseEvents 整窗让路（与夜间色温覆盖层同一
+ * 手法）；键盘不受影响，焦点语义 macOS 自己管。 */
+int wm_set_click_through(int64_t id, int on) {
+  @autoreleasepool {
+    WMState *s = wm_state(id);
+    if (s == nil) {
+      return 1;
+    }
+    [s.win setIgnoresMouseEvents:on ? YES : NO];
+    return 0;
+  }
+}
+
 void wm_size(int64_t id, int32_t *out_w, int32_t *out_h) {
   WMState *s = wm_state(id);
   if (s == nil) {
@@ -10820,7 +10896,7 @@ int64_t wm_native_handle(int64_t id) {
 // borderless/opacity/transparent_bg/layer 全真；icon 不给——set_icon 在 mac 落
 // NSApp 应用图标（应用级），不是窗口族能力。
 int64_t wm_shell_caps(void) {
-  return 1 | 4 | 8 | 16 | 32 | 64 | 128;
+  return 1 | 4 | 8 | 16 | 32 | 64 | 128 | 256;
 }
 
 int wm_window_surface_count(int64_t id) {
@@ -13301,6 +13377,7 @@ int wm_is_hidden(int64_t id) {
 void wm_set_opacity(int64_t id, int alpha) { (void)id; (void)alpha; }
 void wm_set_layer(int64_t id, int layer) { (void)id; (void)layer; }
 int wm_set_transparent_bg(int64_t id, int on) { (void)id; (void)on; return 1; }
+int wm_set_click_through(int64_t id, int on) { (void)id; (void)on; return 1; }
 
 void wm_size(int64_t id, int32_t *out_w, int32_t *out_h) {
   (void)id;

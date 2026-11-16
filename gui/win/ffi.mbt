@@ -38,6 +38,9 @@ extern "c" fn wm_shell_caps() -> Int64 = "wm_shell_caps"
 extern "c" fn wm_set_transparent_bg(id : Int64, on : Int32) -> Int32 = "wm_set_transparent_bg"
 
 ///|
+extern "c" fn wm_set_click_through(id : Int64, on : Int32) -> Int32 = "wm_set_click_through"
+
+///|
 #borrow(out_w, out_h)
 extern "c" fn wm_size(
   id : Int64,

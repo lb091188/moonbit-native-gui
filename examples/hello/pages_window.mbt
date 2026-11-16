@@ -51,6 +51,7 @@ fn win_button(
 fn open_transparent_demo(
   host : Ref[@widget.WindowHost?],
   out : @base.Store[String],
+  ct_host : Ref[@widget.WindowHost?],
 ) -> Unit {
   fn card(title : String, body : String) -> @widget.Node {
     @ui.view(
@@ -97,12 +98,15 @@ fn open_transparent_demo(
               padding=16.0,
             ),
           ])
+          ct_host.val = Some(child)
           out.set(
             "已开透明测试窗：无边框 + 背景透视，卡片外应透出桌面",
           )
         }
-        None =>
+        None => {
+          ct_host.val = None
           out.set("这台机器开不了第二扇窗（无窗口后端）")
+        }
       }
     None => out.set("宿主还没就绪")
   }
@@ -123,6 +127,10 @@ fn window_sections(host : Ref[@widget.WindowHost?]) -> Array[@widget.Node] {
   )
   // alpha 与背景穿透共用一条回显行
   let layer_out : @base.Store[String] = @base.Store::new("（尚无操作）")
+  // 点击穿透的靶窗（透明测试窗）与开关态：控制权留在主窗，测试窗开了穿透
+  // 之后自己点不到自己，只能从这里关
+  let ct_host : Ref[@widget.WindowHost?] = Ref(None)
+  let ct_on : Ref[Bool] = Ref(false)
   let tw_out : @base.Store[String] = @base.Store::new(
     "（还没开过透明测试窗）",
   )
@@ -321,10 +329,35 @@ fn window_sections(host : Ref[@widget.WindowHost?]) -> Array[@widget.Node] {
         @ui.row(
           [
             @ui.button("开透明测试窗", on_click=fn() {
-              open_transparent_demo(host, tw_out)
+              open_transparent_demo(host, tw_out, ct_host)
+            }),
+            @ui.button("测试窗穿透", variant=@ui.Text, on_click=fn() {
+              match ct_host.val {
+                Some(child) => {
+                  ct_on.val = !ct_on.val
+                  let on = ct_on.val
+                  match child.window().set_click_through(on) {
+                    Ok(_) =>
+                      layer_out.set(
+                        if on {
+                          "点击穿透：开——点测试窗等于点它下面的东西（键盘不受影响）；再点这里关"
+                        } else {
+                          "点击穿透：关"
+                        },
+                      )
+                    Err(Unsupported) =>
+                      layer_out.set(
+                        "这台平台不支持点击穿透（shell_caps().click_through 为 false）",
+                      )
+                    Err(Failed(e)) =>
+                      layer_out.set("点击穿透失败：\{e}（测试窗可能已关，重开一扇再试）")
+                  }
+                }
+                None => layer_out.set("还没开透明测试窗")
+              }
             }),
             @ui.text(
-              "测试窗：无边框 + 背景透视，卡片外那圈应当是桌面；窗内自带「关掉本窗」",
+              "测试窗：无边框 + 背景透视 + 点击穿透开关，卡片外那圈应当是桌面且可点穿；窗内自带「关掉本窗」",
               wrap=true,
             ),
           ],

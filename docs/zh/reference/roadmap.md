@@ -106,6 +106,10 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - 🚧 **窗口族能力可探测**：`Window::shell_caps()` 能力探测
   - `opacity` / `transparent_bg` 等位可查
   - `set_transparent_bg` 返回 `Result` 诚实降级：前置不满足给 `Unsupported` / `Failed` 带原因
+- 🚧 **窗级点击穿透**：`Window::set_click_through(on)`——鼠标事件整窗让路到下层，与背景透视组合成「看得见又点得穿」的悬浮件底座
+  - mac `ignoresMouseEvents` / Win `WS_EX_TRANSPARENT`（补 `WS_EX_LAYERED`）/ Linux X11 XShape 空输入形状
+  - Wayland 无 XShape：`shell_caps().click_through` 为 false，调了回 `Unsupported`
+  - 🚧已合入待真机：用例 HL-4.4
 - 🚧 **新窗首帧自动补绘**：建窗后自动三拍兜底重绘，应用零接线
   - 背景：新开窗首帧落在平台映射前被丢弃导致白屏
 - ✅ **窗口状态记忆**：`WindowHost::remember_geometry(app_id)` 一行接上

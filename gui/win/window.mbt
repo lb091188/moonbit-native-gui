@@ -158,6 +158,28 @@ pub fn Window::set_transparent_bg(
 }
 
 ///|
+/// 点击穿透：开启后本窗对鼠标整窗让路——点本窗等于点它下面的东西，键盘
+/// 不受影响（键盘仍按焦点走）。与 `set_transparent_bg` 组合即「看得见又点
+/// 得穿」的悬浮件底座；两者正交，可独立开关。
+///
+/// 诚实降级（对齐系统能力族口径）：平台没有这条能力（`shell_caps().click_through`
+/// 为 false，如 Wayland 会话、无窗口后端）返回 `Err(Unsupported)`；窗口
+/// 已关闭返回 `Err(Failed(原因))`。
+pub fn Window::set_click_through(
+  self : Window,
+  on : Bool,
+) -> Result[Unit, WindowShellError] {
+  if self.id <= 0L {
+    return Err(Failed("窗口已关闭"))
+  }
+  match wm_set_click_through(self.id, if on { 1 } else { 0 }) {
+    0 => Ok(())
+    1 => Err(Unsupported)
+    _ => Err(Failed("点击穿透置失败（窗口态异常）"))
+  }
+}
+
+///|
 /// 窗口层级档位。`Normal` 普通、`AlwaysOnTop` 置顶、`Dock` 面板；桌面拆两档：
 /// `Desktop`=桌面图标之下（壁纸场景，鼠标事件归桌面），`DesktopWidget`=图标之上、
 /// 普通窗口之下（桌面小部件场景，本窗自己收事件）。
@@ -417,6 +439,8 @@ pub(all) struct WindowShellCaps {
   transparent_bg : Bool
   /// 窗口层级档（三平台全真）
   layer : Bool
+  /// 点击穿透（Win32/mac 真；GTK 仅 X11 且 XShape 扩展在位——Wayland 无此路）
+  click_through : Bool
 }
 
 ///|
@@ -434,6 +458,7 @@ pub fn Window::shell_caps(self : Window) -> WindowShellCaps {
     opacity: (c & 32L) != 0L,
     transparent_bg: (c & 64L) != 0L,
     layer: (c & 128L) != 0L,
+    click_through: (c & 256L) != 0L,
   }
 }
 
