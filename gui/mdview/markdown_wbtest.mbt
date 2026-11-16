@@ -702,6 +702,10 @@ test {
 
 ///|
 test {
+  if !md_text_real() {
+    println("mdview: skip [需真后端]（回退估算档画不出着色墨迹）")
+    return
+  }
   // 链接段的主题色要落在**自己那几个字**上:开头八个中文之后才是链接。
   // 区间若按 UTF-16/码点计量会前移到开头的中文上(真机即豆腐块 + 互相压字)。
   let spans = md_flat_par("甲甲甲甲甲甲甲甲[链接](https://x.y)")
@@ -733,6 +737,10 @@ test {
 
 ///|
 test {
+  if !md_text_real() {
+    println("mdview: skip [需真后端]（回退估算档画不出删除线墨迹）")
+    return
+  }
   // 删除线横线要落在**被划的那几个字**上：混排行里「逐段单独量宽再累加」比整行
   // 联合排版窄（CoreText 把行尾的全角标点按压缩 advance 计，mac 真机横线因此左偏
   // 11px 压在「粗斜体、」上，Linux 同向但幅度小）。判据用像素：横线段的起点要
@@ -817,6 +825,10 @@ test "正文行距留前导，块间留缝" {
 
 ///|
 test "跟随容器的富文本 measure 三档分答：列表标签不塌成一字一行" {
+  if !md_text_real() {
+    println("mdview: skip [需真后端]（回退估算折行与真后端口径不同）")
+    return
+  }
   // 塌形守卫：max-content 探询（aw=None）曾拿上一次折叠的残 state 当答案
   // （初值 1px → 答出单字宽），整棵 md 列按被顶坏的 max-content 排，真机
   // 表现就是列表一字一行。现在三档分答：正式档铺满、min 档 1px 箱、
@@ -850,6 +862,10 @@ test "跟随容器的富文本 measure 三档分答：列表标签不塌成一�
 
 ///|
 test "探询档不顶高块盒：一行列表项就是一行高" {
+  if !md_text_real() {
+    println("mdview: skip [需真后端]（回退估算折行与真后端口径不同）")
+    return
+  }
   // 真机反馈：Markdown 页每个列表项之间空出半屏。根因在 measure 的 min/max-content
   // 两档——它们把**上一次折叠**的行数当成本档高度回答（1px 箱折出「一单元一行」的
   // 几十行），整棵 md 列照这个被顶高的内在尺寸排，单行项因此占五六行到十几行高。
