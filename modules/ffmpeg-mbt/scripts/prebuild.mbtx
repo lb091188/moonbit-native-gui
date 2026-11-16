@@ -303,14 +303,21 @@ async fn fetch_url(url : String) -> Bytes? {
 }
 
 ///|
+/// 剥首尾空白（空格/制表/换行）：命令输出（如 `uname -m`）与部分环境变量
+/// 自带尾部换行，不剥会导致 arch 表项匹配不上这类静默失配。
 fn strip_spaces(s : String) -> String {
   let mut lo = 0
   let n = s.length()
   let mut hi = n
-  while lo < hi && (s[lo] == ' ' || s[lo] == '\t') {
+  while lo < hi &&
+    (s[lo] == ' ' || s[lo] == '\t' || s[lo] == '\n' || s[lo] == '\r') {
     lo += 1
   }
-  while hi > lo && (s[hi - 1] == ' ' || s[hi - 1] == '\t') {
+  while hi > lo &&
+    (s[hi - 1] == ' ' ||
+      s[hi - 1] == '\t' ||
+      s[hi - 1] == '\n' ||
+      s[hi - 1] == '\r') {
     hi -= 1
   }
   s[lo:hi].to_owned()
@@ -401,10 +408,13 @@ async fn run_tool(file : String, args : Array[String]) -> Bool {
 
 ///|
 /// 跑一次 pkg-config（可带 PKG_CONFIG_PATH 覆盖），成功给按空白切分的输出，
-/// 失败给空串。
+/// 失败给空串。二进制缺失（裸机没装 pkg-config）与探不到包同档：都算
+/// 这一路失败，交给 vendor 路。
 async fn pkg_config(args : Array[String], pkg_config_path~ : String) -> Array[String] {
   let env : Map[String, String] = { "PKG_CONFIG_PATH": pkg_config_path }
-  let out = @shell.Cmd("pkg-config", args, env~, inherit_env=true).output()
+  let out = @shell.Cmd("pkg-config", args, env~, inherit_env=true).output() catch {
+    _ => return []
+  }
   let parts : Array[String] = []
   if out.exit_code() == 0 {
     for seg in out.stdout().split("\n") {
