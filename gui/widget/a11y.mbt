@@ -180,6 +180,11 @@ fn a11y_walk(w : Widget, parent : Int32, out : Array[A11yNode]) -> Unit {
   if !w.visible {
     return
   }
+  // 命中穿透层（inspector 高亮框这类纯展示覆盖层）不进语义树——
+  // 读屏与 inspector 树都不该读到调试覆盖件
+  if w.hit_pass_through {
+    return
+  }
   let (state, value) = match w.a11y_state_now() {
     Some(p) => p
     None => ("", "")

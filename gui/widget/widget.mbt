@@ -216,6 +216,10 @@ pub(all) struct Widget {
   /// inspector 树与 dump 的类型列。开放字符串，与读屏封闭枚举 `role`
   /// 独立演化——role 管读屏语义，kind 管组件身份。
   mut kind : String
+  /// 命中穿透：true 时本控件**及其子树**照常绘制但不参与命中测试与指针
+  /// 路由——给盖在内容上方的纯展示覆盖层用（inspector 高亮框），不挡
+  /// 下层控件收事件。
+  mut hit_pass_through : Bool
   /// 混合模式（样式 `blend_mode` 落点，apply 写入）：本控件自绘与子树画在
   /// 其下内容之上时的混合算子，画完恢复 Normal。
   mut blend_paint : @render.BlendMode
@@ -286,6 +290,7 @@ pub fn Widget::new() -> Widget {
     label: "",
     role: "",
     kind: "",
+    hit_pass_through: false,
     blend_paint: Normal,
     clip_content: true,
     paints_state: false,
@@ -537,6 +542,9 @@ pub fn Widget::hit_test(self : Widget, px : Double, py : Double) -> Widget? {
   if !self.visible || !self.rect.contains(px, py) {
     return None
   }
+  if self.hit_pass_through {
+    return None
+  }
   let mut i = self.kids.length()
   while i > 0 {
     i = i - 1
@@ -567,6 +575,10 @@ pub fn Widget::hit_path(
 ///|
 fn path_to(w : Widget, px : Double, py : Double) -> Array[Widget] {
   if !w.visible || !w.rect.contains(px, py) {
+    return []
+  }
+  // 命中穿透层：整棵子树不参与指针路由（覆盖层不挡下层收事件）
+  if w.hit_pass_through {
     return []
   }
   let mut i = w.kids.length()

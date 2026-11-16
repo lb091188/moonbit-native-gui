@@ -520,3 +520,34 @@ test "dispatch_key_release：声明制、最深优先、on_key 不掺和" {
   // id 不可达（隐藏/不存在）同样丢弃
   assert_eq(root.dispatch_key_release(99, up), false)
 }
+
+///|
+test "命中穿透：覆盖层不参与命中与语义树，下层照常收事件" {
+  let root = Widget::new()
+  root.set_size(200.0, 200.0)
+  root.set_column()
+  let target = Widget::new()
+  target.kind = "Target"
+  target.set_size(100.0, 100.0)
+  root.append_child(target)
+  let cover = Widget::new()
+  cover.kind = "Cover"
+  cover.hit_pass_through = true
+  cover.set_size(100.0, 100.0)
+  cover.node.set_position(@yoga.Absolute)
+  cover.node.set_left(@yoga.fixed(0.0))
+  cover.node.set_top(@yoga.fixed(0.0))
+  root.append_child(cover)
+  root.relayout(200.0, 200.0)
+  // 命中穿透：同位置最深命中应是下层目标，不是覆盖层
+  match root.hit_test(50.0, 50.0) {
+    Some(w) => assert_eq(w.kind, "Target")
+    None => fail("应命中下层目标")
+  }
+  // 命中路径不含覆盖层
+  assert_true(!root.hit_path(50.0, 50.0).exists(fn(w) { w.kind == "Cover" }))
+  // 语义快照排除覆盖层（读屏与 inspector 树都不该读到调试件）
+  let _ = a11y_frame_sync(root)
+  assert_true(!a11y_last_frame().exists(fn(n) { n.kind == "Cover" }))
+  assert_true(a11y_last_frame().exists(fn(n) { n.kind == "Target" }))
+}

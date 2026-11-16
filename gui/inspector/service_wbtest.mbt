@@ -76,3 +76,45 @@ test "insp_file_slug：文件名净化与空回退" {
   assert_eq(insp_file_slug("你好 MoonBit"), "___MoonBit")
   assert_eq(insp_file_slug(""), "app")
 }
+
+///|
+test "insp_style_all：只列已设字段，分组前缀看名知组" {
+  let st : @style.Style = {
+    ..@style.empty_style(),
+    font_size: Some(14.0),
+    border_radius: Some(6.0),
+    flex_direction: Some(@yoga.Column),
+    opacity: Some(0.5),
+  }
+  let fields = insp_style_all(st)
+  let names = fields.map(fn(kv) { kv.0 })
+  assert_true(names.contains("text.font_size"))
+  assert_true(names.contains("border.radius"))
+  assert_true(names.contains("flex.flex_direction"))
+  assert_true(names.contains("pos.opacity"))
+  // 未设字段省略
+  assert_true(!names.contains("text.color"))
+  assert_true(!names.contains("edge.padding_top"))
+  // 值形态：数值直出
+  let mut font = ""
+  for kv in fields {
+    if kv.0 == "text.font_size" {
+      font = kv.1
+    }
+  }
+  assert_eq(font, "14")
+}
+
+///|
+test "inspect_handle：highlight 参数校验与无帧档" {
+  assert_true(
+    inspect_handle("highlight").has_prefix("error: highlight 需要 <id>"),
+  )
+  assert_true(
+    inspect_handle("highlight abc").has_prefix("error: highlight 需要 <id>"),
+  )
+  // 空快照：目标 id 不在树里
+  assert_true(inspect_handle("highlight 5").has_prefix("error: id 5 不在当前树快照"))
+  // 0 = 取消，不需要帧
+  assert_true(inspect_handle("highlight 0").has_prefix("ok highlight off"))
+}

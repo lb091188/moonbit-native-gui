@@ -210,6 +210,7 @@ pub fn inspect_pump() -> Unit {
     return
   }
   insp_serve_once()
+  insp_highlight_tick()
 }
 
 ///|
@@ -280,6 +281,15 @@ pub fn inspect_handle(req : String) -> String {
         }
       None => "error: style 需要 <id>\n"
     }
+  } else if cmd == "highlight" {
+    match words.get(1) {
+      Some(w) =>
+        match parse_insp_int(w) {
+          Some(id) => insp_highlight(id)
+          None => "error: highlight 需要 <id>（整数，0 取消）\n"
+        }
+      None => "error: highlight 需要 <id>\n"
+    }
   } else if cmd == "shot" {
     // `shot [--full] [路径]`：--full 档整页内容重画（滚动截图语义），
     // 缺省档是最近上屏帧（视口所见）
@@ -296,7 +306,7 @@ pub fn inspect_handle(req : String) -> String {
   } else if cmd == "" {
     "error: 空请求\n"
   } else {
-    "error: 未知命令 \{cmd}（可用：tree / style <id> / shot [--full] [路径]）\n"
+    "error: 未知命令 \{cmd}（可用：tree / style <id> / highlight <id> / shot [--full] [路径]）\n"
   }
 }
 
@@ -382,11 +392,19 @@ pub fn insp_style_dump(id : Int32) -> String {
   let st = @style.resolved_by_id(id)
   let sb = StringBuilder()
   sb.write_string("#field\tvalue\n")
+  // 编辑器口径的五字段在前（名字稳定，GUI 样式面板与旧消费方依赖）
   let names = ["background", "color", "border_color", "border_width", "border_radius"]
   for i = 0; i < 5; i = i + 1 {
     sb.write_string(names[i])
     sb.write_string("\t")
     sb.write_string(insp_field_get(st, i))
+    sb.write_string("\n")
+  }
+  // 全量已设字段（带分组前缀，字段名看名知组）
+  for kv in insp_style_all(st) {
+    sb.write_string(kv.0)
+    sb.write_string("\t")
+    sb.write_string(kv.1)
     sb.write_string("\n")
   }
   sb.to_string()
@@ -440,5 +458,131 @@ pub fn insp_shot(path : String?, full : Bool) -> String {
         "error: 写不出 \{p}\n"
       }
     }
+  }
+}
+
+// ---- 选中高亮（在目标应用上画框） ----
+
+///|
+/// 高亮框控件（进程级一个）：挂在最近帧根上、命中穿透、不占布局。
+let g_insp_hl_widget : Ref[@widget.Widget?] = Ref(None)
+
+///|
+/// 当前高亮目标控件 id（0 = 不高亮）。
+let g_insp_hl_target : Ref[Int32] = Ref(0)
+
+///|
+/// 建高亮框（首次）并挂到根控件末尾（最后画、盖在内容与浮层上）。
+fn insp_highlight_ensure(root : @widget.Widget) -> @widget.Widget {
+  match g_insp_hl_widget.val {
+    Some(w) => w
+    None => {
+      let w = @widget.Widget::new()
+      w.kind = "InspectorHighlight"
+      w.hit_pass_through = true // 不参与命中与语义树：纯展示覆盖层
+      w.node.set_position(@yoga.Absolute)
+      w.node.set_left(@yoga.fixed(0.0))
+      w.node.set_top(@yoga.fixed(0.0))
+      w.node.set_width(@yoga.fixed(0.0))
+      w.node.set_height(@yoga.fixed(0.0))
+      w.visible = false
+      // Chrome DevTools 同款观感：淡蓝半透明填充 + 2px 实线描边
+      w.on_draw = Some(fn(
+        _self : @widget.Widget,
+        p : @render.Painter,
+        r : @base.Rect,
+      ) -> Unit {
+        p.set_fill_color("#1A73E840")
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+        p.set_stroke_color("#1A73E8")
+        p.set_line_width(2.0)
+        p.stroke_rect(1.0, 1.0, (r.w - 2.0).max(0.0), (r.h - 2.0).max(0.0))
+      })
+      root.append_child(w)
+      g_insp_hl_widget.val = Some(w)
+      w
+    }
+  }
+}
+
+///|
+/// 把高亮框摆到目标控件矩形上（root 原点即窗口原点，直接用绝对矩形）。
+fn insp_highlight_place(root : @widget.Widget, id : Int32) -> Bool {
+  match root.by_id(id) {
+    Some(t) => {
+      let w = insp_highlight_ensure(root)
+      w.node.set_left(@yoga.fixed(t.rect.x))
+      w.node.set_top(@yoga.fixed(t.rect.y))
+      w.node.set_width(@yoga.fixed(t.rect.w))
+      w.node.set_height(@yoga.fixed(t.rect.h))
+      if !w.visible {
+        w.visible = true
+      }
+      @widget.invalidate()
+      true
+    }
+    None => false
+  }
+}
+
+///|
+/// `highlight <id>`：在目标应用上高亮某控件（id <= 0 取消）。目标不在当前
+/// 树快照里回 error。
+pub fn insp_highlight(id : Int32) -> String {
+  if id <= 0 {
+    g_insp_hl_target.val = 0
+    match g_insp_hl_widget.val {
+      Some(w) => {
+        w.visible = false
+        @widget.invalidate()
+      }
+      None => ()
+    }
+    return "ok highlight off\n"
+  }
+  // 先核目标在树里（快照口径与 tree 命令一致）
+  let mut found = false
+  for n in insp_tree_snapshot() {
+    if n.id == id {
+      found = true
+    }
+  }
+  if !found {
+    return "error: id \{id} 不在当前树快照\n"
+  }
+  match @widget.last_frame_root() {
+    Some(root) => {
+      if insp_highlight_place(root, id) {
+        g_insp_hl_target.val = id
+        "ok highlight \{id}\n"
+      } else {
+        "error: id \{id} 不在当前控件树\n"
+      }
+    }
+    None => "error: 尚无上屏帧\n"
+  }
+}
+
+///|
+/// 每拍重定位：目标控件的布局会随内容/窗口变化，高亮框跟着走；目标消失
+/// 则取消。没高亮时零操作。
+fn insp_highlight_tick() -> Unit {
+  let id = g_insp_hl_target.val
+  if id <= 0 {
+    return
+  }
+  match @widget.last_frame_root() {
+    Some(root) =>
+      if !insp_highlight_place(root, id) {
+        g_insp_hl_target.val = 0
+        match g_insp_hl_widget.val {
+          Some(w) => {
+            w.visible = false
+            @widget.invalidate()
+          }
+          None => ()
+        }
+      }
+    None => ()
   }
 }
