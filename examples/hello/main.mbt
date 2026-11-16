@@ -101,6 +101,8 @@ fn tray_err(e : @shell.TrayError) -> String {
 
 ///|
 fn main {
+  // inspector 检查服务接线：MNG_INSPECT=1 注入时应用内起只读检查通道
+  @inspector.inspect_auto_install()
   let win_count : @base.Store[Int] = @base.Store::new(1)
   let tray_note : @base.Store[String] = @base.Store::new("托盘：（还没建）")
   let tray_clicks : @base.Store[Int] = @base.Store::new(0)

@@ -10,6 +10,7 @@ import {
   "NoahLiu/native-gui/style" @style,
   "NoahLiu/native-gui/text",
   "NoahLiu/native-gui/mngdev" @mngdev,
+  "NoahLiu/native-gui/inspector",
 }
 
 pkgtype(kind: "executable")

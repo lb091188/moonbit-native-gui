@@ -1,0 +1,395 @@
+// inspector 服务核（只读检查通道）：应用进程内监听一个 socket，mng（inspect /
+// mcp）连上来发一行命令、收回一段 TSV 响应。
+//
+// 开关纯注入式：`MNG_INSPECT=1` 由 mng dev / mng mcp 起应用时注入，未注入
+// 不启动、零监听；socket 文件名带 `MNG_INSPECT_APP`（缺省 "app"）净化的 slug，
+// 与单实例通道（moonbit-instance-*）互不干扰。占用即静默降级不监听。
+//
+// 泵：`inspect_auto_install` 往 shell 帧泵钩子表注册一拍（declarative 挂窗后
+// 每 200ms 遍历），命令式应用不经 declarative 泵，直接在自己的循环里调
+// `inspect_pump`。两路共用同一个处理体。
+//
+// 协议：请求是单行命令（tree / style <id> / shot [路径]），响应是 TSV 行文本，
+// 上限 256KB，超限截到最近完整行并尾行标注 truncated；二进制不过管道
+// （shot 落盘、回执只带路径）。
+
+///|
+/// 响应字节上限（256KB）。
+pub const INSP_RESPONSE_CAP : Int32 = 262144
+
+///|
+/// 单条请求字节上限（单行命令足够，与桩内一致）。
+const INSP_REQUEST_CAP : Int32 = 4096
+
+// ---- 原生口：POSIX 套接字臂（inspector/stub.c）+ Windows 命名管道臂
+//（gui/win/stub.c 的 _WIN32 分支），同符号族每平台恰好一份定义 ----
+
+///|
+#borrow(path)
+extern "c" fn yi_insp_listen(path : Bytes) -> Int32 = "yi_insp_listen"
+
+///|
+extern "c" fn yi_insp_poll() -> Int32 = "yi_insp_poll"
+
+///|
+#borrow(out)
+extern "c" fn yi_insp_take(out : Bytes, cap : Int32) -> Int32 = "yi_insp_take"
+
+///|
+#borrow(data)
+extern "c" fn yi_insp_respond(data : Bytes, len : Int32) -> Int32 = "yi_insp_respond"
+
+///|
+extern "c" fn yi_insp_last_errno() -> Int32 = "yi_insp_last_errno"
+
+///|
+extern "c" fn yi_insp_getuid() -> Int32 = "yi_insp_getuid"
+
+// ---- socket 路径 ----
+
+///|
+/// app_id 的 djb2 哈希，十六进制定长 8 位（与单实例 slug 同规）。
+fn insp_hash8(s : String) -> String {
+  let mut h : Int32 = 5381
+  for i = 0; i < s.length(); i = i + 1 {
+    h = ((h << 5) + h + s.unsafe_get(i).to_int()) & 0x7FFF_FFFF
+  }
+  let digits : Array[String] = [
+    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f",
+  ]
+  let out = StringBuilder()
+  let mut i = 7
+  while i >= 0 {
+    out.write_string(digits[(h >> (i * 4)) & 15])
+    i = i - 1
+  }
+  out.to_string()
+}
+
+///|
+/// slug 净化：非 [A-Za-z0-9_-] 换下划线；超 40 截断并附内容哈希
+/// （与单实例通道同规，前缀不同互不干扰）。
+fn insp_slug(app_id : String) -> String {
+  let out = StringBuilder()
+  for c in app_id.to_array() {
+    let ok = (c >= 'a' && c <= 'z') ||
+      (c >= 'A' && c <= 'Z') ||
+      (c >= '0' && c <= '9') ||
+      c == '_' ||
+      c == '-'
+    out.write_char(if ok { c } else { '_' })
+  }
+  let s = out.to_string()
+  if s.length() <= 40 {
+    s
+  } else {
+    s[:40].to_owned() + "-" + insp_hash8(app_id)
+  }
+}
+
+///|
+/// socket 文件名安全的应用名净化（shot 缺省文件名用）：非文件字符换下划线。
+fn insp_file_slug(name : String) -> String {
+  let out = StringBuilder()
+  for c in name.to_array() {
+    let ok = (c >= 'a' && c <= 'z') ||
+      (c >= 'A' && c <= 'Z') ||
+      (c >= '0' && c <= '9') ||
+      c == '_' ||
+      c == '-' ||
+      c == '.'
+    out.write_char(if ok { c } else { '_' })
+  }
+  let s = out.to_string()
+  if s.length() > 0 {
+    s
+  } else {
+    "app"
+  }
+}
+
+///|
+/// socket 所在目录：`$XDG_RUNTIME_DIR` → `$TMPDIR` → `/tmp`（Windows 认
+/// `$TEMP`，管道臂实际只用 slug，目录仅供路径构造完整）。
+fn insp_socket_dir() -> String {
+  match @env.get_env_var("XDG_RUNTIME_DIR") {
+    Some(d) if d != "" => d
+    _ =>
+      match @env.get_env_var("TMPDIR") {
+        Some(t) if t != "" => t
+        _ => "/tmp"
+      }
+  }
+}
+
+///|
+/// inspector 服务 socket 路径：`moonbit-inspect-<slug>.<uid>.sock`。
+pub fn inspect_socket_path(app_id : String) -> String {
+  let dir = insp_socket_dir()
+  let base = "moonbit-inspect-"
+  let tail = ".\{yi_insp_getuid()}.sock"
+  let slug = insp_slug(app_id)
+  let sep = if dir == "/" { "" } else { "/" }
+  "\{dir}\{sep}\{base}\{slug}\{tail}"
+}
+
+// ---- 开关与泵 ----
+
+///|
+/// 服务是否在听（观察面：文档与诊断用）。
+let g_insp_started : Ref[Bool] = Ref(false)
+
+///|
+/// 降级标记：listen 失败（占用等）后不再重试。
+let g_insp_failed : Ref[Bool] = Ref(false)
+
+///|
+/// 泵已注册进 shell 帧泵表（inspect_auto_install 幂等用）。
+let g_insp_installed : Ref[Bool] = Ref(false)
+
+///|
+/// 服务在听与否。
+pub fn inspect_running() -> Bool {
+  g_insp_started.val
+}
+
+///|
+/// 最近一次 listen 的 errno（诊断观察面：静默降级时可查原因）。
+pub fn inspect_last_errno() -> Int32 {
+  yi_insp_last_errno()
+}
+
+///|
+/// 往 shell 帧泵钩子表注册泵（幂等）。装表本身零监听——每拍先探测
+/// `MNG_INSPECT`，未注入一直是空转判断。声明式应用由本函数接线；
+/// 命令式应用直接在自己的循环里调 [inspect_pump]。
+pub fn inspect_auto_install() -> Unit {
+  if g_insp_installed.val {
+    return
+  }
+  g_insp_installed.val = true
+  @shell.add_frame_pump(fn() { inspect_pump() })
+}
+
+///|
+/// 服务泵一拍：未启动则探测注入开关（未注入零监听，直接返回）；已启动则
+/// 收一条请求、执行、写回。命令式应用在自己的事件循环里定时调它。
+pub fn inspect_pump() -> Unit {
+  if !g_insp_started.val {
+    if g_insp_failed.val {
+      return
+    }
+    match @env.get_env_var("MNG_INSPECT") {
+      Some("1") => ()
+      _ => return
+    }
+    let app_id = match @env.get_env_var("MNG_INSPECT_APP") {
+      Some(a) if a != "" => a
+      _ => "app"
+    }
+    match yi_insp_listen(@utf8.encode(inspect_socket_path(app_id))) {
+      1 => g_insp_started.val = true
+      _ => g_insp_failed.val = true
+    }
+    return
+  }
+  insp_serve_once()
+}
+
+///|
+/// 收一条请求并写回响应。无请求（poll 0）原样返回。
+fn insp_serve_once() -> Unit {
+  if yi_insp_poll() != 1 {
+    return
+  }
+  let buf = Bytes::make(INSP_REQUEST_CAP, b'\x00')
+  let n = yi_insp_take(buf, INSP_REQUEST_CAP)
+  if n <= 0 {
+    let _ = yi_insp_respond(@utf8.encode("error: 空请求\n"), 15)
+    return
+  }
+  let req = @utf8.decode_lossy(buf[0:n].to_owned())
+  let resp = insp_truncate(inspect_handle(req), INSP_RESPONSE_CAP)
+  let data = @utf8.encode(resp)
+  let _ = yi_insp_respond(data, data.length())
+}
+
+///|
+/// 响应截断：超上限时切到上限内最后一个完整行（\n 是单字节，切点不会碎
+/// 字符），尾行标注 truncated。
+fn insp_truncate(s : String, cap : Int32) -> String {
+  let data = @utf8.encode(s)
+  if data.length() <= cap {
+    return s
+  }
+  let mut cut = cap
+  while cut > 0 && data[cut] != b'\n' {
+    cut -= 1
+  }
+  let head = @utf8.decode_lossy(data[0:cut].to_owned())
+  "\{head}\ntruncated\n"
+}
+
+// ---- 取数口（面板与 dump 共用同一份） ----
+
+///|
+/// 当前树快照（统一取数口）：面板刷新与 `tree` 命令都走这里——面板不再
+/// 直读全局快照，dump 与面板看到的是同一份数据。
+pub fn insp_tree_snapshot() -> Array[@widget.A11yNode] {
+  @widget.a11y_last_frame()
+}
+
+// ---- 命令处理 ----
+
+///|
+/// 请求分发：`tree` / `style <id>` / `shot [路径]`。未知命令回一行 error。
+pub fn inspect_handle(req : String) -> String {
+  let line = req.trim().to_owned()
+  let words : Array[String] = []
+  for w in line.split(" ") {
+    let s = w.trim().to_owned()
+    if s != "" {
+      words.push(s)
+    }
+  }
+  let cmd = if words.length() > 0 { words[0] } else { "" }
+  if cmd == "tree" {
+    insp_tree_dump()
+  } else if cmd == "style" {
+    match words.get(1) {
+      Some(w) =>
+        match parse_insp_int(w) {
+          Some(id) => insp_style_dump(id)
+          None => "error: style 需要 <id>（整数）\n"
+        }
+      None => "error: style 需要 <id>\n"
+    }
+  } else if cmd == "shot" {
+    insp_shot(words.get(1))
+  } else if cmd == "" {
+    "error: 空请求\n"
+  } else {
+    "error: 未知命令 \{cmd}（可用：tree / style <id> / shot [路径]）\n"
+  }
+}
+
+///|
+/// 整数解析（style <id> 的 id 段；全数字带符号）。
+fn parse_insp_int(s : String) -> Int32? {
+  let t = s.trim().to_owned()
+  if t.length() == 0 {
+    return None
+  }
+  let neg = t[0] == '-'
+  let body = if t[0] == '-' || t[0] == '+' {
+    t[1:].to_owned()
+  } else {
+    t
+  }
+  if body.length() == 0 {
+    return None
+  }
+  let mut v = 0
+  for c in body.to_array() {
+    if c < '0' || c > '9' {
+      return None
+    }
+    v = v * 10 + (c.to_int() - '0'.to_int())
+  }
+  Some(if neg { -v } else { v })
+}
+
+///|
+/// `tree`：整树 dump，一行一控件。首行列头（# 开头），列序
+/// kind/role/name/id/parent/x/y/w/h/state/value/text/enabled。
+pub fn insp_tree_dump() -> String {
+  let sb = StringBuilder()
+  sb.write_string(
+    "#kind\trole\tname\tid\tparent\tx\ty\tw\th\tstate\tvalue\ttext\tenabled\n",
+  )
+  for n in insp_tree_snapshot() {
+    sb.write_string(n.kind)
+    sb.write_string("\t")
+    sb.write_string(n.role)
+    sb.write_string("\t")
+    sb.write_string(n.name)
+    sb.write_string("\t")
+    sb.write_string(n.id.to_string())
+    sb.write_string("\t")
+    sb.write_string(n.parent.to_string())
+    sb.write_string("\t")
+    sb.write_string(n.x.to_string())
+    sb.write_string("\t")
+    sb.write_string(n.y.to_string())
+    sb.write_string("\t")
+    sb.write_string(n.w.to_string())
+    sb.write_string("\t")
+    sb.write_string(n.h.to_string())
+    sb.write_string("\t")
+    sb.write_string(n.state)
+    sb.write_string("\t")
+    sb.write_string(n.value)
+    sb.write_string("\t")
+    sb.write_string(n.text)
+    sb.write_string("\t")
+    sb.write_string(if n.enabled { "1" } else { "0" })
+    sb.write_string("\n")
+  }
+  sb.to_string()
+}
+
+///|
+/// `style <id>`：按 id 现取生效样式读数，五字段与样式编辑器对齐
+/// （背景/文字/边框色/边框宽/圆角），读数走 `insp_field_get` 口径。
+/// id 不在当前树快照里回 error 行。
+pub fn insp_style_dump(id : Int32) -> String {
+  let mut found = false
+  for n in insp_tree_snapshot() {
+    if n.id == id {
+      found = true
+    }
+  }
+  if !found {
+    return "error: id \{id} 不在当前树快照\n"
+  }
+  let st = @style.resolved_by_id(id)
+  let sb = StringBuilder()
+  sb.write_string("#field\tvalue\n")
+  let names = ["background", "color", "border_color", "border_width", "border_radius"]
+  for i = 0; i < 5; i = i + 1 {
+    sb.write_string(names[i])
+    sb.write_string("\t")
+    sb.write_string(insp_field_get(st, i))
+    sb.write_string("\n")
+  }
+  sb.to_string()
+}
+
+///|
+/// `shot [路径]`：最近一帧位图落盘 PNG（`png_write_bitmap`），二进制不过
+/// 管道；不带路径写 `$TMPDIR/mng-shot-<窗题>-<毫秒时间戳>.png`。
+/// 回执一行带实际路径。
+pub fn insp_shot(path : String?) -> String {
+  let (bm, title) = @widget.last_frame_bitmap()
+  match bm {
+    None => "error: 尚无上屏帧\n"
+    Some(b) => {
+      let p = match path {
+        Some(p) if p != "" => p
+        _ => {
+          let dir = match @env.get_env_var("TMPDIR") {
+            Some(t) if t != "" => t
+            _ => "/tmp"
+          }
+          let ts = @win.now_ms()
+          "\{dir}/mng-shot-\{insp_file_slug(title)}-\{ts}.png"
+        }
+      }
+      if @render.png_write_bitmap(b, p) {
+        "ok \{p}\n"
+      } else {
+        "error: 写不出 \{p}\n"
+      }
+    }
+  }
+}

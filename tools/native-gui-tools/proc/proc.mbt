@@ -13,21 +13,25 @@ extern "c" fn ffi_run_wait(
 ) -> Int32 = "mngpr_run_wait"
 
 ///|
-#borrow(file, blob, out_path)
+#borrow(file, blob, out_path, env_blob)
 extern "c" fn ffi_spawn(
   file : Bytes,
   blob : Bytes,
   blob_len : Int32,
   out_path : Bytes,
+  env_blob : Bytes,
+  env_len : Int32,
 ) -> Int32 = "mngpr_spawn"
 
 ///|
-#borrow(file, blob, out_path)
+#borrow(file, blob, out_path, env_blob)
 extern "c" fn ffi_spawn_wait(
   file : Bytes,
   blob : Bytes,
   blob_len : Int32,
   out_path : Bytes,
+  env_blob : Bytes,
+  env_len : Int32,
   timeout_ms : Int32,
 ) -> Int32 = "mngpr_spawn_wait"
 
@@ -48,6 +52,19 @@ fn args_blob(args : Array[String]) -> Bytes {
   let buf = StringBuilder()
   for a in args {
     buf.write_string(a)
+    buf.write_char('\u{0}')
+  }
+  @utf8.encode(buf.to_string())
+}
+
+///|
+/// 环境注入项 → `\0` 分隔 blob，条目形态 `KEY=VALUE`。
+fn env_blob(env : Array[(String, String)]) -> Bytes {
+  let buf = StringBuilder()
+  for kv in env {
+    buf.write_string(kv.0)
+    buf.write_char('=')
+    buf.write_string(kv.1)
     buf.write_char('\u{0}')
   }
   @utf8.encode(buf.to_string())
@@ -79,17 +96,22 @@ pub fn run_wait(
 
 ///|
 /// 起一个后台进程，stdout/stderr 追加到 `out_path`；返回 pid。
+/// `env` 注入子进程环境（KEY=VALUE 覆盖同名；其余继承本进程）。
 pub fn spawn(
   file : String,
   args : Array[String],
   out_path : String,
+  env~ : Array[(String, String)] = [],
 ) -> Result[Int32, String] {
   let blob = args_blob(args)
+  let envb = env_blob(env)
   let pid = ffi_spawn(
     @utf8.encode(file),
     blob,
     blob.length(),
     @utf8.encode(out_path),
+    envb,
+    envb.length(),
   )
   if pid <= 0 {
     Err(file + " 起不来（" + errno_msg() + "）")
@@ -101,18 +123,23 @@ pub fn spawn(
 ///|
 /// 起一个子进程（stdout/stderr 追加到 `out_path`）并等它结束，返回退出码
 /// （信号终止为 128+信号号）。超时先 TERM 后 KILL 整组，返回 Err。
+/// `env` 注入子进程环境，同 [spawn]。
 pub fn spawn_wait(
   file : String,
   args : Array[String],
   out_path : String,
   timeout_ms : Int32,
+  env~ : Array[(String, String)] = [],
 ) -> Result[Int32, String] {
   let blob = args_blob(args)
+  let envb = env_blob(env)
   let rc = ffi_spawn_wait(
     @utf8.encode(file),
     blob,
     blob.length(),
     @utf8.encode(out_path),
+    envb,
+    envb.length(),
     timeout_ms,
   )
   if rc == -2 {

@@ -478,7 +478,13 @@ fn cmd_dev(args : Array[String]) -> Int32 {
   let app_base = basename(rfile)
   let _ = @proc.run_wait("pkill", ["-9", "-f", app_base], 5000)
   @proc.sleep_ms(200)
-  let mut app_pid = match @proc.spawn(rfile, rargs, app_log) {
+  // inspector 注入：MNG_INSPECT=1 开检查服务、MNG_INSPECT_APP 定 socket 名
+  // （未注入零监听；应用未接线 install 也不受影响）
+  let insp_env : Array[(String, String)] = [
+    ("MNG_INSPECT", "1"),
+    ("MNG_INSPECT_APP", conf.app_id),
+  ]
+  let mut app_pid = match @proc.spawn(rfile, rargs, app_log, env=insp_env) {
     Ok(pid) => pid
     Err(e) => {
       eprintln("应用起不来：" + e)
@@ -711,7 +717,7 @@ fn cmd_dev(args : Array[String]) -> Int32 {
       }
       let respawn_old = fn() -> Unit {
         if was_running {
-          match @proc.spawn(rfile, rargs, app_log) {
+          match @proc.spawn(rfile, rargs, app_log, env=insp_env) {
             Ok(pid) => {
               app_pid = pid
               @proc.watch(app_pid)
@@ -737,7 +743,7 @@ fn cmd_dev(args : Array[String]) -> Int32 {
                 )
                 respawn_old()
               } else {
-                match @proc.spawn(rfile, rargs, app_log) {
+                match @proc.spawn(rfile, rargs, app_log, env=insp_env) {
                   Ok(pid) => {
                     app_pid = pid
                     @proc.watch(app_pid)

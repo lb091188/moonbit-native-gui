@@ -13,6 +13,7 @@ import {
   "NoahLiu/native-gui/style",
   "NoahLiu/native-gui/win",
   "NoahLiu/native-gui/sys",
+  "NoahLiu/native-gui/inspector",
   "NoahLiu/native-gui-examples-components/shared",
   "NoahLiu/native-gui-examples-components/pages",
 }

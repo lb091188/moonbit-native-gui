@@ -556,7 +556,10 @@ jobs:
           # sys 桩是纯 C(moon native-stub 自编),但 __APPLE__ 分支里那些
           # CoreGraphics 口同样在新 SDK 上被动过,一并做语法检查。
           gate sys/sys_stub.c "" c
-          echo "五个 macOS 桩全部编译通过"
+          # inspector 桩同口径纯 C 语法检查(POSIX 套接字臂;Windows 管道臂住
+          # win/stub.c 的 _WIN32 分支,由 CI Windows 腿回证,本地不编)。
+          gate inspector/stub.c "" c
+          echo "六个 macOS 桩全部编译通过"
 
       # 新装 runner 的注册表索引里查不到 prowk/moonsqlitefile 与 mizchi/markdown
       # (三平台同一个报错: module was not found in the registry),先刷索引。

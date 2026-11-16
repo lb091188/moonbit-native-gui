@@ -142,6 +142,8 @@ fn route_of_page(
 ///|
 fn main {
   let t_start = @win.now_ms()
+  // inspector 检查服务接线：MNG_INSPECT=1 注入时应用内起只读检查通道
+  @inspector.inspect_auto_install()
   // 启动早期清上次自更新留下的 *.mng-old 残留（自身路径旁，无残留时空转）
   @sys.update_cleanup()
   // 输入框的 Ctrl+C/X/V 接系统剪贴板（演示板按真实使用形态开；探测不可用

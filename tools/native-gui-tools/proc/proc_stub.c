@@ -112,6 +112,104 @@ int32_t mngpr_run_wait(const char *file, const char *blob, int32_t len,
   return (int32_t)code;
 }
 
+// 环境注入：当前环境块 + 覆盖项（KEY=VALUE，UTF-8 blob）→ CreateProcessW 的
+// 宽字符环境块（条目 \0 分隔、双 \0 结尾）。无注入项返回 NULL（= 继承）。
+static wchar_t *mngpr_env_block(const char *env_blob, int32_t env_len) {
+  if (env_blob == NULL || env_len <= 0) {
+    return NULL;
+  }
+  // 解析注入项（KEY/VALUE 拷进有限缓冲，键名按 ASCII 处理）
+  #define MNGPR_ENV_MAX 64
+  wchar_t keys[MNGPR_ENV_MAX][128];
+  wchar_t vals[MNGPR_ENV_MAX][1024];
+  int32_t n = 0;
+  int32_t i = 0;
+  while (i < env_len && n < MNGPR_ENV_MAX) {
+    int32_t s0 = i;
+    while (i < env_len && env_blob[i] != '\0') {
+      i++;
+    }
+    if (i > s0) {
+      char kv[1200];
+      size_t klen = (size_t)(i - s0);
+      if (klen >= sizeof(kv)) { klen = sizeof(kv) - 1; }
+      memcpy(kv, env_blob + s0, klen);
+      kv[klen] = '\0';
+      char *eq = strchr(kv, '=');
+      if (eq != NULL && eq != kv) {
+        *eq = '\0';
+        wchar_t *wk = mngpr_wide(kv);
+        wchar_t *wv = mngpr_wide(eq + 1);
+        if (wk != NULL && wv != NULL) {
+          wcsncpy(keys[n], wk, 127);
+          keys[n][127] = 0;
+          wcsncpy(vals[n], wv, 1023);
+          vals[n][1023] = 0;
+          n++;
+        }
+        if (wk) { free(wk); }
+        if (wv) { free(wv); }
+      }
+    }
+    i++;
+  }
+  if (n == 0) {
+    return NULL;
+  }
+  // 取当前环境逐条照搬，同名键用注入值替换
+  size_t cap = 4096;
+  wchar_t *out = (wchar_t *)calloc(cap, sizeof(wchar_t));
+  if (out == NULL) {
+    return NULL;
+  }
+  size_t used = 0;
+  wchar_t *cur = GetEnvironmentStringsW();
+  if (cur != NULL) {
+    wchar_t *p = cur;
+    while (*p) {
+      wchar_t *eq = wcschr(p, L'=');
+      int replaced = 0;
+      if (eq != NULL && eq != p) {
+        for (int32_t k = 0; k < n; k++) {
+          size_t kl = wcslen(keys[k]);
+          if ((size_t)(eq - p) == kl && wcsncmp(p, keys[k], kl) == 0) {
+            replaced = 1;
+            break;
+          }
+        }
+      }
+      if (!replaced) {
+        size_t l = wcslen(p);
+        while (used + l + 2 >= cap) {
+          cap *= 2;
+          wchar_t *nxt = (wchar_t *)realloc(out, cap * sizeof(wchar_t));
+          if (nxt == NULL) { break; }
+          out = nxt;
+        }
+        wcscpy(out + used, p);
+        used += l + 1;
+      }
+      p += wcslen(p) + 1;
+    }
+    FreeEnvironmentStringsW(cur);
+  }
+  for (int32_t k = 0; k < n; k++) {
+    size_t l = wcslen(keys[k]) + 1 + wcslen(vals[k]);
+    while (used + l + 2 >= cap) {
+      cap *= 2;
+      wchar_t *nxt = (wchar_t *)realloc(out, cap * sizeof(wchar_t));
+      if (nxt == NULL) { break; }
+      out = nxt;
+    }
+    int wn = swprintf(out + used, cap - used, L"%s=%s", keys[k], vals[k]);
+    if (wn > 0) {
+      used += (size_t)wn + 1;
+    }
+  }
+  out[used] = 0;
+  return out;
+}
+
 // spawn 共用：建进程（out_path 非空时 stdout/stderr 追加到该文件）。成功回 0
 // 并填 *pi；失败回 -1 并置 mngpr_err。
 // 句柄必须可继承：STARTF_USESTDHANDLES 交给子进程的句柄若不可继承，
@@ -119,12 +217,14 @@ int32_t mngpr_run_wait(const char *file, const char *blob, int32_t len,
 // （spawn 只回 pid，调用方无从发现）。NULL 的 lpSecurityAttributes 默认
 // bInheritHandle=FALSE —— 这里必须显式给一份。
 static int32_t mngpr_start(const char *file, const char *blob, int32_t len,
-                           const char *out_path, PROCESS_INFORMATION *pi) {
+                           const char *out_path, const char *env_blob,
+                           int32_t env_len, PROCESS_INFORMATION *pi) {
   wchar_t *cmd = mngpr_cmdline(file, blob, len);
   if (cmd == NULL) {
     mngpr_err = (int32_t)GetLastError();
     return -1;
   }
+  wchar_t *envblock = mngpr_env_block(env_blob, env_len);
   STARTUPINFOW si;
   memset(&si, 0, sizeof(si));
   si.cb = sizeof(si);
@@ -148,9 +248,12 @@ static int32_t mngpr_start(const char *file, const char *blob, int32_t len,
     }
   }
   memset(pi, 0, sizeof(*pi));
-  BOOL ok = CreateProcessW(NULL, cmd, NULL, NULL, TRUE, 0, NULL, NULL, &si, pi);
+  BOOL ok = CreateProcessW(NULL, cmd, NULL, NULL, TRUE, 0, envblock, NULL, &si, pi);
   mngpr_err = ok ? 0 : (int32_t)GetLastError();
   free(cmd);
+  if (envblock != NULL) {
+    free(envblock);
+  }
   if (hout != INVALID_HANDLE_VALUE) {
     CloseHandle(hout);
   }
@@ -158,9 +261,10 @@ static int32_t mngpr_start(const char *file, const char *blob, int32_t len,
 }
 
 int32_t mngpr_spawn(const char *file, const char *blob, int32_t len,
-                    const char *out_path) {
+                    const char *out_path, const char *env_blob,
+                    int32_t env_len) {
   PROCESS_INFORMATION pi;
-  if (mngpr_start(file, blob, len, out_path, &pi) != 0) {
+  if (mngpr_start(file, blob, len, out_path, env_blob, env_len, &pi) != 0) {
     return -1;
   }
   int32_t pid = (int32_t)pi.dwProcessId;
@@ -170,9 +274,10 @@ int32_t mngpr_spawn(const char *file, const char *blob, int32_t len,
 }
 
 int32_t mngpr_spawn_wait(const char *file, const char *blob, int32_t len,
-                         const char *out_path, int32_t timeout_ms) {
+                         const char *out_path, const char *env_blob,
+                         int32_t env_len, int32_t timeout_ms) {
   PROCESS_INFORMATION pi;
-  if (mngpr_start(file, blob, len, out_path, &pi) != 0) {
+  if (mngpr_start(file, blob, len, out_path, env_blob, env_len, &pi) != 0) {
     return -1;
   }
   DWORD w = WaitForSingleObject(pi.hProcess, (DWORD)timeout_ms);
@@ -399,7 +504,8 @@ int32_t mngpr_run_wait(const char *file, const char *blob, int32_t len,
 }
 
 int32_t mngpr_spawn(const char *file, const char *blob, int32_t len,
-                    const char *out_path) {
+                    const char *out_path, const char *env_blob,
+                    int32_t env_len) {
   if (file == NULL || file[0] == '\0') {
     mngpr_err = EINVAL;
     return -1;
@@ -418,6 +524,32 @@ int32_t mngpr_spawn(const char *file, const char *blob, int32_t len,
   }
   if (pid == 0) {
     setpgid(0, 0);
+    // 注入环境（KEY=VALUE\0 分隔；同名覆盖，其余继承）：拷进栈缓冲切键值，
+    // 不动调用方的 blob
+    if (env_blob != NULL && env_len > 0) {
+      int32_t i = 0;
+      while (i < env_len) {
+        int32_t s0 = i;
+        while (i < env_len && env_blob[i] != '\0') {
+          i++;
+        }
+        if (i > s0) {
+          char kv[1200];
+          size_t klen = (size_t)(i - s0);
+          if (klen >= sizeof(kv)) {
+            klen = sizeof(kv) - 1;
+          }
+          memcpy(kv, env_blob + s0, klen);
+          kv[klen] = '\0';
+          char *eq = strchr(kv, '=');
+          if (eq != NULL && eq != kv) {
+            *eq = '\0';
+            setenv(kv, eq + 1, 1);
+          }
+        }
+        i++;
+      }
+    }
     if (out_path != NULL && out_path[0] != '\0') {
       int fd = open(out_path, O_WRONLY | O_CREAT | O_APPEND, 0644);
       if (fd >= 0) {
@@ -434,8 +566,9 @@ int32_t mngpr_spawn(const char *file, const char *blob, int32_t len,
 }
 
 int32_t mngpr_spawn_wait(const char *file, const char *blob, int32_t len,
-                         const char *out_path, int32_t timeout_ms) {
-  int32_t pid = mngpr_spawn(file, blob, len, out_path);
+                         const char *out_path, const char *env_blob,
+                         int32_t env_len, int32_t timeout_ms) {
+  int32_t pid = mngpr_spawn(file, blob, len, out_path, env_blob, env_len);
   if (pid <= 0) {
     return -1; // mngpr_spawn 已置 mngpr_err
   }
