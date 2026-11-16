@@ -253,7 +253,8 @@ async fn fetch_via_moonhttp(url : String) -> Bytes? {
 
 ///|
 /// 解 zip 到 vendor：spawn 平台工具（mbtx 侧无 zip 解包库；上游 wgpu-native
-/// 资产全 zip 且无 tar.gz 形态）。失败出声并给安装提示。
+/// 资产全 zip 且无 tar.gz 形态）。失败出声并给安装提示；工具二进制缺失
+/// （裸容器无 unzip）与解包失败同档，走调用方的降级软件路径。
 async fn unzip_into(archive~ : String, vendor~ : String, host~ : String) -> Bool {
   if host == "windows" {
     // PowerShell 5+ 自带；-Force 覆盖旧文件
@@ -263,14 +264,29 @@ async fn unzip_into(archive~ : String, vendor~ : String, host~ : String) -> Bool
         "-NoProfile", "-Command",
         "Expand-Archive -LiteralPath '\{archive}' -DestinationPath '\{vendor}' -Force",
       ],
-    ).output()
+    ).output() catch {
+      _ =>
+        {
+          err("[gui-gpu] Expand-Archive 不可用 —— degrade to software path")
+          return false
+        }
+    }
     if out.exit_code() != 0 {
       err("[gui-gpu] unzip failed (Expand-Archive): " + out.stderr())
       return false
     }
     true
   } else {
-    let out = @shell.Cmd("unzip", ["-o", archive, "-d", vendor]).output()
+    let out = @shell.Cmd("unzip", ["-o", archive, "-d", vendor]).output() catch {
+      _ =>
+        {
+          err(
+            "[gui-gpu] unzip 不存在（macOS 自带；debian/ubuntu: apt install unzip；" +
+            "fedora: dnf install unzip；arch: pacman -S unzip）—— degrade to software path",
+          )
+          return false
+        }
+    }
     if out.exit_code() != 0 {
       err("[gui-gpu] unzip failed: " + out.stderr() +
         "\n  需要系统 unzip（macOS 自带；debian/ubuntu: apt install unzip；" +
