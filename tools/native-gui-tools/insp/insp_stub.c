@@ -111,8 +111,6 @@ int32_t mnginsp_call(const char *path, const char *slug, const char *req,
 #include <time.h>
 #include <unistd.h>
 
-static int32_t mnginsp_errno_v = 0;
-
 int32_t mnginsp_getuid(void) { return (int32_t)getuid(); }
 
 static int mnginsp_deadline_ms(int32_t timeout_ms) {
@@ -200,3 +198,161 @@ int32_t mnginsp_call(const char *path, const char *slug, const char *req,
 }
 
 #endif
+
+/* ---- 非阻塞调用（GUI 检查器）：工作线程跑一次阻塞收发 ----
+ * 主线程 begin 发起即返回，每拍 poll 只看完成标记；响应缓冲由本文件持有，
+ * take 时拷出并回收线程。单进程同时只允许一个在途请求（检查器窗口是
+ * 单实例语义），再发回 -EBUSY。工作线程只走纯 C，不碰 MoonBit 运行时。 */
+
+#include <stdlib.h>
+
+#if !defined(_WIN32)
+#include <pthread.h>
+#endif
+
+static volatile int g_ai_state = 0; /* 0=空闲 1=在途 2=完成待取 */
+static int32_t g_ai_ret = 0;
+static unsigned char *g_ai_buf = NULL;
+static int32_t g_ai_buf_cap = 0;
+static char *g_ai_req = NULL;
+static int32_t g_ai_req_len = 0;
+static char g_ai_path[128];
+static char g_ai_slug[128];
+static int32_t g_ai_timeout = 5000;
+
+#if defined(_WIN32)
+static HANDLE g_ai_thread = NULL;
+#define MNG_AI_FENCE() MemoryBarrier()
+
+static DWORD WINAPI mnginsp_worker(LPVOID arg) {
+  (void)arg;
+  int32_t r = mnginsp_call(g_ai_path, g_ai_slug, g_ai_req, g_ai_req_len,
+                           g_ai_buf, g_ai_buf_cap, g_ai_timeout);
+  g_ai_ret = r;
+  MNG_AI_FENCE();
+  g_ai_state = 2;
+  return 0;
+}
+
+static int32_t mnginsp_thread_start(void) {
+  g_ai_thread = CreateThread(NULL, 0, mnginsp_worker, NULL, 0, NULL);
+  return g_ai_thread != NULL ? 0 : -(int32_t)GetLastError();
+}
+
+static void mnginsp_thread_join(void) {
+  if (g_ai_thread != NULL) {
+    WaitForSingleObject(g_ai_thread, INFINITE);
+    CloseHandle(g_ai_thread);
+    g_ai_thread = NULL;
+  }
+}
+#else
+static pthread_t g_ai_thread;
+static int g_ai_thread_live = 0;
+#define MNG_AI_FENCE() __sync_synchronize()
+
+static void *mnginsp_worker(void *arg) {
+  (void)arg;
+  int32_t r = mnginsp_call(g_ai_path, g_ai_slug, g_ai_req, g_ai_req_len,
+                           g_ai_buf, g_ai_buf_cap, g_ai_timeout);
+  g_ai_ret = r;
+  MNG_AI_FENCE();
+  g_ai_state = 2;
+  return NULL;
+}
+
+static int32_t mnginsp_thread_start(void) {
+  if (pthread_create(&g_ai_thread, NULL, mnginsp_worker, NULL) != 0) {
+    return -(int32_t)EAGAIN;
+  }
+  g_ai_thread_live = 1;
+  return 0;
+}
+
+static void mnginsp_thread_join(void) {
+  if (g_ai_thread_live) {
+    pthread_join(g_ai_thread, NULL);
+    g_ai_thread_live = 0;
+  }
+}
+#endif
+
+int32_t mnginsp_begin(const char *path, const char *slug, const char *req,
+                      int32_t req_len, int32_t cap, int32_t timeout_ms) {
+  if (path == NULL || slug == NULL || req == NULL || req_len <= 0 || cap <= 0) {
+    return -EINVAL;
+  }
+  if (strlen(path) >= sizeof(g_ai_path) || strlen(slug) >= sizeof(g_ai_slug)) {
+    return -ENAMETOOLONG;
+  }
+  if (g_ai_state != 0) {
+    return -EBUSY;
+  }
+  if (g_ai_buf == NULL || g_ai_buf_cap < cap) {
+    free(g_ai_buf);
+    g_ai_buf = (unsigned char *)malloc((size_t)cap);
+    if (g_ai_buf == NULL) {
+      g_ai_buf_cap = 0;
+      return -ENOMEM;
+    }
+    g_ai_buf_cap = cap;
+  }
+  free(g_ai_req);
+  g_ai_req = (char *)malloc((size_t)req_len);
+  if (g_ai_req == NULL) {
+    return -ENOMEM;
+  }
+  memcpy(g_ai_req, req, (size_t)req_len);
+  g_ai_req_len = req_len;
+  memcpy(g_ai_path, path, strlen(path) + 1);
+  memcpy(g_ai_slug, slug, strlen(slug) + 1);
+  g_ai_timeout = timeout_ms > 0 ? timeout_ms : 5000;
+  g_ai_ret = 0;
+  g_ai_state = 1;
+  MNG_AI_FENCE();
+  int32_t rc = mnginsp_thread_start();
+  if (rc != 0) {
+    g_ai_state = 0;
+    return rc;
+  }
+  return 0;
+}
+
+int32_t mnginsp_poll(void) {
+  if (g_ai_state != 2) {
+    return 0;
+  }
+  MNG_AI_FENCE();
+  return 1;
+}
+
+int32_t mnginsp_take(uint8_t *out, int32_t cap) {
+  if (g_ai_state != 2) {
+    return -EAGAIN;
+  }
+  MNG_AI_FENCE();
+  mnginsp_thread_join();
+  int32_t r = g_ai_ret;
+  g_ai_state = 0;
+  free(g_ai_req);
+  g_ai_req = NULL;
+  g_ai_req_len = 0;
+  if (r > 0) {
+    if (out == NULL || cap <= 0) {
+      return -EINVAL;
+    }
+    int32_t n = r < cap ? r : cap;
+    memcpy(out, g_ai_buf, (size_t)n);
+    return n;
+  }
+  return r;
+}
+
+void mnginsp_abort(void) {
+  mnginsp_thread_join(); /* 空闲时无线程可收，join 是空操作 */
+  g_ai_state = 0;
+  g_ai_ret = 0;
+  free(g_ai_req);
+  g_ai_req = NULL;
+  g_ai_req_len = 0;
+}

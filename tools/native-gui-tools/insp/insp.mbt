@@ -31,6 +31,30 @@ extern "c" fn mnginsp_call(
 ///|
 extern "c" fn mnginsp_getuid() -> Int32 = "mnginsp_getuid"
 
+// ---- 非阻塞口（GUI 检查器）：工作线程里跑一次阻塞收发，主线程只轮询
+// 完成标记，界面线程不碰 socket 等待 ----
+
+///|
+#borrow(path, slug, req)
+extern "c" fn mnginsp_begin(
+  path : Bytes,
+  slug : Bytes,
+  req : Bytes,
+  req_len : Int32,
+  cap : Int32,
+  timeout_ms : Int32,
+) -> Int32 = "mnginsp_begin"
+
+///|
+extern "c" fn mnginsp_poll() -> Int32 = "mnginsp_poll"
+
+///|
+#borrow(out)
+extern "c" fn mnginsp_take(out : Bytes, cap : Int32) -> Int32 = "mnginsp_take"
+
+///|
+extern "c" fn mnginsp_abort() -> Unit = "mnginsp_abort"
+
 ///|
 /// app_id 的 djb2 哈希，十六进制定长 8 位（与单实例 slug 同规）。
 fn insp_hash8(s : String) -> String {
@@ -148,4 +172,65 @@ pub fn call(
   } else {
     Ok(@utf8.decode_lossy(out[0:n].to_owned()))
   }
+}
+
+// ---- 非阻塞调用（GUI 检查器）：begin 发起、poll 查完成、take 取结果 ----
+//
+// 单进程同时只允许一个在途请求；界面定时器里每拍只调 [call_poll]（一次
+// 原子读），收到完成才 [call_take]——socket 等待全在工作线程里，界面不冻。
+
+///|
+/// 非阻塞发起一条请求。`Err` 给可读原因（上一请求未取/请求超长）。
+pub fn call_begin(
+  app_id : String,
+  req : String,
+  timeout_ms~ : Int32 = 5000,
+) -> Result[Unit, String] {
+  let frame = @utf8.encode(req)
+  if frame.length() > REQUEST_CAP {
+    return Err("请求超出 \{REQUEST_CAP} 字节上限")
+  }
+  let rc = mnginsp_begin(
+    @utf8.encode(insp_socket_path(app_id)),
+    @utf8.encode(insp_slug(app_id)),
+    frame,
+    frame.length(),
+    RESPONSE_CAP,
+    timeout_ms,
+  )
+  if rc == 0 {
+    Ok(())
+  } else if rc == -16 {
+    // EBUSY：上一请求还没 take
+    Err("上一请求未取结果")
+  } else {
+    Err("发起检查请求失败 errno=\{-rc}")
+  }
+}
+
+///|
+/// 在途请求是否已完成（完成含失败，错误在 [call_take] 里报）。
+pub fn call_poll() -> Bool {
+  mnginsp_poll() == 1
+}
+
+///|
+/// 取回在途请求的结果并回收工作线程。
+pub fn call_take() -> Result[String, String] {
+  let out = Bytes::make(RESPONSE_CAP, 0)
+  let n = mnginsp_take(out, RESPONSE_CAP)
+  if n == -11 {
+    // EAGAIN：没有在途请求（状态机调用错序）
+    Err("没有在途的检查请求")
+  } else if n < 0 {
+    Err("连不上检查通道（应用没起或未注入 MNG_INSPECT=1）errno=\{-n}")
+  } else {
+    Ok(@utf8.decode_lossy(out[0:n].to_owned()))
+  }
+}
+
+///|
+/// 取消在途请求（等在途线程收尾后清空）：只用于退出前收尾。
+pub fn call_abort() -> Unit {
+  mnginsp_abort()
 }

@@ -27,12 +27,13 @@
 - **socket 位置**：`$XDG_RUNTIME_DIR` → `$TMPDIR` → `/tmp` 目录下 `moonbit-inspect-<应用名>.<uid>.sock`，与单实例通道互不干扰；被占用即静默降级不监听。
 - **应用名**：取 `MNG_INSPECT_APP`（工具注入时自动带上），缺省 `app`。
 
-三命令，请求一行文本、响应 TSV 行文本（上限 256KB，超限截到最近完整行并尾行标 `truncated`）：
+五命令，请求一行文本、响应 TSV 行文本（上限 256KB，超限截到最近完整行并尾行标 `truncated`）：
 
 | 命令 | 响应 |
 |---|---|
 | `tree` | 整树 dump，一行一控件；首行列头，列序 kind/role/name/id/parent/x/y/w/h/state/value/text/enabled |
 | `style <id>` | 按 id 读生效样式：前五行是样式编辑器口径的五字段（background/color/border_color/border_width/border_radius），随后是**全部已设字段**（带分组前缀：text./box./edge./border./flex./pos./misc.，如 `text.font_size`、`flex.flex_direction`） |
+| `select <id>` | `style <id>` 的读数 + 同时在目标应用上高亮该控件（GUI 检查器点行专用，一次往返完成两件事） |
 | `highlight <id>` | 在目标应用上高亮该控件（淡蓝半透明填充 + 描边，Chrome DevTools 同款观感）；`highlight 0` 取消。高亮框命中穿透、不进语义树 |
 | `shot [--full] [路径]` | 截图落盘 PNG。缺省档截最近上屏帧（视口所见）；`--full` 档对页面滚动容器的内容按全内容高重画（滚动截图语义，含视口外内容；虚拟列表只含已挂载行；超 20000px 截断并注明）。不带路径写系统临时目录 `mng-shot-<窗题>-<时间戳>.png`，回执带实际路径 |
 
@@ -59,7 +60,7 @@ mng inspect --gui --app libyue.hello
 mngui --inspect --app libyue.hello   # 裸跑 mngui 亦可
 ```
 
-- 左栏：缩进控件树（类型名·角色「名」 #id），点击选中，300ms 自动刷新。
+- 左栏：缩进控件树（类型名·角色「名」 #id），点击选中，约 1s 自动刷新（异步取数，界面线程不阻塞；树没变不重建表）。
 - 右栏：选中行详情读数（id/parent/kind/role/name/state/value/text/rect/enabled）+ 样式全量字段按组展示（编辑器五字段在前，随后文字/尺寸/内外边距/边框圆角/布局/定位层级/其它七组）。
 - 选中即高亮：目标应用窗口上同步画出高亮框，位置随布局实时跟随；关窗自动取消高亮。
 - 应用没起或没注入时状态栏报「未连接」，起好后自动接上（轮询重试）。

@@ -9,9 +9,9 @@
 // 每 200ms 遍历），命令式应用不经 declarative 泵，直接在自己的循环里调
 // `inspect_pump`。两路共用同一个处理体。
 //
-// 协议：请求是单行命令（tree / style <id> / shot [路径]），响应是 TSV 行文本，
-// 上限 256KB，超限截到最近完整行并尾行标注 truncated；二进制不过管道
-// （shot 落盘、回执只带路径）。
+// 协议：请求是单行命令（tree / style <id> / select <id> / highlight <id> /
+// shot [路径]），响应是 TSV 行文本，上限 256KB，超限截到最近完整行并尾行
+// 标注 truncated；二进制不过管道（shot 落盘、回执只带路径）。
 
 ///|
 /// 响应字节上限（256KB）。
@@ -259,7 +259,8 @@ pub fn insp_tree_snapshot() -> Array[@widget.A11yNode] {
 // ---- 命令处理 ----
 
 ///|
-/// 请求分发：`tree` / `style <id>` / `shot [路径]`。未知命令回一行 error。
+/// 请求分发：`tree` / `style <id>` / `select <id>` / `highlight <id>` /
+/// `shot [路径]`。未知命令回一行 error。
 pub fn inspect_handle(req : String) -> String {
   let line = req.trim().to_owned()
   let words : Array[String] = []
@@ -280,6 +281,15 @@ pub fn inspect_handle(req : String) -> String {
           None => "error: style 需要 <id>（整数）\n"
         }
       None => "error: style 需要 <id>\n"
+    }
+  } else if cmd == "select" {
+    match words.get(1) {
+      Some(w) =>
+        match parse_insp_int(w) {
+          Some(id) => insp_select_dump(id)
+          None => "error: select 需要 <id>（整数）\n"
+        }
+      None => "error: select 需要 <id>\n"
     }
   } else if cmd == "highlight" {
     match words.get(1) {
@@ -306,7 +316,7 @@ pub fn inspect_handle(req : String) -> String {
   } else if cmd == "" {
     "error: 空请求\n"
   } else {
-    "error: 未知命令 \{cmd}（可用：tree / style <id> / highlight <id> / shot [--full] [路径]）\n"
+    "error: 未知命令 \{cmd}（可用：tree / style <id> / select <id> / highlight <id> / shot [--full] [路径]）\n"
   }
 }
 
@@ -411,6 +421,18 @@ pub fn insp_style_dump(id : Int32) -> String {
 }
 
 ///|
+/// `select <id>`：一次往返完成「样式读数 + 目标高亮」——GUI 检查器点行
+/// 专用（省一次往返）；高亮失败不影响读数返回（无上屏帧等场景仍能看样式）。
+pub fn insp_select_dump(id : Int32) -> String {
+  let s = insp_style_dump(id)
+  if s.has_prefix("error:") {
+    return s
+  }
+  let _ = insp_highlight(id)
+  s
+}
+
+///|
 /// `shot [--full] [路径]`：位图落盘 PNG（`png_write_bitmap`），二进制不过
 /// 管道。缺省档取最近上屏帧（视口所见）；`--full` 档对页面滚动容器的内容
 /// 按全内容高重画（滚动截图语义，虚拟列表只含已挂载行）。不带路径写
@@ -472,6 +494,13 @@ let g_insp_hl_widget : Ref[@widget.Widget?] = Ref(None)
 let g_insp_hl_target : Ref[Int32] = Ref(0)
 
 ///|
+/// 上一次摆放的矩形：没变不重设不重绘（高亮跟随的每拍零成本——目标应用
+/// 开着高亮不被强制按帧重画）。
+let g_insp_hl_rect : Ref[(Double, Double, Double, Double)] = Ref(
+  (0.0, 0.0, 0.0, 0.0),
+)
+
+///|
 /// 建高亮框（首次）并挂到根控件末尾（最后画、盖在内容与浮层上）。
 fn insp_highlight_ensure(root : @widget.Widget) -> @widget.Widget {
   match g_insp_hl_widget.val {
@@ -507,18 +536,28 @@ fn insp_highlight_ensure(root : @widget.Widget) -> @widget.Widget {
 
 ///|
 /// 把高亮框摆到目标控件矩形上（root 原点即窗口原点，直接用绝对矩形）。
+/// 矩形没变时零操作：每拍重定位不会让目标应用反复重绘。
 fn insp_highlight_place(root : @widget.Widget, id : Int32) -> Bool {
   match root.by_id(id) {
     Some(t) => {
       let w = insp_highlight_ensure(root)
-      w.node.set_left(@yoga.fixed(t.rect.x))
-      w.node.set_top(@yoga.fixed(t.rect.y))
-      w.node.set_width(@yoga.fixed(t.rect.w))
-      w.node.set_height(@yoga.fixed(t.rect.h))
-      if !w.visible {
-        w.visible = true
+      let r = (t.rect.x, t.rect.y, t.rect.w, t.rect.h)
+      let prev = g_insp_hl_rect.val
+      let moved = r.0 != prev.0 ||
+        r.1 != prev.1 ||
+        r.2 != prev.2 ||
+        r.3 != prev.3
+      if moved || !w.visible {
+        w.node.set_left(@yoga.fixed(r.0))
+        w.node.set_top(@yoga.fixed(r.1))
+        w.node.set_width(@yoga.fixed(r.2))
+        w.node.set_height(@yoga.fixed(r.3))
+        if !w.visible {
+          w.visible = true
+        }
+        g_insp_hl_rect.val = r
+        @widget.invalidate()
       }
-      @widget.invalidate()
       true
     }
     None => false

@@ -86,3 +86,68 @@ test "insp_group_of：前缀映射" {
   assert_eq(insp_group_of("pos.z_index"), "定位层级")
   assert_eq(insp_group_of("misc.opacity"), "其它")
 }
+
+///|
+test "insp_find_row：按 id 找行下标" {
+  let rows = [
+    {
+      kind: "Window", role: "", name: "", id: 1, parent: 0, x: 0.0, y: 0.0,
+      w: 0.0, h: 0.0, state: "", value: "", text: "", enabled: true,
+    },
+    {
+      kind: "Button", role: "button", name: "A", id: 7, parent: 1, x: 0.0,
+      y: 0.0, w: 10.0, h: 10.0, state: "", value: "", text: "A", enabled: true,
+    },
+  ]
+  assert_eq(insp_find_row(rows, 7), Some(1))
+  assert_eq(insp_find_row(rows, 99), None)
+}
+
+///|
+/// 建一个最小可用的检查器页（取数全由用例直接喂响应）。
+fn insp_test_page() -> InspPage {
+  {
+    app_id: "app",
+    rows: @base.Store::new([]),
+    sel: @base.Store::new([]),
+    detail: @base.Store::new(""),
+    styles: @base.Store::new(""),
+    status: @base.Store::new(""),
+    auto: @base.Store::new(true),
+    last_rows: [],
+    last_tree_text: "",
+    cur_id: 0,
+    busy: 0,
+    want_select: 0,
+    tick_tree: 0,
+    tick_style: 0,
+  }
+}
+
+///|
+test "insp_apply_tree：选中按 id 保位，控件消失即取消" {
+  let p = insp_test_page()
+  let head = "#kind\trole\tname\tid\tparent\tx\ty\tw\th\tstate\tvalue\ttext\tenabled\n"
+  let tsv1 = head +
+    "Window\t\t\t1\t0\t0\t0\t100\t100\t\t\t\t1\n" +
+    "Button\tbutton\tA\t2\t1\t0\t0\t10\t10\t\t\tA\t1\n"
+  insp_apply_tree(p, tsv1)
+  assert_eq(p.last_rows.length(), 2)
+  assert_eq(p.status.get(), "已连接 app · 节点 2")
+  // 树重排（id=2 从第 1 行挪到第 2 行）：选中仍按 id 落在新下标
+  p.cur_id = 2
+  let tsv2 = head +
+    "Window\t\t\t1\t0\t0\t0\t100\t100\t\t\t\t1\n" +
+    "Text\ttext\tB\t3\t1\t0\t0\t10\t10\t\t\tB\t1\n" +
+    "Button\tbutton\tAA\t2\t1\t0\t0\t10\t10\t\t\tAA\t1\n"
+  insp_apply_tree(p, tsv2)
+  assert_eq(p.sel.get().length(), 1)
+  assert_eq(p.sel.get()[0], 2)
+  assert_true(p.detail.get().contains("id=2"))
+  // 控件从树里消失：取消选中并清空样式
+  p.cur_id = 3
+  insp_apply_tree(p, tsv1)
+  assert_eq(p.cur_id, 0)
+  assert_eq(p.sel.get().length(), 0)
+  assert_eq(p.detail.get(), "选中控件已不在树里")
+}

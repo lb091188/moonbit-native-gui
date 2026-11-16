@@ -1,7 +1,8 @@
 // 检查器模式（--inspect）：仿 Chrome DevTools 的独立检查器窗。
-// 数据全走 @insp.call 连应用内检查服务：tree 轮询（300ms）、选中取 style
-// 全量字段、选中即发 highlight 在目标应用上画高亮框。mng 侧的
-// `mng inspect --gui` 经 hop 进本模式，本进程链 GUI 库、mng 本体不链。
+// 数据全走 @insp 连应用内检查服务：异步客户端（工作线程收发）+ 50ms 轻拍
+// 状态机——单在途请求，点行发 `select <id>`（样式读数 + 高亮一次往返），
+// 树每秒拉一次且没变不重建表。mng 侧的 `mng inspect --gui` 经 hop 进本
+// 模式，本进程链 GUI 库、mng 本体不链。
 
 ///|
 /// 一行树数据（与服务端 tree 命令的 13 列一一对应）。
@@ -23,6 +24,8 @@ struct InspRow {
 
 ///|
 /// 检查器页状态（静态树 + Store 驱动刷新）。
+/// 取数是异步的：定时器每拍只推进状态机，socket 等待在工作线程里，
+/// 界面线程从不阻塞在收发上。
 struct InspPage {
   app_id : String
   rows : @base.Store[Array[@ui.TableRow]]
@@ -32,6 +35,18 @@ struct InspPage {
   status : @base.Store[String]
   auto : @base.Store[Bool]
   mut last_rows : Array[InspRow]
+  /// 上一份 tree 响应原文：没变不重建表（避免每秒整表重排）
+  mut last_tree_text : String
+  /// 当前选中控件 id（按 id 保位；树行下标会随增删挪动）
+  mut cur_id : Int32
+  /// 在途请求：0 空闲 / 1 tree / 2 样式（select 或 style）
+  mut busy : Int32
+  /// 待发起的选中控件 id（0 = 无）
+  mut want_select : Int32
+  /// 距上次树刷新的拍数
+  mut tick_tree : Int
+  /// 距上次选中样式重读的拍数
+  mut tick_style : Int
 }
 
 ///|
@@ -314,49 +329,152 @@ fn insp_style_text(s : String) -> String {
 }
 
 ///|
-/// 发命令收响应（短超时：轮询里卡帧上限压低）。
+/// 发命令收响应（短超时：只用于开窗/关窗这类一次性收尾）。
 fn insp_call_short(app_id : String, req : String) -> Result[String, String] {
   @insp.call(app_id, req, timeout_ms=1500)
 }
 
 ///|
-/// 选中一行：详情 + 样式 + 目标应用高亮。
+/// 轮询节拍（毫秒）：每拍只查完成标记与发起下一条，不做阻塞 I/O。
+const INSP_TICK_MS : Int = 50
+
+///|
+/// 树刷新周期（拍数）：50ms × 20 ≈ 1s。
+const INSP_TREE_TICKS : Int = 20
+
+///|
+/// 选中样式重读周期（拍数）：≈1s（样式实时读数，不附带高亮重发）。
+const INSP_STYLE_TICKS : Int = 20
+
+///|
+/// 按控件 id 找行下标（树增删后选中按 id 保位）。
+fn insp_find_row(rows : Array[InspRow], id : Int32) -> Int? {
+  let mut i = 0
+  while i < rows.length() {
+    if rows[i].id == id {
+      return Some(i)
+    }
+    i += 1
+  }
+  None
+}
+
+///|
+/// 点一行：详情本地即时出（不等网络），样式与高亮交给状态机发一次
+/// `select <id>`（服务端一次往返完成两件事）。
 fn insp_select(p : InspPage, i : Int32) -> Unit {
   if i < 0 || i >= p.last_rows.length() {
     return
   }
   let row = p.last_rows[i]
   p.sel.set([i])
+  p.cur_id = row.id
   p.detail.set(insp_detail_text(row))
-  match insp_call_short(p.app_id, "style \{row.id}") {
-    Ok(s) => p.styles.set(insp_style_text(s))
-    Err(e) => p.styles.set("样式读取失败：" + e)
-  }
-  let _ = insp_call_short(p.app_id, "highlight \{row.id}")
+  p.styles.set("样式读取中…")
+  p.want_select = row.id
+  p.tick_style = 0
 }
 
 ///|
-/// 拉一次树：成功刷新表与状态，失败清空并提示；选中行按下标保位。
-fn insp_refresh(p : InspPage) -> Unit {
-  match insp_call_short(p.app_id, "tree") {
-    Ok(resp) => {
-      let rows = insp_parse_tree(resp)
-      p.last_rows = rows
-      p.rows.set(insp_table_rows(rows))
-      p.status.set(
-        "已连接 \{p.app_id} · 节点 \{rows.length()} · 300ms 轮询",
-      )
-      let sel = p.sel.get()
-      if sel.length() == 1 && sel[0] < rows.length() {
-        insp_select(p, sel[0])
+/// 应用 tree 响应：内容没变不重建表；变了按 id 保住选中（控件没了就取消）。
+fn insp_apply_tree(p : InspPage, resp : String) -> Unit {
+  if resp == p.last_tree_text {
+    p.status.set("已连接 \{p.app_id} · 节点 \{p.last_rows.length()}")
+    return
+  }
+  p.last_tree_text = resp
+  let rows = insp_parse_tree(resp)
+  p.last_rows = rows
+  p.rows.set(insp_table_rows(rows))
+  p.status.set("已连接 \{p.app_id} · 节点 \{rows.length()}")
+  if p.cur_id != 0 {
+    match insp_find_row(rows, p.cur_id) {
+      Some(i) => {
+        p.sel.set([i])
+        p.detail.set(insp_detail_text(rows[i]))
+      }
+      None => {
+        p.cur_id = 0
+        p.sel.set([])
+        p.detail.set("选中控件已不在树里")
+        p.styles.set("")
       }
     }
-    Err(e) => {
-      p.last_rows = []
-      p.rows.set([])
-      p.status.set("未连接：" + e)
+  }
+}
+
+///|
+/// 应用样式响应（`select` 与 `style` 同一格式）。
+fn insp_apply_style(p : InspPage, resp : String) -> Unit {
+  if resp.has_prefix("error:") {
+    p.styles.set(resp.trim().to_owned())
+  } else {
+    p.styles.set(insp_style_text(resp))
+  }
+}
+
+///|
+/// 状态机一拍：收在途结果 → 发起下一条（选中优先，其次到期的树/样式刷新）。
+fn insp_tick(p : InspPage) -> Unit {
+  if p.app_id.length() == 0 {
+    return // 没应用 id：只显示用法提示，不发网络请求
+  }
+  p.tick_tree += 1
+  if p.cur_id != 0 {
+    p.tick_style += 1
+  }
+  if p.busy != 0 && @insp.call_poll() {
+    let kind = p.busy
+    p.busy = 0
+    match @insp.call_take() {
+      Ok(resp) =>
+        if kind == 1 {
+          insp_apply_tree(p, resp)
+        } else {
+          insp_apply_style(p, resp)
+        }
+      Err(e) =>
+        if kind == 1 {
+          p.last_rows = []
+          p.last_tree_text = ""
+          p.rows.set([])
+          p.status.set("未连接：" + e)
+        } else {
+          p.styles.set("样式读取失败：" + e)
+          p.status.set("未连接：" + e)
+        }
     }
   }
+  if p.busy != 0 {
+    return
+  }
+  if p.want_select != 0 {
+    let id = p.want_select
+    p.want_select = 0
+    match @insp.call_begin(p.app_id, "select \{id}") {
+      Ok(_) => p.busy = 2
+      Err(e) => p.styles.set("样式读取失败：" + e)
+    }
+  } else if p.auto.get() && p.tick_tree >= INSP_TREE_TICKS {
+    p.tick_tree = 0
+    match @insp.call_begin(p.app_id, "tree") {
+      Ok(_) => p.busy = 1
+      Err(e) => p.status.set("未连接：" + e)
+    }
+  } else if p.auto.get() && p.cur_id != 0 && p.tick_style >= INSP_STYLE_TICKS {
+    p.tick_style = 0
+    match @insp.call_begin(p.app_id, "style \{p.cur_id}") {
+      Ok(_) => p.busy = 2
+      Err(e) => p.styles.set("样式读取失败：" + e)
+    }
+  }
+}
+
+///|
+/// 手动刷新：把树刷新提前到这一拍（在途请求结束后自然生效）。
+fn insp_refresh_now(p : InspPage) -> Unit {
+  p.tick_tree = INSP_TREE_TICKS
+  insp_tick(p)
 }
 
 ///|
@@ -390,6 +508,12 @@ pub fn run_inspector(app_id : String) -> Unit {
     ),
     auto: @base.Store::new(true),
     last_rows: [],
+    last_tree_text: "",
+    cur_id: 0,
+    busy: 0,
+    want_select: 0,
+    tick_tree: INSP_TREE_TICKS,
+    tick_style: 0,
   }
   let cols : Array[@ui.TableColumn] = [
     @ui.TableColumn::make("控件", 0.0, sortable=false),
@@ -426,7 +550,7 @@ pub fn run_inspector(app_id : String) -> Unit {
   )
   let toolbar = @ui.row(
     [
-      @ui.button("刷新", variant=@ui.Soft, on_click=fn() { insp_refresh(p) }),
+      @ui.button("刷新", variant=@ui.Soft, on_click=fn() { insp_refresh_now(p) }),
       @ui.switch(
         p.auto,
         on_text="自动刷新",
@@ -454,14 +578,12 @@ pub fn run_inspector(app_id : String) -> Unit {
     handle=fn(h : @widget.WindowHost) {
       let tick : Ref[() -> Unit] = Ref(fn() { () })
       tick.val = fn() -> Unit {
-        if p.auto.get() {
-          insp_refresh(p)
-        }
-        let _ = h.timer(300, tick.val)
+        insp_tick(p)
+        let _ = h.timer(INSP_TICK_MS, tick.val)
       }
-      // 首拍立即拉一次（不等 300ms）
-      insp_refresh(p)
-      let _ = h.timer(300, tick.val)
+      // 首拍立即拉一次（不等一拍）
+      insp_tick(p)
+      let _ = h.timer(INSP_TICK_MS, tick.val)
     },
   )
   match mounted {
@@ -471,7 +593,8 @@ pub fn run_inspector(app_id : String) -> Unit {
     }
     Some(host) => {
       host.run()
-      // 关窗时取消目标应用上的高亮（尽力而为，应用可能已退出）
+      // 关窗前收掉在途请求，再取消目标应用上的高亮（尽力而为）
+      @insp.call_abort()
       let _ = insp_call_short(app_id, "highlight 0")
     }
   }
