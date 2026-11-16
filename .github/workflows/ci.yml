@@ -287,9 +287,27 @@ jobs:
             libswresample-dev libavutil-dev
           dbus-uuidgen --ensure >/dev/null 2>&1 || true
 
+      # 容器腿偶发 curl(77)：apt 升级后 /etc/ssl/certs/ca-certificates.crt
+      # 残缺，装 moon 的 curl 直接断（管道下游 bash 拿到空脚本还回 0，
+      # 拖到下一步 moon: not found 才炸）。pipefail 让失败当场可见，
+      # 重建证书束后重试两轮。
       - name: 安装 moon 工具链
         run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          set -o pipefail
+          ok=0
+          for i in 1 2 3; do
+            if curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash; then
+              ok=1
+              break
+            fi
+            echo "第 $i 次安装失败，重建 CA 证书束后重试"
+            update-ca-certificates --fresh >/dev/null 2>&1 || true
+            sleep 5
+          done
+          if [ "$ok" != "1" ]; then
+            echo "::error::moon 工具链安装连续 3 次失败(见上方 curl 输出)"
+            exit 1
+          fi
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
       # 主腿同因:新装注册表索引查不到依赖要先刷,旧式清单要就地迁移
