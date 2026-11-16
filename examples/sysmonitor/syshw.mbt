@@ -60,6 +60,18 @@ pub fn temp_indices(entries : String) -> Array[Int32] {
 }
 
 ///|
+/// chip 名净取：name 文件读不到回退目录名；内容 trim 后为空（虚机常见空
+/// name 文件）同样回退目录名——chip 与 label 永不为空，UI 与断言两用。
+fn chip_name(input : String, content : String) -> String {
+  let c = content.trim().to_owned()
+  if c == "" {
+    input
+  } else {
+    c
+  }
+}
+
+///|
 /// 读全部 hwmon 传感器（/sys/class/hwmon/hwmon*/temp*_input）。
 /// 目录不可读（非 Linux）返回 None。
 pub fn hwmon_sensors() -> Array[TempSensor]? {
@@ -75,7 +87,7 @@ pub fn hwmon_sensors() -> Array[TempSensor]? {
     let base = "/sys/class/hwmon/\{input}"
     let chip = match read_text_file("\{base}/name") {
       None => input
-      Some(t) => t.trim().to_owned()
+      Some(t) => chip_name(input, t)
     }
     let files = match list_dir(base) {
       None => continue

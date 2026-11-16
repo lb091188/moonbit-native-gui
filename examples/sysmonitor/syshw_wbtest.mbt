@@ -188,6 +188,13 @@ test "S4 真实采样：hwmon 传感器(Linux)" {
 }
 
 ///|
+test "chip_name：空 name 与纯空白 name 回退目录名（CI runner 虚机 hwmon 实测形态）" {
+  inspect(chip_name("hwmon3", "coretemp\n"), content="coretemp")
+  inspect(chip_name("hwmon3", ""), content="hwmon3")
+  inspect(chip_name("hwmon3", "  \n "), content="hwmon3")
+}
+
+///|
 test "S6 真实采样：GPU 枚举(Linux sysfs / macOS system_profiler)" {
   let mon = GpuMonitor::new()
   match mon.tick() {
