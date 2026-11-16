@@ -5349,6 +5349,7 @@ typedef struct {
   unsigned char *backing; // 后端自己拥有的帧缓冲（跨到下一次 draw 回调仍有效）
   size_t backing_cap;
   WmL1 l1; // GPU present 档（L1）每窗状态（核心在文件末实现 TU 段）
+  int trans_want; // 透明意图（wm_set_transparent_bg 记账；逐像素命中形态的开关）
   int ct_want;  // 整窗点击穿透意图（wm_set_click_through 记账）
   int ct2_mode; // 当前 input region 形态：0=整窗 1=逐像素 2=整窗穿透
   GtkIMContext *im;
@@ -6077,6 +6078,10 @@ void wm_set_layer(int64_t id, int layer) {
   wm_mark_draw(w);
 }
 
+/* 前置声明：wm_set_transparent_bg / wm_set_click_through 先于定义处使用
+ * （W-CT2 命中形态同步，定义在下方帧泵邻域）。 */
+static void wm_ct2_sync(WmWindow *w);
+
 /* W33 背景透视（GTK 档）：app_paintable 关掉 GTK 自己的底色绘制，visual 已在
  * 建窗时选定 32 位（见 wm_window_new），于是帧里 a=0 的像素真的透出下层。
  * 只切 paintable 是不够的：visual 不是 RGBA 时 GTK 直接把 alpha 丢掉，
@@ -6086,6 +6091,7 @@ int wm_set_transparent_bg(int64_t id, int on) {
   if (id <= 0 || id >= WM_MAX_WINDOWS) return 1;
   WmWindow *w = &wm_windows[id];
   if (w->window == NULL) return 1;
+  w->trans_want = on ? 1 : 0;
   gtk_widget_set_app_paintable(w->window, on ? TRUE : FALSE);
   // 切完要重画一次：GTK 不会因为 paintable 变了就自己把旧底清掉
   gtk_widget_queue_draw(w->window);

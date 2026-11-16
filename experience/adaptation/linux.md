@@ -957,3 +957,13 @@ showcase 在 Linux 上「有 GPU 就白屏 / 黑屏 / 点击不更新」的现�
 
 **判据**:①Linux 上凡「对自身文件做替换/重启」类功能,落点先问 `$APPIMAGE`,不能信 `/proc/self/exe`——它在 AppImage 里永远是挂载点内路径;②同一坑的两个面(替换落点、重启目标)要一次修齐,只修替换会出现「替换成功、重启回旧版」;③判别现场:报错路径含 `/tmp/.mount_` 即 AppImage 挂载点,真身看 `$APPIMAGE`。
 
+## W-CT2 的 GTK 臂只在 Linux prebuild 编:字段与前置声明漏项由真机构建暴露 · 2026-11-16 · 用户 Linux 构建失败
+
+**现象**:`moon run examples/theme-playground/` 停在 prebuild,cc 报 `WmWindow has no member named trans_want` 与 `implicit declaration of function wm_ct2_sync`,最后 `Failed to run prebuild script`。
+
+**根因**:`7d479e1a` 把逐像素点击穿透写进 `gui/win/stub.c` 的 GTK 臂,引用 `w->trans_want` 并前向调用 `wm_ct2_sync`,同批没给 GTK 的 `WmWindow` 补字段、没加前置声明。macOS 桩语法门禁按 `-DWM_STUB_MAC` 编同一文件,GTK 臂整段不参与;GTK 形态只有 Linux prebuild 带 `-DWM_STUB_GTK` 才编,所以 mac 全绿而 Linux 首跑即挂。
+
+**修法**:GTK 的 `WmWindow` 补 `trans_want`;`wm_ct2_sync` 在首次调用前加静态前置声明;`wm_set_transparent_bg` 补 `w->trans_want` 记账——Win32 与 mac 的透明底入口都记,GTK 漏了会让逐像素命中永远看不到透明意图。
+
+**判据**:改 `gui/win/stub.c` 的 GTK 臂后,mac 本机只能跑 `-DWM_STUB_MAC` 门禁与 `w->字段` 引用静态核对,不能替代 Linux 编译;Linux 侧复跑 `moon run examples/theme-playground/` 或 `cd gui && moon build --target native`,prebuild 过即编译面收口。
+
