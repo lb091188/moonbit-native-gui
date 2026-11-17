@@ -60,39 +60,25 @@ test "insp_row_label：缩进 + 类型名·角色「名」 #id" {
 }
 
 ///|
-test "样式分组与全量文本：五字段进表单、读数只列其余分组" {
+test "样式全量文本：五字段进表单、读数原样平铺" {
   let tsv = "#field\tvalue\n" +
     "background\t#f5f5f5\n" +
     "color\t#333333\n" +
     "border_width\t1\n" +
-    "text.font_size\t14\n" +
-    "text.font_weight\tSemiBold\n" +
-    "flex.flex_direction\tcolumn\n" +
-    "pos.opacity\t0.5\n"
+    "font_size\t14\n" +
+    "font_weight\tSemiBold\n" +
+    "flex_direction\tcolumn\n" +
+    "opacity\t0.5\n"
   let fields = insp_parse_style(tsv)
   let text = insp_style_text(fields)
   assert_true(text.contains("全部已设字段"))
   // 编辑器五字段不进只读读数（它们在表单里）
   assert_true(!text.contains("background = #f5f5f5"))
-  assert_true(text.contains("文字"))
-  assert_true(text.contains("text.font_size = 14"))
-  assert_true(text.contains("布局"))
-  assert_true(text.contains("flex.flex_direction = column"))
-  assert_true(text.contains("定位层级"))
-  assert_true(text.contains("pos.opacity = 0.5"))
+  assert_true(text.contains("font_size = 14"))
+  assert_true(text.contains("flex_direction = column"))
+  assert_true(text.contains("opacity = 0.5"))
   // 表单取值：五字段按序，缺项空串
   assert_eq(insp_form_values(fields), ["#f5f5f5", "#333333", "", "1", ""])
-}
-
-///|
-test "insp_group_of：前缀映射" {
-  assert_eq(insp_group_of("text.color"), "文字")
-  assert_eq(insp_group_of("box.width"), "尺寸")
-  assert_eq(insp_group_of("edge.padding_top"), "内外边距")
-  assert_eq(insp_group_of("border.radius"), "边框圆角")
-  assert_eq(insp_group_of("flex.row_gap"), "布局")
-  assert_eq(insp_group_of("pos.z_index"), "定位层级")
-  assert_eq(insp_group_of("misc.opacity"), "其它")
 }
 
 ///|

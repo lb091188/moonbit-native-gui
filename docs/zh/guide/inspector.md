@@ -42,7 +42,7 @@
 | 命令 | 响应 |
 |---|---|
 | `tree [--full]` | 整树 dump，一行一控件；缺省组件视图（每个模板标签一行，组件内部实现件不占行，其子件挂回最近已收祖先），`--full` 全量；首行列头，列序 kind/role/name/id/parent/x/y/w/h/state/value/text/enabled |
-| `style <id>` | 按 id 读生效样式（含单件覆写后的值）：前五行是样式编辑器口径的五字段（background/color/border_color/border_width/border_radius），随后是**全部已设字段**（带分组前缀：text./box./edge./border./flex./pos./misc.，如 `text.font_size`、`flex.flex_direction`） |
+| `style <id>` | 按 id 读生效样式（含单件覆写后的值）：前五行是样式编辑器口径的五字段（background/color/border_color/border_width/border_radius），随后是**全部已设字段**（字段名即 @style.Style 字段本名，与模板 CSS 属性同口径，如 `font_size`、`flex_direction`） |
 | `style set <id> 字段=值 …` | 把列出的字段写进该件的**单件覆写**（只存列出的字段，值非法整条拒绝）：字段名同五字段，值颜色给 `#rrggbb` 或 token 名、数值直写。下一帧生效，`style reset <id>` 撤全部覆写 |
 | `select <id>` | `style <id>` 的读数 + 同时在目标应用上高亮该控件（GUI 检查器点行专用，一次往返完成两件事） |
 | `highlight <id>` | 在目标应用上高亮该控件（淡蓝半透明填充 + 描边，Chrome DevTools 同款观感）；`highlight 0` 取消。高亮框命中穿透、不进语义树 |

@@ -595,7 +595,7 @@ pub fn insp_style_dump(id : Int32) -> String {
     sb.write_string(insp_field_get(st, i))
     sb.write_string("\n")
   }
-  // 全量已设字段（带分组前缀，字段名看名知组）
+  // 全量已设字段（字段名即 @style.Style 字段本名）
   for kv in insp_style_all(st) {
     sb.write_string(kv.0)
     sb.write_string("\t")

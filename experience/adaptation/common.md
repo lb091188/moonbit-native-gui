@@ -2166,3 +2166,4 @@ GpuCanvas——@render.GpuSink 的 gui-gpu 实现，GPU 线首消费者——落
 - **口径**：占检查器树一行的件必须有 kind；三处补齐——`ui-scroll-content`（scroll_view 内容容器）、`ui-virt-list-content`（虚拟列表内容容器）、`mng-page`（dev 页挂载点）。role 保持空——纯布局壳不进读屏语义树，kind 只管检查器树行可读。
 - **行文本兜底**：三处行 label 组装（F12 附窗、内建 v1 面板、mngui 独立窗）kind+role 双空显示 `(无)`——与详情面板空字段口径一致，保证以后再出裸容器也不至于只剩 #id。
 - **`descriptions` 的 label_width 曾设在值列**：参数名叫 label 宽度、min_width 却设给值文本，label 实际不定宽——已挪回 label 列，值列起点随之对齐。样式表单五字段 label 同设最小宽 64 对齐。
+- **样式全量读数字段名打平**：曾带点分组前缀（`text.font_size` / `edge.padding_top`，意图看名知组，mngui 读数区还按前缀归组标题）——真机反馈层次感多余，全部改回 `@style.Style` 字段本名（`font_size` / `padding_top`，与模板 CSS 属性同口径）；mngui 分组标题与 `insp_group_of` 随之撤销，两版读数区同构平铺。附带的修正：`border.width` 这类去前缀后与编辑器五字段同名，读数区按五字段摘除不再重复展示。`style <id>` 是对外协议，字段名变化要同步 docs 的协议表。

@@ -78,7 +78,7 @@ test "insp_file_slug：文件名净化与空回退" {
 }
 
 ///|
-test "insp_style_all：只列已设字段，分组前缀看名知组" {
+test "insp_style_all：只列已设字段，字段名即本名" {
   let st : @style.Style = {
     ..@style.empty_style(),
     font_size: Some(14.0),
@@ -88,17 +88,17 @@ test "insp_style_all：只列已设字段，分组前缀看名知组" {
   }
   let fields = insp_style_all(st)
   let names = fields.map(fn(kv) { kv.0 })
-  assert_true(names.contains("text.font_size"))
-  assert_true(names.contains("border.radius"))
-  assert_true(names.contains("flex.flex_direction"))
-  assert_true(names.contains("pos.opacity"))
+  assert_true(names.contains("font_size"))
+  assert_true(names.contains("border_radius"))
+  assert_true(names.contains("flex_direction"))
+  assert_true(names.contains("opacity"))
   // 未设字段省略
-  assert_true(!names.contains("text.color"))
-  assert_true(!names.contains("edge.padding_top"))
+  assert_true(!names.contains("color"))
+  assert_true(!names.contains("padding_top"))
   // 值形态：数值直出
   let mut font = ""
   for kv in fields {
-    if kv.0 == "text.font_size" {
+    if kv.0 == "font_size" {
       font = kv.1
     }
   }

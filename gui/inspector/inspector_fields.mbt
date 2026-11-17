@@ -1,7 +1,7 @@
 // 样式全量读数：把 `@style.Style` 里**已设**的字段逐项摊成
 // (字段名, 显示值) 表，供 inspector 服务 `style <id>` 命令与 GUI 检查器
-// 的样式面板使用。字段名带点分组前缀（text. / box. / edge. / border. /
-// flex. / pos. / misc.），按组序输出；未设（None）的字段省略。
+// 的样式面板使用。字段名即 @style.Style 字段本名（与模板 CSS 属性同
+// 口径），按组序输出；未设（None）的字段省略。
 // 读数口径与样式编辑器一致：颜色走 `@style.resolve_color`（token 解析成
 // 实际值）、数值直出、枚举出名字、百分比单列带 % 后缀。
 
@@ -204,163 +204,164 @@ fn insp_push_pct(
 }
 
 ///|
-/// Style 里**已设**字段的全量表（字段名带分组前缀，按组序输出）。
+/// Style 里**已设**字段的全量表（字段名即 @style.Style 字段本名，与模板
+/// CSS 属性同口径；输出顺序仍按组）。
 pub fn insp_style_all(st : @style.Style) -> Array[(String, String)] {
   let out : Array[(String, String)] = []
   // —— text.：文本与颜色
   match st.color {
-    Some(c) => out.push(("text.color", @style.resolve_color(c)))
+    Some(c) => out.push(("color", @style.resolve_color(c)))
     None => ()
   }
   match st.background_color {
-    Some(c) => out.push(("text.background", @style.resolve_color(c)))
+    Some(c) => out.push(("background", @style.resolve_color(c)))
     None => ()
   }
-  insp_push_num(out, "text.font_size", st.font_size)
+  insp_push_num(out, "font_size", st.font_size)
   match st.font_family {
-    Some(f) => out.push(("text.font_family", f))
+    Some(f) => out.push(("font_family", f))
     None => ()
   }
   match st.font_weight {
-    Some(f) => out.push(("text.font_weight", insp_fw_name(f)))
+    Some(f) => out.push(("font_weight", insp_fw_name(f)))
     None => ()
   }
   match st.text_align {
-    Some(a) => out.push(("text.align", insp_align_name(a)))
+    Some(a) => out.push(("text_align", insp_align_name(a)))
     None => ()
   }
-  insp_push_num(out, "text.line_height", st.line_height)
-  insp_push_num(out, "text.letter_spacing", st.letter_spacing)
+  insp_push_num(out, "line_height", st.line_height)
+  insp_push_num(out, "letter_spacing", st.letter_spacing)
   match st.text_decoration {
-    Some(d) => out.push(("text.decoration", insp_deco_name(d)))
+    Some(d) => out.push(("text_decoration", insp_deco_name(d)))
     None => ()
   }
   match st.white_space {
-    Some(w) => out.push(("text.white_space", insp_ws_name(w)))
+    Some(w) => out.push(("white_space", insp_ws_name(w)))
     None => ()
   }
   // —— box.：尺寸
-  insp_push_num(out, "box.width", st.width)
-  insp_push_pct(out, "box.width_percent", st.width_percent)
-  insp_push_num(out, "box.height", st.height)
-  insp_push_pct(out, "box.height_percent", st.height_percent)
-  insp_push_num(out, "box.min_width", st.min_width)
-  insp_push_num(out, "box.min_height", st.min_height)
-  insp_push_num(out, "box.max_width", st.max_width)
-  insp_push_num(out, "box.max_height", st.max_height)
+  insp_push_num(out, "width", st.width)
+  insp_push_pct(out, "width_percent", st.width_percent)
+  insp_push_num(out, "height", st.height)
+  insp_push_pct(out, "height_percent", st.height_percent)
+  insp_push_num(out, "min_width", st.min_width)
+  insp_push_num(out, "min_height", st.min_height)
+  insp_push_num(out, "max_width", st.max_width)
+  insp_push_num(out, "max_height", st.max_height)
   // —— edge.：内外边距
-  insp_push_num(out, "edge.padding_top", st.padding_top)
-  insp_push_num(out, "edge.padding_right", st.padding_right)
-  insp_push_num(out, "edge.padding_bottom", st.padding_bottom)
-  insp_push_num(out, "edge.padding_left", st.padding_left)
-  insp_push_num(out, "edge.margin_top", st.margin_top)
-  insp_push_num(out, "edge.margin_right", st.margin_right)
-  insp_push_num(out, "edge.margin_bottom", st.margin_bottom)
-  insp_push_num(out, "edge.margin_left", st.margin_left)
+  insp_push_num(out, "padding_top", st.padding_top)
+  insp_push_num(out, "padding_right", st.padding_right)
+  insp_push_num(out, "padding_bottom", st.padding_bottom)
+  insp_push_num(out, "padding_left", st.padding_left)
+  insp_push_num(out, "margin_top", st.margin_top)
+  insp_push_num(out, "margin_right", st.margin_right)
+  insp_push_num(out, "margin_bottom", st.margin_bottom)
+  insp_push_num(out, "margin_left", st.margin_left)
   // —— border.：边框与圆角
-  insp_push_num(out, "border.width", st.border_width)
+  insp_push_num(out, "border_width", st.border_width)
   match st.border_color {
-    Some(c) => out.push(("border.color", @style.resolve_color(c)))
+    Some(c) => out.push(("border_color", @style.resolve_color(c)))
     None => ()
   }
-  insp_push_num(out, "border.radius", st.border_radius)
+  insp_push_num(out, "border_radius", st.border_radius)
   match st.border_style {
-    Some(b) => out.push(("border.style", insp_border_style_name(b)))
+    Some(b) => out.push(("border_style", insp_border_style_name(b)))
     None => ()
   }
-  insp_push_num(out, "border.top_left_radius", st.border_top_left_radius)
-  insp_push_num(out, "border.top_right_radius", st.border_top_right_radius)
+  insp_push_num(out, "border_top_left_radius", st.border_top_left_radius)
+  insp_push_num(out, "border_top_right_radius", st.border_top_right_radius)
   insp_push_num(
     out,
-    "border.bottom_right_radius",
+    "border_bottom_right_radius",
     st.border_bottom_right_radius,
   )
-  insp_push_num(out, "border.bottom_left_radius", st.border_bottom_left_radius)
-  insp_push_num(out, "border.top_width", st.border_top_width)
+  insp_push_num(out, "border_bottom_left_radius", st.border_bottom_left_radius)
+  insp_push_num(out, "border_top_width", st.border_top_width)
   match st.border_top_color {
-    Some(c) => out.push(("border.top_color", @style.resolve_color(c)))
+    Some(c) => out.push(("border_top_color", @style.resolve_color(c)))
     None => ()
   }
-  insp_push_num(out, "border.right_width", st.border_right_width)
+  insp_push_num(out, "border_right_width", st.border_right_width)
   match st.border_right_color {
-    Some(c) => out.push(("border.right_color", @style.resolve_color(c)))
+    Some(c) => out.push(("border_right_color", @style.resolve_color(c)))
     None => ()
   }
-  insp_push_num(out, "border.bottom_width", st.border_bottom_width)
+  insp_push_num(out, "border_bottom_width", st.border_bottom_width)
   match st.border_bottom_color {
-    Some(c) => out.push(("border.bottom_color", @style.resolve_color(c)))
+    Some(c) => out.push(("border_bottom_color", @style.resolve_color(c)))
     None => ()
   }
-  insp_push_num(out, "border.left_width", st.border_left_width)
+  insp_push_num(out, "border_left_width", st.border_left_width)
   match st.border_left_color {
-    Some(c) => out.push(("border.left_color", @style.resolve_color(c)))
+    Some(c) => out.push(("border_left_color", @style.resolve_color(c)))
     None => ()
   }
   // —— flex.：布局
   match st.display {
-    Some(d) => out.push(("flex.display", insp_display_name(d)))
+    Some(d) => out.push(("display", insp_display_name(d)))
     None => ()
   }
   match st.direction {
-    Some(d) => out.push(("flex.direction", insp_direction_name(d)))
+    Some(d) => out.push(("direction", insp_direction_name(d)))
     None => ()
   }
   match st.flex_direction {
-    Some(d) => out.push(("flex.flex_direction", insp_flexdir_name(d)))
+    Some(d) => out.push(("flex_direction", insp_flexdir_name(d)))
     None => ()
   }
   match st.flex_wrap {
-    Some(w) => out.push(("flex.wrap", insp_wrap_name(w)))
+    Some(w) => out.push(("flex_wrap", insp_wrap_name(w)))
     None => ()
   }
   match st.justify_content {
-    Some(j) => out.push(("flex.justify_content", insp_justify_name(j)))
+    Some(j) => out.push(("justify_content", insp_justify_name(j)))
     None => ()
   }
   match st.align_items {
-    Some(a) => out.push(("flex.align_items", insp_align_items_name(a)))
+    Some(a) => out.push(("align_items", insp_align_items_name(a)))
     None => ()
   }
   match st.align_self {
-    Some(a) => out.push(("flex.align_self", insp_align_items_name(a)))
+    Some(a) => out.push(("align_self", insp_align_items_name(a)))
     None => ()
   }
-  insp_push_num(out, "flex.grow", st.flex)
-  insp_push_num(out, "flex.shrink", st.flex_shrink)
-  insp_push_num(out, "flex.basis", st.flex_basis)
-  insp_push_pct(out, "flex.basis_percent", st.flex_basis_percent)
-  insp_push_num(out, "flex.row_gap", st.row_gap)
-  insp_push_num(out, "flex.column_gap", st.column_gap)
+  insp_push_num(out, "flex", st.flex)
+  insp_push_num(out, "flex_shrink", st.flex_shrink)
+  insp_push_num(out, "flex_basis", st.flex_basis)
+  insp_push_pct(out, "flex_basis_percent", st.flex_basis_percent)
+  insp_push_num(out, "row_gap", st.row_gap)
+  insp_push_num(out, "column_gap", st.column_gap)
   // —— pos.：定位与层级
   match st.position {
-    Some(p) => out.push(("pos.position", insp_position_name(p)))
+    Some(p) => out.push(("position", insp_position_name(p)))
     None => ()
   }
-  insp_push_num(out, "pos.top", st.top)
-  insp_push_num(out, "pos.right", st.right)
-  insp_push_num(out, "pos.bottom", st.bottom)
-  insp_push_num(out, "pos.left", st.left)
+  insp_push_num(out, "top", st.top)
+  insp_push_num(out, "right", st.right)
+  insp_push_num(out, "bottom", st.bottom)
+  insp_push_num(out, "left", st.left)
   match st.z_index {
-    Some(z) => out.push(("pos.z_index", z.to_string()))
+    Some(z) => out.push(("z_index", z.to_string()))
     None => ()
   }
-  insp_push_num(out, "pos.opacity", st.opacity)
-  insp_push_num(out, "pos.transition_ms", st.transition_ms)
+  insp_push_num(out, "opacity", st.opacity)
+  insp_push_num(out, "transition_ms", st.transition_ms)
   // —— misc.：其它
   match st.visibility {
-    Some(v) => out.push(("misc.visibility", insp_visibility_name(v)))
+    Some(v) => out.push(("visibility", insp_visibility_name(v)))
     None => ()
   }
   match st.cursor {
-    Some(c) => out.push(("misc.cursor", c.to_string()))
+    Some(c) => out.push(("cursor", c.to_string()))
     None => ()
   }
   match st.background_gradient {
-    Some(g) => out.push(("misc.gradient", insp_gradient_text(g)))
+    Some(g) => out.push(("background_gradient", insp_gradient_text(g)))
     None => ()
   }
   match st.blend_mode {
-    Some(b) => out.push(("misc.blend_mode", insp_blend_name(b)))
+    Some(b) => out.push(("blend_mode", insp_blend_name(b)))
     None => ()
   }
   out

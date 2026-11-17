@@ -271,25 +271,6 @@ fn insp_detail_items(r : InspRow) -> Array[(String, String)] {
 }
 
 ///|
-/// 样式字段分组名（字段名点分前缀 → 组标题）。
-fn insp_group_of(field : String) -> String {
-  let mut pre = ""
-  for part in field.split(".") {
-    pre = part.to_owned()
-    break
-  }
-  match pre {
-    "text" => "文字"
-    "box" => "尺寸"
-    "edge" => "内外边距"
-    "border" => "边框圆角"
-    "flex" => "布局"
-    "pos" => "定位层级"
-    _ => "其它"
-  }
-}
-
-///|
 /// 解析 style 响应（`field\tvalue` 行；# 列头跳过）。
 fn insp_parse_style(s : String) -> Array[(String, String)] {
   let out : Array[(String, String)] = []
@@ -328,25 +309,16 @@ fn insp_form_values(fields : Array[(String, String)]) -> Array[String] {
 }
 
 ///|
-/// 样式全量文本（已解析字段）：其余按组归档（组标题行 + 缩进行）。
+/// 样式全量文本（已解析字段）：表单五字段之外原样平铺（与附窗同口径，
+/// 字段名即 @style.Style 字段本名）。
 fn insp_style_text(fields : Array[(String, String)]) -> String {
   let b = StringBuilder()
   b.write_string("全部已设字段\n")
-  let groups = ["文字", "尺寸", "内外边距", "边框圆角", "布局", "定位层级", "其它"]
-  for g in groups {
-    let mut head = false
-    for f in fields {
-      if insp_form_fields.contains(f.0) {
-        continue
-      }
-      if insp_group_of(f.0) == g {
-        if !head {
-          b.write_string(g + "\n")
-          head = true
-        }
-        b.write_string("  \{f.0} = \{f.1}\n")
-      }
+  for f in fields {
+    if insp_form_fields.contains(f.0) {
+      continue
     }
+    b.write_string("  \{f.0} = \{f.1}\n")
   }
   b.to_string()
 }
