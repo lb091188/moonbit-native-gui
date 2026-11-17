@@ -118,3 +118,46 @@ test "inspect_handle：highlight 参数校验与无帧档" {
   // 0 = 取消，不需要帧
   assert_true(inspect_handle("highlight 0").has_prefix("ok highlight off"))
 }
+
+///|
+test "insp_tree_walk：组件视图收模板件藏内部件，子件挂回最近已收祖先" {
+  // 根（无标记，组件子树之外 → 收）
+  let root = @widget.Widget::new()
+  // 模板组件：comp 非空 → 收；其内部件（无标记）藏；内部件下的模板文本收且挂回组件
+  let stepper = @widget.Widget::new()
+  stepper.comp = "ui-stepper"
+  stepper.kind = "ui-stepper"
+  let inner_row = @widget.Widget::new()
+  let minus_w = @widget.Widget::new()
+  @widget.mount_children(inner_row, [@widget.node_of(minus_w)])
+  let label = @widget.Widget::new()
+  label.comp = "ui-text"
+  label.kind = "ui-text"
+  @widget.mount_children(
+    stepper,
+    [@widget.node_of(inner_row), @widget.node_of(label)],
+  )
+  @widget.mount_children(root, [@widget.node_of(stepper)])
+  let out : Array[@widget.A11yNode] = []
+  insp_tree_walk(root, 0, false, false, out)
+  // 组件视图：root、stepper、label 三行；inner_row/minus 藏
+  assert_eq(out.length(), 3)
+  assert_eq(out[0].id, root.id)
+  assert_eq(out[0].parent, 0)
+  assert_eq(out[1].id, stepper.id)
+  assert_eq(out[1].parent, root.id)
+  // label 的父挂回 stepper（inner_row 被藏，不占 parent 链）
+  assert_eq(out[2].id, label.id)
+  assert_eq(out[2].parent, stepper.id)
+  // 全量档：五件全在，父子链保持真实
+  let all : Array[@widget.A11yNode] = []
+  insp_tree_walk(root, 0, false, true, all)
+  assert_eq(all.length(), 5)
+  let mut minus_parent = 0
+  for n in all {
+    if n.id == minus_w.id {
+      minus_parent = n.parent
+    }
+  }
+  assert_eq(minus_parent, inner_row.id)
+}

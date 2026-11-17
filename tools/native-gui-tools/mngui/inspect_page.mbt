@@ -34,6 +34,8 @@ struct InspPage {
   styles : @base.Store[String]
   status : @base.Store[String]
   auto : @base.Store[Bool]
+  /// 树视图档：false 组件视图（每个模板标签一行）/ true 全量（组件内部实现件也在）
+  full : @base.Store[Bool]
   mut last_rows : Array[InspRow]
   /// 上一份 tree 响应原文：没变不重建表（避免每秒整表重排）
   mut last_tree_text : String
@@ -47,6 +49,8 @@ struct InspPage {
   mut tick_tree : Int
   /// 距上次选中样式重读的拍数
   mut tick_style : Int
+  /// 最近一次发出的树视图档（切换后强制重拉）
+  mut tree_full_sent : Bool
 }
 
 ///|
@@ -419,6 +423,12 @@ fn insp_tick(p : InspPage) -> Unit {
   if p.app_id.length() == 0 {
     return // 没应用 id：只显示用法提示，不发网络请求
   }
+  // 视图档切换：清缓存并立即重拉树
+  if p.full.get() != p.tree_full_sent {
+    p.tree_full_sent = p.full.get()
+    p.tick_tree = INSP_TREE_TICKS
+    p.last_tree_text = ""
+  }
   p.tick_tree += 1
   if p.cur_id != 0 {
     p.tick_style += 1
@@ -457,7 +467,8 @@ fn insp_tick(p : InspPage) -> Unit {
     }
   } else if p.auto.get() && p.tick_tree >= INSP_TREE_TICKS {
     p.tick_tree = 0
-    match @insp.call_begin(p.app_id, "tree") {
+    let req = if p.full.get() { "tree --full" } else { "tree" }
+    match @insp.call_begin(p.app_id, req) {
       Ok(_) => p.busy = 1
       Err(e) => p.status.set("未连接：" + e)
     }
@@ -507,6 +518,7 @@ pub fn run_inspector(app_id : String) -> Unit {
       },
     ),
     auto: @base.Store::new(true),
+    full: @base.Store::new(false),
     last_rows: [],
     last_tree_text: "",
     cur_id: 0,
@@ -514,6 +526,7 @@ pub fn run_inspector(app_id : String) -> Unit {
     want_select: 0,
     tick_tree: INSP_TREE_TICKS,
     tick_style: 0,
+    tree_full_sent: false,
   }
   let cols : Array[@ui.TableColumn] = [
     @ui.TableColumn::make("控件", 0.0, sortable=false),
@@ -555,6 +568,11 @@ pub fn run_inspector(app_id : String) -> Unit {
         p.auto,
         on_text="自动刷新",
         off_text="自动刷新",
+      ),
+      @ui.switch(
+        p.full,
+        on_text="内部实现",
+        off_text="内部实现",
       ),
       @ui.bind_label(p.status, fn(s) { s }),
     ],

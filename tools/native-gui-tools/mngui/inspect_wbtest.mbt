@@ -114,6 +114,7 @@ fn insp_test_page() -> InspPage {
     styles: @base.Store::new(""),
     status: @base.Store::new(""),
     auto: @base.Store::new(true),
+    full: @base.Store::new(false),
     last_rows: [],
     last_tree_text: "",
     cur_id: 0,
@@ -121,6 +122,7 @@ fn insp_test_page() -> InspPage {
     want_select: 0,
     tick_tree: 0,
     tick_style: 0,
+    tree_full_sent: false,
   }
 }
 

@@ -4,12 +4,20 @@ The built-in read-only inspection channel: view the widget tree, read effective 
 
 ## Component type name (kind)
 
-Every widget carries a component type name at construction (e.g. `Button`, `Table`, `CodeEditor`), shown in the inspector's tree table, detail rows and the `tree` command. `kind` and the screen-reader `role` have separate jobs:
+Every widget carries a component type name at construction, unified with .mng template tags (kebab-case, e.g. `ui-input`, `ui-table`; widgets without a template tag get the same-style `ui-` prefix). The inspector's tree table, detail rows and the `tree` command all show it. `kind` and the screen-reader `role` have separate jobs:
 
 - `role`: closed enumeration for screen readers (`button`, `text_input`, ...).
-- `kind`: open-string component type name for humans and AI — "what widget is this".
+- `kind`: open-string component type name for humans and AI — "what widget is this"; the name is exactly the tag written in the template.
 
-Wrapper layers and dynamic trees can override it with `with_kind("Name")`.
+Wrapper layers and dynamic trees can override it with `with_kind("Name")`; mngkit injects `with_comp("tag")` at every template tag call site — it sets the type name and leaves a component mark, which the inspector component view and the screen-reader component group nodes rely on.
+
+## Component view
+
+The tree is organized as "one component is one component" by default:
+
+- One row per tag written in the template (built-ins and custom components alike — a custom component is one row too; its internal implementation widgets take no rows).
+- Pure MoonBit apps carry no component marks, so their trees stay full.
+- To see inside a component: toggle "internal" in the graphical inspector, or use `tree --full`.
 
 ## Embedded panel
 
@@ -17,7 +25,7 @@ Import `gui/inspector` on demand and drop `inspector_panel()` into any page:
 
 - Widget tree table: indented by parent chain, row label "Kind·role「name」 #id"; click a row for detail readings (id/parent/kind/role/name/state/value/text/enabled/rect).
 - Style classes tab: lists registered classes; edit five fields (background/text/border color/border width/corner radius), applied next frame; "restore" reverts.
-- Manual or auto refresh (500ms default); tree data comes from the frame-end semantic snapshot — the same one screen readers use.
+- Manual or auto refresh (500ms default); tree data walks the last presented frame's widget tree in the component view.
 
 ## Service (MNG_INSPECT injection)
 
@@ -31,7 +39,7 @@ Five commands — one-line request, TSV-lines response (256KB cap; over-long res
 
 | Command | Response |
 |---|---|
-| `tree` | Full-tree dump, one widget per line; header row first, columns kind/role/name/id/parent/x/y/w/h/state/value/text/enabled |
+| `tree [--full]` | Full-tree dump, one widget per line; component view by default (one row per template tag, internal implementation widgets take no rows and their children re-attach to the nearest kept ancestor), `--full` lists everything; header row first, columns kind/role/name/id/parent/x/y/w/h/state/value/text/enabled |
 | `style <id>` | Effective style for the id: the first five rows are the style-editor fields (background/color/border_color/border_width/border_radius), followed by **every set field** with a group prefix (text./box./edge./border./flex./pos./misc., e.g. `text.font_size`, `flex.flex_direction`) |
 | `select <id>` | Same readings as `style <id>` plus highlighting that widget in the target app (for the GUI inspector's row click: both in one round trip) |
 | `highlight <id>` | Highlights that widget in the target app (light-blue translucent fill + outline, Chrome-DevTools-like); `highlight 0` clears. The overlay is hit-transparent and stays out of the semantic tree |
@@ -60,7 +68,7 @@ mng inspect --gui --app libyue.hello
 mngui --inspect --app libyue.hello   # running mngui directly also works
 ```
 
-- Left pane: indented widget tree (Kind·role「name」 #id), click to select, ~1s auto-refresh (fetched asynchronously; the UI thread never blocks; the table is not rebuilt when the tree is unchanged).
+- Left pane: indented widget tree (Kind·role「name」 #id) in the component view, with an "internal" toolbar toggle for the full view; click to select, ~1s auto-refresh (fetched asynchronously; the UI thread never blocks; the table is not rebuilt when the tree is unchanged).
 - Right pane: detail readings for the selected row (id/parent/kind/role/name/state/value/text/rect/enabled) plus the full style field set grouped (editor five first, then text/size/edges/border/flex/position/misc).
 - Select-to-highlight: a highlight overlay is drawn live on the target app window and follows layout changes; closing the window clears it.
 - If the app is not running or not injected, the status bar shows "not connected" and reconnects automatically.
@@ -78,7 +86,7 @@ Point your AI client at `mng mcp` as an MCP server; three tools:
 
 | Tool | Params | Purpose |
 |---|---|---|
-| `inspector_tree` | none | Read the widget tree (same as `tree`) |
+| `inspector_tree` | none | Read the widget tree (component view, same as default `tree`) |
 | `inspector_style` | `id` integer | Read the five style fields |
 | `inspector_shot` | `path` optional, `full` optional | Save a screenshot, reply carries the path (no binary in the conversation); `full=true` repaints the whole page content |
 

@@ -4,12 +4,20 @@
 
 ## 组件类型名 kind
 
-每个控件构造时自带一个组件类型名（如 `Button`、`Table`、`CodeEditor`），inspector 的树表、详情与 `tree` 命令都显示它。`kind` 与读屏的 `role` 分工：
+每个控件构造时自带一个组件类型名，与 .mng 模板标签统一（kebab-case，如 `ui-input`、`ui-table`；无模板标签的控件同风格补 `ui-` 前缀）。inspector 的树表、详情与 `tree` 命令都显示它。`kind` 与读屏的 `role` 分工：
 
 - `role`：读屏封闭枚举（`button`、`text_input` 这类小写语义名），面向读屏器。
-- `kind`：开放字符串组件类型名，面向人与 AI 的「这是什么控件」。
+- `kind`：开放字符串组件类型名，面向人与 AI 的「这是什么控件」，名字就是模板里写的标签。
 
-包装层与动态建树可用 `with_kind("名字")` 覆盖。
+包装层与动态建树可用 `with_kind("名字")` 覆盖；mngkit 在每个模板标签调用点注入 `with_comp("标签")`——它同时定类型名并留组件标记，检查器组件视图与读屏组件组节点认这个标记。
+
+## 组件视图
+
+树默认按「一个组件就是一个组件」组织：
+
+- 模板里写出的每个标签一行（内置组件与自定义组件同口径，自定义组件也是一行，内部实现件不占行）。
+- 纯 MoonBit 应用没有组件标记，树保持全量。
+- 要看组件内部实现：图形检查器开「内部实现」开关，或 `tree --full`。
 
 ## 内嵌面板
 
@@ -17,7 +25,7 @@
 
 - 控件树表：按父链缩进，行文本是「类型名·角色「名」 #id」，点行看详情读数（id/父/类型名/角色/名/状态/值/正文/启用/矩形）。
 - 样式类页签：列注册类，改五字段（背景/文字/边框色/边框宽/圆角）应用后下一帧生效，「还原此类」回原样。
-- 刷新手动或自动（默认 500ms），树数据吃帧尾语义快照，与读屏同一份。
+- 刷新手动或自动（默认 500ms），树数据走最近上屏帧的控件树，组件视图口径。
 
 ## 服务（MNG_INSPECT 注入式）
 
@@ -31,7 +39,7 @@
 
 | 命令 | 响应 |
 |---|---|
-| `tree` | 整树 dump，一行一控件；首行列头，列序 kind/role/name/id/parent/x/y/w/h/state/value/text/enabled |
+| `tree [--full]` | 整树 dump，一行一控件；缺省组件视图（每个模板标签一行，组件内部实现件不占行，其子件挂回最近已收祖先），`--full` 全量；首行列头，列序 kind/role/name/id/parent/x/y/w/h/state/value/text/enabled |
 | `style <id>` | 按 id 读生效样式：前五行是样式编辑器口径的五字段（background/color/border_color/border_width/border_radius），随后是**全部已设字段**（带分组前缀：text./box./edge./border./flex./pos./misc.，如 `text.font_size`、`flex.flex_direction`） |
 | `select <id>` | `style <id>` 的读数 + 同时在目标应用上高亮该控件（GUI 检查器点行专用，一次往返完成两件事） |
 | `highlight <id>` | 在目标应用上高亮该控件（淡蓝半透明填充 + 描边，Chrome DevTools 同款观感）；`highlight 0` 取消。高亮框命中穿透、不进语义树 |
@@ -60,7 +68,7 @@ mng inspect --gui --app libyue.hello
 mngui --inspect --app libyue.hello   # 裸跑 mngui 亦可
 ```
 
-- 左栏：缩进控件树（类型名·角色「名」 #id），点击选中，约 1s 自动刷新（异步取数，界面线程不阻塞；树没变不重建表）。
+- 左栏：缩进控件树（类型名·角色「名」 #id），组件视图口径，工具栏「内部实现」开关切换全量档，点击选中，约 1s 自动刷新（异步取数，界面线程不阻塞；树没变不重建表）。
 - 右栏：选中行详情读数（id/parent/kind/role/name/state/value/text/rect/enabled）+ 样式全量字段按组展示（编辑器五字段在前，随后文字/尺寸/内外边距/边框圆角/布局/定位层级/其它七组）。
 - 选中即高亮：目标应用窗口上同步画出高亮框，位置随布局实时跟随；关窗自动取消高亮。
 - 应用没起或没注入时状态栏报「未连接」，起好后自动接上（轮询重试）。
@@ -78,7 +86,7 @@ AI 客户端把 `mng mcp` 配成 MCP server 即可，三工具：
 
 | 工具 | 参数 | 作用 |
 |---|---|---|
-| `inspector_tree` | 无 | 读控件树（同 `tree`） |
+| `inspector_tree` | 无 | 读控件树（组件视图，同 `tree` 缺省档） |
 | `inspector_style` | `id` 整数 | 读样式五字段 |
 | `inspector_shot` | `path` 可选、`full` 可选 | 截图落盘，回执带路径（二进制不进对话）；`full=true` 整页内容重画 |
 

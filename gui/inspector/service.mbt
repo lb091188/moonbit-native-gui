@@ -256,17 +256,68 @@ fn insp_truncate(s : String, cap : Int32) -> String {
 // ---- 取数口（面板与 dump 共用同一份） ----
 
 ///|
-/// 当前树快照（统一取数口）：面板刷新与 `tree` 命令都走这里——面板不再
-/// 直读全局快照，dump 与面板看到的是同一份数据。
-pub fn insp_tree_snapshot() -> Array[@widget.A11yNode] {
-  @widget.a11y_last_frame()
+/// 控件树收集：默认组件视图——只收模板标签产出的件（`comp` 非空）与
+/// 组件子树之外的件；组件内部实现件不占行，其子件挂回最近已收祖先。
+/// `full` 全量收。隐藏子树与命中穿透层不收。
+fn insp_tree_walk(
+  w : @widget.Widget,
+  shown_parent : Int32,
+  in_comp : Bool,
+  full : Bool,
+  out : Array[@widget.A11yNode],
+) -> Unit {
+  if !w.visible || w.hit_pass_through {
+    return
+  }
+  let keep = full || !in_comp || w.comp != ""
+  if keep {
+    let (state, value) = match w.a11y_state_now() {
+      Some(p) => p
+      None => ("", "")
+    }
+    out.push({
+      id: w.id,
+      parent: shown_parent,
+      role: w.role,
+      kind: w.kind,
+      name: w.name,
+      state,
+      value,
+      text: match w.a11y_text_now() {
+        Some(s) => s
+        None => ""
+      },
+      enabled: w.enabled,
+      x: w.rect.x,
+      y: w.rect.y,
+      w: w.rect.w,
+      h: w.rect.h,
+    })
+  }
+  let kid_parent = if keep { w.id } else { shown_parent }
+  for k in w.kids {
+    insp_tree_walk(k, kid_parent, in_comp || w.comp != "", full, out)
+  }
+}
+
+///|
+/// 当前树快照（统一取数口）：直走最近上屏帧的控件树。面板刷新与 `tree`
+/// 命令都走这里——dump 与面板看到的是同一份数据；`full` 为组件子树
+/// 全量档（`tree --full`）。
+pub fn insp_tree_snapshot(full~ : Bool = false) -> Array[@widget.A11yNode] {
+  let out : Array[@widget.A11yNode] = []
+  match @widget.last_frame_root() {
+    Some(root) => insp_tree_walk(root, 0, false, full, out)
+    None => ()
+  }
+  out
 }
 
 // ---- 命令处理 ----
 
 ///|
-/// 请求分发：`tree` / `style <id>` / `select <id>` / `highlight <id>` /
-/// `shot [路径]`。未知命令回一行 error。
+/// 请求分发：`tree [--full]` / `style <id>` / `select <id>` /
+/// `highlight <id>` / `shot [路径]`。未知命令回一行 error。
 pub fn inspect_handle(req : String) -> String {
   let line = req.trim().to_owned()
   let words : Array[String] = []
@@ -278,7 +329,7 @@ pub fn inspect_handle(req : String) -> String {
   }
   let cmd = if words.length() > 0 { words[0] } else { "" }
   if cmd == "tree" {
-    insp_tree_dump()
+    insp_tree_dump(full=words.contains("--full"))
   } else if cmd == "style" {
     match words.get(1) {
       Some(w) =>
@@ -355,12 +406,13 @@ fn parse_insp_int(s : String) -> Int32? {
 ///|
 /// `tree`：整树 dump，一行一控件。首行列头（# 开头），列序
 /// kind/role/name/id/parent/x/y/w/h/state/value/text/enabled。
-pub fn insp_tree_dump() -> String {
+/// 默认组件视图（每个模板标签一行），`full` 全量（组件内部实现件也在）。
+pub fn insp_tree_dump(full~ : Bool = false) -> String {
   let sb = StringBuilder()
   sb.write_string(
     "#kind\trole\tname\tid\tparent\tx\ty\tw\th\tstate\tvalue\ttext\tenabled\n",
   )
-  for n in insp_tree_snapshot() {
+  for n in insp_tree_snapshot(full~) {
     sb.write_string(n.kind)
     sb.write_string("\t")
     sb.write_string(n.role)
@@ -397,7 +449,8 @@ pub fn insp_tree_dump() -> String {
 /// id 不在当前树快照里回 error 行。
 pub fn insp_style_dump(id : Int32) -> String {
   let mut found = false
-  for n in insp_tree_snapshot() {
+  // id 寻址不看视图档：组件视图藏掉的内部件同样能读样式
+  for n in insp_tree_snapshot(full=true) {
     if n.id == id {
       found = true
     }
@@ -585,9 +638,9 @@ pub fn insp_highlight(id : Int32) -> String {
     }
     return "ok highlight off\n"
   }
-  // 先核目标在树里（快照口径与 tree 命令一致）
+  // 先核目标在树里（全量口径：内部件同样可高亮）
   let mut found = false
-  for n in insp_tree_snapshot() {
+  for n in insp_tree_snapshot(full=true) {
     if n.id == id {
       found = true
     }

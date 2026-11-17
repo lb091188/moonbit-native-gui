@@ -36,7 +36,7 @@ fn mcp_tools_list_json() -> String {
   let sb = StringBuilder()
   sb.write_string("{\"tools\":[")
   sb.write_string(
-    "{\"name\":\"inspector_tree\",\"description\":\"读取当前应用的控件树：一行一个控件，列序 kind/role/name/id/parent/x/y/w/h/state/value/text/enabled，首行是列头\",\"inputSchema\":\{tree_schema}}",
+    "{\"name\":\"inspector_tree\",\"description\":\"读取当前应用的控件树（组件视图：每个模板标签一行，内部实现件不占行）：一行一个控件，列序 kind/role/name/id/parent/x/y/w/h/state/value/text/enabled，首行是列头\",\"inputSchema\":\{tree_schema}}",
   )
   sb.write_string(",")
   sb.write_string(
