@@ -176,6 +176,9 @@ pub(all) struct A11yNode {
 let g_a11y_last : Ref[Array[A11yNode]] = Ref([])
 
 ///|
+/// 语义树遍历：无语义面的纯布局壳不进树，子节点挂回最近已收祖先；
+/// 组件根（`comp` 非空）没有角色时按 group 报、没名字时报组件名——
+/// 「一个组件就是一个组件」，读屏听到的是组件与控件，不是一串容器。
 fn a11y_walk(w : Widget, parent : Int32, out : Array[A11yNode]) -> Unit {
   if !w.visible {
     return
@@ -185,6 +188,21 @@ fn a11y_walk(w : Widget, parent : Int32, out : Array[A11yNode]) -> Unit {
   if w.hit_pass_through {
     return
   }
+  // 语义面：角色/名/组件标记/正文/状态值任一非空，或可点、可聚焦——
+  // 全空且不可交互的布局壳剪掉（浏览器无障碍树同口径）
+  let semantic = w.role != "" ||
+    w.name != "" ||
+    w.comp != "" ||
+    w.a11y_text_now() != None ||
+    w.a11y_state_now() != None ||
+    w.on_pointer is Some(_) ||
+    w.focus_id != 0
+  if !semantic {
+    for k in w.kids {
+      a11y_walk(k, parent, out)
+    }
+    return
+  }
   let (state, value) = match w.a11y_state_now() {
     Some(p) => p
     None => ("", "")
@@ -192,9 +210,9 @@ fn a11y_walk(w : Widget, parent : Int32, out : Array[A11yNode]) -> Unit {
   out.push({
     id: w.id,
     parent,
-    role: w.role,
+    role: if w.role == "" && w.comp != "" { "group" } else { w.role },
     kind: w.kind,
-    name: w.name,
+    name: if w.name == "" && w.comp != "" { w.comp } else { w.name },
     state,
     value,
     text: match w.a11y_text_now() {

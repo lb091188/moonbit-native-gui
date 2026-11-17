@@ -119,6 +119,8 @@ test "a11y：Node::a11y 包装器挂上两个回调" {
 ///|
 test "语义快照：帧尾对账产出角色/状态/文本，删控件不留幽灵" {
   let root = Widget::new()
+  // 语义容器根（真实窗根报 window，这里用 group 验层级 mechanics）
+  root.role = "group"
   let btn = Widget::new()
   btn.role = "button"
   btn.label = "确定"
@@ -163,6 +165,7 @@ test "语义快照：帧尾对账产出角色/状态/文本，删控件不留幽
 ///|
 test "语义快照：帧尾对账同时推到平台通道，行数与快照一致" {
   let root = Widget::new()
+  root.role = "group"
   let btn = Widget::new()
   btn.role = "button"
   btn.label = "确定"
@@ -172,6 +175,54 @@ test "语义快照：帧尾对账同时推到平台通道，行数与快照一�
   btn.visible = false
   assert_eq(a11y_frame_sync(root), 1)
   assert_eq(@win.a11y_published_count(), 1)
+}
+
+///|
+test "语义剪枝：纯布局壳不进树、子件挂回最近已收祖先，组件根按 group 报" {
+  let root = Widget::new()
+  root.role = "group"
+  // 纯布局壳：无角色/名/标记/正文/状态、不可点不可聚焦 → 剪
+  let shell = Widget::new()
+  let inside = Widget::new()
+  inside.role = "button"
+  inside.label = "藏在壳里的按钮"
+  shell.append_child(inside)
+  root.append_child(shell)
+  // 组件根：无角色但有 comp → 按 group 报、名字报组件名
+  let card = Widget::new()
+  card.comp = "MyCard"
+  let card_btn = Widget::new()
+  card_btn.role = "button"
+  card_btn.label = "卡片内按钮"
+  card.append_child(card_btn)
+  root.append_child(card)
+  // 可点的容器（on_pointer）算语义面，不剪
+  let clickable = Widget::new()
+  clickable.on_pointer = Some(fn(_w : Widget, _ev : PointerEvent) -> Bool {
+    true
+  })
+  root.append_child(clickable)
+  assert_eq(a11y_frame_sync(root), 5)
+  let snap = a11y_last_frame()
+  // 剪掉的壳不占行：inside 的父直接是 root
+  let mut inside_parent = 0
+  let mut card_row_role = ""
+  let mut card_row_name = ""
+  for n in snap {
+    if n.id == inside.id {
+      inside_parent = n.parent
+    }
+    if n.id == card.id {
+      card_row_role = n.role
+      card_row_name = n.name
+    }
+  }
+  assert_eq(inside_parent, root.id)
+  assert_eq(card_row_role, "group")
+  assert_eq(card_row_name, "MyCard")
+  // 可点容器与组件根都在行内；壳不在
+  assert_true(snap.exists(fn(n) { n.id == clickable.id }))
+  assert_true(!snap.exists(fn(n) { n.id == shell.id }))
 }
 
 ///|

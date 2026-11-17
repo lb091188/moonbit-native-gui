@@ -528,6 +528,8 @@ test "命中穿透：覆盖层不参与命中与语义树，下层照常收事�
   root.set_column()
   let target = Widget::new()
   target.kind = "Target"
+  // 语义面（真实按钮都带 role）：纯 kind 件按新口径不进语义树
+  target.role = "button"
   target.set_size(100.0, 100.0)
   root.append_child(target)
   let cover = Widget::new()

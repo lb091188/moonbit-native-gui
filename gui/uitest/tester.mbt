@@ -71,8 +71,9 @@ pub fn mount_all(
   height : Double,
 ) -> Tester {
   let root = @widget.Widget::new()
-  // 无头会话的根与真窗根同口径：组件类型名标 Window
+  // 无头会话的根与真窗根同口径：组件类型名标 Window、读屏报 window 角色
   root.kind = "Window"
+  root.role = "window"
   root.set_size(width, height)
   root.set_column()
   root.node.set_align_items(@yoga.AlignItems::FlexStart)

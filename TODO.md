@@ -206,12 +206,6 @@
 
 ## 开发待办
 
-- [ ] **组件树统一口径**：检查器树与读屏按「一个组件就是一个组件」组织
-  - 构造器默认 kind 改模板标签名（`Entry`→`ui-input`、`IconButton`→`ui-icon-button` 等，无模板标签的控件同风格补 `ui-` 前缀）；`{{ }}` 绑定文本按文本显示，不再出现 `Bind`。
-  - mngkit 给模板标签调用点注入组件标记（`Node::with_comp`，同时定 kind）；检查器树默认组件视图（每个标签一行、自定义组件一行），检查器窗加「显示内部实现」开关展开全部件，`tree` 命令分档。
-  - 读屏语义树剪掉无语义面的纯布局壳（子节点上提），组件根做组节点；平台桥零改动。
-  - 验证：门禁全绿即 🚧；真机 `mng inspect --gui` 连 hello 看组件视图与内部实现开关；读屏听组件组节点与剪枝后的控件序。
-
 - [ ] **检查器 GUI 工具**：mngui 加 --inspect 模式（仿 Chrome DevTools 的独立检查器窗），mng inspect --gui 纯 hop
   - 检查器工具：独立窗口连应用内的检查服务，看树、读数与样式；与 mngui 向导壳同一可执行，mng 二进制不链 GUI 库。
   - 入口：`mng inspect --gui [--app <id>]` → hop 到 `mngui --inspect [--app <id>]`；裸跑 `mngui --inspect` 亦可。

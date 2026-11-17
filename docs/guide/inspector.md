@@ -19,6 +19,8 @@ The tree is organized as "one component is one component" by default:
 - Pure MoonBit apps carry no component marks, so their trees stay full.
 - To see inside a component: toggle "internal" in the graphical inspector, or use `tree --full`.
 
+Screen readers follow the same rule: layout shells with no semantic surface (no role, no name, no component mark, no text, no state, not clickable, not focusable) stay out of the semantic tree and their children re-attach to the nearest semantic ancestor; component roots become group nodes (role `group`, named after the component tag) while their interactive controls and text stay reachable.
+
 ## Embedded panel
 
 Import `gui/inspector` on demand and drop `inspector_panel()` into any page:

@@ -249,6 +249,9 @@ fn app_window(
     Some(session) => {
       let root = Widget::new()
       root.kind = "Window"
+      // 窗根是读屏的窗锚点：报 window 角色、名字是窗题
+      root.role = "window"
+      root.name = title
       // 窗根是竖排容器：页面顶层元素缺省撑满窗宽、高度按内容，要占满剩余
       // 高度给 grow=1.0——与 web 块级布局同口径
       root.node.set_flex_direction(@yoga.Column)
@@ -295,6 +298,7 @@ fn app_window(
 pub fn test_app(s : @shell.Session) -> WindowHost {
   let root = Widget::new()
   root.kind = "Window"
+  root.role = "window"
   root.node.set_flex_direction(@yoga.Column)
   {
     session: s,
