@@ -97,7 +97,9 @@ fn main_mbt_tpl(mod_name : String) -> String {
   let head = head +
     "  // 检查服务接线：MNG_INSPECT 注入才启用（mng dev 自动注入），\n"
   let head = head +
-    "  // 生产未注入时泵空转零监听；F12/⌘⌥I 附窗开关也由它装\n"
+    "  // 生产未注入时泵空转零监听；F12/⌘⌥I 附窗开关也由它装。\n"
+  let head = head +
+    "  // release 要产物级剔除：删本行并去掉主包 moon.pkg 的 inspector import\n"
   let head = head + "  @inspector.inspect_auto_install()\n"
   let head = head + "  let app = match @ui.mount_window(\n"
   let head = head + "    [@pages.home()],\n"
