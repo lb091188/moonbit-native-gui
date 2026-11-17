@@ -24,6 +24,7 @@ fn vis_app() -> WindowHost {
     remember_id: "",
     painted_once: false,
     first_retry_left: 0,
+    frame_untracked: false,
   }
 }
 

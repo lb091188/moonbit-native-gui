@@ -65,6 +65,8 @@ If the app is not running or not injected, you get "cannot connect to the inspec
 
 Apps wired with `inspect_auto_install()` (the `mng new` template already has it) also get an inspector-shortcut hook: with focus on the app window, press the inspector shortcut to open the attached window, press again to close (clearing the target highlight; closing via the title bar also lets the next press reopen). The shortcut is platform-specific — **⌘⌥I (Cmd+Option+I) on macOS** (the browser-inspector convention; F12 also works for external keyboards), **F12 on Windows/Linux**. The attached window calls the in-app inspection service directly (same process, no socket); layout and interactions match the graphical inspector window: draggable split panes, component view + "internal" toggle, description-list details, and the editable five-field style form writing the selected widget. Apps without `MNG_INSPECT` ignore the shortcut.
 
+The attached window inspects the window that received the shortcut — active window first, falling back to the first window when none is active; in multi-window apps, closing the triggering window closes the attached window with it. The attached window itself never enters the inspector's data plane (tree, style, highlight and screenshots are all anchored to the triggering window), so the inspector never ends up inspecting itself.
+
 The key hook is a process-level channel after the window-level key fallthrough (`@widget.add_app_key_hook`) — service components can install app-level shortcuts without holding a window handle.
 
 ## mng inspect --gui (graphical inspector)

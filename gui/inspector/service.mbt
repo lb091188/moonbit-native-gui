@@ -327,7 +327,8 @@ fn insp_tree_walk(
 }
 
 ///|
-/// 当前树快照（统一取数口）：直走最近上屏帧的控件树。面板刷新与 `tree`
+/// 当前树快照（统一取数口）：直走检查目标窗的控件树——附窗开着锁触发窗
+/// （`@widget.inspect_target_set`），否则最近上屏帧。面板刷新与 `tree`
 /// 命令都走这里——dump 与面板看到的是同一份数据；`full` 为组件子树
 /// 全量档（`tree --full`）。
 pub fn insp_tree_snapshot(full~ : Bool = false) -> Array[@widget.A11yNode] {

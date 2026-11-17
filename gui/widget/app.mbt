@@ -55,6 +55,9 @@ pub(all) struct WindowHost {
   mut painted_once : Bool
   /// 首帧兜底重绘剩余排期（>0 表示已排过，防止每次 mount 重复排）。
   mut first_retry_left : Int32
+  /// 这扇窗不进「最近帧」登记（检查器附窗这类取数工具窗：自己是查别人的
+  /// 工具，不是被查对象，上屏不该顶掉最近帧）。
+  mut frame_untracked : Bool
 }
 
 ///|
@@ -275,6 +278,7 @@ fn app_window(
         remember_id: "",
         painted_once: false,
         first_retry_left: 0,
+        frame_untracked: false,
       }
       // 缺省底色：宿主先铺一层主题页面色，最小示例不必自己写 on_draw 才有背景
       // （要别的底色/图案照常覆盖 root.on_draw 即可）；背景透视开着时本底让位——
@@ -321,6 +325,7 @@ pub fn test_app(s : @shell.Session) -> WindowHost {
     painted_once: false,
     first_retry_left: 0,
     page_fill: true,
+    frame_untracked: false,
   }
 }
 
@@ -1354,9 +1359,7 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   self.session.window.present(bm.data, bm.width, bm.height)
   // 最近一帧位图登记（inspector shot 用）：canvas 是按窗复用的缓冲，present
   // 后内容就是本帧完整体，进程级记引用即可（只读，不改写）
-  g_last_frame_bitmap.val = Some(bm)
-  g_last_frame_title.val = self.session.window.title()
-  g_last_frame_root.val = Some(self.root)
+  self.frame_register(bm)
   // present 成功只计「提交过一帧」（诊断用）：帧是否真落屏要等平台映射，
   // 首帧兜底的收口在三拍计时器里，不在这里提前缴械。
   self.painted_once = true
@@ -1379,16 +1382,61 @@ let g_last_frame_title : Ref[String] = Ref("")
 let g_last_frame_root : Ref[Widget?] = Ref(None)
 
 ///|
-/// 最近上屏一帧的位图与窗口标题（没上过帧给 None）。返回的是复用缓冲的
-/// 引用，只读——要落盘请走 `@render.png_write_bitmap`。
-pub fn last_frame_bitmap() -> (@render.Bitmap?, String) {
-  (g_last_frame_bitmap.val, g_last_frame_title.val)
+/// 取数指定窗（检查器附窗登记的触发窗）：设了之后 last_frame_* 读这扇的
+/// 现役帧，不再看「最后 present 的那扇」——附窗与目标窗同进程，附窗自己
+/// 上屏会把最近帧顶掉。目标窗关了或置 None 回落最近帧登记。
+let g_inspect_target : Ref[WindowHost?] = Ref(None)
+
+///|
+/// 登记取数指定窗：检查器附窗开着时锁触发窗，关附窗置 None 还原。
+pub fn inspect_target_set(h : WindowHost?) -> Unit {
+  g_inspect_target.val = h
 }
 
 ///|
-/// 最近上屏一帧的窗口根控件（整页重画用；没上过帧给 None）。
+/// 取数窗裁决：指定窗还活着回指定窗，否则 None（调用方回落最近帧登记）。
+fn inspect_target_alive() -> WindowHost? {
+  match g_inspect_target.val {
+    Some(h) => if h.is_running() {
+      Some(h)
+    } else {
+      None
+    }
+    None => None
+  }
+}
+
+///|
+/// 帧尾登记：本帧位图/窗题/根控件记进「最近帧」（inspector 取数用）。
+/// `frame_untracked` 的窗跳过——附窗这类取数工具窗上屏不顶掉最近帧。
+fn WindowHost::frame_register(self : WindowHost, bm : @render.Bitmap) -> Unit {
+  if self.frame_untracked {
+    return
+  }
+  g_last_frame_bitmap.val = Some(bm)
+  g_last_frame_title.val = self.session.window.title()
+  g_last_frame_root.val = Some(self.root)
+}
+
+///|
+/// 最近一帧的位图与窗口标题：指定窗活着取指定窗的现役帧（canvas 与标题
+/// 现读，变尺寸后的新缓冲也照拿），否则回落最近帧登记。没上过帧给 None。
+/// 返回的是复用缓冲的引用，只读——要落盘请走 `@render.png_write_bitmap`。
+pub fn last_frame_bitmap() -> (@render.Bitmap?, String) {
+  match inspect_target_alive() {
+    Some(h) => (h.canvas, h.session.window.title())
+    None => (g_last_frame_bitmap.val, g_last_frame_title.val)
+  }
+}
+
+///|
+/// 最近一帧的窗口根控件：指定窗活着取指定窗根（整页重画用），否则回落
+/// 最近帧登记；都没上过帧给 None。
 pub fn last_frame_root() -> Widget? {
-  g_last_frame_root.val
+  match inspect_target_alive() {
+    Some(h) => Some(h.root)
+    None => g_last_frame_root.val
+  }
 }
 
 ///|

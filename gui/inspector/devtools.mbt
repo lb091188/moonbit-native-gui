@@ -494,8 +494,18 @@ fn devtls_root(p : DevPage) -> @widget.Node {
 }
 
 ///|
-/// F12 开/关检查器附窗：没开就起一扇（挂在本进程第一扇还在的窗下），
-/// 开着就关（关时顺手取消目标高亮）。
+/// 附窗挂哪扇：触发窗优先——活动窗（刚收输入的那扇）为主，没有再退进程里
+/// 第一扇还在的窗（单窗应用两者是同一扇）。
+fn devtls_pick_owner() -> @widget.WindowHost? {
+  match @widget.host_active() {
+    Some(h) => Some(h)
+    None => @widget.primary_host()
+  }
+}
+
+///|
+/// F12 开/关检查器附窗：没开就起一扇（挂在触发窗下），开着就关（关时顺手
+/// 取消目标高亮、清取数指定）。
 pub fn devtools_toggle() -> Unit {
   match g_devtls_host.val {
     Some(h) => {
@@ -503,7 +513,7 @@ pub fn devtools_toggle() -> Unit {
       h.close_window()
     }
     None =>
-      match @widget.primary_host() {
+      match devtls_pick_owner() {
         Some(h) => {
           let title = match @env.get_env_var("MNG_INSPECT_APP") {
             Some(a) => "检查器 — " + a
@@ -512,10 +522,25 @@ pub fn devtools_toggle() -> Unit {
           match h.open_window(1080, 720, title) {
             Some(child) => {
               g_devtls_host.val = Some(child)
+              // 附窗自己是取数工具不是被查对象：不进最近帧登记，取数锁在
+              // 触发窗上——否则附窗一上屏就把检查目标顶成它自己
+              child.frame_untracked = true
+              @widget.inspect_target_set(Some(h))
               let p = devtls_new_page()
               child.on_close(fn() -> Unit {
                 g_devtls_host.val = None
+                @widget.inspect_target_set(None)
                 let _ = insp_highlight(0)
+              })
+              // 触发窗关了附窗跟着关（close_window 幂等，回调里清登记）
+              h.on_close(fn() -> Unit {
+                match g_devtls_host.val {
+                  Some(c) => {
+                    g_devtls_host.val = None
+                    c.close_window()
+                  }
+                  None => ()
+                }
               })
               child.mount([devtls_root(p)])
               let tick : Ref[() -> Unit] = Ref(fn() { () })
