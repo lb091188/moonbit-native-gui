@@ -33,7 +33,7 @@ fn moon_mod_tpl(
 /// 主包配置：只 import main.mbt 用到的（moon 对未用 import 报 warning，
 /// 门禁零警告）；页面生成码的别名集在 pages 包自己的 moon.pkg。
 fn moon_pkg_tpl(mod_name : String) -> String {
-  "import {\n  \"NoahLiu/native-gui/ui\",\n  \"NoahLiu/native-gui/shell\" @shell,\n  \"" +
+  "import {\n  \"NoahLiu/native-gui/ui\",\n  \"NoahLiu/native-gui/shell\" @shell,\n  \"NoahLiu/native-gui/inspector\" @inspector,\n  \"" +
   mod_name +
   "/pages\" @pages,\n}\n\npkgtype(kind: \"executable\")\n\nsupported_targets = \"native\"\n"
 }
@@ -75,9 +75,10 @@ fn main_mbt_tpl(mod_name : String) -> String {
   let app_id = app_id_of_module(mod_name)
   let head = "// 模板应用入口：页面在 pages/home.mng（单文件组件），生成码 pages/home.gen.mbt\n"
   let head = head +
-    "// 入口只有生产语义：单实例声称 + 挂窗。dev 三通道由 dev 形态生成码自装\n"
+    "// 入口只有生产语义：单实例声称 + 检查服务接线 + 挂窗。dev 三通道由 dev 形态\n"
   let head = head +
-    "// （生产构建换生产形态生成码后 dev 面整体不在包里），唤起泵在 ui 库内自排。\n\n///|\n"
+    "// 生成码自装（生产构建换生产形态生成码后 dev 面整体不在包里），唤起泵在\n"
+  let head = head + "// ui 库内自排。\n\n///|\n"
   let head = head + "fn main {\n"
   let head = head + "  match @shell.instance_claim(\"" + app_id + "\") {\n"
   let head = head + "    Ok(@shell.Existing) => {\n"
@@ -93,6 +94,11 @@ fn main_mbt_tpl(mod_name : String) -> String {
     "    Err(e) => println(\"APP-INST: 单实例降级：\" + e.to_string())\n"
   let head = head + "    Ok(@shell.Primary) => ()\n"
   let head = head + "  }\n"
+  let head = head +
+    "  // 检查服务接线：MNG_INSPECT 注入才启用（mng dev 自动注入），\n"
+  let head = head +
+    "  // 生产未注入时泵空转零监听；F12/⌘⌥I 附窗开关也由它装\n"
+  let head = head + "  @inspector.inspect_auto_install()\n"
   let head = head + "  let app = match @ui.mount_window(\n"
   let head = head + "    [@pages.home()],\n"
   let head = head + "    title=\"Template App\",\n"
