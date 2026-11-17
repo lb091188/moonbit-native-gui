@@ -188,6 +188,19 @@ pub fn inspect_auto_install() -> Unit {
   }
   g_insp_installed.val = true
   @shell.add_frame_pump(fn() { inspect_pump() })
+  // F12 开/关检查器附窗：服务已启动（MNG_INSPECT 注入过）才响应，
+  // 未注入的应用按了没反应（钩子的活体判断）
+  @widget.add_app_key_hook(fn(ev : @widget.KeyEvent) -> Bool {
+    if !g_insp_started.val || !ev.press {
+      return false
+    }
+    if ev.keysym == 65481 {
+      devtools_toggle()
+      true
+    } else {
+      false
+    }
+  })
 }
 
 ///|

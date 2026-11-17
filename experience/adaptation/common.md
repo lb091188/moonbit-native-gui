@@ -2144,3 +2144,10 @@ GpuCanvas——@render.GpuSink 的 gui-gpu 实现，GPU 线首消费者——落
 - **读屏剪枝判据**：role/名/组件标记/正文（a11y_text 现算回落 label）/状态值全空且不可点（on_pointer 无）不可聚焦（focus_id=0）的纯布局壳不进语义树；组件根无角色报 `group`、无名报组件标签。`kind` 不算语义面——所有组件都有 kind，算进去剪枝就失效。
 - **窗根是语义锚**：窗根补 `role="window"`、名字报窗题（读屏树的窗节点本来就该在）；测试裸根要进快照就给 `role="group"`。
 - **坑**：`Widget::on_pointer` 是函数类型字段，`!= None` 编不过（函数无 Eq），用 `is Some(_)`。
+
+## 检查器附窗双实现与 F12 键钩子——2026-11-17，检查器窗交互轮
+
+- **双实现分工**：`gui/inspector` 的附窗（`devtools_toggle`，F12 开关）直调服务核 `inspect_handle`——同进程零 socket，取数同步瞬时，轮询拍只做节流；`mngui --inspect` 的独立窗走异步 socket 客户端——连别的进程用。两版布局与交互口径一致，取数层各自维护（gui 库不能依赖 tools 的 @insp，mngui 不能直调服务核），改界面要两边同批。
+- **进程级键钩子**：`@widget.add_app_key_hook` 排在窗级兜底（`add_key_fallthrough`）之后，给拿不到窗句柄的服务组件装应用级快捷键；注册无反注册，回调自己判断活体（检查器钩子看 `g_insp_started`——MNG_INSPECT 未注入就不响应 F12）。F12 键值没有具名常量，XK_F12 = 65481。
+- **窗关闭收尾**：附窗取消高亮靠 `WindowHost::on_close`（F12 关、内容里 close、标题栏叉都触发，幂等关闭只触发一次，时机在拆平台窗之前）——别往标题栏路径挂清理。
+- **编辑表单不回填竞态**：周期样式轮询不回填输入框，只在「选中切换后第一份响应」与「写成功后的重拉」回填（expect_prefill 一次性标志）——否则每秒轮询会冲掉用户正在打的字。

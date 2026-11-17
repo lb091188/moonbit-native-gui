@@ -20,6 +20,7 @@ fn fake_app() -> WindowHost {
     system_keys: true,
     hidden_cbs: [],
     shown_cbs: [],
+    close_cbs: [],
     page_fill: true,
     remember_id: "",
     painted_once: false,

@@ -42,6 +42,8 @@ pub(all) struct WindowHost {
   hidden_cbs : Array[() -> Unit]
   /// 本窗从隐藏驻留唤回的回调（见 `WindowHost::on_shown`）
   shown_cbs : Array[() -> Unit]
+  /// 本窗关闭回调（见 `WindowHost::on_close`）：F12 关与标题栏关闭都触发
+  close_cbs : Array[() -> Unit]
   /// 宿主默认页面底是否在画（`WindowHost::set_transparent_bg` 按透视开关）
   mut page_fill : Bool
   /// 窗口状态记忆的应用 id（`WindowHost::remember_geometry` 置位；空 = 不记）。
@@ -268,6 +270,7 @@ fn app_window(
         system_keys: true,
         hidden_cbs: [],
         shown_cbs: [],
+        close_cbs: [],
         page_fill: true,
         remember_id: "",
         painted_once: false,
@@ -313,6 +316,7 @@ pub fn test_app(s : @shell.Session) -> WindowHost {
     system_keys: true,
     hidden_cbs: [],
     shown_cbs: [],
+    close_cbs: [],
     remember_id: "",
     painted_once: false,
     first_retry_left: 0,
@@ -693,6 +697,14 @@ pub fn WindowHost::on_hidden(self : WindowHost, f : () -> Unit) -> Unit {
 /// 触发。首次显示不发——只有隐藏过的窗才有「唤回」。
 pub fn WindowHost::on_shown(self : WindowHost, f : () -> Unit) -> Unit {
   let _ = self.shown_cbs.push(f)
+}
+
+///|
+/// 注册本窗关闭回调（F12 关、内容里 `close_window`、标题栏关闭都触发）：
+/// 可注册多个，按注册序触发；幂等关闭只触发一次。时机在拆平台窗之前，
+/// 收尾还能碰窗里的对象。
+pub fn WindowHost::on_close(self : WindowHost, f : () -> Unit) -> Unit {
+  let _ = self.close_cbs.push(f)
 }
 
 ///|
@@ -1083,6 +1095,9 @@ fn WindowHost::route(self : WindowHost, ev : @win.InputEvent) -> Unit {
         // 兜底通道吃掉了这条键：受影响的是处理器自己的子树（组件自己置脏），
         // 宿主不知道范围，整窗兜一帧
         self.schedule_paint()
+      } else if fire_app_key_hooks(kev) {
+        // 进程级钩子吃掉了这条键：范围未知，整窗兜一帧
+        self.schedule_paint()
       }
     }
   }
@@ -1114,6 +1129,36 @@ fn WindowHost::fire_key_fallthrough(self : WindowHost, kev : KeyEvent) -> Bool {
     }
   }
   false
+}
+
+///|
+/// 进程级键兜底钩子（所有窗共用，排在窗级兜底之后）：给拿不到窗句柄的
+/// 服务组件装应用级快捷键用（检查器 F12 开关附窗这类）。回调自己负责
+/// 活体判断（注册没有反注册，与窗级兜底同口径）。
+let g_app_key_hooks : Array[(KeyEvent) -> Bool] = []
+
+///|
+pub fn add_app_key_hook(f : (KeyEvent) -> Bool) -> Unit {
+  g_app_key_hooks.push(f)
+}
+
+///|
+fn fire_app_key_hooks(kev : KeyEvent) -> Bool {
+  for f in g_app_key_hooks {
+    if f(kev) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+/// 进程里第一扇还在的窗：服务组件（检查器附窗开关这类）开窗拿句柄用。
+pub fn primary_host() -> WindowHost? {
+  match host_windows().get(0) {
+    Some(h) => Some(h)
+    None => None
+  }
 }
 
 ///|
@@ -1499,6 +1544,10 @@ pub fn WindowHost::close_window(self : WindowHost) -> Unit {
   self.save_geometry()
   self.closed = true
   self.session.running = false
+  // 关闭回调先于拆平台窗：内容里的收尾（取消高亮、清引用）还能跑
+  for f in self.close_cbs {
+    f()
+  }
   let session = self.session
   let remaining = host_window_count() - 1
   host_remove_app(self.wid())

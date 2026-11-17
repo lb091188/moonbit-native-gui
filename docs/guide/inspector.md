@@ -61,9 +61,15 @@ mng inspect --app libyue.hello tree   # explicit app id
 
 If the app is not running or not injected, you get "cannot connect to the inspection channel".
 
+## Inspector attached window & F12 (in-app)
+
+Apps wired with `inspect_auto_install()` (the `mng new` template already has it) also get an F12 key hook: with focus on the app window, press **F12** to open the inspector attached window, press again to close (clearing the target highlight; closing via the title bar also lets the next F12 reopen). The attached window calls the in-app inspection service directly (same process, no socket); layout and interactions match the graphical inspector window: draggable split panes, component view + "internal" toggle, description-list details, and the editable five-field style form writing the selected widget. Apps without `MNG_INSPECT` ignore F12.
+
+The key hook is a process-level channel after the window-level key fallthrough (`@widget.add_app_key_hook`) — service components can install app-level shortcuts without holding a window handle.
+
 ## mng inspect --gui (graphical inspector)
 
-A standalone Chrome-DevTools-like inspector window shipped by mngui (the mng binary itself never links GUI libs — it only forwards arguments):
+A standalone Chrome-DevTools-like inspector window shipped by mngui (the mng binary itself never links GUI libs — it only forwards arguments) — useful for inspecting **another process**; for your own app, the F12 attached window is enough:
 
 ```sh
 mng inspect --gui              # derive the app id from the project, then open

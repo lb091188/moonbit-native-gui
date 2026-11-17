@@ -61,9 +61,15 @@ mng inspect --app libyue.hello tree   # 显式指定应用名
 
 应用没起或没注入时报「连不上检查通道」。
 
+## 检查器附窗与 F12（应用内）
+
+`inspect_auto_install()` 接线的应用（`mng new` 模板已带）顺带装 F12 键钩子：焦点在应用窗上按 **F12** 开检查器附窗，再按关闭（关时取消目标高亮；标题栏叉掉后再按 F12 也能重开）。附窗数据直调应用内检查服务（同进程零 socket），布局与交互和图形检查器窗一致：左右分栏可拖、组件视图 + 「内部实现」开关、详情描述列表、样式五字段表单直改选中件。未注入 `MNG_INSPECT` 的应用按 F12 无反应。
+
+键钩子是窗口级按键兜底之后的进程级通道（`@widget.add_app_key_hook`），服务组件拿不到窗句柄也能装应用级快捷键。
+
 ## mng inspect --gui（图形检查器）
 
-仿 Chrome DevTools 的独立检查器窗，经 mngui 出（mng 本体不链 GUI 库，只做参数透传）：
+仿 Chrome DevTools 的独立检查器窗，经 mngui 出（mng 本体不链 GUI 库，只做参数透传）——适合连**别的进程**的应用；看自己用 F12 附窗即可：
 
 ```sh
 mng inspect --gui              # 按工程推导应用 id 后开窗

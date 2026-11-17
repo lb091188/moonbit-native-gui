@@ -553,3 +553,24 @@ test "命中穿透：覆盖层不参与命中与语义树，下层照常收事�
   assert_true(!a11y_last_frame().exists(fn(n) { n.kind == "Cover" }))
   assert_true(a11y_last_frame().exists(fn(n) { n.kind == "Target" }))
 }
+
+///|
+test "应用级键钩子：按注册序问、吃掉即停" {
+  let seen : Array[String] = []
+  add_app_key_hook(fn(_ev : KeyEvent) -> Bool {
+    seen.push("a")
+    false
+  })
+  add_app_key_hook(fn(_ev : KeyEvent) -> Bool {
+    seen.push("b")
+    true
+  })
+  add_app_key_hook(fn(_ev : KeyEvent) -> Bool {
+    seen.push("c")
+    true
+  })
+  let ev : KeyEvent = { press: true, keysym: 97, mods: 0 }
+  assert_true(fire_app_key_hooks(ev))
+  // 第一个吃掉的截断：c 没被问
+  assert_eq(seen, ["a", "b"])
+}
