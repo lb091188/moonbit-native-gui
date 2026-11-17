@@ -370,6 +370,8 @@ pub fn scroll_view(
       class,
     )
     let content = @widget.Widget::new()
+    // 检查器树行可读：内容容器报自己的类型名（role 留空，纯布局壳不进语义树）
+    content.kind = "ui-scroll-content"
     content.node.set_flex_direction(@yoga.Column)
     content.node.set_position(@yoga.Relative)
     // 不收缩：内容必须按自然高度撑开，超出视口的部分才谈得上滚动

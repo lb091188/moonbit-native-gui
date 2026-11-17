@@ -9,7 +9,7 @@ Every widget carries a component type name at construction, unified with .mng te
 - `role`: closed enumeration for screen readers (`button`, `text_input`, ...).
 - `kind`: open-string component type name for humans and AI — "what widget is this"; the name is exactly the tag written in the template.
 
-Wrapper layers and dynamic trees can override it with `with_kind("Name")`; mngkit injects `with_comp("tag")` at every template tag call site — it sets the type name and leaves a component mark, which the inspector component view and the screen-reader component group nodes rely on.
+Wrapper layers and dynamic trees can override it with `with_kind("Name")`; mngkit injects `with_comp("tag")` at every template tag call site — it sets the type name and leaves a component mark, which the inspector component view and the screen-reader component group nodes rely on. Bare containers that take a tree row report a type name too: the scroll-view content container is `ui-scroll-content`, the virtual-list content container is `ui-virt-list-content`, and the mng dev page mount point is `mng-page`.
 
 ## Component view
 
@@ -25,7 +25,7 @@ Screen readers follow the same rule: layout shells with no semantic surface (no 
 
 Import `gui/inspector` on demand and drop `inspector_panel()` into any page:
 
-- Widget tree table: indented by parent chain, row label "Kind·role「name」 #id"; click a row for detail readings (id/parent/kind/role/name/state/value/text/enabled/rect).
+- Widget tree table: indented by parent chain, row label "Kind·role「name」 #id"; a bare container row with both kind and role empty shows `(无)`; click a row for detail readings (id/parent/kind/role/name/state/value/text/enabled/rect).
 - Style classes tab: lists registered classes; edit five fields (background/text/border color/border width/corner radius), applied next frame; "restore" reverts.
 - Manual or auto refresh (500ms default); tree data walks the last presented frame's widget tree in the component view.
 

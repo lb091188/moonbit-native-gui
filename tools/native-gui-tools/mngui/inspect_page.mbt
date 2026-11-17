@@ -220,7 +220,11 @@ fn insp_row_label(r : InspRow, depth : Int32) -> String {
     b.write_string(r.kind)
     b.write_string("·")
   }
-  b.write_string(r.role)
+  if r.role.length() > 0 || r.kind.length() > 0 {
+    b.write_string(r.role)
+  } else {
+    b.write_string("(无)")
+  }
   if r.name.length() > 0 {
     b.write_string("「")
     b.write_string(r.name)
@@ -232,17 +236,14 @@ fn insp_row_label(r : InspRow, depth : Int32) -> String {
 }
 
 ///|
-/// 树表行（列：控件 / id）。
+/// 树表行（列：控件，行文本自带 #id）。
 fn insp_table_rows(rows : Array[InspRow]) -> Array[@ui.TableRow] {
   let depths = insp_depths(rows)
   let out : Array[@ui.TableRow] = []
   let mut i = 0
   while i < rows.length() {
     out.push(
-      @ui.TableRow::make([
-        insp_row_label(rows[i], depths[i]),
-        rows[i].id.to_string(),
-      ]),
+      @ui.TableRow::make([insp_row_label(rows[i], depths[i])]),
     )
     i += 1
   }
@@ -599,7 +600,6 @@ pub fn run_inspector(app_id : String) -> Unit {
   }
   let cols : Array[@ui.TableColumn] = [
     @ui.TableColumn::make("控件", 0.0, sortable=false),
-    @ui.TableColumn::make("id", 56.0, sortable=false),
   ]
   // 树表：宽 0 = 跟分栏容器（弹性列跟宽），拖动手柄时表格跟着伸缩
   let tree_section = @ui.table_v(
@@ -633,7 +633,11 @@ pub fn run_inspector(app_id : String) -> Unit {
     form_rows.push(
       @ui.row(
         [
-          @ui.text(labels[k], font_size=12.0, class=[@style.text_secondary]),
+          @ui.text(labels[k], font_size=12.0, class=[@style.text_secondary],
+            handle=fn(w : @widget.Widget) -> Unit {
+              // label 列最小宽与详情描述一致，输入框起点对齐
+              w.node.set_min_width(@yoga.fixed(64.0))
+            }),
           @ui.input(stores[k], width=170.0),
         ],
         column_gap=8.0,

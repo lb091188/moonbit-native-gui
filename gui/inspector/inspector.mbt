@@ -48,6 +48,7 @@ pub fn insp_depths(nodes : Array[@widget.A11yNode]) -> Array[Int32] {
 
 ///|
 /// 树列的行文本:按深度缩进 + 类型名(空省略) + 角色 + 「名」+ #id(名空则不摆引号)。
+/// kind 与 role 双空显示 `(无)`(裸容器占行时不至于只剩 #id)。
 pub fn insp_row_label(n : @widget.A11yNode, depth : Int32) -> String {
   let b = StringBuilder()
   let mut i = 0
@@ -59,7 +60,11 @@ pub fn insp_row_label(n : @widget.A11yNode, depth : Int32) -> String {
     b.write_string(n.kind)
     b.write_string("·")
   }
-  b.write_string(n.role)
+  if n.role.length() > 0 || n.kind.length() > 0 {
+    b.write_string(n.role)
+  } else {
+    b.write_string("(无)")
+  }
   if n.name.length() > 0 {
     b.write_string("「")
     b.write_string(n.name)

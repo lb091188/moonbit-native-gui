@@ -32,6 +32,8 @@ pub fn[T] virt_list(
     @style.apply(viewport, @style.merge_all([lay, @style.merge_all(class)]))
     let state = ScrollState::new()
     let inner = @widget.Widget::new()
+    // 检查器树行可读：内容容器报自己的类型名（role 留空，纯布局壳不进语义树）
+    inner.kind = "ui-virt-list-content"
     inner.node.set_flex_direction(@yoga.Column)
     inner.node.set_width(@yoga.percent(100.0))
     // 整块跟着偏移平移（与 `scroll_view` 同一套相对定位）：上占位只补「窗口第一行

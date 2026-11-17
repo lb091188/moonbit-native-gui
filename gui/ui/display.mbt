@@ -777,7 +777,8 @@ pub fn card(
 }
 
 ///|
-/// 描述列表：`items` 是 (标签, 值) 对，逐行排布。
+/// 描述列表：`items` 是 (标签, 值) 对，逐行排布。`label_width` 是标签列的
+/// 最小宽度（值列起点随之对齐）。
 pub fn descriptions(
   items : Array[(String, String)],
   title~ : String = "",
@@ -792,12 +793,12 @@ pub fn descriptions(
     rows.push(
       view(
         [
-          text(kv.0, font_size=12.0, color="text_secondary", wrap=false),
-          text(kv.1, font_size=12.0, wrap=false, handle=fn(
+          text(kv.0, font_size=12.0, color="text_secondary", wrap=false, handle=fn(
             w : @widget.Widget,
           ) -> Unit {
             w.node.set_min_width(@yoga.fixed(label_width))
           }),
+          text(kv.1, font_size=12.0, wrap=false),
         ],
         direction=@yoga.Row,
         column_gap=8.0,

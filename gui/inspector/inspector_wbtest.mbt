@@ -61,6 +61,9 @@ test "insp_row_label:缩进 + 角色 + 「名」 + #id;名空不摆引号" {
   // 组件类型名在前,空则整段省略
   let k = nd(9, 0, "button", "确定", kind="Button")
   assert_eq(insp_row_label(k, 0), "Button·button「确定」 #9")
+  // kind+role 双空（裸容器占行）:显示 (无)，不至于只剩 #id
+  let bare = nd(62, 61, "", "")
+  assert_eq(insp_row_label(bare, 1), "  (无) #62")
 }
 
 ///|

@@ -540,6 +540,8 @@ pub fn mng_dev_page(
   }
   mng_dev_set_reg(page, reg)
   @widget.node_of_new(fn(holder : @widget.Widget) {
+    // 检查器树行可读：dev 页挂载点报自己的类型名（role 留空，纯布局壳不进语义树）
+    holder.kind = "mng-page"
     mng_dev_bind_holder(page, holder)
     // 构树 + 挂载同处一个订阅袋窗口（computed 的依赖订阅发生在构造时）
     @base.sub_bag_begin()

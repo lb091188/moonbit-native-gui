@@ -51,6 +51,12 @@ test "insp_row_label：缩进 + 类型名·角色「名」 #id" {
   }
   assert_eq(insp_row_label(r, 0), "Button·button「重置」 #20")
   assert_eq(insp_row_label(r, 2), "    Button·button「重置」 #20")
+  // kind+role 双空（裸容器占行）：显示 (无)，不至于只剩 #id
+  let bare = {
+    kind: "", role: "", name: "", id: 62, parent: 61, x: 0.0, y: 0.0, w: 0.0,
+    h: 0.0, state: "", value: "", text: "", enabled: true,
+  }
+  assert_eq(insp_row_label(bare, 1), "  (无) #62")
 }
 
 ///|

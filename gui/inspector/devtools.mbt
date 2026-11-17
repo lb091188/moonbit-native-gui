@@ -95,6 +95,7 @@ fn devtls_find(
 
 ///|
 /// 树列行文本：缩进 + 类型名（空省略）+ 角色 + 「名」+ #id。
+/// kind 与 role 双空显示 `(无)`（裸容器占行时不至于只剩 #id）。
 fn devtls_row_label(n : @widget.A11yNode, depth : Int32) -> String {
   let b = StringBuilder()
   let mut i = 0
@@ -106,7 +107,11 @@ fn devtls_row_label(n : @widget.A11yNode, depth : Int32) -> String {
     b.write_string(n.kind)
     b.write_string("·")
   }
-  b.write_string(n.role)
+  if n.role.length() > 0 || n.kind.length() > 0 {
+    b.write_string(n.role)
+  } else {
+    b.write_string("(无)")
+  }
   if n.name.length() > 0 {
     b.write_string("「")
     b.write_string(n.name)
@@ -118,7 +123,7 @@ fn devtls_row_label(n : @widget.A11yNode, depth : Int32) -> String {
 }
 
 ///|
-/// 树表行（列：控件 / id）。
+/// 树表行（列：控件，行文本自带 #id）。
 fn devtls_table_rows(
   nodes : Array[@widget.A11yNode],
 ) -> Array[@ui.TableRow] {
@@ -127,10 +132,7 @@ fn devtls_table_rows(
   let mut i = 0
   while i < nodes.length() {
     out.push(
-      @ui.TableRow::make([
-        devtls_row_label(nodes[i], depths[i]),
-        nodes[i].id.to_string(),
-      ]),
+      @ui.TableRow::make([devtls_row_label(nodes[i], depths[i])]),
     )
     i += 1
   }
@@ -336,7 +338,6 @@ fn devtls_tick(p : DevPage, host : @widget.WindowHost) -> Unit {
 fn devtls_root(p : DevPage) -> @widget.Node {
   let cols : Array[@ui.TableColumn] = [
     @ui.TableColumn::make("控件", 0.0, sortable=false),
-    @ui.TableColumn::make("id", 56.0, sortable=false),
   ]
   let tree_section = @ui.table_v(
     cols,
@@ -375,7 +376,11 @@ fn devtls_root(p : DevPage) -> @widget.Node {
     form_rows.push(
       @ui.row(
         [
-          @ui.text(labels[k], font_size=12.0, class=[@style.text_secondary]),
+          @ui.text(labels[k], font_size=12.0, class=[@style.text_secondary],
+            handle=fn(w : @widget.Widget) -> Unit {
+              // label 列最小宽与详情描述一致，输入框起点对齐
+              w.node.set_min_width(@yoga.fixed(64.0))
+            }),
           @ui.input(stores[k], width=170.0),
         ],
         column_gap=8.0,

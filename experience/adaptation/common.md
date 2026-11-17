@@ -2159,3 +2159,10 @@ GpuCanvas——@render.GpuSink 的 gui-gpu 实现，GPU 线首消费者——落
 - **收口在取数口**：`last_frame_*` 读数加「检查目标窗」优先档——`@widget.inspect_target_set(Some(触发窗))` 设了就读指定窗的现役帧（root / canvas / 窗题现读），目标关了或置 None 回落最近帧登记；外接 `mng inspect`（同进程无附窗）不设目标，口径不变。五个调用点零改动，改一处读口全收。
 - **附窗不进最近帧登记**：`WindowHost.frame_untracked` 置真的窗帧尾登记直接跳过——附窗是取数工具不是被查对象，上了屏也不许顶掉最近帧（不然关附窗后最近帧停在已关的附窗上，外接 mng 读到死树）。
 - **触发窗选择**：附窗挂 `host_active()`（最后收输入的那扇，即按快捷键的窗），没有活动窗退 `primary_host()`；触发窗 `on_close` 连坐关附窗。
+
+## 检查器树行裸容器：占行的件必须有 kind——2026-11-17，F12 附窗真机反馈
+
+- **坑**：裸 `Widget::new()` 的布局壳 kind/role 双空，占了组件视图的树行就只剩 `#id`——hello 页实测两处：`scroll_view` 的内容容器（组件视图里 scroll_view 自己占行，内容容器跟着占行）、`mng_dev_page` 的挂载 holder（dev 页壳，模板根挂它下面）。
+- **口径**：占检查器树一行的件必须有 kind；三处补齐——`ui-scroll-content`（scroll_view 内容容器）、`ui-virt-list-content`（虚拟列表内容容器）、`mng-page`（dev 页挂载点）。role 保持空——纯布局壳不进读屏语义树，kind 只管检查器树行可读。
+- **行文本兜底**：三处行 label 组装（F12 附窗、内建 v1 面板、mngui 独立窗）kind+role 双空显示 `(无)`——与详情面板空字段口径一致，保证以后再出裸容器也不至于只剩 #id。
+- **`descriptions` 的 label_width 曾设在值列**：参数名叫 label 宽度、min_width 却设给值文本，label 实际不定宽——已挪回 label 列，值列起点随之对齐。样式表单五字段 label 同设最小宽 64 对齐。
