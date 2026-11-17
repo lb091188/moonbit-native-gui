@@ -540,6 +540,9 @@ pub fn mng_dev_page(
   }
   mng_dev_set_reg(page, reg)
   @widget.node_of_new(fn(holder : @widget.Widget) {
+    // 页面壳是纵排容器：模板页/页面块作交叉轴子项 stretch 占满宽
+    // （裸件 flex 默认 Row，子项会收缩到内容宽——hello 页实测塌到 296）
+    holder.node.set_flex_direction(@yoga.Column)
     // 检查器树行可读：dev 页挂载点报自己的类型名（role 留空，纯布局壳不进语义树）
     holder.kind = "mng-page"
     mng_dev_bind_holder(page, holder)

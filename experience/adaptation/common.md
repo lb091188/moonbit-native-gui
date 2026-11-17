@@ -2167,3 +2167,4 @@ GpuCanvas——@render.GpuSink 的 gui-gpu 实现，GPU 线首消费者——落
 - **行文本兜底**：三处行 label 组装（F12 附窗、内建 v1 面板、mngui 独立窗）kind+role 双空显示 `(无)`——与详情面板空字段口径一致，保证以后再出裸容器也不至于只剩 #id。
 - **`descriptions` 的 label_width 曾设在值列**：参数名叫 label 宽度、min_width 却设给值文本，label 实际不定宽——已挪回 label 列，值列起点随之对齐。样式表单五字段 label 同设最小宽 64 对齐。
 - **样式全量读数字段名打平**：曾带点分组前缀（`text.font_size` / `edge.padding_top`，意图看名知组，mngui 读数区还按前缀归组标题）——真机反馈层次感多余，全部改回 `@style.Style` 字段本名（`font_size` / `padding_top`，与模板 CSS 属性同口径）；mngui 分组标题与 `insp_group_of` 随之撤销，两版读数区同构平铺。附带的修正：`border.width` 这类去前缀后与编辑器五字段同名，读数区按五字段摘除不再重复展示。`style <id>` 是对外协议，字段名变化要同步 docs 的协议表。
+- **裸容器 flex 默认 Row，页面级 holder 必须显式 Column**：flex 布局里 stretch 只拉交叉轴——Row 容器的子项宽度是主轴尺寸，auto + grow 0 就收缩到内容宽。`mng_dev_page` 的 holder 是裸 `Widget::new()`，没设方向，模板页塌到内容宽（hello 页实测 296/760）；yoga 层探针证实 Row 默认下连给父显式 `set_align_items(Stretch)` 都救不回，置 Column 才通。凡是自己 `node_of_new` 造的**页面级/块级容器**都要显式 `set_flex_direction(Column)`（窗根、scroll 内容容器同款）；组件内部件挂在有方向容器里的可以不设。
