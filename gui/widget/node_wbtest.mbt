@@ -26,6 +26,21 @@ test "node_of / mount_children：按顺序成为 parent 的直接子项" {
 }
 
 ///|
+test "with_comp / with_kind：挂载后写组件标记与类型名" {
+  let parent = Widget::new()
+  parent.set_column()
+  mount_children(parent, [node_of(Widget::new()).with_comp("MyCard")])
+  let w = parent.children()[0]
+  assert_eq(w.comp, "MyCard")
+  assert_eq(w.kind, "MyCard")
+  // with_kind 只写类型名、不动组件标记
+  mount_children(parent, [node_of(Widget::new()).with_kind("ui-panel")])
+  let w2 = parent.children()[1]
+  assert_eq(w2.kind, "ui-panel")
+  assert_eq(w2.comp, "")
+}
+
+///|
 test "bind_node：信号变化后**原位**换掉那一棵，兄弟项不受影响" {
   let counter = Ref(0)
   set_repaint_hook(counting_hook(counter))

@@ -342,7 +342,7 @@ pub fn scroll_view(
 ) -> @widget.Node {
   @widget.node_of_new(fn(viewport : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    viewport.kind = "ScrollView"
+    viewport.kind = "ui-scroll-view"
     viewport.node.set_flex_direction(@yoga.Column)
     // 视口必须能缩到父给的尺寸：Yoga 的 flex 子项默认 min-size 为 auto，不写这两条
     // 视口会被内容顶到自然高（内容多高它就多高），`max()` 恒为 0——真机表现就是

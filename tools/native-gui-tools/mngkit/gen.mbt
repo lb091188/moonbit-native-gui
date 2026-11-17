@@ -301,7 +301,7 @@ fn gen_text(
     }
   }
   let e = q(if has_expr { pieces_to_e(ctx, pieces) } else { escape_mbt(norm) })
-  Ok(finish_text(ctx, e, srcs, ind, pos))
+  Ok(with_comp_lines(finish_text(ctx, e, srcs, ind, pos), "ui-text"))
 }
 
 ///|
@@ -313,7 +313,7 @@ fn gen_text_expr(
   ind : Int32,
 ) -> Array[(String, Pos)] {
   let e = rewrite_value(expr, ctx.slots)
-  finish_text(ctx, e, sources_of(expr, ctx.slots), ind, pos)
+  with_comp_lines(finish_text(ctx, e, sources_of(expr, ctx.slots), ind, pos), "ui-text")
 }
 
 ///|
@@ -1047,7 +1047,9 @@ fn gen_elem_base(
             }
           }
           if srcs.length() > 0 && decl.path == "@ui.text" && structural_only() {
-            return Ok(finish_text(ctx, q(e), srcs, ind, pos))
+            return Ok(
+              with_comp_lines(finish_text(ctx, q(e), srcs, ind, pos), "ui-text"),
+            )
           }
           parts.push([(q(e), tpos)])
         }
@@ -1142,7 +1144,7 @@ fn gen_elem_base(
       If | ElseIf | Else | Show | For => ()
     }
   }
-  Ok(join_call(decl.path, parts, labeled, ind, pos))
+  Ok(with_comp_lines(join_call(decl.path, parts, labeled, ind, pos), tag))
 }
 
 ///|
@@ -1184,6 +1186,21 @@ fn join_call(
   let last = out.length() - 1
   out[last] = (out[last].0 + ")", out[last].1)
   out
+}
+
+///|
+/// 调用行尾接组件标记：`.with_comp("标签")`——模板里写出的每个标签产出
+/// 都带模板组件标记，检查器组件视图与读屏组件组节点认它。
+fn with_comp_lines(
+  lines : Array[(String, Pos)],
+  tag : String,
+) -> Array[(String, Pos)] {
+  let n = lines.length()
+  if n > 0 {
+    let last = lines[n - 1]
+    lines[n - 1] = (last.0 + ".with_comp(" + q(tag) + ")", last.1)
+  }
+  lines
 }
 
 ///|

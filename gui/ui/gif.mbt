@@ -72,7 +72,7 @@ pub fn gif(
   )
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    w.kind = "GifView"
+    w.kind = "ui-gif"
     let timer : Ref[Int32] = Ref(0)
     let looping_ = looping
     // 被换树摘下就断自转链（step 见 h.running=false 直接 return，不排下一拍）；

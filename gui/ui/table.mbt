@@ -781,7 +781,7 @@ pub fn table(
   let head_h = 40.0
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    w.kind = "Table"
+    w.kind = "ui-table"
     match selection {
       Some(s) => follow_store(s)
       None => ()

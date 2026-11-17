@@ -22,18 +22,18 @@ pub fn vfor_demo() -> @widget.Node {
   reg.int("next_id", next_id)
   @mngdev.mng_dev_page("vfor_demo", reg, fn() {
     @ui.col([
-      @ui.text("列表数据走 ListStore（keyed 差分只重挂该动的行）；本页由 .mng 模板编译产出。"),
+      @ui.text("列表数据走 ListStore（keyed 差分只重挂该动的行）；本页由 .mng 模板编译产出。").with_comp("ui-text"),
       @ui.row([
-        @ui.button("加一条", on_click=add_row),
-        @ui.button("删第一条", on_click=remove_first),
-        @ui.button("清空", on_click=clear_rows),
-      ]),
+        @ui.button("加一条", on_click=add_row).with_comp("ui-button"),
+        @ui.button("删第一条", on_click=remove_first).with_comp("ui-button"),
+        @ui.button("清空", on_click=clear_rows).with_comp("ui-button"),
+      ]).with_comp("ui-row"),
       @ui.for_list(rows, fn(r, _i) {
         @ui.row([
-          @ui.text(r.name),
-          @ui.text("#", color="#8A93A6"),
-        ], column_gap=8.0)
+          @ui.text(r.name).with_comp("ui-text"),
+          @ui.text("#", color="#8A93A6").with_comp("ui-text"),
+        ], column_gap=8.0).with_comp("ui-row")
       }, key=fn(r) { r.id }),
-    ])
+    ]).with_comp("ui-col")
   })
 }

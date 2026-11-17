@@ -1349,7 +1349,7 @@ const FULL_PAGE_CAP : Int32 = 20000
 ///|
 /// 深度优先找第一个 `ScrollView`（页面级滚动容器通常在浅层先命中）。
 fn find_first_scroll_view(w : Widget) -> Widget? {
-  if w.kind == "ScrollView" {
+  if w.kind == "ui-scroll-view" {
     return Some(w)
   }
   for k in w.kids {

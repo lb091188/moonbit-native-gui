@@ -93,7 +93,7 @@ test "Tester::shot_full：无滚动容器给 false；有滚动容器按内容高
   let t1 = mount_all(
     [
       @widget.node_of_new(fn(v : @widget.Widget) -> @widget.Widget {
-        v.kind = "ScrollView"
+        v.kind = "ui-scroll-view"
         v.node.set_flex_direction(@yoga.Column)
         v.node.set_min_height(@yoga.fixed(0.0))
         v.node.set_min_width(@yoga.fixed(0.0))

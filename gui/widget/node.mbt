@@ -188,3 +188,18 @@ pub fn Node::with_kind(self : Node, kind : String) -> Node {
     },
   }
 }
+
+///|
+/// 模板组件标记包装器：挂载后写 `comp`（模板标签原文）并同步 `kind`。
+/// mngkit 在每个模板标签调用点包一层——内置组件 kind 本就一致，自定义
+/// 组件根借此拿到标签名。检查器组件视图与读屏组节点认 `comp`。
+pub fn Node::with_comp(self : Node, comp : String) -> Node {
+  {
+    mount: fn(parent : Widget) -> Widget {
+      let w = (self.mount)(parent)
+      w.comp = comp
+      w.kind = comp
+      w
+    },
+  }
+}

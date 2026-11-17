@@ -85,7 +85,7 @@ pub fn view(
   let anon = @style.merge_all(blocks)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    w.kind = "View"
+    w.kind = "ui-view"
     // 样式先落（class 覆盖散参数由数组顺序保证），再读 resolved 供绘制
     fold_style(w, @style.empty_style(), anon, class)
     w.on_draw = Some(fn(
@@ -213,7 +213,7 @@ pub fn panel(
     border_color="border",
     // 基准：面板层圆角 6（调用方 class 在后覆写）
     class=[@style.style(border_radius=@theme.radius_card())] + class,
-  )
+  ).with_kind("ui-panel")
 }
 
 ///|
@@ -228,7 +228,7 @@ fn separator_impl(
   let color = color.unwrap_or("")
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    w.kind = "Divider"
+    w.kind = "ui-divider"
     if vertical {
       w.node.set_width(@yoga.fixed(1.0))
       w.node.set_align_self(Some(@yoga.AlignItems::Stretch))
@@ -333,7 +333,7 @@ fn text_node_of(
     // 语义面：静态/动态文本一律报 text；正文走 `label`——初始就要写上
     // （此前只靠 `relabel` 信号变化时写回，静态文本的 label 恒空、读屏整段
     // 哑火，真机 VoiceOver 抓到），后续变化由 relabel 写回
-    w.kind = "Text"
+    w.kind = "ui-text"
     w.role = "text"
     w.label = sig.get()
     fold_style(w, @style.empty_style(), attrs, class, style=anon)
@@ -472,7 +472,7 @@ pub fn divider(
     let font = @text.Font::new("", 12.0)
     @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
       watch_theme()
-      w.kind = "Divider"
+      w.kind = "ui-divider"
       w.node.set_height(@yoga.fixed(20.0))
       w.node.set_width(@yoga.percent(100.0))
       fold_style(w, @style.empty_style(), @style.empty_style(), class)
@@ -518,7 +518,7 @@ pub fn image(
   let w0 = if width > 0.0 { width } else { img.get_width() }
   let h0 = if height > 0.0 { height } else { img.get_height() }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
-    w.kind = "Image"
+    w.kind = "ui-image"
     w.node.set_width(@yoga.fixed(w0))
     w.node.set_height(@yoga.fixed(h0))
     w.on_draw = Some(fn(
@@ -552,7 +552,7 @@ pub fn icon(
   }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    w.kind = "Icon"
+    w.kind = "ui-icon"
     w.node.set_width(@yoga.fixed(size))
     w.node.set_height(@yoga.fixed(size))
     fold_style(w, @style.empty_style(), anon, class)
@@ -588,7 +588,7 @@ pub fn iconfont(
   }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    w.kind = "Iconfont"
+    w.kind = "ui-iconfont"
     w.node.set_width(@yoga.fixed(size))
     w.node.set_height(@yoga.fixed(size))
     fold_style(w, @style.empty_style(), anon, class)
@@ -640,7 +640,7 @@ pub fn icon_button(
   let anon = @style.merge_all(blocks)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    w.kind = "IconButton"
+    w.kind = "ui-icon-button"
     let off = enabled_cell(enabled, disabled)
     // 键盘口径与 form.button 同一条：自动领号进 Tab 链，空格/回车激活——
     // 没有这一口时点它不切焦点（focusable_at 沿链找不到可聚焦者），空格/

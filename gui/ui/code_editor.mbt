@@ -397,7 +397,7 @@ pub fn code_editor(
   let pair_val : Ref[(Int32, Int32)?] = Ref(None)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    w.kind = "CodeEditor"
+    w.kind = "ui-code-editor"
     w.role = "code_editor"
     w.a11y_text = Some(fn(_self : @widget.Widget) -> String? {
       Some(ed.get_text())

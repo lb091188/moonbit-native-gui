@@ -22,7 +22,7 @@ pub fn[T] virt_list(
   let rh = if row_height > 0.0 { row_height } else { 1.0 }
   @widget.node_of_new(fn(viewport : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    viewport.kind = "VirtList"
+    viewport.kind = "ui-virt-list"
     let lay = @style.empty_style()
     lay.flex_direction = Some(@yoga.Column)
     if width > 0.0 {
@@ -169,7 +169,7 @@ pub fn table_v(
   let head_h = 40.0
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    w.kind = "TableV"
+    w.kind = "ui-table-v"
     match selection {
       Some(s) => follow_store(s)
       None => ()
@@ -299,7 +299,7 @@ pub fn sticky_list(
   let hh = head_h
   @widget.node_of_new(fn(viewport : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    viewport.kind = "StickyList"
+    viewport.kind = "ui-sticky-list"
     let lay = @style.empty_style()
     lay.flex_direction = Some(@yoga.Column)
     if width > 0.0 {

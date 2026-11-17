@@ -61,7 +61,7 @@ pub fn col(
     align_items~,
     class~,
     handle~,
-  )
+  ).with_kind("ui-col")
 }
 
 ///|
@@ -103,7 +103,7 @@ pub fn row(
     align_items~,
     class~,
     handle~,
-  )
+  ).with_kind("ui-row")
 }
 
 ///|
@@ -155,7 +155,8 @@ pub fn[A] bind(
   )
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    w.kind = "Bind"
+    // 动态文本按文本语义挂：kind 不另立名目，读屏报 text、正文在 label
+    w.role = "text"
     if class.length() > 0 {
       fold_style(w, @style.empty_style(), @style.empty_style(), class)
     }
@@ -213,7 +214,7 @@ pub fn hover_group(
   }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    w.kind = "HoverGroup"
+    w.kind = "ui-hover-group"
     // 内部布局，不对外样式化：列方向与「子件按内容起排」是组件形态本身
     w.node.set_flex_direction(@yoga.Column)
     w.node.set_align_items(@yoga.AlignItems::FlexStart)

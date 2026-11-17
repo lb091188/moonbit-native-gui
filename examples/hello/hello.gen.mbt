@@ -19,13 +19,13 @@ pub fn hello() -> @widget.Node {
   reg.int("count", count)
   @mngdev.mng_dev_page("hello", reg, fn() {
     @ui.col([
-      @ui.text("你好，MoonBit 原生窗口", class=@style.class_of(["title"])),
-      @ui.text("本应用由单页面组件及其开发工具辅助开发而成。", class=@style.class_of(["hint"])),
-      @ui.input(name, placeholder="你的名字", width=240.0),
-      @ui.bind_label(name, fn(_v) { "你好, \{name.get()}！" }),
-      @ui.stepper(count, max=10),
-      @ui.bind_label(count, fn(_v) { "计数: \{count.get()}" }),
-      @ui.button("重置", on_click=reset),
-    ], class=@style.class_of(["page"]))
+      @ui.text("你好，MoonBit 原生窗口", class=@style.class_of(["title"])).with_comp("ui-text"),
+      @ui.text("本应用由单页面组件及其开发工具辅助开发而成。", class=@style.class_of(["hint"])).with_comp("ui-text"),
+      @ui.input(name, placeholder="你的名字", width=240.0).with_comp("ui-input"),
+      @ui.bind_label(name, fn(_v) { "你好, \{name.get()}！" }).with_comp("ui-text"),
+      @ui.stepper(count, max=10).with_comp("ui-stepper"),
+      @ui.bind_label(count, fn(_v) { "计数: \{count.get()}" }).with_comp("ui-text"),
+      @ui.button("重置", on_click=reset).with_comp("ui-button"),
+    ], class=@style.class_of(["page"])).with_comp("ui-col")
   })
 }

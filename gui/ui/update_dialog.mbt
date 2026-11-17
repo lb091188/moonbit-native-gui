@@ -552,7 +552,7 @@ pub fn update_dialog(
           s : @widget.Widget,
         ) -> @widget.Widget {
           watch_theme()
-          s.kind = "UpdateDialog"
+          s.kind = "ui-update-dialog"
           s.node.set_width(@yoga.percent(100.0))
           s.node.set_height(@yoga.percent(100.0))
           s.node.set_justify_content(@yoga.JustifyContent::Center)

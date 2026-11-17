@@ -60,7 +60,7 @@ pub fn drag_source(
 ) -> @widget.Node {
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    w.kind = "DragSource"
+    w.kind = "ui-drag-source"
     let _ = content.mount_into(w)
     // 三态：armed = 按下且在等阈值；dragging = 已经开拖（会话在跑）
     let armed : Ref[Bool] = Ref(false)
@@ -210,7 +210,7 @@ pub fn drop_target(
 ) -> @widget.Node {
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    w.kind = "DropTarget"
+    w.kind = "ui-drop-target"
     let _ = content.mount_into(w)
     w.set_on_drop(fn(data : @widget.DragData, x : Double, y : Double) -> Bool {
       if accept(data) {

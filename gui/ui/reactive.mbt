@@ -29,7 +29,7 @@ pub fn[T] when(
   pred~ : (T) -> Bool = when_default_pred,
 ) -> @widget.Node {
   @widget.node_of_new(fn(host : @widget.Widget) -> @widget.Widget {
-    host.kind = "When"
+    host.kind = "ui-when"
     let w = (then.mount)(host)
     w.set_visible(pred(cond.get()))
     let _ = cond.subscribe(fn(v : T) -> Unit {
@@ -49,7 +49,7 @@ pub fn[T] when_else(
   pred~ : (T) -> Bool = when_default_pred,
 ) -> @widget.Node {
   @widget.node_of_new(fn(host : @widget.Widget) -> @widget.Widget {
-    host.kind = "When"
+    host.kind = "ui-when"
     let va = (then.mount)(host)
     let vb = (otherwise.mount)(host)
     fn apply(v : T) -> Unit {
@@ -124,7 +124,7 @@ fn[T, K : Eq] list_node(
   indexed~ : Bool = false,
 ) -> @widget.Node {
   @widget.node_of_new(fn(host : @widget.Widget) -> @widget.Widget {
-    host.kind = "ForList"
+    host.kind = "ui-for-list"
     host.node.set_flex_direction(@yoga.Column)
     host.node.set_align_items(@yoga.AlignItems::Stretch)
     let ks : Array[K] = []
@@ -248,7 +248,7 @@ pub fn when_else_bool(
   otherwise : @widget.Node,
 ) -> @widget.Node {
   @widget.node_of_new(fn(host : @widget.Widget) -> @widget.Widget {
-    host.kind = "When"
+    host.kind = "ui-when"
     let va = (then.mount)(host)
     let vb = (otherwise.mount)(host)
     fn apply(v : Bool) -> Unit {

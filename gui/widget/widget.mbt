@@ -212,10 +212,16 @@ pub(all) struct Widget {
   mut label : String
   /// 控件类名（如 "button"）：组件构造时写，测试断言与将来无障碍共用。
   mut role : String
-  /// 组件类型名（如 "Button" / "Table" / "CodeEditor"）：组件构造时自带，
+  /// 组件类型名：与 .mng 模板标签统一（kebab-case，如 "ui-input" /
+  /// "ui-table"），无模板标签的控件同风格补 `ui-` 前缀。组件构造时自带，
   /// inspector 树与 dump 的类型列。开放字符串，与读屏封闭枚举 `role`
   /// 独立演化——role 管读屏语义，kind 管组件身份。
   mut kind : String
+  /// 模板组件标记：mngkit 在模板标签调用点经 `Node::with_comp` 注入标签原文
+  /// （内置与自定义组件都注入）。非空 = 这个控件由模板里写出的标签产出；
+  /// 检查器组件视图（每个标签一行）与读屏组件组节点认它。纯 MoonBit
+  /// 应用全程为空，检查器树保持全显。
+  mut comp : String
   /// 命中穿透：true 时本控件**及其子树**照常绘制但不参与命中测试与指针
   /// 路由——给盖在内容上方的纯展示覆盖层用（inspector 高亮框），不挡
   /// 下层控件收事件。
@@ -290,6 +296,7 @@ pub fn Widget::new() -> Widget {
     label: "",
     role: "",
     kind: "",
+    comp: "",
     hit_pass_through: false,
     blend_paint: Normal,
     clip_content: true,

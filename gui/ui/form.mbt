@@ -68,7 +68,7 @@ pub fn checkbox(
   @widget.node_of_new(fn(row : @widget.Widget) -> @widget.Widget {
     let off = enabled_cell(enabled, disabled)
     row.focus_id = auto_focus_id(focus_id)
-    row.kind = "CheckBox"
+    row.kind = "ui-checkbox"
     // 语义面：读屏要的是「角色 + 勾选态 + 这段文字」，状态回调现读 Store
     row.role = "checkbox"
     row.enabled = !off.off
@@ -293,7 +293,7 @@ pub fn radio_group(
     direction~,
     row_gap=if is_row { 0.0 } else { gap },
     column_gap=if is_row { gap } else { 0.0 },
-  )
+  ).with_kind("ui-radio-group")
 }
 
 ///|
@@ -318,7 +318,7 @@ pub fn switch(
   follow_store(state)
   @widget.node_of_new(fn(row : @widget.Widget) -> @widget.Widget {
     let off = enabled_cell(None, disabled)
-    row.kind = "Switch"
+    row.kind = "ui-switch"
     row.role = "switch"
     row.enabled = !off.off
     row.a11y_state = Some(fn(_self : @widget.Widget) -> (String, String)? {
@@ -452,7 +452,7 @@ pub fn slider(
     // 任何投递路径下都能把拖动做完（也才测得到）
     let dragging = Ref(false)
     w.focus_id = auto_focus_id(focus_id)
-    w.kind = "Slider"
+    w.kind = "ui-slider"
     w.node.set_width(@yoga.fixed(width))
     w.node.set_height(@yoga.fixed(@theme.control_height))
     w.cursor_fn = Some(enabled_cursor(off, @widget.CURSOR_HAND))
@@ -620,7 +620,7 @@ pub fn progress(
   let anon = @style.merge_all(blocks)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    w.kind = "Progress"
+    w.kind = "ui-progress"
     w.node.set_width(@yoga.fixed(width))
     w.node.set_height(@yoga.fixed(height))
     fold_style(w, @style.empty_style(), anon, class)
@@ -1017,7 +1017,7 @@ pub fn stepper(
         }
       })
     },
-  )
+  ).with_kind("ui-stepper")
 }
 
 ///|
@@ -1155,7 +1155,7 @@ pub fn button(
     watch_theme()
     let off = enabled_cell(enabled, disabled)
     w.focus_id = auto_focus_id(focus_id)
-    w.kind = "Button"
+    w.kind = "ui-button"
     w.node.set_height(@yoga.fixed(@theme.control_height))
     w.role = "button"
     w.enabled = !off.off
@@ -1319,7 +1319,7 @@ pub fn link(
   let font = @text.Font::new("", font_size)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    w.kind = "Link"
+    w.kind = "ui-link"
     let tw = text_width(text, font)
     w.focus_id = auto_focus_id(focus_id)
     w.node.set_width(@yoga.fixed(tw))
@@ -1454,7 +1454,7 @@ pub fn form_item(
     direction=@yoga.Column,
     row_gap=2.0,
     handle~,
-  )
+  ).with_kind("ui-form-item")
 }
 
 ///|
@@ -1475,7 +1475,7 @@ pub fn form(
   for it in items {
     nodes.push(it)
   }
-  view(nodes, direction=@yoga.Column, row_gap~, handle~)
+  view(nodes, direction=@yoga.Column, row_gap~, handle~).with_kind("ui-form")
 }
 
 ///|
@@ -1542,7 +1542,7 @@ pub fn rate(
   let hover_n : Ref[Int32] = Ref(0)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    w.kind = "Rate"
+    w.kind = "ui-rate"
     w.focus_id = auto_focus_id(focus_id)
     w.node.set_width(
       @yoga.fixed(size * n.to_double() + gap * (n - 1).to_double()),
@@ -1812,7 +1812,7 @@ pub fn select(
   let ph = placeholder
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    w.kind = "Select"
+    w.kind = "ui-select"
     w.role = "select"
     w.a11y_state = Some(fn(_self : @widget.Widget) -> (String, String)? {
       Some(("", value.get()))
@@ -1963,7 +1963,7 @@ pub fn color_picker(
   let per_row = 5
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    w.kind = "ColorPicker"
+    w.kind = "ui-color-picker"
     let open_id : Ref[Int32] = Ref(0)
     let hi : Ref[Int32] = Ref(0)
     w.focus_id = auto_focus_id(focus_id)
@@ -2179,7 +2179,7 @@ fn combo_impl(
   let opts = options
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    w.kind = "Combo"
+    w.kind = "ui-combo"
     let open_id : Ref[Int32] = Ref(0)
     let hi : Ref[Int32] = Ref(0)
     let shown : Ref[Array[String]] = Ref([])
