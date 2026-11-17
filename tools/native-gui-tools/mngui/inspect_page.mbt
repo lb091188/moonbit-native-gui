@@ -612,16 +612,13 @@ pub fn run_inspector(app_id : String) -> Unit {
       insp_select(p, i)
     },
   )
-  // 右栏：详情在上（最高占一半，不足按实际高），余下全部给样式区（滚动）
+  // 右栏：详情按实际内容高，余下全部给样式区（滚动）
   let detail_section = @ui.view(
     [
       @ui.text("详情", class=[@style.text_heading]),
       insp_desc_block(p.detail.signal()),
     ],
     row_gap=6.0,
-    handle=fn(v : @widget.Widget) -> Unit {
-      v.node.set_max_height(@yoga.percent(50.0))
-    },
   )
   // 样式表单（编辑器五字段直改选中件）+ 全部已设字段只读读数
   let stores : Array[@base.Store[String]] = [
@@ -729,8 +726,6 @@ pub fn run_inspector(app_id : String) -> Unit {
   )
   let root = @ui.col(
     [
-      toolbar,
-      @ui.divider(),
       // 左树右详情：表格两份、详情一份，手柄可拖
       @ui.split(
         tree_section,
@@ -739,9 +734,12 @@ pub fn run_inspector(app_id : String) -> Unit {
         min_first=320.0,
         min_second=320.0,
       ),
+      @ui.divider(),
+      // 状态栏在底部：开关与状态一行贴底，留白收紧
+      toolbar,
     ],
-    padding=16.0,
-    row_gap=10.0,
+    padding=10.0,
+    row_gap=8.0,
     grow=1.0,
   )
   let mounted = @ui.mount_window(

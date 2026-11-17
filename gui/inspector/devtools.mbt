@@ -362,9 +362,6 @@ fn devtls_root(p : DevPage) -> @widget.Node {
       }),
     ],
     row_gap=6.0,
-    handle=fn(v : @widget.Widget) -> Unit {
-      v.node.set_max_height(@yoga.percent(50.0))
-    },
   )
   // 样式表单（编辑器五字段直改选中件）+ 全部已设字段只读读数
   let stores : Array[@base.Store[String]] = [
@@ -482,8 +479,6 @@ fn devtls_root(p : DevPage) -> @widget.Node {
   )
   @ui.col(
     [
-      toolbar,
-      @ui.divider(),
       @ui.split(
         tree_section,
         right_section,
@@ -491,9 +486,12 @@ fn devtls_root(p : DevPage) -> @widget.Node {
         min_first=320.0,
         min_second=320.0,
       ),
+      @ui.divider(),
+      // 状态栏在底部：开关与状态一行贴底，留白收紧
+      toolbar,
     ],
-    padding=16.0,
-    row_gap=10.0,
+    padding=10.0,
+    row_gap=8.0,
     grow=1.0,
   )
 }
