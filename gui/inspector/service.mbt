@@ -316,7 +316,100 @@ pub fn insp_tree_snapshot(full~ : Bool = false) -> Array[@widget.A11yNode] {
 // ---- 命令处理 ----
 
 ///|
-/// 请求分发：`tree [--full]` / `style <id>` / `select <id>` /
+/// 编辑器五字段的命令名 → 字段号（style set 的 k=v 对用）。
+pub fn insp_field_index(name : String) -> Int32? {
+  match name {
+    "background" => Some(0)
+    "color" => Some(1)
+    "border_color" => Some(2)
+    "border_width" => Some(3)
+    "border_radius" => Some(4)
+    _ => None
+  }
+}
+
+///|
+/// `style set <id> 字段=值 …`：把列出的字段写进该件的单件覆写（只存列出
+/// 的字段；值非法整条拒绝，不做半截应用）。下一帧生效；`style reset <id>`
+/// 撤全部覆写。
+fn insp_style_set(words : Array[String]) -> String {
+  let id = match words.get(2) {
+    Some(w) =>
+      match parse_insp_int(w) {
+        Some(id) => id
+        None => return "error: style set 需要 <id>（整数）\n"
+      }
+    None => return "error: style set 需要 <id>\n"
+  }
+  // id 寻址走全量口径（组件视图藏掉的内部件同样可改）
+  let mut found = false
+  for n in insp_tree_snapshot(full=true) {
+    if n.id == id {
+      found = true
+    }
+  }
+  if !found {
+    return "error: id \{id} 不在当前树快照\n"
+  }
+  let mut ov = @style.empty_style()
+  let mut i = 3
+  let mut applied = 0
+  while i < words.length() {
+    let pair = words[i]
+    let parts : Array[String] = []
+    for p in pair.split("=") {
+      parts.push(p.to_owned())
+    }
+    if parts.length() != 2 {
+      return "error: style set 参数要 字段=值 形态（\{pair}）\n"
+    }
+    let name = parts[0]
+    let value = parts[1]
+    match insp_field_index(name) {
+      Some(idx) => {
+        // 值预检：颜色与数值两档，非法整条拒绝（宁可不改，不写坏样式）
+        let ok = if idx <= 2 {
+          insp_color_input(value) is Some(_)
+        } else {
+          insp_parse_double(value) is Some(_)
+        }
+        if !ok {
+          return "error: 字段 \{name} 的值不合法：\{value}\n"
+        }
+        let next = insp_field_set(ov, idx, value)
+        ov = next
+        applied += 1
+      }
+      None =>
+        return "error: 未知字段 \{name}（可选 background/color/border_color/border_width/border_radius）\n"
+    }
+    i += 1
+  }
+  if applied == 0 {
+    return "error: style set 至少给一个 字段=值\n"
+  }
+  @style.override_set(id, ov)
+  "ok style set \{id}\n"
+}
+
+///|
+/// `style reset <id>`：撤该件的单件覆写。
+fn insp_style_reset(words : Array[String]) -> String {
+  match words.get(2) {
+    Some(w) =>
+      match parse_insp_int(w) {
+        Some(id) => {
+          @style.override_reset(id)
+          "ok style reset \{id}\n"
+        }
+        None => "error: style reset 需要 <id>（整数）\n"
+      }
+    None => "error: style reset 需要 <id>\n"
+  }
+}
+
+///|
+/// 请求分发：`tree [--full]` / `style [set|reset]` / `select <id>` /
 /// `highlight <id>` / `shot [路径]`。未知命令回一行 error。
 pub fn inspect_handle(req : String) -> String {
   let line = req.trim().to_owned()
@@ -333,9 +426,15 @@ pub fn inspect_handle(req : String) -> String {
   } else if cmd == "style" {
     match words.get(1) {
       Some(w) =>
-        match parse_insp_int(w) {
-          Some(id) => insp_style_dump(id)
-          None => "error: style 需要 <id>（整数）\n"
+        if w == "set" {
+          insp_style_set(words)
+        } else if w == "reset" {
+          insp_style_reset(words)
+        } else {
+          match parse_insp_int(w) {
+            Some(id) => insp_style_dump(id)
+            None => "error: style 需要 <id>（整数）\n"
+          }
         }
       None => "error: style 需要 <id>\n"
     }

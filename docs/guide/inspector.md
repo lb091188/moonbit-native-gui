@@ -42,7 +42,8 @@ Five commands — one-line request, TSV-lines response (256KB cap; over-long res
 | Command | Response |
 |---|---|
 | `tree [--full]` | Full-tree dump, one widget per line; component view by default (one row per template tag, internal implementation widgets take no rows and their children re-attach to the nearest kept ancestor), `--full` lists everything; header row first, columns kind/role/name/id/parent/x/y/w/h/state/value/text/enabled |
-| `style <id>` | Effective style for the id: the first five rows are the style-editor fields (background/color/border_color/border_width/border_radius), followed by **every set field** with a group prefix (text./box./edge./border./flex./pos./misc., e.g. `text.font_size`, `flex.flex_direction`) |
+| `style <id>` | Effective style for the id (including per-widget overrides): the first five rows are the style-editor fields (background/color/border_color/border_width/border_radius), followed by **every set field** with a group prefix (text./box./edge./border./flex./pos./misc., e.g. `text.font_size`, `flex.flex_direction`) |
+| `style set <id> field=value …` | Write the listed fields into that widget's **per-widget override** (only the listed fields are stored; an invalid value rejects the whole command): field names as the five editor fields, colors as `#rrggbb` or a token name, numbers literal. Takes effect next frame; `style reset <id>` clears all overrides |
 | `select <id>` | Same readings as `style <id>` plus highlighting that widget in the target app (for the GUI inspector's row click: both in one round trip) |
 | `highlight <id>` | Highlights that widget in the target app (light-blue translucent fill + outline, Chrome-DevTools-like); `highlight 0` clears. The overlay is hit-transparent and stays out of the semantic tree |
 | `shot [--full] [path]` | Save a PNG. Default captures the last presented frame (viewport view); `--full` repaints the page scroll container's content at full content height (scrolling-screenshot semantics, including off-viewport content; virtual lists only include mounted rows; content beyond 20000px is clipped and noted). Without a path goes to the temp dir as `mng-shot-<title>-<timestamp>.png`; reply carries the actual path |
@@ -72,7 +73,8 @@ mngui --inspect --app libyue.hello   # running mngui directly also works
 
 - Split panes: tree on the left, details on the right, draggable divider in between (table two-thirds by default, details one-third; the tree table stretches with the pane).
 - Left pane: indented widget tree (Kind·role「name」 #id) in the component view, with an "internal" header toggle for the full view; click to select; auto-refresh (~1s) always on (fetched asynchronously; the UI thread never blocks; the table is not rebuilt when the tree is unchanged).
-- Right pane: details as a description list (id/parent/kind/role/name/state/value/text/rect/enabled), at most the upper half of the pane (actual height when shorter); everything below goes to the style area, scrolling when long (full style fields grouped, editor five first).
+- Right pane: details as a description list (id/parent/kind/role/name/state/value/text/rect/enabled), at most the upper half of the pane (actual height when shorter); everything below goes to the style area, scrolling when long.
+- The style area is a form: the five editor fields (background/text/border color/border width/corner radius) are directly editable, prefilled with the current values on selection; "apply" writes the diff into that widget's per-widget override (only the selected widget changes, next frame), "revert" clears the override; below the form, a read-only listing of every set field.
 - Select-to-highlight: a highlight overlay is drawn live on the target app window and follows layout changes; closing the window clears it.
 - If the app is not running or not injected, the status bar shows "not connected" and reconnects automatically.
 

@@ -183,3 +183,33 @@ test "apply：flex_wrap=Wrap 让子项换到第二行" {
     msg="flex_wrap=Wrap 没落到 Yoga：b.y=\{b.node.layout().top}",
   )
 }
+
+///|
+test "单件覆写：set 只并设到的字段、读数与 reset 回基" {
+  let id = 987654
+  // 覆写直接进侧表（不经 apply 全链，只验覆写合并口径）
+  override_set(id, {
+    ..empty_style(),
+    background_color: Some(Hex("#ff0000")),
+  })
+  assert_true(override_has(id))
+  let merged = resolved_by_id(id)
+  match merged.background_color {
+    Some(Hex(v)) => assert_eq(v, "#ff0000")
+    _ => fail("覆写背景应生效")
+  }
+  // 基块没有的字段不因覆写而多出来
+  assert_true(merged.font_size is None)
+  // 再叠一个字段：同件覆写合并，先写的保留
+  override_set(id, { ..empty_style(), border_radius: Some(6.0) })
+  let merged2 = resolved_by_id(id)
+  match merged2.background_color {
+    Some(Hex(v)) => assert_eq(v, "#ff0000")
+    _ => fail("先写的覆写字段应保留")
+  }
+  assert_eq(merged2.border_radius, Some(6.0))
+  // reset 清干净
+  override_reset(id)
+  assert_true(!override_has(id))
+  assert_true(resolved_by_id(id).background_color is None)
+}

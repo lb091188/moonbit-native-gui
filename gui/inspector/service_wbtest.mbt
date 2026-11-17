@@ -161,3 +161,25 @@ test "insp_tree_walk：组件视图收模板件藏内部件，子件挂回最近
   }
   assert_eq(minus_parent, inner_row.id)
 }
+
+///|
+test "insp_field_index：五字段名映射，其余拒绝" {
+  assert_eq(insp_field_index("background"), Some(0))
+  assert_eq(insp_field_index("color"), Some(1))
+  assert_eq(insp_field_index("border_color"), Some(2))
+  assert_eq(insp_field_index("border_width"), Some(3))
+  assert_eq(insp_field_index("border_radius"), Some(4))
+  assert_true(insp_field_index("font_size") is None)
+}
+
+///|
+test "inspect_handle：style set/reset 参数口径（无帧时先卡 id 不在快照）" {
+  // 无帧：id 寻址先失败
+  assert_true(
+    inspect_handle("style set 5 background=#ff0000").has_prefix(
+      "error: id 5 不在当前树快照",
+    ),
+  )
+  assert_true(inspect_handle("style reset 5").has_prefix("ok style reset 5"))
+  // reset 不需要帧（清覆写本就是幂等空操作）
+}

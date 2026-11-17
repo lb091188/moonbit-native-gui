@@ -54,7 +54,7 @@ test "insp_row_label：缩进 + 类型名·角色「名」 #id" {
 }
 
 ///|
-test "样式分组与全量文本：五字段在前、分组标题各一次" {
+test "样式分组与全量文本：五字段进表单、读数只列其余分组" {
   let tsv = "#field\tvalue\n" +
     "background\t#f5f5f5\n" +
     "color\t#333333\n" +
@@ -63,17 +63,19 @@ test "样式分组与全量文本：五字段在前、分组标题各一次" {
     "text.font_weight\tSemiBold\n" +
     "flex.flex_direction\tcolumn\n" +
     "pos.opacity\t0.5\n"
-  let text = insp_style_text(tsv)
-  assert_true(text.contains("背景") || text.contains("background"))
-  assert_true(text.contains("background = #f5f5f5"))
+  let fields = insp_parse_style(tsv)
+  let text = insp_style_text(fields)
+  assert_true(text.contains("全部已设字段"))
+  // 编辑器五字段不进只读读数（它们在表单里）
+  assert_true(!text.contains("background = #f5f5f5"))
   assert_true(text.contains("文字"))
   assert_true(text.contains("text.font_size = 14"))
   assert_true(text.contains("布局"))
   assert_true(text.contains("flex.flex_direction = column"))
   assert_true(text.contains("定位层级"))
   assert_true(text.contains("pos.opacity = 0.5"))
-  // 分组标题各出现一次
-  assert_eq(text.split("文字").count(), 2)
+  // 表单取值：五字段按序，缺项空串
+  assert_eq(insp_form_values(fields), ["#f5f5f5", "#333333", "", "1", ""])
 }
 
 ///|
@@ -114,6 +116,11 @@ fn insp_test_page() -> InspPage {
     styles: @base.Store::new(""),
     status: @base.Store::new(""),
     full: @base.Store::new(false),
+    f_bg: @base.Store::new(""),
+    f_color: @base.Store::new(""),
+    f_bc: @base.Store::new(""),
+    f_bw: @base.Store::new(""),
+    f_br: @base.Store::new(""),
     last_rows: [],
     last_tree_text: "",
     cur_id: 0,
@@ -122,6 +129,9 @@ fn insp_test_page() -> InspPage {
     tick_tree: 0,
     tick_style: 0,
     tree_full_sent: false,
+    want_write: "",
+    prefill: [],
+    expect_prefill: false,
   }
 }
 

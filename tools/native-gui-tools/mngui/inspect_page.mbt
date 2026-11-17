@@ -36,12 +36,18 @@ struct InspPage {
   status : @base.Store[String]
   /// 树视图档：false 组件视图（每个模板标签一行）/ true 全量（组件内部实现件也在）
   full : @base.Store[Bool]
+  /// 样式表单五字段（编辑器五字段：背景/文字/边框色/边框宽/圆角）
+  f_bg : @base.Store[String]
+  f_color : @base.Store[String]
+  f_bc : @base.Store[String]
+  f_bw : @base.Store[String]
+  f_br : @base.Store[String]
   mut last_rows : Array[InspRow]
   /// 上一份 tree 响应原文：没变不重建表（避免每秒整表重排）
   mut last_tree_text : String
   /// 当前选中控件 id（按 id 保位；树行下标会随增删挪动）
   mut cur_id : Int32
-  /// 在途请求：0 空闲 / 1 tree / 2 样式（select 或 style）
+  /// 在途请求：0 空闲 / 1 tree / 2 样式（select 或 style）/ 3 样式写（set/reset）
   mut busy : Int32
   /// 待发起的选中控件 id（0 = 无）
   mut want_select : Int32
@@ -51,6 +57,12 @@ struct InspPage {
   mut tick_style : Int
   /// 最近一次发出的树视图档（切换后强制重拉）
   mut tree_full_sent : Bool
+  /// 待发起的样式写请求（空 = 无）
+  mut want_write : String
+  /// 表单基线（五字段上次预填值；应用时按差量发）
+  mut prefill : Array[String]
+  /// 下一份样式响应要回填表单（选中切换或写成功后的第一次）
+  mut expect_prefill : Bool
 }
 
 ///|
@@ -293,24 +305,37 @@ fn insp_parse_style(s : String) -> Array[(String, String)] {
 }
 
 ///|
-/// 样式全量文本：编辑器五字段在前，其余按组归档（组标题行 + 缩进行）。
-fn insp_style_text(s : String) -> String {
-  let fields = insp_parse_style(s)
-  let b = StringBuilder()
-  b.write_string("样式（编辑器五字段）\n")
-  let five = [
-    "background", "color", "border_color", "border_width", "border_radius",
-  ]
-  for f in fields {
-    if five.contains(f.0) {
-      b.write_string("  \{f.0} = \{f.1}\n")
+/// 编辑器五字段名（与样式响应前五行一一对应；写命令的同名字段）。
+let insp_form_fields : Array[String] = [
+  "background", "color", "border_color", "border_width", "border_radius",
+]
+
+///|
+/// 从已解析的样式字段里取编辑器五字段值（缺项空串）。
+fn insp_form_values(fields : Array[(String, String)]) -> Array[String] {
+  let out : Array[String] = []
+  for name in insp_form_fields {
+    let mut v = ""
+    for kv in fields {
+      if kv.0 == name {
+        v = kv.1
+      }
     }
+    out.push(v)
   }
+  out
+}
+
+///|
+/// 样式全量文本（已解析字段）：其余按组归档（组标题行 + 缩进行）。
+fn insp_style_text(fields : Array[(String, String)]) -> String {
+  let b = StringBuilder()
+  b.write_string("全部已设字段\n")
   let groups = ["文字", "尺寸", "内外边距", "边框圆角", "布局", "定位层级", "其它"]
   for g in groups {
     let mut head = false
     for f in fields {
-      if five.contains(f.0) {
+      if insp_form_fields.contains(f.0) {
         continue
       }
       if insp_group_of(f.0) == g {
@@ -369,6 +394,7 @@ fn insp_select(p : InspPage, i : Int32) -> Unit {
   p.detail.set(insp_detail_items(row))
   p.styles.set("样式读取中…")
   p.want_select = row.id
+  p.expect_prefill = true
   p.tick_style = 0
 }
 
@@ -401,13 +427,36 @@ fn insp_apply_tree(p : InspPage, resp : String) -> Unit {
 }
 
 ///|
-/// 应用样式响应（`select` 与 `style` 同一格式）。
+/// 应用样式写响应（set/reset）：成功后立刻重拉样式并回填表单基线。
+fn insp_apply_write(p : InspPage, resp : String) -> Unit {
+  if resp.has_prefix("ok") {
+    p.status.set(resp.trim().to_owned())
+    p.expect_prefill = true
+    p.tick_style = INSP_STYLE_TICKS
+  } else {
+    p.styles.set(resp.trim().to_owned())
+  }
+}
+
+///|
+/// 应用样式响应（`select` 与 `style` 同一格式）；`expect_prefill` 时回填表单。
 fn insp_apply_style(p : InspPage, resp : String) -> Unit {
   if resp.has_prefix("error:") {
     p.styles.set(resp.trim().to_owned())
-  } else {
-    p.styles.set(insp_style_text(resp))
+    return
   }
+  let fields = insp_parse_style(resp)
+  if p.expect_prefill {
+    p.expect_prefill = false
+    let values = insp_form_values(fields)
+    p.prefill = values
+    p.f_bg.set(values[0])
+    p.f_color.set(values[1])
+    p.f_bc.set(values[2])
+    p.f_bw.set(values[3])
+    p.f_br.set(values[4])
+  }
+  p.styles.set(insp_style_text(fields))
 }
 
 ///|
@@ -433,6 +482,8 @@ fn insp_tick(p : InspPage) -> Unit {
       Ok(resp) =>
         if kind == 1 {
           insp_apply_tree(p, resp)
+        } else if kind == 3 {
+          insp_apply_write(p, resp)
         } else {
           insp_apply_style(p, resp)
         }
@@ -441,6 +492,9 @@ fn insp_tick(p : InspPage) -> Unit {
           p.last_rows = []
           p.last_tree_text = ""
           p.rows.set([])
+          p.status.set("未连接：" + e)
+        } else if kind == 3 {
+          p.styles.set("样式写入失败：" + e)
           p.status.set("未连接：" + e)
         } else {
           p.styles.set("样式读取失败：" + e)
@@ -457,6 +511,13 @@ fn insp_tick(p : InspPage) -> Unit {
     match @insp.call_begin(p.app_id, "select \{id}") {
       Ok(_) => p.busy = 2
       Err(e) => p.styles.set("样式读取失败：" + e)
+    }
+  } else if p.want_write.length() > 0 {
+    let req = p.want_write
+    p.want_write = ""
+    match @insp.call_begin(p.app_id, req) {
+      Ok(_) => p.busy = 3
+      Err(e) => p.styles.set("样式写入失败：" + e)
     }
   } else if p.tick_tree >= INSP_TREE_TICKS {
     p.tick_tree = 0
@@ -519,6 +580,11 @@ pub fn run_inspector(app_id : String) -> Unit {
       },
     ),
     full: @base.Store::new(false),
+    f_bg: @base.Store::new(""),
+    f_color: @base.Store::new(""),
+    f_bc: @base.Store::new(""),
+    f_bw: @base.Store::new(""),
+    f_br: @base.Store::new(""),
     last_rows: [],
     last_tree_text: "",
     cur_id: 0,
@@ -527,6 +593,9 @@ pub fn run_inspector(app_id : String) -> Unit {
     tick_tree: INSP_TREE_TICKS,
     tick_style: 0,
     tree_full_sent: false,
+    want_write: "",
+    prefill: [],
+    expect_prefill: false,
   }
   let cols : Array[@ui.TableColumn] = [
     @ui.TableColumn::make("控件", 0.0, sortable=false),
@@ -554,8 +623,79 @@ pub fn run_inspector(app_id : String) -> Unit {
       v.node.set_max_height(@yoga.percent(50.0))
     },
   )
+  // 样式表单（编辑器五字段直改选中件）+ 全部已设字段只读读数
+  let stores : Array[@base.Store[String]] = [
+    p.f_bg, p.f_color, p.f_bc, p.f_bw, p.f_br,
+  ]
+  let labels = ["背景", "文字", "边框色", "边框宽", "圆角"]
+  let form_rows : Array[@widget.Node] = []
+  for k = 0; k < 5; k = k + 1 {
+    form_rows.push(
+      @ui.row(
+        [
+          @ui.text(labels[k], font_size=12.0, class=[@style.text_secondary]),
+          @ui.input(stores[k], width=170.0),
+        ],
+        column_gap=8.0,
+      ),
+    )
+  }
+  form_rows.push(
+    @ui.row(
+      [
+        @ui.button(
+          "应用",
+          variant=@ui.Solid,
+          on_click=fn() -> Unit {
+            if p.cur_id == 0 {
+              p.status.set("先在左侧选中一个控件")
+              return
+            }
+            if p.prefill.length() != 5 {
+              p.status.set("还没读到该控件的样式")
+              return
+            }
+            let pairs : Array[String] = []
+            for k = 0; k < 5; k = k + 1 {
+              let v = stores[k].get()
+              if v != p.prefill[k] {
+                pairs.push(insp_form_fields[k] + "=" + v)
+              }
+            }
+            if pairs.length() == 0 {
+              p.status.set("样式没有改动")
+              return
+            }
+            let b = StringBuilder()
+            b.write_string("style set \{p.cur_id}")
+            for pr in pairs {
+              b.write_string(" \{pr}")
+            }
+            p.want_write = b.to_string()
+          },
+        ),
+        @ui.button(
+          "还原",
+          variant=@ui.Soft,
+          on_click=fn() -> Unit {
+            if p.cur_id == 0 {
+              p.status.set("先在左侧选中一个控件")
+              return
+            }
+            p.want_write = "style reset \{p.cur_id}"
+          },
+        ),
+      ],
+      column_gap=8.0,
+    ),
+  )
   let styles_section = @ui.scroll_view(
-    [insp_text_block(p.styles.signal())],
+    [
+      @ui.col(
+        [@ui.col(form_rows, row_gap=6.0), @ui.divider(), insp_text_block(p.styles.signal())],
+        row_gap=8.0,
+      ),
+    ],
     @ui.ScrollState::new(),
     handle=fn(v : @widget.Widget) -> Unit {
       v.node.set_flex_grow(1.0)

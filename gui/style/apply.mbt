@@ -30,6 +30,7 @@ fn install_drop_hook() -> Unit {
       let _ = resolved_table.remove(id)
       let _ = inherited_table.remove(id)
       let _ = effective_table.remove(id)
+      let _ = override_remove_for_drop(id)
       forget_anim(id)
     })
     @widget.set_widget_mount_hook(fn(
@@ -346,10 +347,11 @@ pub fn resolved(w : @widget.Widget) -> Style {
 /// 抓住控件句柄就成了「控件 → 节点 → 回调 → 控件」的引用环（计数式回收断不掉）。
 /// 布局属性只存在于基块里（状态桶签名里没有它们，§1.3），所以测量期读基块是完整的。
 pub fn resolved_by_id(id : Int32) -> Style {
-  match effective_table.get(id) {
+  let st = match effective_table.get(id) {
     Some(st) => st
     None => empty_style()
   }
+  override_merge(id, st)
 }
 
 ///|
@@ -419,7 +421,7 @@ pub fn style_for(w : @widget.Widget) -> Style {
     forget_anim(w.id)
     out
   }
-  square_corners_applied(out2)
+  square_corners_applied(override_merge(w.id, out2))
 }
 
 ///|
