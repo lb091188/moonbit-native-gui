@@ -429,3 +429,34 @@ test "atspi：真总线集成（无 a11y 总线的环境跳过）" {
     }
   }
 }
+
+///|
+test "atspi：真总线集成（13 列新格式，行尾 kind 列）" {
+  // 与上一条同结构、TSV 每行带第 13 列 kind（组件类型名，发布侧现行格式）；
+  // 两条一起锁住「12 列旧输入与 13 列新输入解析同构」——C 桩按行切分守卫
+  match atspi_start() {
+    Err(e) => println("atspi: skip（本机无 a11y 总线: \{e}）")
+    Ok(_) => {
+      let tsv = "1\t0\t1\twindow\t演示窗\t\t\t\t0\t0\t400\t300\tWindow\n" +
+        "2\t1\t1\tbutton\t确定\t\t\t确定\t10\t10\t80\t30\tButton\n" +
+        "3\t1\t1\tcheckbox\t记住我\tchecked\t\t\t10\t50\t80\t30\tCheckBox\n"
+      @win.a11y_publish(@utf8.encode(tsv), 3)
+      atspi_tick()
+      let mine = @dbus.dbus_a11y_unique_name()
+      assert_true(mine != "", msg="a11y 总线应给出本端唯一名")
+      // 窗口根两个孩子（12 列输入曾因跨行错位只读到 1 个）
+      match
+        @dbus.gdbus_call_a11y(
+          mine,
+          ATSPI_WIN_PATH,
+          "org.a11y.atspi.Accessible",
+          "GetChildren",
+          [],
+        ) {
+        Ok(@dbus.GVArray("(so)", kids)) => assert_eq(kids.length(), 2)
+        _ => fail("窗口根 GetChildren 应答形态不对")
+      }
+      println("atspi: 13 列真总线集成通过")
+    }
+  }
+}
