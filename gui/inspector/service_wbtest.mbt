@@ -183,3 +183,16 @@ test "inspect_handle：style set/reset 参数口径（无帧时先卡 id 不在�
   assert_true(inspect_handle("style reset 5").has_prefix("ok style reset 5"))
   // reset 不需要帧（清覆写本就是幂等空操作）
 }
+
+///|
+test "devtls_shortcut_hit：mac ⌘⌥I 与 F12、其余平台仅 F12" {
+  let cmd_alt_i = @base.MOD_META | @base.MOD_ALT
+  // mac：⌘⌥I 命中、F12 命中（外接键盘兼容）、缺修饰不命中、Ctrl+Alt+I 不命中
+  assert_true(devtls_shortcut_hit('i'.to_int(), cmd_alt_i, true))
+  assert_true(devtls_shortcut_hit(65481, 0, true))
+  assert_true(!devtls_shortcut_hit('i'.to_int(), @base.MOD_ALT, true))
+  assert_true(!devtls_shortcut_hit('i'.to_int(), @base.MOD_CTRL | @base.MOD_ALT, true))
+  // 非 mac：仅 F12，⌘⌥I 不收
+  assert_true(devtls_shortcut_hit(65481, 0, false))
+  assert_true(!devtls_shortcut_hit('i'.to_int(), cmd_alt_i, false))
+}

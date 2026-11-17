@@ -194,13 +194,26 @@ pub fn inspect_auto_install() -> Unit {
     if !g_insp_started.val || !ev.press {
       return false
     }
-    if ev.keysym == 65481 {
+    if devtls_shortcut_hit(ev.keysym, ev.mods, @shell.platform_is_macos()) {
       devtools_toggle()
       true
     } else {
       false
     }
   })
+}
+
+///|
+/// 检查器快捷键命中：mac 是 ⌘⌥I（Cmd+Option+I，浏览器检查器同款；mac 键盘
+/// F 键默认是媒体键不收），也收 F12 兼容外接键盘；Windows/Linux 是 F12。
+/// 平台作参数传入，白盒用例不依赖真机。
+pub fn devtls_shortcut_hit(keysym : Int, mods : Int32, macos : Bool) -> Bool {
+  if keysym == 65481 {
+    return true
+  }
+  macos && keysym == 'i'.to_int() &&
+    (mods & @base.MOD_META) != 0 &&
+    (mods & @base.MOD_ALT) != 0
 }
 
 ///|
