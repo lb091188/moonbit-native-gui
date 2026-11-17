@@ -579,7 +579,7 @@ pub fn Window::is_borderless(self : Window) -> Bool {
 /// 读回系统侧当前窗口标题（空串 = 读不到；GTK 读回未实现恒空串，
 /// Win/mac 真）。
 pub fn Window::title(self : Window) -> String {
-  let buf = Bytes::new(256)
+  let buf = Bytes::make(256, b' ')
   let n = wm_window_title(self.id, buf, 256)
   if n <= 0 {
     ""
@@ -591,7 +591,7 @@ pub fn Window::title(self : Window) -> String {
 ///|
 /// 把 C 侧写进缓冲的短字符串读回来（空/读不到都给空串）。
 fn sys_read(f : (Bytes, Int32) -> Int32) -> String {
-  let buf = Bytes::new(64)
+  let buf = Bytes::make(64, b' ')
   let n = f(buf, 64)
   if n <= 0 {
     ""

@@ -31,8 +31,8 @@ pub fn transform(
     let mapped : Array[Double] = []
     let mut k = 0
     while k < m {
-      mapped.push(Double::from_int(round_i((a[k] - ox) * scale)))
-      mapped.push(Double::from_int(round_i((a[k + 1] - oy) * scale)))
+      mapped.push(round_i((a[k] - ox) * scale).to_double())
+      mapped.push(round_i((a[k + 1] - oy) * scale).to_double())
       k += 2
     }
     out.push({ cmd: s.cmd, args: mapped, })

@@ -864,7 +864,7 @@ fn path_num(d : String, i : Int32) -> (Double, Int32) {
   while j < n {
     let c = d.unsafe_get(j).to_int()
     if c >= 48 && c <= 57 {
-      v = v * 10.0 + Double::from_int(c - 48)
+      v = v * 10.0 + (c - 48).to_double()
       j += 1
     } else {
       break

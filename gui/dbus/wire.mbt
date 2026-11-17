@@ -592,7 +592,7 @@ fn Rd::u32v(self : Rd) -> Int32 {
 fn Rd::i64v(self : Rd) -> Int64 {
   let mut v : Int64 = 0L
   for k in 0..<8 {
-    v = v | (Int64::from_int(self.data[self.pos + k].to_int()) << (k * 8))
+    v = v | (self.data[self.pos + k].to_int().to_int64() << (k * 8))
   }
   self.pos += 8
   v

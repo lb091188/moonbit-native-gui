@@ -185,7 +185,7 @@ fn split_table_cells(line : String) -> Array[StringView] {
 ///|
 /// Materialize only cells that actually contain an escaped pipe.
 fn unescape_table_pipes(cell : StringView) -> StringView {
-  let output = StringBuilder(size_hint=cell.length())
+  let output = StringBuilder(capacity=cell.length())
   let mut run_start = 0
   let mut i = 0
   while i < cell.length() {

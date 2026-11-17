@@ -402,7 +402,7 @@ fn socket_drain() -> Bool {
   if yi_inst_poll() != 1 {
     return false
   }
-  let buf = Bytes::new(INSTANCE_PAYLOAD_CAP)
+  let buf = Bytes::make(INSTANCE_PAYLOAD_CAP, b' ')
   let n = yi_inst_take(buf, INSTANCE_PAYLOAD_CAP)
   if n <= 0 {
     return false

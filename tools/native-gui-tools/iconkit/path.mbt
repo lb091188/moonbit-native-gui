@@ -63,7 +63,7 @@ fn readnum(cs : Array[Int32], start : Int32) -> (Double, Int32) {
   let mut intpart = 0.0
   let mut seen = false
   while i < n && cs[i] >= 48 && cs[i] <= 57 {
-    intpart = intpart * 10.0 + Double::from_int(cs[i] - 48)
+    intpart = intpart * 10.0 + (cs[i] - 48).to_double()
     seen = true
     i += 1
   }
@@ -73,7 +73,7 @@ fn readnum(cs : Array[Int32], start : Int32) -> (Double, Int32) {
     i += 1
     while i < n && cs[i] >= 48 && cs[i] <= 57 {
       scale = scale * 10.0
-      frac = frac * 10.0 + Double::from_int(cs[i] - 48)
+      frac = frac * 10.0 + (cs[i] - 48).to_double()
       seen = true
       i += 1
     }
