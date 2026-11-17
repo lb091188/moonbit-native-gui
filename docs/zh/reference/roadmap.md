@@ -522,6 +522,12 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
 ### 工程与交付
 
 - ✅ **三平台 CI**：检查 + 库测试 + 构建 + 启动冒烟，push 与 PR 都跑
+- ✅ **本地三平台门禁**：`scripts/local_ci.sh` 一条命令跑 mac 本机 + 远端 Linux 容器 + 远端 Windows VM 三腿，推送前暴露编译与测试问题
+  - mac 本机：检查零警告 + 库测试全名单 + 工具链 + webview + 构建 + 原生桩语法门禁 + 文档站
+  - Linux 腿：company 机器 Docker 容器复刻 CI Linux job，含 dbus 会话测试与 xvfb 冒烟
+  - Windows 腿：company 机器 KVM 虚拟机里的真 Windows 跑 CI Windows job 同款检查、测试与 release 链接
+  - Docker：容器化运行环境，把 Linux 用户态连同依赖整个装进隔离实例；KVM：Linux 内核自带的硬件虚拟化，虚拟机里跑真 Windows
+  - 环境重建与远端机器路径见 `experience/adaptation/windows.md` 与 `linux.md`
 - ✅ **文档站**：中英双语 VitePress 站，含教程、组件、布局、系统能力、路线图
 - ✅ **文档 llms.txt**：构建时把中英文档源各聚成一份纯文本全集，给 LLM 离线消费，不跑 JS 不解析侧边栏
 - ✅ **示例体积门禁**：size-gate 工作流三平台量 release+strip 可执行字节数，增量超 max(基线 5%, 128KB) 拦红；基线人工随批提交

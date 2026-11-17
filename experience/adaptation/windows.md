@@ -653,3 +653,7 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 
 - `wm_tray_set_icon_template` 定义在 `wm_tray_set_icon` 之前，体内前置调用产生隐式声明——默认 `int` 返回——随后遇到 `void` 定义报 C2371 重定义冲突；同一编译单元里委托包装必须放在被调函数定义之后，或先给前置声明，移到定义之后即绿。
 
+- **company win10 KVM 虚拟机 = 本地 Windows 门禁环境**：libvirt system 实例 `win10`（Win10 21H2 / 10G 内存 / 4 vCPU / qcow2），mac 经 `ssh win10`（ProxyJump company）直达，跑 CI Windows job 同款 check / 测试 / `--release` 链接门禁，仓库落 `C:\natigui\repo`。全套环境：OpenSSH Server + RDP 已由管理员 PowerShell 开启；VS Build Tools 2022（`vcvars64.bat` 在标准路径）；moon 0.1.20261117 装在 `C:\Users\Administrator\.moon`。环境坏了不修，重装两条命令：mac 下载 `moonbit-windows-x86_64.zip` 与 `core-latest.zip` 推过去解压——**moonbit zip 必须完整解到 `.moon` 根**（含 `lib\runtime`，缺了测试报 `Failed to locate runtime C sources`；首次手装曾漏 lib 目录）。
+- **ssh 会话跑 moon 的环境三件套**：Windows OpenSSH 会话的 `USERPROFILE` 时有时无（同机不同会话见过空值），moon 定位 `.moon` 靠它——门禁脚本一律显式设 `USERPROFILE` / `HOME` / `MOON_HOME` / `PATH` 四项再调 moon，不赌会话环境（scripts/local_ci.sh 调用的 `C:\natigui\gate-*.ps1` 已固化）。另两条：PowerShell 5.1 不认 `&&`（用 `;`）；多行 PowerShell 命令经 ssh 转义地狱——一律 scp 脚本过去 `-File` 执行，不拼行内命令。
+- **vswhere 查 Build Tools 必须带 `-products`**：默认只查 VS IDE 版产品，Build Tools 装着也返回空——`vswhere -products Microsoft.VisualStudio.Product.BuildTools -latest -property installationPath` 才找得到，或直接 `Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio\*\*\VC\Auxiliary\Build\vcvars64.bat"` 探。曾因漏参数误判「没装 VS」白发起一场静默安装。
+- **Windows 上 moon check 把警告当失败**：exit 1 且 `Failed with N warnings, 0 errors`——与 mac/Linux 的「警告不挡退出」不同，Windows 腿零警告是硬门禁，弃用警告清零口径见 common.md。

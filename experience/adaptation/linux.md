@@ -967,3 +967,6 @@ showcase 在 Linux 上「有 GPU 就白屏 / 黑屏 / 点击不更新」的现�
 
 **判据**:改 `gui/win/stub.c` 的 GTK 臂后,mac 本机只能跑 `-DWM_STUB_MAC` 门禁与 `w->字段` 引用静态核对,不能替代 Linux 编译;Linux 侧复跑 `moon run examples/theme-playground/` 或 `cd gui && moon build --target native`,prebuild 过即编译面收口。
 
+- **company Linux 容器 = 本地 Linux 门禁环境**：company 机器（Ubuntu 24.04 x86_64，与 CI runner 同架构）Docker 容器 `natigui-linux` 常驻，挂载 `~/natigui/repo`（仓库同步点）与 `~/natigui/.moon`（宿主机装的 moon，挂进容器 `/root/.moon`），apt 依赖照抄 ci.yml Linux job 清单。重建一条命令 `bash ~/natigui/setup-container.sh`（基础镜像 `natigui-base` 已固化依赖，秒级重起）。
+- **容器网络三层坑与修法**：①裸容器 apt 走 archive.ubuntu.com 不通，换 mirror（aliyun）；②mirror 用 https 时裸容器没有 `ca-certificates` 报「certificate is NOT trusted」——先用 http 源装 ca-certificates 再切回 https；③容器内直连 `cli.moonbitlang.com` 会被掐（`SSL_ERROR_SYSCALL`，宿主机同地址却通）——moon 装在宿主机挂载进容器，绕开容器出网。判据：容器里下载失败先看宿主机同地址通不通，通就是容器网段被干扰，别在容器里重试。
+- **容器跑门禁的两条环境差异**：①dbus 测试要 `dbus-run-session` 包真会话（容器无系统总线）；②与 CI 完整 VM 的两处读数差——`appfind_installed` 扫 `/usr/share/applications` 只见 `NoDisplay=true` 条目会得空清单（CI 机器有桌面应用，容器补一个可见的 .desktop 桩即可，库的过滤行为本身正确）；at-spi 真总线集成用例同理对环境敏感。
