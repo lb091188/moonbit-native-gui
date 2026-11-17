@@ -363,6 +363,18 @@ fn table_header(
   head.node.set_flex_direction(@yoga.Row)
   head.node.set_height(@yoga.fixed(head_h))
   head.node.set_width(@yoga.percent(100.0))
+  // 整行底色与底边线兜底：列宽合计小于行宽（滚动条槽那一段）时，槽上方的
+  // 表头与格子同色同线，不再露出表底色
+  head.on_draw = Some(fn(
+    _self : @widget.Widget,
+    p : @render.Painter,
+    r : @base.Rect,
+  ) -> Unit {
+    p.set_fill_color(@theme.theme_fill_zebra())
+    p.fill_rect(0.0, 0.0, r.w, r.h)
+    p.set_fill_color(@theme.theme_border())
+    p.fill_rect(0.0, r.h - 1.0, r.w, 1.0)
+  })
   for j = 0; j < columns.length(); j = j + 1 {
     let col = columns[j]
     let idx = j
@@ -377,7 +389,13 @@ fn table_header(
       None => 10.0
     }
     let cell = @widget.Widget::new()
-    cell.node.set_width(@yoga.fixed(widths.val[j]))
+    // 弹性列（宽 0）：不设定宽、吃掉余量，容器变宽自动跟（split 分栏拖动）
+    if col.width > 0.0 {
+      cell.node.set_width(@yoga.fixed(widths.val[j]))
+    } else {
+      cell.node.set_flex_grow(1.0)
+      cell.node.set_min_width(@yoga.fixed(0.0))
+    }
     cell.node.set_height(@yoga.fixed(head_h))
     @style.apply(
       cell,
@@ -698,7 +716,13 @@ fn table_row_widget(
   for j = 0; j < columns.length(); j = j + 1 {
     let col = columns[j]
     let cell = @widget.Widget::new()
-    cell.node.set_width(@yoga.fixed(cols_w[j]))
+    // 弹性列（宽 0）：不设定宽、吃掉余量，与表头同口径（容器变宽自动跟）
+    if col.width > 0.0 {
+      cell.node.set_width(@yoga.fixed(cols_w[j]))
+    } else {
+      cell.node.set_flex_grow(1.0)
+      cell.node.set_min_width(@yoga.fixed(0.0))
+    }
     cell.node.set_height(@yoga.fixed(row_height))
     let content = cell_of(row, j)
     @style.apply(cell, skin)

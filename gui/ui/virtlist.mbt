@@ -180,8 +180,14 @@ pub fn table_v(
     }
 
     w.node.set_flex_direction(@yoga.Column)
-    // 表头宽度扣掉滚动条（8px）与左右边框：数据行的列宽与表头一致
-    w.node.set_width(@yoga.fixed(width))
+    // 宽 0 = 跟容器（percent 100，配合弹性列让 split 分栏拖动时表格跟宽）；
+    // 定宽档照旧。表头列宽扣掉滚动条（8px）与左右边框，数据行与表头一致
+    if width > 0.0 {
+      w.node.set_width(@yoga.fixed(width))
+    } else {
+      w.node.set_width(@yoga.percent(100.0))
+      w.node.set_min_width(@yoga.fixed(0.0))
+    }
     let widths : Ref[Array[Double]] = Ref(table_widths(columns, width - 10.0))
     let rev = @base.Store::new(0)
     @style.apply(

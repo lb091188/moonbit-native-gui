@@ -4,6 +4,7 @@ import {
   "moonbitlang/core/env",
   "moonbitlang/x/fs",
   "moonbitlang/x/sys",
+  "NoahLiu/yoga-mbt/src" @yoga,
   "NoahLiu/native-gui/base",
   "NoahLiu/native-gui/style",
   "NoahLiu/native-gui/ui",

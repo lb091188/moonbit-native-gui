@@ -30,10 +30,10 @@ struct InspPage {
   app_id : String
   rows : @base.Store[Array[@ui.TableRow]]
   sel : @base.Store[Array[Int32]]
-  detail : @base.Store[String]
+  /// 选中行详情（desc 列表项；选中即本地出，不等网络）
+  detail : @base.Store[Array[(String, String)]]
   styles : @base.Store[String]
   status : @base.Store[String]
-  auto : @base.Store[Bool]
   /// 树视图档：false 组件视图（每个模板标签一行）/ true 全量（组件内部实现件也在）
   full : @base.Store[Bool]
   mut last_rows : Array[InspRow]
@@ -238,30 +238,23 @@ fn insp_table_rows(rows : Array[InspRow]) -> Array[@ui.TableRow] {
 }
 
 ///|
-/// 选中行详情读数（多行文本）。
-fn insp_detail_text(r : InspRow) -> String {
-  let b = StringBuilder()
-  b.write_string("id=\{r.id}  parent=\{r.parent}  enabled=\{r.enabled}\n")
-  b.write_string(
-    "kind=\{if r.kind.length() > 0 { r.kind } else { "(无)" }}\n",
-  )
-  b.write_string("role=\{r.role}\n")
-  b.write_string(
-    "name=\{if r.name.length() > 0 { r.name } else { "(空)" }}\n",
-  )
-  b.write_string(
-    "state=\{if r.state.length() > 0 { r.state } else { "(无)" }}\n",
-  )
-  b.write_string(
-    "value=\{if r.value.length() > 0 { r.value } else { "(无)" }}\n",
-  )
-  b.write_string(
-    "text=\{if r.text.length() > 0 { r.text } else { "(无)" }}\n",
-  )
-  b.write_string(
-    "rect=\{r.x.round().to_int()},\{r.y.round().to_int()} \{r.w.round().to_int()}×\{r.h.round().to_int()}",
-  )
-  b.to_string()
+/// 选中行详情读数（desc 列表项：标签 + 值）。
+fn insp_detail_items(r : InspRow) -> Array[(String, String)] {
+  [
+    ("id", r.id.to_string()),
+    ("parent", r.parent.to_string()),
+    ("kind", if r.kind.length() > 0 { r.kind } else { "(无)" }),
+    ("role", r.role),
+    ("name", if r.name.length() > 0 { r.name } else { "(空)" }),
+    ("enabled", if r.enabled { "是" } else { "否" }),
+    ("state", if r.state.length() > 0 { r.state } else { "(无)" }),
+    ("value", if r.value.length() > 0 { r.value } else { "(无)" }),
+    ("text", if r.text.length() > 0 { r.text } else { "(无)" }),
+    (
+      "rect",
+      "\{r.x.round().to_int()},\{r.y.round().to_int()} \{r.w.round().to_int()}×\{r.h.round().to_int()}",
+    ),
+  ]
 }
 
 ///|
@@ -373,7 +366,7 @@ fn insp_select(p : InspPage, i : Int32) -> Unit {
   let row = p.last_rows[i]
   p.sel.set([i])
   p.cur_id = row.id
-  p.detail.set(insp_detail_text(row))
+  p.detail.set(insp_detail_items(row))
   p.styles.set("样式读取中…")
   p.want_select = row.id
   p.tick_style = 0
@@ -395,12 +388,12 @@ fn insp_apply_tree(p : InspPage, resp : String) -> Unit {
     match insp_find_row(rows, p.cur_id) {
       Some(i) => {
         p.sel.set([i])
-        p.detail.set(insp_detail_text(rows[i]))
+        p.detail.set(insp_detail_items(rows[i]))
       }
       None => {
         p.cur_id = 0
         p.sel.set([])
-        p.detail.set("选中控件已不在树里")
+        p.detail.set([])
         p.styles.set("")
       }
     }
@@ -465,14 +458,14 @@ fn insp_tick(p : InspPage) -> Unit {
       Ok(_) => p.busy = 2
       Err(e) => p.styles.set("样式读取失败：" + e)
     }
-  } else if p.auto.get() && p.tick_tree >= INSP_TREE_TICKS {
+  } else if p.tick_tree >= INSP_TREE_TICKS {
     p.tick_tree = 0
     let req = if p.full.get() { "tree --full" } else { "tree" }
     match @insp.call_begin(p.app_id, req) {
       Ok(_) => p.busy = 1
       Err(e) => p.status.set("未连接：" + e)
     }
-  } else if p.auto.get() && p.cur_id != 0 && p.tick_style >= INSP_STYLE_TICKS {
+  } else if p.cur_id != 0 && p.tick_style >= INSP_STYLE_TICKS {
     p.tick_style = 0
     match @insp.call_begin(p.app_id, "style \{p.cur_id}") {
       Ok(_) => p.busy = 2
@@ -482,10 +475,18 @@ fn insp_tick(p : InspPage) -> Unit {
 }
 
 ///|
-/// 手动刷新：把树刷新提前到这一拍（在途请求结束后自然生效）。
-fn insp_refresh_now(p : InspPage) -> Unit {
-  p.tick_tree = INSP_TREE_TICKS
-  insp_tick(p)
+/// 详情 desc 块：信号驱动的描述列表（标签列对齐、值列折行）。
+fn insp_desc_block(
+  sig : @base.Signal[Array[(String, String)]],
+) -> @widget.Node {
+  @widget.bind_node(sig, fn(items : Array[(String, String)]) -> @widget.Node {
+    if items.length() == 0 {
+      return @ui.text("点左侧一行看读数", font_size=12.0, class=[
+        @style.text_secondary,
+      ])
+    }
+    @ui.descriptions(items, label_width=64.0)
+  })
 }
 
 ///|
@@ -508,7 +509,7 @@ pub fn run_inspector(app_id : String) -> Unit {
     app_id,
     rows: @base.Store::new([]),
     sel: @base.Store::new([]),
-    detail: @base.Store::new("点左侧一行看读数"),
+    detail: @base.Store::new([]),
     styles: @base.Store::new("点左侧一行看样式"),
     status: @base.Store::new(
       if app_id.length() > 0 {
@@ -517,7 +518,6 @@ pub fn run_inspector(app_id : String) -> Unit {
         "没有应用 id——用 `mng inspect --gui --app <id>` 指定"
       },
     ),
-    auto: @base.Store::new(true),
     full: @base.Store::new(false),
     last_rows: [],
     last_tree_text: "",
@@ -532,43 +532,48 @@ pub fn run_inspector(app_id : String) -> Unit {
     @ui.TableColumn::make("控件", 0.0, sortable=false),
     @ui.TableColumn::make("id", 56.0, sortable=false),
   ]
-  let tree_section = @ui.view(
-    [
-      @ui.table_v(
-        cols,
-        p.rows,
-        width=460.0,
-        height=620.0,
-        selection=p.sel,
-        on_row_click=fn(i : Int32, _r : @ui.TableRow) -> Unit {
-          insp_select(p, i)
-        },
-      ),
-    ],
-    grow=1.0,
+  // 树表：宽 0 = 跟分栏容器（弹性列跟宽），拖动手柄时表格跟着伸缩
+  let tree_section = @ui.table_v(
+    cols,
+    p.rows,
+    width=0.0,
+    height=620.0,
+    selection=p.sel,
+    on_row_click=fn(i : Int32, _r : @ui.TableRow) -> Unit {
+      insp_select(p, i)
+    },
   )
-  let detail_section = @ui.scroll_view(
+  // 右栏：详情在上（最高占一半，不足按实际高），余下全部给样式区（滚动）
+  let detail_section = @ui.view(
     [
       @ui.text("详情", class=[@style.text_heading]),
-      insp_text_block(p.detail.signal()),
-      @ui.divider(),
-      insp_text_block(p.styles.signal()),
+      insp_desc_block(p.detail.signal()),
     ],
-    @ui.ScrollState::new(),
-    width=560.0,
-    height=620.0,
-    handle=fn(v) {
-      v.node.set_flex_grow(1.0)
+    row_gap=6.0,
+    handle=fn(v : @widget.Widget) -> Unit {
+      v.node.set_max_height(@yoga.percent(50.0))
     },
+  )
+  let styles_section = @ui.scroll_view(
+    [insp_text_block(p.styles.signal())],
+    @ui.ScrollState::new(),
+    handle=fn(v : @widget.Widget) -> Unit {
+      v.node.set_flex_grow(1.0)
+      v.node.set_min_height(@yoga.fixed(0.0))
+    },
+  )
+  let right_section = @ui.col(
+    [
+      detail_section,
+      @ui.divider(),
+      @ui.text("样式", class=[@style.text_heading]),
+      styles_section,
+    ],
+    row_gap=8.0,
+    grow=1.0,
   )
   let toolbar = @ui.row(
     [
-      @ui.button("刷新", variant=@ui.Soft, on_click=fn() { insp_refresh_now(p) }),
-      @ui.switch(
-        p.auto,
-        on_text="自动刷新",
-        off_text="自动刷新",
-      ),
       @ui.switch(
         p.full,
         on_text="内部实现",
@@ -579,7 +584,18 @@ pub fn run_inspector(app_id : String) -> Unit {
     column_gap=12.0,
   )
   let root = @ui.col(
-    [toolbar, @ui.divider(), @ui.row([tree_section, detail_section], column_gap=12.0)],
+    [
+      toolbar,
+      @ui.divider(),
+      // 左树右详情：表格两份、详情一份，手柄可拖
+      @ui.split(
+        tree_section,
+        right_section,
+        ratio=2.0 / 3.0,
+        min_first=320.0,
+        min_second=320.0,
+      ),
+    ],
     padding=16.0,
     row_gap=10.0,
     grow=1.0,

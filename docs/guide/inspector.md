@@ -70,8 +70,9 @@ mng inspect --gui --app libyue.hello
 mngui --inspect --app libyue.hello   # running mngui directly also works
 ```
 
-- Left pane: indented widget tree (Kind·role「name」 #id) in the component view, with an "internal" toolbar toggle for the full view; click to select, ~1s auto-refresh (fetched asynchronously; the UI thread never blocks; the table is not rebuilt when the tree is unchanged).
-- Right pane: detail readings for the selected row (id/parent/kind/role/name/state/value/text/rect/enabled) plus the full style field set grouped (editor five first, then text/size/edges/border/flex/position/misc).
+- Split panes: tree on the left, details on the right, draggable divider in between (table two-thirds by default, details one-third; the tree table stretches with the pane).
+- Left pane: indented widget tree (Kind·role「name」 #id) in the component view, with an "internal" header toggle for the full view; click to select; auto-refresh (~1s) always on (fetched asynchronously; the UI thread never blocks; the table is not rebuilt when the tree is unchanged).
+- Right pane: details as a description list (id/parent/kind/role/name/state/value/text/rect/enabled), at most the upper half of the pane (actual height when shorter); everything below goes to the style area, scrolling when long (full style fields grouped, editor five first).
 - Select-to-highlight: a highlight overlay is drawn live on the target app window and follows layout changes; closing the window clears it.
 - If the app is not running or not injected, the status bar shows "not connected" and reconnects automatically.
 

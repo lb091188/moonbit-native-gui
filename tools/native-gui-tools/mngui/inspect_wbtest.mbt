@@ -110,10 +110,9 @@ fn insp_test_page() -> InspPage {
     app_id: "app",
     rows: @base.Store::new([]),
     sel: @base.Store::new([]),
-    detail: @base.Store::new(""),
+    detail: @base.Store::new([]),
     styles: @base.Store::new(""),
     status: @base.Store::new(""),
-    auto: @base.Store::new(true),
     full: @base.Store::new(false),
     last_rows: [],
     last_tree_text: "",
@@ -145,11 +144,11 @@ test "insp_apply_tree：选中按 id 保位，控件消失即取消" {
   insp_apply_tree(p, tsv2)
   assert_eq(p.sel.get().length(), 1)
   assert_eq(p.sel.get()[0], 2)
-  assert_true(p.detail.get().contains("id=2"))
+  assert_true(p.detail.get().contains(("id", "2")))
   // 控件从树里消失：取消选中并清空样式
   p.cur_id = 3
   insp_apply_tree(p, tsv1)
   assert_eq(p.cur_id, 0)
   assert_eq(p.sel.get().length(), 0)
-  assert_eq(p.detail.get(), "选中控件已不在树里")
+  assert_eq(p.detail.get().length(), 0)
 }
