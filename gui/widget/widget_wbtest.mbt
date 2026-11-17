@@ -556,6 +556,7 @@ test "命中穿透：覆盖层不参与命中与语义树，下层照常收事�
 
 ///|
 test "应用级键钩子：按注册序问、吃掉即停" {
+  g_app_key_hooks.clear()
   let seen : Array[String] = []
   add_app_key_hook(fn(_ev : KeyEvent) -> Bool {
     seen.push("a")
@@ -573,4 +574,20 @@ test "应用级键钩子：按注册序问、吃掉即停" {
   assert_true(fire_app_key_hooks(ev))
   // 第一个吃掉的截断：c 没被问
   assert_eq(seen, ["a", "b"])
+}
+
+///|
+test "应用级键钩子走真宿主管线：F12 press 到得了、release 不进" {
+  g_app_key_hooks.clear()
+  // 不登记进注册表（fake_app 而非 fake_open）：别抢别的用例的主窗裁决
+  let a = fake_app()
+  let hits : Array[(Int32, Bool)] = []
+  add_app_key_hook(fn(ev : KeyEvent) -> Bool {
+    hits.push((ev.keysym, ev.press))
+    true
+  })
+  // press F12 → 钩子吃到；release F12 → 兜底链不收抬起，钩子不该被问
+  a.test_pump_key(65481, 0)
+  a.test_pump_key(65481, 0, press=false)
+  assert_eq(hits, [(65481, true)])
 }

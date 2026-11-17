@@ -2150,4 +2150,5 @@ GpuCanvas——@render.GpuSink 的 gui-gpu 实现，GPU 线首消费者——落
 - **双实现分工**：`gui/inspector` 的附窗（`devtools_toggle`，F12 开关）直调服务核 `inspect_handle`——同进程零 socket，取数同步瞬时，轮询拍只做节流；`mngui --inspect` 的独立窗走异步 socket 客户端——连别的进程用。两版布局与交互口径一致，取数层各自维护（gui 库不能依赖 tools 的 @insp，mngui 不能直调服务核），改界面要两边同批。
 - **进程级键钩子**：`@widget.add_app_key_hook` 排在窗级兜底（`add_key_fallthrough`）之后，给拿不到窗句柄的服务组件装应用级快捷键；注册无反注册，回调自己判断活体（检查器钩子看 `g_insp_started`——MNG_INSPECT 未注入就不响应）。**应用快捷键平台分档**：mac 键盘 F 键默认是媒体键，F12 不可靠——mac 档用 ⌘⌥I（Cmd+Option+I，Safari/Firefox/Chrome 检查器同款），Windows/Linux 用 F12；修饰键常量是 `@base.MOD_META` / `@base.MOD_ALT`，字母键 sym 是小写 ASCII。F12 键值没有具名常量，XK_F12 = 65481。
 - **窗关闭收尾**：附窗取消高亮靠 `WindowHost::on_close`（F12 关、内容里 close、标题栏叉都触发，幂等关闭只触发一次，时机在拆平台窗之前）——别往标题栏路径挂清理。
+- **键钩子测试要清表隔离**：`g_app_key_hooks` 是进程级单表、注册无反注册——前一个用例留下的「吃键」钩子按注册序排在后用例钩子之前，会把后用例的键截走（用例红且与被测代码无关）。wbtest 同包可直接 `g_app_key_hooks.clear()` 开头清理；建窗用 `fake_app()` 别用 `fake_open()`——登记进注册表会抢别的用例的主窗裁决（`is_primary` 断言连坐变红）。「按键没反应」真机取证先开 `LIBYUE_ROUTE_LOG=1` 看 `[route] key keysym=… mods=…`——键值与修饰键实际值一眼定层。
 - **编辑表单不回填竞态**：周期样式轮询不回填输入框，只在「选中切换后第一份响应」与「写成功后的重拉」回填（expect_prefill 一次性标志）——否则每秒轮询会冲掉用户正在打的字。
