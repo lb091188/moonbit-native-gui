@@ -19,9 +19,9 @@ const HELLO_TITLE : String = "你好，MoonBit"
 ///|
 /// 子窗预设：名称 / 说明 / 宽 / 高。
 let child_kinds : Array[(String, String, Int, Int)] = [
-  ("备忘窗", "随手记一条备忘（演示窗，不做持久化）。", 360, 240),
-  ("调色窗", "三块色卡：随深浅模式实时取主题色。", 380, 260),
-  ("关于窗", "native-gui 入门样例：.mng 单文件页 + 命令式多窗 + 托盘。", 440, 320),
+  ("备忘窗", "随手记一条。", 360, 240),
+  ("调色窗", "三块色卡，随系统深浅变色。", 380, 260),
+  ("关于窗", "native-gui 入门样例。", 440, 320),
 ]
 
 ///|
@@ -104,7 +104,7 @@ fn main {
   // inspector 检查服务接线：MNG_INSPECT=1 注入时应用内起只读检查通道
   @inspector.inspect_auto_install()
   let win_count : @base.Store[Int] = @base.Store::new(1)
-  let tray_note : @base.Store[String] = @base.Store::new("托盘：（还没建）")
+  let tray_note : @base.Store[String] = @base.Store::new("托盘：未创建")
   let tray_clicks : @base.Store[Int] = @base.Store::new(0)
   // 主窗句柄在挂载后才就绪：按钮回调经 Ref 取用
   let host_ref : Ref[@widget.WindowHost?] = Ref(None)
@@ -140,9 +140,9 @@ fn main {
         column_gap=8.0,
         class=[@style.style(flex_wrap=@yoga.Wrap, row_gap=8.0, min_width=0.0)],
       ),
-      @ui.bind_label(win_count, fn(n) { "窗口数：\{n}（含主窗）" }),
+      @ui.bind_label(win_count, fn(n) { "窗口数：\{n}" }),
       @ui.bind_label(tray_note, fn(s) { s }),
-      @ui.bind_label(tray_clicks, fn(n) { "托盘左键：\{n} 次" }),
+      @ui.bind_label(tray_clicks, fn(n) { "托盘点击：\{n} 次" }),
     ],
     padding=24.0,
     row_gap=8.0,
@@ -187,7 +187,7 @@ fn main {
           t.on_click(fn() {
             tray_clicks.update(fn(n) { n + 1 })
           })
-          tray_note.set("托盘：已建（\{t.backend_name()}）")
+          tray_note.set("托盘：已建")
         }
         Err(e) => tray_note.set("托盘：" + tray_err(e))
       }

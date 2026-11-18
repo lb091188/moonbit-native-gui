@@ -20,7 +20,7 @@ pub fn hello() -> @widget.Node {
   @mngdev.mng_dev_page("hello", reg, fn() {
     @ui.col([
       @ui.text("你好，MoonBit 原生窗口", class=@style.class_of(["title"])).with_comp("ui-text"),
-      @ui.text("本应用由单页面组件及其开发工具辅助开发而成。", class=@style.class_of(["hint"])).with_comp("ui-text"),
+      @ui.text("一个最小的原生窗口应用：输入、计数、即时回应。", class=@style.class_of(["hint"])).with_comp("ui-text"),
       @ui.input(name, placeholder="你的名字", width=240.0).with_comp("ui-input"),
       @ui.bind_label(name, fn(_v) { "你好, \{name.get()}！" }).with_comp("ui-text"),
       @ui.stepper(count, max=10).with_comp("ui-stepper"),

@@ -90,10 +90,10 @@ fn open_transparent_demo(
             @ui.col(
               [
                 card(
-                  "这块不透明", "卡片之外那圈像素应当是透明的，能看到桌面。",
+                  "这块不透明", "卡片外透出桌面。",
                 ),
                 @ui.text(
-                  "这行字直接落在透明底上：字不透明，字后面的像素透明。",
+                  "这行字的背景是透明的。",
                 ),
                 @ui.view(
                   [
@@ -112,12 +112,12 @@ fn open_transparent_demo(
           ])
           ct_host.val = Some(child)
           out.set(
-            "已开透明测试窗：无边框 + 背景透视，卡片外应透出桌面",
+            "测试窗已开：卡片外透出桌面",
           )
         }
         None => {
           ct_host.val = None
-          out.set("这台机器开不了第二扇窗（无窗口后端）")
+          out.set("这台设备开不了第二扇窗")
         }
       }
     None => out.set("宿主还没就绪")
@@ -127,7 +127,7 @@ fn open_transparent_demo(
 ///|
 /// 窗口功能三段。段内私有状态（回显/两个切换态）不进 main。
 fn window_sections(host : Ref[@widget.WindowHost?]) -> Array[@widget.Node] {
-  let last_op : @base.Store[String] = @base.Store::new("（尚无操作）")
+  let last_op : @base.Store[String] = @base.Store::new("还没操作")
   // 两个切换态由按钮自己翻（窗口层没有 is_fullscreen/is_borderless 之外的
   // 读回通道，态以按钮点击为准）
   let fs : Ref[Bool] = Ref(false)
@@ -135,31 +135,35 @@ fn window_sections(host : Ref[@widget.WindowHost?]) -> Array[@widget.Node] {
   let sz : Ref[Int32] = Ref(1280)
   let max_out : @base.Store[String] = @base.Store::new("（未读过）")
   let multiwin_out : @base.Store[String] = @base.Store::new(
-    "（还没开过子窗）",
+    "还没有子窗",
   )
   // alpha 与背景穿透共用一条回显行
-  let layer_out : @base.Store[String] = @base.Store::new("（尚无操作）")
+  let layer_out : @base.Store[String] = @base.Store::new("还没操作")
   // 点击穿透的靶窗（透明测试窗）与开关态：控制权留在主窗，测试窗开了穿透
   // 之后自己点不到自己，只能从这里关
   let ct_host : Ref[@widget.WindowHost?] = Ref(None)
   let ct_on : Ref[Bool] = Ref(false)
   let tw_out : @base.Store[String] = @base.Store::new(
-    "（还没开过透明测试窗）",
+    "还没有测试窗",
   )
   fn win_set_opacity(alpha : Int32) -> Unit {
     match host.val {
       Some(a) => {
         a.window().set_opacity(alpha)
-        layer_out.set("窗口 alpha 已置 \{alpha}（/255）")
+        layer_out.set("透明度已调：\{alpha}/255")
       }
       None => ()
     }
   }
+  // 透明度两件事：set_opacity 整窗 alpha（要合成器，没有就静默无效）；
+  // set_transparent_bg 背景透视（Windows 要无边框；必须经 App 开，
+  // 宿主默认页面底铺满整窗，直调窗口层摘不掉）。主窗没有「没铺到的
+  // 像素」，透视只能开测试窗验——细节见 open_transparent_demo 注释。
   [
     // —— 窗口 API ——
     hello_section(
       "窗口 API",
-      "运行期操作窗口：改标题 / 全屏 / 尺寸切换（1280×720 ↔ 960×540）/ 无边框 / 最大化与还原。系统标题栏自带的「最大化」按钮三平台本来就有，`set_maximized` / `is_maximized` 补的是无边框自绘标题栏里自己放这个键的能力；`is_maximized` 现问平台不读缓存，所以你手点系统按钮之后它读出来的也是对的。",
+      "运行期也能改变窗口：改标题、切全屏、调尺寸、去边框、最大化与还原。",
       [
         @ui.row(
           [
@@ -197,12 +201,13 @@ fn window_sections(host : Ref[@widget.WindowHost?]) -> Array[@widget.Node] {
         @ui.row(
           [
             win_button(host, last_op, "最大化", fn(w : @win.Window) -> Unit {
+              // is_maximized 现问平台不读缓存：手点系统标题栏按钮后读回的也是对的
               w.set_maximized(true)
               max_out.set(
                 if w.is_maximized() {
-                  "最大化态读回：true"
+                  "最大化：已开"
                 } else {
-                  "最大化态读回：false（这台机器没兑现）"
+                  "最大化：未开（这台设备没兑现）"
                 },
               )
             }),
@@ -210,9 +215,9 @@ fn window_sections(host : Ref[@widget.WindowHost?]) -> Array[@widget.Node] {
               w.set_maximized(false)
               max_out.set(
                 if w.is_maximized() {
-                  "最大化态读回：true（还原没兑现）"
+                  "最大化：仍在（还原没兑现）"
                 } else {
-                  "最大化态读回：false"
+                  "最大化：已还原"
                 },
               )
             }),
@@ -222,18 +227,16 @@ fn window_sections(host : Ref[@widget.WindowHost?]) -> Array[@widget.Node] {
                   last_op.set("读最大化态")
                   max_out.set(
                     if a.window().is_maximized() {
-                      "最大化态读回：true（手点系统按钮也读得对）"
+                      "最大化：已开"
                     } else {
-                      "最大化态读回：false"
+                      "最大化：未开"
                     },
                   )
                 }
                 None => ()
               }
             }),
-            @ui.text(
-              "先点「最大化」再点「读最大化态」，也可手点系统按钮后回来读",
-            ),
+            @ui.text("先点「最大化」，再读它的状态"),
           ],
           column_gap=8.0,
           align_items=@yoga.AlignItems::Center,
@@ -248,7 +251,7 @@ fn window_sections(host : Ref[@widget.WindowHost?]) -> Array[@widget.Node] {
     // —— 多窗口 ——
     hello_section(
       "多窗口",
-      "宿主注册表是进程级的：`App::open_window` 开第二扇窗、`App::window_count` 数窗、`App::active_window` 取当前活动窗、`close_window` 关自己那窗。关从窗不退出应用，只有主窗关或全关完才整体退出。每扇窗内容各自挂自己的 Node 树，事件路由与上屏逐窗走。",
+      "再开几扇窗试试：关掉子窗不影响应用，关掉主窗才退出。",
       [
         @ui.row(
           [
@@ -264,7 +267,7 @@ fn window_sections(host : Ref[@widget.WindowHost?]) -> Array[@widget.Node] {
                               @style.text_heading,
                             ]),
                             @ui.text(
-                              "主窗与子窗事件各自独立；关本窗不退出应用。",
+                              "关掉本窗不影响应用。",
                               wrap=true,
                             ),
                             @ui.button("关掉我自己", variant=@ui.Danger, on_click=fn() {
@@ -281,7 +284,7 @@ fn window_sections(host : Ref[@widget.WindowHost?]) -> Array[@widget.Node] {
                     }
                     None =>
                       multiwin_out.set(
-                        "这台机器开不了第二扇窗（无窗口后端）",
+                        "这台设备开不了第二扇窗",
                       )
                   }
                 None => multiwin_out.set("宿主还没就绪")
@@ -321,7 +324,7 @@ fn window_sections(host : Ref[@widget.WindowHost?]) -> Array[@widget.Node] {
     // —— 透明度 ——
     hello_section(
       "透明度",
-      "两件不同的事。`set_opacity` 是「整窗 alpha」（0–255）——连同文字与控件一起变淡，需要合成器，没有就静默无效，对主窗生效。`set_transparent_bg` 是「背景透视」——控件没铺到的像素留成透明，桌面从那些洞透出来（Windows 上要无边框才成立；要经 `App::set_transparent_bg` 开，宿主默认页面底会铺满整窗，直调窗口层摘不掉它）。主窗整片铺满底色、没有「没铺到的像素」，透视验不了也不该在主窗开；点「开透明测试窗」单开一扇无边框窗，根容器不铺底，只放几块不透明卡片来验。",
+      "让整窗变淡，或单开一扇窗让背景透出来。",
       [
         @ui.row(
           [
@@ -352,24 +355,24 @@ fn window_sections(host : Ref[@widget.WindowHost?]) -> Array[@widget.Node] {
                     Ok(_) =>
                       layer_out.set(
                         if on {
-                          "整窗穿透：开——卡片也穿，点测试窗等于点它下面的东西；再点这里关回逐像素"
+                          "穿透已开：再点一次关闭"
                         } else {
-                          "整窗穿透：关——回到逐像素命中（透明像素穿、卡片照常收交互）"
+                          "穿透已关"
                         },
                       )
                     Err(Unsupported) =>
                       layer_out.set(
-                        "这台平台不支持点击穿透（shell_caps().click_through 为 false）",
+                        "这台设备不支持点击穿透",
                       )
                     Err(Failed(e)) =>
-                      layer_out.set("点击穿透失败：\{e}（测试窗可能已关，重开一扇再试）")
+                      layer_out.set("没切成穿透：\{e}，测试窗可能已关，重开再试")
                   }
                 }
-                None => layer_out.set("还没开透明测试窗")
+                None => layer_out.set("先开透明测试窗")
               }
             }),
             @ui.text(
-              "测试窗：无边框 + 背景透视 + 点击穿透开关，卡片外那圈应当是桌面且可点穿；窗内自带「关掉本窗」",
+              "测试窗卡片外直接透出桌面，可以点穿",
               wrap=true,
             ),
           ],
