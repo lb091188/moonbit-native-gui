@@ -692,6 +692,29 @@ pub fn Painter::clip_rect(
 }
 
 ///|
+/// 圆角矩形裁剪：本控件与子内容超界的像素不落（真圆角图片/圆角容器的底层
+/// 通道）。与 clip_rect 一样只能收紧、`restore` 回退；重复调用替换上一道
+/// 圆角。cairo 臂走真路径裁剪，光栅臂走解析覆盖。
+pub fn Painter::clip_round_rect(
+  self : Painter,
+  x : Double,
+  y : Double,
+  w : Double,
+  h : Double,
+  radius : Double,
+) -> Unit {
+  match self.backend {
+    Some(CairoBackend(c)) => {
+      self.begin_path()
+      self.trace_round_rect(x, y, w, h, radius)
+      c.clip_path()
+    }
+    Some(PureBackend(r)) => r.clip_round_rect(x, y, w, h, radius)
+    None => ()
+  }
+}
+
+///|
 /// hex 非法时保持原色。
 pub fn Painter::set_fill_color(self : Painter, hex : String) -> Unit {
   match Color::parse(hex) {

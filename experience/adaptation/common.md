@@ -2194,3 +2194,11 @@ GpuCanvas——@render.GpuSink 的 gui-gpu 实现，GPU 线首消费者——落
   - 一句话：有 GPU 有效果全集，没 GPU 有仿射与颜色全集。
 - **毛玻璃三条路线**（按需选，不互斥）：控件级小面积走 CPU box blur；大面积实时 blur 走 gui-gpu 通道（另立提案）；窗口级系统材质走 WM 通道——mac NSVisualEffectView / Windows DWM Acrylic / Linux 无标准诚实降级，与 GPU 无关。
 - **aspect_ratio 的价值口径**：语义是「定一端、另一端按比率 auto」，但价值在布局引擎内解——空容器 auto 会塌（无内容可撑）且与 grow/shrink/百分比联算时外部手算会分叉，引擎内约束不受此限。
+
+## 圆角裁切改真裁，补角 pass 退役——2026-11-18，CPU 视觉批 3
+
+- **契约变更**：`clip_rounded` 从「绘制收尾把弧外像素补回父层原值」改为**渲染层真裁**——raster 新增 `clip_round_rect`（解析 SDF 覆盖，与 fill_round_rect 同式；fill_device_rect/路径填充/描边/blit 四条落笔路统一调制），cairo 臂走真路径裁剪（新 C 桩 `cr_clip`）。圆角图片（`draw_image`）、子件方底通铺、路径填充全部吃裁切。
+- **挂点在 on_draw 之后**：组件现行惯例是 on_draw 里读样式半径再设 `clip_rounded`/`style_clip_radius`（nav/code_editor/datetime/datepicker 五处同款），入场即裁会晚一拍；自绘底不被此裁——声明圆角的组件自画圆角底，裁切职责是护子件。
+- **行为差异三条**：① 弧外露出的是下层已画内容（不再是 pass 读邻像素的近似补色）；② 贴窗根且根没铺底时弧外是表面初值——应用铺全窗底色即无此面，「宁可方角」的旧回退不再存在；③ AA 带：像素中心离圆角边界 0.5px 内是过渡覆盖（250/256 这类读数是对的），像素断言取点离边界至少 1px。
+- **已知边界**：带旋转 CTM 时光栅臂退化矩形裁剪（cairo 臂真路径）；`clip_round_rect` 重复调用替换上一道圆角（两道圆角之交非圆角矩形，取最内），轴向界仍逐次收紧。
+- **验证**：render 两条（裁切+回退、draw_image 真圆角）、widget 两条重写（子件方底被裁、贴边露下层）钉契约；库门禁 1472/1472；stub.c 过 mac clang 语法门禁。

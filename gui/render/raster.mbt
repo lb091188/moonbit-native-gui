@@ -23,6 +23,13 @@ pub(all) struct RasterState {
   clip_y0 : Int32
   clip_x1 : Int32
   clip_y1 : Int32
+  // 圆角矩形裁剪（设备空间解析量）：中心 / 半宽半高减半径 / 半径；
+  // clip_rr_hx ≤ 0 = 无。轴对齐矩形裁剪之外的第二道形状界
+  clip_rr_cx : Double
+  clip_rr_cy : Double
+  clip_rr_hx : Double
+  clip_rr_hy : Double
+  clip_rr_r : Double
   dashes : Array[Double]
   dash_offset : Double
   line_cap : Int32
@@ -40,6 +47,12 @@ pub struct Raster {
   mut clip_y0 : Int32
   mut clip_x1 : Int32
   mut clip_y1 : Int32
+  // 圆角矩形裁剪（口径同 RasterState 同名字段）
+  mut clip_rr_cx : Double
+  mut clip_rr_cy : Double
+  mut clip_rr_hx : Double
+  mut clip_rr_hy : Double
+  mut clip_rr_r : Double
   mut dashes : Array[Double]
   mut dash_offset : Double
   mut line_cap : Int32
@@ -79,6 +92,11 @@ pub fn Raster::over(bitmap : Bitmap) -> Raster? {
       clip_y0: 0,
       clip_x1: bitmap.width,
       clip_y1: bitmap.height,
+      clip_rr_cx: 0.0,
+      clip_rr_cy: 0.0,
+      clip_rr_hx: -1.0,
+      clip_rr_hy: 0.0,
+      clip_rr_r: 0.0,
       dashes: [],
       dash_offset: 0.0,
       line_cap: 0,
@@ -119,6 +137,11 @@ pub fn Raster::save(self : Raster) -> Unit {
     clip_y0: self.clip_y0,
     clip_x1: self.clip_x1,
     clip_y1: self.clip_y1,
+    clip_rr_cx: self.clip_rr_cx,
+    clip_rr_cy: self.clip_rr_cy,
+    clip_rr_hx: self.clip_rr_hx,
+    clip_rr_hy: self.clip_rr_hy,
+    clip_rr_r: self.clip_rr_r,
     dashes: self.dashes.copy(),
     dash_offset: self.dash_offset,
     line_cap: self.line_cap,
@@ -143,6 +166,11 @@ pub fn Raster::restore(self : Raster) -> Unit {
       self.clip_y0 = s.clip_y0
       self.clip_x1 = s.clip_x1
       self.clip_y1 = s.clip_y1
+      self.clip_rr_cx = s.clip_rr_cx
+      self.clip_rr_cy = s.clip_rr_cy
+      self.clip_rr_hx = s.clip_rr_hx
+      self.clip_rr_hy = s.clip_rr_hy
+      self.clip_rr_r = s.clip_rr_r
       self.dashes = s.dashes.copy()
       self.dash_offset = s.dash_offset
       self.line_cap = s.line_cap
@@ -211,6 +239,7 @@ pub fn Raster::fill(self : Raster) -> Unit {
     (self.clip_x0, self.clip_y0, self.clip_x1, self.clip_y1),
     self.op,
     self.source,
+    self.round_clip_tuple(),
   )
   self.path.clear()
 }
@@ -262,8 +291,17 @@ pub fn Raster::stroke(self : Raster) -> Unit {
     (self.clip_x0, self.clip_y0, self.clip_x1, self.clip_y1),
     self.op,
     self.source,
+    self.round_clip_tuple(),
   )
   self.path.clear()
+}
+
+///|
+/// 圆角裁剪的传递形态：(cx, cy, hx, hy, r)；无裁剪 hx 传 -1。
+fn Raster::round_clip_tuple(
+  self : Raster,
+) -> (Double, Double, Double, Double, Double) {
+  (self.clip_rr_cx, self.clip_rr_cy, self.clip_rr_hx, self.clip_rr_hy, self.clip_rr_r)
 }
 
 ///|
@@ -286,12 +324,13 @@ fn Raster::fill_device_rect(
   if rx0 < 0 || ry0 < 0 || rx1 > self.bitmap.width || ry1 > self.bitmap.height {
     return
   }
-  // 纯色不透明源整段直写（背景填充最大宗；实测比逐像素 blend 快 ~10 倍）
+  // 纯色不透明源整段直写（背景填充最大宗；实测比逐像素 blend 快 ~10 倍）；
+  // 挂着圆角裁剪时让位覆盖路（圆角外不落像素）
   let fast = match (blend_mode_id(self.op) == 0, self.source) {
     (true, SrcSolid(c)) => c.a >= 255
     _ => false
   }
-  if fast {
+  if fast && !self.has_round_clip() {
     for y = ry0; y < ry1; y = y + 1 {
       let _ = composite_solid_span(
         self.bitmap.data,
@@ -306,9 +345,14 @@ fn Raster::fill_device_rect(
     return
   }
   let cov : FixedArray[Int32] = FixedArray::make(self.bitmap.width, 0)
+  let rr = self.has_round_clip()
   for y = ry0; y < ry1; y = y + 1 {
     for i = rx0; i < rx1; i = i + 1 {
-      cov[i] = 256
+      cov[i] = if rr {
+        self.round_cov(i.to_double() + 0.5, y.to_double() + 0.5)
+      } else {
+        256
+      }
     }
     composite_span(
       self.bitmap.data,
@@ -339,6 +383,10 @@ pub fn Raster::fill_round_rect(
   h : Double,
   radius : Double,
 ) -> Bool {
+  // 挂着圆角裁剪时让位通用路径——解析直写不过裁剪覆盖（fill_polys 里统一调制）
+  if self.has_round_clip() {
+    return false
+  }
   if !self.m.axis_aligned() {
     return false
   }
@@ -533,6 +581,10 @@ pub fn Raster::stroke_round_rect(
   h : Double,
   radius : Double,
 ) -> Bool {
+  // 挂着圆角裁剪时让位通用路径（fill_polys 里统一调制覆盖）
+  if self.has_round_clip() {
+    return false
+  }
   // 虚线档（dashed/dotted 边框）退通用路径：解析环带不切段、不落端帽
   if self.dashes.length() > 0 {
     return false
@@ -818,6 +870,123 @@ pub fn Raster::clip_rect(
 }
 
 ///|
+/// 圆角裁剪的像素覆盖（0..256，1 像素 AA 带；hx ≤ 0 = 无裁剪恒 256）。
+/// 与 fill_round_rect 的覆盖式同式：到圆角矩形边界的带符号距离。
+fn rr_cov_at(
+  cx : Double,
+  cy : Double,
+  hx : Double,
+  hy : Double,
+  r : Double,
+  xcen : Double,
+  ycen : Double,
+) -> Int32 {
+  if hx <= 0.0 {
+    return 256
+  }
+  let qx = (xcen - cx).abs() - hx
+  let qy = (ycen - cy).abs() - hy
+  let ox = if qx > 0.0 { qx } else { 0.0 }
+  let oy = if qy > 0.0 { qy } else { 0.0 }
+  let mq = if qx > qy { qx } else { qy }
+  let inner = if mq < 0.0 { mq } else { 0.0 }
+  let d = (ox * ox + oy * oy).sqrt() + inner - r
+  let v = (0.5 - d) * 256.0
+  if v <= 0.0 {
+    0
+  } else if v >= 256.0 {
+    256
+  } else {
+    v.to_int()
+  }
+}
+
+///|
+/// 本会话挂着圆角裁剪吗（各快路径据此让位通用路）。
+pub fn Raster::has_round_clip(self : Raster) -> Bool {
+  self.clip_rr_hx > 0.0
+}
+
+///|
+/// 本会话圆角裁剪对一设备像素中心的覆盖（0..256）。
+pub fn Raster::round_cov(self : Raster, xcen : Double, ycen : Double) -> Int32 {
+  rr_cov_at(
+    self.clip_rr_cx,
+    self.clip_rr_cy,
+    self.clip_rr_hx,
+    self.clip_rr_hy,
+    self.clip_rr_r,
+    xcen,
+    ycen,
+  )
+}
+
+///|
+/// 圆角矩形裁剪：与轴对齐裁剪一样只能收紧，`restore` 回退。重复调用**替换**
+/// 上一道圆角（两道圆角之交不再是圆角矩形，取最内一道；轴向界仍逐次收紧）。
+/// 带旋转/斜切的 CTM 下退化为普通矩形裁剪（cairo 臂是真路径裁剪）。
+/// 载荷纯文本口径不变：图片经此裁出真圆角，圆角外像素不落。
+pub fn Raster::clip_round_rect(
+  self : Raster,
+  x : Double,
+  y : Double,
+  w : Double,
+  h : Double,
+  radius : Double,
+) -> Unit {
+  if !self.m.axis_aligned() {
+    self.clip_rect(x, y, w, h)
+    return
+  }
+  let ax = self.m.a.abs()
+  let ay = self.m.d.abs()
+  if ax < 0.000000001 || ay < 0.000000001 {
+    return
+  }
+  let (px0, py0) = self.m.apply(x, y)
+  let (px1, py1) = self.m.apply(x + w, y + h)
+  let ex0 = px0.min(px1)
+  let ey0 = py0.min(py1)
+  let ex1 = px0.max(px1)
+  let ey1 = py0.max(py1)
+  if ex1 <= ex0 || ey1 <= ey0 {
+    return
+  }
+  // 轴向界随矩形收紧（扫描圈定与剔除都以它为界）
+  match self.rect_device(x, y, w, h) {
+    Some((ix0, iy0, ix1, iy1)) => {
+      if ix1 > ix0 && iy1 > iy0 {
+        if ix0 > self.clip_x0 {
+          self.clip_x0 = ix0
+        }
+        if iy0 > self.clip_y0 {
+          self.clip_y0 = iy0
+        }
+        if ix1 < self.clip_x1 {
+          self.clip_x1 = ix1
+        }
+        if iy1 < self.clip_y1 {
+          self.clip_y1 = iy1
+        }
+      }
+    }
+    None => ()
+  }
+  let rr_d = clamp_radius(radius, w, h) * ax
+  let rr_lim = (ex1 - ex0).min(ey1 - ey0) / 2.0
+  let rr = if rr_d > rr_lim { rr_lim } else { rr_d }
+  if rr <= 0.0 {
+    self.clip_rr_hx = -1.0
+    return
+  }
+  self.clip_rr_cx = (ex0 + ex1) / 2.0
+  self.clip_rr_cy = (ey0 + ey1) / 2.0
+  self.clip_rr_hx = (ex1 - ex0) / 2.0 - rr
+  self.clip_rr_hy = (ey1 - ey0) / 2.0 - rr
+  self.clip_rr_r = rr
+}
+
+///|
 /// 设源为纯色（fill 与 stroke 共用：cairo 只有单一 source，门面按绘制时机切）。
 pub fn Raster::source_rgba(self : Raster, c : Color) -> Unit {
   self.source = SrcSolid(c)
@@ -978,6 +1147,7 @@ pub fn Raster::blit(
   // 两边缓冲都是预乘 BGRA，按字节直接做 Normal over 即可，与 composite_span
   // 的公式同式（cov = 256 满覆盖档）；源字节先过 rtt_of 换成通用路径的等价值。
   if blend_mode_id(self.op) == 0 &&
+    !self.has_round_clip() &&
     self.m.axis_aligned() &&
     self.m.a == 1.0 &&
     self.m.d == 1.0 &&
@@ -1028,9 +1198,14 @@ pub fn Raster::blit(
     return
   }
   let cov : FixedArray[Int32] = FixedArray::make(self.bitmap.width, 0)
+  let rr = self.has_round_clip()
   for y = ry0; y < ry1; y = y + 1 {
     for x = rx0; x < rx1; x = x + 1 {
-      cov[x] = 256
+      cov[x] = if rr {
+        self.round_cov(x.to_double() + 0.5, y.to_double() + 0.5)
+      } else {
+        256
+      }
     }
     composite_span(
       self.bitmap.data,

@@ -322,6 +322,15 @@ pub fn Cairo::clip_rect(
 }
 
 ///|
+/// 以当前路径设裁剪（调用方先建好路径）；裁完清路径（cairo_clip 同口径）。
+pub fn Cairo::clip_path(self : Cairo) -> Unit {
+  cr_clip(self.id)
+}
+
+///|
+extern "c" fn cr_clip(id : Int64) -> Unit = "cr_clip"
+
+///|
 /// 设置填充色（hex 口径同 Painter：非法输入保持原色；Cairo 无独立描边色，
 /// 描边前也用它）。
 pub fn Cairo::set_fill_color(self : Cairo, hex : String) -> Unit {

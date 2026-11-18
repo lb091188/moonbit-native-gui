@@ -61,6 +61,7 @@ fn fill_polys(
   clip : (Int32, Int32, Int32, Int32),
   op : BlendMode,
   src : RSource,
+  rr : (Double, Double, Double, Double, Double),
 ) -> Unit {
   let (cx0, cy0, cx1, cy1) = clip
   if cx1 <= cx0 || cy1 <= cy0 || polys.length() == 0 {
@@ -315,15 +316,26 @@ fn fill_polys(
     }
     if ink_r > ink_l {
       let mut px = ink_l
+      // 圆角裁剪在场时逐像素取 min（路径覆盖 ∧ 圆角覆盖）
+      let (rcx, rcy, rhx, rhy, rr_r) = rr
+      let has_rr = rhx > 0.0
+      let ycen = y.to_double() + 0.5
       while px < ink_r {
         let v = cov_f[px]
-        cov[px] = if v <= 0.0 {
+        let mut c = if v <= 0.0 {
           0
         } else if v >= 256.0 {
           256
         } else {
           v.round().to_int()
         }
+        if has_rr && c > 0 {
+          let rc = rr_cov_at(rcx, rcy, rhx, rhy, rr_r, px.to_double() + 0.5, ycen)
+          if rc < c {
+            c = rc
+          }
+        }
+        cov[px] = c
         px = px + 1
       }
       composite_span(bm.data, width, y, ink_l, ink_r, cov, op, src)

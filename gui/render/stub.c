@@ -390,6 +390,17 @@ void cr_clip_rect(int64_t id, double x, double y, double w, double h) {
   }
 }
 
+void cr_clip(int64_t id) {
+  cairo_t *cr = CR_OF(id);
+  if (!cr) {
+    return;
+  }
+  // 以当前路径设裁剪并取交；裁完清路径。裁剪区是图形状态的一部分，
+  // 与 cr_clip_rect 同口径不用 save/restore 包（cairo 自按设备空间存裁剪）。
+  cairo_clip(cr);
+  cairo_new_path(cr);
+}
+
 // 混合模式：按旧契约 BlendMode 的枚举序（nu::BlendMode 数值直传）映射到
 // Cairo 算子。pigment 系（乘/屏/叠加/HSL 等）在 image surface 上实测生效，
 // 映射表与 libyue 一一对应，无需自实现混合。
@@ -980,6 +991,7 @@ void cr_rotate(int64_t id, double rad) { (void)id; (void)rad; }
 void cr_clip_rect(int64_t id, double x, double y, double w, double h) {
   (void)id; (void)x; (void)y; (void)w; (void)h;
 }
+void cr_clip(int64_t id) { (void)id; }
 void cr_set_operator(int64_t id, int mode) { (void)id; (void)mode; }
 int64_t cr_grad_linear(double x0, double y0, double x1, double y1) {
   (void)x0; (void)y0; (void)x1; (void)y1; return 0;
@@ -1700,6 +1712,7 @@ void cr_rotate(int64_t id, double rad) { (void)id; (void)rad; }
 void cr_clip_rect(int64_t id, double x, double y, double w, double h) {
   (void)id; (void)x; (void)y; (void)w; (void)h;
 }
+void cr_clip(int64_t id) { (void)id; }
 void cr_set_operator(int64_t id, int mode) { (void)id; (void)mode; }
 int64_t cr_grad_linear(double x0, double y0, double x1, double y1) {
   (void)x0; (void)y0; (void)x1; (void)y1; return 0;

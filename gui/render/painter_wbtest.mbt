@@ -658,3 +658,48 @@ test "文本批边界：end/flush 按整张位图过光栅前置闸" {
     ()
   })
 }
+
+///|
+test "clip_round_rect：圆角外像素不落，save/restore 回退" {
+  let bm = Bitmap::new(40, 40)
+  let p = Painter::new(bm)
+  p.save()
+  p.clip_round_rect(10.0, 10.0, 20.0, 20.0, 6.0)
+  p.set_fill_color("#0000ff")
+  p.fill_rect(0.0, 0.0, 40.0, 40.0)
+  // 圆角外：画布角与裁剪盒角都不落
+  assert_eq(rgba(p, 2, 2), (0, 0, 0, 0))
+  assert_eq(rgba(p, 10, 10), (0, 0, 0, 0))
+  assert_eq(rgba(p, 29, 29), (0, 0, 0, 0))
+  // 圆角内：中心与直边段
+  assert_eq(rgba(p, 20, 20), (0, 0, 255, 255))
+  assert_eq(rgba(p, 15, 20), (0, 0, 255, 255))
+  p.restore()
+  // 回退后整幅可画
+  p.set_fill_color("#ff0000")
+  p.fill_rect(10.0, 10.0, 1.0, 1.0)
+  p.end()
+  assert_eq(rgba(p, 10, 10), (255, 0, 0, 255))
+}
+
+///|
+test "clip_round_rect：draw_image 吃裁切出真圆角图片" {
+  // 4×4 红源图，放大画进 20×20 目标、圆角裁切：四角弧外不落
+  let src = Bitmap::new(4, 4)
+  let sp = Painter::new(src)
+  sp.set_fill_color("#ff0000")
+  sp.fill_rect(0.0, 0.0, 4.0, 4.0)
+  sp.end()
+  let img = Image::from_bitmap(src)
+  let bm = Bitmap::new(40, 40)
+  let p = Painter::new(bm)
+  p.clip_round_rect(10.0, 10.0, 20.0, 20.0, 6.0)
+  p.draw_image(img, 10.0, 10.0, 20.0, 20.0)
+  p.end()
+  assert_eq(bm.pixel(10, 10).a, 0)
+  assert_eq(bm.pixel(29, 29).a, 0)
+  let c1 = bm.pixel(20, 20)
+  assert_eq((c1.r, c1.g, c1.b), (255, 0, 0))
+  let c2 = bm.pixel(15, 20)
+  assert_eq((c2.r, c2.g, c2.b), (255, 0, 0))
+}

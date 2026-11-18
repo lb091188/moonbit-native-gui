@@ -1330,9 +1330,7 @@ pub fn Widget::paint_at(
   // 绘制期变换（transform 样式族）：绕中心 平移→旋转→缩放 套进 CTM，本控件
   // 自绘与子树整体随变换，restore 在本控件收尾统一回退。布局与命中不变——
   // 命中矩形仍是布局矩形（缩小的控件会有视觉在命中区外的边，已知边界）。
-  // GPU 档 on_render 不吃变换（rect 随合成直传，无矩阵位）；变换下的
-  // clip_rounded 圆角收尾也不保证精确——像素采样口（pixel_at）只吃平移不过
-  // 旋转，这两组合同属边界，批3 真 clip 落地后收尾 pass 有退役方向。
+  // GPU 档 on_render 不吃变换（rect 随合成直传，无矩阵位）。
   if self.has_transform() {
     let hw = self.rect.w / 2.0
     let hh = self.rect.h / 2.0
@@ -1384,72 +1382,21 @@ pub fn Widget::paint_at(
         None => ()
       }
   }
+  // 圆角裁切（clip_rounded）：渲染层真裁——子件超出圆角的像素不落，restore
+  // 随本控件收尾回退。挂在 on_draw **之后**：组件的现行惯例是在 on_draw 里
+  // 读样式半径再设这对字段，入场即裁会晚一拍。自绘底不被此裁——声明圆角的
+  // 组件自画圆角底（fill_round_rect），本裁切的职责是护住子件的方底通铺。
+  // 光栅臂带旋转 CTM 时退化矩形裁剪（cairo 臂真路径裁剪）；弧外露的是下层
+  // 已画内容，贴窗根且根没铺底时是表面初值，应用铺全窗底色即无此面。
+  if self.clip_rounded && self.style_clip_radius > 0.0 {
+    let r = self.style_clip_radius.min(self.rect.w / 2.0).min(self.rect.h / 2.0)
+    p.clip_round_rect(0.0, 0.0, self.rect.w, self.rect.h, r)
+  }
   // 层序:按 resolved z_index **稳定**重排(同值保持 kids 数组序=尾画者赢,
   // design.md §1.2「层序按 kids 数组序」的过渡口径被 z_index 取代);未应用过
   // 样式的树全部 0.0,排序恒等,现有示例逐帧不变。
   for k in widget_paint_order(self.kids) {
     k.paint_at(p, self.rect.x, self.rect.y, clip=eff_clip)
-  }
-  // 圆角裁切收尾：声明了 clip_rounded 的容器，把四角圆角弧外的像素补回**父层
-  // 原值**（子件通铺方底不再啃圆角）。角盒里圆外部分 = 盒 - 四分之一圆，逐行
-  // 扫描：每角 r 行，行 y 的弦半宽 dx=sqrt(r²-yc²)，圆外即盒内左右两段；整数行
-  // 近似对 4..8px 半径误差 ≤1 格，余下 1px 级弧隙由抗锯齿覆盖补齐。
-  // `yc` 是**该行行心到圆心的竖直距离**，圆心在盒里靠内容那一侧的角上：顶两角的
-  // 圆心在盒底（yc = r-y-0.5），底两角的圆心在盒顶（yc = y+0.5）。两侧不分开算，
-  // 弧外带会被镜像到角盒内侧，底角就多出一道本不该动的缺口。
-  // 补色而不是擦成透明：mac/Windows 走纯光栅后端，整窗是一张不透明位图，弧外
-  // 擦成 a=0 就露出黑/白底（真机表现为圆角上的小勾勾）；X11 有合成器时擦洞会
-  // 透出桌面，同样不是要的。父层画完就被本控件盖住，弧外原本是什么，取本控件
-  // 外侧紧邻那一像素即是。读不到（贴窗口边、外侧本身没画）时这一角保持方角——
-  // 宁可方角也不要黑角。
-  if self.clip_rounded && self.style_clip_radius > 0.0 {
-    let r = self.style_clip_radius.min(self.rect.w / 2.0).min(self.rect.h / 2.0)
-    let w = self.rect.w
-    let h = self.rect.h
-    p.set_global_alpha(1.0)
-    for
-      (cx0, cy0, left, top) in [
-        (0.0, 0.0, true, true),
-        (w - r, 0.0, false, true),
-        (0.0, h - r, true, false),
-        (w - r, h - r, false, false),
-      ] {
-      // 左角读本控件左缘外一像素、右角读右缘外一像素，纵向取角盒中段
-      let sx = if left { -1.0 } else { w }
-      match p.pixel_at(sx, cy0 + r / 2.0) {
-        Some(back) if back.a > 0 => {
-          // Copy：整像素放回父层原值，不与本控件刚画的方底做 source-over
-          p.set_blend_mode(Copy)
-          p.set_fill_color(back.to_hex())
-          let mut yy = 0
-          while yy < r.floor().to_int() + 1 {
-            // 该行行心到圆心的竖直距离：顶角从盒底往上数，底角从盒顶往下数
-            let yc = if top {
-              (r - yy.to_double() - 0.5).max(0.0)
-            } else {
-              yy.to_double() + 0.5
-            }
-            let half = (r * r - yc * yc).max(0.0).sqrt()
-            let outside = (r - half).max(0.0)
-            if outside > 0.0 {
-              if left {
-                p.fill_rect(cx0, cy0 + yy.to_double(), outside, 1.0)
-              } else {
-                p.fill_rect(
-                  cx0 + r - outside,
-                  cy0 + yy.to_double(),
-                  outside,
-                  1.0,
-                )
-              }
-            }
-            yy += 1
-          }
-          p.set_blend_mode(Normal)
-        }
-        _ => ()
-      }
-    }
   }
   p.set_global_alpha(inherited)
   p.restore()

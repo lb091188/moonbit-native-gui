@@ -327,7 +327,7 @@ test "绘制遍历：逐层平移到控件原点，并裁剪到控件矩形" {
 }
 
 ///|
-test "圆角擦角：弧外补回父层底色，不留透明洞" {
+test "圆角裁切：子件方底通铺被裁进圆角，弧外露父层底色" {
   let root = column(Widget::new())
   let _ = sized(root, 40.0, 40.0)
   let card = sized(Widget::new(), 20.0, 20.0)
@@ -343,29 +343,34 @@ test "圆角擦角：弧外补回父层底色，不留透明洞" {
     p.set_fill_color("#ff0000")
     p.fill_rect(0.0, 0.0, r.w, r.h)
   })
-  // 卡片通铺方底 + 声明圆角：宿主收尾把四角弧外补回父层（红）
+  // 现行组件惯例：on_draw 里读半径、自画圆角底、声明圆角裁切护子件
   card.on_draw = Some(fn(w : Widget, p : @render.Painter, r : Rect) -> Unit {
     w.clip_rounded = true
     w.style_clip_radius = 6.0
     p.set_fill_color("#0000ff")
+    p.fill_round_rect(0.0, 0.0, r.w, r.h, 6.0)
+  })
+  // 方底子件铺满卡片：没有圆角裁切时四角会被它啃成蓝
+  let square = sized(Widget::new(), 20.0, 20.0)
+  square.on_draw = Some(fn(_w : Widget, p : @render.Painter, r : Rect) -> Unit {
+    p.set_fill_color("#0000ff")
     p.fill_rect(0.0, 0.0, r.w, r.h)
   })
+  card.append_child(square)
 
   let bm = @render.Bitmap::new(40, 40)
   let p = @render.Painter::new(bm)
   root.paint(p)
   p.end()
 
-  // 卡片落在 (10,10)-(30,30)：正中是蓝，角盒弧外是红且**不透明**
+  // 卡片落在 (10,10)-(30,30)：正中是蓝，角盒弧外是父层红且**不透明**
   assert_eq(color_of(bm, 20, 20), (0, 0, 255, 255))
   assert_eq(color_of(bm, 10, 10), (255, 0, 0, 255))
   assert_eq(color_of(bm, 29, 29), (255, 0, 0, 255))
-  // 弧内仍是卡片自己的蓝
+  // 弧内仍是蓝（含子件的方底覆盖）；取点离 AA 带至少 1px
   assert_eq(color_of(bm, 15, 15), (0, 0, 255, 255))
-  // 底角的弧外带在**远端**：角盒首行贴着圆心的那一侧不该被动过
-  // （顶角公式套到底角会把缺口镜像到这里，实测 29,24 被啃成父层色）
-  assert_eq(color_of(bm, 29, 24), (0, 0, 255, 255))
-  assert_eq(color_of(bm, 24, 29), (0, 0, 255, 255))
+  assert_eq(color_of(bm, 28, 24), (0, 0, 255, 255))
+  assert_eq(color_of(bm, 24, 28), (0, 0, 255, 255))
   // 整幅不留 a=0：光栅后端（mac/Windows）透明像素会露出黑/白底
   let mut holes = 0
   for y = 0; y < 40; y = y + 1 {
@@ -379,7 +384,7 @@ test "圆角擦角：弧外补回父层底色，不留透明洞" {
 }
 
 ///|
-test "圆角擦角：贴窗口边读不到父层时保持方角，不打洞" {
+test "圆角裁切：贴窗口边时弧外露下层已画内容，不打洞" {
   let root = column(Widget::new())
   let _ = sized(root, 20.0, 20.0)
   let card = sized(Widget::new(), 20.0, 20.0)
@@ -393,12 +398,16 @@ test "圆角擦角：贴窗口边读不到父层时保持方角，不打洞" {
     w.clip_rounded = true
     w.style_clip_radius = 6.0
     p.set_fill_color("#0000ff")
-    p.fill_rect(0.0, 0.0, r.w, r.h)
+    p.fill_round_rect(0.0, 0.0, r.w, r.h, 6.0)
   })
   let bm = @render.Bitmap::new(20, 20)
   let p = @render.Painter::new(bm)
   root.paint(p)
   p.end()
+  // 贴边卡片的四角弧外 = 根层红（真裁不落像素，下层画过什么露什么）
+  assert_eq(color_of(bm, 0, 0), (255, 0, 0, 255))
+  assert_eq(color_of(bm, 19, 19), (255, 0, 0, 255))
+  assert_eq(color_of(bm, 10, 10), (0, 0, 255, 255))
   let mut holes = 0
   for y = 0; y < 20; y = y + 1 {
     for x = 0; x < 20; x = x + 1 {
