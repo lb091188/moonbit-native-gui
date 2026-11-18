@@ -240,6 +240,10 @@ pub(all) struct Widget {
   mut tr_sx : Double
   mut tr_sy : Double
   mut tr_rot : Double
+  /// 样式落过的变换槽位图（bit0 tx / bit1 ty / bit2 sx / bit3 sy / bit4 rot /
+  /// bit5 blur）：绘制期槽刷新回落时只回这些位的恒等值——handle 直设槽的
+  /// 惯例不受样式刷新影响。由 `@style` 写。
+  mut tr_style_mask : Int
   /// 背景模糊半径（样式 `backdrop_blur` 落点）：进本控件先把已画内容的自身
   /// 区域就地糊掉再画自己——毛玻璃。0 = 关。
   mut backdrop_blur_paint : Double
@@ -317,6 +321,7 @@ pub fn Widget::new() -> Widget {
     tr_sx: 1.0,
     tr_sy: 1.0,
     tr_rot: 0.0,
+    tr_style_mask: 0,
     backdrop_blur_paint: 0.0,
     paints_state: false,
     enabled: true,
@@ -1230,6 +1235,18 @@ pub fn Widget::has_transform(self : Widget) -> Bool {
 }
 
 ///|
+/// 绘制前样式刷新钩子：绘制遍历消费 transform/背景模糊槽**之前**跑一次，样式
+/// 层把这一帧的动态值（状态桶/过渡插值/关键帧）写回槽。widget 不依赖 style，
+/// 走全局函数指针反转依赖（仿 render 的 `set_raster_gate`）；样式包在 apply
+/// 首次调用时懒装，测试与无样式场景不装则槽维持 apply 落的静态值。
+let paint_style_hook : Ref[((Widget) -> Unit)?] = Ref(None)
+
+///|
+pub fn set_paint_style_hook(f : (Widget) -> Unit) -> Unit {
+  paint_style_hook.val = Some(f)
+}
+
+///|
 /// 矩形经本控件变换后的**外接矩形**：变换 = 绕中心缩放 → 绕中心旋转 → 平移
 /// （与 paint_at 里 Painter 调用序同构）。脏区并入与视口剔除都用它——旋转/
 /// 缩放后的内容会越出布局矩形，按原矩形标脏会留残影、按原矩形剔除会整块丢画。
@@ -1294,6 +1311,13 @@ pub fn Widget::paint_at(
   if !self.visible {
     return ()
   }
+  // 绘制前样式刷新：这一帧的动态 transform/背景模糊先落槽再消费（状态桶/
+  // 过渡插值/关键帧全在样式层汇齐）。被视口剔除的控件也刷——动画账的推进
+  // 不依赖画没画。
+  match paint_style_hook.val {
+    Some(f) => f(self)
+    None => ()
+  }
   // 视口剔除（纯光栅器后端）：整块落在当前裁剪外的控件直接跳过遍历——累积
   // 验证页一屏叠十几页，整树重画实测 550ms/帧（真机「窗口未响应」的主因之一），
   // 剔除后只画屏内那部分。判交必须用**相对当前原点的本地矩形**（rect 减去父
@@ -1355,8 +1379,10 @@ pub fn Widget::paint_at(
       self.backdrop_blur_paint,
     )
   }
-  // 溢出裁切（overflow）：默认裁到控件矩形；Visible 档跳过（越界装饰逃生口）
-  if self.clip_content {
+  // 溢出裁切（overflow）：默认裁到控件矩形；Visible 档跳过（越界装饰逃生口）。
+  // 挂绘制期变换的控件整体豁免——变换的语义就是视觉越出盒子（悬停放大/上浮/
+  // 旋转的溢出边），被自身裁切吃掉效果就没了；子件想裁自己各自声明。
+  if self.clip_content && !self.has_transform() {
     p.clip_rect(0.0, 0.0, self.rect.w, self.rect.h)
   }
   // 圆角裁切（clip_rounded）两段式：旗**进绘制前已在场**（挂载期声明，如圆角
@@ -1380,7 +1406,7 @@ pub fn Widget::paint_at(
   }
   // 本控件的有效裁剪：自身声明 clip_content 时收到自身矩形，否则继承父链
   // （GPU 档 draw 的 clip 位；CPU 档等价信息在 Painter 裁剪栈里）
-  let eff_clip = if self.clip_content {
+  let eff_clip = if self.clip_content && !self.has_transform() {
     clip_isect(self.rect, clip)
   } else {
     clip

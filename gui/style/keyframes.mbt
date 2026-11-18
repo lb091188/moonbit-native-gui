@@ -64,6 +64,36 @@ pub fn animate(
     return
   }
   timelines.set(w.id, { frames: fs, dur, mode, start: @shell.now_ms(), finished: false })
+  // 轴涉及的 transform 字段置「样式管过」位：停轴/回落时槽刷新才把槽回恒等，
+  // 否则槽卡在最后一帧的值上（样式基块没写这些字段、style_for 出 None 不回落）
+  let mut mask = w.tr_style_mask
+  for f in fs {
+    match f.style.translate_x {
+      Some(_) => mask = mask | 1
+      None => ()
+    }
+    match f.style.translate_y {
+      Some(_) => mask = mask | 2
+      None => ()
+    }
+    match f.style.scale_x {
+      Some(_) => mask = mask | 4
+      None => ()
+    }
+    match f.style.scale_y {
+      Some(_) => mask = mask | 8
+      None => ()
+    }
+    match f.style.rotate {
+      Some(_) => mask = mask | 16
+      None => ()
+    }
+    match f.style.backdrop_blur {
+      Some(_) => mask = mask | 32
+      None => ()
+    }
+  }
+  w.tr_style_mask = mask
   @widget.invalidate_id(w.id)
   ensure_kf_ticking()
 }

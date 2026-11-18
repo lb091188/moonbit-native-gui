@@ -261,3 +261,59 @@ test "apply：backdrop_blur 落 Widget 槽" {
   apply(w, style(backdrop_blur=6.0))
   assert_eq(w.backdrop_blur_paint, 6.0)
 }
+
+///|
+test "槽刷新：样式落过的字段随样式回落，直设槽不动" {
+  let w = @widget.Widget::new()
+  apply(w, style(rotate=8.0, scale_x=1.5, backdrop_blur=4.0))
+  w.tr_ty = 7.0
+  paint_slot_refresh(w)
+  assert_eq(w.tr_rot, 8.0)
+  assert_eq(w.tr_sx, 1.5)
+  assert_eq(w.backdrop_blur_paint, 4.0)
+  assert_eq(w.tr_ty, 7.0)
+  // 撤掉侧表（样式整体撤下）：置过位的字段回恒等，样式没管的不动
+  let _ = resolved_table.remove(w.id)
+  let _ = inherited_table.remove(w.id)
+  let _ = effective_table.remove(w.id)
+  paint_slot_refresh(w)
+  assert_eq(w.tr_rot, 0.0)
+  assert_eq(w.tr_sx, 1.0)
+  assert_eq(w.backdrop_blur_paint, 0.0)
+  assert_eq(w.tr_ty, 7.0)
+}
+
+///|
+test "槽刷新：悬停桶的 transform 进槽、移出回落" {
+  let w = @widget.Widget::new()
+  apply(w, style(transition_ms=0.0).hover(scale_x=1.2, translate_y=-4.0))
+  assert_eq(w.tr_sx, 1.0)
+  w.hovered = true
+  paint_slot_refresh(w)
+  assert_eq(w.tr_sx, 1.2)
+  assert_eq(w.tr_ty, -4.0)
+  w.hovered = false
+  paint_slot_refresh(w)
+  assert_eq(w.tr_sx, 1.0)
+  assert_eq(w.tr_ty, 0.0)
+}
+
+///|
+test "槽刷新：关键帧轴上的 rotate 进槽、停轴回落" {
+  let w = @widget.Widget::new()
+  apply(w, style(transition_ms=0.0))
+  animate(
+    w,
+    [
+      { at_ms: 0.0, style: style(rotate=90.0) },
+      { at_ms: 100.0, style: style(rotate=0.0) },
+    ],
+    mode=Loop,
+  )
+  paint_slot_refresh(w)
+  // 真实时钟在起轴与刷新之间走几毫秒，轴上取值落在开区间
+  assert_true(w.tr_rot > 0.0 && w.tr_rot <= 90.0)
+  stop_animating(w)
+  paint_slot_refresh(w)
+  assert_eq(w.tr_rot, 0.0)
+}

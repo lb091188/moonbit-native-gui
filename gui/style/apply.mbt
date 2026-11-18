@@ -23,6 +23,51 @@ let effective_table : Map[Int32, Style] = Map([])
 let drop_hook_installed : Ref[Bool] = Ref(false)
 
 ///|
+/// 绘制期槽刷新：绘制遍历消费 transform/背景模糊槽之前跑——这一帧的动态值
+/// （状态桶、过渡插值、关键帧全在 style_for 汇齐）写回 Widget 槽。样式没写的
+/// 字段只回 `tr_style_mask` 里「样式落过的」位的恒等值：悬停放大移出后回落、
+/// 关键帧停轴后回基块都靠这条；handle 直设槽的惯例不置位、不受刷新影响。
+fn paint_slot_refresh(w : @widget.Widget) -> Unit {
+  let s = style_for(w)
+  let m = w.tr_style_mask
+  match s.translate_x {
+    Some(v) => w.tr_tx = v
+    None => if (m & 1) != 0 { w.tr_tx = 0.0 }
+  }
+  match s.translate_y {
+    Some(v) => w.tr_ty = v
+    None => if (m & 2) != 0 { w.tr_ty = 0.0 }
+  }
+  match s.scale_x {
+    Some(v) => w.tr_sx = v
+    None => if (m & 4) != 0 { w.tr_sx = 1.0 }
+  }
+  match s.scale_y {
+    Some(v) => w.tr_sy = v
+    None => if (m & 8) != 0 { w.tr_sy = 1.0 }
+  }
+  match s.rotate {
+    Some(v) => w.tr_rot = v
+    None => if (m & 16) != 0 { w.tr_rot = 0.0 }
+  }
+  match s.backdrop_blur {
+    Some(v) => w.backdrop_blur_paint = v
+    None => if (m & 32) != 0 { w.backdrop_blur_paint = 0.0 }
+  }
+}
+
+///|
+let paint_hook_installed : Ref[Bool] = Ref(false)
+
+///|
+fn install_paint_hook() -> Unit {
+  if !paint_hook_installed.val {
+    paint_hook_installed.val = true
+    @widget.set_paint_style_hook(paint_slot_refresh)
+  }
+}
+
+///|
 fn install_drop_hook() -> Unit {
   if !drop_hook_installed.val {
     drop_hook_installed.val = true
@@ -137,6 +182,7 @@ pub fn mirror_align(v : @yoga.AlignItems, rtl : Bool) -> @yoga.AlignItems {
 /// 多次 apply 逐属性叠加（与 merge 同一规则：后写的属性赢）。
 pub fn apply(w : @widget.Widget, s : Style) -> Unit {
   install_drop_hook()
+  install_paint_hook()
   let n = w.node
   match s.width {
     Some(v) => n.set_width(@yoga.fixed(v))
@@ -311,30 +357,82 @@ pub fn apply(w : @widget.Widget, s : Style) -> Unit {
     Some(Hidden) => w.clip_content = true
     None => ()
   }
-  // transform 族（绘制期变换）：落 Widget 槽，绘制遍历消费；布局与命中不变
+  // transform 族（绘制期变换）：落 Widget 槽，绘制遍历消费；布局与命中不变。
+  // 同步置 tr_style_mask 位——绘制期槽刷新回落 None 时只回「样式落过的」位，
+  // handle 直设槽的惯例不受影响
   match s.translate_x {
-    Some(v) => w.tr_tx = v
+    Some(v) => {
+      w.tr_tx = v
+      w.tr_style_mask = w.tr_style_mask | 1
+    }
     None => ()
   }
   match s.translate_y {
-    Some(v) => w.tr_ty = v
+    Some(v) => {
+      w.tr_ty = v
+      w.tr_style_mask = w.tr_style_mask | 2
+    }
     None => ()
   }
   match s.scale_x {
-    Some(v) => w.tr_sx = v
+    Some(v) => {
+      w.tr_sx = v
+      w.tr_style_mask = w.tr_style_mask | 4
+    }
     None => ()
   }
   match s.scale_y {
-    Some(v) => w.tr_sy = v
+    Some(v) => {
+      w.tr_sy = v
+      w.tr_style_mask = w.tr_style_mask | 8
+    }
     None => ()
   }
   match s.rotate {
-    Some(v) => w.tr_rot = v
+    Some(v) => {
+      w.tr_rot = v
+      w.tr_style_mask = w.tr_style_mask | 16
+    }
     None => ()
   }
   match s.backdrop_blur {
-    Some(v) => w.backdrop_blur_paint = v
+    Some(v) => {
+      w.backdrop_blur_paint = v
+      w.tr_style_mask = w.tr_style_mask | 32
+    }
     None => ()
+  }
+  // 状态桶里的 transform 族同样置位：桶值经绘制期槽刷新进槽，移出回落靠位判断
+  for b in [s.hover, s.active, s.focus] {
+    match b {
+      Some(st) => {
+        match st.translate_x {
+          Some(_) => w.tr_style_mask = w.tr_style_mask | 1
+          None => ()
+        }
+        match st.translate_y {
+          Some(_) => w.tr_style_mask = w.tr_style_mask | 2
+          None => ()
+        }
+        match st.scale_x {
+          Some(_) => w.tr_style_mask = w.tr_style_mask | 4
+          None => ()
+        }
+        match st.scale_y {
+          Some(_) => w.tr_style_mask = w.tr_style_mask | 8
+          None => ()
+        }
+        match st.rotate {
+          Some(_) => w.tr_style_mask = w.tr_style_mask | 16
+          None => ()
+        }
+        match st.backdrop_blur {
+          Some(_) => w.tr_style_mask = w.tr_style_mask | 32
+          None => ()
+        }
+      }
+      None => ()
+    }
   }
   let prev = match resolved_table.get(w.id) {
     Some(p) => p
