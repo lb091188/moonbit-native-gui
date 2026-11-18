@@ -496,12 +496,12 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
 - ✅ **`mng new` 面改版**：裸 `new <名字>` 即建工程、`new page` 出单页样板
   - VS Code 插件「新建页面」命令与生成码文件嵌套折叠
   - 待验：真机 / 编辑器
-- 🚧 **内建 inspector v1 只读 + v2 样式回灌**：
+- ✅ **内建 inspector v1 只读 + v2 样式回灌（面板库）**：
   - inspector：内建的界面检查器面板，看控件树、读数与帧耗时。
   - v1：控件树浏览、选中行看读数与帧耗时账本
     - 数据源：吃帧尾语义快照，与屏读同源。
   - v2：样式类编辑回灌下一帧生效
-  - 库包按需 import；待验：面板观感与回灌真机
+  - 库包按需 import、无头断言守护。2026-11-18 拍板：面板不做专门演示页与真机验收面，检查器使用与验收只走独立检查器（下两条）
 - 🚧 **inspector 服务化**：内建检查器从面板库扩成服务——AI 与工具经 socket 取界面读数
   - inspector 服务：应用内起的只读检查通道，mng 经 socket 取树、样式读数与截图。
   - **组件类型名** `Widget.kind`：开放字符串组件类型名，与读屏封闭枚举 `role` 独立演化；进语义快照第 13 列（发布 / win 桩 / AT-SPI 三同步），面板树表与详情显示
@@ -509,7 +509,7 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
   - **三命令**：`tree` 整树 dump、`style <id>` 生效样式读数五字段、`shot [路径]` 最近一帧 PNG 落盘
   - **开关纯注入式**：`MNG_INSPECT=1` 由 mng dev / mng mcp 起应用时注入，未注入零监听
   - **消费端**：`mng inspect` 一次性 CLI、`mng mcp` stdio MCP server（initialize / tools/list / tools/call）、uitest `dump_tree` / `shot` 直调
-  - 待验：真机 mng inspect / mng mcp 全链、面板 kind 显示；win 管道臂由 CI Windows 腿回证
+  - 待验：真机 mng inspect / mng mcp 全链（kind 显示由独立检查器树表承载）；win 管道臂由 CI Windows 腿回证
 - 🚧 **组件树统一口径**：检查器树与读屏语义树都按「一个组件就是一个组件」组织
   - 控件类型名 `Widget.kind` 与 .mng 模板标签统一：构造器默认名改模板标签写法（kebab-case，如 `ui-input`），无模板标签的控件同风格补 `ui-` 前缀；`{{ }}` 绑定文本按文本显示（role=text），不再出现 `Bind`
   - mngkit 给每个模板标签调用点注入组件标记（`Node::with_comp`，自定义组件根拿到标签名）；检查器 `tree` 缺省组件视图（每个标签一行、自定义组件也是一行、内部实现件不占行），`tree --full` 全量，图形检查器「内部实现」开关切换
@@ -704,7 +704,7 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
 
 ### 示例与文档
 
-- ⏳ **dev 工具独立示例**：模板 Dev 对照页与检查器演示页随示例收拢出清，库包仍在 `gui/inspector`、`mngdev`，待建独立 dev 工具示例承载
+- ⏳ **dev 工具独立示例**：模板 Dev 对照页随示例收拢出清，库包仍在 `mngdev`，待建独立 dev 工具示例承载；检查器演示页不再建（2026-11-18 拍板：检查器只走独立检查器形态，`gui/inspector` 库保留无头守护）
   - 前提：验收后。
 - ⏳ **示例第二批拆分**：components 的「GPU 画布」页拆出独立示例，components 只留纯组件页
   - 前提：验收后。
