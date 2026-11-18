@@ -44,7 +44,6 @@ extern void *moonbit_make_bytes(int size, int value);
  * text\tx\ty\tw\th\tkind，kind 是第 13 列组件类型名，inspector 用；读屏不用），
  * 这里只做存储；平台臂（macOS NSAccessibility / Windows
  * UIA / Linux AT-SPI）从这份表读。整体替换、按值拷贝——删掉的控件下一帧就没了。
- * 解析按行切分：行内缺列置空（12 列旧输入兼容）、多余列丢弃，绝不跨行。
  */
 #define WM_A11Y_MAX 4096
 typedef struct WmA11yRow {
@@ -14256,19 +14255,18 @@ int64_t wm_shell_caps(void) {
 static WmA11yRow g_a11y_rows[WM_A11Y_MAX];
 static int32_t g_a11y_n = 0;
 
-/* 取行内下一个制表符分隔的字段写进 dst（越界截断）；end 是行尾，只停 '\t'、
- * 只消费 '\t'——绝不越过行尾，行边界由 wm_a11y_publish 控制 */
+/* 取下一个制表符分隔的字段写进 dst（越界截断）；返回后 pp 指向分隔符 */
 static void wm_a11y_field(const char **pp, const char *end, char *dst, int cap) {
     const char *p = *pp;
     int k = 0;
-    while (p < end && *p != '\t') {
+    while (p < end && *p != '\t' && *p != '\n') {
         if (k < cap - 1) {
             dst[k++] = *p;
         }
         p++;
     }
     dst[k] = 0;
-    if (p < end && *p == '\t') {
+    if (p < end && (*p == '\t' || *p == '\n')) {
         p++;
     }
     *pp = p;
@@ -14279,37 +14277,29 @@ void wm_a11y_publish(const uint8_t *blob, int32_t len, int32_t count) {
     const char *end = p + (len > 0 ? len : 0);
     int32_t n = 0;
     while (p < end && n < count && n < WM_A11Y_MAX) {
-        /* 先切出行边界再逐列读：12 列旧输入、13 列新输入都按行解析，行内
-         * 缺列置空（数值列得 0、kind 空串）、多余列丢弃——绝不越过行尾吃
-         * 下一行的 id（旧逐字段循环会跨行错位，整树父子挂错，已实测）。 */
-        const char *le = p;
-        while (le < end && *le != '\n') {
-            le++;
-        }
         WmA11yRow *r = &g_a11y_rows[n];
         char buf[32];
-        wm_a11y_field(&p, le, buf, (int)sizeof buf);
+        wm_a11y_field(&p, end, buf, (int)sizeof buf);
         r->id = (int32_t)strtol(buf, NULL, 10);
-        wm_a11y_field(&p, le, buf, (int)sizeof buf);
+        wm_a11y_field(&p, end, buf, (int)sizeof buf);
         r->parent = (int32_t)strtol(buf, NULL, 10);
-        wm_a11y_field(&p, le, buf, (int)sizeof buf);
+        wm_a11y_field(&p, end, buf, (int)sizeof buf);
         r->enabled = (int32_t)strtol(buf, NULL, 10);
-        wm_a11y_field(&p, le, r->role, (int)sizeof r->role);
-        wm_a11y_field(&p, le, r->name, (int)sizeof r->name);
-        wm_a11y_field(&p, le, r->state, (int)sizeof r->state);
-        wm_a11y_field(&p, le, r->value, (int)sizeof r->value);
-        wm_a11y_field(&p, le, r->text, (int)sizeof r->text);
-        wm_a11y_field(&p, le, buf, (int)sizeof buf);
+        wm_a11y_field(&p, end, r->role, (int)sizeof r->role);
+        wm_a11y_field(&p, end, r->name, (int)sizeof r->name);
+        wm_a11y_field(&p, end, r->state, (int)sizeof r->state);
+        wm_a11y_field(&p, end, r->value, (int)sizeof r->value);
+        wm_a11y_field(&p, end, r->text, (int)sizeof r->text);
+        wm_a11y_field(&p, end, buf, (int)sizeof buf);
         r->x = strtod(buf, NULL);
-        wm_a11y_field(&p, le, buf, (int)sizeof buf);
+        wm_a11y_field(&p, end, buf, (int)sizeof buf);
         r->y = strtod(buf, NULL);
-        wm_a11y_field(&p, le, buf, (int)sizeof buf);
+        wm_a11y_field(&p, end, buf, (int)sizeof buf);
         r->w = strtod(buf, NULL);
-        wm_a11y_field(&p, le, buf, (int)sizeof buf);
+        wm_a11y_field(&p, end, buf, (int)sizeof buf);
         r->h = strtod(buf, NULL);
-        wm_a11y_field(&p, le, r->kind, (int)sizeof r->kind);
+        wm_a11y_field(&p, end, r->kind, (int)sizeof r->kind);
         n++;
-        p = (le < end) ? le + 1 : le;
     }
     g_a11y_n = n;
 }
