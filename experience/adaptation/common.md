@@ -2179,3 +2179,18 @@ GpuCanvas——@render.GpuSink 的 gui-gpu 实现，GPU 线首消费者——落
 - **修复**：判定函数 `env_lang_zh` 把 `C` / `C.*` / `POSIX`——不分大小写——归为「未表态」返回 None，跳过该变量继续找下一个；真表态值二分：`zh` 前缀中文、其余英文；全未表态落系统 UI 语言，仍未知落中文。
 - **判据**：跟 locale 环境走的多语言 CLI，「未表态值」——C 族、POSIX、空串——与「明确选了某一门语言」必须分开处理；只按「非 zh 即 en」二分会把最大一类默认会话判错语言。与 GUI 侧 i18n 目录互不相关——那条管页面取译，这条管工具命令面。
 - **验证**：`mng/main_wbtest.mbt` 两条——表态值二分、C 与 POSIX 各形态未表态；本机 `LANG=C.UTF-8 mng -h` 出中文、`LANG=en_US.UTF-8` 仍英文、`LC_ALL=zh_CN.UTF-8` 中文；tools 门禁 `moon check` 零警告 + `moon test mng mngkit proc inst` 124/124。
+
+## 布局与视觉能力定案：不做的与分档方针——2026-11-18 定案
+
+- **定案不做五项**（桌面定位与既有组件承载已覆盖，不再排期）：
+  - grid 网格布局——规整网格用 flex_wrap 加等宽子项，真表格走 table_t 组件，自由排版归画布；flex-only 是 Flutter 与 UniApp 同款选型。
+  - 媒体查询——框架定案只做桌面端，不做移动端；桌面自适应靠窗口 resize 重排、百分比与 min/max、声明式绑定按宽度切档三件套。
+  - calc 运行期表达式——MoonBit 构造代码里就是真表达式，声明式绑定管动态重算，不需要字符串表达式引擎。
+  - position: fixed/sticky 样式化——浮层系统（气泡/下拉/菜单/对话框）就是 fixed 的组件化形态，sticky 由滚动容器组件承载（表格粘性头已实现）。
+  - 伪元素——CSS 伪元素的根因是 CSS 不能生成节点，本栈是真组件树，「图标+文字」「角标」直接组合子件。
+- **动效按每像素成本分档，不按「是不是动效」分**：
+  - 仿射与颜色类——位移/缩放/旋转/透明度/换色——每像素常数成本，全档可跑；依据 anim_cost_bench 小脏区一帧 0.8ms 对 16.7ms 预算约 12 倍余量。
+  - 卷积类——blur、滤镜——成本随面积乘半径，大半径 CPU 必卡；GPU 档专属，CPU 档只给小半径降级档（三趟 box blur，Skia 同款思路）。
+  - 一句话：有 GPU 有效果全集，没 GPU 有仿射与颜色全集。
+- **毛玻璃三条路线**（按需选，不互斥）：控件级小面积走 CPU box blur；大面积实时 blur 走 gui-gpu 通道（另立提案）；窗口级系统材质走 WM 通道——mac NSVisualEffectView / Windows DWM Acrylic / Linux 无标准诚实降级，与 GPU 无关。
+- **aspect_ratio 的价值口径**：语义是「定一端、另一端按比率 auto」，但价值在布局引擎内解——空容器 auto 会塌（无内容可撑）且与 grow/shrink/百分比联算时外部手算会分叉，引擎内约束不受此限。
