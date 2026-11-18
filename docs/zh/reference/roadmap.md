@@ -130,6 +130,14 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **路径与曲线**：`move_to` / `line_to`、二次与三次贝塞尔；`draw_path(Path)` 对象直通
 - ✅ **渐变**：线性渐变与径向渐变填充
 - ✅ **裁剪与变换**：push / pop clip，平移缩放旋转
+- 🚧 **CPU 视觉能力批**：样式与渲染层在纯 CPU 光栅档补齐动效与质感底座，五批全落地，无头白盒已证、真机观感待验
+  - aspect_ratio：样式层纵横比（宽:高），定一端另一端由布局引擎按比率解；模板 `aspect-ratio: 2`
+  - transform 2D 仿射：控件级平移/缩放/旋转（绕中心，`translate_x`/`scale_x`/`rotate` 度），套光栅矩阵 CTM，脏区与视口剔除按变换外接矩形；布局与命中不动；transition 恒等感知插值
+  - 圆角路径裁切：raster 解析覆盖四落笔路统一调制、cairo 真路径裁剪；`clip_rounded` 容器真裁、`draw_image` 出真圆角图片（补角 pass 退役）
+  - CPU blur：`Bitmap::box_blur_region` 三趟盒式原语（两后端共享位图零分叉）+ 样式面 `backdrop_blur` 毛玻璃；大半径与全窗级归 GPU 档
+  - 关键帧动画：`animate`/`stop_animating` 多段属性时间轴，Once 保留末帧与 Loop/PingPong 三循环，shown 盖状态桶、组件零改动可被动画
+  - 动效分档方针（2026-11-18 定案）：仿射与颜色类全档可跑；卷积类——模糊、滤镜——GPU 档专属、CPU 档只给小半径降级。有 GPU 有效果全集，没 GPU 有仿射与颜色全集。
+  - 平台状态：🚧已合入待真机——旋转缩放观感、真圆角图片、毛玻璃质感、关键帧流畅度四面随真机验；成本依据 `experiment/anim_cost_bench` 小脏区一帧 0.8ms（约 12 倍帧预算余量），Windows 纯光栅读数待 win10 VM 复跑
 - ✅ **圆角与抗锯齿**：真圆弧 + 1px 抗锯齿；圆角关闭时退直角
 - ✅ **线型端点与拐角**：LineCap：Butt / Round / Square；LineJoin：Miter / Round / Bevel
 - ✅ **虚线**：`set_dashes(图案, 相位)`，on/off 交替、逻辑像素，空数组回实线
@@ -601,21 +609,9 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
   - 已落地内容：局部置脏、组件级布局缓存。
   - Linux 读数判据：树不变零重排、绘制成本随规模线性
   - 增量重绘收益等 Windows / macOS 同款读数再定
-- ⏳ **CPU 视觉能力补足批**：纯 CPU 光栅档补齐动效与质感底座，五批独立落地
-  - CPU 光栅：不走 GPU、由 CPU 逐像素画图的默认绘制档，本框架的应用基线。
-  - ✅ **aspect_ratio**：样式层开纵横比字段（宽:高），模板 `aspect-ratio: 2` 无单位数值；定一端、另一端由布局引擎按比率解——主轴 auto 时与 grow/百分比联算成立，交叉轴 auto + 默认 stretch 时拉伸优先、比率让位（apply_wbtest 两条钉住）
-  - **transform 2D 仿射**：控件级平移、缩放、旋转的样式属性
-    - 仿射变换：对控件整体做几何变换——CSS transform 同义。
-    - 底座已备：光栅引擎已是全仿射矩阵 CTM，本批只接样式层与控件绘制遍历，脏区按变换后包围盒外扩。
-  - ✅ **圆角路径裁切**：渲染层圆角矩形裁剪原语落地，图片与子内容真按圆角裁切
-    - 裁切：把绘制限制在某块形状内，形状外的像素不画。
-    - raster 解析覆盖四落笔路统一调制（矩形填充/路径填充/描边/图片），cairo 臂真路径裁剪；`clip_rounded` 容器从补角 pass 改走真裁，弧外露下层已画内容
-  - ✅ **CPU blur 小半径**：`Bitmap::box_blur_region` 三趟盒式原语（两后端共享位图零分叉）+ 样式面 `backdrop_blur` 毛玻璃（已画内容就地糊掉再画自己，transition 可插值）；模板 `backdrop-blur: 6px`。大半径与全窗级归 GPU 档；投影（box_shadow）退役定案不变，将来回归直接用原语做模糊档
-  - ✅ **关键帧动画**：`gui/style/keyframes` 多段属性时间轴——`animate`/`stop_animating`/`kf_running`，循环三档（Once 保留末帧/Loop/PingPong），shown 在 style_for 尾部盖状态桶、组件零改动可被动画
-    - 关键帧动画：给定首尾与中间若干帧的属性值，框架按时间补出中间画面。
-    - 插值集合与 transition 同一底座；布局字段不触发重排，动尺寸走 transform
-  - 动效分档方针（2026-11-18 定案）：仿射与颜色类全档可跑；卷积类——模糊、滤镜——GPU 档专属、CPU 档只给小半径降级。有 GPU 有效果全集，没 GPU 有仿射与颜色全集。
-  - 成本依据：`experiment/anim_cost_bench` 实测小脏区一帧 0.8ms，对 60fps 预算约 12 倍余量；Windows 纯光栅路径读数待 win10 VM 复跑闭环。
+- ⏳ **CPU 视觉能力补足批（余项）**：五批已全部落地并移入「已实现 · 渲染与绘制」，此处留观感真机验收与 Windows 纯光栅读数两格尾账
+  - 真机验收面：旋转缩放观感、真圆角图片、毛玻璃质感、关键帧流畅度（待独立 dev 工具示例或 showcase 页承载入口）。
+  - 成本读数：`experiment/anim_cost_bench` 于 win10 VM 复跑，闭环 Windows 纯光栅路径读数。
 
 ### 输入与浮层
 
