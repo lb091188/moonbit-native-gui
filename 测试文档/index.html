@@ -172,6 +172,7 @@
   .row[data-status="pass"] .ct{color:#4b5563}
   .row[data-status="skip"] .ct{color:#6b7280}
   .cd{font-size:11.5px;color:var(--faint);margin-top:3px;line-height:1.5}
+  .cd b{font-weight:600}
   .cnote{width:100%;border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:12px;margin-top:6px;background:#fff}
   .cnote::placeholder{color:#b6bdc8}
   .notewrap{display:flex;gap:6px;margin-top:6px;align-items:center}
@@ -602,6 +603,17 @@
     if (cls) n.className = cls;
     if (txt != null) n.textContent = txt;
     return n;
+  }
+  /* 用例文本里的 **加粗** 段渲染成 b（星号不裸露）；不配对的原样显示。
+     全程 textContent 建节点，不走 innerHTML。 */
+  function fillRuns(node, text) {
+    var re = /\*\*([^*]+)\*\*/g, last = 0, m;
+    while ((m = re.exec(text))) {
+      if (m.index > last) node.appendChild(document.createTextNode(text.slice(last, m.index)));
+      node.appendChild(el('b', null, m[1]));
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) node.appendChild(document.createTextNode(text.slice(last)));
   }
   function pad(n) { return n < 10 ? '0' + n : '' + n; }
   function hhmmss() { var d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); }
@@ -1059,7 +1071,17 @@
 
           var body = el('div', 'cbody');
           body.appendChild(el('div', 'ct', c.t));
-          if (c.d) body.appendChild(el('div', 'cd', c.d));
+          if (c.d) {
+            // 预期长句按分号拆行——一条判据一行；行内 ** 加粗段照渲染
+            var cd = el('div', 'cd');
+            c.d.split(/；/).forEach(function (seg) {
+              if (!seg) return;
+              var line = el('div');
+              fillRuns(line, seg);
+              cd.appendChild(line);
+            });
+            body.appendChild(cd);
+          }
           if (st !== 'untested') {
             // 备注语义只属于失败（必填）；通过行不设入口，仅历史数据带备注时
             // 显示编辑框供查看/清除
