@@ -54,29 +54,19 @@ fn win_button(
 }
 
 ///|
-/// 透明测试窗：单开一扇**无边框**窗，开背景透视后只放几块不透明的卡片。
-/// 主窗看不了这个效果——整页铺满底色，没有「没铺到的像素」；本窗根容器不铺底，
-/// 卡片之外那圈像素就是透明的，桌面从那里透出来。字直接落在透明底上时，
-/// 字形不透明、字后面的像素透明，抗锯齿边缘按半透明合成。
+/// 桌面便签（背景透视的贴近样例）：单开一扇**无边框**窗，开背景透视后
+/// 只放一张不透明的便签卡片——卡片外那圈像素就是透明的，桌面从那里
+/// 透出来，观感就是一张浮在桌面上的便签。主窗看不了这个效果——整页
+/// 铺满底色，没有「没铺到的像素」。字直接落在透明底上时，字形不透明、
+/// 字后面的像素透明，抗锯齿边缘按半透明合成。
 fn open_transparent_demo(
   host : Ref[@widget.WindowHost?],
   out : @base.Store[String],
   ct_host : Ref[@widget.WindowHost?],
 ) -> Unit {
-  fn card(title : String, body : String) -> @widget.Node {
-    @ui.view(
-      [@ui.text(title, class=[@style.text_heading]), @ui.text(body)],
-      background_color="bg_panel",
-      border_color="primary",
-      padding=12.0,
-      row_gap=4.0,
-      corner_radius=8.0,
-    )
-  }
-
   match host.val {
     Some(a) =>
-      match a.open_window(380, 280, "透明窗测试") {
+      match a.open_window(300, 190, "桌面便签") {
         Some(child) => {
           let w = child.window()
           // 先无边框再开透视：标题栏那块归系统画，留着它就不跟透视走。
@@ -84,35 +74,37 @@ fn open_transparent_demo(
           // 直调窗口层摘不掉它，卡片外那圈就不是真透明（实测踩过）
           w.set_borderless(true)
           child.set_transparent_bg(true)
-          // 置顶：透明区点穿会点到桌面/下层窗，窗被盖住就没法反复测了
+          // 置顶：便签本就该浮在别的窗上面
           w.set_layer(@win.WindowLayer::AlwaysOnTop)
           child.mount([
-            @ui.col(
+            @ui.view(
               [
-                card(
-                  "这块不透明", "卡片外透出桌面。",
-                ),
+                @ui.text("桌面便签", class=[@style.text_title]),
                 @ui.text(
-                  "这行字的背景是透明的。",
+                  "我浮在桌面上，卡片外那圈就是真实的桌面。",
+                  wrap=true,
                 ),
-                @ui.view(
+                @ui.col([], grow=1.0),
+                @ui.row(
                   [
-                    @ui.button("关掉本窗", variant=@ui.Danger, on_click=fn() {
+                    @ui.col([], grow=1.0),
+                    @ui.button("收起便签", variant=@ui.Soft, on_click=fn() {
                       child.close_window()
                     }),
                   ],
-                  background_color="bg_panel",
-                  padding=12.0,
-                  corner_radius=8.0,
                 ),
               ],
-              row_gap=12.0,
+              background_color="bg_panel",
+              border_color="border",
               padding=16.0,
+              row_gap=8.0,
+              corner_radius=8.0,
+              grow=1.0,
             ),
           ])
           ct_host.val = Some(child)
           out.set(
-            "测试窗已开：卡片外透出桌面",
+            "便签已开：卡片外透出桌面",
           )
         }
         None => {
@@ -144,7 +136,7 @@ fn window_sections(host : Ref[@widget.WindowHost?]) -> Array[@widget.Node] {
   let ct_host : Ref[@widget.WindowHost?] = Ref(None)
   let ct_on : Ref[Bool] = Ref(false)
   let tw_out : @base.Store[String] = @base.Store::new(
-    "还没有测试窗",
+    "便签没开",
   )
   fn win_set_opacity(alpha : Int32) -> Unit {
     match host.val {
@@ -270,7 +262,7 @@ fn window_sections(host : Ref[@widget.WindowHost?]) -> Array[@widget.Node] {
                               "关掉本窗不影响应用。",
                               wrap=true,
                             ),
-                            @ui.button("关掉我自己", variant=@ui.Danger, on_click=fn() {
+                            @ui.button("关闭本窗", variant=@ui.Soft, on_click=fn() {
                               child.close_window()
                             }),
                           ],
@@ -343,10 +335,10 @@ fn window_sections(host : Ref[@widget.WindowHost?]) -> Array[@widget.Node] {
         ),
         @ui.row(
           [
-            @ui.button("开透明测试窗", on_click=fn() {
+            @ui.button("开桌面便签", on_click=fn() {
               open_transparent_demo(host, tw_out, ct_host)
             }),
-            @ui.button("测试窗穿透", variant=@ui.Text, on_click=fn() {
+            @ui.button("便签点穿", variant=@ui.Text, on_click=fn() {
               match ct_host.val {
                 Some(child) => {
                   ct_on.val = !ct_on.val
@@ -365,14 +357,14 @@ fn window_sections(host : Ref[@widget.WindowHost?]) -> Array[@widget.Node] {
                         "这台设备不支持点击穿透",
                       )
                     Err(Failed(e)) =>
-                      layer_out.set("没切成穿透：\{e}，测试窗可能已关，重开再试")
+                      layer_out.set("没切成穿透：\{e}，便签可能已关，重开再试")
                   }
                 }
-                None => layer_out.set("先开透明测试窗")
+                None => layer_out.set("先开桌面便签")
               }
             }),
             @ui.text(
-              "测试窗卡片外直接透出桌面，可以点穿",
+              "便签卡片外透出桌面，可以点穿",
               wrap=true,
             ),
           ],

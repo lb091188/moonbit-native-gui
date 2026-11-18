@@ -17,11 +17,11 @@
 const HELLO_TITLE : String = "你好，MoonBit"
 
 ///|
-/// 子窗预设：名称 / 说明 / 宽 / 高。
-let child_kinds : Array[(String, String, Int, Int)] = [
-  ("备忘窗", "随手记一条。", 360, 240),
-  ("调色窗", "三块色卡，随系统深浅变色。", 380, 260),
-  ("关于窗", "native-gui 入门样例。", 440, 320),
+/// 子窗预设：名称 / 宽 / 高（内容按档在 `child_content` 分造）。
+let child_kinds : Array[(String, Int, Int)] = [
+  ("备忘窗", 360, 240),
+  ("调色窗", 380, 260),
+  ("关于窗", 440, 320),
 ]
 
 ///|
@@ -37,15 +37,64 @@ fn host_alive(h : @widget.WindowHost) -> Bool {
 }
 
 ///|
+/// 色卡行：token 取色的小色块 + 标签，随主题深浅实时换色。
+fn swatch_row(token : String, label : String) -> @widget.Node {
+  @ui.row(
+    [
+      @ui.view(
+        [],
+        background_color=token,
+        width=44.0,
+        height=22.0,
+        class=[@style.style(border_radius=4.0)],
+      ),
+      @ui.text(label),
+    ],
+    column_gap=8.0,
+  )
+}
+
+///|
+/// 子窗内容按档分造：文案说有的东西（输入框、色卡）窗里就真得有。
+/// 内容均为演示态：随开随建、关窗即弃。
+fn child_content(name : String) -> Array[@widget.Node] {
+  if name == "备忘窗" {
+    let note : @base.Store[String] = @base.Store::new("")
+    [
+      @ui.text("备忘", class=[@style.text_title]),
+      @ui.textarea(note, placeholder="想到什么记什么…", rows=5),
+    ]
+  } else if name == "调色窗" {
+    [
+      @ui.text("调色", class=[@style.text_title]),
+      @ui.text("色卡随系统深浅变色", class=[@style.text_secondary]),
+      swatch_row("primary", "主色"),
+      swatch_row("success", "成功"),
+      swatch_row("warning", "警告"),
+    ]
+  } else {
+    [
+      @ui.text("你好，MoonBit", class=[@style.text_heading]),
+      @ui.text("native-gui 入门样例", class=[@style.text_secondary]),
+      @ui.divider(),
+      @ui.text(
+        "单文件组件页面、命令式多窗与托盘，三平台同一套代码。",
+        wrap=true,
+      ),
+    ]
+  }
+}
+
+///|
 /// 开/关一档子窗：已开 → 关掉并清状态；未开 → 开一扇并记住句柄，禁止重复开。
 fn toggle_child(
   owner : @widget.WindowHost,
-  kind : (String, String, Int, Int),
+  kind : (String, Int, Int),
   win_count : @base.Store[Int],
   open : @base.Store[Bool],
   slot : Ref[@widget.WindowHost?],
 ) -> Unit {
-  let (name, desc, w, h) = kind
+  let (name, w, h) = kind
   match slot.val {
     Some(old) =>
       if host_alive(old) {
@@ -66,18 +115,23 @@ fn toggle_child(
     Some(a2) => {
       slot.val = Some(a2)
       open.set(true)
-      // 内容在建壳之后组（关闭按钮要捕获这扇窗自己的句柄）
+      // 内容在建壳之后组（关闭按钮要捕获这扇窗自己的句柄）；
+      // 关窗不是破坏性动作，按钮用 Soft——Danger 留给删除类
       let body = @ui.col(
+        child_content(name) +
         [
-          @ui.text(name, class=[@style.text_title]),
-          @ui.text(desc, wrap=true),
           @ui.col([], grow=1.0),
-          @ui.button("关闭此窗", on_click=fn() {
-            a2.close_window()
-            slot.val = None
-            open.set(false)
-            win_count.set(owner.window_count())
-          }),
+          @ui.row(
+            [
+              @ui.col([], grow=1.0),
+              @ui.button("关闭", variant=@ui.Soft, on_click=fn() {
+                a2.close_window()
+                slot.val = None
+                open.set(false)
+                win_count.set(owner.window_count())
+              }),
+            ],
+          ),
         ],
         padding=16.0,
         row_gap=8.0,
@@ -118,7 +172,7 @@ fn main {
   // 基本窗口示例：按钮走 wrap，窗宽不够自动换行（flexbox 按需换行展示）
   let buttons : Array[@widget.Node] = []
   for i, kind in child_kinds {
-    let (name, _, _, _) = kind
+    let (name, _, _) = kind
     let open = child_open[i]
     let slot = child_hosts[i]
     buttons.push(
