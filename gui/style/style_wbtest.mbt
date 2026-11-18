@@ -77,6 +77,32 @@ test "merge：逐属性并集、后者赢、不改入参" {
 }
 
 ///|
+test "merge：视觉能力批字段逐属性并集" {
+  let a = style(aspect_ratio=2.0, rotate=8.0, backdrop_blur=8.0)
+  let b = style(translate_x=4.0, translate_y=2.0, scale_x=1.5, scale_y=1.2)
+  let m = merge(a, b)
+  assert_true(m.aspect_ratio == Some(2.0))
+  assert_true(m.rotate == Some(8.0))
+  assert_true(m.backdrop_blur == Some(8.0))
+  assert_true(m.translate_x == Some(4.0))
+  assert_true(m.translate_y == Some(2.0))
+  assert_true(m.scale_x == Some(1.5))
+  assert_true(m.scale_y == Some(1.2))
+  // 状态桶内同批字段经递归 merge 不丢
+  let ha = style().hover(rotate=8.0, backdrop_blur=4.0)
+  let hb = style().hover(scale_x=1.08)
+  let mh = merge(ha, hb)
+  match mh.hover {
+    Some(h) => {
+      assert_true(h.rotate == Some(8.0))
+      assert_true(h.backdrop_blur == Some(4.0))
+      assert_true(h.scale_x == Some(1.08))
+    }
+    None => fail("merge 后应有 hover 桶")
+  }
+}
+
+///|
 test "merge：状态桶逐属性递归，不是整块互换" {
   let a = style(background_color="primary").hover(
     background_color="primary_hover",

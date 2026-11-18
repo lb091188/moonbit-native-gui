@@ -1,6 +1,7 @@
 // CPU 视觉能力批的无头视图连测：五件新能力各走一道「mount → frame → 像素/读数」
-// 的完整视图链路，防「白盒单测各自绿、视图链路断线」的假绿。判据与演示页
-// （components「过渡与效果」新增四段）同源。
+// 的完整视图链路，防「白盒单测各自绿、视图链路断线」的假绿。样式块一律先过
+// merge_all 再 apply（组件 fold_style 同款归并路径），防「单块直 apply 绕过
+// merge 字段表」的假绿。判据与演示页（components「过渡与效果」新增四段）同源。
 
 ///|
 /// 视图连测①：aspect_ratio——定高一端由引擎解出宽（布局在真实挂载链路生效）。
@@ -12,7 +13,7 @@ test "视图① aspect_ratio：定高 30 比率 2 挂载后量得宽 60" {
       let kid = @widget.Widget::new()
       kid.name = "ar"
       w.append_child(kid)
-      @style.apply(kid, @style.style(height=30.0, aspect_ratio=2.0))
+      @style.apply(kid, @style.merge_all([@style.style(height=30.0, aspect_ratio=2.0)]))
       w
     }),
     120.0,
@@ -44,7 +45,7 @@ test "视图② transform：旋转 90° 后像素换位" {
       let kid = @widget.Widget::new()
       kid.name = "rot"
       w.append_child(kid)
-      @style.apply(kid, @style.style(rotate=90.0))
+      @style.apply(kid, @style.merge_all([@style.style(rotate=90.0)]))
       kid.node.set_position(@yoga.Absolute)
       kid.node.set_top(@yoga.fixed(15.0))
       kid.node.set_left(@yoga.fixed(10.0))
@@ -133,7 +134,7 @@ test "视图④ 毛玻璃：分界像素红黑混合" {
       glass.node.set_width(@yoga.fixed(20.0))
       glass.node.set_height(@yoga.fixed(20.0))
       w.append_child(glass)
-      @style.apply(glass, @style.style(backdrop_blur=4.0))
+      @style.apply(glass, @style.merge_all([@style.style(backdrop_blur=4.0)]))
       w
     }),
     40.0,
