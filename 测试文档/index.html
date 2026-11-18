@@ -109,6 +109,15 @@
 
   /* ---------- app pills ---------- */
   .apps{display:flex;gap:8px;margin-bottom:16px;overflow-x:auto;padding-bottom:3px}
+  .run-cols{display:flex;gap:18px;align-items:flex-start}
+  .run-cols > #cases{flex:1;min-width:0}
+  .toc{width:220px;flex:none;position:sticky;top:64px;max-height:calc(100vh - 84px);overflow:auto;background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:10px 6px}
+  .toc h4{font-size:11px;font-weight:600;color:var(--faint);margin:4px 10px 6px;letter-spacing:.06em}
+  .toc a{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:6px 10px;border-radius:6px;font-size:12.5px;line-height:1.4;color:#39414f;cursor:pointer}
+  .toc a:hover{background:#f3f5f8}
+  .toc a.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+  .toc a em{font-style:normal;font-size:10.5px;color:var(--faint);white-space:nowrap}
+  @media (max-width:1080px){.toc{display:none}}
   .app{
     border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 13px;min-width:132px;text-align:left;
     transition:.12s;flex:none
@@ -349,7 +358,10 @@
         <button class="minibtn" id="btn-copy">复制未测项</button>
         <button class="minibtn" id="btn-ai">失败 → AI 提示词</button>
       </div>
-      <div id="cases"></div>
+      <div class="run-cols">
+        <aside class="toc" id="toc" aria-label="章节目录"></aside>
+        <div id="cases"></div>
+      </div>
       <div class="snote">
         <label id="snote-label">这次测试的整体备注（可选）</label>
         <textarea id="in-snote" placeholder="例如：主要挂在输入法组合串与托盘右键两条；进程退出码 0。"></textarea>
@@ -1021,6 +1033,43 @@
     return wrap;
   }
 
+  /* ======================= 渲染：章节目录 ======================= */
+
+  /* 左侧章节目录：当前应用每个分组一行（标题 + 通过统计），点击平滑滚动到
+     分组头；页面滚动时节流更新高亮到当前所在的分组。分组不足两个时藏起。 */
+  var tocLinks = [];
+  function renderToc() {
+    var host = document.getElementById('toc');
+    if (!host) return;
+    host.innerHTML = '';
+    tocLinks = [];
+    var groups = document.querySelectorAll('#cases .group');
+    if (groups.length < 2) { host.style.display = 'none'; return; }
+    host.style.display = '';
+    host.appendChild(el('h4', null, '章节'));
+    Array.prototype.forEach.call(groups, function (g) {
+      var h = g.querySelector('h3');
+      if (!h) return;
+      var gc = g.querySelector('.gc');
+      var a = el('a');
+      a.appendChild(document.createTextNode(h.textContent));
+      if (gc) a.appendChild(el('em', null, gc.textContent));
+      a.onclick = function () {
+        window.scrollTo({ top: g.getBoundingClientRect().top + window.scrollY - 58, behavior: 'smooth' });
+      };
+      host.appendChild(a);
+      tocLinks.push({ a: a, g: g });
+    });
+    tocSync();
+  }
+  function tocSync() {
+    var cur = null;
+    tocLinks.forEach(function (L) {
+      if (L.g.getBoundingClientRect().top <= 90) cur = L;
+    });
+    tocLinks.forEach(function (L) { L.a.classList.toggle('on', L === cur); });
+  }
+
   function renderRun() {
     // 记录焦点位置：打勾后整行重建，键盘流不能断
     var active = document.activeElement;
@@ -1129,6 +1178,7 @@
       }
     }
 
+    renderToc();
     renderCtx();
   }
 
@@ -1489,7 +1539,11 @@
     };
 
     var scrollQueued = false;
-    function onScroll() { syncCtx(); }
+    function onScroll() {
+      if (scrollQueued) return;
+      scrollQueued = true;
+      requestAnimationFrame(function () { scrollQueued = false; syncCtx(); tocSync(); });
+    }
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onScroll);
 
