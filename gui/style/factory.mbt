@@ -288,6 +288,13 @@ pub fn Style::hover(
   border_style? : BorderStyle,
   visibility? : Visibility,
   cursor? : Int32,
+  // —— transform 族与背景模糊（与主工厂同语义）
+  translate_x? : Double,
+  translate_y? : Double,
+  scale_x? : Double,
+  scale_y? : Double,
+  rotate? : Double,
+  backdrop_blur? : Double,
 ) -> Style {
   let b = empty_style()
   match color {
@@ -298,6 +305,12 @@ pub fn Style::hover(
     Some(c) => b.background_color = Some(check_color(parse_color(c)))
     None => ()
   }
+  b.translate_x = translate_x
+  b.translate_y = translate_y
+  b.scale_x = scale_x
+  b.scale_y = scale_y
+  b.rotate = rotate
+  b.backdrop_blur = backdrop_blur
   b.font_size = font_size
   b.font_family = font_family
   b.font_weight = font_weight
@@ -340,6 +353,13 @@ pub fn Style::active(
   border_style? : BorderStyle,
   visibility? : Visibility,
   cursor? : Int32,
+  // —— transform 族与背景模糊（与主工厂同语义）
+  translate_x? : Double,
+  translate_y? : Double,
+  scale_x? : Double,
+  scale_y? : Double,
+  rotate? : Double,
+  backdrop_blur? : Double,
 ) -> Style {
   let b = empty_style()
   match color {
@@ -350,6 +370,12 @@ pub fn Style::active(
     Some(c) => b.background_color = Some(check_color(parse_color(c)))
     None => ()
   }
+  b.translate_x = translate_x
+  b.translate_y = translate_y
+  b.scale_x = scale_x
+  b.scale_y = scale_y
+  b.rotate = rotate
+  b.backdrop_blur = backdrop_blur
   b.font_size = font_size
   b.font_family = font_family
   b.font_weight = font_weight
@@ -392,6 +418,13 @@ pub fn Style::focus(
   border_style? : BorderStyle,
   visibility? : Visibility,
   cursor? : Int32,
+  // —— transform 族与背景模糊（与主工厂同语义）
+  translate_x? : Double,
+  translate_y? : Double,
+  scale_x? : Double,
+  scale_y? : Double,
+  rotate? : Double,
+  backdrop_blur? : Double,
 ) -> Style {
   let b = empty_style()
   match color {
@@ -402,6 +435,12 @@ pub fn Style::focus(
     Some(c) => b.background_color = Some(check_color(parse_color(c)))
     None => ()
   }
+  b.translate_x = translate_x
+  b.translate_y = translate_y
+  b.scale_x = scale_x
+  b.scale_y = scale_y
+  b.rotate = rotate
+  b.backdrop_blur = backdrop_blur
   b.font_size = font_size
   b.font_family = font_family
   b.font_weight = font_weight

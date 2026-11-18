@@ -1359,6 +1359,15 @@ pub fn Widget::paint_at(
   if self.clip_content {
     p.clip_rect(0.0, 0.0, self.rect.w, self.rect.h)
   }
+  // 圆角裁切（clip_rounded）两段式：旗**进绘制前已在场**（挂载期声明，如圆角
+  // 图片容器）就在自绘前裁——自绘与子件全吃裁切；旗是 on_draw 里才立的
+  // （组件读样式半径的现行惯例）则在自绘后补裁——护住子件。两路同归
+  // restore 回退。
+  let clip_pre = self.clip_rounded && self.style_clip_radius > 0.0
+  if clip_pre {
+    let r = self.style_clip_radius.min(self.rect.w / 2.0).min(self.rect.h / 2.0)
+    p.clip_round_rect(0.0, 0.0, self.rect.w, self.rect.h, r)
+  }
   // 整层透明度:祖先累乘 × 自身(on_draw 与其子树都在这段 alpha 内绘制)
   let inherited = p.global_alpha()
   let own = self.alpha_paint
@@ -1396,13 +1405,11 @@ pub fn Widget::paint_at(
         None => ()
       }
   }
-  // 圆角裁切（clip_rounded）：渲染层真裁——子件超出圆角的像素不落，restore
-  // 随本控件收尾回退。挂在 on_draw **之后**：组件的现行惯例是在 on_draw 里
-  // 读样式半径再设这对字段，入场即裁会晚一拍。自绘底不被此裁——声明圆角的
-  // 组件自画圆角底（fill_round_rect），本裁切的职责是护住子件的方底通铺。
-  // 光栅臂带旋转 CTM 时退化矩形裁剪（cairo 臂真路径裁剪）；弧外露的是下层
-  // 已画内容，贴窗根且根没铺底时是表面初值，应用铺全窗底色即无此面。
-  if self.clip_rounded && self.style_clip_radius > 0.0 {
+  // 圆角裁切（clip_rounded）后段：旗是 on_draw 期间才立的（组件读样式半径
+  // 的现行惯例）就在自绘后补裁——护住子件的方底通铺。光栅臂带旋转 CTM 时
+  // 退化矩形裁剪（cairo 臂真路径裁剪）；弧外露的是下层已画内容，贴窗根且
+  // 根没铺底时是表面初值，应用铺全窗底色即无此面。
+  if !clip_pre && self.clip_rounded && self.style_clip_radius > 0.0 {
     let r = self.style_clip_radius.min(self.rect.w / 2.0).min(self.rect.h / 2.0)
     p.clip_round_rect(0.0, 0.0, self.rect.w, self.rect.h, r)
   }

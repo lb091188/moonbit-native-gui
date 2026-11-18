@@ -975,5 +975,14 @@ pub const EN_CATALOG : String =
   "dark = \"Dark\"\n" +
   "help = \"Help\"\n" +
   "about = \"About\"\n" +
+  // —— 视觉能力批演示（transform / 圆角裁切 / 毛玻璃 / 关键帧）——
+  "\"悬停放大 8%\" = \"Hover scale 8%\"\n" +
+  "\"常驻旋转 8°\" = \"Rotated 8°\"\n" +
+  "\"悬停上浮 4px\" = \"Hover lift 4px\"\n" +
+  "\"毛玻璃 blur 8\" = \"Glass blur 8\"\n" +
+  "\"无模糊对照\" = \"No blur\"\n" +
+  "\"关键帧卡片\" = \"Keyframe card\"\n" +
+  "\"播放关键帧\" = \"Play keyframes\"\n" +
+  "\"停止\" = \"Stop\"\n" +
   // —— 语言标签（段头之后的键带 `meta.` 前缀，故必须放最后）——
   "[meta]\nlocale = \"en\"\n"

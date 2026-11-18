@@ -53,8 +53,25 @@ fn anim_gif_path() -> String {
 }
 
 ///|
+///|
+/// PNG 图源候选（moon run 可能从仓库根或 examples/ 目录起跑，逐个探测）。
+fn icon_path() -> String {
+  for
+    c in [
+      "examples/components/assets/icon.png", "assets/icon.png", "components/assets/icon.png",
+    ] {
+    if @sys.sys_path_exists(c) {
+      return c
+    }
+  }
+  "examples/components/assets/icon.png"
+}
+
+///|
 pub fn page_anim(_app : @shared.App) -> @widget.Node {
   let gif_h : @ui.GifHandle = @ui.GifHandle::make()
+  // 关键帧演示：卡片句柄挂载期落袋，按钮回调拿它起/停轴
+  let kf_card : Ref[@widget.Widget?] = Ref(None)
   let gif_note : @base.Store[String] = @base.Store::new(@shared.tx("自转中"))
   @shared.page([
     @shared.section(
@@ -242,5 +259,248 @@ pub fn page_anim(_app : @shared.App) -> @widget.Node {
         "h.pause()  // 暂停自转", "h.play()   // 继续", "h.frame_count()  // 已换过的帧数",
       ],
     ),
+    @shared.section(
+      "transform 变换",
+      "Transform",
+      "绘制期变换三件：悬停放大（scale 进 hover 桶 + transition 平滑）、常驻旋转（rotate 单位度，绕控件中心）、悬停上浮（translate_y）。变换不参与布局与命中——盒子原地不动、视觉在变换；布局矩形仍是命中区，缩小的控件会有视觉在命中区外的边。",
+      [
+        @ui.row(
+          [
+            @ui.view(
+              [@ui.text(@shared.tx("悬停放大 8%"), align=@text.Center)],
+              width=150.0,
+              height=64.0,
+              align_items=@yoga.AlignItems::Center,
+              justify_content=@yoga.JustifyContent::Center,
+              class=[
+                @style.style(
+                  background_color="bg_panel",
+                  border_color="border",
+                  border_width=1.0,
+                  border_radius=8.0,
+                  transition_ms=200.0,
+                ).hover(scale_x=1.08, scale_y=1.08, border_color="primary"),
+              ],
+            ),
+            @ui.view(
+              [@ui.text(@shared.tx("常驻旋转 8°"), align=@text.Center)],
+              width=150.0,
+              height=64.0,
+              align_items=@yoga.AlignItems::Center,
+              justify_content=@yoga.JustifyContent::Center,
+              class=[
+                @style.style(
+                  background_color="bg_panel",
+                  border_color="border",
+                  border_width=1.0,
+                  border_radius=8.0,
+                  rotate=8.0,
+                ),
+              ],
+            ),
+            @ui.view(
+              [@ui.text(@shared.tx("悬停上浮 4px"), align=@text.Center)],
+              width=150.0,
+              height=64.0,
+              align_items=@yoga.AlignItems::Center,
+              justify_content=@yoga.JustifyContent::Center,
+              class=[
+                @style.style(
+                  background_color="bg_panel",
+                  border_color="border",
+                  border_width=1.0,
+                  border_radius=8.0,
+                  transition_ms=200.0,
+                ).hover(translate_y=-4.0, border_color="primary"),
+              ],
+            ),
+          ],
+          column_gap=24.0,
+        ),
+      ],
+      code=[
+        "@style.style(background_color=\"bg_panel\", transition_ms=200.0)",
+        ".hover(scale_x=1.08, scale_y=1.08)   // 悬停放大",
+        "@style.style(rotate=8.0)             // 常驻旋转（度）",
+      ],
+    ),
+    @shared.section(
+      "圆角裁切",
+      "Rounded clip",
+      "容器声明圆角裁切后，子内容超出圆角的像素不落——方形图标裁出真圆角（弧外露底色，不是贴角贴出来的）。对照：右边同图不裁。图片这种「自绘即内容」的件也可以把裁切声明在自己身上（挂载期设旗，自绘前就裁）。",
+      [
+        @ui.row(
+          [
+            @ui.view(
+              [@ui.image(icon_path(), width=72.0, height=72.0)],
+              width=72.0,
+              height=72.0,
+              handle=fn(w) {
+                w.clip_rounded = true
+                w.style_clip_radius = 18.0
+              },
+            ),
+            @ui.image(icon_path(), width=72.0, height=72.0),
+          ],
+          column_gap=24.0,
+          align_items=@yoga.AlignItems::Center,
+        ),
+      ],
+      code=[
+        "@ui.view([@ui.image(\"assets/icon.png\")],",
+        "  handle=fn(w) { w.clip_rounded = true; w.style_clip_radius = 18.0 })",
+      ],
+    ),
+    @shared.section(
+      "背景模糊（毛玻璃）",
+      "Backdrop blur",
+      "玻璃卡声明 backdrop_blur=8：进卡先把已画内容糊掉再铺半透明白——彩条透过来是柔化的色带；右边半透明卡没有模糊做对照（条纹锐利可辨）。模糊走 CPU 三趟盒式（控件级小半径），大半径与全窗级归 GPU 档。",
+      [
+        @ui.view(
+          [
+            @ui.row(
+              [
+                @ui.view([], width=24.0, height=96.0, background_color="#e5484d"),
+                @ui.view([], width=24.0, height=96.0, background_color="#e0a13c"),
+                @ui.view([], width=24.0, height=96.0, background_color="#34c26b"),
+                @ui.view([], width=24.0, height=96.0, background_color="#3b82f6"),
+                @ui.view([], width=24.0, height=96.0, background_color="#8b5cf6"),
+                @ui.view([], width=24.0, height=96.0, background_color="#ec4899"),
+                @ui.view([], width=24.0, height=96.0, background_color="#14b8a6"),
+                @ui.view([], width=24.0, height=96.0, background_color="#f59e0b"),
+              ],
+              column_gap=0.0,
+            ),
+            @ui.view(
+              [
+                @ui.text(@shared.tx("毛玻璃 blur 8"), align=@text.Center, class=[
+                  @style.style(color="#ffffff"),
+                ]),
+              ],
+              width=120.0,
+              height=48.0,
+              align_items=@yoga.AlignItems::Center,
+              justify_content=@yoga.JustifyContent::Center,
+              class=[
+                @style.style(
+                  backdrop_blur=8.0,
+                  background_color="#ffffff30",
+                  border_color="#ffffff70",
+                  border_width=1.0,
+                  border_radius=8.0,
+                  position=@yoga.Absolute,
+                  top=24.0,
+                  left=30.0,
+                ),
+              ],
+            ),
+            @ui.view(
+              [
+                @ui.text(@shared.tx("无模糊对照"), align=@text.Center, class=[
+                  @style.style(color="#ffffff"),
+                ]),
+              ],
+              width=120.0,
+              height=48.0,
+              align_items=@yoga.AlignItems::Center,
+              justify_content=@yoga.JustifyContent::Center,
+              class=[
+                @style.style(
+                  background_color="#ffffff30",
+                  border_color="#ffffff70",
+                  border_width=1.0,
+                  border_radius=8.0,
+                  position=@yoga.Absolute,
+                  top=24.0,
+                  left=170.0,
+                ),
+              ],
+            ),
+          ],
+          width=310.0,
+          height=96.0,
+        ),
+      ],
+      code=[
+        "@style.style(backdrop_blur=8.0, background_color=\"#ffffff30\")",
+        "// 已画内容先糊掉再画自己；CPU 小半径，大半径归 GPU 档",
+      ],
+    ),
+    @shared.section(
+      "关键帧动画",
+      "Keyframes",
+      "多段属性时间轴：点「播放」后卡片沿关键帧序列循环——底色三色渐变 + 左右轻摆（rotate 往返），插值与过渡同一底座；点「停止」回落基块。Once 模式走完保留末帧，这里用 Loop 循环。",
+      [
+        @ui.row(
+          [
+            @ui.view(
+              [@ui.text(@shared.tx("关键帧卡片"), align=@text.Center)],
+              width=140.0,
+              height=64.0,
+              align_items=@yoga.AlignItems::Center,
+              justify_content=@yoga.JustifyContent::Center,
+              class=[
+                @style.style(
+                  background_color="primary",
+                  border_radius=8.0,
+                  color="#ffffff",
+                ),
+              ],
+              handle=fn(w) { kf_card.val = Some(w) },
+            ),
+            @ui.col(
+              [
+                @ui.button(@shared.tx("播放关键帧"), on_click=fn() {
+                  match kf_card.val {
+                    Some(c) =>
+                      @style.animate(
+                        c,
+                        [
+                          {
+                            at_ms: 0.0,
+                            style: @style.style(background_color="primary", rotate=0.0),
+                          },
+                          {
+                            at_ms: 500.0,
+                            style: @style.style(background_color="#e5484d", rotate=6.0),
+                          },
+                          {
+                            at_ms: 1000.0,
+                            style: @style.style(background_color="#34c26b", rotate=-6.0),
+                          },
+                          {
+                            at_ms: 1500.0,
+                            style: @style.style(background_color="primary", rotate=0.0),
+                          },
+                        ],
+                        mode=@style.Loop,
+                      )
+                    None => ()
+                  }
+                }),
+                @ui.button(@shared.tx("停止"), variant=@ui.Soft, on_click=fn() {
+                  match kf_card.val {
+                    Some(c) => @style.stop_animating(c)
+                    None => ()
+                  }
+                }),
+              ],
+              row_gap=8.0,
+            ),
+          ],
+          column_gap=24.0,
+          align_items=@yoga.AlignItems::Center,
+        ),
+      ],
+      code=[
+        "@style.animate(card, [",
+        "  { at_ms: 0.0,    style: @style.style(background_color=\"primary\") },",
+        "  { at_ms: 500.0,  style: @style.style(background_color=\"#e5484d\", rotate=6.0) },",
+        "  { at_ms: 1000.0, style: @style.style(background_color=\"#34c26b\", rotate=-6.0) },",
+        "], mode=@style.Loop)",
+        "@style.stop_animating(card)",
+      ],
+    ),
   ])
 }
+
