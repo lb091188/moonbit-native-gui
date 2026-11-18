@@ -137,7 +137,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
   - CPU blur：`Bitmap::box_blur_region` 三趟盒式原语（两后端共享位图零分叉）+ 样式面 `backdrop_blur` 毛玻璃；大半径与全窗级归 GPU 档
   - 关键帧动画：`animate`/`stop_animating` 多段属性时间轴，Once 保留末帧与 Loop/PingPong 三循环，shown 盖状态桶、组件零改动可被动画
   - 动效分档方针（2026-11-18 定案）：仿射与颜色类全档可跑；卷积类——模糊、滤镜——GPU 档专属、CPU 档只给小半径降级。有 GPU 有效果全集，没 GPU 有仿射与颜色全集。
-  - 平台状态：🚧已合入待真机——旋转缩放观感、真圆角图片、毛玻璃质感、关键帧流畅度四面随真机验；成本依据 `experiment/anim_cost_bench` 小脏区一帧 0.8ms（约 12 倍帧预算余量），Windows 纯光栅读数待 win10 VM 复跑
+  - 平台状态：🚧已合入待真机——旋转缩放观感、真圆角图片、毛玻璃质感、关键帧流畅度四面随真机验；成本读数三平台闭环（`experiment/anim_cost_bench`）：mac 0.8 / Linux 容器 2 / win10 QEMU 27 ms 全窗帧，小脏区三平台全 <0.5ms——控件级动效在最低档 Windows 纯光栅仍有约 30 倍帧预算余量
 - ✅ **圆角与抗锯齿**：真圆弧 + 1px 抗锯齿；圆角关闭时退直角
 - ✅ **线型端点与拐角**：LineCap：Butt / Round / Square；LineJoin：Miter / Round / Bevel
 - ✅ **虚线**：`set_dashes(图案, 相位)`，on/off 交替、逻辑像素，空数组回实线
@@ -610,8 +610,7 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
   - Linux 读数判据：树不变零重排、绘制成本随规模线性
   - 增量重绘收益等 Windows / macOS 同款读数再定
 - ⏳ **CPU 视觉能力补足批（余项）**：五批已全部落地并移入「已实现 · 渲染与绘制」，此处留观感真机验收与 Windows 纯光栅读数两格尾账
-  - 真机验收面：旋转缩放观感、真圆角图片、毛玻璃质感、关键帧流畅度（待独立 dev 工具示例或 showcase 页承载入口）。
-  - 成本读数：`experiment/anim_cost_bench` 于 win10 VM 复跑，闭环 Windows 纯光栅路径读数。
+  - 真机验收面：旋转缩放观感、真圆角图片、毛玻璃质感、关键帧流畅度——入口已落 components「过渡与效果」页四段，判据 SC-17.1～17.6。
 
 ### 输入与浮层
 

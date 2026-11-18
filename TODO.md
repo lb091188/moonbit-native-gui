@@ -25,7 +25,6 @@
 - [ ] **CPU 视觉批真机复验**：transform 旋转/缩放观感、圆角裁切真圆角图片、backdrop_blur 毛玻璃质感、关键帧流畅度四面——无头白盒已证（库门禁 1482/1482），观感待真机；入口待独立 dev 工具示例或 showcase 页承载
   - transform：控件级平移/缩放/旋转的绘制期变换，不参与布局与命中。
   - backdrop_blur：毛玻璃，把已画内容的控件区域糊掉再画自己。
-- [ ] **anim_cost_bench 于 win10 VM 复跑**：`moon run experiment/anim_cost_bench` 出全窗/小脏区/单独小面积三组读数，闭环 Windows 纯光栅路径帧成本（现只有 mac 与本机 Linux 读数）
 
 
 - [ ] **gui-media video_wbtest mac 本机失败**：用例「VideoPlayer 时钟同轴：回退 fps 不影响时间轴」——回拨 500ms 后位置 0.613 / 0.633，稳定复现；Windows CI 每轮跑且过，Linux / mac 腿不跑 gui-media test 故从未暴露

@@ -2217,3 +2217,9 @@ GpuCanvas——@render.GpuSink 的 gui-gpu 实现，GPU 线首消费者——落
 - **消费点**：style_for 尾部把时间轴 shown 盖到状态桶样式上（轴里没写的字段回落基块）——组件零改动即可被动画。布局字段（宽高/边距）不在插值集合，时间轴不触发重排——动尺寸用 transform scale 或绑定重挂。
 - **测试时钟竞态**：起轴与断言之间真实时钟会走几毫秒，`style_for` 的首帧断言别写精确端值——用「近端值」容差（如红通道 ≥0xf0）；确定性断言全部走 `kf_progress` 纯函数喂假时钟。
 - **验证**：分段插值/三帧两段/Loop/PingPong/Once 落定清轴/立轴守卫六条白盒；库门禁 1482/1482。
+
+## anim_cost_bench 三平台读数闭环——2026-11-18，win10 VM + Linux 容器补跑
+
+- **读数**（1400×900 典型页 30 行「按钮+输入框+文本」，20 帧均值）：mac 开发机全窗 0.8ms/帧；company Linux 容器（natigui-linux）全窗 2ms/帧；win10 QEMU 虚拟机（无 GPU 直通、低端 vCPU，Windows 纯光栅 + DWrite 文字路径）全窗 27ms/帧。**三平台小脏区 90×32 全部 <0.5ms/帧**，relayout 三平台恒 0ms。
+- **判据落定**：控件级动效（脏区跟控件走）在最低档的 Windows 纯光栅上仍有 30 倍帧预算余量——「仿射与颜色类全档可跑」的分档方针有了全平台实测底。全窗级重绘 27ms 贴线只在 QEMU 低端 vCPU 出现，正是「大面积归 GPU 档」要接走的那一档。
+- **跑法**：`moon run experiment/anim_cost_bench`（纯位图绘制，无头可跑）；远端经 `bash scripts/local_ci.sh sync` 后 `ssh company "docker exec natigui-linux bash -c 'cd /work/repo && moon run experiment/anim_cost_bench'"`、win10 开机（`virsh --connect qemu:///system start win10`，libvirt 组免 sudo，sshd 约 60s 起来）后 `ssh win10 "cd C:/natigui/repo; moon run experiment/anim_cost_bench"`。
