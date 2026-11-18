@@ -150,19 +150,21 @@ fn window_sections(host : Ref[@widget.WindowHost?]) -> Array[@widget.Node] {
   let tw_out : @base.Store[String] = @base.Store::new(
     "便签没开",
   )
-  fn win_set_opacity(alpha : Int32) -> Unit {
-    match host.val {
-      Some(a) => {
-        a.window().set_opacity(alpha)
-        layer_out.set("透明度已调：\{alpha}/255")
+  // 整窗透明度作用于便签测试窗：主窗是主要界面，不拿它做透明演示
+  // （变淡既难看又得手动恢复）
+  fn sticky_set_opacity(alpha : Int32) -> Unit {
+    match ct_host.val {
+      Some(child) => {
+        child.window().set_opacity(alpha)
+        layer_out.set("便签透明度已调：\{alpha}/255")
       }
-      None => ()
+      None => layer_out.set("先开桌面便签")
     }
   }
-  // 透明度两件事：set_opacity 整窗 alpha（要合成器，没有就静默无效）；
-  // set_transparent_bg 背景透视（Windows 要无边框；必须经 App 开，
-  // 宿主默认页面底铺满整窗，直调窗口层摘不掉）。主窗没有「没铺到的
-  // 像素」，透视只能开测试窗验——细节见 open_transparent_demo 注释。
+  // 透明度两件事都落在便签窗上：set_opacity 整窗 alpha（要合成器，
+  // 没有就静默无效）；set_transparent_bg 背景透视（Windows 要无边框；
+  // 必须经 App 开，宿主默认页面底铺满整窗，直调窗口层摘不掉）。主窗
+  // 没有「没铺到的像素」，透视只能开便签窗验——细节见 open_transparent_demo 注释。
   [
     // —— 窗口 API ——
     hello_section(
@@ -328,19 +330,19 @@ fn window_sections(host : Ref[@widget.WindowHost?]) -> Array[@widget.Node] {
     // —— 透明度 ——
     hello_section(
       "透明度",
-      "让整窗变淡，或单开一扇窗让背景透出来。",
+      "便签整窗变淡，或让卡片缝隙透出桌面。",
       [
         @ui.row(
           [
-            @ui.button("100%", on_click=fn() { win_set_opacity(255) }),
+            @ui.button("100%", on_click=fn() { sticky_set_opacity(255) }),
             @ui.button("80%", variant=@ui.Soft, on_click=fn() {
-              win_set_opacity(204)
+              sticky_set_opacity(204)
             }),
             @ui.button("50%", variant=@ui.Soft, on_click=fn() {
-              win_set_opacity(128)
+              sticky_set_opacity(128)
             }),
             @ui.button("25%", variant=@ui.Soft, on_click=fn() {
-              win_set_opacity(64)
+              sticky_set_opacity(64)
             }),
           ],
           column_gap=8.0,
