@@ -41,7 +41,7 @@ The bare-`mng` state machine:
 | `mng map-errors --map <map> <log>` | Map generated-code line:col in a `moon check` log back to template line:col |
 | `mng gen <in.mng> -o <out.mbt>` | Dev-form compile of a single template (used internally by the dev loop) |
 
-CLI messages and errors follow `LC_ALL` / `LC_MESSAGES` / `LANG` (a `zh` prefix selects Chinese); add `-h` to any subcommand for details.
+CLI messages and errors follow `LC_ALL` / `LC_MESSAGES` / `LANG` (a `zh` prefix selects Chinese; `C` / `C.*` / `POSIX` count as no preference, later variables are consulted, and with no stated preference the default is Chinese); add `-h` to any subcommand for details.
 
 ## mng.toml
 

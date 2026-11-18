@@ -41,7 +41,7 @@ mng --version   # 应打印 mng 版本与 mng-schema 位
 | `mng map-errors --map <map> <log>` | 把 `moon check` 日志里的生成码行列映射回模板行列 |
 | `mng gen <in.mng> -o <out.mbt>` | dev 形态编译单个模板（dev 循环内部用） |
 
-命令面提示与错误随 `LC_ALL` / `LC_MESSAGES` / `LANG` 中英切换（`zh` 前缀走中文）；子命令加 `-h` 看详细说明。
+命令面提示与错误随 `LC_ALL` / `LC_MESSAGES` / `LANG` 中英切换（`zh` 前缀走中文；`C` / `C.*` / `POSIX` 视为未表态，跳过找下一个变量，全未表态走缺省中文）；子命令加 `-h` 看详细说明。
 
 ## mng.toml
 

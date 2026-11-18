@@ -2171,3 +2171,11 @@ GpuCanvas——@render.GpuSink 的 gui-gpu 实现，GPU 线首消费者——落
 - **moon 0.1.20261117 弃用族清零与平台退出码差异**：新版 moon 对四类旧写法发弃用警告——`Bytes::new(n)` 改 `Bytes::make(n, b'\x00')`（同为零初始化，全仓 24 处）；`Double::from_int(x)` 改 `x.to_double()`；`Int64::from_int(x)` 改 `x.to_int64()`；`StringBuilder(size_hint=…)` 改 `StringBuilder(capacity=…)`。平台差异要记住：mac 与 Linux 上警告不挡退出码（exit 0），**Windows 上 moon check 有警告就 exit 1**——同一份代码 mac 绿、Windows 腿红，清零是唯一出路。验证口径：gui / tools / mdparse / gui-webview / gui-media 五模块 check 零警告 + mac `moon test` 全名单 1463/1463。
 - **mac tar 打包传 Windows 会带上 AppleDouble 垃圾**：mac 的 bsdtar 对带扩展属性的文件自动生成 `._<名字>` 伴生条目（存 `com.apple.provenance` 等），Windows 解压后 moon 把它们当源码读，报「invalid UTF-8 streams」直接炸 check。打包一律 `COPYFILE_DISABLE=1 tar … --exclude='._*'`（前者禁 AppleDouble、后者双保险）；已中招的机器 `Get-ChildItem -Recurse -Force -Filter '._*' | Remove-Item -Force` 清一遍即愈。scripts/local_ci.sh 的 sync 步已固化。
 - **1.0 前快照 TSV 不做格式兼容**：语义快照通道的 C 解析（`wm_a11y_publish`）按 13 列硬解析、无容错守卫，发布侧与接收侧与测试三处同步改即可。13 列改版期间曾短暂给 C 解析加「按行切分 + 缺列置空」以兼容 12 列旧输入，定案撤销——1.0 前轻装上阵，不为旧格式留包袱。快照格式只认发布侧现行形态：发布侧在 `gui/widget/a11y.mbt` 摊平，接收侧在 `gui/win/stub.c`，测试在 `gui/shell/atspi_wbtest.mbt` 的真总线集成用例，三处同批改同批验。
+
+## CLI 按 locale 选语言把 C/POSIX 当成「选英文」——2026-11-18，macOS arm64 开发机
+
+- **现象**：系统语言 zh-Hans-CN 的机器上 `mng -h` 出英文。会话环境是 `LANG=C.UTF-8`、`LC_ALL` / `LC_MESSAGES` 空——IDE 内嵌终端、SSH、部分 shell 配置的常见形态，macOS Terminal 正常启动时本会给出 `zh_CN.UTF-8`。
+- **根因**：`mng/main.mbt` 的语言判定取 `LC_ALL` / `LC_MESSAGES` / `LANG` 第一个非空值，只认 `zh` 前缀走中文，其余值一律按英文。而 `C` / `C.UTF-8` / `POSIX` 在 POSIX 语义里是「没选语言」的缺省 locale，不是「选了英文」；把它按英文处理后，缺省中文路径——三变量全缺才走系统 UI 语言、POSIX 恒未知落中文——永远够不着，中文系统用户在默认会话里反而看英文。
+- **修复**：判定函数 `env_lang_zh` 把 `C` / `C.*` / `POSIX`——不分大小写——归为「未表态」返回 None，跳过该变量继续找下一个；真表态值二分：`zh` 前缀中文、其余英文；全未表态落系统 UI 语言，仍未知落中文。
+- **判据**：跟 locale 环境走的多语言 CLI，「未表态值」——C 族、POSIX、空串——与「明确选了某一门语言」必须分开处理；只按「非 zh 即 en」二分会把最大一类默认会话判错语言。与 GUI 侧 i18n 目录互不相关——那条管页面取译，这条管工具命令面。
+- **验证**：`mng/main_wbtest.mbt` 两条——表态值二分、C 与 POSIX 各形态未表态；本机 `LANG=C.UTF-8 mng -h` 出中文、`LANG=en_US.UTF-8` 仍英文、`LC_ALL=zh_CN.UTF-8` 中文；tools 门禁 `moon check` 零警告 + `moon test mng mngkit proc inst` 124/124。

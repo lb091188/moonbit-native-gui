@@ -7,8 +7,10 @@
 //   moon check > check.log 2>&1; moon run tools/native-gui-tools/mng -- map-errors --map page.mbt.map check.log
 
 ///|
-/// CLI 文案语言：LC_ALL / LC_MESSAGES / LANG 依次取，zh 前缀或全缺省走中文。
-/// 只覆盖命令面提示与错误；dev 运行期 watch 日志与编译器诊断不在其列。
+/// CLI 文案语言：LC_ALL / LC_MESSAGES / LANG 依次取第一个表态值（zh 前缀走
+/// 中文，其余表态值走英文），C/POSIX 视为未表态跳过；全未表态走系统 UI 语言，
+/// 仍未知则缺省中文。只覆盖命令面提示与错误；dev 运行期 watch 日志与编译器
+/// 诊断不在其列。
 let cli_zh : Array[Bool] = [true]
 
 ///|
@@ -16,16 +18,33 @@ fn cli_lang_init() -> Unit {
   for k in ["LC_ALL", "LC_MESSAGES", "LANG"] {
     match @env.get_env_var(k) {
       Some(v) if v.length() > 0 => {
-        cli_zh[0] = v.has_prefix("zh")
-        return
+        match env_lang_zh(v) {
+          Some(zh) => {
+            cli_zh[0] = zh
+            return
+          }
+          None => ()
+        }
       }
       _ => ()
     }
   }
-  // 环境变量缺席（Windows 原生 shell 常态）：读系统 UI 语言主 ID，
-  // 0x04 = 中文；仍未知（POSIX 恒 0）则缺省中文
+  // 环境变量缺席或全为 C/POSIX（Windows 原生 shell 常态）：读系统 UI 语言
+  // 主 ID，0x04 = 中文；仍未知（POSIX 恒 0）则缺省中文
   let l = @proc.ui_lang()
   cli_zh[0] = l == 0 || l == 0x04
+}
+
+///|
+/// 单个 locale 变量的表态判定：`zh` 前缀 → Some(true)，其余已表态值 →
+/// Some(false)；`C` / `C.*` / `POSIX`（不分大小写）是未表态 → None。
+fn env_lang_zh(v : String) -> Bool? {
+  let low = v.to_lower()
+  if low == "c" || low.has_prefix("c.") || low == "posix" || low.has_prefix("posix.") {
+    None
+  } else {
+    Some(low.has_prefix("zh"))
+  }
 }
 
 ///|
@@ -461,7 +480,7 @@ fn basename(p : String) -> String {
 ///|
 /// 工具版本：每落地一批改动 +1（用户重装后凭 --version 区分新旧二进制）。
 /// lsp serverInfo 同源取此常量。
-const MNG_VERSION : String = "0.2.11"
+const MNG_VERSION : String = "0.2.12"
 
 ///|
 /// --version：版本与 mng-schema 位（编辑器插件启动时握手，对不上则补全降级）。
