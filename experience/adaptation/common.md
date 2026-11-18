@@ -2223,3 +2223,11 @@ GpuCanvas——@render.GpuSink 的 gui-gpu 实现，GPU 线首消费者——落
 - **读数**（1400×900 典型页 30 行「按钮+输入框+文本」，20 帧均值）：mac 开发机全窗 0.8ms/帧；company Linux 容器（natigui-linux）全窗 2ms/帧；win10 QEMU 虚拟机（无 GPU 直通、低端 vCPU，Windows 纯光栅 + DWrite 文字路径）全窗 27ms/帧。**三平台小脏区 90×32 全部 <0.5ms/帧**，relayout 三平台恒 0ms。
 - **判据落定**：控件级动效（脏区跟控件走）在最低档的 Windows 纯光栅上仍有 30 倍帧预算余量——「仿射与颜色类全档可跑」的分档方针有了全平台实测底。全窗级重绘 27ms 贴线只在 QEMU 低端 vCPU 出现，正是「大面积归 GPU 档」要接走的那一档。
 - **跑法**：`moon run experiment/anim_cost_bench`（纯位图绘制，无头可跑）；远端经 `bash scripts/local_ci.sh sync` 后 `ssh company "docker exec natigui-linux bash -c 'cd /work/repo && moon run experiment/anim_cost_bench'"`、win10 开机（`virsh --connect qemu:///system start win10`，libvirt 组免 sudo，sshd 约 60s 起来）后 `ssh win10 "cd C:/natigui/repo; moon run experiment/anim_cost_bench"`。
+
+## Style 加字段的同步清单：merge 字段表漏项致组件链路全丢——2026-11-18，CPU 视觉批真机复验
+
+- **事故**：视觉能力批的 aspect_ratio、transform 五项、backdrop_blur 七字段没进 `Style::merge` 的逐属性字段表。凡走组件链路（`fold_style → merge_all → merge`，归并按白名单字段重建）的样式全丢这七个字段——单块直 `apply` 的白盒与视图连测各自绿，真机组件页 transform 与毛玻璃全部无效。
+- **Style 加字段的同步清单**（七处，漏一处即断链）：① `style.mbt` 结构体 + `empty_style`；② `factory.mbt` 工厂参数与赋值（含 hover/active/focus 三状态桶方法）；③ `style.mbt` `merge` 字段表（白名单重建，漏了就经组件链路全丢）；④ `apply.mbt` 落 Yoga/Widget 槽（含状态桶合并）；⑤ 有插值语义的字段进 `transition.mbt lerp_style`；⑥ mngkit 模板属性表（kebab-case 映射）；⑦ 测试——merge 白盒断言 + 视图连测走 merge_all。
+- **假绿根源**：`merge_all` 对单块也过一次 `merge`（acc 从空块起归并），所以「绕过 merge 直接 apply」的测试路径与组件真路径不等价——视图连测的样式块必须先过 `merge_all` 再 apply，才能代表组件页真机表现。
+- **pick_style 双桶递归**：两个状态桶都非空时桶内也走 `merge`，桶内字段同样受字段表约束；单桶非空走整桶引用侥幸不丢——别依赖这条侥幸。
+- **验证**：merge 白盒新增七字段 + 桶内递归断言；视图连测①②④改走 merge_all；库门禁 1488/1488。
