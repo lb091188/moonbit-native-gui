@@ -2210,3 +2210,10 @@ GpuCanvas——@render.GpuSink 的 gui-gpu 实现，GPU 线首消费者——落
 - **三趟盒式模糊的远场会渗**：边界渐变经多趟 clamp 窗逐次向内传播几格（pass1 后 255→pass2 后 244→…），像素断言别写「远场不变」，写「远场大体保持本色」；越界区域裁到位图、半径 <1 无操作。
 - **毛玻璃遮蔽语义**：模糊发生在控件自绘之前，自己再铺半透明底色即成毛玻璃；弧外/裁剪界外不糊（与 clip 求交）。带旋转 CTM 的组合近似平移框（rotate/scale 不进 painter 平移状态），记为边界。`box_shadow` 仍不在样式面（退役定案不变），将来投影属性回归时直接用 `box_blur_region` 做模糊档。
 - **验证**：render 三条（均匀不变/硬边渐变+单调/越界）、widget 一条（分界红黑被糊开 + 无模糊对照）、apply 落槽、模板 `backdrop-blur: 6px`；库门禁 1477/1477。
+
+## 关键帧动画落地：style_for 尾部覆盖 + 独立节拍表——2026-11-18，CPU 视觉批 5
+
+- **形态**：`gui/style/keyframes.mbt`——`animate(w, frames, mode~)` 起/换轴（帧按 at_ms 升序整理，不足两帧或零时长不立轴）、`stop_animating` 清轴回落、`kf_running` 查询。循环三档：Once（落定保留末帧，等价 fill:forwards，需手动清才回基块）/ Loop 取模回卷 / PingPong 折返。插值复用 lerp_style（同一插值集合），帧驱动照 transition 的 16ms 节拍标脏，动字号/行高走整窗（测量会变）。
+- **消费点**：style_for 尾部把时间轴 shown 盖到状态桶样式上（轴里没写的字段回落基块）——组件零改动即可被动画。布局字段（宽高/边距）不在插值集合，时间轴不触发重排——动尺寸用 transform scale 或绑定重挂。
+- **测试时钟竞态**：起轴与断言之间真实时钟会走几毫秒，`style_for` 的首帧断言别写精确端值——用「近端值」容差（如红通道 ≥0xf0）；确定性断言全部走 `kf_progress` 纯函数喂假时钟。
+- **验证**：分段插值/三帧两段/Loop/PingPong/Once 落定清轴/立轴守卫六条白盒；库门禁 1482/1482。

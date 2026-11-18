@@ -611,8 +611,9 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
     - 裁切：把绘制限制在某块形状内，形状外的像素不画。
     - raster 解析覆盖四落笔路统一调制（矩形填充/路径填充/描边/图片），cairo 臂真路径裁剪；`clip_rounded` 容器从补角 pass 改走真裁，弧外露下层已画内容
   - ✅ **CPU blur 小半径**：`Bitmap::box_blur_region` 三趟盒式原语（两后端共享位图零分叉）+ 样式面 `backdrop_blur` 毛玻璃（已画内容就地糊掉再画自己，transition 可插值）；模板 `backdrop-blur: 6px`。大半径与全窗级归 GPU 档；投影（box_shadow）退役定案不变，将来回归直接用原语做模糊档
-  - **关键帧动画**：多段关键帧时间轴编排，插值与帧驱动复用 transition 底座
+  - ✅ **关键帧动画**：`gui/style/keyframes` 多段属性时间轴——`animate`/`stop_animating`/`kf_running`，循环三档（Once 保留末帧/Loop/PingPong），shown 在 style_for 尾部盖状态桶、组件零改动可被动画
     - 关键帧动画：给定首尾与中间若干帧的属性值，框架按时间补出中间画面。
+    - 插值集合与 transition 同一底座；布局字段不触发重排，动尺寸走 transform
   - 动效分档方针（2026-11-18 定案）：仿射与颜色类全档可跑；卷积类——模糊、滤镜——GPU 档专属、CPU 档只给小半径降级。有 GPU 有效果全集，没 GPU 有仿射与颜色全集。
   - 成本依据：`experiment/anim_cost_bench` 实测小脏区一帧 0.8ms，对 60fps 预算约 12 倍余量；Windows 纯光栅路径读数待 win10 VM 复跑闭环。
 

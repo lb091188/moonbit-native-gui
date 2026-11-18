@@ -204,9 +204,6 @@
 - [ ] **批2 transform 样式层**：Style 加平移/缩放/旋转字段，控件绘制遍历包 save/restore 接光栅矩阵 CTM，脏区按变换后包围盒外扩
   - transform：对控件整体做几何变换——CSS transform 同义。
   - 验证：白盒——旋转控件像素落点对、脏区覆盖外接盒；`anim_cost_bench` 扩一档旋转小控件读数。
-- [ ] **批5 关键帧动画**：多段关键帧时间轴编排，插值与帧驱动复用 transition 的 lerp_style 底座
-  - 关键帧动画：给定首尾与中间若干帧的属性值，框架按时间补出中间画面。
-  - 验证：白盒——时间轴分段取值、循环与往返模式；无头跑帧看画面推进。
 
 - [ ] **检查器 GUI 工具**：mngui 加 --inspect 模式（仿 Chrome DevTools 的独立检查器窗），mng inspect --gui 纯 hop
   - 检查器工具：独立窗口连应用内的检查服务，看树、读数与样式；与 mngui 向导壳同一可执行，mng 二进制不链 GUI 库。

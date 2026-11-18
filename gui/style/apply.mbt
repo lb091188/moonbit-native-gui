@@ -451,7 +451,12 @@ pub fn style_for(w : @widget.Widget) -> Style {
     forget_anim(w.id)
     out
   }
-  square_corners_applied(override_merge(w.id, out2))
+  // 关键帧时间轴在场就盖到状态桶样式上——轴里没写的字段回落基块
+  let out3 = match kf_step(w.id, @shell.now_ms()) {
+    Some(kf) => merge(out2, kf)
+    None => out2
+  }
+  square_corners_applied(override_merge(w.id, out3))
 }
 
 ///|
