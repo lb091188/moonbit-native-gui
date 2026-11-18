@@ -2231,3 +2231,12 @@ GpuCanvas——@render.GpuSink 的 gui-gpu 实现，GPU 线首消费者——落
 - **假绿根源**：`merge_all` 对单块也过一次 `merge`（acc 从空块起归并），所以「绕过 merge 直接 apply」的测试路径与组件真路径不等价——视图连测的样式块必须先过 `merge_all` 再 apply，才能代表组件页真机表现。
 - **pick_style 双桶递归**：两个状态桶都非空时桶内也走 `merge`，桶内字段同样受字段表约束；单桶非空走整桶引用侥幸不丢——别依赖这条侥幸。
 - **验证**：merge 白盒新增七字段 + 桶内递归断言；视图连测①②④改走 merge_all；库门禁 1488/1488。
+
+## transform 动态消费链：绘制期槽刷新钩子 + 变换控件豁免自身裁切——2026-11-19，真机复验补漏
+
+- **第二条消费断层**：视觉批的 transform 槽（`tr_*` / `backdrop_blur_paint`）只在 `apply` 时写死一次，而状态桶（hover 放大/上浮）、过渡插值、关键帧三条动态链的值只在 `style_for` 出——消费点在组件 on_draw，但 transform 的消费点在 paint_at 的 on_draw **之前**，读的是槽。顶层常驻旋转走 apply 有效、动态三链全灭，正是这条断层的互证。
+- **修法是绘制期槽刷新钩子**：widget 开 `set_paint_style_hook`（全局函数指针，仿 render `set_raster_gate` 反转依赖），style 包 apply 首次调用懒装；paint_at 消费槽之前跑 `paint_slot_refresh`——style_for 汇齐三条动态链写回槽，同帧生效。每控件每帧多一次 style_for（cull 掉的也刷），成本记为已知边界。
+- **`tr_style_mask` 位图**区分「样式落过的」与「handle 直设的」槽：样式字段（含三状态桶内的）置位，刷新遇 None 只回置过位的恒等值——悬停移出回落、关键帧停轴回落都靠它；直设槽的既有惯例（圆角图片等）不受刷新影响。`animate` 起轴时扫帧置位，否则停轴后槽卡在最后一帧。
+- **变换控件豁免自身 clip_content**：`clip_content` 默认 true 相当于每控件自带裁切，变换的溢出边（放大 8%/上浮 4px/旋转出角）全被裁到看不出——has_transform 时跳过自身裁切与 eff_clip 收窄，对齐 web transform 的「视觉越出盒子」心智。祖先裁切照旧生效。
+- **测试时钟抖动两坑**：关键帧测试帧序别写「首帧 0° 末帧 90°」再断言中值——起轴时刻 e=0 取首帧 0，与真实时钟抖动纠缠；写成「首帧 90°」断言 `(0, 90]`。Tester::finish 要求至少一次观察点调用（pixel/rect 等），纯读槽的测试会 abort，补一个 rect 门面调用。
+- **验证**：apply 白盒三条（回落/悬停桶/关键帧槽）；视图连测⑥⑦⑧（hover 进槽+溢出像素+回落、关键帧 rotate 进槽回落、旋转越出自身矩形可见）；库门禁 1494/1494 零警告。
