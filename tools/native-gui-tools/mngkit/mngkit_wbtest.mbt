@@ -890,6 +890,19 @@ test "样式章：数值可带 px 后缀（数值即逻辑像素）" {
 }
 
 ///|
+test "样式章：aspect-ratio 数值属性" {
+  let src = [
+    "<style>", ".v { aspect-ratio: 2; }",
+    "</style>", "<template>", "  <ui-text class=\"v\" text=\"x\" />", "</template>",
+  ].join("\n")
+  let code = match compile(src, "ar.mng") {
+    Ok(o) => o.code
+    Err(e) => abort("\{e}")
+  }
+  assert_true(contains_sub(code, "aspect_ratio=2.0"))
+}
+
+///|
 test "样式章：:hover / :active / :focus 编进状态桶；坏伪类报错" {
   let src = [
     "<style>", ".btn { color: var(--text_primary); }", ".btn:hover { color: var(--primary); }",

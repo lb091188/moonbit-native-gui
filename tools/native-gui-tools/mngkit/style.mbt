@@ -68,7 +68,7 @@ pub fn style_props() -> Array[String] {
     "color", "background_color", "border_color", "font_family", "z_index", "cursor",
     "font_weight", "text_align", "white_space", "border_style", "visibility", "display",
     "flex_direction", "flex_wrap", "justify_content", "align_items", "align_self",
-    "position", "flex", "flex-shrink", "opacity", "transition-duration",
+    "position", "flex", "flex-shrink", "opacity", "aspect_ratio", "transition-duration",
   ]
   let out : Array[String] = []
   for n in snake_names {
@@ -117,7 +117,7 @@ fn prop_kind_of(name : String) -> PropKind {
     "font_family" => PKString
     "z_index" => PKInt
     "cursor" => PKKwInt("default=0,pointer=1,text=2")
-    "opacity" | "flex_shrink" => PKFactor
+    "opacity" | "flex_shrink" | "aspect_ratio" => PKFactor
     "transition_duration" => PKTime
     "font_weight" =>
       PKEnum(

@@ -213,3 +213,30 @@ test "单件覆写：set 只并设到的字段、读数与 reset 回基" {
   assert_true(!override_has(id))
   assert_true(resolved_by_id(id).background_color is None)
 }
+
+///|
+test "apply：aspect_ratio 定一端另一端按比率解（无内容不塌）" {
+  let root = @widget.Widget::new()
+  apply(root, style(width=300.0, height=200.0, flex_direction=@yoga.Row))
+  let kid = @widget.Widget::new()
+  root.append_child(kid)
+  apply(kid, style(height=50.0, aspect_ratio=2.0))
+  laid_out(root)
+  // 定高 50、宽未定、无内容——宽由比率解出 50×2，不因没内容塌 0
+  assert_eq(kid.node.layout().height, 50.0)
+  assert_eq(kid.node.layout().width, 100.0)
+}
+
+///|
+test "apply：aspect_ratio 与 flex 联算——交叉轴 stretch 优先于比率" {
+  let root = @widget.Widget::new()
+  apply(root, style(width=400.0, height=200.0, flex_direction=@yoga.Row))
+  let kid = @widget.Widget::new()
+  root.append_child(kid)
+  apply(kid, style(flex=1.0, aspect_ratio=4.0))
+  laid_out(root)
+  // flex 吃满主轴 400；交叉轴 auto + 默认 stretch → 高被拉伸到父高 200，
+  // 比率让位——要比率定高就显式定高（见上一条）或关掉 stretch
+  assert_eq(kid.node.layout().width, 400.0)
+  assert_eq(kid.node.layout().height, 200.0)
+}

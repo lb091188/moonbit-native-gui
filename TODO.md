@@ -201,8 +201,6 @@
 
 ## 开发待办
 
-- [ ] **批1 aspect_ratio 样式字段**：Style 加纵横比字段，factory 给参、apply 落 `set_aspect_ratio`；定一端另一端由布局引擎按比率解
-  - 验证：白盒用例——字段落 yoga 生效；定宽给比率出高、与 grow 联算不塌。
 - [ ] **批2 transform 样式层**：Style 加平移/缩放/旋转字段，控件绘制遍历包 save/restore 接光栅矩阵 CTM，脏区按变换后包围盒外扩
   - transform：对控件整体做几何变换——CSS transform 同义。
   - 验证：白盒——旋转控件像素落点对、脏区覆盖外接盒；`anim_cost_bench` 扩一档旋转小控件读数。

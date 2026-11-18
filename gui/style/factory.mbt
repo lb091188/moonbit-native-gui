@@ -34,6 +34,7 @@ pub fn style(
   min_height? : Double,
   max_width? : Double,
   max_height? : Double,
+  aspect_ratio? : Double,
   // —— 内外边距（简写=四边同值；逐边覆写其后）
   padding? : Double,
   padding_left? : Double,
@@ -152,6 +153,7 @@ pub fn style(
   s.min_height = min_height
   s.max_width = max_width
   s.max_height = max_height
+  s.aspect_ratio = aspect_ratio
   // 简写先铺四边，逐边参数再覆写（`padding=14.0, padding_top=4.0` 即上 4 其余 14）
   match padding {
     Some(v) => {

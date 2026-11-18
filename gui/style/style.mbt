@@ -23,6 +23,10 @@ pub(all) struct Style {
   mut min_height : Double?
   mut max_width : Double?
   mut max_height : Double?
+  // 纵横比（宽:高）：定一端、另一端由布局引擎按比率解——引擎内约束，
+  // 空容器不塌（不依赖内容撑）。主轴 auto 时由定端解、与 grow/百分比联算成立；
+  // 交叉轴 auto + 默认 stretch 时拉伸优先、比率让位（apply_wbtest 两条钉住）
+  mut aspect_ratio : Double?
   // —— 内外边距（逐边字段；工厂的 `padding`/`margin` 简写参数包内展开到这四个）
   mut padding_left : Double?
   mut padding_right : Double?
@@ -116,6 +120,7 @@ pub fn empty_style() -> Style {
     min_height: None,
     max_width: None,
     max_height: None,
+    aspect_ratio: None,
     padding_left: None,
     padding_right: None,
     padding_top: None,

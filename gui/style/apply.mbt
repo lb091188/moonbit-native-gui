@@ -154,6 +154,11 @@ pub fn apply(w : @widget.Widget, s : Style) -> Unit {
     Some(v) => n.set_height(@yoga.percent(v))
     None => ()
   }
+  // 纵横比与尺寸族同语义：None 不动已落引擎的值
+  match s.aspect_ratio {
+    Some(v) => n.set_aspect_ratio(Some(v))
+    None => ()
+  }
   match s.min_width {
     Some(v) => n.set_min_width(@yoga.fixed(v))
     None => ()
