@@ -64,6 +64,13 @@ pub(all) struct Style {
   mut bottom : Double?
   mut left : Double?
   mut z_index : Int32?
+  // —— transform（绘制期变换，不参与布局与命中；origin 恒为控件中心，
+  // 应用序 平移→旋转→缩放。rotate 单位度；scale 无单位因子，恒等 1）
+  mut translate_x : Double?
+  mut translate_y : Double?
+  mut scale_x : Double?
+  mut scale_y : Double?
+  mut rotate : Double?
   // 整层透明度（0..1，画期把 global alpha 乘进全路径）。不提供投影（box_shadow），
   // 前置条件见 experience/adaptation.md「阴影」节。
   mut opacity : Double?
@@ -152,6 +159,11 @@ pub fn empty_style() -> Style {
     bottom: None,
     left: None,
     z_index: None,
+    translate_x: None,
+    translate_y: None,
+    scale_x: None,
+    scale_y: None,
+    rotate: None,
     opacity: None,
     transition_ms: None,
     visibility: None,

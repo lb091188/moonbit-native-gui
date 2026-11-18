@@ -890,6 +890,23 @@ test "样式章：数值可带 px 后缀（数值即逻辑像素）" {
 }
 
 ///|
+test "样式章：transform 族属性——平移像素、缩放旋转无单位" {
+  let src = [
+    "<style>", ".t { translate-x: 4px; translate-y: 2px; scale-x: 2; scale-y: 1.5; rotate: 45; }",
+    "</style>", "<template>", "  <ui-text class=\"t\" text=\"x\" />", "</template>",
+  ].join("\n")
+  let code = match compile(src, "tf.mng") {
+    Ok(o) => o.code
+    Err(e) => abort("\{e}")
+  }
+  assert_true(contains_sub(code, "translate_x=4.0"))
+  assert_true(contains_sub(code, "translate_y=2.0"))
+  assert_true(contains_sub(code, "scale_x=2.0"))
+  assert_true(contains_sub(code, "scale_y=1.5"))
+  assert_true(contains_sub(code, "rotate=45.0"))
+}
+
+///|
 test "样式章：aspect-ratio 数值属性" {
   let src = [
     "<style>", ".v { aspect-ratio: 2; }",

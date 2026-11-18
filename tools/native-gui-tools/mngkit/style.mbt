@@ -68,7 +68,8 @@ pub fn style_props() -> Array[String] {
     "color", "background_color", "border_color", "font_family", "z_index", "cursor",
     "font_weight", "text_align", "white_space", "border_style", "visibility", "display",
     "flex_direction", "flex_wrap", "justify_content", "align_items", "align_self",
-    "position", "flex", "flex-shrink", "opacity", "aspect_ratio", "transition-duration",
+    "position", "flex", "flex-shrink", "opacity", "aspect_ratio", "scale_x", "scale_y",
+    "rotate", "transition-duration",
   ]
   let out : Array[String] = []
   for n in snake_names {
@@ -117,7 +118,8 @@ fn prop_kind_of(name : String) -> PropKind {
     "font_family" => PKString
     "z_index" => PKInt
     "cursor" => PKKwInt("default=0,pointer=1,text=2")
-    "opacity" | "flex_shrink" | "aspect_ratio" => PKFactor
+    "opacity" | "flex_shrink" | "aspect_ratio" | "scale_x" | "scale_y" | "rotate" =>
+      PKFactor
     "transition_duration" => PKTime
     "font_weight" =>
       PKEnum(
@@ -159,7 +161,7 @@ fn prop_kind_of(name : String) -> PropKind {
 fn number_props() -> Array[String] {
   [
     "font_size", "line_height", "letter_spacing", "width", "height", "min_width",
-    "min_height", "max_width", "max_height", "padding", "padding_left", "padding_right",
+    "min_height", "max_width", "max_height", "translate_x", "translate_y", "padding", "padding_left", "padding_right",
     "padding_top", "padding_bottom", "margin", "margin_left", "margin_right", "margin_top",
     "margin_bottom", "border_width", "border_radius", "gap", "row_gap", "column_gap",
     "top", "right", "bottom", "left",

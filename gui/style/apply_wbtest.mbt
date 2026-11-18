@@ -240,3 +240,16 @@ test "apply：aspect_ratio 与 flex 联算——交叉轴 stretch 优先于比�
   assert_eq(kid.node.layout().width, 400.0)
   assert_eq(kid.node.layout().height, 200.0)
 }
+
+///|
+test "apply：transform 族落 Widget 槽与 has_transform" {
+  let w = @widget.Widget::new()
+  assert_true(!w.has_transform())
+  apply(w, style(rotate=45.0, scale_x=2.0, translate_y=3.0))
+  assert_true(w.has_transform())
+  assert_eq(w.tr_rot, 45.0)
+  assert_eq(w.tr_sx, 2.0)
+  assert_eq(w.tr_sy, 1.0)
+  assert_eq(w.tr_ty, 3.0)
+  assert_eq(w.tr_tx, 0.0)
+}

@@ -96,7 +96,26 @@ pub fn lerp_style(from : Style, to : Style, t : Double) -> Style {
   out.border_radius = lerp_number(from.border_radius, to.border_radius, tt)
   out.font_size = lerp_number(from.font_size, to.font_size, tt)
   out.line_height = lerp_number(from.line_height, to.line_height, tt)
+  // transform 族：None 视作恒等（平移 0 / 缩放 1）参与插值——基态没写、悬停桶
+  // 写了 scale=1.05 时，中间帧是 1→1.05 的连续过渡。lerp_number 的「任一端
+  // 缺省取目标」语义对缩放会首帧跳变，故分口。
+  out.translate_x = lerp_ident(from.translate_x, to.translate_x, tt, 0.0)
+  out.translate_y = lerp_ident(from.translate_y, to.translate_y, tt, 0.0)
+  out.scale_x = lerp_ident(from.scale_x, to.scale_x, tt, 1.0)
+  out.scale_y = lerp_ident(from.scale_y, to.scale_y, tt, 1.0)
+  out.rotate = lerp_ident(from.rotate, to.rotate, tt, 0.0)
   out
+}
+
+///|
+/// transform 插值：任一端未写时以恒等值补位参与线性插值，两端都未写保持 None。
+fn lerp_ident(a : Double?, b : Double?, t : Double, ident : Double) -> Double? {
+  match (a, b) {
+    (Some(x), Some(y)) => Some(x + (y - x) * t)
+    (Some(x), None) => Some(x + (ident - x) * t)
+    (None, Some(y)) => Some(ident + (y - ident) * t)
+    (None, None) => None
+  }
 }
 
 ///|

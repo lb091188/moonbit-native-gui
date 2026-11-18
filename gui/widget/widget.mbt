@@ -231,6 +231,15 @@ pub(all) struct Widget {
   mut blend_paint : @render.BlendMode
   /// 内容裁切（样式 `overflow` 落点）：true 裁到控件矩形（默认），false 跳过。
   mut clip_content : Bool
+  /// 绘制期变换（样式 transform 族落点，apply 写入）：绕控件**中心**的平移/
+  /// 缩放/旋转，绘制遍历包 save/restore 套进 Painter CTM，不参与布局与命中
+  /// （命中矩形仍是布局矩形——缩小会产生视觉在命中区外的边，已知边界）。
+  /// 旋转单位度；scale 恒等 1.0。
+  mut tr_tx : Double
+  mut tr_ty : Double
+  mut tr_sx : Double
+  mut tr_sy : Double
+  mut tr_rot : Double
   /// 本控件的绘制是否随 `hovered` / `pressed` / `focused` 变化（样式带状态桶即为真，
   /// 由 `@style.apply` 写入）。宿主据此决定悬停变化的标脏范围。
   mut paints_state : Bool
@@ -300,6 +309,11 @@ pub fn Widget::new() -> Widget {
     hit_pass_through: false,
     blend_paint: Normal,
     clip_content: true,
+    tr_tx: 0.0,
+    tr_ty: 0.0,
+    tr_sx: 1.0,
+    tr_sy: 1.0,
+    tr_rot: 0.0,
     paints_state: false,
     enabled: true,
     a11y_state: None,
@@ -1201,6 +1215,71 @@ pub fn Widget::paint(self : Widget, p : @render.Painter) -> Unit {
 /// （嵌套一层就偏一层，第二行的文字会掉到窗口外）。`clip` 是父链累乘的
 /// 有效裁剪（窗口坐标，None = 不裁）——CPU 档它住在 Painter 裁剪栈里，
 /// GPU 档要当数据随 draw 传（`RenderCtx::Gpu` 的 clip 位）。
+///|
+/// 本控件挂了绘制期变换吗（任一 transform 字段离开恒等值）。
+pub fn Widget::has_transform(self : Widget) -> Bool {
+  !(self.tr_tx == 0.0) ||
+  !(self.tr_ty == 0.0) ||
+  !(self.tr_sx == 1.0) ||
+  !(self.tr_sy == 1.0) ||
+  !(self.tr_rot == 0.0)
+}
+
+///|
+/// 矩形经本控件变换后的**外接矩形**：变换 = 绕中心缩放 → 绕中心旋转 → 平移
+/// （与 paint_at 里 Painter 调用序同构）。脏区并入与视口剔除都用它——旋转/
+/// 缩放后的内容会越出布局矩形，按原矩形标脏会留残影、按原矩形剔除会整块丢画。
+/// 无变换原样返回。
+pub fn Widget::transform_expanded_rect(self : Widget, r : @base.Rect) -> @base.Rect {
+  if !self.has_transform() {
+    return r
+  }
+  let cx = r.x + r.w / 2.0
+  let cy = r.y + r.h / 2.0
+  let rad = self.tr_rot * 3.14159265358979323846 / 180.0
+  let c = @math.cos(rad)
+  let s = @math.sin(rad)
+  let mut x0 = 0.0
+  let mut y0 = 0.0
+  let mut x1 = 0.0
+  let mut y1 = 0.0
+  let mut first = true
+  for (dx, dy) in [
+    (-r.w / 2.0, -r.h / 2.0),
+    (r.w / 2.0, -r.h / 2.0),
+    (-r.w / 2.0, r.h / 2.0),
+    (r.w / 2.0, r.h / 2.0),
+  ] {
+    // 先缩放后旋转（绕中心），再整体平移
+    let rx = dx * self.tr_sx
+    let ry = dy * self.tr_sy
+    let px = rx * c - ry * s + cx + self.tr_tx
+    let py = rx * s + ry * c + cy + self.tr_ty
+    if first {
+      x0 = px
+      y0 = py
+      x1 = px
+      y1 = py
+      first = false
+    } else {
+      if px < x0 {
+        x0 = px
+      }
+      if py < y0 {
+        y0 = py
+      }
+      if px > x1 {
+        x1 = px
+      }
+      if py > y1 {
+        y1 = py
+      }
+    }
+  }
+  { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }
+}
+
+///|
 pub fn Widget::paint_at(
   self : Widget,
   p : @render.Painter,
@@ -1219,14 +1298,26 @@ pub fn Widget::paint_at(
   // 会话里是设备空间的真值（滚动的平移也在 CTM 里），所以这层判交天然把滚动
   // 视口算对。cairo 后端不查（那边没有可查的设备裁剪且本来快）；旋转矩阵下
   // 用两角包围盒近似（本栈的控件绘制只用平移，够用）。
-  match
+  // 视口剔除：带变换的控件先取**变换外接矩形**——旋转/缩放的内容越出布局
+  // 矩形，按原矩形剔会整块丢画；无变换走原路（不分配，热路径）
+  let culled = if self.has_transform() {
+    let lb = self.transform_expanded_rect({
+      x: self.rect.x - ox,
+      y: self.rect.y - oy,
+      w: self.rect.w,
+      h: self.rect.h,
+    })
+    widget_cull_skip(p, lb.x, lb.y, lb.w, lb.h)
+  } else {
     widget_cull_skip(
       p,
       self.rect.x - ox,
       self.rect.y - oy,
       self.rect.w,
       self.rect.h,
-    ) {
+    )
+  }
+  match culled {
     true => {
       @base.prof_note_paint_skip()
       return ()
@@ -1236,6 +1327,22 @@ pub fn Widget::paint_at(
   self.paint_epoch = paint_epoch_ref.val
   p.save()
   p.translate(self.rect.x - ox, self.rect.y - oy)
+  // 绘制期变换（transform 样式族）：绕中心 平移→旋转→缩放 套进 CTM，本控件
+  // 自绘与子树整体随变换，restore 在本控件收尾统一回退。布局与命中不变——
+  // 命中矩形仍是布局矩形（缩小的控件会有视觉在命中区外的边，已知边界）。
+  // GPU 档 on_render 不吃变换（rect 随合成直传，无矩阵位）；变换下的
+  // clip_rounded 圆角收尾也不保证精确——像素采样口（pixel_at）只吃平移不过
+  // 旋转，这两组合同属边界，批3 真 clip 落地后收尾 pass 有退役方向。
+  if self.has_transform() {
+    let hw = self.rect.w / 2.0
+    let hh = self.rect.h / 2.0
+    p.translate(hw + self.tr_tx, hh + self.tr_ty)
+    if !(self.tr_rot == 0.0) {
+      p.rotate(self.tr_rot * 3.14159265358979323846 / 180.0)
+    }
+    p.scale(self.tr_sx, self.tr_sy)
+    p.translate(-hw, -hh)
+  }
   // 溢出裁切（overflow）：默认裁到控件矩形；Visible 档跳过（越界装饰逃生口）
   if self.clip_content {
     p.clip_rect(0.0, 0.0, self.rect.w, self.rect.h)

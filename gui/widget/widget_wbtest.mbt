@@ -591,3 +591,86 @@ test "应用级键钩子走真宿主管线：F12 press 到得了、release 不�
   a.test_pump_key(65481, 0, press=false)
   assert_eq(hits, [(65481, true)])
 }
+
+///|
+test "transform：平移随绘制走，布局矩形不动" {
+  let root = column(Widget::new())
+  let _ = sized(root, 40.0, 40.0)
+  let holder = sized(Widget::new(), 30.0, 30.0)
+  holder.node.set_padding_left(@yoga.fixed(10.0))
+  holder.node.set_padding_top(@yoga.fixed(10.0))
+  let child = sized(Widget::new(), 10.0, 10.0)
+  holder.append_child(child)
+  root.append_child(holder)
+  root.relayout(40.0, 40.0)
+  assert_eq((child.rect.x, child.rect.y), (10.0, 10.0))
+  root.on_draw = Some(fn(_w : Widget, p : @render.Painter, r : Rect) -> Unit {
+    p.set_fill_color("#ff0000")
+    p.fill_rect(0.0, 0.0, r.w, r.h)
+  })
+  child.on_draw = Some(fn(_w : Widget, p : @render.Painter, r : Rect) -> Unit {
+    p.set_fill_color("#0000ff")
+    p.fill_rect(0.0, 0.0, r.w, r.h)
+  })
+  // 平移 (+10, 0)：画在 (20..30, 10..20)，布局矩形仍在 (10,10)
+  child.tr_tx = 10.0
+  let bm = @render.Bitmap::new(40, 40)
+  let p = @render.Painter::new(bm)
+  root.paint(p)
+  p.end()
+  assert_eq((child.rect.x, child.rect.y), (10.0, 10.0))
+  assert_eq(color_of(bm, 12, 15), (255, 0, 0, 255))
+  assert_eq(color_of(bm, 25, 15), (0, 0, 255, 255))
+  assert_eq(color_of(bm, 28, 18), (0, 0, 255, 255))
+}
+
+///|
+test "transform：旋转 90 度绕中心，绘制区与外接矩形换轴" {
+  let root = column(Widget::new())
+  let _ = sized(root, 40.0, 40.0)
+  let holder = sized(Widget::new(), 40.0, 40.0)
+  holder.node.set_padding_left(@yoga.fixed(10.0))
+  holder.node.set_padding_top(@yoga.fixed(15.0))
+  let child = sized(Widget::new(), 20.0, 10.0)
+  holder.append_child(child)
+  root.append_child(holder)
+  root.relayout(40.0, 40.0)
+  assert_eq((child.rect.x, child.rect.y, child.rect.w, child.rect.h), (10.0, 15.0, 20.0, 10.0))
+  root.on_draw = Some(fn(_w : Widget, p : @render.Painter, r : Rect) -> Unit {
+    p.set_fill_color("#ff0000")
+    p.fill_rect(0.0, 0.0, r.w, r.h)
+  })
+  child.on_draw = Some(fn(_w : Widget, p : @render.Painter, r : Rect) -> Unit {
+    p.set_fill_color("#0000ff")
+    p.fill_rect(0.0, 0.0, r.w, r.h)
+  })
+  child.tr_rot = 90.0
+  // 外接矩形：20×10 绕中心转 90° → 10×20，中心 (20,20) 不动
+  let eb = child.transform_expanded_rect(child.rect)
+  assert_eq((eb.x, eb.y, eb.w, eb.h), (15.0, 10.0, 10.0, 20.0))
+  let bm = @render.Bitmap::new(40, 40)
+  let p = @render.Painter::new(bm)
+  root.paint(p)
+  p.end()
+  // 旋转后落位 (15..25, 10..30)：原区域内 (12,17) 现在弧外是红，
+  // 原区域外 (17,12) 现在弧内是蓝；中心恒蓝
+  assert_eq(color_of(bm, 20, 20), (0, 0, 255, 255))
+  assert_eq(color_of(bm, 17, 12), (0, 0, 255, 255))
+  assert_eq(color_of(bm, 12, 17), (255, 0, 0, 255))
+  assert_eq(color_of(bm, 11, 16), (255, 0, 0, 255))
+}
+
+///|
+test "transform_expanded_rect：缩放与平移的外接、无变换原样" {
+  let w = Widget::new()
+  let r : Rect = { x: 100.0, y: 50.0, w: 20.0, h: 10.0 }
+  let eb0 = w.transform_expanded_rect(r)
+  assert_eq((eb0.x, eb0.y, eb0.w, eb0.h), (100.0, 50.0, 20.0, 10.0))
+  w.tr_sx = 2.0
+  let eb = w.transform_expanded_rect(r)
+  assert_eq((eb.x, eb.y, eb.w, eb.h), (90.0, 50.0, 40.0, 10.0))
+  w.tr_tx = 5.0
+  let eb2 = w.transform_expanded_rect(r)
+  assert_eq((eb2.x, eb2.y, eb2.w, eb2.h), (95.0, 50.0, 40.0, 10.0))
+}
+

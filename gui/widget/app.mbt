@@ -598,10 +598,15 @@ fn dirty_clip(full : Bool, rect : Rect?) -> Rect? {
 }
 
 ///|
-/// 局部置脏：把一个控件的绝对矩形并入脏区并唤醒。
+/// 局部置脏：把一个控件的绝对矩形并入脏区并唤醒。带绘制期变换的控件取
+/// **变换外接矩形**——旋转/缩放的内容越出布局矩形，按原矩形标脏会留残影。
 fn WindowHost::mark_widget_rect(self : WindowHost, w : Widget) -> Unit {
   self.session.dirty = true
-  self.dirty_rect = accept_widget_rect(self.dirty_full, self.dirty_rect, w.rect)
+  self.dirty_rect = accept_widget_rect(
+    self.dirty_full,
+    self.dirty_rect,
+    w.transform_expanded_rect(w.rect),
+  )
   @win.wake()
 }
 

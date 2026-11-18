@@ -194,3 +194,24 @@ test "style_for：配了 transition_ms 才走插值，没配的控件不留账" 
   assert_eq(anim_count(), before)
   assert_false(anim_running(plain.id))
 }
+
+///|
+test "lerp_style：transform 族 None 视作恒等插值，不首帧跳变" {
+  let base = style(translate_x=4.0)
+  let hover = style(scale_x=1.5, rotate=90.0)
+  // 基态没写 scale/rotate：中间帧从恒等 1 连续过渡到 1.5，不是跳目标
+  let mid = lerp_style(base, hover, 0.5)
+  assert_eq(mid.scale_x, Some(1.25))
+  assert_eq(mid.rotate, Some(45.0))
+  // 两端都没写的字段保持 None；基态写的值向目标（未写=恒等 0）插
+  assert_true(mid.translate_y is None)
+  assert_eq(mid.translate_x, Some(2.0))
+  // 落定端就是目标值
+  let end = lerp_style(base, hover, 1.0)
+  assert_eq(end.scale_x, Some(1.5))
+  assert_eq(end.rotate, Some(90.0))
+  // 反向（悬停退出）：从 1.5 回到恒等 1
+  let back = lerp_style(hover, base, 0.5)
+  assert_eq(back.scale_x, Some(1.25))
+  assert_eq(back.rotate, Some(45.0))
+}

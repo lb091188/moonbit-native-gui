@@ -10,6 +10,7 @@ import {
   "NoahLiu/yoga-mbt/src" @yoga,
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/env",
+  "moonbitlang/core/math",
   "NoahLiu/native-gui/render",
   "NoahLiu/native-gui/theme",
   "NoahLiu/native-gui/win",

@@ -311,6 +311,27 @@ pub fn apply(w : @widget.Widget, s : Style) -> Unit {
     Some(Hidden) => w.clip_content = true
     None => ()
   }
+  // transform 族（绘制期变换）：落 Widget 槽，绘制遍历消费；布局与命中不变
+  match s.translate_x {
+    Some(v) => w.tr_tx = v
+    None => ()
+  }
+  match s.translate_y {
+    Some(v) => w.tr_ty = v
+    None => ()
+  }
+  match s.scale_x {
+    Some(v) => w.tr_sx = v
+    None => ()
+  }
+  match s.scale_y {
+    Some(v) => w.tr_sy = v
+    None => ()
+  }
+  match s.rotate {
+    Some(v) => w.tr_rot = v
+    None => ()
+  }
   let prev = match resolved_table.get(w.id) {
     Some(p) => p
     None => empty_style()

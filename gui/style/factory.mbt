@@ -72,6 +72,12 @@ pub fn style(
   bottom? : Double,
   left? : Double,
   z_index? : Int32,
+  // —— transform（绘制期变换：origin 恒为中心，rotate 单位度、scale 无单位）
+  translate_x? : Double,
+  translate_y? : Double,
+  scale_x? : Double,
+  scale_y? : Double,
+  rotate? : Double,
   // —— P4：整层透明度（投影档已撤，见 style.mbt 的同名注释）
   opacity? : Double,
   // —— P5：状态桶切换的过渡时长（毫秒；参与插值的字段见 §1.5）
@@ -243,6 +249,11 @@ pub fn style(
   s.bottom = bottom
   s.left = left
   s.z_index = z_index
+  s.translate_x = translate_x
+  s.translate_y = translate_y
+  s.scale_x = scale_x
+  s.scale_y = scale_y
+  s.rotate = rotate
   s.opacity = opacity
   s.transition_ms = transition_ms
   s.visibility = visibility
