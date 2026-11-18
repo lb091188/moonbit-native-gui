@@ -144,8 +144,18 @@ fn main {
       @ui.bind_label(tray_note, fn(s) { s }),
       @ui.bind_label(tray_clicks, fn(n) { "托盘左键：\{n} 次" }),
     ],
-    padding=20.0,
+    padding=24.0,
     row_gap=8.0,
+    // 与 pages_window 的段容器同观感：bg_panel 卡片 + 1px 描边 + 圆角 6
+    class=[
+      @style.style(
+        margin=16.0,
+        background_color="bg_panel",
+        border_color="border",
+        border_width=1.0,
+        border_radius=6.0,
+      ),
+    ],
   )
   let mounted = @ui.mount_window(
     [

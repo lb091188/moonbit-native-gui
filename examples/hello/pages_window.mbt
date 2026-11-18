@@ -9,6 +9,7 @@
 
 ///|
 /// 段容器：标题 + 说明 + 内容（demo 页纵向分块的最小形态）。
+/// 观感对齐设计基准：bg_panel 卡片底 + 1px 描边 + 圆角 6，间距取刻度档。
 fn hello_section(
   title : String,
   desc : String,
@@ -17,8 +18,17 @@ fn hello_section(
   @ui.col(
     [@ui.text(title, class=[@style.text_title]), @ui.text(desc, wrap=true)] +
     nodes,
-    padding=20.0,
+    padding=24.0,
     row_gap=8.0,
+    class=[
+      @style.style(
+        margin=16.0,
+        background_color="bg_panel",
+        border_color="border",
+        border_width=1.0,
+        border_radius=6.0,
+      ),
+    ],
   )
 }
 
@@ -60,7 +70,7 @@ fn open_transparent_demo(
       border_color="primary",
       padding=12.0,
       row_gap=4.0,
-      corner_radius=10.0,
+      corner_radius=8.0,
     )
   }
 
@@ -92,8 +102,8 @@ fn open_transparent_demo(
                     }),
                   ],
                   background_color="bg_panel",
-                  padding=10.0,
-                  corner_radius=10.0,
+                  padding=12.0,
+                  corner_radius=8.0,
                 ),
               ],
               row_gap=12.0,
@@ -311,7 +321,7 @@ fn window_sections(host : Ref[@widget.WindowHost?]) -> Array[@widget.Node] {
     // —— 透明度 ——
     hello_section(
       "透明度",
-      "两件不同的事。`set_opacity` 是**整窗 alpha**（0–255）——连同文字与控件一起变淡，需要合成器，没有就静默无效，对主窗生效。`set_transparent_bg` 是**背景透视**——控件没铺到的像素留成透明，桌面从那些洞透出来（Windows 上要无边框才成立；**要经 `App::set_transparent_bg` 开**，宿主默认页面底会铺满整窗，直调窗口层摘不掉它）。主窗整片铺满底色、没有「没铺到的像素」，透视验不了也**不该在主窗开**；点「开透明测试窗」单开一扇无边框窗，根容器不铺底，只放几块不透明卡片来验。",
+      "两件不同的事。`set_opacity` 是「整窗 alpha」（0–255）——连同文字与控件一起变淡，需要合成器，没有就静默无效，对主窗生效。`set_transparent_bg` 是「背景透视」——控件没铺到的像素留成透明，桌面从那些洞透出来（Windows 上要无边框才成立；要经 `App::set_transparent_bg` 开，宿主默认页面底会铺满整窗，直调窗口层摘不掉它）。主窗整片铺满底色、没有「没铺到的像素」，透视验不了也不该在主窗开；点「开透明测试窗」单开一扇无边框窗，根容器不铺底，只放几块不透明卡片来验。",
       [
         @ui.row(
           [

@@ -20,9 +20,14 @@ fn reset() {
 </template>
 <style>
   .page {
-    padding: 20px;
+    padding: 24px;
+    margin: 16px;
     row-gap: 8px;
     align-items: center;
+    background-color: var(--bg_panel);
+    border-color: var(--border);
+    border-width: 1px;
+    border-radius: 6px;
   }
   .title {
     font-size: 18px;
