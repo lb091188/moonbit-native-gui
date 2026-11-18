@@ -71,6 +71,9 @@ pub(all) struct Style {
   mut scale_x : Double?
   mut scale_y : Double?
   mut rotate : Double?
+  // 背景模糊半径（毛玻璃）：把已画内容的本控件区域糊掉再画自己；控件级
+  // 小半径（大半径归 GPU 档，分档方针见 roadmap）
+  mut backdrop_blur : Double?
   // 整层透明度（0..1，画期把 global alpha 乘进全路径）。不提供投影（box_shadow），
   // 前置条件见 experience/adaptation.md「阴影」节。
   mut opacity : Double?
@@ -164,6 +167,7 @@ pub fn empty_style() -> Style {
     scale_x: None,
     scale_y: None,
     rotate: None,
+    backdrop_blur: None,
     opacity: None,
     transition_ms: None,
     visibility: None,

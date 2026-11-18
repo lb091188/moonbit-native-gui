@@ -135,3 +135,140 @@ pub fn Bitmap::fill_area(
     }
   }
 }
+
+///|
+/// 区域盒式模糊（三趟逼近高斯）：就地模糊位图上 [x, x+w) × [y, y+h) 的**已画
+/// 内容**，预乘 BGRA 四通道同窗滑动求和，窗口越界按边缘像素补位（clamp）。
+/// 毛玻璃（Painter::backdrop_blur）与将来的投影模糊共用这一口——cairo 表面
+/// 就建在本位图数据上，两后端同效。区域越界裁到位图；半径 <1 或区域空为
+/// 无操作。成本随面积 × 半径线性，只给控件级小半径用（大面积归 GPU 档）。
+pub fn Bitmap::box_blur_region(
+  self : Bitmap,
+  rx : Int32,
+  ry : Int32,
+  rw : Int32,
+  rh : Int32,
+  radius : Int32,
+) -> Unit {
+  if radius < 1 || rw < 1 || rh < 1 || self.width < 1 || self.height < 1 {
+    return
+  }
+  let x0 = if rx < 0 { 0 } else { rx }
+  let y0 = if ry < 0 { 0 } else { ry }
+  let x1 = if rx + rw > self.width { self.width } else { rx + rw }
+  let y1 = if ry + rh > self.height { self.height } else { ry + rh }
+  let w = x1 - x0
+  let h = y1 - y0
+  if w < 1 || h < 1 {
+    return
+  }
+  let n = w * h * 4
+  let buf_a : FixedArray[Int32] = FixedArray::make(n, 0)
+  let buf_b : FixedArray[Int32] = FixedArray::make(n, 0)
+  // 装载区域（字节 → int，四通道交错）
+  for y = 0; y < h; y = y + 1 {
+    let srow = (y0 + y) * self.width * 4 + x0 * 4
+    let drow = y * w * 4
+    for x = 0; x < w; x = x + 1 {
+      let si = srow + x * 4
+      let di = drow + x * 4
+      buf_a[di] = self.data[si].to_int()
+      buf_a[di + 1] = self.data[si + 1].to_int()
+      buf_a[di + 2] = self.data[si + 2].to_int()
+      buf_a[di + 3] = self.data[si + 3].to_int()
+    }
+  }
+  // 三趟「横向 + 纵向」，结果每趟都回到 buf_a
+  for _pass = 0; _pass < 3; _pass = _pass + 1 {
+    blur_box_axis(buf_a, buf_b, w, h, radius, true)
+    blur_box_axis(buf_b, buf_a, w, h, radius, false)
+  }
+  // 写回
+  for y = 0; y < h; y = y + 1 {
+    let drow = (y0 + y) * self.width * 4 + x0 * 4
+    let srow = y * w * 4
+    for x = 0; x < w; x = x + 1 {
+      let si = srow + x * 4
+      let di = drow + x * 4
+      self.data[di] = buf_a[si].to_byte()
+      self.data[di + 1] = buf_a[si + 1].to_byte()
+      self.data[di + 2] = buf_a[si + 2].to_byte()
+      self.data[di + 3] = buf_a[si + 3].to_byte()
+    }
+  }
+}
+
+///|
+/// 单向盒式滑动窗：横向（horizontal=true，沿 x）或纵向一趟，窗口出界按
+/// 边缘像素补位（clamp），逐通道滑动和。src/dst 不得同数组。
+fn blur_box_axis(
+  src : FixedArray[Int32],
+  dst : FixedArray[Int32],
+  w : Int32,
+  h : Int32,
+  r : Int32,
+  horizontal : Bool,
+) -> Unit {
+  let win = r * 2 + 1
+  if horizontal {
+    for y = 0; y < h; y = y + 1 {
+      let base = y * w * 4
+      // 逐像素直接求窗（窗口出界按边缘补位）：滑动和与边缘 clamp 不相容——
+      // 窗口压在边界上时含重复样本，滑动减法会错位（实测远场被拉灰）
+      for x = 0; x < w; x = x + 1 {
+        let mut t0 = 0
+        let mut t1 = 0
+        let mut t2 = 0
+        let mut t3 = 0
+        for k = x - r; k <= x + r; k = k + 1 {
+          let xk = if k < 0 {
+            0
+          } else if k >= w {
+            w - 1
+          } else {
+            k
+          }
+          let i = base + xk * 4
+          t0 = t0 + src[i]
+          t1 = t1 + src[i + 1]
+          t2 = t2 + src[i + 2]
+          t3 = t3 + src[i + 3]
+        }
+        let di = base + x * 4
+        dst[di] = t0 / win
+        dst[di + 1] = t1 / win
+        dst[di + 2] = t2 / win
+        dst[di + 3] = t3 / win
+      }
+    }
+  } else {
+    for x = 0; x < w; x = x + 1 {
+      let col = x * 4
+      for y = 0; y < h; y = y + 1 {
+        let mut t0 = 0
+        let mut t1 = 0
+        let mut t2 = 0
+        let mut t3 = 0
+        for k = y - r; k <= y + r; k = k + 1 {
+          let yk = if k < 0 {
+            0
+          } else if k >= h {
+            h - 1
+          } else {
+            k
+          }
+          let i = yk * w * 4 + col
+          t0 = t0 + src[i]
+          t1 = t1 + src[i + 1]
+          t2 = t2 + src[i + 2]
+          t3 = t3 + src[i + 3]
+        }
+        let di = y * w * 4 + col
+        dst[di] = t0 / win
+        dst[di + 1] = t1 / win
+        dst[di + 2] = t2 / win
+        dst[di + 3] = t3 / win
+      }
+    }
+  }
+}

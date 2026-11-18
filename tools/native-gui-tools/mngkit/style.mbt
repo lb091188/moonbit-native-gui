@@ -161,7 +161,7 @@ fn prop_kind_of(name : String) -> PropKind {
 fn number_props() -> Array[String] {
   [
     "font_size", "line_height", "letter_spacing", "width", "height", "min_width",
-    "min_height", "max_width", "max_height", "translate_x", "translate_y", "padding", "padding_left", "padding_right",
+    "min_height", "max_width", "max_height", "translate_x", "translate_y", "backdrop_blur", "padding", "padding_left", "padding_right",
     "padding_top", "padding_bottom", "margin", "margin_left", "margin_right", "margin_top",
     "margin_bottom", "border_width", "border_radius", "gap", "row_gap", "column_gap",
     "top", "right", "bottom", "left",

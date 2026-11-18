@@ -332,6 +332,10 @@ pub fn apply(w : @widget.Widget, s : Style) -> Unit {
     Some(v) => w.tr_rot = v
     None => ()
   }
+  match s.backdrop_blur {
+    Some(v) => w.backdrop_blur_paint = v
+    None => ()
+  }
   let prev = match resolved_table.get(w.id) {
     Some(p) => p
     None => empty_style()

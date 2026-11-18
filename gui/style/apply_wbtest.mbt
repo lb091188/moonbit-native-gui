@@ -253,3 +253,11 @@ test "apply：transform 族落 Widget 槽与 has_transform" {
   assert_eq(w.tr_ty, 3.0)
   assert_eq(w.tr_tx, 0.0)
 }
+
+///|
+test "apply：backdrop_blur 落 Widget 槽" {
+  let w = @widget.Widget::new()
+  assert_eq(w.backdrop_blur_paint, 0.0)
+  apply(w, style(backdrop_blur=6.0))
+  assert_eq(w.backdrop_blur_paint, 6.0)
+}

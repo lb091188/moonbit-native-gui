@@ -78,6 +78,8 @@ pub fn style(
   scale_x? : Double,
   scale_y? : Double,
   rotate? : Double,
+  // 背景模糊半径（毛玻璃，px）
+  backdrop_blur? : Double,
   // —— P4：整层透明度（投影档已撤，见 style.mbt 的同名注释）
   opacity? : Double,
   // —— P5：状态桶切换的过渡时长（毫秒；参与插值的字段见 §1.5）
@@ -254,6 +256,7 @@ pub fn style(
   s.scale_x = scale_x
   s.scale_y = scale_y
   s.rotate = rotate
+  s.backdrop_blur = backdrop_blur
   s.opacity = opacity
   s.transition_ms = transition_ms
   s.visibility = visibility

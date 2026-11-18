@@ -240,6 +240,9 @@ pub(all) struct Widget {
   mut tr_sx : Double
   mut tr_sy : Double
   mut tr_rot : Double
+  /// 背景模糊半径（样式 `backdrop_blur` 落点）：进本控件先把已画内容的自身
+  /// 区域就地糊掉再画自己——毛玻璃。0 = 关。
+  mut backdrop_blur_paint : Double
   /// 本控件的绘制是否随 `hovered` / `pressed` / `focused` 变化（样式带状态桶即为真，
   /// 由 `@style.apply` 写入）。宿主据此决定悬停变化的标脏范围。
   mut paints_state : Bool
@@ -314,6 +317,7 @@ pub fn Widget::new() -> Widget {
     tr_sx: 1.0,
     tr_sy: 1.0,
     tr_rot: 0.0,
+    backdrop_blur_paint: 0.0,
     paints_state: false,
     enabled: true,
     a11y_state: None,
@@ -1340,6 +1344,16 @@ pub fn Widget::paint_at(
     }
     p.scale(self.tr_sx, self.tr_sy)
     p.translate(-hw, -hh)
+  }
+  // 背景模糊（毛玻璃）：先把已画内容的自身区域糊掉再画自己；控件级小半径
+  if self.backdrop_blur_paint >= 1.0 {
+    p.backdrop_blur(
+      0.0,
+      0.0,
+      self.rect.w,
+      self.rect.h,
+      self.backdrop_blur_paint,
+    )
   }
   // 溢出裁切（overflow）：默认裁到控件矩形；Visible 档跳过（越界装饰逃生口）
   if self.clip_content {

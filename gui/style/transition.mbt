@@ -104,6 +104,7 @@ pub fn lerp_style(from : Style, to : Style, t : Double) -> Style {
   out.scale_x = lerp_ident(from.scale_x, to.scale_x, tt, 1.0)
   out.scale_y = lerp_ident(from.scale_y, to.scale_y, tt, 1.0)
   out.rotate = lerp_ident(from.rotate, to.rotate, tt, 0.0)
+  out.backdrop_blur = lerp_number(from.backdrop_blur, to.backdrop_blur, tt)
   out
 }
 

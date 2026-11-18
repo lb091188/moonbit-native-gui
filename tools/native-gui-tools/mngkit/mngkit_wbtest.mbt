@@ -890,6 +890,19 @@ test "样式章：数值可带 px 后缀（数值即逻辑像素）" {
 }
 
 ///|
+test "样式章：backdrop-blur 数值属性" {
+  let src = [
+    "<style>", ".g { backdrop-blur: 6px; }",
+    "</style>", "<template>", "  <ui-text class=\"g\" text=\"x\" />", "</template>",
+  ].join("\n")
+  let code = match compile(src, "bb.mng") {
+    Ok(o) => o.code
+    Err(e) => abort("\{e}")
+  }
+  assert_true(contains_sub(code, "backdrop_blur=6.0"))
+}
+
+///|
 test "样式章：transform 族属性——平移像素、缩放旋转无单位" {
   let src = [
     "<style>", ".t { translate-x: 4px; translate-y: 2px; scale-x: 2; scale-y: 1.5; rotate: 45; }",

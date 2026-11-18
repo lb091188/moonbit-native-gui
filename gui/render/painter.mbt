@@ -715,6 +715,45 @@ pub fn Painter::clip_round_rect(
 }
 
 ///|
+/// 背景模糊（毛玻璃）：把**已画内容**的本控件区域就地糊掉再画自己——
+/// 两后端共享同一张位图（cairo 表面建在其数据上），过 Bitmap::box_blur_region
+/// 同效。坐标与 clip_rect 同口径（平移 + 取整），并与当前裁剪区求交；半径
+/// <1 为无操作。大半径/全窗级归 GPU 档，此口只接控件级小半径。
+pub fn Painter::backdrop_blur(
+  self : Painter,
+  x : Double,
+  y : Double,
+  w : Double,
+  h : Double,
+  radius : Double,
+) -> Unit {
+  if radius < 1.0 {
+    return
+  }
+  self.flush()
+  let s = self.state
+  let x0 = snap(x + s.tx)
+  let y0 = snap(y + s.ty)
+  let x1 = snap(x + w + s.tx)
+  let y1 = snap(y + h + s.ty)
+  // 与当前裁剪区求交：不越自身（或祖先）的裁剪界
+  let bx0 = if x0 > s.clip_x0 { x0 } else { s.clip_x0 }
+  let by0 = if y0 > s.clip_y0 { y0 } else { s.clip_y0 }
+  let bx1 = if x1 < s.clip_x1 { x1 } else { s.clip_x1 }
+  let by1 = if y1 < s.clip_y1 { y1 } else { s.clip_y1 }
+  if bx1 <= bx0 || by1 <= by0 {
+    return
+  }
+  self.bitmap.box_blur_region(
+    bx0,
+    by0,
+    bx1 - bx0,
+    by1 - by0,
+    radius.floor().to_int(),
+  )
+}
+
+///|
 /// hex 非法时保持原色。
 pub fn Painter::set_fill_color(self : Painter, hex : String) -> Unit {
   match Color::parse(hex) {

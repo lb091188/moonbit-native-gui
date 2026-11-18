@@ -683,3 +683,44 @@ test "transform_expanded_rect：缩放与平移的外接、无变换原样" {
   assert_eq((eb2.x, eb2.y, eb2.w, eb2.h), (95.0, 50.0, 40.0, 10.0))
 }
 
+
+///|
+test "backdrop_blur：进控件先把已画内容糊掉再画自己" {
+  let root = column(Widget::new())
+  let _ = sized(root, 40.0, 40.0)
+  let holder = sized(Widget::new(), 30.0, 30.0)
+  holder.node.set_padding_left(@yoga.fixed(10.0))
+  holder.node.set_padding_top(@yoga.fixed(10.0))
+  let glass = sized(Widget::new(), 20.0, 20.0)
+  holder.append_child(glass)
+  root.append_child(holder)
+  root.relayout(40.0, 40.0)
+  // 底：左红右黑，分界正好穿过 glass 区域（x=20）
+  root.on_draw = Some(fn(_w : Widget, p : @render.Painter, r : Rect) -> Unit {
+    p.set_fill_color("#ff0000")
+    p.fill_rect(0.0, 0.0, 20.0, r.h)
+    p.set_fill_color("#000000")
+    p.fill_rect(20.0, 0.0, r.w - 20.0, r.h)
+  })
+  glass.backdrop_blur_paint = 4.0
+  glass.on_draw = Some(fn(_w : Widget, p : @render.Painter, r : Rect) -> Unit {
+    p.set_fill_color("#ffffff40")
+    p.fill_rect(0.0, 0.0, r.w, r.h)
+  })
+  let bm = @render.Bitmap::new(40, 40)
+  let p = @render.Painter::new(bm)
+  root.paint(p)
+  p.end()
+  // 分界线像素：底是纯红黑相接，被毛玻璃糊开后红黑混合（非纯端值）
+  let c = bm.pixel(20, 15)
+  assert_true(c.r > 30 && c.r < 220)
+  assert_true(c.b > 30 && c.b < 220)
+  // 无模糊对照：玻璃下分界左侧的像素应是纯红垫底（白色 40 透明度叠红）
+  glass.backdrop_blur_paint = 0.0
+  let bm2 = @render.Bitmap::new(40, 40)
+  let p2 = @render.Painter::new(bm2)
+  root.paint(p2)
+  p2.end()
+  let c2 = bm2.pixel(19, 15)
+  assert_eq((c2.r, c2.g, c2.b), (255, 64, 64))
+}
