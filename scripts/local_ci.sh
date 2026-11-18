@@ -114,21 +114,23 @@ do_mac() {
 # ---------------------------------------------------------------- linux 腿
 do_linux() {
   note "linux 腿(company 容器 $CONTAINER)"
-  local R="ssh -o BatchMode=yes $COMPANY_HOST docker exec $CONTAINER bash -c"
+  # 整条远程命令用单引号包成 bash -c 的单个参数;SSH 会在远端 shell 重拼参数,
+  # 不用变量封装 ssh 命令(那样 bash -c 后的命令会碎成 $0 + 宿主机执行的 && 段)。
 
-  $R "cd /work/repo/gui && moon check" > /tmp/lc-linux-check.log 2>&1 \
+  ssh -o BatchMode=yes "$COMPANY_HOST" "docker exec $CONTAINER bash -c 'cd /work/repo/gui && moon check'" \
+    > /tmp/lc-linux-check.log 2>&1 \
     && check_zero_warn /tmp/lc-linux-check.log \
     && ok "linux:gui moon check 零警告" || bad "linux:gui moon check 零警告"
 
-  $R "cd /work/repo/gui && dbus-run-session -- moon test $GUI_TEST_PKGS" \
+  ssh -o BatchMode=yes "$COMPANY_HOST" "docker exec $CONTAINER bash -c 'cd /work/repo/gui && dbus-run-session -- moon test $GUI_TEST_PKGS'" \
     > /tmp/lc-linux-test.log 2>&1 \
     && ok "linux:gui 测试全名单(dbus 会话)" || { bad "linux:gui 测试全名单(dbus 会话)"; tail -8 /tmp/lc-linux-test.log; }
 
-  $R "cd /work/repo/gui && moon build --target native && cd /work/repo && moon build examples/hello --target native" \
+  ssh -o BatchMode=yes "$COMPANY_HOST" "docker exec $CONTAINER bash -c 'cd /work/repo/gui && moon build --target native && cd /work/repo && moon build examples/hello --target native'" \
     > /tmp/lc-linux-build.log 2>&1 \
     && ok "linux:库构建 + hello 链接" || { bad "linux:库构建 + hello 链接"; tail -8 /tmp/lc-linux-build.log; }
 
-  $R "cd /work/repo && MNG_WGPU_LIB=off timeout 20s xvfb-run -a moon run examples/hello >/dev/null 2>&1; code=\$?; exit \$(( code == 124 ? 0 : 1 ))" \
+  ssh -o BatchMode=yes "$COMPANY_HOST" "docker exec $CONTAINER bash -c 'cd /work/repo && MNG_WGPU_LIB=off timeout 20s xvfb-run -a moon run examples/hello >/dev/null 2>&1; code=\$?; exit \$(( code == 124 ? 0 : 1 ))'" \
     > /tmp/lc-linux-smoke.log 2>&1 \
     && ok "linux:xvfb 冒烟(存活 20s)" || bad "linux:xvfb 冒烟(存活 20s)"
 }
