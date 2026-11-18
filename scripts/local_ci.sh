@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 # 本地三平台门禁:mac 本机 + company Linux 容器 + company win10 VM
 #
-# 用法:bash scripts/local_ci.sh [mac|linux|win|sync|all]
+# 用法:bash scripts/local_ci.sh [mac|linux|bare|win|sync|all]
 #   sync  同步工作树到两个远端(company Linux 容器挂载点 + win10 C:\natigui\repo)
-#   mac   本机腿:check 零警告 + 测试全名单 + tools + webview + 构建 + 桩语法门禁 + 文档站
+#   mac   本机腿:check/测试/tools/webview/构建/桩语法/编辑器场景/生成物对账/文档站
 #   linux company 容器腿:CI linux job 同款(check/test/build/xvfb 冒烟)
-#   win   company win10 VM 腿:CI windows job 同款(check/test/build --release)
-#   all   sync + mac + linux + win(默认)
+#   bare  company 裸容器腿:CI linux-bare job 同款(占位降级三判定)
+#   win   company win10 VM 腿:CI windows job 同款(check/test/媒体真解码/build --release)
+#   all   sync + mac + linux + bare + win(默认)
 #
 # 环境前提(一次性搭好):
 #   ssh company / ssh win10 免密可达(win10 走 ProxyJump company,见 ~/.ssh/config)
-#   company 容器 natigui-linux 就绪(重建脚本:company:~/natigui/setup-container.sh)
-#   win10 已装 moon + VS Build Tools 2022(仓库 C:\natigui\repo)
-#   ffmpeg 媒体包测试三腿均未纳入(win 腿缺 BtbN dll,linux 腿容器已含开发包可后补)
+#   company 容器 natigui-linux 与 natigui-bare 就绪(重建脚本:company:~/natigui/setup-container.sh)
+#   win10 已装 moon + VS Build Tools 2022(仓库 C:\natigui\repo),且 ffmpeg dll 已复制到副本 vendor/win/bin
 set -u
 cd "$(dirname "$0")/.."
 ROOT="$PWD"
@@ -41,21 +41,17 @@ check_zero_warn() { # $1=日志文件
 # ---------------------------------------------------------------- sync
 do_sync() {
   note "sync:同步工作树到远端"
-  rsync -a --delete \
-    --exclude='_build' --exclude='.mooncakes' --exclude='.git' \
-    --exclude='node_modules' --exclude='target' --exclude='._*' \
+  # dll 是运行期资源、不入库:win10 副本的 vendor/win/bin 单独维护一份 ffmpeg dll,
+  # 同步时排除所有 dll——既不被 mac 侧的缺失覆盖,也不被 --delete 删掉。
+  local excludes=(--exclude=_build --exclude=.mooncakes --exclude=.git --exclude=node_modules --exclude=target --exclude='._*' --exclude='*.dll')
+  rsync -a --delete "${excludes[@]}" \
     "$ROOT/" "$COMPANY_HOST:natigui/repo/" >/dev/null \
     && ok "sync:company Linux 挂载点" || bad "sync:company Linux 挂载点"
 
   # win10 无 rsync:tar 增量覆盖 + 删除项清单兜底 + 屏蔽 mac AppleDouble 伴生文件
   local tgz=/tmp/natigui-sync.tgz
-  COPYFILE_DISABLE=1 tar czf "$tgz" \
-    --exclude='_build' --exclude='.mooncakes' --exclude='.git' \
-    --exclude='node_modules' --exclude='target' --exclude='._*' \
-    . 2>/dev/null
-  rsync -ain --delete \
-    --exclude='_build' --exclude='.mooncakes' --exclude='.git' \
-    --exclude='node_modules' --exclude='target' --exclude='._*' \
+  COPYFILE_DISABLE=1 tar czf "$tgz" "${excludes[@]}" . 2>/dev/null
+  rsync -ain --delete "${excludes[@]}" \
     "$ROOT/" "$COMPANY_HOST:natigui/repo/" 2>/dev/null \
     | grep '^deleting ' | sed 's/^deleting //' > /tmp/natigui-deleted.txt || true
   scp -q "$tgz" "$WIN_HOST:C:/natigui/sync.tgz" \
@@ -104,6 +100,26 @@ do_mac() {
     > /tmp/lc-mac-stub.log 2>&1 \
     && ok "mac:六桩语法门禁" || { bad "mac:六桩语法门禁"; tail -8 /tmp/lc-mac-stub.log; }
 
+  # 编辑器场景(照 ci.yml:类型门禁 + 着色分词 + 真 mng lsp 会话;真 VS Code 本腿有窗口不跑 xvfb)
+  ( cd "$ROOT/tools/vscode-mng" && npm run typecheck && npm test ) \
+    > /tmp/lc-mac-editor.log 2>&1 \
+    && ok "mac:编辑器类型门禁 + 着色/lsp 测试" || { bad "mac:编辑器类型门禁 + 着色/lsp 测试"; tail -6 /tmp/lc-mac-editor.log; }
+
+  # 生成物新鲜度(照 ci.yml:每个 .mng 用 dev/生产两形态重编译与提交的 gen.mbt 比对)
+  ( cd "$ROOT"
+    local rc=0
+    while IFS= read -r f; do
+      abs="$PWD/$f"; dir=$(dirname "$f"); stem=$(basename "${f%.mng}")
+      devout="/tmp/fresh_dev_$(echo "$f" | tr '/' '_').gen.mbt"
+      prodout="/tmp/fresh_prod_$(echo "$f" | tr '/' '_').gen.mbt"
+      comm="$dir/$stem.gen.mbt"
+      moon run tools/native-gui-tools/mng -- gen "$abs" -o "$devout" >/dev/null 2>&1 || { rc=1; continue; }
+      moon run tools/native-gui-tools/mng -- build "$abs" -o "$prodout" >/dev/null 2>&1 || { rc=1; continue; }
+      if [ -f "$comm" ] && ! diff -q "$comm" "$devout" >/dev/null 2>&1 && ! diff -q "$comm" "$prodout" >/dev/null 2>&1; then rc=1; echo "生成物过期: $comm"; fi
+    done < <(find examples -type f -name "*.mng" -not -path "*/.mooncakes/*" -not -path "*/_build/*" -not -path "*/target/*")
+    exit $rc ) > /tmp/lc-mac-gen.log 2>&1 \
+    && ok "mac:生成物新鲜度对账" || { bad "mac:生成物新鲜度对账"; tail -6 /tmp/lc-mac-gen.log; }
+
   if [ "${NATIGUI_SKIP_DOCS:-0}" != "1" ]; then
     ( cd "$ROOT/docs" && npm run build --silent ) > /tmp/lc-mac-docs.log 2>&1 \
       && ( cd "$ROOT" && node tools/check-docs-index.mjs ) >> /tmp/lc-mac-docs.log 2>&1 \
@@ -135,6 +151,16 @@ do_linux() {
     && ok "linux:xvfb 冒烟(存活 20s)" || bad "linux:xvfb 冒烟(存活 20s)"
 }
 
+# ---------------------------------------------------------------- bare 腿
+do_bare() {
+  note "bare 腿(company 无 GTK 裸容器 natigui-bare)"
+  # CI linux-bare 判定三件:全绿 + stderr 有「已降级占位桩」+ 绘制类 skip [需真后端]
+  ssh -o BatchMode=yes "$COMPANY_HOST" \
+    "docker exec natigui-bare bash -c 'cd /work/repo/gui && dbus-run-session -- moon test $GUI_TEST_PKGS' > /tmp/bare.out 2>&1; code=\$?; grep -aq \"已降级占位桩\" /tmp/bare.out || exit 2; grep -aq \"skip \\[需真后端\\]\" /tmp/bare.out || exit 3; tail -1 /tmp/bare.out; exit \$code" \
+    > /tmp/lc-bare.log 2>&1 \
+    && ok "bare:占位降级三判定(全绿+占位桩+真后端跳过)" || { bad "bare:占位降级三判定(全绿+占位桩+真后端跳过)"; tail -8 /tmp/lc-bare.log; }
+}
+
 # ---------------------------------------------------------------- win 腿
 do_win() {
   note "win 腿(company win10 VM)"
@@ -162,9 +188,10 @@ case "${1:-all}" in
   sync)  do_sync ;;
   mac)   do_mac ;;
   linux) do_linux ;;
+  bare)  do_bare ;;
   win)   do_win ;;
-  all)   do_sync; do_mac; do_linux; do_win ;;
-  *) echo "用法:bash scripts/local_ci.sh [mac|linux|win|sync|all]"; exit 2 ;;
+  all)   do_sync; do_mac; do_linux; do_bare; do_win ;;
+  *) echo "用法:bash scripts/local_ci.sh [mac|linux|bare|win|sync|all]"; exit 2 ;;
 esac
 
 printf '\n======== 本地门禁汇总 ========\n'

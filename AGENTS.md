@@ -32,7 +32,7 @@ moon run examples/hello       # 最小窗口(另有 showcase 等)
 
 编译面必跑 mac 原生桩语法门禁——照 ci.yml macOS 腿对五桩逐个 `clang -fsyntax-only`，见 ci.yml 的 `gate` 函数。门禁范围与 `.github/workflows/ci.yml` 三腿一致——本机视角是 macOS 腿 + Docs，xvfb 冒烟与 Windows 链接本地不做。
 
-**本地三平台门禁**：`bash scripts/local_ci.sh`（子命令 `mac` / `linux` / `win` / `sync`，默认 `all`）一条命令跑 mac 本机 + company Linux 容器 + company win10 VM 三腿，推送前暴露远端平台问题；环境前提与远端重建见 `experience/adaptation/windows.md` 与 `linux.md`。
+**本地三平台门禁**：`bash scripts/local_ci.sh`（子命令 `mac` / `linux` / `bare` / `win` / `sync`，默认 `all`）一条命令跑 mac 本机 + company Linux 容器 + bare 容器 + company win10 VM 五腿，逐项对齐远端 ci.yml，推送前暴露远端平台问题；环境前提与远端重建见 `experience/adaptation/windows.md` 与 `linux.md`。
 
 **运行/场景类改到对应面时本地加跑**：
 
