@@ -117,6 +117,8 @@
   .toc a:hover{background:#f3f5f8}
   .toc a.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
   .toc a em{font-style:normal;font-size:10.5px;color:var(--faint);white-space:nowrap}
+  .toc .tgid{font-size:10px;color:var(--faint);font-family:var(--mono);margin-right:6px}
+  .toc a.on .tgid{color:var(--accent)}
   @media (max-width:1080px){.toc{display:none}}
   .app{
     border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 13px;min-width:132px;text-align:left;
@@ -154,6 +156,7 @@
   .group{margin-bottom:18px}
   .ghead{display:flex;align-items:center;gap:10px;margin:0 0 7px;padding-left:2px}
   .ghead h3{font-size:12.5px;font-weight:650;margin:0;color:#39414f;letter-spacing:.2px}
+  .ghead .gid{font-size:10.5px;font-weight:500;color:var(--faint);font-family:var(--mono);letter-spacing:0}
   .ghead .gc{font-size:11px;color:var(--faint);font-family:var(--mono)}
   .ghead .line{flex:1;height:1px;background:var(--line-2)}
   .rows{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:#fff}
@@ -691,6 +694,20 @@
   function getRes(p, a, c) { return db.results[key(p, a, c)] || null; }
   function casesOf(app) { return CASES.filter(function (c) { return c.app === app; }); }
 
+  /* 分组编号范围：从组内用例 id 现算首尾（数值序），如 SC-4.1–4.12；
+     单条只出一个号。放组名前，编号说出口就能在章节目录对上组。 */
+  function rangeOf(cases) {
+    var ids = cases.map(function (c) {
+      var m = (c.id || '').match(/^([A-Z]+)-(\d+)\.(\d+)$/);
+      return m ? { pre: m[1], main: +m[2], sub: +m[3] } : null;
+    }).filter(Boolean);
+    if (!ids.length) return '';
+    ids.sort(function (a, b) { return a.main - b.main || a.sub - b.sub; });
+    var f = ids[0], l = ids[ids.length - 1];
+    if (f.main === l.main && f.sub === l.sub) return f.pre + '-' + f.main + '.' + f.sub;
+    return f.pre + '-' + f.main + '.' + f.sub + '–' + l.main + '.' + l.sub;
+  }
+
   var pageTreeCache = {};
   function pageTree(app) {
     if (pageTreeCache[app]) return pageTreeCache[app];
@@ -1090,7 +1107,12 @@
       if (!h) return;
       var gc = g.querySelector('.gc');
       var a = el('a');
-      a.appendChild(document.createTextNode(h.textContent));
+      // 组名前那段编号范围（h3 里的 .gid）照搬成弱色小字，编号对章节用
+      var gid = h.querySelector('.gid');
+      var left = el('span');
+      if (gid) left.appendChild(el('span', 'tgid', gid.textContent));
+      left.appendChild(document.createTextNode(gid ? h.textContent.slice(gid.textContent.length) : h.textContent));
+      a.appendChild(left);
       if (gc) a.appendChild(el('em', null, gc.textContent));
       a.onclick = function () {
         window.scrollTo({ top: g.getBoundingClientRect().top + window.scrollY - 58, behavior: 'smooth' });
@@ -1134,7 +1156,11 @@
 
       var wrap = el('div', 'group');
       var gh = el('div', 'ghead');
-      gh.appendChild(el('h3', null, pg.name));
+      // 组名前带编号范围（章节目录取 h3 textContent，同步带出）
+      var gh3 = el('h3');
+      gh3.appendChild(el('span', 'gid', rangeOf(pageCases)));
+      gh3.appendChild(document.createTextNode(' ' + pg.name));
+      gh.appendChild(gh3);
       var gp = pageCases.filter(function (c) { var r = getRes(ui.platform, ui.app, c.id); return r && r.s === 'pass'; }).length;
       var gf = pageCases.filter(function (c) { var r = getRes(ui.platform, ui.app, c.id); return r && r.s === 'fail'; }).length;
       gh.appendChild(el('span', 'gc', pageCases.length + ' 条 · 通过 ' + gp + (gf ? ' · 失败 ' + gf : '')));
