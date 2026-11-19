@@ -657,4 +657,16 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **ssh 会话跑 moon 的环境三件套**：Windows OpenSSH 会话的 `USERPROFILE` 时有时无（同机不同会话见过空值），moon 定位 `.moon` 靠它——门禁脚本一律显式设 `USERPROFILE` / `HOME` / `MOON_HOME` / `PATH` 四项再调 moon，不赌会话环境（scripts/local_ci.sh 调用的 `C:\natigui\gate-*.ps1` 已固化）。另两条：PowerShell 5.1 不认 `&&`（用 `;`）；多行 PowerShell 命令经 ssh 转义地狱——一律 scp 脚本过去 `-File` 执行，不拼行内命令。
 - **vswhere 查 Build Tools 必须带 `-products`**：默认只查 VS IDE 版产品，Build Tools 装着也返回空——`vswhere -products Microsoft.VisualStudio.Product.BuildTools -latest -property installationPath` 才找得到，或直接 `Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio\*\*\VC\Auxiliary\Build\vcvars64.bat"` 探。曾因漏参数误判「没装 VS」白发起一场静默安装。
 - **Windows 上 moon check 把警告当失败**：exit 1 且 `Failed with N warnings, 0 errors`——与 mac/Linux 的「警告不挡退出」不同，Windows 腿零警告是硬门禁，弃用警告清零口径见 common.md。
-- **win10 门禁副本的 ffmpeg dll 维护**：CI Windows job 自行下载 BtbN dll 放 PATH，本地 win10 副本 `C:\natigui\repo` 不入库 vendor dll——从日常工程 `C:\Users\noahliu\WorkBuddy\moonbit-navite-gui\moonbit-native-gui\modules\ffmpeg-mbt\vendor\win\bin` 复制 7 个 dll 到副本同路径，`gate-test.ps1` / `gate-build.ps1` 把该目录加进 PATH 即可跑媒体真解码测试。同步脚本 local_ci.sh 用 `--exclude='*.dll'` 保护副本 dll 不被 mac 侧同步覆盖或 `--delete` 删掉。判据：`gui-media media` 42/42 含视频循环重播 + 音频冒烟。
+- **win10 门禁副本的 ffmpeg dll 维护**：CI Windows job 自行下载 BtbN dll 放 PATH，本地 win10 副本 `C:\natigui\repo` 不入库 vendor dll——从工程副本 `C:\natigui\wb\modules\ffmpeg-mbt\vendor\win\bin` 复制 7 个 dll 到副本同路径，`gate-test.ps1` / `gate-build.ps1` 把该目录加进 PATH 即可跑媒体真解码测试。同步脚本 local_ci.sh 用 `--exclude='*.dll'` 保护副本 dll 不被 mac 侧同步覆盖或 `--delete` 删掉。判据：`gui-media media` 42/42 含视频循环重播 + 音频冒烟。
+
+## 仓库放太深触发 moonc 内部崩溃：构建产物路径顶到 260 字符上限，`\\?\` 长路径前缀让 moonc 自己崩 · 2026-11-20 win10 VM
+
+- **现象**：在 `C:\Users\noahliu\WorkBuddy\moonbit-navite-gui\moonbit-native-gui\examples\hello` 跑 `moon run .`，moonc 编 `moonbitlang/async/external_loop_integration` 时报内部编译器崩溃——吉祥物 ASCII 画加「This is a bug in the compiler」加 `Sys_error("\\?: Invalid argument")`，`-o` 输出路径带 `\\?\` 前缀；尾部再套一条 `Failed to run prebuild script for module NoahLiu/native-gui-experiment`——与 experiment 模块无关，它的 prebuild 只是整条构建链第一个撞上的，换任何模块都炸。
+  - 内部编译器崩溃：编译器自己意外退出，不是用户代码有错。
+  - 出错工具链：moonc v0.10.21+06da1ed44。
+- **根因**：仓库目录名长，构建产物再叠 `_build\prebuild\<64 位哈希>\prebuild.mbtx\wasm\debug\build\.mooncakes\…`，那条 `-o` 路径实测约 259 字符，贴着 Windows 默认单条路径 260 字符上限——moon 给超长路径自动加 `\\?\` 前缀，moonc 处理这份前缀的代码有 bug，写 `.core` 即崩。
+  - `\\?\` 前缀：Windows 对超长路径加的标记头，告诉系统按扩展长度路径处理。
+  - 判据：报错里 `-o` 路径数一数字符，逼近 260 且带 `\\?\`，即此坑。
+- **修法**：仓库放短路径。本 VM 门禁标准位是 `C:\natigui\repo`，另开的临时副本同盘 `move` 到 `C:\natigui\wb`——同盘 move 是改名不是复制，秒完成——挪完删 `_build` 再编，旧产物按老长路径生成、不可信。
+- **不奏效的路**：注册表 `LongPathsEnabled` 开了也没用——崩的不是系统拒绝长路径，是 moonc 自己处理 `\\?\` 前缀；升级 moonc 可能修复，仓库放短路径才是稳态。
+- **验证**：`cd C:\natigui\wb\examples\hello && moon build` 全仓 234 tasks 零错误，崩溃消失；长路径下同一命令必炸。`moon run .` 起窗留待真机。
