@@ -703,3 +703,38 @@ test "clip_round_rect：draw_image 吃裁切出真圆角图片" {
   let c2 = bm.pixel(15, 20)
   assert_eq((c2.r, c2.g, c2.b), (255, 0, 0))
 }
+
+///|
+test "blit：旋转 CTM 下扫描域盖住全部落点（文本/图片旋转不丢）" {
+  let p = Painter::new(Bitmap::new(60, 60))
+  let r = match p.raster() {
+    Some(r) => r
+    None => abort("无光栅臂")
+  }
+  r.save()
+  r.translate(30.0, 30.0)
+  // 20×10 蓝块绕 (30,30) 转 90°：落在 (25..35, 20..40)
+  r.rotate(1.5707963267948966)
+  r.translate(-30.0, -30.0)
+  let off = Bitmap::new(20, 10)
+  for y = 0; y < 10; y = y + 1 {
+    for x = 0; x < 20; x = x + 1 {
+      off.paint(x, y, { r: 0, g: 0, b: 255, a: 255 })
+    }
+  }
+  r.blit(off, 0.0, 0.0, 20.0, 10.0, 10.0, 25.0, 20.0, 10.0)
+  r.restore()
+  p.end()
+  let out = p.bitmap
+  // 数落下的蓝像素：旋转保面积，200 个左右（AA 边缘有少量过渡）
+  let mut blue = 0
+  for y = 0; y < 60; y = y + 1 {
+    for x = 0; x < 60; x = x + 1 {
+      let c = out.pixel(x, y)
+      if c.b >= 200 && c.r < 60 {
+        blue = blue + 1
+      }
+    }
+  }
+  assert_true(blue >= 180)
+}

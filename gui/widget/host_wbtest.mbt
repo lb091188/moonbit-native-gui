@@ -431,3 +431,34 @@ test "弹框开着时焦点链只收遮罩层，收框后页面回来" {
   )
   host_reset()
 }
+
+///|
+/// 毛玻璃扩块：脏区与玻璃矩形部分交叠时并入玻璃全块——blur 的糊窗边界随
+/// 脏区变会让玻璃区像素帧间漂移（真机「圆角边缘模糊位置闪烁」）。
+test "mark_widget_rect 与毛玻璃相交时并入玻璃全块" {
+  host_reset()
+  let a = fake_open()
+  let glass = Widget::new()
+  glass.set_size(120.0, 48.0)
+  glass.backdrop_blur_paint = 8.0
+  a.root.append_child(glass)
+  let hover = Widget::new()
+  hover.set_size(10.0, 10.0)
+  // 压在玻璃右半：部分交叠
+  hover.node.set_position(@yoga.Absolute)
+  hover.node.set_left(@yoga.fixed(100.0))
+  hover.node.set_top(@yoga.fixed(20.0))
+  glass.append_child(hover)
+  a.root.relayout(200.0, 200.0)
+  a.mark_widget_rect(hover)
+  match a.dirty_rect {
+    Some(r) =>
+      assert_true(
+        r.x <= glass.rect.x + 0.001 && r.w >= glass.rect.w - 0.001,
+        msg="脏区没含玻璃全块（\{r.x},\{r.y},\{r.w},\{r.h}），糊窗随脏区跳",
+      )
+    None => fail("应有脏区")
+  }
+  a.close_window()
+  host_reset()
+}

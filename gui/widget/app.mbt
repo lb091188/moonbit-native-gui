@@ -598,15 +598,51 @@ fn dirty_clip(full : Bool, rect : Rect?) -> Rect? {
 }
 
 ///|
+/// 矩形与毛玻璃控件相交吗（backdrop_blur 开着、可见、矩形相交）。
+fn blur_rect_hit(w : Widget, rect : Rect) -> Bool {
+  w.backdrop_blur_paint >= 1.0 &&
+  w.visible &&
+  w.rect.w > 0.0 &&
+  w.rect.h > 0.0 &&
+  w.rect.x < rect.x + rect.w &&
+  w.rect.x + w.rect.w > rect.x &&
+  w.rect.y < rect.y + rect.h &&
+  w.rect.y + w.rect.h > rect.y
+}
+
+///|
 /// 局部置脏：把一个控件的绝对矩形并入脏区并唤醒。带绘制期变换的控件取
 /// **变换外接矩形**——旋转/缩放的内容越出布局矩形，按原矩形标脏会留残影。
+/// 脏区与**毛玻璃控件**相交时把玻璃矩形整块并入——blur 的糊窗在糊区域边界
+/// 上取边缘样本，糊区域随脏区变则玻璃区像素帧间漂移（真机表现为圆角边缘
+/// 「模糊位置闪烁」）；全块并入后下层重画范围与糊窗每帧恒定，输出稳定。
 fn WindowHost::mark_widget_rect(self : WindowHost, w : Widget) -> Unit {
   self.session.dirty = true
+  let r = w.transform_expanded_rect(w.rect)
   self.dirty_rect = accept_widget_rect(
     self.dirty_full,
     self.dirty_rect,
-    w.transform_expanded_rect(w.rect),
+    r,
   )
+  if !self.dirty_full {
+    let hits : Array[Rect] = []
+    fn walk(w : Widget) -> Unit {
+      if !w.visible {
+        return
+      }
+      if blur_rect_hit(w, r) {
+        hits.push(w.transform_expanded_rect(w.rect))
+      }
+      for k in w.kids {
+        walk(k)
+      }
+    }
+
+    walk(self.root)
+    for br in hits {
+      self.dirty_rect = accept_widget_rect(false, self.dirty_rect, br)
+    }
+  }
   @win.wake()
 }
 

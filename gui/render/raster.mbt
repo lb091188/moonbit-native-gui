@@ -1107,7 +1107,22 @@ pub fn Raster::blit(
         (y1 - y0).to_double(),
       )
     }
-    None => (dx, dy, dw, dh)
+    None => {
+      // 旋转/斜切：目标四角的设备包围盒圈扫描域（采样仍按 total 逆映射走，
+      // 域小了旋转后的落点大半不进循环——实测旋转卡片文本整块丢失）
+      let (ax, ay) = self.m.apply(dx, dy)
+      let (bx, by) = self.m.apply(dx + dw, dy)
+      let (cx, cy) = self.m.apply(dx, dy + dh)
+      let (ex, ey) = self.m.apply(dx + dw, dy + dh)
+      let x0 = ax.min(bx).min(cx).min(ex).floor()
+      let y0 = ay.min(by).min(cy).min(ey).floor()
+      let x1 = ax.max(bx).max(cx).max(ex).ceil()
+      let y1 = ay.max(by).max(cy).max(ey).ceil()
+      if x1 <= x0 || y1 <= y0 {
+        return
+      }
+      (x0, y0, x1 - x0, y1 - y0)
+    }
   }
   // 采样域钳制边界（源子矩形的整数像素界）
   let lox = sx.floor().to_int()

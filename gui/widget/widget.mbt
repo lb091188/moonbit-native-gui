@@ -1451,13 +1451,28 @@ pub fn Widget::paint_at(
 
 ///|
 /// 绘制层序：按 `z_index_paint` 升序**稳定**排序（同值保持原数组序，于是后加的
-/// 子件仍画在前，与「kids 数组序即层序」的旧口径兼容）。插入排序——一屏兄弟
-/// 数量级小，且必须稳定（`Array::sort` 不保证）。
+/// 子件仍画在前，与「kids 数组序即层序」的旧口径兼容）。同 z 时**带绘制期变换
+/// 的排后画**——变换的溢出边要盖在兄弟之上（web transform 建 stacking context
+/// 的同款语义：变换即提升到普通流内容之上，显式 z_index 仍最高优先）。插入
+/// 排序——一屏兄弟数量级小，且必须稳定（`Array::sort` 不保证）。
 fn widget_paint_order(kids : Array[Widget]) -> Array[Widget] {
+  // 层序键：z 升序；同 z 时带变换的视作略大（排后）。动态 transform（悬停
+  // 放大/上浮）每帧重排自动生效，回落恒等即回普通层序。
+  let key_tf = fn(k : Widget) -> Int {
+    if k.has_transform() {
+      1
+    } else {
+      0
+    }
+  }
+  let key_gt = fn(a : Widget, b : Widget) -> Bool {
+    a.z_index_paint > b.z_index_paint ||
+    (a.z_index_paint == b.z_index_paint && key_tf(a) > key_tf(b))
+  }
   let out : Array[Widget] = []
   for k in kids {
     let mut i = out.length()
-    while i > 0 && out[i - 1].z_index_paint > k.z_index_paint {
+    while i > 0 && key_gt(out[i - 1], k) {
       i = i - 1
     }
     out.push(k)

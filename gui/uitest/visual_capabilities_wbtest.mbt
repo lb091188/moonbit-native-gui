@@ -340,3 +340,120 @@ test "视图⑧ 变换溢出：旋转后越出自身矩形仍可见" {
   assert_eq(t.pixel(16, 20), (0, 0, 255, 255))
   t.finish()
 }
+
+///|
+/// 视图连测⑨：变换控件 z 序提升——树序在前的变换卡溢出区盖住树序在后的
+/// 兄弟（web transform 建 stacking context 同款：同 z 时变换排后画）。
+test "视图⑨ 变换提升：旋转溢出区盖住后声明的兄弟" {
+  let t = mount(
+    @widget.node_of_new(fn(w) {
+      w.node.set_width(@yoga.fixed(40.0))
+      w.node.set_height(@yoga.fixed(40.0))
+      w.on_draw = Some(fn(_w, p, r) {
+        p.set_fill_color("#ff0000")
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      })
+      // A 树序在前：横条转 90° 成竖条 (15..25, 0..40)
+      let a = @widget.Widget::new()
+      a.node.set_position(@yoga.Absolute)
+      a.node.set_top(@yoga.fixed(15.0))
+      a.node.set_left(@yoga.fixed(0.0))
+      a.node.set_width(@yoga.fixed(40.0))
+      a.node.set_height(@yoga.fixed(10.0))
+      a.on_draw = Some(fn(_w, p, r) {
+        p.set_fill_color("#0000ff")
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      })
+      w.append_child(a)
+      @style.apply(a, @style.merge_all([@style.style(rotate=90.0)]))
+      // B 树序在后：8×8 红块压在 A 竖条中央——无提升时 B 后画盖住 A
+      let b = @widget.Widget::new()
+      b.node.set_position(@yoga.Absolute)
+      b.node.set_top(@yoga.fixed(16.0))
+      b.node.set_left(@yoga.fixed(16.0))
+      b.node.set_width(@yoga.fixed(8.0))
+      b.node.set_height(@yoga.fixed(8.0))
+      b.on_draw = Some(fn(_w, p, r) {
+        p.set_fill_color("#ff0000")
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      })
+      w.append_child(b)
+      w
+    }),
+    40.0,
+    40.0,
+  )
+  t.frame()
+  // A 提升后画：交叠区读到 A 的蓝，B 只在 A 竖条外露
+  assert_eq(t.pixel(20, 20), (0, 0, 255, 255))
+  assert_eq(t.pixel(19, 17), (0, 0, 255, 255))
+  // B 在竖条外的部分照常可见
+  assert_eq(t.pixel(26, 20), (255, 0, 0, 255))
+  t.finish()
+}
+
+///|
+/// 视图连测⑩：毛玻璃增量重绘稳定性——玻璃卡被局部重画时 blur 源必须是
+/// 干净的（位图现状是上帧糊值，重糊会逐帧加深/跳变）。
+test "视图⑩ 毛玻璃增量重绘：帧间像素稳定" {
+  let glass_ref : Ref[@widget.Widget?] = Ref(None)
+  let t = mount(
+    @widget.node_of_new(fn(w) {
+      w.node.set_width(@yoga.fixed(40.0))
+      w.node.set_height(@yoga.fixed(40.0))
+      w.on_draw = Some(fn(_w, p, r) {
+        p.set_fill_color("#ff0000")
+        p.fill_rect(0.0, 0.0, 20.0, r.h)
+        p.set_fill_color("#000000")
+        p.fill_rect(20.0, 0.0, r.w - 20.0, r.h)
+      })
+      let glass = @widget.Widget::new()
+      glass.name = "glass"
+      glass.node.set_position(@yoga.Absolute)
+      glass.node.set_top(@yoga.fixed(10.0))
+      glass.node.set_left(@yoga.fixed(10.0))
+      glass.node.set_width(@yoga.fixed(20.0))
+      glass.node.set_height(@yoga.fixed(20.0))
+      w.append_child(glass)
+      @style.apply(glass, @style.merge_all([@style.style(backdrop_blur=4.0)]))
+      glass_ref.val = Some(glass)
+      w
+    }),
+    40.0,
+    40.0,
+  )
+  let _ = match glass_ref.val {
+    Some(g) => g
+    None => abort("玻璃卡没挂上")
+  }
+  t.frame()
+  let bm1 = match t.bitmap() {
+    Some(b) => b
+    None => abort("没位图")
+  }
+  let c1 = bm1.pixel(17, 15)
+  let p1 = (c1.r, c1.g, c1.b, c1.a)
+  // 模拟增量帧：保留上一帧位图，只重画玻璃卡（clip=玻璃矩形）
+  let rect = match t.rect(t.by_name("glass")) {
+    Some(rr) => rr
+    None => abort("没矩形")
+  }
+  let bm2 = bm1.copy()
+  let p2 = @render.Painter::new(bm2)
+  t.root.paint_at(p2, 0.0, 0.0, clip=Some(rect))
+  p2.end()
+  let c2 = bm2.pixel(17, 15)
+  let q2 = (c2.r, c2.g, c2.b, c2.a)
+  // 再来一遍：三帧同值才稳定（现在重糊会逐帧加深，红通道往中间塌）
+  let bm3 = bm2.copy()
+  let p3 = @render.Painter::new(bm3)
+  t.root.paint_at(p3, 0.0, 0.0, clip=Some(rect))
+  p3.end()
+  let c3 = bm3.pixel(17, 15)
+  let q3 = (c3.r, c3.g, c3.b, c3.a)
+  assert_true(
+    (q2.0 - p1.0).abs() <= 2 &&
+    (q3.0 - p1.0).abs() <= 2,
+  )
+  t.finish()
+}
