@@ -1317,10 +1317,17 @@ pub fn Widget::paint_at(
   }
   // 绘制前样式刷新：这一帧的动态 transform/背景模糊先落槽再消费（状态桶/
   // 过渡插值/关键帧全在样式层汇齐）。被视口剔除的控件也刷——动画账的推进
-  // 不依赖画没画。
+  // 不依赖画没画。kids 先统一刷一遍：下面的父裁切范围扫描与尾部层序排序
+  // 读的都是**本帧**的子件槽值（悬停放大/z 浮起在切换帧就生效）。
   match paint_style_hook.val {
     Some(f) => f(self)
     None => ()
+  }
+  for k in self.kids {
+    match paint_style_hook.val {
+      Some(f) => f(k)
+      None => ()
+    }
   }
   // 视口剔除（纯光栅器后端）：整块落在当前裁剪外的控件直接跳过遍历——累积
   // 验证页一屏叠十几页，整树重画实测 550ms/帧（真机「窗口未响应」的主因之一），
@@ -1385,11 +1392,12 @@ pub fn Widget::paint_at(
       round=self.backdrop_round_paint,
     )
   }
-  // 溢出裁切（overflow）：默认裁到控件矩形；Visible 档跳过（越界装饰逃生口）。
-  // 挂绘制期变换的控件整体豁免——变换的语义就是视觉越出盒子（悬停放大/上浮/
-  // 旋转的溢出边），被自身裁切吃掉效果就没了；子件想裁自己各自声明。
+  // 溢出裁切（overflow）：默认裁到控件矩形（扩到变换子件外接，见
+  // clip_scope_rect）；Visible 档跳过（越界装饰逃生口）。挂绘制期变换的
+  // 控件整体豁免——变换的语义就是视觉越出盒子，被裁切吃掉效果就没了。
   if self.clip_content && !self.has_transform() {
-    p.clip_rect(0.0, 0.0, self.rect.w, self.rect.h)
+    let sc = self.clip_scope_rect()
+    p.clip_rect(sc.x - self.rect.x, sc.y - self.rect.y, sc.w, sc.h)
   }
   // 圆角裁切（clip_rounded）两段式：旗**进绘制前已在场**（挂载期声明，如圆角
   // 图片容器）就在自绘前裁——自绘与子件全吃裁切；旗是 on_draw 里才立的
@@ -1410,10 +1418,11 @@ pub fn Widget::paint_at(
   if !(self.blend_paint is Normal) {
     p.set_blend_mode(self.blend_paint)
   }
-  // 本控件的有效裁剪：自身声明 clip_content 时收到自身矩形，否则继承父链
+  // 本控件的有效裁剪：自身声明 clip_content 时收到「自身矩形 ∪ 变换子件
+  // 外接矩形」（clip_scope_rect 同口径），否则继承父链
   // （GPU 档 draw 的 clip 位；CPU 档等价信息在 Painter 裁剪栈里）
   let eff_clip = if self.clip_content && !self.has_transform() {
-    clip_isect(self.rect, clip)
+    clip_isect(self.clip_scope_rect(), clip)
   } else {
     clip
   }
@@ -1447,7 +1456,8 @@ pub fn Widget::paint_at(
   }
   // 层序:按 resolved z_index **稳定**重排(同值保持 kids 数组序=尾画者赢,
   // design.md §1.2「层序按 kids 数组序」的过渡口径被 z_index 取代);未应用过
-  // 样式的树全部 0.0,排序恒等,现有示例逐帧不变。
+  // 样式的树全部 0.0,排序恒等,现有示例逐帧不变。子件槽已在 paint_at 开头
+  // 统一预刷,排序读到的是本帧值。
   for k in widget_paint_order(self.kids) {
     k.paint_at(p, self.rect.x, self.rect.y, clip=eff_clip)
   }
@@ -1495,6 +1505,27 @@ fn widget_paint_order(kids : Array[Widget]) -> Array[Widget] {
 }
 
 ///|
+
+///|
+/// 父裁切的范围口径：自身矩形 ∪ 带变换子件的外接矩形。变换子件的溢出边
+/// （悬停放大/上浮/旋转）是声明的视觉，不吃父的默认裁切——web 的 overflow
+/// 默认 visible，默认裁到自身矩形会把溢出全裁没（真机「悬停放大被父级限制
+/// 范围」）。普通子件仍被裁到自身矩形内；只扫一层（深层变换子件随其父裁切
+/// 口径走）。
+fn Widget::clip_scope_rect(self : Widget) -> @base.Rect {
+  let mut out : @base.Rect = {
+    x: self.rect.x,
+    y: self.rect.y,
+    w: self.rect.w,
+    h: self.rect.h,
+  }
+  for k in self.kids {
+    if k.visible && k.has_transform() {
+      out = out.union(k.transform_expanded_rect(k.rect))
+    }
+  }
+  out
+}
 
 ///|
 /// 控件矩形（内容坐标）与当前设备裁剪不相交则为 true（可跳过）。

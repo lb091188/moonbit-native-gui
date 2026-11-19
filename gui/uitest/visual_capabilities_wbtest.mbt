@@ -470,3 +470,68 @@ test "视图⑩ 毛玻璃增量重绘：帧间像素稳定" {
   )
   t.finish()
 }
+
+///|
+/// 视图连测⑪：父级默认裁切豁免变换子件——放大后的溢出带越过父矩形仍可见
+/// （web overflow 默认 visible 的观感；普通子件照旧被裁到父矩形内）。
+test "视图⑪ 父裁切豁免：放大溢出 row 顶仍可见" {
+  let card_ref : Ref[@widget.Widget?] = Ref(None)
+  let t = mount(
+    @widget.node_of_new(fn(w) {
+      w.node.set_width(@yoga.fixed(40.0))
+      w.node.set_height(@yoga.fixed(40.0))
+      w.on_draw = Some(fn(_w, p, r) {
+        p.set_fill_color("#ff0000")
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      })
+      let row = @widget.Widget::new()
+      row.name = "row"
+      row.node.set_position(@yoga.Absolute)
+      row.node.set_top(@yoga.fixed(10.0))
+      row.node.set_left(@yoga.fixed(2.0))
+      row.node.set_width(@yoga.fixed(36.0))
+      row.node.set_height(@yoga.fixed(20.0))
+      w.append_child(row)
+      let card = @widget.Widget::new()
+      card.name = "card"
+      card.node.set_position(@yoga.Absolute)
+      card.node.set_top(@yoga.fixed(2.0))
+      card.node.set_left(@yoga.fixed(8.0))
+      card.node.set_width(@yoga.fixed(20.0))
+      card.node.set_height(@yoga.fixed(16.0))
+      card.on_draw = Some(fn(_w, p, r) {
+        p.set_fill_color("#0000ff")
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      })
+      row.append_child(card)
+      @style.apply(
+        card,
+        @style.merge_all([
+          @style.style(transition_ms=0.0).hover(scale_x=2.0, scale_y=2.0),
+        ]),
+      )
+      card_ref.val = Some(card)
+      w
+    }),
+    40.0,
+    40.0,
+  )
+  let card = match card_ref.val {
+    Some(c) => c
+    None => abort("卡没挂上")
+  }
+  t.frame()
+  // 未悬停：卡 (10,12)-(30,28) 在 row (2,10)-(38,30) 内
+  assert_eq(t.pixel(20, 20), (0, 0, 255, 255))
+  // 悬停放大 2×：卡外接 (10,4)-(30,36)——顶部溢出 row 顶（y=10）上方，
+  // 溢出带 (20,6) 是卡色；row 外远离处仍露根红
+  t.root.set_hover(card.id)
+  t.frame()
+  assert_eq(t.pixel(20, 6), (0, 0, 255, 255))
+  assert_eq(t.pixel(20, 2), (255, 0, 0, 255))
+  // 移出回落：溢出带回到根红
+  t.root.set_hover(0)
+  t.frame()
+  assert_eq(t.pixel(20, 6), (255, 0, 0, 255))
+  t.finish()
+}
