@@ -241,7 +241,30 @@ fn main {
           t.on_click(fn() {
             tray_clicks.update(fn(n) { n + 1 })
           })
-          tray_note.set("托盘：已建")
+          // 右键菜单：关于窗开关 + 分隔线 + 退出（右键无回调时自动弹已挂菜单）
+          let menu = @shell.Menu::new()
+          let about = menu.add_item("关于窗")
+          about.on_click = Some(fn() {
+            match host_ref.val {
+              Some(a) =>
+                for i, k in child_kinds {
+                  if k.0 == "关于窗" {
+                    toggle_child(a, k, win_count, child_open[i], child_hosts[i])
+                  }
+                }
+              None => ()
+            }
+          })
+          let _ = menu.add_separator()
+          let quit = menu.add_role_item(@shell.MenuRole::Quit)
+          quit.on_click = Some(fn() {
+            match host_ref.val {
+              Some(a) => a.quit()
+              None => ()
+            }
+          })
+          t.set_menu(menu)
+          tray_note.set("托盘：已建（\{t.backend_name()}）")
         }
         Err(e) => tray_note.set("托盘：" + tray_err(e))
       }
@@ -249,6 +272,8 @@ fn main {
       let tick : Ref[() -> Unit] = Ref(fn() { () })
       tick.val = fn() -> Unit {
         let _ = @shell.dispatch_tray_event()
+        // 托盘菜单选中项经菜单队列回来，同一拍抽掉
+        let _ = @shell.dispatch_menu_command()
         win_count.set(a.window_count())
         // 子窗被标题栏关掉时把开关状态收回（自关按钮已即时清）
         for i, slot in child_hosts {

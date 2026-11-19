@@ -109,6 +109,16 @@ fn main {
             app.tray_clicks.update(fn(n) { n + 1 })
             app.toast_push(@shared.tx("托盘左键被点了"), @ui.Info)
           })
+          // 右键菜单：冒提示 + 分隔线 + 退出——段说明「默认挂上右键菜单」由此为真
+          let menu = @shell.Menu::new()
+          let ping = menu.add_item(@shared.tx("冒个提示"))
+          ping.on_click = Some(fn() {
+            app.toast_push(@shared.tx("来自托盘菜单"), @ui.Info)
+          })
+          let _ = menu.add_separator()
+          let quit = menu.add_role_item(@shell.MenuRole::Quit)
+          quit.on_click = Some(fn() { a.quit() })
+          t.set_menu(menu)
           app.tray.val = Some(t)
           app.tray_note.set(
             @shared.tr_with(
@@ -124,6 +134,8 @@ fn main {
       let tray_tick : Ref[() -> Unit] = Ref(fn() { () })
       tray_tick.val = fn() -> Unit {
         let _ = @shell.dispatch_tray_event()
+        // 托盘菜单选中项经菜单队列回来，同一拍抽掉
+        let _ = @shell.dispatch_menu_command()
         let _ = a.timer(200, tray_tick.val)
       }
       (tray_tick.val)()
