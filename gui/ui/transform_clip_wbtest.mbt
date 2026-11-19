@@ -6,6 +6,9 @@ fn tf_bm(w : @widget.Widget, wpx : Int32, hpx : Int32) -> @render.Bitmap {
   let bm = @render.Bitmap::new(wpx, hpx)
   let p = @render.Painter::new(bm)
   w.paint_at(p, w.rect.x, w.rect.y)
+  // paint_at 直画不经 paint 尾收帧：登记的变换溢出带要显式消费，否则残留
+  // 到下一次帧收尾被误重画
+  @widget.finish_frame_paint(p)
   p.end()
   bm
 }

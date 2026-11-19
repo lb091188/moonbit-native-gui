@@ -1220,6 +1220,63 @@ pub fn Widget::set_padding_all(self : Widget, v : Double) -> Unit {
 /// （后画的覆盖在前，与命中优先级同一口径）。整窗共用一个绘制器会话。
 pub fn Widget::paint(self : Widget, p : @render.Painter) -> Unit {
   self.paint_at(p, 0.0, 0.0)
+  finish_frame_paint(p)
+}
+
+///|
+/// 帧绘制收尾：把本帧登记的变换溢出带重画到顶层（跨容器变换提升的消费点）。
+/// `paint` 尾部自动调；绕过 `paint` 直用 `paint_at` 的场合（无头测试、离屏
+/// 导出）画完要自己调一次，否则登记残留到下一次帧收尾被误重画。
+pub fn finish_frame_paint(p : @render.Painter) -> Unit {
+  replay_lift_bands(p)
+}
+
+///|
+/// 跨容器变换提升：带绘制期变换的控件在 paint_at 时登记（每帧一次），整帧
+/// 画完后把它的**溢出带**（变换外接矩形超出布局矩形的四条带）重画到顶层。
+/// 同父层序提升（paint_order 的 has_transform 次级键）盖不到跨容器场景——
+/// 溢出伸进后画兄弟的区域（下一个 section 的整块背景）会被盖住，web 靠根级
+/// stacking context 解决，这里以帧尾顶层重画达成同款观感。重画 clip 收紧到
+/// 溢出带，普通区域内不重复落笔。
+let lift_list : Array[(Widget, Double, Double, Int32)] = []
+
+///|
+fn replay_lift_bands(p : @render.Painter) -> Unit {
+  if lift_list.length() == 0 {
+    return
+  }
+  let cur = paint_epoch_ref.val
+  let items : Array[(Widget, Double, Double)] = []
+  for item in lift_list {
+    let (w, ox, oy, e) = item
+    if e == cur {
+      items.push((w, ox, oy))
+    }
+  }
+  lift_list.clear()
+  for item in items {
+    let (w, ox, oy) = item
+    let ext = w.transform_expanded_rect(w.rect)
+    // 四条带（窗口坐标）：上、下、左、右；空带跳过
+    let band = fn(x : Double, y : Double, bw : Double, bh : Double) -> @base.Rect {
+      { x, y, w: bw, h: bh }
+    }
+
+    let bands = [
+      band(ext.x, ext.y, ext.w, w.rect.y - ext.y),
+      band(ext.x, w.rect.y + w.rect.h, ext.w, ext.y + ext.h - (w.rect.y + w.rect.h)),
+      band(ext.x, w.rect.y, w.rect.x - ext.x, w.rect.h),
+      band(w.rect.x + w.rect.w, w.rect.y, ext.x + ext.w - (w.rect.x + w.rect.w), w.rect.h),
+    ]
+    for b in bands {
+      if b.w > 0.5 && b.h > 0.5 {
+        p.save()
+        p.clip_rect(b.x, b.y, b.w, b.h)
+        w.paint_at(p, ox, oy, replay=true)
+        p.restore()
+      }
+    }
+  }
 }
 
 ///|
@@ -1311,9 +1368,18 @@ pub fn Widget::paint_at(
   ox : Double,
   oy : Double,
   clip~ : @base.Rect? = None,
+  replay~ : Bool = false,
 ) -> Unit {
   if !self.visible {
     return ()
+  }
+  // 溢出带顶层重画的登记：带变换且有实际溢出（外接超出布局）的控件入本帧
+  // 列表，paint 尾统一重画四条带；重画自身（replay=true）不再登记。
+  if !replay && self.has_transform() {
+    let ext = self.transform_expanded_rect(self.rect)
+    if ext.w > self.rect.w + 0.5 || ext.h > self.rect.h + 0.5 {
+      lift_list.push((self, ox, oy, paint_epoch_ref.val))
+    }
   }
   // 绘制前样式刷新：这一帧的动态 transform/背景模糊先落槽再消费（状态桶/
   // 过渡插值/关键帧全在样式层汇齐）。被视口剔除的控件也刷——动画账的推进

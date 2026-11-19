@@ -535,3 +535,67 @@ test "视图⑪ 父裁切豁免：放大溢出 row 顶仍可见" {
   assert_eq(t.pixel(20, 6), (255, 0, 0, 255))
   t.finish()
 }
+
+///|
+/// 视图连测⑫：跨容器变换提升——旋转卡的溢出角伸进**后画的兄弟容器**区域，
+/// 同父层序提升盖不到，帧尾溢出带顶层重画把它压回来（web 根级 stacking
+/// context 的同款观感）。
+test "视图⑫ 跨容器提升：溢出伸进后画兄弟区域不被盖" {
+  let t = mount(
+    @widget.node_of_new(fn(w) {
+      w.node.set_width(@yoga.fixed(40.0))
+      w.node.set_height(@yoga.fixed(40.0))
+      w.on_draw = Some(fn(_w, p, r) {
+        p.set_fill_color("#ff0000")
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      })
+      // secA：旋转卡的容器（先画）
+      let sec_a = @widget.Widget::new()
+      sec_a.node.set_position(@yoga.Absolute)
+      sec_a.node.set_top(@yoga.fixed(0.0))
+      sec_a.node.set_left(@yoga.fixed(0.0))
+      sec_a.node.set_width(@yoga.fixed(40.0))
+      sec_a.node.set_height(@yoga.fixed(20.0))
+      w.append_child(sec_a)
+      // 旋转卡：30×10 转 90° → 竖条外接 y -5..25，下带伸进 secB 区域
+      let bar = @widget.Widget::new()
+      bar.node.set_position(@yoga.Absolute)
+      bar.node.set_top(@yoga.fixed(5.0))
+      bar.node.set_left(@yoga.fixed(5.0))
+      bar.node.set_width(@yoga.fixed(30.0))
+      bar.node.set_height(@yoga.fixed(10.0))
+      bar.on_draw = Some(fn(_w, p, r) {
+        p.set_fill_color("#00ff00")
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      })
+      sec_a.append_child(bar)
+      @style.apply(bar, @style.merge_all([@style.style(rotate=90.0)]))
+      // secB：后画的白块（无 replay 时盖住溢出下带）
+      let sec_b = @widget.Widget::new()
+      sec_b.node.set_position(@yoga.Absolute)
+      sec_b.node.set_top(@yoga.fixed(20.0))
+      sec_b.node.set_left(@yoga.fixed(0.0))
+      sec_b.node.set_width(@yoga.fixed(40.0))
+      sec_b.node.set_height(@yoga.fixed(20.0))
+      sec_b.on_draw = Some(fn(_w, p, r) {
+        p.set_fill_color("#ffffff")
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      })
+      w.append_child(sec_b)
+      w
+    }),
+    40.0,
+    40.0,
+  )
+  t.frame()
+  // 下带（y 20..25）重画到顶层：读到卡绿而非 secB 白
+  let c = t.pixel(20, 22)
+  assert_true(
+    c.1 >= 230 && c.0 < 60 && c.2 < 60,
+    msg="溢出带被后画兄弟盖住（\\{c.0},\\{c.1},\\{c.2}），跨容器提升没生效",
+  )
+  // secB 自身区域（卡外接外）仍是白
+  let out = t.pixel(5, 30)
+  assert_eq(out, (255, 255, 255, 255))
+  t.finish()
+}
