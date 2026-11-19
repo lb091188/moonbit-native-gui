@@ -693,7 +693,7 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
 
 ### 工程与交付
 
-- ⏳ **品牌与应用图标 v1**：master 图标「月兔坐进应用窗口的屏幕」透明底 + 品牌四色落 `assets/brand/`
+- ⏳ **品牌与应用图标 v1**：master 图标「月兔坐进应用窗口」透明底 + 品牌四色落 `assets/brand/`
   - 定案：见对内 experience/brand.md。
   - 导出矩阵脚本化：macOS icns / Windows ico / Linux png / favicon / 文档站 logo。
   - 待验：应用图标替换真机

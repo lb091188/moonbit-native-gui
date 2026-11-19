@@ -1,11 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
-  <!-- master 应用图标：月兔坐进应用窗口的屏幕里，透明底；定案见 experience/brand.md -->
+  <!-- master 应用图标：月兔坐进应用窗口，透明底；定案见 experience/brand.md -->
   <rect x="72" y="120" width="880" height="784" rx="96" fill="#2E33C9"/>
   <path d="M168 120 H856 A96 96 0 0 1 952 216 V232 H72 V216 A96 96 0 0 1 168 120 Z" fill="#2428A5"/>
   <circle cx="148" cy="176" r="15" fill="#E8F0FB" opacity="0.8"/>
   <circle cx="204" cy="176" r="15" fill="#E8F0FB" opacity="0.8"/>
   <circle cx="260" cy="176" r="15" fill="#E8F0FB" opacity="0.8"/>
-  <rect x="100" y="232" width="824" height="644" rx="72" fill="#F5F7FA"/>
   <ellipse cx="384" cy="425" rx="62" ry="160" transform="rotate(-13 384 425)" fill="#C73E94"/>
   <ellipse cx="384" cy="420" rx="26" ry="112" transform="rotate(-13 384 420)" fill="#F1D3E6"/>
   <ellipse cx="640" cy="425" rx="62" ry="160" transform="rotate(13 640 425)" fill="#C73E94"/>
