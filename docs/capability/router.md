@@ -1,58 +1,58 @@
-# Page routing (@router)
+# 页面路由（@router）
 
-Single-window multi-page apps: one route tree of any depth + an authoritative selection key per level. Sidebars, segmented bars, breadcrumbs, buttons, native menu items — every one is just a link host, wired through the same binding entry. `moon.pkg`:
+单窗口多页应用：一棵任意深度的路由树 + 每层一个权威选中键。侧栏、段条、面包屑、按钮、原生菜单都只是 link 的宿主，一律走同一个绑定入口。`moon.pkg` 引入：
 
 ```
 "NoahLiu/native-gui/router" @router,
 ```
 
-## Three-step wiring
+## 三步接线
 
-**1. Define the tree**: `route_leaf` carries the content builder, `route_branch` carries children:
+**1. 定树**：`route_leaf` 挂内容构造，`route_branch` 带子表：
 
 ```moonbit
 let routes : Array[@router.Route] = [
-  @router.route_branch("Settings", [
-    @router.route_leaf("General", fn() { @ui.col([@ui.text("General settings")]) }),
-    @router.route_leaf("Appearance", fn() { @ui.col([@ui.text("Appearance")]) }),
+  @router.route_branch("设置", [
+    @router.route_leaf("常规", fn() { @ui.col([@ui.text("常规设置")]) }),
+    @router.route_leaf("外观", fn() { @ui.col([@ui.text("外观设置")]) }),
   ]),
-  @router.route_leaf("About", fn() { @ui.col([@ui.text("About")]) }),
+  @router.route_leaf("关于", fn() { @ui.col([@ui.text("关于")]) }),
 ]
 ```
 
-**2. Build the router**: `new_router(routes)`; read a level's selection key with `nav.store_at(0)` (levels are 0-based).
+**2. 建路由**：`new_router(routes)`；每层选中键读 `nav.store_at(0)`（层级 0 起始）。
 
-**3. Attach hosts** — one line each for sidebar and content area:
+**3. 接载体**：侧栏与内容区各一行：
 
 ```moonbit
 let nav = @router.new_router(routes)
-// sidebar
-nav.sidebar([("Settings", ["General", "Appearance"])], label_of=fn(k) { k })
-// content area: mounts whichever page is selected
+// 侧栏
+nav.sidebar([("设置", ["常规", "外观"])], label_of=fn(k) { k })
+// 主区：选中哪页挂哪页
 nav.view(None)
 ```
 
-Drop both into the `mount_window` node tree. Full wiring (sidebar in a scroll view, native menu items, toggle buttons) is in the components source `examples/components/main.mbt`.
+放进 `mount_window` 的节点树即可。完整接线（侧栏外包滚动、原生菜单项、切换按钮）见 components 源码 `examples/components/main.mbt`。
 
-## Keys and paths
+## 键与路径
 
-Each level stores its short key; uniqueness is scoped to **the same parent** (same key under different parents is legal); path = level keys joined with `/`. `nav.path()` reads the current path, `nav.goto("Settings/Appearance")` navigates, `nav.resolve("Settings/Appearance")` splits it into level keys. A branch's key defaults to the first leaf until an explicit `goto`.
+每层存该层短名，唯一性域是**同父唯一**（跨父重名合法）；路径 = 各层选中值用 `/` 连接。`nav.path()` 读当前路径，`nav.goto("设置/外观")` 跳转，`nav.resolve("设置/外观")` 拆成各层键。分支节点的选中键在未显式 goto 时取子表首个叶。
 
-## Link binding
+## link 绑定
 
-Hosts know nothing about routing — they bind a key: menu items, buttons, table rows take `nav.on_link(key)` (a `() -> Unit` to attach); wrap an existing node with `nav.route_link(key, node)`. Native menus (`@shell.MenuBar`) attach `nav.on_link(name)` the same way.
+载体不感知「路由」，只绑定 key：菜单项、按钮、表格行的点击回调都是 `nav.on_link(key)`（拿一个 `() -> Unit` 绑上即跳转）；给已有节点套绑定用 `nav.route_link(key, node)`。原生菜单（`@shell.MenuBar`）同样接 `nav.on_link(name)`。
 
-- Breadcrumb: `nav.breadcrumb()` returns a node directly.
-- Multiple levels: `children_at(depth)` lists a level's keys, `store_at(depth)` / `route_at(depth)` read or write that level's state.
+- 面包屑：`nav.breadcrumb()` 直接给节点。
+- 多层：`children_at(depth)` 列某层可选键，`store_at(depth)` / `route_at(depth)` 读写该层状态。
 
-## Load & eviction
+## 加载与淘汰
 
-`LoadPolicy`: `Eager` (build immediately at startup — for nodes whose construction effects are needed early), `Prefetch` (idle first-order queue, the `Router` default), `Lazy` (build on first selection — heavy probe pages). Nodes override individually; `None` follows the owning `Router`'s default.
+`LoadPolicy`：`Eager`（建窗当场构造，启动期就要效果的节点用）、`Prefetch`（空闲先序队列预建，`Router` 默认）、`Lazy`（首次选中才构造，重探测页用）。节点可逐个覆盖，不给跟随所在 `Router` 的默认值。
 
-`EvictPolicy`: `Keep` (mounted subtrees stay intact; switching pages only toggles visibility, each keeps its scroll position), `Lru(n)` (a level's slot keeps at most n mounted subtrees; the least recently used is evicted).
+`EvictPolicy`：`Keep`（挂过就保形，切页只切显隐，滚动位置各自保留）、`Lru(n)`（本层槽最多保 n 棵已挂载子树，超出最久未用者淘汰）。
 
-Prefetch controls: `start_prefetch` / `stop_prefetch` pace the queue, `build_now(path)` builds immediately, `purge_built` / `purge_all_built` evict manually. Queries: `is_built` / `built_count` / `pending_count`.
+预建相关：`start_prefetch` / `stop_prefetch` 手动控制队列节奏，`build_now(path)` 立即构造，`purge_built` / `purge_all_built` 手动淘汰。查询：`is_built` / `built_count` / `pending_count`。
 
-## Locale changes & routing
+## 界面语言与路由联动
 
-When the whole UI switches language, page content must be remounted in place: register `nav.localize_remount()` and a locale-change broadcast triggers the remount (see [i18n](i18n.md)). Since `route_leaf`'s `build` runs at mount time, remounted pages pick up the new language.
+界面整体换语言时页内容要原地重挂：`nav.localize_remount()` 注册后，语言切换广播会触发重挂（见[多语言](i18n.md)）。配合 `route_leaf` 的 `build` 在挂载期执行，重挂后文案即新语言。

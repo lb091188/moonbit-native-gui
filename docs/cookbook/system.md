@@ -1,24 +1,24 @@
-# System capability recipes
+# 系统能力场景
 
-The capability family uses a uniform `Result` semantics and returns error values in unsupported environments; the three-platform matrix is in [System capabilities overview](../capability/sys.md). Import list and ground rules: see [How-to overview](index.md#prerequisites).
+系统能力族统一 `Result` 语义，不支持的环境返回错误值；三平台支持矩阵见[系统能力总览](../capability/sys.md)。import 清单见[场景总览](index.md#公共前提)。
 
-## Opening links / revealing files
+## 打开链接与定位文件
 
-`@sys.open_url` opens a URL; `@sys.open_file` hands a file to the system's default program; `@shell.reveal_in_file_manager` locates and selects it in the file manager.
+`@sys.open_url` 开 URL；`@sys.open_file` 把文件交系统默认程序；`@shell.reveal_in_file_manager` 在文件管理器中定位并选中。
 
 ```moonbit
 @ui.col(
   [
-    @ui.link("Open the docs", fn() {
+    @ui.link("打开文档站", fn() {
       let _ = @sys.open_url("https://moonbit-native-gui.pages.dev")
     }),
-    @ui.button("Open image", on_click=fn() {
+    @ui.button("打开图片", on_click=fn() {
       let _ = @sys.open_file("/home/me/photo.png")
     }),
-    @ui.button("Reveal in file manager", on_click=fn() {
+    @ui.button("在文件管理器中显示", on_click=fn() {
       match @shell.reveal_in_file_manager("/home/me/photo.png") {
         Ok(_) => ()
-        Err(e) => println("reveal failed: \{e}")
+        Err(e) => println("定位失败：\{e}")
       }
     }),
   ],
@@ -26,39 +26,39 @@ The capability family uses a uniform `Result` semantics and returns error values
 )
 ```
 
-## Copying to the clipboard
+## 复制到剪贴板
 
-`clipboard_set_text` writes the system clipboard directly and returns a `Bool`.
+`clipboard_set_text` 直写系统剪贴板，返回 `Bool`。
 
 ```moonbit
-@ui.button("Copy install command", on_click=fn() {
+@ui.button("复制安装命令", on_click=fn() {
   if @sys.clipboard_set_text("moon add NoahLiu/native-gui") {
-    toast("Copied", @ui.Success)   // toast, see [A toast](interaction.md#a-toast)
+    toast("已复制", @ui.Success)   // toast 见[轻提示](interaction.md#轻提示)
   }
 })
 ```
 
-Read with `clipboard_get_text() -> String?`. Input fields already talk to the system clipboard themselves.
+读用 `clipboard_get_text() -> String?`。输入框内部已默认接系统剪贴板。
 
-## Desktop notifications
+## 桌面通知
 
-`@shell.notify_send(app_name, title, body, ...)`; probe with `notify_supported()` first. Linux goes over D-Bus, Windows uses the tray balloon, macOS uses the UN center (`notify_backend_name()` reports the real backend per platform).
+`@shell.notify_send(应用名, 标题, 正文, ...)`，先 `notify_supported()` 探测。Linux 走 D-Bus、Windows 走托盘气泡、macOS 走 UN 中心（`notify_backend_name()` 按平台报真名）。
 
-Common optional arguments: `icon?` (theme icon name on Linux), `timeout_ms?` (Linux only — Vista and later ignore it for balloons), `replaces_id?` (non-zero replaces that notification), `progress?` (0..100 — a bar on Linux, appended to the body on Windows), `kind?` (0 info / 1 warning / 2 error), `urgent?` (defaults to `true`, see below).
+常用可选参：`icon?`（Linux 的主题图标名）、`timeout_ms?`（Linux 时长，Win32 自 Vista 起由系统定）、`replaces_id?`（非 0 覆盖同 id 那张）、`progress?`（0..100，Linux 画进度条、Win32 拼进正文）、`kind?`（0 信息 / 1 警告 / 2 错误）、`urgent?`（缺省 `true`，见下）。
 
 ```moonbit
-@ui.button("Send notification", on_click=fn() {
+@ui.button("发通知", on_click=fn() {
   if @shell.notify_supported() {
-    match @shell.notify_send("My App", "Build finished", "3 targets produced") {
-      Ok(_id) => toast("Sent", @ui.Info)
-      Err(e) => println("notify failed: \{e}")
+    match @shell.notify_send("我的应用", "构建完成", "3 个目标已产出") {
+      Ok(_id) => toast("已发送", @ui.Info)
+      Err(e) => println("通知失败：\{e}")
     }
   } else {
-    println("notifications not supported here")
+    println("当前环境不支持通知")
   }
 })
 ```
 
-`urgent?` is the **interruption level**, honoured on macOS only: `true` posts at the time-sensitive level, so the banner appears even while the app is in the foreground; `false` posts at the default level, which stays silent while the app is busy and only lands in Notification Center. If the user turns off time-sensitive authorization in System Settings, `true` degrades to the same silence. Linux and Windows accept and ignore it — the freedesktop urgency hint is deliberately not mapped (`critical` means "never disappears", a different thing).
+`urgent?` 是**打扰档**，只有 macOS 吃：`true` 走时间敏感档，应用在前台忙时也直接出横幅；`false` 退普通档，前台忙时静默、只进通知中心。用户在系统设置里关掉「时间敏感」授权后，即便传 `true` 同样回到静默。Linux / Windows 收下忽略——Linux 的 freedesktop urgency hint 不做映射（`critical` 是常驻不消失的语义，与这一档不是一回事）。
 
-Notes: send from event callbacks. On macOS the desktop banner requires running as an `.app` bundle, and first use asks for system authorization; see the [experience guide](../guide/experience.md).
+注意：在事件回调里发。macOS 桌面横幅要求 `.app` bundle 形态运行，首次使用请求系统授权；见[体验文档](../guide/experience.md)。

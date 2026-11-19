@@ -1,164 +1,164 @@
-# Volume & media
+# 音量与媒体
 
-Uniform `Result` semantics and the support matrix: [System capabilities overview](sys.md).
+统一 `Result` 语义与支持矩阵见[系统能力总览](sys.md)。
 
-## System Volume
+## 系统音量
 
-Acts on the default output device (default sink). The backend is auto-detected: wpctl (PipeWire/WirePlumber) is preferred; when unavailable it falls back to pactl (pipewire-pulse / PulseAudio); when neither works the result is `Unsupported`. The probe runs for real on every call — cache the results yourself in high-frequency scenarios.
+作用于默认输出设备（default sink）。后端自动探测：优先 wpctl（PipeWire/WirePlumber），不可用回退 pactl（pipewire-pulse / PulseAudio），两者都不可用即 `Unsupported`。探测每次真实执行，高频场景请调用方自行缓存结果。
 
-| Function | Description |
+| 函数 | 说明 |
 |---|---|
-| `vol_supported() -> Bool` | whether the current system supports volume control |
-| `vol_get() -> Result[VolumeInfo, VolumeError]` | read a snapshot: `VolumeInfo{ sink, volume, muted }`; the sink is an empty string when unavailable, which does not affect volume or mute |
-| `vol_set(percent) -> Result[Unit, VolumeError]` | set absolute volume (0-100, out-of-range clamped) |
-| `vol_add(delta) -> Result[Unit, VolumeError]` | relative adjust; the tool side clamps the final volume |
-| `vol_set_mute(mute) -> Result[Unit, VolumeError]` | set / clear mute |
+| `vol_supported() -> Bool` | 当前系统是否支持音量控制 |
+| `vol_get() -> Result[VolumeInfo, VolumeError]` | 读快照：`VolumeInfo{ sink, volume, muted }`；sink 取不到时为空串，不影响音量与静音 |
+| `vol_set(percent) -> Result[Unit, VolumeError]` | 设绝对音量（0-100，出界钳制） |
+| `vol_add(delta) -> Result[Unit, VolumeError]` | 相对增减；最终音量由工具侧钳制 |
+| `vol_set_mute(mute) -> Result[Unit, VolumeError]` | 设 / 取消静音 |
 
-Error `VolumeError`: `Unsupported` (no usable volume tool) / `CommandFailed(String)` (includes timeout) / `ParseFailed(String)` (output parse failed, carries the raw text).
+错误 `VolumeError`：`Unsupported`（无可用音量工具）/ `CommandFailed(String)`（含超时）/ `ParseFailed(String)`（输出解析失败，带原文）。
 
 ```moonbit
 match @sys.vol_get() {
   Ok(v) =>
     println(
-      "sink=\{v.sink} volume=\{v.volume}% muted=\{if v.muted { "Yes" } else { "No" }}",
+      "sink=\{v.sink} 音量=\{v.volume}% 静音=\{if v.muted { "是" } else { "否" }}",
     )
-  Err(e) => println("Unavailable: \{e}")
+  Err(e) => println("不可用：\{e}")
 }
 let _ = @sys.vol_set(42)
 let _ = @sys.vol_add(-5)
 let _ = @sys.vol_set_mute(false)
 ```
 
-## Media Control (MPRIS)
+## 媒体控制（MPRIS）
 
-Enumerates `org.mpris.MediaPlayer2.*` player instances on the session bus. Playback control (play / pause / play_pause / next / previous / stop) and status reads (PlaybackStatus + title / artist / album from Metadata) go through the MPRIS Player interface; a bus failure can fall back to the `playerctl` subcommand. Only the Linux path is implemented so far; other platforms uniformly yield `Unsupported`.
+枚举会话总线上的 `org.mpris.MediaPlayer2.*` 播放器实例，播放控制（play / pause / play_pause / next / previous / stop）与状态读取（PlaybackStatus + Metadata 的 title / artist / album）走 MPRIS Player 接口；总线失败可回退 `playerctl` 子命令。目前仅实现 Linux 路径，其余平台一律 `Unsupported`。
 
-| Function | Description |
+| 函数 | 说明 |
 |---|---|
-| `media_supported() -> Bool` | the session bus works (ListNames succeeds) or playerctl works |
-| `media_players() -> Result[Array[MediaPlayerInfo], MediaError]` | enumerate player instances, including the playerctld proxy instance; preserves the ListNames response order; yields `NoPlayer` when there is none |
-| `media_status(player) -> Result[MediaStatus, MediaError]` | read one player's status and current track |
-| `media_play(player)` / `media_pause(player)` / `media_play_pause(player)` / `media_next(player)` / `media_previous(player)` / `media_stop(player)` | playback control (returns `Result[Unit, MediaError]`) |
+| `media_supported() -> Bool` | 会话总线可用（ListNames 通）或 playerctl 可用 |
+| `media_players() -> Result[Array[MediaPlayerInfo], MediaError]` | 枚举播放器实例（含 playerctld 代理实例），保持 ListNames 应答序；一个都没有给 `NoPlayer` |
+| `media_status(player) -> Result[MediaStatus, MediaError]` | 读某播放器状态与当前曲目 |
+| `media_play(player)` / `media_pause(player)` / `media_play_pause(player)` / `media_next(player)` / `media_previous(player)` / `media_stop(player)` | 播放控制（返回 `Result[Unit, MediaError]`） |
 
-`MediaPlayerInfo{ name, identity }`: name is the bus name — the argument to `media_status` and the playback-control calls; identity is the player's display name. `MediaStatus{ player, playback, title, artist, album }`; `MediaPlayback` is `MediaPlaying` / `MediaPaused` / `MediaStopped` / `MediaUnknown(String)`. Error `MediaError`: `Unsupported` / `NoPlayer` / `BusFailed(String)` (carries the error name and description) / `CommandFailed(String)` (playerctl fallback failed) / `ParseFailed(String)`.
+`MediaPlayerInfo{ name, identity }`：name 为总线名（`media_status` / 播放控制的入参），identity 为播放器显示名。`MediaStatus{ player, playback, title, artist, album }`，`MediaPlayback` 为 `MediaPlaying` / `MediaPaused` / `MediaStopped` / `MediaUnknown(String)`。错误 `MediaError`：`Unsupported` / `NoPlayer` / `BusFailed(String)`（带错误名与说明）/ `CommandFailed(String)`（playerctl 回退失败）/ `ParseFailed(String)`。
 
-Playback control is a set-class operation: it runs only when the caller invokes it explicitly; probe and query paths never trigger it.
+播放控制属设置类操作，只在调用方显式调用时执行，探测与查询路径不会触发。
 
 ```moonbit
 match @dbus.media_players() {
   Ok(players) if players.length() > 0 => {
     let p = players[0].name
     match @dbus.media_status(p) {
-      Ok(s) => println("\{s.title} - \{s.artist} (\{s.playback})")
-      Err(e) => println("Failed to read status: \{e}")
+      Ok(s) => println("\{s.title} - \{s.artist}（\{s.playback}）")
+      Err(e) => println("读状态失败：\{e}")
     }
     let _ = @dbus.media_play_pause(p)
   }
-  Err(@dbus.MediaError::NoPlayer) => println("No player")
-  Err(e) => println("Unavailable: \{e}")
+  Err(@dbus.MediaError::NoPlayer) => println("无播放器")
+  Err(e) => println("不可用：\{e}")
 }
 ```
 
-### Media Status Watching
+### 媒体状态监视
 
-MPRIS has no unified signal-callback path — `PropertiesChanged` needs a resident read loop, incompatible with the library's synchronous-call model. Status watching therefore polls for deltas: it reads status at an interval and fires `on_change` when playing state / title / artist / album changes. The first round only establishes the baseline and does not fire. Before the target player appears, resolution is retried each round and locks once it appears (an empty player takes the first instance). Rounds whose query fails are silently skipped.
+MPRIS 无统一信号回调通路——`PropertiesChanged` 需要常驻读循环，与库的同步调用模型不兼容。状态监视采用轮询增量：按间隔读状态，播放态 / 标题 / 艺术家 / 专辑任一变化即触发 `on_change`；首轮只建立基线不触发；目标播放器（空 player 取首个实例）出现前每轮重试解析，出现后锁定；查询失败的轮次静默跳过。
 
-| Function | Description |
+| 函数 | 说明 |
 |---|---|
-| `MediaWatcher::make() -> MediaWatcher` | create a watch handle (running by default) |
-| `media_watch_status(player?, interval_ms? = 1000, on_change) -> MediaWatcher` | start polling; an empty player watches the first MPRIS instance; on_change receives a `MediaStatus` |
-| `media_watch_stop(w)` | stop watching; the timer deregisters on the next frame. Not recoverable — use a new handle to watch again |
-| `MediaWatcher::is_running() -> Bool` | whether the handle is watching |
+| `MediaWatcher::make() -> MediaWatcher` | 建监视句柄（默认运行中） |
+| `media_watch_status(player?, interval_ms? = 1000, on_change) -> MediaWatcher` | 启动轮询监视；player 为空监视首个 MPRIS 实例；on_change 得 `MediaStatus` |
+| `media_watch_stop(w)` | 停止监视（下一帧注销定时器；不可恢复，重新监视请用新句柄） |
+| `MediaWatcher::is_running() -> Bool` | 句柄是否在监视 |
 
-An exception thrown in the `on_change` callback interrupts that timer; call `media_watch_stop` explicitly before the component is destroyed.
+`on_change` 回调抛异常会中断该定时器；组件销毁前调用 `media_watch_stop` 显式停止。
 
 ```moonbit
 let w = @sys.media_watch_status(interval_ms=1000, fn(s : @sys.MediaStatus) {
-  println("Now playing: \{s.title} - \{s.artist}")
+  println("现在播放：\{s.title} - \{s.artist}")
 })
-// when no longer needed
+// 不再关心时
 @sys.media_watch_stop(w)
 ```
 
-### Notification Progress
+### 通知进度
 
-Notification progress has no unified field across the three platforms; presentation follows each backend:
+通知的进度呈现三平台无统一字段，按后端能力分派：
 
-| Platform | Presentation |
+| 平台 | 呈现方式 |
 |---|---|
-| Linux (freedesktop) | standard hint `value`; servers that support it render progress natively |
-| Windows | percentage appended into the notification body (`body (42%)`) |
-| macOS | no progress presentation (argument ignored) |
+| Linux（freedesktop） | 标准 hint `value`，支持的服务端原生显示进度 |
+| Windows | 进度百分比拼进通知正文（`正文(42%)`） |
+| macOS | 无进度呈现（参数忽略） |
 
-| Function | Description |
+| 函数 | 说明 |
 |---|---|
-| `notify_send(app_name, summary, body, …, progress? = -1, …) -> Result[Int32, NotifyError]` | send a notification; when `progress` is 0..100 the progress is carried per the table above |
-| `notify_progress(id, app_name, summary, body, pct) -> Result[Int32, NotifyError]` | update progress in place by id (re-sends the same notification; if the id changes, continue with the returned one) |
+| `notify_send(app_name, summary, body, …, progress? = -1, …) -> Result[Int32, NotifyError]` | 发通知；`progress` 给 0..100 时按上表带进度 |
+| `notify_progress(id, app_name, summary, body, pct) -> Result[Int32, NotifyError]` | 按 id 原地更新进度（重发同一张；换 id 时用返回值继续） |
 
 ```moonbit
 let id = match @shell.notify_send(
-  "Example App",
-  "Exporting",
-  "Exporting 3/8 files",
+  "示例应用",
+  "导出中",
+  "正在导出 3/8 个文件",
   progress=37,
 ) {
   Ok(id) => id
   Err(_) => return
 }
-// As progress advances: update the same notification in place
-let _ = @shell.notify_progress(id, "Example App", "Exporting", "Exporting 3/8 files", 50)
+// 进度推进：原地更新同一张通知
+let _ = @shell.notify_progress(id, "示例应用", "导出中", "正在导出 3/8 个文件", 50)
 ```
 
-## Audio/Video Playback (gui-media Optional Layer)
+## 音频/视频播放（gui-media 可选层）
 
-Media playback is not in the main module's packages; it lives in the optional module `NoahLiu/gui-media` (depending on `NoahLiu/ffmpeg-mbt`):
+媒体播放不在主模块的包里，在可选模块 `NoahLiu/gui-media`（依赖 `NoahLiu/ffmpeg-mbt`）：
 
 ```moonbit
 // moon.mod import: "NoahLiu/gui-media@0.2.0"
 // moon.pkg import: "NoahLiu/gui-media/media" @guimedia
 ```
 
-Decoding goes through the ffmpeg FFI, linked dynamically in-process; formats follow the system ffmpeg: MP3/OGG/M4A/AAC/FLAC/WAV…. Output goes straight through the embedded miniaudio device layer (s16 PCM queue, zero resampling). With no output device (CI/headless) it automatically degrades to silent while the state machine proceeds as normal.
+解码走 ffmpeg FFI（进程内动态链，格式随系统 ffmpeg：MP3/OGG/M4A/AAC/FLAC/WAV…），输出由内嵌 miniaudio 设备层直出（s16 PCM 队列，零重采样）。无输出设备环境（CI/headless）自动静音降级，状态机照常。
 
-All three platforms need a system-level ffmpeg: Linux uses the distro dev packages (`apt install libav*-dev`), Windows the vendored headers and import libs in the repo (runtime DLLs placed by hand), macOS `brew install ffmpeg` (`modules/ffmpeg-mbt/scripts/prebuild.mbtx` probes via pkg-config and exits nonzero with that one install hint when not found — the media line never silently builds a stub that "links fine but has no decoders"). The audio device backend is picked by miniaudio per platform: Linux ALSA/Pulse, Windows WASAPI, macOS CoreAudio, so on mac `gui-media` links three extra frameworks (CoreAudio/AudioToolbox/Foundation) and deliberately does **not** link `-ldl`/`-latomic` (mac's dlopen lives in libSystem, and there is no libatomic).
+三平台都要系统给得出 ffmpeg：Linux 用发行版的 dev 包（`apt install libav*-dev`），Windows 用 vendor 进仓库的头与导入库（运行期 dll 自行放置），macOS 用 `brew install ffmpeg`（构建期走 pkg-config 探测，探不到就非零退出并给出这一行安装提示——媒体线不静默降级成跑起来没解码器的样子）。音频设备后端按平台由 miniaudio 选：Linux ALSA/Pulse、Windows WASAPI、macOS CoreAudio。
 
-### AudioPlayer (browser `<audio>` counterpart)
+### AudioPlayer（对标浏览器 `<audio>`）
 
 ```moonbit
 let player = @guimedia.AudioPlayer::make("/path/song.mp3")?
 player.play()
-// declarative node component: pure audio, with lyrics and spectrum bars
+// 声明式节点组件:纯音频,含歌词与频谱条
 let node = @guimedia.audio("/path/song.mp3", lyric="/path/song.lrc")
 ```
 
-| API | Description |
+| API | 说明 |
 |---|---|
-| `AudioPlayer::make(path, volume?=0.8, looping?=false)` | open an audio file (all ffmpeg formats) + the output device |
-| `play() / pause() / stop() / seek(t_s)` | playback control; seek clears the queue and relocates, then resumes from the new position while playing |
-| `pump()` | advance one step — refill the PCM queue / transition state when playback ends; the component's 50ms clock calls it automatically, and when used standalone call it on your own timer |
-| `is_playing() / current() / duration() / is_muted()` | state / position (converted from bytes the device has consumed) / duration / silent-degradation query; `is_muted()` is the counterpart of `has_audio` |
-| `set_volume(0..1) / get_volume / set_looping` | volume and looping |
-| `free()` | release; afterwards the component clock halts automatically |
+| `AudioPlayer::make(path, volume?=0.8, looping?=false)` | 打开音频文件（ffmpeg 全格式）+ 输出设备 |
+| `play() / pause() / stop() / seek(t_s)` | 播放控制（seek 清队列重定位，播放中从新位置续播） |
+| `pump()` | 推进一步（补 PCM 队列/播完转态）——组件 50ms 时钟自动调，独立使用时自行定时调 |
+| `is_playing() / current() / duration() / has_audio 对应 is_muted()` | 状态/位置（按设备已消费字节换算）/时长/静音降级查询 |
+| `set_volume(0..1) / get_volume / set_looping` | 音量与循环 |
+| `free()` | 释放（之后组件时钟自动停摆） |
 
-### VideoPlayer (browser `<video>` counterpart)
+### VideoPlayer（对标浏览器 `<video>`）
 
-The full FFI chain: the video stream yields per-frame RGBA with timestamp-level seek; the audio track is a second independent decoder on the same file whose PCM is pushed straight to the output device — no CLI subprocess. No audio track or no output device automatically goes silent.
+FFI 全链路：视频流逐帧 RGBA（时间戳级 seek），音轨是同文件的第二个独立解码器，解出 PCM 直推输出设备——无 CLI 子进程。无音轨/无输出设备自动静音。
 
 ```moonbit
 let player = @guimedia.VideoPlayer::make("demo.mp4", fps=12, width=480)?
 player.play()
-// declarative node component: video with the audio track and subtitle overlay
+// 声明式节点组件:含音轨与字幕叠加
 let node = @guimedia.video("demo.mp4", subtitle="/path/demo.srt")
 ```
 
-| API | Description |
+| API | 说明 |
 |---|---|
-| `VideoPlayer::make(path, fps?=12, width?=0, height?=0, volume?=0.8, looping?=false)` | open a video (dual decoders including the audio track); synchronous and time-consuming, best placed in `set_timeout` |
-| `play() / pause() / stop() / seek(t_s)` | playback control; seek relocates each of the two streams and resumes |
-| `is_playing() / current() / duration() / has_audio()` | state / position / duration / audio-track query |
-| `current_frame() / frame_width() / frame_height()` | current frame RGBA, for self-rendering scenarios |
-| `set_volume / set_looping / free()` | volume / loop / release |
+| `VideoPlayer::make(path, fps?=12, width?=0, height?=0, volume?=0.8, looping?=false)` | 打开视频（含音轨双解码器；同步耗时，宜放 `set_timeout`） |
+| `play() / pause() / stop() / seek(t_s)` | 播放控制（seek 双流各自重定位续播） |
+| `is_playing() / current() / duration() / has_audio()` | 状态/位置/时长/音轨查询 |
+| `current_frame() / frame_width() / frame_height()` | 当前帧 RGBA（自渲染场景） |
+| `set_volume / set_looping / free()` | 音量/循环/释放 |
 
-The playback control bar is built into the `audio` / `video` node components: play/pause button, draggable progress bar (seeks 180ms after drag-release debouncing), time text (m:ss / m:ss), volume slider, loop toggle. The 50ms clock pumps and refreshes automatically; after `free()` the clock halts on its own.
+播放控制条内置于 `audio` / `video` 两个节点组件：播放/暂停按钮、可拖进度条（松手防抖 180ms 后 seek）、时间文本（m:ss / m:ss）、音量滑条、循环开关；50ms 时钟自动 pump + 刷新，`free()` 后时钟自动停摆。
 
-Player demos: `cd examples/audio && moon run .` / `cd examples/video && moon run .` — the default asset auto-loads on startup, and play/pause/seek/volume/speed are all interactive.
+播放演示见 `cd examples/audio && moon run .` / `cd examples/video && moon run .`——启动即自动载入默认资产，播放/暂停/拖进度/音量/倍速全部可交互。

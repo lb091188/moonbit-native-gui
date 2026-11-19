@@ -1,30 +1,30 @@
-# Embedded WebView
+# 内嵌 webview
 
-`NoahLiu/gui-webview` embeds the system WebView as a native child inside a self-drawn UI. Its scope is **browser-grade expressiveness plus native capability pairing**: use web content for rich UI and interaction, and expose native capabilities to pages through bindings. It is not a full browser replica — bookmarks, history, multi-tab, extension management and permission-management panels are browser-product surface and out of scope here.
+`NoahLiu/gui-webview` 把系统 WebView 作为原生子件嵌进应用界面。定位是「**浏览器的表现力 + 原生能力配合**」：用网页写富内容与交互，用 binding 把原生能力交给页面；不追求完整浏览器复刻——书签、历史、多标签、扩展管理与权限管理面板属于浏览器产品面，不在本模块职责内。
 
-## Capabilities
+## 能力面
 
-- **Navigation**: `load_url` / `load_html` / back / forward / reload / stop; title, URL, started, committed, finished, failed and redirect events.
-- **Interop**: `execute_javascript` (replies paired by sequence number), DOM capture (body / links / meta / structure), raw bindings (page calls native; replies arrive via `on_invoke`).
-- **Policies**: new window (block / allow), downloads (auto mode = default: the event is reported and the engine default destination is used, no dialog from the library; ask mode = the request is held pending, resolved via `respond_download(id, allow, path)` — **the save dialog belongs to the app layer**; the browser example demos it with the `sys` file dialog).
-- **Others**: cookie queries, custom schemes (`register_protocol`, file-root form), persistence probing, renderer-terminated events.
+- **导航**：`load_url` / `load_html` / 后退 / 前进 / 重载 / 停止；标题、URL、开始、提交、完成、失败、跳转（重定向）事件。
+- **互操作**：`execute_javascript` 求值（按序号配对回包）、DOM 抓取（正文 / 链接 / meta / 结构）、raw binding（页面调原生，回包走 `on_invoke`）。
+- **策略**：新窗（拦下 / 放行）、下载（自动档 = 默认，报事件后交引擎默认落点，库不弹框；询问档 = 事件后扣住待决，`respond_download(id, allow, path)` 落判——**保存框是应用层的事**，browser 示例用 `sys` 文件对话框演示）。
+- **其他**：Cookie 查询、自定义协议（`register_protocol`，文件根目录形态）、持久化探测、渲染进程终止事件。
 
-Events are reported per view through a queue (`on_event`); when the queue is full the oldest entry is dropped — events are hints, not a ledger.
+事件统一经 per-view 队列上报（`on_event`），队列满丢最旧：事件是提示，不是账本。
 
-## Permission requests and code signing
+## 权限请求与签名
 
-The `Permission` event plus `set_permission_mode` and `respond_permission(allow)` **remain part of the API**, implemented per platform:
+`Permission` 事件 + `set_permission_mode` + `respond_permission(allow)` 这套接口**保留**，三平台实现：
 
-- **Linux (WebKitGTK)**: the `permission-request` signal, covering geolocation / media and more.
-- **Windows (WebView2)**: `PermissionRequested` + deferral.
-- **macOS (WKWebView)**: media capture only (`requestMediaCapturePermissionForOrigin`, macOS 12+); geolocation has no callback in the public `WKUIDelegate`.
+- **Linux（WebKitGTK）**：`permission-request` 信号，覆盖定位 / 媒体等。
+- **Windows（WebView2）**：`PermissionRequested` + deferral。
+- **macOS（WKWebView）**：只有媒体采集回调（`requestMediaCapturePermissionForOrigin`，macOS 12+；定位在公开 `WKUIDelegate` 里没有回调）。
 
-**On macOS this callback requires the app to be properly bundled and code-signed** (with `NSCameraUsageDescription` / `NSMicrophoneUsageDescription`). In unsigned / bare-binary form WebKit enumerates no capture devices, the page's `getUserMedia` hangs and the callback never fires — an engine-side reality, not a stub bug (measurements in `experience/adaptation/mac.md` and `experiment/webkit_media_probe/`). The examples therefore do not demo permissions; incoming events are denied by default and logged as one event line, so requests never dangle inside the engine.
+**mac 上这条回调要求应用正确打包并签名**（含 `NSCameraUsageDescription` / `NSMicrophoneUsageDescription`）。未签名 / 裸二进制形态下 WebKit 枚举不到采集设备，页面 `getUserMedia` 会挂起、回调不会触发——这不是本模块的问题，是引擎侧的既成行为（实测记录见 `experience/adaptation/mac.md` 与 `experiment/webkit_media_probe/`）。因此本仓示例不做权限演示；事件到达时默认拒绝并记一行事件流水，不让请求挂在引擎里。
 
-## Platform differences
+## 平台差异简表
 
-| Platform | Engine | Notable differences |
+| 平台 | 引擎 | 典型差异 |
 |---|---|---|
-| Linux | WebKitGTK | Requires distro WebKitGTK dev packages; downloads go through `download-started` + `decide-destination` (ask mode holds the destination until `respond_download`), permissions / new windows / renderer termination have public signals |
-| Windows | WebView2 | Loader and SDK headers are downloaded by prebuild; downloads / permissions / new windows use public COM events (ask mode holds the `DownloadStarting` deferral, destination via `put_ResultFilePath`) |
-| macOS | WKWebView | Downloads via `WKDownload` (macOS 11.3+, destination held through the `decideDestination` completion handler and answered later); permissions are media-only and need signing; per-directory persistence needs a bundle id, bare binaries honestly report non-persistent |
+| Linux | WebKitGTK | 需要发行版的 WebKitGTK 开发包；下载走 `download-started` + `decide-destination`（询问档扣住落点等 `respond_download`），权限 / 新窗 / 进程终止有公开信号 |
+| Windows | WebView2 | Loader 与 SDK 头构建时自动下载；下载 / 权限 / 新窗走公开 COM 事件（下载询问档扣 `DownloadStarting` 的 deferral，落点经 `put_ResultFilePath`） |
+| macOS | WKWebView | 下载走 `WKDownload`（macOS 11.3+，落点经 `decideDestination` 的 completionHandler 扣住延后答）；权限仅媒体且需签名；按目录持久化要 bundle id，裸二进制如实报不可持久 |

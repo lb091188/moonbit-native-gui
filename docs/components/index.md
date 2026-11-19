@@ -1,52 +1,53 @@
-# Components overview (@ui)
+# 组件总览（@ui）
 
-Every self-drawn widget and the component library live in `NoahLiu/native-gui/ui` (alias `@ui`); each component is a **constructor returning `@widget.Node`**. Parameters always follow the code (`gui/ui/*.mbt`).
+控件与组件库住在 `NoahLiu/native-gui/ui`（别名 `@ui`），每个组件是返回 `@widget.Node` 的构造器，参数以代码为准（`gui/ui/*.mbt`）。
 
-> Runnable examples for every component are gathered in `examples/components` — one source file per page.
+> 各组件的可运行示例集中在 `examples/components`（每页一个源文件）。
 
-## Family pages
+## 家族一览
 
-| Page | Contents |
+| 分页 | 内容 |
 |---|---|
-| [Layout & containers](containers.md) | `view` / `col` / `row` / `panel` / `split` / `scroll_view` |
-| [Text & basic controls](basics.md) | `text` / `image` / `icon` / `code_view` / `code_editor` / `terminal` / `gif` / divider |
-| [Form controls](form.md) | `button` / `input` / `checkbox` / `select` / `slider` / `form` etc. |
-| [Date & time](date.md) | `calendar` / `date_picker` / range pickers |
-| [Data display](display.md) | Tags / badges / cards / progress / timeline / carousel |
-| [Tables & virtual lists](table.md) | `table` / `table_v` / `virt_list` / `sticky_list` |
-| [Navigation](navigation.md) | `menu` / `tabs` / `breadcrumb` / `pagination` / `tree` etc. |
-| [Overlays & messages](overlay.md) | `dialog` / `message_box` / `popover` / `tooltip` / context menu |
-| [Drag, hover & window events](interaction.md) | Drag sources & targets / hover & cursor groups / window show-hide |
-| [Reactive controls](reactive.md) | `when` / `for_list` / visibility & list diffing |
+| [布局与容器](containers.md) | `view` / `col` / `row` / `panel` / `split` / `scroll_view` |
+| [文本与基础控件](basics.md) | `text` / `image` / `icon` / `code_view` / `code_editor` / `terminal` / `gif` / 分隔线 |
+| [表单控件](form.md) | `button` / `input` / `checkbox` / `select` / `slider` / `form` 等 |
+| [日期与时间](date.md) | `calendar` / `date_picker` / 区间选择器 |
+| [数据展示](display.md) | 标签 / 徽标 / 卡片 / 进度 / 时间线 / 轮播 |
+| [表格与虚拟列表](table.md) | `table` / `table_v` / `virt_list` / `sticky_list` |
+| [导航](navigation.md) | `menu` / `tabs` / `breadcrumb` / `pagination` / `tree` 等 |
+| [浮层与消息](overlay.md) | `dialog` / `message_box` / `popover` / `tooltip` / 右键菜单 |
+| [拖放、悬停与窗口事件](interaction.md) | 拖源与落点 / 悬停组与光标组 / 窗口显隐 |
+| [响应式控制](reactive.md) | `when` / `for_list` / 显隐与列表差分 |
 
-## Conventions (read this first)
+## 约定
 
-**Typed parameters + a `class` style channel.** Components take typed parameters only — size, colour, value — not CSS string tables. Overriding the look goes two ways: loose parameters (`font_size` / `background_color` and friends), or `class? : Array[@style.Style]` layering `Style` value blocks, where the last `class` in the array wins. Both fold onto one fixed order: loose parameters (properties) < `class` < the explicit rule block a component takes (`style(...)` / `anon`) — later wins. The full style layer is in [design.md (Chinese)](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/design.md).
+- 组件参数均为类型化参数（尺寸、颜色、值），不接受 CSS 字符串；外观覆盖用命名参数或 `class? : Array[@style.Style]`，同名属性按一条全序覆盖：命名参数（属性）< `class`（数组靠后者为准）< 组件收的显式规则块（`style(...)`/`anon`）；样式字段清单与全序见[布局样式](../guide/layout.md)
+- 尺寸单位为逻辑像素；`width` / `height` 给 `0` 通常表示按内容或由父级决定
+- 值类控件（复选 / 单选 / 开关 / 滑块 / 输入框 / 进度）的当前值由 `@base.Store[T]` 持有：组件读写它，外部修改即刷新
+- 展示类控件另有两条取值入口：`x` 收静态值，`x_dyn` 收 `Signal[T]`
+- 事件回调统一命名为 `on_*`（`on_click` / `on_change` / `on_drop` …）
+- `handle?` 返回内部 `@widget.Widget` 句柄，用于框架未暴露的操作，不是事件回调
+- `disabled?` / `enabled?` 控制禁用态；`focus_id?` 指定 Tab 焦点序（缺省自动分配）
+- 表单族控件默认进入 Tab 焦点链，聚焦描边转主题色；空格 / 回车激活，方向键按控件语义调值或换选
+- 文本排版预设挂 `class`：`text_heading`（18 SemiBold）、`text_title`（14 SemiBold）、`text_secondary`（12 次要色）、`text_accent`（13 SemiBold 主色）；正文 13 为 `text` 缺省档，不必挂；字号读 `@theme` 字阶令牌
+- 语义色 `SemanticType`：`Primary` / `Success` / `Warning` / `Danger` / `Info`；存储 theme token 名，随主题取值
 
-**State lives in `Store`, no glue code.** The current value of a value control (checkbox / radio / switch / slider / input / progress …) is held by an `@base.Store[T]`: the component reads and writes it, and an external change refreshes the component. Display components come through two entries — `x` takes a value, `x_dyn` takes a `Signal[T]` — sharing one drawing path.
-
-**Events are always `on_*`.** Callbacks are named `on_click` / `on_change` / `on_drop` …; `handle?` is an escape hatch — take back the internal `@widget.Widget` handle for operations the framework does not expose — not an event.
-
-**Keyboard accessibility is built in.** Form-family controls (button / checkbox / radio / switch / stepper / slider / rate / select / color picker / date-time / segmented) claim a focus id by default and join the Tab chain; the focus border turns the theme accent. Space/Enter activate, arrow keys adjust the value or move the selection per control semantics.
-
-**Typography presets (the old `TextRole` is retired):** roles were folded into `@style` type-scale presets applied via `class` — `text_heading` (18 SemiBold) · `text_title` (14 SemiBold) · `text_secondary` (12, secondary colour) · `text_accent` (13 SemiBold, primary); body 13 is the `text` default and needs no preset. Sizes read from `@theme` type-scale tokens.
-
-**`SemanticType`:** `Primary` · `Success` · `Warning` · `Danger` · `Info`. Values are stored as theme token names and resolved live on theme switch, never frozen as snapshots.
-
-## Declarative mounting
+## 声明式挂载
 
 ### `mount_window(children : Array[Node], title?="", width?=800, height?=600, handle? : (WindowHost) -> Unit)`
 
-- Describe a tree and mount it into a window: build the host (window + event loop + overlay layer + IME channel) → mount → hand it back for the caller's `run`. Returns `None` when no display service exists. This stack offers no `center`/`on_close` parameters: centering is left to the WM, closing stops the host loop, and cleanup goes after `run()`
+- 声明一棵树并装入窗口：创建宿主（窗口 + 事件循环 + 浮层图层 + 输入法通道）→ 挂载 → 交回调用方 `run`
+- `handle`：挂载后收到 `WindowHost` 句柄，用于 `follow_system_theme` 等宿主操作
+- 无显示服务时返回 `None`
+- 不提供 `center` / `on_close` 参数：居中交系统窗口管理器，关闭即停宿主循环，收尾代码写在 `run()` 之后
 
 ### `mount_window_render(render : () -> Array[Node], title?, width?, height?, handle?)`
 
-- The render-slot form, an alternative to a static node array: `render` is called once at mount to build the first frame; after that, all reactivity relies on the tree's `for_list`/`when`/`*_dyn` self-subscribing, self-diffing
+- render 槽形态，与静态数组二选一：`render` 在挂载时调用一次构建首帧，此后的响应全靠树内 `for_list` / `when` / `*_dyn` 自订阅自差分
 
-## Related docs
+## 相关文档
 
-- Tutorial and first window: [Getting started](../guide/tutorial.md)
-- Declarative tree / `Store` / `Signal`: [Declarative & reactivity](../guide/declarative.md)
-- Layout styling (`Style` fields and the `class` channel): [Layout & styling](../guide/layout.md)
-- System capabilities (`@sys`): [System capabilities overview](../capability/sys.md)
-- Field-tested platform pitfalls: [experience/adaptation/](https://github.com/lb091188/moonbit-native-gui/tree/master/experience/adaptation/)
+- 教程与第一扇窗：[上手体验](../guide/tutorial.md)
+- 声明式树 / `Store` / `Signal`：[声明式与响应式](../guide/declarative.md)
+- 布局样式（`Style` 字段与 `class` 通道）：[布局样式](../guide/layout.md)
+- 系统能力（`@sys`）：[系统能力总览](../capability/sys.md)

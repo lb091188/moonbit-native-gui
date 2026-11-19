@@ -1,32 +1,40 @@
-# Layout & containers
+# 布局与容器
 
-General conventions (typed parameters, the `class` override order, `Store`-held values): see [Components overview](index.md#conventions-read-this-first).
+通用约定（尺寸口径、`class` 覆盖全序、值控件与 `Store`）见[组件总览](index.md#约定)。
 
 ### `view(children, direction?=Column, row_gap?, column_gap?, padding?, width?, height?, grow?, background_color?, border_color?, align_items?, justify_content?, class?, handle?)`
 
-- Generic container: direction, gaps on both axes, padding, size, background and border. Size 0 fits the content; `grow=1.0` fills the remaining space
+- 通用容器：方向、两轴间距、内边距、尺寸、底色与描边
+- `direction`：主轴方向，默认 `Column`
+- `grow`：弹性增长，撑满父级剩余空间
+- 尺寸给 `0` 表示按内容定
 
 ### `col(children, row_gap?, padding?, width?, height?, grow?, background_color?, border_color?, align_items?, class?, handle?)`
 
-- Vertical layout container (the Column form of `view`)
+- 垂直布局容器（`view` 的 Column 形态）
 
 ### `row(children, column_gap?, padding?, width?, height?, grow?, background_color?, border_color?, align_items?=Stretch, class?, handle?)`
 
-- Horizontal layout container (the Row form of `view`); `align_items` defaults to `Stretch`, so children fill the row's height
-  - Stretch: the flexbox cross-axis alignment that makes children fill the container along the axis perpendicular to the layout direction
+- 水平布局容器（`view` 的 Row 形态）；`align_items` 缺省 `Stretch`，行内子项撑满行高
+  - Stretch：flexbox 交叉轴拉齐——子项沿垂直于排列方向的轴撑满容器
 
 ### `panel(title, children, padding?=10.0, row_gap?=6.0, width?, class?)`
 
-- Titled panel: title on top, content below, panel background + border; pass skin such as corner radius through `class`
+- 带标题面板：标题在上、内容在下，面板底 + 描边；圆角等外观经 `class` 传入
 
 ### `split(first, second, direction?=Horizontal, ratio?=0.5, min_first?, min_second?, class?, handle?)`
 
-- Draggable split pane; unifies `hsplit`/`vsplit` with the direction parameterized
+- 可拖分栏，`hsplit` / `vsplit` 合并、方向参数化
+- `direction`：`Horizontal`（左右分）或 `Vertical`（上下分）
+- `ratio`：初始分割比例，0..1
+- `min_first` / `min_second`：两侧最小尺寸
 
 ### `scroll_view(children, state : ScrollState, width?, height?, hscroll?=false, min_content_width?=0.0, class?, handle?)`
 
-- Scroll container; `height` is the viewport height, 0 means the parent supplies it; overflow is clipped, and the scrollbar is a thumb floating on the right edge (no track, no reserved width — opaque on hover, faded otherwise). `hscroll=true` enables horizontal scrolling with two content-width modes: the default natural mode `max(children's natural width, viewport)` (for code lines / tables that cannot wrap), or — when `min_content_width` is given — the floor mode `max(that value, viewport)`, which **ignores the children's natural width**: wider content scrolls inside its own viewport, so this min-width is the only number that binds
+- 滚动容器；滚动条为浮在右缘的拇指：不绘制轨道、不占宽度，悬停满色、平时淡色
+- `state`：`ScrollState` 持有滚动偏移，外部可读写；`set_follow_bottom(true)` 开启「跟随底部」——内容变高时自动贴底（首帧布局完成后即生效），用户手动滚离底部暂停、回到底部恢复，宿主追加内容后不必重复调 `scroll_to_bottom`（首帧前几何未知，直接调它是空操作）
+- `height`：视口高度，`0` 表示由父级决定
+- `hscroll`：开启横向滚动
+- `min_content_width`：内容宽两档——缺省 `0.0` 为自然宽档 `max(子项自然宽, 视口宽)`（长代码行 / 表格适用）；给定正值 `N` 为下限档 `max(N, 视口宽)`，不读子项自然宽，更宽的内容由它自己的视口滚动
 
-- `state` (a `ScrollState`) holds the scroll offset and is readable/writable from outside; `set_follow_bottom(true)` enables stick-to-bottom — new content is pinned to the bottom (effective as soon as the first layout completes), user scrolling away pauses it, returning to the bottom resumes it, and hosts appending content need not call `scroll_to_bottom` repeatedly (before the first frame the geometry is unknown, so calling it directly is a no-op)
-
-> Scroll offset shifts at paint time and stays out of layout; `ScrollState` is provided by `ui/scroll.mbt`. For a 4px rounded rect in custom drawing use the facade `@render.Painter::fill_round_rect` directly (the component-layer name `fill_round_rect` is the same implementation, folded up).
+> 滚动偏移在绘制期平移、不进布局；`ScrollState` 由 `ui/scroll.mbt` 提供。自绘里画 4px 圆角矩形可直接用门面 `@render.Painter::fill_round_rect`（组件层惯用名 `fill_round_rect` 是同一实现的上收入口）。

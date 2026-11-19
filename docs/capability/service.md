@@ -1,44 +1,44 @@
-# System services
+# 系统服务
 
-Permissions, power, info, printing, clipboard, autostart and other system-level services. Uniform `Result` semantics and the support matrix: [System capabilities overview](sys.md).
+权限、电源、信息、打印、剪贴板、自启动等系统级服务。统一 `Result` 语义与支持矩阵见[系统能力总览](sys.md)。
 
-## System Permissions (macOS)
+## 系统权限（macOS）
 
-Unavoidable system authorizations form a cross-cutting family. macOS goes through TCC: probes use public entry points (`AXIsProcessTrusted` / `CGPreflightScreenCaptureAccess`), and requests pop the **system's own guidance dialog** ("open System Settings") — nothing is clicked on the user's behalf. Windows / Linux have no such concept, so they are always `PermNotNeeded`. There are only two states — "granted / not granted": "not yet requested" and "denied" are indistinguishable at the public API layer, so applications follow the rhythm "probe → request → guide → re-probe once the user is back".
+躲不开的系统授权做成横切族。macOS 走 TCC：探测走公开口（`AXIsProcessTrusted` / `CGPreflightScreenCaptureAccess`），请求弹**系统自带引导框**（「打开系统设置」对话框），不替用户点任何东西。Windows / Linux 无此概念，恒 `PermNotNeeded`。状态只有「已授 / 未授」两态——「未请求」与「拒绝」在公开 API 层不可区分，应用侧统一按「未授 → 请求 → 引导 → 用户回来再探」的节奏走。
 
-| Function | Description |
+| 函数 | 说明 |
 |---|---|
-| `permission_supported() -> Bool` | whether the current platform has a permission family (macOS) |
-| `permission_probe(kind) -> Result[PermissionStatus, PermissionError]` | probe the current state: `PermGranted` / `PermNotGranted` / `PermNotNeeded` |
-| `permission_request(kind) -> Result[Unit, PermissionError]` | pop the system guidance dialog; **does not block** — the caller re-probes at a suitable moment afterwards |
+| `permission_supported() -> Bool` | 当前平台是否有权限族（macOS） |
+| `permission_probe(kind) -> Result[PermissionStatus, PermissionError]` | 探测当前状态：`PermGranted` / `PermNotGranted` / `PermNotNeeded` |
+| `permission_request(kind) -> Result[Unit, PermissionError]` | 弹系统引导框；**不阻塞等待**，引导后由调用方在合适时机重新探测 |
 
-`PermissionKind`: `PermAccessibility` (accessibility — needed to activate/operate other apps' windows), `PermScreenRecording` (screen recording — needed to read other apps' window titles).
+`PermissionKind`：`PermAccessibility`（辅助功能——激活/操作其他应用窗口要）、`PermScreenRecording`（屏幕录制——读到其他应用窗口标题要）。
 
 ```moonbit
 match @sys.permission_probe(@sys.PermAccessibility) {
-  Ok(@sys.PermGranted) => () // go ahead
+  Ok(@sys.PermGranted) => () // 直接干活
   Ok(_) => {
     let _ = @sys.permission_request(@sys.PermAccessibility)
-    // guidance dialog popped; re-probe when the user is back
+    // 引导框已弹，等用户回来再探
   }
   Err(e) => println(e)
 }
 ```
 
-The other tier — "operation elevation" (one pop each: an admin password box on macOS, UAC on Windows in future) — is not part of this family and is handled with each capability batch (e.g. the write side of the macOS power-plan tier goes through `osascript` with admin authorization).
+另一档「操作提权」（每次一弹：macOS 管理员密码框、将来 Windows UAC）不落本族，随各自能力批处理（如电源计划 macOS 档的写操作走 `osascript` 管理员授权）。
 
-## Power Plans
+## 电源计划
 
-Three `powerprofilesctl` commands read the available plan set, read the current plan, and switch plans. When `power-profiles-daemon` is not installed the shell surfaces it via exit code 127 → `PpUnsupported`.
+经 `powerprofilesctl` 三条命令读可用计划集、读当前计划、切换计划（`power-profiles-daemon` 未安装时 shell 以退出码 127 呈现 → `PpUnsupported`）。
 
-| Function | Description |
+| 函数 | 说明 |
 |---|---|
-| `pp_supported() -> Bool` | powerprofilesctl is present and queryable |
-| `pp_profiles() -> Result[Array[PowerProfile], PowerProfileError]` | available plan list, in backend output order; it equals the recommended order when the recommended plan comes first |
-| `pp_current() -> Result[PowerProfile, PowerProfileError]` | the current plan |
-| `pp_set(profile) -> Result[Unit, PowerProfileError]` | switch plan; has side effects and requires authorization — the caller runs its own authorization flow |
+| `pp_supported() -> Bool` | powerprofilesctl 存在且可查询 |
+| `pp_profiles() -> Result[Array[PowerProfile], PowerProfileError]` | 可用计划列表（按后端输出序，推荐序在前时即推荐序） |
+| `pp_current() -> Result[PowerProfile, PowerProfileError]` | 当前计划 |
+| `pp_set(profile) -> Result[Unit, PowerProfileError]` | 切换计划（有副作用、需要认证，调用方自行走授权流程） |
 
-`PowerProfile`: `PPerformance` / `PBalanced` / `PPowerSaver`. Error `PowerProfileError`: `PpUnsupported` / `PpCommandFailed(String)` / `PpParseFailed(String)`.
+`PowerProfile`：`PPerformance` / `PBalanced` / `PPowerSaver`。错误 `PowerProfileError`：`PpUnsupported` / `PpCommandFailed(String)` / `PpParseFailed(String)`。
 
 ```moonbit
 match @sys.pp_profiles() {
@@ -49,18 +49,20 @@ match @sys.pp_profiles() {
 }
 ```
 
-## System Information
+## 系统信息
 
-Reads `/proc` and `/sys` text only: distro identity (`/etc/os-release`), machine DMI identity (`/sys/class/dmi/id/`), physical memory (`/proc/meminfo`), uptime (`/proc/uptime`). Non-Linux uniformly yields `Unsupported`. A missing file or insufficient permission yields `Err` carrying the path — never an empty string.
+Linux 只读 `/proc` 与 `/sys` 文本：发行版标识（`/etc/os-release`）、机器 DMI 标识（`/sys/class/dmi/id/`）、物理内存（`/proc/meminfo`）、开机时长（`/proc/uptime`）。Windows 走注册表（`Windows NT\CurrentVersion` 的 `ProductName`/`DisplayVersion`、`HARDWARE\DESCRIPTION\System\BIOS` 的 DMI 镜像）+ `GlobalMemoryStatusEx`/`GetTickCount64`，机器标识在注册表镜像为空时退 WMI（`Win32_ComputerSystem` 的 `Manufacturer`/`Model`）。macOS 走 `sw_vers` / `ioreg -rd1 -c IOPlatformExpertDevice` + `sysctl -n hw.model`，内存与开机时长走桩内直调。读不到一律给 `Err` 并带路径/接口名，不以空串代替。
 
-| Function | Description |
+| 函数 | 说明 |
 |---|---|
-| `si_os() -> Result[OsInfo, SysInfoError]` | distro: `OsInfo{ pretty_name, id, version_id }` |
-| `si_machine() -> Result[MachineInfo, SysInfoError]` | machine: `MachineInfo{ vendor, product, serial }`; the serial is readable only by root on most distros, and unreadable yields `Err` |
-| `si_memory() -> Result[MemoryInfo, SysInfoError]` | memory: `MemoryInfo{ total_kb, available_kb }`; unit kB, available_kb is MemAvailable |
-| `si_uptime() -> Result[Double, SysInfoError]` | uptime (seconds) |
+| `si_os() -> Result[OsInfo, SysInfoError]` | 发行版：`OsInfo{ pretty_name, id, version_id }`（Windows 是 `ProductName + DisplayVersion`） |
+| `si_machine() -> Result[MachineInfo, SysInfoError]` | 机器：`MachineInfo{ vendor, product, serial }`（序列号多数发行版仅 root 可读、虚拟机常空，读不到给 `Err` 或兜底机器唯一标识） |
+| `si_memory() -> Result[MemoryInfo, SysInfoError]` | 内存：`MemoryInfo{ total_kb, available_kb }`（单位 kB，available_kb 即 MemAvailable） |
+| `si_uptime() -> Result[Double, SysInfoError]` | 开机时长（秒） |
 
-Error `SysInfoError`: `SiUnsupported` (not Linux) / `SiReadFailed(String)` (carries the path) / `SiParseFailed(String)`.
+错误 `SysInfoError`：`SiUnsupported`（非三平台）/ `SiReadFailed(String)`（带路径或接口名）/ `SiParseFailed(String)`。
+
+Windows 侧 `si_machine()` 的两级取数（真机与虚拟机都要能读到）：先读注册表 `HKLM\HARDWARE\DESCRIPTION\System\BIOS`（内核从 SMBIOS 抄的镜像，真机常态可用）；这张镜像是空的（QEMU/SeaBIOS 实测一个值都没有——固件不把 SMBIOS 表交给用户态，连 `GetSystemFirmwareTable('RSMB')` 都返回 `ERROR_INVALID_FUNCTION`）时退 WMI 的 `Win32_ComputerSystem`，本机回证读到 `BOCHS_ / BXPC____`；序列号 `BIOS SerialNumber` → WMI `Win32_BIOS.SerialNumber` / `Win32_ComputerSystemProduct.IdentifyingNumber` → `HKLM\SOFTWARE\Microsoft\Cryptography\MachineGuid` 依次兜底。
 
 ```moonbit
 let os = @sys.si_os() // Ok({ pretty_name: "Ubuntu 24.04.5 LTS", id: "ubuntu", .. })
@@ -68,43 +70,43 @@ let mem = @sys.si_memory()
 let up = @sys.si_uptime() // Ok(84088.08)
 ```
 
-## Printers
+## 打印机
 
-Windows calls winspool directly — `EnumPrintersW` for the list, `GetDefaultPrinterW` for the default name — and prints via `ShellExecuteW` with the "print" verb. Linux reads the printer list (`-p`) and default printer (`-d`) via `lpstat` and submits jobs via `lp`. Without CUPS installed, lpstat surfaces it via exit code 127 → `PrtUnsupported`.
+Windows 走 winspool 直调（`EnumPrintersW` 列表 + `GetDefaultPrinterW` 默认名）与 `ShellExecuteW`「print」动词打印；Linux 经 `lpstat` 读打印机列表（`-p`）与默认打印机（`-d`）、`lp` 提交打印任务。未装 CUPS（lpstat 以退出码 127 呈现）→ `PrtUnsupported`。
 
-| Function | Description |
+| 函数 | 说明 |
 |---|---|
-| `prt_supported() -> Bool` | Windows checks that the winspool list is retrievable; Linux checks lpstat availability |
-| `prt_list() -> Result[Array[PrinterInfo], PrinterError]` | printer list (name + availability status) |
-| `prt_default() -> Result[String, PrinterError]` | default printer name |
-| `prt_print(printer? = "", path, copies? = 1) -> Result[Unit, PrinterError]` | submit a print job; Linux defaults printer to the system default, Windows uses the "print" verb and does not support a copies parameter. Has side effects — real queued printing |
+| `prt_supported() -> Bool` | Windows 看 winspool 列表可取；Linux 看 lpstat 可用 |
+| `prt_list() -> Result[Array[PrinterInfo], PrinterError]` | 打印机列表（名称 + 可用状态） |
+| `prt_default() -> Result[String, PrinterError]` | 默认打印机名 |
+| `prt_print(printer? = "", path, copies? = 1) -> Result[Unit, PrinterError]` | 提交打印任务（Linux 用系统默认打印机当 printer 缺省；Windows 走「print」动词、不支持份数参数；有副作用，真实排队打印） |
 
-`PrinterStatus`: `Idle` / `Printing` / `Paused` (paused, accepts no new jobs) / `Disabled`; `prt_status_available(status)` tells whether it can accept jobs. `PrinterInfo{ name, status }`. Error `PrinterError`: `PrtUnsupported` / `PrtCommandFailed(String)` / `PrtParseFailed(String)` / `PrtInvalidParam(String)` (empty file path, copies < 1).
+`PrinterStatus`：`Idle` / `Printing` / `Paused`（暂停接新任务）/ `Disabled`；`prt_status_available(status)` 判是否可用接任务。`PrinterInfo{ name, status }`。错误 `PrinterError`：`PrtUnsupported` / `PrtCommandFailed(String)` / `PrtParseFailed(String)` / `PrtInvalidParam(String)`（文件路径为空、份数 < 1）。
 
 ```moonbit
 match @sys.prt_default() {
   Ok(name) => {
     let _ = @sys.prt_print(printer=name, path="/tmp/doc.pdf")
   }
-  Err(e) => println("No default printer: \{e}")
+  Err(e) => println("无默认打印机：\{e}")
 }
 ```
 
-## Environment Variables & Directory Enumeration
+## 环境变量与目录枚举
 
-Two small primitives: in-process environment-variable read/write/delete (`envx` — reads go through the standard library's `core/env`, write/delete through the C-layer setenv/unsetenv) and directory enumeration (`fsx` — C-layer opendir/readdir or Win32 FindFirstFileW).
+两块小原语：进程内环境变量读写与删除（`envx`，读走标准库 `core/env`、写删走 C 层 setenv/unsetenv），目录枚举（`fsx`，C 层 opendir/readdir 或 Win32 FindFirstFileW）。
 
-| Function | Purpose |
+| 函数 | 用途 |
 |---|---|
-| `envx_get(name) -> String?` | read the current process environment; None when absent |
-| `envx_set(name, value) -> Result[Unit, EnvxError]` | write the current process environment only; visible to subprocesses spawned afterwards |
-| `envx_unset(name) -> Result[Unit, EnvxError]` | delete; an absent variable also counts as success — idempotent |
-| `envx_common() -> Map[String, String]` | common set: PATH / HOME / LANG / SHELL / USER read as fixed, plus an `XDG_*` prefix scan (included only when present) |
-| `fsx_list_dir(path) -> Result[Array[String], FsError]` | enumerate a directory's child names; excludes `.` `..`, non-recursive, includes hidden entries |
-| `fsx_set_env(name, value, overwrite) -> Result[Unit, FsError]` | write an environment variable; with overwrite=false and the variable already present, the original value is kept and the result is still Ok |
-| `fsx_unset_env(name) -> Result[Unit, FsError]` | delete an environment variable (the low level under envx_unset) |
+| `envx_get(name) -> String?` | 读（当前进程环境，取不到 None） |
+| `envx_set(name, value) -> Result[Unit, EnvxError]` | 写（仅当前进程环境，之后 spawn 的子进程可见） |
+| `envx_unset(name) -> Result[Unit, EnvxError]` | 删（本就不存在也视为成功，幂等） |
+| `envx_common() -> Map[String, String]` | 常用集合：PATH / HOME / LANG / SHELL / USER 固定读取 + `XDG_*` 前缀扫描（环境里存在才收入） |
+| `fsx_list_dir(path) -> Result[Array[String], FsError]` | 枚举目录子项名（不含 `.` `..`、不递归、含隐藏项） |
+| `fsx_set_env(name, value, overwrite) -> Result[Unit, FsError]` | 写环境变量（overwrite=false 且已存在时保持原值，仍为 Ok） |
+| `fsx_unset_env(name) -> Result[Unit, FsError]` | 删环境变量（envx_unset 的底层） |
 
-The semantics are "in-process effect": a write changes only the current process environment — it never touches the system's persistent configuration and never affects the parent process. Errors: `EnvxError::ExInvalidParam(String)` (empty variable name) / `ExFailed(String)` (the C layer rejects, e.g. the name contains '='); `FsError::InvalidParam(String)` / `OpenFailed(String)` (directory cannot be opened, carries the path) / `EnvFailed(String)`. A known edge of `fsx_list_dir`: a child name containing '\n' gets split apart.
+语义为「进程内生效」——写只改当前进程环境，不触碰系统持久配置，也不影响父进程。错误：`EnvxError::ExInvalidParam(String)`（变量名空串）/ `ExFailed(String)`（C 层拒绝，如名含 '='）；`FsError::InvalidParam(String)` / `OpenFailed(String)`（目录打不开，带路径）/ `EnvFailed(String)`。`fsx_list_dir` 已知边界：子项名含 '\n' 的极端文件名会被拆开。
 
 ```moonbit
 let path = @sys.envx_get("PATH")
@@ -112,59 +114,59 @@ let _ = @sys.envx_set("MY_FLAG", "1")
 let _ = @sys.envx_unset("MY_FLAG")
 match @sys.fsx_list_dir("/usr/share/applications") {
   Ok(names) => for n in names if n.ends_with(".desktop") { println(n) }
-  Err(e) => println("Cannot open: \{e}")
+  Err(e) => println("打不开：\{e}")
 }
 ```
 
-## Clipboard Watching
+## 剪贴板监听
 
-Text read/write and change watching. Windows calls Win32 `CF_UNICODETEXT` directly. Linux prefers GtkClipboard, which requires the host to have run gtk_init; when the probe returns 0 it falls back to the command line `xclip`. The callback dispatches the new text when the text content changes. This module is pure polling — any MoonBit process can use it, and callbacks run in the caller's context.
+文本读写与变化监听。Windows 走 Win32 `CF_UNICODETEXT` 直调；Linux 优先 GtkClipboard（需宿主跑过 gtk_init，探测给 0 时退回命令线 `xclip`），文本内容变化时回调派发新文本。本模块为纯轮询实现，任意 MoonBit 进程可用，回调落在调用方上下文。
 
-| Function | Description |
+| 函数 | 说明 |
 |---|---|
-| `cbw_get_text() -> Result[String, ClipboardError]` | read the clipboard text once; unavailable / no text in the selection yields the corresponding Err |
-| `cbw_start_watch(interval_ms? = 800, cb) -> ClipboardWatcher` | start watching; the polling interval is clamped to 100..60000. The baseline is the content at startup, so the initial content does not fire the callback |
-| `cbw_stop(watcher)` | stop watching; sets a park flag, runs at most one more tick, then terminates itself. Idempotent |
+| `cbw_get_text() -> Result[String, ClipboardError]` | 读一次剪贴板文本（不可用 / 选区无文本为对应 Err） |
+| `cbw_start_watch(interval_ms? = 800, cb) -> ClipboardWatcher` | 启动监听（轮询间隔钳 100..60000；基线取启动瞬间内容，初始内容不触发回调） |
+| `cbw_stop(watcher)` | 停止监听（置停靠标志，至多再跑一拍自行终止；幂等） |
 
-Error `ClipboardError`: `Unsupported` (platform/backend both unavailable) / `CommandFailed(String)`. A read failure silently skips that tick without firing the callback. The polling hangs on a GUI timer, so it only dispatches once the message loop is running.
+错误 `ClipboardError`：`Unsupported`（平台/后端都不可用）/ `CommandFailed(String)`。读失败静默跳过该拍，不触发回调。轮询挂在 GUI 定时器上，需在消息循环运行后才实际派发。
 
 ```moonbit
 let w = @sys.cbw_start_watch(interval_ms=500, fn(text) {
-  println("New clipboard content: \{text}")
+  println("剪贴板新内容：\{text}")
 })
-// ……when needed
+// ……需要时
 @sys.cbw_stop(w)
 ```
 
-## Autostart
+## 开机自启动
 
-Cross-platform query, enable, and disable of launch-at-login. The semantics are unified in the MoonBit layer, so callers don't need to be aware of the platform.
+跨平台的开机自启动查询、设置与取消，语义在 MoonBit 层归一，使用方不需感知平台。
 
-| Platform | Mechanism | Entry location |
+| 平台 | 机制 | 条目位置 |
 |---|---|---|
-| Linux | Writes `<app_id>.desktop` into the XDG autostart directory | `$XDG_CONFIG_HOME/autostart/`, falling back to `$HOME/.config/autostart/` when unset |
-| Windows | Writes a value under HKCU `Software\Microsoft\Windows\CurrentVersion\Run` | The value name is the app_id; the value is the double-quoted executable path |
-| macOS | LaunchAgents plist + `launchctl load` / `unload` (verified on device) | `~/Library/LaunchAgents/<app_id>.plist` — Label is the app_id, ProgramArguments holds the executable, RunAtLoad true |
+| Linux | XDG 自启动目录写 `<app_id>.desktop` | `$XDG_CONFIG_HOME/autostart/`，未设回退 `$HOME/.config/autostart/` |
+| Windows | HKCU `Software\Microsoft\Windows\CurrentVersion\Run` 写值 | 值名是 app_id，值是引号包裹的可执行文件路径 |
+| macOS | LaunchAgents plist + `launchctl load` / `unload`（真机已回证） | `~/Library/LaunchAgents/<app_id>.plist`——Label 为 app_id，ProgramArguments 为可执行文件，RunAtLoad true |
 
-| Function | Description |
+| 函数 | 说明 |
 |---|---|
-| `autostart_supported() -> Bool` | Runtime probe; true on all three platforms |
-| `autostart_is_enabled(app_id) -> Result[Bool, AutostartError]` | Queries the current state; on Linux it honours the two system-side disable bits `Hidden` and `X-GNOME-Autostart-enabled`; on macOS the plist's presence is the enabled state |
-| `autostart_enable(app_id)` / `autostart_disable(app_id) -> Result[Unit, AutostartError]` | Enable and disable; both idempotent: a repeated enable overwrites, and disabling an an entry that never existed also succeeds |
-| `autostart_path(app_id) -> Result[String, AutostartError]` | Describes where the entry lands, for troubleshooting: the full `.desktop` path on Linux, `HKCU\…\Run\<app_id>` on Windows, `~/Library/LaunchAgents/<app_id>.plist` on macOS |
-| `autostart_exe_path() -> String?` | Full path of the current process's executable; this is what enable writes |
-| `autostart_valid_app_id(app_id) -> Bool` | Validates an app_id against the DBus well-known-name rules: at least two dot-separated elements, each starting with a letter or an underscore |
-| `autostart_dir_of` / `autostart_escape_exec` / `autostart_desktop_entry` / `autostart_desktop_enabled` / `autostart_run_value` / `autostart_run_value_exe` | Pure functions: autostart-dir resolution, Exec escaping, `.desktop` content and parsing, Windows Run value format and reverse parsing |
+| `autostart_supported() -> Bool` | 运行时探测；三平台均为 true |
+| `autostart_is_enabled(app_id) -> Result[Bool, AutostartError]` | 查询当前状态；Linux 认 `Hidden` 与 `X-GNOME-Autostart-enabled` 两个系统侧禁用位；macOS 以 plist 是否存在为启用状态 |
+| `autostart_enable(app_id)` / `autostart_disable(app_id) -> Result[Unit, AutostartError]` | 设置与取消；两者幂等：重复 enable 覆盖，disable 对本就不存在的条目也算成功 |
+| `autostart_path(app_id) -> Result[String, AutostartError]` | 落点描述，排查用：Linux 是 `.desktop` 全路径，Windows 是 `HKCU\…\Run\<app_id>`，macOS 是 `~/Library/LaunchAgents/<app_id>.plist` |
+| `autostart_exe_path() -> String?` | 当前进程可执行文件全路径，enable 写入的就是它 |
+| `autostart_valid_app_id(app_id) -> Bool` | 按 DBus 知名名规则校验 app_id：至少两个点分元素，元素以字母或下划线开头 |
+| `autostart_dir_of` / `autostart_escape_exec` / `autostart_desktop_entry` / `autostart_desktop_enabled` / `autostart_run_value` / `autostart_run_value_exe` | 纯函数：自启动目录解析、Exec 转义、`.desktop` 内容与解析、Windows Run 值形态与反解 |
 
 ```moonbit
 match @sys.autostart_enable("com.example.MyApp") {
-  Ok(_) => ()      // launches on next login / reboot (see autostart_path for the location)
+  Ok(_) => ()      // 重新登录 / 重启即拉起（落点见 autostart_path）
   Err(e) => println(e.to_string())
 }
 match @sys.autostart_is_enabled("com.example.MyApp") { ... }
-match @sys.autostart_disable("com.example.MyApp") { ... }   // idempotent
+match @sys.autostart_disable("com.example.MyApp") { ... }   // 幂等
 ```
 
-The error type `AutostartError{Unsupported, InvalidAppId, NoExecutablePath, IoFailed(String)}` keeps "unsupported" and "failed" separate; nothing fails silently. The library adds the exec-path quotes per platform convention: both the `.desktop` Exec and the Windows REG_SZ wrap the whole path in one pair of double quotes, so callers should not add another layer.
+错误类型 `AutostartError{Unsupported, InvalidAppId, NoExecutablePath, IoFailed(String)}` 把不支持与失败分开，不静默。exec 路径的引号按平台惯例由库加——`.desktop` 的 Exec 与 Windows REG_SZ 都是整串双引号包裹，调用方不要再拼一层。
 
-Edge cases: the autostart target is the absolute path of the current process's executable — when the app runs from a temporary location such as an AppImage or a portable unpacked directory, moving the directory invalidates the old entry, so enable must be run again. Cleanup tools may empty the Linux autostart directory, and group policy may disable the Windows Run key (the entry stays but never runs); both are environment-side behaviors the library does not probe for. On macOS, enable/disable go through the deprecated-but-present `launchctl load` / `unload` (the newer `bootstrap` needs the user's uid, which this API family does not expose); a failed `load` does not undo the written plist — it still takes effect next login — but is reported as an error.
+边界：自启动目标取本进程可执行文件的绝对路径，AppImage 或便携解压目录等临时位置下，应用挪动目录后旧条目失效需重新 enable；Linux 的自启动目录可能被清理工具清空，Windows 的 Run 键可被组策略禁用（条目在但不执行），两类都是环境侧行为，库不做探测；macOS 的 enable/disable 走已废弃但仍在的 `launchctl load` / `unload`（新写法 `bootstrap` 要用户 uid，本 API 族没有取 uid 的口子），load 失败不撤销已写入的 plist（下次登录仍生效），但会如实报错。

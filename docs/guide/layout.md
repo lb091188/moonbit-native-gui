@@ -1,85 +1,84 @@
-# Layout Styling (@style + yoga-mbt)
+# 布局样式（@style + @yoga）
 
-The layout engine is this repository's own **yoga-mbt**, a pure-MoonBit implementation of CSS Flexbox Level 1. Styles are MoonBit values living in the `@style` package, and `Style` field names are CSS property names with hyphens written as underscores. Components accept loose parameters (`padding=` / `row_gap=` …) as well as a `class? : Array[@style.Style]` array that stacks style blocks. The full design of the style value model and state buckets is in [design.md (Chinese)](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/design.md).
+布局采用 CSS Flexbox（Level 1）规范，由 MoonBit 实现的布局引擎 yoga-mbt 驱动。样式是 `@style` 包中的 MoonBit 值，`Style` 结构体字段与 CSS 属性同名（连字符写作下划线）。组件既接受命名参数（`padding=` / `row_gap=` 等），也接受 `class? : Array[@style.Style]` 叠加样式块。
 
-## Two write paths
+## 两种设置方式
 
-- **Loose parameters**: `@ui.col/row/view` take `padding` / `row_gap` / `column_gap` / `width` / `height` / `grow` / `align_items` / `background_color` / `border_color` directly. They are sugar for the matching `Style` fields and have exactly one destination: folded into an anonymous block.
-- **`class` channel**: pass one or more `Style` blocks built with `@style.style(...)`; the last array element wins — its same-named properties override earlier ones. Every component accepts `class?`.
+- **命名参数**：`@ui.col` / `@ui.row` / `@ui.view` 直接接受 `padding` / `row_gap` / `column_gap` / `width` / `height` / `grow` / `align_items` / `background_color` / `border_color` 等常用字段。它们是 `Style` 对应字段的简便写法，最终折入匿名样式块。
+- **`class` 通道**：接受一个或多个由 `@style.style(...)` 构造的 `Style` 块；同名属性以数组中靠后者为准。所有组件都接受 `class?`。
 
-The two merge into a single `Style`, which lands on the widget's style slot and the Yoga node. Merging follows one fixed total order: **inherited < defaults (the component's built-in look) < properties (loose constructor parameters) < `class` (later array entries override earlier ones) < `style(...)` (an explicit rule block the component takes, e.g. `text_dyn`'s `anon`)** — later wins. Internal layout written inside a component's body (overlay track widths, fixed row heights) stays out of this chain and is not stylable.
+两种方式合并为一份 `Style`，作用于控件与布局节点。合并走一条固定全序：**继承 < 默认（组件内置观感）< 属性（构造散参数）< `class`（数组靠后者覆盖前者）< `style(...)`（组件收的显式规则块，如 `text_dyn` 的 `anon`）**，越靠后越赢。组件函数体里的内部布局（弹层轨道宽、固定行高这类）不进这条链，不对外样式化。
 
-## Layout field quick reference (`Style`)
+## 布局字段速查（`Style`）
 
-The labelled parameters of `@style.style(...)` are the field names; all are optional. `None` means unset and falls back to the engine default.
+`@style.style(...)` 的关键字参数即字段名，全部可选；`None` 表示不设置，使用引擎默认值。
 
-### Size
+### 尺寸
 
-| Field | Meaning |
+| 字段 | 含义 |
 |---|---|
-| `width` / `height` | fixed size, in logical pixels |
-| `width_percent` / `height_percent` | percentage size, relative to the parent's content box |
-| `min_width` / `min_height` | minimum size; see the min:auto rule below |
-| `max_width` / `max_height` | maximum size |
+| `width` / `height` | 定尺寸，逻辑像素 |
+| `width_percent` / `height_percent` | 百分比尺寸，相对父内框 |
+| `min_width` / `min_height` | 最小尺寸，见下方 min:auto 行为 |
+| `max_width` / `max_height` | 最大尺寸 |
 
-### Box spacing
+### 盒内间距
 
-| Field | Meaning |
+| 字段 | 含义 |
 |---|---|
-| `padding` | uniform padding on all four edges (shorthand) |
-| `padding_left` / `padding_right` / `padding_top` / `padding_bottom` | per-edge padding |
-| `margin` | uniform margin on all four edges (shorthand) |
-| `margin_left` / `margin_right` / `margin_top` / `margin_bottom` | per-edge margin |
+| `padding` | 四边统一内边距，简写 |
+| `padding_left` / `padding_right` / `padding_top` / `padding_bottom` | 单边内边距 |
+| `margin` | 四边统一外边距，简写 |
+| `margin_left` / `margin_right` / `margin_top` / `margin_bottom` | 单边外边距 |
 
 ### Flex
 
-| Field | Values | Meaning |
+| 字段 | 取值 | 含义 |
 |---|---|---|
-| `flex_direction` | `Row` / `RowReverse` / `Column` / `ColumnReverse` | main-axis direction; at the style layer the default is `Row`, while the containers `view` / `col` default to `Column`, `row` is `Row`, and the window root is `Column` |
-| `flex_wrap` | `NoWrap` / `Wrap` / `WrapReverse` | whether to wrap; default `NoWrap` |
-| `flex` | `Double` | flex grow factor, used with `grow` |
-| `justify_content` | `FlexStart` / `FlexEnd` / `Center` / `SpaceBetween` / `SpaceAround` / `SpaceEvenly` | main-axis alignment |
-| `align_items` | `Stretch` / `FlexStart` / `FlexEnd` / `Center` / `Baseline` | cross-axis alignment; containers default to `Stretch` |
-| `align_self` | same as `align_items` | one item overrides the parent's `align_items` |
-| `row_gap` / `column_gap` / `gap` | `Double` | row gap / column gap / uniform shorthand |
+| `flex_direction` | `Row` / `RowReverse` / `Column` / `ColumnReverse` | 主轴方向；样式层默认 `Row`，容器 `view` / `col` 缺省 `Column`、`row` 为 `Row`、窗根为 `Column` |
+| `flex_wrap` | `NoWrap` / `Wrap` / `WrapReverse` | 是否换行，默认 `NoWrap` |
+| `flex` | `Double` | 弹性增长因子，配合 `grow` |
+| `justify_content` | `FlexStart` / `FlexEnd` / `Center` / `SpaceBetween` / `SpaceAround` / `SpaceEvenly` | 主轴对齐 |
+| `align_items` | `Stretch` / `FlexStart` / `FlexEnd` / `Center` / `Baseline` | 交叉轴对齐，容器缺省 `Stretch` |
+| `align_self` | 同 `align_items` | 单项覆盖父的 `align_items` |
+| `row_gap` / `column_gap` / `gap` | `Double` | 换行行间距 / 列间距 / 统一简写 |
 
-### Position and stacking
+### 定位与层序
 
-| Field | Values | Meaning |
+| 字段 | 取值 | 含义 |
 |---|---|---|
-| `position` | `Relative` / `Absolute` | positioning mode |
-| `top` / `right` / `bottom` / `left` | `Double` | relative or absolute offset |
-| `z_index` | `Int32` | paint-order key; higher values paint later |
-| `display` | — | participate in layout or hide; a `Style` field, skipped in both painting and hit-testing |
+| `position` | `Relative` / `Absolute` | 定位模式 |
+| `top` / `right` / `bottom` / `left` | `Double` | 相对或绝对偏移 |
+| `z_index` | `Int32` | 绘制层序键，值越大越后绘制 |
+| `display` | — | 参与布局或隐藏；`Style` 字段，绘制与命中都跳过 |
 
-The enums `FlexDirection` / `AlignItems` / `JustifyContent` / `FlexWrap` / `PositionType` are the same set the loose parameters use, all from yoga-mbt. Write them as `@yoga.Row` / `@yoga.Center`, or pass them straight to `view(direction=…)`.
+枚举类型 `FlexDirection` / `AlignItems` / `JustifyContent` / `FlexWrap` / `PositionType` 与组件命名参数共用同一套定义，均来自 yoga-mbt，写作 `@yoga.Row` / `@yoga.Center` 形式，或直接传给 `view(direction=…)`。
 
-## Web-parity defaults
+## 缺省行为
 
-Three defaults that match the web:
+与 web 同口径的三条缺省：
 
-- **The window root is a vertical container.** Top-level page elements fill the window width by default and hug their content height; pass `grow=1.0` to take up the remaining height.
-- **Containers stretch on the cross axis by default.** `view` / `col` / `row` all default `align_items` to `Stretch` — children fill the container's width in a column and the row's height in a row; pass `Center` explicitly for centering.
-  - Stretch: the flexbox cross-axis alignment that makes children fill the container along the axis perpendicular to the layout direction.
-- **The main axis does not fill automatically.** `flex_grow` defaults to 0; pass `grow=1.0` to take up the remaining space on the main axis.
+- **窗根是竖排容器。** 页面顶层元素缺省撑满窗宽、高度按内容；要占满剩余高度给 `grow=1.0`。
+- **容器交叉轴缺省拉满。** `view` / `col` / `row` 的 `align_items` 缺省 `Stretch`——列里子项撑满容器宽、行里子项撑满行高；要居中显式传 `Center`。
+  - Stretch：flexbox 交叉轴拉齐——子项沿垂直于排列方向的轴撑满容器。
+- **主轴不自动撑满。** `flex_grow` 缺省 0，主轴要占满剩余空间显式给 `grow=1.0`。
 
-## A few things you must know
+## 关键行为
 
-**min:auto blows up scroll and wrap containers.** A flex child's default minimum size is `auto`, i.e. its content size. A scroll viewport or wrapping container that doesn't set `min_width` / `min_height = 0.0` gets pushed to its content's natural size, `max()` stays 0, and the result is that it won't scroll or the row overflows. The library-level containers `scroll_view` / `virt_list` and the components sidebar already fix this; when you build your own scroll or wrap structure, write `min_width=0.0, min_height=0.0` yourself.
+**min:auto 会使滚动与换行容器失效。** Flex 子项的默认最小尺寸是 `auto`（即内容尺寸）。滚动视口或换行容器若不显式设置 `min_width` / `min_height = 0.0`，会被内容撑到自然尺寸，导致无法滚动或整行溢出。库内容器 `scroll_view` / `virt_list` 及 components 侧栏已处理此项；自建滚动或换行结构时需自行设置 `min_width=0.0, min_height=0.0`。
 
-**Wrapping must go the right direction.** `flex_wrap=Wrap` only folds vertically when the container is a **column**: the wrap lower bound is judged against the pinned cross width, and items that don't fit drop to the next line. A chip bar that must "wrap when too wide" therefore goes into a column container, with explicit `min_* = 0` at every level.
+**换行容器须为列方向。** `flex_wrap=Wrap` 只有在容器为**列**方向时才能正常折行：折行下限按定住的交叉宽参照，放不下的子项自动落到下一行。标签组这类「超宽自动换行」的场景应放入列容器，且每层显式设置 `min_* = 0`。
 
-**gap is already subtracted from free space.** When grow/shrink computes free space, it first deducts `gap × (n-1)`, so a row of "fixed items + a grow item + gap" never overflows. The engine does this for you — no workaround needed.
+**gap 计入弹性分配。** 弹性分配（grow/shrink）计算自由空间时会先扣除 `gap × (n-1)`，因此「固定项 + grow 项 + gap」的组合不会溢出。引擎内置行为，无需额外处理。
 
-**Text size feeds back into layout.** The content size of `@ui.text` / `bind_label` comes from Pango measurement, and both `measure` and `baseline` are wired into the layout engine, so text can take part in baseline alignment and size to its content; wrapping and truncation are controlled by the `max_width` + `wrap` + `ellipsis` trio.
+**文本尺寸参与布局。** `@ui.text` / `bind_label` 的内容尺寸来自 Pango 测量，`measure` 与 `baseline` 均接入布局引擎，文本可参与基线对齐、按内容确定宽高；折行与截断由 `max_width` + `wrap` + `ellipsis` 三个参数控制。
 
-## Incremental relayout
+## 增量重排
 
-Every property setter, plus structural and callback changes, calls `mark_changed`; versions are tracked with a global clock plus a per-node `rev`. The layout entry skips unchanged subtrees by "subtree version + input fingerprint". So changing a `bind_label`'s text recomputes only that chain, and a whole-frame layout is near constant time. Callers don't manage this layer, but it explains why in-place edits are recommended over rebuilding the whole tree — see [declarative.md](declarative.md).
+布局是增量的：属性与结构的变更只重算受影响的子树，`bind_label` 修改文本只重算该条链路，整帧布局开销接近常数。调用方无需干预；这也是推荐就地修改而非整棵重建的原因，见 [declarative.md](declarative.md)。
 
-## Related docs
+## 相关文档
 
-- Style value model, state buckets, theme linkage: [design.md (Chinese)](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/design.md) §1
-- Components and loose parameters: [Components overview](../components/index.md)
-- Layout recipes (centering, header/body/footer, splits, scrolling, wrapping): [Layout recipes](../cookbook/layout.md)
-- Reactivity and whole-tree / in-place replacement: [declarative.md](declarative.md)
+- 组件与命名参数：[组件总览](../components/index.md)
+- 布局场景怎么写（居中、三段式、分栏、滚动、换行）：[布局场景](../cookbook/layout.md)
+- 响应式与原位替换：[declarative.md](declarative.md)

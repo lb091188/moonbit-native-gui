@@ -1,54 +1,54 @@
-# Charts (@chart)
+# 图表（@chart）
 
-`moon.pkg`:
+`moon.pkg` 引入：
 
 ```
 "NoahLiu/native-gui/chart" @charts,
 ```
 
-Each chart is a constructor: pass a `Store` (data lives in the `Store`, external writes refresh the chart), give it a width/height, get a node back. Live demo: the components "Charts" page (source `examples/components/pages/charts.mbt`).
+每个图表是一个构造器：收一个 `Store`（数据住了 `Store`，外部改值即刷新），给宽高，返回节点。现场演示：components「图表」页（源码 `examples/components/pages/charts.mbt`）。
 
-## Common charts
+## 常用图表
 
-| Constructor | Data | Notes |
+| 构造器 | 数据 | 说明 |
 |---|---|---|
-| `line_chart_t` | `Store[Array[LineSeries]]` | Lines; `area=true` fills, `show_last` marks the last value |
-| `bar_chart_t` | `Store[Array[BarItem]]` | Columns / bars (`horizontal=true` for horizontal); positive & negative values |
-| `donut_chart_t` | `Store[Array[DonutSlice]]` | Donut; `center` for the middle text |
-| `scatter_t` | `Store[Array[(Double, Double)]]` | Scatter; `trend=true` adds a trend line |
-| `candlestick_t` | `Store[Array[Candle]]` | Candlesticks; up/down colors configurable |
-| `boxplot_t` | `Store[Array[(String, Array[Double])]]` | Box plots |
-| `gauge_t` | `Store[Double]` | Gauge; `thresholds` for banded colors |
-| `radar_chart_t` | Two Stores: indicators + series | Radar |
-| `funnel_t` | `Store[Array[BarItem]]` | Funnel |
-| `heatmap_t` | `Store[HeatGrid]` | Heatmap |
-| `sankey_t` | `Store[SankeyData]` | Sankey |
-| `tree_chart_t` | `Store[TreeItem]` | Tree diagram |
-| `geo_map_t` | `Store[Array[GeoRegion]]` | Map regions, optional flight lines |
+| `line_chart_t` | `Store[Array[LineSeries]]` | 折线；`area=true` 填充，`show_last` 末值标注 |
+| `bar_chart_t` | `Store[Array[BarItem]]` | 柱状 / 条形（`horizontal=true` 横向）；支持正负值 |
+| `donut_chart_t` | `Store[Array[DonutSlice]]` | 环形图；`center` 给中心文字 |
+| `scatter_t` | `Store[Array[(Double, Double)]]` | 散点；`trend=true` 出趋势线 |
+| `candlestick_t` | `Store[Array[Candle]]` | K 线；涨跌色可改 |
+| `boxplot_t` | `Store[Array[(String, Array[Double])]]` | 箱线图 |
+| `gauge_t` | `Store[Double]` | 仪表盘；`thresholds` 分段着色 |
+| `radar_chart_t` | 指标 + 系列两个 `Store` | 雷达图 |
+| `funnel_t` | `Store[Array[BarItem]]` | 漏斗 |
+| `heatmap_t` | `Store[HeatGrid]` | 热力图 |
+| `sankey_t` | `Store[SankeyData]` | 桑基图 |
+| `tree_chart_t` | `Store[TreeItem]` | 树图 |
+| `geo_map_t` | `Store[Array[GeoRegion]]` | 地图分区，可叠航线 |
 
-Series data is built with `make`: `LineSeries::make("CPU", max_points=120)` (ring-buffer cap), `BarItem::make("Jan", 12.0)`, `LineSeries::with_points(s, [1.0, 2.0])` for a one-shot load.
+系列数据用 `make` 构造：`LineSeries::make("CPU", max_points=120)`（`max_points` 环形缓冲上限）、`BarItem::make("1月", 12.0)`、`LineSeries::with_points(s, [1.0, 2.0])` 一次喂点。
 
 ```moonbit
 let line : @base.Store[Array[@charts.LineSeries]] = @base.Store::new([
   @charts.LineSeries::make("CPU", max_points=120),
 ])
-@charts.series_push(line, 0, 42.0)   // feed one point into series 0 at runtime
+@charts.series_push(line, 0, 42.0)   // 动态喂第 0 条系列一个点
 let chart = @charts.line_chart_t(line, area=true, width=560.0, height=260.0)
 ```
 
-The value range is computed automatically; pin it with `y_range=(0.0, 100.0)`.
+纵向取值范围自动算；要钉死给 `y_range=(0.0, 100.0)`。
 
-## Interactive variants
+## 交互版
 
-`line_chart_it` / `bar_chart_it` / `donut_chart_it` ship with a tooltip, a clickable legend and DataZoom (wheel zoom anchored at the cursor, drag to pan); pass `zoom_state=Some(zoom)` to own the zoom state externally.
+`line_chart_it` / `bar_chart_it` / `donut_chart_it` 三个交互版自带 tooltip、可点击图例与 DataZoom（滚轮以鼠标为锚点缩放、左键拖拽平移）；`zoom_state=Some(zoom)` 传外部 `CiZoom` 自持缩放状态。
 
-## Exporting PNG
+## 导出 PNG
 
-- `ci_save_chart(draw, w, h, path)`: re-render a draw callback offscreen, then write to disk.
-- Interactive charts expose a `handle`: take the canvas from the widget and call `ci_save(canvas, path)`.
+- `ci_save_chart(draw, w, h, path)`：把一个绘制回调离屏复渲染后落盘。
+- 交互图带 `handle`：句柄上取画布后 `ci_save(canvas, path)`。
 
-Failures return `CiSaveError` (bad format / write failed), never silent.
+失败给 `CiSaveError`（格式非法 / 写失败），不静默。
 
-## Full family
+## 全家福
 
-Same signature pattern (Store in, node out): `eff_chart_t` (animated effect scatter), `par_chart_t` (parallel coordinates), `pb_chart_t` (pixel bar), `sun_chart_t` (sunburst), `tm_chart_t` (treemap), `gph_chart_t` (graph), `trv_chart_t` (theme river). Per-symbol details: [API reference](../reference/api.md).
+其余图型同样签名规律（`Store` 进、节点出）：`eff_chart_t`（特效散点，动画自驱动）、`par_chart_t`（平行坐标）、`pb_chart_t`（像素条形）、`sun_chart_t`（旭日）、`tm_chart_t`（矩形树图）、`gph_chart_t`（关系图）、`trv_chart_t`（河流图）。逐签名见 [API 参考](../reference/api.md)。

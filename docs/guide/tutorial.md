@@ -1,8 +1,8 @@
-# Getting started
+# 上手体验
 
-Build a desktop app from scratch — one window, one button, and a counter that refreshes on every click — then walk through the project mechanics, single-file components, and debugging tools. The only prerequisite is the build environment: the MoonBit toolchain and per-platform dev packages, installed per [Build & run](build.md) §1–§3. If you would rather see results first without installing anything, take [Run the prebuilt packages](experience.md).
+从零建一个桌面应用：一个窗口、一个按钮、一个随点击自动刷新的计数；之后再过一遍工程机制、单文件组件与调试工具。前置只有构建环境——MoonBit 工具链与平台开发依赖，装法见[构建与运行](build.md) §1–§3；只想先看效果不装任何东西，走[跑预构建包](experience.md)。
 
-## 1. Create the project
+## 1. 建工程
 
 ```sh
 moon new my_app
@@ -10,18 +10,18 @@ cd my_app
 moon add NoahLiu/native-gui
 ```
 
-The current `moon new` template: the root package is a library (`my_app.mbt` and an empty `moon.pkg`), and the executable entry lives in the `cmd/main/` sub-package (`main.mbt` + `moon.pkg`). Two hard rules:
+当前 `moon new` 模板的结构：根目录是库包（`my_app.mbt`、空的 `moon.pkg`），可执行入口在 `cmd/main/` 子包（`main.mbt` + `moon.pkg`）。两条硬规矩：
 
-- moon only recognizes a file named `main.mbt` as the program entry — keep that file name when creating your own entry files, or you get `Missing main function`.
-- The root `moon.pkg` stays empty; dependencies are declared only in `cmd/main/moon.pkg`.
+- moon 只把名为 `main.mbt` 的文件识别为程序入口——自建入口文件时保持这个文件名，否则报 `Missing main function`。
+- 根目录的 `moon.pkg` 保持为空，依赖只在 `cmd/main/moon.pkg` 里声明。
 
-`moon add NoahLiu/native-gui` writes only the **module-level** dependency (the `import` in `moon.mod`), which makes the library's packages resolvable; the **package-level** `import` must be written separately in the `moon.pkg` of the package that uses it. Skip that and `@ui` in your code reports "package not found" — the number one first-time blocker, see §6. The `import` list decides which aliases your code can reference: `@ui` provides the widgets, components, and the declarative entry (`mount_window` and the node constructors); reactive state `@base`, style classes `@style`, the app host `@widget`, and system capabilities `@sys` are added as needed — the 17-alias table is in [Package layout & API reference](../reference/api.md). Packages you don't import are neither compiled nor linked, costing no binary size; the standard library `moonbitlang/core` is injected by moon automatically and does not belong in the import list; transitive dependencies need no attention — the library declares them itself and `moon add` drops them into `.mooncakes/` automatically.
+`moon add NoahLiu/native-gui` 只写了**模块级**依赖（`moon.mod` 里的 import），作用是让库的包可被解析；**包级** import 要在用它的包自己的 `moon.pkg` 里另写。这一步不做，代码里的 `@ui` 会报「找不到包」——新手第一卡点，见 §6。`import` 决定代码里能引用哪些别名：`@ui` 提供控件、组件与声明式入口（`mount_window` 与各节点构造器），响应式状态 `@base`、样式类 `@style`、应用宿主 `@widget`、系统能力 `@sys` 等按需再加，17 个包的别名速查与逐签名入口见[包结构与 API 参考](../reference/api.md)。没 import 的包不编译不链接，不占二进制体积；标准库 `moonbitlang/core` 由 moon 自动注入，不需要写进 import；传递依赖由库自己声明，`moon add` 后自动进 `.mooncakes/`。
 
-The project needs two manual adjustments:
+工程需要两处手工调整：
 
-- **`moon.mod`: change `preferred_target = "wasm"` to `"native"`** — this library uses native FFI and supports only the native backend (no wasm); without the change the build reports "package does not support the current target". Skip if the template already defaults to native.
+- **`moon.mod`：把 `preferred_target = "wasm"` 改为 `"native"`**——本库走原生 FFI，只支持 native 后端（不出 wasm）；不改的话构建直接报「包不支持当前目标」。模板默认已是 native 时跳过。
 
-- **Replace the whole `cmd/main/moon.pkg` with** — moon's DSL format, not JSON:
+- **`cmd/main/moon.pkg` 整个替换为**——moon 的 DSL 格式，不是 JSON：
 
   ```
   import {
@@ -36,11 +36,11 @@ The project needs two manual adjustments:
   supported_targets = "native"
   ```
 
-  This lists every package the code on this page uses, all at once; in practice write only what you need — the minimum is the single `ui` line.
+  这里为本页代码一次列全用到的包；实际按需写，最少只需 `ui` 一行。
 
-## 2. Your first window
+## 2. 第一个窗口
 
-Replace `cmd/main/main.mbt` entirely with:
+把 `cmd/main/main.mbt` 整个替换为：
 
 ```moonbit
 fn main {
@@ -50,21 +50,21 @@ fn main {
       @ui.col(
         [
           @ui.text("Hello, MoonBit!", class=[@style.text_heading]),
-          @ui.button("Click me", variant=@ui.Solid, on_click=fn() {
+          @ui.button("点我", variant=@ui.Solid, on_click=fn() {
             count.update(fn(n) { n + 1 })
           }),
-          @ui.bind_label(count, fn(n : Int32) -> String { "Clicked \{n} times" }),
+          @ui.bind_label(count, fn(n : Int32) -> String { "已点 \{n} 次" }),
         ],
         padding=24.0,
         row_gap=12.0,
       ),
     ],
-    title="Tutorial demo",
+    title="教程示例",
     width=360,
     height=220,
   ) {
     None => {
-      println("No window backend or no display service on this platform")
+      println("本平台没有窗口后端或没有显示服务")
       return
     }
     Some(a) => a
@@ -77,145 +77,105 @@ fn main {
 moon run cmd/main
 ```
 
-A window appears: a title, a button, and a "Clicked 0 times" line. Click the button and the number ticks up by itself. That is **reactive state**: when `count` changes, `bind_label` refreshes on its own — no "update the text on click" glue code. The UI is declared as a tree of **node constructors** (`@ui.col([...])` / `@ui.text(...)` / `@ui.button(...)`) and mounted in one `mount_window` call; `mount_window` returns `None` when there is no window backend or no display service, and the example exits accordingly — expected behaviour, not a fault.
+窗口出现：一个标题、一个按钮、一行「已点 0 次」；点按钮，数字自动 +1。这是**响应式状态**——`count` 一变，`bind_label` 自动刷新，无需「点击后改文本」的胶水代码。界面用 `@ui.col([...])` / `@ui.text(...)` / `@ui.button(...)` 等**节点构造器**声明成一棵树，交给 `mount_window` 一次挂载；`mount_window` 在没有窗口后端或没有显示服务时返回 `None`，示例据此结构化退出——这是预期行为，不是故障。
 
-## 3. MoonBit syntax at a glance (only what the code above uses)
+## 3. MoonBit 语法速览（只覆盖上面代码用到的）
 
-| Syntax | Meaning |
+| 语法 | 含义 |
 |---|---|
-| `fn main { ... }` | program entry |
-| `let count : @base.Store[Int32] = ...` | type annotation: `Store[Int32]` is a box of integer state |
-| `match expr { ... }` | pattern matching, take a value per branch (here, unwrapping an `Option`) |
-| `None => ... / Some(a) => a` | the two states of an optional value: `None` absent, `Some(x)` present |
-| `fn(n) { n + 1 }` | anonymous function (lambda), passed in as a callback |
-| `on_click=fn() { ... }` | labelled argument: parameters with defaults are passed by name |
-| `"Clicked \{n} times"` | string interpolation, `\{expression}` embeds any value |
+| `fn main { ... }` | 程序入口 |
+| `let count : @base.Store[Int32] = ...` | 类型标注：`Store[Int32]` 是一个整数状态盒 |
+| `match expr { ... }` | 模式匹配，按分支取值（这里是拆 `Option`） |
+| `None => ... / Some(a) => a` | 可选值的两态：`None` 缺省、`Some(x)` 有值 |
+| `fn(n) { n + 1 }` | 匿名函数（lambda），作回调传入 |
+| `on_click=fn() { ... }` | 命名实参：带默认值的参数按名传递 |
+| `"已点 \{n} 次"` | 字符串插值，`\{表达式}` 嵌入任意值 |
 
-**Learn MoonBit properly**: the official [Chinese tutorial](https://docs.moonbitlang.com/zh-cn/latest/tutorial/index.html) ([English tutorial](https://docs.moonbitlang.com/en/latest/tutorial/index.html)); if you prefer learning hands-on, the official [Tour of MoonBit](https://tour.moonbitlang.com) walks you through lessons in the browser.
+**系统学 MoonBit**：官方[中文教程](https://docs.moonbitlang.com/zh-cn/latest/tutorial/index.html)（[English tutorial](https://docs.moonbitlang.com/en/latest/tutorial/index.html)）；偏好交互式边玩边学的，官方 [Tour of MoonBit](https://tour.moonbitlang.com) 在浏览器里逐课演练。
 
-## 4. Single-file components (.mng)
+## 4. 单文件组件（.mng）
 
-Write the UI as a declarative template and the state/logic in MoonBit — both in one `.mng` file; the `mng` tool pre-compiles it to `.mbt` and the normal `moon build` takes over. `moon check` remains the only type gate. Full semantics live in `proposals/native-template.md`; a runnable minimal example is `examples/hello` (the page body is the single-file `hello.mng`).
+界面用声明式模板写、状态与逻辑用 MoonBit 写，两段合在一个 `.mng` 文件里，由 `mng` 工具预编译成 `.mbt` 再走 `moon build`——`moon check` 仍是唯一类型门禁。可跑的最小示例在 `examples/hello`（页面主体就是 `hello.mng` 单文件）。
 
-### Install
+### 装
 
-From the repository root (the tool ships with this repo):
+仓库根执行（`moon install` 按**可执行包**逐个装）：
 
 ```sh
 moon install ./tools/native-gui-tools/mng
-mng --version   # prints mng 0.2.11 and mng-schema 1
+moon install ./tools/native-gui-tools/mngui   # GUI 向导（裸 mng 自动拉起）
+mng --version   # 应打印 mng 版本与 mng-schema 位
 ```
 
-CLI prompts and errors switch between Chinese and English via `LC_ALL` / `LC_MESSAGES` / `LANG` (a `zh` prefix selects Chinese); when these are absent the system UI language is consulted (Windows), defaulting to Chinese if still unknown; the `dev` watch log and compiler diagnostics stay in Chinese.
+裸敲 `mng`：首跑自动做一轮环境体检（moon / 编译器 / GTK，Python 仅为可选提示，末尾真编译一个 hello 工程探针），全绿写 `~/.mng/ready` 并拉起 GUI 向导；之后裸 mng 直达向导。命令面提示中英随 locale。
 
-For editor support install the VS Code extension from `tools/vscode-mng` (coloring / completion / hover / jump / diagnostics; saving runs `moon check` and feeds type errors back into Problems — see its README).
+### 起与改
 
-### Start
+- **从零起工程**：`mng new my_app`（或向导里点出来）——`cd my_app && moon run .` 或 `mng dev`。
+- **既有工程加一页**：`mng new page pages/about`；**接模板**：`mng init` 写 `mng.toml`。
+- **热更循环**：`mng dev` 起应用后改 `.mng` 保存——结构/样式/受限表达式亚秒 HOT，script / v-for 行模板 / 新符号 COLD 重启并自动回到改动页。
 
-- **New project**: `mng new my_app` generates a runnable minimal project (dependency versions are read live when generated inside the native-gui workspace; explicit form `mng new app my_app`) — `cd my_app && moon run .`.
-- **Add a page to an existing project**: `mng new page pages/about` generates a single-page `.mng` sample (the parent directory is created if missing).
-- **Wire templates into an existing project**: `mng init` writes `mng.toml`.
-
-### What a page looks like
+页面长这样：
 
 ```html
 <script>
 let count : @base.Store[Int32] = @base.Store::new(0)
-let name : @base.Store[String] = @base.Store::new("")
-
-fn reset() {
-  count.set(0)
-  name.set("")
-}
+fn reset() { count.set(0) }
 </script>
 <template>
   <ui-col class="page">
-    <ui-input v-model="name" placeholder="Your name" width="220.0" />
-    Hello, {{ name }}!
     <ui-stepper v-model="count" max="10" />
-    Count: {{ count }}
-    <ui-button text="Reset" @click="reset" />
+    计数: {{ count }}
+    <ui-button text="重置" @click="reset" />
   </ui-col>
 </template>
 <style>
-  .page { padding: 24px; row-gap: 8px; align-items: center; }
+.page { padding: 24px; row-gap: 8px; align-items: center; }
 </style>
 ```
 
-Key points:
+**深入**：完整文法（指令集 / 组件 props / `<style>` 章 / 生成码纪律）见[单文件组件（.mng）](./sfc)；命令参考与 `mng.toml` 全键表见 [mng 命令与配置](./mng)；热更分类与 VS Code 扩展见[热更与编辑器](./mng-dev)。编辑器体验装 VS Code 扩展 `tools/vscode-mng`（着色/补全/hover/跳转/诊断回投模板行列，见其 README）。
 
-- Directives: interpolation `{{ }}`, `:attr` dynamic attributes, `@event` handlers, `v-model` (binds a Store directly), `v-if`/`v-else-if`/`v-else`, `v-show`, `v-for` (source must be a keyed `@base.ListStore`, `:key="it.id"` recommended); single-root template.
-- Component tags: the built-in `ui-*` table; same-package components are plain `fn name`; cross-package `let name = @pkg.fn`.
-- Parameterized components: the first `fn` in the script with a signature but no body is the props header (required as positional, optional as `name? : Type = default`).
-- Styles go into the `<style>` block (class selectors + `var(--token)` + states/dark variants); style literals on template attributes are compile errors — put them in `<style>` or `class`.
-- Expressions are pasted into MoonBit verbatim: concatenate with `{{ }}` or `"\{x}"` interpolation — MoonBit's `+` does not concatenate non-strings.
 
-### dev / build
+## 5. 内建 Inspector（调试界面）
 
-- `mng init` writes `mng.toml` at the module root (templates / build / run / app-id / theme); `mng dev` and `mng build` look it up upwards when run without arguments, falling back to `moon.mod`/`moon.work` defaults.
-- `mng dev`: watches all project templates + project sources (`.mbt`/`moon.pkg`/`moon.mod`/`moon.work`) + theme files; the first run generates the dev-form `<stem>.gen.mbt` next to each template and starts the app. Change classes: structure/class/style values/restricted expressions apply hot in under a second; script, v-for row templates and new symbols fall back to a COLD restart which reopens the edited page; `.mng` files created while dev runs are generated and built automatically, deletions clean up (or warn about) generated code. The hot-reload facade lives in the library package `@mngdev` — one `import "NoahLiu/native-gui/mngdev" @mngdev` line in the template package's `moon.pkg` (already written by `mng new`); the app no longer copies any dev-facade `.mbt`.
-- `mng build`: with no arguments generates **production-form** generated code for the whole project (zero dev traces); `mng build <input> -o <out>` compiles a single file. dev and production forms share the same `<stem>.gen.mbt` and overwrite each other — pick one before committing (CI compares both and accepts either).
-
-### Wiring the generated code
-
-Generated code lands next to the template: `<stem>.gen.mbt` provides `pub fn <stem>() -> @widget.Node`, wired like any function:
-
-```moonbit
-@ui.mount_window([hello()], title="Template Hello", width=420, height=360)
-```
-
-Commit the generated code (consumers need no toolchain); it carries a `// GENERATED … DO NOT EDIT` header — regenerate after editing the template instead of hand-editing.
-
-### Common pitfalls
-
-| Symptom | Cause and fix |
-|---|---|
-| `v-for 源须是 @base.ListStore` | Source was a Store/Signal or plain variable — declare `let rows : @base.ListStore[T] = @base.ListStore::new()` |
-| `v-for 与 v-if 不写在同一元素` | Separate them with a container (outer v-if around v-for, or v-if inside the row) |
-| `String + Int` type errors | Expressions are pasted verbatim — use `{{ }}` or `"\{x}"` interpolation; MoonBit's `+` does not concatenate non-strings |
-| `moon check` says generated code is stale | Regenerate with `mng dev` (dev form) or `mng build` (production form) and commit |
-| Conflicting generated functions in one package | Two `.mng` files share a stem — rename one |
-| HOT fell back to COLD | v-for row templates / script / new symbols are COLD by design; the `[HOT→COLD]` log line says why |
-
-## 5. Built-in Inspector (debugging your UI)
-
-Library package `NoahLiu/native-gui/inspector` (import on demand); mount a read-only panel into any container:
+库包 `NoahLiu/native-gui/inspector`（应用按需 import），挂一块只读面板进任意容器：
 
 ```moonbit
 // moon.pkg: "NoahLiu/native-gui/inspector"
 @inspector.inspector_panel(refresh_ms=500, auto=false, table_h=240.0, width=640.0)
 ```
 
-Three blocks:
+三块读数：
 
-- **Widget tree**: sourced from the `@widget.a11y_last_frame()` end-of-frame semantic snapshot — the same one screen readers see; invisible subtrees are entirely absent, and the panel itself appears in the tree (expected); indented by parent chain, click a row to select
-- **Selected readouts**: id / parent / role / name / state / value / text / enabled / window rect
-- **Frame cost**: `@base.paint_profile_summary()` (layout/paint/present totals and max frame); "Reset" zeroes the ledger
+- **控件树**：数据源 `@widget.a11y_last_frame()` 帧尾语义快照——与屏读同源，不可见子树整棵不在快照里，面板自己也出现在树里（预期）；按父链缩进，点行选中
+- **选中读数**：id / parent / role / name / state / value / text / enabled / 窗口矩形
+- **帧耗时**：`@base.paint_profile_summary()`（布局/绘制/上屏分段累计与最大帧），「重置统计」清零重算
 
-Refresh reads the "previous frame" snapshot — interact first, then refresh, or turn on auto refresh (500ms self-rearming timer).
+刷新读的是「上一帧」快照——先动一动界面再点刷新，或开自动刷新（500ms 自重排延时表）。
 
-**v2 write-back** (the "Style classes" tab): lists named classes from the `@style` registry (the same port mngdev style hot-reload writes); pick one and edit background/text/border colour/border width/radius (base and `:hover` each); "Apply" runs `@style.define_class` and widgets using the class pick up the new style next frame; "Restore" puts back the snapshot captured when the class list was first refreshed this session. Empty input = leave the field; both token names and `#hex` are accepted. The editor covers five common fields; everything else goes through template source or `mng dev` patches.
+**v2 编辑回灌**（「样式类」页签）：列出 `@style` 注册表的命名类（与 mngdev 样式热更同一个口），选中后改背景/文字/边框色/边框宽/圆角（base 与 `:hover` 各一套），「应用」即 `@style.define_class` 回灌——用了该类的控件下一帧换新样式；「还原此类」回本会话首次刷新类列表时的快照。空白输入 = 不改该字段；token 名与 `#hex` 都吃。编辑面收窄为五样，其余字段走模板源码或 `mng dev` 补丁。
 
-## 6. Common blockers
+## 6. 常见卡点
 
-| Symptom | Cause and fix |
+| 现象 | 原因与处置 |
 |---|---|
-| `@ui` reports "package not found" | `cmd/main/moon.pkg` is missing the package-level import — `moon add` only changes `moon.mod` (module level), see §1 |
-| Build reports "package does not support wasm / target unavailable" | `preferred_target` in `moon.mod` is still the template default wasm; change it to native, see §1 |
-| `Missing main function` | moon only treats a file named `main.mbt` as the program entry, see §1 |
-| `Parsing error: unexpected token {` (reading `moon.pkg`) | `moon.pkg` is moon's DSL format, not JSON — don't write `{ ... }`; keep the root `moon.pkg` empty |
-| `Cannot inject the standard library moonbitlang/core: Cannot load the core file` | the toolchain installed incompletely (usually an interrupted `moon upgrade` with `~/.moon/lib` lost) — rerun the official install script; unrelated to your project |
-| Red from the start on Linux: missing GTK headers (old library releases also failed with `pep-0263`) | build dependencies incomplete — the list is in [Build & run](build.md) §2, the fixes are its §6 |
-| The program exits immediately, no window | `mount_window` returned `None`: no window backend or no display service (e.g. an SSH session without X) — the structured exit is expected |
-| Code changed but behaviour did not | a C stub change does not always trigger a relink, see [Build & run](build.md) §9 |
+| `@ui` 报「找不到包」 | `cmd/main/moon.pkg` 没写包级 import——`moon add` 只改 `moon.mod`（模块级），见 §1 |
+| 构建报「包不支持 wasm / 目标不可用」 | `moon.mod` 的 `preferred_target` 还是模板默认的 wasm，改成 native，见 §1 |
+| `Missing main function` | moon 只把名为 `main.mbt` 的文件当程序入口，见 §1 |
+| `Parsing error: unexpected token {`（读 `moon.pkg`） | `moon.pkg` 是 DSL 格式，不是 JSON，别写 `{ ... }`；根目录的 `moon.pkg` 保持为空 |
+| `Cannot inject the standard library moonbitlang/core: Cannot load the core file` | 工具链装残了（多为升级中断，`~/.moon/lib` 丢失）——重跑一遍官方安装脚本即可修复，与你的工程无关 |
+| Linux 起手就红：缺 GTK 头文件（旧版库还有 `pep-0263` 报错） | 构建依赖没装齐——清单见[构建与运行](build.md) §2，处置见其 §6 |
+| 程序直接退出、没有窗口 | `mount_window` 返回 `None`：无窗口后端或无显示服务（如无 X 的 SSH 会话）——结构化退出是预期行为 |
+| 改完代码行为没变 | 改了 C 桩不一定触发重链，见[构建与运行](build.md) §9 |
 
-Deeper build-time failures (prebuild interpreters, workspace contamination, Windows link libraries, vendor downloads) are in [Build & run](build.md) §6, each with root cause and fix.
+构建期更深一层的失败（prebuild 解释器、workspace 传染、Windows 链接库、vendor 下载）见[构建与运行](build.md) §6，那里按现象给根因与处置。
 
-## 7. Next steps
+## 7. 下一步
 
-Once your first app runs, pick a path by goal:
+第一个应用跑起来之后，按目标选路径：
 
-**Make it look good** — the first window probes the system light/dark mode and accent color once by default (skipped when you have applied a theme explicitly); for continuous following (live recolor when the system switches), connect it in one `follow_system_theme` line:
+**想做得好看**——起窗默认自动探测一次系统深浅与主色（显式 `theme_apply` 过则不覆盖）；要持续跟随（系统切换界面即时变色），`follow_system_theme` 一行接上：
 
 ```moonbit
 handle=fn(a : @widget.WindowHost) -> Unit {
@@ -223,26 +183,26 @@ handle=fn(a : @widget.WindowHost) -> Unit {
 }
 ```
 
-Themed forms for `@ui.text` / `@ui.button` (the four `button` `variant`s, `tag` / `alert` / `card`, …) are in [Components overview](../components/index.md); stylesheets (`Style` values plus `hover` / `active` / `focus` states and transitions) in [Layout & styling](layout.md).
+把 `@ui.text` / `@ui.button` 换成主题化形态（`button` 的 `variant` 四档、`tag` / `alert` / `card` 等）见 [组件总览](../components/index.md)；样式表（`Style` 值 + `hover` / `active` / `focus` 状态、过渡）见 [布局样式](layout.md)。
 
-**Copy from a working app** — the demo board is the material library: pick a page in the left menu and write against it on the right; each page's source is its own file (`examples/components/pages/*.mbt`), ready to copy and adapt. Downloads and how to run: [Run the prebuilt packages](experience.md) §2.
+**想照着抄**——组件展示库就是素材库：左侧栏选页、右侧对着写，每页源码独立成文件（`examples/components/pages/*.mbt`），复制改写即可；下载与跑法见[跑预构建包](experience.md) §二。
 
-**Learn the layers** — pick by face:
+**想系统学**——按面选文档：
 
-- [How-to overview](../cookbook/index.md): how-to guides — for concrete goals like "center my content", "add and remove list items" or "refresh on a timer", each with paste-ready code and notes
-- [Declarative & reactivity](declarative.md): describe the UI as a node tree (`Node` / `mount_window`) and bind state with `Store` / `Signal`
-- [Layout & styling](layout.md): layout styling (the flex / padding / margin fields of `Style`, and the loose parameters plus the `class` channel of `@ui.col` / `@ui.row`)
-- [Components overview](../components/index.md): a quick reference to every widget and component's parameters and events
-- [System capabilities overview](../capability/sys.md): OS capabilities (`@sys`) — volume / app lookup / wallpaper / monitors / clipboard / power / printers…, with unified `Result` semantics
+- [场景总览](../cookbook/index.md)：场景教程——「我想让内容居中」「我要列表增删」「我要定时刷新」这类具体目标，每篇给可抄代码与注意事项
+- [声明式与响应式](declarative.md)：节点树（`Node` / `mount_window`）描述界面、`Store` / `Signal` 绑定状态
+- [布局样式](layout.md)：布局样式（`Style` 的 flex / padding / margin 字段，`@ui.col` / `@ui.row` 的散参数与 `class` 通道）
+- [组件总览](../components/index.md)：全部控件与组件的入参与事件速查
+- [系统能力总览](../capability/sys.md)：系统能力（`@sys`）——音量 / 应用查找 / 壁纸 / 显示器 / 剪贴板 / 电源 / 打印机…，统一 `Result` 语义
 
-Project-level blockers (package not found, target unavailable, entry file name…) are back in §6 of this page; build-time failures (prebuild, linking, dependency packages) are in [Build & run](build.md) §6.
+遇到工程类卡点（找不到包、目标不可用、入口文件名…）回本页 §6；构建期失败（prebuild、链接、依赖包）见[构建与运行](build.md) §6。
 
-## 8. A note to contributors
+## 8. 给库贡献者的留言
 
-This library aims at writing native desktop apps in MoonBit. It now covers self-drawn widgets, charts, Markdown, an embedded WebView, and system capabilities — and there is still a lot worth doing:
+这个库的目标是用 MoonBit 写原生桌面应用，现覆盖控件、图表、Markdown、内嵌 WebView 与系统能力，值得做的事还很多：
 
-- **Platform compatibility**: Windows, Linux (Ubuntu XFCE/GNOME/KDE, Deepin) and macOS (Apple Silicon) are all verified on real devices against the same checklist (`测试文档/测试用例.md`); newly found platform differences are welcome as reports.
-- **Widgets and capabilities**: un-wrapped items and per-platform adaptation pitfalls are all welcome as issues first.
-- **Docs and examples**: the tutorial, component docs, and every component-gallery page are open for improvement.
+- **平台兼容**：Windows、Linux（Ubuntu XFCE/GNOME/KDE、Deepin）、macOS（Apple Silicon）三平台均已真机验证，按 `测试文档/测试用例.md` 同一份清单同步维护；新踩到的平台差异欢迎回报。
+- **控件与能力**：还没封装的条目、各平台的适配坑，都欢迎从 issue 开始讨论。
+- **文档与示例**：教程、组件文档、组件展示库每一页的例子，都欢迎改进。
 
-No barrier to taking part: file an issue describing a problem or idea, or send a PR directly. Before you start, remember three things — `moon check` passes with zero errors and zero warnings and `moon test` is all green before committing; field-tested pitfalls go into [experience/adaptation/](https://github.com/lb091188/moonbit-native-gui/tree/master/experience/adaptation/) together with their fixes; one cohesive change per batch. The full process (adding example modules, prebuild-hosted linking) is in [Build & run](build.md); the FFI rules are in the repo's `.agents/skills/moonbit-c-binding/`.
+参与没有门槛：提 issue 描述问题或想法、直接提 PR 都行。开始前只需记住三条——`moon check` 零错误零警告、`moon test` 全绿再提交，实测踩坑连同修复写进 [experience/adaptation/](https://github.com/lb091188/moonbit-native-gui/tree/master/experience/adaptation/)，一个内聚改动一批提交。完整流程（新增示例模块、prebuild 链接托管）见[构建与运行](build.md)；FFI 规范见仓库 `.agents/skills/moonbit-c-binding/`。

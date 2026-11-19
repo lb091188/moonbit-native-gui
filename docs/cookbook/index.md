@@ -1,10 +1,10 @@
-# How-to overview
+# 场景总览
 
-Indexed by "I want to do X", split across four pages: [Layout recipes](layout.md), [Interaction recipes](interaction.md), [Theme recipes](theme.md), [System capability recipes](system.md). Starting from zero: [Getting started](../guide/tutorial.md).
+按「我想做 X」检索，分四页：[布局](layout.md)、[交互](interaction.md)、[样式与主题](theme.md)、[系统能力](system.md)。工程从零起步见[上手体验](../guide/tutorial.md)。
 
-## Prerequisites
+## 公共前提
 
-Use this `moon.pkg` import list (each recipe references what it needs):
+`moon.pkg` 的 import 用这一份（各场景按需引用）：
 
 ```
 import {
@@ -19,36 +19,36 @@ import {
 }
 ```
 
-- Layout recipes show a node tree that replaces the first argument of `mount_window`; interaction recipes are complete programs.
-- Two write paths: constructor loose parameters (`padding=` / `width=` …) and `class=[@style.style(...)]` style blocks; `class` arrays are last-wins. See [Layout & styling](../guide/layout.md).
-- A flex container has two axes: the main axis of `col` is vertical, of `row` horizontal; `justify_content` aligns along the main axis, `align_items` along the cross axis.
+- 布局类场景给出节点树，替换 `mount_window` 的第一个参数；交互类场景是完整程序。
+- 两条写入路径：构造器命名参数（`padding=` / `width=` …）与 `class=[@style.style(...)]` 样式块；`class` 数组尾赢，同名属性后者生效。见[布局样式](../guide/layout.md)。
+- flex 容器两根轴：`col` 主轴纵向、`row` 主轴横向；`justify_content` 管主轴、`align_items` 管交叉轴。
 
-## Recipe index
+## 场景检索表
 
-| I want to… | Key API | Recipe |
+| 我想… | 关键 API | 场景 |
 |---|---|---|
-| Center content (h/v/both) | `align_items` / `justify_content` | [Layout · Centering](layout.md#centering-content-horizontal-vertical-both) |
-| Header + body + footer | `col` + `grow` + `scroll_view` | [Layout · Three sections](layout.md#header-flexible-body-footer) |
-| Sidebar + main / halves / draggable split | `grow` / `width_percent` / `split` | [Layout · Splitting](layout.md#sidebar-flexible-main-area-splitting) |
-| Scroll content (v/h) | `scroll_view` + `ScrollState` | [Layout · Scrolling](layout.md#scrolling-overflowing-content) |
-| Wrap a row of tags | `flex_wrap=@yoga.FlexWrap::Wrap` | [Layout · Wrapping](layout.md#wrapping-a-row-of-tags) |
-| Right-align buttons | `justify_content=FlexEnd` (class) | [Layout · Right-align](layout.md#right-aligning-a-button-row) |
-| Read input / submit on Enter | `input` + `Store[String]` + `on_enter` | [Interaction · Input](interaction.md#reading-input-and-submitting-on-enter) |
-| Add/remove list items | `ListStore` + `for_list` | [Interaction · Lists](interaction.md#adding-and-removing-list-items) |
-| Confirmation dialog | `dialog` + `Store[Bool]` | [Interaction · Dialog](interaction.md#a-confirmation-dialog) |
-| Action feedback toast | `toast_layer` | [Interaction · Toast](interaction.md#a-toast) |
-| Refresh on a timer | `@shell.set_timeout` with tail self-rearm | [Interaction · Timer](interaction.md#refreshing-on-a-timer) |
-| Show/hide on a condition | `when_store_bool` / `when_else_store` | [Interaction · Visibility](interaction.md#showing-and-hiding-on-a-condition) |
-| Form validation | `form` + `form_item(error=)` | [Interaction · Forms](interaction.md#form-items-with-error-messages) |
-| Open a second window | `WindowHost::open_window` + `mount` | [Interaction · Windows](interaction.md#opening-a-second-window) |
-| Change accent / follow system | `theme_apply` / `follow_system_theme` | [Theme · Accent](theme.md#changing-the-accent-following-the-system) |
-| Per-widget hover styling | `class` + `hover=` + `transition_ms` | [Theme · States](theme.md#giving-widgets-interactive-styles) |
-| Open links / reveal files | `@sys.open_url` / `@shell.reveal_in_file_manager` | [System · Open](system.md#opening-links-revealing-files) |
-| Copy to clipboard | `@sys.clipboard_set_text` | [System · Clipboard](system.md#copying-to-the-clipboard) |
-| Desktop notification | `@shell.notify_send` | [System · Notifications](system.md#desktop-notifications) |
-| Draw what no widget gives you / wire a custom block to keyboard & mouse | `node_of_new` + `on_draw` / `on_pointer` / `on_key` | [Custom draw & input](../components/custom-draw.md) |
+| 内容居中（横/纵/双向） | `align_items` / `justify_content` | [布局 · 内容对齐](layout.md#内容对齐) |
+| 顶栏 + 内容 + 底栏 | `col` + `grow` + `scroll_view` | [布局 · 三段式](layout.md#顶栏-自适应内容-底栏-三段式) |
+| 侧栏 + 主区 / 等分 / 可拖分栏 | `grow` / `width_percent` / `split` | [布局 · 侧栏与分栏](layout.md#侧栏与分栏-固定宽-弹性-等分-可拖) |
+| 内容滚动（纵/横） | `scroll_view` + `ScrollState` | [布局 · 内容超高滚动](layout.md#内容超高滚动) |
+| 标签超宽换行 | `flex_wrap=@yoga.FlexWrap::Wrap` | [布局 · 标签换行](layout.md#一排标签超宽自动换行) |
+| 按钮靠右 | `justify_content=FlexEnd`（class） | [布局 · 按钮右对齐](layout.md#底部按钮右对齐) |
+| 输入框取值 / 回车提交 | `input` + `Store[String]` + `on_enter` | [交互 · 输入框](interaction.md#输入框取值与回车提交) |
+| 列表增删 | `ListStore` + `for_list` | [交互 · 列表增删](interaction.md#列表增删项) |
+| 确认弹窗 | `dialog` + `Store[Bool]` | [交互 · 确认弹窗](interaction.md#确认弹窗) |
+| 操作反馈轻提示 | `toast_layer` | [交互 · 轻提示](interaction.md#轻提示) |
+| 定时刷新 | `@shell.set_timeout` 回调尾自排 | [交互 · 定时刷新](interaction.md#定时刷新) |
+| 按条件显隐 | `when_store_bool` / `when_else_store` | [交互 · 条件显隐](interaction.md#按条件显隐) |
+| 表单校验 | `form` + `form_item(error=)` | [交互 · 表单校验](interaction.md#表单项与错误提示) |
+| 开第二个窗口 | `WindowHost::open_window` + `mount` | [交互 · 多窗口](interaction.md#打开第二个窗口) |
+| 换主色 / 跟随深浅 | `theme_apply` / `follow_system_theme` | [样式主题 · 换主色](theme.md#换主色与跟随系统深浅) |
+| 控件 hover 定制 | `class` + `hover=` + `transition_ms` | [样式主题 · 交互样式](theme.md#给控件交互样式) |
+| 打开链接 / 定位文件 | `@sys.open_url` / `@shell.reveal_in_file_manager` | [系统能力 · 打开与定位](system.md#打开链接与定位文件) |
+| 复制到剪贴板 | `@sys.clipboard_set_text` | [系统能力 · 剪贴板](system.md#复制到剪贴板) |
+| 桌面通知 | `@shell.notify_send` | [系统能力 · 桌面通知](system.md#桌面通知) |
+| 画控件拼不出的内容 / 自绘区接键鼠（画板、节点编辑器） | `node_of_new` + `on_draw` / `on_pointer` / `on_key` | [自绘与键鼠](../components/custom-draw.md) |
 
-## Next steps
+## 下一步
 
-- Widget signatures: [Components overview](../components/index.md); state binding: [Declarative & reactivity](../guide/declarative.md); every layout field: [Layout & styling](../guide/layout.md).
-- Full programs combining these recipes: `cd examples/components && moon run .`; each page's source is under `examples/components/pages/*.mbt`.
+- 控件签名：[组件总览](../components/index.md)；状态绑定：[声明式与响应式](../guide/declarative.md)；布局字段全集：[布局样式](../guide/layout.md)。
+- 场景组合的完整程序：`cd examples/components && moon run .`，每页源码在 `examples/components/pages/*.mbt`。

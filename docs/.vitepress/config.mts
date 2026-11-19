@@ -4,19 +4,29 @@ import { emitLlms } from './llms.mjs'
 const gh = 'https://github.com/lb091188/moonbit-native-gui'
 const apiRef = 'https://mooncakes.io/docs/NoahLiu/native-gui'
 
-// 落地页语言自动选择:首次访问根路径时,浏览器语言为中文则跳转 /zh/,
-// 其余语言留在默认英文;用户手动切换过语言(localStorage 有记录)后不再跳转。
+// 落地页语言自动选择:首次访问根路径时,浏览器语言非中文则跳 /en/,
+// 中文留在默认根;用户手动切换过语言(localStorage 有记录)后不再跳转。
+// 旧版站点中文挂在 /zh/ 下,这里先把带 /zh/ 前缀的旧链接剥前缀转发。
 const langDetect = `(function () {
   try {
+    var legacy = location.pathname.match(/^\\/zh(\\/.*)$/)
+    if (legacy) {
+      location.replace(legacy[1] + location.search + location.hash)
+      return
+    }
+    if (location.pathname === '/zh') {
+      location.replace('/' + location.search + location.hash)
+      return
+    }
     if (localStorage.getItem('docs-lang')) return
     if (location.pathname !== '/' && location.pathname !== '/index.html') return
     var langs = navigator.languages && navigator.languages.length
       ? navigator.languages
       : [navigator.language || '']
     for (var i = 0; i < langs.length; i++) {
-      if (String(langs[i]).toLowerCase().indexOf('zh') === 0) {
-        localStorage.setItem('docs-lang', 'zh')
-        location.replace('zh/')
+      if (String(langs[i]).toLowerCase().indexOf('zh') !== 0) {
+        localStorage.setItem('docs-lang', 'en')
+        location.replace('en/')
         return
       }
     }
@@ -69,82 +79,82 @@ const zhGuideSidebar = [
   {
     text: '开始',
     items: [
-      { text: '运行预构建', link: '/zh/guide/experience' },
-      { text: '安装开发依赖', link: '/zh/guide/build' },
-      { text: '五分钟上手体验', link: '/zh/guide/tutorial' },
-      { text: '打包与更新', link: '/zh/guide/publish' },
+      { text: '运行预构建', link: '/guide/experience' },
+      { text: '安装开发依赖', link: '/guide/build' },
+      { text: '五分钟上手体验', link: '/guide/tutorial' },
+      { text: '打包与更新', link: '/guide/publish' },
     ],
   },
   {
     text: '基础',
     items: [
-      { text: '布局样式', link: '/zh/guide/layout' },
-      { text: '声明式与响应式', link: '/zh/guide/declarative' },
-      { text: '单文件组件（.mng）', link: '/zh/guide/sfc' },
+      { text: '布局样式', link: '/guide/layout' },
+      { text: '声明式与响应式', link: '/guide/declarative' },
+      { text: '单文件组件（.mng）', link: '/guide/sfc' },
     ],
   },
   {
     text: '工具链',
     items: [
-      { text: 'mng 命令与配置', link: '/zh/guide/mng' },
-      { text: '热更与编辑器', link: '/zh/guide/mng-dev' },
-      { text: '界面检查器', link: '/zh/guide/inspector' },
+      { text: 'mng 命令与配置', link: '/guide/mng' },
+      { text: '热更与编辑器', link: '/guide/mng-dev' },
+      { text: '界面检查器', link: '/guide/inspector' },
     ],
   },
   {
     text: '应用场景',
     items: [
-      { text: '场景总览', link: '/zh/cookbook/' },
-      { text: '布局场景', link: '/zh/cookbook/layout' },
-      { text: '交互场景', link: '/zh/cookbook/interaction' },
-      { text: '样式与主题场景', link: '/zh/cookbook/theme' },
-      { text: '系统能力场景', link: '/zh/cookbook/system' },
+      { text: '场景总览', link: '/cookbook/' },
+      { text: '布局场景', link: '/cookbook/layout' },
+      { text: '交互场景', link: '/cookbook/interaction' },
+      { text: '样式与主题场景', link: '/cookbook/theme' },
+      { text: '系统能力场景', link: '/cookbook/system' },
     ],
   },
 ]
 
 const zhComponentsSidebar = [
-  { text: '总览', link: '/zh/components/' },
+  { text: '总览', link: '/components/' },
   {
     text: '基础',
     items: [
-      { text: '布局与容器', link: '/zh/components/containers' },
-      { text: '文本与基础控件', link: '/zh/components/basics' },
+      { text: '布局与容器', link: '/components/containers' },
+      { text: '文本与基础控件', link: '/components/basics' },
     ],
   },
   {
     text: '表单与日期',
     items: [
-      { text: '表单控件', link: '/zh/components/form' },
-      { text: '日期与时间', link: '/zh/components/date' },
+      { text: '表单控件', link: '/components/form' },
+      { text: '日期与时间', link: '/components/date' },
     ],
   },
   {
     text: '数据',
     items: [
-      { text: '数据展示', link: '/zh/components/display' },
-      { text: '表格与虚拟列表', link: '/zh/components/table' },
+      { text: '数据展示', link: '/components/display' },
+      { text: '表格与虚拟列表', link: '/components/table' },
     ],
   },
   {
     text: '导航与浮层',
     items: [
-      { text: '导航', link: '/zh/components/navigation' },
-      { text: '浮层与消息', link: '/zh/components/overlay' },
+      { text: '导航', link: '/components/navigation' },
+      { text: '浮层与消息', link: '/components/overlay' },
     ],
   },
   {
     text: '交互与响应式',
     items: [
-      { text: '拖放、悬停与窗口事件', link: '/zh/components/interaction' },
-      { text: '响应式控制', link: '/zh/components/reactive' },
+      { text: '拖放、悬停与窗口事件', link: '/components/interaction' },
+      { text: '响应式控制', link: '/components/reactive' },
     ],
   },
   {
     text: '画布与自绘',
     items: [
-      { text: '画布', link: '/zh/components/canvas' },
-      { text: '自绘与键鼠', link: '/zh/components/custom-draw' },
+      { text: '画布', link: '/components/canvas' },
+      { text: '自绘与键鼠', link: '/components/custom-draw' },
     ],
   },
 ]
@@ -153,26 +163,26 @@ const zhCapabilitySidebar = [
   {
     text: '系统能力',
     items: [
-      { text: '总览', link: '/zh/capability/sys' },
-      { text: '音量与媒体', link: '/zh/capability/media' },
-      { text: '应用与历史', link: '/zh/capability/apps-history' },
-      { text: '桌面与显示', link: '/zh/capability/desktop' },
-      { text: '系统服务', link: '/zh/capability/service' },
+      { text: '总览', link: '/capability/sys' },
+      { text: '音量与媒体', link: '/capability/media' },
+      { text: '应用与历史', link: '/capability/apps-history' },
+      { text: '桌面与显示', link: '/capability/desktop' },
+      { text: '系统服务', link: '/capability/service' },
     ],
   },
-  { text: '图表', link: '/zh/capability/chart' },
-  { text: 'Markdown 视图', link: '/zh/capability/mdview' },
-  { text: '页面路由', link: '/zh/capability/router' },
-  { text: '多语言', link: '/zh/capability/i18n' },
-  { text: '内嵌 webview', link: '/zh/capability/webview' },
+  { text: '图表', link: '/capability/chart' },
+  { text: 'Markdown 视图', link: '/capability/mdview' },
+  { text: '页面路由', link: '/capability/router' },
+  { text: '多语言', link: '/capability/i18n' },
+  { text: '内嵌 webview', link: '/capability/webview' },
 ]
 
 const zhReferenceSidebar = [
   {
     text: '参考',
     items: [
-      { text: '包结构与 API 参考', link: '/zh/reference/api' },
-      { text: '对外路线图', link: '/zh/reference/roadmap' },
+      { text: '包结构与 API 参考', link: '/reference/api' },
+      { text: '对外路线图', link: '/reference/roadmap' },
       { text: '第三方授权', link: '/THIRD-PARTY-NOTICES' },
     ],
   },
@@ -183,82 +193,82 @@ const enGuideSidebar = [
   {
     text: 'Start',
     items: [
-      { text: 'Run the prebuilt packages', link: '/guide/experience' },
-      { text: 'Build & run', link: '/guide/build' },
-      { text: 'Getting started', link: '/guide/tutorial' },
-      { text: 'Packaging & auto-update', link: '/guide/publish' },
+      { text: 'Run the prebuilt packages', link: '/en/guide/experience' },
+      { text: 'Build & run', link: '/en/guide/build' },
+      { text: 'Getting started', link: '/en/guide/tutorial' },
+      { text: 'Packaging & auto-update', link: '/en/guide/publish' },
     ],
   },
   {
     text: 'Basics',
     items: [
-      { text: 'Layout & styling', link: '/guide/layout' },
-      { text: 'Declarative & reactivity', link: '/guide/declarative' },
-      { text: 'Single-file components (.mng)', link: '/guide/sfc' },
+      { text: 'Layout & styling', link: '/en/guide/layout' },
+      { text: 'Declarative & reactivity', link: '/en/guide/declarative' },
+      { text: 'Single-file components (.mng)', link: '/en/guide/sfc' },
     ],
   },
   {
     text: 'Toolchain',
     items: [
-      { text: 'mng commands & config', link: '/guide/mng' },
-      { text: 'Hot reload & editor', link: '/guide/mng-dev' },
-      { text: 'Inspector', link: '/guide/inspector' },
+      { text: 'mng commands & config', link: '/en/guide/mng' },
+      { text: 'Hot reload & editor', link: '/en/guide/mng-dev' },
+      { text: 'Inspector', link: '/en/guide/inspector' },
     ],
   },
   {
     text: 'How-to guides',
     items: [
-      { text: 'Overview', link: '/cookbook/' },
-      { text: 'Layout recipes', link: '/cookbook/layout' },
-      { text: 'Interaction recipes', link: '/cookbook/interaction' },
-      { text: 'Theme recipes', link: '/cookbook/theme' },
-      { text: 'System capability recipes', link: '/cookbook/system' },
+      { text: 'Overview', link: '/en/cookbook/' },
+      { text: 'Layout recipes', link: '/en/cookbook/layout' },
+      { text: 'Interaction recipes', link: '/en/cookbook/interaction' },
+      { text: 'Theme recipes', link: '/en/cookbook/theme' },
+      { text: 'System capability recipes', link: '/en/cookbook/system' },
     ],
   },
 ]
 
 const enComponentsSidebar = [
-  { text: 'Overview', link: '/components/' },
+  { text: 'Overview', link: '/en/components/' },
   {
     text: 'Basics',
     items: [
-      { text: 'Layout & containers', link: '/components/containers' },
-      { text: 'Text & basic controls', link: '/components/basics' },
+      { text: 'Layout & containers', link: '/en/components/containers' },
+      { text: 'Text & basic controls', link: '/en/components/basics' },
     ],
   },
   {
     text: 'Forms & dates',
     items: [
-      { text: 'Form controls', link: '/components/form' },
-      { text: 'Date & time', link: '/components/date' },
+      { text: 'Form controls', link: '/en/components/form' },
+      { text: 'Date & time', link: '/en/components/date' },
     ],
   },
   {
     text: 'Data display',
     items: [
-      { text: 'Data display', link: '/components/display' },
-      { text: 'Tables & virtual lists', link: '/components/table' },
+      { text: 'Data display', link: '/en/components/display' },
+      { text: 'Tables & virtual lists', link: '/en/components/table' },
     ],
   },
   {
     text: 'Navigation & overlays',
     items: [
-      { text: 'Navigation', link: '/components/navigation' },
-      { text: 'Overlays & messages', link: '/components/overlay' },
+      { text: 'Navigation', link: '/en/components/navigation' },
+      { text: 'Overlays & messages', link: '/en/components/overlay' },
     ],
   },
   {
     text: 'Interaction & reactivity',
     items: [
-      { text: 'Drag, hover & window events', link: '/components/interaction' },
-      { text: 'Reactive controls', link: '/components/reactive' },
+      { text: 'Drag, hover & window events', link: '/en/components/interaction' },
+      { text: 'Reactive controls', link: '/en/components/reactive' },
     ],
   },
   {
     text: 'Canvas & custom drawing',
     items: [
-      { text: 'Canvas drawing', link: '/components/canvas' },
-      { text: 'Custom draw & input', link: '/components/custom-draw' },
+      { text: 'Canvas drawing', link: '/en/components/canvas' },
+      { text: 'Custom draw & input', link: '/en/components/custom-draw' },
     ],
   },
 ]
@@ -267,26 +277,26 @@ const enCapabilitySidebar = [
   {
     text: 'System capabilities',
     items: [
-      { text: 'Overview', link: '/capability/sys' },
-      { text: 'Volume & media', link: '/capability/media' },
-      { text: 'Apps & history', link: '/capability/apps-history' },
-      { text: 'Desktop & display', link: '/capability/desktop' },
-      { text: 'System services', link: '/capability/service' },
+      { text: 'Overview', link: '/en/capability/sys' },
+      { text: 'Volume & media', link: '/en/capability/media' },
+      { text: 'Apps & history', link: '/en/capability/apps-history' },
+      { text: 'Desktop & display', link: '/en/capability/desktop' },
+      { text: 'System services', link: '/en/capability/service' },
     ],
   },
-  { text: 'Charts', link: '/capability/chart' },
-  { text: 'Markdown view', link: '/capability/mdview' },
-  { text: 'Page routing', link: '/capability/router' },
-  { text: 'i18n', link: '/capability/i18n' },
-  { text: 'Embedded WebView', link: '/capability/webview' },
+  { text: 'Charts', link: '/en/capability/chart' },
+  { text: 'Markdown view', link: '/en/capability/mdview' },
+  { text: 'Page routing', link: '/en/capability/router' },
+  { text: 'i18n', link: '/en/capability/i18n' },
+  { text: 'Embedded WebView', link: '/en/capability/webview' },
 ]
 
 const enReferenceSidebar = [
   {
     text: 'Reference',
     items: [
-      { text: 'Package layout & API reference', link: '/reference/api' },
-      { text: 'Roadmap (Chinese)', link: '/zh/reference/roadmap' },
+      { text: 'Package layout & API reference', link: '/en/reference/api' },
+      { text: 'Roadmap (Chinese)', link: '/reference/roadmap' },
       { text: 'Third-party notices', link: '/THIRD-PARTY-NOTICES' },
     ],
   },
@@ -322,54 +332,54 @@ export default defineConfig({
   },
   locales: {
     root: {
-      label: 'English',
-      lang: 'en',
-      themeConfig: {
-        nav: [
-          { text: 'Guide', link: '/guide/experience' },
-          { text: 'Components', link: '/components/' },
-          { text: 'Capabilities', link: '/capability/sys' },
-          { text: 'API', link: apiRef },
-          { text: 'GitHub', link: gh },
-        ],
-        sidebar: {
-          '/guide/': enGuideSidebar,
-          '/cookbook/': enGuideSidebar,
-          '/components/': enComponentsSidebar,
-          '/capability/': enCapabilitySidebar,
-          '/reference/': enReferenceSidebar,
-        },
-        docFooter: { prev: 'Previous', next: 'Next' },
-        outline: { label: 'On this page' },
-      },
-    },
-    zh: {
       label: '简体中文',
       lang: 'zh-CN',
-      link: '/zh/',
       themeConfig: {
         nav: [
-          { text: '指南', link: '/zh/guide/experience' },
-          { text: '组件', link: '/zh/components/' },
-          { text: '能力', link: '/zh/capability/sys' },
+          { text: '指南', link: '/guide/experience' },
+          { text: '组件', link: '/components/' },
+          { text: '能力', link: '/capability/sys' },
           { text: 'API', link: apiRef },
-          { text: '路线图', link: '/zh/reference/roadmap' },
+          { text: '路线图', link: '/reference/roadmap' },
           { text: 'GitHub', link: gh },
         ],
         sidebar: {
-          '/zh/guide/': zhGuideSidebar,
-          '/zh/cookbook/': zhGuideSidebar,
-          '/zh/components/': zhComponentsSidebar,
-          '/zh/capability/': zhCapabilitySidebar,
-          '/zh/reference/': zhReferenceSidebar,
+          '/guide/': zhGuideSidebar,
+          '/cookbook/': zhGuideSidebar,
+          '/components/': zhComponentsSidebar,
+          '/capability/': zhCapabilitySidebar,
+          '/reference/': zhReferenceSidebar,
         },
         docFooter: { prev: '上一页', next: '下一页' },
         outline: { label: '页面目录' },
       },
     },
+    en: {
+      label: 'English',
+      lang: 'en',
+      link: '/en/',
+      themeConfig: {
+        nav: [
+          { text: 'Guide', link: '/en/guide/experience' },
+          { text: 'Components', link: '/en/components/' },
+          { text: 'Capabilities', link: '/en/capability/sys' },
+          { text: 'API', link: apiRef },
+          { text: 'GitHub', link: gh },
+        ],
+        sidebar: {
+          '/en/guide/': enGuideSidebar,
+          '/en/cookbook/': enGuideSidebar,
+          '/en/components/': enComponentsSidebar,
+          '/en/capability/': enCapabilitySidebar,
+          '/en/reference/': enReferenceSidebar,
+        },
+        docFooter: { prev: 'Previous', next: 'Next' },
+        outline: { label: 'On this page' },
+      },
+    },
   },
-  // A8 llms.txt:构建收尾把 docs/zh 与 docs 的 Markdown 源各聚成一份纯文本
-  // 全集写进输出目录(llms.txt 中文 / llms-en.txt 英文),给 LLM 离线消费
+  // A8 llms.txt:构建收尾把 docs(中文)与 docs/en(英文)的 Markdown 源各聚成
+  // 一份纯文本全集写进输出目录(llms.txt 中文 / llms-en.txt 英文),给 LLM 离线消费
   async buildEnd(siteConfig) {
     const r = emitLlms(siteConfig)
     console.log(`llms.txt: zh ${r.zhPages} 页 / en ${r.enPages} 页已聚合`)

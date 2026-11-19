@@ -1,43 +1,50 @@
-# Overlays & messages
+# 浮层与消息
 
-Overlays — dialog / popover / menu / tooltip — all open on the window-wide **overlay layer**, so they naturally sit above content and other overlays; no permanently hidden tree is needed. Anchored popups (select, popover, date/time panels, tooltips) are then fitted to that layer's box: if a list does not fit below its trigger it opens above it, if it overflows the right edge it aligns to the trigger's right, and anything still larger than the window is clamped inside — popups never get cut off by the window edge.
+对话框 / 气泡 / 菜单 / 提示等浮层一律开在整窗的**浮层图层**上，天然压过内容与其它浮层，不需要常驻隐藏树。锚点类浮层（下拉、气泡、日期时间弹层、悬浮提示）按图层边界收位：贴窗口底边放不下翻到锚点上方、贴右边放不下与锚点右缘对齐，翻完仍越界则钳回窗口内——弹层不会被窗口裁切。
 
 ### `dialog(visible : Store[Bool], title, children, confirm_text?="确定", cancel_text?="取消", on_confirm?, on_cancel?, close_on_mask?=false, …)`
 
-- Dialog: `visible` drives open/close; title bar with +✕ + content + footer buttons, and an empty label hides that button; all three exits close first, then call back
+- 对话框：`visible` 驱动弹出 / 收起；标题栏 + ✕ + 内容 + 底部按钮
+- `confirm_text` / `cancel_text`：按钮文案，空串隐藏对应按钮
+- `close_on_mask`：点击遮罩关闭
+- 三个出口（确认 / 取消 / ✕ 与遮罩）都先收起再回调
 
 ### `message_box(visible : Store[Bool], title, content, kind?=Information, informative?, buttons?=[("确定",1)], on_response?, on_dismiss?, close_on_mask?=false, width?)`
 
-- Self-drawn message box, coexisting with the native form: `buttons` are `(label, code)` and the first is the primary default button; Enter = first button, while ✕/Esc/mask click go through `on_dismiss` without a code; response codes are chosen by the caller
+- 消息框：`kind` 选图标语义，`informative` 为补充说明文字
+- `buttons`：`(文案, 编号)` 清单，第一个是主色默认按钮；响应编号由调用方定
+- `on_response` 收按钮编号；Enter 触发第一钮；✕ / Esc / 点遮罩走 `on_dismiss`、不给编号
 
 ### `popover(trigger : Node, content : Node, width?, height?, class?, handle?)`
 
-- Popover: clicking the trigger drops arbitrary content below it, clicking again closes; `width/height` of 0 size to the content
+- 气泡弹层：点击 trigger 在其下方弹出任意内容，再次点击收起
+- `width` / `height` 传 `0` 按内容定尺寸
 
 ### `tooltip(content : Node, tip : String, delay_ms?=500, class?, handle?)`
 
-- Tooltip: after a `delay_ms` hover it opens a bubble below and closes on leave; it rides the host's `on_hover_change`, a parent-chain semantics
+- 悬浮提示：停留 `delay_ms` 后在下方弹出 `tip` 气泡，离开即收；走宿主 `on_hover_change` 父链语义
 
 ### `context_menu_for(content : Node, items : Array[(String, () -> Unit)], width?=150.0, handle?)`
 
-- Right-click context menu: in `items` the label `"-"` draws a separator; right-click dispatch is "ancestor-first"
+- 右键上下文菜单：`items` 文案为 `"-"` 时绘制分隔线；右键按「祖先优先」派发
 
 ### `dropdown(trigger, items : Array[String], on_select? : (Int32) -> Unit, width?=150.0, focus_id?, class?)`
 
-- Menu button: trigger text + item list; the selection callback receives the index (`-1` when nothing is selected). `on_select` is an `(Int32) -> Unit`, unlike `select`'s Store-based contract
+- 菜单按钮：trigger 文字 + 项清单；选中回调收下标（`-1` 为未选）。`on_select` 是 `(Int32) -> Unit`，与 `select` 的 Store 口径不同
 
 ### `toast_layer(duration_ms? = 2600) -> (String, SemanticType) -> Unit`
 
-- Call once while building the UI to get a push function; then from any callback `toast("Saved", @ui.Success)` — auto-dismisses and stacks
+- 建界面时调一次得推送函数；之后任意回调里 `toast("文案", @ui.Success)`，到时自动消失、多条堆叠
 
 ### `msgbox_icon_of(kind)` / `msgbox_icon_color_of(kind)` / `msgbox_default_code(buttons)`
 
-- Message-box companions: the icon and icon colour for a `MsgBoxKind`, and the primary button's code in a `buttons` list — for self-drawn title bars or message-box clones
+- 消息框配套查询：`MsgBoxKind` 对应的图标、图标色，`buttons` 清单里主色默认按钮的编号——自绘标题栏或复刻消息框时取
 
-### `update_dialog(visible : Store[Bool], flow : UpdateFlow, actions : UpdateActions, current_version?, title?, width?=400, …)`
+### `update_dialog(visible : Store[Bool], flow : UpdateFlow, actions : UpdateActions, current_version?, title?="软件更新", width?=400, …)`
 
-- App self-update dialog: walks the "checking → available → downloading → ready → install & restart" state machine from `flow.state`; `visible` drives open / close
-- The component owns only the state machine and the view: buttons mark state first, then fire the closures injected in `actions`; results feed back through `flow.report_check / report_download / report_install` (how network and disk actually run is the wiring's business, the component does not hardcode it)
-- `make_update_flow()` builds the ledger (state Store + found manifest + carrier path); `sys_update_actions(flow, manifest_url, current_version, quit)` is the shortest wiring straight into `@sys.update_*` (each action is deferred one tick so the loading state paints first; sys runs subprocesses synchronously, so the UI stalls during large downloads — a known v1 trade-off)
-- The failure state offers Retry per retryable step (re-check / re-download); install failures offer no retry; Installing has no exit (the success path is relaunch + quit)
-- Manifest format and the release pipeline: see [Packaging & auto-update](/guide/publish.md)
+- 应用更新对话框：按 `flow.state` 走「检查中 → 有新版 → 下载中 → 就绪 → 安装重启」状态机视图；`visible` 驱动弹 / 收
+- 组件只管状态机与视图：按钮先标状态再触发 `actions` 里注入的闭包，动作结果经 `flow.report_check / report_download / report_install` 喂回（网络与磁盘怎么跑由装配方决定，组件不硬塞）
+- `make_update_flow()` 建账本（状态 Store + 检查命中清单 + 下载载体路径）；`sys_update_actions(flow, manifest_url, current_version, quit)` 是直连 `@sys.update_*` 的最短装配（动作错一拍再跑，Loading 至少先画出来；sys 子进程同步执行，大文件下载期间界面停摆是 v1 已知取舍）
+- 失败态按可重试步给「重试」钮（重检查 / 重下载），安装失败不给重试钮；Installing 无出口（成功路径是 relaunch + 退出）
+- 清单格式与发布链路见[发布与更新](/guide/publish.md)
+

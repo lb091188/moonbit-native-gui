@@ -1,18 +1,18 @@
-# Theme recipes
+# 样式与主题场景
 
-Import list and ground rules: see [How-to overview](index.md#prerequisites).
+import 清单见[场景总览](index.md#公共前提)。
 
-## Changing the accent / following the system
+## 换主色与跟随系统深浅
 
-Controls read theme tokens, so a theme change takes effect immediately. Set an accent with `theme_apply`; follow system dark/light and accent with `follow_system_theme`.
+控件色值读 theme token，换主题即时生效。手动换主色 `theme_apply`；跟随系统深浅与强调色 `follow_system_theme`。
 
 ```moonbit
 @ui.row(
   [
-    @ui.button("Purple", on_click=fn() {
+    @ui.button("紫色", on_click=fn() {
       @theme.theme_apply(@theme.theme_from_accent("#7c4dff"))
     }),
-    @ui.button("Green", on_click=fn() {
+    @ui.button("绿色", on_click=fn() {
       @theme.theme_apply(@theme.theme_from_accent("#2e7d32"))
     }),
   ],
@@ -23,22 +23,22 @@ Controls read theme tokens, so a theme change takes effect immediately. Set an a
 ```moonbit
 @ui.mount_window(
   [/* … */],
-  title="Theme",
+  title="主题",
   handle=fn(a : @widget.WindowHost) {
-    let _ = a.follow_system_theme(interval_ms=2000)  // returns an unsubscribe function
+    let _ = a.follow_system_theme(interval_ms=2000)  // 返回退订函数
   },
 )
 ```
 
-Note: hard-coded hex colors do not track the theme; prefer the semantic routes (`SemanticType`, class presets like `text_secondary`) and hard-code only truly fixed colors.
+注意：写死的十六进制色不随主题；优先语义档（`SemanticType`、`text_secondary` 等预设），确需固定色再写死。
 
-## Giving widgets interactive styles
+## 给控件交互样式
 
-Add a `@style.style(...)` block through the `class` channel; the `hover` / `active` / `focus` slots each take a nested `Style` that merges in while the state is active; `transition_ms` smooths colors, border width, radius, font size, and line height.
+`class` 通道叠 `@style.style(...)`；`hover` / `active` / `focus` 三个槽各收一个嵌套 `Style`，状态进入时合并生效；`transition_ms` 过渡颜色、边框宽、圆角、字号、行高。
 
 ```moonbit
 @ui.card(
-  [@ui.text("Hover me")],
+  [@ui.text("悬停我试试")],
   class=[
     @style.style(
       border_radius=8.0,
@@ -53,8 +53,8 @@ Add a `@style.style(...)` block through the `class` channel; the `hover` / `acti
 )
 ```
 
-Notes:
+注意：
 
-- `class` arrays are last-wins: to override a widget's built-in style, put your block later in the array.
-- Global corner and font changes use the theme layer's switches (`@theme.corners_round_set` etc.).
-- Custom blocks don't consume style slots; they read the host-maintained `hovered` / `focused` flags directly: see [Custom draw & input](../components/custom-draw.md).
+- `class` 数组尾赢：覆盖组件内置样式把自己的块放数组后部。
+- 全局圆角、字体走 theme 层开关（`@theme.corners_round_set` 等）。
+- 自绘块不消费样式槽，直接读宿主维护的 `hovered` / `focused` 标志：见[自绘与键鼠](../components/custom-draw.md)。

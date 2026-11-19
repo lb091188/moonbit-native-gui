@@ -1,75 +1,77 @@
-# Data display
+# 数据展示
 
-The display family also has `*_dyn` signal forms: `text` becomes a `Signal`, the label is edited in place and the width recomputed, and unsubscribing rides the unsubscribe bundle. General conventions: see [Components overview](index.md#conventions-read-this-first).
+展示类另有 `*_dyn` 信号版：`text` 换 `Signal`、就地改字重算宽、退订随回收袋。通用约定见[组件总览](index.md#约定)。
 
 ### `tag_of_type(text, t : SemanticType, font_size?=12.0, class?)`
 
-- Semantic-colour tag: light background + accent text; `tag_of_type_dyn` takes a signal
+- 语义色标签，浅底 + 主色字；`t` 选语义色；`tag_of_type_dyn` 收信号
 
 ### `tag(text, color, font_size?=12.0, class?)`
 
-- Custom-colour tag: solid background + white text; `tag_dyn` takes a signal
+- 自定色标签，实底 + 白字；`color` 给色值；`tag_dyn` 收信号
 
 ### `badge_count(value : Int32, max?=99, color?, class?)`
 
-- Number badge: over `max` it shows "max+"; `badge_count_dyn` takes a `Signal[Int32]`
+- 数字徽标：超过 `max` 显示「max+」；`badge_count_dyn` 收 `Signal[Int32]`
 
 ### `badge_dot(size?=8.0, color?, class?)`
 
-- Dot badge: no number, it just signals "something new"
+- 圆点徽标，无数字、仅提示「有新内容」；`size` 为圆点直径
 
 ### `avatar(text, size?=32.0, background_color?, class?)`
 
-- Avatar: centers the first character of the text; `avatar_dyn` takes a signal
+- 头像：取文本首字符居中；`avatar_dyn` 收信号
 
 ### `statistic(title, value, precision_color?, prefix?, class?)`
 
-- Statistic: small title + value, with optional prefix/suffix; `statistic_dyn` takes a `Signal[String]`
+- 统计数字：小标题 + 数值、可带前后缀；`statistic_dyn` 收 `Signal[String]`
 
 ### `card(children, title?, padding?=12.0, row_gap?=6.0, class?)`
 
-- Card: optional title bar + content area, panel background + border
+- 卡片：可选标题栏 + 内容区，面板底 + 描边
 
 ### `descriptions(items : Array[(String, String)], title?, label_width?=96.0, class?)`
 
-- Description list: `(label, value)` pairs, one row each
+- 描述列表：`items` 为 `(标签, 值)` 对，逐行显示；`label_width` 定标签列宽
 
 ### `empty(description?="暂无数据", class?)`
 
-- Empty state: icon + description, centered
+- 空状态：图标 + 描述，居中
 
 ### `result(title, subtitle?, t?=Success, class?)`
 
-- Result page: semantic icon + title + subtitle
+- 结果页：语义图标 + 标题 + 副标题；`t` 选语义色
 
 ### `progress(state : Store[Double], max?=1.0, width?=200.0, height?=6.0, color?, class?, handle?)`
 
-- Progress bar: `state` runs 0..max, display-only
+- 进度条，纯展示：`state` 取 `0..max`
 
 ### `progress_line(state, max?=1.0, width?=200.0, label_side?=true, class?)`
 
-- Progress with a percentage label
+- 带百分比文字的进度条；`label_side` 定文字侧
 
 ### `timeline(items : Array[(String, String, SemanticType)], item_height?=56.0, gap?=12.0, class?)`
 
-- Timeline: `(title, description, semantic colour)` rows of equal height; the connector line spans row gaps without breaking
+- 时间线：`items` 为 `(标题, 描述, 语义色)` 逐行等高；连接线含行间隙、不中断
 
 ### `carousel(pages : Array[Node], width?=360.0, height?=180.0, interval_ms?=3000, rotation?=CarouselHandle::make(), class?, handle?)`
 
-- Carousel: panel sequence + arrows + indicator dots; auto-advances when `interval_ms>0` and pages > 1, pauses on hover; `rotation` holds an external `CarouselHandle` driven by `carousel_goto` / `carousel_pause` / `carousel_stop` (must call `carousel_stop` before unmounting)
+- 轮播：面板序列 + 箭头 + 指示点；`interval_ms>0` 且页数 >1 时自动轮播、悬停暂停
+- `rotation`：外部持有的 `CarouselHandle`，配 `carousel_goto` / `carousel_pause` / `carousel_stop` 程序化控制（卸载轮播前必须调 `carousel_stop`）
 
 ### `carousel_goto(handle, i)` / `carousel_pause(handle, v)` / `carousel_stop(handle)`
 
-- Programmatic carousel control: jump to page i, pause/resume auto-advance, stop (not recoverable; required before unmounting — the self-arming delay chain does not know the view is gone)
+- 轮播程序化控制：跳到第 i 页、暂停/恢复自动轮播、停止（不可恢复；卸载前必须调，自排延时链不认识视图已移除）
 
 ### `alert(title, description?, t?=Info, closable?=false, on_close?, class?)`
 
-- In-page banner (stays on the page, does not auto-dismiss): semantic icon + title + description; `closable` shows a ✕ and closes via `on_close`. For self-dismissing strips use `toast_layer`
+- 页内提示条（常驻页面，不自动消失）：语义色图标 + 标题 + 描述；`closable` 出 ✕、关闭走 `on_close`。要自动消失的轻提示用 `toast_layer`
 
 ### `type_color(t)` / `type_light_color(t)`
 
-- Theme colour values for a `SemanticType`: the solid tier and the light tier — read them instead of hard-coding hex in custom drawing or pinned colours
+- 语义色 `SemanticType` 对应的主题色值：实底档与浅底档；自绘或钉色时取，不写死十六进制
 
-### `*_dyn` signal entries
+### `*_dyn` 信号版入口
 
-- `tag_dyn` / `tag_of_type_dyn` / `badge_count_dyn` / `avatar_dyn` / `statistic_dyn`: the static forms take a value, the `_dyn` forms take a `Signal` and update in place
+- `tag_dyn` / `tag_of_type_dyn` / `badge_count_dyn` / `avatar_dyn` / `statistic_dyn`：静态版收值，`_dyn` 版收 `Signal`，值变就地改
+

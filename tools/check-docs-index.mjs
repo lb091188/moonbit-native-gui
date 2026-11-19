@@ -15,7 +15,7 @@ const configPath = join(docsDir, '.vitepress', 'config.mts')
 // 白名单：站点首页（langDetect 分流目标）
 const ALLOWLIST = new Set([
   '/',            // docs/index.md 落地页
-  '/zh/',         // docs/zh/index.md 落地页
+  '/en/',         // docs/en/index.md 落地页
 ])
 
 function walk(dir, out = [], ext = '.md') {

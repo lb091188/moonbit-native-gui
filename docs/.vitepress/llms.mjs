@@ -1,5 +1,5 @@
-// llms.txt 聚合(A8):VitePress buildEnd 调用,把 docs/zh 与 docs 的 Markdown
-// 源各聚成一份纯文本全集,落进构建输出目录——`llms.txt`(中文,本站主语)与
+// llms.txt 聚合(A8):VitePress buildEnd 调用,把 docs(中文根)与 docs/en 的
+// Markdown 源各聚成一份纯文本全集,落进构建输出目录——`llms.txt`(中文)与
 // `llms-en.txt`。给 LLM 离线消费:不跑 JS、不解析侧边栏,纯源文档拼接。
 //
 // 处理口径:剥 YAML frontmatter;页与页之间插「=== 源路径 ===」分隔行便于
@@ -16,7 +16,7 @@ function stripFrontmatter(text) {
   return text.slice(text.indexOf('\n', end + 1) + 1)
 }
 
-/** 收集 dir 下全部 .md(递归);同层 index/README 排最前,其余按路径字典序 */
+/** 收集 dir 下全部 .md(递归,跳过 node_modules/.vitepress/dist);同层 index.md 排最前,其余按路径字典序 */
 function collectMd(dir) {
   const out = []
   const walk = d => {
@@ -27,16 +27,14 @@ function collectMd(dir) {
       return
     }
     for (const e of entries) {
+      if (e.name === 'node_modules' || e.name === '.vitepress' || e.name === 'dist') continue
       const p = path.join(d, e.name)
       if (e.isDirectory()) walk(p)
       else if (e.isFile() && e.name.endsWith('.md')) out.push(p)
     }
   }
   walk(dir)
-  const rank = p => {
-    const n = path.basename(p).toLowerCase()
-    return n === 'index.md' || n === 'readme.md' ? 0 : 1
-  }
+  const rank = p => (path.basename(p).toLowerCase() === 'index.md' ? 0 : 1)
   return out.sort((a, b) => {
     const da = path.dirname(a) === dir ? 0 : 1
     const db = path.dirname(b) === dir ? 0 : 1
@@ -62,8 +60,8 @@ function assemble(title, note, root, files) {
 export function emitLlms(siteConfig) {
   const root = siteConfig.srcDir
   const out = siteConfig.outDir
-  const zhFiles = collectMd(path.join(root, 'zh'))
-  const enFiles = collectMd(root).filter(p => !p.split(path.sep).includes('zh'))
+  const zhFiles = collectMd(root).filter(p => !p.split(path.sep).includes('en'))
+  const enFiles = collectMd(path.join(root, 'en'))
   const zh = assemble(
     'NoahLiu/native-gui 文档全集(中文)',
     '本文件由 VitePress build 自动聚合生成,给 LLM 离线消费;不要手编。',

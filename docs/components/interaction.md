@@ -1,43 +1,48 @@
-# Drag, hover & window events
+# 拖放、悬停与窗口事件
 
-General conventions: see [Components overview](index.md#conventions-read-this-first).
+通用约定见[组件总览](index.md#约定)。
 
-## Drag & drop (in-app, identical across the three platforms)
+## 拖放（应用内，三平台同构）
 
-### `drag_source(content : Node, payload? : () -> DragData?, threshold?=4.0, external?=false, on_external?)`
+### `drag_source(content : Node, payload? : () -> DragData?, threshold?=4.0, external?=false, on_external?, handle?)`
 
-- Drag source: after pressing on `content` and dragging `threshold` pixels, `payload()` is called to fetch the data and start the drag; `external=true` first tries a system-level drag-out (Windows/Linux wired), and falls back to an in-app session automatically if it fails
+- 拖源：`content` 上按下并拖出 `threshold` 像素后调用 `payload()` 取数据开拖
+- `external=true` 先尝试系统级拖出（三平台已接），失败自动回落应用内会话
+- `on_external`：系统级拖出结果回调，收 `Result[DragEffect, DragError]`
+- `payload()` 惰性求值，未过阈值按普通点击处理
 
 ### `drop_target(content : Node, on_drop? : (DragData, Double, Double) -> Unit, accept? : (DragData) -> Bool)`
 
-- Drop target: hover highlights with the theme accent; on release `accept` (defaults to accepting everything) decides, and an accepted drop calls `on_drop`
+- 落点：悬停描主题主色高亮；松手按 `accept`（默认全收）判定是否接收，接收则调用 `on_drop`（坐标为落点位置）
 
-> Don't put a button inside a drag source: pointer events go deepest-first, so the interactive widget eats the press. `payload()` is lazy — under the threshold the gesture stays a normal click. `DragData` = `Text`/`Html`/`Paths`/`Img` (`@widget`). Cross-application system drag & drop is covered in the platform batches of [experience/adaptation/](https://github.com/lb091188/moonbit-native-gui/tree/master/experience/adaptation/).
+> 拖源内容中不要放置按钮：指针事件按最深优先派发，交互控件会截获按下事件。`DragData` = `Text` / `Html` / `Paths` / `Img`（`@widget`）。
 
-## Hover & cursor groups
+## 悬停与光标
 
-### `hover_group(children, on_click?, …)`
+### `hover_group(children, on_click?, padding?=8.0, row_gap?=4.0, width?=0.0, background_color?="", hover_bg?="", class?, handle?)`
 
-- Hover group: hovering anywhere inside, including all children, puts the whole group into hover state and swaps its background; a click fires `on_click`; hover state in this stack is already parent-chain semantics, so no pointer polling is needed
+- 悬停组：组内任意位置（含全部子控件）悬停即整组进入悬停态换底色，点击（按下后松开仍在组内）触发 `on_click`；悬停态是父链语义、无需轮询指针
+- `background_color` / `hover_bg`：常态底色与悬停底色，空串走主题推导
 
 ### `cursor_group(children, direction?, row_gap?, column_gap?, padding?, width?, cursor?=CURSOR_HAND, handle?)`
 
-- Cursor group: any position inside uses the `cursor` shape; a child that requests its own shape wins, the rest fall back to the group's shape
+- 光标组：组内任意位置使用 `cursor` 形状；子控件自行指定形状时以子控件为准，其余回落组形状
 
-Built-in composite controls follow the same semantics: clickable blocks such as radio rows, calendar cells and month arrows, table rows and nav items all request the hand cursor at the block root; disabled or unpickable parts (a disabled radio group, out-of-month calendar cells) make no request and fall back to the default arrow.
+内置组合控件走同一套语义：radio 行、月历格与翻月箭头、表格行、导航项等整块可点击的组合件在块根设手型光标；禁用或不可选的部位（禁用的 radio 组、跨月日历格）不发请求，回默认箭头。
 
 ### `text_sel_new(ed)` / `TextSel::sync(sel, text)`
 
-- The low-level selection state for read-only text: prepare a read-only Editor (the full text is the selection range), copies go through the system slot; `sync` on text change (clears the selection, no offset migration). The ready-made `selectable` tiers already embed this chain — reach for it directly only when self-drawn text needs selection
+- 只读文本的选中状态底层件：备好只读 Editor（全文即选中范围），复制走系统槽；换文 `sync` 同步（清选区，不做偏移迁移）。现成控件的 `selectable` 档已内置这条链，自绘文本要选中时才直接用它
 
-## Window show/hide events
+## 窗口显隐事件
 
 ### `WindowHost::on_hidden(f : () -> Unit)`
 
-- Fires when this window has just been hidden from the screen (a real transition of `window().hide()`); register several, they fire in registration order. Runs inside the next event batch, when the window is already off screen
+- 本窗被隐藏驻留（`window().hide()` 的真实转换）时回调；可注册多个，按注册顺序触发
+- 回调在下一拍事件批内执行，此刻窗口已撤出屏幕
 
 ### `WindowHost::on_shown(f : () -> Unit)`
 
-- Fires when this window is woken back from its hidden residency (a real transition of `show()`); the first showing does not fire — only a window that has been hidden has a "wake-up"
+- 本窗从隐藏驻留唤回（`show()` 的真实转换）时回调；首次显示不触发，只有隐藏过的窗口才有「唤回」
 
-Two guarantees: **hiding clears the IME session** — hiding produces no platform focus-loss event, so the host performs the same handover as for a whole-window focus loss on the hidden tick (in-flight commits go to the current widget, the composition string display is cleared, the engine-side composition is interrupted); after wake-up no half-typed pinyin lingers. **The focus stack is untouched** — widget focus survives the round trip, same tier as a whole-window focus loss. For a demo see the residency probe window on the components "Window" page (show/hide counter readout plus an "auto-hide after 2s" switch that verifies composition clearing).
+两条保证：**隐藏清输入法会话**——隐藏不产生平台失焦事件，宿主在隐藏拍执行与「整窗失焦」相同的交接（在途 commit 归当前控件、清组合串显示、打断引擎侧组合），唤回后不残留组合串；**焦点栈不动**——唤回时控件焦点保持原状。演示见 components「窗口」页的驻留探针窗（显隐计数回显 + 「2 秒后自动隐藏」验证组合串清理）。

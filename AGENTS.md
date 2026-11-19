@@ -6,15 +6,15 @@
 - **规划有检查**——规划完成后先检查有无遗漏、是否与既有约束冲突，检查通过再执行。
 - **注释与文档只说内容、保持简单**——只写「是什么/怎么用/怎么做」；原理与根因写进专门文档 `experience/adaptation/` 等。文档行内不用括号补注，术语解释、日期、平台、出处一律展开为缩进子要点。
 - **读者非桌面专业**——TODO、roadmap 与各文档里的桌面/GUI 专业名词，首次出现时紧跟一条大白话解释子要点，让非桌面背景的开发者能读懂；文档整体保持言简意赅。
-- **对外文档默认中文先行**——改动一律先写 `docs/zh/` 对应文档；推送前把改动意译进 `docs/` 同路径英文文档。
+- **对外文档默认中文先行**——改动一律先写 `docs/` 对应文档；推送前把改动意译进 `docs/en/` 同路径英文文档。
 - **不做本地冒烟测试，真机 GUI 测试由用户执行**——助手负责代码与 `moon check`/`moon test`/`moon build` 零错误零警告；视觉与交互给操作步骤清单交用户，不远程驱动，不在反馈前下结论。
 - **与用户交流全部使用中文**——代码、命令、路径、专有名词除外。
 - **每完成一个功能或修复即提交并推送**——一个功能一次提交，提交信息只写「【标签】做了什么」，原理与原因一概不写。
-- **功能按「已规划 → 待办 → 已实现」流转**——确定做的功能先写进 `docs/zh/reference/roadmap.md`「已规划」；要动手时先放进 `TODO.md`；完成后从 `TODO.md` 删除，路线图条目从「已规划」移进「已实现」并按平台标状态，同批补 `测试文档/测试用例.md`；roadmap 与 TODO 不得互相矛盾。
+- **功能按「已规划 → 待办 → 已实现」流转**——确定做的功能先写进 `docs/reference/roadmap.md`「已规划」；要动手时先放进 `TODO.md`；完成后从 `TODO.md` 删除，路线图条目从「已规划」移进「已实现」并按平台标状态，同批补 `测试文档/测试用例.md`；roadmap 与 TODO 不得互相矛盾。
   - 平台状态标记：✅已验 / 🚧已合入待真机 / ❌未做 / ⏳待定。
   - 记录台加载 `测试文档/测试用例.md` 现算清单，不用另改记录台。
 - **新内容按落位判据落位**——先读 `experience/placement.md`；示例一律 `examples/<name>/` 独立模块并注册进 `moon.work`。
-- **改领域配置先读对应指导文档**——`moon.pkg` / `moon.mod` / 链接与依赖 → [docs/zh/build.md](docs/zh/build.md)；FFI / C 绑定 → `.agents/skills/moonbit-c-binding/`；平台适配 → `experience/adaptation/`，实测坑与适配经验按平台回写对应文件，与代码同批提交。
+- **改领域配置先读对应指导文档**——`moon.pkg` / `moon.mod` / 链接与依赖 → [docs/build.md](docs/build.md)；FFI / C 绑定 → `.agents/skills/moonbit-c-binding/`；平台适配 → `experience/adaptation/`，实测坑与适配经验按平台回写对应文件，与代码同批提交。
 
 ## 常用命令与门禁
 
@@ -55,7 +55,7 @@ moon run examples/hello       # 最小窗口(另有 showcase 等)
   - 文档站只发对外使用文档与路线图。
 - 对内经验与定案——实测坑、已收口设计定案、仓库判据:`experience/`
   - 纯中文。
-- 对外文档站——VitePress，中英双语:`docs/`、`docs/zh/`
+- 对外文档站——VitePress，中文为根、英文挂 `en/`:`docs/`、`docs/en/`
 - 测试用例文档与记录台:`测试文档/`，内含 `测试用例.md` + `index.html`
   - 记录台运行时解析用例文档现算清单。
   - 用例编号 `HL/SC/BR/AU/VD` 一一对应。
@@ -75,5 +75,5 @@ moon run examples/hello       # 最小窗口(另有 showcase 等)
 - MoonBit 语言与工具链:`.agents/skills/moonbit-agent-guide/`
 - 模块拆分方案:`proposals/module-split.md`
 - AI 文档全集:文档站构建产物 `llms.txt`（中文）/ `llms-en.txt`（英文），构建时自动聚合，不手编
-- 路线图:`docs/zh/reference/roadmap.md`
+- 路线图:`docs/reference/roadmap.md`
 - 待办:`TODO.md`

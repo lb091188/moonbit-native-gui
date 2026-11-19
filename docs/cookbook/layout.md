@@ -1,26 +1,26 @@
-# Layout recipes
+# 布局场景
 
-Import list and ground rules: see [How-to overview](index.md#prerequisites).
+import 清单与两条写入路径见[场景总览](index.md#公共前提)。
 
-## Centering content (horizontal / vertical / both)
+## 内容对齐
 
-| Container | Main axis | Center horizontally | Center vertically |
+| 容器 | 主轴 | 横向居中 | 纵向居中 |
 |---|---|---|---|
-| `col` (main axis vertical) | vertical | `align_items` (parameter) | `justify_content` (via `class` or `view`) |
-| `row` / `view(direction=Row)` (main axis horizontal) | horizontal | `justify_content` (via `class` or `view`) | `align_items` (parameter) |
+| `col`（主轴纵向） | 纵 | `align_items`（命名参数） | `justify_content`（走 `class` 或 `view`） |
+| `row` / `view(direction=Row)`（主轴横向） | 横 | `justify_content`（走 `class` 或 `view`） | `align_items`（命名参数） |
 
-Both axes, `view` form (same as `examples/hello`):
+双向居中，`view` 写法（`examples/hello` 同款）：
 
 ```moonbit
 @ui.view(
   [@ui.text("Hello, MoonBit!", class=[@style.text_heading])],
-  grow=1.0,                                     // fill the parent's remaining space
-  align_items=@yoga.AlignItems::Center,         // cross axis (horizontal): center
-  justify_content=@yoga.JustifyContent::Center, // main axis (vertical): center
+  grow=1.0,                                     // 撑满父级剩余空间
+  align_items=@yoga.AlignItems::Center,         // 交叉轴（横向）居中
+  justify_content=@yoga.JustifyContent::Center, // 主轴（纵向）居中
 )
 ```
 
-`col` form — loose parameters only take `align_items`, so the vertical main axis goes through `class`:
+`col` 写法——命名参数只收 `align_items`，纵向主轴走 `class` 通道：
 
 ```moonbit
 @ui.col(
@@ -31,37 +31,37 @@ Both axes, `view` form (same as `examples/hello`):
 )
 ```
 
-Horizontal only: drop `justify_content`. Vertical only: keep only `justify_content`; children stretch to full width on the cross axis by default.
+只横向居中：去掉 `justify_content`。只纵向居中：只保留 `justify_content`，子项交叉轴缺省拉伸铺满宽度。
 
-Notes:
+注意：
 
-- The container must fill its parent (`grow=1.0` or an explicit `height`), otherwise there is no free space to distribute.
-- The axis follows the container's direction: `align_items=Center` centers horizontally in a `view` (default direction Column) and vertically in a `row`.
-- `@ui.text(align=...)` controls alignment inside a wrapped text block; centering the block in its container uses the table above.
-- Enums are written in full form `@yoga.AlignItems::Center`; short forms like `@yoga.Center` are equivalent.
+- 容器须撑满父级（`grow=1.0` 或显式 `height`），否则无自由空间可分配。
+- 轴随容器方向变：`align_items=Center` 在 `view`（缺省方向 Column）是横向居中，在 `row` 是纵向居中。
+- `@ui.text(align=...)` 控制折行文本内部对齐；文本块在容器中居中用上表属性。
+- 枚举写完整形态 `@yoga.AlignItems::Center`；短形态 `@yoga.Center` 等价。
 
-## Header + flexible body + footer
+## 顶栏 + 自适应内容 + 底栏（三段式）
 
-Header and footer size to content; the body consumes all remaining height and scrolls internally. Outer `col` with three children; the body is wrapped in `col(grow=1.0)` with the scroll viewport at `height=0.0`.
+顶栏与底栏按内容定高，中段吃掉剩余高度、内部滚动。外层 `col` 三段；中段包 `col(grow=1.0)`，滚动视口 `height=0.0` 交给父层分配。
 
 ```moonbit
 let body = @ui.ScrollState::new()
 @ui.col(
   [
     @ui.row(
-      [@ui.text("Settings", class=[@style.text_title])],
+      [@ui.text("设置", class=[@style.text_title])],
       padding=12.0,
     ),
     @ui.col(
       [
         @ui.scroll_view(
           [
-            @ui.text("A long first paragraph…"),
-            @ui.text("A long second paragraph…"),
-            // …
+            @ui.text("第 1 段很长的内容……"),
+            @ui.text("第 2 段很长的内容……"),
+            // ……
           ],
           body,
-          height=0.0,  // viewport height delegated to the parent
+          height=0.0,  // 视口高交给父层
         ),
       ],
       grow=1.0,
@@ -69,8 +69,8 @@ let body = @ui.ScrollState::new()
     ),
     @ui.row(
       [
-        @ui.button("Cancel"),
-        @ui.button("Save", variant=@ui.Solid),
+        @ui.button("取消"),
+        @ui.button("保存", variant=@ui.Solid),
       ],
       column_gap=8.0,
       padding=12.0,
@@ -80,20 +80,20 @@ let body = @ui.ScrollState::new()
 )
 ```
 
-Notes:
+注意：
 
-- Without `grow=1.0` on the body, all three sections size to content and the footer does not sit at the window bottom.
-- Without `min_height=0.0` on the wrapping layer, long content pushes it back to its natural height (min:auto) and the scroll viewport never gets a fixed viewport. The scroll view handles this itself; a layer you wrap around it must state it. See [Layout & styling](../guide/layout.md).
+- 中段不写 `grow=1.0`，三段全按内容高排，底栏不贴窗底。
+- 中段不写 `min_height=0.0`，内容一长被 min:auto 顶回自然高，滚动视口拿不到固定视口。滚动视口自身已补这条，外面自包的层要手写；见[布局样式](../guide/layout.md)「必须知道的几个口径」。
 
-## Sidebar + flexible main area (splitting)
+## 侧栏与分栏：固定宽 / 弹性 / 等分 / 可拖
 
-Fixed width via `width=`, flexibility via `grow=1.0`, equal halves via `width_percent=50.0`, draggable divider via `split`.
+固定宽 `width=`、弹性 `grow=1.0`、等分 `width_percent=50.0`、可拖 `split`。
 
 ```moonbit
 @ui.row(
   [
-    @ui.col([@ui.text("Nav"), @ui.text("Settings")], width=180.0),
-    @ui.col([@ui.text("Main area")], grow=1.0),
+    @ui.col([@ui.text("导航"), @ui.text("设置")], width=180.0),
+    @ui.col([@ui.text("主内容区")], grow=1.0),
   ],
 )
 ```
@@ -101,34 +101,34 @@ Fixed width via `width=`, flexibility via `grow=1.0`, equal halves via `width_pe
 ```moonbit
 @ui.row(
   [
-    @ui.col([@ui.text("Left")], width_percent=50.0),
-    @ui.col([@ui.text("Right")], width_percent=50.0),
+    @ui.col([@ui.text("左半")], width_percent=50.0),
+    @ui.col([@ui.text("右半")], width_percent=50.0),
   ],
 )
 ```
 
 ```moonbit
 @ui.split(
-  @ui.col([@ui.text("File tree")]),
-  @ui.col([@ui.text("Editor")]),
+  @ui.col([@ui.text("文件树")]),
+  @ui.col([@ui.text("编辑区")]),
   ratio=0.3,
   min_first=160.0,
 )
 ```
 
-Note: `row`'s `align_items` also defaults to `Stretch`, same as `col`, so children in a row get equal height automatically; write `Center` explicitly for content-height children centered vertically in the row.
+注意：`row` 的 `align_items` 缺省 Stretch，与 `col` 一致，行内子项自动等高；要子项按内容高、整行纵向居中显式写 `Center`。
 
-## Scrolling overflowing content
+## 内容超高滚动
 
-`scroll_view` is the scrolling container; `ScrollState` holds the offset state (required); `height` is the viewport height. Vertical scrolling is the default; horizontal needs `hscroll=true`.
+`scroll_view` 是滚动容器，`ScrollState` 持有偏移状态（必传），`height` 是视口高；纵向滚动缺省，横向 `hscroll=true`。
 
 ```moonbit
 let st = @ui.ScrollState::new()
 @ui.scroll_view(
   [
-    @ui.text("Line 1"),
-    @ui.text("Line 2"),
-    // …many lines…
+    @ui.text("第 1 行"),
+    @ui.text("第 2 行"),
+    // …很多行…
   ],
   st,
   height=300.0,
@@ -137,53 +137,53 @@ let st = @ui.ScrollState::new()
 
 ```moonbit
 @ui.scroll_view(
-  [@ui.text("A very long line that must not wrap")],
+  [@ui.text("一条非常非常长、不希望被折行的内容")],
   @ui.ScrollState::new(),
   height=40.0,
   hscroll=true,
 )
 ```
 
-Notes:
+注意：
 
-- The viewport height needs a source: an explicit `height=`, or `height=0.0` inside a `grow=1.0` layer.
-- `code_view` scrolls horizontally on its own; no `scroll_view` wrapper needed.
-- The scrollbar colors in on hover and takes no layout width; `st.at_bottom()` reads whether the bottom is reached.
+- 视口高要有出处：显式 `height=`，或放进 `grow=1.0` 的层给 `height=0.0`。
+- `code_view` 自带横向滚动，不必外包 `scroll_view`。
+- 滚动条悬停满色、不占布局宽；`st.at_bottom()` 判是否滚到底。
 
-## Wrapping a row of tags
+## 一排标签超宽自动换行
 
-A `row` container plus `flex_wrap`; spacing between wrapped lines uses `row_gap`, between items `column_gap`.
+`row` 加 `flex_wrap`；行间距 `row_gap`、列间距 `column_gap`。
 
 ```moonbit
 @ui.row(
   [
     @ui.tag_of_type("MoonBit", @ui.Primary),
-    @ui.tag_of_type("Cross-platform", @ui.Success),
-    @ui.tag_of_type("Native windows", @ui.Info),
-    @ui.tag_of_type("Self-drawn", @ui.Warning),
-    @ui.tag_of_type("Theming", @ui.Danger),
-    // …more tags wrap naturally
+    @ui.tag_of_type("跨平台", @ui.Success),
+    @ui.tag_of_type("原生窗口", @ui.Info),
+    @ui.tag_of_type("自绘", @ui.Warning),
+    @ui.tag_of_type("深浅主题", @ui.Danger),
+    // …标签多了自然折行
   ],
   column_gap=8.0,
   class=[@style.style(flex_wrap=@yoga.FlexWrap::Wrap, row_gap=8.0)],
 )
 ```
 
-Note: if wrapping does not kick in, check two things — the container is a `row`, and no enclosing layer pins its minimum size to content size (if needed write `min_width=0.0, min_height=0.0` on it). See the min:auto rules in [Layout & styling](../guide/layout.md).
+注意：折行不生效时查两点——容器是 `row`；外层没有把最小尺寸钉在内容尺寸上（必要时该层写 `min_width=0.0, min_height=0.0`）。见[布局样式](../guide/layout.md) min:auto 口径。
 
-## Right-aligning a button row
+## 底部按钮右对齐
 
-A `row`'s main axis is horizontal; main-axis alignment is `justify_content`, and `FlexEnd` means right. `row` takes no such loose parameter — use the `class` channel.
+`row` 主轴横向，主轴对齐走 `justify_content`，`FlexEnd` 即靠右；`row` 命名参数不收它，走 `class` 通道。
 
 ```moonbit
 @ui.row(
   [
-    @ui.button("Cancel"),
-    @ui.button("OK", variant=@ui.Solid),
+    @ui.button("取消"),
+    @ui.button("确定", variant=@ui.Solid),
   ],
   column_gap=8.0,
   class=[@style.style(justify_content=@yoga.JustifyContent::FlexEnd)],
 )
 ```
 
-Other modes: `FlexStart` (default), `Center`, `SpaceBetween`, `SpaceAround`, `SpaceEvenly`. A `col` applies the same set vertically (see [Centering](#centering-content-horizontal--vertical--both)).
+其余档位：`FlexStart`（缺省）、`Center`、`SpaceBetween`、`SpaceAround`、`SpaceEvenly`。`col` 把同一套用在纵向（见[内容对齐](#内容对齐)表）。

@@ -1,105 +1,105 @@
-# Experience Guide
+# 体验文档
 
-Prebuilt packages (§1); clone the repository and run the examples (§2). For building your own app, the from-zero path is in [Getting started](tutorial.md); for working on the library itself, head straight to [Build & run](build.md).
+预构建包（§一）；克隆仓库跑示例（§二）。自己写应用，从零路径见[上手体验](tutorial.md)；改库与参与开发直接看[构建与运行](build.md)。
 
-## 1. Try it for real: prebuilt packages
+## 一、真体验：预构建包
 
-### Download and first run
+### 下载与首次运行
 
-Open [GitHub Releases](https://github.com/lb091188/moonbit-native-gui/releases) and pick the **Binaries** release (one fixed name, always the latest build), one zip per platform; in China, get it from the [Gitee mirror](https://gitee.com/noahliu0911/moonbit-native-gui/releases/tag/bin):
+到 [GitHub Releases](https://github.com/lb091188/moonbit-native-gui/releases) 的 **Binaries**（固定单一名，始终是最新构建），按平台取一个 zip；国内直连可用 [Gitee 镜像](https://gitee.com/noahliu0911/moonbit-native-gui/releases/tag/bin)：
 
-| Package | Platform |
+| 包 | 平台 |
 |---|---|
 | `bin-windows-x64.zip` | Windows 10/11 x64 |
 | `bin-macos-arm64.zip` | Apple Silicon macOS |
 | `bin-linux-x64.zip` | x64 Linux |
 
-Every zip contains the same five executables plus third-party notices (`THIRD-PARTY-NOTICES.md`):
+每个包内是同一套五个可执行文件 + 第三方许可（`THIRD-PARTY-NOTICES.md`）：
 
-| Executable | Content |
+| 可执行文件 | 内容 |
 |---|---|
-| `hello` | Starter sample: an `.mng` single-file declarative page + basic window demos (multi-window / tray) |
-| `components` | Component gallery: widget families, 19 interactive chart types, Markdown / code views, theme following |
-| `browser` | Embedded browser demo: address-bar navigation, local site, JS interop, policy interception |
-| `audio` / `video` | Audio / video player demos with bundled media files; FFmpeg dynamic libraries are bundled in the Windows / macOS packages |
+| `hello` | 入门样例：.mng 单文件声明式页 + 基本窗口示例（多窗 / 托盘） |
+| `components` | 组件展示库：组件族、19 种交互图表、Markdown / 代码视图、主题跟随 |
+| `browser` | 内嵌浏览器演示：地址栏导航、本地站点、JS 互操作、策略拦截 |
+| `audio` / `video` | 音频 / 视频播放器演示，演示文件已随包；Windows / macOS 包内另带 FFmpeg 动态库 |
 
-**Windows**: unzip and double-click the `.exe`; no console window appears. The WebView2 Runtime needed by `browser` ships with the OS.
+**Windows**：解压后双击对应 `.exe` 即可，不弹控制台黑框；`browser` 依赖的 WebView2 Runtime 系统自带。
 
-**macOS**: the five apps are `.app` bundles — after unzipping, **double-click to run**, no Terminal involved. The first launch of each app gets one Gatekeeper block (the packages are ad-hoc signed, not notarized, and the downloaded zip carries the quarantine attribute). Two ways past it:
+**macOS**：五个应用是 `.app` bundle，解压后**双击直接运行**，不会开终端。首次启动会被 Gatekeeper 拦一次（包是 adhoc 签名、未经 Apple 公证，浏览器下载还带隔离属性），两个放行办法任选其一：
 
-1. **Clear quarantine in a terminal (recommended, unblocks all five at once)**:
+1. **终端一行清隔离（推荐，五个程序一次放行）**：
 
    ```sh
-   xattr -dr com.apple.quarantine <folder>
+   xattr -dr com.apple.quarantine <解压目录>
    ```
 
-2. **The GUI way (macOS 15+; right-click → Open no longer offers a bypass)**: click Done on the block dialog → System Settings → Privacy & Security → the Security section → **Open Anyway** next to the blocked app (valid for about an hour after the block, per app).
+2. **图形路径（macOS 15 起，右键「打开」已不再给放行按钮）**：被拦的对话框点「完成」→ 系统设置 → 隐私与安全性 → 「安全性」段 → 被拦条目旁点**「仍要打开」**（拦截后约 1 小时内有效，每个 app 各来一遍）。
 
-The `.dylib` files in `lib/` are shared by all five apps — keep that folder next to the `.app` bundles.
+`lib/` 里的 `.dylib` 五个 app 共用，与 `.app` 保持同目录，不要拆散拷贝。
 
-**Linux**: unzip, `chmod +x <file>`, run. Runtime libraries (preinstalled on Ubuntu 24.04; install by name on other distros):
+**Linux**：解压后 `chmod +x <文件>` 运行。运行库需求（Ubuntu 24.04 自带，其他发行版按名安装）：
 
 ```sh
 sudo apt install libgtk-3-0 libpango-1.0-0 libx11-6 \
   libwebkit2gtk-4.1-0 libavcodec60 libavformat60 libswscale7
 ```
 
-### What to try, per demo
+### 体验点与操作路径
 
-#### hello — starter sample and basic window demos
+#### hello —— 入门样例与基本窗口示例
 
-The top half is an `.mng` single-file declarative page (name input with live greeting, count stepper); the bottom half is a command-style basic window demo: three preset windows (memo / palette / about) **toggle open/close** (one window per preset; the button label follows the state), every child window carries a "close this window" button, and the status line shows the live window count; a tray icon stays resident (monochrome silhouette that follows the system light/dark mode, left-click counter). Run `mng dev` and edit the template to watch hot reload.
+上半是 `.mng` 单文件声明式页（输入联动问候、计数步进器）；下半是命令式的基本窗口示例：三档预设窗口（备忘 / 调色 / 关于）**按开/关切换**（同一档只留一扇，按钮随状态变「打开/关闭」）、每扇子窗带「关闭此窗」、状态行实时显示窗口数；托盘常驻（单色剪影随系统明暗、左键计数）。模板改字后跑 `mng dev` 可看热更。
 
-#### components — component gallery
+#### components —— 组件展示库
 
-Switch pages in the left sidebar:
+左侧栏切页，逐页看：
 
-- **Basic components / Form components / Data display**: the ready-made widget families — buttons, inputs, tables, trees, virtual scrolling
-- **Charts pages**: line / bar / pie / gauge / scatter / radar / heatmap / candlestick / funnel / box / sankey / relationship / parallel / pictorial bar / sunburst / theme river / tree / treemap / effect scatter — 19 kinds with a cross-cutting interaction layer (hover readouts, zoom & pan, and more)
-- **Theme**: dark/light and accent color follow the system; the follow switch lives in the menu (picking a color manually turns following off — expected)
+- **基础组件 / 表单组件 / 数据展示**：按钮、输入、表格、树、虚拟滚动等控件族成品
+- **图表页**：折线 / 柱状 / 饼 / 仪表 / 散点 / 雷达 / 热力 / K 线 / 漏斗 / 箱线 / 桑基 / 关系图 / 平行坐标 / 象形柱 / 旭日 / 主题河流 / 树 / 矩形树 / 特效散点共 19 种，带横向交互层（悬停读数、缩放平移等）
+- **主题**：深浅色与强调色跟随系统，跟随开关在菜单里（手动选色会自动关掉跟随，属预期行为）
 
-Live demos of the tray, notifications, autostart, single instance and other system capabilities live in `examples/system` (see §2); the drawing board and custom drawing live in `examples/canvas`, while rich text and fonts are on the "Basics" page of `examples/components`.
+托盘、通知、自启、单实例等系统能力的现场演示在 `examples/system`（见 §二）；画板与自绘在 `examples/canvas`，富文本与字体演示在 `examples/components`「基础组件」页。
 
-#### browser — embedded WebView
+#### browser —— 内嵌 WebView
 
-- Address-bar navigation, back/forward and history
-- A local site served through the custom scheme (local content channel)
-- JS interop: execute-and-fetch in the page, JS↔native two-way binding demos
-- The "policy trigger" menu entries (new window / geolocation / download): intercepted and reported by default, allow from the dialog — the library's policy loop, right there
+- 地址栏导航、前进后退与历史
+- 自定义协议打开的本地站点（本地内容通道）
+- JS 互操作：页面执行取回、JS↔原生双向绑定演示
+- 菜单「策略触发」三项（新窗 / 定位 / 下载）：默认拦截并回报、可在对话框放行——库的策略面闭环就在这里
 
-#### audio / video — media line
+#### audio / video —— 媒体线
 
-Playback / progress / speed control, external and embedded subtitle tracks, A/V sync under speed changes. FFmpeg dynamic libraries are bundled in the Windows / macOS packages; Linux uses the system FFmpeg.
+播放 / 进度 / 倍速，外挂与内嵌字幕双来源，倍速下音画同步。Windows / macOS 包内已带 FFmpeg 动态库；Linux 用系统 FFmpeg。
 
-### Known platform differences (honest scope)
+### 已知平台差异（诚实口径）
 
-- **macOS notifications**: require an `.app` bundle launch — the packages ship `.app` bundles, and notifications work on double-click launch (verified on device); running the bare binary from `Contents/MacOS` still reports unavailable, an OS constraint, not a library defect.
-- **Linux**: media and `browser` depend on system FFmpeg and WebKit2gtk respectively — see the install list above.
-- Platform status follows the [README platform table](https://github.com/lb091188/moonbit-native-gui) and the [roadmap](/zh/reference/roadmap.md): all three platforms are verified on real machines.
+- **macOS 通知**：必须从 `.app` bundle 启动——包内即 `.app`，双击启动通知可用（已真机复验）；直接跑 `Contents/MacOS` 里的二进制仍会报不可用，系统约束，非库缺陷。
+- **Linux**：音视频与 `browser` 分别依赖系统 FFmpeg 与 WebKit2gtk，见上面的安装清单。
+- 平台状态以 [README 平台表](https://github.com/lb091188/moonbit-native-gui) 与 [路线图](../reference/roadmap.md) 为准：三平台均已真机验证。
 
-## 2. Run the repository examples
+## 二、跑仓库示例
 
-Beyond the prebuilt packages, you can also clone the repository and run the examples directly (the MoonBit toolchain is needed first — see [Build & run](build.md) §1) — every directory under `examples/` is a standalone module, so **`cd` in and `moon run .`**:
+预构建包之外，还可以克隆仓库直接跑示例（需先装 MoonBit 工具链，见[构建与运行](build.md) §1）——`examples/` 下每个目录都是独立模块，进目录 `moon run .` 即可：
 
 ```sh
 git clone https://github.com/lb091188/moonbit-native-gui.git
-cd moonbit-native-gui/examples/hello   # or any directory in the table below
-MOON_WORK=off moon run .               # resolve the published library from the registry; drop it to run against your own changes
+cd moonbit-native-gui/examples/hello   # 换成下表任一目录
+MOON_WORK=off moon run .               # 按注册表已发布的库版本解析；连着库改动跑就去掉它
 ```
 
-| Directory | What it is |
+| 目录 | 内容 |
 |---|---|
-| `examples/hello` | Starter sample: `.mng` single-file page + basic window demos (multi-window / tray, hot-reloadable via `mng dev`) |
-| `examples/components` | Component gallery: all widgets / charts / themes (the `components` prebuilt package) |
-| `examples/canvas` | Drawing board and custom drawing: interactive board (mouse freehand + keyboard lines), Painter drawing, line styles / dashes / clipping / transforms / corners / bitmaps |
-| `examples/system` | System capabilities: system integration (dialogs / notifications / tray / autostart / single instance / self-update) + read-only probes, left grouped menu |
-| `examples/browser` | Embedded WebView browser (extra dependency `gui-webview`) |
-| `examples/audio` · `video` | Audio/video players (extra dependency `gui-media`, needs ffmpeg) |
-| `examples/sysmonitor` | System monitor: six-item resource menu (CPU / memory / network / disks / GPU / processes) with per-core charts, physical NICs, physical partitions and process management |
-| `examples/theme-playground` | Theme fitting room: tune one theme and watch it apply globally |
+| `examples/hello` | 入门样例：.mng 单文件页 + 基本窗口示例（多窗 / 托盘，`mng dev` 可热更）|
+| `examples/components` | 组件展示库：全部组件 / 图表 / 主题（预构建包里的 `components`）|
+| `examples/canvas` | 画板与自绘：交互画板（鼠标手绘 + 键盘画线）、Painter 自绘、线型/虚线/裁剪变换/圆角/位图 |
+| `examples/system` | 系统能力：系统集成（对话框 / 通知 / 托盘 / 自启 / 单实例 / 自更新）+ 只读探测，左侧分组菜单 |
+| `examples/browser` | 内嵌 WebView 浏览器（额外依赖 `gui-webview`）|
+| `examples/audio` · `video` | 音视频播放器（额外依赖 `gui-media`，需 ffmpeg）|
+| `examples/sysmonitor` | 系统监视器：六项资源菜单（处理器/内存/网络/磁盘/显卡/进程）+ 各核曲线、物理网卡、物理分区与进程管理 |
+| `examples/theme-playground` | 主题试衣间：调一套主题看全局效果 |
 
-Beyond the examples: [Components overview](../components/index.md), [Declarative & reactivity](declarative.md), [Layout & styling](layout.md), [System capabilities overview](../capability/sys.md), [Embedded WebView](../capability/webview.md).
+示例之上深入各面：[组件总览](../components/index.md)、[声明式与响应式](declarative.md)、[布局样式](layout.md)、[系统能力总览](../capability/sys.md)、[内嵌 WebView](../capability/webview.md)。
 
-## 3. Working on the library
+## 三、库开发
 
-Adding widgets, fixing platforms, reporting compatibility: the toolchain and dependency setup, build gates, test policy and troubleshooting all live in [Build & run](build.md); the package composition is in [Package layout & API reference](../reference/api.md); how to contribute is in the README.
+改库、加控件、报平台兼容问题：工具链与依赖安装、构建门禁、测试口径与常见失败处置全在[构建与运行](build.md)；包的组成见[包结构与 API 参考](../reference/api.md)；参与方式见 README「参与贡献」。

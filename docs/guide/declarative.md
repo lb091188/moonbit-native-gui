@@ -1,127 +1,126 @@
-# Declarative layer & reactivity (@base + @widget + @ui)
+# 声明式层与响应式（@base + @widget + @ui）
 
-The UI is a **node tree**; state lives in `Store` / `Signal`. Styling: [layout.md](layout.md) and [design.md (Chinese)](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/design.md); components: [Components overview](../components/index.md).
+界面用一棵**节点树**描述，状态用 `Store` / `Signal` 持有。样式见[布局样式](layout.md)，组件见[组件总览](../components/index.md)。
 
-## 1. Node tree and mounting
+## 1. 节点树与挂载
 
-Every `@ui` component constructor returns a `@widget.Node`. Assemble nodes into an `Array[Node]` and hand them to `mount_window` — it builds the window, mounts, and starts the loop in one step:
+`@ui` 的每个组件构造器返回一个 `@widget.Node`。把节点组成 `Array[Node]` 交给 `mount_window`，一步建窗、挂载、起循环：
 
 ```moonbit
 fn main {
   let count : @base.Store[Int32] = @base.Store::new(0)
   let app = match @ui.mount_window(
     [@ui.col([
-      @ui.text("Count", class=[@style.text_heading]),
-      @ui.button("Increment", on_click=fn() { count.update(fn(n) { n + 1 }) }),
+      @ui.text("计数", class=[@style.text_heading]),
+      @ui.button("加一", on_click=fn() { count.update(fn(n) { n + 1 }) }),
       @ui.bind_label(count, fn(n : Int32) -> String { "\{n}" }),
     ], padding=16.0, row_gap=8.0)],
-    title="Declarative demo",
+    title="声明式示例",
     width=320, height=200,
   ) {
-    None => return   // no window backend or no display service
+    None => return   // 无窗口后端或无显示服务
     Some(a) => a
   }
   app.run()
 }
 ```
 
-- `mount_window(children, title?, width?=800, height?=600, handle?)`: builds the host, mounts the children, and hands the host back for you to `run`. The window, event loop, overlay layer, and IME channel are all set up in `WindowHost::new`; returns `None` when there is no display service. Theme wiring by default: the first window in a process probes the system light/dark mode and accent color once; skipped when a theme has been applied explicitly.
-- `mount_window_render(render : () -> Array[Node], …)`: the **render slot** form, an alternative to a static array. `render` runs **once** at mount to build the first frame; the framework never re-runs it. Reactivity comes entirely from `for_list` / `when` / `*_dyn` / `bind*` in the tree, which self-subscribe and self-diff. To replace the whole tree's content, go through `bind_node`.
-- `handle=fn(app : @widget.WindowHost) { … }`: take the host handle for operations the framework doesn't expose, e.g. `app.follow_system_theme(...)`.
+- `mount_window(children, title?, width?=800, height?=600, handle?)`：建宿主、挂载子节点、把宿主交回给你 `run`。窗口、事件循环、浮层图层、输入法通道都在 `WindowHost::new` 里就位；无显示服务返回 `None`。主题默认接线：进程内首次挂窗自动探测一次系统深浅与主色，显式 `theme_apply` 过则不覆盖。
+- `mount_window_render(render : () -> Array[Node], …)`：**render 槽**形态，与静态数组二选一。`render` 在挂载时调**一次**建首帧，此后框架不再重跑它，响应全靠树里的 `for_list` / `when` / `*_dyn` / `bind*` 自订阅、自差分。要整棵换内容才走 `bind_node`。
+- `handle=fn(app : @widget.WindowHost) { … }`：拿宿主句柄做框架没暴露的操作，例如 `app.follow_system_theme(...)`。
 
-## 2. Imperative escape hatch
+## 2. 命令式逃生舱
 
-When you need to build a control yourself instead of using a ready-made component:
+需要自己造控件、而不是用现成组件时：
 
-| Entry | Purpose |
+| 入口 | 用途 |
 |---|---|
-| `@widget.node_of(widget)` | wrap an already-built `Widget` into a `Node` |
-| `@widget.node_of_new(finish : (Widget) -> Widget)` | build and configure a control on the spot, return a `Node` |
-| `Node::on_mount(node, f : () -> Unit)` | run `f` at the moment of mounting — for scheduling timers, registering focus, anything needing the host present |
-| `@widget.mount_children(parent, children)` | mount a batch of `Node`s under a parent widget |
-| a component's `handle? : (Widget) -> Unit` | take back its internal `Widget` while building |
+| `@widget.node_of(widget)` | 把一个已建好的 `Widget` 包成 `Node` |
+| `@widget.node_of_new(finish : (Widget) -> Widget)` | 现场建控件并配置，返回 `Node` |
+| `Node::on_mount(node, f : () -> Unit)` | 挂载那一刻执行 `f`，用于排定时器、注册焦点等需要宿主在场的动作 |
+| `@widget.mount_children(parent, children)` | 把一批 `Node` 挂到某个父控件下 |
+| 组件的 `handle? : (Widget) -> Unit` | 建组件时拿回它内部的 `Widget` |
 
-> **Pitfall (memorize this)**: actions that need the host present — `set_timeout`, pushing chart points, the tray dispatch table — **must not run in the construction phase**. A function like `page(app)` is evaluated before the window exists: `app.host` is still `None` and the process-level timer channel isn't installed yet, so the first tick runs on an empty channel and the loop dies once it stops rescheduling. Hang such actions on `Node::on_mount` or the `handle` callback — both run after mount.
+> **坑（务必记住）**：需要宿主在场的动作——`set_timeout`、图表推点、托盘派发表——**不能写在构造期**。`page(app)` 这类函数求值早于建窗，那时宿主还没就位，写了不生效。这类动作挂到 `Node::on_mount` 或 `handle` 回调上，两者都在挂载之后跑。
 
-## 3. Store: a box for one value
+## 3. Store：一个值的盒子
 
-`Store[T]` is a readable, writable, subscribable state box:
+`Store[T]` 是可读可写、可订阅的状态盒：
 
 ```moonbit
 let name : @base.Store[String] = @base.Store::new("MoonBit")
-name.get()                       // read
-name.set("World")                // write (dedups by value when T : Eq; equal values don't notify)
-name.update(fn(n) { n + "!" })   // change in place
+name.get()                       // 读
+name.set("World")                // 写（T : Eq 时按值去重，同值不通知）
+name.update(fn(n) { n + "!" })   // 就地改
 let off = name.subscribe(fn(v) { println(v) })
 ```
 
-| Method | Purpose |
+| 方法 | 用途 |
 |---|---|
-| `Store::new(value)` / `get()` | create / read |
-| `set(v)` / `update(f)` | write; requires `T : Eq` — no notify when new equals old, avoiding needless repaints |
-| `set_always(v)` / `update_always(f)` | use when the value type does no Eq dedup or every write must fire; for snapshot cases with in-place-mutated arrays, see adaptation |
-| `subscribe(f) -> () -> Unit` / `subscribe_id(f) -> Int32` / `remove(id)` | subscribe / unsubscribe |
-| `map(f : A -> B) -> Store[B]` | derive a read-only box |
-| `signal() -> Signal[T]` | convert to a signal for the `Signal`-taking entries `bind` / `*_dyn` |
+| `Store::new(value)` / `get()` | 建、读 |
+| `set(v)` / `update(f)` | 写；要求 `T : Eq`，新旧相等就不通知，避免无谓重绘 |
+| `set_always(v)` / `update_always(f)` | 值类型不做 Eq 去重、每次必发时用；存会被原地改的数组这类快照场景另见 adaptation |
+| `subscribe(f) -> () -> Unit` / `subscribe_id(f) -> Int32` / `remove(id)` | 订阅与退订 |
+| `map(f : A -> B) -> Store[B]` | 派生一个只读盒 |
+| `signal() -> Signal[T]` | 转成信号，喂需要 `Signal` 的入口 `bind` / `*_dyn` |
 
-To bind to the UI: `bind_label(store, f)` for text, the `*_dyn` signal forms for display components, `ListStore` for lists (§5).
+绑定到界面：文本用 `bind_label(store, f)`，展示类用 `*_dyn` 信号版；列表用 `ListStore`，见 §5。
 
-## 4. Signal: derived values with dependency collection
+## 4. Signal：带依赖收集的派生
 
-`Signal[T]` is a finer-grained reactive source than `Store`, with automatic dependency collection:
+`Signal[T]` 是比 `Store` 更细粒度的反应源，支持自动依赖收集：
 
-| Entry | Purpose |
+| 入口 | 用途 |
 |---|---|
-| `Signal::new(v)` / `get` / `set` / `set_eq` / `update` | basic read / write |
-| `Signal::computed(fn () -> T)` | **derived signal**: every signal `get` inside becomes a dependency automatically; when a dependency changes, recompute and notify downstream |
-| `Signal::effect(fn () -> Unit)` / `@base.effect(body)` | **side effect**: tracks the signals read in the body, re-runs on change, returns an unsubscribe function |
-| `Signal::subscribe(f) -> Int32` / `remove(sid)` / `sub_count()` | subscribe / unsubscribe / count |
-| `Signal::map(f)` / `Signal::store()` | derive / convert back to a `Store` |
-| `batch(fn () -> Unit)` | commit in batch — multiple sets inside fire downstream only once |
+| `Signal::new(v)` / `get` / `set` / `set_eq` / `update` | 基础读写 |
+| `Signal::computed(fn () -> T)` | **派生信号**：函数里 `get` 到的信号自动成为依赖，依赖变则重算并通知下游 |
+| `Signal::effect(fn () -> Unit)` / `@base.effect(body)` | **副作用**：跟踪体内读到的信号，变了就重跑，返回退订函数 |
+| `Signal::subscribe(f) -> Int32` / `remove(sid)` / `sub_count()` | 订阅、退订、计数 |
+| `Signal::map(f)` / `Signal::store()` | 派生、转回 `Store` |
+| `batch(fn () -> Unit)` | 批量提交，批内多次 set 只触发一轮下游 |
 
-Store and Signal convert both ways: `store.signal()`, `Signal.store()`. Display entries take `Signal[T]`; input controls take `Store[T]` directly. Both share one source.
+Store 与 Signal 可互转：`store.signal()`、`Signal.store()`。展示类入口收 `Signal[T]`，输入类控件直接吃 `Store[T]`，两者同源。
 
-## 5. Lists and visibility: for_list / when
+## 5. 列表与显隐：for_list / when
 
-List rendering uses keyed diffing to avoid rebuilding the whole table:
+列表渲染走 keyed 差分，避免整表重建：
 
 ```moonbit
 let rows : @base.ListStore[String] = @base.ListStore::new(["a", "b"])
 @ui.for_list(rows, build=fn(item, _i) { @ui.text(item) }, key~=fn(r) { r })
 ```
 
-| Entry | Purpose |
+| 入口 | 用途 |
 |---|---|
-| `ListStore::new / get / length / push / remove / update / splice` | list state; `remove` and `update` hit by predicate |
-| `ListStore::subscribe_diff(...)` / `@base.ListStore.signal()` | keyed-diff subscription |
-| `@ui.for_list(ls, build, key~, eq?)` | build rows by key; the default criterion is "same key, same value" — make changing fields their own `Store`s instead of remounting the whole row |
-| `@ui.for_list_indexed(ls, build)` | index-aligned — equivalent to no `:key`; unloads extra rows only when the length shrinks |
+| `ListStore::new / get / length / push / remove / update / splice` | 列表状态，`remove` 与 `update` 按谓词命中 |
+| `ListStore::subscribe_diff(...)` / `@base.ListStore.signal()` | keyed 差分订阅 |
+| `@ui.for_list(ls, build, key~, eq?)` | 按 key 建行，缺省判据是「同键同值」；会变的字段各自做成 `Store`，别整行重挂 |
+| `@ui.for_list_indexed(ls, build)` | 按下标对齐，等价于无 `:key`，长度收缩才卸多余行 |
 
-`when` handles visibility: nodes are not destroyed, state is kept. To keep both branches resident and switch purely by visibility with zero rebuilds, use `when_else`:
+显隐用 `when`：不销毁节点，状态不丢。要两支常驻、切换只走显隐且零重建，用 `when_else`：
 
 ```moonbit
-@ui.when_bool(show_sig, @ui.text("only shown when show is true"))
-@ui.when_else_store(vis_store, ok_node, cancel_node)   // both branches resident, toggled by visibility
+@ui.when_bool(show_sig, @ui.text("只在 show 为真时出现"))
+@ui.when_else_store(vis_store, ok_node, cancel_node)   // 两支常驻，切换靠显隐
 ```
 
-`when` and `when_else` each come in four forms — `Signal` / `Store` × generic / boolean; see [Reactive controls](../components/reactive.md).
+`when` 与 `when_else` 各有 `Signal` / `Store` × 泛型 / 布尔四组形态，详见[响应式控制](../components/reactive.md)。
 
-## 6. Whole-tree replace and in-place replace
+## 6. 整棵替换与原位替换
 
-When the content structure changes — not a text edit, not a visibility toggle:
+内容结构变化，既不是改文本也不是切显隐时：
 
-- `@widget.bind_node(sig : Signal[T], f : (T) -> Node)`: on a signal change, build a new node with `f(v)` and **replace the old node in place**.
-- `@widget.swap_node(sig : Signal[Bool], a : Node, b : Node)`: switch between two nodes in place on a boolean.
+- `@widget.bind_node(sig : Signal[T], f : (T) -> Node)`：信号一变，用 `f(v)` 造的新节点**原位替换**旧节点。
+- `@widget.swap_node(sig : Signal[Bool], a : Node, b : Node)`：按布尔在两个节点间原位切换。
 
-"In-place replace" rests on the engine's `insert_child` / `remove_child_at` and the widget layer's `index_of` / `move_child`. Replacement does not rebuild the parent chain, and hit rectangles are re-taken from the layout result each frame — no "defer a tick / force a reflow" workaround is needed.
+「原位替换」不重建父链，命中矩形每帧从布局结果重取，不需要「推迟一拍 / 强制重排」这类规避。
 
-## 7. The repaint loop
+## 7. 重绘回路
 
-Framework repaints route back to the host WindowHost through the process-level `@widget.set_repaint_hook`; a control requests a redraw of the current frame with `@widget.invalidate()`. Incremental dirty-region relayout recomputes only the changed chain: `bind_label` and `*_dyn` re-measure only themselves on a text change, without rebuilding the subtree.
+框架重绘经进程级 `@widget.set_repaint_hook` 回到宿主 WindowHost，控件改状态时用 `@widget.invalidate()` 请求重画当前帧。脏区增量重排保证只重算变了的那条链：`bind_label` 与 `*_dyn` 改文本只重测自身，不重建子树。
 
-## 8. Related docs
+## 8. 相关文档
 
-- Components and parameters: [Components overview](../components/index.md)
-- Layout styling: `Style` values and the `class` channel in [layout.md](layout.md)
-- View-layer and reactivity design: [design.md (Chinese)](https://github.com/lb091188/moonbit-native-gui/blob/master/experience/design.md) §3 reactivity, §4 view layer
-- Getting started: [tutorial.md](tutorial.md)
+- 组件与参数：[组件总览](../components/index.md)
+- 布局样式：`Style` 值与 `class` 通道见 [layout.md](layout.md)
+- 上手体验：[tutorial.md](tutorial.md)

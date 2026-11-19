@@ -1,27 +1,27 @@
-# Interaction recipes
+# 交互场景
 
-Import list and ground rules: see [How-to overview](index.md#prerequisites); the recipes here are complete programs.
+import 清单见[场景总览](index.md#公共前提)；交互场景给完整程序。
 
-## Reading input and submitting on Enter
+## 输入框取值与回车提交
 
-The field's value lives in a `Store[String]`; `on_change` fires on every change, `on_enter` on Enter. The multi-line `textarea` works the same way.
+输入框的值住 `Store[String]`；`on_change` 每次变更回调，`on_enter` 回车回调。多行输入 `textarea` 同构。
 
 ```moonbit
 fn main {
   let name : @base.Store[String] = @base.Store::new("")
   let greeting = @base.Signal::computed(fn() {
     let n = name.get()
-    if n == "" { "Type your name" } else { "Hello, \{n}!" }
+    if n == "" { "请输入名字" } else { "你好，\{n}！" }
   })
   let app = match @ui.mount_window(
     [
-      @ui.input(name, placeholder="Your name", clearable=true,
+      @ui.input(name, placeholder="你的名字", clearable=true,
         on_enter=fn() {
-          println("submitted: \{name.get()}")
+          println("提交：\{name.get()}")
         }),
       @ui.text_dyn(greeting),
     ],
-    title="Input",
+    title="输入框",
     width=360, height=160,
   ) {
     None => return
@@ -31,26 +31,26 @@ fn main {
 }
 ```
 
-Notes:
+注意：
 
-- Don't `set` a received value back to the same store inside `on_change`.
-- Echo with `text_dyn` (takes a `Signal`) or `bind_label` (takes a `Store`).
-- Ctrl/Cmd+C/X/V are wired to the system clipboard by default, with a right-click edit menu.
+- 不在 `on_change` 里把收到的值 `set` 回同一 store。
+- 回显用 `text_dyn`（吃 `Signal`）或 `bind_label`（吃 `Store`）。
+- Ctrl/Cmd+C/X/V 默认接系统剪贴板，右键有编辑菜单。
 
-## Adding and removing list items
+## 列表增删项
 
-List data lives in a `ListStore`; rendering goes through `for_list`, whose keyed diffing touches only changed rows.
+列表数据住 `ListStore`，渲染走 `for_list`，keyed 差分只动变化的行。
 
 ```moonbit
 fn main {
-  let todos : @base.ListStore[String] = @base.ListStore::new(["Buy milk", "Weekly report"])
+  let todos : @base.ListStore[String] = @base.ListStore::new(["买牛奶", "写周报"])
   let draft : @base.Store[String] = @base.Store::new("")
   let app = match @ui.mount_window(
     [
       @ui.row(
         [
-          @ui.input(draft, placeholder="New item", width=200.0),
-          @ui.button("Add", variant=@ui.Solid, on_click=fn() {
+          @ui.input(draft, placeholder="新条目", width=200.0),
+          @ui.button("添加", variant=@ui.Solid, on_click=fn() {
             let s = draft.get()
             if s != "" {
               todos.push(s)
@@ -66,7 +66,7 @@ fn main {
           @ui.row(
             [
               @ui.text(item),
-              @ui.button("Delete", variant=@ui.Text, on_click=fn() {
+              @ui.button("删", variant=@ui.Text, on_click=fn() {
                 todos.remove(fn(x) { x == item })
               }),
             ],
@@ -76,7 +76,7 @@ fn main {
         key~=fn(item) { item },
       ),
     ],
-    title="Todos",
+    title="待办",
     width=360, height=320,
   ) {
     None => return
@@ -86,15 +86,15 @@ fn main {
 }
 ```
 
-Notes:
+注意：
 
-- Same `key~` means same row; to support duplicate entries give each a unique id, or use positional `for_list_indexed`.
-- Fields that change per row should each be their own `Store`; see [Declarative & reactivity](../guide/declarative.md).
-- Wrap long lists in the [scrolling](layout.md#scrolling-overflowing-content) recipe's `scroll_view`; for ten-thousand-row tables use `virt_list` / `table_v`.
+- `key~` 相同视为同一行；要支持重复条目，给每条配唯一 id，或用按位置的 `for_list_indexed`。
+- 行内会变的字段各自做成 `Store`；见[声明式与响应式](../guide/declarative.md)。
+- 列表长了外包[超高滚动](layout.md#内容超高滚动)的 `scroll_view`；万行级用 `virt_list` / `table_v`。
 
-## A confirmation dialog
+## 确认弹窗
 
-`dialog` visibility is driven by a `Store[Bool]`; all four exits (confirm, cancel, ✕, Esc) close first and then call back. The dialog sits anywhere in the tree and renders on the overlay layer.
+`dialog` 的可见性由 `Store[Bool]` 驱动；确认、取消、✕、Esc 四个出口都先收起再回调。对话框挂树里任意位置，呈现走浮层图层。
 
 ```moonbit
 fn main {
@@ -102,20 +102,20 @@ fn main {
   let items : @base.ListStore[String] = @base.ListStore::new(["a", "b"])
   let app = match @ui.mount_window(
     [
-      @ui.button("Clear list", variant=@ui.Danger, on_click=fn() {
+      @ui.button("清空列表", variant=@ui.Danger, on_click=fn() {
         ask_clear.set(true)
       }),
       @ui.dialog(
         ask_clear,
-        "Clear the list?",
-        [@ui.text("This cannot be undone.")],
-        confirm_text="Clear",
+        "清空列表？",
+        [@ui.text("删除后不可恢复。")],
+        confirm_text="清空",
         on_confirm=fn() {
           items.splice(0, items.length(), [])
         },
       ),
     ],
-    title="Confirm",
+    title="确认弹窗",
     width=360, height=160,
   ) {
     None => return
@@ -125,22 +125,22 @@ fn main {
 }
 ```
 
-Notes: don't repeat `ask_clear.set(false)` inside `on_confirm`; whether clicking the mask closes is up to `close_on_mask` (default false).
+注意：`on_confirm` 里不必再 `ask_clear.set(false)`；「点遮罩关闭」由 `close_on_mask` 控制（缺省 false）。
 
-## A toast
+## 轻提示
 
-Call `toast_layer` once while building the UI to get a push function; then push from any callback. Strips disappear after 2.6 s and stack automatically.
+`toast_layer` 建界面时调用一次，得推送函数；之后任意回调里推一条，2.6 秒自动消失，多条堆叠。
 
 ```moonbit
 fn main {
   let toast = @ui.toast_layer(duration_ms=2600)
   let app = match @ui.mount_window(
     [
-      @ui.button("Save", variant=@ui.Solid, on_click=fn() {
-        toast("Saved", @ui.Success)
+      @ui.button("保存", variant=@ui.Solid, on_click=fn() {
+        toast("已保存", @ui.Success)
       }),
     ],
-    title="Toast",
+    title="轻提示",
     width=320, height=140,
   ) {
     None => return
@@ -150,18 +150,18 @@ fn main {
 }
 ```
 
-Semantic colors: `@ui.Primary` / `@ui.Success` / `@ui.Warning` / `@ui.Danger` / `@ui.Info`. For flows the user must actively confirm, use the [confirmation dialog](#a-confirmation-dialog).
+语义色：`@ui.Primary` / `@ui.Success` / `@ui.Warning` / `@ui.Danger` / `@ui.Info`。需要用户点确认的场景用[确认弹窗](#确认弹窗)。
 
-## Refreshing on a timer
+## 定时刷新
 
-`@shell.set_timeout(ms, callback)` is a one-shot timer; a loop is a callback that re-arms itself at the tail. Start the loop from `mount_window`'s `handle` callback.
+`@shell.set_timeout(毫秒, 回调)` 是一次性定时器，循环靠回调尾自排；启动点放 `mount_window` 的 `handle` 回调。
 
 ```moonbit
 fn main {
   let ticks : @base.Store[Int32] = @base.Store::new(0)
   let app = match @ui.mount_window(
-    [@ui.bind_label(ticks, fn(n : Int32) { "\{n} ticks" })],
-    title="Timer",
+    [@ui.bind_label(ticks, fn(n : Int32) { "已运行 \{n} 拍" })],
+    title="定时刷新",
     width=320, height=140,
     handle=fn(_app : @widget.WindowHost) {
       fn pump() {
@@ -178,36 +178,35 @@ fn main {
 }
 ```
 
-Notes:
+注意：
 
-- `set_timeout` called before mounting has no effect; start it from `handle` / `Node::on_mount` / an event callback. See [Declarative & reactivity](../guide/declarative.md).
-- To stop the loop, keep a `Store[Bool]` switch, check it at the top of `pump`, and skip the re-arm.
+- 挂载前（构造期）调用 `set_timeout` 不生效；启动点用 `handle` / `Node::on_mount` / 事件回调，见[声明式与响应式](../guide/declarative.md)。
+- 停止循环：加 `Store[Bool]` 开关，`pump` 开头检查、不满足就不自排。
 
-## Showing and hiding on a condition
+## 按条件显隐
 
-`when_store_bool` toggles visibility from a boolean store; the node is not destroyed and its state survives. For two resident branches use `when_else_store`.
+`when_store_bool` 按布尔 store 切显隐，节点不销毁、状态不丢；两支常驻、来回切用 `when_else_store`。
 
 ```moonbit
 let show : @base.Store[Bool] = @base.Store::new(false)
 @ui.col(
   [
-    @ui.checkbox("Show details", show),
-    @ui.when_store_bool(show, @ui.text("Details live here…")),
+    @ui.checkbox("显示详情", show),
+    @ui.when_store_bool(show, @ui.text("这里是详情内容……")),
   ],
   row_gap=8.0,
 )
 ```
 
 ```moonbit
-@ui.when_else_store(is_login, @ui.text("Welcome back"), @ui.text("Please sign in"))
+@ui.when_else_store(is_login, @ui.text("欢迎回来"), @ui.text("请先登录"))
 ```
 
-Note: toggling does not reinitialize the node, so input content survives; clear the store yourself or switch to `bind_node` for a fresh state. `Signal` and generic forms: [Reactive controls](../components/reactive.md).
+注意：切换不重新初始化节点，输入框内容保留；要全新状态自己清 store 或改用 `bind_node`。`Signal` 版与泛型版见[组件：响应式控制](../components/reactive.md)。
 
+## 表单项与错误提示
 
-## Form items with error messages
-
-`form_item` bundles "label + control + always-present error row"; the error row's height is reserved up front. The message lives in a `Store[String]`; empty string means no error.
+`form_item` 是「标签 + 控件 + 常驻错误行」，错误行高度固定预留；错误文案住 `Store[String]`，空串即无错误。
 
 ```moonbit
 let email : @base.Store[String] = @base.Store::new("")
@@ -216,23 +215,23 @@ let email_err : @base.Store[String] = @base.Store::new("")
 @ui.col(
   [
     @ui.form(
-      "Sign up",
+      "注册",
       [
-        @ui.form_item("Email", @ui.input(email, placeholder="you@example.com"),
+        @ui.form_item("邮箱", @ui.input(email, placeholder="you@example.com"),
           error=email_err),
-        @ui.form_item("Nickname", @ui.input(nick, placeholder="Display name")),
+        @ui.form_item("昵称", @ui.input(nick, placeholder="显示名")),
       ],
     ),
     @ui.row(
-      [@ui.button("Submit", variant=@ui.Solid, on_click=fn() {
+      [@ui.button("提交", variant=@ui.Solid, on_click=fn() {
         let v = email.get()
         if v == "" {
-          email_err.set("Email is required")
+          email_err.set("邮箱不能为空")
         } else if !v.contains("@") {
-          email_err.set("Not a valid email")
+          email_err.set("邮箱格式不对")
         } else {
           email_err.set("")
-          toast("Submitted", @ui.Success)   // toast, see [A toast](#a-toast)
+          toast("提交成功", @ui.Success)   // toast 见[轻提示](#轻提示)
         }
       })],
       class=[@style.style(justify_content=@yoga.JustifyContent::FlexEnd)],
@@ -242,26 +241,26 @@ let email_err : @base.Store[String] = @base.Store::new("")
 )
 ```
 
-Note: you choose when to validate — the submit callback or `input`'s `on_change`.
+注意：校验时机自定——提交回调或 `input` 的 `on_change`。
 
-## Opening a second window
+## 打开第二个窗口
 
-`WindowHost::open_window(width, height, title)` returns the child window's `App`; mount content with its `mount`. The `app` value only exists after `mount_window` returns — hand it in through a `Ref`.
+`WindowHost::open_window(宽, 高, 标题)` 返回子窗 `WindowHost`，用它的 `mount` 挂内容；`app` 在 `mount_window` 返回后才有，经 `Ref` 递进回调。
 
 ```moonbit
 fn main {
   let host : Ref[@widget.WindowHost?] = Ref(None)
   let app = match @ui.mount_window(
     [
-      @ui.button("Open child window", on_click=fn() {
+      @ui.button("打开副窗", on_click=fn() {
         match host.val {
           Some(a) =>
-            match a.open_window(320, 220, "Child") {
+            match a.open_window(320, 220, "副窗") {
               Some(child) =>
                 child.mount(
                   [
                     @ui.col(
-                      [@ui.text("I am the child window", class=[@style.text_title])],
+                      [@ui.text("我是副窗", class=[@style.text_title])],
                       padding=16.0,
                     ),
                   ],
@@ -272,7 +271,7 @@ fn main {
         }
       }),
     ],
-    title="Main",
+    title="主窗",
     width=360, height=200,
   ) {
     None => return
@@ -283,21 +282,20 @@ fn main {
 }
 ```
 
-Notes: `open_window` takes `Int32` sizes; without a window backend it returns `None`. The multi-window facade: [Components overview](../components/index.md#declarative-mounting).
+注意：`open_window` 宽高是 `Int32`；无窗口后端返回 `None`。多窗口门面见[组件总览](../components/index.md#声明式挂载)。
 
-## Remember window geometry
+## 记住窗口位置尺寸
 
-`WindowHost::remember_geometry(app_id)` is a one-liner: after opening, the window first restores its previous position/size/maximized state (if the file does not exist nothing happens — a first run keeps defaults), and close or quit writes the current geometry back automatically. Call `save_geometry()` to flush at another moment; clear `remember_id` to stop remembering.
+`WindowHost::remember_geometry(app_id)` 一行接上：开窗后先恢复上次的位置/尺寸/最大化档（文件不存在就什么都不动——首次运行保持默认），关窗或退出时自动写回。手动落盘时机用 `save_geometry()`；不想记了把 `remember_id` 清空即可。
 
 ```moonbit
 let app = match @ui.mount_window(page(), title="MyApp", width=1280, height=800) {
   None => return
   Some(a) => a
 }
-app.remember_geometry("com.example.myapp")   // same source as the package id
+app.remember_geometry("com.example.myapp")   // 与打包 id 同源
 app.mount(page())
 app.run()
 ```
 
-The state file lives in the app-owned directory per platform (macOS `~/Library/Application Support/<id>/`, Linux `$XDG_STATE_HOME` or `~/.local/state`/`<id>/`, Windows `%APPDATA%\<id>\`), always named `window-state.json`; a window stuck offscreen is fixed by deleting the file. Boundaries: no screen clamping on restore; one geometry per app id — suffix the id per window to split them.
-
+状态文件按平台落在应用自有目录（macOS `~/Library/Application Support/<id>/`、Linux `$XDG_STATE_HOME` 或 `~/.local/state`/`<id>/`、Windows `%APPDATA%\<id>\`），文件名都是 `window-state.json`；窗口落在屏幕外这类怪状态删掉文件即可复位。边界：恢复不做屏幕钳位；多窗应用对同一 id 只记一份，各窗分开记就换不同的 id 后缀。

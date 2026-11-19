@@ -1,68 +1,68 @@
-# Hot reload & editor
+# 热更与编辑器
 
-The `mng dev` loop and editor support. Grammar in [Single-file components (.mng)](./sfc); commands and `mng.toml` in [mng commands & config](./mng).
+`mng dev` 的循环与编辑器支持。文法见[单文件组件（.mng）](./sfc)，命令与 `mng.toml` 见 [mng 命令与配置](./mng)。
 
-## The mng dev loop
+## mng dev 循环
 
 ```sh
 cd my_app && mng dev
 ```
 
-- **Watch surface**: all project templates (per `mng.toml [dev].templates`) + project source files (`.mbt` (excluding `*.gen.mbt`) / `moon.pkg` / `moon.mod` / `moon.work`) + theme files (when the `theme` key is set).
-- **First pass**: generates dev-form `<stem>.gen.mbt` next to each template (the hot-reload surface lives in the `@mngdev` library package) → `moon build` → launches the app. With `run` empty, the executable is grabbed from the Artifacts output.
-- Dev artifacts live under `.mng/`: app logs, source maps (`.mng/map/`), IR patches, LSP hover scratch files — no generated clutter in source directories.
+- **watch 面**：全工程模板（按 `mng.toml [dev].templates`）+ 工程源文件（`.mbt`（排 `*.gen.mbt`）/`moon.pkg`/`moon.mod`/`moon.work`）+ 主题文件（配了 `theme` 键时）。
+- **首轮**：生成 dev 形态 `<stem>.gen.mbt` 到模板同包（热更面在库包 `@mngdev`）→ `moon build` → 起应用。`run` 留空时从 Artifacts 输出抓可执行路径。
+- dev 临时产物都在 `.mng/` 下：应用日志、source map（`.mng/map/`）、IR 补丁、LSP hover 临时文件——文件浏览器不再裸露生成垃圾。
 
-## Change classification: HOT / COLD
+## 改动分类：HOT / COLD
 
-Every save is classified by contract, and the log truthfully reports which path was taken:
+每次保存按契约分类，日志如实告知走了哪条路：
 
-| Change | Path | Feel |
+| 改动 | 通路 | 观感 |
 |---|---|---|
-| Structural add/remove/move, `:attr` retargeting, class & `<style>` values | **HOT** (IR patch pushed over the single-instance channel, in-place remount) | sub-second |
-| Expression text within the restricted grammar (literals / Store / arithmetic & comparison / if / `@shared.tx`·`tr` / interpolation) | **HOT** (dev registry registers the new expression) | sub-second |
-| Script section, `v-for` row templates, new symbols / functions, custom components, out-of-table parameters | **COLD** (build → kill → relaunch) | seconds |
-| Out-of-grammar expressions | COLD, with a `[HOT→COLD]` log line giving the reason | seconds |
+| 结构加减挪、`:attr` 绑定换目标、类与 `<style>` 值 | **HOT**（IR 补丁经单实例通道推送，原位重挂） | 亚秒 |
+| 表达式文本（受限文法内：字面量 / Store / 算术比较 / if / `@shared.tx`·`tr` / 插值） | **HOT**（dev 注册表登记新表达式） | 亚秒 |
+| script 段、`v-for` 行模板、新符号 / 新函数、自定义组件、表外参数 | **COLD**（构建 → 杀旧 → 重启） | 秒级 |
+| 文法外表达式 | COLD，日志 `[HOT→COLD]` 带原因 | 秒级 |
 
-- **COLD returns to the edited page** (woken by template stem) — no manual navigation.
-- **State preservation**: Stores created at the script section's outer level stay alive (the counter survives a structural hot patch); page-local state resets with the patch; widget-internal state (focus / scroll / IME composition) resets with the subtree.
-- **Handshake prevents false application**: patches carry `rev` + a key-set digest; on stale, the app skips the whole remount and acks — the tool turns that pass into COLD, so "patch failed but UI stuck on the old tree" cannot happen.
-- After a fix-up save the UI may flash the old state once and self-correct — a known artifact.
+- **COLD 自动回到改动页**（按模板 stem 唤醒），不用手动导航。
+- **状态保活**：script 段外层建的 Store 原地存活（改结构热更后计数还在）；页内状态随补丁重置；控件内部态（焦点/滚动/输入法组合）随子树重建重置。
+- **握手防假应用**：补丁带 `rev` + 键集摘要，应用侧判 stale 整批不重挂、回执 `.ack`——工具读到 stale 本拍转 COLD，不会出现「补丁失败但界面停在旧树」。
+- 修复型保存后可能闪一次旧状态，随即自纠，属已知观感。
 
-## File additions & removals
+## 文件增删
 
-- **Adding** an `.mng` while running → log `[NEW]`, auto-generated and folded into the next rebuild.
-- **Removing** → `[GONE]`, unregisters and clears generated code (if the generated header doesn't match, only the path is reported, protecting handwritten files).
-- Editing project sources like `main.mbt` → `[SRC]`, COLD restart.
+- 运行中**新增** `.mng` → 日志 `[NEW]`，自动生成并入构建重启。
+- **删除** → `[GONE]`，清登记与生成码（生成头不匹配时只报路径不删，防误删手写文件）。
+- 改 `main.mbt` 等工程源文件 → `[SRC]`，COLD 重启。
 
-## Theme hot reload
+## 主题热重载
 
-With `theme = "assets/theme.json"` in `mng.toml`, saving the theme JSON **reloads it instantly** (`@theme.from_json` re-applied, no restart). Tune colors by edit-save-look.
+`mng.toml` 配 `theme = "assets/theme.json"` 后，主题 JSON **存盘即重载**（`@theme.from_json` 重新应用，不走重启）。调色循环直接改文件保存看效果。
 
-## App-side wiring (@mngdev)
+## 应用侧接入（@mngdev）
 
-One line in the template package's `moon.pkg` (`mng new` writes it for you; only hand-wired projects need it):
+模板所在包的 `moon.pkg` 加一行（`mng new` 生成时已写好，手工接模板的工程才需要）：
 
 ```
 "NoahLiu/native-gui/mngdev" @mngdev
 ```
 
-The app copies zero dev-surface code; production builds swap in production-form generated code and the dev surface is entirely absent.
+应用零复制 dev 面代码；生产构建换生产形态生成码后 dev 面整体不在包里。
 
-## VS Code extension (tools/vscode-mng)
+## VS Code 扩展（tools/vscode-mng）
 
-Install: `cd tools/vscode-mng && npx @vscode/vsce package`, then install the vsix (`--force` to overwrite), or see its README. Capabilities:
+装法：`cd tools/vscode-mng && npx @vscode/vsce package` 打 vsix 安装（覆盖加 `--force`），或按其 README。能力：
 
-- **Highlighting**: TextMate (MoonBit in script, the style subset in `<style>`, template tags and interpolations) + **semantic highlighting** (LSP `semanticTokens`: type/variable/parameter/function/method/namespace tiers; any theme with semantic highlighting enabled differentiates; falls back to pure TextMate without the LSP).
-- **Completion**: tags = built-in `ui-*` table + in-page/cross-package components; attributes = component parameters + `v-*` / `@events`; expressions = props/slots/functions + common module prefixes; class names = the file's `<style>`.
-- **Hover**: component parameter tables; real type hover forwards through the source map to `moon ide` for the compiler's answer, falling back to static hover on any failure (no regression).
-- **Go to definition**: in-page declarations, component source files, `@alias.member`.
-- **Diagnostics**: on save `mng lsp` didSave regenerates in place and runs `moon check`; type errors are **mapped back to template coordinates** in Problems (no more reading errors against generated code).
-- **Command palette**: `MNG: dev` (launches `mng dev` in the integrated terminal), `MNG: new page` (calls `mng new page`, opens the file).
-- Generated files nest under their template by default (view-only, nothing on disk changes).
+- **着色**：TextMate（script 段 MoonBit / `<style>` 段样式子集 / 模板标签与插值）+ **语义着色**（LSP `semanticTokens`：类型/变量/参数/函数/方法/命名空间分档；任何开语义高亮的主题都区分；LSP 不在退回纯 TextMate）。
+- **补全**：标签 = 内置 `ui-*` 表 + 页内/跨包组件；属性 = 组件参数 + `v-*` / `@事件`；表达式 = props/槽/函数名 + 常用模块前缀；类名 = 本文件 `<style>`。
+- **hover**：组件参数表；真实类型 hover 经 source map 正投生成码桥 `moon ide` 取编译器答案，任何一步失败回落静态 hover（体验不退化）。
+- **跳转**：页内声明、组件源码文件、`@别名.成员`。
+- **诊断**：保存即跑 `mng lsp` didSave → 就地重生成 + `moon check`，类型错误经 source map **回投到模板行列**进 Problems（不再对着生成码读报错）。
+- **命令面板**：`MNG: dev`（拉起 `mng dev` 到集成终端）、`MNG: 新建页面`（调 `mng new page` 生成并打开）。
+- 生成码文件嵌套显示：`*.gen.mbt` 折进模板条目默认收起（只改视图不改磁盘）。
 
-LSP degradation: the extension handshakes the `mng-schema` bit via `mng --version`; on mismatch completion/diagnostics degrade to empty while highlighting and snippets keep working.
+LSP 降级：插件启动对 `mng --version` 握手 `mng-schema` 位，对不上则补全/诊断降级为空，高亮与 snippets 照用。
 
-## Known artifacts
+## 已知观感
 
-- After a fix-up save the UI may flash the old state once and self-correct (handshake re-entry window).
-- Dev-form and production-form generated code overwrite each other — pick one before committing (see [mng commands & config](./mng#generated-code-discipline)).
+- 修复型保存后闪一次旧状态自纠（握手重入窗口）。
+- dev 形态与生产形态生成码互相覆盖——提交前选一种（见 [mng 命令与配置](./mng#生成码纪律)）。
