@@ -283,7 +283,7 @@ pub fn page_anim(_app : @shared.App) -> @widget.Node {
               ],
             ),
             @ui.view(
-              [@ui.text(@shared.tx("常驻旋转 8°"), align=@text.Center)],
+              [@ui.text(@shared.tx("常驻旋转 14°"), align=@text.Center)],
               width=150.0,
               height=64.0,
               align_items=@yoga.AlignItems::Center,
@@ -294,7 +294,7 @@ pub fn page_anim(_app : @shared.App) -> @widget.Node {
                   border_color="border",
                   border_width=1.0,
                   border_radius=8.0,
-                  rotate=8.0,
+                  rotate=14.0,
                 ),
               ],
             ),
@@ -321,7 +321,7 @@ pub fn page_anim(_app : @shared.App) -> @widget.Node {
       code=[
         "@style.style(background_color=\"bg_panel\", transition_ms=200.0)",
         ".hover(scale_x=1.08, scale_y=1.08)   // 悬停放大",
-        "@style.style(rotate=8.0)             // 常驻旋转（度）",
+        "@style.style(rotate=14.0)            // 常驻旋转（度）",
       ],
     ),
     @shared.section(
