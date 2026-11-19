@@ -708,8 +708,9 @@ test "clip_round_rect：draw_image 吃裁切出真圆角图片" {
 test "blit：旋转 CTM 下扫描域盖住全部落点（文本/图片旋转不丢）" {
   let p = Painter::new(Bitmap::new(60, 60))
   let r = match p.raster() {
+    // 扫描域是光栅臂的内部实现；cairo 臂走真图案路径，无此实现——跳过
     Some(r) => r
-    None => abort("无光栅臂")
+    None => return
   }
   r.save()
   r.translate(30.0, 30.0)
