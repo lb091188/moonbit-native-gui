@@ -3,7 +3,7 @@
 | 文件 | 是什么 |
 | --- | --- |
 | `app-icon.svg` | 应用图标 master（1024 视口，矢量，全档缩放源） |
-| `app-icon-mono.svg` | 单色剪影（托盘 / Android themed icon 预留；整体替换 fill 即染色） |
+| `app-icon-mono.svg` | 纯月兔单色剪影（托盘 / Android themed icon 预留；整体替换 fill 即染色） |
 | `LICENSE` | 资产许可：CC BY 4.0（仓库代码仍为根 LICENSE 的 MIT） |
 
 色板、构图与版权口径的定案见 [experience/brand.md](../../experience/brand.md)。
@@ -25,6 +25,6 @@
 
 ## 使用注意
 
-- 16px 档直接缩 master；图标自带浅底圆角方，深浅界面都稳。
+- 16px 档直接缩 master；透明底，窗口蓝框与月兔粉在深浅界面都稳。
 - 单色场景（终端、托盘深色菜单栏）用 `app-icon-mono.svg`。
 - 不用于暗示 MoonBit 官方背书。
