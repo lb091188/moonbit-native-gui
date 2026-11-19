@@ -741,6 +741,33 @@ test "blit：旋转 CTM 下扫描域盖住全部落点（文本/图片旋转不�
 }
 
 ///|
+test "blit：旋转 CTM 下目标矩形外不落源边缘（文字阴影回归）" {
+  let p = Painter::new(Bitmap::new(60, 60))
+  let r = match p.raster() {
+    Some(r) => r
+    None => return
+  }
+  r.save()
+  r.translate(30.0, 30.0)
+  r.rotate(0.7853981633974483)
+  r.translate(-30.0, -30.0)
+  // 源：20×20 全透明，只把底行涂满不透明黑——旧实现钳制源边缘采样，会把
+  // 底行沿逆映射方向拖到目标菱形之外
+  let off = Bitmap::new(20, 20)
+  for x = 0; x < 20; x = x + 1 {
+    off.paint(x, 19, { r: 0, g: 0, b: 0, a: 255 })
+  }
+  r.blit(off, 0.0, 0.0, 20.0, 20.0, 20.0, 20.0, 20.0, 20.0)
+  r.restore()
+  p.end()
+  let out = p.bitmap
+  // 菱形外、包围盒内的点（逆映射源 y > 19）：不该被底行拖出墨
+  assert_eq(out.pixel(21, 38).a, 0)
+  // 菱形内靠近底边的点：源底行照常落
+  assert_true(out.pixel(23, 37).a > 100)
+}
+
+///|
 test "backdrop_blur 圆角弧外恢复：弧外保持已画原值" {
   let p = Painter::new(Bitmap::new(40, 40))
   // 底：红黑分界（竖直分界线 x=20）

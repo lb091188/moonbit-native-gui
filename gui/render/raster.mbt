@@ -1214,12 +1214,36 @@ pub fn Raster::blit(
   }
   let cov : FixedArray[Int32] = FixedArray::make(self.bitmap.width, 0)
   let rr = self.has_round_clip()
+  // 旋转/斜切：扫描域是目标四角的设备包围盒，盒内、目标矩形外的像素本来
+  // 就不该落墨。源采样对界外坐标是「钳制到边缘」，不挡会把源边缘那一行
+  // 沿逆映射方向拖成淡影——真机旋转卡文字下方的「阴影」即此。
+  let inv_m = if self.m.axis_aligned() {
+    None
+  } else {
+    Some(self.m.inverse())
+  }
   for y = ry0; y < ry1; y = y + 1 {
     for x = rx0; x < rx1; x = x + 1 {
-      cov[x] = if rr {
+      let base = if rr {
         self.round_cov(x.to_double() + 0.5, y.to_double() + 0.5)
       } else {
         256
+      }
+      cov[x] = match inv_m {
+        None => base
+        Some(im) => {
+          // 设备像素中心回到用户空间，算到目标矩形的距离；边缘给 1px 过渡
+          let (ux, uy) = im.apply(x.to_double() + 0.5, y.to_double() + 0.5)
+          let d = (ux - dx).min(dx + dw - ux).min(uy - dy).min(dy + dh - uy)
+          let dc = if d <= -0.5 {
+            0
+          } else if d >= 0.5 {
+            256
+          } else {
+            ((d + 0.5) * 256.0).to_int()
+          }
+          base * dc / 256
+        }
       }
     }
     composite_span(
