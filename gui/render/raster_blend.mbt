@@ -16,9 +16,10 @@
 pub(all) enum RSource {
   SrcSolid(Color)
   SrcGrad(Gradient, Mat2x3)
-  /// 末位 smooth：源比目标大（缩小采样，如 3× 文字离屏缩回）时开双线性，
-  /// 旋转/缩小的贴回才有平滑边缘；放大与 1:1 保持最近邻（逐位口径不变）。
-  SrcPixels(Bitmap, Mat2x3, Int32, Int32, Int32, Int32, Bool)
+  /// 末位 sscale：缩小采样的步长（源像素/目标像素，如 3× 文字离屏缩回 = 3）。
+  /// 大于 1 走区域滤波（n×n 均匀网格双线性、预乘域平均），等于 1 单点双线性，
+  /// 0 保持最近邻——放大与 1:1 的逐位口径不变。
+  SrcPixels(Bitmap, Mat2x3, Int32, Int32, Int32, Int32, Double)
 }
 
 ///|
@@ -102,14 +103,14 @@ fn raster_clamp255(v : Int32) -> Int32 {
 fn source_at(s : RSource, x : Double, y : Double) -> Color {
   match s {
     SrcSolid(c) => c
-    SrcPixels(bm, inv, lox, loy, hix, hiy, smooth) => {
+    SrcPixels(bm, inv, lox, loy, hix, hiy, sscale) => {
       let (mx, my) = inv.apply(x, y)
-      if smooth {
-        // 双线性（预乘域加权和再反预乘）：透明邻居不串色。四角按界钳制。
-        let fx = mx - mx.floor()
-        let fy = my - my.floor()
-        let x0 = mx.floor().to_int()
-        let y0 = my.floor().to_int()
+      // 单点双线性（预乘域），四角按界钳制——透明邻居不串色
+      fn tap(px : Double, py : Double) -> (Double, Double, Double, Double) {
+        let fx = px - px.floor()
+        let fy = py - py.floor()
+        let x0 = px.floor().to_int()
+        let y0 = py.floor().to_int()
         let xa = if x0 < lox { lox } else if x0 > hix { hix } else { x0 }
         let xb = if x0 + 1 < lox {
           lox
@@ -134,22 +135,30 @@ fn source_at(s : RSource, x : Double, y : Double) -> Color {
         let i10 = (ya * bm.width + xb) * 4
         let i01 = (yb * bm.width + xa) * 4
         let i11 = (yb * bm.width + xb) * 4
-        let pb = bm.data[i00].to_int().to_double() * w00 +
+        let b = bm.data[i00].to_int().to_double() * w00 +
           bm.data[i10].to_int().to_double() * w10 +
           bm.data[i01].to_int().to_double() * w01 +
           bm.data[i11].to_int().to_double() * w11
-        let pg = bm.data[i00 + 1].to_int().to_double() * w00 +
+        let g = bm.data[i00 + 1].to_int().to_double() * w00 +
           bm.data[i10 + 1].to_int().to_double() * w10 +
           bm.data[i01 + 1].to_int().to_double() * w01 +
           bm.data[i11 + 1].to_int().to_double() * w11
-        let pr = bm.data[i00 + 2].to_int().to_double() * w00 +
+        let r = bm.data[i00 + 2].to_int().to_double() * w00 +
           bm.data[i10 + 2].to_int().to_double() * w10 +
           bm.data[i01 + 2].to_int().to_double() * w01 +
           bm.data[i11 + 2].to_int().to_double() * w11
-        let pa = bm.data[i00 + 3].to_int().to_double() * w00 +
+        let a = bm.data[i00 + 3].to_int().to_double() * w00 +
           bm.data[i10 + 3].to_int().to_double() * w10 +
           bm.data[i01 + 3].to_int().to_double() * w01 +
           bm.data[i11 + 3].to_int().to_double() * w11
+        (b, g, r, a)
+      }
+      let color_of = fn(
+        pb : Double,
+        pg : Double,
+        pr : Double,
+        pa : Double,
+      ) -> Color {
         let a = pa.round().to_int()
         if a <= 0 {
           color_transparent
@@ -161,6 +170,32 @@ fn source_at(s : RSource, x : Double, y : Double) -> Color {
             a,
           }
         }
+      }
+      if sscale > 1.0 {
+        // 区域滤波：n×n 均匀网格盖住footprint（3× 离屏缩回 = 3×3 盒），
+        // 预乘域平均——缩回边缘拿到接近解析的抗锯齿
+        let n = sscale.ceil().to_int()
+        let step = sscale / n.to_double()
+        let mut sb = 0.0
+        let mut sg = 0.0
+        let mut sr = 0.0
+        let mut sa = 0.0
+        for iy = 0; iy < n; iy = iy + 1 {
+          let py = my - sscale * 0.5 + (iy.to_double() + 0.5) * step
+          for ix = 0; ix < n; ix = ix + 1 {
+            let px = mx - sscale * 0.5 + (ix.to_double() + 0.5) * step
+            let (b, g, r, a) = tap(px, py)
+            sb = sb + b
+            sg = sg + g
+            sr = sr + r
+            sa = sa + a
+          }
+        }
+        let cnt = (n * n).to_double()
+        color_of(sb / cnt, sg / cnt, sr / cnt, sa / cnt)
+      } else if sscale > 0.0 {
+        let (b, g, r, a) = tap(mx, my)
+        color_of(b, g, r, a)
       } else {
         let mut sxi = mx.floor().to_int()
         let mut syi = my.floor().to_int()

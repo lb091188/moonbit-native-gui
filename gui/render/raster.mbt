@@ -1194,8 +1194,8 @@ fn Raster::blit_sampling(
     f: self.m.f,
   }
   total.mul(mt.a, mt.b, mt.c, mt.d, mt.e, mt.f)
-  // smooth 由调用方选（blit_smooth）：缩小采样的双线性，旋转/缩小的贴回
-  // 才有平滑边缘；放大与 1:1 保持最近邻。
+  // smooth 由调用方选（blit_smooth）：步长取「源像素/目标像素」，缩小采样
+  // 走区域滤波；放大与 1:1 传 0 保持最近邻。
   let bsrc = SrcPixels(
     src,
     total.inverse(),
@@ -1203,7 +1203,11 @@ fn Raster::blit_sampling(
     loy,
     hix,
     hiy,
-    smooth,
+    if smooth {
+      (ssw / dw).max(ssh / dh)
+    } else {
+      0.0
+    },
   )
   let rx0 = raster_max_i(tx.to_int(), self.clip_x0)
   let rx1 = raster_min_i((tx + tw).to_int(), self.clip_x1)
