@@ -1099,6 +1099,41 @@ pub fn Raster::blit(
   dw : Double,
   dh : Double,
 ) -> Unit {
+  self.blit_sampling(src, sx, sy, ssw, ssh, dx, dy, dw, dh, smooth=false)
+}
+
+///|
+/// 同 [Raster::blit]，但源大于目标（缩小采样）时用双线性——3× 文字离屏
+/// 缩回走这条，旋转/缩小的贴回才有平滑边缘。放大与 1:1 语义不变。
+pub fn Raster::blit_smooth(
+  self : Raster,
+  src : Bitmap,
+  sx : Double,
+  sy : Double,
+  ssw : Double,
+  ssh : Double,
+  dx : Double,
+  dy : Double,
+  dw : Double,
+  dh : Double,
+) -> Unit {
+  self.blit_sampling(src, sx, sy, ssw, ssh, dx, dy, dw, dh, smooth=true)
+}
+
+///|
+fn Raster::blit_sampling(
+  self : Raster,
+  src : Bitmap,
+  sx : Double,
+  sy : Double,
+  ssw : Double,
+  ssh : Double,
+  dx : Double,
+  dy : Double,
+  dw : Double,
+  dh : Double,
+  smooth~ : Bool = false,
+) -> Unit {
   if src.width < 1 ||
     src.height < 1 ||
     ssw <= 0.0 ||
@@ -1159,7 +1194,17 @@ pub fn Raster::blit(
     f: self.m.f,
   }
   total.mul(mt.a, mt.b, mt.c, mt.d, mt.e, mt.f)
-  let bsrc = SrcPixels(src, total.inverse(), lox, loy, hix, hiy)
+  // smooth 由调用方选（blit_smooth）：缩小采样的双线性，旋转/缩小的贴回
+  // 才有平滑边缘；放大与 1:1 保持最近邻。
+  let bsrc = SrcPixels(
+    src,
+    total.inverse(),
+    lox,
+    loy,
+    hix,
+    hiy,
+    smooth,
+  )
   let rx0 = raster_max_i(tx.to_int(), self.clip_x0)
   let rx1 = raster_min_i((tx + tw).to_int(), self.clip_x1)
   let ry0 = raster_max_i(ty.to_int(), self.clip_y0)

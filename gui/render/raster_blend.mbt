@@ -16,7 +16,9 @@
 pub(all) enum RSource {
   SrcSolid(Color)
   SrcGrad(Gradient, Mat2x3)
-  SrcPixels(Bitmap, Mat2x3, Int32, Int32, Int32, Int32)
+  /// 末位 smooth：源比目标大（缩小采样，如 3× 文字离屏缩回）时开双线性，
+  /// 旋转/缩小的贴回才有平滑边缘；放大与 1:1 保持最近邻（逐位口径不变）。
+  SrcPixels(Bitmap, Mat2x3, Int32, Int32, Int32, Int32, Bool)
 }
 
 ///|
@@ -100,32 +102,91 @@ fn raster_clamp255(v : Int32) -> Int32 {
 fn source_at(s : RSource, x : Double, y : Double) -> Color {
   match s {
     SrcSolid(c) => c
-    SrcPixels(bm, inv, lox, loy, hix, hiy) => {
+    SrcPixels(bm, inv, lox, loy, hix, hiy, smooth) => {
       let (mx, my) = inv.apply(x, y)
-      let mut sxi = mx.floor().to_int()
-      let mut syi = my.floor().to_int()
-      if sxi < lox {
-        sxi = lox
-      } else if sxi > hix {
-        sxi = hix
-      }
-      if syi < loy {
-        syi = loy
-      } else if syi > hiy {
-        syi = hiy
-      }
-      let i = (syi * bm.width + sxi) * 4
-      let a = bm.data[i + 3].to_int()
-      // 预乘字节 → 非预乘色（合成层再预乘；±1 舍入在容差带，结构断言用
-      // 不透明/全透明像素保证逐位）
-      if a <= 0 {
-        color_transparent
+      if smooth {
+        // 双线性（预乘域加权和再反预乘）：透明邻居不串色。四角按界钳制。
+        let fx = mx - mx.floor()
+        let fy = my - my.floor()
+        let x0 = mx.floor().to_int()
+        let y0 = my.floor().to_int()
+        let xa = if x0 < lox { lox } else if x0 > hix { hix } else { x0 }
+        let xb = if x0 + 1 < lox {
+          lox
+        } else if x0 + 1 > hix {
+          hix
+        } else {
+          x0 + 1
+        }
+        let ya = if y0 < loy { loy } else if y0 > hiy { hiy } else { y0 }
+        let yb = if y0 + 1 < loy {
+          loy
+        } else if y0 + 1 > hiy {
+          hiy
+        } else {
+          y0 + 1
+        }
+        let w00 = (1.0 - fx) * (1.0 - fy)
+        let w10 = fx * (1.0 - fy)
+        let w01 = (1.0 - fx) * fy
+        let w11 = fx * fy
+        let i00 = (ya * bm.width + xa) * 4
+        let i10 = (ya * bm.width + xb) * 4
+        let i01 = (yb * bm.width + xa) * 4
+        let i11 = (yb * bm.width + xb) * 4
+        let pb = bm.data[i00].to_int().to_double() * w00 +
+          bm.data[i10].to_int().to_double() * w10 +
+          bm.data[i01].to_int().to_double() * w01 +
+          bm.data[i11].to_int().to_double() * w11
+        let pg = bm.data[i00 + 1].to_int().to_double() * w00 +
+          bm.data[i10 + 1].to_int().to_double() * w10 +
+          bm.data[i01 + 1].to_int().to_double() * w01 +
+          bm.data[i11 + 1].to_int().to_double() * w11
+        let pr = bm.data[i00 + 2].to_int().to_double() * w00 +
+          bm.data[i10 + 2].to_int().to_double() * w10 +
+          bm.data[i01 + 2].to_int().to_double() * w01 +
+          bm.data[i11 + 2].to_int().to_double() * w11
+        let pa = bm.data[i00 + 3].to_int().to_double() * w00 +
+          bm.data[i10 + 3].to_int().to_double() * w10 +
+          bm.data[i01 + 3].to_int().to_double() * w01 +
+          bm.data[i11 + 3].to_int().to_double() * w11
+        let a = pa.round().to_int()
+        if a <= 0 {
+          color_transparent
+        } else {
+          {
+            r: unpremul_ch(pr.round().to_int(), a),
+            g: unpremul_ch(pg.round().to_int(), a),
+            b: unpremul_ch(pb.round().to_int(), a),
+            a,
+          }
+        }
       } else {
-        {
-          r: unpremul_ch(bm.data[i + 2].to_int(), a),
-          g: unpremul_ch(bm.data[i + 1].to_int(), a),
-          b: unpremul_ch(bm.data[i].to_int(), a),
-          a,
+        let mut sxi = mx.floor().to_int()
+        let mut syi = my.floor().to_int()
+        if sxi < lox {
+          sxi = lox
+        } else if sxi > hix {
+          sxi = hix
+        }
+        if syi < loy {
+          syi = loy
+        } else if syi > hiy {
+          syi = hiy
+        }
+        let i = (syi * bm.width + sxi) * 4
+        let a = bm.data[i + 3].to_int()
+        // 预乘字节 → 非预乘色（合成层再预乘；±1 舍入在容差带，结构断言用
+        // 不透明/全透明像素保证逐位）
+        if a <= 0 {
+          color_transparent
+        } else {
+          {
+            r: unpremul_ch(bm.data[i + 2].to_int(), a),
+            g: unpremul_ch(bm.data[i + 1].to_int(), a),
+            b: unpremul_ch(bm.data[i].to_int(), a),
+            a,
+          }
         }
       }
     }

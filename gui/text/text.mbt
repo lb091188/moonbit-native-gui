@@ -757,7 +757,21 @@ fn draw_box_raster(
   flush_pending()
   let dw = ow.to_double()
   let dh = oh.to_double()
-  raster.blit(off, 0.0, 0.0, off.width.to_double(), off.height.to_double(), x, y, dw, dh)
+  if ss > 1 {
+    raster.blit_smooth(
+      off,
+      0.0,
+      0.0,
+      off.width.to_double(),
+      off.height.to_double(),
+      x,
+      y,
+      dw,
+      dh,
+    )
+  } else {
+    raster.blit(off, 0.0, 0.0, dw, dh, x, y, dw, dh)
+  }
   true
 }
 
