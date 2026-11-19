@@ -1,6 +1,7 @@
 // 程序生成的托盘图标：不依赖任何图片资源与解码器。
-// 品牌图标造型——玫红月兔双耳探出靛蓝应用窗口（几何常数按
-// assets/brand/app-icon.svg 的 1024 master 等比缩到 32 视口），
+// 品牌图标造型——纯月兔头脸剪影（几何常数按
+// assets/brand/app-icon-mono.svg 的 1024 视口等比缩到 32）；
+// 窗口不进托盘——同色剪影会与兔头连成一团，定案见 experience/brand.md。
 // 2x2 超采样抗锯齿，输出 SNI 规范要求的 ARGB 大端序位图。
 
 ///|
@@ -19,54 +20,28 @@ fn tray_ellipse_hit(
 }
 
 ///|
-/// 托盘图标几何：圆角矩形（扩展矩形 ∩ 圆角盘）。
-fn tray_round_rect_hit(
-  cx : Double,
-  cy : Double,
-  hw : Double,
-  hh : Double,
-  r : Double,
-  qx : Double,
-  qy : Double,
-) -> Bool {
-  let dx = if qx < cx { cx - qx } else { qx - cx }
-  let dy = if qy < cy { cy - qy } else { qy - cy }
-  if dx > hw || dy > hh {
-    return false
-  }
-  let ex = if dx > hw - r { dx - (hw - r) } else { 0.0 }
-  let ey = if dy > hh - r { dy - (hh - r) } else { 0.0 }
-  ex * ex + ey * ey <= r * r
-}
-
-///|
-/// 内置托盘图标（单色紧版）：按 master 内容框缩放居中，32 视口下剪影约
-/// 25×30、四边留白 1–3.4px；`dark` 选白色档（深色面板）或黑色档。
-/// 造型只留并集剪影（窗 + 头 + 双耳），耳窝挖空成透明，不做异色填充。
+/// 内置托盘图标（单色紧版）：按 mono 内容框缩放居中，32 视口下剪影约
+/// 22×29、四边留白 2–5px；`dark` 选白色档（深色面板）或黑色档。
+/// 造型只留头 + 双耳剪影，耳窝挖空成透明，不做异色填充。
 /// 返回 (宽, 高, ARGB 字节)——SNI 口径大端 AARRGGBB、不预乘。
 pub fn mono_icon_pixmap(dark : Bool) -> (Int32, Int32, Bytes) {
   let w = 32
   let h = 32
   let px : FixedArray[Byte] = FixedArray::make(w * h * 4, b'\x00')
-  // 造型常数（32 视口，按 1024 master 内容框 x176..848 / y~32..832 等比放入 30px）
-  let ear_cy = 7.31
-  let ear_rx = 2.40
-  let ear_ry = 6.45
-  let ear_dx_l = 11.73
-  let ear_dx_r = 20.27
-  let bowl_rx = 0.90
-  let bowl_ry = 4.48
+  // 造型常数（32 视口，按 1024 mono 内容框 x~312..712 / y~268..808 等比放入 28px 高）
+  let ear_cy = 10.11
+  let ear_rx = 3.21
+  let ear_ry = 8.30
+  let ear_dx_l = 9.36
+  let ear_dx_r = 22.64
+  let bowl_rx = 1.35
+  let bowl_ry = 5.81
   let cos_a = 0.9743700647852352 // cos(13°)；左耳取 -sin、右耳取 +sin
   let sin_a = 0.2249510543438650
   let head_cx = 16.0
-  let head_cy = 14.80
-  let head_rx = 6.67
-  let head_ry = 6.00
-  let win_cx = 16.0
-  let win_cy = 24.03
-  let win_hw = 12.60
-  let win_hh = 6.97
-  let win_r = 3.30
+  let head_cy = 20.64
+  let head_rx = 10.37
+  let head_ry = 9.33
   let ink = if dark { 255.0 } else { 0.0 }
   for y in 0..<h {
     for x in 0..<w {
@@ -115,13 +90,8 @@ pub fn mono_icon_pixmap(dark : Bool) -> (Int32, Int32, Bytes) {
             sxp - head_cx,
             syp - head_cy,
           )
-          let in_win = tray_round_rect_hit(
-            win_cx, win_cy, win_hw, win_hh, win_r, sxp, syp,
-          )
-          // 层序：窗 > 头 > 耳窝挖空 > 耳；耳窝只挖耳内，不挖头/窗覆盖区
-          if in_win ||
-            in_head ||
-            ((in_ear_l || in_ear_r) && !(in_bowl_l || in_bowl_r)) {
+          // 层序：头 > 耳窝挖空 > 耳；耳窝只挖耳内，不挖头覆盖区
+          if in_head || ((in_ear_l || in_ear_r) && !(in_bowl_l || in_bowl_r)) {
             n += 1.0
           }
         }

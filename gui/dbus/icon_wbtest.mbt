@@ -56,14 +56,14 @@ test "mono_icon_pixmap：黑白两档纯色、四角透明、内容框收紧" {
       assert_eq(dark[o + 3].to_int(), 255)
     }
   }
-  // 内容框收紧：横向留白 ≤ 4px、纵向 ≤ 2px，且不是缩成一小团
+  // 内容框收紧：横向留白 ≤ 7px、纵向 ≤ 2px，且不是缩成一小团
   let (x0, y0, x1, y1) = icon_bbox(light, 32, 32)
-  assert_true(x0 <= 4)
-  assert_true(32 - 1 - x1 <= 4)
+  assert_true(x0 <= 7)
+  assert_true(32 - 1 - x1 <= 7)
   assert_true(y0 <= 2)
   assert_true(32 - 1 - y1 <= 2)
-  assert_true(x1 - x0 + 1 >= 24)
-  assert_true(y1 - y0 + 1 >= 28)
+  assert_true(x1 - x0 + 1 >= 20)
+  assert_true(y1 - y0 + 1 >= 27)
 }
 
 ///|
