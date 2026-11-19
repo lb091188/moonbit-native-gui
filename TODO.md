@@ -25,7 +25,6 @@
 - [ ] **CPU 视觉批真机复验**：transform 旋转/缩放观感、圆角裁切真圆角图片、backdrop_blur 毛玻璃质感、关键帧流畅度四面——无头白盒已证（库门禁 1508/1508），观感待真机；入口待独立 dev 工具示例或 showcase 页承载
   - transform：控件级平移/缩放/旋转的绘制期变换，不参与布局与命中。
   - backdrop_blur：毛玻璃，把已画内容的控件区域糊掉再画自己。
-  - 本轮重点：过渡与效果页 transform 段的旋转卡四角不再被布局矩形裁平，滚动视口仍按视口收边，按 SC-17.1 / SC-17.2 验。
 
 
 - [ ] **gui-media video_wbtest mac 本机失败**：用例「VideoPlayer 时钟同轴：回退 fps 不影响时间轴」——回拨 500ms 后位置 0.613 / 0.633，稳定复现；Windows CI 每轮跑且过，Linux / mac 腿不跑 gui-media test 故从未暴露
