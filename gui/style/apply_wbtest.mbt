@@ -317,3 +317,16 @@ test "槽刷新：关键帧轴上的 rotate 进槽、停轴回落" {
   paint_slot_refresh(w)
   assert_eq(w.tr_rot, 0.0)
 }
+
+///|
+test "槽刷新：悬停桶 z_index 浮起、移出回落基块" {
+  let w = @widget.Widget::new()
+  apply(w, style(z_index=3, transition_ms=0.0).hover(z_index=9))
+  assert_eq(w.z_index_paint, 3.0)
+  w.hovered = true
+  paint_slot_refresh(w)
+  assert_eq(w.z_index_paint, 9.0)
+  w.hovered = false
+  paint_slot_refresh(w)
+  assert_eq(w.z_index_paint, 3.0)
+}

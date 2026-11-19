@@ -54,6 +54,18 @@ fn paint_slot_refresh(w : @widget.Widget) -> Unit {
     Some(v) => w.backdrop_blur_paint = v
     None => if (m & 32) != 0 { w.backdrop_blur_paint = 0.0 }
   }
+  // 绘制层序的动态档：状态桶里写了 z_index（悬停浮起）经 style_for 进槽，
+  // 排序每帧吃它；移出回落基块值。常态 z=0 零开销（槽非零才查基块）。
+  match s.z_index {
+    Some(v) => w.z_index_paint = v.to_double()
+    None =>
+      if w.z_index_paint != 0.0 {
+        match resolved(w).z_index {
+          Some(v) => w.z_index_paint = v.to_double()
+          None => w.z_index_paint = 0.0
+        }
+      }
+  }
 }
 
 ///|
@@ -399,6 +411,12 @@ pub fn apply(w : @widget.Widget, s : Style) -> Unit {
     Some(v) => {
       w.backdrop_blur_paint = v
       w.tr_style_mask = w.tr_style_mask | 32
+      // 毛玻璃圆角随 blur 声明落定（静态口径：blur 圆角取 border_radius 统一值，
+      // per-corner 不等时取声明值；blur 关时无意义）
+      match s.border_radius {
+        Some(rr) => w.backdrop_round_paint = rr
+        None => ()
+      }
     }
     None => ()
   }

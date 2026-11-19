@@ -134,7 +134,10 @@ test "视图④ 毛玻璃：分界像素红黑混合" {
       glass.node.set_width(@yoga.fixed(20.0))
       glass.node.set_height(@yoga.fixed(20.0))
       w.append_child(glass)
-      @style.apply(glass, @style.merge_all([@style.style(backdrop_blur=4.0)]))
+      @style.apply(
+        glass,
+        @style.merge_all([@style.style(backdrop_blur=4.0, border_radius=8.0)]),
+      )
       w
     }),
     40.0,
@@ -146,6 +149,13 @@ test "视图④ 毛玻璃：分界像素红黑混合" {
   let c = t.pixel(20, 15)
   assert_true(c.0 > 30 && c.0 < 220)
   assert_true(c.2 < 30)
+  // 圆角弧外的角像素不被糊晕（blur 只作用弧内）：(11,11) 在 r=8 弧外，
+  // 下层是纯红
+  let corner = t.pixel(11, 11)
+  assert_true(
+    corner.0 >= 230,
+    msg="弧外角被糊（r=\{corner.0}），下层露深晕",
+  )
   t.finish()
 }
 
@@ -415,7 +425,10 @@ test "视图⑩ 毛玻璃增量重绘：帧间像素稳定" {
       glass.node.set_width(@yoga.fixed(20.0))
       glass.node.set_height(@yoga.fixed(20.0))
       w.append_child(glass)
-      @style.apply(glass, @style.merge_all([@style.style(backdrop_blur=4.0)]))
+      @style.apply(
+        glass,
+        @style.merge_all([@style.style(backdrop_blur=4.0, border_radius=8.0)]),
+      )
       glass_ref.val = Some(glass)
       w
     }),

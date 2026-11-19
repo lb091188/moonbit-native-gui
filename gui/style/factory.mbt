@@ -288,6 +288,7 @@ pub fn Style::hover(
   border_style? : BorderStyle,
   visibility? : Visibility,
   cursor? : Int32,
+  z_index? : Int32,
   // —— transform 族与背景模糊（与主工厂同语义）
   translate_x? : Double,
   translate_y? : Double,
@@ -328,6 +329,7 @@ pub fn Style::hover(
   b.border_radius = border_radius
   b.visibility = visibility
   b.cursor = cursor
+  b.z_index = z_index
   self.hover = Some(merge_bucket(self.hover, b))
   self
 }
@@ -353,6 +355,7 @@ pub fn Style::active(
   border_style? : BorderStyle,
   visibility? : Visibility,
   cursor? : Int32,
+  z_index? : Int32,
   // —— transform 族与背景模糊（与主工厂同语义）
   translate_x? : Double,
   translate_y? : Double,
@@ -393,6 +396,7 @@ pub fn Style::active(
   b.border_radius = border_radius
   b.visibility = visibility
   b.cursor = cursor
+  b.z_index = z_index
   self.active = Some(merge_bucket(self.active, b))
   self
 }
@@ -418,6 +422,7 @@ pub fn Style::focus(
   border_style? : BorderStyle,
   visibility? : Visibility,
   cursor? : Int32,
+  z_index? : Int32,
   // —— transform 族与背景模糊（与主工厂同语义）
   translate_x? : Double,
   translate_y? : Double,
@@ -458,6 +463,7 @@ pub fn Style::focus(
   b.border_radius = border_radius
   b.visibility = visibility
   b.cursor = cursor
+  b.z_index = z_index
   self.focus = Some(merge_bucket(self.focus, b))
   self
 }

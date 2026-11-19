@@ -279,7 +279,7 @@ pub fn page_anim(_app : @shared.App) -> @widget.Node {
                   border_width=1.0,
                   border_radius=8.0,
                   transition_ms=200.0,
-                ).hover(scale_x=1.08, scale_y=1.08, border_color="primary"),
+                ).hover(scale_x=1.08, scale_y=1.08, border_color="primary", z_index=1),
               ],
             ),
             @ui.view(
@@ -311,7 +311,7 @@ pub fn page_anim(_app : @shared.App) -> @widget.Node {
                   border_width=1.0,
                   border_radius=8.0,
                   transition_ms=200.0,
-                ).hover(translate_y=-4.0, border_color="primary"),
+                ).hover(translate_y=-4.0, border_color="primary", z_index=1),
               ],
             ),
           ],

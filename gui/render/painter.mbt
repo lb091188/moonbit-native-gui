@@ -718,7 +718,9 @@ pub fn Painter::clip_round_rect(
 /// 背景模糊（毛玻璃）：把**已画内容**的本控件区域就地糊掉再画自己——
 /// 两后端共享同一张位图（cairo 表面建在其数据上），过 Bitmap::box_blur_region
 /// 同效。坐标与 clip_rect 同口径（平移 + 取整），并与当前裁剪区求交；半径
-/// <1 为无操作。大半径/全窗级归 GPU 档，此口只接控件级小半径。
+/// <1 为无操作。`round` 是毛玻璃圆角：盒式糊本作用于方矩形，弧外的下层像素
+/// 会被糊出深晕（真机观感「圆角外圈深色」）——糊前快照四角块，糊后按圆角
+/// SDF 覆盖把弧外像素混回原值，弧内照常糊。大半径/全窗级归 GPU 档。
 pub fn Painter::backdrop_blur(
   self : Painter,
   x : Double,
@@ -726,6 +728,7 @@ pub fn Painter::backdrop_blur(
   w : Double,
   h : Double,
   radius : Double,
+  round~ : Double = 0.0,
 ) -> Unit {
   if radius < 1.0 {
     return
@@ -744,6 +747,51 @@ pub fn Painter::backdrop_blur(
   if bx1 <= bx0 || by1 <= by0 {
     return
   }
+  // 圆角弧外恢复：盒式糊作用于方矩形，弧外的下层像素会被糊出深晕。糊前把
+  // 四角块拷出，糊后按圆角 SDF 覆盖把弧外（cov<256）像素混回原值；角块取
+  // **玻璃矩形真角**（clip 挖掉一角时该角不糊、无需恢复），逐像素限糊区。
+  let corners : FixedArray[Int] = if round > 0.0 {
+    let r = round.min(w * 0.5).min(h * 0.5)
+    let ri = r.ceil().to_int()
+    let bm = self.bitmap
+    if ri < 1 {
+      FixedArray::make(0, 0)
+    } else {
+      let buf : FixedArray[Int] = FixedArray::make(4 * ri * ri * 4, 0)
+      let bases = [
+        (x0, y0),
+        (x1 - ri, y0),
+        (x0, y1 - ri),
+        (x1 - ri, y1 - ri),
+      ]
+      for ci = 0; ci < 4; ci = ci + 1 {
+        let (cx0, cy0) = bases[ci]
+        let base = ci * ri * ri * 4
+        let mut n = 0
+        for py = 0; py < ri; py = py + 1 {
+          for px = 0; px < ri; px = px + 1 {
+            let sx = cx0 + px
+            let sy = cy0 + py
+            let in_blur = sx >= bx0 &&
+              sx < bx1 &&
+              sy >= by0 &&
+              sy < by1
+            if in_blur && sx >= 0 && sy >= 0 && sx < bm.width && sy < bm.height {
+              let si = (sy * bm.width + sx) * 4
+              buf[base + n] = bm.data[si].to_int()
+              buf[base + n + 1] = bm.data[si + 1].to_int()
+              buf[base + n + 2] = bm.data[si + 2].to_int()
+              buf[base + n + 3] = bm.data[si + 3].to_int()
+            }
+            n = n + 4
+          }
+        }
+      }
+      buf
+    }
+  } else {
+    FixedArray::make(0, 0)
+  }
   self.bitmap.box_blur_region(
     bx0,
     by0,
@@ -751,6 +799,54 @@ pub fn Painter::backdrop_blur(
     by1 - by0,
     radius.floor().to_int(),
   )
+  if corners.length() > 0 {
+    let r = round.min(w * 0.5).min(h * 0.5)
+    let ri = r.ceil().to_int()
+    let bm = self.bitmap
+    let cx = (x0 + x1).to_double() * 0.5
+    let cy = (y0 + y1).to_double() * 0.5
+    let hx = (x1 - x0).to_double() * 0.5 - r
+    let hy = (y1 - y0).to_double() * 0.5 - r
+    let bases = [
+      (x0, y0),
+      (x1 - ri, y0),
+      (x0, y1 - ri),
+      (x1 - ri, y1 - ri),
+    ]
+    for ci = 0; ci < 4; ci = ci + 1 {
+      let (cx0, cy0) = bases[ci]
+      let base = ci * ri * ri * 4
+      let mut n = 0
+      for py = 0; py < ri; py = py + 1 {
+        for px = 0; px < ri; px = px + 1 {
+          let sx = cx0 + px
+          let sy = cy0 + py
+          let in_blur = sx >= bx0 && sx < bx1 && sy >= by0 && sy < by1
+          if in_blur && sx >= 0 && sy >= 0 && sx < bm.width && sy < bm.height {
+            let cov = rr_cov_at(
+              cx,
+              cy,
+              hx,
+              hy,
+              r,
+              sx.to_double() + 0.5,
+              sy.to_double() + 0.5,
+            )
+            if cov < 256 {
+              let si = (sy * bm.width + sx) * 4
+              let inv = 256 - cov
+              for ch2 = 0; ch2 < 4; ch2 = ch2 + 1 {
+                let blurred = bm.data[si + ch2].to_int()
+                let orig = corners[base + n + ch2]
+                bm.data[si + ch2] = ((blurred * cov + orig * inv) / 256).to_byte()
+              }
+            }
+          }
+          n = n + 4
+        }
+      }
+    }
+  }
 }
 
 ///|

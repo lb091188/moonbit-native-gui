@@ -738,3 +738,18 @@ test "blit：旋转 CTM 下扫描域盖住全部落点（文本/图片旋转不�
   }
   assert_true(blue >= 180)
 }
+
+///|
+test "backdrop_blur 圆角弧外恢复：弧外保持已画原值" {
+  let p = Painter::new(Bitmap::new(40, 40))
+  // 底：红黑分界（竖直分界线 x=20）
+  p.set_fill_color("#ff0000")
+  p.fill_rect(0.0, 0.0, 20.0, 40.0)
+  p.set_fill_color("#000000")
+  p.fill_rect(20.0, 0.0, 20.0, 40.0)
+  // 左上角 (0,0)：半径 10 的弧外角——弧外像素应保持纯红（不被糊晕）
+  p.backdrop_blur(0.0, 0.0, 40.0, 40.0, 4.0, round=10.0)
+  let c = p.bitmap.pixel(1, 1)
+  assert_true(c.r >= 230, msg="弧外角被糊（r=\{c.r}），下层露深晕")
+  p.end()
+}
