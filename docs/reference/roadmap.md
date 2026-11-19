@@ -137,7 +137,7 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
   - CPU blur：`Bitmap::box_blur_region` 三趟盒式原语（两后端共享位图零分叉）+ 样式面 `backdrop_blur` 毛玻璃；大半径与全窗级归 GPU 档
   - 关键帧动画：`animate`/`stop_animating` 多段属性时间轴，Once 保留末帧与 Loop/PingPong 三循环，shown 盖状态桶、组件零改动可被动画
   - 动效分档方针（2026-11-18 定案）：仿射与颜色类全档可跑；卷积类——模糊、滤镜——GPU 档专属、CPU 档只给小半径降级。有 GPU 有效果全集，没 GPU 有仿射与颜色全集。
-  - 平台状态：🚧已合入待真机——旋转缩放观感与关键帧（含旋转文字清晰度）已验（SC-17.1 / SC-17.2 / SC-17.5，mac 真机）；真圆角图片、毛玻璃质感两面仍待真机；成本读数三平台闭环（`experiment/anim_cost_bench`）：mac 0.8 / Linux 容器 2 / win10 QEMU 27 ms 全窗帧，小脏区三平台全 <0.5ms——控件级动效在最低档 Windows 纯光栅仍有约 30 倍帧预算余量
+  - 平台状态：🚧已合入待真机——四面观感 mac 已全验（SC-17.1~17.5）；win / linux 待真机；成本读数三平台闭环（`experiment/anim_cost_bench`）：mac 0.8 / Linux 容器 2 / win10 QEMU 27 ms 全窗帧，小脏区三平台全 <0.5ms——控件级动效在最低档 Windows 纯光栅仍有约 30 倍帧预算余量
 - ✅ **圆角与抗锯齿**：真圆弧 + 1px 抗锯齿；圆角关闭时退直角
 - ✅ **线型端点与拐角**：LineCap：Butt / Round / Square；LineJoin：Miter / Round / Bevel
 - ✅ **虚线**：`set_dashes(图案, 相位)`，on/off 交替、逻辑像素，空数组回实线

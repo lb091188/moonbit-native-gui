@@ -22,7 +22,7 @@
 
 ## CI 与门禁
 
-- [ ] **CPU 视觉批真机复验**：transform 旋转/缩放观感、圆角裁切真圆角图片、backdrop_blur 毛玻璃质感、关键帧流畅度四面——无头白盒已证（库门禁 1508/1508），观感待真机；入口待独立 dev 工具示例或 showcase 页承载
+- [ ] **CPU 视觉批真机复验（win / linux）**：transform 旋转缩放观感、圆角裁切真圆角图片、backdrop_blur 毛玻璃质感、关键帧流畅度四面——mac 已全验（SC-17.1~17.5，库门禁 1508/1508）；Windows 与 mac 同一条纯光栅臂，本轮 blit 覆盖与文字超采样改动都在这条上，建议整套过；Linux 走 cairo 臂（文字带 CTM 直绘），重点验 overflow 语义与帧尾重画；入口即 components 演示页
   - transform：控件级平移/缩放/旋转的绘制期变换，不参与布局与命中。
   - backdrop_blur：毛玻璃，把已画内容的控件区域糊掉再画自己。
 
