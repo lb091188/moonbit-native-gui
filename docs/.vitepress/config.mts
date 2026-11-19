@@ -173,9 +173,9 @@ const zhReferenceSidebar = [
     items: [
       { text: '包结构与 API 参考', link: '/zh/reference/api' },
       { text: '对外路线图', link: '/zh/reference/roadmap' },
+      { text: '第三方授权', link: '/THIRD-PARTY-NOTICES' },
     ],
   },
-  { text: '文档索引', link: '/zh/README' },
 ]
 
 // ---- 侧边栏(英文,结构镜像) ----
@@ -287,9 +287,9 @@ const enReferenceSidebar = [
     items: [
       { text: 'Package layout & API reference', link: '/reference/api' },
       { text: 'Roadmap (Chinese)', link: '/zh/reference/roadmap' },
+      { text: 'Third-party notices', link: '/THIRD-PARTY-NOTICES' },
     ],
   },
-  { text: 'Doc index', link: '/README' },
 ]
 
 export default defineConfig({
@@ -297,7 +297,7 @@ export default defineConfig({
   description: 'MoonBit 原生跨平台桌面 GUI 库：统一观感 + 自定义主题',
   cleanUrls: true,
   // 路线图等页面会链进仓库内部目录（proposals/、experience/、测试文档/）。
-  // 这些目录刻意不上文档站（README「对内工程记录」），链接只在仓库上下文
+  // 这些目录刻意不上文档站（对内工程记录），链接只在仓库上下文
   // 可解析——豁免这些路径的死链检查，站内正常页面链接仍受保护。
   ignoreDeadLinks: [
     /proposals\//,

@@ -12,11 +12,10 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const docsDir = join(root, 'docs')
 const configPath = join(docsDir, '.vitepress', 'config.mts')
 
-// 白名单：站点首页（langDetect 分流目标）与只在 README 索引表里链的页面
+// 白名单：站点首页（langDetect 分流目标）
 const ALLOWLIST = new Set([
   '/',            // docs/index.md 落地页
   '/zh/',         // docs/zh/index.md 落地页
-  '/THIRD-PARTY-NOTICES', // 授权页：两份 README 索引表链它，不进侧边栏
 ])
 
 function walk(dir, out = [], ext = '.md') {

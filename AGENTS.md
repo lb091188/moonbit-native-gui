@@ -74,6 +74,6 @@ moon run examples/hello       # 最小窗口(另有 showcase 等)
   - 新控件照 `gui/ui/form.mbt` 首批样板接线;覆盖面缺口与真机清单见 `proposals/text-selection-a11y.md`
 - MoonBit 语言与工具链:`.agents/skills/moonbit-agent-guide/`
 - 模块拆分方案:`proposals/module-split.md`
-- 使用文档索引:`docs/README.md`
+- AI 文档全集:文档站构建产物 `llms.txt`（中文）/ `llms-en.txt`（英文），构建时自动聚合，不手编
 - 路线图:`docs/zh/reference/roadmap.md`
 - 待办:`TODO.md`
