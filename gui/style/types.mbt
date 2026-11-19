@@ -37,8 +37,8 @@ pub(all) enum TextDecoration {
 }
 
 ///|
-/// 溢出形态：`Hidden` 裁到控件矩形（默认，与本栈控件绘制现状一致），
-/// `Visible` 跳过裁切（阴影/越界装饰的逃生口）。
+/// 溢出形态：`Visible` 不裁（默认，与 web 的 overflow:visible 同口径），
+/// `Hidden` 显式裁到控件矩形（滚动视口等真需要收边的容器）。
 pub(all) enum Overflow {
   Visible
   Hidden

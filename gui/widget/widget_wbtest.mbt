@@ -280,10 +280,12 @@ fn color_of(
 }
 
 ///|
-test "绘制遍历：逐层平移到控件原点，并裁剪到控件矩形" {
+test "绘制遍历：逐层平移到控件原点；显式 overflow:Hidden 裁到自身矩形" {
   let root = column(Widget::new())
   let _ = sized(root, 40.0, 40.0)
   let child = sized(Widget::new(), 20.0, 20.0)
+  // 默认不裁；这里显式声明 overflow:Hidden 验证「裁到自身矩形」这一档
+  child.clip_content = true
   // holder 从根起，靠自身 padding 推出子控件原点 → child 落在 (10,10)
   let holder = sized(Widget::new(), 30.0, 30.0)
   holder.node.set_padding_left(@yoga.fixed(10.0))
@@ -300,7 +302,7 @@ test "绘制遍历：逐层平移到控件原点，并裁剪到控件矩形" {
   child.on_draw = Some(fn(_w : Widget, p : @render.Painter, _r : Rect) -> Unit {
     p.set_fill_color("#0000ff")
     // 故意画出自己的盒子：局部 (-5,-5) 起、30×30 → 设备 (5,5)-(35,35)
-    // 被宿主的 clip_rect(0,0,20,20) 裁回 (10,10)-(30,30)
+    // 被 child 自己的 overflow:Hidden 裁回 (10,10)-(30,30)
     p.fill_rect(-5.0, -5.0, 30.0, 30.0)
   })
 

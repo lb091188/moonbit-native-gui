@@ -364,7 +364,13 @@ pub fn scroll_view(
       viewport,
       @style.empty_style(),
       @style.merge_all([
-        @style.style(border_color="border", border_width=1.0),
+        // 视口显式 overflow:hidden：控件层默认不裁（web overflow:visible 口径），
+        // 滚动容器是少数真需要收边的容器——超出视口的内容不落。
+        @style.style(
+          border_color="border",
+          border_width=1.0,
+          overflow=@style.Hidden,
+        ),
         lay,
       ]),
       class,

@@ -1,5 +1,5 @@
-// 真组件复刻「过渡与效果」页 transform 段：hover 放大卡的溢出带不被父级
-// 默认裁切限制范围（web overflow 默认 visible 观感）。像素级断言。
+// 真组件复刻「过渡与效果」页 transform 段：默认 overflow:visible（web 同款），
+// 悬停放大卡的溢出带越过 row 矩形仍然可见。像素级断言。
 
 ///|
 fn tf_bm(w : @widget.Widget, wpx : Int32, hpx : Int32) -> @render.Bitmap {
@@ -49,6 +49,6 @@ test "hover 放大：溢出带越过 row 矩形仍可见（演示页复刻）" {
   let c = bm.pixel(cx, top)
   assert_true(
     c.r > 200 && c.g > 200,
-    msg="放大溢出带被裁（\{c.r},\{c.g},\{c.b}），父级裁切没放行变换子件",
+    msg="放大溢出带被裁（\{c.r},\{c.g},\{c.b}），默认 overflow:visible 没生效",
   )
 }

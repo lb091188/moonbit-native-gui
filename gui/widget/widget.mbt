@@ -6,8 +6,8 @@
 // **坐标口径（本层唯一一处换算）**：yoga 给出的 `left/top` 是「相对父节点边框盒」
 // 的偏移，`relayout` 之后一次遍历把它折算成窗口坐标的绝对矩形写回各控件；
 // 命中测试与绘制都用绝对矩形，事件交给控件前再平移成控件本地坐标
-// （本地 (0,0) = 该控件边框盒左上角）。绘制时逐层 `translate + clip_rect`，
-// 所以控件的绘制回调只写本地坐标、也不需要自己裁剪。
+// （本地 (0,0) = 该控件边框盒左上角）。绘制时逐层 `translate`，只有显式声明
+// `overflow: Hidden` 的控件再加一道 `clip_rect`；绘制回调只写本地坐标。
 
 ///|
 /// 光标形状编号（`Widget.cursor` 与 `Window::set_cursor` 共用同一套码）。
@@ -229,7 +229,8 @@ pub(all) struct Widget {
   /// 混合模式（样式 `blend_mode` 落点，apply 写入）：本控件自绘与子树画在
   /// 其下内容之上时的混合算子，画完恢复 Normal。
   mut blend_paint : @render.BlendMode
-  /// 内容裁切（样式 `overflow` 落点）：true 裁到控件矩形（默认），false 跳过。
+  /// 内容裁切（样式 `overflow` 落点）：默认 false 不裁（web overflow:visible
+  /// 口径）；true 裁到控件矩形，子件与绘制期变换的溢出都吃这道裁。
   mut clip_content : Bool
   /// 绘制期变换（样式 transform 族落点，apply 写入）：绕控件**中心**的平移/
   /// 缩放/旋转，绘制遍历包 save/restore 套进 Painter CTM，不参与布局与命中
@@ -318,7 +319,7 @@ pub fn Widget::new() -> Widget {
     comp: "",
     hit_pass_through: false,
     blend_paint: Normal,
-    clip_content: true,
+    clip_content: false,
     tr_tx: 0.0,
     tr_ty: 0.0,
     tr_sx: 1.0,
@@ -1216,7 +1217,8 @@ pub fn Widget::set_padding_all(self : Widget, v : Double) -> Unit {
 }
 
 ///|
-/// 绘制遍历：逐层平移到控件原点并裁剪到控件矩形，先画自己再画子控件
+/// 绘制遍历：逐层平移到控件原点；显式 `overflow: Hidden` 的控件裁到自身
+/// 矩形，其余不裁（web overflow:visible 口径）。先画自己再画子控件
 /// （后画的覆盖在前，与命中优先级同一口径）。整窗共用一个绘制器会话。
 pub fn Widget::paint(self : Widget, p : @render.Painter) -> Unit {
   self.paint_at(p, 0.0, 0.0)
@@ -1235,10 +1237,10 @@ pub fn finish_frame_paint(p : @render.Painter) -> Unit {
 /// 跨容器变换提升：带绘制期变换的控件在 paint_at 时登记（每帧一次），整帧
 /// 画完后把它的**溢出带**（变换外接矩形超出布局矩形的四条带）重画到顶层。
 /// 同父层序提升（paint_order 的 has_transform 次级键）盖不到跨容器场景——
-/// 溢出伸进后画兄弟的区域（下一个 section 的整块背景）会被盖住，web 靠根级
-/// stacking context 解决，这里以帧尾顶层重画达成同款观感。重画 clip 收紧到
-/// 溢出带，普通区域内不重复落笔。
-let lift_list : Array[(Widget, Double, Double, Int32)] = []
+/// 溢出伸进后画兄弟的区域（下一个 section 的整块背景）会被盖住，这里以帧尾
+/// 顶层重画达成「变换参与根级层叠」的观感。重画只提升**层序**：裁切仍取登记
+/// 时的祖先显式裁剪，条带与之求交；普通区域内不重复落笔。
+let lift_list : Array[(Widget, @base.Rect?, Int32)] = []
 
 ///|
 fn replay_lift_bands(p : @render.Painter) -> Unit {
@@ -1246,16 +1248,16 @@ fn replay_lift_bands(p : @render.Painter) -> Unit {
     return
   }
   let cur = paint_epoch_ref.val
-  let items : Array[(Widget, Double, Double)] = []
+  let items : Array[(Widget, @base.Rect?)] = []
   for item in lift_list {
-    let (w, ox, oy, e) = item
+    let (w, c, e) = item
     if e == cur {
-      items.push((w, ox, oy))
+      items.push((w, c))
     }
   }
   lift_list.clear()
   for item in items {
-    let (w, ox, oy) = item
+    let (w, anc) = item
     let ext = w.transform_expanded_rect(w.rect)
     // 四条带（窗口坐标）：上、下、左、右；空带跳过
     let band = fn(x : Double, y : Double, bw : Double, bh : Double) -> @base.Rect {
@@ -1269,11 +1271,21 @@ fn replay_lift_bands(p : @render.Painter) -> Unit {
       band(w.rect.x + w.rect.w, w.rect.y, ext.x + ext.w - (w.rect.x + w.rect.w), w.rect.h),
     ]
     for b in bands {
-      if b.w > 0.5 && b.h > 0.5 {
-        p.save()
-        p.clip_rect(b.x, b.y, b.w, b.h)
-        w.paint_at(p, ox, oy, replay=true)
-        p.restore()
+      // 提升的只是**层序**，祖先显式 overflow:Hidden 的裁切照旧生效（web 同款：
+      // transform 建层叠上下文不破祖先裁切）。登记时收到的是祖先链有效裁剪。
+      let clipped = clip_isect(b, anc)
+      match clipped {
+        Some(bb) =>
+          if bb.w > 0.5 && bb.h > 0.5 {
+            p.save()
+            p.clip_rect(bb.x, bb.y, bb.w, bb.h)
+            // 收帧时 CTM 已回根，条带也是窗口坐标：重画必须按**绝对原点**画。
+            // 传父原点当 ox/oy 会把控件平移到「相对父」的位置，深层嵌套的溢出带
+            // 整体错位、条带裁切里什么也落不下（真机旋转角被祖先裁平的根因）。
+            w.paint_at(p, 0.0, 0.0, clip=anc, replay=true)
+            p.restore()
+          }
+        None => ()
       }
     }
   }
@@ -1378,7 +1390,7 @@ pub fn Widget::paint_at(
   if !replay && self.has_transform() {
     let ext = self.transform_expanded_rect(self.rect)
     if ext.w > self.rect.w + 0.5 || ext.h > self.rect.h + 0.5 {
-      lift_list.push((self, ox, oy, paint_epoch_ref.val))
+      lift_list.push((self, clip, paint_epoch_ref.val))
     }
   }
   // 绘制前样式刷新：这一帧的动态 transform/背景模糊先落槽再消费（状态桶/
@@ -1458,12 +1470,11 @@ pub fn Widget::paint_at(
       round=self.backdrop_round_paint,
     )
   }
-  // 溢出裁切（overflow）：默认裁到控件矩形（扩到变换子件外接，见
-  // clip_scope_rect）；Visible 档跳过（越界装饰逃生口）。挂绘制期变换的
-  // 控件整体豁免——变换的语义就是视觉越出盒子，被裁切吃掉效果就没了。
-  if self.clip_content && !self.has_transform() {
-    let sc = self.clip_scope_rect()
-    p.clip_rect(sc.x - self.rect.x, sc.y - self.rect.y, sc.w, sc.h)
+  // 溢出裁切（overflow）：默认不裁（web overflow:visible）——越界装饰与变换
+  // 溢出天然可见，不再需要「变换控件豁免」这类补丁。只有显式 Hidden 的容器
+  // 裁到自身矩形；变换子件照裁（web 里 transform 建层叠上下文但不破祖先裁切）。
+  if self.clip_content {
+    p.clip_rect(0.0, 0.0, self.rect.w, self.rect.h)
   }
   // 圆角裁切（clip_rounded）两段式：旗**进绘制前已在场**（挂载期声明，如圆角
   // 图片容器）就在自绘前裁——自绘与子件全吃裁切；旗是 on_draw 里才立的
@@ -1484,11 +1495,11 @@ pub fn Widget::paint_at(
   if !(self.blend_paint is Normal) {
     p.set_blend_mode(self.blend_paint)
   }
-  // 本控件的有效裁剪：自身声明 clip_content 时收到「自身矩形 ∪ 变换子件
-  // 外接矩形」（clip_scope_rect 同口径），否则继承父链
-  // （GPU 档 draw 的 clip 位；CPU 档等价信息在 Painter 裁剪栈里）
-  let eff_clip = if self.clip_content && !self.has_transform() {
-    clip_isect(self.clip_scope_rect(), clip)
+  // 本控件的有效裁剪：显式声明 clip_content 时收到自身矩形（与绘制期裁切
+  // 同口径），否则继承父链（GPU 档 draw 的 clip 位；CPU 档等价信息在 Painter
+  // 裁剪栈里）
+  let eff_clip = if self.clip_content {
+    clip_isect(self.rect, clip)
   } else {
     clip
   }
@@ -1565,29 +1576,6 @@ fn widget_paint_order(kids : Array[Widget]) -> Array[Widget] {
         j = j - 1
       }
       out[i] = k
-    }
-  }
-  out
-}
-
-///|
-
-///|
-/// 父裁切的范围口径：自身矩形 ∪ 带变换子件的外接矩形。变换子件的溢出边
-/// （悬停放大/上浮/旋转）是声明的视觉，不吃父的默认裁切——web 的 overflow
-/// 默认 visible，默认裁到自身矩形会把溢出全裁没（真机「悬停放大被父级限制
-/// 范围」）。普通子件仍被裁到自身矩形内；只扫一层（深层变换子件随其父裁切
-/// 口径走）。
-fn Widget::clip_scope_rect(self : Widget) -> @base.Rect {
-  let mut out : @base.Rect = {
-    x: self.rect.x,
-    y: self.rect.y,
-    w: self.rect.w,
-    h: self.rect.h,
-  }
-  for k in self.kids {
-    if k.visible && k.has_transform() {
-      out = out.union(k.transform_expanded_rect(k.rect))
     }
   }
   out

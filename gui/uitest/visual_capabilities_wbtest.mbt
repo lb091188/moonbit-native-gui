@@ -472,9 +472,9 @@ test "视图⑩ 毛玻璃增量重绘：帧间像素稳定" {
 }
 
 ///|
-/// 视图连测⑪：父级默认裁切豁免变换子件——放大后的溢出带越过父矩形仍可见
-/// （web overflow 默认 visible 的观感；普通子件照旧被裁到父矩形内）。
-test "视图⑪ 父裁切豁免：放大溢出 row 顶仍可见" {
+/// 视图连测⑪：默认不裁（web overflow:visible）——放大后的溢出带越过父矩形
+/// 仍可见；显式 overflow:Hidden 的容器才收边。
+test "视图⑪ 默认不裁：放大溢出 row 顶仍可见" {
   let card_ref : Ref[@widget.Widget?] = Ref(None)
   let t = mount(
     @widget.node_of_new(fn(w) {

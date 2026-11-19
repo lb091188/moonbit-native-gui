@@ -100,7 +100,7 @@ pub(all) struct Style {
   mut border_left_color : Color?
   // 混合模式（S4）：整个控件（自绘 + 子树）与其下内容的混合，绘制期生效
   mut blend_mode : @render.BlendMode?
-  // 溢出（S4）：Hidden 裁到控件矩形（默认）、Visible 跳过裁切
+  // 溢出（S4）：Visible 不裁（默认）、Hidden 显式裁到控件矩形
   mut overflow : Overflow?
   // —— 状态桶（构造端：工厂状态参数收整块 + 三个状态方法收属性参数，§1.3）
   mut hover : Style?

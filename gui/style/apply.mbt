@@ -364,7 +364,7 @@ pub fn apply(w : @widget.Widget, s : Style) -> Unit {
     None => ()
   }
   match s.overflow {
-    // 溢出：默认裁到控件矩形；Visible 档跳过裁切（逃生口）
+    // 溢出：默认不裁（web overflow:visible）；Hidden 显式裁到控件矩形
     Some(Visible) => w.clip_content = false
     Some(Hidden) => w.clip_content = true
     None => ()

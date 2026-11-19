@@ -25,6 +25,8 @@ pub fn[T] virt_list(
     viewport.kind = "ui-virt-list"
     let lay = @style.empty_style()
     lay.flex_direction = Some(@yoga.Column)
+    // 视口显式 overflow:hidden：控件层默认不裁，滚出视口的行不落
+    lay.overflow = Some(@style.Hidden)
     if width > 0.0 {
       lay.width = Some(width)
     }
@@ -310,6 +312,8 @@ pub fn sticky_list(
     viewport.kind = "ui-sticky-list"
     let lay = @style.empty_style()
     lay.flex_direction = Some(@yoga.Column)
+    // 视口显式 overflow:hidden：滚出视口的行不落
+    lay.overflow = Some(@style.Hidden)
     if width > 0.0 {
       lay.width = Some(width)
     }

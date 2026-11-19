@@ -103,9 +103,9 @@ test "L2：设了 sink 后 on_render 拿 Gpu 档，clip/opacity 随合成传" {
   let p = @render.Painter::new(@render.Bitmap::new(200, 100))
   root.paint(p)
   assert_eq(log, ["gpu"])
-  // dst = 控件矩形；clip = 自身矩形（clip_content 默认开，eff_clip 与父链
-  // 根矩形求交后正好落回自身）；opacity = walk 累乘值（这里全 1）
-  assert_eq(sink.calls, ["fill #ff0000 @10,10 clip=some(10,10,40,30) op=1"])
+  // dst = 控件矩形；默认不裁（overflow:visible）→ clip=none；opacity =
+  // walk 累乘值（这里全 1）
+  assert_eq(sink.calls, ["fill #ff0000 @10,10 clip=none op=1"])
   gpu_set_sink(None)
 }
 
@@ -122,6 +122,8 @@ test "L2：clip_content 与 alpha 累乘进 eff_clip/opacity（父链求交）" 
   root.append_child(mid)
   let leaf = Widget::new()
   leaf.rect = { x: 30.0, y: 20.0, w: 60.0, h: 40.0, }
+  // 叶子显式裁切，父链求交才有第三段
+  leaf.clip_content = true
   let log : Array[String] = []
   leaf.on_render = Some(fn(
     _self : Widget,

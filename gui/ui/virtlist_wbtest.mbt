@@ -342,3 +342,58 @@ test "虚拟列表与滚动族只读样式槽：class 覆盖视口描边与分�
   )
   assert_true(scrolled > 20)
 }
+
+///|
+/// 视口裁切：半行滚动时上一行越出视口上沿的部分不出墨（显式 overflow:Hidden）。
+test "虚拟列表视口裁切：滚出视口的行不出墨" {
+  let items = virt_items(50)
+  let vp_ref : Ref[@widget.Widget?] = Ref(None)
+  let (root, _wrap) = mounted(
+    col([
+      view([], height=20.0),
+      virt_list(
+        items,
+        100.0,
+        30.0,
+        fn(_i : Int32, _x : Int32) -> @widget.Node {
+          view([], height=30.0, background_color="#ff0000", corner_radius=0.0)
+        },
+        width=120.0,
+        overscan=0,
+        handle=fn(w) { vp_ref.val = Some(w) },
+      ),
+    ]),
+    200.0,
+    200.0,
+  )
+  ignore(_wrap)
+  let vp = match vp_ref.val {
+    Some(w) => w
+    None => abort("虚拟列表没挂上")
+  }
+  root.relayout(200.0, 200.0)
+  // 首帧让视口高与滚动上界落定
+  let bm = @render.Bitmap::new(200, 200)
+  let p = @render.Painter::new(bm)
+  root.paint(p)
+  p.end()
+  // 滚 1.5 行：行 1 上沿越过视口顶 15px
+  let _ = root.dispatch_scroll({
+    x: vp.rect.x + 40.0,
+    y: vp.rect.y + 40.0,
+    dx: 0.0,
+    dy: -1.5,
+    mods: 0,
+  })
+  root.relayout(200.0, 200.0)
+  let bm2 = @render.Bitmap::new(200, 200)
+  let p2 = @render.Painter::new(bm2)
+  root.paint(p2)
+  p2.end()
+  let x = (vp.rect.x + 10.0).to_int()
+  // 视口上方 5px：越界行不落
+  assert_eq(bm2.pixel(x, (vp.rect.y - 5.0).to_int()).a, 0)
+  // 视口内：行照常画
+  let inside = bm2.pixel(x, (vp.rect.y + 5.0).to_int())
+  assert_true(inside.r > 200 && inside.g < 40)
+}
