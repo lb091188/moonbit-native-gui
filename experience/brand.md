@@ -25,7 +25,7 @@
 - 造型要点：圆头 + 长椭圆耳 + 圆点眼 + 单弧微笑；窗口是 GUI 通用符号而非显示器，跨桌面/移动端成立。
 - 透明底：master 不带背景底与屏幕底，全档透明出图，深浅底界面直接放。
   - 窗口整块实心蓝：屏幕区不垫浅底，月兔直接坐在窗口上；实心轮廓小尺寸不散。
-- 尺寸策略：单 master SVG 缩放全档；16px 仍可辨——窗口轮廓 + 兔耳。
+- 尺寸策略：master SVG 缩放全档；favicon 16/32 用简化小图 `app-icon-small.svg`——大色块砍细节，直缩 master 五官糊成噪点；16px 仍可辨——窗口轮廓 + 兔耳。
 - 源资产：`assets/brand/app-icon.svg` 是 master；`assets/brand/app-icon-mono.svg` 是纯月兔单色剪影——托盘 / Android themed icon 预留，改 fill 即可染色。
   - mono 不带窗口：窗口与月兔同色剪影会连成一团，小尺寸读不出兔子。
 

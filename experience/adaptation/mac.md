@@ -476,3 +476,12 @@ mac 跑 showcase「GPU 画布」页报「GPU 画布建不出（400x240；驱动�
 - **拦**：透明档不走 GPU——`wm_l1_try` 对 `transparent` 窗不再进 GPU 档——对齐 Win32「逐像素透明档不走 GPU」的既有口径。
 - **退**：`wm_set_transparent_bg` 遇已挂 GPU 档摘 Metal 层退回 drawRect 的 CG 直贴——`wm_l1_window_drop` + `setWantsLayer:NO`；BGRA 预乘带 alpha、clearColor/opaque:NO，`dead` 挡后续 present 重挂，退回后 backing 无帧由 drawRect 经 need_draw 请一帧。
 - **配套**：hello 透明度段删主窗背景穿透按钮——主窗整片铺底验不出透视，开了只有副作用；透明演示归无边框测试窗，用例 HL-4.3。
+
+## 品牌图标导出：qlmanage 渲染 SVG 把透明区压平成不透明白底
+
+- 时间：2026-11-20
+- 来源：favicon 出图发现四角 alpha 全 255（`hasAlpha: yes` 只代表带 alpha 通道，不代表像素真透明，须解 PNG 像素验证）
+
+- **坑**：`qlmanage -t -s 1024` 渲染 SVG 输出的 PNG 背景是**不透明白**——Quick Look 管线把透明区压平到白底，透明图标全档（favicon / icns / ICO / Linux PNG）都会带白框。
+- **解**：改走 `scripts/render_icon.swift`——AppKit `NSImage` 读 SVG 画进带 alpha 的 `NSBitmapImageRep`，四角 alpha 0 实测通过。
+- **口径**：SVG 内部带背景 rect（如旧版浅底圆角方）时 qlmanage 看不出问题；去掉背景 rect 后才露馅。验证透明度要看像素，不能只看 `hasAlpha`。
