@@ -781,3 +781,18 @@ test "backdrop_blur 圆角弧外恢复：弧外保持已画原值" {
   assert_true(c.r >= 230, msg="弧外角被糊（r=\{c.r}），下层露深晕")
   p.end()
 }
+
+///|
+test "text_render_scale：旋转 CTM 走 3× 离屏，轴向 1×" {
+  let p = Painter::new(Bitmap::new(10, 10))
+  let r = match p.raster() {
+    Some(r) => r
+    None => return
+  }
+  assert_eq(r.text_render_scale(), 1)
+  r.save()
+  r.rotate(0.1)
+  assert_eq(r.text_render_scale(), 3)
+  r.restore()
+  assert_eq(r.text_render_scale(), 1)
+}

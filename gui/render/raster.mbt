@@ -908,6 +908,18 @@ pub fn Raster::has_round_clip(self : Raster) -> Bool {
 }
 
 ///|
+/// 文字离屏渲染倍率：CTM 带旋转/斜切时 3，否则 1。文字经离屏位图贴回，
+/// 旋转下是最近邻采样——1× 离屏在动画里逐帧跳相位，观感发虚/抖动；
+/// 3× 离屏把采样密度提上去（离屏本身很小，代价可忽略）。
+pub fn Raster::text_render_scale(self : Raster) -> Int {
+  if self.m.axis_aligned() {
+    1
+  } else {
+    3
+  }
+}
+
+///|
 /// 本会话圆角裁剪对一设备像素中心的覆盖（0..256）。
 pub fn Raster::round_cov(self : Raster, xcen : Double, ycen : Double) -> Int32 {
   rr_cov_at(

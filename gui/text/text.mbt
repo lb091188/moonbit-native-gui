@@ -720,15 +720,29 @@ fn draw_box_raster(
   if ow < 1 || oh < 1 {
     return false
   }
-  let off = @render.Bitmap::new(ow, oh)
+  // 旋转/斜切下的贴回是最近邻采样：离屏按 3× 渲染再缩小，字形采样密度
+  // 提上去，动画中不再逐帧跳相位（观感发虚/抖动）。轴向 CTM 保持 1×。
+  let ss = raster.text_render_scale()
+  let ssf = ss.to_double()
+  let off = @render.Bitmap::new(ow * ss, oh * ss)
   if !draw_in_box(
       off,
       0.0,
       0.0,
-      box_w,
-      box_h,
+      box_w * ssf,
+      box_h * ssf,
       text,
-      font,
+      if ss > 1 {
+        Font::new(
+          font.name,
+          font.size * ssf,
+          weight=font.weight,
+          style=font.style,
+          spacing=font.spacing * ssf,
+        )
+      } else {
+        font
+      },
       color,
       align~,
       valign~,
@@ -743,7 +757,7 @@ fn draw_box_raster(
   flush_pending()
   let dw = ow.to_double()
   let dh = oh.to_double()
-  raster.blit(off, 0.0, 0.0, dw, dh, x, y, dw, dh)
+  raster.blit(off, 0.0, 0.0, off.width.to_double(), off.height.to_double(), x, y, dw, dh)
   true
 }
 
