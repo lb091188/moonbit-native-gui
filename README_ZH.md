@@ -10,12 +10,12 @@
 
 ## 快速开始
 
-- [体验文档](https://moonbit-native-gui.pages.dev/zh/experience)：预构建包直接试跑五个演示应用。
-- [应用开发](https://moonbit-native-gui.pages.dev/zh/dev-experience)：使用 moonbit 和 native-gui 构建桌面应用程序。
-- [构建与运行](https://moonbit-native-gui.pages.dev/zh/build)：参与 `native-gui` 库的开发。
-- [包结构](https://moonbit-native-gui.pages.dev/zh/packages)：17 个包别名与两个独立模块的一览。
+- [体验文档](https://moonbit-native-gui.pages.dev/guide/experience)：预构建包直接试跑五个演示应用。
+- [应用开发](https://moonbit-native-gui.pages.dev/guide/tutorial)：使用 moonbit 和 native-gui 构建桌面应用程序。
+- [构建与运行](https://moonbit-native-gui.pages.dev/guide/build)：参与 `native-gui` 库的开发。
+- [包结构](https://moonbit-native-gui.pages.dev/reference/api)：17 个包别名与两个独立模块的一览。
 
-📚 [**在线文档**](https://moonbit-native-gui.pages.dev/zh/)
+📚 [**在线文档**](https://moonbit-native-gui.pages.dev/)
 
 ![Hello 最小窗口](./docs/public/images/app-hello.png)
 ![Windows 上的组件演示板](./docs/public/images/os-windows.png)
@@ -66,7 +66,7 @@ MoonBit 生态的 GUI 能力各有分工：[MoUI](https://github.com/wzzc-dev/Mo
 |---|---|---|
 | Ubuntu 24.04 | ✅ | XFCE / GNOME / KDE / Cinnamon |
 | Deepin 23 / 25 | ✅ | |
-| Deepin 20 | ❌ | 待 MoonBit 修复 Deepin 20 的编译，详见 [构建与运行](https://moonbit-native-gui.pages.dev/zh/build) |
+| Deepin 20 | ❌ | 待 MoonBit 修复 Deepin 20 的编译，详见 [构建与运行](https://moonbit-native-gui.pages.dev/guide/build) |
 | Windows 10 / 11 | ✅ |  |
 | macOS | ✅ | Apple Silicon  |
 
@@ -77,10 +77,10 @@ MoonBit 生态的 GUI 能力各有分工：[MoUI](https://github.com/wzzc-dev/Mo
 - **提交门禁**：库模块在 `gui/` 下 `moon check` + `moon test ui render text theme icons sys input win dbus chart mdview style base shell widget` 零错误零警告
 - **经验留档**：实测坑与修复随代码记录，不要只留在提交信息里
 - **小批次**：一个提交一个内聚改动，提交信息简短
-- **进度与计划**：功能面全景与后续待做见[路线图](https://moonbit-native-gui.pages.dev/zh/roadmap)
+- **进度与计划**：功能面全景与后续待做见[路线图](https://moonbit-native-gui.pages.dev/reference/roadmap)
 - **完整指南**：[CONTRIBUTING_ZH.md](CONTRIBUTING_ZH.md)——目录落位、设计口径、测试分工、提交与 PR 约定
 
-[构建与运行](https://moonbit-native-gui.pages.dev/zh/build)：从零装环境、构建与产物落点、预构建二进制、常见失败处置，以及链接参数托管与新增示例模块的机制。
+[构建与运行](https://moonbit-native-gui.pages.dev/guide/build)：从零装环境、构建与产物落点、预构建二进制、常见失败处置，以及链接参数托管与新增示例模块的机制。
 
 ## 许可
 

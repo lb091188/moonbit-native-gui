@@ -10,10 +10,10 @@ English | [简体中文](README_ZH.md)
 
 ## Quick start
 
-- [Experience guide](https://moonbit-native-gui.pages.dev/experience): run the five prebuilt demo apps, no code needed.
-- [App development](https://moonbit-native-gui.pages.dev/dev-experience): build desktop applications with MoonBit and native-gui.
-- [Build & run](https://moonbit-native-gui.pages.dev/build): working on the `native-gui` library itself.
-- [Package layout](https://moonbit-native-gui.pages.dev/packages): the 15 package aliases and the two optional modules at a glance.
+- [Experience guide](https://moonbit-native-gui.pages.dev/en/guide/experience): run the five prebuilt demo apps, no code needed.
+- [App development](https://moonbit-native-gui.pages.dev/en/guide/tutorial): build desktop applications with MoonBit and native-gui.
+- [Build & run](https://moonbit-native-gui.pages.dev/en/guide/build): working on the `native-gui` library itself.
+- [Package layout](https://moonbit-native-gui.pages.dev/en/reference/api): the 15 package aliases and the two optional modules at a glance.
 
 📚 **Documentation**: <https://moonbit-native-gui.pages.dev/>
 
@@ -66,7 +66,7 @@ GUI capability in the MoonBit ecosystem has more than one lane: [MoUI](https://g
 |---|---|---|
 | Ubuntu 24.04 | ✅ | XFCE / GNOME / KDE / Cinnamon |
 | Deepin 23 / 25 | ✅ | |
-| Deepin 20 | ❌ | waiting on MoonBit to fix the build for Deepin 20 — see [Build & run](https://moonbit-native-gui.pages.dev/build) |
+| Deepin 20 | ❌ | waiting on MoonBit to fix the build for Deepin 20 — see [Build & run](https://moonbit-native-gui.pages.dev/en/guide/build) |
 | Windows 10 / 11 | ✅ | |
 | macOS | ✅ | Apple Silicon |
 
@@ -77,10 +77,10 @@ Platform compatibility reports, widgets and documentation are all welcome. The b
 - **Commit gate**: in `gui/`, `moon check` plus `moon test ui render text theme icons sys input win dbus chart mdview style base shell widget` must be clean — zero errors, zero warnings
 - **Write down what you learn**: field-tested pitfalls and fixes are recorded with the code, not only in commit messages
 - **Small batches**: one coherent change per commit, short commit messages
-- **Roadmap**: what is done and what comes next is on the [roadmap](https://moonbit-native-gui.pages.dev/zh/roadmap) (Chinese)
+- **Roadmap**: what is done and what comes next is on the [roadmap](https://moonbit-native-gui.pages.dev/reference/roadmap) (Chinese)
 - **Full guide**: [CONTRIBUTING.md](CONTRIBUTING.md) — layout rules, design stance, test split, commit and PR conventions
 
-[Build & run](https://moonbit-native-gui.pages.dev/build): environment from scratch, build commands and artefact paths, prebuilt binaries, failure → fix, plus the linking mechanism and how to add an example module.
+[Build & run](https://moonbit-native-gui.pages.dev/en/guide/build): environment from scratch, build commands and artefact paths, prebuilt binaries, failure → fix, plus the linking mechanism and how to add an example module.
 
 ## License
 
