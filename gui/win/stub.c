@@ -85,12 +85,14 @@ typedef struct WmL1 {
   int tw, th; // 上传纹理已配尺寸（位图）
   int on;     // GPU 档挂上：各臂贴像素路径据此停手
   int dead;   // 该窗永久回退（对象建不出 / present 失败）
-  int stale;  // 离开过最小化：下次呈现前强制重配 swapchain
+  int stale;  // 离开过最小化：下次呈现前强制走 surface 重建重配
+  int src_stype;              // 0 = 未暂存；否则 WGPUSType_SurfaceSource* 值
+  unsigned char src_desc[64]; // 建 surface 的平台源描述符整块（重建时照抄）
 } WmL1;
 int wm_l1_available(void);
-void *wm_l1_surface_xlib(void *display, uint64_t window);
-void *wm_l1_surface_hwnd(void *hinstance, void *hwnd);
-void *wm_l1_surface_metal(void *layer);
+void *wm_l1_surface_xlib(WmL1 *st, void *display, uint64_t window);
+void *wm_l1_surface_hwnd(WmL1 *st, void *hinstance, void *hwnd);
+void *wm_l1_surface_metal(WmL1 *st, void *layer);
 int wm_l1_window_bind(WmL1 *st, void *surface, int sw, int sh, int bw, int bh);
 int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
                          int sw, int sh);
@@ -1567,7 +1569,7 @@ static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
       return 0; // 0×0（最小化）：不标记死，下帧再试
     }
     wm_crash_mark("l1.bind", w->width, w->height);
-    void *surf = wm_l1_surface_hwnd((void *)GetModuleHandle(NULL),
+    void *surf = wm_l1_surface_hwnd(&w->l1, (void *)GetModuleHandle(NULL),
                                     (void *)w->hwnd);
     if (surf == NULL) {
       w->l1.dead = 1;
@@ -6427,7 +6429,7 @@ static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
   }
   wm_l1_child_sync(w);
   if (!w->l1.on) {
-    void *surf = wm_l1_surface_xlib((void *)gdk_x11_get_default_xdisplay(),
+    void *surf = wm_l1_surface_xlib(&w->l1, (void *)gdk_x11_get_default_xdisplay(),
                                     (uint64_t)w->l1_child);
     if (surf == NULL) {
       wm_l1_child_destroy(w);
@@ -10714,7 +10716,7 @@ static int wm_l1_try(WMState *s, const unsigned char *rgba, int bw, int bh) {
     // l1.on 时停手，见 drawRect:）
     [s.view setWantsLayer:YES];
     [s.view setLayer:[CAMetalLayer layer]];
-    void *surf = wm_l1_surface_metal((__bridge void *)s.view.layer);
+    void *surf = wm_l1_surface_metal(&s->l1, (__bridge void *)s.view.layer);
     if (surf == NULL) {
       s->l1.dead = 1;
       return 0;
@@ -15063,35 +15065,59 @@ static int l1_bind_frame(WmL1 *st, int sw, int sh, int bw, int bh) {
   return 1;
 }
 
-void *wm_l1_surface_xlib(void *display, uint64_t window) {
+// surface 源描述符暂存与重建：wm_l1_surface_* 建面时把整块源描述符抄进
+// 每窗状态，重配时按它重建 surface，走与首配同一条流（v29 对已配置过的
+// surface 原地再 Configure 会内部 panic，见 wm_l1_window_present 的 rebind）
+static void l1_stash_source(WmL1 *st, const void *desc, size_t len, int stype) {
+  if (len > sizeof st->src_desc) {
+    return;
+  }
+  memcpy(st->src_desc, desc, len);
+  st->src_stype = stype;
+}
+
+static void *l1_surface_recreate(WmL1 *st) {
+  WGPUSurfaceDescriptor sdesc;
+  memset(&sdesc, 0, sizeof sdesc);
+  if (st->src_stype == 0) {
+    return NULL;
+  }
+  sdesc.nextInChain = (WGPUChainedStruct *)st->src_desc;
+  return (void *)p_wgpuInstanceCreateSurface(g_l1_inst, &sdesc);
+}
+
+void *wm_l1_surface_xlib(WmL1 *st, void *display, uint64_t window) {
   WGPUSurfaceSourceXlibWindow xsrc;
   memset(&xsrc, 0, sizeof xsrc);
   xsrc.chain.sType = WGPUSType_SurfaceSourceXlibWindow;
   xsrc.display = display;
   xsrc.window = window;
+  l1_stash_source(st, &xsrc, sizeof xsrc, WGPUSType_SurfaceSourceXlibWindow);
   WGPUSurfaceDescriptor sdesc;
   memset(&sdesc, 0, sizeof sdesc);
   sdesc.nextInChain = &xsrc.chain;
   return (void *)p_wgpuInstanceCreateSurface(g_l1_inst, &sdesc);
 }
 
-void *wm_l1_surface_hwnd(void *hinstance, void *hwnd) {
+void *wm_l1_surface_hwnd(WmL1 *st, void *hinstance, void *hwnd) {
   WGPUSurfaceSourceWindowsHWND wsrc;
   memset(&wsrc, 0, sizeof wsrc);
   wsrc.chain.sType = WGPUSType_SurfaceSourceWindowsHWND;
   wsrc.hinstance = hinstance;
   wsrc.hwnd = hwnd;
+  l1_stash_source(st, &wsrc, sizeof wsrc, WGPUSType_SurfaceSourceWindowsHWND);
   WGPUSurfaceDescriptor sdesc;
   memset(&sdesc, 0, sizeof sdesc);
   sdesc.nextInChain = &wsrc.chain;
   return (void *)p_wgpuInstanceCreateSurface(g_l1_inst, &sdesc);
 }
 
-void *wm_l1_surface_metal(void *layer) {
+void *wm_l1_surface_metal(WmL1 *st, void *layer) {
   WGPUSurfaceSourceMetalLayer msrc;
   memset(&msrc, 0, sizeof msrc);
   msrc.chain.sType = WGPUSType_SurfaceSourceMetalLayer;
   msrc.layer = layer;
+  l1_stash_source(st, &msrc, sizeof msrc, WGPUSType_SurfaceSourceMetalLayer);
   WGPUSurfaceDescriptor sdesc;
   memset(&sdesc, 0, sizeof sdesc);
   sdesc.nextInChain = &msrc.chain;
@@ -15135,17 +15161,29 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
   }
   wm_crash_mark("l1.frame", sw, sh);
   // 最小化回来过：swapchain 在遮挡期间可能已被丢弃/改了尺寸，先把已配尺寸
-  // 打回 0 逼下面走重配（重配是幂等的，代价只有重建帧对象一次）
+  // 打回 0 逼下面走重建重配
   if (st->stale) {
     st->stale = 0;
     st->sw = 0;
     st->sh = 0;
-    wm_crash_note("l1: 最小化还原，重配 swapchain");
+    wm_crash_note("l1: 最小化还原，重建 surface 重配");
   }
-  // 尺寸变了（客户区或位图）：释放帧对象重配（surface 不变——同一 native 窗）
+  // 尺寸变了（客户区或位图）或最小化回来过：不原地重配——v29 实测对已配置
+  // 过的 surface 再 Configure 会在 wgpu 内部 panic（0xE06D7363，控制台真机
+  // 最小化还原后必崩，栈与无桌面会话首配一致）——释放旧 surface 按暂存源
+  // 重建，走与首配完全相同的流
   if (st->sw != sw || st->sh != sh || st->tw != bw || st->th != bh) {
     wm_crash_mark("l1.rebind", sw, sh);
     l1_release_frame(st);
+    if (st->surface != NULL && p_wgpuSurfaceRelease != NULL) {
+      p_wgpuSurfaceRelease(st->surface);
+    }
+    st->surface = l1_surface_recreate(st);
+    if (st->surface == NULL) {
+      st->on = 0;
+      st->dead = 1;
+      return 0;
+    }
     if (l1_bind_frame(st, sw, sh, bw, bh) != 1) {
       st->on = 0;
       st->dead = 1;
@@ -15198,19 +15236,23 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
   if (stx.status != WGPUSurfaceGetCurrentTextureStatus_SuccessOptimal ||
       stx.texture == NULL) {
     if (stx.status == WGPUSurfaceGetCurrentTextureStatus_Outdated) {
-      // 窗口尺寸变了 surface 还没跟上：重配，本帧丢（下一帧补）
-      WGPUSurfaceConfiguration cfg;
-      memset(&cfg, 0, sizeof cfg);
-      cfg.device = g_l1_device;
-      cfg.format = WGPUTextureFormat_BGRA8Unorm;
-      cfg.usage = WGPUTextureUsage_RenderAttachment;
-      cfg.width = (uint32_t)sw;
-      cfg.height = (uint32_t)sh;
-      cfg.alphaMode = l1_pick_alpha_mode(st->surface);
-      cfg.presentMode = WGPUPresentMode_Fifo;
-      p_wgpuSurfaceConfigure(st->surface, &cfg);
-      st->sw = sw;
-      st->sh = sh;
+      // 窗口尺寸变了 surface 没跟上：先把已编码的提交掉（无害），本帧丢；
+      // 下一帧走 rebind 流重建 surface 重配（v29 原地 Configure 会 panic）
+      WGPUCommandBuffer cb1 = p_wgpuCommandEncoderFinish(enc, NULL);
+      if (cb1 != NULL) {
+        p_wgpuQueueSubmit(g_l1_queue, 1, &cb1);
+        p_wgpuCommandBufferRelease(cb1);
+      }
+      l1_release_frame(st);
+      if (st->surface != NULL && p_wgpuSurfaceRelease != NULL) {
+        p_wgpuSurfaceRelease(st->surface);
+      }
+      st->surface = l1_surface_recreate(st);
+      if (st->surface == NULL) {
+        st->on = 0;
+        st->dead = 1;
+      }
+      return 1;
     }
     // 上传命令已编码：提交掉（无害）再丢这一帧
     WGPUCommandBuffer cb0 = p_wgpuCommandEncoderFinish(enc, NULL);
@@ -15325,17 +15367,20 @@ void *wm_l1_gpu_status(void) {
 int wm_l1_available(void) {
   return 0;
 }
-void *wm_l1_surface_xlib(void *display, uint64_t window) {
+void *wm_l1_surface_xlib(WmL1 *st, void *display, uint64_t window) {
+  (void)st;
   (void)display;
   (void)window;
   return NULL;
 }
-void *wm_l1_surface_hwnd(void *hinstance, void *hwnd) {
+void *wm_l1_surface_hwnd(WmL1 *st, void *hinstance, void *hwnd) {
+  (void)st;
   (void)hinstance;
   (void)hwnd;
   return NULL;
 }
-void *wm_l1_surface_metal(void *layer) {
+void *wm_l1_surface_metal(WmL1 *st, void *layer) {
+  (void)st;
   (void)layer;
   return NULL;
 }
