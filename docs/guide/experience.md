@@ -95,7 +95,7 @@ MOON_WORK=off moon run .               # 按注册表已发布的库版本解析
 | `examples/system` | 系统能力：系统集成（对话框 / 通知 / 托盘 / 自启 / 单实例 / 自更新）+ 只读探测，左侧分组菜单 |
 | `examples/browser` | 内嵌 WebView 浏览器（额外依赖 `gui-webview`）|
 | `examples/audio` · `video` | 音视频播放器（额外依赖 `gui-media`，需 ffmpeg）|
-| `examples/sysmonitor` | 系统监视器：六项资源菜单（处理器/内存/网络/磁盘/显卡/进程）+ 各核曲线、物理网卡、物理分区与进程管理；进程页选中行后，操作按钮后显示该进程内存 RSS |
+| `examples/sysmonitor` | 系统监视器：六项资源菜单（处理器/内存/网络/磁盘/显卡/进程）只留实时指标，型号放在右侧详情；磁盘显示读写速率；进程页选中行后，操作按钮后显示该进程内存 RSS |
 | `examples/theme-playground` | 主题试衣间：调一套主题看全局效果 |
 
 示例之上深入各面：[组件总览](../components/index.md)、[声明式与响应式](declarative.md)、[布局样式](layout.md)、[系统能力总览](../capability/sys.md)、[内嵌 WebView](../capability/webview.md)。

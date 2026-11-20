@@ -99,11 +99,9 @@ struct App {
   // GPU：占用来源优先级（nvidia-smi > sysfs gpu_busy_percent > DRM
   // fdinfo 聚合）与 fdinfo 前样本差值状态
   gpu : GpuMonitor
-  // 左栏固定信息（启动取一次）
+  // 固定信息（启动取一次）
   cpu_model : String
   cpu_max : String
-  mem_brand : String
-  mem_mhz : Int32
   // 左栏六项菜单的值
   cpu_usage : @base.Store[String]
   mem_usage : @base.Store[String]
@@ -111,10 +109,8 @@ struct App {
   swap_pair : @base.Store[String]
   net_up : @base.Store[String]
   net_down : @base.Store[String]
-  disk_rate : @base.Store[String]
-  disk_rows_ver : @base.Store[Int32]
-  disk_rows : Ref[Array[(String, String)]]
-  disk_rows_sig : Ref[String]
+  disk_read : @base.Store[String]
+  disk_write : @base.Store[String]
   proc_count : @base.Store[String]
   gpu_usage : Array[@base.Store[String]]
   gpu_vram : Array[@base.Store[String]]
@@ -248,40 +244,26 @@ fn sample_once(app : App) -> Unit {
       app.disks.set_always(disks)
       let mut read = 0.0
       let mut write = 0.0
-      let mut any_rate = false
-      let rows : Array[(String, String)] = []
-      let sig : Array[String] = []
+      let mut has_read = false
+      let mut has_write = false
       for d in disks {
         match d.read_bps {
           Some(v) => {
             read += v
-            any_rate = true
+            has_read = true
           }
           None => ()
         }
         match d.write_bps {
           Some(v) => {
             write += v
-            any_rate = true
+            has_write = true
           }
           None => ()
         }
-        rows.push((d.mount, pct(d.usage())))
-        sig.push("\{d.mount}:\{pct(d.usage())}")
       }
-      let key = sig.join("|")
-      if key != app.disk_rows_sig.val {
-        app.disk_rows_sig.val = key
-        app.disk_rows.val = rows
-        app.disk_rows_ver.set(app.disk_rows_ver.get() + 1)
-      }
-      app.disk_rate.set(
-        if any_rate {
-          "↓\{fmt_rate(read)} ↑\{fmt_rate(write)}"
-        } else {
-          "↓— ↑—"
-        },
-      )
+      app.disk_read.set(if has_read { fmt_rate(read) } else { "—" })
+      app.disk_write.set(if has_write { fmt_rate(write) } else { "—" })
     }
   }
   match app.net.tick() {
@@ -339,7 +321,6 @@ fn main {
     max_mhz: 0.0,
     cores: 1,
   })
-  let (mem_brand, mem_mhz) = mem_hw_info()
   let core_n = if info.cores < 1 { 1 } else { info.cores }
   // 磁盘与 GPU 数量取启动枚举结果，卡与曲线按块预建（热插拔不重建视图）
   let disk_mon = DiskMonitor::new()
@@ -366,18 +347,14 @@ fn main {
     gpu: gpu_mon,
     cpu_model: info.model,
     cpu_max: fmt_ghz(info.max_mhz),
-    mem_brand,
-    mem_mhz,
     cpu_usage: @base.Store::new("—"),
     mem_usage: @base.Store::new("—"),
     mem_pair: @base.Store::new("—"),
     swap_pair: @base.Store::new("—"),
     net_up: @base.Store::new("—"),
     net_down: @base.Store::new("—"),
-    disk_rate: @base.Store::new("—"),
-    disk_rows_ver: @base.Store::new(0),
-    disk_rows: Ref([]),
-    disk_rows_sig: Ref(""),
+    disk_read: @base.Store::new("—"),
+    disk_write: @base.Store::new("—"),
     proc_count: @base.Store::new("—"),
     gpu_usage: gpus0.map(fn(_g) { @base.Store::new("—") }),
     gpu_vram: gpus0.map(fn(_g) { @base.Store::new("—") }),

@@ -135,57 +135,15 @@ fn menu_value(value : String) -> @widget.Node {
 }
 
 ///|
-/// 磁盘项：一个图标 + 聚合速率行 + 每个物理分区一行（挂载点 / 使用率）。
-/// 分区集合变化时整块重挂（数量少，重建便宜）。
-fn disk_rows(app : App) -> @widget.Node {
-  @widget.bind_node(app.disk_rows_ver.signal(), fn(_v) {
-    let rows : Array[@widget.Node] = []
-    for r in app.disk_rows.val {
-      let (mount, usage) = r
-      rows.push(
-        @ui.row(
-          [
-            @ui.view(
-              [
-                @ui.text(
-                  mount,
-                  font_size=12.0,
-                  color="text_secondary",
-                  wrap=false,
-                  ellipsis=true,
-                ),
-              ],
-              width=72.0,
-            ),
-            @ui.text(
-              usage,
-              font_size=12.0,
-              color="text_primary",
-              align=@text.End,
-              wrap=false,
-              handle=fn(w) { w.node.set_flex_grow(1.0) },
-            ),
-          ],
-          column_gap=6.0,
-          class=[@style.style(min_width=0.0)],
-        ),
-      )
-    }
-    @ui.col(rows, row_gap=4.0, class=[@style.style(min_width=0.0)])
-  })
-}
-
-///|
 /// 左栏：固定六项资源菜单（超高滚动）。
 fn left_pane(app : App, view : @base.Store[ViewId]) -> @widget.Node {
   let items : Array[@widget.Node] = []
-  // 处理器：名称（无 label）+ 利用率 + 最高主频
+  // 处理器：利用率 + 最高主频，型号移到右侧详情
   items.push(
     menu_item(
       @icons.Cpu,
       "处理器",
       [
-        menu_value(app.cpu_model),
         menu_row("利用率", app.cpu_usage),
         menu_row("最高主频", @base.Store::new(app.cpu_max)),
       ],
@@ -193,16 +151,12 @@ fn left_pane(app : App, view : @base.Store[ViewId]) -> @widget.Node {
       VCpu,
     ),
   )
-  // 内存：品牌/频率（无 label）+ 利用率 + 物理内存 + SWAP
-  let mem_brand = if app.mem_brand == "" { "—" } else { app.mem_brand }
-  let mem_mhz = if app.mem_mhz <= 0 { "—" } else { "\{app.mem_mhz}MHz" }
+  // 内存：利用率 + 物理内存 + SWAP
   items.push(
     menu_item(
       @icons.Database,
       "内存",
       [
-        menu_value(mem_brand),
-        menu_value(mem_mhz),
         menu_row("利用率", app.mem_usage),
         menu_row("物理内存", app.mem_pair),
         menu_row("SWAP", app.swap_pair),
@@ -221,29 +175,27 @@ fn left_pane(app : App, view : @base.Store[ViewId]) -> @widget.Node {
       VNet,
     ),
   )
-  // 磁盘：单图标，聚合速率 + 每个物理分区一行
+  // 磁盘：读 / 写两行速率
   items.push(
     menu_item(
       @icons.Sever,
       "磁盘",
-      [menu_row("速率", app.disk_rate), disk_rows(app)],
+      [menu_row("读", app.disk_read), menu_row("写", app.disk_write)],
       view,
       VDisk,
     ),
   )
-  // 显卡：每块卡一小组（名称无 label + 利用率 + 显存）
+  // 显卡：每块卡一小组（利用率 + 显存），型号在右侧详情
   let gpu_rows : Array[@widget.Node] = []
   let gpus = app.gpus.get()
   if gpus.length() == 0 {
     gpu_rows.push(menu_value("未检测到显卡"))
   } else {
-    for i, g in gpus {
+    for i in 0..<gpus.length() {
       if i >= app.gpu_usage.length() {
         break
       }
-      let name = if g.model == "" { "\{g.vendor} \{g.device}" } else { g.model }
       let block : Array[@widget.Node] = [
-        menu_value(name),
         menu_row("利用率", app.gpu_usage[i]),
         menu_row("显存", app.gpu_vram[i]),
       ]
@@ -398,6 +350,7 @@ fn page_cpu_detail(app : App) -> @widget.Node {
     }
     @ui.col(
       [
+        @ui.text(app.cpu_model, class=[@style.text_title]),
         @ui.text("总利用率（%）", class=[@style.text_title]),
         @charts.line_chart_t(
           app.cpu_hist,

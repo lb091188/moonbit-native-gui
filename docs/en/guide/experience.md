@@ -95,7 +95,7 @@ MOON_WORK=off moon run .               # resolve the published library from the 
 | `examples/system` | System capabilities: system integration (dialogs / notifications / tray / autostart / single instance / self-update) + read-only probes, left grouped menu |
 | `examples/browser` | Embedded WebView browser (extra dependency `gui-webview`) |
 | `examples/audio` · `video` | Audio/video players (extra dependency `gui-media`, needs ffmpeg) |
-| `examples/sysmonitor` | System monitor: six-item resource menu (CPU / memory / network / disks / GPU / processes) with per-core charts, physical NICs, physical partitions and process management; the process page shows the selected process's memory RSS next to the action buttons |
+| `examples/sysmonitor` | System monitor: six-item resource menu (CPU / memory / network / disks / GPU / processes) with live metrics only and model names in the detail pages; disks show read and write rates; the process page shows the selected process's memory RSS next to the action buttons |
 | `examples/theme-playground` | Theme fitting room: tune one theme and watch it apply globally |
 
 Beyond the examples: [Components overview](../components/index.md), [Declarative & reactivity](declarative.md), [Layout & styling](layout.md), [System capabilities overview](../capability/sys.md), [Embedded WebView](../capability/webview.md).
