@@ -676,3 +676,11 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **现象两层**：第一层 `sh -c` 硬钉——Windows 无 `sh`，spawn 直接 errno=2。第二层改 `cmd /c` 把整条命令串成单参整体加引号——`cmd "/c moon build . > 日志 2>&1"` 经 CreateProcessW 落地后实测 moon 收不到 `.`，clap 报 `[PATH]...` 缺值退出 2；交互式 cmd 里同串手敲却正常，差的就是引号怎么落——cmd 的 `/C` 引号规则只作用于开关之后，开关本身在引号里时解析走样。
 - **修法**：build 派生彻底弃 shell——`split_cmd` 拆词 + `@proc.spawn_wait(file, args, 日志路径)`，proc 的 out_path 本来就是 `> log 2>&1` 的原生等价物，三平台同一条路，引号转义问题整体消失。
 - **判据**：工具侧要「跑命令并收输出」，优先 proc 的 spawn / spawn_wait 带 out_path；只有命令必须是 shell 语法（管道、`&&`）时才引 shell，而一旦引 shell 就得按平台各备一套引号口径并真机各验一遍。`mng.toml` 的 build 相应按单条命令约定写（如 `moon build .`），shell 语法不支持。
+
+## spawn 环境注入 errno=87：CreateProcessW 的宽字符环境块被系统整路拒绝，环境块改按 ANSI 布局构造 · 2026-11-20 win10 VM 真机
+
+- **现象**：`mng dev` 抓到可执行后起应用报 `起不来（errno=87）`（ERROR_INVALID_PARAMETER）；`moon run .` 直跑同 exe 正常——差异只剩 spawn 多出的两件事：env 注入与日志重定向。
+- **定位**（纯 C 探针逐参数二分）：日志重定向与 hStdInput 无罪；env 块一上就 87——cmd /c echo、notepad 同样复现，与目标 exe 无关；最小干净块（`A=1` 双 NUL）、`GetEnvironmentStringsW` 全量照搬、BOM 前缀块全灭；**CreateProcessA + ANSI 块正常，CreateProcessW + NULL env 正常**——拒的就是「W 版 API × 宽字符环境块」这一组合。
+- **机制**：CreateProcessW 对环境块按内容自判宽窄（看第二字节是否为 0）。本 VM（Win10 19044）上宽布局块整路被拒（内核侧 87），ANSI 布局块正常收——moon 自己的子进程链没踩是因为它走的 ANSI。普通 Win10 不会这样，但这台门禁 VM 实测如此，工程侧按能工作的形状走。
+- **修法**：`proc_stub.c` 的 `mngpr_env_block` 改按 ANSI 布局构造——当前环境取 `GetEnvironmentStringsA`，注入值经 UTF-8 → ACP 转换。注入项（`MNG_INSPECT` 一类开关与 ASCII app-id）在 ANSI 下无损；值含 ACP 外字符会失真，工具侧注入约定 ASCII。
+- **判据**：Windows 上给子进程注入环境的工具，环境块按 ANSI 布局拼（内容判定下 ANSI 块 W/A 两版 API 都收）；遇 CreateProcessW 87 且 NULL env 能起，第一嫌疑就是环境块布局，探针换 ANSI 布局一步验真。

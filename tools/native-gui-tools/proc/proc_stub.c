@@ -113,15 +113,21 @@ int32_t mngpr_run_wait(const char *file, const char *blob, int32_t len,
 }
 
 // 环境注入：当前环境块 + 覆盖项（KEY=VALUE，UTF-8 blob）→ CreateProcessW 的
-// 宽字符环境块（条目 \0 分隔、双 \0 结尾）。无注入项返回 NULL（= 继承）。
-static wchar_t *mngpr_env_block(const char *env_blob, int32_t env_len) {
+// 环境块（条目 \0 分隔、双 \0 结尾）。无注入项返回 NULL（= 继承）。
+// **块按 ANSI 布局构造**：CreateProcessW 对环境块按内容自判宽窄（看第二字节
+// 是否为 0），实测 Win10 19044 上宽字符块一律被拒（ERROR_INVALID_PARAMETER=87，
+// cmd/notepad 同样复现，BOM 前缀不救），ANSI 块正常收。当前环境取
+// GetEnvironmentStringsA，注入值经 UTF-8 → ACP 转换——注入项（MNG_INSPECT
+// 一类开关与 ASCII app-id）在 ANSI 下无损；值含 ACP 外字符时会失真，
+// 工具侧注入约定 ASCII。
+static char *mngpr_env_block(const char *env_blob, int32_t env_len) {
   if (env_blob == NULL || env_len <= 0) {
     return NULL;
   }
   // 解析注入项（KEY/VALUE 拷进有限缓冲，键名按 ASCII 处理）
   #define MNGPR_ENV_MAX 64
-  wchar_t keys[MNGPR_ENV_MAX][128];
-  wchar_t vals[MNGPR_ENV_MAX][1024];
+  char keys[MNGPR_ENV_MAX][128];
+  char vals[MNGPR_ENV_MAX][1024];
   int32_t n = 0;
   int32_t i = 0;
   while (i < env_len && n < MNGPR_ENV_MAX) {
@@ -141,10 +147,8 @@ static wchar_t *mngpr_env_block(const char *env_blob, int32_t env_len) {
         wchar_t *wk = mngpr_wide(kv);
         wchar_t *wv = mngpr_wide(eq + 1);
         if (wk != NULL && wv != NULL) {
-          wcsncpy(keys[n], wk, 127);
-          keys[n][127] = 0;
-          wcsncpy(vals[n], wv, 1023);
-          vals[n][1023] = 0;
+          WideCharToMultiByte(CP_ACP, 0, wk, -1, keys[n], (int)sizeof(keys[n]), NULL, NULL);
+          WideCharToMultiByte(CP_ACP, 0, wv, -1, vals[n], (int)sizeof(vals[n]), NULL, NULL);
           n++;
         }
         if (wk) { free(wk); }
@@ -158,53 +162,51 @@ static wchar_t *mngpr_env_block(const char *env_blob, int32_t env_len) {
   }
   // 取当前环境逐条照搬，同名键用注入值替换
   size_t cap = 4096;
-  wchar_t *out = (wchar_t *)calloc(cap, sizeof(wchar_t));
+  char *out = (char *)calloc(cap, 1);
   if (out == NULL) {
     return NULL;
   }
   size_t used = 0;
-  wchar_t *cur = GetEnvironmentStringsW();
+  char *cur = GetEnvironmentStringsA();
   if (cur != NULL) {
-    wchar_t *p = cur;
+    char *p = cur;
     while (*p) {
-      wchar_t *eq = wcschr(p, L'=');
+      char *eq = strchr(p, '=');
       int replaced = 0;
       if (eq != NULL && eq != p) {
         for (int32_t k = 0; k < n; k++) {
-          size_t kl = wcslen(keys[k]);
-          if ((size_t)(eq - p) == kl && wcsncmp(p, keys[k], kl) == 0) {
+          size_t kl = strlen(keys[k]);
+          if ((size_t)(eq - p) == kl && strncmp(p, keys[k], kl) == 0) {
             replaced = 1;
             break;
           }
         }
       }
       if (!replaced) {
-        size_t l = wcslen(p);
+        size_t l = strlen(p);
         while (used + l + 2 >= cap) {
           cap *= 2;
-          wchar_t *nxt = (wchar_t *)realloc(out, cap * sizeof(wchar_t));
+          char *nxt = (char *)realloc(out, cap);
           if (nxt == NULL) { break; }
           out = nxt;
         }
-        wcscpy(out + used, p);
+        strcpy(out + used, p);
         used += l + 1;
       }
-      p += wcslen(p) + 1;
+      p += strlen(p) + 1;
     }
-    FreeEnvironmentStringsW(cur);
+    FreeEnvironmentStringsA(cur);
   }
   for (int32_t k = 0; k < n; k++) {
-    size_t l = wcslen(keys[k]) + 1 + wcslen(vals[k]);
+    size_t l = strlen(keys[k]) + 1 + strlen(vals[k]);
     while (used + l + 2 >= cap) {
       cap *= 2;
-      wchar_t *nxt = (wchar_t *)realloc(out, cap * sizeof(wchar_t));
+      char *nxt = (char *)realloc(out, cap);
       if (nxt == NULL) { break; }
       out = nxt;
     }
-    int wn = swprintf(out + used, cap - used, L"%s=%s", keys[k], vals[k]);
-    if (wn > 0) {
-      used += (size_t)wn + 1;
-    }
+    sprintf(out + used, "%s=%s", keys[k], vals[k]);
+    used += l + 1;
   }
   out[used] = 0;
   return out;
@@ -224,7 +226,7 @@ static int32_t mngpr_start(const char *file, const char *blob, int32_t len,
     mngpr_err = (int32_t)GetLastError();
     return -1;
   }
-  wchar_t *envblock = mngpr_env_block(env_blob, env_len);
+  char *envblock = mngpr_env_block(env_blob, env_len);
   STARTUPINFOW si;
   memset(&si, 0, sizeof(si));
   si.cb = sizeof(si);
