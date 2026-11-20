@@ -39,6 +39,7 @@ int pt_render_stats(int64_t *calls, int64_t *d2d_us, int64_t *read_us) {
 // RTL 文本 run 基方向：0=LTR(默认,逐字同现状) 1=RTL。opt-in，仅当应用调
 // pt_set_base_dir(1) 后生效;置位时清空布局缓存,并把该标志并入缓存键防串味。
 static int g_pt_rtl = 0;
+static PangoContext *g_pt_ctx = NULL;
 
 /* 内嵌回退字体：无字体环境（最小安装/容器）里 Pango 匹配不到任何族，量出
  * 宽 0、画豆腐块。系统有字体时绝不干预；探到零族才把随包发布的子集 ttf
@@ -92,12 +93,17 @@ static PangoLayout *pt_make_layout(const char *text, int len, double size,
   if (fm == NULL) {
     return NULL;
   }
-  PangoContext *ctx = pango_font_map_create_context(fm);
-  if (ctx == NULL) {
-    return NULL;
+  /* 排版上下文按进程复用。每段文字新建上下文会让 Pango 的字体与缓存
+     逐条累积，1Hz 刷新下常驻内存线性上涨；上下文本身无调用态，共用一份。 */
+  if (g_pt_ctx == NULL) {
+    g_pt_ctx = pango_font_map_create_context(fm);
+    if (g_pt_ctx == NULL) {
+      return NULL;
+    }
+    pango_context_set_base_dir(g_pt_ctx, g_pt_rtl ? PANGO_DIRECTION_RTL
+                                                  : PANGO_DIRECTION_LTR);
   }
-  PangoLayout *layout = pango_layout_new(ctx);
-  g_object_unref(ctx);
+  PangoLayout *layout = pango_layout_new(g_pt_ctx);
   if (layout == NULL) {
     return NULL;
   }
@@ -115,9 +121,6 @@ static PangoLayout *pt_make_layout(const char *text, int len, double size,
   }
   pango_layout_set_font_description(layout, desc);
   pango_font_description_free(desc);
-  pango_context_set_base_dir(pango_layout_get_context(layout),
-                             g_pt_rtl ? PANGO_DIRECTION_RTL
-                                       : PANGO_DIRECTION_LTR);
   // 段落方向钉死在上下文档上：auto_dir（缺省开）按首强字符逐段改判，LEFT/RIGHT
   // 对齐档跟着段落方向走（首字为 RTL 的段 ALIGN_RIGHT 落左缘），与 mac/Win
   // 的绝对左右档不一致。实测与教训见 experience/adaptation.md「RTL 行不贴右缘」。
@@ -213,6 +216,10 @@ static void pt_cache_clear(void) {
 void pt_set_base_dir(int rtl) {
   if (g_pt_rtl != (rtl ? 1 : 0)) {
     g_pt_rtl = rtl ? 1 : 0;
+    if (g_pt_ctx != NULL) {
+      pango_context_set_base_dir(g_pt_ctx, g_pt_rtl ? PANGO_DIRECTION_RTL
+                                                    : PANGO_DIRECTION_LTR);
+    }
     pt_cache_clear();
   }
 }

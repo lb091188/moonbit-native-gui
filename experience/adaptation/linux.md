@@ -972,3 +972,17 @@ showcase 在 Linux 上「有 GPU 就白屏 / 黑屏 / 点击不更新」的现�
 - **容器跑门禁的两条环境差异**：①dbus 测试要 `dbus-run-session` 包真会话（容器无系统总线）；②与 CI 完整 VM 的两处读数差——`appfind_installed` 扫 `/usr/share/applications` 只见 `NoDisplay=true` 条目会得空清单（CI 机器有桌面应用，容器补一个可见的 .desktop 桩即可，库的过滤行为本身正确）；at-spi 真总线集成用例同理对环境敏感。
 - **门禁脚本里 SSH 转发 `docker exec bash -c` 的引号陷阱**：`local R="ssh ... docker exec ... bash -c"` 再 `$R "cmd"` 的封装法，SSH 在远端 shell 重拼参数时会把 `bash -c` 后的命令碎成「$0 + `&&` 段」，后半段跑到宿主机执行、容器内的 `cd` 没生效——症状是 `moon: 未找到命令` 且各步莫名失败。定案：整条远程命令用 `ssh host "docker exec ctr bash -c '<整条命令>'"` 单引号包成单个参数，`&&` / 重定向 / 环境变量赋值全在单引号内，不拆变量。
 - **bare 腿容器 natigui-bare**：CI linux-bare 的本地等价——`ubuntu:24.04` 最小依赖镜像（不含 GTK/Pango/X11/字体开发包，只装编译器/pkg-config/dbus/ffmpeg dev），挂同一份 repo 与 moon，容器名 natigui-bare，重建脚本 company:~/natigui/setup-container.sh 一并固化。判定三件：测试全绿 + stderr 有「已降级占位桩」+ 绘制类 skip [需真后端]，缺一即失败。本地 `.mng` 那是运行产物目录，脚本 find 要加 `-type f` 才不会误把名为 `.mng` 的目录当模板。
+
+## Pango 排版上下文逐次新建导致常驻内存线性上涨
+
+- 时间：2026-11-20
+- 来源：sysmonitor 长跑 RSS 曲线 + company Linux 容器逐层排除
+
+- **症状**：sysmonitor 在 Linux 上 RSS 从 264 MB 线性涨到 286 MB／小时，`RssAnon` 同步涨 21 MB，`RssFile` 不动；匿名堆映射半小时从 40 MB 涨到 49.5 MB。
+- **口径**：258 MB 的 RSS 里 185 MB 是共享的文件映射，主要是显卡驱动、GTK 与 CJK 字体；按共享比例摊分的 `Pss` 约 153 MB，才接近真实成本。判断泄漏看 `RssAnon` 曲线，不看 RSS 总数。
+- **排除路径**：关掉 1Hz 采样仍在涨；关掉 Pango 文本绘制后走平；所以泄漏在文本绘制链路，不在采样与数据层。
+- **根因**：`gui/text/stub.c` 的 Pango 分支每段文字都新建一个排版上下文。
+  - 排版上下文是 Pango 用来记字体与布局配置的对象。
+  - Pango 按上下文留字体与字形缓存，上下文不断新建就只增不减。
+- **修法**：上下文改为进程内复用一份，基线方向在上下文创建与切换时设置；布局仍按文本键缓存、上限不变。
+- **实测**：company 容器 Xvfb 下，修前 80 秒涨约 0.6 MB，修后 3 分钟只涨 0.2 MB 且后段走平；`moon check --deny-warn` 零警告，`moon test text` 49/49。
