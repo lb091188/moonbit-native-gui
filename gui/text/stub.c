@@ -1417,8 +1417,39 @@ static CFStringRef pt_cfstr(const char *s, int len) {
 
 // CSS 口径 100..900（0 = 缺省 400）→ CTFont。CoreText 的符号特征只有「粗/斜」
 // 两档，细体与半粗拿不到真 weight，退化成常规/粗体（记档在 adaptation）。
+// 字体对象按配置常驻缓存。CoreText 按字体对象缓存字形，每次新建 CTFontRef
+// 都在它内部留下一条记录；1Hz 刷新界面每秒新建上百个字体对象，常驻内存
+// 因此线性上涨。键是族名 + 字号 + 字重 + 斜体，命中即加引用返回。
+#define PT_FONT_CACHE_CAP 256
+typedef struct {
+  char family[128];
+  int flen;
+  int size_q;
+  int weight;
+  int italic;
+  CTFontRef font;
+} PtFontEntry;
+static PtFontEntry g_font_cache[PT_FONT_CACHE_CAP];
+static int g_font_cache_n = 0;
+
 static CTFontRef pt_font(const char *family, int flen, double size, int weight,
                          int italic) {
+  const char *fam = (family != NULL && flen > 0) ? family : "";
+  if (flen < 0) {
+    flen = 0;
+  }
+  if (flen > (int)sizeof(g_font_cache[0].family) - 1) {
+    flen = (int)sizeof(g_font_cache[0].family) - 1;
+  }
+  int size_q = (int)(size * 100.0 + 0.5);
+  for (int i = 0; i < g_font_cache_n; i++) {
+    PtFontEntry *e = &g_font_cache[i];
+    if (e->flen == flen && e->size_q == size_q && e->weight == weight &&
+        e->italic == italic && memcmp(e->family, fam, (size_t)flen) == 0) {
+      CFRetain(e->font);
+      return e->font;
+    }
+  }
   CTFontRef base = NULL;
   CFStringRef name = NULL;
   int has_family = family != NULL && flen != 0 &&
@@ -1460,7 +1491,18 @@ static CTFontRef pt_font(const char *family, int flen, double size, int weight,
   }
   if (tuned != NULL) {
     CFRelease(base);
-    return tuned;
+    base = tuned;
+  }
+  if (g_font_cache_n < PT_FONT_CACHE_CAP) {
+    PtFontEntry *e = &g_font_cache[g_font_cache_n++];
+    memcpy(e->family, fam, (size_t)flen);
+    e->family[flen] = '\0';
+    e->flen = flen;
+    e->size_q = size_q;
+    e->weight = weight;
+    e->italic = italic;
+    e->font = base;
+    CFRetain(base);
   }
   return base;
 }
