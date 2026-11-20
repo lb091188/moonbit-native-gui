@@ -134,6 +134,7 @@ struct ProcPage {
   sel : @base.Store[Array[Int32]]
   msg : @base.Store[String]
   status : @base.Store[String]
+  mem : @base.Store[String]
   sort : @base.Store[@ui.TableSort]
   mut pids : Array[Int32]
   mut query : String
@@ -175,6 +176,7 @@ fn ProcPage::rebuild(self : ProcPage, procs : Array[ProcInfo]) -> Unit {
     }
   }
   self.sel.set(new_sel)
+  self.sync_mem(procs)
   let base = if pids.length() == procs.length() {
     "进程总数 \{procs.length()}"
   } else {
@@ -187,6 +189,24 @@ fn ProcPage::rebuild(self : ProcPage, procs : Array[ProcInfo]) -> Unit {
       base
     },
   )
+}
+
+///|
+/// 按钮后的内存读数：只取第一行选中项，多选时不累加。
+fn ProcPage::sync_mem(self : ProcPage, procs : Array[ProcInfo]) -> Unit {
+  let sel = self.sel.get()
+  if sel.length() == 0 || sel[0] < 0 || sel[0] >= self.pids.length() {
+    self.mem.set("内存 RSS —")
+    return
+  }
+  let pid = self.pids[sel[0]]
+  for p in procs {
+    if p.pid == pid {
+      self.mem.set("内存 RSS \{fmt_kb(p.rss_kb)}")
+      return
+    }
+  }
+  self.mem.set("内存 RSS —")
 }
 
 ///|
@@ -261,6 +281,7 @@ fn page_process(app : App) -> @widget.Node {
     sel: @base.Store::new([]),
     msg: @base.Store::new(""),
     status: @base.Store::new("采样中…"),
+    mem: @base.Store::new("内存 RSS —"),
     // 初始排序：CPU% 降序（列 3）
     sort: @base.Store::new(@ui.TableSort::{ column: 3, asc: false, }),
     pids: [],
@@ -269,6 +290,8 @@ fn page_process(app : App) -> @widget.Node {
   // 初始数据 + 订阅 1Hz 刷新（增量：只重算派生数据，不重建视图树）
   page.rebuild(app.procs.get())
   app.procs.subscribe(fn(procs) { page.rebuild(procs) })
+  // 点行改选择时只刷新按钮后的内存读数，不重建派生数据
+  page.sel.subscribe(fn(_s) { page.sync_mem(app.procs.get()) })
   // 表头排序点击（table_v 组件内切换 Store）→ 重建数据
   page.sort.subscribe(fn(_s) { page.rebuild(app.procs.get()) })
 
@@ -303,6 +326,16 @@ fn page_process(app : App) -> @widget.Node {
       )
     }
   }
+  // 选中行的内存读数紧跟操作按钮，只取第一行选中项
+  tools.push(
+    @ui.text_dyn(
+      page.mem.signal(),
+      font_size=12.0,
+      color="text_secondary",
+      wrap=false,
+      handle=fn(w) { w.node.set_width(@yoga.fixed(160.0)) },
+    ),
+  )
   // 进程总数/选中数贴右（工具行剩余宽全给它）
   tools.push(
     @ui.text_dyn(
