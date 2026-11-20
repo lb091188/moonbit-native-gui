@@ -466,11 +466,12 @@ fn spit(p : String, s : String) -> Bool {
 }
 
 ///|
+/// 文件名部分：分隔符认 `/` 与 `\`（Windows 反斜杠路径退目录名时不整条穿透）。
 fn basename(p : String) -> String {
   let a = chars_of(p)
   let mut start = 0
   for k, c in a {
-    if c == '/' {
+    if c == '/' || c == '\\' {
       start = k + 1
     }
   }
@@ -480,7 +481,7 @@ fn basename(p : String) -> String {
 ///|
 /// 工具版本：每落地一批改动 +1（用户重装后凭 --version 区分新旧二进制）。
 /// lsp serverInfo 同源取此常量。
-const MNG_VERSION : String = "0.2.12"
+const MNG_VERSION : String = "0.2.13"
 
 ///|
 /// --version：版本与 mng-schema 位（编辑器插件启动时握手，对不上则补全降级）。

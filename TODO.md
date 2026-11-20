@@ -80,6 +80,7 @@
   - 范围：含 hover 的 `moon ide` 桥。
 - [ ] **Windows dev 唤醒**：Windows 下 `mng dev` 唤醒链路真机验证
   - 补充：真机执行。
+  - 前置已修：build 派生按 host 分流（win 走 `cmd /c` + 临时目录认 TEMP）、source map 落点与 lsp 反查认反斜杠——`mng dev` 在 Windows `run` 留空也应直起，不再报「sh 起不来」与「写不出 source map」。
   - 状态：已合入待真机。
 - [ ] **握手与折层**：
   - HOT：热更新，小改动不重启应用、原位生效。

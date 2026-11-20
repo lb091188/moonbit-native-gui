@@ -17,11 +17,39 @@ test "rel_under：项目根下的相对包路径，根外退回目录名" {
 }
 
 ///|
+test "rel_under：Windows 反斜杠路径出正斜杠相对包路径" {
+  assert_eq(rel_under("C:\\ws\\app", "C:\\ws\\app\\pages"), "pages")
+  assert_eq(rel_under("C:\\ws\\app", "C:\\ws\\app\\pages\\sub"), "pages/sub")
+  assert_eq(rel_under("C:\\ws\\app", "C:\\ws\\app"), "app")
+  assert_eq(rel_under("C:\\ws\\app", "C:\\elsewhere\\pages"), "pages")
+}
+
+///|
 test "dev_map_path：map 落 .mng/map/<相对包路径>/<stem>.gen.mbt.map" {
   assert_eq(
     dev_map_path("/ws/app/.mng", "/ws/app", "/ws/app/pages/dev_demo.mng"),
     "/ws/app/.mng/map/pages/dev_demo.gen.mbt.map",
   )
+}
+
+///|
+test "dev_map_path：Windows 反斜杠路径同样落 .mng/map，rel 段正斜杠" {
+  assert_eq(
+    dev_map_path("C:\\ws\\app\\.mng", "C:\\ws\\app", "C:\\ws\\app\\pages\\dev_demo.mng"),
+    "C:\\ws\\app\\.mng/map/pages/dev_demo.gen.mbt.map",
+  )
+  assert_eq(
+    dev_map_path("C:\\ws\\app\\.mng", "C:\\ws\\app", "C:\\ws\\app\\hello.mng"),
+    "C:\\ws\\app\\.mng/map/app/hello.gen.mbt.map",
+  )
+}
+
+///|
+test "basename：认双分隔符，反斜杠不整条穿透" {
+  assert_eq(basename("C:\\ws\\app\\hello.mng"), "hello.mng")
+  assert_eq(basename("/ws/app/hello.mng"), "hello.mng")
+  assert_eq(basename("hello.mng"), "hello.mng")
+  assert_eq(basename("C:\\ws\\app"), "app")
 }
 
 ///|

@@ -186,10 +186,13 @@ fn check_items_from_log(
 ///|
 /// dev source map 落点（与 dev 循环的 dev_map_path 同式）：`.mng/map/<模板
 /// 相对项目根的包路径>/<stem>.gen.mbt.map`。
+/// root 先把反斜杠归一成正斜杠再比对：dir 侧 normalize_path 出来的天然
+/// 正斜杠，root 带 `C:\…` 时 prefix 比对必失败，map 反查会整体落空。
 fn check_map_path(root : String, mng_path : String) -> String {
   let dir = dir_name_of_lsp(mng_path)
-  let rel = if dir.has_prefix(root + "/") {
-    dir[root.length() + 1:].to_owned()
+  let rn = slash_of(root)
+  let rel = if dir.has_prefix(rn + "/") {
+    dir[rn.length() + 1:].to_owned()
   } else {
     // 根外（无法定位项目布局）：map 反查不到就跳过，不猜路径
     ""

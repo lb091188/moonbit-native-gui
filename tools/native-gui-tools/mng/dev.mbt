@@ -79,12 +79,27 @@ fn mkdir_p(dir : String) -> Bool {
 }
 
 ///|
+/// 反斜杠归一成正斜杠：Windows 原生路径进「只按 `/` 切、拼」的落点前先过这里。
+fn slash_of(p : String) -> String {
+  let out = StringBuilder()
+  for c in chars_of(p) {
+    out.write_char(if c == '\\' { '/' } else { c })
+  }
+  out.to_string()
+}
+
+///|
 /// 路径 → 相对项目根的包路径（不在根下则退回其目录名）。
+/// 分隔符认 `/` 与 `\`：Windows 的 conf_dir 与模板路径天然反斜杠，
+/// 只认 `/` 时整条绝对路径会被当包名塞进 map 落点（中间冒号写不出）；
+/// 返回统一正斜杠——map 落点要过 mkdir_p（按 `/` 切），反斜杠段切不开。
 fn rel_under(root : String, p : String) -> String {
-  if p.has_prefix(root + "/") {
-    p[root.length() + 1:].to_owned()
+  let rn = slash_of(root)
+  let pn = slash_of(p)
+  if pn.has_prefix(rn + "/") {
+    slash_of(p[root.length() + 1:].to_owned())
   } else {
-    basename(p)
+    slash_of(basename(p))
   }
 }
 
@@ -186,23 +201,59 @@ fn sh_arg(p : String) -> String {
 }
 
 ///|
+/// 塞进 cmd 重定向的路径：含空白就加双引号（cmd 的引号口径，sh_arg 的单引号
+/// 在 cmd 里只是普通字符）。
+fn cmd_arg(p : String) -> String {
+  if p.contains(" ") {
+    "\"" + p + "\""
+  } else {
+    p
+  }
+}
+
+///|
 /// 跑一次 build 并从输出里抓可执行路径（`Artifacts:` 段里属于本模块的那一行）。
-/// 只在 `run` 未配置时用；build 本身走 `sh -c` 以拿到输出。
+/// 只在 `run` 未配置时用；build 本身走 shell 重定向以拿到输出——POSIX `sh -c`，
+/// Windows `cmd /c`（`>` 与 `2>&1` cmd 原生认）。
 fn derive_run(
   build_cmd : String,
   module_name : String,
 ) -> Result[String, String] {
-  let tmp = match @env.get_env_var("TMPDIR") {
-    Some(d) if d != "" => d
-    _ => "/tmp"
+  let win = match @env.get_env_var("OS") {
+    Some("Windows_NT") => true
+    _ => false
+  }
+  // 临时目录按平台取：Windows 认 TEMP/TMP（`/tmp` 在 Windows CRT 是「当前盘
+  // 根下的 tmp」、多半不存在），POSIX 认 TMPDIR（/tmp 兜底）。
+  let tmp = if win {
+    match @env.get_env_var("TEMP") {
+      Some(d) if d != "" => d
+      _ =>
+        match @env.get_env_var("TMP") {
+          Some(d) if d != "" => d
+          _ => "."
+        }
+    }
+  } else {
+    match @env.get_env_var("TMPDIR") {
+      Some(d) if d != "" => d
+      _ => "/tmp"
+    }
   }
   let log = tmp + "/mng-dev-build.log"
-  let cmd = build_cmd + " > " + sh_arg(log) + " 2>&1"
-  match @proc.run_wait("sh", ["-c", cmd], 600000) {
-    Err(e) =>
-      return Err(
-        "build 跑不起来（" + e + "）——Windows 请显式配置 run",
-      )
+  // Windows 把整条命令行拼成单个参数：mngpr_cmdline 给每个参数整体加双引号，
+  // cmd 的老规则剥掉首尾引号后正好还原，内嵌重定向照常解析。POSIX 仍 sh -c。
+  let r = if win {
+    @proc.run_wait(
+      "cmd",
+      ["/c " + build_cmd + " > " + cmd_arg(log) + " 2>&1"],
+      600000,
+    )
+  } else {
+    @proc.run_wait("sh", ["-c", build_cmd + " > " + sh_arg(log) + " 2>&1"], 600000)
+  }
+  match r {
+    Err(e) => return Err("build 跑不起来（" + e + "）——请显式配置 run")
     Ok(code) =>
       if code != 0 {
         // 构建失败：把日志尾巴打出来

@@ -642,6 +642,18 @@ test "check_map_path：模板在子包与根包两种落点" {
 }
 
 ///|
+test "check_map_path：Windows 反斜杠 root 归一后比对不落空" {
+  assert_eq(
+    check_map_path("C:\\w\\app", "C:\\w\\app\\pages\\hello.mng"),
+    "C:\\w\\app/.mng/map/pages/hello.gen.mbt.map",
+  )
+  assert_eq(
+    check_map_path("C:\\w\\app", "C:\\elsewhere\\hello.mng"),
+    "C:\\w\\app/.mng/map/hello.gen.mbt.map",
+  )
+}
+
+///|
 test "stem_of_path / dir_name_of_lsp：basename 去 stem、目录部分" {
   assert_eq(stem_of_path("/w/app/pages/dev_demo.mng"), "dev_demo")
   assert_eq(dir_name_of_lsp("/w/app/pages/hello.mng"), "/w/app/pages")
