@@ -670,3 +670,9 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **修法**：仓库放短路径。本 VM 门禁标准位是 `C:\natigui\repo`，另开的临时副本同盘 `move` 到 `C:\natigui\wb`——同盘 move 是改名不是复制，秒完成——挪完删 `_build` 再编，旧产物按老长路径生成、不可信。
 - **不奏效的路**：注册表 `LongPathsEnabled` 开了也没用——崩的不是系统拒绝长路径，是 moonc 自己处理 `\\?\` 前缀；升级 moonc 可能修复，仓库放短路径才是稳态。
 - **验证**：`cd C:\natigui\wb\examples\hello && moon build` 全仓 234 tasks 零错误，崩溃消失；长路径下同一命令必炸。`moon run .` 起窗留待真机。
+
+## mng dev 在 Windows 起不来 build：shell 包装两层全是坑，proc 原生重定向才是正路 · 2026-11-20 win10 VM 真机
+
+- **现象两层**：第一层 `sh -c` 硬钉——Windows 无 `sh`，spawn 直接 errno=2。第二层改 `cmd /c` 把整条命令串成单参整体加引号——`cmd "/c moon build . > 日志 2>&1"` 经 CreateProcessW 落地后实测 moon 收不到 `.`，clap 报 `[PATH]...` 缺值退出 2；交互式 cmd 里同串手敲却正常，差的就是引号怎么落——cmd 的 `/C` 引号规则只作用于开关之后，开关本身在引号里时解析走样。
+- **修法**：build 派生彻底弃 shell——`split_cmd` 拆词 + `@proc.spawn_wait(file, args, 日志路径)`，proc 的 out_path 本来就是 `> log 2>&1` 的原生等价物，三平台同一条路，引号转义问题整体消失。
+- **判据**：工具侧要「跑命令并收输出」，优先 proc 的 spawn / spawn_wait 带 out_path；只有命令必须是 shell 语法（管道、`&&`）时才引 shell，而一旦引 shell 就得按平台各备一套引号口径并真机各验一遍。`mng.toml` 的 build 相应按单条命令约定写（如 `moon build .`），shell 语法不支持。

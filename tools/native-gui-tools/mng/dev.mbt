@@ -185,74 +185,40 @@ fn filter_files(spec : String) -> Array[String] {
 }
 
 ///|
-/// 塞进 `sh -c` 的路径：反斜杠换正斜杠（sh 会把 `\` 当转义吃掉，Windows 的
-/// `C:\Users\…` 会变成 `C:Users…`），含空白就加单引号。
-fn sh_arg(p : String) -> String {
-  let out = StringBuilder()
-  for c in chars_of(p) {
-    out.write_char(if c == '\\' { '/' } else { c })
-  }
-  let s = out.to_string()
-  if s.contains(" ") {
-    "'" + s + "'"
-  } else {
-    s
-  }
-}
-
 ///|
-/// 塞进 cmd 重定向的路径：含空白就加双引号（cmd 的引号口径，sh_arg 的单引号
-/// 在 cmd 里只是普通字符）。
-fn cmd_arg(p : String) -> String {
-  if p.contains(" ") {
-    "\"" + p + "\""
-  } else {
-    p
+/// 临时日志目录按平台取：Windows 认 TEMP/TMP（`/tmp` 在 Windows CRT 是
+/// 「当前盘根下的 tmp」、多半不存在），POSIX 认 TMPDIR（/tmp 兜底）。
+fn dev_tmp_dir() -> String {
+  match @env.get_env_var("TMPDIR") {
+    Some(d) if d != "" => return d
+    _ => ()
+  }
+  match @env.get_env_var("TEMP") {
+    Some(d) if d != "" => return d
+    _ => ()
+  }
+  match @env.get_env_var("TMP") {
+    Some(d) if d != "" => d
+    _ => "/tmp"
   }
 }
 
 ///|
 /// 跑一次 build 并从输出里抓可执行路径（`Artifacts:` 段里属于本模块的那一行）。
-/// 只在 `run` 未配置时用；build 本身走 shell 重定向以拿到输出——POSIX `sh -c`，
-/// Windows `cmd /c`（`>` 与 `2>&1` cmd 原生认）。
+/// 只在 `run` 未配置时用；输出由 spawn_wait 原生重定向收进日志——**不走
+/// shell**：`sh -c` / `cmd /c` 都要把整条命令串进一个引号参数，Windows 实测
+/// cmd 会把引号里的参数吃坏（真机复现：moon 收不到 `.`，clap 报 `[PATH]...`
+/// 缺值退出 2）；`mng.toml` 的 build 按单条命令约定写，split_cmd 直拆即用。
 fn derive_run(
   build_cmd : String,
   module_name : String,
 ) -> Result[String, String] {
-  let win = match @env.get_env_var("OS") {
-    Some("Windows_NT") => true
-    _ => false
+  let log = dev_tmp_dir() + "/mng-dev-build.log"
+  let (bfile, bargs) = match split_cmd(build_cmd) {
+    Some((f, a)) => (f, a)
+    None => return Err("build 命令为空——请在 mng.toml 配 build")
   }
-  // 临时目录按平台取：Windows 认 TEMP/TMP（`/tmp` 在 Windows CRT 是「当前盘
-  // 根下的 tmp」、多半不存在），POSIX 认 TMPDIR（/tmp 兜底）。
-  let tmp = if win {
-    match @env.get_env_var("TEMP") {
-      Some(d) if d != "" => d
-      _ =>
-        match @env.get_env_var("TMP") {
-          Some(d) if d != "" => d
-          _ => "."
-        }
-    }
-  } else {
-    match @env.get_env_var("TMPDIR") {
-      Some(d) if d != "" => d
-      _ => "/tmp"
-    }
-  }
-  let log = tmp + "/mng-dev-build.log"
-  // Windows 把整条命令行拼成单个参数：mngpr_cmdline 给每个参数整体加双引号，
-  // cmd 的老规则剥掉首尾引号后正好还原，内嵌重定向照常解析。POSIX 仍 sh -c。
-  let r = if win {
-    @proc.run_wait(
-      "cmd",
-      ["/c " + build_cmd + " > " + cmd_arg(log) + " 2>&1"],
-      600000,
-    )
-  } else {
-    @proc.run_wait("sh", ["-c", build_cmd + " > " + sh_arg(log) + " 2>&1"], 600000)
-  }
-  match r {
+  match @proc.spawn_wait(bfile, bargs, log, 600000) {
     Err(e) => return Err("build 跑不起来（" + e + "）——请显式配置 run")
     Ok(code) =>
       if code != 0 {

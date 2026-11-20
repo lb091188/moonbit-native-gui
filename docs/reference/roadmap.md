@@ -498,7 +498,7 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
   - v-for 生成器：嵌套 / 缺 key 报错。
   - 项目级 `mng build`：按 `mng.toml` 一次生成全工程生产形态。
   - watch 覆盖面：模板与工程源文件增删改均并入本拍。
-  - Windows 零配置 dev：build 派生从 `sh` 硬钉改 host 分流（win 走 `cmd /c`、临时目录认 TEMP）、source map 落点与 lsp 反查认反斜杠——win 下 `run` 留空可直起
+  - Windows 零配置 dev：build 派生弃 shell 改 spawn_wait 原生重定向（Windows 实测 cmd 单参引号会吃参数）、source map 落点与 lsp 反查认反斜杠——win 下 `run` 留空可直起
     - 平台状态：🚧已合入待真机
   - 待验：v-for 复用、新增 / 删模板重启、双形态提交、win 零配置 dev
 - ✅ **mngdev 库包与工具链联动**：dev 热更面进库，`mng new` 工程脚手架，`mng lsp` 保存即 regen + 类型错误回投 Problems
