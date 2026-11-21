@@ -689,6 +689,9 @@ static LRESULT CALLBACK wm_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
           w->resized = 1;
           w->need_draw = 1;
           wm_crash_mark("wm_size", cw, ch);
+          char nbuf[64];
+          snprintf(nbuf, sizeof nbuf, "size -> %dx%d", cw, ch);
+          wm_crash_note(nbuf);
         } else if (cw > 0 && ch > 0 && w->l1.stale) {
           // 从最小化还原、且尺寸没变：WM_SIZE 不会置脏，但遮挡期间屏幕内容
           // 已不保证有效；GPU 档下 WM_PAINT 又不画东西，必须主动要一帧
@@ -4793,6 +4796,7 @@ void wm_window_set_fullscreen(int64_t id, int on) {
                  mi.rcMonitor.bottom - mi.rcMonitor.top,
                  SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
     win->fullscreen = 1;
+    wm_crash_note("fs enter");
   } else {
     SetWindowLongPtrW(win->hwnd, GWL_STYLE, win->fs_style);
     SetWindowPlacement(win->hwnd, &win->fs_wp);
@@ -4800,6 +4804,7 @@ void wm_window_set_fullscreen(int64_t id, int on) {
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOOWNERZORDER |
                      SWP_FRAMECHANGED);
     win->fullscreen = 0;
+    wm_crash_note("fs exit");
   }
 }
 
