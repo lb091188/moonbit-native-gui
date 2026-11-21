@@ -167,6 +167,10 @@ typedef struct {
   int32_t y;
   int32_t dx;
   int32_t dy;
+  // 精确滚量（±1 是方向刻度；这里带幅度：Windows delta/120、GTK smooth 增量、
+  // mac scrollingDelta）。0 = 平台只给了方向刻度，消费方回退 int 槽。
+  double dx_f;
+  double dy_f;
   uint32_t mods;
 } WmEv;
 
@@ -877,8 +881,10 @@ static LRESULT CALLBACK wm_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         // GTK 桩口径：上/左 = 1，下/右 = -1
         if (msg == WM_MOUSEWHEEL) {
           e.dy = delta > 0 ? 1 : -1;
+          e.dy_f = (double)delta / 120.0;
         } else {
           e.dx = delta > 0 ? -1 : 1;
+          e.dx_f = (double)delta / -120.0;
         }
         e.mods = wm_mods();
         wm_push(w, &e);
@@ -1744,6 +1750,12 @@ int32_t wm_ev_button(int64_t id) {
 }
 int32_t wm_ev_axis(int64_t id) {
   return id > 0 && id < WM_MAX_WINDOWS ? wm_windows[id].last.dy : 0;
+}
+double wm_ev_button_f(int64_t id) {
+  return id > 0 && id < WM_MAX_WINDOWS ? wm_windows[id].last.dx_f : 0.0;
+}
+double wm_ev_axis_f(int64_t id) {
+  return id > 0 && id < WM_MAX_WINDOWS ? wm_windows[id].last.dy_f : 0.0;
 }
 
 int wm_pending_events(int64_t id) {
@@ -5331,6 +5343,9 @@ typedef struct {
   gint32 y;
   gint32 dx;
   gint32 dy;
+  // 精确滚量（GTK smooth 增量；0 = 回退方向刻度）
+  double dx_f;
+  double dy_f;
   guint32 mods;
 } WmEv;
 
@@ -5705,6 +5720,17 @@ static gboolean wm_on_scroll(GtkWidget *widget, GdkEventScroll *ev,
   e.dx = ev->direction == GDK_SCROLL_LEFT
       ? 1
       : (ev->direction == GDK_SCROLL_RIGHT ? -1 : 0);
+  {
+    double sdx = 0.0;
+    double sdy = 0.0;
+    if (gdk_event_get_scroll_deltas((GdkEvent *)ev, &sdx, &sdy)) {
+      e.dx_f = sdx;
+      e.dy_f = sdy;
+    } else {
+      e.dx_f = e.dx;
+      e.dy_f = e.dy;
+    }
+  }
   e.mods = wm_mods(ev->state);
   wm_push(w, &e);
   return TRUE;
@@ -7007,6 +7033,12 @@ gint32 wm_ev_button(int64_t id) {
 }
 gint32 wm_ev_axis(int64_t id) {
   return id > 0 && id < WM_MAX_WINDOWS ? wm_windows[id].last.dy : 0;
+}
+double wm_ev_button_f(int64_t id) {
+  return id > 0 && id < WM_MAX_WINDOWS ? wm_windows[id].last.dx_f : 0.0;
+}
+double wm_ev_axis_f(int64_t id) {
+  return id > 0 && id < WM_MAX_WINDOWS ? wm_windows[id].last.dy_f : 0.0;
 }
 
 int wm_pending_events(int64_t id) {
@@ -9075,6 +9107,10 @@ typedef struct {
   int32_t y;
   int32_t dx;
   int32_t dy;
+  // 精确滚量（±1 是方向刻度；这里带幅度：Windows delta/120、GTK smooth 增量、
+  // mac scrollingDelta）。0 = 平台只给了方向刻度，消费方回退 int 槽。
+  double dx_f;
+  double dy_f;
   uint32_t mods;
 } WmEv;
 
@@ -9831,6 +9867,15 @@ static NSString *wm_a11y_ax_role(const char *role) {
   // deltaY 单位是点、正数=向上滚；本栈给「每档 ±1」的方向（与 GTK 支同口径）
   e.dy = [ev deltaY] > 0 ? 1 : ([ev deltaY] < 0 ? -1 : 0);
   e.dx = [ev deltaX] > 0 ? -1 : ([ev deltaX] < 0 ? 1 : 0);
+  // 精确档：触控板按点连续给（scrollingDelta），普通滚轮按行 ±1；
+  // 点值折到「档」量级（÷10，与滚轮一档≈10 点同量级）
+  if ([ev hasPreciseScrollingDeltas]) {
+    e.dy_f = [ev scrollingDeltaY] / 10.0;
+    e.dx_f = 0.0 - [ev scrollingDeltaX] / 10.0;
+  } else {
+    e.dy_f = [ev deltaY];
+    e.dx_f = 0.0 - [ev deltaX];
+  }
   e.mods = wm_cocoa_mods([ev modifierFlags]);
   [s pushEv:&e];
 }
@@ -10631,6 +10676,14 @@ int32_t wm_ev_button(int64_t id) {
 int32_t wm_ev_axis(int64_t id) {
   WMState *s = wm_state(id);
   return s == nil ? 0 : s->last.dy;
+}
+double wm_ev_button_f(int64_t id) {
+  WMState *s = wm_state(id);
+  return s == nil ? 0.0 : s->last.dx_f;
+}
+double wm_ev_axis_f(int64_t id) {
+  WMState *s = wm_state(id);
+  return s == nil ? 0.0 : s->last.dy_f;
 }
 
 static BOOL wm_is_wake(NSEvent *ev) {
@@ -13818,6 +13871,8 @@ int32_t wm_ev_x(int64_t id) { (void)id; return 0; }
 int32_t wm_ev_y(int64_t id) { (void)id; return 0; }
 int32_t wm_ev_button(int64_t id) { (void)id; return 0; }
 int32_t wm_ev_axis(int64_t id) { (void)id; return 0; }
+double wm_ev_button_f(int64_t id) { (void)id; return 0.0; }
+double wm_ev_axis_f(int64_t id) { (void)id; return 0.0; }
 
 void wm_present(int64_t id, const unsigned char *rgba, int width, int height) {
   (void)id;

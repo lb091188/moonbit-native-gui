@@ -77,6 +77,7 @@ pub(all) struct KeyEvent {
 pub(all) struct ScrollEvent {
   x : Double
   y : Double
+  /// 横/纵滚量（刻度值：普通滚轮 ±1 档；触控板按平台精确档连续给）
   dx : Double
   dy : Double
   mods : Int32

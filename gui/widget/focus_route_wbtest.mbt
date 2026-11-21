@@ -17,6 +17,7 @@ fn fake_win_app() -> WindowHost {
     key_fallthrough: [],
     dirty_rect: None,
     dirty_full: false,
+        scroll_pending: None,
     system_keys: true,
     hidden_cbs: [],
     shown_cbs: [],
@@ -47,12 +48,12 @@ fn two_fields(a : WindowHost) -> (Widget, Widget) {
 
 ///|
 fn down_at(a : WindowHost, x : Int32, y : Int32) -> Unit {
-  a.route({ code: 2, keysym: 0, mods: 0, x, y, button: 1, axis: 0, })
+  a.route({ code: 2, keysym: 0, mods: 0, x, y, button: 1, axis: 0, dx_f: 0.0, dy_f: 0.0, })
 }
 
 ///|
 fn key_down(a : WindowHost, keysym : Int32) -> Unit {
-  a.route({ code: 0, keysym, mods: 0, x: 0, y: 0, button: 0, axis: 0, })
+  a.route({ code: 0, keysym, mods: 0, x: 0, y: 0, button: 0, axis: 0, dx_f: 0.0, dy_f: 0.0, })
 }
 
 ///|

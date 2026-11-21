@@ -88,6 +88,28 @@ pub fn invalidate() -> Unit {
   (repaint_hook.val)()
 }
 
+// ---- 滚动重绘：视口局部脏区 + 条带快路径 ----
+
+///|
+/// 进程级滚动重绘钩子：`(viewport_id, dy, extent)`。`dy` 是内容位移
+/// （正 = 内容向下走），`extent` 是视口内最高的行/块高（条带修复余量）。
+/// 宿主装了它就是「视口局部置脏」，没装就回退整窗 invalidate。
+let scroll_hook : Ref[((Int32, Double, Double) -> Unit)?] = Ref(None)
+
+///|
+pub fn set_scroll_hook(f : (Int32, Double, Double) -> Unit) -> Unit {
+  scroll_hook.val = Some(f)
+}
+
+///|
+/// 滚动偏移变化后的重绘请求（由 `ScrollState::set_offset` 调用）。
+pub fn scroll_repaint(viewport_id : Int32, dy : Double, extent : Double) -> Unit {
+  match scroll_hook.val {
+    Some(f) => f(viewport_id, dy, extent)
+    None => invalidate()
+  }
+}
+
 ///|
 /// 信号变化时重挂子树：值 v → 子树 `f(v)`，**原位**替换上一代。
 /// 适合低频换整块视图（随状态换图标、换面板）；高频改属性请让控件自己

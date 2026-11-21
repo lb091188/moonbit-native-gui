@@ -15,6 +15,11 @@ pub(all) struct ScrollState {
   mut offset : Double
   mut content_h : Double
   mut view_h : Double
+  /// 视口控件 id（挂载时写入）：偏移变化后按它做**局部置脏**而不是整窗重绘。
+  /// 0 = 未注册（组件自己 invalidate，维持旧行为）。
+  mut viewport_id : Int32
+  /// 条带修复余量：视口内最高的行/块高（组件写入；0 = 未知，条带快路径不走）。
+  mut row_extent : Double
   /// 滚动条的「显形」位：指针在本视口内（含全部子项）或正按住拇指时为真，拇指
   /// 画满色；否则画淡档。由视口的悬停回调写入（见 `scroll_bar_hover`）。
   mut bar_hot : Bool
@@ -26,6 +31,12 @@ pub(all) struct ScrollState {
   mut view_w : Double
   /// 横向版的「应用偏移」：把 `offset_x` 落到内容节点 `left` 并请求重绘。
   apply_x : Ref[() -> Unit]
+  /// 平滑滚动目标（节拍收敛用；非平滑档只作中间量）
+  mut target : Double
+  /// 惯性/缓动节拍是否在跑
+  mut ticking : Bool
+  /// 节拍代号：停表后再起时旧节拍自灭，不靠 clear_timeout
+  mut tick_gen : Int32
   /// 跟随底部：开时内容变高会自动贴底（`set_follow_bottom` 写）。
   mut follow_bottom : Bool
   /// 用户手动滚离底部期间的暂停位：回到底部即恢复；未开跟随时无意义。
@@ -38,12 +49,17 @@ pub fn ScrollState::new() -> ScrollState {
     offset: 0.0,
     content_h: 0.0,
     view_h: 0.0,
+    viewport_id: 0,
+    row_extent: 0.0,
     bar_hot: false,
     apply: Ref(fn() { () }),
     offset_x: 0.0,
     content_w: 0.0,
     view_w: 0.0,
     apply_x: Ref(fn() { () }),
+    target: 0.0,
+    ticking: false,
+    tick_gen: 0,
     follow_bottom: false,
     follow_paused: false,
   }
@@ -63,6 +79,9 @@ pub fn ScrollState::set_offset_x(self : ScrollState, v : Double) -> Unit {
   if nv != self.offset_x {
     self.offset_x = nv
     (self.apply_x.val)()
+    if self.viewport_id != 0 {
+      @widget.scroll_repaint(self.viewport_id, 0.0, self.row_extent)
+    }
   }
 }
 
@@ -84,15 +103,137 @@ pub fn ScrollState::set_offset(self : ScrollState, v : Double) -> Unit {
   let m = self.max()
   let nv = if v < 0.0 { 0.0 } else if v > m { m } else { v }
   if nv != self.offset {
+    let delta = nv - self.offset
     self.offset = nv
     (self.apply.val)()
+    if self.viewport_id != 0 {
+      // 内容位移 = -delta（向下滚 delta 正 = 内容向上走），条带快路径按它平移
+      @widget.scroll_repaint(self.viewport_id, 0.0 - delta, self.row_extent)
+    }
   }
 }
 
 ///|
-/// 相对滚动（`dy` 正=向下）。
+/// 相对滚动（`dy` 正=向下）。装延时通道（真机）时累到目标价做 16ms 缓动；
+/// 无宿主的纯控件测试与降级档维持步进。
 pub fn ScrollState::scroll_by(self : ScrollState, dy : Double) -> Unit {
-  self.set_offset(self.offset + dy)
+  if smooth_ready() {
+    let base = if self.ticking { self.target } else { self.offset }
+    self.smooth_to(base + dy)
+  } else {
+    self.set_offset(self.offset + dy)
+  }
+}
+
+///|
+/// 平滑滚动是否可用：宿主装了延时通道才走节拍。
+fn smooth_ready() -> Bool {
+  @shell.timer_channel_ready()
+}
+
+///|
+/// 直接把偏移落到 v（可越界，回弹/节拍内部用）：不夹取，布局与重绘同 set_offset。
+fn ScrollState::anim_offset(self : ScrollState, v : Double) -> Unit {
+  if v != self.offset {
+    let delta = v - self.offset
+    self.offset = v
+    (self.apply.val)()
+    if self.viewport_id != 0 {
+      @widget.scroll_repaint(self.viewport_id, 0.0 - delta, self.row_extent)
+    }
+  }
+}
+
+///|
+/// 平滑滚动目标：越界部分按 0.35 衰减并封顶 48px（橡皮筋回弹的容量）。
+fn ScrollState::smooth_to(self : ScrollState, t : Double) -> Unit {
+  let m = self.max()
+  let mut tt = t
+  if tt < 0.0 {
+    tt = tt * 0.35
+    if tt < -48.0 {
+      tt = -48.0
+    }
+  } else if tt > m {
+    tt = m + (tt - m) * 0.35
+    if tt > m + 48.0 {
+      tt = m + 48.0
+    }
+  }
+  self.target = tt
+  self.start_tick()
+}
+
+///|
+fn ScrollState::start_tick(self : ScrollState) -> Unit {
+  if self.ticking {
+    return
+  }
+  if !smooth_ready() {
+    let m = self.max()
+    let nv = if self.target < 0.0 {
+      0.0
+    } else if self.target > m {
+      m
+    } else {
+      self.target
+    }
+    self.anim_offset(nv)
+    return
+  }
+  self.ticking = true
+  self.tick_gen = self.tick_gen + 1
+  self.tick(self.tick_gen)
+}
+
+///|
+/// 一拍：按真实节拍指数趋近目标（0.35/16ms，约 40ms 时间常数）。收敛后若
+/// 停在越界位（回弹中），把目标收回边界再滑一节；回正即停表，不空转。
+fn ScrollState::tick(self : ScrollState, gen : Int32) -> Unit {
+  if !self.ticking || gen != self.tick_gen {
+    return
+  }
+  let mut d = self.target - self.offset
+  if d > -0.5 && d < 0.5 {
+    let m = self.max()
+    let bound = if self.offset < 0.0 {
+      0.0
+    } else if self.offset > m {
+      m
+    } else {
+      self.offset
+    }
+    if bound != self.offset {
+      self.target = bound
+      d = bound - self.offset
+    } else {
+      self.ticking = false
+      return
+    }
+  }
+  let next = self.offset + d * 0.35
+  // 整数步进：滚动内容落在整数像素上，条带快路径（整数平移）才能命中；
+  // 一步不足 1px 时按方向补 1px，避免收敛卡死
+  let mut nv = if self.viewport_id != 0 { next.round() } else { next }
+  if self.viewport_id != 0 && nv == self.offset && (d > 0.5 || d < -0.5) {
+    nv = if d > 0.0 { self.offset + 1.0 } else { self.offset - 1.0 }
+  }
+  self.anim_offset(nv)
+  if smooth_ready() {
+    let g = gen
+    let _ = @shell.set_timeout(16, fn() { self.tick(g) })
+  } else {
+    self.ticking = false
+  }
+}
+
+///|
+/// 抛掷：按速度（px/ms）给一段滑行目标，越界走橡皮筋回弹。
+pub fn ScrollState::fling(self : ScrollState, velocity : Double) -> Unit {
+  if !smooth_ready() {
+    return
+  }
+  self.smooth_to(self.offset + velocity * 280.0)
 }
 
 ///|
@@ -217,22 +358,37 @@ fn scroll_bar(state : ScrollState) -> @widget.Widget {
       }
     }
 
+    // 抛掷速度采样（px/ms）：拖动中相邻两次 Move 的偏移差 ÷ 时间差
+    let last_off : Ref[Double] = Ref(0.0)
+    let last_t : Ref[Int64] = Ref(0L)
+    let last_v : Ref[Double] = Ref(0.0)
     match ev.kind {
       @widget.PointerKind::Down => {
         dragging.val = true
         state.set_offset(y_to_offset(ev.y))
         state.note_user_scroll()
+        last_off.val = state.offset
+        last_t.val = @shell.now_ms()
+        last_v.val = 0.0
         true
       }
       @widget.PointerKind::Move => {
         if dragging.val {
           state.set_offset(y_to_offset(ev.y))
           state.note_user_scroll()
+          let now = @shell.now_ms()
+          let dt = (now - last_t.val).to_double()
+          if dt > 0.0 {
+            last_v.val = (state.offset - last_off.val) / dt
+          }
+          last_off.val = state.offset
+          last_t.val = now
         }
         true
       }
       @widget.PointerKind::Up => {
         dragging.val = false
+        state.fling(last_v.val)
         true
       }
       @widget.PointerKind::Leave => false
@@ -406,14 +562,14 @@ pub fn scroll_view(
     content.node.set_top(@yoga.fixed(0.0 - state.offset))
     @widget.mount_children(content, children)
     viewport.append_child(content)
+    // 偏移落布局；重绘由 ScrollState::set_offset 按视口局部置脏（这里不再整窗广播）
     state.apply.val = fn() -> Unit {
       content.node.set_top(@yoga.fixed(0.0 - state.offset))
-      @widget.invalidate()
     }
     state.apply_x.val = fn() -> Unit {
       content.node.set_left(@yoga.fixed(0.0 - state.offset_x))
-      @widget.invalidate()
     }
+    state.viewport_id = viewport.id
 
     if vscroll {
       viewport.append_child(scroll_bar(state))

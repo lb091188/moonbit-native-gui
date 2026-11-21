@@ -17,6 +17,7 @@ fn fake_app() -> WindowHost {
     key_fallthrough: [],
     dirty_rect: None,
     dirty_full: false,
+        scroll_pending: None,
     system_keys: true,
     hidden_cbs: [],
     shown_cbs: [],

@@ -107,6 +107,12 @@ extern "c" fn wm_ev_button(id : Int64) -> Int32 = "wm_ev_button"
 extern "c" fn wm_ev_axis(id : Int64) -> Int32 = "wm_ev_axis"
 
 ///|
+extern "c" fn wm_ev_button_f(id : Int64) -> Double = "wm_ev_button_f"
+
+///|
+extern "c" fn wm_ev_axis_f(id : Int64) -> Double = "wm_ev_axis_f"
+
+///|
 extern "c" fn wm_request_focus(id : Int64) -> Unit = "wm_request_focus"
 
 ///|

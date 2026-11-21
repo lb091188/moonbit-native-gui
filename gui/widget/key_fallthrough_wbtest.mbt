@@ -23,6 +23,8 @@ test "无焦点也吃到键，抬起事件不进通道" {
     y: 0,
     button: 0,
     axis: 0,
+    dx_f: 0.0,
+    dy_f: 0.0,
   }
   a.route(up)
   assert_eq(seen, [@base.KS_SPACE])

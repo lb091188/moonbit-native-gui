@@ -16,6 +16,12 @@ pub fn Canvas::new(width : Double, height : Double) -> Canvas {
 }
 
 ///|
+/// 用现成位图包一个画布（滚动条带快路径：快照位图要能在绘制器上当期源用）。
+pub fn Canvas::from_bitmap(bitmap : Bitmap) -> Canvas {
+  { bitmap, }
+}
+
+///|
 /// 取画布的绘制器；返回的 Painter 用完须 `end()`（Cairo 会话槽有限）。
 pub fn Canvas::get_painter(self : Canvas) -> Painter {
   Painter::new(self.bitmap)

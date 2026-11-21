@@ -23,16 +23,9 @@ pub fn Bitmap::new(width : Int32, height : Int32) -> Bitmap {
 ///|
 /// 整幅深拷贝（增量重绘模拟、模糊干净源快照这类「要一份位图现状」的场合用）。
 pub fn Bitmap::copy(self : Bitmap) -> Bitmap {
-  let out = Bitmap::new(self.width, self.height)
-  let src = self.data
-  let dst = out.data
-  let n = src.length()
-  let mut i = 0
-  while i < n {
-    dst[i] = src[i]
-    i = i + 1
-  }
-  out
+  // FixedArray::copy 走底层整块拷贝（逐字节循环在 debug 档是几十毫秒级，
+  // 滚动条带快路径每帧要拍一次快照）
+  { width: self.width, height: self.height, data: self.data.copy() }
 }
 
 ///|

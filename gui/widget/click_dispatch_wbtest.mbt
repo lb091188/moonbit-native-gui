@@ -13,7 +13,7 @@ test "on_double_click 在 Down×2（400ms/4px 内）触发一次" {
   root.tracker.last_x = 10.0
   root.tracker.last_y = 10.0
   root.tracker.click_count = 1
-  let ev : PointerEvent = { kind: Down, x: 11.0, y: 11.0, button: 1, mods: 0, }
+  let ev : PointerEvent = { kind: Down, x: 11.0, y: 11.0, button: 1, mods: 0 }
   let _ = root.dispatch_pointer(ev)
   assert_eq(hits, [1])
 }

@@ -173,7 +173,7 @@ test "指针事件：本地坐标换算 + 沿祖先链冒泡 + 消费即停" {
     true
   })
   assert_eq(
-    root.dispatch_pointer({ kind: Up, x: 15.0, y: 15.0, button: 1, mods: 0, }),
+    root.dispatch_pointer({ kind: Up, x: 15.0, y: 15.0, button: 1, mods: 0 }),
     true,
   )
   assert_eq(order2.length(), 1)
@@ -475,7 +475,7 @@ test "右键祖先优先：走完路径不越界，顺序根→叶" {
   // 祖先优先：根先收；无人消费要能走完路径并返回 false
   // （早先取下标前自增：走完末项 i 恰好等于长度，path[i] 越界，真机右键必崩）
   assert_eq(
-    root.dispatch_pointer({ kind: Down, x: 50.0, y: 50.0, button: 3, mods: 0, }),
+    root.dispatch_pointer({ kind: Down, x: 50.0, y: 50.0, button: 3, mods: 0 }),
     false,
   )
   assert_eq(order, ["root", "mid", "leaf"])
@@ -484,7 +484,7 @@ test "右键祖先优先：走完路径不越界，顺序根→叶" {
   solo.set_size(50.0, 50.0)
   solo.relayout(50.0, 50.0)
   assert_eq(
-    solo.dispatch_pointer({ kind: Down, x: 10.0, y: 10.0, button: 3, mods: 0, }),
+    solo.dispatch_pointer({ kind: Down, x: 10.0, y: 10.0, button: 3, mods: 0 }),
     false,
   )
 }

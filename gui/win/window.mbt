@@ -302,6 +302,9 @@ pub(all) struct InputEvent {
   y : Int32
   button : Int32
   axis : Int32
+  /// 精确滚量（刻度值；0 = 平台只给方向，消费方回退 axis/button 的 ±1）
+  dx_f : Double
+  dy_f : Double
 }
 
 ///|
@@ -325,6 +328,8 @@ pub fn Window::take_input(self : Window) -> InputEvent? {
       y: wm_ev_y(self.id),
       button: wm_ev_button(self.id),
       axis: wm_ev_axis(self.id),
+      dx_f: wm_ev_button_f(self.id),
+      dy_f: wm_ev_axis_f(self.id),
     })
   }
 }

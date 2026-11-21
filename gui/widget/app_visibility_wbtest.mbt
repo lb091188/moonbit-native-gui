@@ -16,6 +16,7 @@ fn vis_app() -> WindowHost {
     key_fallthrough: [],
     dirty_rect: None,
     dirty_full: false,
+        scroll_pending: None,
     system_keys: true,
     hidden_cbs: [],
     shown_cbs: [],
@@ -92,7 +93,7 @@ test "拖拽会话进行中：宿主光标统一握拳，不随点下控件变" 
   )
   assert_true(drag_active())
   // Move 落在空处也握拳：会话压过悬停路径，光标不再按命中控件改形
-  a.route({ code: 4, keysym: 0, mods: 0, x: 5, y: 5, button: 1, axis: 0, })
+  a.route({ code: 4, keysym: 0, mods: 0, x: 5, y: 5, button: 1, axis: 0, dx_f: 0.0, dy_f: 0.0, })
   assert_eq(a.session.cursor_kind, CURSOR_GRABBING)
   let _ = drag_drop(5.0, 5.0)
   assert_false(drag_active())

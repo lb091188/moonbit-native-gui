@@ -393,13 +393,13 @@ pub fn a11y_action_dispatch(
         let cy = w.rect.y + w.rect.h / 2.0
         let down = route_pointer(
           root,
-          { kind: Down, x: cx, y: cy, button: 0, mods: 0, },
+          { kind: Down, x: cx, y: cy, button: 0, mods: 0 },
           hover,
           capture,
         )
         route_pointer(
           root,
-          { kind: Up, x: cx, y: cy, button: 0, mods: 0, },
+          { kind: Up, x: cx, y: cy, button: 0, mods: 0 },
           down.0,
           down.1,
         )

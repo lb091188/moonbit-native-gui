@@ -31,6 +31,9 @@ pub(all) struct WindowHost {
   /// 区分不开,故整窗请求单独占一位。置位后同批内的局部置脏不收窄脏区,
   /// `paint_frame` 取走这一帧的裁剪框后复位。
   mut dirty_full : Bool
+  /// 本批的滚动位移（视口 id、内容位移、条带修复余量）：本帧唯一脏区就是
+  /// 该视口且位移为整数时才走条带快路径，否则按普通视口重绘
+  mut scroll_pending : (Int32, Double, Double)?
   /// 按窗复用的帧位图：尺寸没变就不重新分配（每帧 new 是 MB 级分配+清零；
   /// 平台桩在 present 时同步拷贝像素，MoonBit 侧缓冲无延迟读，复用安全）
   mut canvas : @render.Bitmap?
@@ -214,6 +217,9 @@ fn WindowHost::fire_system_keys(self : WindowHost, kev : KeyEvent) -> Bool {
 fn install_host_hooks() -> Unit {
   set_repaint_hook(fn() { host_repaint_all() })
   @shell.set_repaint_sink(fn() { host_repaint_all() })
+  set_scroll_hook(fn(id : Int32, dy : Double, ext : Double) {
+    host_scroll_repaint(id, dy, ext)
+  })
   set_overlay_provider(fn() -> OverlayHost? {
     match host_active() {
       Some(a) => Some(a.host)
@@ -270,6 +276,7 @@ fn app_window(
         key_fallthrough: [],
         dirty_rect: None,
         dirty_full: false,
+        scroll_pending: None,
         system_keys: true,
         hidden_cbs: [],
         shown_cbs: [],
@@ -317,6 +324,7 @@ pub fn test_app(s : @shell.Session) -> WindowHost {
     key_fallthrough: [],
     dirty_rect: None,
     dirty_full: false,
+    scroll_pending: None,
     system_keys: true,
     hidden_cbs: [],
     shown_cbs: [],
@@ -647,6 +655,64 @@ fn WindowHost::mark_widget_rect(self : WindowHost, w : Widget) -> Unit {
 }
 
 ///|
+/// 滚动重绘：按视口控件局部置脏，并记下位移供条带快路径判定（未安装滚动
+/// 钩子时由 `@widget.scroll_repaint` 回退整窗）。
+fn host_scroll_repaint(viewport_id : Int32, dy : Double, extent : Double) -> Unit {
+  for a in host_windows() {
+    match a.root.by_id(viewport_id) {
+      Some(w) => a.mark_scroll(w, dy, extent)
+      None => ()
+    }
+  }
+  @win.wake()
+}
+
+///|
+fn WindowHost::mark_scroll(
+  self : WindowHost,
+  w : Widget,
+  dy : Double,
+  extent : Double,
+) -> Unit {
+  self.session.dirty = true
+  self.dirty_rect = accept_widget_rect(self.dirty_full, self.dirty_rect, w.rect)
+  self.scroll_pending = match self.scroll_pending {
+    Some((_, pdy, pext)) =>
+      Some((w.id, pdy + dy, if extent > pext { extent } else { pext }))
+    None => Some((w.id, dy, extent))
+  }
+}
+
+///|
+/// 子树里有没有与矩形相交的毛玻璃控件（条带快路径的禁用条件之一）。
+fn tree_blur_hit(w : Widget, rect : Rect) -> Bool {
+  if !w.visible {
+    return false
+  }
+  if blur_rect_hit(w, rect) {
+    return true
+  }
+  for k in w.kids {
+    if tree_blur_hit(k, rect) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+/// 裁剪到矩形画一次整树（条带修复用；裁剪外的控件被视口剔除跳过）。
+fn paint_clipped(root : Widget, p : @render.Painter, r : Rect) -> Unit {
+  if r.w <= 0.0 || r.h <= 0.0 {
+    return
+  }
+  p.save()
+  p.clip_rect(r.x, r.y, r.w, r.h)
+  root.paint(p)
+  p.restore()
+}
+
+///|
 /// 悬停/按下变化的标脏范围：指针底下那颗控件，**加上悬停链上每个自绘状态的祖先**。
 /// 只标最深那颗会漏——表格行的整行悬停底色由行控件画，脏区却只有鼠标那一格，
 /// 真机表现就是「悬停不是整行」。链上没有状态祖先时，代价仍只是一颗控件的矩形。
@@ -882,6 +948,8 @@ pub fn raw_to_event(
   y : Int32,
   button : Int32,
   axis : Int32,
+  dx_f~ : Double = 0.0,
+  dy_f~ : Double = 0.0,
 ) -> RawEvent {
   let xf = x.to_double()
   let yf = y.to_double()
@@ -902,7 +970,14 @@ pub fn raw_to_event(
       mods,
     })
   } else if code == 5 {
-    Scroll({ x: xf, y: yf, dx: button.to_double(), dy: axis.to_double(), mods, })
+    Scroll({
+      x: xf,
+      y: yf,
+      // 精确滚量优先（Windows delta/120、GTK smooth、mac 触控板），零则回退方向刻度
+      dx: if dx_f != 0.0 { dx_f } else { button.to_double() },
+      dy: if dy_f != 0.0 { dy_f } else { axis.to_double() },
+      mods,
+    })
   } else {
     Ignored
   }
@@ -936,7 +1011,7 @@ pub fn WindowHost::test_pump_pointer(
   y : Int32,
   button : Int32,
 ) -> Unit {
-  self.route({ code, keysym: 0, mods: 0, x, y, button, axis: 0, })
+  self.route({ code, keysym: 0, mods: 0, x, y, button, axis: 0, dx_f: 0.0, dy_f: 0.0, })
 }
 
 ///|
@@ -959,6 +1034,8 @@ pub fn WindowHost::test_pump_key(
     y: 0,
     button: 0,
     axis: 0,
+    dx_f: 0.0,
+    dy_f: 0.0,
   })
 }
 
@@ -967,7 +1044,17 @@ fn WindowHost::route(self : WindowHost, ev : @win.InputEvent) -> Unit {
   // 谁被操作谁就是当前窗（浮层与工具提示跟着它，见 host.mbt）
   host_mark_active(self.session)
   match
-    raw_to_event(ev.code, ev.keysym, ev.mods, ev.x, ev.y, ev.button, ev.axis) {
+    raw_to_event(
+      ev.code,
+      ev.keysym,
+      ev.mods,
+      ev.x,
+      ev.y,
+      ev.button,
+      ev.axis,
+      dx_f=ev.dx_f,
+      dy_f=ev.dy_f,
+    ) {
     Ignored => ()
     Pointer(pev) => {
       // 原生档浮层的点外收起：owner 上任何按下都是点外（弹层是独立窗），
@@ -1069,7 +1156,13 @@ fn WindowHost::route(self : WindowHost, ev : @win.InputEvent) -> Unit {
         }
       }
     }
-    Scroll(sev) => if self.root.dispatch_scroll(sev) { self.schedule_paint() }
+    Scroll(sev) => if self.root.dispatch_scroll(sev) {
+      // 滚动容器消费时已按视口局部置脏（ScrollState::set_offset）；消费者
+      // 改了别的状态却没标脏才整窗兜底
+      if !self.session.dirty {
+        self.schedule_paint()
+      }
+    }
     Key(kev) => {
       route_diag(
         "key keysym=\{kev.keysym} mods=\{kev.mods} press=\{kev.press} focus=\{Repr(self.focus.current())}",
@@ -1310,6 +1403,8 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   let clip = dirty_clip(self.dirty_full, self.dirty_rect)
   self.dirty_full = false
   self.dirty_rect = None
+  let scroll = self.scroll_pending
+  self.scroll_pending = None
   let (w, h) = self.session.window.size()
   // 诊断读数：NATIVEGUI_LAYOUT_LOG 非空时，宽度变化的绘制帧打一行——
   // 定位「resize 后内容不重排」类问题的断点（事件 / 账本 / 布局哪层没跟上）。
@@ -1374,7 +1469,69 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   self.root.set_size(w.to_double(), h.to_double())
   self.root.relayout(w.to_double(), h.to_double())
   let t1 = @win.now_ms()
-  self.root.paint(p)
+  // 条带快路径：本帧唯一脏区就是滚动视口、位移为整数、无毛玻璃与原生子件；
+  // 任一不满足就走普通视口整块重绘（正确性优先）
+  let strip_plan = match (clip, scroll) {
+    (Some(cr), Some((vid, sdy, ext))) =>
+      match self.root.by_id(vid) {
+        Some(v) => {
+          let vr = v.rect
+          let dyi = sdy.round()
+          let int_ok = (sdy - dyi) > -0.01 && (sdy - dyi) < 0.01
+          let same = cr.x == vr.x &&
+            cr.y == vr.y &&
+            cr.w == vr.w &&
+            cr.h == vr.h
+          if v.kind == "ui-virt-list" &&
+            int_ok &&
+            dyi != 0.0 &&
+            same &&
+            vr.w > 16.0 &&
+            vr.h > 16.0 &&
+            !self.session.window.has_child_surfaces() &&
+            !tree_blur_hit(self.root, vr) {
+            Some((vr, dyi, ext))
+          } else {
+            None
+          }
+        }
+        None => None
+      }
+    _ => None
+  }
+  match strip_plan {
+    Some((vr, sdy, ext)) => {
+      // ① 快照上一帧，视口内整块按整数位移平移：全幅 1:1 命中 raster 的
+      // 「整数平移」快路径，裁剪把写面限制在视口内
+      let snap = @render.Canvas::from_bitmap(@render.Bitmap::copy(bm))
+      p.save()
+      p.clip_rect(vr.x, vr.y, vr.w, vr.h)
+      p.draw_canvas_from_rect(
+        snap,
+        0.0,
+        0.0,
+        bm.width.to_double(),
+        bm.height.to_double(),
+        0.0,
+        sdy,
+        bm.width.to_double(),
+        bm.height.to_double(),
+      )
+      p.restore()
+      // ② 修复新露条带（|位移| + 最高行余量）与滚动条列
+      let ad = if sdy > 0.0 { sdy } else { 0.0 - sdy }
+      let band_h = ad + ext
+      let band : Rect = if sdy > 0.0 {
+        { x: vr.x, y: vr.y, w: vr.w, h: band_h }
+      } else {
+        { x: vr.x, y: vr.y + vr.h - band_h, w: vr.w, h: band_h }
+      }
+      let sb : Rect = { x: vr.x + vr.w - 12.0, y: vr.y, w: 12.0, h: vr.h }
+      paint_clipped(self.root, p, band)
+      paint_clipped(self.root, p, sb)
+    }
+    None => self.root.paint(p)
+  }
   // 帧级文本批：整树画完先把待批段落位（C 侧一次 BeginDraw/EndDraw 提交 +
   // 并集读回混合），present 读到的才是完整帧
   @text.flush_pending()
