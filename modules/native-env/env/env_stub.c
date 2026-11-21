@@ -433,10 +433,17 @@ moonbit_bytes_t envx_linux_render(void) {
 
 // 网卡 MAC 候选列表，一行一个：/sys/class/net/*/address。目录枚举走
 // opendir——sysfs 每网卡一个目录，读出全部非回环地址交 MoonBit 侧认前缀。
+// 宿主侧虚拟网桥/虚拟端一并排除：virbr（libvirt 网桥，MAC 固定占 qemu
+// 前缀 52:54:00）、vnet / tap（客机虚拟端）、docker0 / br-（docker 网桥）、
+// veth（容器对端）——这些是宿主跑虚拟化的角色标志，不代表宿主自己是 VM；
+// 客机里这些名字不存在，客户机判定不受影响。
 #include <dirent.h>
 
 MOONBIT_FFI_EXPORT
 moonbit_bytes_t envx_linux_net_macs(void) {
+  static const char *host_virt_prefixes[] = {
+    "virbr", "vnet", "tap", "veth", "br-", "docker0",
+  };
   DIR *d = opendir("/sys/class/net");
   if (d == NULL) {
     return envx_bytes_from("");
@@ -449,6 +456,19 @@ moonbit_bytes_t envx_linux_net_macs(void) {
       continue;
     }
     if (strcmp(ent->d_name, "lo") == 0) {
+      continue;
+    }
+    int host_virt = 0;
+    for (size_t i = 0;
+         i < sizeof host_virt_prefixes / sizeof host_virt_prefixes[0];
+         i++) {
+      if (strncmp(ent->d_name, host_virt_prefixes[i],
+                  strlen(host_virt_prefixes[i])) == 0) {
+        host_virt = 1;
+        break;
+      }
+    }
+    if (host_virt) {
       continue;
     }
     char path[512];

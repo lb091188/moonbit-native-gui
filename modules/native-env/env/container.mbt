@@ -5,7 +5,7 @@
 ///|
 /// 根 PID namespace 的 inode 号：内核 3.8 起固定 0xEFFFFFFC，不等于它即处
 /// 于某个 PID namespace（systemd running_in_pidns 同款判据）。
-let root_pid_ns_inode : String = "4026531839"
+let root_pid_ns_inode : String = "4026531836"
 
 ///|
 #derive(Debug)
@@ -73,7 +73,7 @@ fn container_parse_cgroup(text : String) -> String? {
 }
 
 ///|
-/// 解析 /proc/self/ns/pid 的 readlink 输出（形如 `pid:[4026531839]`）：
+/// 解析 /proc/self/ns/pid 的 readlink 输出（形如 `pid:[4026531836]`）：
 /// inode 不等于根 namespace 的固定值即处于某个容器，管理器未知。
 fn container_parse_pidns(link : String) -> String? {
   let t = link.trim().to_owned()

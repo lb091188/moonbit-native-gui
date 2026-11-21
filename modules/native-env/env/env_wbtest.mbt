@@ -219,7 +219,7 @@ test "container_parse_cgroup：路径段命中" {
 
 ///|
 test "container_parse_pidns：根 inode 与非根" {
-  debug_inspect(container_parse_pidns("pid:[4026531839]"), content="None")
+  debug_inspect(container_parse_pidns("pid:[4026531836]"), content="None")
   debug_inspect(
     container_parse_pidns("pid:[4026532456]"),
     content="Some(\"container\")",
