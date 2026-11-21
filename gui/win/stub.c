@@ -15066,25 +15066,13 @@ static int l1_bind_frame(WmL1 *st, int sw, int sh, int bw, int bh) {
   return 1;
 }
 
-// surface 源描述符暂存与重建：wm_l1_surface_* 建面时把整块源描述符抄进
-// 每窗状态，重配时按它重建 surface，走与首配同一条流（v29 对已配置过的
-// surface 原地再 Configure 会内部 panic，见 wm_l1_window_present 的 rebind）
+// surface 源描述符暂存：wm_l1_surface_* 建面时把整块源描述符抄进每窗状态
 static void l1_stash_source(WmL1 *st, const void *desc, size_t len, int stype) {
   if (len > sizeof st->src_desc) {
     return;
   }
   memcpy(st->src_desc, desc, len);
   st->src_stype = stype;
-}
-
-static void *l1_surface_recreate(WmL1 *st) {
-  WGPUSurfaceDescriptor sdesc;
-  memset(&sdesc, 0, sizeof sdesc);
-  if (st->src_stype == 0) {
-    return NULL;
-  }
-  sdesc.nextInChain = (WGPUChainedStruct *)st->src_desc;
-  return (void *)p_wgpuInstanceCreateSurface(g_l1_inst, &sdesc);
 }
 
 void *wm_l1_surface_xlib(WmL1 *st, void *display, uint64_t window) {
@@ -15161,36 +15149,25 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
     return 1;
   }
   wm_crash_mark("l1.frame", sw, sh);
-  // 最小化回来过：尺寸没变就按原配置直接呈现——acquire 见真章，swapchain
-  // 真被丢了会走 Outdated 状态由下面分支接住；v29 实测 stale 一律重建重配
-  // 在还原后必崩（0xE06D7363，重建 surface 也躲不开），不碰重配则活
+  // 最小化回来过：尺寸没变就按原配置直接呈现，尺寸变了放弃 GPU 档——
+  // v29 实测还原后在被动过的 swapchain 上任何 wgpu 变更调用都 panic
+  //（原地重配、SurfaceRelease、重建 surface 各一例），零变更调用才活
   if (st->stale) {
     st->stale = 0;
     if (st->sw == sw && st->sh == sh && st->tw == bw && st->th == bh) {
       wm_crash_note("l1: 最小化还原，尺寸未变，原配置直接呈现");
     } else {
-      st->sw = 0;
-      st->sh = 0;
-      wm_crash_note("l1: 最小化还原，尺寸变了，重建 surface 重配");
+      st->on = 0;
+      st->dead = 1;
+      wm_crash_note("l1: 最小化还原且尺寸变了，永久回退 CPU 路径");
+      return 0;
     }
   }
-  // 尺寸变了（客户区或位图）：不原地重配——v29 对已配置过的 surface 再
-  // Configure 在 wgpu 内部 panic——释放旧 surface 按暂存源重建，走与首配
-  // 完全相同的流
+  // 尺寸变了（客户区或位图）：标准重配流——只释放帧对象再 Configure，
+  // surface 本体不动、绝不 SurfaceRelease（此库对呈现过的 surface 释放必 panic）
   if (st->sw != sw || st->sh != sh || st->tw != bw || st->th != bh) {
     wm_crash_mark("l1.rebind", sw, sh);
     l1_release_frame(st);
-    wm_crash_mark("l1.rel", 0, 0);
-    if (st->surface != NULL && p_wgpuSurfaceRelease != NULL) {
-      p_wgpuSurfaceRelease(st->surface);
-    }
-    st->surface = l1_surface_recreate(st);
-    wm_crash_mark("l1.new", (long)(st->surface != NULL), 0);
-    if (st->surface == NULL) {
-      st->on = 0;
-      st->dead = 1;
-      return 0;
-    }
     if (l1_bind_frame(st, sw, sh, bw, bh) != 1) {
       st->on = 0;
       st->dead = 1;
@@ -15243,23 +15220,20 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
   if (stx.status != WGPUSurfaceGetCurrentTextureStatus_SuccessOptimal ||
       stx.texture == NULL) {
     if (stx.status == WGPUSurfaceGetCurrentTextureStatus_Outdated) {
-      // 窗口尺寸变了 surface 没跟上：先把已编码的提交掉（无害），本帧丢；
-      // 下一帧走 rebind 流重建 surface 重配（v29 原地 Configure 会 panic）
-      WGPUCommandBuffer cb1 = p_wgpuCommandEncoderFinish(enc, NULL);
-      if (cb1 != NULL) {
-        p_wgpuQueueSubmit(g_l1_queue, 1, &cb1);
-        p_wgpuCommandBufferRelease(cb1);
-      }
-      l1_release_frame(st);
-      if (st->surface != NULL && p_wgpuSurfaceRelease != NULL) {
-        p_wgpuSurfaceRelease(st->surface);
-      }
-      st->surface = l1_surface_recreate(st);
-      if (st->surface == NULL) {
-        st->on = 0;
-        st->dead = 1;
-      }
-      return 1;
+      // 窗口尺寸变了 surface 还没跟上：重配，本帧丢（下一帧补）
+      WGPUSurfaceConfiguration cfg;
+      memset(&cfg, 0, sizeof cfg);
+      cfg.device = g_l1_device;
+      cfg.format = WGPUTextureFormat_BGRA8Unorm;
+      cfg.usage = WGPUTextureUsage_RenderAttachment;
+      cfg.width = (uint32_t)sw;
+      cfg.height = (uint32_t)sh;
+      cfg.alphaMode = l1_pick_alpha_mode(st->surface);
+      cfg.presentMode = WGPUPresentMode_Fifo;
+      wm_crash_mark("l1.cfg", sw, sh);
+      p_wgpuSurfaceConfigure(st->surface, &cfg);
+      st->sw = sw;
+      st->sh = sh;
     }
     // 上传命令已编码：提交掉（无害）再丢这一帧
     WGPUCommandBuffer cb0 = p_wgpuCommandEncoderFinish(enc, NULL);
