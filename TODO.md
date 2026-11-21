@@ -22,9 +22,6 @@
 
 ## CI 与门禁
 
-- [ ] **linux/bare 容器腿既有红：win/icon_ffi_wbtest 的 icon_from_bgra 真建图失败**：gui 全名单 1509 条仅此 1 红，bare 腿因全绿要求连带挂；用 59d94080 老 stub.c 容器 A/B 同红，非 2026-11-20 GPU 修复批带入
-  - 排查方向：容器 GTK/图标后端依赖漂移，先取用例内 `icon_from_bgra` 读数
-  - 验证：容器里 `dbus-run-session -- moon test win` 全绿
 - [ ] **CPU 视觉批真机复验（win / linux）**：transform 旋转缩放观感、圆角裁切真圆角图片、backdrop_blur 毛玻璃质感、关键帧流畅度四面——mac 已全验（SC-17.1~17.5，库门禁 1508/1508）；Windows 与 mac 同一条纯光栅臂，本轮 blit 覆盖与文字超采样改动都在这条上，建议整套过；Linux 走 cairo 臂（文字带 CTM 直绘），重点验 overflow 语义与帧尾重画；入口即 components 演示页
   - transform：控件级平移/缩放/旋转的绘制期变换，不参与布局与命中。
   - backdrop_blur：毛玻璃，把已画内容的控件区域糊掉再画自己。

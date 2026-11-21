@@ -986,3 +986,13 @@ showcase 在 Linux 上「有 GPU 就白屏 / 黑屏 / 点击不更新」的现�
   - Pango 按上下文留字体与字形缓存，上下文不断新建就只增不减。
 - **修法**：上下文改为进程内复用一份，基线方向在上下文创建与切换时设置；布局仍按文本键缓存、上限不变。
 - **实测**：company 容器 Xvfb 下，修前 80 秒涨约 0.6 MB，修后 3 分钟只涨 0.2 MB 且后段走平；`moon check --deny-warn` 零警告，`moon test text` 49/49。
+
+## 容器腿 icon_from_bgra 唯一红是设计桩不是依赖漂移：跨平台 wbtest 须按档位守卫
+
+- 时间：2026-11-21
+- 来源：gui 全名单 linux/bare 容器腿唯一红的排查（TODO「CI 与门禁」收口）
+
+- **症状**：`win/icon_ffi_wbtest` 的「真 FFI 建图出正句柄」在 natigui-linux 与 natigui-bare 双双红，bare 腿因全绿要求连带挂；用老 stub.c 容器 A/B 同红，一度疑 GTK/图标后端依赖漂移。
+- **真相**：Linux 的 GTK 桩没有 HICON 建图层——托盘图标走 SNI 像素通道，`wm_icon_from_bgra` 按设计回 0（「图标不可用」语义化路径）；该 wbtest 无条件断言建图成功，把 Linux 的正确语义当了回归。与容器依赖无关，Linux 桌面真机同样会红。
+- **修法**：图标族加档位探针 `wm_icon_backend`（Win32/mac 回 1，GTK/占位桩回 0；extern 收在 wbtest 文件内，不进公开 API——放 ffi.mbt 会因无生产调用者吃未使用警告），用例探到桩档即 `skip [需真后端]` 早退，与 text 族 skip 惯例同款。
+- **口径**：跨平台 wbtest 断言「必须成功」前，先对 stub.c 四分支档位表核对「该平台该不该成功」；四分支都要补同一个探针符号，缺一档链接就断那一档。

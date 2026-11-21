@@ -4446,6 +4446,11 @@ int wm_icon_alive(void) {
   return n;
 }
 
+/* 建图层档位探针：真实现回 1，桩回 0（MoonBit 测试据此跳过）。 */
+int wm_icon_backend(void) {
+  return 1;
+}
+
 /* 取槽里的真 HICON（探针反读用；越界/空槽给 NULL）。 */
 void *wm_icon_handle(int slot) {
   return (void *)wm_icon_get(slot);
@@ -7300,6 +7305,8 @@ int wm_icon_from_png(const unsigned char *data, int len) {
 }
 void wm_icon_free(int slot) { (void)slot; }
 int wm_icon_alive(void) { return 0; }
+/* 建图层档位探针：GTK 无本层，回 0。 */
+int wm_icon_backend(void) { return 0; }
 void *wm_icon_handle(int slot) {
   (void)slot;
   return NULL;
@@ -12049,6 +12056,9 @@ int wm_icon_alive(void) {
   return n;
 }
 
+/* 建图层档位探针：mac 为真实现，回 1。 */
+int wm_icon_backend(void) { return 1; }
+
 void *wm_icon_handle(int slot) {
   return (__bridge void *)wm_icon_of(slot);
 }
@@ -13961,6 +13971,8 @@ int wm_icon_from_png(const unsigned char *data, int len) {
 }
 void wm_icon_free(int slot) { (void)slot; }
 int wm_icon_alive(void) { return 0; }
+/* 建图层档位探针：占位桩回 0。 */
+int wm_icon_backend(void) { return 0; }
 void *wm_icon_handle(int slot) {
   (void)slot;
   return NULL;
