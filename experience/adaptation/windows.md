@@ -707,3 +707,18 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **根因叠加**：适配器枚举失败的返回路径上，桩的输出缓冲区没有清零——`char out[8192]` 未初始化，`envx_bytes_from` 按 `strlen` 取长度，把栈上垃圾当适配器名返回。MoonBit 侧关键词匹配不上垃圾串，GPU 档落到 Hardware。
 - **修法**：桩缓冲区一律初始化清零，空枚举即空串；native-env 的 GPU 判定加 VM 保险——VM 硬信号命中时认不出的适配器至多判 Virtual，不给 Hardware。native-gui 的 `l1_probe` 无此问题：它先过 CPUID hypervisor 位，适配器名只是第二层。
 - **教训**：①「空结果」必须返回明确的空，栈缓冲区初始化是 C 桩的铁律；②经 ssh 验证 Windows 显示面读数时，适配器枚举拿不到是会话属性不是代码缺陷，换控制台或 RDP 再读；③探测库的兜底保险要与消费方的降级口径一致——认不出就往保守档判。
+
+## company win10 VM 上 SMBIOS 全通路断，唯 HardwareConfig 留 BIOS 版本串；品牌被 enlightenments 带偏成 hyper-v · 2026-11-21 native-env 真机矩阵第二轮
+
+- **现象**：envprobe 在 company win10 VM 判「虚拟机（hyperv）」——这台是 QEMU/KVM 客机，真品牌是 QEMU 家族。品牌唯一来源是 CPUID 签名串，SMBIOS 臂零信号。
+- **SMBIOS 通路实测矩阵**：四条常规通路在这一台 VM 上同时断，逐条取证。
+  - `GetSystemFirmwareTable('RSMB')`：返回 0 且 `GetLastError=1`——固件表 API 直接不可用，独立 C 探针复现。
+  - `HARDWARE\DESCRIPTION\System\BIOS` 键：无 `SystemManufacturer`/`SystemProductName` 值，与上文「si_machine 注册表镜像空」同源。
+  - `SYSTEM\CurrentControlSet\Control\SystemInformation` 键：三值存在但全空串。
+  - `SYSTEM\CurrentControlSet\Services\mssmbios\Data\SMBiosData`：键缺失。
+  - 唯一活路：`SYSTEM\HardwareConfig\Current\SystemBiosVersion`——REG_MULTI_SZ，内容 `BOCHS  - 1`，SeaBIOS 家族签名。
+- **RegGetValueW 读该值报 1630**：它是 REG_MULTI_SZ，`RRF_RT_REG_BINARY` 类型过滤不肯转，报 `ERROR_MUI_FILE_NOT_FOUND`；PowerShell `Get-ItemProperty` 走老 API 所以读得到。修法用 `RegOpenKeyExW` + `RegQueryValueExW` 老三样，不设类型过滤。
+- **品牌漂移根因**：virt-manager 默认给 guest 开 Hyper-V enlightenments，KVM 会把 CPUID hypervisor 签名串改成 `Microsoft Hv`——QEMU 客机从签名串读出来的是 hyperv。systemd virt.c 同表同漂。真 Hyper-V 客机的 SMBIOS 厂商串必为 Microsoft Corporation，QEMU 家族的真品牌要从 SMBIOS 层拿，优先级须压过签名串。
+- **修法**：`envx_win_smbios` 改三级——RSMB 固件表主路解析 type 1 厂商与产品串，注册表镜像兜底，HardwareConfig BIOS 版本串最后兜底交 `dmi_vendor_table` 认关键词出 `bios_vendor` 信号。MoonBit 侧品牌序 smbios 先于 cpuid，修后该机判「虚拟机（bochs）」。
+- **读数**：修后 win10 VM——VM 命中 bochs、非容器、GPU None 会话保守档、三信号 bios_vendor + cpuid 位 + cpuid 签名。`moon test env` 27/27。
+- **教训**：①Windows 上「注册表有这个键」不等于「RegGetValue 读得动」，类型过滤与 MUI 处理是暗礁，取证先用老 API；②单一通路断不代表机器没信息，把五条通路列成矩阵逐条探针，活的那条往往在最想不到的位置；③hypervisor 签名串在 enlightenments 时代是「宿主装了什么壳」不是「guest 是谁」，品牌判定 SMBIOS 优先。

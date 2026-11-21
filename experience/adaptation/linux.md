@@ -996,3 +996,13 @@ showcase 在 Linux 上「有 GPU 就白屏 / 黑屏 / 点击不更新」的现�
 - **真相**：Linux 的 GTK 桩没有 HICON 建图层——托盘图标走 SNI 像素通道，`wm_icon_from_bgra` 按设计回 0（「图标不可用」语义化路径）；该 wbtest 无条件断言建图成功，把 Linux 的正确语义当了回归。与容器依赖无关，Linux 桌面真机同样会红。
 - **修法**：图标族加档位探针 `wm_icon_backend`（Win32/mac 回 1，GTK/占位桩回 0；extern 收在 wbtest 文件内，不进公开 API——放 ffi.mbt 会因无生产调用者吃未使用警告），用例探到桩档即 `skip [需真后端]` 早退，与 text 族 skip 惯例同款。
 - **口径**：跨平台 wbtest 断言「必须成功」前，先对 stub.c 四分支档位表核对「该平台该不该成功」；四分支都要补同一个探针符号，缺一档链接就断那一档。
+
+## 物理宿主被判「容器（container）」：根 PID namespace 常量抄成 IPC 的 + virbr0 的 qemu OUI 混进 MAC 信号 · 2026-11-21 native-env 真机矩阵
+
+- **现象**：company 宿主是 ASUS 物理机，`systemd-detect-virt` 双 none，envprobe 却判「容器（container）」且 vm 信号里冒出 `mac_oui → qemu`。
+- **根因一，pidns 常量错值**：`root_pid_ns_inode` 写的是 `4026531839`——那是初始 IPC namespace 的 inode，初始 PID namespace 是 `4026531836`。文件头注释里 `0xEFFFFFFC` 本来就等于 4026531836，代码抄错自相矛盾；wbtest fixture 用同一个错值，自洽绿。后果是任何非容器的 Linux 裸机宿主全误判容器。容器内测不出——docker 标记文件先命中，pidns 臂短路不再执行。修常量与 fixture 同批。
+- **根因二，宿主侧虚拟网桥混入**：宿主跑过 libvirt 就有 `virbr0`，libvirt 网桥 MAC 固定占 qemu 前缀池 `52:54:00`，C 桩枚举 `/sys/class/net` 只排了 `lo`，qemu OUI 信号误命中宿主。VM 判定没翻车是因为 mac_oui 只是 60 分弱信号，够不着硬信号口径，但信号列表被污染。修法：C 桩按名字滤宿主侧虚拟设备——virbr、vnet、tap、veth、br-、docker0；客机里这些名字不存在，客户机判定不受影响。
+- **验证**：修复后 company 宿主判裸机、非容器、零信号，与 `systemd-detect-virt` 一致。
+- **同轮矩阵读数**：natigui-linux 与 natigui-bare 双容器判 docker、GPU Software 无渲染节点；home 宿主华为物理机判裸机、i915 Hardware；ubuntu-24.04、ubuntu-26.04、kubuntu-24.04 三台 KVM VM 判 qemu、cpuinfo hypervisor 标志 + DMI QEMU 双硬信号、GPU Software。deepin 三台锁屏待登录未采。
+- **跑法**：容器与宿主 moon 齐备的环境直接 `moon test env` + `moon run examples/envprobe/main`；宿主无 moon 的用 `docker cp` 取容器内编好的 envprobe 二进制直接跑，免装工具链；KVM VM 经 `virsh -c qemu:///system start` + `domifaddr` 拿 IP 后 ssh 二级跳，ssh 不通的发行版走 vmctl 图形注入。
+- **顺带**：home 的 moon 0.1.20261119 对仓库 `gui/moon.mod` 的 `homepage` 键报 unknown 警告——新工具链键校验收紧，非库缺陷，升级工具链的机器会看到。

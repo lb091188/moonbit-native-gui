@@ -246,6 +246,9 @@
 - PID namespace 判据
   - 大白话：namespace 是内核的视图隔离机制，PID namespace 让容器内进程看到自己的独立进程号
   - 根 PID namespace 的 inode 自内核 3.8 起固定为 0xEFFFFFFC，不等于它即处于某个容器
+  - 0xEFFFFFFC 即 4026531836；初始 IPC namespace 是相邻的 4026531839，两者抄混则物理宿主全误判容器
+  - 初始 namespace 的 inode 序列由内核初始化顺序定死，跨机器跨版本稳定，可当常量用
+  - 实测：company 物理宿主 2026-11-21 读数 pid:[4026531836]，误判根因即常量抄混，见 adaptation/linux.md
   - 出处：systemd virt.c 的 running_in_pidns
 - 特定环境判据
   - OpenVZ：/proc/vz 存在且 /proc/bc 不存在
@@ -335,6 +338,19 @@
 - 机器信息探测：gui/sys 的 sysinfo，虚拟机固件表为空的实测记录在 experience/adaptation/windows.md
 - 实测环境：company win10 KVM 虚拟机是本地 Windows 门禁环境，QEMU/SeaBIOS 固件不给 SMBIOS 注册表镜像
 - 本文是信号源清单，容器档位与软渲染档位若要做，从此处取判据
+
+## 真机矩阵读数 · 2026-11-21
+
+- modules/native-env 已落地本清单的容器与虚拟机臂，envprobe 是读数 CLI；本轮跨 company 与 home 两台宿主逐环境实测，修出两个真机才露头的缺陷，见 adaptation/linux.md 与 windows.md。
+- 读数一览
+  - company 宿主，ASUS 物理机：裸机、非容器、nvidia Hardware、TTY 会话、零信号
+  - natigui-linux 与 natigui-bare 容器：容器 docker、Software 软渲染无渲染节点、会话与桌面未知——ssh 非交互上下文无 XDG 变量
+  - company win10 VM，QEMU/SeaBIOS：虚拟机 bochs、GPU None——ssh 会话拿不到适配器按会话属性保守判
+  - home 宿主，华为物理机：裸机、非容器、i915 Hardware、TTY 会话、零信号
+  - home ubuntu-24.04 与 ubuntu-26.04 与 kubuntu-24.04 三台 KVM VM：虚拟机 qemu、cpuinfo hypervisor 标志 + DMI QEMU 双硬信号、mac_oui 佐证、GPU Software
+  - home deepin 三台：锁屏待登录未采，跑法与残项记 TODO
+- 会话臂读数语义：envprobe 经 ssh 跑时拿不到图形会话环境变量，会话与桌面两行报未知或 TTY，不代表机器没有图形会话；要采会话真值须在桌面终端里跑
+- 二进制搬运口径：guest 无 moon 工具链时，宿主编好的 envprobe 直接拷进去跑；glibc 地板随宿主走，Ubuntu 24.04 产物在 deepin 20.9 这类老 glibc 机器上起不来，低版本发行版读数须就地构建
 
 ## 参考资料汇总
 

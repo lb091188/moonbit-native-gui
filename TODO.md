@@ -200,10 +200,11 @@
 ## 开发待办
 
 - [ ] **环境判定库 native-env 真机矩阵**：执行者：用户执行——`cd examples/envprobe && moon run main` 按平台各一遍，逐条对 `测试文档/测试用例.md` 的 EP-1.1～1.7
-  - 已验 2026-11-21：mac 本机 EP-1.1（裸机 / Metal Hardware）；company Linux 容器 EP-1.4（docker 命中、宿主裸机、无渲染节点 Software）——本条真机抓出容器信号漏进 VM 判定一 bug 已修
-  - 已验 2026-11-21：company win10 KVM EP-1.3 判 VM 半边——CPUID 位 + Microsoft Hv 签名串命中，读数与 systemd 口径一致
+  - 已验 2026-11-21 第一轮：mac 本机 EP-1.1（裸机 / Metal Hardware）；company Linux 容器 EP-1.4（docker 命中、宿主裸机、无渲染节点 Software）——本条真机抓出容器信号漏进 VM 判定一 bug 已修
+  - 已验 2026-11-21 第二轮：company win10 KVM EP-1.3——品牌从 enlightenments 漂移的 hyperv 修正为 bochs，`bios_vendor` 信号补进；库测 27/27；EP-1.6 两遍输出一致 PASS；company 宿主 EP-1.5 半边（裸机 / nvidia Hardware / TTY / 修复后零信号，与 systemd-detect-virt 双 none 一致）；home 宿主 EP-1.5 半边（裸机 / i915 Hardware / 零信号）；home ubuntu-24.04、ubuntu-26.04、kubuntu-24.04 三台 KVM VM（qemu 双硬信号 + mac_oui，GPU Software）——第二轮真机抓出 pidns 常量抄成 IPC inode 与 virbr0 qemu OUI 混信号两 bug 已修，Windows SMBIOS 四通路全断加 HardwareConfig 兜底一缺陷已补
+  - 待验：deepin 20.9 / 23.1 / 25.2 三台 KVM VM——virsh 已启动、ARP 有租约，但无 openssh 且停在锁屏，须登录后跑 envprobe；Ubuntu 24.04 编译产物在 20.9 的老 glibc 上起不来，需就地构建
   - 待验：EP-1.3 的 GPU 半边——ssh 会话里 EnumDisplayDevicesW 与 DXGI 都拿不到适配器，须 RDP 或控制台会话跑一次看 QXL 命中 Virtual
-  - 待验：Windows 真机 EP-1.2、Linux 裸机 EP-1.5、缓存一致性 EP-1.6
+  - 待验：Windows 真机 EP-1.2
 
 - [ ] **批2 transform 收尾读数**：win / linux 各跑一次 `moon run experiment/anim_cost_bench --release`，把 `rot_90x32` 档读数贴回 roadmap；三端真机观感 2026-11-21 已验，mac 读数 20 帧合计 0ms（与同尺寸裸图元同档）
 
