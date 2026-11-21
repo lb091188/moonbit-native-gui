@@ -1,6 +1,7 @@
 # 环境判定独立模块提案：native-env
 
-> 状态：API 已定稿，可开工；待拍板模块名字与是否对外发布。判据全集见
+> 状态：P1 骨架已落地——`modules/native-env` 单包 env + `examples/envprobe`，
+> mac 本机已验裸机读数；P2 打分制与品牌细分歧未动工。判据全集见
 > [experience/environment-detection.md](../experience/environment-detection.md)。
 
 ## 背景与动机

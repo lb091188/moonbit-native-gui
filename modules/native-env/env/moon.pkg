@@ -1,0 +1,19 @@
+// 运行环境判定单包：判据出处 experience/environment-detection.md，方案与
+// API 定稿见 proposals/env-detect.md。零依赖——只用 core。
+//
+// 桩一个文件三平台真分支加互斥占位，全部 envx_* 符号全平台有定义，MoonBit
+// 侧 extern 声明不分平台。链接面零注入：Windows 系统库 user32 / advapi32 /
+// dxgi 走 LoadLibraryW 运行期装载，macOS Metal 走 dlopen 运行期装载，装载
+// 失败按「信号缺失」处理——降级不是错误；__cpuid 与 sysctlbyname 是内建与
+// libSystem 自带，不需要链接参数。
+
+import {
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/env" @coreenv,
+}
+
+supported_targets = "native"
+
+options(
+  "native-stub": [ "env_stub.c" ],
+)

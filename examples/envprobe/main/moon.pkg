@@ -1,0 +1,10 @@
+// envprobe 入口：只依赖 native-env，不碰 GUI——本示例同时是「非 GUI 应用
+// 消费环境判定」的最小样板。
+
+import {
+  "NoahLiu/native-env/env",
+}
+
+supported_targets = "native"
+
+pkgtype(kind: "executable")

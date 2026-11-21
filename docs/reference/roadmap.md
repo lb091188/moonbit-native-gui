@@ -457,6 +457,13 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
   - TCC：macOS 的隐私授权机制，管辅助功能、屏幕录制这类授权。
   - 每次一弹的操作提权随各自能力批处理
   - 提权：即管理员授权。
+- 🚧 **环境判定库 native-env**：独立零依赖模块，VM、容器、GPU 档三判定加会话/桌面识别
+  - 便捷层 `is_vm` / `vm_brand` / `is_container` / `container_kind` / `gpu_tier` / `session_kind` / `desktop_kind`；`detect()` 全采报告带信号明细与置信分
+  - 平台实现：Windows CPUID 位 + 厂商签名串 + Hyper-V 宿主特判 + SMBIOS 厂商串 + 适配器关键词 + DXGI 软件旗标；macOS hw.model + kern.hv_vmm_present + Metal 默认设备；Linux systemd 同款容器判定链 + DMI 厂商串 + MAC 前缀 + 渲染节点
+  - 判定顺序固定容器 → 虚拟机 → GPU；零错误类型，读不到当信号缺失返回 Unknown
+  - 消费样板：`examples/envprobe` CLI 打印报告
+  - P1 口径：VM 判「任一硬信号命中」；置信分打分制与品牌细分歧 P2，见 `proposals/env-detect.md`，判据全集见 `experience/environment-detection.md`
+  - 待验：三平台真机矩阵——mac 本机已验裸机读数；Windows KVM 与 Linux 容器待验
 
 ### WebView
 
@@ -623,7 +630,6 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
 ### 系统能力
 
 - ⏳ **显示器「首选档」**：`CGDisplayModeIsPreferred` 已不在 SDK，需找公开替代信号
-- ⏳ **环境判定库 native-env**：独立模块零依赖，VM、容器、GPU 档三判定加会话/桌面识别；判据全集见 `experience/environment-detection.md`，方案与 API 定稿见 `proposals/env-detect.md`
 
 ### 媒体
 

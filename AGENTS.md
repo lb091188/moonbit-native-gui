@@ -24,6 +24,8 @@ cd gui && moon test base shell widget ui render text theme icons sys input win d
 cd tools/native-gui-tools && moon check && moon test mng mngkit proc inst   # mng 工具链检查 + 测试
 cd tools/native-gui-tools && moon build mng --target native --release      # release 形态(符号缺库只在此档露头)
 cd modules/gui-webview && moon test webview                   # webview 扩展模块(点名包,裸跑会连带全 workspace)
+cd modules/native-env && moon check && moon test env          # 环境判定库(VM/容器/GPU 档)
+moon build examples/envprobe --target native && moon run examples/envprobe/main   # 环境报告 CLI
 cd gui && moon build base shell widget ui render text theme icons sys input win chart mdview style router --target native
 moon build examples/hello examples/audio examples/video --target native   # 示例链接(含媒体桩真链)
 cd docs && npm run build && cd .. && node tools/check-docs-index.mjs      # 文档站构建 + 索引守卫
