@@ -699,3 +699,11 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **环境红线**：GUI 真机行为必须在控制台 / RDP 会话复现——ssh 会话里此 dll 首次 Configure 即 panic（同一 wgpu 栈），探针无法代跑；schtasks 交互式计划任务从 ssh 触发落不进控制台会话，`上次结果 267011` 即未运行。探针脚本交人在控制台跑，结果落文件回收。
 - **回归探针**：VM `C:\natigui\probe-fs.ps1`——起 hello 后空闲、最小化、还原、全屏进、全屏退、快速组合逐步判进程死活，2026-11-21 矩阵全绿 PROBE-DONE；换 dll 或换机先重跑它再谈 GPU 档。
 - 另：本地门禁 linux/bare 腿既有红 `win/icon_ffi_wbtest` 的 icon_from_bgra（老代码 A/B 同红，与本批无关），已立 TODO 单独排查。
+
+## ssh 会话里 EnumDisplayDevicesW 枚举不到适配器，桩缓冲区不清零返垃圾 · 2026-11-21 native-env 真机矩阵
+
+- **现象**：envprobe 经 `ssh win10` 跑，GPU 臂报 Hardware 且 detail 是乱码垃圾串——同一 VM 的 QXL 适配器名「Red Hat QXL controller」明明在关键词表里。
+- **环境事实**：非交互会话——ssh 落 session 0 等价位置——里 `EnumDisplayDevicesW(NULL, 0)` 第一项即返回失败，PowerShell P/Invoke 与 C 桩同读数。交互控制台 / RDP 会话才有贴桌面适配器可枚举，与既有「GUI 真机行为必须在控制台 / RDP 会话复现」红线同源。
+- **根因叠加**：适配器枚举失败的返回路径上，桩的输出缓冲区没有清零——`char out[8192]` 未初始化，`envx_bytes_from` 按 `strlen` 取长度，把栈上垃圾当适配器名返回。MoonBit 侧关键词匹配不上垃圾串，GPU 档落到 Hardware。
+- **修法**：桩缓冲区一律初始化清零，空枚举即空串；native-env 的 GPU 判定加 VM 保险——VM 硬信号命中时认不出的适配器至多判 Virtual，不给 Hardware。native-gui 的 `l1_probe` 无此问题：它先过 CPUID hypervisor 位，适配器名只是第二层。
+- **教训**：①「空结果」必须返回明确的空，栈缓冲区初始化是 C 桩的铁律；②经 ssh 验证 Windows 显示面读数时，适配器枚举拿不到是会话属性不是代码缺陷，换控制台或 RDP 再读；③探测库的兜底保险要与消费方的降级口径一致——认不出就往保守档判。
