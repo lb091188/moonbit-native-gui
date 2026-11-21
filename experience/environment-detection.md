@@ -1,0 +1,322 @@
+# 运行环境检测：虚拟机、容器、无 GPU 加速
+
+- 定位
+  - 收录原生应用判断运行环境的公开做法，覆盖三类环境：虚拟机、容器、无 GPU 加速
+  - 用途：能力探测与降级策略的信号源清单，渲染档位取舍的输入
+  - 不做对抗性反检测，识别结果只用来选档位，不用来躲避审查
+  - 收集日期：2026-11-21
+  - 收集方式：逐个抓取权威实现源码与官方文档，出处随条目附链接
+  - 与本仓库的对应见文末「本仓库现状」
+
+- 三类环境一句话
+  - 虚拟机：整机由软件仿真或半虚拟化出来，CPU 到网卡都是虚拟的
+  - 容器：与宿主共用同一个内核，只有文件系统与进程视图隔离
+  - 无 GPU 加速：屏幕像素由 CPU 算出来，没有真实显卡参与渲染
+
+- 总原则
+  - 任何单一信号都能被伪装或误报，结论要靠多信号打分
+    - 出处：VMAware 对每项技术按置信度打分，累计过阈值才判定，见 https://github.com/NotRequiem/VMAware
+  - 云主机本身就是虚拟机，云上读到的「异常」多数是虚拟化正常现象
+    - 出处：virt-what 把 aws、google_cloud、alibaba_cloud 单列为 facts，见 https://man.archlinux.org/man/virt-what.1.en
+  - 嵌套很常见：容器里跑虚拟机、虚拟机里跑容器，识别时取最内层
+    - 出处：systemd-detect-virt 手册，见 https://www.freedesktop.org/software/systemd/man/latest/systemd-detect-virt.html
+
+## 虚拟机检测
+
+- CPU 指令层
+  - CPUID hypervisor 位
+    - 大白话：CPUID 是 x86 CPU 的自我介绍指令，应用问一句、CPU 答一句
+    - 判法：问叶子 1，ECX 第 31 位为 1 即在 hypervisor 管理下
+    - hypervisor 是管理虚拟机的底层软件，俗称虚拟机监视器
+    - 局限：hypervisor 可以藏这个位，个别裸机也可能置位
+    - 出处：VMAware 技术表 HYPERVISOR_BIT、al-khaser 反虚拟化清单，见 https://github.com/LordNoteworthy/al-khaser
+  - hypervisor 厂商签名串
+    - 判法：问 CPUID 叶子 0x40000000，EBX:ECX:EDX 拼出 12 字节厂商串
+    - 已知签名串表
+      - KVMKVMKVM → KVM 或 QEMU+KVM
+      - Linux KVM Hv → KVM 加 Hyper-V enlightenment
+      - TCGTCGTCGTCG → QEMU 纯仿真无 KVM
+      - VMwareVMware → VMware
+      - Microsoft Hv → Hyper-V 或 Virtual PC
+      - XenVMMXenVMM → Xen
+      - VBoxVBoxVBox → VirtualBox
+      - prl hyperv → Parallels
+      - bhyve bhyve → bhyve
+      - QNXQVMBSQG → QNX
+      - ACRNACRNACRN → ACRN
+      - SRESRESRESRE → LMHS SRE
+      - Apple VZ → Apple Virtualization.framework
+    - enlightenment 是 hypervisor 给客户机的加速接口，KVM 可以装成 Hyper-V 的接口
+    - Hyper-V 占用 CPUID 叶子 0x40000000 到 0x40000005，叶 1 是厂商中立接口识别
+    - 出处：systemd 源码 src/basic/virt.c 的签名串表，见 https://raw.githubusercontent.com/systemd/systemd/main/src/basic/virt.c
+    - 出处：微软 Hyper-V TLFS 特性发现页，见 https://learn.microsoft.com/en-us/virtualization/hyper-v-on-windows/tlfs/feature-discovery
+  - 指令时序与行为
+    - 描述符表位置：SIDT、SGDT、STR 指令的结果在虚拟机与裸机上取值特征不同
+    - 特权指令行为：非法指令异常、中断阴影时长、单步陷阱、KVM 拦截特征
+    - RDTSC 计时抖动：虚拟机退出再进入带来额外延迟
+    - 出处：VMAware 技术表 TRAP、SVM_EXCEPTIONS、INTERRUPT_SHADOW、SINGLE_STEP、TIMER、EMULATION 等条目
+    - 出处：al-khaser 的时序攻击与描述符表条目
+
+- 固件层
+  - DMI 与 SMBIOS
+    - 大白话：主板固件自带一张「这台机器是谁」的表，记录厂商、产品名、序列号
+    - Linux 读法：/sys/class/dmi/id/ 下的 sys_vendor、product_name、board_vendor、bios_vendor
+    - systemd 按厂商串识别的表，节选
+      - KVM、OpenStack、KubeVirt、Alibaba Cloud ECS → KVM
+      - Amazon EC2 → AWS Nitro
+      - QEMU → QEMU
+      - VMware、VMW → VMware
+      - innotek GmbH、VirtualBox、Oracle Corporation → VirtualBox
+      - Xen → Xen
+      - Bochs → Bochs
+      - Parallels → Parallels
+      - BHYVE → bhyve
+      - Hyper-V → Microsoft
+      - Apple Virtualization → Apple
+      - Google Compute Engine → Google
+    - SMBIOS 表里有一个专门的虚拟机位：BIOS 特征扩展位，置位即虚拟机
+    - Windows 读法：GetSystemFirmwareTable 或注册表镜像 HKLM\HARDWARE\DESCRIPTION\System\BIOS
+      - 实测坑：QEMU/SeaBIOS 虚拟机里这张注册表镜像整个是空的，键在但一个值都没有，WMI 仍读得到
+      - 结论：WMI 当兜底路径而不是主路径
+      - 出处：experience/adaptation/windows.md 2026-10-28 记录
+  - ACPI 表
+    - 大白话：ACPI 是固件交给操作系统的一组电源与设备描述表，表头带 OEM 厂商串
+    - 判法：OEM 串认 VBOX__、VMware 等关键字
+    - 出处：al-khaser 的 ACPI 条目、VMAware 技术表 ACPI_SIGNATURE
+
+- 平台细节
+  - Windows
+    - 注册表痕迹
+      - HARDWARE\ACPI\DSDT\FADT\RSDT 键名带 VBOX__
+      - SOFTWARE\Oracle\VirtualBox Guest Additions
+      - SYSTEM\ControlSet001\Services\VBoxGuest、VBoxMouse、VBoxService、VBoxSF、VBoxVideo
+      - SOFTWARE\VMware, Inc.\VMware Tools
+      - SOFTWARE\Microsoft\Virtual Machine\Guest\Parameters
+      - SYSTEM\ControlSet001\Control\SystemInformation 的 SystemManufacturer、SystemProductName
+    - 文件与目录痕迹
+      - system32\drivers\ 下 VBox*.sys、vmmouse.sys、vmhgfs.sys、vmci.sys、vmmemctl.sys 等
+      - system32\ 下 vbox*.dll、vboxservice.exe、vboxtray.exe、VBoxControl.exe
+      - %PROGRAMFILES%\Oracle\VirtualBox Guest Additions、%PROGRAMFILES%\VMware
+    - 进程痕迹：vboxservice、vboxtray、vmtoolsd、vmwaretray、vmwareuser、VGAuthService、vmacthlp、vmsrvc、vmusrvc、prl_cc、prl_tools、xenservice、qemu-ga
+    - 设备痕迹：\\.\VBoxGuest、\\.\VBoxMiniRdrDN、\\.\HGFS、\\.\vmci 等设备名
+    - WMI 查询
+      - Win32_ComputerSystem 的 Model 与 Manufacturer
+      - Win32_BIOS 的 SerialNumber
+      - Win32_Processor 的 NumberOfCores 与 ProcessorId
+      - Win32_LogicalDisk 的 Size
+      - MSAcpi_ThermalZoneTemperature 与 Win32_Fan：虚拟机常无温度与风扇
+    - 其它
+      - NtQueryLicenseValue 查 Kernel-VMDetection-Private 许可值
+      - SYSTEM\CurrentControlSet\Services\Disk\Enum 与 Enum\IDE、Enum\SCSI 认 QEMU、VMware、VBOX
+      - 窗口类名 VBoxTrayToolWndClass、网络共享 VirtualBox Shared Folders
+    - 出处：al-khaser 反虚拟化全清单，见 https://github.com/LordNoteworthy/al-khaser
+  - Linux
+    - /sys/class/dmi/id/ 系列文件，最常用
+    - /proc/cpuinfo 出现 hypervisor 标志行
+    - /proc/xen 存在或 /sys/hypervisor/type 值为 xen → Xen
+    - /sys/hypervisor 存在 → 某种 hypervisor
+    - /proc/vz 存在 → OpenVZ 家族
+    - dmesg 与内核消息环认 QEMU、VMware 串，需要权限
+    - 出处：systemd virt.c 与 VMAware Linux 技术组条目
+  - macOS
+    - sysctl hw.model：真机串含 Mac，如 MacBookPro16,1；虚拟机串是 VMware7,1 之类
+    - ioreg -rd1 -c IOPlatformExpertDevice：board-id 与 manufacturer 串认 Apple、innotek、VirtualBox、VMware
+    - ioreg -lw0 -p IODeviceTree 出现 Virtual Machine 串
+    - sysctl kern.hv_vmm_present 非 0 → 运行在 hypervisor 下
+    - csrutil status：虚拟机里 SIP 状态串常有异常
+      - SIP 是 macOS 的系统完整性保护，真机开启时输出固定格式
+    - 出处：VMAware 的 HWMODEL、MAC_IOKIT、IOREG_GREP、MAC_SIP 实现，见 https://github.com/NotRequiem/VMAware
+
+- 外设与资源指纹
+  - MAC 地址前缀表，前缀是 OUI 即厂商标识的前三字节
+    - 08:00:27 → VirtualBox
+    - 00:05:69、00:0C:29、00:1C:14、00:50:56 → VMware
+    - 52:54:00 → QEMU/KVM 默认 MAC 基址
+      - 出处：QEMU 源码 net/net.c 的默认 MAC 表，见 https://raw.githubusercontent.com/qemu/qemu/master/net/net.c
+    - 00:15:5D → Hyper-V
+      - 出处：IEEE 注册局 OUI 库，00:15:5D 归 Microsoft，见 https://standards.ieee.org/products-services/regauth/oui/
+    - 00:1C:42 → Parallels
+    - 00:16:3E → Xen
+    - 0A:00:27 → Hybrid Analysis 沙箱
+    - 局限：MAC 可随意改，只作加分项
+    - 出处：al-khaser MAC 条目与 VMAware MAC 实现
+  - 资源形态
+    - 内存、核数、显存异常小
+    - 无温度传感器、无风扇、无电池、电源策略缺失
+    - 出处：VMAware 的 TEMPERATURE、HWMON、POWER_CAPABILITIES、VIRTUAL_PROCESSORS 条目；al-khaser 的 Win32_Fan、ThermalZone、电源策略条目
+
+- 行为层
+  - 鼠标移动与用户交互缺失、开机时长过短、最近文件为空
+  - 出处：al-khaser 的 Human Interaction 节；VMAware 相关旗标
+
+- 品牌识别与特殊情形
+  - VMAware 品牌表覆盖 60 余种
+    - 类别：主流 hypervisor、沙箱、容器、Wine 兼容层、WSL
+    - 云：AWS Nitro、GCE、Azure、OpenStack、KubeVirt
+    - 机密虚拟机：AMD SEV、Intel TDX
+  - Hyper-V 宿主误报：Windows 装了 Hyper-V 会把宿主机硬件值改成虚拟机值，裸机看起来像 VM
+    - VMAware 单列 HYPERV_ARTIFACT 品牌表示「宿主但装有 Hyper-V」
+  - 反检测对抗存在：VmwareHardenedLoader 能抹掉 VMware 痕迹，测不到不等于不在虚拟机
+    - 出处：VMAware 品牌表 VMWARE_HARD 条目
+  - 云裸金属实例：virt-what 会打出 aws 但不带 kvm、xen
+    - 出处：virt-what 手册 aws 条目
+
+- 现成工具与库
+  - VMAware
+    - 跨平台 C++ 单头库，约 90 项检测技术打分制，支持 Windows、Linux、macOS
+    - https://github.com/NotRequiem/VMAware
+  - virt-what
+    - Red Hat 出的 shell 脚本，逐行输出 facts，覆盖 KVM、QEMU、VMware、Xen、Hyper-V、z/VM、POWER 等
+    - https://man.archlinux.org/man/virt-what.1.en
+  - systemd-detect-virt
+    - 发行版自带，--vm 识别整机虚拟化、--container 识别容器，另有 --chroot、--private-users、--cvm
+    - 识别 ID：qemu、kvm、amazon、zvm、vmware、microsoft、oracle、powervm、xen、bochs、uml、parallels、bhyve、qnx、acrn、apple、sre、google
+    - 容器 ID：openvz、lxc、lxc-libvirt、systemd-nspawn、docker、podman、rkt、wsl、proot、pouch
+    - 出处：https://www.freedesktop.org/software/systemd/man/latest/systemd-detect-virt.html
+  - pafish
+    - Windows 工具，用恶意样本同款手法检测虚拟机与恶意软件分析环境，用于检验分析环境是否露馅
+    - https://github.com/a0rtega/pafish
+  - al-khaser
+    - Windows 工具，反调试、反虚拟化、反分析技术全清单实测
+    - https://github.com/LordNoteworthy/al-khaser
+  - Checkpoint evasions wiki
+    - 按平台整理的反虚拟化技术百科，Windows、macOS、Linux 全覆盖
+    - https://evasions.checkpoint.com/
+
+## 容器检测
+
+- 判定思路
+  - 容器与宿主共用内核，CPU 指令层无信号，痕迹在文件系统、进程视图与内核对象
+- 文件标记
+  - /.dockerenv 存在 → Docker
+    - Docker 启动容器时在根目录创建
+    - systemd 特意把它放在其它判定之后，防止镜像里误带这个文件
+  - /run/.containerenv 存在 → Podman
+  - 出处：systemd virt.c 的 detect_container_files，注释引 moby#18355 与 podman#6192
+- 环境变量
+  - container 变量
+    - 容器运行时注入，值如 docker、lxc、systemd-nspawn
+    - 自身是 PID 1 时直接 getenv；不是 PID 1 时读 /proc/1/environ，需要 CAP_SYS_PTRACE 权限
+    - systemd 的容器会把信息落成 /run/systemd/container 文件或 /run/host/container-manager，给非 PID 1 进程免权限读取
+  - KUBERNETES_SERVICE_HOST：K8s Pod 内必有，用于识别 Kubernetes
+    - K8s 把服务以环境变量形式注入容器，形如 SERVICE_HOST、SERVICE_PORT
+    - 出处：K8s 官方文档容器环境页，见 https://kubernetes.io/docs/concepts/containers/container-environment/
+- cgroup 判据
+  - 大白话：cgroup 是内核的资源配额机制，容器进程都挂在某个 cgroup 下
+  - /proc/1/cgroup 路径含 docker、kubepods、lxc 是社区常用判据
+  - 局限：cgroup v2 统一层级下路径常只剩根，不能单用
+  - 出处：VMAware 技术表 CGROUP 条目
+- PID namespace 判据
+  - 大白话：namespace 是内核的视图隔离机制，PID namespace 让容器内进程看到自己的独立进程号
+  - 根 PID namespace 的 inode 自内核 3.8 起固定为 0xEFFFFFFC，不等于它即处于某个容器
+  - 出处：systemd virt.c 的 running_in_pidns
+- 特定环境判据
+  - OpenVZ：/proc/vz 存在且 /proc/bc 不存在
+  - WSL：/proc/sys/kernel/osrelease 含 Microsoft 或 WSL
+    - 微软官方认可的判定方式
+    - 出处：systemd virt.c 注释引 microsoft/WSL#423，见 https://github.com/Microsoft/WSL/issues/423
+  - proot：/proc/self/status 的 TracerPid 指向 proot 进程
+    - proot 是用户态的 chroot 与挂载仿真工具
+  - chroot 与 user namespace：systemd-detect-virt --chroot、--private-users
+  - 出处：systemd virt.c 与 systemd-detect-virt 手册
+- 叠加关系
+  - 容器套虚拟机或虚拟机套容器都存在，识别取最内层
+  - systemd-detect-virt 把 WSL 归类为容器档，因为多个 WSL 环境共享同一内核，行为上与容器一致
+  - 出处：systemd-detect-virt 手册
+
+## 无 GPU 加速检测
+
+- 先分三种「没加速」
+  - 完全没有 GPU：只有 CPU 软件渲染
+  - 有虚拟 GPU：虚拟机里的仿真显卡，有 3D 加速但驱动特殊、崩溃面大
+  - 真显卡但会话受限：远程桌面或服务会话里拿不到硬件
+
+- Windows
+  - DXGI 软件适配器旗标
+    - 大白话：DXGI 是 Windows 的显示适配器枚举接口，应用靠它列出所有「显卡」
+    - 判法：IDXGIFactory 枚举适配器，GetDesc1 的 Flags 带 DXGI_ADAPTER_FLAG_SOFTWARE 即软件适配器
+    - 这是 API 层面最直接的判法，系统显式标注，不用猜名字
+    - 出处：微软 DXGI_ADAPTER_FLAG 文档，见 https://learn.microsoft.com/en-us/windows/win32/api/dxgi/ne-dxgi-dxgi_adapter_flag
+  - WARP 与基础显示适配器
+    - 大白话：WARP 是 Windows 自带的全功能 CPU 软光栅器，Direct3D 在没有显卡时靠它继续画
+    - Windows 8 起适配器枚举里出现 Microsoft Basic Render Adapter 与 Microsoft Basic Display Adapter，即 WARP 的形态
+    - 适配器名认这两个串也是通行判法
+    - 主动用软渲染：D3D_DRIVER_TYPE_WARP 或 IDXGIFactory4::EnumWarpAdapter 显式创建 WARP 设备
+    - 官方推荐 WARP 的场景：系统无 Direct3D 硬件、服务与服务器环境、远程会话
+    - 出处：微软 WARP 文档，见 https://learn.microsoft.com/en-us/windows/win32/direct3darticles/directx-warp
+  - 远程会话
+    - 判法：GetSystemMetrics 传 SM_REMOTESESSION，返回非 0 即挂在远程桌面客户会话上
+    - 出处：微软 GetSystemMetrics 文档，见 https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getsystemmetrics
+  - 本仓库做法
+    - EnumDisplayDevicesW 列贴桌面的适配器，适配器名认虚拟显卡关键词，命中则整个 GPU 档不启用
+    - 已认关键词含 QEMU、Virtio、Hyper-V、VMware、VBox、Parallels、Basic Display 等
+    - 出处：gui/win 的 l1_probe 与 experience/adaptation/windows.md 的虚拟显卡检测前置条目
+
+- Linux
+  - 渲染节点
+    - 大白话：渲染节点是内核给应用直连 GPU 的设备文件，路径 /dev/dri/renderD<num>
+    - 判法：节点不存在或打不开即无 GPU 渲染通路
+    - 出处：内核 DRM 用户态文档，见 https://docs.kernel.org/gpu/drm-uapi.html
+  - Mesa 软渲染器
+    - Mesa 是 Linux 主流图形驱动栈，软件光栅器是它的兜底驱动
+    - llvmpipe：当前最快的 Mesa 软光栅器，GL_RENDERER 串以 llvmpipe 开头
+    - 旧软渲染器 softpipe、swrast 同理，渲染器串认关键字即可
+    - 出处：Mesa llvmpipe 文档，见 https://docs.mesa3d.org/drivers/llvmpipe.html
+  - Vulkan 物理设备
+    - 大白话：Vulkan 应用先枚举物理设备再选一块用；ICD 是各厂商显卡的驱动插件，没有插件就没有设备
+    - 判法：vkEnumeratePhysicalDevices 返回 0 个设备即无 GPU
+    - 出处：Vulkan-Loader 架构文档，见 https://github.com/KhronosGroup/Vulkan-Loader/blob/main/docs/LoaderInterfaceArchitecture.md
+  - 容器与 GPU
+    - 渲染节点在容器内是否可见取决于是否挂载进容器，未挂载即无 GPU
+    - 出处：内核 DRM 渲染节点的访问模型，见 https://docs.kernel.org/gpu/drm-uapi.html
+  - WSL
+    - WSL2 有 GPU 半虚拟化通路，可跑 CUDA 与 Direct3D 12；WSL1 无 GPU
+    - 出处：微软 WSL GPU 文档，见 https://learn.microsoft.com/en-us/windows/wsl/tutorials/gpu-compute
+    - WSL 本身的判定见容器节
+
+- macOS
+  - Metal 设备
+    - 大白话：Metal 是苹果的图形 API，应用取系统默认设备来渲染
+    - 判法：MTLCreateSystemDefaultDevice 返回可空设备，取不到即无可用 GPU
+    - 出处：苹果 Metal 文档，见 https://developer.apple.com/documentation/metal/mtlcreatesystemdefaultdevice()
+  - 虚拟机里的 Metal
+    - Apple Virtualization 与 Parallels、VMware Fusion 的虚拟 GPU 正常提供 Metal，不能按「虚拟机即无 GPU」处理
+    - headless 即无显示器的虚拟机里默认设备可能取不到
+
+- 通用策略
+  - 先试硬件设备创建，失败再降级软渲染；判定靠创建结果而不是只靠名字
+  - 软渲染识别串黑名单：llvmpipe、softpipe、swrast、SwiftShader、Microsoft Basic Render Driver
+  - 不做静默软渲染兜底
+    - Chromium 已把 WebGL 自动回退 SwiftShader 标记废弃：安全风险高、体验断崖、用户无感知
+    - 改为显式开关 --enable-unsafe-swiftshader，应用侧按上下文创建失败处理
+    - 出处：Chromium SwiftShader 文档，见 https://raw.githubusercontent.com/chromium/chromium/main/docs/gpu/swiftshader.md
+  - SwiftShader 是 Google 出品的纯 CPU 实现 Vulkan 与 OpenGL ES 的高性能软渲染库
+
+## 本仓库现状
+
+- 虚拟显卡检测：gui/win 的 l1_probe 用适配器名关键词判定，命中则 GPU 档不启用，虚拟机里 panic 面归零
+- 机器信息探测：gui/sys 的 sysinfo，虚拟机固件表为空的实测记录在 experience/adaptation/windows.md
+- 实测环境：company win10 KVM 虚拟机是本地 Windows 门禁环境，QEMU/SeaBIOS 固件不给 SMBIOS 注册表镜像
+- 本文是信号源清单，容器档位与软渲染档位若要做，从此处取判据
+
+## 参考资料汇总
+
+- VMAware，跨平台虚拟机检测库，技术表与品牌表：https://github.com/NotRequiem/VMAware
+- systemd 虚拟化检测源码 src/basic/virt.c：https://raw.githubusercontent.com/systemd/systemd/main/src/basic/virt.c
+- systemd-detect-virt 手册：https://www.freedesktop.org/software/systemd/man/latest/systemd-detect-virt.html
+- virt-what 手册：https://man.archlinux.org/man/virt-what.1.en
+- al-khaser，Windows 反检测清单：https://github.com/LordNoteworthy/al-khaser
+- pafish，虚拟机与沙箱检测工具：https://github.com/a0rtega/pafish
+- Checkpoint 反虚拟化技术库：https://evasions.checkpoint.com/
+- 微软 WARP 文档：https://learn.microsoft.com/en-us/windows/win32/direct3darticles/directx-warp
+- 微软 DXGI_ADAPTER_FLAG 文档：https://learn.microsoft.com/en-us/windows/win32/api/dxgi/ne-dxgi-dxgi_adapter_flag
+- 微软 GetSystemMetrics 文档：https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getsystemmetrics
+- 微软 Hyper-V TLFS 特性发现：https://learn.microsoft.com/en-us/virtualization/hyper-v-on-windows/tlfs/feature-discovery
+- 微软 WSL GPU 文档：https://learn.microsoft.com/en-us/windows/wsl/tutorials/gpu-compute
+- Chromium SwiftShader 文档：https://raw.githubusercontent.com/chromium/chromium/main/docs/gpu/swiftshader.md
+- Mesa llvmpipe 文档：https://docs.mesa3d.org/drivers/llvmpipe.html
+- Vulkan-Loader 架构文档：https://github.com/KhronosGroup/Vulkan-Loader/blob/main/docs/LoaderInterfaceArchitecture.md
+- 内核 DRM 用户态文档：https://docs.kernel.org/gpu/drm-uapi.html
+- QEMU 源码默认 MAC：https://raw.githubusercontent.com/qemu/qemu/master/net/net.c
+- K8s 容器环境文档：https://kubernetes.io/docs/concepts/containers/container-environment/
+- 苹果 Metal 文档 MTLCreateSystemDefaultDevice：https://developer.apple.com/documentation/metal/mtlcreatesystemdefaultdevice()
