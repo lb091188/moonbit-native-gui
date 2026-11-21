@@ -200,9 +200,6 @@
 
 ## 品牌与插画
 
-- [ ] **components 新图标**：`mng package` 后 DMG 拖装看 Dock 图标应为新版；全档再生成 `python3 scripts/gen_brand_icons.py`，icns 由 mng 的 sips+iconutil 合成
-  - 新版样式：玫红月兔 + 靛蓝空窗口。
-  - sips / iconutil：macOS 自带的图像处理与图标集打包命令。
 - [ ] **库内置托盘图标**：system「系统集成」托盘段点「回库内置」——托盘图标应为新版，三平台各看一眼；发 0.4.0 与否用户定
   - 新版样式：玫红双耳 + 靛蓝窗口。
 - [ ] **情景插画**：README 头图 / 文档站首页「兔子坐在电脑前」叙事版

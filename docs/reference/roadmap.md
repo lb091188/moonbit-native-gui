@@ -604,6 +604,14 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
   - Windows：NSIS setup + 签名档；NSIS 是 Windows 的安装包制作工具。
   - Linux：AppImage + deb；AppImage 是单文件免安装格式，deb 是 Debian 系软件包格式。
   - 公证：签名后交 Apple 线上核验，通过后用户打开不被拦。
+- ✅ **品牌与应用图标 v1**：master 图标「月兔坐进应用窗口」透明底 + 品牌四色落 `assets/brand/`
+  - 定案：见对内 experience/brand.md。
+  - 导出矩阵脚本化：macOS icns / Windows ico / Linux png / favicon / 文档站 logo，`python3 scripts/gen_brand_icons.py` 全档再生成。
+  - icns：macOS 应用图标集格式，单文件装多档尺寸；由 `mng package` 的 sips + iconutil 合成。
+  - sips / iconutil：macOS 自带的图像处理与图标集打包命令。
+  - 真机：2026-11-21 mac DMG 拖装后程序坞图标新版已验。
+    - 程序坞 Dock：macOS 屏幕底部常驻的应用栏。
+    - macOS 26 会给带透明留白的旧式图标垫一层系统圆角灰板再显示，属系统统一处理，非图标缺陷；实测口径见 `experience/adaptation/mac.md`。
 - ✅ **发布与自动更新链**：
   - CI：`release-app` 现算 SHA256 生成 update.json 发 Release
   - 库侧：HTTPS 拉清单 + semver 比较 + SHA256 校验 + 平台原子替换 + relaunch
@@ -713,10 +721,6 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
 
 ### 工程与交付
 
-- ⏳ **品牌与应用图标 v1**：master 图标「月兔坐进应用窗口」透明底 + 品牌四色落 `assets/brand/`
-  - 定案：见对内 experience/brand.md。
-  - 导出矩阵脚本化：macOS icns / Windows ico / Linux png / favicon / 文档站 logo。
-  - 待验：应用图标替换真机
 - ⏳ **应用打包管线·剩余面**：安装卸载观感真机清单、签名公证真机复验
   - 自定义证书入口已留 `[package.sign]`
 - ⏳ **自动更新·剩余面**：异步下载执行器、Ed25519 清单签名、增量更新
