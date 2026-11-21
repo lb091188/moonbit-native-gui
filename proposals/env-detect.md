@@ -142,10 +142,39 @@ pub(all) struct GpuVerdict {
   - macOS VM 与 GPU：sysctl hw.model、kern.hv_vmm_present、MTLCreateSystemDefaultDevice
   - Windows GPU：DXGI_ADAPTER_FLAG_SOFTWARE 旗标判定——比现有关键词更硬的信号
   - 会话与桌面：XDG 环境变量判 X11 / Wayland / Tty，XDG_CURRENT_DESKTOP 判桌面环境——判据与 gui/sys 的 session_type、desktop_detect 同源，实现独立，理由见「与现有代码的关系」
-- P2 打分与品牌
-  - SMBIOS / DMI 厂商串表、MAC 前缀表、CPUID 品牌串判据
-  - 品牌识别：kvm / qemu / vmware / hyperv / vbox / parallels / xen / apple-vz / wsl
-  - 置信分输出：每信号一分，累计过阈值出结论
+- P2 打分与品牌——判据扩容与置信判定
+  - 打分机制
+    - 信号采集与打分分离：采集层只产出 Signal 数组，打分层是纯函数——MoonBit 单元测试直接构造信号组合断言结论，不依赖真机
+    - 分值按可靠性四档定死，参考 VMAware 的分值体系
+      - 决定性，150 分：CPUID 签名串命中、/.dockerenv 类文件标记
+      - 强，100 分：hypervisor 位、DMI 厂商串命中、适配器名命中、/dev/dri 缺失
+      - 中，40 到 70 分：注册表键、VM 进程、MAC 前缀、品牌串关键词
+      - 弱，10 到 35 分：核数过少、内存过小、无温度传感器
+    - 阈值与三态
+      - 总分不低于 100 判 VM
+      - 35 到 99 归 Unknown——信号不足不下结论，不硬猜
+      - 35 以下判 BareMetal
+    - is_vm 语义升级：P1 是「任一硬信号命中」的简单口径，P2 改为总分过阈值；vm_score 返回 0-100 归一化分
+    - 特判优先于打分，三条铁律
+      - Hyper-V 宿主：检测到 Hyper-V 自装特征时，hypervisor 位与厂商串信号不计分——Windows 装了 Hyper-V 会把宿主硬件值改成 VM 值，裸机误报的头号来源
+      - 云裸金属：云厂商信号命中且无任何 hypervisor 信号时，结论降 Unknown 不判 VM
+      - 容器先判：判定为容器时跳过核数、内存类弱信号——限核容器必然触发
+  - 品牌识别
+    - VM 品牌清单：kvm、qemu、qemu-kvm、vmware、hyperv、vbox、parallels、xen、bhyve、apple-vz、bochs、uml
+    - 容器品牌清单：docker、podman、wsl、lxc、systemd-nspawn、openvz
+    - 品牌由信号标注归属：每条信号声明命中的品牌，最高分品牌即 vm_brand 结论；多品牌同分时取信号分和最高者，冲突明细留在 signals 里可查
+  - 判据扩容清单——按平台，判据出处全在 experience/environment-detection.md
+    - Windows：VBox 服务键与驱动文件、VMware Tools 键、vboxservice 与 vmtoolsd 进程、CPUID 品牌串认 QEMU Virtual CPU 与 Bochs 硬编码串、Hyper-V 虚拟处理器叶 0x40000004、云厂商注册表识别
+    - Linux：DMI 厂商串表全表收录——systemd 同款：KVM、OpenStack、KubeVirt、Amazon EC2、QEMU、VMware、innotek、VirtualBox、Xen、Bochs、Parallels、BHYVE、Hyper-V、Apple Virtualization、Google Compute Engine；MAC 前缀表八家；/proc/cpuinfo 的 hypervisor 标志行；UML 品牌串
+    - macOS：ioreg 的 board-id 与 manufacturer 串、IODeviceTree 的 Virtual Machine 串、csrutil 状态异常、USB 厂商串
+    - 低优先缓做：AES-NI 能力位一致性、NtQueryLicenseValue、沙箱类品牌——对抗向信号对本库档位判断收益低
+  - API 扩展
+    - vm_score() -> Int：0-100 归一化置信分
+    - detect_with(options) : skip 信号名数组，按名关信号——诊断某信号是否误导结论时用
+    - EnvReport 结构不变：总分对 signals 求和即得，不加冗余字段
+  - 验收
+    - 打分纯函数单元测试：阈值边界、特判三条、多品牌冲突、信号开关——全部离线可测
+    - 真机矩阵同 P1，重点回归 Hyper-V 宿主机不误报
 - P3 持续扩项
   - 按 experience/environment-detection.md 清单逐条补，acpi 串、Hyper-V 虚拟处理器叶、能力位一致性等
   - 云厂商识别：aws、gce、azure，低优先
