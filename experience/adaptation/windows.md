@@ -695,6 +695,7 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
   - 最小化还原且尺寸未变：按原配置直接呈现，零 wgpu 变更调用。
   - 最小化还原且尺寸变了、或普通 resize / 全屏进出：该窗 GPU 档永久回退 CPU 路径（present.cpu），内容正确、零崩。
   - Windows 侧全程不调 SurfaceRelease，surface 留给进程收尾回收。
+  - 虚拟显卡检测前置：`l1_probe` 用 `EnumDisplayDevicesW` 认适配器名关键词（QEMU/Virtio/Hyper-V/VMware/VBox/Parallels/Basic Display 等），命中则整个 GPU 档不启用——VM 里 panic 面归零，真机不受影响。
 - **环境红线**：GUI 真机行为必须在控制台 / RDP 会话复现——ssh 会话里此 dll 首次 Configure 即 panic（同一 wgpu 栈），探针无法代跑；schtasks 交互式计划任务从 ssh 触发落不进控制台会话，`上次结果 267011` 即未运行。探针脚本交人在控制台跑，结果落文件回收。
 - **回归探针**：VM `C:\natigui\probe-fs.ps1`——起 hello 后空闲、最小化、还原、全屏进、全屏退、快速组合逐步判进程死活，2026-11-21 矩阵全绿 PROBE-DONE；换 dll 或换机先重跑它再谈 GPU 档。
 - 另：本地门禁 linux/bare 腿既有红 `win/icon_ffi_wbtest` 的 icon_from_bgra（老代码 A/B 同红，与本批无关），已立 TODO 单独排查。

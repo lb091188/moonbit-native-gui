@@ -14783,6 +14783,37 @@ static const char L1_WGSL[] =
 // ---- 进程级探测（一次；instance/device/queue/管线/采样器/bgl 跨窗复用） ----
 static void l1_probe_body(void);
 
+#if defined(_WIN32)
+// 虚拟机 / 虚拟显卡环境不启用 GPU 档：此类环境（QEMU/KVM GPU-PV 等）实测
+// surface 一经 Configure 后的重配与释放在 wgpu 内部 panic 且不可捕获（见
+// windows.md 2026-11-21 定案），而 VM 里 CPU 路径足够。识别走显示适配器
+// 名关键词，保守匹配——漏一个新虚拟化平台只是多一层运行时回退兜底。
+static int l1_on_virtual_gpu(void) {
+  DISPLAY_DEVICEW dd;
+  int i = 0;
+  while (1) {
+    memset(&dd, 0, sizeof dd);
+    dd.cb = sizeof dd;
+    if (!EnumDisplayDevicesW(NULL, i, &dd, 0)) {
+      break;
+    }
+    wchar_t *n = dd.DeviceString;
+    if (wcsstr(n, L"Virtual") != NULL || wcsstr(n, L"VMware") != NULL ||
+        wcsstr(n, L"QEMU") != NULL || wcsstr(n, L"VBox") != NULL ||
+        wcsstr(n, L"Hyper-V") != NULL || wcsstr(n, L"Parallels") != NULL ||
+        wcsstr(n, L"Virtio") != NULL || wcsstr(n, L"Basic Render") != NULL ||
+        wcsstr(n, L"Basic Display") != NULL) {
+      char narrow[160];
+      WideCharToMultiByte(CP_UTF8, 0, n, -1, narrow, (int)sizeof narrow, NULL, NULL);
+      l1_log("虚拟显卡（%s）——GPU 档不启用，走 CPU 路径", narrow);
+      return 1;
+    }
+    i++;
+  }
+  return 0;
+}
+#endif
+
 static void l1_probe(void) {
   if (g_l1_probed) {
     return;
@@ -14790,6 +14821,13 @@ static void l1_probe(void) {
   g_l1_probed = 1;
   g_l1_ok = 0;
   g_l1_missing[0] = 0;
+#if defined(_WIN32)
+  if (l1_on_virtual_gpu()) {
+    snprintf(g_l1_missing, sizeof g_l1_missing, "虚拟机环境，GPU 档不启用");
+    l1_log("L1 探测未过，回退各臂原路径：%s", g_l1_missing);
+    return;
+  }
+#endif
   l1_probe_body();
   if (g_l1_ok) {
     l1_log("L1 探测通过：窗口呈现可挂 GPU 档");
