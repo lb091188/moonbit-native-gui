@@ -88,7 +88,11 @@ fn collect_windows() -> EnvReport {
 
 ///|
 fn collect_linux() -> EnvReport {
-  let signals : Array[Signal] = []
+  // 容器信号与 VM 信号分集：容器先判铁律——容器标记全是 150 分决定性信号，
+  // 漏进 VM 判定集会把「在容器里」直接判成「在虚拟机里」（company 容器实测
+  // 抓到的回归）。报告的 signals 是两集合并，判定各吃各的。
+  let container_signals : Array[Signal] = []
+  let vm_signals : Array[Signal] = []
   let brands : Array[String] = []
   // 容器臂（systemd 顺序）：OpenVZ → WSL → container 环境变量 → 标记文件 →
   // cgroup → PID namespace inode 兜底
@@ -96,7 +100,7 @@ fn collect_linux() -> EnvReport {
   let vz_exists = linux_exists("/proc/vz")
   let bc_exists = linux_exists("/proc/bc")
   if vz_exists && !bc_exists {
-    signals.push({
+    container_signals.push({
       name: "proc_vz",
       score: score_decisive,
       detail: "/proc/vz 存在且 /proc/bc 不存在",
@@ -107,7 +111,7 @@ fn collect_linux() -> EnvReport {
   if kind is None {
     match container_parse_osrelease(osrelease) {
       Some(k) => {
-        signals.push({
+        container_signals.push({
           name: "osrelease",
           score: score_decisive,
           detail: "osrelease=\{osrelease.trim().to_owned()}",
@@ -120,7 +124,7 @@ fn collect_linux() -> EnvReport {
   if kind is None {
     match container_parse_env(@coreenv.get_env_var("container")) {
       Some(k) => {
-        signals.push({
+        container_signals.push({
           name: "container_env",
           score: score_decisive,
           detail: "container 环境变量=\{k}",
@@ -137,7 +141,7 @@ fn collect_linux() -> EnvReport {
         linux_exists("/run/.containerenv"),
       ) {
       Some(k) => {
-        signals.push({
+        container_signals.push({
           name: "container_marker_file",
           score: score_decisive,
           detail: "标记文件命中 \{k}",
@@ -150,7 +154,7 @@ fn collect_linux() -> EnvReport {
   if kind is None {
     match container_parse_cgroup(linux_read("/proc/self/cgroup")) {
       Some(k) => {
-        signals.push({
+        container_signals.push({
           name: "cgroup",
           score: score_strong,
           detail: "cgroup 路径含 \{k}",
@@ -166,7 +170,7 @@ fn collect_linux() -> EnvReport {
         decode(ffi_linux_read_link(@utf8.encode("/proc/self/ns/pid"))),
       ) {
       Some(k) => {
-        signals.push({
+        container_signals.push({
           name: "pid_namespace",
           score: score_strong,
           detail: "PID namespace 非根，管理器未知",
@@ -176,7 +180,10 @@ fn collect_linux() -> EnvReport {
       None => ()
     }
   }
-  let container : ContainerVerdict = container_verdict_from({ signals, kind, })
+  let container : ContainerVerdict = container_verdict_from({
+    signals: container_signals,
+    kind,
+  })
   // 虚拟机臂：容器内跳过弱信号——限核容器必然触发资源类判据（提案铁律三）。
   // P1 的 Linux VM 信号全为硬信号，照采。
   let cpuinfo_signals = vm_parse_cpuinfo(linux_read("/proc/cpuinfo"))
@@ -185,13 +192,13 @@ fn collect_linux() -> EnvReport {
   let hypervisor_type = linux_read("/sys/hypervisor/type")
   let (mac_signals, mac_brands) = vm_parse_macs(decode(ffi_linux_net_macs()))
   for s in cpuinfo_signals {
-    signals.push(s)
+    vm_signals.push(s)
   }
   for s in dmi_signals {
-    signals.push(s)
+    vm_signals.push(s)
   }
   if hypervisor_type.trim().to_owned() == "xen" {
-    signals.push({
+    vm_signals.push({
       name: "sys_hypervisor",
       score: score_strong,
       detail: "/sys/hypervisor/type = xen",
@@ -199,7 +206,7 @@ fn collect_linux() -> EnvReport {
     brands.push("xen")
   }
   for s in mac_signals {
-    signals.push(s)
+    vm_signals.push(s)
   }
   for b in dmi_brands {
     brands.push(b)
@@ -207,7 +214,7 @@ fn collect_linux() -> EnvReport {
   for b in mac_brands {
     brands.push(b)
   }
-  let vm = vm_verdict_from({ signals, brands, })
+  let vm = vm_verdict_from({ signals: vm_signals, brands, })
   // 会话与桌面臂
   let session = session_parse_linux(
     @coreenv.get_env_var("XDG_SESSION_TYPE"),
@@ -217,6 +224,10 @@ fn collect_linux() -> EnvReport {
   let desktop = desktop_parse_linux(@coreenv.get_env_var("XDG_CURRENT_DESKTOP"))
   // GPU 臂
   let gpu = gpu_verdict_linux(decode(ffi_linux_render()))
+  let signals = vm_signals
+  for s in container_signals {
+    signals.push(s)
+  }
   { platform: "linux", vm, container, gpu, session, desktop, signals, }
 }
 
