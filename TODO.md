@@ -216,9 +216,7 @@
   - Linux 容器与裸机：dockerenv 命中、渲染节点档位（EP-1.4、1.5）
   - 已验：mac 本机 EP-1.1 读数正确
 
-- [ ] **批2 transform 样式层**：Style 加平移/缩放/旋转字段，控件绘制遍历包 save/restore 接光栅矩阵 CTM，脏区按变换后包围盒外扩
-  - transform：对控件整体做几何变换——CSS transform 同义。
-  - 验证：白盒——旋转控件像素落点对、脏区覆盖外接盒；`anim_cost_bench` 扩一档旋转小控件读数。
+- [ ] **批2 transform 收尾读数**：win / linux 各跑一次 `moon run experiment/anim_cost_bench --release`，把 `rot_90x32` 档读数贴回 roadmap；三端真机观感 2026-11-21 已验，mac 读数 20 帧合计 0ms（与同尺寸裸图元同档）
 
 - [ ] **检查器 GUI 工具**：mngui 加 --inspect 模式（仿 Chrome DevTools 的独立检查器窗），mng inspect --gui 纯 hop
   - 检查器工具：独立窗口连应用内的检查服务，看树、读数与样式；与 mngui 向导壳同一可执行，mng 二进制不链 GUI 库。

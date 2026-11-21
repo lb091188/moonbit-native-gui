@@ -1,6 +1,7 @@
 // 动画前置判据探针（CPU 光栅栈下 transition 值不值得做）：
-// 量三件事——① 全窗重绘一帧多少钱；② 只有小面积变化时多少钱（有没有
-// 「脏矩形」这类的天然便宜可占）；③ 小面积变化单独算多少钱。
+// 量四件事——① 全窗重绘一帧多少钱；② 只有小面积变化时多少钱（有没有
+// 「脏矩形」这类的天然便宜可占）；③ 小面积变化单独算多少钱；
+// ④ 带旋转的小控件一帧多少钱（transform 档）。
 // 跑法：moon run experiment/anim_cost_bench
 
 ///|
@@ -93,8 +94,27 @@ fn main {
     it += 1
   }
   let layout = @win.now_ms() - t2
+  // ④ 旋转小控件：90×32 控件挂 rotate 14°，走控件绘制链与光栅矩阵 CTM（对照 ② 同尺寸裸图元）
+  let rw = @widget.Widget::new()
+  rw.set_size(90.0, 32.0)
+  rw.on_draw = Some(
+    fn(_w : @widget.Widget, p : @render.Painter, r : @base.Rect) -> Unit {
+      p.set_fill_color("#2D68C4")
+      p.fill_round_rect(0.0, 0.0, r.w, r.h, 4.0)
+    },
+  )
+  rw.tr_rot = 14.0
+  root.append_child(rw)
+  root.relayout(w.to_double(), h.to_double())
+  let t3 = @win.now_ms()
+  it = 0
+  while it < n {
+    rw.paint(p)
+    it += 1
+  }
+  let rot = @win.now_ms() - t3
   println(
-    "ANIM-COST \{w}x\{h} frames=\{n} full=\{full}ms(\{full / n.to_int64()}ms/帧) part_90x32=\{part}ms(\{part / n.to_int64()}ms/帧) relayout=\{layout}ms(\{layout / n.to_int64()}ms/帧) ink=\{ink(bm)}",
+    "ANIM-COST \{w}x\{h} frames=\{n} full=\{full}ms(\{full / n.to_int64()}ms/帧) part_90x32=\{part}ms(\{part / n.to_int64()}ms/帧) rot_90x32=\{rot}ms(\{rot / n.to_int64()}ms/帧) relayout=\{layout}ms(\{layout / n.to_int64()}ms/帧) ink=\{ink(bm)}",
   )
   p.end()
 }
