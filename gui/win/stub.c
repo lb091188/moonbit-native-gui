@@ -15007,6 +15007,7 @@ static int l1_bind_frame(WmL1 *st, int sw, int sh, int bw, int bh) {
   cfg.height = (uint32_t)sh;
   cfg.alphaMode = l1_pick_alpha_mode(st->surface);
   cfg.presentMode = WGPUPresentMode_Fifo;
+  wm_crash_mark("l1.cfg", sw, sh);
   p_wgpuSurfaceConfigure(st->surface, &cfg);
   st->sw = sw;
   st->sh = sh;
@@ -15160,25 +15161,31 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
     return 1;
   }
   wm_crash_mark("l1.frame", sw, sh);
-  // 最小化回来过：swapchain 在遮挡期间可能已被丢弃/改了尺寸，先把已配尺寸
-  // 打回 0 逼下面走重建重配
+  // 最小化回来过：尺寸没变就按原配置直接呈现——acquire 见真章，swapchain
+  // 真被丢了会走 Outdated 状态由下面分支接住；v29 实测 stale 一律重建重配
+  // 在还原后必崩（0xE06D7363，重建 surface 也躲不开），不碰重配则活
   if (st->stale) {
     st->stale = 0;
-    st->sw = 0;
-    st->sh = 0;
-    wm_crash_note("l1: 最小化还原，重建 surface 重配");
+    if (st->sw == sw && st->sh == sh && st->tw == bw && st->th == bh) {
+      wm_crash_note("l1: 最小化还原，尺寸未变，原配置直接呈现");
+    } else {
+      st->sw = 0;
+      st->sh = 0;
+      wm_crash_note("l1: 最小化还原，尺寸变了，重建 surface 重配");
+    }
   }
-  // 尺寸变了（客户区或位图）或最小化回来过：不原地重配——v29 实测对已配置
-  // 过的 surface 再 Configure 会在 wgpu 内部 panic（0xE06D7363，控制台真机
-  // 最小化还原后必崩，栈与无桌面会话首配一致）——释放旧 surface 按暂存源
-  // 重建，走与首配完全相同的流
+  // 尺寸变了（客户区或位图）：不原地重配——v29 对已配置过的 surface 再
+  // Configure 在 wgpu 内部 panic——释放旧 surface 按暂存源重建，走与首配
+  // 完全相同的流
   if (st->sw != sw || st->sh != sh || st->tw != bw || st->th != bh) {
     wm_crash_mark("l1.rebind", sw, sh);
     l1_release_frame(st);
+    wm_crash_mark("l1.rel", 0, 0);
     if (st->surface != NULL && p_wgpuSurfaceRelease != NULL) {
       p_wgpuSurfaceRelease(st->surface);
     }
     st->surface = l1_surface_recreate(st);
+    wm_crash_mark("l1.new", (long)(st->surface != NULL), 0);
     if (st->surface == NULL) {
       st->on = 0;
       st->dead = 1;
