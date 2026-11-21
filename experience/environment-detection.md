@@ -56,6 +56,29 @@
     - RDTSC 计时抖动：虚拟机退出再进入带来额外延迟
     - 出处：VMAware 技术表 TRAP、SVM_EXCEPTIONS、INTERRUPT_SHADOW、SINGLE_STEP、TIMER、EMULATION 等条目
     - 出处：al-khaser 的时序攻击与描述符表条目
+  - CPU 身份与能力
+    - CPU 品牌串
+      - 判法：CPUID 叶子 0x80000002 到 0x80000004 拼出 48 字节品牌串，认虚拟机特征词
+      - QEMU 客户机串以 QEMU Virtual CPU version 开头
+      - 关键词命中：qemu、kvm、vbox、virtualbox、bhyve、parallels
+      - 通用词命中：monitor、hypervisor、hvisor
+      - UML 的品牌串就是 UML，或 /proc/cpuinfo 出现 User Mode Linux 串
+    - Bochs 仿真疏漏
+      - Bochs 是纯软件 x86 仿真器，品牌串有硬编码破绽
+      - Intel 侧：串硬编码为 Intel(R) Pentium(R) 4 CPU 且带尾随空格、无频率字段
+      - AMD 侧：串为 AMD Athlon(tm) processor，processor 首字母小写
+      - AMD 彩蛋叶：真 K8 CPU 问叶 0x8fffffff 的 ECX 返回 0x2052454D，Bochs 返回 0
+        - 彩蛋叶是厂商藏彩蛋的非标准 CPUID 叶子
+    - Hyper-V 虚拟处理器叶
+      - 判法：问叶 0x40000004，读最大虚拟处理器数与最大逻辑处理器数
+      - 返回 0xFFFFFFFF 或 0 这类异常值即虚拟机
+    - 能力位一致性
+      - 判法：CPUID 报告支持 AES-NI 但执行 AES 指令触发非法指令异常，或反之
+      - 含义：hypervisor 藏改了 CPU 能力位，指令真实行为对不上
+    - 核数启发式
+      - 判法：逻辑核数不超过 2 且非赛扬低端真机，判可疑
+      - 局限：限核容器里同样核数很少，容器场景会误报
+    - 出处：VMAware 的 CPU_BRAND、BOCHS_CPU、UML_CPU、VIRTUAL_PROCESSORS、CPU_HEURISTIC、THREAD_COUNT 实现，见 https://github.com/NotRequiem/VMAware
 
 - 固件层
   - DMI 与 SMBIOS
@@ -206,6 +229,20 @@
   - /proc/1/cgroup 路径含 docker、kubepods、lxc 是社区常用判据
   - 局限：cgroup v2 统一层级下路径常只剩根，不能单用
   - 出处：VMAware 技术表 CGROUP 条目
+- CPU 视图与配额
+  - 事实：容器的 CPU 限制记在 cgroup 里，/proc/cpuinfo 不随之改变，看到的仍是宿主的核
+    - 传统上应用按核数推断可用并行度，容器里会拿到宿主的核数
+    - 例证：Go 1.25 之前不看 CPU 限制，GOMAXPROCS 默认取核数；1.25 起改为取限制值与核数中较小者，并周期复查
+    - 出处：Go 官方博客 Container-aware GOMAXPROCS，见 https://go.dev/blog/container-aware-gomaxprocs
+  - 配额读法
+    - cgroup v2 读 /sys/fs/cgroup/cpu.max，两值 $MAX $PERIOD，默认 max 100000
+    - max 表示不设限；数字表示每 $PERIOD 微秒最多用 $MAX 微秒的 CPU 时间
+    - 超限后内核 throttle：把容器内应用整段暂停到周期结束
+  - 有效核集合
+    - cpuset.cpus.effective 与调度亲和掩码给出进程实际可跑的核，配额再叠加限制
+  - 对虚拟机核数启发式的影响
+    - 限 1 到 2 核的容器里核数启发式会命中，判容器前先判虚拟机会误报
+  - 出处：内核 cgroup v2 文档 CPU 控制器节，见 https://docs.kernel.org/admin-guide/cgroup-v2.html
 - PID namespace 判据
   - 大白话：namespace 是内核的视图隔离机制，PID namespace 让容器内进程看到自己的独立进程号
   - 根 PID namespace 的 inode 自内核 3.8 起固定为 0xEFFFFFFC，不等于它即处于某个容器
@@ -319,4 +356,6 @@
 - 内核 DRM 用户态文档：https://docs.kernel.org/gpu/drm-uapi.html
 - QEMU 源码默认 MAC：https://raw.githubusercontent.com/qemu/qemu/master/net/net.c
 - K8s 容器环境文档：https://kubernetes.io/docs/concepts/containers/container-environment/
+- 内核 cgroup v2 文档 CPU 控制器：https://docs.kernel.org/admin-guide/cgroup-v2.html
+- Go 官方博客 Container-aware GOMAXPROCS：https://go.dev/blog/container-aware-gomaxprocs
 - 苹果 Metal 文档 MTLCreateSystemDefaultDevice：https://developer.apple.com/documentation/metal/mtlcreatesystemdefaultdevice()
