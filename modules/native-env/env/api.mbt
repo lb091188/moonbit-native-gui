@@ -70,10 +70,12 @@ fn collect_windows() -> EnvReport {
     brands.push(b)
   }
   let vm = vm_verdict_from({ signals, brands, })
+  let vm_hit = signals.iter().any(s => s.score >= score_strong)
   let gpu = gpu_verdict_windows(
     adapters_text,
     ffi_win_dxgi_soft() == 1,
     ffi_win_remote() == 1,
+    vm_hit,
   )
   {
     platform: "windows",

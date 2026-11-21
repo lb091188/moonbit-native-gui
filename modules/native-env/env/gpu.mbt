@@ -4,11 +4,14 @@
 ///|
 /// 解析 Windows 适配器名列表加 DXGI 软件旗标，出 GPU 结论。
 /// 判定顺序：DXGI 软件旗标（系统显式标注，最硬）→ 适配器名虚拟关键词 →
-/// 远程会话 → 适配器存在性。
+/// 远程会话 → 虚拟机保险 → 适配器存在性。vm_hit 是 VM 判定的硬信号命中——
+/// 虚拟机里认不出的适配器至多给 Virtual，不给 Hardware：敢不敢走 GPU 档
+/// 看的是驱动崩溃面，虚拟机里 unrecognized 的卡默认按虚拟显卡处理。
 fn gpu_verdict_windows(
   adapters_text : String,
   dxgi_soft : Bool,
   remote : Bool,
+  vm_hit : Bool,
 ) -> GpuVerdict {
   if dxgi_soft {
     return {
@@ -40,6 +43,9 @@ fn gpu_verdict_windows(
   }
   let adapters = split_lines(adapters_text)
   if adapters.length() > 0 {
+    if vm_hit {
+      return { tier: Virtual, detail: "虚拟机内适配器名未识别：\{adapters[0]}" }
+    }
     { tier: Hardware, detail: adapters[0], }
   } else {
     { tier: GpuNone, detail: "枚举不到贴桌面的显示适配器", }

@@ -85,7 +85,9 @@ moonbit_bytes_t envx_win_adapters(void) {
   if (enum_dd == NULL) {
     return envx_bytes_from("");
   }
-  char out[8192];
+  // 必须清零：ssh 等非交互会话里 EnumDisplayDevicesW 第一项即失败，未清零
+  // 会把栈上垃圾当适配器名返回（win10 实测抓到的乱码读数根因）
+  char out[8192] = "";
   size_t off = 0;
   for (DWORD i = 0;; i++) {
     DISPLAY_DEVICEW dd;
@@ -439,7 +441,7 @@ moonbit_bytes_t envx_linux_net_macs(void) {
   if (d == NULL) {
     return envx_bytes_from("");
   }
-  char out[4096];
+  char out[4096] = "";
   size_t off = 0;
   struct dirent *ent;
   while ((ent = readdir(d)) != NULL) {

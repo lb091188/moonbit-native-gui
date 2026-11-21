@@ -230,21 +230,37 @@ test "container_parse_pidns：根 inode 与非根" {
 ///|
 test "gpu_verdict_windows：四档齐测" {
   // DXGI 软件旗标最硬，压过关键词
-  let soft = gpu_verdict_windows("Microsoft 基本渲染适配器", true, false)
+  let soft = gpu_verdict_windows("Microsoft 基本渲染适配器", true, false, false)
   debug_inspect(soft.tier, content="Software")
   // 虚拟显卡关键词
-  let virt = gpu_verdict_windows("QXL (Red Hat)", false, false)
+  let virt = gpu_verdict_windows("QXL (Red Hat)", false, false, false)
   debug_inspect(virt.tier, content="Virtual")
   inspect(virt.detail, content="虚拟显卡：QXL (Red Hat)")
   // 远程会话
-  let remote = gpu_verdict_windows("NVIDIA GeForce RTX 4070", false, true)
+  let remote = gpu_verdict_windows("NVIDIA GeForce RTX 4070", false, true, false)
   debug_inspect(remote.tier, content="Software")
   // 真显卡
-  let hw = gpu_verdict_windows("NVIDIA GeForce RTX 4070", false, false)
+  let hw = gpu_verdict_windows("NVIDIA GeForce RTX 4070", false, false, false)
   debug_inspect(hw.tier, content="Hardware")
   // 无适配器
-  let none = gpu_verdict_windows("", false, false)
+  let none = gpu_verdict_windows("", false, false, false)
   debug_inspect(none.tier, content="GpuNone")
+}
+
+///|
+test "gpu_verdict_windows：VM 保险——认不出的适配器至多 Virtual" {
+  // VM 硬信号命中 + 适配器名不在关键词表 → 不给 Hardware
+  let capped = gpu_verdict_windows("未知厂商虚拟卡 XYZ", false, false, true)
+  debug_inspect(capped.tier, content="Virtual")
+  // VM 命中但枚举不到适配器仍 GpuNone——诚实报无通路
+  let none_vm = gpu_verdict_windows("", false, false, true)
+  debug_inspect(none_vm.tier, content="GpuNone")
+  // 非 VM 机器上同一适配器维持 Hardware
+  let hw = gpu_verdict_windows("未知厂商虚拟卡 XYZ", false, false, false)
+  debug_inspect(hw.tier, content="Hardware")
+  // 中文系 Windows 的基本适配器名命中关键词
+  let zh = gpu_verdict_windows("Microsoft 基本显示适配器", false, false, false)
+  debug_inspect(zh.tier, content="Virtual")
 }
 
 ///|

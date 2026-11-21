@@ -20,10 +20,12 @@ let hypervisor_signatures : Array[(String, String)] = [
 
 ///|
 /// 显示适配器名关键词：出处 gui/win/stub.c 的 l1_on_virtual_gpu 关键词表，
-/// 直通与嵌套虚拟化下 hypervisor 位可能不可见，适配器名是兜底信号。
+/// 直通与嵌套虚拟化下 hypervisor 位可能不可见，适配器名是兜底信号。中文系
+/// Windows 的基础适配器名是「Microsoft 基本显示适配器」，补两个中文关键词。
 let virtual_gpu_keywords : Array[String] = [
   "Virtual", "VMware", "QEMU", "QXL", "Red Hat", "VBox", "Hyper-V", "Parallels",
   "Virtio", "Basic Render", "Basic Display", "Microsoft Basic",
+  "基本显示", "基本渲染",
 ]
 
 ///|
