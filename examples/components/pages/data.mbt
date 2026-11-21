@@ -179,6 +179,12 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
     column: -1,
     asc: true,
   })
+  // 「任意元素虚拟滚动」段：异质卡片（行高随序号在 3 种高度间变化）
+  let v_cards_data : Array[Int32] = []
+  for i = 0; i < 500; i = i + 1 {
+    v_cards_data.push(i)
+  }
+  let v_cards : @base.Store[Array[Int32]] = @base.Store::new(v_cards_data)
   v_sort.subscribe(fn(st) {
     if st.column < 0 || st.column >= 4 {
       v_rows.set(v_rows_data)
@@ -521,6 +527,53 @@ pub fn page_data(app : @shared.App) -> @widget.Node {
       code=[
         "let data : Array[@ui.TableRow] = []", "for i in 0..<10000 { data.push(@ui.TableRow::make([(i + 1).to_string(), \"条目 \\{i + 1}\"])) }",
         "@ui.table_v(columns, @base.Store::new(data), width=520.0, height=220.0)",
+      ],
+    ),
+    @shared.section(
+      "虚拟滚动 · 任意元素",
+      "可变高度虚拟滚动",
+      "异质卡片列表：行高不等，只挂可见区间 ± 预挂；估高先排、挂载后实测回写，滚动不跳行。",
+      [
+        @ui.virt_list(
+          v_cards,
+          240.0,
+          0.0,
+          fn(i : Int32, _n : Int32) -> @widget.Node {
+            let lines : Array[@widget.Node] = []
+            lines.push(@ui.text("卡片 \{i + 1}", max_width=440.0))
+            let extra = 1 + i % 3
+            let mut k = 0
+            while k < extra {
+              lines.push(
+                @ui.text(
+                  @shared.tx("正文行：高度随内容变化，虚拟滚动按实测回写。"),
+                  class=[@style.text_secondary],
+                  max_width=440.0,
+                ),
+              )
+              k += 1
+            }
+            @ui.view(
+              lines,
+              padding=10.0,
+              row_gap=4.0,
+              align_items=@yoga.AlignItems::FlexStart,
+              background_color=if i % 2 == 0 {
+                "fill_hover"
+              } else {
+                "bg_panel"
+              },
+              border_color="border",
+            )
+          },
+          width=520.0,
+          row_height_estimate=72.0,
+        ),
+      ],
+      code=[
+        "@ui.virt_list(store, 240.0, 0.0, fn(i, n) { card(i) },",
+        "  width=520.0, row_height_estimate=72.0)",
+        "// 行高传 0 = 可变档：估高先排，挂载后实测回写",
       ],
     ),
     @shared.section(

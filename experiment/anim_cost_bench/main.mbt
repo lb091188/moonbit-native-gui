@@ -116,5 +116,58 @@ fn main {
   println(
     "ANIM-COST \{w}x\{h} frames=\{n} full=\{full}ms(\{full / n.to_int64()}ms/帧) part_90x32=\{part}ms(\{part / n.to_int64()}ms/帧) rot_90x32=\{rot}ms(\{rot / n.to_int64()}ms/帧) relayout=\{layout}ms(\{layout / n.to_int64()}ms/帧) ink=\{ink(bm)}",
   )
+  // ⑤ 滚动档：万行虚拟列表滚动一帧（视口 800×600、行高 24；无宿主档
+  //    scroll_by 走步进，等价「滚轮一格」的呈现成本）
+  let items : Array[Int32] = []
+  let mut k = 0
+  while k < 10000 {
+    items.push(k)
+    k += 1
+  }
+  let store = @base.Store::new(items)
+  let vroot = @widget.Widget::new()
+  vroot.set_size(900.0, 640.0)
+  vroot.set_column()
+  let list_node = @ui.virt_list(
+    store,
+    600.0,
+    24.0,
+    fn(i : Int32, _v : Int32) -> @widget.Node {
+      let row = @widget.Widget::new()
+      row.set_size(800.0, 24.0)
+      row.on_draw = Some(fn(
+        _w : @widget.Widget,
+        p : @render.Painter,
+        r : @base.Rect,
+      ) -> Unit {
+        p.set_fill_color(if i % 2 == 0 { "#F5F5F5" } else { "#FFFFFF" })
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      })
+      @widget.node_of(row)
+    },
+    width=800.0,
+  )
+  let list = list_node.mount_into(vroot)
+  vroot.relayout(900.0, 640.0)
+  list.paint(p)
+  let t4 = @win.now_ms()
+  let n2 = 200
+  it = 0
+  while it < n2 {
+    let _ = vroot.dispatch_scroll({
+      x: 400.0,
+      y: 300.0,
+      dx: 0.0,
+      dy: -1.0,
+      mods: 0,
+    })
+    vroot.relayout(900.0, 640.0)
+    list.paint(p)
+    it += 1
+  }
+  let scroll = @win.now_ms() - t4
+  println(
+    "ANIM-SCROLL rows=10000 view=800x600 frames=\{n2} scroll=\{scroll}ms(\{scroll.to_double() / n2.to_double()}ms/帧)",
+  )
   p.end()
 }
