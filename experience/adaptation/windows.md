@@ -690,6 +690,7 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **现象**：hello 点全屏或最小化后还原，进程静默消失；取证档异常码 0xE06D7363，栈帧全落 wgpu_native.dll。先修的最小化 0×0 acquire 守卫（2026-11-07）只挡住了「最小化期间呈现」，重配一族仍崩。
 - **根因，四轮取证各钉一例**：对已 Configure 过的 surface，①原地再 Configure 崩（最小化还原态）②SurfaceRelease 崩（健康态也炸）③释放后按源描述符重建 surface 再 Configure 仍崩 ④健康态标准重配流（释放帧对象后同 surface Configure）也崩。唯一安全用法是配置一次、同尺寸呈现到永远，零变更调用。
   - 定位手段：`NATIVEGUI_CRASH_LOG=1` 取证档，rebind 路径加 `l1.rel` / `l1.new` / `l1.cfg` 三针面包屑，逐轮把 panic 钉到具体 wgpu 调用。
+- **换版证伪**：wgpu-native v27.0.4.1 同病——还原后重配 Configure 同点 panic（RVA 随构建不同、结构一致），触发方是本 VM 虚拟 GPU 栈而非 dll 版本；上游 Latest 即 v29.0.1.1 无新版可升，终态回 v29.0.1.1 + Windows 侧 CPU 回退。
 - **修法，平台宏钉在 Windows 侧**，mac/GTK 臂保留标准重配流（mac resize 长期正常，非 dll 共病）：
   - 最小化还原且尺寸未变：按原配置直接呈现，零 wgpu 变更调用。
   - 最小化还原且尺寸变了、或普通 resize / 全屏进出：该窗 GPU 档永久回退 CPU 路径（present.cpu），内容正确、零崩。
