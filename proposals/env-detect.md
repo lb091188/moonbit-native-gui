@@ -1,6 +1,6 @@
 # 环境判定独立模块提案：native-env
 
-> 状态：规划中，待拍板名字与是否对外发布。判据全集见
+> 状态：API 已定稿，可开工；待拍板模块名字与是否对外发布。判据全集见
 > [experience/environment-detection.md](../experience/environment-detection.md)。
 
 ## 背景与动机
@@ -45,23 +45,93 @@
   - macOS：sysctlbyname 一处 stub
   - Linux：纯文件读取，零桩
 
-## API 草案
+## API 定稿
+
+- 设计原则
+  - 零错误类型：环境判定不存在「失败要调用方处理」——读不到就当信号缺失，全平台降级返回 Unknown；错误细节进信号明细不抛出去
+  - 进程级缓存：虚拟机、容器、会话类型在进程生命周期内不变，便捷判定内部只查一次；GPU 热插拔暂不追，记为边界
+  - 包名即前缀：@env 包对外函数不再加 si_ / pr_ 类前缀
+- 单项快捷判定——应用平时用这层
 
 ```
-// 便捷判定
-env::is_vm() -> Bool
-env::vm_brand() -> String?         // kvm / qemu / vmware / hyperv / vbox / parallels / xen / apple-vz / ...
-env::is_container() -> Bool
-env::container_kind() -> String?   // docker / podman / wsl / lxc / systemd-nspawn / ...
-env::gpu_tier() -> GpuTier         // Hardware / Virtual / Software / None
-env::gpu_detail() -> String        // 适配器名或不可用原因
-
-// 一次全采
-env::detect() -> EnvReport         // verdict + signals：每条命中信号带名字与置信分
+pub fn is_vm() -> Bool
+pub fn vm_brand() -> String?          // "kvm" / "qemu" / "vmware" / "hyperv" / "vbox" / "parallels" / "xen" / "apple-vz" / "bhyve" / "wsl"
+pub fn is_container() -> Bool
+pub fn container_kind() -> String?    // "docker" / "podman" / "wsl" / "lxc" / "systemd-nspawn" / "openvz"
+pub fn gpu_tier() -> GpuTier
+pub fn gpu_detail() -> String         // 适配器名或不可用原因
+pub fn session_kind() -> SessionKind
+pub fn desktop_kind() -> DesktopKind
 ```
 
-- 判定顺序固定：先容器，再虚拟机，再 GPU——容器限核会误触 VM 核数启发式，顺序不能反
-- gpu_tier 是本库的核心增值：GUI 应用要的不是「有没有显卡」而是「敢不敢走 GPU 档」——虚拟显卡归 Virtual 档、软渲染归 Software 档，各自降级策略不同
+- 一次全采——诊断与展示用，envprobe 示例吃这一层
+
+```
+pub fn detect() -> EnvReport
+
+pub(all) struct EnvReport {
+  platform : String                 // "windows" / "linux" / "macos"
+  vm : VmVerdict
+  container : ContainerVerdict
+  gpu : GpuVerdict
+  session : SessionKind
+  desktop : DesktopKind
+  signals : Array[Signal]           // 每条命中信号：名字 + 置信分 + 一句细节
+}
+
+pub(all) struct Signal {
+  name : String                     // "cpuid_hypervisor_bit" / "adapter_name" / "dockerenv" / ...
+  score : Int                       // 信号自带置信分，累加决定结论
+  detail : String                   // "ECX bit 31 = 1" / "QXL (Red Hat)" / ...
+}
+```
+
+- 结论类型——全平台统一成员，平台差异吸收在判定内不在类型上
+
+```
+pub(all) enum GpuTier {
+  Hardware                          // 真显卡，GPU 档可开
+  Virtual                           // 虚拟显卡：有 3D 但驱动崩溃面大，默认禁用档
+  Software                          // 软渲染：llvmpipe / WARP
+  None                              // 无任何 GPU 通路
+}
+
+pub(all) enum SessionKind {
+  X11                               // Linux X11 会话
+  Wayland                           // Linux Wayland 会话——X 工具读数不可信的信号
+  Tty                               // Linux 无图形会话：SSH、控制台
+  Native                            // Windows / macOS：原生窗口系统，无此区分
+  Unknown
+}
+
+pub(all) enum DesktopKind {
+  Gnome; Kde; Xfce; Mate; Cinnamon; Budgie; Lxqt; Unity; Deepin
+  Windows; Macos
+  Unknown
+}
+
+pub(all) enum VmVerdict {
+  BareMetal
+  Vm(String)                        // 品牌串，同 vm_brand
+  Unknown                           // 信号不足，不下结论
+}
+
+pub(all) enum ContainerVerdict {
+  No
+  Yes(String)                       // 容器类型串，同 container_kind
+}
+
+pub(all) struct GpuVerdict {
+  tier : GpuTier
+  detail : String
+}
+```
+
+- 判定顺序固定：容器 → 虚拟机 → 会话 → 桌面 → GPU——容器限核会误触 VM 核数启发式，顺序不能反
+- gpu_tier 是本库的核心增值：GUI 应用要的不是「有没有显卡」而是「敢不敢走 GPU 档」——虚拟显卡归 Virtual、软渲染归 Software、远程会话无硬加速归 Software 或 None，各自降级策略不同
+- P2 追加项，P1 不做
+  - vm_score() -> Int——置信分总量与阈值判定，P1 用「任一硬信号命中」的简单口径
+  - detect_with(options)——信号开关，跳过指定信号名；P1 全信号固定开启
 
 ## 判据分期
 
@@ -71,6 +141,7 @@ env::detect() -> EnvReport         // verdict + signals：每条命中信号带�
   - Linux GPU：/dev/dri/renderD 存在性 + GL 渲染器串认 llvmpipe / softpipe / swrast
   - macOS VM 与 GPU：sysctl hw.model、kern.hv_vmm_present、MTLCreateSystemDefaultDevice
   - Windows GPU：DXGI_ADAPTER_FLAG_SOFTWARE 旗标判定——比现有关键词更硬的信号
+  - 会话与桌面：XDG 环境变量判 X11 / Wayland / Tty，XDG_CURRENT_DESKTOP 判桌面环境——判据与 gui/sys 的 session_type、desktop_detect 同源，实现独立（见「与现有代码的关系」）
 - P2 打分与品牌
   - SMBIOS / DMI 厂商串表、MAC 前缀表、CPUID 品牌串判据
   - 品牌识别：kvm / qemu / vmware / hyperv / vbox / parallels / xen / apple-vz / wsl
@@ -82,7 +153,8 @@ env::detect() -> EnvReport         // verdict + signals：每条命中信号带�
 ## 与现有代码的关系
 
 - gui/win 的 l1_on_virtual_gpu：第一期并行不动，native-env 稳定后 gui 改调库并删除就地实现——先并行后替换
-- gui/sys 的 sysinfo：不迁——那是「机器是什么」，本库是「环境是什么性质」；两处文档互链
+- gui/sys 的 sysinfo：API 不迁——那是「机器是什么」，本库是「环境是什么性质」；但 si_machine 的 SMBIOS / 注册表底层读取与 VM 判据是同一信号源，native-env 的信号采集层自建同款读取，将来 gui/sys 可内部改调 native-env 消重
+- 收编语义要认清：native-env 零依赖，不能 import gui/sys——session_type、desktop_detect 是「判据复用、实现独立」——环境变量判定就几行，搬进来自己实现；方向永远是 native-env 不依赖 gui、gui 消费 native-env，反向 import 禁止
 - modules/gui-gpu：装载探测前可先问 gpu_tier；依赖方向 gui-gpu → native-env，单向无环
 - 示例：examples/envprobe——CLI 打印环境报告，一行一个信号，独立模块注册 moon.work
 
