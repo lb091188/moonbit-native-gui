@@ -210,6 +210,11 @@
 
 ## 开发待办
 
+- [ ] **环境判定库 native-env P1 骨架**：`modules/native-env` 单包 env——VM / 容器 / GPU 档 / 会话桌面四臂判据，`detect()` 全采报告，`examples/envprobe` CLI 打印；判据出处 `experience/environment-detection.md`，方案与 API 定稿 `proposals/env-detect.md`
+  - 门禁：`cd modules/native-env && moon check && moon test env` 全绿
+  - 真机：用户执行——mac 本机、company win10 KVM、Linux 容器本地各跑一次 `moon run examples/envprobe/main`，逐信号比对打印报告
+  - P1 明确不做：WMI COM 兜底、对抗性反检测、行为层启发——记入 P2/P3
+
 - [ ] **批2 transform 样式层**：Style 加平移/缩放/旋转字段，控件绘制遍历包 save/restore 接光栅矩阵 CTM，脏区按变换后包围盒外扩
   - transform：对控件整体做几何变换——CSS transform 同义。
   - 验证：白盒——旋转控件像素落点对、脏区覆盖外接盒；`anim_cost_bench` 扩一档旋转小控件读数。

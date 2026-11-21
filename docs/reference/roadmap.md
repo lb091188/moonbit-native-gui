@@ -623,6 +623,7 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
 ### 系统能力
 
 - ⏳ **显示器「首选档」**：`CGDisplayModeIsPreferred` 已不在 SDK，需找公开替代信号
+- ⏳ **环境判定库 native-env**：独立模块零依赖，VM、容器、GPU 档三判定加会话/桌面识别；判据全集见 `experience/environment-detection.md`，方案与 API 定稿见 `proposals/env-detect.md`
 
 ### 媒体
 
