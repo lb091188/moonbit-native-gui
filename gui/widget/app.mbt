@@ -701,6 +701,27 @@ fn tree_blur_hit(w : Widget, rect : Rect) -> Bool {
 }
 
 ///|
+/// 条带快路径的滚动视口结构白名单：第一颗子件是内容容器，其余只允许**纵向**
+/// 滚动条。粘性标题、横向条、调用方额外挂的浮层都说明视口里还有「不随内容
+/// 平移」的东西，整块平移会画错，一律退回普通重绘。
+fn strip_scrollable(v : Widget) -> Bool {
+  let content_kind = match v.kind {
+    "ui-virt-list" => "ui-virt-list-content"
+    "ui-scroll-view" => "ui-scroll-content"
+    _ => return false
+  }
+  if v.kids.length() == 0 || v.kids[0].kind != content_kind {
+    return false
+  }
+  for i = 1; i < v.kids.length(); i = i + 1 {
+    if v.kids[i].kind != "ui-scroll-bar" {
+      return false
+    }
+  }
+  true
+}
+
+///|
 /// 裁剪到矩形画一次整树（条带修复用；裁剪外的控件被视口剔除跳过）。
 fn paint_clipped(root : Widget, p : @render.Painter, r : Rect) -> Unit {
   if r.w <= 0.0 || r.h <= 0.0 {
@@ -1395,6 +1416,10 @@ fn text_batch_init() -> Unit {
 let layout_log_last_w : Ref[Int32] = Ref(0)
 
 ///|
+/// 条带快路径命中次数：白盒用例据此确认本帧真的走了快路径（生产只多一次自增）。
+let strip_hits : Ref[Int32] = Ref(0)
+
+///|
 pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   text_batch_init()
   // 帧号先进一格：被画到的控件在这一格里记账，自转组件据此判断「这帧有没有我」
@@ -1482,7 +1507,7 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
             cr.y == vr.y &&
             cr.w == vr.w &&
             cr.h == vr.h
-          if v.kind == "ui-virt-list" &&
+          if strip_scrollable(v) &&
             int_ok &&
             dyi != 0.0 &&
             same &&
@@ -1501,6 +1526,7 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   }
   match strip_plan {
     Some((vr, sdy, ext)) => {
+      strip_hits.val = strip_hits.val + 1
       // ① 快照上一帧，视口内整块按整数位移平移：全幅 1:1 命中 raster 的
       // 「整数平移」快路径，裁剪把写面限制在视口内
       let snap = @render.Canvas::from_bitmap(@render.Bitmap::copy(bm))
@@ -1527,8 +1553,13 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
         { x: vr.x, y: vr.y + vr.h - band_h, w: vr.w, h: band_h }
       }
       let sb : Rect = { x: vr.x + vr.w - 12.0, y: vr.y, w: 12.0, h: vr.h }
+      // 视口描边/底色随整块平移：新露条带之外，另一端的上下边线要补画
+      let top_edge : Rect = { x: vr.x, y: vr.y, w: vr.w, h: 2.0 }
+      let bot_edge : Rect = { x: vr.x, y: vr.y + vr.h - 2.0, w: vr.w, h: 2.0 }
       paint_clipped(self.root, p, band)
       paint_clipped(self.root, p, sb)
+      paint_clipped(self.root, p, top_edge)
+      paint_clipped(self.root, p, bot_edge)
     }
     None => self.root.paint(p)
   }

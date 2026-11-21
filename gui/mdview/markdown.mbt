@@ -1477,20 +1477,23 @@ fn md_rich_label(
           }
         })
     }
+    // 文档档：块矩形随布局回填（跨块命中按绝对坐标找落点块，纯数据登记表）。
+    // 走 on_layout 而不是 on_draw：条带快路径只重画新露的一条，被整块平移
+    // 但没重画的块也要有本帧坐标，否则滚动后马上拖选会落错行。
+    match entry {
+      Some(e) =>
+        w.on_layout = Some(fn(sw : @widget.Widget) -> Unit {
+          e.x = sw.rect.x
+          e.y = sw.rect.y
+          e.h = sw.rect.h
+        })
+      None => ()
+    }
     w.on_draw = Some(fn(
       _self : @widget.Widget,
       p : @render.Painter,
-      r : @base.Rect,
+      _r : @base.Rect,
     ) -> Unit {
-      // 文档档：回填本块矩形（跨块命中按绝对坐标找落点块，纯数据登记表）
-      match entry {
-        Some(e) => {
-          e.x = r.x
-          e.y = r.y
-          e.h = r.h
-        }
-        None => ()
-      }
       let cur_fp = @theme.theme_fingerprint_of(@theme.theme_current())
       if cur_fp != fps.val {
         fps.val = cur_fp

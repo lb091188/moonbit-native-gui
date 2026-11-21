@@ -127,7 +127,7 @@ pub fn[T] virt_list(
         prefix.val[count]
       }
     }
-    let render_window = fn(force : Bool) -> Unit {
+    let render_window = fn(force : Bool, repaint : Bool) -> Unit {
       // 偏移先落布局：窗口区间没变但偏移在行内变化（半行滚动）时也要跟手
       inner.node.set_top(@yoga.fixed(0.0 - state.offset))
       let count = items.get().length()
@@ -206,10 +206,30 @@ pub fn[T] virt_list(
         inner.append_child(sp)
       }
       mounted.val = rows
-      @widget.invalidate()
+      // 条带修复余量：视口内最高的行；固定档取行高
+      let mut ext = rh
+      for pair in rows {
+        let h = pair.1.rect.h
+        if h > ext {
+          ext = h
+        }
+      }
+      for i = first; i < last; i = i + 1 {
+        let hv = eff_h(i)
+        if hv > ext {
+          ext = hv
+        }
+      }
+      state.row_extent = ext
+      if repaint {
+        @widget.invalidate()
+      }
     }
 
-    state.apply.val = fn() -> Unit { render_window(false) }
+    state.viewport_id = viewport.id
+    // 硬件档滚轮走目标趋近；窗口区间/条带快路径都按整数拍推进
+    state.smooth = true
+    state.apply.val = fn() -> Unit { render_window(false, false) }
     @style.apply(
       viewport,
       @style.merge_all([
@@ -236,7 +256,7 @@ pub fn[T] virt_list(
         // 测试不排节拍，避免待发定时器漏进后续用例
         let _ = @shell.set_timeout(0, fn() {
           if viewport.is_painted() {
-            render_window(true)
+            render_window(true, true)
           }
         })
       }
@@ -250,16 +270,15 @@ pub fn[T] virt_list(
       }
     })
     viewport.on_scroll = Some(fn(ev : @widget.ScrollEvent) -> Bool {
-      let before = state.offset
+      // 消费位由 scroll_by 判定：区间内移动/回弹吸收，无余量或到边未动则放行
       state.scroll_by(0.0 - ev.dy * 30.0)
-      state.offset != before
     })
     match rev {
       Some(r) => {
         // 外部改列宽等「行内容要重建」的变更：给一个 rev，变了就整窗重挂
         let rsid = r
           .signal()
-          .subscribe(fn(_v : Int32) -> Unit { render_window(true) })
+          .subscribe(fn(_v : Int32) -> Unit { render_window(true, true) })
         @base.sub_bag_register(fn() { r.signal().remove(rsid) })
       }
       None => ()
@@ -277,13 +296,13 @@ pub fn[T] virt_list(
         if state.offset > state.max() {
           state.set_offset(state.max())
         } else {
-          render_window(true)
+          render_window(true, true)
         }
       })
     @base.sub_bag_register(fn() { items.signal().remove(sid) })
     viewport.append_child(scroll_bar(state))
     scroll_bar_hover(viewport, state)
-    render_window(true)
+    render_window(true, true)
     handle(viewport)
     viewport
   })
@@ -581,14 +600,17 @@ pub fn sticky_list(
         st.cur_start = group_widgets[idx].rect.y - content.rect.y
       }
     })
+    // 偏移落布局；重绘由 ScrollState::set_offset 按视口局部置脏
+    // 粘性标题是视口里的绝对定位悬浮条：走视口局部重绘（全视口），条带快路径
+    // 按 kind 白名单不放行它
+    st.scroll.viewport_id = viewport.id
+    st.scroll.row_extent = 0.0
     st.scroll.apply.val = fn() -> Unit {
       content.node.set_top(@yoga.fixed(0.0 - state.offset))
-      @widget.invalidate()
     }
     viewport.on_scroll = Some(fn(ev : @widget.ScrollEvent) -> Bool {
-      let before = state.offset
+      // 消费位由 scroll_by 判定：区间内移动/回弹吸收，无余量或到边未动则放行
       state.scroll_by(0.0 - ev.dy * 30.0)
-      state.offset != before
     })
     viewport.append_child(scroll_bar(state))
     scroll_bar_hover(viewport, state)

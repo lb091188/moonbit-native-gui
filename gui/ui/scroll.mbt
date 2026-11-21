@@ -37,6 +37,10 @@ pub(all) struct ScrollState {
   mut ticking : Bool
   /// 节拍代号：停表后再起时旧节拍自灭，不靠 clear_timeout
   mut tick_gen : Int32
+  /// 惯性档：硬件档滚轮按目标趋近（只动视口里的滚动内容）；组件挂载时置 true
+  mut smooth : Bool
+  /// 当前节拍是惯性趋近（true）还是触边回弹（false），两者速率不同
+  mut gliding : Bool
   /// 跟随底部：开时内容变高会自动贴底（`set_follow_bottom` 写）。
   mut follow_bottom : Bool
   /// 用户手动滚离底部期间的暂停位：回到底部即恢复；未开跟随时无意义。
@@ -60,6 +64,8 @@ pub fn ScrollState::new() -> ScrollState {
     target: 0.0,
     ticking: false,
     tick_gen: 0,
+    smooth: false,
+    gliding: false,
     follow_bottom: false,
     follow_paused: false,
   }
@@ -72,8 +78,20 @@ pub fn ScrollState::max_x(self : ScrollState) -> Double {
 }
 
 ///|
+/// 外部直接改偏移（拖条、跳转、贴底）时收掉在跑的惯性/回弹节拍：否则节拍
+/// 会继续把偏移拉回旧目标，和用户操作打架。节拍代号加一，已排的旧回调自灭。
+fn ScrollState::cancel_tick(self : ScrollState) -> Unit {
+  if self.ticking {
+    self.ticking = false
+    self.gliding = false
+    self.tick_gen = self.tick_gen + 1
+  }
+}
+
+///|
 /// 设横偏移：越界夹到 `[0, max_x]`，随后落布局并请求重绘。
 pub fn ScrollState::set_offset_x(self : ScrollState, v : Double) -> Unit {
+  self.cancel_tick()
   let m = self.max_x()
   let nv = if v < 0.0 { 0.0 } else if v > m { m } else { v }
   if nv != self.offset_x {
@@ -100,6 +118,7 @@ pub fn ScrollState::offset_y(self : ScrollState) -> Double {
 ///|
 /// 设偏移：越界一律夹到 `[0, max]`，随后把新值落到布局上并请求重绘。
 pub fn ScrollState::set_offset(self : ScrollState, v : Double) -> Unit {
+  self.cancel_tick()
   let m = self.max()
   let nv = if v < 0.0 { 0.0 } else if v > m { m } else { v }
   if nv != self.offset {
@@ -114,17 +133,42 @@ pub fn ScrollState::set_offset(self : ScrollState, v : Double) -> Unit {
 }
 
 ///|
-/// 相对滚动（`dy` 正=向下）。步进即时落位——不做缓动，保证重内容页
-/// （长 Markdown 等）每格只重绘一次、整窗流畅轻负担；仅触顶/触底且硬件档
-/// 才做短促回弹。
-pub fn ScrollState::scroll_by(self : ScrollState, dy : Double) -> Unit {
-  let raw = self.offset + dy
-  let m = self.max()
-  if (raw < 0.0 || raw > m) && anim_ready() {
-    self.bounce(raw)
-  } else {
-    self.set_offset(raw)
+/// 相对滚动（`dy` 正=向下），返回「本视口是否消费了这次滚轮」。
+/// 处理顺序：
+/// - 没有可滚余量（内容装得下、或这个轴没开）→ 不消费、不动、不回弹，
+///   让事件继续冒泡给外层；
+/// - 滚到边界：硬件档短促回弹并**消费**，回弹期间父级不跟着动；CPU 档夹在
+///   边界，没动就让父级接力；
+/// - 区间内：硬件档按目标趋近做惯性滑行（`smooth` 组件，只动视口内容），
+///   CPU 档或未开惯性的组件即时落位。
+pub fn ScrollState::scroll_by(self : ScrollState, dy : Double) -> Bool {
+  if dy == 0.0 {
+    return false
   }
+  let m = self.max()
+  if m <= 0.0 {
+    return false
+  }
+  // 惯性在跑时以目标为基准累加：以当前偏移为基准会让连续滚轮把目标往回拖
+  // （偏移永远落后目标一小截，第二格就倒退了）
+  let base = if self.ticking && self.gliding { self.target } else { self.offset }
+  let raw = base + dy
+  if raw < 0.0 || raw > m {
+    if anim_ready() {
+      self.bounce(raw)
+      return true
+    }
+    let before = self.offset
+    self.set_offset(raw)
+    return self.offset != before
+  }
+  let before = self.offset
+  if anim_ready() && self.smooth {
+    self.glide(raw)
+    return true
+  }
+  self.set_offset(raw)
+  self.offset != before
 }
 
 ///|
@@ -143,13 +187,34 @@ fn ScrollState::anim_offset(self : ScrollState, v : Double) -> Unit {
     (self.apply.val)()
     if self.viewport_id != 0 {
       @widget.scroll_repaint(self.viewport_id, 0.0 - delta, self.row_extent)
+    } else {
+      // 未注册视口的组件（多行框/代码编辑器）：节拍里没有滚轮事件兜底，
+      // 得自己请求重绘，否则回弹/惯性只改状态不上屏
+      @widget.invalidate()
     }
   }
 }
 
 ///|
+/// 惯性档：把滚轮增量累进目标，节拍以固定速率趋近；连续滚轮只更新目标，
+/// 不打断已排的节拍。首拍同步走一步，按下就有跟手感。
+fn ScrollState::glide(self : ScrollState, tgt : Double) -> Unit {
+  self.target = tgt
+  // 回弹节拍中改回惯性（用户反向滚）：模式要跟着换，下一拍才用惯性速率
+  self.gliding = true
+  if self.ticking {
+    return
+  }
+  self.ticking = true
+  self.gliding = true
+  self.tick_gen = self.tick_gen + 1
+  self.tick(self.tick_gen)
+}
+
+///|
 /// 触顶/触底回弹：只动滚动内容（视口 overflow hidden 裁剪内，别的区域不动），
-/// 过冲按 0.25 衰减、封顶 14px，随后三四拍弹回边界。
+/// 过冲按 0.25 衰减、封顶 14px，随后三四拍弹回边界。已注册视口的偏移取整，
+/// 条带快路径每一拍都能命中。
 fn ScrollState::bounce(self : ScrollState, raw : Double) -> Unit {
   let m = self.max()
   let bound = if raw < 0.0 { 0.0 } else { m }
@@ -160,19 +225,24 @@ fn ScrollState::bounce(self : ScrollState, raw : Double) -> Unit {
   } else if over > cap {
     over = cap
   }
-  self.target = bound
+  self.target = if self.viewport_id != 0 { bound.round() } else { bound }
   if self.ticking {
+    // 已在惯性滑行/回弹：改目标即可，节拍继续，事件仍由本视口吸收
+    self.gliding = false
     return
   }
   self.ticking = true
+  self.gliding = false
   self.tick_gen = self.tick_gen + 1
-  self.anim_offset(bound + over)
+  let step = if self.viewport_id != 0 { over.round() } else { over }
+  self.anim_offset(self.target + step)
   self.tick(self.tick_gen)
 }
 
 ///|
-/// 一拍：指数弹回边界（0.6/拍，约 4 拍收敛），停下即停表；整数步进保条带
-/// 快路径命中（不足 1px 按方向补 1px 防卡死）。
+/// 一拍：指数趋近目标，停下即停表。惯性档每拍 0.35（约 8 拍收住），回弹档
+/// 0.6（约 4 拍收住）。已注册视口按整数步进，保证条带快路径每拍都命中
+/// （不足 1px 按方向补 1px 防卡死）。
 fn ScrollState::tick(self : ScrollState, gen : Int32) -> Unit {
   if !self.ticking || gen != self.tick_gen {
     return
@@ -180,15 +250,20 @@ fn ScrollState::tick(self : ScrollState, gen : Int32) -> Unit {
   let d = self.target - self.offset
   if d > -0.5 && d < 0.5 {
     self.ticking = false
-    if self.offset != self.target {
-      self.anim_offset(self.target)
+    self.gliding = false
+    let fin = if self.viewport_id != 0 { self.target.round() } else { self.target }
+    if self.offset != fin {
+      self.anim_offset(fin)
     }
+    // 惯性/回弹期间事件早已过去：贴底与否在这里补记，跟随底部才能恢复
+    self.note_user_scroll()
     return
   }
+  let rate = if self.gliding { 0.35 } else { 0.6 }
   let next = if self.viewport_id != 0 {
-    (self.offset + d * 0.6).round()
+    (self.offset + d * rate).round()
   } else {
-    self.offset + d * 0.6
+    self.offset + d * rate
   }
   let mut nv = next
   if self.viewport_id != 0 && nv == self.offset {
@@ -200,6 +275,7 @@ fn ScrollState::tick(self : ScrollState, gen : Int32) -> Unit {
     let _ = @shell.set_timeout(16, fn() { self.tick(g) })
   } else {
     self.ticking = false
+    self.gliding = false
     self.anim_offset(self.target)
   }
 }
@@ -270,6 +346,8 @@ pub fn scroll_bar_hover(viewport : @widget.Widget, state : ScrollState) -> Unit 
 /// `scroll_view` 与 `virt_list` 共用。
 fn scroll_bar(state : ScrollState) -> @widget.Widget {
   let bar = @widget.Widget::new()
+  // 条带快路径按 kind 识别「视口内容之外只有滚动条」的结构
+  bar.kind = "ui-scroll-bar"
   // 拇指色走内置变体类（深色档提亮为 text_secondary，切深浅重挂生效）
   @style.apply_variant_named(bar, ["scroll-thumb", "scroll-thumb-dark:dark"])
   bar.node.set_position(@yoga.Absolute)
@@ -293,7 +371,8 @@ fn scroll_bar(state : ScrollState) -> @widget.Widget {
       p.set_global_alpha(if hot { 1.0 } else { SCROLL_BAR_IDLE_ALPHA })
       let thumb = (r.h * vh / ch).max(16.0)
       let travel = (r.h - thumb).max(0.0)
-      let ratio = state.offset / (ch - vh)
+      // 回弹期 offset 会短暂越界：拇指仍贴在端头，不画出轨道
+      let ratio = (state.offset / (ch - vh)).clamp(min=0.0, max=1.0)
       let st = @style.style_for(_self)
       p.set_fill_color(
         @style.color_of(st.background_color, @theme.theme_border()),
@@ -355,6 +434,8 @@ fn scroll_bar(state : ScrollState) -> @widget.Widget {
 /// 全部按纵向条的横轴镜像。
 fn scroll_bar_h(state : ScrollState) -> @widget.Widget {
   let bar = @widget.Widget::new()
+  // 横向条不参与条带快路径（视口底缘也在平移范围内），单独一个 kind 便于判定
+  bar.kind = "ui-scroll-bar-h"
   // 拇指色走内置变体类（深色档提亮为 text_secondary，切深浅重挂生效）
   @style.apply_variant_named(bar, ["scroll-thumb", "scroll-thumb-dark:dark"])
   bar.node.set_position(@yoga.Absolute)
@@ -375,7 +456,7 @@ fn scroll_bar_h(state : ScrollState) -> @widget.Widget {
       p.set_global_alpha(if hot { 1.0 } else { SCROLL_BAR_IDLE_ALPHA })
       let thumb = (r.w * vw / cw).max(16.0)
       let travel = (r.w - thumb).max(0.0)
-      let ratio = state.offset_x / (cw - vw)
+      let ratio = (state.offset_x / (cw - vw)).clamp(min=0.0, max=1.0)
       let st = @style.style_for(_self)
       p.set_fill_color(
         @style.color_of(st.background_color, @theme.theme_border()),
@@ -523,6 +604,8 @@ pub fn scroll_view(
       content.node.set_left(@yoga.fixed(0.0 - state.offset_x))
     }
     state.viewport_id = viewport.id
+    // 硬件档滚轮走目标趋近（只动本视口内容）；CPU 档由 anim_ready 退回即时落位
+    state.smooth = true
 
     if vscroll {
       viewport.append_child(scroll_bar(state))
@@ -568,11 +651,16 @@ pub fn scroll_view(
           return true
         }
       }
-      let before = state.offset
-      // 一格滚 3 行（与常见桌面滚动量同量级），dy 正=向上滚
-      state.scroll_by(0.0 - ev.dy * 30.0)
+      // 纵向档关掉的视口（页外壳横滚等）不听纵向轮：没有可滚内容就不该
+      // 改变自己、也不该回弹，事件原样留给外层
+      if !vscroll {
+        return false
+      }
+      // 一格滚 3 行（与常见桌面滚动量同量级），dy 正=向上滚。
+      // 消费位由 scroll_by 判定：区间内移动/回弹吸收，无余量或到边未动则放行。
+      let handled = state.scroll_by(0.0 - ev.dy * 30.0)
       state.note_user_scroll()
-      state.offset != before
+      handled
     })
     handle(viewport)
     viewport

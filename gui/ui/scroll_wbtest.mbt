@@ -220,7 +220,7 @@ test "滚动容器：只给 grow 不给高度时视口不被内容撑高" {
   assert_true(st.max() > 200.0, msg="max 为 0（滚不动）")
   let content = vp.children()[0]
   let y0 = content.rect.y
-  st.scroll_by(60.0)
+  let _ = st.scroll_by(60.0)
   root.relayout(240.0, 140.0)
   assert_true(content.rect.y < y0 - 50.0, msg="偏移变了内容没上移")
 }
@@ -518,4 +518,69 @@ test "跟随底部：用户上滚暂停、回到底部恢复；未开启者不�
   let _ = paint(root2, 240, 140)
   assert_eq(st2.max(), 320.0)
   assert_eq(st2.offset_y(), 300.0)
+}
+
+///|
+test "滚动：没有可滚余量的视口不消费、不动、不回弹" {
+  let st = ScrollState::new()
+  st.content_h = 100.0
+  st.view_h = 100.0
+  assert_false(st.scroll_by(-30.0))
+  assert_eq(st.offset_y(), 0.0)
+  assert_false(st.ticking)
+  // 纵向档关掉的容器（页外壳只横滚）同样不听纵向轮：不消费，事件留给外层
+  let st2 = ScrollState::new()
+  let (root, vp) = mounted(
+    scroll_view(
+      scroll_rows(20, 20.0, "#334455"),
+      st2,
+      width=200.0,
+      height=100.0,
+      vscroll=false,
+    ),
+    240.0,
+    140.0,
+  )
+  let _ = paint(root, 240, 140)
+  assert_false(wheel(root, vp, -1.0))
+  assert_eq(st2.offset_y(), 0.0)
+}
+
+///|
+test "滚动：内层在滚时事件不冒泡，父级不跟着动" {
+  let outer_st = ScrollState::new()
+  let inner_st = ScrollState::new()
+  let inner_box : Ref[@widget.Widget?] = Ref(None)
+  let inner_node = scroll_view(
+    scroll_rows(20, 20.0, "#334455"),
+    inner_st,
+    width=200.0,
+    height=100.0,
+    handle=fn(v) { inner_box.val = Some(v) },
+  )
+  let outer_node = scroll_view(
+    [view([inner_node], width=300.0, height=400.0)],
+    outer_st,
+    width=300.0,
+    height=200.0,
+  )
+  let (root, _outer_vp) = mounted(outer_node, 400.0, 300.0)
+  let _ = paint(root, 400, 300)
+  let inner_vp = match inner_box.val {
+    Some(v) => v
+    None => abort("内层视口未挂上")
+  }
+  assert_true(inner_st.max() > 0.0)
+  assert_true(outer_st.max() > 0.0)
+  // 指针落在内层：内层滚起来，外层保持原位（消费位挡住了冒泡）。
+  // 不断言精确 30：硬件档首拍可能走惯性，偏移只要真动了就算内层接住
+  let _ = root.dispatch_scroll({
+    x: inner_vp.rect.x + 20.0,
+    y: inner_vp.rect.y + 20.0,
+    dx: 0.0,
+    dy: -1.0,
+    mods: 0,
+  })
+  assert_true(inner_st.offset_y() > 0.0)
+  assert_eq(outer_st.offset_y(), 0.0)
 }

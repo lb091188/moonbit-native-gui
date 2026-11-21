@@ -106,6 +106,10 @@ pub(all) struct Widget {
   /// **不要再把控件句柄捕获进闭包**——控件持有回调、回调又持有控件就是引用环，
   /// 本工具链的计数式回收断不掉环，动态换树（bind_node 重挂）会稳定泄漏。
   mut on_draw : ((Widget, @render.Painter, Rect) -> Unit)?
+  /// 布局回调（入参是控件自己）：`relayout` 落定矩形后调用，用来把「命中/登记
+  /// 要用的几何」留在绘制之外刷新——条带快路径只重画新露的一条，没被画到的
+  /// 控件也要有本帧坐标。回调里不要再捕获控件句柄（同 `on_draw` 的引用环约束）。
+  mut on_layout : ((Widget) -> Unit)?
   /// W38 3D/GPU 渲染口子：控件声明 `on_render` 时，paint_walk 优先派发它并
   /// 传 RenderCtx；`on_draw` 作为 CPU 回退保留。当前 RenderCtx 恒为 Cpu 档，
   /// 等价于把 Painter 包一层；WebGPU 后端落地时 Gpu 档才填实际句柄。
@@ -280,6 +284,7 @@ pub fn Widget::new() -> Widget {
     visible: true,
     paint_epoch: 0,
     on_draw: None,
+    on_layout: None,
     on_render: None,
     on_pointer: None,
     on_double_click: None,
@@ -559,6 +564,10 @@ fn Widget::collect_abs(self : Widget, ox : Double, oy : Double) -> Unit {
   let ax = ox + l.left
   let ay = oy + l.top
   self.rect = { x: ax, y: ay, w: l.width, h: l.height, }
+  match self.on_layout {
+    Some(f) => f(self)
+    None => ()
+  }
   for k in self.kids {
     k.collect_abs(ax, ay)
   }

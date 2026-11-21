@@ -429,9 +429,8 @@ pub fn textarea(
       }
     })
     w.on_scroll = Some(fn(ev : @widget.ScrollEvent) -> Bool {
-      let before = st.offset
+      // 消费位由 scroll_by 判定：区间内移动/回弹吸收，无余量或到边未动则放行
       st.scroll_by(0.0 - ev.dy * line_h * 3.0)
-      st.offset != before
     })
     w.im_context = Some(fn() -> (String, Int32)? {
       Some((ed.get_text(), ed.caret_pos()))
