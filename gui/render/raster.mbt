@@ -920,6 +920,25 @@ pub fn Raster::text_render_scale(self : Raster) -> Int {
 }
 
 ///|
+/// 字号光栅化应乘的设备缩放（x/y 两轴）：轴向 CTM 即缩放因子本身；旋转/
+/// 斜切按面积保持折算（√|det|，旋转与斜切都不改面积）。文字离屏按此倍率
+/// 开、字号同步放大，落位 blit 经 CTM 折回逻辑盒后源目标 1:1——高缩放档
+/// 文字是高清真字形而非插值放大。缩放因子 1 时返回 (1, 1)，离屏路径零变化。
+pub fn Raster::device_scale(self : Raster) -> (Double, Double) {
+  if self.m.axis_aligned() {
+    let ax = self.m.a.abs()
+    let ay = self.m.d.abs()
+    let cx = if ax < 0.000000001 { 1.0 } else { ax }
+    let cy = if ay < 0.000000001 { 1.0 } else { ay }
+    (cx, cy)
+  } else {
+    let det = (self.m.a * self.m.d - self.m.b * self.m.c).abs()
+    let s = if det < 0.000000001 { 1.0 } else { @math.pow(det, 0.5) }
+    (s, s)
+  }
+}
+
+///|
 /// 本会话圆角裁剪对一设备像素中心的覆盖（0..256）。
 pub fn Raster::round_cov(self : Raster, xcen : Double, ycen : Double) -> Int32 {
   rr_cov_at(

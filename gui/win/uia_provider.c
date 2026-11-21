@@ -192,6 +192,9 @@ typedef struct WmA11yRow {
 int32_t wm_a11y_count(void);
 const WmA11yRow *wm_a11y_row(int32_t i);
 
+// stub.c 的窗级缩放因子（快照行是逻辑单位，UIA 矩形要物理屏幕坐标）
+double wm_win_dpi_ratio(HWND hwnd);
+
 typedef struct WmProv {
     IRawElementProviderSimple simple; // vtable 在前（COM 布局）
     IRawElementProviderFragment fragment;
@@ -945,10 +948,12 @@ static HRESULT STDMETHODCALLTYPE wm_prov_rect(IRawElementProviderFragment *self,
     }
     const WmA11yRow *r = wm_a11y_row(p->idx);
     if (r != NULL) {
-        ret->left = rc.left + r->x;
-        ret->top = rc.top + r->y;
-        ret->width = r->w;
-        ret->height = r->h;
+        // 快照行矩形是逻辑单位，UIA 要物理屏幕坐标：按窗级因子折算
+        double k = wm_win_dpi_ratio(p->hwnd);
+        ret->left = rc.left + (LONG)(r->x * k + 0.5);
+        ret->top = rc.top + (LONG)(r->y * k + 0.5);
+        ret->width = (LONG)(r->w * k + 0.5);
+        ret->height = (LONG)(r->h * k + 0.5);
     }
     return S_OK;
 }
@@ -995,7 +1000,9 @@ static HRESULT STDMETHODCALLTYPE wm_prov_from_point(IRawElementProviderFragmentR
     *ret = NULL;
     RECT rc;
     if (GetWindowRect(p->hwnd, &rc) == 0) return S_OK;
-    int32_t i = wm_uia_deepest_at(x - rc.left, y - rc.top);
+    // 传入的屏幕物理坐标折回客户区逻辑单位（快照行口径）
+    double k = wm_win_dpi_ratio(p->hwnd);
+    int32_t i = wm_uia_deepest_at((x - rc.left) / k, (y - rc.top) / k);
     if (i >= 0) *ret = &wm_prov_new(p->hwnd, i)->simple;
     return S_OK;
 }

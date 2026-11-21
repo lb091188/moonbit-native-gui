@@ -596,6 +596,48 @@ static WmWindow *wm_of(HWND hwnd) {
   return &wm_windows[slot];
 }
 
+// 窗级设备缩放折算：客户区物理像素 ↔ 逻辑单位（MoonBit 账本口径）。
+// per-monitor v2 下窗口可随屏换档，比例必须每次现查、不缓存。
+// GetDpiForWindow 由 wm_init 动态取（Win10 1607+）；老系统缺导出按 96
+// 折算 = 恒 100% 档，与历史物理直通行为逐位一致。
+typedef UINT(WINAPI *WmGetDpiForWindowFn)(HWND);
+static WmGetDpiForWindowFn wm_get_dpi_for_window_fn = NULL;
+
+static double wm_dpi_ratio(HWND hwnd) {
+  if (wm_get_dpi_for_window_fn != NULL && hwnd != NULL) {
+    UINT dpi = wm_get_dpi_for_window_fn(hwnd);
+    if (dpi > 0) {
+      return (double)dpi / 96.0;
+    }
+  }
+  return 1.0;
+}
+
+// 物理 → 逻辑（账本记账 / 事件入栈）
+static int wm_logical_of(HWND hwnd, int v) {
+  return (int)((double)v / wm_dpi_ratio(hwnd) + 0.5);
+}
+
+// 逻辑 → 物理（建窗 / 矩形出口）
+static int wm_physical_of(HWND hwnd, int v) {
+  return (int)((double)v * wm_dpi_ratio(hwnd) + 0.5);
+}
+
+// uia_provider.c 消费：UIA 快照矩形折算要同一窗级因子（跨 TU 共享，链接器解析）
+double wm_win_dpi_ratio(HWND hwnd) {
+  return wm_dpi_ratio(hwnd);
+}
+
+// 窗级设备缩放因子（MoonBit 出口）：1 逻辑单位折合的物理像素数。账本统一
+// 逻辑单位后，MoonBit 侧的帧位图按 逻辑 × 此因子 开物理像素。
+double wm_scale(int64_t id) {
+  if (id <= 0 || id >= WM_MAX_WINDOWS) {
+    return 1.0;
+  }
+  WmWindow *w = &wm_windows[id];
+  return w->hwnd != NULL ? wm_dpi_ratio(w->hwnd) : 1.0;
+}
+
 static HCURSOR wm_load_cursor(int kind) {
   if (kind == 5) {
     return NULL; /* 5 = 隐藏指针：SetCursor(NULL) 即藏 */
@@ -644,6 +686,19 @@ static LRESULT CALLBACK wm_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       // CreateWindowW 期间就会来 WM_SIZE：槽号经 CREATESTRUCT 先行落位
       CREATESTRUCTW *cs = (CREATESTRUCTW *)lp;
       SetWindowLongPtrW(hwnd, GWLP_USERDATA, (LONG_PTR)(intptr_t)cs->lpCreateParams);
+      // 建窗外框按 96 档撑的（建窗前 hwnd 未定、拿不到窗级因子），这里按
+      // 真窗级因子把客户区重折一次：逻辑尺寸不变、物理外框校准到所在屏档位
+      WmWindow *w0 = wm_of(hwnd);
+      if (w0 != NULL && w0->width > 0) {
+        int pw = wm_physical_of(hwnd, w0->width);
+        int ph = wm_physical_of(hwnd, w0->height);
+        DWORD st = (DWORD)GetWindowLongPtrW(hwnd, GWL_STYLE);
+        DWORD ex = (DWORD)GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+        RECT rr = {0, 0, pw, ph};
+        AdjustWindowRectEx(&rr, st, FALSE, ex);
+        SetWindowPos(hwnd, NULL, 0, 0, rr.right - rr.left, rr.bottom - rr.top,
+                     SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+      }
       return 0;
     }
     case WM_GETOBJECT: {
@@ -687,19 +742,24 @@ static LRESULT CALLBACK wm_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       if (w != NULL && wp != SIZE_MINIMIZED) {
         int cw = (int)(int16_t)LOWORD(lp);
         int ch = (int)(int16_t)HIWORD(lp);
-        if (cw > 0 && ch > 0 && (cw != w->width || ch != w->height)) {
-          w->width = cw;
-          w->height = ch;
-          w->resized = 1;
-          w->need_draw = 1;
-          wm_crash_mark("wm_size", cw, ch);
-          char nbuf[64];
-          snprintf(nbuf, sizeof nbuf, "size -> %dx%d", cw, ch);
-          wm_crash_note(nbuf);
-        } else if (cw > 0 && ch > 0 && w->l1.stale) {
-          // 从最小化还原、且尺寸没变：WM_SIZE 不会置脏，但遮挡期间屏幕内容
-          // 已不保证有效；GPU 档下 WM_PAINT 又不画东西，必须主动要一帧
-          w->need_draw = 1;
+        if (cw > 0 && ch > 0) {
+          // 客户区物理像素 → 逻辑账本（按窗级因子折算）
+          int lw = wm_logical_of(hwnd, cw);
+          int lh = wm_logical_of(hwnd, ch);
+          if (lw != w->width || lh != w->height) {
+            w->width = lw;
+            w->height = lh;
+            w->resized = 1;
+            w->need_draw = 1;
+            wm_crash_mark("wm_size", cw, ch);
+            char nbuf[64];
+            snprintf(nbuf, sizeof nbuf, "size -> %dx%d", cw, ch);
+            wm_crash_note(nbuf);
+          } else if (w->l1.stale) {
+            // 从最小化还原、且尺寸没变：WM_SIZE 不会置脏，但遮挡期间屏幕内容
+            // 已不保证有效；GPU 档下 WM_PAINT 又不画东西，必须主动要一帧
+            w->need_draw = 1;
+          }
         }
       }
       return 0;
@@ -740,13 +800,15 @@ static LRESULT CALLBACK wm_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_GETMINMAXINFO: {
       // 最小尺寸（W20e）：ptMinTrackSize 要的是**整窗**尺寸，按当前样式的
       // 非客户区把客户区最小尺寸外扩；某轴为 0 即该轴不限制（显式归 0，
-      // 否则 AdjustWindowRect 会把零宽也算出 2×边框宽）。
+      // 否则 AdjustWindowRect 会把零宽也算出 2×边框宽）。账本存的是逻辑
+      // 单位，外扩前先折成客户区物理像素。
       WmWindow *w = wm_of(hwnd);
       if (w != NULL && (w->min_w > 0 || w->min_h > 0)) {
         MINMAXINFO *mmi = (MINMAXINFO *)lp;
         DWORD st = (DWORD)GetWindowLongPtrW(hwnd, GWL_STYLE);
         DWORD ex = (DWORD)GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
-        RECT r = {0, 0, w->min_w > 0 ? w->min_w : 0, w->min_h > 0 ? w->min_h : 0};
+        RECT r = {0, 0, wm_physical_of(hwnd, w->min_w > 0 ? w->min_w : 0),
+                  wm_physical_of(hwnd, w->min_h > 0 ? w->min_h : 0)};
         AdjustWindowRectEx(&r, st, FALSE, ex);
         mmi->ptMinTrackSize.x = w->min_w > 0 ? (r.right - r.left) : 0;
         mmi->ptMinTrackSize.y = w->min_h > 0 ? (r.bottom - r.top) : 0;
@@ -845,8 +907,8 @@ static LRESULT CALLBACK wm_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             ReleaseCapture();
           }
         }
-        e.x = (int16_t)LOWORD(lp);
-        e.y = (int16_t)HIWORD(lp);
+        e.x = wm_logical_of(hwnd, (int16_t)LOWORD(lp));
+        e.y = wm_logical_of(hwnd, (int16_t)HIWORD(lp));
         // 按钮号与 GDK 一致：1 左 2 中 3 右
         e.dx = (msg == WM_LBUTTONDOWN || msg == WM_LBUTTONUP) ? 1
              : (msg == WM_MBUTTONDOWN || msg == WM_MBUTTONUP) ? 2 : 3;
@@ -875,8 +937,8 @@ static LRESULT CALLBACK wm_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         pt.x = (int16_t)LOWORD(lp);
         pt.y = (int16_t)HIWORD(lp);
         ScreenToClient(hwnd, &pt); // 滚轮的 lParam 是屏幕坐标，其余是客户区
-        e.x = pt.x;
-        e.y = pt.y;
+        e.x = wm_logical_of(hwnd, pt.x);
+        e.y = wm_logical_of(hwnd, pt.y);
         short delta = (short)HIWORD(wp);
         // GTK 桩口径：上/左 = 1，下/右 = -1
         if (msg == WM_MOUSEWHEEL) {
@@ -902,12 +964,22 @@ static LRESULT CALLBACK wm_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
       break; // 非客户区走默认
     }
     case WM_DPICHANGED: {
-      // per-monitor v2：按系统建议矩形重摆，WM_SIZE 负责记账
+      // per-monitor v2：按系统建议矩形重摆，WM_SIZE 负责记账。客户区物理
+      // 尺寸没变而缩放档变了时 WM_SIZE 不来（逻辑账本会停在旧档读数上），
+      // 这里无条件按新因子重报一次账本并请帧——MoonBit 侧每帧现读因子，
+      // 位图与绘制变换自动跟上。
       WmWindow *w = wm_of(hwnd);
       RECT *r = (RECT *)lp;
       if (w != NULL && r != NULL) {
         SetWindowPos(hwnd, NULL, r->left, r->top, r->right - r->left,
                      r->bottom - r->top, SWP_NOZORDER | SWP_NOACTIVATE);
+        RECT cr;
+        if (GetClientRect(hwnd, &cr) && cr.right > 0 && cr.bottom > 0) {
+          w->width = wm_logical_of(hwnd, cr.right);
+          w->height = wm_logical_of(hwnd, cr.bottom);
+        }
+        w->resized = 1;
+        w->need_draw = 1;
       }
       return 0;
     }
@@ -997,8 +1069,9 @@ int wm_init(void) {
   if (wm_waker == NULL) {
     return 0;
   }
-  // 整栈自绘走物理像素：per-monitor v2；经 GetProcAddress 取，老系统缺导出
-  // 不至于加载失败（降级系统 DPI 一档，行为由 WM_DPICHANGED 之外的路径兜）
+  // 整栈自绘：per-monitor v2 声明 + 窗级 DPI 读数；都经 GetProcAddress 取，
+  // 老系统缺导出不至于加载失败（声明降级系统 DPI 一档、读数按 96 折算恒
+  // 100% 档，行为与历史一致）
   HMODULE user32 = GetModuleHandleW(L"user32.dll");
   if (user32 != NULL) {
     typedef BOOL(WINAPI * WmSetDpiCtx)(HANDLE);
@@ -1007,6 +1080,8 @@ int wm_init(void) {
     if (set_ctx != NULL) {
       set_ctx((HANDLE)(intptr_t)-4); // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
     }
+    wm_get_dpi_for_window_fn =
+        (WmGetDpiForWindowFn)GetProcAddress(user32, "GetDpiForWindow");
   }
   return 1;
 }
@@ -1041,7 +1116,9 @@ int64_t wm_window_new(int width, int height, const char *title) {
   }
   DWORD style = WS_OVERLAPPEDWINDOW;
   RECT r = {0, 0, w->width, w->height};
-  // 客户区口径：外框撑到客户区恰为 width×height（GTK 的 default size 同语义）
+  // 客户区口径：外框撑到客户区恰为 width×height（GTK 的 default size 同语义）。
+  // 入参即逻辑单位，账本直存；建窗外框先按 96 档折算（hwnd 未定拿不到窗级
+  // 因子），WM_CREATE 里按真因子校准外框——逻辑尺寸不变。
   AdjustWindowRect(&r, style, FALSE);
   HWND hwnd = CreateWindowExW(0, L"yue_wm_window", wtitle, style, CW_USEDEFAULT,
                               CW_USEDEFAULT, r.right - r.left, r.bottom - r.top,
@@ -1585,7 +1662,11 @@ static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
       w->l1.dead = 1;
       return 0;
     }
-    int r = wm_l1_window_bind(&w->l1, surf, w->width, w->height, bw, bh);
+    // L1 的 sw/sh 是 surface（客户区）物理尺寸：账本是逻辑单位，按窗级
+    // 因子折算（位图 bw/bh 恒物理，两口径分离）
+    int sw = wm_physical_of(w->hwnd, w->width);
+    int sh = wm_physical_of(w->hwnd, w->height);
+    int r = wm_l1_window_bind(&w->l1, surf, sw, sh, bw, bh);
     if (r != 1) {
       wm_l1_window_drop(&w->l1);
       w->l1.dead = 1;
@@ -1594,7 +1675,9 @@ static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
     w->l1.on = 1;
   }
   wm_crash_mark("l1.present", w->width, w->height);
-  return wm_l1_window_present(&w->l1, rgba, bw, bh, w->width, w->height);
+  return wm_l1_window_present(
+      &w->l1, rgba, bw, bh, wm_physical_of(w->hwnd, w->width),
+      wm_physical_of(w->hwnd, w->height));
 }
 
 // 与 GTK 分支同一条修复：present 的像素必须拷进桩自己的缓冲——贴像素在
@@ -1842,16 +1925,20 @@ void wm_set_min_size(int64_t id, int wmin, int hmin) {
   wm_windows[id].min_h = hmin > 0 ? hmin : 0;
 }
 
-/* 设自绘标题栏拖拽区（客户区像素矩形；w/h<=0 清空）。命中交系统拖窗。 */
+/* 设自绘标题栏拖拽区（入参逻辑单位，折成客户区物理像素存槽——
+ * WM_NCHITTEST 的 ScreenToClient 点是物理，两边同口径直比；w/h<=0 清空） */
 void wm_set_drag_rect(int64_t id, int x, int y, int w, int h) {
   if (id <= 0 || id >= WM_MAX_WINDOWS) {
     return;
   }
   WmWindow *win = &wm_windows[id];
-  win->drag_x = x;
-  win->drag_y = y;
-  win->drag_w = w > 0 ? w : 0;
-  win->drag_h = h > 0 ? h : 0;
+  if (win->hwnd == NULL) {
+    return;
+  }
+  win->drag_x = wm_physical_of(win->hwnd, x);
+  win->drag_y = wm_physical_of(win->hwnd, y);
+  win->drag_w = w > 0 ? wm_physical_of(win->hwnd, w) : 0;
+  win->drag_h = h > 0 ? wm_physical_of(win->hwnd, h) : 0;
 }
 
 /* 无边框开关：ON 去掉标题栏/边框并换 WS_POPUP（自绘标题栏形态），OFF 还原
@@ -1900,7 +1987,7 @@ void wm_get_min_size(int64_t id, int32_t *out_w, int32_t *out_h) {
   }
 }
 
-/* 反读：当前拖拽区（探针/测试用）。 */
+/* 反读：当前拖拽区（探针/测试用；槽存物理，折回逻辑单位给出） */
 void wm_get_drag_rect(int64_t id, int32_t *x, int32_t *y, int32_t *w,
                       int32_t *h) {
   if (id <= 0 || id >= WM_MAX_WINDOWS) {
@@ -1908,16 +1995,16 @@ void wm_get_drag_rect(int64_t id, int32_t *x, int32_t *y, int32_t *w,
   }
   WmWindow *win = &wm_windows[id];
   if (x != NULL) {
-    *x = win->drag_x;
+    *x = win->hwnd != NULL ? wm_logical_of(win->hwnd, win->drag_x) : win->drag_x;
   }
   if (y != NULL) {
-    *y = win->drag_y;
+    *y = win->hwnd != NULL ? wm_logical_of(win->hwnd, win->drag_y) : win->drag_y;
   }
   if (w != NULL) {
-    *w = win->drag_w;
+    *w = win->hwnd != NULL ? wm_logical_of(win->hwnd, win->drag_w) : win->drag_w;
   }
   if (h != NULL) {
-    *h = win->drag_h;
+    *h = win->hwnd != NULL ? wm_logical_of(win->hwnd, win->drag_h) : win->drag_h;
   }
 }
 
@@ -2678,7 +2765,8 @@ static int wm_dnd_extract(IDataObject *dob) {
   return 0;
 }
 
-/* 屏幕坐标 → 本窗客户区坐标（与指针事件同一套坐标，控件矩形直接可用）。 */
+/* 屏幕坐标 → 本窗客户区坐标（折回逻辑单位，与指针事件同一套坐标，控件
+ * 矩形直接可用）。 */
 static void wm_dnd_local(WmDropTarget *t, POINTL pt, int *out_x, int *out_y) {
   POINT p;
   p.x = pt.x;
@@ -2686,8 +2774,8 @@ static void wm_dnd_local(WmDropTarget *t, POINTL pt, int *out_x, int *out_y) {
   *out_x = 0;
   *out_y = 0;
   if (t->hwnd != NULL && ScreenToClient(t->hwnd, &p)) {
-    *out_x = p.x;
-    *out_y = p.y;
+    *out_x = wm_logical_of(t->hwnd, p.x);
+    *out_y = wm_logical_of(t->hwnd, p.y);
   }
 }
 
@@ -3789,10 +3877,11 @@ void wm_im_set_cursor(int64_t id, int x, int y, int w, int h) {
   if (wm->hwnd == NULL) {
     return;
   }
-  wm->im_cx = x;
-  wm->im_cy = y;
-  wm->im_cw = w;
-  wm->im_ch = h;
+  // 入参逻辑单位，折成客户区物理像素存槽（ImmSetCompositionWindow 吃物理）
+  wm->im_cx = wm_physical_of(wm->hwnd, x);
+  wm->im_cy = wm_physical_of(wm->hwnd, y);
+  wm->im_cw = wm_physical_of(wm->hwnd, w);
+  wm->im_ch = wm_physical_of(wm->hwnd, h);
   wm->im_cursor_set = 1;
   wm_im_apply_cursor(wm);
 }
@@ -4568,9 +4657,13 @@ int64_t wm_surface_new(int64_t window_id, int kind, int x, int y, int w,
   }
   // 背景刷 NULL：原生引擎（WebView2）自己盖满，避免建窗到首帧之间的闪白；
   // 光标不设——页面内的手型/文本等由引擎自管，与 GTK 桩的容器同语义。
-  HWND hwnd = CreateWindowExW(0, L"yue_wm_surface", L"", WS_CHILD | WS_VISIBLE,
-                              x, y, w > 1 ? w : 1, h > 1 ? h : 1, win->hwnd,
-                              NULL, GetModuleHandleW(NULL), NULL);
+  // 入参逻辑单位，折客户区物理像素摆位（子 HWND 与父客户区同一口径）
+  HWND hwnd = CreateWindowExW(
+      0, L"yue_wm_surface", L"", WS_CHILD | WS_VISIBLE,
+      wm_physical_of(win->hwnd, x), wm_physical_of(win->hwnd, y),
+      wm_physical_of(win->hwnd, w > 1 ? w : 1),
+      wm_physical_of(win->hwnd, h > 1 ? h : 1), win->hwnd,
+      NULL, GetModuleHandleW(NULL), NULL);
   if (hwnd == NULL) {
     return 0;
   }
@@ -4599,7 +4692,10 @@ void wm_surface_set_rect(int64_t surface_id, int x, int y, int w, int h) {
   s->y = y;
   s->w = w;
   s->h = h;
-  MoveWindow(s->hwnd, x, y, w > 1 ? w : 1, h > 1 ? h : 1, TRUE);
+  // 入参逻辑单位，折物理摆位
+  MoveWindow(s->hwnd, wm_physical_of(s->hwnd, x), wm_physical_of(s->hwnd, y),
+             wm_physical_of(s->hwnd, w > 1 ? w : 1),
+             wm_physical_of(s->hwnd, h > 1 ? h : 1), TRUE);
 }
 
 void wm_surface_close(int64_t surface_id) {
@@ -4722,7 +4818,9 @@ void wm_window_move(int64_t id, int x, int y) {
   LONG dx = 0;
   LONG dy = 0;
   wm_client_offset(w->hwnd, &dx, &dy);
-  POINT tl = { x - dx, y - dy }; // 整窗原点（屏幕坐标）
+  // 入参逻辑单位，折成物理屏幕坐标再减非客户区偏移
+  POINT tl = { wm_physical_of(w->hwnd, x) - dx,
+               wm_physical_of(w->hwnd, y) - dy }; // 整窗原点（屏幕坐标）
   if (w->desk_embedded && w->desk_host != NULL) {
     // 「图标下」档挂着时是 WS_CHILD，SetWindowPos 收的是**宿主客户区**坐标
     ScreenToClient(w->desk_host, &tl);
@@ -4734,9 +4832,9 @@ void wm_window_move(int64_t id, int x, int y) {
   wm_desk_repaint_host(w);
 }
 
-/* 客户区在屏幕上的原点。此前本臂是空桩、输出从不写，MoonBit 侧的 Ref 保持
- * 0——无论窗口摆在哪都读回 (0,0)（真机读数）。读不到时不写输出，调用方拿
- * (0,0) 摆位只会贴边，不崩。 */
+/* 客户区在屏幕上的原点（逻辑单位，y 从主屏顶向下）。此前本臂是空桩、输出
+ * 从不写，MoonBit 侧的 Ref 保持 0——无论窗口摆在哪都读回 (0,0)（真机读数）。
+ * 读不到时不写输出，调用方拿 (0,0) 摆位只会贴边，不崩。 */
 void wm_window_origin(int64_t id, int32_t *out_x, int32_t *out_y) {
   if (id <= 0 || id >= WM_MAX_WINDOWS) {
     return;
@@ -4750,17 +4848,17 @@ void wm_window_origin(int64_t id, int32_t *out_x, int32_t *out_y) {
     return;
   }
   if (out_x != NULL) {
-    *out_x = (int32_t)cp.x;
+    *out_x = wm_logical_of(w->hwnd, cp.x);
   }
   if (out_y != NULL) {
-    *out_y = (int32_t)cp.y;
+    *out_y = wm_logical_of(w->hwnd, cp.y);
   }
 }
 
 /* 改窗口尺寸（原生浮层要先量内容再定框，避免开一个空框再撑大）：参数是
- * 客户区物理像素（整栈物理像素口径），按当前样式外扩成整窗尺寸再摆；
- * WM_SIZE 的既有记账把 resized 置 1，MoonBit 侧照常收 Resized 事件，
- * 不需要宿主自己算新矩形。 */
+ * 逻辑单位（与窗口账本同口径），折成客户区物理像素后按当前样式外扩成整窗
+ * 尺寸再摆；WM_SIZE 的既有记账把 resized 置 1，MoonBit 侧照常收 Resized
+ * 事件，不需要宿主自己算新矩形。 */
 void wm_window_set_size(int64_t id, int w, int h) {
   if (id <= 0 || id >= WM_MAX_WINDOWS) {
     return;
@@ -4769,8 +4867,8 @@ void wm_window_set_size(int64_t id, int w, int h) {
   if (win->hwnd == NULL) {
     return;
   }
-  int ww = w > 1 ? w : 1;
-  int hh = h > 1 ? h : 1;
+  int ww = wm_physical_of(win->hwnd, w > 1 ? w : 1);
+  int hh = wm_physical_of(win->hwnd, h > 1 ? h : 1);
   DWORD st = (DWORD)GetWindowLongPtrW(win->hwnd, GWL_STYLE);
   DWORD ex = (DWORD)GetWindowLongPtrW(win->hwnd, GWL_EXSTYLE);
   RECT r = {0, 0, ww, hh};
@@ -5596,6 +5694,26 @@ static void wm_mark_draw(WmWindow *w) {
   w->need_draw = 1;
 }
 
+// 窗级设备缩放因子：GDK 单位即逻辑单位，因子只在贴帧（wm_on_draw 的
+// cairo_scale）与 wm_scale 出口处消费；X11 无缩放档恒 1。
+static double wm_gtk_scale(WmWindow *w) {
+  if (w->area != NULL) {
+    int k = gtk_widget_get_scale_factor(w->area);
+    return k > 0 ? (double)k : 1.0;
+  }
+  return 1.0;
+}
+
+// 窗级设备缩放因子（MoonBit 出口）：1 逻辑单位折合的物理像素数。账本统一
+// 逻辑单位后，MoonBit 侧的帧位图按 逻辑 × 此因子 开物理像素。
+double wm_scale(int64_t id) {
+  if (id <= 0 || id >= WM_MAX_WINDOWS) {
+    return 1.0;
+  }
+  WmWindow *w = &wm_windows[id];
+  return w->area != NULL ? wm_gtk_scale(w) : 1.0;
+}
+
 static gboolean wm_on_draw(GtkWidget *area, cairo_t *cr, gpointer data) {
   (void)area;
   WmWindow *w = (WmWindow *)data;
@@ -5614,8 +5732,14 @@ static gboolean wm_on_draw(GtkWidget *area, cairo_t *cr, gpointer data) {
         (unsigned char *)w->pending, CAIRO_FORMAT_ARGB32, w->pending_w,
         w->pending_h, w->pending_w * 4);
     if (cairo_surface_status(surf) == CAIRO_STATUS_SUCCESS) {
+      // 位图是物理口径（逻辑 × 设备因子），GDK 画布是逻辑单位：先放大 CTM
+      // 再贴，位图像素与画布像素 1:1 对齐；因子 1 时与旧路径逐位一致
+      double k = wm_gtk_scale(w);
+      cairo_save(cr);
+      cairo_scale(cr, k, k);
       cairo_set_source_surface(cr, surf, 0, 0);
       cairo_paint(cr);
+      cairo_restore(cr);
     }
     cairo_surface_destroy(surf);
   } else {
@@ -9061,10 +9185,13 @@ void wm_inst_release(void) {}
 //   untilDate:`（AppKit 自己的阻塞取事件），跑事件用 `sendEvent:` 派给
 //   NSView 子类；跨线程唤醒走 `postEvent:` 投一个 NSApplicationDefined 事件，
 //   取到它就只当「醒了」、不进队列。
-// - **坐标与尺度**：整栈物理像素口径，Cocoa 侧一律点（point）。点↔像素的
-//   比例取窗口所在屏的 backingScaleFactor，进出边界各换算一次。绘制区视图
-//   **不设 isFlipped**：非翻转视图里 `CGContextDrawImage` 的图像第一行正好
-//   落在矩形顶边（与本栈 Bitmap 同向），鼠标 y 用 `bounds.height - p.y` 换。
+// - **坐标与尺度**：整栈逻辑单位口径，Cocoa 的点（point）就是 MoonBit 的
+//   窗口单位，账本、事件、矩形出口全部直通无换算。点↔像素的比例只留在
+//   两处贴帧消费点——drawRect 把物理位图折回点摆位、逐像素透明命中把视图
+//   点乘回 backing 像素——以及 L1 的 surface 尺寸折算（wm_l1_try）与
+//   wm_scale 出口。绘制区视图**不设 isFlipped**：非翻转视图里
+//   `CGContextDrawImage` 的图像第一行正好落在矩形顶边（与本栈 Bitmap 同向），
+//   鼠标 y 用 `bounds.height - p.y` 换。
 // - **菜单/托盘/通知是 App 级**：NSMenu 挂 `[NSApp setMainMenu:]`（macOS 的
 //   菜单条属于应用不属于窗口），NSStatusItem 属于状态栏。
 
@@ -9176,7 +9303,7 @@ typedef struct {
   // 隐藏不产生平台失焦事件，宿主靠 Hidden 清在途输入法组合串。
   int hidden_ev;
   int shown_ev;
-  int width;  // 物理像素
+  int width;  // 逻辑点（整栈逻辑单位口径，点即 MoonBit 的窗口单位）
   int height;
   WmEv evs[64];
   WmEv last;
@@ -9188,7 +9315,7 @@ typedef struct {
   int preedit_len;
   int preedit_caret;
   int preedit_active;
-  int im_cx; // 输入光标矩形（物理像素，wm_im_set_cursor 落点）
+  int im_cx; // 输入光标矩形（逻辑点，wm_im_set_cursor 落点）
   int im_cy;
   int im_cw;
   int im_ch;
@@ -9293,6 +9420,17 @@ static CGFloat wm_scale_of(WMState *s) {
   }
   CGFloat f = sc != nil ? [sc backingScaleFactor] : 1.0;
   return f > 0 ? f : 1.0;
+}
+
+// 窗级设备缩放因子（MoonBit 出口）：1 逻辑点折合的物理像素数。账本统一
+// 逻辑点后，MoonBit 侧的帧位图按 逻辑 × 此因子 开物理像素；已拆窗回 1.0
+// （与虚窗哨兵同口径，关窗后的读数不再参与绘制）。
+double wm_scale(int64_t id) {
+  WMState *s = wm_state_alive(id);
+  if (s == nil || s.view == nil) {
+    return 1.0;
+  }
+  return (double)wm_scale_of(s);
 }
 
 // 主屏的 Cocoa frame（屏幕坐标换算的基准：Cocoa 是 y 向上、主屏原点在左下）
@@ -9407,20 +9545,20 @@ static uint32_t wm_keysym_of(NSEvent *ev) {
   ev_count++;
 }
 
-// 尺寸同步：从 contentView 的边界点尺寸 × 所在屏缩放算出物理像素。
+// 尺寸同步：contentView 的边界点尺寸即逻辑单位，直接入账（账本统一逻辑点；
+// 点↔像素换算只留在 drawRect 贴帧与逐像素命中两处，见 wm_scale_of 消费点）。
 // 全屏切换通知也走这里（那条同样带非空 note，但复用逻辑比 nil 参数干净）。
 - (void)syncSize {
   if (self.view == nil) {
     return;
   }
-  CGFloat sc = wm_scale_of(self);
   // 优先问窗口，拿不到再退回视图自己的 bounds：`setStyleMask:` 换主题框架的那
   // 一拍会同步发一次 resize，此时视图正从窗口上摘下来，`[self.view window]` 是
   // nil，问出来的边界就是 0x0。
   NSView *cv = self.view.window != nil ? [self.view.window contentView] : nil;
   NSSize pts = cv != nil ? cv.bounds.size : self.view.bounds.size;
-  int w = (int)(pts.width * sc + 0.5);
-  int h = (int)(pts.height * sc + 0.5);
+  int w = (int)(pts.width + 0.5);
+  int h = (int)(pts.height + 0.5);
   // 零读数一律不入账：上层绘制见到 0 就跳过这一帧，而尺寸通知不会再来第二次，
   // 账本从此停在 0 上——弹层窗整块空白就是这么来的（真机探针：窗框 320x200、
   // 内容视图 320x200，桩内尺寸 0x0，present 因宽 0 直接返回）。留着上一次的好值。
@@ -9439,6 +9577,19 @@ static uint32_t wm_keysym_of(NSEvent *ev) {
 }
 
 - (void)windowDidExitFullScreen:(NSNotification *)note {
+  (void)note;
+  [self syncSize];
+}
+
+// 跨屏拖动 / 缩放档变化（Retina↔外接 1x 屏、系统设置改缩放）：窗口点数可能
+// 不变但设备因子变了——syncSize 重报账本并请一帧；MoonBit 侧每帧现读因子，
+// 帧位图与绘制变换自动跟上。
+- (void)windowDidChangeBackingProperties:(NSNotification *)note {
+  (void)note;
+  [self syncSize];
+}
+
+- (void)windowDidChangeScreen:(NSNotification *)note {
   (void)note;
   [self syncSize];
 }
@@ -9567,17 +9718,10 @@ static NSString *wm_a11y_ax_role(const char *role) {
   if (r == NULL) {
     return nil;
   }
-  CGFloat scale = 1.0;
-  if (self.window != nil) {
-    CGFloat sc = self.window.backingScaleFactor;
-    if (sc > 0.0) {
-      scale = sc;
-    }
-  }
-  CGFloat box_h = self.bounds.size.height * scale;
-  // 物理像素 → 点；非翻转视图：y 从顶边量，换到从底边量
-  NSRect rect =
-      NSMakeRect(r->x / scale, (box_h - r->y - r->h) / scale, r->w / scale, r->h / scale);
+  // 快照行矩形即逻辑点（与窗口账本同口径，无需换算）；
+  // 非翻转视图：y 从顶边量，换到从底边量
+  CGFloat box_h = self.bounds.size.height;
+  NSRect rect = NSMakeRect(r->x, box_h - r->y - r->h, r->w, r->h);
   NSRect screen = self.window != nil ? [self.window convertRectToScreen:rect] : rect;
   NSRect wframe = self.window != nil ? self.window.frame : NSZeroRect;
   uint32_t h = wm_a11y_row_hash(r, wframe.origin.x, wframe.origin.y,
@@ -9691,13 +9835,9 @@ static NSString *wm_a11y_ax_role(const char *role) {
     if (r == NULL || self.window == nil) {
       continue;
     }
-    CGFloat scale = self.window.backingScaleFactor;
-    if (scale <= 0.0) {
-      scale = 1.0;
-    }
-    CGFloat box_h = self.bounds.size.height * scale;
-    NSRect rect =
-        NSMakeRect(r->x / scale, (box_h - r->y - r->h) / scale, r->w / scale, r->h / scale);
+    // 快照行矩形即逻辑点（与窗口账本同口径）；非翻转视图 y 顶边量转底边量
+    CGFloat box_h = self.bounds.size.height;
+    NSRect rect = NSMakeRect(r->x, box_h - r->y - r->h, r->w, r->h);
     NSRect screen = [self.window convertRectToScreen:rect];
     if (point.x >= screen.origin.x && point.x <= screen.origin.x + screen.size.width &&
         point.y >= screen.origin.y && point.y <= screen.origin.y + screen.size.height) {
@@ -9766,19 +9906,19 @@ static NSString *wm_a11y_ax_role(const char *role) {
   [self addCursorRect:self.bounds cursor:cur];
 }
 
-// 事件 → 队列。坐标：视图内点坐标（左下原点）→ 本栈的左上原点物理像素。
+// 事件 → 队列。坐标：视图内点坐标（左下原点）→ 本栈的左上原点逻辑点
+// （点即 MoonBit 侧的窗口单位，不再乘设备因子）。
 - (void)pushPointer:(NSEvent *)ev code:(uint32_t)code button:(int32_t)button {
   WMState *s = wm_state(vsid);
   if (s == nil) {
     return;
   }
-  CGFloat sc = wm_scale_of(s);
   NSPoint p = [self convertPoint:[ev locationInWindow] fromView:nil];
   WmEv e;
   memset(&e, 0, sizeof(e));
   e.code = code;
-  e.x = (int32_t)(p.x * sc + 0.5);
-  e.y = (int32_t)((self.bounds.size.height - p.y) * sc + 0.5);
+  e.x = (int32_t)(p.x + 0.5);
+  e.y = (int32_t)(self.bounds.size.height - p.y + 0.5);
   e.dx = button;
   e.mods = wm_cocoa_mods([ev modifierFlags]);
   [s pushEv:&e];
@@ -9791,10 +9931,9 @@ static NSString *wm_a11y_ax_role(const char *role) {
   if (s == nil || s->drag_w <= 0 || s->drag_h <= 0) {
     return NO;
   }
-  CGFloat sc = wm_scale_of(s);
   NSPoint p = [self convertPoint:[ev locationInWindow] fromView:nil];
-  int px = (int)(p.x * sc + 0.5);
-  int py = (int)((self.bounds.size.height - p.y) * sc + 0.5);
+  int px = (int)(p.x + 0.5);
+  int py = (int)(self.bounds.size.height - p.y + 0.5);
   if (px < s->drag_x || py < s->drag_y || px >= s->drag_x + s->drag_w ||
       py >= s->drag_y + s->drag_h) {
     return NO;
@@ -9864,13 +10003,12 @@ static NSString *wm_a11y_ax_role(const char *role) {
   if (s == nil) {
     return;
   }
-  CGFloat sc = wm_scale_of(s);
   NSPoint p = [self convertPoint:[ev locationInWindow] fromView:nil];
   WmEv e;
   memset(&e, 0, sizeof(e));
   e.code = 5u;
-  e.x = (int32_t)(p.x * sc + 0.5);
-  e.y = (int32_t)((self.bounds.size.height - p.y) * sc + 0.5);
+  e.x = (int32_t)(p.x + 0.5);
+  e.y = (int32_t)(self.bounds.size.height - p.y + 0.5);
   // deltaY 单位是点、正数=向上滚；本栈给「每档 ±1」的方向（与 GTK 支同口径）
   e.dy = [ev deltaY] > 0 ? 1 : ([ev deltaY] < 0 ? -1 : 0);
   e.dx = [ev deltaX] > 0 ? -1 : ([ev deltaX] < 0 ? 1 : 0);
@@ -10010,7 +10148,7 @@ static NSString *wm_a11y_ax_role(const char *role) {
   return NSNotFound; // 无文档模型：给不到字符索引
 }
 
-// 候选窗落点：wm_im_set_cursor 给的像素矩形换算成屏幕坐标点
+// 候选窗落点：wm_im_set_cursor 给的逻辑点矩形换算成屏幕坐标点
 - (NSRect)firstRectForCharacterRange:(NSRange)range
                          actualRange:(NSRangePointer)actualRange {
   (void)range;
@@ -10019,11 +10157,10 @@ static NSString *wm_a11y_ax_role(const char *role) {
   if (s == nil || self.window == nil) {
     return NSZeroRect;
   }
-  CGFloat sc = wm_scale_of(s);
-  NSRect r = [self convertRect:NSMakeRect(s->im_cx / sc,
-                                           self.bounds.size.height -
-                                               (s->im_cy + s->im_ch) / sc,
-                                           s->im_cw / sc, s->im_ch / sc)
+  NSRect r = [self convertRect:NSMakeRect(s->im_cx,
+                                          self.bounds.size.height -
+                                              (s->im_cy + s->im_ch),
+                                          s->im_cw, s->im_ch)
                         toView:nil];
   return [[self window] convertRectToScreen:r];
 }
@@ -10362,9 +10499,10 @@ int64_t wm_window_new(int width, int height, const char *title) {
     WMState *s = [[WMState alloc] init];
     s->sid = id;
     s->im_active = 1; // 默认视焦点在输入框：首窗首控件常是 entry
-    CGFloat sc = wm_scale_of(s); // 还没挂屏：退回主屏比例
-    double pw = (double)(width > 1 ? width : 1) / (double)sc;
-    double ph = (double)(height > 1 ? height : 1) / (double)sc;
+    // 入参即逻辑点（整栈逻辑单位口径）：点尺寸直接建窗入账，不再按所在屏
+    // 因子折算——Retina 与 1x 屏同一份代码得到同一逻辑尺寸的窗口。
+    double pw = (double)(width > 1 ? width : 1);
+    double ph = (double)(height > 1 ? height : 1);
     s->width = width > 1 ? width : 1;
     s->height = height > 1 ? height : 1;
     NSWindowStyleMask mask =
@@ -10774,8 +10912,12 @@ static int wm_l1_try(WMState *s, const unsigned char *rgba, int bw, int bh) {
     return 0; // 透明档不走 GPU（对齐 Win32 支）：swapchain 帧没有 alpha 语义，
               // 透不出桌面（真机：透明测试窗整窗黑底）
   }
+  // L1 的 sw/sh 是 surface（客户区）物理尺寸：账本是逻辑点，按所在屏因子折算
+  CGFloat sc = wm_scale_of(s);
+  int sw = (int)((double)s->width * sc + 0.5);
+  int sh = (int)((double)s->height * sc + 0.5);
   if (!s->l1.on) {
-    if (s->width < 1 || s->height < 1) {
+    if (sw < 1 || sh < 1) {
       return 0; // 0×0（最小化）：不标记死，下帧再试
     }
     // 视图改走 layer-backing：Metal 层挂上去（原 drawRect: 的 CG 直贴在
@@ -10787,7 +10929,7 @@ static int wm_l1_try(WMState *s, const unsigned char *rgba, int bw, int bh) {
       s->l1.dead = 1;
       return 0;
     }
-    int r = wm_l1_window_bind(&s->l1, surf, s->width, s->height, bw, bh);
+    int r = wm_l1_window_bind(&s->l1, surf, sw, sh, bw, bh);
     if (r != 1) {
       wm_l1_window_drop(&s->l1);
       s->l1.dead = 1;
@@ -10795,7 +10937,7 @@ static int wm_l1_try(WMState *s, const unsigned char *rgba, int bw, int bh) {
     }
     s->l1.on = 1;
   }
-  return wm_l1_window_present(&s->l1, rgba, bw, bh, s->width, s->height);
+  return wm_l1_window_present(&s->l1, rgba, bw, bh, sw, sh);
 }
 
 // present：把帧拷进本层缓冲再请重画（真正的贴像素在下一次 drawRect:，
@@ -10995,11 +11137,11 @@ void wm_set_min_size(int64_t id, int wmin, int hmin) {
     if (s == nil) {
       return;
     }
-    CGFloat sc = wm_scale_of(s);
+    // 入参即逻辑点，直接给 Cocoa（点口径，无需换算）
     s->min_w = wmin;
     s->min_h = hmin;
-    [s.win setContentMinSize:NSMakeSize(wmin > 0 ? wmin / sc : 0,
-                                        hmin > 0 ? hmin / sc : 0)];
+    [s.win setContentMinSize:NSMakeSize(wmin > 0 ? wmin : 0,
+                                        hmin > 0 ? hmin : 0)];
   }
 }
 
@@ -11015,13 +11157,12 @@ void wm_get_min_size(int64_t id, int32_t *out_w, int32_t *out_h) {
       }
       return;
     }
-    CGFloat sc = wm_scale_of(s);
     NSSize m = [s.win contentMinSize];
     if (out_w != NULL) {
-      *out_w = (int)(m.width * sc + 0.5);
+      *out_w = (int)(m.width + 0.5);
     }
     if (out_h != NULL) {
-      *out_h = (int)(m.height * sc + 0.5);
+      *out_h = (int)(m.height + 0.5);
     }
   }
 }
@@ -11100,10 +11241,10 @@ void wm_window_set_size(int64_t id, int w, int h) {
     if (s == nil) {
       return;
     }
-    CGFloat sc = wm_scale_of(s);
+    // 入参即逻辑点：点尺寸直接给 Cocoa，账本同步（无需按屏因子折算）
     int ww = w > 1 ? w : 1;
     int hh = h > 1 ? h : 1;
-    [s.win setContentSize:NSMakeSize(ww / sc, hh / sc)];
+    [s.win setContentSize:NSMakeSize(ww, hh)];
     s->width = ww;
     s->height = hh;
     s->resized = 1;
@@ -11111,7 +11252,7 @@ void wm_window_set_size(int64_t id, int w, int h) {
   }
 }
 
-// 内容区左上角在屏幕上的原点（物理像素，y 从主屏顶向下）——弹层按
+// 内容区左上角在屏幕上的原点（逻辑点，y 从主屏顶向下）——弹层按
 // 「owner 原点 + 控件窗口内矩形」摆位，两侧口径必须一致。
 void wm_window_origin(int64_t id, int32_t *out_x, int32_t *out_y) {
   @autoreleasepool {
@@ -11119,16 +11260,14 @@ void wm_window_origin(int64_t id, int32_t *out_x, int32_t *out_y) {
     if (s == nil || s.view == nil) {
       return;
     }
-    CGFloat sc = wm_scale_of(s);
     NSRect content =
         [s.win convertRectToScreen:[s.view convertRect:s.view.bounds toView:nil]];
     NSRect pf = wm_primary_frame();
     if (out_x != NULL) {
-      *out_x = (int)(content.origin.x * sc + 0.5);
+      *out_x = (int)(content.origin.x + 0.5);
     }
     if (out_y != NULL) {
-      *out_y = (int)(((pf.origin.y + pf.size.height) - NSMaxY(content)) * sc +
-                     0.5);
+      *out_y = (int)(((pf.origin.y + pf.size.height) - NSMaxY(content)) + 0.5);
     }
   }
 }
@@ -11139,13 +11278,13 @@ void wm_window_move(int64_t id, int x, int y) {
     if (s == nil || s.view == nil) {
       return;
     }
-    CGFloat sc = wm_scale_of(s);
+    // 入参即逻辑点（屏幕坐标，y 从主屏顶向下），直接换算
     NSRect content = [s.win convertRectToScreen:
                       [s.view convertRect:s.view.bounds toView:nil]];
     NSRect pf = wm_primary_frame();
     CGFloat cur_top = (pf.origin.y + pf.size.height) - NSMaxY(content);
-    CGFloat dx = (CGFloat)x / sc - content.origin.x;
-    CGFloat dy = (CGFloat)y / sc - cur_top; // 向下为正
+    CGFloat dx = (CGFloat)x - content.origin.x;
+    CGFloat dy = (CGFloat)y - cur_top; // 向下为正
     NSRect fr = [s.win frame];
     [s.win setFrameTopLeftPoint:NSMakePoint(fr.origin.x + dx,
                                             NSMaxY(fr) - dy)];
@@ -11273,13 +11412,12 @@ int64_t wm_surface_new(int64_t window_id, int kind, int x, int y, int w,
     if (sid == 0) {
       return 0;
     }
-    CGFloat sc = wm_scale_of(win);
+    // 入参即逻辑点（内容坐标左上原点）→ 视图 frame（左下原点、点），直接换
     NSRect parent = win.view.bounds;
-    double pw = (w > 1 ? w : 1) / sc;
-    double ph = (h > 1 ? h : 1) / sc;
-    // 内容坐标（左上原点、物理像素）→ 视图 frame（左下原点、点）
+    double pw = (w > 1 ? w : 1);
+    double ph = (h > 1 ? h : 1);
     NSView *v = [[NSView alloc] initWithFrame:NSMakeRect(
-                    x / sc, parent.size.height - (y / sc) - ph, pw, ph)];
+                    x, parent.size.height - y - ph, pw, ph)];
     [v setWantsLayer:YES];
     [win.view addSubview:v];
     wm_surf_views[sid] = v;
@@ -11310,15 +11448,15 @@ void wm_surface_set_rect(int64_t surface_id, int x, int y, int w, int h) {
     if (win == nil) {
       return;
     }
-    CGFloat sc = wm_scale_of(win);
+    // 入参即逻辑点：点尺寸直接摆位（无需按屏因子折算）
     NSRect parent = win.view.bounds;
-    double pw = (w > 1 ? w : 1) / sc;
-    double ph = (h > 1 ? h : 1) / sc;
+    double pw = (w > 1 ? w : 1);
+    double ph = (h > 1 ? h : 1);
     wm_surf_x[(int)surface_id] = x;
     wm_surf_y[(int)surface_id] = y;
     wm_surf_w[(int)surface_id] = w;
     wm_surf_h[(int)surface_id] = h;
-    [v setFrame:NSMakeRect(x / sc, parent.size.height - (y / sc) - ph, pw, ph)];
+    [v setFrame:NSMakeRect(x, parent.size.height - y - ph, pw, ph)];
   }
 }
 
@@ -13258,16 +13396,14 @@ static int wm_dnd_ns_to_flag(NSDragOperation op) {
   return 0;
 }
 
-// 窗口基坐标（左下原点）→ 本栈物理像素（左上原点，非翻转视图 y 翻折）
+// 窗口基坐标（左下原点）→ 本栈逻辑点（左上原点，非翻转视图 y 翻折）
 static void wm_dnd_pt(NSView *v, NSPoint win_pt, int *out_x, int *out_y) {
-  WMState *s = wm_state(((WMView *)v)->vsid);
-  CGFloat sc = (s != nil) ? wm_scale_of(s) : 1.0;
   NSPoint p = [v convertPoint:win_pt fromView:nil];
   if (out_x != NULL) {
-    *out_x = (int)(p.x * sc + 0.5);
+    *out_x = (int)(p.x + 0.5);
   }
   if (out_y != NULL) {
-    *out_y = (int)(([v bounds].size.height - p.y) * sc + 0.5);
+    *out_y = (int)(([v bounds].size.height - p.y) + 0.5);
   }
 }
 
@@ -14268,6 +14404,7 @@ void wm_window_origin(int64_t id, int32_t *out_x, int32_t *out_y) {
 }
 
 void wm_window_set_size(int64_t id, int w, int h) { (void)id; (void)w; (void)h; }
+double wm_scale(int64_t id) { (void)id; return 1.0; }
 void wm_window_set_fullscreen(int64_t id, int on) { (void)id; (void)on; }
 void wm_window_toggle_fullscreen(int64_t id) { (void)id; }
 void wm_window_set_maximized(int64_t id, int on) { (void)id; (void)on; }

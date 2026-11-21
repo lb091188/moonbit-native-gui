@@ -269,6 +269,18 @@ pub fn Window::size(self : Window) -> (Int32, Int32) {
 }
 
 ///|
+/// 窗级设备缩放因子：1 逻辑单位折合的物理像素数。窗口账本是逻辑单位，
+/// 帧位图按 逻辑尺寸 × 因子 分配物理像素；虚窗哨兵与已关窗恒 1.0
+/// （无头测试整帧零缩放，快照逐位不变）。
+pub fn Window::scale(self : Window) -> Double {
+  if self.id <= 0L {
+    1.0
+  } else {
+    wm_scale(self.id)
+  }
+}
+
+///|
 /// 虚窗哨兵（无头测试用，headless-tester P2）：id = -1 的进程内假窗——
 /// `size()` 读回构造字段，其余窗口级动作经桩的 `id <= 0` 早退全部空转
 /// （**C 桩一行不改**，真句柄语义零变化）。

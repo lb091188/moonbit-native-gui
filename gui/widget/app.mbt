@@ -1464,16 +1464,25 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   // 分段账本从帧起算：位图分配（仅变尺寸时发生）计入 total 不计入单段，
   // 避免把「分配」混进「布局」
   let t0 = @win.now_ms()
-  // 位图按窗复用：尺寸不变直接续用上一帧的缓冲，只有变尺寸才重建
+  // 设备缩放：1 逻辑单位折合的物理像素数（虚窗 / 无缩放档恒 1）。窗口账本
+  // 是逻辑单位，位图按 逻辑 × 因子 开物理像素，Painter 全局 CTM 放大后整树
+  // 仍按逻辑坐标画——100% 档各值相等，与旧路径逐位一致。因子每帧现读：
+  // 跨缩放档拖动后位图复用判据自动失配重建、CTM 自动取新值，无需事件。
+  let sc = self.session.window.scale()
+  let pw = (w.to_double() * sc + 0.5).to_int()
+  let ph = (h.to_double() * sc + 0.5).to_int()
+  // 位图按窗复用（比物理尺寸）：尺寸不变直接续用上一帧的缓冲，只有变尺寸
+  // 才重建
   let bm = match self.canvas {
-    Some(b) if b.width == w && b.height == h => b
+    Some(b) if b.width == pw && b.height == ph => b
     _ => {
-      let b = @render.Bitmap::new(w, h)
+      let b = @render.Bitmap::new(pw, ph)
       self.canvas = Some(b)
       b
     }
   }
   let p = @render.Painter::new(bm)
+  p.scale(sc, sc)
   match clip {
     None => ()
     Some(r) => {
@@ -1540,8 +1549,8 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
         bm.height.to_double(),
         0.0,
         sdy,
-        bm.width.to_double(),
-        bm.height.to_double(),
+        w.to_double(),
+        h.to_double(),
       )
       p.restore()
       // ② 修复新露条带（|位移| + 最高行余量）与滚动条列

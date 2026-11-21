@@ -722,23 +722,33 @@ fn draw_box_raster(
   }
   // 旋转/斜切下的贴回是最近邻采样：离屏按 3× 渲染再缩小，字形采样密度
   // 提上去，动画中不再逐帧跳相位（观感发虚/抖动）。轴向 CTM 保持 1×。
+  // 设备缩放（高 DPI 画布）：离屏与字号再乘设备倍率，字形按物理像素光栅，
+  // 落位 blit 经 CTM 折回逻辑盒后源目标 1:1——文字是真高清而非插值放大。
+  // 两倍率都为 1 时离屏与字号零变化，旧路径逐位一致。
   let ss = raster.text_render_scale()
   let ssf = ss.to_double()
-  let off = @render.Bitmap::new(ow * ss, oh * ss)
+  let (dsx, dsy) = raster.device_scale()
+  let needs_ds = dsx != 1.0 || dsy != 1.0
+  let fsx = ssf * dsx
+  let fsy = ssf * dsy
+  let off = @render.Bitmap::new(
+    (ow.to_double() * fsx + 0.5).to_int(),
+    (oh.to_double() * fsy + 0.5).to_int(),
+  )
   if !draw_in_box(
       off,
       0.0,
       0.0,
-      box_w * ssf,
-      box_h * ssf,
+      box_w * fsx,
+      box_h * fsy,
       text,
-      if ss > 1 {
+      if needs_ds || ss > 1 {
         Font::new(
           font.name,
-          font.size * ssf,
+          font.size * (fsx + fsy) * 0.5,
           weight=font.weight,
           style=font.style,
-          spacing=font.spacing * ssf,
+          spacing=font.spacing * (fsx + fsy) * 0.5,
         )
       } else {
         font
@@ -757,7 +767,7 @@ fn draw_box_raster(
   flush_pending()
   let dw = ow.to_double()
   let dh = oh.to_double()
-  if ss > 1 {
+  if needs_ds || ss > 1 {
     raster.blit_smooth(
       off,
       0.0,

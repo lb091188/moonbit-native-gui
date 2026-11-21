@@ -27,6 +27,11 @@ pub(all) enum Backend {
 pub(all) struct PainterState {
   mut tx : Double
   mut ty : Double
+  /// CTM 的轴向缩放记账：`tx/ty` 存设备平移增量、`sx/sy` 累乘缩放——
+  /// `clip_rect` 的裁剪账本据此折成设备像素（高 DPI 画布上与文本批的
+  /// 设备口径矩形判交）。恒 1 时数值路径与旧账逐位一致。
+  mut sx : Double
+  mut sy : Double
   mut clip_x0 : Int32
   mut clip_y0 : Int32
   mut clip_x1 : Int32
@@ -93,6 +98,8 @@ fn snapshot(s : PainterState) -> PainterState {
   {
     tx: s.tx,
     ty: s.ty,
+    sx: s.sx,
+    sy: s.sy,
     clip_x0: s.clip_x0,
     clip_y0: s.clip_y0,
     clip_x1: s.clip_x1,
@@ -112,6 +119,8 @@ fn snapshot(s : PainterState) -> PainterState {
 fn load_state(target : PainterState, from : PainterState) -> Unit {
   target.tx = from.tx
   target.ty = from.ty
+  target.sx = from.sx
+  target.sy = from.sy
   target.clip_x0 = from.clip_x0
   target.clip_y0 = from.clip_y0
   target.clip_x1 = from.clip_x1
@@ -149,6 +158,8 @@ pub fn Painter::new(bitmap : Bitmap) -> Painter {
     state: {
       tx: 0.0,
       ty: 0.0,
+      sx: 1.0,
+      sy: 1.0,
       clip_x0: 0,
       clip_y0: 0,
       clip_x1: bitmap.width,
@@ -629,8 +640,9 @@ pub fn Painter::restore(self : Painter) -> Unit {
 ///|
 pub fn Painter::translate(self : Painter, dx : Double, dy : Double) -> Unit {
   let s = self.state
-  s.tx = s.tx + dx
-  s.ty = s.ty + dy
+  // 设备平移增量 = 位移 × 当前轴向缩放（缩放先于平移的复合序）
+  s.tx = s.tx + dx * s.sx
+  s.ty = s.ty + dy * s.sy
   match self.backend {
     Some(CairoBackend(c)) => c.translate(dx, dy)
     Some(PureBackend(r)) => r.translate(dx, dy)
@@ -640,6 +652,9 @@ pub fn Painter::translate(self : Painter, dx : Double, dy : Double) -> Unit {
 
 ///|
 pub fn Painter::scale(self : Painter, sx : Double, sy : Double) -> Unit {
+  let s = self.state
+  s.sx = s.sx * sx
+  s.sy = s.sy * sy
   match self.backend {
     Some(CairoBackend(c)) => c.scale(sx, sy)
     Some(PureBackend(r)) => r.scale(sx, sy)
@@ -666,10 +681,12 @@ pub fn Painter::clip_rect(
   h : Double,
 ) -> Unit {
   let s = self.state
-  let x0 = snap(x + s.tx)
-  let y0 = snap(y + s.ty)
-  let x1 = snap(x + w + s.tx)
-  let y1 = snap(y + h + s.ty)
+  // 账本统一设备像素：用户坐标过轴向缩放记账折算（与初始裁剪、文本批闸
+  // 同口径），平移增量已是设备值直接相加
+  let x0 = snap(x * s.sx + s.tx)
+  let y0 = snap(y * s.sy + s.ty)
+  let x1 = snap((x + w) * s.sx + s.tx)
+  let y1 = snap((y + h) * s.sy + s.ty)
   if x1 > x0 && y1 > y0 {
     if x0 > s.clip_x0 {
       s.clip_x0 = x0
@@ -735,10 +752,11 @@ pub fn Painter::backdrop_blur(
   }
   self.flush()
   let s = self.state
-  let x0 = snap(x + s.tx)
-  let y0 = snap(y + s.ty)
-  let x1 = snap(x + w + s.tx)
-  let y1 = snap(y + h + s.ty)
+  // 设备像素折算与 clip_rect 同口径（轴向缩放记账 + 设备平移增量）
+  let x0 = snap(x * s.sx + s.tx)
+  let y0 = snap(y * s.sy + s.ty)
+  let x1 = snap((x + w) * s.sx + s.tx)
+  let y1 = snap((y + h) * s.sy + s.ty)
   // 与当前裁剪区求交：不越自身（或祖先）的裁剪界
   let bx0 = if x0 > s.clip_x0 { x0 } else { s.clip_x0 }
   let by0 = if y0 > s.clip_y0 { y0 } else { s.clip_y0 }

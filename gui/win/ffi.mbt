@@ -212,6 +212,12 @@ extern "c" fn wm_window_move(id : Int64, x : Int32, y : Int32) -> Unit = "wm_win
 extern "c" fn wm_window_set_size(id : Int64, w : Int32, h : Int32) -> Unit = "wm_window_set_size"
 
 ///|
+/// 窗级设备缩放因子：1 逻辑单位折合的物理像素数（mac Retina 2.0、Windows
+/// 125% 档 1.25、X11 无缩放档恒 1.0）。窗口尺寸账本统一逻辑单位后，帧位图
+/// 分配与贴屏折算都从这里取倍率。
+extern "c" fn wm_scale(id : Int64) -> Double = "wm_scale"
+
+///|
 extern "c" fn wm_window_set_fullscreen(id : Int64, on : Int32) -> Unit = "wm_window_set_fullscreen"
 
 ///|

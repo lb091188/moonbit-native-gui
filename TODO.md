@@ -182,10 +182,10 @@
 
 ## 探针读数·用户执行
 
-- [ ] **frame_cost_probe Win / mac**：`moon run experiment/frame_cost_probe`，贴全部 `FRAME-COST` 行——重点看 `paint_full` vs `paint_clip` 的 `skip`；Linux 腿判据已进测试用例附录 D
+- [ ] **frame_cost_probe Win / mac**：mac 已采 2026-11-21（release，1400×900）——`paint_full` 3.55 / 5.2 / 5.5 ms/帧对 `paint_clip` 0.35 / 0.35 / 0.45（15/60/240 行），skip 180→4760、visit 1940→180，剔除收益 10～15 倍；剩 Windows 腿——`moon run experiment/frame_cost_probe --release`，贴全部 `FRAME-COST` 行；Linux 腿判据已进测试用例附录 D
   - 光栅：不走 GPU、由 CPU 逐像素画图的软件绘制路径。
-  - 判交条件：纯光栅腿才判交。
-  - 理由：差值是「图表 / 整页增量重绘」的立项依据。
+  - 判交条件：纯光栅腿才判交——mac 腿 skip 有效已证、cairo 腿 skip 恒 0 量不到。
+  - 理由：差值是「图表 / 整页增量重绘」的立项依据——已随 proposals/data-driven-repaint.md 收窄范围定案引用。
 - [ ] **媒体硬解探针 Win / mac**：`cc -O2 hwdecode_probe.c $(pkg-config --cflags --libs libavcodec libavutil)`，判据：设备建得起来且 transfer 非空；另剩归档实物核验——`otool -L` 验 mac 归档带 VideoToolbox、LICENSE.txt 口径修正
   - 硬解：由显卡等专用硬件解码视频，比软件解码省 CPU。
   - VideoToolbox：macOS 的硬件编解码框架。
@@ -223,16 +223,14 @@
 
 ## 极致光栅与新立项
 
-- [ ] **混合 DPI 动态缩放**：把窗口尺寸、样式尺寸、帧位图三处口径统一，125% / 150% 下界面不偏小；跨屏拖动后重新布局与重采样
-  - DPI：屏幕像素密度，决定界面缩放倍率。
-  - 现状：Windows 声明 per-monitor v2，但全仓不读 DPI 数值；mac 只做点与像素换算，没有跨屏缩放变化后的重排。
-  - 验证：Windows 125% / 150% 各起一次 hello，窗口逻辑尺寸与 100% 一致；拖到另一缩放档显示器，文字、命中、弹层位置不偏；mac 在 1x / 2x 屏之间拖动同一窗口。
-  - 判据：先写 proposal 定三处口径，再动代码；不先改布局。
+- [ ] **混合 DPI 真机复验**：执行者：用户执行——HL-4.5 / HL-4.6
+  - 已合入 2026-11-21：三处口径统一——MoonBit 层与 C 桩账本逻辑单位、帧位图恒物理像素、窗级因子 `Window::scale` 每帧现读，定案见 proposals/mixed-dpi-scaling.md；库测 1516/1516、mac 三桩语法门禁、原生链接与示例链接通过，行为变化预告——mac Retina 上既有窗口从入参一半点数变入参原值点数，与 win / Linux 对齐。
+  - 待验：Windows 125% / 150% 各起一次 hello——窗口逻辑尺寸与 100% 一致、文字不虚、命中不偏；跨缩放档拖屏重排重采样；mac 1x / 2x 屏间拖动；Linux X11 冒烟零变化。
 
-- [ ] **数据驱动局部重绘**：把 `@widget.invalidate()` 的整窗广播收窄为按控件或子树标脏，图表与 mdview 先做增量；这是「极致光栅」的主线
-  - 现状：输入事件已有控件级脏区；Store / Signal 回调仍走 `host_repaint_all`，全库 122 处调用。
-  - 验证：`experiment/frame_cost_probe` 的 `paint_full` 与 `paint_clip` 差值；图表改一个点只画图表矩形；mdview 滚一段只画可视区；库测试全绿。
-  - 前置：先补 Windows / macOS 探针读数，再定收窄范围。
+- [ ] **数据驱动局部重绘**：收窄范围已定案（proposals/data-driven-repaint.md）——主路线收窄标脏复用现有脏区裁剪与控件剔除，不做组件内增量绘制，mdview 不立项
+  - 现状：输入事件已有控件级脏区；Store / Signal 回调仍走 `host_repaint_all`，全库 `@widget.invalidate()` 实测 185 处（gui/ui 99、gui-media 24、chart 21、examples 27）。
+  - mac 读数已采 2026-11-21：`paint_full` 3.55 / 5.2 / 5.5 ms/帧对 `paint_clip` 0.35 / 0.35 / 0.45（15/60/240 行）——收窄收益 10～15 倍。
+  - 前置：Windows 腿 FRAME-COST 读数补齐后动工——批 1 订阅回调带控件 id、批 2 chart 悬停与图例、批 3 点击成交 Up 兜底单独评估。
 
 - [ ] **虚拟滚动精度批真机复验**：SC-4.13 / SC-4.14
   - 执行者：用户执行。
