@@ -123,6 +123,7 @@ void wm_crash_note(const char *s);
 #endif
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <intrin.h> // __cpuid（虚拟化检测，_WIN32 段专属）
 // WIN32_LEAN_AND_MEAN 会把 shellapi.h 一并裁掉，而托盘（W20c）要的
 // Shell_NotifyIconW / NOTIFYICONDATAW / NIM_* / NIF_* 全在它里面，必须显式引。
 #include <shellapi.h>
@@ -14789,6 +14790,15 @@ static void l1_probe_body(void);
 // windows.md 2026-11-21 定案），而 VM 里 CPU 路径足够。识别走显示适配器
 // 名关键词，保守匹配——漏一个新虚拟化平台只是多一层运行时回退兜底。
 static int l1_on_virtual_gpu(void) {
+  // 第一层：CPUID hypervisor 位（leaf 1 ECX bit 31）——任何 hypervisor
+  // 下都置位，不依赖显卡命名
+  int regs[4];
+  __cpuid(regs, 1);
+  if ((regs[2] & (1 << 31)) != 0) {
+    l1_log("CPUID hypervisor 位置位——虚拟化环境，GPU 档不启用");
+    return 1;
+  }
+  // 第二层：适配器名关键词兜底（直通/嵌套虚拟化下 hypervisor 位可能不可见）
   DISPLAY_DEVICEW dd;
   int i = 0;
   while (1) {
@@ -14799,7 +14809,8 @@ static int l1_on_virtual_gpu(void) {
     }
     wchar_t *n = dd.DeviceString;
     if (wcsstr(n, L"Virtual") != NULL || wcsstr(n, L"VMware") != NULL ||
-        wcsstr(n, L"QEMU") != NULL || wcsstr(n, L"VBox") != NULL ||
+        wcsstr(n, L"QEMU") != NULL || wcsstr(n, L"QXL") != NULL ||
+        wcsstr(n, L"Red Hat") != NULL || wcsstr(n, L"VBox") != NULL ||
         wcsstr(n, L"Hyper-V") != NULL || wcsstr(n, L"Parallels") != NULL ||
         wcsstr(n, L"Virtio") != NULL || wcsstr(n, L"Basic Render") != NULL ||
         wcsstr(n, L"Basic Display") != NULL) {
