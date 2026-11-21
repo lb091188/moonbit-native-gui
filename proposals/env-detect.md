@@ -136,19 +136,19 @@ pub(all) struct GpuVerdict {
 ## 判据分期
 
 - P1 骨架——判据全部有出处、可直接落
-  - Windows VM：CPUID hypervisor 位、签名串、适配器名关键词（自 l1_on_virtual_gpu 迁移并加宽）、注册表 SystemManufacturer / SystemProductName、WMI 兜底
+  - Windows VM：CPUID hypervisor 位、签名串、适配器名关键词——自 l1_on_virtual_gpu 迁移并加宽——注册表 SystemManufacturer / SystemProductName、WMI 兜底
   - Linux 容器：systemd 同款顺序——container 环境变量 → /.dockerenv 与 /run/.containerenv → PID namespace inode 0xEFFFFFFC 兜底，全部免 root
   - Linux GPU：/dev/dri/renderD 存在性 + GL 渲染器串认 llvmpipe / softpipe / swrast
   - macOS VM 与 GPU：sysctl hw.model、kern.hv_vmm_present、MTLCreateSystemDefaultDevice
   - Windows GPU：DXGI_ADAPTER_FLAG_SOFTWARE 旗标判定——比现有关键词更硬的信号
-  - 会话与桌面：XDG 环境变量判 X11 / Wayland / Tty，XDG_CURRENT_DESKTOP 判桌面环境——判据与 gui/sys 的 session_type、desktop_detect 同源，实现独立（见「与现有代码的关系」）
+  - 会话与桌面：XDG 环境变量判 X11 / Wayland / Tty，XDG_CURRENT_DESKTOP 判桌面环境——判据与 gui/sys 的 session_type、desktop_detect 同源，实现独立，理由见「与现有代码的关系」
 - P2 打分与品牌
   - SMBIOS / DMI 厂商串表、MAC 前缀表、CPUID 品牌串判据
   - 品牌识别：kvm / qemu / vmware / hyperv / vbox / parallels / xen / apple-vz / wsl
   - 置信分输出：每信号一分，累计过阈值出结论
 - P3 持续扩项
   - 按 experience/environment-detection.md 清单逐条补，acpi 串、Hyper-V 虚拟处理器叶、能力位一致性等
-  - 云厂商识别（aws / gce / azure）低优先
+  - 云厂商识别：aws、gce、azure，低优先
 
 ## 与现有代码的关系
 
@@ -161,7 +161,7 @@ pub(all) struct GpuVerdict {
 ## 验收与门禁
 
 - moon check 零错误零警告；moon test env 全绿
-- 真机矩阵交用户执行：真机三平台 + KVM Windows（company win10 现成）+ Linux 容器本地——逐信号比对打印报告
+- 真机矩阵交用户执行：真机三平台 + KVM Windows——company win10 现成——加 Linux 容器本地，逐信号比对打印报告
 - 每期一提交一推送，P2 后首发 0.1.0 到 mooncakes
 
 ## 待拍板项
