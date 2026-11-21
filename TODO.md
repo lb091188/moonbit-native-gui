@@ -211,10 +211,10 @@
 ## 开发待办
 
 - [ ] **环境判定库 native-env 真机矩阵**：执行者：用户执行——`cd examples/envprobe && moon run main` 按平台各一遍，逐条对 `测试文档/测试用例.md` 的 EP-1.1～1.7
-  - mac 本机：裸机读数、Metal Hardware（EP-1.1）
-  - Windows 真机与 company win10 KVM：裸机读数对照虚拟机信号——CPUID 位、适配器名、gpu Virtual（EP-1.2、1.3）
-  - Linux 容器与裸机：dockerenv 命中、渲染节点档位（EP-1.4、1.5）
-  - 已验：mac 本机 EP-1.1 读数正确
+  - 已验 2026-11-21：mac 本机 EP-1.1（裸机 / Metal Hardware）；company Linux 容器 EP-1.4（docker 命中、宿主裸机、无渲染节点 Software）——本条真机抓出容器信号漏进 VM 判定一 bug 已修
+  - 已验 2026-11-21：company win10 KVM EP-1.3 判 VM 半边——CPUID 位 + Microsoft Hv 签名串命中，读数与 systemd 口径一致
+  - 待验：EP-1.3 的 GPU 半边——ssh 会话里 EnumDisplayDevicesW 与 DXGI 都拿不到适配器，须 RDP 或控制台会话跑一次看 QXL 命中 Virtual
+  - 待验：Windows 真机 EP-1.2、Linux 裸机 EP-1.5、缓存一致性 EP-1.6
 
 - [ ] **批2 transform 收尾读数**：win / linux 各跑一次 `moon run experiment/anim_cost_bench --release`，把 `rot_90x32` 档读数贴回 roadmap；三端真机观感 2026-11-21 已验，mac 读数 20 帧合计 0ms（与同尺寸裸图元同档）
 
