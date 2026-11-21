@@ -1,13 +1,36 @@
-// 虚拟列表与虚拟表格：视口固定的行高列表，**只挂载可见区间（±overscan）的行**，
-// 滚轮与滚动条都驱动同一个 `ScrollState`（与 `scroll_view` 同款，共用 `scroll_bar`）。
+// 虚拟列表与虚拟表格：只挂载可见区间（±overscan）的行，滚轮与滚动条都驱动
+// 同一个 `ScrollState`（与 `scroll_view` 同款，共用 `scroll_bar`）。
 //
-// 与「整列重建」的 `table` 相比，这里换掉的是「数据多大就挂多少行」：万行级数据
-// 只挂十来个控件，命中/绘制/布局都只跟可见行有关。代价是行高必须固定（等距窗口
-// 才能从偏移直接算出下标）；非等距行请回 `scroll_view` + 重建式列表。
+// 两档行高：
+// - 固定档（`row_height > 0`）：下标乘行高直接定位，零测量成本；`table_v` 走这档。
+// - 可变档（`row_height <= 0`）：先按 `row_height_estimate` 预估排版，行挂载后
+//   从布局实测回写高度，前缀和重算窗口；估高与实测差超 1px 才多排一帧，收敛即停。
+
+///|
+/// 二分定位：最大的 `i` 使 `prefix[i] <= offset`（`prefix[0] = 0`）。
+fn virt_window_index(prefix : Array[Double], offset : Double) -> Int32 {
+  let n = prefix.length() - 1
+  if n <= 0 {
+    return 0
+  }
+  let mut lo = 0
+  let mut hi = n - 1
+  while lo < hi {
+    let mid = (lo + hi + 1) / 2
+    if prefix[mid] <= offset {
+      lo = mid
+    } else {
+      hi = mid - 1
+    }
+  }
+  lo
+}
 
 ///|
 /// 虚拟列表：`items` 变、窗口滚过一行边界、视口尺寸变化都会重挂可见区间。
 /// `row_of(i, item)` 造第 i 行的节点（`i` 是**源下标**，排序/过滤由调用方决定顺序）。
+/// 行高固定走 `row_height`；行高可变传 `row_height = 0` 并用 `row_height_estimate`
+/// 给估高（缺省 30），挂载后自动实测收敛。
 pub fn[T] virt_list(
   items : @base.Store[Array[T]],
   height : Double,
@@ -15,11 +38,19 @@ pub fn[T] virt_list(
   row_of : (Int32, T) -> @widget.Node,
   width~ : Double = 0.0,
   overscan~ : Int32 = 2,
+  row_height_estimate~ : Double = 0.0,
   rev? : @base.Store[Int32],
   class~ : Array[@style.Style] = [],
   handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  let rh = if row_height > 0.0 { row_height } else { 1.0 }
+  let fixed = row_height > 0.0
+  let rh = if fixed {
+    row_height
+  } else if row_height_estimate > 0.0 {
+    row_height_estimate
+  } else {
+    30.0
+  }
   @widget.node_of_new(fn(viewport : @widget.Widget) -> @widget.Widget {
     watch_theme()
     viewport.kind = "ui-virt-list"
@@ -49,44 +80,132 @@ pub fn[T] virt_list(
     let win_first : Ref[Int32] = Ref(-1)
     let win_last : Ref[Int32] = Ref(-1)
     let total : Ref[Int32] = Ref(0)
+    // 可变档状态：实测行高（0 = 未测）与前缀和（prefix[0] = 0，长度 count + 1）
+    let heights : Ref[Array[Double]] = Ref(Array::make(0, 0.0))
+    let prefix : Ref[Array[Double]] = Ref(Array::make(1, 0.0))
+    let mounted : Ref[Array[(Int32, @widget.Widget)]] = Ref([])
+    let eff_h = fn(i : Int32) -> Double {
+      let hs = heights.val
+      if i >= 0 && i < hs.length() && hs[i] > 0.0 {
+        hs[i]
+      } else {
+        rh
+      }
+    }
+    let rebuild_prefix = fn() -> Unit {
+      if fixed {
+        return
+      }
+      let n = total.val
+      let p = Array::make(n + 1, 0.0)
+      let mut i = 0
+      while i < n {
+        p[i + 1] = p[i] + eff_h(i)
+        i = i + 1
+      }
+      prefix.val = p
+    }
+    let sync_heights = fn(count : Int32) -> Unit {
+      if heights.val.length() == count {
+        return
+      }
+      let old = heights.val
+      let nh = Array::make(count, 0.0)
+      let keep = if old.length() < count { old.length() } else { count }
+      let mut i = 0
+      while i < keep {
+        nh[i] = old[i]
+        i = i + 1
+      }
+      heights.val = nh
+      rebuild_prefix()
+    }
+    let content_height = fn(count : Int32) -> Double {
+      if fixed {
+        count.to_double() * rh
+      } else {
+        prefix.val[count]
+      }
+    }
     let render_window = fn(force : Bool) -> Unit {
       // 偏移先落布局：窗口区间没变但偏移在行内变化（半行滚动）时也要跟手
       inner.node.set_top(@yoga.fixed(0.0 - state.offset))
       let count = items.get().length()
       total.val = count
-      state.content_h = count.to_double() * rh
+      sync_heights(count)
+      // 可变档：上一帧已布局的行就是实测来源——先回写再算窗口，零定时器
+      if !fixed && mounted.val.length() > 0 {
+        let mut changed = false
+        for pair in mounted.val {
+          let idx = pair.0
+          let h = pair.1.rect.h
+          if idx >= 0 && idx < count {
+            let cur = heights.val[idx]
+            if h > 0.5 && (cur <= 0.0 || (h - cur) > 1.0 || (cur - h) > 1.0) {
+              heights.val[idx] = h
+              changed = true
+            }
+          }
+        }
+        if changed {
+          rebuild_prefix()
+        }
+      }
+      state.content_h = content_height(count)
       // 视口高优先用已同步的真实值；首帧还没同步过就用声明的 height
       // （on_draw 里不能重建窗口——绘制遍历正在读 kids，改动子控件会踩迭代）
       let vh = if state.view_h > 0.0 { state.view_h } else { height }
-      let first = ((state.offset / rh).to_int() - overscan).max(0)
-      let last = (((state.offset + vh) / rh).ceil().to_int() + overscan).min(
-        count,
-      )
+      let first = if fixed {
+        ((state.offset / rh).to_int() - overscan).max(0)
+      } else {
+        (virt_window_index(prefix.val, state.offset) - overscan).max(0)
+      }
+      let last = if fixed {
+        (((state.offset + vh) / rh).ceil().to_int() + overscan).min(count)
+      } else {
+        (virt_window_index(prefix.val, state.offset + vh) + 1 + overscan).min(
+          count,
+        )
+      }
       if !force && first == win_first.val && last == win_last.val {
         return
       }
       win_first.val = first
       win_last.val = last
       inner.clear_children()
+      let rows : Array[(Int32, @widget.Widget)] = []
       // 上占位：让第一行落在正确的滚动位置
       if first > 0 {
         let sp = @widget.Widget::new()
-        sp.node.set_height(@yoga.fixed(first.to_double() * rh))
+        let top_h = if fixed {
+          first.to_double() * rh
+        } else {
+          prefix.val[first]
+        }
+        sp.node.set_height(@yoga.fixed(top_h))
         inner.append_child(sp)
       }
       let data = items.get()
       for i = first; i < last; i = i + 1 {
         let node = row_of(i, data[i])
-        let _ = node.mount_into(inner)
+        let w = node.mount_into(inner)
+        if !fixed {
+          rows.push((i, w))
+        }
       }
       // 下占位：撑起剩余高度（滚动条比例与越界夹取吃 content_h，这里只是让
       // 内层高度与内容一致，避免「挂了几行就只高几行」）
-      let rest = count - last
-      if rest > 0 {
+      let rest_h = if fixed {
+        (count - last).to_double() * rh
+      } else {
+        prefix.val[count] - prefix.val[last]
+      }
+      if rest_h > 0.0 {
         let sp = @widget.Widget::new()
-        sp.node.set_height(@yoga.fixed(rest.to_double() * rh))
+        sp.node.set_height(@yoga.fixed(rest_h))
         inner.append_child(sp)
       }
+      mounted.val = rows
       @widget.invalidate()
     }
 
@@ -104,8 +223,23 @@ pub fn[T] virt_list(
       r : @base.Rect,
     ) -> Unit {
       // 只同步几何（滚动条比例与夹取吃它），不在绘制里改子控件树
+      let vh_changed = (r.h - state.view_h) > 0.5 || (state.view_h - r.h) > 0.5
       state.view_h = r.h
-      state.content_h = total.val.to_double() * rh
+      if fixed {
+        state.content_h = total.val.to_double() * rh
+      } else {
+        state.content_h = content_height(total.val)
+      }
+      if vh_changed && @shell.timer_channel_ready() {
+        // 视口高变了要重算窗口（多挂/少挂行）：绘制中不能改组树，下一帧补；
+        // is_painted 守卫保证迟到节拍（已卸载/换页）空操作。无宿主泵的纯控件
+        // 测试不排节拍，避免待发定时器漏进后续用例
+        let _ = @shell.set_timeout(0, fn() {
+          if viewport.is_painted() {
+            render_window(true)
+          }
+        })
+      }
       if state.content_h > state.view_h {
         let st = @style.style_for(self)
         p.set_stroke_color(
@@ -134,7 +268,12 @@ pub fn[T] virt_list(
       .signal()
       .subscribe(fn(_v : Array[T]) -> Unit {
         // 数据变短时先把偏移拉回上界，再重挂窗口
-        state.content_h = items.get().length().to_double() * rh
+        let count = items.get().length()
+        sync_heights(count)
+        if !fixed {
+          rebuild_prefix()
+        }
+        state.content_h = content_height(count)
         if state.offset > state.max() {
           state.set_offset(state.max())
         } else {

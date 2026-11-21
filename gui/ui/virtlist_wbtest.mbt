@@ -397,3 +397,107 @@ test "虚拟列表视口裁切：滚出视口的行不出墨" {
   let inside = bm2.pixel(x, (vp.rect.y + 5.0).to_int())
   assert_true(inside.r > 200 && inside.g < 40)
 }
+
+///|
+test "可变高度虚拟列表：混合行高滚动不跳行，可见行无缝相接" {
+  let items = virt_items(40)
+  let row_h = fn(i : Int32) -> Double { 20.0 + (i % 3).to_double() * 10.0 }
+  let (root, vp) = mounted(
+    virt_list(
+      items,
+      200.0,
+      0.0,
+      fn(i : Int32, _x : Int32) -> @widget.Node {
+        view([text("行")], height=row_h(i))
+      },
+      width=300.0,
+      row_height_estimate=30.0,
+    ),
+    360.0,
+    260.0,
+  )
+  let inner = vp.children()[0]
+  let paint_all = fn() -> Unit {
+    root.relayout(360.0, 260.0)
+    let bm = @render.Bitmap::new(360, 260)
+    let p = @render.Painter::new(bm)
+    root.paint(p)
+    p.end()
+  }
+  paint_all()
+  // 每步滚 120px 并重画；可见行必须首尾相接（行高估错、占位错位都会露缝/重叠）
+  for _step = 0; _step < 7; _step = _step + 1 {
+    let _ = root.dispatch_scroll({
+      x: vp.rect.x + 50.0,
+      y: vp.rect.y + 50.0,
+      dx: 0.0,
+      dy: -4.0,
+      mods: 0,
+    })
+    paint_all()
+    let vis : Array[@widget.Widget] = []
+    for child in inner.children() {
+      if child.rect.y < vp.rect.y + vp.rect.h &&
+        child.rect.y + child.rect.h > vp.rect.y {
+        vis.push(child)
+      }
+    }
+    assert_true(vis.length() >= 2, msg="视口内应有多行")
+    let mut k = 1
+    while k < vis.length() {
+      let prev = vis[k - 1]
+      let cur = vis[k]
+      let gap = cur.rect.y - (prev.rect.y + prev.rect.h)
+      assert_true(
+        gap > -1.0 && gap < 1.0,
+        msg="可见行之间出现缝或重叠：\{gap}",
+      )
+      k = k + 1
+    }
+  }
+}
+
+///|
+test "可变高度虚拟列表：实测行高回写后总高收敛到真实和" {
+  let items = virt_items(40)
+  let row_h = fn(i : Int32) -> Double { 20.0 + (i % 3).to_double() * 10.0 }
+  let (root, vp) = mounted(
+    virt_list(
+      items,
+      200.0,
+      0.0,
+      fn(i : Int32, _x : Int32) -> @widget.Node {
+        view([text("行")], height=row_h(i))
+      },
+      width=300.0,
+      row_height_estimate=30.0,
+    ),
+    360.0,
+    260.0,
+  )
+  let inner = vp.children()[0]
+  // 走遍全部行：每段滚 100px 并重画，让每行都被挂载实测一次
+  let paint_all = fn() -> Unit {
+    root.relayout(360.0, 260.0)
+    let bm = @render.Bitmap::new(360, 260)
+    let p = @render.Painter::new(bm)
+    root.paint(p)
+    p.end()
+  }
+  paint_all()
+  for _step = 0; _step < 12; _step = _step + 1 {
+    let _ = root.dispatch_scroll({
+      x: vp.rect.x + 50.0,
+      y: vp.rect.y + 50.0,
+      dx: 0.0,
+      dy: -4.0,
+      mods: 0,
+    })
+    paint_all()
+  }
+  // 40 行 = 14×20 + 13×30 + 13×40 = 1190；全行实测后总高应收敛到真实和
+  assert_true(
+    inner.rect.h > 1189.0 && inner.rect.h < 1191.0,
+    msg="总高未收敛：\{inner.rect.h}",
+  )
+}

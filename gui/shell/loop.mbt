@@ -243,6 +243,13 @@ pub fn set_timer_hooks(
 ///|
 /// 相对延时 `ms` 毫秒跑一次 `f`，返回可取消句柄。宿主未就绪时先排队，
 /// `set_timer_hooks` 装上后按原延时补发（句柄返回负数，可用于 `clear_timeout`）。
+/// 延时通道是否已由宿主接管（组件在无宿主的纯控件测试里据此跳过排节拍，
+/// 避免待发队列漏进后续安装钩子的用例）。
+pub fn timer_channel_ready() -> Bool {
+  timer_hooks_ready.val
+}
+
+///|
 pub fn set_timeout(ms : Int32, f : () -> Unit) -> Int32 {
   if timer_hooks_ready.val {
     (timer_schedule.val)(ms, f)
