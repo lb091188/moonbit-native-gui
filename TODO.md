@@ -22,6 +22,9 @@
 
 ## CI 与门禁
 
+- [ ] **linux/bare 容器腿既有红：win/icon_ffi_wbtest 的 icon_from_bgra 真建图失败**：gui 全名单 1509 条仅此 1 红，bare 腿因全绿要求连带挂；用 59d94080 老 stub.c 容器 A/B 同红，非 2026-11-20 GPU 修复批带入
+  - 排查方向：容器 GTK/图标后端依赖漂移，先取用例内 `icon_from_bgra` 读数
+  - 验证：容器里 `dbus-run-session -- moon test win` 全绿
 - [ ] **CPU 视觉批真机复验（win / linux）**：transform 旋转缩放观感、圆角裁切真圆角图片、backdrop_blur 毛玻璃质感、关键帧流畅度四面——mac 已全验（SC-17.1~17.5，库门禁 1508/1508）；Windows 与 mac 同一条纯光栅臂，本轮 blit 覆盖与文字超采样改动都在这条上，建议整套过；Linux 走 cairo 臂（文字带 CTM 直绘），重点验 overflow 语义与帧尾重画；入口即 components 演示页
   - transform：控件级平移/缩放/旋转的绘制期变换，不参与布局与命中。
   - backdrop_blur：毛玻璃，把已画内容的控件区域糊掉再画自己。
@@ -223,3 +226,21 @@
   - Linux：CI 的 Linux bare 腿首跑（dev 合入 master 或开 PR 触发），看「占位降级 19 包全绿 + 降级提示 + 守卫跳过」三判定。
   - 无字体 Linux 真机：`FONTCONFIG_FILE` 指向空配置跑任一示例——应见文字真字形（内嵌字体注册生效），非方框或空白。
   - Windows：`moon build --target native` 链接复验（本批未动 Windows 分支，例行确认）。
+
+## 极致光栅与新立项
+
+- [ ] **混合 DPI 动态缩放**：把窗口尺寸、样式尺寸、帧位图三处口径统一，125% / 150% 下界面不偏小；跨屏拖动后重新布局与重采样
+  - DPI：屏幕像素密度，决定界面缩放倍率。
+  - 现状：Windows 声明 per-monitor v2，但全仓不读 DPI 数值；mac 只做点与像素换算，没有跨屏缩放变化后的重排。
+  - 验证：Windows 125% / 150% 各起一次 hello，窗口逻辑尺寸与 100% 一致；拖到另一缩放档显示器，文字、命中、弹层位置不偏；mac 在 1x / 2x 屏之间拖动同一窗口。
+  - 判据：先写 proposal 定三处口径，再动代码；不先改布局。
+
+- [ ] **数据驱动局部重绘**：把 `@widget.invalidate()` 的整窗广播收窄为按控件或子树标脏，图表与 mdview 先做增量；这是「极致光栅」的主线
+  - 现状：输入事件已有控件级脏区；Store / Signal 回调仍走 `host_repaint_all`，全库 122 处调用。
+  - 验证：`experiment/frame_cost_probe` 的 `paint_full` 与 `paint_clip` 差值；图表改一个点只画图表矩形；mdview 滚一段只画可视区；库测试全绿。
+  - 前置：先补 Windows / macOS 探针读数，再定收窄范围。
+
+- [ ] **虚拟滚动精度**：动态行高、横向虚拟化、按像素与速度的平滑滚动
+  - 现状：`virt_list` / `table_v` 行高固定、只做纵向；三平台滚轮被量化成 ±1。
+  - 验证：万行不等高列表滚动不跳行；宽表横向滚动只挂可见列；mac 触控板两指滚动连续跟手，Windows / Linux 滚轮不丢档。
+  - 前置：先确认万行级与不等高行的真实用例，再决定是否排期。

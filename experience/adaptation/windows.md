@@ -684,3 +684,16 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **机制**：CreateProcessW 对环境块按内容自判宽窄（看第二字节是否为 0）。本 VM（Win10 19044）上宽布局块整路被拒（内核侧 87），ANSI 布局块正常收——moon 自己的子进程链没踩是因为它走的 ANSI。普通 Win10 不会这样，但这台门禁 VM 实测如此，工程侧按能工作的形状走。
 - **修法**：`proc_stub.c` 的 `mngpr_env_block` 改按 ANSI 布局构造——当前环境取 `GetEnvironmentStringsA`，注入值经 UTF-8 → ACP 转换。注入项（`MNG_INSPECT` 一类开关与 ASCII app-id）在 ANSI 下无损；值含 ACP 外字符会失真，工具侧注入约定 ASCII。
 - **判据**：Windows 上给子进程注入环境的工具，环境块按 ANSI 布局拼（内容判定下 ANSI 块 W/A 两版 API 都收）；遇 CreateProcessW 87 且 NULL env 能起，第一嫌疑就是环境块布局，探针换 ANSI 布局一步验真。
+
+## Windows GPU 档全屏与最小化还原一族必崩：vendor wgpu v29 dll 对配置过的 surface，再 Configure 与 SurfaceRelease 都内部 panic · 2026-11-21 win10 控制台真机，四轮取证定案
+
+- **现象**：hello 点全屏或最小化后还原，进程静默消失；取证档异常码 0xE06D7363，栈帧全落 wgpu_native.dll。先修的最小化 0×0 acquire 守卫（2026-11-07）只挡住了「最小化期间呈现」，重配一族仍崩。
+- **根因，四轮取证各钉一例**：对已 Configure 过的 surface，①原地再 Configure 崩（最小化还原态）②SurfaceRelease 崩（健康态也炸）③释放后按源描述符重建 surface 再 Configure 仍崩 ④健康态标准重配流（释放帧对象后同 surface Configure）也崩。唯一安全用法是配置一次、同尺寸呈现到永远，零变更调用。
+  - 定位手段：`NATIVEGUI_CRASH_LOG=1` 取证档，rebind 路径加 `l1.rel` / `l1.new` / `l1.cfg` 三针面包屑，逐轮把 panic 钉到具体 wgpu 调用。
+- **修法，平台宏钉在 Windows 侧**，mac/GTK 臂保留标准重配流（mac resize 长期正常，非 dll 共病）：
+  - 最小化还原且尺寸未变：按原配置直接呈现，零 wgpu 变更调用。
+  - 最小化还原且尺寸变了、或普通 resize / 全屏进出：该窗 GPU 档永久回退 CPU 路径（present.cpu），内容正确、零崩。
+  - Windows 侧全程不调 SurfaceRelease，surface 留给进程收尾回收。
+- **环境红线**：GUI 真机行为必须在控制台 / RDP 会话复现——ssh 会话里此 dll 首次 Configure 即 panic（同一 wgpu 栈），探针无法代跑；schtasks 交互式计划任务从 ssh 触发落不进控制台会话，`上次结果 267011` 即未运行。探针脚本交人在控制台跑，结果落文件回收。
+- **回归探针**：VM `C:\natigui\probe-fs.ps1`——起 hello 后空闲、最小化、还原、全屏进、全屏退、快速组合逐步判进程死活，2026-11-21 矩阵全绿 PROBE-DONE；换 dll 或换机先重跑它再谈 GPU 档。
+- 另：本地门禁 linux/bare 腿既有红 `win/icon_ffi_wbtest` 的 icon_from_bgra（老代码 A/B 同红，与本批无关），已立 TODO 单独排查。
