@@ -15149,28 +15149,6 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
     return 1;
   }
   wm_crash_mark("l1.frame", sw, sh);
-#if defined(_WIN32)
-  // vendor wgpu v29 Windows 版实证（四轮取证档栈一致）：surface 一经
-  // Configure，任何再 Configure 与 SurfaceRelease 都在 wgpu 内部 panic，
-  // 健康态也炸——尺寸没变按原配置呈现，尺寸变了永久回退 CPU 路径
-  if (st->stale) {
-    st->stale = 0;
-    if (st->sw == sw && st->sh == sh && st->tw == bw && st->th == bh) {
-      wm_crash_note("l1: 最小化还原，尺寸未变，原配置直接呈现");
-    } else {
-      st->on = 0;
-      st->dead = 1;
-      wm_crash_note("l1: 最小化还原且尺寸变了，永久回退 CPU 路径");
-      return 0;
-    }
-  }
-  if (st->sw != sw || st->sh != sh || st->tw != bw || st->th != bh) {
-    st->on = 0;
-    st->dead = 1;
-    wm_crash_note("l1: 尺寸变化，永久回退 CPU 路径");
-    return 0;
-  }
-#else
   // 最小化回来过：swapchain 在遮挡期间可能已被丢弃/改了尺寸，先把已配尺寸
   // 打回 0 逼下面走重配（重配是幂等的，代价只有重建帧对象一次）
   if (st->stale) {
@@ -15188,7 +15166,6 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
       return 0;
     }
   }
-#endif
   // CPU 侧暂存（带行距垫）按需增长
   int bpr = ((bw * 4 + 255) / 256) * 256;
   size_t need = (size_t)bpr * (size_t)bh;
@@ -15234,19 +15211,6 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
   wm_crash_mark("l1.tex", (long)stx.status, 0);
   if (stx.status != WGPUSurfaceGetCurrentTextureStatus_SuccessOptimal ||
       stx.texture == NULL) {
-#if defined(_WIN32)
-    if (stx.status == WGPUSurfaceGetCurrentTextureStatus_Outdated) {
-      // v29：再 Configure 会 panic——提交已编码命令后本帧丢，永久回退 CPU
-      WGPUCommandBuffer cb1 = p_wgpuCommandEncoderFinish(enc, NULL);
-      if (cb1 != NULL) {
-        p_wgpuQueueSubmit(g_l1_queue, 1, &cb1);
-        p_wgpuCommandBufferRelease(cb1);
-      }
-      st->on = 0;
-      st->dead = 1;
-      return 1;
-    }
-#else
     if (stx.status == WGPUSurfaceGetCurrentTextureStatus_Outdated) {
       // 窗口尺寸变了 surface 还没跟上：重配，本帧丢（下一帧补）
       WGPUSurfaceConfiguration cfg;
@@ -15258,11 +15222,11 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
       cfg.height = (uint32_t)sh;
       cfg.alphaMode = l1_pick_alpha_mode(st->surface);
       cfg.presentMode = WGPUPresentMode_Fifo;
+      wm_crash_mark("l1.cfg", sw, sh);
       p_wgpuSurfaceConfigure(st->surface, &cfg);
       st->sw = sw;
       st->sh = sh;
     }
-#endif
     // 上传命令已编码：提交掉（无害）再丢这一帧
     WGPUCommandBuffer cb0 = p_wgpuCommandEncoderFinish(enc, NULL);
     if (cb0 != NULL) {
@@ -15350,12 +15314,10 @@ int wm_l1_window_repaint(WmL1 *st, const unsigned char *rgba, int bw, int bh,
 
 void wm_l1_window_drop(WmL1 *st) {
   l1_release_frame(st);
-#if !defined(_WIN32)
   if (st->surface != NULL) {
     p_wgpuSurfaceRelease(st->surface);
     st->surface = NULL;
   }
-#endif
   st->on = 0;
 }
 
