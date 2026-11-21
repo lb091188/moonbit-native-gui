@@ -118,6 +118,7 @@ moonbit_bytes_t envx_win_adapters(void) {
 // 是裸机误报的头号来源，MoonBit 侧据此特判（出处 VMAware HYPERV_ARTIFACT）。
 typedef LSTATUS (WINAPI *envx_fn_reg_get_value_w)(HKEY, LPCWSTR, LPCWSTR, DWORD, LPDWORD, PVOID, LPDWORD);
 typedef LSTATUS (WINAPI *envx_fn_reg_open_key_w)(HKEY, LPCWSTR, PHKEY);
+typedef LSTATUS (WINAPI *envx_fn_reg_query_value_ex_w)(HKEY, LPCWSTR, LPDWORD, LPDWORD, LPBYTE, LPDWORD);
 typedef LSTATUS (WINAPI *envx_fn_reg_close_key)(HKEY);
 
 static void *envx_advapi_proc(const char *name) {
@@ -128,24 +129,138 @@ static void *envx_advapi_proc(const char *name) {
   return (void *)GetProcAddress(adv, name);
 }
 
+// 原始 SMBIOS 表读 type 1 厂商串：GetSystemFirmwareTable('RSMB') 是微软
+// 官方固件表 API——注册表 BIOS 键缺厂商值的机器（实测 QEMU/SeaBIOS 组合
+// 的 Win10 VM，WMI 有 BOCHS_/BXPC____、注册表键无 SystemManufacturer）
+// 靠它补盲。缓冲区头 8 字节是 RAW_SMBIOS_DATA（调用方式/版本/表长），其后
+// 是结构体序列：[类型][长度][句柄][格式区][字符串区，双 0 结尾]。
+typedef UINT (WINAPI *envx_fn_get_firmware_table)(DWORD, DWORD, PVOID, DWORD);
+
+static void envx_smbios_string(const unsigned char *p, size_t remain, int idx,
+                               char *out, DWORD outsz) {
+  if (idx <= 0 || outsz == 0) {
+    return;
+  }
+  int cur = 1;
+  size_t off = 0;
+  while (off < remain && p[off] != 0) {
+    if (cur == idx) {
+      size_t w = 0;
+      while (off < remain && p[off] != 0 && w + 1 < outsz) {
+        out[w++] = (char)p[off++];
+      }
+      out[w] = '\0';
+      return;
+    }
+    while (off < remain && p[off] != 0) {
+      off++;
+    }
+    off++;
+    cur++;
+  }
+}
+
+static void envx_win_rsmb_strings(char *man, DWORD mansz, char *prod, DWORD prodsz) {
+  HMODULE k32 = GetModuleHandleW(L"kernel32.dll");
+  if (k32 == NULL) {
+    return;
+  }
+  envx_fn_get_firmware_table fw =
+    (envx_fn_get_firmware_table)(void *)GetProcAddress(k32, "GetSystemFirmwareTable");
+  if (fw == NULL) {
+    return;
+  }
+  UINT need = fw(0x52534D42 /* 'RSMB' */, 0, NULL, 0);
+  if (need == 0 || need > 1u << 20) {
+    return;
+  }
+  unsigned char *buf = (unsigned char *)malloc(need);
+  if (buf == NULL) {
+    return;
+  }
+  if (fw(0x52534D42, 0, buf, need) != need) {
+    free(buf);
+    return;
+  }
+  DWORD len = (DWORD)buf[4] | ((DWORD)buf[5] << 8) | ((DWORD)buf[6] << 16) |
+              ((DWORD)buf[7] << 24);
+  size_t off = 8;
+  size_t end = 8 + (size_t)len;
+  if (end > (size_t)need) {
+    end = (size_t)need;
+  }
+  while (off + 3 <= end) {
+    unsigned char type = buf[off];
+    unsigned char flen = buf[off + 1];
+    if (type == 127 || flen < 4 || off + flen > end) {
+      break;
+    }
+    if (type == 1 && flen >= 6) {
+      envx_smbios_string(buf + off + flen, end - off - flen, buf[off + 4],
+                         man, mansz);
+      envx_smbios_string(buf + off + flen, end - off - flen, buf[off + 5],
+                         prod, prodsz);
+      break;
+    }
+    size_t next = off + flen;
+    while (next + 1 < end && !(buf[next] == 0 && buf[next + 1] == 0)) {
+      next++;
+    }
+    off = next + 2;
+  }
+  free(buf);
+}
+
 MOONBIT_FFI_EXPORT
 moonbit_bytes_t envx_win_smbios(void) {
   char man[512] = "";
   char prod[512] = "";
+  char bios[256] = "";
   char hvhost[4] = "0";
+  envx_win_rsmb_strings(man, sizeof man, prod, sizeof prod);
   envx_fn_reg_get_value_w getv = (envx_fn_reg_get_value_w)envx_advapi_proc("RegGetValueW");
   envx_fn_reg_open_key_w openk = (envx_fn_reg_open_key_w)envx_advapi_proc("RegOpenKeyW");
   envx_fn_reg_close_key closek = (envx_fn_reg_close_key)envx_advapi_proc("RegCloseKey");
   if (getv != NULL) {
-    DWORD cb = (DWORD)sizeof man;
-    getv(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\BIOS", L"SystemManufacturer",
-         RRF_RT_REG_SZ, NULL, man, &cb);
-    if (getv(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\BIOS", L"SystemProductName",
-             RRF_RT_REG_SZ, NULL, prod, &cb) != ERROR_SUCCESS) {
-      prod[0] = '\0';
-      cb = (DWORD)sizeof prod;
-      getv(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\BIOS", L"SystemProductName",
-           RRF_RT_REG_SZ, NULL, prod, &cb);
+    if (man[0] == '\0') {
+      DWORD cb = (DWORD)sizeof man;
+      getv(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\BIOS", L"SystemManufacturer",
+           RRF_RT_REG_SZ, NULL, man, &cb);
+      if (getv(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\BIOS", L"SystemProductName",
+               RRF_RT_REG_SZ, NULL, prod, &cb) != ERROR_SUCCESS) {
+        prod[0] = '\0';
+        cb = (DWORD)sizeof prod;
+        getv(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\BIOS", L"SystemProductName",
+             RRF_RT_REG_SZ, NULL, prod, &cb);
+      }
+    }
+    if (bios[0] == '\0') {
+      // 最后兜底：HardwareConfig\Current 的 SystemBiosVersion 里带固件厂商
+      // 串（实测 QEMU/SeaBIOS 的 Win10 VM 上唯一有读数的 SMBIOS 痕迹，值如
+      // "BOCHS  - 1"。RegGetValueW 对该值报 1630——它是 REG_MULTI_SZ，类型
+      // 过滤不肯转，必须走 RegQueryValueExW 老三样）。逐字节取可打印字符
+      // 交品牌表认。
+      envx_fn_reg_query_value_ex_w queryv =
+        (envx_fn_reg_query_value_ex_w)envx_advapi_proc("RegQueryValueExW");
+      HKEY cfg;
+      if (queryv != NULL && openk != NULL &&
+          openk(HKEY_LOCAL_MACHINE, L"SYSTEM\\HardwareConfig\\Current", &cfg) ==
+            ERROR_SUCCESS) {
+        DWORD cb = (DWORD)sizeof bios;
+        unsigned char raw[256];
+        if (queryv(cfg, L"SystemBiosVersion", NULL, NULL, raw, &cb) == ERROR_SUCCESS) {
+          DWORD w = 0;
+          for (DWORD i = 0; i < cb && w + 1 < sizeof bios; i++) {
+            if (raw[i] >= 0x20 && raw[i] < 0x7F) {
+              bios[w++] = (char)raw[i];
+            }
+          }
+          bios[w] = '\0';
+        }
+        if (closek != NULL) {
+          closek(cfg);
+        }
+      }
     }
   }
   if (openk != NULL) {
@@ -157,8 +272,8 @@ moonbit_bytes_t envx_win_smbios(void) {
       memcpy(hvhost, "1", 2);
     }
   }
-  char out[1200];
-  snprintf(out, sizeof out, "man=%s\nprod=%s\nhvhost=%s", man, prod, hvhost);
+  char out[1600];
+  snprintf(out, sizeof out, "man=%s\nprod=%s\nbios=%s\nhvhost=%s", man, prod, bios, hvhost);
   return envx_bytes_from(out);
 }
 

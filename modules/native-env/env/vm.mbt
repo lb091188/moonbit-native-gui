@@ -70,14 +70,17 @@ fn vm_parse_cpuid(
 }
 
 ///|
-/// 解析 Windows SMBIOS 三行输出：`man=` / `prod=` / `hvhost=`。注册表镜像
-/// 在虚拟机固件上常整个为空——空是常态不是错误（windows.md 2026-10-28 实测）。
+/// 解析 Windows SMBIOS 四行输出：`man=` / `prod=` / `bios=` / `hvhost=`。
+/// 注册表镜像在虚拟机固件上常整个为空——空是常态不是错误（windows.md
+/// 2026-10-28 实测）；`bios=` 是 HardwareConfig 的 BIOS 版本关键字兜底，
+/// 固件镜像全空的机器上往往仍带 BOCHS/SeaBIOS 串（2026-11-21 实测）。
 fn vm_parse_smbios(text : String) -> (Array[Signal], Array[String], Bool) {
   let signals : Array[Signal] = []
   let brands : Array[String] = []
   let mut hvhost = false
   let mut man = ""
   let mut prod = ""
+  let mut bios = ""
   for line in split_lines(text) {
     match kv_value(line, "man") {
       Some(v) => man = v
@@ -85,6 +88,10 @@ fn vm_parse_smbios(text : String) -> (Array[Signal], Array[String], Bool) {
     }
     match kv_value(line, "prod") {
       Some(v) => prod = v
+      None => ()
+    }
+    match kv_value(line, "bios") {
+      Some(v) => bios = v
       None => ()
     }
     match kv_value(line, "hvhost") {
@@ -105,6 +112,19 @@ fn vm_parse_smbios(text : String) -> (Array[Signal], Array[String], Bool) {
         }
         None => ()
       }
+    }
+  }
+  if bios != "" {
+    match brand_by_contains(bios, dmi_vendor_table) {
+      Some(brand) => {
+        signals.push({
+          name: "bios_vendor",
+          score: score_registry,
+          detail: "\{bios} → \{brand}",
+        })
+        brands.push(brand)
+      }
+      None => ()
     }
   }
   (signals, brands, hvhost)

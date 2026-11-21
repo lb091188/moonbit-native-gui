@@ -66,6 +66,25 @@ test "vm_parse_smbios：空镜像零信号——虚拟机固件不给表是常�
 }
 
 ///|
+test "vm_parse_smbios：bios 版本关键字兜底——固件镜像全空的 QEMU/SeaBIOS VM" {
+  // 2026-11-21 company win10 实测：RSMB API 失败、BIOS 注册表键缺厂商值、
+  // SystemInformation 键空串，唯 HardwareConfig\Current\SystemBiosVersion
+  // 二进制里剩 "BOCHS  - 1"。
+  let (signals, brands, _) = vm_parse_smbios(
+    "man=\nprod=\nbios=BOCHS  - 1\nhvhost=0",
+  )
+  inspect(signals.length(), content="1")
+  inspect(signals[0].name, content="bios_vendor")
+  inspect(signals[0].detail, content="BOCHS  - 1 → bochs")
+  debug_inspect(
+    brands,
+    content=(
+      #|["bochs"]
+    ),
+  )
+}
+
+///|
 test "vm_parse_adapters：QXL 关键词命中带 qemu-kvm 品牌猜测" {
   let (signals, brands, hit) = vm_parse_adapters(
     "QXL (Red Hat)\n基本显示适配器",
