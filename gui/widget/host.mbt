@@ -78,23 +78,22 @@ pub fn host_repaint_all() -> Unit {
 ///|
 /// 按控件 id 局部置脏：命中哪扇窗就把该控件的矩形并进那扇窗的脏区（动画这类
 /// 「只影响一个控件」的自驱动用它，不必整窗广播）。
-/// 所有窗都找不到（已卸载/隐藏）回退整窗广播——宁可多画，不可漏画。
+/// 所有窗都找不到就直接跳过——离树的控件没有可见面可更新（路由缓存页、
+/// 换树刚摘下的旧代），回窗时挂载/首绘自会带出新状态；回退整窗反而把
+/// 「缓存页的 Store 更新」放大成无意义整帧重绘，还与绘制期更新构成自维持环
+/// （2026-11-22 真机归因：演示板空闲重绘风暴的成因之一）。
 pub fn invalidate_id(id : Int32) -> Unit {
   if id <= 0 {
     return
   }
-  let mut hit = false
   for a in host_windows() {
     match a.root.by_id(id) {
       Some(w) => {
         a.mark_widget_rect(w)
-        hit = true
+        return
       }
       None => ()
     }
-  }
-  if !hit {
-    host_repaint_all()
   }
 }
 

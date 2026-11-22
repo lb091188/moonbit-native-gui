@@ -97,19 +97,28 @@ pub fn page(secs : Array[Section]) -> @widget.Node {
 /// 显隐/滚动位置语义不变。页级的构造推迟由 `@router` 管（见 `main.mbt` 的路由表）。
 fn section_body(s : Section, selected : @base.Store[String]) -> @widget.Node {
   let mounted : Ref[Bool] = Ref(false)
-  let holder = @ui.col([], row_gap=8.0, handle=fn(h) {
-    fn ensure(name : String) -> Unit {
-      if !mounted.val && name == s.name {
-        mounted.val = true
-        for c in s.content {
-          let _ = c.mount_into(h)
+  let holder_w : Ref[@widget.Widget?] = Ref(None)
+  fn ensure(name : String) -> Unit {
+    if !mounted.val && name == s.name {
+      match holder_w.val {
+        Some(h) => {
+          mounted.val = true
+          for c in s.content {
+            let _ = c.mount_into(h)
+          }
         }
+        None => ()
       }
     }
-
-    ensure(selected.get())
+  }
+  // 首段正文挂载推迟到真 on_mount：handle 在构造期就跑，而预建（prefetch）
+  // 构造的缓存页不在屏上——在 handle 里 ensure 会把「当前选中段」的内容
+  // 连同它的 on_mount 回调（图表泵起拍这类）在构造期全部点火，页没上屏
+  // 动画链就开转。on_mount 只在页真挂进窗时跑，缓存页不受牵连。
+  let holder = @ui.col([], row_gap=8.0, handle=fn(h) {
+    holder_w.val = Some(h)
     selected.subscribe(ensure)
-  })
+  }).on_mount(fn() -> Unit { ensure(selected.get()) })
   let inner : Array[@widget.Node] = [
     @ui.text(s.title, class=[@style.text_title]),
   ]

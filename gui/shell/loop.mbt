@@ -222,6 +222,18 @@ let pending_timers : Array[(Int32, Int32, () -> Unit)] = []
 let next_pending_id : Ref[Int32] = Ref(-1)
 
 ///|
+/// 定时器钩子代次：每次 `set_timer_hooks` 自增。挂在钩子通道上的在飞延时
+/// （如动画登记表的下一拍）在通道被整体换掉时随之丢失——依赖方比对代次
+/// 判断「在飞」标记还可不可信。
+let g_timer_hook_gen : Ref[Int32] = Ref(0)
+
+///|
+/// 当前定时器钩子代次。
+pub fn timer_hooks_generation() -> Int32 {
+  g_timer_hook_gen.val
+}
+
+///|
 /// 安装延时任务的派发通道（`WindowHost::new` 把这两个转派到自己的 `Loop`）。
 /// 组件层要的是「过一会儿跑一次」，不该知道自己属于哪个宿主，所以与
 /// `set_repaint_hook` 同款进程级单槽（当前形态一进程一宿主）。
@@ -233,6 +245,7 @@ pub fn set_timer_hooks(
   timer_schedule.val = schedule
   timer_cancel.val = cancel
   timer_hooks_ready.val = true
+  g_timer_hook_gen.val = g_timer_hook_gen.val + 1
   let queued = pending_timers.copy()
   pending_timers.clear()
   for (_, ms, f) in queued {

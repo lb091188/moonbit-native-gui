@@ -571,9 +571,9 @@ test "动图组件：按帧时长自转换帧、暂停不再换帧、play 续上
     assert_true(ink_d > 100)
     return
   }
+  // 喂表发生在 on_draw：首帧画到即登记，第一拍立排（delay 0）
   assert_eq(delays.val.length(), 1)
-  assert_true(delays.val[0] > 0)
-  // 队空时是空操作（暂停断链之后就是空的，再 fire 不该崩）
+  // 队空时是空操作（摘表之后就是空的，再 fire 不该崩）
   let fire = fn() -> Unit {
     let q = queue.val
     if q.length() > 0 {
@@ -582,36 +582,42 @@ test "动图组件：按帧时长自转换帧、暂停不再换帧、play 续上
       f()
     }
   }
-  // 每拍只把虚拟时钟推「一帧时长 +1ms」，换不换帧由加载器判：连推 12 拍
-  // 应该走出若干帧（本素材每帧 400ms、每拍 101ms → 约 3 帧）
+  // 登记表按到期时刻判推进：无头档推虚拟时钟模拟「过了一帧时长」
+  // （本素材每帧 400ms，推 401ms 保底到期）
+  @shell.session_set_headless(true)
+  let fire_due = fn() -> Unit {
+    @shell.session_vtime_advance(401)
+    fire()
+  }
+  fire()
+  assert_eq(delays.val.length(), 2)
+  assert_true(delays.val[1] > 0)
+  // 连推 12 拍应该走出若干帧（每拍至多一帧，12 拍至多 12 帧）
   let before = h.frame_count()
   let mut n = 0
   while n < 12 {
-    fire()
+    fire_due()
     n = n + 1
   }
-  // 换帧节奏由加载器定：Windows(WIC) 一拍一帧（组件按 delay_ms 节奏问一次进
-  // 一帧）、Linux(io-gif) 按虚拟时钟锚定锚点——每拍推进几帧各平台不同，平台
-  // 无关的口径是「12 拍确实在走、且没失控一拍多帧」（12 拍至多 12 帧）
   assert_true(h.frame_count() >= 2 && h.frame_count() <= 12)
   let walked = h.frame_count()
   h.pause()
+  fire_due()
   fire()
-  fire()
-  // 暂停后待触发的那一拍跑完就断链，帧数不再前进
+  // 暂停后待触发的那一拍跑完发现停了：摘表，帧数不再前进
   assert_eq((h.frame_count(), h.is_running()), (walked, false))
-  // play 当场续上一拍，之后按节奏继续走
+  // play 当场续上一拍；画一帧重新喂表后按节奏继续走
   h.play()
-  assert_true(delays.val.length() > 2)
+  assert_true(h.frame_count() > walked)
+  let (bm, _, _) = shot(w)
   let mut m = 0
   while m < 8 {
-    fire()
+    fire_due()
     m = m + 1
   }
   assert_true(h.frame_count() > walked)
   ignore(before)
   // 画得出东西：动图帧确实进了位图（不是一片空）
-  let (bm, _, _) = shot(w)
   let mut ink = 0
   for y = 0; y < 120; y = y + 1 {
     for x = 0; x < 120; x = x + 1 {
@@ -621,6 +627,8 @@ test "动图组件：按帧时长自转换帧、暂停不再换帧、play 续上
     }
   }
   assert_true(ink > 100)
+  @shell.session_vtime_reset()
+  @shell.session_set_headless(false)
   // 缩到 48×48 也画得出来（目标尺寸与图幅不符时走缩放那条路）
   let hg2 = GifHandle::make()
   let (_r4, w4) = mounted(

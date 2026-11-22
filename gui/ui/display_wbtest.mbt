@@ -398,17 +398,16 @@ test "轮播：面板预建只显示当前页，箭头与指示点切页、越�
 }
 
 ///|
-test "轮播自转走宿主延时通道：暂停不前进、stop 断链并取消待触发" {
+test "轮播自转走宿主延时通道：暂停不前进、stop 摘表收口" {
   let queue : Ref[Array[() -> Unit]] = Ref([])
   let delays : Ref[Array[Int32]] = Ref([])
-  let cancelled : Ref[Array[Int32]] = Ref([])
   @shell.set_timer_hooks(
     fn(ms : Int32, f : () -> Unit) -> Int32 {
       delays.val.push(ms)
       queue.val.push(f)
       delays.val.length()
     },
-    fn(id : Int32) -> Unit { cancelled.val.push(id) },
+    fn(_id : Int32) -> Unit { () },
   )
   let h = CarouselHandle::make()
   let host = @widget.Widget::new()
@@ -422,40 +421,48 @@ test "轮播自转走宿主延时通道：暂停不前进、stop 断链并取消
     rotation=h,
   ).mount_into(host)
   host.relayout(160.0, 100.0)
-  // 自转的前提是「这一帧被画到」：先画一帧（无宿主时绘制轮次不涨，记的是当轮）
+  // 自转的前提是「这一帧被画到」：先画一帧，on_draw 喂表才登记
   let bm_seen = @render.Bitmap::new(160, 100)
   let p_seen = @render.Painter::new(bm_seen)
   c.paint(p_seen)
   p_seen.end()
-  assert_eq(delays.val.length(), 1)
-  assert_eq(delays.val[0], 100)
-
+  // 登记表按到期时刻判推进：无头档推虚拟时钟模拟「过了一拍」
+  @shell.session_set_headless(true)
   let fire = fn() -> Unit {
     let q = queue.val
-    let f = q[q.length() - 1]
-    q.truncate(q.length() - 1)
-    f()
+    if q.length() > 0 {
+      let f = q[q.length() - 1]
+      q.truncate(q.length() - 1)
+      f()
+    }
   }
-
+  let fire_due = fn() -> Unit {
+    @shell.session_vtime_advance(101)
+    fire()
+  }
+  // 登记后的第一拍立排（delay 0）；未到期的拍续排整段间隔
+  assert_eq(delays.val.length(), 1)
   fire()
+  assert_eq(h.index(), 0)
+  assert_true(delays.val.length() >= 2)
+  fire_due()
   assert_eq(h.index(), 1)
-  assert_eq(delays.val.length(), 2)
   carousel_pause(h, true)
-  fire()
-  // 暂停只压住切页，不压住下一拍
+  fire_due()
+  // 暂停只压住切页，不压住下一拍（登记项还在）
   assert_eq(h.index(), 1)
-  assert_eq(delays.val.length(), 3)
   carousel_pause(h, false)
-  fire()
+  fire_due()
   assert_eq(h.index(), 2)
   carousel_stop(h)
   assert_eq(h.is_running(), false)
-  assert_eq(cancelled.val.length(), 1)
-  // 已经在队里的这一拍仍会被跑一次，但既不切页也不再排下一拍
+  // 已在队里的这一拍跑完发现停了：摘表收口，再 fire 是空操作
+  fire_due()
+  let before = queue.val.length()
   fire()
-  assert_eq(h.index(), 2)
-  assert_eq(delays.val.length(), 4)
-  // 恢复成「无宿主」通道，别影响同包其余用例
+  assert_eq(queue.val.length(), before)
+  @shell.session_vtime_reset()
+  @shell.session_set_headless(false)
   @shell.set_timer_hooks(fn(_ms, _f) { 0 }, fn(_id) { () })
 }
 
@@ -643,11 +650,17 @@ test "轮播自转只在本帧被画到时推进：整块隐藏就不驱动重�
     rotation=h,
   ).mount_into(root)
   root.relayout(220.0, 140.0)
+  // 登记表按到期时刻判推进：无头档推虚拟时钟模拟「过了一拍」（间隔 100ms）
+  @shell.session_set_headless(true)
   let fire = fn() -> Unit {
     let q = queue.val
     let f = q[q.length() - 1]
     q.truncate(q.length() - 1)
     f()
+  }
+  let fire_due = fn() -> Unit {
+    @shell.session_vtime_advance(101)
+    fire()
   }
   let bm = @render.Bitmap::new(220, 140)
   let paint_once = fn() -> Unit {
@@ -657,28 +670,31 @@ test "轮播自转只在本帧被画到时推进：整块隐藏就不驱动重�
     p.end()
   }
 
-  // ① 挂着且没画过（首帧还没到）：不推进——挂载时排的那一拍先吃掉
+  // ① 首帧画到即登记；推过一拍后推进
   paint_once()
   fire()
+  fire_due()
   assert_eq(h.index(), 1)
   assert_true(repaints.val > 0)
   let after_show = repaints.val
 
-  // ② 整块被祖先隐藏：这一帧不再经过它 → 不切页、不置脏（但链子还留着）
+  // ② 整块被祖先隐藏：这一帧不再经过它 → 拍上摘表，不切页、不置脏
   root.set_visible(false)
   paint_once()
-  fire()
+  fire_due()
   assert_eq(h.index(), 1)
   assert_eq(repaints.val, after_show)
 
-  // ③ 恢复可见：下一帧又被画到 → 自转继续
+  // ③ 恢复可见：下一帧又被画到 → 喂表复活，自转继续
   root.set_visible(true)
   paint_once()
-  fire()
+  fire_due()
   assert_eq(h.index(), 2)
   assert_true(repaints.val > after_show)
 
   carousel_stop(h)
+  @shell.session_vtime_reset()
+  @shell.session_set_headless(false)
   @widget.set_repaint_hook(fn() -> Unit { () })
   @shell.set_timer_hooks(fn(_ms, _f) { 0 }, fn(_id) { () })
 }

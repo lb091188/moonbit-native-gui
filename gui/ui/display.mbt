@@ -1083,12 +1083,10 @@ pub fn carousel_pause(handle : CarouselHandle, v : Bool) -> Unit {
 }
 
 ///|
-/// 停止自动轮播（不可恢复；手动切页仍可用）。卸载轮播前必须调：自排的延时链
-/// 不认识视图已移除，不退就会继续对销毁掉的子树空转。
+/// 停止自动轮播（不可恢复；手动切页仍可用）。登记项随下一拍或控件丢弃清扫
+/// 自动摘除，不必也不能手工清拍。
 pub fn carousel_stop(handle : CarouselHandle) -> Unit {
   handle.running.val = false
-  @shell.clear_timeout(handle.timer.val)
-  handle.timer.val = 0
 }
 
 ///|
@@ -1263,22 +1261,33 @@ pub fn carousel(
         }
       })
       if interval_ms > 0 && n > 1 {
-        // 一次性延时自排下一拍：句柄存进 rotation，停转时取消待触发那次
+        // 拍归中央动画登记表：on_draw 喂表即登记/复活，离屏停表、表空即停
+        // （口径见 anim_clock.mbt）；本组件不自起定时器链
         let tick : Ref[() -> Unit] = Ref(fn() { () })
-        // 被换树摘下就断自转链（回调见 rotation.running=false 不再自续）
-        w.on_discard = Some(fn(_w) { rotation.running.val = false })
-        tick.val = fn() {
-          rotation.timer.val = @shell.set_timeout(interval_ms, fn() {
-            if rotation.running.val {
-              // 所在页被隐藏（这一帧没被画到）时不切页也不置脏：整窗重绘白做
-              if !rotation.paused.val && w.is_painted() {
-                do_switch(cur.val + 1)
-              }
-              (tick.val)()
-            }
-          })
+        // 被换树摘下就断链并摘登记项
+        w.on_discard = Some(fn(_w) {
+          rotation.running.val = false
+          anim_clock_drop(w.id)
+        })
+        tick.val = fn() -> Unit {
+          if !rotation.running.val {
+            anim_clock_drop(w.id)
+            return
+          }
+          if !rotation.paused.val {
+            do_switch(cur.val + 1)
+          }
         }
-        (tick.val)()
+        // 根控件本无自绘：挂一只只喂表不画东西的 on_draw
+        w.on_draw = Some(fn(
+          _self : @widget.Widget,
+          _p : @render.Painter,
+          _r : @base.Rect,
+        ) -> Unit {
+          if rotation.running.val {
+            anim_clock_feed(w, tick.val, interval_ms=interval_ms)
+          }
+        })
       }
     }
     fold_style(w, @style.empty_style(), @style.empty_style(), class)

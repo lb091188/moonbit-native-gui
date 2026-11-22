@@ -26,6 +26,18 @@
   - 范围：CI 未覆盖的组合。
   - 边界：期望窗 0.45–0.55，即期望位置区间。
 
+## 空闲动画与内存治理·真机复验·用户执行
+
+- [ ] **中央动画登记表 + wgpu 每帧对象释放**：代码已合入，按 SC-0.4 / SC-0.5 复验
+  - 根因：eff_chart_t 构造期起 50ms 自续涟漪链且不看可见性，离树控件的 invalidate_id 回退整窗，演示板空闲即 21fps 全窗重绘；wgpu L1 present 每帧 swapchain texture / command encoder / render pass encoder 三对象缺失 Release，mac 实测逐帧泄露
+  - 改动：gui/ui 新增中央动画登记表，表空即停、离屏停表、on_draw 喂表复活；eff_chart_t / gif / carousel 三组件迁入；stub.c L1 补三处 Release 与 loader 两个符号
+  - mac 本机读数：空闲 CPU 21–28% 降到约 1%，原生泄露 40 秒 2356 个对象归零
+  - 验证·用户执行：
+    1. `cd gui && moon check` 零警告零错误，`moon test chart ui widget shell style render` 零失败
+    2. mac 起演示板静置 1 分钟：活动监视器 CPU 个位数百分比、内存无持续上涨
+    3. 切「过渡与效果」「数据展示」「图表」页：GIF / 轮播 / 涟漪动画正常，离开后 CPU 回落到静置档
+    4. win 同口径复验：静置 CPU 接近空闲档，无持续占用
+
 ## deepin 20.9 构建链复验·用户执行
 
 - [ ] **ffmpeg 4.x 版本分支 / webview 占位归档 / 非 GUI 可执行 pthread 三项修复的真机复验**：环境对齐报障机（deepin 20.9 + moon 0.1.20261119）

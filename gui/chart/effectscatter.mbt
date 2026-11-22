@@ -2,11 +2,11 @@
 // MoonBit 自绘，Painter 承载）：
 //   EffPoint      数据点（x/y + 尺寸直径）
 //   eff_chart_t   散点 + 涟漪动画组件：每点周期性扩散 N 圈同心圆
-//                 （半径随相位增大、描边 alpha 衰减），@yue.set_timer
-//                 驱动相位 Store 推进，订阅 schedule_paint 重绘（与其余
-//                 图表 Store 订阅模式一致）
-//   EffAnim       动画句柄：eff_stop 停止定时器（组件无销毁回调可挂，
-//                 见 eff_stop 文档）
+//                 （半径随相位增大、描边 alpha 衰减），中央动画登记表
+//                 驱动相位 Store 推进，订阅置脏重绘（与其余图表 Store
+//                 订阅模式一致）
+//   EffAnim       动画句柄：eff_stop 停止动画，登记项随拍或丢弃清扫摘除
+//                 （见 eff_stop 文档）
 // 渲染模型与其余图表一致：单一自绘容器，on_draw 内现取 theme_* 色；
 // 数据经 Store 驱动，set 后只 schedule_paint 画布，不重建视图树。网格/
 // 刻度/坐标换算复用 charts.mbt 纯函数；相位推进、圈进度/半径/alpha 映射
@@ -66,9 +66,9 @@ pub fn EffPoint::make(
 }
 
 ///|
-/// 动画句柄：持有涟漪定时器（@shell.set_timeout 句柄）与运行开关。
-/// 新栈的延时通道有真取消 API（clear_timeout），eff_stop 即时摘除待
-/// 触发回调；同一句柄传给多个 eff_chart_t 时联动控制这些实例。
+/// 动画句柄：持有运行开关与登记项句柄位。拍归中央动画登记表
+/// （ui/anim_clock.mbt），本结构不再持有自续定时器；同一句柄传给多个
+/// eff_chart_t 时联动控制这些实例。
 pub(all) struct EffAnim {
   running : Ref[Bool]
   timer : Ref[Int32]
@@ -88,13 +88,11 @@ pub fn EffAnim::is_running(self : EffAnim) -> Bool {
 }
 
 ///|
-/// 停止句柄关联的涟漪定时器（clear_timeout 即时取消待触发回调）。
-/// 订阅与定时器随本代回收袋退订（bind_node 重建代际回收），常规
-/// 挂载随应用存活；仍建议调用方在主动卸载组件前 eff_stop。
+/// 停止句柄关联的涟漪动画（登记项随下一拍或控件丢弃清扫自动摘除）。
+/// 订阅随本代回收袋退订（bind_node 重建代际回收），常规挂载随应用存活；
+/// 仍建议调用方在主动卸载组件前 eff_stop。
 pub fn eff_stop(anim : EffAnim) -> Unit {
   anim.running.val = false
-  @shell.clear_timeout(anim.timer.val)
-  anim.timer.val = 0
 }
 
 ///|
@@ -408,21 +406,9 @@ pub fn eff_chart_t(
       w.node.set_width(@yoga.percent(100.0))
       w.node.set_min_width(@yoga.fixed(120.0))
     }
-    w.on_draw = Some(fn(
-      _self : @widget.Widget,
-      p : @render.Painter,
-      r : @base.Rect,
-    ) -> Unit {
-      p.set_fill_color(@theme.theme_bg_panel())
-      let bgr = @theme.radius_card()
-      if bgr > 0.0 {
-        p.fill_round_rect(0.0, 0.0, r.w, r.h, bgr)
-      } else {
-        p.fill_rect(0.0, 0.0, r.w, r.h)
-      }
-      eff_draw(p, r.w, r.h, points.get(), phase.get(), ringn, xr, yr)
-    })
-    // 定时器接线：每帧推进相位并续排下一拍；eff_stop 即时取消
+    // 拍归中央动画登记表（口径见 ui/anim_clock.mbt）：on_draw 喂表即登记/
+    // 复活，离屏停表、表空即停；停止句柄（eff_stop）后的下一拍摘表。
+    // 构造期不排任何拍——预建缓存页的离树控件不再驱动重绘。
     let tick = eff_tick_ms(period_ms)
     let step = if period_ms < 1 {
       0.0
@@ -432,12 +418,27 @@ pub fn eff_chart_t(
     step_fn.val = fn() -> Unit {
       if an.running.val {
         phase.update(fn(t) { eff_phase_advance(t, step) })
-        an.timer.val = @shell.set_timeout(tick, fn() { (step_fn.val)() })
+      } else {
+        @ui.anim_clock_drop(w.id)
       }
     }
-    if an.running.val && ringn > 0 && step > 0.0 {
-      an.timer.val = @shell.set_timeout(tick, fn() { (step_fn.val)() })
-    }
+    w.on_draw = Some(fn(
+      _self : @widget.Widget,
+      p : @render.Painter,
+      r : @base.Rect,
+    ) -> Unit {
+      if an.running.val && ringn > 0 && step > 0.0 {
+        @ui.anim_clock_feed(w, step_fn.val, interval_ms=tick)
+      }
+      p.set_fill_color(@theme.theme_bg_panel())
+      let bgr = @theme.radius_card()
+      if bgr > 0.0 {
+        p.fill_round_rect(0.0, 0.0, r.w, r.h, bgr)
+      } else {
+        p.fill_rect(0.0, 0.0, r.w, r.h)
+      }
+      eff_draw(p, r.w, r.h, points.get(), phase.get(), ringn, xr, yr)
+    })
     handle(w)
     w
   })

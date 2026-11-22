@@ -1,8 +1,8 @@
 // 动图（GIF）组件：解码留首帧，按每帧时长自转；解不出动图就退回静帧首帧。
 //
-// 延时走本栈的进程级定时器通道（`@shell.set_timeout`，与轮播自转同一条），
-// 无宿主时空操作，所以无头测试能自己装通道手动派拍。动图句柄的槽位随
-// 声明式回收袋释放（重挂/替换旧代时 `close`），不靠 GC。
+// 拍归中央动画登记表（anim_clock.mbt）：on_draw 喂表即登记/复活，离屏停表、
+// 表空即停；本组件不自起定时器链。动图句柄的槽位随声明式回收袋释放
+// （重挂/替换旧代时 `close`），不靠 GC。
 
 ///|
 /// 动图运行态：外部可读「已换过几帧 / 是否在播」，可暂停与继续。
@@ -73,24 +73,20 @@ pub fn gif(
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
     w.kind = "ui-gif"
-    let timer : Ref[Int32] = Ref(0)
     let looping_ = looping
-    // 被换树摘下就断自转链（step 见 h.running=false 直接 return，不排下一拍）；
-    // 动图句柄本代由回收袋 close，这里只管停拍。
-    w.on_discard = Some(fn(_w) { h.running = false })
-    // 局部函数不能自引用，走 Ref 间接（与示例里的 ticker 同形）
+    // 被换树摘下就断链并摘登记项；动图句柄本代由回收袋 close，这里只管停拍。
+    w.on_discard = Some(fn(_w) {
+      h.running = false
+      anim_clock_drop(w.id)
+    })
+    // 推进一拍（登记表统一排拍，本闭包不自带重排）：停/播完即摘表
     let step : Ref[() -> Unit] = Ref(fn() { () })
     step.val = fn() -> Unit {
-      timer.val = 0
       match anim {
         None => ()
         Some(a) => {
           if !h.running {
-            return
-          }
-          // 所在页被隐藏（这一帧没被画到）：不推进帧、不置脏，只留着排下一拍
-          if !w.is_painted() {
-            timer.val = @shell.set_timeout(a.delay_ms(), fn() { (step.val)() })
+            anim_clock_drop(w.id)
             return
           }
           if a.advance() {
@@ -100,9 +96,9 @@ pub fn gif(
           }
           if !looping_ && a.frame() == 0 {
             h.running = false
+            anim_clock_drop(w.id)
             return
           }
-          timer.val = @shell.set_timeout(a.delay_ms(), fn() { (step.val)() })
         }
       }
     }
@@ -113,6 +109,14 @@ pub fn gif(
       p : @render.Painter,
       r : @base.Rect,
     ) -> Unit {
+      // 喂表即登记/复活：本帧画到了才排下一拍（口径见 anim_clock.mbt）
+      match anim {
+        Some(a) =>
+          if !a.is_static && h.running {
+            anim_clock_feed(w, step.val, interval_ms=a.delay_ms())
+          }
+        None => ()
+      }
       let img = keep.val
       if !img.is_empty() {
         p.flush()
@@ -125,10 +129,6 @@ pub fn gif(
         let dh = if height > 0.0 { height } else { a.height.to_double() }
         w.node.set_width(@yoga.fixed(dw))
         w.node.set_height(@yoga.fixed(dh))
-        if !a.is_static && h.running {
-          // 排第一拍（静图不排：它没有下一帧）
-          timer.val = @shell.set_timeout(a.delay_ms(), fn() { (step.val)() })
-        }
         // 槽位随本代回收袋释放（重挂/替换时不留悬着的动图句柄）
         @base.sub_bag_register(fn() { a.close() })
       }

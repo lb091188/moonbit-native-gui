@@ -148,6 +148,12 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **过渡动画**：状态桶插值：三条颜色 + 边框宽 + 圆角 + 字号 + 行高，按真实时间推进
 - ✅ **macOS GIF 分帧合成**：ImageIO 逐帧合成，disposal 全档；帧号 / 时长 / 换帧口径与 Linux / Windows 一致
   - ImageIO：macOS 系统自带的图像读取框架。
+- 🚧 **中央动画登记表**：组件动画统一登记驱动——构造期不排拍，`on_draw` 喂表即登记/复活，拍内只推进本帧画到的项，表空即停，空闲零动画零唤醒
+  - 已迁入：eff_chart_t / gif / carousel 三组件的构造期自续定时器链；transition / keyframes / scroll 自带收敛停表，后续并入
+  - 动机与根因：构造期自续链不看可见性，预建缓存页的离树控件每拍置脏、`invalidate_id` 回退整窗重绘，演示板空闲 21fps 重绘风暴；定案见 experience/design.md「口径记录」第 9 条
+  - wgpu 上屏每帧三对象缺失 Release 的原生泄露同批修：mac `leaks` 实测 40 秒 2356 个对象补 Release 后归零，三臂共享
+  - 同批配套：`invalidate_id` 查不到 id 改为跳过（离树控件不回退整窗重绘）；演示板 section 首段挂载从构造期 handle 推迟到真 `on_mount`
+  - mac 读数：演示板空闲 CPU 21–28% 降到约 0.1%，内存完全走平，原生泄露归零；win 真机读数与三端观感待验（SC-0.4 / SC-0.5）
 - ✅ **GPU 合成**：独立模块 `modules/gui-gpu`，主包零依赖
   - 定位：可选后端。
   - 构建级下载失败即降级；运行级 dlopen 探测回退 Cairo / 纯光栅

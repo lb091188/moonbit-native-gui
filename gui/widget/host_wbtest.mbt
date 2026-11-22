@@ -259,6 +259,13 @@ test "invalidate_id 只标命中窗的局部脏区" {
   host_reset()
   let a1 = fake_open()
   let a2 = fake_open()
+  // 所有窗都没有这个 id：直接跳过——离树控件没有可见面可更新，
+  // 回退整窗会把「缓存页的 Store 更新」放大成无意义整帧重绘
+  invalidate_id(987_654)
+  assert_false(a1.session.dirty)
+  assert_false(a1.dirty_full)
+  assert_false(a2.session.dirty)
+  // 命中：只标命中那扇窗的局部脏区
   let kid = Widget::new()
   kid.set_size(20.0, 12.0)
   a1.root.append_child(kid)
@@ -272,11 +279,6 @@ test "invalidate_id 只标命中窗的局部脏区" {
   // 另一扇窗没被牵连（广播式 invalidate 会给它整窗脏）
   assert_false(a2.session.dirty)
   assert_true(a2.dirty_rect is None)
-  // 所有窗都没有这个 id：回退整窗广播
-  invalidate_id(987_654)
-  assert_true(a1.dirty_full)
-  assert_true(a2.dirty_full)
-  assert_true(a1.dirty_rect is None)
   host_reset()
 }
 
