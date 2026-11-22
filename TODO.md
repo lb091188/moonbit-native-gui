@@ -232,7 +232,7 @@
 
 - [ ] **混合 DPI 真机复验**：执行者：用户执行——HL-4.5 / HL-4.6
   - 已合入 2026-11-21：三处口径统一——MoonBit 层与 C 桩账本逻辑单位、帧位图恒物理像素、窗级因子 `Window::scale` 每帧现读，定案见 proposals/mixed-dpi-scaling.md；库测 1516/1516、mac 三桩语法门禁、原生链接与示例链接通过，行为变化预告——mac Retina 上既有窗口从入参一半点数变入参原值点数，与 win / Linux 对齐。
-  - 待验：Windows 125% / 150% 各起一次 hello——窗口逻辑尺寸与 100% 一致、文字不虚、命中不偏；跨缩放档拖屏重排重采样；mac 1x / 2x 屏间拖动；Linux X11 冒烟零变化。
+  - 待验：Windows 125% / 150% 各起一次 hello——窗口逻辑尺寸与 100% 一致、文字不虚、命中不偏（虚拟屏改系统缩放即可，不依赖高分屏）；单屏改缩放档触发 `WM_DPICHANGED` 的自动重排重采样（跨屏拖动的替代口径）；mac 1x / 2x 屏间拖动——待有 1x 外接屏补验；Linux X11 冒烟零变化。
 
 - [ ] **数据驱动局部重绘**：收窄范围已定案（proposals/data-driven-repaint.md）——主路线收窄标脏复用现有脏区裁剪与控件剔除，不做组件内增量绘制，mdview 不立项
   - 现状：输入事件已有控件级脏区；Store / Signal 回调仍走 `host_repaint_all`，全库 `@widget.invalidate()` 实测 185 处（gui/ui 99、gui-media 24、chart 21、examples 27）。
