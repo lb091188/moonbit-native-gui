@@ -189,6 +189,15 @@ typedef struct {
   // 本缓冲归桩所有，按尺寸增长复用。
   unsigned char *frame;
   int frame_cap;
+  // 双缓冲贴帧：present 写进 DIB section 位面，WM_PAINT 从 memory DC 一次
+  // BitBlt。StretchDIBits 直画窗口 DC（经 DWM 重定向面）在滚动这类大块更新
+  // 时会闪——合成抓到半成品；且 1:1 的 StretchDIBits 也远慢于位面 BitBlt。
+  HDC mem_dc;
+  HBITMAP dib;
+  HBITMAP dib_old;
+  unsigned char *dib_bits;
+  int dib_w;
+  int dib_h;
   WmL1 l1; // GPU present 档（L1）每窗状态（核心在文件末实现 TU 段）
   int cursor_kind;   // 0 默认/1 手/2 文本/3 横向/4 纵向
   char commit[256];  // 已提交文本（UTF-8；WM_IME_COMPOSITION 的 GCS_RESULTSTR）
@@ -663,8 +672,70 @@ static HCURSOR wm_load_cursor(int kind) {
 
 // pending 缓冲直贴：Bitmap 布局 = cairo ARGB32（小端字节 B,G,R,A），GDI 的
 // 32bpp BI_RGB 顶底 DIB 字节口径完全一致，无需换序；负高 = 自上而下。
+// 优先走 DIB section 双缓冲（一次 BitBlt）；DIB 没建起时退 StretchDIBits。
+static void wm_dib_release(WmWindow *w) {
+  if (w->mem_dc != NULL) {
+    if (w->dib != NULL) {
+      SelectObject(w->mem_dc, w->dib_old);
+    }
+    DeleteDC(w->mem_dc);
+    w->mem_dc = NULL;
+  }
+  if (w->dib != NULL) {
+    DeleteObject(w->dib);
+    w->dib = NULL;
+  }
+  w->dib_old = NULL;
+  w->dib_bits = NULL;
+  w->dib_w = 0;
+  w->dib_h = 0;
+}
+
+// 按帧尺寸建/重建 DIB section；返回 0 = 分配失败（调用方退 frame 旧路径）
+static int wm_dib_ensure(WmWindow *w, int bw, int bh) {
+  if (w->mem_dc != NULL && w->dib != NULL && w->dib_w == bw && w->dib_h == bh) {
+    return 1;
+  }
+  wm_dib_release(w);
+  HDC screen = GetDC(NULL);
+  if (screen == NULL) {
+    return 0;
+  }
+  w->mem_dc = CreateCompatibleDC(screen);
+  ReleaseDC(NULL, screen);
+  if (w->mem_dc == NULL) {
+    return 0;
+  }
+  BITMAPINFO bi;
+  memset(&bi, 0, sizeof(bi));
+  bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+  bi.bmiHeader.biWidth = bw;
+  bi.bmiHeader.biHeight = -bh; // 负高 = 自上而下，与帧缓冲行序一致
+  bi.bmiHeader.biPlanes = 1;
+  bi.bmiHeader.biBitCount = 32;
+  bi.bmiHeader.biCompression = BI_RGB;
+  void *bits = NULL;
+  w->dib = CreateDIBSection(NULL, &bi, DIB_RGB_COLORS, &bits, NULL, 0);
+  if (w->dib == NULL || bits == NULL) {
+    wm_dib_release(w);
+    return 0;
+  }
+  w->dib_old = (HBITMAP)SelectObject(w->mem_dc, w->dib);
+  w->dib_bits = (unsigned char *)bits;
+  w->dib_w = bw;
+  w->dib_h = bh;
+  return 1;
+}
+
 static void wm_blit(HDC dc, WmWindow *w) {
-  if (w->frame == NULL || w->pending_w < 1 || w->pending_h < 1) {
+  if (w->pending_w < 1 || w->pending_h < 1) {
+    return;
+  }
+  if (w->mem_dc != NULL && w->dib != NULL) {
+    BitBlt(dc, 0, 0, w->pending_w, w->pending_h, w->mem_dc, 0, 0, SRCCOPY);
+    return;
+  }
+  if (w->frame == NULL) {
     return;
   }
   wm_crash_mark("blit", w->pending_w, w->pending_h);
@@ -783,7 +854,8 @@ static LRESULT CALLBACK wm_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         } else if (w->trans_mode == 1) {
           // 逐像素档：合成面已由 UpdateLayeredWindow 整块替换，GDI 这一趟什么
           // 都不该画（画了就不透）；BeginPaint/EndPaint 只为把脏区销掉
-        } else if (w->frame != NULL && w->pending_w > 0 && w->pending_h > 0) {
+        } else if ((w->dib != NULL || w->frame != NULL) && w->pending_w > 0 &&
+                   w->pending_h > 0) {
           wm_blit(dc, w);
         } else {
           w->need_draw = 1;
@@ -1699,21 +1771,29 @@ void wm_present(int64_t id, const unsigned char *rgba, int width, int height,
     return;
   }
   wm_crash_mark("present.cpu", width, height);
-  // 复制进桩持有的帧缓冲（理由见 WmWindow.frame 的注释），再请一次重画；
-  // 真正的贴像素发生在下一次 WM_PAINT 里，那时窗口一定活着
+  // 复制进桩持有的帧面（帧缓冲归桩所有的理由见 WmWindow.frame 的注释）：
+  // 逐像素档写 frame（UpdateLayeredWindow 的数据源）；普通档写 DIB section
+  // 位面（WM_PAINT 的 BitBlt 源），建不起才退 frame + StretchDIBits 旧路径。
+  // 每帧只写一份面，不再全帧双拷
   size_t need = (size_t)width * (size_t)height * 4;
-  if (w->frame == NULL || (size_t)w->frame_cap < need) {
-    wm_crash_mark("present.realloc", width, height);
-    unsigned char *nb = (unsigned char *)realloc(w->frame, need);
-    if (nb == NULL) {
-      return; // 分配失败就当这次没贴，下一帧再来
-    }
-    w->frame = nb;
-    w->frame_cap = (int)need;
-  }
-  memcpy(w->frame, rgba, need);
   w->pending_w = width;
   w->pending_h = height;
+  unsigned char *sink = NULL;
+  if (w->trans_mode == 1 || !wm_dib_ensure(w, width, height)) {
+    if (w->frame == NULL || (size_t)w->frame_cap < need) {
+      wm_crash_mark("present.realloc", width, height);
+      unsigned char *nb = (unsigned char *)realloc(w->frame, need);
+      if (nb == NULL) {
+        return; // 分配失败就当这次没贴，下一帧再来
+      }
+      w->frame = nb;
+      w->frame_cap = (int)need;
+    }
+    sink = w->frame;
+  } else {
+    sink = w->dib_bits;
+  }
+  memcpy(sink, rgba, need);
   if (w->trans_mode == 1) {
     // 逐像素档不走 WM_PAINT：那一刻窗口的合成面由 UpdateLayeredWindow 整块替换，
     // 再请 GDI 重画反而会在提交之后把不透明像素糊上去
@@ -1733,6 +1813,10 @@ void wm_present(int64_t id, const unsigned char *rgba, int width, int height,
   } else {
     InvalidateRect(w->hwnd, NULL, FALSE);
   }
+  // 同步贴走这一帧：WM_PAINT 是最低优先级消息，滚动帧连发时 update region
+  // 会积到下一轮泵才消费——屏上内容落后一两帧再一次性跳新帧，视觉就是
+  // 一闪一闪的跳变；present 完立即 UpdateWindow 把这一帧钉上屏
+  UpdateWindow(w->hwnd);
   wm_popup_materialize(w);
 }
 
@@ -1766,6 +1850,7 @@ void wm_close(int64_t id) {
   // 帧拷贝与逐像素提交面归桩所有，拆窗前先放掉（memset 之后就拿不到指针了）
   wm_l1_window_drop(&w->l1);
   wm_layer_release(w);
+  wm_dib_release(w);
   free(w->frame);
   w->frame = NULL;
   w->frame_cap = 0;
