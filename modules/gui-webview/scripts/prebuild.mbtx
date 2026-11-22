@@ -17,11 +17,12 @@ import {
 // 链接参数。
 //
 // Linux：pkg-config 探 webkit2gtk-4.1，带 -DWB_HAVE_WEBKIT 把 webkit_stub.c
-// 编成静态库；缺开发包不算错——native-stub 那次无宏编译已给出占位符号，
-// MoonBit 侧按 webview_supported() 探测降级。真实现分支引用主模块 win 桩的
+// 编成静态库；缺开发包不算错——改带 -DWB_PLACEHOLDER 把同一份源码的占位分支
+// 编成占位归档下发，wb_* 符号齐、wb_available() 恒 0，MoonBit 侧按
+// webview_supported() 探测降级，链接不断。真实现分支引用主模块 win 桩的
 // wm_surface_container()，所以链接行要带上主模块编好的 libyue_win_stub.a——
 // 按「workspace 兄弟目录 → 依赖缓存 → 当前工作区 _build」三处定位，定位不到
-// 时退回占位分支（宁可不链，不给断链的 exe）。
+// 时同样退占位归档（宁可不链，不给断链的 exe）。
 //
 // Windows：webview2_stub.c 由 moon native-stub 自编（vendor 头相对路径自取），
 // 这里只下发静态 Loader（缺失时按 sha256 从 Release 资产下载；两模块刻意各留
@@ -580,6 +581,36 @@ fn join_flags(parts : Array[String]) -> String {
 }
 
 ///|
+/// 探测失败时的占位归档：-DWB_PLACEHOLDER 把 webkit_stub.c 的占位分支编成
+/// 静态库下发，wb_* 符号齐、wb_available() 恒 0——MoonBit 侧探测降级，
+/// 链接不再断。与真实现归档互斥：native-stub 无宏编译仍是空翻译单元，
+/// 任一链接行里 wb_* 只有一份。
+async fn emit_placeholder_lib(
+  module_root~ : String,
+  build_dir~ : String,
+) -> String {
+  let lib = compile_webkit_stub(
+    module_root~,
+    build_dir~,
+    define_flag="-DWB_PLACEHOLDER",
+    obj="webkit_stub_placeholder.o",
+    prefix="libgui_webview_placeholder",
+    objc=false,
+    extra_cflags=[],
+  )
+  if lib.length() == 0 {
+    err("[webview prebuild]\nplaceholder archive compile failed")
+    return "{ \"link_configs\": [] }"
+  }
+  let stem = file_name_of(lib)
+  let flags = "-L" +
+  build_dir +
+  " -l" +
+  stem[3:stem.length() - 2].to_owned()
+  "{ \"link_configs\": [" + entry(pkg=webview_package, link_flags=flags) + "] }"
+}
+
+///|
 async fn link_configs() -> String {
   let module_root = dir_of(env_or("MOON_MOD", "."))
   let build_dir = env_or("MOON_BUILD_DIR", module_root + "/build")
@@ -599,13 +630,13 @@ async fn link_configs() -> String {
         "dev package missing (" + webkit_pkg_config + ")"
       }
       err("[webview prebuild]\nplaceholder implementation, probe returns unavailable\n  - reason: " + reason)
-      return "{ \"link_configs\": [] }"
+      return emit_placeholder_lib(module_root~, build_dir~)
     }
     let cflags = pkg_config([webkit_pkg_config], "--cflags")
     match cflags {
       None => {
         err("[webview prebuild]\nplaceholder implementation, probe returns unavailable\n  - reason: dev package missing (" + webkit_pkg_config + ")")
-        return "{ \"link_configs\": [] }"
+        return emit_placeholder_lib(module_root~, build_dir~)
       }
       Some(got) => {
         let web_lib = compile_webkit_stub(

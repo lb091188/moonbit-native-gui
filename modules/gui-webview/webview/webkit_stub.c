@@ -2444,11 +2444,15 @@ int wb_eval_text(int64_t id, char *out, int cap) {
   return v->eval_len;
 }
 
-#elif !defined(__linux__) && !defined(_WIN32) && !defined(__APPLE__)
+#elif defined(WB_PLACEHOLDER) || (!defined(__linux__) && !defined(_WIN32) && !defined(__APPLE__))
 
-// 其余平台占位（macOS 等后端随平台批）：符号必须在，能力探测返回不可用。
-// （Windows 的真实现在本包 webview2_stub.c——符号只有一份，这里必须空出。）
+// 占位档（两路进法）：prebuild 探测失败带 -DWB_PLACEHOLDER 专编的归档
+// （Linux 缺 webkit2gtk-4.1 开发包、或 win 桩归档定位不到时的退路），以及
+// linux/win/mac 之外的平台走 native-stub 的无宏编译。符号必须在，能力探测
+// 返回不可用。（Windows 的真实现在本包 webview2_stub.c——符号只有一份，
+// 这里必须空出。）
 #include <stdint.h>
+#include <stddef.h>
 
 void wb_predeclare_scheme(const char *scheme) { (void)scheme; }
 int wb_available(void) { return 0; }
@@ -2535,6 +2539,6 @@ void wb_set_size(int64_t id, int w, int h) { (void)id; (void)w; (void)h; }
 void wb_destroy(int64_t id) { (void)id; }
 
 #endif
-// Linux 上不带 -DWB_HAVE_WEBKIT 的那次编译（moon native-stub，或 prebuild 发现
-// 缺 webkit 开发包时的占位编法）落不进任何分支，编出空翻译单元——真实现只由
-// prebuild 的 libyue_web.a 提供，绝不能再定义一份（双定义）。
+// Linux 上不带宏的两次编译走向：native-stub 那次空翻译单元；占位归档必须带
+// -DWB_PLACEHOLDER 才进占位档——与 prebuild 的真实现归档互斥，任一 exe 链接行
+// 里 wb_* 符号只有一份（无双定义）。

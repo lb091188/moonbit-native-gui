@@ -597,15 +597,28 @@ VfADec *vf_open_audio_decoder(VfFmt *f) {
         vf_close_audio_decoder(d);
         return NULL;
     }
-    d->out_ch = d->codec->ch_layout.nb_channels;
     d->out_rate = d->codec->sample_rate;
     d->frame = av_frame_alloc();
     d->pkt = av_packet_alloc();
+#if LIBAVCODEC_VERSION_MAJOR >= 59
+    /* ffmpeg 5.0+：声道是 AVChannelLayout 结构（ch_layout），重采样分配走 swr_alloc_set_opts2 */
+    d->out_ch = d->codec->ch_layout.nb_channels;
     if (swr_alloc_set_opts2(&d->swr,
                             &d->codec->ch_layout, AV_SAMPLE_FMT_S16, d->out_rate,
                             &d->codec->ch_layout, d->codec->sample_fmt, d->out_rate,
                             0, NULL) < 0 ||
         !d->frame || !d->pkt || !d->swr || swr_init(d->swr) < 0) {
+#else
+    /* ffmpeg 4.x：声道是 uint64 的 channel_layout/channels，重采样分配走 swr_alloc_set_opts。
+       5.0 起的头只改了这两处形态，其余 API 两代通用；Linux 系统头随发行版注入
+       （deepin 20.9 = ffmpeg 4.x 实测），语义两支一致 */
+    d->out_ch = d->codec->channels;
+    d->swr = swr_alloc_set_opts(NULL,
+                                d->codec->channel_layout, AV_SAMPLE_FMT_S16, d->out_rate,
+                                d->codec->channel_layout, d->codec->sample_fmt, d->out_rate,
+                                0, NULL);
+    if (!d->frame || !d->pkt || !d->swr || swr_init(d->swr) < 0) {
+#endif
         vf_close_audio_decoder(d);
         return NULL;
     }

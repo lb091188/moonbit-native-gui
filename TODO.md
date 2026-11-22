@@ -26,6 +26,15 @@
   - 范围：CI 未覆盖的组合。
   - 边界：期望窗 0.45–0.55，即期望位置区间。
 
+## deepin 20.9 构建链复验·用户执行
+
+- [ ] **ffmpeg 4.x 版本分支 / webview 占位归档 / 非 GUI 可执行 pthread 三项修复的真机复验**：环境对齐报障机（deepin 20.9 + moon 0.1.20261119）
+  - deepin 20.9：Debian 10 基线的发行版，glibc 2.28、系统 ffmpeg 4.x、无 webkit2gtk-4.1。
+  1. 仓库根 `moon build --target native`：期望零失败——ffmpeg_stub.c 不再报 `ch_layout`，链接不再出 `pthread_setspecific` / `wb_*` 未定义
+  2. `moon build examples/audio --target native` 后 `moon run examples/audio`：真机读数，解码出声即 ffmpeg 4.x 分支真链通过
+  3. `moon run examples/browser`：期望 webview 探测报不可用、页面降级占位不崩——wb_* 走占位归档
+  - 判据与回填：`测试文档/测试用例.md` AU / VD / BR 对应条目按平台标读数；通过后从本条删除并回写 roadmap 状态 ✅
+
 ## mng 工具链复验·用户执行
 
 - [ ] **mngui 向导壳**：`moon install ./tools/native-gui-tools/mng && moon install ./tools/native-gui-tools/mngui` 后裸 `mng`：

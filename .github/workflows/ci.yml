@@ -344,7 +344,8 @@ jobs:
         run: moon check
 
       # 降级判定三条(全绿只是底线,还要证明「真的走了降级」而不是碰巧没炸):
-      # 1. prebuild stderr 有「已降级占位桩」——占位归档真编了;
+      # 1. prebuild stderr 有 "degraded to placeholder stub"——占位归档真编了
+      #    (prebuild 诊断已全英文,判定词同步);
       # 2. 绘制类用例按守卫跳过(text: skip [需真后端])——探针诚实化生效;
       # 3. 单调/约束类用例照跑全过——回退估算接住了布局。
       - name: 单元测试(占位降级形态,19 包全绿 + 降级口径三判定)
@@ -363,7 +364,7 @@ jobs:
             exit 1
           fi
           grep -aE "Total tests" /tmp/mt.out | tail -1
-          grep -aq "已降级占位桩" /tmp/mt.out || {
+          grep -aq "degraded to placeholder stub" /tmp/mt.out || {
             echo "::error::没看到占位降级提示——镜像意外装上了开发包或 prebuild 分支失守"
             exit 1
           }
@@ -550,7 +551,7 @@ jobs:
           echo "框架齐备: Cocoa/CoreGraphics/CoreText/ImageIO/WebKit/Carbon/IOKit"
 
       # macOS 原生桩的编译门禁:与 prebuild 完全同一串 clang 旗标(去掉 -c/-o,
-      # 改 -fsyntax-only),四个桩逐个过。放在最前面是因为 moon check 不编这些
+      # 改 -fsyntax-only),七个桩逐个过。放在最前面是因为 moon check 不编这些
       # 桩——Objective-C 的形态错(selector 不存在之类)只有真编一遍才暴露,
       # 让它在三十秒里直说,不用等 moon test 链接期炸一堆 undefined symbols。
       - name: macOS 原生桩编译门禁(clang 逐桩语法检查)
@@ -576,13 +577,16 @@ jobs:
           gate text/stub.c WM_STUB_MAC
           # webview 已出成独立模块（gui/web 不复存在），mac 支的桩在模块里受同一道门禁。
           gate ../modules/gui-webview/webview/webkit_stub.c WB_HAVE_WKWEBVIEW
+          # 占位档是 Linux 缺 webkit 开发包 / win 桩归档时 prebuild 的下发形态
+          # (-DWB_PLACEHOLDER 专编),纯 C 分支在 mac 腿同样语法回证。
+          gate ../modules/gui-webview/webview/webkit_stub.c WB_PLACEHOLDER c
           # sys 桩是纯 C(moon native-stub 自编),但 __APPLE__ 分支里那些
           # CoreGraphics 口同样在新 SDK 上被动过,一并做语法检查。
           gate sys/sys_stub.c "" c
           # inspector 桩同口径纯 C 语法检查(POSIX 套接字臂;Windows 管道臂住
           # win/stub.c 的 _WIN32 分支,由 CI Windows 腿回证,本地不编)。
           gate inspector/stub.c "" c
-          echo "六个 macOS 桩全部编译通过"
+          echo "七个 macOS 桩全部编译通过"
 
       # 新装 runner 的注册表索引里查不到 prowk/moonsqlitefile 与 mizchi/markdown
       # (三平台同一个报错: module was not found in the registry),先刷索引。

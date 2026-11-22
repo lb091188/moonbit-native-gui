@@ -6,3 +6,14 @@ import {
   "NoahLiu/yoga-mbt/src",
   "moonbitlang/core/env",
 }
+
+// -lpthread：本包不吃 prebuild 的系统库尾巴（GUI 链已带），MoonBit 运行时的
+// mimalloc 引用 pthread 一族；glibc 2.34 以前 pthread 是独立库，缺它必断链
+// （deepin 20.9 实测），2.34 起并进 libc，多传无害。
+options(
+  link: {
+    "native": {
+      "cc-link-flags": "-lpthread",
+    },
+  },
+)

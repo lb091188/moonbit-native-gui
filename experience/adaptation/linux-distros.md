@@ -19,6 +19,12 @@
     - 时间：2026-10-28
 - **`MOON_WORK=off` 吃的是发布归档，prebuild 脚本也在其中：仓库修好的脚本要重新发包才到消费方**：同一台机器同一句命令，workspace 模式——默认——走本地工作区，五个 prebuild 全过、进到编译；加 `MOON_WORK=off` 后解析注册表 `NoahLiu/native-gui@0.2.0`，同一处 `TypeError: unlink() got an unexpected keyword argument 'missing_ok'` 又回来了——报错的 `scripts/prebuild.py` 是 `.mooncakes` 里 0.2.0 归档那份，改仓库不动注册表。与「已发布包迁不动」同一条规律，见上文 mooncakes 构建器条：**prebuild 脚本随包发布，属对外 API 面的一部分，改了就是一次版本发布**，不能指望消费方拉 master。判据：报错路径里的模块带 `@<版本>` 且写着 `(local ...)` 之外，先看是不是 `.mooncakes` 下的归档。取证，本机实测：`cd examples/hello && MOON_WORK=off moon build --target native` 之后，`grep -n missing_ok examples/hello/.mooncakes/NoahLiu/native-gui/scripts/prebuild.py` 仍打出 `96:` 与 `147:` 两处——与工作区修好的那份行号一致，即 deepin 那台机器报的 `line 96` 就是这份归档。
   - 时间：2026-10-28，deepin 20 同机对照实测
+- **deepin 20.9 二轮实测（moon 0.1.20261119）：`SYS_pidfd_open` 墙已移，本轮修的是库侧三条编译/链接缺口**：同一台 deepin 20.9、同一版 moon，runtime C 编过——上轮的 `SYS_pidfd_open` 地板随 moon 更新移除；构建推进到链接层，露出三条。①ffmpeg 桩按 5.x API 写（`ch_layout`/`swr_alloc_set_opts2`），系统 ffmpeg 4.x 无此成员——桩按 `LIBAVCODEC_VERSION_MAJOR >= 59` 分两支，4.x 走 `channel_layout`/`swr_alloc_set_opts`；②非 GUI 可执行链接行无 `-lpthread`（glibc 2.34 前 pthread 是独立库），libmoonbitrun.o 里 mimalloc 的 `pthread_setspecific` 一族全裸——GUI 链 prebuild 系统库尾巴一直带着它（gui/scripts/prebuild.mbtx 的 sys_libs），非 GUI exe 包（envprobe、yoga bench、i18n_cli、icon_convert）在各自 `moon.pkg` 补 `cc-link-flags`；③`wb_*` 全量未定义——`webkit_stub.c` 占位分支的进入条件是「非 linux/win/mac」，Linux 上探测失败后 prebuild 只 `err()` 返回空 link_configs，原注释声称「native-stub 无宏编译已给出占位符号」实为空翻译单元——修法：prebuild 探测失败改发 `-DWB_PLACEHOLDER` 专编占位归档，与真实现归档互斥（native-stub 无宏编译保持空 TU 防双定义）。
+  - 来源：deepin 20.9 报障截图逐行核对（1920×5920 长图切片放大读数）。
+  - 残余地板：`~/.moon/lib/runtime/thread_pool.c` 用 `posix_spawn_file_actions_addchdir_np`（glibc 2.29+ 符号），2.28 编译仅警告；只有真用到运行时线程池的 exe 链接面会撞——本轮失败目标里未现（线程池代码被 gc-section 裁掉）。自救：给该文件补 `#define posix_spawn_file_actions_addchdir_np(...) ENOSYS`，moon 升级覆盖后重打，未实测。
+  - 平台状态：🚧已合入待真机——三项修复待报障机复验，ffmpeg 4.x 真解码与 webview 占位降级的真机读数按 `测试文档/测试用例.md` AU/VD/BR 回填。
+- **`cc-link-flags` 挂在无 `pkgtype` 的库包上，moon 整 workspace 构建会把它当 exe 链接**：给 insp/inst/proc 三个库包挂 `cc-link-flags: -lpthread` 后，`moon build`（无包参数）给它们生成 `__moonbit_link_core__` 胶水并链 `<pkg>.exe`，`_main` 未定义直接断——mac 本地与 natigui-linux 容器同刻复现，回退即愈。定案：**链接旗标只挂 exe 包（带 `pkgtype(kind: "executable")`）或走 prebuild 的 link_configs 下发**；库包的 pthread 需求由消费方 exe 覆盖——GUI 链尾巴已带，纯 CLI 消费方各自在包里补。
+  - 时间：2026-11-22，本地 mac + natigui-linux 容器双读数。
 
 ### 发行版
 

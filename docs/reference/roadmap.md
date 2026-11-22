@@ -57,8 +57,8 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
   - 发行版：一套打包好的完整 Linux 系统，如 deepin、Ubuntu。
   - Ubuntu 桌面环境：XFCE / KDE / GNOME / Cinnamon，四款常见 Linux 桌面环境。
   - GTK3：Linux 常用的界面工具库，本仓 Linux 侧基于它。
-  - deepin 20：构建链已跑通到编译，墙在 MoonBit 工具链 runtime 的系统调用兼容性；坑与自救见[构建与运行](../guide/build.md)「低版本发行版」一节，不再占测试承诺
-    - 时间：2026-10-28 首测后**移出支持目标**。
+  - deepin 20：构建链三项库侧缺口已修 🚧——ffmpeg 4.x 版本分支 / webview 占位归档下发 / 非 GUI 可执行 pthread 旗标，2026-11-22 二轮实测露出并修复，待报障机真机复验；残余工具链地板与坑自救见[构建与运行](../guide/build.md)「低版本发行版」一节，不再占测试承诺
+    - 时间：2026-10-28 首测后**移出支持目标**；2026-11-22 二轮补齐库侧缺口。
 
 ## 已实现
 

@@ -154,9 +154,10 @@ do_linux() {
 # ---------------------------------------------------------------- bare 腿
 do_bare() {
   note "bare 腿(company 无 GTK 裸容器 natigui-bare)"
-  # CI linux-bare 判定三件:全绿 + stderr 有「已降级占位桩」+ 绘制类 skip [需真后端]
+  # CI linux-bare 判定三件:全绿 + stderr 有「degraded to placeholder stub」+ 绘制类 skip [需真后端]
+  # (prebuild 诊断已全英文,同批对齐 ci.yml linux-bare 的 grep)
   ssh -o BatchMode=yes "$COMPANY_HOST" \
-    "docker exec natigui-bare bash -c 'cd /work/repo/gui && dbus-run-session -- moon test $GUI_TEST_PKGS' > /tmp/bare.out 2>&1; code=\$?; grep -aq \"已降级占位桩\" /tmp/bare.out || exit 2; grep -aq \"skip \\[需真后端\\]\" /tmp/bare.out || exit 3; tail -1 /tmp/bare.out; exit \$code" \
+    "docker exec natigui-bare bash -c 'cd /work/repo/gui && dbus-run-session -- moon test $GUI_TEST_PKGS' > /tmp/bare.out 2>&1; code=\$?; grep -aq \"degraded to placeholder stub\" /tmp/bare.out || exit 2; grep -aq \"skip \\[需真后端\\]\" /tmp/bare.out || exit 3; tail -1 /tmp/bare.out; exit \$code" \
     > /tmp/lc-bare.log 2>&1 \
     && ok "bare:占位降级三判定(全绿+占位桩+真后端跳过)" || { bad "bare:占位降级三判定(全绿+占位桩+真后端跳过)"; tail -8 /tmp/lc-bare.log; }
 }
