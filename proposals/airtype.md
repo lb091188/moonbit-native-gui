@@ -1,9 +1,9 @@
-# moonboard：手机扫码投字应用
+# airtype：手机扫码投字应用
 
-> 状态：已规划（2026-11-22 拍板），未动工。
+> 状态：施工中（2026-11-22 定名 airtype，批 1 起动工）。
 > 起因：手机往电脑打字要借聊天软件或传文件中转；做一个常驻小应用，电脑起服务出二维码，手机扫码进网页打字，发送后直接打进电脑当前聚焦的输入框。
 > 决策（2026-11-22 用户拍板三项）：
-> - 应用本体进本仓库新目录 `apps/moonboard/`，落位判据同步加行。
+> - 应用本体进本仓库新目录 `apps/airtype/`，落位判据同步加行。
 > - 上屏注入不抽独立模块，收进 gui 库 `gui/sys`，与剪贴板、托盘同族——它是桌面输入领域的系统能力。
 > - 平台范围：mac 先行，linux X11 随后一批；Windows 不在本期。
 > - 依赖口径更新（2026-11-22 二次调查）：`moonbitlang/async` 已并入工具链自带的 `moonbitlang/core/async`，改吃 core 版免注册库依赖，签名以工具链 mbti 为准。
@@ -17,7 +17,7 @@
 | 二维码 | `allenli178/moon-qrcode` 纯 MoonBit 编码器，`size/get/modules` 拿点阵自绘进画布 | 现成 |
 | 应用界面 | native-gui 窗口 | 现成 |
 | 网页 | 内嵌静态 HTML，输入框 + WS 发送 | 小活 |
-| 局域网地址 | async UDP connect 取出口 IP，兜底 getifaddrs 桩 | 小活 |
+| 局域网地址 | async UDP connect 取出口 IP，无路由时 UI 报无网络；getifaddrs 兜底后续批次 | 小活 |
 | 上屏注入 | gui/sys 新能力，mac 走 CGEventPost | 新平台工作 |
 
 - WebSocket：浏览器与服务器之间的长连接通道，建一次连着不停，双向随时发消息。
@@ -29,7 +29,7 @@
 ## 2. 落位与模块
 
 - gui 库：`gui/sys` 新增文本注入 `inject.mbt` 与桩臂，照剪贴板同族模式；链接参数进 `scripts/prebuild` 钩子。
-- 应用：`apps/moonboard/` 独立模块 `NoahLiu/native-gui-apps-moonboard`，注册进 `moon.work`。
+- 应用：`apps/airtype/` 独立模块 `NoahLiu/native-gui-apps-airtype`，注册进 `moon.work`。
 - `experience/placement.md` 加 `apps/<name>/` 行：独立应用模块，收产品级应用，不收示例；判据同 examples——依赖隔离靠模块。
 - 依赖：`NoahLiu/native-gui`、`allenli178/moon-qrcode`；异步与网络能力吃工具链自带 `moonbitlang/core/async`，零注册库依赖。
 
@@ -52,7 +52,7 @@
 - 网页：内嵌 HTML，输入框 + 发送按钮 + 连接状态；WS 文本消息，服务端回执上屏成功或失败。
 - 安全：URL 路径带随机 token，WS 握手校验，同网段无 token 连不上；明文 HTTP，HTTPS 不做——自签证书在手机端要手动信任，体验差。
 - 二维码：编码 `http://局域网IP:端口/token`，点阵画进画布。
-- 局域网 IP：UDP connect 出口 IP 为主，无外网环境 getifaddrs 兜底。
+- 局域网 IP：UDP connect 出口 IP 为主（8.8.8.8 失败试 114.114.114.114），都失败 UI 报「无网络」。
 
 - token：一次生成的随机口令字符串，拼在网址里当门禁。
 - spike：动工前的小段试错编码，只为验证一条路走不走得通。
@@ -70,6 +70,5 @@
 - mac 密码框按系统设计不收合成事件，注入打不进，列明边界。
 - core/async 签名随并入 core 有微调——`run_forever` 处理器改收 `RequestHeader`，实装以工具链 mbti 为准。
 - 外部循环适配层若遇平台泵语义边角，回落既有帧泵钩子表 200ms 轮询搭车，响应略增、对外行为不变。
-- 局域网无外网时 UDP 出口 IP 技巧失效，getifaddrs 兜底。
+- 局域网无外网时 UDP 出口 IP 技巧失效，UI 显式报「无网络」；getifaddrs 兜底推迟到后续批次（2026-11-22 定名批同步）。
 - 手机浏览器后台回收标签后需刷新重连，页面带自动重连。
-- 应用名 moonboard 为暂定，施工前可改。

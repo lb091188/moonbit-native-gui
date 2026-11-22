@@ -3550,3 +3550,50 @@ void wm_screen_tint_apply(int32_t percent, int32_t *ok) {
   }
 }
 #endif
+
+// ---------------------------------------------------------------------------
+// 文本注入（对外打字）：mac 臂 CGEvent 键盘事件挂 UTF-16 串投进当前聚焦的
+// 输入框。分片在 MoonBit 侧完成（每片至多 20 单元、代理对不劈），这里单片
+// 一投。Windows（SendInput）与 Linux（XTest）本期未做，占位返 0。
+// ---------------------------------------------------------------------------
+
+// units 是 UTF-16LE 字节串，len 是 UTF-16 单元数（不是字节数）。
+int32_t yue_sys_inject_text(const char *units, int32_t len) {
+#if defined(__APPLE__)
+  if (units == NULL || len <= 0 || len > 21) {
+    return 0;
+  }
+  UniChar buf[21];
+  memcpy(buf, units, (size_t)len * sizeof(UniChar));
+  CGEventSourceRef src =
+      CGEventSourceCreate(kCGEventSourceStateCombinedSessionState);
+  if (src == NULL) {
+    return 0;
+  }
+  CGEventRef down = CGEventCreateKeyboardEvent(src, 0, true);
+  CGEventRef up = CGEventCreateKeyboardEvent(src, 0, false);
+  if (down == NULL || up == NULL) {
+    if (down != NULL) {
+      CFRelease(down);
+    }
+    if (up != NULL) {
+      CFRelease(up);
+    }
+    CFRelease(src);
+    return 0;
+  }
+  // down/up 两事件挂同一串：部分接收方（输入法、游戏输入）要成对才认字符
+  CGEventKeyboardSetUnicodeString(down, (UniCharCount)len, buf);
+  CGEventKeyboardSetUnicodeString(up, (UniCharCount)len, buf);
+  CGEventPost(kCGSessionEventTap, down);
+  CGEventPost(kCGSessionEventTap, up);
+  CFRelease(down);
+  CFRelease(up);
+  CFRelease(src);
+  return 1;
+#else
+  (void)units;
+  (void)len;
+  return 0;
+#endif
+}

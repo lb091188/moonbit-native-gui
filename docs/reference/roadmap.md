@@ -653,10 +653,10 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
 ### 系统能力
 
 - ⏳ **显示器「首选档」**：`CGDisplayModeIsPreferred` 已不在 SDK，需找公开替代信号
-- ⏳ **文本注入**：把任意文本投进系统当前聚焦的输入框，moonboard 应用与第三方应用共用
+- ⏳ **文本注入**：把任意文本投进系统当前聚焦的输入框，airtype 应用与第三方应用共用
   - 收 `gui/sys`，与剪贴板同族；mac CGEventPost 先行，linux X11 随批，Windows 不在本期
   - mac 需辅助功能授权，门面带权限查询入口；密码框按系统设计不收注入
-  - 定案见 proposals/moonboard.md
+  - 定案见 proposals/airtype.md
 
 ### 媒体
 
@@ -774,8 +774,8 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
 
 ### 应用
 
-- ⏳ **moonboard 手机投字应用**：电脑起服务出二维码，手机扫码进网页打字，发送后文本注入电脑当前聚焦输入框上屏
-  - 定案见 proposals/moonboard.md；独立模块 `apps/moonboard/`，落位判据随批加行
+- ⏳ **airtype 手机投字应用**：电脑起服务出二维码，手机扫码进网页打字，发送后文本注入电脑当前聚焦输入框上屏
+  - 定案见 proposals/airtype.md；独立模块 `apps/airtype/`，落位判据随批加行
   - 服务端用工具链自带 moonbitlang/core/async 的 HTTP + WebSocket，外部事件循环薄适配挂主线程帧泵；二维码 moon-qrcode 点阵自绘
   - 平台：mac 先行，linux X11 随批，Windows 不在本期
   - 局域网明文 HTTP，网址带 token 防同网段陌生人蹭输入；HTTPS 不做

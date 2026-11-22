@@ -199,6 +199,13 @@
 
 ## 开发待办
 
+- [ ] **airtype 手机投字应用·mac 全链**：方案见 [proposals/airtype.md](proposals/airtype.md)，四批施工
+  - 批 1 🚧：gui/sys 文本注入 mac 臂（inject 门面 + CGEvent 桩 + 分片白盒）；验证 `moon check` + `moon test sys` 零警告、clang 语法门禁
+  - 批 2 ⏳：apps/airtype 应用骨架（placement/AGENTS 目录行 + 模块注册 + 窗口与二维码自绘）；验证 `moon build apps/airtype --target native` + 用户开窗观感
+  - 批 3 ⏳：外部循环等待拆分原语 + airtype 外部循环适配与 WS 投字服务；验证真机扫码发字上屏清单·用户执行
+  - 批 4 ⏳：权限引导、测试用例 AT- 章、docs 中英文档、CI mac 腿点名；验证文档站构建 + 索引守卫
+  - airtype：手机扫码进网页打字、发送后打进电脑聚焦框的本仓独立应用。
+
 - [ ] **环境判定库 native-env 真机矩阵**：执行者：用户执行——`cd examples/envprobe && moon run main` 按平台各一遍，逐条对 `测试文档/测试用例.md` 的 EP-1.1～1.7
   - 已验 2026-11-21 第一轮：mac 本机 EP-1.1（裸机 / Metal Hardware）；company Linux 容器 EP-1.4（docker 命中、宿主裸机、无渲染节点 Software）——本条真机抓出容器信号漏进 VM 判定一 bug 已修
   - 已验 2026-11-21 第二轮：company win10 KVM EP-1.3——品牌从 enlightenments 漂移的 hyperv 修正为 bochs，`bios_vendor` 信号补进；库测 27/27；EP-1.6 两遍输出一致 PASS；company 宿主 EP-1.5 半边（裸机 / nvidia Hardware / TTY / 修复后零信号，与 systemd-detect-virt 双 none 一致）；home 宿主 EP-1.5 半边（裸机 / i915 Hardware / 零信号）；home ubuntu-24.04、ubuntu-26.04、kubuntu-24.04 三台 KVM VM（qemu 双硬信号 + mac_oui，GPU Software）——第二轮真机抓出 pidns 常量抄成 IPC inode 与 virbr0 qemu OUI 混信号两 bug 已修，Windows SMBIOS 四通路全断加 HardwareConfig 兜底一缺陷已补

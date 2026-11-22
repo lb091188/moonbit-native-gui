@@ -4,6 +4,7 @@
 
 import {
   "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/encoding/utf16",
   "moonbitlang/core/math",
   "moonbitlang/core/env",
   "prowk/moonsqlitefile",
