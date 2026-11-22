@@ -56,12 +56,18 @@ extern "c" fn wm_event(id : Int64) -> Int32 = "wm_event"
 extern "c" fn wm_focus_owner(id : Int64) -> Int32 = "wm_focus_owner"
 
 ///|
+/// 贴帧。`dx/dy/dw/dh` 是本帧脏区（窗口逻辑坐标；负值 = 整窗）——GTK/Win32
+/// 据此把贴帧裁到条带，滚动帧少一整窗重贴；mac 的 Metal 上屏恒整帧，忽略。
 #borrow(rgba)
 extern "c" fn wm_present(
   id : Int64,
   rgba : FixedArray[Byte],
   width : Int32,
   height : Int32,
+  dx : Int32,
+  dy : Int32,
+  dw : Int32,
+  dh : Int32,
 ) -> Unit = "wm_present"
 
 ///|

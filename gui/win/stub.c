@@ -1682,7 +1682,8 @@ static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
 
 // 与 GTK 分支同一条修复：present 的像素必须拷进桩自己的缓冲——贴像素在
 // 下一次 WM_PAINT 里，那之间 MoonBit 侧那块局部 Bitmap 可能已被 GC 回收。
-void wm_present(int64_t id, const unsigned char *rgba, int width, int height) {
+void wm_present(int64_t id, const unsigned char *rgba, int width, int height,
+                int dx, int dy, int dw, int dh) {
   if (id <= 0 || id >= WM_MAX_WINDOWS) {
     return;
   }
@@ -1720,7 +1721,18 @@ void wm_present(int64_t id, const unsigned char *rgba, int width, int height) {
     wm_popup_materialize(w);
     return;
   }
-  InvalidateRect(w->hwnd, NULL, FALSE);
+  // 脏区跟随（滚动帧只滚视口条带）：InvalidateRect 收到子矩形，WM_PAINT 的
+  // 贴帧就只合成本帧变化的区域，GDI 端整窗 blit 变条带 blit
+  if (dx >= 0 && dw > 0 && dh > 0) {
+    RECT r;
+    r.left = wm_physical_of(w->hwnd, dx);
+    r.top = wm_physical_of(w->hwnd, dy);
+    r.right = wm_physical_of(w->hwnd, dx + dw);
+    r.bottom = wm_physical_of(w->hwnd, dy + dh);
+    InvalidateRect(w->hwnd, &r, FALSE);
+  } else {
+    InvalidateRect(w->hwnd, NULL, FALSE);
+  }
   wm_popup_materialize(w);
 }
 
@@ -6674,7 +6686,8 @@ static void wm_store_frame(WmWindow *w, const unsigned char *rgba, int width,
   w->pending_h = height;
 }
 
-void wm_present(int64_t id, const unsigned char *rgba, int width, int height) {
+void wm_present(int64_t id, const unsigned char *rgba, int width, int height,
+                int dx, int dy, int dw, int dh) {
   if (id <= 0 || id >= WM_MAX_WINDOWS) {
     return;
   }
@@ -6695,7 +6708,13 @@ void wm_present(int64_t id, const unsigned char *rgba, int width, int height) {
     wm_popup_materialize(w);
     return;
   }
-  gtk_widget_queue_draw(w->area);
+  // 脏区跟随（滚动帧只贴视口条带）：draw 回调的 cairo 自带 damage 裁剪，
+  // queue_draw_area 比整窗 queue_draw 少一整窗的 cairo 重贴
+  if (dx >= 0 && dw > 0 && dh > 0) {
+    gtk_widget_queue_draw_area(w->area, dx, dy, dw, dh);
+  } else {
+    gtk_widget_queue_draw(w->area);
+  }
   // draw 信号要主循环迭代才派发，而本栈的泵只在**下一拍 wait** 里 pump、且
   // 仅 fd 就绪才跑迭代——timer 到期/poll 超时那拍 ready=0 不 pump，帧就一直
   // 躺在队列里等下一个 X 事件（真机症状：点击后数字 ~1s 才跳、键盘回显停在
@@ -10942,7 +10961,12 @@ static int wm_l1_try(WMState *s, const unsigned char *rgba, int bw, int bh) {
 
 // present：把帧拷进本层缓冲再请重画（真正的贴像素在下一次 drawRect:，
 // 那时窗口与数据都一定还活着——与 GTK 支同一条实测结论）。
-void wm_present(int64_t id, const unsigned char *rgba, int width, int height) {
+void wm_present(int64_t id, const unsigned char *rgba, int width, int height,
+                int dx, int dy, int dw, int dh) {
+  (void)dx;
+  (void)dy;
+  (void)dw;
+  (void)dh;
   @autoreleasepool {
     WMState *s = wm_state(id);
     if (s == nil || rgba == NULL || width < 1 || height < 1) {
@@ -14020,11 +14044,16 @@ int32_t wm_ev_axis(int64_t id) { (void)id; return 0; }
 double wm_ev_button_f(int64_t id) { (void)id; return 0.0; }
 double wm_ev_axis_f(int64_t id) { (void)id; return 0.0; }
 
-void wm_present(int64_t id, const unsigned char *rgba, int width, int height) {
+void wm_present(int64_t id, const unsigned char *rgba, int width, int height,
+                int dx, int dy, int dw, int dh) {
   (void)id;
   (void)rgba;
   (void)width;
   (void)height;
+  (void)dx;
+  (void)dy;
+  (void)dw;
+  (void)dh;
 }
 
 void wm_close(int64_t id) {

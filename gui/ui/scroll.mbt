@@ -287,10 +287,12 @@ pub fn ScrollState::scroll_by(self : ScrollState, dy : Double) -> Bool {
 }
 
 ///|
-/// 滚动动画是否启用：延时通道已装（真机宿主）且 GPU 为硬件档。CPU 档
-/// （VM/容器/无 GPU）按分档契约关闭：滚动瞬时落位，触边也不回弹。
+/// 滚动动画是否启用：延时通道已装（真机宿主）即开。2026-11-22 契约变更——
+/// 原口径 CPU 档（VM/容器/软渲染）瞬时落位、触边不回弹，桌面 Linux 软渲染
+/// 因此没有惯性手感；现改为全档开（弹簧按真实时间积分，帧率随渲染档位
+/// 自然伸缩）。无头测试不受影响：无宿主时延时通道缺席，仍是即时落位。
 fn anim_ready() -> Bool {
-  @shell.timer_channel_ready() && @env.gpu_tier() == @env.GpuTier::Hardware
+  @shell.timer_channel_ready()
 }
 
 ///|

@@ -293,13 +293,19 @@ pub fn Window::virtual_(width : Int32, height : Int32) -> Window {
 ///|
 /// 把 RGBA 缓冲贴到窗口。缓冲必须是 `width*height*4` 字节、逐行无填充，
 /// 即 `render` 的 Bitmap.data；字节序换算是后端的事。
+/// `dx/dy/dw/dh` 是本帧脏区（窗口逻辑坐标；负值 = 整窗）——平台把贴帧裁到
+/// 脏区，滚动帧只贴视口条带；拿不准就传负值走整窗。
 pub fn Window::present(
   self : Window,
   rgba : FixedArray[Byte],
   width : Int32,
   height : Int32,
+  dx : Int32,
+  dy : Int32,
+  dw : Int32,
+  dh : Int32,
 ) -> Unit {
-  wm_present(self.id, rgba, width, height)
+  wm_present(self.id, rgba, width, height, dx, dy, dw, dh)
 }
 
 ///|

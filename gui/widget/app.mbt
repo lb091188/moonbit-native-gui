@@ -1442,6 +1442,11 @@ let layout_log_last_w : Ref[Int32] = Ref(0)
 let strip_hits : Ref[Int32] = Ref(0)
 
 ///|
+/// NATIVEGUI_PROF=1 的周期读数：上次打印的时刻与 a11y 对账的上次时刻。
+let prof_log_last : Ref[Int64] = Ref(0)
+let a11y_sync_last : Ref[Int64] = Ref(0)
+
+///|
 /// 条带快路径的上一帧快照缓冲（进程级复用）：每帧 new 一张 MB 级 FixedArray
 /// 会走大块 malloc/free，连续动画下是实打实的抖动源；同尺寸直接 blit 覆盖。
 let g_strip_snapshot : Ref[@render.Bitmap?] = Ref(None)
@@ -1525,6 +1530,12 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   }
   let p = @render.Painter::new(bm)
   p.scale(sc, sc)
+  // 本帧脏区（窗口逻辑坐标，已与窗口边界求交）：随 present 下传，平台把贴帧
+  // 裁到脏区——滚动帧只贴视口条带，GTK/Win32 各省一整窗重贴
+  let dmg_x = Ref(-1)
+  let dmg_y = Ref(-1)
+  let dmg_w = Ref(-1)
+  let dmg_h = Ref(-1)
   match clip {
     None => ()
     Some(r) => {
@@ -1537,6 +1548,10 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
       let y1 = if r.y + r.h > hd { hd } else { r.y + r.h }
       if x1 > x0 && y1 > y0 {
         p.clip_rect(x0, y0, x1 - x0, y1 - y0)
+        dmg_x.val = x0.round().to_int()
+        dmg_y.val = y0.round().to_int()
+        dmg_w.val = (x1 - x0).round().to_int()
+        dmg_h.val = (y1 - y0).round().to_int()
       } else {
         return
       }
@@ -1620,8 +1635,14 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   // 并集读回混合），present 读到的才是完整帧
   @text.flush_pending()
   p.end()
-  // 帧尾语义对账：重扫整树快照，排在上屏前（读屏拿到的矩形必须是这一帧的）
-  let _ = a11y_frame_sync(self.root)
+  // 帧尾语义对账：重扫整树快照，排在上屏前（读屏拿到的矩形必须是这一帧的）。
+  // 滚动帧降频：惯性/回弹的每拍只是条带位移，读屏不需要逐帧的矩形刷新——
+  // 150ms 对账一次，滚动停下后由随后的非滚动帧把终态补齐
+  let scroll_frame = scroll is Some(_)
+  if !scroll_frame || @win.now_ms() - a11y_sync_last.val >= 150 {
+    let _ = a11y_frame_sync(self.root)
+    a11y_sync_last.val = @win.now_ms()
+  }
   // 读屏动作通道（UIA Invoke/Toggle/Expand / AT-SPI DoAction / AX press）：
   // 抽干并合成点击，会话状态接回去
   let act = a11y_pump_actions(
@@ -1638,7 +1659,15 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   @win.a11y_set_window_origin(wox.to_double(), woy.to_double())
   @shell.atspi_tick()
   let t2 = @win.now_ms()
-  self.session.window.present(bm.data, bm.width, bm.height)
+  self.session.window.present(
+    bm.data,
+    bm.width,
+    bm.height,
+    dmg_x.val,
+    dmg_y.val,
+    dmg_w.val,
+    dmg_h.val,
+  )
   // 最近一帧位图登记（inspector shot 用）：canvas 是按窗复用的缓冲，present
   // 后内容就是本帧完整体，进程级记引用即可（只读，不改写）
   self.frame_register(bm)
@@ -1648,6 +1677,19 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   let t3 = @win.now_ms()
   // 分段账本：位图分配计入 total 不计入单段，避免把「分配」混进「布局」
   prof_record(t1 - t0, t2 - t1, t3 - t2, t3 - t0)
+  // 诊断读数（NATIVEGUI_PROF=1）：每 2s 打一行窗口帧账本并清账——布局/绘制/
+  // 上屏三段占比、条带命中数，滚动卡顿归因用
+  if @env.get_env_var("NATIVEGUI_PROF") is Some(_) && t3 - prof_log_last.val >= 2000 {
+    println(
+      "PROF " +
+      @base.paint_profile_summary() +
+      " strip=" +
+      strip_hits.val.to_string(),
+    )
+    @base.paint_profile_reset()
+    strip_hits.val = 0
+    prof_log_last.val = t3
+  }
 }
 
 ///|

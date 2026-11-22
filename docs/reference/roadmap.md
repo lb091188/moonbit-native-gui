@@ -154,6 +154,12 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
   - wgpu 上屏每帧三对象缺失 Release 的原生泄露同批修：mac `leaks` 实测 40 秒 2356 个对象补 Release 后归零，三臂共享
   - 同批配套：`invalidate_id` 查不到 id 改为跳过（离树控件不回退整窗重绘）；演示板 section 首段挂载从构造期 handle 推迟到真 `on_mount`
   - mac 读数：演示板空闲 CPU 21–28% 降到约 0.1%，内存完全走平，原生泄露归零；win 真机读数与三端观感待验（SC-0.4 / SC-0.5）
+- 🚧 **滚动管线减负**：惯性/回弹全档开启 + 贴帧带脏区
+  - 契约变更：CPU 档（容器/软渲染）不再瞬时落位，弹簧全档开——桌面 Linux 软渲染也有顺滑惯性回弹，定案见 experience/design.md「口径记录」第 10 条
+  - `Window::present` 增脏区参数：GTK `queue_draw_area` / Win32 `InvalidateRect(子矩形)` 滚动帧只贴视口条带；mac Metal 恒整帧
+  - 滚动帧的帧尾 a11y 整树对账降频 150ms 一次
+  - `NATIVEGUI_PROF=1` 每 2s 打帧账本（布局/绘制/上屏/条带命中），Linux 滚动卡顿归因用
+  - mac 读数不变差（空闲 0.1% 保持）；Linux markdown 段滚动手感待真机复验（SC-0.6）
 - ✅ **GPU 合成**：独立模块 `modules/gui-gpu`，主包零依赖
   - 定位：可选后端。
   - 构建级下载失败即降级；运行级 dlopen 探测回退 Cairo / 纯光栅
