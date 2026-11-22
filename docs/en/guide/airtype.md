@@ -38,10 +38,11 @@ Without the grant the phone can still connect and send, but the page gets an "in
 
 ## Phone side
 
-The scanned page is an input box plus an action bar pinned above the soft keyboard:
+The scanned page has three zones: a top bar (title left, connection status right), an input area filling all the space in between (long text fully visible), and a single-row action bar.
 
-- "发送" (Send) types the text into the computer's focused input; "⏎ 回车" (Enter) fires a real Enter keypress on the computer — fill and submit are two independent steps, just like a real keyboard.
-- Quick-command chips sit above the bar: one tap sends a preset phrase and optionally follows with Enter — handy for "continue"-style prompts.
+- "发送" (Send) types the text into the computer's focused input; "⏎" fires a real Enter keypress on the computer — fill and submit are two independent steps, just like a real keyboard.
+- Quick-command chips share the row: one tap sends a preset phrase and optionally follows with Enter — handy for "continue"-style prompts.
+- "⛶" toggles fullscreen (supported on Android and desktop browsers; iOS Safari lacks the API, where the button is a no-op).
 - Chips are configured on the computer in the 快捷指令 card, one button per line: `text`, or `label|text|enter(yes/no)`. Edits persist immediately; the phone pulls updates when it returns to the foreground.
 - A 10-second heartbeat detects dead connections; after unlocking the phone the connection recovers within about two seconds, no manual refresh.
 - After the app restarts the token has changed, so rescan.
