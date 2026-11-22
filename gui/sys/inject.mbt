@@ -40,6 +40,29 @@ extern "c" fn ffi_inject_text(units : Bytes, len : Int32) -> Int32 = "yue_sys_in
 extern "c" fn ffi_inject_available() -> Int32 = "yue_sys_inject_available"
 
 ///|
+extern "c" fn ffi_inject_enter() -> Int32 = "yue_sys_inject_enter"
+
+///|
+/// 投一个真实回车键到当前聚焦的输入框——文本上屏后的确认动作（提交对话、
+/// 确认表单）。权限与通道语义同 [inject_text]。
+pub fn inject_press_enter() -> Result[Unit, InjectError] {
+  if !inject_available() {
+    return Err(Unsupported)
+  }
+  if sys_platform() == "macos" {
+    match permission_probe(PermAccessibility) {
+      Ok(PermGranted) => ()
+      _ => return Err(PermissionDenied)
+    }
+  }
+  if ffi_inject_enter() == 1 {
+    Ok(())
+  } else {
+    Err(Failed("回车键投递失败"))
+  }
+}
+
+///|
 /// 当前平台是否有文本注入通道：mac / Windows 恒有；Linux 要 DISPLAY 非空
 /// 且 X11 + Xtst 库都 dlopen 得到（每次调用真实探测，高频场景调用方缓存）。
 pub fn inject_available() -> Bool {

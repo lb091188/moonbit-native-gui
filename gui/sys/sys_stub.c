@@ -3807,6 +3807,71 @@ int32_t yue_sys_inject_text(const char *units, int32_t len) {
 }
 #endif
 
+// 回车键：mac 主回车键码 0x24；Windows VK_RETURN(0x0D) 带扫描码 0x1C；
+// Linux 走与文本同一条改键映射路，挂 XK_Return keysym(0xFF0D)。
+int32_t yue_sys_inject_enter(void) {
+#if defined(__APPLE__)
+  CGEventSourceRef src =
+      CGEventSourceCreate(kCGEventSourceStateCombinedSessionState);
+  if (src == NULL) {
+    return 0;
+  }
+  CGEventRef down = CGEventCreateKeyboardEvent(src, 0x24, true);
+  CGEventRef up = CGEventCreateKeyboardEvent(src, 0x24, false);
+  if (down == NULL || up == NULL) {
+    if (down != NULL) {
+      CFRelease(down);
+    }
+    if (up != NULL) {
+      CFRelease(up);
+    }
+    CFRelease(src);
+    return 0;
+  }
+  CGEventPost(kCGSessionEventTap, down);
+  CGEventPost(kCGSessionEventTap, up);
+  CFRelease(down);
+  CFRelease(up);
+  CFRelease(src);
+  return 1;
+#elif defined(_WIN32)
+  INPUT in[2];
+  memset(in, 0, sizeof(in));
+  in[0].type = INPUT_KEYBOARD;
+  in[0].ki.wVk = VK_RETURN;
+  in[0].ki.wScan = 0x1C;
+  in[1].type = INPUT_KEYBOARD;
+  in[1].ki.wVk = VK_RETURN;
+  in[1].ki.wScan = 0x1C;
+  in[1].ki.dwFlags = KEYEVENTF_KEYUP;
+  return SendInput(2, in, sizeof(INPUT)) == 2;
+#elif defined(__linux__)
+  sys_inject_x11_init();
+  if (!g_inject_x11.ok) {
+    return 0;
+  }
+  void *dpy = g_inject_x11.open_display(NULL);
+  if (dpy == NULL) {
+    return 0;
+  }
+  unsigned code = sys_inject_free_keycode(dpy);
+  if (code == 0) {
+    g_inject_x11.close_display(dpy);
+    return 0;
+  }
+  unsigned long keysym = 0xFF0DUL; // XK_Return
+  g_inject_x11.change_keyboard_mapping(dpy, (int)code, 1, &keysym, 1);
+  g_inject_x11.sync(dpy, 0);
+  g_inject_x11.fake_key(dpy, code, 1, 0);
+  g_inject_x11.fake_key(dpy, code, 0, 0);
+  g_inject_x11.sync(dpy, 0);
+  g_inject_x11.close_display(dpy);
+  return 1;
+#else
+  return 0;
+#endif
+}
+
 // 运行期能力探测：mac / Windows 恒 1；Linux 要 DISPLAY 非空且 X11+Xtst 都
 // dlopen 得到（与 yue_sys_idle_supported 同口径）。
 int32_t yue_sys_inject_available(void) {
