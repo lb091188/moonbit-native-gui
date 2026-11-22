@@ -23,22 +23,26 @@ pub fn[T] when_default_pred(v : T) -> Bool {
 
 ///|
 /// `when`（信号版·单支）：真挂 `then`、假隐藏——不销毁、状态不丢。
+/// 布局幽灵：不建宿主壳，`then` 直接挂进真实父级、显隐打在子 Widget 上——
+/// v-show 的滚动容器 / 弹性子项在父布局里表现得像直接挂载（中间壳的
+/// auto 高度会切断「父级受限高 → 子项收缩」链，滚动容器就此滚不动）。
 pub fn[T] when(
   cond : @base.Signal[T],
   then : @widget.Node,
   pred~ : (T) -> Bool = when_default_pred,
 ) -> @widget.Node {
-  @widget.node_of_new(fn(host : @widget.Widget) -> @widget.Widget {
-    host.kind = "ui-when"
-    let w = (then.mount)(host)
-    w.set_visible(pred(cond.get()))
-    let _ = cond.subscribe(fn(v : T) -> Unit {
-      w.set_visible(pred(v))
-      // 显隐切换只动本支矩形：新旧两态的像素都要进脏区
-      @widget.invalidate_id(w.id)
-    })
-    host
-  })
+  {
+    mount: fn(parent : @widget.Widget) -> @widget.Widget {
+      let w = (then.mount)(parent)
+      w.set_visible(pred(cond.get()))
+      let _ = cond.subscribe(fn(v : T) -> Unit {
+        w.set_visible(pred(v))
+        // 显隐切换只动本支矩形：新旧两态的像素都要进脏区
+        @widget.invalidate_id(w.id)
+      })
+      w
+    },
+  }
 }
 
 ///|

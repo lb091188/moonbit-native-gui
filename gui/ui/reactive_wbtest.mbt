@@ -87,16 +87,16 @@ test "when 单支：真挂假隐不销毁，Store/Signal 都能盯" {
     200.0,
     300.0,
   )
-  let host = kid(root, 0)
-  assert_eq(host.children().length(), 1)
-  assert_true(!host.children()[0].visible)
-  let row_id = host.children()[0].id
+  // 布局幽灵契约：根下直接就是 then 的本体控件
+  let w = kid(root, 0)
+  assert_true(!w.visible)
+  let row_id = w.id
   busy.set(true)
-  assert_true(host.children()[0].visible)
+  assert_true(w.visible)
   busy.set(false)
-  assert_true(!host.children()[0].visible)
+  assert_true(!w.visible)
   // 不销毁：控件还是那一个
-  assert_true(host.children()[0].id == row_id)
+  assert_true(w.id == row_id)
 }
 
 ///|
@@ -119,19 +119,52 @@ test "when_else 双支：两支常驻切显隐，零重建" {
 }
 
 ///|
-test "when：非布尔源用 pred 折算" {
+test "when：非布尔源用 pred 折算（布局幽灵：子件直接挂父级）" {
   let n = @base.Store::new(0)
   let root = mount_root(
     [when(n.signal(), text("有数"), pred=fn(v : Int32) -> Bool { v > 3 })],
     200.0,
     300.0,
   )
-  let host = kid(root, 0)
-  assert_true(!host.children()[0].visible)
+  // 无宿主壳：根下第 0 个子件就是 then 的本体，显隐直接打在它身上
+  let w = kid(root, 0)
+  assert_true(w.kind == "ui-text")
+  assert_true(!w.visible)
   n.set(5)
-  assert_true(host.children()[0].visible)
+  assert_true(w.visible)
   n.set(1)
-  assert_true(!host.children()[0].visible)
+  assert_true(!w.visible)
+}
+
+///|
+test "when：v-show 的滚动容器保有父级受限高（无中间壳切断收缩链）" {
+  let page = @base.Store::new(true)
+  let rows : Array[@widget.Node] = []
+  for i = 0; i < 30; i = i + 1 {
+    rows.push(text("行 " + i.to_string(), font_size=12.0))
+  }
+  let root = mount_root(
+    [
+      when_bool(
+        page.signal(),
+        scroll_view(rows, ScrollState::new(), width=200.0, class=[
+          @style.style(flex=1.0),
+        ]),
+      ),
+    ],
+    200.0,
+    200.0,
+  )
+  root.relayout(200.0, 200.0)
+  // 视口就是根的直接子项：flex 生效于根的受限高，viewport 高 < 内容高
+  let vp = kid(root, 0)
+  assert_true(vp.kind == "ui-scroll-view")
+  let ct = vp.children()[0]
+  assert_true(ct.kind == "ui-scroll-content")
+  assert_true(
+    vp.rect.h <= 200.0 && ct.rect.h > vp.rect.h,
+    msg="视口应受限（\{vp.rect.h}），内容自然高（\{ct.rect.h}）",
+  )
 }
 
 ///|
