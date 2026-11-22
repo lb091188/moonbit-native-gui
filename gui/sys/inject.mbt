@@ -1,8 +1,9 @@
 // 文本注入（对外打字）：把任意文本投进系统当前聚焦的输入框，效果等同真实
-// 键盘敲入。mac 走 CGEvent 键盘事件挂 UTF-16 串（sys_stub.c 的 __APPLE__ 臂
-// 直调 CoreGraphics）；Windows / Linux 本期未做，给 Unsupported。
-// mac 需「辅助功能」授权（复用 permission 族的探测口）；密码框按系统设计
-// 不收合成事件，注入打不进。
+// 键盘敲入。三平台实现：mac 走 CGEvent 键盘事件挂 UTF-16 串；Windows 走
+// SendInput 的 KEYEVENTF_UNICODE；Linux 走 X11 XTest（运行期 dlopen，改键
+// 映射挂 Unicode keysym——Wayland 会话只有 XWayland 应用收得到）。
+// mac 需「辅助功能」授权（复用 permission 族的探测口）；提权目标窗口
+// （管理员进程）与密码框按各系统设计不收注入。
 
 ///|
 pub(all) enum InjectError {
@@ -36,25 +37,32 @@ pub extend InjectError with Show::{to_string, output}
 extern "c" fn ffi_inject_text(units : Bytes, len : Int32) -> Int32 = "yue_sys_inject_text"
 
 ///|
-/// 当前平台是否有文本注入通道。mac 恒有（CGEvent 不挑环境）；其余平台本期
-/// 未做。
+extern "c" fn ffi_inject_available() -> Int32 = "yue_sys_inject_available"
+
+///|
+/// 当前平台是否有文本注入通道：mac / Windows 恒有；Linux 要 DISPLAY 非空
+/// 且 X11 + Xtst 库都 dlopen 得到（每次调用真实探测，高频场景调用方缓存）。
 pub fn inject_available() -> Bool {
-  sys_platform() == "macos"
+  ffi_inject_available() == 1
 }
 
 ///|
 /// 把文本投进系统当前聚焦的输入框。语义：
-/// - 先探「辅助功能」授权，未授给 [PermissionDenied]——弹引导框是应用层
-///   引导流程的事（配合 [permission_ensure] 用），这里只报状态；
+/// - 先探通道，无通道给 [Unsupported]；
+/// - mac 先探「辅助功能」授权，未授给 [PermissionDenied]——弹引导框是应用
+///   层引导流程的事（配合 [permission_ensure] 用），这里只报状态；其余平台
+///   无此概念；
 /// - 文本按 UTF-16 每至多 20 个单元一片投递，代理对不劈开；
 /// - 全部片投递成功给 Ok，任一片失败给 [Failed]。
 pub fn inject_text(text : String) -> Result[Unit, InjectError] {
-  if sys_platform() != "macos" {
+  if !inject_available() {
     return Err(Unsupported)
   }
-  match permission_probe(PermAccessibility) {
-    Ok(PermGranted) => ()
-    _ => return Err(PermissionDenied)
+  if sys_platform() == "macos" {
+    match permission_probe(PermAccessibility) {
+      Ok(PermGranted) => ()
+      _ => return Err(PermissionDenied)
+    }
   }
   if text.length() == 0 {
     return Ok(())
@@ -67,7 +75,7 @@ pub fn inject_text(text : String) -> Result[Unit, InjectError] {
     }
   }
   if failed > 0 {
-    Err(Failed("CGEventPost 失败片数 \{failed}/\{chunks.length()}"))
+    Err(Failed("注入失败片数 \{failed}/\{chunks.length()}"))
   } else {
     Ok(())
   }

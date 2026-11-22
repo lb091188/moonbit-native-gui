@@ -3605,14 +3605,22 @@ void *yue_sys_netif_list(int32_t *ok) {
 }
 
 // ---------------------------------------------------------------------------
-// 文本注入（对外打字）：mac 臂 CGEvent 键盘事件挂 UTF-16 串投进当前聚焦的
-// 输入框。分片在 MoonBit 侧完成（每片至多 20 单元、代理对不劈），这里单片
-// 一投。Windows（SendInput）与 Linux（XTest）本期未做，占位返 0。
+// 文本注入（对外打字）三平台：
+//   macOS     CGEvent 键盘事件挂 UTF-16 串（CoreGraphics 直调）
+//   Windows   SendInput 的 KEYEVENTF_UNICODE（每单元一对 down/up，user32 已链）
+//   Linux     X11 XTest：运行期 dlopen libX11 + libXtst（sys 的 Linux 链接行
+//             只有 pthread/dl/m/stdc++，不绑 X 库——先例 sys_idle_x11）。
+//             语义是「伪造 keycode 按键」，Unicode 走临时改键映射：找一个
+//             当前无 keysym 的空闲 keycode，逐字符 XChangeKeyboardMapping 挂
+//             Unicode keysym（0x01000000 | 码点）再 down/up——xdotool type
+//             同款做法，不动真键映射。Wayland 会话只有 XWayland 应用收得到。
+// 分片在 MoonBit 侧完成（每片至多 20 单元、代理对不劈），这里单片一投。
 // ---------------------------------------------------------------------------
 
+// macOS
+#if defined(__APPLE__)
 // units 是 UTF-16LE 字节串，len 是 UTF-16 单元数（不是字节数）。
 int32_t yue_sys_inject_text(const char *units, int32_t len) {
-#if defined(__APPLE__)
   if (units == NULL || len <= 0 || len > 21) {
     return 0;
   }
@@ -3644,9 +3652,176 @@ int32_t yue_sys_inject_text(const char *units, int32_t len) {
   CFRelease(up);
   CFRelease(src);
   return 1;
+}
+#endif
+
+// Windows
+#if defined(_WIN32)
+int32_t yue_sys_inject_text(const char *units, int32_t len) {
+  if (units == NULL || len <= 0 || len > 21) {
+    return 0;
+  }
+  // 每单元一对 KEYEVENTF_UNICODE down/up；代理对的两个单元各自成事件，
+  // 接收端按 UTF-16 序列重组
+  int total = len * 2;
+  INPUT *in = (INPUT *)calloc((size_t)total, sizeof(INPUT));
+  if (in == NULL) {
+    return 0;
+  }
+  const unsigned char *p = (const unsigned char *)units;
+  for (int i = 0; i < len; i++) {
+    WORD scan = (WORD)(p[2 * i] | (p[2 * i + 1] << 8));
+    INPUT *d = &in[2 * i];
+    INPUT *u = &in[2 * i + 1];
+    d->type = INPUT_KEYBOARD;
+    d->ki.wScan = scan;
+    d->ki.dwFlags = KEYEVENTF_UNICODE;
+    u->type = INPUT_KEYBOARD;
+    u->ki.wScan = scan;
+    u->ki.dwFlags = KEYEVENTF_UNICODE | KEYEVENTF_KEYUP;
+  }
+  UINT sent = SendInput((UINT)total, in, sizeof(INPUT));
+  free(in);
+  return sent == (UINT)total;
+}
+#endif
+
+// Linux（X11 XTest）
+#if defined(__linux__)
+typedef struct {
+  int tried;
+  int ok;
+  void *hx11;
+  void *hxtst;
+  void *(*open_display)(const char *);
+  int (*close_display)(void *);
+  int (*sync)(void *, int);
+  int (*display_keycodes)(void *, int *, int *);
+  unsigned long *(*get_keyboard_mapping)(void *, unsigned int, int, int *);
+  int (*change_keyboard_mapping)(void *, int, int, const unsigned long *, int);
+  int (*fake_key)(void *, unsigned int, int, unsigned long);
+  int (*xfree)(void *);
+} sys_inject_x11_t;
+
+static sys_inject_x11_t g_inject_x11 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+static void sys_inject_x11_init(void) {
+  if (g_inject_x11.tried) {
+    return;
+  }
+  g_inject_x11.tried = 1;
+  // soname 两个候选都试（同 sys_idle_x11 的口径）
+  g_inject_x11.hx11 = dlopen("libX11.so.6", RTLD_LAZY);
+  if (g_inject_x11.hx11 == NULL) {
+    g_inject_x11.hx11 = dlopen("libX11.so", RTLD_LAZY);
+  }
+  g_inject_x11.hxtst = dlopen("libXtst.so.6", RTLD_LAZY);
+  if (g_inject_x11.hxtst == NULL) {
+    g_inject_x11.hxtst = dlopen("libXtst.so", RTLD_LAZY);
+  }
+  if (g_inject_x11.hx11 == NULL || g_inject_x11.hxtst == NULL) {
+    return;
+  }
+  sys_load_sym(&g_inject_x11.open_display, g_inject_x11.hx11, "XOpenDisplay");
+  sys_load_sym(&g_inject_x11.close_display, g_inject_x11.hx11, "XCloseDisplay");
+  sys_load_sym(&g_inject_x11.sync, g_inject_x11.hx11, "XSync");
+  sys_load_sym(&g_inject_x11.display_keycodes, g_inject_x11.hx11,
+               "XDisplayKeycodes");
+  sys_load_sym(&g_inject_x11.get_keyboard_mapping, g_inject_x11.hx11,
+               "XGetKeyboardMapping");
+  sys_load_sym(&g_inject_x11.change_keyboard_mapping, g_inject_x11.hx11,
+               "XChangeKeyboardMapping");
+  sys_load_sym(&g_inject_x11.xfree, g_inject_x11.hx11, "XFree");
+  sys_load_sym(&g_inject_x11.fake_key, g_inject_x11.hxtst, "XTestFakeKeyEvent");
+  if (g_inject_x11.open_display == NULL || g_inject_x11.close_display == NULL ||
+      g_inject_x11.sync == NULL || g_inject_x11.display_keycodes == NULL ||
+      g_inject_x11.get_keyboard_mapping == NULL ||
+      g_inject_x11.change_keyboard_mapping == NULL ||
+      g_inject_x11.xfree == NULL || g_inject_x11.fake_key == NULL) {
+    return;
+  }
+  g_inject_x11.ok = 1;
+}
+
+// 从键码高段往回找当前无 keysym 的空闲键码（避开低端修饰键区）；找不到给 0。
+static unsigned sys_inject_free_keycode(void *dpy) {
+  int min_kc = 0, max_kc = 0;
+  g_inject_x11.display_keycodes(dpy, &min_kc, &max_kc);
+  for (int code = max_kc; code >= min_kc + 8; code--) {
+    int per = 0;
+    unsigned long *syms =
+        g_inject_x11.get_keyboard_mapping(dpy, (unsigned)code, 1, &per);
+    if (syms == NULL) {
+      continue;
+    }
+    int unused = (per == 0 || syms[0] == 0);
+    g_inject_x11.xfree(syms);
+    if (unused) {
+      return (unsigned)code;
+    }
+  }
+  return 0;
+}
+
+int32_t yue_sys_inject_text(const char *units, int32_t len) {
+  if (units == NULL || len <= 0 || len > 21) {
+    return 0;
+  }
+  sys_inject_x11_init();
+  if (!g_inject_x11.ok) {
+    return 0;
+  }
+  void *dpy = g_inject_x11.open_display(NULL);
+  if (dpy == NULL) {
+    return 0;
+  }
+  unsigned code = sys_inject_free_keycode(dpy);
+  if (code == 0) {
+    g_inject_x11.close_display(dpy);
+    return 0;
+  }
+  const unsigned char *p = (const unsigned char *)units;
+  int ok_all = 1;
+  int i = 0;
+  while (i < len) {
+    unsigned u = p[2 * i] | ((unsigned)p[2 * i + 1] << 8);
+    i++;
+    // 代理对合并成码点（MoonBit 侧保证不劈开，这里整对消费）
+    if (u >= 0xD800 && u <= 0xDBFF && i < len) {
+      unsigned lo = p[2 * i] | ((unsigned)p[2 * i + 1] << 8);
+      if (lo >= 0xDC00 && lo <= 0xDFFF) {
+        u = 0x10000 + ((u - 0xD800) << 10) + (lo - 0xDC00);
+        i++;
+      }
+    }
+    // Unicode keysym 统一编码（0x01000000 | 码点），ASCII 段同样有效
+    unsigned long keysym = 0x01000000UL | u;
+    g_inject_x11.change_keyboard_mapping(dpy, (int)code, 1, &keysym, 1);
+    g_inject_x11.sync(dpy, 0);
+    g_inject_x11.fake_key(dpy, code, 1, 0);
+    g_inject_x11.fake_key(dpy, code, 0, 0);
+    g_inject_x11.sync(dpy, 0);
+  }
+  g_inject_x11.close_display(dpy);
+  return ok_all;
+}
+#endif
+
+// 运行期能力探测：mac / Windows 恒 1；Linux 要 DISPLAY 非空且 X11+Xtst 都
+// dlopen 得到（与 yue_sys_idle_supported 同口径）。
+int32_t yue_sys_inject_available(void) {
+#if defined(__APPLE__)
+  return 1;
+#elif defined(_WIN32)
+  return 1;
+#elif defined(__linux__)
+  const char *d = getenv("DISPLAY");
+  if (d == NULL || d[0] == '\0') {
+    return 0;
+  }
+  sys_inject_x11_init();
+  return g_inject_x11.ok;
 #else
-  (void)units;
-  (void)len;
   return 0;
 #endif
 }
