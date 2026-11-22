@@ -35,7 +35,7 @@ fn reset() {
 | 指令 | 作用 | 备注 |
 |---|---|---|
 | `{{ expr }}` | 文本插值 | 表达式是 MoonBit 原样拼接 |
-| `:attr="expr"` | 动态属性 | 落对应 `*_dyn` 入口；引号三式都认（见下） |
+| `:attr="expr"` | 动态属性 | 文本件落 `bind_label` / `bind` 响应式绑定；其余落对应 `*_dyn` 入口；引号三式都认（见下） |
 | `@event="handler"` | 事件 | 接 script 段的函数；未知事件名编译报错 |
 | `v-model="store"` | 双向绑定 | 直传 `@base.Store`，落受控组件的值槽 |
 | `v-if` / `v-else-if` / `v-else` | 结构条件 | 表达式任意；不与 `v-for` 同元素（用容器隔开） |
@@ -47,6 +47,8 @@ fn reset() {
 静态属性按 MoonBit 字面量规则解析透传（`0` / `0.0` / `true` / 串）。
 
 **表达式是 MoonBit 原样拼接**：字符串拼接用插值 `"\{x}"` 或 `{{ }}`，不要写 `"a" + 1`（MoonBit 的 `+` 不拼非串）；上限 = MoonBit 表达式能写什么，类型安全由 `moon check` 全量保住。
+
+**响应源识别**：文本件（`ui-text`）的动态表达式按表达式里的 Store 读取自动接响应式——script 段的 `let` 槽与包级单例（`s_state.get()` 这类 `.get()` 调用形态）都算源，源多个时收进一个 `computed`。动态 `:text` 与 `class` / `wrap` / `ellipsis` 等其他属性可同元素同用，一起折进同一个绑定节点。
 
 ## 组件标签
 

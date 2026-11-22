@@ -593,21 +593,46 @@ fn has_interp(s : String) -> Bool {
 }
 
 ///|
-/// 响应源提取：表达式中出现过的 Store/Signal 槽名（去重、按首现序）。
+/// 响应源提取：表达式中出现过的 Store/Signal 槽名 + `ident.get()` 形态的
+/// 包级 Store（去重、按首现序）。页面上下文单例（包级 `let s_x : Store`）不在
+/// script 槽表里，靠 `.get()` 调用形态识别——误伤（如 `map.get(k)`）无害：
+/// 源数只影响落点选择，订阅本身由 computed 的依赖追踪兜底。
 fn sources_of(e : String, slots : Map[String, SlotKind]) -> Array[String] {
   let a = chars_of(e)
   let seen : Map[String, Bool] = Map([])
   let out : Array[String] = []
+  let push = fn(name : String) -> Unit {
+    if !seen.get_or_default(name, false) {
+      let _ = seen.set(name, true)
+      out.push(name)
+    }
+  }
   scan_idents(a, 0, a.length(), fn(name) {
     match slots.get(name) {
-      Some(KStore) | Some(KSignal) =>
-        if !seen.get_or_default(name, false) {
-          let _ = seen.set(name, true)
-          out.push(name)
-        }
+      Some(KStore) | Some(KSignal) => push(name)
       _ => ()
     }
   })
+  let n = a.length()
+  let mut i = 0
+  while i + 5 <= n {
+    if a[i] == '.' &&
+      a[i + 1] == 'g' &&
+      a[i + 2] == 'e' &&
+      a[i + 3] == 't' &&
+      a[i + 4] == '(' {
+      let mut j = i
+      while j > 0 && is_ident_char(a[j - 1]) {
+        j -= 1
+      }
+      if j < i {
+        push(slice_str(a, j, i))
+      }
+      i += 5
+    } else {
+      i += 1
+    }
+  }
   out
 }
 

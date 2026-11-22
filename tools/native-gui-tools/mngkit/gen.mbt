@@ -248,13 +248,15 @@ fn q(content : String) -> String {
 }
 
 ///|
-/// 文本生成收口：按响应源数量选落点（0→text、1→bind_label/bind、多→computed+bind）。
+/// 文本生成收口：按响应源数量选落点（0→text、1→bind_label/bind、多→computed+bind）；
+/// `extra` 是其余属性（class / wrap 等），插进调用收尾括号前一起折进同一节点。
 fn finish_text(
   ctx : Ctx,
   e : String,
   srcs : Array[String],
   ind : Int32,
   pos : Pos,
+  extra? : Array[(String, Pos)] = [],
 ) -> Array[(String, Pos)] {
   let body = if srcs.length() == 0 {
     "@ui.text(" + e + ")"
@@ -268,7 +270,68 @@ fn finish_text(
   } else {
     "@ui.bind(@base.Signal::computed(fn() { " + e + " }), fn(s) { s })"
   }
-  [(ind_str(ind) + body, pos)]
+  let mut line = ind_str(ind) + body
+  if extra.length() > 0 {
+    let cut = line.length() - 1
+    let tail = StringBuilder()
+    for x in extra {
+      tail.write_string(", ")
+      tail.write_string(x.0)
+    }
+    line = line[:cut].to_owned() + tail.to_string() + ")"
+  }
+  [(line, pos)]
+}
+
+///|
+/// 动态文本节点剩余属性的收集：Plain / Dyn 折成 labelled 参数（class 走
+/// 样式章编译），事件与双向绑定在文本件上无意义直接报错，结构指令此处不收。
+fn text_extra_labeled(
+  ctx : Ctx,
+  attrs : Array[Attr],
+  used2 : Array[Bool],
+) -> Result[Array[(String, Pos)], String] {
+  let out : Array[(String, Pos)] = []
+  for k, a in attrs {
+    if used2[k] {
+      continue
+    }
+    match a.kind {
+      Plain => {
+        used2[k] = true
+        let key = snake(a.name)
+        if key == "class" {
+          if !a.has_value {
+            return Err("\{pos_str(a.pos)}：class 需要类名（class=\"a b\"）")
+          }
+          out.push(
+            ("class=" + class_expr(ctx.style_rules, class_names_of(a.value)), a.pos),
+          )
+        } else if arr_contains(themed_props(), key) {
+          return Err(
+            "\{pos_str(a.pos)}：样式字面量 `\{key}` 不写在模板上——进 <style> 的类，用 class=\"名\" 引用（值随主题热）",
+          )
+        } else {
+          let v = if a.has_value { lit_of(a.value) } else { "true" }
+          out.push((key + "=" + v, a.pos))
+        }
+      }
+      Dyn => {
+        used2[k] = true
+        out.push((snake(a.name) + "=" + a.value, a.pos))
+      }
+      Event =>
+        return Err(
+          "\{pos_str(a.pos)}：文本件不支持事件属性（\{a.name}）",
+        )
+      Model =>
+        return Err(
+          "\{pos_str(a.pos)}：文本件不支持 v-model（要可编辑用 ui-textarea）",
+        )
+      Key | If | ElseIf | Else | Show | For => ()
+    }
+  }
+  Ok(out)
 }
 
 ///|
@@ -304,18 +367,6 @@ fn gen_text(
   }
   let e = q(if has_expr { pieces_to_e(ctx, pieces) } else { escape_mbt(norm) })
   Ok(with_comp_lines(finish_text(ctx, e, srcs, ind, pos), "ui-text"))
-}
-
-///|
-/// :text 属性表达式（值语义）→ 生成行。
-fn gen_text_expr(
-  ctx : Ctx,
-  expr : String,
-  pos : Pos,
-  ind : Int32,
-) -> Array[(String, Pos)] {
-  let e = rewrite_value(expr, ctx.slots)
-  with_comp_lines(finish_text(ctx, e, sources_of(expr, ctx.slots), ind, pos), "ui-text")
 }
 
 ///|
@@ -934,31 +985,38 @@ fn gen_elem_base(
       }
     }
   }
-  let structural_only = fn() -> Bool {
-    for k, a in attrs {
-      if used2[k] {
-        continue
-      }
-      match a.kind {
-        Plain | Dyn | Event | Model => return false
-        _ => ()
-      }
-    }
-    true
-  }
-  // 动态 :text 整体替换：ui-text 的 :text 带响应源 → 直接出 bind 行
+  // 动态 :text 整体替换：ui-text 的 :text 是表达式 → 响应式 bind 行（源数
+  // 由 finish_text 按槽表 + `.get()` 形态选落点），其余属性折进同一调用
   if decl.path == "@ui.text" {
     for k, a in attrs {
-      if a.kind is Dyn &&
-        a.name == "text" &&
-        sources_of(a.value, ctx.slots).length() > 0 {
+      if a.kind is Dyn && a.name == "text" {
         used2[k] = true
-        if !structural_only() {
-          return Err(
-            "\{pos_str(pos)}：动态 :text 暂不支持与其他属性同用（静态文本属性另写）",
-          )
+        for c in children {
+          match c {
+            Text(_, _) => ()
+            _ =>
+              return Err(
+                "\{pos_str(a.pos)}：动态 :text 不能混子元素（文本内容或 :text 二选一）",
+              )
+          }
         }
-        return Ok(gen_text_expr(ctx, a.value, a.pos, ind))
+        let extra = match text_extra_labeled(ctx, attrs, used2) {
+          Ok(v) => v
+          Err(e) => return Err(e)
+        }
+        return Ok(
+          with_comp_lines(
+            finish_text(
+              ctx,
+              rewrite_value(a.value, ctx.slots),
+              sources_of(a.value, ctx.slots),
+              ind,
+              pos,
+              extra=extra,
+            ),
+            "ui-text",
+          ),
+        )
       }
     }
   }
@@ -1051,9 +1109,16 @@ fn gen_elem_base(
               _ => ()
             }
           }
-          if srcs.length() > 0 && decl.path == "@ui.text" && structural_only() {
+          if srcs.length() > 0 && decl.path == "@ui.text" {
+            let extra = match text_extra_labeled(ctx, attrs, used2) {
+              Ok(v) => v
+              Err(e2) => return Err(e2)
+            }
             return Ok(
-              with_comp_lines(finish_text(ctx, q(e), srcs, ind, pos), "ui-text"),
+              with_comp_lines(
+                finish_text(ctx, q(e), srcs, ind, pos, extra=extra),
+                "ui-text",
+              ),
             )
           }
           parts.push([(q(e), tpos)])

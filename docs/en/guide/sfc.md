@@ -35,7 +35,7 @@ fn reset() {
 | Directive | Effect | Notes |
 |---|---|---|
 | `{{ expr }}` | Text interpolation | Expressions are spliced into MoonBit verbatim |
-| `:attr="expr"` | Dynamic attribute | Lands on the matching `*_dyn` entry; three quoting styles accepted (below) |
+| `:attr="expr"` | Dynamic attribute | Text widgets land on reactive `bind_label` / `bind`; others land on the matching `*_dyn` entry; three quoting styles accepted (below) |
 | `@event="handler"` | Event | Wires a script function; unknown event names are compile errors |
 | `v-model="store"` | Two-way binding | Passes an `@base.Store` straight into the control's value slot |
 | `v-if` / `v-else-if` / `v-else` | Structural condition | Any expression; not on the same element as `v-for` (wrap in a container) |
@@ -47,6 +47,8 @@ Three attribute quoting styles: ① outer single quotes around a MoonBit double-
 Static attributes are parsed and passed through by MoonBit literal rules (`0` / `0.0` / `true` / strings).
 
 **Expressions are spliced verbatim**: concatenate strings via `"\{x}"` or `{{ }}`, never `"a" + 1` (MoonBit's `+` does not concat non-strings); the ceiling is what a MoonBit expression can express, and type safety is fully preserved by `moon check`.
+
+**Reactive source detection**: dynamic expressions on text widgets (`ui-text`) are wired reactively by the Store reads inside the expression — both script-section `let` slots and package-level singletons (the `s_state.get()` call shape) count as sources, and multiple sources fold into one `computed`. A dynamic `:text` can share the element with `class` / `wrap` / `ellipsis` and other attributes; all fold into the same bound node.
 
 ## Component tags
 
