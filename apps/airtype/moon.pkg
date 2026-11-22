@@ -1,13 +1,24 @@
 // airtype 主包：窗口界面 + 二维码自绘 + 投字服务。
 
 import {
+  "moonbitlang/core/encoding/hex" @hex,
+  "moonbitlang/core/env" @env,
+  "moonbitlang/core/random" @random,
+  "moonbitlang/core/async" @async,
+  "moonbitlang/core/async/http" @http,
+  "moonbitlang/core/async/signal" @signal,
+  "moonbitlang/core/async/socket" @socket,
+  "moonbitlang/core/async/websocket" @websocket,
+  "moonbitlang/core/async/external_loop_integration",
   "NoahLiu/yoga-mbt/src" @yoga,
   "NoahLiu/native-gui/base",
   "NoahLiu/native-gui/widget" @widget,
   "NoahLiu/native-gui/ui",
+  "NoahLiu/native-gui/win" @win,
   "NoahLiu/native-gui/style" @style,
   "NoahLiu/native-gui/render",
-  "NoahLiu/native-gui/text" @text,
+  "NoahLiu/native-gui/sys" @sys,
+  "NoahLiu/native-gui/shell" @shell,
   "allenli178/moon-qrcode" @qr,
   "allenli178/moon-qrcode/core" @qrc,
 }
@@ -15,3 +26,15 @@ import {
 pkgtype(kind: "executable")
 
 supported_targets = "native"
+
+// core/async 族当前标记 experimental，显式确认依赖
+options(
+  "allow-experimental-packages": [
+    "moonbitlang/core/async",
+    "moonbitlang/core/async/http",
+    "moonbitlang/core/async/signal",
+    "moonbitlang/core/async/socket",
+    "moonbitlang/core/async/websocket",
+    "moonbitlang/core/async/external_loop_integration",
+  ],
+)

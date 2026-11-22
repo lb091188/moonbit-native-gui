@@ -2,10 +2,11 @@
 // 间距按刻度（4 / 8 / 12 / 16），字阶挂预设，卡片 bg_panel + border + 圆角 6。
 
 ///|
-/// 应用状态。服务面三 Store 与上屏记录随批 3 的服务回调写入。
+/// 应用状态。服务面三 Store、网址与二维码随服务起来写入，上屏记录随手机
+// 发送写入。
 struct App {
-  url : String
-  qr : @qrc.QrCode
+  url : @base.Store[String]
+  qr : @base.Store[QrImage]
   state : @base.Store[String]
   addr : @base.Store[String]
   conns : @base.Store[String]
@@ -14,12 +15,11 @@ struct App {
 
 ///|
 fn build_app() -> App {
-  // 批 2 占位地址：验二维码绘制链路；真地址随批 3 服务起来现算
-  let url = "http://192.168.1.2:8787/?t=batch2-placeholder"
+  // 启动态：地址与二维码随服务监听成功后现算（真局域网 IP + 实际端口）
   {
-    url,
-    qr: make_qr(url),
-    state: @base.Store::new("服务未启动"),
+    url: @base.Store::new("服务启动中…"),
+    qr: @base.Store::new(qr_image_of("airtype:starting")),
+    state: @base.Store::new("启动中"),
     addr: @base.Store::new("—"),
     conns: @base.Store::new("0"),
     history: @base.Store::new([]),
@@ -40,7 +40,7 @@ fn status_row(label : String, v : @base.Store[String]) -> @widget.Node {
 }
 
 ///|
-/// 最近上屏卡片：单行显示最新一条（超长省略），空时给占位文案。
+/// 最近上屏卡片：最新在前，点号分隔；空时给占位文案。
 fn history_card(app : App) -> @widget.Node {
   @ui.view(
     [
@@ -96,7 +96,7 @@ fn page(app : App) -> @widget.Node {
         corner_radius=6.0,
         align_items=@yoga.AlignItems::Center,
       ),
-      @ui.text(app.url, class=[@style.text_secondary], align=@text.Center),
+      @ui.bind_label(app.url, fn(s) { s }, class=[@style.text_secondary]),
       @ui.view(
         [
           status_row("服务状态", app.state),
