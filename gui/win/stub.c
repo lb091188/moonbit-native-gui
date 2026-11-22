@@ -11011,8 +11011,21 @@ void wm_request_focus(int64_t id) {
 // ---- GPU present 档（L1）mac 适配：surface 源 = view 的 CAMetalLayer；
 // 贴像素路径（drawRect: 的 CG 直贴）在 l1.on 时停手。核心在文件末实现
 // TU 段。 ----
+// GPU 档死亡收尾：摘掉 Metal 层退回 drawRect 的 CG 直贴（与透明档 10794 同
+// 形态）。layer-backed 视图上 drawRect 的 CG 内容不可见——不摘层，L1 中途
+// 死亡（设备丢失 / present 连败）就把该窗钉死在永久灰屏上。drop 清掉每窗
+// wgpu 对象（surface/纹理/暂存）。
+static void wm_l1_fallback_view(WMState *s) {
+  if (s->l1.dead && s->l1.on) {
+    wm_l1_window_drop(&s->l1);
+    s->l1.on = 0;
+    [s.view setWantsLayer:NO];
+  }
+}
+
 static int wm_l1_try(WMState *s, const unsigned char *rgba, int bw, int bh) {
   if (!wm_l1_available() || s->l1.dead || s->transparent) {
+    wm_l1_fallback_view(s);
     return 0; // 透明档不走 GPU（对齐 Win32 支）：swapchain 帧没有 alpha 语义，
               // 透不出桌面（真机：透明测试窗整窗黑底）
   }
@@ -11031,12 +11044,14 @@ static int wm_l1_try(WMState *s, const unsigned char *rgba, int bw, int bh) {
     void *surf = wm_l1_surface_metal(&s->l1, (__bridge void *)s.view.layer);
     if (surf == NULL) {
       s->l1.dead = 1;
+      [s.view setWantsLayer:NO]; // 视图已 layer-backed：不摘层 CG 帧不可见（灰屏）
       return 0;
     }
     int r = wm_l1_window_bind(&s->l1, surf, sw, sh, bw, bh);
     if (r != 1) {
       wm_l1_window_drop(&s->l1);
       s->l1.dead = 1;
+      [s.view setWantsLayer:NO];
       return 0;
     }
     s->l1.on = 1;
@@ -11058,11 +11073,13 @@ void wm_present(int64_t id, const unsigned char *rgba, int width, int height,
       return;
     }
     // GPU 档（L1）：Bitmap 上传纹理 → 全屏 quad → swapchain present；返回 0
-    // （没挂上/本帧失败）时逐字回退下面的帧拷贝 + setNeedsDisplay 路径
+    // （没挂上/本帧失败）时逐字回退下面的帧拷贝 + setNeedsDisplay 路径。
+    // 本帧失败把 l1 置 dead 的，当场摘 Metal 层——CG 帧要真的可见
     if (wm_l1_try(s, rgba, width, height)) {
       wm_popup_materialize(s);
       return;
     }
+    wm_l1_fallback_view(s);
     size_t need = (size_t)width * (size_t)height * (size_t)4;
     if (s->backing_cap < need) {
       unsigned char *nb = (unsigned char *)realloc(s->backing, need);
