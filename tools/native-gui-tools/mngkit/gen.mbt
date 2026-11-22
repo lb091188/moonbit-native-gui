@@ -1109,14 +1109,14 @@ fn gen_elem_base(
     match a.kind {
       Plain => {
         let key = snake(a.name)
-        if key == "class" {
+        if key == "class" || key == "content_class" {
           if !a.has_value {
             return Err(
-              "\{pos_str(a.pos)}：class 需要类名（class=\"a b\"）",
+              "\{pos_str(a.pos)}：\{a.name} 需要类名（\{a.name}=\"a b\"）",
             )
           }
           let ce = class_expr(ctx.style_rules, class_names_of(a.value))
-          labeled.push(("class=" + ce, a.pos))
+          labeled.push((key + "=" + ce, a.pos))
         } else if arr_contains(themed_props(), key) {
           return Err(
             "\{pos_str(a.pos)}：样式字面量 `\{key}` 不写在模板上——进 <style> 的类，用 class=\"名\" 引用（值随主题热）",

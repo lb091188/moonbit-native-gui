@@ -1149,6 +1149,9 @@ fn lsp_attr_completion(uri : String, text : String, tag : String) -> String {
     a in ["class", "v-model", "v-if", "v-else-if", "v-else", "v-show", "v-for"] {
     push(a, completion_item(a, 14))
   }
+  if tag == "ui-scroll-view" {
+    push("content-class", completion_item("content-class", 10))
+  }
   let (_, ps) = comp_sig(sigs_for(uri), text, tag)
   if ps.length() > 0 {
     for (n, ty, opt, d, _doc) in ps {

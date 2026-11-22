@@ -1449,3 +1449,22 @@ test "内置：ui-scroll-view 登记，state 自动建账" {
   assert_true(contains_sub(code, "@ui.ScrollState::new()"))
   assert_true(contains_sub(code, "@ui.text(\"x\")"))
 }
+
+///|
+test "内置：ui-scroll-view content-class 走 class 通道落 content_class 参数" {
+  let src = [
+      "<template>",
+      "  <ui-scroll-view content-class=\"pane-content\">",
+      "    <ui-text text=\"x\" />",
+      "  </ui-scroll-view>",
+      "</template>",
+    ].join("\n") +
+    "\n<style>\n  .pane-content { gap: 12px; }\n</style>\n"
+  let code = match compile(src, "sv_cc.mng") {
+    Ok(o) => o.code
+    Err(e) => abort("\{e}")
+  }
+  assert_true(
+    contains_sub(code, "content_class=@style.class_of([\"pane-content\"])"),
+  )
+}
