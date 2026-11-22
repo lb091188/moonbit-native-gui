@@ -549,6 +549,11 @@ pub fn mng_dev_page(
     // 触发不了（同 scroll_view 视口与 tabs 面板的既有口径）
     holder.node.set_width(@yoga.percent(100.0))
     holder.node.set_min_width(@yoga.fixed(0.0))
+    // 高度同样钉满父容器并放开 min 下限：模板页里的滚动容器要在「可用高受限」
+    // 下才进入裁剪滚动，壳被内容撑成自然高时 flex-shrink 永不触发，内容溢出
+    // 窗底且没有任何滚动路径（airtype 真机实测：页面不滚、底部截断）
+    holder.node.set_height(@yoga.percent(100.0))
+    holder.node.set_min_height(@yoga.fixed(0.0))
     // 检查器树行可读：dev 页挂载点报自己的类型名（role 留空，纯布局壳不进语义树）
     holder.kind = "mng-page"
     mng_dev_bind_holder(page, holder)
