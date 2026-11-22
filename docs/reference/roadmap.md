@@ -706,6 +706,7 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
   - 子命令 `dev` / `build` / `new` / `lsp` / `--version` 就位；工具不依赖 GUI 库
   - 待验：Windows dev 唤醒真机
 - 🚧 **编辑器支持**：`lsp` 子命令——诊断、补全、hover、跳转
+  - 2026-11-22 增量：class 值跳 `<style>` 选择器、`var(--令牌)` hover 给语义与默认浅色值并语义高亮、标签补全含同包组件 fn、内置表登记 `ui-scroll-view`（state 自动建账）
   - hover 真实类型：经 source map 桥 `moon ide` 取编译器答案，失败回落静态
   - 跳转：页内声明 / 组件源码 / 包入口
   - VSIX 语言注册 + TextMate 着色 + 语义着色 + snippets

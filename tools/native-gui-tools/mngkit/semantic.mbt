@@ -136,7 +136,58 @@ pub fn semantic_tokens(src : String) -> Array[SemTok] {
     }
     sem_scan_template(sc)
   }
+  let (c0, c1) = sem_find_region(cs, "style")
+  if c1 > c0 {
+    sem_scan_style_tokens(cs, u16, c0, c1, toks)
+  }
   toks
+}
+
+///|
+/// style 区：var(--名) 的令牌名发 property 档（readonly）——编辑器主题按
+/// 语义档给色，与 TextMate 的样式着色互补。令牌名恒 ASCII，len 按字符数。
+fn sem_scan_style_tokens(
+  cs : Array[Char],
+  u16 : Array[Int32],
+  s0 : Int32,
+  s1 : Int32,
+  toks : Array[SemTok],
+) -> Unit {
+  let mut i = s0
+  while i + 6 < s1 {
+    if cs[i] == 'v' &&
+      cs[i + 1] == 'a' &&
+      cs[i + 2] == 'r' &&
+      cs[i + 3] == '(' &&
+      cs[i + 4] == '-' &&
+      cs[i + 5] == '-' {
+      let start = u16[i + 4] // 从 -- 起着色
+      let mut j = i + 6
+      while j < s1 && sem_is_token_char(cs[j]) {
+        j += 1
+      }
+      if j > i + 6 && j < s1 {
+        toks.push({
+          start,
+          len: u16[j] - start,
+          ty: SEM_TY_PROPERTY,
+          mods: SEM_MD_READONLY,
+        })
+      }
+      i = j
+    } else {
+      i += 1
+    }
+  }
+}
+
+///|
+fn sem_is_token_char(c : Char) -> Bool {
+  c == '-' ||
+  c == '_' ||
+  (c >= 'a' && c <= 'z') ||
+  (c >= 'A' && c <= 'Z') ||
+  (c >= '0' && c <= '9')
 }
 
 ///|

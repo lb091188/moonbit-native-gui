@@ -1410,3 +1410,24 @@ test "v-for dev 档：行子树不进注册表；hot_ir 直接回 Err 转 COLD" 
     Ok(_) => assert_true(false, msg="含 v-for 的模板应当回 COLD")
   }
 }
+
+///|
+test "语义令牌：style 区 var(--名) 发 property 档" {
+  let src = [
+    "<template>",
+    "  <ui-col class=\"card\"></ui-col>",
+    "</template>",
+    "<style>",
+    "  .card { color: var(--primary); }",
+    "</style>",
+  ].join("\n")
+  let toks = semantic_tokens(src)
+  let t = sem_find_tok(src, toks, "--primary")
+  match t {
+    Some(tok) => {
+      assert_true(tok.ty == 9)
+      assert_true(sem_text_at(src, tok) == "--primary")
+    }
+    None => assert_true(false)
+  }
+}

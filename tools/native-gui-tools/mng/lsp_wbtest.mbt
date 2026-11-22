@@ -658,3 +658,29 @@ test "stem_of_path / dir_name_of_lsp：basename 去 stem、目录部分" {
   assert_eq(stem_of_path("/w/app/pages/dev_demo.mng"), "dev_demo")
   assert_eq(dir_name_of_lsp("/w/app/pages/hello.mng"), "/w/app/pages")
 }
+
+///|
+test "LSP：class 跳转到 style 选择器与令牌 hover 文档" {
+  let docs : Map[String, String] = Map([])
+  let uri = "file:///tmp/lsp_wbtest.mng"
+  let _ = lsp_handle(docs, did_open(uri, tpl_ok()))
+  // class="card" 值内 → .card 选择器行（第 4 行）
+  match
+    lsp_handle(docs, req(30, "textDocument/definition", pos_params(uri, 7, 21))).reply {
+    Some(r) =>
+      assert_true(contains_sub_l(r, "lsp_wbtest.mng") && contains_sub_l(r, "\"line\":4"))
+    None => assert_true(false)
+  }
+  // var(--text_primary) 令牌 hover → 语义 + 默认浅色值
+  match
+    lsp_handle(docs, req(31, "textDocument/hover", pos_params(uri, 4, 25))).reply {
+    Some(r) => assert_true(contains_sub_l(r, "标题文字"))
+    None => assert_true(false)
+  }
+  // 标签补全含 ui-scroll-view（内置表登记）
+  match
+    lsp_handle(docs, req(32, "textDocument/completion", pos_params(uri, 7, 3))).reply {
+    Some(r) => assert_true(contains_sub_l(r, "ui-scroll-view"))
+    None => assert_true(false)
+  }
+}

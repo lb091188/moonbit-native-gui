@@ -47,6 +47,8 @@ fn builtin_decl(tag : String) -> CompDecl? {
     "ui-view" => Some({ path: "@ui.view", positional: ["children"], })
     "ui-panel" =>
       Some({ path: "@ui.panel", positional: ["title", "children"], })
+    "ui-scroll-view" =>
+      Some({ path: "@ui.scroll_view", positional: ["children", "state"], })
     _ => None
   }
 }
@@ -982,6 +984,9 @@ fn gen_elem_base(
         }
         Err(e) => return Err(e)
       }
+    } else if spec == "state" {
+      // 滚动会话私账：模板无表达，每实例自动建一笔（ui-scroll-view 专用）
+      parts.push([("@ui.ScrollState::new()", pos)])
     } else if spec == "text" {
       let mut found : Attr? = None
       for k, a in attrs {
@@ -1708,7 +1713,7 @@ pub fn builtin_tags() -> Array[String] {
   [
     "ui-text", "ui-button", "ui-input", "ui-textarea", "ui-stepper", "ui-slider",
     "ui-rate", "ui-switch", "ui-checkbox", "ui-radio-group", "ui-select", "ui-form",
-    "ui-form-item", "ui-col", "ui-row", "ui-view", "ui-panel",
+    "ui-form-item", "ui-col", "ui-row", "ui-view", "ui-panel", "ui-scroll-view",
   ]
 }
 
