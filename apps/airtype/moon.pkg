@@ -23,6 +23,10 @@ import {
   "allenli178/moon-qrcode/core" @qrc,
 }
 
+import {
+  "NoahLiu/native-gui/uitest",
+} for "wbtest"
+
 pkgtype(kind: "executable")
 
 supported_targets = "native"

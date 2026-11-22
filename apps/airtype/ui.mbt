@@ -55,18 +55,20 @@ fn status_row(label : String, v : @base.Store[String]) -> @widget.Node {
 }
 
 ///|
-/// 整页：两页签，显隐切换；外层 16 内边距给足页边距，tabs 吃满剩余高让
-/// 页内容能接纵滚。
+/// 整页：两页签，显隐切换。外层 view 宽高钉满窗口并放开 min 下限（yoga
+/// 的 flex 子项 min-size 缺省 auto，不放开整条链都缩不动），tabs 吃满剩余
+/// 高让页内容能接纵滚。
 fn page(app : App) -> @widget.Node {
   @ui.view(
     [
       @ui.tabs(
         [("首页", home_page(app)), ("设置", settings_page(app))],
-        class=[@style.style(flex=1.0)],
+        class=[@style.style(flex=1.0, min_height=0.0, min_width=0.0)],
       ),
     ],
     padding=16.0,
     grow=1.0,
+    class=[@style.style(width_percent=100.0, min_width=0.0)],
   )
 }
 
