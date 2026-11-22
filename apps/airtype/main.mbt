@@ -18,8 +18,8 @@ async fn main {
   let mounted = @ui.mount_window(
     [page(app)],
     title="airtype",
-    width=460,
-    height=720,
+    width=420,
+    height=560,
     handle=
       fn(a : @widget.WindowHost) {
         ignore(a.follow_system_theme())
