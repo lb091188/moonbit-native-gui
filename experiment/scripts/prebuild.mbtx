@@ -147,7 +147,7 @@ async fn run_tool(file : String, args : Array[String]) -> Bool {
     for a in args {
       parts.push(a)
     }
-    err("experiment(prebuild): " + parts.join(" ") + " 失败\n" + out.stderr())
+    err("[env]\ntool failed: " + parts.join(" ") + "\n" + out.stderr())
     return false
   }
   true
@@ -163,7 +163,7 @@ async fn compile_stub(
   cflags~ : Array[String],
 ) -> String {
   if !@fs.exists(src) {
-    err("experiment(prebuild): 源文件不存在，跳过：" + src)
+    err("[env]\nsource missing, skip stub build\n  - path: " + src)
     return ""
   }
   let lib = build_dir + "/" + lib_file
@@ -240,7 +240,7 @@ async fn link_configs() -> String {
   let build_dir = env_or("MOON_BUILD_DIR", module_root + "/build")
   let host = env_or("MOON_HOST_OS", "")
   if host != "linux" {
-    err("experiment(prebuild): 非 Linux 走 portable 桩，零额外库")
+    err("[env]\nnon-linux host\n  - portable stub\n  - zero extra libs")
     return "{ \"link_configs\": [] }"
   }
   let libs : Array[String] = []
@@ -249,7 +249,7 @@ async fn link_configs() -> String {
   for name in linux_pkg_config_libs {
     match pkg_config([name], "--libs") {
       None => {
-        err("experiment(prebuild): 缺少 " + name + " 开发包，ime_probe 链接条目不下发")
+        err("[env]\ndev package missing, link entry dropped\n  - pkg-config: " + name)
         missing = true
       }
       Some(got) =>
@@ -264,7 +264,7 @@ async fn link_configs() -> String {
   for name in linux_pkg_config_libs {
     match pkg_config([name], "--cflags") {
       None => {
-        err("experiment(prebuild): 缺少 " + name + " 开发包")
+        err("[env]\ndev package missing\n  - pkg-config: " + name)
         missing = true
       }
       Some(got) =>

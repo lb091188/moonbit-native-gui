@@ -238,7 +238,7 @@ async fn fetch_one(url : String) -> Bytes? {
   match @async.with_timeout_opt(vendor_budget_ms, () => fetch_url(url)) {
     Some(got) => got
     None => {
-      err("prebuild: " + url + " 在预算内无产出")
+      err("[webview]\nfetch timeout within budget\n  - url: " + url)
       None
     }
   }
@@ -251,12 +251,12 @@ async fn fetch_url(url : String) -> Bytes? {
   let client = @mhttp.default_client()
   let resp = client.get(url) catch {
     e => {
-      err("prebuild: " + url + " 请求失败：" + e.to_string())
+      err("[webview]\nfetch failed\n  - url: " + url + "\n  - error: " + e.to_string())
       return None
     }
   }
   if !resp.is_success() {
-    err("prebuild: " + url + " 返回 " + resp.status.to_string())
+    err("[webview]\nfetch got http " + resp.status.to_string() + "\n  - url: " + url)
     return None
   }
   Some(resp.bytes())
@@ -305,19 +305,19 @@ async fn fetch_vendor_file(name : String, sha : String) -> Bytes? {
   }
   for base in bases {
     let url = base + "/" + name
-    err("prebuild: 取 vendor " + url + " ...")
+    err("[webview]\nfetching vendor\n  - url: " + url)
     match fetch_one(url) {
       Some(data) => {
         let got = sha256_hex(data)
         if got == sha {
           return Some(data)
         }
-        err("prebuild: " + base + " 上 sha256 不符，换下一个")
+        err("[webview]\nsha256 mismatch on mirror, try next\n  - base: " + base)
       }
       None => continue
     }
   }
-  err("prebuild: 全部镜像都没给出校验通过的 " + name)
+  err("[webview]\nno mirror passed sha256\n  - name: " + name)
   None
 }
 
@@ -344,11 +344,12 @@ async fn ensure_release_files(module_root~ : String) -> Unit {
       Some(data) => {
         @fs.mkdir(dir_of(dest), recursive=true, allow_exist=true)
         @fs.write_file(dest, data)
-        err("prebuild: 已就位 " + name + "（sha256 ✓）")
+        err("[webview]\nvendor in place\n  - name: " + name + "\n  - sha256: ok")
       }
       None =>
-        err("prebuild: 全部镜像都没取到 " + name +
-          "\n  离线环境可手工放置，或用 NATIVE_GUI_VENDOR_BASE 指到自己的源")
+        err("[webview]\nvendor fetch failed on all mirrors\n  - name: " + name +
+          "\n  - manual: place the file manually" +
+          "\n  - custom source: set NATIVE_GUI_VENDOR_BASE")
     }
   }
 }
@@ -427,7 +428,7 @@ async fn run_tool(file : String, args : Array[String]) -> Bool {
     for a in args {
       parts.push(a)
     }
-    err("prebuild: " + parts.join(" ") + " 失败\n" + out.stderr())
+    err("[webview]\ntool failed: " + parts.join(" ") + "\n" + out.stderr())
     return false
   }
   true
@@ -510,7 +511,7 @@ async fn compile_webkit_stub(
     return ""
   }
   prune_stub_libs(dir=build_dir, prefix~, keep=lib)
-  err("prebuild: webkit 桩重编（指纹 " + tag + "）")
+  err("[webview]\nwebkit stub rebuilt\n  - fingerprint: " + tag)
   lib
 }
 
@@ -593,18 +594,17 @@ async fn link_configs() -> String {
     let webkit_libs = pkg_config([webkit_pkg_config], "--libs")
     if win_archive.length() == 0 || webkit_libs is None {
       let reason = if win_archive.length() == 0 {
-        "找不到主模块 win 桩归档 gui/build/libyue_win_stub.a"
+        "win stub archive not found (gui/build/libyue_win_stub.a)"
       } else {
-        "缺 " + webkit_pkg_config + " 开发包"
+        "dev package missing (" + webkit_pkg_config + ")"
       }
-      err("prebuild: " + reason + "，webview 走占位实现（探测返回不可用）")
+      err("[webview]\nplaceholder implementation, probe returns unavailable\n  - reason: " + reason)
       return "{ \"link_configs\": [] }"
     }
     let cflags = pkg_config([webkit_pkg_config], "--cflags")
     match cflags {
       None => {
-        err("prebuild: 缺 " + webkit_pkg_config +
-          "，webview 走占位实现（探测返回不可用）")
+        err("[webview]\nplaceholder implementation, probe returns unavailable\n  - reason: dev package missing (" + webkit_pkg_config + ")")
         return "{ \"link_configs\": [] }"
       }
       Some(got) => {
@@ -650,7 +650,7 @@ async fn link_configs() -> String {
       "\" shlwapi.lib ole32.lib oleaut32.lib uuid.lib user32.lib gdi32.lib advapi32.lib"
       return "{ \"link_configs\": [" + entry(pkg=webview_package, link_flags=flags) + "] }"
     }
-    err("prebuild: 缺 webview/lib/WebView2LoaderStatic.lib，webview 走占位实现（探测返回不可用）")
+    err("[webview]\nplaceholder implementation, probe returns unavailable\n  - reason: webview/lib/WebView2LoaderStatic.lib missing")
     return "{ \"link_configs\": [] }"
   } else if host == "macos" {
     // WKWebView 分支专编（Objective-C/ARC）。native-stub 在 macOS 编本文件
@@ -662,8 +662,8 @@ async fn link_configs() -> String {
       module_root~,
     )
     if win_archive.length() == 0 {
-      err("prebuild: 找不到主模块 win 桩归档 gui/build/libyue_win_stub_mac.a，" +
-        "webview 的 mac 分支没法链（native-stub 空翻译单元，符号会断）")
+      err("[webview]\nwin stub archive not found, mac branch cannot link\n  - path: gui/build/libyue_win_stub_mac.a" +
+        "\n  - note: native-stub emits an empty TU on mac, symbols would break")
       return "{ \"link_configs\": [] }"
     }
     let web_lib = compile_webkit_stub(

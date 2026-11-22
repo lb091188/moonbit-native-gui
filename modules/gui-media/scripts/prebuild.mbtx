@@ -205,8 +205,8 @@ async fn fetch_one(url : String) -> Bytes? {
   match @async.with_timeout_opt(vendor_budget_ms, () => fetch_url(url)) {
     Some(got) => got
     None => {
-      err("gui-media(prebuild): " + url + " 在 " + vendor_budget_ms.to_string() +
-        " 毫秒总预算内无产出")
+      err("[media]\nfetch timeout within budget\n  - url: " + url +
+        "\n  - budget: " + vendor_budget_ms.to_string() + " ms")
       None
     }
   }
@@ -220,12 +220,12 @@ async fn fetch_url(url : String) -> Bytes? {
   let client = @mhttp.default_client()
   let resp = client.get(url) catch {
     e => {
-      err("gui-media(prebuild): " + url + " 请求失败：" + e.to_string())
+      err("[media]\nfetch failed\n  - url: " + url + "\n  - error: " + e.to_string())
       return None
     }
   }
   if !resp.is_success() {
-    err("gui-media(prebuild): " + url + " 返回 " + resp.status.to_string())
+    err("[media]\nfetch got http " + resp.status.to_string() + "\n  - url: " + url)
     return None
   }
   Some(resp.bytes())
@@ -242,8 +242,8 @@ async fn ensure_miniaudio(module_root~ : String) -> Unit {
     if got == vendor_sha {
       return
     }
-    err("gui-media(prebuild): " + dest + " sha256 不符（期望 " + vendor_sha +
-      "，实际 " + got + "），重取")
+    err("[media]\nsha256 mismatch, refetch\n  - file: " + dest +
+      "\n  - want: " + vendor_sha + "\n  - got: " + got)
   }
   let bases : Array[String] = []
   match @env.get_env_var("NATIVE_GUI_VENDOR_BASE") {
@@ -261,25 +261,24 @@ async fn ensure_miniaudio(module_root~ : String) -> Unit {
   }
   for base in bases {
     let url = base + "/" + vendor_name
-    err("gui-media(prebuild): 取 vendor " + url + " ...")
+    err("[media]\nfetching vendor\n  - url: " + url)
     match fetch_one(url) {
       Some(data) => {
         let got = sha256_hex(data)
         if got != vendor_sha {
-          err("gui-media(prebuild): " + vendor_name +
-            " 在该镜像上 sha256 不符，换下一个")
+          err("[media]\nsha256 mismatch on mirror, try next\n  - name: " + vendor_name)
           continue
         }
         @fs.write_file(dest, data)
-        err("gui-media(prebuild): 已就位 " + vendor_name + "（sha256 ✓）")
+        err("[media]\nvendor in place\n  - name: " + vendor_name + "\n  - sha256: ok")
         return
       }
       None => continue
     }
   }
-  err("gui-media(prebuild): 全部镜像都没取到 " + vendor_name +
-    "\n  离线环境可手工放置到 " + dest +
-    "，或用 NATIVE_GUI_VENDOR_BASE 指到自己的源")
+  err("[media]\nvendor fetch failed on all mirrors\n  - name: " + vendor_name +
+    "\n  - manual: place the file at " + dest +
+    "\n  - custom source: set NATIVE_GUI_VENDOR_BASE")
 }
 
 ///|
@@ -335,7 +334,7 @@ async fn link_configs() -> String {
     // CoreAudio 后端：AudioToolbox 供 AudioUnit 一族、CoreAudio 供
     // AudioObject*、Foundation 供 CF/NSObject 桥。刻意没有 -ldl 与
     // -latomic——mac 的 dlopen 在 libSystem 里、-latomic 压根不存在
-    err("gui-media(prebuild): macOS 走 CoreAudio 后端")
+    err("[media]\nmacos\n  - CoreAudio backend")
     "{ \"link_configs\": [" +
     entry(pkg=media_package, link_flags=join_flags([
         "-lpthread", "-lm", "-framework", "CoreAudio", "-framework",
@@ -346,7 +345,7 @@ async fn link_configs() -> String {
     // Windows（及未知宿主）：miniaudio 的 WASAPI/COM 全走运行期加载
     // （LoadLibrary ole32 等），零额外链接库——空 link_configs 即正确形态，
     // 不是降级
-    err("gui-media(prebuild): Windows 走运行期加载（LoadLibrary），零额外库")
+    err("[media]\nwindows\n  - LoadLibrary runtime loading\n  - zero extra libs")
     "{ \"link_configs\": [] }"
   }
 }

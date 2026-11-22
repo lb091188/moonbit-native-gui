@@ -138,18 +138,18 @@ GitHub Releases 现有两条：**Binaries**（tag `bin`，由 `release-bin.yml` 
 
 | 现象 | 根因 | 处置 |
 |---|---|---|
-| 在仓库里跑 `examples/hello`，prebuild 却报**别的模块**缺依赖（如 `ffmpeg(prebuild): 缺少 libavformat 开发包`） | 不是示例依赖写错：moon 对 workspace 模块图里**每个**带 prebuild 的模块逐个跑脚本，任一非零退出就挡住整次构建；媒体模块在 Linux 上是硬失败（Windows / macOS 分支降级为空链接条目） | 照它打出的那行 apt 装上：`sudo apt install -y libavformat-dev libavcodec-dev libswscale-dev libswresample-dev libavutil-dev`；只想跑示例就 `MOON_WORK=off moon run .`（绕开 workspace，见 §4） |
+| 在仓库里跑 `examples/hello`，prebuild 却报**别的模块**缺依赖（如 `[ffmpeg]` 节报 `dev package missing`、`pkg-config: libavformat`） | 不是示例依赖写错：moon 对 workspace 模块图里**每个**带 prebuild 的模块逐个跑脚本，任一非零退出就挡住整次构建；媒体模块在 Linux 上是硬失败（Windows / macOS 分支降级为空链接条目） | 照它打出的那行 apt 装上：`sudo apt install -y libavformat-dev libavcodec-dev libswscale-dev libswresample-dev libavutil-dev`；只想跑示例就 `MOON_WORK=off moon run .`（绕开 workspace，见 §4） |
 | `cc: error trying to exec 'cc1plus': execvp: 没有那个文件或目录`（编译 `dwrite_text.cpp` 时） | 机器上没有 C++ 编译器：`gui/text/dwrite_text.cpp` 三平台都要编一遍，非 Windows 也只是编成空翻译单元 | `sudo apt install g++`（`build-essential` 本应带上它，装不全就单独补） |
 | 仓库里已经修好的 prebuild 报错，在 `MOON_WORK=off` 下又原样出现（行号都一样） | 那条路径跑的是**注册表归档里那份脚本**（落在 `examples/<示例>/.mooncakes/NoahLiu/native-gui/scripts/prebuild.py`），注册表侧改不动 | 验证修复就回 workspace 跑（去掉 `MOON_WORK=off`）；要让消费方吃到只能**重新发包**——脚本随包发布，属对外 API 面的一部分 |
 | `~/.moon/lib/runtime/process.c: error: 'SYS_pidfd_open' undeclared` | 地板在 **MoonBit 工具链自带的 runtime C 源**：它无条件用 `SYS_pidfd_open`，而这个宏来自 glibc 构建时冻结的 syscall 表（老 glibc 就算配新内核头也没有它，升 `linux-libc-dev` 补不上）。与本库无关，此时本库的 prebuild 与桩都已编过 | 换 glibc 较新的机器 / 发行版；这一档**不承诺支持**，自救口径见 §2「低版本发行版」 |
-| prebuild 在 stderr 打「缺少 gtk+-3.0 开发包」与「已降级占位桩」提示后继续走，构建不炸 | 开发包没装全：prebuild 降级——占位桩只保链接符号不断，渲染走纯光栅、文本量宽走内建回退估算（见 §12 三档分工），测试照跑，但观感与真字体度量不可比 | 开发与使用就补 §2 的 apt 清单，重跑 `moon build`（仍链旧结果就 `moon clean`）；只想跑测试与逻辑断言，降级提示可以不管 |
+| prebuild 在 stderr 打 `[gui]` 节的「dev package missing」与「degraded to placeholder stub」提示后继续走，构建不炸 | 开发包没装全：prebuild 降级——占位桩只保链接符号不断，渲染走纯光栅、文本量宽走内建回退估算（见 §12 三档分工），测试照跑，但观感与真字体度量不可比 | 开发与使用就补 §2 的 apt 清单，重跑 `moon build`（仍链旧结果就 `moon clean`）；只想跑测试与逻辑断言，降级提示可以不管 |
 | Windows 上 `moon install <工具包>`（或 `moon build --release`）爆 `LNK2019: 无法解析的外部符号 __imp_FindWindowW` 一类，**同一条 `moon build` 不加 `--release` 却是绿的** | 两种构建画像的链接行不同：debug 由 moon 追加显式系统库（`libcmt kernel32 shell32 user32 dbghelp …`），release 只有 `/link /LIBPATH:` 一行，系统库全靠对象自带的 `/DEFAULTLIB`。`tools/native-gui-tools` 这类**不挂 prebuild**的模块拿不到 `link_configs`，Win32 符号就成悬空引用 | 在用到该 API 的 `.c` 里写 `#pragma comment(lib, "user32.lib")`——MSVC 把 `/DEFAULTLIB` 写进该 TU 的 `.drectve`，链接器抽到这份 `.obj` 时自动带库，依赖方零配置。挂了 prebuild 的库模块仍按 §8 补链接串 |
 | Windows 链接期爆 `error LNK2019: 无法解析的外部符号 __imp_SetDeviceGammaRamp`（或任意 `__imp_*`），紧跟着 `fatal error LNK1120` | `__imp_` 打头的是 Win32 **导入函数**：桩编得过，但它所在的 `.lib` 没链上。`SetDeviceGammaRamp` 在 `gdi32.lib`，旧版 `prebuild.py`（现 prebuild.mbtx）的 sys 包 Windows 分支当时缺它；`sys_stub.obj` 整个进不了链接，所以每个用到 sys 的 exe 都断在同一条 | 更新到当前 master（sys 包已补 `gdi32.lib`）。自己加 Windows 直调时按归属补库：取 DC 与消息循环→`user32`、DC 绘图与 gamma 斜坡→`gdi32`、注册表→`advapi32`、`ShellExecuteW`/`SH*`→`shell32`、COM 基础→`ole32`、`SysAllocString`→`oleaut32`、WMI 的 GUID 常量→`wbemuuid` |
 | 构建不中断，但 MSVC 刷一片 `warning C4090: 不同的"const"限定符` / `C4113: 参数列表不同` / `C4133: 类型不兼容` | 桩里的 COM 写法与 SDK 头对不上三类：`const` 的 Vtbl 赋给非 `const` 的 `lpVtbl`、一个实现函数塞进多个接口的 vtable（`self` 形参类型必须逐接口各写一份）、`LPWSTR*` 与 `LPCWSTR*` 之差 | 不挡构建，但每一行都指着「这个槽运行期按 SDK 那份签名被调用」——照 `include/WebView2.h` 的声明逐条改桩；`modules/gui-webview/webview/webview2_stub.c` 三类已清 |
 | `Package 'webkit2gtk-4.1' not found`，且只有 `@web` 用不了 | 不是故障，是设计：探不到 webkit 时 `@web` 退成占位实现、能力报 `Unsupported`，不让整包链接失败 | 要内嵌浏览器就装 `libwebkit2gtk-4.1-dev` |
 | `moon.mod.json ... is no longer supported` | 依赖缓存里第三方包带的还是旧清单（注册表侧改不动） | 对 `.mooncakes/**/moon.{mod,pkg}.json` 逐个 `moon fmt`，循环到解图收敛（CI 同口径） |
 | 改了 `gui/<包>/*.c` 但行为没变，`moon build` 说 `no work to do` | C 桩改动不一定触发重链 | §9 |
-| prebuild 卡在下载或报 sha256 不符 | vendor 文件缺且镜像不可达 | §10：`NATIVE_GUI_VENDOR_BASE` 换源，或按提示手工放置 |
+| prebuild 卡在下载或报 sha256 mismatch | vendor 文件缺且镜像不可达 | §10：`NATIVE_GUI_VENDOR_BASE` 换源，或按提示手工放置 |
 | Windows 跑 audio / video 报缺 dll | 运行期 ffmpeg dll 不在位 | §10「Windows 运行期 ffmpeg dll」 |
 | `Failed to acquire file lock` | 同一构建目录上还有另一个 moon 进程（IDE 与终端同时在跑） | 等前一个结束再跑 |
 
@@ -159,6 +159,9 @@ GitHub Releases 现有两条：**Binaries**（tag `bin`，由 `release-bin.yml` 
 
 - moon 在构建时执行各模块的 prebuild 钩子（`moon.mod` 的 `options(--moonbit-unstable-prebuild)` 挂 `scripts/prebuild.mbtx`），按当前系统输出 `vars` 与 `link_configs`，并自动传播给依赖本库模块的所有 main 包。脚本由 moon 自带的 MoonBit 运行器执行，机器上不需要任何解释器。
 - prebuild 同时探测系统库：Linux 找 GTK3 / Pango / FontConfig / X11，内嵌 WebView 找 `webkit2gtk-4.1`，媒体模块找 ffmpeg。探不到 GTK 就降级——占位桩只保链接符号不断，stderr 给降级提示（行为见 §6 与 §12）；探不到 webkit 则 `@web` 退成占位实现、能力报 `Unsupported`，不让整包链接失败。
+- prebuild 的 stderr 诊断统一 yoml 风格块——节头一行、事件一行、细节逐行「  - 」缩进，全英文；stdout 只给 moon 解析用的 JSON，人读的信息都在 stderr。
+  - yoml 风格指缩进列表式纯文本——没有花括号引号，终端直接可读。
+  - 节名对应模块：`[gui]` 主库链接、`[env]` 探针模块、`[ffmpeg]` 音视频解码库、`[media]` 音频、`[webview]` 内嵌浏览器、`[gpu]` GPU 后端。
 - 结果：链接 flags 不用写也不该写，由 prebuild 统一给出。
 
 ## 8. 贡献者须知
