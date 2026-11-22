@@ -14748,6 +14748,8 @@ MNG_L1_FN(TextureViewRelease)
 MNG_L1_FN(TextureRelease)
 MNG_L1_FN(SurfaceRelease)
 MNG_L1_FN(CommandBufferRelease)
+MNG_L1_FN(CommandEncoderRelease)
+MNG_L1_FN(RenderPassEncoderRelease)
 
 // ---- 进程级状态：库句柄 + 探测结果 + 跨窗复用对象 ----
 static void *g_l1_lib;
@@ -14914,6 +14916,8 @@ static int l1_load_syms(void) {
   MNG_L1_LOAD(TextureRelease);
   MNG_L1_LOAD(SurfaceRelease);
   MNG_L1_LOAD(CommandBufferRelease);
+  MNG_L1_LOAD(CommandEncoderRelease);
+  MNG_L1_LOAD(RenderPassEncoderRelease);
 #undef MNG_L1_LOAD
   return 1;
 }
@@ -15500,6 +15504,11 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
         p_wgpuQueueSubmit(g_l1_queue, 1, &cb1);
         p_wgpuCommandBufferRelease(cb1);
       }
+      // 帧内三个自持对象（encoder / swapchain texture）逐帧放，缺一次漏一个
+      p_wgpuCommandEncoderRelease(enc);
+      if (stx.texture != NULL) {
+        p_wgpuTextureRelease(stx.texture);
+      }
       st->on = 0;
       st->dead = 1;
       return 1;
@@ -15527,6 +15536,10 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
       p_wgpuQueueSubmit(g_l1_queue, 1, &cb0);
       p_wgpuCommandBufferRelease(cb0);
     }
+    p_wgpuCommandEncoderRelease(enc);
+    if (stx.texture != NULL) {
+      p_wgpuTextureRelease(stx.texture);
+    }
     return 1;
   }
   WGPUTextureView view = p_wgpuTextureCreateView(stx.texture, NULL);
@@ -15535,6 +15548,10 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
     if (cb0 != NULL) {
       p_wgpuQueueSubmit(g_l1_queue, 1, &cb0);
       p_wgpuCommandBufferRelease(cb0);
+    }
+    p_wgpuCommandEncoderRelease(enc);
+    if (stx.texture != NULL) {
+      p_wgpuTextureRelease(stx.texture);
     }
     return 1;
   }
@@ -15574,14 +15591,23 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
     p_wgpuRenderPassEncoderDraw(pass, 3, 1, 0, 0);
   }
   p_wgpuRenderPassEncoderEnd(pass);
+  p_wgpuRenderPassEncoderRelease(pass);
   WGPUCommandBuffer cb = p_wgpuCommandEncoderFinish(enc, NULL);
   if (cb == NULL) {
     p_wgpuTextureViewRelease(view);
+    p_wgpuCommandEncoderRelease(enc);
+    if (stx.texture != NULL) {
+      p_wgpuTextureRelease(stx.texture);
+    }
     return 1;
   }
   p_wgpuQueueSubmit(g_l1_queue, 1, &cb);
   p_wgpuTextureViewRelease(view);
   p_wgpuCommandBufferRelease(cb);
+  p_wgpuCommandEncoderRelease(enc);
+  if (stx.texture != NULL) {
+    p_wgpuTextureRelease(stx.texture);
+  }
   WGPUStatus ps = p_wgpuSurfacePresent(st->surface);
   p_wgpuInstanceProcessEvents(g_l1_inst);
   if (ps != WGPUStatus_Success) {
