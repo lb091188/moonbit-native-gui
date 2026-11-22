@@ -149,9 +149,9 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
 - ✅ **macOS GIF 分帧合成**：ImageIO 逐帧合成，disposal 全档；帧号 / 时长 / 换帧口径与 Linux / Windows 一致
   - ImageIO：macOS 系统自带的图像读取框架。
 - 🚧 **中央动画登记表**：组件动画统一登记驱动——构造期不排拍，`on_draw` 喂表即登记/复活，拍内只推进本帧画到的项，表空即停，空闲零动画零唤醒
-  - 已迁入：eff_chart_t / gif / carousel 三组件的构造期自续定时器链；transition / keyframes / scroll 自带收敛停表，后续并入
+  - 已迁入：eff_chart_t / gif / carousel 三组件的构造期自续定时器链；transition / keyframes / scroll 自带收敛停表（16ms 一条链、落定即停、不空转），暂不并入——登记表住在 `ui` 包、依赖 `@widget.Widget`，`style` 包在依赖下层引用不了，并入要先把它下沉成 id 键控、重迁三个已稳定组件面，行为零收益，等定时器通道改造批一起做
   - 动机与根因：构造期自续链不看可见性，预建缓存页的离树控件每拍置脏、`invalidate_id` 回退整窗重绘，演示板空闲 21fps 重绘风暴；定案见 experience/design.md「口径记录」第 9 条
-  - wgpu 上屏每帧三对象缺失 Release 的原生泄露同批修：mac `leaks` 实测 40 秒 2356 个对象补 Release 后归零，三臂共享
+  - wgpu 上屏每帧三对象缺失 Release 的原生泄露同批修：mac `leaks` 实测 40 秒 2356 个对象补 Release 后归零，三臂共享；swapchain 纹理 Release 排 Present 之后（提前归零 Present 报 Error、L1 标死），mac L1 死亡回退摘 Metal 层（layer-backed 视图上 CG 直贴不可见，不摘即永久灰屏）
   - 同批配套：`invalidate_id` 查不到 id 改为跳过（离树控件不回退整窗重绘）；演示板 section 首段挂载从构造期 handle 推迟到真 `on_mount`
   - mac 读数：演示板空闲 CPU 21–28% 降到约 0.1%，内存完全走平，原生泄露归零；win 真机读数与三端观感待验（SC-0.4 / SC-0.5）
 - 🚧 **滚动管线减负**：惯性/回弹全档开启 + 贴帧带脏区 + 滚动位移不重排
