@@ -15634,10 +15634,12 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
   p_wgpuTextureViewRelease(view);
   p_wgpuCommandBufferRelease(cb);
   p_wgpuCommandEncoderRelease(enc);
+  // swapchain 纹理的引用必须活过 Present：中途归零 wgpu 视作「surface 已无
+  // 当前纹理」，Present 直接 Error——放行放在 Present 之后（含失败分支）
+  WGPUStatus ps = p_wgpuSurfacePresent(st->surface);
   if (stx.texture != NULL) {
     p_wgpuTextureRelease(stx.texture);
   }
-  WGPUStatus ps = p_wgpuSurfacePresent(st->surface);
   p_wgpuInstanceProcessEvents(g_l1_inst);
   if (ps != WGPUStatus_Success) {
     // 设备/表面丢了：该窗永久回退（本帧也当没上屏）
