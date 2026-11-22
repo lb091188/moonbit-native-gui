@@ -111,6 +111,28 @@ pub fn scroll_repaint(viewport_id : Int32, dy : Double, extent : Double) -> Unit
 }
 
 ///|
+/// 动画中的滚动视口「本次滚轮已接住、不需要立刻重绘」的标记：惯性/回弹在跑的
+/// 事件只更新弹簧目标，下一拍自己会局部置脏；宿主据此跳过整窗兜底（否则每个
+/// 输入事件都会触发一帧整窗重绘，动画再顺也会被打回原形）。
+let scroll_touch_hook : Ref[((Int32) -> Unit)?] = Ref(None)
+
+///|
+pub fn set_scroll_touch_hook(f : (Int32) -> Unit) -> Unit {
+  scroll_touch_hook.val = Some(f)
+}
+
+///|
+pub fn scroll_touch(viewport_id : Int32) -> Unit {
+  if viewport_id == 0 {
+    return ()
+  }
+  match scroll_touch_hook.val {
+    Some(f) => f(viewport_id)
+    None => ()
+  }
+}
+
+///|
 /// 信号变化时重挂子树：值 v → 子树 `f(v)`，**原位**替换上一代。
 /// 适合低频换整块视图（随状态换图标、换面板）；高频改属性请让控件自己
 /// 订阅并就地更新（文本绑定那类），别每变一次重建一棵树。

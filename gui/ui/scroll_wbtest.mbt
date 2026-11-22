@@ -584,3 +584,51 @@ test "滚动：内层在滚时事件不冒泡，父级不跟着动" {
   assert_true(inner_st.offset_y() > 0.0)
   assert_eq(outer_st.offset_y(), 0.0)
 }
+
+///|
+test "滚动手感：橡皮筋映射单调饱和，临界弹簧不过冲、欠阻尼回弹有轻微过冲" {
+  // 橡皮筋：0 起步、单调、饱和在 14px 以内，方向随输入
+  assert_eq(rubber_over(0.0), 0.0)
+  assert_true(rubber_over(10.0) < rubber_over(30.0))
+  assert_true(rubber_over(30.0) < rubber_over(60.0))
+  assert_true(rubber_over(100000.0) < 14.0)
+  assert_true(rubber_over(-30.0) < 0.0)
+  // 临界阻尼：30px 目标，8ms 步进，单调逼近且不过冲
+  let mut x = 0.0
+  let mut v = 0.0
+  let mut t = 0.0
+  let mut prev = 0.0
+  while t < 400.0 {
+    let (nx, nv) = spring_advance(x, v, 30.0, SCROLL_SPRING_W, 1.0, 8.0)
+    x = nx
+    v = nv
+    t = t + 8.0
+    assert_true(x >= prev - 0.001)
+    assert_true(x <= 30.0 + 0.001)
+    prev = x
+  }
+  assert_true(x > 29.0, msg="临界弹簧 400ms 内应基本到位：\{x}")
+  // 欠阻尼回弹：从 7px 过冲回 0，应出现一记轻微反向过冲后再收敛
+  x = 7.0
+  v = 0.0
+  t = 0.0
+  let mut lowest = 0.0
+  while t < 400.0 {
+    let (nx, nv) = spring_advance(
+      x,
+      v,
+      0.0,
+      SCROLL_BOUNCE_W,
+      SCROLL_BOUNCE_ZETA,
+      8.0,
+    )
+    x = nx
+    v = nv
+    t = t + 8.0
+    if x < lowest {
+      lowest = x
+    }
+  }
+  assert_true(lowest < -0.3, msg="回弹应有一记轻微过冲：\{lowest}")
+  assert_true(x > -0.5 && x < 0.5, msg="回弹应收住：\{x}")
+}

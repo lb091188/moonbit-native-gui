@@ -17,6 +17,7 @@ fn vis_app() -> WindowHost {
     dirty_rect: None,
     dirty_full: false,
         scroll_pending: None,
+        scroll_touch: false,
     system_keys: true,
     hidden_cbs: [],
     shown_cbs: [],

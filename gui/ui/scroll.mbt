@@ -39,8 +39,20 @@ pub(all) struct ScrollState {
   mut tick_gen : Int32
   /// 惯性档：硬件档滚轮按目标趋近（只动视口里的滚动内容）；组件挂载时置 true
   mut smooth : Bool
-  /// 当前节拍是惯性趋近（true）还是触边回弹（false），两者速率不同
+  /// 当前节拍是惯性趋近（true）还是触边回弹（false）
   mut gliding : Bool
+  /// 弹簧位置与速度（px、px/ms）：`offset` 是取整后的上屏值，这里保留小数让
+  /// 加减速连续；上屏位移取整才命中条带快路径
+  mut anim_x : Double
+  mut anim_v : Double
+  /// 上一拍的真实时刻（毫秒）
+  mut anim_last : Int64
+  /// 当前在触边回弹（欠阻尼，收力时带一点回弹感）
+  mut bouncing : Bool
+  /// 越界滚轮累计（带符号，px）：橡皮筋映射成可见过冲，松手后归零
+  mut over_raw : Double
+  /// 触边保持截止时刻（毫秒）：最后一格越界滚轮之后多久收力
+  mut over_hold_until : Int64
   /// 跟随底部：开时内容变高会自动贴底（`set_follow_bottom` 写）。
   mut follow_bottom : Bool
   /// 用户手动滚离底部期间的暂停位：回到底部即恢复；未开跟随时无意义。
@@ -66,6 +78,12 @@ pub fn ScrollState::new() -> ScrollState {
     tick_gen: 0,
     smooth: false,
     gliding: false,
+    anim_x: 0.0,
+    anim_v: 0.0,
+    anim_last: 0,
+    bouncing: false,
+    over_raw: 0.0,
+    over_hold_until: 0,
     follow_bottom: false,
     follow_paused: false,
   }
@@ -84,8 +102,12 @@ fn ScrollState::cancel_tick(self : ScrollState) -> Unit {
   if self.ticking {
     self.ticking = false
     self.gliding = false
+    self.bouncing = false
     self.tick_gen = self.tick_gen + 1
   }
+  self.anim_v = 0.0
+  self.over_raw = 0.0
+  self.over_hold_until = 0
 }
 
 ///|
@@ -130,6 +152,71 @@ pub fn ScrollState::set_offset(self : ScrollState, v : Double) -> Unit {
       @widget.scroll_repaint(self.viewport_id, 0.0 - delta, self.row_extent)
     }
   }
+  self.anim_x = self.offset
+}
+
+// ---- 滚动动效：临界阻尼弹簧 + 触边橡皮筋 ----
+//
+// 每 8ms 用真实经过时间推一次弹簧，位置保留小数、上屏取整。取整值没变的拍
+// 不重绘，变了就按整数位移走条带快路径——加减速连续，画面成本仍只有窄条带。
+// 手感参数按「像系统滚动」调：惯性档临界阻尼 ω=22/s，一格 30px 约 330ms 收住；
+// 触边用欠阻尼 ζ=0.5、ω=26/s，压边有橡皮筋伸展、松手带一记轻微回弹。
+
+///|
+/// 动效节拍（毫秒）：8ms 覆盖 120Hz 屏，60Hz 屏由合成器取最新一帧。
+const SCROLL_ANIM_TICK_MS : Int32 = 8
+
+///|
+/// 弹簧角频率（rad/ms）：惯性档 22/s、回弹档 26/s。越大越跟手，越小越绵。
+const SCROLL_SPRING_W : Double = 0.022
+
+///|
+const SCROLL_BOUNCE_W : Double = 0.026
+
+///|
+/// 触边回弹的阻尼比：略欠阻尼，松手后允许一记轻微过冲。
+const SCROLL_BOUNCE_ZETA : Double = 0.5
+
+///|
+/// 触边保持时长（毫秒）：最后一格越界滚轮之后压这么久再收力回弹。
+const SCROLL_BOUNCE_HOLD_MS : Int64 = 120
+
+///|
+/// 橡皮筋可见过冲上限（px）与饱和尺度（px）：输入累计越大，增量越小。
+const SCROLL_BOUNCE_CAP : Double = 14.0
+
+///|
+const SCROLL_BOUNCE_SCALE : Double = 40.0
+
+///|
+/// 越界累计 → 可见过冲：双曲饱和，头几格跟手、越压越硬，封顶约 14px。
+fn rubber_over(raw : Double) -> Double {
+  let r = if raw < 0.0 { 0.0 - raw } else { raw }
+  if r <= 0.0 {
+    return 0.0
+  }
+  let v = SCROLL_BOUNCE_CAP * r / (r + SCROLL_BOUNCE_SCALE)
+  if raw < 0.0 {
+    0.0 - v
+  } else {
+    v
+  }
+}
+
+///|
+/// 弹簧一步：`x` 位置、`v` 速度、`target` 目标、`w` 角频率（rad/ms）、
+/// `zeta` 阻尼比、`dt` 经过毫秒。拆成纯函数便于白盒验证手感参数。
+fn spring_advance(
+  x : Double,
+  v : Double,
+  target : Double,
+  w : Double,
+  zeta : Double,
+  dt : Double,
+) -> (Double, Double) {
+  let a = w * w * (target - x) - 2.0 * zeta * w * v
+  let nv = v + a * dt
+  (x + nv * dt, nv)
 }
 
 ///|
@@ -137,9 +224,9 @@ pub fn ScrollState::set_offset(self : ScrollState, v : Double) -> Unit {
 /// 处理顺序：
 /// - 没有可滚余量（内容装得下、或这个轴没开）→ 不消费、不动、不回弹，
 ///   让事件继续冒泡给外层；
-/// - 滚到边界：硬件档短促回弹并**消费**，回弹期间父级不跟着动；CPU 档夹在
+/// - 滚到边界：硬件档进入橡皮筋回弹并**消费**，父级不跟着动；CPU 档夹在
 ///   边界，没动就让父级接力；
-/// - 区间内：硬件档按目标趋近做惯性滑行（`smooth` 组件，只动视口内容），
+/// - 区间内：硬件档按弹簧趋近目标做惯性滑行（`smooth` 组件，只动视口内容），
 ///   CPU 档或未开惯性的组件即时落位。
 pub fn ScrollState::scroll_by(self : ScrollState, dy : Double) -> Bool {
   if dy == 0.0 {
@@ -149,24 +236,52 @@ pub fn ScrollState::scroll_by(self : ScrollState, dy : Double) -> Bool {
   if m <= 0.0 {
     return false
   }
-  // 惯性在跑时以目标为基准累加：以当前偏移为基准会让连续滚轮把目标往回拖
-  // （偏移永远落后目标一小截，第二格就倒退了）
-  let base = if self.ticking && self.gliding { self.target } else { self.offset }
+  // 惯性/回弹在跑时以目标为基准累加：以当前偏移为基准会让连续滚轮把目标
+  // 往回拖（上屏值永远落后目标一小截，第二格就倒退了）
+  let base = if self.ticking { self.target } else { self.offset }
   let raw = base + dy
-  if raw < 0.0 || raw > m {
-    if anim_ready() {
-      self.bounce(raw)
-      return true
+  let out = raw < 0.0 || raw > m
+  if out {
+    if !anim_ready() {
+      let before = self.offset
+      self.set_offset(raw)
+      return self.offset != before
     }
-    let before = self.offset
-    self.set_offset(raw)
-    return self.offset != before
-  }
-  let before = self.offset
-  if anim_ready() && self.smooth {
-    self.glide(raw)
+    let now = @shell.now_ms()
+    let bound = if raw < 0.0 { 0.0 } else { m }
+    // 连续压边按真实输入累计（目标已被橡皮筋压缩，不能拿 raw 反推）；
+    // 反向一格回到区间内就走惯性回落。
+    let same_dir = self.bouncing &&
+      self.over_raw != 0.0 &&
+      (dy < 0.0) == (self.over_raw < 0.0)
+    if same_dir {
+      self.over_raw = self.over_raw + dy
+    } else {
+      self.over_raw = raw - bound
+    }
+    self.bouncing = true
+    self.gliding = false
+    self.over_hold_until = now + SCROLL_BOUNCE_HOLD_MS
+    self.target = bound + rubber_over(self.over_raw)
+    if !self.ticking {
+      self.start_tick(now)
+    }
+    @widget.scroll_touch(self.viewport_id)
     return true
   }
+  if anim_ready() && self.smooth {
+    let now = @shell.now_ms()
+    self.target = raw
+    self.bouncing = false
+    self.gliding = true
+    self.over_raw = 0.0
+    if !self.ticking {
+      self.start_tick(now)
+    }
+    @widget.scroll_touch(self.viewport_id)
+    return true
+  }
+  let before = self.offset
   self.set_offset(raw)
   self.offset != before
 }
@@ -196,88 +311,122 @@ fn ScrollState::anim_offset(self : ScrollState, v : Double) -> Unit {
 }
 
 ///|
-/// 惯性档：把滚轮增量累进目标，节拍以固定速率趋近；连续滚轮只更新目标，
-/// 不打断已排的节拍。首拍同步走一步，按下就有跟手感。
-fn ScrollState::glide(self : ScrollState, tgt : Double) -> Unit {
-  self.target = tgt
-  // 回弹节拍中改回惯性（用户反向滚）：模式要跟着换，下一拍才用惯性速率
-  self.gliding = true
-  if self.ticking {
-    return
-  }
+/// 起节拍：物理位置从当前上屏值出发、速度清零；第一拍只对时，下一拍才走。
+/// 模式（`gliding` / `bouncing`）由调用方在此之前写好。
+fn ScrollState::start_tick(self : ScrollState, now : Int64) -> Unit {
   self.ticking = true
-  self.gliding = true
   self.tick_gen = self.tick_gen + 1
+  self.anim_v = 0.0
+  self.anim_x = self.offset
+  self.anim_last = now
   self.tick(self.tick_gen)
 }
 
 ///|
-/// 触顶/触底回弹：只动滚动内容（视口 overflow hidden 裁剪内，别的区域不动），
-/// 过冲按 0.25 衰减、封顶 14px，随后三四拍弹回边界。已注册视口的偏移取整，
-/// 条带快路径每一拍都能命中。
-fn ScrollState::bounce(self : ScrollState, raw : Double) -> Unit {
-  let m = self.max()
-  let bound = if raw < 0.0 { 0.0 } else { m }
-  let cap = 14.0
-  let mut over = (raw - bound) * 0.25
-  if over < 0.0 - cap {
-    over = 0.0 - cap
-  } else if over > cap {
-    over = cap
-  }
-  self.target = if self.viewport_id != 0 { bound.round() } else { bound }
-  if self.ticking {
-    // 已在惯性滑行/回弹：改目标即可，节拍继续，事件仍由本视口吸收
-    self.gliding = false
+/// 压边保持窗口过后收力：目标回边界，继续用同一弹簧自然弹回。
+fn ScrollState::release_bounce(self : ScrollState, gen : Int32) -> Unit {
+  if !self.bouncing || gen != self.tick_gen || self.ticking {
     return
   }
-  self.ticking = true
-  self.gliding = false
-  self.tick_gen = self.tick_gen + 1
-  let step = if self.viewport_id != 0 { over.round() } else { over }
-  self.anim_offset(self.target + step)
-  self.tick(self.tick_gen)
+  if self.over_raw == 0.0 {
+    return
+  }
+  let now = @shell.now_ms()
+  if now < self.over_hold_until {
+    let left = self.over_hold_until - now
+    let _ = @shell.set_timeout(left.to_int(), fn() { self.release_bounce(gen) })
+    return
+  }
+  let bound = if self.over_raw < 0.0 { 0.0 } else { self.max() }
+  self.over_raw = 0.0
+  self.target = bound
+  self.start_tick(now)
 }
 
 ///|
-/// 一拍：指数趋近目标，停下即停表。惯性档每拍 0.35（约 8 拍收住），回弹档
-/// 0.6（约 4 拍收住）。已注册视口按整数步进，保证条带快路径每拍都命中
-/// （不足 1px 按方向补 1px 防卡死）。
+/// 一拍：临界阻尼弹簧趋近目标，或触边欠阻尼回弹。用真实经过时间推进，
+/// 定时器抖动只影响采样、不影响动画时长；上屏取整，取整值没变的拍不重绘。
 fn ScrollState::tick(self : ScrollState, gen : Int32) -> Unit {
   if !self.ticking || gen != self.tick_gen {
     return
   }
-  let d = self.target - self.offset
-  if d > -0.5 && d < 0.5 {
+  if !anim_ready() {
+    // 通道没了（关窗/降档）：直接落到目标，不留半截动画
     self.ticking = false
     self.gliding = false
-    let fin = if self.viewport_id != 0 { self.target.round() } else { self.target }
-    if self.offset != fin {
+    self.bouncing = false
+    self.anim_v = 0.0
+    self.anim_x = self.target
+    let fin = self.target.round()
+    if fin != self.offset {
       self.anim_offset(fin)
     }
-    // 惯性/回弹期间事件早已过去：贴底与否在这里补记，跟随底部才能恢复
-    self.note_user_scroll()
     return
   }
-  let rate = if self.gliding { 0.35 } else { 0.6 }
-  let next = if self.viewport_id != 0 {
-    (self.offset + d * rate).round()
-  } else {
-    self.offset + d * rate
+  let now = @shell.now_ms()
+  // 压边松手：保持窗口过后收力，目标回边界，弹簧自己弹回去
+  if self.bouncing && self.over_raw != 0.0 && now >= self.over_hold_until {
+    let bound = if self.over_raw < 0.0 { 0.0 } else { self.max() }
+    self.over_raw = 0.0
+    self.target = bound
   }
-  let mut nv = next
-  if self.viewport_id != 0 && nv == self.offset {
-    nv = if d > 0.0 { self.offset + 1.0 } else { self.offset - 1.0 }
+  let mut dt = (now - self.anim_last).to_double()
+  self.anim_last = now
+  if dt < 0.5 {
+    dt = 0.5
   }
-  self.anim_offset(nv)
-  if anim_ready() {
-    let g = gen
-    let _ = @shell.set_timeout(16, fn() { self.tick(g) })
-  } else {
+  if dt > 32.0 {
+    dt = 32.0
+  }
+  let w = if self.bouncing { SCROLL_BOUNCE_W } else { SCROLL_SPRING_W }
+  let zeta = if self.bouncing { SCROLL_BOUNCE_ZETA } else { 1.0 }
+  let (nx, nv) = spring_advance(
+    self.anim_x,
+    self.anim_v,
+    self.target,
+    w,
+    zeta,
+    dt,
+  )
+  self.anim_x = nx
+  self.anim_v = nv
+  // 上屏取整：整数位移才命中条带快路径。离目标还差半像素以上时至少走 1px：
+  // 第一拍就有局部脏区（否则滚轮分支会兜底整窗重绘），慢速段也不会卡住。
+  let mut shown = self.anim_x.round()
+  let remain = self.target - self.offset
+  if shown == self.offset && remain > 0.5 {
+    shown = self.offset + 1.0
+  } else if shown == self.offset && remain < -0.5 {
+    shown = self.offset - 1.0
+  }
+  if shown != self.offset {
+    self.anim_offset(shown)
+  }
+  let d = self.target - self.anim_x
+  if d > -0.3 && d < 0.3 && self.anim_v > -0.015 && self.anim_v < 0.015 {
+    self.anim_x = self.target
+    self.anim_v = 0.0
+    let fin = self.target.round()
+    if fin != self.offset {
+      self.anim_offset(fin)
+    }
     self.ticking = false
     self.gliding = false
-    self.anim_offset(self.target)
+    self.note_user_scroll()
+    // 还压着边：保持窗口结束再收力
+    if self.bouncing && self.over_raw != 0.0 {
+      let left = self.over_hold_until - now
+      let g = gen
+      if left > 0 {
+        let _ = @shell.set_timeout(left.to_int(), fn() { self.release_bounce(g) })
+      } else {
+        self.release_bounce(g)
+      }
+    }
+    return
   }
+  let g = gen
+  let _ = @shell.set_timeout(SCROLL_ANIM_TICK_MS, fn() { self.tick(g) })
 }
 
 ///|

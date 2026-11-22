@@ -34,6 +34,9 @@ pub(all) struct WindowHost {
   /// 本批的滚动位移（视口 id、内容位移、条带修复余量）：本帧唯一脏区就是
   /// 该视口且位移为整数时才走条带快路径，否则按普通视口重绘
   mut scroll_pending : (Int32, Double, Double)?
+  /// 本次滚轮已被动画中的滚动视口接住：只更新了弹簧目标、不需要立刻重绘。
+  /// 滚动路由据此跳过整窗兜底，等节拍下一拍自己局部置脏。
+  mut scroll_touch : Bool
   /// 按窗复用的帧位图：尺寸没变就不重新分配（每帧 new 是 MB 级分配+清零；
   /// 平台桩在 present 时同步拷贝像素，MoonBit 侧缓冲无延迟读，复用安全）
   mut canvas : @render.Bitmap?
@@ -220,6 +223,7 @@ fn install_host_hooks() -> Unit {
   set_scroll_hook(fn(id : Int32, dy : Double, ext : Double) {
     host_scroll_repaint(id, dy, ext)
   })
+  set_scroll_touch_hook(fn(id : Int32) { host_scroll_touch(id) })
   set_overlay_provider(fn() -> OverlayHost? {
     match host_active() {
       Some(a) => Some(a.host)
@@ -277,6 +281,7 @@ fn app_window(
         dirty_rect: None,
         dirty_full: false,
         scroll_pending: None,
+        scroll_touch: false,
         system_keys: true,
         hidden_cbs: [],
         shown_cbs: [],
@@ -325,6 +330,7 @@ pub fn test_app(s : @shell.Session) -> WindowHost {
     dirty_rect: None,
     dirty_full: false,
     scroll_pending: None,
+    scroll_touch: false,
     system_keys: true,
     hidden_cbs: [],
     shown_cbs: [],
@@ -652,6 +658,18 @@ fn WindowHost::mark_widget_rect(self : WindowHost, w : Widget) -> Unit {
     }
   }
   @win.wake()
+}
+
+///|
+/// 动画中的滚动视口接住了本次滚轮：只记「本批不用整窗兜底」，不标脏、不唤醒。
+/// 下一拍弹簧自己置脏时再走条带。
+fn host_scroll_touch(viewport_id : Int32) -> Unit {
+  for a in host_windows() {
+    match a.root.by_id(viewport_id) {
+      Some(_) => a.scroll_touch = true
+      None => ()
+    }
+  }
 }
 
 ///|
@@ -1177,10 +1195,14 @@ fn WindowHost::route(self : WindowHost, ev : @win.InputEvent) -> Unit {
         }
       }
     }
-    Scroll(sev) => if self.root.dispatch_scroll(sev) {
+    Scroll(sev) => {
+      let handled = self.root.dispatch_scroll(sev)
+      // 动画中的滚动视口只更新弹簧目标、下一拍自己置脏；本次不再整窗兜底
+      let touched = self.scroll_touch
+      self.scroll_touch = false
       // 滚动容器消费时已按视口局部置脏（ScrollState::set_offset）；消费者
       // 改了别的状态却没标脏才整窗兜底
-      if !self.session.dirty {
+      if handled && !touched && !self.session.dirty {
         self.schedule_paint()
       }
     }
@@ -1420,6 +1442,26 @@ let layout_log_last_w : Ref[Int32] = Ref(0)
 let strip_hits : Ref[Int32] = Ref(0)
 
 ///|
+/// 条带快路径的上一帧快照缓冲（进程级复用）：每帧 new 一张 MB 级 FixedArray
+/// 会走大块 malloc/free，连续动画下是实打实的抖动源；同尺寸直接 blit 覆盖。
+let g_strip_snapshot : Ref[@render.Bitmap?] = Ref(None)
+
+///|
+fn strip_snapshot(bm : @render.Bitmap) -> @render.Bitmap {
+  match g_strip_snapshot.val {
+    Some(s) if s.width == bm.width && s.height == bm.height => {
+      bm.data.blit_to(s.data, len=bm.data.length())
+      s
+    }
+    _ => {
+      let s = @render.Bitmap::copy(bm)
+      g_strip_snapshot.val = Some(s)
+      s
+    }
+  }
+}
+
+///|
 pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   text_batch_init()
   // 帧号先进一格：被画到的控件在这一格里记账，自转组件据此判断「这帧有没有我」
@@ -1538,7 +1580,7 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
       strip_hits.val = strip_hits.val + 1
       // ① 快照上一帧，视口内整块按整数位移平移：全幅 1:1 命中 raster 的
       // 「整数平移」快路径，裁剪把写面限制在视口内
-      let snap = @render.Canvas::from_bitmap(@render.Bitmap::copy(bm))
+      let snap = @render.Canvas::from_bitmap(strip_snapshot(bm))
       p.save()
       p.clip_rect(vr.x, vr.y, vr.w, vr.h)
       p.draw_canvas_from_rect(
@@ -1562,13 +1604,15 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
         { x: vr.x, y: vr.y + vr.h - band_h, w: vr.w, h: band_h }
       }
       let sb : Rect = { x: vr.x + vr.w - 12.0, y: vr.y, w: 12.0, h: vr.h }
-      // 视口描边/底色随整块平移：新露条带之外，另一端的上下边线要补画
-      let top_edge : Rect = { x: vr.x, y: vr.y, w: vr.w, h: 2.0 }
-      let bot_edge : Rect = { x: vr.x, y: vr.y + vr.h - 2.0, w: vr.w, h: 2.0 }
+      // 视口描边/底色随整块平移：新露条带在另一端，对侧的边线被移出后要补画
+      let edge : Rect = if sdy > 0.0 {
+        { x: vr.x, y: vr.y + vr.h - 2.0, w: vr.w, h: 2.0 }
+      } else {
+        { x: vr.x, y: vr.y, w: vr.w, h: 2.0 }
+      }
       paint_clipped(self.root, p, band)
       paint_clipped(self.root, p, sb)
-      paint_clipped(self.root, p, top_edge)
-      paint_clipped(self.root, p, bot_edge)
+      paint_clipped(self.root, p, edge)
     }
     None => self.root.paint(p)
   }
