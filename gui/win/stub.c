@@ -1097,6 +1097,47 @@ int wm_init(void) {
   // 崩溃取证档（NATIVEGUI_CRASH_LOG=1）：装在窗口类注册之前，后面任何
   // 一步炸掉都能落一份现场
   wm_crash_install();
+  // 本构建是 GUI 子系统进程（链接 pragma 见 win_gui.c），天生没有控制台、
+  // 标准句柄为 NULL——moonbit_println 首调 GetStdHandle 缓存句柄，NULL 即
+  // 终身静默丢弃：println / NATIVEGUI_PROF / 诊断口在真机上全部落黑洞（从
+  // PowerShell 跑也一样）。两条出路：
+  // ① NATIVEGUI_LOG_FILE=<路径>：标准句柄与 C stdout 一并重定向进该文件——
+  //    任何启动方式（双击、moon run、脚本拉起）都有日志；
+  // ② 从终端启动：AttachConsole 接回父控制台，标准句柄指到 CONOUT$——
+  //    println 走 WriteConsoleW（终端内中文不乱码），C stdout 同步重定向。
+  {
+    const char *logf = getenv("NATIVEGUI_LOG_FILE");
+    const char *to = NULL; // 重定向目标："CONOUT$" 或日志文件路径
+    HANDLE target = INVALID_HANDLE_VALUE;
+    if (logf != NULL && logf[0] != 0) {
+      int wlen = MultiByteToWideChar(CP_UTF8, 0, logf, -1, NULL, 0);
+      if (wlen > 0) {
+        wchar_t wpath[MAX_PATH];
+        MultiByteToWideChar(CP_UTF8, 0, logf, -1, wpath, MAX_PATH);
+        target = CreateFileW(wpath, GENERIC_WRITE, FILE_SHARE_READ, NULL,
+                             CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+      }
+      to = logf;
+    } else if (AttachConsole(ATTACH_PARENT_PROCESS)) {
+      target = CreateFileW(L"CONOUT$", GENERIC_WRITE,
+                           FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                           OPEN_EXISTING, 0, NULL);
+      to = "CONOUT$";
+    }
+    if (target != INVALID_HANDLE_VALUE && to != NULL) {
+      // println 的 WriteConsoleW / write_stdio 路径认标准句柄，先重建它
+      SetStdHandle(STD_OUTPUT_HANDLE, target);
+      SetStdHandle(STD_ERROR_HANDLE, target);
+      FILE *out = NULL;
+      FILE *err = NULL;
+      freopen_s(&out, to, "w", stdout);
+      // 同一个日志文件：err 追加，别把 stdout 刚建的文件再截一次
+      freopen_s(&err, to, logf != NULL && logf[0] != 0 ? "a" : "w", stderr);
+      // PROF 两秒一行：默认全缓冲会攒到进程退出才一次倒出，真机上就像
+      // 「跑完什么都没有」——置无缓冲
+      setvbuf(stdout, NULL, _IONBF, 0);
+    }
+  }
   // 幂等：多窗宿主每开一扇都调一次后端初始化，而 Win32 的窗口类**同名
   // 重复注册会失败**（ERROR_CLASS_ALREADY_EXISTS）——第一次成功之后就整段复用。
   // 不这么做的话第二扇窗永远开不出（本机实测 App::open_window 返回 None，
