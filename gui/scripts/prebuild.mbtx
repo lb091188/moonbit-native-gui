@@ -342,12 +342,15 @@ fn slice_str(s : String, lo : Int, hi : Int) -> String {
 }
 
 ///|
-fn entry(pkg~ : String, link_flags~ : String) -> String {
-  "{ \"package\": \"" +
-  json_escape(pkg) +
-  "\", \"link_flags\": \"" +
-  json_escape(link_flags) +
-  "\" }"
+/// 一条链接配置：包名 + 链接参数。stdout 的 JSON 与 stderr 的终端预览都从它渲染。
+struct Entry {
+  pkg : String
+  flags : String
+}
+
+///|
+fn entry(pkg~ : String, link_flags~ : String) -> Entry {
+  { pkg, flags: link_flags }
 }
 
 ///|
@@ -356,11 +359,75 @@ fn join_flags(parts : Array[String]) -> String {
 }
 
 ///|
-async fn link_configs() -> String {
+/// stdout 协议形态：恰好一个 JSON 值，moon 解析后传播给依赖本库的包。
+fn render_json(entries : Array[Entry]) -> String {
+  let out = StringBuilder()
+  out.write_string("{ \"link_configs\": [")
+  let mut i = 0
+  for e in entries {
+    if i > 0 {
+      out.write_string(", ")
+    }
+    out.write_string("{ \"package\": \"")
+    out.write_string(json_escape(e.pkg))
+    out.write_string("\", \"link_flags\": \"")
+    out.write_string(json_escape(e.flags))
+    out.write_string("\" }")
+    i += 1
+  }
+  out.write_string("] }")
+  out.to_string()
+}
+
+///|
+/// 链接参数拆行：空格切分，每行一条；-framework 与它的参数并回一行。
+fn flag_lines(flags : String) -> Array[String] {
+  let lines : Array[String] = []
+  let mut pair_framework = false
+  for tok in flags.split(" ") {
+    let t = tok.to_owned()
+    if t.length() == 0 {
+      continue
+    }
+    if pair_framework {
+      let last = lines.length() - 1
+      lines[last] = lines[last] + " " + t
+      pair_framework = false
+    } else {
+      lines.push(t)
+      pair_framework = t == "-framework"
+    }
+  }
+  lines
+}
+
+///|
+/// 终端预览：每包一块、参数逐行缩进，给人读；走 stderr，stdout 协议不变。
+fn render_text(entries : Array[Entry]) -> String {
+  let out = StringBuilder()
+  out.write_string("prebuild 输出:")
+  if entries.is_empty() {
+    out.write_string("\n  （空——本平台无额外链接配置）")
+    return out.to_string()
+  }
+  for e in entries {
+    out.write_string("\n  ")
+    out.write_string(e.pkg)
+    out.write_string(":")
+    for line in flag_lines(e.flags) {
+      out.write_string("\n    ")
+      out.write_string(line)
+    }
+  }
+  out.to_string()
+}
+
+///|
+async fn link_configs() -> Array[Entry] {
   let module_root = dir_of(env_or("MOON_MOD", "."))
   let build_dir = env_or("MOON_BUILD_DIR", module_root + "/build")
   let host = env_or("MOON_HOST_OS", "")
-  let entries : Array[String] = []
+  let entries : Array[Entry] = []
   if host == "linux" {
     let libs : Array[String] = []
     let mut missing = false
@@ -441,7 +508,7 @@ async fn link_configs() -> String {
           ),
         )
       }
-      return "{ \"link_configs\": [" + entries.join(", ") + "] }"
+      return entries
     }
     // stub.c 的崩溃取证调用点（wm_crash_mark/note）实现住 crash_log.c：
     // 非 Windows 平台是空实现，必须同编进归档，否则链接期缺符号
@@ -594,7 +661,7 @@ async fn link_configs() -> String {
       )
     }
   }
-  "{ \"link_configs\": [" + entries.join(", ") + "] }"
+  entries
 }
 
 ///|
@@ -618,8 +685,8 @@ fn dir_of(p : String) -> String {
 
 ///|
 async fn main {
-  let json = link_configs()
-  // stdout 恰好一个 JSON；诊断走 stderr（moon 未必转发，但本地调试可见）
-  err("prebuild 输出: " + json)
-  println(json)
+  let entries = link_configs()
+  // stdout 恰好一个 JSON；终端预览走 stderr（moon 未必转发，但本地调试可见）
+  err(render_text(entries))
+  println(render_json(entries))
 }
