@@ -174,8 +174,7 @@ test "滚动条带快路径：普通滚动容器（ui-scroll-view）同样命中
 }
 
 ///|
-test "滚动条带快路径：视口里多了外来子件就退回普通重绘" {
-  host_reset()
+test "滚动条带快路径：视口里多了外来子件就退回普通重绘" {  host_reset()
   let (a, vp, inner) = strip_scene("ui-scroll-view")
   // 模拟调用方往视口挂浮层：结构白名单不认，条带宽高比整块平移更安全
   let extra = Widget::new()
@@ -196,4 +195,39 @@ test "滚动条带快路径：视口里多了外来子件就退回普通重绘" 
   assert_eq(strip_rgb(bm2, 8, 8), (255, 0, 0))
   assert_eq(strip_rgb(bm2, 50, 35), (0, 255, 0))
   assert_eq(strip_rgb(bm2, 50, 145), (255, 0, 0))
+}
+
+///|
+/// 序列滚动终态回归：条带快路径连续多拍「向下滚 → 向上滚回顶」后，整帧
+/// 像素必须与静止基准帧完全一致——任何一拍的平移/band/edge 修复不精确，
+/// 残差都会在终态定格成横纹（真机：视口底部一条内容缺失的空白带）。
+test "滚动条带快路径：连续滚动回顶后终态与静止帧逐点一致" {
+  host_reset()
+  let (a, vp, inner) = strip_scene("ui-scroll-view")
+  let bm_base = strip_frame(a)
+  let off = Ref(0.0)
+  fn step(dy : Double) -> Unit {
+    // 真实链路：ScrollState 改偏移 → apply 回调 set_top(-offset) → 按视口置脏
+    off.val = off.val + dy
+    inner.node.set_top(@yoga.fixed(off.val))
+    a.session.dirty = true
+    a.dirty_rect = Some(vp.rect)
+    a.scroll_pending = Some((vp.id, dy, 0.0))
+    let _ = strip_frame(a)
+  }
+  // 向下滚 4 拍（每拍 20px，内容上移）再原路滚回顶
+  for i = 0; i < 4; i = i + 1 {
+    step(-20.0)
+  }
+  for i = 0; i < 4; i = i + 1 {
+    step(20.0)
+  }
+  let bm_end = strip_frame(a)
+  for y = 30; y < 150; y = y + 5 {
+    for x = 40; x < 240; x = x + 10 {
+      let want = strip_rgb(bm_base, x, y)
+      let got = strip_rgb(bm_end, x, y)
+      assert_eq(got, want, msg="终态与基准不一致 @(\{x},\{y})")
+    }
+  }
 }

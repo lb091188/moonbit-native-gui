@@ -679,3 +679,85 @@ test "滚动容器：class 的 gap 自动落内容壳，视口壳剥除" {
   assert_eq(vs.column_gap, None)
   ignore(root)
 }
+
+///|
+/// 弹簧终态回归（真机横纹复现链）：宿主无头泵 + 真 ScrollState 弹簧——向下
+/// 滚过底（触发橡皮筋回弹）再滚回顶（再次触顶回弹），全程走条带快路径出帧。
+/// 任一拍的平移/条带/边缘修复不精确，残差都会定格在终态：断言终态整帧像素
+/// 与静止基准帧完全一致（滚动条拇指位置也一并回归）。
+test "弹簧滚动全程条带：到底回顶终态与静止基准帧逐点一致" {
+  let st = ScrollState::new()
+  let host = @widget.WindowHost::test_headless(240, 140)
+  host.mount([scroll_view(scroll_rows(20, 20.0, "#4488CC"), st, width=200.0, height=100.0)])
+  let _ = host.step()
+  let bm_base = match @widget.last_frame_bitmap() {
+    (Some(b), _) => b
+    (None, _) => abort("没有基准帧")
+  }
+  let vp = st.viewport_id
+  assert_true(vp != 0)
+  fn roll(dy : Double) -> Unit {
+    let v = host.root.by_id(vp)
+    match v {
+      Some(w) =>
+        ignore(
+          host.root.dispatch_scroll({
+            x: w.rect.x + 40.0,
+            y: w.rect.y + 40.0,
+            dx: 0.0,
+            dy,
+            mods: 0,
+          }),
+        )
+      None => abort("视口不在树里")
+    }
+  }
+  // 钉住虚拟时基按 16ms 一拍泵（与 @uitest.advance 同范式；宿主 step 每拍
+  // 结算到期节拍并出帧，弹簧按虚拟时间积分——与机器速度无关）
+  fn pump(ms : Int32) -> Unit {
+    @shell.session_vtime_unpin()
+    let start = @shell.session_vtime_now()
+    let mut left = ms
+    let mut acc = 0
+    while left > 0 {
+      let d = if left > 16 { 16 } else { left }
+      acc = acc + d
+      @shell.session_vtime_pin(start + acc.to_int64())
+      let _ = host.step()
+      left = left - d
+    }
+    @shell.session_vtime_unpin()
+  }
+  // 向下滚 15 格（超过 max=300 触发触底回弹），泵 3 秒到全停
+  for i = 0; i < 15; i = i + 1 {
+    roll(-1.0)
+  }
+  pump(3000)
+  assert_true(!st.ticking, msg="下滚后节拍没停 offset=\{st.offset_y()}")
+  assert_eq(st.offset_y(), st.max())
+  // 滚回顶 15 格（触发触顶回弹），泵 3 秒到全停
+  for i = 0; i < 15; i = i + 1 {
+    roll(1.0)
+  }
+  pump(3000)
+  assert_true(!st.ticking, msg="回顶后节拍没停 offset=\{st.offset_y()}")
+  assert_eq(st.offset_y(), 0.0)
+  // 终态帧 vs 基准帧逐点一致
+  let bm_end = match @widget.last_frame_bitmap() {
+    (Some(b), _) => b
+    (None, _) => abort("没有终态帧")
+  }
+  assert_eq(bm_end.width, bm_base.width)
+  assert_eq(bm_end.height, bm_base.height)
+  for y = 0; y < bm_end.height; y = y + 1 {
+    for x = 0; x < bm_end.width; x = x + 1 {
+      let a = bm_end.pixel(x, y)
+      let b = bm_base.pixel(x, y)
+      if a.r != b.r || a.g != b.g || a.b != b.b || a.a != b.a {
+        abort("终态与基准不一致 @(\{x},\{y})")
+      }
+    }
+  }
+  @shell.session_vtime_reset()
+  @shell.session_set_headless(false)
+}

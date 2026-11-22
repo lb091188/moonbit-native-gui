@@ -415,6 +415,13 @@ fn ScrollState::tick(self : ScrollState, gen : Int32) -> Unit {
     self.ticking = false
     self.gliding = false
     self.note_user_scroll()
+    // 停时自愈帧：整段动画期间的帧都走条带快路径（平移旧帧 + 只修新露条带），
+    // 少数路径下的微小残差会随平移累积、停在终态定格成横纹——停止这一拍
+    // 以零位移再置脏一次视口，dy=0 命不中条带快路径，下一帧整视口重绘把
+    // 残差一次抹平（代价是每次滚动停止多一帧普通重绘，无感知）
+    if self.viewport_id != 0 {
+      @widget.scroll_repaint(self.viewport_id, 0.0, self.row_extent)
+    }
     // 还压着边：保持窗口结束再收力
     if self.bouncing && self.over_raw != 0.0 {
       let left = self.over_hold_until - now
