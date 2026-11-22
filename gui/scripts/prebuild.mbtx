@@ -402,20 +402,20 @@ fn flag_lines(flags : String) -> Array[String] {
 }
 
 ///|
-/// 终端预览：每包一块、参数逐行缩进，给人读；走 stderr，stdout 协议不变。
+/// 终端预览：yoml 风格——[模块] 节头、包名一行、参数逐行「  - 」缩进，
+/// 给人读；走 stderr，stdout 协议不变。
 fn render_text(entries : Array[Entry]) -> String {
   let out = StringBuilder()
-  out.write_string("prebuild 输出:")
+  out.write_string("[gui]")
   if entries.is_empty() {
-    out.write_string("\n  （空——本平台无额外链接配置）")
+    out.write_string("\n  (empty)")
     return out.to_string()
   }
   for e in entries {
-    out.write_string("\n  ")
+    out.write_string("\n")
     out.write_string(e.pkg)
-    out.write_string(":")
     for line in flag_lines(e.flags) {
-      out.write_string("\n    ")
+      out.write_string("\n  - ")
       out.write_string(line)
     }
   }
