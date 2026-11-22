@@ -20,32 +20,32 @@ pub fn airtype() -> @widget.Node {
       @ui.panel("服务", [
         @ui.row([
           @ui.text("状态", class=@style.class_of(["label"])).with_comp("ui-text"),
-          @ui.text(s_state.get(), class=@style.class_of(["value"])).with_comp("ui-text"),
+          @ui.bind_label(s_state, fn(_v) { s_state.get() }, class=@style.class_of(["value"])).with_comp("ui-text"),
         ], class=@style.class_of(["field"])).with_comp("ui-row"),
         @ui.row([
           @ui.text("地址", class=@style.class_of(["label"])).with_comp("ui-text"),
-          @ui.text(s_addr.get(), class=@style.class_of(["value"])).with_comp("ui-text"),
+          @ui.bind_label(s_addr, fn(_v) { s_addr.get() }, class=@style.class_of(["value"])).with_comp("ui-text"),
         ], class=@style.class_of(["field"])).with_comp("ui-row"),
         @ui.row([
           @ui.text("已连接手机", class=@style.class_of(["label"])).with_comp("ui-text"),
-          @ui.text(s_conns.get(), class=@style.class_of(["value"])).with_comp("ui-text"),
+          @ui.bind_label(s_conns, fn(_v) { s_conns.get() }, class=@style.class_of(["value"])).with_comp("ui-text"),
         ], class=@style.class_of(["field"])).with_comp("ui-row"),
       ], class=@style.class_of(["card"])).with_comp("ui-panel"),
       @ui.panel("访问地址", [
         @ui.view([
           qr_view(s_qr).with_comp("qr_view"),
         ], class=@style.class_of(["qrbox"])).with_comp("ui-view"),
-        @ui.text(s_url.get(), class=@style.class_of(["addr"]), wrap=false, ellipsis=true).with_comp("ui-text"),
+        @ui.bind_label(s_url, fn(_v) { s_url.get() }, class=@style.class_of(["addr"]), wrap=false, ellipsis=true).with_comp("ui-text"),
       ], class=@style.class_of(["card"])).with_comp("ui-panel"),
       @ui.panel("最近上屏", [
-        @ui.text(s_history.get(), class=@style.class_of(["value"])).with_comp("ui-text"),
+        @ui.bind_label(s_history, fn(_v) { s_history.get() }, class=@style.class_of(["value"])).with_comp("ui-text"),
       ], class=@style.class_of(["card"])).with_comp("ui-panel"),
     ], @ui.ScrollState::new(), class=@style.class_of(["pane"])).with_comp("ui-scroll-view")),
     @ui.when_bool(@base.Signal::computed(fn() { s_page.get() == "设置" }), @ui.scroll_view([
       @ui.panel("辅助功能", [
         @ui.row([
           @ui.text("授权状态", class=@style.class_of(["label"])).with_comp("ui-text"),
-          @ui.text(s_perm.get(), class=@style.class_of(["value"])).with_comp("ui-text"),
+          @ui.bind_label(s_perm, fn(_v) { s_perm.get() }, class=@style.class_of(["value"])).with_comp("ui-text"),
         ], class=@style.class_of(["field"])).with_comp("ui-row"),
         @ui.row([
           @ui.view([

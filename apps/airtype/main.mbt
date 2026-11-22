@@ -30,8 +30,12 @@ async fn main {
           let _ = a.timer(2000, perm_tick.val)
         }
         (perm_tick.val)()
-        // 窗口级纵滚：任一页内容超高时整页滚动
-        a.enable_root_scroll()
+        // 首启主动引导：未授权直接弹系统引导框并直达设置页（已授权/无需授权
+        // 的启动保持静默，不反复打扰）
+        match @sys.permission_probe(@sys.PermAccessibility) {
+          Ok(@sys.PermGranted) | Ok(@sys.PermNotNeeded) => ()
+          _ => go_perm()
+        }
         // 单实例：mng dev 的 HOT 补丁经这条通道送达
         match @shell.instance_claim("libyue.airtype") {
           Ok(@shell.Primary) => {
