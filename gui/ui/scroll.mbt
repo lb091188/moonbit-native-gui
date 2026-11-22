@@ -55,6 +55,8 @@ pub(all) struct ScrollState {
   mut over_hold_until : Int64
   /// 跟随底部：开时内容变高会自动贴底（`set_follow_bottom` 写）。
   mut follow_bottom : Bool
+  /// 弹簧节拍计数：滚动中周期性穿插整视口自愈帧用（见 tick）
+  mut tick_n : Int32
   /// 用户手动滚离底部期间的暂停位：回到底部即恢复；未开跟随时无意义。
   mut follow_paused : Bool
 }
@@ -86,6 +88,7 @@ pub fn ScrollState::new() -> ScrollState {
     over_hold_until: 0,
     follow_bottom: false,
     follow_paused: false,
+    tick_n: 0,
   }
 }
 
@@ -403,6 +406,14 @@ fn ScrollState::tick(self : ScrollState, gen : Int32) -> Unit {
   }
   if shown != self.offset {
     self.anim_offset(shown)
+  }
+  // 滚动中周期自愈帧：条带快路径每拍都是「平移上一帧 + 只修新露条带」，少数
+  // 路径的亚像素残差会沿平移链累积、随滚动移动（真机横纹）。每 40 拍以零位移
+  // 再置脏一次视口——dy=0 命不中条带快路径，这一帧整视口普通重绘把残差清零，
+  // 横纹存续时间压到 1/3 秒内（配合弹簧收敛的停止自愈帧）
+  self.tick_n = self.tick_n + 1
+  if self.viewport_id != 0 && self.tick_n % 40 == 0 {
+    @widget.scroll_repaint(self.viewport_id, 0.0, self.row_extent)
   }
   let d = self.target - self.anim_x
   if d > -0.3 && d < 0.3 && self.anim_v > -0.015 && self.anim_v < 0.015 {
