@@ -123,17 +123,30 @@ pub fn row(
 
 ///|
 /// 声明式文本绑定：初值 `f(store.get())`，之后每次 `set` 就地更新文本并重测
-/// （只重算这一条链，不重建子树）。文本恒单行（`wrap=false`）：自动换行在
-/// 横向容器里会被压成两行。
+/// （只重算这一条链，不重建子树）。缺省单行（`wrap=false`）＋末端省略号：
+/// 自动换行在横向容器里会被压成两行；多行文本显式 `wrap=true`。
 pub fn[A] bind_label(
   store : @base.Store[A],
   f : (A) -> String,
   font_size~ : Double = 13.0,
   color~ : String = "",
+  wrap~ : Bool = false,
+  ellipsis~ : Bool = true,
+  max_lines~ : Int32 = 0,
   class~ : Array[@style.Style] = [],
   handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  bind(store.signal(), f, font_size~, color~, class~, handle~)
+  bind(
+    store.signal(),
+    f,
+    font_size~,
+    color~,
+    wrap~,
+    ellipsis~,
+    max_lines~,
+    class~,
+    handle~,
+  )
 }
 
 ///|
@@ -143,6 +156,9 @@ pub fn[A] bind(
   f : (A) -> String,
   font_size~ : Double = 13.0,
   color~ : String = "",
+  wrap~ : Bool = false,
+  ellipsis~ : Bool = true,
+  max_lines~ : Int32 = 0,
   class~ : Array[@style.Style] = [],
   handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
@@ -150,8 +166,9 @@ pub fn[A] bind(
     f(sig.get()),
     font_size~,
     color~,
-    wrap=false,
-    ellipsis=true,
+    wrap~,
+    ellipsis~,
+    max_lines~,
   )
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
