@@ -74,7 +74,7 @@ pub fn[T] virt_list(
     // 视口上沿先空、随后整屏空白。
     inner.node.set_position(@yoga.Relative)
     inner.node.set_flex_shrink(0.0)
-    inner.node.set_top(@yoga.fixed(0.0 - state.offset))
+    inner.set_visual_offset(0.0, 0.0 - state.offset)
     viewport.append_child(inner)
     // 当前窗口（源下标区间）与窗口重建
     let win_first : Ref[Int32] = Ref(-1)
@@ -128,8 +128,8 @@ pub fn[T] virt_list(
       }
     }
     let render_window = fn(force : Bool, repaint : Bool) -> Unit {
-      // 偏移先落布局：窗口区间没变但偏移在行内变化（半行滚动）时也要跟手
-      inner.node.set_top(@yoga.fixed(0.0 - state.offset))
+      // 偏移先落矩形：窗口区间没变但偏移在行内变化（半行滚动）时也要跟手
+      inner.set_visual_offset(0.0, 0.0 - state.offset)
       let count = items.get().length()
       total.val = count
       sync_heights(count)
@@ -485,7 +485,7 @@ pub fn sticky_list(
     content.node.set_width(@yoga.percent(100.0))
     content.node.set_position(@yoga.Relative)
     content.node.set_flex_shrink(0.0)
-    content.node.set_top(@yoga.fixed(0.0 - state.offset))
+    content.set_visual_offset(0.0, 0.0 - state.offset)
     let group_widgets : Array[@widget.Widget] = []
     for g in groups {
       let title = g.0
@@ -606,7 +606,7 @@ pub fn sticky_list(
     st.scroll.viewport_id = viewport.id
     st.scroll.row_extent = 0.0
     st.scroll.apply.val = fn() -> Unit {
-      content.node.set_top(@yoga.fixed(0.0 - state.offset))
+      content.set_visual_offset(0.0, 0.0 - state.offset)
     }
     viewport.on_scroll = Some(fn(ev : @widget.ScrollEvent) -> Bool {
       // 消费位由 scroll_by 判定：区间内移动/回弹吸收，无余量或到边未动则放行

@@ -189,3 +189,12 @@ pub fn Node::layout(self : Node) -> Layout {
     height: self.layout_height,
   }
 }
+
+///|
+/// 子树变更版本号（`calculate_layout` 时扫描更新）：子树内任何样式 / 子项 /
+/// 测量回调变更都会推高它。调用方记下上次的读数，相等即「整棵子树无任何
+/// 变更」——滚动位移这类场景据此跳过子树重访。注意它不包含「父级传入可用
+/// 尺寸变化」引发的布局结果变化，判据要与本节点 `layout` 值比对并用。
+pub fn Node::subtree_rev(self : Node) -> Int32 {
+  self.subtree_rev
+}

@@ -93,6 +93,17 @@ pub(all) struct Widget {
   node : @yoga.Node
   mut kids : Array[Widget]
   mut rect : Rect
+  /// 上一次 collect_abs 全路径记下的：yoga 相对布局 (left, top, w, h) 与子树
+  /// 变更版本号。-1/无效 = 首次或被隐藏清零过。两者都没变 = 整棵子树布局结果
+  /// 原样（滚动位移的内容容器正是这种），整块按绝对位移平移 rect，不再逐节点
+  /// 重访——子树版本判「子树内部没变」，布局值判「父级可用尺寸变化引发的
+  /// 结果变化」，缺一不可。
+  mut last_rel : (Double, Double, Double, Double)
+  mut last_subtree_rev : Int32
+  /// 视觉偏移 (dx, dy)：只挪绘制/命中用的矩形，不进 yoga 布局——滚动内容
+  /// 容器的位移用这个，yoga 子树版本号不动，滚动帧的缓存全程有效（每帧
+  /// 全树重排的大头正是「位移把整树缓存作废」）。矩形随 collect_abs 落地。
+  mut visual_off : (Double, Double)
   mut visible : Bool
   /// 最近一次「真的被画到」的帧号（见 `paint_epoch`）：宿主每帧在绘制入口
   /// `bump_paint_epoch`，遍历经过本控件时写下当前帧号。子控件**没有指向父控件的
@@ -281,6 +292,9 @@ pub fn Widget::new() -> Widget {
     node: @yoga.Node::new(),
     kids: [],
     rect: { x: 0.0, y: 0.0, w: 0.0, h: 0.0, },
+    last_rel: (-1.0, -1.0, -1.0, -1.0),
+    last_subtree_rev: -1,
+    visual_off: (0.0, 0.0),
     visible: true,
     paint_epoch: 0,
     on_draw: None,
@@ -539,6 +553,24 @@ pub fn Widget::relayout(
 }
 
 ///|
+/// 视觉偏移变更标记：偏移不在 yoga 子树版本号里，祖先的平移快路径看不见
+/// 它——置进程级标记让当帧 collect_abs 退化全路径一次（随后帧恢复平移）。
+/// 收口在 relayout_at：collect 全程保持真、末尾清掉。
+let g_vis_dirty : Ref[Bool] = Ref(false)
+
+///|
+/// 设视觉偏移（只挪矩形不进布局）：滚动内容容器的位移专用。下一帧
+/// `relayout` 落地——collect_abs 把偏移加进 rect；置脏由滚动链的
+/// `scroll_repaint` 负责。偏移不进 yoga，子树缓存全程有效，滚动帧不再为
+/// 位移付全树重排；collect_abs 当帧走一次全路径重落地。
+pub fn Widget::set_visual_offset(self : Widget, dx : Double, dy : Double) -> Unit {
+  if dx != self.visual_off.0 || dy != self.visual_off.1 {
+    self.visual_off = (dx, dy)
+    g_vis_dirty.val = true
+  }
+}
+
+///|
 /// 同上，但把根控件摆到窗口坐标 (ox, oy)——宿主嵌在窗口某块区域里时用这条。
 pub fn Widget::relayout_at(
   self : Widget,
@@ -549,7 +581,10 @@ pub fn Widget::relayout_at(
 ) -> Unit {
   @base.prof_note_relayout()
   @yoga.calculate_layout(self.node, Some(avail_w), Some(avail_h))
+  // 视觉偏移当帧强制全路径重落地（g_vis_dirty 全程保持真），collect 完清掉——
+  // 下一帧子树无变更即恢复平移快路径
   self.collect_abs(ox, oy)
+  g_vis_dirty.val = false
 }
 
 ///|
@@ -561,8 +596,26 @@ fn Widget::collect_abs(self : Widget, ox : Double, oy : Double) -> Unit {
     return ()
   }
   let l = self.node.layout()
-  let ax = ox + l.left
-  let ay = oy + l.top
+  let q = self.visual_off
+  let ax = ox + l.left + q.0
+  let ay = oy + l.top + q.1
+  let sr = self.node.subtree_rev()
+  if !g_vis_dirty.val &&
+    sr == self.last_subtree_rev &&
+    l.left + q.0 == self.last_rel.0 &&
+    l.top + q.1 == self.last_rel.1 &&
+    l.width == self.last_rel.2 &&
+    l.height == self.last_rel.3 {
+    // 本节点布局结果与整棵子树内部都没变（滚动帧的内容位移正是这种）：
+    // 子树绝对坐标只是平移 (dax, day)，按增量挪 rect，不再逐节点重访。
+    // on_layout 照常回放——条带快路径下被平移但没重画的控件也要有本帧坐标
+    let dax = ax - self.rect.x
+    let day = ay - self.rect.y
+    shift_subtree(self, dax, day)
+    return ()
+  }
+  self.last_subtree_rev = sr
+  self.last_rel = (l.left + q.0, l.top + q.1, l.width, l.height)
   self.rect = { x: ax, y: ay, w: l.width, h: l.height, }
   match self.on_layout {
     Some(f) => f(self)
@@ -574,8 +627,26 @@ fn Widget::collect_abs(self : Widget, ox : Double, oy : Double) -> Unit {
 }
 
 ///|
+/// 增量平移：子树内相对布局全部未变，每个节点 rect 加同一位移；on_layout
+/// 每节点照常调用（回调语义与全路径一致）。
+fn shift_subtree(w : Widget, dx : Double, dy : Double) -> Unit {
+  w.rect = { x: w.rect.x + dx, y: w.rect.y + dy, w: w.rect.w, h: w.rect.h, }
+  match w.on_layout {
+    Some(f) => f(w)
+    None => ()
+  }
+  for k in w.kids {
+    shift_subtree(k, dx, dy)
+  }
+}
+
+///|
 fn zero_rect_subtree(w : Widget, x : Double, y : Double) -> Unit {
   w.rect = { x, y, w: 0.0, h: 0.0, }
+  // 相对布局缓存一并作废：清零过的子树重显时若仍走平移快路径，位移会拿
+  // 「真实位置 − 0」当 delta，而各后代需要的 delta 各不相同——强制全路径
+  w.last_rel = (-1.0, -1.0, -1.0, -1.0)
+  w.last_subtree_rev = -1
   for k in w.kids {
     zero_rect_subtree(k, x, y)
   }

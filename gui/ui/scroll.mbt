@@ -772,7 +772,6 @@ pub fn scroll_view(
     if hscroll {
       // 横向档：`align_self FlexStart` 退掉交叉轴 stretch，让内容可比视口宽
       content.node.set_align_self(Some(@yoga.AlignItems::FlexStart))
-      content.node.set_left(@yoga.fixed(0.0 - state.offset_x))
       if min_content_width > 0.0 {
         // 下限档：内容宽 = max(min_content_width, 视口宽)，不看子项自然宽
         content.node.set_width(@yoga.percent(100.0))
@@ -785,15 +784,18 @@ pub fn scroll_view(
     } else {
       content.node.set_width(@yoga.percent(100.0))
     }
-    content.node.set_top(@yoga.fixed(0.0 - state.offset))
+    // 位移走视觉偏移（不进 yoga）：滚轮/惯性每拍改偏移若落布局，会把整树
+    // yoga 缓存作废、每帧全树重排（PROF 实测 layout 占滚动帧成本大头）。
+    // 视觉偏移只挪矩形，yoga 子树版本号不动，缓存全程有效。
+    content.set_visual_offset(0.0 - state.offset_x, 0.0 - state.offset)
     @widget.mount_children(content, children)
     viewport.append_child(content)
-    // 偏移落布局；重绘由 ScrollState::set_offset 按视口局部置脏（这里不再整窗广播）
+    // 偏移落矩形；重绘由 ScrollState::set_offset 按视口局部置脏（这里不再整窗广播）
     state.apply.val = fn() -> Unit {
-      content.node.set_top(@yoga.fixed(0.0 - state.offset))
+      content.set_visual_offset(0.0 - state.offset_x, 0.0 - state.offset)
     }
     state.apply_x.val = fn() -> Unit {
-      content.node.set_left(@yoga.fixed(0.0 - state.offset_x))
+      content.set_visual_offset(0.0 - state.offset_x, 0.0 - state.offset)
     }
     state.viewport_id = viewport.id
     // 硬件档滚轮走目标趋近（只动本视口内容）；CPU 档由 anim_ready 退回即时落位

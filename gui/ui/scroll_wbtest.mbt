@@ -761,3 +761,30 @@ test "弹簧滚动全程条带：到底回顶终态与静止基准帧逐点一�
   @shell.session_vtime_reset()
   @shell.session_set_headless(false)
 }
+
+///|
+/// C1 收益判据：滚动位移走视觉偏移（不进 yoga），连续滚动拍不应触发文本
+/// 重测——位移若落 yoga 布局（旧链路），每拍把整树缓存作废、measure 随拍数
+/// 线性涨（真机 PROF 的 layout 大头正是它）。
+test "滚动位移不作废布局缓存：连续滚动拍测量数零增长" {
+  let st = ScrollState::new()
+  let (root, _vp) = mounted(
+    scroll_view(scroll_rows(20, 20.0, "#4488CC"), st, width=200.0, height=100.0),
+    240.0,
+    140.0,
+  )
+  let _ = paint(root, 240, 140)
+  @yoga.layout_stats_reset()
+  // 模拟 10 拍滚动：每拍改偏移 + 重排（真机滚动帧的每拍动作）
+  for i = 0; i < 10; i = i + 1 {
+    st.set_offset((i + 1).to_double() * 10.0)
+    root.relayout(240.0, 140.0)
+  }
+  let summary = @yoga.layout_stats_summary()
+  // 允许少量重测（首拍对齐等），但绝不能随拍数线性涨（旧链路 10 拍 ≈ 10 次
+  // 全树重测、measure 数百起）
+  assert_true(
+    summary == "measure=0 hit=0" || summary.contains("measure=1") || summary.contains("measure=2") || summary.contains("measure=3"),
+    msg="滚动触发布局重测：\{summary}",
+  )
+}

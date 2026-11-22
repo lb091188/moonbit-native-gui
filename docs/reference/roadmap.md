@@ -154,9 +154,12 @@ MoonBit 的**跨平台桌面 GUI 框架**——一套代码直出 Windows / Linu
   - wgpu 上屏每帧三对象缺失 Release 的原生泄露同批修：mac `leaks` 实测 40 秒 2356 个对象补 Release 后归零，三臂共享
   - 同批配套：`invalidate_id` 查不到 id 改为跳过（离树控件不回退整窗重绘）；演示板 section 首段挂载从构造期 handle 推迟到真 `on_mount`
   - mac 读数：演示板空闲 CPU 21–28% 降到约 0.1%，内存完全走平，原生泄露归零；win 真机读数与三端观感待验（SC-0.4 / SC-0.5）
-- 🚧 **滚动管线减负**：惯性/回弹全档开启 + 贴帧带脏区
+- 🚧 **滚动管线减负**：惯性/回弹全档开启 + 贴帧带脏区 + 滚动位移不重排
   - 契约变更：CPU 档（容器/软渲染）不再瞬时落位，弹簧全档开——桌面 Linux 软渲染也有顺滑惯性回弹，定案见 experience/design.md「口径记录」第 10 条
   - `Window::present` 增脏区参数：GTK `queue_draw_area` / Win32 `InvalidateRect(子矩形)` 滚动帧只贴视口条带；mac Metal 恒整帧
+  - Win32 贴帧改 DIB section 双缓冲 + present 后同步上屏（滚动闪烁）
+  - 滚动位移改视觉偏移（不进 yoga 布局）：滚动帧不再作废整树布局缓存、不再逐帧全树重排——三平台 PROF 实测 layout 占滚动帧成本大头（mac 8–73ms/帧、Linux 慢速段 200ms+/帧）；collect_abs 增设平移快路径（子树版本号 + 布局值双判据）
+  - 滚动弹簧停止补一帧整视口普通重绘：抹平条带平移累积的残差（真机横纹残影）
   - 滚动帧的帧尾 a11y 整树对账降频 150ms 一次
   - `NATIVEGUI_PROF=1` 每 2s 打帧账本（布局/绘制/上屏/条带命中），Linux 滚动卡顿归因用
   - mac 读数不变差（空闲 0.1% 保持）；Linux markdown 段滚动手感待真机复验（SC-0.6）
