@@ -19,10 +19,17 @@ async fn main {
     [page(app)],
     title="airtype",
     width=460,
-    height=640,
+    height=720,
     handle=
       fn(a : @widget.WindowHost) {
         ignore(a.follow_system_theme())
+        // 授权重探：用户去系统设置勾选后回来，这里两秒内刷回「已授权」
+        let perm_tick : Ref[() -> Unit] = Ref(fn() { () })
+        perm_tick.val = fn() -> Unit {
+          app.perm.set(perm_text())
+          let _ = a.timer(2000, perm_tick.val)
+        }
+        (perm_tick.val)()
       },
   )
   match mounted {

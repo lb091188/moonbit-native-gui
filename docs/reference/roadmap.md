@@ -473,6 +473,16 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
   - 待验：EP-1.3 的 GPU 半边（ssh 会话枚举不到适配器，须 RDP 或控制台）；Windows 真机与 Linux 裸机读数
   - 已验 2026-11-21：mac 裸机、company Linux 容器、win10 KVM 判 VM 半边——真机抓出容器信号漏进 VM 判定一 bug 已修
 
+- 🚧 **文本注入**：把任意文本投进系统当前聚焦的输入框，airtype 与第三方应用共用
+  - 门面 `@sys.inject_text` 收 `gui/sys`，与剪贴板同族；未支持平台给 Unsupported
+  - mac：CGEvent 键盘事件挂 UTF-16 串，分片至多 20 单元、代理对不劈；需辅助功能授权，密码框按系统设计不收注入
+  - linux X11（XTest）后续批次，Windows 不在本期
+- 🚧 **airtype 手机投字应用**：电脑起服务出二维码，手机扫码进网页打字，发送后打进电脑聚焦输入框
+  - 独立应用模块 `apps/airtype/`（落位判据 `apps/<name>/` 行已加）；定案见 proposals/airtype.md
+  - 服务端 moonbitlang/core/async 的 HTTP + WebSocket，外部事件循环薄适配挂主线程帧泵——`WindowHost::step_no_wait` 原语
+  - 二维码 moon-qrcode 点阵自绘；网址带 32 字符随机 token 防蹭输入，明文 HTTP
+  - 待真机：mac 全链 AT-1.1～3.2；linux 侧后续批次
+
 ### WebView
 
 - ✅ **内嵌 webview**：作为原生子件嵌进界面，矩形由布局给
@@ -653,10 +663,6 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
 ### 系统能力
 
 - ⏳ **显示器「首选档」**：`CGDisplayModeIsPreferred` 已不在 SDK，需找公开替代信号
-- ⏳ **文本注入**：把任意文本投进系统当前聚焦的输入框，airtype 应用与第三方应用共用
-  - 收 `gui/sys`，与剪贴板同族；mac CGEventPost 先行，linux X11 随批，Windows 不在本期
-  - mac 需辅助功能授权，门面带权限查询入口；密码框按系统设计不收注入
-  - 定案见 proposals/airtype.md
 
 ### 媒体
 
@@ -771,14 +777,6 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
   - Orca：Linux 的屏幕阅读器。
   - 已知缺口：mdview 富文本段与 code_view 代码行的语义挂载，另批
 - ⏳ **键盘可达性**：全量控件的 Tab 顺序与可见焦点环；当前只有输入类与部分容器可达
-
-### 应用
-
-- ⏳ **airtype 手机投字应用**：电脑起服务出二维码，手机扫码进网页打字，发送后文本注入电脑当前聚焦输入框上屏
-  - 定案见 proposals/airtype.md；独立模块 `apps/airtype/`，落位判据随批加行
-  - 服务端用工具链自带 moonbitlang/core/async 的 HTTP + WebSocket，外部事件循环薄适配挂主线程帧泵；二维码 moon-qrcode 点阵自绘
-  - 平台：mac 先行，linux X11 随批，Windows 不在本期
-  - 局域网明文 HTTP，网址带 token 防同网段陌生人蹭输入；HTTPS 不做
 
 ## Linux 兼容说明
 

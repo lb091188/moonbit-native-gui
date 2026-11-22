@@ -104,6 +104,7 @@ const zhGuideSidebar = [
   {
     text: '应用场景',
     items: [
+      { text: 'airtype 手机投字', link: '/guide/airtype' },
       { text: '场景总览', link: '/cookbook/' },
       { text: '布局场景', link: '/cookbook/layout' },
       { text: '交互场景', link: '/cookbook/interaction' },
@@ -218,6 +219,7 @@ const enGuideSidebar = [
   {
     text: 'How-to guides',
     items: [
+      { text: 'airtype phone typing', link: '/en/guide/airtype' },
       { text: 'Overview', link: '/en/cookbook/' },
       { text: 'Layout recipes', link: '/en/cookbook/layout' },
       { text: 'Interaction recipes', link: '/en/cookbook/interaction' },

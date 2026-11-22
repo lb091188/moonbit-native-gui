@@ -1,6 +1,6 @@
 # 系统能力总览（@sys）
 
-系统能力族 API：系统音量、应用查找、夜间色温、壁纸、显示器配置、系统窗口管理、剪贴板监听、子进程执行、电源计划、系统信息、打印机、环境变量、目录枚举、最近文件、浏览器书签与 Firefox 历史、VS Code 本地历史。全部只读或经系统服务授权写入，统一返回 `Result`，不支持的环境给对应错误值而不是崩溃；`*_supported()` 每次调用真实探测当前环境。
+系统能力族 API：系统音量、应用查找、夜间色温、壁纸、显示器配置、系统窗口管理、剪贴板监听、子进程执行、电源计划、系统信息、打印机、环境变量、目录枚举、最近文件、浏览器书签与 Firefox 历史、VS Code 本地历史、文本注入。全部只读或经系统服务授权写入，统一返回 `Result`，不支持的环境给对应错误值而不是崩溃；`*_supported()` 每次调用真实探测当前环境。
 
 按域分页：[音量与媒体](media.md)、[应用与历史](apps-history.md)、[桌面与显示](desktop.md)、[系统服务](service.md)。
 
@@ -20,7 +20,11 @@
 | browser/vscode 数据 | ✅（LOCALAPPDATA 路径） | ✅ | ✅（`Library/Application Support/<厂商>/<产品>` 路径） |
 | sysmonitor 进程数据 | ✅（示例模块自带探针） | ✅ | ✅ 已回证（示例模块自带，mac 路径待验） |
 | 夜间色温 | ✅ 直调（`SetDeviceGammaRamp`） | ✅ X11 会话（**Wayland 会话 Unsupported**：gamma 只落 XWayland，进程照起、退出码照 0 而屏幕没变） | ❌ 无公开 API（CoreBrightness 私有，走 f.lux 同款覆盖层） |
+| 文本注入（inject） | ❌ 未做 | ❌ 未做（X11 批次随后） | 🚧 已合入待真机（CGEvent 键盘事件挂 UTF-16 串；需辅助功能授权，密码框按系统设计不收） |
 | 显示器枚举（monitor） | ✅ 直调（`EnumDisplayDevicesW` / `EnumDisplaySettingsExW`；真机与 QEMU QXL 虚拟屏均回证，虚拟屏读到 `DISPLAY1: 1920x1080 @64Hz`） | ✅（xrandr；**Wayland 会话读到的是 XWayland 虚拟屏**，名形如 `XWAYLAND0`） | ✅ 已回证（CoreGraphics 直调：`CGGetOnlineDisplayList` / `CGDisplayBounds` / `CGDisplayCopyAllDisplayModes`；只列「在线」屏，输出名给不了按 `Built-in` / `Display-<id>` 给；读数一律物理像素，故 `MonitorInfo` 不需要缩放比字段） |
+## 文本注入（inject）
+
+`inject_text(text) -> Result[Unit, InjectError]`：把文本投进系统**当前聚焦的输入框**，效果等同键盘敲入。mac 走 CGEvent 键盘事件挂 UTF-16 串（分片至多 20 单元、代理对不劈开），前置「辅助功能」授权——配合 `permission_probe(PermAccessibility)` 探测；`inject_available()` 探本平台通道。Windows（SendInput）与 Linux（XTest）为后续批次。载体应用见 [airtype](../guide/airtype.md)。
 
 macOS 的公开口与底层：`open`/`open -R`、`sw_vers`、`ioreg -rd1 -c IOPlatformExpertDevice`、`sysctl hw.model/hw.memsize/kern.boottime`、`osascript`（System Events 的 `volume settings` 与桌面图片）、`launchctl load/unload` + `~/Library/LaunchAgents/*.plist`、`lpstat`/`lp`，以及进程内直调的 `host_statistics64`、`CGEventSourceSecondsSinceLastEventType`、`CGGetOnlineDisplayList`/`CGDisplayBounds`/`CGDisplayCopyDisplayMode`/`CGDisplayCopyAllDisplayModes`/`CGDisplayScreenSize`。
 

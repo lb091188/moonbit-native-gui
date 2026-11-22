@@ -1,15 +1,16 @@
-// airtype 界面：标题区 → 二维码卡片 → 状态卡片 → 最近上屏卡片。
+// airtype 界面：标题区 → 权限卡片 → 二维码卡片 → 状态卡片 → 最近上屏卡片。
 // 间距按刻度（4 / 8 / 12 / 16），字阶挂预设，卡片 bg_panel + border + 圆角 6。
 
 ///|
 /// 应用状态。服务面三 Store、网址与二维码随服务起来写入，上屏记录随手机
-// 发送写入。
+// 发送写入，授权状态随重探定时器写入。
 struct App {
   url : @base.Store[String]
   qr : @base.Store[QrImage]
   state : @base.Store[String]
   addr : @base.Store[String]
   conns : @base.Store[String]
+  perm : @base.Store[String]
   history : @base.Store[Array[String]]
 }
 
@@ -22,8 +23,44 @@ fn build_app() -> App {
     state: @base.Store::new("启动中"),
     addr: @base.Store::new("—"),
     conns: @base.Store::new("0"),
+    perm: @base.Store::new(perm_text()),
     history: @base.Store::new([]),
   }
+}
+
+///|
+/// 辅助功能授权读数（mac 上屏注入的前置权限；其余平台无需）。
+fn perm_text() -> String {
+  match @sys.permission_probe(@sys.PermAccessibility) {
+    Ok(PermGranted) => "已授权"
+    Ok(PermNotNeeded) => "本平台无需"
+    _ => "未授权——上屏不可用"
+  }
+}
+
+///|
+/// 权限卡片：状态行 + 去授权按钮（已授权时点了无副作用，只重探）。
+fn perm_card(app : App) -> @widget.Node {
+  @ui.view(
+    [
+      status_row("辅助功能", app.perm),
+      @ui.button("去授权", on_click=
+        fn() {
+          // ensure 已授时静默；未授弹系统引导框，并附直达设置页
+          let _ = @sys.permission_ensure(@sys.PermAccessibility)
+          let _ = @sys.open_url(
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+          )
+          app.perm.set(perm_text())
+        },
+      ),
+    ],
+    row_gap=8.0,
+    padding=12.0,
+    background_color="bg_panel",
+    border_color="border",
+    corner_radius=6.0,
+  )
 }
 
 ///|
@@ -88,6 +125,7 @@ fn page(app : App) -> @widget.Node {
         ],
         row_gap=4.0,
       ),
+      perm_card(app),
       @ui.view(
         [qr_canvas(app.qr)],
         padding=12.0,

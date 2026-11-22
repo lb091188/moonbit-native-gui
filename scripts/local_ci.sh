@@ -85,7 +85,7 @@ do_mac() {
     && ok "mac:gui-webview 测试" || bad "mac:gui-webview 测试"
 
   ( cd "$ROOT/gui" && moon build base shell widget ui render text theme icons sys input win chart mdview style router --target native \
-    && cd "$ROOT" && moon build examples/hello examples/audio examples/video --target native ) \
+    && cd "$ROOT" && moon build examples/hello examples/audio examples/video apps/airtype --target native ) \
     > /tmp/lc-mac-build.log 2>&1 \
     && ok "mac:库构建 + 示例链接" || { bad "mac:库构建 + 示例链接"; tail -5 /tmp/lc-mac-build.log; }
 

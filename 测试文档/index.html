@@ -461,7 +461,8 @@
     { id: 'audio',       name: 'Audio',       desc: '音频播放',         cmd: 'cd examples/audio && moon run .' },
     { id: 'video',       name: 'Video',       desc: '视频帧源',         cmd: 'cd examples/video && moon run .' },
     { id: 'theme-playground', name: 'Theme Playground', desc: '主题定制工作台', cmd: 'cd examples/theme-playground && moon run .' },
-    { id: 'sysmonitor', name: 'Sysmonitor', desc: '资源监视与进程管理', cmd: 'cd examples/sysmonitor && moon run .' }
+    { id: 'sysmonitor', name: 'Sysmonitor', desc: '资源监视与进程管理', cmd: 'cd examples/sysmonitor && moon run .' },
+    { id: 'airtype', name: 'Airtype', desc: '手机扫码投字', cmd: 'cd apps/airtype && moon run .' }
   ];
 
   /* 用例库：唯一事实源是同目录的 `测试用例.md`，页面加载时取回解析成清单。
@@ -475,7 +476,7 @@
      page 用各应用的固定名。改用例只改 md，本文件不再存清单。 */
   var CASES = [];
   var CASE_PAGE_OF_APP = { browser: '浏览器窗口', audio: '音频播放器', video: '视频播放器' };
-  var CASE_APP_OF_PREFIX = { HL: 'hello', SC: 'components', BR: 'browser', AU: 'audio', VD: 'video', TP: 'theme-playground', SM: 'sysmonitor' };
+  var CASE_APP_OF_PREFIX = { HL: 'hello', SC: 'components', BR: 'browser', AU: 'audio', VD: 'video', TP: 'theme-playground', SM: 'sysmonitor', AT: 'airtype' };
 
   function parseCases(md) {
     var lines = md.split(/\r?\n/);
@@ -499,14 +500,14 @@
         page = h[1].replace(/[（(][^）)]*[）)]\s*$/, '').replace(/^[\d.]+\s+/, '').trim();
         continue;
       }
-      if (!/^\|\s*(HL|SC|BR|AU|VD|TP|SM)-\d/.test(ln)) continue;
+      if (!/^\|\s*(HL|SC|BR|AU|VD|TP|SM|AT)-\d/.test(ln)) continue;
       // 单元格里的 \| 是转义管道（GFM 表格口径）：先换哨兵再切，切完还原，
       // 命令里的真管道（printf … \| mng mcp）不会被当成格子边界
       var cells = ln.replace(/\\\|/g, '\u0000').split('|').map(function (c) {
         return c.replace(/\u0000/g, '|');
       });
       if (cells.length < 7) continue;
-      var idm = cells[1].trim().match(/^(HL|SC|BR|AU|VD|TP|SM)-/);
+      var idm = cells[1].trim().match(/^(HL|SC|BR|AU|VD|TP|SM|AT)-/);
       var sec = cells[2].trim();
       var op = cells[4] ? cells[4].trim() : '';
       // 倒数第二格才是「预期」：最后一格是行尾竖线后的空串

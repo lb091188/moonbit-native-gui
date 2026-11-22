@@ -234,14 +234,15 @@ jobs:
 
       # 库模块全量构建 + hello 示例的 native 链接——后者顺带验证库模块
       # prebuild 的链接参数能传播到独立模块(示例模块自身不配 prebuild)。
-      - name: 构建(库模块 + hello 示例)
+      - name: 构建(库模块 + hello 示例 + airtype 应用)
         run: |
           set +e
           (cd gui && moon build --target native) >/tmp/mb.out 2>&1; c1=$?
           moon build examples/hello --target native >>/tmp/mb.out 2>&1; c2=$?
+          moon build apps/airtype --target native >>/tmp/mb.out 2>&1; c3=$?
           set -e
-          if [ $c1 -ne 0 ] || [ $c2 -ne 0 ]; then
-            echo "::error title=moon build 退出码 $c1/$c2::$(grep -aiE 'error|undefined|failed|ld: ' /tmp/mb.out | tail -c 1800 | sed ':a;N;$!ba;s/\n/%0A/g')"
+          if [ $c1 -ne 0 ] || [ $c2 -ne 0 ] || [ $c3 -ne 0 ]; then
+            echo "::error title=moon build 退出码 $c1/$c2/$c3::$(grep -aiE 'error|undefined|failed|ld: ' /tmp/mb.out | tail -c 1800 | sed ':a;N;$!ba;s/\n/%0A/g')"
             exit 1
           fi
 
