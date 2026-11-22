@@ -29,12 +29,14 @@
 - `ratio`：初始分割比例，0..1
 - `min_first` / `min_second`：两侧最小尺寸
 
-### `scroll_view(children, state : ScrollState, width?, height?, hscroll?=false, min_content_width?=0.0, class?, handle?)`
+### `scroll_view(children, state : ScrollState, width?, height?, hscroll?=false, min_content_width?=0.0, class?, content_class?, handle?)`
 
 - 滚动容器；滚动条为浮在右缘的拇指：不绘制轨道、不占宽度，悬停满色、平时淡色
 - `state`：`ScrollState` 持有滚动偏移，外部可读写；`set_follow_bottom(true)` 开启「跟随底部」——内容变高时自动贴底（首帧布局完成后即生效），用户手动滚离底部暂停、回到底部恢复，宿主追加内容后不必重复调 `scroll_to_bottom`（首帧前几何未知，直接调它是空操作）
 - `height`：视口高度，`0` 表示由父级决定
 - `hscroll`：开启横向滚动
 - `min_content_width`：内容宽两档——缺省 `0.0` 为自然宽档 `max(子项自然宽, 视口宽)`（长代码行 / 表格适用）；给定正值 `N` 为下限档 `max(N, 视口宽)`，不读子项自然宽，更宽的内容由它自己的视口滚动
+- 内部两层：视口壳（描边 / 裁剪 / 尺寸）包内容壳（子项排布）。`class` 里作用于子项排布的属性——`gap` / `row-gap` / `column-gap` / `flex-direction` / `align-items` / `justify-content` / `flex-wrap`——自动落内容壳，与 CSS「容器样式作用于子项」的心智一致；其余属性（`flex`、`padding`、描边等）留视口壳。内容壳白名单之外的样式走 `content_class`
+- mng 模板写法：`<ui-scroll-view class="pane" content-class="pane-content">`，两个类名都写进同一 `<style>` 章
 
 > 滚动偏移在绘制期平移、不进布局；`ScrollState` 由 `ui/scroll.mbt` 提供。自绘里画 4px 圆角矩形可直接用门面 `@render.Painter::fill_round_rect`（组件层惯用名 `fill_round_rect` 是同一实现的上收入口）。

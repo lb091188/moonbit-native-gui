@@ -632,3 +632,50 @@ test "滚动手感：橡皮筋映射单调饱和，临界弹簧不过冲、欠�
   assert_true(lowest < -0.3, msg="回弹应有一记轻微过冲：\{lowest}")
   assert_true(x > -0.5 && x < 0.5, msg="回弹应收住：\{x}")
 }
+
+///|
+/// 树里找 kind 名匹配的第一个控件。
+fn find_scroll_shell(
+  w : @widget.Widget,
+  kind : String,
+) -> @widget.Widget? {
+  if w.kind == kind {
+    return Some(w)
+  }
+  for k in w.kids {
+    match find_scroll_shell(k, kind) {
+      Some(x) => return Some(x)
+      None => ()
+    }
+  }
+  None
+}
+
+///|
+test "滚动容器：class 的 gap 自动落内容壳，视口壳剥除" {
+  let st = ScrollState::new()
+  let (root, vp) = mounted(
+    scroll_view(
+      scroll_rows(3, 20.0, @theme.theme_bg_panel()),
+      st,
+      width=200.0,
+      height=100.0,
+      class=[@style.style(gap=12.0)],
+    ),
+    200.0,
+    100.0,
+  )
+  let ct = match find_scroll_shell(vp, "ui-scroll-content") {
+    Some(c) => c
+    None => abort("wbtest: 内容壳未找到")
+  }
+  // 流属性落内容壳：gap 简写在工厂里展开到两轴
+  let cs = @style.style_for(ct)
+  assert_eq(cs.row_gap, Some(12.0))
+  assert_eq(cs.column_gap, Some(12.0))
+  // 视口壳剥除——视口直接子项是内容壳与滚动条，gap 留视口会推开滚动条
+  let vs = @style.style_for(vp)
+  assert_eq(vs.row_gap, None)
+  assert_eq(vs.column_gap, None)
+  ignore(root)
+}

@@ -23,10 +23,14 @@ General conventions (typed parameters, the `class` override order, `Store`-held 
 
 - Draggable split pane; unifies `hsplit`/`vsplit` with the direction parameterized
 
-### `scroll_view(children, state : ScrollState, width?, height?, hscroll?=false, min_content_width?=0.0, class?, handle?)`
+### `scroll_view(children, state : ScrollState, width?, height?, hscroll?=false, min_content_width?=0.0, class?, content_class?, handle?)`
 
 - Scroll container; `height` is the viewport height, 0 means the parent supplies it; overflow is clipped, and the scrollbar is a thumb floating on the right edge (no track, no reserved width — opaque on hover, faded otherwise). `hscroll=true` enables horizontal scrolling with two content-width modes: the default natural mode `max(children's natural width, viewport)` (for code lines / tables that cannot wrap), or — when `min_content_width` is given — the floor mode `max(that value, viewport)`, which **ignores the children's natural width**: wider content scrolls inside its own viewport, so this min-width is the only number that binds
 
 - `state` (a `ScrollState`) holds the scroll offset and is readable/writable from outside; `set_follow_bottom(true)` enables stick-to-bottom — new content is pinned to the bottom (effective as soon as the first layout completes), user scrolling away pauses it, returning to the bottom resumes it, and hosts appending content need not call `scroll_to_bottom` repeatedly (before the first frame the geometry is unknown, so calling it directly is a no-op)
+
+- Two internal layers: a viewport shell (border / clip / size) wrapping a content shell (child layout). Child-layout properties in `class` — `gap` / `row-gap` / `column-gap` / `flex-direction` / `align-items` / `justify-content` / `flex-wrap` — flow automatically onto the content shell, matching the CSS mental model of "container styles act on children"; the rest (`flex`, `padding`, borders, ...) stay on the viewport shell. Content-shell styles beyond that whitelist go through `content_class`
+
+- In mng templates: `<ui-scroll-view class="pane" content-class="pane-content">`, both class names live in the same `<style>` section
 
 > Scroll offset shifts at paint time and stays out of layout; `ScrollState` is provided by `ui/scroll.mbt`. For a 4px rounded rect in custom drawing use the facade `@render.Painter::fill_round_rect` directly (the component-layer name `fill_round_rect` is the same implementation, folded up).

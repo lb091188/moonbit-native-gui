@@ -671,6 +671,32 @@ fn scroll_bar_h(state : ScrollState) -> @widget.Widget {
 ///   唯一说了算的数。
 /// `vscroll=false` 关纵向档：内容高钉住视口（percent 100），不纵滚也不出纵向
 /// 滚动条——子项自己带滚动（如段正文各自滚动）时，用它横滚而不打断纵向确定高。
+///|
+/// class 样式的「内容流」分流：gap / 排布方向 / 对齐这些作用于子项排布的属性
+/// 自动落内容壳，视口壳剥掉——视口的直接子项是内容壳与滚动条，gap 留在视口
+/// 只会把滚动条推开。其余字段（尺寸 / 描边 / 内边距等）照旧落视口壳。CSS 心智
+/// 是容器样式作用于子项，内部壳不该让这个语义失效。
+fn split_flow_class(
+  class : Array[@style.Style],
+) -> (@style.Style, @style.Style) {
+  let vp = @style.merge_all(class)
+  let ct = @style.empty_style()
+  ct.row_gap = vp.row_gap
+  vp.row_gap = None
+  ct.column_gap = vp.column_gap
+  vp.column_gap = None
+  ct.flex_direction = vp.flex_direction
+  vp.flex_direction = None
+  ct.align_items = vp.align_items
+  vp.align_items = None
+  ct.justify_content = vp.justify_content
+  vp.justify_content = None
+  ct.flex_wrap = vp.flex_wrap
+  vp.flex_wrap = None
+  (vp, ct)
+}
+
+///|
 pub fn scroll_view(
   children : Array[@widget.Node],
   state : ScrollState,
@@ -680,6 +706,7 @@ pub fn scroll_view(
   min_content_width~ : Double = 0.0,
   vscroll~ : Bool = true,
   class~ : Array[@style.Style] = [],
+  content_class~ : Array[@style.Style] = [],
   handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
   @widget.node_of_new(fn(viewport : @widget.Widget) -> @widget.Widget {
@@ -702,6 +729,7 @@ pub fn scroll_view(
     if height > 0.0 {
       lay.height = Some(height)
     }
+    let (vp_class, flow) = split_flow_class(class)
     fold_style(
       viewport,
       @style.empty_style(),
@@ -715,7 +743,7 @@ pub fn scroll_view(
         ),
         lay,
       ]),
-      class,
+      [vp_class],
     )
     let content = @widget.Widget::new()
     // 检查器树行可读：内容容器报自己的类型名（role 留空，纯布局壳不进语义树）
@@ -724,6 +752,9 @@ pub fn scroll_view(
     content.node.set_position(@yoga.Relative)
     // 不收缩：内容必须按自然高度撑开，超出视口的部分才谈得上滚动
     content.node.set_flex_shrink(0.0)
+    // 内容层样式：class 分流出的流属性当 anon 层，content_class（白名单外的
+    // 内容层样式出口）显式压在其上
+    fold_style(content, @style.empty_style(), flow, content_class)
     if !vscroll {
       // 纵向档关：内容高钉住视口——子项的 grow 才有确定剩余空间可分，
       // 比视口高的部分被裁（滚动交给子项自己的视口）
