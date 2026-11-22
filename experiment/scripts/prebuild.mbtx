@@ -147,7 +147,7 @@ async fn run_tool(file : String, args : Array[String]) -> Bool {
     for a in args {
       parts.push(a)
     }
-    err("[env]\ntool failed: " + parts.join(" ") + "\n" + out.stderr())
+    err("[env prebuild]\ntool failed: " + parts.join(" ") + "\n" + out.stderr())
     return false
   }
   true
@@ -163,7 +163,7 @@ async fn compile_stub(
   cflags~ : Array[String],
 ) -> String {
   if !@fs.exists(src) {
-    err("[env]\nsource missing, skip stub build\n  - path: " + src)
+    err("[env prebuild]\nsource missing, skip stub build\n  - path: " + src)
     return ""
   }
   let lib = build_dir + "/" + lib_file
@@ -240,7 +240,7 @@ async fn link_configs() -> String {
   let build_dir = env_or("MOON_BUILD_DIR", module_root + "/build")
   let host = env_or("MOON_HOST_OS", "")
   if host != "linux" {
-    err("[env]\nnon-linux host\n  - portable stub\n  - zero extra libs")
+    err("[env prebuild]\nnon-linux host\n  - portable stub\n  - zero extra libs")
     return "{ \"link_configs\": [] }"
   }
   let libs : Array[String] = []
@@ -249,7 +249,7 @@ async fn link_configs() -> String {
   for name in linux_pkg_config_libs {
     match pkg_config([name], "--libs") {
       None => {
-        err("[env]\ndev package missing, link entry dropped\n  - pkg-config: " + name)
+        err("[env prebuild]\ndev package missing, link entry dropped\n  - pkg-config: " + name)
         missing = true
       }
       Some(got) =>
@@ -264,7 +264,7 @@ async fn link_configs() -> String {
   for name in linux_pkg_config_libs {
     match pkg_config([name], "--cflags") {
       None => {
-        err("[env]\ndev package missing\n  - pkg-config: " + name)
+        err("[env prebuild]\ndev package missing\n  - pkg-config: " + name)
         missing = true
       }
       Some(got) =>

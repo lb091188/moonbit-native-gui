@@ -228,7 +228,7 @@ async fn fetch(url : String) -> Bytes? {
   match @async.with_timeout_opt(budget_ms, () => fetch_via_moonhttp(url)) {
     Some(got) => got
     None => {
-      err("[gpu]\nmirror failed\n  - url: " + url +
+      err("[gpu prebuild]\nmirror failed\n  - url: " + url +
         "\n  - error: budget " + budget_ms.to_string() + " ms exceeded")
       None
     }
@@ -240,12 +240,12 @@ async fn fetch_via_moonhttp(url : String) -> Bytes? {
   let client = @mhttp.default_client()
   let resp = client.get(url) catch {
     e => {
-      err("[gpu]\nmirror failed\n  - url: " + url + "\n  - error: " + e.to_string())
+      err("[gpu prebuild]\nmirror failed\n  - url: " + url + "\n  - error: " + e.to_string())
       return None
     }
   }
   if !resp.is_success() {
-    err("[gpu]\nmirror failed\n  - url: " + url + "\n  - error: HTTP " + resp.status.to_string())
+    err("[gpu prebuild]\nmirror failed\n  - url: " + url + "\n  - error: HTTP " + resp.status.to_string())
     return None
   }
   Some(resp.bytes())
@@ -267,12 +267,12 @@ async fn unzip_into(archive~ : String, vendor~ : String, host~ : String) -> Bool
     ).output() catch {
       _ =>
         {
-          err("[gpu]\nExpand-Archive unavailable, degrade to software path")
+          err("[gpu prebuild]\nExpand-Archive unavailable, degrade to software path")
           return false
         }
     }
     if out.exit_code() != 0 {
-      err("[gpu]\nunzip failed (Expand-Archive)\n" + out.stderr())
+      err("[gpu prebuild]\nunzip failed (Expand-Archive)\n" + out.stderr())
       return false
     }
     true
@@ -281,14 +281,14 @@ async fn unzip_into(archive~ : String, vendor~ : String, host~ : String) -> Bool
       _ =>
         {
           err(
-            "[gpu]\nunzip unavailable, degrade to software path\n" +
+            "[gpu prebuild]\nunzip unavailable, degrade to software path\n" +
             "  - note: macOS ships unzip; debian/ubuntu: apt install unzip; fedora: dnf install unzip; arch: pacman -S unzip",
           )
           return false
         }
     }
     if out.exit_code() != 0 {
-      err("[gpu]\nunzip failed\n" + out.stderr() +
+      err("[gpu prebuild]\nunzip failed\n" + out.stderr() +
         "\n  - note: system unzip required (macOS ships unzip; debian/ubuntu: apt install unzip; fedora: dnf install unzip; arch: pacman -S unzip)")
       return false
     }
@@ -325,7 +325,7 @@ async fn ensure_wgpu(module_root~ : String, host~ : String, arch~ : String) -> U
     }
   }
   if !found {
-    err("[gpu]\nno wgpu-native asset for (\{host}, \{machine}), degrade")
+    err("[gpu prebuild]\nno wgpu-native asset for (\{host}, \{machine}), degrade")
     return
   }
   @fs.mkdir(vendor) catch {
@@ -334,14 +334,14 @@ async fn ensure_wgpu(module_root~ : String, host~ : String, arch~ : String) -> U
   let tmp = vendor + "/" + name
   for mirror in mirrors {
     let url = replace_placeholders(mirror, tag~, name~)
-    err("[gpu]\nfetch\n  - url: \{url}")
+    err("[gpu prebuild]\nfetch\n  - url: \{url}")
     let data = match fetch(url) {
       Some(d) => d
       None => continue
     }
     let got = sha256_hex(data)
     if got != sha {
-      err("[gpu]\nsha256 mismatch\n  - url: \{url}\n  - want: \{sha}\n  - got: \{got}")
+      err("[gpu prebuild]\nsha256 mismatch\n  - url: \{url}\n  - want: \{sha}\n  - got: \{got}")
       continue
     }
     @fs.write_file(tmp, data)
@@ -352,10 +352,10 @@ async fn ensure_wgpu(module_root~ : String, host~ : String, arch~ : String) -> U
       _ => ()
     }
     @fs.write_file(marker, "\{tag}\n\{name}\n\{sha}\n")
-    err("[gpu]\nwgpu-native \{tag} ready\n  - archive: \{name}")
+    err("[gpu prebuild]\nwgpu-native \{tag} ready\n  - archive: \{name}")
     return
   }
-  err("[gpu]\nwgpu-native unavailable, degrade to software path")
+  err("[gpu prebuild]\nwgpu-native unavailable, degrade to software path")
   @fs.remove(tmp) catch {
     _ => ()
   }

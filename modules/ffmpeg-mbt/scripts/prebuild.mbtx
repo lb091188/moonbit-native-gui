@@ -279,7 +279,7 @@ async fn fetch_one(url : String, budget_ms~ : Int32) -> Bytes? {
   match @async.with_timeout_opt(budget_ms, () => fetch_url(url)) {
     Some(got) => got
     None => {
-      err("[ffmpeg]\nfetch timeout within budget\n  - url: " + url)
+      err("[ffmpeg prebuild]\nfetch timeout within budget\n  - url: " + url)
       None
     }
   }
@@ -291,12 +291,12 @@ async fn fetch_url(url : String) -> Bytes? {
   let client = @mhttp.default_client()
   let resp = client.get(url) catch {
     e => {
-      err("[ffmpeg]\nfetch failed\n  - url: " + url + "\n  - error: " + e.to_string())
+      err("[ffmpeg prebuild]\nfetch failed\n  - url: " + url + "\n  - error: " + e.to_string())
       return None
     }
   }
   if !resp.is_success() {
-    err("[ffmpeg]\nfetch got http " + resp.status.to_string() + "\n  - url: " + url)
+    err("[ffmpeg prebuild]\nfetch got http " + resp.status.to_string() + "\n  - url: " + url)
     return None
   }
   Some(resp.bytes())
@@ -356,19 +356,19 @@ async fn fetch_vendor_file(
   }
   for base in bases {
     let url = base + "/" + name
-    err("[ffmpeg]\nfetching vendor\n  - url: " + url)
+    err("[ffmpeg prebuild]\nfetching vendor\n  - url: " + url)
     match fetch_one(url, budget_ms~) {
       Some(data) => {
         let got = sha256_hex(data)
         if got == sha {
           return Some(data)
         }
-        err("[ffmpeg]\nsha256 mismatch on mirror, try next\n  - base: " + base)
+        err("[ffmpeg prebuild]\nsha256 mismatch on mirror, try next\n  - base: " + base)
       }
       None => continue
     }
   }
-  err("[ffmpeg]\nno mirror passed sha256\n  - name: " + name)
+  err("[ffmpeg prebuild]\nno mirror passed sha256\n  - name: " + name)
   None
 }
 
@@ -400,7 +400,7 @@ async fn run_tool(file : String, args : Array[String]) -> Bool {
     for a in args {
       parts.push(a)
     }
-    err("[ffmpeg]\ntool failed: " + parts.join(" ") + "\n" + out.stderr())
+    err("[ffmpeg prebuild]\ntool failed: " + parts.join(" ") + "\n" + out.stderr())
     return false
   }
   true
@@ -537,7 +537,7 @@ async fn install_win_dlls(from_dir~ : String, bin_dir~ : String) -> Bool {
   for name in win_runtime_dlls {
     let src = from_dir + "/bin/" + name
     if !@fs.exists(src) {
-      err("[ffmpeg]\nmissing in archive\n  - file: " + name)
+      err("[ffmpeg prebuild]\nmissing in archive\n  - file: " + name)
       return false
     }
     let data = @fs.read_file(src)
@@ -557,11 +557,11 @@ async fn fetch_upstream_dlls(module_root~ : String) -> Bool {
   }
   let mut data : Bytes? = None
   if src.length() > 0 && @fs.exists(src) {
-    err("[ffmpeg]\nusing local archive\n  - path: " + src)
+    err("[ffmpeg prebuild]\nusing local archive\n  - path: " + src)
     data = read_bytes(src)
   } else {
     let url = if src.length() > 0 { src } else { win_dll_url }
-    err("[ffmpeg]\nfetching runtime dlls (~150MB, be patient on slow networks)\n  - url: " + url)
+    err("[ffmpeg prebuild]\nfetching runtime dlls (~150MB, be patient on slow networks)\n  - url: " + url)
     data = fetch_one(url, budget_ms=win_vendor_budget_ms)
   }
   match data {
@@ -592,7 +592,7 @@ async fn ensure_win_runtime_dlls(module_root~ : String) -> Bool {
     Some(v) => {
       let v = strip_spaces(v)
       if v == "1" || v == "true" || v == "yes" {
-        err("[ffmpeg]\nNATIVE_GUI_SKIP_VENDOR set, skip runtime dlls")
+        err("[ffmpeg prebuild]\nNATIVE_GUI_SKIP_VENDOR set, skip runtime dlls")
         return false
       }
     }
@@ -604,7 +604,7 @@ async fn ensure_win_runtime_dlls(module_root~ : String) -> Bool {
   }
   @fs.mkdir(bin_dir, recursive=true, allow_exist=true)
   if win_vendor_archive_sha.length() > 0 {
-    err("[ffmpeg]\nfetching runtime dlls\n  - name: " + win_vendor_archive_name +
+    err("[ffmpeg prebuild]\nfetching runtime dlls\n  - name: " + win_vendor_archive_name +
       "\n  - source: vendor archive")
     match fetch_vendor_file(
         win_vendor_archive_name,
@@ -619,22 +619,22 @@ async fn ensure_win_runtime_dlls(module_root~ : String) -> Bool {
           install_win_dlls(from_dir=tmp, bin_dir~)
         @fs.rmdir(tmp, recursive=true) catch { _ => () }
         if ok {
-          err("[ffmpeg]\nruntime dlls in place\n  - dir: " + bin_dir +
+          err("[ffmpeg prebuild]\nruntime dlls in place\n  - dir: " + bin_dir +
             "\n  - source: vendor archive, sha256 ok" +
             "\n  - note: copy them next to the exe before running (mng ffmpeg-dll can do it)")
           return true
         }
-        err("[ffmpeg]\nvendor archive unavailable, fallback to upstream BtbN")
+        err("[ffmpeg prebuild]\nvendor archive unavailable, fallback to upstream BtbN")
       }
-      None => err("[ffmpeg]\nvendor archive unavailable, fallback to upstream BtbN")
+      None => err("[ffmpeg prebuild]\nvendor archive unavailable, fallback to upstream BtbN")
     }
   }
   let ok = fetch_upstream_dlls(module_root~)
   if ok {
-    err("[ffmpeg]\nruntime dlls in place\n  - dir: " + bin_dir +
+    err("[ffmpeg prebuild]\nruntime dlls in place\n  - dir: " + bin_dir +
       "\n  - note: copy them next to the exe before running (mng ffmpeg-dll can do it)")
   } else {
-    err("[ffmpeg]\nruntime dlls not ready\n  - note: build still succeeds, but place avcodec-63.dll etc. next to the exe (or PATH) before running" +
+    err("[ffmpeg prebuild]\nruntime dlls not ready\n  - note: build still succeeds, but place avcodec-63.dll etc. next to the exe (or PATH) before running" +
       "\n  - offline: set NATIVE_GUI_FFMPEG_ZIP to a local archive")
   }
   ok
@@ -676,14 +676,14 @@ async fn ensure_mac_vendor(module_root~ : String) -> Bool {
     }
   }
   if name.length() == 0 {
-    err("[ffmpeg]\nno mac archive for this arch\n  - arch: " + arch +
+    err("[ffmpeg prebuild]\nno mac archive for this arch\n  - arch: " + arch +
       "\n  - note: brew install ffmpeg (pkg-config route) still works")
     return false
   }
   let data = match fetch_vendor_file(name, sha, budget_ms=mac_vendor_budget_ms) {
     Some(d) => d
     None => {
-      err("[ffmpeg]\nvendor fetch failed on all mirrors\n  - name: " + name +
+      err("[ffmpeg prebuild]\nvendor fetch failed on all mirrors\n  - name: " + name +
         "\n  - manual: extract to vendor/mac/ (include/ + lib/)" +
         "\n  - custom source: set NATIVE_GUI_VENDOR_BASE")
       return false
@@ -711,14 +711,14 @@ async fn ensure_mac_vendor(module_root~ : String) -> Bool {
     }
   }
   if src_root.length() == 0 || !@fs.exists(src_root + "/include") {
-    err("[ffmpeg]\nunexpected archive layout, abort install")
+    err("[ffmpeg prebuild]\nunexpected archive layout, abort install")
     @fs.rmdir(tmp, recursive=true) catch { _ => () }
     return false
   }
   @fs.rmdir(vdir, recursive=true) catch { _ => () }
   @fs.rename(src_root, vdir, replace=true) catch {
     e => {
-      err("[ffmpeg]\nmove into vendor/mac failed\n  - error: " + e.to_string())
+      err("[ffmpeg prebuild]\nmove into vendor/mac failed\n  - error: " + e.to_string())
       @fs.rmdir(tmp, recursive=true) catch { _ => () }
       return false
     }
@@ -732,7 +732,7 @@ async fn ensure_mac_vendor(module_root~ : String) -> Bool {
       @fs.chmod(libdir + "/" + dy, 0o755)
     }
   }
-  err("[ffmpeg]\ndev archive in place\n  - sha256: ok")
+  err("[ffmpeg prebuild]\ndev archive in place\n  - sha256: ok")
   mac_vendor_ready(module_root~, libdir~).length() > 0
 }
 
@@ -791,7 +791,7 @@ async fn mac_pkg_config_route() -> String {
   } else {
     libdir_out[0]
   }
-  err("[ffmpeg]\nmacos via brew\n  - include: " + inc + "\n  - lib: " + libdir)
+  err("[ffmpeg prebuild]\nmacos via brew\n  - include: " + inc + "\n  - lib: " + libdir)
   emit_json(
     inc~,
     stub_cc="-finput-charset=UTF-8",
@@ -822,7 +822,7 @@ async fn mac_vendor_route(module_root~ : String) -> String {
   join_flags(stems) +
   " " +
   quote("-Wl,-rpath," + libdir)
-  err("[ffmpeg]\nmacos via vendor archive\n  - include: " + inc + "\n  - lib: " + libdir)
+  err("[ffmpeg prebuild]\nmacos via vendor archive\n  - include: " + inc + "\n  - lib: " + libdir)
   emit_json(inc~, stub_cc="-finput-charset=UTF-8", link_flags~)
 }
 
@@ -846,7 +846,7 @@ async fn win_route(module_root~ : String) -> String {
     } else {
       join_flags(missing)
     }
-    err("[ffmpeg]\nvendor dev content missing, backend degraded\n  - missing: " + reason +
+    err("[ffmpeg prebuild]\nvendor dev content missing, backend degraded\n  - missing: " + reason +
       "\n  - note: restore vendor/ per README")
     return emit_empty(inc=".", stub_cc="/utf-8")
   }
@@ -859,7 +859,7 @@ async fn win_route(module_root~ : String) -> String {
   for l in win_libs {
     lib_parts.push(quote((vendor + "/" + l).replace(old="\\", new="/")))
   }
-  err("[ffmpeg]\nimport libs in place\n  - source: vendor BtbN")
+  err("[ffmpeg prebuild]\nimport libs in place\n  - source: vendor BtbN")
   let ready = ensure_win_runtime_dlls(module_root~)
   let bin_dir = win_runtime_dir(module_root~).replace(old="\\", new="/")
   let mut stub_cc = "/utf-8"
@@ -868,7 +868,7 @@ async fn win_route(module_root~ : String) -> String {
     None => false
   }
   if no_delayload {
-    err("[ffmpeg]\nNATIVE_GUI_FFMPEG_NO_DELAYLOAD set\n  - note: dlls still need to be next to the exe (or PATH) before running")
+    err("[ffmpeg prebuild]\nNATIVE_GUI_FFMPEG_NO_DELAYLOAD set\n  - note: dlls still need to be next to the exe (or PATH) before running")
   } else {
     // 延迟加载 + 构建期记下 vendor 目录：exe 启动不要求 dll 就位，第一次用到
     // ffmpeg 时按「exe 同目录/PATH → 该目录」查找（macOS 的 -rpath 等价物）。
@@ -881,11 +881,11 @@ async fn win_route(module_root~ : String) -> String {
       }
     }
     if has_space {
-      err("[ffmpeg]\nvendor path contains whitespace\n  - note: -DNG_FFMPEG_BIN gets split by the command line, dll fallback dir will not work")
+      err("[ffmpeg prebuild]\nvendor path contains whitespace\n  - note: -DNG_FFMPEG_BIN gets split by the command line, dll fallback dir will not work")
     }
     stub_cc += " -DNG_FFMPEG_DELAYLOAD -DNG_FFMPEG_BIN=" + bin_dir
     if ready {
-      err("[ffmpeg]\nruntime dlls delayloaded\n  - note: no need to copy next to the exe")
+      err("[ffmpeg prebuild]\nruntime dlls delayloaded\n  - note: no need to copy next to the exe")
     }
   }
   emit_json(inc=inc_norm, stub_cc~, link_flags=join_flags(lib_parts))
@@ -902,9 +902,9 @@ async fn linux_route() -> String {
       for l in libs {
         devs.push(l + "-dev")
       }
-      err("[ffmpeg]\ndev package missing\n  - pkg-config: " + lib +
+      err("[ffmpeg prebuild]\ndev package missing\n  - pkg-config: " + lib +
         "\n  - ubuntu: sudo apt install -y " + join_flags(devs))
-      abort("[ffmpeg] linux ffmpeg dev packages missing, cannot emit link flags")
+      abort("[ffmpeg prebuild] linux ffmpeg dev packages missing, cannot emit link flags")
     }
     for f in probe {
       flags.push(f)
@@ -938,7 +938,7 @@ async fn link_configs() -> String {
         r2
       } else {
         abort(
-          "[ffmpeg] macos: neither pkg-config nor vendor route can provide ffmpeg" +
+          "[ffmpeg prebuild] macos: neither pkg-config nor vendor route can provide ffmpeg" +
           " (brew install pkg-config ffmpeg, or place vendor/mac/ per README)",
         )
       }
@@ -947,7 +947,7 @@ async fn link_configs() -> String {
     linux_route()
   } else {
     // 未知宿主：降级为空 link_configs
-    err("[ffmpeg]\nunknown host, degrade to empty link_configs\n  - host: " + host)
+    err("[ffmpeg prebuild]\nunknown host, degrade to empty link_configs\n  - host: " + host)
     emit_empty(inc=".", stub_cc="-finput-charset=UTF-8")
   }
 }

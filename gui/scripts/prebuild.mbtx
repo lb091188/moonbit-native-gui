@@ -187,7 +187,7 @@ async fn run_tool(file : String, args : Array[String]) -> Bool {
     for a in args {
       parts.push(a)
     }
-    err("[gui]\ntool failed: " + parts.join(" ") + "\n" + out.stderr())
+    err("[gui prebuild]\ntool failed: " + parts.join(" ") + "\n" + out.stderr())
     return false
   }
   true
@@ -213,11 +213,11 @@ async fn compile_stub(
     if @fs.exists(p) {
       srcs.push(p)
     } else {
-      err("[gui]\nsource missing, skip library\n  - path: " + p)
+      err("[gui prebuild]\nsource missing, skip library\n  - path: " + p)
     }
   }
   if srcs.is_empty() {
-    abort("[gui] all sources missing for " + lib_file + " (package moved without updating paths?)")
+    abort("[gui prebuild] all sources missing for " + lib_file + " (package moved without updating paths?)")
   }
   // 编译参数：ObjC 桩按 ObjC 编 + ARC；Linux 桩要 GTK 系头文件 cflags；
   // 占位桩（skip_pkg_config）只用标准头，不带 pkg-config cflags——缺开发包
@@ -235,7 +235,7 @@ async fn compile_stub(
     for name in linux_pkg_config_libs {
       match pkg_config([name], "--cflags") {
         None => {
-          abort("[gui] dev package missing: " + name + " (pkg-config not found; install the dev package and rerun)")
+          abort("[gui prebuild] dev package missing: " + name + " (pkg-config not found; install the dev package and rerun)")
         }
         Some(got) =>
           for g in got {
@@ -267,7 +267,7 @@ async fn compile_stub(
     args.push(objs[k])
     args.push(s)
     if !run_tool("cc", args) {
-      abort("[gui] cc compile failed: " + s + " (command and errors on stderr above)")
+      abort("[gui prebuild] cc compile failed: " + s + " (command and errors on stderr above)")
     }
     k += 1
   }
@@ -280,7 +280,7 @@ async fn compile_stub(
     ar_args.push(o)
   }
   if !run_tool("ar", ar_args) {
-    abort("[gui] ar pack failed: " + lib_file + " (command and errors on stderr above)")
+    abort("[gui prebuild] ar pack failed: " + lib_file + " (command and errors on stderr above)")
   }
   let mut h : Int64 = 0xcbf29ce484222325L
   h = fnv1a_str(h, lib)
@@ -402,11 +402,11 @@ fn flag_lines(flags : String) -> Array[String] {
 }
 
 ///|
-/// 终端预览：yoml 风格——[模块] 节头、包名一行、参数逐行「  - 」缩进，
+/// 终端预览：yoml 风格——[模块 prebuild] 节头、包名一行、参数逐行「  - 」缩进，
 /// 给人读；走 stderr，stdout 协议不变。
 fn render_text(entries : Array[Entry]) -> String {
   let out = StringBuilder()
-  out.write_string("[gui]")
+  out.write_string("[gui prebuild]")
   if entries.is_empty() {
     out.write_string("\n  (empty)")
     return out.to_string()
@@ -434,7 +434,7 @@ async fn link_configs() -> Array[Entry] {
     for name in linux_pkg_config_libs {
       match pkg_config([name], "--libs") {
         None => {
-          err("[gui]\ndev package missing\n  - pkg-config: " + name)
+          err("[gui prebuild]\ndev package missing\n  - pkg-config: " + name)
           missing = true
         }
         Some(got) =>
@@ -454,7 +454,7 @@ async fn link_configs() -> Array[Entry] {
       // 按真归档名查找，重名会在「有 webkit 开发包缺 GTK」的组合下把真 webkit
       // 实现链到占位 win 桩上。
       err(
-        "[gui]\ndegraded to placeholder stub\n  - rendering: pure raster, no text measurement\n  - note: install dev packages and rerun to restore real backends",
+        "[gui prebuild]\ndegraded to placeholder stub\n  - rendering: pure raster, no text measurement\n  - note: install dev packages and rerun to restore real backends",
       )
       let ph = "-DWM_STUB_LINUX_PLACEHOLDER"
       let win_lib = compile_stub(
