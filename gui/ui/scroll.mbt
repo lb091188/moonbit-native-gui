@@ -462,9 +462,12 @@ pub fn ScrollState::is_following_bottom(self : ScrollState) -> Bool {
 ///|
 /// 用户手动滚动后同步暂停位：停在底部继续跟随，离开底部暂停。
 /// 只在开了跟随时改位，未开启的滚动容器行为不变。
+/// 惯性在跑时按**目标**判：上滚的第一拍上屏还停在底部，按上屏值判会让
+/// `scroll_view` 的贴底检查把目标拉回底部，用户滚不上去。
 fn ScrollState::note_user_scroll(self : ScrollState) -> Unit {
   if self.follow_bottom {
-    self.follow_paused = !self.at_bottom()
+    let pos = if self.ticking { self.target } else { self.offset }
+    self.follow_paused = pos < self.max() - 1.0
   }
 }
 
