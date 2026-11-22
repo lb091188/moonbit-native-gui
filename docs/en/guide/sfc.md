@@ -50,6 +50,8 @@ Static attributes are parsed and passed through by MoonBit literal rules (`0` / 
 
 **Reactive source detection**: dynamic expressions on text widgets (`ui-text`) are wired reactively by the Store reads inside the expression — both script-section `let` slots and package-level singletons (the `s_state.get()` call shape) count as sources, and multiple sources fold into one `computed`. A dynamic `:text` can share the element with `class` / `wrap` / `ellipsis` and other attributes; all fold into the same bound node.
 
+**Page root fills the window**: the window root is a column container; top-level elements stretch to the window width by default but size their height to content. To make a page fill the remaining height (mandatory when the page contains a scroll container — without a constrained height it never enters clip-and-scroll), write `flex: 1; min-height: 0;` on the root element.
+
 ## Component tags
 
 - **`ui-*` built-in table**: `<ui-button>` → `@ui.button` (`-`→`_`); see [Components](/en/components/).

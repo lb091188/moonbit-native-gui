@@ -36,6 +36,15 @@ Injection posts synthesized keyboard events, which macOS gates behind the Access
 
 Without the grant the phone can still connect and send, but the page gets an "injection failed" reply.
 
+### Authorization for packaged builds (`mng package`) and how to reset
+
+- macOS tracks Accessibility grants by code-signing identity. `mng package` defaults to an ad-hoc signature (no certificate): **every repackage changes the binary, which macOS treats as a different app — the old grant no longer applies** (the symptom: already ticked, still reports unauthorized). This is expected during development; for grants that survive updates, set a developer-certificate identity in `mng.toml [package] sign_mac` before packaging.
+- Reset steps when switching to a packaged build:
+  1. System Settings → Privacy & Security → Accessibility: remove the old airtype entry (the one granted to the earlier bare binary; delete same-named duplicates too);
+  2. Put the `.app` in a fixed location (e.g. /Applications), launch it, click "去授权" and tick the current copy;
+  3. For a `.app` extracted from a zip, strip the quarantine attribute first to avoid randomized-path translocation breaking the grant: `xattr -dr com.apple.quarantine airtype.app`;
+  4. Last resort, full reset (affects Accessibility grants of all apps, use with care): `tccutil reset Accessibility`.
+
 ## Phone side
 
 The scanned page has three zones: a top bar (title left, connection status right), an input area filling all the space in between (long text fully visible), and a single-row action bar.
