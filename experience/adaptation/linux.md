@@ -901,6 +901,17 @@ dbus 包对 bus=2 断线自愈重建连接后，本端唯一名会变——新�
 - **探测两档口径**，方案「fallback 探测粒度」：进程级一次——.so 缺/驱动无后端/非 X11 会话，Wayland 原生没有 XID 可挂，= 永久缓存不再试；未 realize、0×0 = 不标记死、下帧重试；对象真建不出或 present 回非 Success = 该窗永久回退。instance/device/队列/管线/采样器进程级跨窗复用，每窗只持 surface/纹理/暂存/bindgroup，关窗按「bindgroup→buffer→view→texture→surface」释放。
 - **验证边界**：门禁全绿——回退路径零变化，wbtest 1296/1296；GPU 档本身要真机肉眼——showcase/hello 跑起来界面与改造前一致、无闪烁、resize 不花，归用户，见 TODO 复验条目。
 
+## Linux 虚拟机里 L1 首配即崩：VM 闸只写在 Windows 臂，Linux 侧补齐同款 · 2026-11-22 deepin 20.9 VMware 真机
+
+- **现象**：hello 起窗后 `HELLO-READY` 正常打出，随后 `wgpuSurfaceConfigure: Validation Error — Surface does not support the adapter's queue family` 在 wgpu-native 内部 panic，进程级 abort（panic 处理器自身再崩，`failed to initiate panic`）。
+- **根因两层**：①VM 里的 Vulkan 多为 lavapipe 软件实现，adapter 枚举得到、L1 探测链（instance→adapter→device→pipeline）全通——判据里没有「这是不是 VM」，`l1_probe` 判 on；②X11 surface 不支持 lavapipe 的队列族，configure 校验 panic 不可捕获。Windows 侧 2026-11-21 同族崩溃已定案 `l1_on_virtual_gpu` 前置闸（windows.md「全屏与最小化一族必崩」节），**当时没同步到 Linux 臂**。
+- **修法**：`stub.c` L1 段补 `#elif defined(__linux__)` 臂的 `l1_on_virtual_gpu`——第一层 `/proc/cpuinfo` 含 `hypervisor` 标志（x86 QEMU/KVM/VMware/VBox 全置位；容器读到宿主档案，物理机宿主不受影响），第二层 DMI（`/sys/class/dmi/id/` 的 sys_vendor / product_name / board_vendor）关键词兜底（VMware/QEMU/KVM/VirtualBox/VBox/Xen/Hyper-V/Parallels/Virtio/BHYVE，保守匹配）。命中即 `l1_probe` 判 off，回文「虚拟机环境，GPU 档不启用」，与 Windows 同文案。mac 臂不动（Parallels 里 Metal surface 由系统支撑，无此形态）。
+- **同批补的兜底**：`l1_bind_frame` 的 capabilities 预检原是「符号在才查」——老 vendor 归档缺 `wgpuSurfaceGetCapabilities` 符号时直接裸 configure 照样炸；改成符号缺失即判死永久回退，宁可不链 GPU。
+- **判 VM 为什么不接 native-env**：env 判定在 MoonBit 侧且 gui 不依赖 native-env（方向反了，C 桩调不到）；桩内自读 cpuinfo/DMI 与 Windows 臂自读 CPUID/EnumDisplayDevicesW 同构，零新依赖。
+  - native-env：本仓的环境判定独立模块（VM/容器/GPU 档），供 MoonBit 应用侧消费。
+
+
+
 ## Linux GTK 窗口 present 被合成覆盖：L1 窗口档回退、改建独立 X 子窗口 · 2026-11-06
 
 showcase 在 Linux 上「有 GPU 就白屏 / 黑屏 / 点击不更新」的现场排查与结论，按发生顺序：

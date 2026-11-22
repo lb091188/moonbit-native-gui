@@ -15150,6 +15150,66 @@ static int l1_on_virtual_gpu(void) {
   }
   return 0;
 }
+#elif defined(__linux__)
+// Linux 同一条闸（deepin 20.9 VMware 真机崩溃补齐，2026-11-22）：VM 里的
+// Vulkan 多为 lavapipe 软件实现，adapter 枚举得到、整链探通，但 X11 surface
+// 不支持其队列族——configure 在 wgpu 内部校验 panic，进程级 abort 拦不住。
+// VM 里 CPU 路径足够，与 Windows 定案同口径。
+static int l1_file_has(const char *path, const char *needle) {
+  FILE *f = fopen(path, "r");
+  if (f == NULL) {
+    return 0;
+  }
+  char line[512];
+  while (fgets(line, sizeof line, f) != NULL) {
+    if (strstr(line, needle) != NULL) {
+      fclose(f);
+      return 1;
+    }
+  }
+  fclose(f);
+  return 0;
+}
+
+static int l1_on_virtual_gpu(void) {
+  // 第一层：/proc/cpuinfo 的 hypervisor 标志（x86 上 QEMU/KVM/VMware/VBox
+  // 全置位）；容器读到的是宿主机档案——物理机宿主不受影响
+  if (l1_file_has("/proc/cpuinfo", "hypervisor")) {
+    l1_log("cpuinfo hypervisor 标志在——虚拟化环境，GPU 档不启用");
+    return 1;
+  }
+  // 第二层：DMI 厂商/产品名关键词兜底（嵌套虚拟化等标志位不可见的形态）
+  static const char *dmi_files[] = {
+      "/sys/class/dmi/id/sys_vendor",
+      "/sys/class/dmi/id/product_name",
+      "/sys/class/dmi/id/board_vendor",
+      NULL,
+  };
+  static const char *keys[] = {
+      "VMware", "QEMU",    "KVM", "VirtualBox", "VBox",
+      "Xen",    "Hyper-V", "Parallels", "Virtio", "BHYVE",
+      NULL,
+  };
+  char buf[512];
+  for (int i = 0; dmi_files[i]; i++) {
+    FILE *f = fopen(dmi_files[i], "r");
+    if (f == NULL) {
+      continue;
+    }
+    if (fgets(buf, sizeof buf, f) != NULL) {
+      for (int k = 0; keys[k]; k++) {
+        if (strstr(buf, keys[k]) != NULL) {
+          fclose(f);
+          l1_log("DMI 命中 %s（%s）——GPU 档不启用，走 CPU 路径", keys[k],
+                 dmi_files[i]);
+          return 1;
+        }
+      }
+    }
+    fclose(f);
+  }
+  return 0;
+}
 #endif
 
 static void l1_probe(void) {
@@ -15159,7 +15219,7 @@ static void l1_probe(void) {
   g_l1_probed = 1;
   g_l1_ok = 0;
   g_l1_missing[0] = 0;
-#if defined(_WIN32)
+#if defined(_WIN32) || defined(__linux__)
   if (l1_on_virtual_gpu()) {
     snprintf(g_l1_missing, sizeof g_l1_missing, "虚拟机环境，GPU 档不启用");
     l1_log("L1 探测未过，回退各臂原路径：%s", g_l1_missing);
@@ -15359,10 +15419,16 @@ static WGPUCompositeAlphaMode l1_pick_alpha_mode(WGPUSurface surface) {
 // 配 surface（sw/sh = 客户区尺寸）+ 建帧对象（bw/bh = 位图尺寸）。
 // 1 = 成；-1 = 真失败（调用方标记该窗永久回退）。
 static int l1_bind_frame(WmL1 *st, int sw, int sh, int bw, int bh) {
-  // surface 与 adapter 不兼容（典型：xvfb 软渲染的队列族不支持呈现）时
+  // surface 与 adapter 不兼容（典型：软渲染 Vulkan 的队列族不支持呈现）时
   // get_capabilities 先行返回 Error——直接 configure 会在 wgpu-native 内部
   // 校验 panic（进程级 abort，桩侧拦不住）；按纪律②在此判死、永久回退。
-  if (p_wgpuSurfaceGetCapabilities != NULL) {
+  // 能力查询符号缺失（老 vendor 归档）时同样判死：没有防线的 configure
+  // 一样会炸，宁可不链 GPU。
+  if (p_wgpuSurfaceGetCapabilities == NULL) {
+    l1_log("L1: 老库缺 GetCapabilities——无防线，永久回退");
+    return -1;
+  }
+  {
     WGPUSurfaceCapabilities caps;
     memset(&caps, 0, sizeof caps);
     if (p_wgpuSurfaceGetCapabilities(st->surface, l1_adapter, &caps) !=

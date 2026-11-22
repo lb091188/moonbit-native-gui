@@ -25,6 +25,10 @@
 - [ ] **gui-media video_wbtest mac 本机失败**：用例「VideoPlayer 时钟同轴：回退 fps 不影响时间轴」——回拨 500ms 后位置 0.613 / 0.633，稳定复现；Windows CI 每轮跑且过，Linux / mac 腿不跑 gui-media test 故从未暴露
   - 范围：CI 未覆盖的组合。
   - 边界：期望窗 0.45–0.55，即期望位置区间。
+- [ ] **ui 动图组件 wbtest 在 linux 容器稳定红、mac 全绿**：`basic_wbtest.mbt:533` 断言 `h.play()` 后帧数续走（611 行）失败；中央动画登记表批合入后出现（合入前同容器 1524/1524 全过），怀疑登记表可见性/离屏停表在无显示环境判停——play 排不上拍
+  - 范围：他人批次的既有缺口，非当批引入。
+  - 复现：natigui-linux 容器 `dbus-run-session -- moon test ui`，两次同点稳定红。
+
 
 ## Linux 滚动手感治理·真机复验·用户执行
 
@@ -52,7 +56,11 @@
   1. 仓库根 `moon build --target native`：期望零失败——ffmpeg_stub.c 不再报 `ch_layout`，链接不再出 `pthread_setspecific` / `wb_*` 未定义
   2. `moon build examples/audio --target native` 后 `moon run examples/audio`：真机读数，解码出声即 ffmpeg 4.x 分支真链通过
   3. `moon run examples/browser`：期望 webview 探测报不可用、页面降级占位不崩——wb_* 走占位归档
-  - 判据与回填：`测试文档/测试用例.md` AU / VD / BR 对应条目按平台标读数；通过后从本条删除并回写 roadmap 状态 ✅
+- [ ] **VM 闸（Linux GPU 呈现档不启用）真机复验**：deepin 20.9 VMware 机
+  - GPU 呈现档：窗口上屏走 wgpu 合成的路径；纯光栅是 CPU 绘制的回退路径，观感一致。
+  1. `moon run examples/hello`：期望不再崩——VM 闸判 off，窗口正常出、走纯光栅
+  2. `NATIVEGUI_GPU_LOG=1 moon run examples/hello`：stderr 应有「cpuinfo hypervisor 标志在——虚拟化环境，GPU 档不启用」
+  - 判据与回填：通过后从本条删除；linux.md 2026-11-22 定案条待真机读数回填 ✅
 
 ## mng 工具链复验·用户执行
 
