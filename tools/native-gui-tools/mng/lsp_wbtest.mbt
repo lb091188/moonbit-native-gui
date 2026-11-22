@@ -333,6 +333,20 @@ test "LSP：外部包跳转（@包.成员 / 包入口 / 内置标签）与成员
 }
 
 ///|
+/// 补全回应的 JSON 合法性 + items 数量——编辑器端解析不了就等于没有提示，
+/// 内容断言之外必须验整体可解析（非法回 -1）。
+fn completion_json_items(r : String) -> Int {
+  match json_parse(r) {
+    Ok(v) =>
+      match jpath(v, "result/items") {
+        Some(LArr(a)) => a.length()
+        _ => -1
+      }
+    Err(_) => -1
+  }
+}
+
+///|
 test "LSP：<style> 令牌与属性名补全、错误坐标回到模板行" {
   let docs : Map[String, String] = Map([])
   let uri = "file:///tmp/lsp_style_wbtest.mng"
@@ -342,32 +356,39 @@ test "LSP：<style> 令牌与属性名补全、错误坐标回到模板行" {
     ].join("\n") +
     "\n"
   let _ = lsp_handle(docs, did_open(uri, text))
-  // `var(--tex` → 令牌补全（已写 `--`，标签不再带前缀）
+  // `var(--tex` → 令牌补全（已写 `--`，标签不再带前缀）；整体 JSON 必须合法
   match
     lsp_handle(docs, req(20, "textDocument/completion", pos_params(uri, 5, 18))).reply {
-    Some(r) =>
+    Some(r) => {
       assert_true(
         contains_sub_l(r, "\"label\":\"--text_primary\"") &&
         contains_sub_l(r, "\"kind\":21") &&
         contains_sub_l(r, "\"detail\":\"颜色令牌\"") &&
         contains_sub_l(r, "\"documentation\":{\"kind\":\"markdown\""),
       )
+      assert_true(completion_json_items(r) > 0)
+    }
     None => assert_true(false)
   }
   // `var(` 裸写 → 标签带 `--`
   match
     lsp_handle(docs, req(21, "textDocument/completion", pos_params(uri, 5, 13))).reply {
-    Some(r) => assert_true(contains_sub_l(r, "\"label\":\"--text_primary\""))
+    Some(r) => {
+      assert_true(contains_sub_l(r, "\"label\":\"--text_primary\""))
+      assert_true(completion_json_items(r) > 0)
+    }
     None => assert_true(false)
   }
   // 属性名位 → kebab 名 + 整段 textEdit
   match
     lsp_handle(docs, req(22, "textDocument/completion", pos_params(uri, 6, 9))).reply {
-    Some(r) =>
+    Some(r) => {
       assert_true(
         contains_sub_l(r, "\"label\":\"font-size\"") &&
         contains_sub_l(r, "\"newText\":\"font-size\""),
       )
+      assert_true(completion_json_items(r) > 0)
+    }
     None => assert_true(false)
   }
 }

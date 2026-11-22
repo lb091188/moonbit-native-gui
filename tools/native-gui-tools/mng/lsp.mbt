@@ -1087,7 +1087,7 @@ fn lsp_css_token_completion(
       ch.to_string() +
       "}},\"newText\":" +
       jq(label) +
-      "}},\"detail\":" +
+      "},\"detail\":" +
       jq(detail) +
       ",\"documentation\":{\"kind\":\"markdown\",\"value\":" +
       jq(doc) +
