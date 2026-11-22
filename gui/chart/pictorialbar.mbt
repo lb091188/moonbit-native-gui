@@ -486,7 +486,6 @@ pub fn pb_chart_t(
   height~ : Double = 280.0,
   handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
-  @ui.follow_store(data)
   let sym = symbol
   let md = mode
   let un = unit
@@ -494,6 +493,7 @@ pub fn pb_chart_t(
   let sv = show_values
   let yr = y_range
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    @ui.follow_store_at(w, data)
     @ui.watch_theme()
     w.node.set_height(@yoga.fixed(height))
     if width > 0.0 {

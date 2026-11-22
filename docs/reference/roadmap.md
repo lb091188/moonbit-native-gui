@@ -649,10 +649,10 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
   - 已落地内容：局部置脏、组件级布局缓存。
   - Linux 读数判据：树不变零重排、绘制成本随规模线性
   - 增量重绘收益 mac 读数已定——paint_clip 对 paint_full 差 10～15 倍，Windows 读数补齐即收口
-- ⏳ **数据驱动局部重绘**：`invalidate()` 的整窗广播收窄为按控件或子树标脏，判据用 `frame_cost_probe` 读数
+- 🚧 **数据驱动局部重绘**：`invalidate()` 的整窗广播收窄为按控件或子树标脏
   - 定案见 proposals/data-driven-repaint.md：主路线收窄标脏复用现有脏区裁剪，不做组件内增量绘制，mdview 不立项
-  - 全库 `@widget.invalidate()` 实测 185 处；mac 腿读数已采——240 行 paint_full 5.5ms/帧对 paint_clip 0.45ms/帧
-  - Windows 腿读数待补，补齐后动工
+  - 批 1 已合入 2026-11-22：`follow_store_at` 组件根绑定 50 处、when 族与 swap_node 显隐按矩形标脏、chart 数据变更随通道收窄——文本自适应宽类与结构变化类保持整窗
+  - 收益读数：mac 腿 `paint_full` 5.5ms/帧对 `paint_clip` 0.45ms/帧（240 行）；批 2（chart 悬停 / 图例）与批 3（点击成交 Up 兜底）待做
 - ⏳ **CPU 视觉能力补足批（余项）**：五批已全部落地并移入「已实现 · 渲染与绘制」，真机观感 SC-17.1～17.6 已三端验毕（2026-11-21），此处剩成本读数一格尾账
   - 成本读数尾账：win / linux 补跑 `experiment/anim_cost_bench` 旋转小控件档（mac 已 20 帧合计 0ms、与同尺寸裸图元同档）。
 

@@ -119,8 +119,6 @@ test "bind_node：挂载失败不留半棵（重挂后 parent 里始终只有一
 ///|
 test "swap_node：两棵预建，切换只改显隐、隐藏那棵坐标清零" {
   let sig = Signal::new(false)
-  let counter = Ref(0)
-  set_repaint_hook(counting_hook(counter))
   let parent = Widget::new()
   parent.set_column()
   let a = sized(Widget::new(), 40.0, 10.0)
@@ -142,8 +140,8 @@ test "swap_node：两棵预建，切换只改显隐、隐藏那棵坐标清零" 
   assert_eq(b.rect.h, 20.0)
   // 显隐不重建：两棵控件自始至终是同一批句柄
   assert_eq(parent.children().length(), 2)
-  assert_true(counter.val > 0)
-  set_repaint_hook(fn() { () })
+  // 重绘请求走按控件标脏通道（invalidate_id）：有宿主时标两支矩形，无宿主
+  // （本测试形态）空转不崩；「切换有重绘」的脏区验证归 uitest 虚窗与真机
 }
 
 ///|

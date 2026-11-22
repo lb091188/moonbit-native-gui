@@ -881,11 +881,11 @@ pub fn progress_line(
   label_side~ : Bool = true,
   class~ : Array[@style.Style] = [],
 ) -> @widget.Node {
-  follow_store(state)
   let hi = if max > 0.0 { max } else { 1.0 }
   let bar = progress(state, max=hi, width=(width - 44.0).max(20.0), height=8.0)
   if label_side {
     let pct = @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+      follow_store_at(w, state)
       watch_theme()
       // 百分比列要按字高占位，否则 11px 的字被 8px 的条高裁掉
       w.node.set_width(@yoga.fixed(40.0))

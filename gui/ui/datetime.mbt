@@ -670,7 +670,7 @@ pub fn calendar(
       },
     )
     match value {
-      Some(s) => follow_store(s)
+      Some(s) => follow_store_at(w, s)
       None => ()
     }
     fold_style(w, @style.empty_style(), @style.empty_style(), class)

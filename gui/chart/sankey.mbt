@@ -386,9 +386,9 @@ pub fn sankey_t(
   height~ : Double = 320.0,
   handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
-  @ui.follow_store(data)
   let labels = show_labels
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    @ui.follow_store_at(w, data)
     @ui.watch_theme()
     w.node.set_height(@yoga.fixed(height))
     if width > 0.0 {

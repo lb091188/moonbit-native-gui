@@ -501,10 +501,10 @@ pub fn tm_chart_t(
   height~ : Double = 360.0,
   handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
-  @ui.follow_store(items)
   let lv = levels
   let gp = gap
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    @ui.follow_store_at(w, items)
     @ui.watch_theme()
     // 拍平画卷（on_draw 重建）：(项, 矩形, 兄弟序, 兄弟数)
     let flat : Array[(TmItem, TmRect, Int32, Int32)] = []

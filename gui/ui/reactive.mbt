@@ -34,7 +34,8 @@ pub fn[T] when(
     w.set_visible(pred(cond.get()))
     let _ = cond.subscribe(fn(v : T) -> Unit {
       w.set_visible(pred(v))
-      let _ = @widget.invalidate()
+      // 显隐切换只动本支矩形：新旧两态的像素都要进脏区
+      @widget.invalidate_id(w.id)
     })
     host
   })
@@ -56,7 +57,9 @@ pub fn[T] when_else(
       let t = pred(v)
       va.set_visible(t)
       vb.set_visible(!t)
-      let _ = @widget.invalidate()
+      // 两支各标自己的矩形：隐藏支的旧像素靠脏区重画擦掉
+      @widget.invalidate_id(va.id)
+      @widget.invalidate_id(vb.id)
     }
     apply(cond.get())
     let _ = cond.subscribe(apply)
@@ -254,7 +257,8 @@ pub fn when_else_bool(
     fn apply(v : Bool) -> Unit {
       va.set_visible(v)
       vb.set_visible(!v)
-      let _ = @widget.invalidate()
+      @widget.invalidate_id(va.id)
+      @widget.invalidate_id(vb.id)
     }
     apply(cond.get())
     let _ = cond.subscribe(apply)

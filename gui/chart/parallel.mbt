@@ -402,10 +402,9 @@ pub fn par_chart_t(
   height~ : Double = 320.0,
   handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
-  @ui.follow_store(axes)
-  @ui.follow_store(rows)
   let hl = highlight
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    @ui.follow_store_at(w, rows)
     @ui.watch_theme()
     w.node.set_height(@yoga.fixed(height))
     if width > 0.0 {

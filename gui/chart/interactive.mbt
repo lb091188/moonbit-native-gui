@@ -680,10 +680,9 @@ pub fn ci_legend(
   on_toggle~ : (Int32) -> Unit = fn(_i) { () },
   handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
-  @ui.follow_store(items)
-  @ui.follow_store(visible)
   @ui.watch_theme()
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    @ui.follow_store_at(w, visible)
     let hover : Ref[Int32] = Ref(-1)
     w.node.set_width(@yoga.percent(100.0))
     w.node.set_height(@yoga.fixed(24.0))

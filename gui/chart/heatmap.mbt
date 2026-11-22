@@ -279,12 +279,12 @@ pub fn heatmap_t(
   height~ : Double = 300.0,
   handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
-  @ui.follow_store(data)
   let lc = low_color
   let hc = high_color
   let g = gap
   let sv = show_values
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    @ui.follow_store_at(w, data)
     @ui.watch_theme()
     w.node.set_height(@yoga.fixed(height))
     if width > 0.0 {

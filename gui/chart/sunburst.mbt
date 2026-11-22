@@ -486,11 +486,11 @@ pub fn sun_chart_t(
   height~ : Double = 380.0,
   handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
-  @ui.follow_store(data)
   let inner_r = inner
   let labels = show_labels
   let ctext = center_text
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    @ui.follow_store_at(w, data)
     @ui.watch_theme()
     w.node.set_height(@yoga.fixed(height))
     if width > 0.0 {

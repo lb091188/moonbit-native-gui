@@ -333,11 +333,11 @@ pub fn table_v(
     watch_theme()
     w.kind = "ui-table-v"
     match selection {
-      Some(s) => follow_store(s)
+      Some(s) => follow_store_at(w, s)
       None => ()
     }
     match sort {
-      Some(s) => follow_store(s)
+      Some(s) => follow_store_at(w, s)
       None => ()
     }
 

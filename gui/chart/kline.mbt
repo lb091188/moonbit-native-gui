@@ -229,11 +229,11 @@ pub fn candlestick_t(
   height~ : Double = 280.0,
   handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
-  @ui.follow_store(candles)
   let yr = y_range
   let up_c = up_color
   let down_c = down_color
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    @ui.follow_store_at(w, candles)
     @ui.watch_theme()
     w.node.set_height(@yoga.fixed(height))
     if width > 0.0 {

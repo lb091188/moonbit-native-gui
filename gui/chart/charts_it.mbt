@@ -128,7 +128,6 @@ pub fn line_chart_it(
   height~ : Double = 260.0,
   handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
-  @ui.follow_store(series)
   let fill = area
   let yr = y_range
   let tail = show_last
@@ -145,7 +144,6 @@ pub fn line_chart_it(
   let sid = series.subscribe_id(fn(_s : Array[LineSeries]) -> Unit {
     items.set(ci_line_items(series.get()))
     visible.update(fn(vs) { ci_fit_len(vs, series.get().length()) })
-    @widget.invalidate()
   })
   @base.sub_bag_register(fn() { series.remove(sid) })
 
@@ -288,7 +286,10 @@ pub fn line_chart_it(
     ],
     row_gap=6.0,
     width~,
-    handle=ci_it_handle(width, handle),
+    handle=ci_it_handle(
+      width,
+      fn(w : @widget.Widget) -> Unit { @ui.follow_store_at(w, series); handle(w) },
+    ),
   )
 }
 
@@ -314,7 +315,6 @@ pub fn bar_chart_it(
   height~ : Double = 280.0,
   handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
-  @ui.follow_store(data)
   let horiz = horizontal
   let yr = y_range
   let do_zoom = zoom
@@ -328,7 +328,6 @@ pub fn bar_chart_it(
   let sid = data.subscribe_id(fn(_d : Array[BarItem]) -> Unit {
     items.set(ci_bar_items(data.get()))
     visible.update(fn(vs) { ci_fit_len(vs, data.get().length()) })
-    @widget.invalidate()
   })
   @base.sub_bag_register(fn() { data.remove(sid) })
 
@@ -425,7 +424,10 @@ pub fn bar_chart_it(
     ],
     row_gap=6.0,
     width~,
-    handle=ci_it_handle(width, handle),
+    handle=ci_it_handle(
+      width,
+      fn(w : @widget.Widget) -> Unit { @ui.follow_store_at(w, data); handle(w) },
+    ),
   )
 }
 
@@ -445,7 +447,6 @@ pub fn donut_chart_it(
   height~ : Double = 240.0,
   handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
-  @ui.follow_store(data)
   let thick = thickness
   let mid = center
   let hover = Ref(-1)
@@ -454,7 +455,6 @@ pub fn donut_chart_it(
   let sid = data.subscribe_id(fn(_d : Array[DonutSlice]) -> Unit {
     items.set(ci_donut_items(data.get()))
     visible.update(fn(vs) { ci_fit_len(vs, data.get().length()) })
-    @widget.invalidate()
   })
   @base.sub_bag_register(fn() { data.remove(sid) })
 
@@ -543,6 +543,9 @@ pub fn donut_chart_it(
     ],
     row_gap=6.0,
     width~,
-    handle=ci_it_handle(width, handle),
+    handle=ci_it_handle(
+      width,
+      fn(w : @widget.Widget) -> Unit { @ui.follow_store_at(w, data); handle(w) },
+    ),
   )
 }

@@ -391,15 +391,14 @@ pub fn eff_chart_t(
   height~ : Double = 320.0,
   handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
-  @ui.follow_store(points)
   let ringn = rings
   let xr = x_range
   let yr = y_range
   let an = anim
   // 相位 Store：定时器推进 + 订阅重绘（与其余图表 Store 订阅模式一致）
   let phase = @base.Store::new(0.0)
-  @ui.follow_store(phase)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    @ui.follow_store_at(w, phase)
     @ui.watch_theme()
     let step_fn : Ref[() -> Unit] = Ref(fn() { () })
     w.node.set_height(@yoga.fixed(height))

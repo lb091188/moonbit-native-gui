@@ -505,9 +505,9 @@ pub fn date_picker(
   class~ : Array[@style.Style] = [],
   handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  follow_store(value)
   let t = today
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    follow_store_at(w, value)
     w.kind = "ui-date-picker"
     let open_id : Ref[Int32] = Ref(0)
     w.focus_id = auto_focus_id(focus_id)
@@ -592,9 +592,9 @@ pub fn date_range_picker(
   width~ : Double = 220.0,
   handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  follow_store(value)
   let t = today
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    follow_store_at(w, value)
     w.kind = "ui-date-range-picker"
     let open_id : Ref[Int32] = Ref(0)
     w.focus_id = auto_focus_id(0)
@@ -760,8 +760,8 @@ pub fn time_range_picker(
   show_seconds~ : Bool = false,
   handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  follow_store(value)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    follow_store_at(w, value)
     w.kind = "ui-time-range-picker"
     watch_theme()
     w.node.set_flex_direction(@yoga.Row)
@@ -805,9 +805,9 @@ pub fn datetime_range_picker(
   show_seconds~ : Bool = false,
   handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  follow_store(value)
   let t = today
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    follow_store_at(w, value)
     w.kind = "ui-datetime-range-picker"
     watch_theme()
     w.node.set_flex_direction(@yoga.Row)

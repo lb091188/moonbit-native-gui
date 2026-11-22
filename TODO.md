@@ -241,10 +241,9 @@
   - 已合入 2026-11-21：三处口径统一——MoonBit 层与 C 桩账本逻辑单位、帧位图恒物理像素、窗级因子 `Window::scale` 每帧现读，定案见 proposals/mixed-dpi-scaling.md；库测 1516/1516、mac 三桩语法门禁、原生链接与示例链接通过，行为变化预告——mac Retina 上既有窗口从入参一半点数变入参原值点数，与 win / Linux 对齐。
   - 待验：Windows 125% / 150% 各起一次 hello——窗口逻辑尺寸与 100% 一致、文字不虚、命中不偏（虚拟屏改系统缩放即可，不依赖高分屏）；单屏改缩放档触发 `WM_DPICHANGED` 的自动重排重采样（跨屏拖动的替代口径）；mac 1x / 2x 屏间拖动——待有 1x 外接屏补验；Linux X11 冒烟零变化。
 
-- [ ] **数据驱动局部重绘**：收窄范围已定案（proposals/data-driven-repaint.md）——主路线收窄标脏复用现有脏区裁剪与控件剔除，不做组件内增量绘制，mdview 不立项
-  - 现状：输入事件已有控件级脏区；Store / Signal 回调仍走 `host_repaint_all`，全库 `@widget.invalidate()` 实测 185 处（gui/ui 99、gui-media 24、chart 21、examples 27）。
-  - mac 读数已采 2026-11-21：`paint_full` 3.55 / 5.2 / 5.5 ms/帧对 `paint_clip` 0.35 / 0.35 / 0.45（15/60/240 行）——收窄收益 10～15 倍。
-  - 前置：Windows 腿 FRAME-COST 读数补齐后动工——批 1 订阅回调带控件 id、批 2 chart 悬停与图例、批 3 点击成交 Up 兜底单独评估。
+- [ ] **数据驱动局部重绘批 2 / 3**：批 1（订阅回调按控件标脏）已合入——`follow_store_at` 全库 50 处组件根绑定、when 族与 swap_node 显隐按矩形标脏、chart 数据变更随通道收窄；剩批 2 chart 悬停与图例（交互类 invalidate）、批 3 点击成交 Up / GIF / 拖放兜底与文本自适应宽的标脏余量（`text_dyn` / `relabel`）
+  - 批 1 判据：`experiment/frame_cost_probe` 的 `paint_full` vs `paint_clip` 读数（mac 10～15 倍差值已采，Windows 待补）+ SC-7.3 真机无闪烁。
+  - mdview 不立项（滚动已由条带快路径解决）；`bind_node` / `for_list` 结构变化保持整窗（残影面）。
 
 - [ ] **虚拟滚动精度批真机复验**：SC-4.13 / SC-4.14
   - 执行者：用户执行。

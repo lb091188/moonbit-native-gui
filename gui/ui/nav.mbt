@@ -172,7 +172,6 @@ pub fn segmented(
   class~ : Array[@style.Style] = [],
   handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  follow_store(selected)
   let items : Array[@widget.Node] = []
   let n = options.length()
   for i = 0; i < n; i = i + 1 {
@@ -216,7 +215,10 @@ pub fn segmented(
     background_color="border",
     // 轨道默认胶囊形（调用方 class 在后覆写；关圆角时令牌给 0 回直角）
     class=[@style.style(border_radius=@theme.radius_card())] + class,
-    handle~,
+    handle=fn(w : @widget.Widget) -> Unit {
+      follow_store_at(w, selected)
+      handle(w)
+    },
   )
 }
 
@@ -230,7 +232,6 @@ pub fn breadcrumb(
   class~ : Array[@style.Style] = [],
   handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  follow_store(selected)
   let nodes : Array[@widget.Node] = []
   let n = items.length()
   for i = 0; i < n; i = i + 1 {
@@ -279,7 +280,10 @@ pub fn breadcrumb(
     direction=@yoga.Row,
     align_items=@yoga.AlignItems::Center,
     class~,
-    handle~,
+    handle=fn(w : @widget.Widget) -> Unit {
+      follow_store_at(w, selected)
+      handle(w)
+    },
   )
 }
 
@@ -292,7 +296,6 @@ pub fn pagination(
   class~ : Array[@style.Style] = [],
   handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  follow_store(current)
   let items : Array[@widget.Node] = []
   let hi = if pages > 0 { pages } else { 1 }
   fn step(delta : Int32) -> @widget.Node {
@@ -390,7 +393,10 @@ pub fn pagination(
     column_gap=4.0,
     align_items=@yoga.AlignItems::Center,
     class~,
-    handle~,
+    handle=fn(w : @widget.Widget) -> Unit {
+      follow_store_at(w, current)
+      handle(w)
+    },
   )
 }
 
@@ -407,7 +413,6 @@ pub fn steps(
   class~ : Array[@style.Style] = [],
   handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  follow_store(current)
   let n = items.length()
   // 缺省回调 = 内置切换（点谁高亮谁）；传了就整只交给调用方。都夹回步数域。
   let pick : (Int32) -> Unit = match on_select {
@@ -526,7 +531,10 @@ pub fn steps(
     height=40.0,
     align_items=@yoga.AlignItems::Center,
     class~,
-    handle~,
+    handle=fn(w : @widget.Widget) -> Unit {
+      follow_store_at(w, current)
+      handle(w)
+    },
   )
 }
 
@@ -826,7 +834,6 @@ pub fn menu(
   class? : Array[@style.Style] = [],
   handle? : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  follow_store(selected)
   let nodes : Array[@widget.Node] = []
   let n = items.length()
   for i = 0; i < n; i = i + 1 {
@@ -863,7 +870,10 @@ pub fn menu(
     padding=6.0,
     align_items=@yoga.AlignItems::FlexStart,
     class~,
-    handle~,
+    handle=fn(w : @widget.Widget) -> Unit {
+      follow_store_at(w, selected)
+      handle(w)
+    },
   )
 }
 
@@ -881,7 +891,6 @@ pub fn menu_sections(
   class~ : Array[@style.Style] = [],
   handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  follow_store(selected)
   let blocks : Array[@widget.Node] = []
   for sec in sections {
     let title = sec.0
@@ -989,7 +998,17 @@ pub fn menu_sections(
     blocks.push(head)
     blocks.push(@widget.node_of(body))
   }
-  view(blocks, row_gap=2.0, padding=6.0, width~, class~, handle~)
+  view(
+    blocks,
+    row_gap=2.0,
+    padding=6.0,
+    width~,
+    class~,
+    handle=fn(w : @widget.Widget) -> Unit {
+      follow_store_at(w, selected)
+      handle(w)
+    },
+  )
 }
 
 ///|
@@ -1128,7 +1147,6 @@ pub fn tabs(
       Some(s) => s
       None => @base.Store::new(0)
     }
-    follow_store(sel)
     w.node.set_flex_direction(@yoga.Column)
     w.node.set_width(@yoga.percent(100.0))
     let font = @text.Font::new("", 13.0)
@@ -1222,6 +1240,7 @@ pub fn tabs(
     }
     let sid = sel.signal().subscribe(fn(i : Int32) -> Unit { show(i) })
     @base.sub_bag_register(fn() { sel.signal().remove(sid) })
+    follow_store_at(w, sel)
     fold_style(w, @style.empty_style(), @style.empty_style(), class)
     handle(w)
     w

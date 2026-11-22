@@ -186,7 +186,9 @@ pub fn swap_node(sig : Signal[Bool], a : Node, b : Node) -> Node {
       fn apply(v : Bool) -> Unit {
         va.set_visible(!v)
         vb.set_visible(v)
-        invalidate()
+        // 两支各标自己的矩形：隐藏支的旧像素靠脏区重画擦掉
+        invalidate_id(va.id)
+        invalidate_id(vb.id)
       }
       apply(sig.get())
       ignore(sig.subscribe(apply))

@@ -147,7 +147,7 @@ fn update_spinner(size : Double) -> @widget.Node {
   }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
     watch_theme()
-    follow_store(phase)
+    follow_store_at(w, phase)
     w.node.set_width(@yoga.fixed(size))
     w.node.set_height(@yoga.fixed(size))
     w.on_draw = Some(fn(

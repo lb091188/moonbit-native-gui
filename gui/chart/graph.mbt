@@ -661,10 +661,10 @@ pub fn gph_chart_t(
   height~ : Double = 320.0,
   handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
-  @ui.follow_store(data)
   let iters = iterations
   let labels = show_labels
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    @ui.follow_store_at(w, data)
     @ui.watch_theme()
     // 布局缓存：(画布宽, 画布高, 布局)；None 表示数据已变更待重算
     let cache : Ref[(Double, Double, GraphLayout)?] = Ref(None)

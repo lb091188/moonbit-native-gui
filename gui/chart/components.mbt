@@ -17,11 +17,11 @@ pub fn line_chart_t(
   height~ : Double = 200.0,
   handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
-  @ui.follow_store(series)
   let fill = area
   let yr = y_range
   let tail = show_last
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    @ui.follow_store_at(w, series)
     @ui.watch_theme()
     w.node.set_height(@yoga.fixed(height))
     if width > 0.0 {
@@ -60,10 +60,10 @@ pub fn bar_chart_t(
   height~ : Double = 200.0,
   handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
-  @ui.follow_store(data)
   let horiz = horizontal
   let yr = y_range
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    @ui.follow_store_at(w, data)
     @ui.watch_theme()
     let hover : Ref[Int32] = Ref(-1)
     w.node.set_height(@yoga.fixed(height))
@@ -132,10 +132,10 @@ pub fn donut_chart_t(
   height~ : Double = 180.0,
   handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
-  @ui.follow_store(data)
   let thick = thickness
   let mid = center
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    @ui.follow_store_at(w, data)
     @ui.watch_theme()
     let hover : Ref[Int32] = Ref(-1)
     w.node.set_height(@yoga.fixed(height))
@@ -245,10 +245,10 @@ pub fn gauge_t(
   smooth~ : Bool = true,
   handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
-  @ui.follow_store(value)
   let bands = thresholds
   let do_smooth = smooth
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    @ui.follow_store_at(w, value)
     @ui.watch_theme()
     let disp : Ref[Double] = Ref(value.get().clamp(min=0.0, max=1.0))
     let timer : Ref[Int32] = Ref(0)
@@ -308,10 +308,10 @@ pub fn scatter_t(
   height~ : Double = 200.0,
   handle~ : (@widget.Widget) -> Unit = @ui.default_handle,
 ) -> @widget.Node {
-  @ui.follow_store(points)
   let line = trend
   let d = dot
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    @ui.follow_store_at(w, points)
     @ui.watch_theme()
     w.node.set_height(@yoga.fixed(height))
     if width > 0.0 {

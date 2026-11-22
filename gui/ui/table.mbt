@@ -807,11 +807,11 @@ pub fn table(
     watch_theme()
     w.kind = "ui-table"
     match selection {
-      Some(s) => follow_store(s)
+      Some(s) => follow_store_at(w, s)
       None => ()
     }
     match sort {
-      Some(s) => follow_store(s)
+      Some(s) => follow_store_at(w, s)
       None => ()
     }
 

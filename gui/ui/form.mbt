@@ -9,10 +9,16 @@
 // 捕获通道拿到出界的移动量。禁用态是 `Enabled` 单元而非布尔（见 state.mbt）。
 
 ///|
-/// 订阅一个 Store，只为请求重绘；退订随本代回收袋。
-pub fn[T] follow_store(s : @base.Store[T]) -> Unit {
+/// 订阅一个 Store，只为请求重绘；值变按控件矩形局部置脏。挂在组件根上——
+/// `node_of_new` 的 finish 首行或组装层 `handle` 链里调——整组子树矩形一次
+/// 标齐（「改一个点只画图表矩形」的粒度）。退订随本代回收袋；无宿主
+/// （无头测试）时 `invalidate_id` 是空操作。
+pub fn[T] follow_store_at(
+  w : @widget.Widget,
+  s : @base.Store[T],
+) -> Unit {
   let sig = s.signal()
-  let sid = sig.subscribe(fn(_v : T) -> Unit { @widget.invalidate() })
+  let sid = sig.subscribe(fn(_v : T) -> Unit { @widget.invalidate_id(w.id) })
   @base.sub_bag_register(fn() { sig.remove(sid) })
 }
 
@@ -64,8 +70,8 @@ pub fn checkbox(
   /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
   handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  follow_store(state)
   @widget.node_of_new(fn(row : @widget.Widget) -> @widget.Widget {
+    follow_store_at(row, state)
     let off = enabled_cell(enabled, disabled)
     row.focus_id = auto_focus_id(focus_id)
     row.kind = "ui-checkbox"
@@ -176,7 +182,6 @@ pub fn radio_group(
   /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
   class~ : Array[@style.Style] = [],
 ) -> @widget.Node {
-  follow_store(state)
   let is_row = match direction {
     @yoga.Row | @yoga.RowReverse => true
     _ => false
@@ -185,6 +190,7 @@ pub fn radio_group(
   for i = 0; i < options.length(); i = i + 1 {
     let idx = i
     let dot = @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+      follow_store_at(w, state)
       w.node.set_width(@yoga.fixed(14.0))
       w.node.set_height(@yoga.fixed(14.0))
       // 内置基调存 token 名：选中=primary，未选环=border
@@ -315,8 +321,8 @@ pub fn switch(
   /// 挂命名样式类（`class_of([...])`）；类排在散参数之后，覆盖散参数。
   class~ : Array[@style.Style] = [],
 ) -> @widget.Node {
-  follow_store(state)
   @widget.node_of_new(fn(row : @widget.Widget) -> @widget.Widget {
+    follow_store_at(row, state)
     let off = enabled_cell(None, disabled)
     row.kind = "ui-switch"
     row.role = "switch"
@@ -435,11 +441,11 @@ pub fn slider(
   /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
   handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  follow_store(state)
   let lo = min
   let hi = if max > min { max } else { min + 1.0 }
   let st = if step > 0.0 { step } else { 0.0 }
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    follow_store_at(w, state)
     watch_theme()
     let off = enabled_cell(None, disabled)
     // 拖动状态自己持有：宿主维护的 `pressed` 只在真实事件流里置位，组件要在
@@ -608,7 +614,6 @@ pub fn progress(
   class~ : Array[@style.Style] = [],
   handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  follow_store(state)
   let hi = if max > 0.0 { max } else { 1.0 }
   let blocks : Array[@style.Style] = [
     @style.style(background_color="fill_zebra"),
@@ -619,6 +624,7 @@ pub fn progress(
   ]
   let anon = @style.merge_all(blocks)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    follow_store_at(w, state)
     watch_theme()
     w.kind = "ui-progress"
     w.node.set_width(@yoga.fixed(width))
@@ -1537,10 +1543,10 @@ pub fn rate(
   /// 挂载后把宿主 Widget 句柄交给调用方（逃生舱）。
   handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  follow_store(value)
   let n = if max > 0 { max } else { 1 }
   let hover_n : Ref[Int32] = Ref(0)
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    follow_store_at(w, value)
     watch_theme()
     w.kind = "ui-rate"
     w.focus_id = auto_focus_id(focus_id)
@@ -1807,10 +1813,10 @@ pub fn select(
       handle=Some(handle),
     )
   }
-  follow_store(value)
   let opts = options
   let ph = placeholder
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    follow_store_at(w, value)
     watch_theme()
     w.kind = "ui-select"
     w.role = "select"
@@ -1956,12 +1962,12 @@ pub fn color_picker(
   class~ : Array[@style.Style] = [],
   handle~ : (@widget.Widget) -> Unit = default_handle,
 ) -> @widget.Node {
-  follow_store(value)
   let cs = colors
   let swatch = 26.0
   let cell_gap = 6.0
   let per_row = 5
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    follow_store_at(w, value)
     watch_theme()
     w.kind = "ui-color-picker"
     let open_id : Ref[Int32] = Ref(0)
@@ -2175,9 +2181,9 @@ fn combo_impl(
   let width = width.unwrap_or(200.0)
   let focus_id = focus_id.unwrap_or(0)
   let handle = handle.unwrap_or(default_handle)
-  follow_store(value)
   let opts = options
   @widget.node_of_new(fn(w : @widget.Widget) -> @widget.Widget {
+    follow_store_at(w, value)
     watch_theme()
     w.kind = "ui-combo"
     let open_id : Ref[Int32] = Ref(0)
