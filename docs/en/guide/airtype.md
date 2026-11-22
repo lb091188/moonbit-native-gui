@@ -2,7 +2,7 @@
 
 airtype is a standalone app in this repo (`apps/airtype`): your computer runs a LAN service and shows a QR code; scan it with your phone, type on the web page, hit send, and the text lands in whatever input is focused on the computer — no IME, no chat-app relay.
 
-- Platforms: macOS first; Linux X11 in a later batch; Windows not in this phase.
+- Platforms: macOS verified; Linux (X11 sessions) and Windows merged, pending on-device verification. On Linux Wayland sessions only XWayland apps receive injections; on Windows, elevated target windows (admin processes) reject them by OS design.
 - The generic capability shipped with it: [text injection](../capability/sys.md) in `gui/sys` (post arbitrary text into the system-focused input), reusable by any app.
 
 ## Run

@@ -5,7 +5,7 @@
 > 决策（2026-11-22 用户拍板三项）：
 > - 应用本体进本仓库新目录 `apps/airtype/`，落位判据同步加行。
 > - 上屏注入不抽独立模块，收进 gui 库 `gui/sys`，与剪贴板、托盘同族——它是桌面输入领域的系统能力。
-> - 平台范围：mac 先行，linux X11 随后一批；Windows 不在本期。
+> - 平台范围：mac 已验（2026-11-22）；linux X11 与 Windows 注入臂已合入（aa818f71，SendInput / XTest），编译面进 CI 三腿点名，真机上屏待验。
 > - 依赖口径更新（2026-11-22 二次调查）：`moonbitlang/async` 已并入工具链自带的 `moonbitlang/core/async`，改吃 core 版免注册库依赖，签名以工具链 mbti 为准。
 
 ## 1. 可行性核账

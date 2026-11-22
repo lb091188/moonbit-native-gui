@@ -208,10 +208,10 @@
 
 ## 开发待办
 
-- [ ] **airtype mac 全链真机复验**：执行者：用户执行——代码四批已合入（44acd5a2 / 25881fdc / 5596303d / a2c7c715 + 本批收尾），`cd apps/airtype && moon run .` 跑 `测试文档/测试用例.md` 的 AT-1.1～3.2
+- [ ] **airtype linux / Windows 真机复验**：执行者：用户执行——mac 已验过（2026-11-22，AT-1.1～3.2 全过）；注入两臂已合入（aa818f71），各平台跑 AT-2.2/2.3/2.7 上屏面
   - airtype：手机扫码进网页打字、发送后打进电脑聚焦框的本仓独立应用。
   - 关键面：辅助功能授权引导、扫码连通、中文/emoji/长文上屏、token 门禁、断线重连、密码框边界
-  - 通过后把 roadmap 两条目（文本注入 / airtype）从 🚧 改 ✅；linux X11 注入臂为后续批次
+  - linux 限 X11 会话（Wayland 只有 XWayland 应用收得到）；Windows 提权目标窗口不收注入
 
 - [ ] **环境判定库 native-env 真机矩阵**：执行者：用户执行——`cd examples/envprobe && moon run main` 按平台各一遍，逐条对 `测试文档/测试用例.md` 的 EP-1.1～1.7
   - 已验 2026-11-21 第一轮：mac 本机 EP-1.1（裸机 / Metal Hardware）；company Linux 容器 EP-1.4（docker 命中、宿主裸机、无渲染节点 Software）——本条真机抓出容器信号漏进 VM 判定一 bug 已修

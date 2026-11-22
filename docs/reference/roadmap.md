@@ -475,13 +475,13 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
 
 - 🚧 **文本注入**：把任意文本投进系统当前聚焦的输入框，airtype 与第三方应用共用
   - 门面 `@sys.inject_text` 收 `gui/sys`，与剪贴板同族；未支持平台给 Unsupported
-  - mac：CGEvent 键盘事件挂 UTF-16 串，分片至多 20 单元、代理对不劈；需辅助功能授权，密码框按系统设计不收注入
-  - linux X11（XTest）后续批次，Windows 不在本期
+  - mac ✅ 已验（2026-11-22 真机）：CGEvent 键盘事件挂 UTF-16 串，分片至多 20 单元、代理对不劈；需辅助功能授权，密码框按系统设计不收注入
+  - linux 🚧 X11 XTest（运行期 dlopen，改键映射挂 Unicode keysym；Wayland 会话只有 XWayland 应用收得到）、Windows 🚧 SendInput KEYEVENTF_UNICODE——已合入待真机
 - 🚧 **airtype 手机投字应用**：电脑起服务出二维码，手机扫码进网页打字，发送后打进电脑聚焦输入框
   - 独立应用模块 `apps/airtype/`（落位判据 `apps/<name>/` 行已加）；定案见 proposals/airtype.md
   - 服务端 moonbitlang/core/async 的 HTTP + WebSocket，外部事件循环薄适配挂主线程帧泵——`WindowHost::step_no_wait` 原语
   - 二维码 moon-qrcode 点阵自绘；网址带 32 字符随机 token 防蹭输入，明文 HTTP
-  - 待真机：mac 全链 AT-1.1～3.2；linux 侧后续批次
+  - mac ✅ 已验（2026-11-22 真机，AT-1.1～3.2 全过）；linux / Windows 编译面已进 CI 三腿点名，真机上屏待验
 
 ### WebView
 

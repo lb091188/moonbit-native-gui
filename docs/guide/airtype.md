@@ -2,7 +2,7 @@
 
 airtype 是本仓的独立应用（`apps/airtype`）：电脑起一个局域网服务并显示二维码，手机扫码进网页打字，点发送后文字直接打进电脑当前聚焦的输入框——不用装输入法、不用聊天软件中转。
 
-- 平台：macOS 先行；Linux X11 随后批次，Windows 不在本期。
+- 平台：macOS 已验；Linux（X11 会话）与 Windows 已合入待真机。Linux 的 Wayland 会话只有 XWayland 应用收得到注入；Windows 向提权目标窗口（管理员进程）注入按系统设计不收。
 - 同步进 `gui/sys` 的通用能力：[文本注入](../capability/sys.md#文本注入-inject)（把任意文本投进系统聚焦输入框），第三方应用可直接复用。
 
 ## 运行

@@ -20,7 +20,7 @@
 | browser/vscode 数据 | ✅（LOCALAPPDATA 路径） | ✅ | ✅（`Library/Application Support/<厂商>/<产品>` 路径） |
 | sysmonitor 进程数据 | ✅（示例模块自带探针） | ✅ | ✅ 已回证（示例模块自带，mac 路径待验） |
 | 夜间色温 | ✅ 直调（`SetDeviceGammaRamp`） | ✅ X11 会话（**Wayland 会话 Unsupported**：gamma 只落 XWayland，进程照起、退出码照 0 而屏幕没变） | ❌ 无公开 API（CoreBrightness 私有，走 f.lux 同款覆盖层） |
-| 文本注入（inject） | ❌ 未做 | ❌ 未做（X11 批次随后） | 🚧 已合入待真机（CGEvent 键盘事件挂 UTF-16 串；需辅助功能授权，密码框按系统设计不收） |
+| 文本注入（inject） | 🚧 SendInput 的 KEYEVENTF_UNICODE（待真机） | 🚧 X11 XTest 改键映射（待真机；Wayland 会话只有 XWayland 应用收得到） | ✅ 已验（CGEvent 键盘事件挂 UTF-16 串；需辅助功能授权，密码框按系统设计不收） |
 | 显示器枚举（monitor） | ✅ 直调（`EnumDisplayDevicesW` / `EnumDisplaySettingsExW`；真机与 QEMU QXL 虚拟屏均回证，虚拟屏读到 `DISPLAY1: 1920x1080 @64Hz`） | ✅（xrandr；**Wayland 会话读到的是 XWayland 虚拟屏**，名形如 `XWAYLAND0`） | ✅ 已回证（CoreGraphics 直调：`CGGetOnlineDisplayList` / `CGDisplayBounds` / `CGDisplayCopyAllDisplayModes`；只列「在线」屏，输出名给不了按 `Built-in` / `Display-<id>` 给；读数一律物理像素，故 `MonitorInfo` 不需要缩放比字段） |
 ## 文本注入（inject）
 
