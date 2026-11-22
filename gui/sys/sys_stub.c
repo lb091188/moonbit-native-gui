@@ -59,6 +59,8 @@
 #include <sys/stat.h> // mkdir(2)
 #include <sys/wait.h>
 #include <unistd.h>
+#include <ifaddrs.h> // 网卡地址枚举（getifaddrs/freeifaddrs）
+#include <arpa/inet.h> // 网卡地址转点分串（inet_ntop）
 #if defined(__APPLE__)
 #include <mach-o/dyld.h> // _NSGetExecutablePath（可执行文件路径，W21d）
 #include <mach/mach.h> // host_statistics64 / host_page_size（物理内存快照）
@@ -3550,6 +3552,57 @@ void wm_screen_tint_apply(int32_t percent, int32_t *ok) {
   }
 }
 #endif
+
+// ---------------------------------------------------------------------------
+// 网卡地址枚举（netif）：getifaddrs 遍历 AF_INET，逐条「接口名 地址」空格
+// 分隔、'\n' 分行。私网过滤与接口偏好归 MoonBit 门面（枚举侧不做判断，
+// 全量给消费方自选）；Windows 本期占位返回空。
+// ---------------------------------------------------------------------------
+
+void *yue_sys_netif_list(int32_t *ok) {
+  *ok = 0;
+#if defined(_WIN32)
+  return moonbit_make_bytes(0, 0);
+#else
+  struct ifaddrs *ifs = NULL;
+  if (getifaddrs(&ifs) != 0) {
+    return moonbit_make_bytes(0, 0);
+  }
+  // 两遍：先算需要的长度，再一次分配写满
+  size_t need = 1; // 结尾 NUL
+  for (struct ifaddrs *it = ifs; it != NULL; it = it->ifa_next) {
+    if (it->ifa_addr == NULL || it->ifa_addr->sa_family != AF_INET) {
+      continue;
+    }
+    char ip[INET_ADDRSTRLEN];
+    struct sockaddr_in *sin = (struct sockaddr_in *)it->ifa_addr;
+    if (inet_ntop(AF_INET, &sin->sin_addr, ip, sizeof(ip)) == NULL) {
+      continue;
+    }
+    need += strlen(it->ifa_name) + 1 + strlen(ip) + 1;
+  }
+  if (need <= 1) {
+    freeifaddrs(ifs);
+    return moonbit_make_bytes(0, 0);
+  }
+  void *out = moonbit_make_bytes((int)need, 0);
+  char *cur = (char *)out;
+  for (struct ifaddrs *it = ifs; it != NULL; it = it->ifa_next) {
+    if (it->ifa_addr == NULL || it->ifa_addr->sa_family != AF_INET) {
+      continue;
+    }
+    char ip[INET_ADDRSTRLEN];
+    struct sockaddr_in *sin = (struct sockaddr_in *)it->ifa_addr;
+    if (inet_ntop(AF_INET, &sin->sin_addr, ip, sizeof(ip)) == NULL) {
+      continue;
+    }
+    cur += sprintf(cur, "%s %s\n", it->ifa_name, ip);
+  }
+  freeifaddrs(ifs);
+  *ok = 1;
+  return out;
+#endif
+}
 
 // ---------------------------------------------------------------------------
 // 文本注入（对外打字）：mac 臂 CGEvent 键盘事件挂 UTF-16 串投进当前聚焦的
