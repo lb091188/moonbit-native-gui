@@ -276,12 +276,12 @@ fn pp_available() -> Bool {
 ///|
 /// Windows 直调：读当前活动电源方案的 GUID（标准小写串）。
 #borrow(ok)
-extern "c" fn ffi_pp_current_guid(ok : Ref[Int32]) -> Bytes = "yue_sys_pp_current_guid"
+extern "c" fn ffi_pp_current_guid(ok : Ref[Int32]) -> Bytes = "sys_pp_current_guid"
 
 ///|
 /// Windows 直调：按 GUID 串切换电源方案。
 #borrow(guid, ok)
-extern "c" fn ffi_pp_set(guid : Bytes, ok : Ref[Int32]) -> Int32 = "yue_sys_pp_set"
+extern "c" fn ffi_pp_set(guid : Bytes, ok : Ref[Int32]) -> Int32 = "sys_pp_set"
 
 ///|
 /// 当前系统是否支持电源计划（powerprofilesctl 存在且可查询）。每次调用

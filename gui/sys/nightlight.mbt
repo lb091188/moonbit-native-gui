@@ -140,7 +140,7 @@ fn nl_ramp_identity_word(i : Int32) -> Int32 {
 
 ///|
 #borrow(ramp, ok)
-extern "c" fn ffi_nl_set_ramp(ramp : Bytes, ok : Ref[Int32]) -> Unit = "yue_sys_nl_set_ramp"
+extern "c" fn ffi_nl_set_ramp(ramp : Bytes, ok : Ref[Int32]) -> Unit = "sys_nl_set_ramp"
 
 ///|
 #borrow(ok)

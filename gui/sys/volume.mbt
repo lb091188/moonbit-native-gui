@@ -535,7 +535,7 @@ fn vol_backend() -> VolBackend? {
 ///|
 /// Windows 直调：快照字节串「设备 id\t百分比\t静音」。
 #borrow(ok)
-extern "c" fn ffi_vol_get(ok : Ref[Int32]) -> Bytes = "yue_sys_vol_get"
+extern "c" fn ffi_vol_get(ok : Ref[Int32]) -> Bytes = "sys_vol_get"
 
 ///|
 /// Windows 直调：mode 0=设音量 1=设静音。
@@ -544,7 +544,7 @@ extern "c" fn ffi_vol_write(
   mode : Int32,
   value : Int32,
   ok : Ref[Int32],
-) -> Int32 = "yue_sys_vol_write"
+) -> Int32 = "sys_vol_write"
 
 ///|
 /// Windows 分支：默认渲染端点读数。

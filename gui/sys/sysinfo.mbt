@@ -495,7 +495,7 @@ extern "c" fn ffi_reg_sz(
   subkey : Bytes,
   value : Bytes,
   ok : Ref[Int32],
-) -> Bytes = "yue_sys_reg_sz"
+) -> Bytes = "sys_reg_sz"
 
 ///|
 /// Windows 直调：机器 DMI 的 WMI 兜底（一行三列 `厂商\t型号\t序列号`，缺失给
@@ -503,7 +503,7 @@ extern "c" fn ffi_reg_sz(
 /// 用户态，连 GetSystemFirmwareTable 都不认这张表），只能退到 WMI。非 Windows
 /// 平台恒给 ok=0。
 #borrow(ok)
-extern "c" fn ffi_wmi_machine(ok : Ref[Int32]) -> Bytes = "yue_sys_wmi_machine"
+extern "c" fn ffi_wmi_machine(ok : Ref[Int32]) -> Bytes = "sys_wmi_machine"
 
 ///|
 /// Windows 直调：物理内存快照（KB）。
@@ -512,11 +512,11 @@ extern "c" fn ffi_memory_kb(
   total_kb : Ref[Int64],
   avail_kb : Ref[Int64],
   ok : Ref[Int32],
-) -> Int32 = "yue_sys_memory_kb"
+) -> Int32 = "sys_memory_kb"
 
 ///|
 /// Windows 直调：开机秒数。
-extern "c" fn ffi_uptime_seconds() -> Double = "yue_sys_uptime_seconds"
+extern "c" fn ffi_uptime_seconds() -> Double = "sys_uptime_seconds"
 
 ///|
 fn si_win_reg(subkey : String, value : String) -> String? {

@@ -78,11 +78,11 @@ static DWORD modular_diff(DWORD now, DWORD then) { return now - then; }
 
 int main(void) {
   /* ① 支持性：Windows 恒真 */
-  check("yue_sys_idle_supported", (long long)yue_sys_idle_supported(), 1);
+  check("sys_idle_supported", (long long)sys_idle_supported(), 1);
 
   /* ② 正常读数：ok=1 且非负 */
   int32_t ok = -7;
-  int64_t ms = yue_sys_idle_seconds_ms(&ok);
+  int64_t ms = sys_idle_seconds_ms(&ok);
   check("seconds_ms ok(1=成功)", ok, 1);
   check_true("读数为毫秒且非负", ms >= 0);
   check_true("读数在 int32 区间内(无误截断)", ms < 2147483647LL);
@@ -100,7 +100,7 @@ int main(void) {
   /* ④ 单调不减：自动化跑无输入时，空闲只会增长 */
   {
     int32_t ok2 = -7;
-    int64_t ms2 = yue_sys_idle_seconds_ms(&ok2);
+    int64_t ms2 = sys_idle_seconds_ms(&ok2);
     check("第二次 ok", ok2, 1);
     check_true("空闲单调不减(ms2 >= ms)", ms2 >= ms);
   }
@@ -117,7 +117,7 @@ int main(void) {
     int all_ok = 1;
     for (int i = 0; i < 5; i++) {
       int32_t o = -7;
-      int64_t v = yue_sys_idle_seconds_ms(&o);
+      int64_t v = sys_idle_seconds_ms(&o);
       if (o != 1 || v < 0) {
         all_ok = 0;
         break;
@@ -129,7 +129,7 @@ int main(void) {
   /* ⑦ ok 出参每次都被写（不残留上一次的值）：先给个脏初值 */
   {
     int32_t o = 12345;
-    int64_t v = yue_sys_idle_seconds_ms(&o);
+    int64_t v = sys_idle_seconds_ms(&o);
     check("ok 出参被写为 0/1", (o == 0 || o == 1) ? 1 : 0, 1);
     check_true("配对读数非负", v >= 0);
   }

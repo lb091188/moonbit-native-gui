@@ -56,15 +56,15 @@ pub extend FileManagerError with Show::{to_string, output}
 
 ///|
 #borrow(file, arg)
-extern "c" fn ffi_sys_spawn_detached(file : Bytes, arg : Bytes) -> Int32 = "yue_sys_spawn_detached"
+extern "c" fn ffi_sys_spawn_detached(file : Bytes, arg : Bytes) -> Int32 = "sys_spawn_detached"
 
 ///|
 #borrow(ok)
-extern "c" fn ffi_sys_getcwd(ok : Ref[Int32]) -> Bytes = "yue_sys_getcwd"
+extern "c" fn ffi_sys_getcwd(ok : Ref[Int32]) -> Bytes = "sys_getcwd"
 
 ///|
 #borrow(ok)
-extern "c" fn ffi_sys_exe_dir(ok : Ref[Int32]) -> Bytes = "yue_sys_exe_dir"
+extern "c" fn ffi_sys_exe_dir(ok : Ref[Int32]) -> Bytes = "sys_exe_dir"
 
 // ---------------------------------------------------------------------------
 // 纯逻辑层（白盒测试覆盖）
@@ -200,12 +200,12 @@ pub fn exe_dir() -> String {
 ///|
 /// Windows 直调：ShellExecuteW「open」打开 URL/文件（>32 成功的约定）。
 #borrow(target, ok)
-extern "c" fn ffi_shell_open(target : Bytes, ok : Ref[Int32]) -> Int32 = "yue_sys_shell_open"
+extern "c" fn ffi_shell_open(target : Bytes, ok : Ref[Int32]) -> Int32 = "sys_shell_open"
 
 ///|
 /// Windows 直调：explorer /select,"path" 在文件管理器里定位。
 #borrow(path, ok)
-extern "c" fn ffi_shell_reveal(path : Bytes, ok : Ref[Int32]) -> Int32 = "yue_sys_shell_reveal"
+extern "c" fn ffi_shell_reveal(path : Bytes, ok : Ref[Int32]) -> Int32 = "sys_shell_reveal"
 
 ///|
 /// Windows 直调：ShellExecuteW 用**指定程序**打开文件（lpFile=程序、
@@ -215,7 +215,7 @@ extern "c" fn ffi_shell_open_with(
   app : Bytes,
   path : Bytes,
   ok : Ref[Int32],
-) -> Int32 = "yue_sys_shell_open_with"
+) -> Int32 = "sys_shell_open_with"
 
 ///|
 /// 打开文件的错误类型（`open_file` / `open_file_with` 共用）。

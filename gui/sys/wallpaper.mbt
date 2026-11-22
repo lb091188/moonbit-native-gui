@@ -82,12 +82,12 @@ fn wp_split_lines(s : String) -> Array[String] {
 ///|
 /// Windows 直调：SPI_GETDESKWALLPAPER 读当前壁纸全路径（UTF-8 字节串）。
 #borrow(ok)
-extern "c" fn ffi_wallpaper_get(ok : Ref[Int32]) -> Bytes = "yue_sys_wallpaper_get"
+extern "c" fn ffi_wallpaper_get(ok : Ref[Int32]) -> Bytes = "sys_wallpaper_get"
 
 ///|
 /// Windows 直调：SPI_SETDESKWALLPAPER 写壁纸并广播。
 #borrow(path, ok)
-extern "c" fn ffi_wallpaper_set(path : Bytes, ok : Ref[Int32]) -> Int32 = "yue_sys_wallpaper_set"
+extern "c" fn ffi_wallpaper_set(path : Bytes, ok : Ref[Int32]) -> Int32 = "sys_wallpaper_set"
 
 ///|
 fn wp_trim(s : String) -> String {

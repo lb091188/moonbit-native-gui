@@ -34,13 +34,13 @@ pub extend InjectError with Show::{to_string, output}
 ///|
 /// units 是 UTF-16LE 字节串，len 是 UTF-16 单元数（不是字节数）。
 #borrow(units)
-extern "c" fn ffi_inject_text(units : Bytes, len : Int32) -> Int32 = "yue_sys_inject_text"
+extern "c" fn ffi_inject_text(units : Bytes, len : Int32) -> Int32 = "sys_inject_text"
 
 ///|
-extern "c" fn ffi_inject_available() -> Int32 = "yue_sys_inject_available"
+extern "c" fn ffi_inject_available() -> Int32 = "sys_inject_available"
 
 ///|
-/// 可模拟的按键。键名与序号的对应表在 sys_stub.c 的 yue_sys_inject_key
+/// 可模拟的按键。键名与序号的对应表在 sys_stub.c 的 sys_inject_key
 /// 注释里，两侧必须同步改。
 pub(all) enum Key {
   Enter
@@ -76,7 +76,7 @@ pub(all) enum Key {
 }
 
 ///|
-/// 键的桩序号（契约见 sys_stub.c yue_sys_inject_key 的表）。
+/// 键的桩序号（契约见 sys_stub.c sys_inject_key 的表）。
 fn key_id(k : Key) -> Int32 {
   match k {
     Enter => 0
@@ -152,7 +152,7 @@ extern "c" fn ffi_inject_key(
   key : Int32,
   mods : Int32,
   cp : Int32,
-) -> Int32 = "yue_sys_inject_key"
+) -> Int32 = "sys_inject_key"
 
 ///|
 /// 模拟一次按键按下并抬起（可挂修饰键）——文本之外的键盘动作统一入口：

@@ -145,13 +145,13 @@ pub extend MonitorError with Show::{to_string, output}
 /// ok=0（桩体在那边是哑的），于是 mon_list 退 Unsupported——运行时探测，
 /// 不用编译指令，与另两平台同口径。
 #borrow(ok)
-extern "c" fn ffi_mon_mac(ok : Ref[Int32]) -> Bytes = "yue_sys_mon_mac"
+extern "c" fn ffi_mon_mac(ok : Ref[Int32]) -> Bytes = "sys_mon_mac"
 
 ///|
 /// Windows 直调：GDI 的显示设备清单，行式格式与 macOS 臂完全一致（同一份
 /// 解析函数吃），非 Windows 平台恒给 ok=0。
 #borrow(ok)
-extern "c" fn ffi_mon_win(ok : Ref[Int32]) -> Bytes = "yue_sys_mon_win"
+extern "c" fn ffi_mon_win(ok : Ref[Int32]) -> Bytes = "sys_mon_win"
 
 ///|
 /// 字符是否空白（空格 / 制表）。
@@ -667,7 +667,7 @@ fn mon_tab_flag(toks : Array[String], i : Int32) -> Bool {
 }
 
 ///|
-/// 解析 `yue_sys_mon_mac` / `yue_sys_mon_win` 的行式清单（两臂同一份格式）：
+/// 解析 `sys_mon_mac` / `sys_mon_win` 的行式清单（两臂同一份格式）：
 /// `MON` 行开一个显示器，随后的 `MODE` 行归它。字段数不合的记录整条跳过
 /// （上层按「少一台/少一档」降级，不整体失败）。connected 恒真：CG 的在线
 /// 清单与 GDI 的「贴合桌面的适配器」清单里都没有「接了但关掉」那一档。

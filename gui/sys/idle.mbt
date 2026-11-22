@@ -57,11 +57,11 @@ pub fn idle_ms_to_seconds(ms : Int64) -> Double {
 }
 
 ///|
-extern "c" fn ffi_sys_idle_supported() -> Int32 = "yue_sys_idle_supported"
+extern "c" fn ffi_sys_idle_supported() -> Int32 = "sys_idle_supported"
 
 ///|
 #borrow(ok)
-extern "c" fn ffi_sys_idle_seconds_ms(ok : Ref[Int32]) -> Int64 = "yue_sys_idle_seconds_ms"
+extern "c" fn ffi_sys_idle_seconds_ms(ok : Ref[Int32]) -> Int64 = "sys_idle_seconds_ms"
 
 ///|
 /// 本平台 / 本会话是否提供空闲查询（运行期探测：Windows 恒真；Linux 要有

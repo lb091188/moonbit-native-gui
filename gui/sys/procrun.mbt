@@ -74,7 +74,7 @@ extern "c" fn ffi_proc_spawn(
   out_path : Bytes,
   err_path : Bytes,
   env : Bytes,
-) -> Int32 = "yue_sys_proc_spawn"
+) -> Int32 = "sys_proc_spawn"
 
 ///|
 #borrow(status, code)
@@ -83,10 +83,10 @@ extern "c" fn ffi_proc_wait(
   timeout_ms : Int32,
   status : Ref[Int32],
   code : Ref[Int32],
-) -> Int32 = "yue_sys_proc_wait"
+) -> Int32 = "sys_proc_wait"
 
 ///|
-extern "c" fn ffi_proc_getpid() -> Int32 = "yue_sys_proc_getpid"
+extern "c" fn ffi_proc_getpid() -> Int32 = "sys_proc_getpid"
 
 // ---------------------------------------------------------------------------
 // 子进程执行层（桩：spawn → 限时回收 → 临时文件读回）
@@ -306,10 +306,10 @@ pub fn pr_run(
 // ---------------------------------------------------------------------------
 
 ///|
-extern "c" fn ffi_sys_sleep_ms(ms : Int32) -> Unit = "yue_sys_sleep_ms"
+extern "c" fn ffi_sys_sleep_ms(ms : Int32) -> Unit = "sys_sleep_ms"
 
 ///|
-extern "c" fn ffi_sys_pr_signal(pid : Int32, sig : Int32) -> Int32 = "yue_sys_pr_signal"
+extern "c" fn ffi_sys_pr_signal(pid : Int32, sig : Int32) -> Int32 = "sys_pr_signal"
 
 ///|
 /// 毫秒节拍（watch 轮询间隔用；≤0 直接返回）。

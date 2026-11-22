@@ -107,7 +107,7 @@ static void *win_wide_bytes(const wchar_t *w) {
 #endif
 
 // 平台标识：0 = linux，1 = windows，2 = macos
-int32_t yue_sys_platform(void) {
+int32_t sys_platform(void) {
 #if defined(_WIN32)
   return 1;
 #elif defined(__APPLE__)
@@ -119,7 +119,7 @@ int32_t yue_sys_platform(void) {
 
 // 目录枚举：子项名扁平 UTF-8 文本（'\n' 分行，不含 . ..，不递归，
 // 含隐藏项）。打不开（不存在/非目录/无权限）ok=0 返回空文本。
-void *yue_sys_list_dir(const char *path, int32_t *ok) {
+void *sys_list_dir(const char *path, int32_t *ok) {
   *ok = 0;
   if (path == NULL) {
     return moonbit_make_bytes(0, 0);
@@ -237,7 +237,7 @@ void *yue_sys_list_dir(const char *path, int32_t *ok) {
 }
 
 // 写环境变量：overwrite=0 且已存在时保持原值；仅作用当前进程。
-int32_t yue_sys_setenv(const char *name, const char *value, int32_t overwrite, int32_t *ok) {
+int32_t sys_setenv(const char *name, const char *value, int32_t overwrite, int32_t *ok) {
   *ok = 0;
   if (name == NULL || value == NULL || strchr(name, '=') != NULL) {
     return -1;
@@ -280,7 +280,7 @@ int32_t yue_sys_setenv(const char *name, const char *value, int32_t overwrite, i
 }
 
 // 删环境变量：本就不存在也记 ok=1（幂等）。
-int32_t yue_sys_unsetenv(const char *name, int32_t *ok) {
+int32_t sys_unsetenv(const char *name, int32_t *ok) {
   *ok = 0;
   if (name == NULL || strchr(name, '=') != NULL) {
     return -1;
@@ -311,7 +311,7 @@ int32_t yue_sys_unsetenv(const char *name, int32_t *ok) {
 // 内容只在真正读的时候才出现（按定长分配就会拿到空串）。这里以 ftell
 // 作提示、按块循环 fread 到 EOF，普通文件与大文件（数十 MB 的 SQLite 库）
 // 同一条路径。
-void *yue_sys_read_text_file(const char *path, int32_t *ok) {
+void *sys_read_text_file(const char *path, int32_t *ok) {
   *ok = 0;
   if (path == NULL) {
     return moonbit_make_bytes(0, 0);
@@ -380,7 +380,7 @@ void *yue_sys_read_text_file(const char *path, int32_t *ok) {
 }
 
 // 删文件：本就不存在视为成功（幂等）；存在但删失败返回 -1。
-int32_t yue_sys_remove_file(const char *path, int32_t *ok) {
+int32_t sys_remove_file(const char *path, int32_t *ok) {
   *ok = 0;
   if (path == NULL) {
     return -1;
@@ -423,7 +423,7 @@ int32_t yue_sys_remove_file(const char *path, int32_t *ok) {
 // 逐级创建目录（已存在的每一层都算成功，幂等）。纯 C 递归，不依赖外部
 // mkdir 可执行文件、也不依赖子进程通道：Windows 逐级 CreateDirectoryW，
 // POSIX 逐级 mkdir(2)。返回 1 成功 / 0 失败。
-int32_t yue_sys_make_dirs(const char *path) {
+int32_t sys_make_dirs(const char *path) {
   if (path == NULL || path[0] == '\0') {
     return 0;
   }
@@ -499,7 +499,7 @@ int32_t yue_sys_make_dirs(const char *path) {
 
 // 读环境变量（进程实时环境，反映 setenv/unsetenv 后的状态）。
 // 不存在 ok=0 返回空文本。
-void *yue_sys_getenv(const char *name, int32_t *ok) {
+void *sys_getenv(const char *name, int32_t *ok) {
   *ok = 0;
   if (name == NULL) {
     return moonbit_make_bytes(0, 0);
@@ -546,7 +546,7 @@ void *yue_sys_getenv(const char *name, int32_t *ok) {
 }
 
 // 写文本文件全文（存在覆盖，不存在新建；父目录须已存在）。
-int32_t yue_sys_write_text_file(const char *path, const char *data, int32_t *ok) {
+int32_t sys_write_text_file(const char *path, const char *data, int32_t *ok) {
   *ok = 0;
   if (path == NULL || data == NULL) {
     return -1;
@@ -578,7 +578,7 @@ int32_t yue_sys_write_text_file(const char *path, const char *data, int32_t *ok)
 }
 
 // 当前工作目录（getcwd，失败 ok=0 返回空文本）。
-void *yue_sys_getcwd(int32_t *ok) {
+void *sys_getcwd(int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   // UCRT 没有宽字符版 getcwd（_getwcwd 这个「看着像」的名字在 SDK 里根本
@@ -619,7 +619,7 @@ void *yue_sys_getcwd(int32_t *ok) {
 // 当前可执行文件所在目录（失败 ok=0 返回空文本）。Finder/LaunchServices
 // 启动 .app 时 cwd 是 /，「资源按 exe 旁边找」的场景（打包演示文件进
 // bundle）靠这个，不能拿 cwd 充数。
-void *yue_sys_exe_dir(int32_t *ok) {
+void *sys_exe_dir(int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   wchar_t *w = (wchar_t *)malloc(sizeof(wchar_t) * 32768);
@@ -692,7 +692,7 @@ void *yue_sys_exe_dir(int32_t *ok) {
 // 时管道写端被 exec 关掉（读到 EOF），失败时子进程写一个 'E'，所以调用
 // 方等中间进程退出即可拿到结果，既不会留下僵尸（中间进程由本函数回收，
 // 真孙进程过继给 init），也不会被 xdg-open 这类启动后仍驻留的程序拖住。
-int32_t yue_sys_spawn_detached(const char *file, const char *arg) {
+int32_t sys_spawn_detached(const char *file, const char *arg) {
 #if defined(_WIN32)
   // ShellExecuteW 的「open」动词自带系统关联：URL 走默认浏览器、文档走
   // 关联程序、可执行文件直接起——正对应 POSIX 分支里 xdg-open 的角色。
@@ -969,7 +969,7 @@ static HANDLE win_inheritable_file(const char *path) {
   return h;
 }
 
-int32_t yue_sys_proc_spawn(const char *file, const char *args_blob,
+int32_t sys_proc_spawn(const char *file, const char *args_blob,
                            const char *cwd, const char *out_path,
                            const char *err_path, const char *env_blob) {
   if (file == NULL || file[0] == '\0') {
@@ -1050,7 +1050,7 @@ int32_t yue_sys_proc_spawn(const char *file, const char *args_blob,
   return (int32_t)pi.dwProcessId;
 }
 
-int32_t yue_sys_proc_wait(int32_t pid, int32_t timeout_ms, int32_t *status,
+int32_t sys_proc_wait(int32_t pid, int32_t timeout_ms, int32_t *status,
                           int32_t *code) {
   *status = -1;
   *code = 0;
@@ -1082,7 +1082,7 @@ int32_t yue_sys_proc_wait(int32_t pid, int32_t timeout_ms, int32_t *status,
   return rc;
 }
 
-int32_t yue_sys_proc_getpid(void) { return (int32_t)GetCurrentProcessId(); }
+int32_t sys_proc_getpid(void) { return (int32_t)GetCurrentProcessId(); }
 
 #else  // POSIX：Linux 与 macOS 共用（两处 glibc 扩展按平台分流）
 
@@ -1106,7 +1106,7 @@ static int proc_redirect(const char *path, int target_fd) {
   return 0;
 }
 
-int32_t yue_sys_proc_spawn(const char *file, const char *args_blob,
+int32_t sys_proc_spawn(const char *file, const char *args_blob,
                            const char *cwd, const char *out_path,
                            const char *err_path, const char *env_blob) {
   if (file == NULL || file[0] == '\0') {
@@ -1197,7 +1197,7 @@ int32_t yue_sys_proc_spawn(const char *file, const char *args_blob,
   return (int32_t)pid;
 }
 
-int32_t yue_sys_proc_wait(int32_t pid, int32_t timeout_ms, int32_t *status,
+int32_t sys_proc_wait(int32_t pid, int32_t timeout_ms, int32_t *status,
                           int32_t *code) {
   *status = -1;
   *code = 0;
@@ -1245,14 +1245,14 @@ int32_t yue_sys_proc_wait(int32_t pid, int32_t timeout_ms, int32_t *status,
   }
 }
 
-int32_t yue_sys_proc_getpid(void) { return (int32_t)getpid(); }
+int32_t sys_proc_getpid(void) { return (int32_t)getpid(); }
 
 #endif
 
 // sleep_ms 与 pr_signal 住平台分块之外：两者内部各自再分 _WIN32 / POSIX，
 // 放进 POSIX 侧会让 Windows 链接断符号（LNK2019）。
 // sleep_ms：dev 工具 watch 轮询的节拍（毫秒；≤0 直接返回）。
-void yue_sys_sleep_ms(int32_t ms) {
+void sys_sleep_ms(int32_t ms) {
   if (ms <= 0) {
     return;
   }
@@ -1268,7 +1268,7 @@ void yue_sys_sleep_ms(int32_t ms) {
 
 // pr_signal：sig=0 探活（0=活）、sig=15 请求终止（0=已送达）。子进程由
 // proc_spawn 成组（pgid==pid），POSIX 先试组杀再补单杀。
-int32_t yue_sys_pr_signal(int32_t pid, int32_t sig) {
+int32_t sys_pr_signal(int32_t pid, int32_t sig) {
   if (pid <= 0) {
     return -1;
   }
@@ -1320,7 +1320,7 @@ int32_t yue_sys_pr_signal(int32_t pid, int32_t sig) {
 // 会失败——按「拿不到」返回，调用方回退，不重试不等待。
 // ---------------------------------------------------------------------------
 
-void *yue_sys_clipboard_get_text(int32_t *ok) {
+void *sys_clipboard_get_text(int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   if (!OpenClipboard(NULL)) {
@@ -1346,7 +1346,7 @@ void *yue_sys_clipboard_get_text(int32_t *ok) {
 #endif
 }
 
-int32_t yue_sys_clipboard_set_text(const char *text) {
+int32_t sys_clipboard_set_text(const char *text) {
 #if defined(_WIN32)
   if (text == NULL) {
     return -1;
@@ -1699,7 +1699,7 @@ void wm_file_dialog_destroy(int64_t id) { sys_dlg_free(id); }
 //   Linux    /proc/self/exe（readlink 不补 NUL，按返回长度切）
 //   macOS    _NSGetExecutablePath + realpath（前者可能给带 .. 的路径）
 // 三平台都能拿到，故无 unsupported 档；失败一律 ok=0。
-void *yue_sys_exe_path(int32_t *ok) {
+void *sys_exe_path(int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   DWORD cap = 512;
@@ -1792,7 +1792,7 @@ void *yue_sys_exe_path(int32_t *ok) {
 }
 
 // 读 Run 键值（原样返回写入时的串，含引号）。*ok 见文件末节约定。
-void *yue_sys_autostart_get(const char *app_id, int32_t *ok) {
+void *sys_autostart_get(const char *app_id, int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   if (app_id == NULL) {
@@ -1859,7 +1859,7 @@ void *yue_sys_autostart_get(const char *app_id, int32_t *ok) {
 }
 
 // 写 Run 键值（键不存在则建；重复写即覆盖，幂等）。
-int32_t yue_sys_autostart_set(const char *app_id, const char *value,
+int32_t sys_autostart_set(const char *app_id, const char *value,
                               int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
@@ -1899,7 +1899,7 @@ int32_t yue_sys_autostart_set(const char *app_id, const char *value,
 }
 
 // 删 Run 键值（幂等：键不在 / 值不在都算成功）。
-int32_t yue_sys_autostart_remove(const char *app_id, int32_t *ok) {
+int32_t sys_autostart_remove(const char *app_id, int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   if (app_id == NULL) {
@@ -1943,7 +1943,7 @@ int32_t yue_sys_autostart_remove(const char *app_id, int32_t *ok) {
 //   macOS    不实现（空探测给 0，门面转 Unsupported）
 //
 // 返回：`*ok = 1` 成功（毫秒，非负）；`*ok = 0` 本平台/本会话取不到。
-// `yue_sys_idle_supported` 是运行期能力探测（Windows 恒 1；Linux 要
+// `sys_idle_supported` 是运行期能力探测（Windows 恒 1；Linux 要
 // DISPLAY 非空且 X11+XSS 都 dlopen 得到）。
 // ---------------------------------------------------------------------------
 
@@ -2017,7 +2017,7 @@ static void sys_idle_x11_init(void) {
 #endif
 
 // 运行期能力探测：1 = 本平台/本会话能查空闲。
-int32_t yue_sys_idle_supported(void) {
+int32_t sys_idle_supported(void) {
 #if defined(_WIN32)
   return 1;
 #elif defined(__linux__)
@@ -2036,7 +2036,7 @@ int32_t yue_sys_idle_supported(void) {
 #endif
 }
 
-int64_t yue_sys_idle_seconds_ms(int32_t *ok) {
+int64_t sys_idle_seconds_ms(int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   LASTINPUTINFO li;
@@ -2094,7 +2094,7 @@ int64_t yue_sys_idle_seconds_ms(int32_t *ok) {
 // ---------------------------------------------------------------------------
 
 // 壁纸读取：SPI_GETDESKWALLPAPER 返回当前壁纸全路径（UTF-8 字节串）。
-void *yue_sys_wallpaper_get(int32_t *ok) {
+void *sys_wallpaper_get(int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   wchar_t wpath[MAX_PATH + 1];
@@ -2111,7 +2111,7 @@ void *yue_sys_wallpaper_get(int32_t *ok) {
 }
 
 // 壁纸设置：SPI_SETDESKWALLPAPER 并广播（写注册表 + 即时生效）。
-int32_t yue_sys_wallpaper_set(const char *path, int32_t *ok) {
+int32_t sys_wallpaper_set(const char *path, int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   wchar_t *wpath = win_utf8_wide(path, 0);
@@ -2131,7 +2131,7 @@ int32_t yue_sys_wallpaper_set(const char *path, int32_t *ok) {
 }
 
 // 用系统默认方式打开 URL / 文件：ShellExecuteW「open」（>32 成功的约定）。
-int32_t yue_sys_shell_open(const char *target, int32_t *ok) {
+int32_t sys_shell_open(const char *target, int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   wchar_t *wtarget = win_utf8_wide(target, 0);
@@ -2152,7 +2152,7 @@ int32_t yue_sys_shell_open(const char *target, int32_t *ok) {
 }
 
 // 用文件的关联应用打印：ShellExecuteW「print」动词（走默认打印机）。
-int32_t yue_sys_shell_print(const char *path, int32_t *ok) {
+int32_t sys_shell_print(const char *path, int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   wchar_t *wpath = win_utf8_wide(path, 0);
@@ -2172,7 +2172,7 @@ int32_t yue_sys_shell_print(const char *path, int32_t *ok) {
 }
 
 // 文件管理器里定位文件：explorer /select,"path"。
-int32_t yue_sys_shell_reveal(const char *path, int32_t *ok) {
+int32_t sys_shell_reveal(const char *path, int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   wchar_t *wpath = win_utf8_wide(path, 0);
@@ -2206,7 +2206,7 @@ int32_t yue_sys_shell_reveal(const char *path, int32_t *ok) {
 // 「打开/定位」这一类交给系统的入口需要一个诚实的判据——路径不存在时
 // explorer /select 会默默开「文档」文件夹、ShellExecute 也会返回成功，
 // 于是「Ok」变成了假承诺（真机踩过）。空串一律 false。
-int32_t yue_sys_path_exists(const char *path) {
+int32_t sys_path_exists(const char *path) {
   if (path == NULL || path[0] == '\0') {
     return 0;
   }
@@ -2228,7 +2228,7 @@ int32_t yue_sys_path_exists(const char *path) {
 // 带引号的文件路径（路径里有空格时对方 argv 才拿到完整一条）。lpFile 可以是
 //  PATH 里的命令名（如 notepad.exe），ShellExecute 自己按系统搜索顺序解析。
 // 非 Windows 分支不做（POSIX 侧由 MoonBit 用 argv 直传的分离式启动覆盖）。
-int32_t yue_sys_shell_open_with(const char *app, const char *path, int32_t *ok) {
+int32_t sys_shell_open_with(const char *app, const char *path, int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   if (app == NULL || app[0] == '\0' || path == NULL || path[0] == '\0') {
@@ -2302,7 +2302,7 @@ static int sys_pp_parse_guid(const char *s, GUID *g) {
 #endif // _WIN32
 
 // 当前活动电源方案的 GUID 串；取不到给空串。
-void *yue_sys_pp_current_guid(int32_t *ok) {
+void *sys_pp_current_guid(int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   GUID *pg = NULL;
@@ -2322,7 +2322,7 @@ void *yue_sys_pp_current_guid(int32_t *ok) {
 }
 
 // 切换电源方案：guid 串解析失败给 0（MoonBit 层报 ParseFailed）。
-int32_t yue_sys_pp_set(const char *guid, int32_t *ok) {
+int32_t sys_pp_set(const char *guid, int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   GUID g;
@@ -2348,7 +2348,7 @@ int32_t yue_sys_pp_set(const char *guid, int32_t *ok) {
 // ---------------------------------------------------------------------------
 
 // 读 HKLM 下 REG_SZ 值（UTF-8 字节串）；键/值不存在给空串。
-void *yue_sys_reg_sz(const char *subkey, const char *value, int32_t *ok) {
+void *sys_reg_sz(const char *subkey, const char *value, int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   wchar_t *wk = win_utf8_wide(subkey, 0);
@@ -2506,7 +2506,7 @@ done:
 #endif
 
 // 机器 DMI（厂商 / 型号 / 序列号），一行三列 UTF-8。取不到给 0 字节。
-void *yue_sys_wmi_machine(int32_t *ok) {
+void *sys_wmi_machine(int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   static const wchar_t *cs_query =
@@ -2550,7 +2550,7 @@ void *yue_sys_wmi_machine(int32_t *ok) {
 }
 
 // 物理内存快照（KB）。
-int32_t yue_sys_memory_kb(int64_t *total_kb, int64_t *avail_kb, int32_t *ok) {
+int32_t sys_memory_kb(int64_t *total_kb, int64_t *avail_kb, int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   MEMORYSTATUSEX m;
@@ -2594,7 +2594,7 @@ int32_t yue_sys_memory_kb(int64_t *total_kb, int64_t *avail_kb, int32_t *ok) {
 }
 
 // 开机秒数。
-double yue_sys_uptime_seconds(void) {
+double sys_uptime_seconds(void) {
 #if defined(_WIN32)
   return (double)(GetTickCount64() / 1000ULL);
 #elif defined(__APPLE__)
@@ -2710,7 +2710,7 @@ static BOOL CALLBACK sys_win_enum_cb(HWND h, LPARAM lp) {
 extern void *wm_win_list_mac(int32_t *ok);
 #endif
 
-void *yue_sys_win_list(int32_t *ok) {
+void *sys_win_list(int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   sys_win_enum_ctx_t ctx;
@@ -2735,7 +2735,7 @@ void *yue_sys_win_list(int32_t *ok) {
 }
 
 // 本机名（host 字段；UTF-8）。
-void *yue_sys_host_name(int32_t *ok) {
+void *sys_host_name(int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   wchar_t w[MAX_COMPUTERNAME_LENGTH + 1];
@@ -2828,7 +2828,7 @@ static BOOL CALLBACK sys_win_find_cb(HWND h, LPARAM lp) {
 #endif
 
 // 激活窗口：最小化先还原再置前。
-int32_t yue_sys_win_activate(const char *id_or_title, int32_t *ok) {
+int32_t sys_win_activate(const char *id_or_title, int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   HWND h = sys_win_find(id_or_title);
@@ -2851,7 +2851,7 @@ int32_t yue_sys_win_activate(const char *id_or_title, int32_t *ok) {
 }
 
 // 关闭窗口（首个标题子串匹配；WM_CLOSE 走正常关闭流程，不强杀）。
-int32_t yue_sys_win_close(const char *title, int32_t *ok) {
+int32_t sys_win_close(const char *title, int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   HWND h = sys_win_find(title);
@@ -2876,7 +2876,7 @@ int32_t yue_sys_win_close(const char *title, int32_t *ok) {
 // 同源）。全虚拟屏 DC 一把设齐所有输出；复位传恒等斜坡（i*257）。
 // ---------------------------------------------------------------------------
 
-void yue_sys_nl_set_ramp(const void *ramp, int32_t *ok) {
+void sys_nl_set_ramp(const void *ramp, int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   HDC dc = GetDC(NULL);
@@ -2898,7 +2898,7 @@ void yue_sys_nl_set_ramp(const void *ramp, int32_t *ok) {
 // ---------------------------------------------------------------------------
 
 // 文件最后写入时间（Unix 毫秒）；取不到给 0。
-int64_t yue_sys_file_mtime(const char *path, int32_t *ok) {
+int64_t sys_file_mtime(const char *path, int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   wchar_t *wpath = win_utf8_wide(path, 0);
@@ -2977,7 +2977,7 @@ static int sys_vol_open(IAudioEndpointVolume **ev, wchar_t **devid) {
 #endif /* 音量段 Windows-only 的 GUID 与 sys_vol_open 到此为止 */
 
 // 快照：返回「设备 id UTF-8\t百分比\t静音(0/1)」字节串（tab 分隔）。
-void *yue_sys_vol_get(int32_t *ok) {
+void *sys_vol_get(int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   HRESULT ci = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
@@ -3013,7 +3013,7 @@ void *yue_sys_vol_get(int32_t *ok) {
 }
 
 // 写操作：mode 0=设音量(percent) 1=设静音(mute)。
-int32_t yue_sys_vol_write(int32_t mode, int32_t value, int32_t *ok) {
+int32_t sys_vol_write(int32_t mode, int32_t value, int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   HRESULT ci = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
@@ -3053,7 +3053,7 @@ int32_t yue_sys_vol_write(int32_t mode, int32_t value, int32_t *ok) {
 // 其余→0(空闲)。
 // ---------------------------------------------------------------------------
 
-void *yue_sys_prt_list(int32_t *ok) {
+void *sys_prt_list(int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   DWORD need = 0;
@@ -3128,7 +3128,7 @@ void *yue_sys_prt_list(int32_t *ok) {
 }
 
 // 默认打印机名（UTF-8）；未设给空串。
-void *yue_sys_prt_default(int32_t *ok) {
+void *sys_prt_default(int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   wchar_t w[256];
@@ -3154,12 +3154,12 @@ void *yue_sys_prt_default(int32_t *ok) {
 // 直链在 Windows 侧 sys 测试 exe 上 LNK2019 的修正）。
 // ---------------------------------------------------------------------------
 #if defined(_WIN32)
-int yue_sys_clipboard_gtk_available(void) { return 0; }
-void *yue_sys_clipboard_gtk_get_text(int32_t *ok) {
+int sys_clipboard_gtk_available(void) { return 0; }
+void *sys_clipboard_gtk_get_text(int32_t *ok) {
   *ok = 0;
   return moonbit_make_bytes(0, 0);
 }
-int yue_sys_clipboard_gtk_set_text(const char *text) {
+int sys_clipboard_gtk_set_text(const char *text) {
   (void)text;
   return 0;
 }
@@ -3167,11 +3167,11 @@ int yue_sys_clipboard_gtk_set_text(const char *text) {
 extern int wm_clipboard_available(void);
 extern void *wm_clipboard_get_text(int32_t *ok);
 extern int wm_clipboard_set_text(const char *text);
-int yue_sys_clipboard_gtk_available(void) { return wm_clipboard_available(); }
-void *yue_sys_clipboard_gtk_get_text(int32_t *ok) {
+int sys_clipboard_gtk_available(void) { return wm_clipboard_available(); }
+void *sys_clipboard_gtk_get_text(int32_t *ok) {
   return wm_clipboard_get_text(ok);
 }
-int yue_sys_clipboard_gtk_set_text(const char *text) {
+int sys_clipboard_gtk_set_text(const char *text) {
   return wm_clipboard_set_text(text);
 }
 #endif
@@ -3256,7 +3256,7 @@ static void *sys_mon_blob_out(sys_mon_blob_t *b, int32_t *ok) {
 
 static int sys_mon_round(double v) { return (int)(v < 0 ? v - 0.5 : v + 0.5); }
 
-void *yue_sys_mon_mac(int32_t *ok) {
+void *sys_mon_mac(int32_t *ok) {
   *ok = 0;
   CGDirectDisplayID ids[SYS_MON_MAX];
   uint32_t n = 0;
@@ -3388,7 +3388,7 @@ void *yue_sys_mon_mac(int32_t *ok) {
 
 // 非 Windows：符号要在（MoonBit 侧的 extern 是无条件的，三平台同一套链接）。
 // mac 上 mon_list 走的是上面那一臂，这个恒给「不可用」。
-void *yue_sys_mon_win(int32_t *ok) {
+void *sys_mon_win(int32_t *ok) {
   *ok = 0;
   return moonbit_make_bytes(0, 0);
 }
@@ -3404,7 +3404,7 @@ void *yue_sys_mon_win(int32_t *ok) {
 //    DeviceString（"Red Hat QXL controller"）是驱动描述、会随驱动换语言，
 //    不适合当稳定标识；③ 未接但通电的输出 Windows 不列（EnumDisplayDevices
 //    只给贴了桌面的适配器），故 connected 恒 1，与 mac 臂同形态。
-void *yue_sys_mon_win(int32_t *ok) {
+void *sys_mon_win(int32_t *ok) {
   *ok = 0;
   sys_mon_blob_t blob;
   blob.buf = NULL;
@@ -3515,18 +3515,18 @@ void *yue_sys_mon_win(int32_t *ok) {
 
 // 非 macOS：符号要在（MoonBit 侧的 extern 是无条件的，三平台同一套链接）。
 // Windows 上 mon_list 走的是上面那一臂，这个恒给「不可用」。
-void *yue_sys_mon_mac(int32_t *ok) {
+void *sys_mon_mac(int32_t *ok) {
   *ok = 0;
   return moonbit_make_bytes(0, 0);
 }
 #else
 // 非 mac / 非 Windows：符号要在（MoonBit 侧的 extern 是无条件的，三平台同一
 // 套链接），探测一律给「不可用」，mon_list 随之退 Unsupported。
-void *yue_sys_mon_mac(int32_t *ok) {
+void *sys_mon_mac(int32_t *ok) {
   *ok = 0;
   return moonbit_make_bytes(0, 0);
 }
-void *yue_sys_mon_win(int32_t *ok) {
+void *sys_mon_win(int32_t *ok) {
   *ok = 0;
   return moonbit_make_bytes(0, 0);
 }
@@ -3559,7 +3559,7 @@ void wm_screen_tint_apply(int32_t percent, int32_t *ok) {
 // 全量给消费方自选）；Windows 本期占位返回空。
 // ---------------------------------------------------------------------------
 
-void *yue_sys_netif_list(int32_t *ok) {
+void *sys_netif_list(int32_t *ok) {
   *ok = 0;
 #if defined(_WIN32)
   return moonbit_make_bytes(0, 0);
@@ -3620,7 +3620,7 @@ void *yue_sys_netif_list(int32_t *ok) {
 // macOS
 #if defined(__APPLE__)
 // units 是 UTF-16LE 字节串，len 是 UTF-16 单元数（不是字节数）。
-int32_t yue_sys_inject_text(const char *units, int32_t len) {
+int32_t sys_inject_text(const char *units, int32_t len) {
   if (units == NULL || len <= 0 || len > 21) {
     return 0;
   }
@@ -3657,7 +3657,7 @@ int32_t yue_sys_inject_text(const char *units, int32_t len) {
 
 // Windows
 #if defined(_WIN32)
-int32_t yue_sys_inject_text(const char *units, int32_t len) {
+int32_t sys_inject_text(const char *units, int32_t len) {
   if (units == NULL || len <= 0 || len > 21) {
     return 0;
   }
@@ -3763,7 +3763,7 @@ static unsigned sys_inject_free_keycode(void *dpy) {
   return 0;
 }
 
-int32_t yue_sys_inject_text(const char *units, int32_t len) {
+int32_t sys_inject_text(const char *units, int32_t len) {
   if (units == NULL || len <= 0 || len > 21) {
     return 0;
   }
@@ -3939,7 +3939,7 @@ static unsigned long sys_x11_keysym(int key, int cp) {
 
 // mac：修饰键经 CGEventSetFlags 挂在 down/up 两事件上。
 #if defined(__APPLE__)
-int32_t yue_sys_inject_key(int32_t key, int32_t mods, int32_t cp) {
+int32_t sys_inject_key(int32_t key, int32_t mods, int32_t cp) {
   int code = sys_mac_keycode(key, cp);
   if (code == 0) {
     return 0;
@@ -3989,7 +3989,7 @@ int32_t yue_sys_inject_key(int32_t key, int32_t mods, int32_t cp) {
 
 // Windows：修饰键 down 包夹目标键 down/up（SendInput 无 flags 口）。
 #if defined(_WIN32)
-int32_t yue_sys_inject_key(int32_t key, int32_t mods, int32_t cp) {
+int32_t sys_inject_key(int32_t key, int32_t mods, int32_t cp) {
   int vk = sys_win_vk(key, cp);
   if (vk == 0) {
     return 0;
@@ -4036,7 +4036,7 @@ int32_t yue_sys_inject_key(int32_t key, int32_t mods, int32_t cp) {
 
 // Linux：改键映射挂目标 keysym，修饰键再各占一个临时键码按住。
 #if defined(__linux__)
-int32_t yue_sys_inject_key(int32_t key, int32_t mods, int32_t cp) {
+int32_t sys_inject_key(int32_t key, int32_t mods, int32_t cp) {
   sys_inject_x11_init();
   if (!g_inject_x11.ok) {
     return 0;
@@ -4120,8 +4120,8 @@ int32_t yue_sys_inject_key(int32_t key, int32_t mods, int32_t cp) {
 #endif
 
 // 运行期能力探测：mac / Windows 恒 1；Linux 要 DISPLAY 非空且 X11+Xtst 都
-// dlopen 得到（与 yue_sys_idle_supported 同口径）。
-int32_t yue_sys_inject_available(void) {
+// dlopen 得到（与 sys_idle_supported 同口径）。
+int32_t sys_inject_available(void) {
 #if defined(__APPLE__)
   return 1;
 #elif defined(_WIN32)

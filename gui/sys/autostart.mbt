@@ -186,11 +186,11 @@ pub fn autostart_valid_app_id(app_id : String) -> Bool {
 
 ///|
 #borrow(ok)
-extern "c" fn ffi_sys_exe_path(ok : Ref[Int32]) -> Bytes = "yue_sys_exe_path"
+extern "c" fn ffi_sys_exe_path(ok : Ref[Int32]) -> Bytes = "sys_exe_path"
 
 ///|
 #borrow(app_id, ok)
-extern "c" fn ffi_sys_autostart_get(app_id : Bytes, ok : Ref[Int32]) -> Bytes = "yue_sys_autostart_get"
+extern "c" fn ffi_sys_autostart_get(app_id : Bytes, ok : Ref[Int32]) -> Bytes = "sys_autostart_get"
 
 ///|
 #borrow(app_id, value, ok)
@@ -198,14 +198,14 @@ extern "c" fn ffi_sys_autostart_set(
   app_id : Bytes,
   value : Bytes,
   ok : Ref[Int32],
-) -> Int32 = "yue_sys_autostart_set"
+) -> Int32 = "sys_autostart_set"
 
 ///|
 #borrow(app_id, ok)
 extern "c" fn ffi_sys_autostart_remove(
   app_id : Bytes,
   ok : Ref[Int32],
-) -> Int32 = "yue_sys_autostart_remove"
+) -> Int32 = "sys_autostart_remove"
 
 ///|
 /// 当前进程可执行文件全路径；取不到给 None。

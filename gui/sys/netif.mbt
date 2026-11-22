@@ -4,7 +4,7 @@
 
 ///|
 #borrow(ok)
-extern "c" fn ffi_netif_list(ok : Ref[Int32]) -> Bytes = "yue_sys_netif_list"
+extern "c" fn ffi_netif_list(ok : Ref[Int32]) -> Bytes = "sys_netif_list"
 
 ///|
 /// 全部 IPv4 网卡地址：(接口名, 地址)，getifaddrs 顺序。回环接口的

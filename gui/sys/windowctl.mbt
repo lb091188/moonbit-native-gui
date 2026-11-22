@@ -350,22 +350,22 @@ fn win_probe(prog : String) -> Bool {
 ///|
 /// Windows 直调：枚举可见顶层窗口，行「0xhwnd\tmonitor\ttitle\n」。
 #borrow(ok)
-extern "c" fn ffi_win_list(ok : Ref[Int32]) -> Bytes = "yue_sys_win_list"
+extern "c" fn ffi_win_list(ok : Ref[Int32]) -> Bytes = "sys_win_list"
 
 ///|
 /// Windows 直调：本机名。
 #borrow(ok)
-extern "c" fn ffi_host_name(ok : Ref[Int32]) -> Bytes = "yue_sys_host_name"
+extern "c" fn ffi_host_name(ok : Ref[Int32]) -> Bytes = "sys_host_name"
 
 ///|
 /// Windows 直调：激活（0x id 或标题子串）。
 #borrow(id_or_title, ok)
-extern "c" fn ffi_win_activate(id_or_title : Bytes, ok : Ref[Int32]) -> Int32 = "yue_sys_win_activate"
+extern "c" fn ffi_win_activate(id_or_title : Bytes, ok : Ref[Int32]) -> Int32 = "sys_win_activate"
 
 ///|
 /// Windows 直调：关闭（标题子串，首个匹配）。
 #borrow(title, ok)
-extern "c" fn ffi_win_close(title : Bytes, ok : Ref[Int32]) -> Int32 = "yue_sys_win_close"
+extern "c" fn ffi_win_close(title : Bytes, ok : Ref[Int32]) -> Int32 = "sys_win_close"
 
 ///|
 fn win_win_host() -> String {

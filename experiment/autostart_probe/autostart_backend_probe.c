@@ -75,7 +75,7 @@ static void check_true(const char *what, int cond) {
   }
 }
 
-/* 探针自己的直读：绕开桩的 yue_sys_autostart_get，独立确认落点与类型。 */
+/* 探针自己的直读：绕开桩的 sys_autostart_get，独立确认落点与类型。 */
 static LONG direct_read(wchar_t *out, DWORD cap_wchars, DWORD *type) {
   HKEY key = NULL;
   LONG r = RegOpenKeyExW(HKEY_CURRENT_USER, RUN_PATH, 0, KEY_QUERY_VALUE, &key);
@@ -93,12 +93,12 @@ int main(void) {
   int32_t rc = 0;
 
   /* 清场：防上一次跑到一半留下的条目 */
-  yue_sys_autostart_remove(PROBE_ID, &ok);
+  sys_autostart_remove(PROBE_ID, &ok);
 
   /* ① 可执行文件路径 */
   {
-    void *ex = yue_sys_exe_path(&ok);
-    check("yue_sys_exe_path ok", ok, 1);
+    void *ex = sys_exe_path(&ok);
+    check("sys_exe_path ok", ok, 1);
     check_true("exe 路径非空", mb_len(ex) > 0);
     wchar_t direct[MAX_PATH * 2];
     DWORD dn = GetModuleFileNameW(NULL, direct, (DWORD)(sizeof(direct) / sizeof(wchar_t)));
@@ -122,14 +122,14 @@ int main(void) {
 
   /* ② 未写时读回「不存在」（ok = 0） */
   {
-    void *g = yue_sys_autostart_get(PROBE_ID, &ok);
+    void *g = sys_autostart_get(PROBE_ID, &ok);
     check("未写时 ok(0=不存在)", ok, 0);
     check("未写时长度 0", mb_len(g), 0);
   }
 
   /* ③ 写入带引号的路径形态 */
   const char *v1 = "\"C:/probe/my app.exe\"";
-  rc = yue_sys_autostart_set(PROBE_ID, v1, &ok);
+  rc = sys_autostart_set(PROBE_ID, v1, &ok);
   check("set rc", rc, 0);
   check("set ok", ok, 1);
 
@@ -148,28 +148,28 @@ int main(void) {
 
   /* ⑤ 走桩读回：原样（含引号，不做二次加工） */
   {
-    void *g = yue_sys_autostart_get(PROBE_ID, &ok);
+    void *g = sys_autostart_get(PROBE_ID, &ok);
     check("写入后 ok", ok, 1);
     check_true("读回 == 写入（含引号）", mb_eq(g, v1));
   }
 
   /* ⑥ 覆盖写（幂等） */
   const char *v2 = "\"C:/probe/other.exe\" --flag";
-  rc = yue_sys_autostart_set(PROBE_ID, v2, &ok);
+  rc = sys_autostart_set(PROBE_ID, v2, &ok);
   check("覆盖写 rc", rc, 0);
-  check_true("覆盖后读回 == 新值", mb_eq(yue_sys_autostart_get(PROBE_ID, &ok), v2));
+  check_true("覆盖后读回 == 新值", mb_eq(sys_autostart_get(PROBE_ID, &ok), v2));
 
   /* ⑦ 非 ASCII 路径往返（UTF-8 → UTF-16 → UTF-8） */
   const char *v3 = "\"C:/探针/应用.exe\"";
-  rc = yue_sys_autostart_set(PROBE_ID, v3, &ok);
+  rc = sys_autostart_set(PROBE_ID, v3, &ok);
   check("中文值 set rc", rc, 0);
-  check_true("中文值往返一致", mb_eq(yue_sys_autostart_get(PROBE_ID, &ok), v3));
+  check_true("中文值往返一致", mb_eq(sys_autostart_get(PROBE_ID, &ok), v3));
 
   /* ⑧ 空串也是合法 REG_SZ（存在但长度为 0） */
-  rc = yue_sys_autostart_set(PROBE_ID, "", &ok);
+  rc = sys_autostart_set(PROBE_ID, "", &ok);
   check("空值 set rc", rc, 0);
   {
-    void *g = yue_sys_autostart_get(PROBE_ID, &ok);
+    void *g = sys_autostart_get(PROBE_ID, &ok);
     check("空值 ok(1=存在)", ok, 1);
     check("空值长度 0", mb_len(g), 0);
   }
@@ -181,35 +181,35 @@ int main(void) {
     memset(longv + 1, 'a', 1200);
     memcpy(longv + 1201, "x.exe\"", 6);
     longv[1207] = '\0';
-    rc = yue_sys_autostart_set(PROBE_ID, longv, &ok);
+    rc = sys_autostart_set(PROBE_ID, longv, &ok);
     check("长值 set rc", rc, 0);
     {
-      void *g = yue_sys_autostart_get(PROBE_ID, &ok);
+      void *g = sys_autostart_get(PROBE_ID, &ok);
       check("长值长度", mb_len(g), 1207);
       check_true("长值往返一致", mb_eq(g, longv));
     }
   }
 
   /* ⑩ NULL 参数防御 */
-  check("set(NULL,v) rc = -1", yue_sys_autostart_set(NULL, "x", &ok), -1);
-  check("set(id,NULL) rc = -1", yue_sys_autostart_set(PROBE_ID, NULL, &ok), -1);
-  check("remove(NULL) rc = -1", yue_sys_autostart_remove(NULL, &ok), -1);
+  check("set(NULL,v) rc = -1", sys_autostart_set(NULL, "x", &ok), -1);
+  check("set(id,NULL) rc = -1", sys_autostart_set(PROBE_ID, NULL, &ok), -1);
+  check("remove(NULL) rc = -1", sys_autostart_remove(NULL, &ok), -1);
   {
-    void *g = yue_sys_autostart_get(NULL, &ok);
+    void *g = sys_autostart_get(NULL, &ok);
     check("get(NULL) ok = -1(失败档)", ok, -1);
     check("get(NULL) 长度 0", mb_len(g), 0);
   }
 
   /* ⑪ 删除 + 读回不存在 + 幂等 */
-  rc = yue_sys_autostart_remove(PROBE_ID, &ok);
+  rc = sys_autostart_remove(PROBE_ID, &ok);
   check("remove rc", rc, 0);
   check("remove ok", ok, 1);
   {
-    void *g = yue_sys_autostart_get(PROBE_ID, &ok);
+    void *g = sys_autostart_get(PROBE_ID, &ok);
     check("删除后 ok(0=不存在)", ok, 0);
     check("删除后长度 0", mb_len(g), 0);
   }
-  rc = yue_sys_autostart_remove(PROBE_ID, &ok);
+  rc = sys_autostart_remove(PROBE_ID, &ok);
   check("幂等 remove rc", rc, 0);
   check("幂等 remove ok", ok, 1);
   {
@@ -220,7 +220,7 @@ int main(void) {
   }
 
   /* 收尾清场（无论成败） */
-  yue_sys_autostart_remove(PROBE_ID, &ok);
+  sys_autostart_remove(PROBE_ID, &ok);
 
   if (g_fail == 0) {
     printf("AUTOSTART-BACKEND-OK\n");

@@ -384,12 +384,12 @@ fn prt_lpstat(
 ///|
 /// Windows 直调：打印机清单字节串「名称\t状态码」逐行。
 #borrow(ok)
-extern "c" fn ffi_prt_list(ok : Ref[Int32]) -> Bytes = "yue_sys_prt_list"
+extern "c" fn ffi_prt_list(ok : Ref[Int32]) -> Bytes = "sys_prt_list"
 
 ///|
 /// Windows 直调：默认打印机名。
 #borrow(ok)
-extern "c" fn ffi_prt_default(ok : Ref[Int32]) -> Bytes = "yue_sys_prt_default"
+extern "c" fn ffi_prt_default(ok : Ref[Int32]) -> Bytes = "sys_prt_default"
 
 ///|
 /// 状态码 → PrinterStatus（C 侧口径见 sys_stub.c 平台批⑤注释）。
@@ -407,7 +407,7 @@ fn prt_win_status(code : Int32) -> PrinterStatus {
 ///|
 /// Windows 直调：ShellExecuteW「print」动词打印文件。
 #borrow(path, ok)
-extern "c" fn ffi_shell_print(path : Bytes, ok : Ref[Int32]) -> Int32 = "yue_sys_shell_print"
+extern "c" fn ffi_shell_print(path : Bytes, ok : Ref[Int32]) -> Int32 = "sys_shell_print"
 
 ///|
 pub fn prt_supported() -> Bool {

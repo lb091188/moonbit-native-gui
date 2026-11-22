@@ -264,7 +264,7 @@ test "mon_list 真机只读冒烟（无 X display / 无 xrandr 时跳过）" {
 }
 
 ///|
-/// macOS 清单样例（yue_sys_mon_mac 的行式输出）：Built-in 为主屏、当前档
+/// macOS 清单样例（sys_mon_mac 的行式输出）：Built-in 为主屏、当前档
 /// 3024x1964（内建面板刷新率给 0=未知），副屏在右上、原点在负 y 方向，
 /// 另有一行孤儿 MODE 与一条字段不全的 MON 要被丢弃。
 fn mon_mac_sample() -> String {
