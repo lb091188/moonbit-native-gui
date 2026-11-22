@@ -508,6 +508,7 @@ jobs:
           && moon test
           && cd ..\..
           && moon build examples/hello --target native
+          && moon build apps/airtype --target native
           && cd tools\native-gui-tools
           && moon check
           && moon test mng mngkit proc inst
@@ -692,9 +693,10 @@ jobs:
           moon build examples/hello --target native >>/tmp/mb.out 2>&1; c2=$?
           moon build examples/audio examples/video \
             --target native >>/tmp/mb.out 2>&1; c3=$?
+          moon build apps/airtype --target native >>/tmp/mb.out 2>&1; c4=$?
           set -e
-          if [ $c1 -ne 0 ] || [ $c2 -ne 0 ] || [ $c3 -ne 0 ]; then
-            echo "::error title=moon build 失败(退出码 $c1/$c2/$c3)::关键行见日志"
+          if [ $c1 -ne 0 ] || [ $c2 -ne 0 ] || [ $c3 -ne 0 ] || [ $c4 -ne 0 ]; then
+            echo "::error title=moon build 失败(退出码 $c1/$c2/$c3/$c4)::关键行见日志"
             grep -aiE 'error|undefined|failed|Undefined symbol|ld: ' /tmp/mb.out | tail -40
             tail -c 6000 /tmp/mb.out
             exit 1

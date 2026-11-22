@@ -142,9 +142,9 @@ do_linux() {
     > /tmp/lc-linux-test.log 2>&1 \
     && ok "linux:gui 测试全名单(dbus 会话)" || { bad "linux:gui 测试全名单(dbus 会话)"; tail -8 /tmp/lc-linux-test.log; }
 
-  ssh -o BatchMode=yes "$COMPANY_HOST" "docker exec $CONTAINER bash -c 'cd /work/repo/gui && moon build --target native && cd /work/repo && moon build examples/hello --target native'" \
+  ssh -o BatchMode=yes "$COMPANY_HOST" "docker exec $CONTAINER bash -c 'cd /work/repo/gui && moon build --target native && cd /work/repo && moon build examples/hello apps/airtype --target native'" \
     > /tmp/lc-linux-build.log 2>&1 \
-    && ok "linux:库构建 + hello 链接" || { bad "linux:库构建 + hello 链接"; tail -8 /tmp/lc-linux-build.log; }
+    && ok "linux:库构建 + hello + airtype 链接" || { bad "linux:库构建 + hello + airtype 链接"; tail -8 /tmp/lc-linux-build.log; }
 
   ssh -o BatchMode=yes "$COMPANY_HOST" "docker exec $CONTAINER bash -c 'cd /work/repo && MNG_WGPU_LIB=off timeout 20s xvfb-run -a moon run examples/hello >/dev/null 2>&1; code=\$?; exit \$(( code == 124 ? 0 : 1 ))'" \
     > /tmp/lc-linux-smoke.log 2>&1 \
