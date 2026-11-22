@@ -40,12 +40,135 @@ extern "c" fn ffi_inject_text(units : Bytes, len : Int32) -> Int32 = "yue_sys_in
 extern "c" fn ffi_inject_available() -> Int32 = "yue_sys_inject_available"
 
 ///|
-extern "c" fn ffi_inject_enter() -> Int32 = "yue_sys_inject_enter"
+/// 可模拟的按键。键名与序号的对应表在 sys_stub.c 的 yue_sys_inject_key
+/// 注释里，两侧必须同步改。
+pub(all) enum Key {
+  Enter
+  Tab
+  Backspace
+  Delete
+  Escape
+  Space
+  Home
+  End
+  PageUp
+  PageDown
+  Insert
+  ArrowUp
+  ArrowDown
+  ArrowLeft
+  ArrowRight
+  F1
+  F2
+  F3
+  F4
+  F5
+  F6
+  F7
+  F8
+  F9
+  F10
+  F11
+  F12
+  /// 字符键：仅限字母与数字——真实键码路径，可与修饰键组合出 Ctrl+C 这类
+  /// 快捷键；其余符号与文字走 [inject_text]。
+  Char(Char)
+}
 
 ///|
-/// 投一个真实回车键到当前聚焦的输入框——文本上屏后的确认动作（提交对话、
-/// 确认表单）。权限与通道语义同 [inject_text]。
-pub fn inject_press_enter() -> Result[Unit, InjectError] {
+/// 键的桩序号（契约见 sys_stub.c yue_sys_inject_key 的表）。
+fn key_id(k : Key) -> Int32 {
+  match k {
+    Enter => 0
+    Tab => 1
+    Backspace => 2
+    Delete => 3
+    Escape => 4
+    Space => 5
+    Home => 6
+    End => 7
+    PageUp => 8
+    PageDown => 9
+    Insert => 10
+    ArrowUp => 11
+    ArrowDown => 12
+    ArrowLeft => 13
+    ArrowRight => 14
+    F1 => 15
+    F2 => 16
+    F3 => 17
+    F4 => 18
+    F5 => 19
+    F6 => 20
+    F7 => 21
+    F8 => 22
+    F9 => 23
+    F10 => 24
+    F11 => 25
+    F12 => 26
+    Char(_) => 27
+  }
+}
+
+///|
+/// Char 键的码点；其余键 0。
+fn key_cp(k : Key) -> Int32 {
+  match k {
+    Char(c) => c.to_int()
+    _ => 0
+  }
+}
+
+///|
+/// 修饰键位掩码（契约见 sys_stub.c）：bit0 Ctrl、bit1 Alt、bit2 Shift、
+/// bit3 Meta。大写字母自动补 Shift（真实键盘上大写就是 Shift+键）。
+fn key_mods(k : Key, ctrl : Bool, alt : Bool, shift : Bool, meta : Bool) -> Int32 {
+  let mut m = 0
+  if ctrl {
+    m = m | 1
+  }
+  if alt {
+    m = m | 2
+  }
+  if shift {
+    m = m | 4
+  }
+  if meta {
+    m = m | 8
+  }
+  match k {
+    Char(c) =>
+      if c >= 'A' && c <= 'Z' {
+        m = m | 4
+      }
+    _ => ()
+  }
+  m
+}
+
+///|
+#borrow(key)
+extern "c" fn ffi_inject_key(
+  key : Int32,
+  mods : Int32,
+  cp : Int32,
+) -> Int32 = "yue_sys_inject_key"
+
+///|
+/// 模拟一次按键按下并抬起（可挂修饰键）——文本之外的键盘动作统一入口：
+/// 回车确认、Esc 关层、方向键导航、Ctrl+C 复制、F5 刷新等。
+/// 权限与通道语义同 [inject_text]；提权目标窗口与密码框按各系统设计不收。
+pub fn inject_key(
+  key : Key,
+  ctrl? : Bool,
+  alt? : Bool,
+  shift? : Bool,
+  meta? : Bool,
+) -> Result[Unit, InjectError] {
+  let ctrl = ctrl.unwrap_or(false)
+  let alt = alt.unwrap_or(false)
+  let shift = shift.unwrap_or(false)
+  let meta = meta.unwrap_or(false)
   if !inject_available() {
     return Err(Unsupported)
   }
@@ -55,10 +178,22 @@ pub fn inject_press_enter() -> Result[Unit, InjectError] {
       _ => return Err(PermissionDenied)
     }
   }
-  if ffi_inject_enter() == 1 {
+  match key {
+    Char(c) =>
+      if !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+        return Err(Failed("字符键仅支持字母与数字，其余符号走文本注入"))
+      }
+    _ => ()
+  }
+  let ok = ffi_inject_key(
+    key_id(key),
+    key_mods(key, ctrl, alt, shift, meta),
+    key_cp(key),
+  )
+  if ok == 1 {
     Ok(())
   } else {
-    Err(Failed("回车键投递失败"))
+    Err(Failed("按键投递失败（key=\{key_id(key)}）"))
   }
 }
 

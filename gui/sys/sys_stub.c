@@ -3807,17 +3807,150 @@ int32_t yue_sys_inject_text(const char *units, int32_t len) {
 }
 #endif
 
-// 回车键：mac 主回车键码 0x24；Windows VK_RETURN(0x0D) 带扫描码 0x1C；
-// Linux 走与文本同一条改键映射路，挂 XK_Return keysym(0xFF0D)。
-int32_t yue_sys_inject_enter(void) {
+// 按键模拟：键位序号契约与 gui/sys/inject.mbt 的 key_id 一一对应——
+//   0 Enter  1 Tab  2 Backspace  3 Delete  4 Escape  5 Space
+//   6 Home  7 End  8 PageUp  9 PageDown  10 Insert
+//   11 ArrowUp 12 ArrowDown 13 ArrowLeft 14 ArrowRight
+//   15..26 F1..F12  27 Char(码点走 cp 参数)
+// mods 位掩码：bit0 Ctrl bit1 Alt bit2 Shift bit3 Meta。
+// 平台落点：mac 虚拟键码 + CGEventSetFlags；Windows VK + 修饰键包夹；
+// Linux 改键映射挂 keysym，修饰键用临时键码按住（XTest 无 flags 口）。
+
+static int sys_mac_keycode(int key, int cp) {
+  switch (key) {
+    case 0: return 0x24;
+    case 1: return 0x30;
+    case 2: return 0x33;
+    case 3: return 0x75;
+    case 4: return 0x35;
+    case 5: return 0x31;
+    case 6: return 0x73;
+    case 7: return 0x77;
+    case 8: return 0x74;
+    case 9: return 0x79;
+    case 10: return 0; // mac 无 Insert 键
+    case 11: return 0x7E;
+    case 12: return 0x7D;
+    case 13: return 0x7B;
+    case 14: return 0x7C;
+    case 15: return 0x7A;
+    case 16: return 0x78;
+    case 17: return 0x63;
+    case 18: return 0x76;
+    case 19: return 0x60;
+    case 20: return 0x61;
+    case 21: return 0x62;
+    case 22: return 0x64;
+    case 23: return 0x65;
+    case 24: return 0x6D;
+    case 25: return 0x67;
+    case 26: return 0x6F;
+  }
+  if (key == 27) {
+    static const int letters[26] = {
+      0x00, 0x0B, 0x08, 0x02, 0x0E, 0x03, 0x05, 0x04, 0x22, 0x26, 0x28, 0x25,
+      0x2E, 0x2D, 0x1F, 0x23, 0x0C, 0x0F, 0x01, 0x11, 0x20, 0x09, 0x0D, 0x07,
+      0x10, 0x06,
+    };
+    static const int digits[10] = {
+      0x1D, 0x12, 0x13, 0x14, 0x15, 0x17, 0x16, 0x1A, 0x1C, 0x19,
+    };
+    if (cp >= 'A' && cp <= 'Z') {
+      return letters[cp - 'A'];
+    }
+    if (cp >= 'a' && cp <= 'z') {
+      return letters[cp - 'a'];
+    }
+    if (cp >= '0' && cp <= '9') {
+      return digits[cp - '0'];
+    }
+  }
+  return 0;
+}
+
+static int sys_win_vk(int key, int cp) {
+  switch (key) {
+    case 0: return 0x0D;
+    case 1: return 0x09;
+    case 2: return 0x08;
+    case 3: return 0x2E;
+    case 4: return 0x1B;
+    case 5: return 0x20;
+    case 6: return 0x24;
+    case 7: return 0x23;
+    case 8: return 0x21;
+    case 9: return 0x22;
+    case 10: return 0x2D;
+    case 11: return 0x26;
+    case 12: return 0x28;
+    case 13: return 0x25;
+    case 14: return 0x27;
+    case 15: return 0x70; // F1..F12 连续
+  }
+  if (key >= 15 && key <= 26) {
+    return 0x70 + (key - 15);
+  }
+  if (key == 27) {
+    if (cp >= 'A' && cp <= 'Z') {
+      return cp;
+    }
+    if (cp >= 'a' && cp <= 'z') {
+      return cp - 'a' + 'A';
+    }
+    if (cp >= '0' && cp <= '9') {
+      return cp;
+    }
+  }
+  return 0;
+}
+
+static unsigned long sys_x11_keysym(int key, int cp) {
+  switch (key) {
+    case 0: return 0xFF0D;
+    case 1: return 0xFF09;
+    case 2: return 0xFF08;
+    case 3: return 0xFFFF;
+    case 4: return 0xFF1B;
+    case 5: return 0x0020;
+    case 6: return 0xFF50;
+    case 7: return 0xFF57;
+    case 8: return 0xFF55;
+    case 9: return 0xFF56;
+    case 10: return 0xFF63;
+    case 11: return 0xFF52;
+    case 12: return 0xFF54;
+    case 13: return 0xFF51;
+    case 14: return 0xFF53;
+  }
+  if (key >= 15 && key <= 26) {
+    return 0xFFBEUL + (unsigned long)(key - 15); // F1..F12 连续
+  }
+  if (key == 27) {
+    // ASCII 字母数字用标准 keysym（Ctrl 组合的应用端匹配习惯），其余走
+    // Unicode keysym 统一编码
+    if ((cp >= 'A' && cp <= 'Z') || (cp >= 'a' && cp <= 'z') ||
+        (cp >= '0' && cp <= '9')) {
+      return (unsigned long)cp;
+    }
+    return 0x01000000UL | (unsigned long)cp;
+  }
+  return 0;
+}
+
+// mac：修饰键经 CGEventSetFlags 挂在 down/up 两事件上。
 #if defined(__APPLE__)
+int32_t yue_sys_inject_key(int32_t key, int32_t mods, int32_t cp) {
+  int code = sys_mac_keycode(key, cp);
+  if (code == 0) {
+    return 0;
+  }
   CGEventSourceRef src =
       CGEventSourceCreate(kCGEventSourceStateCombinedSessionState);
   if (src == NULL) {
     return 0;
   }
-  CGEventRef down = CGEventCreateKeyboardEvent(src, 0x24, true);
-  CGEventRef up = CGEventCreateKeyboardEvent(src, 0x24, false);
+  CGEventRef down = CGEventCreateKeyboardEvent(src, (CGKeyCode)code, true);
+  CGEventRef up = CGEventCreateKeyboardEvent(src, (CGKeyCode)code, false);
   if (down == NULL || up == NULL) {
     if (down != NULL) {
       CFRelease(down);
@@ -3828,24 +3961,82 @@ int32_t yue_sys_inject_enter(void) {
     CFRelease(src);
     return 0;
   }
+  CGEventFlags flags = 0;
+  if (mods & 1) {
+    flags |= kCGEventFlagMaskControl;
+  }
+  if (mods & 2) {
+    flags |= kCGEventFlagMaskAlternate; // Alt/Option
+  }
+  if (mods & 4) {
+    flags |= kCGEventFlagMaskShift;
+  }
+  if (mods & 8) {
+    flags |= kCGEventFlagMaskCommand;
+  }
+  if (flags != 0) {
+    CGEventSetFlags(down, flags);
+    CGEventSetFlags(up, flags);
+  }
   CGEventPost(kCGSessionEventTap, down);
   CGEventPost(kCGSessionEventTap, up);
   CFRelease(down);
   CFRelease(up);
   CFRelease(src);
   return 1;
-#elif defined(_WIN32)
-  INPUT in[2];
+}
+#endif
+
+// Windows：修饰键 down 包夹目标键 down/up（SendInput 无 flags 口）。
+#if defined(_WIN32)
+int32_t yue_sys_inject_key(int32_t key, int32_t mods, int32_t cp) {
+  int vk = sys_win_vk(key, cp);
+  if (vk == 0) {
+    return 0;
+  }
+  WORD modvks[4];
+  int nmods = 0;
+  if (mods & 1) {
+    modvks[nmods++] = VK_CONTROL;
+  }
+  if (mods & 2) {
+    modvks[nmods++] = VK_MENU;
+  }
+  if (mods & 4) {
+    modvks[nmods++] = VK_SHIFT;
+  }
+  if (mods & 8) {
+    modvks[nmods++] = VK_LWIN;
+  }
+  INPUT in[2 + 8];
   memset(in, 0, sizeof(in));
-  in[0].type = INPUT_KEYBOARD;
-  in[0].ki.wVk = VK_RETURN;
-  in[0].ki.wScan = 0x1C;
-  in[1].type = INPUT_KEYBOARD;
-  in[1].ki.wVk = VK_RETURN;
-  in[1].ki.wScan = 0x1C;
-  in[1].ki.dwFlags = KEYEVENTF_KEYUP;
-  return SendInput(2, in, sizeof(INPUT)) == 2;
-#elif defined(__linux__)
+  int n = 0;
+  for (int i = 0; i < nmods; i++) {
+    in[n].type = INPUT_KEYBOARD;
+    in[n].ki.wVk = modvks[i];
+    n++;
+  }
+  in[n].type = INPUT_KEYBOARD;
+  in[n].ki.wVk = (WORD)vk;
+  in[n].ki.wScan = 0;
+  n++;
+  in[n].type = INPUT_KEYBOARD;
+  in[n].ki.wVk = (WORD)vk;
+  in[n].ki.dwFlags = KEYEVENTF_KEYUP;
+  n++;
+  for (int i = nmods - 1; i >= 0; i--) {
+    in[n].type = INPUT_KEYBOARD;
+    in[n].ki.wVk = modvks[i];
+    in[n].ki.dwFlags = KEYEVENTF_KEYUP;
+    n++;
+  }
+  return SendInput((UINT)n, in, sizeof(INPUT)) == (UINT)n;
+}
+#endif
+
+// Linux：改键映射挂目标 keysym，修饰键再各占一个临时键码按住。
+#if defined(__linux__)
+int32_t yue_sys_inject_key(int32_t key, int32_t mods, int32_t cp) {
   sys_inject_x11_init();
   if (!g_inject_x11.ok) {
     return 0;
@@ -3854,23 +4045,79 @@ int32_t yue_sys_inject_enter(void) {
   if (dpy == NULL) {
     return 0;
   }
-  unsigned code = sys_inject_free_keycode(dpy);
-  if (code == 0) {
+  unsigned long target = sys_x11_keysym(key, cp);
+  if (target == 0) {
     g_inject_x11.close_display(dpy);
     return 0;
   }
-  unsigned long keysym = 0xFF0DUL; // XK_Return
-  g_inject_x11.change_keyboard_mapping(dpy, (int)code, 1, &keysym, 1);
+  // 修饰键 keysym（顺序与 mods 位一致，未用的跳过）
+  static const unsigned long modsyms[4] = {
+    0xFFE5UL, // Control_L
+    0xFFE9UL, // Alt_L
+    0xFFE1UL, // Shift_L
+    0xFFE7UL, // Meta_L
+  };
+  unsigned long syms[5];
+  int nsyms = 0;
+  for (int i = 0; i < 4; i++) {
+    if (mods & (1 << i)) {
+      syms[nsyms++] = modsyms[i];
+    }
+  }
+  syms[nsyms++] = target;
+  // 逐个领临时键码（互不重复）
+  unsigned codes[5];
+  int ncode = 0;
+  for (int i = 0; i < nsyms; i++) {
+    unsigned c = 0;
+    int min_kc = 0, max_kc = 0;
+    g_inject_x11.display_keycodes(dpy, &min_kc, &max_kc);
+    for (int code = max_kc; code >= min_kc + 8; code--) {
+      int dup = 0;
+      for (int k = 0; k < ncode; k++) {
+        if (codes[k] == (unsigned)code) {
+          dup = 1;
+          break;
+        }
+      }
+      if (dup) {
+        continue;
+      }
+      int per = 0;
+      unsigned long *map =
+          g_inject_x11.get_keyboard_mapping(dpy, (unsigned)code, 1, &per);
+      if (map == NULL) {
+        continue;
+      }
+      int unused = (per == 0 || map[0] == 0);
+      g_inject_x11.xfree(map);
+      if (unused) {
+        c = (unsigned)code;
+        break;
+      }
+    }
+    if (c == 0) {
+      g_inject_x11.close_display(dpy);
+      return 0;
+    }
+    codes[ncode++] = c;
+    g_inject_x11.change_keyboard_mapping(dpy, (int)c, 1, &syms[i], 1);
+  }
   g_inject_x11.sync(dpy, 0);
-  g_inject_x11.fake_key(dpy, code, 1, 0);
-  g_inject_x11.fake_key(dpy, code, 0, 0);
+  // 修饰键按下 → 目标键 down/up → 修饰键抬起
+  for (int i = 0; i < ncode - 1; i++) {
+    g_inject_x11.fake_key(dpy, codes[i], 1, 0);
+  }
+  g_inject_x11.fake_key(dpy, codes[ncode - 1], 1, 0);
+  g_inject_x11.fake_key(dpy, codes[ncode - 1], 0, 0);
+  for (int i = ncode - 2; i >= 0; i--) {
+    g_inject_x11.fake_key(dpy, codes[i], 0, 0);
+  }
   g_inject_x11.sync(dpy, 0);
   g_inject_x11.close_display(dpy);
   return 1;
-#else
-  return 0;
-#endif
 }
+#endif
 
 // 运行期能力探测：mac / Windows 恒 1；Linux 要 DISPLAY 非空且 X11+Xtst 都
 // dlopen 得到（与 yue_sys_idle_supported 同口径）。
