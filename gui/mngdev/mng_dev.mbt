@@ -543,6 +543,12 @@ pub fn mng_dev_page(
     // 页面壳是纵排容器：模板页/页面块作交叉轴子项 stretch 占满宽
     // （裸件 flex 默认 Row，子项会收缩到内容宽——hello 页实测塌到 296）
     holder.node.set_flex_direction(@yoga.Column)
+    // 壳宽钉满父容器并放开 min 下限：页面壳的宽要跟窗口走，不能被模板
+    // 内容的 min-content 顶爆（.mng 里 width:100% 参照的是壳宽，壳被顶爆
+    // 整页百分比全歪）；min-size 缺省 auto 下限=min-content，不放开收缩
+    // 触发不了（同 scroll_view 视口与 tabs 面板的既有口径）
+    holder.node.set_width(@yoga.percent(100.0))
+    holder.node.set_min_width(@yoga.fixed(0.0))
     // 检查器树行可读：dev 页挂载点报自己的类型名（role 留空，纯布局壳不进语义树）
     holder.kind = "mng-page"
     mng_dev_bind_holder(page, holder)
