@@ -5,7 +5,7 @@
 <template>
   <ui-view class="root">
   <segmented :options='["首页", "设置"]' :selected="s_page" />
-  <ui-view class="pane" v-show='s_page.get() == "首页"'>
+  <ui-scroll-view class="pane" v-show='s_page.get() == "首页"'>
     <ui-panel title="服务" class="card">
       <ui-row class="field">
         <ui-text class="label" text="状态" />
@@ -29,8 +29,8 @@
     <ui-panel title="最近上屏" class="card">
       <ui-text class="value" :text="s_history.get()" />
     </ui-panel>
-  </ui-view>
-  <ui-view class="pane" v-show='s_page.get() == "设置"'>
+  </ui-scroll-view>
+  <ui-scroll-view class="pane" v-show='s_page.get() == "设置"'>
     <ui-panel title="辅助功能" class="card">
       <ui-row class="field">
         <ui-text class="label" text="授权状态" />
@@ -44,27 +44,30 @@
     <ui-panel title="快捷指令" class="card">
       <ui-col class="hint">
         <ui-text class="label" text="一行一个按钮：" />
-        <ui-text class="label" text="  标签|文本|回车" />
+        <ui-text class="label" text="  标签|文本（可选）|回车" />
         <ui-text class="label" text="  继续|继续|yes" />
-        <ui-text class="label" text="  请检查刚才的改动|no" />
-        <ui-text class="label" text="标签＝按钮名，可省略；文本＝发到电脑的内容；回车＝yes 或 no——yes 发完自动补回车，no 只上屏。回车段可省略，省略时等同 yes。" />
+        <ui-text class="label" text="  继续|yes" />
+        <ui-text class="label" text="标签＝按钮名；文本＝发到电脑的内容，省略使用标签；回车＝yes 或 no——yes 发完自动补回车，no 只上屏。回车段可省略，省略时等同 yes。" />
       </ui-col>
       <ui-textarea v-model="s_cfg" rows="6" placeholder="继续" />
     </ui-panel>
-  </ui-view>
+  </ui-scroll-view>
   </ui-view>
 </template>
 <style>
   .root {
     width: 100%;
-    padding: 16px;    flex-direction: column;
-    row-gap: 12px;
+    flex-direction: column;
+    gap: 12px;
     background-color: var(--bg_page);
   }
   .pane {
     width: 100%;
+    padding-left: 6px;
+    padding-right: 6px;
+    flex-shrink:1;
     flex-direction: column;
-    row-gap: 12px;
+    gap: 12px;
   }
   .card {
     width: 100%;
@@ -75,9 +78,8 @@
     align-items: center;
   }
   .label {
-    width: 80px;
     font-size: 12px;
-    color: var(--text_secondary);
+    color: var(--text_regular);
   }
   .value {
     font-size: 13px;
