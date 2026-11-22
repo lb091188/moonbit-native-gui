@@ -48,5 +48,6 @@ The scanned page is just an input box and a send button: type → send → the t
 
 ## Known limits
 
-- Phone and computer must share a LAN with a usable egress address; otherwise the app shows "no network".
+- Phone and computer must share a LAN and the computer must have an RFC1918 private address (10.x / 172.16~31.x / 192.168.x); otherwise the app shows "no network".
+- The address comes from a physical interface's private address — with a proxy TUN / fake-ip adapter present, its 198.18.x address is never picked.
 - Injection targets the **currently focused** input — check the focus on the computer before sending.

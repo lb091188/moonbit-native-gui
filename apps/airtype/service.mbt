@@ -47,24 +47,10 @@ fn gen_token() -> String {
 }
 
 ///|
-/// 局域网出口 IP（UDP connect 只选路由不发包）。两个探测目标，都失败给
-/// None——UI 报无网络。
-async fn lan_ip() -> String? {
-  for target in ["8.8.8.8:53", "114.114.114.114:53"] {
-    let addr = @socket.Addr::parse(target) catch {
-      _ => continue
-    }
-    let probe = @socket.UdpClient(addr) catch {
-      _ => continue
-    }
-    let ip = probe.addr.ip.to_string()
-    probe.close()
-    // 回环地址不是手机扫码可达的地址
-    if ip != "127.0.0.1" && ip != "::1" {
-      return Some(ip)
-    }
-  }
-  None
+/// 局域网地址：网卡枚举 + RFC1918 过滤（`@sys.netif_lan_ip`）。不走 UDP
+/// connect 出口探测——代理 TUN 接管默认路由时会拿到 198.18.x 假地址。
+fn lan_ip() -> String? {
+  @sys.netif_lan_ip()
 }
 
 ///|
