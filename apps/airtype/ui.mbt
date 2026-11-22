@@ -55,25 +55,46 @@ fn status_row(label : String, v : @base.Store[String]) -> @widget.Node {
 }
 
 ///|
-/// 整页：两页签，显隐切换。
+/// 整页：两页签，显隐切换；外层 16 内边距给足页边距，tabs 吃满剩余高让
+/// 页内容能接纵滚。
 fn page(app : App) -> @widget.Node {
-  @ui.tabs([("首页", home_page(app)), ("设置", settings_page(app))])
-}
-
-///|
-/// 首页：服务状态、二维码与地址、最近上屏。
-fn home_page(app : App) -> @widget.Node {
-  @ui.col(
-    [service_card(app), qr_card(app), history_card(app)],
-    row_gap=12.0,
+  @ui.view(
+    [
+      @ui.tabs(
+        [("首页", home_page(app)), ("设置", settings_page(app))],
+        class=[@style.style(flex=1.0)],
+      ),
+    ],
+    padding=16.0,
     grow=1.0,
   )
 }
 
 ///|
-/// 设置页：辅助功能授权、快捷指令配置。
+/// 首页：服务状态、二维码与地址、最近上屏。纵滚承接内容超高。
+fn home_page(app : App) -> @widget.Node {
+  @ui.scroll_view(
+    [
+      @ui.col(
+        [service_card(app), qr_card(app), history_card(app)],
+        row_gap=12.0,
+      ),
+    ],
+    @ui.ScrollState::new(),
+    class=[@style.style(border_width=0.0)],
+  )
+}
+
+///|
+/// 设置页：辅助功能授权、快捷指令配置。纵滚承接内容超高。
 fn settings_page(app : App) -> @widget.Node {
-  @ui.col([perm_card(app), shortcuts_card(app)], row_gap=12.0, grow=1.0)
+  @ui.scroll_view(
+    [
+      @ui.col([perm_card(app), shortcuts_card(app)], row_gap=12.0),
+    ],
+    @ui.ScrollState::new(),
+    class=[@style.style(border_width=0.0)],
+  )
 }
 
 ///|
@@ -101,12 +122,8 @@ fn qr_card(app : App) -> @widget.Node {
         [qr_canvas(app.qr)],
         align_items=@yoga.AlignItems::Center,
       ),
-      @ui.view(
-        [
-          @ui.bind_label(app.url, fn(s) { s }, class=[@style.text_accent]),
-        ],
-        align_items=@yoga.AlignItems::Center,
-      ),
+      // 地址行左起单行：bind_label 自带 wrap=false + 末端省略号
+      @ui.bind_label(app.url, fn(s) { s }, class=[@style.text_accent]),
     ],
     padding=12.0,
     row_gap=8.0,

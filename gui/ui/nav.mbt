@@ -1232,7 +1232,11 @@ pub fn tabs(
       let page = @widget.Widget::new()
       page.node.set_flex_direction(@yoga.Column)
       page.node.set_width(@yoga.percent(100.0))
-      page.set_padding(top=6.0, left=6.0)
+      // 面板吃满剩余高：tabs 根被外部给定确定高时，页内容才能接纵滚
+      // （scroll_view 视口要的是受约束的父高）；外高没约束时 grow 不生效，
+      // 面板照旧按内容取高，既有消费者不受影响。左右内边距对称。
+      page.node.set_flex_grow(1.0)
+      page.set_padding(top=6.0, left=6.0, right=6.0)
       let _ = (pages[i].1.mount)(page)
       page.set_visible(sel.get() == idx)
       w.append_child(page)
