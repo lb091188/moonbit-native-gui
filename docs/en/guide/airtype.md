@@ -38,7 +38,13 @@ Without the grant the phone can still connect and send, but the page gets an "in
 
 ## Phone side
 
-The scanned page is just an input box and a send button: type → send → the text appears in the computer's focused input and the page shows "delivered". Reconnection is automatic; after the app restarts the token has changed, so rescan.
+The scanned page is an input box plus an action bar pinned above the soft keyboard:
+
+- "发送" (Send) types the text into the computer's focused input; "⏎ 回车" (Enter) fires a real Enter keypress on the computer — fill and submit are two independent steps, just like a real keyboard.
+- Quick-command chips sit above the bar: one tap sends a preset phrase and optionally follows with Enter — handy for "continue"-style prompts.
+- Chips are configured on the computer in the 快捷指令 card, one button per line: `text`, or `label|text|enter(yes/no)`. Edits persist immediately; the phone pulls updates when it returns to the foreground.
+- A 10-second heartbeat detects dead connections; after unlocking the phone the connection recovers within about two seconds, no manual refresh.
+- After the app restarts the token has changed, so rescan.
 
 ## Security notes
 

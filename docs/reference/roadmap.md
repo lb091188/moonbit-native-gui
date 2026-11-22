@@ -474,7 +474,7 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
   - 已验 2026-11-21：mac 裸机、company Linux 容器、win10 KVM 判 VM 半边——真机抓出容器信号漏进 VM 判定一 bug 已修
 
 - 🚧 **文本注入**：把任意文本投进系统当前聚焦的输入框，airtype 与第三方应用共用
-  - 门面 `@sys.inject_text` 收 `gui/sys`，与剪贴板同族；未支持平台给 Unsupported
+  - 门面 `@sys.inject_text` 与 `@sys.inject_key`（27 命名键 + 字母数字字符键 + 四修饰键组合）收 `gui/sys`，与剪贴板同族；未支持平台给 Unsupported
   - mac ✅ 已验（2026-11-22 真机）：CGEvent 键盘事件挂 UTF-16 串，分片至多 20 单元、代理对不劈；需辅助功能授权，密码框按系统设计不收注入
   - linux 🚧 X11 XTest（运行期 dlopen，改键映射挂 Unicode keysym；Wayland 会话只有 XWayland 应用收得到）、Windows 🚧 SendInput KEYEVENTF_UNICODE——已合入待真机
 - 🚧 **airtype 手机投字应用**：电脑起服务出二维码，手机扫码进网页打字，发送后打进电脑聚焦输入框

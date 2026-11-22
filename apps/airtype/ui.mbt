@@ -11,6 +11,7 @@ struct App {
   addr : @base.Store[String]
   conns : @base.Store[String]
   perm : @base.Store[String]
+  cfg : @base.Store[String]
   history : @base.Store[Array[String]]
 }
 
@@ -24,6 +25,7 @@ fn build_app() -> App {
     addr: @base.Store::new("—"),
     conns: @base.Store::new("0"),
     perm: @base.Store::new(perm_text()),
+    cfg: @base.Store::new(load_shortcuts()),
     history: @base.Store::new([]),
   }
 }
@@ -73,6 +75,32 @@ fn status_row(label : String, v : @base.Store[String]) -> @widget.Node {
     ],
     column_gap=8.0,
     align_items=@yoga.AlignItems::Center,
+  )
+}
+
+///|
+/// 快捷指令卡：行式配置（文本，或 标签|文本|yes/no），改动即落盘并生效于
+/// 手机页的 chips；回车开关 yes 表示发完文本自动补一发回车。
+fn shortcuts_card(app : App) -> @widget.Node {
+  @ui.view(
+    [
+      @ui.text("快捷指令", class=[@style.text_title]),
+      @ui.text(
+        "一行一个按钮：文本，或 标签|文本|回车(yes/no)。点按钮即发文本并按开关自动回车，手机端键盘上方常驻显示。",
+        class=[@style.text_secondary],
+      ),
+      @ui.textarea(
+        app.cfg,
+        placeholder="继续\n检查|请检查刚才的改动|no",
+        rows=4,
+        on_change=fn(s) { apply_shortcuts(s) },
+      ),
+    ],
+    row_gap=8.0,
+    padding=12.0,
+    background_color="bg_panel",
+    border_color="border",
+    corner_radius=6.0,
   )
 }
 
@@ -147,6 +175,7 @@ fn page(app : App) -> @widget.Node {
         border_color="border",
         corner_radius=6.0,
       ),
+      shortcuts_card(app),
       history_card(app),
     ],
     padding=16.0,

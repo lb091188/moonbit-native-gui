@@ -113,12 +113,55 @@ async fn serve_ws(app : App, ws : @websocket.Conn) -> Unit {
       let text = msg.text.read_all() catch {
         _ => continue
       }
+      // 心跳：页面每 10 秒发 ping，回 pong 作探活凭证（15 秒无回包页面
+      // 主动断开重连）——假死连接靠页面侧检测，不走 TCP 超时熬
+      if text == "ping" {
+        ws.send_text("pong") catch {
+          _ => break
+        }
+        continue
+      }
       if text.length() == 0 {
         continue
       }
-      match @sys.inject_text(text) {
+      // 协议 v2：首行命令 + \n + 载荷；未知命令整条按文本投（兼容纯文本）
+      //   enter      投真实回车键
+      //   type\n文   投文本
+      //   te\n文     投文本后跟回车（快捷指令的原子动作）
+      let nl = text.find("\n")
+      let cmd = match nl {
+        Some(i) => text[:i].to_owned()
+        None => ""
+      }
+      let payload = match nl {
+        Some(i) => text[i + 1:].to_owned()
+        None => text
+      }
+      let res : Result[Unit, @sys.InjectError] = match cmd {
+        "enter" => @sys.inject_key(@sys.Key::Enter)
+        "type" => @sys.inject_text(payload)
+        "te" =>
+          if payload.length() == 0 {
+            @sys.inject_key(@sys.Key::Enter)
+          } else {
+            match @sys.inject_text(payload) {
+              Ok(_) => @sys.inject_key(@sys.Key::Enter)
+              Err(e) => Err(e)
+            }
+          }
+        _ => @sys.inject_text(text)
+      }
+      // 回车动作不进记录；文本类记真实载荷
+      let hist = match cmd {
+        "enter" => ""
+        "type" | "te" => payload
+        _ => text
+      }
+      match res {
         Ok(_) => {
-          push_history(app, text)
+          if hist.length() > 0 {
+            push_history(app, hist)
+          }
           ws.send_text("ok") catch {
             _ => break
           }
@@ -175,7 +218,16 @@ async fn service_run(app : App, token : String) -> Unit {
         Some(i) => req.path[:i].to_owned()
         None => req.path
       }
-      if base == "/ws" {
+      if base == "/cfg" {
+        // 快捷指令配置：手机页加载与亮屏回前台时拉取
+        conn.send_response(
+          200,
+          "OK",
+          extra_headers={ "Content-Type": "application/json; charset=utf-8" },
+        )
+        conn.text.write(shortcuts_json())
+        conn.end_response()
+      } else if base == "/ws" {
         // 非法握手 from_http_server 自己回 400 并抛错
         let ws = @websocket.from_http_server(req, conn) catch {
           _ => return

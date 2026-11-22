@@ -24,7 +24,7 @@
 | 显示器枚举（monitor） | ✅ 直调（`EnumDisplayDevicesW` / `EnumDisplaySettingsExW`；真机与 QEMU QXL 虚拟屏均回证，虚拟屏读到 `DISPLAY1: 1920x1080 @64Hz`） | ✅（xrandr；**Wayland 会话读到的是 XWayland 虚拟屏**，名形如 `XWAYLAND0`） | ✅ 已回证（CoreGraphics 直调：`CGGetOnlineDisplayList` / `CGDisplayBounds` / `CGDisplayCopyAllDisplayModes`；只列「在线」屏，输出名给不了按 `Built-in` / `Display-<id>` 给；读数一律物理像素，故 `MonitorInfo` 不需要缩放比字段） |
 ## 文本注入（inject）
 
-`inject_text(text) -> Result[Unit, InjectError]`：把文本投进系统**当前聚焦的输入框**，效果等同键盘敲入。mac 走 CGEvent 键盘事件挂 UTF-16 串（分片至多 20 单元、代理对不劈开），前置「辅助功能」授权——配合 `permission_probe(PermAccessibility)` 探测；`inject_available()` 探本平台通道。Windows（SendInput）与 Linux（XTest）为后续批次。载体应用见 [airtype](../guide/airtype.md)。
+`inject_text(text) -> Result[Unit, InjectError]`：把文本投进系统**当前聚焦的输入框**，效果等同键盘敲入。`inject_key(key, ctrl?, alt?, shift?, meta?)`：模拟单次按键——回车确认、Esc 关层、方向键导航、Ctrl+C 这类修饰组合（键位表见 `@sys.Key`，字符键限字母数字，其余符号走文本注入）。mac 走 CGEvent 键盘事件挂 UTF-16 串（分片至多 20 单元、代理对不劈开），前置「辅助功能」授权——配合 `permission_probe(PermAccessibility)` 探测；`inject_available()` 探本平台通道。Windows（SendInput）与 Linux（XTest 改键映射）同批落地，键码表三平台齐备。载体应用见 [airtype](../guide/airtype.md)。
 
 macOS 的公开口与底层：`open`/`open -R`、`sw_vers`、`ioreg -rd1 -c IOPlatformExpertDevice`、`sysctl hw.model/hw.memsize/kern.boottime`、`osascript`（System Events 的 `volume settings` 与桌面图片）、`launchctl load/unload` + `~/Library/LaunchAgents/*.plist`、`lpstat`/`lp`，以及进程内直调的 `host_statistics64`、`CGEventSourceSecondsSinceLastEventType`、`CGGetOnlineDisplayList`/`CGDisplayBounds`/`CGDisplayCopyDisplayMode`/`CGDisplayCopyAllDisplayModes`/`CGDisplayScreenSize`。
 
