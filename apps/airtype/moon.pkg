@@ -1,0 +1,17 @@
+// airtype 主包：窗口界面 + 二维码自绘 + 投字服务。
+
+import {
+  "NoahLiu/yoga-mbt/src" @yoga,
+  "NoahLiu/native-gui/base",
+  "NoahLiu/native-gui/widget" @widget,
+  "NoahLiu/native-gui/ui",
+  "NoahLiu/native-gui/style" @style,
+  "NoahLiu/native-gui/render",
+  "NoahLiu/native-gui/text" @text,
+  "allenli178/moon-qrcode" @qr,
+  "allenli178/moon-qrcode/core" @qrc,
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"

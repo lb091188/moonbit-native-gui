@@ -48,6 +48,7 @@ moon run examples/hello       # 最小窗口(另有 showcase 等)
 - 放东西的第一判据:`experience/placement.md`
 - 库模块 NoahLiu/native-gui，唯一发布单元之一:`gui/`
 - 每个示例一个独立模块 NoahLiu/native-gui-examples-<name>:`examples/<name>/`
+- 独立应用——产品级应用，每个应用一个独立模块 NoahLiu/native-gui-apps-<name>:`apps/<name>/`
 - 探针与微基准模块:`experiment/`
 - 子模块——yoga-mbt / mdparse / gui-media / gui-webview / ffmpeg-mbt:`modules/`
 - DX 工具总目录，moon 模块与非 moon 工具同层分放，非 moon 工具即编辑器插件:`tools/`

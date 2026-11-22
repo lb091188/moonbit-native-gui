@@ -6,6 +6,7 @@
 |---|---|---|
 | `gui/` | 库模块 NoahLiu/native-gui 本体，唯一发布单元之一 | 示例、探针 |
 | `examples/<name>/` | 示例；每个示例一个独立模块 `NoahLiu/native-gui-examples-<name>`，注册进 `moon.work`，依赖只写自己的 `moon.mod` | 往既有示例模块里塞第二个示例 |
+| `apps/<name>/` | 独立应用——产品级应用而非演示；每个应用一个独立模块 `NoahLiu/native-gui-apps-<name>`，注册进 `moon.work`，依赖只写自己的 `moon.mod` | 示例、探针、库本体 |
 | `experiment/` | 探针与微基准模块 | 要长期维护的功能代码 |
 | `modules/` | 子模块：yoga-mbt / mdparse / gui-media / gui-webview / ffmpeg-mbt | 示例 |
 | `tools/` | DX 工具总目录：`tools/native-gui-tools/` 是 moon 模块与 mooncakes 发布单元——含 mngkit / mng_cli / icon* / i18n*，注册进 `moon.work`；非 moon 工具同层放，如编辑器插件 `tools/vscode-mng/`——纯 TS，不进 `moon.work` | 库本体、示例、探针 |
