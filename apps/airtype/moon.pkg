@@ -19,6 +19,7 @@ import {
   "NoahLiu/native-gui/render",
   "NoahLiu/native-gui/sys" @sys,
   "NoahLiu/native-gui/shell" @shell,
+  "NoahLiu/native-gui/mngdev" @mngdev,
   "allenli178/moon-qrcode" @qr,
   "allenli178/moon-qrcode/core" @qrc,
 }

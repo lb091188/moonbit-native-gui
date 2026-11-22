@@ -32,6 +32,34 @@ async fn main {
         (perm_tick.val)()
         // 窗口级纵滚：任一页内容超高时整页滚动
         a.enable_root_scroll()
+        // 单实例：mng dev 的 HOT 补丁经这条通道送达
+        match @shell.instance_claim("libyue.airtype") {
+          Ok(@shell.Primary) => {
+            @shell.on_instance_wake(fn(args : Array[String]) -> Unit {
+              if args.length() == 2 && args[0] == "--mng-hot" {
+                match @mngdev.mng_dev_apply_from_file(args[1]) {
+                  Ok(_) => println("AIRTYPE-DEV: 模板补丁已应用")
+                  Err(e) => println("AIRTYPE-DEV: 补丁失败：" + e)
+                }
+              } else {
+                println("AIRTYPE-DEV: 被第二实例唤起（\{args.length()} 参）")
+              }
+            })
+          }
+          Ok(@shell.Existing) => {
+            let _ = @shell.instance_wake("libyue.airtype", [])
+            println("AIRTYPE-INST: 已有实例，已唤起并退出")
+            return
+          }
+          Err(e) => println("AIRTYPE-INST: 单实例降级（\{e}）")
+        }
+        // 唤醒派发泵：单实例通道的事件 200ms 一拍抽掉
+        let pump : Ref[() -> Unit] = Ref(fn() { () })
+        pump.val = fn() -> Unit {
+          let _ = @shell.dispatch_instance_wake()
+          let _ = a.timer(200, pump.val)
+        }
+        (pump.val)()
       },
   )
   match mounted {

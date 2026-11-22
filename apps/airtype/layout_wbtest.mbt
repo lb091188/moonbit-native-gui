@@ -10,6 +10,7 @@ test "布局：mng 模板页挂载冒烟" {
   t.frame()
   t.frame()
   let top = t.root.children()[0]
+
   assert_true(top.rect.w > 419.0 && top.rect.w < 421.0)
   assert_true(top.rect.h > 0.0)
 }
