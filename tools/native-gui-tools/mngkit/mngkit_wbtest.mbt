@@ -1431,3 +1431,21 @@ test "语义令牌：style 区 var(--名) 发 property 档" {
     None => assert_true(false)
   }
 }
+
+///|
+test "内置：ui-scroll-view 登记，state 自动建账" {
+  let src = [
+    "<template>",
+    "  <ui-scroll-view>",
+    "    <ui-text text=\"x\" />",
+    "  </ui-scroll-view>",
+    "</template>",
+  ].join("\n")
+  let code = match compile(src, "sv.mng") {
+    Ok(o) => o.code
+    Err(e) => abort("\{e}")
+  }
+  assert_true(contains_sub(code, "@ui.scroll_view"))
+  assert_true(contains_sub(code, "@ui.ScrollState::new()"))
+  assert_true(contains_sub(code, "@ui.text(\"x\")"))
+}

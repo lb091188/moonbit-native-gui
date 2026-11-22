@@ -930,7 +930,7 @@ fn lsp_completion(
     "attr" => lsp_attr_completion(uri, text, tag)
     "expr" | "script" => lsp_expr_completion(uri, text, partial)
     "class" => completion_list(@mngkit.style_class_names(text), 7)
-    "css-token" => lsp_css_token_completion(partial, tag)
+    "css-token" => lsp_css_token_completion(text, line, ch)
     "css-prop" => lsp_css_prop_completion(text, line, ch)
     _ => completion_list([], 1)
   }
@@ -959,28 +959,30 @@ fn css_token_at(text : String, off : Int32) -> String {
 ///|
 /// 颜色令牌文档：名 →（中文语义，默认浅色值）。深浅两份由主题令牌给出，
 /// 这里只写语义与浅色锚点。口径同 docs/components 的 token 表。
-fn css_color_token_doc(name : String) -> (String, String)? {
+fn css_color_token_doc(
+  name : String,
+) -> (String, String, String)? {
   match name {
-    "primary" => Some(("主色：主操作、选中、焦点环", "#2D68C4"))
-    "primary_light" => Some(("主色浅底：选中行、软按钮底", "#E8F0FB"))
-    "primary_hover" => Some(("主色悬停加深", "#2459A8"))
-    "danger" => Some(("危险 / 错误", "#D64550"))
-    "danger_light" => Some(("危险浅底", "#FBEDED"))
-    "danger_hover" => Some(("危险悬停加深", "#BC3440"))
-    "success" => Some(("成功", "#2E9E5B"))
-    "success_light" => Some(("成功浅底", "#E9F5EE"))
-    "warning" => Some(("警告", "#D9822B"))
-    "warning_light" => Some(("警告浅底", "#FBF3E8"))
-    "info" => Some(("次要信息", "#6B7480"))
-    "info_light" => Some(("次要信息浅底", "#F0F2F4"))
-    "text_primary" => Some(("标题文字（最高对比）", "#2A2F36"))
-    "text_regular" => Some(("正文文字", "#4E5560"))
-    "text_secondary" => Some(("次要文字", "#6B7480"))
-    "border" => Some(("描边", "#D8DCE1"))
-    "fill_hover" => Some(("悬停铺底", "#EFF1F3"))
-    "fill_zebra" => Some(("斑马纹", "#F5F7FA"))
-    "bg_page" => Some(("页面底（窗口 / 滚动区最下层）", "#F5F6F7"))
-    "bg_panel" => Some(("面板底（卡片 / 侧栏 / 输入框 / 弹层）", "#FFFFFF"))
+    "primary" => Some(("主色：主操作、选中、焦点环", "Primary: main actions, selection, focus ring", "#2D68C4"))
+    "primary_light" => Some(("主色浅底：选中行、软按钮底", "Light primary: selected rows, soft buttons", "#E8F0FB"))
+    "primary_hover" => Some(("主色悬停加深", "Primary hover (deepened)", "#2459A8"))
+    "danger" => Some(("危险 / 错误", "Danger / error", "#D64550"))
+    "danger_light" => Some(("危险浅底", "Light danger", "#FBEDED"))
+    "danger_hover" => Some(("危险悬停加深", "Danger hover (deepened)", "#BC3440"))
+    "success" => Some(("成功", "Success", "#2E9E5B"))
+    "success_light" => Some(("成功浅底", "Light success", "#E9F5EE"))
+    "warning" => Some(("警告", "Warning", "#D9822B"))
+    "warning_light" => Some(("警告浅底", "Light warning", "#FBF3E8"))
+    "info" => Some(("次要信息", "Secondary info", "#6B7480"))
+    "info_light" => Some(("次要信息浅底", "Light secondary info", "#F0F2F4"))
+    "text_primary" => Some(("标题文字（最高对比）", "Heading text (highest contrast)", "#2A2F36"))
+    "text_regular" => Some(("正文文字", "Body text", "#4E5560"))
+    "text_secondary" => Some(("次要文字", "Secondary text", "#6B7480"))
+    "border" => Some(("描边", "Border", "#D8DCE1"))
+    "fill_hover" => Some(("悬停铺底", "Hover fill", "#EFF1F3"))
+    "fill_zebra" => Some(("斑马纹", "Zebra stripe", "#F5F7FA"))
+    "bg_page" => Some(("页面底（窗口 / 滚动区最下层）", "Page background (window / scroll base)", "#F5F6F7"))
+    "bg_panel" => Some(("面板底（卡片 / 侧栏 / 输入框 / 弹层）", "Panel background (cards / sidebars / inputs / popups)", "#FFFFFF"))
     _ => None
   }
 }
@@ -994,19 +996,22 @@ fn css_token_hover(partial : String) -> String {
     partial
   }
   let md = match css_color_token_doc(name) {
-    Some((doc, hexv)) =>
+    Some((zh, en, hexv)) =>
       "**--" +
       name +
       "** — " +
-      doc +
-      "\n\n默认浅色：`" +
-      hexv +
-      "`（深色随主题令牌）"
+      lmsg(zh, en) +
+      "\n\n" +
+      lmsg("默认浅色：`" + hexv + "`（深色随主题令牌）", "Default light: `" + hexv + "` (dark follows theme tokens)")
     None =>
       if scale_has(name) {
         "**--" +
         name +
-        "** — 尺度令牌：间距 / 圆角 / 字号刻度，取值随主题基准"
+        "** — " +
+        lmsg(
+          "尺度令牌：间距 / 圆角 / 字号刻度，取值随主题基准",
+          "Scale token: spacing / radius / font-size step, values follow the theme base",
+        )
       } else {
         ""
       }
@@ -1030,7 +1035,11 @@ fn scale_has(name : String) -> Bool {
 
 ///|
 /// `<style>` 的 `var(--…)` 令牌补全；`mode` = dashes（已写 `--`）/ bare。
-fn lsp_css_token_completion(prefix : String, mode : String) -> String {
+fn lsp_css_token_completion(
+  text : String,
+  line : Int32,
+  ch : Int32,
+) -> String {
   let all : Array[String] = []
   for t in @mngkit.style_color_tokens() {
     all.push(t)
@@ -1040,12 +1049,50 @@ fn lsp_css_token_completion(prefix : String, mode : String) -> String {
       all.push(t)
     }
   }
+  // 替换范围：从已敲的 `--`（或裸名）起到光标——选完是完整的 `--令牌`，
+  // 不会跟已敲的前缀拼出 `--tbg_page`
+  let start_ch = css_token_start(text, line, ch)
   let items : Array[String] = []
   for t in all {
-    if prefix.length() == 0 || t.has_prefix(prefix) {
-      let label = if mode == "dashes" { t } else { "--" + t }
-      items.push(completion_item_filtered(label, 21, t))
+    let is_color = css_color_token_doc(t) is Some(_)
+    let detail = if is_color {
+      lmsg("颜色令牌", "Color token")
+    } else {
+      lmsg("尺度令牌", "Scale token")
     }
+    let doc = match css_color_token_doc(t) {
+      Some((zh, en, hexv)) =>
+        lmsg(
+          zh + "。默认浅色 `" + hexv + "`",
+          en + ". Default light `" + hexv + "`",
+        )
+      None =>
+        lmsg(
+          "间距 / 圆角 / 字号刻度，取值随主题基准",
+          "Spacing / radius / font-size step, values follow the theme base",
+        )
+    }
+    let label = "--" + t
+    let item = "{\"label\":" +
+      jq(label) +
+      ",\"kind\":21,\"filterText\":" +
+      jq(label) +
+      ",\"textEdit\":{\"range\":{\"start\":{\"line\":" +
+      line.to_string() +
+      ",\"character\":" +
+      start_ch.to_string() +
+      "},\"end\":{\"line\":" +
+      line.to_string() +
+      ",\"character\":" +
+      ch.to_string() +
+      "}},\"newText\":" +
+      jq(label) +
+      "}},\"detail\":" +
+      jq(detail) +
+      ",\"documentation\":{\"kind\":\"markdown\",\"value\":" +
+      jq(doc) +
+      "}}"
+    items.push(item)
   }
   "{\"isIncomplete\":false,\"items\":[" + items.join(",") + "]}"
 }
@@ -1166,20 +1213,6 @@ fn lsp_expr_completion(uri : String, text : String, partial : String) -> String 
 }
 
 ///|
-fn completion_item_filtered(
-  label : String,
-  kind : Int32,
-  filter : String,
-) -> String {
-  "{\"label\":" +
-  jq(label) +
-  ",\"kind\":" +
-  kind.to_string() +
-  ",\"filterText\":" +
-  jq(filter) +
-  "}"
-}
-
 ///|
 /// 带整段替换范围（textEdit）的补全项：`-` 是编辑器词分隔符，kebab 属性名必须整段换。
 fn completion_item_replace(

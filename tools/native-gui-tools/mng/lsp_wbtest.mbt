@@ -347,8 +347,10 @@ test "LSP：<style> 令牌与属性名补全、错误坐标回到模板行" {
     lsp_handle(docs, req(20, "textDocument/completion", pos_params(uri, 5, 18))).reply {
     Some(r) =>
       assert_true(
-        contains_sub_l(r, "\"label\":\"text_primary\"") &&
-        contains_sub_l(r, "\"kind\":21"),
+        contains_sub_l(r, "\"label\":\"--text_primary\"") &&
+        contains_sub_l(r, "\"kind\":21") &&
+        contains_sub_l(r, "\"detail\":\"颜色令牌\"") &&
+        contains_sub_l(r, "\"documentation\":{\"kind\":\"markdown\""),
       )
     None => assert_true(false)
   }
