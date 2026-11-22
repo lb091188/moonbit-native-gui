@@ -1788,6 +1788,26 @@ pub fn WindowHost::step(self : WindowHost) -> Bool {
   }
   // 泵的「等 + 到期任务」段归壳层（webview/3D 路线只吃这一半就能跑起来）
   @shell.session_pump_advance()
+  self.step_tail()
+}
+
+///|
+/// 外部事件循环模式的一拍：与 [WindowHost::step] 同体，差异只在「等平台
+/// 事件」段——这里不等，等待由外部循环的 poll 自己做（先 `@win.wait` 再调
+/// 本函数）。给 core/async 的 `ExternalEventLoop` 集成用：GUI 代码全部留在
+/// 主线程，等待与派发交替进行。
+pub fn WindowHost::step_no_wait(self : WindowHost) -> Bool {
+  if !self.is_running() {
+    return false
+  }
+  @shell.session_pump_advance_nowait()
+  self.step_tail()
+}
+
+///|
+/// 一拍的「等待之后」段：退出信号 → 逐窗排空 → 抽外部拖入 → 冲刷
+/// next_tick → 逐窗输入法与脏窗上屏。
+fn WindowHost::step_tail(self : WindowHost) -> Bool {
   // 退出信号（SIGINT/SIGTERM）到这一拍被取走：等事件的 poll 会被信号打断，
   // 所以这里必能在下一拍读到。走 shutdown 收口，托盘注销先于进程结束。
   if @shell.quit_requested() {

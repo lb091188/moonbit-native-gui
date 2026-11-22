@@ -228,13 +228,12 @@ pub fn set_repaint_sink(f : () -> Unit) -> Unit {
 /// 泵推进一拍的「等」段：按 `Loop` 的预算等平台事件，再跑到期任务。
 /// 排空/输入法/绘制在 widget 层的 `step` 里继续。
 pub fn session_pump_advance() -> Unit {
-  let l = host_loop()
   // 无头泵模式（test_headless 置位）：不真睡，定时器到期由测试侧显式
   // 驱动 step 逐步结算——真睡会让用例跑出真实时长，还可能被 waker 卡住
   let budget = if headless_pump.val {
     Some(0)
   } else {
-    l.wait_budget(@win.now_ms())
+    host_loop().wait_budget(@win.now_ms())
   }
   let _ = @win.wait(
     match budget {
@@ -242,10 +241,17 @@ pub fn session_pump_advance() -> Unit {
       None => -1
     },
   )
+  session_pump_advance_nowait()
+}
+
+///|
+/// 泵推进一拍的「任务」段：只跑到期任务，不等平台事件——等待由调用方
+/// 自理（外部事件循环模式：core/async 的 poll 先自己等，再调这里推进）。
+pub fn session_pump_advance_nowait() -> Unit {
   // 无头档吃虚拟时钟（real + 偏移；uitest 的 advance 推偏移），真实运行档
   // 恒走墙上时钟——同一条泵，两种时基
   let now = if headless_pump.val { session_vtime_now() } else { @win.now_ms() }
-  let _ = l.advance(now)
+  let _ = host_loop().advance(now)
 }
 
 ///|
