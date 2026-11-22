@@ -776,7 +776,7 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
 
 - ⏳ **moonboard 手机投字应用**：电脑起服务出二维码，手机扫码进网页打字，发送后文本注入电脑当前聚焦输入框上屏
   - 定案见 proposals/moonboard.md；独立模块 `apps/moonboard/`，落位判据随批加行
-  - 服务端 moonbitlang/async HTTP + WebSocket 嵌帧泵，二维码 moon-qrcode 点阵自绘
+  - 服务端用工具链自带 moonbitlang/core/async 的 HTTP + WebSocket，外部事件循环薄适配挂主线程帧泵；二维码 moon-qrcode 点阵自绘
   - 平台：mac 先行，linux X11 随批，Windows 不在本期
   - 局域网明文 HTTP，网址带 token 防同网段陌生人蹭输入；HTTPS 不做
 
