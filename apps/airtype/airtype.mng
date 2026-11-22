@@ -1,0 +1,105 @@
+<script>
+// 组件动作与展示辅助都住包级（ui_state.mbt / qrview.mbt）：
+// segmented 与 qr_view 是同包 fn 组件，go_perm 是同包动作。
+</script>
+<template>
+  <ui-view class="root">
+    <segmented :options='["首页", "设置"]' :selected="s_page" />
+    <ui-view class="pane" v-show='s_page.get() == "首页"'>
+      <ui-panel title="服务" class="card">
+        <ui-row class="field">
+          <ui-text class="label" text="状态" />
+          <ui-text class="value" :text="s_state.get()" />
+        </ui-row>
+        <ui-row class="field">
+          <ui-text class="label" text="地址" />
+          <ui-text class="value" :text="s_addr.get()" />
+        </ui-row>
+        <ui-row class="field">
+          <ui-text class="label" text="已连接手机" />
+          <ui-text class="value" :text="s_conns.get()" />
+        </ui-row>
+      </ui-panel>
+      <ui-panel title="访问地址" class="card">
+        <ui-view class="qrbox">
+          <qr_view :img="s_qr" />
+        </ui-view>
+        <ui-text class="addr" :text="s_url.get()" wrap="false" ellipsis="true" />
+      </ui-panel>
+      <ui-panel title="最近上屏" class="card">
+        <ui-text class="value" :text="s_history.get()" />
+      </ui-panel>
+    </ui-view>
+    <ui-view class="pane" v-show='s_page.get() == "设置"'>
+      <ui-panel title="辅助功能" class="card">
+        <ui-row class="field">
+          <ui-text class="label" text="授权状态" />
+          <ui-text class="value" :text="s_perm.get()" />
+        </ui-row>
+        <ui-row class="actions">
+          <ui-view class="spacer" />
+          <ui-button text="去授权" @click="go_perm" />
+        </ui-row>
+      </ui-panel>
+      <ui-panel title="快捷指令" class="card">
+        <ui-col class="hint">
+          <ui-text class="label" text="一行一个按钮：" />
+          <ui-text class="label" text="  标签|文本|回车" />
+          <ui-text class="label" text="  继续|继续|yes" />
+          <ui-text class="label" text="  请检查刚才的改动|no" />
+          <ui-text class="label" text="标签＝按钮名，可省略；文本＝发到电脑的内容；回车＝yes 或 no——yes 发完自动补回车，no 只上屏。回车段可省略，省略时等同 yes。" />
+        </ui-col>
+        <ui-textarea v-model="s_cfg" rows="6" placeholder="继续" />
+      </ui-panel>
+    </ui-view>
+  </ui-view>
+</template>
+<style>
+  .root {
+    width: 100%;
+    padding: 16px;
+    flex-direction: column;
+    row-gap: 12px;
+    background-color: var(--bg_page);
+  }
+  .pane {
+    width: 100%;
+    flex-direction: column;
+    row-gap: 12px;
+  }
+  .card {
+    width: 100%;
+    border-radius: 6px;
+  }
+  .field {
+    column-gap: 8px;
+    align-items: center;
+  }
+  .label {
+    width: 80px;
+    font-size: 12px;
+    color: var(--text_secondary);
+  }
+  .value {
+    font-size: 13px;
+    color: var(--text_regular);
+  }
+  .qrbox {
+    width: 100%;
+    align-items: center;
+  }
+  .addr {
+    font-size: 13px;
+    color: var(--primary);
+    white-space: no-wrap;
+  }
+  .actions {
+    column-gap: 8px;
+  }
+  .spacer {
+    flex: 1;
+  }
+  .hint {
+    row-gap: 4px;
+  }
+</style>

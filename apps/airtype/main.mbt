@@ -1,6 +1,7 @@
 // airtype 主入口：async main + 外部事件循环（loop.mbt 的 GuiExternalLoop）。
-// GUI 与服务同进程同主线程：poll 里跑 GUI 拍，async 任务组里跑投字服务，
-// GUI 退出 → done 条件变量唤醒 → 任务组收口、服务自动关停。
+// GUI 页面来自 airtype.mng（mng build 产 airtype.gen.mbt，生成码入库）：
+// 状态单例住 ui_state.mbt，服务侧写入、模板只读。GUI 退出 → done 条件变量
+// 唤醒 → 任务组收口、服务自动关停。
 
 ///|
 fn init {
@@ -14,9 +15,8 @@ async fn main {
   // 信号截胡，否则 Ctrl+C 会取消 async main 而不走 GUI 的收口路径
   @signal.set_global_cancellation_signals([])
   let token = gen_token()
-  let app = build_app()
   let mounted = @ui.mount_window(
-    [page(app)],
+    [airtype()],
     title="airtype",
     width=420,
     height=560,
@@ -26,10 +26,12 @@ async fn main {
         // 授权重探：用户去系统设置勾选后回来，这里两秒内刷回「已授权」
         let perm_tick : Ref[() -> Unit] = Ref(fn() { () })
         perm_tick.val = fn() -> Unit {
-          app.perm.set(perm_text())
+          s_perm.set(perm_text())
           let _ = a.timer(2000, perm_tick.val)
         }
         (perm_tick.val)()
+        // 窗口级纵滚：任一页内容超高时整页滚动
+        a.enable_root_scroll()
       },
   )
   match mounted {
@@ -39,7 +41,7 @@ async fn main {
       @async.with_task_group(
         group => {
           group.spawn_bg(no_wait=true, allow_failure=true) <| () => {
-            service_run(app, token) catch {
+            service_run(token) catch {
               e => println("airtype: service err \{e}")
             }
           }

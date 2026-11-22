@@ -58,24 +58,6 @@ fn lan_ip() -> String? {
 let g_ws_conns : Ref[Int32] = Ref(0)
 
 ///|
-/// 上屏记录：新条目进前头，最多 8 条；预览截 24 个字符。
-fn push_history(app : App, text : String) -> Unit {
-  let preview = if text.length() > 24 {
-    text[:24].to_owned() + "…"
-  } else {
-    text
-  }
-  let next : Array[String] = [preview]
-  for h in app.history.get() {
-    if next.length() >= 8 {
-      break
-    }
-    next.push(h)
-  }
-  app.history.set(next)
-}
-
-///|
 /// 从路径里取查询参数值："/ws?t=abc" 的 "t" → "abc"。
 fn query_of(path : String, key : String) -> String? {
   let qi = match path.find("?") {
@@ -97,12 +79,12 @@ fn query_of(path : String, key : String) -> String? {
 
 ///|
 /// 一条手机连接的收发环：收文本 → 注入 → 回执。
-async fn serve_ws(app : App, ws : @websocket.Conn) -> Unit {
+async fn serve_ws(ws : @websocket.Conn) -> Unit {
   g_ws_conns.val += 1
-  app.conns.set("\{g_ws_conns.val}")
+  s_conns.set("\{g_ws_conns.val}")
   defer {
     g_ws_conns.val -= 1
-    app.conns.set("\{g_ws_conns.val}")
+    s_conns.set("\{g_ws_conns.val}")
     ws.close()
   }
   for ;; {
@@ -160,7 +142,7 @@ async fn serve_ws(app : App, ws : @websocket.Conn) -> Unit {
       match res {
         Ok(_) => {
           if hist.length() > 0 {
-            push_history(app, hist)
+            push_history(hist)
           }
           ws.send_text("ok") catch {
             _ => break
@@ -179,33 +161,33 @@ async fn serve_ws(app : App, ws : @websocket.Conn) -> Unit {
 ///|
 /// 起服务并跑到被取消（async main 的任务组收口时自动关停）。地址与二维码
 /// 在监听成功后写进状态面板。
-async fn service_run(app : App, token : String) -> Unit {
+async fn service_run(token : String) -> Unit {
   let ip = match lan_ip() {
     Some(v) => v
     None => {
-      app.state.set("无网络（局域网出口不可达）")
+      s_state.set("无网络（局域网出口不可达）")
       return
     }
   }
   let port = service_port()
   let addr = @socket.Addr::parse("0.0.0.0:\{port}") catch {
     _ => {
-      app.state.set("监听地址错误")
+      s_state.set("监听地址错误")
       return
     }
   }
   let server = @http.Server(addr, reuse_addr=true) catch {
     e => {
-      app.state.set("端口占用（\{e}）")
+      s_state.set("端口占用（\{e}）")
       return
     }
   }
   let real_port = server.addr.port
-  app.state.set("服务已启动")
-  app.addr.set("\{ip}:\{real_port}")
+  s_state.set("服务已启动")
+  s_addr.set("\{ip}:\{real_port}")
   let url = "http://\{ip}:\{real_port}/?t=\{token}"
-  app.url.set(url)
-  app.qr.set(qr_image_of(url))
+  s_url.set(url)
+  s_qr.set(qr_image_of(url))
   @widget.invalidate()
   server.run_forever(
     (req, conn) => {
@@ -232,7 +214,7 @@ async fn service_run(app : App, token : String) -> Unit {
         let ws = @websocket.from_http_server(req, conn) catch {
           _ => return
         }
-        serve_ws(app, ws)
+        serve_ws(ws)
       } else {
         conn.send_response(
           200,

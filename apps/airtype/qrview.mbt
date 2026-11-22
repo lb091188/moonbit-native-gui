@@ -33,7 +33,7 @@ fn qr_image_of(text : String) -> QrImage {
 ///|
 /// 二维码画布节点：图像来自 Store（地址与 token 一次生成后更新一次），
 /// 更新方负责随之 `@widget.invalidate()`。
-fn qr_canvas(img : @base.Store[QrImage]) -> @widget.Node {
+fn qr_view(img : @base.Store[QrImage]) -> @widget.Node {
   @widget.node_of_new(
     fn(w : @widget.Widget) -> @widget.Widget {
       w.node.set_width(@yoga.fixed(QR_CANVAS))

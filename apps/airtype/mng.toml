@@ -1,0 +1,13 @@
+# mng 工程配置（mng dev / mng build 无参时向上找到本文件）。
+[dev]
+
+# 递归扫 *.mng（跳过 _build / .mooncakes / 点目录）
+templates = ["."]
+
+build = "moon build ."
+
+run = ""
+
+app-id = "libyue.airtype"
+
+poll-ms = 300
