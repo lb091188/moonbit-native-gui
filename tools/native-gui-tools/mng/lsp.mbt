@@ -988,7 +988,26 @@ fn css_color_token_doc(
 }
 
 ///|
-/// `var(--…)` 令牌 hover：颜色令牌给语义与默认浅色值；尺度令牌给通用说明。
+/// 尺度令牌文档：名 →（中文语义，英文语义，默认值文本）。值口径同 gui/theme。
+fn css_scale_token_doc(
+  name : String,
+) -> (String, String, String)? {
+  match name {
+    "control_height" =>
+      Some(("表单控件统一高度（按钮 / 输入框等）", "Form control height (buttons / inputs)", "32px"))
+    "font_size_body" => Some(("正文字号", "Body font size", "13px"))
+    "font_size_secondary" => Some(("次要小字字号", "Secondary font size", "12px"))
+    "font_size_section" => Some(("区块 / 面板标题字号", "Section / panel title font size", "14px"))
+    "font_size_title" => Some(("大标题字号", "Large title font size", "18px"))
+    "radius_ctrl" => Some(("控件层圆角（按钮 / 输入框 / 标签）", "Control corner radius (buttons / inputs / tags)", "4px"))
+    "radius_card" => Some(("卡片 / 面板层圆角", "Card / panel corner radius", "6px"))
+    "radius_overlay" => Some(("对话框 / 浮层层圆角", "Dialog / overlay corner radius", "8px"))
+    _ => None
+  }
+}
+
+///|
+/// `var(--…)` 令牌 hover：颜色令牌给语义与默认浅色值；尺度令牌给语义与默认值。
 fn css_token_hover(partial : String) -> String {
   let name = if partial.has_prefix("--") {
     partial[2:].to_owned()
@@ -1004,16 +1023,15 @@ fn css_token_hover(partial : String) -> String {
       "\n\n" +
       lmsg("默认浅色：`" + hexv + "`（深色随主题令牌）", "Default light: `" + hexv + "` (dark follows theme tokens)")
     None =>
-      if scale_has(name) {
-        "**--" +
-        name +
-        "** — " +
-        lmsg(
-          "尺度令牌：间距 / 圆角 / 字号刻度，取值随主题基准",
-          "Scale token: spacing / radius / font-size step, values follow the theme base",
-        )
-      } else {
-        ""
+      match css_scale_token_doc(name) {
+        Some((zh, en, dflt)) =>
+          "**--" +
+          name +
+          "** — " +
+          lmsg(zh, en) +
+          "\n\n" +
+          lmsg("默认：`" + dflt + "`（随主题基准）", "Default: `" + dflt + "` (follows the theme base)")
+        None => ""
       }
   }
   if md.length() == 0 {
@@ -1021,16 +1039,6 @@ fn css_token_hover(partial : String) -> String {
   } else {
     "{\"contents\":{\"kind\":\"markdown\",\"value\":" + jq(md) + "}}"
   }
-}
-
-///|
-fn scale_has(name : String) -> Bool {
-  for t in @mngkit.style_scale_tokens() {
-    if t == name {
-      return true
-    }
-  }
-  false
 }
 
 ///|
@@ -1054,23 +1062,29 @@ fn lsp_css_token_completion(
   let start_ch = css_token_start(text, line, ch)
   let items : Array[String] = []
   for t in all {
-    let is_color = css_color_token_doc(t) is Some(_)
-    let detail = if is_color {
-      lmsg("颜色令牌", "Color token")
-    } else {
-      lmsg("尺度令牌", "Scale token")
-    }
-    let doc = match css_color_token_doc(t) {
+    // 详情面板只显示 detail——直接给语义与默认值，「什么颜色 / 什么尺寸」一眼可见
+    let (detail, doc) = match css_color_token_doc(t) {
       Some((zh, en, hexv)) =>
-        lmsg(
-          zh + "。默认浅色 `" + hexv + "`",
-          en + ". Default light `" + hexv + "`",
+        (
+          lmsg(zh + " · 默认浅色 " + hexv, en + " · default light " + hexv),
+          lmsg(
+            "颜色分深浅两份随主题，深色档随系统切换。",
+            "Colors come as a light/dark pair; dark follows the system setting.",
+          ),
         )
       None =>
-        lmsg(
-          "间距 / 圆角 / 字号刻度，取值随主题基准",
-          "Spacing / radius / font-size step, values follow the theme base",
-        )
+        match css_scale_token_doc(t) {
+          Some((zh, en, dflt)) =>
+            (
+              lmsg(zh + " · 默认 " + dflt, en + " · default " + dflt),
+              lmsg("取值随主题基准。", "Values follow the theme base."),
+            )
+          None =>
+            (
+              lmsg("尺度令牌", "Scale token"),
+              lmsg("取值随主题基准。", "Values follow the theme base."),
+            )
+        }
     }
     let label = "--" + t
     let item = "{\"label\":" +

@@ -363,7 +363,8 @@ test "LSP：<style> 令牌与属性名补全、错误坐标回到模板行" {
       assert_true(
         contains_sub_l(r, "\"label\":\"--text_primary\"") &&
         contains_sub_l(r, "\"kind\":21") &&
-        contains_sub_l(r, "\"detail\":\"颜色令牌\"") &&
+        contains_sub_l(r, "\"detail\":\"次要文字 · 默认浅色 #6B7480\"") &&
+        contains_sub_l(r, "\"detail\":\"控件层圆角（按钮 / 输入框 / 标签） · 默认 4px\"") &&
         contains_sub_l(r, "\"documentation\":{\"kind\":\"markdown\""),
       )
       assert_true(completion_json_items(r) > 0)
