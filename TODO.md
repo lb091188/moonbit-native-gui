@@ -55,11 +55,6 @@
 
 ## CI 与门禁
 
-- [ ] **`gui/moon.mod` 的 `homepage` 键告警**：本机 `cd gui && moon check` 输出 `Warning: Unknown configuration key homepage`，与门禁「零错误零警告」不符；workspace 内任一模块的 `moon check` 都带出这行
-  - 根因：`homepage` 写在 `options(...)` 块里，工具链 0.1.20261119 不认；实测挪到顶层直接报错 `Unexpected key 'homepage'`——这个键没有合法写法。
-  - 漏拦原因：`moon check` 退出码仍是 0，按退出码判绿的检查项拦不住；此前各批门禁读数没有数到这行。
-  - 修法：删 `options(...)` 里的 `homepage` 一行，仓库地址已有 `repository` 字段。
-  - 收尾：`experience/adaptation/linux.md` 2026-11-21 那条「非库缺陷、升级工具链的机器会看到」的口径改掉；修后 `gui` 与 `tools/native-gui-tools` 两处 `moon check` 输出不含 Warning。
 - [ ] **gui-media video_wbtest mac 本机失败**：用例「VideoPlayer 时钟同轴：回退 fps 不影响时间轴」——回拨 500ms 后位置 0.613 / 0.633，稳定复现；Windows CI 每轮跑且过，Linux / mac 腿不跑 gui-media test 故从未暴露
   - 范围：CI 未覆盖的组合。
   - 边界：期望窗 0.45–0.55，即期望位置区间。

@@ -1016,4 +1016,4 @@ showcase 在 Linux 上「有 GPU 就白屏 / 黑屏 / 点击不更新」的现�
 - **验证**：修复后 company 宿主判裸机、非容器、零信号，与 `systemd-detect-virt` 一致。
 - **同轮矩阵读数**：natigui-linux 与 natigui-bare 双容器判 docker、GPU Software 无渲染节点；home 宿主华为物理机判裸机、i915 Hardware；ubuntu-24.04、ubuntu-26.04、kubuntu-24.04 三台 KVM VM 判 qemu、cpuinfo hypervisor 标志 + DMI QEMU 双硬信号、GPU Software。deepin 三台锁屏待登录未采。
 - **跑法**：容器与宿主 moon 齐备的环境直接 `moon test env` + `moon run examples/envprobe/main`；宿主无 moon 的用 `docker cp` 取容器内编好的 envprobe 二进制直接跑，免装工具链；KVM VM 经 `virsh -c qemu:///system start` + `domifaddr` 拿 IP 后 ssh 二级跳，ssh 不通的发行版走 vmctl 图形注入。
-- **顺带**：home 的 moon 0.1.20261119 对仓库 `gui/moon.mod` 的 `homepage` 键报 unknown 警告——新工具链键校验收紧，非库缺陷，升级工具链的机器会看到。
+- **顺带**：home 的 moon 0.1.20261119 曾对仓库 `gui/moon.mod` 的 `homepage` 键报 unknown 警告，2026-11-23 已删除该键——`homepage` 写在 `options(...)` 里非法，挪到顶层直接报 `Unexpected key`，当前工具链 schema 没有这个键；仓库地址仍由 `repository` 字段承载。教训：`moon check` 对配置键告警退出码仍为 0，按退出码判绿的检查项拦不住这类 Warning。
