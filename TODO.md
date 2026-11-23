@@ -22,6 +22,20 @@
 - 窗口材质调研线：[proposals/window-material.md](proposals/window-material.md) 调研稿已成稿、S1 / S2 探针未跑——跑完再定是否立项；恢复时先把提案文件提交入库
   - 窗口材质：让系统合成器把窗口背后的桌面实时糊掉的系统级背景模糊，与控件级 backdrop_blur 是两回事。
 
+## 待拍板与悬件
+
+- [ ] **全窗 3D 直出 + 三档降级**：两次请示未回——要么按判据补进 roadmap「已规划」，要么明确不做
+  - 全窗 3D 直出：整个窗口画面由 GPU 的 3D 管线直接绘制，不再 CPU 光栅合成。
+  - 三档降级：GPU 全速、软件回退、诚实报不可用，逐级退。
+  - 立项判据三条件同时满足：真实产品页需要逐帧 3D、profile 绕路每帧超 5ms 且占帧预算三成以上、L2 已立项。
+    - L2：控件级 GPU 渲染档，比只管上屏的 L1 更进一步。
+- [ ] **native-env 是否发 mooncakes**：独立成库的成立前提是对外发布，至今未正式拍板——发布前需定
+  - mooncakes：MoonBit 的官方包仓库，别人用 moon 命令从这里装依赖。
+- [ ] **D:\ 那台 Windows 机工具链升级**：执行者：用户执行——该机 moon 低于 0.1.20261117，构建报 StringBuilder capacity 错
+  1. `moon upgrade -f` 后 `moon version` 确认到 0.1.20261117 或更新
+  2. `git pull` 后 `moon check` 不再报 StringBuilder capacity 错即闭环
+  - 坑：非交互终端升级可能只换 moon.exe 不换 core，仍报错就重跑一次升级。
+
 ## 黑客松答辩
 
 - [ ] **决赛收尾**：按 [proposals/hackathon-defense.md](proposals/hackathon-defense.md) 的 7 分钟骨架填 PPT 并彩排
