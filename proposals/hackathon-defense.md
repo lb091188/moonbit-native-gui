@@ -193,7 +193,8 @@ sysmonitor 的用途：
 
 - 先承认 MyGo 做得好：2026-09-26 创建，不到两个月 6745 stars，截至 2026-11-23；原生 UI 由自己在 GPU 上画，也支持 webview 混合；flexbox 与 grid、输入法、无障碍、无头测试、打包更新一整套，路线和我几乎同构。
 - 时间：它出现时我 9 月 10 日已跑通第一版，十月重写时它才刚起步。
-- 路线：MyGo 明确「Pure Go, no cgo」；我要的是直通 C 与 C++，把已有 C 生态接进来，Go 的卖点恰好相反。
+- 路线：MyGo 的「no cgo」指构建期不引入 C 工具链；运行时它用 purego 动态加载系统库、调用 C 与 Objective-C（macOS 走 objc_msgSend，Linux 走 GTK/WebKitGTK，Windows 走 syscall），本身仍走 C ABI。这恰好说明桌面 GUI 绕不开 C。
+- 差异：MoonBit native FFI 把直通 C 做成语言一等公民，编译期链接、编译期检查；我要接的不只是系统 UI 库，还有 Cairo、ffmpeg、wgpu 这些 C 库，编译期绑定更合我的取舍。
 - 生态位：MyGo 让 Go 生态有了桌面，MoonBit 生态还没有，这是我要补的位。
 - 低配：我的基础档明确以 CPU 光栅保底，虚拟机与低配信创机器能跑；MyGo 的原生 UI 走 GPU。这里只说我的取舍，不评价它有没有回退。
 - 反守为攻：MyGo 证明「自绘 + web 范式 + 工具链」这条路是对的，也说明窗口期很短；同一个方向在 Go 生态被验证，MoonBit 生态还没有人做。
@@ -403,7 +404,7 @@ sysmonitor 的用途：
 
 21. MyGo
     - https://github.com/egoist/mygo
-    - 2026-09-26 创建；原生 UI 由自己在 GPU 上绘制，也可嵌 webview；纯 Go 无 cgo；不到两个月 6745 stars，截至 2026-11-23。
+    - 2026-09-26 创建；原生 UI 由自己在 GPU 上绘制，也可嵌 webview；纯 Go 无 cgo（构建期不需要 C 工具链，运行时经 purego 动态绑定系统 C 与 Objective-C 接口）；不到两个月 6745 stars，截至 2026-11-23。
 
 ## 仓库内事实锚点
 
@@ -435,6 +436,7 @@ sysmonitor 的用途：
 
 - 个人体感与外部事实分开说：Python 慢、Rust 与 C++ 难，都是当时的个人判断，不是行业定论。
 - 不贬低 MyGo：用时间窗口、生态位、C 直通三点解释，先承认它做得好；「Go GUI 不成熟」不再作为绝对判断。
+- 「no cgo」不等于「不调 C」：MyGo 运行时经 purego 调用系统 C 与 Objective-C 接口；被问到先讲清这一点，再落到绑定模型差异。
 - 不吹「亚秒热更」：当前是改码自动重编译重启，原位热更在路上。
 - 不吹「已进信创市场」：这是方向与可能性，国产 CPU 与发行版真机验证还没做。
 - 「为 AI 而生」用官方 AI-native 原文加自己的体感，不替官方下定义。
