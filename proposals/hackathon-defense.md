@@ -46,7 +46,7 @@
 | 阶段 | 发生了什么 | 结论 |
 |---|---|---|
 | 四次失败 | Node 配 libui、Node 配 libyue、Electron、Lua 配 libyue | 缺的不是 GUI 库，是一种足够简单的桌面开发方式 |
-| 等语言条件 | AI 还不够、Go 的 MyGo 直到 9 月 26 日才出现、Python 慢且不轻、Rust 与 C++ 有难度 | 等的是一个「语言条件」：简单、AI 友好、直通 C |
+| 等语言条件 | AI 还不够、Go 的 GUI 大多要 cgo、Python 慢且不轻、Rust 与 C++ 有难度 | 等的是一个「语言条件」：简单、AI 友好、直通 C |
 | 遇到 MoonBit | 教程能写简单程序、官方 skill 让 AI 像写 JS、C FFI 直通 | 三个条件第一次同时成立 |
 | 九月第一版 | 以 libyue 为依赖跑通 | 能跑，但原生控件样式不统一、传统范式不够简单 |
 | 十月重写 | 去 libyue、去原生控件、系统渲染引擎自绘 | 跨平台统一、零额外依赖；CPU 光栅打底、GPU 可选加速 |
@@ -73,9 +73,9 @@
 ### 2 等语言条件 · 0:45
 
 - 「后来 AI 来了，但我发现还差一块：语言。」
-- 「我逐个看过：AI 那时还不够强；Go 现在有了 MyGo，但它是 9 月 26 日才出现的，我选型时还没有；Python 慢、也不够轻；Rust 和 C++ 能到性能，但学习和迭代成本高，对我来说不够简单。」
+- 「我逐个看过：AI 那时还不够强；Go 的 GUI 库大多要 cgo，构建门槛高；Python 慢、也不够轻；Rust 和 C++ 能到性能，但学习和迭代成本高，对我来说不够简单。」
 - 「所以我等的其实是一个语言条件：要简单到我能想清楚整个项目，要适合 AI 帮我写，还要能直接接上 C 和 C++ 的底层。」
-- 「而 Go 有 MyGo、Rust 有 gpui、Python 有 Qt——MoonBit 还没有自己的桌面位。这就是我要补的位置。」
+- 「而 Go、Rust、Python 都各有自己的桌面方案——MoonBit 还没有自己的桌面位。这就是我要补的位置。」
 
 ### 3 遇到 MoonBit · 0:55
 
@@ -184,13 +184,14 @@ sysmonitor 的用途：
 **B4 为什么不用 Rust、Go、Python？**
 
 - 先说清这是当时的判断，不是绝对结论。
-- Go：MyGo 是 2026-09-26 才创建的，我 9 月 10 日已用 libyue 跑通第一版，选型时它还不存在；今天它做得很好，见下一题。
+- Go：GUI 库大多要 cgo，构建门槛高；MyGo 是 2026-09-26 才创建的，我 9 月 10 日已用 libyue 跑通第一版，选型时它还不存在；今天它做得很好，见下一题。
 - Python 慢、也不够轻。
 - Rust 的 GUI 生态碎片化：areweguiyet 自己写着「根基不深」，没有共识，也没有成熟易用的全 Rust 方案；编译迭代也慢，对 AI 自纠不友好。
 - C++ 的 Qt 与 GTK 能到性能，但门槛高，不满足「简单」。
 
 **B5 现在有 MyGo 了，为什么不用 Go？★ 新增**
 
+- 先划清时间：MyGo 不在我立项时的选项里，是答辩前的参照；这题只回答「现在有了为什么不用」。
 - 先承认 MyGo 做得好：2026-09-26 创建，不到两个月 6745 stars，截至 2026-11-23；原生 UI 由自己在 GPU 上画，也支持 webview 混合；flexbox 与 grid、输入法、无障碍、无头测试、打包更新一整套，路线和我几乎同构。
 - 时间：它出现时我 9 月 10 日已跑通第一版，十月重写时它才刚起步。
 - 路线：MyGo 的「no cgo」指构建期不引入 C 工具链；运行时它用 purego 动态加载系统库、调用 C 与 Objective-C（macOS 走 objc_msgSend，Linux 走 GTK/WebKitGTK，Windows 走 syscall），本身仍走 C ABI。这恰好说明桌面 GUI 绕不开 C。
@@ -201,7 +202,16 @@ sysmonitor 的用途：
 - 不是首创：purego 2022-05 就有了，Ebitengine 出品；Windows 上 walk 更早用 syscall 调 Win32。但把 purego、GTK/WebKit、Win32、自绘与工具链整合成一个产品，MyGo 是第一个；现有 Go GUI 大多建在 cgo 上，没人有动机推倒重来。
 - AI 的角色：不是 AI 想到 purego，是 AI 把三平台整合的成本打下来——58 天 1640 个 PR，提交记录含大量 AI 共同作者。方向由人判断，产能由 AI 放大，这和我的项目是同一种工作方式。
 
-**B6 对 MoonBit 官方有什么诉求？**
+**B6 cgo 和 MoonBit 的 FFI，哪个更简单？★ 新增**
+
+- 先分维度：只比一行调用，cgo 更简单，`import "C"` 就完事；我说的是把 GTK、Cairo、ffmpeg 这些 C 库接成跨三平台 GUI 库的整条链路。
+- cgo 的复杂度在边界规则：`import "C"` 是伪包，C 代码写在 preamble；Go 指针传给 C 要固定内存，C 不能留指针；回调要 `//export` 生成头文件；`#cgo` 的编译与链接参数按平台散在文件里；交叉编译默认关闭。这些规则都能学会，但每一层都要人记。
+- MoonBit 把 FFI 收进语言与 `moon` 工具链：`extern "c"` 声明、C stub、`native-stub`、`link.native` 在一处配置；`#borrow`/`#owned` 把所有权写进类型；编译期链接，没有 cgo 那层伪包与生成包装。
+- AI 维度：cgo 的规则散在 `cmd/cgo` 文档里，AI 容易漏掉指针与生命周期约束；MoonBit 官方 Agent Skills 把这些规则写成了可照着执行的清单。
+- 也要承认：两者都要本机 C 工具链，MoonBit native 同样不能交叉编译；我不拿构建矩阵说事。
+- 收口：cgo 的简单停在 hello world；MoonBit 的简单是规则集中、显式、AI 可检查，适合一个几十个 C 库的长期项目。
+
+**B7 对 MoonBit 官方有什么诉求？**
 
 - 三条已立项：native 热重载、运行时多模块、native 增量链接。
 - 另外希望官方 skill 持续覆盖 native GUI 与桌面场景。
@@ -402,12 +412,15 @@ sysmonitor 的用途：
     - https://en.wikipedia.org/wiki/Vibe_coding
     - Karpathy 于 2025 年 2 月提出；用自然语言描述任务，由大模型生成代码。
 
-### Go 生态的新变量
+### Go 生态
 
 21. MyGo
     - https://github.com/egoist/mygo
     - 2026-09-26 创建；原生 UI 由自己在 GPU 上绘制，也可嵌 webview；纯 Go 无 cgo（构建期不需要 C 工具链，运行时经 purego 动态绑定系统 C 与 Objective-C 接口）；不到两个月 6745 stars，截至 2026-11-23。
     - 底座 purego 2022-05 创建，Ebitengine 出品；MyGo 58 天 1640 个 PR，提交记录含大量 AI 共同作者。
+22. Go cgo 文档
+    - https://pkg.go.dev/cmd/cgo
+    - cgo 用 `import "C"` 调 C；需 C 编译器，交叉编译默认关闭；Go 指针传递、`//export` 回调、`#cgo` 参数各有规则。
 
 ## 仓库内事实锚点
 
@@ -441,6 +454,7 @@ sysmonitor 的用途：
 - 不贬低 MyGo：用时间窗口、生态位、C 直通三点解释，先承认它做得好；「Go GUI 不成熟」不再作为绝对判断。
 - 「no cgo」不等于「不调 C」：MyGo 运行时经 purego 调用系统 C 与 Objective-C 接口；被问到先讲清这一点，再落到绑定模型差异。
 - 不把 MyGo 说成「AI 的产物」或「purego 首创」：准确说法是「整合第一」——路径的砖块是多年积累，AI 放大的是整合与验证的产能。
+- 比较 cgo 与 MoonBit 先分维度：单行调用 cgo 更简单，整条绑定链路 MoonBit 更简单；不说「cgo 全面更难」，也不说 MoonBit 能交叉编译。
 - 不吹「亚秒热更」：当前是改码自动重编译重启，原位热更在路上。
 - 不吹「已进信创市场」：这是方向与可能性，国产 CPU 与发行版真机验证还没做。
 - 「为 AI 而生」用官方 AI-native 原文加自己的体感，不替官方下定义。
