@@ -198,6 +198,8 @@ sysmonitor 的用途：
 - 生态位：MyGo 让 Go 生态有了桌面，MoonBit 生态还没有，这是我要补的位。
 - 低配：我的基础档明确以 CPU 光栅保底，虚拟机与低配信创机器能跑；MyGo 的原生 UI 走 GPU。这里只说我的取舍，不评价它有没有回退。
 - 反守为攻：MyGo 证明「自绘 + web 范式 + 工具链」这条路是对的，也说明窗口期很短；同一个方向在 Go 生态被验证，MoonBit 生态还没有人做。
+- 不是首创：purego 2022-05 就有了，Ebitengine 出品；Windows 上 walk 更早用 syscall 调 Win32。但把 purego、GTK/WebKit、Win32、自绘与工具链整合成一个产品，MyGo 是第一个；现有 Go GUI 大多建在 cgo 上，没人有动机推倒重来。
+- AI 的角色：不是 AI 想到 purego，是 AI 把三平台整合的成本打下来——58 天 1640 个 PR，提交记录含大量 AI 共同作者。方向由人判断，产能由 AI 放大，这和我的项目是同一种工作方式。
 
 **B6 对 MoonBit 官方有什么诉求？**
 
@@ -405,6 +407,7 @@ sysmonitor 的用途：
 21. MyGo
     - https://github.com/egoist/mygo
     - 2026-09-26 创建；原生 UI 由自己在 GPU 上绘制，也可嵌 webview；纯 Go 无 cgo（构建期不需要 C 工具链，运行时经 purego 动态绑定系统 C 与 Objective-C 接口）；不到两个月 6745 stars，截至 2026-11-23。
+    - 底座 purego 2022-05 创建，Ebitengine 出品；MyGo 58 天 1640 个 PR，提交记录含大量 AI 共同作者。
 
 ## 仓库内事实锚点
 
@@ -437,6 +440,7 @@ sysmonitor 的用途：
 - 个人体感与外部事实分开说：Python 慢、Rust 与 C++ 难，都是当时的个人判断，不是行业定论。
 - 不贬低 MyGo：用时间窗口、生态位、C 直通三点解释，先承认它做得好；「Go GUI 不成熟」不再作为绝对判断。
 - 「no cgo」不等于「不调 C」：MyGo 运行时经 purego 调用系统 C 与 Objective-C 接口；被问到先讲清这一点，再落到绑定模型差异。
+- 不把 MyGo 说成「AI 的产物」或「purego 首创」：准确说法是「整合第一」——路径的砖块是多年积累，AI 放大的是整合与验证的产能。
 - 不吹「亚秒热更」：当前是改码自动重编译重启，原位热更在路上。
 - 不吹「已进信创市场」：这是方向与可能性，国产 CPU 与发行版真机验证还没做。
 - 「为 AI 而生」用官方 AI-native 原文加自己的体感，不替官方下定义。
