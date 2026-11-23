@@ -88,3 +88,6 @@ mng_crash.log
 # 品牌图标导出产物（scripts/gen_brand_icons.py 落点，落位消费点后即弃）
 /.brand-dist/
 .zcode/
+
+# 答辩预案（个人参赛材料，只在本地维护，不入库）
+/proposals/hackathon-defense.md
