@@ -19,6 +19,16 @@
   - NVDA：Windows 的免费屏幕阅读器。
 - Wayland / 桌面环境专属工作：已移交 [proposals/linux-mbt.md](proposals/linux-mbt.md) 规划，不在本队列
   - Wayland：Linux 的新一代窗口显示协议，正逐步取代更老的 X11。
+- 窗口材质调研线：[proposals/window-material.md](proposals/window-material.md) 调研稿已成稿、S1 / S2 探针未跑——跑完再定是否立项；恢复时先把提案文件提交入库
+  - 窗口材质：让系统合成器把窗口背后的桌面实时糊掉的系统级背景模糊，与控件级 backdrop_blur 是两回事。
+
+## 黑客松答辩
+
+- [ ] **决赛收尾**：按 [proposals/hackathon-defense.md](proposals/hackathon-defense.md) 的 7 分钟骨架填 PPT 并彩排
+  - 时间：2026-11-23 发 PPT 模板、11-27 提交、11-28 10:00 答辩，15 分钟含问答。
+  - 待拍板三处：四次失败的措辞、信创段的比重、hello 演示去留。
+  - 彩排：hello 四步演示练一遍并录屏兜底、文末 20 条参考逐条复核、演示机预热 mooncakes 缓存。
+  - mooncakes 缓存：moon 包管理器的依赖下载缓存，演示机提前构建一轮避免现场等下载。
 
 ## CI 与门禁
 
@@ -30,19 +40,26 @@
   - 复现：natigui-linux 容器 `dbus-run-session -- moon test ui`，两次同点稳定红。
 
 
-## Linux 滚动手感治理·真机复验·用户执行
+## 滚动与上屏治理·三平台复验·用户执行
 
-- [ ] **滚动惯性全档开启 + 贴帧带脏区**：代码已合入，按 SC-0.6 复验
-  - 那台 9400 Linux 裸机跑 `moon build examples/envprobe --target native && moon run examples/envprobe/main`，把 GPU 档/容器判定段贴回——确认档位与 L1 可用性
-  - 复验：代码文档页切 Markdown 段滚动——期望惯性滑行与触边回弹可见、不再瞬时跳位；`NATIVEGUI_PROF=1` 起应用滚一轮，把 PROF 行贴回（布局/绘制/上屏占比与条带命中数），残余瓶颈按数收
-  - 判据与回填：SC-0.6 按平台标读数；通过后从本条删除并回写 roadmap ✅
+- [ ] **滚动批与上屏回归**：弹簧惯性、条带脏区、视觉偏移、win DIB 双缓冲、自愈帧已合入，按 SC-0.6 复验
+  - DIB 双缓冲：Windows 上先画到内存位图再一次上屏，避免逐行闪。
+  1. 三平台起 components：打开即有完整画面——灰屏回归判据
+     - 灰屏两修：win 上屏帧对象 Release 移到 Present 之后、mac L1 中途死亡摘 Metal 层回退。
+     - L1：GPU 上屏档，窗口画面经 wgpu 合成上屏的路径。
+  2. mac / Linux 代码文档页 Markdown 段滚动：惯性滑行与触边回弹可见、不再瞬时跳位；Windows 滚动无闪烁
+  3. 滚动中与停止后无横纹，或残影最多 1/3 秒一闪即逝；仍可见则回传三要素——平台、定格还是滚动中出现、复现滚法
+  4. PROF 对比：`NATIVEGUI_PROF=1` 起应用滚一轮贴回 PROF 行——mac / Linux 的 layout 段较修前读数 mac 8ms、Linux 慢段 222ms 应降到个位毫秒；Windows 首采，控制台已接回，采不到时 `NATIVEGUI_LOG_FILE` 落文件
+  5. 那台 9400 Linux 裸机跑 `moon build examples/envprobe --target native && moon run examples/envprobe/main`，把 GPU 档/容器判定段贴回——确认档位与 L1 可用性
+  - 判据与回填：SC-0.6 按平台标读数；C2 即 Linux 文本测量缓存批，按新 PROF 数据定做不做；通过后回写 roadmap ✅
 
 ## 空闲动画与内存治理·真机复验·用户执行
 
 - [ ] **中央动画登记表 + wgpu 每帧对象释放**：代码已合入，按 SC-0.4 / SC-0.5 复验
   - 根因：eff_chart_t 构造期起 50ms 自续涟漪链且不看可见性，离树控件的 invalidate_id 回退整窗，演示板空闲即 21fps 全窗重绘；wgpu L1 present 每帧 swapchain texture / command encoder / render pass encoder 三对象缺失 Release，mac 实测逐帧泄露
   - 改动：gui/ui 新增中央动画登记表，表空即停、离屏停表、on_draw 喂表复活；eff_chart_t / gif / carousel 三组件迁入；stub.c L1 补三处 Release 与 loader 两个符号
-  - mac 本机读数：空闲 CPU 21–28% 降到约 1%，原生泄露 40 秒 2356 个对象归零
+  - mac 本机读数：空闲 CPU 21–28% 降到约 0.1%，原生泄露 40 秒 2356 个对象归零，100 秒 RSS 仅 +48KB 走平
+  - 边界：sysmonitor 真机另有一条残余泄漏与本案不同源，读数勿混判——见开发待办 sysmonitor 条
   - 验证·用户执行：
     1. `cd gui && moon check` 零警告零错误，`moon test chart ui widget shell style render` 零失败
     2. mac 起演示板静置 1 分钟：活动监视器 CPU 个位数百分比、内存无持续上涨
@@ -109,6 +126,11 @@
 - [ ] **Windows LSP 跳转**：Windows 真机 VS Code 里验跳转落点与行号口径
   - LSP：语言服务器协议，编辑器与编译器之间传补全、跳转、诊断的标准通道。
   - 范围：含 hover 的 `moon ide` 桥。
+- [ ] **mng LSP 令牌与跳转批**：`moon install ./tools/native-gui-tools/mng` 重建后 VS Code Reload Window，逐项验
+  1. class 跳转：模板里 class 条目跳到 `<style>` 定义行
+  2. `var(--` 令牌补全：候选带中英文档说明、选中整段替换，不再吐坏 JSON 致提示全失
+  3. 令牌 hover 与语义高亮
+  4. `<ui-scroll-view>` 补全无红、包级组件函数出现在候选
 - [ ] **Windows dev 唤醒**：Windows 下 `mng dev` 唤醒链路真机验证
   - 补充：真机执行。
   - 前置已修：build 派生弃 shell 改 spawn_wait 原生重定向（Windows 实测 cmd 单参引号会吃参数）、source map 落点与 lsp 反查认反斜杠——`mng dev` 在 Windows `run` 留空也应直起，不再报「sh 起不来」与「写不出 source map」。
@@ -235,10 +257,17 @@
 
 ## 开发待办
 
-- [ ] **airtype linux / Windows 真机复验**：执行者：用户执行——mac 已验过（2026-11-22，AT-1.1～3.2 全过）；注入两臂已合入（aa818f71），各平台跑 AT-2.2/2.3/2.7 上屏面
+- [ ] **airtype mac 打包产物复验**：执行者：用户执行——11-22 全链过验当晚又合入 mng 模板化改版与十余笔修复，打包形态未再验
+  1. `mng package` 出 .app，按 `docs/guide/airtype.md` 重置辅助功能授权——删旧授权条目、装固定位置、去隔离属性，2 秒内刷「已授权」
+     - TCC：macOS 的隐私授权数据库，辅助功能授权记在里面；重打包换了可执行路径旧授权不认。
+  2. 首页 / 设置页内容超高时页签内可滚——when 布局幽灵与页面壳链路的验证
+  3. 首启未授权自动弹引导卡；手机连上后状态、地址、已连接数实时刷新
+  4. 手机操作条回车 / 发送 / 快捷 chips / 全屏键与键盘保持——AT-2.11、AT-2.12
+
+- [ ] **airtype linux / Windows 真机复验**：执行者：用户执行——mac 已验过（2026-11-22，AT-1.1～3.2 全过）；注入三臂已合入并升级为全键位模拟（aa818f71、6427c9da），各平台跑 AT-2.2/2.3/2.7 上屏面
   - airtype：手机扫码进网页打字、发送后打进电脑聚焦框的本仓独立应用。
   - 关键面：辅助功能授权引导、扫码连通、中文/emoji/长文上屏、token 门禁、断线重连、密码框边界
-  - 本批新增（2026-11-22）：回车键与发送键两步分立、快捷指令 chips（桌面配置落盘）、亮屏即连与心跳探活——AT-2.6、AT-2.8～2.10
+  - 本批新增（2026-11-22）：回车键与发送键两步分立、快捷指令 chips——配置落 `~/.config/airtype/shortcuts.tsv`、亮屏即连与心跳探活——AT-2.6、AT-2.8～2.10；手机页三段式、全屏键与键盘保持——AT-2.11、AT-2.12
   - linux 限 X11 会话（Wayland 只有 XWayland 应用收得到）；Windows 提权目标窗口不收注入
 
 - [ ] **环境判定库 native-env 真机矩阵**：执行者：用户执行——`cd examples/envprobe && moon run main` 按平台各一遍，逐条对 `测试文档/测试用例.md` 的 EP-1.1～1.7
@@ -246,6 +275,7 @@
   - 已验 2026-11-21 第二轮：company win10 KVM EP-1.3——品牌从 enlightenments 漂移的 hyperv 修正为 bochs，`bios_vendor` 信号补进；库测 27/27；EP-1.6 两遍输出一致 PASS；company 宿主 EP-1.5 半边（裸机 / nvidia Hardware / TTY / 修复后零信号，与 systemd-detect-virt 双 none 一致）；home 宿主 EP-1.5 半边（裸机 / i915 Hardware / 零信号）；home ubuntu-24.04、ubuntu-26.04、kubuntu-24.04 三台 KVM VM（qemu 双硬信号 + mac_oui，GPU Software）——第二轮真机抓出 pidns 常量抄成 IPC inode 与 virbr0 qemu OUI 混信号两 bug 已修，Windows SMBIOS 四通路全断加 HardwareConfig 兜底一缺陷已补
   - 待验：deepin 20.9 / 23.1 / 25.2 三台 KVM VM——virsh 已启动、ARP 有租约，但无 openssh 且停在锁屏，须登录后跑 envprobe；Ubuntu 24.04 编译产物在 20.9 的老 glibc 上起不来，需就地构建
   - 待验：EP-1.3 的 GPU 半边——ssh 会话里 EnumDisplayDevicesW 与 DXGI 都拿不到适配器，须 RDP 或控制台会话跑一次看 QXL 命中 Virtual
+    - 步骤：RDP 进 win10 后跑 `C:\natigui\envprobe.ps1`，脚本已留在 VM。
   - 待验：Windows 真机 EP-1.2
 
 - [ ] **批2 transform 收尾读数**：win / linux 各跑一次 `moon run experiment/anim_cost_bench --release`，把 `rot_90x32` 档读数贴回 roadmap；三端真机观感 2026-11-21 已验，mac 读数 20 帧合计 0ms（与同尺寸裸图元同档）
@@ -262,6 +292,23 @@
   - Linux：CI 的 Linux bare 腿首跑（dev 合入 master 或开 PR 触发），看「占位降级 19 包全绿 + 降级提示 + 守卫跳过」三判定。
   - 无字体 Linux 真机：`FONTCONFIG_FILE` 指向空配置跑任一示例——应见文字真字形（内嵌字体注册生效），非方框或空白。
   - Windows：`moon build --target native` 链接复验（本批未动 Windows 分支，例行确认）。
+
+- [ ] **sysmonitor Linux 残余内存泄漏**：两源修复后真机仍 +0.35 MB/分钟，容器不复现、真机进程多才复现
+  - 已修两源：mac CoreText 字体对象按规格缓存、Linux Pango 排版上下文复用——修复本身有效，残余另源
+  - 已锁定链条：series_push → 订阅者 invalidate → 重绘路径，非图表绘制本身，最可疑重绘中的原生文本绘制
+  - 下一步：跑完中断的对照——`host_repaint_all` 去掉 `@win.wake()`，区分唤醒平台泵与真正重绘谁在漏
+  - 验证·用户执行：修复版真机跑 30 分钟每分钟记 RssAnon，判据预热几分钟后走平
+    - RssAnon：常驻内存里的匿名部分，持续线性增长即泄漏信号。
+  - mac 残余约 +1.2 MB/分钟量级小，随本案一并收口
+
+- [ ] **win sysmon 桩三小修**：`sysmon.c` 两处 DLL 加载器引用漏释放、PDH 查询对象每采样漏一个、nvidia-smi 缓存条件永真致读数不刷新
+  - PDH：Windows 的性能计数器接口，查一次拿一个对象要还。
+  - 验证·用户执行：win 真机跑 sysmonitor 30 分钟，任务管理器看句柄数不增、显卡读数随时间会刷新
+
+- [ ] **Windows 真机 GPU 档行为**：执行者：用户执行——全屏崩溃四轮取证都在 VM 虚拟显卡栈上，真机无读数
+  1. 测 A：真机设 `NATIVEGUI_GPU_LOG=1` 起 hello——日志出 L1 探测通过，全屏 / 缩放观感正常
+  2. 测 B：`git checkout 15ac9682` 重建，重跑全屏进出与缩放——不崩则「尺寸变化永久 CPU 回退」兜底可撤，崩则兜底留终态
+  3. 收尾：`git checkout dev` 回分支
 
 ## 极致光栅与新立项
 
