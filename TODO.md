@@ -1,12 +1,12 @@
 # TODO — 当前进行中的工作
 
-> 只记「待做什么 + 怎么验证」；规划与未来批次见 [docs/zh/reference/roadmap.md](docs/zh/reference/roadmap.md)「已规划」，实测坑与口径见 [experience/adaptation.md](experience/adaptation.md)。完成一项删一项，并同步路线图状态。
+> 只记「待做什么 + 怎么验证」；规划与未来批次见 [docs/reference/roadmap.md](docs/reference/roadmap.md)「已规划」，实测坑与口径见 [experience/adaptation/index.md](experience/adaptation/index.md)。完成一项删一项，并同步路线图状态。
 >
 > 条目格式约定：
 >
 > - 一条只写一件事；复验条目写清执行者与编号步骤
 >   - 执行者：用户执行 / CI。
-> - 进度叙事不进本文件——已做的看 git log，坑与根因看 experience/adaptation.md
+> - 进度叙事不进本文件——已做的看 git log，坑与根因看 `experience/adaptation/`
 > - 状态标记 ✅ / 🚧 / ⏳ 语义见路线图「怎么读」
 > - 行内不用括号补注——术语解释、日期、平台、出处展开为缩进子要点
 > - 专业名词首次出现时紧跟一条大白话解释子要点
@@ -19,18 +19,27 @@
   - NVDA：Windows 的免费屏幕阅读器。
 - Wayland / 桌面环境专属工作：已移交 [proposals/linux-mbt.md](proposals/linux-mbt.md) 规划，不在本队列
   - Wayland：Linux 的新一代窗口显示协议，正逐步取代更老的 X11。
-- 窗口材质调研线：[proposals/window-material.md](proposals/window-material.md) 调研稿已成稿、S1 / S2 探针未跑——跑完再定是否立项；恢复时先把提案文件提交入库
+- 窗口材质调研线：[proposals/window-material.md](proposals/window-material.md) 调研稿已成稿未入库；下一步写 S1 / S2 两支探针，真机执行归用户——过了再定是否立项
   - 窗口材质：让系统合成器把窗口背后的桌面实时糊掉的系统级背景模糊，与控件级 backdrop_blur 是两回事。
+  - S1：mac 上系统模糊视图能否贴在自绘窗后面——桌面透出且被糊、本窗内容不被糊。
+  - S2：Windows 11 上系统 backdrop 与无边框、分层窗、GPU 上屏档是否兼容。
+  - 门槛：S1 与 S2 过了才立项；S3 Windows 10 与 S4 KDE 是加分项，S5 Wayland 只记录。
 
 ## 待拍板与悬件
 
-- [ ] **全窗 3D 直出 + 三档降级**：两次请示未回——要么按判据补进 roadmap「已规划」，要么明确不做
-  - 全窗 3D 直出：整个窗口画面由 GPU 的 3D 管线直接绘制，不再 CPU 光栅合成。
-  - 三档降级：GPU 全速、软件回退、诚实报不可用，逐级退。
-  - 立项判据三条件同时满足：真实产品页需要逐帧 3D、profile 绕路每帧超 5ms 且占帧预算三成以上、L2 已立项。
+- [ ] **GPU 档契约线**：win10 排障会话里两组请示均未拍板——做哪几件待定
+  - 三个动作：「env 库单源 + 全窗 3D 直出 + 三档降级」写进 roadmap「已规划」；真机测 B 排进真机清单，已排见开发待办；VM 检测代码迁进 native-env。
+  - 落地四件：三条铁律加能力矩阵写进 roadmap 作对外承诺；`native-gui-design` skill 加效果分级；`l1_probe` 与 Linux VM 闸的内联检测迁到 native-env 单源化；L1 对 GDI 两档 A/B 上屏探针。
+  - env 库单源：虚拟机与 GPU 档的判定只在 native-env 留一份，C 桩里 Windows 与 Linux 两段内联检测删掉——现状两套并存，这台 VM 第一版关键词漏判就是漂移的教训。
+  - 效果分级：GPU 档的观感加成必须有 CPU 档等价简化版，任何界面不允许只有 GPU 档才好看才可用。
+  - 全窗 3D 直出：整个窗口画面由 GPU 的 3D 管线直接绘制，不再 CPU 光栅合成；独立小批，不必等 L2。
     - L2：控件级 GPU 渲染档，比只管上屏的 L1 更进一步。
+  - 附带可选项：`NATIVEGUI_GPU_FORCE=1` 逃生开关——让 VM 也能强制开 GPU 档测重配，随真机测 B 结果一起定。
 - [ ] **native-env 是否发 mooncakes**：独立成库的成立前提是对外发布，至今未正式拍板——发布前需定
   - mooncakes：MoonBit 的官方包仓库，别人用 moon 命令从这里装依赖。
+- [ ] **窗口状态记忆的 roadmap 口径**：标 ✅ 却挂着「待验：真机清单」，用例文档没有对应条目，示例也没接 `remember_geometry`——没有真机入口
+  - 窗口状态记忆：关窗前记下位置、尺寸与最大化档，下次开窗恢复。
+  - 待定：补一个示例入口后写真机清单验收，或改 ⏳ 并进「mng new 脚手架接会话恢复」那条一起做。
 - [ ] **D:\ 那台 Windows 机工具链升级**：执行者：用户执行——该机 moon 低于 0.1.20261117，构建报 StringBuilder capacity 错
   1. `moon upgrade -f` 后 `moon version` 确认到 0.1.20261117 或更新
   2. `git pull` 后 `moon check` 不再报 StringBuilder capacity 错即闭环
@@ -46,6 +55,11 @@
 
 ## CI 与门禁
 
+- [ ] **`gui/moon.mod` 的 `homepage` 键告警**：本机 `cd gui && moon check` 输出 `Warning: Unknown configuration key homepage`，与门禁「零错误零警告」不符；workspace 内任一模块的 `moon check` 都带出这行
+  - 根因：`homepage` 写在 `options(...)` 块里，工具链 0.1.20261119 不认；实测挪到顶层直接报错 `Unexpected key 'homepage'`——这个键没有合法写法。
+  - 漏拦原因：`moon check` 退出码仍是 0，按退出码判绿的检查项拦不住；此前各批门禁读数没有数到这行。
+  - 修法：删 `options(...)` 里的 `homepage` 一行，仓库地址已有 `repository` 字段。
+  - 收尾：`experience/adaptation/linux.md` 2026-11-21 那条「非库缺陷、升级工具链的机器会看到」的口径改掉；修后 `gui` 与 `tools/native-gui-tools` 两处 `moon check` 输出不含 Warning。
 - [ ] **gui-media video_wbtest mac 本机失败**：用例「VideoPlayer 时钟同轴：回退 fps 不影响时间轴」——回拨 500ms 后位置 0.613 / 0.633，稳定复现；Windows CI 每轮跑且过，Linux / mac 腿不跑 gui-media test 故从未暴露
   - 范围：CI 未覆盖的组合。
   - 边界：期望窗 0.45–0.55，即期望位置区间。
@@ -53,10 +67,12 @@
   - 范围：他人批次的既有缺口，非当批引入。
   - 复现：natigui-linux 容器 `dbus-run-session -- moon test ui`，两次同点稳定红。
 
-
 ## 滚动与上屏治理·三平台复验·用户执行
 
 - [ ] **滚动批与上屏回归**：弹簧惯性、条带脏区、视觉偏移、win DIB 双缓冲、自愈帧已合入，按 SC-0.6 复验
+  - 条带脏区：滚动时只重画新露出的那一横条，其余整条平移复用。
+  - 视觉偏移：滚动位移只改画的位置，不重新排版，滚动帧不再作废布局缓存。
+  - 自愈帧：滚动停住后补画一帧整视口，抹掉条带平移累积的残影；现滚动中每 40 拍也补一帧。
   - DIB 双缓冲：Windows 上先画到内存位图再一次上屏，避免逐行闪。
   1. 三平台起 components：打开即有完整画面——灰屏回归判据
      - 灰屏两修：win 上屏帧对象 Release 移到 Present 之后、mac L1 中途死亡摘 Metal 层回退。
@@ -64,6 +80,7 @@
   2. mac / Linux 代码文档页 Markdown 段滚动：惯性滑行与触边回弹可见、不再瞬时跳位；Windows 滚动无闪烁
   3. 滚动中与停止后无横纹，或残影最多 1/3 秒一闪即逝；仍可见则回传三要素——平台、定格还是滚动中出现、复现滚法
   4. PROF 对比：`NATIVEGUI_PROF=1` 起应用滚一轮贴回 PROF 行——mac / Linux 的 layout 段较修前读数 mac 8ms、Linux 慢段 222ms 应降到个位毫秒；Windows 首采，控制台已接回，采不到时 `NATIVEGUI_LOG_FILE` 落文件
+     - PROF：帧耗时账本，每 2 秒打一行；layout 段即排版耗时。
   5. 那台 9400 Linux 裸机跑 `moon build examples/envprobe --target native && moon run examples/envprobe/main`，把 GPU 档/容器判定段贴回——确认档位与 L1 可用性
   - 判据与回填：SC-0.6 按平台标读数；C2 即 Linux 文本测量缓存批，按新 PROF 数据定做不做；通过后回写 roadmap ✅
 
@@ -158,9 +175,22 @@
      - 范围：只改字面量。
   3. components「事件与布局」页给 `hover_group` 挂 `class=[style(padding=14.0)]` 条目，内缩应按 class 走
      - 优先级：散参数 < class。
+- [ ] **检查器真机清单**：按 `测试文档/测试用例.md` 1.5 节 HL-5.1～5.4、5.6～5.9 与 A11Y-9 走，HL-5.5 已撤销
+  - 检查器：开发期看界面控件树、读数与样式的工具；独立窗口连应用内的检查服务，与 mngui 向导壳同一可执行，mng 二进制不链 GUI 库。
+  - HL-5.1～5.2：`mng dev` 起 hello 后 `mng inspect tree` / `shot` / `style <id>` 三命令取数；不经 `mng dev` 起的应用 inspect 连不上——未注入零监听。
+    - TSV：制表符分隔的行文本，一行一条记录。
+  - HL-5.3～5.4：`mng mcp` 的 initialize / tools/list / tools/call 三行 stdio 全链，含 `--run` 自拉起应用。
+    - MCP：让 AI 助手调外部工具的标准协议；stdio 即走标准输入输出。
+  - HL-5.6～5.7：`mng inspect --gui` 图形检查器——左树约 1 秒自动刷新、选中在 hello 上出高亮框并跟随、样式五字段表单直改、拖动与点击不卡。
+  - HL-5.8：默认树每个模板标签一行、自定义组件也是一行；「内部实现」开关与 `tree --full` 行数对照。
+  - HL-5.9：应用窗按 ⌘⌥I 或 F12 开关附窗，树里是应用窗自己的控件；叉掉再按能重开；样式表单「应用」「还原」生效。
+  - A11Y-9：读屏听 hello 模板页，组件根朗读为组节点、名字报模板标签——三平台读屏器各跑一遍。
+  - 附：Windows 管道臂由 CI Windows 腿回证。
 
 ## 示例与控件复验·用户执行
 
+- [ ] **示例矩阵真机冒烟**：`examples/components`、`examples/system`、`examples/canvas`、`examples/hello` 四示例各起一次，侧栏页逐页点开——起得来、不空白、不崩
+  - 背景：showcase 收拢改名为 components，新增 system 与 canvas，hello 改 mng 单文件入门样例；roadmap 该条挂「待验：真机冒烟」。
 - [ ] **布局缺省对齐 web**：窗根竖排顶层撑满窗宽、行容器子项缺省撑满行高，按 TP-1.2 与 SC-6.5 走
   - Stretch：flexbox 交叉轴拉齐——子项沿垂直于排列方向的轴撑满容器。
   1. `moon run examples/theme-playground` 起窗拖宽再缩回——四张卡左右随窗拉伸铺满内容区，不留右侧空白带
@@ -172,13 +202,26 @@
      - 需居中的容器显式传 `align_items=Center`。
 - [ ] **新窗首帧**：`cd examples/hello` 依次开三档子窗，**不动鼠标**每扇窗内容立即可见
   - 回归判据：不再白屏等鼠标。
-- [ ] **托盘单色**：浅色 / 深色模式下看 hello / 内置托盘图标——纯黑 / 纯白剪影、留白收紧；mac 为模板图；Windows / Linux 跟随系统明暗换黑白
+- [ ] **托盘图标与右键菜单**：hello 按 HL-3.1～3.3、system 按 SC-11.6 走，三平台各一遍
   - 托盘：系统桌面上通知区域的小图标，点它弹菜单。
-  - mac 模板图：颜色由系统按菜单栏实际明暗自动反色。
+  - 图标：纯月兔剪影——只有兔子头脸、不带窗口；浅色 / 深色模式下纯黑 / 纯白剪影，Windows / Linux 跟随系统明暗换黑白。
+    - mac 模板图：颜色由系统按菜单栏实际明暗自动反色。
+  - 右键菜单 hello：右键托盘弹「关于窗 / 分隔线 / 退出」；「关于窗」开一次关于窗再点收一次；「退出」整应用退出、托盘图标不残留。
+  - 右键菜单 system：右键菜单默认已挂且选中项回调跑到——「冒个提示 / 退出」。
+  - 背景：右键菜单此前全仓没有任何示例真挂过——库能力在、示例层从未接线，hello 与 system 两处补挂已合入。
+- [ ] **品牌图标透明底**：图标导出管线换掉后全档重导，三处肉眼看一遍
+  1. 无痕窗口打开文档站：标签页图标周围无白块，16px 小图是实心蓝窗加粉兔脸
+  2. GitHub 仓库页 README 头图：白底上无白框，窗口轮廓清楚
+  3. 文档站导航栏 logo：浅色 / 深色模式各看一眼
+  - 背景：旧导出管线把透明区压成不透明白底，icns / ico / png / favicon 全档都带白框；验证透明要看像素 alpha，不能只看文件带不带 alpha 通道。
 - [ ] **hello 开关窗**：同一档按钮「打开 → 关闭」单例；子窗标题栏关闭后 ≤200ms 按钮回「打开」；提示语为单页组件与开发工具说明、无热更字样
   - 判据：重复点不叠加。
-- [ ] **sysmonitor 改版**：六项菜单、右栏 <400 横向滚动、CPU 各核小图换行、网络只列实体网卡、磁盘无 loop / 光驱 / 网络盘、显卡页无温度段、进程页搜索 / 结束 / 中文状态 / 列宽拖动 / 表格填满
-  - 菜单内容：含 CPU 型号 / 内存品牌频率 / 多显卡名称行。
+- [ ] **sysmonitor 改版**：按 `测试文档/测试用例.md` 第 9 节 SM-1.1～1.7、SM-2.1～2.6、SM-3.1～3.7 走
+  - 左栏六项菜单：处理器 / 内存 / 网络 / 磁盘 / 显卡 / 进程；右栏窄于 400 时横向滚动；CPU 各核小图换行。
+  - 左栏精简：CPU 与显卡型号移到右栏详情页；内存只留利用率 / 物理内存 / SWAP；磁盘只留「读」「写」两行速率，不再逐行列挂载点。
+  - 右栏：网络只列实体网卡；磁盘无 loop / 光驱 / 网络盘；显卡页无温度段。
+  - 进程页：搜索 / 结束 / 中文状态 / 列宽拖动 / 表格填满；按钮后新增「内存 RSS」读数——未选中显示「—」，选中显示该行数值，多选只取第一行，搜索排序后读数仍对应当前选中行。
+  - 重点回看：左栏是否清爽、磁盘读写速率与磁盘详情页一致、其它交互没退化。
 - [ ] **窗口功能迁 hello**：hello 整页纵滚——mng 入门页 → 基本窗口示例 → 三段窗口功能；透明测试窗卡片外**透出桌面不呈黑底**；components 侧栏不再有「窗口」页；用例 HL-4.1~4.3
   - 三段窗口功能：窗口 API / 多窗口 / 透明度，瘦身定案。
   - 透明度段无「背景穿透」按钮，主窗不提供。
@@ -187,12 +230,16 @@
 - [ ] **模板 v-for**：components「数据展示」页「模板列表」段按 SC-4.11 走——加 / 删首 / 清空、行序一致、无残影；`mng dev` 下改 `vfor_demo` 行模板应 `[HOT→COLD]` 带原因重启
 - [ ] **项目级 build 与 dev watch**：
   1. `cd examples/components && moon run ../../tools/native-gui-tools/mng -- build`：应列全部模板 OK 且 `moon check` 过
-     - 注意：会把 dev 形态生成码覆盖成生产形态，验完 `git checkout` 生成码或跑一轮 dev 恢复。
+     - 生成码会被覆盖成生产形态；CI 对账认 dev / 生产两种形态任一，直接提交也过，要回 dev 形态跑一轮 `mng dev`。
   2. `mng dev` 跑着时新建 `.mng` → 日志 `[NEW]` 并自动重启；删除 → `[GONE]` 清生成码；改 `main.mbt` → `[SRC]` 并重启
+  3. 双形态提交：把生产形态生成码推一次，CI 生成物对账腿应过
+     - 执行者：CI。
+     - 双形态：同一份生成码文件，`mng dev` 写热更形态、`mng build` 写生产形态。
 - [ ] **hello mng 冒烟**：`moon run examples/hello` 起窗，按 HL-1.x 输入名字 / 步进计数 / 重置；同目录 `mng dev` 改 `hello.mng` 保存看声明页热更
   - 用例：HL-1.4。
 - [ ] **热更真机复验**：
   - 环境：`cd examples/hello`，`mng.toml` 已提交。
+  - 平台：下列步骤走 mac；`<style>` 段布局属性样式化另需 Linux 真机走一遍。
   1. `moon run ../../tools/native-gui-tools/mng -- dev` 起应用
   2. 改 `hello.mng` 标题 / 提示字面量保存 → HOT
      - 读数：mng 日志 `[HOT] 补丁已推送`、应用日志 `HELLO-DEV: 模板补丁已应用`；`<style>` 类规则的字号 / 颜色值随保存热更
@@ -202,9 +249,11 @@
      - 判据：状态保活。
   6. v-for 面：`cd examples/components` 起 `mng dev`，改 `pages/vfor_demo.mng` 行模板应 `[HOT→COLD]` 带原因重启
      - 用例：SC-6.6。
-- [ ] **编辑器真机复验**：`cd tools/vscode-mng && npx @vscode/vsce package` 打 0.2.9 vsix 安装 → Reload Window，按 `tools/vscode-mng/README.md` 清单走——语义着色、TextMate 着色、snippets、补全、Problems 诊断、hover、跳转、命令面板「MNG: 新建页面」
+- [ ] **编辑器真机复验**：`cd tools/vscode-mng && npx @vscode/vsce package` 打 0.2.15 vsix 安装 → Reload Window，按 `tools/vscode-mng/README.md` 清单走——语义着色、TextMate 着色、snippets、补全、Problems 诊断、hover、跳转、命令面板「MNG: 新建页面」
   - vsix：VS Code 插件安装包格式。
   - 覆盖安装加 `--force`。
+  - 平台：清单走完 mac，另在 Linux 装一次 VSIX 走一遍。
+  - 插件图标：扩展栏里图标为新构图——实心蓝窗加粉兔，无白底。
   - 语义着色分档：类型 / 变量 / 参数 / 函数 / 方法 / 命名空间。
   - 主题未开语义高亮需设 `editor.semanticHighlighting.enabled: true`。
 - [ ] **样式补全观感**：components「过渡与效果」页与 canvas「画布与富文本」页：
@@ -224,6 +273,11 @@
   - 平台：mac。
   - 缺省：`urgent=true` 为缺省档。
   - 其余平台读数：Linux 报 `dbus`、Windows 报 `win-balloon`。
+- [ ] **终端控件真机验收**：控件已合入但没挂进任何示例，没有真机入口——先在 components 挂一页，挂完按下列面验
+  - 终端控件：库里的 `terminal`，等宽网格显示命令行文字，喂文本即可用。
+  - 验收面：16 / 256 / truecolor 三档着色；转义控制串清洗后不花屏；回看缓冲、滚动条与拖选；键入经 `on_input` 出口回显。
+    - truecolor：一千六百多万色的完整彩色。
+    - 回看缓冲：滚上去还能看到的历史输出行。
 
 ## 发布与更新复验·用户执行
 
@@ -239,6 +293,7 @@
   - adhoc 签名：没有开发者证书的临时签名。
   - Gatekeeper：macOS 的应用安全门，拦未核验的应用，右键打开可放行。
   - Dock 图标：由 assets/icon.png 派生。
+  - 图标源：`examples/components/assets/icon.png` 已换透明底新构图，旧 `.mng/dist` 是陈货——须重跑后再看 `.app` 图标。
 - [ ] **A2 更新器·Linux 腿收口**：
   1. `mng package` 出新版载体
      - 自检：构建前自检三行一致——`git log -1`、`grep ^version mng.toml`、`grep app_version appmeta/appmeta.gen.mbt`。
@@ -265,7 +320,7 @@
 ## 品牌与插画
 
 - [ ] **库内置托盘图标**：system「系统集成」托盘段点「回库内置」——托盘图标应为新版，三平台各看一眼；发 0.4.0 与否用户定
-  - 新版样式：玫红双耳 + 靛蓝窗口。
+  - 新版样式：纯月兔剪影——只有兔子头脸，窗口撤出，与单色定案一致；图标观感详见「示例与控件复验」的「托盘图标与右键菜单」条。
 - [ ] **情景插画**：README 头图 / 文档站首页「兔子坐在电脑前」叙事版
   - 批次：第二批。
 
@@ -274,12 +329,16 @@
 - [ ] **airtype mac 打包产物复验**：执行者：用户执行——11-22 全链过验当晚又合入 mng 模板化改版与十余笔修复，打包形态未再验
   1. `mng package` 出 .app，按 `docs/guide/airtype.md` 重置辅助功能授权——删旧授权条目、装固定位置、去隔离属性，2 秒内刷「已授权」
      - TCC：macOS 的隐私授权数据库，辅助功能授权记在里面；重打包换了可执行路径旧授权不认。
-  2. 首页 / 设置页内容超高时页签内可滚——when 布局幽灵与页面壳链路的验证
+  2. 首页 / 设置页内容超高时页签内可滚——条件显示的宿主壳会顶断高度收缩链，去壳后才能滚
+     - 宿主壳：条件显示给内容包的一层容器；它按内容自然撑高、不收缩，滚动视口就拿到完整内容高、永远不裁剪。
   3. 首启未授权自动弹引导卡；手机连上后状态、地址、已连接数实时刷新
-  4. 手机操作条回车 / 发送 / 快捷 chips / 全屏键与键盘保持——AT-2.11、AT-2.12
+  4. 手机操作条回车 / 发送 / 快捷指令 / 全屏键与键盘保持——AT-2.11、AT-2.12
+  - 范围：同批还有 tabs 面板放开最小高、滚动容器 class 的排布属性自动落内容壳、页面壳宽高钉满三笔库级改动，对所有 mng 应用生效——components 顺带过一遍页签切换与滚动容器留白
+  - 收尾：工作区里未提交的 `apps/airtype/mng.toml` `[package]` 段与 `appmeta/` 生成码，验完定是否入库
 
-- [ ] **airtype linux / Windows 真机复验**：执行者：用户执行——mac 已验过（2026-11-22，AT-1.1～3.2 全过）；注入三臂已合入并升级为全键位模拟（aa818f71、6427c9da），各平台跑 AT-2.2/2.3/2.7 上屏面
+- [ ] **airtype linux / Windows 真机复验**：执行者：用户执行——mac 已验过（2026-11-22，AT-1.1～3.2 全过）；注入三臂已合入并升级为全键位模拟，各平台跑 AT-2.2/2.3/2.7 上屏面
   - airtype：手机扫码进网页打字、发送后打进电脑聚焦框的本仓独立应用。
+  - 出处：提交 aa818f71、6427c9da。
   - 关键面：辅助功能授权引导、扫码连通、中文/emoji/长文上屏、token 门禁、断线重连、密码框边界
   - 本批新增（2026-11-22）：回车键与发送键两步分立、快捷指令 chips——配置落 `~/.config/airtype/shortcuts.tsv`、亮屏即连与心跳探活——AT-2.6、AT-2.8～2.10；手机页三段式、全屏键与键盘保持——AT-2.11、AT-2.12
   - linux 限 X11 会话（Wayland 只有 XWayland 应用收得到）；Windows 提权目标窗口不收注入
@@ -287,19 +346,17 @@
 - [ ] **环境判定库 native-env 真机矩阵**：执行者：用户执行——`cd examples/envprobe && moon run main` 按平台各一遍，逐条对 `测试文档/测试用例.md` 的 EP-1.1～1.7
   - 已验 2026-11-21 第一轮：mac 本机 EP-1.1（裸机 / Metal Hardware）；company Linux 容器 EP-1.4（docker 命中、宿主裸机、无渲染节点 Software）——本条真机抓出容器信号漏进 VM 判定一 bug 已修
   - 已验 2026-11-21 第二轮：company win10 KVM EP-1.3——品牌从 enlightenments 漂移的 hyperv 修正为 bochs，`bios_vendor` 信号补进；库测 27/27；EP-1.6 两遍输出一致 PASS；company 宿主 EP-1.5 半边（裸机 / nvidia Hardware / TTY / 修复后零信号，与 systemd-detect-virt 双 none 一致）；home 宿主 EP-1.5 半边（裸机 / i915 Hardware / 零信号）；home ubuntu-24.04、ubuntu-26.04、kubuntu-24.04 三台 KVM VM（qemu 双硬信号 + mac_oui，GPU Software）——第二轮真机抓出 pidns 常量抄成 IPC inode 与 virbr0 qemu OUI 混信号两 bug 已修，Windows SMBIOS 四通路全断加 HardwareConfig 兜底一缺陷已补
-  - 待验：deepin 20.9 / 23.1 / 25.2 三台 KVM VM——virsh 已启动、ARP 有租约，但无 openssh 且停在锁屏，须登录后跑 envprobe；Ubuntu 24.04 编译产物在 20.9 的老 glibc 上起不来，需就地构建
+  - 待验：deepin 20.9 / 23.1 / 25.2 三台 KVM VM——没装 openssh，须登录后在桌面终端跑 envprobe；Ubuntu 24.04 编译产物在 20.9 的老 glibc 上起不来，需就地构建
+    - 采法：登录任一台后在桌面终端粘贴 `for p in /home/noahliu/vm-share /mnt; do [ -x "$p/envprobe" ] && "$p/envprobe" | tee "$p/envprobe.out" && break; done`，输出写回 vm-share，宿主侧直接读。
+    - 预期：25.2 能直接跑；23.1 / 20.9 报 GLIBC 版本不够，本身是分发地板的有效读数。
+    - 11-22 网络已改：home 宿主与 7 台 VM 全切到网桥 br0 直连路由器——宿主 192.168.0.38、deepin-25.2 与 20.9 运行中、mac 可直连；其余五台开机后自动拿新地址。
   - 待验：EP-1.3 的 GPU 半边——ssh 会话里 EnumDisplayDevicesW 与 DXGI 都拿不到适配器，须 RDP 或控制台会话跑一次看 QXL 命中 Virtual
-    - 步骤：RDP 进 win10 后跑 `C:\natigui\envprobe.ps1`，脚本已留在 VM。
-  - 待验：Windows 真机 EP-1.2
+    - 步骤：RDP 进 company win10 后跑 `C:\natigui\envprobe.ps1`，脚本已留在 VM。
+  - 待验：EP-1.5 的另一半——无渲染节点的 Linux 裸机应报 Software；现有两台宿主都有渲染节点，只验了 Hardware 半边
+  - 待验：Windows 真机 EP-1.2；home 的 win10 VM 一直没测
+  - 环境待办·用户执行：home 宿主本地终端删掉被带起来的 Wi-Fi 热点配置——`sudo nmcli connection delete 186840f1-478a-4e62-97eb-7ce29e1be10e`；home win10 开机拿到 192.168.0.x 后同步 ssh 别名。
 
 - [ ] **批2 transform 收尾读数**：win / linux 各跑一次 `moon run experiment/anim_cost_bench --release`，把 `rot_90x32` 档读数贴回 roadmap；三端真机观感 2026-11-21 已验，mac 读数 20 帧合计 0ms（与同尺寸裸图元同档）
-
-- [ ] **检查器 GUI 工具**：mngui 加 --inspect 模式（仿 Chrome DevTools 的独立检查器窗），mng inspect --gui 纯 hop
-  - 检查器工具：独立窗口连应用内的检查服务，看树、读数与样式；与 mngui 向导壳同一可执行，mng 二进制不链 GUI 库。
-  - 入口：`mng inspect --gui [--app <id>]` → hop 到 `mngui --inspect [--app <id>]`；裸跑 `mngui --inspect` 亦可。
-  - 界面：左栏缩进控件树（点击选中、300ms 自动刷新）；右栏详情读数（kind/role/name/id/parent/state/value/text/rect/enabled）+ 样式分组（七组全量已设字段）；选中行发 `highlight <id>` 在目标应用上画高亮框。
-  - 服务端：`style` 命令扩为全部已设字段（分组输出）；新增 `highlight <id>` 命令（overlay 高亮框、widget 层命中穿透）。
-  - 验证：本机编译面门禁全绿即 🚧已合入待真机；真机开窗连 hello 看树/选中/高亮。
 
 - [ ] **A6 CPU/GPU 像素对拍**：比对器本体单独立项（与「无头像素快照基线」合并）；随控件级 GPU 批的用例扩面已随 SC-16.8/16.9 落
 - [ ] **无头化收尾真机复验**：执行者：用户执行
@@ -309,13 +366,16 @@
 
 - [ ] **sysmonitor Linux 残余内存泄漏**：两源修复后真机仍 +0.35 MB/分钟，容器不复现、真机进程多才复现
   - 已修两源：mac CoreText 字体对象按规格缓存、Linux Pango 排版上下文复用——修复本身有效，残余另源
+    - CoreText / Pango：macOS 与 GTK 各自的系统文字排版引擎。
   - 已锁定链条：series_push → 订阅者 invalidate → 重绘路径，非图表绘制本身，最可疑重绘中的原生文本绘制
+    - 读法：曲线推点后通知订阅者标脏、触发重绘，漏在重绘这一步。
   - 下一步：跑完中断的对照——`host_repaint_all` 去掉 `@win.wake()`，区分唤醒平台泵与真正重绘谁在漏
   - 验证·用户执行：修复版真机跑 30 分钟每分钟记 RssAnon，判据预热几分钟后走平
     - RssAnon：常驻内存里的匿名部分，持续线性增长即泄漏信号。
   - mac 残余约 +1.2 MB/分钟量级小，随本案一并收口
 
 - [ ] **win sysmon 桩三小修**：`sysmon.c` 两处 DLL 加载器引用漏释放、PDH 查询对象每采样漏一个、nvidia-smi 缓存条件永真致读数不刷新
+  - DLL 加载器引用：Windows 每加载一次系统库记一笔引用，用完要还，不还会攒句柄。
   - PDH：Windows 的性能计数器接口，查一次拿一个对象要还。
   - 验证·用户执行：win 真机跑 sysmonitor 30 分钟，任务管理器看句柄数不增、显卡读数随时间会刷新
 
@@ -329,6 +389,9 @@
 - [ ] **混合 DPI 真机复验**：执行者：用户执行——HL-4.5 / HL-4.6
   - 已合入 2026-11-21：三处口径统一——MoonBit 层与 C 桩账本逻辑单位、帧位图恒物理像素、窗级因子 `Window::scale` 每帧现读，定案见 proposals/mixed-dpi-scaling.md；库测 1516/1516、mac 三桩语法门禁、原生链接与示例链接通过，行为变化预告——mac Retina 上既有窗口从入参一半点数变入参原值点数，与 win / Linux 对齐。
   - 待验：Windows 125% / 150% 各起一次 hello——窗口逻辑尺寸与 100% 一致、文字不虚、命中不偏（虚拟屏改系统缩放即可，不依赖高分屏）；单屏改缩放档触发 `WM_DPICHANGED` 的自动重排重采样（跨屏拖动的替代口径）；mac 1x / 2x 屏间拖动——待有 1x 外接屏补验；Linux X11 冒烟零变化。
+  - 开放点：Linux 放大变换下的字形清晰度待真机确认——`GDK_SCALE=2` 起 hello 看文字是否发糊。
+  - 已知一次性现象：旧 `window_state.json` 存的是旧口径坐标，升级后首次读回位置偏移，首版不迁移。
+  - 恢复时核对：提案「批 2 收尾」三项——几何记忆口径、裸位图直绘族调用方、条带快路径在变换下的源目标口径——实施记录里没提是否已做。
 
 - [ ] **数据驱动局部重绘批 2 / 3**：批 1（订阅回调按控件标脏）已合入——`follow_store_at` 全库 50 处组件根绑定、when 族与 swap_node 显隐按矩形标脏、chart 数据变更随通道收窄；剩批 2 chart 悬停与图例（交互类 invalidate）、批 3 点击成交 Up / GIF / 拖放兜底与文本自适应宽的标脏余量（`text_dyn` / `relabel`）
   - 批 1 判据：`experiment/frame_cost_probe` 的 `paint_full` vs `paint_clip` 读数（mac 10～15 倍差值已采，Windows 待补）+ SC-7.3 真机无闪烁。
