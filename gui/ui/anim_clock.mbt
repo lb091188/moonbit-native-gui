@@ -38,6 +38,10 @@ let g_anim_entries : Map[Int32, AnimEntry] = Map([])
 let g_anim_wake : Ref[Int64] = Ref(-1L)
 
 ///|
+/// 蹭帧档的在飞标记：帧时钟已经在走时，本表不再另排定时器。
+let g_anim_frame_armed : Ref[Bool] = Ref(false)
+
+///|
 /// 在飞拍排出时所处的定时器钩子代次。拍挂在钩子通道上，通道被整体换掉
 /// （测试装自己的钩子队列是常态）排队拍就丢了——代次对不上即在飞标记
 /// 不可信，重排自愈。
@@ -111,6 +115,20 @@ fn anim_clock_reschedule(now : Int64) -> Unit {
     return
   }
   if g_anim_wake.val == next_wake && g_anim_wake_gen.val == @shell.timer_hooks_generation() {
+    return
+  }
+  // 本帧已经在走（滚动等场合）：蹭帧对齐，不再排定时器——帧本来就要发生，
+  // 不额外抬唤醒率；空闲时照旧走自己的定时器（慢动画不抬高唤醒率的原口径）
+  if @shell.frame_clock_ready() && @shell.frame_clock_pending() {
+    g_anim_wake.val = next_wake
+    g_anim_wake_gen.val = @shell.timer_hooks_generation()
+    if !g_anim_frame_armed.val {
+      g_anim_frame_armed.val = true
+      @shell.frame_clock_request(fn(_now) {
+        g_anim_frame_armed.val = false
+        anim_clock_beat()
+      })
+    }
     return
   }
   let delay = (next_wake - now).to_int()

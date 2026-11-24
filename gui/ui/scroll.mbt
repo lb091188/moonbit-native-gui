@@ -321,7 +321,23 @@ fn ScrollState::start_tick(self : ScrollState, now : Int64) -> Unit {
   self.anim_v = 0.0
   self.anim_x = self.offset
   self.anim_last = now
-  self.tick(self.tick_gen)
+  // 帧时钟可用就等下一帧（刷新对齐）；否则沿用 8ms 定时器、第一拍即刻
+  if @shell.frame_clock_ready() {
+    self.schedule_next(self.tick_gen)
+  } else {
+    self.tick(self.tick_gen)
+  }
+}
+
+///|
+/// 排下一拍：帧时钟可用时挂到下一帧，否则按 8ms 定时器。
+fn ScrollState::schedule_next(self : ScrollState, gen : Int32) -> Unit {
+  if @shell.frame_clock_ready() {
+    @shell.frame_clock_request(fn(target_ms) { self.tick_at(gen, target_ms) })
+  } else {
+    let g = gen
+    let _ = @shell.set_timeout(SCROLL_ANIM_TICK_MS, fn() { self.tick(g) })
+  }
 }
 
 ///|
@@ -346,9 +362,15 @@ fn ScrollState::release_bounce(self : ScrollState, gen : Int32) -> Unit {
 }
 
 ///|
+/// 一拍（定时器回退档）：取当前墙钟推进。
+fn ScrollState::tick(self : ScrollState, gen : Int32) -> Unit {
+  self.tick_at(gen, @shell.now_ms())
+}
+
 /// 一拍：临界阻尼弹簧趋近目标，或触边欠阻尼回弹。用真实经过时间推进，
 /// 定时器抖动只影响采样、不影响动画时长；上屏取整，取整值没变的拍不重绘。
-fn ScrollState::tick(self : ScrollState, gen : Int32) -> Unit {
+/// 帧时钟档的 `now` 是本帧目标上屏时刻——位置按它取，少一帧延迟。
+fn ScrollState::tick_at(self : ScrollState, gen : Int32, now : Int64) -> Unit {
   if !self.ticking || gen != self.tick_gen {
     return
   }
@@ -365,7 +387,6 @@ fn ScrollState::tick(self : ScrollState, gen : Int32) -> Unit {
     }
     return
   }
-  let now = @shell.now_ms()
   // 压边松手：保持窗口过后收力，目标回边界，弹簧自己弹回去
   if self.bouncing && self.over_raw != 0.0 && now >= self.over_hold_until {
     let bound = if self.over_raw < 0.0 { 0.0 } else { self.max() }
@@ -427,8 +448,7 @@ fn ScrollState::tick(self : ScrollState, gen : Int32) -> Unit {
     }
     return
   }
-  let g = gen
-  let _ = @shell.set_timeout(SCROLL_ANIM_TICK_MS, fn() { self.tick(g) })
+  self.schedule_next(gen)
 }
 
 ///|

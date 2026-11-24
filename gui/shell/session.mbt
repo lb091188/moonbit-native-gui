@@ -235,6 +235,8 @@ pub fn session_pump_advance() -> Unit {
   } else {
     host_loop().wait_budget(@win.now_ms())
   }
+  // 刷新源跟着本帧是否有待跑回调走：有就挂上，没有就摘掉（空闲零唤醒）
+  frame_clock_sync_source()
   let _ = @win.wait(
     match budget {
       Some(ms) => ms
@@ -248,10 +250,17 @@ pub fn session_pump_advance() -> Unit {
 /// 泵推进一拍的「任务」段：只跑到期任务，不等平台事件——等待由调用方
 /// 自理（外部事件循环模式：core/async 的 poll 先自己等，再调这里推进）。
 pub fn session_pump_advance_nowait() -> Unit {
+  // 刷新信号到了：先跑本帧回调（滚动弹簧按目标上屏时刻取位置），再结算到期
+  // 任务——回调置的脏在本拍后面的绘制段生效
+  if @win.vsync_take() {
+    frame_clock_fire(@win.vsync_target_us() / 1000L)
+  }
   // 无头档吃虚拟时钟（real + 偏移；uitest 的 advance 推偏移），真实运行档
   // 恒走墙上时钟——同一条泵，两种时基
   let now = if headless_pump.val { session_vtime_now() } else { @win.now_ms() }
   let _ = host_loop().advance(now)
+  // 外部事件循环模式不经过上面的等待段：这里同样把刷新源对齐到本拍
+  frame_clock_sync_source()
 }
 
 ///|
