@@ -212,7 +212,9 @@ pub fn paint_pacing_summary() -> String {
 
   "fps=" +
   fps_s +
-  " interval_p50=" +
+  " budget=" +
+  p.budget_us.to_string() +
+  "us interval_p50=" +
   pick(50).to_string() +
   "us p95=" +
   pick(95).to_string() +

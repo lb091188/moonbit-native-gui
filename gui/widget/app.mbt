@@ -217,7 +217,24 @@ fn WindowHost::fire_system_keys(self : WindowHost, kev : KeyEvent) -> Bool {
 /// 装进程级挂钩（多窗形态只有一套）：重绘请求广播给所有在窗、浮层按当前窗取
 /// 宿主、延时定时器走共用的 `Loop`。每建一扇窗都装一遍，装的是同一组闭包，
 /// 重复安装没有副作用（无头测试自装的静态宿主会在下一扇窗建好时被接管）。
+let prof_budget_done : Ref[Bool] = Ref(false)
+
+///|
+/// 帧预算跟刷新率走：60Hz 取 16667µs、120Hz 取 8333µs。进程内首次装钩子
+/// 时读一次刷新率，读不到按 60Hz。
+fn prof_budget_once() -> Unit {
+  if !prof_budget_done.val {
+    prof_budget_done.val = true
+    let hz = @win.display_hz()
+    @base.prof_set_budget_us(
+      if hz > 0 { 1000000L / hz.to_int64() } else { 16667L },
+    )
+  }
+}
+
+///|
 fn install_host_hooks() -> Unit {
+  prof_budget_once()
   set_repaint_hook(fn() { host_repaint_all() })
   @shell.set_repaint_sink(fn() { host_repaint_all() })
   set_scroll_hook(fn(id : Int32, dy : Double, ext : Double) {
