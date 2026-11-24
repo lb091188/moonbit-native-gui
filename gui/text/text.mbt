@@ -731,6 +731,41 @@ fn draw_box_raster(
   let needs_ds = dsx != 1.0 || dsy != 1.0
   let fsx = ssf * dsx
   let fsy = ssf * dsy
+  let dw = ow.to_double()
+  let dh = oh.to_double()
+  let smooth = needs_ds || ss > 1
+  // 绘制结果缓存：键是全部影响像素的输入，命中直接贴回，省掉排版、光栅化
+  // 与离屏位图分配——滚动帧里与新露条带相交的文本每帧都要问一遍
+  let key = draw_cache_key(
+    text, font, color, box_w, box_h, align, valign, ellipsize, wrap, fsx, fsy,
+  )
+  let blit_cached = fn(b : @render.Bitmap) -> Unit {
+    if smooth {
+      raster.blit_smooth(
+        b,
+        0.0,
+        0.0,
+        b.width.to_double(),
+        b.height.to_double(),
+        x,
+        y,
+        dw,
+        dh,
+      )
+    } else {
+      raster.blit(b, 0.0, 0.0, dw, dh, x, y, dw, dh)
+    }
+  }
+
+  match draw_cache_get(key) {
+    Some(hit) => {
+      // 与无缓存路径同序：贴回前先把待批文本落位（Windows 批的 z 序）
+      flush_pending()
+      blit_cached(hit)
+      return true
+    }
+    None => ()
+  }
   let off = @render.Bitmap::new(
     (ow.to_double() * fsx + 0.5).to_int(),
     (oh.to_double() * fsy + 0.5).to_int(),
@@ -761,27 +796,12 @@ fn draw_box_raster(
     ) {
     return false
   }
-  // 帧级批存的是目标位图像素缓冲的裸指针：`off` 一出作用域就随引用计数释放，
-  // 待批文本必须趁它还活着落位，否则冲刷时写进已释放的堆块（Windows 实测
-  // 表现为启动即堆损坏崩溃，见 experience/adaptation.md）。
+  // 帧级批存的是目标位图像素缓冲的裸指针：待批文本必须趁它还活着落位，
+  // 否则冲刷时写进已释放的堆块（Windows 实测表现为启动即堆损坏崩溃，见
+  // experience/adaptation.md）。离屏进缓存前也必须先冲刷。
   flush_pending()
-  let dw = ow.to_double()
-  let dh = oh.to_double()
-  if needs_ds || ss > 1 {
-    raster.blit_smooth(
-      off,
-      0.0,
-      0.0,
-      off.width.to_double(),
-      off.height.to_double(),
-      x,
-      y,
-      dw,
-      dh,
-    )
-  } else {
-    raster.blit(off, 0.0, 0.0, dw, dh, x, y, dw, dh)
-  }
+  draw_cache_put(key, off)
+  blit_cached(off)
   true
 }
 

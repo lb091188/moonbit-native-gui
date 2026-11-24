@@ -283,3 +283,38 @@ test "max_lines 行数钳制：超高截断出省略号、矮内容原样、单�
   assert_eq(single.height <= one * 1 + 1, true)
   assert_eq(single.width <= 300, true)
 }
+
+///|
+test "绘制结果缓存：同输入第二次命中且像素一致" {
+  if !wb_text_real() {
+    println("text: skip [需真后端]（回退估算档画不了字）")
+    return
+  }
+  let bm1 = @render.Bitmap::new(140, 40)
+  let p1 = @render.Painter::new(bm1)
+  // cairo 通道不走离屏缓存（mac / Windows 纯光栅档才走），跳过计数断言
+  let raster_path = p1.cairo_id() is None
+  let before = draw_cache_stats()
+  let ok1 = draw_text_at(p1, 4.0, 4.0, "缓存测试 Cache 123", 14.0, "#112233")
+  p1.end()
+  let bm2 = @render.Bitmap::new(140, 40)
+  let p2 = @render.Painter::new(bm2)
+  let ok2 = draw_text_at(p2, 4.0, 4.0, "缓存测试 Cache 123", 14.0, "#112233")
+  p2.end()
+  assert_eq(ok1, true)
+  assert_eq(ok2, true)
+  if raster_path {
+    let after = draw_cache_stats()
+    assert_eq(after.0 - before.0, 1L, msg="第二次绘制应命中缓存")
+    assert_eq(after.1 - before.1, 1L, msg="第一次绘制应是未命中")
+  }
+  // 命中路径与现场光栅必须逐位一致
+  let mut diff = 0
+  for i = 0; i < bm1.data.length(); i = i + 1 {
+    if bm1.data[i] != bm2.data[i] {
+      diff = diff + 1
+    }
+  }
+  assert_eq(diff, 0, msg="缓存命中帧与现场绘制不一致：\{diff} 字节")
+  draw_cache_clear()
+}

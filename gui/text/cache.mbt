@@ -138,6 +138,8 @@ let g_line_cache : StrCache[Int32?] = StrCache::new()
 pub fn clear_measure_caches() -> Unit {
   g_measure_font_cache.clear()
   g_measure_cache.clear()
+  // 基方向变了：同一串的断行与像素都会变，绘制结果一并作废
+  draw_cache_clear()
 }
 
 ///|
@@ -250,4 +252,157 @@ pub fn line_cached(kind : LineKind, size : Double, family : String) -> Int32? {
       Ascent => line_ascent_uncached(size, family)
     }
   })
+}
+
+// ---- 绘制结果缓存（离屏位图） ----
+//
+// 每段文字每次绘制都要新开离屏位图、重新排版再光栅化——滚动帧里与新露条带
+// 或滚动条列相交的文本每帧都把这一趟重走一遍。这里按绘制输入缓存结果，命中
+// 直接贴回：键是全部影响像素的输入，值是光栅化好的离屏位图。
+//
+// 上限按像素总量记账；超限整清，与度量缓存同一取舍——文本绘制键访问有强
+// 局部性，整清比逐条 LRU 便宜且无簿记。默认 16MB，NATIVEGUI_TEXT_CACHE_MB
+// 可调，0 = 关缓存。
+
+///|
+/// 默认上限（MB）。
+const DRAW_CACHE_DEFAULT_MB : Int32 = 16
+
+///|
+/// 条目上限与度量缓存共用；到顶整清时像素账本要一起归零。
+const DRAW_CACHE_LIMIT : Int32 = 8192
+
+///|
+let g_draw_cache : StrCache[@render.Bitmap] = StrCache::new()
+
+///|
+/// 已缓存位图的像素总数（预算记账）。
+let g_draw_px : Ref[Int64] = Ref(0L)
+
+///|
+/// 预算像素数；-1 = 未初始化，0 = 关缓存。
+let g_draw_budget_px : Ref[Int64] = Ref(-1L)
+
+///|
+let g_draw_hits : Ref[Int64] = Ref(0L)
+
+///|
+let g_draw_misses : Ref[Int64] = Ref(0L)
+
+///|
+fn parse_uint(s : String) -> Int32? {
+  if s.length() == 0 {
+    return None
+  }
+  let mut v = 0
+  for c in s {
+    let d = c.to_int() - '0'.to_int()
+    if d < 0 || d > 9 {
+      return None
+    }
+    v = v * 10 + d
+  }
+  Some(v)
+}
+
+///|
+/// 预算惰性初始化：NATIVEGUI_TEXT_CACHE_MB 覆盖默认值，解析失败按默认。
+fn draw_budget_px() -> Int64 {
+  if g_draw_budget_px.val < 0L {
+    let mb = match @env.get_env_var("NATIVEGUI_TEXT_CACHE_MB") {
+      Some(s) =>
+        match parse_uint(s) {
+          Some(v) => v
+          None => DRAW_CACHE_DEFAULT_MB
+        }
+      None => DRAW_CACHE_DEFAULT_MB
+    }
+    g_draw_budget_px.val = mb.to_int64() * 262144L
+  }
+  g_draw_budget_px.val
+}
+
+///|
+/// 绘制结果缓存查键：命中 / 未命中计数供白盒用例与诊断读。
+pub fn draw_cache_get(key : String) -> @render.Bitmap? {
+  if draw_budget_px() <= 0L {
+    return None
+  }
+  let hit = g_draw_cache.get(key)
+  match hit {
+    Some(_) => g_draw_hits.val = g_draw_hits.val + 1
+    None => g_draw_misses.val = g_draw_misses.val + 1
+  }
+  hit
+}
+
+///|
+/// 绘制结果入缓存：单条超预算不入（避免清空后仍装不下）。
+pub fn draw_cache_put(key : String, bm : @render.Bitmap) -> Unit {
+  let budget = draw_budget_px()
+  if budget <= 0L {
+    return ()
+  }
+  let px = bm.width.to_int64() * bm.height.to_int64()
+  if px > budget {
+    return ()
+  }
+  if g_draw_px.val + px > budget || g_draw_cache.count + 1 >= DRAW_CACHE_LIMIT {
+    g_draw_cache.clear()
+    g_draw_px.val = 0L
+  }
+  g_draw_cache.put(key, bm)
+  g_draw_px.val = g_draw_px.val + px
+}
+
+///|
+/// 绘制缓存读数：命中数、未命中数。
+pub fn draw_cache_stats() -> (Int64, Int64) {
+  (g_draw_hits.val, g_draw_misses.val)
+}
+
+///|
+/// 清空绘制缓存并复位账本。
+pub fn draw_cache_clear() -> Unit {
+  g_draw_cache.clear()
+  g_draw_px.val = 0L
+}
+
+///|
+/// 绘制缓存键：字体 + 文本 + 字色 + 盒 + 对齐 + 换行/省略 + 渲染倍率，
+/// 全部影响像素的输入都在键里。
+pub fn draw_cache_key(
+  text : String,
+  font : Font,
+  color : String,
+  box_w : Double,
+  box_h : Double,
+  align : TextAlign,
+  valign : TextAlign,
+  ellipsize : Bool,
+  wrap : Bool,
+  fsx : Double,
+  fsy : Double,
+) -> String {
+  font_key(font) +
+  "\u{1F}" +
+  text +
+  "\u{1F}" +
+  color +
+  "\u{1F}" +
+  box_w.to_string() +
+  "\u{1F}" +
+  box_h.to_string() +
+  "\u{1F}" +
+  align_id(align).to_string() +
+  "\u{1F}" +
+  align_id(valign).to_string() +
+  "\u{1F}" +
+  (if ellipsize { "1" } else { "0" }) +
+  "\u{1F}" +
+  (if wrap { "1" } else { "0" }) +
+  "\u{1F}" +
+  fsx.to_string() +
+  "\u{1F}" +
+  fsy.to_string()
 }
