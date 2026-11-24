@@ -788,3 +788,132 @@ test "滚动位移不作废布局缓存：连续滚动拍测量数零增长" {
     msg="滚动触发布局重测：\{summary}",
   )
 }
+
+///|
+/// 横纹用例的卡片：标题 + 长文本 + 按钮行，页面底色从卡片外缘与间距里露出。
+fn stripe_card(i : Int) -> @widget.Node {
+  col(
+    [
+      text("窗口 API 段 " + i.to_string(), class=[@style.text_title]),
+      text(
+        "运行期也能改变窗口：改标题、切全屏、调尺寸、去边框、最大化与还原。Mixed English 123.",
+        wrap=true,
+      ),
+      row([button("改标题"), button("全屏切换"), text("最近操作：还没操作")], column_gap=8.0),
+    ],
+    padding=24.0,
+    row_gap=8.0,
+    class=[
+      @style.style(
+        margin=16.0,
+        background_color="bg_panel",
+        border_color="border",
+        border_width=1.0,
+        border_radius=6.0,
+      ),
+    ],
+  )
+}
+
+///|
+/// 横纹回归（端到端）：真实 scroll_view + 文字与按钮，视口带默认 1px 描边，
+/// 页面铺不透明底色。条带快路径平移上一帧时会把视口边框行搬进视口内部（新露
+/// 条带的近侧一行）——逐帧与同一偏移的整幅重绘比对：任何一行差异像素不多于
+/// 4 个，任何像素单通道色差不到 3。
+test "滚动条带快路径：真实滚动容器逐帧与整幅重绘一致" {
+  @theme.theme_apply(@theme.default_theme())
+  let st = ScrollState::new()
+  let host = @widget.WindowHost::test_headless(760, 680)
+  // 真机宿主铺不透明页面底色；无头测试宿主默认不铺
+  host.root.on_draw = Some(fn(
+    _w : @widget.Widget,
+    p : @render.Painter,
+    r : @base.Rect,
+  ) -> Unit {
+    p.set_fill_color(@theme.theme_bg_page())
+    p.fill_rect(0.0, 0.0, r.w, r.h)
+  })
+  let cards : Array[@widget.Node] = []
+  for i = 0; i < 30; i = i + 1 {
+    cards.push(stripe_card(i))
+  }
+  host.mount([
+    scroll_view(
+      cards,
+      st,
+      handle=fn(v) {
+        v.node.set_width(@yoga.percent(100.0))
+        v.node.set_flex_grow(1.0)
+      },
+    ),
+  ])
+  host.paint_frame()
+  let offs = [3.0, 1.0, 17.0, 40.0, 7.0, 1.0, 23.0, 2.0, 12.0, 31.0, 5.0, 9.0]
+  let seq : Array[Double] = []
+  let mut off = 0.0
+  for d in offs {
+    off = off + d
+    seq.push(off)
+  }
+  for d in offs {
+    off = off - d
+    seq.push(off)
+  }
+  for target in seq {
+    // 真实链路：set_offset 落视觉偏移并按视口置脏，条带快路径吃掉本帧
+    st.set_offset(target)
+    host.paint_frame()
+    let got = match @widget.last_frame_bitmap() {
+      (Some(b), _) => b.copy()
+      _ => abort("没有条带帧")
+    }
+    host.schedule_paint()
+    host.paint_frame()
+    let want = match @widget.last_frame_bitmap() {
+      (Some(b), _) => b
+      _ => abort("没有基准帧")
+    }
+    let rows = Array::make(want.height, 0)
+    let mut worst_ch = 0
+    let mut first = ""
+    for y = 0; y < want.height; y = y + 1 {
+      for x = 0; x < want.width; x = x + 1 {
+        let i = (y * want.width + x) * 4
+        let mut d = 0
+        for k = 0; k < 4; k = k + 1 {
+          let diff = (got.data[i + k].to_int() - want.data[i + k].to_int()).abs()
+          if diff > d {
+            d = diff
+          }
+        }
+        if d > 0 {
+          rows[y] = rows[y] + 1
+          if d > worst_ch {
+            worst_ch = d
+            if first == "" {
+              first = "@(\{x},\{y}) got=\{got.data[i].to_int()}/\{got.data[i + 1].to_int()} want=\{want.data[i].to_int()}/\{want.data[i + 1].to_int()}"
+            }
+          }
+        }
+      }
+    }
+    let mut widest = 0
+    let mut widest_y = -1
+    for y = 0; y < want.height; y = y + 1 {
+      if rows[y] > widest {
+        widest = rows[y]
+        widest_y = y
+      }
+    }
+    assert_true(
+      worst_ch < 3,
+      msg="off=\{target} 单通道色差 \{worst_ch}（3 以上算横纹）\{first}",
+    )
+    assert_true(
+      widest <= 4,
+      msg="off=\{target} 第 \{widest_y} 行有 \{widest} 个差异像素（成行差异即横纹）",
+    )
+  }
+  @shell.session_vtime_reset()
+  @shell.session_set_headless(false)
+}

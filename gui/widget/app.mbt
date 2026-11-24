@@ -1581,7 +1581,7 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
             vr.h > 16.0 &&
             !self.session.window.has_child_surfaces() &&
             !tree_blur_hit(self.root, vr) {
-            Some((vr, dyi, ext))
+            Some((vr, dyi, ext, v.strip_ink))
           } else {
             None
           }
@@ -1591,7 +1591,7 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
     _ => None
   }
   match strip_plan {
-    Some((vr, sdy, ext)) => {
+    Some((vr, sdy, ext, ink)) => {
       strip_hits.val = strip_hits.val + 1
       // ① 快照上一帧，视口内整块按整数位移平移：全幅 1:1 命中 raster 的
       // 「整数平移」快路径，裁剪把写面限制在视口内
@@ -1610,20 +1610,24 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
         h.to_double(),
       )
       p.restore()
-      // ② 修复新露条带（|位移| + 最高行余量）与滚动条列
+      // ② 修复新露条带（|位移| + 最高行余量 + 视口固定墨迹）与滚动条列。
+      // 固定墨迹是视口自己画的、不随内容滚动的那圈描边：平移会把旧帧的边框行
+      // 搬进视口内部（新露条带的近侧一行），不把它盖进重画范围就留成横纹。
       let ad = if sdy > 0.0 { sdy } else { 0.0 - sdy }
-      let band_h = ad + ext
+      let band_h = ad + ext + ink
       let band : Rect = if sdy > 0.0 {
         { x: vr.x, y: vr.y, w: vr.w, h: band_h }
       } else {
         { x: vr.x, y: vr.y + vr.h - band_h, w: vr.w, h: band_h }
       }
       let sb : Rect = { x: vr.x + vr.w - 12.0, y: vr.y, w: 12.0, h: vr.h }
-      // 视口描边/底色随整块平移：新露条带在另一端，对侧的边线被移出后要补画
+      // 视口描边/底色随整块平移：新露条带在另一端，对侧的边线被移出后要补画；
+      // 补线高度取 2 行与墨迹宽度的较大值
+      let edge_h = if ink > 2.0 { ink } else { 2.0 }
       let edge : Rect = if sdy > 0.0 {
-        { x: vr.x, y: vr.y + vr.h - 2.0, w: vr.w, h: 2.0 }
+        { x: vr.x, y: vr.y + vr.h - edge_h, w: vr.w, h: edge_h }
       } else {
-        { x: vr.x, y: vr.y, w: vr.w, h: 2.0 }
+        { x: vr.x, y: vr.y, w: vr.w, h: edge_h }
       }
       paint_clipped(self.root, p, band)
       paint_clipped(self.root, p, sb)

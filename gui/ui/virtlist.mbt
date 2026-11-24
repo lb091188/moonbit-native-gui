@@ -237,6 +237,11 @@ pub fn[T] virt_list(
         paint_subset(class),
       ]),
     )
+    // 条带快路径的固定墨迹：视口那圈描边不随内容滚动，平移时要把边框行
+    // 纳入重画范围，否则旧帧边框行被搬进视口内部留成横纹（见 paint_frame）
+    let vst = @style.style_for(viewport)
+    let ink_w = @style.number_of(vst.border_width, 1.0)
+    viewport.strip_ink = if ink_w > 0.0 { ink_w.ceil() + 1.0 } else { 0.0 }
     viewport.on_draw = Some(fn(
       self : @widget.Widget,
       p : @render.Painter,

@@ -231,3 +231,138 @@ test "滚动条带快路径：连续滚动回顶后终态与静止帧逐点一�
     }
   }
 }
+
+///|
+/// 横纹回归（真机复现链）：视口带 1px 描边、页面铺不透明底色、卡片之间露出
+/// 页面底色。条带快路径平移上一帧时会把视口边框行搬进视口内部（新露条带的
+/// 近侧一行），不把边框行盖进重画范围就留成横纹。逐帧与同一偏移的整幅重绘
+/// 比对：任何一行差异像素不多于 4 个，任何像素单通道色差不到 3。
+test "滚动条带快路径：视口描边页逐帧与整幅重绘一致" {
+  host_reset()
+  let a = strip_host(760, 680)
+  // 真机宿主铺不透明页面底色；无头宿主默认不铺，半透明边缘像素会带着历史
+  a.root.on_draw = Some(fn(_w : Widget, p : @render.Painter, r : Rect) -> Unit {
+    p.set_fill_color("#F5F6F7")
+    p.fill_rect(0.0, 0.0, r.w, r.h)
+  })
+  let vp = Widget::new()
+  vp.kind = "ui-scroll-view"
+  vp.clip_content = true
+  // 与 scroll_view 写入口径一致：1px 描边向上取整再加 1
+  vp.strip_ink = 2.0
+  vp.node.set_position(@yoga.Absolute)
+  vp.node.set_left(@yoga.fixed(0.0))
+  vp.node.set_top(@yoga.fixed(0.0))
+  vp.node.set_width(@yoga.fixed(760.0))
+  vp.node.set_height(@yoga.fixed(680.0))
+  vp.node.set_flex_direction(@yoga.Column)
+  vp.on_draw = Some(fn(_w : Widget, p : @render.Painter, r : Rect) -> Unit {
+    p.set_stroke_color("#E1DCD5")
+    p.set_line_width(1.0)
+    p.stroke_rect(0.0, 0.0, r.w, r.h)
+  })
+  let inner = Widget::new()
+  inner.kind = "ui-scroll-content"
+  inner.node.set_position(@yoga.Relative)
+  inner.node.set_flex_direction(@yoga.Column)
+  inner.node.set_flex_shrink(0.0)
+  inner.node.set_width(@yoga.percent(100.0))
+  inner.node.set_top(@yoga.fixed(0.0))
+  for i = 0; i < 30; i = i + 1 {
+    let card = Widget::new()
+    card.node.set_width(@yoga.percent(100.0))
+    card.node.set_height(@yoga.fixed(166.0))
+    card.on_draw = Some(fn(
+      _w : Widget,
+      p : @render.Painter,
+      r : Rect,
+    ) -> Unit {
+      // 卡片占 150 高、四周留 16 的页边与间距：页面底色从缝里露出来
+      p.set_fill_color(if i % 2 == 0 { "#FFFFFF" } else { "#FBFBFA" })
+      p.fill_round_rect(16.0, 0.0, r.w - 32.0, 150.0, 6.0)
+      p.set_stroke_color("#DDD8D0")
+      p.set_line_width(1.0)
+      p.stroke_round_rect(16.0, 0.0, r.w - 32.0, 150.0, 6.0)
+    })
+    inner.append_child(card)
+  }
+  let bar = Widget::new()
+  bar.kind = "ui-scroll-bar"
+  bar.node.set_position(@yoga.Absolute)
+  bar.node.set_top(@yoga.fixed(0.0))
+  bar.node.set_right(@yoga.fixed(0.0))
+  bar.node.set_width(@yoga.fixed(8.0))
+  bar.node.set_height(@yoga.fixed(680.0))
+  vp.append_child(inner)
+  vp.append_child(bar)
+  a.root.append_child(vp)
+  let _ = strip_frame(a)
+  strip_hits.val = 0
+  let offs = [3.0, 1.0, 17.0, 40.0, 7.0, 1.0, 23.0, 2.0, 12.0, 31.0, 5.0, 9.0]
+  let seq : Array[Double] = []
+  let mut off = 0.0
+  for d in offs {
+    off = off + d
+    seq.push(off)
+  }
+  for d in offs {
+    off = off - d
+    seq.push(off)
+  }
+  let mut cur = 0.0
+  for target in seq {
+    let delta = target - cur
+    cur = target
+    inner.node.set_top(@yoga.fixed(0.0 - target))
+    a.session.dirty = true
+    a.dirty_full = false
+    a.dirty_rect = Some(vp.rect)
+    a.scroll_pending = Some((vp.id, 0.0 - delta, 0.0))
+    let got = strip_frame(a).copy()
+    a.schedule_paint()
+    let want = strip_frame(a)
+    // 逐行统计差异，同时取最大单通道色差
+    let rows = Array::make(want.height, 0)
+    let mut worst_ch = 0
+    let mut first = ""
+    for y = 0; y < want.height; y = y + 1 {
+      for x = 0; x < want.width; x = x + 1 {
+        let i = (y * want.width + x) * 4
+        let mut d = 0
+        for k = 0; k < 4; k = k + 1 {
+          let diff = (got.data[i + k].to_int() - want.data[i + k].to_int())
+            .abs()
+          if diff > d {
+            d = diff
+          }
+        }
+        if d > 0 {
+          rows[y] = rows[y] + 1
+          if d > worst_ch {
+            worst_ch = d
+            if first == "" {
+              first = "@(\{x},\{y}) got=\{got.data[i].to_int()}/\{got.data[i + 1].to_int()} want=\{want.data[i].to_int()}/\{want.data[i + 1].to_int()}"
+            }
+          }
+        }
+      }
+    }
+    let mut widest = 0
+    let mut widest_y = -1
+    for y = 0; y < want.height; y = y + 1 {
+      if rows[y] > widest {
+        widest = rows[y]
+        widest_y = y
+      }
+    }
+    assert_true(
+      worst_ch < 3,
+      msg="off=\{target} 单通道色差 \{worst_ch}（3 以上算横纹）\{first}",
+    )
+    assert_true(
+      widest <= 4,
+      msg="off=\{target} 第 \{widest_y} 行有 \{widest} 个差异像素（成行差异即横纹）",
+    )
+  }
+  assert_true(strip_hits.val > 0, msg="这段序列一次条带快路径都没命中")
+}

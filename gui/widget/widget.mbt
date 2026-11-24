@@ -279,6 +279,10 @@ pub(all) struct Widget {
   /// 语义文本内容（读屏朗读的正文）：与 `label` 的区别是它可以现算
   /// （富文本段、代码块这类不在 `label` 里的文本）。None = 回落 `label`。
   mut a11y_text : ((Widget) -> String?)?
+  /// 视口自绘的固定墨迹宽度（逻辑像素）：滚动视口四周那圈描边不随内容滚动，
+  /// 条带快路径按它把边框行纳入重画范围，否则平移会把边框行搬进视口内部留成
+  /// 横纹。滚动组件建壳时按描边宽度写入，0 = 无视口自绘墨迹。
+  mut strip_ink : Double
 }
 
 ///|
@@ -352,6 +356,7 @@ pub fn Widget::new() -> Widget {
     enabled: true,
     a11y_state: None,
     a11y_text: None,
+    strip_ink: 0.0,
   }
 }
 
