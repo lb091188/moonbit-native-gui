@@ -1518,7 +1518,7 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   )
   // 分段账本从帧起算：位图分配（仅变尺寸时发生）计入 total 不计入单段，
   // 避免把「分配」混进「布局」
-  let t0 = @win.now_ms()
+  let t0 = @win.now_us()
   // 设备缩放：1 逻辑单位折合的物理像素数（虚窗 / 无缩放档恒 1）。窗口账本
   // 是逻辑单位，位图按 逻辑 × 因子 开物理像素，Painter 全局 CTM 放大后整树
   // 仍按逻辑坐标画——100% 档各值相等，与旧路径逐位一致。因子每帧现读：
@@ -1567,7 +1567,7 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   }
   self.root.set_size(w.to_double(), h.to_double())
   self.root.relayout(w.to_double(), h.to_double())
-  let t1 = @win.now_ms()
+  let t1 = @win.now_us()
   // 条带快路径：本帧唯一脏区就是滚动视口、位移为整数、无毛玻璃与原生子件；
   // 任一不满足就走普通视口整块重绘（正确性优先）
   let strip_plan = match (clip, scroll) {
@@ -1689,7 +1689,7 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   let (wox, woy) = self.session.window.origin()
   @win.a11y_set_window_origin(wox.to_double(), woy.to_double())
   @shell.atspi_tick()
-  let t2 = @win.now_ms()
+  let t2 = @win.now_us()
   self.session.window.present(
     bm.data,
     bm.width,
@@ -1705,17 +1705,20 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
   // present 成功只计「提交过一帧」（诊断用）：帧是否真落屏要等平台映射，
   // 首帧兜底的收口在三拍计时器里，不在这里提前缴械。
   self.painted_once = true
-  let t3 = @win.now_ms()
+  let t3 = @win.now_us()
   // 分段账本：位图分配计入 total 不计入单段，避免把「分配」混进「布局」
-  prof_record(t1 - t0, t2 - t1, t3 - t2, t3 - t0)
+  prof_record(t1 - t0, t2 - t1, t3 - t2, t3 - t0, t3)
   // 诊断读数（NATIVEGUI_PROF=1）：每 2s 打一行窗口帧账本并清账——布局/绘制/
-  // 上屏三段占比、条带命中数，滚动卡顿归因用
-  if @env.get_env_var("NATIVEGUI_PROF") is Some(_) && t3 - prof_log_last.val >= 2000 {
+  // 上屏三段占比、帧节奏、条带命中数，滚动卡顿归因用
+  if @env.get_env_var("NATIVEGUI_PROF") is Some(_) &&
+    t3 - prof_log_last.val >= 2000000L {
     println(
       "PROF " +
       @base.paint_profile_summary() +
       " strip=" +
-      strip_hits.val.to_string(),
+      strip_hits.val.to_string() +
+      " " +
+      @base.paint_pacing_summary(),
     )
     @base.paint_profile_reset()
     strip_hits.val = 0

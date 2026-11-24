@@ -107,8 +107,14 @@ fn keysym_is_printable(ks : Int32) -> Bool {
 }
 
 ///|
-fn prof_record(a : Int64, b : Int64, c : Int64, d : Int64) -> Unit {
-  @base.prof_record(a, b, c, d)
+fn prof_record(
+  layout_us : Int64,
+  paint_us : Int64,
+  present_us : Int64,
+  total_us : Int64,
+  now_us : Int64,
+) -> Unit {
+  @base.prof_record(layout_us, paint_us, present_us, total_us, now_us)
 }
 
 ///|

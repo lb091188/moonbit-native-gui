@@ -86,6 +86,14 @@ extern "c" fn wm_wakeup() -> Unit = "wm_wakeup"
 extern "c" fn wm_now_ms() -> Int64 = "wm_now_ms"
 
 ///|
+pub fn now_us() -> Int64 {
+  wm_now_us()
+}
+
+///|
+extern "c" fn wm_now_us() -> Int64 = "wm_now_us"
+
+///|
 extern "c" fn wm_local_date() -> Int64 = "wm_local_date"
 
 ///|

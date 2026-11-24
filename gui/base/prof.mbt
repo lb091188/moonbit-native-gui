@@ -1,52 +1,114 @@
 // 帧耗时分段统计（性能诊断）：paint_frame 每帧把「布局 / 绘制 / 上屏」三段
 // 耗时累进一份进程级账本，宿主退出时取汇总。只累加不打印，每帧开销是几次
-// Int64 加法，因此常开、不设开关；时间取自平台单调毫秒时钟，单段亚毫秒的
-// 量化误差在多帧累计下可忽略。
+// Int64 加法，因此常开、不设开关；时间取自平台单调微秒时钟，60/120Hz 的
+// 帧间隔分辨得开。
+//
+// 两本账：
+//   ① 分段账本：layout / paint / present / total 按毫秒汇总，字段名与旧口径
+//      一致，读数脚本不受影响；
+//   ② 帧节奏账：相邻两帧结束时刻的间隔，出每秒帧数、p50 / p95 / 最大间隔与
+//      超预算帧数。PROF 行由 paint_frame 每 2 秒打印一次，两本账同段输出。
+
+///|
+/// 帧间隔直方图粒度与覆盖上限（微秒）：100µs 一格、覆盖 0–100ms，超出落
+/// 溢出格。p50 / p95 用直方图求，不打乱原数组也不依赖排序。
+const PACING_BUCKET_US : Int64 = 100
+
+///|
+const PACING_BUCKETS : Int32 = 1000
+
+///|
+/// 空闲间隔计入上限（微秒）：超过 250ms 的相邻帧间隔按空闲算、不进帧节奏
+/// 统计——否则一次走神就把 p95 拖到秒级。
+const PACING_IDLE_US : Int64 = 250000
 
 ///|
 priv struct FrameProf {
   mut frames : Int32
-  mut layout_ms : Int64
-  mut paint_ms : Int64
-  mut present_ms : Int64
-  mut total_ms : Int64
-  mut max_total_ms : Int64
+  mut layout_us : Int64
+  mut paint_us : Int64
+  mut present_us : Int64
+  mut total_us : Int64
+  mut max_total_us : Int64
   // 每帧重绘范围的两条计数：整帧与按脏矩形裁剪后画到的控件数、被视口剔除
   // 跳过的控件数（性能基线探针 `experiment/frame_cost_probe` 吃这三个数）。
   mut relayout_calls : Int32
   mut paint_visit : Int32
   mut paint_skip : Int32
+  // 帧节奏：上一帧结束时刻、间隔直方图（末格为溢出）、间隔总数与总和、
+  // 最大间隔、超预算帧数、预算（微秒）
+  mut last_end_us : Int64
+  mut buckets : Array[Int32]
+  mut interval_n : Int32
+  mut interval_sum_us : Int64
+  mut max_interval_us : Int64
+  mut over_budget : Int32
+  mut budget_us : Int64
 }
 
 ///|
 let g_frame_prof : FrameProf = {
   frames: 0,
-  layout_ms: 0L,
-  paint_ms: 0L,
-  present_ms: 0L,
-  total_ms: 0L,
-  max_total_ms: 0L,
+  layout_us: 0L,
+  paint_us: 0L,
+  present_us: 0L,
+  total_us: 0L,
+  max_total_us: 0L,
   relayout_calls: 0,
   paint_visit: 0,
   paint_skip: 0,
+  last_end_us: 0L,
+  buckets: Array::make(PACING_BUCKETS + 1, 0),
+  interval_n: 0,
+  interval_sum_us: 0L,
+  max_interval_us: 0L,
+  over_budget: 0,
+  budget_us: 16667L,
+}
+
+///|
+/// 设帧预算（微秒）：刷新率 60Hz 取 16667、120Hz 取 8333。默认 60Hz。
+pub fn prof_set_budget_us(us : Int64) -> Unit {
+  if us > 0L {
+    g_frame_prof.budget_us = us
+  }
 }
 
 ///|
 pub fn prof_record(
-  layout_ms : Int64,
-  paint_ms : Int64,
-  present_ms : Int64,
-  total_ms : Int64,
+  layout_us : Int64,
+  paint_us : Int64,
+  present_us : Int64,
+  total_us : Int64,
+  now_us : Int64,
 ) -> Unit {
   let p = g_frame_prof
   p.frames += 1
-  p.layout_ms += layout_ms
-  p.paint_ms += paint_ms
-  p.present_ms += present_ms
-  p.total_ms += total_ms
-  if total_ms > p.max_total_ms {
-    p.max_total_ms = total_ms
+  p.layout_us += layout_us
+  p.paint_us += paint_us
+  p.present_us += present_us
+  p.total_us += total_us
+  if total_us > p.max_total_us {
+    p.max_total_us = total_us
   }
+  // 帧节奏：上一帧结束到本帧结束的间隔。首帧与空闲后的首帧不入账
+  if p.last_end_us > 0L {
+    let iv = now_us - p.last_end_us
+    if iv > 0L && iv <= PACING_IDLE_US {
+      let b = (iv / PACING_BUCKET_US).to_int()
+      let bi = if b >= PACING_BUCKETS { PACING_BUCKETS } else { b }
+      p.buckets[bi] += 1
+      p.interval_n += 1
+      p.interval_sum_us += iv
+      if iv > p.max_interval_us {
+        p.max_interval_us = iv
+      }
+      if iv > p.budget_us {
+        p.over_budget += 1
+      }
+    }
+  }
+  p.last_end_us = now_us
 }
 
 ///|
@@ -71,37 +133,91 @@ pub fn prof_note_paint_skip() -> Unit {
 pub fn paint_profile_reset() -> Unit {
   let p = g_frame_prof
   p.frames = 0
-  p.layout_ms = 0L
-  p.paint_ms = 0L
-  p.present_ms = 0L
-  p.total_ms = 0L
-  p.max_total_ms = 0L
+  p.layout_us = 0L
+  p.paint_us = 0L
+  p.present_us = 0L
+  p.total_us = 0L
+  p.max_total_us = 0L
   p.relayout_calls = 0
   p.paint_visit = 0
   p.paint_skip = 0
+  p.last_end_us = 0L
+  p.buckets = Array::make(PACING_BUCKETS + 1, 0)
+  p.interval_n = 0
+  p.interval_sum_us = 0L
+  p.max_interval_us = 0L
+  p.over_budget = 0
 }
 
 ///|
-/// 累计汇总，一行可读串：
-/// "frames=120 layout=2100ms paint=9800ms present=340ms total=12400ms max_frame=310ms"
+/// 累计汇总，一行可读串（毫秒口径，字段与旧读数脚本一致）：
+/// "frames=120 layout=2100ms paint=9800ms present=340ms total=12400ms
+/// max_frame=310ms relayout=120 visit=1800 skip=600"
 pub fn paint_profile_summary() -> String {
   let p = g_frame_prof
   "frames=" +
   p.frames.to_string() +
   " layout=" +
-  p.layout_ms.to_string() +
+  (p.layout_us / 1000L).to_string() +
   "ms paint=" +
-  p.paint_ms.to_string() +
+  (p.paint_us / 1000L).to_string() +
   "ms present=" +
-  p.present_ms.to_string() +
+  (p.present_us / 1000L).to_string() +
   "ms total=" +
-  p.total_ms.to_string() +
+  (p.total_us / 1000L).to_string() +
   "ms max_frame=" +
-  p.max_total_ms.to_string() +
+  (p.max_total_us / 1000L).to_string() +
   "ms relayout=" +
   p.relayout_calls.to_string() +
   " visit=" +
   p.paint_visit.to_string() +
   " skip=" +
   p.paint_skip.to_string()
+}
+
+///|
+/// 帧节奏汇总：每秒帧数、间隔 p50 / p95 / 最大（微秒）、超预算帧数。
+/// 空闲间隔不入账；没有两帧相邻过时只给 fps=0。
+pub fn paint_pacing_summary() -> String {
+  let p = g_frame_prof
+  let n = p.interval_n
+  if n <= 0 {
+    return "fps=0 interval=n/a"
+  }
+  let mean_us = p.interval_sum_us.to_double() / n.to_double()
+  // 每秒帧数按平均间隔算，一位小数
+  let fps10 = if mean_us > 0.0 {
+    (10000000.0 / mean_us).round().to_int64()
+  } else {
+    0L
+  }
+  let fps_s = (fps10 / 10L).to_string() + "." + (fps10 % 10L).to_string()
+  // 直方图求分位：累计格数首次达到分位即取该格上界
+  let pick = fn(q : Int32) -> Int64 {
+    let need = (n * q + 99) / 100
+    let mut acc = 0
+    let mut i = 0
+    while i <= PACING_BUCKETS {
+      acc = acc + p.buckets[i]
+      if acc >= need {
+        if i >= PACING_BUCKETS {
+          return 100000L
+        }
+        return (i + 1).to_int64() * PACING_BUCKET_US
+      }
+      i = i + 1
+    }
+    100000L
+  }
+
+  "fps=" +
+  fps_s +
+  " interval_p50=" +
+  pick(50).to_string() +
+  "us p95=" +
+  pick(95).to_string() +
+  "us max=" +
+  p.max_interval_us.to_string() +
+  "us over=" +
+  p.over_budget.to_string()
 }

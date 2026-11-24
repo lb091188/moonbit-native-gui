@@ -4705,6 +4705,19 @@ int64_t wm_now_ms(void) {
   return (int64_t)GetTickCount64(); // 开机起单调，与 CLOCK_MONOTONIC 同语义
 }
 
+int64_t wm_now_us(void) {
+  // 微秒单调时钟：帧账本要分辨 60/120Hz 的帧间隔，毫秒精度不够。
+  // 先除后乘规避大数溢出
+  static LARGE_INTEGER freq = {0};
+  LARGE_INTEGER c;
+  if (freq.QuadPart == 0) {
+    QueryPerformanceFrequency(&freq);
+  }
+  QueryPerformanceCounter(&c);
+  return (int64_t)(c.QuadPart / freq.QuadPart) * 1000000 +
+         (int64_t)((c.QuadPart % freq.QuadPart) * 1000000 / freq.QuadPart);
+}
+
 /* ---- 系统深浅偏好与主色（主题跟随系统用，W13 的 Windows 读数先落这里）----
  * 深浅读 AppsUseLightTheme（0 = dark）；主色读 DWM 的 AccentColor
  * （0xAABBGGRR 口径），转 "#rrggbb"。读不到给空串，退路由 MoonBit 决定。 */
@@ -8755,6 +8768,13 @@ int64_t wm_now_ms(void) {
   return (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 }
 
+int64_t wm_now_us(void) {
+  // 微秒单调时钟：帧账本要分辨 60/120Hz 的帧间隔，毫秒精度不够
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (int64_t)ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
+}
+
 
 /* ---- 系统深浅偏好与主色（主题跟随系统用） ----
  * 读 gsettings（GNOME 的 org.gnome.desktop.interface）：color-scheme 优先，
@@ -11689,6 +11709,15 @@ int64_t wm_now_ms(void) {
   return (int64_t)ts.tv_sec * 1000 + (int64_t)(ts.tv_nsec / 1000000);
 }
 
+int64_t wm_now_us(void) {
+  // 微秒单调时钟：帧账本要分辨 60/120Hz 的帧间隔，毫秒精度不够
+  struct timespec ts;
+  if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
+    return 0;
+  }
+  return (int64_t)ts.tv_sec * 1000000 + (int64_t)(ts.tv_nsec / 1000);
+}
+
 int64_t wm_local_date(void) {
   time_t now = time(NULL);
   struct tm tm_local;
@@ -14549,6 +14578,11 @@ int64_t wm_now_ms(void) {
   struct timespec ts;
   clock_gettime(CLOCK_MONOTONIC, &ts);
   return (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+int64_t wm_now_us(void) {
+  // 占位档退回毫秒时钟换算：精度够跑账本，不引入额外平台依赖
+  return wm_now_ms() * 1000;
 }
 
 int64_t wm_local_date(void) {
