@@ -7,7 +7,7 @@
 //   ① 分段账本：layout / paint / present / total 按毫秒汇总，字段名与旧口径
 //      一致，读数脚本不受影响；
 //   ② 帧节奏账：相邻两帧结束时刻的间隔，出每秒帧数、p50 / p95 / 最大间隔与
-//      超预算帧数。PROF 行由 paint_frame 每 2 秒打印一次，两本账同段输出。
+//      丢刷新帧数。PROF 行由 paint_frame 每 2 秒打印一次，两本账同段输出。
 
 ///|
 /// 帧间隔直方图粒度与覆盖上限（微秒）：100µs 一格、覆盖 0–100ms，超出落
@@ -18,9 +18,13 @@ const PACING_BUCKET_US : Int64 = 100
 const PACING_BUCKETS : Int32 = 1000
 
 ///|
-/// 空闲间隔计入上限（微秒）：超过 250ms 的相邻帧间隔按空闲算、不进帧节奏
-/// 统计——否则一次走神就把 p95 拖到秒级。
-const PACING_IDLE_US : Int64 = 250000
+/// 空闲间隔判定（微秒）：超过 4 个刷新周期按空闲算、不进帧节奏统计——手势
+/// 之间的自然停顿（100–200ms）不该记成「长停顿」，一次走神也不该把 p95
+/// 拖到秒级。下限 50ms 兜住刷新率读不到时的 60Hz 假设。
+fn pacing_idle_us() -> Int64 {
+  let v = g_frame_prof.budget_us * 4L
+  if v < 50000L { 50000L } else { v }
+}
 
 ///|
 priv struct FrameProf {
@@ -94,7 +98,7 @@ pub fn prof_record(
   // 帧节奏：上一帧结束到本帧结束的间隔。首帧与空闲后的首帧不入账
   if p.last_end_us > 0L {
     let iv = now_us - p.last_end_us
-    if iv > 0L && iv <= PACING_IDLE_US {
+    if iv > 0L && iv <= pacing_idle_us() {
       let b = (iv / PACING_BUCKET_US).to_int()
       let bi = if b >= PACING_BUCKETS { PACING_BUCKETS } else { b }
       p.buckets[bi] += 1
@@ -103,7 +107,9 @@ pub fn prof_record(
       if iv > p.max_interval_us {
         p.max_interval_us = iv
       }
-      if iv > p.budget_us {
+      // 丢刷新口径：超过 1.5 倍预算才算这一帧错过了刷新；真实刷新周期
+      // 常比名义值大半毫秒（59.94Hz 的 16.68ms），贴预算记会整窗误报
+      if iv > p.budget_us + p.budget_us / 2L {
         p.over_budget += 1
       }
     }
@@ -176,7 +182,7 @@ pub fn paint_profile_summary() -> String {
 }
 
 ///|
-/// 帧节奏汇总：每秒帧数、间隔 p50 / p95 / 最大（微秒）、超预算帧数。
+/// 帧节奏汇总：每秒帧数、间隔 p50 / p95 / 最大（微秒）、丢刷新帧数。
 /// 空闲间隔不入账；没有两帧相邻过时只给 fps=0。
 pub fn paint_pacing_summary() -> String {
   let p = g_frame_prof
