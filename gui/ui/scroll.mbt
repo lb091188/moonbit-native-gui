@@ -321,12 +321,9 @@ fn ScrollState::start_tick(self : ScrollState, now : Int64) -> Unit {
   self.anim_v = 0.0
   self.anim_x = self.offset
   self.anim_last = now
-  // 帧时钟可用就等下一帧（刷新对齐）；否则沿用 8ms 定时器、第一拍即刻
-  if @shell.frame_clock_ready() {
-    self.schedule_next(self.tick_gen)
-  } else {
-    self.tick(self.tick_gen)
-  }
+  // 第一拍即刻出帧：滚轮那一刻就动，不等下一个刷新周期；后续拍由
+  // `schedule_next` 决定挂帧时钟还是 8ms 定时器
+  self.tick(self.tick_gen)
 }
 
 ///|
