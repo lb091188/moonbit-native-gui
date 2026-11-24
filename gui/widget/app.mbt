@@ -1447,9 +1447,17 @@ let prof_log_last : Ref[Int64] = Ref(0)
 let a11y_sync_last : Ref[Int64] = Ref(0)
 
 ///|
-/// 条带快路径的上一帧快照缓冲（进程级复用）：每帧 new 一张 MB 级 FixedArray
-/// 会走大块 malloc/free，连续动画下是实打实的抖动源；同尺寸直接 blit 覆盖。
+/// 条带快路径的上一帧快照缓冲（进程级复用）：只给分数缩放/亚像素视口的分支
+/// 兜底——那一档的设备位移不是整行，只能整幅贴回；每帧 new 一张 MB 级
+/// FixedArray 会走大块 malloc/free，同尺寸直接 blit 覆盖。
 let g_strip_snapshot : Ref[@render.Bitmap?] = Ref(None)
+
+///|
+/// 设备像素对齐判据：值离最近的整数不到百分之一像素。
+fn dev_int_ok(v : Double) -> Bool {
+  let r = v.round()
+  (v - r) > -0.01 && (v - r) < 0.01
+}
 
 ///|
 fn strip_snapshot(bm : @render.Bitmap) -> @render.Bitmap {
@@ -1581,7 +1589,15 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
             vr.h > 16.0 &&
             !self.session.window.has_child_surfaces() &&
             !tree_blur_hit(self.root, vr) {
-            Some((vr, dyi, ext, v.strip_ink))
+            // 设备像素对齐：缩放为整倍、视口四边与位移都落在设备像素上才走
+            // 就地整行搬移；分数缩放/亚像素视口退回快照贴回
+            let dy_dev_f = dyi * sc
+            let dev_ok = dev_int_ok(dy_dev_f) &&
+              dev_int_ok(vr.x * sc) &&
+              dev_int_ok(vr.y * sc) &&
+              dev_int_ok((vr.x + vr.w) * sc) &&
+              dev_int_ok((vr.y + vr.h) * sc)
+            Some((vr, dyi, ext, v.strip_ink, dy_dev_f.round().to_int(), dev_ok))
           } else {
             None
           }
@@ -1591,25 +1607,36 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
     _ => None
   }
   match strip_plan {
-    Some((vr, sdy, ext, ink)) => {
+    Some((vr, sdy, ext, ink, dy_dev, dev_ok)) => {
       strip_hits.val = strip_hits.val + 1
-      // ① 快照上一帧，视口内整块按整数位移平移：全幅 1:1 命中 raster 的
-      // 「整数平移」快路径，裁剪把写面限制在视口内
-      let snap = @render.Canvas::from_bitmap(strip_snapshot(bm))
-      p.save()
-      p.clip_rect(vr.x, vr.y, vr.w, vr.h)
-      p.draw_canvas_from_rect(
-        snap,
-        0.0,
-        0.0,
-        bm.width.to_double(),
-        bm.height.to_double(),
-        0.0,
-        sdy,
-        w.to_double(),
-        h.to_double(),
-      )
-      p.restore()
+      // ① 视口内整块按整数位移平移
+      if dev_ok {
+        // 就地逐行搬移：不分配、不逐像素，2 倍屏与 1 倍屏同一条路
+        bm.shift_rows(
+          (vr.x * sc).round().to_int(),
+          ((vr.x + vr.w) * sc).round().to_int(),
+          (vr.y * sc).round().to_int(),
+          ((vr.y + vr.h) * sc).round().to_int(),
+          dy_dev,
+        )
+      } else {
+        // 分数缩放/亚像素视口：快照上一帧再整幅贴回，通用平移兜底
+        let snap = @render.Canvas::from_bitmap(strip_snapshot(bm))
+        p.save()
+        p.clip_rect(vr.x, vr.y, vr.w, vr.h)
+        p.draw_canvas_from_rect(
+          snap,
+          0.0,
+          0.0,
+          bm.width.to_double(),
+          bm.height.to_double(),
+          0.0,
+          sdy,
+          w.to_double(),
+          h.to_double(),
+        )
+        p.restore()
+      }
       // ② 修复新露条带（|位移| + 最高行余量 + 视口固定墨迹）与滚动条列。
       // 固定墨迹是视口自己画的、不随内容滚动的那圈描边：平移会把旧帧的边框行
       // 搬进视口内部（新露条带的近侧一行），不把它盖进重画范围就留成横纹。

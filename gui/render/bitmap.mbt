@@ -121,6 +121,60 @@ pub fn Bitmap::to_rgba_bytes(self : Bitmap) -> Bytes {
 }
 
 ///|
+/// 就地整行搬移：把 [x0, x1) 列宽、[y0, y1) 行范围内的像素按 dy 行平移。
+/// dy 正 = 内容下移，负 = 上移；越界部分夹到位图内。逐行整块拷贝，不分配、
+/// 不逐像素——滚动条带快路径每帧都要搬一次整视口。
+pub fn Bitmap::shift_rows(
+  self : Bitmap,
+  x0 : Int32,
+  x1 : Int32,
+  y0 : Int32,
+  y1 : Int32,
+  dy : Int32,
+) -> Unit {
+  if dy == 0 {
+    return ()
+  }
+  let cx0 = if x0 < 0 { 0 } else { x0 }
+  let cy0 = if y0 < 0 { 0 } else { y0 }
+  let cx1 = if x1 > self.width { self.width } else { x1 }
+  let cy1 = if y1 > self.height { self.height } else { y1 }
+  if cx1 <= cx0 || cy1 <= cy0 {
+    return ()
+  }
+  let len = (cx1 - cx0) * 4
+  let stride = self.width * 4
+  let d = self.data
+  if dy > 0 {
+    // 内容下移：从下往上搬，源行在目标行上方，搬过的源行不会再被当目标
+    let mut y = cy1 - 1
+    while y >= cy0 + dy {
+      let src = y - dy
+      d.blit_to(
+        d,
+        len~,
+        src_offset=src * stride + cx0 * 4,
+        dst_offset=y * stride + cx0 * 4,
+      )
+      y = y - 1
+    }
+  } else {
+    let up = 0 - dy
+    let mut y = cy0
+    while y < cy1 - up {
+      let src = y + up
+      d.blit_to(
+        d,
+        len~,
+        src_offset=src * stride + cx0 * 4,
+        dst_offset=y * stride + cx0 * 4,
+      )
+      y = y + 1
+    }
+  }
+}
+
+///|
 /// 在闭区间 [x0,x1) × [y0,y1) 内逐像素覆盖；非法区间不做任何事。
 pub fn Bitmap::fill_area(
   self : Bitmap,

@@ -56,3 +56,33 @@ test "box_blur_region：区域越界裁到位图" {
   assert_eq(rgb_at(bm, 0, 0), (10, 20, 30))
   assert_eq(rgb_at(bm, 3, 3), (10, 20, 30))
 }
+
+///|
+test "shift_rows：上下平移对位、列范围外的像素不动、越界夹取" {
+  let bm = Bitmap::new(8, 6)
+  // 每行一个灰阶：行 y 填 y*20
+  let colors = ["#000000", "#141414", "#282828", "#3C3C3C", "#505050", "#646464"]
+  for y = 0; y < 6; y = y + 1 {
+    let p = Painter::new(bm)
+    p.set_fill_color(colors[y])
+    p.fill_rect(0.0, y.to_double(), 8.0, 1.0)
+    p.end()
+  }
+  // 下移 2 行：目标行 y 取源行 y-2；顶部两行保留原值
+  bm.shift_rows(0, 8, 0, 6, 2)
+  assert_eq(rgb_at(bm, 0, 0), (0, 0, 0))
+  assert_eq(rgb_at(bm, 0, 2), (0, 0, 0))
+  assert_eq(rgb_at(bm, 0, 3), (20, 20, 20))
+  assert_eq(rgb_at(bm, 0, 5), (60, 60, 60))
+  // 上移 2 行：目标行 y 取源行 y+2
+  bm.shift_rows(0, 8, 0, 6, -2)
+  assert_eq(rgb_at(bm, 0, 0), (0, 0, 0))
+  assert_eq(rgb_at(bm, 0, 1), (20, 20, 20))
+  assert_eq(rgb_at(bm, 0, 3), (60, 60, 60))
+  // 列范围限制：只搬 [2,4)，列 0 不动
+  let before = rgb_at(bm, 0, 4)
+  bm.shift_rows(2, 4, 0, 6, -1)
+  assert_eq(rgb_at(bm, 0, 4), before)
+  // 越界：整幅落在位图外也不崩、不动
+  bm.shift_rows(100, 200, 0, 6, 3)
+}
