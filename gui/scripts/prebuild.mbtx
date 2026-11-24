@@ -47,7 +47,7 @@ let text_package : String = "NoahLiu/native-gui/text"
 let mac_win_frameworks : Array[String] = [
   "-framework", "Cocoa", "-framework", "CoreGraphics", "-framework", "Carbon",
   "-framework", "IOKit", "-framework", "UserNotifications", "-framework",
-  "QuartzCore",
+  "QuartzCore", "-framework", "CoreVideo",
 ]
 
 ///|

@@ -4718,6 +4718,13 @@ int64_t wm_now_us(void) {
          (int64_t)((c.QuadPart % freq.QuadPart) * 1000000 / freq.QuadPart);
 }
 
+int wm_vsync_supported(void) { return 0; }
+int wm_vsync_start(void) { return 0; }
+void wm_vsync_stop(void) {}
+int wm_vsync_take(void) { return 0; }
+int64_t wm_vsync_target_us(void) { return 0; }
+int wm_display_hz(void) { return 60; }
+
 /* ---- 系统深浅偏好与主色（主题跟随系统用，W13 的 Windows 读数先落这里）----
  * 深浅读 AppsUseLightTheme（0 = dark）；主色读 DWM 的 AccentColor
  * （0xAABBGGRR 口径），转 "#rrggbb"。读不到给空串，退路由 MoonBit 决定。 */
@@ -8775,6 +8782,13 @@ int64_t wm_now_us(void) {
   return (int64_t)ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
 }
 
+int wm_vsync_supported(void) { return 0; }
+int wm_vsync_start(void) { return 0; }
+void wm_vsync_stop(void) {}
+int wm_vsync_take(void) { return 0; }
+int64_t wm_vsync_target_us(void) { return 0; }
+int wm_display_hz(void) { return 60; }
+
 
 /* ---- 系统深浅偏好与主色（主题跟随系统用） ----
  * 读 gsettings（GNOME 的 org.gnome.desktop.interface）：color-scheme 优先，
@@ -9372,6 +9386,7 @@ void wm_inst_release(void) {}
 #import <CoreGraphics/CoreGraphics.h>
 #import <CoreText/CoreText.h>
 #import <QuartzCore/CAMetalLayer.h> // GPU present 档（L1）：窗口挂 CAMetalLayer
+#include <CoreVideo/CVDisplayLink.h> // 刷新回调通道（C1）：CVDisplayLink
 
 // 这个 setter 在新 SDK（macOS 26 的构建机）上不再公开声明，clang 直接报
 // 「no visible @interface / no known instance method」，而旧 SDK 上它是真实
@@ -11056,6 +11071,83 @@ void wm_wakeup(void) {
       [NSApp postEvent:ev atStart:NO];
     }
   }
+}
+
+// ---- 显示器刷新回调（C1）：CVDisplayLink 到主循环的唤醒位 ----
+// 回调线程只记目标上屏时刻并投唤醒位，不碰任何绘制。目标时刻取
+// 「回调时刻 + 一个刷新周期」：这一帧会在下一次刷新上屏。
+int64_t wm_now_us(void);
+
+static CVDisplayLinkRef g_vsync_link = NULL;
+static volatile int g_vsync_pending = 0;
+static volatile int64_t g_vsync_target_us = 0;
+static volatile double g_vsync_hz = 0.0;
+static int g_vsync_probe = 0; // 0 = 未探测，1 = 可用，-1 = 起不来
+
+int wm_vsync_supported(void) {
+  if (g_vsync_probe == 0) {
+    CVDisplayLinkRef link = NULL;
+    if (CVDisplayLinkCreateWithActiveCGDisplays(&link) == kCVReturnSuccess &&
+        link != NULL) {
+      g_vsync_link = link;
+      CVTime p = CVDisplayLinkGetNominalOutputVideoRefreshPeriod(link);
+      if (p.timeValue > 0 && p.timeScale > 0) {
+        g_vsync_hz = (double)p.timeScale / (double)p.timeValue;
+      }
+      g_vsync_probe = 1;
+    } else {
+      g_vsync_probe = -1;
+    }
+  }
+  return g_vsync_probe > 0 ? 1 : 0;
+}
+
+static CVReturn wm_vsync_cb(CVDisplayLinkRef link, const CVTimeStamp *now,
+                            const CVTimeStamp *out, CVOptionFlags flags_in,
+                            CVOptionFlags *flags_out, void *ctx) {
+  (void)link;
+  (void)now;
+  (void)out;
+  (void)flags_in;
+  (void)flags_out;
+  (void)ctx;
+  double hz = g_vsync_hz > 1.0 ? g_vsync_hz : 60.0;
+  g_vsync_target_us = wm_now_us() + (int64_t)(1000000.0 / hz);
+  g_vsync_pending = 1;
+  wm_wakeup();
+  return kCVReturnSuccess;
+}
+
+int wm_vsync_start(void) {
+  if (!wm_vsync_supported()) {
+    return 0;
+  }
+  if (CVDisplayLinkIsRunning(g_vsync_link)) {
+    return 1;
+  }
+  CVDisplayLinkSetOutputCallback(g_vsync_link, &wm_vsync_cb, NULL);
+  return CVDisplayLinkStart(g_vsync_link) == kCVReturnSuccess ? 1 : 0;
+}
+
+void wm_vsync_stop(void) {
+  if (g_vsync_link != NULL && CVDisplayLinkIsRunning(g_vsync_link)) {
+    CVDisplayLinkStop(g_vsync_link);
+  }
+}
+
+int wm_vsync_take(void) {
+  int p = g_vsync_pending;
+  g_vsync_pending = 0;
+  return p;
+}
+
+int64_t wm_vsync_target_us(void) { return g_vsync_target_us; }
+
+int wm_display_hz(void) {
+  if (g_vsync_hz > 1.0) {
+    return (int)(g_vsync_hz + 0.5);
+  }
+  return 60;
 }
 
 void wm_request_focus(int64_t id) {
@@ -14584,6 +14676,13 @@ int64_t wm_now_us(void) {
   // 占位档退回毫秒时钟换算：精度够跑账本，不引入额外平台依赖
   return wm_now_ms() * 1000;
 }
+
+int wm_vsync_supported(void) { return 0; }
+int wm_vsync_start(void) { return 0; }
+void wm_vsync_stop(void) {}
+int wm_vsync_take(void) { return 0; }
+int64_t wm_vsync_target_us(void) { return 0; }
+int wm_display_hz(void) { return 60; }
 
 int64_t wm_local_date(void) {
   return 0;

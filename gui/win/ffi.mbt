@@ -94,6 +94,60 @@ pub fn now_us() -> Int64 {
 extern "c" fn wm_now_us() -> Int64 = "wm_now_us"
 
 ///|
+extern "c" fn wm_vsync_supported() -> Int32 = "wm_vsync_supported"
+
+///|
+extern "c" fn wm_vsync_start() -> Int32 = "wm_vsync_start"
+
+///|
+extern "c" fn wm_vsync_stop() -> Unit = "wm_vsync_stop"
+
+///|
+extern "c" fn wm_vsync_take() -> Int32 = "wm_vsync_take"
+
+///|
+extern "c" fn wm_vsync_target_us() -> Int64 = "wm_vsync_target_us"
+
+///|
+extern "c" fn wm_display_hz() -> Int32 = "wm_display_hz"
+
+///|
+/// 本平台有没有显示器刷新回调通道（当前只有 mac 有）。
+pub fn vsync_supported() -> Bool {
+  wm_vsync_supported() == 1
+}
+
+///|
+/// 开刷新回调。返回 false = 起不来，调用方回退定时器。
+pub fn vsync_start() -> Bool {
+  wm_vsync_start() == 1
+}
+
+///|
+/// 关刷新回调：空闲时不占显示链路。
+pub fn vsync_stop() -> Unit {
+  wm_vsync_stop()
+}
+
+///|
+/// 取唤醒位：这一拍有刷新回调落进来时为真。
+pub fn vsync_take() -> Bool {
+  wm_vsync_take() == 1
+}
+
+///|
+/// 本帧目标上屏时刻（微秒，与 now_us 同轴）。
+pub fn vsync_target_us() -> Int64 {
+  wm_vsync_target_us()
+}
+
+///|
+/// 刷新率（Hz）：读不到给 0。
+pub fn display_hz() -> Int32 {
+  wm_display_hz()
+}
+
+///|
 extern "c" fn wm_local_date() -> Int64 = "wm_local_date"
 
 ///|
