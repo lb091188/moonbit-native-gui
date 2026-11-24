@@ -15028,6 +15028,8 @@ MNG_L1_FN(InstanceCreateSurface)
 MNG_L1_FN(InstanceRequestAdapter)
 MNG_L1_FN(InstanceProcessEvents)
 MNG_L1_FN(AdapterRequestDevice)
+MNG_L1_FN(AdapterGetInfo)
+MNG_L1_FN(AdapterInfoFreeMembers)
 MNG_L1_FN(DeviceGetQueue)
 MNG_L1_FN(DeviceCreateBuffer)
 MNG_L1_FN(DeviceCreateTexture)
@@ -15220,6 +15222,12 @@ static int l1_load_syms(void) {
   p_wgpuSurfaceCapabilitiesFreeMembers =
       (WGPUProcSurfaceCapabilitiesFreeMembers)l1_dlsym(
           g_l1_lib, "wgpuSurfaceCapabilitiesFreeMembers");
+  // 适配器型号查询同按可选：老库没有时型号按未知处理，环境闸兜底
+  p_wgpuAdapterGetInfo =
+      (WGPUProcAdapterGetInfo)l1_dlsym(g_l1_lib, "wgpuAdapterGetInfo");
+  p_wgpuAdapterInfoFreeMembers =
+      (WGPUProcAdapterInfoFreeMembers)l1_dlsym(g_l1_lib,
+                                               "wgpuAdapterInfoFreeMembers");
   MNG_L1_LOAD(BindGroupRelease);
   MNG_L1_LOAD(BufferRelease);
   MNG_L1_LOAD(TextureViewRelease);
@@ -15305,7 +15313,6 @@ static const char L1_WGSL[] =
     "}\n";
 
 // ---- 进程级探测（一次；instance/device/queue/管线/采样器/bgl 跨窗复用） ----
-static void l1_probe_body(void);
 
 #if defined(_WIN32)
 // 虚拟机 / 虚拟显卡环境不启用 GPU 档：此类环境（QEMU/KVM GPU-PV 等）实测
@@ -15408,39 +15415,17 @@ static int l1_on_virtual_gpu(void) {
 }
 #endif
 
-static void l1_probe(void) {
-  if (g_l1_probed) {
-    return;
-  }
-  g_l1_probed = 1;
-  g_l1_ok = 0;
-  g_l1_missing[0] = 0;
-#if defined(_WIN32) || defined(__linux__)
-  if (l1_on_virtual_gpu()) {
-    snprintf(g_l1_missing, sizeof g_l1_missing, "虚拟机环境，GPU 档不启用");
-    l1_log("L1 探测未过，回退各臂原路径：%s", g_l1_missing);
-    return;
-  }
-#endif
-  l1_probe_body();
-  if (g_l1_ok) {
-    l1_log("L1 探测通过：窗口呈现可挂 GPU 档");
-  } else {
-    l1_log("L1 探测未过，回退各臂原路径：%s",
-           g_l1_missing[0] ? g_l1_missing : "原因未记");
-  }
-}
-
-static void l1_probe_body(void) {
+// 段 A：装载符号 + instance + adapter。0 = 失败（g_l1_missing 已写原因）。
+static int l1_probe_adapter(void) {
   if (!l1_load_lib() || !l1_load_syms()) {
-    return;
+    return 0;
   }
   WGPUInstanceDescriptor idesc;
   memset(&idesc, 0, sizeof idesc);
   g_l1_inst = p_wgpuCreateInstance(&idesc);
   if (g_l1_inst == NULL) {
     snprintf(g_l1_missing, sizeof g_l1_missing, "wgpuCreateInstance 失败");
-    return;
+    return 0;
   }
   // adapter（future：回调 + 泵）
   WGPURequestAdapterCallbackInfo acb;
@@ -15455,8 +15440,109 @@ static void l1_probe_body(void) {
       l1_ad_status != WGPURequestAdapterStatus_Success || l1_adapter == NULL) {
     snprintf(g_l1_missing, sizeof g_l1_missing,
              "RequestAdapter 未成功（驱动无可用后端？）");
+    return 0;
+  }
+  return 1;
+}
+
+// ---- 适配器型号读取与分档：环境闸的主判据换成显卡本身 ----
+// 型号是硬件显卡就放行，型号是虚拟/软件渲染就拦下，型号未知才轮到 CPU 侧
+// 环境闸（l1_on_virtual_gpu）。背景：物理机开 Hyper-V / 内核隔离 / WSL2 时
+// CPUID hypervisor 位同样置位，按位拦会把真机误判成虚拟机（native-env
+// vm.mbt 已记「裸机误报头号来源」并特判；2026-11-25 Windows 真机 components
+// 实测 GPU 档被它挡住，任务管理器应用名下无 GPU 引擎）。
+static char g_l1_adapter_desc[160];
+static int g_l1_adapter_kind; // 0 未知 1 硬件 2 虚拟或软件渲染
+static int g_l1_adapter_backend; // WGPUBackendType 原值，诊断用
+static int g_l1_adapter_type;    // WGPUAdapterType 原值，诊断用
+
+static char l1_lower_ch(char c) {
+  return (c >= 'A' && c <= 'Z') ? (char)(c - 'A' + 'a') : c;
+}
+
+// 型号串里找关键词（ASCII 大小写不敏感的子串匹配）
+static int l1_desc_has(const char *kw) {
+  size_t klen = strlen(kw);
+  if (klen == 0) {
+    return 0;
+  }
+  for (const char *h = g_l1_adapter_desc; *h; h++) {
+    size_t i = 0;
+    while (i < klen && h[i] &&
+           l1_lower_ch(h[i]) == l1_lower_ch(kw[i])) {
+      i++;
+    }
+    if (i == klen) {
+      return 1;
+    }
+    if (!h[i]) {
+      break;
+    }
+  }
+  return 0;
+}
+
+// 关键词表与 l1_on_virtual_gpu 的适配器名表同源；软件渲染各家的名字一并收
+static const char *const l1_adapter_virtual_kw[] = {
+    "virtual", "vmware", "qemu", "qxl", "red hat", "vbox", "virtualbox",
+    "hyper-v", "parallels", "virtio", "basic render", "basic display",
+    "llvmpipe", "lavapipe", "swiftshader", "software", NULL,
+};
+static const char *const l1_adapter_hw_kw[] = {
+    "nvidia", "geforce", "quadro", "amd", "radeon", "intel", "arc", "iris",
+    "uhd", "apple", "adreno", "snapdragon", "qualcomm", NULL,
+};
+
+static void l1_read_adapter_info(void) {
+  if (p_wgpuAdapterGetInfo == NULL || l1_adapter == NULL) {
+    return; // 老库或无 adapter：型号未知，环境闸兜底
+  }
+  WGPUAdapterInfo info;
+  memset(&info, 0, sizeof info);
+  if (p_wgpuAdapterGetInfo(l1_adapter, &info) != WGPUStatus_Success) {
     return;
   }
+  g_l1_adapter_backend = (int)info.backendType;
+  g_l1_adapter_type = (int)info.adapterType;
+  // 描述串优先，空则退设备名、再退厂商串
+  const WGPUStringView *pick = &info.description;
+  if (pick->data == NULL || pick->length == 0) {
+    pick = &info.device;
+  }
+  if (pick->data == NULL || pick->length == 0) {
+    pick = &info.vendor;
+  }
+  if (pick->data != NULL && pick->length > 0) {
+    size_t n = pick->length;
+    if (n >= sizeof g_l1_adapter_desc) {
+      n = sizeof g_l1_adapter_desc - 1;
+    }
+    memcpy(g_l1_adapter_desc, pick->data, n);
+    g_l1_adapter_desc[n] = 0;
+  }
+  if (p_wgpuAdapterInfoFreeMembers != NULL) {
+    p_wgpuAdapterInfoFreeMembers(info);
+  }
+  if (info.adapterType == WGPUAdapterType_CPU) {
+    g_l1_adapter_kind = 2;
+    return;
+  }
+  for (int i = 0; l1_adapter_virtual_kw[i]; i++) {
+    if (l1_desc_has(l1_adapter_virtual_kw[i])) {
+      g_l1_adapter_kind = 2;
+      return;
+    }
+  }
+  for (int i = 0; l1_adapter_hw_kw[i]; i++) {
+    if (l1_desc_has(l1_adapter_hw_kw[i])) {
+      g_l1_adapter_kind = 1;
+      return;
+    }
+  }
+}
+
+// 段 B：device / queue / 管线 / 采样器 / bind group layout。
+static void l1_probe_device(void) {
   // device（future 同款）
   WGPURequestDeviceCallbackInfo dcb;
   memset(&dcb, 0, sizeof dcb);
@@ -15543,6 +15629,47 @@ static void l1_probe_body(void) {
     return;
   }
   g_l1_ok = 1;
+}
+
+// 进程级探测主流程：装 adapter → 读型号分档 → 环境闸 → 建 device。
+static void l1_probe(void) {
+  if (g_l1_probed) {
+    return;
+  }
+  g_l1_probed = 1;
+  g_l1_ok = 0;
+  g_l1_missing[0] = 0;
+  if (!l1_probe_adapter()) {
+    l1_log("L1 探测未过，回退各臂原路径：%s",
+           g_l1_missing[0] ? g_l1_missing : "原因未记");
+    return;
+  }
+  l1_read_adapter_info();
+#if defined(_WIN32) || defined(__linux__)
+  // 适配器分档先行：型号是硬件显卡就放行（CPU hypervisor 位不影响——物理机
+  // 开 Hyper-V / 内核隔离时也置位）；型号是虚拟/软件渲染就拦下；型号未知才
+  // 轮到 CPU 侧环境闸（hypervisor 位 / 虚拟显卡名 / DMI）兜底
+  if (g_l1_adapter_kind == 2) {
+    snprintf(g_l1_missing, sizeof g_l1_missing,
+             "适配器非硬件显卡（%s）——GPU 档不启用", g_l1_adapter_desc);
+    l1_log("L1 探测未过，回退各臂原路径：%s", g_l1_missing);
+    return;
+  }
+  if (g_l1_adapter_kind == 0 && l1_on_virtual_gpu()) {
+    snprintf(g_l1_missing, sizeof g_l1_missing, "虚拟机环境，GPU 档不启用");
+    l1_log("L1 探测未过，回退各臂原路径：%s", g_l1_missing);
+    return;
+  }
+#endif
+  l1_probe_device();
+  if (g_l1_ok) {
+    l1_log("L1 探测通过：窗口呈现可挂 GPU 档（%s，backend=%d type=%d）",
+           g_l1_adapter_desc[0] ? g_l1_adapter_desc : "适配器型号未知",
+           g_l1_adapter_backend, g_l1_adapter_type);
+  } else {
+    l1_log("L1 探测未过，回退各臂原路径：%s",
+           g_l1_missing[0] ? g_l1_missing : "原因未记");
+  }
 }
 
 int wm_l1_available(void) {

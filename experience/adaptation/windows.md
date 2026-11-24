@@ -726,3 +726,11 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **读数**：修后 win10 VM——VM 命中 bochs、非容器、GPU None 会话保守档、三信号 bios_vendor + cpuid 位 + cpuid 签名。`moon test env` 27/27。
 - **教训**：①Windows 上「注册表有这个键」不等于「RegGetValue 读得动」，类型过滤与 MUI 处理是暗礁，取证先用老 API；②单一通路断不代表机器没信息，把五条通路列成矩阵逐条探针，活的那条往往在最想不到的位置；③hypervisor 签名串在 enlightenments 时代是「宿主装了什么壳」不是「guest 是谁」，品牌判定 SMBIOS 优先。
 - **GUI 子系统进程的诊断输出天生落黑洞（2026-11-22，PROF 采集不到实测）**：本构建经链接 pragma 走 GUI 子系统（`/SUBSYSTEM:WINDOWS`），进程没有控制台、标准句柄为 NULL——而 MoonBit runtime 的 `moonbit_println` 在 Windows 首调 `GetStdHandle(STD_OUTPUT_HANDLE)` 并**静态缓存**，NULL 即终身静默丢弃，`println` / `NATIVEGUI_PROF` / 全部诊断口从 PowerShell 跑也一样一行不出。修法（`wm_init` 最前）：① `NATIVEGUI_LOG_FILE=<路径>` 时标准句柄（`SetStdHandle`）与 C stdout（`freopen`）一并重定向进该文件——任何启动方式都有日志；② 否则 `AttachConsole(ATTACH_PARENT_PROCESS)` 接回父终端、句柄指到 `CONOUT$`——println 走 `WriteConsoleW`（终端内中文不乱码）。freopen 后 `setvbuf(stdout, _IONBF)`：PROF 两秒一行，默认全缓冲会攒到进程退出才一次倒出，真机上就像「跑完什么都没有」。判据：PowerShell 起 `NATIVEGUI_PROF=1 moon run examples/components`，终端每 2 秒一行 PROF。
+
+## Windows GPU 档虚拟机闸误伤物理机：CPUID hypervisor 位在开 Hyper-V 的裸机上也置位，闸改按 wgpu 适配器型号判 · 2026-11-25
+
+- **现象**：Windows 真机（有硬件显卡）components 观察到 GPU 档未挂上——任务管理器应用名下无 GPU 引擎、首帧 present=1ms、PROF 全程走 CPU 上屏路径的耗时形态。
+- **根因**：`l1_probe` 的虚拟机闸第一层看 CPUID hypervisor 位，物理机开 Hyper-V / 内核隔离 / WSL2 时同样置位——native-env 的 vm.mbt 早已记「裸机误报头号来源」并做 hvhost 特判，桩里这份判定没有，两套口径漂移。
+- **修法**：探测拆四段——装 adapter → `wgpuAdapterGetInfo` 读型号分档（型号命中硬件显卡关键词放行、命中虚拟/软件渲染关键词或 `AdapterType=CPU` 拦下）→ 型号未知才跑原环境闸（hypervisor 位 / 虚拟显卡名 / DMI）兜底 → 建 device 与管线。探测通过日志带型号、backend 与 type。
+- **判据**：真机 `NATIVEGUI_GPU_LOG=1` 起 components 出「L1 探测通过」与「窗口呈现挂上 GPU 档（型号，backend=… type=…）」；VM 里出「适配器非硬件显卡（…）」或「虚拟机环境，GPU 档不启用」，两者都算闸生效。
+- **教训**：同一个环境判定在两处各写一份就是两份漂移；闸的主判据用「要判断的那个东西本身」（显卡型号）而不是间接信号（CPU 虚拟化标志）。
