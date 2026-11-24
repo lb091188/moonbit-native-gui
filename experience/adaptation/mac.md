@@ -519,3 +519,11 @@ mac 跑 showcase「GPU 画布」页报「GPU 画布建不出（400x240；驱动�
 - **根因**：UDP connect 不发包、只按路由表选出口接口；默认路由被代理 TUN 接管时，选中 utun 而非物理网卡。换公网探测目标没用——所有公网目标走同一张路由表。
 - **修法**：`gui/sys` 新增 `netif_ipv4_addresses`（getifaddrs 枚举全量 IPv4，桩在 sys_stub.c POSIX 臂，Windows 占位）+ `netif_lan_ip`（只认 RFC1918 三段 10/8、172.16/12、192.168/16，物理网卡名优先、utun/tun/tap/lo 等嫌疑名排后）。198.18/15 不是 RFC1918，天然被滤掉。
 - **实测**：wbtest 真机读数 lo0 127.0.0.1 / en0 192.168.0.35 / utun4 198.18.0.1，选中 en0。
+
+## 刷新回调接 CVDisplayLink：符号在 CoreVideo，旧 SDK 上照常可用
+
+- **用途**：滚动等动画的帧节奏跟显示器刷新对齐，回调线程只投唤醒位，不碰绘制。
+- **链接面**：`CVDisplayLink*` 声明在 `CoreVideo/CVDisplayLink.h`，符号由 `CoreVideo.framework` 导出。`gui/scripts/prebuild.mbtx` 的 `mac_win_frameworks` 已补 `-framework CoreVideo`；漏了它时编译能过、链接报一串 `_CVDisplayLink*` 未定义。
+- **弃用但可用**：macOS 15 起这批 API 标了 deprecated，SDK 头建议换 `NSView.displayLink(target:selector:)` 一族。当前保留 CVDisplayLink——不绑定具体视图、老系统也能跑；CI 的桩语法门禁不带 `-Werror`，只有弃用警告。
+- **时间口径**：回调里不读 `CVTimeStamp.hostTime` 换算，改用本栈自己的单调微秒时钟加一个刷新周期当目标上屏时刻——两个时钟域不混用，回调线程与主线程各自只碰自己那套读数。
+- **唤醒**：`[NSApp postEvent:atStart:NO]` 是 AppKit 少数可跨线程调用的口，回调线程靠它把阻塞中的 `nextEventMatchingMask:` 叫醒；主循环取到唤醒位后先跑帧回调再绘制。
