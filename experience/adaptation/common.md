@@ -2166,12 +2166,12 @@ GpuCanvas——@render.GpuSink 的 gui-gpu 实现，GPU 线首消费者——落
 
 ## 检查器树行裸容器：占行的件必须有 kind——2026-11-17，F12 附窗真机反馈
 
-- **坑**：裸 `Widget::new()` 的布局壳 kind/role 双空，占了组件视图的树行就只剩 `#id`——hello 页实测两处：`scroll_view` 的内容容器（组件视图里 scroll_view 自己占行，内容容器跟着占行）、`mng_dev_page` 的挂载 holder（dev 页壳，模板根挂它下面）。
-- **口径**：占检查器树一行的件必须有 kind；三处补齐——`ui-scroll-content`（scroll_view 内容容器）、`ui-virt-list-content`（虚拟列表内容容器）、`mng-page`（dev 页挂载点）。role 保持空——纯布局壳不进读屏语义树，kind 只管检查器树行可读。
+- **坑**：裸 `Widget::new()` 的布局壳 kind/role 双空，占了组件视图的树行就只剩 `#id`——hello 页实测 `scroll_view` 的内容容器，组件视图里 scroll_view 自己占行、内容容器跟着占行；`mng_dev_page` 的挂载壳已于 2026-11-24 去除，见文末「模板 dev 页去掉挂载壳」条。
+- **口径**：占检查器树一行的件必须有 kind；两处补齐——`ui-scroll-content`（scroll_view 内容容器）、`ui-virt-list-content`（虚拟列表内容容器）。role 保持空——纯布局壳不进读屏语义树，kind 只管检查器树行可读。
 - **行文本兜底**：三处行 label 组装（F12 附窗、内建 v1 面板、mngui 独立窗）kind+role 双空显示 `(无)`——与详情面板空字段口径一致，保证以后再出裸容器也不至于只剩 #id。
 - **`descriptions` 的 label_width 曾设在值列**：参数名叫 label 宽度、min_width 却设给值文本，label 实际不定宽——已挪回 label 列，值列起点随之对齐。样式表单五字段 label 同设最小宽 64 对齐。
 - **样式全量读数字段名打平**：曾带点分组前缀（`text.font_size` / `edge.padding_top`，意图看名知组，mngui 读数区还按前缀归组标题）——真机反馈层次感多余，全部改回 `@style.Style` 字段本名（`font_size` / `padding_top`，与模板 CSS 属性同口径）；mngui 分组标题与 `insp_group_of` 随之撤销，两版读数区同构平铺。附带的修正：`border.width` 这类去前缀后与编辑器五字段同名，读数区按五字段摘除不再重复展示。`style <id>` 是对外协议，字段名变化要同步 docs 的协议表。
-- **裸容器 flex 默认 Row，页面级 holder 必须显式 Column**：flex 布局里 stretch 只拉交叉轴——Row 容器的子项宽度是主轴尺寸，auto + grow 0 就收缩到内容宽。`mng_dev_page` 的 holder 是裸 `Widget::new()`，没设方向，模板页塌到内容宽（hello 页实测 296/760）；yoga 层探针证实 Row 默认下连给父显式 `set_align_items(Stretch)` 都救不回，置 Column 才通。凡是自己 `node_of_new` 造的**页面级/块级容器**都要显式 `set_flex_direction(Column)`（窗根、scroll 内容容器同款）；组件内部件挂在有方向容器里的可以不设。
+- **裸容器 flex 默认 Row，页面级 holder 必须显式 Column**：flex 布局里 stretch 只拉交叉轴——Row 容器的子项宽度是主轴尺寸，auto + grow 0 就收缩到内容宽。`mng_dev_page` 早先的 holder 是裸 `Widget::new()`，没设方向，模板页塌到内容宽（hello 页实测 296/760），该壳已于 2026-11-24 去除；yoga 层探针证实 Row 默认下连给父显式 `set_align_items(Stretch)` 都救不回，置 Column 才通。凡是自己 `node_of_new` 造的**页面级/块级容器**都要显式 `set_flex_direction(Column)`（窗根、scroll 内容容器同款）；组件内部件挂在有方向容器里的可以不设。
 - **moon 0.1.20261117 弃用族清零与平台退出码差异**：新版 moon 对四类旧写法发弃用警告——`Bytes::new(n)` 改 `Bytes::make(n, b'\x00')`（同为零初始化，全仓 24 处）；`Double::from_int(x)` 改 `x.to_double()`；`Int64::from_int(x)` 改 `x.to_int64()`；`StringBuilder(size_hint=…)` 改 `StringBuilder(capacity=…)`。平台差异要记住：mac 与 Linux 上警告不挡退出码（exit 0），**Windows 上 moon check 有警告就 exit 1**——同一份代码 mac 绿、Windows 腿红，清零是唯一出路。验证口径：gui / tools / mdparse / gui-webview / gui-media 五模块 check 零警告 + mac `moon test` 全名单 1463/1463。
 - **mac tar 打包传 Windows 会带上 AppleDouble 垃圾**：mac 的 bsdtar 对带扩展属性的文件自动生成 `._<名字>` 伴生条目（存 `com.apple.provenance` 等），Windows 解压后 moon 把它们当源码读，报「invalid UTF-8 streams」直接炸 check。打包一律 `COPYFILE_DISABLE=1 tar … --exclude='._*'`（前者禁 AppleDouble、后者双保险）；已中招的机器 `Get-ChildItem -Recurse -Force -Filter '._*' | Remove-Item -Force` 清一遍即愈。scripts/local_ci.sh 的 sync 步已固化。
 - **1.0 前快照 TSV 不做格式兼容**：语义快照通道的 C 解析（`wm_a11y_publish`）按 13 列硬解析、无容错守卫，发布侧与接收侧与测试三处同步改即可。13 列改版期间曾短暂给 C 解析加「按行切分 + 缺列置空」以兼容 12 列旧输入，定案撤销——1.0 前轻装上阵，不为旧格式留包袱。快照格式只认发布侧现行形态：发布侧在 `gui/widget/a11y.mbt` 摊平，接收侧在 `gui/win/stub.c`，测试在 `gui/shell/atspi_wbtest.mbt` 的真总线集成用例，三处同批改同批验。
@@ -2308,3 +2308,12 @@ GpuCanvas——@render.GpuSink 的 gui-gpu 实现，GPU 线首消费者——落
 - **早前卡顿的根因**：缓动每 16ms 重绘整个视口，长 Markdown 的富文本绘制吃穿帧预算（mac 真机实测卡顿）。条带快路径把每拍成本压到「快照 + 平移 + 窄条带」后，惯性才重新开在硬件档；滚轮分支的整窗兜底是第二个隐形大头。
 - **测试基建坑**：`@shell.set_timer_hooks` 安装时会把排队中的早鸟定时器**补发**进新通道——无宿主的纯控件测试里排出的定时器会漏进下一个装钩子的用例（实测叠加层延时用例的队列断言被 8 条污染）。组件在 `timer_channel_ready()` 为假时不得排节拍。
 - **读数**：`anim_cost_bench` 新增滚动档（万行虚拟列表一步滚动 + relayout + 视口绘制）mac debug 0.89ms/帧；win/linux 待补。
+
+## 模板 dev 页去掉挂载壳：dev 控件树与生产一致——2026-11-24，检查器改样式影响布局的反馈
+
+- **坑**：dev 形态原先给模板树包一层真实控件当挂载点，壳上写死纵排、宽高 100%、min 归零五条样式来模仿生产布局。壳是布局里的真节点，检查器里改它的样式必然影响布局；dev 与生产的控件树也永久差一层，检查器多一行 `mng-page`。
+- **收口**：`mng_dev_page` 改成不建控件的节点，原语是 `@widget.node_of_mount`。挂载时把模板根直接挂进真实父容器，按页登记「父容器 + 该代根 + 退订袋」；补丁在同一个父容器里原位换根，先建新树再摘旧树，构树失败时旧一代原样留着。
+- **多实例**：登记表按页存数组，同一模板挂多处时逐处替换。已从父容器摘下的实例在补丁时摘登记，不往共用父容器里挂树；页已卸载时补丁报未挂载，交工具转 COLD 重启回改动页。
+- **时序**：模板树改为挂载时构建，`mount_window` 先挂树再启动唤醒泵，补丁不会早于挂载到达。
+- **归口**：与 `bind_node` 同一套机制，`index_of` / `remove_child` / `move_child` 直接复用。
+- **测试**：白盒用例的页名必须一例一名。登记表按页存数组后，同名页的旧挂载点会跨用例累积，多实例替换会把前一个用例的树一起换掉。

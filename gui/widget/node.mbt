@@ -44,6 +44,13 @@ pub fn node_of_new(finish : (Widget) -> Widget) -> Node {
 }
 
 ///|
+/// 不建控件的节点：挂载时才跑 `f`，由 `f` 在 parent 里建树并返回挂上去的那个
+/// 控件。虚拟节点自身不占控件树一行、不带自己的布局样式，布局与生产形态一致。
+pub fn node_of_mount(f : (Widget) -> Widget) -> Node {
+  { mount: f }
+}
+
+///|
 /// 包一层「挂进父控件**之后**跑一次 `f`」的节点：`node_of_new` 的 `finish`、
 /// `view` 的 `handle` 都是**构造期**就执行的（页面函数是 `mount_window` 的实参、
 /// 求值早于建窗），在那些回调里排 `set_timeout`/读宿主都是「没有宿主」形态

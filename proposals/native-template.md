@@ -387,7 +387,7 @@ fn template_spike() -> @widget.Node {
 - 时间：2026-11-02。
 - 编译器第二产物 IR：`mngkit.ir_of`，JSON 形态——结构树 + 参数三态 lit/expr/state + 动态槽内容键 `t:<hash>` / `c:<hash>` + `classes` 类定义数据 + `eval` 新表达式 AST + requires 清单。
 - 推送：dev 子命令 HOT 分支产 IR 经单实例通道 `instance_wake(app_id, ["--mng-hot", 路径])` 推送；D-Bus 臂另补套接字旁路供 dev 工具送达；Windows 仍缺工具侧 Win32 客户端。
-- 应用侧 applier：showcase「模板 Dev」页 `shared/mng_dev.mbt`——类型化注册表 + JSON 构树 + sub_bag 原位替换；注册表与 holder 按 IR 的 `page` 键控。无头 wbtest 钉死「构树必须在订阅袋窗口内」。
+- 应用侧 applier：showcase「模板 Dev」页 `shared/mng_dev.mbt`——类型化注册表 + JSON 构树 + sub_bag 原位替换；注册表与挂载点按 IR 的 `page` 键控。无头 wbtest 钉死「构树必须在订阅袋窗口内」。
 - 求值顺序：每次补丁先按 `classes` 重注册命名类实现样式值热更，再登记 `eval` 里缺失的表达式键——受限 VM 求值，已编译闭包优先。
 - v1 补丁边界：col/row/text/dyn/if/button/checkbox/switch/stepper/input，参数表内才进补丁。
   - 参数明细：col/row 只收 gap；button text/click；checkbox label/value；switch value；stepper value/min/max；input value/placeholder。

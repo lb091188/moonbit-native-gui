@@ -99,7 +99,7 @@ fn mng_compile(src : String, path : String) -> Result[@mngkit.GenOut, String] {
 }
 
 ///|
-/// 编译（dev 形态）：多出页面注册表与 holder 落点（状态保活骨架）。
+/// 编译（dev 形态）：多出页面注册表与挂载点登记（状态保活骨架）。
 fn mng_compile_dev(
   src : String,
   path : String,

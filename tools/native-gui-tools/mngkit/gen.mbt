@@ -1341,7 +1341,7 @@ fn let_at(info : ScriptInfo, k : Int32) -> String {
 }
 
 ///|
-/// 编译内核：`dev=false` 产生产形态；`dev=true` 追加页面注册表与 holder 落点。
+/// 编译内核：`dev=false` 产生产形态；`dev=true` 追加页面注册表与挂载点登记。
 fn compile_impl(
   src : String,
   filename : String,

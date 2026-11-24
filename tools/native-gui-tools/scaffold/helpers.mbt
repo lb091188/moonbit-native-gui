@@ -295,7 +295,7 @@ fn ws_root(dir : String) -> String {
 }
 
 ///|
-/// 编译（dev 形态）：多出页面注册表与 holder 落点（状态保活骨架）。
+/// 编译（dev 形态）：多出页面注册表与挂载点登记（状态保活骨架）。
 fn compile_dev(src : String, path : String) -> Result[@mngkit.GenOut, String] {
   let dir = dir_of(path)
   let sigs = @mngkit.sigs_new(ws_root(dir), dir, @mngkit.io_new(fs_read, fs_ls))

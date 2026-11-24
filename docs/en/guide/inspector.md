@@ -9,7 +9,7 @@ Every widget carries a component type name at construction, unified with .mng te
 - `role`: closed enumeration for screen readers (`button`, `text_input`, ...).
 - `kind`: open-string component type name for humans and AI — "what widget is this"; the name is exactly the tag written in the template.
 
-Wrapper layers and dynamic trees can override it with `with_kind("Name")`; mngkit injects `with_comp("tag")` at every template tag call site — it sets the type name and leaves a component mark, which the inspector component view and the screen-reader component group nodes rely on. Bare containers that take a tree row report a type name too: the scroll-view content container is `ui-scroll-content`, the virtual-list content container is `ui-virt-list-content`, and the mng dev page mount point is `mng-page`.
+Wrapper layers and dynamic trees can override it with `with_kind("Name")`; mngkit injects `with_comp("tag")` at every template tag call site — it sets the type name and leaves a component mark, which the inspector component view and the screen-reader component group nodes rely on. Bare containers that take a tree row report a type name too: the scroll-view content container is `ui-scroll-content` and the virtual-list content container is `ui-virt-list-content`.
 
 ## Component view
 

@@ -1,11 +1,11 @@
-// mng_dev 白盒：补丁解析 → applier 构树 → holder 原位替换 → 旧代整袋退订。
+// mng_dev 白盒：补丁解析 → applier 构树 → 挂载点原位替换 → 旧代整袋退订。
 // 键由编译器按表达式内容哈希生成；夹具随手用同一条键串起 IR 与注册表即可
 // （真实键形如 t:3fc746ec39ec6f8e，见 mngkit 的「HOT 键稳定」测试）。
 
 ///|
-fn demo_ir() -> String {
+fn demo_ir(page : String) -> String {
   [
-    "{\"v\":1,\"rev\":\"mng-ir-1\",\"page\":\"dev_demo\",", "\"root\":{\"k\":\"col\",\"gap\":8.0,\"class\":[\"demo\"],\"kids\":[",
+    "{\"v\":1,\"rev\":\"mng-ir-1\",\"page\":\"" + page + "\",", "\"root\":{\"k\":\"col\",\"gap\":8.0,\"class\":[\"demo\"],\"kids\":[",
     "  {\"k\":\"checkbox\",\"args\":{\"label\":{\"expr\":\"t:8:18\"},\"value\":{\"state\":\"wifi\"}}},",
     "  {\"k\":\"if\",\"c\":\"c:9:5\",\"t\":{\"k\":\"dyn\",\"key\":\"t:9:5\"},\"f\":{\"k\":\"text\",\"v\":\"已关闭\"}},",
     "  {\"k\":\"stepper\",\"args\":{\"value\":{\"state\":\"qty\"}}},", "  {\"k\":\"dyn\",\"key\":\"t:12:5\"},",
@@ -39,7 +39,7 @@ fn demo_reg(
 }
 
 ///|
-test "applier:补丁构树挂上 holder，动态槽走注册表" {
+test "applier:补丁构树挂进父容器，页不占树行" {
   let fires = Ref(0)
   let reg = demo_reg(
     fires,
@@ -47,21 +47,27 @@ test "applier:补丁构树挂上 holder，动态槽走注册表" {
     @base.Store::new(true),
     @base.Store::new(""),
   )
-  mng_dev_set_reg("dev_demo", reg)
-  let holder = @widget.Widget::new()
-  let _ = holder.set_column()
-  mng_dev_bind_holder("dev_demo", holder)
-  match mng_dev_apply(demo_ir()) {
+  let parent = @widget.Widget::new()
+  let _ = parent.set_column()
+  let node = mng_dev_page("dev_shell", reg, fn() { @ui.text("初代") })
+  let first = node.mount_into(parent)
+  // 父容器的直接子项就是模板根：dev 页不占树行、无自带布局壳
+  assert_eq(parent.children().length(), 1)
+  assert_eq(parent.children()[0].id, first.id)
+  assert_eq(first.kind, "ui-text")
+  match mng_dev_apply(demo_ir("dev_shell")) {
     Ok(_) => ()
     Err(e) => abort("apply1: \{e}")
   }
-  assert_eq(holder.children().length(), 1)
-  // 补丁里没有 gen 旧树时 live 为空——再应用一次走「摘旧挂新」
-  match mng_dev_apply(demo_ir()) {
+  assert_eq(parent.children().length(), 1)
+  assert_eq(parent.children()[0].kind, "ui-col")
+  // 再应用一次走「摘旧挂新」
+  match mng_dev_apply(demo_ir("dev_shell")) {
     Ok(_) => ()
     Err(e) => abort("apply2: \{e}")
   }
-  assert_eq(holder.children().length(), 1)
+  assert_eq(parent.children().length(), 1)
+  assert_eq(parent.children()[0].kind, "ui-col")
 }
 
 ///|
@@ -69,13 +75,12 @@ test "applier:旧代订阅整袋退订，迭代不累积" {
   let fires = Ref(0)
   let qty : @base.Store[Int32] = @base.Store::new(3)
   let reg = demo_reg(fires, qty, @base.Store::new(true), @base.Store::new(""))
-  mng_dev_set_reg("dev_demo", reg)
-  let holder = @widget.Widget::new()
-  let _ = holder.set_column()
-  mng_dev_bind_holder("dev_demo", holder)
+  let parent = @widget.Widget::new()
+  let _ = parent.set_column()
+  let _ = mng_dev_page("dev_bag", reg, fn() { @ui.text("初代") }).mount_into(parent)
   let mut i = 0
   while i < 5 {
-    match mng_dev_apply(demo_ir()) {
+    match mng_dev_apply(demo_ir("dev_bag")) {
       Ok(_) => ()
       Err(e) => abort("\{e}")
     }
@@ -194,10 +199,9 @@ test "applier：补丁里的 eval 表登记新表达式后再构树" {
   let reg = mng_reg_new()
   reg.int("qty", @base.Store::new(5))
   mng_reg_builtins(reg)
-  mng_dev_set_reg("evalpage", reg)
-  let holder = @widget.Widget::new()
-  let _ = holder.set_column()
-  mng_dev_bind_holder("evalpage", holder)
+  let parent = @widget.Widget::new()
+  let _ = parent.set_column()
+  let _ = mng_dev_page("evalpage", reg, fn() { @ui.text("初代") }).mount_into(parent)
   let ir = [
     "{\"v\":1,\"rev\":\"mng-ir-1\",\"page\":\"evalpage\",", "\"root\":{\"k\":\"dyn\",\"key\":\"t:abc\"},",
     "\"exprs\":[\"t:abc\"],\"states\":[],\"handlers\":[],", "\"eval\":{\"t:abc\":{\"k\":\"tostr\",\"a\":{\"k\":\"id\",\"v\":\"qty\"}}}}",
@@ -212,16 +216,15 @@ test "applier：补丁里的 eval 表登记新表达式后再构树" {
     Ok(_) => ()
     Err(e) => abort("\{e}")
   }
-  assert_eq(holder.children().length(), 1)
+  assert_eq(parent.children().length(), 1)
 }
 
 ///|
 test "applier:握手不符（注册表缺键）判 stale，原因带缺的键" {
-  mng_dev_set_reg("dev_demo", mng_reg_new())
-  let holder = @widget.Widget::new()
-  let _ = holder.set_column()
-  mng_dev_bind_holder("dev_demo", holder)
-  let r = mng_dev_apply(demo_ir())
+  let parent = @widget.Widget::new()
+  let _ = parent.set_column()
+  let _ = mng_dev_page("dev_stale", mng_reg_new(), fn() { @ui.text("初代") }).mount_into(parent)
+  let r = mng_dev_apply(demo_ir("dev_stale"))
   assert_true(
     match r {
       Err(e) =>
@@ -236,7 +239,10 @@ test "applier:握手不符（注册表缺键）判 stale，原因带缺的键" {
 
 ///|
 test "applier:协议代次不符判 stale（旧补丁没有 rev）" {
-  let ir = "{\"v\":1,\"page\":\"dev_demo\",\"root\":{\"k\":\"text\",\"v\":\"x\"}}"
+  let parent = @widget.Widget::new()
+  let _ = parent.set_column()
+  let _ = mng_dev_page("dev_legacy", mng_reg_new(), fn() { @ui.text("初代") }).mount_into(parent)
+  let ir = "{\"v\":1,\"page\":\"dev_legacy\",\"root\":{\"k\":\"text\",\"v\":\"x\"}}"
   let r = mng_dev_apply(ir)
   assert_true(
     match r {
@@ -294,7 +300,7 @@ test "applier:补丁按 page 取页，未挂载页报错带页名" {
 }
 
 ///|
-test "mng_dev_page：登记起页挂初代树，补丁原位替换保持单棵" {
+test "mng_dev_page：挂载时模板根直接挂进父容器，补丁原位替换保持单棵" {
   let page = "io.moonbitlibyue.wbtest.devpage"
   let reg = mng_reg_new()
   reg.expr("t:1:1", fn() { "初代" })
@@ -303,19 +309,119 @@ test "mng_dev_page：登记起页挂初代树，补丁原位替换保持单棵" 
       @ui.text("初代")
     })
   })
-  let root = @widget.Widget::new()
-  let _ = root.set_column()
-  let _ = node.mount_into(root)
-  assert_eq(root.children().length(), 1)
-  let holder = match mng_holders.get(page) {
-    Some(h) => h
-    None => abort("holder 未登记")
-  }
-  assert_eq(holder.children().length(), 1)
+  let parent = @widget.Widget::new()
+  let _ = parent.set_column()
+  let first = node.mount_into(parent)
+  // 虚拟节点不建自己的控件：返回句柄就是父容器的直接子项
+  assert_eq(parent.children().length(), 1)
+  assert_eq(parent.children()[0].id, first.id)
   let ir = "{\"v\":1,\"rev\":\"mng-ir-1\",\"page\":\"io.moonbitlibyue.wbtest.devpage\",\"root\":{\"k\":\"dyn\",\"key\":\"t:1:1\"},\"exprs\":[\"t:1:1\"],\"states\":[],\"handlers\":[]}"
   match mng_dev_apply(ir) {
     Ok(_) => ()
     Err(e) => abort("apply: " + e)
   }
-  assert_eq(holder.children().length(), 1)
+  assert_eq(parent.children().length(), 1)
+  assert_eq(parent.children()[0].role, "text")
+  assert_eq(parent.children()[0].label, "初代")
+}
+
+///|
+test "applier:补丁原位替换不动兄弟与下标" {
+  let fires = Ref(0)
+  let reg = demo_reg(
+    fires,
+    @base.Store::new(3),
+    @base.Store::new(true),
+    @base.Store::new(""),
+  )
+  let parent = @widget.Widget::new()
+  let _ = parent.set_column()
+  let before_node = @ui.text("前")
+  let before = before_node.mount_into(parent)
+  let _ = mng_dev_page("dev_sib", reg, fn() { @ui.text("初代") }).mount_into(parent)
+  let after_node = @ui.text("后")
+  let after = after_node.mount_into(parent)
+  assert_eq(parent.children().length(), 3)
+  match mng_dev_apply(demo_ir("dev_sib")) {
+    Ok(_) => ()
+    Err(e) => abort("\{e}")
+  }
+  let kids = parent.children()
+  assert_eq(kids.length(), 3)
+  assert_eq(kids[0].id, before.id)
+  assert_eq(kids[1].kind, "ui-col")
+  assert_eq(kids[2].id, after.id)
+}
+
+///|
+test "applier:页已卸载后补丁报未挂载，不往共用父容器里挂树" {
+  let fires = Ref(0)
+  let reg = demo_reg(
+    fires,
+    @base.Store::new(3),
+    @base.Store::new(true),
+    @base.Store::new(""),
+  )
+  let parent = @widget.Widget::new()
+  let _ = parent.set_column()
+  let root = mng_dev_page("dev_off", reg, fn() { @ui.text("初代") }).mount_into(parent)
+  // 模拟路由切页：页根从父容器摘下
+  assert_true(parent.remove_child(root))
+  let r = mng_dev_apply(demo_ir("dev_off"))
+  assert_true(
+    match r {
+      Err(e) => contains_sub_m(e, "未挂载")
+      _ => false
+    },
+  )
+  assert_eq(parent.children().length(), 0)
+}
+
+///|
+test "applier:同一模板挂多处时补丁逐处替换" {
+  let fires = Ref(0)
+  let reg = demo_reg(
+    fires,
+    @base.Store::new(3),
+    @base.Store::new(true),
+    @base.Store::new(""),
+  )
+  let a = @widget.Widget::new()
+  let _ = a.set_column()
+  let b = @widget.Widget::new()
+  let _ = b.set_column()
+  let _ = mng_dev_page("dev_multi", reg, fn() { @ui.text("甲") }).mount_into(a)
+  let _ = mng_dev_page("dev_multi", reg, fn() { @ui.text("乙") }).mount_into(b)
+  match mng_dev_apply(demo_ir("dev_multi")) {
+    Ok(_) => ()
+    Err(e) => abort("\{e}")
+  }
+  assert_eq(a.children().length(), 1)
+  assert_eq(a.children()[0].kind, "ui-col")
+  assert_eq(b.children().length(), 1)
+  assert_eq(b.children()[0].kind, "ui-col")
+}
+
+///|
+test "applier:构树失败时旧树保留" {
+  let fires = Ref(0)
+  let reg = demo_reg(
+    fires,
+    @base.Store::new(3),
+    @base.Store::new(true),
+    @base.Store::new(""),
+  )
+  let parent = @widget.Widget::new()
+  let _ = parent.set_column()
+  let _ = mng_dev_page("dev_fail", reg, fn() { @ui.text("初代") }).mount_into(parent)
+  let ir = "{\"v\":1,\"rev\":\"mng-ir-1\",\"page\":\"dev_fail\",\"root\":{\"k\":\"unknown\"},\"exprs\":[],\"states\":[],\"handlers\":[]}"
+  let r = mng_dev_apply(ir)
+  assert_true(
+    match r {
+      Err(e) => contains_sub_m(e, "不在 applier v1 表内")
+      _ => false
+    },
+  )
+  assert_eq(parent.children().length(), 1)
+  assert_eq(parent.children()[0].kind, "ui-text")
 }

@@ -111,6 +111,14 @@
 
 ## mng 工具链复验·用户执行
 
+- [ ] **dev 页无壳复验**：执行者：用户执行——`cd examples/hello && mng dev` 起应用，与 `moon run .` 的生产形态对照
+  1. 按 ⌘⌥I——mac——或 F12——Windows/Linux 开检查器附窗：组件树里 `ui-scroll-content` 下直接是模板根 `ui-col`，没有 `mng-page` 行
+  2. 两形态对照 hello 声明式页：卡片宽度、内边距、与下方「基本窗口示例」的间距一致
+  3. 改 `hello.mng` 标题文字保存：热更后布局不跳，下方区块位置不动
+  4. 给模板根加 `flex: 1` 一类样式改动保存：dev 表现与生产构建一致
+     - flex: 1：让控件占满父容器剩余空间的样式写法。
+  - 用例：HL-1.4、HL-1.5、HL-5.9
+
 - [ ] **mngui 向导壳**：`moon install ./tools/native-gui-tools/mng && moon install ./tools/native-gui-tools/mngui` 后裸 `mng`：
   - mng：本仓的开发者工具命令行，管新建工程、dev 热更、体检与打包发布。
   - mngui：mng 的图形向导外壳，五步引导建工程、起应用。

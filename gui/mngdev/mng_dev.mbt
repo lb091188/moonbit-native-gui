@@ -1,4 +1,4 @@
-// 模板 dev 面（应用侧）：IR 注册表 + applier + holder 原位替换。
+// 模板 dev 面（应用侧）：IR 注册表 + applier + 挂载点原位替换。
 // 补丁由 dev 工具经单实例通道推送（args = ["--mng-hot", <ir 路径>]）。
 // v1 边界：组件 col/row/text/dyn/if/button/checkbox/switch/stepper/input，
 // 参数三态 lit/expr/state；动态槽键 = 表达式内容哈希（t:… / c:…），
@@ -411,12 +411,16 @@ fn dev_class(names : Array[String]) -> Array[@style.Style] {
 // ---------------------------------------------------------------------------
 
 ///|
-/// 页 → 内容容器（模板补丁的原位替换落点）。
-let mng_holders : Map[String, @widget.Widget] = Map([])
+/// 一处现役挂载点：父容器、该代模板根、该代订阅退订函数。
+priv struct MngLive {
+  parent : @widget.Widget
+  root : @widget.Widget
+  offs : Array[() -> Unit]
+}
 
 ///|
-/// 页 → (现役树, 该代订阅退订函数)。
-let mng_lives : Map[String, (@widget.Widget, Array[() -> Unit])] = Map([])
+/// 页 → 现役挂载点（同一模板可挂多处，补丁逐处替换；已卸载的实例补丁时摘掉）。
+let mng_lives : Map[String, Array[MngLive]] = Map([])
 
 ///|
 /// 页 → 注册表（`page` 取 IR 的 `page` 键，即模板文件 stem）。
@@ -522,13 +526,16 @@ fn mng_write_ack(irpath : String, status : String) -> Unit {
 }
 
 ///|
-/// dev 档页面壳：登记注册表与 holder，把 `build()` 的树挂进 holder 并记为现役代。
-/// script 段在 `build` 外执行（状态建一代），补丁只重建 `build()` 的树——状态保活。
-/// 首次建页自装 dev 三通道接线——dev 面只存在于 dev 形态生成码的调用链里，
-/// 应用入口零 dev 词；生产构建换生产形态生成码后本包调用链整体消失。
+/// dev 三通道接线的自装标记（首建 dev 页时装一次）。
 let wake_installed : Ref[Bool] = Ref(false)
 
 ///|
+/// dev 档页面入口：登记注册表，返回一个不建控件的节点——挂载时把 `build()` 的树
+/// 直接挂进真实父容器，并按页登记挂载点（父容器 + 该代根 + 退订袋）。
+/// script 段在 `build` 外执行（状态建一代），补丁只重建 `build()` 的树——状态保活。
+/// dev 形态控件树与生产形态一致：页不占树行、不带自己的布局样式。
+/// 首次建页自装 dev 三通道接线——dev 面只存在于 dev 形态生成码的调用链里，
+/// 应用入口零 dev 词；生产构建换生产形态生成码后本包调用链整体消失。
 pub fn mng_dev_page(
   page : String,
   reg : MngReg,
@@ -539,31 +546,13 @@ pub fn mng_dev_page(
     mng_dev_wake_default()
   }
   mng_dev_set_reg(page, reg)
-  @widget.node_of_new(fn(holder : @widget.Widget) {
-    // 页面壳是纵排容器：模板页/页面块作交叉轴子项 stretch 占满宽
-    // （裸件 flex 默认 Row，子项会收缩到内容宽——hello 页实测塌到 296）
-    holder.node.set_flex_direction(@yoga.Column)
-    // 壳宽钉满父容器并放开 min 下限：页面壳的宽要跟窗口走，不能被模板
-    // 内容的 min-content 顶爆（.mng 里 width:100% 参照的是壳宽，壳被顶爆
-    // 整页百分比全歪）；min-size 缺省 auto 下限=min-content，不放开收缩
-    // 触发不了（同 scroll_view 视口与 tabs 面板的既有口径）
-    holder.node.set_width(@yoga.percent(100.0))
-    holder.node.set_min_width(@yoga.fixed(0.0))
-    // 高度同样钉满父容器并放开 min 下限：模板页里的滚动容器要在「可用高受限」
-    // 下才进入裁剪滚动，壳被内容撑成自然高时 flex-shrink 永不触发，内容溢出
-    // 窗底且没有任何滚动路径（airtype 真机实测：页面不滚、底部截断）
-    holder.node.set_height(@yoga.percent(100.0))
-    holder.node.set_min_height(@yoga.fixed(0.0))
-    // 检查器树行可读：dev 页挂载点报自己的类型名（role 留空，纯布局壳不进语义树）
-    holder.kind = "mng-page"
-    mng_dev_bind_holder(page, holder)
+  @widget.node_of_mount(fn(parent : @widget.Widget) -> @widget.Widget {
     // 构树 + 挂载同处一个订阅袋窗口（computed 的依赖订阅发生在构造时）
     @base.sub_bag_begin()
-    let node = build()
-    let child = node.mount_into(holder)
+    let root = build().mount_into(parent)
     let offs = @base.sub_bag_end()
-    let _ = mng_lives.set(page, (child, offs))
-    holder
+    mng_dev_note_live(page, { parent: parent, root: root, offs: offs })
+    root
   })
 }
 
@@ -577,9 +566,26 @@ pub fn mng_dev_page_title(page : String) -> String? {
 }
 
 ///|
-/// dev 页登记内容容器（按页登记，补丁按 IR 的 `page` 取）。
-pub fn mng_dev_bind_holder(page : String, w : @widget.Widget) -> Unit {
-  let _ = mng_holders.set(page, w)
+/// 登记一处现役挂载点（同一模板挂多处时逐处登记，补丁按 IR 的 `page` 取）。
+/// 顺带摘掉已从父容器摘下的旧挂载点并退订其整代——dev 长会话里反复挂载不累积。
+fn mng_dev_note_live(page : String, live : MngLive) -> Unit {
+  match mng_lives.get(page) {
+    Some(ls) => {
+      let kept : Array[MngLive] = []
+      for old in ls {
+        if old.parent.index_of(old.root) >= 0 {
+          kept.push(old)
+        } else {
+          @base.sub_bag_discard(old.offs)
+        }
+      }
+      kept.push(live)
+      let _ = mng_lives.set(page, kept)
+    }
+    None => {
+      let _ = mng_lives.set(page, [live])
+    }
+  }
 }
 
 ///|
@@ -832,7 +838,8 @@ fn mj_param(
 }
 
 ///|
-/// 补丁应用：解析 → 按 `page` 取页 → 构树 → 沿登记 holder 原位替换（整代退订照路由纪律）。
+/// 补丁应用：解析 → 按 `page` 取现役挂载点 → 构树 → 在同一个父容器里原位替换。
+/// 先建新树再摘旧树：构树失败时旧一代原样留着，页面不留白。
 pub fn mng_dev_apply(json : String) -> Result[Unit, String] {
   let parsed = match jp_value({ cs: chars_of_m(json), i: 0, }) {
     Ok(v) => v
@@ -842,11 +849,12 @@ pub fn mng_dev_apply(json : String) -> Result[Unit, String] {
     Some(p) => p
     None => return Err("补丁缺 page")
   }
-  let holder = match mng_holders.get(page) {
-    Some(h) => h
+  // 现役挂载点：同名模板可挂多处（组件模板常被用多次），逐处换代
+  let lives = match mng_lives.get(page) {
+    Some(ls) => ls
     None =>
       return Err(
-        "页「\{page}」未挂载（holder 未登记）——先打开该页",
+        "页「\{page}」未挂载（没有现役挂载点）——先打开该页",
       )
   }
   let root = match mj_get(parsed, "root") {
@@ -885,27 +893,54 @@ pub fn mng_dev_apply(json : String) -> Result[Unit, String] {
       }
     _ => ()
   }
-  // 摘旧：整袋退订（照路由 slot 的回收纪律）
-  match mng_lives.get(page) {
-    Some((old, offs)) => {
-      @base.sub_bag_discard(offs)
-      let _ = holder.remove_child(old)
+  // 逐处换代：已卸载的实例摘登记，其余的换完新树再摘旧树
+  let kept : Array[MngLive] = []
+  let mut err : String? = None
+  let mut replaced = 0
+  for live in lives {
+    let at = live.parent.index_of(live.root)
+    if at < 0 {
+      // 该实例已从父容器摘下（路由切页/窗关）：整代退订，不往共用父容器里挂
+      @base.sub_bag_discard(live.offs)
+      continue
     }
+    if err is Some(_) {
+      // 前面实例构树失败：后面的原样留登记，不再动
+      kept.push(live)
+      continue
+    }
+    // 构树 + 挂载必须同处一个订阅袋窗口——computed 的依赖订阅发生在构造时，
+    // 只包 mount_into 会让旧代 computed 的订阅漏出回收袋（探针钉过的口径）
+    @base.sub_bag_begin()
+    let node = match mj_node(root, reg) {
+      Ok(n) => n
+      Err(e) => {
+        @base.sub_bag_discard(@base.sub_bag_end())
+        err = Some(e)
+        kept.push(live)
+        continue
+      }
+    }
+    let w = node.mount_into(live.parent)
+    let offs = @base.sub_bag_end()
+    // 新树就绪再摘旧：构树失败时旧树原样留着
+    @base.sub_bag_discard(live.offs)
+    let _ = live.parent.remove_child(live.root)
+    let now = live.parent.index_of(w)
+    if now != at {
+      live.parent.move_child(now, at)
+    }
+    kept.push({ parent: live.parent, root: w, offs: offs })
+    replaced += 1
+  }
+  let _ = mng_lives.set(page, kept)
+  match err {
+    Some(e) => return Err(e)
     None => ()
   }
-  // 构树 + 挂载必须同处一个订阅袋窗口——computed 的依赖订阅发生在构造时，
-  // 只包 mount_into 会让旧代 computed 的订阅漏出回收袋（探针钉过的口径）
-  @base.sub_bag_begin()
-  let node = match mj_node(root, reg) {
-    Ok(n) => n
-    Err(e) => {
-      @base.sub_bag_discard(@base.sub_bag_end())
-      return Err(e)
-    }
+  if replaced == 0 {
+    return Err("页「\{page}」未挂载（实例都已从父容器摘下）——先打开该页")
   }
-  let w = node.mount_into(holder)
-  let offs = @base.sub_bag_end()
-  let _ = mng_lives.set(page, (w, offs))
   @widget.invalidate()
   Ok(())
 }
