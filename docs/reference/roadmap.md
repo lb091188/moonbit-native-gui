@@ -679,6 +679,18 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
   - 收益读数：mac 腿 `paint_full` 5.5ms/帧对 `paint_clip` 0.45ms/帧（240 行）；批 2（chart 悬停 / 图例）与批 3（点击成交 Up 兜底）待做
 - ⏳ **CPU 视觉能力补足批（余项）**：五批已全部落地并移入「已实现 · 渲染与绘制」，真机观感 SC-17.1～17.6 已三端验毕（2026-11-21），此处剩成本读数一格尾账
   - 成本读数尾账：win / linux 补跑 `experiment/anim_cost_bench` 旋转小控件档（mac 已 20 帧合计 0ms、与同尺寸裸图元同档）。
+- ⏳ **GPU 上屏档加固与 Windows 帧节奏**：Windows 真机 GPU 档没挂上、动画帧被系统定时器量化，五批修复
+  - 起因：Windows 真机 components 观察——GPU 档未挂上、动画全在 CPU、PROF 帧间隔被 15.6ms 系统定时器量化成 44fps 整
+  - 批 1 探测改按显卡判：适配器型号含硬件显卡名即放行，CPU hypervisor 位降为兜底
+    - hypervisor 位：CPUID 报告「跑在虚拟机里」的处理器标志位；物理机开 Hyper-V 或内核隔离时也会置位。
+  - 批 2 呈现档可观测：每窗实时档位读数与 PROF tier 行
+  - 批 3 Windows 帧节奏：动画时钟改 QPC、等待接高精度定时器、刷新回调走 DwmFlush、刷新率读显示器真实值
+    - QPC：Windows 的高精度单调计数器，精度高于毫秒系统定时器格。
+    - DwmFlush：等桌面合成器下一次刷新的系统调用，用它把帧对齐到屏幕刷新。
+  - 批 4 上屏按脏区增量上传：WriteTexture 直写纹理，滚动帧只传视口条带
+  - 批 5 尺寸变化走标准重配：撤 Windows 专属「尺寸变了永久回退 CPU」
+  - 阶段二另立项：合成器分层动画——滚动与变换、透明度动画帧由 GPU 每帧重新合成，CPU 不再逐帧重画——方案 proposals/compositor-animation.md
+    - 合成器：把多层画面叠成最终一帧的组件。
 
 ### 输入与浮层
 

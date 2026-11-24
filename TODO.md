@@ -386,10 +386,13 @@
   - PDH：Windows 的性能计数器接口，查一次拿一个对象要还。
   - 验证·用户执行：win 真机跑 sysmonitor 30 分钟，任务管理器看句柄数不增、显卡读数随时间会刷新
 
-- [ ] **Windows 真机 GPU 档行为**：执行者：用户执行——全屏崩溃四轮取证都在 VM 虚拟显卡栈上，真机无读数
-  1. 测 A：真机设 `NATIVEGUI_GPU_LOG=1` 起 hello——日志出 L1 探测通过，全屏 / 缩放观感正常
-  2. 测 B：`git checkout 15ac9682` 重建，重跑全屏进出与缩放——不崩则「尺寸变化永久 CPU 回退」兜底可撤，崩则兜底留终态
-  3. 收尾：`git checkout dev` 回分支
+- [ ] **GPU 上屏档加固与 Windows 帧节奏·五批落地**：Windows 真机 GPU 档没挂上（任务管理器应用名下无 GPU 引擎）、动画全在 CPU、帧间隔被 15.6ms 系统定时器量化成 44fps 整——五批修复，原「Windows 真机 GPU 档行为」条目并入此处
+  1. 批 1 探测改按显卡判：适配器型号含硬件显卡名放行，CPU hypervisor 位——物理机开 Hyper-V 或内核隔离也会置位、`modules/native-env/env/vm.mbt` 已记「裸机误报头号来源」——降为兜底
+  2. 批 2 呈现档可观测：每窗实时档位读数、GPU 画布页改读、PROF 加 tier 行
+  3. 批 3 帧节奏：`wm_now_ms` 改 QPC、等待接高精度定时器、刷新回调走 DwmFlush、刷新率读真实值
+  4. 批 4 脏区增量上传：WriteTexture 直写纹理，滚动帧只传视口条带
+  5. 批 5 尺寸变化走标准重配：撤「尺寸变了永久回退 CPU」，原 checkout 15ac9682 复测口径由本条全屏 / 缩放真机清单取代
+  - 判据与回填：`NATIVEGUI_GPU_LOG=1` 起 components 见「L1 探测通过」「窗口呈现挂上 GPU 档」、GPU 画布页呈现档 on、任务管理器应用名下出现 3D 引擎；PROF 间隔 p50≈16.7ms、p95 不足 18ms；缩放 / 最大化 / 全屏各五次不崩且 tier=gpu 保持——通过后 roadmap 移「已实现」并标平台状态
 
 ## 极致光栅与新立项
 
