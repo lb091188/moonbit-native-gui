@@ -681,6 +681,26 @@ test "滚动容器：class 的 gap 自动落内容壳，视口壳剥除" {
 }
 
 ///|
+/// 偏移量化：拖动滚动条这类连续小数输入落到整逻辑像素，条带快路径才接得住。
+test "偏移量化到整像素：连续小数输入不再逐帧整视口重绘" {
+  let st = ScrollState::new()
+  let (root, _vp) = mounted(
+    scroll_view(scroll_rows(20, 20.0, "#4488CC"), st, width=200.0, height=100.0),
+    240.0,
+    140.0,
+  )
+  let _ = paint(root, 240, 140)
+  st.set_offset(33.7)
+  assert_eq(st.offset_y(), 34.0)
+  st.set_offset(33.2)
+  assert_eq(st.offset_y(), 33.0)
+  st.set_offset(-5.0)
+  assert_eq(st.offset_y(), 0.0)
+  st.set_offset(10000.0)
+  assert_eq(st.offset_y(), st.max())
+}
+
+///|
 /// 弹簧终态回归（真机横纹复现链）：宿主无头泵 + 真 ScrollState 弹簧——向下
 /// 滚过底（触发橡皮筋回弹）再滚回顶（再次触顶回弹），全程走条带快路径出帧。
 /// 任一拍的平移/条带/边缘修复不精确，残差都会定格在终态：断言终态整帧像素

@@ -139,10 +139,14 @@ pub fn ScrollState::offset_y(self : ScrollState) -> Double {
 
 ///|
 /// 设偏移：越界一律夹到 `[0, max]`，随后把新值落到布局上并请求重绘。
+/// 偏移量化到整逻辑像素：条带快路径要求位移为整数，滚动条拖动这类连续输入
+/// 不量化就每帧退化成整视口重绘——真机 Windows 拖动段实测 5–10ms/帧。
 pub fn ScrollState::set_offset(self : ScrollState, v : Double) -> Unit {
   self.cancel_tick()
   let m = self.max()
-  let nv = if v < 0.0 { 0.0 } else if v > m { m } else { v }
+  let c = if v < 0.0 { 0.0 } else if v > m { m } else { v }
+  let r = c.round()
+  let nv = if r > m { m } else { r }
   if nv != self.offset {
     let delta = nv - self.offset
     self.offset = nv
