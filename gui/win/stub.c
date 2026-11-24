@@ -11193,7 +11193,12 @@ static int wm_l1_try(WMState *s, const unsigned char *rgba, int bw, int bh) {
     // 视图改走 layer-backing：Metal 层挂上去（原 drawRect: 的 CG 直贴在
     // l1.on 时停手，见 drawRect:）
     [s.view setWantsLayer:YES];
-    [s.view setLayer:[CAMetalLayer layer]];
+    // 三个可用 drawable：合成器最多压着两个，60Hz 逐帧上屏时不必在
+    // getCurrentTexture 上干等（两个时约每两帧等满一帧，实测 present 6–8ms）
+    CAMetalLayer *l1_layer = [CAMetalLayer layer];
+    l1_layer.maximumDrawableCount = 3;
+    l1_layer.displaySyncEnabled = YES;
+    [s.view setLayer:l1_layer];
     void *surf = wm_l1_surface_metal(&s->l1, (__bridge void *)s.view.layer);
     if (surf == NULL) {
       s->l1.dead = 1;
