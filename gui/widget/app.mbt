@@ -1734,6 +1734,12 @@ pub fn WindowHost::paint_frame(self : WindowHost) -> Unit {
       @base.paint_profile_summary() +
       " strip=" +
       strip_hits.val.to_string() +
+      " tier=" +
+      (if self.session.window.present_status() == "gpu" {
+        "gpu"
+      } else {
+        "cpu"
+      }) +
       " " +
       @base.paint_pacing_summary(),
     )

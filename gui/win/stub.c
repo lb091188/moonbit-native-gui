@@ -86,10 +86,13 @@ typedef struct WmL1 {
   int on;     // GPU 档挂上：各臂贴像素路径据此停手
   int dead;   // 该窗永久回退（对象建不出 / present 失败）
   int stale;  // 离开过最小化：下次呈现前强制走 surface 重建重配
+  char note[96]; // 本窗回退原因（呈现档读数用；挂上 GPU 时为空）
   int src_stype;              // 0 = 未暂存；否则 WGPUSType_SurfaceSource* 值
   unsigned char src_desc[64]; // 建 surface 的平台源描述符整块（重建时照抄）
 } WmL1;
 int wm_l1_available(void);
+WmL1 *wm_l1_slot(int64_t id); // 各臂给窗口的 L1 槽（无窗/无表回 NULL）
+void *wm_window_present_status(int64_t id); // 每窗呈现档读数（Bytes 回文）
 void *wm_l1_surface_xlib(WmL1 *st, void *display, uint64_t window);
 void *wm_l1_surface_hwnd(WmL1 *st, void *hinstance, void *hwnd);
 void *wm_l1_surface_metal(WmL1 *st, void *layer);
@@ -1741,8 +1744,19 @@ int wm_focus_owner(int64_t id) {
 // ---- GPU present 档（L1）Win32 适配：surface 源 = 窗 HWND；贴像素路径
 // （WM_PAINT 的 wm_blit）在 l1.on 时停手。逐像素透明档（trans_mode==1）
 // 不走 GPU——合成面由 UpdateLayeredWindow 管。核心在文件末实现 TU 段。 ----
+WmL1 *wm_l1_slot(int64_t id) {
+  if (id <= 0 || id >= WM_MAX_WINDOWS || wm_windows[id].hwnd == NULL) {
+    return NULL;
+  }
+  return &wm_windows[id].l1;
+}
+
 static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
-  if (!wm_l1_available() || w->l1.dead || w->trans_mode == 1) {
+  if (w->trans_mode == 1) {
+    l1_note_set(&w->l1, "逐像素透明档不走 GPU");
+    return 0;
+  }
+  if (!wm_l1_available() || w->l1.dead) {
     return 0;
   }
   wm_crash_mark("l1.try", bw, bh);
@@ -1772,6 +1786,7 @@ static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
     void *surf = wm_l1_surface_hwnd(&w->l1, (void *)GetModuleHandle(NULL),
                                     (void *)w->hwnd);
     if (surf == NULL) {
+      l1_note_set(&w->l1, "surface 建不出");
       w->l1.dead = 1;
       return 0;
     }
@@ -1781,6 +1796,7 @@ static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
     int sh = wm_physical_of(w->hwnd, w->height);
     int r = wm_l1_window_bind(&w->l1, surf, sw, sh, bw, bh);
     if (r != 1) {
+      l1_note_set(&w->l1, "帧对象建不出");
       wm_l1_window_drop(&w->l1);
       w->l1.dead = 1;
       return 0;
@@ -6832,6 +6848,13 @@ static void wm_store_frame(WmWindow *w, const unsigned char *rgba, int width,
   w->pending_h = height;
 }
 
+WmL1 *wm_l1_slot(int64_t id) {
+  if (id <= 0 || id >= WM_MAX_WINDOWS || wm_windows[id].area == NULL) {
+    return NULL;
+  }
+  return &wm_windows[id].l1;
+}
+
 void wm_present(int64_t id, const unsigned char *rgba, int width, int height,
                 int dx, int dy, int dw, int dh) {
   if (id <= 0 || id >= WM_MAX_WINDOWS) {
@@ -11176,6 +11199,11 @@ static void wm_l1_fallback_view(WMState *s) {
   }
 }
 
+WmL1 *wm_l1_slot(int64_t id) {
+  WMState *s = wm_state(id);
+  return s != nil ? &s->l1 : NULL;
+}
+
 static int wm_l1_try(WMState *s, const unsigned char *rgba, int bw, int bh) {
   if (!wm_l1_available() || s->l1.dead || s->transparent) {
     wm_l1_fallback_view(s);
@@ -14313,6 +14341,11 @@ int32_t wm_ev_axis(int64_t id) { (void)id; return 0; }
 double wm_ev_button_f(int64_t id) { (void)id; return 0.0; }
 double wm_ev_axis_f(int64_t id) { (void)id; return 0.0; }
 
+WmL1 *wm_l1_slot(int64_t id) {
+  (void)id;
+  return NULL;
+}
+
 void wm_present(int64_t id, const unsigned char *rgba, int width, int height,
                 int dx, int dy, int dw, int dh) {
   (void)id;
@@ -15678,6 +15711,13 @@ int wm_l1_available(void) {
 }
 
 // ---- 每窗帧对象：释放（不动 surface / on / dead） ----
+static void l1_note_set(WmL1 *st, const char *reason) {
+  if (st == NULL || reason == NULL) {
+    return;
+  }
+  snprintf(st->note, sizeof st->note, "%s", reason);
+}
+
 static void l1_release_frame(WmL1 *st) {
   if (st->bind != NULL) {
     p_wgpuBindGroupRelease(st->bind);
@@ -15923,6 +15963,7 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
     if (st->sw == sw && st->sh == sh && st->tw == bw && st->th == bh) {
       wm_crash_note("l1: 最小化还原，尺寸未变，原配置直接呈现");
     } else {
+      l1_note_set(st, "尺寸变化回退");
       st->on = 0;
       st->dead = 1;
       wm_crash_note("l1: 最小化还原且尺寸变了，永久回退 CPU 路径");
@@ -15930,6 +15971,7 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
     }
   }
   if (st->sw != sw || st->sh != sh || st->tw != bw || st->th != bh) {
+    l1_note_set(st, "尺寸变化回退");
     st->on = 0;
     st->dead = 1;
     wm_crash_note("l1: 尺寸变化，永久回退 CPU 路径");
@@ -15960,6 +16002,7 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
   if (st->stage_cap < need) {
     unsigned char *ns = (unsigned char *)realloc(st->stage, need);
     if (ns == NULL) {
+      l1_note_set(st, "暂存分配失败");
       st->on = 0;
       st->dead = 1;
       return 0;
@@ -15987,6 +16030,7 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
   ext.depthOrArrayLayers = 1;
   WGPUCommandEncoder enc = p_wgpuDeviceCreateCommandEncoder(g_l1_device, NULL);
   if (enc == NULL) {
+    l1_note_set(st, "encoder 建不出");
     st->on = 0;
     st->dead = 1;
     return 0;
@@ -16117,6 +16161,7 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
   p_wgpuInstanceProcessEvents(g_l1_inst);
   if (ps != WGPUStatus_Success) {
     // 设备/表面丢了：该窗永久回退（本帧也当没上屏）
+    l1_note_set(st, "present 失败");
     st->on = 0;
     st->dead = 1;
     return 0;
@@ -16162,6 +16207,36 @@ void *wm_l1_gpu_status(void) {
   return b;
 }
 
+// 每窗呈现档实时读数：挂上 GPU 给 "gpu"；本窗回退给 "cpu：<本窗原因>"，本窗
+// 没记原因再退进程级探测结论；窗口已拆给 "无窗"。PROF 与 GPU 画布页消费。
+void *wm_window_present_status(int64_t id) {
+  WmL1 *st = (id > 0 && id < WM_MAX_WINDOWS) ? wm_l1_slot(id) : NULL;
+  char buf[128];
+  const char *s = "无窗";
+  if (st != NULL) {
+    if (st->on && !st->dead) {
+      s = "gpu";
+    } else if (st->note[0]) {
+      snprintf(buf, sizeof buf, "cpu：%s", st->note);
+      s = buf;
+    } else {
+      l1_probe();
+      if (g_l1_missing[0]) {
+        snprintf(buf, sizeof buf, "cpu：%s", g_l1_missing);
+        s = buf;
+      } else {
+        s = "cpu";
+      }
+    }
+  }
+  int n = (int)strlen(s);
+  unsigned char *b = (unsigned char *)moonbit_make_bytes(n, 0);
+  if (b != NULL) {
+    memcpy(b, s, (size_t)n);
+  }
+  return b;
+}
+
 #else /* 没有 wgpu vendor 头（归档没下载）：整节编译不进，行为恒等于改造前 */
 
 int wm_l1_available(void) {
@@ -16186,6 +16261,18 @@ void *wm_l1_surface_metal(WmL1 *st, void *layer) {
 }
 void *wm_l1_gpu_status(void) {
   static const char msg[] = "wgpu vendor 归档缺（gui-gpu 未装），L1 未编译";
+  int n = (int)(sizeof msg - 1);
+  unsigned char *b = (unsigned char *)moonbit_make_bytes(n, 0);
+  if (b != NULL) {
+    for (int i = 0; i < n; i++) {
+      b[i] = (unsigned char)msg[i];
+    }
+  }
+  return b;
+}
+void *wm_window_present_status(int64_t id) {
+  (void)id;
+  static const char msg[] = "cpu：wgpu vendor 归档缺（gui-gpu 未装），L1 未编译";
   int n = (int)(sizeof msg - 1);
   unsigned char *b = (unsigned char *)moonbit_make_bytes(n, 0);
   if (b != NULL) {

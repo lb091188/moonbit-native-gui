@@ -507,14 +507,18 @@ fn gpu_cube_section() -> @widget.Node {
 }
 
 ///|
-pub fn page_gpu(_app : @shared.App) -> @widget.Node {
-  // 探测读数（probe 进程级幂等，构建时算一次即可）
+pub fn page_gpu(app : @shared.App) -> @widget.Node {
+  // 探测读数（probe 进程级幂等，构建时算一次即可）；呈现档读每窗实时状态——
+  // 进程探测 on 而窗口回退（透明档 / 尺寸回退）时，页面如实显示 cpu 与原因
   let pr = @guigpu.probe()
-  let l1 = @win.gpu_present_status()
-  let probe_text = if l1 == "on" {
-    "\{pr.detail}\n呈现档: on（位图上传纹理 → GPU present）"
+  let l1 = match app.host.val {
+    Some(h) => h.window().present_status()
+    None => @win.gpu_present_status()
+  }
+  let probe_text = if l1 == "gpu" {
+    "\{pr.detail}\n呈现档: gpu（窗口画面经 wgpu 合成上屏）"
   } else {
-    "\{pr.detail}\n呈现档: 回退 CPU 路径（\{l1}）"
+    "\{pr.detail}\n呈现档: \{l1}"
   }
   let probe_panel = @ui.view(
     [

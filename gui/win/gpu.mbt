@@ -11,3 +11,15 @@ extern "c" fn wm_l1_gpu_status() -> Bytes = "wm_l1_gpu_status"
 pub fn gpu_present_status() -> String {
   @utf8.decode_lossy(wm_l1_gpu_status())
 }
+
+///|
+extern "c" fn wm_window_present_status(id : Int64) -> Bytes = "wm_window_present_status"
+
+///|
+/// 每窗呈现档实时读数：「gpu」= 本窗画面经 wgpu 合成上屏；「cpu：原因」=
+/// 本窗走 CPU 路径及原因（逐像素透明档 / 尺寸回退 / 探测未过等）；「无窗」=
+/// 窗口已拆。与 [gpu_present_status](gpu_present_status) 的进程级结论互补：
+/// 进程探测 on 而本窗回退时，这里如实显示 cpu。PROF tier 与 GPU 画布页消费。
+pub fn Window::present_status(self : Window) -> String {
+  @utf8.decode_lossy(wm_window_present_status(self.id))
+}
