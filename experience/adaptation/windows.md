@@ -743,3 +743,10 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **坑**：暂停事件若用手动复位，SetEvent 后信号常驻，线程在暂停档 `WaitForSingleObject` 立即返回变成忙自旋——必须自动复位，且 start 与 stop 各 SetEvent 一次。
 - **判据**：PROF 滚动帧间隔 p50≈16.7ms、p95 不足 18ms；过渡页不再出现 44fps 整的档位；wm_wait 返回值语义保持「有输入为 1」——定时器到点不算输入。
 - **教训**：Windows 上「毫秒参数」不等于毫秒精度——定时器格对 `GetTickCount64`、`Sleep`、消息循环超时一视同仁；动画计时一律 QPC，等待一律高分辨率可等待定时器。
+
+## L1 上屏整帧三次拷贝：换 QueueWriteTexture 直写纹理、按脏区增量上传 · 2026-11-25
+
+- **现象**：GPU 档每帧把整张位图逐行拷进 256 对齐暂存区、WriteBuffer 进中转 buffer、再 CopyBufferToTexture，三次整帧拷贝；宿主传下来的脏区没人用——滚动帧在 GPU 档下的 CPU 开销比 GDI 路径只多不少。
+- **修法**（`gui/win/stub.c` 共享核心）：上传改 `wgpuQueueWriteTexture` 直写上传纹理——它没有 CopyBufferToTexture 的行距 256 对齐约束，暂存区与中转 buffer 整条链删除；脏区（物理像素，负 = 整帧）从各臂 present 一路传进核心，滚动条带帧只写视口条带子矩形，纹理其余部分保留上一帧内容。encoder 创建挪到 swapchain 纹理取用之后，失败分支不再需要「提交已编码上传」的兜底。
+- **口径**：绑定后的首帧与脏区为负的帧全量上传；mac 臂维持整帧（Metal 恒整帧语义不变）；GTK 臂传真脏区。
+- **判据**：滚动帧上传区域 = 视口条带，`NATIVEGUI_CRASH_LOG=1` 取证档的 `l1.up` 宽×高显著小于整窗；界面逐像素与改造前一致。

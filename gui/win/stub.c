@@ -76,11 +76,7 @@ typedef struct WmL1 {
   void *surface;
   void *tex;
   void *tex_view;
-  void *buf;
   void *bind;
-  unsigned char *stage; // CPU 侧带行距垫（256 对齐）的上传暂存
-  size_t stage_cap;
-  int bpr;    // 暂存行距
   int sw, sh; // surface 已配尺寸（窗口客户区）
   int tw, th; // 上传纹理已配尺寸（位图）
   int on;     // GPU 档挂上：各臂贴像素路径据此停手
@@ -98,7 +94,7 @@ void *wm_l1_surface_hwnd(WmL1 *st, void *hinstance, void *hwnd);
 void *wm_l1_surface_metal(WmL1 *st, void *layer);
 int wm_l1_window_bind(WmL1 *st, void *surface, int sw, int sh, int bw, int bh);
 int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
-                         int sw, int sh);
+                         int sw, int sh, int dx, int dy, int dw, int dh);
 int wm_l1_window_repaint(WmL1 *st, const unsigned char *rgba, int bw, int bh,
                          int sw, int sh);
 void wm_l1_window_drop(WmL1 *st);
@@ -1751,7 +1747,8 @@ WmL1 *wm_l1_slot(int64_t id) {
   return &wm_windows[id].l1;
 }
 
-static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
+static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh,
+                     int dx, int dy, int dw, int dh) {
   if (w->trans_mode == 1) {
     l1_note_set(&w->l1, "逐像素透明档不走 GPU");
     return 0;
@@ -1806,7 +1803,10 @@ static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
   wm_crash_mark("l1.present", w->width, w->height);
   return wm_l1_window_present(
       &w->l1, rgba, bw, bh, wm_physical_of(w->hwnd, w->width),
-      wm_physical_of(w->hwnd, w->height));
+      wm_physical_of(w->hwnd, w->height), wm_physical_of(w->hwnd, dx),
+      wm_physical_of(w->hwnd, dy),
+      wm_physical_of(w->hwnd, dx + dw) - wm_physical_of(w->hwnd, dx),
+      wm_physical_of(w->hwnd, dy + dh) - wm_physical_of(w->hwnd, dy));
 }
 
 // 与 GTK 分支同一条修复：present 的像素必须拷进桩自己的缓冲——贴像素在
@@ -1823,7 +1823,7 @@ void wm_present(int64_t id, const unsigned char *rgba, int width, int height,
   wm_crash_mark("present", width, height);
   // GPU 档（L1）：Bitmap 上传纹理 → 全屏 quad → swapchain present；返回 0
   // （没挂上/本帧失败）时逐字回退下面的帧拷贝 + InvalidateRect 路径
-  if (wm_l1_try(w, rgba, width, height)) {
+  if (wm_l1_try(w, rgba, width, height, dx, dy, dw, dh)) {
     wm_popup_materialize(w);
     return;
   }
@@ -6906,7 +6906,8 @@ static void wm_l1_child_sync(WmWindow *w) {
   XFlush((Display *)gdk_x11_get_default_xdisplay());
 }
 
-static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
+static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh,
+                     int dx, int dy, int dw, int dh) {
   // 非 X11 会话（Wayland 原生）没有 XID 可挂 surface——永久走 cairo
   // （Wayland 会话臂是后续批，方案「fallback 探测粒度」）
   if (!wm_l1_available() || w->l1.dead ||
@@ -6944,7 +6945,8 @@ static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
     }
     w->l1.on = 1;
   }
-  return wm_l1_window_present(&w->l1, rgba, bw, bh, w->width, w->height);
+  return wm_l1_window_present(&w->l1, rgba, bw, bh, w->width, w->height, dx,
+                              dy, dw, dh);
 }
 
 #else /* !WM_L1_XSHAPE：没编进 shape 头，本档不可用 */
@@ -6953,11 +6955,16 @@ static void wm_l1_child_destroy(WmWindow *w) {
   (void)w;
 }
 
-static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh) {
+static int wm_l1_try(WmWindow *w, const unsigned char *rgba, int bw, int bh,
+                     int dx, int dy, int dw, int dh) {
   (void)w;
   (void)rgba;
   (void)bw;
   (void)bh;
+  (void)dx;
+  (void)dy;
+  (void)dw;
+  (void)dh;
   return 0;
 }
 
@@ -7037,7 +7044,7 @@ void wm_present(int64_t id, const unsigned char *rgba, int width, int height,
   // GPU 档（L1）：Bitmap 上传纹理 → 全屏 quad → swapchain present。返回 0
   // （没挂上/本帧失败）时逐字回退下面的 cairo 路径——贴的还是同一份
   // Bitmap，逐像素一致。
-  if (wm_l1_try(w, rgba, width, height)) {
+  if (wm_l1_try(w, rgba, width, height, dx, dy, dw, dh)) {
     wm_popup_materialize(w);
     return;
   }
@@ -11406,7 +11413,7 @@ static int wm_l1_try(WMState *s, const unsigned char *rgba, int bw, int bh) {
     }
     s->l1.on = 1;
   }
-  return wm_l1_window_present(&s->l1, rgba, bw, bh, sw, sh);
+  return wm_l1_window_present(&s->l1, rgba, bw, bh, sw, sh, -1, -1, -1, -1);
 }
 
 // present：把帧拷进本层缓冲再请重画（真正的贴像素在下一次 drawRect:，
@@ -15235,14 +15242,13 @@ MNG_L1_FN(DeviceCreateRenderPipeline)
 MNG_L1_FN(DeviceCreateSampler)
 MNG_L1_FN(DeviceCreateBindGroup)
 MNG_L1_FN(DeviceCreateCommandEncoder)
-MNG_L1_FN(CommandEncoderCopyBufferToTexture)
+MNG_L1_FN(QueueWriteTexture)
 MNG_L1_FN(CommandEncoderBeginRenderPass)
 MNG_L1_FN(CommandEncoderFinish)
 MNG_L1_FN(RenderPassEncoderSetPipeline)
 MNG_L1_FN(RenderPassEncoderSetBindGroup)
 MNG_L1_FN(RenderPassEncoderDraw)
 MNG_L1_FN(RenderPassEncoderEnd)
-MNG_L1_FN(QueueWriteBuffer)
 MNG_L1_FN(QueueSubmit)
 MNG_L1_FN(TextureCreateView)
 MNG_L1_FN(RenderPipelineGetBindGroupLayout)
@@ -15398,14 +15404,13 @@ static int l1_load_syms(void) {
   MNG_L1_LOAD(DeviceCreateSampler);
   MNG_L1_LOAD(DeviceCreateBindGroup);
   MNG_L1_LOAD(DeviceCreateCommandEncoder);
-  MNG_L1_LOAD(CommandEncoderCopyBufferToTexture);
+  MNG_L1_LOAD(QueueWriteTexture);
   MNG_L1_LOAD(CommandEncoderBeginRenderPass);
   MNG_L1_LOAD(CommandEncoderFinish);
   MNG_L1_LOAD(RenderPassEncoderSetPipeline);
   MNG_L1_LOAD(RenderPassEncoderSetBindGroup);
   MNG_L1_LOAD(RenderPassEncoderDraw);
   MNG_L1_LOAD(RenderPassEncoderEnd);
-  MNG_L1_LOAD(QueueWriteBuffer);
   MNG_L1_LOAD(QueueSubmit);
   MNG_L1_LOAD(TextureCreateView);
   MNG_L1_LOAD(RenderPipelineGetBindGroupLayout);
@@ -15887,10 +15892,6 @@ static void l1_release_frame(WmL1 *st) {
     p_wgpuBindGroupRelease(st->bind);
     st->bind = NULL;
   }
-  if (st->buf != NULL) {
-    p_wgpuBufferRelease(st->buf);
-    st->buf = NULL;
-  }
   if (st->tex_view != NULL) {
     p_wgpuTextureViewRelease(st->tex_view);
     st->tex_view = NULL;
@@ -15899,9 +15900,6 @@ static void l1_release_frame(WmL1 *st) {
     p_wgpuTextureRelease(st->tex);
     st->tex = NULL;
   }
-  free(st->stage);
-  st->stage = NULL;
-  st->stage_cap = 0;
   st->sw = 0;
   st->sh = 0;
   st->tw = 0;
@@ -16001,21 +15999,6 @@ static int l1_bind_frame(WmL1 *st, int sw, int sh, int bw, int bh) {
   if (st->tex_view == NULL) {
     return -1;
   }
-  // 暂存 buffer：copyBufferToTexture 要求行距 256 对齐，CPU 侧按行垫
-  int bpr = ((bw * 4 + 255) / 256) * 256;
-  size_t need = (size_t)bpr * (size_t)bh;
-  WGPUBufferDescriptor bd;
-  memset(&bd, 0, sizeof bd);
-  // 灌数走 QueueWriteBuffer（要 CopyDst）、出数走 CopyBufferToTexture（要
-  // CopySrc），不 map——v29 校验 MAP_WRITE 只能与 COPY_SRC 组合，与
-  // gui-gpu canvas.c 上传缓冲同一形态
-  bd.usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_CopySrc;
-  bd.size = need;
-  st->buf = p_wgpuDeviceCreateBuffer(g_l1_device, &bd);
-  if (st->buf == NULL) {
-    return -1;
-  }
-  st->bpr = bpr;
   // bind group：binding 0 = 采样器，binding 1 = 上传纹理视图（与 shader 对齐）
   WGPUBindGroupEntry entries[2];
   memset(entries, 0, sizeof entries);
@@ -16111,8 +16094,11 @@ static int l1_debug_mode(void) {
 }
 
 // GPU 上屏一帧。1 = 已上屏（或无事可上）；0 = 本帧回退原路径。
+// GPU 上屏一帧。1 = 已上屏（或无事可上）；0 = 本帧回退原路径。
+// dx/dy/dw/dh = 本帧脏区（物理像素，与位图同坐标；负 = 整帧）——增量上传
+// 只写脏区子矩形，纹理其余部分保留上一帧内容（滚动条带帧只传视口条带）。
 int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
-                         int sw, int sh) {
+                         int sw, int sh, int dx, int dy, int dw, int dh) {
   // 客户区 0×0（最小化）：没东西可上，当已处理
   if (sw < 1 || sh < 1) {
     return 1;
@@ -16160,47 +16146,53 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
     }
   }
 #endif
-  // CPU 侧暂存（带行距垫）按需增长
-  int bpr = ((bw * 4 + 255) / 256) * 256;
-  size_t need = (size_t)bpr * (size_t)bh;
-  if (st->stage_cap < need) {
-    unsigned char *ns = (unsigned char *)realloc(st->stage, need);
-    if (ns == NULL) {
-      l1_note_set(st, "暂存分配失败");
-      st->on = 0;
-      st->dead = 1;
-      return 0;
+  // 上传：QueueWriteTexture 直写纹理——无 256 行距对齐、无暂存、无中间拷贝；
+  // 脏区（物理像素，负 = 整帧）只写子矩形，纹理其余部分保留上一帧内容
+  int ux = 0;
+  int uy = 0;
+  int uw = bw;
+  int uh = bh;
+  if (dx >= 0 && dy >= 0 && dw > 0 && dh > 0) {
+    ux = dx;
+    uy = dy;
+    uw = dw;
+    uh = dh;
+    if (ux > bw) {
+      ux = bw;
     }
-    st->stage = ns;
-    st->stage_cap = need;
+    if (uy > bh) {
+      uy = bh;
+    }
+    if (ux + uw > bw) {
+      uw = bw - ux;
+    }
+    if (uy + uh > bh) {
+      uh = bh - uy;
+    }
   }
-  for (int y = 0; y < bh; y++) {
-    memcpy(st->stage + (size_t)y * (size_t)bpr,
-           rgba + (size_t)y * (size_t)bw * 4, (size_t)bw * 4);
+  if (uw < 1 || uh < 1) {
+    return 1; // 脏区裁空：没有可上传的像素
   }
-  p_wgpuQueueWriteBuffer(g_l1_queue, st->buf, 0, st->stage, need);
-  WGPUTexelCopyBufferInfo src;
-  memset(&src, 0, sizeof src);
-  src.buffer = st->buf;
-  src.layout.bytesPerRow = (uint32_t)bpr;
-  src.layout.rowsPerImage = (uint32_t)bh;
-  WGPUTexelCopyTextureInfo dst;
-  memset(&dst, 0, sizeof dst);
-  dst.texture = st->tex;
-  dst.aspect = WGPUTextureAspect_All;
+  WGPUTexelCopyTextureInfo up;
+  memset(&up, 0, sizeof up);
+  up.texture = st->tex;
+  up.aspect = WGPUTextureAspect_All;
+  up.origin.x = (uint32_t)ux;
+  up.origin.y = (uint32_t)uy;
+  up.origin.z = 0;
+  WGPUTexelCopyBufferLayout lay;
+  memset(&lay, 0, sizeof lay);
+  lay.offset = ((size_t)uy * (size_t)bw + (size_t)ux) * 4;
+  lay.bytesPerRow = (uint32_t)bw * 4;
   WGPUExtent3D ext;
-  ext.width = (uint32_t)bw;
-  ext.height = (uint32_t)bh;
+  ext.width = (uint32_t)uw;
+  ext.height = (uint32_t)uh;
   ext.depthOrArrayLayers = 1;
-  WGPUCommandEncoder enc = p_wgpuDeviceCreateCommandEncoder(g_l1_device, NULL);
-  if (enc == NULL) {
-    l1_note_set(st, "encoder 建不出");
-    st->on = 0;
-    st->dead = 1;
-    return 0;
-  }
-  p_wgpuCommandEncoderCopyBufferToTexture(enc, &src, &dst, &ext);
-  // 取这一帧的 swapchain 纹理
+  wm_crash_mark("l1.up", uw, uh);
+  p_wgpuQueueWriteTexture(g_l1_queue, &up, rgba + lay.offset,
+                          ((size_t)(uh - 1) * (size_t)bw + (size_t)uw) * 4,
+                          &lay, &ext);
+  // 取这一帧的 swapchain 纹理（上传已排队，无需 encoder 兜提交）
   WGPUSurfaceTexture stx;
   memset(&stx, 0, sizeof stx);
   p_wgpuSurfaceGetCurrentTexture(st->surface, &stx);
@@ -16209,17 +16201,11 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
       stx.texture == NULL) {
 #if defined(_WIN32)
     if (stx.status == WGPUSurfaceGetCurrentTextureStatus_Outdated) {
-      // v29：再 Configure 会 panic——提交已编码命令后本帧丢，永久回退 CPU
-      WGPUCommandBuffer cb1 = p_wgpuCommandEncoderFinish(enc, NULL);
-      if (cb1 != NULL) {
-        p_wgpuQueueSubmit(g_l1_queue, 1, &cb1);
-        p_wgpuCommandBufferRelease(cb1);
-      }
-      // 帧内三个自持对象（encoder / swapchain texture）逐帧放，缺一次漏一个
-      p_wgpuCommandEncoderRelease(enc);
+      // v29：再 Configure 会 panic——本帧丢，该窗永久回退 CPU
       if (stx.texture != NULL) {
         p_wgpuTextureRelease(stx.texture);
       }
+      l1_note_set(st, "swapchain 过期回退");
       st->on = 0;
       st->dead = 1;
       return 1;
@@ -16241,29 +16227,23 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
       st->sh = sh;
     }
 #endif
-    // 上传命令已编码：提交掉（无害）再丢这一帧
-    WGPUCommandBuffer cb0 = p_wgpuCommandEncoderFinish(enc, NULL);
-    if (cb0 != NULL) {
-      p_wgpuQueueSubmit(g_l1_queue, 1, &cb0);
-      p_wgpuCommandBufferRelease(cb0);
-    }
-    p_wgpuCommandEncoderRelease(enc);
     if (stx.texture != NULL) {
       p_wgpuTextureRelease(stx.texture);
     }
     return 1;
   }
+  WGPUCommandEncoder enc = p_wgpuDeviceCreateCommandEncoder(g_l1_device, NULL);
+  if (enc == NULL) {
+    l1_note_set(st, "encoder 建不出");
+    st->on = 0;
+    st->dead = 1;
+    p_wgpuTextureRelease(stx.texture);
+    return 0;
+  }
   WGPUTextureView view = p_wgpuTextureCreateView(stx.texture, NULL);
   if (view == NULL) {
-    WGPUCommandBuffer cb0 = p_wgpuCommandEncoderFinish(enc, NULL);
-    if (cb0 != NULL) {
-      p_wgpuQueueSubmit(g_l1_queue, 1, &cb0);
-      p_wgpuCommandBufferRelease(cb0);
-    }
     p_wgpuCommandEncoderRelease(enc);
-    if (stx.texture != NULL) {
-      p_wgpuTextureRelease(stx.texture);
-    }
+    p_wgpuTextureRelease(stx.texture);
     return 1;
   }
   WGPURenderPassColorAttachment att;
@@ -16343,7 +16323,7 @@ int wm_l1_window_repaint(WmL1 *st, const unsigned char *rgba, int bw, int bh,
     return 0;
   }
   l1_release_frame(st);
-  return wm_l1_window_present(st, rgba, bw, bh, sw, sh);
+  return wm_l1_window_present(st, rgba, bw, bh, sw, sh, -1, -1, -1, -1);
 }
 
 void wm_l1_window_drop(WmL1 *st) {
@@ -16456,13 +16436,17 @@ int wm_l1_window_bind(WmL1 *st, void *surface, int sw, int sh, int bw, int bh) {
   return -1;
 }
 int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
-                         int sw, int sh) {
+                         int sw, int sh, int dx, int dy, int dw, int dh) {
   (void)st;
   (void)rgba;
   (void)bw;
   (void)bh;
   (void)sw;
   (void)sh;
+  (void)dx;
+  (void)dy;
+  (void)dw;
+  (void)dh;
   return 0;
 }
 int wm_l1_window_repaint(WmL1 *st, const unsigned char *rgba, int bw, int bh,
