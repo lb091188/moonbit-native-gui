@@ -6,7 +6,7 @@ native-gui 从「全 CPU 光栅」走向「GPU 合成 + CPU 光栅并存」的�
 
 ## 定位
 
-**当前状态**：所有绘制走 CPU 路径——Painter 立即模式往 Bitmap 写像素，`wm_present` 拷贝到平台窗。这条路径在 1080p/典型桌面 GUI 场景每帧不到 2 ms，不是瓶颈。
+**当前状态**（2026-11-25 更新）：控件画面仍全部走 CPU 路径——Painter 立即模式往 Bitmap 写像素；窗口上屏一环已由 L1 档接管——Bitmap 上传纹理 → 全屏 quad → swapchain present，探测通过时默认尝试，不可用逐字回退「拷贝到平台窗」。纯 CPU 路径在 1080p/典型桌面 GUI 场景每帧不到 2 ms，不是瓶颈。
 
 **要走 GPU 的原因**：视频、地图、3D 场景、游戏这些内容类型对帧率与像素填充率有硬需求。全功能框架没有「暂不需要 GPU」这个选项——这些场景要求 GPU 在渲染主路径里，不是子视图能糊弄过去的。
 
@@ -193,6 +193,17 @@ WebGPU 可用 → GPU 合成（Layer 1+2 都开）
   - 边界：挂住不收数据的镜像不能拖住构建。
 - `gpu/probe.c` 运行期 dlopen——Win 走 LoadLibraryA——取 `wgpuCreateInstance`；`gpu.mbt` 的 `probe()` 返回 `loaded + detail`；link_configs 恒空——**故意不占链接面**，下载失败/离线就是「没装 GPU 扩展」。
 - 许可读数：归档内 `wgpu-native-meta/webgpu.yml` 标 `BSD-3-Clause`；库本体许可与 `wgpu-mbt` 生成代码许可在 L1 批次随依赖引入一并归档核验。
+
+## 上屏档现状与加固（2026-11-25 批 1–5）
+
+Windows 真机发现 GPU 档未挂上（任务管理器应用名下无 GPU 引擎、动画帧被 15.6ms 系统定时器量化），五批加固后上屏档的口径：
+
+- **探测按适配器型号判**：`wgpuAdapterGetInfo` 读型号——命中硬件显卡关键词放行（CPU hypervisor 位不再拦：物理机开 Hyper-V / 内核隔离时也置位，是裸机误报头号来源）；命中虚拟/软件渲染关键词或 `AdapterType=CPU` 拦下；型号未知才走原环境闸兜底。虚拟机保险保留。
+- **每窗实时读数**：`Window::present_status()` 给 gpu / cpu 加本窗回退原因（透明档、尺寸回退、探测未过）；PROF 行带 `tier=`。
+- **帧节奏**：Windows 动画时钟改 QPC、等待接高分辨率可等待定时器、刷新回调走 DwmFlush 后台线程、刷新率读显示器真实值——与 mac 的 CVDisplayLink 同形态，滚动弹簧经帧时钟自动对齐刷新。
+- **增量上传**：`QueueWriteTexture` 直写纹理（无 256 行距对齐），暂存区与中转 buffer 删除；脏区从宿主传到核心，滚动条带帧只上传视口条带。
+- **标准重配**：Windows 撤「尺寸变化永久回退 CPU」，与 mac/Linux 共用重配流——虚拟显卡已被型号闸挡住，真硬件显卡重配未复现 panic；若真机复现，退路是销毁重建 surface。
+- **后续线**：像素不变的动画帧（回弹、变换、透明度过渡）改由 GPU 每帧重新合成——合成器分层动画，方案 `proposals/compositor-animation.md`；颜色/圆角/字号类过渡仍走 CPU 光栅。
 
 ## 落地细节
 
