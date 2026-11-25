@@ -750,3 +750,11 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **修法**（`gui/win/stub.c` 共享核心）：上传改 `wgpuQueueWriteTexture` 直写上传纹理——它没有 CopyBufferToTexture 的行距 256 对齐约束，暂存区与中转 buffer 整条链删除；脏区（物理像素，负 = 整帧）从各臂 present 一路传进核心，滚动条带帧只写视口条带子矩形，纹理其余部分保留上一帧内容。encoder 创建挪到 swapchain 纹理取用之后，失败分支不再需要「提交已编码上传」的兜底。
 - **口径**：绑定后的首帧与脏区为负的帧全量上传；mac 臂维持整帧（Metal 恒整帧语义不变）；GTK 臂传真脏区。
 - **判据**：滚动帧上传区域 = 视口条带，`NATIVEGUI_CRASH_LOG=1` 取证档的 `l1.up` 宽×高显著小于整窗；界面逐像素与改造前一致。
+
+## L1 尺寸变化撤「永久回退 CPU」：虚拟显卡已被型号闸挡住，Windows 走标准重配 · 2026-11-25
+
+- **背景**：2026-11-21 定案的「尺寸变了永久回退 CPU / SurfaceRelease 全禁」兜底，前提是 vendor wgpu 在虚拟显卡栈上再 Configure 会内部 panic——当时 Windows 全部环境都可能踩到。
+- **变化**：批 1 探测改按适配器型号判定后，虚拟显卡（含公司 win10 KVM 的 QXL）进不了 GPU 档；能挂上 GPU 档的 Windows 环境都是真硬件显卡，此前四轮取证没有一台真硬件复现过重配 panic。
+- **修法**：`wm_l1_window_present` 删掉 `#if defined(_WIN32)` 的两段永久回退（stale 尺寸变化 / swapchain Outdated），与 mac / GTK 共用同一标准重配流——释放帧对象重配、Outdated 本帧丢下帧补。最小化 0×0 不 acquire 的守卫保留（那条是 2026-11-07 真机崩溃修复，与虚拟显卡无关）。
+- **判据**：真机拖缩放、最大化还原、全屏进出、跨缩放档拖动各五次——不崩、画面正确、`present_status` 保持 gpu；VM 里呈现档回退原因仍是「适配器非硬件显卡」或「虚拟机环境」。
+- **退路**：真硬件真机若仍复现重配 panic，换「销毁后重建 surface」再取证；不得回退本批——旧兜底让真机每次 resize 后永久丢 GPU 档，代价更大。

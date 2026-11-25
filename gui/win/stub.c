@@ -16104,30 +16104,6 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
     return 1;
   }
   wm_crash_mark("l1.frame", sw, sh);
-#if defined(_WIN32)
-  // vendor wgpu v29 Windows 版实证（四轮取证档栈一致）：surface 一经
-  // Configure，任何再 Configure 与 SurfaceRelease 都在 wgpu 内部 panic，
-  // 健康态也炸——尺寸没变按原配置呈现，尺寸变了永久回退 CPU 路径
-  if (st->stale) {
-    st->stale = 0;
-    if (st->sw == sw && st->sh == sh && st->tw == bw && st->th == bh) {
-      wm_crash_note("l1: 最小化还原，尺寸未变，原配置直接呈现");
-    } else {
-      l1_note_set(st, "尺寸变化回退");
-      st->on = 0;
-      st->dead = 1;
-      wm_crash_note("l1: 最小化还原且尺寸变了，永久回退 CPU 路径");
-      return 0;
-    }
-  }
-  if (st->sw != sw || st->sh != sh || st->tw != bw || st->th != bh) {
-    l1_note_set(st, "尺寸变化回退");
-    st->on = 0;
-    st->dead = 1;
-    wm_crash_note("l1: 尺寸变化，永久回退 CPU 路径");
-    return 0;
-  }
-#else
   // 最小化回来过：swapchain 在遮挡期间可能已被丢弃/改了尺寸，先把已配尺寸
   // 打回 0 逼下面走重配（重配是幂等的，代价只有重建帧对象一次）
   if (st->stale) {
@@ -16135,17 +16111,20 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
     st->sw = 0;
     st->sh = 0;
   }
-  // 尺寸变了（客户区或位图）：释放帧对象重配（surface 不变——同一 native 窗）
+  // 尺寸变了（客户区或位图）：释放帧对象重配（surface 不变——同一 native 窗）。
+  // Windows 不再「尺寸变化永久回退」——那条兜底是 vendor wgpu 在虚拟显卡栈上
+  // 再 Configure 会 panic 才加的（2026-11-21 定案），批 1 探测改按适配器型号
+  // 判定后虚拟显卡进不了 GPU 档；真硬件显卡走标准重配（与 mac/Linux 同流）。
   if (st->sw != sw || st->sh != sh || st->tw != bw || st->th != bh) {
     wm_crash_mark("l1.rebind", sw, sh);
     l1_release_frame(st);
     if (l1_bind_frame(st, sw, sh, bw, bh) != 1) {
+      l1_note_set(st, "重配失败");
       st->on = 0;
       st->dead = 1;
       return 0;
     }
   }
-#endif
   // 上传：QueueWriteTexture 直写纹理——无 256 行距对齐、无暂存、无中间拷贝；
   // 脏区（物理像素，负 = 整帧）只写子矩形，纹理其余部分保留上一帧内容
   int ux = 0;
@@ -16199,18 +16178,6 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
   wm_crash_mark("l1.tex", (long)stx.status, 0);
   if (stx.status != WGPUSurfaceGetCurrentTextureStatus_SuccessOptimal ||
       stx.texture == NULL) {
-#if defined(_WIN32)
-    if (stx.status == WGPUSurfaceGetCurrentTextureStatus_Outdated) {
-      // v29：再 Configure 会 panic——本帧丢，该窗永久回退 CPU
-      if (stx.texture != NULL) {
-        p_wgpuTextureRelease(stx.texture);
-      }
-      l1_note_set(st, "swapchain 过期回退");
-      st->on = 0;
-      st->dead = 1;
-      return 1;
-    }
-#else
     if (stx.status == WGPUSurfaceGetCurrentTextureStatus_Outdated) {
       // 窗口尺寸变了 surface 还没跟上：重配，本帧丢（下一帧补）
       WGPUSurfaceConfiguration cfg;
@@ -16226,7 +16193,6 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
       st->sw = sw;
       st->sh = sh;
     }
-#endif
     if (stx.texture != NULL) {
       p_wgpuTextureRelease(stx.texture);
     }
