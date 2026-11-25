@@ -734,3 +734,12 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **修法**：探测拆四段——装 adapter → `wgpuAdapterGetInfo` 读型号分档（型号命中硬件显卡关键词放行、命中虚拟/软件渲染关键词或 `AdapterType=CPU` 拦下）→ 型号未知才跑原环境闸（hypervisor 位 / 虚拟显卡名 / DMI）兜底 → 建 device 与管线。探测通过日志带型号、backend 与 type。
 - **判据**：真机 `NATIVEGUI_GPU_LOG=1` 起 components 出「L1 探测通过」与「窗口呈现挂上 GPU 档（型号，backend=… type=…）」；VM 里出「适配器非硬件显卡（…）」或「虚拟机环境，GPU 档不启用」，两者都算闸生效。
 - **教训**：同一个环境判定在两处各写一份就是两份漂移；闸的主判据用「要判断的那个东西本身」（显卡型号）而不是间接信号（CPU 虚拟化标志）。
+
+## Windows 动画帧被 15.6ms 系统定时器格量化：GetTickCount64 与 MsgWait 超时都按格走，帧节奏三件换高精度实现 · 2026-11-25
+
+- **现象**：真机 PROF——滚动帧 CPU 实际只干 3～6ms，帧间隔 p50 却钉在 15.5ms、p95 28～35ms；「过渡与效果」页间隔中位 22～27ms、44fps 整。计算不是瓶颈，唤醒被量化。
+- **根因**，三处叠加：① `wm_now_ms` 用 `GetTickCount64`——按系统定时器格（默认 15.6ms）走，8ms 弹簧拍读出的 dt 是 15.6 的倍数；② `wm_wait` 的 `MsgWaitForMultipleObjectsEx` 毫秒超时无高精度定时器，睡不满不醒、睡过头不裁；③ 刷新回调五函数是空桩（帧时钟不可用）、刷新率写死 60。
+- **修法**（`gui/win/stub.c` Win32 臂）：`wm_now_ms` 改 QPC 换算（与 `wm_now_us` 同源）；`wm_wait` 接 `CreateWaitableTimerExW` 高分辨率可等待定时器（Win10 1809+，运行期装载，建不出逐级降普通档/原路径），定时器与消息一起等；刷新回调走 `DwmFlush` 后台线程——dwmapi.dll 运行期装载、有帧请求才转、暂停档睡在自动复位事件上零唤醒；`wm_display_hz` 改 `EnumDisplaySettingsW` 读真实刷新率并缓存。
+- **坑**：暂停事件若用手动复位，SetEvent 后信号常驻，线程在暂停档 `WaitForSingleObject` 立即返回变成忙自旋——必须自动复位，且 start 与 stop 各 SetEvent 一次。
+- **判据**：PROF 滚动帧间隔 p50≈16.7ms、p95 不足 18ms；过渡页不再出现 44fps 整的档位；wm_wait 返回值语义保持「有输入为 1」——定时器到点不算输入。
+- **教训**：Windows 上「毫秒参数」不等于毫秒精度——定时器格对 `GetTickCount64`、`Sleep`、消息循环超时一视同仁；动画计时一律 QPC，等待一律高分辨率可等待定时器。

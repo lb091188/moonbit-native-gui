@@ -1940,17 +1940,61 @@ void wm_pump(void) {
   }
 }
 
+// 可等待定时器（高精度等待档）：进程级一个，懒创建。高分辨率旗标要
+// Win10 1809+；建不出降普通档、再建不出回 NULL（调用方退原超时路径）。
+static HANDLE wm_wait_timer_of(HANDLE *slot, int *tried) {
+  if (!*tried) {
+    *tried = 1;
+    HMODULE k32 = GetModuleHandleW(L"kernel32.dll");
+    typedef HANDLE(WINAPI * WmCreateTimerFn)(void *, void *, DWORD, DWORD);
+    WmCreateTimerFn create =
+        k32 != NULL
+            ? (WmCreateTimerFn)GetProcAddress(k32, "CreateWaitableTimerExW")
+            : NULL;
+    if (create != NULL) {
+      // 旗标 0x3 = MANUAL_RESET | HIGH_RESOLUTION；权限 TIMER_MODIFY_STATE
+      *slot = create(NULL, NULL, 0x3, 0x2);
+      if (*slot == NULL) {
+        *slot = create(NULL, NULL, 0x1, 0x2); // 老系统降普通档
+      }
+    }
+  }
+  return *slot;
+}
+
 // timeout_ms < 0 表示无限等（MoonBit 侧无待办时用），必须有人 wm_wakeup 或
 // 消息到达才能回来；否则就是死锁，这是漏唤醒的代价。
 int wm_wait(int timeout_ms) {
-  DWORD t = timeout_ms < 0 ? INFINITE : (DWORD)timeout_ms;
-  DWORD r = MsgWaitForMultipleObjectsEx(0, NULL, t, QS_ALLINPUT,
-                                        MWMO_INPUTAVAILABLE);
+  // 高精度等待：定时器与消息一起等，动画拍不再被 15.6ms 系统定时器格量化
+  // （默认格下 8ms 的弹簧拍实际 15.6ms 一拍，过渡 16ms 一拍实际 31ms）。
+  // CREATE_WAITABLE_TIMER_HIGH_RESOLUTION 是 Win10 1809+；建不出降普通档，
+  // 再建不出退回原超时路径。定时器把超时兜住，消息等待便可以无限等。
+  static HANDLE g_wait_timer;
+  static int g_wait_timer_tried;
+  HANDLE timer = timeout_ms > 0 ? wm_wait_timer_of(&g_wait_timer,
+                                                    &g_wait_timer_tried)
+                                : NULL;
+  DWORD r;
+  int got_input;
+  if (timer != NULL) {
+    LARGE_INTEGER due;
+    due.QuadPart = -(LONGLONG)timeout_ms * 10000; // 相对时刻，100ns 单位
+    SetWaitableTimer(timer, &due, 0, NULL, NULL, FALSE);
+    r = MsgWaitForMultipleObjectsEx(1, &timer, INFINITE, QS_ALLINPUT,
+                                    MWMO_INPUTAVAILABLE);
+    // WAIT_OBJECT_0 = 定时器到点（不算输入），WAIT_OBJECT_0+1 = 消息
+    got_input = r == WAIT_OBJECT_0 + 1;
+  } else {
+    DWORD t = timeout_ms < 0 ? INFINITE : (DWORD)timeout_ms;
+    r = MsgWaitForMultipleObjectsEx(0, NULL, t, QS_ALLINPUT,
+                                    MWMO_INPUTAVAILABLE);
+    got_input = r == WAIT_OBJECT_0;
+  }
   // 等完必须把排队消息派发掉（与 GTK 分支 poll 完调 wm_pump 同口径）：
   // 不派发就没人调 WndProc——输入、WM_CLOSE、WM_PAINT 全部收不到，真机表现
   // 是「窗口未响应、点了没反应」（实测：优雅关窗拖到自杀计时器才退出）
   wm_pump();
-  return r == WAIT_OBJECT_0 ? 1 : 0;
+  return got_input;
 }
 
 // 取一个输入事件，返回其 code（0 键按下 1 键释放 2 按钮按下 3 按钮释放
@@ -4718,7 +4762,18 @@ int wm_message_box(const char *title, const char *text, int utype) {
 }
 
 int64_t wm_now_ms(void) {
-  return (int64_t)GetTickCount64(); // 开机起单调，与 CLOCK_MONOTONIC 同语义
+  // 高精度单调毫秒：QPC 换算（先除后乘规避大数溢出，与 wm_now_us 同源）。
+  // 原用 GetTickCount64——它按系统定时器格走（默认 15.6ms），8ms 动画拍被
+  // 量化成 15.6ms，弹簧位移忽大忽小（2026-11-24 真机 PROF：滚动间隔
+  // p50=15.5ms、过渡页 44fps 整）。
+  static LARGE_INTEGER freq = {0};
+  LARGE_INTEGER c;
+  if (freq.QuadPart == 0) {
+    QueryPerformanceFrequency(&freq);
+  }
+  QueryPerformanceCounter(&c);
+  return (int64_t)(c.QuadPart / freq.QuadPart) * 1000 +
+         (int64_t)((c.QuadPart % freq.QuadPart) * 1000 / freq.QuadPart);
 }
 
 int64_t wm_now_us(void) {
@@ -4734,12 +4789,121 @@ int64_t wm_now_us(void) {
          (int64_t)((c.QuadPart % freq.QuadPart) * 1000000 / freq.QuadPart);
 }
 
-int wm_vsync_supported(void) { return 0; }
-int wm_vsync_start(void) { return 0; }
-void wm_vsync_stop(void) {}
-int wm_vsync_take(void) { return 0; }
-int64_t wm_vsync_target_us(void) { return 0; }
-int wm_display_hz(void) { return 60; }
+// ---- 显示器刷新回调（帧时钟源，与 mac CVDisplayLink 同形态）：后台线程
+// 阻塞在 DwmFlush（等桌面合成器下一次刷新），到点置唤醒位并 PostMessage
+// 唤醒主循环；主循环 vsync_take 消费后统一跑帧回调。回调线程不做任何绘制。
+// 有帧请求才转（wm_vsync_start/stop 由帧时钟按有无待跑回调挂/摘），暂停
+// 期间线程睡在事件上，零唤醒。DwmFlush 运行期装载，不占链接面。 ----
+typedef HRESULT(WINAPI * WmDwmFlushFn)(void);
+static WmDwmFlushFn g_dwm_flush_fn;
+static int g_dwm_flush_tried;
+static HANDLE g_vsync_thread;
+static HANDLE g_vsync_pause_ev; // 自动复位唤醒信号：start/stop 各 Set 一次
+static volatile LONG g_vsync_run;
+static volatile LONG g_vsync_pending;
+static volatile int64_t g_vsync_target_us;
+static volatile int g_vsync_hz; // 主显示器刷新率（wm_display_hz 维护）
+static volatile int g_vsync_hz_cached;
+static int g_vsync_probe; // 0 未探测 1 可用 -1 DwmFlush 装载失败
+
+static void wm_vsync_load(void) {
+  if (g_dwm_flush_tried) {
+    return;
+  }
+  g_dwm_flush_tried = 1;
+  HMODULE dwm = LoadLibraryW(L"dwmapi.dll");
+  if (dwm != NULL) {
+    g_dwm_flush_fn = (WmDwmFlushFn)GetProcAddress(dwm, "DwmFlush");
+  }
+  g_vsync_probe = g_dwm_flush_fn != NULL ? 1 : -1;
+}
+
+// 主显示器刷新率：EnumDisplaySettings 读真实值（DWM 不跑的老系统也给不出
+// 刷新回调，这里只服务帧周期预算）。缓存一次——主屏刷新率运行期不常变。
+int wm_display_hz(void) {
+  if (!g_vsync_hz_cached) {
+    g_vsync_hz_cached = 1;
+    DEVMODEW dm;
+    memset(&dm, 0, sizeof dm);
+    dm.dmSize = sizeof dm;
+    if (EnumDisplaySettingsW(NULL, ENUM_CURRENT_SETTINGS, &dm) &&
+        (dm.dmFields & DM_DISPLAYFREQUENCY) && dm.dmDisplayFrequency > 1) {
+      g_vsync_hz = (int)dm.dmDisplayFrequency;
+    } else {
+      g_vsync_hz = 60;
+    }
+  }
+  return g_vsync_hz;
+}
+
+static DWORD WINAPI wm_vsync_thread_proc(LPVOID arg) {
+  (void)arg;
+  for (;;) {
+    if (InterlockedCompareExchange(&g_vsync_run, 0, 0) == 0) {
+      WaitForSingleObject(g_vsync_pause_ev, INFINITE); // 暂停档：零唤醒
+      continue;
+    }
+    HRESULT hr = g_dwm_flush_fn != NULL ? g_dwm_flush_fn() : E_FAIL;
+    if (hr != S_OK) {
+      // DWM 不合成（远程会话/驱动限制）：退睡眠一帧，保住节奏下限
+      Sleep((DWORD)(1000 / (g_vsync_hz > 1 ? g_vsync_hz : 60)));
+    }
+    if (InterlockedCompareExchange(&g_vsync_run, 0, 0) == 0) {
+      continue;
+    }
+    double hz = g_vsync_hz > 1 ? (double)g_vsync_hz : 60.0;
+    g_vsync_target_us = wm_now_us() + (int64_t)(1000000.0 / hz);
+    InterlockedExchange(&g_vsync_pending, 1);
+    wm_wakeup();
+  }
+  return 0;
+}
+
+int wm_vsync_supported(void) {
+  if (g_vsync_probe == 0) {
+    wm_vsync_load();
+  }
+  return g_vsync_probe > 0 ? 1 : 0;
+}
+
+int wm_vsync_start(void) {
+  if (!wm_vsync_supported()) {
+    return 0;
+  }
+  if (g_vsync_thread == NULL) {
+    g_vsync_pause_ev = CreateEventW(NULL, FALSE, FALSE, NULL);
+    if (g_vsync_pause_ev == NULL) {
+      return 0;
+    }
+    g_vsync_thread =
+        CreateThread(NULL, 0, wm_vsync_thread_proc, NULL, 0, NULL);
+    if (g_vsync_thread == NULL) {
+      CloseHandle(g_vsync_pause_ev);
+      g_vsync_pause_ev = NULL;
+      return 0;
+    }
+  }
+  g_vsync_hz_cached = 0; // 重读：窗口可能在跨屏后开帧
+  wm_display_hz();
+  InterlockedExchange(&g_vsync_run, 1);
+  SetEvent(g_vsync_pause_ev); // 唤起线程出暂停档
+  return 1;
+}
+
+void wm_vsync_stop(void) {
+  InterlockedExchange(&g_vsync_run, 0);
+  if (g_vsync_pause_ev != NULL) {
+    SetEvent(g_vsync_pause_ev); // 唤起线程进暂停档睡住
+  }
+}
+
+int wm_vsync_take(void) {
+  return (int)InterlockedExchange(&g_vsync_pending, 0);
+}
+
+int64_t wm_vsync_target_us(void) {
+  return g_vsync_target_us;
+}
 
 /* ---- 系统深浅偏好与主色（主题跟随系统用，W13 的 Windows 读数先落这里）----
  * 深浅读 AppsUseLightTheme（0 = dark）；主色读 DWM 的 AccentColor
