@@ -16163,6 +16163,8 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
   memset(&lay, 0, sizeof lay);
   lay.offset = ((size_t)uy * (size_t)bw + (size_t)ux) * 4;
   lay.bytesPerRow = (uint32_t)bw * 4;
+  // 未设步长填哨兵 UINT32_MAX；memset 留下的 0 会被当字面量零校验 abort
+  lay.rowsPerImage = WGPU_COPY_STRIDE_UNDEFINED;
   WGPUExtent3D ext;
   ext.width = (uint32_t)uw;
   ext.height = (uint32_t)uh;
