@@ -11,3 +11,8 @@ run = ""
 app-id = "libyue.airtype"
 
 poll-ms = 300
+
+[package]
+id="airtype.nativegui.moonbit"
+name="隔空输入"
+version="0.1.0"
