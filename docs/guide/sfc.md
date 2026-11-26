@@ -127,4 +127,4 @@ fn user_card(name : String, qty : @base.Store[Int32], on_reset : () -> Unit, wid
 | `moon check` 报生成码与重生成不一致 | 生成码与模板不同步——重跑 `mng dev`（dev 形态）或 `mng build`（生产形态）再提交 |
 | 同包生成函数冲突 | 两个 `.mng` 撞名（生成函数名取文件 stem）——改文件名 |
 | 模板属性里写 `color="#f00"` 编译报错 | 样式字面量必须进 `<style>` 或 `class`——这是编译器强制，不是建议 |
-| HOT 没生效走了 COLD | v-for 行模板 / script / 新符号本来就走 COLD；日志 `[HOT→COLD]` 带原因 |
+| HOT 没生效走了 COLD | script / v-for 行模板 / 自定义组件 / `v-else-if` / 动态 `:class` / 动态数值属性本来就走 COLD；日志 `[HOT→COLD]` 带原因 |

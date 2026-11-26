@@ -18,10 +18,11 @@ Every save is classified by contract, and the log truthfully reports which path 
 
 | Change | Path | Feel |
 |---|---|---|
-| Structural add/remove/move, `:attr` retargeting, class & `<style>` values | **HOT** (IR patch pushed over the single-instance channel, in-place remount) | sub-second |
+| Structural add/remove/move of builtin components (all 18 `ui-*` tags) — including container children, `<style>` values & classes | **HOT** (IR patch pushed over the single-instance channel, in-place remount) | sub-second |
+| `:attr` retargeting: strings may be dynamic, numbers & booleans take literals; `:options` array literals; `@event` rebound to an existing function | **HOT** | sub-second |
 | Expression text within the restricted grammar (literals / Store / arithmetic & comparison / if / `@shared.tx`·`tr` / interpolation) | **HOT** (dev registry registers the new expression) | sub-second |
-| Script section, `v-for` row templates, new symbols / functions, custom components, out-of-table parameters | **COLD** (build → kill → relaunch) | seconds |
-| Out-of-grammar expressions | COLD, with a `[HOT→COLD]` log line giving the reason | seconds |
+| Script section, `v-for` row templates, new symbols / functions, custom components, `v-else-if`, dynamic `:class` | **COLD** (build → kill → relaunch) | seconds |
+| Out-of-grammar expressions, dynamic numeric/boolean attributes, out-of-table parameters | COLD, with a `[HOT→COLD]` log line giving the reason | seconds |
 
 - **COLD returns to the edited page** (woken by template stem) — no manual navigation.
 - **State preservation**: Stores created at the script section's outer level stay alive (the counter survives a structural hot patch); page-local state resets with the patch; widget-internal state (focus / scroll / IME composition) resets with the subtree.

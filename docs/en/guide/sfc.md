@@ -127,4 +127,4 @@ The library injects no context; two conventions:
 | `moon check` reports generated code out of date | Template and generated code out of sync — re-run `mng dev` (dev form) or `mng build` (production form), then commit |
 | Same-package generated-function conflict | Two `.mng` files share a stem (function name = file stem) — rename one |
 | `color="#f00"` in a template attribute is a compile error | Style literals must go into `<style>` or `class` — enforced by the compiler, not advisory |
-| HOT did not apply, went COLD | v-for row templates / script / new symbols are COLD by design; the `[HOT→COLD]` log line says why |
+| HOT did not apply, went COLD | script / v-for row templates / custom components / `v-else-if` / dynamic `:class` / dynamic numeric attributes are COLD by design; the `[HOT→COLD]` log line says why |
