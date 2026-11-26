@@ -67,7 +67,6 @@ pub fn combo() -> @widget.Node {
           @ui.col([
             @ui.text("下拉选择", class=@style.class_of(["name"])).with_comp("ui-text"),
             @ui.select(["简洁", "标准", "详细"], s_mode).with_comp("ui-select"),
-            @ui.text("当前值：{{ s_mode }}", class=@style.class_of(["desc"])).with_comp("ui-text"),
           ], class=@style.class_of(["cell"])).with_comp("ui-col"),
           @ui.col([
             @ui.text("步进器", class=@style.class_of(["name"])).with_comp("ui-text"),
