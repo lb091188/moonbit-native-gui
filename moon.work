@@ -18,6 +18,7 @@ members = [
   "examples/video",
   "examples/envprobe",
   "examples/theme-playground",
+  "examples/showcase",
   "tools/native-gui-tools",
   "apps/airtype",
 ]
