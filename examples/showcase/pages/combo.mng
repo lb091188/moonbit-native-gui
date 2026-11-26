@@ -28,7 +28,7 @@ fn clear_input() {
         <ui-col class="cell">
           <ui-text class="name" text="按钮" />
           <ui-row class="controls">
-            <ui-button text="说你好！" @click="say_hi" />
+            <ui-button text="say hi" @click="say_hi" />
             <ui-button text="清理" @click="clear_input" />
           </ui-row>
         </ui-col>
@@ -41,11 +41,8 @@ fn clear_input() {
         <ui-col class="cell">
           <ui-text class="name" text="下拉选择" />
           <ui-select :options='["简洁", "标准", "详细"]' v-model="s_mode" />
-          <ui-text class="desc" text="当前值：{{ s_mode }}" />
         </ui-col>
         <ui-col class="cell">
-          <ui-text class="name" text="步进器" />
-          <ui-stepper v-model="s_count" min="0" max="10" />
         </ui-col>
       </ui-row>
       <ui-row class="grid">
@@ -90,7 +87,7 @@ fn clear_input() {
     row-gap: 4px;
   }
   .heading {
-    font-size: 18px;
+    font-size: 20px;
     font-weight: bold;
     color: var(--text_primary);
   }

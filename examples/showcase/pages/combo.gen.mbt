@@ -5,7 +5,7 @@ pub fn combo() -> @widget.Node {
   @style.define_class("hero", @style.style(width_percent=100.0, border_radius=6.0, background_color="bg_panel", border_color="border", border_width=1.0, border_style=@style.BorderStyle::Solid, padding=16.0, row_gap=12.0))
   @style.define_class("hero-head", @style.style(width_percent=100.0, column_gap=8.0, align_items=@yoga.AlignItems::Center))
   @style.define_class("hero-title", @style.style(row_gap=4.0))
-  @style.define_class("heading", @style.style(font_size=18.0, font_weight=@text.FontWeight::Bold, color="text_primary"))
+  @style.define_class("heading", @style.style(font_size=20.0, font_weight=@text.FontWeight::Bold, color="text_primary"))
   @style.define_class("subtitle", @style.style(font_size=12.0, color="text_secondary"))
   @style.define_class("pill", @style.style(font_size=12.0, color="success", background_color="success_light", border_radius=4.0, padding=2.0, padding_left=8.0, padding_right=8.0))
   @style.define_class("divider", @style.style(width_percent=100.0, height=1.0, background_color="border"))
@@ -37,8 +37,8 @@ pub fn combo() -> @widget.Node {
   reg.handler("clear_input", clear_input)
   reg.str("s_input", s_input)
   reg.str("s_mode", s_mode)
-  reg.int("s_count", s_count)
   reg.int("s_score", s_score)
+  reg.int("s_count", s_count)
   @mngdev.mng_dev_page("combo", reg, fn() {
     @ui.col([
       @ui.view([
@@ -54,7 +54,7 @@ pub fn combo() -> @widget.Node {
           @ui.col([
             @ui.text("按钮", class=@style.class_of(["name"])).with_comp("ui-text"),
             @ui.row([
-              @ui.button("说你好！", on_click=say_hi).with_comp("ui-button"),
+              @ui.button("say hi", on_click=say_hi).with_comp("ui-button"),
               @ui.button("清理", on_click=clear_input).with_comp("ui-button"),
             ], class=@style.class_of(["controls"])).with_comp("ui-row"),
           ], class=@style.class_of(["cell"])).with_comp("ui-col"),
@@ -69,8 +69,6 @@ pub fn combo() -> @widget.Node {
             @ui.select(["简洁", "标准", "详细"], s_mode).with_comp("ui-select"),
           ], class=@style.class_of(["cell"])).with_comp("ui-col"),
           @ui.col([
-            @ui.text("步进器", class=@style.class_of(["name"])).with_comp("ui-text"),
-            @ui.stepper(s_count, min=0, max=10).with_comp("ui-stepper"),
           ], class=@style.class_of(["cell"])).with_comp("ui-col"),
         ], class=@style.class_of(["grid"])).with_comp("ui-row"),
         @ui.row([
