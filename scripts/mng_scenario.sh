@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# mng 应用侧场景（进程级）：脚手架 → 构建 → dev 热更/重启编排 → 生产构建。
+# mng 应用侧场景（进程级）：脚手架 → 构建 → dev 热更/重启编排 → 生产构建
+# → showcase 热更全覆盖（18 标签样本页：样式值 / 容器 children / options / script 回退）。
 #
 # 断言的是「真进程跑起来之后发生什么」——单元用例（mngkit / mng / mngdev）
 # 覆盖纯函数与产物，覆盖不到 watch 循环、单实例通道、重启与回页。
@@ -39,6 +40,9 @@ cleanup() {
     done
     kill -9 "$DEV_PID" 2>/dev/null || true
   fi
+  # showcase 段的 dev 与应用一并清（SHOW_PID 未定义时各函数自兜底）
+  sweep_showcase
+  restore_showcase
   sweep_leftovers
   if [ "$KEEP" = "0" ]; then
     # 先还原 moon.work 再删现场：备份就在 $WORK 里，删早了没得还原
@@ -106,6 +110,30 @@ wait_for() { # <固定串> <秒> <说明>
   echo "  ---- 应用进程与回执现场 ----"
   pgrep -af "$APP_NAME" 2>/dev/null | sed 's/^/    /' || echo "    （应用进程已退出）"
   ls -la "$APP_DIR/.mng/ir/pages/" 2>/dev/null | sed 's/^/    /'
+  return 1
+}
+
+# showcase 段的日志定位（同套路，指向 showcase 自己的 dev 日志）
+SHOW_MARK=0
+mark_show() { SHOW_MARK=$(wc -l <"$SHOW_LOG" 2>/dev/null || echo 0); }
+since_show() { tail -n +"$((SHOW_MARK + 1))" "$SHOW_LOG" 2>/dev/null; }
+
+wait_show() { # <固定串> <秒> <说明>
+  local pat="$1" secs="$2" what="$3" i=0
+  local n=$((secs * 4))
+  while [ "$i" -lt "$n" ]; do
+    if since_show | grep -qF -- "$pat"; then
+      ok "${what}（${pat}）"
+      return 0
+    fi
+    sleep 0.25
+    i=$((i + 1))
+  done
+  bad "${what} 超时（等 ${pat}，${secs}s）"
+  echo "  ---- showcase dev 日志尾部 ----"
+  tail -25 "$SHOW_LOG" 2>/dev/null | sed 's/^/    /'
+  echo "  ---- showcase 应用日志尾部 ----"
+  tail -25 "$SHOW_DIR/.mng/logs/local.showcase.log" 2>/dev/null | sed 's/^/    /'
   return 1
 }
 
@@ -218,6 +246,100 @@ else
   bad "mng build 失败"
   tail -20 "$WORK/build.log" | sed 's/^/    /'
 fi
+
+# ---- 5. showcase 热更全覆盖（仓内 18 标签样本页） ---------------------------
+# showcase 本就是 workspace 成员，不动 moon.work；combo.mng 改前备份、退场还原。
+SHOW_DIR="$ROOT/examples/showcase"
+SHOW_LOG="$WORK/showcase-dev.log"
+SHOW_PID=""
+
+sweep_showcase() {
+  if [ -n "${SHOW_PID:-}" ] && kill -0 "$SHOW_PID" 2>/dev/null; then
+    kill -TERM "$SHOW_PID" 2>/dev/null || true
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+      kill -0 "$SHOW_PID" 2>/dev/null || break
+      sleep 0.3
+    done
+    kill -9 "$SHOW_PID" 2>/dev/null || true
+  fi
+  SHOW_PID=""
+  pkill -9 -f "showcase/showcase" 2>/dev/null || true
+  rm -f "${TMPDIR:-/tmp}"/moonbit-instance-local_showcase.*.sock 2>/dev/null || true
+}
+
+restore_showcase() {
+  # 用备份副本还原（不 git checkout——用户可能有未提交改动）；生成码按还原后的
+  # 模板重出 dev 形态，避免还原后生成码与模板不同步
+  [ -f "$WORK/combo.mng.orig" ] || return 0
+  if ! diff -q "$WORK/combo.mng.orig" "$SHOW_DIR/pages/combo.mng" >/dev/null 2>&1; then
+    cp "$WORK/combo.mng.orig" "$SHOW_DIR/pages/combo.mng"
+  fi
+  if [ -n "${MNG:-}" ] && [ -x "$MNG" ]; then
+    (cd "$SHOW_DIR" && "$MNG" gen pages/combo.mng -o pages/combo.gen.mbt >/dev/null 2>&1)
+  fi
+}
+
+cp "$SHOW_DIR/pages/combo.mng" "$WORK/combo.mng.orig"
+sweep_showcase
+: >"$SHOW_LOG"
+(cd "$SHOW_DIR" && exec "$MNG" dev >"$SHOW_LOG" 2>&1) &
+SHOW_PID=$!
+
+if wait_show "DEV 起应用 pid=" 180 "showcase dev 首轮启动"; then
+  # 5a. 样式值：hero 圆角字面量 → HOT
+  mark_show
+  sed -i.bak 's/border-radius: 6px;/border-radius: 10px;/' "$SHOW_DIR/pages/combo.mng" 2>/dev/null ||
+    sed -i '' 's/border-radius: 6px;/border-radius: 10px;/' "$SHOW_DIR/pages/combo.mng"
+  rm -f "$SHOW_DIR/pages/combo.mng.bak"
+  wait_show "[HOT] 补丁已应用" 20 "样式值改动走 HOT"
+
+  # 5b. 结构：hero 里加一行 ui-view 容器（children 形） → HOT
+  mark_show
+  "$PY" - "$SHOW_DIR/pages/combo.mng" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p, encoding="utf-8").read()
+old = '<ui-view class="divider" />'
+new = '<ui-view class="extra"><ui-text text="scenario" /></ui-view>\n      <ui-view class="divider" />'
+if old in s:
+    s = s.replace(old, new, 1)
+    open(p, "w", encoding="utf-8").write(s)
+PY
+  wait_show "[HOT] 补丁已应用" 20 "容器加行走 HOT"
+
+  # 5c. select options 数组字面量加一项 → HOT
+  mark_show
+  "$PY" - "$SHOW_DIR/pages/combo.mng" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p, encoding="utf-8").read()
+old = '["简洁", "标准", "详细"]'
+new = '["简洁", "标准", "详细", "极简"]'
+if old in s:
+    s = s.replace(old, new, 1)
+    open(p, "w", encoding="utf-8").write(s)
+PY
+  wait_show "[HOT] 补丁已应用" 20 "options 数组字面量走 HOT"
+
+  # 5d. script 段加新函数 → COLD 重启回页
+  mark_show
+  "$PY" - "$SHOW_DIR/pages/combo.mng" <<'PY'
+import sys
+p = sys.argv[1]
+s = open(p, encoding="utf-8").read()
+old = "fn clear_input() {"
+new = "fn scenario_extra() -> Int32 { 7 }\n\nfn clear_input() {"
+if old in s:
+    s = s.replace(old, new, 1)
+    open(p, "w", encoding="utf-8").write(s)
+PY
+  wait_show "[HOT→COLD]" 30 "script 新函数转 COLD"
+  wait_show "[COLD] 应用已重启" 120 "COLD 重启应用"
+  wait_show "[COLD] 已请求回到模板页" 30 "COLD 后回改动页"
+fi
+
+sweep_showcase
+restore_showcase
 
 echo
 echo "== 结果：$PASS 过 / $FAIL 红 =="
