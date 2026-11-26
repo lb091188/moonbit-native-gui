@@ -6,18 +6,18 @@
 ```mbt check
 ///|
 /// comments doc string
-pub fn sum(x : Int, y : Int) -> Int {
+pub fn sum(x : Int32, y : Int32) -> Int32 {
   x + y
 }
 
 ///|
 struct Rect {
-  width : Int
-  height : Int
+  width : Int32
+  height : Int32
 }
 
 ///|
-fn Rect::area(self : Rect) -> Int {
+fn Rect::area(self : Rect) -> Int32 {
   self.width * self.height
 }
 
@@ -27,10 +27,11 @@ pub impl Show for Rect with fn output(_self, logger) {
 }
 
 ///|
+#derive(Debug, ToJson, Eq, Compare)
 enum MyOption {
   MyNone
-  MySome(Int)
-} derive(Debug, ToJson, Eq, Compare)
+  MySome(Int32)
+}
 
 ///|
 ///  match + loops are expressions
@@ -60,7 +61,7 @@ test "everything is expression in MoonBit" {
   let mut i = 0 // mutable bindings (local only, globals are immutable)
   let target = 3
   // loops return values with 'break'
-  let found : Int? = while i < array.length() {
+  let found : Int32? = while i < array.length() {
     if array[i] == target {
       break Some(i) // Exit with value
     }
@@ -79,7 +80,7 @@ pub let my_name : String = "MoonBit"
 pub const PI : Double = 3.14159 // constants use UPPER_SNAKE or PascalCase
 
 ///|
-pub fn maximum(xs : Array[Int]) -> Int raise {
+pub fn maximum(xs : Array[Int32]) -> Int32 raise {
   // Toplevel functions are *mutually recursive* by default
   // `raise` annotation means the function would raise any Error
   //  Only add `raise XXError` when you do need track the specific error type
@@ -87,7 +88,7 @@ pub fn maximum(xs : Array[Int]) -> Int raise {
     [] => fail("Empty array") // fail() is built-in for generic errors
     [x] => x
     // pattern match over array, the `.. rest` is a rest pattern
-    // it is of type `ArrayView[Int]` which is a slice
+    // it is of type `ArrayView[Int32]` which is a slice
     [x, .. rest] => {
       let mut max_val = x // `mut` only allowed in local bindings
       for y in rest {
@@ -102,23 +103,25 @@ pub fn maximum(xs : Array[Int]) -> Int raise {
 
 ///|
 /// pub(all) means it can be both read and created outside the package
+#derive(Debug, ToJson)
 pub(all) struct Point {
-  x : Int
-  mut y : Int
-} derive(Debug, ToJson)
+  x : Int32
+  mut y : Int32
+}
 
 ///|
+#derive(Debug, Eq, ToJson)
 pub enum LoadState {
   Loading // semicolon `;` is optional when we have a newline
-  Ready(Int) // Enum variants must start uppercase
-} derive(Debug, Eq, ToJson)
+  Ready(Int32) // Enum variants must start uppercase
+}
 // pub means it can only be pattern matched outside the package
 // but it can not be created outside the package, use `pub(all)` otherwise
 
 ///|
 /// pub (open) means the trait can be implemented for outside packages
 pub(open) trait Comparable {
-  fn compare(Self, Self) -> Int // `Self` refers to the implementing type
+  fn compare(Self, Self) -> Int32 // `Self` refers to the implementing type
 }
 
 ///|
@@ -141,7 +144,7 @@ test "inspect test" {
 
 ```mbt check
 ///|
-pub type UserId = Int // Int is aliased to UserId - like symlink
+pub type UserId = Int32 // Int32 is aliased to UserId - like symlink
 
 ///|
 ///  Tuple-struct for callback
@@ -149,19 +152,20 @@ pub struct Handler((String) -> Unit) // A newtype wrapper
 
 ///|
 /// Tuple-struct syntax for single-field newtypes
-struct Meters(Int) // Tuple-struct syntax
+struct Meters(Int32) // Tuple-struct syntax
 
 ///|
 let distance : Meters = Meters(100)
 
 ///|
-let raw : Int = distance.0 // Access first field with .0
+let raw : Int32 = distance.0 // Access first field with .0
 
 ///|
+#derive(Debug, Eq, ToJson, FromJson)
 struct Addr {
   host : String
-  port : Int
-} derive(Debug, Eq, ToJson, FromJson)
+  port : Int32
+}
 
 ///|
 /// Structural types with literal syntax
@@ -195,16 +199,18 @@ Most types can automatically derive standard traits using the `derive(...)` synt
 
 ```mbt check
 ///|
+#derive(Debug, Eq, ToJson)
 struct Coordinate {
-  x : Int
-  y : Int
-} derive(Debug, Eq, ToJson)
+  x : Int32
+  y : Int32
+}
 
 ///|
+#derive(Debug, Eq, Compare)
 enum Status {
   Active
   Inactive
-} derive(Debug, Eq, Compare)
+}
 
 ///|
 test "derived traits" {
@@ -225,7 +231,7 @@ immutables):
 ///|
 ///  Structs with 'mut' fields are always passed by reference
 struct Counter {
-  mut value : Int
+  mut value : Int32
 }
 
 ///|
@@ -235,7 +241,7 @@ fn increment(c : Counter) -> Unit {
 
 ///|
 /// Arrays and Maps are mutable references
-fn modify_array(arr : Array[Int]) -> Unit {
+fn modify_array(arr : Array[Int32]) -> Unit {
   arr[0] = 999 // Modifies original array
 }
 
@@ -244,10 +250,10 @@ test "reference semantics" {
   let c : Counter = { value: 0, }
   increment(c)
   inspect(c.value, content="1")
-  let counter : Ref[Int] = Ref::{ val: 0, }
+  let counter : Ref[Int32] = Ref::{ val: 0, }
   counter.val += 1
   assert_true(counter.val is 1)
-  let arr : Array[Int] = [1, 2, 3] // unlike Rust, no `mut` keyword needed
+  let arr : Array[Int32] = [1, 2, 3] // unlike Rust, no `mut` keyword needed
   modify_array(arr)
   assert_true(arr[0] is 999)
   let mut x = 3 // `mut` neeed for re-assignment to the bindings
@@ -258,15 +264,35 @@ test "reference semantics" {
 
 ## Pattern Matching
 
+`for (left, right) in pairs` destructures each tuple element. This differs from `for index, value in array`, which binds the index and element separately.
+
+```mbt check
+///|
+test "destructuring iteration and clamped array views" {
+  let pairs = [(2, 3), (4, 5)]
+  let mut total = 0
+  for (left, right) in pairs {
+    total += left * right
+  }
+  inspect(total, content="26")
+  let values = [10, 20, 30]
+  debug_inspect(values[1:100].to_owned(), content="[20, 30]")
+  assert_true(values[5:10].is_empty())
+  assert_true(values.get_view(start=5) is None)
+}
+```
+
+For a public enum that may gain constructors, use `#non_exhaustive`. In another package, match all known constructors and then `@pkg.Type::..` for future ones. Unlike `_`, this fallback warns when a new known constructor needs an explicit branch. Use `_` when intentionally ignoring remaining known constructors too. Run `moon explain --attribute non_exhaustive` for a cross-package example. This enum pattern is distinct from `SubErrorType::_`, which matches an error subtype.
+
 ```mbt check
 ///|
 test "pattern match over Array, struct and StringView" {
-  let arr : Array[Int] = [10, 20, 25, 30]
+  let arr : Array[Int32] = [10, 20, 25, 30]
   match arr {
     [] => fail("expected a nonempty array")
     [single] => inspect(single, content="10")
     [first, .. middle, rest] => {
-      let _ : ArrayView[Int] = middle // middle is ArrayView[Int]  
+      let _ : ArrayView[Int32] = middle // middle is ArrayView[Int32]
       assert_true(first is 10 && middle is [20, 25] && rest is 30)
     }
   }
@@ -303,7 +329,7 @@ Use explicit loop binders for state, `continue` to update it, and `break` to ret
 ///|
 /// Functional loop with pattern matching on loop variables
 /// @list.List is from the standard library
-fn sum_list(list : @list.List[Int]) -> Int {
+fn sum_list(list : @list.List[Int32]) -> Int32 {
   for remaining = list, acc = 0 {
     match remaining {
       Empty => break acc
@@ -314,7 +340,7 @@ fn sum_list(list : @list.List[Int]) -> Int {
 
 ///|
 ///  Multiple loop variables with complex control flow
-fn find_pair(arr : Array[Int], target : Int) -> (Int, Int)? {
+fn find_pair(arr : Array[Int32], target : Int32) -> (Int32, Int32)? {
   for i = 0, j = arr.length() - 1 {
     if i >= j {
       break None
@@ -345,6 +371,8 @@ For an infinite loop without state, use `for ;; { ... }` or `while true { ... }`
 ## Methods and Traits
 
 Methods use `Type::method_name` syntax, traits require explicit implementation:
+
+Write `fn` explicitly in trait declarations and after `impl ... with`. Implementing a trait and exposing its methods through dot syntax are separate decisions: call `Trait::method(value)` directly, or declare `extend Type with Trait::{method}` (with `pub` for an exported method). Do not depend on deprecated implicit promotion of an `impl` into methods.
 
 ```mbt check
 ///|
@@ -397,10 +425,14 @@ impl Named for Rectangle with fn name(_self) {
 }
 
 ///|
+extend Rectangle with Named::{name}
+
+///|
 test "methods and trait calls" {
   let rect = Rectangle::new(3, 4)
   inspect(rect.area(), content="12")
   inspect(describe(rect), content="rectangle: Rectangle(3x4)")
+  inspect(rect.name(), content="rectangle")
 }
 ```
 
@@ -410,7 +442,7 @@ MoonBit supports operator overloading through traits:
 
 ```mbt check
 ///|
-struct Vector(Int, Int)
+struct Vector(Int32, Int32)
 
 ///|
 /// Implement arithmetic operators
@@ -419,9 +451,10 @@ pub impl Add for Vector with fn add(self, other) {
 }
 
 ///|
+#derive(Eq)
 struct Person {
-  age : Int
-} derive(Eq)
+  age : Int32
+}
 
 ///|
 /// Comparison operators
@@ -450,7 +483,7 @@ fn internal_helper() -> Unit {
 }
 
 ///|
-pub fn get_value() -> Int {
+pub fn get_value() -> Int32 {
   internal_helper()
   42
 }

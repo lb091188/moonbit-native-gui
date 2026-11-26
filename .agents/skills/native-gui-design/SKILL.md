@@ -23,6 +23,32 @@ description: Design rules for building user interfaces with NoahLiu/native-gui (
 
 常见界面模式照 `references/recipes.md` 的配方拼：工具栏、表单、卡片网格、列表、空状态、整页骨架。不要在已有界面上另发明一套排法。
 
+## 风格包
+
+用户点名风格、或产品气质明确时，从 `references/styles/` 取整套风格落地，不要自行混搭别家 CSS 风格指南（本库无投影、圆角上限 8、token 走主题——web 风格值不能直译）：
+
+| 风格 | 文件 | 气质一句话 |
+|---|---|---|
+| 简约 Minimal | `styles/minimal.md` | 大留白中性色，信息即主角 |
+| 工业 Industrial | `styles/industrial.md` | 直角粗描边，仪器面板感 |
+| 中国风 Chinoiserie | `styles/chinoiserie.md` | 宣纸墨字朱砂点睛，疏可走马 |
+| 玻璃拟态 Glass | `styles/glass.md` | 深底磨砂浮层，`@ui.glass` 一等能力 |
+| 暗夜科技 Dark Tech | `styles/dark-tech.md` | 近黑荧光青，控制台气质 |
+| 编辑杂志风 Editorial | `styles/editorial.md` | 纸白衬线大字阶，版面感 |
+
+每个风格包四件套：**主题 JSON**（存 `theme.json`，`mng.toml` 配 `theme` 键，存盘即热重载；颜色 token 与 `space_scale` / `radius_scale` / `type_scale` / `duration_scale` 四刻度都是主题白名单字段）+ **布局密度口径**（间距档倾向、描边用法）+ **字体候选族**（CSS 族列表语义，`serif` / `sans-serif` / `monospace` 通用族恒可用，全缺回落系统默认）+ **该风格的反模式清单**。基准刻度与 token 语义见 `references/baseline.md`，风格包只换值不改语义。
+
+## 去模板化（别长成 AI 默认脸）
+
+风格选对只是第一步，落法还要躲开生成式界面的默认套路：
+
+- **风格从题材来，不从习惯来**：给儿童玩具做界面与给金融分析做仪表盘，该长得完全不同。先问产品是什么、给谁用、第一屏要传达什么，再取风格包。
+- **大胆只花一处**：让一个元素成为记忆点（一块大字阶标题区、一个荧光强调色、一枚朱砂印章），其余全部安静克制；处处强调等于没有强调。
+- **结构装置要有信息**：编号（01/02/03）只用于内容真是步骤或时间线时；眉标、分隔线、图标存在的前提是传达信息，不是装饰。
+- **动效一次说清**：非用户触发的动效只留一个编排时刻（进场一次、reveal 一次）；hover/active 这类回答操作的反馈是本分，不算特效。
+- **文案也是设计**：按钮写「保存更改」不写「提交」；同一动作全流程同名；错误信息说怎么修，不道歉不含糊。
+- **截图自审**：交付前用检查器截图自己看一遍（工作流见 native-gui-dev 技能），看不出记忆点就还没做完。
+
 ## 交付前自查
 
 - 所有 `padding` / `row_gap` / `column_gap` 的值都在刻度内。

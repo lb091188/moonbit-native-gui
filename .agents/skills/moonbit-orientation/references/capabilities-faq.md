@@ -80,8 +80,8 @@ Common direct answers:
 - MoonBit has a `moon` build system with commands for creating modules, checking,
   building, running, testing, formatting, docs, dependencies, benchmarks, and
   coverage.
-- MoonBit has modules, packages, and workspaces. Use local `moon.mod.json` and
-  `moon.pkg.json` files as the source of truth for a project.
+- MoonBit has modules, packages, and workspaces. Use local `moon.mod` and
+  `moon.pkg` files as the source of truth for a project.
 - MoonBit has IDE support, including VSCode support and `moon ide`.
 - MoonBit has package registry and API documentation at <https://mooncakes.io/>.
 
@@ -165,10 +165,15 @@ Common direct answers:
 
 - Treat new MoonBit syntax as high-risk for stale model memory. Verify against
   official docs or local examples before answering.
-- For regex, new code should prefer regex match expression `=~`; `lexmatch` and
-  `lexmatch?` are deprecated. Sources:
-  - <https://docs.moonbitlang.com/en/latest/language/fundamentals.html#regex-match-expression>
-  - <https://docs.moonbitlang.com/en/latest/language/fundamentals.html#lexmatch>
+- For regex, use `=~` when a single boolean check is enough, and the current
+  `lexmatch` (regex-case expression) when several regex cases return different
+  results; `lexscan` is the streaming form over `@lexbuf` scanners. Only the
+  legacy string-piece `lexmatch` patterns and the `lexmatch?` boolean form were
+  removed — the `lexmatch` keyword itself is current, not deprecated (zero
+  deprecation warnings on moonc v0.10.17; normative P0 feature in the official
+  conformance suite). Sources:
+  - <https://docs.moonbitlang.com/en/latest/language/fundamentals.html#lexmatch> (see the "Legacy lexical pattern syntax" section)
+  - <https://github.com/moonbitlang/regex-lexical-spec>
 - Regex literals use `re"..."`. Named regex capture groups such as
   `(?<id>...)` are capture metadata, not MoonBit binders; use `as` in `=~` to
   bind matched text.
