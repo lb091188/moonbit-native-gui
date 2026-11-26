@@ -21,8 +21,8 @@ fn main {
   let app = match @ui.mount_window(
     [@pages.combo()],
     title="native-gui Showcase",
-    width=704,
-    height=396,
+    width=1440,
+    height=900,
   ) {
     None => {
       println("APP-SKIP: 本平台没有窗口后端或没有显示服务")

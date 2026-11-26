@@ -339,8 +339,8 @@ fn main {
       ),
     ],
     title=SHOWCASE_TITLE,
-    width=1280,
-    height=720,
+    width=1440,
+    height=900,
     handle=fn(a : @widget.WindowHost) {
       slot.val = Some(a)
       // 窗口页/快捷键页经 `app.host` 取宿主（页函数体跑完时还没挂载，这里填）

@@ -225,8 +225,8 @@ fn main {
       ),
     ],
     title=HELLO_TITLE,
-    width=760,
-    height=680,
+    width=1440,
+    height=900,
     handle=fn(a : @widget.WindowHost) {
       host_ref.val = Some(a)
       // 界面与内置单色托盘图标随系统明暗实时切换
