@@ -380,44 +380,19 @@ fn render_json(entries : Array[Entry]) -> String {
 }
 
 ///|
-/// 链接参数拆行：空格切分，每行一条；-framework 与它的参数并回一行。
-fn flag_lines(flags : String) -> Array[String] {
-  let lines : Array[String] = []
-  let mut pair_framework = false
-  for tok in flags.split(" ") {
-    let t = tok.to_owned()
-    if t.length() == 0 {
-      continue
-    }
-    if pair_framework {
-      let last = lines.length() - 1
-      lines[last] = lines[last] + " " + t
-      pair_framework = false
-    } else {
-      lines.push(t)
-      pair_framework = t == "-framework"
-    }
-  }
-  lines
-}
-
-///|
-/// 终端预览：yoml 风格——[模块 prebuild] 节头、包名一行、参数逐行「  - 」缩进，
-/// 给人读；走 stderr，stdout 协议不变。
+/// 终端预览：一行一条「包名: 参数」，参数并排不拆行；走 stderr，stdout 协议不变。
 fn render_text(entries : Array[Entry]) -> String {
   let out = StringBuilder()
   out.write_string("[gui prebuild]")
   if entries.is_empty() {
-    out.write_string("\n  (empty)")
+    out.write_string(" (empty)")
     return out.to_string()
   }
   for e in entries {
     out.write_string("\n")
     out.write_string(e.pkg)
-    for line in flag_lines(e.flags) {
-      out.write_string("\n  - ")
-      out.write_string(line)
-    }
+    out.write_string(": ")
+    out.write_string(e.flags)
   }
   out.to_string()
 }
