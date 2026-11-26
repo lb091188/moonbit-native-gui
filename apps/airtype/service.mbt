@@ -182,7 +182,7 @@ async fn service_run(token : String) -> Unit {
       return
     }
   }
-  let real_port = server.addr.port
+  let real_port = server.local_addr().port
   s_state.set("服务已启动")
   s_addr.set("\{ip}:\{real_port}")
   let url = "http://\{ip}:\{real_port}/?t=\{token}"
