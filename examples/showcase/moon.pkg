@@ -1,0 +1,10 @@
+import {
+  "NoahLiu/native-gui/ui",
+  "NoahLiu/native-gui/shell" @shell,
+  "NoahLiu/native-gui/inspector" @inspector,
+  "showcase/pages" @pages,
+}
+
+pkgtype(kind: "executable")
+
+supported_targets = "native"

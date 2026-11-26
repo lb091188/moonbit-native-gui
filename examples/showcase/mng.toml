@@ -1,0 +1,34 @@
+# mng 工程配置（mng dev / mng build 无参时向上找到本文件）。
+[dev]
+
+# 递归扫 *.mng（跳过 _build / .mooncakes / 点目录）
+templates = ["."]
+
+build = "moon build ."
+
+# 留空 = 跑一次 build 后从 Artifacts 抓可执行路径
+run = ""
+
+# mng package 的打包声明（在项目根执行；本平台打本平台包）
+[package]
+# 反域名 id：mac bundle id / 产物短名同源
+id = ""
+# 显示名（.app / DMG 卷名 / 安装器标题）
+name = ""
+# 应用版本，三段数字；与 moon.mod 的模块版本无关
+version = "0.1.0"
+# 可执行名；留空 = 从构建产物抓
+bin = ""
+# 源图标：1024x1024 PNG，派生 icns/ico
+icon = ""
+# 随包资源（递归拷进 Contents/Resources / 安装目录）
+resources = []
+# deb control 的 Maintainer（"名 <邮箱>"）；留空 = unknown <>
+maintainer = ""
+
+# 签名证书入口（全留空 = mac adhoc、win 不签）
+[package.sign]
+# codesign identity；如 "Developer ID Application: NAME (TEAMID)"
+mac_identity = ""
+# notarytool keychain profile；非空则公证 + staple
+notarize_profile = ""
