@@ -1,9 +1,11 @@
 // 模板 dev 面（应用侧）：IR 注册表 + applier + 挂载点原位替换。
 // 补丁由 dev 工具经单实例通道推送（args = ["--mng-hot", <ir 路径>]）。
-// v1 边界：组件 col/row/text/dyn/if/button/checkbox/switch/stepper/input，
-// 参数三态 lit/expr/state；动态槽键 = 表达式内容哈希（t:… / c:…），
-// state 与 handler 键 = 变量/函数名——结构增删挪不换键。
-// 边界依据见 proposals/native-template.md「结构热更新」节。
+// v2 边界：内置 18 标签全可原位重建（容器带 children、表单与值类带全部
+// 字面量参数、全部事件），参数三态 lit/expr/state 加 litarr（字符串数组
+// 字面量，options 类）；数值与布尔参数只收字面量。动态槽键 = 表达式内容
+// 哈希（t:… / c:…），state 与 handler 键 = 变量/函数名——结构增删挪不换键。
+// 组件参数清单与 mngkit/ir.mbt 的 comp_v2_spec 是同一张契约的两端，改动
+// 两端同批。边界依据见 proposals/native-template.md「结构热更新」节。
 
 ///|
 /// 类型化注册表：dev 档构建时登记，applier 按键取用；缺项报错并提示。
@@ -13,7 +15,11 @@ pub struct MngReg {
   exprs : Map[String, () -> String]
   conds : Map[String, () -> Bool]
   handlers : Map[String, () -> Unit]
+  h_strs : Map[String, (String) -> Unit]
+  h_bools : Map[String, (Bool) -> Unit]
+  h_ints : Map[String, (Int32) -> Unit]
   ints : Map[String, @base.Store[Int32]]
+  doubles : Map[String, @base.Store[Double]]
   bools : Map[String, @base.Store[Bool]]
   strs : Map[String, @base.Store[String]]
   calls : Map[String, (Array[ExprValue]) -> ExprValue]
@@ -26,7 +32,11 @@ pub fn mng_reg_new() -> MngReg {
     exprs: Map([]),
     conds: Map([]),
     handlers: Map([]),
+    h_strs: Map([]),
+    h_bools: Map([]),
+    h_ints: Map([]),
     ints: Map([]),
+    doubles: Map([]),
     bools: Map([]),
     strs: Map([]),
     calls: Map([]),
@@ -69,6 +79,36 @@ pub fn MngReg::handler(self : MngReg, name : String, f : () -> Unit) -> Unit {
 }
 
 ///|
+pub fn MngReg::handler_str(
+  self : MngReg,
+  name : String,
+  f : (String) -> Unit,
+) -> Unit {
+  self.note_key(name)
+  let _ = self.h_strs.set(name, f)
+}
+
+///|
+pub fn MngReg::handler_bool(
+  self : MngReg,
+  name : String,
+  f : (Bool) -> Unit,
+) -> Unit {
+  self.note_key(name)
+  let _ = self.h_bools.set(name, f)
+}
+
+///|
+pub fn MngReg::handler_int(
+  self : MngReg,
+  name : String,
+  f : (Int32) -> Unit,
+) -> Unit {
+  self.note_key(name)
+  let _ = self.h_ints.set(name, f)
+}
+
+///|
 pub fn MngReg::int(
   self : MngReg,
   name : String,
@@ -76,6 +116,16 @@ pub fn MngReg::int(
 ) -> Unit {
   self.note_key(name)
   let _ = self.ints.set(name, s)
+}
+
+///|
+pub fn MngReg::double(
+  self : MngReg,
+  name : String,
+  s : @base.Store[Double],
+) -> Unit {
+  self.note_key(name)
+  let _ = self.doubles.set(name, s)
 }
 
 ///|
@@ -428,7 +478,7 @@ let mng_regs : Map[String, MngReg] = Map([])
 
 ///|
 /// IR 协议代次：与工具侧 `mngkit.IR_REV` 同串，两边同批改。
-pub const MNG_IR_REV : String = "mng-ir-1"
+pub const MNG_IR_REV : String = "mng-ir-2"
 
 ///|
 fn mng_hex8(h : Int32) -> String {
@@ -468,7 +518,11 @@ fn mng_reg_has(reg : MngReg, key : String) -> Bool {
   reg.exprs.get(key) is Some(_) ||
   reg.conds.get(key) is Some(_) ||
   reg.handlers.get(key) is Some(_) ||
+  reg.h_strs.get(key) is Some(_) ||
+  reg.h_bools.get(key) is Some(_) ||
+  reg.h_ints.get(key) is Some(_) ||
   reg.ints.get(key) is Some(_) ||
+  reg.doubles.get(key) is Some(_) ||
   reg.bools.get(key) is Some(_) ||
   reg.strs.get(key) is Some(_)
 }
@@ -594,6 +648,162 @@ fn mreg_miss(kind : String, key : String) -> String {
 }
 
 ///|
+/// 子元素数组 → 节点数组（容器类的 kids 槽）。
+fn mj_kids(j : MJ, reg : MngReg) -> Result[Array[@widget.Node], String] {
+  let kids : Array[@widget.Node] = []
+  match mj_arr(mj_get(j, "kids")) {
+    Some(arr) =>
+      for k in arr {
+        match mj_node(k, reg) {
+          Ok(n) => kids.push(n)
+          Err(e) => return Err(e)
+        }
+      }
+    None => ()
+  }
+  Ok(kids)
+}
+
+///|
+/// 单子元素（form-item 的 child 槽）。
+fn mj_child1(j : MJ, reg : MngReg) -> Result[@widget.Node, String] {
+  let arr = match mj_arr(mj_get(j, "kids")) {
+    Some(a) => a
+    None => return Err("form-item 缺子元素")
+  }
+  if arr.length() != 1 {
+    return Err("form-item 需要恰好一个子元素（现 \{arr.length()}）")
+  }
+  mj_node(arr[0], reg)
+}
+
+///|
+/// 数值参数：缺省回构造器默认值（与不传等价）。
+fn mj_arg_num(j : MJ, name : String, default : Double) -> Double {
+  match mj_num(mj_arg(j, name)) {
+    Some(v) => v
+    None => default
+  }
+}
+
+///|
+fn mj_arg_int(j : MJ, name : String, default : Int32) -> Int32 {
+  match mj_num(mj_arg(j, name)) {
+    Some(v) => v.to_int()
+    None => default
+  }
+}
+
+///|
+/// 布尔参数：ILitBool 序列化成串，mj_str 两种形态都接。
+fn mj_arg_bool(j : MJ, name : String, default : Bool) -> Bool {
+  match mj_str(mj_arg(j, name)) {
+    Some(s) => s == "true"
+    None => default
+  }
+}
+
+///|
+/// 字符串数组字面量参数（options 类）。缺参回 None；形不对报错。
+fn mj_arg_str_arr(j : MJ, name : String) -> Result[Array[String]?, String] {
+  match mj_arg(j, name) {
+    None => Ok(None)
+    Some(v) =>
+      match mj_arr(mj_get(v, "litarr")) {
+        Some(arr) => {
+          let out : Array[String] = []
+          for x in arr {
+            match mj_str(Some(x)) {
+              Some(s) => out.push(s)
+              None => return Err("\{name} 项需字符串")
+            }
+          }
+          Ok(Some(out))
+        }
+        None => Err("\{name} 需字符串数组字面量")
+      }
+  }
+}
+
+///|
+/// 事件 handler 名（补丁 events 表：事件名 → handler 名）。
+fn mj_event(j : MJ, name : String) -> String? {
+  match mj_get(j, "events") {
+    Some(MObj(m)) =>
+      match m.get(name) {
+        Some(v) => mj_str(Some(v))
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
+/// 零参事件：注册表缺 handler 即报（握手已保证 requires 有键，这里是兜底）。
+fn mj_unit_handler(
+  j : MJ,
+  ev : String,
+  reg : MngReg,
+) -> Result[(() -> Unit)?, String] {
+  match mj_event(j, ev) {
+    None => Ok(None)
+    Some(h) =>
+      match reg.handlers.get(h) {
+        Some(f) => Ok(Some(f))
+        None => Err(mreg_miss("事件", h))
+      }
+  }
+}
+
+///|
+fn mj_str_handler(
+  j : MJ,
+  ev : String,
+  reg : MngReg,
+) -> Result[((String) -> Unit)?, String] {
+  match mj_event(j, ev) {
+    None => Ok(None)
+    Some(h) =>
+      match reg.h_strs.get(h) {
+        Some(f) => Ok(Some(f))
+        None => Err(mreg_miss("事件", h))
+      }
+  }
+}
+
+///|
+fn mj_bool_handler(
+  j : MJ,
+  ev : String,
+  reg : MngReg,
+) -> Result[((Bool) -> Unit)?, String] {
+  match mj_event(j, ev) {
+    None => Ok(None)
+    Some(h) =>
+      match reg.h_bools.get(h) {
+        Some(f) => Ok(Some(f))
+        None => Err(mreg_miss("事件", h))
+      }
+  }
+}
+
+///|
+fn mj_int_handler(
+  j : MJ,
+  ev : String,
+  reg : MngReg,
+) -> Result[((Int32) -> Unit)?, String] {
+  match mj_event(j, ev) {
+    None => Ok(None)
+    Some(h) =>
+      match reg.h_ints.get(h) {
+        Some(f) => Ok(Some(f))
+        None => Err(mreg_miss("事件", h))
+      }
+  }
+}
+
+///|
 fn mj_node(j : MJ, reg : MngReg) -> Result[@widget.Node, String] {
   let kind = match mj_str(mj_get(j, "k")) {
     Some(s) => s
@@ -658,66 +868,169 @@ fn mj_node(j : MJ, reg : MngReg) -> Result[@widget.Node, String] {
       }
     }
     "col" | "row" => {
-      let kids : Array[@widget.Node] = []
-      match mj_arr(mj_get(j, "kids")) {
-        Some(arr) =>
-          for k in arr {
-            match mj_node(k, reg) {
-              Ok(n) => kids.push(n)
-              Err(e) => return Err(e)
-            }
-          }
-        None => ()
-      }
-      let gap = match mj_num(mj_get(j, "gap")) {
-        Some(v) => v
-        None => 0.0
+      let kids = match mj_kids(j, reg) {
+        Ok(k) => k
+        Err(e) => return Err(e)
       }
       if kind == "col" {
-        Ok(@ui.col(kids, row_gap=gap, class=cls))
+        Ok(@ui.col(kids, row_gap=mj_arg_num(j, "row_gap", 0.0), class=cls))
       } else {
-        Ok(@ui.row(kids, column_gap=gap, class=cls))
+        Ok(
+          @ui.row(kids, column_gap=mj_arg_num(j, "column_gap", 0.0), class=cls),
+        )
       }
+    }
+    "view" => {
+      let kids = match mj_kids(j, reg) {
+        Ok(k) => k
+        Err(e) => return Err(e)
+      }
+      Ok(
+        @ui.view(
+          kids,
+          row_gap=mj_arg_num(j, "row_gap", 0.0),
+          column_gap=mj_arg_num(j, "column_gap", 0.0),
+          padding=mj_arg_num(j, "padding", 0.0),
+          width=mj_arg_num(j, "width", 0.0),
+          height=mj_arg_num(j, "height", 0.0),
+          grow=mj_arg_num(j, "grow", 0.0),
+          corner_radius=mj_arg_num(j, "corner_radius", -1.0),
+          class=cls,
+        ),
+      )
+    }
+    "panel" => {
+      let kids = match mj_kids(j, reg) {
+        Ok(k) => k
+        Err(e) => return Err(e)
+      }
+      let title = match mj_param(j, "title", reg, "") {
+        Ok(p) => p.now()
+        Err(e) => return Err(e)
+      }
+      Ok(
+        @ui.panel(
+          title,
+          kids,
+          padding=mj_arg_num(j, "padding", 10.0),
+          row_gap=mj_arg_num(j, "row_gap", 6.0),
+          width=mj_arg_num(j, "width", 0.0),
+          class=cls,
+        ),
+      )
+    }
+    "scroll-view" => {
+      let kids = match mj_kids(j, reg) {
+        Ok(k) => k
+        Err(e) => return Err(e)
+      }
+      Ok(
+        @ui.scroll_view(
+          kids,
+          @ui.ScrollState::new(),
+          width=mj_arg_num(j, "width", 0.0),
+          height=mj_arg_num(j, "height", 0.0),
+          hscroll=mj_arg_bool(j, "hscroll", false),
+          min_content_width=mj_arg_num(j, "min_content_width", 0.0),
+          vscroll=mj_arg_bool(j, "vscroll", true),
+          class=cls,
+        ),
+      )
+    }
+    "form" => {
+      let kids = match mj_kids(j, reg) {
+        Ok(k) => k
+        Err(e) => return Err(e)
+      }
+      let title = match mj_param(j, "title", reg, "") {
+        Ok(p) => p.now()
+        Err(e) => return Err(e)
+      }
+      Ok(@ui.form(title, kids, row_gap=mj_arg_num(j, "row_gap", 8.0)))
+    }
+    "form-item" => {
+      let child = match mj_child1(j, reg) {
+        Ok(n) => n
+        Err(e) => return Err(e)
+      }
+      let label = match mj_param(j, "label", reg, "") {
+        Ok(p) => p.now()
+        Err(e) => return Err(e)
+      }
+      Ok(@ui.form_item(label, child, label_width=mj_arg_num(j, "label_width", 90.0)))
     }
     "button" => {
       let text = match mj_param(j, "text", reg, "") {
         Ok(n) => n
         Err(e) => return Err(e)
       }
-      let click : (() -> Unit)? = match mj_str(mj_get(j, "click")) {
-        Some(h) =>
-          match reg.handlers.get(h) {
-            Some(f) => Some(f)
-            None => return Err(mreg_miss("事件", h))
-          }
-        None => None
+      let click = match mj_unit_handler(j, "click", reg) {
+        Ok(c) => c
+        Err(e) => return Err(e)
       }
+      let disabled = mj_arg_bool(j, "disabled", false)
       // text 参数：静态直出；动态包 bind；click 可选
       Ok(
         text.node(fn(s : String) {
           match click {
-            Some(f) => @ui.button(s, on_click=f, class=cls)
-            None => @ui.button(s, class=cls)
+            Some(f) => @ui.button(s, on_click=f, disabled=disabled, class=cls)
+            None => @ui.button(s, disabled=disabled, class=cls)
           }
         }),
       )
     }
-    "checkbox" | "switch" => {
+    "checkbox" => {
       let name = match state_of(j) {
         Some(s) => s
-        None => return Err("\{kind} 节点缺 state")
+        None => return Err("checkbox 节点缺 state")
       }
       match reg.bools.get(name) {
-        Some(st) =>
-          if kind == "checkbox" {
-            let label = match mj_param(j, "label", reg, "") {
-              Ok(p) => p
-              Err(e) => return Err(e)
-            }
-            Ok(@ui.checkbox(label.now(), st, class=cls))
-          } else {
-            Ok(@ui.switch(st, class=cls))
+        Some(st) => {
+          let label = match mj_param(j, "label", reg, "") {
+            Ok(p) => p
+            Err(e) => return Err(e)
           }
+          Ok(
+            @ui.checkbox(label.now(), st, disabled=mj_arg_bool(j, "disabled", false), class=cls),
+          )
+        }
+        None => Err(mreg_miss("布尔状态", name))
+      }
+    }
+    "switch" => {
+      let name = match state_of(j) {
+        Some(s) => s
+        None => return Err("switch 节点缺 state")
+      }
+      match reg.bools.get(name) {
+        Some(st) => {
+          let on_text = match mj_param(j, "on_text", reg, "") {
+            Ok(p) => p.now()
+            Err(e) => return Err(e)
+          }
+          let off_text = match mj_param(j, "off_text", reg, "") {
+            Ok(p) => p.now()
+            Err(e) => return Err(e)
+          }
+          let change = match mj_bool_handler(j, "change", reg) {
+            Ok(c) => c
+            Err(e) => return Err(e)
+          }
+          let cb = match change {
+            Some(f) => f
+            None => fn(_v : Bool) -> Unit { () }
+          }
+          Ok(
+            @ui.switch(
+              st,
+              on_text=on_text,
+              off_text=off_text,
+              disabled=mj_arg_bool(j, "disabled", false),
+              on_change=cb,
+              class=cls,
+            ),
+          )
+        }
         None => Err(mreg_miss("布尔状态", name))
       }
     }
@@ -727,18 +1040,130 @@ fn mj_node(j : MJ, reg : MngReg) -> Result[@widget.Node, String] {
         None => return Err("stepper 节点缺 state")
       }
       match reg.ints.get(name) {
+        Some(st) =>
+          Ok(
+            @ui.stepper(
+              st,
+              min=mj_arg_int(j, "min", 0),
+              max=mj_arg_int(j, "max", 999),
+              step=mj_arg_int(j, "step", 1),
+              class=cls,
+            ),
+          )
+        None => Err(mreg_miss("整数状态", name))
+      }
+    }
+    "slider" => {
+      let name = match state_of(j) {
+        Some(s) => s
+        None => return Err("slider 节点缺 state")
+      }
+      match reg.doubles.get(name) {
+        Some(st) =>
+          Ok(
+            @ui.slider(
+              st,
+              min=mj_arg_num(j, "min", 0.0),
+              max=mj_arg_num(j, "max", 100.0),
+              step=mj_arg_num(j, "step", 0.0),
+              disabled=mj_arg_bool(j, "disabled", false),
+              class=cls,
+            ),
+          )
+        None => Err(mreg_miss("小数状态", name))
+      }
+    }
+    "rate" => {
+      let name = match state_of(j) {
+        Some(s) => s
+        None => return Err("rate 节点缺 state")
+      }
+      match reg.ints.get(name) {
         Some(st) => {
-          let mx = match mj_num(mj_arg(j, "max")) {
-            Some(v) => v.to_int()
-            None => 99
+          let change = match mj_int_handler(j, "change", reg) {
+            Ok(c) => c
+            Err(e) => return Err(e)
           }
-          let mn = match mj_num(mj_arg(j, "min")) {
-            Some(v) => v.to_int()
-            None => 0
+          let cb = match change {
+            Some(f) => f
+            None => fn(_v : Int32) -> Unit { () }
           }
-          Ok(@ui.stepper(st, min=mn, max=mx, class=cls))
+          Ok(
+            @ui.rate(
+              st,
+              max=mj_arg_int(j, "max", 5),
+              on_change=cb,
+              size=mj_arg_num(j, "size", 22.0),
+              gap=mj_arg_num(j, "gap", 4.0),
+              class=cls,
+            ),
+          )
         }
         None => Err(mreg_miss("整数状态", name))
+      }
+    }
+    "radio-group" => {
+      let name = match state_of(j) {
+        Some(s) => s
+        None => return Err("radio-group 节点缺 state")
+      }
+      match reg.ints.get(name) {
+        Some(st) => {
+          let options = match mj_arg_str_arr(j, "options") {
+            Ok(Some(xs)) => xs
+            Ok(None) => []
+            Err(e) => return Err(e)
+          }
+          Ok(
+            @ui.radio_group(
+              options,
+              st,
+              disabled=mj_arg_bool(j, "disabled", false),
+              gap=mj_arg_num(j, "gap", 12.0),
+              class=cls,
+            ),
+          )
+        }
+        None => Err(mreg_miss("整数状态", name))
+      }
+    }
+    "select" => {
+      let name = match state_of(j) {
+        Some(s) => s
+        None => return Err("select 节点缺 state")
+      }
+      match reg.strs.get(name) {
+        Some(st) => {
+          let options = match mj_arg_str_arr(j, "options") {
+            Ok(Some(xs)) => xs
+            Ok(None) => []
+            Err(e) => return Err(e)
+          }
+          let ph = match mj_param(j, "placeholder", reg, "") {
+            Ok(p) => p
+            Err(e) => return Err(e)
+          }
+          let change = match mj_str_handler(j, "change", reg) {
+            Ok(c) => c
+            Err(e) => return Err(e)
+          }
+          let cb = match change {
+            Some(f) => f
+            None => fn(_s : String) -> Unit { () }
+          }
+          Ok(
+            @ui.select(
+              options,
+              st,
+              on_change=cb,
+              clearable=mj_arg_bool(j, "clearable", false),
+              placeholder=ph.now(),
+              editable=mj_arg_bool(j, "editable", false),
+              class=cls,
+            ),
+          )
+        }
+        None => Err(mreg_miss("字符串状态", name))
       }
     }
     "input" => {
@@ -756,13 +1181,78 @@ fn mj_node(j : MJ, reg : MngReg) -> Result[@widget.Node, String] {
             MParamStatic(s) => s
             MParamDyn(sig) => sig.get()
           }
-          Ok(@ui.input(st, placeholder=phs, class=cls))
+          let enter = match mj_unit_handler(j, "enter", reg) {
+            Ok(c) => c
+            Err(e) => return Err(e)
+          }
+          let change = match mj_str_handler(j, "change", reg) {
+            Ok(c) => c
+            Err(e) => return Err(e)
+          }
+          let ecb = match enter {
+            Some(f) => f
+            None => fn() -> Unit { () }
+          }
+          let ccb = match change {
+            Some(f) => f
+            None => fn(_s : String) -> Unit { () }
+          }
+          Ok(
+            @ui.input(
+              st,
+              placeholder=phs,
+              password=mj_arg_bool(j, "password", false),
+              read_only=mj_arg_bool(j, "read_only", false),
+              clearable=mj_arg_bool(j, "clearable", false),
+              on_enter=ecb,
+              on_change=ccb,
+              class=cls,
+            ),
+          )
+        }
+        None => Err(mreg_miss("字符串状态", name))
+      }
+    }
+    "textarea" => {
+      let name = match state_of(j) {
+        Some(s) => s
+        None => return Err("textarea 节点缺 state")
+      }
+      match reg.strs.get(name) {
+        Some(st) => {
+          let ph = match mj_param(j, "placeholder", reg, "") {
+            Ok(p) => p
+            Err(e) => return Err(e)
+          }
+          let phs = match ph {
+            MParamStatic(s) => s
+            MParamDyn(sig) => sig.get()
+          }
+          let change = match mj_str_handler(j, "change", reg) {
+            Ok(c) => c
+            Err(e) => return Err(e)
+          }
+          let ccb = match change {
+            Some(f) => f
+            None => fn(_s : String) -> Unit { () }
+          }
+          Ok(
+            @ui.textarea(
+              st,
+              placeholder=phs,
+              rows=mj_arg_int(j, "rows", 3),
+              width=mj_arg_num(j, "width", 260.0),
+              read_only=mj_arg_bool(j, "read_only", false),
+              on_change=ccb,
+              class=cls,
+            ),
+          )
         }
         None => Err(mreg_miss("字符串状态", name))
       }
     }
     other =>
-      Err("组件「\{other}」不在 applier v1 表内——回 COLD 重启")
+      Err("组件「\{other}」不在 applier 组件表内——回 COLD 重启")
   }
 }
 

@@ -163,7 +163,11 @@ fn eval_ast(
             None =>
               match reg.strs.get(name) {
                 Some(s) => Ok(VString(s.get()))
-                None => Err("求值缺状态「" + name + "」")
+                None =>
+                  match reg.doubles.get(name) {
+                    Some(s) => Ok(VDouble(s.get()))
+                    None => Err("求值缺状态「" + name + "」")
+                  }
               }
           }
       }

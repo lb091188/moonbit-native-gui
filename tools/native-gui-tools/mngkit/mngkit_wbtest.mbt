@@ -446,15 +446,15 @@ test "IR 边界：自定义组件与 v-else-if 链转 COLD（ir_of 报错）" {
   assert_true(
     match r1 {
       Err(e) =>
-        contains_sub(e, "自定义组件") && contains_sub(e, "v1 补丁边界")
+        contains_sub(e, "自定义组件") && contains_sub(e, "热更边界")
       _ => false
     },
   )
-  // 富模板里先撞上 <ui-input :error>（v1 参数表外），同样给了 COLD 指路
+  // 富模板里先撞上自定义组件 sh-section（v2 不重建自定义组件），给了 COLD 指路
   let rfull = ir_of(t2_src(), "t2.mng")
   assert_true(
     match rfull {
-      Err(e) => contains_sub(e, "不在 v1 补丁表")
+      Err(e) => contains_sub(e, "自定义组件")
       _ => false
     },
   )
@@ -468,6 +468,154 @@ test "IR 边界：自定义组件与 v-else-if 链转 COLD（ir_of 报错）" {
       _ => false
     },
   )
+}
+
+///|
+fn full_cov_src() -> String {
+  [
+    "<script>",
+    "let s_volume : @base.Store[Double] = @base.Store::new(40.0)",
+    "let s_mode : @base.Store[String] = @base.Store::new(\"标准\")",
+    "let s_score : @base.Store[Int32] = @base.Store::new(3)",
+    "let s_input : @base.Store[String] = @base.Store::new(\"\")",
+    "let s_flag : @base.Store[Bool] = @base.Store::new(false)",
+    "fn on_mode(v : String) { s_mode.set(v) }",
+    "fn on_score(v : Int32) { s_score.set(v) }",
+    "fn on_flag(v : Bool) { s_flag.set(v) }",
+    "fn on_go() { s_input.set(\"\") }",
+    "</script>",
+    "<template>",
+    "  <ui-view class=\"hero\">",
+    "    <ui-scroll-view hscroll=\"false\">",
+    "      <ui-panel title=\"面板\"><ui-text text=\"内\" /></ui-panel>",
+    "    </ui-scroll-view>",
+    "    <ui-select :options='[\"简洁\", \"标准\"]' v-model=\"s_mode\" @change=\"on_mode\" />",
+    "    <ui-slider v-model=\"s_volume\" min=\"0\" max=\"100\" step=\"1\" />",
+    "    <ui-rate v-model=\"s_score\" max=\"5\" @change=\"on_score\" />",
+    "    <ui-textarea v-model=\"s_input\" rows=\"4\" />",
+    "    <ui-switch v-model=\"s_flag\" @change=\"on_flag\" />",
+    "    <ui-radio-group :options='[\"甲\", \"乙\"]' v-model=\"s_score\" />",
+    "    <ui-form title=\"表单\">",
+    "      <ui-form-item label=\"名\"><ui-input v-model=\"s_input\" @enter=\"on_go\" /></ui-form-item>",
+    "    </ui-form>",
+    "  </ui-view>",
+    "</template>",
+  ].join("\n") +
+  "\n"
+}
+
+///|
+test "IR v2：全内置标签出树（容器 children / 值类状态 / 数组字面量 / 事件表）" {
+  let ir = match ir_of(full_cov_src(), "full.mng") {
+    Ok(j) => j
+    Err(e) => abort("\{e}")
+  }
+  // 容器链：view → scroll-view（bool 字面量）→ panel（title）
+  assert_true(contains_sub(ir, "\"k\":\"view\""))
+  assert_true(contains_sub(ir, "\"k\":\"scroll-view\""))
+  assert_true(contains_sub(ir, "\"hscroll\":{\"lit\":\"false\"}"))
+  assert_true(contains_sub(ir, "\"k\":\"panel\",\"args\":{\"title\":{\"lit\":\"面板\"}},\"kids\":["))
+  // 值类：状态槽按名下发
+  assert_true(contains_sub(ir, "\"state\":\"s_volume\""))
+  assert_true(contains_sub(ir, "\"state\":\"s_score\""))
+  // 数组字面量与 slider 参数
+  assert_true(contains_sub(ir, "\"options\":{\"litarr\":[\"简洁\",\"标准\"]}"))
+  assert_true(contains_sub(ir, "\"max\":{\"lit\":100}"))
+  // 事件统一进 events 表
+  assert_true(contains_sub(ir, "\"events\":{\"change\":\"on_mode\"}"))
+  assert_true(contains_sub(ir, "\"events\":{\"enter\":\"on_go\"}"))
+  // requires 清单收全：states 按树序去重，handlers 含全部事件
+  assert_true(contains_sub(ir, "\"states\":[\"s_mode\",\"s_volume\",\"s_score\",\"s_input\",\"s_flag\"]"))
+  assert_true(contains_sub(ir, "\"handlers\":[\"on_mode\",\"on_score\",\"on_flag\",\"on_go\"]"))
+  // 协议代次
+  assert_true(contains_sub(ir, "\"rev\":\"mng-ir-2\""))
+}
+
+///|
+test "IR v2 边界：表外参数 / 动态数值 / 表外事件仍转 COLD" {
+  // ui-view 不认的参数
+  let r1 = ir_of(
+    "<template>\n  <ui-view color=\"#fff\" />\n</template>", "b1.mng",
+  )
+  assert_true(
+    match r1 {
+      Err(e) => contains_sub(e, "参数 color 不在补丁表")
+      _ => false
+    },
+  )
+  // 动态数值参数不进受限文法
+  let r2 = ir_of(
+    "<script>\nlet lo : @base.Store[Int32] = @base.Store::new(0)\n</script>\n<template>\n  <ui-slider v-model=\"lo\" :min=\"lo\" />\n</template>",
+    "b2.mng",
+  )
+  assert_true(
+    match r2 {
+      Err(e) => contains_sub(e, "动态参数 min")
+      _ => false
+    },
+  )
+  // options 只收字符串数组字面量
+  let r3 = ir_of(
+    "<template>\n  <ui-select options=\"简\" />\n</template>", "b3.mng",
+  )
+  assert_true(
+    match r3 {
+      Err(e) => contains_sub(e, "只收字符串数组字面量")
+      _ => false
+    },
+  )
+  // 表外事件
+  let r4 = ir_of(
+    "<template>\n  <ui-button text=\"x\" @scroll=\"h\" />\n</template>", "b4.mng",
+  )
+  assert_true(
+    match r4 {
+      Err(e) => contains_sub(e, "事件 @scroll 不在补丁表")
+      _ => false
+    },
+  )
+}
+
+///|
+test "IR v2：含表外组件的页面改样式值不再整页转 COLD（hot_ir 全树过表）" {
+  let base = full_cov_src()
+  let styled = base.replace(
+    old="  <ui-view class=\"hero\">",
+    new="  <ui-view class=\"hero hero2\">",
+  )
+  match hot_ir(styled, base, "full.mng") {
+    Ok(_) => ()
+    Err(e) => abort("样式类改动应 HOT：\{e}")
+  }
+  // 结构改动：加一行 ui-view 也应 HOT
+  let added = base.replace(
+    old="  </ui-view>",
+    new="    <ui-view class=\"extra\"><ui-text text=\"新行\" /></ui-view>\n  </ui-view>",
+  )
+  match hot_ir(added, base, "full.mng") {
+    Ok(_) => ()
+    Err(e) => abort("结构增行应 HOT：\{e}")
+  }
+  // 改 slider 字面量参数同样 HOT
+  let tuned = base.replace(old="max=\"100\"", new="max=\"120\"")
+  match hot_ir(tuned, base, "full.mng") {
+    Ok(_) => ()
+    Err(e) => abort("slider 参数字面量应 HOT：\{e}")
+  }
+}
+
+///|
+///|
+test "dev 生成码：Double 状态登记 reg.double，带参事件按签名选 handler_str" {
+  let code = match compile_dev(full_cov_src(), "full.mng", fn(_p : String) -> String? { None }) {
+    Ok(o) => o.code
+    Err(e) => abort("\{e}")
+  }
+  assert_true(contains_sub(code, "reg.double(\"s_volume\", s_volume)"))
+  assert_true(contains_sub(code, "reg.handler_str(\"on_mode\", on_mode)"))
+  assert_true(contains_sub(code, "reg.handler_int(\"on_score\", on_score)"))
+  assert_true(contains_sub(code, "reg.handler_bool(\"on_flag\", on_flag)"))
+  assert_true(contains_sub(code, "reg.handler(\"on_go\", on_go)"))
 }
 
 ///|

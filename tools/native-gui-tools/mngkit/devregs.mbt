@@ -1,7 +1,7 @@
 // dev 档登记表：把模板树摊成应用侧注册表要的键值。
 // 键与 IR 现状一致：动态文本/参数 `t:<内容哈希>`、条件 `c:<内容哈希>`、事件与状态用名字；
-// 值语义与生产生成同一套改写（裸槽补 `.get()`）。IR v1 边界外的节点（自定义组件、
-// v-for、children 形）不会进补丁，这里仍按同一套规则扫，注册项闲置无副作用。
+// 值语义与生产生成同一套改写（裸槽补 `.get()`）。IR 热更边界外的节点（自定义组件、
+// v-for）不会进补丁，这里仍按同一套规则扫，注册项闲置无副作用。
 
 ///|
 priv struct DevRegs {
@@ -68,10 +68,11 @@ fn dev_interp_expr(
 }
 
 ///|
-/// 槽元素类型 → 登记方法名（只认 Int32/Bool/String 三档）。
+/// 槽元素类型 → 登记方法名（只认 Int32/Double/Bool/String 四档）。
 fn state_kind_of(ty : String) -> String? {
   match ty {
     "Int32" => Some("int")
+    "Double" => Some("double")
     "Bool" => Some("bool")
     "String" => Some("str")
     _ => None
@@ -199,21 +200,25 @@ fn dev_walk(
                 }
               }
           }
-        } else if hot_comp_tag(tag) {
-          // 通用组件的动态参数：与 IR 同一张 v1 参数表、同一套内容键
-          for a in attrs {
-            match a.kind {
-              Dyn =>
-                if hot_comp_arg(tag, a.name) && hot_comp_dyn_arg(tag, a.name) {
-                  dev_push_val(
-                    regs.exprs,
-                    bind_key("t", a.value.trim().to_owned()),
-                    rewrite_value(a.value, ctx.slots),
-                    a.pos,
-                  )
+        } else {
+          // 通用组件的动态参数：与 IR 同一张 v2 规格表、同一套内容键
+          match comp_v2_spec(tag) {
+            Some(spec) =>
+              for a in attrs {
+                match a.kind {
+                  Dyn =>
+                    if arr_contains(spec.dyn_strs, a.name) {
+                      dev_push_val(
+                        regs.exprs,
+                        bind_key("t", a.value.trim().to_owned()),
+                        rewrite_value(a.value, ctx.slots),
+                        a.pos,
+                      )
+                    }
+                  _ => ()
                 }
-              _ => ()
-            }
+              }
+            None => ()
           }
           // 元素文本内容（text 位置参）：IR 把所有文本子节点拼成一条表达式
           match builtin_decl(tag) {

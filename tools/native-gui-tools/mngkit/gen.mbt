@@ -1530,8 +1530,16 @@ fn compile_impl(
     for (k, e, p) in regs.conds {
       g_emit(g, "  reg.cond(" + q(k) + ", fn() { " + e + " })", p)
     }
+    // 事件按 script 函数签名选登记口：零参 handler、带参 handler_str/bool/int
+    let fn_tys = script_fn_params(info.lines)
     for (h, p) in regs.handlers {
-      g_emit(g, "  reg.handler(" + q(h) + ", " + h + ")", p)
+      let reg_m = match fn_tys.get(h) {
+        Some("String") => "handler_str"
+        Some("Bool") => "handler_bool"
+        Some("Int32") => "handler_int"
+        _ => "handler"
+      }
+      g_emit(g, "  reg." + reg_m + "(" + q(h) + ", " + h + ")", p)
     }
     for (n, kd, p) in regs.states {
       g_emit(g, "  reg." + kd + "(" + q(n) + ", " + n + ")", p)
@@ -1616,6 +1624,7 @@ fn dev_bindings(src : String, filename : String) -> Result[DevBindings, String] 
 fn etype_of_store(t : String) -> EType? {
   match t {
     "Int32" => Some(TInt)
+    "Double" => Some(TDouble)
     "Bool" => Some(TBool)
     "String" => Some(TStr)
     _ => None
@@ -1664,6 +1673,105 @@ fn script_store_types(script : String, line0 : Int32) -> Map[String, EType] {
           }
         _ => ()
       }
+    }
+  }
+  out
+}
+
+///|
+/// script 顶层 fn 的 首参类型 表：`fn h(v : String)` → h → "String"。
+/// 事件登记按它选 reg 方法（零参 handler / 带参 handler_str·bool·int）；
+/// 首参类型不在三档内的函数不记，按零参登记，dev 构建期编译报错即暴露。
+fn script_fn_params(lines : Array[String]) -> Map[String, String] {
+  let out : Map[String, String] = Map([])
+  let n = lines.length()
+  let mut i = 0
+  while i < n {
+    let t = lines[i].trim()
+    let rest = if t.has_prefix("pub fn ") {
+      t[7:].to_owned()
+    } else if t.has_prefix("fn ") {
+      t[3:].to_owned()
+    } else {
+      i += 1
+      continue
+    }
+    let cs = chars_of(rest)
+    let mut k = 0
+    while k < cs.length() && is_ident_char(cs[k]) {
+      k += 1
+    }
+    let name = cs[0:k].map(fn(c) { c.to_string() }).join("")
+    if name.length() == 0 || k >= cs.length() || cs[k] != '(' {
+      i += 1
+      continue
+    }
+    // 参数段：跨行取到括号配平（m 从原行里 '(' 之后起步，缩进与前缀已在其中）
+    let lc = chars_of(lines[i])
+    let mut paren = 0
+    while paren < lc.length() && lc[paren] != '(' {
+      paren += 1
+    }
+    let buf = StringBuilder()
+    let mut depth = 1
+    let mut j = i
+    let mut stop = false
+    while j < n && !stop {
+      let lcs = chars_of(lines[j])
+      let mut m = if j == i { paren + 1 } else { 0 }
+      while m < lcs.length() {
+        let c = lcs[m]
+        if c == '(' {
+          depth += 1
+        } else if c == ')' {
+          depth -= 1
+          if depth == 0 {
+            stop = true
+            break
+          }
+        }
+        buf.write_char(c)
+        m += 1
+      }
+      j += 1
+    }
+    i = j
+    let seg = buf.to_string()
+    // 首参类型：第一个冒号之后、首个顶层逗号之前
+    let mut colon = -1
+    let seg_cs = chars_of(seg)
+    let mut q = 0
+    let mut brace = 0
+    while q < seg_cs.length() {
+      let c = seg_cs[q]
+      if c == '(' || c == '[' {
+        brace += 1
+      } else if c == ')' || c == ']' {
+        brace -= 1
+      } else if c == ':' && brace == 0 && colon < 0 {
+        colon = q
+      }
+      q += 1
+    }
+    if colon < 0 {
+      continue
+    }
+    let mut end = colon
+    brace = 0
+    while end < seg_cs.length() {
+      let c = seg_cs[end]
+      if c == '(' || c == '[' {
+        brace += 1
+      } else if c == ')' || c == ']' {
+        brace -= 1
+      } else if c == ',' && brace == 0 {
+        break
+      }
+      end += 1
+    }
+    let ty = seg[colon + 1:end].to_owned().trim().to_owned()
+    if ty == "String" || ty == "Bool" || ty == "Int32" {
+      let _ = out.set(name, ty)
     }
   }
   out

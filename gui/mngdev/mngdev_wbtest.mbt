@@ -5,11 +5,11 @@
 ///|
 fn demo_ir(page : String) -> String {
   [
-    "{\"v\":1,\"rev\":\"mng-ir-1\",\"page\":\"" + page + "\",", "\"root\":{\"k\":\"col\",\"gap\":8.0,\"class\":[\"demo\"],\"kids\":[",
+    "{\"v\":1,\"rev\":\"mng-ir-2\",\"page\":\"" + page + "\",", "\"root\":{\"k\":\"col\",\"args\":{\"row_gap\":{\"lit\":8.0}},\"class\":[\"demo\"],\"kids\":[",
     "  {\"k\":\"checkbox\",\"args\":{\"label\":{\"expr\":\"t:8:18\"},\"value\":{\"state\":\"wifi\"}}},",
     "  {\"k\":\"if\",\"c\":\"c:9:5\",\"t\":{\"k\":\"dyn\",\"key\":\"t:9:5\"},\"f\":{\"k\":\"text\",\"v\":\"已关闭\"}},",
     "  {\"k\":\"stepper\",\"args\":{\"value\":{\"state\":\"qty\"}}},", "  {\"k\":\"dyn\",\"key\":\"t:12:5\"},",
-    "  {\"k\":\"input\",\"args\":{\"value\":{\"state\":\"nick\"}}},", "  {\"k\":\"button\",\"args\":{\"text\":{\"lit\":\"重置\"}},\"click\":\"on_reset\"}",
+    "  {\"k\":\"input\",\"args\":{\"value\":{\"state\":\"nick\"}}},", "  {\"k\":\"button\",\"args\":{\"text\":{\"lit\":\"重置\"}},\"events\":{\"click\":\"on_reset\"}}",
     "]},", "\"exprs\":[\"t:8:18\",\"c:9:5\",\"t:9:5\",\"t:12:5\"],", "\"states\":[\"wifi\",\"qty\",\"nick\"],",
     "\"handlers\":[\"on_reset\"]}",
   ].join("") +
@@ -203,7 +203,7 @@ test "applier：补丁里的 eval 表登记新表达式后再构树" {
   let _ = parent.set_column()
   let _ = mng_dev_page("evalpage", reg, fn() { @ui.text("初代") }).mount_into(parent)
   let ir = [
-    "{\"v\":1,\"rev\":\"mng-ir-1\",\"page\":\"evalpage\",", "\"root\":{\"k\":\"dyn\",\"key\":\"t:abc\"},",
+    "{\"v\":1,\"rev\":\"mng-ir-2\",\"page\":\"evalpage\",", "\"root\":{\"k\":\"dyn\",\"key\":\"t:abc\"},",
     "\"exprs\":[\"t:abc\"],\"states\":[],\"handlers\":[],", "\"eval\":{\"t:abc\":{\"k\":\"tostr\",\"a\":{\"k\":\"id\",\"v\":\"qty\"}}}}",
   ].join("")
   match mng_dev_apply(ir) {
@@ -289,7 +289,7 @@ fn contains_sub_m(s : String, sub : String) -> Bool {
 
 ///|
 test "applier:补丁按 page 取页，未挂载页报错带页名" {
-  let ir = "{\"v\":1,\"rev\":\"mng-ir-1\",\"page\":\"ghost\",\"root\":{\"k\":\"text\",\"v\":\"x\"}}"
+  let ir = "{\"v\":1,\"rev\":\"mng-ir-2\",\"page\":\"ghost\",\"root\":{\"k\":\"text\",\"v\":\"x\"}}"
   let r = mng_dev_apply(ir)
   assert_true(
     match r {
@@ -315,7 +315,7 @@ test "mng_dev_page：挂载时模板根直接挂进父容器，补丁原位替�
   // 虚拟节点不建自己的控件：返回句柄就是父容器的直接子项
   assert_eq(parent.children().length(), 1)
   assert_eq(parent.children()[0].id, first.id)
-  let ir = "{\"v\":1,\"rev\":\"mng-ir-1\",\"page\":\"io.moonbitlibyue.wbtest.devpage\",\"root\":{\"k\":\"dyn\",\"key\":\"t:1:1\"},\"exprs\":[\"t:1:1\"],\"states\":[],\"handlers\":[]}"
+  let ir = "{\"v\":1,\"rev\":\"mng-ir-2\",\"page\":\"io.moonbitlibyue.wbtest.devpage\",\"root\":{\"k\":\"dyn\",\"key\":\"t:1:1\"},\"exprs\":[\"t:1:1\"],\"states\":[],\"handlers\":[]}"
   match mng_dev_apply(ir) {
     Ok(_) => ()
     Err(e) => abort("apply: " + e)
@@ -414,14 +414,104 @@ test "applier:构树失败时旧树保留" {
   let parent = @widget.Widget::new()
   let _ = parent.set_column()
   let _ = mng_dev_page("dev_fail", reg, fn() { @ui.text("初代") }).mount_into(parent)
-  let ir = "{\"v\":1,\"rev\":\"mng-ir-1\",\"page\":\"dev_fail\",\"root\":{\"k\":\"unknown\"},\"exprs\":[],\"states\":[],\"handlers\":[]}"
+  let ir = "{\"v\":1,\"rev\":\"mng-ir-2\",\"page\":\"dev_fail\",\"root\":{\"k\":\"unknown\"},\"exprs\":[],\"states\":[],\"handlers\":[]}"
   let r = mng_dev_apply(ir)
   assert_true(
     match r {
-      Err(e) => contains_sub_m(e, "不在 applier v1 表内")
+      Err(e) => contains_sub_m(e, "不在 applier 组件表内")
       _ => false
     },
   )
   assert_eq(parent.children().length(), 1)
   assert_eq(parent.children()[0].kind, "ui-text")
+}
+
+///|
+test "applier:v2 容器带 children 原位重建" {
+  let reg = mng_reg_new()
+  let parent = @widget.Widget::new()
+  let _ = parent.set_column()
+  let _ = mng_dev_page("dev_v2view", reg, fn() { @ui.text("初代") }).mount_into(parent)
+  let ir = [
+    "{\"v\":1,\"rev\":\"mng-ir-2\",\"page\":\"dev_v2view\",",
+    "\"root\":{\"k\":\"view\",\"args\":{\"padding\":{\"lit\":12.0}},\"class\":[\"hero\"],\"kids\":[",
+    "{\"k\":\"row\",\"args\":{\"column_gap\":{\"lit\":8.0}},\"kids\":[{\"k\":\"text\",\"v\":\"甲\"},{\"k\":\"text\",\"v\":\"乙\"}]},",
+    "{\"k\":\"panel\",\"args\":{\"title\":{\"lit\":\"面板\"}},\"kids\":[{\"k\":\"text\",\"v\":\"内\"}]},",
+    "{\"k\":\"form\",\"args\":{\"title\":{\"lit\":\"表单\"}},\"kids\":[",
+    "{\"k\":\"form-item\",\"args\":{\"label\":{\"lit\":\"名\"}},\"kids\":[{\"k\":\"text\",\"v\":\"值\"}]}]}",
+    "]},",
+    "\"exprs\":[],\"states\":[],\"handlers\":[]}",
+  ].join("")
+  match mng_dev_apply(ir) {
+    Ok(_) => ()
+    Err(e) => abort("apply: \{e}")
+  }
+  assert_eq(parent.children().length(), 1)
+  assert_eq(parent.children()[0].kind, "ui-view")
+  assert_eq(parent.children()[0].children().length(), 3)
+  assert_eq(parent.children()[0].children()[0].kind, "ui-row")
+  assert_eq(parent.children()[0].children()[1].kind, "ui-panel")
+  assert_eq(parent.children()[0].children()[2].kind, "ui-form")
+}
+
+///|
+test "applier:v2 值类与表单类（slider/rate/select/textarea）走类型化状态槽" {
+  let reg = mng_reg_new()
+  reg.double("s_volume", @base.Store::new(40.0))
+  reg.int("s_score", @base.Store::new(3))
+  reg.str("s_mode", @base.Store::new("标准"))
+  reg.str("s_text", @base.Store::new(""))
+  let parent = @widget.Widget::new()
+  let _ = parent.set_column()
+  let _ = mng_dev_page("dev_v2form", reg, fn() { @ui.text("初代") }).mount_into(parent)
+  let ir = [
+    "{\"v\":1,\"rev\":\"mng-ir-2\",\"page\":\"dev_v2form\",",
+    "\"root\":{\"k\":\"col\",\"args\":{},\"kids\":[",
+    "{\"k\":\"slider\",\"args\":{\"value\":{\"state\":\"s_volume\"},\"min\":{\"lit\":0},\"max\":{\"lit\":100}}},",
+    "{\"k\":\"rate\",\"args\":{\"value\":{\"state\":\"s_score\"},\"max\":{\"lit\":5}}},",
+    "{\"k\":\"select\",\"args\":{\"options\":{\"litarr\":[\"简洁\",\"标准\",\"详细\"]},\"value\":{\"state\":\"s_mode\"}}},",
+    "{\"k\":\"textarea\",\"args\":{\"value\":{\"state\":\"s_text\"},\"rows\":{\"lit\":4}}},",
+    "{\"k\":\"radio-group\",\"args\":{\"options\":{\"litarr\":[\"甲\",\"乙\"]},\"value\":{\"state\":\"s_score\"}}}",
+    "]},",
+    "\"exprs\":[],\"states\":[\"s_volume\",\"s_score\",\"s_mode\",\"s_text\"],\"handlers\":[]}",
+  ].join("")
+  match mng_dev_apply(ir) {
+    Ok(_) => ()
+    Err(e) => abort("apply: \{e}")
+  }
+  let kids = parent.children()[0].children()
+  assert_eq(parent.children()[0].kind, "ui-col")
+  assert_eq(kids[0].kind, "ui-slider")
+  assert_eq(kids[1].kind, "ui-rate")
+  assert_eq(kids[2].kind, "ui-select")
+  assert_eq(kids[3].kind, "ui-textarea")
+  assert_eq(kids[4].kind, "ui-radio-group")
+}
+
+///|
+test "applier:v2 带参事件按类型化 handler 槽接线" {
+  let reg = mng_reg_new()
+  reg.str("s_text", @base.Store::new(""))
+  reg.bool("s_flag", @base.Store::new(false))
+  let got : Ref[String] = Ref("")
+  reg.handler_str("on_text", fn(s : String) { got.val = s })
+  reg.handler_bool("on_flag", fn(b : Bool) { got.val = b.to_string() })
+  let parent = @widget.Widget::new()
+  let _ = parent.set_column()
+  let _ = mng_dev_page("dev_v2ev", reg, fn() { @ui.text("初代") }).mount_into(parent)
+  let ir = [
+    "{\"v\":1,\"rev\":\"mng-ir-2\",\"page\":\"dev_v2ev\",",
+    "\"root\":{\"k\":\"col\",\"args\":{},\"kids\":[",
+    "{\"k\":\"switch\",\"args\":{\"value\":{\"state\":\"s_flag\"}},\"events\":{\"change\":\"on_flag\"}},",
+    "{\"k\":\"textarea\",\"args\":{\"value\":{\"state\":\"s_text\"}},\"events\":{\"change\":\"on_text\"}}",
+    "]},",
+    "\"exprs\":[],\"states\":[\"s_text\",\"s_flag\"],\"handlers\":[\"on_flag\",\"on_text\"]}",
+  ].join("")
+  match mng_dev_apply(ir) {
+    Ok(_) => ()
+    Err(e) => abort("apply: \{e}")
+  }
+  let kids = parent.children()[0].children()
+  assert_eq(kids[0].kind, "ui-switch")
+  assert_eq(kids[1].kind, "ui-textarea")
 }
