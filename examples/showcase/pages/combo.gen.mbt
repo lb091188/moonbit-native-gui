@@ -21,7 +21,6 @@ pub fn combo() -> @widget.Node {
   @style.define_class("why", @style.style(width_percent=100.0, row_gap=8.0, padding=16.0, border_radius=6.0, background_color="bg_panel", border_color="border", border_width=1.0, border_style=@style.BorderStyle::Solid))
   // 页内状态：输入框文本与三个值控件（布局组件包裹的表单控件都走 Store）
   let s_input : @base.Store[String] = @base.Store::new("")
-  let s_count : @base.Store[Int32] = @base.Store::new(1)
   let s_volume : @base.Store[Double] = @base.Store::new(40.0)
   let s_mode : @base.Store[String] = @base.Store::new("标准")
   let s_score : @base.Store[Int32] = @base.Store::new(3)
@@ -37,8 +36,8 @@ pub fn combo() -> @widget.Node {
   reg.handler("clear_input", clear_input)
   reg.str("s_input", s_input)
   reg.str("s_mode", s_mode)
+  reg.double("s_volume", s_volume)
   reg.int("s_score", s_score)
-  reg.int("s_count", s_count)
   @mngdev.mng_dev_page("combo", reg, fn() {
     @ui.col([
       @ui.view([

@@ -1,4 +1,4 @@
-// 模板应用入口：页面在 pages/home.mng（单文件组件），生成码 pages/home.gen.mbt
+// 模板应用入口：页面在 pages/combo.mng（单文件组件），生成码 pages/combo.gen.mbt
 // 入口只有生产语义：单实例声称 + 检查服务接线 + 挂窗。dev 三通道由 dev 形态
 // 生成码自装（生产构建换生产形态生成码后 dev 面整体不在包里），唤起泵在
 // ui 库内自排。

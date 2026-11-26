@@ -1,7 +1,6 @@
 <script>
 // 页内状态：输入框文本与三个值控件（布局组件包裹的表单控件都走 Store）
 let s_input : @base.Store[String] = @base.Store::new("")
-let s_count : @base.Store[Int32] = @base.Store::new(1)
 let s_volume : @base.Store[Double] = @base.Store::new(40.0)
 let s_mode : @base.Store[String] = @base.Store::new("标准")
 let s_score : @base.Store[Int32] = @base.Store::new(3)
