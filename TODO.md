@@ -196,6 +196,10 @@
 
 ## 示例与控件复验·用户执行
 
+- [ ] **showcase 组合案例页真机冒烟**：`examples/showcase/pages/combo.mng` 布局组件包裹控件与表单组件的组合案例
+  1. `cd examples/showcase && moon run .` 起窗——组合卡片标题行、推荐胶囊、两组四格、分隔线、页脚说明按 8 刻度呈现，无塌陷无裁切
+  2. 点 Primary 按钮输入框出「你好，native-gui！」、点 Default 清空、输入框可输入可清除
+  3. 复选「启用功能」与开关 ON / OFF 同步联动（共用一个 Store）
 - [ ] **示例矩阵真机冒烟**：`examples/components`、`examples/system`、`examples/canvas`、`examples/hello` 四示例各起一次，侧栏页逐页点开——起得来、不空白、不崩
   - 背景：showcase 收拢改名为 components，新增 system 与 canvas，hello 改 mng 单文件入门样例；roadmap 该条挂「待验：真机冒烟」。
 - [ ] **布局缺省对齐 web**：窗根竖排顶层撑满窗宽、行容器子项缺省撑满行高，按 TP-1.2 与 SC-6.5 走
