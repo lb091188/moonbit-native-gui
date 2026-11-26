@@ -1740,6 +1740,10 @@ int wm_focus_owner(int64_t id) {
 // ---- GPU present 档（L1）Win32 适配：surface 源 = 窗 HWND；贴像素路径
 // （WM_PAINT 的 wm_blit）在 l1.on 时停手。逐像素透明档（trans_mode==1）
 // 不走 GPU——合成面由 UpdateLayeredWindow 管。核心在文件末实现 TU 段。 ----
+// 前置声明：实现在文件末 TU 段，MSVC 对先调用后定义按隐式 int 声明处理，
+// 与 void 定义冲突报 C2371（GCC/Clang 宽容所以 mac/linux 不炸）
+static void l1_note_set(WmL1 *st, const char *reason);
+
 WmL1 *wm_l1_slot(int64_t id) {
   if (id <= 0 || id >= WM_MAX_WINDOWS || wm_windows[id].hwnd == NULL) {
     return NULL;
