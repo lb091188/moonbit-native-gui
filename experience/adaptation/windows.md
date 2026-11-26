@@ -758,3 +758,10 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **修法**：`wm_l1_window_present` 删掉 `#if defined(_WIN32)` 的两段永久回退（stale 尺寸变化 / swapchain Outdated），与 mac / GTK 共用同一标准重配流——释放帧对象重配、Outdated 本帧丢下帧补。最小化 0×0 不 acquire 的守卫保留（那条是 2026-11-07 真机崩溃修复，与虚拟显卡无关）。
 - **判据**：真机拖缩放、最大化还原、全屏进出、跨缩放档拖动各五次——不崩、画面正确、`present_status` 保持 gpu；VM 里呈现档回退原因仍是「适配器非硬件显卡」或「虚拟机环境」。
 - **退路**：真硬件真机若仍复现重配 panic，换「销毁后重建 surface」再取证；不得回退本批——旧兜底让真机每次 resize 后永久丢 GPU 档，代价更大。
+
+## WriteTexture 首帧整帧上传即崩：布局 offset 相对 data 指针，脏区指针偏移不能折两次 · 2026-11-26 真机复现并修复
+
+- **现象**：showcase 第二帧起（首个带脏区的增量上传帧）wgpu 校验 panic——`Copy at offset 67680 for 1027648 bytes would end up overrunning the bounds of the Source buffer of size 1027648`，进程直接 abort。
+- **根因**：`wgpuQueueWriteTexture` 的 `WGPUTexelCopyBufferLayout.offset` 是**相对 data 指针**的偏移，wgpu 校验按 `offset + bytesPerRow×(h−1) + w×4 ≤ data_size` 算末端。代码把脏区起点同时折进指针（`rgba + offset`）和 `lay.offset`——两次计数，末端超出自己声明的 `data_size`，数字正好对上日志：67680 + 1027648 > 1027648。
+- **修法**：指针保留脏区起点偏移，`lay.offset` 恒 0；`data_size` 维持 `(h−1)×bw + w)×4` 恰好贴合。mac/Linux 臂无此调用，不受影响。
+- **教训**：wgpu 拷贝布局的 offset/bytesPerRow 一律相对传入的 data 指针解释——「指针已偏移 + 布局再偏移」是静默通过编译、运行期才炸的典型；写直传上传时先把「指针从哪算、布局从哪算」两口径对齐再落代码。

@@ -16165,7 +16165,9 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
   up.origin.z = 0;
   WGPUTexelCopyBufferLayout lay;
   memset(&lay, 0, sizeof lay);
-  lay.offset = ((size_t)uy * (size_t)bw + (size_t)ux) * 4;
+  // 布局 offset 相对 data 指针：脏区起点已折进指针（rgba + 偏移），
+  // 这里必须保持 0——再折一次 wgpu 会按 offset+size 越界校验 panic
+  lay.offset = 0;
   lay.bytesPerRow = (uint32_t)bw * 4;
   // 未设步长填哨兵 UINT32_MAX；memset 留下的 0 会被当字面量零校验 abort
   lay.rowsPerImage = WGPU_COPY_STRIDE_UNDEFINED;
@@ -16174,7 +16176,8 @@ int wm_l1_window_present(WmL1 *st, const unsigned char *rgba, int bw, int bh,
   ext.height = (uint32_t)uh;
   ext.depthOrArrayLayers = 1;
   wm_crash_mark("l1.up", uw, uh);
-  p_wgpuQueueWriteTexture(g_l1_queue, &up, rgba + lay.offset,
+  p_wgpuQueueWriteTexture(g_l1_queue, &up,
+                          rgba + ((size_t)uy * (size_t)bw + (size_t)ux) * 4,
                           ((size_t)(uh - 1) * (size_t)bw + (size_t)uw) * 4,
                           &lay, &ext);
   // 取这一帧的 swapchain 纹理（上传已排队，无需 encoder 兜提交）
