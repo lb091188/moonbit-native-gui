@@ -2078,6 +2078,16 @@ GpuCanvas——@render.GpuSink 的 gui-gpu 实现，GPU 线首消费者——落
 - **补丁不能早于应用就绪**：dev 通道——单实例套接字——在首页首次挂载时才建——首轮 build 完刚 spawn 就推补丁必然「连不上套接字」。修法：spawn 后等套接字文件出现——POSIX 10s 上限、`@proc.alive` 短路；Windows 无文件面短等——就绪后再进 watch。
 - **删模板与 dev 的 build 抢跑**：场景脚本 `[NEW]` 出现就删模板，而 NEW 拍的 workspace build 还在跑——moon 报 `input about.gen.mbt missing`——等 `[COLD] 应用已重启` 再删。
 
+## 改工具链后已装的 mng 与常驻 lsp 仍是旧档——2026-11-27，showcase 热更全走重启复盘
+
+- **`mng dev` 跑的是 `~/.moon/bin/mng`，不是仓里刚改的源码**：改了 mngkit / mngdev 之后没重装，dev 首轮还把生成码重写成旧档 dev 形态——本例丢了 `reg.double` 登记行——之后每次保存都按旧补丁表判 COLD，终端日志「组件 `<ui-view>` 不在 v1 补丁表」。
+- **现场不留痕**：补丁在产出前就失败了，`.mng/ir/` 下的补丁文件与 `.ack` 回执都停在上一次成功的时刻——没有 stale 回执可查，别往握手与注册表上找。
+- **判法**：`~/.moon/bin/mng ir <模板>` 与仓内构建 `_build/native/release/build/NoahLiu/native-gui-tools/mng/mng.exe ir <模板>` 各跑一遍——旧档报 v1 补丁表、新档出 `"rev":"mng-ir-2"`；再看 `git diff` 生成码有没有少新登记行。
+- **常驻的 `mng lsp` 同样是旧档**：编辑器扩展起的语言服务器从启动起一直用旧二进制，保存即重生成——它会与新 dev 争写同一份生成码——重装后要重载编辑器窗口让它重启。
+  - lsp：语言服务器进程，编辑器靠它做补全与保存后重生成。
+- **重装走换目录项**：新二进制先放暂存位置，`mv` 到 `~/.moon/bin/mng`——换的是目录项不写原文件，在跑的 dev 与 lsp 继续用旧文件、不受影响。
+- **交接清单第一条写重装**：改工具链的批次，给用户的真机步骤必须先列重装 mng 与重载编辑器——本条坑就是交接漏了这步。
+
 ## mng 应用侧场景移出 CI：xvfb 腿偶发红不可收敛——2026-11-13，CI 移出门禁复盘
 
 - **症状**：`scripts/mng_scenario.sh` 本机 mac 连跑 4 轮 15/15 全绿，CI Linux——xvfb——/ mac 两腿仍偶发红，且 `continue-on-error` 挂着也不收敛——进程级 watch / 单实例 / HOT-COLD 编排对启动耗时与负载敏感，xvfb 冷缓存环境的时序与本机不可比，红绿不出信号。
