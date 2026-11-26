@@ -543,6 +543,13 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
 
 ### 开发体验
 
+- 🚧 **热更组件全覆盖**：applier 与补丁表扩到全部内置标签，带 children 的容器、表单与值类全进 HOT
+  - IR 升 mng-ir-2：IComp 统一携带 children 与 events，参数五态加字符串数组字面量，数值与布尔参数收字面量
+  - applier 组件表照 `@ui` 构造器默认值全参重建；`Store[Double]` 状态槽、带参事件按签名分 `handler_str`·`bool`·`int` 三槽登记
+  - showcase 组合案例页是全覆盖样本页，用例 SH-1.1～1.7；`mng_scenario.sh` 补 showcase 热更段
+  - 仍走 COLD：script 段改动、v-for、自定义组件、`v-else-if`、动态 `:class`
+  - 2026-11-26 立项并解除《方向.md》B1 的 HOT 冻结线
+    - 平台状态：🚧已合入待真机
 - 🚧 **模板 DX 补全批**：`v-for` keyed 生成器、项目级 `mng build`、`mng dev` watch 覆盖面
   - v-for 生成器：嵌套 / 缺 key 报错。
   - 项目级 `mng build`：按 `mng.toml` 一次生成全工程生产形态。
@@ -733,11 +740,6 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
   - 项目级 dev 已落地，一条命令盯整个工作区
   - dev 页不占树行：模板根直接挂进真实父容器，dev 形态控件树与生产形态一致
     - 平台状态：🚧已合入待真机
-- ⏳ **热更组件全覆盖**：applier 与补丁表扩到全部内置标签，带 children 的容器、表单与值类全进 HOT
-  - 内置标签：模板编译器内置表登记的 `ui-*` 组件全家，如 `ui-view`、`ui-select`、`ui-slider`、`ui-rate`。
-  - 随批进 IR：`Store[Double]` 状态槽、`ui-select` 的 options 数组字面量、全部内置组件的 `@事件`
-  - 仍走 COLD：script 段改动、v-for、自定义组件、v-else-if、动态 `:class`
-  - 2026-11-26 立项，解除《方向.md》B1 的 HOT 冻结线——冻结针对的是开放集形态（script 热换等上游依赖项）；内置标签是封闭集，applier 改表驱动后每个标签边际成本固定，与《MNG 开发体验与发布构建隔离架构建议 v1.1》阶段 3 同向
 - 🚧 **样式类热更新**：`<style>` 规则随补丁以数据重注册命名类，类名与样式值都可热
   - 主题 token 定义改动仍走重启
   - 模板属性里的样式字面量一律编译报错；「样式进槽」编译器强制已落

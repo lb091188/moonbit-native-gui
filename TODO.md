@@ -111,6 +111,12 @@
 
 ## mng 工具链复验·用户执行
 
+- [ ] **热更组件全覆盖真机复验**：执行者：用户执行——`cd examples/showcase && mng dev` 起应用，按 `测试文档/测试用例.md` 第 12 节 SH-1.1～1.7 走
+  1. 样式值 / 容器 children / 值控件参数 / options 数组字面量保存均 `[HOT]` 亚秒生效不重启
+  2. 滑杆拖到 70 再改结构：滑杆仍 70、下拉与输入框内容不丢——状态保活
+  3. 改按钮文案后点按钮：回调仍生效
+  4. script 段加新函数保存：`[HOT→COLD]` 重启并回 combo 页
+  - 用例：SH-1.1～SH-1.7。
 - [ ] **dev 页无壳复验**：执行者：用户执行——`cd examples/hello && mng dev` 起应用，与 `moon run .` 的生产形态对照
   1. 按 ⌘⌥I——mac——或 F12——Windows/Linux 开检查器附窗：组件树里 `ui-scroll-content` 下直接是模板根 `ui-col`，没有 `mng-page` 行
   2. 两形态对照 hello 声明式页：卡片宽度、内边距、与下方「基本窗口示例」的间距一致
