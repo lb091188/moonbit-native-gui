@@ -6,14 +6,16 @@
 //! - `NG_FFMPEG_BIN=<目录>`：构建机上 `vendor/win/bin` 的绝对路径（裸路径记号）。
 //!
 //! `vf_rt_ready()` 在第一次用到 ffmpeg 前把这 5 个 dll 显式加载：先按系统默认顺序
-//! （exe 同目录 / 系统目录 / PATH，发布时自带的 dll 走这里），找不到再到构建期记下
-//! 的目录里找（`moon add` 的工程里 dll 就在 `.mooncakes` 下）。显式加载成功后，
-//! 延迟加载的解析会命中已加载的模块，因此调用方不需要把 dll 复制到 exe 旁。
+//! （exe 同目录 / 系统目录 / PATH，发布时自带的 dll 走这里），再到 exe 同级 `lib/`
+//! 目录（发布包分层形态），找不到再到构建期记下的目录里找（`moon add` 的工程里
+//! dll 就在 `.mooncakes` 下）。显式加载成功后，延迟加载的解析会命中已加载的模块，
+//! 因此调用方不需要把 dll 复制到 exe 旁。
 //!
 //! 非 Windows 平台本文件只留一个恒真的 `vf_rt_ready()`，保持三平台同一份调用。
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
+#include <stdio.h>
 #include <windows.h>
 
 #pragma comment(lib, "delayimp.lib")
@@ -43,6 +45,30 @@ static const char *const vf_dll_names[] = {
   "swresample-7.dll", "avutil-61.dll",
 };
 
+// 发布包分层形态候选：exe 同级 lib/ 目录（collect_bin 的 bin/ + lib/ 布局）。
+// 裸名档覆盖 exe 旁平铺，这档覆盖分层摆放；LoadLibraryA 接受 '/' 分隔符。
+static int vf_load_from_exe_lib(const char *name) {
+  char exe[1024];
+  DWORD n = GetModuleFileNameA(NULL, exe, (DWORD)sizeof exe);
+  if (n <= 0 || n >= (DWORD)sizeof exe) {
+    return 0;
+  }
+  char *slash = strrchr(exe, '\\');
+  char *fslash = strrchr(exe, '/');
+  if (fslash && (!slash || fslash > slash)) {
+    slash = fslash;
+  }
+  if (!slash) {
+    return 0;
+  }
+  *slash = 0;
+  char cand[1200];
+  if (snprintf(cand, sizeof cand, "%s/lib/%s", exe, name) >= (int)sizeof cand) {
+    return 0;
+  }
+  return LoadLibraryA(cand) != NULL;
+}
+
 #endif /* _WIN32 */
 
 //! 运行期 dll 是否齐备（Windows 上会真的加载它们；其余平台恒为 1）。
@@ -54,6 +80,9 @@ int vf_rt_ready(void) {
   int n = (int)(sizeof(vf_dll_names) / sizeof(vf_dll_names[0]));
   for (int i = 0; i < n; i++) {
     HMODULE mod = LoadLibraryA(vf_dll_names[i]);
+    if (mod == NULL && vf_load_from_exe_lib(vf_dll_names[i])) {
+      continue;
+    }
     if (mod == NULL && vf_bin_dir[0] != '\0') {
       // 构建期记下的 vendor 目录：只在默认搜索失败时临时加进搜索路径，
       // 免得盖过用户自己放在 exe 旁的 dll（那才是发布时的正确形态）。

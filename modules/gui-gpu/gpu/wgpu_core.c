@@ -1,6 +1,7 @@
 // wgpu-native 运行期核心（gui-gpu 包内共享）——实现见 wgpu_core.h 的纪律说明。
 // 候选路径与探测口径和 gui/win/stub.c 的 L1 核心逐字一致（跨模块第二份，
-// 注释互引）：环境变量 MNG_WGPU_LIB 优先 → 仓库布局逐级向上 → 系统名；
+// 注释互引）：环境变量 MNG_WGPU_LIB 优先 → exe 目录 lib/ 档（Windows）→
+// 仓库布局逐级向上 → 系统名；
 // 探测进程级一次、永久缓存（.so 缺/驱动无后端不再试）。
 
 #include <stdio.h>
@@ -65,6 +66,29 @@ static void *core_dlsym(void *h, const char *n) {
 #define MNG_WGPU_LIB_BASE "libwgpu_native.so"
 #endif
 
+// 发布包分层形态候选：<exe 目录>/lib/<lib>——collect_bin 的 bin/ + lib/ 布局。
+// Windows 档；POSIX 发布形态是 .app 与系统安装，不加这级。拼出完整候选路径
+// 返回 1；exe 路径取不到返回 0（与 probe.c、gui/win/stub.c 候选序同口径）。
+#if defined(_WIN32)
+static int core_exe_lib_candidate(char *out, size_t cap, const char *name) {
+  char exe[1024];
+  DWORD n = GetModuleFileNameA(NULL, exe, (DWORD)sizeof exe);
+  if (n <= 0 || n >= (DWORD)sizeof exe) {
+    return 0;
+  }
+  char *slash = strrchr(exe, '\\');
+  char *fslash = strrchr(exe, '/');
+  if (fslash && (!slash || fslash > slash)) {
+    slash = fslash;
+  }
+  if (!slash) {
+    return 0;
+  }
+  *slash = 0;
+  return snprintf(out, cap, "%s/lib/%s", exe, name) < (int)cap;
+}
+#endif
+
 static int core_load_lib(void) {
   if (g_core_lib) {
     return 1;
@@ -73,6 +97,15 @@ static int core_load_lib(void) {
   if (env && env[0]) {
     g_core_lib = core_dlopen(env);
   }
+  // 发布包形态候选：<exe 目录>/lib/<lib>——env 之后、仓库相对档之前
+#if defined(_WIN32)
+  if (!g_core_lib) {
+    char cand[1200];
+    if (core_exe_lib_candidate(cand, sizeof cand, MNG_WGPU_LIB_BASE)) {
+      g_core_lib = core_dlopen(cand);
+    }
+  }
+#endif
   // 相对候选放最前——与 probe.c 同串，避免 glibc 按路径串加载两份实例
   if (!g_core_lib) {
     g_core_lib = core_dlopen("vendor/lib/" MNG_WGPU_LIB_BASE);

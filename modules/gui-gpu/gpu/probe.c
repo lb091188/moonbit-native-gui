@@ -42,6 +42,29 @@ static void put(uint8_t *out, int32_t cap, const char *s) {
     out[n] = 0;
 }
 
+// 发布包分层形态候选：<exe 目录>/lib/<lib>——collect_bin 的 bin/ + lib/ 布局。
+// Windows 档；POSIX 发布形态是 .app 与系统安装，不加这级。拼出完整候选路径
+// 返回 1；exe 路径取不到返回 0。
+#if defined(_WIN32)
+static int probe_exe_lib_candidate(char *out, size_t cap, const char *name) {
+    char exe[1024];
+    DWORD n = GetModuleFileNameA(NULL, exe, (DWORD)sizeof exe);
+    if (n <= 0 || n >= (DWORD)sizeof exe) {
+        return 0;
+    }
+    char *slash = strrchr(exe, '\\');
+    char *fslash = strrchr(exe, '/');
+    if (fslash && (!slash || fslash > slash)) {
+        slash = fslash;
+    }
+    if (!slash) {
+        return 0;
+    }
+    *slash = 0;
+    return snprintf(out, cap, "%s/lib/%s", exe, name) < (int)cap;
+}
+#endif
+
 // 1 = 装载成功且符号在；0 = 不可用（详情写进 out）。
 int32_t mng_gpu_probe(uint8_t *out, int32_t cap) {
     if (g_lib) {
@@ -78,6 +101,26 @@ int32_t mng_gpu_probe(uint8_t *out, int32_t cap) {
             return 0;
         }
     }
+    // 发布包形态候选：<exe 目录>/lib/<lib>（与 triangle.c / wgpu_core.c /
+    // gui/win/stub.c 候选序同口径——env 之后、仓库相对档之前）
+#if defined(_WIN32)
+    {
+        char cand[1200];
+        if (probe_exe_lib_candidate(cand, sizeof cand, "wgpu_native.dll")) {
+            err = dl_open(cand);
+            if (!err) {
+                if (dl_sym("wgpuCreateInstance")) {
+                    char buf[1200];
+                    snprintf(buf, sizeof buf, "loaded(%s)", cand);
+                    put(out, cap, buf);
+                    return 1;
+                }
+                put(out, cap, "库在但缺 wgpuCreateInstance");
+                return 0;
+            }
+        }
+    }
+#endif
     for (int i = 0; cands[i]; i++) {
         err = dl_open(cands[i]);
         if (!err) {

@@ -19,6 +19,8 @@ import {
 //
 // 收集面：示例 9 件 + native-gui-tools 6 件可执行包，清单见下。
 // bin/ 为本脚本自管目录，每次运行先清空再放。
+// 另收 assets/（audio/video 演示文件，平台无关）与 lib/（ffmpeg 运行期 dll +
+// wgpu dll，仅 Windows 构建机上有源）——bin/ 自此自包含，整包复制即可发布。
 // FFmpeg dylib / 签名 / .app 打包不在本脚本范围（见 scripts/dryrun_mac_pack.sh、make_app.sh）。
 
 ///|
@@ -208,6 +210,55 @@ async fn main {
       @fs.chmod(dst, 0o755)
     }
     println("\{name}.exe  (\{mib(@fs.file_size(src))})  ← \{src}")
+  }
+
+  // assets：audio/video 演示文件随包，运行期按 exe 目录 assets/<kind>/ 找
+  let assets = "\{bin}/assets"
+  for kind in ["audio", "video"] {
+    let src_dir = "\{repo}/examples/\{kind}/assets"
+    if !@fs.exists(src_dir) {
+      err("[!] \{kind}/assets 源缺失，跳过")
+      continue
+    }
+    @fs.mkdir("\{assets}/\{kind}", recursive=true)
+    for f in @fs.readdir(src_dir, include_hidden=false, sort=true) {
+      let src = "\{src_dir}/\{f}"
+      match @fs.kind(src) {
+        Regular => {
+          let data = @fs.read_file(src)
+          @fs.write_file("\{assets}/\{kind}/\{f}", data)
+          println("assets/\{kind}/\{f}  ← \{src}")
+        }
+        _ => continue
+      }
+    }
+  }
+
+  // lib：Windows 构建机收 ffmpeg 运行期 dll 与 wgpu dll——发布形态 exe + lib/
+  // 同级，加载链按 exe 目录 lib/ 找；mac/Linux 上没有这两批 dll，跳过
+  if @env.get_env_var("OS") == Some("Windows_NT") {
+    @fs.mkdir("\{bin}/lib")
+    let dll_src = "\{repo}/modules/ffmpeg-mbt/vendor/win/bin"
+    if @fs.exists(dll_src) {
+      for f in @fs.readdir(dll_src, include_hidden=false, sort=true) {
+        if f.has_suffix(".dll") {
+          let src = "\{dll_src}/\{f}"
+          let data = @fs.read_file(src)
+          @fs.write_file("\{bin}/lib/\{f}", data)
+          println("lib/\{f}  (\{mib(@fs.file_size(src))})  ← \{src}")
+        }
+      }
+    } else {
+      err("[!] ffmpeg 运行期 dll 源缺失（modules/ffmpeg-mbt/vendor/win/bin）——先在 Windows 上构建一次媒体模块，本包暂不带媒体功能")
+    }
+    let wgpu = "\{repo}/modules/gui-gpu/vendor/lib/wgpu_native.dll"
+    if @fs.exists(wgpu) {
+      let data = @fs.read_file(wgpu)
+      @fs.write_file("\{bin}/lib/wgpu_native.dll", data)
+      println("lib/wgpu_native.dll  (\{mib(@fs.file_size(wgpu))})  ← \{wgpu}")
+    } else {
+      err("[!] wgpu_native.dll 源缺失（modules/gui-gpu/vendor/lib）——本包 GPU 档降级 CPU，界面照常")
+    }
   }
   for m in missing {
     err("[!] \{m}: 产物目录缺失，跳过")

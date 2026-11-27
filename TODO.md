@@ -65,6 +65,9 @@
 - [ ] **ui 动图组件 wbtest 在 linux 容器稳定红、mac 全绿**：`basic_wbtest.mbt:533` 断言 `h.play()` 后帧数续走（611 行）失败；中央动画登记表批合入后出现（合入前同容器 1524/1524 全过），怀疑登记表可见性/离屏停表在无显示环境判停——play 排不上拍
   - 范围：他人批次的既有缺口，非当批引入。
   - 复现：natigui-linux 容器 `dbus-run-session -- moon test ui`，两次同点稳定红。
+- [ ] **local_ci.sh sync 的 win10 删除清单改对副本实况算**：现算法对公司 Linux 副本 diff（刚被 `--delete` 同步过，恒为空），win10 上本地已删文件永不清——坟场积累到让门禁假红（`apps\airtype\ui.mbt` 双定义一例），2026-11-27 已手工重建副本救火，坑见 `experience/adaptation/windows.md`
+  - 修法：ssh 列 win10 副本文件清单（排除同步 exclude 项）与 mac 清单 diff 出删除集，逐条远端 Remove-Item。
+  - 顺带：副本陈货清理后留了 `C:\natigui\repo.old-graveyard` 留底，确认无丢失可删。
 
 ## 滚动与上屏治理·三平台复验·用户执行
 
@@ -324,6 +327,11 @@
 - [ ] **release-app CI 首跑**：推 tag `app-v0.1.0` 触发——打包腿出 DMG / zip、汇总腿出 `update.json` 并发 draft Release；win / linux job 骨架已注释预置，对应腿合入后取消注释启用
   - 执行者：用户执行。
   - update.json：只含 darwin-aarch64 的 zip 条目。
+- [ ] **A3 Windows 预编译包自包含复验**：执行者：用户执行——Windows 机 `moonx tools\native-gui-tools\scripts\collect_bin.mbtx` 后 `bin\` 应含 16 个 exe + `lib\`（ffmpeg 5 支 dll + wgpu_native.dll）+ `assets\audio`（1.mp3 / 1.lrc）+ `assets\video`（1.mp4 / 1.srt）
+  1. 整包复制 `bin\` 到仓库外任意目录，双击 `audio.exe` / `video.exe`——窗口出现且默认演示文件能播
+  2. 任一含 GPU 画布的示例应有画面——`lib\wgpu_native.dll` 命中，不落 CPU 降级
+  3. 从别的目录命令行启动 `audio.exe`——演示文件仍能播，exe 目录档资产解析生效
+  4. 删 `lib\` 再开 media 示例——出「媒体后端不可用」降级提示而非秒退
 
 ## 探针读数·用户执行
 

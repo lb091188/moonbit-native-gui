@@ -589,6 +589,11 @@ CSS 属性补全与产品原则落差的就绪度档案在对内方案 proposals
 
 ### 工程与交付
 
+- 🚧 **Windows 预编译包自包含**：`collect_bin` 产物目录补 `lib/`（ffmpeg 运行期 dll + wgpu dll）与 `assets/`（audio/video 演示文件），整包复制即可发布
+  - lib：发布包里放动态库的子目录；动态库是编译好的外部功能模块，exe 运行时按候选路径现找。
+  - 加载链补 exe 目录 lib 档：ffmpeg 延迟加载链与 wgpu 三处候选序（`stub.c` / `probe.c` / `wgpu_core.c`）同步加 Windows 档
+  - audio/video 资产解析补 exe 目录档，异目录启动也命中
+  - 待真机：Windows 机 collect_bin 后整包复制出仓库复验，清单见 TODO「A3」
 - ✅ **三平台 CI**：检查 + 库测试 + 构建 + 启动冒烟，push 与 PR 都跑
 - ✅ **本地三平台门禁**：`scripts/local_ci.sh` 一条命令跑 mac 本机 + 远端 Linux 容器 + 远端 Windows VM 三腿，推送前暴露编译与测试问题
   - 与远端的正式 CI 逐项对齐：五条腿、检查 / 测试 / 构建 / 链接 / 冒烟 / 冒烟降级 / 媒体真解码 / 编辑器场景 / 生成物对账 / 文档站全覆盖

@@ -15312,7 +15312,31 @@ static void *l1_dlsym(void *h, const char *n) {
 #define L1_LIB_BASE "libwgpu_native.so"
 #endif
 
-// 候选序与 gui-gpu 的 probe.c / wgpu_core.c 一致：环境变量 → vendor 相对路径
+// 发布包分层形态候选：<exe 目录>/lib/<lib>——collect_bin 的 bin/ + lib/ 布局。
+// Windows 档；POSIX 发布形态是 .app 与系统安装，不加这级。拼出完整候选路径
+// 返回 1；exe 路径取不到返回 0（与 probe.c / wgpu_core.c 同口径）。
+#if defined(_WIN32)
+static int l1_exe_lib_candidate(char *out, size_t cap, const char *name) {
+  char exe[1024];
+  DWORD n = GetModuleFileNameA(NULL, exe, (DWORD)sizeof exe);
+  if (n <= 0 || n >= (DWORD)sizeof exe) {
+    return 0;
+  }
+  char *slash = strrchr(exe, '\\');
+  char *fslash = strrchr(exe, '/');
+  if (fslash && (!slash || fslash > slash)) {
+    slash = fslash;
+  }
+  if (!slash) {
+    return 0;
+  }
+  *slash = 0;
+  return snprintf(out, cap, "%s/lib/%s", exe, name) < (int)cap;
+}
+#endif
+
+// 候选序与 gui-gpu 的 probe.c / wgpu_core.c 一致：环境变量 → exe 目录 lib/ 档
+// （Windows）→ vendor 相对路径
 // → 仓库布局逐级向上 → 系统名（dlopen/LoadLibrary 试错，不需要 stat；发行的
 // 应用走不到仓库布局那两级，裸名走平台搜索序——Windows 把 dll 放 exe 旁即可）。
 static int l1_load_lib(void) {
@@ -15330,6 +15354,15 @@ static int l1_load_lib(void) {
   if (env && env[0]) {
     g_l1_lib = l1_dlopen(env);
   }
+  // 发布包形态候选：<exe 目录>/lib/<lib>——env 之后、仓库相对档之前
+#if defined(_WIN32)
+  if (!g_l1_lib) {
+    char cand[1200];
+    if (l1_exe_lib_candidate(cand, sizeof cand, L1_LIB_BASE)) {
+      g_l1_lib = l1_dlopen(cand);
+    }
+  }
+#endif
   if (!g_l1_lib) {
     g_l1_lib = l1_dlopen("vendor/lib/" L1_LIB_BASE);
   }

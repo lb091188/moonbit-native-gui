@@ -661,6 +661,10 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **vswhere 查 Build Tools 必须带 `-products`**：默认只查 VS IDE 版产品，Build Tools 装着也返回空——`vswhere -products Microsoft.VisualStudio.Product.BuildTools -latest -property installationPath` 才找得到，或直接 `Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio\*\*\VC\Auxiliary\Build\vcvars64.bat"` 探。曾因漏参数误判「没装 VS」白发起一场静默安装。
 - **Windows 上 moon check 把警告当失败**：exit 1 且 `Failed with N warnings, 0 errors`——与 mac/Linux 的「警告不挡退出」不同，Windows 腿零警告是硬门禁，弃用警告清零口径见 common.md。
 - **win10 门禁副本的 ffmpeg dll 维护**：CI Windows job 自行下载 BtbN dll 放 PATH，本地 win10 副本 `C:\natigui\repo` 不入库 vendor dll——从工程副本 `C:\natigui\wb\modules\ffmpeg-mbt\vendor\win\bin` 复制 7 个 dll 到副本同路径，`gate-test.ps1` / `gate-build.ps1` 把该目录加进 PATH 即可跑媒体真解码测试。同步脚本 local_ci.sh 用 `--exclude='*.dll'` 保护副本 dll 不被 mac 侧同步覆盖或 `--delete` 删掉。判据：`gui-media media` 42/42 含视频循环重播 + 音频冒烟。
+- **win10 副本是「坟场」——tar 同步只增不删，陈年旧文件留着就能让门禁假红**，2026-11-27 实测：win 腿 check 突然报 `apps/airtype` 的 `perm_text` 双定义、`qr_canvas` 未绑定——本机同文件干净。根因：win10 无 rsync，同步走 tar 覆盖 + 删除清单兜底，而删除清单是**对公司 Linux 副本**算的（刚被 `--delete` 同步过，恒为空），于是本地历史上删掉的文件在 win10 永远留着——连仓库重构前 gui 模块还在仓库根时代的 `base/`、`chart/`、`dbus/` 整层都在，累计一千一百多个陈货；`apps\airtype\ui.mbt`（重构前旧文件）与现 `ui_state.mbt` 同包双定义即炸。
+  - 对齐法：win10 上 dll 目录（`modules\ffmpeg-mbt\vendor\win\bin`）先挪走 → 旧树整体改名留底 → mac 重推 sync tar 解到全新 `repo\` → dll 归位 → 重跑 win 腿。
+  - 系统修法待落：删除清单应改对 win10 副本实况算（ssh 列文件与 mac 清单 diff），而不是对公司副本算。
+- **win10 VM 升工具链走官方安装脚本**，2026-11-27 实测：`moon upgrade -f` 非交互 ssh 会话直接 `IO error: not a terminal`（配 `-tt` 伪终端也卡死不吐字）；改跑官方 `irm https://cli.moonbitlang.com/install/powershell.ps1 | iex` 装成同版。远端腿工具链必须与 mac 同代——旧 moonc 带的 core 缺新方法时，拉到的新版依赖包在 check 就炸（`http.Server.local_addr` 一例），且症状与代码缺陷一模一样，先 `moon version` 对版本再排查代码。
 
 ## 仓库放太深触发 moonc 内部崩溃：构建产物路径顶到 260 字符上限，`\\?\` 长路径前缀让 moonc 自己崩 · 2026-11-20 win10 VM
 
@@ -765,3 +769,12 @@ Windows 真机 `moon run` 首次全量编译暴露——**全是 Windows-only �
 - **根因**：`wgpuQueueWriteTexture` 的 `WGPUTexelCopyBufferLayout.offset` 是**相对 data 指针**的偏移，wgpu 校验按 `offset + bytesPerRow×(h−1) + w×4 ≤ data_size` 算末端。代码把脏区起点同时折进指针（`rgba + offset`）和 `lay.offset`——两次计数，末端超出自己声明的 `data_size`，数字正好对上日志：67680 + 1027648 > 1027648。
 - **修法**：指针保留脏区起点偏移，`lay.offset` 恒 0；`data_size` 维持 `(h−1)×bw + w)×4` 恰好贴合。mac/Linux 臂无此调用，不受影响。
 - **教训**：wgpu 拷贝布局的 offset/bytesPerRow 一律相对传入的 data 指针解释——「指针已偏移 + 布局再偏移」是静默通过编译、运行期才炸的典型；写直传上传时先把「指针从哪算、布局从哪算」两口径对齐再落代码。
+
+## Windows 预编译包发布形态定案：bin/ + lib/ + assets/ 自包含，加载链补 exe 目录 lib 档 · 2026-11-27
+
+- **定案**：`collect_bin` 产物目录自此自包含——16 个 exe + `lib/`（ffmpeg 运行期 5 支 dll + wgpu_native.dll）+ `assets/`（audio 的 1.mp3/1.lrc、video 的 1.mp4/1.srt），整包复制到仓库外即可发布。dll 不再要求手工复制到 exe 旁，`collect_bin` 每次运行清空重建 `bin/`，手工放的文件会被冲掉——所以 lib/assets 收集进脚本而非留给人手。
+- **为什么 exe 旁 `lib/` 子目录要改加载链**：Windows 加载器搜索序是 exe 目录 → 系统目录 → PATH，不含 exe 旁的 `lib/` 子目录；「lib 文件夹放 dll」纯摆放不生效，必须显式按路径加载。三族链各加一档：ffmpeg 延迟加载（`ffmpeg_win_dll.c` 的 `vf_load_from_exe_lib`）与 wgpu 三处（`gui/win/stub.c` / `gui-gpu/gpu/probe.c` / `wgpu_core.c`，候选序三处一字不差的定案不破）。实现同形：`GetModuleFileNameA` 取 exe 路径截文件名拼 `/lib/<名>`，`LoadLibraryA` 接受 '/' 分隔符。POSIX 不加这档——mac 发布形态是 .app（Resources），Linux 是系统安装/PATH。
+- **候选序**：ffmpeg——裸名（exe 目录/系统/PATH）→ exe 目录 lib/ → 构建期 vendor 目录；wgpu——`MNG_WGPU_LIB` → exe 目录 lib/ → vendor 相对 → cwd 逐级上溯 → 裸名。
+- **assets 解析档**：audio/video 示例 `resolve_asset` 加「exe 目录 `assets/<kind>/<name>`」档，位于 cwd 逐级向上之后、mac bundle `../Resources/` 之前——双击启动 cwd 即包目录，从别处命令行启动也命中。
+- **collect_bin 平台口径**：assets 两平台都收（仓库内源）；lib 仅 Windows 构建机收，源是 `modules/ffmpeg-mbt/vendor/win/bin/*.dll` 与 `modules/gui-gpu/vendor/lib/wgpu_native.dll`，缺源只提示不中断——包体相应降级（无媒体 / GPU 档回 CPU）但可发布。
+- **判据**：真机四步见 TODO「A3 Windows 预编译包自包含复验」——整包复制到仓库外、双击 media 示例能播、GPU 画布不落降级、异目录启动资产命中、删 lib 出降级提示而非秒退。
