@@ -203,7 +203,10 @@ async fn main {
     let data = @fs.read_file(src)
     let dst = "\{bin}/\{name}.exe"
     @fs.write_file(dst, data)
-    @fs.chmod(dst, 0o755)
+    // chmod 仅 mac/Linux 需要；Windows 上 fs.chmod 报「不支持该请求」，跳过
+    if @env.get_env_var("OS") != Some("Windows_NT") {
+      @fs.chmod(dst, 0o755)
+    }
     println("\{name}.exe  (\{mib(@fs.file_size(src))})  ← \{src}")
   }
   for m in missing {
